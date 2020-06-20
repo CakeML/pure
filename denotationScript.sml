@@ -7,9 +7,8 @@ val _ = new_theory "denotation";
 
 (* AST for a small functional language *)
 
-Type name = “:string”   (* names are strings *)
-Type fname = “:string”  (* variable name *)
-Type vname = “:string”  (* function name *)
+Type vname = “:string”  (* variable name *)
+Type fname = “:string”  (* function name *)
 
 Datatype:
   op = Equal | Add
@@ -17,19 +16,19 @@ End
 
 Datatype:
   exp = Lit num              (* constant number *)
-      | Var name             (* variable *)
+      | Var vname            (* variable *)
       | Binop op exp exp     (* primitive operations *)
-      | Let name exp exp     (* let binding *)
+      | Let vname exp exp    (* let binding *)
       | If exp exp exp       (* if expression *)
       | App exp exp          (* function application *)
-      | Fn fname vname exp   (* lambda that binds its own name *)
+      | Fn fname vname exp   (* lambda that binds its own name (fname) *)
 End
 
 
 (* a call-by-name semantics in a denotational semantics style *)
 
 Datatype:
-  v = Num num | Closure name name exp
+  v = Num num | Closure fname vname exp
 End
 
 Datatype:
