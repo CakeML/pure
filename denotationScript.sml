@@ -84,10 +84,14 @@ Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x). (k,exp_size x))`
 End
 
+(* this definition is hard to use, but see the nicer presentation in eval_eqs below *)
 Definition eval_def:
   eval x =
+    (* select some k such that eval_to k x terminates *)
     case some k. eval_to k x ≠ Diverge of
+    (* if no such clock exists, then return Diverge *)
     | NONE => Diverge
+    (* if some such a clock k exists, then use it to evaluate the program *)
     | SOME k => eval_to k x
 End
 
