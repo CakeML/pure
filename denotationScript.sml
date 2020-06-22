@@ -166,6 +166,13 @@ Proof
   metis_tac [eval_to_div_mono_lemma]
 QED
 
+Theorem eval_to_div_mono_contrapos:
+  eval_to m x ≠ Diverge ⇒ m < n ⇒ eval_to n x ≠ Diverge
+Proof
+  rpt strip_tac
+  \\ drule_all eval_to_div_mono
+  \\ simp []
+QED
 
 (* proving correctness of a clock-free presentation of eval *)
 
@@ -179,6 +186,7 @@ Theorem eval_eqs:
      | Result (Num 0) => eval z
      | Result _ => Error
      | other => other) ∧
+  eval (Binop op x y) = eval_op op (eval x) (eval y) ∧
   eval (Fn f s x) = Result (Closure f s x) ∧
   eval (App x y) =
     case eval x of
@@ -233,6 +241,22 @@ Proof
         \\ imp_res_tac eval_to_mono \\ fs []
         \\ first_x_assum (qspec_then ‘n’ mp_tac)
         \\ fs []))
+  THEN1 (* Binop case *)
+   (simp [eval_def, eval_to_def]
+    \\ DEEP_INTRO_TAC some_intro \\ simp [eval_op_eq_div]
+    \\ DEEP_INTRO_TAC some_intro \\ simp [eval_op_eq_div]
+    \\ DEEP_INTRO_TAC some_intro \\ simp [eval_op_eq_div]
+    \\ rpt strip_tac
+    THEN1
+      (dxrule_all eval_to_determ
+       \\ dxrule_all eval_to_determ
+       \\ simp [])
+    \\ rename1 ‘eval_to k1 y’
+    \\ rename1 ‘eval_to k2 x’
+    \\ qexists_tac ‘SUC (MAX k1 k2)’
+    \\ dxrule eval_to_div_mono_contrapos
+    \\ dxrule eval_to_div_mono_contrapos
+    \\ rw [MAX_DEF])
   THEN1 (* Fn case *)
     fs [eval_def,eval_to_def,AllCaseEqs(),some_def]
   THEN (* App case *)
