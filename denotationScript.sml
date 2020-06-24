@@ -318,5 +318,4 @@ Proof
   \\ simp [eval_to_def,subst_def]
 QED
 
-
 val _ = export_theory();

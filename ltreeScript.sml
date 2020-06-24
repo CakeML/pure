@@ -227,6 +227,13 @@ Proof
   \\ Induct_on ‘l’ \\ fs [ltree_absrep]
 QED
 
+Theorem list_CASE_eq:
+  ltree_CASE t f = v' ⇔ ∃a ts. t = Branch a ts ∧ f a ts = v'
+Proof
+  qspec_then ‘t’ strip_assume_tac ltree_cases \\ rw []
+  \\ fs [Branch_11,ltree_CASE]
+QED
+
 Definition path_ok_def:
   path_ok path f ⇔
     ∀xs n ys k a.
@@ -332,5 +339,34 @@ Proof
   \\ AP_TERM_TAC \\ fs [FUN_EQ_THM] \\ rw []
   \\ fs [make_unfold_def,LNTH_fromList]
 QED
+
+Theorem gen_ltree_LNIL:
+  gen_ltree f = Branch a LNIL ⇔ f [] = (a, SOME 0)
+Proof
+  simp [Once gen_ltree,pairTheory.UNCURRY]
+  \\ Cases_on ‘f []’ \\ fs [Branch_11]
+QED
+
+val _ = TypeBase.export
+  [TypeBasePure.mk_datatype_info
+    {
+     ax = TypeBasePure.ORIG TRUTH,
+     induction = TypeBasePure.ORIG TRUTH,
+     case_def = ltree_CASE,
+     case_cong = TRUTH,
+     case_eq = list_CASE_eq,
+     nchotomy = ltree_cases,
+     size = NONE,
+     encode = NONE,
+     lift = NONE,
+     one_one = SOME Branch_11,
+     distinct = NONE,
+     fields = [],
+     accessors = [],
+     updates = [],
+     destructors = [],
+     recognizers = []
+    }
+  ]
 
 val _ = export_theory();
