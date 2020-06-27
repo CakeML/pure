@@ -653,9 +653,60 @@ Proof
   rw [boolTheory.DATATYPE_TAG_THM]
 QED
 
+(* prove that every finite ltree is an inductively defined rose tree *)
+
+Inductive ltree_finite:
+  EVERY ltree_finite ts ==> ltree_finite (Branch a (fromList ts))
+End
+
+fun tidy_up ind = ind
+  |> Q.SPEC `P` |> UNDISCH |> Q.SPEC `t` |> Q.GEN `t` |> DISCH_ALL |> Q.GEN `P`;
+
+Theorem ltree_finite_ind = tidy_up ltree_finite_ind;
+Theorem ltree_finite_strongind = tidy_up ltree_finite_strongind;
+
+Datatype:
+  rose_tree = Rose 'a (rose_tree list)
+End
+
+Definition from_rose_def:
+  from_rose (Rose a ts) = Branch a (fromList (MAP from_rose ts))
+Termination
+  WF_REL_TAC `measure (rose_tree_size (K 0))` \\ rw []
+  \\ qsuff_tac
+       `!a ts. MEM a ts ==> rose_tree_size (K 0) a <= rose_tree1_size (K 0) ts`
+  THEN1 (rw [] \\ res_tac \\ fs []) \\ rpt (pop_assum kall_tac)
+  \\ Induct_on `ts` \\ fs [] \\ rw [] \\ res_tac
+  \\ fs [fetch "-" "rose_tree_size_def"]
+End
+
+Theorem rose_tree_induction = from_rose_ind;
+
+Theorem ltree_finite_from_rose:
+  ltree_finite t <=> ?r. from_rose r = t
+Proof
+  eq_tac \\ qid_spec_tac `t` THEN1
+   (ho_match_mp_tac ltree_finite_ind \\ fs [EVERY_MEM] \\ rw []
+    \\ qsuff_tac `?rs. ts = MAP from_rose rs` THEN1
+     (strip_tac \\ qexists_tac `Rose a rs` \\ fs [from_rose_def]
+      \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+    \\ Induct_on `ts` \\ fs [] \\ rw []
+    \\ first_assum (qspec_then `h` assume_tac) \\ fs []
+    \\ qexists_tac `r::rs` \\ fs [])
+  \\ fs [PULL_EXISTS]
+  \\ ho_match_mp_tac from_rose_ind \\ rw []
+  \\ once_rewrite_tac [ltree_finite_cases]
+  \\ fs [from_rose_def,Branch_11]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+QED
+
+(* tidy up theory exports *)
+
 val _ = List.app Theory.delete_binding
   ["Branch_rep_def", "dest_Branch_rep_def", "make_ltree_rep_def",
    "make_unfold_def", "path_ok_def", "ltree_absrep", "ltree_absrep",
-   "gen_ltree_def", "ltree_rep_ok_def", "Branch"];
+   "gen_ltree_def", "ltree_rep_ok_def", "Branch",
+   "from_rose_def_primitive", "ltree_finite_def"];
 
 val _ = export_theory();
