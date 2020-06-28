@@ -20,15 +20,15 @@ Overload NOTHING[local] = ``(ARB:'a, SOME (0:num))``;
 
 (* TODO: move to llistTheory *)
 
-Definition LSET:
+Definition LSET_def:
   LSET l x = ?n. LNTH n l = SOME x
 End
 
-Theorem LSET_THM[simp]:
+Theorem LSET[simp]:
   LSET LNIL = {} /\
   LSET (x:::xs) = x INSERT LSET xs
 Proof
-  fs [EXTENSION] \\ fs [LSET,IN_DEF]
+  fs [EXTENSION] \\ fs [LSET_def,IN_DEF]
   \\ rw [] \\ eq_tac \\ rw []
   THEN1 (Cases_on `n` \\ fs [] \\ metis_tac [])
   THEN1 (qexists_tac `0` \\ fs [])
@@ -439,11 +439,11 @@ Proof
   \\ qspec_then `x` strip_assume_tac ltree_cases
   \\ fs [Branch_11] \\ rw [] \\ reverse eq_tac \\ rw []
   THEN1 (qexists_tac `[]` \\ fs [ltree_lookup_def])
-  THEN1 (fs [LSET,IN_DEF] \\ qexists_tac `n::path` \\ fs [ltree_lookup_def])
+  THEN1 (fs [LSET_def,IN_DEF] \\ qexists_tac `n::path` \\ fs [ltree_lookup_def])
   \\ Cases_on `path` \\ fs []
   \\ fs [ltree_lookup_def,Branch_11]
   \\ Cases_on `LNTH h ts` \\ fs [] \\ disj2_tac
-  \\ fs [LSET,IN_DEF,PULL_EXISTS]
+  \\ fs [LSET_def,IN_DEF,PULL_EXISTS]
   \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
 QED
 
