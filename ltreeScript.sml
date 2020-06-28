@@ -49,29 +49,8 @@ QED
 
 (* -- *)
 
-Definition Branch_rep_def:
-  Branch_rep (x:'a) (xs:('a ltree_rep) llist) =
-    \path. case path of
-           | [] => (x, LLENGTH xs)
-           | (n::rest) => case LNTH n xs of SOME t => t rest | NONE => NOTHING
-End
 
-Definition dest_Branch_rep_def:
-  dest_Branch_rep (l:'a ltree_rep) =
-    let (x,len) = l [] in
-      (x, LGENLIST (\n path. l (n::path)) len)
-End
-
-Theorem dest_Branch_rep_Branch_rep[local]:
-  dest_Branch_rep (Branch_rep x xs) = (x,xs)
-Proof
-  fs [Branch_rep_def,dest_Branch_rep_def]
-  \\ qspec_then `xs` strip_assume_tac fromList_fromSeq \\ fs []
-  \\ fs [LGENLIST_EQ_fromSeq,FUN_EQ_THM,LGENLIST_EQ_fromList]
-  \\ fs [LNTH_fromList]
-  \\ CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [GSYM GENLIST_ID]))
-  \\ fs [GENLIST_FUN_EQ,FUN_EQ_THM]
-QED
+(* make type definition *)
 
 Definition ltree_rep_ok_def:
   ltree_rep_ok f <=>
@@ -94,22 +73,76 @@ val repabs_fns = define_new_type_bijections
     REP  = "ltree_rep",
     tyax = ltree_tydef};
 
+
+(* prove basic theorems about rep and abs fucntions *)
+
 val ltree_absrep = CONJUNCT1 repabs_fns
 val ltree_repabs = CONJUNCT2 repabs_fns
 
-val ltree_rep_ok_ltree_rep = prove(
-  ``ltree_rep_ok (ltree_rep f)``,
-  SRW_TAC [][ltree_repabs, ltree_absrep]);
-val _ = BasicProvers.augment_srw_ss [rewrites [ltree_rep_ok_ltree_rep]]
+Theorem ltree_rep_ok_ltree_rep[local,simp]:
+  ltree_rep_ok (ltree_rep f)
+Proof
+  fs [ltree_repabs, ltree_absrep]
+QED
 
-val ltree_abs_11 = prove(
-  ``ltree_rep_ok r1 /\ ltree_rep_ok r2 ==> ((ltree_abs r1 = ltree_abs r2) = (r1 = r2))``,
-  SRW_TAC [][ltree_repabs, EQ_IMP_THM] THEN METIS_TAC []);
+Theorem ltree_abs_11[local]:
+  ltree_rep_ok r1 /\ ltree_rep_ok r2 ==> ((ltree_abs r1 = ltree_abs r2) = (r1 = r2))
+Proof
+  fs [ltree_repabs, EQ_IMP_THM] \\ metis_tac []
+QED
 
-val ltree_rep_11 = prove(
-  ``(ltree_rep t1 = ltree_rep t2) = (t1 = t2)``,
-  SRW_TAC [][EQ_IMP_THM] THEN
-  POP_ASSUM (MP_TAC o AP_TERM ``ltree_abs``) THEN SRW_TAC [][ltree_absrep]);
+Theorem ltree_rep_11[local]:
+  (ltree_rep t1 = ltree_rep t2) = (t1 = t2)
+Proof
+  fs [EQ_IMP_THM] \\ metis_tac [ltree_absrep]
+QED
+
+Theorem every_ltree_rep_ok[local]:
+  !ts. every ltree_rep_ok (LMAP ltree_rep ts)
+Proof
+  rw [] \\ qspec_then `ts` strip_assume_tac fromList_fromSeq
+  \\ rw [LMAP_fromList,every_fromList_EVERY,EVERY_MEM,MEM_MAP]
+  \\ fs [ltree_rep_ok_ltree_rep]
+QED
+
+Theorem LMAP_ltree_rep_11[local]:
+  LMAP ltree_rep ts1 = LMAP ltree_rep ts2 <=> ts1 = ts2
+Proof
+  rw []
+  \\ qspec_then `ts1` strip_assume_tac fromList_fromSeq \\ rw []
+  \\ qspec_then `ts2` strip_assume_tac fromList_fromSeq \\ rw []
+  \\ fs [LMAP_fromList]
+  \\ fs [Once FUN_EQ_THM,ltree_rep_11] \\ fs [FUN_EQ_THM]
+  \\ rename [`MAP _ l1 = MAP _ l2`]
+  \\ qid_spec_tac `l1`
+  \\ qid_spec_tac `l2`
+  \\ Induct \\ Cases_on `l1` \\ fs [ltree_rep_11]
+QED
+
+Theorem LMAP_ltree_rep_ltree_abs[local]:
+  every ltree_rep_ok ts ==>
+  LMAP ltree_rep (LMAP ltree_abs ts) = ts
+Proof
+  rw [] \\ qspec_then `ts` strip_assume_tac fromList_fromSeq
+  \\ fs [LMAP_fromList,every_fromList_EVERY,MEM_MAP,
+         LMAP_fromList,MAP_MAP_o]
+  \\ rw [ltree_repabs,FUN_EQ_THM] \\ fs [ltree_repabs]
+  \\ Induct_on `l` \\ fs [ltree_repabs]
+QED
+
+
+(* define constructor and lemmas about it *)
+
+Definition Branch_rep_def:
+  Branch_rep (x:'a) (xs:('a ltree_rep) llist) =
+    \path. case path of
+           | [] => (x, LLENGTH xs)
+           | (n::rest) => case LNTH n xs of SOME t => t rest | NONE => NOTHING
+End
+
+Definition Branch:
+  Branch a ts = ltree_abs (Branch_rep a (LMAP ltree_rep ts))
+End
 
 Theorem ltree_rep_ok_Branch_rep_every[local]:
   ltree_rep_ok (Branch_rep a ts) = every ltree_rep_ok ts
@@ -148,27 +181,8 @@ Proof
   fs [ltree_rep_ok_Branch_rep_every]
 QED
 
-Theorem every_ltree_rep_ok[local]:
-  !ts. every ltree_rep_ok (LMAP ltree_rep ts)
-Proof
-  rw [] \\ qspec_then `ts` strip_assume_tac fromList_fromSeq
-  \\ rw [LMAP_fromList,every_fromList_EVERY,EVERY_MEM,MEM_MAP]
-  \\ fs [ltree_rep_ok_ltree_rep]
-QED
 
-Theorem LMAP_ltree_rep_11[local]:
-  LMAP ltree_rep ts1 = LMAP ltree_rep ts2 <=> ts1 = ts2
-Proof
-  rw []
-  \\ qspec_then `ts1` strip_assume_tac fromList_fromSeq \\ rw []
-  \\ qspec_then `ts2` strip_assume_tac fromList_fromSeq \\ rw []
-  \\ fs [LMAP_fromList]
-  \\ fs [Once FUN_EQ_THM,ltree_rep_11] \\ fs [FUN_EQ_THM]
-  \\ rename [`MAP _ l1 = MAP _ l2`]
-  \\ qid_spec_tac `l1`
-  \\ qid_spec_tac `l2`
-  \\ Induct \\ Cases_on `l1` \\ fs [ltree_rep_11]
-QED
+(* prove injectivity *)
 
 Theorem Branch_rep_11[local]:
   !a1 a2 ts1 ts2. Branch_rep a1 ts1 = Branch_rep a2 ts2 <=> a1 = a2 /\ ts1 = ts2
@@ -189,6 +203,22 @@ Proof
   \\ first_x_assum (qspec_then `x::x'` mp_tac) \\ fs []
 QED
 
+Theorem Branch_11:
+  !a1 a2 ts1 ts2. Branch a1 ts1 = Branch a2 ts2 <=> a1 = a2 /\ ts1 = ts2
+Proof
+  rw [Branch] \\ eq_tac \\ strip_tac \\ fs []
+  \\ qspec_then `ts1` assume_tac every_ltree_rep_ok
+  \\ drule ltree_rep_ok_Branch_rep
+  \\ qspec_then `ts2` assume_tac every_ltree_rep_ok
+  \\ drule ltree_rep_ok_Branch_rep
+  \\ strip_tac \\ strip_tac
+  \\ fs [ltree_abs_11]
+  \\ fs [LMAP_ltree_rep_11,Branch_rep_11]
+QED
+
+
+(* prove cases theorem *)
+
 Theorem Branch_rep_exists[local]:
   ltree_rep_ok f ==> ?a ts. f = Branch_rep a ts
 Proof
@@ -206,21 +236,6 @@ Proof
   \\ disch_then (qspecl_then [`h`,`t`] mp_tac) \\ fs []
 QED
 
-Theorem LMAP_ltree_rep_ltree_abs[local]:
-  every ltree_rep_ok ts ==>
-  LMAP ltree_rep (LMAP ltree_abs ts) = ts
-Proof
-  rw [] \\ qspec_then `ts` strip_assume_tac fromList_fromSeq
-  \\ fs [LMAP_fromList,every_fromList_EVERY,MEM_MAP,
-         LMAP_fromList,MAP_MAP_o]
-  \\ rw [ltree_repabs,FUN_EQ_THM] \\ fs [ltree_repabs]
-  \\ Induct_on `l` \\ fs [ltree_repabs]
-QED
-
-Definition Branch:
-  Branch a ts = ltree_abs (Branch_rep a (LMAP ltree_rep ts))
-End
-
 Theorem ltree_cases:
   !t. ?a ts. t = Branch a ts
 Proof
@@ -234,17 +249,24 @@ Proof
   \\ fs [LMAP_ltree_rep_ltree_abs,ltree_repabs]
 QED
 
-Theorem Branch_11:
-  !a1 a2 ts1 ts2. Branch a1 ts1 = Branch a2 ts2 <=> a1 = a2 /\ ts1 = ts2
+
+(* ltree_CASE constant *)
+
+Definition dest_Branch_rep_def:
+  dest_Branch_rep (l:'a ltree_rep) =
+    let (x,len) = l [] in
+      (x, LGENLIST (\n path. l (n::path)) len)
+End
+
+Theorem dest_Branch_rep_Branch_rep[local]:
+  dest_Branch_rep (Branch_rep x xs) = (x,xs)
 Proof
-  rw [Branch] \\ eq_tac \\ strip_tac \\ fs []
-  \\ qspec_then `ts1` assume_tac every_ltree_rep_ok
-  \\ drule ltree_rep_ok_Branch_rep
-  \\ qspec_then `ts2` assume_tac every_ltree_rep_ok
-  \\ drule ltree_rep_ok_Branch_rep
-  \\ strip_tac \\ strip_tac
-  \\ fs [ltree_abs_11]
-  \\ fs [LMAP_ltree_rep_11,Branch_rep_11]
+  fs [Branch_rep_def,dest_Branch_rep_def]
+  \\ qspec_then `xs` strip_assume_tac fromList_fromSeq \\ fs []
+  \\ fs [LGENLIST_EQ_fromSeq,FUN_EQ_THM,LGENLIST_EQ_fromList]
+  \\ fs [LNTH_fromList]
+  \\ CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [GSYM GENLIST_ID]))
+  \\ fs [GENLIST_FUN_EQ,FUN_EQ_THM]
 QED
 
 Definition ltree_CASE[nocompute]:
@@ -273,6 +295,9 @@ Proof
   qspec_then `t` strip_assume_tac ltree_cases \\ rw []
   \\ fs [Branch_11,ltree_CASE]
 QED
+
+
+(* ltree generator *)
 
 Definition path_ok_def:
   path_ok path f <=>
@@ -343,6 +368,16 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem gen_ltree_LNIL:
+  gen_ltree f = Branch a LNIL <=> f [] = (a, SOME 0)
+Proof
+  simp [Once gen_ltree,UNCURRY]
+  \\ Cases_on `f []` \\ fs [Branch_11]
+QED
+
+
+(* ltree unfold *)
+
 Definition make_unfold_def:
   make_unfold f seed [] =
     (let (a,seeds) = f seed in (a,LLENGTH seeds)) /\
@@ -379,12 +414,8 @@ Proof
   \\ fs [make_unfold_def,LNTH_fromList]
 QED
 
-Theorem gen_ltree_LNIL:
-  gen_ltree f = Branch a LNIL <=> f [] = (a, SOME 0)
-Proof
-  simp [Once gen_ltree,UNCURRY]
-  \\ Cases_on `f []` \\ fs [Branch_11]
-QED
+
+(* misc *)
 
 Definition ltree_lookup_def:
   ltree_lookup t [] = SOME t /\
@@ -618,6 +649,9 @@ Proof
   \\ fs [UNCURRY] \\ metis_tac []
 QED
 
+
+(* register with TypeBase *)
+
 Theorem ltree_CASE_cong:
   !M M' f f'.
     M = M' /\
@@ -653,6 +687,7 @@ Proof
   rw [boolTheory.DATATYPE_TAG_THM]
 QED
 
+
 (* prove that every finite ltree is an inductively defined rose tree *)
 
 Inductive ltree_finite:
@@ -670,7 +705,7 @@ Theorem ltree_finite:
   LFINITE ts /\ !t. t IN LSET ts ==> ltree_finite t
 Proof
   simp [Once ltree_finite_cases]
-  \\ qspec_then ‘ts’ strip_assume_tac fromList_fromSeq
+  \\ qspec_then `ts` strip_assume_tac fromList_fromSeq
   \\ fs [LSET_def,IN_DEF,LNTH_fromList,PULL_EXISTS,LFINITE_fromList,EVERY_EL]
 QED
 
@@ -709,6 +744,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV ETA_CONV)
   \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
 QED
+
 
 (* tidy up theory exports *)
 
