@@ -665,6 +665,15 @@ fun tidy_up ind = ind
 Theorem ltree_finite_ind = tidy_up ltree_finite_ind;
 Theorem ltree_finite_strongind = tidy_up ltree_finite_strongind;
 
+Theorem ltree_finite:
+  ltree_finite (Branch a ts) <=>
+  LFINITE ts /\ !t. t IN LSET ts ==> ltree_finite t
+Proof
+  simp [Once ltree_finite_cases]
+  \\ qspec_then ‘ts’ strip_assume_tac fromList_fromSeq
+  \\ fs [LSET_def,IN_DEF,LNTH_fromList,PULL_EXISTS,LFINITE_fromList,EVERY_EL]
+QED
+
 Datatype:
   rose_tree = Rose 'a (rose_tree list)
 End
