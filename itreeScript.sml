@@ -506,9 +506,9 @@ Theorem itree_bisimulation:
   !t1 t2.
     t1 = t2 <=>
     ?R. R t1 t2 /\
-        (!x t. R (Ret x) t ⇒ t = Ret x) /\
-        (!u t. R (Tau u) t ⇒ ∃v. t = Tau v ∧ R u v) /\
-        (!a f t. R (Vis a f) t ==> ∃b g. t = Vis a g ∧ !s. R (f s) (g s))
+        (!x t. R (Ret x) t ==> t = Ret x) /\
+        (!u t. R (Tau u) t ==> ?v. t = Tau v /\ R u v) /\
+        (!a f t. R (Vis a f) t ==> ?b g. t = Vis a g /\ !s. R (f s) (g s))
 Proof
   rw [] \\ eq_tac \\ rw []
   THEN1 (qexists_tac `(=)` \\ fs [itree_11])
@@ -519,7 +519,7 @@ Proof
   \\ qspec_then `t2` strip_assume_tac itree_cases
   \\ fs [itree_el_def]
   \\ res_tac \\ fs [itree_11,itree_distinct] \\ rw []
-  \\ Cases_on ‘h’ \\ fs [itree_el_def]
+  \\ Cases_on `h` \\ fs [itree_el_def]
 QED
 
 
