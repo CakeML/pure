@@ -566,6 +566,19 @@ val _ = TypeBase.export
       recognizers = [] } ]
 
 
+(* misc *)
+
+Definition spin:
+  spin = itree_unfold (K (Tau' ())) ()
+End
+
+Theorem spin:
+  spin = Tau spin  (* an infinite sequence of silent actions *)
+Proof
+  fs [spin] \\ simp [Once itree_unfold]
+QED
+
+
 (* tidy up theory exports *)
 
 val _ = List.app Theory.delete_binding
