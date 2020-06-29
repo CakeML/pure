@@ -4,8 +4,8 @@
   POPL'20 paper titled "Interaction Trees".
 
   Interaction trees are interesting because they can both represent a
-  programs observable I/O behaviour and also the model of the I/O
-  behaviour of an eternal program.
+  program's observable I/O behaviour and also model of the I/O
+  behaviour of the external world.
 
   Our version of the type for interaction trees, itree, has the
   following constructors.  Here Ret ends an interaction tree with a
