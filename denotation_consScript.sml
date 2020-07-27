@@ -15,7 +15,7 @@ Datatype:
   op = If               (* if-expression                    *)
      | Lit num          (* literal number                   *)
      | Cons string      (* datatype constructor             *)
-     | Proj num         (* reading a field of a constructor *)
+     | Proj string num  (* reading a field of a constructor *)
 End
 
 Datatype:
@@ -27,13 +27,13 @@ Datatype:
 End
 
 (* some abbreviations *)
-Overload Lam = “Fun NONE”         (* lambda without a function name *)
-Overload Rec = “λf. Fun (SOME f)”      (* lambda with function name *)
-Overload Let = “λs x y. App (Lam s y) x”          (* let-expression *)
-Overload If = “λx y z. Prim If [x; y; z]”        (* It at exp level *)
-Overload Lit = “λn. Prim (Lit n) []”            (* Lit at exp level *)
+Overload Lam  = “Fun NONE”        (* lambda without a function name *)
+Overload Rec  = “λf. Fun (SOME f)”     (* lambda with function name *)
+Overload Let  = “λs x y. App (Lam s y) x”         (* let-expression *)
+Overload If   = “λx y z. Prim If [x; y; z]”      (* If at exp level *)
+Overload Lit  = “λn. Prim (Lit n) []”           (* Lit at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
-Overload Proj = “λi x. Prim (Proj i) [x]”      (* Proj at exp level *)
+Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 
 (* a call-by-name semantics in a denotational semantics style *)
 
@@ -98,11 +98,13 @@ Definition subst_opt_def[simp]:
 End
 
 Definition el_def:
-  el i x =
+  el s i x =
     if x = Diverge then Diverge else
       case x of
-      | Constructor s xs =>
-          (case LNTH i xs of NONE => Error | SOME x => x)
+      | Constructor t xs =>
+          if s = t then
+            (case LNTH i xs of NONE => Error | SOME x => x)
+          else Error
       | _ => Error
 End
 
@@ -113,7 +115,7 @@ Definition eval_op_def:
     if x1 = Diverge then Diverge else
     if x1 = Num 1 then x2 else
     if x1 = Num 0 then x3 else Error) ∧
-  (eval_op (Proj i) [x] = el i x) ∧
+  (eval_op (Proj s i) [x] = el s i x) ∧
   (eval_op _ _ = Error)
 End
 
@@ -552,7 +554,7 @@ Proof
 QED
 
 Theorem eval_Proj:
-  eval (Proj i x) = el i (eval x)
+  eval (Proj s i x) = el s i (eval x)
 Proof
   fs [eval_def,eval_to_def,eval_op_def,el_def]
   \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
@@ -573,10 +575,20 @@ Proof
     \\ rpt strip_tac \\ res_tac \\ fs [])
   THEN1
    (simp [Once gen_ltree,pairTheory.UNCURRY]
+    \\ reverse (Cases_on ‘s=s'’) \\ fs []
     \\ Cases_on ‘v_limit (λk. eval_to k x) []’ \\ fs [] \\ rw []
     \\ pop_assum (assume_tac o GSYM) \\ fs [LNTH_LGENLIST]
     \\ drule v_limit_not_Error
     \\ fs [] \\ strip_tac
+    THEN1
+     (fs [gen_ltree_LNIL]
+      \\ match_mp_tac v_limit_eq_add
+      \\ fs [v_limit_SOME]
+      \\ qexists_tac ‘k’ \\ fs []
+      \\ qexists_tac ‘0’ \\ fs []
+      \\ fs [v_lookup_def] \\ gen_tac
+      \\ fs [ltree_CASE_eq]
+      \\ first_x_assum (qspec_then ‘k+n’ strip_assume_tac) \\ fs [])
     \\ Cases_on ‘r’ \\ fs []
     THEN1
      (AP_TERM_TAC \\ fs [FUN_EQ_THM]
@@ -717,7 +729,7 @@ Proof
        (rename [‘xs ≠ _’] \\ Cases_on ‘xs’ \\ fs [] THEN1
          (fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
           \\ fs [v_limit_def,v_lookup_def])))
-  \\ Cases_on ‘∃i. op = Proj i’
+  \\ Cases_on ‘∃s i. op = Proj s i’
   THEN1
    (Cases_on ‘xs’ \\ fs [eval_op_def]
     THEN1
@@ -748,7 +760,7 @@ Theorem eval_thm:
   eval (Lit n) = Num n ∧
   eval (Var s) = Error (* free variables are not allowed *) ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
-  eval (Proj i x) = el i (eval x) ∧
+  eval (Proj s i x) = el s i (eval x) ∧
   eval (Let s x y) = eval (subst s x y) ∧
   eval (If x y z) =
     (if eval x = Diverge then Diverge else
