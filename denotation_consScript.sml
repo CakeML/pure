@@ -15,6 +15,7 @@ Datatype:
   op = If               (* if-expression                    *)
      | Lit num          (* literal number                   *)
      | Cons string      (* datatype constructor             *)
+     | IsEq string      (* compare cons tag *)
      | Proj string num  (* reading a field of a constructor *)
 End
 
@@ -33,6 +34,7 @@ Overload Let  = “λs x y. App (Lam s y) x”         (* let-expression *)
 Overload If   = “λx y z. Prim If [x; y; z]”      (* If at exp level *)
 Overload Lit  = “λn. Prim (Lit n) []”           (* Lit at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
+Overload IsEq = “λs x. Prim (IsEq s) [x]”      (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 
 (* a call-by-name semantics in a denotational semantics style *)
@@ -41,7 +43,7 @@ Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 Codatatype:
   v = Num num
     | Constructor string (v list)
-    | Closure fname vname exp
+    | Closure (fname option) vname exp
     | Diverge
     | Error
 End
@@ -108,6 +110,14 @@ Definition el_def:
       | _ => Error
 End
 
+Definition is_eq_def:
+  is_eq s x =
+    if x = Diverge then Diverge else
+      case x of
+      | Constructor t (xs:v llist) => Num (if s = t then 1 else 0)
+      | _ => Error
+End
+
 Definition eval_op_def:
   (eval_op (Lit n) [] = Num n) ∧
   (eval_op (Cons s) xs = Constructor s xs) ∧
@@ -115,6 +125,7 @@ Definition eval_op_def:
     if x1 = Diverge then Diverge else
     if x1 = Num 1 then x2 else
     if x1 = Num 0 then x3 else Error) ∧
+  (eval_op (IsEq s) [x] = is_eq s x) ∧
   (eval_op (Proj s i) [x] = el s i x) ∧
   (eval_op _ _ = Error)
 End
@@ -336,6 +347,16 @@ Proof
     \\ last_x_assum (qspec_then ‘[]’ mp_tac)
     \\ simp [Once v_cmp_def,v_lookup_def]
     \\ Cases_on ‘x1’ \\ fs [])
+  THEN1
+   (fs [eval_op_def]
+    \\ Cases_on ‘x = Diverge’ \\ fs []
+    \\ TRY (first_x_assum (qspec_then ‘[]’ mp_tac))
+    \\ Cases_on ‘path’ \\ fs [v_cmp_def,v_lookup_def,is_eq_def]
+    \\ rw [] \\ fs [] \\ fs [ltree_CASE_eq]
+    \\ Cases_on ‘y’ \\ fs []
+    \\ Cases_on ‘x’ \\ fs []
+    \\ Cases_on ‘a’ \\ fs []
+    \\ Cases_on ‘a’ \\ fs [])
   \\ fs [eval_op_def,el_def]
   \\ Cases_on ‘x = Diverge’ \\ fs []
   \\ imp_res_tac v_cmp_Diverge2 \\ fs []
@@ -553,6 +574,61 @@ Proof
   \\ fs [v_lookup_def]
 QED
 
+Theorem eval_IsEq:
+  eval (IsEq s x) = is_eq s (eval x)
+Proof
+  fs [eval_def,eval_to_def,eval_op_def,is_eq_def]
+  \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
+  THEN1 (fs [v_limit_SOME] \\ qexists_tac ‘k’ \\ fs [])
+  \\ fs [GSYM eval_def]
+  \\ Cases_on ‘eval x’ \\ fs [eval_def]
+  \\ Cases_on ‘ts’
+  THEN1
+   (Cases_on ‘a’ \\ fs []
+    \\ fs [v_limit_SOME,gen_ltree_LNIL]
+    \\ qexists_tac ‘k’ \\ fs [])
+  \\ Cases_on ‘a’ \\ fs []
+  \\ fs [v_limit_SOME,gen_ltree_LNIL]
+  \\ pop_assum mp_tac
+  \\ TRY
+   (rw [] \\ drule gen_ltree_not_Error \\ fs []
+    \\ strip_tac \\ qexists_tac ‘k’ \\ fs []
+    \\ rpt strip_tac \\ res_tac \\ fs [] \\ NO_TAC)
+  THEN1
+   (rw [] \\ drule gen_ltree_not_Error \\ fs []
+    \\ strip_tac \\ last_assum (qspec_then ‘k’ mp_tac)
+    \\ strip_tac
+    \\ qexists_tac ‘k'’ \\ fs []
+    \\ rpt strip_tac \\ ‘k ≤ k''’ by fs []
+    \\ first_x_assum drule \\ strip_tac
+    \\ fs [] \\ rw []
+    \\ drule eval_to_div
+    \\ disch_then (qspec_then ‘k'’ assume_tac)
+    \\ rfs [])
+  \\ rw []
+  \\ first_x_assum (qspec_then ‘0’ strip_assume_tac) \\ fs []
+  \\ qexists_tac ‘k'’ \\ fs [] \\ rw []
+  THEN1 (strip_tac \\ imp_res_tac eval_to_div)
+  \\ Cases_on ‘eval_to k'' x’ \\ simp []
+  \\ Cases_on ‘a’ \\ simp [] \\ fs []
+  \\ last_x_assum mp_tac \\ simp []
+  \\ once_rewrite_tac [gen_ltree]
+  \\ fs [] \\ Cases_on ‘v_limit (λk. eval_to k x) []’ \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ ‘eval_to k'' x ≠ Diverge’ by fs []
+  \\ drule eval_to_res_mono \\ strip_tac \\ rfs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ rfs [v_limit_def,v_lookup_def]
+  \\ drule limit_eq_imp
+  \\ disch_then (qspecl_then [‘Constructor' s',LLENGTH ts’,‘k''’] mp_tac)
+  \\ impl_tac \\ fs []
+  \\ fs [AllCaseEqs()]
+  \\ ‘eval_to k'' x ≠ Diverge’ by fs []
+  \\ drule eval_to_res_mono \\ strip_tac \\ rfs [] \\ rw []
+  \\ Cases_on ‘eval_to n x’ \\ fs []
+  \\ first_x_assum drule \\ fs []
+QED
+
 Theorem eval_Proj:
   eval (Proj s i x) = el s i (eval x)
 Proof
@@ -729,6 +805,12 @@ Proof
        (rename [‘xs ≠ _’] \\ Cases_on ‘xs’ \\ fs [] THEN1
          (fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
           \\ fs [v_limit_def,v_lookup_def])))
+  \\ Cases_on ‘∃s. op = IsEq s’
+  THEN1
+   (Cases_on ‘xs’ \\ fs [eval_op_def]
+    \\ TRY (Cases_on ‘t’) \\ fs [eval_op_def,eval_IsEq]
+    \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
+    \\ fs [v_limit_def,v_lookup_def])
   \\ Cases_on ‘∃s i. op = Proj s i’
   THEN1
    (Cases_on ‘xs’ \\ fs [eval_op_def]
@@ -760,6 +842,7 @@ Theorem eval_thm:
   eval (Lit n) = Num n ∧
   eval (Var s) = Error (* free variables are not allowed *) ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
+  eval (IsEq s x) = is_eq s (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
   eval (Let s x y) = eval (subst s x y) ∧
   eval (If x y z) =
@@ -775,7 +858,7 @@ Theorem eval_thm:
          | SOME (f,s,body) =>
              eval (subst s y (subst_opt f (Fun f s body) body)))
 Proof
-  fs [eval_Var,eval_Cons,eval_App,eval_Fun,eval_Lit,eval_If,eval_Proj]
+  fs [eval_Var,eval_Cons,eval_App,eval_Fun,eval_Lit,eval_If,eval_Proj,eval_IsEq]
 QED
 
 
