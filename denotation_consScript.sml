@@ -901,4 +901,104 @@ Proof
   \\ simp [Once eval_thm,dest_Closure_def,subst_def,zeros_def]
 QED
 
+
+(* value and exp relation *)
+
+Definition v_rel'_def:
+  (v_rel' 0 v1 v2 ⇔ T) ∧
+  (v_rel' (SUC n) v1 v2 ⇔
+     (v1 = v2) ∨
+     (∃m xs ys.
+        v1 = Constructor m xs ∧
+        v2 = Constructor m ys ∧
+        LIST_REL (v_rel' n) xs ys) ∨
+     (∃f1 s1 x1 f2 s2 x2.
+        v1 = Closure f1 s1 x1 ∧
+        v2 = Closure f2 s2 x2 ∧
+        ∀w1 w2.
+          v_rel' n (eval w1) (eval w2) ⇒
+          v_rel' n (eval (subst s1 w1 (subst_opt f1 (Fun f1 s1 x1) x1)))
+                   (eval (subst s2 w2 (subst_opt f2 (Fun f2 s2 x2) x2)))))
+End
+
+Definition v_rel_def:
+  v_rel v1 v2 = ∀n. v_rel' n v1 v2
+End
+
+Definition exp_rel_def:
+  exp_rel x y ⇔ v_rel (eval x) (eval y)
+End
+
+Theorem v_rel_rules:
+  (∀v w.
+     v = w ⇒
+     v_rel v w) ∧
+  (∀xs ys m.
+     LIST_REL v_rel xs ys ⇒
+     v_rel (Constructor m xs) (Constructor m xs)) ∧
+  (∀f1 s1 x1 f2 s2 x2.
+     (∀w1 w2.
+        exp_rel w1 w2 ⇒
+        exp_rel (subst s1 w1 (subst_opt f1 (Fun f1 s1 x1) x1))
+                (subst s2 w2 (subst_opt f2 (Fun f2 s2 x2) x2))) ⇒
+     v_rel (Closure f1 s1 x1) (Closure f1 s1 x1))
+Proof
+  rw [v_rel_def]
+  \\ fs [exp_rel_def,v_rel_def] \\ rw []
+  \\ Cases_on ‘n’ \\ fs [v_rel'_def]
+QED
+
+Triviality LIST_REL_SYM:
+  (∀x y. R x y ⇔ R y x) ⇒
+  ∀xs ys. LIST_REL R xs ys ⇔ LIST_REL R ys xs
+Proof
+  strip_tac \\ Induct
+  \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ metis_tac []
+QED
+
+Triviality LIST_REL_TRANS:
+  (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒
+  ∀xs ys zs. LIST_REL R xs ys ∧ LIST_REL R ys zs ⇒ LIST_REL R xs zs
+Proof
+  strip_tac \\ Induct
+  \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [] \\ metis_tac []
+QED
+
+Theorem v_rel_refl:
+  ∀x. v_rel x x
+Proof
+  fs [v_rel_def] \\ Induct_on ‘n’ \\ fs [v_rel'_def]
+QED
+
+Theorem v_rel_sym:
+  ∀x y. v_rel x y ⇔ v_rel y x
+Proof
+  qsuff_tac ‘∀x y. v_rel x y ⇒ v_rel y x’
+  THEN1 metis_tac []
+  \\ qsuff_tac ‘∀n x y. v_rel' n x y ⇔ v_rel' n y x’
+  THEN1 fs [v_rel_def]
+  \\ Induct_on ‘n’ \\ fs [v_rel'_def]
+  \\ metis_tac [LIST_REL_SYM]
+QED
+
+Theorem v_rel_trans:
+  ∀x y z. v_rel x y ∧ v_rel y z ⇒ v_rel x z
+Proof
+  qsuff_tac ‘∀n x y z. v_rel' n x y ∧ v_rel' n y z ⇒ v_rel' n x z’
+  THEN1 metis_tac [v_rel_def]
+  \\ Induct_on ‘n’ \\ fs [v_rel'_def]
+  \\ drule LIST_REL_TRANS
+  \\ strip_tac \\ rw []
+  THEN1 (res_tac \\ fs [])
+  \\ disj2_tac \\ rw []
+  \\ metis_tac [v_rel_refl,v_rel_def]
+QED
+
+(*
+TODO:
+ - generalise Fun for mutrec
+ - add strictness primitive
+ - formalise observational semantics
+*)
+
 val _ = export_theory();
