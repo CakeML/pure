@@ -15,7 +15,7 @@ Datatype:
   op = If               (* if-expression                    *)
      | Lit num          (* literal number                   *)
      | Cons string      (* datatype constructor             *)
-     | IsEq string      (* compare cons tag *)
+     | IsEq string      (* compare cons tag                 *)
      | Proj string num  (* reading a field of a constructor *)
 End
 
@@ -23,19 +23,18 @@ Datatype:
   exp = Var vname                     (* variable                   *)
       | Prim op (exp list)            (* primitive operations       *)
       | App exp exp                   (* function application       *)
-      | Fun (fname option) vname exp  (* lambda that optionally     *)
-                                      (* binds its own name (fname) *)
+      | Lam vname exp                 (* lambda                     *)
+      | Letrec ((fname # vname # exp) list) exp   (* mut. rec. funs *)
 End
 
 (* some abbreviations *)
-Overload Lam  = “Fun NONE”        (* lambda without a function name *)
-Overload Rec  = “λf. Fun (SOME f)”     (* lambda with function name *)
 Overload Let  = “λs x y. App (Lam s y) x”         (* let-expression *)
 Overload If   = “λx y z. Prim If [x; y; z]”      (* If at exp level *)
 Overload Lit  = “λn. Prim (Lit n) []”           (* Lit at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
 Overload IsEq = “λs x. Prim (IsEq s) [x]”      (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
+Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
 
 (* a call-by-name semantics in a denotational semantics style *)
 
@@ -43,7 +42,7 @@ Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 Codatatype:
   v = Num num
     | Constructor string (v list)
-    | Closure (fname option) vname exp
+    | Closure vname exp
     | Diverge
     | Error
 End
@@ -52,7 +51,7 @@ End
 Datatype:
   v_prefix = Num' num
            | Constructor' string
-           | Closure' (fname option) vname exp
+           | Closure' vname exp
            | Diverge'
            | Error'
 End
@@ -62,41 +61,43 @@ Type v = “:v_prefix ltree”;
 Overload Num = “λn. Branch (Num' n) LNIL”;
 Overload Constructor = “λs ts. Branch (Constructor' s) ts”;
 Overload Constructor = “λs ts. Branch (Constructor' s) (fromList ts)”;
-Overload Closure = “λf s x. Branch (Closure' f s x) LNIL”;
+Overload Closure = “λs x. Branch (Closure' s x) LNIL”;
 Overload Diverge = “Branch Diverge' LNIL”;
 Overload Error = “Branch Error' LNIL”;
 
 Definition dest_Closure_def:
   dest_Closure x =
-    case x of Closure f s x => SOME (f,s,x) | _ => NONE
+    case x of Closure s x => SOME (s,x) | _ => NONE
 End
 
 Theorem dest_Closure_Closure[simp]:
-  dest_Closure (Closure f s x) = SOME (f,s,x)
+  dest_Closure (Closure s x) = SOME (s,x)
 Proof
   fs [dest_Closure_def]
 QED
 
 Triviality exp_size_lemma:
-  ∀xs a. MEM a xs ⇒ exp_size a < exp1_size xs
+  (∀xs a. MEM a xs ⇒ exp_size a < exp4_size xs) ∧
+  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp1_size xs)
 Proof
-  Induct \\ rw [] \\ res_tac \\ fs [fetch "-" "exp_size_def"]
+  conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [fetch "-" "exp_size_def"]
 QED
 
 Definition subst_def:
   subst name v (Var s) = (if name = s then v else Var s) ∧
   subst name v (Prim op xs) = Prim op (MAP (subst name v) xs) ∧
   subst name v (App x y) = App (subst name v x) (subst name v y) ∧
-  subst name v (Fun f s x) =
-    Fun f s (if s = name ∨ f = SOME name then x else subst name v x)
+  subst name v (Lam s x) = Lam s (if s = name then x else subst name v x) ∧
+  subst name v (Letrec f x) =
+    if MEM name (MAP FST f) then Letrec f x else
+      Letrec (MAP (λ(g,m,z). (g,m,subst name v z)) f) (subst name v x)
 Termination
   WF_REL_TAC `measure (λ(n,v,x). exp_size x)` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
-Definition subst_opt_def[simp]:
-  subst_opt NONE v x = x ∧
-  subst_opt (SOME n) v x = subst n v x
+Definition closed_def:
+  closed e = ∀n v. subst n v e = e
 End
 
 Definition el_def:
@@ -130,18 +131,31 @@ Definition eval_op_def:
   (eval_op _ _ = Error)
 End
 
+Definition bind_def:
+  bind [] x = x ∧
+  bind ((s,v)::ys) x =
+    if closed v then subst s v (bind ys x) else Fail
+End
+
+Definition subst_funs_def:
+  subst_funs f = bind (MAP (λ(g,n,x). (g,Lam n (Letrec f x))) f)
+End
+
 Definition eval_to_def:
   eval_to k (Var s) = Error ∧
   eval_to k (Prim op xs) = eval_op op (MAP (eval_to k) xs) ∧
-  eval_to k (Fun f s x) = Closure f s x ∧
+  eval_to k (Lam s x) = Closure s x ∧
   eval_to k (App x y) =
     (let v = eval_to k x in
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (f,s,body) =>
+         | SOME (s,body) =>
              if k = 0 then Diverge else
-               eval_to (k-1) (subst s y (subst_opt f (Fun f s body) body)))
+               eval_to (k-1) (bind [(s,y)] body)) ∧
+  eval_to k (Letrec f y) =
+    if k = 0 then Diverge else
+      eval_to (k-1) (subst_funs f y)
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x). (k,exp_size x))` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
@@ -474,8 +488,8 @@ Proof
   \\ Cases_on ‘eval_to k x’ \\ fs []
   \\ Cases_on ‘a’ \\ fs []
   \\ Cases_on ‘ts’ \\ fs []
-  \\ rename [‘Closure x1 x2 x3’]
-  \\ qsuff_tac ‘eval x = Closure x1 x2 x3’
+  \\ rename [‘Closure x1 x2’]
+  \\ qsuff_tac ‘eval x = Closure x1 x2’
   THEN1 (strip_tac \\ fs [dest_Closure_def])
   \\ fs [eval_def,gen_ltree_LNIL,v_limit_SOME]
   \\ drule eval_to_res_mono_LNIL \\ fs [] \\ rw []
@@ -503,11 +517,21 @@ Proof
   \\ fs [v_limit_def,v_lookup_def]
 QED
 
-Theorem eval_Fun:
-  eval (Fun f s x) = Closure f s x
+Theorem eval_Lam:
+  eval (Lam s x) = Closure s x
 Proof
   fs [eval_def,eval_to_def,Once gen_ltree]
   \\ fs [v_limit_def,v_lookup_def]
+QED
+
+Theorem eval_Letrec:
+  eval (Letrec f x) = eval (subst_funs f x)
+Proof
+  fs [eval_def,eval_to_def]
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
+  \\ match_mp_tac v_limit_eq_add
+  \\ fs [] \\ qexists_tac ‘1’ \\ fs []
 QED
 
 Theorem eval_App:
@@ -516,8 +540,7 @@ Theorem eval_App:
       if v = Diverge then Diverge else
         case dest_Closure v of
         | NONE => Error
-        | SOME (f,s,body) =>
-            eval (subst s y (subst_opt f (Fun f s body) body))
+        | SOME (s,body) => eval (bind [(s,y)] body)
 Proof
   fs [eval_def,eval_to_def]
   \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
@@ -545,9 +568,9 @@ Proof
 QED
 
 Theorem eval_Let:
-  eval (Let s x y) = eval (subst s x y)
+  eval (Let s x y) = eval (bind [(s,x)] y)
 Proof
-  fs [eval_App,eval_Fun,dest_Closure_def,subst_opt_def]
+  fs [eval_App,eval_Lam,dest_Closure_def,bind_def]
 QED
 
 Theorem eval_Cons:
@@ -826,16 +849,16 @@ QED
 Theorem eval_core:
   eval (Var s) = Error (* free variables are not allowed *) ∧
   eval (Prim op xs) = eval_op op (MAP eval xs) ∧
-  eval (Fun f s x) = Closure f s x ∧
+  eval (Lam s x) = Closure s x ∧
+  eval (Letrec f x) = eval (subst_funs f x) ∧
   eval (App x y) =
     (let v = eval x in
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (f,s,body) =>
-             eval (subst s y (subst_opt f (Fun f s body) body)))
+         | SOME (s,body) => eval (bind [(s,y)] body))
 Proof
-  fs [eval_Var,eval_Prim,eval_Fun,eval_App]
+  fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App]
 QED
 
 Theorem eval_thm:
@@ -844,21 +867,22 @@ Theorem eval_thm:
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s x) = is_eq s (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
-  eval (Let s x y) = eval (subst s x y) ∧
+  eval (Let s x y) = eval (bind [(s,x)] y) ∧
   eval (If x y z) =
     (if eval x = Diverge then Diverge else
      if eval x = Num 0 then eval z else
      if eval x = Num 1 then eval y else Error) ∧
-  eval (Fun f s x) = Closure f s x ∧
+  eval (Lam s x) = Closure s x ∧
+  eval (Letrec f x) = eval (subst_funs f x) ∧
   eval (App x y) =
     (let v = eval x in
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (f,s,body) =>
-             eval (subst s y (subst_opt f (Fun f s body) body)))
+         | SOME (s,body) => eval (bind [(s,y)] body))
 Proof
-  fs [eval_Var,eval_Cons,eval_App,eval_Fun,eval_Lit,eval_If,eval_Proj,eval_IsEq]
+  fs [eval_Var,eval_Cons,eval_App,eval_Lam,eval_Lit,eval_If,eval_Proj,
+      eval_IsEq,bind_def,eval_Letrec]
 QED
 
 
@@ -866,8 +890,7 @@ QED
 
 Definition bottom_def:
   bottom =
-    Let "bot"
-      (Rec "bot" "n" (App (Var "bot") (Lit 0)))
+    Letrec [("bot","n",App (Var "bot") (Lit 0))]
       (App (Var "bot") (Lit 0))
 End
 
@@ -877,9 +900,13 @@ Proof
   qsuff_tac ‘∀k. eval_to k bottom = Diverge’
   THEN1 fs [eval_def,v_limit_def,v_lookup_def,gen_ltree_LNIL]
   \\ fs [bottom_def,eval_to_def]
-  \\ Cases \\ fs [subst_def]
-  \\ Induct_on ‘n’ \\ fs []
-  \\ simp [eval_to_def,subst_def,subst_opt_def,dest_Closure_def]
+  \\ Cases \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
+  \\ completeInduct_on ‘n’ \\ fs []
+  \\ ntac 3 (simp [Once eval_to_def,subst_def,dest_Closure_def,
+                   subst_funs_def,bind_def,closed_def])
+  \\ Cases_on ‘n’ \\ fs []
+  \\ ntac 5 (simp [Once eval_to_def,subst_def,dest_Closure_def,
+                   subst_funs_def,bind_def,closed_def])
 QED
 
 
@@ -887,22 +914,24 @@ QED
 
 Definition zeros_def:
   zeros =
-    Let "z"
-      (Rec "z" "n" (Cons "cons" [Var "n"; App (Var "z") (Var "n")]))
-        (App (Var "z") (Lit 0))
+    Letrec [("z","n",Cons "cons" [Var "n"; App (Var "z") (Var "n")])]
+      (App (Var "z") (Lit 0))
 End
 
 Theorem eval_zeros:
   eval zeros = Constructor "cons" [Num 0; eval zeros]
 Proof
   fs [Once zeros_def]
-  \\ ntac 6 (simp [Once eval_thm,dest_Closure_def,subst_def])
+  \\ ntac 6 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+                   subst_funs_def,closed_def])
   \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ simp [Once eval_thm,dest_Closure_def,subst_def,zeros_def]
+  \\ rewrite_tac [zeros_def]
+  \\ ntac 2 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+                   subst_funs_def,closed_def])
 QED
 
 
-(* value and exp relation *)
+(* value and exp relation -- clocked *)
 
 Definition v_rel'_def:
   (v_rel' 0 v1 v2 ⇔ T) ∧
@@ -912,40 +941,32 @@ Definition v_rel'_def:
         v1 = Constructor m xs ∧
         v2 = Constructor m ys ∧
         LIST_REL (v_rel' n) xs ys) ∨
-     (∃f1 s1 x1 f2 s2 x2.
-        v1 = Closure f1 s1 x1 ∧
-        v2 = Closure f2 s2 x2 ∧
-        ∀w1 w2.
-          v_rel' n (eval w1) (eval w2) ⇒
-          v_rel' n (eval (subst s1 w1 (subst_opt f1 (Fun f1 s1 x1) x1)))
-                   (eval (subst s2 w2 (subst_opt f2 (Fun f2 s2 x2) x2)))))
+     (∃s1 x1 s2 x2.
+        v1 = Closure s1 x1 ∧
+        v2 = Closure s2 x2 ∧
+        ∀z. v_rel' n (eval (bind [(s1,z)] x1))
+                     (eval (bind [(s2,z)] x2))))
 End
 
 Definition v_rel_def:
-  v_rel v1 v2 = ∀n. v_rel' n v1 v2
+  v_rel x y = ∀n. v_rel' n x y
 End
 
 Definition exp_rel_def:
   exp_rel x y ⇔ v_rel (eval x) (eval y)
 End
 
-Theorem v_rel_rules:
-  (∀v w.
-     v = w ⇒
-     v_rel v w) ∧
-  (∀xs ys m.
-     LIST_REL v_rel xs ys ⇒
-     v_rel (Constructor m xs) (Constructor m xs)) ∧
-  (∀f1 s1 x1 f2 s2 x2.
-     (∀w1 w2.
-        exp_rel w1 w2 ⇒
-        exp_rel (subst s1 w1 (subst_opt f1 (Fun f1 s1 x1) x1))
-                (subst s2 w2 (subst_opt f2 (Fun f2 s2 x2) x2))) ⇒
-     v_rel (Closure f1 s1 x1) (Closure f1 s1 x1))
+Theorem v_rel_Closure:
+  (∀x y. exp_rel x y ⇒ exp_rel (bind [m,x] b) (bind [n,y] d)) ⇒
+  v_rel (Closure m b) (Closure n d)
 Proof
-  rw [v_rel_def]
-  \\ fs [exp_rel_def,v_rel_def] \\ rw []
-  \\ Cases_on ‘n’ \\ fs [v_rel'_def]
+  rw [PULL_FORALL,exp_rel_def,v_rel_def] \\ fs []
+  \\ rewrite_tac [eval_thm]
+  \\ Cases_on ‘n'’
+  \\ once_rewrite_tac [v_rel'_def] \\ fs [] \\ disj2_tac
+  \\ rw [] \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ Cases \\ fs [v_rel'_def]
 QED
 
 Triviality LIST_REL_SYM:
@@ -967,18 +988,18 @@ QED
 Theorem v_rel_refl:
   ∀x. v_rel x x
 Proof
-  fs [v_rel_def] \\ Induct_on ‘n’ \\ fs [v_rel'_def]
+  fs [v_rel_def,v_rel'_def] \\ rw []
+  \\ Cases_on ‘n’ \\ fs [v_rel'_def]
 QED
 
 Theorem v_rel_sym:
   ∀x y. v_rel x y ⇔ v_rel y x
 Proof
-  qsuff_tac ‘∀x y. v_rel x y ⇒ v_rel y x’
-  THEN1 metis_tac []
-  \\ qsuff_tac ‘∀n x y. v_rel' n x y ⇔ v_rel' n y x’
-  THEN1 fs [v_rel_def]
+  qsuff_tac ‘∀n x y. v_rel' n x y ⇔ v_rel' n y x’
+  THEN1 metis_tac [v_rel'_def,v_rel_def]
   \\ Induct_on ‘n’ \\ fs [v_rel'_def]
-  \\ metis_tac [LIST_REL_SYM]
+  \\ drule LIST_REL_SYM
+  \\ metis_tac []
 QED
 
 Theorem v_rel_trans:
@@ -991,14 +1012,13 @@ Proof
   \\ strip_tac \\ rw []
   THEN1 (res_tac \\ fs [])
   \\ disj2_tac \\ rw []
-  \\ metis_tac [v_rel_refl,v_rel_def]
+  \\ metis_tac [v_rel'_def]
 QED
 
 (*
 TODO:
- - generalise Fun for mutrec
  - add strictness primitive
- - formalise observational semantics
+ - formalise observational semantics (treat Bind as cons)
 *)
 
 val _ = export_theory();
