@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
      ltreeTheory llistTheory;
 
-val _ = new_theory "denotation_cons";
+val _ = new_theory "pure_lang";
 
 
 (* AST for a small functional language *)
@@ -1018,7 +1018,6 @@ QED
 (*
 TODO:
  - add strictness primitive
- - formalise observational semantics (treat Bind as cons)
 *)
 
 val _ = export_theory();

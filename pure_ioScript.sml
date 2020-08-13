@@ -1,9 +1,9 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory denotation_consTheory io_treeTheory;
+     ltreeTheory llistTheory pure_langTheory io_treeTheory;
 
-val _ = new_theory "denotation_io2";
+val _ = new_theory "pure_io";
 
 Datatype:
   result = SilentDivergence
@@ -102,6 +102,6 @@ Definition semantics_def:
   semantics e binds = interp (eval e) (MAP eval binds)
 End
 
-(* derive nice equations for reasoning about semantics *)
+(* TODO: derive nice equations for reasoning about semantics *)
 
 val _ = export_theory();
