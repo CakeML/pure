@@ -96,10 +96,20 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
+(*An expression is closed when every variable in it is bound.
+  A variable (Var "x") is bound if there's a lambda abstraction
+  above in the AST that captures it (Lam "x" ...).
+
+  Alternatively, an expression is closed if a substitution fails
+  (leaves the expression unaltered) for any possible variable
+  identifier.                                                     *)
 Definition closed_def:
   closed e = ∀n v. subst n v e = e
 End
 
+(*projection: given the constructor name s, and the index i,
+  access the object x and retrieve the i-th element
+  if present, otherwise returns Error. *)
 Definition el_def:
   el s i x =
     if x = Diverge then Diverge else
@@ -111,6 +121,8 @@ Definition el_def:
       | _ => Error
 End
 
+(*check whether the constructor x is labeled as s, if so
+  return Num 1 (true), Num 0 otherwise *)
 Definition is_eq_def:
   is_eq s x =
     if x = Diverge then Diverge else
@@ -167,6 +179,10 @@ End
   limit (div,div,div,div,div,4,4,4,4,4,4,4,4,4,4,4,4,...) d = 4
 
   limit (1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,1,2,...) d = d
+
+  limit is used to define eval in terms of ‘∀ k . eval_to k’
+  eval_to is deterministic, hence, we wouldn't need "d" in
+  limit (k -> v) d. But is convenient for the proofs.
 *)
 
 Definition limit_def:
@@ -179,6 +195,17 @@ Definition limit_def:
     | NONE => default
 End
 
+(*v_lookup takes a list of indexes and an ltree, goes trough
+  the tree following the indexes in the list until list = [],
+  then it returns the value at the given node, together with the
+  number of children at that node *)
+
+(*LLENGTH returns the length of the lazy list llist, when it is
+  finite (SOME n), otherwise NONE. supposedly, (a,LLENGTH ts) refers
+  to the constructor/literal together with its cardinality.
+
+  LNTH = "Lazy n-th element"                                        *)
+
 Definition v_lookup_def:
   v_lookup [] x =
     (case x of Branch a ts => (a,LLENGTH ts)) ∧
@@ -189,15 +216,35 @@ Definition v_lookup_def:
        | SOME y => v_lookup path y)
 End
 
+ (*
+   v_seq: num -> v_prefix ltree
+   given a certain path, v_limit tries to look into a rose tree (v_seq k)
+   with k any num.
+  *)
 Definition v_limit_def:
   v_limit v_seq path =
     limit (λk. v_lookup path (v_seq k)) (Error', NONE)
 End
 
+(*
+   given an expression x, eval returns the denotational
+   value associated to it. Since eval might produce
+   infinite values as result, the resulting value needs
+   to be "wrapped" into a lazy datatype. This is the role
+   of gen_ltree. gen_ltree takes a function that, given
+   any path over the resulting ltree, the function returns
+   the values in that specific branch.
+   In fact, eval has type : exp -> v_prefix ltree, instead
+   of exp -> v_prefix. Also, a value is defined
+   as an object of type :v_prefix ltree
+*)
 Definition eval_def:
   eval x =
     gen_ltree (λpath. v_limit (λk. eval_to k x) path)
 End
+
+
+(**** LEMMAS for limit/v_limit algebra *****)
 
 Theorem limit_const[simp]:
   limit (λk. x) d = x
@@ -298,6 +345,13 @@ Proof
   \\ res_tac
 QED
 
+(***********************************)
+
+(* x and y : v_prefix ltree, v_cmp checks whether x and y are equal
+   for the given path. If x or y diverge, then they ARE equal.
+   v_cmp is a relation used to prove some lemmas over eval_to,
+   ultimately, used to prove eval_thm
+*)
 Definition v_cmp_def:
   v_cmp path x y ⇔
     (v_lookup path x ≠ (Diverge',SOME 0) ⇒
