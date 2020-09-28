@@ -17,7 +17,6 @@ Datatype:
      | Cons string      (* datatype constructor             *)
      | IsEq string      (* compare cons tag                 *)
      | Proj string num  (* reading a field of a constructor *)
-     | Add              (* primitive add operator           *)
      | PrimOp 'a        (* primitive parametric operator    *)
 End
 
@@ -161,12 +160,6 @@ Definition eval_op_def:
     if x1 = Num 0 then x3 else Error) ∧
   (eval_op c (IsEq s) [x] = is_eq s x) ∧
   (eval_op c (Proj s i) [x] = el s i x) ∧
-  (eval_op c Add [a1;a2] =
-     if a1 = Diverge then Diverge else
-     if a2 = Diverge then Diverge else
-       case (getNum a1,getNum a2) of
-        | (SOME n1,SOME n2) => (Num (n1 + n2))
-        | _               => Error )  ∧
   (eval_op c (PrimOp a) xs =
      if MEM Diverge xs then Diverge else
        case OPTION_MAP (c a) (getNums xs) of
@@ -578,34 +571,6 @@ Proof
   \\ fs []
 QED
 
-(*maybe needed later.*)
-Triviality eval_strict_op_not_num_error:
-  ∀x y c.  x ≠ Diverge ∧
-           y ≠ Diverge ∧
-           ( (∀ n . x ≠ Num n) ∨ (∀ n. y ≠ Num n) )
-             ⇒ eval_op c Add [x;y] = Error
-Proof
-  rw []
-  THEN1 (*(∀ n . x ≠ Num n) case *)(
-  rw [eval_op_def,getNum_def]
-  \\ Cases_on ‘x’ \\ rw [ltree_CASE,llist_CASES,getNum_def]
-  \\ rpt(   Cases_on ‘a’ \\ rw [ltree_CASE,llist_CASES,getNum_def]
-         \\ Cases_on ‘ts’ \\ rw [ltree_CASE,llist_CASES,getNum_def])
-  )(*(∀ n . y ≠ Num n) case *)
-  \\ Cases_on ‘∀ n . x ≠ Num n’ \\ fs []
-  THEN1 ((*(∀ n . x ≠ Num n) case, again *)
-  rw [eval_op_def]
-  \\ Cases_on ‘x’ \\ rw [ltree_CASE,llist_CASES,getNum_def]
-  \\ rpt(   Cases_on ‘a’ \\ rw [ltree_CASE,llist_CASES,getNum_def]
-         \\ Cases_on ‘ts’ \\ rw [ltree_CASE,llist_CASES,getNum_def])
-  ) THEN1 ( (*∀ n . y ≠ Num n ∧ x = Num n1 *)
-  rw [eval_op_def]
-  \\ Cases_on ‘y’ \\ rw [ltree_CASE,llist_CASES,getNum_def]
-  \\ rpt (   Cases_on ‘a’ \\ rw [ltree_CASE,llist_CASES,getNum_def]
-          \\ Cases_on ‘ts’ \\ rw [ltree_CASE,llist_CASES,getNum_def])
-  )
-QED
-
 Theorem eval_op_div:
   ∀c op xs ys path.
     LIST_REL (λx y. ∀path. v_cmp path x y) xs ys ⇒
@@ -663,17 +628,6 @@ Proof
     \\ qspec_then ‘ts'’ mp_tac fromList_fromSeq
     \\ rw [] \\ fs [LNTH_fromList]
     \\ rfs [] \\ rw [] \\ fs []   )
-  THEN1 (*op = Add *)
-   (fs []
-    \\ Cases_on ‘a1 = Diverge’ THEN1 (fs [eval_op_def])
-    \\ Cases_on ‘a2 = Diverge’ THEN1 (fs [eval_op_def])
-    \\ ‘y  ≠ Diverge’ by (imp_res_tac v_cmp_Diverge2)
-    \\ ‘y' ≠ Diverge’ by (imp_res_tac v_cmp_Diverge2)
-    \\ qspec_then ‘a1’ (qspec_then ‘y’ assume_tac) v_cmp_getNum_eq
-       \\ first_x_assum imp_res_tac
-    \\ qspec_then ‘a2’ (qspec_then ‘y'’ assume_tac) v_cmp_getNum_eq
-       \\ first_x_assum imp_res_tac
-    \\ fs [eval_op_def])
   THEN1 ((*op = PrimOp*)
     Cases_on ‘MEM Diverge xs’ THEN1 (fs [eval_op_def])
     \\ ‘¬(MEM Diverge ys)’ by (imp_res_tac LIST_REL_not_diverge)
@@ -1131,54 +1085,8 @@ Proof
   \\ metis_tac [eval_to_simple_mono]
 QED
 
-(*TODO: refactor this *)
-Theorem eval_to_no_div_not_equal:
-  (k ≤ k')                    ∧
-  (eval_to c k x ≠ Diverge)   ∧
-  (∀ n . eval_to c k x ≠ Num n) ∧
-  (eval_to c k' x ≠ Diverge)
-  ⇒ (∀ n . eval_to c k' x ≠ Num n)
-Proof
-  rw []
-  \\ Cases_on ‘eval_to c k x’ \\ Cases_on ‘eval_to c k' x’
-  \\ ‘eval_to c k x ≠ Diverge’ by (fs [])
-  \\ qspecl_then [‘k'’,‘ts'’,‘a'’] assume_tac (Q.GENL [‘k1’,‘ts1’,‘a1’] eval_to_res_mono)
-  \\ first_x_assum imp_res_tac
-  \\ first_x_assum (qspec_then ‘n:num’ assume_tac)
-  \\ ‘a' = a
-      ∧ LLENGTH ts' = LLENGTH ts
-      ∧ Branch a ts ≠ Num n
-      ⇒ Branch a' ts' ≠ Num n’ by
-      (rw [] \\ fs [] \\ CCONTR_TAC \\ fs [])
-  \\ first_x_assum imp_res_tac \\ fs []
-QED
-
-(*potentially, this can be generalized from Num n to Branch a LNIL*)
-Theorem eval_to_forall_exists_swap:
-  (∀n. ∃k. eval_to c k x ≠ Num n ∧ eval_to c k x ≠ Diverge)
-       ⇒ (∃k. (∀n. eval_to c k x ≠ Num n) ∧ eval_to c k x ≠ Diverge)
-Proof
-  rw []
-  \\ first_assum (qspec_then ‘n’ assume_tac) \\ fs []
-  \\ qexists_tac ‘k’
-  \\ CONJ_TAC
-  THEN1
-    (  pop_assum kall_tac
-    \\ pop_assum kall_tac
-    \\ CCONTR_TAC \\ fs []
-    \\ last_x_assum (qspec_then ‘n’ assume_tac) \\ fs []
-    \\ ‘eval_to c k x ≠ Diverge’ by (fs [])
-    \\ Cases_on ‘eval_to c k x’ \\ Cases_on ‘ts ≠ LNIL’ \\ fs []
-    \\ Cases_on ‘k≤k'’
-    THEN1 (qspec_then ‘k'’ imp_res_tac $ Q.GEN ‘k1’ eval_to_res_mono_LNIL \\ fs [])
-    \\ first_x_assum (fn t => ‘k' ≤ k’ by fs [t])
-    \\ qspecl_then [‘k’,‘k'’] imp_res_tac $ Q.GENL [‘k1’,‘k’] eval_to_simple_mono
-    \\ fs [])
-  \\ fs []
-QED
-
 (*if eval_to does not diverge and is not equal to Num for some k, then
-  eval_to is not equal to Num forall k, TODO, this theorem generalizes the two above*)
+  eval_to is not equal to Num forall k                                *)
 Theorem eval_to_not_div_not_eq_mono:
   ∀ n.((eval_to c k x ≠ Diverge ∧ eval_to c k x ≠ Num n) 
        ⇒ ∀ k'. eval_to c k' x ≠ Num n)
@@ -1200,95 +1108,6 @@ Proof
   )
 QED
         
-Theorem eval_Add:
-  eval c (Prim Add [a1;a2]) =
-    (if eval c a1 = Diverge then Diverge else
-     if eval c a2 = Diverge then Diverge else
-       case (getNum (eval c a1),getNum (eval c a2)) of
-         | (SOME n1,SOME n2) => (Num (n1 + n2))
-         | _                 => Error
-    )
-Proof
-    fs [eval_def,eval_to_def,eval_op_def]
-  \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
-  THEN1 (fs [v_limit_SOME] \\ qexists_tac ‘k’ \\ fs [])
-  \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
-  THEN1
-   (fs [v_limit_SOME]
-   \\ qexists_tac ‘k’ \\ fs [])
-  \\ BasicProvers.TOP_CASE_TAC
-  THEN1
-   (fs [gen_ltree_LNIL,v_limit_SOME,getNum_NONE]
-    \\ last_x_assum (qspec_then ‘0’ strip_assume_tac)
-    \\ last_x_assum (qspec_then ‘0’ strip_assume_tac)
-    \\ qexists_tac ‘MAX k' k''’
-    \\ rpt (strip_tac)
-    \\ rename [‘MAX k1 k2 ≤ k3’]
-    \\ IF_CASES_TAC
-    THEN1 (drule eval_to_div \\ fs[] \\ qexists_tac ‘k1’ \\ fs[])
-    \\ IF_CASES_TAC
-    THEN1 (drule eval_to_div \\ fs[] \\ qexists_tac ‘k2’ \\ fs[])
-    \\ pop_assum kall_tac
-    \\ drule eval_to_res_mono
-    \\ Cases_on ‘eval_to c k3 a1’ \\ qpat_x_assum ‘_≠_’ kall_tac
-    \\ fs []
-    \\ Cases_on ‘a’ \\ fs [getNum_def]
-    \\ last_x_assum (qspecl_then [‘n’,‘k3’] strip_assume_tac)
-    \\ Cases_on ‘eval_to c k' a1’
-    \\ disch_then drule \\ fs [] \\  rw []
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ts'’ \\ fs [getNum_def])
-  \\ BasicProvers.TOP_CASE_TAC
-  THEN1
-   (fs [getNum_NONE,getNum_SOME,gen_ltree_LNIL,v_limit_SOME]
-    \\ ‘∀n. ∃k. eval_to c k a2 ≠ Num n ∧ eval_to c k a2 ≠ Diverge’ by
-      (fs [] \\ strip_tac
-       \\ first_x_assum (qspec_then ‘n’ assume_tac)
-       \\ last_x_assum kall_tac
-       \\ last_x_assum (qspec_then ‘0’ assume_tac) \\ fs []
-       \\ last_x_assum kall_tac
-       \\ first_x_assum (qspec_then ‘k'’ assume_tac) \\ fs []
-       \\ qspecl_then [‘k''’,‘k'’,‘a2’] imp_res_tac eval_to_not_diverge_mono
-       \\ qexists_tac ‘k''’ \\ fs [])
-    \\ qspec_then ‘a2’ imp_res_tac (Q.GEN ‘x’ eval_to_forall_exists_swap)
-    \\ last_x_assum (qspec_then ‘0’ strip_assume_tac)
-    \\ last_x_assum (qspec_then ‘0’ strip_assume_tac)
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ qexists_tac ‘MAX (MAX k' k'') k'''’
-    \\ rpt (strip_tac)
-    \\ rename [‘MAX (MAX k1 k2) k3 ≤ k4’] \\ fs []
-    \\ qspecl_then [‘k4’,‘k2’,‘a1’] assume_tac eval_to_not_diverge_mono
-    \\ first_x_assum imp_res_tac
-    \\ qspecl_then [‘k4’,‘k3’,‘a2’] assume_tac eval_to_not_diverge_mono
-    \\ first_x_assum imp_res_tac
-    \\ fs [] \\ rw []
-    \\ Cases_on ‘getNum (eval_to c k4 a1)’ \\ fs [getNum_SOME]
-    \\ ‘∀n. eval_to c k4 a2 ≠ Num n’ by (
-      qspecl_then [‘a2’,‘k4’,‘k1’,‘c’] imp_res_tac (GEN_ALL eval_to_no_div_not_equal))
-    \\ Cases_on ‘getNum (eval_to c k4 a2)’ \\ fs [getNum_SOME])
-  \\ fs [getNum_NONE,getNum_SOME,gen_ltree_LNIL,v_limit_SOME]
-  \\ last_x_assum (qspec_then ‘k’ strip_assume_tac)
-  \\ last_x_assum (qspec_then ‘k'’ strip_assume_tac)
-  \\ last_x_assum (qspec_then ‘k'' ’ strip_assume_tac)
-  \\ last_x_assum (qspec_then ‘k'''’ strip_assume_tac)
-  \\ qpat_x_assum ‘_⇒_’ imp_res_tac
-  \\ qpat_x_assum ‘_⇒_’ imp_res_tac
-  \\ qexists_tac ‘MAX k'' k'''’
-  \\ rpt (strip_tac)
-  \\ rename [‘MAX k2 k3 ≤ k4’] \\ fs []
-  (*  eval_to k2 a1 = Num x ⇒ eval_to k4 a1 = Num x   *)
-  \\ Cases_on ‘eval_to c k2 a1’ \\ Cases_on ‘ts’ \\ fs []
-  \\ ‘eval_to c k2 a1 ≠ Diverge’ by (fs[])
-  \\ qspecl_then [‘a1’,‘k4’,‘k2’,‘c’,‘a’] assume_tac (GEN_ALL eval_to_res_mono_LNIL)
-  \\ first_x_assum imp_res_tac
-  (*  eval_to k3 a2 = Num x' ⇒ eval_to k4 a2 = Num x'   *)
-  \\ Cases_on ‘eval_to c k3 a2’ \\ Cases_on ‘ts’ \\ fs []
-  \\ ‘eval_to c k3 a2 ≠ Diverge’ by (fs[])
-  \\ qspecl_then [‘a2’,‘k4’,‘k3’,‘c’,‘a'’] assume_tac (GEN_ALL eval_to_res_mono_LNIL)
-  \\ first_x_assum imp_res_tac
-  \\ fs [getNum_def,getNum_SOME]
-QED
 
 (*************eval/eval_to over exp list lemmas ***************)
 
@@ -1428,19 +1247,6 @@ Proof
     \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
     \\ fs [v_limit_def,v_lookup_def])
   \\ Cases_on ‘op’ \\ fs []
-  THEN1(
-  Cases_on ‘∃ x y . xs = [x;y]’
-   THEN1(
-       rw []
-       \\ simp [eval_Add]
-       \\ Cases_on ‘eval c a1 = Diverge’ \\ fs [eval_op_def])
-   \\ fs []
-   \\ Cases_on ‘xs’ \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
-   \\ fs [v_limit_def,v_lookup_def]
-   \\ Cases_on ‘t’  \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
-   \\ fs [v_limit_def,v_lookup_def]
-   \\ Cases_on ‘t'’ \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
-   \\ fs [v_limit_def,v_lookup_def])
   THEN1(fs [eval_PrimOp,eval_op_def])
 QED
 
@@ -1507,7 +1313,6 @@ Proof
                    subst_funs_def,bind_def,closed_def])
   \\ cheat
 QED
-
 
 (* example producing infinite list of zeros *)
 
