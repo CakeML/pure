@@ -11,13 +11,35 @@ val _ = new_theory "pure_lang";
 Type vname = “:string”  (* variable name *)
 Type fname = “:string”  (* function name *)
 
+
+(*configuration record for the parametric atoms.
+
+   parAtomOp:
+     It takes an element of type 'a (from AtomOp) and returns a
+     function that takes a "'b list" element and SOME b if the
+     number of arguments is correct, NONE otherwise
+
+  parTrue:
+    representation of true in the 'b type.
+
+  parFalse:
+    representation of false in the 'b type.
+*)
 Datatype:
-  op = If               (* if-expression                    *)
-     | Lit num          (* literal number                   *)
-     | Cons string      (* datatype constructor             *)
-     | IsEq string      (* compare cons tag                 *)
-     | Proj string num  (* reading a field of a constructor *)
-     | PrimOp 'a        (* primitive parametric operator    *)
+  conf =
+   <|
+      parAtomOp  : 'a -> 'b list -> 'b option;
+      parTrue    : 'b                  ;
+      parFalse   : 'b
+   |>
+End
+
+Datatype:
+  op = If               (* if-expression                            *)
+     | Cons string      (* datatype constructor                     *)
+     | IsEq string      (* compare cons tag                         *)
+     | Proj string num  (* reading a field of a constructor         *)
+     | AtomOp 'a        (* primitive parametric operator over Atoms *)
 End
 
 Datatype:
@@ -29,13 +51,14 @@ Datatype:
 End
 
 (* some abbreviations *)
-Overload Let  = “λs x y. App (Lam s y) x”         (* let-expression *)
-Overload If   = “λx y z. Prim If [x; y; z]”      (* If at exp level *)
-Overload Lit  = “λn. Prim (Lit n) []”           (* Lit at exp level *)
+Overload Let  = “λs x y. App (Lam s y) x”      (* let-expression    *)
+Overload If   = “λx y z. Prim If [x; y; z]”    (* If   at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
 Overload IsEq = “λs x. Prim (IsEq s) [x]”      (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
-Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
+(*TODO: inlined Lit definition, it is ok?*)
+Overload Fail = “Prim (AtomOp ARB) [Prim (AtomOp ARB)[]]” (* causes Error *)
+
 
 (* a call-by-name semantics in a denotational semantics style *)
 
@@ -50,21 +73,22 @@ End
 *)
 
 Datatype:
-  v_prefix = Num' num
+  v_prefix = Atom' 'b
            | Constructor' string
            | Closure' vname ('a exp)
            | Diverge'
            | Error'
 End
 
-Type v = “:('a v_prefix) ltree”;
+Type v = “:(('a,'b) v_prefix) ltree”;
 
-Overload Num = “λn. Branch (Num' n) LNIL”;
+Overload Atom = “λb. Branch (Atom' b) LNIL”;
 Overload Constructor = “λs ts. Branch (Constructor' s) ts”;
 Overload Constructor = “λs ts. Branch (Constructor' s) (fromList ts)”;
 Overload Closure = “λs x. Branch (Closure' s x) LNIL”;
 Overload Diverge = “Branch Diverge' LNIL”;
 Overload Error = “Branch Error' LNIL”;
+
 
 Definition dest_Closure_def:
   dest_Closure x =
@@ -123,51 +147,48 @@ Definition el_def:
 End
 
 (*check whether the constructor x is labeled as s, if so
-  return Num 1 (true), Num 0 otherwise *)
+  return true, false otherwise *)
 Definition is_eq_def:
-  is_eq s x =
+  is_eq c s x =
     if x = Diverge then Diverge else
       case x of
-      | Constructor t (xs:('a v) llist) => Num (if s = t then 1 else 0)
+      | Constructor t (xs:(('a,'b) v) llist) =>
+                     (if s = t
+                         then Atom c.parTrue
+                         else Atom c.parFalse)
       | _ => Error
 End
 
-
-Definition getNum_def:
-  getNum (Num n) = SOME n ∧
-  getNum _       = NONE
+Definition getAtom_def:
+  getAtom (Atom b) = SOME b ∧
+  getAtom _        = NONE
 End
 
-Definition getNums_def:
-  getNums [] = SOME [] ∧
-  getNums (x::xs) = case (getNum x,getNums xs) of
+Definition getAtoms_def:
+  getAtoms [] = SOME [] ∧
+  getAtoms (x::xs) = case (getAtom x,getAtoms xs) of
                      | (SOME n,SOME ns) => SOME (n::ns)
                      | _ => NONE
 End
 
-        
-(*c takes an element of type 'a and returns a function that takes a
-  "num list" element and returns a "num option" element:
-  SOME n if the number of arguments is correct, NONE otherwise  *)
-Type conf = “:'a -> num list -> num”
-
 Definition eval_op_def:
-  (eval_op c (Lit n) [] = Num n) ∧
   (eval_op c (Cons s) xs = Constructor s xs) ∧
   (eval_op c If [x1;x2;x3] =
     if x1 = Diverge then Diverge else
-    if x1 = Num 1 then x2 else
-    if x1 = Num 0 then x3 else Error) ∧
-  (eval_op c (IsEq s) [x] = is_eq s x) ∧
+    case OPTION_MAP (λa. a = c.parTrue) (getAtom x1) of
+     | (SOME T) => x2
+     | (SOME F) => x3
+     | NONE     => Error ) ∧
+  (eval_op c (IsEq s) [x] = is_eq c s x) ∧
   (eval_op c (Proj s i) [x] = el s i x) ∧
-  (eval_op c (PrimOp a) xs =
+  (eval_op c (AtomOp a) xs =
      if MEM Diverge xs then Diverge else
-       case OPTION_MAP (c a) (getNums xs) of
-        | (SOME n) => Num n
+       case OPTION_BIND (getAtoms xs) (c.parAtomOp a) of
+        | (SOME b) => Atom b
         | _        => Error )  ∧
   (eval_op _ _ _ = Error)
-End                                          
-                                                     
+End
+
 Definition bind_def:
   bind [] x = x ∧
   bind ((s,v)::ys) x =
@@ -265,7 +286,7 @@ End
 *)
 
 Definition eval_def:
-  eval (c:'a conf) x =
+  eval c x =
     gen_ltree (λpath. v_limit (λk. eval_to c k x) path)
 End
 
@@ -375,40 +396,40 @@ QED
 
 (***********getNum lemmas***********)
 
-Theorem getNum_NONE:
-  (getNum x = NONE) = ∀n. x ≠ Num n
+Theorem getAtom_NONE:
+  (getAtom x = NONE) = ∀n. x ≠ Atom n
 Proof
   Cases_on ‘x’
-  \\ Cases_on ‘a’ \\ Cases_on ‘ts’ \\ fs [getNum_def]
+  \\ Cases_on ‘a’ \\ Cases_on ‘ts’ \\ fs [getAtom_def]
 QED
 
-Theorem getNum_SOME:
-  getNum x = SOME n ⇔ x = Num n
+Theorem getAtom_SOME:
+  getAtom x = SOME n ⇔ x = Atom n
 Proof
   Cases_on ‘x’
-  \\ Cases_on ‘a’ \\ Cases_on ‘ts’ \\ fs [getNum_def]
+  \\ Cases_on ‘a’ \\ Cases_on ‘ts’ \\ fs [getAtom_def]
 QED
 
-Theorem getNum_eq_same_length_args:
+Theorem getAtom_eq_same_length_args:
   ∀ ts ts' . LLENGTH ts = LLENGTH ts'
-             ⇒ getNum (Branch q ts) = getNum (Branch q ts')
+             ⇒ getAtom (Branch q ts) = getAtom (Branch q ts')
 Proof
-  Cases_on ‘q’ \\ Cases_on ‘ts’ \\ Cases_on ‘ts'’ \\ rw [getNum_def]
+  Cases_on ‘q’ \\ Cases_on ‘ts’ \\ Cases_on ‘ts'’ \\ rw [getAtom_def]
 QED
 
-Theorem getNums_SOME:
-  getNums xs = SOME ns ⇒ (∀x.∃n. MEM x xs ⇒ x = Num n) 
+Theorem getAtoms_SOME:
+  getAtoms xs = SOME ns ⇒ (∀x.∃n. MEM x xs ⇒ x = Atom n) 
 Proof
   qspec_tac (‘ns’,‘ns’)
   \\ Induct_on ‘xs’ THEN1 (fs [])
   \\ strip_tac \\ strip_tac
-  \\ disch_tac \\ rename [‘getNums (x::xs) = _’]
+  \\ disch_tac \\ rename [‘getAtoms (x::xs) = _’]
   \\ strip_tac
   \\ Cases_on ‘¬ (MEM x' (x::xs))’ THEN1 (fs [])
-  \\ fs[getNums_def]
-  \\ Cases_on ‘getNum x’ \\ fs []
-  \\ Cases_on ‘getNums xs’ \\ fs [] \\ rename [‘x::xs = xx’]
-  THEN1 (fs[getNum_SOME])
+  \\ fs[getAtoms_def]
+  \\ Cases_on ‘getAtom x’ \\ fs []
+  \\ Cases_on ‘getAtoms xs’ \\ fs [] \\ rename [‘x::xs = xx’]
+  THEN1 (fs[getAtom_SOME])
   \\ last_assum (qspec_then ‘x''’ strip_assume_tac) \\ fs[]
 QED
 
@@ -418,27 +439,27 @@ Proof
   cheat
 QED *)
 
-Theorem getNums_NOT_SOME_NONE:
-  getNums xs = NONE ⇔ ∀ l. getNums xs ≠ SOME l
+Theorem getAtoms_NOT_SOME_NONE:
+  getAtoms xs = NONE ⇔ ∀ l. getAtoms xs ≠ SOME l
 Proof
-  eq_tac \\ fs[getNums_def]
+  eq_tac \\ fs[getAtoms_def]
   \\ disch_tac \\ CCONTR_TAC
-  \\ Cases_on ‘getNums xs’ \\ fs[]
+  \\ Cases_on ‘getAtoms xs’ \\ fs[]
 QED
 
-Theorem getNums_NOT_NONE_SOME:
-  getNums xs ≠ NONE ⇔ ∃ l. getNums xs = SOME l
+Theorem getAtoms_NOT_NONE_SOME:
+  getAtoms xs ≠ NONE ⇔ ∃ l. getAtoms xs = SOME l
 Proof
-  eq_tac \\ fs[getNums_def,getNums_NOT_SOME_NONE]
+  eq_tac \\ fs[getAtoms_def,getAtoms_NOT_SOME_NONE]
   \\ disch_tac \\ fs []
 QED
 
-Theorem getNums_SOME_isFinite:
-  ∀xs. getNums xs = SOME l ⇒
+Theorem getAtoms_SOME_isFinite:
+  ∀xs. getAtoms xs = SOME l ⇒
       ∀x. MEM x xs ⇒ (x ≠ Diverge ∧ ∃ a. x = Branch a LNIL)
 Proof
   strip_tac \\ disch_tac
-  \\ imp_res_tac getNums_SOME
+  \\ imp_res_tac getAtoms_SOME
   \\ strip_tac
   \\ last_x_assum (qspecl_then [‘x’] assume_tac) \\ fs[]
 QED
@@ -492,6 +513,14 @@ Proof
   \\ fs [v_cmp_def,v_lookup_def]
   \\ Cases_on ‘y’ \\ fs []
 QED
+             
+Theorem v_cmp_LNIL_IMP2:
+  ∀x y.
+    x ≠ Diverge ∧ x = Branch a LNIL ⇒
+    ((∀path. v_cmp path x y) ⇔ y = x)
+Proof
+  fs [v_cmp_LNIL_IMP]
+QED
 
 (*TODO: this might be used in order to simplify v_cmp_LNIL_IMP2 and
   the associated LIST_REL version*)
@@ -500,14 +529,14 @@ Definition isFinite_def:
                 | Branch Diverge' _ => F
                 | Branch _     LNIL => T
                 | _ => F
-End         
-        
-Theorem v_cmp_LNIL_IMP2:
+End
+
+Theorem v_cmp_isFinite_IMP:
   ∀x y.
-    x ≠ Diverge ∧ x = Branch a LNIL ⇒
-    ((∀path. v_cmp path x y) ⇔ y = x)
+    (isFinite x ∧ (∀path. v_cmp path x y)) ⇒ y = x
 Proof
-  fs [v_cmp_LNIL_IMP]
+  rw[] \\ Cases_on ‘x’
+  \\ Cases_on ‘a’ \\ Cases_on ‘ts’ \\ fs [isFinite_def,v_cmp_LNIL_IMP2]
 QED
 
 Theorem LIST_REL_v_cmp_LNIL_IMP2:
@@ -538,10 +567,10 @@ Proof
   \\ imp_res_tac v_cmp_Diverge2
 QED
         
-Theorem v_cmp_getNum_eq:
+Theorem v_cmp_getAtom_eq:
   ∀x y.
     x ≠ Diverge ∧ y ≠ Diverge ⇒
-    ((∀path. v_cmp path x y) ⇒ (getNum x) = (getNum y))
+    ((∀path. v_cmp path x y) ⇒ (getAtom x) = (getAtom y))
 Proof
   rw []
   \\ first_x_assum (qspec_then ‘[]’ assume_tac)
@@ -551,22 +580,22 @@ Proof
   \\ Cases_on ‘y’
   \\ fs [ltree_CASE]
   \\ rw []
-  \\ imp_res_tac getNum_eq_same_length_args
+  \\ imp_res_tac getAtom_eq_same_length_args
   \\ rw []
 QED
 
-Theorem LIST_REL_v_cmp_getNum_eq:
+Theorem LIST_REL_v_cmp_getAtom_eq:
   ∀xs ys.
     ¬MEM Diverge xs ∧ ¬MEM Diverge ys ∧
     (LIST_REL (λx y. ∀path. v_cmp path x y) xs ys)
-    ⇒ getNums xs = getNums ys
+    ⇒ getAtoms xs = getAtoms ys
 Proof
   Induct \\ fs []
   \\ rpt strip_tac
   \\ Induct_on ‘ys’ \\ fs[]
   \\ rpt strip_tac
-  \\ fs[getNums_def]
-  \\ imp_res_tac v_cmp_getNum_eq \\ fs []
+  \\ fs[getAtoms_def]
+  \\ imp_res_tac v_cmp_getAtom_eq \\ fs []
   \\ last_x_assum (qspec_then ‘ys’ imp_res_tac)
   \\ fs []
 QED
@@ -587,27 +616,26 @@ Proof
    (fs [eval_op_def]
     \\ Cases_on ‘x1 = Diverge’ \\ fs []
     \\ ‘y ≠ Diverge’ by (imp_res_tac v_cmp_Diverge2)
-    \\ qspecl_then [‘Num' 0’,‘y’] assume_tac v_cmp_LNIL_IMP
-    \\ qspecl_then [‘Num' 1’,‘y’] assume_tac v_cmp_LNIL_IMP
-    \\ fs []
-    \\ IF_CASES_TAC THEN1 (fs [])
-    \\ IF_CASES_TAC THEN1 (fs [])
-    (*case x ≠ 1 ∧ x ≠ 2 (Error) *)
-    \\ Cases_on ‘y’ \\ fs []
-    \\ Cases_on ‘ts’ \\ fs []
-    \\ last_x_assum (qspec_then ‘[]’ mp_tac)
-    \\ simp [Once v_cmp_def,v_lookup_def]
-    \\ Cases_on ‘x1’ \\ fs [])
+    \\ imp_res_tac v_cmp_getAtom_eq \\ fs[]
+    \\ Cases_on ‘getAtom y’ \\ fs[OPTION_MAP_DEF]
+    \\ IF_CASES_TAC \\ fs[])
   THEN1 (*op = IsEq s *)
    (fs [eval_op_def]
-    \\ Cases_on ‘x = Diverge’ \\ fs []
-    \\ TRY (first_x_assum (qspec_then ‘[]’ mp_tac))
+    \\ Cases_on ‘x = Diverge’ \\ fs[is_eq_def]
+    \\ Cases_on ‘y = Diverge’ \\ fs[is_eq_def]
+    \\ imp_res_tac v_cmp_Diverge2 \\ fs[is_eq_def]
+    \\ TRY (first_assum (qspec_then ‘[]’ mp_tac) \\ disch_tac)
     \\ Cases_on ‘path’ \\ fs [v_cmp_def,v_lookup_def,is_eq_def]
     \\ rw [] \\ fs [] \\ fs [ltree_CASE_eq]
+    \\ Cases_on ‘x’
     \\ Cases_on ‘y’ \\ fs []
-    \\ Cases_on ‘x’ \\ fs []
     \\ Cases_on ‘a’ \\ fs []
-    \\ Cases_on ‘a’ \\ fs [])
+    \\ Cases_on ‘a'’ \\ fs []
+    \\ Cases_on ‘Atom c.parTrue’ \\ fs[]
+    \\ Cases_on ‘Atom c.parFalse’ \\ fs[]
+    \\ Cases_on ‘a’ \\ fs []
+    \\ Cases_on ‘a'’ \\ fs []
+    \\ Cases_on ‘s=s''’ \\ fs[])
   THEN1 (*op = Proj s i*)
    (fs [eval_op_def,el_def]
     \\ Cases_on ‘x = Diverge’ \\ fs []
@@ -628,20 +656,20 @@ Proof
     \\ qspec_then ‘ts'’ mp_tac fromList_fromSeq
     \\ rw [] \\ fs [LNTH_fromList]
     \\ rfs [] \\ rw [] \\ fs []   )
-  THEN1 ((*op = PrimOp*)
-    Cases_on ‘MEM Diverge xs’ THEN1 (fs [eval_op_def])
+  THEN1 (*op = PrimOp*)
+   (Cases_on ‘MEM Diverge xs’ THEN1 (fs [eval_op_def])
     \\ ‘¬(MEM Diverge ys)’ by (imp_res_tac LIST_REL_not_diverge)
     \\ fs [eval_op_def]
-    \\ Cases_on ‘∃l. getNums xs = SOME l’ THEN1(
-       fs [] \\ imp_res_tac getNums_SOME_isFinite
+    \\ Cases_on ‘∃l. getAtoms xs = SOME l’ THEN1(
+       fs [] \\ imp_res_tac getAtoms_SOME_isFinite
        \\ qspecl_then [‘xs’,‘ys’] strip_assume_tac LIST_REL_v_cmp_LNIL_IMP2
        \\ fs[])
-    \\ fs [] \\ imp_res_tac getNums_NOT_SOME_NONE \\ simp []
-    \\ ‘getNums ys = NONE’ by
+    \\ fs [] \\ imp_res_tac getAtoms_NOT_SOME_NONE \\ simp []
+    \\ ‘getAtoms ys = NONE’ by
       (CCONTR_TAC
-       \\ ‘∃ l. getNums ys = SOME l’ by (fs[getNums_NOT_NONE_SOME])
+       \\ ‘∃ l. getAtoms ys = SOME l’ by (fs[getAtoms_NOT_NONE_SOME])
        \\ first_x_assum (qspec_then ‘l’ assume_tac)
-       \\ imp_res_tac LIST_REL_v_cmp_getNum_eq \\ fs [])
+       \\ imp_res_tac LIST_REL_v_cmp_getAtom_eq \\ fs [])
     \\ fs [])
 QED
 
@@ -779,13 +807,6 @@ Proof
   \\ Cases_on ‘t’ \\ fs []
 QED
 
-Theorem eval_Lit:
-  eval c (Lit n) = Num n
-Proof
-  fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
-  \\ fs [v_limit_def,v_lookup_def]
-QED
-
 Theorem eval_Var:
   eval c (Var s) = Error (* free variables are not allowed *)
 Proof
@@ -874,7 +895,7 @@ Proof
 QED
 
 Theorem eval_IsEq:
-  eval c (IsEq s x) = is_eq s (eval c x)
+  eval c (IsEq s x) = is_eq c s (eval c x)
 Proof
   fs [eval_def,eval_to_def,eval_op_def,is_eq_def]
   \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
@@ -884,9 +905,11 @@ Proof
   \\ Cases_on ‘ts’
   THEN1
    (Cases_on ‘a’ \\ fs []
+    \\ TRY IF_CASES_TAC
     \\ fs [v_limit_SOME,gen_ltree_LNIL]
     \\ qexists_tac ‘k’ \\ fs [])
   \\ Cases_on ‘a’ \\ fs []
+  \\ TRY IF_CASES_TAC
   \\ fs [v_limit_SOME,gen_ltree_LNIL]
   \\ pop_assum mp_tac
   \\ TRY
@@ -1040,56 +1063,14 @@ Proof
   \\ res_tac \\ fs []
   \\ Cases_on ‘eval_to c n x’ \\ fs []
 QED
-
-Theorem eval_If:
-  eval c (If x y z) =
-    (if eval c x = Diverge then Diverge else
-     if eval c x = Num 0 then eval c z else
-     if eval c x = Num 1 then eval c y else Error)
-Proof
-  fs [eval_def,eval_to_def,eval_op_def]
-  \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
-  THEN1 (fs [v_limit_SOME] \\ qexists_tac ‘k’ \\ fs [])
-  \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
-  THEN1
-   (fs [v_limit_SOME] \\ AP_TERM_TAC
-    \\ fs [FUN_EQ_THM] \\ rw []
-    \\ match_mp_tac v_limit_eq_add
-    \\ qexists_tac ‘k’ \\ fs []
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ match_mp_tac v_limit_eq_add
-    \\ qexists_tac ‘k’ \\ fs [])
-  \\ IF_CASES_TAC \\ fs [gen_ltree_LNIL]
-  THEN1
-   (fs [v_limit_SOME] \\ AP_TERM_TAC
-    \\ fs [FUN_EQ_THM] \\ rw []
-    \\ match_mp_tac v_limit_eq_add
-    \\ qexists_tac ‘k’ \\ fs []
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ match_mp_tac v_limit_eq_add
-    \\ qexists_tac ‘k’ \\ fs [])
-  \\ fs [v_limit_SOME]
-  \\ last_x_assum (qspec_then ‘0’ mp_tac)
-  \\ strip_tac \\ rename [‘0 ≤ k1’]
-  \\ first_x_assum (qspec_then ‘k1’ mp_tac)
-  \\ strip_tac \\ rename [‘_ ≤ k2’]
-  \\ first_x_assum (qspec_then ‘k2’ mp_tac)
-  \\ strip_tac \\ rename [‘_ ≤ k3’]
-  \\ qexists_tac ‘k3’ \\ fs []
-  \\ rpt strip_tac
-  \\ rpt (IF_CASES_TAC \\ fs [])
-  \\ ‘k1 ≤ k' ∧ k2 ≤ k' ∧ k3 ≤ k'’ by fs []
-  THEN1 imp_res_tac eval_to_div
-  \\ ‘eval_to c k2 x ≠ Diverge ∧ eval_to c k3 x ≠ Diverge’ by
-        (CCONTR_TAC \\ fs [] \\ imp_res_tac eval_to_div)
-  \\ metis_tac [eval_to_simple_mono]
-QED
-
+       
+(************ getAtom NONE/SOME over eval/eval_to lemmas*********)
+        
 (*if eval_to does not diverge and is not equal to Num for some k, then
   eval_to is not equal to Num forall k                                *)
 Theorem eval_to_not_div_not_eq_mono:
-  ∀ n.((eval_to c k x ≠ Diverge ∧ eval_to c k x ≠ Num n) 
-       ⇒ ∀ k'. eval_to c k' x ≠ Num n)
+  ∀ n.((eval_to c k x ≠ (Diverge:('a,'b) v_prefix ltree) ∧ eval_to c k x ≠ Atom n) 
+       ⇒ ∀ k'. eval_to c k' x ≠ Atom n)
 Proof
   rw[] \\ Cases_on ‘k≤k'’ THEN1 (
     imp_res_tac eval_to_not_diverge_mono
@@ -1103,11 +1084,29 @@ Proof
     \\ rename [‘k≤k'’]
     \\ CCONTR_TAC \\ fs[]
     \\ Cases_on ‘eval_to c k x’
-    \\ qspec_then ‘k'’ assume_tac $ Q.GENL [‘k1’] eval_to_res_mono_LNIL
+    \\ Cases_on ‘ts’ \\ fs[]
+    \\ ‘eval_to c k x ≠ Diverge’ by (fs[])
+    \\ qspecl_then [‘k'’] assume_tac $ Q.GENL [‘k1’] eval_to_res_mono_LNIL
     \\ first_x_assum imp_res_tac \\ fs []
   )
 QED
         
+Theorem getAtom_eval_NONE:
+  getAtom (eval c x) = NONE ⇒ (∀ k. ∃k'. k ≤ k' ∧ getAtom (eval_to c k' x) = NONE)
+Proof
+  rw[]
+  \\ fs[getAtom_NONE]
+  \\ fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
+  (*like SWAP_FORALL_THM...*)
+  \\ ‘∀k n. ∃k'. k ≤ k' ∧ eval_to c k' x ≠ Atom n’ by (fs[])
+  \\ first_x_assum (qspec_then ‘k’ assume_tac)
+  \\ qexists_tac ‘k’ \\ fs[] \\ strip_tac
+  \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ fs[]
+  \\ Cases_on ‘eval_to c k' x = Diverge’
+  THEN1 (imp_res_tac eval_to_div \\ fs[])
+  \\ imp_res_tac eval_to_not_div_not_eq_mono
+  \\ first_x_assum (qspec_then ‘k’ assume_tac) \\ fs[] 
+QED
 
 (*************eval/eval_to over exp list lemmas ***************)
 
@@ -1134,8 +1133,8 @@ Proof
     \\ imp_res_tac LIST_MAP_eval_to_not_diverge_mono)
 QED
         
-Triviality eval_to_num_mono_res:
-  eval_to c k x = Num n ⇒
+Triviality eval_to_atom_mono_res:
+  eval_to c k x = Atom n ⇒
     k ≤ k1 ⇒ eval_to c k1 x = eval_to c k x
 Proof
   rpt strip_tac
@@ -1143,73 +1142,114 @@ Proof
   \\ Cases_on ‘ts’ \\ fs []
   \\ ‘eval_to c k x ≠ Diverge’ by (fs[])
   \\ imp_res_tac eval_to_res_mono_LNIL \\ fs[]
+  \\ Cases_on ‘eval_to c k' x = ’
 QED
 
-Theorem getNums_eval_to_NONE:
-   (getNums (MAP (eval c) es) = NONE ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
-   ⇒  getNums (MAP (λa. eval_to c k a) es) = NONE
+Theorem getAtoms_eval_to_NONE:
+   (getAtoms (MAP (eval c) es) = NONE ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
+   ⇒  getAtoms (MAP (λa. eval_to c k a) es) = NONE
 Proof
   rw[] \\ Induct_on ‘es’ \\ fs[]
   \\ rpt strip_tac
-  \\ simp[getNums_def] 
-  \\ Cases_on ‘getNums (MAP (eval c) es)’ \\ fs[]
-  \\ Cases_on ‘getNum (eval_to c k h)’ \\ fs[]
-  \\ fs[getNums_def]
-  \\ Cases_on ‘getNum (eval c h)’ \\ fs[]
-  \\ fs [getNum_NONE,getNum_SOME,getNum_def]
+  \\ simp[getAtoms_def] 
+  \\ Cases_on ‘getAtoms (MAP (eval c) es)’ \\ fs[]
+  \\ Cases_on ‘getAtom (eval_to c k h)’ \\ fs[]
+  \\ fs[getAtoms_def]
+  \\ Cases_on ‘getAtom (eval c h)’ \\ fs[]
+  \\ fs [getAtom_NONE,getAtom_SOME,getAtom_def]
   \\ first_x_assum (qspec_then ‘x'’ assume_tac)
   \\ fs [eval_def,eval_to_def,eval_op_def,gen_ltree_LNIL,v_limit_SOME] \\ fs[]     
   \\ first_x_assum (qspec_then ‘k’ assume_tac)
   \\ fs[]
-  \\ imp_res_tac eval_to_num_mono_res \\ fs[]
+  \\ imp_res_tac eval_to_atom_mono_res \\ fs[]
 QED
 
-Theorem getNums_eval_to_SOME:
-   (getNums (MAP (eval c) es) = SOME l ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
-   ⇒  getNums (MAP (λa. eval_to c k a) es) = SOME l
+Theorem getAtoms_eval_to_SOME:
+   (getAtoms ((MAP (eval c) es):(('a,'b) v_prefix ltree list)) = SOME l
+   ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
+   ⇒  getAtoms (MAP (λa. eval_to c k a) es) = SOME l
 Proof
   qspec_tac (‘l’,‘l’)
   \\ Induct_on ‘es’ \\ fs[]
-  \\ rpt strip_tac \\ fs[getNums_def]
-  \\ ‘getNum (eval_to c k h) = getNum (eval c h)’ by (
-     Cases_on ‘getNum (eval c h)’ THEN1 (fs [getNum_NONE])
-     \\ fs [getNum_SOME]
+  \\ rpt strip_tac \\ fs[getAtoms_def]
+  \\ ‘getAtom (eval_to c k h) = getAtom (eval c h)’ by (
+     Cases_on ‘getAtom (eval c h)’ THEN1 (fs [getAtom_NONE])
+     \\ fs [getAtom_SOME]
      \\ CCONTR_TAC
      \\ fs [eval_def,eval_to_def,eval_op_def,gen_ltree_LNIL,v_limit_SOME]     
      \\ first_x_assum (qspec_then ‘k'’ assume_tac) \\ fs[]
      \\ qspec_then ‘h’ imp_res_tac (Q.GEN ‘x’ eval_to_not_div_not_eq_mono)
   ) \\ fs[]
-  \\ Cases_on ‘getNum (eval c h)’ THEN1 (fs[getNum_NONE]) \\ fs[]
-  \\ Cases_on ‘getNums (MAP (eval c) es)’ THEN1 (fs[])
+  \\ Cases_on ‘getAtom (eval c h)’ THEN1 (fs[getAtom_NONE]) \\ fs[]
+  \\ Cases_on ‘getAtoms (MAP (eval c) es)’ THEN1 (fs[])
   \\ last_x_assum (qspec_then ‘x'’ assume_tac) \\ fs[]
 QED
 
 (*****************************************************)
 
+Theorem eval_If:
+  eval c (If x y z) =
+    (if eval c x = Diverge then Diverge else
+    case OPTION_MAP (λa. a = c.parTrue) (getAtom (eval c x)) of
+     | (SOME T) => eval c y
+     | (SOME F) => eval c z
+     | NONE     => Error )
+Proof
+  IF_CASES_TAC
+  THEN1 (
+    fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
+    \\ qexists_tac ‘k’ \\ fs [eval_op_def])
+  \\ Cases_on ‘getAtom (eval c x)’
+  THEN1 (
+    imp_res_tac getAtom_eval_NONE
+    \\ fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
+    \\ fs[eval_op_def]
+    \\ last_x_assum (qspec_then ‘0’ assume_tac) \\ fs[]
+    \\ last_x_assum (qspec_then ‘k'’ assume_tac) \\ fs[]
+    \\ qexists_tac ‘MAX k' k''’ \\ rpt strip_tac \\ fs[]
+    \\ ‘eval_to c k''  x ≠ Diverge’ by (imp_res_tac eval_to_not_diverge_mono)
+    \\ ‘eval_to c k''' x ≠ Diverge’ by (imp_res_tac eval_to_not_diverge_mono) \\ fs[]
+    \\ ‘getAtom (eval_to c k''' x) = NONE’ by (imp_res_tac eval_to_not_div_not_eq_mono
+                                               \\ fs[getAtom_NONE])
+    \\ fs[])
+  \\ fs[getAtom_SOME]
+  \\ fs [eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
+  \\ IF_CASES_TAC 
+  \\ fs[eval_op_def]
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
+  \\ match_mp_tac v_limit_eq_add
+  \\ qexists_tac ‘k’ \\ fs []
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ match_mp_tac v_limit_eq_add
+  \\ qexists_tac ‘k’ \\ fs []
+  \\ fs[getAtom_def]
+QED
+
 Theorem eval_PrimOp:
-  eval c (Prim (PrimOp a) es) =
+  eval c (Prim (AtomOp (a:'a)) es) =
   (let xs = MAP (eval c) es in
    if MEM Diverge xs then Diverge else
-      case OPTION_MAP (c a) (getNums xs) of
-       | (SOME n) => Num n
+      case OPTION_BIND (getAtoms xs) (c.parAtomOp a) of
+       | (SOME n) => Atom n
        | _        => Error)
 Proof
   fs[] \\ IF_CASES_TAC THEN1 (
        fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
-    \\ qexists_tac ‘k’ \\ strip_tac \\ disch_tac
+    \\ qexists_tac ‘k’ \\ rpt strip_tac
     \\ fs [eval_op_def]
-    \\ assume_tac eval_Diverge_IFF_eval_to_Diverge \\ fs []
+    \\ assume_tac eval_Diverge_IFF_eval_to_Diverge \\ fs []  
   ) (*∀ e ∈ es ⇒ eval_to c k e does not diverge*)
   \\ ‘∃ k. ¬MEM Diverge (MAP (λa. eval_to c k a) es)’    
     by ( assume_tac eval_Diverge_IFF_eval_to_Diverge \\ fs[] \\ qexists_tac ‘k’ \\ fs[])
-  \\ Cases_on ‘OPTION_MAP (c a) (getNums (MAP (eval c) es))’ THEN (
-    fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
+  \\ Cases_on ‘ OPTION_BIND (getAtoms (MAP (eval c) es)) (c.parAtomOp a)’
+    \\ fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
     \\ qexists_tac ‘k’ \\ rpt strip_tac
     \\ fs[eval_op_def]     
     (*eval_to boes not diverge for all k' k≤k'*)
-    \\ qspecl_then [‘k''’,‘k’] imp_res_tac LIST_MAP_eval_to_not_diverge_mono \\ fs[])
-  \\ imp_res_tac getNums_eval_to_NONE \\ fs[]
-  \\ imp_res_tac getNums_eval_to_SOME \\ fs[]
+    \\ qspecl_then [‘k''’,‘k’] imp_res_tac LIST_MAP_eval_to_not_diverge_mono \\ fs[]
+  \\ imp_res_tac getAtoms_eval_to_NONE \\ fs[]
+  \\ imp_res_tac getAtoms_eval_to_SOME \\ fs[]
 QED
 
 Theorem eval_Prim:
@@ -1217,11 +1257,6 @@ Theorem eval_Prim:
 Proof
   Cases_on ‘∃s. op = Cons s’
   THEN1 fs [eval_Cons,eval_op_def]
-  \\ Cases_on ‘∃n. op = Lit n’
-  THEN1
-   (Cases_on ‘xs’ \\ fs [eval_Lit,eval_op_def]
-    \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
-    \\ fs [v_limit_def,v_lookup_def])
   \\ Cases_on ‘op = If’
   THEN1
    (Cases_on ‘∃x1 x2 x3. xs = [x1;x2;x3]’
@@ -1266,16 +1301,16 @@ Proof
 QED
 
 Theorem eval_thm:
-  eval c (Lit n) = Num n ∧
   eval c (Var s) = Error (* free variables are not allowed *) ∧
   eval c (Cons s xs) = Constructor s (MAP (eval c) xs) ∧
-  eval c (IsEq s x) = is_eq s (eval c x) ∧
+  eval c (IsEq s x) = is_eq c s (eval c x) ∧
   eval c (Proj s i x) = el s i (eval c x) ∧
   eval c (Let s x y) = eval c (bind [(s,x)] y) ∧
-  eval c (If x y z) =
-    (if eval c x = Diverge then Diverge else
-     if eval c x = Num 0 then eval c z else
-     if eval c x = Num 1 then eval c y else Error) ∧
+  eval c (If x y z) = (if eval c x = Diverge then Diverge else
+                         case OPTION_MAP (λa. a = c.parTrue) (getAtom (eval c x)) of
+                         | (SOME T) => eval c y
+                         | (SOME F) => eval c z
+                         | NONE     => Error ) ∧
   eval c (Lam s x) = Closure s x ∧
   eval c (Letrec f x) = eval c (subst_funs f x) ∧
   eval c (App x y) =
@@ -1285,17 +1320,30 @@ Theorem eval_thm:
          | NONE => Error
          | SOME (s,body) => eval c (bind [(s,y)] body))
 Proof
-  fs [eval_Var,eval_Cons,eval_App,eval_Lam,eval_Lit,eval_If,eval_Proj,
+  fs [eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
       eval_IsEq,bind_def,eval_Letrec]
 QED
         
-(* prove that bottom diverges *)   
+(* prove that bottom diverges.
+
+   bot x = bot x;
+   eval bot (λx.x);
+*)   
 
 Definition bottom_def:
   bottom =
-    Letrec [("bot","n",App (Var "bot") (Lit 0))]
-      (App (Var "bot") (Lit 0))
+    Letrec [("bot","n",App (Var "bot") (Lam "x" (Var "x")))]
+      (App (Var "bot") (Lam "x" (Var "x")))
 End
+
+Triviality subst_id_fun:
+  (subst n v (Lam "x" (Var "x"))) = (Lam "x" (Var "x"))
+Proof
+  Cases_on ‘n’ \\ Cases_on ‘v’
+  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
+  \\ IF_CASES_TAC
+  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
+QED
         
 Theorem eval_bottom:
   ∀c. eval c bottom = Diverge
@@ -1303,27 +1351,29 @@ Proof
   strip_tac
   \\ qsuff_tac ‘∀k. eval_to c k bottom = Diverge’
   THEN1 fs [eval_def,v_limit_def,v_lookup_def,gen_ltree_LNIL]
+  \\ strip_tac
   \\ fs [bottom_def,eval_to_def]
-  \\ Cases \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
-  \\ completeInduct_on ‘n’ \\ fs []
-  \\ ntac 3 (simp [Once eval_to_def,subst_def,dest_Closure_def,
-                   subst_funs_def,bind_def,closed_def])
-  \\ Cases_on ‘n’ \\ fs []
-  \\ ntac 5 (simp [Once eval_to_def,subst_def,dest_Closure_def,
-                   subst_funs_def,bind_def,closed_def])
-  \\ cheat
+  \\ completeInduct_on ‘k’
+  \\ Cases_on ‘k’
+  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]  
+  \\ Cases_on ‘n’ THEN1 fs[eval_to_def]
+  \\ first_assum (qspec_then ‘SUC n'’ assume_tac) \\ fs[]
+  \\ simp[eval_to_def]
+  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
+  \\ simp[eval_to_def]
+  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
 QED
 
-(* example producing infinite list of zeros *)
+(* example producing infinite list of λx.x*)
 
 Definition zeros_def:
   zeros =
     Letrec [("z","n",Cons "cons" [Var "n"; App (Var "z") (Var "n")])]
-      (App (Var "z") (Lit 0))
+      (App (Var "z") (Lam "x" (Var "x")))
 End
 
 Theorem eval_zeros:
-  ∀ c. eval c zeros = Constructor "cons" [Num 0; eval c zeros]
+  ∀ c. eval c zeros = Constructor "cons" [Closure "x" (Var "x"); eval c zeros]
 Proof
   strip_tac
   \\ fs [Once zeros_def]
