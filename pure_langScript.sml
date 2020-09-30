@@ -48,6 +48,7 @@ Datatype:
       | App exp exp                   (* function application       *)
       | Lam vname exp                 (* lambda                     *)
       | Letrec ((fname # vname # exp) list) exp   (* mut. rec. funs *)
+      | Case exp vname ((vname # vname list # exp) list) (*case pat.*)
 End
 
 (* some abbreviations *)
@@ -102,8 +103,8 @@ Proof
 QED
 
 Triviality exp_size_lemma:
-  (∀xs a. MEM a xs ⇒ exp_size (K 0) a < exp4_size (K 0) xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) a < exp1_size (K 0) xs)
+  (∀xs a. MEM a xs ⇒ exp_size (K 0) a < exp7_size (K 0) xs) ∧
+  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) a < exp3_size (K 0) xs)
 Proof
   conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [fetch "-" "exp_size_def"]
 QED
@@ -198,7 +199,26 @@ End
 Definition subst_funs_def:
   subst_funs f = bind (MAP (λ(g,n,x). (g,Lam n (Letrec f x))) f)
 End
+
+Definition expandLets_def:
+   expandLets i cn nm ([]) cs = cs ∧
+   expandLets i cn nm (v::vs) cs = Let v (Proj cn i (Var nm))
+                                         (expandLets (i+1) cn nm vs cs)
+End
         
+Definition expandRows_def:
+   expandRows nm [] = Fail ∧
+   expandRows nm ((cn,vs,cs)::css) = If (IsEq cn (Var nm))
+                                        (expandLets 0 cn nm vs cs)
+                                        (expandRows nm css)
+End
+        
+Definition expandCases_def:
+   expandCases x nm css = (Let nm x (expandRows nm css)) 
+End
+
+(*EVAL “expandCases ARB "a" [("Nil",[],c1);("Cons",["x";"xs"],c2)] ”*)
+                
 Definition eval_to_def:
   eval_to c k (Var s) = Error ∧
   eval_to c k (Prim op xs) = eval_op c op (MAP (eval_to c k) xs) ∧
@@ -212,8 +232,11 @@ Definition eval_to_def:
              if k = 0 then Diverge else
                eval_to c (k-1) (bind [(s,y)] body)) ∧
   eval_to c k (Letrec f y) =
-    if k = 0 then Diverge else
-      eval_to c (k-1) (subst_funs f y)
+    (if k = 0 then Diverge else
+      eval_to c (k-1) (subst_funs f y)) ∧
+  eval_to c k (Case x nm css) =
+    (if k = 0 then Diverge else
+       eval_to c (k-1) (expandCases x nm css))
 Termination
   WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λ(_,k,x).(0,k,(exp_size (K 0) x)))` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
@@ -343,6 +366,8 @@ Proof
   \\ qexists_tac ‘k’ \\ fs []
 QED
 
+
+        
 Theorem v_limit_if:
   v_limit (λk. if k = 0 then a else b (k − 1)) = v_limit b
 Proof
@@ -879,6 +904,19 @@ Proof
   \\ fs [EL_MAP,eval_def,v_limit_def]
 QED
 
+Theorem eval_Case:
+  eval c (Case x nm css) = eval c (expandCases x nm css)
+Proof
+  fs[expandCases_def,eval_Let,bind_def]
+  \\ IF_CASES_TAC
+  \\ fs[eval_def,eval_to_def]
+  \\ fs [v_limit_if]
+  \\ fs [expandCases_def,bind_def,eval_to_def]
+  \\ fs [eval_to_def]
+  \\ fs [v_limit_if]
+  \\ fs [bind_def]
+QED
+ 
 Theorem gen_ltree_not_Error:
   gen_ltree (λpath. v_limit (λk. eval_to c k x) path) = Branch a ts ∧
   a ≠ Error' ⇒
@@ -1295,9 +1333,10 @@ Theorem eval_core:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval c (bind [(s,y)] body))
+         | SOME (s,body) => eval c (bind [(s,y)] body)) ∧ 
+  eval c (Case x nm css) = eval c (expandCases x nm css)  
 Proof
-  fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App]
+  fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App,eval_Case]
 QED
 
 Theorem eval_thm:
