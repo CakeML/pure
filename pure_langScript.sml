@@ -65,11 +65,11 @@ Overload Fail = “Prim (AtomOp ARB) [Prim (AtomOp ARB)[]]” (* causes Error *)
 
 (* would like to have:
 Codatatype:
-  v = Num num
-    | Constructor string (v list)
-    | Closure vname exp
-    | Diverge
-    | Error
+  ('a,'b) v = Atom 'b
+          | Constructor string (('a,'b) v) list)
+          | Closure vname ('a exp)
+          | Diverge
+          | Error
 End
 *)
 
@@ -1339,6 +1339,7 @@ Proof
   fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App,eval_Case]
 QED
 
+(*like eval_core, but extended with exp Overloads*)
 Theorem eval_thm:
   eval c (Var s) = Error (* free variables are not allowed *) ∧
   eval c (Cons s xs) = Constructor s (MAP (eval c) xs) ∧
@@ -1357,10 +1358,11 @@ Theorem eval_thm:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval c (bind [(s,y)] body))
+         | SOME (s,body) => eval c (bind [(s,y)] body)) ∧ 
+  eval c (Case x nm css) = eval c (expandCases x nm css)  
 Proof
   fs [eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
-      eval_IsEq,bind_def,eval_Letrec]
+      eval_IsEq,bind_def,eval_Letrec,eval_Case]
 QED
         
 (* prove that bottom diverges.
