@@ -29,7 +29,7 @@ Datatype:
   conf =
    <|
       parAtomOp  : 'a -> 'b list -> 'b option;
-      parTrue    : 'b                  ;
+      parTrue    : 'b                        ;
       parFalse   : 'b
    |>
 End
@@ -40,11 +40,12 @@ Datatype:
      | IsEq string      (* compare cons tag                         *)
      | Proj string num  (* reading a field of a constructor         *)
      | AtomOp 'a        (* primitive parametric operator over Atoms *)
+     | Lit 'b           (* parametric literal Atom                  *)
 End
 
 Datatype:
   exp = Var vname                     (* variable                   *)
-      | Prim ('a op) (exp list)       (* primitive operations       *)
+      | Prim (('a,'b) op) (exp list)  (* primitive operations       *)
       | App exp exp                   (* function application       *)
       | Lam vname exp                 (* lambda                     *)
       | Letrec ((fname # vname # exp) list) exp   (* mut. rec. funs *)
@@ -54,11 +55,11 @@ End
 (* some abbreviations *)
 Overload Let  = “λs x y. App (Lam s y) x”      (* let-expression    *)
 Overload If   = “λx y z. Prim If [x; y; z]”    (* If   at exp level *)
+Overload Lit  = “λa. Prim (Lit a) []”           (* Lit at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
 Overload IsEq = “λs x. Prim (IsEq s) [x]”      (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
-(*TODO: inlined Lit definition, it is ok?*)
-Overload Fail = “Prim (AtomOp ARB) [Prim (AtomOp ARB)[]]” (* causes Error *)
+Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
 
 
 (* a call-by-name semantics in a denotational semantics style *)
@@ -76,7 +77,7 @@ End
 Datatype:
   v_prefix = Atom' 'b
            | Constructor' string
-           | Closure' vname ('a exp)
+           | Closure' vname (('a,'b) exp)
            | Diverge'
            | Error'
 End
@@ -103,8 +104,8 @@ Proof
 QED
 
 Triviality exp_size_lemma:
-  (∀xs a. MEM a xs ⇒ exp_size (K 0) a < exp7_size (K 0) xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) a < exp3_size (K 0) xs)
+  (∀xs a. MEM a xs ⇒ exp_size (K 0) (K 0) a < exp7_size (K 0) (K 0) xs) ∧
+  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) (K 0) a < exp3_size (K 0) (K 0) xs)
 Proof
   conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [fetch "-" "exp_size_def"]
 QED
@@ -118,7 +119,7 @@ Definition subst_def:
     if MEM name (MAP FST f) then Letrec f x else
       Letrec (MAP (λ(g,m,z). (g,m,subst name v z)) f) (subst name v x)
 Termination
-  WF_REL_TAC `measure (λ(n,v,x). exp_size (K 0) x)` \\ rw []
+  WF_REL_TAC `measure (λ(n,v,x). exp_size (K 0) (K 0) x)` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
@@ -187,6 +188,7 @@ Definition eval_op_def:
        case OPTION_BIND (getAtoms xs) (c.parAtomOp a) of
         | (SOME b) => Atom b
         | _        => Error )  ∧
+  (eval_op c (Lit b) [] = Atom b) ∧
   (eval_op _ _ _ = Error)
 End
 
@@ -238,7 +240,8 @@ Definition eval_to_def:
     (if k = 0 then Diverge else
        eval_to c (k-1) (expandCases x nm css))
 Termination
-  WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λ(_,k,x).(0,k,(exp_size (K 0) x)))` \\ rw []
+  WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λ(_,k,x).(0,k,(exp_size (K 0) (K 0) x)))`
+  \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
@@ -1284,12 +1287,20 @@ Proof
     \\ fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
     \\ qexists_tac ‘k’ \\ rpt strip_tac
     \\ fs[eval_op_def]     
-    (*eval_to boes not diverge for all k' k≤k'*)
+    (*eval_to does not diverge for all k' k≤k'*)
     \\ qspecl_then [‘k''’,‘k’] imp_res_tac LIST_MAP_eval_to_not_diverge_mono \\ fs[]
   \\ imp_res_tac getAtoms_eval_to_NONE \\ fs[]
   \\ imp_res_tac getAtoms_eval_to_SOME \\ fs[]
 QED
 
+Theorem eval_Lit:
+  eval c (Prim (Lit b) []) = Atom b ∧
+  eval c (Prim (Lit b) (x::xs)) = Error
+Proof
+  rw [] \\ fs [eval_def,eval_to_def,Once gen_ltree,eval_op_def]
+  \\ fs [v_limit_def,v_lookup_def]
+QED
+        
 Theorem eval_Prim:
   eval c (Prim op xs) = eval_op c op (MAP (eval c) xs)
 Proof
@@ -1321,6 +1332,7 @@ Proof
     \\ fs [v_limit_def,v_lookup_def])
   \\ Cases_on ‘op’ \\ fs []
   THEN1(fs [eval_PrimOp,eval_op_def])
+  \\ Cases_on ‘xs’ \\ fs[eval_PrimOp,eval_op_def,eval_Lit]
 QED
 
 Theorem eval_core:
