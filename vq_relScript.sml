@@ -174,7 +174,7 @@ QED
  *)
 
 Theorem eval_thm:
-  eval c Fail = Error ∧
+  (*eval c Fail = Error ∧*)
   eval c (Var s) = Error ∧
   eval c (Cons s xs) =
     Constructor s (LMAP (eval c) (fromList xs)) ∧
@@ -183,9 +183,10 @@ Theorem eval_thm:
   eval c (Let s x y) = eval c (bind [(s,x)] y) ∧
   eval c (If x y z) =
     (if eval c x = Diverge then Diverge
-     else if eval c x = Constructor "True" [||] then eval c y
-     else if eval c x = Constructor "False" [||] then eval c z
-     else Error) ∧
+     else case OPTION_MAP (λa. a = c.parTrue) (getAtom (eval c x)) of
+            NONE => Error
+          | SOME T => eval c y
+          | SOME F => eval c z) ∧
   eval c (Lam s x) = Closure s x ∧
   eval c (Letrec f x) = eval c (subst_funs f x) ∧
   eval c (App x y) =
@@ -350,9 +351,9 @@ Proof
   \\ fs [GSYM Diverge_def, GSYM Constructor_def]
   \\ fs [vq_rel_refl, v_rel_eqns, v_rel_eq_simps, vq_rel_def, v_rel_sym]
   \\ rpt CASE_TAC \\ fs []
-  \\ fs [GSYM Diverge_def, GSYM Constructor_def, GSYM Error_def]
+  \\ fs [GSYM Diverge_def, GSYM Constructor_def, GSYM Error_def, GSYM Atom_def]
   \\ fs [vq_rel_refl, v_rel_eqns, v_rel_eq_simps, vq_rel_def, v_rel_sym]
-  \\ fs [Constructor_def, Diverge_def, Error_def] \\ rw []
+  \\ fs [Constructor_def, Diverge_def, Error_def, Atom_def] \\ rw []
   \\ fs [v_rel_def]
   \\ first_x_assum (qspec_then ‘SUC 0’ assume_tac)
   \\ fs [v_rel'_def]
@@ -382,7 +383,7 @@ QED
 Theorem vq_eval_thm =
   vq_eval_thm
   |> CONJUNCTS
-  |> C (curry List.take) 2
+  |> C (curry List.take) 1
   |> LIST_CONJ;
 
 (*
