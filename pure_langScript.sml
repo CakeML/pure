@@ -1,88 +1,12 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory bagTheory;
-
+open astTheory arithmeticTheory listTheory stringTheory alistTheory
+     optionTheory ltreeTheory llistTheory bagTheory;
 
 val _ = new_theory "pure_lang";
 
-
-(* AST for a small functional language *)
-
-Type vname = “:string”  (* variable name *)
-Type fname = “:string”  (* function name *)
-
-
-(*configuration record for the parametric atoms.
-
-   parAtomOp:
-     It takes an element of type 'a (from AtomOp) and returns a
-     function that takes a "'b list" element and SOME b if the
-     number of arguments is correct, NONE otherwise
-
-*)
-Datatype:
-  conf = <| parAtomOp  : 'a -> 'b list -> 'b option; |>
-End
-
-Datatype:
-  op = If               (* if-expression                            *)
-     | Cons string      (* datatype constructor                     *)
-     | IsEq string num  (* compare cons tag and num of args         *)
-     | Proj string num  (* reading a field of a constructor         *)
-     | AtomOp 'a        (* primitive parametric operator over Atoms *)
-     | Lit 'b           (* parametric literal Atom                  *)
-End
-
-Datatype:
-  exp = Var vname                     (* variable                   *)
-      | Prim (('a,'b) op) (exp list)  (* primitive operations       *)
-      | App exp exp                   (* function application       *)
-      | Lam vname exp                 (* lambda                     *)
-      | Letrec ((fname # vname # exp) list) exp   (* mut. rec. funs *)
-      | Case exp vname ((vname # vname list # exp) list) (*case pat.*)
-End
-
-(* some abbreviations *)
-Overload Let  = “λs x y. App (Lam s y) x”      (* let-expression    *)
-Overload If   = “λx y z. Prim If [x; y; z]”    (* If   at exp level *)
-Overload Lit  = “λa. Prim (Lit a) []”           (* Lit at exp level *)
-Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
-Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
-Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
-Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
-
-
-(* a call-by-name semantics in a denotational semantics style *)
-
-(* would like to have:
-Codatatype:
-  ('a,'b) v = Atom 'b
-          | Constructor string (('a,'b) v) list)
-          | Closure vname ('a exp)
-          | Diverge
-          | Error
-End
-*)
-
-Datatype:
-  v_prefix = Atom' 'b
-           | Constructor' string
-           | Closure' vname (('a,'b) exp)
-           | Diverge'
-           | Error'
-End
-
-Type v = “:(('a,'b) v_prefix) ltree”;
-
-Overload Atom = “λb. Branch (Atom' b) LNIL”;
-Overload Constructor = “λs ts. Branch (Constructor' s) ts”;
-Overload Constructor = “λs ts. Branch (Constructor' s) (fromList ts)”;
-Overload Closure = “λs x. Branch (Closure' s x) LNIL”;
-Overload Diverge = “Branch Diverge' LNIL”;
-Overload Error = “Branch Error' LNIL”;
-Overload True  = “Branch (Constructor' "True" ) LNIL”;
-Overload False = “Branch (Constructor' "False") LNIL”;
+Overload True  = “Constructor "True" []”;
+Overload False = “Constructor "False" []”;
 
 Definition dest_Closure_def:
   dest_Closure x =
@@ -98,7 +22,7 @@ QED
 Theorem dest_Closure_Closure_IMP:
   dest_Closure v = SOME (s,x) ⇒ v = Closure s x
 Proof
-  rw [] \\ Cases_on ‘v’ \\ Cases_on ‘a’ \\ Cases_on ‘ts’ \\ gs[dest_Closure_def]
+  rw [] \\ Cases_on ‘v’ \\ gs[dest_Closure_def]
 QED
 
 Triviality exp_size_lemma:
@@ -106,7 +30,7 @@ Triviality exp_size_lemma:
   (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) (K 0) a < exp3_size (K 0) (K 0) xs) ∧
   (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) (K 0) a < exp1_size (K 0) (K 0) xs)
 Proof
-  conj_tac \\ TRY conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [fetch "-" "exp_size_def"]
+  conj_tac \\ TRY conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [exp_size_def]
 QED
 
 Definition subst_def:
@@ -147,8 +71,8 @@ Termination
   \\ TRY (Induct_on ‘lcs’)
   \\ TRY (Induct_on ‘css’)
   \\ TRY (Induct_on ‘es’)
-    \\ rw [] \\ fs [fetch "-" "exp_size_def"] \\ res_tac \\ fs[]
-    \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
+  \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs[]
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
 End
 
 Definition closed_def:
@@ -163,8 +87,7 @@ Definition el_def:
     if x = Diverge then Diverge else
       case x of
       | Constructor t xs =>
-          if s = t then
-            (case LNTH i xs of NONE => Error | SOME x => x)
+          if s = t ∧ i < LENGTH xs then EL i xs
           else Error
       | _ => Error
 End
@@ -173,13 +96,11 @@ Definition is_eq_def:
   is_eq c s n x =
     if x = Diverge then Diverge else
       case x of
-      | Constructor t (xs:(('a,'b) v) llist) =>
-                      (case LLENGTH xs of
-                         | NONE   => Error
-                         | (SOME n') => (if (n = n')
-                                          then (if s = t then True else False)
-                                          else Error)
-                      )
+        Constructor t xs =>
+          let n' = LENGTH xs in
+            if n = n' then
+              (if s = t then True else False)
+            else Error
       | _ => Error
 End
 
