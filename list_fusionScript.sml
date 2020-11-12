@@ -410,9 +410,7 @@ TODO: fix this
 (*evaluation of map, case (x::xs)*)
 Theorem eval_map_cons:
   ∀ f. closed f ∧ closed x ∧ closed y ⇒
-   eval c (App (App map f) (cons [x;y])) = z
- = Constructor "cons" [
-       z ; z' ]
+   eval c (App (App map f) (cons [x;y])) = Constructor "cons" [
        eval c (App f   (Proj "cons" 0 (cons [x;y]))) ;  (*TODO, equational reason *)
        eval c (App map (Proj "cons" 1 (cons [x;y])))    (*this Proj away          *)
    ]
@@ -489,18 +487,19 @@ QED
 
 Definition next_list_def:
   next_list (f:('a,'b) exp) c (input:('a,'b) exp) =
-              if eval c input = Diverge then (INL bottom)
-              else (case eval c input of
-                    | Constructor n vs =>
-                        (if n = "nil" ∧ LLENGTH vs = SOME 0
-                           then (INL (nil:('a,'b) exp))
-                         else if n = "cons" ∧ LLENGTH vs = SOME 2
-                           then (INR (n
-                                     ,App f (Proj n 0 input)
-                                     ,Proj n 1 input       ))
-                           else (INL (Fail:('a,'b) exp))
-                        )
-                    | _ => (INL (Fail:('a,'b) exp)))
+              if (¬closed input) then (INL Fail)
+              else ( if eval c input = Diverge then (INL bottom)
+                     else (case eval c input of
+                           | Constructor n vs =>
+                               (if n = "nil" ∧ LLENGTH vs = SOME 0
+                                then (INL (nil:('a,'b) exp))
+                                else if n = "cons" ∧ LLENGTH vs = SOME 2
+                                then (INR (n
+                                           ,App f (Proj n 0 input)
+                                           ,Proj n 1 input       ))
+                                else (INL Fail)
+                               )
+                           | _ => (INL Fail)))
 End
 
 Theorem progress_map_f:
@@ -516,11 +515,15 @@ Proof
   \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
   \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
   \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
+  \\ reverse IF_CASES_TAC THEN1 (fs[next_list_def,closed_def,v_rel_refl])
+  \\ fs[eval_thm]
+  \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
+  \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
+  \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
   \\ Cases_on ‘eval c input = Diverge’
-  THEN1 (fs[next_list_def] \\ fs[eval_bottom] \\ fs[v_rel_refl])
+  THEN1 (fs[next_list_def,closed_def] \\ fs[eval_bottom] \\ fs[v_rel_refl])
   \\ fs[]
-  \\ Cases_on ‘eval c input’ \\ fs[]
-  \\ fs[next_list_def]
+  \\ Cases_on ‘eval c input’\\Cases_on ‘a’\\fs[next_list_def,eval_thm,v_rel_refl,closed_def]
   \\ cheat
   (* \\ Cases_on ‘eval c input’ \\ fs[] \\ Cases_on ‘a’ \\ fs[eval_thm,v_rel_refl] *)
   (* THEN1 ( *)
@@ -683,42 +686,6 @@ Theorem exp_rel_add1'oadd1'_add2':
 Proof
   cheat
 QED
-
-(*
-we want to use progress to set up a framework that allows to
-equate closures under exp_rel equivalence.
-We prove that exp1 and exp2 "progress" in the same way,
-and conclude that the two expressions are exp related.
-
-I believe this is true:
-
-exp_rel x exp1 exp2 ⇒ ∀x. exp_rel c (App exp1 x) (App exp2 x)
-
-In fact, from exp_rel definition:
-
-with
-    eval c exp1 = Closure s1 x1 ∧ eval c exp2 = Closure s2 x2
-then we have
-    v_rel c (eval c exp1) (eval c exp2)
-    ⇒
-    ∀ z. v_rel' c n (eval c (bind [(s1,z)] x1))
-                    (eval c (bind [(s2,z)] x2))
-
-and
- ∀ x. exp_rel c (App exp1 x) (App exp2 x)
-=                                                        (exp_rel_def)
- ∀ x. exp_val c (eval c (App exp1 x)) (eval c (App exp2 x))
-=                                                        (eval_thm)
-  assuming
-     eval c exp1 = Closure x1 s1
-     eval c exp2 = Closure x2 s2
-
-  ∀ x. exp_val c (eval c (bind [(x1,x] s1))
-                 (eval c (bind [(x2,x] s2))
-
-(roughly as above...)
-*)
-
 
 
 Theorem deforestation:
