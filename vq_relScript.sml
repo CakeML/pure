@@ -86,19 +86,17 @@ Overload False = “Constructor "False" LNIL”;
  *)
 
 Theorem v_distinct:
-  (∀b n x. Atom b ≠ Constructor n x) ∧
-  (∀b s x. Atom b ≠ Closure s x) ∧
-  (∀b. Atom b ≠ Diverge) ∧
-  (∀b. Atom b ≠ Error) ∧
-  (∀n x s y. Constructor n x ≠ Closure s y) ∧
-  (∀n x. Constructor n x ≠ Diverge) ∧
-  (∀n x. Constructor n x ≠ Error) ∧
-  (∀s x. Closure s x ≠ Diverge) ∧
-  (∀s x. Closure s x ≠ Error) ∧
-  Diverge ≠ Error
+  ALL_DISTINCT [
+    Atom b;
+    Closure s x;
+    Constructor n y;
+    Diverge;
+    Error]
 Proof
   rw [Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def]
 QED
+
+Theorem v_distinct = SIMP_RULE list_ss [] v_distinct;
 
 Theorem Atom_11:
   Atom x1 = Atom x2 ⇔ x1 = x2
@@ -254,7 +252,9 @@ Proof
   \\ reverse eq_tac
   >- simp [v_rel_eqns]
   \\ strip_tac
-  \\ cheat (* Good luck *)
+  \\ fs [Closure_11]
+  \\ simp [v_rel_def, Once SWAP_FORALL_THM]
+  \\ cheat
 QED
 
 (*
