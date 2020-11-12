@@ -62,7 +62,7 @@ Definition Atom_def:
 End
 
 Definition Constructor_def:
-  Constructor n ts = Branch (Constructor' n) ts
+  Constructor n ts = Branch (Constructor' n) (fromList ts)
 End
 
 Definition Closure_def:
@@ -77,9 +77,9 @@ Definition Error_def:
   Error = Branch Error' LNIL
 End
 
-Overload True = “Constructor "True" LNIL”;
+Overload True = “Constructor "True" []”;
 
-Overload False = “Constructor "False" LNIL”;
+Overload False = “Constructor "False" []”;
 
 (*
  * Theorems about :v.
@@ -130,7 +130,7 @@ Theorem v_rel_eqns:
        v_rel c (Closure n1 x1) (Closure n2 x2)) ∧
   (∀n1 x1 n2 x2.
      n1 = n2 ∧
-     llist_rel (v_rel c) x1 x2 ⇒
+     LIST_REL (v_rel c) x1 x2 ⇒
        v_rel c (Constructor n1 x1) (Constructor n2 x2)) ∧
   v_rel c Diverge Diverge ∧
   v_rel c Error Error
@@ -150,19 +150,76 @@ Proof
     \\ ntac 3 gen_tac
     \\ Cases
     \\ rw [v_rel'_def, Constructor_def, DISJ_EQ_IMP]
-    \\ cheat (* TODO There's a LIST_REL and fromList here. Why? *))
+    \\ fs[listTheory.LIST_REL_EL_EQN, v_rel_def])
      (* Constants *)
   \\ Cases \\ simp [v_rel'_def]
 QED
 
+Triviality v_rel'_refl:
+  ∀ n c x . v_rel' c n x x
+Proof
+  Cases >> rw[v_rel'_def]
+QED
+
 Theorem v_rel_eq_simps:
-  (∀b x. v_rel c (Atom b) x ⇔ ∃b'. x = Atom b') ∧
-  (∀n x y. v_rel c (Constructor n x) y ⇔ ∃n' x'. y = Constructor n' x') ∧
-  (∀s x y. v_rel c (Closure s x) y ⇔ ∃s' x'. y = Closure s' x') ∧
+  (∀b x. v_rel c (Atom b) x ⇔ x = Atom b) ∧
+  (∀n x y. v_rel c (Constructor n x) y ⇔
+    ∃x'.
+      y = Constructor n x' ∧
+      LIST_REL (v_rel c) x x') ∧
+  (∀s x y. v_rel c (Closure s x) y ⇔
+    ∃s' x'.
+      y = Closure s' x' ∧
+      ∀z. exp_rel c (bind [(s,z)] x) (bind [(s',z)] x')) ∧
   (∀x. v_rel c Diverge x ⇔ x = Diverge) ∧
   (∀x. v_rel c Error x ⇔ x = Error)
 Proof
-  cheat
+  rw[v_rel_def]
+  >- ( (* Atom *)
+    EQ_TAC >> strip_tac
+    >- (
+      first_x_assum (qspec_then `SUC 0` assume_tac) >>
+      gvs[v_rel'_def, Atom_def]
+      ) >>
+    gvs[v_rel'_refl]
+    )
+  >- ( (* Constructor *)
+    reverse EQ_TAC >> strip_tac
+    >- (
+      gvs[] >>
+      Cases >> gvs[v_rel'_def, Constructor_def] >>
+      DISJ2_TAC >>
+      fs[listTheory.LIST_REL_EL_EQN, v_rel_def]
+      ) >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `y` >> gvs[v_rel'_def, Constructor_def] >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `a` >> fs[v_rel'_def, Constructor_def] >> gvs[]
+    >- (irule listTheory.EVERY2_refl >> rw[] >> fs[v_rel_refl]) >>
+    fs[listTheory.LIST_REL_EL_EQN] >> rw[v_rel_def] >>
+    rename1 `m < _` >> rename1 `v_rel' _ step _ _` >>
+    last_x_assum (qspec_then `SUC step` assume_tac) >> gvs[v_rel'_def] >>
+    fs[listTheory.LIST_REL_EL_EQN, v_rel'_refl]
+    )
+  >- ( (* Closure *)
+    reverse EQ_TAC >> strip_tac
+    >- (
+      gvs[] >>
+      Cases >> gvs[v_rel'_def, Closure_def] >>
+      fs[exp_rel_def, v_rel_def]
+      ) >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `y` >> gvs[v_rel'_def, Closure_def, exp_rel_def, v_rel_def] >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `a` >> fs[v_rel'_def, Closure_def] >> rw[] >> gvs[v_rel'_refl] >>
+    first_x_assum (qspec_then `SUC n` assume_tac) >>
+    gvs[v_rel'_def, v_rel'_refl]
+    )
+  >> ( (* Diverge, Error *)
+    EQ_TAC >> rw[v_rel'_refl] >>
+    pop_assum (qspec_then `SUC 0` assume_tac) >>
+    gvs[v_rel'_def, Diverge_def, Error_def]
+    )
 QED
 
 (*
@@ -175,7 +232,7 @@ Theorem eval_thm:
   eval c Fail = Error ∧
   eval c (Var s) = Error ∧
   eval c (Cons s xs) =
-    Constructor s (LMAP (eval c) (fromList xs)) ∧
+    Constructor s (MAP (eval c) xs) ∧
   eval c (IsEq s n x) = is_eq c s n (eval c x) ∧
   eval c (Proj s i x) = el s i (eval c x) ∧
   eval c (Let s x y) = eval c (bind [(s,x)] y) ∧
@@ -218,25 +275,22 @@ Theorem vq_eval_thm =
 Theorem Constructor_vq_11:
   vq_rel (Constructor n x) (Constructor m y) ⇔
     n = m ∧
-    llist_rel vq_rel x y
+    LIST_REL vq_rel x y
 Proof
-  reverse eq_tac
-  >-
-   (simp [vq_rel_def, v_rel_def, Constructor_def, PULL_FORALL]
-    \\ Cases \\ simp [v_rel'_def]
-    \\ rw [llistTheory.llist_rel_def, v_rel_def]
-    \\ simp [listTheory.LIST_REL_EL_EQN, v_rel_def]
-    \\ cheat (* TODO: there's a LIST_REL here. *))
-  \\ simp [vq_rel_def, v_rel_def, Constructor_def, listTheory.LIST_REL_EL_EQN]
-  \\ simp [llistTheory.llist_rel_def]
-  \\ strip_tac
-  \\ simp [CONJ_ASSOC]
-  \\ conj_asm1_tac \\ fs []
-  >-
-   (pop_assum (qspec_then ‘SUC 0’ mp_tac)
-    \\ simp [v_rel'_def, llistTheory.llist_rel_def, listTheory.LIST_REL_EL_EQN]
-    \\ rw [] \\ fs [])
-  \\ cheat (* Meh *)
+  reverse eq_tac >>
+  simp[vq_rel_def, v_rel_def, Constructor_def] >> strip_tac
+  >- (
+    Cases >> simp[v_rel'_def] >>
+    fs[listTheory.LIST_REL_EL_EQN, vq_rel_def, v_rel_def]
+    )
+  >- (
+    first_assum (qspec_then `SUC 0` assume_tac) >> fs[v_rel'_def] >> gvs[]
+    >- (irule listTheory.EVERY2_refl >> fs[v_rel_refl]) >>
+    fs[listTheory.LIST_REL_EL_EQN, v_rel_def] >> rw[] >>
+    rename1 `v_rel' _ k _ _` >>
+    last_x_assum (qspec_then `SUC k` assume_tac) >>
+    gvs[v_rel'_def, v_rel'_refl, listTheory.LIST_REL_EL_EQN]
+    )
 QED
 
 (*
@@ -252,9 +306,7 @@ Proof
   \\ reverse eq_tac
   >- simp [v_rel_eqns]
   \\ strip_tac
-  \\ fs [Closure_11]
-  \\ simp [v_rel_def, Once SWAP_FORALL_THM]
-  \\ cheat
+  \\ gvs[v_rel_eq_simps, exp_rel_def, Closure_11]
 QED
 
 (*
@@ -270,7 +322,7 @@ QED
 
 Theorem Constructor_rsp:
   x1 = y1 ∧
-  llist_rel vq_rel x2 y2 ⇒
+  LIST_REL vq_rel x2 y2 ⇒
     vq_rel (Constructor x1 x2) (Constructor y1 y2)
 Proof
   rw [vq_rel_def]
@@ -335,10 +387,6 @@ Proof
 QED
 *)
 
-(*
- * TODO: Bleh, need more equations about how well-formed values look.
- *)
-
 Theorem is_eq_rsp:
   c1 = c2 ∧
   x1 = y1 ∧
@@ -355,8 +403,7 @@ Proof
   \\ fs [Constructor_def, Diverge_def, Error_def, Atom_def] \\ rw []
   \\ fs [v_rel_def]
   \\ first_x_assum (qspec_then ‘SUC 0’ assume_tac)
-  \\ fs [v_rel'_def]
-  \\ cheat
+  \\ gvs [v_rel'_def, listTheory.LIST_REL_EL_EQN, v_rel'_refl]
 QED
 
 (*
@@ -370,9 +417,26 @@ Theorem vq_el_rsp:
   vq_rel x3 y3 ⇒
     vq_rel (el x1 x2 x3) (el y1 y2 y3)
 Proof
-  rw [el_def]
-  \\ rpt CASE_TAC \\ fs []
-  \\ cheat
+  rw [el_def] >>
+  fs[vq_rel_def, v_rel_def, GSYM Diverge_def, v_rel_eq_simps]
+  >- (
+    rename1 `x ≠ Diverge` >>
+    pop_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `x` >> fs[v_rel'_def, Diverge_def]
+    ) >>
+  strip_tac >>
+  rename1 `∀n. v_rel' _ n x y` >>
+  fs[Diverge_def] >>
+
+  Cases_on `x` >> Cases_on `y` >>
+  first_assum (qspec_then `SUC 0` assume_tac) >>
+  fs[llistTheory.LNTH_fromList, v_rel'_def, v_rel'_refl,
+     listTheory.LIST_REL_EL_EQN] >>
+  gvs[] >>
+  Cases_on `x1 = m` >> gvs[v_rel'_refl] >>
+  CASE_TAC >> gvs[v_rel'_refl] >>
+  first_x_assum (qspec_then `SUC n` assume_tac) >>
+  gvs[v_rel'_def, v_rel'_refl, listTheory.LIST_REL_EL_EQN]
 QED
 
 Theorem isClos_rsp:
