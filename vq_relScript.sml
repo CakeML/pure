@@ -375,6 +375,12 @@ Proof
   \\ cheat
 QED
 
+Theorem isClos_rsp:
+  ∀x y. vq_rel x y ⇒ isClos x = isClos y
+Proof
+  metis_tac [isClos_def, vq_rel_def, v_rel_def, v_rel'_def]
+QED
+
 (*
  * Not many conjuncts survive (yet):
  *)
@@ -384,6 +390,27 @@ Theorem vq_eval_thm =
   |> CONJUNCTS
   |> C (curry List.take) 2
   |> LIST_CONJ;
+
+Theorem vq_progress_lemma =
+  progress_lemma
+  |> Q.INST [‘c’|->‘empty_conf’]
+  |> REWRITE_RULE [
+       exp_rel_def,
+       GSYM vq_rel_def,
+       GSYM vq_eval_def];
+
+Theorem isClos_is_Closure:
+  ∀v. isClos v ⇔ ∃s x. vq_rel v (Closure s x)
+Proof
+  Cases
+  \\ Cases_on ‘a’ \\ Cases_on ‘ts’
+  \\ rw [Closure_def, isClos_def, vq_rel_def, v_rel_def]
+  \\ TRY
+    (Q.REFINE_EXISTS_TAC ‘SUC n’
+     \\ simp [v_rel'_def])
+  \\ Q.LIST_EXISTS_TAC [‘s’, ‘e’]
+  \\ simp [GSYM v_rel_def, v_rel_refl] (* Meh. *)
+QED
 
 (*
  * Perform lifting.
@@ -425,6 +452,11 @@ val thms = define_quotient_types_full {
     {def_name = "dest_Closure_vq_def",
      fname    = "dest_Closure_vq",
      func     = “dest_Closure”,
+     fixity   = NONE},
+    {
+     def_name = "isClos_vq_def",
+     fname    = "is_Clos_vq",
+     func     = “isClos”,
      fixity   = NONE}
     (*
     {def_name = "is_eq_vq_def",
@@ -443,7 +475,8 @@ val thms = define_quotient_types_full {
   tyop_simps = [llist_rel_equality, llist_map_I],
   respects = [
     Constructor_rsp,
-    dest_Closure_rsp
+    dest_Closure_rsp,
+    isClos_rsp
     ],
   poly_preserves = [],
   poly_respects = [
@@ -451,17 +484,14 @@ val thms = define_quotient_types_full {
   old_thms = [
     Constructor_vq_11,
     Closure_vq_11,
-    vq_eval_thm
+    vq_eval_thm,
+    vq_progress_lemma,
+    isClos_is_Closure
     ]
   };
 
-(*
-  progress c exp1 next ∧
-  progress c exp2 next ∧
-  isClos (vq_eval exp1) ∧
-  isClos (vq_eval exp2) ⇒
-    vq_eval exp1 = vq_eval exp2
- *)
+Theorem progress_vq =
+  SIMP_RULE std_ss [el 5 thms, PULL_EXISTS] (el 4 thms);
 
 val _ = export_theory ();
 
