@@ -1,7 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory bagTheory;
+     ltreeTheory llistTheory bagTheory quotient_llistTheory;
 
 val _ = new_theory "ast";
 
@@ -303,6 +303,9 @@ Proof
   \\ metis_tac [to_fromList]
 QED
 
+val v_repabs_imp =
+  v_repabs |> REWRITE_RULE [EQ_IMP_THM] |> SPEC_ALL |> CONJUNCT1 |> GSYM;
+
 Theorem v_nchotomy:
   ∀v.
     (∃b. v = Atom b) ∨
@@ -323,17 +326,16 @@ Proof
   \\ qexists_tac ‘s’
   \\ qexists_tac ‘MAP v_abs t’
   \\ simp [MAP_MAP_o, combinTheory.o_DEF]
-  (* TODO: Clean up this part. *)
-  \\ ‘EVERY v_rep_ok t’ by cheat
-  \\ fs [v_repabs]
-  \\ qpat_x_assum ‘_ = _’ (SUBST1_TAC o SYM)
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ simp [Constructor_rep_def]
-  \\ fs [EVERY_MEM]
-  \\ pop_assum mp_tac
-  \\ pop_assum kall_tac
-  \\ Induct_on ‘t’ \\ simp [v_repabs]
+  \\ imp_res_tac v_repabs
+  \\ pop_assum (once_rewrite_tac o single o GSYM)
+  \\ rpt AP_TERM_TAC
+  \\ rw[LIST_EQ_REWRITE, EL_MAP]
+  \\ irule v_repabs_imp
+  \\ fs[v_rep_ok_def, subtrees_def]
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ qexists_tac `x::path`
+  \\ fs[ltree_lookup_def, Constructor_rep_def, LNTH_fromList]
 QED
 
 Definition v_CASE[nocompute]:
@@ -406,10 +408,111 @@ Proof
   rw [boolTheory.DATATYPE_TAG_THM]
 QED
 
+(* TODO: move to ltreeTheory *)
+Theorem ltree_lookup_APPEND:
+  ∀ path1 path2 t.
+    ltree_lookup t (path1 ++ path2) =
+    OPTION_BIND (ltree_lookup t path1) (λsubtree. ltree_lookup subtree path2)
+Proof
+  Induct >> rw[optionTheory.OPTION_BIND_def] >>
+  Cases_on `t` >> fs[ltree_lookup_def] >>
+  Cases_on `LNTH h ts` >> fs[optionTheory.OPTION_BIND_def]
+QED
+
+Theorem v_rep_ok_ltree_el:
+  ∀ vtree subtree.
+    v_rep_ok vtree ∧
+    subtree ∈ subtrees vtree
+  ⇒ v_rep_ok subtree
+Proof
+  rw[] >> fs[subtrees_def, v_rep_ok_def] >> rw[] >>
+  rename1 `ltree_lookup vtree vpath` >> rename1 `ltree_lookup subtree spath` >>
+  qspecl_then [`vpath`,`spath`,`vtree`] assume_tac ltree_lookup_APPEND >>
+  gvs[optionTheory.OPTION_BIND_def] >>
+  first_x_assum irule >>
+  goal_assum drule
+QED
+
+Theorem v_prefix_ltree_bisimulation:
+∀ t1 t2.
+  t1 = t2 ∧ v_rep_ok t1 ⇔
+    ∃R. R t1 t2 ∧ v_rep_ok t1 ∧ v_rep_ok t2 ∧
+      ∀ a1 ts1 a2 ts2.
+        R (Branch a1 ts1) (Branch a2 ts2) ∧
+        v_rep_ok (Branch a1 ts1) ∧ v_rep_ok (Branch a2 ts2)
+      ⇒ a1 = a2 ∧
+        llist_rel R ts1 ts2
+Proof
+  rw[] >> eq_tac
+  >- (rw[] >> qexists_tac `(=)` >> rw[llist_rel_equality]) >>
+  rw[ltree_el_eqv] >> fs[] >>
+  ntac 3 (last_x_assum mp_tac) >> qid_spec_tac `t1` >> qid_spec_tac `t2` >>
+  Induct_on `path` >> rw[] >> rename1 `R s1 s2` >>
+  Cases_on `s1` >> Cases_on `s2`
+  >- (rw[ltree_el_def] >> fs[llist_rel_def] >> res_tac) >>
+  fs[ltree_el_def] >>
+  last_assum drule_all >> strip_tac >>
+  gvs[llist_rel_def] >>
+  Cases_on `LNTH h ts` >> Cases_on `LNTH h ts'` >> fs[] >>
+  imp_res_tac LNTH_NONE_LLENGTH >> gvs[] >>
+  imp_res_tac LNTH_LLENGTH_NONE >> gvs[] >>
+  first_x_assum irule >> reverse (rw[])
+  >- (
+    first_x_assum irule >>
+    goal_assum drule >> fs[]
+    ) >>
+  irule v_rep_ok_ltree_el >>
+  rename1 `subtree ∈ _` >>
+  rename1 `LNTH _ vtree = SOME subtree` >>
+  qexists_tac `Branch a vtree` >> fs[subtrees_def] >>
+  qexists_tac `[h]` >> fs[ltree_lookup_def]
+QED
+
+fun swap_alpha_beta th = th |> INST_TYPE [alpha |-> beta, beta |-> alpha];
+
+Theorem v_bisimulation:
+  ∀v1 v2.
+    v1 = v2 ⇔
+    ∃R. R v1 v2 ∧
+        ∀v3 v4. R v3 v4 ⇒
+          (∃a. v3 = Atom a ∧ v4 = Atom a) ∨
+          (∃s vs3 vs4.
+            v3 = Constructor s vs3 ∧
+            v4 = Constructor s vs4 ∧
+            LIST_REL R vs3 vs4) ∨
+          (∃s e. v3 = Closure s e ∧ v4 = Closure s e) ∨
+          (v3 = Diverge ∧ v4 = Diverge) ∨
+          (v3 = Error ∧ v4 = Error)
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (qexists_tac `(=)` >> fs[v_nchotomy]) >>
+  fs[Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def] >>
+  fs[Atom_rep_def, Constructor_rep_def, Closure_rep_def,
+     Diverge_rep_def, Error_rep_def] >>
+  rw[GSYM v_rep_11] >>
+  qspecl_then [`v_rep v1`,`v_rep v2`] assume_tac v_prefix_ltree_bisimulation >>
+  fs[] >> pop_assum kall_tac >>
+  qexists_tac `λv1 v2. R (v_abs v1) (v_abs v2)` >> fs[v_absrep] >>
+  rpt gen_tac >> strip_tac >>
+  fs[GSYM v_rep_11] >>
+  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Constructor >>
+  assume_tac v_rep_ok_Closure >>
+  assume_tac v_rep_ok_Diverge >>
+  assume_tac v_rep_ok_Error >>
+  fs[Atom_rep_def, Constructor_rep_def, Closure_rep_def,
+     Diverge_rep_def, Error_rep_def] >>
+  fs[v_repabs] >>
+  first_assum drule >>
+  strip_tac >> gvs[] >>
+  fs[llist_rel_def, LIST_REL_EL_EQN, GSYM LMAP_fromList,
+     LNTH_fromList, EL_MAP, v_absrep]
+QED
+
 val _ = TypeBase.export
   [TypeBasePure.mk_datatype_info
     { ax = TypeBasePure.ORIG TRUTH,
-      induction = TypeBasePure.ORIG TRUTH, (* TODO: bisimulation *)
+      induction = TypeBasePure.ORIG v_bisimulation,
       case_def = v_CASE,
       case_cong = v_CASE_cong,
       case_eq = v_CASE_eq,
