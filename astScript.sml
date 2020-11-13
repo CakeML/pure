@@ -116,7 +116,7 @@ Proof
 QED
 
 (*
- * RUBRIK
+ * Define constructors.
  *)
 
 Definition Atom_rep_def:
@@ -139,10 +139,6 @@ Definition Error_rep_def:
   Error_rep = Branch Error' LNIL
 End
 
-(*
- * RUBRIK
- *)
-
 Definition Atom_def:
   Atom b = v_abs (Atom_rep b)
 End
@@ -164,9 +160,8 @@ Definition Error_def:
 End
 
 (*
- * RUBRIK
+ * TODO: Move to llist?
  *)
-
 Theorem LSET_fromList:
   ∀l. LSET (fromList l) = set l
 Proof
@@ -308,7 +303,7 @@ Proof
   \\ metis_tac [to_fromList]
 QED
 
-Theorem v_cases:
+Theorem v_nchotomy:
   ∀v.
     (∃b. v = Atom b) ∨
     (∃s t. v = Constructor s t) ∨
@@ -377,7 +372,7 @@ Theorem v_CASE_eq:
     (v = Diverge ∧ div = x) ∨
     (v = Error ∧ err = x)
 Proof
-  qspec_then ‘v’ strip_assume_tac v_cases \\ rw []
+  qspec_then ‘v’ strip_assume_tac v_nchotomy \\ rw []
   \\ fs [v_CASE, v_11, v_distinct]
 QED
 
@@ -396,7 +391,7 @@ Theorem v_CASE_cong:
       v_CASE M atom cons clos div err = v_CASE M' atom' cons' clos' div' err'
 Proof
   rw []
-  \\ qspec_then ‘M’ strip_assume_tac v_cases
+  \\ qspec_then ‘M’ strip_assume_tac v_nchotomy
   \\ rw [] \\ fs [v_CASE]
 QED
 
@@ -418,7 +413,7 @@ val _ = TypeBase.export
       case_def = v_CASE,
       case_cong = v_CASE_cong,
       case_eq = v_CASE_eq,
-      nchotomy = v_cases,
+      nchotomy = v_nchotomy,
       size = NONE,
       encode = NONE,
       lift = NONE,
