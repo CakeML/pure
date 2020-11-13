@@ -528,6 +528,169 @@ val _ = TypeBase.export
       destructors = [],
       recognizers = [] } ]
 
-val _ = export_theory ();
+(* v_lookup takes a list of indices and a value, and uses the indices one-by-one
+   to recurse into the structure of the value. Note that only the `Constructor`
+   node has sub-nodes.
+   v_lookup returns the specified node, together with the number of children
+   of that node. To achieve this, we define the `v_to_prefix` function, which
+   removes child nodes *)
 
+Definition v_to_prefix_def:
+  v_to_prefix v = case v_rep v of Branch a ts => a
+End
+
+Theorem v_to_prefix:
+  (∀a. v_to_prefix (Atom a) = Atom' a : (α,β) v_prefix) ∧
+  (∀c vs. v_to_prefix (Constructor c vs) = Constructor' c : (α,β) v_prefix) ∧
+  (∀x body. v_to_prefix (Closure x body) = Closure' x body : (α,β) v_prefix) ∧
+  v_to_prefix Diverge = Diverge' : (α,β) v_prefix ∧
+  v_to_prefix Error = Error' : (α,β) v_prefix
+Proof
+  fs[Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def] >>
+  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Constructor >>
+  assume_tac v_rep_ok_Closure >>
+  assume_tac v_rep_ok_Diverge >>
+  assume_tac v_rep_ok_Error >>
+  fs[Atom_rep_def, Constructor_rep_def, Closure_rep_def,
+     Diverge_rep_def, Error_rep_def] >>
+  fs[v_to_prefix_def, v_repabs]
+QED
+
+Definition v_lookup_def:
+  v_lookup path v =
+    case ltree_lookup (v_rep v) path of
+    | SOME (Branch a ts) => (a, THE (LLENGTH ts))
+    | NONE => (Diverge', 0)
+End
+
+Theorem v_lookup:
+  (∀v. v_lookup [] (v : (α,β) v) =
+    (v_to_prefix v, case v of Constructor c vs => LENGTH vs | _ => 0)) ∧
+  ∀n path. v_lookup (n::path) (v : (α,β) v) =
+    (case v of
+    | Constructor c vs =>
+      (case oEL n vs of
+      | SOME v' => v_lookup path v'
+      | NONE => (Diverge', 0))
+    | _ => (Diverge', 0))
+Proof
+  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Constructor >>
+  assume_tac v_rep_ok_Closure >>
+  assume_tac v_rep_ok_Diverge >>
+  assume_tac v_rep_ok_Error >>
+  rw[v_lookup_def] >>
+  Cases_on `v` >>
+  fs[Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def] >>
+  fs[v_repabs] >>
+  fs[Atom_rep_def, Constructor_rep_def, Closure_rep_def,
+     Diverge_rep_def, Error_rep_def] >>
+  fs[ltree_lookup_def, v_to_prefix_def] >>
+  fs[GSYM LMAP_fromList, LNTH_fromList, oEL_THM] >>
+  CASE_TAC >> fs[EL_MAP]
+QED
+
+Triviality v_lookup_0:
+  ∀ path v prefix len.
+    v_lookup path v = (prefix, len) ∧
+    (∀c. prefix ≠ Constructor' c)
+  ⇒ len = 0
+Proof
+  Induct >> fs[v_lookup] >> rw[] >>
+  Cases_on `v` >> fs[v_to_prefix] >>
+  Cases_on `oEL h t` >> fs[] >>
+  first_x_assum irule >>
+  goal_assum drule >> goal_assum drule
+QED
+
+(* make_v_rep : (num list -> (α,β) vprefix # num) -> (α,β) vprefix ltree *)
+(* Given a function which takes a path (:num list) and returns the corresponding
+   node, produce the lazy tree of all nodes.
+   make_v_rep must also produce ltrees which satisfy v_rep_ok *)
+Definition make_v_rep_def:
+  make_v_rep f = gen_ltree (
+    λpath.
+      case f path of
+      | (Atom' a, _) => (Atom' a, SOME 0)
+      | (Constructor' c, n) => (Constructor' c, SOME n)
+      | (Closure' x body, _) => (Closure' x body, SOME 0)
+      | (Diverge', _) => (Diverge', SOME 0)
+      | (Error', _) => (Error', SOME 0))
+End
+
+(* TODO move to ltreeTheory *)
+Theorem ltree_lookup_SOME_gen_ltree:
+  ∀ path f a ts.
+    ltree_lookup (gen_ltree f) path = SOME (Branch a ts)
+  ⇒ f path = (a, LLENGTH ts)
+Proof
+  Induct >> rw[]
+  >- (
+    Cases_on `f []` >> fs[] >>
+    gvs[Once gen_ltree, ltree_lookup_def]
+    ) >>
+  Cases_on `f []` >> fs[] >> rename1 `f [] = (e1, e2)` >>
+  gvs[Once gen_ltree, ltree_lookup_def] >>
+  fs[LNTH_LGENLIST] >>
+  Cases_on `e2` >> gvs[] >>
+  Cases_on `h < x` >> fs[]
+QED
+
+Triviality v_rep_ok_make_v_rep:
+  ∀f. v_rep_ok (make_v_rep f)
+Proof
+  rw[v_rep_ok_def, subtrees_def, make_v_rep_def] >>
+  drule ltree_lookup_SOME_gen_ltree >> rw[] >>
+  Cases_on `f path` >> rename1 `(prefix, len_opt)` >> fs[] >>
+  Cases_on `prefix` >> gvs[] >>
+  fs[LFINITE_LLENGTH] >>
+  qexists_tac `len_opt` >> fs[]
+QED
+
+(* gen_v : (num list -> (α,β) vprefix # num) -> (α,β) v *)
+(* Generates a value of type v given a function generating v_prefix nodes when
+   given a path *)
+Definition gen_v_def:
+  gen_v f = v_abs (make_v_rep f)
+End
+
+Theorem gen_v:
+  ∀f. gen_v f =
+    case f [] of
+    | (Atom' a, len) => Atom a
+    | (Constructor' c, len) =>
+        Constructor c (GENLIST (λn. gen_v (λpath. f (n::path))) len)
+    | (Closure' x body, len) => Closure x body
+    | (Diverge', len) => Diverge
+    | (Error', len) => Error
+Proof
+  rw[gen_v_def, GSYM v_rep_11] >>
+  qspec_then `f` assume_tac v_rep_ok_make_v_rep >>
+  fs[v_repabs] >>
+  simp[make_v_rep_def, Once gen_ltree] >>
+  Cases_on `f []` >> rename1 `f [] = (prefix, len)` >> fs[] >>
+  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Constructor >>
+  assume_tac v_rep_ok_Closure >>
+  assume_tac v_rep_ok_Diverge >>
+  assume_tac v_rep_ok_Error >>
+  Cases_on `prefix` >>
+  fs[Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def] >>
+  fs[v_repabs] >>
+  fs[Atom_rep_def, Constructor_rep_def, Closure_rep_def,
+     Diverge_rep_def, Error_rep_def] >>
+  fs[MAP_GENLIST, combinTheory.o_DEF, LGENLIST_EQ_fromList] >>
+  rw[GENLIST_FUN_EQ] >>
+  qpat_abbrev_tac `tree = gen_ltree _` >>
+  rw[GSYM v_repabs] >>
+  irule v_rep_ok_ltree_el >>
+  qexists_tac `make_v_rep f` >>
+  assume_tac v_rep_ok_make_v_rep >> gvs[] >>
+  fs[subtrees_def] >>
+  qexists_tac `[n]` >>
+  rw[make_v_rep_def, Once gen_ltree, ltree_lookup_def, LNTH_LGENLIST]
+QED
+
+val _ = export_theory ();
 
