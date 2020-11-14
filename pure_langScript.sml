@@ -71,11 +71,13 @@ Definition is_eq_def:
     if x = Diverge then Diverge else
       case x of
         Constructor t xs =>
-          if n = LENGTH xs then
-            (if s = t then True else False)
-          else Error
+          if s = t then
+            (if n = LENGTH xs then True else Error)
+          else False
       | _ => Error
 End
+
+(* EVAL “is_eq c "cons" 2 (Constructor "cons" [|eval c x; eval c y|]) = True” *)
 
 Definition getAtom_def:
   getAtom (Atom b) = SOME b ∧
@@ -1015,8 +1017,8 @@ Proof
     CASE_TAC >> CASE_TAC >> fs[] >>
     strip_tac >> gvs[] >>
     rename1 `(Constructor' cons, len)` >>
-    reverse (rw[]) >> fs[gen_v_nullary_Constructor, gen_v_Error]
-    >- (
+    rw[] >> fs[gen_v_nullary_Constructor, gen_v_Error]
+    >> TRY (
       qexists_tac `0` >>
       drule v_limit_not_Error >> strip_tac >> fs[] >>
       irule v_limit_exists >>
@@ -1028,7 +1030,8 @@ Proof
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >>
     first_x_assum drule >> fs[] >>
-    Cases_on `eval_to n x` >> fs[v_lookup]
+    rename1 `k ≤ n'` >>
+    Cases_on `eval_to n' x` >> fs[v_lookup]
     )
   >- (
     qexists_tac `r` >>

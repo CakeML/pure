@@ -1,7 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory rich_listTheory stringTheory alistTheory optionTheory
-     llistTheory pure_langTheory;
+     llistTheory pure_langTheory valueTheory expTheory;
 
 val _ = new_theory "list_fusion";
 
@@ -28,37 +28,22 @@ Definition map_def:
                (Case (Var "l") "v" [
                     ("nil" ,         [],  nil );
                     ("cons", ["x";"xs"],  cons [App (Var "f"  ) (Var "x" )
-                                               ;App (Var "MAP") (Var "xs")]
+                                               ;App (App (Var "MAP") (Var "f")) (Var "xs")]
                     )
                    ])
              )
 End
 
-(* add1 [] = []
-   add1 (x::xs) = [x]::add2 xs *)
-Definition add1'_def:
-  add1' = LAMREC "ADD1" "l"
-                  (Case (Var "l") "v" [
+Definition map_f_def:
+   map_f f =
+   LAMREC "MAP_F" "l"
+               (Case (Var "l") "v" [
                     ("nil" ,         [],  nil );
-                    ("cons", ["x";"xs"],  cons [ cons [Var "x";nil]           ;
-                                                 App (Var "ADD1") (Var "xs")  ]
+                    ("cons", ["x";"xs"],  cons [App f (Var "x")
+                                               ;App (Var "MAP_F") (Var "xs")]
                     )
                    ])
 End
-
-(* add2 [] = []
-   add2 (x::xs) = [[x]]::add2 xs *)
-Definition add2'_def:
-  add2' = LAMREC "ADD2" "l"
-                  (Case (Var "l") "v" [
-                    ("nil" ,         [],  nil );
-                    ("cons", ["x";"xs"],  cons [ cons [cons [Var "x";nil];nil] ;
-                                                 App (Var "ADD2") (Var "xs")   ]
-                    )
-                   ])
-End
-
-
 
 Definition Apps_rev_def:
   Apps_rev [] = Fail                     ∧
@@ -70,8 +55,6 @@ Definition Apps_def:
   Apps xs = Apps_rev (REVERSE xs)
 End
 
-
-(* Some lemmas, mostly to *)
 
 Triviality LNTH_2:
   ∀ n ll. LNTH n ll =
@@ -267,223 +250,18 @@ Proof
   \\ eq_tac \\ fs[]
 QED
 
-Theorem exp_rel_refl[simp]:
-  ∀ e. exp_rel e e
+Triviality not_diverge_is_eq:
+  x ≠ Diverge ⇒ is_eq s n x ≠ Diverge
 Proof
-  strip_tac \\ fs[exp_rel_def,v_rel_refl]
+  rw[] \\ Cases_on ‘x’ \\ fs[is_eq_def]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
 QED
 
-
-(*
-Theorem eval_subst_imp_eq2:
-  ∀ v x y e.
-    closed x ∧ closed y ∧ (*alternatively, eval c  ≠ Error*)
-    exp_rel c x y ⇒
-    exp_rel c (subst v x e) (subst v y e)
-Proof
-  fs[exp_rel_def]
-  \\ fs[v_rel_def]
-  \\ fs[PULL_FORALL]
-  \\ completeInduct_on ‘n’
-  \\ fs[GSYM PULL_FORALL]
-  \\ rpt strip_tac
-
-  \\ qid_spec_tac ‘e’
-  \\ qid_spec_tac ‘k’
-  \\ qid_spec_tac ‘c’
-
-  \\ rpt strip_tac
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘e’
-  \\ qid_spec_tac ‘k’
-  \\ qid_spec_tac ‘c’
-  \\ ho_match_mp_tac eval_to_ind
-  \\ rw[]
-  THEN1 (fs[subst_def] \\ rw[])
-  THEN1 (cheat)
-  THEN1 (
-    fs[subst_def] \\ rw[]
-    THEN1 (
-      fs[exp_rel_def] \\ fs[eval_thm]
-      \\ fs[v_rel_def]
-      \\ strip_tac
-      \\ Cases_on ‘n’ \\ fs[v_rel'_def]
-    )
-    \\ fs[exp_rel_def] \\ fs[eval_thm]
-    \\ fs[v_rel_def]
-    \\ strip_tac
-    \\ Cases_on ‘n’ \\ fs[v_rel'_def]
-    \\ DISJ2_TAC
-    \\ strip_tac
-    \\ fs[bind_def] \\ rw[]
-    \\ Cases_on ‘x=y’ \\ fs[] \\ rw[subst_def]
-    \\ cheat
-  )
-  \\ cheat
-QED
-*)
-(*
-Theorem eval_subst_imp_eq:
-  ∀ y n x e.
-    closed x ∧ closed y ∧ (*alternatively, eval c  ≠ Error*)
-    eval c x = eval c y ⇒
-    eval c (subst n x e) = eval c (subst n y e)
-Proof
-  strip_tac
-  \\ ho_match_mp_tac subst_ind
-  \\ rw[]
-  THEN1 (fs[subst_def,eval_thm] \\ rw[])
-  THEN1 (
-    fs[subst_def,eval_thm]
-    \\ Induct_on ‘xs’ \\ fs[]
-    \\ rpt strip_tac
-    \\ fs[eval_core] \\ AP_TERM_TAC
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF,pairTheory.UNCURRY]
-    \\ fs[MAP_EQ_f] )
-  THEN1 (
-    fs[subst_def,eval_thm] \\ rw[]
-    \\ Cases_on ‘dest_Closure (eval c (subst n y e))’ \\ fs[]
-    \\ Cases_on ‘x'’ \\ rw[]
-    \\ imp_res_tac dest_Closure_Closure_IMP
-    \\ fs[bind_def]
-    \\ qspecl_then [‘n’,‘e'’] assume_tac subst_closed_iff \\ rw[]
-    \\ fs[bind_def]
-    \\ Cases_on ‘n = q’
-    THEN1 (
-      ‘¬MEM n (freevars r)’ by (
-         imp_res_tac dest_Closure_Closure_IMP
-         \\ imp_res_tac subst_closure_not_MEM_freevars)
-      \\ rfs[no_var_no_subst]
-      ‘freevars (subst q x e') = []’ by (fs[closed_def,freevars_subst_lemma_gen])
-      \\ IF_CASES_TAC \\ fs[]
-    )
-    \\ ‘freevars (subst n x e') = []’ by (
-      imp_res_tac freevars_subst_lemma_gen \\ fs[]
-    )
-    \\ cheat
-    \\ imp_res_tac dest_Closure_Closure_IMP
-    \\ imp_res_tac subst_closure_App
-    \\ Cases_on ‘closed (subst n x e')’
-    \\ Cases_on ‘closed (subst n y e')’ (this follow from freevars e' = at most n
-    \\ res_tac \\ fs[]
-    \\ simp[eval_thm]
-    \\ simp[bind_def]
-    \\ simp[eval_thm]
- THEN1(
-   fs[subst_def]
-   \\ IF_CASES_TAC \\ fs[]
-   \\ rw[] \\ fs[eval_thm]
-   \\ CCONTR_TAC
-   \\ once_rewrite_tac [eval_thm]
- )
-QED
-*)
-
-Theorem eval_Case_value:
-  closed x ∧ closed y ∧ eval x = eval y ⇒
-      eval (Case x nm css) = eval (Case y nm css)
-Proof
-  cheat (*this is true, but requires equational reasoning in order to be proved*)
-QED
-
-
-(*evaluation of map, case []*)
-Theorem eval_map_nil:
-  ∀ f. closed f ⇒
-       eval (App (App map f) nil) = eval nil
-Proof
-  rw[] \\ fs[map_def,cons_def,nil_def]
-  \\ fs[LAMREC_def] \\ fs[eval_thm]
-  \\ ntac 3 (
-    fs[bind_def] \\ fs[closed_def]
-    \\ fs[subst_def] \\ fs[eval_thm]
-    \\ fs[subst_funs_def])
-  \\ fs[expandCases_def,expandRows_def,expandLets_def] \\ fs[eval_thm]
-  \\ fs[bind_def,closed_def]
-  \\ fs[subst_def]
-  \\ fs[eval_thm]
-  \\ fs[is_eq_def,el_def,LNTH_2]
-QED
-
-(*
-TODO: fix this
-(*evaluation of map, case (x::xs)*)
-Theorem eval_map_cons:
-  ∀ f. closed f ∧ closed x ∧ closed y ⇒
-   eval c (App (App map f) (cons [x;y])) = Constructor "cons" [
-       eval c (App f   (Proj "cons" 0 (cons [x;y]))) ;  (*TODO, equational reason *)
-       eval c (App map (Proj "cons" 1 (cons [x;y])))    (*this Proj away          *)
-   ]
-Proof
-  rw[]
-  \\ fs[map_def,cons_def,nil_def]
-  \\ fs[LAMREC_def] \\ fs[eval_thm]
-  \\ ntac 3
-    (fs[bind_def] \\ fs[closed_def]
-     \\ fs[subst_def] \\ fs[eval_thm] \\ fs[subst_funs_def])
-  \\ fs[expandCases_def,expandRows_def,expandLets_def] \\ fs[eval_thm]
-  \\ fs[bind_def,closed_def]
-  \\ fs[subst_def]
-  \\ fs[eval_thm]
-  \\ fs[is_eq_def]
-
-  \\ once_rewrite_tac [is_eq_def]
-  \\ IF_CASES_TAC cheat
-   \\ fs[]
-
-  \\ fs[is_eq_def,el_def,LNTH_2]
-  \\ fs[bind_def,closed_def]
-  \\ fs[subst_def] \\ fs[eval_thm]
-  \\ fs[bind_def,closed_def]
-  \\ fs[no_var_no_subst]
-  \\ fs[subst_def] \\ fs[eval_thm]
-  \\ fs[no_var_no_subst]
-  \\ IF_CASES_TAC THEN1 (
-      fs[bind_def,closed_def,subst_def,eval_thm,subst_funs_def]
-      \\ fs[no_var_no_subst] )
-  \\ Cases_on ‘dest_Closure (eval c f)’ THEN1 (
-      fs[bind_def,closed_def,subst_def,eval_thm,subst_funs_def]
-      \\ fs[no_var_no_subst] )
-  \\ Cases_on ‘x'’ \\  fs[]
-  \\ fs[bind_def,closed_def,subst_def,eval_thm,subst_funs_def]
-  \\ fs[no_var_no_subst]
-QED
-*)
 
 Definition compose_def:
  compose f g = Lam "x" (App f (App g (Var "x")))
 End
-
-(*
-   this equality requires the progress lemma
-Theorem map_f_composition_eq:
-  (* map f (map f l) = map (f o f) l *)
-  closed f ∧ closed l ⇒
-  eval c (Apps [map;f;Apps [map;f;l]])
- =
-  eval c (Apps [map;compose f f;l])
-Proof
-  rw[]
-  \\ fs[Apps_def,Apps_rev_def,compose_def]
-  \\ fs[map_def,cons_def,nil_def,LAMREC_def]
-  \\ fs[eval_thm,closed_def,subst_def,bind_def,subst_funs_def]
-  \\ fs[expandCases_def,expandRows_def,expandLets_def]
-  \\ fs[eval_thm,closed_def,subst_def,bind_def,subst_funs_def]
-  \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
-  \\ fs[expandCases_def,expandRows_def,expandLets_def]
-  \\ fs[eval_thm,closed_def,subst_def,bind_def,subst_funs_def]
-  \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
-  \\ Cases_on ‘eval c l = Diverge’ \\ fs[] \\ fs[]
-
-  \\ Cases_on ‘eval c l = Constructor "nil" []’ \\ fs[]
-  \\ Cases_on ‘eval c l ≠ Constructor "cons" [b1;b2]’
-
-  \\ Cases_on ‘eval c f = Diverge’ \\ fs[] \\ fs[]
-
-  \\ cheat
-QED
-*)
-
 
 Definition next_list_def:
   next_list f input =
@@ -493,205 +271,154 @@ Definition next_list_def:
                            | Constructor n vs =>
                                (if n = "nil" ∧ LENGTH vs = 0
                                 then (INL nil)
-                                else if n = "cons" ∧ LENGTH vs = 2
+                                else (if n = "cons" ∧ LENGTH vs = 2
                                 then (INR (n
                                            ,App f (Proj n 0 input)
                                            ,Proj n 1 input       ))
-                                else (INL Fail)
+                                else (INL Fail))
                                )
                            | _ => (INL Fail)))
 End
 
+
+(* progress map f *)
 Theorem progress_map_f:
   ∀ f. closed f ⇒ progress (App map f) (next_list f)
 Proof
   rw[]
-  \\ fs[progress_def]
-  \\ rpt strip_tac \\ fs[exp_rel_def]
-  \\ fs[eval_thm]
-  \\ ‘eval map ≠ Diverge’ by (fs[map_def,LAMREC_def,cons_def,nil_def,eval_thm]) \\ fs[]
-  \\ fs[map_def,LAMREC_def,cons_def,nil_def]
-  \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-  (* These tactics no longer do anything:
-
-     \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-     \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-     \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
-  *)
+  \\ simp[progress_def] \\ rw[]
+  \\ fs[exp_rel_def,eval_thm]
+  \\ simp[map_def,LAMREC_def,cons_def,nil_def]
+  \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
   \\ reverse IF_CASES_TAC THEN1 (fs[next_list_def,closed_def,v_rel_refl])
-  \\ fs[eval_thm]
-  \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-  \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-  \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
-  \\ Cases_on ‘eval input = Diverge’
-  THEN1 (fs[next_list_def,closed_def] \\ fs[eval_bottom] \\ fs[v_rel_refl])
+  \\ simp[expandCases_def,expandRows_def,expandLets_def,eval_thm]
+  \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
+          no_var_no_subst,is_eq_def,el_def,LNTH_2]
+  \\ fs[next_list_def,closed_def]
+  \\ Cases_on ‘eval input = Diverge’ THEN1 (fs[eval_thm,v_rel_refl,eval_bottom])
   \\ fs[]
-  \\ Cases_on ‘eval input’
-  \\ fs[next_list_def,eval_thm,v_rel_refl,closed_def]
-  \\ cheat
-  (* \\ Cases_on ‘eval c input’ \\ fs[] \\ Cases_on ‘a’ \\ fs[eval_thm,v_rel_refl] *)
-  (* THEN1 ( *)
-  (*   rw[] \\ fs[eval_thm,nil_def,v_rel_refl] \\ rw[] \\ fs[] \\ rw[] \\ fs[] *)
-
-  (*   \\ Cases_on ‘s ≠ "nil" ∧ s ≠ "cons"’ \\ fs[eval_thm,v_rel_refl] *)
-  (*   \\ rw[] \\ fs[eval_thm,v_rel_refl,nil_def] *)
-  (*   THEN1 ( *)
-  (*     rw[] *)
-  (*     \\ IF_CASES_TAC \\ fs[eval_thm,nil_def,v_rel_refl] *)
-  (*     \\ Cases_on ‘a'’ \\ fs[] *)
-  (*     \\ Cases_on ‘ts’ \\ fs[] \\ rw[] *)
-  (*     \\ Cases_on ‘eval c input’ \\ fs[eval_thm] *)
-  (*     \\ cheat *)
-  (*   ) *)
-  (*   \\ cheat *)
-  (* ) *)
-  (* \\cheat *)
-QED
-
-
-
-
-
-
-
-
-
-
-
-
-(*used to prove eval_add1'_consx using equational reasoning*)
-Triviality Proj_exp_rel_lemma:
-  exp_rel (Proj "cons" 1 (Cons "cons" [x; y])) y
-Proof
-  fs[exp_rel_def,eval_thm,el_def,LNTH_2,v_rel_refl]
-QED
-
-Definition add1'oadd1'_def:
-  add1'oadd1' = (Lam "x" (App add1' (App add1' (Var "x"))))
-End
-
-Theorem exp_rel_add1'oadd1'_add2'_App:
-  ∀ x. closed x ⇒ eval (App add1'oadd1' x) = eval (App add2' x)
-Proof
-  rpt strip_tac
-  \\ fs[add1'oadd1'_def,add1'_def,add2'_def,cons_def,nil_def]
-  \\ fs[eval_LAMREC3]
-  \\ fs[closed_def,no_var_no_subst]
-  \\ fs[eval_Let]
-  \\ fs[bind_def]
-  \\ fs[closed_def,no_var_no_subst]
-  \\ fs[subst_def]
-  \\ fs[LAMREC_def] \\ fs[no_var_no_subst] \\ fs[GSYM LAMREC_def]
-  \\ fs[GSYM cons_def,GSYM nil_def]
-  \\ fs[GSYM add1'_def,GSYM add2'_def]
-  (*here looks good*)
-  \\ fs[add1'_def,cons_def,nil_def]
-  \\ fs[eval_thm] \\ fs[LAMREC_def]
-  \\ fs[eval_thm]
-  \\ fs[bind_def]
-  \\ fs[closed_def,no_var_no_subst]
-  \\ fs[subst_def]
-  \\ fs[GSYM LAMREC_def]
-  \\ fs[eval_thm]
-  \\ fs[subst_funs_def]
-  \\ fs[bind_def]
-  \\ fs[closed_def,no_var_no_subst]
-  \\ fs[subst_def]
-  \\ fs[closed_def,no_var_no_subst]
-  \\ fs[LAMREC_def] \\ fs[no_var_no_subst] \\ fs[GSYM LAMREC_def]
-  \\ fs[GSYM eval_Case]
-  \\ fs[GSYM cons_def,GSYM nil_def,GSYM add1'_def]
-  (*here also looks good*)
-  \\ Cases_on ‘x = nil’ \\ fs[]
-  (*from here below, it's probably a good idea to use equational reasoning.*)
-
-  \\ match_mp_tac EQ_TRANS
-  \\ qexists_tac ‘ eval
-              (Case r "v"
-                 [("nil",[],nil);
-                  ("cons",["x"; "xs"],
-                   cons [cons [Var "x"; nil]; App add1' (Var "xs")])])’
-  \\ conj_tac
-  THEN1 (
-    match_mp_tac eval_Case_value
-    \\ cheat
+  \\ Cases_on ‘eval input’ \\ fs[eval_thm,v_rel_refl]
+  \\ Cases_on ‘s = "nil" ∧ t = []’ THEN1 (fs[eval_thm,nil_def,v_rel_refl])
+  \\ Cases_on ‘s = "cons" ∧ LENGTH t = 2’ THEN1 (
+    fs[eval_thm]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
+            no_var_no_subst,is_eq_def,el_def,LNTH_2]
+    \\ simp[expandCases_def,expandRows_def,expandLets_def,eval_thm]
+    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
+            no_var_no_subst,is_eq_def,el_def,LNTH_2]
+    \\ IF_CASES_TAC \\ fs[v_rel_refl]
   )
-  \\ cheat
-
-
-  (* (* *)
-  (*     eval c e1 = eval c e2 ⇒ *)
-  (*       ∀brs. eval c (Case e1 brs) = eval c (Case e2 brs)   *) *)
-  (* THEN1 ( *)
-  (*    (*from theorem eval_add1'_nil: *)
-  (*         eval c (App add1' nil) = eval c nil*) *)
-  (*    fs [add1'_def,LAMREC_def,cons_def,nil_def] *)
-  (*    \\ fs[eval_thm] *)
-  (*    \\ ntac 4 ( *)
-  (*      fs [bind_def,closed_def, subst_def, subst_funs_def] *)
-  (*      \\ fs [eval_thm]) *)
-  (*    \\ fs [expandCases_def,expandRows_def,expandLets_def]  \\ fs[eval_thm] *)
-  (*    \\ fs [bind_def,closed_def, subst_def, subst_funs_def] \\ fs [eval_thm] *)
-  (*    \\ fs [is_eq_def,el_def,LNTH_2] *)
-  (*    (*additional stuff, because eval is OUTSIDE Case*) *)
-  (*    \\ fs[bind_def] *)
-  (*    \\ fs[closed_def] \\ fs[subst_def] *)
-  (*    \\ fs[eval_thm] *)
-  (*    \\ fs[bind_def] \\ fs[subst_funs_def] \\ fs[subst_def]    *)
-  (*    \\ ntac 3 ( *)
-  (*      fs[closed_def] *)
-  (*      \\ fs[bind_def] \\ fs[eval_thm]) *)
-  (*    \\ fs[closed_def] \\ fs[subst_def] *)
-  (*    \\ ntac 2 ( *)
-  (*      fs [is_eq_def,el_def,LNTH_2] *)
-  (*      \\ fs[eval_thm] *)
-  (*      \\ fs [expandCases_def,expandRows_def,expandLets_def]  \\ fs[eval_thm] *)
-  (*      \\ fs [bind_def,closed_def, subst_def, subst_funs_def] \\ fs [eval_thm] ) *)
-  (* ) *)
-
-
-
-
-
-
-  (*   \\ Cases_on ‘x ≠ nil ∧ ∀ a b. x ≠ cons [a;b]’ \\ fs[] *)
-
-  (*   \\  fs[add1'_def,LAMREC_def,cons_def,nil_def,eval_thm] *)
-
-  (*   \\ fs[expandCases_def,expandRows_def,expandLets_def] \\ fs[eval_thm] *)
-  (*   \\ fs[bind_def] \\ fs[closed_def,no_var_no_subst] \\ fs[subst_def] \\ fs[eval_thm] *)
-  (*   \\ fs[is_eq_def,el_def,LNTH_2] *)
-  (*   \\ fs[bind_def] \\ fs[closed_def,no_var_no_subst] \\ fs[subst_def] \\ fs[eval_thm] *)
-  (*   \\ fs[subst_funs_def] *)
-  (*   \\ fs[bind_def] \\ fs[closed_def,no_var_no_subst] \\ fs[subst_def] \\ fs[eval_thm] *)
-  (*   \\ fs[expandCases_def,expandRows_def,expandLets_def] \\ fs[eval_thm] *)
-
+  \\ fs[eval_thm,v_rel_refl]
+  \\ Cases_on ‘s = "nil"’ \\ fs[]
+  \\ Cases_on ‘s = "cons"’ \\ fs[]
+  \\ fs[eval_thm,v_rel_refl]
 QED
 
+(* progress map f (cheap version)*)
+Theorem progress_map_f_f:
+  ∀ f. closed f ⇒ progress (map_f f) (next_list f)
+Proof
+  rw[]
+  \\ fs[progress_def,exp_rel_def] \\ rw[]
+  \\ fs[eval_thm]
+  \\ fs[map_f_def,LAMREC_def,cons_def,nil_def]
+  \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
+  \\ reverse IF_CASES_TAC THEN1 (fs[next_list_def,closed_def,v_rel_refl])
+  \\ fs[next_list_def,closed_def]
+  \\ fs[eval_thm,no_var_no_subst,bind_def,subst_def,subst_funs_def,closed_def]
+  \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
+  \\ fs[eval_thm,no_var_no_subst,bind_def,subst_def,subst_funs_def,closed_def]
+  \\ Cases_on ‘eval input = Diverge’ THEN1(fs[is_eq_def,eval_bottom,v_rel_refl])
+  \\ fs [not_diverge_is_eq]
+  \\ Cases_on ‘eval input’ \\ fs[eval_thm,v_rel_refl,is_eq_def]
+  \\ Cases_on ‘s = "nil" ∧ t = []’ THEN1 (fs[eval_thm,nil_def,v_rel_refl])
+  \\ Cases_on ‘s = "cons" ∧ LENGTH t = 2’ THEN1 (
+    fs[eval_thm]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
+            no_var_no_subst,is_eq_def,el_def,LNTH_2]
+    \\ simp[expandCases_def,expandRows_def,expandLets_def,eval_thm]
+    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
+            no_var_no_subst,is_eq_def,el_def,LNTH_2]
+    \\ IF_CASES_TAC \\ fs[v_rel_refl]
+  )
+  \\ fs[eval_thm,v_rel_refl]
+  \\ Cases_on ‘s = "nil"’ \\ fs[]
+  \\ Cases_on ‘s = "cons"’ \\ fs[]
+  \\ fs[eval_thm,v_rel_refl]
+QED
 
-
-Theorem progress_lemma:
-  progress exp1 next ∧ progress exp2 next ⇒
-  ∀x. exp_rel (App exp1 x) (App exp2 x)
+(*valid only within an exp_rel context*)
+Triviality equational_reasoning:
+  exp_rel e1 e2 ⇒ e1 = e2
 Proof
   cheat
 QED
 
-(*because of the way exp_rel is defined over closures, this should hold*)
-(*the opposite should follow from equational reasoning*)
-Theorem App_Closure_lemma:
-  ∀x. exp_rel (App exp1 x) (App exp2 x) ⇒ exp_rel exp1 exp2
+(*  progress (map f) o (map f)  *)
+Theorem progress_compose_f:
+  ∀ f. closed f
+  ⇒ progress (compose (App map f) (App map f)) (next_list (compose f f))
 Proof
-  cheat
+  rw[]
+  \\ ‘exp_rel (App map f) (map_f f)’ by (
+    qspecl_then [‘next_list f’,‘map_f f’,‘App map f’]
+          assume_tac (GEN_ALL progress_lemma)
+    \\ assume_tac progress_map_f
+    \\ assume_tac progress_map_f_f
+    \\ res_tac
+    \\ ‘isClos (eval (App map f))’ by (
+       simp[map_def,LAMREC_def,cons_def,nil_def]
+       \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
+       \\ simp[isClos_def]
+    )
+    \\ ‘isClos (eval (map_f f))’ by (
+       simp[map_f_def,LAMREC_def,cons_def,nil_def]
+       \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
+       \\ simp[isClos_def]
+    )
+    \\ res_tac
+  )
+  \\ imp_res_tac equational_reasoning \\ fs[] (*morally correct*)
+  \\ fs[compose_def,progress_def]
+  \\ strip_tac
+  \\ fs[exp_rel_def,eval_thm]
+  \\ fs[bind_def,closed_def,subst_def]
+  \\ Cases_on ‘¬closed input’ THEN1 (fs[next_list_def,closed_def,v_rel_refl])
+  \\ fs[closed_def]
+  \\ fs[map_f_def,LAMREC_def,cons_def]
 QED
 
-Theorem exp_rel_add1'oadd1'_add2':
-  exp_rel add1'oadd1' add2'
+(*   (map f) o (map f) l = map (f o f) l   *)
+Theorem map_fusion:
+ ∀ f. closed f ⇒
+      exp_rel (compose (App map f) (App map f)) (App map (compose f f))
 Proof
-  cheat
+  rw[]
+  \\ ‘closed (compose f f)’ by (fs[compose_def,closed_def])
+  \\ qspecl_then [‘next_list (compose f f)’,
+                  ‘App map (compose f f)’,
+                  ‘compose (App map f) (App map f)’]
+          assume_tac (GEN_ALL progress_lemma)
+  \\ qspec_then ‘compose f f’ assume_tac progress_map_f
+  \\ qspec_then ‘f’ assume_tac progress_compose_f
+  \\ ‘isClos (eval (compose (App map f) (App map f)))’ by (
+     simp[map_def,LAMREC_def,cons_def,nil_def,compose_def]
+     \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
+     \\ simp[isClos_def]
+  )
+  \\ ‘isClos (eval (App map (compose f f)))’ by (
+     simp[map_def,LAMREC_def,cons_def,nil_def,compose_def]
+     \\ ‘freevars f = []’ by (fs[closed_def])
+     \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
+     \\ simp[isClos_def]
+  )
+  \\ res_tac
 QED
 
 
+(*
 Theorem deforestation:
   ∀ c l f g.
   closed f ∧ closed g ∧ closed l ∧
@@ -716,5 +443,7 @@ Proof
   \\ fs [subst_def]
   \\ cheat
 QED
+*)
+
 
 val _ = export_theory();
