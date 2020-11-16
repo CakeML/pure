@@ -735,6 +735,17 @@ Proof
   rpt strip_tac >> rw[LENGTH_GENLIST]
 QED
 
+Theorem gen_v_nullary_Constructor:
+  ∀ f v.
+    gen_v f = Constructor c [] ⇔ f [] = (Constructor' c, 0)
+Proof
+  rw[] >>
+  simp[Once gen_v] >>
+  CASE_TAC >> CASE_TAC >> fs[] >>
+  eq_tac >> rw[] >>
+  Cases_on `r` >> fs[GENLIST]
+QED
+
 Theorem gen_v_Closure:
   ∀ f x body. gen_v f = Closure x body ⇔ ∃r. f [] = (Closure' x body, r)
 Proof
