@@ -624,6 +624,12 @@ Proof
   goal_assum drule >> goal_assum drule
 QED
 
+Theorem v_lookup_Diverge:
+  ∀ path. v_lookup path Diverge = (Diverge', 0)
+Proof
+  Cases >> fs[v_lookup]
+QED
+
 (* make_v_rep : (num list -> (α,β) vprefix # num) -> (α,β) vprefix ltree *)
 (* Given a function which takes a path (:num list) and returns the corresponding
    node, produce the lazy tree of all nodes.

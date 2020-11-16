@@ -268,6 +268,15 @@ Proof
     \\ rfs [])
 QED
 
+Theorem limit_eq_add_rewrite:
+  ∀k p f.
+    limit (λn. f (n + k)) p = limit f p
+Proof
+  rw[] >>
+  irule (GSYM limit_eq_add) >>
+  qexists_tac `k` >> fs[]
+QED
+
 Theorem limit_if:
   ∀x y d. limit (λk. if k = 0 then x else y (k − 1)) d = limit y d
 Proof
@@ -364,6 +373,45 @@ Theorem limit_intro_alt:
   ∀ f d x lim . limit f d = lim ∧ (∃k. ∀n. k ≤ n ⇒ f n = x) ⇒ lim = x
 Proof
   rw[] >> irule limit_intro >>
+  goal_assum drule
+QED
+
+Theorem limit_eq_IMP:
+  ∀ f g d.
+    (∃k. ∀n. k ≤ n ⇒ f n = g n)
+  ⇒ limit f d = limit g d
+Proof
+  rw[limit_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[]
+  >- (
+    rename1 `k1 ≤ _` >>
+    DEEP_INTRO_TAC some_intro >> rw[]
+    >- (
+      rename1 `k2 ≤ _` >>
+      rpt (first_x_assum (qspec_then `k + k1 + k2` assume_tac)) >> gvs[]
+      )
+    >- (
+      first_x_assum (qspecl_then [`x`,`k + k1`] assume_tac) >> fs[] >>
+      rename1 `_ ≤ k3` >>
+      rpt (first_x_assum (qspec_then `k3` assume_tac)) >> gvs[]
+      )
+    )
+  >- (
+    DEEP_INTRO_TAC some_intro >> rw[] >> rename1 `k1 ≤ _` >>
+    first_x_assum (qspecl_then [`x`,`k + k1`] assume_tac) >> fs[] >>
+    rename1 `_ ≤ k2` >>
+    rpt (first_x_assum (qspec_then `k2` assume_tac)) >> gvs[]
+    )
+QED
+
+Theorem limit_eq_add_IMP:
+  ∀ f g c d.
+    (∃k. ∀n. k ≤ n ⇒ f (n + c) = g n)
+  ⇒ limit f d = limit g d
+Proof
+  rw[] >>
+  qspecl_then [`c`,`d`,`f`] assume_tac (GSYM limit_eq_add_rewrite) >> fs[] >>
+  irule limit_eq_IMP >> fs[] >>
   goal_assum drule
 QED
 
@@ -734,9 +782,11 @@ Proof
 QED
 
 Theorem v_limit_if_Diverge_lemma:
-  ∀ f g c k x default r.
+  ∀ f g r.
     v_limit (λk. f k) [] = (Diverge', r)
-  ⇒ v_limit (λk. if f k = Diverge then Diverge else g k) [] = (Diverge', r)
+  ⇒ v_limit (λk.
+      if f k = (Diverge:(α,β) v) then (Diverge:(α,β) v) else g k) [] =
+      (Diverge', r)
 Proof
   fs[v_limit_def, limit_def] >> rpt gen_tac >>
   DEEP_INTRO_TAC some_intro >> rw[] >>
@@ -754,11 +804,13 @@ Proof
 QED
 
 Theorem some_elim_eval_to_Diverge[local]:
-  ∀ c x f g.
-    (∀k. ∃k'. k ≤ k' ∧ eval_to c k' x ≠ Diverge)
+  ∀ c x g path res.
+    (∀k. ∃k'. k ≤ k' ∧ v_lookup path (eval_to c k' x) ≠ (Diverge', 0))
   ⇒ (∃k. ∀k'. k ≤ k' ⇒
-      f (if eval_to c k' x = (Diverge:(α,β) v) then (Diverge:(α,β) v) else g k')) =
-    (∃k. ∀k'. k ≤ k' ⇒ f (g k'))
+      v_lookup path
+        (if eval_to c k' x = (Diverge:(α,β) v)
+         then (Diverge:(α,β) v) else g k') = res) =
+    (∃k. ∀k'. k ≤ k' ⇒ v_lookup path (g k') = res)
 Proof
   rw[] >> eq_tac >> rw[] >>
   last_x_assum (qspec_then `k` assume_tac) >> fs[] >>
@@ -766,15 +818,17 @@ Proof
   qexists_tac `k2` >> rw[] >> rename1 `_ ≤ k3` >>
   `k ≤ k3` by fs[] >>
   first_x_assum drule >> gvs[] >> rw[] >>
+  `eval_to c k2 x ≠ Diverge` by (
+    CCONTR_TAC >> Cases_on `path` >> gvs[v_lookup]) >>
   drule eval_to_not_diverge_mono >> disch_then drule >> fs[]
 QED
 
 Theorem v_limit_if_not_Diverge_lemma:
-  ∀ c x g.
-    (∀r. v_limit (λk. eval_to c k x) [] ≠ (Diverge', r))
+  ∀ c x g path.
+    (∀r. v_limit (λk. eval_to c k x) path ≠ (Diverge', r))
   ⇒ v_limit (λk.
-      if eval_to c k x = (Diverge:(α,β) v) then (Diverge:(α,β) v) else g k) [] =
-    v_limit (λk. g k) []
+      if eval_to c k x = (Diverge:(α,β) v) then (Diverge:(α,β) v) else g k) path =
+    v_limit (λk. g k) path
 Proof
   rw[] >> fs[v_limit_def, limit_def] >>
   pop_assum mp_tac >>
@@ -789,7 +843,7 @@ Proof
         qx_gen_tac `res3` >> rw[] >> rename1 `k3 ≤ _` >>
         qpat_x_assum `∀r. _ ≠ _` mp_tac >>
         rpt (first_x_assum (qspec_then `k1 + k2 + k3` assume_tac)) >> fs[] >>
-        Cases_on `eval_to c (k1 + k2 + k3) x` >> gvs[v_lookup]
+        Cases_on `eval_to c (k1 + k2 + k3) x` >> Cases_on `path` >> gvs[v_lookup]
         )
       >- (
         rw[] >>
@@ -797,7 +851,7 @@ Proof
         rename1 `_ + _ ≤ k3` >>
         qpat_x_assum `∀r. _ ≠ _` mp_tac >>
         rpt (first_x_assum (qspec_then `k3` assume_tac)) >> gvs[] >>
-        Cases_on `eval_to c k3 x` >> gvs[v_lookup]
+        Cases_on `eval_to c k3 x` >> Cases_on `path` >> gvs[v_lookup]
         )
       )
     >- (
@@ -808,7 +862,7 @@ Proof
       rename1 `_ + _ ≤ k3` >>
       qpat_x_assum `∀r. _ ≠ _` mp_tac >>
       rpt (first_x_assum (qspec_then `k3` assume_tac)) >> gvs[] >>
-      Cases_on `eval_to c k3 x` >> gvs[v_lookup]
+      Cases_on `eval_to c k3 x` >> Cases_on `path` >> gvs[v_lookup]
       )
     )
   >- (
@@ -817,14 +871,7 @@ Proof
     AP_TERM_TAC >> AP_TERM_TAC >>
     irule EQ_EXT >> rw[] >> rename1 `v_lookup _ _ = res` >>
     first_x_assum (qspec_then `(Diverge',0)` assume_tac) >>
-    `∀k. ∃k'. k ≤ k' ∧ eval_to c k' x ≠ Diverge` by (
-      rw[] >> first_x_assum (qspec_then `k` assume_tac) >> fs[] >>
-      goal_assum drule >> rename1 `k1 ≤ k2` >>
-      Cases_on `eval_to c k2 x` >> fs[v_lookup]) >>
-    last_x_assum kall_tac >>
-    drule some_elim_eval_to_Diverge >>
-    disch_then (qspecl_then [`λx. v_lookup [] x = res`] assume_tac) >>
-    fs[] >> rw[]
+    drule some_elim_eval_to_Diverge >> fs[]
     )
 QED
 
@@ -839,18 +886,9 @@ Proof
   fs [eval_def, eval_to_def] >>
   IF_CASES_TAC
   >- (
-    pop_assum mp_tac >> once_rewrite_tac[gen_v] >>
-    CASE_TAC >> fs[] >> CASE_TAC >> fs[] >>
-    fs[v_limit_def] >>
-    drule limit_not_default >> fs[] >> strip_tac >>
-    CASE_TAC >>
-    rename1 `limit _ _ = (lim1, lim2)` >>
-    qsuff_tac `(lim1, lim2) = (Diverge', 0)` >- fs[] >>
-    irule limit_intro_alt >>
-    simp[Once CONJ_SYM] >> goal_assum drule >>
-    qexists_tac `k` >> rw[] >- fs[v_lookup] >>
-    first_x_assum drule >>
-    Cases_on `eval_to c n x` >> fs[v_lookup]
+    fs[gen_v_Diverge] >> qexists_tac `r` >> fs[] >>
+    qspecl_then [`λk. eval_to c k x`] assume_tac v_limit_if_Diverge_lemma >>
+    fs[]
     ) >>
   CASE_TAC
   >- (
@@ -861,15 +899,20 @@ Proof
     fs[v_limit_def, v_lookup]
     ) >>
   rename1 `_ = SOME clos` >> PairCases_on `clos` >> fs[] >>
-  fs[dest_Closure_def] >>
-  Cases_on `gen_v (λpath. v_limit (λk. eval_to c k x) path)` >> gvs[] >>
-  fs[GSYM dest_Closure_def, gen_v_Closure] >>
-  (*
-  simp[Once gen_v] >>
-  fs[gen_v_Diverge] >>
-  drule v_limit_if_not_Diverge_lemma >> fs[] >> strip_tac >>
-  *)
-  cheat (* TODO *)
+  fs[dest_Closure_def, GSYM eval_def] >>
+  Cases_on `eval c x` >> gvs[] >>
+  fs[eval_def, GSYM dest_Closure_def, gen_v_Closure] >>
+  AP_TERM_TAC >> fs[FUN_EQ_THM] >> rw[] >>
+  gvs[v_limit_def] >>
+  irule limit_eq_add_IMP >> qexists_tac `1` >> fs[limit_def] >>
+  last_x_assum mp_tac >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  qexists_tac `k` >> strip_tac >> strip_tac >>
+  `eval_to c (n + 1) x = Closure clos0 clos1` by (
+    CCONTR_TAC >>
+    first_x_assum (qspec_then `n + 1` assume_tac) >> gvs[v_lookup] >>
+    Cases_on `eval_to c (n + 1) x` >> gvs[]) >>
+  fs[]
 QED
 
 Theorem eval_Let:
