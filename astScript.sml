@@ -564,7 +564,7 @@ Definition v_lookup_def:
     | NONE => (Diverge', 0)
 End
 
-Theorem v_lookup:
+Theorem v_lookup_alt:
   (∀v. v_lookup [] (v : (α,β) v) =
     (v_to_prefix v, case v of Constructor c vs => LENGTH vs | _ => 0)) ∧
   ∀n path. v_lookup (n::path) (v : (α,β) v) =
@@ -591,14 +591,34 @@ Proof
   CASE_TAC >> fs[EL_MAP]
 QED
 
-Triviality v_lookup_0:
+Theorem v_lookup:
+  (∀v. v_lookup [] (v : (α,β) v) =
+    case v of
+    | Atom a => (Atom' a, 0)
+    | Constructor c vs => (Constructor' c, LENGTH vs)
+    | Closure x body => (Closure' x body, 0)
+    | Diverge => (Diverge', 0)
+    | Error => (Error', 0)) ∧
+  ∀n path. v_lookup (n::path) (v : (α,β) v) =
+    (case v of
+    | Constructor c vs =>
+      (case oEL n vs of
+      | SOME v' => v_lookup path v'
+      | NONE => (Diverge', 0))
+    | _ => (Diverge', 0))
+Proof
+  rw[v_lookup_alt] >>
+  Cases_on `v` >> rw[v_lookup_alt, v_to_prefix]
+QED
+
+Theorem v_lookup_0:
   ∀ path v prefix len.
     v_lookup path v = (prefix, len) ∧
     (∀c. prefix ≠ Constructor' c)
   ⇒ len = 0
 Proof
   Induct >> fs[v_lookup] >> rw[] >>
-  Cases_on `v` >> fs[v_to_prefix] >>
+  Cases_on `v` >> fs[] >>
   Cases_on `oEL h t` >> fs[] >>
   first_x_assum irule >>
   goal_assum drule >> goal_assum drule
@@ -691,6 +711,49 @@ Proof
   qexists_tac `[n]` >>
   rw[make_v_rep_def, Once gen_ltree, ltree_lookup_def, LNTH_LGENLIST]
 QED
+
+Theorem gen_v_Atom:
+  ∀ f a. gen_v f = Atom a ⇔ ∃r. f [] = (Atom' a, r)
+Proof
+  rw[] >>
+  once_rewrite_tac[gen_v] >>
+  CASE_TAC >> CASE_TAC >> fs[]
+QED
+
+Theorem gen_v_Constructor_IMP:
+  ∀ f c vs. gen_v f = Constructor c vs ⇒ f [] = (Constructor' c, LENGTH vs)
+Proof
+  rpt gen_tac >>
+  simp[Once gen_v] >>
+  CASE_TAC >> CASE_TAC >> gvs[] >>
+  rpt strip_tac >> rw[LENGTH_GENLIST]
+QED
+
+Theorem gen_v_Closure:
+  ∀ f x body. gen_v f = Closure x body ⇔ ∃r. f [] = (Closure' x body, r)
+Proof
+  rw[] >>
+  simp[Once gen_v] >>
+  CASE_TAC >> CASE_TAC >> fs[]
+QED
+
+Theorem gen_v_Diverge:
+  ∀ f. gen_v f = Diverge ⇔ ∃r. f [] = (Diverge', r)
+Proof
+  rw[] >>
+  once_rewrite_tac[gen_v] >>
+  CASE_TAC >> CASE_TAC >> fs[]
+QED
+
+Theorem gen_v_Error:
+  ∀ f. gen_v f = Error ⇔ ∃r. f [] = (Error', r)
+Proof
+  rw[] >>
+  once_rewrite_tac[gen_v] >>
+  CASE_TAC >> CASE_TAC >> fs[]
+QED
+
+
 
 val _ = export_theory ();
 
