@@ -1167,28 +1167,43 @@ QED
 
 (*************eval/eval_to over exp list lemmas ***************)
 
-(* TODO continue fixing from here *)
 Theorem eval_Diverge_IFF_eval_to_Diverge:
   MEM Diverge (MAP (eval c) es) ⇔ ∀ k. MEM Diverge (MAP (λa. eval_to c k a) es)
 Proof
-  Cases_on ‘MEM Diverge (MAP (eval c) es)’ \\ fs []
+  eq_tac
   THEN1 (
-    rw [] \\ Induct_on ‘es’ \\ fs[]
-    \\ rpt strip_tac \\ fs []
-    \\ fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
-    \\ CCONTR_TAC \\ fs[]
-    \\ first_assum (qspec_then ‘k’ assume_tac) \\ fs[]
-    \\ Cases_on ‘k'≤k’ \\ fs[]
-    \\ ‘k≤k'’ by (fs[])
-    \\ first_assum (qspec_then ‘k'’ assume_tac) \\ fs[]
-    \\ imp_res_tac eval_to_div \\ fs [])
+    rw [MEM_MAP]
+    \\ fs [eval_def, eval_to_def, gen_v_Diverge]
+    \\ dxrule v_limit_not_Error \\ rw []
+    \\ qexists_tac ‘y’ \\ fs []
+    \\ Cases_on ‘k' ≤ k’ \\ fs []
+    THEN1 (
+      first_x_assum drule
+      \\ simp [v_lookup_alt]
+      \\ CASE_TAC \\ fs [v_to_prefix])
+    \\ first_x_assum (qspec_then ‘k'’ mp_tac)
+    \\ simp [v_lookup_alt]
+    \\ CASE_TAC \\ rw [v_to_prefix]
+    \\ ‘k ≤ k'’ by fs []
+    \\ drule_all eval_to_div \\ rw [])
   THEN1 (
-    Induct_on ‘es’ \\ fs[]
-    \\ strip_tac \\ disch_tac \\ fs[MEM]
-    \\ fs[eval_def,eval_to_def,gen_ltree_LNIL,v_limit_SOME]
-    \\ first_assum (qspec_then ‘k’ assume_tac) \\ fs[]
-    \\ qexists_tac ‘k'’ \\ fs []
-    \\ imp_res_tac LIST_MAP_eval_to_not_diverge_mono)
+    Induct_on ‘es’ \\ rw []
+    \\ fs [eval_def, gen_v_Diverge]
+    \\ Cases_on ‘MEM Diverge (MAP (eval c) es)’ \\ fs []
+    \\ ‘∀k'. k ≤ k' ⇒ eval_to c k' h = Diverge’
+      by (imp_res_tac LIST_MAP_eval_to_not_diverge_mono
+          \\ metis_tac [])
+    \\ ntac 3 (last_x_assum kall_tac)
+    \\ qexists_tac ‘0’
+    \\ simp [v_limit_def, limit_def]
+    \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+    THEN1 (
+      first_x_assum (qspec_then ‘k + k'’ mp_tac)
+      \\ first_x_assum (qspec_then ‘k + k'’ mp_tac)
+      \\ simp [v_lookup_alt, v_to_prefix])
+    \\ Q.LIST_EXISTS_TAC [‘Diverge', 0’, ‘k’]
+    \\ rw [DISJ_EQ_IMP]
+    \\ simp [v_lookup])
 QED
 
 Triviality eval_to_atom_mono_res:
@@ -1196,16 +1211,18 @@ Triviality eval_to_atom_mono_res:
     k ≤ k1 ⇒ eval_to c k1 x = eval_to c k x
 Proof
   rpt strip_tac
-  \\ Cases_on ‘eval_to c k x’
-  \\ Cases_on ‘ts’ \\ fs []
-  \\ ‘eval_to c k x ≠ Diverge’ by (fs[])
-  \\ imp_res_tac eval_to_res_mono_LNIL \\ fs[]
-  \\ Cases_on ‘eval_to c k' x = ’
+  \\ ‘eval_to c k x ≠ Diverge’ by fs[]
+  \\ drule_all eval_to_res_mono
+  \\ simp [v_lookup]
+  \\ CASE_TAC \\ fs []
 QED
 
+(* TODO Fix from here on: *)
+
 Theorem getAtoms_eval_to_NONE:
-   (getAtoms (MAP (eval c) es) = NONE ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
-   ⇒  getAtoms (MAP (λa. eval_to c k a) es) = NONE
+   getAtoms (MAP (eval c) es) = NONE ∧
+   ¬MEM Diverge (MAP (λa. eval_to c k a) es) ⇒
+     getAtoms (MAP (λa. eval_to c k a) es) = NONE
 Proof
   rw[] \\ Induct_on ‘es’ \\ fs[]
   \\ rpt strip_tac
