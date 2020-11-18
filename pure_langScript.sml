@@ -1,7 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory ltreeTheory llistTheory bagTheory;
+     optionTheory pairTheory ltreeTheory llistTheory bagTheory;
 
 val _ = new_theory "pure_lang";
 
