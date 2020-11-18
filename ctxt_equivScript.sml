@@ -50,7 +50,7 @@ Proof
 QED
 
 Theorem exp_sim:
-  ∀exp_sim c x y ⇒ exp_sim c (plug h x) (plug h y)
+  exp_sim c x y ⇒ exp_sim c (plug h x) (plug h y)
 Proof
   cheat (* help? *)
 QED
