@@ -83,7 +83,7 @@ Proof
   \\ fs [exp_rel_def,v_rel_refl,eval_Lam]
   \\ fs [v_rel_def]
   \\ Cases \\ fs [v_rel'_def]
-  \\ disj2_tac \\ rw []
+  \\ rw []
   \\ fs [PULL_FORALL,bind_bind]
   \\ first_x_assum match_mp_tac
   \\ fs [EXTENSION,MEM_MAP,MEM_FILTER,EXISTS_PROD,SUBSET_DEF]

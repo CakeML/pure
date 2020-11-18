@@ -491,9 +491,9 @@ Definition next_list_def:
               else ( if eval c input = Diverge then (INL bottom)
                      else (case eval c input of
                            | Constructor n vs =>
-                               (if n = "nil" ∧ LLENGTH vs = SOME 0
+                               (if n = "nil" ∧ LENGTH vs = 0
                                 then (INL (nil:('a,'b) exp))
-                                else if n = "cons" ∧ LLENGTH vs = SOME 2
+                                else if n = "cons" ∧ LENGTH vs = 2
                                 then (INR (n
                                            ,App f (Proj n 0 input)
                                            ,Proj n 1 input       ))
@@ -512,9 +512,12 @@ Proof
   \\ ‘eval c map ≠ Diverge’ by (fs[map_def,LAMREC_def,cons_def,nil_def,eval_thm]) \\ fs[]
   \\ fs[map_def,LAMREC_def,cons_def,nil_def]
   \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-  \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-  \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-  \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
+  (* These tactics no longer do anything:
+
+     \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
+     \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
+     \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
+  *)
   \\ reverse IF_CASES_TAC THEN1 (fs[next_list_def,closed_def,v_rel_refl])
   \\ fs[eval_thm]
   \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
@@ -523,7 +526,8 @@ Proof
   \\ Cases_on ‘eval c input = Diverge’
   THEN1 (fs[next_list_def,closed_def] \\ fs[eval_bottom] \\ fs[v_rel_refl])
   \\ fs[]
-  \\ Cases_on ‘eval c input’\\Cases_on ‘a’\\fs[next_list_def,eval_thm,v_rel_refl,closed_def]
+  \\ Cases_on ‘eval c input’
+  \\ fs[next_list_def,eval_thm,v_rel_refl,closed_def]
   \\ cheat
   (* \\ Cases_on ‘eval c input’ \\ fs[] \\ Cases_on ‘a’ \\ fs[eval_thm,v_rel_refl] *)
   (* THEN1 ( *)
