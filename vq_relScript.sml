@@ -1,14 +1,9 @@
 
 open bossLib boolLib;
-open HolKernel pure_langTheory quotient_llistTheory
-     quotient_ltreeTheory quotientLib;
+open HolKernel pure_langTheory valueTheory quotient_llistTheory listTheory
+     llistTheory quotient_ltreeTheory quotientLib;
 
 val _ = new_theory "vq_rel";
-
-val _ = Parse.thytype_abbrev (
-  {Name = "v", Thy = "pure_lang"},
-  “:('a, 'b) v_prefix ltree”,
-  true);
 
 Definition empty_conf_def:
   empty_conf = ARB : ('a, 'b) conf
@@ -43,84 +38,6 @@ Proof
   \\ metis_tac [vq_rel_sym, vq_rel_trans, vq_rel_refl]
 QED
 
-(*
- * Re-definitions for :v constructors.
- * (These are just overrides in the [pure_lang] theory, and that confuses
- * the quotient package.)
- *)
-
-val _ = Parse.clear_overloads_on "Atom";
-val _ = Parse.clear_overloads_on "Constructor";
-val _ = Parse.clear_overloads_on "Closure";
-val _ = Parse.clear_overloads_on "Diverge";
-val _ = Parse.clear_overloads_on "Error";
-val _ = Parse.clear_overloads_on "True";
-val _ = Parse.clear_overloads_on "False";
-
-Definition Atom_def:
-  Atom b = Branch (Atom' b) LNIL
-End
-
-Definition Constructor_def:
-  Constructor n ts = Branch (Constructor' n) (fromList ts)
-End
-
-Definition Closure_def:
-  Closure s x = Branch (Closure' s x) LNIL
-End
-
-Definition Diverge_def:
-  Diverge = Branch Diverge' LNIL
-End
-
-Definition Error_def:
-  Error = Branch Error' LNIL
-End
-
-Overload True = “Constructor "True" []”;
-
-Overload False = “Constructor "False" []”;
-
-(*
- * Theorems about :v.
- *)
-
-Theorem v_distinct:
-  ALL_DISTINCT [
-    Atom b;
-    Closure s x;
-    Constructor n y;
-    Diverge;
-    Error]
-Proof
-  rw [Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def]
-QED
-
-Theorem v_distinct = SIMP_RULE list_ss [] v_distinct;
-
-Theorem Atom_11:
-  Atom x1 = Atom x2 ⇔ x1 = x2
-Proof
-  rw [Atom_def]
-QED
-
-Theorem Constructor_11:
-  Constructor x1 y1 = Constructor x2 y2 ⇔ x1 = x2 ∧ y1 = y2
-Proof
-  rw [Constructor_def]
-QED
-
-Theorem Closure_11:
-  Closure x1 y1 = Closure x2 y2 ⇔ x1 = x2 ∧ y1 = y2
-Proof
-  rw [Closure_def]
-QED
-
-(*
- * TODO
- * - Re-prove when v_rel relies on finite-breadth values.
- *)
-
 Theorem v_rel_eqns:
   (∀b1 b2.
      b1 = b2 ⇒
@@ -144,21 +61,23 @@ Proof
    (simp [PULL_FORALL]
     \\ ntac 4 gen_tac
     \\ Cases
-    \\ rw [v_rel'_def, Closure_def, DISJ_EQ_IMP])
+    \\ rw [v_rel'_def, DISJ_EQ_IMP])
   >- (* Constructor *)
    (simp [PULL_FORALL]
     \\ ntac 3 gen_tac
     \\ Cases
-    \\ rw [v_rel'_def, Constructor_def, DISJ_EQ_IMP]
-    \\ fs[listTheory.LIST_REL_EL_EQN, v_rel_def])
+    \\ rw [v_rel'_def, DISJ_EQ_IMP]
+    \\ fs[LIST_REL_EL_EQN, v_rel_def])
      (* Constants *)
   \\ Cases \\ simp [v_rel'_def]
 QED
 
 Triviality v_rel'_refl:
-  ∀ n c x . v_rel' c n x x
+  ∀n c x . v_rel' c n x x
 Proof
-  Cases >> rw[v_rel'_def]
+  Induct >> rw[v_rel'_def]
+  \\ CASE_TAC \\ fs []
+  \\ rw [LIST_REL_EL_EQN]
 QED
 
 Theorem v_rel_eq_simps:
@@ -179,7 +98,7 @@ Proof
     EQ_TAC >> strip_tac
     >- (
       first_x_assum (qspec_then `SUC 0` assume_tac) >>
-      gvs[v_rel'_def, Atom_def]
+      gvs[v_rel'_def]
       ) >>
     gvs[v_rel'_refl]
     )
@@ -187,45 +106,41 @@ Proof
     reverse EQ_TAC >> strip_tac
     >- (
       gvs[] >>
-      Cases >> gvs[v_rel'_def, Constructor_def] >>
-      DISJ2_TAC >>
-      fs[listTheory.LIST_REL_EL_EQN, v_rel_def]
+      Cases >> gvs[v_rel'_def] >>
+      fs[LIST_REL_EL_EQN, v_rel_def]
       ) >>
     first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `y` >> gvs[v_rel'_def, Constructor_def] >>
+    Cases_on `y` >> gvs[v_rel'_def] >>
     first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `a` >> fs[v_rel'_def, Constructor_def] >> gvs[]
-    >- (irule listTheory.EVERY2_refl >> rw[] >> fs[v_rel_refl]) >>
-    fs[listTheory.LIST_REL_EL_EQN] >> rw[v_rel_def] >>
+    fs[v_rel'_def] >> gvs[] >>
+    fs[LIST_REL_EL_EQN] >> rw[v_rel_def] >>
     rename1 `m < _` >> rename1 `v_rel' _ step _ _` >>
     last_x_assum (qspec_then `SUC step` assume_tac) >> gvs[v_rel'_def] >>
-    fs[listTheory.LIST_REL_EL_EQN, v_rel'_refl]
+    fs[LIST_REL_EL_EQN, v_rel'_refl]
     )
   >- ( (* Closure *)
     reverse EQ_TAC >> strip_tac
     >- (
       gvs[] >>
-      Cases >> gvs[v_rel'_def, Closure_def] >>
+      Cases >> gvs[v_rel'_def] >>
       fs[exp_rel_def, v_rel_def]
       ) >>
     first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `y` >> gvs[v_rel'_def, Closure_def, exp_rel_def, v_rel_def] >>
+    Cases_on `y` >> gvs[v_rel'_def, exp_rel_def, v_rel_def] >>
     first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `a` >> fs[v_rel'_def, Closure_def] >> rw[] >> gvs[v_rel'_refl] >>
-    first_x_assum (qspec_then `SUC n` assume_tac) >>
+    fs[v_rel'_def] >> rw[] >> gvs[v_rel'_refl] >>
+    first_x_assum (qspec_then `SUC n'` assume_tac) >>
     gvs[v_rel'_def, v_rel'_refl]
     )
   >> ( (* Diverge, Error *)
     EQ_TAC >> rw[v_rel'_refl] >>
     pop_assum (qspec_then `SUC 0` assume_tac) >>
-    gvs[v_rel'_def, Diverge_def, Error_def]
+    gvs[v_rel'_def]
     )
 QED
 
 (*
  * Re-definitions for eval:
- * TODO:
- * - Adjust/specialize for finite-breadth values
  *)
 
 Theorem eval_thm:
@@ -237,22 +152,22 @@ Theorem eval_thm:
   eval c (Proj s i x) = el s i (eval c x) ∧
   eval c (Let s x y) = eval c (bind [(s,x)] y) ∧
   eval c (If x y z) =
-   (if eval c x = Diverge then Diverge
-    else if eval c x = True then eval c y
-    else if eval c x = False then eval c z
+   (if v_rel c (eval c x) Diverge then Diverge
+    else if v_rel c (eval c x) True then eval c y
+    else if v_rel c (eval c x) False then eval c z
     else Error) ∧
   eval c (Lam s x) = Closure s x ∧
   eval c (Letrec f x) = eval c (subst_funs f x) ∧
   eval c (App x y) =
     (let v = eval c x in
-       if v = Diverge then Diverge
+       if v_rel c v Diverge then Diverge
        else case dest_Closure v of
               NONE => Error
             | SOME (s,body) => eval c (bind [(s,y)] body)) ∧
   eval c (Case x nm css) = eval c (expandCases x nm css)
 Proof
-  simp [eval_thm, Constructor_def, Error_def, Diverge_def, Closure_def,
-        llistTheory.LMAP_fromList]
+  gs [eval_thm, v_rel_eq_simps,
+      v_rel_eq_simps |> PURE_ONCE_REWRITE_RULE [v_rel_sym]]
 QED
 
 Definition vq_eval_def:
@@ -262,7 +177,9 @@ End
 Theorem vq_eval_thm =
   eval_thm
   |> Q.INST [‘c’|->‘empty_conf’]
-  |> REWRITE_RULE [GSYM vq_eval_def];
+  |> REWRITE_RULE [
+    GSYM vq_rel_def,
+    GSYM vq_eval_def];
 
 (*
  * Some constructor theorems about the v type. Anything vq_rel
@@ -278,18 +195,17 @@ Theorem Constructor_vq_11:
     LIST_REL vq_rel x y
 Proof
   reverse eq_tac >>
-  simp[vq_rel_def, v_rel_def, Constructor_def] >> strip_tac
+  simp[vq_rel_def, v_rel_def] >> strip_tac
   >- (
     Cases >> simp[v_rel'_def] >>
-    fs[listTheory.LIST_REL_EL_EQN, vq_rel_def, v_rel_def]
+    fs[LIST_REL_EL_EQN, vq_rel_def, v_rel_def]
     )
   >- (
-    first_assum (qspec_then `SUC 0` assume_tac) >> fs[v_rel'_def] >> gvs[]
-    >- (irule listTheory.EVERY2_refl >> fs[v_rel_refl]) >>
-    fs[listTheory.LIST_REL_EL_EQN, v_rel_def] >> rw[] >>
+    first_assum (qspec_then `SUC 0` assume_tac) >> fs[v_rel'_def] >> gvs[] >>
+    fs[LIST_REL_EL_EQN, v_rel_def] >> rw[] >>
     rename1 `v_rel' _ k _ _` >>
     last_x_assum (qspec_then `SUC k` assume_tac) >>
-    gvs[v_rel'_def, v_rel'_refl, listTheory.LIST_REL_EL_EQN]
+    gvs[v_rel'_def, v_rel'_refl, LIST_REL_EL_EQN]
     )
 QED
 
@@ -313,13 +229,6 @@ QED
  * Respectfulness theorems for the lifting.
  *)
 
-Theorem Atom_rsp:
-  x1 = x2 ⇒
-    vq_rel (Atom x1) (Atom x2)
-Proof
-  rw [vq_rel_def, v_rel_refl]
-QED
-
 Theorem Constructor_rsp:
   x1 = y1 ∧
   LIST_REL vq_rel x2 y2 ⇒
@@ -330,62 +239,12 @@ Proof
   \\ fs []
 QED
 
-(*
-  finite_branching t ⇔
-    ∀a ts. Branch a ts ∈ subtrees t ⇒ LFINITE ts
-
-  v_rel c x y = ... ∧
-                finite_branching x ∧
-                finite_branching y
-*)
-
-Theorem dest_Closure_rsp:
-  vq_rel x1 x2 ⇒
-    OPTREL (λ(n1, x1) (n2, x2). ∀z.
-      vq_rel (vq_eval (bind [(n1,z)] x1)) (vq_eval (bind [(n2,z)] x2)))
-      (dest_Closure x1)
-      (dest_Closure x2)
-Proof
-  rw [dest_Closure_def]
-  \\ rpt CASE_TAC \\ fs []
-  \\ fs [GSYM Atom_def,
-         GSYM Closure_def,
-         GSYM Constructor_def,
-         GSYM Diverge_def,
-         GSYM Error_def]
-  \\ fs [Closure_vq_11, vq_rel_def, v_rel_eq_simps, v_distinct, Closure_11]
-  \\ fs [Closure_def, v_rel_def]
-  \\ pop_assum (qspec_then ‘SUC 0’ assume_tac)
-  \\ fs [v_rel'_def]
-QED
-
 Theorem vq_eval_rsp:
   x1 = x2 ⇒
     vq_rel (vq_eval x1) (vq_eval x2)
 Proof
   metis_tac [vq_rel_EQUIV, EQUIV_def]
 QED
-
-(*
-Definition vq_is_eq_def:
-  vq_is_eq s x =
-    if x = Diverge then Diverge else
-      case some (t, xs). x = Constructor t xs of
-        NONE => Error
-      | SOME (t, xs) => if s = t then True else False
-End
-
-Theorem vq_is_eq_thm:
-  ∀c. vq_is_eq = is_eq c
-Proof
-  rw [FUN_EQ_THM, vq_is_eq_def, is_eq_def, Diverge_def, Constructor_def,
-      Error_def]
-  \\ DEEP_INTRO_TAC optionTheory.some_intro
-  \\ simp [pairTheory.UNCURRY, pairTheory.FORALL_PROD]
-  \\ rw []
-  \\ rpt CASE_TAC \\ fs []
-QED
-*)
 
 Theorem is_eq_rsp:
   c1 = c2 ∧
@@ -396,64 +255,45 @@ Theorem is_eq_rsp:
 Proof
   strip_tac
   \\ simp [is_eq_def] \\ rw []
-  \\ fs [GSYM Diverge_def, GSYM Constructor_def, GSYM Error_def]
   \\ fs [vq_rel_refl, v_rel_eqns, v_rel_eq_simps, vq_rel_def, v_rel_sym]
   \\ rpt CASE_TAC \\ fs []
   \\ fs [vq_rel_refl, v_rel_eqns, v_rel_eq_simps, vq_rel_def, v_rel_sym]
-  \\ fs [Constructor_def, Diverge_def, Error_def, Atom_def] \\ rw []
-  \\ fs [v_rel_def]
-  \\ first_x_assum (qspec_then ‘SUC 0’ assume_tac)
-  \\ gvs [v_rel'_def, listTheory.LIST_REL_EL_EQN, v_rel'_refl]
+  \\ gvs [v_rel'_def, LIST_REL_EL_EQN, v_rel'_refl]
 QED
 
-(*
- * TODO: Same issue as above.
- * TODO: Also, its slightly false.
- *)
-
-Theorem vq_el_rsp:
+Theorem el_rsp:
   x1 = y1 ∧
   x2 = y2 ∧
   vq_rel x3 y3 ⇒
     vq_rel (el x1 x2 x3) (el y1 y2 y3)
 Proof
   rw [el_def] >>
-  fs[vq_rel_def, v_rel_def, GSYM Diverge_def, v_rel_eq_simps]
+  fs[vq_rel_def, v_rel_def, v_rel_eq_simps]
   >- (
     rename1 `x ≠ Diverge` >>
     pop_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `x` >> fs[v_rel'_def, Diverge_def]
+    Cases_on `x` >> fs[v_rel'_def]
     ) >>
   strip_tac >>
   rename1 `∀n. v_rel' _ n x y` >>
-  fs[Diverge_def] >>
-
-  Cases_on `x` >> Cases_on `y` >>
+  rpt CASE_TAC >> fs [] >>
   first_assum (qspec_then `SUC 0` assume_tac) >>
-  fs[llistTheory.LNTH_fromList, v_rel'_def, v_rel'_refl,
-     listTheory.LIST_REL_EL_EQN] >>
+  fs[LNTH_fromList, v_rel'_def, v_rel'_refl,
+     LIST_REL_EL_EQN] >>
   gvs[] >>
-  Cases_on `x1 = m` >> gvs[v_rel'_refl] >>
-  CASE_TAC >> gvs[v_rel'_refl] >>
   first_x_assum (qspec_then `SUC n` assume_tac) >>
-  gvs[v_rel'_def, v_rel'_refl, listTheory.LIST_REL_EL_EQN]
+  gvs[v_rel'_def, v_rel'_refl, LIST_REL_EL_EQN]
 QED
 
 Theorem isClos_rsp:
   ∀x y. vq_rel x y ⇒ isClos x = isClos y
 Proof
-  metis_tac [isClos_def, vq_rel_def, v_rel_def, v_rel'_def]
+  Cases \\ Cases \\ simp [vq_rel_def, v_rel_eq_simps, isClos_def]
 QED
 
 (*
  * Not many conjuncts survive (yet):
  *)
-
-Theorem vq_eval_thm =
-  vq_eval_thm
-  |> CONJUNCTS
-  |> C (curry List.take) 2
-  |> LIST_CONJ;
 
 Theorem vq_progress_lemma =
   progress_lemma
@@ -467,13 +307,9 @@ Theorem isClos_is_Closure:
   ∀v. isClos v ⇔ ∃s x. vq_rel v (Closure s x)
 Proof
   Cases
-  \\ Cases_on ‘a’ \\ Cases_on ‘ts’
-  \\ rw [Closure_def, isClos_def, vq_rel_def, v_rel_def]
-  \\ TRY
-    (Q.REFINE_EXISTS_TAC ‘SUC n’
-     \\ simp [v_rel'_def])
-  \\ Q.LIST_EXISTS_TAC [‘s’, ‘e’]
-  \\ simp [GSYM v_rel_def, v_rel_refl] (* Meh. *)
+  \\ rw [isClos_def, vq_rel_def, v_rel_eq_simps, exp_rel_def]
+  \\ Q.LIST_EXISTS_TAC [‘n’, ‘x’]
+  \\ simp [v_rel_refl]
 QED
 
 (*
@@ -513,33 +349,28 @@ val thms = define_quotient_types_full {
      fname    = "eval_vq",
      func     = “vq_eval”,
      fixity   = NONE },
-    {def_name = "dest_Closure_vq_def",
-     fname    = "dest_Closure_vq",
-     func     = “dest_Closure”,
-     fixity   = NONE},
-    {
-     def_name = "isClos_vq_def",
+    {def_name = "isClos_vq_def",
      fname    = "is_Clos_vq",
      func     = “isClos”,
-     fixity   = NONE}
-    (*
+     fixity   = NONE},
     {def_name = "is_eq_vq_def",
      fname    = "is_eq_vq",
-     func     = “vq_is_eq”,
+     func     = “is_eq”,
      fixity   = NONE
     },
     {def_name = "el_vq_def",
      fname    = "el_vq",
-     func     = “vq_el”,
+     func     = “el”,
      fixity   = NONE
-    } *)
+    }
     ],
   tyop_equivs = [],
-  tyop_quotients = [llist_QUOTIENT],
-  tyop_simps = [llist_rel_equality, llist_map_I],
+  tyop_quotients = [],
+  tyop_simps = [],
   respects = [
     Constructor_rsp,
-    dest_Closure_rsp,
+    el_rsp,
+    is_eq_rsp,
     isClos_rsp
     ],
   poly_preserves = [],
@@ -548,7 +379,8 @@ val thms = define_quotient_types_full {
   old_thms = [
     Constructor_vq_11,
     Closure_vq_11,
-    vq_eval_thm,
+    (* dest_Closure is an issue: *)
+    vq_eval_thm |> CONJUNCTS |> C (curry List.take) 9 |> LIST_CONJ,
     vq_progress_lemma,
     isClos_is_Closure
     ]
