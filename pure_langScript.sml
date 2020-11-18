@@ -1,7 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory bagTheory;
+     ltreeTheory llistTheory bagTheory pairTheory;
 
 
 val _ = new_theory "pure_lang";
@@ -336,6 +336,37 @@ Definition eval_def:
     gen_ltree (λpath. v_limit (λk. eval_to c k x) path)
 End
 
+(* misc lemmas about bind, subst, closed *)
+
+Theorem bind_bind:
+  ∀xs ys s. bind xs (bind ys s) = bind (xs ++ ys) s
+Proof
+  Induct \\ fs [bind_def,FORALL_PROD] \\ rw []
+QED
+
+Theorem subst_ignore:
+  ∀s x y. ~MEM s (freevars y) ⇒ subst s x y = y
+Proof
+  ho_match_mp_tac subst_ind \\ rw [] \\ fs [subst_def]
+  THEN1 (Induct_on ‘xs’ \\ fs [])
+  THEN1 (rw [] \\ fs [MEM_FILTER])
+  THEN1
+   (rw [] \\ fs [MEM_FILTER]
+    \\ Induct_on ‘f’ \\ fs [FORALL_PROD]
+    \\ rw [] \\ fs [AND_IMP_INTRO]
+    THEN1 (first_x_assum match_mp_tac \\ metis_tac [])
+    \\ fs [MEM_FILTER,EXISTS_PROD,MEM_MAP]
+    \\ metis_tac [])
+  \\ Induct_on ‘css’ \\ fs [FORALL_PROD,MEM_MAP] \\ rw []
+  \\ fs [MEM_FILTER,EXISTS_PROD,MEM_MAP]
+  \\ metis_tac []
+QED
+
+Theorem closed_subst[simp]:
+  ∀s x y. closed y ⇒ subst s x y = y
+Proof
+  rw [] \\ match_mp_tac subst_ignore \\ fs [closed_def]
+QED
 
 (**** LEMMAS for limit/v_limit algebra *****)
 
