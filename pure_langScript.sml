@@ -1804,8 +1804,6 @@ Theorem isClos_thm:
   isClos x = ∃n e. x = Closure n e
 Proof
   Cases_on ‘x’ \\ fs [isClos_def]
-  \\ Cases_on ‘a’ \\ fs [isClos_def]
-  \\ Cases_on ‘ts’ \\ fs [isClos_def]
 QED
 
 Theorem exp_rel_extend:
@@ -1815,40 +1813,15 @@ Theorem exp_rel_extend:
 Proof
   rw [exp_rel_def,eval_App]
   \\ Cases_on ‘~isClos (eval c y)’ \\ fs []
-  \\ fs [isClos_thm]
-  \\ fs [v_rel_def]
-  \\ eq_tac \\ rw []
-  THEN1
-   (rename [‘v_rel' _ k’]
-    \\ first_x_assum (qspec_then ‘SUC k’ mp_tac)
-    \\ fs [v_rel'_def] \\ rw [] \\ fs [])
-  \\ rename [‘v_rel' _ k’]
-  \\ Cases_on ‘k’ \\ fs [v_rel'_def]
+  \\ fs [isClos_thm, v_rel_cases, exp_rel_def]
 QED
 
 Theorem exp_rel_Cons:
   exp_rel c (Cons n xs) (Cons m ys) ⇔
   n = m ∧ LIST_REL (exp_rel c) xs ys
 Proof
-  fs [exp_rel_def,eval_Cons,v_rel_def,LIST_REL_EL_EQN]
-  \\ eq_tac \\ rw []
-  THEN1 (first_x_assum (qspec_then ‘SUC 0’ mp_tac) \\ fs [v_rel'_def] \\ rw [])
-  THEN1
-   (first_x_assum (qspec_then ‘SUC 0’ mp_tac) \\ fs [v_rel'_def]
-    \\ fs [LIST_REL_EL_EQN] \\ rw [] \\ fs [MAP_EQ_EVERY2])
-  THEN1
-   (rename [‘v_rel' _ k’]
-    \\ first_x_assum (qspec_then ‘SUC k’ mp_tac)
-    \\ fs [v_rel'_def,MAP_EQ_EVERY2]
-    \\ fs [LIST_REL_EL_EQN]
-    \\ Cases_on ‘LENGTH xs = LENGTH ys’ \\ fs []
-    \\ Cases_on ‘m = n’ \\ fs [EL_MAP]
-    \\ rw [] \\ res_tac \\ fs []
-    \\ Cases_on ‘k’ \\ fs [v_rel'_def])
-  \\ rename [‘v_rel' _ k’]
-  \\ Cases_on ‘k’ \\ fs [v_rel'_def]
-  \\ fs [LIST_REL_EL_EQN]
-  \\ rfs [] \\ rw [] \\ fs [EL_MAP]
+  rw [exp_rel_def, eval_Cons, v_rel_cases, LIST_REL_EL_EQN, EQ_IMP_THM]
+  \\ metis_tac [EL_MAP]
 QED
 
 Definition progress_def:
