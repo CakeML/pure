@@ -38,40 +38,6 @@ Proof
   \\ metis_tac [vq_rel_sym, vq_rel_trans, vq_rel_refl]
 QED
 
-Theorem v_rel_eqns:
-  (∀b1 b2.
-     b1 = b2 ⇒
-       v_rel c (Atom b1) (Atom b2)) ∧
-  (∀n1 x1 n2 x2.
-     (∀z. v_rel c (eval c (bind [(n1, z)] x1)) (eval c (bind [(n2, z)] x2))) ⇒
-       v_rel c (Closure n1 x1) (Closure n2 x2)) ∧
-  (∀n1 x1 n2 x2.
-     n1 = n2 ∧
-     LIST_REL (v_rel c) x1 x2 ⇒
-       v_rel c (Constructor n1 x1) (Constructor n2 x2)) ∧
-  v_rel c Diverge Diverge ∧
-  v_rel c Error Error
-Proof
-  simp [v_rel_def]
-  \\ rpt conj_tac
-  >- (* Atom *)
-   (gen_tac
-    \\ Cases \\ simp [v_rel'_def])
-  >- (* Closure *)
-   (simp [PULL_FORALL]
-    \\ ntac 4 gen_tac
-    \\ Cases
-    \\ rw [v_rel'_def, DISJ_EQ_IMP])
-  >- (* Constructor *)
-   (simp [PULL_FORALL]
-    \\ ntac 3 gen_tac
-    \\ Cases
-    \\ rw [v_rel'_def, DISJ_EQ_IMP]
-    \\ fs[LIST_REL_EL_EQN, v_rel_def])
-     (* Constants *)
-  \\ Cases \\ simp [v_rel'_def]
-QED
-
 Triviality v_rel'_refl:
   ∀n c x . v_rel' c n x x
 Proof
@@ -220,7 +186,7 @@ Theorem Closure_vq_11:
 Proof
   simp [vq_rel_def, vq_eval_def]
   \\ reverse eq_tac
-  >- simp [v_rel_eqns]
+  >- simp [v_rel_rules]
   \\ strip_tac
   \\ gvs[v_rel_eq_simps, exp_rel_def, Closure_11]
 QED
@@ -235,7 +201,7 @@ Theorem Constructor_rsp:
     vq_rel (Constructor x1 x2) (Constructor y1 y2)
 Proof
   rw [vq_rel_def]
-  \\ irule (el 3 (CONJUNCTS v_rel_eqns))
+  \\ irule (el 3 (CONJUNCTS v_rel_rules))
   \\ fs []
 QED
 
@@ -255,9 +221,9 @@ Theorem is_eq_rsp:
 Proof
   strip_tac
   \\ simp [is_eq_def] \\ rw []
-  \\ fs [vq_rel_refl, v_rel_eqns, v_rel_eq_simps, vq_rel_def, v_rel_sym]
+  \\ fs [vq_rel_refl, v_rel_rules, v_rel_eq_simps, vq_rel_def, v_rel_sym]
   \\ rpt CASE_TAC \\ fs []
-  \\ fs [vq_rel_refl, v_rel_eqns, v_rel_eq_simps, vq_rel_def, v_rel_sym]
+  \\ fs [vq_rel_refl, v_rel_rules, v_rel_eq_simps, vq_rel_def, v_rel_sym]
   \\ gvs [v_rel'_def, LIST_REL_EL_EQN, v_rel'_refl]
 QED
 

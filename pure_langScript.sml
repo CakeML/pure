@@ -1677,6 +1677,60 @@ Proof
   metis_tac [v_rel'_trans,v_rel_def]
 QED
 
+Theorem v_rel_rules:
+  (∀c b1 b2.
+     b1 = b2 ⇒
+       v_rel c (Atom b1) (Atom b2)) ∧
+  (∀c n1 x1 n2 x2.
+     (∀z. v_rel c (eval c (bind [n1,z] x1)) (eval c (bind [n2,z] x2))) ⇒
+       v_rel c (Closure n1 x1) (Closure n2 x2)) ∧
+  (∀c n1 x1 n2 x2.
+     n1 = n2 ∧
+     LIST_REL (v_rel c) x1 x2 ⇒
+       v_rel c (Constructor n1 x1) (Constructor n2 x2)) ∧
+  (∀c. v_rel c Diverge Diverge) ∧
+  (∀c. v_rel c Error Error)
+Proof
+  simp [v_rel_def]
+  \\ rpt conj_tac
+  \\ gen_tac
+  >- (* Atom *)
+   (gen_tac
+    \\ Cases \\ simp [v_rel'_def])
+  >- (* Closure *)
+   (simp [PULL_FORALL]
+    \\ ntac 4 gen_tac
+    \\ Cases
+    \\ rw [v_rel'_def, DISJ_EQ_IMP])
+  >- (* Constructor *)
+   (simp [PULL_FORALL]
+    \\ ntac 3 gen_tac
+    \\ Cases
+    \\ rw [v_rel'_def, DISJ_EQ_IMP]
+    \\ fs[LIST_REL_EL_EQN, v_rel_def])
+     (* Constants *)
+  \\ Cases \\ simp [v_rel'_def]
+QED
+
+Theorem v_rel_rules':
+  (∀c b1 b2.
+     b1 = b2 ⇒
+       v_rel c (Atom b1) (Atom b2)) ∧
+  (∀c n1 x1 n2 x2.
+     (∀z1 z2.
+       v_rel c (eval c z1) (eval c z2) ⇒
+       v_rel c (eval c (bind [n1,z1] x1)) (eval c (bind [n2,z2] x2))) ⇒
+       v_rel c (Closure n1 x1) (Closure n2 x2)) ∧
+  (∀c n1 x1 n2 x2.
+     n1 = n2 ∧
+     LIST_REL (v_rel c) x1 x2 ⇒
+       v_rel c (Constructor n1 x1) (Constructor n2 x2)) ∧
+  (∀c. v_rel c Diverge Diverge) ∧
+  (∀c. v_rel c Error Error)
+Proof
+  simp [v_rel_rules, GSYM exp_rel_def, v_rel_Closure]
+QED
+
 Definition isClos_def:
   isClos (Closure _ _) = T ∧ isClos _ = F
 End
