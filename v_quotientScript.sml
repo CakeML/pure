@@ -3,7 +3,13 @@ open bossLib boolLib;
 open HolKernel pure_langTheory valueTheory quotient_llistTheory listTheory
      llistTheory quotient_ltreeTheory quotientLib;
 
-val _ = new_theory "vq_rel";
+val _ = new_theory "v_quotient";
+
+(*
+ * We won't be able to use `v_rel c` with `c` free as the relation
+ * for our quotient type, so we make up a dummy value in place of c,
+ * and define a new relation `vq_rel`.
+ *)
 
 Definition empty_conf_def:
   empty_conf = ARB : ('a, 'b) conf
@@ -38,16 +44,54 @@ Proof
   \\ metis_tac [vq_rel_sym, vq_rel_trans, vq_rel_refl]
 QED
 
-Triviality v_rel'_refl:
-  ∀n c x . v_rel' c n x x
+Definition vq_eval_def:
+  vq_eval = eval empty_conf
+End
+
+Definition vq_exp_rel_def:
+  vq_exp_rel x y = exp_rel empty_conf x y
+End
+
+(*
+ * Adapt theorems about v_rel to vq_rel.
+ *)
+
+Theorem vq_rel_rules =
+  v_rel_rules
+  |> CONJUNCTS
+  |> map (Q.SPEC ‘empty_conf’)
+  |> LIST_CONJ
+  |> REWRITE_RULE [
+    GSYM vq_rel_def,
+    GSYM vq_eval_def];
+
+Theorem vq_rel_rules' =
+  v_rel_rules'
+  |> CONJUNCTS
+  |> map (Q.SPEC ‘empty_conf’)
+  |> LIST_CONJ
+  |> REWRITE_RULE [
+    GSYM vq_rel_def,
+    GSYM vq_eval_def];
+
+Theorem vq_rel_cases =
+  v_rel_cases
+  |> CONJUNCTS
+  |> map (Q.SPEC ‘empty_conf’)
+  |> LIST_CONJ
+  |> REWRITE_RULE [
+    GSYM vq_rel_def,
+    GSYM vq_eval_def,
+    GSYM vq_exp_rel_def];
+
+Theorem vq_exp_rel_def:
+  vq_exp_rel x y = vq_rel (vq_eval x) (vq_eval y)
 Proof
-  Induct >> rw[v_rel'_def]
-  \\ CASE_TAC \\ fs []
-  \\ rw [LIST_REL_EL_EQN]
+  rw [vq_exp_rel_def, vq_rel_def, vq_eval_def, exp_rel_def]
 QED
 
 (*
- * Re-definitions for eval:
+ * Adapt theorems about eval to vq_eval.
  *)
 
 Theorem eval_thm:
@@ -73,13 +117,8 @@ Theorem eval_thm:
             | SOME (s,body) => eval c (bind [(s,y)] body)) ∧
   eval c (Case x nm css) = eval c (expandCases x nm css)
 Proof
-  gs [eval_thm, v_rel_cases,
-      v_rel_cases |> PURE_ONCE_REWRITE_RULE [v_rel_sym]]
+  gs [eval_thm, v_rel_cases, PURE_ONCE_REWRITE_RULE [v_rel_sym] v_rel_cases]
 QED
-
-Definition vq_eval_def:
-  vq_eval = eval empty_conf
-End
 
 Theorem vq_eval_thm =
   eval_thm
@@ -88,48 +127,49 @@ Theorem vq_eval_thm =
     GSYM vq_rel_def,
     GSYM vq_eval_def];
 
+Theorem vq_progress_lemma =
+  progress_lemma
+  |> Q.INST [‘c’|->‘empty_conf’]
+  |> REWRITE_RULE [
+       exp_rel_def,
+       GSYM vq_rel_def,
+       GSYM vq_eval_def];
+
+Theorem isClos_is_Closure:
+  ∀v. isClos v ⇔ ∃s x. vq_rel v (Closure s x)
+Proof
+  Cases
+  \\ rw [isClos_def, vq_rel_cases, vq_exp_rel_def]
+  \\ Q.LIST_EXISTS_TAC [‘n’, ‘x’]
+  \\ simp [vq_rel_refl]
+QED
+
 (*
  * Some constructor theorems about the v type. Anything vq_rel
  * (or higher-order equiv. rels. with vq_rel) will be lifted to
  * equality in the new type.
- *
- * (This particular theorem will look like the theorem [Constructor_11] above).
  *)
+
+Theorem Atom_vq_11:
+  vq_rel (Atom x) (Atom y) ⇔
+    x = y
+Proof
+  rw [vq_rel_cases, EQ_SYM_EQ]
+QED
 
 Theorem Constructor_vq_11:
   vq_rel (Constructor n x) (Constructor m y) ⇔
     n = m ∧
     LIST_REL vq_rel x y
 Proof
-  reverse eq_tac >>
-  simp[vq_rel_def, v_rel_def] >> strip_tac
-  >- (
-    Cases >> simp[v_rel'_def] >>
-    fs[LIST_REL_EL_EQN, vq_rel_def, v_rel_def]
-    )
-  >- (
-    first_assum (qspec_then `SUC 0` assume_tac) >> fs[v_rel'_def] >> gvs[] >>
-    fs[LIST_REL_EL_EQN, v_rel_def] >> rw[] >>
-    rename1 `v_rel' _ k _ _` >>
-    last_x_assum (qspec_then `SUC k` assume_tac) >>
-    gvs[v_rel'_def, v_rel'_refl, LIST_REL_EL_EQN]
-    )
+  rw [vq_rel_cases, EQ_SYM_EQ]
 QED
-
-(*
- * This theorem is more interesting because the results of evaluating
- * both closures will be equal (as the closures are equal in the new type.)
- *)
 
 Theorem Closure_vq_11:
   vq_rel (Closure n e1) (Closure m e2) ⇔
     ∀z. vq_rel (vq_eval (bind [(n, z)] e1)) (vq_eval (bind [(m, z)] e2))
 Proof
-  simp [vq_rel_def, vq_eval_def]
-  \\ reverse eq_tac
-  >- simp [v_rel_rules]
-  \\ strip_tac
-  \\ gvs[v_rel_cases, exp_rel_def, Closure_11]
+  rw [vq_rel_cases, vq_exp_rel_def]
 QED
 
 (*
@@ -141,9 +181,7 @@ Theorem Constructor_rsp:
   LIST_REL vq_rel x2 y2 ⇒
     vq_rel (Constructor x1 x2) (Constructor y1 y2)
 Proof
-  rw [vq_rel_def]
-  \\ irule (el 3 (CONJUNCTS v_rel_rules))
-  \\ fs []
+  rw [Constructor_vq_11]
 QED
 
 Theorem vq_eval_rsp:
@@ -160,12 +198,9 @@ Theorem is_eq_rsp:
   vq_rel x2 y2 ⇒
     vq_rel (is_eq c1 x1 n1 x2) (is_eq c2 y1 n2 y2)
 Proof
-  strip_tac
-  \\ simp [is_eq_def] \\ rw []
-  \\ fs [vq_rel_refl, v_rel_rules, v_rel_cases, vq_rel_def, v_rel_sym]
-  \\ rpt CASE_TAC \\ fs []
-  \\ fs [vq_rel_refl, v_rel_rules, v_rel_cases, vq_rel_def, v_rel_sym]
-  \\ gvs [v_rel'_def, LIST_REL_EL_EQN, v_rel'_refl]
+  rw [is_eq_def]
+  \\ fs [vq_rel_refl, vq_rel_cases]
+  \\ rpt CASE_TAC \\ gs [vq_rel_cases, LIST_REL_EL_EQN]
 QED
 
 Theorem el_rsp:
@@ -174,22 +209,9 @@ Theorem el_rsp:
   vq_rel x3 y3 ⇒
     vq_rel (el x1 x2 x3) (el y1 y2 y3)
 Proof
-  rw [el_def] >>
-  fs[vq_rel_def, v_rel_def, v_rel_cases]
-  >- (
-    rename1 `x ≠ Diverge` >>
-    pop_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `x` >> fs[v_rel'_def]
-    ) >>
-  strip_tac >>
-  rename1 `∀n. v_rel' _ n x y` >>
-  rpt CASE_TAC >> fs [] >>
-  first_assum (qspec_then `SUC 0` assume_tac) >>
-  fs[LNTH_fromList, v_rel'_def, v_rel'_refl,
-     LIST_REL_EL_EQN] >>
-  gvs[] >>
-  first_x_assum (qspec_then `SUC n` assume_tac) >>
-  gvs[v_rel'_def, v_rel'_refl, LIST_REL_EL_EQN]
+  rw [el_def]
+  \\ fs [vq_rel_cases]
+  \\ rpt CASE_TAC \\ gs [vq_rel_cases, LIST_REL_EL_EQN]
 QED
 
 Theorem isClos_rsp:
@@ -199,38 +221,17 @@ Proof
 QED
 
 (*
- * Not many conjuncts survive (yet):
- *)
-
-Theorem vq_progress_lemma =
-  progress_lemma
-  |> Q.INST [‘c’|->‘empty_conf’]
-  |> REWRITE_RULE [
-       exp_rel_def,
-       GSYM vq_rel_def,
-       GSYM vq_eval_def];
-
-Theorem isClos_is_Closure:
-  ∀v. isClos v ⇔ ∃s x. vq_rel v (Closure s x)
-Proof
-  Cases
-  \\ rw [isClos_def, vq_rel_def, v_rel_cases, exp_rel_def]
-  \\ Q.LIST_EXISTS_TAC [‘n’, ‘x’]
-  \\ simp [v_rel_refl]
-QED
-
-(*
  * Perform lifting.
  *)
 
-val thms = define_quotient_types_full {
-  types =
-    [{equiv = vq_rel_EQUIV,
-      name  = "vq"
-     }
-    ],
-  defs = [
-    (* Constructors *)
+type def = {
+    def_name: string,
+    fixity: Parse.fixity option,
+    fname: string,
+    func: term
+  };
+
+val defs_Constructors : def list = [
     {def_name = "Atom_vq_def",
      fname    = "Atom_vq",
      func     = “Atom”,
@@ -250,12 +251,14 @@ val thms = define_quotient_types_full {
     {def_name = "Error_vq_def",
      fname    = "Error_vq",
      func     = “Error”,
-     fixity   = NONE},
-    (* Functions *)
+     fixity   = NONE}
+  ];
+
+val defs_Functions : def list = [
     {def_name = "eval_vq_def",
      fname    = "eval_vq",
      func     = “vq_eval”,
-     fixity   = NONE },
+     fixity   = NONE},
     {def_name = "isClos_vq_def",
      fname    = "is_Clos_vq",
      func     = “isClos”,
@@ -263,14 +266,26 @@ val thms = define_quotient_types_full {
     {def_name = "is_eq_vq_def",
      fname    = "is_eq_vq",
      func     = “is_eq”,
-     fixity   = NONE
-    },
+     fixity   = NONE},
     {def_name = "el_vq_def",
      fname    = "el_vq",
      func     = “el”,
-     fixity   = NONE
-    }
+     fixity   = NONE}
+  ];
+
+val [
+    Constructor_vq_11,
+    Closure_vq_11,
+    eval_vq_thm,
+    progress_vq_thm,
+    vq_isClos_is_Closure
+  ] = define_quotient_types_full {
+  types =
+    [{equiv = vq_rel_EQUIV,
+      name  = "vq"}
     ],
+  defs = defs_Constructors @
+         defs_Functions,
   tyop_equivs = [],
   tyop_quotients = [],
   tyop_simps = [],
@@ -286,15 +301,14 @@ val thms = define_quotient_types_full {
   old_thms = [
     Constructor_vq_11,
     Closure_vq_11,
-    (* dest_Closure is an issue: *)
-    vq_eval_thm |> CONJUNCTS |> C (curry List.take) 9 |> LIST_CONJ,
+    let val ths = CONJUNCTS vq_eval_thm in
+      List.take (ths, 9) @
+      List.drop (ths, 10)
+    end |> LIST_CONJ,
     vq_progress_lemma,
     isClos_is_Closure
     ]
   };
-
-Theorem progress_vq =
-  SIMP_RULE std_ss [el 5 thms, PULL_EXISTS] (el 4 thms);
 
 val _ = export_theory ();
 
