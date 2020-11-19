@@ -8,18 +8,18 @@ val _ = new_theory "ctxt_equiv";
 
 Datatype:
   ctxt = Hole
-       | Prim (('a,'b) op) (('a,'b) exp list) ctxt (('a,'b) exp list)
-       | AppL ctxt (('a,'b) exp)
-       | AppR (('a,'b) exp) ctxt
+       | Prim op (exp list) ctxt (exp list)
+       | AppL ctxt exp
+       | AppR exp ctxt
        | Lam vname ctxt
-       | LetrecL ((fname # vname # (('a,'b) exp)) list)
+       | LetrecL ((fname # vname # exp) list)
                   (fname # vname # ctxt)
-                 ((fname # vname # (('a,'b) exp)) list) (('a,'b) exp)
-       | LetrecR ((fname # vname # ('a,'b) exp) list) ctxt
-       | CaseL ctxt vname ((vname # vname list # ('a,'b) exp) list)
-       | CaseR (('a,'b) exp) vname ((vname # vname list # ('a,'b) exp) list)
-                                    (vname # vname list # ctxt)
-                                   ((vname # vname list # ('a,'b) exp) list)
+                 ((fname # vname # exp) list) exp
+       | LetrecR ((fname # vname # exp) list) ctxt
+       | CaseL ctxt vname ((vname # vname list # exp) list)
+       | CaseR exp vname ((vname # vname list # exp) list)
+                          (vname # vname list # ctxt)
+                         ((vname # vname list # exp) list)
 End
 
 Definition plug_def:
@@ -36,15 +36,15 @@ Definition plug_def:
 End
 
 Definition exp_sim_def:
-  exp_sim c x y ⇔
+  exp_sim x y ⇔
     ∀bindings.
       set (freevars x) ∪ set (freevars y) ⊆ set (MAP FST bindings) ⇒
-      exp_rel c (bind bindings x) (bind bindings y)
+      exp_rel (bind bindings x) (bind bindings y)
 End
 
 Theorem exp_sim_closed:
   closed x ∧ closed y ⇒
-  exp_sim c x y = exp_rel c x y
+  exp_sim x y = exp_rel x y
 Proof
   fs [closed_def,exp_sim_def,bind_def]
   \\ rw [] \\ eq_tac \\ rw []
@@ -75,7 +75,7 @@ Proof
 QED
 
 Theorem exp_sim_Lam:
-  exp_sim c x y ⇒ exp_sim c (Lam s x) (Lam s y)
+  exp_sim x y ⇒ exp_sim (Lam s x) (Lam s y)
 Proof
   fs [exp_sim_def] \\ rw []
   \\ fs [bind_Lam]
@@ -91,7 +91,7 @@ Proof
 QED
 
 Theorem exp_sim_plug:
-  ∀h x y. exp_sim c x y ⇒ exp_sim c (plug h x) (plug h y)
+  ∀h x y. exp_sim x y ⇒ exp_sim (plug h x) (plug h y)
 Proof
   ho_match_mp_tac plug_ind \\ rw []
   THEN1 (rename [‘Hole’] \\ fs [plug_def])

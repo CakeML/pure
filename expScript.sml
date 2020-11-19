@@ -1,7 +1,6 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory bagTheory quotient_llistTheory;
+open stringTheory optionTheory configTheory ;
 
 val _ = new_theory "exp";
 
@@ -10,30 +9,18 @@ val _ = new_theory "exp";
 Type vname = “:string”  (* variable name *)
 Type fname = “:string”  (* function name *)
 
-(*configuration record for the parametric atoms.
-
-   parAtomOp:
-     It takes an element of type 'a (from AtomOp) and returns a
-     function that takes a "'b list" element and SOME b if the
-     number of arguments is correct, NONE otherwise
-
-*)
 Datatype:
-  conf = <| parAtomOp  : 'a -> 'b list -> 'b option; |>
-End
-
-Datatype:
-  op = If               (* if-expression                            *)
-     | Cons string      (* datatype constructor                     *)
-     | IsEq string num  (* compare cons tag and num of args         *)
-     | Proj string num  (* reading a field of a constructor         *)
-     | AtomOp 'a        (* primitive parametric operator over Atoms *)
-     | Lit 'b           (* parametric literal Atom                  *)
+  op = If                 (* if-expression                            *)
+     | Cons string        (* datatype constructor                     *)
+     | IsEq string num    (* compare cons tag and num of args         *)
+     | Proj string num    (* reading a field of a constructor         *)
+     | AtomOp config$atom (* primitive parametric operator over Atoms *)
+     | Lit config$lit     (* parametric literal Atom                  *)
 End
 
 Datatype:
   exp = Var vname                     (* variable                   *)
-      | Prim (('a,'b) op) (exp list)  (* primitive operations       *)
+      | Prim op (exp list)            (* primitive operations       *)
       | App exp exp                   (* function application       *)
       | Lam vname exp                 (* lambda                     *)
       | Letrec ((fname # vname # exp) list) exp   (* mut. rec. funs *)

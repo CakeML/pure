@@ -26,9 +26,9 @@ Proof
 QED
 
 Triviality exp_size_lemma:
-  (∀xs     a. MEM      a  xs ⇒ exp_size (K 0) (K 0) a < exp7_size (K 0) (K 0) xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) (K 0) a < exp3_size (K 0) (K 0) xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size (K 0) (K 0) a < exp1_size (K 0) (K 0) xs)
+  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp7_size xs) ∧
+  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp3_size xs) ∧
+  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp1_size xs)
 Proof
   conj_tac \\ TRY conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [exp_size_def]
 QED
@@ -49,7 +49,7 @@ Definition subst_def:
                  (cn,ans, if ¬MEM name (vn::ans) then subst name v cb else cb))
                css))
 Termination
-  WF_REL_TAC `measure (λ(n,v,x). exp_size (K 0) (K 0) x)` \\ rw []
+  WF_REL_TAC `measure (λ(n,v,x). exp_size x)` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
@@ -66,7 +66,7 @@ Definition freevars_def[simp]:
     (freevars exp ⧺ FLAT (MAP (λ(_,vs,cs).FILTER (λ n. ¬MEM n (nm::vs)) (freevars cs))
                               css))
 Termination
-  WF_REL_TAC ‘measure (exp_size (K 0) (K 0))’ \\ fs[]
+  WF_REL_TAC ‘measure exp_size’ \\ fs[]
   \\ conj_tac \\ TRY conj_tac
   \\ TRY (Induct_on ‘lcs’)
   \\ TRY (Induct_on ‘css’)
@@ -93,7 +93,7 @@ Definition el_def:
 End
 
 Definition is_eq_def:
-  is_eq c s n x =
+  is_eq s n x =
     if x = Diverge then Diverge else
       case x of
         Constructor t xs =>
@@ -116,20 +116,20 @@ Definition getAtoms_def:
 End
 
 Definition eval_op_def:
-  (eval_op c (Cons s) xs = Constructor s xs) ∧
-  (eval_op c If [x1;x2;x3] =
+  (eval_op (Cons s) xs = Constructor s xs) ∧
+  (eval_op If [x1;x2;x3] =
     if x1 = Diverge then Diverge else
     if x1 = True  then x2 else
     if x1 = False then x3 else Error ) ∧
-  (eval_op c (IsEq s n) [x] = is_eq c s n x) ∧
-  (eval_op c (Proj s i) [x] = el s i x) ∧
-  (eval_op c (AtomOp a) xs =
+  (eval_op (IsEq s n) [x] = is_eq s n x) ∧
+  (eval_op (Proj s i) [x] = el s i x) ∧
+  (eval_op (AtomOp a) xs =
      if MEM Diverge xs then Diverge else
-       case OPTION_BIND (getAtoms xs) (c.parAtomOp a) of
-        | (SOME b) => Atom b
-        | _        => Error )  ∧
-  (eval_op c (Lit b) [] = Atom b) ∧
-  (eval_op _ _ _ = Error)
+       case OPTION_BIND (getAtoms xs) (config$atom_op a) of
+          SOME b => Atom b
+        | _      => Error )  ∧
+  (eval_op (Lit b) [] = Atom b) ∧
+  (eval_op _ _ = Error)
 End
 
 Definition bind_def:
@@ -162,25 +162,25 @@ End
 (*EVAL “expandCases ARB "a" [("Nil",[],c1);("Cons",["x";"xs"],c2)] ”*)
 
 Definition eval_to_def:
-  eval_to c k (Var s) = Error ∧
-  eval_to c k (Prim op xs) = eval_op c op (MAP (eval_to c k) xs) ∧
-  eval_to c k (Lam s x) = Closure s x ∧
-  eval_to c k (App x y) =
-  (let v = eval_to c k x in
+  eval_to k (Var s) = Error ∧
+  eval_to k (Prim op xs) = eval_op op (MAP (eval_to k) xs) ∧
+  eval_to k (Lam s x) = Closure s x ∧
+  eval_to k (App x y) =
+  (let v = eval_to k x in
      if v = Diverge then Diverge else
        case dest_Closure v of
        | NONE => Error
        | SOME (s,body) =>
-           if k = 0 then Diverge else
-             eval_to c (k-1) (bind [(s,y)] body)) ∧
-  eval_to c k (Letrec f y) =
+           if k = 0n then Diverge else
+             eval_to (k-1) (bind [(s,y)] body)) ∧
+  eval_to k (Letrec f y) =
     (if k = 0 then Diverge else
-      eval_to c (k-1) (subst_funs f y)) ∧
-  eval_to c k (Case x nm css) =
+      eval_to (k-1) (subst_funs f y)) ∧
+  eval_to k (Case x nm css) =
     (if k = 0 then Diverge else
-       eval_to c (k-1) (expandCases x nm css))
+       eval_to (k-1) (expandCases x nm css))
 Termination
-  WF_REL_TAC `inv_image ($< LEX $< LEX $<) (λ(_,k,x).(0,k,(exp_size (K 0) (K 0) x)))`
+  WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x).(k,(exp_size x)))`
   \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
@@ -228,8 +228,8 @@ End
 *)
 
 Definition eval_def:
-  eval c x =
-    gen_v (λpath. v_limit (λk. eval_to c k x) path)
+  eval x =
+    gen_v (λpath. v_limit (λk. eval_to k x) path)
 End
 
 (* misc lemmas about bind, subst, closed *)
@@ -656,9 +656,9 @@ Proof
 QED
 
 Theorem eval_op_div:
-  ∀c op xs ys path.
+  ∀op xs ys path.
     LIST_REL (λx y. ∀path. v_cmp path x y) xs ys ⇒
-    v_cmp path (eval_op c op xs) (eval_op c op ys)
+    v_cmp path (eval_op op xs) (eval_op op ys)
 Proof
   ho_match_mp_tac eval_op_ind \\ rw []
   \\ TRY (fs [eval_op_def] \\ rw [] \\ fs [v_cmp_refl] \\ NO_TAC)
@@ -707,7 +707,7 @@ Proof
 QED
 
 Theorem eval_to_res_mono_lemma:
-  ∀ c k x n path. v_cmp path (eval_to c k x) (eval_to c (k+n) x)
+  ∀k x n path. v_cmp path (eval_to k x) (eval_to (k+n) x)
 Proof
   ho_match_mp_tac eval_to_ind >> rw[]
   \\ rpt conj_tac
@@ -720,7 +720,7 @@ Proof
     ) >>
   fs[eval_to_def, dest_Closure_def] >>
   first_x_assum (qspecl_then [`n`,`[]`] assume_tac) >>
-  Cases_on `eval_to c k x` >> Cases_on `eval_to c (k + n) x` >>
+  Cases_on `eval_to k x` >> Cases_on `eval_to (k + n) x` >>
   fs[v_cmp_def, v_lookup] >> gvs[] >>
   Cases_on `n = 0` >> fs[] >>
   Cases_on `k = 0` >> fs[] >>
@@ -728,43 +728,43 @@ Proof
 QED
 
 Theorem eval_to_res_mono:
-  eval_to c k x ≠ Diverge ∧
+  eval_to k x ≠ Diverge ∧
   k ≤ k1 ⇒
-    v_lookup [] (eval_to c k x) = v_lookup [] (eval_to c k1 x)
+    v_lookup [] (eval_to k x) = v_lookup [] (eval_to k1 x)
 Proof
   rw [LESS_EQ_EXISTS]
-  \\ qspecl_then [‘c’,‘k’,‘x’,‘p’,‘[]’] assume_tac eval_to_res_mono_lemma
+  \\ qspecl_then [‘k’,‘x’,‘p’,‘[]’] assume_tac eval_to_res_mono_lemma
   \\ fs[v_cmp_def,v_lookup]
-  \\ Cases_on `eval_to c k x` \\ Cases_on `eval_to c (k + p) x`
+  \\ Cases_on `eval_to k x` \\ Cases_on `eval_to (k + p) x`
   \\ fs[]
 QED
 
 Theorem eval_to_res_mono_0:
-  eval_to c k x ≠ Diverge ∧
+  eval_to k x ≠ Diverge ∧
   k ≤ k1 ∧
-  SND (v_lookup [] (eval_to c k x)) = 0 ⇒
-    eval_to c k1 x = eval_to c k x
+  SND (v_lookup [] (eval_to k x)) = 0 ⇒
+    eval_to k1 x = eval_to k x
 Proof
   rpt strip_tac
   \\ drule eval_to_res_mono
   \\ disch_then drule
-  \\ Cases_on `eval_to c k x` \\ Cases_on `eval_to c k1 x` \\  fs [v_lookup]
+  \\ Cases_on `eval_to k x` \\ Cases_on `eval_to k1 x` \\  fs [v_lookup]
 QED
 
 Theorem eval_to_simple_mono:
-  eval_to c k x ≠ Diverge ∧
+  eval_to k x ≠ Diverge ∧
   k ≤ k1 ∧
-  SND (v_lookup [] (eval_to c k1 x)) = 0 ⇒
-    eval_to c k1 x = eval_to c k x
+  SND (v_lookup [] (eval_to k1 x)) = 0 ⇒
+    eval_to k1 x = eval_to k x
 Proof
   rpt strip_tac
   \\ drule eval_to_res_mono
   \\ disch_then drule \\ strip_tac
-  \\ Cases_on ‘eval_to c k x’ \\ Cases_on `eval_to c k1 x` \\ gvs[v_lookup]
+  \\ Cases_on ‘eval_to k x’ \\ Cases_on `eval_to k1 x` \\ gvs[v_lookup]
 QED
 
 Theorem eval_to_div:
-  eval_to c k1 x = Diverge ∧ k ≤ k1 ⇒ eval_to c k x = Diverge
+  eval_to k1 x = Diverge ∧ k ≤ k1 ⇒ eval_to k x = Diverge
 Proof
   rw [] \\ CCONTR_TAC
   \\ drule eval_to_simple_mono
@@ -773,20 +773,20 @@ Proof
 QED
 
 Theorem eval_to_not_diverge_mono:
-  ∀ k' k x . (k ≤ k' ∧ eval_to c k x ≠ Diverge) ⇒ eval_to c k' x ≠ Diverge
+  ∀ k' k x . (k ≤ k' ∧ eval_to k x ≠ Diverge) ⇒ eval_to k' x ≠ Diverge
 Proof
   rw []
   \\ drule eval_to_res_mono
   \\ disch_then drule
-  \\ Cases_on ‘eval_to c k x’ \\ Cases_on ‘eval_to c k' x’ \\ fs[v_lookup]
+  \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k' x’ \\ fs[v_lookup]
 QED
 
 Theorem eval_to_not_diverge_not_eq_mono:
   ∀ k' k x c.
     (k ≤ k' ∧
-     eval_to c k x ≠ Diverge ∧
-     SND (v_lookup [] (eval_to c k x)) ≠ 0)
-  ⇒ SND (v_lookup [] (eval_to c k' x)) ≠ 0
+     eval_to k x ≠ Diverge ∧
+     SND (v_lookup [] (eval_to k x)) ≠ 0)
+  ⇒ SND (v_lookup [] (eval_to k' x)) ≠ 0
 Proof
   rw[]
   \\ CCONTR_TAC \\ fs[]
@@ -794,8 +794,8 @@ Proof
 QED
 
 Theorem LIST_MAP_eval_to_not_diverge_mono:
-  ∀ k' k. (k ≤ k' ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
-                  ⇒ ¬MEM Diverge (MAP (λa. eval_to c k' a) es)
+  ∀ k' k. (k ≤ k' ∧ ¬MEM Diverge (MAP (λa. eval_to k a) es))
+                  ⇒ ¬MEM Diverge (MAP (λa. eval_to k' a) es)
 Proof
   rw[] \\ Induct_on ‘es’ \\ fs[]
   \\ strip_tac \\ disch_tac \\ fs[]
@@ -803,41 +803,41 @@ Proof
 QED
 
 Theorem dest_Closure_eval_IMP:
-  dest_Closure (eval c x) = NONE ⇒
-  dest_Closure (eval_to c k x) = NONE
+  dest_Closure (eval x) = NONE ⇒
+  dest_Closure (eval_to k x) = NONE
 Proof
   rw []
   \\ simp [AllCaseEqs(),dest_Closure_def]
   \\ CCONTR_TAC \\ fs []
-  \\ Cases_on ‘eval_to c k x’ \\ fs []
+  \\ Cases_on ‘eval_to k x’ \\ fs []
   \\ rename [‘Closure x1 x2’]
-  \\ qsuff_tac ‘eval c x = Closure x1 x2’
+  \\ qsuff_tac ‘eval x = Closure x1 x2’
   THEN1 (strip_tac \\ fs [dest_Closure_def])
   \\ fs [eval_def, gen_v_Closure]
   \\ qexists_tac `0`
   \\ irule v_limit_exists
   \\ qexists_tac `k` \\ rw[]
-  \\ `eval_to c k x ≠ Diverge` by fs[]
+  \\ `eval_to k x ≠ Diverge` by fs[]
   \\ drule_all eval_to_res_mono \\ fs[]
-  \\ Cases_on `eval_to c n x` >> fs[v_lookup]
+  \\ Cases_on `eval_to n x` >> fs[v_lookup]
 QED
 
 Theorem eval_Var:
-  eval c (Var s) = Error (* free variables are not allowed *)
+  eval (Var s) = Error (* free variables are not allowed *)
 Proof
   fs [eval_def,eval_to_def, Once gen_v]
   \\ fs [v_limit_def,v_lookup]
 QED
 
 Theorem eval_Lam:
-  eval c (Lam s x) = Closure s x
+  eval (Lam s x) = Closure s x
 Proof
   fs [eval_def,eval_to_def,Once gen_v]
   \\ fs [v_limit_def,v_lookup]
 QED
 
 Theorem eval_Letrec:
-  eval c (Letrec f x) = eval c (subst_funs f x)
+  eval (Letrec f x) = eval (subst_funs f x)
 Proof
   fs [eval_def,eval_to_def]
   \\ AP_TERM_TAC
@@ -849,8 +849,7 @@ QED
 Theorem v_limit_if_Diverge_lemma:
   ∀ f g r.
     v_limit (λk. f k) [] = (Diverge', r)
-  ⇒ v_limit (λk.
-      if f k = (Diverge:(α,β) v) then (Diverge:(α,β) v) else g k) [] =
+  ⇒ v_limit (λk. if f k = Diverge then Diverge else g k) [] =
       (Diverge', r)
 Proof
   rw[] >>
@@ -863,12 +862,11 @@ Proof
 QED
 
 Theorem some_elim_eval_to_Diverge[local]:
-  ∀ c x g path res.
-    (∀k. ∃k'. k ≤ k' ∧ v_lookup path (eval_to c k' x) ≠ (Diverge', 0))
+  ∀x g path res.
+    (∀k. ∃k'. k ≤ k' ∧ v_lookup path (eval_to k' x) ≠ (Diverge', 0))
   ⇒ (∃k. ∀k'. k ≤ k' ⇒
       v_lookup path
-        (if eval_to c k' x = (Diverge:(α,β) v)
-         then (Diverge:(α,β) v) else g k') = res) =
+        (if eval_to k' x = Diverge then Diverge else g k') = res) =
     (∃k. ∀k'. k ≤ k' ⇒ v_lookup path (g k') = res)
 Proof
   rw[] >> eq_tac >> rw[] >>
@@ -877,16 +875,16 @@ Proof
   qexists_tac `k2` >> rw[] >> rename1 `_ ≤ k3` >>
   `k ≤ k3` by fs[] >>
   first_x_assum drule >> gvs[] >> rw[] >>
-  `eval_to c k2 x ≠ Diverge` by (
+  `eval_to k2 x ≠ Diverge` by (
     CCONTR_TAC >> Cases_on `path` >> gvs[v_lookup]) >>
   drule eval_to_not_diverge_mono >> disch_then drule >> fs[]
 QED
 
 Theorem v_limit_if_not_Diverge_lemma:
-  ∀ c x g path.
-    (∀r. v_limit (λk. eval_to c k x) path ≠ (Diverge', r))
+  ∀x g path.
+    (∀r. v_limit (λk. eval_to k x) path ≠ (Diverge', r))
   ⇒ v_limit (λk.
-      if eval_to c k x = (Diverge:(α,β) v) then (Diverge:(α,β) v) else g k) path =
+      if eval_to k x = Diverge then Diverge else g k) path =
     v_limit (λk. g k) path
 Proof
   rw[] >> fs[v_limit_def, limit_def] >>
@@ -902,7 +900,7 @@ Proof
         qx_gen_tac `res3` >> rw[] >> rename1 `k3 ≤ _` >>
         qpat_x_assum `∀r. _ ≠ _` mp_tac >>
         rpt (first_x_assum (qspec_then `k1 + k2 + k3` assume_tac)) >> fs[] >>
-        Cases_on `eval_to c (k1 + k2 + k3) x` >> Cases_on `path` >> gvs[v_lookup]
+        Cases_on `eval_to (k1 + k2 + k3) x` >> Cases_on `path` >> gvs[v_lookup]
         )
       >- (
         rw[] >>
@@ -910,7 +908,7 @@ Proof
         rename1 `_ + _ ≤ k3` >>
         qpat_x_assum `∀r. _ ≠ _` mp_tac >>
         rpt (first_x_assum (qspec_then `k3` assume_tac)) >> gvs[] >>
-        Cases_on `eval_to c k3 x` >> Cases_on `path` >> gvs[v_lookup]
+        Cases_on `eval_to k3 x` >> Cases_on `path` >> gvs[v_lookup]
         )
       )
     >- (
@@ -921,7 +919,7 @@ Proof
       rename1 `_ + _ ≤ k3` >>
       qpat_x_assum `∀r. _ ≠ _` mp_tac >>
       rpt (first_x_assum (qspec_then `k3` assume_tac)) >> gvs[] >>
-      Cases_on `eval_to c k3 x` >> Cases_on `path` >> gvs[v_lookup]
+      Cases_on `eval_to k3 x` >> Cases_on `path` >> gvs[v_lookup]
       )
     )
   >- (
@@ -935,18 +933,18 @@ Proof
 QED
 
 Theorem eval_App:
-  eval c (App x y) =
-    let v = eval c x in
+  eval (App x y) =
+    let v = eval x in
       if v = Diverge then Diverge else
         case dest_Closure v of
-        | SOME (s,body) => eval c (bind [(s,y)] body)
+        | SOME (s,body) => eval (bind [(s,y)] body)
         | NONE => Error
 Proof
   fs [eval_def, eval_to_def] >>
   IF_CASES_TAC
   >- (
     fs[gen_v_Diverge] >> qexists_tac `r` >> fs[] >>
-    qspecl_then [`λk. eval_to c k x`] assume_tac v_limit_if_Diverge_lemma >>
+    qspecl_then [`λk. eval_to k x`] assume_tac v_limit_if_Diverge_lemma >>
     fs[]
     ) >>
   CASE_TAC
@@ -959,28 +957,28 @@ Proof
     ) >>
   rename1 `_ = SOME clos` >> PairCases_on `clos` >> fs[] >>
   fs[dest_Closure_def, GSYM eval_def] >>
-  Cases_on `eval c x` >> gvs[] >>
+  Cases_on `eval x` >> gvs[] >>
   fs[eval_def, GSYM dest_Closure_def, gen_v_Closure] >>
   AP_TERM_TAC >> fs[FUN_EQ_THM] >> rw[] >>
   drule v_limit_not_Error >> strip_tac >> fs[] >>
   gvs[v_limit_def] >>
   irule limit_eq_add_IMP >> qexists_tac `1` >> fs[limit_def] >>
   qexists_tac `k` >> strip_tac >> strip_tac >>
-  `eval_to c (n + 1) x = Closure clos0 clos1` by (
+  `eval_to (n + 1) x = Closure clos0 clos1` by (
     CCONTR_TAC >>
     first_x_assum (qspec_then `n + 1` assume_tac) >> gvs[v_lookup] >>
-    Cases_on `eval_to c (n + 1) x` >> gvs[]) >>
+    Cases_on `eval_to (n + 1) x` >> gvs[]) >>
   fs[]
 QED
 
 Theorem eval_Let:
-  eval c (Let s x y) = eval c (bind [(s,x)] y)
+  eval (Let s x y) = eval (bind [(s,x)] y)
 Proof
   fs [eval_App,eval_Lam,dest_Closure_def,bind_def]
 QED
 
 Theorem eval_Cons:
-  eval c (Cons s xs) = Constructor s (MAP (eval c) xs)
+  eval (Cons s xs) = Constructor s (MAP eval xs)
 Proof
   fs [eval_def,eval_to_def,Once gen_v,eval_op_def]
   \\ fs [v_limit_def,v_lookup]
@@ -989,7 +987,7 @@ Proof
 QED
 
 Theorem eval_Case:
-  eval c (Case x nm css) = eval c (expandCases x nm css)
+  eval (Case x nm css) = eval (expandCases x nm css)
 Proof
   fs[expandCases_def,eval_Let,bind_def]
   \\ IF_CASES_TAC
@@ -1002,32 +1000,32 @@ Proof
 QED
 
 Theorem gen_v_not_Error:
-  gen_v (λpath. v_limit (λk. eval_to c k x) path) ≠ Error ⇒
-  ∃k. ∀n. k ≤ n ⇒ ∃v. eval_to c n x = v ∧ v ≠ Error
+  gen_v (λpath. v_limit (λk. eval_to k x) path) ≠ Error ⇒
+  ∃k. ∀n. k ≤ n ⇒ ∃v. eval_to n x = v ∧ v ≠ Error
 Proof
   once_rewrite_tac [gen_v] \\ fs [pairTheory.UNCURRY] \\ rw []
-  \\ Cases_on ‘v_limit (λk. eval_to c k x) []’
+  \\ Cases_on ‘v_limit (λk. eval_to k x) []’
   \\ fs [v_limit_def]
   \\ drule limit_not_default \\ fs []
   \\ Cases_on `q` \\ gvs[]
   \\ rpt strip_tac \\ qexists_tac ‘k’ \\ fs []
   \\ rpt strip_tac \\ first_x_assum drule
-  \\ fs [] \\ Cases_on ‘eval_to c n x’ \\ fs []
+  \\ fs [] \\ Cases_on ‘eval_to n x’ \\ fs []
   \\ fs [v_lookup]
 QED
 
 Theorem eval_IsEq:
-  eval c (IsEq s n x) = is_eq c s n (eval c x)
+  eval (IsEq s n x) = is_eq s n (eval x)
 Proof
   fs [eval_def,eval_to_def,eval_op_def,is_eq_def] >>
   IF_CASES_TAC
   >- (
     fs[gen_v_Diverge] >> qexists_tac `r` >> fs[] >>
-    qspecl_then [`λk. eval_to c k x`] assume_tac v_limit_if_Diverge_lemma >>
+    qspecl_then [`λk. eval_to k x`] assume_tac v_limit_if_Diverge_lemma >>
     fs[]
     ) >>
   fs[GSYM eval_def] >>
-  Cases_on `eval c x` >>
+  Cases_on `eval x` >>
   fs[gen_v_Atom, gen_v_Closure, gen_v_Error, eval_def]
   >- (
     qexists_tac `r` >>
@@ -1035,7 +1033,7 @@ Proof
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >> rename1 `_ ≤ k1` >>
     first_x_assum drule >>
-    Cases_on `eval_to c k1 x` >> gvs[v_lookup]
+    Cases_on `eval_to k1 x` >> gvs[v_lookup]
     )
   >- (
     pop_assum mp_tac >>
@@ -1050,13 +1048,13 @@ Proof
       irule v_limit_exists >>
       qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >> rename1 `_ ≤ n1` >>
       first_x_assum drule >>
-      Cases_on `eval_to c n1 x` >> gvs[v_lookup]
+      Cases_on `eval_to n1 x` >> gvs[v_lookup]
       ) >>
     drule v_limit_not_Error >> strip_tac >> fs[] >>
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >>
     first_x_assum drule >> fs[] >>
-    Cases_on `eval_to c n x` >> fs[v_lookup]
+    Cases_on `eval_to n x` >> fs[v_lookup]
     )
   >- (
     qexists_tac `r` >>
@@ -1064,7 +1062,7 @@ Proof
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >> rename1 `_ ≤ k1` >>
     first_x_assum drule >>
-    Cases_on `eval_to c k1 x` >> gvs[v_lookup]
+    Cases_on `eval_to k1 x` >> gvs[v_lookup]
     )
   >- (
     qexists_tac `r` >>
@@ -1074,7 +1072,7 @@ Proof
       irule v_limit_exists >>
       qexists_tac `k1` >> strip_tac >> strip_tac >> fs[] >>
       rename1 `_ ≤ k2`  >>
-      first_x_assum drule >> Cases_on `eval_to c k2 x` >> gvs[v_lookup]
+      first_x_assum drule >> Cases_on `eval_to k2 x` >> gvs[v_lookup]
       )
     >- (
       fs[v_limit_eqn, DISJ_EQ_IMP] >> rw[] >>
@@ -1082,35 +1080,35 @@ Proof
       rename1 `_ ≤ k1` >>
       first_x_assum (qspec_then `k1` assume_tac) >> fs[] >>
       rename1 `_ ≤ k2` >>
-      Cases_on `eval_to c k1 x = Diverge` >> fs[v_lookup] >>
+      Cases_on `eval_to k1 x = Diverge` >> fs[v_lookup] >>
       fs[GSYM v_lookup] >>
       drule eval_to_not_diverge_mono >> disch_then drule >> strip_tac >>
-      Cases_on `eval_to c k2 x` >> gvs[v_lookup] >>
-      rename1 `eval_to _ _ _ = Constructor cons vs` >>
+      Cases_on `eval_to k2 x` >> gvs[v_lookup] >>
+      rename1 `eval_to _ _ = Constructor cons vs` >>
       qexists_tac `k2` >> fs[] >>
       rw[] >>
       last_x_assum (
         qspecl_then [`(Constructor' cons, LENGTH vs)`,`k2`] assume_tac) >>
       fs[] >> rename1 `_ ≤ k3` >>
       imp_res_tac eval_to_res_mono >> pop_assum kall_tac >>
-      pop_assum (qspecl_then [`x`,`c`] assume_tac) >> gvs[] >>
-      Cases_on `eval_to c k3 x` >> gvs[v_lookup]
+      pop_assum (qspec_then `x` assume_tac) >> gvs[] >>
+      Cases_on `eval_to k3 x` >> gvs[v_lookup]
       )
     )
 QED
 
 Theorem eval_Proj:
-  eval c (Proj s i x) = el s i (eval c x)
+  eval (Proj s i x) = el s i (eval x)
 Proof
   fs [eval_def,eval_to_def,eval_op_def,el_def] >>
   IF_CASES_TAC
   >- (
     fs[gen_v_Diverge] >> qexists_tac `r` >> fs[] >>
-    qspecl_then [`λk. eval_to c k x`] assume_tac v_limit_if_Diverge_lemma >>
+    qspecl_then [`λk. eval_to k x`] assume_tac v_limit_if_Diverge_lemma >>
     fs[]
     ) >>
   fs[GSYM eval_def] >>
-  Cases_on `eval c x` >>
+  Cases_on `eval x` >>
   fs[gen_v_Atom, gen_v_Closure, gen_v_Error, eval_def]
   >- (
     qexists_tac `r` >>
@@ -1118,7 +1116,7 @@ Proof
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >> rename1 `_ ≤ k1` >>
     first_x_assum drule >>
-    Cases_on `eval_to c k1 x` >> gvs[v_lookup]
+    Cases_on `eval_to k1 x` >> gvs[v_lookup]
     )
   >- (
     rw[] >> fs[gen_v_Error] >>
@@ -1133,14 +1131,14 @@ Proof
       imp_res_tac limit_not_default >> fs[] >> rename1 `k ≤ _` >>
       qexists_tac `k` >> rw[v_lookup_Diverge] >>
       first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
-      Cases_on `eval_to c n x` >> fs[]
+      Cases_on `eval_to n x` >> fs[]
       ) >>
     drule v_limit_not_Error >> strip_tac >> fs[] >>
     qexists_tac `0` >>
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >> rename1 `_ ≤ n1` >>
     first_x_assum drule >>
-    Cases_on `eval_to c n1 x` >> gvs[v_lookup]
+    Cases_on `eval_to n1 x` >> gvs[v_lookup]
     )
   >- (
     qexists_tac `r` >>
@@ -1148,7 +1146,7 @@ Proof
     irule v_limit_exists >>
     qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >> rename1 `_ ≤ k1` >>
     first_x_assum drule >>
-    Cases_on `eval_to c k1 x` >> gvs[v_lookup]
+    Cases_on `eval_to k1 x` >> gvs[v_lookup]
     )
   >- (
     qexists_tac `r` >>
@@ -1157,7 +1155,7 @@ Proof
       first_x_assum irule >> rw[] >>
       first_x_assum (qspec_then `k` assume_tac) >> fs[] >>
       rename1 `_ ≤ k1` >> qexists_tac `k1` >>
-      Cases_on `eval_to c k1 x` >> gvs[v_lookup]
+      Cases_on `eval_to k1 x` >> gvs[v_lookup]
       ) >>
     last_x_assum assume_tac >> last_x_assum mp_tac >>
     impl_tac
@@ -1165,25 +1163,25 @@ Proof
       rw[] >>
       first_x_assum (qspec_then `k` assume_tac) >> fs[] >>
       rename1 `_ ≤ k1` >> qexists_tac `k1` >> fs[] >>
-      Cases_on `eval_to c k1 x` >> gvs[v_lookup]
+      Cases_on `eval_to k1 x` >> gvs[v_lookup]
       ) >>
     rw[] >>
     first_assum (qspecl_then [`(Diverge',0)`,`k`] assume_tac) >> fs[] >>
     rename1 `_ ≤ k1` >>
     first_x_assum (qspec_then `k1` assume_tac) >> fs[] >>
     rename1 `_ ≤ k2` >>
-    Cases_on `eval_to c k1 x = Diverge` >> fs[v_lookup] >> fs[GSYM v_lookup] >>
+    Cases_on `eval_to k1 x = Diverge` >> fs[v_lookup] >> fs[GSYM v_lookup] >>
     drule eval_to_not_diverge_mono >> disch_then drule >> strip_tac >>
-    Cases_on `eval_to c k2 x` >> gvs[v_lookup] >>
-    rename1 `eval_to _ _ _ = Constructor cons vs` >>
+    Cases_on `eval_to k2 x` >> gvs[v_lookup] >>
+    rename1 `eval_to _ _ = Constructor cons vs` >>
     qexists_tac `k2` >> fs[] >>
     rw[] >>
     last_x_assum (
       qspecl_then [`(Constructor' cons, LENGTH vs)`,`k2`] assume_tac) >>
     fs[] >> rename1 `_ ≤ k3` >>
     imp_res_tac eval_to_res_mono >> pop_assum kall_tac >>
-    pop_assum (qspecl_then [`x`,`c`] assume_tac) >> gvs[] >>
-    Cases_on `eval_to c k3 x` >> gvs[v_lookup]
+    pop_assum (qspec_then `x` assume_tac) >> gvs[] >>
+    Cases_on `eval_to k3 x` >> gvs[v_lookup]
   )
 QED
 
@@ -1192,41 +1190,43 @@ QED
 (*if eval_to does not diverge and is not equal to Num for some k, then
   eval_to is not equal to Num forall k                                *)
 Theorem eval_to_not_div_not_eq_mono:
-  ∀ n.(( eval_to c k (x:('a,'b) exp) ≠ Diverge ∧ eval_to c k x ≠ Atom n)
-       ⇒ ∀ k'. eval_to c k' x ≠ Atom n)
+  ∀n.
+    eval_to k x ≠ Diverge ∧
+    eval_to k x ≠ Atom n ⇒
+     ∀k'. eval_to k' x ≠ Atom n
 Proof
   rw[] >> Cases_on `k ≤ k'`
   >- (
     imp_res_tac eval_to_not_diverge_mono >>
     drule_all eval_to_res_mono >>
-    Cases_on `eval_to c k x` >> Cases_on `eval_to c k' x` >> gvs[v_lookup] >>
+    Cases_on `eval_to k x` >> Cases_on `eval_to k' x` >> gvs[v_lookup] >>
     rw[] >> fs[]
     ) >>
   fs[NOT_LESS_EQUAL] >> imp_res_tac LESS_IMP_LESS_OR_EQ >>
   CCONTR_TAC >> fs[] >>
-  `eval_to c k' x ≠ Diverge` by fs[] >>
+  `eval_to k' x ≠ Diverge` by fs[] >>
   drule_all eval_to_res_mono >> fs[] >>
-  Cases_on `eval_to c k x` >> gvs[v_lookup]
+  Cases_on `eval_to k x` >> gvs[v_lookup]
 QED
 
 Theorem getAtom_eval_NONE:
-  getAtom (eval c x) = NONE ⇒ (∀ k. ∃k'. k ≤ k' ∧ getAtom (eval_to c k' x) = NONE)
+  getAtom (eval x) = NONE ⇒ (∀ k. ∃k'. k ≤ k' ∧ getAtom (eval_to k' x) = NONE)
 Proof
   rw[] >> fs[getAtom_NONE, eval_def, gen_v_Atom, v_limit_eqn] >>
-  `∀k n r. ∃k'. k ≤ k' ∧ v_lookup [] (eval_to c k' x) ≠ (Atom' n, r)` by fs[] >>
+  `∀k n r. ∃k'. k ≤ k' ∧ v_lookup [] (eval_to k' x) ≠ (Atom' n, r)` by fs[] >>
   first_x_assum (qspec_then `k` assume_tac) >>
   qexists_tac `k` >> fs[] >> strip_tac >>
   first_x_assum (qspecl_then [`n`,`0`] assume_tac) >> fs[] >>
-  Cases_on ‘eval_to c k' x = Diverge’
+  Cases_on ‘eval_to k' x = Diverge’
   THEN1 (imp_res_tac eval_to_div \\ fs[])
   \\ imp_res_tac eval_to_not_div_not_eq_mono
-  \\ Cases_on `eval_to c k' x` \\ gvs[v_lookup]
+  \\ Cases_on `eval_to k' x` \\ gvs[v_lookup]
 QED
 
 (*************eval/eval_to over exp list lemmas ***************)
 
 Theorem eval_Diverge_IFF_eval_to_Diverge:
-  MEM Diverge (MAP (eval c) es) ⇔ ∀ k. MEM Diverge (MAP (λa. eval_to c k a) es)
+  MEM Diverge (MAP eval es) ⇔ ∀ k. MEM Diverge (MAP (λa. eval_to k a) es)
 Proof
   eq_tac
   THEN1 (
@@ -1247,8 +1247,8 @@ Proof
   THEN1 (
     Induct_on ‘es’ \\ rw []
     \\ fs [eval_def, gen_v_Diverge]
-    \\ Cases_on ‘MEM Diverge (MAP (eval c) es)’ \\ fs []
-    \\ ‘∀k'. k ≤ k' ⇒ eval_to c k' h = Diverge’
+    \\ Cases_on ‘MEM Diverge (MAP eval es)’ \\ fs []
+    \\ ‘∀k'. k ≤ k' ⇒ eval_to k' h = Diverge’
       by (imp_res_tac LIST_MAP_eval_to_not_diverge_mono
           \\ metis_tac [])
     \\ ntac 3 (last_x_assum kall_tac)
@@ -1265,11 +1265,11 @@ Proof
 QED
 
 Triviality eval_to_atom_mono_res:
-  eval_to c k x = Atom n ⇒
-    k ≤ k1 ⇒ eval_to c k1 x = eval_to c k x
+  eval_to k x = Atom n ⇒
+    k ≤ k1 ⇒ eval_to k1 x = eval_to k x
 Proof
   rpt strip_tac
-  \\ ‘eval_to c k x ≠ Diverge’ by fs[]
+  \\ ‘eval_to k x ≠ Diverge’ by fs[]
   \\ drule_all eval_to_res_mono
   \\ simp [v_lookup]
   \\ CASE_TAC \\ fs []
@@ -1278,54 +1278,54 @@ QED
 (* TODO Fix from here on: *)
 
 Theorem getAtoms_eval_to_NONE:
-   getAtoms (MAP (eval (c:(α,β) conf)) es) = NONE
-   ⇒  getAtoms (MAP (λa. eval_to c k a) es) = NONE
+   getAtoms (MAP eval es) = NONE
+   ⇒  getAtoms (MAP (λa. eval_to k a) es) = NONE
 Proof
   Induct_on `es` >> fs[] >> rw[getAtoms_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
-  Cases_on `eval_to c k h` >> gvs[getAtom_def] >>
-  qsuff_tac `eval c h = Atom b` >- (CCONTR_TAC >> gvs[getAtom_def]) >>
+  Cases_on `eval_to k h` >> gvs[getAtom_def] >>
+  qsuff_tac `eval h = Atom b` >- (CCONTR_TAC >> gvs[getAtom_def]) >>
   fs[eval_def, gen_v_Atom, v_limit_eqn] >>
   qexists_tac `0` >> qexists_tac `k` >> rw[] >>
   imp_res_tac eval_to_res_mono >>
-  first_x_assum (qspecl_then [`h`,`c`] assume_tac) >> gvs[v_lookup]
+  first_x_assum (qspec_then `h` assume_tac) >> gvs[v_lookup]
 QED
 
 Theorem getAtoms_eval_to_SOME:
-   (getAtoms (MAP (eval c) es) = SOME l
-   ∧ ¬MEM Diverge (MAP (λa. eval_to c k a) es))
-   ⇒  getAtoms (MAP (λa. eval_to c k a) es) = SOME l
+   getAtoms (MAP eval es) = SOME l ∧
+   ¬MEM Diverge (MAP (λa. eval_to k a) es) ⇒
+     getAtoms (MAP (λa. eval_to k a) es) = SOME l
 Proof
   qid_spec_tac `l` >>
   Induct_on `es` >> fs[getAtoms_def] >> rw[] >>
-  Cases_on `getAtoms (MAP (eval c) es)` >> gvs[]
+  Cases_on `getAtoms (MAP eval es)` >> gvs[]
   >- (BasicProvers.EVERY_CASE_TAC >> gvs[]) >>
-  Cases_on `eval c h` >> gvs[getAtom_def] >>
+  Cases_on `eval h` >> gvs[getAtom_def] >>
   fs[eval_def, gen_v_Atom, v_limit_eqn] >>
   rename1 `k1 ≤ _` >>
   first_assum (qspec_then `k` assume_tac) >>
   Cases_on `k1 ≤ k` >> fs[]
-  >- (Cases_on `eval_to c k h` >> gvs[getAtom_def, v_lookup]) >>
+  >- (Cases_on `eval_to k h` >> gvs[getAtom_def, v_lookup]) >>
   fs[NOT_LESS_EQUAL] >>
   first_x_assum (qspec_then `k1` assume_tac) >> gvs[] >>
   drule eval_to_res_mono >> disch_then (qspec_then `k1` assume_tac) >> gvs[] >>
-  Cases_on `eval_to c k h` >> gvs[v_lookup, getAtom_def]
+  Cases_on `eval_to k h` >> gvs[v_lookup, getAtom_def]
 QED
 
 (*****************************************************)
 
 Theorem eval_If:
-  eval c (If x y z) = (
-    if eval c x = Diverge then Diverge  else
-    if eval c x = True    then eval c y else
-    if eval c x = False   then eval c z else Error)
+  eval (If x y z) = (
+    if eval x = Diverge then Diverge  else
+    if eval x = True    then eval y else
+    if eval x = False   then eval z else Error)
 Proof
   IF_CASES_TAC
   >- (
     fs[eval_def, eval_to_def, gen_v_Diverge, v_limit_eqn] >>
     qexists_tac `0` >> qexists_tac `k` >> rw[] >>
     rename1 `_ ≤ k1` >> first_x_assum drule >>
-    Cases_on `eval_to c k1 x` >> fs[eval_op_def, v_lookup]
+    Cases_on `eval_to k1 x` >> fs[eval_op_def, v_lookup]
     ) >>
   ntac 2 (
     IF_CASES_TAC
@@ -1336,7 +1336,7 @@ Proof
       irule v_limit_eq_IMP >>
       qexists_tac `k` >> strip_tac >> strip_tac >> fs[] >>
       first_x_assum drule >>
-      Cases_on `eval_to c n x` >> gvs[v_lookup]
+      Cases_on `eval_to n x` >> gvs[v_lookup]
       )
   ) >>
   fs[eval_def, eval_to_def] >>
@@ -1348,25 +1348,25 @@ Proof
   first_x_assum (qspec_then `lim` assume_tac) >> fs[] >> rename1 `_ ≤ k1` >>
   first_x_assum (qspec_then `lim` assume_tac) >> fs[] >> rename1 `_ ≤ k2` >>
   qexists_tac `k1 + k2` >> strip_tac >> strip_tac >> rename1 `_ ≤ k4` >>
-  `eval_to c lim x ≠ Diverge` by (
-    Cases_on `eval_to c lim x` >> gvs[v_lookup]) >>
-  `eval_to c k2 x ≠ True` by (
-    Cases_on `eval_to c k2 x` >> gvs[v_lookup]) >>
-  `eval_to c k1 x ≠ False` by (
-    Cases_on `eval_to c k1 x` >> gvs[v_lookup]) >>
+  `eval_to lim x ≠ Diverge` by (
+    Cases_on `eval_to lim x` >> gvs[v_lookup]) >>
+  `eval_to k2 x ≠ True` by (
+    Cases_on `eval_to k2 x` >> gvs[v_lookup]) >>
+  `eval_to k1 x ≠ False` by (
+    Cases_on `eval_to k1 x` >> gvs[v_lookup]) >>
   rw[] >> gvs[v_lookup] >> fs[GSYM v_lookup]
   >- (
     drule eval_to_div >> disch_then (qspec_then `lim` assume_tac) >>
     gvs[v_lookup]
     )
   >- (
-    `eval_to c k2 x ≠ Diverge` by (
+    `eval_to k2 x ≠ Diverge` by (
       CCONTR_TAC >> fs[] >> drule_all eval_to_div >> fs[]) >>
     drule eval_to_simple_mono >>
     disch_then (qspec_then `k4` assume_tac) >> gvs[v_lookup]
     )
   >- (
-    `eval_to c k1 x ≠ Diverge` by (
+    `eval_to k1 x ≠ Diverge` by (
       CCONTR_TAC >> fs[] >> drule_all eval_to_div >> fs[]) >>
     drule eval_to_simple_mono >>
     disch_then (qspec_then `k4` assume_tac) >> gvs[v_lookup]
@@ -1374,10 +1374,10 @@ Proof
 QED
 
 Theorem eval_PrimOp:
-  eval c (Prim (AtomOp (a:'a)) es) =
-  (let xs = MAP (eval c) es in
+  eval (Prim (AtomOp a) es) =
+  (let xs = MAP eval es in
    if MEM Diverge xs then Diverge else
-      case OPTION_BIND (getAtoms xs) (c.parAtomOp a) of
+      case OPTION_BIND (getAtoms xs) (atom_op a) of
        | (SOME n) => Atom n
        | _        => Error)
 Proof
@@ -1414,8 +1414,8 @@ Proof
 QED
 
 Theorem eval_Lit:
-  eval c (Prim (Lit b) []) = Atom b ∧
-  eval c (Prim (Lit b) (x::xs)) = Error
+  eval (Prim (Lit b) []) = Atom b ∧
+  eval (Prim (Lit b) (x::xs)) = Error
 Proof
   fs[eval_def, eval_to_def, eval_op_def] >>
   once_rewrite_tac[gen_v] >> fs[] >>
@@ -1423,7 +1423,7 @@ Proof
 QED
 
 Theorem eval_Fail:
-  eval c Fail = Error
+  eval Fail = Error
 Proof
   fs[eval_def, eval_to_def, eval_op_def] >>
   once_rewrite_tac[gen_v] >> fs[] >>
@@ -1431,7 +1431,7 @@ Proof
 QED
 
 Theorem eval_Prim:
-  eval c (Prim op xs) = eval_op c op (MAP (eval c) xs)
+  eval (Prim op xs) = eval_op op (MAP eval xs)
 Proof
   Cases_on `op`
   >- ( (* If *)
@@ -1464,42 +1464,42 @@ Proof
 QED
 
 Theorem eval_core:
-  eval c (Var s) = Error (* free variables are not allowed *) ∧
-  eval c (Prim op xs) = eval_op c op (MAP (eval c) xs) ∧
-  eval c (Lam s x) = Closure s x ∧
-  eval c (Letrec f x) = eval c (subst_funs f x) ∧
-  eval c (App x y) =
-    (let v = eval c x in
+  eval (Var s) = Error (* free variables are not allowed *) ∧
+  eval (Prim op xs) = eval_op op (MAP eval xs) ∧
+  eval (Lam s x) = Closure s x ∧
+  eval (Letrec f x) = eval (subst_funs f x) ∧
+  eval (App x y) =
+    (let v = eval x in
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval c (bind [(s,y)] body)) ∧
-  eval c (Case x nm css) = eval c (expandCases x nm css)
+         | SOME (s,body) => eval (bind [(s,y)] body)) ∧
+  eval (Case x nm css) = eval (expandCases x nm css)
 Proof
   fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App,eval_Case]
 QED
 
 (*like eval_core, but extended with exp Overloads*)
 Theorem eval_thm:
-  eval c (Fail)  = Error ∧
-  eval c (Var s) = Error (* free variables are not allowed *) ∧
-  eval c (Cons s xs) = Constructor s (MAP (eval c) xs) ∧
-  eval c (IsEq s n x) = is_eq c s n (eval c x) ∧
-  eval c (Proj s i x) = el s i (eval c x) ∧
-  eval c (Let s x y) = eval c (bind [(s,x)] y) ∧
-  eval c (If x y z) = (
-         if eval c x = Diverge then Diverge  else
-         if eval c x = True    then eval c y else
-         if eval c x = False   then eval c z else Error) ∧
-  eval c (Lam s x) = Closure s x ∧
-  eval c (Letrec f x) = eval c (subst_funs f x) ∧
-  eval c (App x y) =
-    (let v = eval c x in
+  eval (Fail)  = Error ∧
+  eval (Var s) = Error (* free variables are not allowed *) ∧
+  eval (Cons s xs) = Constructor s (MAP eval xs) ∧
+  eval (IsEq s n x) = is_eq s n (eval x) ∧
+  eval (Proj s i x) = el s i (eval x) ∧
+  eval (Let s x y) = eval (bind [(s,x)] y) ∧
+  eval (If x y z) = (
+       if eval x = Diverge then Diverge  else
+       if eval x = True    then eval y else
+       if eval x = False   then eval z else Error) ∧
+  eval (Lam s x) = Closure s x ∧
+  eval (Letrec f x) = eval (subst_funs f x) ∧
+  eval (App x y) =
+    (let v = eval x in
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval c (bind [(s,y)] body)) ∧
-  eval c (Case x nm css) = eval c (expandCases x nm css)
+         | SOME (s,body) => eval (bind [(s,y)] body)) ∧
+  eval (Case x nm css) = eval (expandCases x nm css)
 Proof
   fs [eval_Fail,eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
       eval_IsEq,bind_def,eval_Letrec,eval_Case]
@@ -1527,10 +1527,9 @@ Proof
 QED
 
 Theorem eval_bottom:
-  ∀c. eval c bottom = Diverge
+  eval bottom = Diverge
 Proof
-  strip_tac
-  \\ qsuff_tac ‘∀k. eval_to c k bottom = Diverge’
+  qsuff_tac ‘∀k. eval_to k bottom = Diverge’
   THEN1 fs [eval_def,v_limit_def,v_lookup,gen_v_Diverge]
   \\ strip_tac
   \\ fs [bottom_def,eval_to_def]
@@ -1554,10 +1553,9 @@ Definition zeros_def:
 End
 
 Theorem eval_zeros:
-  ∀ c. eval c zeros = Constructor "cons" [Closure "x" (Var "x"); eval c zeros]
+  eval zeros = Constructor "cons" [Closure "x" (Var "x"); eval zeros]
 Proof
-  strip_tac
-  \\ fs [Once zeros_def]
+  fs [Once zeros_def]
   \\ ntac 6 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
                    subst_funs_def,closed_def])
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -1569,19 +1567,18 @@ QED
 
 (* value and exp relation -- clocked *)
 
-(*TODO, there might not be the need to parametrize v_rel' over c*)
 Definition v_rel'_def:
-  (v_rel' c 0 v1 v2 ⇔ T) ∧
-  (v_rel' c (SUC n) v1 v2 =
+  (v_rel' 0 v1 v2 ⇔ T) ∧
+  (v_rel' (SUC n) v1 v2 =
     case v1 of
     | Atom a => v2 = Atom a
     | Constructor m xs =>
-        ∃ ys. v2 = Constructor m ys ∧ LIST_REL (v_rel' c n) xs ys
+        ∃ ys. v2 = Constructor m ys ∧ LIST_REL (v_rel' n) xs ys
     | Closure s1 x1 =>
         ∃ s2 x2.
           v2 = Closure s2 x2 ∧
-          ∀z. v_rel' c n (eval c (bind [(s1,z)] x1))
-                         (eval c (bind [(s2,z)] x2))
+          ∀z. v_rel' n (eval (bind [(s1,z)] x1))
+                       (eval (bind [(s2,z)] x2))
     | Diverge => v2 = Diverge
     | Error => v2 = Error)
 End
@@ -1600,23 +1597,23 @@ End
 *)
 
 Definition v_rel_def:
-  v_rel c x y = ∀n. v_rel' c n x y
+  v_rel x y = ∀n. v_rel' n x y
 End
 
 Definition exp_rel_def:
-  exp_rel c x y ⇔ v_rel c (eval c x) (eval c y)
+  exp_rel x y ⇔ v_rel (eval x) (eval y)
 End
 
 Triviality v_rel'_refl:
-  ∀n x. v_rel' c n x x
+  ∀n x. v_rel' n x x
 Proof
   Induct >> Cases >> rw[v_rel'_def] >>
   fs[LIST_REL_EL_EQN]
 QED
 
 Theorem v_rel_Closure:
-  (∀x y. exp_rel c x y ⇒ exp_rel c (bind [m,x] b) (bind [n,y] d)) ⇒
-  v_rel c (Closure m b) (Closure n d)
+  (∀x y. exp_rel x y ⇒ exp_rel (bind [m,x] b) (bind [n,y] d)) ⇒
+  v_rel (Closure m b) (Closure n d)
 Proof
   rw [PULL_FORALL,exp_rel_def,v_rel_def] \\ fs []
   \\ Cases_on `n'` \\ fs[v_rel'_def]
@@ -1642,7 +1639,7 @@ Proof
 QED
 
 Triviality v_rel'_sym:
-  ∀n x y. v_rel' c n x y ⇔ v_rel' c n y x
+  ∀n x y. v_rel' n x y ⇔ v_rel' n y x
 Proof
   Induct >> rw[] >> fs[v_rel'_def] >>
   Cases_on `x` >> Cases_on `y` >> fs[] >>
@@ -1651,7 +1648,7 @@ Proof
 QED
 
 Triviality v_rel'_trans:
-  ∀n x y z. v_rel' c n x y ∧ v_rel' c n y z ⇒ v_rel' c n x z
+  ∀n x y z. v_rel' n x y ∧ v_rel' n y z ⇒ v_rel' n x z
 Proof
   Induct >> rw[] >> fs[v_rel'_def] >>
   Cases_on `x` >> Cases_on `y` >> fs[] >>
@@ -1660,40 +1657,39 @@ Proof
 QED
 
 Theorem v_rel_refl:
-  ∀x. v_rel c x x
+  ∀x. v_rel x x
 Proof
   metis_tac [v_rel'_refl,v_rel_def]
 QED
 
 Theorem v_rel_sym:
-  ∀x y. v_rel c x y ⇔ v_rel c y x
+  ∀x y. v_rel x y ⇔ v_rel y x
 Proof
   metis_tac [v_rel'_sym,v_rel_def]
 QED
 
 Theorem v_rel_trans:
-  ∀x y z. v_rel c x y ∧ v_rel c y z ⇒ v_rel c x z
+  ∀x y z. v_rel x y ∧ v_rel y z ⇒ v_rel x z
 Proof
   metis_tac [v_rel'_trans,v_rel_def]
 QED
 
 Theorem v_rel_rules:
-  (∀c b1 b2.
+  (∀b1 b2.
      b1 = b2 ⇒
-       v_rel c (Atom b1) (Atom b2)) ∧
-  (∀c n1 x1 n2 x2.
-     (∀z. v_rel c (eval c (bind [n1,z] x1)) (eval c (bind [n2,z] x2))) ⇒
-       v_rel c (Closure n1 x1) (Closure n2 x2)) ∧
-  (∀c n1 x1 n2 x2.
+       v_rel (Atom b1) (Atom b2)) ∧
+  (∀n1 x1 n2 x2.
+     (∀z. v_rel (eval (bind [n1,z] x1)) (eval (bind [n2,z] x2))) ⇒
+       v_rel (Closure n1 x1) (Closure n2 x2)) ∧
+  (∀n1 x1 n2 x2.
      n1 = n2 ∧
-     LIST_REL (v_rel c) x1 x2 ⇒
-       v_rel c (Constructor n1 x1) (Constructor n2 x2)) ∧
-  (∀c. v_rel c Diverge Diverge) ∧
-  (∀c. v_rel c Error Error)
+     LIST_REL v_rel x1 x2 ⇒
+       v_rel (Constructor n1 x1) (Constructor n2 x2)) ∧
+  (∀c. v_rel Diverge Diverge) ∧
+  (∀c. v_rel Error Error)
 Proof
   simp [v_rel_def]
   \\ rpt conj_tac
-  \\ gen_tac
   >- (* Atom *)
    (gen_tac
     \\ Cases \\ simp [v_rel'_def])
@@ -1713,36 +1709,36 @@ Proof
 QED
 
 Theorem v_rel_rules':
-  (∀c b1 b2.
+  (∀b1 b2.
      b1 = b2 ⇒
-       v_rel c (Atom b1) (Atom b2)) ∧
-  (∀c n1 x1 n2 x2.
+       v_rel (Atom b1) (Atom b2)) ∧
+  (∀n1 x1 n2 x2.
      (∀z1 z2.
-       v_rel c (eval c z1) (eval c z2) ⇒
-       v_rel c (eval c (bind [n1,z1] x1)) (eval c (bind [n2,z2] x2))) ⇒
-       v_rel c (Closure n1 x1) (Closure n2 x2)) ∧
-  (∀c n1 x1 n2 x2.
+       v_rel (eval z1) (eval z2) ⇒
+       v_rel (eval (bind [n1,z1] x1)) (eval (bind [n2,z2] x2))) ⇒
+       v_rel (Closure n1 x1) (Closure n2 x2)) ∧
+  (∀n1 x1 n2 x2.
      n1 = n2 ∧
-     LIST_REL (v_rel c) x1 x2 ⇒
-       v_rel c (Constructor n1 x1) (Constructor n2 x2)) ∧
-  (∀c. v_rel c Diverge Diverge) ∧
-  (∀c. v_rel c Error Error)
+     LIST_REL v_rel x1 x2 ⇒
+       v_rel (Constructor n1 x1) (Constructor n2 x2)) ∧
+  (∀c. v_rel Diverge Diverge) ∧
+  (∀c. v_rel Error Error)
 Proof
   simp [v_rel_rules, GSYM exp_rel_def, v_rel_Closure]
 QED
 
 Theorem v_rel_cases:
-  (∀c b x. v_rel c (Atom b) x ⇔ x = Atom b) ∧
-  (∀c n x y. v_rel c (Constructor n x) y ⇔
+  (∀b x. v_rel (Atom b) x ⇔ x = Atom b) ∧
+  (∀n x y. v_rel (Constructor n x) y ⇔
     ∃x'.
       y = Constructor n x' ∧
-      LIST_REL (v_rel c) x x') ∧
-  (∀c s x y. v_rel c (Closure s x) y ⇔
+      LIST_REL v_rel x x') ∧
+  (∀s x y. v_rel (Closure s x) y ⇔
     ∃s' x'.
       y = Closure s' x' ∧
-      ∀z. exp_rel c (bind [(s,z)] x) (bind [(s',z)] x')) ∧
-  (∀c x. v_rel c Diverge x ⇔ x = Diverge) ∧
-  (∀c x. v_rel c Error x ⇔ x = Error)
+      ∀z. exp_rel (bind [(s,z)] x) (bind [(s',z)] x')) ∧
+  (∀x. v_rel Diverge x ⇔ x = Diverge) ∧
+  (∀x. v_rel Error x ⇔ x = Error)
 Proof
   rw[v_rel_def]
   >- ( (* Atom *)
@@ -1765,7 +1761,7 @@ Proof
     first_assum (qspec_then `SUC 0` assume_tac) >>
     fs[v_rel'_def] >> gvs[] >>
     fs[LIST_REL_EL_EQN] >> rw[v_rel_def] >>
-    rename1 `m < _` >> rename1 `v_rel' _ step _ _` >>
+    rename1 `m < _` >> rename1 `v_rel' step _ _` >>
     last_x_assum (qspec_then `SUC step` assume_tac) >> gvs[v_rel'_def] >>
     fs[LIST_REL_EL_EQN, v_rel'_refl]
     )
@@ -1795,7 +1791,7 @@ Definition isClos_def:
 End
 
 Theorem isClos_Lam[simp]:
-  isClos (eval c (Lam v x))
+  isClos (eval (Lam v x))
 Proof
   fs [eval_thm,isClos_def]
 QED
@@ -1807,37 +1803,37 @@ Proof
 QED
 
 Theorem exp_rel_extend:
-  ∀c x y z.
-    isClos (eval c x) ∧ isClos (eval c y) ⇒
-    (exp_rel c x y ⇔ ∀a. exp_rel c (App x a) (App y a))
+  ∀x y z.
+    isClos (eval x) ∧ isClos (eval y) ⇒
+    (exp_rel x y ⇔ ∀a. exp_rel (App x a) (App y a))
 Proof
   rw [exp_rel_def,eval_App]
-  \\ Cases_on ‘~isClos (eval c y)’ \\ fs []
+  \\ Cases_on ‘~isClos (eval y)’ \\ fs []
   \\ fs [isClos_thm, v_rel_cases, exp_rel_def]
 QED
 
 Theorem exp_rel_Cons:
-  exp_rel c (Cons n xs) (Cons m ys) ⇔
-  n = m ∧ LIST_REL (exp_rel c) xs ys
+  exp_rel (Cons n xs) (Cons m ys) ⇔
+  n = m ∧ LIST_REL exp_rel xs ys
 Proof
   rw [exp_rel_def, eval_Cons, v_rel_cases, LIST_REL_EL_EQN, EQ_IMP_THM]
   \\ metis_tac [EL_MAP]
 QED
 
 Definition progress_def:
-  progress c exp next =
+  progress exp next =
     ∀input.
-       exp_rel c (App exp input)
-                 (case next input of
-                  | INL final => final
-                  | INR (n,x,rec_input) =>
-                      Cons n [x; App exp rec_input])
+       exp_rel (App exp input)
+               (case next input of
+                | INL final => final
+                | INR (n,x,rec_input) =>
+                    Cons n [x; App exp rec_input])
 End
 
 Theorem progress_lemma:
-  progress c exp1 next ∧ progress c exp2 next ∧
-  isClos (eval c exp1) ∧ isClos (eval c exp2) ⇒
-  exp_rel c exp1 exp2
+  progress exp1 next ∧ progress exp2 next ∧
+  isClos (eval exp1) ∧ isClos (eval exp2) ⇒
+  exp_rel exp1 exp2
 Proof
   fs [exp_rel_extend,progress_def] \\ rw []
   \\ rw [exp_rel_def,v_rel_def]
@@ -1849,12 +1845,13 @@ Proof
   \\ Cases_on ‘next a’ \\ fs []
   THEN1 metis_tac [v_rel'_trans,v_rel'_sym]
   \\ PairCases_on ‘y’ \\ fs [] \\ rw []
-  \\ qsuff_tac ‘v_rel' c n
-       (eval c (Cons y0 [y1; App exp1 y2]))
-       (eval c (Cons y0 [y1; App exp2 y2]))’
+  \\ qsuff_tac ‘v_rel' n
+       (eval (Cons y0 [y1; App exp1 y2]))
+       (eval (Cons y0 [y1; App exp2 y2]))’
   THEN1 metis_tac [v_rel'_trans,v_rel'_sym]
   \\ once_rewrite_tac [eval_thm] \\ rewrite_tac [MAP]
   \\ Cases_on ‘n’ \\ fs [v_rel'_def,v_rel'_refl]
 QED
 
 val _ = export_theory();
+
