@@ -1731,6 +1731,65 @@ Proof
   simp [v_rel_rules, GSYM exp_rel_def, v_rel_Closure]
 QED
 
+Theorem v_rel_cases:
+  (∀c b x. v_rel c (Atom b) x ⇔ x = Atom b) ∧
+  (∀c n x y. v_rel c (Constructor n x) y ⇔
+    ∃x'.
+      y = Constructor n x' ∧
+      LIST_REL (v_rel c) x x') ∧
+  (∀c s x y. v_rel c (Closure s x) y ⇔
+    ∃s' x'.
+      y = Closure s' x' ∧
+      ∀z. exp_rel c (bind [(s,z)] x) (bind [(s',z)] x')) ∧
+  (∀c x. v_rel c Diverge x ⇔ x = Diverge) ∧
+  (∀c x. v_rel c Error x ⇔ x = Error)
+Proof
+  rw[v_rel_def]
+  >- ( (* Atom *)
+    EQ_TAC >> strip_tac
+    >- (
+      first_x_assum (qspec_then `SUC 0` assume_tac) >>
+      gvs[v_rel'_def]
+      ) >>
+    gvs[v_rel'_refl]
+    )
+  >- ( (* Constructor *)
+    reverse EQ_TAC >> strip_tac
+    >- (
+      gvs[] >>
+      Cases >> gvs[v_rel'_def] >>
+      fs[LIST_REL_EL_EQN, v_rel_def]
+      ) >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `y` >> gvs[v_rel'_def] >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    fs[v_rel'_def] >> gvs[] >>
+    fs[LIST_REL_EL_EQN] >> rw[v_rel_def] >>
+    rename1 `m < _` >> rename1 `v_rel' _ step _ _` >>
+    last_x_assum (qspec_then `SUC step` assume_tac) >> gvs[v_rel'_def] >>
+    fs[LIST_REL_EL_EQN, v_rel'_refl]
+    )
+  >- ( (* Closure *)
+    reverse EQ_TAC >> strip_tac
+    >- (
+      gvs[] >>
+      Cases >> gvs[v_rel'_def] >>
+      fs[exp_rel_def, v_rel_def]
+      ) >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    Cases_on `y` >> gvs[v_rel'_def, exp_rel_def, v_rel_def] >>
+    first_assum (qspec_then `SUC 0` assume_tac) >>
+    fs[v_rel'_def] >> rw[] >> gvs[v_rel'_refl] >>
+    first_x_assum (qspec_then `SUC n'` assume_tac) >>
+    gvs[v_rel'_def, v_rel'_refl]
+    )
+  >> ( (* Diverge, Error *)
+    EQ_TAC >> rw[v_rel'_refl] >>
+    pop_assum (qspec_then `SUC 0` assume_tac) >>
+    gvs[v_rel'_def]
+    )
+QED
+
 Definition isClos_def:
   isClos (Closure _ _) = T ∧ isClos _ = F
 End

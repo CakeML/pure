@@ -46,65 +46,6 @@ Proof
   \\ rw [LIST_REL_EL_EQN]
 QED
 
-Theorem v_rel_eq_simps:
-  (∀b x. v_rel c (Atom b) x ⇔ x = Atom b) ∧
-  (∀n x y. v_rel c (Constructor n x) y ⇔
-    ∃x'.
-      y = Constructor n x' ∧
-      LIST_REL (v_rel c) x x') ∧
-  (∀s x y. v_rel c (Closure s x) y ⇔
-    ∃s' x'.
-      y = Closure s' x' ∧
-      ∀z. exp_rel c (bind [(s,z)] x) (bind [(s',z)] x')) ∧
-  (∀x. v_rel c Diverge x ⇔ x = Diverge) ∧
-  (∀x. v_rel c Error x ⇔ x = Error)
-Proof
-  rw[v_rel_def]
-  >- ( (* Atom *)
-    EQ_TAC >> strip_tac
-    >- (
-      first_x_assum (qspec_then `SUC 0` assume_tac) >>
-      gvs[v_rel'_def]
-      ) >>
-    gvs[v_rel'_refl]
-    )
-  >- ( (* Constructor *)
-    reverse EQ_TAC >> strip_tac
-    >- (
-      gvs[] >>
-      Cases >> gvs[v_rel'_def] >>
-      fs[LIST_REL_EL_EQN, v_rel_def]
-      ) >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `y` >> gvs[v_rel'_def] >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    fs[v_rel'_def] >> gvs[] >>
-    fs[LIST_REL_EL_EQN] >> rw[v_rel_def] >>
-    rename1 `m < _` >> rename1 `v_rel' _ step _ _` >>
-    last_x_assum (qspec_then `SUC step` assume_tac) >> gvs[v_rel'_def] >>
-    fs[LIST_REL_EL_EQN, v_rel'_refl]
-    )
-  >- ( (* Closure *)
-    reverse EQ_TAC >> strip_tac
-    >- (
-      gvs[] >>
-      Cases >> gvs[v_rel'_def] >>
-      fs[exp_rel_def, v_rel_def]
-      ) >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `y` >> gvs[v_rel'_def, exp_rel_def, v_rel_def] >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    fs[v_rel'_def] >> rw[] >> gvs[v_rel'_refl] >>
-    first_x_assum (qspec_then `SUC n'` assume_tac) >>
-    gvs[v_rel'_def, v_rel'_refl]
-    )
-  >> ( (* Diverge, Error *)
-    EQ_TAC >> rw[v_rel'_refl] >>
-    pop_assum (qspec_then `SUC 0` assume_tac) >>
-    gvs[v_rel'_def]
-    )
-QED
-
 (*
  * Re-definitions for eval:
  *)
@@ -132,8 +73,8 @@ Theorem eval_thm:
             | SOME (s,body) => eval c (bind [(s,y)] body)) ∧
   eval c (Case x nm css) = eval c (expandCases x nm css)
 Proof
-  gs [eval_thm, v_rel_eq_simps,
-      v_rel_eq_simps |> PURE_ONCE_REWRITE_RULE [v_rel_sym]]
+  gs [eval_thm, v_rel_cases,
+      v_rel_cases |> PURE_ONCE_REWRITE_RULE [v_rel_sym]]
 QED
 
 Definition vq_eval_def:
@@ -188,7 +129,7 @@ Proof
   \\ reverse eq_tac
   >- simp [v_rel_rules]
   \\ strip_tac
-  \\ gvs[v_rel_eq_simps, exp_rel_def, Closure_11]
+  \\ gvs[v_rel_cases, exp_rel_def, Closure_11]
 QED
 
 (*
@@ -221,9 +162,9 @@ Theorem is_eq_rsp:
 Proof
   strip_tac
   \\ simp [is_eq_def] \\ rw []
-  \\ fs [vq_rel_refl, v_rel_rules, v_rel_eq_simps, vq_rel_def, v_rel_sym]
+  \\ fs [vq_rel_refl, v_rel_rules, v_rel_cases, vq_rel_def, v_rel_sym]
   \\ rpt CASE_TAC \\ fs []
-  \\ fs [vq_rel_refl, v_rel_rules, v_rel_eq_simps, vq_rel_def, v_rel_sym]
+  \\ fs [vq_rel_refl, v_rel_rules, v_rel_cases, vq_rel_def, v_rel_sym]
   \\ gvs [v_rel'_def, LIST_REL_EL_EQN, v_rel'_refl]
 QED
 
@@ -234,7 +175,7 @@ Theorem el_rsp:
     vq_rel (el x1 x2 x3) (el y1 y2 y3)
 Proof
   rw [el_def] >>
-  fs[vq_rel_def, v_rel_def, v_rel_eq_simps]
+  fs[vq_rel_def, v_rel_def, v_rel_cases]
   >- (
     rename1 `x ≠ Diverge` >>
     pop_assum (qspec_then `SUC 0` assume_tac) >>
@@ -254,7 +195,7 @@ QED
 Theorem isClos_rsp:
   ∀x y. vq_rel x y ⇒ isClos x = isClos y
 Proof
-  Cases \\ Cases \\ simp [vq_rel_def, v_rel_eq_simps, isClos_def]
+  Cases \\ Cases \\ simp [vq_rel_def, v_rel_cases, isClos_def]
 QED
 
 (*
@@ -273,7 +214,7 @@ Theorem isClos_is_Closure:
   ∀v. isClos v ⇔ ∃s x. vq_rel v (Closure s x)
 Proof
   Cases
-  \\ rw [isClos_def, vq_rel_def, v_rel_eq_simps, exp_rel_def]
+  \\ rw [isClos_def, vq_rel_def, v_rel_cases, exp_rel_def]
   \\ Q.LIST_EXISTS_TAC [‘n’, ‘x’]
   \\ simp [v_rel_refl]
 QED
