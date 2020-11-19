@@ -52,6 +52,8 @@ Definition vq_exp_rel_def:
   vq_exp_rel x y = exp_rel empty_conf x y
 End
 
+Theorem vq_exp_rel = vq_exp_rel_def;
+
 (*
  * Adapt theorems about v_rel to vq_rel.
  *)
@@ -109,12 +111,6 @@ Theorem eval_thm:
     else Error) ∧
   eval c (Lam s x) = Closure s x ∧
   eval c (Letrec f x) = eval c (subst_funs f x) ∧
-  eval c (App x y) =
-    (let v = eval c x in
-       if v_rel c v Diverge then Diverge
-       else case dest_Closure v of
-              NONE => Error
-            | SOME (s,body) => eval c (bind [(s,y)] body)) ∧
   eval c (Case x nm css) = eval c (expandCases x nm css)
 Proof
   gs [eval_thm, v_rel_cases, PURE_ONCE_REWRITE_RULE [v_rel_sym] v_rel_cases]
@@ -278,7 +274,8 @@ val [
     Closure_vq_11,
     eval_vq_thm,
     progress_vq_thm,
-    vq_isClos_is_Closure
+    vq_isClos_is_Closure,
+    vq_exp_rel_thm
   ] = define_quotient_types_full {
   types =
     [{equiv = vq_rel_EQUIV,
@@ -301,14 +298,23 @@ val [
   old_thms = [
     Constructor_vq_11,
     Closure_vq_11,
-    let val ths = CONJUNCTS vq_eval_thm in
-      List.take (ths, 9) @
-      List.drop (ths, 10)
-    end |> LIST_CONJ,
+    vq_eval_thm,
     vq_progress_lemma,
-    isClos_is_Closure
+    isClos_is_Closure,
+    vq_exp_rel_def
     ]
   };
+
+Theorem progress_vq_def =
+  progress_def
+  |> Q.SPEC ‘empty_conf’
+  |> REWRITE_RULE [
+    GSYM vq_exp_rel,
+    vq_exp_rel_thm];
+
+Theorem progress_vq_thm =
+  progress_vq_thm
+  |> REWRITE_RULE [progress_vq_def];
 
 val _ = export_theory ();
 
