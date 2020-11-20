@@ -218,9 +218,9 @@ QED
 (*used to control recursive steps during the proofs*)
 Theorem eval_LAMREC3:
   v≠f (*∧ closed (LAMREC f v b)*) ⇒
-  eval c (App (LAMREC f v b) y) =
+  eval (App (LAMREC f v b) y) =
       if closed (Lam v (Letrec [(f,v,b)] b))
-       then eval c (App (Lam v ( subst f (LAMREC f v b) b) ) y)
+       then eval (App (Lam v ( subst f (LAMREC f v b) b) ) y)
        else Error
 Proof
   rpt strip_tac
@@ -243,9 +243,9 @@ QED
 Theorem eval_LAMREC2:
   (*b has no other free variables except v and f*)
   (∀ k. MEM k (freevars b) ⇒ k = v ∨ k = f) ⇒
-  eval c (LAMREC f v b) = if closed (Lam v (Letrec [(f,v,b)] b))
-                           then eval c (Lam v ( Letrec [(f,v,b)] b ))
-                           else Error
+  eval (LAMREC f v b) = if closed (Lam v (Letrec [(f,v,b)] b))
+                        then eval (Lam v ( Letrec [(f,v,b)] b ))
+                        else Error
 Proof
   rpt strip_tac
   \\ fs[Once LAMREC_def]
@@ -268,7 +268,7 @@ Proof
 QED
 
 Theorem exp_rel_refl[simp]:
-  ∀ e. exp_rel c e e
+  ∀ e. exp_rel e e
 Proof
   strip_tac \\ fs[exp_rel_def,v_rel_refl]
 QED
@@ -380,8 +380,8 @@ QED
 *)
 
 Theorem eval_Case_value:
-  closed x ∧ closed y ∧ eval c x = eval c y ⇒
-      eval c (Case x nm css) = eval c (Case y nm css)
+  closed x ∧ closed y ∧ eval x = eval y ⇒
+      eval (Case x nm css) = eval (Case y nm css)
 Proof
   cheat (*this is true, but requires equational reasoning in order to be proved*)
 QED
@@ -390,7 +390,7 @@ QED
 (*evaluation of map, case []*)
 Theorem eval_map_nil:
   ∀ f. closed f ⇒
-       eval c (App (App map f) nil) = eval c nil
+       eval (App (App map f) nil) = eval nil
 Proof
   rw[] \\ fs[map_def,cons_def,nil_def]
   \\ fs[LAMREC_def] \\ fs[eval_thm]
@@ -486,13 +486,13 @@ QED
 
 
 Definition next_list_def:
-  next_list (f:('a,'b) exp) c (input:('a,'b) exp) =
+  next_list f input =
               if (¬closed input) then (INL Fail)
-              else ( if eval c input = Diverge then (INL bottom)
-                     else (case eval c input of
+              else ( if eval input = Diverge then (INL bottom)
+                     else (case eval input of
                            | Constructor n vs =>
                                (if n = "nil" ∧ LENGTH vs = 0
-                                then (INL (nil:('a,'b) exp))
+                                then (INL nil)
                                 else if n = "cons" ∧ LENGTH vs = 2
                                 then (INR (n
                                            ,App f (Proj n 0 input)
@@ -503,13 +503,13 @@ Definition next_list_def:
 End
 
 Theorem progress_map_f:
-  ∀ f. closed f ⇒ progress c (App map f) (next_list f c)
+  ∀ f. closed f ⇒ progress (App map f) (next_list f)
 Proof
   rw[]
   \\ fs[progress_def]
   \\ rpt strip_tac \\ fs[exp_rel_def]
   \\ fs[eval_thm]
-  \\ ‘eval c map ≠ Diverge’ by (fs[map_def,LAMREC_def,cons_def,nil_def,eval_thm]) \\ fs[]
+  \\ ‘eval map ≠ Diverge’ by (fs[map_def,LAMREC_def,cons_def,nil_def,eval_thm]) \\ fs[]
   \\ fs[map_def,LAMREC_def,cons_def,nil_def]
   \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
   (* These tactics no longer do anything:
@@ -523,10 +523,10 @@ Proof
   \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
   \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
   \\ fs[no_var_no_subst,is_eq_def,el_def,LNTH_2]
-  \\ Cases_on ‘eval c input = Diverge’
+  \\ Cases_on ‘eval input = Diverge’
   THEN1 (fs[next_list_def,closed_def] \\ fs[eval_bottom] \\ fs[v_rel_refl])
   \\ fs[]
-  \\ Cases_on ‘eval c input’
+  \\ Cases_on ‘eval input’
   \\ fs[next_list_def,eval_thm,v_rel_refl,closed_def]
   \\ cheat
   (* \\ Cases_on ‘eval c input’ \\ fs[] \\ Cases_on ‘a’ \\ fs[eval_thm,v_rel_refl] *)
@@ -561,7 +561,7 @@ QED
 
 (*used to prove eval_add1'_consx using equational reasoning*)
 Triviality Proj_exp_rel_lemma:
-  exp_rel c (Proj "cons" 1 (Cons "cons" [x; y])) y
+  exp_rel (Proj "cons" 1 (Cons "cons" [x; y])) y
 Proof
   fs[exp_rel_def,eval_thm,el_def,LNTH_2,v_rel_refl]
 QED
@@ -571,7 +571,7 @@ Definition add1'oadd1'_def:
 End
 
 Theorem exp_rel_add1'oadd1'_add2'_App:
-  ∀ x. closed x ⇒ eval c (App add1'oadd1' x) = eval c (App add2' x)
+  ∀ x. closed x ⇒ eval (App add1'oadd1' x) = eval (App add2' x)
 Proof
   rpt strip_tac
   \\ fs[add1'oadd1'_def,add1'_def,add2'_def,cons_def,nil_def]
@@ -606,7 +606,7 @@ Proof
   (*from here below, it's probably a good idea to use equational reasoning.*)
 
   \\ match_mp_tac EQ_TRANS
-  \\ qexists_tac ‘ eval c
+  \\ qexists_tac ‘ eval
               (Case r "v"
                  [("nil",[],nil);
                   ("cons",["x"; "xs"],
@@ -671,8 +671,8 @@ QED
 
 
 Theorem progress_lemma:
-  progress c exp1 next ∧ progress c exp2 next ⇒
-  ∀x. exp_rel c (App exp1 x) (App exp2 x)
+  progress exp1 next ∧ progress exp2 next ⇒
+  ∀x. exp_rel (App exp1 x) (App exp2 x)
 Proof
   cheat
 QED
@@ -680,13 +680,13 @@ QED
 (*because of the way exp_rel is defined over closures, this should hold*)
 (*the opposite should follow from equational reasoning*)
 Theorem App_Closure_lemma:
-  ∀x. exp_rel c (App exp1 x) (App exp2 x) ⇒ exp_rel c exp1 exp2
+  ∀x. exp_rel (App exp1 x) (App exp2 x) ⇒ exp_rel exp1 exp2
 Proof
   cheat
 QED
 
 Theorem exp_rel_add1'oadd1'_add2':
-  exp_rel c add1'oadd1' add2'
+  exp_rel add1'oadd1' add2'
 Proof
   cheat
 QED
@@ -697,7 +697,7 @@ Theorem deforestation:
   closed f ∧ closed g ∧ closed l ∧
   f = Lam fn fb ∧ g = Lam gn ge
    ⇒
-   exp_rel c
+   exp_rel
      (*(map f) (map g l)*)
      (*Apps map [f;Apps map [g;l]]*)
      (App (App map f) (App (App map g) l))
@@ -707,7 +707,7 @@ Proof
   rw[]
   \\ fs[exp_rel_def,v_rel_def,v_rel'_def] \\ strip_tac
   \\ fs [eval_thm]
-  \\ ‘eval c map ≠ Diverge’ by (cheat)
+  \\ ‘eval map ≠ Diverge’ by (cheat)
   \\ fs [map_def,eval_thm]
   \\ fs [bind_def]
   \\ fs [subst_def]

@@ -1,26 +1,14 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory bagTheory quotient_llistTheory expTheory;
+     ltreeTheory llistTheory configTheory expTheory quotient_llistTheory;
 
 val _ = new_theory "value";
 
-(* Value type for a call-by-name semantics in a denotational semantics style *)
-
-(* would like to have:
-Codatatype:
-  ('a,'b) v = Atom 'b
-          | Constructor string (('a,'b) v) list)
-          | Closure vname ('a exp)
-          | Diverge
-          | Error
-End
-*)
-
 Datatype:
-  v_prefix = Atom' 'b
+  v_prefix = Atom' lit
            | Constructor' string
-           | Closure' vname (('a,'b) exp)
+           | Closure' vname exp
            | Diverge'
            | Error'
 End
@@ -201,7 +189,7 @@ Proof
         \\ irule v_rep_ok_Constructor)
   \\ unabbrev_all_tac
   \\ fs [v_abs_11, Constructor_rep_11]
-  \\ ‘INJ v_rep (set t1 ∪ set t2) 𝕌(:('a,'b) v_prefix ltree)’
+  \\ ‘INJ v_rep (set t1 ∪ set t2) 𝕌(:v_prefix ltree)’
     by simp [pred_setTheory.INJ_DEF, v_rep_11]
   \\ drule INJ_MAP_EQ \\ fs []
 QED
@@ -355,11 +343,11 @@ QED
 
 Theorem datatype_v:
   DATATYPE ((v
-             (Atom : 'b -> ('a, 'b) v)
-             (Constructor : string -> ('a, 'b) v list -> ('a, 'b) v)
-             (Closure : string -> ('a, 'b) exp -> ('a, 'b) v)
-             (Diverge : ('a, 'b) v)
-             (Error : ('a, 'b) v)) : bool)
+             (Atom : config$lit -> v)
+             (Constructor : string -> v list -> v)
+             (Closure : string -> exp -> v)
+             (Diverge : v)
+             (Error : v)) : bool)
 Proof
   rw [boolTheory.DATATYPE_TAG_THM]
 QED
@@ -424,8 +412,6 @@ Proof
   qexists_tac `[h]` >> fs[ltree_lookup_def]
 QED
 
-fun swap_alpha_beta th = th |> INST_TYPE [alpha |-> beta, beta |-> alpha];
-
 Theorem v_bisimulation:
   ∀v1 v2.
     v1 = v2 ⇔
@@ -451,7 +437,7 @@ Proof
   qexists_tac `λv1 v2. R (v_abs v1) (v_abs v2)` >> fs[v_absrep] >>
   rpt gen_tac >> strip_tac >>
   fs[GSYM v_rep_11] >>
-  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Atom >>
   assume_tac v_rep_ok_Constructor >>
   assume_tac v_rep_ok_Closure >>
   assume_tac v_rep_ok_Diverge >>
@@ -498,14 +484,14 @@ Definition v_to_prefix_def:
 End
 
 Theorem v_to_prefix:
-  (∀a. v_to_prefix (Atom a) = Atom' a : (α,β) v_prefix) ∧
-  (∀c vs. v_to_prefix (Constructor c vs) = Constructor' c : (α,β) v_prefix) ∧
-  (∀x body. v_to_prefix (Closure x body) = Closure' x body : (α,β) v_prefix) ∧
-  v_to_prefix Diverge = Diverge' : (α,β) v_prefix ∧
-  v_to_prefix Error = Error' : (α,β) v_prefix
+  (∀a. v_to_prefix (Atom a) = Atom' a) ∧
+  (∀c vs. v_to_prefix (Constructor c vs) = Constructor' c) ∧
+  (∀x body. v_to_prefix (Closure x body) = Closure' x body) ∧
+  v_to_prefix Diverge = Diverge' ∧
+  v_to_prefix Error = Error'
 Proof
   fs[Atom_def, Constructor_def, Closure_def, Diverge_def, Error_def] >>
-  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Atom >>
   assume_tac v_rep_ok_Constructor >>
   assume_tac v_rep_ok_Closure >>
   assume_tac v_rep_ok_Diverge >>
@@ -523,9 +509,9 @@ Definition v_lookup_def:
 End
 
 Theorem v_lookup_alt:
-  (∀v. v_lookup [] (v : (α,β) v) =
+  (∀v. v_lookup [] v =
     (v_to_prefix v, case v of Constructor c vs => LENGTH vs | _ => 0)) ∧
-  ∀n path. v_lookup (n::path) (v : (α,β) v) =
+  ∀n path. v_lookup (n::path) v =
     (case v of
     | Constructor c vs =>
       (case oEL n vs of
@@ -533,7 +519,7 @@ Theorem v_lookup_alt:
       | NONE => (Diverge', 0))
     | _ => (Diverge', 0))
 Proof
-  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Atom >>
   assume_tac v_rep_ok_Constructor >>
   assume_tac v_rep_ok_Closure >>
   assume_tac v_rep_ok_Diverge >>
@@ -550,14 +536,14 @@ Proof
 QED
 
 Theorem v_lookup:
-  (∀v. v_lookup [] (v : (α,β) v) =
+  (∀v. v_lookup [] v =
     case v of
     | Atom a => (Atom' a, 0)
     | Constructor c vs => (Constructor' c, LENGTH vs)
     | Closure x body => (Closure' x body, 0)
     | Diverge => (Diverge', 0)
     | Error => (Error', 0)) ∧
-  ∀n path. v_lookup (n::path) (v : (α,β) v) =
+  ∀n path. v_lookup (n::path) v =
     (case v of
     | Constructor c vs =>
       (case oEL n vs of
@@ -632,7 +618,7 @@ Proof
   qexists_tac `len_opt` >> fs[]
 QED
 
-(* gen_v : (num list -> (α,β) vprefix # num) -> (α,β) v *)
+(* gen_v : (num list -> vprefix # num) -> v *)
 (* Generates a value of type v given a function generating v_prefix nodes when
    given a path *)
 Definition gen_v_def:
@@ -654,7 +640,7 @@ Proof
   fs[v_repabs] >>
   simp[make_v_rep_def, Once gen_ltree] >>
   Cases_on `f []` >> rename1 `f [] = (prefix, len)` >> fs[] >>
-  assume_tac (v_rep_ok_Atom |> swap_alpha_beta) >>
+  assume_tac v_rep_ok_Atom >>
   assume_tac v_rep_ok_Constructor >>
   assume_tac v_rep_ok_Closure >>
   assume_tac v_rep_ok_Diverge >>
