@@ -484,6 +484,8 @@ val _ = TypeBase.export
       destructors = [],
       recognizers = [] } ]
 
+Overload case = “v_CASE”;
+
 (* v_lookup takes a list of indices and a value, and uses the indices one-by-one
    to recurse into the structure of the value. Note that only the `Constructor`
    node has sub-nodes.
