@@ -125,7 +125,7 @@ Definition eval_op_def:
   (eval_op (Proj s i) [x] = el s i x) ∧
   (eval_op (AtomOp a) xs =
      if MEM Diverge xs then Diverge else
-       case OPTION_BIND (getAtoms xs) (config$atom_op a) of
+       case OPTION_BIND (getAtoms xs) (config.parAtomOp a) of
           SOME b => Atom b
         | _      => Error )  ∧
   (eval_op (Lit b) [] = Atom b) ∧
@@ -1377,7 +1377,7 @@ Theorem eval_PrimOp:
   eval (Prim (AtomOp a) es) =
   (let xs = MAP eval es in
    if MEM Diverge xs then Diverge else
-      case OPTION_BIND (getAtoms xs) (atom_op a) of
+      case OPTION_BIND (getAtoms xs) (config.parAtomOp a) of
        | (SOME n) => Atom n
        | _        => Error)
 Proof

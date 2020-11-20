@@ -14,8 +14,8 @@ Datatype:
      | Cons string        (* datatype constructor                     *)
      | IsEq string num    (* compare cons tag and num of args         *)
      | Proj string num    (* reading a field of a constructor         *)
-     | AtomOp config$atom (* primitive parametric operator over Atoms *)
-     | Lit config$lit     (* parametric literal Atom                  *)
+     | AtomOp atom_op     (* primitive parametric operator over Atoms *)
+     | Lit lit            (* parametric literal Atom                  *)
 End
 
 Datatype:

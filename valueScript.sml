@@ -6,7 +6,7 @@ open arithmeticTheory listTheory stringTheory alistTheory optionTheory
 val _ = new_theory "value";
 
 Datatype:
-  v_prefix = Atom' config$lit
+  v_prefix = Atom' lit
            | Constructor' string
            | Closure' vname exp
            | Diverge'
