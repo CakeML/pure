@@ -1604,7 +1604,7 @@ Definition exp_rel_def:
   exp_rel x y ⇔ v_rel (eval x) (eval y)
 End
 
-Triviality v_rel'_refl:
+Theorem v_rel'_refl:
   ∀n x. v_rel' n x x
 Proof
   Induct >> Cases >> rw[v_rel'_def] >>
@@ -1786,6 +1786,12 @@ Proof
     )
 QED
 
+Theorem exp_rel_refl:
+  exp_rel x x
+Proof
+  fs [exp_rel_def,v_rel_refl]
+QED
+
 Definition isClos_def:
   isClos (Closure _ _) = T ∧ isClos _ = F
 End
@@ -1854,4 +1860,3 @@ Proof
 QED
 
 val _ = export_theory();
-
