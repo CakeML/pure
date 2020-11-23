@@ -2,6 +2,7 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory;
+open fixedPointTheory;
 
 val _ = new_theory "pure_lang";
 
@@ -1583,22 +1584,41 @@ Definition v_rel'_def:
     | Error => v2 = Error)
 End
 
-(* Coinductive definition:
-Coinductive v_rel:
-  (a1 = a2 ⇒
-    v_rel c (Atom a1) (Atom a2)) ∧
-  (m1 = m2 ∧ LIST_REL (v_rel c) xs ys ⇒
-    v_rel c (Constructor m1 xs) (Constructor m2 ys)) ∧
-  ((∀z. v_rel c (eval c (bind [(c1,z)] e1)) (eval c (bind [(c2,z)] e2))) ⇒
-   v_rel c (Closure c1 e1) (Closure c2 e2)) ∧
-  (v_rel c Diverge Diverge) ∧
-  (v_rel c Error Error)
-End
-*)
+(* Coinductive definition: *)
 
-Definition v_rel_def:
-  v_rel x y = ∀n. v_rel' n x y
-End
+val (v_rel_rules,v_rel_coind,v_rel_cases) = Hol_coreln
+ ‘(∀a1. v_rel (Atom a1) (Atom a1)) ∧
+  (∀m1 xs ys. LIST_REL (v_rel) xs ys ⇒
+    v_rel (Constructor m1 xs) (Constructor m1 ys)) ∧
+  (∀c1 c2 e1 e2.
+   (∀z. v_rel (eval (bind [(c1,z)] e1)) (eval (bind [(c2,z)] e2))) ⇒
+   v_rel (Closure c1 e1) (Closure c2 e2)) ∧
+  (v_rel Diverge Diverge) ∧
+  (v_rel Error Error)’;
+
+Theorem v_rel_def:
+  v_rel v1 v2 ⇔ ∀n. v_rel' n v1 v2
+Proof
+  EQ_TAC
+  >- (simp[PULL_FORALL] >>
+      strip_tac >> MAP_EVERY qid_spec_tac [‘v2’,‘v1’,‘n’] >>
+      ho_match_mp_tac COMPLETE_INDUCTION >>
+      Cases >> rw[v_rel'_def] >>
+      qhdtm_x_assum ‘v_rel’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[v_rel_cases]) >>
+      gvs[] >>
+      drule_at_then (Pos last) match_mp_tac EVERY2_mono >> simp[])
+  >- (MAP_EVERY qid_spec_tac [‘v2’,‘v1’] >>
+      ho_match_mp_tac v_rel_coind >>
+      rw[] >> ‘∀n. v_rel' (SUC n) v1 v2’ by metis_tac[] >>
+      last_x_assum kall_tac >>
+      Cases_on ‘v1’ >> gvs[v_rel'_def] >>
+      Cases_on ‘v2’ >> gvs[FORALL_AND_THM] >>
+      pop_assum mp_tac >>
+      rename1 ‘LIST_REL _ t1 t2’ >>
+      qid_spec_tac ‘t2’ >>
+      Induct_on ‘t1’ >- rw[] >>
+      strip_tac >> Cases >> rw[])
+QED
 
 Definition exp_rel_def:
   exp_rel x y ⇔ v_rel (eval x) (eval y)
@@ -1611,23 +1631,26 @@ Proof
   fs[LIST_REL_EL_EQN]
 QED
 
+Theorem v_rel_refl:
+  ∀x. v_rel x x
+Proof
+  ‘∀x y. x = y ⇒ v_rel x y’ suffices_by metis_tac[] >>
+  ho_match_mp_tac v_rel_coind >>
+  Cases >> rw[]
+QED
+
 Theorem v_rel_Closure:
   (∀x y. exp_rel x y ⇒ exp_rel (bind [m,x] b) (bind [n,y] d)) ⇒
   v_rel (Closure m b) (Closure n d)
 Proof
-  rw [PULL_FORALL,exp_rel_def,v_rel_def] \\ fs []
-  \\ Cases_on `n'` \\ fs[v_rel'_def]
-  \\ rw[]
-  \\ first_x_assum irule
-  \\ fs[v_rel'_refl]
+  metis_tac[exp_rel_def,v_rel_rules,v_rel_refl]
 QED
 
 Triviality LIST_REL_SYM:
   (∀x y. R x y ⇔ R y x) ⇒
   ∀xs ys. LIST_REL R xs ys ⇔ LIST_REL R ys xs
 Proof
-  strip_tac \\ Induct
-  \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ metis_tac []
+  metis_tac[EVERY2_sym]
 QED
 
 Triviality LIST_REL_TRANS:
@@ -1638,42 +1661,285 @@ Proof
   \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [] \\ metis_tac []
 QED
 
-Triviality v_rel'_sym:
-  ∀n x y. v_rel' n x y ⇔ v_rel' n y x
+Triviality LIST_REL_compose:
+  ∀R R' xs ys zs. LIST_REL R xs ys ∧ LIST_REL R' ys zs ⇒ LIST_REL (λx z. ∃y. R x y ∧ R' y z) xs zs
 Proof
-  Induct >> rw[] >> fs[v_rel'_def] >>
-  Cases_on `x` >> Cases_on `y` >> fs[] >>
-  drule LIST_REL_SYM >>
-  metis_tac[]
+  ntac 2 strip_tac >>
+  simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
+  ho_match_mp_tac LIST_REL_ind >>
+  simp[] >>
+  ntac 5 strip_tac >>
+  Cases >> rw[] >> metis_tac[]
 QED
-
-Triviality v_rel'_trans:
-  ∀n x y z. v_rel' n x y ∧ v_rel' n y z ⇒ v_rel' n x z
+        
+Theorem v_rel_sym_IMP:
+  ∀x y. v_rel y x ⇒ v_rel x y
 Proof
-  Induct >> rw[] >> fs[v_rel'_def] >>
-  Cases_on `x` >> Cases_on `y` >> fs[] >>
-  drule LIST_REL_TRANS >> strip_tac >> rw[] >>
-  metis_tac[]
-QED
-
-Theorem v_rel_refl:
-  ∀x. v_rel x x
-Proof
-  metis_tac [v_rel'_refl,v_rel_def]
+  ho_match_mp_tac v_rel_coind >>
+  rw[Once v_rel_cases] >>
+  drule_at_then (Pos last) match_mp_tac EVERY2_sym >>
+  rw[]
 QED
 
 Theorem v_rel_sym:
   ∀x y. v_rel x y ⇔ v_rel y x
 Proof
-  metis_tac [v_rel'_sym,v_rel_def]
+  rw[EQ_IMP_THM,v_rel_sym_IMP]
+QED
+
+(* Derive the the most general compatible function à la Damien Pous (LICS2016)’*)
+Definition v_rel_step_def:
+  v_rel_step R ⇔
+  λ(v1,v2).
+  (∃a1. v1 = Atom a1 ∧ v2 = Atom a1) ∨
+  (∃m1 xs ys.
+     v1 = Constructor m1 xs ∧ v2 = Constructor m1 ys ∧
+     LIST_REL (CURRY R) xs ys) ∨
+  (∃c1 c2 e1 e2.
+     v1 = Closure c1 e1 ∧ v2 = Closure c2 e2 ∧
+     ∀z.
+       R (eval (bind [(c1,z)] e1),
+          (eval (bind [(c2,z)] e2)))) ∨
+  (v1 = Diverge ∧ v2 = Diverge) ∨ (v1 = Error ∧ v2 = Error)
+End
+
+Theorem v_rel_step_monotone:
+  monotone v_rel_step
+Proof
+  rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  Cases_on ‘x’ >> gvs[v_rel_step_def] >>
+  drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+  rw[]
+QED
+
+Definition compatible_def:
+  compatible f ⇔ (∀B. f(v_rel_step B) ⊆ v_rel_step(f B))
+End
+
+Theorem v_rel_eq_gfp:
+  v_rel = CURRY(gfp v_rel_step)
+Proof
+  simp[FUN_EQ_THM,EQ_IMP_THM,FORALL_AND_THM] >>
+  conj_tac
+  >- (qspec_then ‘UNCURRY v_rel’ mp_tac (MATCH_MP gfp_coinduction v_rel_step_monotone) >>
+      reverse impl_tac >- (rw[pred_setTheory.SUBSET_DEF,IN_DEF]) >>
+      rw[pred_setTheory.SUBSET_DEF,v_rel_step_def,ELIM_UNCURRY,Once v_rel_cases])
+  >- (ho_match_mp_tac v_rel_coind >>
+      rw[] >>
+      pop_assum(assume_tac o ONCE_REWRITE_RULE[GSYM(MATCH_MP (cj 1 gfp_greatest_fixedpoint) v_rel_step_monotone)]) >>
+      gvs[v_rel_step_def] >>
+      drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+      rw[]
+     )
+QED
+
+Definition companion_def:
+  companion R xy ⇔ ∃f. monotone f ∧ compatible f ∧ xy ∈ f(UNCURRY R)
+End
+
+Theorem companion_compatible:
+  compatible ((companion o CURRY))
+Proof
+  mp_tac v_rel_step_monotone >>
+  rw[compatible_def,companion_def,pred_setTheory.SUBSET_DEF,IN_DEF,monotone_def] >>
+  res_tac >>
+  last_x_assum(match_mp_tac o MP_CANON) >>
+  goal_assum(drule_at (Pos last)) >>
+  rw[companion_def] >>
+  qexists_tac ‘f’ >>
+  rw[compatible_def,companion_def,pred_setTheory.SUBSET_DEF,IN_DEF,monotone_def] >>
+  metis_tac[]
+QED
+
+Theorem companion_monotone:
+  monotone(companion o CURRY)
+Proof
+  rw[monotone_def,pred_setTheory.SUBSET_DEF,companion_def,IN_DEF] >>
+  rpt(goal_assum drule) >>
+  metis_tac[]
+QED
+
+Theorem compatible_v_rel:
+  compatible(λR. UNCURRY v_rel)
+Proof
+  rw[compatible_def,v_rel_eq_gfp] >>
+  metis_tac[gfp_greatest_fixedpoint,v_rel_step_monotone]
+QED
+
+Theorem companion_SUBSET:
+  X ⊆ companion(CURRY X)
+Proof
+  rw[companion_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  qexists_tac ‘I’ >>
+  rw[monotone_def,compatible_def]
+QED
+
+Theorem monotone_compose:
+  monotone f ∧ monotone g ⇒ monotone(f o g)
+Proof
+  rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >> res_tac >> metis_tac[]
+QED
+
+Theorem compatible_compose:
+  monotone f ∧ compatible f ∧ compatible g ⇒ compatible(f o g)
+Proof
+  rw[compatible_def,pred_setTheory.SUBSET_DEF,IN_DEF,monotone_def] >>
+  first_x_assum match_mp_tac >>
+  last_x_assum(match_mp_tac o MP_CANON) >>
+  goal_assum(drule_at (Pos last)) >>
+  metis_tac[]
+QED
+
+Theorem companion_idem:
+  companion (CURRY (companion (CURRY B))) = companion(CURRY B)
+Proof
+  rw[companion_def,FUN_EQ_THM,EQ_IMP_THM]
+  >- (qexists_tac ‘f o companion o CURRY’ >>
+      simp[compatible_compose,companion_compatible,monotone_compose,companion_monotone]) >>
+  qexists_tac ‘I’ >>
+  simp[monotone_def,compatible_def] >>
+  gvs[IN_DEF,companion_def] >> metis_tac[]
+QED
+
+Theorem gfp_companion_SUBSET:
+  gfp(v_rel_step o companion o CURRY) ⊆ gfp v_rel_step
+Proof
+  match_mp_tac (MP_CANON gfp_coinduction) >>
+  conj_tac >- ACCEPT_TAC v_rel_step_monotone >>
+  rw[pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  ‘monotone(v_rel_step ∘ companion ∘ CURRY)’ by simp[monotone_compose,v_rel_step_monotone,companion_monotone] >>
+  first_assum(mp_tac o GSYM o MATCH_MP (cj 1 gfp_greatest_fixedpoint)) >>
+  disch_then(gs o single o Once) >>
+  mp_tac v_rel_step_monotone >>
+  simp[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  disch_then(match_mp_tac o MP_CANON) >>
+  goal_assum(dxrule_at (Pos last)) >>
+  rpt strip_tac >>
+  first_assum(mp_tac o GSYM o MATCH_MP (cj 1 gfp_greatest_fixedpoint)) >>
+  disch_then(gs o single o Once) >>
+  mp_tac companion_compatible >>
+  simp[compatible_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  disch_then dxrule >>
+  strip_tac >>
+  gvs[companion_idem] >>
+  first_assum(mp_tac o GSYM o MATCH_MP (cj 1 gfp_greatest_fixedpoint)) >>
+  disch_then(simp o single o Once)
+QED
+
+Theorem v_rel_companion_coind:
+  ∀R. (∀v1 v2. R v1 v2 ⇒
+               (∃a1. v1 = Atom a1 ∧ v2 = Atom a1) ∨
+               (∃m1 xs ys.
+                      v1 = Constructor m1 xs ∧ v2 = Constructor m1 ys ∧
+                      LIST_REL (CURRY (companion R)) xs ys) ∨
+               (∃c1 c2 e1 e2.
+                  v1 = Closure c1 e1 ∧ v2 = Closure c2 e2 ∧
+                  ∀z.
+                    companion R
+                      (eval (bind [(c1,z)] e1),
+                      (eval (bind [(c2,z)] e2)))) ∨
+               (v1 = Diverge ∧ v2 = Diverge) ∨ (v1 = Error ∧ v2 = Error)) ⇒
+      ∀v1 v2. R v1 v2 ⇒ v_rel v1 v2
+Proof
+  ntac 2 strip_tac >>
+  rw[v_rel_eq_gfp] >>
+  match_mp_tac(MP_CANON pred_setTheory.SUBSET_THM |> SIMP_RULE std_ss [IN_DEF]) >>
+  irule_at (Pos hd) gfp_companion_SUBSET >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [‘v2’,‘v1’] >>
+  simp[PFORALL_THM,ELIM_UNCURRY] >>
+  simp[GSYM(pred_setTheory.SUBSET_DEF |> SIMP_RULE std_ss [IN_DEF])] >>
+  CONV_TAC(DEPTH_CONV ETA_CONV) >>
+  match_mp_tac (MP_CANON gfp_coinduction) >>
+  simp[monotone_compose,v_rel_step_monotone,companion_monotone] >>
+  rw[pred_setTheory.SUBSET_DEF,IN_DEF,v_rel_step_def,ELIM_UNCURRY] >>
+  res_tac >> gs[CURRY_UNCURRY_THM |> SIMP_RULE bool_ss [ELIM_UNCURRY]]
+QED
+
+Theorem companion_refl[simp]:
+  companion R (x,x)
+Proof
+  rw[companion_def] >>
+  irule_at Any compatible_v_rel >>
+  simp[IN_DEF,v_rel_refl,monotone_def]
+QED
+
+Theorem companion_v_rel:
+  v_rel x y ⇒ companion R (x,y)
+Proof
+  rw[companion_def] >>
+  irule_at Any compatible_v_rel >>
+  simp[IN_DEF,v_rel_refl,monotone_def]
+QED
+
+Theorem v_rel_step_trans:
+  ∀R S x y z.
+    (x,z) ∈ v_rel_step R ∧ (z,y) ∈ v_rel_step S ⇒ (x,y) ∈ v_rel_step {(x,y) | ∃z. (x,z) ∈ R ∧ (z,y) ∈ S}
+Proof
+  rw[v_rel_step_def,IN_DEF]
+  >- (dxrule_all LIST_REL_compose >>
+      match_mp_tac EVERY2_mono >>
+      rw[IN_DEF,ELIM_UNCURRY]) >>
+  rw[IN_DEF,ELIM_UNCURRY] >>
+  metis_tac[]
+QED
+
+Theorem companion_duplicate:
+  ∀x y z. companion R (x,z) ∧ companion R (z,y) ⇒ companion R (x,y)
+Proof
+  rw[companion_def] >>
+  qexists_tac ‘λR. {(x,y) | ∃z. (x,z) ∈ f R ∧ (z,y) ∈ f' R}’ >>
+  gvs[monotone_def,compatible_def,pred_setTheory.SUBSET_DEF] >>
+  conj_tac >- (rw[] >> metis_tac[]) >>
+  reverse conj_tac >- metis_tac[] >>
+  rw[] >>
+  res_tac >>
+  metis_tac[v_rel_step_trans]
+QED
+
+Theorem companion_rel:
+  ∀R x y. R x y ⇒ companion R (x,y)
+Proof
+  rw[companion_def] >>
+  qexists_tac ‘I’ >> rw[monotone_def,compatible_def,IN_DEF]
+QED
+
+Theorem v_rel_companion_v_rel_coind:
+  ∀R. (∀v1 v2. R v1 v2 ⇒
+               v_rel v1 v2 ∨
+               (∃m1 xs ys.
+                  v1 = Constructor m1 xs ∧ v2 = Constructor m1 ys ∧
+                  LIST_REL (CURRY (companion R)) xs ys) ∨
+               (∃c1 c2 e1 e2.
+                  v1 = Closure c1 e1 ∧ v2 = Closure c2 e2 ∧
+                  ∀z. companion R (eval (bind [(c1,z)] e1), eval (bind [(c2,z)] e2)))) ⇒
+      ∀v1 v2. R v1 v2 ⇒ v_rel v1 v2
+Proof
+  ntac 2 strip_tac >>
+  ho_match_mp_tac v_rel_companion_coind >>
+  rw[] >>
+  res_tac
+  >- (gvs[Once v_rel_cases]
+      >- (drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+          rw[companion_def] >>
+          irule_at Any compatible_v_rel >>
+          rw[monotone_def,IN_DEF]) >>
+      rw[companion_def] >>
+      irule_at Any compatible_v_rel >>
+      rw[monotone_def,IN_DEF]) >>
+  gvs[]
 QED
 
 Theorem v_rel_trans:
   ∀x y z. v_rel x y ∧ v_rel y z ⇒ v_rel x z
 Proof
-  metis_tac [v_rel'_trans,v_rel_def]
+  CONV_TAC(QUANT_CONV(SWAP_FORALL_CONV)) >>
+  simp[GSYM PULL_EXISTS] >>
+  ho_match_mp_tac v_rel_coind >>
+  rw[Once v_rel_cases] >> gvs[Once v_rel_cases] >> metis_tac[LIST_REL_compose]
 QED
 
+(*
 Theorem v_rel_rules:
   (∀b1 b2.
      b1 = b2 ⇒
@@ -1707,6 +1973,13 @@ Proof
      (* Constants *)
   \\ Cases \\ simp [v_rel'_def]
 QED
+*)
+
+Theorem exp_rel_refl:
+  exp_rel x x
+Proof
+  fs [exp_rel_def,v_rel_refl]
+QED
 
 Theorem v_rel_rules':
   (∀b1 b2.
@@ -1724,10 +1997,11 @@ Theorem v_rel_rules':
   (∀c. v_rel Diverge Diverge) ∧
   (∀c. v_rel Error Error)
 Proof
-  simp [v_rel_rules, GSYM exp_rel_def, v_rel_Closure]
+  rpt strip_tac >> simp[Once v_rel_cases] >>
+  gs [GSYM exp_rel_def, v_rel_Closure,exp_rel_refl]
 QED
 
-Theorem v_rel_cases:
+Theorem v_rel_cases':
   (∀b x. v_rel (Atom b) x ⇔ x = Atom b) ∧
   (∀n x y. v_rel (Constructor n x) y ⇔
     ∃x'.
@@ -1740,56 +2014,7 @@ Theorem v_rel_cases:
   (∀x. v_rel Diverge x ⇔ x = Diverge) ∧
   (∀x. v_rel Error x ⇔ x = Error)
 Proof
-  rw[v_rel_def]
-  >- ( (* Atom *)
-    EQ_TAC >> strip_tac
-    >- (
-      first_x_assum (qspec_then `SUC 0` assume_tac) >>
-      gvs[v_rel'_def]
-      ) >>
-    gvs[v_rel'_refl]
-    )
-  >- ( (* Constructor *)
-    reverse EQ_TAC >> strip_tac
-    >- (
-      gvs[] >>
-      Cases >> gvs[v_rel'_def] >>
-      fs[LIST_REL_EL_EQN, v_rel_def]
-      ) >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `y` >> gvs[v_rel'_def] >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    fs[v_rel'_def] >> gvs[] >>
-    fs[LIST_REL_EL_EQN] >> rw[v_rel_def] >>
-    rename1 `m < _` >> rename1 `v_rel' step _ _` >>
-    last_x_assum (qspec_then `SUC step` assume_tac) >> gvs[v_rel'_def] >>
-    fs[LIST_REL_EL_EQN, v_rel'_refl]
-    )
-  >- ( (* Closure *)
-    reverse EQ_TAC >> strip_tac
-    >- (
-      gvs[] >>
-      Cases >> gvs[v_rel'_def] >>
-      fs[exp_rel_def, v_rel_def]
-      ) >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    Cases_on `y` >> gvs[v_rel'_def, exp_rel_def, v_rel_def] >>
-    first_assum (qspec_then `SUC 0` assume_tac) >>
-    fs[v_rel'_def] >> rw[] >> gvs[v_rel'_refl] >>
-    first_x_assum (qspec_then `SUC n'` assume_tac) >>
-    gvs[v_rel'_def, v_rel'_refl]
-    )
-  >> ( (* Diverge, Error *)
-    EQ_TAC >> rw[v_rel'_refl] >>
-    pop_assum (qspec_then `SUC 0` assume_tac) >>
-    gvs[v_rel'_def]
-    )
-QED
-
-Theorem exp_rel_refl:
-  exp_rel x x
-Proof
-  fs [exp_rel_def,v_rel_refl]
+  rpt conj_tac >> rw[Once v_rel_cases,exp_rel_def]
 QED
 
 Definition isClos_def:
@@ -1815,14 +2040,14 @@ Theorem exp_rel_extend:
 Proof
   rw [exp_rel_def,eval_App]
   \\ Cases_on ‘~isClos (eval y)’ \\ fs []
-  \\ fs [isClos_thm, v_rel_cases, exp_rel_def]
+  \\ fs [isClos_thm, v_rel_cases', exp_rel_def]
 QED
 
 Theorem exp_rel_Cons:
   exp_rel (Cons n xs) (Cons m ys) ⇔
   n = m ∧ LIST_REL exp_rel xs ys
 Proof
-  rw [exp_rel_def, eval_Cons, v_rel_cases, LIST_REL_EL_EQN, EQ_IMP_THM]
+  rw [exp_rel_def, eval_Cons, v_rel_cases', LIST_REL_EL_EQN, EQ_IMP_THM]
   \\ metis_tac [EL_MAP]
 QED
 
@@ -1837,26 +2062,47 @@ Definition progress_def:
 End
 
 Theorem progress_lemma:
+  ∀next exp1 exp2.
   progress exp1 next ∧ progress exp2 next ∧
   isClos (eval exp1) ∧ isClos (eval exp2) ⇒
   exp_rel exp1 exp2
 Proof
-  fs [exp_rel_extend,progress_def] \\ rw []
-  \\ rw [exp_rel_def,v_rel_def]
-  \\ qid_spec_tac ‘a’
-  \\ completeInduct_on ‘n’ \\ fs [] \\ strip_tac
-  \\ first_assum (qspec_then ‘a’ mp_tac)
-  \\ last_assum (qspec_then ‘a’ mp_tac)
-  \\ rewrite_tac [exp_rel_def,v_rel_def]
-  \\ Cases_on ‘next a’ \\ fs []
-  THEN1 metis_tac [v_rel'_trans,v_rel'_sym]
-  \\ PairCases_on ‘y’ \\ fs [] \\ rw []
-  \\ qsuff_tac ‘v_rel' n
-       (eval (Cons y0 [y1; App exp1 y2]))
-       (eval (Cons y0 [y1; App exp2 y2]))’
-  THEN1 metis_tac [v_rel'_trans,v_rel'_sym]
-  \\ once_rewrite_tac [eval_thm] \\ rewrite_tac [MAP]
-  \\ Cases_on ‘n’ \\ fs [v_rel'_def,v_rel'_refl]
+  ‘∀v1 v2 a next exp1 exp2.
+    progress exp1 next ∧ progress exp2 next ∧
+    isClos (eval exp1) ∧ isClos (eval exp2) ∧
+    v1 = eval(App exp1 a) ∧ v2 = eval(App exp2 a) ⇒
+    v_rel v1 v2’
+    suffices_by metis_tac[exp_rel_extend,exp_rel_def] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+  ho_match_mp_tac v_rel_companion_v_rel_coind >>
+  rw[exp_rel_extend,progress_def] >>
+  first_assum (qspec_then ‘a’ mp_tac) >>
+  last_assum (qspec_then ‘a’ mp_tac) >>
+  rewrite_tac [exp_rel_def] >>
+  Cases_on ‘next a’ >> gs[]
+  >- metis_tac[v_rel_sym,v_rel_trans] >>
+  PairCases_on ‘y’ >> gs[] >>
+  rw[eval_thm,v_rel_refl] >>
+  TRY(qpat_x_assum ‘v_rel Diverge (Constructor _ _)’ (strip_assume_tac o ONCE_REWRITE_RULE[v_rel_cases]) >>
+      gvs[] >> NO_TAC) >>
+  qhdtm_x_assum ‘v_rel’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[Once v_rel_cases]) >>
+  gvs[] >>
+  qpat_x_assum ‘v_rel _ (Constructor _ _)’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[Once v_rel_cases]) >>
+  gvs[] >>
+  disj2_tac >>
+  conj_tac
+  >- (match_mp_tac companion_v_rel >> metis_tac[v_rel_trans,v_rel_sym]) >>
+  match_mp_tac companion_duplicate >>
+  irule_at (Pos hd) companion_v_rel >>
+  goal_assum drule >>
+  match_mp_tac companion_duplicate >>
+  irule_at (Pos last) companion_v_rel >>
+  irule_at (Pos hd) v_rel_sym_IMP >>
+  goal_assum drule >>
+  match_mp_tac companion_rel >>
+  simp[] >>
+  gvs[exp_rel_def,eval_thm] >>
+  metis_tac[]
 QED
 
 val _ = export_theory();
