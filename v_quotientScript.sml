@@ -16,7 +16,7 @@ Theorem isClos_is_Closure:
   ∀v. isClos v ⇔ ∃s x. v_rel v (Closure s x)
 Proof
   Cases
-  \\ rw [isClos_def, v_rel_cases, exp_rel_def]
+  \\ rw [isClos_def, v_rel_cases', exp_rel_def]
   \\ Q.LIST_EXISTS_TAC [‘n’, ‘x’]
   \\ simp [v_rel_refl]
 QED
@@ -41,8 +41,8 @@ Theorem eval_lift:
   eval (Letrec f x) = eval (subst_funs f x) ∧
   eval (Case x nm css) = eval (expandCases x nm css)
 Proof
-  simp [eval_thm, v_rel_cases,
-        PURE_ONCE_REWRITE_RULE [v_rel_sym] v_rel_cases]
+  simp [eval_thm, v_rel_cases',
+        PURE_ONCE_REWRITE_RULE [v_rel_sym] v_rel_cases']
 QED
 
 (*
@@ -55,7 +55,7 @@ Theorem Atom_vq_11:
   v_rel (Atom x) (Atom y) ⇔
     x = y
 Proof
-  rw [v_rel_cases, EQ_SYM_EQ]
+  rw [v_rel_cases', EQ_SYM_EQ]
 QED
 
 Theorem Constructor_vq_11:
@@ -63,14 +63,14 @@ Theorem Constructor_vq_11:
     n = m ∧
     LIST_REL v_rel x y
 Proof
-  rw [v_rel_cases, EQ_SYM_EQ]
+  rw [v_rel_cases', EQ_SYM_EQ]
 QED
 
 Theorem Closure_vq_11:
   v_rel (Closure n e1) (Closure m e2) ⇔
     ∀z. v_rel (eval (bind [(n, z)] e1)) (eval (bind [(m, z)] e2))
 Proof
-  rw [v_rel_cases, exp_rel_def]
+  rw [v_rel_cases', exp_rel_def]
 QED
 
 (*
@@ -97,8 +97,8 @@ Theorem is_eq_rsp:
     v_rel (is_eq s n x) (is_eq s n y)
 Proof
   rw [is_eq_def]
-  \\ fs [v_rel_refl, v_rel_cases]
-  \\ rpt CASE_TAC \\ gs [v_rel_cases, LIST_REL_EL_EQN]
+  \\ fs [v_rel_refl, v_rel_cases']
+  \\ rpt CASE_TAC \\ gs [v_rel_cases', LIST_REL_EL_EQN]
 QED
 
 Theorem el_rsp:
@@ -106,14 +106,14 @@ Theorem el_rsp:
     v_rel (el s n x) (el s n y)
 Proof
   rw [el_def]
-  \\ fs [v_rel_cases]
-  \\ rpt CASE_TAC \\ gs [v_rel_cases, LIST_REL_EL_EQN]
+  \\ fs [v_rel_cases']
+  \\ rpt CASE_TAC \\ gs [v_rel_cases', LIST_REL_EL_EQN]
 QED
 
 Theorem isClos_rsp:
   ∀x y. v_rel x y ⇒ isClos x = isClos y
 Proof
-  Cases \\ Cases \\ simp [v_rel_cases, isClos_def]
+  Cases \\ Cases \\ simp [v_rel_cases', isClos_def]
 QED
 
 (*
