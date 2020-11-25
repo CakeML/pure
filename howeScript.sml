@@ -160,7 +160,26 @@ QED
 Theorem app_bisimilarity_similarity: (* prop (5.3.4) *)
   e1 ≃ e2 ⇔ e1 ≲ e2 ∧ e2 ≲ e1
 Proof
-  cheat
+  eq_tac \\ rw []
+  THEN1
+   (assume_tac app_bisimulation_app_bisimilarity
+    \\ fs [app_bisimulation_def]
+    \\ imp_res_tac app_simulation_SUBSET_app_similarity
+    \\ fs [SUBSET_DEF,IN_DEF])
+  THEN1
+   (assume_tac app_bisimulation_app_bisimilarity
+    \\ fs [app_bisimulation_def]
+    \\ imp_res_tac app_simulation_SUBSET_app_similarity
+    \\ fs [SUBSET_DEF,IN_DEF,opp_def])
+  \\ assume_tac (GEN_ALL app_bisimulation_SUBSET_app_bisimilarity)
+  \\ fs [app_bisimulation_def]
+  \\ assume_tac app_simulation_app_similarity
+  \\ first_x_assum drule
+  \\ fs [SUBSET_DEF,IN_DEF,opp_def,PULL_FORALL,AND_IMP_INTRO]
+  \\ disch_then match_mp_tac \\ fs []
+  \\ fs [app_simulation_def,opp_def,IN_DEF,unfold_rel_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ cheat (* issue with one of the definitions? *)
 QED
 
 
