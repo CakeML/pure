@@ -36,5 +36,30 @@ Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
 
-val _ = export_theory ();
+Definition freevars_def[simp]:
+  freevars (Var n)     = [n]                               ∧
+  freevars (Prim _ es) = (FLAT (MAP freevars es))          ∧
+  freevars (App e1 e2) = (freevars e1 ⧺ freevars e2)       ∧
+  freevars (Lam n e)   = (FILTER ($≠ n) (freevars e))      ∧
+  freevars (Letrec lcs e) =
+    FILTER (\n. ¬ MEM n (MAP FST lcs))
+           (freevars e ⧺
+            FLAT (MAP (λ(fn,vn,e). FILTER (λ n.n ≠ vn) (freevars e)) lcs))  ∧
+  freevars (Case exp nm css) =
+    (freevars exp ⧺ FLAT (MAP (λ(_,vs,cs).FILTER (λ n. ¬MEM n (nm::vs)) (freevars cs))
+                              css))
+Termination
+  WF_REL_TAC ‘measure exp_size’ \\ fs[]
+  \\ conj_tac \\ TRY conj_tac
+  \\ TRY (Induct_on ‘lcs’)
+  \\ TRY (Induct_on ‘css’)
+  \\ TRY (Induct_on ‘es’)
+  \\ rw [] \\ fs [fetch "-" "exp_size_def"] \\ res_tac \\ fs[]
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
+End
 
+Definition closed_def:
+  closed e = (freevars e = [])
+End
+
+val _ = export_theory ();

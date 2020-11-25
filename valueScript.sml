@@ -714,5 +714,10 @@ Proof
   CASE_TAC >> CASE_TAC >> fs[]
 QED
 
-val _ = export_theory ();
+Definition freevars_v_def:
+  freevars_v v name ⇔
+    ∀path s x k.
+      v_lookup path v = (Closure' s x, k) ⇒ MEM name (freevars (Lam s x))
+End
 
+val _ = export_theory ();

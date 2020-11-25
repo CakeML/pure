@@ -53,32 +53,6 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
-Definition freevars_def[simp]:
-  freevars (Var n)     = [n]                               ∧
-  freevars (Prim _ es) = (FLAT (MAP freevars es))          ∧
-  freevars (App e1 e2) = (freevars e1 ⧺ freevars e2)       ∧
-  freevars (Lam n e)   = (FILTER ($≠ n) (freevars e))      ∧
-  freevars (Letrec lcs e) =
-    FILTER (\n. ¬ MEM n (MAP FST lcs))
-           (freevars e ⧺
-            FLAT (MAP (λ(fn,vn,e). FILTER (λ n.n ≠ vn) (freevars e)) lcs))  ∧
-  freevars (Case exp nm css) =
-    (freevars exp ⧺ FLAT (MAP (λ(_,vs,cs).FILTER (λ n. ¬MEM n (nm::vs)) (freevars cs))
-                              css))
-Termination
-  WF_REL_TAC ‘measure exp_size’ \\ fs[]
-  \\ conj_tac \\ TRY conj_tac
-  \\ TRY (Induct_on ‘lcs’)
-  \\ TRY (Induct_on ‘css’)
-  \\ TRY (Induct_on ‘es’)
-  \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs[]
-  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
-End
-
-Definition closed_def:
-  closed e = (freevars e = [])
-End
-
 (*projection: given the constructor name s, and the index i,
   access the object x and retrieve the i-th element
   if present, otherwise returns Error. *)
