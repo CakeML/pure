@@ -3,9 +3,10 @@
    Pitts 2011 chapter "Howe's method for higher-order languages".
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
-open expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory pure_langTheory
-     pred_setTheory;
+open fixedPointTheory
+     expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
+     optionTheory pairTheory ltreeTheory llistTheory bagTheory
+     pure_langTheory pred_setTheory relationTheory;
 
 val _ = new_theory "howe";
 
@@ -61,7 +62,7 @@ End
 Triviality monotone_similarity:
   monotone FF
 Proof
-  fs [fixedPointTheory.monotone_def,FF_def,unfold_rel_def]
+  fs [monotone_def,FF_def,unfold_rel_def]
   \\ fs [SUBSET_DEF,FORALL_PROD,IN_DEF]
   \\ metis_tac []
 QED
@@ -74,7 +75,7 @@ val _ = set_fixity "≲" (Infixl 480);
 Overload "≲" = “λx y. app_similarity (x,y)”;
 
 Theorem app_similarity_thm =
-  MATCH_MP fixedPointTheory.gfp_greatest_fixedpoint monotone_similarity
+  MATCH_MP gfp_greatest_fixedpoint monotone_similarity
   |> SIMP_RULE std_ss [GSYM app_similarity_def]
 
 Theorem app_similarity_iff = (* result (5.4) *)
@@ -86,7 +87,7 @@ Theorem app_simulation_SUBSET_app_similarity:
   app_simulation R ⇒ R ⊆ app_similarity
 Proof
   rw [app_similarity_def,app_simulation_def]
-  \\ fs [fixedPointTheory.gfp_def,SUBSET_DEF,FORALL_PROD]
+  \\ fs [gfp_def,SUBSET_DEF,FORALL_PROD]
   \\ fs [IN_DEF,FF_def,EXISTS_PROD] \\ metis_tac []
 QED
 
@@ -101,7 +102,7 @@ QED
 Triviality monotone_bisimilarity:
   monotone (λs. { (e1,e2) | (e1,e2) IN FF s ∧ (e2,e1) IN FF (opp s) })
 Proof
-  fs [fixedPointTheory.monotone_def,FF_def,unfold_rel_def,opp_def]
+  fs [monotone_def,FF_def,unfold_rel_def,opp_def]
   \\ fs [SUBSET_DEF,FORALL_PROD,IN_DEF,opp_def]
   \\ metis_tac []
 QED
@@ -114,7 +115,7 @@ val _ = set_fixity "≃" (Infixl 480);
 Overload "≃" = “λx y. app_bisimilarity (x,y)”;
 
 Theorem app_bisimilarity_thm =
-  MATCH_MP fixedPointTheory.gfp_greatest_fixedpoint monotone_bisimilarity
+  MATCH_MP gfp_greatest_fixedpoint monotone_bisimilarity
   |> SIMP_RULE std_ss [GSYM app_bisimilarity_def]
 
 Theorem app_bisimilarity_iff = (* result (5.5) *)
@@ -127,7 +128,7 @@ Theorem app_bisimulation_SUBSET_app_bisimilarity:
   app_bisimulation R ⇒ R ⊆ app_bisimilarity
 Proof
   rw [app_bisimilarity_def,app_bisimulation_def,app_simulation_def]
-  \\ fs [fixedPointTheory.gfp_def,SUBSET_DEF,FORALL_PROD,opp_def,IN_DEF]
+  \\ fs [gfp_def,SUBSET_DEF,FORALL_PROD,opp_def,IN_DEF]
   \\ fs [IN_DEF,FF_def,EXISTS_PROD,unfold_rel_def,opp_def]
   \\ rw [] \\ qexists_tac ‘R’ \\ rw []
   \\ res_tac \\ fs []
@@ -141,20 +142,69 @@ Proof
   \\ metis_tac [unfold_rel_def]
 QED
 
-Theorem PreOrder_app_similarity: (* exercise (5.3.3) *)
-  PreOrder $≲
-  (* hrmm, the statement isn't right because it needs to be
-     restricted to consider only closed expressions *)
+Theorem app_similarity_coinduct:
+  ∀P.
+    (∀x y. P x y ⇒ FF (UNCURRY P) (x,y))
+  ⇒
+  ∀x y. P x y ⇒ x ≲ y
 Proof
-  cheat
+  rpt GEN_TAC >> strip_tac >> simp[app_similarity_def] >>
+  qspec_then ‘UNCURRY P’ mp_tac (MATCH_MP gfp_coinduction monotone_similarity) >>
+  rw[SUBSET_DEF,IN_DEF] >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[] >>
+  Cases >> rw[]
 QED
 
-Theorem equivalence_app_bisimilarity: (* exercise (5.3.3) *)
-  equivalence $≃
-  (* hrmm, the statement isn't right because it needs to be
-     restricted to consider only closed expressions *)
+Theorem app_bisimilarity_coinduct:
+  ∀P.
+    (∀x y. P x y ⇒ FF (UNCURRY P) (x,y) ∧
+                   FF (opp(UNCURRY P)) (y,x))
+  ⇒
+  ∀x y. P x y ⇒ x ≃ y
 Proof
-  cheat
+  rpt GEN_TAC >> strip_tac >> simp[app_bisimilarity_def] >>
+  qspec_then ‘UNCURRY P’ mp_tac (MATCH_MP gfp_coinduction monotone_bisimilarity) >>
+  rw[SUBSET_DEF,IN_DEF] >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  simp[] >>
+  pop_assum kall_tac >>
+  Cases >> gvs[ELIM_UNCURRY]
+QED
+
+Theorem app_similarity_closed:
+  x ≲ y ⇒ closed x ∧ closed y
+Proof
+  rw[app_similarity_iff,Once unfold_rel_def]
+QED
+
+Theorem reflexive_app_similarity: (* exercise (5.3.3) *)
+  reflexive (UNCURRY $≲) closed
+Proof
+  rw[set_relationTheory.reflexive_def,ELIM_UNCURRY,IN_DEF] >>
+  ‘∀x y. x = y ∧ closed x ⇒ x ≲ y’ suffices_by metis_tac[] >>
+  pop_assum kall_tac >>
+  ho_match_mp_tac app_similarity_coinduct >>
+  rw[FF_def,ELIM_UNCURRY,unfold_rel_def] >>
+  simp[] >>
+  cheat (* closedness is preserved by eval and subst *)
+QED
+
+Theorem transitive_app_similarity: (* exercise (5.3.3) *)
+  transitive $≲
+Proof
+  rw[transitive_def,ELIM_UNCURRY,IN_DEF] >>
+  rpt(first_x_assum mp_tac) >>
+  simp[AND_IMP_INTRO] >>
+  rename [‘x ≲ y ∧ y ≲ z’] >>
+  MAP_EVERY qid_spec_tac [‘y’,‘z’,‘x’] >>
+  simp[GSYM PULL_EXISTS] >>
+  ho_match_mp_tac app_similarity_coinduct >>
+  rw[ELIM_UNCURRY,FF_def,unfold_rel_def] >>
+  imp_res_tac app_similarity_closed >>
+  rpt(qpat_x_assum ‘_ ≲ _’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff])) >>
+  gvs[unfold_rel_def] >>
+  metis_tac[]
 QED
 
 Theorem app_bisimilarity_similarity: (* prop (5.3.4) *)
@@ -171,17 +221,41 @@ Proof
     \\ fs [app_bisimulation_def]
     \\ imp_res_tac app_simulation_SUBSET_app_similarity
     \\ fs [SUBSET_DEF,IN_DEF,opp_def])
-  \\ assume_tac (GEN_ALL app_bisimulation_SUBSET_app_bisimilarity)
-  \\ fs [app_bisimulation_def]
-  \\ assume_tac app_simulation_app_similarity
-  \\ first_x_assum drule
-  \\ fs [SUBSET_DEF,IN_DEF,opp_def,PULL_FORALL,AND_IMP_INTRO]
-  \\ disch_then match_mp_tac \\ fs []
-  \\ fs [app_simulation_def,opp_def,IN_DEF,unfold_rel_def]
-  \\ rw [] \\ res_tac \\ fs []
-  \\ cheat (* issue with one of the definitions? *)
+  \\ rpt(pop_assum mp_tac)
+  \\ simp[AND_IMP_INTRO]
+  \\ MAP_EVERY qid_spec_tac [‘e2’,‘e1’]
+  \\ ho_match_mp_tac app_bisimilarity_coinduct
+  \\ rpt GEN_TAC
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘FF R’
+  \\ ‘opp R = R’ by(simp[FUN_EQ_THM] >> Cases >> rw[opp_def,Abbr‘R’,ELIM_UNCURRY,EQ_IMP_THM])
+  \\ pop_assum SUBST_ALL_TAC
+  \\ rw[Abbr ‘R’,FF_def,unfold_rel_def,ELIM_UNCURRY]
+  \\ imp_res_tac app_similarity_closed
+  \\ rpt(qpat_x_assum ‘_ ≲ _’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]))
+  \\ gvs[unfold_rel_def]
 QED
 
+Theorem reflexive_app_bisimilarity: (* exercise (5.3.3) *)
+  reflexive (UNCURRY $≃) closed
+Proof
+  rw[set_relationTheory.reflexive_def,app_bisimilarity_similarity,ELIM_UNCURRY] >>
+  imp_res_tac(reflexive_app_similarity |> SIMP_RULE std_ss [set_relationTheory.reflexive_def,ELIM_UNCURRY]) >>
+  gvs[]
+QED
+
+Theorem symmetric_app_bisimilarity: (* exercise (5.3.3) *)
+  symmetric $≃
+Proof
+  rw[app_bisimilarity_similarity,symmetric_def,EQ_IMP_THM]
+QED
+
+Theorem transitive_app_bisimilarity: (* exercise (5.3.3) *)
+  transitive $≃
+Proof
+  rw[app_bisimilarity_similarity,transitive_def] >>
+  imp_res_tac(transitive_app_similarity |> SIMP_RULE std_ss [transitive_def])
+QED
 
 (* -- congruence -- *)
 
