@@ -1,7 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open stringTheory optionTheory configTheory expTheory pure_langTheory
-     listTheory pairTheory pred_setTheory;
+     listTheory pairTheory pred_setTheory alistTheory;
 
 val _ = new_theory "pure_langProps";
 
@@ -196,6 +196,72 @@ Theorem bind_App:
 Proof
   Induct >- rw[bind_def,subst_def] >>
   PairCases >> rw[bind_def,subst_def]
+QED
+
+Theorem bind_alt_def:
+  ∀ sub.
+    EVERY (λe. closed e) (MAP SND sub) ∧
+    ALL_DISTINCT (MAP FST sub)
+  ⇒
+    (∀s.
+      bind sub (Var s) = case ALOOKUP sub s of SOME v => v | NONE => Var s) ∧
+    (∀op xs. bind sub (Prim op xs) = Prim op (MAP (λe. bind sub e) xs)) ∧
+    (∀x y. bind sub (App x y) = App (bind sub x) (bind sub y)) ∧
+    (∀s x. bind sub (Lam s x) =
+      let sub' = FILTER (λn. FST n ≠ s) sub in (Lam s (bind sub' x))) ∧
+    (∀f x. bind sub (Letrec f x) =
+      let sub' = FILTER (λn. ALOOKUP f (FST n) = NONE) sub in
+      Letrec
+        (MAP (λ(g,m,z).
+          let sub'' = FILTER (λn. FST n ≠ m) sub' in
+          (g,m, bind sub'' z)) f)
+      (bind sub' x)) ∧
+    (∀e vn css. bind sub (Case e vn css) =
+      Case (bind sub e) vn
+      (MAP (λ(cn,ans,cb).
+        let sub' = FILTER (λn. ¬ MEM (FST n) (vn::ans)) sub in
+        (cn, ans, bind sub' cb)) css))
+Proof
+  Induct >> rw[] >> fs[bind_def]
+  >- (Induct_on `f` >> rw[] >> PairCases_on `h` >> fs[])
+  >- (Induct_on `css` >> rw[] >> PairCases_on `h` >> fs[]) >>
+  PairCases_on `h` >> fs[ALOOKUP_def, bind_def, subst_def]
+  >- (
+    rw[]
+    >- (
+      qsuff_tac `ALOOKUP sub h0 = NONE` >> fs[subst_def] >>
+      fs[ALOOKUP_NONE]
+      ) >>
+    CASE_TAC >> fs[subst_def] >>
+    irule closed_subst >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[EVERY_MEM, MEM_MAP] >>
+    first_x_assum irule >>
+    qexists_tac `(s,x)` >> fs[]
+    )
+  >- (
+    fs[MAP_MAP_o, combinTheory.o_DEF]
+    )
+  >- (rw[] >> fs[bind_def])
+  >- (
+    fs[MAP_MAP_o, combinTheory.o_DEF] >>
+    qpat_abbrev_tac `f' = MAP _ f` >>
+    `f' = MAP FST f` by (
+      unabbrev_all_tac >>
+      rw[MAP_EQ_f] >>
+      PairCases_on `x` >> fs[]) >>
+    gvs[] >> unabbrev_all_tac >>
+    IF_CASES_TAC >> gvs[ALOOKUP_NONE, bind_def] >>
+    rw[MAP_EQ_f] >>
+    PairCases_on `x` >> gvs[] >>
+    IF_CASES_TAC >> gvs[bind_def]
+    )
+  >- (
+    fs[MAP_MAP_o, combinTheory.o_DEF] >>
+    rw[MAP_EQ_f] >>
+    PairCases_on `x` >> fs[] >>
+    IF_CASES_TAC >> fs[bind_def]
+    )
 QED
 
 val _ = export_theory ();
