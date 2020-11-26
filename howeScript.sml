@@ -979,22 +979,16 @@ Proof
   \\ fs [open_similarity_def,Ref_open_similarity]
 QED
 
-Theorem Congruence_open_bisimilarity: (* part 1 of 5.5.5 *)
+Theorem Congruence_open_bisimilarity: (* part 2 of 5.5.5 *)
   Congruence open_bisimilarity
 Proof
   fs [Congruence_def,Sym_open_similarity]
   \\ assume_tac Precongruence_open_similarity
   \\ fs [Precongruence_def,Tra_open_bisimilarity]
   \\ fs [Compatible_def] \\ rw []
-  THEN1
-   (fs [Com1_def,open_bisimilarity_def,open_similarity_def]
-    \\ fs [app_bisimilarity_similarity])
-  THEN1
-   (fs [Com2_def,open_bisimilarity_def,open_similarity_def]
-    \\ fs [app_bisimilarity_similarity] \\ metis_tac [])
-  THEN1
-   (fs [Com3_def,open_bisimilarity_def,open_similarity_def]
-    \\ fs [app_bisimilarity_similarity] \\ metis_tac [])
+  \\ fs [Com1_def,Com2_def,Com3_def,open_bisimilarity_def,open_similarity_def]
+  \\ fs [app_bisimilarity_similarity]
+  \\ metis_tac []
 QED
 
 (* -- contextual equivalence -- *)
