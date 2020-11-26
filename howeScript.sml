@@ -896,10 +896,18 @@ Proof
   cheat
 QED
 
+Theorem Ref_Howe:
+  Ref R ⇒ Ref (Howe R)
+Proof
+  cheat
+QED
+
 Theorem Cus_Howe_open_similarity:
   Cus (Howe open_similarity)
 Proof
-  cheat
+  match_mp_tac Sub_Ref_IMP_Cus \\ rw []
+  \\ metis_tac [Ref_Howe,Ref_open_similarity,IMP_Howe_Sub,
+       Cus_open_similarity,Tra_open_similarity,Ref_open_similarity]
 QED
 
 Theorem IMP_Howe_Sub: (* key lemma 5.5.4 *)
