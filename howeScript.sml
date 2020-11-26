@@ -709,7 +709,7 @@ Theorem open_similarity_App_pres2:
   set(freevars e1) ⊆ set names ∧ open_similarity names e2 e3 ⇒
   open_similarity names (App e1 e2) (App e1 e3)
 Proof
-  (* This one seems more complicated than the preceding thms *)
+  (* This one seems more complicated than the preceding thms. Probably requires Howe's construction ;) *)
   cheat
 QED
 
