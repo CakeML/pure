@@ -38,8 +38,8 @@ Definition unfold_rel_def:
     closed e1 ∧ closed e2 ∧
     (* this follows the paper directly *)
     (∀x e1'. eval e1 = Closure x e1' ⇒
-             ∃e2'. eval e2 = Closure x e2' ∧
-                   ∀e. closed e ⇒ rel (subst x e e1', subst x e e2'))
+             ∃y e2'. eval e2 = Closure y e2' ∧
+                     ∀e. closed e ⇒ rel (subst x e e1', subst y e e2'))
     (* but I think we need one such conjunct for each result alternative, e.g.
     ∧
     (∀x xs.
