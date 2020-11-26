@@ -716,7 +716,7 @@ QED
 
 Definition freevars_v_def:
   freevars_v v name ⇔
-    ∀path s x k.
+    ∃path s x k.
       v_lookup path v = (Closure' s x, k) ⇒ MEM name (freevars (Lam s x))
 End
 
