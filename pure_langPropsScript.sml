@@ -1,6 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory configTheory expTheory pure_langTheory listTheory pairTheory pred_setTheory;
+open stringTheory optionTheory configTheory expTheory pure_langTheory
+     listTheory pairTheory pred_setTheory;
 
 val _ = new_theory "pure_langProps";
 
@@ -171,8 +172,8 @@ Theorem bind_Var_lemma:
 Proof
   Induct_on ‘bs’ >- rw[bind_def,subst_def] >>
   PairCases >> rw[bind_def,subst_def] >>
-  TOP_CASE_TAC >> gvs[subst_def] >>
-  imp_res_tac ALOOKUP_MEM >>
+  BasicProvers.TOP_CASE_TAC >> gvs[subst_def] >>
+  imp_res_tac alistTheory.ALOOKUP_MEM >>
   gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   res_tac >>
   fs[] >>
