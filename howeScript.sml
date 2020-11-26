@@ -1049,6 +1049,28 @@ Theorem Howe_vars:
   set (freevars e1) SUBSET set vars ∧
   set (freevars e2) SUBSET set vars ∧ ALL_DISTINCT vars
 Proof
+  qsuff_tac ‘∀R vars e1 e2.
+     Howe R vars e1 e2 ⇒ R = open_similarity ⇒
+        set (freevars e1) ⊆ set vars ∧ set (freevars e2) ⊆ set vars ∧
+        ALL_DISTINCT vars’ THEN1 metis_tac []
+  \\ ho_match_mp_tac Howe_ind \\ rw []
+  \\ fs [open_similarity_def]
+  \\ fs [SUBSET_DEF,MEM_FILTER]
+  \\ metis_tac []
+QED
+
+Theorem app_simulation_Howe_open_similarity:
+  app_simulation (UNCURRY (Howe open_similarity []))
+Proof
+  fs [app_simulation_def,unfold_rel_def]
+  \\ cheat
+QED
+
+Theorem subst_bind:
+  ~MEM h vars ∧ LENGTH t = LENGTH vars ∧ EVERY closed t ∧ closed v ⇒
+  subst h v (bind (ZIP (vars,t)) e1) =
+  bind (ZIP (vars,t)) (subst h v e1)
+Proof
   cheat
 QED
 
@@ -1057,7 +1079,11 @@ Theorem IMP_open_similarity_CONS:
   ~MEM h vars ∧ e1 IN Exps (h::vars) ∧ e2 IN Exps (h::vars) ∧ ALL_DISTINCT vars ⇒
   open_similarity (h::vars) e1 e2
 Proof
-  fs [open_similarity_def] \\ rw [] \\ cheat
+  fs [open_similarity_def] \\ rw [] \\ fs [Exps_def]
+  \\ Cases_on ‘exps’ \\ fs [] \\ fs []
+  \\ fs [subst_bind,bind_def]
+  \\ ‘set (freevars h') ⊆ set vars’ by fs [closed_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO]
 QED
 
 Theorem Howe_open_similarity: (* key property *)
@@ -1069,8 +1095,7 @@ Proof
   THEN1 (once_rewrite_tac [Howe_cases] \\ fs [])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def]
   \\ first_x_assum (qspec_then ‘[]’ mp_tac) \\ fs [] \\ rw []
-  \\ ‘app_simulation (UNCURRY (Howe open_similarity []))’ by
-        cheat (* based on IMP_Howe_Sub *)
+  \\ assume_tac app_simulation_Howe_open_similarity
   \\ drule app_simulation_SUBSET_app_similarity
   \\ pop_assum kall_tac \\ pop_assum kall_tac
   \\ rw [SUBSET_DEF,IN_DEF,FORALL_PROD]
