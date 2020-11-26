@@ -1,8 +1,48 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory configTheory expTheory pure_langTheory;
+open stringTheory optionTheory configTheory expTheory pure_langTheory listTheory pairTheory pred_setTheory;
 
 val _ = new_theory "pure_langProps";
+
+Theorem freevars_expandLets:
+  ∀y i cn nm vs cs.
+    MEM y (freevars (expandLets i cn nm vs cs)) ∧ y ≠nm ⇒
+    MEM y (FILTER (λn. ¬MEM n vs) (freevars cs))
+Proof
+  strip_tac >>
+  Induct_on ‘vs’ >>
+  rw[expandLets_def,MEM_FILTER] >>
+  gvs[] >>
+  gvs[MEM_FILTER] >> metis_tac[]
+QED
+
+Theorem freevars_expandRows:
+  ∀y nm css.
+    MEM y (freevars (expandRows nm css)) ∧ y ≠ nm ⇒
+      ∃cn vs cs. MEM (cn,vs,cs) css ∧ MEM y (FILTER (λn. ¬MEM n vs) (freevars cs))
+Proof
+  strip_tac >>
+  ho_match_mp_tac expandRows_ind >>
+  rw[freevars_def,expandRows_def,freevars_expandLets] >>
+  gvs[MEM_FILTER] >>
+  imp_res_tac freevars_expandLets >>
+  gvs[MEM_FILTER] >>
+  metis_tac[]
+QED
+
+Theorem freevars_expandCases:
+  ∀y x nm css.
+    MEM y (freevars (expandCases x nm css)) ⇒
+      (nm ≠ y ∧
+       ∃cn vs cs. MEM (cn,vs,cs) css ∧ MEM y (FILTER (λn. ¬MEM n vs) (freevars cs))) ∨
+      MEM y (freevars x)
+Proof
+  rw[expandCases_def,MEM_FILTER] >> simp[] >>
+  disj1_tac >>
+  drule freevars_expandRows >>
+  impl_tac >- simp[] >>
+  rw[MEM_FILTER]
+QED
 
 Theorem freevars_subst:
   ∀s y e.
