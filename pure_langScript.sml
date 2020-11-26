@@ -25,34 +25,6 @@ Proof
   rw [] \\ Cases_on ‘v’ \\ gs[dest_Closure_def]
 QED
 
-Triviality exp_size_lemma:
-  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp7_size xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp3_size xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp1_size xs)
-Proof
-  conj_tac \\ TRY conj_tac \\ Induct \\ rw [] \\ res_tac \\ fs [exp_size_def]
-QED
-
-Definition subst_def:
-  subst name v (Var s) = (if name = s then v else Var s) ∧
-  subst name v (Prim op xs) = Prim op (MAP (subst name v) xs) ∧
-  subst name v (App x y) = App (subst name v x) (subst name v y) ∧
-  subst name v (Lam s x) = Lam s (if s = name then x else subst name v x) ∧
-  subst name v (Letrec f x) =
-    (if MEM name (MAP FST f) then Letrec f x else
-      Letrec (MAP (λ(g,m,z). (g,m, if name = m then z else subst name v z )) f)
-             (subst name v x)) ∧
-  subst name v (Case e vn css) =
-    (Case (subst name v e)
-          vn
-          (MAP (λ(cn,ans, cb).
-                 (cn,ans, if ¬MEM name (vn::ans) then subst name v cb else cb))
-               css))
-Termination
-  WF_REL_TAC `measure (λ(n,v,x). exp_size x)` \\ rw []
-  \\ imp_res_tac exp_size_lemma \\ fs []
-End
-
 (*projection: given the constructor name s, and the index i,
   access the object x and retrieve the i-th element
   if present, otherwise returns Error. *)
@@ -214,30 +186,6 @@ Theorem bind_bind:
   ∀xs ys s. bind xs (bind ys s) = bind (xs ++ ys) s
 Proof
   Induct \\ fs [bind_def,FORALL_PROD] \\ rw []
-QED
-
-Theorem subst_ignore:
-  ∀s x y. ~MEM s (freevars y) ⇒ subst s x y = y
-Proof
-  ho_match_mp_tac subst_ind \\ rw [] \\ fs [subst_def]
-  THEN1 (Induct_on ‘xs’ \\ fs [])
-  THEN1 (rw [] \\ fs [MEM_FILTER])
-  THEN1
-   (rw [] \\ fs [MEM_FILTER]
-    \\ Induct_on ‘f’ \\ fs [FORALL_PROD]
-    \\ rw [] \\ fs [AND_IMP_INTRO]
-    THEN1 (first_x_assum match_mp_tac \\ metis_tac [])
-    \\ fs [MEM_FILTER,EXISTS_PROD,MEM_MAP]
-    \\ metis_tac [])
-  \\ Induct_on ‘css’ \\ fs [FORALL_PROD,MEM_MAP] \\ rw []
-  \\ fs [MEM_FILTER,EXISTS_PROD,MEM_MAP]
-  \\ metis_tac []
-QED
-
-Theorem closed_subst[simp]:
-  ∀s x y. closed y ⇒ subst s x y = y
-Proof
-  rw [] \\ match_mp_tac subst_ignore \\ fs [closed_def]
 QED
 
 (**** LEMMAS for limit/v_limit algebra *****)

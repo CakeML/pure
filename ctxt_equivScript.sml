@@ -1,6 +1,6 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory
+open arithmeticTheory listTheory stringTheory alistTheory optionTheory expTheory
      ltreeTheory llistTheory bagTheory pure_langTheory pairTheory pred_setTheory;
 
 
