@@ -356,30 +356,33 @@ Proof
   cheat
 QED
 
-(*  progress (map f) o (map f)  *)
-Theorem progress_compose_f:
-  ∀ f. closed f
-  ⇒ progress (compose (App map f) (App map f)) (next_list (compose f f))
+Theorem progress_compose_fg:
+  ∀ f g. closed f ∧ closed g
+  ⇒ progress (compose (App map f) (App map g)) (next_list (compose f g))
 Proof
   rw[]
-  \\ ‘exp_rel (App map f) (map_f f)’ by (
-    qspecl_then [‘next_list f’,‘map_f f’,‘App map f’]
-          assume_tac (GEN_ALL progress_lemma)
+  \\ ‘∀ h. closed h ⇒ exp_rel (App map h) (map_f h)’ by (
+    rpt strip_tac
+    \\ qspecl_then [‘next_list h’,‘map_f h’,‘App map h’]
+             assume_tac (GEN_ALL progress_lemma)
     \\ assume_tac progress_map_f
     \\ assume_tac progress_map_f_f
     \\ res_tac
-    \\ ‘isClos (eval (App map f))’ by (
+    \\ ‘isClos (eval (App map h))’ by (
        simp[map_def,LAMREC_def,cons_def,nil_def]
        \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
        \\ simp[isClos_def]
     )
-    \\ ‘isClos (eval (map_f f))’ by (
+    \\ ‘isClos (eval (map_f h))’ by (
        simp[map_f_def,LAMREC_def,cons_def,nil_def]
        \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
        \\ simp[isClos_def]
     )
     \\ res_tac
   )
+  \\ first_assum (qspec_then ‘f’ assume_tac)
+  \\ first_assum (qspec_then ‘g’ assume_tac)
+  \\ res_tac
   \\ imp_res_tac equational_reasoning \\ fs[] (*morally correct*)
   \\ fs[compose_def,progress_def]
   \\ strip_tac
@@ -390,27 +393,28 @@ Proof
   \\ fs[map_f_def,LAMREC_def,cons_def]
 QED
 
-(*   (map f) o (map f) l = map (f o f) l   *)
+(*   (map f) o (map g) l = map (f o g) l   *)
 Theorem map_fusion:
- ∀ f. closed f ⇒
-      exp_rel (compose (App map f) (App map f)) (App map (compose f f))
+ ∀ f g. closed f ∧ closed g ⇒
+      exp_rel (compose (App map f) (App map g)) (App map (compose f g))
 Proof
   rw[]
-  \\ ‘closed (compose f f)’ by (fs[compose_def,closed_def])
-  \\ qspecl_then [‘next_list (compose f f)’,
-                  ‘App map (compose f f)’,
-                  ‘compose (App map f) (App map f)’]
+  \\ ‘closed (compose f g)’ by (fs[compose_def,closed_def])
+  \\ qspecl_then [‘next_list (compose f g)’,
+                  ‘App map (compose f g)’,
+                  ‘compose (App map f) (App map g)’]
           assume_tac (GEN_ALL progress_lemma)
-  \\ qspec_then ‘compose f f’ assume_tac progress_map_f
-  \\ qspec_then ‘f’ assume_tac progress_compose_f
-  \\ ‘isClos (eval (compose (App map f) (App map f)))’ by (
+  \\ qspec_then ‘compose f g’ assume_tac progress_map_f
+  \\ qspecl_then [‘f’,‘g’] assume_tac progress_compose_fg
+  \\ ‘isClos (eval (compose (App map f) (App map g)))’ by (
      simp[map_def,LAMREC_def,cons_def,nil_def,compose_def]
      \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
      \\ simp[isClos_def]
   )
-  \\ ‘isClos (eval (App map (compose f f)))’ by (
+  \\ ‘isClos (eval (App map (compose f g)))’ by (
      simp[map_def,LAMREC_def,cons_def,nil_def,compose_def]
      \\ ‘freevars f = []’ by (fs[closed_def])
+     \\ ‘freevars g = []’ by (fs[closed_def])
      \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
      \\ simp[isClos_def]
   )
