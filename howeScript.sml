@@ -716,19 +716,27 @@ End
 Theorem open_similarity_reflexive:
   set(freevars e1) ⊆ set names ∧ ALL_DISTINCT names ⇒ open_similarity names e1 e1
 Proof
-  cheat
+  rw[open_similarity_def] >>
+  irule reflexive_app_similarity' >>
+  fs[closed_def] >>
+  once_rewrite_tac [GSYM LIST_TO_SET_EQ_EMPTY] >>
+  once_rewrite_tac [freevars_bind] >>
+  fs[MAP_ZIP, SUBSET_DEF, FILTER_EQ_NIL, EVERY_MEM]
 QED
 
 Theorem Ref_open_similarity:
   Ref open_similarity
 Proof
-  cheat
+  fs[Ref_def, Exps_def] >>
+  metis_tac[open_similarity_reflexive]
 QED
 
 Theorem Sym_open_similarity:
   Sym open_bisimilarity
 Proof
-  cheat
+  rw[Sym_def, open_bisimilarity_def] >>
+  first_x_assum drule_all >>
+  assume_tac symmetric_app_bisimilarity >> fs[symmetric_def]
 QED
 
 (* (Tra) in the paper has an amusing typo that renders the corresponding proposition a tautology *)
@@ -742,7 +750,9 @@ QED
 Theorem Tra_open_similarity:
   Tra open_similarity
 Proof
-  cheat
+  rw[Tra_def] >>
+  irule open_similarity_transitive >>
+  goal_assum drule >> fs[]
 QED
 
 Theorem Tra_open_bisimilarity:
@@ -774,8 +784,28 @@ Proof
   simp[bind_Lam,MAP_ZIP] >>
   simp[app_similarity_iff] >>
   simp[unfold_rel_def] >>
-  conj_tac >- cheat >>
-  conj_tac >- cheat >>
+  conj_tac
+  >- (
+    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
+    first_x_assum (qspec_then `(Cons s [])::exps` assume_tac) >>
+    gvs[closed_def, bind_def] >>
+    pop_assum mp_tac >>
+    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    `closed (Cons s [])` by fs[closed_def] >>
+    drule freevars_subst >> disch_then (once_rewrite_tac o single) >>
+    fs[SUBSET_DIFF_EMPTY, SUBSET_DEF, FILTER_EQ_NIL, EVERY_MEM]
+    ) >>
+  conj_tac
+  >- (
+    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
+    first_x_assum (qspec_then `(Cons s [])::exps` assume_tac) >>
+    gvs[closed_def, bind_def] >>
+    pop_assum kall_tac >> pop_assum mp_tac >>
+    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    `closed (Cons s [])` by fs[closed_def] >>
+    drule freevars_subst >> disch_then (once_rewrite_tac o single) >>
+    fs[SUBSET_DIFF_EMPTY, SUBSET_DEF, FILTER_EQ_NIL, EVERY_MEM]
+    ) >>
   rw[eval_thm] >>
   first_x_assum(qspec_then ‘e::exps’ mp_tac) >>
   simp[bind_def]
@@ -789,8 +819,20 @@ Proof
   rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >> gvs[bind_App,MAP_ZIP] >>
   simp[app_similarity_iff] >>
   simp[unfold_rel_def] >>
-  conj_tac >- cheat >>
-  conj_tac >- cheat >>
+  conj_tac
+  >- (
+    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
+    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    once_rewrite_tac[freevars_bind] >>
+    fs[MAP_ZIP, FILTER_EQ_NIL, EVERY_MEM]
+    ) >>
+  conj_tac
+  >- (
+    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
+    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    once_rewrite_tac[freevars_bind] >>
+    fs[MAP_ZIP, FILTER_EQ_NIL, EVERY_MEM]
+    ) >>
   rpt strip_tac >>
   gvs[eval_App,AllCaseEqs(),PULL_FORALL,dest_Closure_def] >>
   last_x_assum drule_all >>
@@ -798,13 +840,14 @@ Proof
   rw[unfold_rel_def] >>
   simp[GSYM PULL_FORALL] >>
   gvs[bind_def] >>
-  reverse IF_CASES_TAC >- cheat >>
+  reverse IF_CASES_TAC >- fs[eval_thm] >>
   gvs[] >>
   first_assum drule >>
   SIMP_TAC std_ss [Once app_similarity_iff] >>
   rw[unfold_rel_def]
 QED
 
+(*
 (* (Com3R) in Pitts *)
 Theorem open_similarity_App_pres2:
   set(freevars e1) ⊆ set names ∧ open_similarity names e2 e3 ⇒
@@ -813,14 +856,15 @@ Proof
   (* This one seems more complicated than the preceding thms. Probably requires Howe's construction ;) *)
   cheat
 QED
+*)
 
 (* -- Howe's construction -- *)
 
 Inductive Howe:
 [Howe1:]
-  (∀R vars e1 e2.
-     R vars e1 e2 ⇒
-     Howe R vars e1 e2)
+  (∀R vars x e2.
+     R vars (Var x) e2 ⇒
+     Howe R vars (Var x) e2)
   ∧
 [Howe2:]
   (∀R x e1 e1' e2 vars.
@@ -840,15 +884,92 @@ End
 Theorem Howe_Ref: (* 5.5.1(i) *)
   Ref R ⇒ Compatible (Howe R)
 Proof
-  cheat
+  rw[Ref_def, Compatible_def]
+  >- (
+    rw[Com1_def] >>
+    irule Howe1 >>
+    first_x_assum irule >> fs[Exps_def]
+    )
+  >- (
+    rw[Com2_def] >>
+    irule Howe2 >> fs[] >>
+    goal_assum (drule_at Any) >>
+    first_x_assum irule >>
+    fs[Exps_def, LIST_TO_SET_FILTER, SUBSET_DEF] >>
+    metis_tac[]
+    )
+  >- (
+    rw[Com3_def] >>
+    irule Howe3 >>
+    rpt (goal_assum (drule_at Any)) >>
+    first_x_assum irule >> fs[Exps_def]
+    )
+QED
+
+Definition term_rel_def:
+  term_rel R ⇔
+    ∀ vars e1 e2.
+      R vars e1 e2 ⇒ ALL_DISTINCT vars ∧ e1 ∈ Exps vars ∧ e2 ∈ Exps vars
+End
+
+Theorem term_rel_Howe:
+  term_rel R ⇒ term_rel (Howe R)
+Proof
+  fs[term_rel_def] >>
+  Induct_on `Howe` >> rw[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    last_x_assum drule >>
+    rw[Exps_def] >>
+    fs[LIST_TO_SET_FILTER, SUBSET_DEF] >>
+    metis_tac[]
+    )
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    last_x_assum drule >>
+    last_x_assum drule >>
+    rw[Exps_def]
+    )
+  >- metis_tac[]
 QED
 
 Theorem Howe_Tra: (* 5.5.1(ii) *)
-  Tra R ⇒
+  Tra R ∧ term_rel R ⇒
   ∀vars e1 e2 e3.
+    ALL_DISTINCT vars ∧
+    e1 ∈ Exps vars ∧ e2 ∈ Exps vars ∧ e3 ∈ Exps vars ∧
     Howe R vars e1 e2 ∧ R vars e2 e3 ⇒ Howe R vars e1 e3
 Proof
-  cheat
+  rw[Tra_def] >>
+  qpat_x_assum `Howe _ _ _ _` mp_tac >>
+  simp[Once Howe_cases] >> rw[]
+  >- (
+    irule Howe1 >>
+    first_x_assum irule >> fs[Exps_def] >>
+    qexists_tac `e2` >> fs[]
+    )
+  >- (
+    irule Howe2 >> fs[] >>
+    goal_assum (drule_at Any) >>
+    first_x_assum irule >>
+    fs[term_rel_def] >> res_tac >> fs[] >>
+    qexists_tac `e2` >> fs[]
+    )
+  >- (
+    irule Howe3 >>
+    rpt (goal_assum (drule_at Any)) >>
+    first_x_assum irule >> fs[] >> rw[]
+    >- (
+      drule term_rel_Howe >> simp[term_rel_def] >>
+      disch_then imp_res_tac >>
+      fs[Exps_def]
+      ) >>
+    qexists_tac `e2` >> fs[]
+    )
 QED
 
 Theorem Howe_Ref_Tra: (* 5.5.1(iii) *)
@@ -881,7 +1002,7 @@ End
 Theorem Sub_Ref_IMP_Cus:
   Sub R ∧ Ref R ⇒ Cus R
 Proof
-  cheat
+  rw[Sub_def, Ref_def, Cus_def]
 QED
 
 Theorem Cus_open_similarity:
