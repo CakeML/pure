@@ -1092,7 +1092,7 @@ Proof
   simp [FUN_EQ_THM] \\ rw []
   \\ rename [‘Howe open_similarity vars e1 e2’]
   \\ reverse eq_tac \\ rw []
-  THEN1 (once_rewrite_tac [Howe_cases] \\ fs [] \\ cheat)
+  THEN1 (metis_tac [Howe_Ref_Tra,Ref_open_similarity,Tra_open_similarity])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def]
   \\ first_x_assum (qspec_then ‘[]’ mp_tac) \\ fs [] \\ rw []
   \\ assume_tac app_simulation_Howe_open_similarity
