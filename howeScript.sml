@@ -1063,7 +1063,7 @@ Theorem app_simulation_Howe_open_similarity:
   app_simulation (UNCURRY (Howe open_similarity []))
 Proof
   fs [app_simulation_def,unfold_rel_def]
-  \\ cheat
+  \\ cheat (* IMP_Howe_Sub? *)
 QED
 
 Theorem subst_subst:
@@ -1071,9 +1071,20 @@ Theorem subst_subst:
     x1 ≠ x2 ∧ closed v1 ∧ closed v2 ⇒
     subst x1 v1 (subst x2 v2 e) = subst x2 v2 (subst x1 v1 e)
 Proof
-  ho_match_mp_tac subst_ind \\ rw []
-  \\ rw [subst_def]
-  \\ cheat
+  ho_match_mp_tac subst_ind \\ rw [] \\ rw [subst_def]
+  THEN1 (Induct_on ‘xs’ \\ fs [] \\ metis_tac [])
+  THEN1 metis_tac []
+  THEN1 metis_tac []
+  THEN1 metis_tac []
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 metis_tac []
+  \\ Induct_on ‘css’ \\ fs [] \\ rw []
+  \\ Cases_on ‘x1 = vn’ \\ fs []
+  \\ Cases_on ‘x2 = vn’ \\ fs []
+  \\ PairCases_on ‘h’ \\ fs [] \\ rw []
+  \\ metis_tac []
 QED
 
 Theorem subst_bind:
