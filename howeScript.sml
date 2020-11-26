@@ -362,6 +362,13 @@ Proof
   Cases_on ‘freevars (subst x e1 e2)’ >> gvs[FORALL_AND_THM]
 QED
 
+Theorem reflexive_app_similarity':
+  closed x ⇒ x ≲ x
+Proof
+  mp_tac reflexive_app_similarity >>
+  rw[set_relationTheory.reflexive_def,IN_DEF]
+QED
+
 Theorem transitive_app_similarity: (* exercise (5.3.3) *)
   transitive $≲
 Proof
@@ -427,6 +434,187 @@ Theorem transitive_app_bisimilarity: (* exercise (5.3.3) *)
 Proof
   rw[app_bisimilarity_similarity,transitive_def] >>
   imp_res_tac(transitive_app_similarity |> SIMP_RULE std_ss [transitive_def])
+QED
+
+(* -- Applicative simulation up-to à la Damien Pous (LICS 2016) -- *)
+Definition compatible_def:
+  compatible f ⇔ (∀B. f(FF B) ⊆ FF(f B))
+End
+
+Definition companion_def:
+  companion R xy ⇔ ∃f. monotone f ∧ compatible f ∧ xy ∈ f(UNCURRY R)
+End
+
+Theorem companion_compatible:
+  compatible ((companion o CURRY))
+Proof
+  mp_tac monotone_similarity >>
+  rw[compatible_def,companion_def,pred_setTheory.SUBSET_DEF,IN_DEF,monotone_def] >>
+  res_tac >>
+  last_x_assum(match_mp_tac o MP_CANON) >>
+  goal_assum(drule_at (Pos last)) >>
+  rw[companion_def] >>
+  qexists_tac ‘f’ >>
+  rw[compatible_def,companion_def,pred_setTheory.SUBSET_DEF,IN_DEF,monotone_def] >>
+  metis_tac[]
+QED
+
+Theorem companion_monotone:
+  monotone(companion o CURRY)
+Proof
+  rw[monotone_def,pred_setTheory.SUBSET_DEF,companion_def,IN_DEF] >>
+  rpt(goal_assum drule) >>
+  metis_tac[]
+QED
+
+Theorem compatible_app_similarity:
+  compatible (λR. app_similarity)
+Proof
+  rw[compatible_def,app_similarity_def] >>
+  metis_tac[gfp_greatest_fixedpoint,monotone_similarity]
+QED
+
+Theorem companion_SUBSET:
+  X ⊆ companion(CURRY X)
+Proof
+  rw[companion_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  qexists_tac ‘I’ >>
+  rw[monotone_def,compatible_def]
+QED
+
+Theorem monotone_compose:
+  monotone f ∧ monotone g ⇒ monotone(f o g)
+Proof
+  rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >> res_tac >> metis_tac[]
+QED
+
+Theorem compatible_compose:
+  monotone f ∧ compatible f ∧ compatible g ⇒ compatible(f o g)
+Proof
+  rw[compatible_def,pred_setTheory.SUBSET_DEF,IN_DEF,monotone_def] >>
+  first_x_assum match_mp_tac >>
+  last_x_assum(match_mp_tac o MP_CANON) >>
+  goal_assum(drule_at (Pos last)) >>
+  metis_tac[]
+QED
+
+Theorem companion_idem:
+  companion (CURRY (companion (CURRY B))) = companion(CURRY B)
+Proof
+  rw[companion_def,FUN_EQ_THM,EQ_IMP_THM]
+  >- (qexists_tac ‘f o companion o CURRY’ >>
+      simp[compatible_compose,companion_compatible,monotone_compose,companion_monotone]) >>
+  qexists_tac ‘I’ >>
+  simp[monotone_def,compatible_def] >>
+  gvs[IN_DEF,companion_def] >> metis_tac[]
+QED
+
+Theorem gfp_companion_SUBSET:
+  gfp(FF o companion o CURRY) ⊆ gfp FF
+Proof
+  match_mp_tac (MP_CANON gfp_coinduction) >>
+  conj_tac >- ACCEPT_TAC monotone_similarity >>
+  rw[pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  ‘monotone(FF ∘ companion ∘ CURRY)’ by simp[monotone_compose,monotone_similarity,companion_monotone] >>
+  first_assum(mp_tac o GSYM o MATCH_MP (cj 1 gfp_greatest_fixedpoint)) >>
+  disch_then(gs o single o Once) >>
+  mp_tac monotone_similarity >>
+  simp[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  disch_then(match_mp_tac o MP_CANON) >>
+  goal_assum(dxrule_at (Pos last)) >>
+  rpt strip_tac >>
+  first_assum(mp_tac o GSYM o MATCH_MP (cj 1 gfp_greatest_fixedpoint)) >>
+  disch_then(gs o single o Once) >>
+  mp_tac companion_compatible >>
+  simp[compatible_def,pred_setTheory.SUBSET_DEF,IN_DEF] >>
+  disch_then dxrule >>
+  strip_tac >>
+  gvs[companion_idem] >>
+  first_assum(mp_tac o GSYM o MATCH_MP (cj 1 gfp_greatest_fixedpoint)) >>
+  disch_then(simp o single o Once)
+QED
+
+Theorem app_similarity_companion_coind:
+  ∀R. (∀v1 v2. R v1 v2 ⇒ FF (companion R) (v1,v2)) ⇒
+      ∀v1 v2. R v1 v2 ⇒ v1 ≲ v2
+Proof
+  ntac 2 strip_tac >>
+  rw[app_similarity_def] >>
+  match_mp_tac(MP_CANON pred_setTheory.SUBSET_THM |> SIMP_RULE std_ss [IN_DEF]) >>
+  irule_at (Pos hd) gfp_companion_SUBSET >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [‘v2’,‘v1’] >>
+  simp[PFORALL_THM,ELIM_UNCURRY] >>
+  simp[GSYM(pred_setTheory.SUBSET_DEF |> SIMP_RULE std_ss [IN_DEF])] >>
+  CONV_TAC(DEPTH_CONV ETA_CONV) >>
+  match_mp_tac (MP_CANON gfp_coinduction) >>
+  simp[monotone_compose,monotone_similarity,companion_monotone] >>
+  rw[pred_setTheory.SUBSET_DEF,IN_DEF,ELIM_UNCURRY] >>
+  first_x_assum drule >> gs[CURRY_UNCURRY_THM |> SIMP_RULE bool_ss [ELIM_UNCURRY]]
+QED
+
+Theorem companion_refl[simp]:
+  closed x ⇒ companion R (x,x)
+Proof
+  rw[companion_def] >>
+  irule_at Any compatible_app_similarity >>
+  simp[IN_DEF,monotone_def,reflexive_app_similarity']
+QED
+
+Theorem companion_v_rel:
+  x ≲ y ⇒ companion R (x,y)
+Proof
+  rw[companion_def] >>
+  irule_at Any compatible_app_similarity >>
+  simp[IN_DEF,v_rel_refl,monotone_def]
+QED
+
+Theorem FF_trans:
+  ∀R S x y z.
+    (x,z) ∈ FF R ∧ (z,y) ∈ FF S ⇒ (x,y) ∈ FF {(x,y) | ∃z. (x,z) ∈ R ∧ (z,y) ∈ S}
+Proof
+  rw[FF_def,IN_DEF,ELIM_UNCURRY,unfold_rel_def] >>
+  metis_tac[]
+QED
+
+Theorem companion_duplicate:
+  ∀x y z. companion R (x,z) ∧ companion R (z,y) ⇒ companion R (x,y)
+Proof
+  rw[companion_def] >>
+  qexists_tac ‘λR. {(x,y) | ∃z. (x,z) ∈ f R ∧ (z,y) ∈ f' R}’ >>
+  gvs[monotone_def,compatible_def,pred_setTheory.SUBSET_DEF] >>
+  conj_tac >- (rw[] >> metis_tac[]) >>
+  reverse conj_tac >- metis_tac[] >>
+  rw[] >>
+  res_tac >>
+  metis_tac[FF_trans]
+QED
+
+Theorem companion_rel:
+  ∀R x y. R x y ⇒ companion R (x,y)
+Proof
+  rw[companion_def] >>
+  qexists_tac ‘I’ >> rw[monotone_def,compatible_def,IN_DEF]
+QED
+
+(* -- more lemmas -- *)
+
+Theorem res_eq_IMP_app_bisimilarity: (* exercise (5.3.5) *)
+  ∀e1 e2 x t. eval e1 = Closure x t ∧ closed e1 ∧ closed e2 ∧ eval e2 = Closure x t ⇒ e1 ≲ e2
+Proof
+  simp[GSYM PULL_EXISTS] >>
+  ho_match_mp_tac app_similarity_companion_coind >>
+  rw[FF_def,unfold_rel_def,ELIM_UNCURRY] >> gvs[] >>
+  rpt strip_tac >>
+  match_mp_tac companion_refl >>
+  drule eval_Closure_closed >>
+  simp[] >>
+  rw[closed_def] >>
+  rename [‘freevars (subst x e1 e2)’] >>
+  ‘∀v. MEM v (freevars (subst x e1 e2)) ⇒ F’
+    by(rpt strip_tac >> gvs[freevars_subst] >>
+       drule_all SUBSET_THM >> rw[]) >>
+  Cases_on ‘freevars (subst x e1 e2)’ >> fs[FORALL_AND_THM]
 QED
 
 (* -- congruence -- *)
