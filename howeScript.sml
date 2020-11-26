@@ -619,6 +619,66 @@ QED
 
 (* -- congruence -- *)
 
+(* TODO: not sure why this is parameterised on a set of names.
+   Can't we just always choose the support of the two procs involved?
+   I'm sure Andy knows what he's doing though so I'll roll with it...
+ *)
+(* TODO: cute mixfix syntax with ⊢ and all would be cute *)
+(* Substitution closure of applicative bisimilarity. *)
+Definition open_similarity_def:
+  open_similarity names e1 e2 ⇔
+    set(freevars e1) ⊆ set names ∧
+    set(freevars e2) ⊆ set names ∧
+    ALL_DISTINCT names ∧
+    ∀exps. LENGTH exps = LENGTH names ∧
+         EVERY closed exps
+         ⇒
+         bind (ZIP(names,exps)) e1 ≲ bind (ZIP(names,exps)) e2
+End
+
+Theorem open_similarity_reflexive:
+  set(freevars e1) ⊆ set names ∧ ALL_DISTINCT names ⇒ open_similarity names e1 e1
+Proof
+  cheat
+QED
+
+(* (Tra) in the paper has an amusing typo that renders the corresponding proposition a tautology *)
+Theorem open_similarity_transitive:
+  open_similarity names e1 e2 ∧ open_similarity names e2 e3 ⇒ open_similarity names e1 e3
+Proof
+  rw[open_similarity_def] >>
+  metis_tac[transitive_app_similarity |> SIMP_RULE std_ss[transitive_def]]
+QED
+
+(* (Com1) in Pitts *)
+Theorem open_similarity_var_refl:
+  MEM x names ∧ ALL_DISTINCT names ⇒ open_similarity names (Var x) (Var x)
+Proof
+  rw[open_similarity_def,bind_def,bind_Var_lemma,MAP_ZIP] >>
+  TOP_CASE_TAC >- (gvs[ALOOKUP_NONE,MEM_MAP,MEM_ZIP,MEM_EL] >> metis_tac[FST,SND]) >>
+  imp_res_tac ALOOKUP_MEM >>
+  drule_at(Pos last) MEM_ZIP_MEM_MAP >>
+  impl_tac >- rw[] >>
+  rw[] >>
+  gvs[EVERY_MEM,reflexive_app_similarity']
+QED
+
+(* (Com2) in Pitts *)
+Theorem open_similarity_Lam_pres:
+  open_similarity (x::names) e1 e2 ⇒
+  open_similarity names (Lam x e1) (Lam x e2)
+Proof
+  rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >>
+  TRY(res_tac >> gvs[] >> NO_TAC) >>
+  simp[bind_Lam,MAP_ZIP] >>
+  simp[app_similarity_iff] >>
+  simp[unfold_rel_def] >>
+  conj_tac >- cheat >>
+  conj_tac >- cheat >>
+  rw[eval_thm] >>
+  first_x_assum(qspec_then ‘e::exps’ mp_tac) >>
+  simp[bind_def]
+QED
 
 (* -- Howe's construction -- *)
 

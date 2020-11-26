@@ -161,4 +161,31 @@ Proof
   simp[closed_subst |> REWRITE_RULE [closed_def]]
 QED
 
+Theorem bind_Var_lemma:
+  ∀bs x.
+  EVERY closed (MAP SND bs) ∧ ALL_DISTINCT(MAP FST bs) ⇒
+    bind bs (Var x) =
+    case ALOOKUP bs x of
+      SOME e => e
+    | NONE => Var x
+Proof
+  Induct_on ‘bs’ >- rw[bind_def,subst_def] >>
+  PairCases >> rw[bind_def,subst_def] >>
+  TOP_CASE_TAC >> gvs[subst_def] >>
+  imp_res_tac ALOOKUP_MEM >>
+  gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  res_tac >>
+  fs[] >>
+  metis_tac[FST,SND]
+QED
+
+Theorem bind_Lam:
+  ∀names x e1.
+  ¬MEM x (MAP FST names) ∧ EVERY closed (MAP SND names) ⇒
+  bind names (Lam x e1) = Lam x (bind names e1)
+Proof
+  Induct >- rw[bind_def,subst_def] >>
+  PairCases >> rw[bind_def,subst_def]
+QED
+
 val _ = export_theory ();
