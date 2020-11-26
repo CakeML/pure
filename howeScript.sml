@@ -1066,12 +1066,29 @@ Proof
   \\ cheat
 QED
 
-Theorem subst_bind:
-  ~MEM h vars ∧ LENGTH t = LENGTH vars ∧ EVERY closed t ∧ closed v ⇒
-  subst h v (bind (ZIP (vars,t)) e1) =
-  bind (ZIP (vars,t)) (subst h v e1)
+Theorem subst_subst:
+  ∀x1 v1 e x2 v2.
+    x1 ≠ x2 ∧ closed v1 ∧ closed v2 ⇒
+    subst x1 v1 (subst x2 v2 e) = subst x2 v2 (subst x1 v1 e)
 Proof
-  cheat
+  ho_match_mp_tac subst_ind \\ rw []
+  \\ rw [subst_def]
+  \\ cheat
+QED
+
+Theorem subst_bind:
+  ∀vars t h v e1.
+    ~MEM h vars ∧ LENGTH t = LENGTH vars ∧ EVERY closed t ∧ closed v ⇒
+    subst h v (bind (ZIP (vars,t)) e1) =
+    bind (ZIP (vars,t)) (subst h v e1)
+Proof
+  Induct_on ‘vars’ \\ fs [bind_def] \\ rw []
+  \\ Cases_on ‘t’ \\ fs [bind_def]
+  \\ first_x_assum drule
+  \\ rename [‘LENGTH tt = LENGTH _’]
+  \\ disch_then drule \\ fs []
+  \\ disch_then (drule o GSYM) \\ fs [] \\ rw []
+  \\ match_mp_tac subst_subst \\ fs []
 QED
 
 Theorem IMP_open_similarity_CONS:
