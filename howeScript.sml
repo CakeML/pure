@@ -296,7 +296,11 @@ Proof
   >- (rename1 ‘Letrec’ >>
       gvs[freevars_def,MEM_FILTER,MEM_FLAT,MEM_MAP,PULL_EXISTS,eval_to_def] >>
       PURE_FULL_CASE_TAC >> gvs[] >>
-      res_tac >> cheat)
+      first_x_assum drule >> strip_tac >> fs[subst_funs_def,freevars_bind] >>
+      reverse FULL_CASE_TAC >- fs[] >>
+      gvs[MEM_FILTER] >>
+      gvs[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
+      metis_tac[MEM_MAP,FST])
   >- (rename1 ‘Case’ >>
       gvs[freevars_def,MEM_FILTER,MEM_FLAT,MEM_MAP,PULL_EXISTS,eval_to_def] >>
       PURE_FULL_CASE_TAC >> gvs[] >>
