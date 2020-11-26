@@ -188,4 +188,13 @@ Proof
   PairCases >> rw[bind_def,subst_def]
 QED
 
+Theorem bind_App:
+  ∀names x e1 e2.
+  EVERY closed (MAP SND names) ⇒
+  bind names (App e1 e2) = App (bind names e1) (bind names e2)
+Proof
+  Induct >- rw[bind_def,subst_def] >>
+  PairCases >> rw[bind_def,subst_def]
+QED
+
 val _ = export_theory ();

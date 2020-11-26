@@ -680,6 +680,39 @@ Proof
   simp[bind_def]
 QED
 
+(* (Com3L) in Pitts *)
+Theorem open_similarity_App_pres1:
+  open_similarity names e1 e2 ∧ set(freevars e3) ⊆ set names ⇒
+  open_similarity names (App e1 e3) (App e2 e3)
+Proof
+  rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >> gvs[bind_App,MAP_ZIP] >>
+  simp[app_similarity_iff] >>
+  simp[unfold_rel_def] >>
+  conj_tac >- cheat >>
+  conj_tac >- cheat >>
+  rpt strip_tac >>
+  gvs[eval_App,AllCaseEqs(),PULL_FORALL,dest_Closure_def] >>
+  last_x_assum drule_all >>
+  simp[Once app_similarity_iff] >>
+  rw[unfold_rel_def] >>
+  simp[GSYM PULL_FORALL] >>
+  gvs[bind_def] >>
+  reverse IF_CASES_TAC >- cheat >>
+  gvs[] >>
+  first_assum drule >>
+  SIMP_TAC std_ss [Once app_similarity_iff] >>
+  rw[unfold_rel_def]
+QED
+
+(* (Com3R) in Pitts *)
+Theorem open_similarity_App_pres2:
+  set(freevars e1) ⊆ set names ∧ open_similarity names e2 e3 ⇒
+  open_similarity names (App e1 e2) (App e1 e3)
+Proof
+  (* This one seems more complicated than the preceding thms *)
+  cheat
+QED
+
 (* -- Howe's construction -- *)
 
 
