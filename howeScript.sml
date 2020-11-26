@@ -745,6 +745,12 @@ Proof
   cheat
 QED
 
+Theorem Tra_open_bisimilarity:
+  Tra open_bisimilarity
+Proof
+  cheat
+QED
+
 (* (Com1) in Pitts *)
 Theorem open_similarity_var_refl:
   MEM x names ∧ ALL_DISTINCT names ⇒ open_similarity names (Var x) (Var x)
@@ -976,7 +982,19 @@ QED
 Theorem Congruence_open_bisimilarity: (* part 1 of 5.5.5 *)
   Congruence open_bisimilarity
 Proof
-  cheat
+  fs [Congruence_def,Sym_open_similarity]
+  \\ assume_tac Precongruence_open_similarity
+  \\ fs [Precongruence_def,Tra_open_bisimilarity]
+  \\ fs [Compatible_def] \\ rw []
+  THEN1
+   (fs [Com1_def,open_bisimilarity_def,open_similarity_def]
+    \\ fs [app_bisimilarity_similarity])
+  THEN1
+   (fs [Com2_def,open_bisimilarity_def,open_similarity_def]
+    \\ fs [app_bisimilarity_similarity] \\ metis_tac [])
+  THEN1
+   (fs [Com3_def,open_bisimilarity_def,open_similarity_def]
+    \\ fs [app_bisimilarity_similarity] \\ metis_tac [])
 QED
 
 (* -- contextual equivalence -- *)
