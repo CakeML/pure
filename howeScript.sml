@@ -1014,6 +1014,10 @@ QED
 Theorem eval_eqvt:
   perm_v v1 v2 (eval e) = eval (perm_exp v1 v2 e)
 Proof
+  (* TODO: probably easiest to prove with a lemma of the form:
+             (∀path. reachable path v1 ⇒ v_lookup path v1 = v_lookup path v2) ⇒ v1 = v2
+           and a lemma along the lines of:
+             reachable path (gen_v f) ⇒ v_lookup (gen_v f) path = f path *)
   ‘∀e1 e2. e1 = perm_v v1 v2 (eval e) ∧ e2 = eval (perm_exp v1 v2 e) ⇒ e1 = e2’ suffices_by metis_tac[] >>
   ho_match_mp_tac v_coinduct >>
   rw[] >>
@@ -1504,7 +1508,7 @@ Proof
 QED
 
 Theorem exp_eq_open_bisimilarity:
-  exp_eq x y ⇔ open_bisimilarity (nub (freevars (App x y))) x y
+  exp_eq x y ⇔ ∃vars. open_bisimilarity vars x y
 Proof
   eq_tac \\ rw []
   THEN1
@@ -1528,14 +1532,15 @@ Proof
   THEN1 cheat
   \\ fs [exp_eq_open_bisimilarity]
   \\ fs [AND_IMP_INTRO]
-  \\ first_x_assum match_mp_tac
   \\ fs [Exps_def,SUBSET_DEF,MEM_FILTER]
   \\ cheat
 QED
 
 Theorem exp_eq_Lam:
   Lam x1 e1 ≅ Lam x2 e2 ⇔
-  ∀y1 y2. y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒ bind[x1,y1]e1 ≅ bind[x2,y2]e2
+  ∀y1 y2.
+    y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
+    subst x1 y1 e1 ≅ subst x2 y2 e2
 Proof
   assume_tac Ref_open_similarity
   \\ drule IMP_Howe_Sub
