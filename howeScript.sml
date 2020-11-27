@@ -7,7 +7,7 @@ open fixedPointTheory
      expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      pure_langTheory pred_setTheory relationTheory
-     BasicProvers pure_langPropsTheory;
+     BasicProvers pure_langPropsTheory rich_listTheory;
 
 val _ = new_theory "howe";
 
@@ -486,6 +486,12 @@ Proof
   metis_tac[gfp_greatest_fixedpoint,monotone_similarity]
 QED
 
+Theorem opp_IN:
+  (x,y) ∈ opp s ⇔ (y,x) ∈ s
+Proof
+  rw[opp_def,IN_DEF]
+QED
+
 Theorem companion_SUBSET:
   X ⊆ companion(CURRY X)
 Proof
@@ -858,6 +864,120 @@ Proof
 QED
 *)
 
+(* -- Permutations and alpha-equivalence -- *)
+
+Definition perm1_def:
+  perm1 v1 v2 v = if v = v1 then v2 else if v = v2 then v1 else v
+End
+
+Definition perm_exp_def:
+  (perm_exp v1 v2 (Var v) = Var (perm1 v1 v2 v))
+  ∧ (perm_exp v1 v2 (Prim op l) = Prim op (MAP (perm_exp v1 v2) l))
+  ∧ (perm_exp v1 v2 (App e1 e2) = App (perm_exp v1 v2 e1) (perm_exp v1 v2 e2))
+  ∧ (perm_exp v1 v2 (Lam v e) = Lam (perm1 v1 v2 v) (perm_exp v1 v2 e))
+  ∧ (perm_exp v1 v2 (Letrec l e) =
+     Letrec
+        (MAP (λ(x,y,z). (perm1 v1 v2 x, perm1 v1 v2 y, perm_exp v1 v2 z)) l)
+        (perm_exp v1 v2 e)
+     )
+  ∧ (perm_exp v1 v2 (Case e s l) =
+       Case (perm_exp v1 v2 e)
+            (perm1 v1 v2 s)
+            (MAP (λ(x,y,z). (x, MAP (perm1 v1 v2) y, perm_exp v1 v2 z)) l)
+     )
+Termination
+  WF_REL_TAC ‘measure(exp_size o SND o SND)’ >>
+  rw[] >> imp_res_tac exp_size_lemma >> rw[]
+End
+
+Theorem perm1_cancel[simp]:
+  perm1 v1 v2 (perm1 v1 v2 x) = x
+Proof
+  rw[perm1_def] >> fs[CaseEq "bool"] >> fs[]
+QED
+
+Theorem perm_exp_cancel[simp]:
+  ∀v1 v2 e. perm_exp v1 v2 (perm_exp v1 v2 e) = e
+Proof
+  ho_match_mp_tac perm_exp_ind >>
+  rw[perm_exp_def,MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
+  rw[LIST_EQ_REWRITE] >>
+  gvs[MEM_EL,PULL_EXISTS,EL_MAP] >>
+  metis_tac[PAIR,FST,SND]
+QED
+
+Theorem perm1_eq_cancel[simp]:
+  perm1 v1 v2 v3 = perm1 v1 v2 v4 ⇔ v3 = v4
+Proof
+  rw[perm1_def] >> simp[]
+QED
+
+Theorem perm_exp_eqvt:
+  ∀fv2 fv3 e.
+    MAP (perm1 fv2 fv3) (freevars e) = freevars(perm_exp fv2 fv3 e)
+Proof
+  ho_match_mp_tac perm_exp_ind >>
+  rw[perm_exp_def,freevars_def,FILTER_MAP,combinTheory.o_DEF,MAP_MAP_o,MAP_FLAT]
+  >- (AP_TERM_TAC >> rw[MAP_EQ_f])
+  >- (pop_assum (assume_tac o GSYM) >>
+      rw[FILTER_MAP,combinTheory.o_DEF])
+  >- (rw[ELIM_UNCURRY] >>
+      pop_assum (assume_tac o GSYM) >>
+      simp[FILTER_APPEND] >>
+      simp[FILTER_MAP,combinTheory.o_DEF] >>
+      qmatch_goalsub_abbrev_tac ‘a1 ++ a2 = a3 ++ a4’ >>
+      ‘a1 = a3 ∧ a2 = a4’ suffices_by simp[] >>
+      unabbrev_all_tac >>
+      conj_tac >- (AP_TERM_TAC >> rw[FILTER_EQ,MEM_MAP]) >>
+      rw[FILTER_FLAT,MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,FILTER_FILTER] >>
+      AP_TERM_TAC >>
+      rw[MAP_EQ_f] >>
+      PairCases_on ‘x’ >>
+      first_assum (drule_then (assume_tac o GSYM o SIMP_RULE std_ss [])) >>
+      simp[FILTER_MAP,combinTheory.o_DEF,MEM_MAP])
+  >- (AP_TERM_TAC >>
+      rw[MAP_EQ_f,ELIM_UNCURRY] >>
+      PairCases_on ‘x’ >>
+      first_assum(drule_then (assume_tac o GSYM)) >>
+      gvs[FILTER_MAP,combinTheory.o_DEF,MEM_MAP])
+QED
+
+Theorem closed_perm:
+  closed(perm_exp v1 v2 e) = closed e
+Proof
+  rw[closed_def,GSYM perm_exp_eqvt]
+QED
+
+Theorem eval_perm_closure:
+  eval (perm_exp v1 v2 e) = Closure x e' ⇔ eval e = Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
+Proof
+  cheat
+QED
+
+Theorem subst_eqvt:
+  ∀v1 v2 x y e.
+    perm_exp v1 v2 (subst x y e) =
+    subst (perm1 v1 v2 x) (perm_exp v1 v2 y) (perm_exp v1 v2 e)
+Proof
+  ntac 2 strip_tac >> ho_match_mp_tac subst_ind >>
+  rw[subst_def,perm_exp_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f,ELIM_UNCURRY,MEM_MAP,PULL_EXISTS] >>
+  rw[] >> metis_tac[PAIR,FST,SND]
+QED
+
+Theorem compatible_perm:
+  compatible (λR. {(e1,e2) | ∃v1 v2 e3 e4. e1 = perm_exp v1 v2 e3  ∧ e2 = perm_exp v1 v2 e4 ∧ R(e3,e4)})
+Proof
+  rw[compatible_def] >> simp[SUBSET_DEF] >> Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_perm_closure] >>
+  simp[closed_perm] >> gvs[eval_perm_closure] >>
+  irule_at (Pos hd) (GSYM perm1_cancel) >>
+  irule_at (Pos hd) (GSYM perm_exp_cancel) >>
+  rw[] >>
+  irule_at (Pos hd) (GSYM perm_exp_cancel) >>
+  simp[subst_eqvt] >>
+  PRED_ASSUM is_forall (irule_at (Pos last)) >>
+  simp[subst_eqvt,closed_perm]
+QED
+
 (* -- Howe's construction -- *)
 
 Inductive Howe:
@@ -1026,7 +1146,28 @@ QED
 Theorem Ref_Howe:
   Ref R ⇒ Ref (Howe R)
 Proof
-  cheat
+(*  Unprovable for now, need moar clauses
+  strip_tac >>
+  gvs[Ref_def,Exps_def,PULL_FORALL] >>
+  CONV_TAC SWAP_FORALL_CONV >>
+  qsuff_tac ‘∀e vars vars'. ALL_DISTINCT(vars ++ vars') ∧ set (freevars e) ⊆ set vars ⇒ Howe R vars e e’
+  >- (rpt strip_tac >> first_x_assum match_mp_tac >>
+      rw[] >> qexists_tac ‘[]’ >> rw[]) >>
+  Induct_on ‘e’
+  >- (rename1 ‘Var’ >>
+      rw[Once Howe_cases,ALL_DISTINCT_APPEND])
+  >- (rename1 ‘Prim’ >>
+      cheat)
+  >- (rename1 ‘App’ >>
+      rw[Once Howe_cases] >>
+      first_x_assum drule_all >> strip_tac >>
+      first_x_assum drule_all >> strip_tac >>
+      rpt(goal_assum drule) >>
+      first_x_assum match_mp_tac >>
+      rw[freevars_def] >> gvs[ALL_DISTINCT_APPEND])
+  >- (rename1 ‘Lam’ >>
+      cheat)
+ *)
 QED
 
 Theorem Cus_Howe_open_similarity:
