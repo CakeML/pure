@@ -1278,7 +1278,7 @@ Proof
 QED
 
 Theorem Howe_Ref_Tra: (* 5.5.1(iii) *)
-  Ref R ∧ Tra R ⇒
+  Ref R ⇒
   ∀vars e1 e2. R vars e1 e2 ⇒ Howe R vars e1 e2
 Proof
   cheat
@@ -1325,7 +1325,7 @@ QED
 Theorem IMP_Howe_Sub: (* 5.5.3 *)
   Ref R ∧ Tra R ∧ Cus R ⇒ Sub (Howe R)
 Proof
-  cheat
+  cheat (* errata: says use 5.5.1(ii), i.e. Howe_Tra *)
 QED
 
 Theorem Ref_Howe:
