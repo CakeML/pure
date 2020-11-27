@@ -1475,9 +1475,7 @@ QED
 
 Definition exp_eq_def:
   exp_eq x y ⇔
-    ∀bindings.
-      set (freevars x) ∪ set (freevars y) ⊆ set (MAP FST bindings) ⇒
-      bind bindings x ≃ bind bindings y
+    ∀f. freevars x ∪ freevars y ⊆ FDOM f ⇒ bind f x ≃ bind f y
 End
 
 val _ = set_fixity "≅" (Infixl 480);
@@ -1507,11 +1505,9 @@ Proof
   THEN1
    (fs [open_bisimilarity_def,SUBSET_DEF,ALL_DISTINCT_nub]
     \\ rw [] \\ fs [exp_eq_def]
-    \\ first_x_assum match_mp_tac
-    \\ fs [listTheory.MAP_ZIP]
-    \\ fs [SUBSET_DEF])
+    \\ cheat)
   \\ fs [exp_eq_def,open_bisimilarity_def] \\ rw []
-  \\ cheat (* we should really use a fmap based subst_all *)
+  \\ cheat
 QED
 
 Theorem Congruence_exp_eq:

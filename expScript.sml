@@ -58,6 +58,8 @@ Termination
   \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
 End
 
+Overload freevars = “λe. set (freevars e)”;
+
 Definition closed_def:
   closed e = (freevars e = [])
 End
