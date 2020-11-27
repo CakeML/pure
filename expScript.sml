@@ -1,6 +1,6 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory configTheory pairTheory listTheory;
+open stringTheory optionTheory configTheory pairTheory listTheory finite_mapTheory;
 
 val _ = new_theory "exp";
 
@@ -91,6 +91,35 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
+Definition subst_all_def:
+  subst_all m (Var s) =
+    (case FLOOKUP m s of
+     | NONE => Var s
+     | SOME x => x) ∧
+  subst_all m (Prim op xs) = Prim op (MAP (subst_all m) xs) ∧
+  subst_all m (App x y) = App (subst_all m x) (subst_all m y) ∧
+  subst_all m (Lam s x) = Lam s (subst_all (m \\ s) x) ∧
+  subst_all m (Letrec f x) =
+    (let m1 = FDIFF m (set (MAP FST f)) in
+       Letrec
+         (MAP (λ(f,x,e). (f,x,subst_all (m1 \\ x) e)) f)
+         (subst_all m1 x)) ∧
+  subst_all m (Case e vn rows) =
+    let m1 = m \\ vn in
+      Case (subst_all m e) vn
+          (MAP (λ(cn,ps,e).
+                 (cn,ps,subst_all (FDIFF m1 (set ps)) e)) rows)
+Termination
+  WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  \\ imp_res_tac exp_size_lemma \\ fs []
+End
+
+Definition bind_all_def:
+  bind_all m e =
+    if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then subst_all m e else Fail
+End
+
+Overload bind = “bind_all”;
 
 Theorem subst_ignore:
   ∀s x y. ~MEM s (freevars y) ⇒ subst s x y = y
