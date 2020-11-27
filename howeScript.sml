@@ -1364,7 +1364,7 @@ Proof
        Cus_open_similarity,Tra_open_similarity,Ref_open_similarity]
 QED
 
-Theorem IMP_Howe_Sub: (* key lemma 5.5.4 *)
+Theorem KeyLemma: (* key lemma 5.5.4 *)
   eval e1 = Closure x e ∧ Howe open_similarity [] e1 e2 ⇒
   ∃e'. eval e2 = Closure x e' ∧ Howe open_similarity [x] e e'
 Proof
@@ -1390,7 +1390,7 @@ Theorem app_simulation_Howe_open_similarity:
   app_simulation (UNCURRY (Howe open_similarity []))
 Proof
   fs [app_simulation_def,unfold_rel_def]
-  \\ cheat (* IMP_Howe_Sub? *)
+  \\ cheat (* KeyLemma? *)
 QED
 
 Theorem subst_bind:
@@ -1473,6 +1473,99 @@ QED
 
 (* -- contextual equivalence -- *)
 
+Definition exp_eq_def:
+  exp_eq x y ⇔
+    ∀bindings.
+      set (freevars x) ∪ set (freevars y) ⊆ set (MAP FST bindings) ⇒
+      bind bindings x ≃ bind bindings y
+End
 
+val _ = set_fixity "≅" (Infixl 480);
+Overload "≅" = “exp_eq”;
+
+Definition nub_def:
+  nub [] = [] ∧
+  nub (x::xs) = if MEM x xs then nub xs else x :: nub xs
+End
+
+Theorem MEM_nub[simp]:
+  ∀xs x. MEM x (nub xs) = MEM x xs
+Proof
+  Induct \\ rw [nub_def] \\ metis_tac []
+QED
+
+Theorem ALL_DISTINCT_nub[simp]:
+  ∀xs. ALL_DISTINCT (nub xs)
+Proof
+  Induct \\ rw [nub_def]
+QED
+
+Theorem exp_eq_open_bisimilarity:
+  exp_eq x y ⇔ open_bisimilarity (nub (freevars (App x y))) x y
+Proof
+  eq_tac \\ rw []
+  THEN1
+   (fs [open_bisimilarity_def,SUBSET_DEF,ALL_DISTINCT_nub]
+    \\ rw [] \\ fs [exp_eq_def]
+    \\ first_x_assum match_mp_tac
+    \\ fs [listTheory.MAP_ZIP]
+    \\ fs [SUBSET_DEF])
+  \\ fs [exp_eq_def,open_bisimilarity_def] \\ rw []
+  \\ cheat (* we should really use a fmap based subst_all *)
+QED
+
+Theorem Congruence_exp_eq:
+  Congruence (K $≅)
+Proof
+  mp_tac Congruence_open_bisimilarity
+  \\ rw [Congruence_def,Precongruence_def]
+  \\ fs [Sym_def,exp_eq_def]
+  THEN1 cheat
+  THEN1 cheat
+  \\ fs [Compatible_def] \\ rw []
+  \\ fs [Com1_def,Com2_def,Com3_def] \\ rw []
+  THEN1 cheat
+  \\ fs [exp_eq_open_bisimilarity]
+  \\ fs [AND_IMP_INTRO]
+  \\ first_x_assum match_mp_tac
+  \\ fs [Exps_def,SUBSET_DEF,MEM_FILTER]
+  \\ cheat
+QED
+
+Theorem exp_eq_Lam:
+  Lam x1 e1 ≅ Lam x2 e2 ⇔
+  ∀y1 y2. y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒ bind[x1,y1]e1 ≅ bind[x2,y2]e2
+Proof
+  assume_tac Ref_open_similarity
+  \\ drule IMP_Howe_Sub
+  \\ fs [Cus_open_similarity,Tra_open_similarity,Howe_open_similarity]
+  \\ fs [Sub_def] \\ rw []
+  \\ eq_tac \\ rw []
+  \\ fs [exp_eq_open_bisimilarity]
+  \\ fs [bind_def]
+  \\ cheat
+QED
+
+Theorem exp_eq_Lam_cong:
+  e ≅ e' ⇒ Lam x e ≅ Lam x e'
+Proof
+  assume_tac Congruence_exp_eq
+  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com2_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ qexists_tac ‘nub (freevars (App (Lam x e) (Lam x e')))’
+  \\ fs [Exps_def,SUBSET_DEF] \\ fs [MEM_FILTER]
+QED
+
+Theorem exp_eq_App_cong:
+  f ≅ f' ∧ e ≅ e' ⇒ App f e ≅ App f' e'
+Proof
+  assume_tac Congruence_exp_eq
+  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com3_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ qexists_tac ‘nub (freevars (App f (App f' (App e e'))))’
+  \\ fs [Exps_def,SUBSET_DEF]
+QED
 
 val _ = export_theory();
