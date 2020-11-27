@@ -643,6 +643,11 @@ QED
 
 (* -- congruence -- *)
 
+(* TODO: tweak open_similarity_def so that it takes inspiration from
+         exp_eq_def, in particular use an fmap and represent variables
+         are finite_set (avoid ALL_DISTINCT), don't require EVERY
+         closed exps *)
+
 (* TODO: not sure why this is parameterised on a set of names.
    Can't we just always choose the support of the two procs involved?
    I'm sure Andy knows what he's doing though so I'll roll with it...
