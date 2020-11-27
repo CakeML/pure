@@ -1087,6 +1087,7 @@ Inductive exp_alpha:
 [~Alpha:]
   (∀avoid e x y. x ≠ y ∧ y ∉ avoid ∧ y ∉ set(freevars e)
                     ⇒ exp_alpha avoid (Lam x e) (Lam y (perm_exp x y e)))
+  (* TODO: needs more congruence clauses to be useful *)
 End
 
 Theorem exp_alpha_mono_vars:
