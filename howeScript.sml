@@ -608,6 +608,12 @@ Proof
   metis_tac[FF_trans]
 QED
 
+Theorem companion_duplicate_SET:
+  ∀x y z. (x,z) ∈ companion R ∧ (z,y) ∈ companion R ⇒ (x,y) ∈ companion R
+Proof
+  metis_tac[IN_DEF,companion_duplicate]
+QED
+
 Theorem companion_rel:
   ∀R x y. R x y ⇒ companion R (x,y)
 Proof
@@ -948,10 +954,72 @@ Proof
   rw[closed_def,GSYM perm_exp_eqvt]
 QED
 
+Definition perm_v_def:
+  perm_v x y v =
+  gen_v (λpath.
+          case v_lookup path v of
+            (Closure' z e, len) => (Closure' (perm1 x y z) (perm_exp x y e), len)
+          | x => x)
+End
+
+Theorem perm_v_thm:
+  perm_v x y v =
+  case v of
+    Constructor s xs => Constructor s (MAP (perm_v x y) xs)
+  | Closure z e => Closure (perm1 x y z) (perm_exp x y e)
+  | v => v
+Proof
+  ‘∀v1 v2. ((∃v. v1 = perm_v x y v ∧
+               v2 = (case v of
+                       Constructor s xs => Constructor s (MAP (perm_v x y) xs)
+                     | Closure z e => Closure (perm1 x y z) (perm_exp x y e)
+                     | v => v)) ∨ v1 = v2)
+           ⇒ v1 = v2’ suffices_by metis_tac[] >>
+  ho_match_mp_tac v_coinduct >>
+  reverse(rw[])
+  >- (Cases_on ‘v1’ >> gvs[] >> match_mp_tac EVERY2_refl >> rw[]) >>
+  TOP_CASE_TAC
+  >- (rw[perm_v_def] >> rw[Once gen_v,v_lookup_Atom])
+  >- (rw[Once perm_v_def] >> rw[Once gen_v,v_lookup_Constructor] >>
+      ‘MAP (perm_v x y) t =
+       MAP (perm_v x y) (GENLIST (λx. EL x t) (LENGTH t))
+      ’
+       by(AP_TERM_TAC >> CONV_TAC SYM_CONV >>
+          match_mp_tac GENLIST_EL >> rw[]) >>
+      pop_assum SUBST_ALL_TAC >>
+      simp[MAP_GENLIST] >>
+      rw[LIST_REL_GENLIST,oEL_THM] >>
+      simp[perm_v_def])
+  >- (rw[perm_v_def] >> rw[Once gen_v,v_lookup_Closure])
+  >- (rw[perm_v_def] >> rw[Once gen_v,v_lookup_Diverge] >> rw[gen_v_Diverge])
+  >- (rw[perm_v_def] >> rw[Once gen_v,v_lookup_Error])
+QED
+
+Theorem perm_v_cancel[simp]:
+  perm_v x y (perm_v x y v) = v
+Proof
+  ‘∀v1 v2. v2 = perm_v x y (perm_v x y v1) ⇒ v1 = v2’ suffices_by metis_tac[] >>
+  ho_match_mp_tac v_coinduct >>
+  Cases >> TRY(rw[perm_v_thm] >> NO_TAC) >>
+  ntac 2 (rw[Once perm_v_thm]) >>
+  rw[LIST_REL_MAP2] >>
+  match_mp_tac EVERY2_refl >> rw[]
+QED
+
+Theorem eval_eqvt:
+  perm_v v1 v2 (eval e) = eval (perm_exp v1 v2 e)
+Proof
+  ‘∀e1 e2. e1 = perm_v v1 v2 (eval e) ∧ e2 = eval (perm_exp v1 v2 e) ⇒ e1 = e2’ suffices_by metis_tac[] >>
+  ho_match_mp_tac v_coinduct >>
+  rw[] >>
+  cheat (* Not sure if this is a productive proof path *)
+QED
+
 Theorem eval_perm_closure:
   eval (perm_exp v1 v2 e) = Closure x e' ⇔ eval e = Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
 Proof
-  cheat
+  simp[GSYM eval_eqvt,perm_v_thm,AllCaseEqs()] >>
+  metis_tac[perm1_cancel,perm_exp_cancel]
 QED
 
 Theorem subst_eqvt:
@@ -976,6 +1044,122 @@ Proof
   simp[subst_eqvt] >>
   PRED_ASSUM is_forall (irule_at (Pos last)) >>
   simp[subst_eqvt,closed_perm]
+QED
+
+Triviality CURRY_thm:
+  CURRY f = λ x y. f(x,y)
+Proof
+  rw[FUN_EQ_THM]
+QED
+
+Theorem companion_app_similarity:
+  ∀e1 e2. companion ($≲) (e1,e2) ⇒ e1 ≲ e2
+Proof
+  ho_match_mp_tac app_similarity_companion_coind >>
+  rw[companion_idem |> SIMP_RULE std_ss [CURRY_thm]] >>
+  mp_tac companion_compatible >>
+  rw[compatible_def,CURRY_thm,SUBSET_DEF,IN_DEF] >>
+  first_x_assum match_mp_tac >>
+  gvs[] >>
+  gvs[FF_def,ELIM_UNCURRY,GSYM app_similarity_iff]
+QED
+
+Theorem app_similarity_eqvt:
+  e1 ≲ e2 ⇒ perm_exp x y e1 ≲ perm_exp x y e2
+Proof
+  strip_tac >>
+  match_mp_tac companion_app_similarity >>
+  simp[companion_def] >>
+  irule_at Any compatible_perm >>
+  rw[monotone_def,SUBSET_DEF] >>
+  metis_tac[IN_DEF]
+QED
+
+Inductive exp_alpha:
+[~Refl:]
+  (∀avoid e. closed e ⇒ exp_alpha avoid e e) ∧
+(*[~Sym:]
+  (∀avoid e e'. exp_alpha avoid e' e ⇒ exp_alpha avoid e e') ∧*)
+[~Trans:]
+  (∀avoid e e' e''. exp_alpha avoid e e' ∧ exp_alpha avoid e' e'' ⇒ exp_alpha avoid e e'') ∧
+[~Lam:]
+  (∀avoid e x e'. (∀t. closed t ⇒ exp_alpha (x INSERT avoid) (subst x t e) (subst x t e')) ⇒ exp_alpha avoid (Lam x e) (Lam x e')) ∧
+[~Alpha:]
+  (∀avoid e x y. x ≠ y ∧ y ∉ avoid ∧ y ∉ set(freevars e)
+                    ⇒ exp_alpha avoid (Lam x e) (Lam y (perm_exp x y e)))
+End
+
+Theorem exp_alpha_mono_vars:
+  ∀avoid e e' avoid'.
+    exp_alpha avoid e e' ∧ avoid' ⊆ avoid ⇒
+    exp_alpha avoid' e e'
+Proof
+  Induct_on ‘exp_alpha’ >>
+  rw[]
+  >- metis_tac[exp_alpha_rules]
+  >- metis_tac[exp_alpha_rules]
+  >- (match_mp_tac exp_alpha_Lam >>
+      rw[] >>
+      first_x_assum drule >>
+      rw[] >>
+      first_x_assum match_mp_tac >>
+      gvs[SUBSET_DEF])
+  >- (match_mp_tac exp_alpha_Alpha >>
+      rw[] >>
+      metis_tac[SUBSET_DEF])
+QED
+
+Theorem compatible_exp_alpha:
+  compatible(λR (x,y). exp_alpha avoid x y)
+Proof
+  simp[compatible_def,SUBSET_DEF] >>
+  PairCases >>
+  rw[ELIM_UNCURRY] >>
+  pop_assum mp_tac >>
+  Induct_on ‘exp_alpha’ >>
+  rw[]
+  >- (gvs[FF_def,unfold_rel_def] >>
+      rw[] >>
+      match_mp_tac exp_alpha_Refl >>
+      cheat)
+  >- (dxrule_all FF_trans >>
+      match_mp_tac(monotone_similarity |> SIMP_RULE std_ss [monotone_def,SUBSET_DEF]) >>
+      rw[] >> rw[] >> metis_tac[exp_alpha_Trans])
+  >- (gvs[FF_def,unfold_rel_def] >>
+      conj_tac >- cheat >>
+      conj_tac >- cheat >>
+      rw[eval_thm] >>
+      first_x_assum drule >> rw[] >>
+      match_mp_tac exp_alpha_mono_vars >>
+      goal_assum drule >>
+      rw[SUBSET_DEF])
+  >- (gvs[FF_def,unfold_rel_def] >>
+      conj_tac >- cheat >>
+      conj_tac >- cheat >>
+      rw[eval_thm] >>
+      cheat (* I expect there should be some (possibly convoluted) induction that proves this *)
+      )
+QED
+
+Theorem companion_exp_alpha:
+  exp_alpha avoid x y ⇒ (x,y) ∈ companion R
+Proof
+  rw[IN_DEF,companion_def] >>
+  irule_at Any compatible_exp_alpha >>
+  simp[monotone_def] >>
+  goal_assum drule
+QED
+
+Theorem app_similarity_eqvt:
+  x ≠ y ∧ closed(Lam x e1) ∧ y ∉ set(freevars e1) ⇒
+  Lam x e1 ≲ Lam y (perm_exp x y e1)
+Proof
+  strip_tac >>
+  match_mp_tac companion_app_similarity  >>
+  match_mp_tac(companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF] |> GEN_ALL) >>
+  qexists_tac ‘{}’ >>
+  match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
+  simp[]
 QED
 
 (* -- Howe's construction -- *)
@@ -1168,6 +1352,7 @@ Proof
   >- (rename1 ‘Lam’ >>
       cheat)
  *)
+  cheat
 QED
 
 Theorem Cus_Howe_open_similarity:
