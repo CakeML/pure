@@ -7,25 +7,20 @@ open fixedPointTheory
      expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      pure_langTheory pred_setTheory relationTheory
-     BasicProvers pure_langPropsTheory rich_listTheory;
+     BasicProvers pure_langPropsTheory rich_listTheory finite_mapTheory;
 
 val _ = new_theory "howe";
 
 
 (* -- basics -- *)
 
-(* the set of all values with at most free variables vars *)
-Definition Vals_def:
-  Vals vars = { v | freevars_v v ⊆ set vars }
-End
-
 (* the set of all expressions with at most free variables vars *)
 Definition Exps_def:
-  Exps vars = { e | set (freevars e) ⊆ set vars }
+  Exps vars = { e | freevars e ⊆ vars }
 End
 
 Theorem Exps_EMPTY_closed[simp]:
-  e IN Exps [] ⇔ closed e
+  e IN Exps EMPTY ⇔ closed e
 Proof
   fs [Exps_def,closed_def]
 QED
@@ -643,11 +638,6 @@ QED
 
 (* -- congruence -- *)
 
-(* TODO: tweak open_similarity_def so that it takes inspiration from
-         exp_eq_def, in particular use an fmap and represent variables
-         are finite_set (avoid ALL_DISTINCT), don't require EVERY
-         closed exps *)
-
 (* TODO: not sure why this is parameterised on a set of names.
    Can't we just always choose the support of the two procs involved?
    I'm sure Andy knows what he's doing though so I'll roll with it...
@@ -656,65 +646,53 @@ QED
 (* Substitution closure of applicative bisimilarity. *)
 Definition open_similarity_def:
   open_similarity names e1 e2 ⇔
-    set(freevars e1) ⊆ set names ∧
-    set(freevars e2) ⊆ set names ∧
-    ALL_DISTINCT names ∧
-    ∀exps.
-      LENGTH exps = LENGTH names ∧
-      EVERY closed exps
-      ⇒
-      bind (ZIP(names,exps)) e1 ≲ bind (ZIP(names,exps)) e2
+    set(freevars e1) ∪ set(freevars e2) ⊆ names ∧
+    ∀f. names = FDOM f ⇒ bind f e1 ≲ bind f e2
 End
 
 Definition open_bisimilarity_def:
   open_bisimilarity names e1 e2 ⇔
-    set(freevars e1) ⊆ set names ∧
-    set(freevars e2) ⊆ set names ∧
-    ALL_DISTINCT names ∧
-    ∀exps.
-      LENGTH exps = LENGTH names ∧
-      EVERY closed exps
-      ⇒
-      bind (ZIP(names,exps)) e1 ≃ bind (ZIP(names,exps)) e2
+    set(freevars e1) ∪ set(freevars e2) ⊆ names ∧
+    ∀f. names = FDOM f ⇒ bind f e1 ≃ bind f e2
 End
 
 Definition Ref_def:
   Ref R ⇔
-    ∀vars e. ALL_DISTINCT vars ∧ e IN Exps vars ⇒ R vars e e
+    ∀vars e. e IN Exps vars ⇒ R vars e e
 End
 
 Definition Sym_def:
   Sym R ⇔
     ∀vars e1 e2.
-      ALL_DISTINCT vars ∧ {e1; e2} SUBSET Exps vars ⇒
+      {e1; e2} SUBSET Exps vars ⇒
       R vars e1 e2 ⇒ R vars e2 e1
 End
 
 Definition Tra_def:
   Tra R ⇔
     ∀vars e1 e2 e3.
-      ALL_DISTINCT vars ∧ {e1; e2; e3} SUBSET Exps vars ⇒
+      {e1; e2; e3} SUBSET Exps vars ⇒
       R vars e1 e2 ∧ R vars e2 e3 ⇒ R vars e1 e3
 End
 
 Definition Com1_def:
   Com1 R ⇔
     ∀vars x.
-      ALL_DISTINCT vars ∧ MEM x vars ⇒
+      x IN vars ⇒
       R vars (Var x) (Var x)
 End
 
 Definition Com2_def:
   Com2 R ⇔
     ∀vars x e e'.
-      ALL_DISTINCT vars ∧ ~(MEM x vars) ∧ {e; e'} SUBSET Exps (x::vars) ⇒
-      R (x::vars) e e' ⇒ R vars (Lam x e) (Lam x e')
+      ~(x IN vars) ∧ {e; e'} SUBSET Exps (x INSERT vars) ⇒
+      R (x INSERT vars) e e' ⇒ R vars (Lam x e) (Lam x e')
 End
 
 Definition Com3_def:
   Com3 R ⇔
     ∀vars e1 e1' e2 e2'.
-      ALL_DISTINCT vars ∧ {e1; e1'; e2; e2'} SUBSET Exps vars ⇒
+      {e1; e1'; e2; e2'} SUBSET Exps vars ⇒
       R vars e1 e1' ∧ R vars e2 e2' ⇒ R vars (App e1 e2) (App e1' e2')
 End
 
@@ -730,33 +708,25 @@ Definition Congruence_def:
   Congruence R ⇔ Sym R ∧ Precongruence R
 End
 
-Theorem open_similarity_reflexive:
-  set(freevars e1) ⊆ set names ∧ ALL_DISTINCT names ⇒ open_similarity names e1 e1
-Proof
-  rw[open_similarity_def] >>
-  irule reflexive_app_similarity' >>
-  fs[closed_def] >>
-  once_rewrite_tac [GSYM LIST_TO_SET_EQ_EMPTY] >>
-  once_rewrite_tac [freevars_bind] >>
-  fs[MAP_ZIP, SUBSET_DEF, FILTER_EQ_NIL, EVERY_MEM]
-QED
-
 Theorem Ref_open_similarity:
   Ref open_similarity
 Proof
-  fs[Ref_def, Exps_def] >>
-  metis_tac[open_similarity_reflexive]
+  fs[Ref_def, Exps_def]
+  \\ rw[open_similarity_def]
+  \\ irule reflexive_app_similarity'
+  \\ cheat
 QED
 
 Theorem Sym_open_similarity:
   Sym open_bisimilarity
 Proof
-  rw[Sym_def, open_bisimilarity_def] >>
-  first_x_assum drule_all >>
-  assume_tac symmetric_app_bisimilarity >> fs[symmetric_def]
+  rw[Sym_def, open_bisimilarity_def]
+  \\ assume_tac symmetric_app_bisimilarity
+  \\ fs[symmetric_def]
 QED
 
-(* (Tra) in the paper has an amusing typo that renders the corresponding proposition a tautology *)
+(* (Tra) in the paper has an amusing typo that renders the corresponding
+   proposition a tautology *)
 Theorem open_similarity_transitive:
   open_similarity names e1 e2 ∧ open_similarity names e2 e3 ⇒ open_similarity names e1 e3
 Proof
@@ -767,9 +737,9 @@ QED
 Theorem Tra_open_similarity:
   Tra open_similarity
 Proof
-  rw[Tra_def] >>
-  irule open_similarity_transitive >>
-  goal_assum drule >> fs[]
+  rw[Tra_def]
+  \\ irule open_similarity_transitive
+  \\ goal_assum drule \\ fs[]
 QED
 
 Theorem Tra_open_bisimilarity:
@@ -780,22 +750,21 @@ QED
 
 (* (Com1) in Pitts *)
 Theorem open_similarity_var_refl:
-  MEM x names ∧ ALL_DISTINCT names ⇒ open_similarity names (Var x) (Var x)
+  x IN names ⇒ open_similarity names (Var x) (Var x)
 Proof
-  rw[open_similarity_def,bind_def,bind_Var_lemma,MAP_ZIP] >>
-  TOP_CASE_TAC >- (gvs[ALOOKUP_NONE,MEM_MAP,MEM_ZIP,MEM_EL] >> metis_tac[FST,SND]) >>
-  imp_res_tac ALOOKUP_MEM >>
-  drule_at(Pos last) MEM_ZIP_MEM_MAP >>
-  impl_tac >- rw[] >>
-  rw[] >>
-  gvs[EVERY_MEM,reflexive_app_similarity']
+  rw[open_similarity_def]
+  \\ rw [bind_all_def,subst_all_def,FLOOKUP_DEF]
+  \\ res_tac
+  \\ match_mp_tac reflexive_app_similarity' \\ fs []
+  \\ fs [closed_def]
 QED
 
 (* (Com2) in Pitts *)
 Theorem open_similarity_Lam_pres:
-  open_similarity (x::names) e1 e2 ⇒
+  open_similarity (x INSERT names) e1 e2 ⇒
   open_similarity names (Lam x e1) (Lam x e2)
 Proof
+  cheat (*
   rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >>
   TRY(res_tac >> gvs[] >> NO_TAC) >>
   simp[bind_Lam,MAP_ZIP] >>
@@ -825,14 +794,15 @@ Proof
     ) >>
   rw[eval_thm] >>
   first_x_assum(qspec_then ‘e::exps’ mp_tac) >>
-  simp[bind_def]
+  simp[bind_def] *)
 QED
 
 (* (Com3L) in Pitts *)
 Theorem open_similarity_App_pres1:
-  open_similarity names e1 e2 ∧ set(freevars e3) ⊆ set names ⇒
+  open_similarity names e1 e2 ∧ freevars e3 ⊆ names ⇒
   open_similarity names (App e1 e3) (App e2 e3)
 Proof
+  cheat (*
   rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >> gvs[bind_App,MAP_ZIP] >>
   simp[app_similarity_iff] >>
   simp[unfold_rel_def] >>
@@ -861,7 +831,7 @@ Proof
   gvs[] >>
   first_assum drule >>
   SIMP_TAC std_ss [Once app_similarity_iff] >>
-  rw[unfold_rel_def]
+  rw[unfold_rel_def] *)
 QED
 
 (*
@@ -871,7 +841,6 @@ Theorem open_similarity_App_pres2:
   open_similarity names (App e1 e2) (App e1 e3)
 Proof
   (* This one seems more complicated than the preceding thms. Probably requires Howe's construction ;) *)
-  cheat
 QED
 *)
 
@@ -1161,7 +1130,7 @@ Proof
 QED
 
 Theorem app_similarity_eqvt:
-  x ≠ y ∧ closed(Lam x e1) ∧ y ∉ set(freevars e1) ⇒
+  x ≠ y ∧ closed(Lam x e1) ∧ y ∉ freevars e1 ⇒
   Lam x e1 ≲ Lam y (perm_exp x y e1)
 Proof
   strip_tac >>
@@ -1182,9 +1151,9 @@ Inductive Howe:
   ∧
 [Howe2:]
   (∀R x e1 e1' e2 vars.
-     Howe R (x::vars) e1 e1' ∧
+     Howe R (x INSERT vars) e1 e1' ∧
      R vars (Lam x e1') e2 ∧
-     ~(MEM x vars) ⇒
+     ~(x IN vars) ⇒
      Howe R vars (Lam x e1) e2)
   ∧
 [Howe3:]
@@ -1222,8 +1191,7 @@ QED
 
 Definition term_rel_def:
   term_rel R ⇔
-    ∀ vars e1 e2.
-      R vars e1 e2 ⇒ ALL_DISTINCT vars ∧ e1 ∈ Exps vars ∧ e2 ∈ Exps vars
+    ∀vars e1 e2. R vars e1 e2 ⇒ e1 ∈ Exps vars ∧ e2 ∈ Exps vars
 End
 
 Theorem term_rel_Howe:
@@ -1233,15 +1201,12 @@ Proof
   Induct_on `Howe` >> rw[]
   >- metis_tac[]
   >- metis_tac[]
-  >- metis_tac[]
-  >- metis_tac[]
   >- (
     last_x_assum drule >>
     rw[Exps_def] >>
     fs[LIST_TO_SET_FILTER, SUBSET_DEF] >>
     metis_tac[]
     )
-  >- metis_tac[]
   >- metis_tac[]
   >- (
     last_x_assum drule >>
@@ -1254,7 +1219,6 @@ QED
 Theorem Howe_Tra: (* 5.5.1(ii) *)
   Tra R ∧ term_rel R ⇒
   ∀vars e1 e2 e3.
-    ALL_DISTINCT vars ∧
     e1 ∈ Exps vars ∧ e2 ∈ Exps vars ∧ e3 ∈ Exps vars ∧
     Howe R vars e1 e2 ∧ R vars e2 e3 ⇒ Howe R vars e1 e3
 Proof
@@ -1296,9 +1260,9 @@ QED
 Definition Sub_def: (* Sub = substitutive *)
   Sub R ⇔
     ∀vars x e1 e1' e2 e2'.
-      ALL_DISTINCT vars ∧ ~MEM x vars ∧
-      {e1; e1'} SUBSET Exps (x::vars) ∧ {e2; e2'} SUBSET Exps vars ⇒
-      R (x::vars) e1 e1' ∧ R vars e2 e2' ⇒
+      x ∉ vars ∧
+      {e1; e1'} SUBSET Exps (x INSERT vars) ∧ {e2; e2'} SUBSET Exps vars ⇒
+      R (x INSERT vars) e1 e1' ∧ R vars e2 e2' ⇒
       R vars (subst x e2 e1) (subst x e2' e1')
   (* TODO: we should use a capture avoiding subst here! *)
 End
@@ -1306,9 +1270,9 @@ End
 Definition Cus_def: (* closed under value-substitution *)
   Cus R ⇔
     ∀vars x e1 e1' e2.
-      ALL_DISTINCT vars ∧ ~MEM x vars ∧
-      {e1; e1'} SUBSET Exps (x::vars) ∧ e2 IN Exps vars ⇒
-      R (x::vars) e1 e1' ⇒
+      x ∉ vars ∧
+      {e1; e1'} SUBSET Exps (x INSERT vars) ∧ e2 IN Exps vars ⇒
+      R (x INSERT vars) e1 e1' ⇒
       R vars (subst x e2 e1) (subst x e2 e1')
   (* TODO: we should use a capture avoiding subst here! *)
 End
@@ -1374,21 +1338,19 @@ Proof
 QED
 
 Theorem KeyLemma: (* key lemma 5.5.4 *)
-  eval e1 = Closure x e ∧ Howe open_similarity [] e1 e2 ⇒
-  ∃e'. eval e2 = Closure x e' ∧ Howe open_similarity [x] e e'
+  eval e1 = Closure x e ∧ Howe open_similarity {} e1 e2 ⇒
+  ∃e'. eval e2 = Closure x e' ∧ Howe open_similarity {x} e e'
 Proof
   cheat
 QED
 
 Theorem Howe_vars:
   Howe open_similarity vars e1 e2 ⇒
-  set (freevars e1) SUBSET set vars ∧
-  set (freevars e2) SUBSET set vars ∧ ALL_DISTINCT vars
+  freevars e1 ⊆ vars ∧ freevars e2 ⊆ vars
 Proof
   qsuff_tac ‘∀R vars e1 e2.
      Howe R vars e1 e2 ⇒ R = open_similarity ⇒
-        set (freevars e1) ⊆ set vars ∧ set (freevars e2) ⊆ set vars ∧
-        ALL_DISTINCT vars’ THEN1 metis_tac []
+     freevars e1 ⊆ vars ∧ freevars e2 ⊆ vars’ THEN1 metis_tac []
   \\ ho_match_mp_tac Howe_ind \\ rw []
   \\ fs [open_similarity_def]
   \\ fs [SUBSET_DEF,MEM_FILTER]
@@ -1396,15 +1358,16 @@ Proof
 QED
 
 Theorem app_simulation_Howe_open_similarity:
-  app_simulation (UNCURRY (Howe open_similarity []))
+  app_simulation (UNCURRY (Howe open_similarity {}))
 Proof
   fs [app_simulation_def,unfold_rel_def]
   \\ cheat (* KeyLemma? *)
 QED
 
+(*
 Theorem subst_bind:
   ∀vars t h v e1.
-    ~MEM h vars ∧ LENGTH t = LENGTH vars ∧ EVERY closed t ∧ closed v ⇒
+    h ∉ vars ∧ LENGTH t = LENGTH vars ∧ EVERY closed t ∧ closed v ⇒
     subst h v (bind (ZIP (vars,t)) e1) =
     bind (ZIP (vars,t)) (subst h v e1)
 Proof
@@ -1416,17 +1379,48 @@ Proof
   \\ disch_then (drule o GSYM) \\ fs [] \\ rw []
   \\ match_mp_tac subst_subst \\ fs []
 QED
+*)
 
-Theorem IMP_open_similarity_CONS:
+Theorem IMP_open_similarity_INSERT:
   (∀e. e IN Exps vars ⇒ open_similarity vars (subst h e e1) (subst h e e2)) ∧
-  ~MEM h vars ∧ e1 IN Exps (h::vars) ∧ e2 IN Exps (h::vars) ∧ ALL_DISTINCT vars ⇒
-  open_similarity (h::vars) e1 e2
+  h ∉ vars ∧ e1 IN Exps (h INSERT vars) ∧ e2 IN Exps (h INSERT vars) ⇒
+  open_similarity (h INSERT vars) e1 e2
 Proof
+  cheat (*
   fs [open_similarity_def] \\ rw [] \\ fs [Exps_def]
   \\ Cases_on ‘exps’ \\ fs [] \\ fs []
   \\ fs [subst_bind,bind_def]
   \\ ‘set (freevars h') ⊆ set vars’ by fs [closed_def]
-  \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] *)
+QED
+
+Theorem open_similarity_inter:
+  open_similarity vars e1 e2 =
+  open_similarity (vars INTER freevars (App e1 e2)) e1 e2
+Proof
+  cheat
+QED
+
+Theorem Howe_inter:
+  ∀R vars e1 e2.
+    Howe R vars e1 e2 ⇒
+    ∀t. (∀vars e1 e2. R vars e1 e2 ⇒ R (vars INTER t e1 e2) e1 e2) ⇒
+        Howe R (vars INTER t e1 e2) e1 e2
+Proof
+  cheat
+QED
+
+Theorem bind_FEMPTY[simp]:
+  bind FEMPTY e1 = e1
+Proof
+  cheat
+QED
+
+Theorem bind_FDIFF:
+  freevars x ⊆ vars ⇒
+  bind f x = bind (FDIFF f (COMPL vars)) x
+Proof
+  cheat
 QED
 
 Theorem Howe_open_similarity: (* key property *)
@@ -1437,21 +1431,32 @@ Proof
   \\ reverse eq_tac \\ rw []
   THEN1 (metis_tac [Howe_Ref_Tra,Ref_open_similarity,Tra_open_similarity])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def]
-  \\ first_x_assum (qspec_then ‘[]’ mp_tac) \\ fs [] \\ rw []
+  \\ first_x_assum (qspec_then ‘{}’ mp_tac) \\ fs [] \\ rw []
   \\ assume_tac app_simulation_Howe_open_similarity
   \\ drule app_simulation_SUBSET_app_similarity
   \\ pop_assum kall_tac \\ pop_assum kall_tac
   \\ rw [SUBSET_DEF,IN_DEF,FORALL_PROD]
   \\ last_x_assum mp_tac
-  \\ EVERY (map qid_spec_tac [‘e2’,‘e1’,‘vars’])
-  \\ Induct \\ rw []
+  \\ once_rewrite_tac [open_similarity_inter]
+  \\ strip_tac \\ drule Howe_inter
+  \\ disch_then (qspec_then ‘λe1 e2. freevars (App e1 e2)’ mp_tac)
+  \\ fs [] \\ impl_tac THEN1 simp [Once open_similarity_inter]
+  \\ ‘FINITE (vars ∩ (freevars (App e1 e2)))’ by
+        (match_mp_tac FINITE_INTER \\ fs [])
+  \\ fs [] \\ rename [‘FINITE t’]
+  \\ qid_spec_tac ‘e2’
+  \\ qid_spec_tac ‘e1’
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ qid_spec_tac ‘t’
+  \\ Induct_on ‘FINITE’ \\ rw []
   THEN1
-   (fs [open_similarity_def,bind_def]
+   (fs [open_similarity_def,FDOM_EQ_EMPTY] \\ res_tac
     \\ imp_res_tac Howe_vars \\ fs [])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
   \\ pop_assum (first_assum o mp_then Any mp_tac)
   \\ rw [] \\ simp []
-  \\ match_mp_tac IMP_open_similarity_CONS
+  \\ match_mp_tac IMP_open_similarity_INSERT
   \\ imp_res_tac Howe_vars \\ fs [] \\ rw []
   \\ fs [Exps_def]
   \\ first_x_assum match_mp_tac
@@ -1490,21 +1495,10 @@ End
 val _ = set_fixity "≅" (Infixl 480);
 Overload "≅" = “exp_eq”;
 
-Definition nub_def:
-  nub [] = [] ∧
-  nub (x::xs) = if MEM x xs then nub xs else x :: nub xs
-End
-
-Theorem MEM_nub[simp]:
-  ∀xs x. MEM x (nub xs) = MEM x xs
+Theorem subst_all_FDIFF:
+  freevars x ⊆ vars ⇒ subst_all f x = subst_all (FDIFF f (COMPL vars)) x
 Proof
-  Induct \\ rw [nub_def] \\ metis_tac []
-QED
-
-Theorem ALL_DISTINCT_nub[simp]:
-  ∀xs. ALL_DISTINCT (nub xs)
-Proof
-  Induct \\ rw [nub_def]
+  cheat
 QED
 
 Theorem exp_eq_open_bisimilarity:
@@ -1512,11 +1506,20 @@ Theorem exp_eq_open_bisimilarity:
 Proof
   eq_tac \\ rw []
   THEN1
-   (fs [open_bisimilarity_def,SUBSET_DEF,ALL_DISTINCT_nub]
+   (fs [open_bisimilarity_def,SUBSET_DEF]
     \\ rw [] \\ fs [exp_eq_def]
-    \\ cheat)
+    \\ qexists_tac ‘freevars (App x y)’ \\ fs []
+    \\ rw [] \\ first_x_assum match_mp_tac
+    \\ first_x_assum (assume_tac o GSYM) \\ fs [])
   \\ fs [exp_eq_def,open_bisimilarity_def] \\ rw []
-  \\ cheat
+  \\ fs [bind_all_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 cheat
+  \\ last_x_assum assume_tac \\ drule subst_all_FDIFF
+  \\ disch_then (once_rewrite_tac o single)
+  \\ last_x_assum assume_tac \\ drule subst_all_FDIFF
+  \\ disch_then (once_rewrite_tac o single)
+  \\ cheat (* hrmmm *)
 QED
 
 Theorem Congruence_exp_eq:
@@ -1559,7 +1562,7 @@ Proof
   \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com2_def]
   \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ first_x_assum match_mp_tac \\ fs []
-  \\ qexists_tac ‘nub (freevars (App (Lam x e) (Lam x e')))’
+  \\ qexists_tac ‘freevars (App (Lam x e) (Lam x e'))’
   \\ fs [Exps_def,SUBSET_DEF] \\ fs [MEM_FILTER]
 QED
 
@@ -1570,7 +1573,7 @@ Proof
   \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com3_def]
   \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ first_x_assum match_mp_tac \\ fs []
-  \\ qexists_tac ‘nub (freevars (App f (App f' (App e e'))))’
+  \\ qexists_tac ‘freevars (App f (App f' (App e e')))’
   \\ fs [Exps_def,SUBSET_DEF]
 QED
 
