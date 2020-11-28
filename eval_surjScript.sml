@@ -114,13 +114,13 @@ Proof
 QED
 
 Theorem exp_size_MEM:
-  MEM s x ⇒ exp_size s ≤ exp7_size x
+  MEM s x ⇒ exp_size s ≤ exp6_size x
 Proof
   Induct_on ‘x’ >> rw[exp_size_def] >> res_tac >> DECIDE_TAC
 QED
 
 Theorem exp_size_MEM':
-  MEM s x ⇒ exp_size(SND(SND s)) ≤ exp3_size x
+  MEM s x ⇒ exp_size(SND s) ≤ exp4_size x
 Proof
   Induct_on ‘x’ >> simp[] >>
   PairCases >> rw[exp_size_def] >> rw[] >>
@@ -133,6 +133,17 @@ Proof
   Induct_on ‘x’ >> simp[] >>
   PairCases >> rw[exp_size_def] >> rw[] >>
   res_tac >> DECIDE_TAC
+QED
+
+Theorem COUNTABLE_PRODUCT_2:
+  COUNTABLE s ∧ COUNTABLE t ⇒
+  COUNTABLE {f x y | s x ∧ t y }
+Proof
+  strip_tac >>
+  qsuff_tac ‘COUNTABLE {f x y | s x ∧ K t x y}’
+  >- rw[ELIM_UNCURRY] >>
+  ho_match_mp_tac (COUNTABLE_PRODUCT_DEPENDENT |> SIMP_RULE std_ss [IN_DEF]) >>
+  rw[] >> CONV_TAC (RAND_CONV ETA_CONV) >> fs []
 QED
 
 Theorem COUNTABLE_PRODUCT_3:
@@ -173,10 +184,10 @@ Proof
   rename1 ‘SUC n’ >>
   ‘{s:exp | exp_size s ≤ SUC n} ⊆
    IMAGE Var {vname | list_size char_size vname ≤ n} ∪
-   IMAGE (UNCURRY Prim) {(op,arg) | op_size op ≤ n ∧ exp7_size arg ≤ n} ∪
+   IMAGE (UNCURRY Prim) {(op,arg) | op_size op ≤ n ∧ exp6_size arg ≤ n} ∪
    IMAGE (UNCURRY App) {(rator,rand) | exp_size rator ≤ n ∧ exp_size rand ≤ n} ∪
    IMAGE (UNCURRY Lam) {(vname,exp) | list_size char_size vname ≤ n ∧ exp_size exp ≤ n} ∪
-   IMAGE (UNCURRY Letrec) {(funs,exp) | exp3_size funs ≤ n ∧ exp_size exp ≤ n} ∪
+   IMAGE (UNCURRY Letrec) {(funs,exp) | exp4_size funs ≤ n ∧ exp_size exp ≤ n} ∪
    IMAGE (λ(x,y,z). exp$Case x y z) {(exp,pat,clauses) | exp_size exp ≤ n ∧ list_size char_size pat ≤ n ∧ exp1_size clauses ≤ n}’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
        Cases >> rw[IN_IMAGE,PULL_EXISTS,exp_size_def]) >>
@@ -221,12 +232,13 @@ Proof
       reverse conj_tac
       >- (‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
           gvs[]) >>
-      ‘COUNTABLE {l | EVERY (λ(s:string,s':string,exp). exp_size exp ≤ n) l}’
+      ‘COUNTABLE {l | EVERY (λ(s:string,exp). exp_size exp ≤ n) l}’
         by(match_mp_tac list_countable_res >>
-           ‘{x | (λ(s:string,s':string,exp). exp_size exp ≤ n) x} = {(s,s',exp) | s = s ∧ (s' = s' ∧ exp_size exp ≤ n)}’
+           ‘{x | (λ(s:string,exp). exp_size exp ≤ n) x} =
+            {(s,exp) | s = s ∧ (s' = s' ∧ exp_size exp ≤ n)}’
              by(rw[ELIM_UNCURRY]) >>
            pop_assum SUBST_ALL_TAC >>
-           ho_match_mp_tac COUNTABLE_PRODUCT_3 >>
+           ho_match_mp_tac COUNTABLE_PRODUCT_2 >>
            rw[GSYM UNIV_DEF,string_countable] >>
            ‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
            gvs[]) >>

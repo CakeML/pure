@@ -87,7 +87,7 @@ Definition bind_def:
 End
 
 Definition subst_funs_def:
-  subst_funs f = bind (MAP (λ(g,n,x). (g,Lam n (Letrec f x))) f)
+  subst_funs f = bind (MAP (λ(g,x). (g,Letrec f x)) f)
 End
 
 Definition expandLets_def:
@@ -1437,19 +1437,8 @@ QED
 *)
 
 Definition bottom_def:
-  bottom =
-    Letrec [("bot","n",App (Var "bot") (Lam "x" (Var "x")))]
-      (App (Var "bot") (Lam "x" (Var "x")))
+  bottom = Letrec [("bot",Var "bot")] (Var "bot")
 End
-
-Triviality subst_id_fun:
-  (subst n v (Lam "x" (Var "x"))) = (Lam "x" (Var "x"))
-Proof
-  Cases_on ‘n’ \\ Cases_on ‘v’
-  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
-  \\ IF_CASES_TAC
-  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
-QED
 
 Theorem eval_bottom:
   eval bottom = Diverge
@@ -1465,23 +1454,21 @@ Proof
   \\ first_assum (qspec_then ‘SUC n'’ assume_tac) \\ fs[]
   \\ simp[eval_to_def]
   \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
-  \\ simp[eval_to_def]
-  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
 QED
 
 (* example producing infinite list of λx.x*)
 
 Definition zeros_def:
   zeros =
-    Letrec [("z","n",Cons "cons" [Var "n"; App (Var "z") (Var "n")])]
-      (App (Var "z") (Lam "x" (Var "x")))
+    Letrec [("z",Cons "cons" [Lam "x" (Var "x"); Var "z"])]
+      (Var "z")
 End
 
 Theorem eval_zeros:
   eval zeros = Constructor "cons" [Closure "x" (Var "x"); eval zeros]
 Proof
   fs [Once zeros_def]
-  \\ ntac 6 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+  \\ ntac 5 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
                    subst_funs_def,closed_def])
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rewrite_tac [zeros_def]

@@ -7,7 +7,6 @@ val _ = new_theory "exp";
 (* AST for a small functional language *)
 
 Type vname = “:string”  (* variable name *)
-Type fname = “:string”  (* function name *)
 
 Datatype:
   op = If                 (* if-expression                            *)
@@ -19,18 +18,18 @@ Datatype:
 End
 
 Datatype:
-  exp = Var vname                     (* variable                   *)
-      | Prim op (exp list)            (* primitive operations       *)
-      | App exp exp                   (* function application       *)
-      | Lam vname exp                 (* lambda                     *)
-      | Letrec ((fname # vname # exp) list) exp   (* mut. rec. funs *)
-      | Case exp vname ((vname # vname list # exp) list) (*case pat.*)
+  exp = Var vname                         (* variable                 *)
+      | Prim op (exp list)                (* primitive operations     *)
+      | App exp exp                       (* function application     *)
+      | Lam vname exp                     (* lambda                   *)
+      | Letrec ((vname # exp) list) exp   (* mutually recursive exps  *)
+      | Case exp vname ((vname # vname list # exp) list) (* case pat. *)
 End
 
 (* some abbreviations *)
 Overload Let  = “λs x y. App (Lam s y) x”      (* let-expression    *)
 Overload If   = “λx y z. Prim If [x; y; z]”    (* If   at exp level *)
-Overload Lit  = “λa. Prim (Lit a) []”           (* Lit at exp level *)
+Overload Lit  = “λa. Prim (Lit a) []”          (* Lit  at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
 Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
@@ -43,8 +42,7 @@ Definition freevars_def[simp]:
   freevars (Lam n e)   = (FILTER ($≠ n) (freevars e))      ∧
   freevars (Letrec lcs e) =
     FILTER (\n. ¬ MEM n (MAP FST lcs))
-           (freevars e ⧺
-            FLAT (MAP (λ(fn,vn,e). FILTER (λ n.n ≠ vn) (freevars e)) lcs))  ∧
+           (freevars e ⧺ FLAT (MAP (λ(fn,e). freevars e) lcs))  ∧
   freevars (Case exp nm css) =
     (freevars exp ⧺ FLAT (MAP (λ(_,vs,cs).FILTER (λ n. ¬MEM n (nm::vs)) (freevars cs))
                               css))
@@ -65,8 +63,8 @@ Definition closed_def:
 End
 
 Theorem exp_size_lemma:
-  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp7_size xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp3_size xs) ∧
+  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp6_size xs) ∧
+  (∀xs x a.   MEM   (x,a) xs ⇒ exp_size a < exp4_size xs) ∧
   (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp1_size xs)
 Proof
   conj_tac \\ TRY conj_tac \\ Induct \\ rw []
@@ -80,7 +78,7 @@ Definition subst_def:
   subst name v (Lam s x) = Lam s (if s = name then x else subst name v x) ∧
   subst name v (Letrec f x) =
     (if MEM name (MAP FST f) then Letrec f x else
-      Letrec (MAP (λ(g,m,z). (g,m, if name = m then z else subst name v z )) f)
+      Letrec (MAP (λ(g,z). (g, subst name v z )) f)
              (subst name v x)) ∧
   subst name v (Case e vn css) =
     (Case (subst name v e)
@@ -104,7 +102,7 @@ Definition subst_all_def:
   subst_all m (Letrec f x) =
     (let m1 = FDIFF m (set (MAP FST f)) in
        Letrec
-         (MAP (λ(f,x,e). (f,x,subst_all (m1 \\ x) e)) f)
+         (MAP (λ(f,e). (f,subst_all m1 e)) f)
          (subst_all m1 x)) ∧
   subst_all m (Case e vn rows) =
     let m1 = m \\ vn in

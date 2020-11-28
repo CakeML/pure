@@ -12,10 +12,10 @@ Datatype:
        | AppL ctxt exp
        | AppR exp ctxt
        | Lam vname ctxt
-       | LetrecL ((fname # vname # exp) list)
-                  (fname # vname # ctxt)
-                 ((fname # vname # exp) list) exp
-       | LetrecR ((fname # vname # exp) list) ctxt
+       | LetrecL ((vname # exp) list)
+                  (vname # ctxt)
+                 ((vname # exp) list) exp
+       | LetrecR ((vname # exp) list) ctxt
        | CaseL ctxt vname ((vname # vname list # exp) list)
        | CaseR exp vname ((vname # vname list # exp) list)
                           (vname # vname list # ctxt)
@@ -28,7 +28,7 @@ Definition plug_def:
   plug (AppL h y) n = App (plug h n) y ∧
   plug (AppR x h) n = App x (plug h n) ∧
   plug (Lam v h) n = Lam v (plug h n) ∧
-  plug (LetrecL xs1 (f,v,h) xs2 x) n = Letrec (xs1 ++ [(f,v,plug h n)] ++ xs2) x ∧
+  plug (LetrecL xs1 (f,h) xs2 x) n = Letrec (xs1 ++ [(f,plug h n)] ++ xs2) x ∧
   plug (LetrecR xs h) n = Letrec xs (plug h n) ∧
   plug (CaseL h w rows) n = Case (plug h n) w rows ∧
   plug (CaseR x w rows1 (v,vs,h) rows2) n =

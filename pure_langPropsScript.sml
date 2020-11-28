@@ -58,21 +58,19 @@ Proof
   >- metis_tac[]
   >- (goal_assum drule >> gvs[])
   >- metis_tac[]
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
-      disj2_tac >> goal_assum drule >>
+  >- (disj2_tac >> goal_assum drule >>
       rw[] >>
       qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       rw[])
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+  >- (qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
+      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       rw[])
   >- (disj2_tac >> goal_assum drule >>
       rw[] >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       simp[])
   >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
@@ -109,21 +107,19 @@ Proof
   >- metis_tac[]
   >- (goal_assum drule >> gvs[])
   >- metis_tac[]
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
-      disj2_tac >> goal_assum drule >>
+  >- (disj2_tac >> goal_assum drule >>
       rw[] >>
       qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       rw[])
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+  >- (qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
+      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       rw[])
   >- (disj2_tac >> goal_assum drule >>
       rw[] >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       simp[])
   >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
@@ -212,9 +208,8 @@ Theorem bind_alt_def:
     (∀f x. bind sub (Letrec f x) =
       let sub' = FILTER (λn. ALOOKUP f (FST n) = NONE) sub in
       Letrec
-        (MAP (λ(g,m,z).
-          let sub'' = FILTER (λn. FST n ≠ m) sub' in
-          (g,m, bind sub'' z)) f)
+        (MAP (λ(g,z).
+          (g,bind sub' z)) f)
       (bind sub' x)) ∧
     (∀e vn css. bind sub (Case e vn css) =
       Case (bind sub e) vn
@@ -253,7 +248,7 @@ Proof
     gvs[] >> unabbrev_all_tac >>
     IF_CASES_TAC >> gvs[ALOOKUP_NONE, bind_def] >>
     rw[MAP_EQ_f] >>
-    PairCases_on `x` >> gvs[] >>
+    PairCases_on `x` >> gvs[bind_def] >>
     IF_CASES_TAC >> gvs[bind_def]
     )
   >- (

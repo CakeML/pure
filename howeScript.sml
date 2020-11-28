@@ -857,7 +857,7 @@ Definition perm_exp_def:
   ∧ (perm_exp v1 v2 (Lam v e) = Lam (perm1 v1 v2 v) (perm_exp v1 v2 e))
   ∧ (perm_exp v1 v2 (Letrec l e) =
      Letrec
-        (MAP (λ(x,y,z). (perm1 v1 v2 x, perm1 v1 v2 y, perm_exp v1 v2 z)) l)
+        (MAP (λ(x,z). (perm1 v1 v2 x, perm_exp v1 v2 z)) l)
         (perm_exp v1 v2 e)
      )
   ∧ (perm_exp v1 v2 (Case e s l) =

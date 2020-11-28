@@ -16,7 +16,7 @@ Definition cons_def:
 End
 
 Definition LAMREC_def:
-  LAMREC f v b = Lam v (Letrec [ (f,v,b) ] b)
+  LAMREC f v b = Lam v (Letrec [ (f,Lam v b) ] b)
 End
 
 (* map f [] = []
@@ -102,12 +102,7 @@ Proof
     \\ fs[MAP_MAP_o,combinTheory.o_DEF,pairTheory.UNCURRY]
     \\ AP_TERM_TAC \\ fs[listTheory.MAP_EQ_f,pairTheory.FORALL_PROD]
     \\ fs[rich_listTheory.FILTER_FILTER,AC CONJ_ASSOC CONJ_COMM]
-    \\ rpt strip_tac \\ IF_CASES_TAC
-    THEN1 (
-      fs[] \\ fs[rich_listTheory.FILTER_FILTER,AC CONJ_ASSOC CONJ_COMM]
-      \\ AP_THM_TAC \\ AP_TERM_TAC
-      \\ fs[FUN_EQ_THM] \\ metis_tac [] )
-    \\ res_tac \\ fs[]
+    \\ rpt strip_tac \\ res_tac \\ fs[]
     \\ fs[rich_listTheory.FILTER_FILTER,AC CONJ_ASSOC CONJ_COMM]
   )
   THEN1(
@@ -184,8 +179,6 @@ Proof
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs[]
     \\ rw[] \\ fs[]
     \\ fs[MAP_EQ_f] \\ rpt strip_tac
-    \\ IF_CASES_TAC \\ fs[]
-    \\ IF_CASES_TAC \\ fs[]
     \\ Cases_on ‘x'’ \\ Cases_on ‘r’ \\ fs[] \\ res_tac \\ fs[]
   )
   THEN1 (
@@ -198,13 +191,12 @@ Proof
     \\ Cases_on ‘x'’ \\ Cases_on ‘r’ \\ fs[] \\ res_tac \\ fs[])
 QED
 
+(*
 (*used to control recursive steps during the proofs*)
 Theorem eval_LAMREC3:
   v≠f (*∧ closed (LAMREC f v b)*) ⇒
   eval (App (LAMREC f v b) y) =
-      if closed (Lam v (Letrec [(f,v,b)] b))
-       then eval (App (Lam v ( subst f (LAMREC f v b) b) ) y)
-       else Error
+       eval (App (Lam v ( subst f (LAMREC f v b) b) ) y)
 Proof
   rpt strip_tac
   \\ fs[Once LAMREC_def]
@@ -214,7 +206,7 @@ Proof
   \\ fs[subst_def]
   \\ fs[eval_thm]
   \\ fs[subst_funs_def]
-  \\ fs[bind_def]
+  \\ fs[bind_def,closed_def]
   \\ fs[eval_thm]
   \\ fs[subst_def]
   \\ fs[eval_Let]
@@ -239,6 +231,7 @@ Proof
   \\ rw[] \\ fs[FILTER_NEQ_NIL]
   \\ res_tac \\ fs[]
 QED
+*)
 
 Theorem subst_closed_iff:
   ∀ n e. closed x ∧ closed y ⇒
