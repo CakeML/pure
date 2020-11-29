@@ -1496,13 +1496,14 @@ val _ = set_fixity "≅" (Infixl 480);
 Overload "≅" = “exp_eq”;
 
 Theorem subst_all_FDIFF:
-  freevars x ⊆ vars ⇒ subst_all f x = subst_all (FDIFF f (COMPL vars)) x
+  subst_all f x = subst_all (DRESTRICT f (freevars x)) x
 Proof
   cheat
 QED
 
 Theorem exp_eq_open_bisimilarity:
-  exp_eq x y ⇔ ∃vars. open_bisimilarity vars x y
+  exp_eq x y ⇔ ∃vars. open_bisimilarity vars x y ∧
+                      FINITE vars ∧ freevars x ∪ freevars y ⊆ vars
 Proof
   eq_tac \\ rw []
   THEN1
@@ -1514,12 +1515,20 @@ Proof
   \\ fs [exp_eq_def,open_bisimilarity_def] \\ rw []
   \\ fs [bind_all_def]
   \\ reverse IF_CASES_TAC \\ fs []
-  THEN1 cheat
-  \\ last_x_assum assume_tac \\ drule subst_all_FDIFF
-  \\ disch_then (once_rewrite_tac o single)
-  \\ last_x_assum assume_tac \\ drule subst_all_FDIFF
-  \\ disch_then (once_rewrite_tac o single)
-  \\ cheat (* hrmmm *)
+  THEN1
+   (simp [Once app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
+  \\ first_x_assum (qspec_then ‘FUN_FMAP
+        (λn. if n IN FDOM f then f ' n else Fail) vars’ mp_tac)
+  \\ once_rewrite_tac [subst_all_FDIFF]
+  \\ fs [FLOOKUP_FUN_FMAP]
+  \\ reverse IF_CASES_TAC
+  THEN1
+   (fs [] \\ gvs [FLOOKUP_DEF] \\ Cases_on ‘n IN FDOM f’ \\ gvs []
+    \\ res_tac \\ fs [closed_def]) \\ fs []
+  \\ match_mp_tac (METIS_PROVE []
+       “x1 = y1 ∧ x2 = y2 ⇒ f x1 x ≃ f x2 y ⇒ f y1 x ≃ f y2 y”)
+  \\ fs [fmap_EXT,EXTENSION,DRESTRICT_DEF,FUN_FMAP_DEF,SUBSET_DEF]
+  \\ metis_tac []
 QED
 
 Theorem Congruence_exp_eq:
@@ -1532,10 +1541,10 @@ Proof
   THEN1 cheat
   \\ fs [Compatible_def] \\ rw []
   \\ fs [Com1_def,Com2_def,Com3_def] \\ rw []
-  THEN1 cheat
   \\ fs [exp_eq_open_bisimilarity]
-  \\ fs [AND_IMP_INTRO]
-  \\ fs [Exps_def,SUBSET_DEF,MEM_FILTER]
+  THEN1 (qexists_tac ‘{x}’ \\ fs [])
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ cheat
 QED
 
@@ -1551,7 +1560,7 @@ Proof
   \\ fs [Sub_def] \\ rw []
   \\ eq_tac \\ rw []
   \\ fs [exp_eq_open_bisimilarity]
-  \\ fs [bind_def]
+  \\ fs [bind_def,PULL_EXISTS]
   \\ cheat
 QED
 
