@@ -988,13 +988,13 @@ Proof
   rw[LIST_REL_MAP2] >>
   match_mp_tac EVERY2_refl >> rw[]
 QED
-        
+
 Definition perm_v_prefix_def:
   perm_v_prefix x y v =
   case v of
   | Closure' z e => Closure' (perm1 x y z) (perm_exp x y e)
   | v => v
-End        
+End
 
 Theorem gen_v_eqvt:
   perm_v v1 v2 (gen_v f) = gen_v(λx. (perm_v_prefix v1 v2 ## I) (f x))
