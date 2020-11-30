@@ -972,10 +972,14 @@ QED
 Theorem perm_v_clauses:
   perm_v x y (Constructor s xs) = Constructor s (MAP (perm_v x y) xs) ∧
   perm_v x y Diverge = Diverge ∧
-  perm_v x y (Atom b) = Atom b
-  (* TODO: add more *)
+  perm_v x y (Atom b) = Atom b ∧
+  perm_v x y Error = Error ∧
+  perm_v x y (Closure z e) = Closure (perm1 x y z) (perm_exp x y e) ∧
+  perm_v x y (Constructor s xs) = Constructor s (MAP (perm_v x y) xs)
 Proof
-  cheat
+  rpt conj_tac >> rw[Once perm_v_thm] >>
+  PURE_ONCE_REWRITE_TAC[perm_v_thm] >>
+  simp[]
 QED
 
 Theorem perm_v_cancel[simp]:
@@ -1044,10 +1048,72 @@ Proof
       simp[Once perm_v_prefix_def])
 QED
 
+(* Slow (~10s) *)
+Theorem perm_exp_inj:
+  ∀v1 v2 e e'. (perm_exp v1 v2 e = perm_exp v1 v2 e') ⇔ e = e'
+Proof
+  simp[EQ_IMP_THM] >>
+  ho_match_mp_tac perm_exp_ind >>
+  rpt conj_tac >>
+  simp[GSYM RIGHT_FORALL_IMP_THM] >>
+  CONV_TAC(RESORT_FORALL_CONV rev) >>
+  Cases >> rw[perm_exp_def]
+  >- (gvs[LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS,EL_MAP])
+  >- (gvs[LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS,EL_MAP] >>
+      rw[] >>
+      qpat_x_assum ‘perm_exp _ _ _ = _’ (assume_tac o GSYM) >>
+      ‘e = e'’ by metis_tac[] >>
+      rpt(first_x_assum drule) >>
+      rw[] >>
+      rpt(pairarg_tac >> gvs[]))
+  >- (gvs[LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS,EL_MAP] >>
+      rw[] >>
+      qpat_x_assum ‘perm_exp _ _ _ = _’ (assume_tac o GSYM) >>
+      ‘e = e'’ by metis_tac[] >>
+      rpt(first_x_assum drule) >>
+      rw[] >>
+      rpt(pairarg_tac >> gvs[]) >>
+      qpat_x_assum ‘MAP _ _ = MAP _ _’ mp_tac >>
+      dep_rewrite.DEP_ONCE_REWRITE_TAC[INJ_MAP_EQ_IFF] >>
+      rw[INJ_DEF])
+QED
+
 Theorem perm_v_inj:
  (perm_v v1 v2 v = perm_v v1 v2 v') ⇔ v = v'
 Proof
-  cheat
+  ‘∀v v'.
+     perm_v v1 v2 v = perm_v v1 v2 v' ⇒
+     v = v'’
+    suffices_by metis_tac[] >>
+  ho_match_mp_tac v_coinduct >>
+  Cases >> Cases >> rw[perm_v_clauses,perm_exp_inj] >>
+  pop_assum mp_tac >>
+  qid_spec_tac ‘t'’ >>
+  Induct_on ‘t’ >- rw[] >>
+  strip_tac >> Cases >> rw[]
+QED
+
+Theorem subst_eqvt:
+  ∀v1 v2 s e1 e.
+    perm_exp v1 v2 (subst s e1 e) =
+    subst (perm1 v1 v2 s) (perm_exp v1 v2 e1) (perm_exp v1 v2 e)
+Proof
+  ntac 2 strip_tac >>
+  ho_match_mp_tac subst_ind >>
+  rw[subst_def,perm_exp_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f] >>
+  rpt(pairarg_tac >> gvs[]) >>
+  gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND]
+QED
+
+Theorem bind_eqvt:
+  ∀v1 v2 xs e.
+    perm_exp v1 v2 (bind xs e) =
+    bind (MAP (perm1 v1 v2 ## perm_exp v1 v2) xs) (perm_exp v1 v2 e)
+Proof
+  ntac 2 strip_tac >>
+  ho_match_mp_tac bind_ind >>
+  rw[bind_def,subst_eqvt,closed_perm] >>
+  simp[perm_exp_def]
 QED
 
 Theorem eval_to_eqvt:
@@ -1084,7 +1150,25 @@ Proof
                 by metis_tac[perm_v_inj] >>
               pop_assum(gvs o single) >>
               gvs[perm_v_thm]) >>
-          cheat)
+          IF_CASES_TAC
+          >- (spose_not_then kall_tac >> gvs[] >> metis_tac[perm_v_clauses,perm_v_cancel]) >>
+          qmatch_goalsub_abbrev_tac ‘OPTION_BIND a1’ >>
+          qpat_abbrev_tac ‘a2 = getAtoms _’ >>
+          ‘a1 = a2’
+            by(unabbrev_all_tac >>
+               ntac 2 (pop_assum kall_tac) >>
+               Induct_on ‘xs’ >>
+               rw[getAtoms_def] >>
+               gvs[DISJ_IMP_THM,FORALL_AND_THM] >>
+               Cases_on ‘eval_to k h’ >> gvs[getAtom_def,perm_v_clauses] >>
+               TRY(qpat_x_assum ‘Closure _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
+               TRY(qpat_x_assum ‘Constructor _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
+               TRY(qpat_x_assum ‘Atom _ = _’ (assume_tac o GSYM) >> gvs[]) >>
+               gvs[getAtom_def]) >>
+          pop_assum(SUBST_ALL_TAC o GSYM) >>
+          ntac 2 (pop_assum kall_tac) >>
+          Cases_on ‘OPTION_BIND a1 (config.parAtomOp a)’ >>
+          gvs[])
       >- (rw[is_eq_def]
           >- (‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
                 by metis_tac[perm_v_inj] >>
@@ -1108,8 +1192,15 @@ Proof
         by metis_tac[perm_v_inj] >>
       pop_assum(gvs o single) >>
       gvs[perm_v_clauses])
-  >- (cheat)
-  >- (cheat)
+  >- (Cases_on ‘eval_to k e’ >> gvs[dest_Closure_def,perm_v_clauses] >>
+      TRY(qpat_x_assum ‘Closure _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
+      TRY(qpat_x_assum ‘Constructor _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
+      TRY(qpat_x_assum ‘Atom _ = _’ (assume_tac o GSYM) >> gvs[]) >>
+      rw[] >>
+      simp[GSYM perm_v_thm,bind_eqvt])
+  >- (simp[GSYM perm_v_thm,subst_funs_def,bind_eqvt] >>
+      rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
+      rw[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,MAP_EQ_f,perm_exp_def])
   >- (cheat)
 QED
 
