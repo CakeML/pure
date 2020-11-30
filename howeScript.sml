@@ -969,6 +969,15 @@ Proof
   >- (rw[perm_v_def] >> rw[Once gen_v,v_lookup_Error])
 QED
 
+Theorem perm_v_clauses:
+  perm_v x y (Constructor s xs) = Constructor s (MAP (perm_v x y) xs) ∧
+  perm_v x y Diverge = Diverge ∧
+  perm_v x y (Atom b) = Atom b
+  (* TODO: add more *)
+Proof
+  cheat
+QED
+
 Theorem perm_v_cancel[simp]:
   perm_v x y (perm_v x y v) = v
 Proof
@@ -979,18 +988,182 @@ Proof
   rw[LIST_REL_MAP2] >>
   match_mp_tac EVERY2_refl >> rw[]
 QED
+        
+Definition perm_v_prefix_def:
+  perm_v_prefix x y v =
+  case v of
+  | Closure' z e => Closure' (perm1 x y z) (perm_exp x y e)
+  | v => v
+End        
+
+Theorem gen_v_eqvt:
+  perm_v v1 v2 (gen_v f) = gen_v(λx. (perm_v_prefix v1 v2 ## I) (f x))
+Proof
+  ‘∀v v' v1 v2 f. v = perm_v v1 v2 (gen_v f) ∧
+                  v' = gen_v(λx. (perm_v_prefix v1 v2 ## I) (f x)) (*∨ v = v'*) ⇒ v = v'’
+    suffices_by metis_tac[] >>
+  Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_EXISTS] >>
+  ho_match_mp_tac v_coinduct >>
+  reverse(rw[]) >> (*(Cases_on ‘v’ >> rw[] >> match_mp_tac EVERY2_refl >> simp[]) >>*)
+  simp[Once gen_v] >> rpt(TOP_CASE_TAC)
+  >- (rename1 ‘Atom’ >>
+      disj1_tac >> simp[perm_v_def,v_lookup_Atom] >>
+      simp[Once gen_v] >>
+      simp[Once gen_v] >>
+      simp[perm_v_prefix_def])
+  >- (rename1 ‘Constructor’ >>
+      disj2_tac >> disj1_tac >>
+      simp[Once gen_v] >>
+      simp[Once perm_v_thm] >>
+      simp[Once gen_v,v_lookup_Constructor] >>
+      simp[Once perm_v_prefix_def] >>
+      rw[MAP_GENLIST,LIST_REL_GENLIST] >>
+      qexists_tac ‘v1’ >>
+      qexists_tac ‘v2’ >>
+      qexists_tac ‘f o CONS n’ >>
+      simp[combinTheory.o_DEF])
+  >- (rename1 ‘Closure’ >>
+      ntac 2 disj2_tac >> disj1_tac >>
+      simp[Once gen_v] >>
+      simp[Once perm_v_thm] >>
+      simp[Once gen_v,v_lookup_Constructor] >>
+      simp[Once perm_v_prefix_def])
+  >- (rename1 ‘Diverge’ >>
+      ntac 3 disj2_tac >> disj1_tac >>
+      PURE_ONCE_REWRITE_TAC[gen_v] >>
+      simp[] >>
+      PURE_ONCE_REWRITE_TAC[perm_v_thm] >>
+      simp[] >>
+      PURE_ONCE_REWRITE_TAC[perm_v_prefix_def] >>
+      simp[])
+  >- (rename1 ‘Error’ >>
+      ntac 4 disj2_tac >>
+      simp[Once gen_v] >>
+      simp[Once perm_v_thm] >>
+      simp[Once gen_v,v_lookup_Constructor] >>
+      simp[Once perm_v_prefix_def])
+QED
+
+Theorem perm_v_inj:
+ (perm_v v1 v2 v = perm_v v1 v2 v') ⇔ v = v'
+Proof
+  cheat
+QED
+
+Theorem eval_to_eqvt:
+  ∀v1 v2 k e. perm_v v1 v2 (eval_to k e) =
+              eval_to k (perm_exp v1 v2 e)
+Proof
+  ntac 2 strip_tac >>
+  ho_match_mp_tac eval_to_ind >>
+  rw[] >>
+  rw[perm_v_thm,eval_to_def,perm_exp_def]
+  >- (‘eval_op op (MAP (λa. eval_to k a) xs) = eval_op op (MAP (λa. eval_to k a) xs)’ by metis_tac[] >>
+      dxrule eval_op_cases >> rw[] >>
+      gvs[eval_op_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f,MAP_EQ_CONS,MEM_MAP,PULL_EXISTS,DISJ_IMP_THM,
+          FORALL_AND_THM]
+      >- (‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
+            by metis_tac[perm_v_inj] >>
+          simp[perm_v_thm] >>
+          pop_assum kall_tac >>
+          rw[] >>
+          TOP_CASE_TAC >> gvs[perm_v_thm])
+      >- (rw[el_def] >> gvs[perm_v_thm] >>
+          Cases_on ‘eval_to k a’ >> gvs[]
+          >- (gvs[AllCaseEqs()] >> metis_tac[])
+          >- cheat
+          >- (gvs[AllCaseEqs()] >> metis_tac[]))
+      >- (IF_CASES_TAC
+          >- (simp[] >> gvs[] >>
+              IF_CASES_TAC >> rw[] >>
+              gvs[] >>
+              rename1 ‘eval_to k e’ >>
+              first_x_assum(qspec_then ‘e’ mp_tac) >>
+              rw[] >>
+              ‘∀x. eval_to k e = x ⇔ (perm_v v1 v2 (eval_to k e) = perm_v v1 v2 x)’
+                by metis_tac[perm_v_inj] >>
+              pop_assum(gvs o single) >>
+              gvs[perm_v_thm]) >>
+          cheat)
+      >- (rw[is_eq_def]
+          >- (‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
+                by metis_tac[perm_v_inj] >>
+              pop_assum(gvs o single) >>
+              gvs[perm_v_thm])
+          >- (TOP_CASE_TAC >> fs[MAP_MAP_o,combinTheory.o_DEF] >>
+              gvs[AllCaseEqs()] >>
+              ‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
+                by metis_tac[perm_v_inj] >>
+              pop_assum(gvs o single) >>
+              gvs[perm_v_thm])
+          >- (TOP_CASE_TAC >> fs[MAP_MAP_o,combinTheory.o_DEF] >>
+              gvs[AllCaseEqs()] >>
+              ‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
+                by metis_tac[perm_v_inj] >>
+              pop_assum(gvs o single) >>
+              gvs[perm_v_clauses] >> gvs[perm_v_thm] >> metis_tac[LENGTH_MAP])))
+  >- (gvs[perm_v_clauses])
+  >- (gvs[perm_v_clauses] >>
+      ‘∀x. eval_to k e = x ⇔ (perm_v v1 v2 (eval_to k e) = perm_v v1 v2 x)’
+        by metis_tac[perm_v_inj] >>
+      pop_assum(gvs o single) >>
+      gvs[perm_v_clauses])
+  >- (cheat)
+  >- (cheat)
+  >- (cheat)
+QED
+
+Theorem v_lookup_eqvt:
+  ∀v1 v2 path v. (perm_v_prefix v1 v2 ## I) (v_lookup path v) =
+                 v_lookup path (perm_v v1 v2 v)
+Proof
+  ntac 2 strip_tac >>
+  Induct >>
+  rw[v_lookup] >> TOP_CASE_TAC >> rw[perm_v_prefix_def,perm_v_thm] >>
+  simp[oEL_THM] >> rw[EL_MAP,perm_v_prefix_def]
+QED
 
 Theorem eval_eqvt:
   perm_v v1 v2 (eval e) = eval (perm_exp v1 v2 e)
 Proof
-  (* TODO: probably easiest to prove with a lemma of the form:
-             (∀path. reachable path v1 ⇒ v_lookup path v1 = v_lookup path v2) ⇒ v1 = v2
-           and a lemma along the lines of:
-             reachable path (gen_v f) ⇒ v_lookup (gen_v f) path = f path *)
-  ‘∀e1 e2. e1 = perm_v v1 v2 (eval e) ∧ e2 = eval (perm_exp v1 v2 e) ⇒ e1 = e2’ suffices_by metis_tac[] >>
-  ho_match_mp_tac v_coinduct >>
-  rw[] >>
-  cheat (* Not sure if this is a productive proof path *)
+  simp[eval_def,gen_v_eqvt] >>
+  AP_TERM_TAC >>
+  rw[FUN_EQ_THM,v_limit_def] >>
+  simp[limit_def] >>
+  TOP_CASE_TAC
+  >- (gvs[some_def] >>
+      simp[Once perm_v_prefix_def] >>
+      TOP_CASE_TAC >>
+      gvs[AllCaseEqs()] >>
+      SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
+      pop_assum kall_tac >>
+      rpt strip_tac >>
+      last_x_assum(qspecl_then [‘(perm_v_prefix v1 v2 ## I) x’,‘k’] strip_assume_tac) >>
+      first_x_assum drule >> strip_tac >>
+      rename1 ‘eval_to k'’ >>
+      ‘(perm_v_prefix v1 v2 ## I) (v_lookup path (eval_to k' (perm_exp v1 v2 e))) = (perm_v_prefix v1 v2 ## I) x’
+        by metis_tac[] >>
+      qpat_x_assum ‘_ = x’ kall_tac >>
+      gvs[v_lookup_eqvt,eval_to_eqvt])
+  >- (gvs[some_def] >>
+      SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
+      last_x_assum kall_tac >> rpt strip_tac >>
+      IF_CASES_TAC
+      >- (SELECT_ELIM_TAC >>
+          conj_tac >- metis_tac[] >>
+          pop_assum kall_tac >> rw[] >>
+          first_x_assum(qspec_then ‘MAX k k'’ mp_tac) >> simp[] >>
+          first_x_assum(qspec_then ‘MAX k k'’ mp_tac) >> simp[] >>
+          rpt(disch_then(assume_tac o GSYM)) >>
+          rw[v_lookup_eqvt,eval_to_eqvt]) >>
+      gvs[] >>
+      last_x_assum(qspecl_then [‘(perm_v_prefix v1 v2 ## I) x’,‘k’] strip_assume_tac) >>
+      first_x_assum drule >> strip_tac >>
+      rename1 ‘eval_to k'’ >>
+      ‘(perm_v_prefix v1 v2 ## I) (v_lookup path (eval_to k' e)) = (perm_v_prefix v1 v2 ## I) x’
+        by metis_tac[] >>
+      qpat_x_assum ‘_ = x’ kall_tac >>
+      gvs[v_lookup_eqvt,eval_to_eqvt])
 QED
 
 Theorem eval_perm_closure:
