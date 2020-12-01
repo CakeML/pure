@@ -27,19 +27,18 @@ QED
 
 
 (* -- applicative (bi)similarity -- *)
-
 Definition unfold_rel_def:
   unfold_rel rel (e1, e2) ⇔
     closed e1 ∧ closed e2 ∧
-    (* this follows the paper directly *)
-    (∀x e1'. eval e1 = Closure x e1' ⇒
-             ∃y e2'. eval e2 = Closure y e2' ∧
-                     ∀e. closed e ⇒ rel (subst x e e1', subst y e e2'))
-    (* but I think we need one such conjunct for each result alternative, e.g.
+    (∀x ce1.
+      eval e1 = Closure x ce1
+      ⇒ ∃y ce2.
+          eval e2 = Closure y ce2 ∧
+          ∀e. closed e ⇒ rel (subst x e ce1, subst y e ce2))
     ∧
-    (∀x xs.
-       eval e1 = Constructor x xs ⇒
-       ∃es1 es2. eval e1 = eval (Cons x es1) ∧ EVERY closed es1 ∧
+    (∀x v1s.
+      eval e1 = Constructor x v1s
+       ⇒ ∃es1 es2. eval e1 = eval (Cons x es1) ∧ EVERY closed es1 ∧
                  eval e2 = eval (Cons x es2) ∧ EVERY closed es2 ∧
                  LIST_REL (CURRY rel) es1 es2)
     ∧
@@ -47,7 +46,7 @@ Definition unfold_rel_def:
     ∧
     (eval e1 = Diverge ⇒ eval e2 = Diverge)
     ∧
-    (eval e1 = Error ⇒ eval e2 = Error) *)
+    (eval e1 = Error ⇒ eval e2 = Error)
 End
 
 Definition app_simulation_def:
@@ -67,12 +66,31 @@ Definition FF_def:
   FF s = { (e1, e2) | unfold_rel s (e1, e2) }
 End
 
+Theorem FF_opp:
+  FF (opp R) (a,b) ⇔ FF R (b,a)
+Proof
+  fs[FF_def, opp_def, unfold_rel_def] >> eq_tac >> rw[] >>
+  PairCases_on `x` >> gvs[] >>
+  Q.REFINE_EXISTS_TAC `(x1,x2)` >> gvs[IN_DEF]
+  >- (
+    Cases_on `eval a` >> gvs[eval_thm] >>
+    qexists_tac `es2` >> qexists_tac `es1` >> fs[] >>
+    fs[LIST_REL_EL_EQN, opp_def, IN_DEF]
+    )
+  >- (
+    Cases_on `eval b` >> gvs[eval_thm] >>
+    qexists_tac `es2` >> qexists_tac `es1` >> fs[] >>
+    fs[LIST_REL_EL_EQN, opp_def, IN_DEF]
+    )
+QED
+
 Triviality monotone_similarity:
   monotone FF
 Proof
-  fs [monotone_def,FF_def,unfold_rel_def]
-  \\ fs [SUBSET_DEF,FORALL_PROD,IN_DEF]
-  \\ metis_tac []
+  fs [monotone_def,FF_def,unfold_rel_def] >>
+  fs [SUBSET_DEF,FORALL_PROD,IN_DEF] >> rw[] >> fs[] >>
+  qexists_tac `es1` >> qexists_tac `es2` >> fs[] >>
+  fs[LIST_REL_EL_EQN]
 QED
 
 Definition app_similarity_def:
@@ -110,9 +128,10 @@ QED
 Triviality monotone_bisimilarity:
   monotone (λs. { (e1,e2) | (e1,e2) IN FF s ∧ (e2,e1) IN FF (opp s) })
 Proof
-  fs [monotone_def,FF_def,unfold_rel_def,opp_def]
-  \\ fs [SUBSET_DEF,FORALL_PROD,IN_DEF,opp_def]
-  \\ metis_tac []
+  fs [monotone_def,FF_def,unfold_rel_def,opp_def] >>
+  fs [SUBSET_DEF,FORALL_PROD,IN_DEF,opp_def] >> rw[] >> fs[] >>
+  qexists_tac `es1` >> qexists_tac `es2` >> fs[] >>
+  fs[LIST_REL_EL_EQN, opp_def, IN_DEF]
 QED
 
 Definition app_bisimilarity_def:
@@ -132,22 +151,26 @@ Theorem app_bisimilarity_iff = (* result (5.5) *)
     |> SIMP_RULE (std_ss++boolSimps.CONJ_ss) [IN_DEF,unfold_rel_def,opp_def]
     |> REWRITE_RULE [GSYM CONJ_ASSOC];
 
+Theorem app_bisimilarity_iff_alt =
+  app_bisimilarity_thm |> CONJUNCT1 |> GSYM
+    |> SIMP_RULE std_ss [FF_def,EXTENSION,FORALL_PROD,GSPECIFICATION,EXISTS_PROD]
+    |> SIMP_RULE (std_ss++boolSimps.CONJ_ss) [IN_DEF,opp_def]
+    |> REWRITE_RULE [GSYM CONJ_ASSOC];
+
 Theorem app_bisimulation_SUBSET_app_bisimilarity:
   app_bisimulation R ⇒ R ⊆ app_bisimilarity
 Proof
-  rw [app_bisimilarity_def,app_bisimulation_def,app_simulation_def]
-  \\ fs [gfp_def,SUBSET_DEF,FORALL_PROD,opp_def,IN_DEF]
-  \\ fs [IN_DEF,FF_def,EXISTS_PROD,unfold_rel_def,opp_def]
-  \\ rw [] \\ qexists_tac ‘R’ \\ rw []
-  \\ res_tac \\ fs []
+  rw [app_bisimilarity_def,app_bisimulation_def,app_simulation_def] >>
+  fs [gfp_def,SUBSET_DEF,FORALL_PROD,opp_def,IN_DEF] >>
+  fs [IN_DEF,FF_def,EXISTS_PROD,opp_def] >>
+  rw[] >> qexists_tac `R` >> rw[]
 QED
 
 Theorem app_bisimulation_app_bisimilarity:
   app_bisimulation app_bisimilarity
 Proof
-  fs [app_bisimulation_def,app_simulation_def,opp_def,IN_DEF,unfold_rel_def]
-  \\ assume_tac app_bisimilarity_iff
-  \\ metis_tac [unfold_rel_def]
+  fs [app_bisimulation_def,app_simulation_def,opp_def,IN_DEF] >>
+  assume_tac app_bisimilarity_iff_alt >> fs[]
 QED
 
 Theorem app_similarity_coinduct:
@@ -349,6 +372,28 @@ Proof
   gvs[closed_def]
 QED
 
+Theorem eval_eq_imp_app_similarity:
+  ∀x y.
+    eval x = eval y ∧ closed x ∧ closed y
+  ⇒ x ≲ y
+Proof
+  ho_match_mp_tac app_similarity_coinduct >>
+  rw[FF_def] >>
+  Q.REFINE_EXISTS_TAC `(x1,x2)`  >> fs[] >>
+  rw[unfold_rel_def] >> gvs[]
+  >- (
+    drule_all eval_Closure_closed >> rw[closed_def] >>
+    rename1 `subst a e1 e2` >>
+    qspecl_then [`a`,`e1`,`e2`] assume_tac freevars_subst >> gvs[] >>
+    Cases_on `freevars e2` >> gvs[]
+    )
+  >- (
+    drule eval_eq_Cons_IMP >> strip_tac >> gvs[] >>
+    qexists_tac `ts` >> qexists_tac `ts` >> fs[] >>
+    fs[LIST_REL_EL_EQN, FLAT_EQ_NIL, EVERY_MAP, EVERY_EL, closed_def]
+    )
+QED
+
 Theorem reflexive_app_similarity: (* exercise (5.3.3) *)
   reflexive (UNCURRY $≲) closed
 Proof
@@ -356,8 +401,13 @@ Proof
   ‘∀x y. x = y ∧ closed x ⇒ x ≲ y’ suffices_by metis_tac[] >>
   pop_assum kall_tac >>
   ho_match_mp_tac app_similarity_coinduct >>
-  rw[FF_def,ELIM_UNCURRY,unfold_rel_def] >>
-  simp[] >>
+  reverse (rw[FF_def,ELIM_UNCURRY,unfold_rel_def]) >>
+  simp[]
+  >- (
+    drule eval_eq_Cons_IMP >> strip_tac >> Cases_on `eval x` >> gvs[] >>
+    qexists_tac `ts` >> qexists_tac `ts` >>
+    fs[FLAT_EQ_NIL, EVERY_MAP, LIST_REL_EL_EQN, EVERY_EL, closed_def]
+    ) >>
   drule_all eval_Closure_closed >>
   simp[closed_def,freevars_subst] >>
   strip_tac >>
@@ -376,21 +426,170 @@ Proof
   rw[set_relationTheory.reflexive_def,IN_DEF]
 QED
 
-Theorem transitive_app_similarity: (* exercise (5.3.3) *)
-  transitive $≲
+
+Triviality tc_app_similarity_closed:
+  ∀x y. (x,y) ∈ tc app_similarity ⇒ closed x ∧ closed y
 Proof
-  rw[transitive_def,ELIM_UNCURRY,IN_DEF] >>
-  rpt(first_x_assum mp_tac) >>
-  simp[AND_IMP_INTRO] >>
-  rename [‘x ≲ y ∧ y ≲ z’] >>
-  MAP_EVERY qid_spec_tac [‘y’,‘z’,‘x’] >>
+  ho_match_mp_tac set_relationTheory.tc_ind >> rw[] >> fs[IN_DEF] >>
+  imp_res_tac app_similarity_closed
+QED
+
+val no_IN = SIMP_RULE std_ss [IN_DEF];
+
+Triviality tc_app_similarity_Closure:
+  ∀x y.
+    tc app_similarity (x,y) ⇒
+  ∀c1 ce1. eval x = Closure c1 ce1
+  ⇒ ∃ c2 ce2. eval y = Closure c2 ce2 ∧
+      ∀e. closed e ⇒ (subst c1 e ce1, subst c2 e ce2) ∈ tc app_similarity
+Proof
+  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
+  >- (
+    qpat_x_assum ‘app_similarity _’
+      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
+    gvs[unfold_rel_def] >> rw[] >>
+    first_x_assum drule >>
+    fs[Once set_relationTheory.tc_cases, IN_DEF]
+    ) >>
+  rpt (first_x_assum drule >> strip_tac >> rw[]) >>
+  simp[Once set_relationTheory.tc_cases] >> DISJ2_TAC >>
+  goal_assum drule >> fs[]
+QED
+
+Triviality tc_app_similarity_Constructor:
+  ∀x y.
+    tc app_similarity (x,y) ⇒
+  ∀c vxs. eval x = Constructor c vxs
+  ⇒ ∃vys. eval y = Constructor c vys ∧
+      ∃exs eys.
+        eval x = eval (Cons c exs) ∧ EVERY closed exs ∧
+        eval y = eval (Cons c eys) ∧ EVERY closed eys ∧
+        LIST_REL (CURRY (tc app_similarity)) exs eys
+Proof
+  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
+  >- (
+    qpat_x_assum ‘app_similarity _’
+      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
+    gvs[unfold_rel_def, eval_thm] >> rw[] >>
+    qexists_tac `es1` >> qexists_tac `es2` >> fs[] >>
+    fs[LIST_REL_EL_EQN] >> rw[] >>
+    fs[Once (no_IN set_relationTheory.tc_cases)]
+    ) >>
+  rpt (first_x_assum drule >> strip_tac >> rw[]) >>
+  gvs[eval_thm] >>
+  qexists_tac `exs` >> qexists_tac `eys'` >> fs[] >>
+  imp_res_tac MAP_EQ_EVERY2 >>
+  fs[LIST_REL_EL_EQN] >> rw[] >>
+  simp[Once (no_IN set_relationTheory.tc_cases)] >> DISJ2_TAC >>
+  qexists_tac `EL n exs'` >> fs[] >>
+  simp[Once (no_IN set_relationTheory.tc_cases_right)] >> DISJ2_TAC >>
+  qexists_tac `EL n eys` >> gvs[] >>
+  rpt (first_x_assum drule >> strip_tac) >>
+  irule eval_eq_imp_app_similarity >> fs[] >>
+  imp_res_tac (no_IN tc_app_similarity_closed) >> fs[]
+QED
+
+Triviality tc_app_similarity_Atom:
+  ∀x y.
+    tc app_similarity (x,y) ⇒
+  ∀a. eval x = Atom a ⇒ eval y = Atom a
+Proof
+  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
+  >- (
+    qpat_x_assum ‘app_similarity _’
+      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
+    gvs[unfold_rel_def]
+    ) >>
+  rpt (first_x_assum drule >> strip_tac >> rw[])
+QED
+
+Triviality tc_app_similarity_Diverge:
+  ∀x y.
+    tc app_similarity (x,y) ⇒
+  eval x = Diverge ⇒ eval y = Diverge
+Proof
+  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
+  >- (
+    qpat_x_assum ‘app_similarity _’
+      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
+    gvs[unfold_rel_def]
+    ) >>
+  rpt (first_x_assum drule >> strip_tac >> rw[])
+QED
+
+Triviality tc_app_similarity_Error:
+  ∀x y.
+    tc app_similarity (x,y) ⇒
+  eval x = Error ⇒ eval y = Error
+Proof
+  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
+  >- (
+    qpat_x_assum ‘app_similarity _’
+      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
+    gvs[unfold_rel_def]
+    ) >>
+  rpt (first_x_assum drule >> strip_tac >> rw[])
+QED
+
+Theorem app_similarity_transitive_lemma:
+  tc app_similarity = app_similarity
+Proof
+  qsuff_tac `∀x y. (x,y) ∈ tc app_similarity ⇔ (x,y) ∈ app_similarity`
+  >- (
+    rw[] >> irule EQ_EXT >> rw[] >>
+    PairCases_on `x` >> fs[IN_DEF]
+    ) >>
+  rw[] >> reverse eq_tac >> rw[]
+  >- (fs[Once set_relationTheory.tc_cases, IN_DEF]) >>
+  pop_assum mp_tac >>
+  qid_spec_tac `y` >> qid_spec_tac `x` >>
+  ho_match_mp_tac set_relationTheory.tc_strongind_left >> rw[] >>
+  rename1 `(z,y) ∈ tc _` >> gvs[IN_DEF] >>
+  pop_assum kall_tac >>
+  rpt (pop_assum mp_tac) >> fs[AND_IMP_INTRO] >>
+  MAP_EVERY qid_spec_tac [‘z’,‘y’,‘x’] >>
   simp[GSYM PULL_EXISTS] >>
   ho_match_mp_tac app_similarity_coinduct >>
   rw[ELIM_UNCURRY,FF_def,unfold_rel_def] >>
   imp_res_tac app_similarity_closed >>
-  rpt(qpat_x_assum ‘_ ≲ _’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff])) >>
-  gvs[unfold_rel_def] >>
-  metis_tac[]
+  imp_res_tac (no_IN tc_app_similarity_closed) >>
+  rpt(qpat_x_assum ‘_ ≲ _’
+    (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff])) >>
+  gvs[unfold_rel_def]
+  >- (
+    drule tc_app_similarity_Closure >> fs[] >>
+    strip_tac >> fs[] >> rw[] >>
+    rpt (first_x_assum drule >> rw[]) >>
+    goal_assum drule >> fs[IN_DEF]
+    )
+  >- (
+    drule tc_app_similarity_Constructor >> fs[] >>
+    gvs[eval_thm] >>
+    strip_tac >> fs[] >> rw[] >>
+    qexists_tac `es1` >> qexists_tac `eys` >> fs[] >>
+    imp_res_tac MAP_EQ_EVERY2 >>
+    fs[LIST_REL_EL_EQN] >> rw[] >>
+    qexists_tac `EL n es2` >> fs[] >>
+    simp[Once (no_IN set_relationTheory.tc_cases_left)] >> DISJ2_TAC >>
+    qexists_tac `EL n exs` >> fs[] >>
+    irule eval_eq_imp_app_similarity >> gvs[] >>
+    last_x_assum drule >>
+    strip_tac >> imp_res_tac app_similarity_closed >> fs[] >>
+    last_x_assum drule >>
+    strip_tac >> imp_res_tac (no_IN tc_app_similarity_closed) >> fs[]
+    )
+  >- (drule tc_app_similarity_Atom >> fs[])
+  >- (drule tc_app_similarity_Diverge >> fs[])
+  >- (drule tc_app_similarity_Error >> fs[])
+QED
+
+Theorem transitive_app_similarity: (* exercise (5.3.3) *)
+  transitive $≲
+Proof
+  SUBST_ALL_TAC (GSYM app_similarity_transitive_lemma) >>
+  fs[relationTheory.transitive_def] >> rw[] >>
+  simp[Once (no_IN set_relationTheory.tc_cases)] >> DISJ2_TAC >>
+  goal_assum drule >> fs[]
 QED
 
 Theorem app_bisimilarity_similarity: (* prop (5.3.4) *)
@@ -411,15 +610,20 @@ Proof
   \\ simp[AND_IMP_INTRO]
   \\ MAP_EVERY qid_spec_tac [‘e2’,‘e1’]
   \\ ho_match_mp_tac app_bisimilarity_coinduct
-  \\ rpt GEN_TAC
-  \\ strip_tac
-  \\ qmatch_goalsub_abbrev_tac ‘FF R’
-  \\ ‘opp R = R’ by(simp[FUN_EQ_THM] >> Cases >> rw[opp_def,Abbr‘R’,ELIM_UNCURRY,EQ_IMP_THM])
-  \\ pop_assum SUBST_ALL_TAC
-  \\ rw[Abbr ‘R’,FF_def,unfold_rel_def,ELIM_UNCURRY]
+  \\ rpt GEN_TAC \\ strip_tac \\ fs[FF_opp]
+  \\ rw[FF_def,unfold_rel_def,ELIM_UNCURRY]
   \\ imp_res_tac app_similarity_closed
-  \\ rpt(qpat_x_assum ‘_ ≲ _’ (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]))
-  \\ gvs[unfold_rel_def]
+  \\ rpt(qpat_x_assum ‘_ ≲ _’
+      (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]))
+  \\ gvs[unfold_rel_def, eval_thm]
+  \\ qexists_tac `es1` \\ qexists_tac `es2` \\ fs[]
+  \\ fs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] \\ rw[]
+  \\ gvs[] \\ rpt (first_x_assum drule \\ strip_tac)
+  \\ assume_tac transitive_app_similarity \\ fs[transitive_def]
+  \\ first_assum irule \\ qexists_tac `EL n es1'` \\ rw[]
+     >- (irule eval_eq_imp_app_similarity \\ fs[])
+  \\ first_assum irule \\ qexists_tac `EL n es2'` \\ rw[]
+  \\ irule eval_eq_imp_app_similarity \\ fs[]
 QED
 
 Theorem reflexive_app_bisimilarity: (* exercise (5.3.3) *)
