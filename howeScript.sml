@@ -7,7 +7,8 @@ open fixedPointTheory
      expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      pure_langTheory pred_setTheory relationTheory
-     BasicProvers pure_langPropsTheory rich_listTheory finite_mapTheory;
+     BasicProvers pure_langPropsTheory rich_listTheory finite_mapTheory
+     dep_rewrite;
 
 val _ = new_theory "howe";
 
@@ -790,8 +791,10 @@ Theorem FF_trans:
   ∀R S x y z.
     (x,z) ∈ FF R ∧ (z,y) ∈ FF S ⇒ (x,y) ∈ FF {(x,y) | ∃z. (x,z) ∈ R ∧ (z,y) ∈ S}
 Proof
-  rw[FF_def,IN_DEF,ELIM_UNCURRY,unfold_rel_def] >>
-  metis_tac[]
+  rw[FF_def,IN_DEF,ELIM_UNCURRY,unfold_rel_def]
+  >- metis_tac[] >>
+  gvs[eval_thm] >>
+  cheat (* TODO problem here *)
 QED
 
 Theorem companion_duplicate:
@@ -900,8 +903,79 @@ Definition Com3_def:
       R vars e1 e1' ∧ R vars e2 e2' ⇒ R vars (App e1 e2) (App e1' e2')
 End
 
+Definition Com4_def:
+  Com4 R ⇔
+    ∀ vars es es' op.
+      set es ∪ set es' ⊆ Exps vars ⇒
+      LIST_REL (R vars) es es' ⇒ R vars (Prim op es) (Prim op es')
+End
+
+Definition Com5_def:
+  Com5 R ⇔
+    ∀ vars ves ves' e e'.
+      {e; e'} ∪ set (MAP SND ves) ∪ set (MAP SND ves') ⊆
+        Exps (vars ∪ set (MAP FST ves)) ∧
+      DISJOINT (set (MAP FST ves)) vars ⇒
+      MAP FST ves = MAP FST ves' ∧
+      LIST_REL
+        (R (vars ∪ set (MAP FST ves))) (MAP SND ves) (MAP SND ves') ∧
+      R (vars ∪ set (MAP FST ves)) e e'
+      ⇒ R vars (Letrec ves e) (Letrec ves' e')
+End
+
+Definition Com6_def:
+  Com6 R ⇔
+    ∀ vars e e' nm css css'.
+      {e; e'} ⊆ Exps vars ∧ nm ∉ vars ⇒
+      R vars e e' ∧
+      MAP FST css = MAP FST css' ∧
+      LIST_REL
+        (λ(vs,cs) (vs',cs').
+          vs = vs' ∧
+          DISJOINT (set vs) (nm INSERT vars) ∧
+          {cs; cs'} ⊆ Exps (nm INSERT set vs ∪ vars) ∧
+          R (nm INSERT set vs ∪ vars) cs cs')
+        (MAP SND css) (MAP SND css')
+    ⇒ R vars (Case e nm css) (Case e' nm css')
+End
+
+
+(* Alternatively:
+Definition Com6_def:
+  Com6 R ⇔
+    ∀ vars e e' nm css css'.
+      {e; e'} ⊆ Exps vars ∧ nm ∉ vars ⇒
+      R vars e e' ∧
+      (let rel = (λ(cn,vs,cs) (cn',vs',cs').
+        cn = cn' ∧
+        vs = vs' ∧
+        DISJOINT (set vs) (nm INSERT vars) ∧
+        {cs; cs'} ⊆ Exps (nm INSERT set vs ∪ vars) ∧
+        R (nm INSERT set vs ∪ vars) cs cs') in
+      LIST_REL rel css css')
+    ⇒ R vars (Case e nm css) (Case e' nm css')
+End
+
+Definition Com6_def:
+  Com6 R ⇔
+    ∀ vars e e' nm css css'.
+      {e; e'} ⊆ Exps vars ∧ nm ∉ vars ⇒
+      R vars e e' ∧
+      MAP FST css = MAP FST css' ∧
+      MAP (FST o SND) css = MAP (FST o SND) css' ∧
+      EVERY (λvs. DISJOINT (set vs) (nm INSERT vars)) (MAP (FST o SND) css) ∧
+      LIST_REL
+        (λ(vs,cs) (vs',cs').
+          R (nm INSERT set vs ∪ vars) cs cs' ∧
+          {cs; cs'} ⊆ Exps (nm INSERT set vs ∪ vars))
+        (MAP SND css) (MAP SND css')
+    ⇒ R vars (Case e nm css) (Case e' nm css')
+End
+etc.
+*)
+
 Definition Compatible_def:
-  Compatible R ⇔ Com1 R ∧ Com2 R ∧ Com3 R
+  Compatible R ⇔ Com1 R ∧ Com2 R ∧ Com3 R ∧ Com4 R ∧ Com5 R ∧ Com6 R
 End
 
 Definition Precongruence_def:
@@ -949,104 +1023,11 @@ QED
 Theorem Tra_open_bisimilarity:
   Tra open_bisimilarity
 Proof
-  cheat
+  rw[Tra_def, open_bisimilarity_def] >>
+  assume_tac transitive_app_bisimilarity >>
+  fs[transitive_def] >>
+  metis_tac[]
 QED
-
-(* (Com1) in Pitts *)
-Theorem open_similarity_var_refl:
-  x IN names ⇒ open_similarity names (Var x) (Var x)
-Proof
-  rw[open_similarity_def]
-  \\ rw [bind_all_def,subst_all_def,FLOOKUP_DEF]
-  \\ res_tac
-  \\ match_mp_tac reflexive_app_similarity' \\ fs []
-  \\ fs [closed_def]
-QED
-
-(* (Com2) in Pitts *)
-Theorem open_similarity_Lam_pres:
-  open_similarity (x INSERT names) e1 e2 ⇒
-  open_similarity names (Lam x e1) (Lam x e2)
-Proof
-  cheat (*
-  rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >>
-  TRY(res_tac >> gvs[] >> NO_TAC) >>
-  simp[bind_Lam,MAP_ZIP] >>
-  simp[app_similarity_iff] >>
-  simp[unfold_rel_def] >>
-  conj_tac
-  >- (
-    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
-    first_x_assum (qspec_then `(Cons s [])::exps` assume_tac) >>
-    gvs[closed_def, bind_def] >>
-    pop_assum mp_tac >>
-    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-    `closed (Cons s [])` by fs[closed_def] >>
-    drule freevars_subst >> disch_then (once_rewrite_tac o single) >>
-    fs[SUBSET_DIFF_EMPTY, SUBSET_DEF, FILTER_EQ_NIL, EVERY_MEM]
-    ) >>
-  conj_tac
-  >- (
-    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
-    first_x_assum (qspec_then `(Cons s [])::exps` assume_tac) >>
-    gvs[closed_def, bind_def] >>
-    pop_assum kall_tac >> pop_assum mp_tac >>
-    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-    `closed (Cons s [])` by fs[closed_def] >>
-    drule freevars_subst >> disch_then (once_rewrite_tac o single) >>
-    fs[SUBSET_DIFF_EMPTY, SUBSET_DEF, FILTER_EQ_NIL, EVERY_MEM]
-    ) >>
-  rw[eval_thm] >>
-  first_x_assum(qspec_then ‘e::exps’ mp_tac) >>
-  simp[bind_def] *)
-QED
-
-(* (Com3L) in Pitts *)
-Theorem open_similarity_App_pres1:
-  open_similarity names e1 e2 ∧ freevars e3 ⊆ names ⇒
-  open_similarity names (App e1 e3) (App e2 e3)
-Proof
-  cheat (*
-  rw[open_similarity_def,SUBSET_DEF,MEM_FILTER] >> gvs[bind_App,MAP_ZIP] >>
-  simp[app_similarity_iff] >>
-  simp[unfold_rel_def] >>
-  conj_tac
-  >- (
-    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
-    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-    once_rewrite_tac[freevars_bind] >>
-    fs[MAP_ZIP, FILTER_EQ_NIL, EVERY_MEM]
-    ) >>
-  conj_tac
-  >- (
-    fs[closed_def, app_similarity_iff, Once unfold_rel_def] >>
-    once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-    once_rewrite_tac[freevars_bind] >>
-    fs[MAP_ZIP, FILTER_EQ_NIL, EVERY_MEM]
-    ) >>
-  rpt strip_tac >>
-  gvs[eval_App,AllCaseEqs(),PULL_FORALL,dest_Closure_def] >>
-  last_x_assum drule_all >>
-  simp[Once app_similarity_iff] >>
-  rw[unfold_rel_def] >>
-  simp[GSYM PULL_FORALL] >>
-  gvs[bind_def] >>
-  reverse IF_CASES_TAC >- fs[eval_thm] >>
-  gvs[] >>
-  first_assum drule >>
-  SIMP_TAC std_ss [Once app_similarity_iff] >>
-  rw[unfold_rel_def] *)
-QED
-
-(*
-(* (Com3R) in Pitts *)
-Theorem open_similarity_App_pres2:
-  set(freevars e1) ⊆ set names ∧ open_similarity names e2 e3 ⇒
-  open_similarity names (App e1 e2) (App e1 e3)
-Proof
-  (* This one seems more complicated than the preceding thms. Probably requires Howe's construction ;) *)
-QED
-*)
 
 (* -- Permutations and alpha-equivalence -- *)
 
@@ -1483,6 +1464,8 @@ Theorem compatible_perm:
 Proof
   rw[compatible_def] >> simp[SUBSET_DEF] >> Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_perm_closure] >>
   simp[closed_perm] >> gvs[eval_perm_closure] >>
+  cheat (* TODO *)
+  (*
   irule_at (Pos hd) (GSYM perm1_cancel) >>
   irule_at (Pos hd) (GSYM perm_exp_cancel) >>
   rw[] >>
@@ -1490,6 +1473,7 @@ Proof
   simp[subst_eqvt] >>
   PRED_ASSUM is_forall (irule_at (Pos last)) >>
   simp[subst_eqvt,closed_perm]
+  *)
 QED
 
 Triviality CURRY_thm:
@@ -1565,10 +1549,20 @@ Proof
   pop_assum mp_tac >>
   Induct_on ‘exp_alpha’ >>
   rw[]
-  >- (gvs[FF_def,unfold_rel_def] >>
-      rw[] >>
-      match_mp_tac exp_alpha_Refl >>
-      cheat)
+  >- (gvs[FF_def,unfold_rel_def,eval_thm] >>
+      rw[]
+      >- (
+        match_mp_tac exp_alpha_Refl >>
+        cheat
+        )
+      >- (
+        imp_res_tac eval_eq_Cons_IMP >> gvs[] >>
+        qexists_tac `ts` >> qexists_tac `ts` >> fs[] >>
+        fs[closed_def, FLAT_EQ_NIL, EVERY_MAP, EVERY_EL, CURRY_thm] >>
+        fs[LIST_REL_EL_EQN] >> rw[] >>
+        irule exp_alpha_Refl >> gvs[closed_def]
+        )
+      )
   >- (dxrule_all FF_trans >>
       match_mp_tac(monotone_similarity |> SIMP_RULE std_ss [monotone_def,SUBSET_DEF]) >>
       rw[] >> rw[] >> metis_tac[exp_alpha_Trans])
@@ -1630,6 +1624,34 @@ Inductive Howe:
      Howe R vars e2 e2' ∧
      R vars (App e1' e2') e3 ⇒
      Howe R vars (App e1 e2) e3)
+  ∧
+[Howe4:]
+  (∀R es es' e op vars.
+    LIST_REL (Howe R vars) es es' ∧
+    R vars (Prim op es') e ⇒
+    Howe R vars (Prim op es) e)
+  ∧
+[Howe5:]
+  (∀R ves ves' e e' e2.
+    MAP FST ves = MAP FST ves' ∧
+    DISJOINT vars (set (MAP FST ves)) ∧
+    Howe R (vars ∪ set (MAP FST ves)) e e' ∧
+    LIST_REL (Howe R (vars ∪ set (MAP FST ves))) (MAP SND ves) (MAP SND ves') ∧
+    R vars (Letrec ves' e') e2
+  ⇒ Howe R vars (Letrec ves e) e2)
+  ∧
+[Howe6:]
+  (∀R e e' nm css css' e2.
+    Howe R vars e e' ∧
+    LIST_REL
+      (λ(vs,cs) (vs',cs').
+        vs = vs' ∧
+        DISJOINT (set vs) (nm INSERT vars) ∧
+        Howe R (nm INSERT set vs ∪ vars) cs cs')
+      (MAP SND css) (MAP SND css') ∧
+    MAP FST css = MAP FST css' ∧
+    R vars (Case e' nm css') e2
+  ⇒ Howe R vars (Case e nm css) e2)
 End
 
 Theorem Howe_Ref: (* 5.5.1(i) *)
@@ -1654,6 +1676,52 @@ Proof
     irule Howe3 >>
     rpt (goal_assum (drule_at Any)) >>
     first_x_assum irule >> fs[Exps_def]
+    )
+  >- (
+    rw[Com4_def] >>
+    irule Howe4 >>
+    rpt (goal_assum (drule_at Any)) >>
+    first_x_assum irule >> fs[Exps_def] >>
+    gvs[SUBSET_DEF, MEM_FLAT, MEM_MAP] >> rw[] >>
+    first_x_assum irule >>
+    goal_assum drule >> fs[]
+    )
+  >- (
+    rw[Com5_def] >>
+    irule Howe5 >>
+    gvs[DISJOINT_SYM] >>
+    rpt (goal_assum (drule_at Any)) >> fs[] >>
+    first_x_assum irule >> fs[Exps_def] >>
+    fs[LIST_TO_SET_FILTER, SUBSET_DEF] >> rw[]
+    >- (last_x_assum drule >> fs[]) >>
+    gvs[MEM_FLAT] >>
+    qpat_x_assum `¬ MEM _ _` mp_tac >>
+    simp[IMP_DISJ_THM, Once DISJ_SYM] >>
+    first_x_assum irule >> gvs[MEM_MAP] >>
+    PairCases_on `y` >> gvs[] >>
+    rpt (goal_assum (drule_at Any)) >> fs[]
+    )
+  >- (
+    rw[Com6_def] >>
+    irule Howe6 >>
+    rpt (goal_assum (drule_at Any)) >>
+    fs[LIST_REL_EL_EQN] >> reverse (rw[])
+    >- (
+      gvs[] >> first_x_assum drule >>
+      strip_tac >>
+      Cases_on `EL n (MAP SND css)` >> Cases_on `EL n (MAP SND css')` >> gvs[]
+      ) >>
+    first_x_assum irule >> fs[Exps_def] >>
+    gvs[SUBSET_DEF, MEM_FLAT, MEM_MAP] >> rw[] >>
+    PairCases_on `y` >> gvs[MEM_FILTER] >>
+    qpat_x_assum `MEM _ css'` mp_tac >>
+    simp[MEM_EL] >> rw[] >>
+    first_x_assum drule >> strip_tac >> gvs[EL_MAP] >>
+    Cases_on `EL n css` >> Cases_on `EL n css'` >> gvs[] >>
+    rename1 `EL n css = (p1,p2)` >> Cases_on `p2` >>
+    rename1 `EL n css = (p1,p2,p3)` >> rename1 `EL n css' = (p1',p2',p3')` >>
+    gvs[] >>
+    first_x_assum drule >> gvs[]
     )
 QED
 
@@ -1682,8 +1750,51 @@ Proof
     rw[Exps_def]
     )
   >- metis_tac[]
+  >- (
+    fs[LIST_REL_EL_EQN] >>
+    first_assum drule >> rw[Exps_def] >>
+    gvs[SUBSET_DEF, MEM_FLAT, MEM_MAP] >> rw[] >>
+    qpat_x_assum `MEM _ es` mp_tac >> simp[MEM_EL] >> strip_tac >> gvs[] >>
+    last_x_assum drule >> strip_tac >> first_x_assum drule >>
+    simp[Exps_def, SUBSET_DEF]
+    )
+  >- metis_tac[]
+  >- (
+    fs[LIST_REL_EL_EQN] >>
+    first_assum drule >> rw[Exps_def] >>
+    fs[LIST_TO_SET_FILTER, SUBSET_DEF] >> rw[]
+    >- (
+      last_x_assum drule >> fs[Exps_def, SUBSET_DEF] >> strip_tac >>
+      first_x_assum drule >> fs[]
+      ) >>
+    gvs[MEM_FLAT] >>
+    pop_assum mp_tac >> simp[MEM_MAP, MEM_EL] >> strip_tac >> gvs[] >>
+    first_x_assum (qspec_then `n` mp_tac) >>
+    disch_then drule >> strip_tac >>
+    pop_assum drule >> simp[EL_MAP, Exps_def] >> strip_tac >>
+    Cases_on `EL n ves` >> gvs[SUBSET_DEF] >>
+    first_x_assum drule >> fs[]
+    )
+  >- metis_tac[]
+  >- (
+    fs[LIST_REL_EL_EQN] >>
+    first_assum drule >> rw[Exps_def]
+    >- (last_x_assum drule >> rw[Exps_def]) >>
+    gvs[SUBSET_DEF, MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+    rw[] >> gvs[] >>
+    PairCases_on `y` >> gvs[MEM_FILTER] >>
+    qpat_x_assum `MEM _ css` mp_tac >> simp[MEM_EL] >> strip_tac >>
+    first_x_assum (qspec_then `n` mp_tac) >> fs[EL_MAP] >>
+    Cases_on `EL n css` >> Cases_on `EL n css'` >> gvs[] >>
+    rename1 `EL n css' = (_, y')` >> PairCases_on `y'` >> gvs[] >>
+    rw[] >> gvs[] >>
+    pop_assum drule >> rw[Exps_def, SUBSET_DEF] >>
+    first_x_assum drule >> fs[]
+    )
+  >- metis_tac[]
 QED
 
+(* TODO: carry on from here *)
 Theorem Howe_Tra: (* 5.5.1(ii) *)
   Tra R ∧ term_rel R ⇒
   ∀vars e1 e2 e3.
