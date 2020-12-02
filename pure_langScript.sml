@@ -93,7 +93,7 @@ Definition eval_to_def:
        | NONE => Error
        | SOME (s,body) =>
            if k = 0n then Diverge else
-             eval_to (k-1) (bind [(s,y)] body)) ∧
+             eval_to (k-1) (bind (FEMPTY |+ (s,y)) body)) ∧
   eval_to k (Letrec f y) =
     (if k = 0 then Diverge else
       eval_to (k-1) (subst_funs f y))
@@ -149,14 +149,6 @@ Definition eval_def:
   eval x =
     gen_v (λpath. v_limit (λk. eval_to k x) path)
 End
-
-(* misc lemmas about bind, subst, closed *)
-
-Theorem bind_bind:
-  ∀xs ys s. bind xs (bind ys s) = bind (xs ++ ys) s
-Proof
-  Induct \\ fs [bind_def,FORALL_PROD] \\ rw []
-QED
 
 (**** LEMMAS for limit/v_limit algebra *****)
 
@@ -831,7 +823,7 @@ Theorem eval_App:
     let v = eval x in
       if v = Diverge then Diverge else
         case dest_Closure v of
-        | SOME (s,body) => eval (bind [(s,y)] body)
+        | SOME (s,body) => eval (bind (FEMPTY |+ (s,y)) body)
         | NONE => Error
 Proof
   fs [eval_def, eval_to_def] >>
@@ -866,7 +858,7 @@ Proof
 QED
 
 Theorem eval_Let:
-  eval (Let s x y) = eval (bind [(s,x)] y)
+  eval (Let s x y) = eval (bind (FEMPTY |+ (s,x)) y)
 Proof
   fs [eval_App,eval_Lam,dest_Closure_def,bind_def]
 QED
@@ -1170,8 +1162,6 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-(* TODO Fix from here on: *)
-
 Theorem getAtoms_eval_to_NONE:
    getAtoms (MAP eval es) = NONE
    ⇒  getAtoms (MAP (λa. eval_to k a) es) = NONE
@@ -1368,7 +1358,7 @@ Theorem eval_core:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind [(s,y)] body)) ∧
+         | SOME (s,body) => eval (bind (FEMPTY |+ (s,y)) body)) ∧
   eval (Case x nm css) = eval (expandCases x nm css)
 Proof
   fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App,eval_Case]
@@ -1381,7 +1371,7 @@ Theorem eval_thm:
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
-  eval (Let s x y) = eval (bind [(s,x)] y) ∧
+  eval (Let s x y) = eval (bind (FEMPTY |+ (s,x)) y) ∧
   eval (If x y z) = (
        if eval x = Diverge then Diverge  else
        if eval x = True    then eval y else
@@ -1393,7 +1383,7 @@ Theorem eval_thm:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind [(s,y)] body))
+         | SOME (s,body) => eval (bind (FEMPTY |+ (s,y)) body))
 Proof
   fs [eval_Fail,eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
       eval_IsEq,bind_def,eval_Letrec,eval_Case]
@@ -1419,10 +1409,12 @@ Proof
   \\ completeInduct_on ‘k’
   \\ Cases_on ‘k’
   \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
+  \\ fs[flookup_fupdate_list] \\ reverse (rw[])
+  THEN1 (gvs[] >> BasicProvers.EVERY_CASE_TAC >> gvs[])
   \\ Cases_on ‘n’ THEN1 fs[eval_to_def]
   \\ first_assum (qspec_then ‘SUC n'’ assume_tac) \\ fs[]
   \\ simp[eval_to_def]
-  \\ fs [subst_def,subst_funs_def,bind_def,closed_def]
+  \\ fs [subst_def,subst_funs_def,bind_def,closed_def,flookup_fupdate_list]
 QED
 
 (* example producing infinite list of λx.x*)
@@ -1437,12 +1429,23 @@ Theorem eval_zeros:
   eval zeros = Constructor "cons" [Closure "x" (Var "x"); eval zeros]
 Proof
   fs [Once zeros_def]
-  \\ ntac 5 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
-                   subst_funs_def,closed_def])
+  \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+           subst_funs_def,closed_def, flookup_fupdate_list]
+  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+           subst_funs_def,closed_def, flookup_fupdate_list]
+  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ simp [eval_thm,dest_Closure_def,subst_def,bind_def,
+           subst_funs_def,closed_def, flookup_fupdate_list]
+  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rewrite_tac [zeros_def]
-  \\ ntac 2 (simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
-                   subst_funs_def,closed_def])
+  \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+           subst_funs_def,closed_def, flookup_fupdate_list]
+  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
+           subst_funs_def,closed_def, flookup_fupdate_list]
+  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
 QED
 
 
@@ -1458,8 +1461,8 @@ Definition v_rel'_def:
     | Closure s1 x1 =>
         ∃ s2 x2.
           v2 = Closure s2 x2 ∧
-          ∀z. v_rel' n (eval (bind [(s1,z)] x1))
-                       (eval (bind [(s2,z)] x2))
+          ∀z. v_rel' n (eval (bind (FEMPTY |+ (s1,z)) x1))
+                       (eval (bind (FEMPTY |+ (s2,z)) x2))
     | Diverge => v2 = Diverge
     | Error => v2 = Error)
 End
@@ -1470,7 +1473,7 @@ Coinductive v_rel:
     v_rel c (Atom a1) (Atom a2)) ∧
   (m1 = m2 ∧ LIST_REL (v_rel c) xs ys ⇒
     v_rel c (Constructor m1 xs) (Constructor m2 ys)) ∧
-  ((∀z. v_rel c (eval c (bind [(c1,z)] e1)) (eval c (bind [(c2,z)] e2))) ⇒
+  ((∀z. v_rel c (eval c (bind (FEMPTY |+ (c1,z)) e1)) (eval c (bind (FEMPTY |+ (c2,z)) e2))) ⇒
    v_rel c (Closure c1 e1) (Closure c2 e2)) ∧
   (v_rel c Diverge Diverge) ∧
   (v_rel c Error Error)
@@ -1493,7 +1496,8 @@ Proof
 QED
 
 Theorem v_rel_Closure:
-  (∀x y. exp_rel x y ⇒ exp_rel (bind [m,x] b) (bind [n,y] d)) ⇒
+  (∀x y. exp_rel x y
+    ⇒ exp_rel (bind (FEMPTY |+ (m,x)) b) (bind (FEMPTY |+ (n,y)) d)) ⇒
   v_rel (Closure m b) (Closure n d)
 Proof
   rw [PULL_FORALL,exp_rel_def,v_rel_def] \\ fs []
@@ -1560,7 +1564,8 @@ Theorem v_rel_rules:
      b1 = b2 ⇒
        v_rel (Atom b1) (Atom b2)) ∧
   (∀n1 x1 n2 x2.
-     (∀z. v_rel (eval (bind [n1,z] x1)) (eval (bind [n2,z] x2))) ⇒
+     (∀z. v_rel (eval (bind (FEMPTY |+ (n1,z)) x1))
+                (eval (bind (FEMPTY |+ (n2,z)) x2))) ⇒
        v_rel (Closure n1 x1) (Closure n2 x2)) ∧
   (∀n1 x1 n2 x2.
      n1 = n2 ∧
@@ -1596,7 +1601,8 @@ Theorem v_rel_rules':
   (∀n1 x1 n2 x2.
      (∀z1 z2.
        v_rel (eval z1) (eval z2) ⇒
-       v_rel (eval (bind [n1,z1] x1)) (eval (bind [n2,z2] x2))) ⇒
+       v_rel (eval (bind (FEMPTY |+ (n1,z1)) x1))
+             (eval (bind (FEMPTY |+ (n2,z2)) x2))) ⇒
        v_rel (Closure n1 x1) (Closure n2 x2)) ∧
   (∀n1 x1 n2 x2.
      n1 = n2 ∧
@@ -1617,7 +1623,7 @@ Theorem v_rel_cases:
   (∀s x y. v_rel (Closure s x) y ⇔
     ∃s' x'.
       y = Closure s' x' ∧
-      ∀z. exp_rel (bind [(s,z)] x) (bind [(s',z)] x')) ∧
+      ∀z. exp_rel (bind (FEMPTY |+ (s,z)) x) (bind (FEMPTY |+ (s',z)) x')) ∧
   (∀x. v_rel Diverge x ⇔ x = Diverge) ∧
   (∀x. v_rel Error x ⇔ x = Error)
 Proof

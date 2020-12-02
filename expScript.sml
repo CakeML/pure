@@ -209,6 +209,12 @@ Proof
     )
 QED
 
+Theorem subst_FEMPTY:
+  ∀e. subst FEMPTY e = e
+Proof
+  rw[] >> irule subst_ignore >> fs[]
+QED
+
 Definition subst_funs_def:
   subst_funs f = bind (FEMPTY |++ (MAP (λ(g,x). (g,Letrec f x)) f))
 End
