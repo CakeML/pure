@@ -1420,6 +1420,25 @@ Proof
   rw[]
 QED
 
+Theorem MAP_ID_ON:
+  (∀x. MEM x l ⇒ f x = x) ⇒ MAP f l = l
+Proof
+  Induct_on ‘l’ >> rw[]
+QED
+
+Theorem MEM_PERM_IMP:
+  MEM x l ⇒
+  MEM y (MAP (perm1 x y) l)
+Proof
+  Induct_on ‘l’ >> rw[perm1_def]
+QED
+
+Theorem MEM_PERM_EQ:
+  MEM x (MAP (perm1 x y) l) ⇔ MEM y l
+Proof
+  Induct_on ‘l’ >> rw[perm1_def,EQ_IMP_THM] >> simp[]
+QED
+
 Theorem exp_alpha_freevars:
   ∀e e'.
     exp_alpha e e' ⇒ exp$freevars e = exp$freevars e'
@@ -1705,7 +1724,226 @@ Proof
       CONV_TAC(DEPTH_CONV ETA_CONV) >> gvs[] >>
       gvs[EVERY2_MAP] >>
       drule_at_then Any match_mp_tac EVERY2_mono >> rw[])
-  >- cheat
+  >- (rw[] >>
+      TRY(match_mp_tac exp_alpha_Letrec_Alpha >> simp[] >> NO_TAC) >>
+      gvs[]
+      >- (‘x' = x’
+            by(gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          pop_assum SUBST_ALL_TAC >>
+          Cases_on ‘MEM y (MAP FST funs1)’
+          >- (gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          Cases_on ‘MEM y (MAP FST funs2)’
+          >- (gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          gvs[MEM_FILTER] >>
+          drule MEM_PERM_IMP >>
+          disch_then(qspec_then ‘y’ assume_tac) >>
+          gvs[MAP_MAP_o,combinTheory.o_DEF] >>
+          simp[PAIR_MAP] >>
+          ‘MAP (λx'. (perm1 x y (FST x'),subst x e' (perm_exp x y (SND x')))) funs1 =
+           MAP (perm1 x y ## perm_exp x y) funs1’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ‘MAP (λx'. (perm1 x y (FST x'),subst x e' (perm_exp x y (SND x')))) funs2 =
+           MAP (perm1 x y ## perm_exp x y) funs2’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ntac 2 (pop_assum SUBST_ALL_TAC) >>
+          simp[subst_ignore,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
+          match_mp_tac exp_alpha_Letrec_Alpha >>
+          rw[freevars_def,MEM_FILTER])
+      >- (Cases_on ‘MEM y (MAP FST funs1)’
+          >- (gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          Cases_on ‘MEM y (MAP FST funs2)’
+          >- (gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          gvs[MEM_FILTER] >>
+          gvs[MAP_MAP_o,combinTheory.o_DEF] >>
+          simp[PAIR_MAP] >>
+          ‘MAP (λx'. (perm1 x y (FST x'),subst x e' (perm_exp x y (SND x')))) funs1 =
+           MAP (perm1 x y ## perm_exp x y) funs1’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ‘MAP (λx'. (perm1 x y (FST x'),subst x e' (perm_exp x y (SND x')))) funs2 =
+           MAP (perm1 x y ## perm_exp x y) funs2’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ntac 2 (pop_assum SUBST_ALL_TAC) >>
+          simp[subst_ignore,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
+          match_mp_tac exp_alpha_Letrec_Alpha >>
+          rw[freevars_def,MEM_FILTER])
+      >- (‘x' = x’
+            by(gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          pop_assum SUBST_ALL_TAC >>
+          Cases_on ‘MEM y (MAP FST funs1)’
+          >- (gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          Cases_on ‘MEM y (MAP FST funs2)’
+          >- (gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          gvs[MEM_FILTER] >>
+          drule MEM_PERM_IMP >>
+          disch_then(qspec_then ‘y’ assume_tac) >>
+          gvs[MAP_MAP_o,combinTheory.o_DEF] >>
+          simp[PAIR_MAP] >>
+          ‘MAP (λx'. (perm1 x y (FST x'),subst x e' (perm_exp x y (SND x')))) funs1 =
+           MAP (perm1 x y ## perm_exp x y) funs1’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ‘MAP (λx'. (perm1 x y (FST x'),subst x e' (perm_exp x y (SND x')))) funs2 =
+           MAP (perm1 x y ## perm_exp x y) funs2’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ntac 2 (pop_assum SUBST_ALL_TAC) >>
+          simp[subst_ignore,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
+          match_mp_tac exp_alpha_Letrec_Alpha >>
+          rw[freevars_def,MEM_FILTER])
+      >- (‘x' = y’
+            by(fs[MEM_MAP,PAIR_MAP,PULL_EXISTS] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          pop_assum SUBST_ALL_TAC >>
+          gvs[MEM_FILTER] >>
+          ‘MAP (λ(g,z). (g,subst y e' z)) funs1 = funs1’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac MAP_ID_ON >>
+               PairCases >> rw[] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               fs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ‘MAP (λ(g,z). (g,subst y e' z)) funs2 = funs2’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac MAP_ID_ON >>
+               PairCases >> rw[] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               fs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ntac 2 (pop_assum SUBST_ALL_TAC) >>
+          simp[subst_ignore,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
+          match_mp_tac exp_alpha_Letrec_Alpha >>
+          rw[freevars_def,MEM_FILTER])
+      >- (gvs[MEM_FILTER] >>
+          rename1 ‘x ≠ y’ >>
+          ‘MAP (λ(g,z). (g,subst y e' z)) funs1 = funs1’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac MAP_ID_ON >>
+               PairCases >> rw[] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ‘MAP (λ(g,z). (g,subst y e' z)) funs2 = funs2’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac MAP_ID_ON >>
+               PairCases >> rw[] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               gvs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ntac 2 (pop_assum SUBST_ALL_TAC) >>
+          simp[subst_ignore,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
+          match_mp_tac exp_alpha_Letrec_Alpha >>
+          rw[freevars_def,MEM_FILTER])
+      >- (‘x' = y’
+            by(gvs[MEM_MAP,PAIR_MAP] >> metis_tac[PAIR,FST,SND,perm1_def]) >>
+          pop_assum SUBST_ALL_TAC >>
+          gvs[MEM_FILTER] >>
+          ‘MAP (λ(g,z). (g,subst y e' z)) funs1 = funs1’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac MAP_ID_ON >>
+               PairCases >> rw[] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               fs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ‘MAP (λ(g,z). (g,subst y e' z)) funs2 = funs2’
+            by(rw[MAP_EQ_f,PAIR_MAP] >>
+               match_mp_tac MAP_ID_ON >>
+               PairCases >> rw[] >>
+               match_mp_tac subst_ignore >>
+               gvs[GSYM perm_exp_eqvt] >>
+               spose_not_then strip_assume_tac >>
+               gvs[MEM_PERM_EQ] >>
+               fs[MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR,perm1_def]) >>
+          ntac 2 (pop_assum SUBST_ALL_TAC) >>
+          simp[subst_ignore,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
+          match_mp_tac exp_alpha_Letrec_Alpha >>
+          rw[freevars_def,MEM_FILTER])
+      >- (match_mp_tac exp_alpha_Trans >>
+          irule_at (Pos hd) exp_alpha_Letrec_Alpha >>
+          goal_assum drule >>
+          conj_tac
+          >- (gvs[freevars_def,MEM_FILTER] >>
+              gvs[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
+              CONV_TAC(DEPTH_CONV ETA_CONV) >>
+              simp[] >>
+              rw[freevars_subst] >>
+              disj2_tac >>
+              CCONTR_TAC >> gvs[MEM_FLAT,MEM_MAP,freevars_subst] >>
+              metis_tac[FST,SND,PAIR]) >>
+          match_mp_tac exp_alpha_Letrec >>
+          conj_tac
+          >- (simp[subst_eqvt,perm1_def] >>
+              match_mp_tac exp_alpha_subst_closed' >>
+              simp[closed_perm] >>
+              match_mp_tac exp_alpha_sym >>
+              match_mp_tac exp_alpha_perm_irrel >>
+              gvs[closed_def]) >>
+          conj_tac
+          >- (simp[] >>
+              rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
+              rw[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f] >>
+              pairarg_tac >> simp[]) >>
+          simp[] >>
+          match_mp_tac LIST_REL_APPEND_suff >>
+          simp[EVERY2_MAP] >>
+          conj_tac
+          >- (match_mp_tac EVERY2_refl >>
+              PairCases >> rw[subst_eqvt,perm1_def] >>
+              match_mp_tac exp_alpha_subst_closed' >>
+              simp[closed_perm] >>
+              match_mp_tac exp_alpha_sym >>
+              match_mp_tac exp_alpha_perm_irrel >>
+              gvs[closed_def]) >>
+          conj_tac
+          >- (rw[subst_eqvt,perm1_def] >>
+              match_mp_tac exp_alpha_subst_closed' >>
+              simp[closed_perm] >>
+              match_mp_tac exp_alpha_sym >>
+              match_mp_tac exp_alpha_perm_irrel >>
+              gvs[closed_def]) >>
+          match_mp_tac EVERY2_refl >>
+          PairCases >> rw[subst_eqvt,perm1_def] >>
+          match_mp_tac exp_alpha_subst_closed' >>
+          simp[closed_perm] >>
+          match_mp_tac exp_alpha_sym >>
+          match_mp_tac exp_alpha_perm_irrel >>
+          gvs[closed_def]))
 QED
 
 val (v_alpha_rules,v_alpha_coind,v_alpha_def) = Hol_coreln
