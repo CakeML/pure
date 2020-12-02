@@ -82,8 +82,8 @@ Language: pre-cake: a simplified version of CakeML
 
  - call by value
  - simple references, each thunk is compiled to ref ('a + (unit -> 'a))
-       + (only support INL / INR references to keep options open for
-         compilation to different representations in CakeML)
+   - (only support INL / INR references to keep options open for
+     compilation to different representations in CakeML)
 
 ```
 instead of:
