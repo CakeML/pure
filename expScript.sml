@@ -197,6 +197,113 @@ Proof
     )
 QED
 
+Theorem FDIFF_FUNION:
+  ∀fm1 fm2 s. FDIFF (fm1 ⊌ fm2) s = (FDIFF fm1 s) ⊌ (FDIFF fm2 s)
+Proof
+  rw[FDIFF_def, DRESTRICTED_FUNION] >>
+  rw[fmap_eq_flookup] >>
+  rw[FLOOKUP_DRESTRICT, FLOOKUP_FUNION] >> fs[] >>
+  rw[FLOOKUP_DEF]
+QED
+
+Theorem subst_subst_FUNION:
+  ∀m1 e m2.
+    (∀v. v ∈ FRANGE m2 ⇒ closed v)
+  ⇒ subst m1 (subst m2 e) = subst (m2 ⊌ m1) e
+Proof
+  ho_match_mp_tac subst_ind >> rw[subst_def] >> gvs[FRANGE_FLOOKUP, PULL_EXISTS]
+  >- (
+    gvs[FLOOKUP_FUNION] >>
+    reverse CASE_TAC >> gvs[subst_def]
+    >- (irule closed_subst >> res_tac)
+    )
+  >- (
+    fs[MAP_MAP_o, combinTheory.o_DEF] >>
+    rw[MAP_EQ_f] >>
+    first_x_assum irule >> simp[] >> gvs[]
+    )
+  >- (
+    gvs[DOMSUB_FUNION] >>
+    first_x_assum irule >>
+    gvs[DOMSUB_FLOOKUP_THM] >> rw[] >>
+    res_tac
+    )
+  >- (
+    fs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    CONV_TAC (DEPTH_CONV ETA_CONV) >>
+    rw[MAP_EQ_f] >> rename1 `MEM fn f` >> PairCases_on `fn` >> gvs[] >>
+    rw[FDIFF_FUNION] >>
+    first_x_assum irule >>
+    gvs[FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >> res_tac >>
+    goal_assum drule
+    )
+  >- (
+    rw[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    CONV_TAC (DEPTH_CONV ETA_CONV) >>
+    rw[FDIFF_FUNION] >>
+    first_x_assum irule >>
+    gvs[FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >> res_tac
+    )
+QED
+
+Theorem subst_subst_single:
+  ∀m e n v.
+    closed v ⇒
+    subst (m |+ (n,v)) e = subst m (subst (FEMPTY |+ (n,v)) e)
+Proof
+  rw[] >>
+  simp[Once FUPDATE_EQ_FUNION] >>
+  irule (GSYM subst_subst_FUNION) >>
+  fs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, PULL_EXISTS]
+QED
+
+Theorem bind_bind_single:
+  ∀m e n v.
+    closed v ∧ n ∉ FDOM m ⇒
+    bind (m |+ (n,v)) e = bind m (bind (FEMPTY |+ (n,v)) e)
+Proof
+  rw[] >> fs[bind_def] >>
+  reverse IF_CASES_TAC >> gvs[]
+  >- (
+    IF_CASES_TAC >> gvs[] >>
+    gvs[FLOOKUP_UPDATE] >>
+    rename1 `if n1 = n2 then _ else _` >>
+    Cases_on `n1 = n2` >> gvs[] >>
+    res_tac
+    ) >>
+  reverse (IF_CASES_TAC) >> gvs[]
+  >- (
+    gvs[FLOOKUP_UPDATE] >>
+    rename1 `FLOOKUP _ n2` >> rename1 `n1 ∉ _` >>
+    `n1 ≠ n2` by (gvs[flookup_thm] >> CCONTR_TAC >> gvs[]) >>
+    first_assum (qspec_then `n2` assume_tac) >> gvs[]
+    ) >>
+  IF_CASES_TAC >> gvs[FLOOKUP_UPDATE] >>
+  fs[Once subst_subst_single]
+QED
+
+Theorem bind_bind:
+  ∀m1 m2 e.
+    (∀v. v ∈ FRANGE m1 ⇒ closed v) ∧ DISJOINT (FDOM m1) (FDOM m2)
+  ⇒ bind m1 (bind m2 e) = bind (m2 ⊌ m1) e
+Proof
+  rw[] >> fs[bind_def, FRANGE_FLOOKUP, PULL_EXISTS, DISJOINT_DEF, EXTENSION] >>
+  reverse IF_CASES_TAC >> gvs[]
+  >- (
+    IF_CASES_TAC >> gvs[] >>
+    gvs[FLOOKUP_FUNION] >>
+    imp_res_tac flookup_thm >> res_tac
+    ) >>
+  reverse (IF_CASES_TAC) >> gvs[FLOOKUP_FUNION]
+  >- (
+    IF_CASES_TAC >> gvs[subst_def] >>
+    pop_assum (qspec_then `n` assume_tac) >> gvs[]
+    ) >>
+  reverse (IF_CASES_TAC) >> gvs[]
+  >- (Cases_on `FLOOKUP m2 n` >> gvs[] >> res_tac) >>
+  irule subst_subst_FUNION >> gvs[FRANGE_FLOOKUP, PULL_EXISTS]
+QED
+
 Theorem subst_FEMPTY:
   ∀e. subst FEMPTY e = e
 Proof
