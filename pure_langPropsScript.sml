@@ -73,25 +73,6 @@ Proof
       qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       simp[])
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
-      disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[]
-      >- (qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-          qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-          conj_tac >- metis_tac[PAIR,FST,SND] >>
-          rw[]) >>
-      spose_not_then strip_assume_tac >> gvs[])
-  >- (disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
 QED
 
 Theorem freevars_subst:
@@ -122,25 +103,6 @@ Proof
       qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
       conj_tac >- metis_tac[PAIR,FST,SND] >>
       simp[])
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[] >>
-      disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
-  >- (BasicProvers.FULL_CASE_TAC >> gvs[]
-      >- (qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-          qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-          conj_tac >- metis_tac[PAIR,FST,SND] >>
-          rw[]) >>
-      spose_not_then strip_assume_tac >> gvs[])
-  >- (disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g m e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
 QED
 
 Theorem freevars_bind:
@@ -210,16 +172,10 @@ Theorem bind_alt_def:
       Letrec
         (MAP (λ(g,z).
           (g,bind sub' z)) f)
-      (bind sub' x)) ∧
-    (∀e vn css. bind sub (Case e vn css) =
-      Case (bind sub e) vn
-      (MAP (λ(cn,ans,cb).
-        let sub' = FILTER (λn. ¬ MEM (FST n) (vn::ans)) sub in
-        (cn, ans, bind sub' cb)) css))
+      (bind sub' x))
 Proof
   Induct >> rw[] >> fs[bind_def]
-  >- (Induct_on `f` >> rw[] >> PairCases_on `h` >> fs[])
-  >- (Induct_on `css` >> rw[] >> PairCases_on `h` >> fs[]) >>
+  >- (Induct_on `f` >> rw[] >> PairCases_on `h` >> fs[]) >>
   PairCases_on `h` >> fs[ALOOKUP_def, bind_def, subst_def]
   >- (
     rw[]
@@ -250,12 +206,6 @@ Proof
     rw[MAP_EQ_f] >>
     PairCases_on `x` >> gvs[bind_def] >>
     IF_CASES_TAC >> gvs[bind_def]
-    )
-  >- (
-    fs[MAP_MAP_o, combinTheory.o_DEF] >>
-    rw[MAP_EQ_f] >>
-    PairCases_on `x` >> fs[] >>
-    IF_CASES_TAC >> fs[bind_def]
     )
 QED
 
