@@ -23,7 +23,6 @@ Datatype:
       | App exp exp                       (* function application     *)
       | Lam vname exp                     (* lambda                   *)
       | Letrec ((vname # exp) list) exp   (* mutually recursive exps  *)
-      | Case exp vname ((vname # vname list # exp) list) (* case pat. *)
 End
 
 (* some abbreviations *)
@@ -42,10 +41,7 @@ Definition freevars_def[simp]:
   freevars (Lam n e)   = (FILTER ($≠ n) (freevars e))      ∧
   freevars (Letrec lcs e) =
     FILTER (\n. ¬ MEM n (MAP FST lcs))
-           (freevars e ⧺ FLAT (MAP (λ(fn,e). freevars e) lcs))  ∧
-  freevars (Case exp nm css) =
-    (freevars exp ⧺ FLAT (MAP (λ(_,vs,cs).FILTER (λ n. ¬MEM n (nm::vs)) (freevars cs))
-                              css))
+           (freevars e ⧺ FLAT (MAP (λ(fn,e). freevars e) lcs))
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ fs[]
   \\ conj_tac \\ TRY conj_tac
@@ -63,9 +59,8 @@ Definition closed_def:
 End
 
 Theorem exp_size_lemma:
-  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp6_size xs) ∧
-  (∀xs x a.   MEM   (x,a) xs ⇒ exp_size a < exp4_size xs) ∧
-  (∀xs x y a. MEM (x,y,a) xs ⇒ exp_size a < exp1_size xs)
+  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp3_size xs) ∧
+  (∀xs x   a. MEM   (x,a) xs ⇒ exp_size a < exp1_size xs)
 Proof
   conj_tac \\ TRY conj_tac \\ Induct \\ rw []
   \\ res_tac \\ fs [fetch "-" "exp_size_def"]
@@ -79,13 +74,7 @@ Definition subst_def:
   subst name v (Letrec f x) =
     (if MEM name (MAP FST f) then Letrec f x else
       Letrec (MAP (λ(g,z). (g, subst name v z )) f)
-             (subst name v x)) ∧
-  subst name v (Case e vn css) =
-    (Case (subst name v e)
-          vn
-          (MAP (λ(cn,ans, cb).
-                 (cn,ans, if ¬MEM name (vn::ans) then subst name v cb else cb))
-               css))
+             (subst name v x))
 Termination
   WF_REL_TAC `measure (λ(n,v,x). exp_size x)` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
@@ -103,12 +92,7 @@ Definition subst_all_def:
     (let m1 = FDIFF m (set (MAP FST f)) in
        Letrec
          (MAP (λ(f,e). (f,subst_all m1 e)) f)
-         (subst_all m1 x)) ∧
-  subst_all m (Case e vn rows) =
-    let m1 = m \\ vn in
-      Case (subst_all m e) vn
-          (MAP (λ(cn,ps,e).
-                 (cn,ps,subst_all (FDIFF m1 (set ps)) e)) rows)
+         (subst_all m1 x))
 Termination
   WF_REL_TAC `measure (exp_size o SND)` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
@@ -165,12 +149,35 @@ Proof
    (fs [MEM_MAP,FORALL_PROD,EXISTS_PROD]
     \\ reverse conj_tac THEN1 metis_tac []
     \\ Induct_on ‘f’ \\ fs [FORALL_PROD] \\ metis_tac [])
-  THEN1 metis_tac []
-  \\ Induct_on ‘css’ \\ fs [] \\ rw []
-  \\ Cases_on ‘x1 = vn’ \\ fs []
-  \\ Cases_on ‘x2 = vn’ \\ fs []
-  \\ PairCases_on ‘h’ \\ fs [] \\ rw []
-  \\ metis_tac []
 QED
 
+Definition bind_def:
+  bind [] x = x ∧
+  bind ((s,v)::ys) x =
+    if closed v then subst s v (bind ys x) else Fail
+End
+
+Definition subst_funs_def:
+  subst_funs f = bind (MAP (λ(g,x). (g,Letrec f x)) f)
+End
+
+Definition expandLets_def:
+   expandLets i cn nm ([]) cs = cs ∧
+   expandLets i cn nm (v::vs) cs = Let v (Proj cn i (Var nm))
+                                         (expandLets (i+1) cn nm vs cs)
+End
+
+Definition expandRows_def:
+   expandRows nm [] = Fail ∧
+   expandRows nm ((cn,vs,cs)::css) = If (IsEq cn (LENGTH vs) (Var nm))
+                                        (expandLets 0 cn nm vs cs)
+                                        (expandRows nm css)
+End
+
+Definition expandCases_def:
+   expandCases x nm css = (Let nm x (expandRows nm css))
+End
+
+Overload Case = “λx nm css. expandCases x nm css”
+        
 val _ = export_theory ();

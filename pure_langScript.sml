@@ -80,33 +80,6 @@ Definition eval_op_def:
   (eval_op _ _ = Error)
 End
 
-Definition bind_def:
-  bind [] x = x ∧
-  bind ((s,v)::ys) x =
-    if closed v then subst s v (bind ys x) else Fail
-End
-
-Definition subst_funs_def:
-  subst_funs f = bind (MAP (λ(g,x). (g,Letrec f x)) f)
-End
-
-Definition expandLets_def:
-   expandLets i cn nm ([]) cs = cs ∧
-   expandLets i cn nm (v::vs) cs = Let v (Proj cn i (Var nm))
-                                         (expandLets (i+1) cn nm vs cs)
-End
-
-Definition expandRows_def:
-   expandRows nm [] = Fail ∧
-   expandRows nm ((cn,vs,cs)::css) = If (IsEq cn (LENGTH vs) (Var nm))
-                                        (expandLets 0 cn nm vs cs)
-                                        (expandRows nm css)
-End
-
-Definition expandCases_def:
-   expandCases x nm css = (Let nm x (expandRows nm css))
-End
-
 (*EVAL “expandCases ARB "a" [("Nil",[],c1);("Cons",["x";"xs"],c2)] ”*)
 
 Definition eval_to_def:
@@ -123,10 +96,7 @@ Definition eval_to_def:
              eval_to (k-1) (bind [(s,y)] body)) ∧
   eval_to k (Letrec f y) =
     (if k = 0 then Diverge else
-      eval_to (k-1) (subst_funs f y)) ∧
-  eval_to k (Case x nm css) =
-    (if k = 0 then Diverge else
-       eval_to (k-1) (expandCases x nm css))
+      eval_to (k-1) (subst_funs f y))
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x).(k,(exp_size x)))`
   \\ rw []
@@ -1423,8 +1393,7 @@ Theorem eval_thm:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind [(s,y)] body)) ∧
-  eval (Case x nm css) = eval (expandCases x nm css)
+         | SOME (s,body) => eval (bind [(s,y)] body))
 Proof
   fs [eval_Fail,eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
       eval_IsEq,bind_def,eval_Letrec,eval_Case]

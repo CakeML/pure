@@ -105,20 +105,6 @@ Proof
     \\ rpt strip_tac \\ res_tac \\ fs[]
     \\ fs[rich_listTheory.FILTER_FILTER,AC CONJ_ASSOC CONJ_COMM]
   )
-  THEN1(
-   fs[subst_def] \\fs[FILTER_APPEND_DISTRIB]
-   \\ fs[rich_listTheory.FILTER_FLAT]
-   \\ fs[MAP_MAP_o,combinTheory.o_DEF,pairTheory.UNCURRY]
-   \\ fs[rich_listTheory.FILTER_FILTER,AC CONJ_ASSOC CONJ_COMM]
-   \\ AP_TERM_TAC \\ fs[listTheory.MAP_EQ_f,pairTheory.FORALL_PROD]
-   \\ rpt strip_tac \\ reverse IF_CASES_TAC
-   THEN1(
-     AP_THM_TAC \\ AP_TERM_TAC
-     \\ fs[FUN_EQ_THM] \\ metis_tac []
-   )
-   \\ res_tac \\ fs[] \\ rfs[]
-   \\ fs[rich_listTheory.FILTER_FILTER,AC CONJ_ASSOC CONJ_COMM]
-  )
 QED
 
 Theorem no_var_no_subst:
@@ -133,11 +119,6 @@ Proof
   THEN1(
     fs[subst_def] \\ IF_CASES_TAC \\ fs[] \\ fs[MEM_FILTER]
     \\ Induct_on ‘f’ \\ fs[] \\ rpt strip_tac
-    THEN1 (Cases_on ‘h’ \\ Cases_on ‘r’ \\ fs[] \\ IF_CASES_TAC \\ fs[] \\ fs[MEM_FILTER])
-    \\ metis_tac [])
-  THEN1(
-    fs[subst_def] \\ fs[MEM_FILTER]
-    \\ Induct_on ‘css’ \\ fs[] \\ rpt strip_tac
     THEN1 (Cases_on ‘h’ \\ Cases_on ‘r’ \\ fs[] \\ IF_CASES_TAC \\ fs[] \\ fs[MEM_FILTER])
     \\ metis_tac [])
 QED
@@ -181,14 +162,6 @@ Proof
     \\ fs[MAP_EQ_f] \\ rpt strip_tac
     \\ Cases_on ‘x'’ \\ Cases_on ‘r’ \\ fs[] \\ res_tac \\ fs[]
   )
-  THEN1 (
-    fs[subst_def]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF,pairTheory.UNCURRY]
-    \\ rw[] \\ fs[]
-    \\ fs[MAP_EQ_f] \\ rpt strip_tac
-    \\ IF_CASES_TAC \\ fs[]
-    \\ IF_CASES_TAC \\ fs[]
-    \\ Cases_on ‘x'’ \\ Cases_on ‘r’ \\ fs[] \\ res_tac \\ fs[])
 QED
 
 (*
