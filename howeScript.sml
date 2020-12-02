@@ -854,6 +854,14 @@ Definition open_bisimilarity_def:
     ∀f. names = FDOM f ⇒ bind f e1 ≃ bind f e2
 End
 
+Theorem open_bisimilarity_eq:
+  open_bisimilarity names e1 e2 ⇔
+  open_similarity names e1 e2 ∧ open_similarity names e2 e1
+Proof
+  eq_tac
+  \\ fs [open_similarity_def,open_bisimilarity_def,app_bisimilarity_similarity]
+QED
+
 Definition Ref_def:
   Ref R ⇔
     ∀vars e. e IN Exps vars ⇒ R vars e e
@@ -2776,11 +2784,18 @@ Proof
   \\ cheat
 QED
 
-Theorem exp_eq_Lam:
-  Lam x1 e1 ≅ Lam x2 e2 ⇔
+Theorem open_similarity_Lam_IMP:
+  open_similarity vars (Lam x e1) (Lam x e2) ∧ vars SUBSET vars1 ∧ x IN vars1 ⇒
+  open_similarity vars1 e1 e2
+Proof
+  cheat
+QED
+
+Theorem exp_eq_Lam: (* TODO: ought to be generalised to Lam x e1 and Lam y e2 *)
+  Lam x e1 ≅ Lam x e2 ⇔
   ∀y1 y2.
     y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
-    subst x1 y1 e1 ≅ subst x2 y2 e2
+    subst x y1 e1 ≅ subst x y2 e2
 Proof
   assume_tac Ref_open_similarity
   \\ drule IMP_Howe_Sub
@@ -2789,6 +2804,21 @@ Proof
   \\ eq_tac \\ rw []
   \\ fs [exp_eq_open_bisimilarity]
   \\ fs [bind_def,PULL_EXISTS]
+  THEN1
+   (fs [SUBSET_DEF,MEM_FILTER,freevars_subst]
+    \\ fs [closed_def] \\ fs [GSYM closed_def]
+    \\ qexists_tac ‘vars DELETE x’ \\ fs [AND_IMP_INTRO]
+    \\ fs [open_bisimilarity_eq] \\ rw []
+    \\ first_x_assum match_mp_tac
+    \\ fs [Exps_def,SUBSET_DEF]
+    \\ rw [] \\ gvs [closed_def]
+    \\ TRY (match_mp_tac open_similarity_Lam_IMP \\ fs [SUBSET_DEF] \\ NO_TAC)
+    \\ TRY (rpt (qpat_x_assum ‘open_similarity _ _ _’ mp_tac)
+            \\ once_rewrite_tac [open_similarity_inter] \\ fs [] \\ NO_TAC)
+    \\ metis_tac [])
+  \\ qexists_tac ‘freevars (App e1 e2)’ \\ fs []
+  \\ fs [SUBSET_DEF,MEM_FILTER] \\ rw []
+  \\ rw [open_bisimilarity_eq] \\ rw []
   \\ cheat
 QED
 
