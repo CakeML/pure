@@ -1,6 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory configTheory pairTheory listTheory finite_mapTheory;
+open stringTheory optionTheory configTheory pairTheory listTheory
+     finite_mapTheory pred_setTheory;
 
 val _ = new_theory "exp";
 
@@ -52,10 +53,27 @@ Termination
   \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
 End
 
-Overload freevars = “λe. set (freevars e)”;
+Overload freevars = “λe. set (freevars e)”
+
+Theorem freevars_set_def[simp]:
+  (∀n.     freevars (Var n)        = {n}) ∧
+  (∀op es. freevars (Prim op es)   = BIGUNION (set (MAP freevars es))) ∧
+  (∀e1 e2. freevars (App e1 e2)    = freevars e1 ∪ freevars e2) ∧
+  (∀n e.   freevars (Lam n e)      = freevars e DELETE n) ∧
+  (∀lcs e. freevars (Letrec lcs e) =
+    freevars e ∪ BIGUNION (set (MAP (λ(fn,e). freevars e) lcs))
+      DIFF set (MAP FST lcs))
+Proof
+  rw[freevars_def, LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+  rw[LIST_TO_SET_FILTER, DELETE_DEF, EXTENSION] >>
+  fs[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+  eq_tac >> rw[] >> fs[] >>
+  DISJ2_TAC >> qexists_tac `y` >> fs[] >>
+  PairCases_on `y` >> fs[]
+QED
 
 Definition closed_def:
-  closed e = (freevars e = [])
+  closed e = (freevars e = {})
 End
 
 Theorem exp_size_lemma:
@@ -67,98 +85,132 @@ Proof
 QED
 
 Definition subst_def:
-  subst name v (Var s) = (if name = s then v else Var s) ∧
-  subst name v (Prim op xs) = Prim op (MAP (subst name v) xs) ∧
-  subst name v (App x y) = App (subst name v x) (subst name v y) ∧
-  subst name v (Lam s x) = Lam s (if s = name then x else subst name v x) ∧
-  subst name v (Letrec f x) =
-    (if MEM name (MAP FST f) then Letrec f x else
-      Letrec (MAP (λ(g,z). (g, subst name v z )) f)
-             (subst name v x))
-Termination
-  WF_REL_TAC `measure (λ(n,v,x). exp_size x)` \\ rw []
-  \\ imp_res_tac exp_size_lemma \\ fs []
-End
-
-Definition subst_all_def:
-  subst_all m (Var s) =
+  subst m (Var s) =
     (case FLOOKUP m s of
      | NONE => Var s
      | SOME x => x) ∧
-  subst_all m (Prim op xs) = Prim op (MAP (subst_all m) xs) ∧
-  subst_all m (App x y) = App (subst_all m x) (subst_all m y) ∧
-  subst_all m (Lam s x) = Lam s (subst_all (m \\ s) x) ∧
-  subst_all m (Letrec f x) =
-    (let m1 = FDIFF m (set (MAP FST f)) in
-       Letrec
-         (MAP (λ(f,e). (f,subst_all m1 e)) f)
-         (subst_all m1 x))
+  subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
+  subst m (App x y) = App (subst m x) (subst m y) ∧
+  subst m (Lam s x) = Lam s (subst (m \\ s) x) ∧
+  subst m (Letrec f x) =
+    let m1 = FDIFF m (set (MAP FST f)) in
+      Letrec (MAP (λ(f,e). (f,subst m1 e)) f) (subst m1 x)
 Termination
   WF_REL_TAC `measure (exp_size o SND)` \\ rw []
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
-Definition bind_all_def:
-  bind_all m e =
-    if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then subst_all m e else Fail
+Definition bind_def:
+  bind m e =
+    if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then subst m e else Fail
 End
 
-Overload bind = “bind_all”;
-
 Theorem subst_ignore:
-  ∀s x y. ~MEM s (freevars y) ⇒ subst s x y = y
+  ∀m e. DISJOINT (freevars e) (FDOM m) ⇒ subst m e = e
 Proof
-  ho_match_mp_tac subst_ind \\ rw [] \\ fs [subst_def]
-  THEN1 (Induct_on ‘xs’ \\ fs [])
-  THEN1 (rw [] \\ fs [MEM_FILTER])
-  THEN1
-   (rw [] \\ fs [MEM_FILTER]
-    \\ Induct_on ‘f’ \\ fs [FORALL_PROD]
-    \\ rw [] \\ fs [AND_IMP_INTRO]
-    THEN1 (first_x_assum match_mp_tac \\ metis_tac [])
-    \\ fs [MEM_FILTER,EXISTS_PROD,MEM_MAP]
-    \\ metis_tac [])
-  \\ Induct_on ‘css’ \\ fs [FORALL_PROD,MEM_MAP] \\ rw []
-  \\ fs [MEM_FILTER,EXISTS_PROD,MEM_MAP]
-  \\ metis_tac []
+  ho_match_mp_tac subst_ind \\ rw [] \\ fs [subst_def] \\ rw[]
+  >- fs[FLOOKUP_DEF]
+  >- (Induct_on `xs` >> fs[])
+  >- (
+    first_x_assum irule >>
+    fs[DISJOINT_DEF, EXTENSION] >>
+    metis_tac[]
+    )
+  >- (
+    rw[LIST_EQ_REWRITE] >> fs[MEM_EL, PULL_EXISTS, EL_MAP] >>
+    Cases_on `EL x f` >> fs[] >> rename1 `(fn_name, fn_body)` >>
+    first_x_assum drule >> fs[] >> disch_then irule >>
+    fs[DISJOINT_DEF, EXTENSION] >> rw[] >> rename1 `var ∉ _` >>
+    first_assum (qspec_then `var` assume_tac) >> fs[] >>
+    first_x_assum (qspec_then `freevars fn_body` assume_tac) >> gvs[] >>
+    pop_assum mp_tac >> simp[MEM_MAP] >> strip_tac >>
+    pop_assum (qspec_then `(fn_name,fn_body)` assume_tac) >> gvs[MEM_EL] >>
+    pop_assum mp_tac >> simp[MEM_EL] >> strip_tac >>
+    pop_assum (qspec_then `x` assume_tac) >> gvs[]
+    )
+  >- (
+    first_x_assum irule >>
+    fs[DISJOINT_DEF, EXTENSION] >> rw[] >>
+    first_x_assum (qspec_then `x` assume_tac) >> fs[]
+    )
 QED
 
 Theorem closed_subst[simp]:
-  ∀s x y. closed y ⇒ subst s x y = y
+  ∀m e. closed e ⇒ subst m e = e
 Proof
   rw [] \\ match_mp_tac subst_ignore \\ fs [closed_def]
 QED
 
 Theorem subst_subst:
-  ∀x1 v1 e x2 v2.
-    x1 ≠ x2 ∧ closed v1 ∧ closed v2 ⇒
-    subst x1 v1 (subst x2 v2 e) = subst x2 v2 (subst x1 v1 e)
+  ∀m1 e m2.
+    DISJOINT (FDOM m1) (FDOM m2) ∧
+    (∀v1. v1 ∈ FRANGE m1 ⇒ closed v1) ∧
+    (∀v2. v2 ∈ FRANGE m2 ⇒ closed v2)
+  ⇒ subst m1 (subst m2 e) = subst m2 (subst m1 e)
 Proof
-  ho_match_mp_tac subst_ind \\ rw [] \\ rw [subst_def] \\ gvs []
-  THEN1 (Induct_on ‘xs’ \\ fs [] \\ metis_tac [])
-  THEN1 metis_tac []
-  THEN1 metis_tac []
-  THEN1 metis_tac []
-  THEN1
-   (IF_CASES_TAC \\ fs []
-    \\ fs [MEM_MAP,FORALL_PROD] \\ PairCases_on ‘y’ \\ fs [] \\ gvs [])
-  THEN1
-   (rpt IF_CASES_TAC \\ fs []
-    \\ fs [MEM_MAP,FORALL_PROD] \\ PairCases_on ‘y’ \\ fs [] \\ gvs [])
-  THEN1
-   (fs [MEM_MAP,FORALL_PROD,EXISTS_PROD]
-    \\ reverse conj_tac THEN1 metis_tac []
-    \\ Induct_on ‘f’ \\ fs [FORALL_PROD] \\ metis_tac [])
+  ho_match_mp_tac subst_ind >> rw[subst_def] >> gvs[]
+  >- (
+    fs[DISJOINT_DEF, EXTENSION, FLOOKUP_DEF] >>
+    last_assum (qspec_then `s` assume_tac) >> fs[]
+    >- (
+      IF_CASES_TAC >> gvs[subst_def, FLOOKUP_DEF, IN_FRANGE] >>
+      irule closed_subst >> first_x_assum irule >>
+      goal_assum drule >> fs[]
+      )
+    >- (
+      IF_CASES_TAC >> gvs[subst_def, FLOOKUP_DEF, IN_FRANGE] >>
+      irule (GSYM closed_subst) >> last_x_assum irule >>
+      goal_assum drule >> fs[]
+      )
+    )
+  >- (
+    fs[MAP_MAP_o, combinTheory.o_DEF] >>
+    rw[MAP_EQ_f] >> first_x_assum irule >> fs[]
+    )
+  >- (first_x_assum irule >> fs[])
+  >- (first_x_assum irule >> fs[])
+  >- (
+    first_x_assum irule >> fs[] >>
+    gvs[IN_FRANGE, PULL_EXISTS, DOMSUB_FAPPLY_THM, DISJOINT_DEF, EXTENSION] >>
+    rw[] >> Cases_on `x = s` >> fs[]
+    )
+  >- (
+    rw[LIST_EQ_REWRITE] >> gvs[MEM_EL, PULL_EXISTS, EL_MAP] >>
+    Cases_on `EL x f` >> rename1 `(fn_name, fn_body)` >> gvs[] >>
+    ntac 2 (
+      qpat_abbrev_tac `l = MAP FST (MAP _ _)` >>
+      `l = MAP FST f` by (
+        unabbrev_all_tac >>
+        rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+        rename1 `FST _ = FST foo` >>
+        PairCases_on `foo` >> fs[]) >>
+      gvs[]) >>
+    first_x_assum irule >>
+    gvs[IN_FRANGE, PULL_EXISTS] >>
+    simp[FDIFF_def, DRESTRICT_DEF, GSYM CONJ_ASSOC] >>
+    goal_assum drule >> fs[] >>
+    fs[DISJOINT_DEF, EXTENSION] >> rw[] >> rename1 `foo ∉ _` >>
+    Cases_on `MEM foo (MAP FST f)` >> fs[]
+    )
+  >- (
+    ntac 2 (
+      qpat_abbrev_tac `l = MAP FST (MAP _ _)` >>
+      `l = MAP FST f` by (
+        unabbrev_all_tac >>
+        rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+        rename1 `FST _ = FST foo` >>
+        PairCases_on `foo` >> fs[]) >>
+      gvs[]) >>
+    first_x_assum irule >>
+    gvs[IN_FRANGE, PULL_EXISTS] >>
+    simp[FDIFF_def, DRESTRICT_DEF] >>
+    fs[DISJOINT_DEF, EXTENSION] >> rw[] >> rename1 `foo ∉ _` >>
+    Cases_on `MEM foo (MAP FST f)` >> fs[]
+    )
 QED
 
-Definition bind_def:
-  bind [] x = x ∧
-  bind ((s,v)::ys) x =
-    if closed v then subst s v (bind ys x) else Fail
-End
-
 Definition subst_funs_def:
-  subst_funs f = bind (MAP (λ(g,x). (g,Letrec f x)) f)
+  subst_funs f = bind (FEMPTY |++ (MAP (λ(g,x). (g,Letrec f x)) f))
 End
 
 Definition expandLets_def:
@@ -179,5 +231,5 @@ Definition expandCases_def:
 End
 
 Overload Case = “λx nm css. expandCases x nm css”
-        
+
 val _ = export_theory ();
