@@ -939,6 +939,9 @@ Definition Com6_def:
     ⇒ R vars (Case e nm css) (Case e' nm css')
 End
 
+Theorem Com_defs =
+  LIST_CONJ [Com1_def,Com2_def,Com3_def,Com4_def,Com5_def,Com5_def];
+
 
 (* Alternatively:
 Definition Com6_def:
@@ -1605,7 +1608,7 @@ QED
 
 (* -- Howe's construction -- *)
 
-Inductive Howe:
+Inductive Howe: (* TODO: add Cons clause *)
 [Howe1:]
   (∀R vars x e2.
      R vars (Var x) e2 ⇒
@@ -1794,7 +1797,6 @@ Proof
   >- metis_tac[]
 QED
 
-(* TODO: carry on from here *)
 Theorem Howe_Tra: (* 5.5.1(ii) *)
   Tra R ∧ term_rel R ⇒
   ∀vars e1 e2 e3.
@@ -1827,6 +1829,7 @@ Proof
       ) >>
     qexists_tac `e2` >> fs[]
     )
+  \\ cheat
 QED
 
 Theorem Howe_Ref_Tra: (* 5.5.1(iii) *)
@@ -1932,8 +1935,11 @@ Proof
      freevars e1 ⊆ vars ∧ freevars e2 ⊆ vars’ THEN1 metis_tac []
   \\ ho_match_mp_tac Howe_ind \\ rw []
   \\ fs [open_similarity_def]
-  \\ fs [SUBSET_DEF,MEM_FILTER]
-  \\ metis_tac []
+  \\ fs [SUBSET_DEF,MEM_FILTER,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+  THEN1 metis_tac []
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
 QED
 
 Theorem app_simulation_Howe_open_similarity:
@@ -2059,9 +2065,12 @@ Proof
   \\ assume_tac Precongruence_open_similarity
   \\ fs [Precongruence_def,Tra_open_bisimilarity]
   \\ fs [Compatible_def] \\ rw []
-  \\ fs [Com1_def,Com2_def,Com3_def,open_bisimilarity_def,open_similarity_def]
+  \\ fs [Com_defs,open_bisimilarity_def,open_similarity_def]
   \\ fs [app_bisimilarity_similarity]
-  \\ metis_tac []
+  THEN1 metis_tac []
+  THEN1 metis_tac []
+  THEN1 metis_tac []
+  \\ cheat
 QED
 
 (* -- contextual equivalence -- *)
@@ -2122,8 +2131,6 @@ Proof
   \\ fs [Com1_def,Com2_def,Com3_def] \\ rw []
   \\ fs [exp_eq_open_bisimilarity]
   THEN1 (qexists_tac ‘{x}’ \\ fs [])
-  \\ goal_assum (first_assum o mp_then Any mp_tac)
-  \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ cheat
 QED
 
