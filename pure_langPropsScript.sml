@@ -1,7 +1,8 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open stringTheory optionTheory configTheory expTheory pure_langTheory
-     listTheory pairTheory pred_setTheory alistTheory;
+     listTheory pairTheory pred_setTheory alistTheory dep_rewrite
+     finite_mapTheory;
 
 val _ = new_theory "pure_langProps";
 
@@ -45,167 +46,159 @@ Proof
   rw[MEM_FILTER]
 QED
 
-Theorem freevars_subst:
-  ∀s y e.
-  closed y ⇒
-  set(freevars (subst s y e)) =
-  set(freevars e) DIFF {s}
+Theorem BIGUNION_DIFF:
+  ∀as b. (BIGUNION as) DIFF b = BIGUNION {a DIFF b | a ∈ as}
 Proof
-  ho_match_mp_tac subst_ind >>
-  rw[subst_def,closed_def] >>
-  rw[SET_EQ_SUBSET,SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-  gvs[MEM_MAP,ELIM_UNCURRY,MEM_FILTER,PULL_EXISTS]
-  >- metis_tac[]
-  >- (goal_assum drule >> gvs[])
-  >- metis_tac[]
-  >- (disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
-  >- (qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
-  >- (disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      simp[])
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+  >- (
+    qexists_tac `s DIFF b` >> fs[] >>
+    goal_assum (drule_at Any) >> fs[]
+    )
+  >- (
+    goal_assum (drule_at Any) >> fs[]
+    )
 QED
 
 Theorem freevars_subst:
-  ∀s y e.
-  closed y ⇒
-  set(freevars (subst s y e)) =
-  set(freevars e) DIFF {s}
+  ∀m e.
+  (∀v. v ∈ FRANGE m ⇒ closed v) ⇒
+  freevars (subst m e) = freevars e DIFF (FDOM m)
 Proof
   ho_match_mp_tac subst_ind >>
   rw[subst_def,closed_def] >>
-  rw[SET_EQ_SUBSET,SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_FILTER] >>
-  gvs[MEM_MAP,ELIM_UNCURRY,MEM_FILTER,PULL_EXISTS]
-  >- metis_tac[]
-  >- (goal_assum drule >> gvs[])
-  >- metis_tac[]
-  >- (disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
-  >- (qpat_x_assum ‘MEM _ (freevars _)’ mp_tac >>
-      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      rw[])
-  >- (disj2_tac >> goal_assum drule >>
-      rw[] >>
-      qpat_x_assum ‘∀g e'. _ ⇒ _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
-      conj_tac >- metis_tac[PAIR,FST,SND] >>
-      simp[])
+  fs[FRANGE_FLOOKUP, PULL_EXISTS]
+  >- fs[FLOOKUP_DEF]
+  >- fs[FLOOKUP_DEF]
+  >- (
+    fs[LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF, BIGUNION_DIFF] >>
+    fs[EXTENSION, MEM_MAP, PULL_EXISTS] >>
+    rw[] >> eq_tac >> rw[GSYM CONJ_ASSOC] >>
+    rename1 `MEM e xs`
+    >- (
+      qexists_tac `freevars (subst m e)` >> fs[] >>
+      qexists_tac `freevars e` >> fs[] >>
+      goal_assum (drule_at Any) >> fs[]
+      )
+    >- (
+      qexists_tac `freevars (subst m e)` >> fs[] >>
+      qexists_tac `e` >> fs[]
+      )
+    )
+  >- (gvs[EXTENSION] >> rw[] >> eq_tac >> rw[] >> gvs[])
+  >- (
+    gvs[FLOOKUP_DEF, LIST_TO_SET_FILTER, EXTENSION] >>
+    rw[] >> eq_tac >> rw[] >> gvs[] >>
+    last_assum mp_tac >> reverse impl_tac >> rw[] >> gvs[] >>
+    first_x_assum drule >> fs[DOMSUB_FAPPLY_THM]
+    )
+  >- (
+    gvs[LIST_TO_SET_FILTER] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY, LIST_TO_SET_FLAT] >>
+    fs[EXTENSION, MEM_MAP, PULL_EXISTS] >>
+    qpat_x_assum `_ ⇒ _` mp_tac >> impl_tac >> rw[] >> gvs[]
+    >- (
+      fs[FDIFF_def, FLOOKUP_DRESTRICT] >>
+      first_x_assum irule >> goal_assum drule >> fs[]
+      ) >>
+    rw[] >> eq_tac >> rw[GSYM CONJ_ASSOC] >> gvs[]
+    >- (first_x_assum (qspec_then `y` assume_tac) >> gvs[]) >>
+    (
+      rename1 `MEM fn f` >> PairCases_on `fn` >> gvs[] >>
+      last_x_assum drule >> impl_tac >> rw[] >> gvs[] >>
+      gvs[FDIFF_def, FLOOKUP_DRESTRICT]
+      >- (first_x_assum irule >> goal_assum drule >> fs[])
+    ) >> gvs[GSYM FDIFF_def]
+    >- (
+      DISJ2_TAC >>
+      qexists_tac `freevars fn1` >>
+      goal_assum (drule_at Any) >> fs[]
+      )
+    >- (qpat_x_assum `∀x. _ ≠ _ ∨ _` (qspec_then `y` assume_tac) >> gvs[])
+    >- (qpat_x_assum `∀x. _ ≠ _ ∨ _` (qspec_then `y` assume_tac) >> gvs[])
+    >- (
+      DISJ2_TAC >>
+      qexists_tac `freevars (subst (FDIFF m (set (MAP FST f))) fn1)` >>
+      goal_assum (drule_at Any) >> fs[]
+      )
+    )
 QED
 
 Theorem freevars_bind:
-  ∀f y.
-  set(freevars (bind f y)) =
-  if EVERY closed (MAP SND f) then
-    set(FILTER (λy. ¬MEM y (MAP FST f)) (freevars y))
-  else
-    {}
+  ∀m y.
+    set (freevars (bind m y)) =
+      if (∀v. v ∈ FRANGE m ⇒ closed v) then
+        freevars y DIFF FDOM m
+      else {}
 Proof
-  ho_match_mp_tac bind_ind >>
-  rw[bind_def,freevars_subst,LIST_TO_SET_FILTER] >>
-  rw[SET_EQ_SUBSET,SUBSET_DEF] >>
-  gvs[] >>
-  simp[closed_subst |> REWRITE_RULE [closed_def]]
+  rw[bind_def] >> fs[]
+  >- (drule freevars_subst >> fs[]) >>
+  gvs[FRANGE_FLOOKUP] >> res_tac
 QED
 
-Theorem bind_Var_lemma:
-  ∀bs x.
-  EVERY closed (MAP SND bs) ∧ ALL_DISTINCT(MAP FST bs) ⇒
-    bind bs (Var x) =
-    case ALOOKUP bs x of
+Theorem bind_Var:
+  ∀m x.
+    (∀v. v ∈ FRANGE m ⇒ closed v)
+  ⇒ bind m (Var x) =
+    case FLOOKUP m x of
       SOME e => e
     | NONE => Var x
 Proof
-  Induct_on ‘bs’ >- rw[bind_def,subst_def] >>
-  PairCases >> rw[bind_def,subst_def] >>
-  BasicProvers.TOP_CASE_TAC >> gvs[subst_def] >>
-  imp_res_tac alistTheory.ALOOKUP_MEM >>
-  gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  res_tac >>
-  fs[] >>
-  metis_tac[FST,SND]
+  gvs[bind_def, FRANGE_FLOOKUP] >>
+  reverse (rw[]) >> gvs[] >- res_tac >>
+  fs[subst_def]
 QED
 
 Theorem bind_Lam:
-  ∀names x e1.
-  ¬MEM x (MAP FST names) ∧ EVERY closed (MAP SND names) ⇒
-  bind names (Lam x e1) = Lam x (bind names e1)
+  ∀m x e1.
+    (∀v. v ∈ FRANGE m ⇒ closed v)
+  ⇒ bind m (Lam x e1) = Lam x (bind (m \\ x) e1)
 Proof
-  Induct >- rw[bind_def,subst_def] >>
-  PairCases >> rw[bind_def,subst_def]
+  gvs[bind_def, FRANGE_FLOOKUP] >>
+  reverse (rw[]) >> gvs[PULL_EXISTS, subst_def]
+  >- (goal_assum drule >> fs[])
+  >- (goal_assum drule >> fs[])
+  >- (gvs[DOMSUB_FLOOKUP_THM] >> res_tac)
 QED
 
 Theorem bind_App:
-  ∀names x e1 e2.
-  EVERY closed (MAP SND names) ⇒
-  bind names (App e1 e2) = App (bind names e1) (bind names e2)
+  ∀m e1 e2.
+    (∀v. v ∈ FRANGE m ⇒ closed v)
+  ⇒ bind m (App e1 e2) = App (bind m e1) (bind m e2)
 Proof
-  Induct >- rw[bind_def,subst_def] >>
-  PairCases >> rw[bind_def,subst_def]
+  gvs[bind_def, FRANGE_FLOOKUP] >>
+  reverse (rw[]) >> gvs[PULL_EXISTS]
+  >- (goal_assum drule >> fs[]) >>
+  simp[subst_def]
 QED
 
 Theorem bind_alt_def:
-  ∀ sub.
-    EVERY (λe. closed e) (MAP SND sub) ∧
-    ALL_DISTINCT (MAP FST sub)
+  ∀sub.
+    (∀v. v ∈ FRANGE sub ⇒ closed v)
   ⇒
     (∀s.
-      bind sub (Var s) = case ALOOKUP sub s of SOME v => v | NONE => Var s) ∧
+      bind sub (Var s) = case FLOOKUP sub s of SOME v => v | NONE => Var s) ∧
     (∀op xs. bind sub (Prim op xs) = Prim op (MAP (λe. bind sub e) xs)) ∧
     (∀x y. bind sub (App x y) = App (bind sub x) (bind sub y)) ∧
-    (∀s x. bind sub (Lam s x) =
-      let sub' = FILTER (λn. FST n ≠ s) sub in (Lam s (bind sub' x))) ∧
+    (∀s x. bind sub (Lam s x) = Lam s (bind (sub \\ s) x)) ∧
     (∀f x. bind sub (Letrec f x) =
-      let sub' = FILTER (λn. ALOOKUP f (FST n) = NONE) sub in
-      Letrec
-        (MAP (λ(g,z).
-          (g,bind sub' z)) f)
-      (bind sub' x))
+      let sub1 = FDIFF sub (set (MAP FST f)) in
+      Letrec (MAP (λ(n,e). (n, bind sub1 e)) f) (bind sub1 x))
 Proof
-  Induct >> rw[] >> fs[bind_def]
-  >- (Induct_on `f` >> rw[] >> PairCases_on `h` >> fs[]) >>
-  PairCases_on `h` >> fs[ALOOKUP_def, bind_def, subst_def]
+  rw[]
+  >- (drule bind_Var >> fs[])
   >- (
-    rw[]
-    >- (
-      qsuff_tac `ALOOKUP sub h0 = NONE` >> fs[subst_def] >>
-      fs[ALOOKUP_NONE]
-      ) >>
-    CASE_TAC >> fs[subst_def] >>
-    irule closed_subst >>
-    imp_res_tac ALOOKUP_MEM >>
-    fs[EVERY_MEM, MEM_MAP] >>
-    first_x_assum irule >>
-    qexists_tac `(s,x)` >> fs[]
+    gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
+    reverse (rw[bind_def]) >> gvs[] >- res_tac >>
+    fs[subst_def]
     )
+  >- (drule bind_App >> fs[])
+  >- (drule bind_Lam >> fs[])
   >- (
-    fs[MAP_MAP_o, combinTheory.o_DEF]
-    )
-  >- (rw[] >> fs[bind_def])
-  >- (
-    fs[MAP_MAP_o, combinTheory.o_DEF] >>
-    qpat_abbrev_tac `f' = MAP _ f` >>
-    `f' = MAP FST f` by (
-      unabbrev_all_tac >>
-      rw[MAP_EQ_f] >>
-      PairCases_on `x` >> fs[]) >>
-    gvs[] >> unabbrev_all_tac >>
-    IF_CASES_TAC >> gvs[ALOOKUP_NONE, bind_def] >>
-    rw[MAP_EQ_f] >>
-    PairCases_on `x` >> gvs[bind_def] >>
-    IF_CASES_TAC >> gvs[bind_def]
+    gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
+    reverse (rw[bind_def]) >> gvs[subst_def]
+    >- res_tac
+    >- res_tac
+    >- (gvs[FDIFF_def, FLOOKUP_DRESTRICT] >> res_tac)
     )
 QED
 

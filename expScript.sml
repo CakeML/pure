@@ -177,14 +177,8 @@ Proof
   >- (
     rw[LIST_EQ_REWRITE] >> gvs[MEM_EL, PULL_EXISTS, EL_MAP] >>
     Cases_on `EL x f` >> rename1 `(fn_name, fn_body)` >> gvs[] >>
-    ntac 2 (
-      qpat_abbrev_tac `l = MAP FST (MAP _ _)` >>
-      `l = MAP FST f` by (
-        unabbrev_all_tac >>
-        rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
-        rename1 `FST _ = FST foo` >>
-        PairCases_on `foo` >> fs[]) >>
-      gvs[]) >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    CONV_TAC (DEPTH_CONV ETA_CONV) >>
     first_x_assum irule >>
     gvs[IN_FRANGE, PULL_EXISTS] >>
     simp[FDIFF_def, DRESTRICT_DEF, GSYM CONJ_ASSOC] >>
@@ -193,14 +187,8 @@ Proof
     Cases_on `MEM foo (MAP FST f)` >> fs[]
     )
   >- (
-    ntac 2 (
-      qpat_abbrev_tac `l = MAP FST (MAP _ _)` >>
-      `l = MAP FST f` by (
-        unabbrev_all_tac >>
-        rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
-        rename1 `FST _ = FST foo` >>
-        PairCases_on `foo` >> fs[]) >>
-      gvs[]) >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    CONV_TAC (DEPTH_CONV ETA_CONV) >>
     first_x_assum irule >>
     gvs[IN_FRANGE, PULL_EXISTS] >>
     simp[FDIFF_def, DRESTRICT_DEF] >>
