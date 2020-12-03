@@ -3503,6 +3503,41 @@ Proof
   simp[]
 QED
 
+Theorem app_bisimilarity_eq:
+  x ≃ y ⇔ x ≅ y ∧ closed x ∧ closed y
+Proof
+  fs [exp_eq_def,closed_def] \\ reverse eq_tac
+  THEN1 (rw [] \\ fs [] \\ first_x_assum (qspec_then ‘FEMPTY’ mp_tac) \\ fs [])
+  \\ strip_tac
+  \\ ‘closed x ∧ closed y’ by fs [Once app_bisimilarity_iff,closed_def]
+  \\ fs [bind_all_def,closed_def] \\ fs [GSYM closed_def]
+  \\ reverse (rw [])
+  THEN1 fs [Once app_bisimilarity_iff,closed_def,eval_thm]
+  \\ once_rewrite_tac [subst_all_FDIFF]
+  \\ fs [closed_def,DRESTRICT_IS_FEMPTY]
+  \\ qsuff_tac ‘bind FEMPTY x ≃ bind FEMPTY y’
+  THEN1 (rewrite_tac [bind_all_def,FLOOKUP_EMPTY,NOT_SOME_NONE] \\ fs [])
+  \\ fs []
+QED
+
+Theorem exp_eq_refl:
+  ∀x. x ≅ x
+Proof
+  cheat
+QED
+
+Theorem exp_eq_sym:
+  ∀x y. x ≅ y ⇔ y ≅ x
+Proof
+  cheat
+QED
+
+Theorem exp_eq_trans:
+  ∀x y z. x ≅ y ∧ y ≅ z ⇒ x ≅ z
+Proof
+  cheat
+QED
+
 Theorem Congruence_exp_eq:
   Congruence (K $≅)
 Proof
@@ -3525,7 +3560,7 @@ Proof
   cheat
 QED
 
-Theorem exp_eq_Lam: (* TODO: ought to be generalised to Lam x e1 and Lam y e2 *)
+Theorem exp_eq_Lam_lemma[local]:
   Lam x e1 ≅ Lam x e2 ⇔
   ∀y1 y2.
     y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
@@ -3554,6 +3589,91 @@ Proof
   \\ fs [SUBSET_DEF,MEM_FILTER] \\ rw []
   \\ rw [open_bisimilarity_eq] \\ rw []
   \\ cheat
+QED
+
+Theorem exp_eq_subst_fail:
+  ~MEM v (freevars y) ⇒ (x ≅ y ⇔ subst v Fail x ≅ y)
+Proof
+  cheat
+QED
+
+Theorem exp_eq_perm_IMP:
+  ∀x y e e'.
+    ~(MEM x (freevars e')) ∧ ~(MEM y (freevars e')) ∧ e ≅ perm_exp x y e' ⇒ e ≅ e'
+Proof
+  metis_tac [exp_eq_perm,exp_eq_sym,exp_eq_trans]
+QED
+
+Theorem exp_eq_subst_perm_exp:
+  closed e' ⇒ subst y e' e ≅ subst y (perm_exp x y e') e
+Proof
+  cheat (* might follow from exp_eq_perm and congruence *)
+QED
+
+Theorem exp_eq_Lam:
+  Lam x e1 ≅ Lam y e2 ⇔
+  ∀y1 y2.
+    y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
+    subst x y1 e1 ≅ subst y y2 e2
+Proof
+  Cases_on ‘x = y’ THEN1 metis_tac [exp_eq_Lam_lemma]
+  \\ eq_tac \\ rw []
+  THEN1
+   (‘~MEM x (freevars (Lam x e1))’ by fs [MEM_FILTER]
+    \\ drule exp_eq_subst_fail \\ pop_assum kall_tac
+    \\ disch_then (qspec_then ‘Lam y e2’ mp_tac o ONCE_REWRITE_RULE [exp_eq_sym])
+    \\ fs [] \\ strip_tac \\ rfs [subst_def]
+    \\ ‘Lam y (subst x Fail e2) ≅ Lam x (subst y Fail (perm_exp x y e2))’ by
+     (match_mp_tac exp_eq_perm_IMP
+      \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs [MEM_FILTER,freevars_subst,closed_def]
+      \\ fs [perm_exp_def,perm1_def,subst_eqvt,exp_eq_refl])
+    \\ drule_all exp_eq_trans
+    \\ fs [exp_eq_Lam_lemma]
+    \\ disch_then (qspecl_then [‘y1’,‘y2’] mp_tac) \\ fs []
+    \\ rw []
+    \\ match_mp_tac exp_eq_trans
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ ‘~MEM x (freevars (subst x y2 (subst y Fail (perm_exp x y e2))))’ by
+         fs [freevars_subst]
+    \\ drule exp_eq_subst_fail
+    \\ disch_then (simp o single o Once)
+    \\ match_mp_tac exp_eq_perm_IMP
+    \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs [MEM_FILTER,freevars_subst,closed_def]
+    \\ fs [perm_exp_def,perm1_def,subst_eqvt,exp_eq_refl]
+    \\ fs [GSYM closed_def]
+    \\ drule subst_subst
+    \\ disch_then (qspec_then ‘Fail’ mp_tac)
+    \\ fs [closed_def] \\ rw []
+    \\ match_mp_tac exp_eq_subst_perm_exp \\ fs [closed_def])
+  \\ ‘~(MEM x (freevars (Lam x e1)))’ by fs [MEM_FILTER]
+  \\ drule exp_eq_subst_fail
+  \\ disch_then (simp o single o Once o ONCE_REWRITE_RULE [exp_eq_sym])
+  \\ fs [subst_def]
+  \\ match_mp_tac exp_eq_perm_IMP
+  \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs [MEM_FILTER,freevars_subst,closed_def]
+  \\ fs [perm_exp_def,perm1_def,subst_eqvt]
+  \\ fs [exp_eq_Lam_lemma,closed_def] \\ rw []
+  \\ first_x_assum drule_all \\ rw []
+  \\ match_mp_tac exp_eq_trans
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ ‘~MEM x (freevars (subst x y2 (subst y Fail (perm_exp x y e2))))’ by
+          fs [freevars_subst,closed_def]
+  \\ drule exp_eq_subst_fail
+  \\ disch_then (simp o single o Once)
+  \\ match_mp_tac exp_eq_perm_IMP
+  \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs [MEM_FILTER,freevars_subst,closed_def]
+  \\ fs [perm_exp_def,perm1_def,subst_eqvt]
+  \\ drule subst_subst
+  \\ disch_then (qspec_then ‘Fail’ mp_tac)
+  \\ fs [closed_def] \\ rw []
+  \\ match_mp_tac exp_eq_subst_perm_exp \\ fs [closed_def]
+QED
+
+Theorem exp_eq_Lam:
+  Lam v e1 ≅ Lam w e2 ⇔ ∀x y. x ≃ y ⇒ subst v x e1 ≅ subst w y e2
+Proof
+  metis_tac [exp_eq_Lam,app_bisimilarity_eq]
 QED
 
 Theorem exp_eq_Lam_cong:
