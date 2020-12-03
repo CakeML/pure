@@ -15,6 +15,8 @@ val _ = new_theory "howe";
 
 (* -- basics -- *)
 
+val no_IN = SIMP_RULE std_ss [IN_DEF];
+
 (* the set of all expressions with at most free variables vars *)
 Definition Exps_def:
   Exps vars = { e | freevars e ⊆ vars }
@@ -418,227 +420,6 @@ Proof
   rw[set_relationTheory.reflexive_def,IN_DEF]
 QED
 
-
-Triviality tc_app_similarity_closed:
-  ∀x y. (x,y) ∈ tc app_similarity ⇒ closed x ∧ closed y
-Proof
-  ho_match_mp_tac set_relationTheory.tc_ind >> rw[] >> fs[IN_DEF] >>
-  imp_res_tac app_similarity_closed
-QED
-
-val no_IN = SIMP_RULE std_ss [IN_DEF];
-
-Triviality tc_app_similarity_Closure:
-  ∀x y.
-    tc app_similarity (x,y) ⇒
-  ∀c1 ce1. eval x = Closure c1 ce1
-  ⇒ ∃ c2 ce2. eval y = Closure c2 ce2 ∧
-      ∀e. closed e ⇒ (subst c1 e ce1, subst c2 e ce2) ∈ tc app_similarity
-Proof
-  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
-  >- (
-    qpat_x_assum ‘app_similarity _’
-      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
-    gvs[unfold_rel_def] >> rw[] >>
-    first_x_assum drule >>
-    fs[Once set_relationTheory.tc_cases, IN_DEF]
-    ) >>
-  rpt (first_x_assum drule >> strip_tac >> rw[]) >>
-  simp[Once set_relationTheory.tc_cases] >> DISJ2_TAC >>
-  goal_assum drule >> fs[]
-QED
-
-Triviality tc_app_similarity_Constructor:
-  ∀x y.
-    tc app_similarity (x,y) ⇒
-  ∀c vxs. eval x = Constructor c vxs
-  ⇒ ∃vys. eval y = Constructor c vys ∧
-      ∃exs eys.
-        eval x = eval (Cons c exs) ∧ EVERY closed exs ∧
-        eval y = eval (Cons c eys) ∧ EVERY closed eys ∧
-        LIST_REL (CURRY (tc app_similarity)) exs eys
-Proof
-  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
-  >- (
-    qpat_x_assum ‘app_similarity _’
-      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
-    gvs[unfold_rel_def, eval_thm] >> rw[] >>
-    qexists_tac `es1` >> qexists_tac `es2` >> fs[] >>
-    fs[LIST_REL_EL_EQN] >> rw[] >>
-    fs[Once (no_IN set_relationTheory.tc_cases)]
-    ) >>
-  rpt (first_x_assum drule >> strip_tac >> rw[]) >>
-  gvs[eval_thm] >>
-  qexists_tac `exs` >> qexists_tac `eys'` >> fs[] >>
-  imp_res_tac MAP_EQ_EVERY2 >>
-  fs[LIST_REL_EL_EQN] >> rw[] >>
-  simp[Once (no_IN set_relationTheory.tc_cases)] >> DISJ2_TAC >>
-  qexists_tac `EL n exs'` >> fs[] >>
-  simp[Once (no_IN set_relationTheory.tc_cases_right)] >> DISJ2_TAC >>
-  qexists_tac `EL n eys` >> gvs[] >>
-  rpt (first_x_assum drule >> strip_tac) >>
-  irule eval_eq_imp_app_similarity >> fs[] >>
-  imp_res_tac (no_IN tc_app_similarity_closed) >> fs[]
-QED
-
-Triviality tc_app_similarity_Atom:
-  ∀x y.
-    tc app_similarity (x,y) ⇒
-  ∀a. eval x = Atom a ⇒ eval y = Atom a
-Proof
-  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
-  >- (
-    qpat_x_assum ‘app_similarity _’
-      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
-    gvs[unfold_rel_def]
-    ) >>
-  rpt (first_x_assum drule >> strip_tac >> rw[])
-QED
-
-Triviality tc_app_similarity_Diverge:
-  ∀x y.
-    tc app_similarity (x,y) ⇒
-  eval x = Diverge ⇒ eval y = Diverge
-Proof
-  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
-  >- (
-    qpat_x_assum ‘app_similarity _’
-      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
-    gvs[unfold_rel_def]
-    ) >>
-  rpt (first_x_assum drule >> strip_tac >> rw[])
-QED
-
-Triviality tc_app_similarity_Error:
-  ∀x y.
-    tc app_similarity (x,y) ⇒
-  eval x = Error ⇒ eval y = Error
-Proof
-  ho_match_mp_tac (no_IN set_relationTheory.tc_ind) >> rw[]
-  >- (
-    qpat_x_assum ‘app_similarity _’
-      (assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]) >>
-    gvs[unfold_rel_def]
-    ) >>
-  rpt (first_x_assum drule >> strip_tac >> rw[])
-QED
-
-Theorem app_similarity_transitive_lemma:
-  tc app_similarity = app_similarity
-Proof
-  qsuff_tac `∀x y. (x,y) ∈ tc app_similarity ⇔ (x,y) ∈ app_similarity`
-  >- (
-    rw[] >> irule EQ_EXT >> rw[] >>
-    PairCases_on `x` >> fs[IN_DEF]
-    ) >>
-  rw[] >> reverse eq_tac >> rw[]
-  >- (fs[Once set_relationTheory.tc_cases, IN_DEF]) >>
-  pop_assum mp_tac >>
-  qid_spec_tac `y` >> qid_spec_tac `x` >>
-  ho_match_mp_tac set_relationTheory.tc_strongind_left >> rw[] >>
-  rename1 `(z,y) ∈ tc _` >> gvs[IN_DEF] >>
-  pop_assum kall_tac >>
-  rpt (pop_assum mp_tac) >> fs[AND_IMP_INTRO] >>
-  MAP_EVERY qid_spec_tac [‘z’,‘y’,‘x’] >>
-  simp[GSYM PULL_EXISTS] >>
-  ho_match_mp_tac app_similarity_coinduct >>
-  rw[ELIM_UNCURRY,FF_def,unfold_rel_def] >>
-  imp_res_tac app_similarity_closed >>
-  imp_res_tac (no_IN tc_app_similarity_closed) >>
-  rpt(qpat_x_assum ‘_ ≲ _’
-    (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff])) >>
-  gvs[unfold_rel_def]
-  >- (
-    drule tc_app_similarity_Closure >> fs[] >>
-    strip_tac >> fs[] >> rw[] >>
-    rpt (first_x_assum drule >> rw[]) >>
-    goal_assum drule >> fs[IN_DEF]
-    )
-  >- (
-    drule tc_app_similarity_Constructor >> fs[] >>
-    gvs[eval_thm] >>
-    strip_tac >> fs[] >> rw[] >>
-    qexists_tac `es1` >> qexists_tac `eys` >> fs[] >>
-    imp_res_tac MAP_EQ_EVERY2 >>
-    fs[LIST_REL_EL_EQN] >> rw[] >>
-    qexists_tac `EL n es2` >> fs[] >>
-    simp[Once (no_IN set_relationTheory.tc_cases_left)] >> DISJ2_TAC >>
-    qexists_tac `EL n exs` >> fs[] >>
-    irule eval_eq_imp_app_similarity >> gvs[] >>
-    last_x_assum drule >>
-    strip_tac >> imp_res_tac app_similarity_closed >> fs[] >>
-    last_x_assum drule >>
-    strip_tac >> imp_res_tac (no_IN tc_app_similarity_closed) >> fs[]
-    )
-  >- (drule tc_app_similarity_Atom >> fs[])
-  >- (drule tc_app_similarity_Diverge >> fs[])
-  >- (drule tc_app_similarity_Error >> fs[])
-QED
-
-Theorem transitive_app_similarity: (* exercise (5.3.3) *)
-  transitive $≲
-Proof
-  SUBST_ALL_TAC (GSYM app_similarity_transitive_lemma) >>
-  fs[relationTheory.transitive_def] >> rw[] >>
-  simp[Once (no_IN set_relationTheory.tc_cases)] >> DISJ2_TAC >>
-  goal_assum drule >> fs[]
-QED
-
-Theorem app_bisimilarity_similarity: (* prop (5.3.4) *)
-  e1 ≃ e2 ⇔ e1 ≲ e2 ∧ e2 ≲ e1
-Proof
-  eq_tac \\ rw []
-  THEN1
-   (assume_tac app_bisimulation_app_bisimilarity
-    \\ fs [app_bisimulation_def]
-    \\ imp_res_tac app_simulation_SUBSET_app_similarity
-    \\ fs [SUBSET_DEF,IN_DEF])
-  THEN1
-   (assume_tac app_bisimulation_app_bisimilarity
-    \\ fs [app_bisimulation_def]
-    \\ imp_res_tac app_simulation_SUBSET_app_similarity
-    \\ fs [SUBSET_DEF,IN_DEF,opp_def])
-  \\ rpt(pop_assum mp_tac)
-  \\ simp[AND_IMP_INTRO]
-  \\ MAP_EVERY qid_spec_tac [‘e2’,‘e1’]
-  \\ ho_match_mp_tac app_bisimilarity_coinduct
-  \\ rpt GEN_TAC \\ strip_tac \\ fs[FF_opp]
-  \\ rw[FF_def,unfold_rel_def,ELIM_UNCURRY]
-  \\ imp_res_tac app_similarity_closed
-  \\ rpt(qpat_x_assum ‘_ ≲ _’
-      (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]))
-  \\ gvs[unfold_rel_def, eval_thm]
-  \\ qexists_tac `es1` \\ qexists_tac `es2` \\ fs[]
-  \\ fs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] \\ rw[]
-  \\ gvs[] \\ rpt (first_x_assum drule \\ strip_tac)
-  \\ assume_tac transitive_app_similarity \\ fs[transitive_def]
-  \\ first_assum irule \\ qexists_tac `EL n es1'` \\ rw[]
-     >- (irule eval_eq_imp_app_similarity \\ fs[])
-  \\ first_assum irule \\ qexists_tac `EL n es2'` \\ rw[]
-  \\ irule eval_eq_imp_app_similarity \\ fs[]
-QED
-
-Theorem reflexive_app_bisimilarity: (* exercise (5.3.3) *)
-  reflexive (UNCURRY $≃) closed
-Proof
-  rw[set_relationTheory.reflexive_def,app_bisimilarity_similarity,ELIM_UNCURRY] >>
-  imp_res_tac(reflexive_app_similarity |> SIMP_RULE std_ss [set_relationTheory.reflexive_def,ELIM_UNCURRY]) >>
-  gvs[]
-QED
-
-Theorem symmetric_app_bisimilarity: (* exercise (5.3.3) *)
-  symmetric $≃
-Proof
-  rw[app_bisimilarity_similarity,symmetric_def,EQ_IMP_THM]
-QED
-
-Theorem transitive_app_bisimilarity: (* exercise (5.3.3) *)
-  transitive $≃
-Proof
-  rw[app_bisimilarity_similarity,transitive_def] >>
-  imp_res_tac(transitive_app_similarity |> SIMP_RULE std_ss [transitive_def])
-QED
-
 (* -- Applicative simulation up-to à la Damien Pous (LICS 2016) -- *)
 Definition compatible_def:
   compatible f ⇔ (∀B. f(FF B) ⊆ FF(f B))
@@ -795,6 +576,24 @@ Proof
   rw[]
 QED
 
+Triviality CURRY_thm:
+  CURRY f = λ x y. f(x,y)
+Proof
+  rw[FUN_EQ_THM]
+QED
+
+Theorem companion_app_similarity:
+  ∀e1 e2. companion ($≲) (e1,e2) ⇒ e1 ≲ e2
+Proof
+  ho_match_mp_tac app_similarity_companion_coind >>
+  rw[companion_idem |> SIMP_RULE std_ss [CURRY_thm]] >>
+  mp_tac companion_compatible >>
+  rw[compatible_def,CURRY_thm,SUBSET_DEF,IN_DEF] >>
+  first_x_assum match_mp_tac >>
+  gvs[] >>
+  gvs[FF_def,ELIM_UNCURRY,GSYM app_similarity_iff]
+QED
+
 Theorem compatible_tc:
   compatible (λR. tc(R ∪ app_similarity))
 Proof
@@ -945,6 +744,87 @@ Theorem companion_rel:
 Proof
   rw[companion_def] >>
   qexists_tac ‘I’ >> rw[monotone_def,compatible_def,IN_DEF]
+QED
+
+Theorem app_similarity_transitive_lemma:
+  tc app_similarity = app_similarity
+Proof
+  qsuff_tac `∀x y. (x,y) ∈ tc app_similarity ⇔ (x,y) ∈ app_similarity`
+  >- (
+    rw[] >> irule EQ_EXT >> rw[] >>
+    PairCases_on `x` >> fs[IN_DEF]
+    ) >>
+  rw[] >> reverse eq_tac >> rw[]
+  >- (fs[Once set_relationTheory.tc_cases, IN_DEF]) >>
+  gvs[IN_DEF] >>
+  match_mp_tac companion_app_similarity >>
+  simp[companion_def] >>
+  irule_at Any compatible_tc >>
+  conj_tac
+  >- (simp[monotone_def] >> rw[] >>
+      match_mp_tac set_relationTheory.tc_mono >>
+      gvs[SUBSET_DEF,UNION_DEF]) >>
+  simp[] >>
+  match_mp_tac (set_relationTheory.tc_mono |> SIMP_RULE std_ss [SUBSET_DEF] |> GEN_ALL |> MP_CANON) >>
+  simp[IN_DEF] >>
+  goal_assum (drule_at Any) >>
+  rw[]
+QED
+
+Theorem transitive_app_similarity: (* exercise (5.3.3) *)
+  transitive $≲
+Proof
+  SUBST_ALL_TAC (GSYM app_similarity_transitive_lemma) >>
+  fs[relationTheory.transitive_def] >> rw[] >>
+  simp[Once (no_IN set_relationTheory.tc_cases)] >> DISJ2_TAC >>
+  goal_assum drule >> fs[]
+QED
+
+Theorem app_bisimilarity_similarity: (* prop (5.3.4) *)
+  e1 ≃ e2 ⇔ e1 ≲ e2 ∧ e2 ≲ e1
+Proof
+  eq_tac \\ rw []
+  THEN1
+   (assume_tac app_bisimulation_app_bisimilarity
+    \\ fs [app_bisimulation_def]
+    \\ imp_res_tac app_simulation_SUBSET_app_similarity
+    \\ fs [SUBSET_DEF,IN_DEF])
+  THEN1
+   (assume_tac app_bisimulation_app_bisimilarity
+    \\ fs [app_bisimulation_def]
+    \\ imp_res_tac app_simulation_SUBSET_app_similarity
+    \\ fs [SUBSET_DEF,IN_DEF,opp_def])
+  \\ rpt(pop_assum mp_tac)
+  \\ simp[AND_IMP_INTRO]
+  \\ MAP_EVERY qid_spec_tac [‘e2’,‘e1’]
+  \\ ho_match_mp_tac app_bisimilarity_coinduct
+  \\ rpt GEN_TAC \\ strip_tac \\ fs[FF_opp]
+  \\ rw[FF_def,unfold_rel_def,ELIM_UNCURRY]
+  \\ imp_res_tac app_similarity_closed
+  \\ rpt(qpat_x_assum ‘_ ≲ _’
+      (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]))
+  \\ gvs[unfold_rel_def, eval_thm]
+  \\ qexists_tac `es1` \\ qexists_tac `es2` \\ fs[]
+  \\ fs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] \\ rw[]
+  \\ gvs[] \\ rpt (first_x_assum drule \\ strip_tac)
+  \\ assume_tac transitive_app_similarity \\ fs[transitive_def]
+  \\ first_assum irule \\ qexists_tac `EL n es1'` \\ rw[]
+     >- (irule eval_eq_imp_app_similarity \\ fs[])
+  \\ first_assum irule \\ qexists_tac `EL n es2'` \\ rw[]
+  \\ irule eval_eq_imp_app_similarity \\ fs[]
+QED
+
+Theorem symmetric_app_bisimilarity: (* exercise (5.3.3) *)
+  symmetric $≃
+Proof
+  rw[app_bisimilarity_similarity,symmetric_def,EQ_IMP_THM]
+QED
+
+Theorem transitive_app_bisimilarity: (* exercise (5.3.3) *)
+  transitive $≃
+Proof
+  rw[app_bisimilarity_similarity,transitive_def] >>
+  imp_res_tac(transitive_app_similarity |> SIMP_RULE std_ss [transitive_def])
 QED
 
 (* -- more lemmas -- *)
@@ -1639,24 +1519,6 @@ Proof
       rw[] >>
       metis_tac[]) >>
   gvs[eval_perm_atom,eval_perm_diverge,eval_perm_error]
-QED
-
-Triviality CURRY_thm:
-  CURRY f = λ x y. f(x,y)
-Proof
-  rw[FUN_EQ_THM]
-QED
-
-Theorem companion_app_similarity:
-  ∀e1 e2. companion ($≲) (e1,e2) ⇒ e1 ≲ e2
-Proof
-  ho_match_mp_tac app_similarity_companion_coind >>
-  rw[companion_idem |> SIMP_RULE std_ss [CURRY_thm]] >>
-  mp_tac companion_compatible >>
-  rw[compatible_def,CURRY_thm,SUBSET_DEF,IN_DEF] >>
-  first_x_assum match_mp_tac >>
-  gvs[] >>
-  gvs[FF_def,ELIM_UNCURRY,GSYM app_similarity_iff]
 QED
 
 Theorem app_similarity_eqvt:
