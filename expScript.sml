@@ -100,10 +100,14 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
+Overload subst = ``λname v e. subst (FEMPTY |+ (name,v)) e``;
+
 Definition bind_def:
   bind m e =
     if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then subst m e else Fail
 End
+
+Overload bind = ``λname v e. bind (FEMPTY |+ (name,v)) e``;
 
 Definition subst_funs_def:
   subst_funs f = bind (FEMPTY |++ (MAP (λ(g,x). (g,Letrec f x)) f))

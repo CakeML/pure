@@ -6,6 +6,8 @@ open pure_miscTheory expTheory;
 
 val _ = new_theory "expProps";
 
+
+(******************* subst ********************)
 Theorem subst_ignore:
   ∀m e. DISJOINT (freevars e) (FDOM m) ⇒ subst m e = e
 Proof
@@ -36,18 +38,16 @@ Proof
     )
 QED
 
+Theorem subst_FEMPTY:
+  ∀e. subst FEMPTY e = e
+Proof
+  rw[] >> irule subst_ignore >> fs[]
+QED
+
 Theorem closed_subst[simp]:
   ∀m e. closed e ⇒ subst m e = e
 Proof
   rw [] \\ match_mp_tac subst_ignore \\ fs [closed_def]
-QED
-
-Theorem subst_ignore_single:
-  ∀ n v e. ¬MEM n (freevars e) ⇒ subst (FEMPTY |+ (n,v)) e = e
-Proof
-  rw[] >>
-  irule subst_ignore >>
-  gvs[pred_setTheory.EXTENSION, finite_mapTheory.FDOM_FUPDATE]
 QED
 
 Theorem subst_subst:
@@ -146,41 +146,7 @@ Proof
     )
 QED
 
-Theorem subst_subst_single:
-  ∀m e n v.
-    closed v ⇒
-    subst (m |+ (n,v)) e = subst m (subst (FEMPTY |+ (n,v)) e)
-Proof
-  rw[] >>
-  simp[Once FUPDATE_EQ_FUNION] >>
-  irule (GSYM subst_subst_FUNION) >>
-  fs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, PULL_EXISTS]
-QED
-
-Theorem bind_bind_single:
-  ∀m e n v.
-    closed v ∧ n ∉ FDOM m ⇒
-    bind (m |+ (n,v)) e = bind m (bind (FEMPTY |+ (n,v)) e)
-Proof
-  rw[] >> fs[bind_def] >>
-  reverse IF_CASES_TAC >> gvs[]
-  >- (
-    IF_CASES_TAC >> gvs[] >>
-    gvs[FLOOKUP_UPDATE] >>
-    rename1 `if n1 = n2 then _ else _` >>
-    Cases_on `n1 = n2` >> gvs[] >>
-    res_tac
-    ) >>
-  reverse (IF_CASES_TAC) >> gvs[]
-  >- (
-    gvs[FLOOKUP_UPDATE] >>
-    rename1 `FLOOKUP _ n2` >> rename1 `n1 ∉ _` >>
-    `n1 ≠ n2` by (gvs[flookup_thm] >> CCONTR_TAC >> gvs[]) >>
-    first_assum (qspec_then `n2` assume_tac) >> gvs[]
-    ) >>
-  IF_CASES_TAC >> gvs[FLOOKUP_UPDATE] >>
-  fs[Once subst_subst_single]
-QED
+(******************* bind ********************)
 
 Theorem bind_bind:
   ∀m1 m2 e.
@@ -204,11 +170,173 @@ Proof
   irule subst_subst_FUNION >> gvs[FRANGE_FLOOKUP, PULL_EXISTS]
 QED
 
-Theorem subst_FEMPTY:
-  ∀e. subst FEMPTY e = e
+Theorem bind_Var:
+  ∀m x.
+    (∀v. v ∈ FRANGE m ⇒ closed v)
+  ⇒ bind m (Var x) =
+    case FLOOKUP m x of
+      SOME e => e
+    | NONE => Var x
 Proof
-  rw[] >> irule subst_ignore >> fs[]
+  gvs[bind_def, FRANGE_FLOOKUP] >>
+  reverse (rw[]) >> gvs[] >- res_tac >>
+  fs[subst_def]
 QED
+
+Theorem bind_Lam:
+  ∀m x e1.
+    (∀v. v ∈ FRANGE m ⇒ closed v)
+  ⇒ bind m (Lam x e1) = Lam x (bind (m \\ x) e1)
+Proof
+  gvs[bind_def, FRANGE_FLOOKUP] >>
+  reverse (rw[]) >> gvs[PULL_EXISTS, subst_def]
+  >- (goal_assum drule >> fs[])
+  >- (goal_assum drule >> fs[])
+  >- (gvs[DOMSUB_FLOOKUP_THM] >> res_tac)
+QED
+
+Theorem bind_App:
+  ∀m e1 e2.
+    (∀v. v ∈ FRANGE m ⇒ closed v)
+  ⇒ bind m (App e1 e2) = App (bind m e1) (bind m e2)
+Proof
+  gvs[bind_def, FRANGE_FLOOKUP] >>
+  reverse (rw[]) >> gvs[PULL_EXISTS]
+  >- (goal_assum drule >> fs[]) >>
+  simp[subst_def]
+QED
+
+Theorem bind_alt_def:
+  ∀sub.
+    (∀v. v ∈ FRANGE sub ⇒ closed v)
+  ⇒
+    (∀s.
+      bind sub (Var s) = case FLOOKUP sub s of SOME v => v | NONE => Var s) ∧
+    (∀op xs. bind sub (Prim op xs) = Prim op (MAP (λe. bind sub e) xs)) ∧
+    (∀x y. bind sub (App x y) = App (bind sub x) (bind sub y)) ∧
+    (∀s x. bind sub (Lam s x) = Lam s (bind (sub \\ s) x)) ∧
+    (∀f x. bind sub (Letrec f x) =
+      let sub1 = FDIFF sub (set (MAP FST f)) in
+      Letrec (MAP (λ(n,e). (n, bind sub1 e)) f) (bind sub1 x))
+Proof
+  rw[]
+  >- (drule bind_Var >> fs[])
+  >- (
+    gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
+    reverse (rw[bind_def]) >> gvs[] >- res_tac >>
+    fs[subst_def]
+    )
+  >- (drule bind_App >> fs[])
+  >- (drule bind_Lam >> fs[])
+  >- (
+    gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
+    reverse (rw[bind_def]) >> gvs[subst_def]
+    >- res_tac
+    >- res_tac
+    >- (gvs[FDIFF_def, FLOOKUP_DRESTRICT] >> res_tac)
+    )
+QED
+
+(******************* single subst/bind ********************)
+
+Theorem subst_single_def:
+  (∀n v s. subst n v (Var s) = (if n = s then v else Var s)) ∧
+  (∀n v op xs. subst n v (Prim op xs) = Prim op (MAP (subst n v) xs)) ∧
+  (∀n v x y. subst n v (App x y) = App (subst n v x) (subst n v y)) ∧
+  (∀n v s x. subst n v (Lam s x) = Lam s (if s = n then x else subst n v x)) ∧
+  (∀n v f x. subst n v (Letrec f x) =
+    (if MEM n (MAP FST f) then Letrec f x else
+      Letrec (MAP (λ(g,z). (g, subst n v z )) f) (subst n v x)))
+Proof
+  rw[subst_def, FLOOKUP_UPDATE, FDIFF_def, subst_FEMPTY] >> gvs[]
+  >- (
+    MK_COMB_TAC >> fs[] >> AP_TERM_TAC >>
+    irule DOMSUB_NOT_IN_DOM >> gvs[]
+    )
+  >- (
+    rw[LIST_EQ_REWRITE] >> Cases_on `EL x f` >> fs[EL_MAP]
+    )
+QED
+
+Theorem subst_ignore_single:
+  ∀ n v e. ¬MEM n (freevars e) ⇒ subst n v e = e
+Proof
+  rw[] >>
+  irule subst_ignore >>
+  gvs[pred_setTheory.EXTENSION, finite_mapTheory.FDOM_FUPDATE]
+QED
+
+Theorem subst_subst_single:
+  ∀m n x y.
+    closed x ∧ closed y ∧ m ≠ n ⇒
+    subst n x (subst m y e) = subst m y (subst n x e)
+Proof
+  rw[] >>
+  qspecl_then [
+    `FEMPTY |+ (n,x)`, `e`, `FEMPTY |+ (m,y)`] assume_tac subst_subst_FUNION >>
+  qspecl_then [
+    `FEMPTY |+ (m,y)`, `e`, `FEMPTY |+ (n,x)`] assume_tac subst_subst_FUNION >>
+  gvs[FRANGE_FLOOKUP, FLOOKUP_UPDATE] >>
+  MK_COMB_TAC >> fs[] >> AP_TERM_TAC >>
+  fs[fmap_eq_flookup, FLOOKUP_FUNION, FLOOKUP_UPDATE] >> rw[]
+QED
+
+Theorem subst_subst_single_UPDATE:
+  ∀m e n v.
+    closed v ⇒
+    subst (m |+ (n,v)) e = subst m (subst n v e)
+Proof
+  rw[] >>
+  simp[Once FUPDATE_EQ_FUNION] >>
+  irule (GSYM subst_subst_FUNION) >>
+  fs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, PULL_EXISTS]
+QED
+
+Theorem bind_bind_single:
+  ∀m n x y.
+    closed x ∧ m ≠ n ⇒
+    bind n x (bind m y e) = bind m y (bind n x e)
+Proof
+  rw[] >> fs[bind_def] >>
+  reverse IF_CASES_TAC >> gvs[]
+  >- (
+    IF_CASES_TAC >> gvs[] >>
+    gvs[FLOOKUP_UPDATE] >>
+    rename1 `if n1 = n2 then _ else _` >>
+    Cases_on `n1 = n2` >> gvs[] >>
+    res_tac
+    ) >>
+  reverse IF_CASES_TAC >> gvs[subst_def] >>
+  irule subst_subst_single >> fs[] >>
+  gvs[FLOOKUP_UPDATE]
+QED
+
+Theorem bind_bind_single_UPDATE:
+  ∀m e n v.
+    closed v ∧ n ∉ FDOM m ⇒
+    bind (m |+ (n,v)) e = bind m (bind n v e)
+Proof
+  rw[] >> fs[bind_def] >>
+  reverse IF_CASES_TAC >> gvs[]
+  >- (
+    IF_CASES_TAC >> gvs[] >>
+    gvs[FLOOKUP_UPDATE] >>
+    rename1 `if n1 = n2 then _ else _` >>
+    Cases_on `n1 = n2` >> gvs[] >>
+    res_tac
+    ) >>
+  reverse (IF_CASES_TAC) >> gvs[]
+  >- (
+    gvs[FLOOKUP_UPDATE] >>
+    rename1 `FLOOKUP _ n2` >> rename1 `n1 ∉ _` >>
+    `n1 ≠ n2` by (gvs[flookup_thm] >> CCONTR_TAC >> gvs[]) >>
+    first_assum (qspec_then `n2` assume_tac) >> gvs[]
+    ) >>
+  IF_CASES_TAC >> gvs[FLOOKUP_UPDATE] >>
+  fs[Once subst_subst_single_UPDATE]
+QED
+
+(******************* freevars ********************)
 
 Theorem freevars_expandLets:
   ∀y i cn nm vs cs.
@@ -317,7 +445,7 @@ QED
 Theorem freevars_subst_single:
   ∀ n e x y.
     closed x ∧ closed y
-  ⇒ (closed (subst (FEMPTY |+ (n,x)) e) ⇔ closed (subst (FEMPTY |+ (n,y)) e))
+  ⇒ (closed (subst n x e) ⇔ closed (subst n y e))
 Proof
   rw[] >> fs[closed_def] >>
   qspec_then `FEMPTY |+ (n,x)` assume_tac freevars_subst >>
@@ -336,73 +464,6 @@ Proof
   rw[bind_def] >> fs[]
   >- (drule freevars_subst >> fs[]) >>
   gvs[FRANGE_FLOOKUP] >> res_tac
-QED
-
-Theorem bind_Var:
-  ∀m x.
-    (∀v. v ∈ FRANGE m ⇒ closed v)
-  ⇒ bind m (Var x) =
-    case FLOOKUP m x of
-      SOME e => e
-    | NONE => Var x
-Proof
-  gvs[bind_def, FRANGE_FLOOKUP] >>
-  reverse (rw[]) >> gvs[] >- res_tac >>
-  fs[subst_def]
-QED
-
-Theorem bind_Lam:
-  ∀m x e1.
-    (∀v. v ∈ FRANGE m ⇒ closed v)
-  ⇒ bind m (Lam x e1) = Lam x (bind (m \\ x) e1)
-Proof
-  gvs[bind_def, FRANGE_FLOOKUP] >>
-  reverse (rw[]) >> gvs[PULL_EXISTS, subst_def]
-  >- (goal_assum drule >> fs[])
-  >- (goal_assum drule >> fs[])
-  >- (gvs[DOMSUB_FLOOKUP_THM] >> res_tac)
-QED
-
-Theorem bind_App:
-  ∀m e1 e2.
-    (∀v. v ∈ FRANGE m ⇒ closed v)
-  ⇒ bind m (App e1 e2) = App (bind m e1) (bind m e2)
-Proof
-  gvs[bind_def, FRANGE_FLOOKUP] >>
-  reverse (rw[]) >> gvs[PULL_EXISTS]
-  >- (goal_assum drule >> fs[]) >>
-  simp[subst_def]
-QED
-
-Theorem bind_alt_def:
-  ∀sub.
-    (∀v. v ∈ FRANGE sub ⇒ closed v)
-  ⇒
-    (∀s.
-      bind sub (Var s) = case FLOOKUP sub s of SOME v => v | NONE => Var s) ∧
-    (∀op xs. bind sub (Prim op xs) = Prim op (MAP (λe. bind sub e) xs)) ∧
-    (∀x y. bind sub (App x y) = App (bind sub x) (bind sub y)) ∧
-    (∀s x. bind sub (Lam s x) = Lam s (bind (sub \\ s) x)) ∧
-    (∀f x. bind sub (Letrec f x) =
-      let sub1 = FDIFF sub (set (MAP FST f)) in
-      Letrec (MAP (λ(n,e). (n, bind sub1 e)) f) (bind sub1 x))
-Proof
-  rw[]
-  >- (drule bind_Var >> fs[])
-  >- (
-    gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
-    reverse (rw[bind_def]) >> gvs[] >- res_tac >>
-    fs[subst_def]
-    )
-  >- (drule bind_App >> fs[])
-  >- (drule bind_Lam >> fs[])
-  >- (
-    gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
-    reverse (rw[bind_def]) >> gvs[subst_def]
-    >- res_tac
-    >- res_tac
-    >- (gvs[FDIFF_def, FLOOKUP_DRESTRICT] >> res_tac)
-    )
 QED
 
 val _ = export_theory();
