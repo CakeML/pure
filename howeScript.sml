@@ -1269,6 +1269,70 @@ Proof
   gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND]
 QED
 
+Definition perm_subst_def:
+  perm_subst v1 v2 s =
+  (FUN_FMAP (λz. perm_exp v1 v2 (THE(FLOOKUP s (perm1 v1 v2 z)))) {z | perm1 v1 v2 z ∈ FDOM s})
+End
+
+Theorem perm_subst_flookup:
+  FLOOKUP(perm_subst v1 v2 s) x = OPTION_MAP (perm_exp v1 v2) (FLOOKUP s (perm1 v1 v2 x))
+Proof
+  rw[perm_subst_def] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC [FLOOKUP_FUN_FMAP] >>
+  conj_tac
+  >- (match_mp_tac FINITE_PRED_11 >> rw[perm1_eq_cancel]) >>
+  rw[FLOOKUP_DEF]
+QED
+
+Theorem perm_subst_fdom:
+  FDOM(perm_subst v1 v2 s) = {z | perm1 v1 v2 z ∈ FDOM s}
+Proof
+  rw[perm_subst_def] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC [FDOM_FMAP] >>
+  match_mp_tac FINITE_PRED_11 >> rw[perm1_eq_cancel]
+QED
+
+Theorem perm_subst_cancel[simp]:
+  perm_subst v1 v2 (perm_subst v1 v2 s) = s
+Proof
+  rw[fmap_eq_flookup,perm_subst_flookup,OPTION_MAP_COMPOSE,combinTheory.o_DEF]
+QED
+
+Theorem fdomsub_eqvt:
+  perm_subst v1 v2 (s \\ x) = (perm_subst v1 v2 s \\ perm1 v1 v2 x)
+Proof
+  rw[fmap_eq_flookup,perm_subst_flookup,DOMSUB_FLOOKUP_THM] >>
+  rw[perm1_def] >>
+  rpt(PURE_FULL_CASE_TAC >> gvs[])
+QED
+
+Theorem FDIFF_eqvt:
+  perm_subst v1 v2 (FDIFF s s') =
+  FDIFF (perm_subst v1 v2 s) (IMAGE (perm1 v1 v2) s')
+Proof
+  rw[fmap_eq_flookup,perm_subst_flookup,DOMSUB_FLOOKUP_THM,FDIFF_def,FLOOKUP_DRESTRICT] >>
+  rw[perm1_def] >>
+  rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+  metis_tac[]
+QED
+
+Theorem subst_all_eqvt:
+  ∀v1 v2 s e.
+    perm_exp v1 v2 (subst_all s e) =
+    subst_all (perm_subst v1 v2 s) (perm_exp v1 v2 e)
+Proof
+  ntac 2 strip_tac >>
+  ho_match_mp_tac subst_all_ind >>
+  rw[subst_all_def,perm_exp_def,perm_subst_flookup,MAP_MAP_o,MAP_EQ_f,combinTheory.o_DEF,
+     fdomsub_eqvt,FDIFF_eqvt]
+  >- (TOP_CASE_TAC >> simp[perm_exp_def])
+  >- (PairCases_on ‘x’ >> gvs[] >>
+      res_tac >>
+      simp[] >>
+      rw[LIST_TO_SET_MAP,IMAGE_IMAGE,ELIM_UNCURRY,combinTheory.o_DEF])
+  >- (rw[LIST_TO_SET_MAP,IMAGE_IMAGE,ELIM_UNCURRY,combinTheory.o_DEF])
+QED
+
 Theorem bind_eqvt:
   ∀v1 v2 xs e.
     perm_exp v1 v2 (bind xs e) =
@@ -2319,7 +2383,22 @@ Proof
       rw[DOMSUB_FLOOKUP_THM] >> res_tac) >>
   cheat
 (*
-  >- (rw[]
+  >- (match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_Alpha >>
+      goal_assum drule >>
+      simp[freevars_subst] >>
+      simp[subst_eqvt] >>
+      rw[perm1_def] >>
+
+      match_mp_tac exp_alpha_Lam >>
+      match_mp_tac exp_alpha_subst_closed' >>
+      simp[closed_perm] >>
+      match_mp_tac exp_alpha_sym >>
+      match_mp_tac exp_alpha_perm_irrel >>
+      gvs[closed_def]
+      match_mp_tac exp_alpha_Alpha >>
+      conj_tac >- cheat >>
+
       >- (dep_rewrite.DEP_ONCE_REWRITE_TAC [subst_ignore] >>
           simp[GSYM perm_exp_eqvt,MEM_MAP] >>
           conj_tac >- rw[perm1_def] >>
