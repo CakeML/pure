@@ -3579,7 +3579,7 @@ Proof
    (simp [Once app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
   \\ first_x_assum (qspec_then ‘FUN_FMAP
         (λn. if n IN FDOM f then f ' n else Fail) vars’ mp_tac)
-  \\ once_rewrite_tac [subst_all_FDIFF]
+  \\ once_rewrite_tac [subst_FDIFF]
   \\ fs [FLOOKUP_FUN_FMAP]
   \\ reverse IF_CASES_TAC
   THEN1
