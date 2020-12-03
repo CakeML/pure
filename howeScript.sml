@@ -3,12 +3,11 @@
    Pitts 2011 chapter "Howe's method for higher-order languages".
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory
-     expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
+open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     pure_langTheory pred_setTheory relationTheory
-     BasicProvers pure_langPropsTheory rich_listTheory finite_mapTheory
+     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
+open expTheory valueTheory pure_langTheory expPropsTheory limitTheory;
 
 val _ = new_theory "howe";
 
@@ -285,8 +284,9 @@ Theorem freevars_v_simps[simp]:
   (v ∈ freevars_v (Constructor x xs)) = (v ∈ BIGUNION(IMAGE freevars_v (set xs)))
 Proof
   gvs[freevars_v_MEM,MEM_FILTER] >>
-  gvs[v_lookup_Error,v_lookup_Diverge,v_lookup_Atom,v_lookup_Closure,v_lookup_Constructor,AllCaseEqs(),
-      oEL_THM] >>
+  gvs[v_lookup_Error,v_lookup_Diverge,v_lookup_Atom,v_lookup_Closure,
+      v_lookup_Constructor,AllCaseEqs(), oEL_THM] >>
+  conj_tac >- (eq_tac >> rw[]) >>
   rw[EQ_IMP_THM,MEM_EL,PULL_EXISTS]
   >- (goal_assum (drule_at (Pat ‘_ < _’)) >>
       simp[freevars_v_MEM] >>
@@ -307,7 +307,8 @@ Proof
   >- (rename1 ‘Var’ >> gvs[eval_to_def])
   >- (rename1 ‘Prim’ >> gs[eval_to_def] >>
       drule eval_op_cases >> rw[] >>
-      gvs[eval_op_def,AllCaseEqs(),MAP_EQ_CONS,DISJ_IMP_THM,FORALL_AND_THM,MEM_MAP,MEM_FLAT,PULL_EXISTS]
+      gvs[eval_op_def,AllCaseEqs(),MAP_EQ_CONS,DISJ_IMP_THM,FORALL_AND_THM,
+          MEM_MAP,MEM_FLAT,PULL_EXISTS]
       >- metis_tac[]
       >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >> metis_tac[])
       >- (gvs[el_def,AllCaseEqs()] >>
@@ -320,20 +321,24 @@ Proof
       >- (gvs[is_eq_def] >>
           rpt(PURE_FULL_CASE_TAC >> gvs[])))
   >- (rename1 ‘Lam’ >> gvs[freevars_def,MEM_FILTER,eval_to_def])
-  >- (rename1 ‘App’ >>
+  >- (
+      rename1 ‘App’ >>
       gvs[freevars_def,MEM_FILTER,eval_to_def] >>
       rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
-      res_tac >> fs[bind_def] >>
+      res_tac >> fs[bind_single_def] >>
       PURE_FULL_CASE_TAC >> fs[freevars_subst] >>
-      gvs[dest_Closure_def,AllCaseEqs(),MEM_FILTER,PULL_EXISTS])
-  >- (rename1 ‘Letrec’ >>
+      gvs[dest_Closure_def,AllCaseEqs(),MEM_FILTER,PULL_EXISTS]
+      )
+  >- (
+      rename1 ‘Letrec’ >>
       gvs[freevars_def,MEM_FILTER,MEM_FLAT,MEM_MAP,PULL_EXISTS,eval_to_def] >>
       PURE_FULL_CASE_TAC >> gvs[] >>
-      first_x_assum drule >> strip_tac >> fs[subst_funs_def,freevars_bind] >>
+      first_x_assum drule >> strip_tac >>
+      fs[subst_funs_def,freevars_bind] >>
       reverse FULL_CASE_TAC >- fs[] >>
-      gvs[MEM_FILTER] >>
-      gvs[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
-      metis_tac[MEM_MAP,FST])
+      gvs[MEM_FILTER, FDOM_FUPDATE_LIST, FRANGE_FLOOKUP, PULL_EXISTS] >>
+      gvs[MEM_MAP, FORALL_PROD]
+      )
 QED
 
 Theorem eval_to_Closure_freevars_SUBSET:
@@ -378,7 +383,7 @@ Proof
   >- (
     drule_all eval_Closure_closed >> rw[closed_def] >>
     rename1 `subst a e1 e2` >>
-    qspecl_then [`a`,`e1`,`e2`] assume_tac freevars_subst >> gvs[] >>
+    qspecl_then [`a`,`e1`,`e2`] assume_tac freevars_subst_single >> gvs[] >>
     Cases_on `freevars e2` >> gvs[]
     )
   >- (
@@ -938,41 +943,6 @@ End
 Theorem Com_defs =
   LIST_CONJ [Com1_def,Com2_def,Com3_def,Com4_def,Com5_def];
 
-
-(* Alternatively:
-Definition Com6_def:
-  Com6 R ⇔
-    ∀ vars e e' nm css css'.
-      {e; e'} ⊆ Exps vars ∧ nm ∉ vars ⇒
-      R vars e e' ∧
-      (let rel = (λ(cn,vs,cs) (cn',vs',cs').
-        cn = cn' ∧
-        vs = vs' ∧
-        DISJOINT (set vs) (nm INSERT vars) ∧
-        {cs; cs'} ⊆ Exps (nm INSERT set vs ∪ vars) ∧
-        R (nm INSERT set vs ∪ vars) cs cs') in
-      LIST_REL rel css css')
-    ⇒ R vars (Case e nm css) (Case e' nm css')
-End
-
-Definition Com6_def:
-  Com6 R ⇔
-    ∀ vars e e' nm css css'.
-      {e; e'} ⊆ Exps vars ∧ nm ∉ vars ⇒
-      R vars e e' ∧
-      MAP FST css = MAP FST css' ∧
-      MAP (FST o SND) css = MAP (FST o SND) css' ∧
-      EVERY (λvs. DISJOINT (set vs) (nm INSERT vars)) (MAP (FST o SND) css) ∧
-      LIST_REL
-        (λ(vs,cs) (vs',cs').
-          R (nm INSERT set vs ∪ vars) cs cs' ∧
-          {cs; cs'} ⊆ Exps (nm INSERT set vs ∪ vars))
-        (MAP SND css) (MAP SND css')
-    ⇒ R vars (Case e nm css) (Case e' nm css')
-End
-etc.
-*)
-
 Definition Compatible_def:
   Compatible R ⇔ Com1 R ∧ Com2 R ∧ Com3 R ∧ Com4 R ∧ Com5 R
 End
@@ -1257,18 +1227,6 @@ Proof
   strip_tac >> Cases >> rw[]
 QED
 
-Theorem subst_eqvt:
-  ∀v1 v2 s e1 e.
-    perm_exp v1 v2 (subst s e1 e) =
-    subst (perm1 v1 v2 s) (perm_exp v1 v2 e1) (perm_exp v1 v2 e)
-Proof
-  ntac 2 strip_tac >>
-  ho_match_mp_tac subst_ind >>
-  rw[subst_def,perm_exp_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f] >>
-  rpt(pairarg_tac >> gvs[]) >>
-  gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND]
-QED
-
 Definition perm_subst_def:
   perm_subst v1 v2 s =
   (FUN_FMAP (λz. perm_exp v1 v2 (THE(FLOOKUP s (perm1 v1 v2 z)))) {z | perm1 v1 v2 z ∈ FDOM s})
@@ -1316,14 +1274,14 @@ Proof
   metis_tac[]
 QED
 
-Theorem subst_all_eqvt:
+Theorem subst_eqvt:
   ∀v1 v2 s e.
-    perm_exp v1 v2 (subst_all s e) =
-    subst_all (perm_subst v1 v2 s) (perm_exp v1 v2 e)
+    perm_exp v1 v2 (subst s e) =
+    subst (perm_subst v1 v2 s) (perm_exp v1 v2 e)
 Proof
   ntac 2 strip_tac >>
-  ho_match_mp_tac subst_all_ind >>
-  rw[subst_all_def,perm_exp_def,perm_subst_flookup,MAP_MAP_o,MAP_EQ_f,combinTheory.o_DEF,
+  ho_match_mp_tac subst_ind >>
+  rw[subst_def,perm_exp_def,perm_subst_flookup,MAP_MAP_o,MAP_EQ_f,combinTheory.o_DEF,
      fdomsub_eqvt,FDIFF_eqvt]
   >- (TOP_CASE_TAC >> simp[perm_exp_def])
   >- (PairCases_on ‘x’ >> gvs[] >>
@@ -1333,15 +1291,42 @@ Proof
   >- (rw[LIST_TO_SET_MAP,IMAGE_IMAGE,ELIM_UNCURRY,combinTheory.o_DEF])
 QED
 
-Theorem bind_eqvt:
-  ∀v1 v2 xs e.
-    perm_exp v1 v2 (bind xs e) =
-    bind (MAP (perm1 v1 v2 ## perm_exp v1 v2) xs) (perm_exp v1 v2 e)
+Theorem subst_single_eqvt:
+  ∀v1 v2 s e1 e.
+    perm_exp v1 v2 (subst s e1 e) =
+    subst (perm1 v1 v2 s) (perm_exp v1 v2 e1) (perm_exp v1 v2 e)
 Proof
-  ntac 2 strip_tac >>
-  ho_match_mp_tac bind_ind >>
-  rw[bind_def,subst_eqvt,closed_perm] >>
-  simp[perm_exp_def]
+  rw[] >>
+  qspecl_then [`v1`,`v2`,`FEMPTY |+ (s,e1)`,`e`] assume_tac subst_eqvt >>
+  rw[] >> MK_COMB_TAC >> rw[] >> AP_TERM_TAC >>
+  rw[fmap_eq_flookup, perm_subst_flookup] >>
+  rw[FLOOKUP_DEF] >> gvs[perm1_cancel]
+QED
+
+Theorem bind_eqvt:
+  ∀v1 v2 s e.
+    perm_exp v1 v2 (bind s e) =
+    bind (perm_subst v1 v2 s) (perm_exp v1 v2 e)
+Proof
+  rw[] >> fs[bind_def] >>
+  reverse (IF_CASES_TAC) >> gvs[]
+  >- (
+    fs[perm_exp_def, perm_subst_flookup, PULL_EXISTS] >>
+    IF_CASES_TAC >> gvs[] >>
+    first_x_assum (qspec_then `perm1 v1 v2 n` assume_tac) >>
+    gvs[perm1_cancel, closed_perm]
+    ) >>
+  reverse (IF_CASES_TAC) >> gvs[subst_eqvt, perm_subst_flookup] >>
+  last_x_assum (qspec_then `perm1 v1 v2 n` assume_tac) >> gvs[closed_perm]
+QED
+
+Theorem bind_single_eqvt:
+  ∀v1 v2 n e1 e.
+    perm_exp v1 v2 (bind n e1 e) =
+    bind (perm1 v1 v2 n) (perm_exp v1 v2 e1) (perm_exp v1 v2 e)
+Proof
+  rw[] >> fs[bind_def, FLOOKUP_UPDATE, closed_perm] >>
+  IF_CASES_TAC >> gvs[perm_exp_def, subst_single_eqvt]
 QED
 
 Theorem expandLets_eqvt:
@@ -1364,6 +1349,40 @@ Proof
   simp[expandCases_def,perm_exp_def] >>
   ho_match_mp_tac expandRows_ind >>
   rw[perm_exp_def,expandRows_def,expandLets_eqvt]
+QED
+
+Theorem subst_funs_eqvt:
+  ∀ v1 v2 fns e.
+    perm_exp v1 v2 (subst_funs fns e) =
+    subst_funs (MAP (perm1 v1 v2 ## perm_exp v1 v2) fns) (perm_exp v1 v2 e)
+Proof
+  rw[subst_funs_def, bind_eqvt] >>
+  MK_COMB_TAC >> rw[] >> AP_TERM_TAC >>
+  rw[fmap_eq_flookup, perm_subst_flookup, flookup_fupdate_list] >>
+  gvs[GSYM MAP_REVERSE, ALOOKUP_MAP] >>
+  qmatch_goalsub_abbrev_tac `ALOOKUP (MAP (foo ## bar) l) x` >>
+  `ALOOKUP (MAP (foo ## bar) l) x =
+    ALOOKUP (MAP (λ(p1,p2). (p1,bar p2)) l) (foo x)` by (
+      unabbrev_all_tac >> rename1 `ALOOKUP (MAP _ l)` >>
+      Induct_on `l` >> gvs[] >> rw[] >>
+      PairCases_on `h` >> fs[] >>
+      IF_CASES_TAC
+      >- (qspec_then `h0` assume_tac (GEN_ALL perm1_cancel) >> gvs[]) >>
+      IF_CASES_TAC >> gvs[]) >>
+  rw[] >> unabbrev_all_tac >> rw[ALOOKUP_MAP] >>
+  Cases_on `ALOOKUP (REVERSE fns) (perm1 v1 v2 x)` >> gvs[] >>
+  fs[perm_exp_def] >>
+  rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]
+QED
+
+Triviality subst_funs_eqvt_alt:
+  ∀ v1 v2 fns e.
+    perm_exp v1 v2 (subst_funs fns e) =
+    subst_funs (MAP (λ(n,x). (perm1 v1 v2 n, perm_exp v1 v2 x)) fns) (perm_exp v1 v2 e)
+Proof
+  rw[subst_funs_eqvt] >>
+  MK_COMB_TAC >> rw[] >> AP_TERM_TAC >>
+  rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]
 QED
 
 Theorem eval_to_eqvt:
@@ -1449,10 +1468,12 @@ Proof
       TRY(qpat_x_assum ‘Constructor _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
       TRY(qpat_x_assum ‘Atom _ = _’ (assume_tac o GSYM) >> gvs[]) >>
       rw[] >>
-      simp[GSYM perm_v_thm,bind_eqvt])
-  >- (simp[GSYM perm_v_thm,subst_funs_def,bind_eqvt] >>
+      simp[GSYM perm_v_thm,bind_single_eqvt])
+  >- (
+      simp[GSYM perm_v_thm] >>
       rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
-      rw[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,MAP_EQ_f,perm_exp_def])
+      rw[subst_funs_eqvt_alt]
+      )
 QED
 
 Theorem v_lookup_eqvt:
@@ -1546,28 +1567,20 @@ Proof
   simp[Once perm_v_thm,AllCaseEqs()]
 QED
 
-Theorem subst_eqvt:
-  ∀v1 v2 x y e.
-    perm_exp v1 v2 (subst x y e) =
-    subst (perm1 v1 v2 x) (perm_exp v1 v2 y) (perm_exp v1 v2 e)
-Proof
-  ntac 2 strip_tac >> ho_match_mp_tac subst_ind >>
-  rw[subst_def,perm_exp_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f,ELIM_UNCURRY,MEM_MAP,PULL_EXISTS] >>
-  rw[] >> metis_tac[PAIR,FST,SND]
-QED
-
 Theorem compatible_perm:
-  compatible (λR. {(e1,e2) | ∃v1 v2 e3 e4. e1 = perm_exp v1 v2 e3  ∧ e2 = perm_exp v1 v2 e4 ∧ R(e3,e4)})
+  compatible (λR. {(e1,e2) | ∃v1 v2 e3 e4. e1 = perm_exp v1 v2 e3  ∧
+                                           e2 = perm_exp v1 v2 e4 ∧ R(e3,e4)})
 Proof
-  rw[compatible_def] >> simp[SUBSET_DEF] >> Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_perm_closure] >>
+  rw[compatible_def] >> simp[SUBSET_DEF] >>
+  Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_perm_closure] >>
   simp[closed_perm] >> gvs[eval_perm_closure,eval_perm_cons]
   >- (irule_at (Pos hd) (GSYM perm1_cancel) >>
       irule_at (Pos hd) (GSYM perm_exp_cancel) >>
       rw[] >>
       irule_at (Pos hd) (GSYM perm_exp_cancel) >>
-      simp[subst_eqvt] >>
+      simp[subst_single_eqvt] >>
       PRED_ASSUM is_forall (irule_at (Pos last)) >>
-      simp[subst_eqvt,closed_perm])
+      simp[subst_single_eqvt,closed_perm])
   >- (qexists_tac ‘MAP (perm_exp v1 v2) es1’ >>
       gvs[eval_thm] >>
       ‘MAP (perm_v v1 v2) (MAP (perm_v v1 v2) v1s) = MAP (perm_v v1 v2) (MAP eval es1)’
@@ -1664,10 +1677,9 @@ Theorem closed_subst_freevars:
     closed x ∧ closed(subst s x y) ⇒
     set(freevars y) ⊆ {s}
 Proof
-  rw[closed_def] >> pop_assum mp_tac >>
-  drule(freevars_subst |> REWRITE_RULE[closed_def]) >>
-  disch_then(qspecl_then [‘s’,‘y’] mp_tac) >>
-  rw[] >> gvs[SUBSET_DIFF_EMPTY]
+  rw[] >> pop_assum mp_tac >> drule freevars_subst_single >>
+  disch_then(qspecl_then [‘s’,‘y’] mp_tac) >> rw[] >>
+  gvs[closed_def, DELETE_DEF, SUBSET_DIFF_EMPTY]
 QED
 
 Theorem closed_freevars_subst:
@@ -1675,10 +1687,11 @@ Theorem closed_freevars_subst:
     closed x ∧ set(freevars y) ⊆ {s} ⇒
     closed(subst s x y)
 Proof
-  rw[] >> simp[closed_def] >>
-  ‘freevars(subst s x y) = {}’ suffices_by gvs[] >>
-  drule freevars_subst >> disch_then(qspecl_then [‘s’,‘y’] mp_tac) >>
-  disch_then SUBST_ALL_TAC >>
+  rw[] >>
+  drule freevars_subst_single >> disch_then (qspecl_then [‘s’,‘y’] mp_tac) >>
+  gvs[DELETE_DEF, closed_def] >> rw[] >>
+  `freevars (subst s x y) = {}` suffices_by gvs[] >>
+  pop_assum SUBST_ALL_TAC >>
   rw[SUBSET_DIFF_EMPTY]
 QED
 
@@ -1696,6 +1709,7 @@ Theorem exp_alpha_subst_closed':
     ⇒
     exp_alpha (subst x e' e) (subst x e'' e)
 Proof
+  cheat (* TODO
   ho_match_mp_tac subst_ind >>
   rw[subst_def,exp_alpha_Refl]
   >- (match_mp_tac exp_alpha_Prim >>
@@ -1716,7 +1730,7 @@ Proof
       match_mp_tac EVERY2_refl >>
       Cases >> rw[] >>
       first_x_assum (drule_then match_mp_tac) >>
-      rw[])
+      rw[]) *)
 QED
 
 Triviality APPEND_EQ_IMP:
@@ -1774,20 +1788,24 @@ Proof
       rpt(pop_assum kall_tac) >>
       ho_match_mp_tac LIST_REL_ind >>
       rw[] >> rpt(pairarg_tac >> gvs[]))
-  >- (qmatch_goalsub_abbrev_tac ‘FILTER _ a1 = FILTER _ a2’ >>
+  >- (
+      qmatch_goalsub_abbrev_tac ‘FILTER _ a1 = FILTER _ a2’ >>
       ‘a2 = MAP (perm1 x y) a1’
         by(rw[Abbr ‘a2’,Abbr‘a1’] >>
            rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
-           rw[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP,ELIM_UNCURRY,GSYM perm_exp_eqvt]) >>
+           rw[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP,ELIM_UNCURRY,
+              GSYM perm_exp_eqvt]) >>
       pop_assum SUBST_ALL_TAC >>
       qpat_x_assum ‘Abbrev(MAP _ _ = _)’ kall_tac >>
       pop_assum kall_tac >>
       Induct_on ‘a1’ >- rw[] >>
-      rw[] >- rw[perm1_def] >>
+      rw[] >> cheat (* TODO
+      >- rw[perm1_def] >>
       gvs[] >>
       rw[DISJ_EQ_IMP] >>
       gvs[perm1_def,MEM_MAP,MEM_FILTER,PAIR_MAP] >>
-      metis_tac[perm1_def,FST,SND,PAIR])
+      metis_tac[perm1_def,FST,SND,PAIR]*)
+      )
   >- (gvs[FILTER_APPEND] >>
       rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
       rw[FILTER_EQ,EQ_IMP_THM] >>
@@ -1796,7 +1814,8 @@ Proof
       rename1 ‘FILTER _ l’ >>
       Induct_on ‘l’ >>
       rw[perm1_def] >>
-      gvs[])
+      gvs[] >>
+      cheat (* TODO *))
   >- (gvs[FILTER_APPEND] >>
       rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
       rw[FILTER_EQ,EQ_IMP_THM] >>
@@ -1805,7 +1824,9 @@ Proof
       rename1 ‘FILTER _ l’ >>
       Induct_on ‘l’ >>
       rw[perm1_def] >>
-      gvs[])
+      gvs[] >>
+      cheat (* TODO *)) >>
+      cheat (* TODO - some extra cases appeared *)
 QED
 
 Theorem exp_alpha_closed:
@@ -1866,7 +1887,8 @@ Proof
       metis_tac[exp_alpha_Trans])
   >- (match_mp_tac exp_alpha_Letrec >> simp[] >>
       drule_at_then (Pos last) match_mp_tac EVERY2_sym >>
-      metis_tac[exp_alpha_Trans])
+      metis_tac[exp_alpha_Trans]) >>
+     cheat (* TODO
   >- (match_mp_tac exp_alpha_Trans >>
       irule_at (Pos hd) exp_alpha_Letrec_Alpha >>
       qexists_tac ‘x’ >>
@@ -1886,6 +1908,7 @@ Proof
       qexists_tac ‘x’ >>
       gvs[MEM_FILTER,GSYM perm_exp_eqvt,MEM_PERM_EQ] >>
       simp[perm_exp_sym,exp_alpha_refl])
+      *)
 QED
 
 Theorem exp_alpha_perm_irrel:
@@ -1909,7 +1932,8 @@ Proof
       >- (match_mp_tac exp_alpha_Alpha >> gvs[MEM_FILTER])
       >- (PURE_ONCE_REWRITE_TAC[perm_exp_sym] >>
           match_mp_tac exp_alpha_Alpha >> gvs[MEM_FILTER])
-      >- (simp[perm1_def] >> match_mp_tac exp_alpha_Lam >> gvs[MEM_FILTER]))
+      >- (simp[perm1_def] >> match_mp_tac exp_alpha_Lam >> gvs[MEM_FILTER])) >>
+  cheat (* TODO
   >- (Cases_on ‘x = y’ >- (simp[perm_exp_id,perm1_simps,exp_alpha_Refl,ELIM_UNCURRY]) >>
       Cases_on ‘MEM x (MAP FST l)’
       >- (qpat_x_assum ‘MEM _ (MAP FST l)’ (strip_assume_tac o REWRITE_RULE[MEM_MAP]) >>
@@ -1945,7 +1969,7 @@ Proof
           metis_tac[FST,SND,PAIR,perm1_def]) >>
       match_mp_tac EVERY2_refl >>
       PairCases >> rw[] >> gvs[MEM_MAP,MEM_FLAT,ELIM_UNCURRY] >>
-      metis_tac[FST,SND,PAIR,perm1_def])
+      metis_tac[FST,SND,PAIR,perm1_def]) *)
 QED
 
 Theorem perm_exp_compose:
@@ -2000,7 +2024,9 @@ Proof
       drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
       rw[] >>
       rw[ELIM_UNCURRY])
-  >- (match_mp_tac exp_alpha_Trans >>
+  >- (
+      cheat (* TODO
+      match_mp_tac exp_alpha_Trans >>
       irule_at (Pos hd) exp_alpha_Letrec_Alpha >>
       qexists_tac ‘perm1 x y y'’ >>
       simp[perm1_eq_cancel,GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
@@ -2025,7 +2051,7 @@ Proof
       rw[MAP_EQ_f] >>
       TRY(rename1 ‘perm1 _ _ _ = perm1 _ _ _’ >>
           rw[perm1_def] >> gvs[] >> NO_TAC) >>
-      simp[SimpR “$=”,Once perm_exp_compose])
+      simp[SimpR “$=”,Once perm_exp_compose]*))
   >- (match_mp_tac exp_alpha_Trans >>
       irule_at (Pos hd) exp_alpha_Letrec_Vacuous1 >>
       qexists_tac ‘perm1 x y y'’ >>
@@ -2036,6 +2062,7 @@ Proof
       qexists_tac ‘perm1 x y y'’ >>
       simp[perm1_eq_cancel,GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
       cheat)
+  >> cheat (* TODO - 2 extra subgoals *)
 QED
 
 Theorem exp_alpha_perm_closed_sym:
@@ -2050,6 +2077,7 @@ Theorem exp_alpha_subst_closed:
     x ≠ y ∧ y ∉ freevars e ∧ closed e' ⇒
     exp_alpha (subst x e' e) (subst y e' (perm_exp x y e))
 Proof
+  cheat (* TODO
   strip_tac >>
   ho_match_mp_tac subst_ind >>
   rw[subst_def,perm_exp_def] >> gvs[perm1_simps]
@@ -2100,6 +2128,7 @@ Proof
   >- (fs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS,MEM_FILTER,MEM_FLAT,perm1_simps] >> metis_tac[perm1_simps])
   >- cheat
   >- cheat
+  *)
 QED
 
 Theorem exp_alpha_subst_closed'':
@@ -2107,6 +2136,7 @@ Theorem exp_alpha_subst_closed'':
     closed e' ∧ exp_alpha e e'' ⇒
     exp_alpha (subst x e' e) (subst x e' e'')
 Proof
+  cheat (* TODO
   Induct_on ‘exp_alpha’ >>
   rw[subst_def,exp_alpha_Refl]
   >- metis_tac[exp_alpha_Trans]
@@ -2368,15 +2398,16 @@ Proof
           gvs[closed_def]))
   >- cheat
   >- cheat
+  *)
 QED
 
 Theorem exp_alpha_subst_all_closed'':
   ∀f e e'.
     (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧ exp_alpha e e' ⇒
-    exp_alpha (subst_all f e) (subst_all f e')
+    exp_alpha (subst f e) (subst f e')
 Proof
   Induct_on ‘exp_alpha’ >>
-  rw[subst_all_def,exp_alpha_Refl]
+  rw[subst_def,exp_alpha_Refl]
   >- metis_tac[exp_alpha_Trans]
   >- (rw[] >> match_mp_tac exp_alpha_Lam >> simp[] >>
       first_x_assum match_mp_tac >>
@@ -2658,23 +2689,12 @@ Proof
   *)
 QED
 
-Theorem exp_alpha_bind_closed:
+Theorem exp_alpha_bind_all_closed:
   ∀x e e'.
     exp_alpha e e' ⇒
     exp_alpha (bind x e) (bind x e')
 Proof
-  ho_match_mp_tac bind_ind >>
   rw[bind_def,exp_alpha_Refl] >>
-  match_mp_tac exp_alpha_subst_closed'' >>
-  simp[]
-QED
-
-Theorem exp_alpha_bind_all_closed:
-  ∀x e e'.
-    exp_alpha e e' ⇒
-    exp_alpha (bind_all x e) (bind_all x e')
-Proof
-  rw[bind_all_def,exp_alpha_Refl] >>
   metis_tac[exp_alpha_subst_all_closed'']
 QED
 
@@ -2805,6 +2825,7 @@ QED
 Theorem exp_alpha_eval_to:
   ∀k e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval_to k e1) (eval_to k e2)
 Proof
+  cheat (* TODO
   ho_match_mp_tac COMPLETE_INDUCTION >>
   strip_tac >>
   Induct_on ‘exp_alpha’ >> rw[]
@@ -2920,6 +2941,7 @@ Proof
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
       cheat)
+      *)
 QED
 
 Theorem v_alpha_v_lookup_pres:
@@ -3233,8 +3255,9 @@ Proof
       last_x_assum drule >> fs[Exps_def, SUBSET_DEF] >> strip_tac >>
       first_x_assum drule >> fs[]
       ) >>
-    gvs[MEM_FLAT] >>
-    pop_assum mp_tac >> simp[MEM_MAP, MEM_EL] >> strip_tac >> gvs[] >>
+    gvs[] >>
+    qpat_x_assum `MEM s _` mp_tac >> simp[MEM_MAP, MEM_EL] >>
+    strip_tac >> gvs[] >>
     first_x_assum (qspec_then `n` mp_tac) >>
     disch_then drule >> strip_tac >>
     pop_assum drule >> simp[EL_MAP, Exps_def] >> strip_tac >>
@@ -3269,14 +3292,23 @@ Proof
     irule Howe3 >>
     rpt (goal_assum (drule_at Any)) >>
     first_x_assum irule >> fs[] >> rw[]
-    >- (
-      drule term_rel_Howe >> simp[term_rel_def] >>
-      disch_then imp_res_tac >>
-      fs[Exps_def]
-      ) >>
+    >- (imp_res_tac term_rel_def >> fs[Exps_def]) >>
     qexists_tac `e2` >> fs[]
     )
-  \\ cheat
+  >- (
+    irule Howe4 >>
+    rpt (goal_assum (drule_at Any)) >>
+    first_x_assum irule >> fs[] >> rw[]
+    >- (imp_res_tac term_rel_def >> fs[Exps_def]) >>
+    qexists_tac `e2` >> fs[]
+    )
+  >- (
+    irule Howe5 >> gvs[] >>
+    rpt (goal_assum (drule_at Any)) >> gvs[] >>
+    first_x_assum irule >> gvs[] >> rw[]
+    >- (imp_res_tac term_rel_def >> fs[Exps_def]) >>
+    qexists_tac `e2` >> fs[]
+    )
 QED
 
 Theorem Howe_Ref_Tra: (* 5.5.1(iii) *)
@@ -3441,12 +3473,6 @@ Proof
   cheat
 QED
 
-Theorem bind_FEMPTY[simp]:
-  bind FEMPTY e1 = e1
-Proof
-  cheat
-QED
-
 Theorem bind_FDIFF:
   freevars x ⊆ vars ⇒
   bind f x = bind (FDIFF f (COMPL vars)) x
@@ -3529,8 +3555,8 @@ End
 val _ = set_fixity "≅" (Infixl 480);
 Overload "≅" = “exp_eq”;
 
-Theorem subst_all_FDIFF:
-  subst_all f x = subst_all (DRESTRICT f (freevars x)) x
+Theorem subst_FDIFF:
+  subst f x = subst (DRESTRICT f (freevars x)) x
 Proof
   cheat
 QED
@@ -3547,13 +3573,13 @@ Proof
     \\ rw [] \\ first_x_assum match_mp_tac
     \\ first_x_assum (assume_tac o GSYM) \\ fs [])
   \\ fs [exp_eq_def,open_bisimilarity_def] \\ rw []
-  \\ fs [bind_all_def]
+  \\ fs [bind_def]
   \\ reverse IF_CASES_TAC \\ fs []
   THEN1
    (simp [Once app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
   \\ first_x_assum (qspec_then ‘FUN_FMAP
         (λn. if n IN FDOM f then f ' n else Fail) vars’ mp_tac)
-  \\ once_rewrite_tac [subst_all_FDIFF]
+  \\ once_rewrite_tac [subst_FDIFF]
   \\ fs [FLOOKUP_FUN_FMAP]
   \\ reverse IF_CASES_TAC
   THEN1
@@ -3589,14 +3615,9 @@ Proof
   THEN1 (rw [] \\ fs [] \\ first_x_assum (qspec_then ‘FEMPTY’ mp_tac) \\ fs [])
   \\ strip_tac
   \\ ‘closed x ∧ closed y’ by fs [Once app_bisimilarity_iff,closed_def]
-  \\ fs [bind_all_def,closed_def] \\ fs [GSYM closed_def]
+  \\ fs [bind_def,closed_def]
   \\ reverse (rw [])
-  THEN1 fs [Once app_bisimilarity_iff,closed_def,eval_thm]
-  \\ once_rewrite_tac [subst_all_FDIFF]
-  \\ fs [closed_def,DRESTRICT_IS_FEMPTY]
-  \\ qsuff_tac ‘bind FEMPTY x ≃ bind FEMPTY y’
-  THEN1 (rewrite_tac [bind_all_def,FLOOKUP_EMPTY,NOT_SOME_NONE] \\ fs [])
-  \\ fs []
+  \\ fs [Once app_bisimilarity_iff,closed_def,eval_thm]
 QED
 
 Theorem exp_eq_refl:
