@@ -38,7 +38,7 @@ Proof
     )
 QED
 
-Theorem subst_FEMPTY:
+Theorem subst_FEMPTY[simp]:
   ∀e. subst FEMPTY e = e
 Proof
   rw[] >> irule subst_ignore >> fs[]
@@ -147,6 +147,12 @@ Proof
 QED
 
 (******************* bind ********************)
+
+Theorem bind_FEMPTY[simp]:
+  ∀e. bind FEMPTY e = e
+Proof
+  rw[bind_def, subst_FEMPTY]
+QED
 
 Theorem bind_bind:
   ∀m1 m2 e.
@@ -290,6 +296,12 @@ Proof
   simp[Once FUPDATE_EQ_FUNION] >>
   irule (GSYM subst_subst_FUNION) >>
   fs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, PULL_EXISTS]
+QED
+
+Theorem bind_single_def:
+  ∀n v e. bind n v e = if closed v then subst n v e else Fail
+Proof
+  rw[bind_def] >> gvs[FLOOKUP_UPDATE]
 QED
 
 Theorem bind_bind_single:
@@ -443,6 +455,15 @@ Proof
 QED
 
 Theorem freevars_subst_single:
+  ∀n v e.
+    closed v ⇒
+    freevars (subst n v e) = freevars e DELETE n
+Proof
+  rw[] >>
+  qspec_then `FEMPTY |+ (n,v)` assume_tac freevars_subst >> fs[DELETE_DEF]
+QED
+
+Theorem freevars_subst_single_iff:
   ∀ n e x y.
     closed x ∧ closed y
   ⇒ (closed (subst n x e) ⇔ closed (subst n y e))
@@ -456,7 +477,7 @@ QED
 
 Theorem freevars_bind:
   ∀m y.
-    set (freevars (bind m y)) =
+    freevars (bind m y) =
       if (∀v. v ∈ FRANGE m ⇒ closed v) then
         freevars y DIFF FDOM m
       else {}
@@ -464,6 +485,15 @@ Proof
   rw[bind_def] >> fs[]
   >- (drule freevars_subst >> fs[]) >>
   gvs[FRANGE_FLOOKUP] >> res_tac
+QED
+
+Theorem freevars_bind_single:
+  ∀ n v e.
+    set (freevars (bind n v e)) =
+    if closed v then freevars e DELETE n else {}
+Proof
+  rw[bind_def] >> gvs[FLOOKUP_UPDATE] >>
+  irule freevars_subst_single >> simp[]
 QED
 
 val _ = export_theory();
