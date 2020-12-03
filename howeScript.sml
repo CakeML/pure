@@ -3671,7 +3671,8 @@ Proof
 QED
 
 Theorem exp_eq_Lam:
-  Lam v e1 ≅ Lam w e2 ⇔ ∀x y. x ≃ y ⇒ subst v x e1 ≅ subst w y e2
+  Lam v1 e1 ≅ Lam v2 e2 ⇔
+  ∀x1 x2. x1 ≃ x2 ⇒ subst v1 x1 e1 ≅ subst v2 x2 e2
 Proof
   metis_tac [exp_eq_Lam,app_bisimilarity_eq]
 QED
