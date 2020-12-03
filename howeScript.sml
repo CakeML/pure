@@ -1571,6 +1571,37 @@ Proof
   metis_tac[perm1_cancel,perm_exp_cancel]
 QED
 
+Theorem eval_perm_cons:
+  eval (perm_exp v1 v2 e) = Constructor s e' ⇔ eval e = Constructor s (MAP (perm_v v1 v2) e')
+Proof
+  simp[GSYM eval_eqvt] >>
+  simp[Once perm_v_thm,AllCaseEqs()] >>
+  rw[EQ_IMP_THM,MAP_MAP_o,combinTheory.o_DEF] >>
+  rw[MAP_MAP_o,combinTheory.o_DEF]
+QED
+
+Theorem eval_perm_atom:
+  eval (perm_exp v1 v2 e) = Atom a ⇔ eval e = Atom a
+Proof
+  simp[GSYM eval_eqvt] >>
+  simp[Once perm_v_thm,AllCaseEqs()]
+QED
+
+Theorem eval_perm_diverge:
+  eval (perm_exp v1 v2 e) = Diverge ⇔ eval e = Diverge
+Proof
+  simp[GSYM eval_eqvt] >>
+  PURE_ONCE_REWRITE_TAC[perm_v_thm] >>
+  simp[AllCaseEqs()]
+QED
+
+Theorem eval_perm_error:
+  eval (perm_exp v1 v2 e) = Error ⇔ eval e = Error
+Proof
+  simp[GSYM eval_eqvt] >>
+  simp[Once perm_v_thm,AllCaseEqs()]
+QED
+
 Theorem subst_eqvt:
   ∀v1 v2 x y e.
     perm_exp v1 v2 (subst x y e) =
@@ -1585,17 +1616,29 @@ Theorem compatible_perm:
   compatible (λR. {(e1,e2) | ∃v1 v2 e3 e4. e1 = perm_exp v1 v2 e3  ∧ e2 = perm_exp v1 v2 e4 ∧ R(e3,e4)})
 Proof
   rw[compatible_def] >> simp[SUBSET_DEF] >> Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_perm_closure] >>
-  simp[closed_perm] >> gvs[eval_perm_closure] >>
-  cheat (* TODO *)
-  (*
-  irule_at (Pos hd) (GSYM perm1_cancel) >>
-  irule_at (Pos hd) (GSYM perm_exp_cancel) >>
-  rw[] >>
-  irule_at (Pos hd) (GSYM perm_exp_cancel) >>
-  simp[subst_eqvt] >>
-  PRED_ASSUM is_forall (irule_at (Pos last)) >>
-  simp[subst_eqvt,closed_perm]
-  *)
+  simp[closed_perm] >> gvs[eval_perm_closure,eval_perm_cons]
+  >- (irule_at (Pos hd) (GSYM perm1_cancel) >>
+      irule_at (Pos hd) (GSYM perm_exp_cancel) >>
+      rw[] >>
+      irule_at (Pos hd) (GSYM perm_exp_cancel) >>
+      simp[subst_eqvt] >>
+      PRED_ASSUM is_forall (irule_at (Pos last)) >>
+      simp[subst_eqvt,closed_perm])
+  >- (qexists_tac ‘MAP (perm_exp v1 v2) es1’ >>
+      gvs[eval_thm] >>
+      ‘MAP (perm_v v1 v2) (MAP (perm_v v1 v2) v1s) = MAP (perm_v v1 v2) (MAP eval es1)’
+        by simp[] >>
+      pop_assum(strip_assume_tac o REWRITE_RULE[MAP_MAP_o,combinTheory.o_DEF,perm_v_cancel]) >>
+      gvs[MAP_MAP_o,combinTheory.o_DEF,eval_eqvt] >>
+      simp[eval_perm_cons] >>
+      qexists_tac ‘MAP (perm_exp v1 v2) es2’ >>
+      simp[EVERY_MAP,closed_perm,MAP_MAP_o,combinTheory.o_DEF,eval_eqvt] >>
+      CONV_TAC(DEPTH_CONV ETA_CONV) >>
+      simp[EVERY2_MAP] >>
+      drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+      rw[] >>
+      metis_tac[]) >>
+  gvs[eval_perm_atom,eval_perm_diverge,eval_perm_error]
 QED
 
 Triviality CURRY_thm:
