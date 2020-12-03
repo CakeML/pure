@@ -1,7 +1,8 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory expTheory
-     ltreeTheory llistTheory bagTheory pure_langTheory pairTheory pred_setTheory;
+     ltreeTheory llistTheory bagTheory pairTheory pred_setTheory;
+open pure_langTheory expPropsTheory
 
 
 val _ = new_theory "ctxt_equiv";
@@ -16,10 +17,6 @@ Datatype:
                   (vname # ctxt)
                  ((vname # exp) list) exp
        | LetrecR ((vname # exp) list) ctxt
-       | CaseL ctxt vname ((vname # vname list # exp) list)
-       | CaseR exp vname ((vname # vname list # exp) list)
-                          (vname # vname list # ctxt)
-                         ((vname # vname list # exp) list)
 End
 
 Definition plug_def:
@@ -29,18 +26,22 @@ Definition plug_def:
   plug (AppR x h) n = App x (plug h n) ∧
   plug (Lam v h) n = Lam v (plug h n) ∧
   plug (LetrecL xs1 (f,h) xs2 x) n = Letrec (xs1 ++ [(f,plug h n)] ++ xs2) x ∧
-  plug (LetrecR xs h) n = Letrec xs (plug h n) ∧
-  plug (CaseL h w rows) n = Case (plug h n) w rows ∧
-  plug (CaseR x w rows1 (v,vs,h) rows2) n =
-    Case x w (rows1 ++ [(v,vs,plug h n)] ++ rows2)
+  plug (LetrecR xs h) n = Letrec xs (plug h n)
 End
 
 Definition exp_equiv_def:
   exp_equiv x y ⇔
     ∀bindings.
-      set (freevars x) ∪ set (freevars y) ⊆ set (MAP FST bindings) ⇒
+      set (freevars x) ∪ set (freevars y) ⊆ FDOM bindings ⇒
       exp_rel (bind bindings x) (bind bindings y)
 End
+
+Triviality exp_rel_Fail:
+  exp_rel Fail Fail
+Proof
+  gvs[exp_rel_def, eval_thm, v_rel_def]
+  \\ Cases \\ simp[v_rel'_def]
+QED
 
 Theorem exp_equiv_closed:
   closed x ∧ closed y ⇒
@@ -48,46 +49,22 @@ Theorem exp_equiv_closed:
 Proof
   fs [closed_def,exp_equiv_def,bind_def]
   \\ rw [] \\ eq_tac \\ rw []
-  THEN1 (first_x_assum (qspec_then ‘[]’ mp_tac) \\ fs [bind_def])
-  \\ fs [GSYM closed_def]
-  \\ rpt (pop_assum mp_tac)
-  \\ qid_spec_tac ‘x’
-  \\ qid_spec_tac ‘y’
-  \\ qid_spec_tac ‘bindings’
-  \\ ho_match_mp_tac SNOC_INDUCT
-  \\ fs [bind_def] \\ rw []
-  \\ rewrite_tac [SNOC_APPEND,GSYM bind_bind,bind_def]
-  \\ rename [‘bind [t]’] \\ PairCases_on ‘t’ \\ fs [bind_def]
-  \\ reverse IF_CASES_TAC \\ fs [AND_IMP_INTRO]
-  \\ first_x_assum match_mp_tac \\ fs [exp_rel_def,v_rel_refl]
-  \\ EVAL_TAC
-QED
-
-Theorem bind_Lam:
-  ∀xs s x.
-    bind xs (Lam s x) =
-      if EVERY closed (MAP SND xs) then
-        Lam s (bind (FILTER (λy. FST y ≠ s) xs) x)
-      else Fail
-Proof
-  Induct \\ fs [bind_def,FORALL_PROD]
-  \\ rw [subst_def,bind_def] \\ fs []
+  THEN1 (first_x_assum (qspec_then ‘FEMPTY’ mp_tac) \\ fs [bind_def, subst_FEMPTY])
+  \\ IF_CASES_TAC \\ fs[exp_rel_Fail]
 QED
 
 Theorem exp_equiv_Lam:
   exp_equiv x y ⇒ exp_equiv (Lam s x) (Lam s y)
 Proof
   fs [exp_equiv_def] \\ rw []
-  \\ fs [bind_Lam]
-  \\ rw [] \\ fs []
-  \\ fs [exp_rel_def,v_rel_refl,eval_Lam]
+  \\ fs [bind_def]
+  \\ rw [] \\ fs [exp_rel_Fail]
+  \\ fs [exp_rel_def,v_rel_refl,subst_def,eval_Lam]
   \\ fs [v_rel_def]
   \\ Cases \\ fs [v_rel'_def]
   \\ rw []
-  \\ fs [PULL_FORALL,bind_bind]
-  \\ first_x_assum match_mp_tac
-  \\ fs [EXTENSION,MEM_MAP,MEM_FILTER,EXISTS_PROD,SUBSET_DEF]
-  \\ metis_tac []
+  \\ fs [PULL_FORALL,bind_def]
+  \\ cheat (* TODO *)
 QED
 
 Inductive similar:
@@ -136,7 +113,8 @@ Proof
     \\ fs [exp_rel_def,eval_Lam,v_rel_def] \\ rw []
     \\ first_x_assum (qspec_then ‘SUC n’ mp_tac)
     \\ fs [v_rel'_def,bind_def]
-    \\ disch_then (qspec_then ‘z’ mp_tac) \\ fs [])
+    \\ disch_then (qspec_then ‘z’ mp_tac) \\ fs []
+    \\ cheat (* TODO *))
   \\ qid_spec_tac ‘s1’
   \\ last_x_assum mp_tac
   \\ qid_spec_tac ‘x2’
@@ -145,7 +123,7 @@ Proof
   \\ rw [] \\ rw []
   THEN1 (simp [Once similar_cases])
   THEN1 (fs [subst_def] \\ metis_tac [similar_cases])
-  THEN1 (fs [subst_def] \\ rw [] \\ simp [Once similar_cases])
+  THEN1 (fs [subst_def] \\ rw [] \\ simp [Once similar_cases] \\ cheat (* TODO *))
   THEN1
    (simp [Once similar_cases]
     \\ fs [subst_def] \\ disj2_tac
@@ -210,13 +188,13 @@ Proof
    (rename [‘Closure s1 x1’]
     \\ drule_all similar_Lam \\ rw [eval_Lam] \\ rw []
     \\ rw [] \\ rw [bind_def,v_rel'_refl]
-    \\ imp_res_tac similar_Lam_IMP \\ res_tac)
+    \\ imp_res_tac similar_Lam_IMP \\ res_tac \\ cheat (* TODO *))
   THEN1 (drule_all similar_Diverge \\ fs [])
   THEN1 (drule_all similar_Error \\ fs [])
 QED
 
 Theorem bind_thm:
-  EVERY closed (MAP SND bs) ⇒
+  (∀v. v ∈ FRANGE bs ⇒ closed v) ⇒
   bind bs (App x1 x2) = App (bind bs x1) (bind bs x2) ∧
   bind bs (Prim p xs) = Prim p (MAP (bind bs) xs)
   (* TODO: add more cases here *)
@@ -225,24 +203,25 @@ Proof
 QED
 
 Theorem bind_fail:
-  ~EVERY closed (MAP SND bs) ⇒ bind bs x = Fail
+  (∃v. v ∈ FRANGE bs ∧ ¬closed v) ⇒ bind bs x = Fail
 Proof
   cheat
 QED
 
 Theorem closed_bind:
-  set (freevars x) ⊆ set (MAP FST bindings) ⇒ closed (bind bindings x)
+  set (freevars x) ⊆ FDOM bindings ⇒ closed (bind bindings x)
 Proof
   cheat
 QED
 
 Triviality exp_rel_bind_closed:
-  (EVERY closed (MAP SND bs) ⇒
+  ((∀v. v ∈ FRANGE bs ⇒ closed v) ⇒
    exp_rel (bind bs x) (bind bs y)) ⇒
   exp_rel (bind bs x) (bind bs y)
 Proof
-  Cases_on ‘EVERY closed (MAP SND bs)’
-  \\ full_simp_tac bool_ss [bind_fail,exp_rel_refl]
+  Cases_on `∀v. v ∈ FRANGE bs ⇒ closed v` >> fs[] >> rw[] >>
+  qsuff_tac `bind bs x = Fail ∧ bind bs y = Fail` >> rw[exp_rel_refl] >>
+  irule bind_fail >> goal_assum drule >> fs[]
 QED
 
 Triviality LIST_REL_similar_refl:
