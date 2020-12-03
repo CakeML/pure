@@ -670,6 +670,12 @@ Proof
   metis_tac[]
 QED
 
+Theorem compatible_FF:
+  compatible FF
+Proof
+  rw[compatible_def]
+QED
+
 Theorem compatible_app_similarity:
   compatible (λR. app_similarity)
 Proof
@@ -778,27 +784,154 @@ Proof
   simp[IN_DEF,v_rel_refl,monotone_def]
 QED
 
-Theorem FF_trans:
-  ∀R S x y z.
-    (x,z) ∈ FF R ∧ (z,y) ∈ FF S ⇒ (x,y) ∈ FF {(x,y) | ∃z. (x,z) ∈ R ∧ (z,y) ∈ S}
+Theorem compatible_union:
+  compatible f ∧ compatible g ⇒
+  compatible(λx. f x ∪ g x)
 Proof
-  rw[FF_def,IN_DEF,ELIM_UNCURRY,unfold_rel_def]
-  >- metis_tac[] >>
-  gvs[eval_thm] >>
-  cheat (* TODO problem here *)
+  rw[compatible_def] >>
+  rpt(first_x_assum(qspec_then ‘x’ assume_tac)) >>
+  drule_then match_mp_tac SUBSET_TRANS >>
+  match_mp_tac(monotone_similarity |> SIMP_RULE std_ss[monotone_def]) >>
+  rw[]
+QED
+
+Theorem compatible_tc:
+  compatible (λR. tc(R ∪ app_similarity))
+Proof
+  simp[compatible_def,SUBSET_DEF] >>
+  strip_tac >> Cases >>
+  rename1 ‘(x,y)’ >>
+  MAP_EVERY qid_spec_tac [‘y’,‘x’] >>
+  ho_match_mp_tac set_relationTheory.tc_ind_left >>
+  conj_tac
+  >- (rw[FF_def,unfold_rel_def] >> gvs[] >> rw[]
+      >- (match_mp_tac (set_relationTheory.subset_tc |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          rw[UNION_DEF] >> metis_tac[IN_DEF])
+      >- (irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+          rw[] >> match_mp_tac (set_relationTheory.subset_tc |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          rw[UNION_DEF] >> metis_tac[IN_DEF])
+      >- (metis_tac[IN_DEF,app_similarity_closed])
+      >- (metis_tac[IN_DEF,app_similarity_closed])
+      >- (gvs[IN_DEF,Once app_similarity_iff] >>
+          gvs[unfold_rel_def] >>
+          rw[] >>
+          match_mp_tac (set_relationTheory.subset_tc |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          rw[UNION_DEF] >> metis_tac[IN_DEF])
+      >- (gvs[IN_DEF,Once app_similarity_iff] >>
+          gvs[unfold_rel_def] >>
+          gvs[eval_thm] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+          rw[] >> match_mp_tac (set_relationTheory.subset_tc |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          rw[UNION_DEF] >> metis_tac[IN_DEF]) >>
+      gvs[IN_DEF,Once app_similarity_iff] >> gvs[unfold_rel_def])
+  >- (rw[FF_def,unfold_rel_def] >> gvs[]
+      >- (rw[] >>
+          match_mp_tac (set_relationTheory.tc_rules |> cj 2 |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          rpt(first_x_assum drule) >> rw[] >>
+          goal_assum(drule_at (Pos last)) >>
+          match_mp_tac (set_relationTheory.subset_tc |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          rw[UNION_DEF] >> metis_tac[IN_DEF])
+      >- (gvs[eval_thm] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          ‘LIST_REL (CURRY (tc (R ∪ app_similarity))) es2 es1'’
+            by(qpat_x_assum ‘EVERY closed es2’ mp_tac >>
+               qpat_x_assum ‘EVERY closed es1'’ mp_tac >>
+               qpat_x_assum ‘MAP _ _ = MAP _ _’ mp_tac >>
+               rpt(pop_assum kall_tac) >>
+               qid_spec_tac ‘es1'’ >>
+               Induct_on ‘es2’ >- rw[] >>
+               strip_tac >> Cases >>
+               rw[] >>
+               drule_all eval_eq_imp_app_similarity >>
+               strip_tac >>
+               simp[Once(no_IN set_relationTheory.tc_cases)] >>
+               metis_tac[IN_DEF]) >>
+          match_mp_tac (MP_CANON EVERY2_trans) >>
+          simp[GSYM PULL_EXISTS] >>
+          conj_asm1_tac >- metis_tac[no_IN set_relationTheory.tc_rules] >>
+          irule_at (Pos hd) EVERY2_mono >>
+          goal_assum(drule_at (Pos (hd o tl))) >>
+          conj_tac
+          >- (rw[] >>
+              match_mp_tac(no_IN(cj 1 set_relationTheory.tc_rules)) >>
+              rw[UNION_DEF,IN_DEF]) >>
+          match_mp_tac(MP_CANON EVERY2_trans) >>
+          simp[] >>
+          metis_tac[])
+      >- metis_tac[IN_DEF,app_similarity_closed]
+      >- (gvs[IN_DEF,Once app_similarity_iff] >> gvs[unfold_rel_def] >>
+          rw[] >>
+          match_mp_tac (set_relationTheory.tc_rules |> cj 2 |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          irule_at (Pos hd) (set_relationTheory.subset_tc |> SIMP_RULE std_ss [SUBSET_DEF,IN_DEF]) >>
+          simp[IN_DEF] >> metis_tac[])
+      >- (gvs[IN_DEF,app_similarity_iff] >>
+          gvs[unfold_rel_def] >>
+          gvs[eval_thm] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          irule_at (Pos hd) EQ_REFL >>
+          simp[] >>
+          ‘LIST_REL (CURRY (tc (R ∪ app_similarity))) es2 es1'’
+            by(qpat_x_assum ‘EVERY closed es2’ mp_tac >>
+               qpat_x_assum ‘EVERY closed es1'’ mp_tac >>
+               qpat_x_assum ‘MAP _ _ = MAP _ _’ mp_tac >>
+               rpt(pop_assum kall_tac) >>
+               qid_spec_tac ‘es1'’ >>
+               Induct_on ‘es2’ >- rw[] >>
+               strip_tac >> Cases >>
+               rw[] >>
+               drule_all eval_eq_imp_app_similarity >>
+               strip_tac >>
+               simp[Once(no_IN set_relationTheory.tc_cases)] >>
+               metis_tac[IN_DEF]) >>
+          match_mp_tac (MP_CANON EVERY2_trans) >>
+          simp[GSYM PULL_EXISTS] >>
+          conj_asm1_tac >- metis_tac[no_IN set_relationTheory.tc_rules] >>
+          irule_at (Pos hd) EVERY2_mono >>
+          goal_assum(drule_at (Pos (hd o tl))) >>
+          conj_tac
+          >- (rw[] >>
+              match_mp_tac(no_IN(cj 1 set_relationTheory.tc_rules)) >>
+              rw[UNION_DEF,IN_DEF]) >>
+          match_mp_tac(MP_CANON EVERY2_trans) >>
+          simp[] >>
+          metis_tac[]) >>
+      gvs[IN_DEF,app_similarity_iff] >> gvs[unfold_rel_def])
 QED
 
 Theorem companion_duplicate:
   ∀x y z. companion R (x,z) ∧ companion R (z,y) ⇒ companion R (x,y)
 Proof
   rw[companion_def] >>
-  qexists_tac ‘λR. {(x,y) | ∃z. (x,z) ∈ f R ∧ (z,y) ∈ f' R}’ >>
-  gvs[monotone_def,compatible_def,pred_setTheory.SUBSET_DEF] >>
-  conj_tac >- (rw[] >> metis_tac[]) >>
-  reverse conj_tac >- metis_tac[] >>
+  Q.REFINE_EXISTS_TAC ‘_ o (_ : (exp # exp -> bool) -> exp # exp -> bool)’ >>
+  irule_at Any compatible_compose >>
+  irule_at Any compatible_tc >>
+  irule_at Any compatible_union >>
+  goal_assum dxrule >>
+  goal_assum dxrule >>
+  irule_at Any monotone_compose >>
+  conj_tac
+  >- (gvs[monotone_def,SUBSET_DEF] >> rw[] >> metis_tac[]) >>
+  conj_tac
+  >- (rw[monotone_def] >>
+      match_mp_tac set_relationTheory.tc_mono >>
+      gvs[SUBSET_DEF]) >>
   rw[] >>
-  res_tac >>
-  metis_tac[FF_trans]
+  match_mp_tac(cj 2 set_relationTheory.tc_rules) >>
+  irule_at (Pos hd) (cj 1 set_relationTheory.tc_rules) >>
+  irule_at (Pos last) (cj 1 set_relationTheory.tc_rules) >>
+  rw[] >> metis_tac[]
 QED
 
 Theorem companion_duplicate_SET:
