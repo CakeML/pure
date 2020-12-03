@@ -42,6 +42,14 @@ Proof
   rw [] \\ match_mp_tac subst_ignore \\ fs [closed_def]
 QED
 
+Theorem subst_ignore_single:
+  ∀ n v e. ¬MEM n (freevars e) ⇒ subst (FEMPTY |+ (n,v)) e = e
+Proof
+  rw[] >>
+  irule subst_ignore >>
+  gvs[pred_setTheory.EXTENSION, finite_mapTheory.FDOM_FUPDATE]
+QED
+
 Theorem subst_subst:
   ∀m1 e m2.
     DISJOINT (FDOM m1) (FDOM m2) ∧
@@ -304,6 +312,18 @@ Proof
       goal_assum (drule_at Any) >> fs[]
       )
     )
+QED
+
+Theorem freevars_subst_single:
+  ∀ n e x y.
+    closed x ∧ closed y
+  ⇒ (closed (subst (FEMPTY |+ (n,x)) e) ⇔ closed (subst (FEMPTY |+ (n,y)) e))
+Proof
+  rw[] >> fs[closed_def] >>
+  qspec_then `FEMPTY |+ (n,x)` assume_tac freevars_subst >>
+  qspec_then `FEMPTY |+ (n,y)` assume_tac freevars_subst >>
+  gvs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, closed_def, EXTENSION] >>
+  fs[NIL_iff_NOT_MEM]
 QED
 
 Theorem freevars_bind:

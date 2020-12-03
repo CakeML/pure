@@ -31,7 +31,7 @@ Inductive next:
   ∧
   (∀v f n e x stack res.
     dest_Closure f = SOME (n,e) ∧ eval x = v ∧
-    next (eval (bind [(n,x)] e), stack) res ⇒
+    next (eval (bind (FEMPTY |+ (n,x)) e), stack) res ⇒
     next (Constructor "Ret" [v], f::stack) res)
   ∧
   (∀v stack.
@@ -54,7 +54,7 @@ Definition continue_def:
   continue (f::stack) k =
     case dest_Closure f of
     | NONE => INL F
-    | SOME (n,e) => INR (eval (bind [(n,Lit k)] e), stack)
+    | SOME (n,e) => INR (eval (bind (FEMPTY |+ (n,Lit k)) e), stack)
 End
 
 Definition interp'_def:

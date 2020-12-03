@@ -31,7 +31,7 @@ Theorem eval_lift:
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
-  eval (Let s x y) = eval (bind [(s,x)] y) ∧
+  eval (Let s x y) = eval (bind (FEMPTY |+ (s,x)) y) ∧
   eval (If x y z) =
     (if v_rel (eval x) Diverge then Diverge
      else if v_rel (eval x) True then eval y
@@ -68,7 +68,7 @@ QED
 
 Theorem Closure_vq_11:
   v_rel (Closure n e1) (Closure m e2) ⇔
-    ∀z. v_rel (eval (bind [(n, z)] e1)) (eval (bind [(m, z)] e2))
+    ∀z. v_rel (eval (bind (FEMPTY |+ (n, z)) e1)) (eval (bind (FEMPTY |+ (m, z)) e2))
 Proof
   rw [v_rel_cases, exp_rel_def]
 QED
