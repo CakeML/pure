@@ -1661,6 +1661,13 @@ Proof
       metis_tac[perm1_def,FST,SND,PAIR])
 QED
 
+Theorem exp_alpha_closed:
+  ∀e e'.
+    exp_alpha e e' ⇒ closed e = closed e'
+Proof
+  rw[closed_def] >> imp_res_tac exp_alpha_freevars >> rw[]
+QED
+
 Theorem perm_exp_id:
   ∀x e.
     perm_exp x x e = e
@@ -2137,6 +2144,18 @@ val (v_alpha_rules,v_alpha_coind,v_alpha_def) = Hol_coreln
   ’
 
 Theorem v_alpha_refl = cj 1 v_alpha_rules
+Theorem v_alpha_cons = cj 2 v_alpha_rules
+Theorem v_alpha_closure = cj 3 v_alpha_rules
+Theorem v_alpha_alpha = cj 4 v_alpha_rules
+
+Inductive v_prefix_alpha:
+[~Refl:]
+  (∀v1. v_prefix_alpha v1 v1) ∧
+[~Closure:]
+  (∀e1 e2 x. exp_alpha e1 e2 ⇒ v_prefix_alpha (Closure' x e1) (Closure' x e2)) ∧
+[~Alpha:]
+  (∀x y e1 e2. x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2) ⇒ v_prefix_alpha (Closure' x e1) (Closure' y e2))
+End
 
 Theorem v_alpha_trans:
   ∀v1 v2 v3. v_alpha v1 v2 ∧ v_alpha v2 v3 ⇒ v_alpha v1 v3
@@ -2241,10 +2260,210 @@ Proof
       rw[])
 QED
 
+Theorem exp_alpha_eval_to:
+  ∀k e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval_to k e1) (eval_to k e2)
+Proof
+  ho_match_mp_tac COMPLETE_INDUCTION >>
+  strip_tac >>
+  Induct_on ‘exp_alpha’ >> rw[]
+  >- simp[v_alpha_refl]
+  >- metis_tac[v_alpha_trans]
+  >- (simp[eval_to_def] >> metis_tac[v_alpha_rules])
+  >- (simp[eval_to_def] >>
+      MAP_FIRST match_mp_tac (CONJUNCTS v_alpha_rules) >>
+      simp[GSYM perm_exp_eqvt,MEM_PERM_EQ,exp_alpha_refl])
+  >- (simp[eval_to_def] >>
+      ‘eval_op op (MAP eval es) = eval_op op (MAP eval es)’ by metis_tac[] >>
+      dxrule eval_op_cases >>
+      rw[MAP_EQ_CONS] >> gvs[LIST_REL_CONS1] >>
+      gvs[eval_op_def,v_alpha_refl]
+      >- (match_mp_tac v_alpha_cons >>
+          simp[EVERY2_MAP] >>
+          drule_at_then Any match_mp_tac EVERY2_mono >>
+          rw[])
+      >- (rename1 ‘eval_to _ ee’ >>
+          qpat_x_assum ‘v_alpha (eval_to _ ee) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
+          gvs[] >> rw[v_alpha_refl] >> gvs[])
+      >- (rename1 ‘eval_to _ ee’ >>
+          simp[el_def] >>
+          qpat_x_assum ‘v_alpha (eval_to _ ee) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
+          gvs[] >> rw[v_alpha_refl] >>
+          gvs[LIST_REL_EL_EQN])
+      >- (‘MEM Diverge (MAP (λa. eval_to k a) es) ⇔ MEM Diverge (MAP (λa. eval_to k a) es')’
+            by(gvs[MEM_EL,LIST_REL_EL_EQN] >> rw[EQ_IMP_THM] >>
+               goal_assum drule >>
+               first_x_assum drule >> rw[Once v_alpha_def] >>
+               gvs[EL_MAP]) >>
+          simp[] >>
+          rw[v_alpha_refl] >>
+          ‘getAtoms (MAP (λa. eval_to k a) es) = getAtoms (MAP (λa. eval_to k a) es')’
+            by(qhdtm_x_assum ‘LIST_REL’ mp_tac >>
+               rpt(pop_assum kall_tac) >>
+               Induct_on ‘LIST_REL’ >>
+               rw[getAtoms_def,Once v_alpha_def] >>
+               gvs[getAtom_def]) >>
+          simp[] >>
+          TOP_CASE_TAC >> simp[v_alpha_refl])
+      >- (simp[is_eq_def] >>
+          rename1 ‘eval_to _ ee’ >>
+          qpat_x_assum ‘v_alpha (eval_to _ ee) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
+          gvs[] >> rw[v_alpha_refl] >> gvs[] >>
+          gvs[LIST_REL_EL_EQN]))
+  >- (simp[eval_to_def] >>
+      ‘eval_to k e1 = Diverge ⇔ eval_to k e2 = Diverge’
+        by(res_tac >>
+           qpat_x_assum ‘v_alpha (eval_to _ e1) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
+           gvs[]) >>
+      TOP_CASE_TAC >> gvs[] >>
+      TOP_CASE_TAC
+      >- (qpat_x_assum ‘v_alpha (eval_to _ e1) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
+          gvs[v_alpha_refl,dest_Closure_def]) >>
+      qpat_x_assum ‘v_alpha (eval_to _ e1) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
+      gvs[v_alpha_refl,dest_Closure_def,AllCaseEqs()]
+      >- (rw[v_alpha_refl] >>
+          first_x_assum (match_mp_tac o MP_CANON) >>
+          simp[] >>
+          simp[bind_def] >>
+          imp_res_tac exp_alpha_closed >> gvs[] >>
+          rw[exp_alpha_refl] >>
+          match_mp_tac exp_alpha_subst_closed' >>
+          simp[])
+      >- (rw[v_alpha_refl] >>
+          first_x_assum (match_mp_tac o MP_CANON) >>
+          simp[] >>
+          simp[bind_def] >>
+          imp_res_tac exp_alpha_closed >> gvs[] >>
+          rw[exp_alpha_refl] >>
+          match_mp_tac exp_alpha_Trans >>
+          irule_at (Pos hd) exp_alpha_subst_closed' >>
+          goal_assum (drule_at (Pat ‘exp_alpha _ _’)) >>
+          simp[] >>
+          match_mp_tac exp_alpha_subst_closed'' >>
+          simp[])
+      >- cheat (* non-obvious but plausible *))
+  >- cheat
+  >- cheat
+QED
+
+Theorem v_alpha_v_lookup_pres:
+  ∀path v1 v2 v1' v2' n m.
+  v_alpha v1 v2 ∧
+  v_lookup path v1 = (v1',n) ∧
+  v_lookup path v2 = (v2',m) ⇒
+  v_prefix_alpha v1' v2' ∧ n = m
+Proof
+  Induct >>
+  rw[v_lookup] >>
+  gvs[AllCaseEqs()] >>
+  gvs[Once v_alpha_def,v_prefix_alpha_cases] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  gvs[oEL_THM]
+  >- (rename1 ‘EL z vs’ >>
+      ‘v_alpha (EL z vs') (EL z vs)’
+        by(gvs[LIST_REL_EL_EQN]) >>
+      first_x_assum drule_all >>
+      strip_tac >> simp[])
+  >- metis_tac[LIST_REL_EL_EQN]
+QED
+
+Theorem v_alpha_limit_pres:
+  (∀k. v_alpha (f k) (g k)) ∧
+  v_limit f path = (vp1,n1) ∧
+  v_limit g path = (vp2,n2) ∧
+  (∀k n. v_cmp path (f k) (f(k+n))) ∧
+  (∀k n. v_cmp path (g k) (g(k+n)))
+  ⇒ v_prefix_alpha vp1 vp2 ∧ n1 = n2
+Proof
+  disch_then strip_assume_tac >> gvs[v_limit_def,limit_def,some_def] >>
+  qpat_x_assum ‘_ = (vp1,n1)’ mp_tac >>
+  TOP_CASE_TAC
+  >- (strip_tac >> gvs[] >>
+      gvs[CaseEq "option",CaseEq "prod",v_prefix_alpha_Refl] >>
+      gvs[] >>
+      first_assum(qspecl_then [‘Diverge',0’,‘k'’] mp_tac) >>
+      strip_tac >>
+      gvs[] >>
+      rename1 ‘k1 ≤ k2’ >>
+      first_assum(qspecl_then [‘v_lookup path (f k2)’,‘k2’] mp_tac) >>
+      strip_tac >>
+      rename1 ‘k2 ≤ k3’ >>
+      qpat_x_assum ‘∀k n. v_cmp _ (f _) _’ (qspecl_then [‘k2’,‘k3 - k2’] (mp_tac o REWRITE_RULE[v_cmp_def])) >>
+      disch_then drule >>
+      simp[]) >>
+  strip_tac >> gvs[] >>
+  gvs[CaseEq "option",CaseEq "prod",v_prefix_alpha_Refl]
+  >- (first_assum(qspecl_then [‘Diverge',0’,‘k'’] mp_tac) >>
+      strip_tac >>
+      gvs[] >>
+      rename1 ‘k1 ≤ k2’ >>
+      first_assum(qspecl_then [‘v_lookup path (g k2)’,‘k2’] mp_tac) >>
+      strip_tac >>
+      rename1 ‘k2 ≤ k3’ >>
+      qpat_x_assum ‘∀k n. v_cmp _ (g _) _’ (qspecl_then [‘k2’,‘k3 - k2’] (mp_tac o REWRITE_RULE[v_cmp_def])) >>
+      disch_then drule >>
+      simp[]) >>
+  qpat_x_assum ‘$@ _ = _’ mp_tac >>
+  SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
+  ntac 3 strip_tac >>
+  qpat_x_assum ‘$@ _ = _’ mp_tac >>
+  SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
+  ntac 3 strip_tac >>
+  gvs[] >>
+  qpat_x_assum ‘∀k. _ ⇒ _ = x’ kall_tac >>
+  qpat_x_assum ‘∀k. _ ⇒ _ = x'’ kall_tac >>
+  rename [‘k1 ≤ _’] >>
+  pop_assum(fn thm => rename1 ‘k2 ≤ _’ >> assume_tac thm) >>
+  ntac 2(first_x_assum(qspec_then ‘MAX k1 k2’ mp_tac)) >>
+  impl_tac >- simp[] >> strip_tac >>
+  impl_tac >- simp[] >> strip_tac >>
+  dxrule_at (Pos last) v_alpha_v_lookup_pres >>
+  disch_then(drule_at (Pos last)) >>
+  impl_tac >- simp[] >>
+  rw[]
+QED
+
+Theorem gen_v_alpha_pres:
+  ∀v1 v2 f g.
+  (∀path vp1 vp2 n1 n2. f path = (vp1,n1) ∧ g path = (vp2,n2) ⇒ v_prefix_alpha vp1 vp2 ∧ n1 = n2)
+  ∧ v1 = gen_v f ∧ v2 = gen_v g
+  ⇒
+  v_alpha v1 v2
+Proof
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
+  ho_match_mp_tac v_alpha_coind >>
+  rw[] >>
+  simp[Once gen_v] >>
+  simp[SimpR “$=”,Once gen_v] >>
+  Cases_on ‘f []’ >>
+  Cases_on ‘g []’ >>
+  first_assum drule_all >>
+  rw[Once v_prefix_alpha_cases] >> rw[]
+  >- (TOP_CASE_TAC >> simp[] >>
+      disj2_tac >> disj1_tac >>
+      simp[Once gen_v] >>
+      simp[Once gen_v] >>
+      rw[LIST_REL_GENLIST] >>
+      qexists_tac ‘f o CONS n’ >>
+      qexists_tac ‘g o CONS n’ >>
+      simp[combinTheory.o_DEF] >>
+      metis_tac[]) >>
+  rpt(simp[Once gen_v])
+QED
+
 Theorem exp_alpha_eval:
   ∀e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval e1) (eval e2)
 Proof
-  cheat
+  rw[eval_def] >>
+  match_mp_tac gen_v_alpha_pres >>
+  ntac 2 (irule_at (Pos last) EQ_REFL) >>
+  rpt GEN_TAC >> disch_then strip_assume_tac >>
+  gvs[] >>
+  drule exp_alpha_eval_to >> strip_tac >>
+  qpat_x_assum ‘v_limit _ _ = (vp1,n1)’ assume_tac >>
+  dxrule_at (Pat ‘_ = (_,_)’) v_alpha_limit_pres >>
+  qpat_x_assum ‘v_limit _ _ = (vp2,n2)’ assume_tac >>
+  disch_then(drule_at (Pat ‘_ = (_,_)’)) >>
+  simp[eval_to_res_mono_lemma]
 QED
 
 Theorem compatible_exp_alpha:
