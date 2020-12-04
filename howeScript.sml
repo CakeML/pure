@@ -961,13 +961,17 @@ Proof
   fs[Ref_def, Exps_def]
   \\ rw[open_similarity_def]
   \\ irule reflexive_app_similarity'
-  \\ cheat
+  \\ reverse (rw [bind_def])
+  THEN1 fs [closed_def]
+  \\ match_mp_tac IMP_closed_subst
+  \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
 QED
 
 Theorem Ref_open_bisimilarity:
   Ref open_bisimilarity
 Proof
-  cheat
+  assume_tac Ref_open_similarity
+  \\ fs [Ref_def,open_bisimilarity_eq]
 QED
 
 Theorem Sym_open_bisimilarity:
@@ -3844,23 +3848,6 @@ Proof
   \\ fs [eval_Cons]
   \\ cheat
 QED
-
-(*
-Theorem subst_bind:
-  ∀vars t h v e1.
-    h ∉ vars ∧ LENGTH t = LENGTH vars ∧ EVERY closed t ∧ closed v ⇒
-    subst h v (bind (ZIP (vars,t)) e1) =
-    bind (ZIP (vars,t)) (subst h v e1)
-Proof
-  Induct_on ‘vars’ \\ fs [bind_def] \\ rw []
-  \\ Cases_on ‘t’ \\ fs [bind_def]
-  \\ first_x_assum drule
-  \\ rename [‘LENGTH tt = LENGTH _’]
-  \\ disch_then drule \\ fs []
-  \\ disch_then (drule o GSYM) \\ fs [] \\ rw []
-  \\ match_mp_tac subst_subst \\ fs []
-QED
-*)
 
 Theorem IMP_open_similarity_INSERT:
   (∀e. e IN Exps vars ⇒ open_similarity vars (subst h e e1) (subst h e e2)) ∧
