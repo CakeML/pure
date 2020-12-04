@@ -3822,11 +3822,21 @@ Proof
   THEN1 cheat
 QED
 
-Theorem app_simulation_Howe_open_similarity:
+Theorem app_simulation_Howe_open_similarity: (* or replace with the lemma below *)
   app_simulation (UNCURRY (Howe open_similarity {}))
 Proof
   fs [app_simulation_def,unfold_rel_def]
   \\ cheat (* KeyLemma? *)
+QED
+
+Theorem Howe_open_similarity_app_similarity: (* has better concl than above *)
+  (UNCURRY (Howe open_similarity ∅)) ⊆ app_similarity
+Proof
+  fs [SUBSET_DEF,FORALL_PROD,IN_DEF]
+  \\ ho_match_mp_tac app_similarity_companion_coind
+  \\ fs [FF_def,EXISTS_PROD,unfold_rel_def]
+  \\ fs [eval_Cons]
+  \\ cheat
 QED
 
 (*
