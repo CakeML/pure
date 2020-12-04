@@ -463,6 +463,13 @@ Proof
   qspec_then `FEMPTY |+ (n,v)` assume_tac freevars_subst >> fs[DELETE_DEF]
 QED
 
+Theorem subst_subst_eq:
+  closed y ⇒ subst v x (subst v y e) = subst v y e
+Proof
+  rw [] \\ match_mp_tac subst_ignore_single
+  \\ fs [freevars_subst]
+QED
+
 Theorem freevars_subst_single_iff:
   ∀ n e x y.
     closed x ∧ closed y

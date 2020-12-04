@@ -4138,12 +4138,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem subst_subst_eq:
-  closed y ⇒ subst v x (subst v y e) = subst v y e
-Proof
-  cheat
-QED
-
 Triviality subst_subst_lemma:
   closed y1 ∧ closed y2 ⇒
   (subst x y1 e1 ≅ subst y y2 e2 ⇔
@@ -4181,16 +4175,12 @@ Proof
   \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ ‘∀t xv. closed xv ⇒ (t ≅ Lam y (subst x xv e2) ⇔
                           t ≅ Lam x (subst y (perm_exp x y xv) (perm_exp x y e2)))’ by
-   (
-    rw [] \\ eq_tac \\ rw []
+   (rw [] \\ eq_tac \\ rw []
     \\ match_mp_tac exp_eq_perm_IMP
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’
     \\ fs [MEM_FILTER,freevars_subst,closed_perm]
-    \\ fs [perm_exp_def] \\ fs [freevars_subst,subst_eqvt,perm1_def]
-    \\ cheat (* TODO *)
-    )
-  \\ cheat (* TODO
-  \\ fs [exp_eq_Lam_lemma]
+    \\ fs [perm_exp_def,perm1_def,subst_single_eqvt])
+  \\ fs [exp_eq_Lam_lemma,DOMSUB_FUPDATE_THM]
   \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ drule_at Any subst_subst_single
   \\ disch_then (simp o single o GSYM)
@@ -4199,30 +4189,35 @@ Proof
   \\ first_x_assum (first_x_assum o mp_then (Pos last) mp_tac)
   THEN1
    (disch_then (qspecl_then [‘xv’,‘yv’] assume_tac) \\ gvs []
+    \\ drule_at (Pos last) subst_subst_single
+    \\ fs [] \\ disch_then kall_tac
     \\ match_mp_tac exp_eq_trans
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ match_mp_tac exp_eq_perm_IMP
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs []
-    \\ fs [freevars_subst,subst_eqvt,perm1_def]
-    \\ drule subst_subst
-    \\ disch_then (fn th => simp [GSYM th, closed_perm])
+    \\ fs [freevars_subst,subst_single_eqvt,perm1_def]
+    \\ drule_at (Pos last) subst_subst_single
+    \\ fs [closed_perm] \\ disch_then kall_tac
     \\ rename [‘subst _ _ e ≅ _’]
     \\ once_rewrite_tac [perm_exp_sym]
     \\ fs [exp_eq_subst_perm_exp])
   THEN1
    (disch_then (qspecl_then [‘xv’,‘yv’] assume_tac) \\ gvs []
     \\ match_mp_tac exp_eq_trans
+    \\ ‘y ≠ x’ by fs []
+    \\ drule_at (Pos last) subst_subst_single
+    \\ fs [closed_perm]
+    \\ disch_then (qspecl_then [‘e1’,‘y1’,‘yv’] assume_tac) \\ rfs []
+    \\ pop_assum (rewrite_tac o single)
     \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ drule_at (Pos last) subst_subst_single
+    \\ fs [closed_perm]
+    \\ disch_then (qspecl_then [‘e2’,‘xv’,‘y2’] assume_tac) \\ rfs []
+    \\ pop_assum (rewrite_tac o single)
     \\ match_mp_tac exp_eq_perm_IMP
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs []
-    \\ fs [freevars_subst,subst_eqvt,perm1_def, closed_perm]
-    \\ qspec_then ‘x’ mp_tac subst_subst
-    \\ disch_then drule
-    \\ disch_then (qspecl_then [‘xv’,‘e2’,‘y2’] mp_tac)
-    \\ impl_tac THEN1 fs []
-    \\ fs [] \\ strip_tac \\ asm_rewrite_tac []
+    \\ fs [freevars_subst,subst_single_eqvt,perm1_def, closed_perm]
     \\ fs [exp_eq_subst_perm_exp])
-  *)
 QED
 
 Theorem exp_eq_Lam:
