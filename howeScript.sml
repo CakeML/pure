@@ -4007,7 +4007,11 @@ Proof
   rw[app_bisimilarity_similarity] >>
   match_mp_tac companion_app_similarity >>
   match_mp_tac(no_IN companion_exp_alpha) >>
-  (reverse conj_tac >- cheat) >>
+  (reverse conj_tac >-
+    (rw [bind_def] \\ TRY (fs [closed_def] \\ NO_TAC)
+     \\ match_mp_tac IMP_closed_subst
+     \\ fs [GSYM perm_exp_eqvt,SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def]
+     \\ fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS] \\ rw [])) >>
   match_mp_tac exp_alpha_bind_all_closed >>
   MAP_FIRST match_mp_tac [exp_alpha_perm_irrel,exp_alpha_sym] >>
   TRY(match_mp_tac exp_alpha_perm_irrel) >>

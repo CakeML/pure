@@ -503,4 +503,16 @@ Proof
   irule freevars_subst_single >> simp[]
 QED
 
+Theorem IMP_closed_subst:
+  (∀v. v ∈ FRANGE m ⇒ closed v) ∧ freevars e SUBSET FDOM m ⇒
+  closed (subst m e)
+Proof
+  rw [] \\ drule freevars_subst
+  \\ disch_then (qspec_then ‘e’ mp_tac)
+  \\ fs [EXTENSION,SUBSET_DEF,closed_def]
+  \\ Cases_on ‘freevars (subst m e) : string list’ \\ fs []
+  \\ qexists_tac ‘h’ \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ res_tac
+QED
+
 val _ = export_theory();
