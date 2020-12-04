@@ -4098,12 +4098,47 @@ Proof
   \\ cheat
 QED
 
+Theorem exp_eq_forall_subst:
+  ∀v. x ≅ y ⇔ ∀z. closed z ⇒ subst v z x ≅ subst v z y
+Proof
+  fs [exp_eq_def] \\ rw [] \\ eq_tac \\ rw []
+  THEN1
+   (reverse (rw [bind_def])
+    THEN1 (once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
+    \\ ‘(∀x. x ∈ FRANGE (FEMPTY |+ (v,z)) ⇒ closed x)’ by fs [FRANGE_DEF]
+    \\ drule subst_subst_FUNION \\ fs [] \\ rw []
+    \\ last_x_assum (qspec_then ‘FEMPTY |+ (v,z) ⊌ f’ mp_tac)
+    \\ impl_tac THEN1 (fs [SUBSET_DEF,freevars_subst] \\ metis_tac [])
+    \\ rw [bind_def]
+    \\ gvs [FLOOKUP_FUNION,FLOOKUP_UPDATE,AllCaseEqs()] \\ res_tac)
+  \\ reverse (Cases_on ‘v IN FDOM f’)
+  THEN1
+   (‘~(MEM v (freevars x)) ∧ ~(MEM v (freevars y))’ by (fs [SUBSET_DEF] \\ metis_tac [])
+    \\ gvs [subst_ignore_single]
+    \\ fs [PULL_FORALL,AND_IMP_INTRO]
+    \\ first_x_assum irule \\ fs [] \\ qexists_tac ‘Fail’ \\ fs [closed_def])
+  \\ reverse (rw [bind_def])
+  THEN1 (once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
+  \\ first_x_assum (qspec_then ‘f ' v’ mp_tac)
+  \\ impl_keep_tac
+  THEN1 (first_x_assum match_mp_tac \\ qexists_tac ‘v’ \\ fs [FLOOKUP_DEF])
+  \\ disch_then (qspec_then ‘f’ mp_tac)
+  \\ impl_tac THEN1 fs [SUBSET_DEF,freevars_subst]
+  \\ fs [bind_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ res_tac \\ fs []
+  \\ ‘(∀x. x ∈ FRANGE (FEMPTY |+ (v,f ' v)) ⇒ closed x)’ by fs [FRANGE_DEF]
+  \\ drule subst_subst_FUNION \\ fs [] \\ rw [] \\ gvs []
+  \\ qsuff_tac ‘FEMPTY |+ (v,f ' v) ⊌ f = f’ \\ rw [] \\ fs []
+  \\ fs [fmap_EXT,FUNION_DEF] \\ rw []
+  \\ fs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
 Theorem exp_eq_free:
   ~MEM v (freevars y) ⇒
   (x ≅ y ⇔ ∀z. closed z ⇒ subst v z x ≅ y)
 Proof
-  fs [exp_eq_def] \\ rw [] \\ eq_tac \\ rw []
-  \\ cheat
+  metis_tac [exp_eq_forall_subst,subst_ignore_single]
 QED
 
 Theorem exp_eq_perm_IMP:
