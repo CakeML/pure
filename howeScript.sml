@@ -964,7 +964,13 @@ Proof
   \\ cheat
 QED
 
-Theorem Sym_open_similarity:
+Theorem Ref_open_bisimilarity:
+  Ref open_bisimilarity
+Proof
+  cheat
+QED
+
+Theorem Sym_open_bisimilarity:
   Sym open_bisimilarity
 Proof
   rw[Sym_def, open_bisimilarity_def]
@@ -3945,7 +3951,7 @@ QED
 Theorem Congruence_open_bisimilarity: (* part 2 of 5.5.5 *)
   Congruence open_bisimilarity
 Proof
-  fs [Congruence_def,Sym_open_similarity]
+  fs [Congruence_def,Sym_open_bisimilarity]
   \\ assume_tac Precongruence_open_similarity
   \\ fs [Precongruence_def,Tra_open_bisimilarity]
   \\ fs [Compatible_def] \\ rw []
@@ -4030,22 +4036,69 @@ Proof
   \\ fs [Once app_bisimilarity_iff,closed_def,eval_thm]
 QED
 
+Theorem fail[simp]:
+  Fail ≃ Fail
+Proof
+  once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def]
+QED
+
 Theorem exp_eq_refl:
   ∀x. x ≅ x
 Proof
-  cheat
+  fs [exp_eq_open_bisimilarity] \\ rw []
+  \\ qexists_tac ‘freevars x’ \\ fs []
+  \\ assume_tac Ref_open_bisimilarity
+  \\ fs [Ref_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs [Exps_def]
 QED
 
 Theorem exp_eq_sym:
   ∀x y. x ≅ y ⇔ y ≅ x
 Proof
-  cheat
+  qsuff_tac ‘∀x y. x ≅ y ⇒ y ≅ x’ THEN1 metis_tac []
+  \\ fs [exp_eq_open_bisimilarity] \\ rw []
+  \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
+  \\ assume_tac Sym_open_bisimilarity
+  \\ fs [Sym_def,PULL_FORALL,AND_IMP_INTRO]
+  \\ first_x_assum match_mp_tac
+  \\ fs [Exps_def]
+QED
+
+Theorem open_bisimilarity_SUBSET:
+  ∀x y vars vars'.
+    open_bisimilarity vars x y ∧ vars SUBSET vars' ⇒
+    open_bisimilarity vars' x y
+Proof
+  fs [open_bisimilarity_def] \\ rw []
+  \\ imp_res_tac SUBSET_TRANS \\ fs []
+  \\ rw [bind_def]
+  \\ last_x_assum (qspec_then ‘FDOM f’ mp_tac) \\ rw []
+  \\ last_x_assum (qspec_then ‘DRESTRICT f vars’ mp_tac)
+  \\ fs [FDOM_DRESTRICT]
+  \\ impl_tac THEN1 (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+  \\ reverse (rw [bind_def])
+  THEN1 (fs [FLOOKUP_DRESTRICT] \\ res_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [subst_FDIFF]
+  \\ fs [DRESTRICT_DRESTRICT]
+  \\ ‘vars ∩ freevars x = freevars x ∧
+      vars ∩ freevars y = freevars y’ by (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+  \\ fs []
 QED
 
 Theorem exp_eq_trans:
   ∀x y z. x ≅ y ∧ y ≅ z ⇒ x ≅ z
 Proof
-  cheat
+  fs [exp_eq_open_bisimilarity] \\ rw []
+  \\ qexists_tac ‘vars UNION vars'’ \\ fs [SUBSET_DEF]
+  \\ assume_tac Tra_open_bisimilarity
+  \\ fs [Tra_def,PULL_FORALL,AND_IMP_INTRO]
+  \\ first_x_assum match_mp_tac
+  \\ fs [Exps_def,SUBSET_DEF]
+  \\ qexists_tac ‘y’ \\ fs [] \\ rw []
+  \\ match_mp_tac open_bisimilarity_SUBSET
+  \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ fs [SUBSET_DEF]
 QED
 
 Theorem Congruence_exp_eq:
@@ -4107,8 +4160,7 @@ Theorem exp_eq_forall_subst:
 Proof
   fs [exp_eq_def] \\ rw [] \\ eq_tac \\ rw []
   THEN1
-   (reverse (rw [bind_def])
-    THEN1 (once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
+   (rw [bind_def] \\ fs []
     \\ ‘(∀x. x ∈ FRANGE (FEMPTY |+ (v,z)) ⇒ closed x)’ by fs [FRANGE_DEF]
     \\ drule subst_subst_FUNION \\ fs [] \\ rw []
     \\ last_x_assum (qspec_then ‘FEMPTY |+ (v,z) ⊌ f’ mp_tac)
@@ -4121,8 +4173,7 @@ Proof
     \\ gvs [subst_ignore_single]
     \\ fs [PULL_FORALL,AND_IMP_INTRO]
     \\ first_x_assum irule \\ fs [] \\ qexists_tac ‘Fail’ \\ fs [closed_def])
-  \\ reverse (rw [bind_def])
-  THEN1 (once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
+  \\ rw [bind_def] \\ fs []
   \\ first_x_assum (qspec_then ‘f ' v’ mp_tac)
   \\ impl_keep_tac
   THEN1 (first_x_assum match_mp_tac \\ qexists_tac ‘v’ \\ fs [FLOOKUP_DEF])
