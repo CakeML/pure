@@ -3866,7 +3866,8 @@ Theorem open_similarity_inter:
   open_similarity vars e1 e2 =
   open_similarity (vars INTER freevars (App e1 e2)) e1 e2
 Proof
-  cheat
+  fs [open_similarity_def] \\ rw [] \\ eq_tac \\ rw []
+  \\ cheat (* easy *)
 QED
 
 Theorem Howe_inter:
@@ -3874,13 +3875,6 @@ Theorem Howe_inter:
     Howe R vars e1 e2 ⇒
     ∀t. (∀vars e1 e2. R vars e1 e2 ⇒ R (vars INTER t e1 e2) e1 e2) ⇒
         Howe R (vars INTER t e1 e2) e1 e2
-Proof
-  cheat
-QED
-
-Theorem bind_FDIFF:
-  freevars x ⊆ vars ⇒
-  bind f x = bind (FDIFF f (COMPL vars)) x
 Proof
   cheat
 QED
@@ -3990,6 +3984,51 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem open_bisimilarity_SUBSET:
+  ∀x y vars vars'.
+    open_bisimilarity vars x y ∧ vars SUBSET vars' ⇒
+    open_bisimilarity vars' x y
+Proof
+  fs [open_bisimilarity_def] \\ rw []
+  \\ imp_res_tac SUBSET_TRANS \\ fs []
+  \\ rw [bind_def]
+  \\ last_x_assum (qspec_then ‘FDOM f’ mp_tac) \\ rw []
+  \\ last_x_assum (qspec_then ‘DRESTRICT f vars’ mp_tac)
+  \\ fs [FDOM_DRESTRICT]
+  \\ impl_tac THEN1 (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+  \\ reverse (rw [bind_def])
+  THEN1 (fs [FLOOKUP_DRESTRICT] \\ res_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [subst_FDIFF]
+  \\ fs [DRESTRICT_DRESTRICT]
+  \\ ‘vars ∩ freevars x = freevars x ∧
+      vars ∩ freevars y = freevars y’ by (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+  \\ fs []
+QED
+
+Theorem exp_eq_open_bisimilarity_freevars:
+  exp_eq x y ⇔ open_bisimilarity (freevars x ∪ freevars y) x y
+Proof
+  fs [exp_eq_open_bisimilarity] \\ reverse eq_tac \\ rw []
+  THEN1 (goal_assum (first_assum o mp_then Any mp_tac) \\ fs [])
+  \\ fs [open_bisimilarity_def] \\ rw []
+  \\ rw [bind_def]
+  \\ first_x_assum (qspec_then ‘FUNION (DRESTRICT f vars) (FUN_FMAP (K Fail) vars)’ mp_tac)
+  \\ impl_tac
+  THEN1 (fs [fmap_EXT,EXTENSION,FDOM_DRESTRICT] \\ metis_tac [])
+  \\ reverse (rw [bind_def])
+  THEN1
+   (gvs [FLOOKUP_FUNION,AllCaseEqs(),FLOOKUP_DEF,FUN_FMAP_DEF,FDOM_DRESTRICT]
+    \\ fs [closed_def] \\ res_tac \\ gvs [DRESTRICT_DEF])
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [subst_FDIFF]
+  \\ match_mp_tac (METIS_PROVE []
+     “m1 = m1' ∧ m2 = m2' ⇒ subst m1 x ≃ subst m2 y ⇒ subst m1' x ≃ subst m2' y”)
+  \\ fs [fmap_EXT,DRESTRICT_DEF,FUNION_DEF]
+  \\ fs [EXTENSION,SUBSET_DEF] \\ rw []
+  \\ metis_tac []
+QED
+
 Theorem exp_eq_perm:
   ~MEM x (freevars e) ∧ ~MEM y (freevars e) ⇒ e ≅ perm_exp x y e
 Proof
@@ -4052,28 +4091,6 @@ Proof
   \\ fs [Exps_def]
 QED
 
-Theorem open_bisimilarity_SUBSET:
-  ∀x y vars vars'.
-    open_bisimilarity vars x y ∧ vars SUBSET vars' ⇒
-    open_bisimilarity vars' x y
-Proof
-  fs [open_bisimilarity_def] \\ rw []
-  \\ imp_res_tac SUBSET_TRANS \\ fs []
-  \\ rw [bind_def]
-  \\ last_x_assum (qspec_then ‘FDOM f’ mp_tac) \\ rw []
-  \\ last_x_assum (qspec_then ‘DRESTRICT f vars’ mp_tac)
-  \\ fs [FDOM_DRESTRICT]
-  \\ impl_tac THEN1 (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-  \\ reverse (rw [bind_def])
-  THEN1 (fs [FLOOKUP_DRESTRICT] \\ res_tac \\ fs [])
-  \\ pop_assum mp_tac
-  \\ once_rewrite_tac [subst_FDIFF]
-  \\ fs [DRESTRICT_DRESTRICT]
-  \\ ‘vars ∩ freevars x = freevars x ∧
-      vars ∩ freevars y = freevars y’ by (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-  \\ fs []
-QED
-
 Theorem exp_eq_trans:
   ∀x y z. x ≅ y ∧ y ≅ z ⇒ x ≅ z
 Proof
@@ -4098,10 +4115,77 @@ Proof
   THEN1 metis_tac [exp_eq_trans]
   \\ fs [exp_eq_def]
   \\ fs [Compatible_def] \\ rw []
-  \\ fs [Com1_def,Com2_def,Com3_def] \\ rw []
-  \\ fs [exp_eq_open_bisimilarity]
-  THEN1 (qexists_tac ‘{x}’ \\ fs [])
-  \\ cheat
+  \\ fs [Com1_def,Com2_def,Com3_def,Com4_def,Com5_def] \\ rw []
+  THEN1 (fs [exp_eq_open_bisimilarity] \\ qexists_tac ‘{x}’ \\ fs [])
+  THEN1
+   (fs [exp_eq_open_bisimilarity_freevars,AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+    \\ simp [Exps_def,SUBSET_DEF]
+    \\ match_mp_tac open_bisimilarity_SUBSET
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (fs [exp_eq_open_bisimilarity_freevars,AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+    \\ simp [Exps_def,SUBSET_DEF] \\ rw []
+    \\ match_mp_tac open_bisimilarity_SUBSET
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (fs [exp_eq_open_bisimilarity_freevars,AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+    \\ simp [Exps_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS] \\ rw []
+    THEN1 metis_tac []
+    THEN1 metis_tac []
+    \\ qmatch_goalsub_abbrev_tac ‘open_bisimilarity vars1’
+    \\ ‘BIGUNION (set (MAP (λe. freevars e) es)) SUBSET vars1 ∧
+        BIGUNION (set (MAP (λe. freevars e) es')) SUBSET vars1’ by
+           fs [Abbr‘vars1’]
+    \\ pop_assum mp_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘es'’
+    \\ qid_spec_tac ‘es’
+    \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ fs [exp_eq_open_bisimilarity_freevars,AND_IMP_INTRO]
+    \\ match_mp_tac open_bisimilarity_SUBSET
+    \\ goal_assum (first_x_assum o mp_then (Pos hd) mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (fs [exp_eq_open_bisimilarity_freevars,AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+    \\ conj_tac
+    THEN1
+     (fs [Exps_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
+      \\ rw []
+      \\ cheat)
+    \\ fs [] \\ reverse conj_tac
+    THEN1
+     (match_mp_tac open_bisimilarity_SUBSET
+      \\ goal_assum (first_x_assum o mp_then (Pos hd) mp_tac)
+      \\ fs [SUBSET_DEF] \\ metis_tac [])
+    \\ qmatch_goalsub_abbrev_tac ‘open_bisimilarity vars1’
+    \\ ‘BIGUNION (set (MAP (λ(_,e). freevars e) ves)) SUBSET vars1 ∧
+        BIGUNION (set (MAP (λ(_,e). freevars e) ves')) SUBSET vars1’ by
+           (fs [Abbr‘vars1’] \\ fs [SUBSET_DEF] \\ metis_tac [])
+    \\ pop_assum mp_tac
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ves'’
+    \\ qid_spec_tac ‘ves’
+    \\ Induct \\ fs [PULL_EXISTS,MAP_EQ_CONS,FORALL_PROD]
+    \\ rw []
+    \\ fs [exp_eq_open_bisimilarity_freevars,AND_IMP_INTRO]
+    \\ match_mp_tac open_bisimilarity_SUBSET
+    \\ goal_assum (first_x_assum o mp_then (Pos hd) mp_tac)
+    \\ fs [SUBSET_DEF])
 QED
 
 Theorem open_similarity_Lam_IMP:
