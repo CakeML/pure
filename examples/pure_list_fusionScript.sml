@@ -2,9 +2,9 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory rich_listTheory stringTheory alistTheory
      optionTheory llistTheory;
-open pure_langTheory valueTheory expTheory expPropsTheory pure_miscTheory;
+open pure_evalTheory pure_valueTheory pure_expTheory pure_exp_lemmasTheory pure_miscTheory;
 
-val _ = new_theory "list_fusion";
+val _ = new_theory "pure_list_fusion";
 
 (*********** Some PureCake programs *************)
 

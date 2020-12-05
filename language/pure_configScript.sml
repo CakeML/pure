@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory integerTheory stringTheory optionTheory;
 
-val _ = new_theory "config";
+val _ = new_theory "pure_config";
 
 (* Configuration record for the parametric atoms.
    parAtomOp:
@@ -24,4 +24,3 @@ val atom_lit_ty = new_type ("lit", 0);
 val the_config = new_constant ("config", “:(atom_op, lit) conf”);
 
 val _ = export_theory ();
-

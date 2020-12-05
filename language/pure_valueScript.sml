@@ -1,9 +1,10 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory configTheory expTheory quotient_llistTheory;
+     ltreeTheory llistTheory quotient_llistTheory
+     pure_configTheory pure_expTheory;
 
-val _ = new_theory "value";
+val _ = new_theory "pure_value";
 
 Datatype:
   v_prefix = Atom' lit
@@ -343,7 +344,7 @@ QED
 
 Theorem datatype_v:
   DATATYPE ((v
-             (Atom : config$lit -> v)
+             (Atom : pure_config$lit -> v)
              (Constructor : string -> v list -> v)
              (Closure : string -> exp -> v)
              (Diverge : v)

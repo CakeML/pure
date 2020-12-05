@@ -1,10 +1,10 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory configTheory pairTheory listTheory
+open stringTheory optionTheory pairTheory listTheory
      finite_mapTheory pred_setTheory dep_rewrite;
-open pure_miscTheory expTheory;
+open pure_miscTheory pure_configTheory pure_expTheory;
 
-val _ = new_theory "expProps";
+val _ = new_theory "pure_exp_lemmas";
 
 
 (******************* subst ********************)

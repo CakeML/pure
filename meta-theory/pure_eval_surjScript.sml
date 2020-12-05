@@ -1,13 +1,14 @@
 (*
   Prove that there exists values that cannot be computed by any
   PureCake program, or in other words, that eval is surjective.
- *)
+*)
 open HolKernel Parse boolLib bossLib term_tactic;
-open expTheory valueTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     pure_langTheory pred_setTheory cardinalTheory BasicProvers rich_listTheory combinTheory;
+open arithmeticTheory listTheory stringTheory alistTheory
+     optionTheory pairTheory ltreeTheory llistTheory bagTheory pure_evalTheory
+     pred_setTheory cardinalTheory BasicProvers rich_listTheory combinTheory
+     pure_expTheory pure_valueTheory pure_exp_lemmasTheory;
 
-val _ = new_theory "eval_surj";
+val _ = new_theory "pure_eval_surj";
 
 Theorem char_countable:
   COUNTABLE 𝕌(:char)
@@ -71,11 +72,11 @@ Theorem op_countable:
   COUNTABLE 𝕌(:op)
 Proof
   rpt strip_tac >>
-  ‘𝕌(:op) = {If} ∪ IMAGE exp$Cons 𝕌(:string)
-                 ∪ IMAGE (UNCURRY exp$IsEq) 𝕌(:string # num)
-                 ∪ IMAGE (UNCURRY exp$Proj) 𝕌(:string # num)
-                 ∪ IMAGE exp$AtomOp 𝕌(:atom_op)
-                 ∪ IMAGE exp$Lit 𝕌(:lit)’
+  ‘𝕌(:op) = {If} ∪ IMAGE pure_exp$Cons 𝕌(:string)
+                 ∪ IMAGE (UNCURRY pure_exp$IsEq) 𝕌(:string # num)
+                 ∪ IMAGE (UNCURRY pure_exp$Proj) 𝕌(:string # num)
+                 ∪ IMAGE pure_exp$AtomOp 𝕌(:atom_op)
+                 ∪ IMAGE pure_exp$Lit 𝕌(:lit)’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
        conj_tac >> Cases >> rw[ELIM_UNCURRY] >>
        metis_tac[FST,SND]) >>
@@ -165,10 +166,10 @@ QED
 Theorem exp_countable:
   COUNTABLE 𝕌(:atom_op) ∧ COUNTABLE 𝕌(:lit)
   ⇒
-  COUNTABLE 𝕌(:exp)
+  COUNTABLE 𝕌(:pure_exp$exp)
 Proof
   strip_tac >>
-  qsuff_tac ‘∀n. COUNTABLE {s:exp | exp_size s ≤ n}’
+  qsuff_tac ‘∀n. COUNTABLE {s:pure_exp$exp | exp_size s ≤ n}’
   >- (strip_tac >>
       ‘𝕌(:exp) = BIGUNION(IMAGE (λn. {s:exp | exp_size s ≤ n}) 𝕌(:num))’
         by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
@@ -197,7 +198,7 @@ Proof
       match_mp_tac COUNTABLE_SUBSET >>
       irule_at (Pos hd) SUBSET_UNIV >>
       simp[string_countable])
-  >- (rename1 ‘exp$Prim’ >>
+  >- (rename1 ‘pure_exp$Prim’ >>
       match_mp_tac COUNTABLE_IMAGE >>
       ho_match_mp_tac (COUNTABLE_PRODUCT_DEPENDENT |> SIMP_RULE std_ss [IN_DEF]) >>
       conj_tac
@@ -210,13 +211,13 @@ Proof
       drule_at_then (Pos last) match_mp_tac COUNTABLE_SUBSET >>
       rw[SUBSET_DEF,EVERY_MEM] >>
       imp_res_tac exp_size_lemma >> DECIDE_TAC)
-  >- (rename1 ‘exp$App’ >>
+  >- (rename1 ‘pure_exp$App’ >>
       match_mp_tac COUNTABLE_IMAGE >>
       ho_match_mp_tac (COUNTABLE_PRODUCT_DEPENDENT |> SIMP_RULE std_ss [IN_DEF]) >>
       rw[] >>
       ‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
       gvs[])
-  >- (rename1 ‘exp$Lam’ >>
+  >- (rename1 ‘pure_exp$Lam’ >>
       match_mp_tac COUNTABLE_IMAGE >>
       ho_match_mp_tac (COUNTABLE_PRODUCT_DEPENDENT |> SIMP_RULE std_ss [IN_DEF]) >>
       conj_tac
@@ -225,7 +226,7 @@ Proof
           simp[string_countable]) >>
       ‘{x | exp_size x ≤ n} = (λx. exp_size x ≤ n)’ by(rw[FUN_EQ_THM]) >>
       gvs[])
-  >- (rename1 ‘exp$Letrec’ >>
+  >- (rename1 ‘pure_exp$Letrec’ >>
       match_mp_tac COUNTABLE_IMAGE >>
       ho_match_mp_tac (COUNTABLE_PRODUCT_DEPENDENT |> SIMP_RULE std_ss [IN_DEF]) >>
       reverse conj_tac

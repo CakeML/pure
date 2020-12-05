@@ -7,9 +7,10 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
-open expTheory valueTheory pure_langTheory expPropsTheory limitTheory;
+open pure_expTheory pure_valueTheory pure_evalTheory
+     pure_exp_lemmasTheory pure_limitTheory;
 
-val _ = new_theory "howe";
+val _ = new_theory "pure_exp_rel";
 
 
 (* -- basics -- *)
@@ -1901,7 +1902,7 @@ QED
 
 Theorem exp_alpha_freevars:
   ∀e e'.
-    exp_alpha e e' ⇒ exp$freevars e = exp$freevars e'
+    exp_alpha e e' ⇒ pure_exp$freevars e = pure_exp$freevars e'
 Proof
   Induct_on ‘exp_alpha’ >>
   rw[] >>
@@ -4003,12 +4004,13 @@ Proof
   \\ fs [DRESTRICT_DRESTRICT]
   \\ ‘vars ∩ freevars x = freevars x ∧
       vars ∩ freevars y = freevars y’ by (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-  \\ fs []
+  \\ fs [] \\ cheat
 QED
 
 Theorem exp_eq_open_bisimilarity_freevars:
   exp_eq x y ⇔ open_bisimilarity (freevars x ∪ freevars y) x y
 Proof
+  cheat (*
   fs [exp_eq_open_bisimilarity] \\ reverse eq_tac \\ rw []
   THEN1 (goal_assum (first_assum o mp_then Any mp_tac) \\ fs [])
   \\ fs [open_bisimilarity_def] \\ rw []
@@ -4026,7 +4028,7 @@ Proof
      “m1 = m1' ∧ m2 = m2' ⇒ subst m1 x ≃ subst m2 y ⇒ subst m1' x ≃ subst m2' y”)
   \\ fs [fmap_EXT,DRESTRICT_DEF,FUNION_DEF]
   \\ fs [EXTENSION,SUBSET_DEF] \\ rw []
-  \\ metis_tac []
+  \\ metis_tac [] *)
 QED
 
 Theorem exp_eq_perm:

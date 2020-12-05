@@ -1,9 +1,9 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory optionTheory pairTheory;
-open valueTheory;
+open pure_valueTheory;
 
-val _ = new_theory "limit";
+val _ = new_theory "pure_limit";
 
 (*
   limit (div,div,div,div,div,...) d = div

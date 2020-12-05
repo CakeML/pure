@@ -1,11 +1,11 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory expTheory
+open arithmeticTheory listTheory stringTheory alistTheory optionTheory
      ltreeTheory llistTheory bagTheory pairTheory pred_setTheory;
-open pure_langTheory expPropsTheory
+open pure_evalTheory pure_exp_lemmasTheory pure_expTheory
 
 
-val _ = new_theory "ctxt_equiv";
+val _ = new_theory "pure_ctxt_equiv";
 
 Datatype:
   ctxt = Hole

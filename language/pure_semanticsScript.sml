@@ -1,9 +1,9 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory pure_langTheory io_treeTheory;
+     ltreeTheory llistTheory pure_evalTheory io_treeTheory;
 
-val _ = new_theory "pure_io";
+val _ = new_theory "pure_semantics";
 
 Datatype:
   result = SilentDivergence

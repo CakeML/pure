@@ -2,9 +2,9 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory;
-open expTheory valueTheory limitTheory;
+open pure_expTheory pure_valueTheory pure_limitTheory;
 
-val _ = new_theory "pure_lang";
+val _ = new_theory "pure_eval";
 
 Overload True  = “Constructor "True" []”;
 Overload False = “Constructor "False" []”;

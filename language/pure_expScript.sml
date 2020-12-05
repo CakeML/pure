@@ -1,9 +1,9 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory configTheory pairTheory listTheory
-     finite_mapTheory pred_setTheory;
+open stringTheory optionTheory pairTheory listTheory
+     finite_mapTheory pred_setTheory pure_configTheory;
 
-val _ = new_theory "exp";
+val _ = new_theory "pure_exp";
 
 (* AST for a small functional language *)
 

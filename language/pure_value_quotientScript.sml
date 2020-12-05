@@ -1,9 +1,9 @@
 
 open bossLib boolLib;
-open HolKernel pure_langTheory valueTheory quotient_llistTheory listTheory
+open HolKernel pure_evalTheory pure_valueTheory quotient_llistTheory listTheory
      llistTheory quotient_ltreeTheory quotientLib;
 
-val _ = new_theory "v_quotient";
+val _ = new_theory "pure_value_quotient";
 
 Theorem v_rel_EQUIV:
   EQUIV v_rel
@@ -216,4 +216,3 @@ Theorem progress_vq_thm =
   |> REWRITE_RULE [progress_vq_def];
 
 val _ = export_theory ();
-
