@@ -515,4 +515,76 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ res_tac
 QED
 
+Theorem fdiff_fdomsub_commute:
+  FDIFF (f \\ x) p = FDIFF f p \\ x
+Proof
+  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[]
+QED
+
+Theorem fdiff_fdomsub_INSERT:
+  FDIFF (f \\ x) p = FDIFF f (x INSERT p)
+Proof
+  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[]
+QED
+
+Theorem subst_fdomsub:
+  ∀f e x. x ∉ freevars e ⇒ subst f e = subst (f \\ x) e
+Proof
+  ho_match_mp_tac subst_ind >>
+  rw[subst_def,DOMSUB_FLOOKUP_THM,MAP_EQ_f,DOMSUB_IDEM]
+  >- (first_x_assum(match_mp_tac o MP_CANON) >>
+      gvs[MEM_MAP] >> metis_tac[])
+  >- metis_tac[DOMSUB_COMMUTES,DOMSUB_IDEM]
+  >- metis_tac[DOMSUB_COMMUTES,DOMSUB_IDEM]
+  >- (pairarg_tac >> gvs[] >>
+      simp[fdiff_fdomsub_commute] >>
+      first_x_assum(match_mp_tac o MP_CANON) >>
+      gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR])
+  >- (simp[fdiff_fdomsub_commute] >>
+      first_x_assum(match_mp_tac o MP_CANON) >>
+      gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR])
+  >- (pairarg_tac >> gvs[] >>
+      simp[fdiff_fdomsub_INSERT,ABSORPTION_RWT])
+  >- (simp[fdiff_fdomsub_INSERT,ABSORPTION_RWT])
+QED
+
+Theorem subst_FDIFF':
+  ∀p f x. FINITE p ∧ (∀n. n ∈ p ⇒ n ∉ freevars x) ⇒ subst f x = subst (FDIFF f p) x
+Proof
+  Induct_on ‘FINITE’ >>
+  rpt strip_tac
+  >- simp[FDIFF_def,DRESTRICT_UNIV]
+  >- (qpat_x_assum ‘∀f x. _ ⇒ subst _ _ = _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single o MP_CANON) >>
+      conj_tac >- rw[] >>
+      simp[GSYM fdiff_fdomsub_INSERT,fdiff_fdomsub_commute] >>
+      match_mp_tac subst_fdomsub >>
+      rw[])
+QED
+
+Theorem fdiff_bound:
+  FDIFF f p = FDIFF f (p ∩ FDOM f)
+Proof
+  rw[FDIFF_def,fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
+  rw[] >> gvs[flookup_thm]
+QED
+
+Theorem subst_FDIFF'':
+  ∀p f x. (∀n. n ∈ p ⇒ n ∉ freevars x) ⇒ subst f x = subst (FDIFF f p) x
+Proof
+  rpt strip_tac >>
+  ONCE_REWRITE_TAC[fdiff_bound] >>
+  match_mp_tac subst_FDIFF' >>
+  rw[FINITE_INTER]
+QED
+
+Theorem subst_FDIFF:
+  ∀f x. subst f x = subst (DRESTRICT f (freevars x)) x
+Proof
+  rw[] >>
+  SIMP_TAC std_ss [SimpR “$=”,Once(GSYM COMPL_COMPL)] >>
+  SIMP_TAC std_ss [GSYM FDIFF_def] >>
+  match_mp_tac subst_FDIFF'' >>
+  rw[]
+QED
+
 val _ = export_theory();
