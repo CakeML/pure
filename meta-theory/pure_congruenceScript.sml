@@ -636,8 +636,11 @@ Proof
     \\ conj_tac
     THEN1
      (fs [Exps_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
-      \\ rw []
-      \\ cheat)
+      \\ rw [] \\ fs [IN_DISJOINT,MEM_MAP,FORALL_PROD,EXISTS_PROD]
+      \\ imp_res_tac (METIS_PROVE []
+            “MAP f xs = MAP f xs' ⇒ ∀y. MEM y (MAP f xs) = MEM y (MAP f xs')”)
+      \\ fs [MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]
+      \\ metis_tac [])
     \\ fs [] \\ reverse conj_tac
     THEN1
      (match_mp_tac open_bisimilarity_SUBSET
@@ -662,11 +665,143 @@ Proof
     \\ fs [SUBSET_DEF])
 QED
 
-Theorem open_similarity_Lam_IMP:
-  open_similarity vars (Lam x e1) (Lam x e2) ∧ vars SUBSET vars1 ∧ x IN vars1 ⇒
-  open_similarity vars1 e1 e2
+Theorem exp_eq_Lam_cong:
+  e ≅ e' ⇒ Lam x e ≅ Lam x e'
 Proof
-  cheat
+  assume_tac Congruence_exp_eq
+  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com2_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ qexists_tac ‘freevars (App (Lam x e) (Lam x e'))’
+  \\ fs [Exps_def,SUBSET_DEF] \\ fs [MEM_FILTER]
+QED
+
+Theorem exp_eq_App_cong:
+  f ≅ f' ∧ e ≅ e' ⇒ App f e ≅ App f' e'
+Proof
+  assume_tac Congruence_exp_eq
+  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com3_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ qexists_tac ‘freevars (App f (App f' (App e e')))’
+  \\ fs [Exps_def,SUBSET_DEF]
+QED
+
+Theorem exp_eq_Prim_cong:
+  LIST_REL $≅ xs xs' ⇒
+  Prim p xs ≅ Prim p xs'
+Proof
+  assume_tac Congruence_exp_eq
+  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com4_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ qexists_tac ‘freevars (App (Prim p xs) (Prim p xs'))’
+  \\ fs [Exps_def,SUBSET_DEF]
+  \\ rw [] \\ fs [MEM_MAP,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem exp_eq_Letrec_cong:
+  LIST_REL $≅ (MAP SND xs) (MAP SND xs') ∧ e ≅ e' ∧ MAP FST xs = MAP FST xs' ⇒
+  Letrec xs e ≅ Letrec xs' e'
+Proof
+  assume_tac Congruence_exp_eq
+  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com5_def]
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ qexists_tac ‘freevars (App (Letrec xs e) (Letrec xs' e'))’
+  \\ fs [Exps_def,SUBSET_DEF]
+  \\ reverse conj_tac
+  THEN1 (fs [IN_DISJOINT] \\ metis_tac [])
+  \\ rw [] \\ fs [MEM_MAP,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem exp_eq_subst:
+  y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
+  subst x y1 e1 ≅ subst x y2 e1
+Proof
+  rw [] \\ qid_spec_tac ‘e1’
+  \\ ho_match_mp_tac freevars_ind \\ rw []
+  THEN1 (fs [subst_def,FLOOKUP_UPDATE] \\ rw [exp_eq_refl])
+  THEN1 (fs [subst_def] \\ match_mp_tac exp_eq_Prim_cong \\ fs []
+         \\ Induct_on ‘es’ \\ fs [])
+  THEN1 (fs [subst_def] \\ match_mp_tac exp_eq_App_cong \\ fs [])
+  THEN1 (fs [subst_def,DOMSUB_FUPDATE_THM] \\ rw [exp_eq_refl]
+         \\ match_mp_tac exp_eq_Lam_cong \\ fs [])
+  \\ fs [subst_def]
+  \\ match_mp_tac exp_eq_Letrec_cong
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+  \\ ‘∀y s. FDIFF (FEMPTY |+ (x,y:exp)) s =
+            if x IN s then FEMPTY else FEMPTY |+ (x,y)’ by
+   (fs [fmap_EXT] \\ rw [FDOM_FDIFF,EXTENSION]
+    THEN1 (rw [] \\ eq_tac \\ rw [])
+    \\ fs [FDIFF_def])
+  \\ fs [] \\ IF_CASES_TAC \\ fs [exp_eq_refl]
+  THEN1 (qid_spec_tac ‘lcs’ \\ Induct \\ fs [exp_eq_refl,FORALL_PROD])
+  \\ Induct_on ‘lcs’ \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [PULL_FORALL]
+  \\ first_x_assum match_mp_tac
+  \\ metis_tac []
+QED
+
+Theorem exp_eq_Lam_basic_lemma[local]:
+  Lam x e1 ≅ Lam x e2 ⇔
+  ∀y. closed y ⇒ subst x y e1 ≅ subst x y e2
+Proof
+  fs [exp_eq_def] \\ eq_tac \\ rw []
+  THEN1
+   (rw [bind_def]
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ fs [bind_def]
+    \\ reverse IF_CASES_TAC THEN1 (rfs [] \\ res_tac \\ fs [])
+    \\ fs [] \\ impl_tac THEN1 (gvs [freevars_subst,SUBSET_DEF])
+    \\ fs [subst_def]
+    \\ simp [Once app_bisimilarity_iff] \\ fs [eval_thm]
+    \\ rw []
+    \\ last_x_assum assume_tac \\ first_x_assum drule
+    \\ ‘(∀v. v ∈ FRANGE (f \\ x) ⇒ closed v)’ by
+         fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM]
+    \\ drule subst_subst_FUNION
+    \\ ‘(∀v. v ∈ FRANGE (FEMPTY |+ (x,y)) ⇒ closed v)’ by
+         fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM]
+    \\ drule subst_subst_FUNION \\ fs []
+    \\ ntac 2 strip_tac
+    \\ qmatch_goalsub_abbrev_tac ‘subst m1’ \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac ‘subst m2’
+    \\ qsuff_tac ‘m1 = m2’ \\ rw [] \\ fs []
+    \\ unabbrev_all_tac
+    \\ fs [fmap_EXT,FUNION_DEF,FAPPLY_FUPDATE_THM,EXTENSION,DOMSUB_FAPPLY_THM]
+    \\ metis_tac [])
+  \\ rw [bind_def]
+  \\ fs [subst_def,PULL_FORALL,AND_IMP_INTRO]
+  \\ simp [Once app_bisimilarity_iff] \\ fs [eval_thm]
+  \\ fs [GSYM subst_def,CONJ_ASSOC]
+  \\ conj_tac
+  THEN1
+   (rw [] \\ match_mp_tac IMP_closed_subst
+    \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
+  \\ rw []
+  \\ first_x_assum (qspecl_then [‘e’,‘f \\ x’] mp_tac)
+  \\ impl_tac THEN1
+   (res_tac \\ fs [] \\ fs [SUBSET_DEF]
+    \\ simp [freevars_subst,SUBSET_DEF])
+  \\ fs [bind_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  THEN1 (fs [DOMSUB_FAPPLY_THM,FLOOKUP_DEF] \\ res_tac \\ gvs [])
+  \\ ‘(∀v. v ∈ FRANGE (f \\ x) ⇒ closed v)’ by
+    fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM]
+  \\ drule subst_subst_FUNION
+  \\ ‘(∀v. v ∈ FRANGE (FEMPTY |+ (x,e)) ⇒ closed v)’ by
+    fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM]
+  \\ drule subst_subst_FUNION \\ fs []
+  \\ ntac 2 strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘subst m1’ \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘subst m2’
+  \\ qsuff_tac ‘m1 = m2’ \\ rw [] \\ fs []
+  \\ unabbrev_all_tac
+  \\ fs [fmap_EXT,FUNION_DEF,FAPPLY_FUPDATE_THM,EXTENSION,DOMSUB_FAPPLY_THM]
+  \\ metis_tac []
 QED
 
 Theorem exp_eq_Lam_lemma[local]:
@@ -675,29 +810,12 @@ Theorem exp_eq_Lam_lemma[local]:
     y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
     subst x y1 e1 ≅ subst x y2 e2
 Proof
-  assume_tac Ref_open_similarity
-  \\ drule IMP_Howe_Sub
-  \\ fs [Cus_open_similarity,Tra_open_similarity,Howe_open_similarity]
-  \\ fs [Sub_def] \\ rw []
-  \\ eq_tac \\ rw []
-  \\ fs [exp_eq_open_bisimilarity]
-  \\ fs [bind_def,PULL_EXISTS]
-  THEN1
-   (fs [SUBSET_DEF,MEM_FILTER,freevars_subst]
-    \\ fs [closed_def] \\ fs [GSYM closed_def]
-    \\ qexists_tac ‘vars DELETE x’ \\ fs [AND_IMP_INTRO]
-    \\ fs [open_bisimilarity_eq] \\ rw []
-    \\ first_x_assum match_mp_tac
-    \\ fs [Exps_def,SUBSET_DEF]
-    \\ rw [] \\ gvs [closed_def]
-    \\ TRY (match_mp_tac open_similarity_Lam_IMP \\ fs [SUBSET_DEF] \\ NO_TAC)
-    \\ TRY (rpt (qpat_x_assum ‘open_similarity _ _ _’ mp_tac)
-            \\ once_rewrite_tac [open_similarity_inter] \\ fs [] \\ NO_TAC)
-    \\ metis_tac [])
-  \\ qexists_tac ‘freevars (App e1 e2)’ \\ fs []
-  \\ fs [SUBSET_DEF,MEM_FILTER] \\ rw []
-  \\ rw [open_bisimilarity_eq] \\ rw []
-  \\ cheat
+  fs [exp_eq_Lam_basic_lemma] \\ reverse eq_tac \\ rw []
+  THEN1 (first_x_assum match_mp_tac \\ fs [exp_eq_refl])
+  \\ match_mp_tac exp_eq_trans
+  \\ first_x_assum drule \\ rw []
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ match_mp_tac exp_eq_subst \\ fs []
 QED
 
 Theorem exp_eq_forall_subst:
@@ -751,7 +869,8 @@ QED
 Theorem exp_eq_subst_perm_exp:
   closed e' ⇒ subst y e' e ≅ subst y (perm_exp x y e') e
 Proof
-  cheat (* might follow from exp_eq_perm and congruence *)
+  rw [] \\ match_mp_tac exp_eq_subst \\ fs [closed_perm]
+  \\ match_mp_tac exp_eq_perm \\ fs [closed_def]
 QED
 
 Triviality Lam_Lam:
@@ -860,28 +979,6 @@ Theorem exp_eq_Lam:
   ∀x1 x2. x1 ≃ x2 ⇒ subst v1 x1 e1 ≅ subst v2 x2 e2
 Proof
   metis_tac [exp_eq_Lam,app_bisimilarity_eq]
-QED
-
-Theorem exp_eq_Lam_cong:
-  e ≅ e' ⇒ Lam x e ≅ Lam x e'
-Proof
-  assume_tac Congruence_exp_eq
-  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com2_def]
-  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
-  \\ first_x_assum match_mp_tac \\ fs []
-  \\ qexists_tac ‘freevars (App (Lam x e) (Lam x e'))’
-  \\ fs [Exps_def,SUBSET_DEF] \\ fs [MEM_FILTER]
-QED
-
-Theorem exp_eq_App_cong:
-  f ≅ f' ∧ e ≅ e' ⇒ App f e ≅ App f' e'
-Proof
-  assume_tac Congruence_exp_eq
-  \\ fs [Congruence_def,Precongruence_def,Compatible_def,Com3_def]
-  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
-  \\ first_x_assum match_mp_tac \\ fs []
-  \\ qexists_tac ‘freevars (App f (App f' (App e e')))’
-  \\ fs [Exps_def,SUBSET_DEF]
 QED
 
 val _ = export_theory();
