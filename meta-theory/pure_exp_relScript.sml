@@ -820,9 +820,10 @@ Proof
 QED
 
 Theorem fail[simp]:
-  Fail ≃ Fail
+  Fail ≃ Fail ∧ Fail ≲ Fail
 Proof
-  once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def]
+  fs [app_similarity_iff,Once unfold_rel_def]
+  \\ once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def]
 QED
 
 val _ = export_theory();

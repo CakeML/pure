@@ -330,26 +330,30 @@ Definition Sub_def: (* Sub = substitutive *)
   Sub R ⇔
     ∀vars x e1 e1' e2 e2'.
       x ∉ vars ∧
-      {e1; e1'} SUBSET Exps (x INSERT vars) ∧ {e2; e2'} SUBSET Exps vars ⇒
+      {e1; e1'} SUBSET Exps (x INSERT vars) ∧ {e2; e2'} SUBSET Exps {} ⇒
       R (x INSERT vars) e1 e1' ∧ R vars e2 e2' ⇒
       R vars (subst x e2 e1) (subst x e2' e1')
-  (* TODO: we should use a capture avoiding subst here! *)
+  (* This definition has been tweaked to only insert closed expressions e2, e2' *)
 End
 
 Definition Cus_def: (* closed under value-substitution *)
   Cus R ⇔
     ∀vars x e1 e1' e2.
       x ∉ vars ∧
-      {e1; e1'} SUBSET Exps (x INSERT vars) ∧ e2 IN Exps vars ⇒
+      {e1; e1'} SUBSET Exps (x INSERT vars) ∧ e2 IN Exps {} ⇒
       R (x INSERT vars) e1 e1' ⇒
       R vars (subst x e2 e1) (subst x e2 e1')
-  (* TODO: we should use a capture avoiding subst here! *)
+  (* This definition has been tweaked to only insert closed expressions e2 *)
 End
 
 Theorem Sub_Ref_IMP_Cus:
   Sub R ∧ Ref R ⇒ Cus R
 Proof
   rw[Sub_def, Ref_def, Cus_def]
+  \\ fs [AND_IMP_INTRO]
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ first_x_assum match_mp_tac
+  \\ fs [Exps_def,closed_def]
 QED
 
 Theorem Cus_open_similarity:
@@ -457,7 +461,8 @@ Proof
 QED
 
 Theorem IMP_open_similarity_INSERT:
-  (∀e. e IN Exps vars ⇒ open_similarity vars (subst h e e1) (subst h e e2)) ∧
+  (* This has been modified to only subst in closed expressions *)
+  (∀e. closed e ⇒ open_similarity vars (subst h e e1) (subst h e e2)) ∧
   h ∉ vars ∧ e1 IN Exps (h INSERT vars) ∧ e2 IN Exps (h INSERT vars) ⇒
   open_similarity (h INSERT vars) e1 e2
 Proof
@@ -474,7 +479,7 @@ Theorem open_similarity_inter:
   open_similarity (vars INTER freevars (App e1 e2)) e1 e2
 Proof
   fs [open_similarity_def] \\ rw [] \\ eq_tac \\ rw []
-  \\ cheat (* easy *)
+  \\ cheat (* hmm, needs to assume that vars is finite *)
 QED
 
 Theorem Howe_inter:
