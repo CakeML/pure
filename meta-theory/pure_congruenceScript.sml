@@ -525,6 +525,16 @@ Proof
   \\ fs [open_similarity_def,Ref_open_similarity]
 QED
 
+Theorem LIST_REL_open_bisimilarity:
+  ∀es es'.
+    LIST_REL (open_bisimilarity vars) es es' ⇔
+    LIST_REL (open_similarity vars) es es' ∧
+    LIST_REL (open_similarity vars) es' es
+Proof
+  Induct \\ Cases_on ‘es'’ \\ fs [PULL_EXISTS]
+  \\ fs [open_bisimilarity_eq] \\ metis_tac []
+QED
+
 Theorem Congruence_open_bisimilarity: (* part 2 of 5.5.5 *)
   Congruence open_bisimilarity
 Proof
@@ -537,7 +547,16 @@ Proof
   THEN1 metis_tac []
   THEN1 metis_tac []
   THEN1 metis_tac []
-  \\ cheat
+  THEN1
+   (fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+    \\ qpat_x_assum ‘∀x. _’ kall_tac
+    \\ qpat_x_assum ‘∀x. _’ mp_tac
+    \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+    \\ fs [LIST_REL_open_bisimilarity]
+    \\ metis_tac [])
+  \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ fs [LIST_REL_open_bisimilarity]
+  \\ metis_tac []
 QED
 
 (* -- contextual equivalence -- *)
@@ -972,13 +991,6 @@ Proof
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs []
     \\ fs [freevars_subst,subst_single_eqvt,perm1_def, closed_perm]
     \\ fs [exp_eq_subst_perm_exp])
-QED
-
-Theorem exp_eq_Lam:
-  Lam v1 e1 ≅ Lam v2 e2 ⇔
-  ∀x1 x2. x1 ≃ x2 ⇒ subst v1 x1 e1 ≅ subst v2 x2 e2
-Proof
-  metis_tac [exp_eq_Lam,app_bisimilarity_eq]
 QED
 
 val _ = export_theory();
