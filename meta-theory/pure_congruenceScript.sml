@@ -424,8 +424,19 @@ Proof
   \\ fs [open_similarity_def]
   \\ fs [SUBSET_DEF,MEM_FILTER,MEM_FLAT,MEM_MAP,PULL_EXISTS]
   THEN1 metis_tac []
-  THEN1 cheat
-  THEN1 cheat
+  THEN1 (rw [] \\ drule_all listTheory.LIST_REL_MEM_IMP \\ fs []
+         \\ metis_tac [])
+  \\ rw [] \\ fs [GSYM IMP_DISJ_THM]
+  \\ fs [FORALL_PROD,EXISTS_PROD]
+  \\ imp_res_tac (METIS_PROVE []
+                  “MAP f xs = MAP f xs' ⇒ ∀y. MEM y (MAP f xs) = MEM y (MAP f xs')”)
+  \\ fs [MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]
+  THEN1 metis_tac []
+  \\ Cases_on ‘y’ \\ fs [IN_DISJOINT]
+  \\ fs [MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]
+  \\ ‘MEM r (MAP SND ves)’ by (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+  \\ drule_all listTheory.LIST_REL_MEM_IMP \\ fs []
+  \\ metis_tac []
 QED
 
 Theorem app_simulation_Howe_open_similarity: (* or replace with the lemma below *)
