@@ -429,7 +429,8 @@ QED
 Theorem Cus_open_bisimilarity:
   Cus open_bisimilarity
 Proof
-  cheat
+  assume_tac Cus_open_similarity
+  \\ fs [Cus_def,open_bisimilarity_eq]
 QED
 
 Theorem IMP_Howe_Sub: (* 5.5.3 *)
@@ -542,12 +543,20 @@ Theorem IMP_open_similarity_INSERT:
   h ∉ vars ∧ e1 IN Exps (h INSERT vars) ∧ e2 IN Exps (h INSERT vars) ⇒
   open_similarity (h INSERT vars) e1 e2
 Proof
-  cheat (*
   fs [open_similarity_def] \\ rw [] \\ fs [Exps_def]
-  \\ Cases_on ‘exps’ \\ fs [] \\ fs []
-  \\ fs [subst_bind,bind_def]
-  \\ ‘set (freevars h') ⊆ set vars’ by fs [closed_def]
-  \\ fs [PULL_FORALL,AND_IMP_INTRO] *)
+  \\ rw [bind_def]
+  \\ ‘∃e. FLOOKUP f h = SOME e ∧ closed e’ by
+        (fs [FLOOKUP_DEF,EXTENSION] \\ metis_tac [])
+  \\ last_x_assum drule \\ rw []
+  \\ first_x_assum (qspec_then ‘DRESTRICT f vars’ mp_tac)
+  \\ impl_tac THEN1 (fs [EXTENSION,DRESTRICT_DEF] \\ metis_tac [])
+  \\ fs [bind_def,FLOOKUP_DRESTRICT]
+  \\ reverse IF_CASES_TAC THEN1 metis_tac [] \\ fs []
+  \\ ‘(∀v. v ∈ FRANGE (FEMPTY |+ (h,e)) ⇒ closed v)’ by fs [FRANGE_DEF,FLOOKUP_DEF]
+  \\ drule subst_subst_FUNION \\ fs []
+  \\ qsuff_tac ‘FEMPTY |+ (h,e) ⊌ DRESTRICT f vars = f’ THEN1 fs []
+  \\ fs [fmap_EXT,FUNION_DEF,EXTENSION,DRESTRICT_DEF,FLOOKUP_DEF]
+  \\ metis_tac []
 QED
 
 Theorem open_similarity_inter:
@@ -555,7 +564,8 @@ Theorem open_similarity_inter:
   open_similarity (vars INTER freevars (App e1 e2)) e1 e2
 Proof
   fs [open_similarity_def] \\ rw [] \\ eq_tac \\ rw []
-  \\ cheat (* hmm, needs to assume that vars is finite *)
+  \\ cheat (* hmm, needs to assume that vars is finite
+              or perhaps the lemma below can be rephrased *)
 QED
 
 Theorem Howe_inter:
@@ -570,7 +580,7 @@ QED
 Theorem term_rel_open_similarity:
   term_rel open_similarity
 Proof
-  cheat
+  fs [term_rel_def,open_similarity_def,Exps_def]
 QED
 
 Theorem Howe_open_similarity: (* key property *)
