@@ -1819,6 +1819,34 @@ Proof
       res_tac >> gvs[])
 QED
 
+Theorem exp_alpha_subst_closed_both:
+  ∀x y s e.
+    x ≠ y ∧
+    x ∈ FDOM s ∧
+    y ∈ FDOM s ∧
+    (∀e. e ∈ FRANGE s ⇒ closed e) ⇒
+    exp_alpha (subst s e) (subst (MAP_KEYS (perm1 x y) s) (perm_exp x y e))
+Proof
+  rpt strip_tac >>
+  match_mp_tac exp_alpha_Trans >>
+  irule_at (Pos hd) exp_alpha_perm_irrel >>
+  qexists_tac ‘y’ >> qexists_tac ‘x’ >>
+  simp[freevars_subst] >>
+  simp[subst_eqvt] >>
+  match_mp_tac exp_alpha_subst_closed' >>
+  simp[FRANGE_perm_keys,FRANGE_MEM_eqvt] >>
+  conj_tac >- metis_tac[closed_perm] >>
+  simp[fmap_rel_OPTREL_FLOOKUP,perm_subst_flookup] >>
+  strip_tac >>
+  Cases_on ‘FLOOKUP s (perm1 x y k)’ >>
+  gvs[] >>
+  match_mp_tac exp_alpha_sym >>
+  match_mp_tac exp_alpha_perm_irrel >>
+  gvs[IN_FRANGE_FLOOKUP] >>
+  res_tac >>
+  gvs[closed_def]
+QED
+
 Theorem exp_alpha_subst_closed_single:
   ∀y x e' e.
     x ≠ y ∧ y ∉ freevars e ∧ closed e' ⇒
@@ -1831,6 +1859,30 @@ Proof
   simp[] >>
   dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_KEYS_FUPDATE] >>
   simp[INJ_DEF,perm1_simps,exp_alpha_refl]
+QED
+
+Theorem ALOOKUP_MAP_perm:
+  ALOOKUP (MAP (perm1 x y ## g) l) z =
+  OPTION_MAP g (ALOOKUP l (perm1 x y z))
+Proof
+  Induct_on ‘l’ >> simp[FORALL_PROD] >>
+  rw[] >> gvs[]
+QED
+
+Theorem ALOOKUP_MAP_perm':
+  ALOOKUP (MAP (λz. (perm1 x y (FST z), g (SND z))) l) z =
+  OPTION_MAP g (ALOOKUP l (perm1 x y z))
+Proof
+  Induct_on ‘l’ >> simp[FORALL_PROD] >>
+  rw[] >> gvs[]
+QED
+
+Theorem perm_keys_update_list:
+  MAP_KEYS (perm1 x y) (fm |++ l) =
+  (MAP_KEYS (perm1 x y) fm) |++ (MAP (perm1 x y ## I) l)
+Proof
+  rw[fmap_eq_flookup,flookup_fupdate_list,GSYM MAP_REVERSE,ALOOKUP_MAP_perm] >>
+  TOP_CASE_TAC >> gvs[]
 QED
 
 Theorem exp_alpha_subst_all_closed''_lemma:
@@ -2454,6 +2506,106 @@ Proof
   rw[FDOM_DRESTRICT]
 QED
 
+Theorem exp_alpha_subst_closed_strong:
+  ∀x y s e.
+    x ≠ y ∧ y ∉ freevars e ∧
+    x ∈ FDOM s ∧
+    (∀e. e ∈ FRANGE s ⇒ closed e) ⇒
+    exp_alpha (subst s e) (subst (MAP_KEYS (perm1 x y) s) (perm_exp x y e))
+Proof
+  rw[] >>
+  PURE_ONCE_REWRITE_TAC[subst_FDIFF] >>
+  Cases_on ‘x ∈ freevars e’
+  >- (match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_subst_closed >>
+      goal_assum drule >>
+      simp[FDOM_DRESTRICT] >>
+      conj_tac >- metis_tac[IN_FRANGE_DRESTRICT_suff] >>
+      simp[GSYM perm_exp_eqvt,LIST_TO_SET_MAP] >>
+      dep_rewrite.DEP_ONCE_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
+      conj_tac >- rw[INJ_DEF] >>
+      simp[exp_alpha_refl]) >>
+  simp[GSYM perm_exp_eqvt,LIST_TO_SET_MAP] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
+  conj_tac >- rw[INJ_DEF] >>
+  match_mp_tac exp_alpha_sym >>
+  match_mp_tac exp_alpha_Trans >>
+  irule_at (Pos hd) exp_alpha_subst_all_closed'' >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- (simp[FRANGE_perm_keys] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+  irule_at (Pos hd) exp_alpha_sym >>
+  irule_at (Pos hd) exp_alpha_perm_irrel >>
+  simp[] >>
+  irule_at (Pos hd) exp_alpha_subst_closed' >>
+  conj_tac >- (simp[FRANGE_perm_keys] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+  conj_tac >- (simp[FRANGE_perm_keys] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+  simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+  rw[]
+  >- (gvs[perm1_def] >> rw[] >> gvs[] >> Cases_on ‘FLOOKUP s k’ >> gvs[exp_alpha_refl]) >>
+  gvs[perm1_def] >> metis_tac[]
+QED
+
+Theorem exp_alpha_bind_closed:
+  ∀x y s e.
+    x ≠ y ∧ (y ∉ freevars e ∨ y ∈ FDOM s) ∧
+    x ∈ FDOM s ⇒
+    exp_alpha (bind s e) (bind (MAP_KEYS (perm1 x y) s) (perm_exp x y e))
+Proof
+  rpt strip_tac >>
+  simp[bind_def] >>
+  rw[exp_alpha_refl] >> gvs[]
+  >- (match_mp_tac exp_alpha_subst_closed_strong >>
+      rw[] >>
+      gvs[IN_FRANGE_FLOOKUP] >>
+      metis_tac[])
+  >- (‘perm1 x y n ≠ n’ by metis_tac[] >>
+      gvs[perm1_def,AllCaseEqs()] >>
+      metis_tac[])
+  >- (‘perm1 x y n ≠ n’ by metis_tac[] >>
+      gvs[perm1_def,AllCaseEqs()] >>
+      metis_tac[])
+  >- (match_mp_tac exp_alpha_subst_closed_both >>
+      rw[] >>
+      gvs[IN_FRANGE_FLOOKUP] >>
+      metis_tac[]
+     ) >>
+  ‘perm1 x y n ≠ n’ by metis_tac[] >>
+  gvs[perm1_def,AllCaseEqs()] >>
+  metis_tac[]
+QED
+
+Theorem exp_alpha_subst_funs_closed:
+    x ≠ y ∧ MEM x (MAP FST f) ∧ ¬MEM y (freevars(Letrec f e))
+    ⇒
+    exp_alpha (subst_funs f e) (subst_funs (MAP (perm1 x y ## perm_exp x y) f) (perm_exp x y e))
+Proof
+  rpt strip_tac >>
+  rw[subst_funs_def] >>
+  match_mp_tac exp_alpha_Trans >>
+  irule_at (Pos hd) exp_alpha_bind_closed >>
+  goal_assum drule >>
+  simp[FDOM_FUPDATE_LIST] >>
+  conj_tac >- (gvs[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >> metis_tac[]) >>
+  conj_tac >- (gvs[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >> metis_tac[]) >>
+  qpat_x_assum ‘¬MEM y (freevars(Letrec f e))’ assume_tac >>
+  qmatch_asmsub_abbrev_tac ‘¬MEM y a1’ >>
+  gvs[perm_keys_update_list,MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
+  match_mp_tac exp_alpha_bind_all_closed' >>
+  Ho_Rewrite.PURE_ONCE_REWRITE_TAC[GSYM PAIR_MAP_THM] >>
+  PURE_REWRITE_TAC[PAIR] >>
+  CONV_TAC(DEPTH_CONV ETA_CONV) >>
+  PURE_REWRITE_TAC[fmap_rel_OPTREL_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE] >>
+  rw[ALOOKUP_MAP_perm',ALOOKUP_MAP_perm] >>
+  Cases_on ‘ALOOKUP (REVERSE f) (perm1 x y k)’ >> gvs[] >>
+  match_mp_tac exp_alpha_Letrec_Alpha_MEM >>
+  simp[] >>
+  imp_res_tac ALOOKUP_MEM >>
+  gvs[MEM_REVERSE,MEM_MAP] >>
+  unabbrev_all_tac >>
+  gvs[MEM_FILTER,MEM_FLAT,MEM_MAP,ELIM_UNCURRY] >>
+  metis_tac[perm1_def,FST,SND,PAIR]
+QED
+
 Theorem exp_alpha_subst_closed'':
   ∀x e' e e''.
     closed e' ∧ exp_alpha e e'' ⇒
@@ -2509,7 +2661,9 @@ Proof
   >- (disj2_tac >>
       drule_at_then Any match_mp_tac EVERY2_mono >>
       metis_tac[v_alpha_refl])
-  >- (disj2_tac >> cheat)
+  >- (disj2_tac >>
+      gvs[LIST_REL_EL_EQN] >>
+      metis_tac[])
   >- (metis_tac[exp_alpha_Trans])
   >- (metis_tac[exp_alpha_freevars,exp_alpha_Trans])
   >- (metis_tac[exp_alpha_perm_closed,perm_exp_sym,exp_alpha_Trans,exp_alpha_freevars])
@@ -2717,15 +2871,28 @@ Proof
   >- (rw[eval_to_def,v_alpha_refl] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
-      cheat)
+      gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+      match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_subst_funs_closed >>
+      goal_assum drule >>
+      simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+      simp[perm1_simps,exp_alpha_refl])
   >- (rw[eval_to_def,v_alpha_refl] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
-      cheat)
+      match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_subst_funs_closed >>
+      goal_assum drule >>
+      simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+      simp[perm1_simps,exp_alpha_refl])
   >- (rw[eval_to_def,v_alpha_refl] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
-      cheat)
+      match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_subst_funs_closed >>
+      goal_assum drule >>
+      simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+      simp[perm1_simps,exp_alpha_refl])
   >- (rw[eval_to_def,v_alpha_refl] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
