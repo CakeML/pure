@@ -1023,6 +1023,69 @@ Proof
       metis_tac[FST,SND,PAIR])
 QED
 
+Theorem exp_alpha_bind_all_closed':
+  ∀s s' e.
+    fmap_rel exp_alpha s s' ⇒
+    exp_alpha (bind s e) (bind s' e)
+Proof
+  rpt strip_tac >>
+  rw[bind_def,exp_alpha_refl]
+  >- (match_mp_tac exp_alpha_subst_closed' >> gvs[IN_FRANGE_FLOOKUP]) >>
+  gvs[fmap_rel_OPTREL_FLOOKUP] >>
+  rename1 ‘FLOOKUP _ z’ >>
+  last_x_assum (qspec_then ‘z’ mp_tac) >>
+  rw[OPTREL_SOME] >>
+  imp_res_tac exp_alpha_freevars >>
+  metis_tac[closed_def]
+QED
+
+Theorem exp_alpha_subst_funs_closed':
+  ∀s s' e.
+    MAP FST f = MAP FST f' ∧
+    LIST_REL exp_alpha (MAP SND f) (MAP SND f')
+    ⇒
+    exp_alpha (subst_funs f e) (subst_funs f' e)
+Proof
+  rpt strip_tac >>
+  rw[subst_funs_def] >>
+  match_mp_tac exp_alpha_bind_all_closed' >>
+  simp[fmap_rel_OPTREL_FLOOKUP] >>
+  simp[flookup_fupdate_list,GSYM MAP_REVERSE,ALOOKUP_MAP_2] >>
+  rw[ALOOKUP_LEAST_EL] >>
+  TRY(gvs[MAP_REVERSE] >> NO_TAC) >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac >- (gvs[MEM_EL] >> metis_tac[]) >>
+  rw[] >>
+  ‘n < LENGTH f’
+    by(qpat_x_assum ‘MAP _ _ = MAP _ _’ (strip_assume_tac o ONCE_REWRITE_RULE[LIST_EQ_REWRITE]) >>
+       gvs[MEM_MAP,MEM_REVERSE] >>
+       gvs[MEM_EL] >>
+       spose_not_then strip_assume_tac >>
+       gvs[NOT_LESS] >>
+       last_x_assum (qspec_then ‘PRE (LENGTH f - n'')’ mp_tac) >>
+       impl_tac >- DECIDE_TAC >>
+       simp[EL_MAP,EL_REVERSE] >>
+       rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
+       DECIDE_TAC) >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac >- (gvs[MEM_EL] >> metis_tac[]) >>
+  rw[] >>
+  ‘n' = n’
+    by(‘MAP FST(REVERSE f) = MAP FST(REVERSE f')’
+         by(gvs[MAP_REVERSE,REVERSE_11]) >>
+       match_mp_tac LESS_EQUAL_ANTISYM >>
+       conj_tac >> spose_not_then strip_assume_tac >>
+       gvs[NOT_LESS_EQUAL] >>
+       first_x_assum drule >>
+       simp[]) >>
+  match_mp_tac exp_alpha_Letrec >>
+  simp[] >>
+  gvs[LIST_REL_EL_EQN] >>
+  last_x_assum(qspec_then ‘PRE(LENGTH f - n)’ mp_tac) >>
+  impl_tac >- DECIDE_TAC >>
+  simp[EL_MAP,EL_REVERSE]
+QED
+
 Theorem exp_alpha_closed:
   ∀e e'.
     exp_alpha e e' ⇒ closed e = closed e'
@@ -1295,6 +1358,13 @@ Proof
   qspec_then ‘perm1 x y’
              (dep_rewrite.DEP_ONCE_REWRITE_TAC o single o GSYM)
              (Q.GEN ‘f’ FLOOKUP_MAP_KEYS_MAPPED) >>
+  rw[INJ_DEF]
+QED
+
+Theorem FUPDATE_perm_keys:
+  MAP_KEYS (perm1 x y) (fm |+ (k,v)) = MAP_KEYS (perm1 x y) fm |+ (perm1 x y k,v)
+Proof
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_KEYS_FUPDATE] >>
   rw[INJ_DEF]
 QED
 
@@ -2531,7 +2601,6 @@ QED
 Theorem exp_alpha_eval_to:
   ∀k e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval_to k e1) (eval_to k e2)
 Proof
-  cheat (* TODO
   ho_match_mp_tac COMPLETE_INDUCTION >>
   strip_tac >>
   Induct_on ‘exp_alpha’ >> rw[]
@@ -2592,19 +2661,21 @@ Proof
       >- (rw[v_alpha_refl] >>
           first_x_assum (match_mp_tac o MP_CANON) >>
           simp[] >>
-          simp[bind_def] >>
+          simp[bind_def,FLOOKUP_UPDATE] >>
           imp_res_tac exp_alpha_closed >> gvs[] >>
           rw[exp_alpha_refl] >>
           match_mp_tac exp_alpha_subst_closed' >>
-          simp[])
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_UPDATE] >>
+          rw[]
+         )
       >- (rw[v_alpha_refl] >>
           first_x_assum (match_mp_tac o MP_CANON) >>
           simp[] >>
-          simp[bind_def] >>
+          simp[bind_def,FLOOKUP_UPDATE] >>
           imp_res_tac exp_alpha_closed >> gvs[] >>
           rw[exp_alpha_refl] >>
           match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed' >>
+          irule_at (Pos hd) exp_alpha_subst_closed_single' >>
           goal_assum (drule_at (Pat ‘exp_alpha _ _’)) >>
           simp[] >>
           match_mp_tac exp_alpha_subst_closed'' >>
@@ -2612,11 +2683,11 @@ Proof
       >- (rw[v_alpha_refl] >>
           first_x_assum (match_mp_tac o MP_CANON) >>
           simp[] >>
-          simp[bind_def] >>
+          simp[bind_def,FLOOKUP_UPDATE] >>
           imp_res_tac exp_alpha_closed >> gvs[] >>
           rw[exp_alpha_refl] >>
           match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed' >>
+          irule_at (Pos hd) exp_alpha_subst_closed_single' >>
           simp[] >>
           first_x_assum(irule_at (Pos (hd o tl))) >>
           simp[] >>
@@ -2626,7 +2697,7 @@ Proof
           goal_assum drule >>
           Cases_on ‘x' = y’ >> gvs[perm_exp_id,exp_alpha_refl] >>
           match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed >>
+          irule_at (Pos hd) exp_alpha_subst_closed_single >>
           goal_assum drule >>
           simp[exp_alpha_refl] >>
           imp_res_tac exp_alpha_freevars >>
@@ -2634,7 +2705,15 @@ Proof
   >- (rw[eval_to_def,v_alpha_refl] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
-      cheat)
+      simp[subst_funs_def] >>
+      match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_bind_all_closed >>
+      goal_assum drule >>
+      simp[GSYM subst_funs_def] >>
+      match_mp_tac exp_alpha_subst_funs_closed' >>
+      simp[] >>
+      drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+      rw[])
   >- (rw[eval_to_def,v_alpha_refl] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
@@ -2647,7 +2726,14 @@ Proof
       first_x_assum(match_mp_tac o MP_CANON) >>
       simp[] >>
       cheat)
-      *)
+  >- (rw[eval_to_def,v_alpha_refl] >>
+      first_x_assum(match_mp_tac o MP_CANON) >>
+      simp[] >>
+      cheat)
+  >- (rw[eval_to_def,v_alpha_refl] >>
+      first_x_assum(match_mp_tac o MP_CANON) >>
+      simp[] >>
+      cheat)
 QED
 
 Theorem v_alpha_v_lookup_pres:
