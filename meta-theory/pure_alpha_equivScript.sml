@@ -2054,8 +2054,321 @@ Proof
        match_mp_tac exp_alpha_perm_irrel >>
        gvs[IN_FRANGE_FLOOKUP] >>
        res_tac >> gvs[closed_def]))
-  >- cheat
-  >- cheat
+  >- (match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_Letrec_Vacuous1 >>
+      goal_assum drule >>
+      conj_tac
+      >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
+      conj_tac
+      >- (rw[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
+          CONV_TAC(DEPTH_CONV ETA_CONV) >> simp[] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          rpt conj_tac >> rpt gen_tac >>
+          (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+          simp[] >>
+          rw[MEM_MAP] >>
+          (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+          gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS]) >>
+      conj_tac
+      >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
+      conj_tac
+      >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
+      simp[subst_eqvt,FDIFF_eqvt,perm1_simps] >>
+      match_mp_tac exp_alpha_Letrec >>
+      simp[] >>
+      conj_tac
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          ‘k ≠ y’ by metis_tac[] >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘k = x’
+          >- (gvs[] >>
+              Cases_on ‘FLOOKUP f k’ >> gvs[] >>
+              gvs[flookup_thm] >>
+              drule_all SUBSET_THM >>
+              rw[]) >>
+          rw[] >>
+          Cases_on ‘FLOOKUP f k’ >> simp[exp_alpha_refl]) >>
+      conj_tac
+      >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
+          rw[MAP_MAP_o,MAP_EQ_f,ELIM_UNCURRY]) >>
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ]
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
+          ‘k ≠ y’ by(metis_tac[]) >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘k = FST y'’
+          >- (gvs[] >>
+              Cases_on ‘FLOOKUP f (FST y')’ >> gvs[] >>
+              gvs[flookup_thm] >>
+              drule_all SUBSET_THM >>
+              rw[]) >>
+          rw[] >>
+          Cases_on ‘FLOOKUP f k’ >> simp[exp_alpha_refl])
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘FST y' = k’
+          >- (gvs[perm1_simps]) >>
+          Cases_on ‘k = y’
+          >- gvs[] >>
+          simp[] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          simp[perm_subst_flookup,perm1_def] >>
+          Cases_on ‘FLOOKUP f k’ >- gvs[] >>
+          gvs[] >>
+          ‘(∀x'. MEM x' funs1 ⇒ k ≠ if FST x' = FST y' then y else FST x') =
+           (∀x'. MEM x' funs1 ⇒ k ≠ FST x')’
+            by(rw[EQ_IMP_THM] >> gvs[flookup_thm] >>
+               first_x_assum drule >> rw[]) >>
+          pop_assum SUBST_ALL_TAC >>
+          ‘(∀x'. MEM x' funs2 ⇒ k ≠ if FST x' = FST y' then y else FST x') =
+           (∀x'. MEM x' funs2 ⇒ k ≠ FST x')’
+            by(rw[EQ_IMP_THM] >> gvs[flookup_thm] >>
+               first_x_assum drule >> rw[]) >>
+          pop_assum SUBST_ALL_TAC >>
+          rw[] >>
+          match_mp_tac exp_alpha_sym >>
+          match_mp_tac exp_alpha_perm_irrel >>
+          gvs[IN_FRANGE_FLOOKUP] >>
+          res_tac >>
+          gvs[closed_def])
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
+          ‘k ≠ y’ by(metis_tac[]) >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘k = FST y'’
+          >- (gvs[] >>
+              Cases_on ‘FLOOKUP f (FST y')’ >> gvs[] >>
+              gvs[flookup_thm] >>
+              drule_all SUBSET_THM >>
+              rw[]) >>
+          rw[] >>
+          Cases_on ‘FLOOKUP f k’ >> simp[exp_alpha_refl]))
+  >- (match_mp_tac exp_alpha_Trans >>
+      irule_at (Pos hd) exp_alpha_Letrec_Vacuous2 >>
+      goal_assum drule >>
+      conj_tac
+      >- (rw[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY] >>
+          CONV_TAC(DEPTH_CONV ETA_CONV) >> simp[] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          rpt conj_tac >> rpt gen_tac >>
+          (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+          simp[] >>
+          rw[MEM_MAP] >>
+          (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+          gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS]) >>
+      conj_tac
+      >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
+      conj_tac
+      >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
+      conj_tac
+      >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
+      conj_tac
+      >- (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+          conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+          simp[]) >>
+      simp[subst_eqvt,FDIFF_eqvt,perm1_simps] >>
+      match_mp_tac exp_alpha_Letrec >>
+      simp[] >>
+      conj_tac
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          ‘k ≠ x’ by metis_tac[] >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘k = y’
+          >- (gvs[] >>
+              Cases_on ‘FLOOKUP f k’ >> gvs[] >>
+              gvs[flookup_thm] >>
+              drule_all SUBSET_THM >>
+              rw[]) >>
+          rw[] >>
+          Cases_on ‘FLOOKUP f k’ >> simp[exp_alpha_refl]) >>
+      conj_tac
+      >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
+          rw[MAP_MAP_o,MAP_EQ_f,ELIM_UNCURRY]) >>
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ]
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
+          ‘k ≠ x’ by(metis_tac[]) >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘k = FST y'’
+          >- (gvs[] >>
+              Cases_on ‘FLOOKUP f (FST y')’ >> gvs[] >>
+              gvs[flookup_thm] >>
+              drule_all SUBSET_THM >>
+              rw[] >>
+              rw[MEM_MAP] >> metis_tac[]) >>
+          rw[] >>
+          Cases_on ‘FLOOKUP f k’ >> simp[exp_alpha_refl])
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘FST y' = k’
+          >- (gvs[perm1_simps]) >>
+          Cases_on ‘k = x’
+          >- (gvs[perm1_def]) >>
+          simp[] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          simp[perm_subst_flookup,perm1_def] >>
+          Cases_on ‘FLOOKUP f k’ >- gvs[] >>
+          gvs[] >>
+          ‘(∀x'. MEM x' funs1 ⇒ k ≠ if FST x' = FST y' then x else FST x') =
+           (∀x'. MEM x' funs1 ⇒ k ≠ FST x')’
+            by(rw[EQ_IMP_THM] >> gvs[flookup_thm] >>
+               first_x_assum drule >> rw[]) >>
+          pop_assum SUBST_ALL_TAC >>
+          ‘(∀x'. MEM x' funs2 ⇒ k ≠ if FST x' = FST y' then x else FST x') =
+           (∀x'. MEM x' funs2 ⇒ k ≠ FST x')’
+            by(rw[EQ_IMP_THM] >> gvs[flookup_thm] >>
+               first_x_assum drule >> rw[]) >>
+          pop_assum SUBST_ALL_TAC >>
+          rw[] >>
+          match_mp_tac exp_alpha_sym >>
+          match_mp_tac exp_alpha_perm_irrel >>
+          gvs[IN_FRANGE_FLOOKUP] >>
+          res_tac >>
+          gvs[closed_def])
+      >- (match_mp_tac exp_alpha_subst_closed'_strong >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          conj_tac
+          >- (simp[FDIFF_def] >>
+              match_mp_tac IN_FRANGE_DRESTRICT_suff >>
+              simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >>
+              metis_tac[closed_perm]) >>
+          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
+          rw[] >>
+          gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
+          gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
+          ‘k ≠ x’ by(metis_tac[]) >>
+          simp[LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF] >>
+          simp[FDIFF_def,FLOOKUP_DRESTRICT] >>
+          simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
+          Cases_on ‘k = FST y'’
+          >- (gvs[] >>
+              Cases_on ‘FLOOKUP f (FST y')’ >> gvs[] >>
+              gvs[flookup_thm] >>
+              drule_all SUBSET_THM >>
+              rw[MEM_MAP] >> metis_tac[]) >>
+          rw[] >>
+          Cases_on ‘FLOOKUP f k’ >> simp[exp_alpha_refl]))
 QED
 
 Theorem exp_alpha_subst_all_closed'':
