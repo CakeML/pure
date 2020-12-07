@@ -3058,8 +3058,28 @@ Proof
       match_mp_tac closed_freevars_subst >>
       rpt(drule_then dxrule eval_Closure_closed) >>
       simp[])
-  >- cheat
-  >- cheat
+  >- (rw[eval_thm] >>
+      ntac 2 (qexists_tac ‘GENLIST (λn. Proj x n x0) (LENGTH v1s)’) >>
+      simp[MAP_GENLIST,combinTheory.o_DEF,eval_thm,el_def] >>
+      conj_asm1_tac >- (rw[LIST_EQ_REWRITE]) >>
+      simp[] >>
+      simp[LIST_REL_GENLIST,exp_alpha_refl] >>
+      rw[EVERY_MEM,MEM_GENLIST] >>
+      gvs[closed_def]
+     )
+  >- (rw[eval_thm] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      qexists_tac ‘GENLIST (λn. Proj x n x0) (LENGTH v1s)’ >>
+      qexists_tac ‘GENLIST (λn. Proj x n x1) (LENGTH v1s)’ >>
+      simp[MAP_GENLIST,combinTheory.o_DEF,eval_thm,el_def] >>
+      conj_asm1_tac >- (rw[LIST_EQ_REWRITE]) >>
+      simp[] >>
+      simp[LIST_REL_GENLIST,exp_alpha_refl] >>
+      rw[EVERY_MEM,MEM_GENLIST] >>
+      gvs[closed_def] >>
+      rw[LIST_EQ_REWRITE] >>
+      match_mp_tac exp_alpha_Prim >>
+      simp[])
 QED
 
 Theorem companion_exp_alpha:
