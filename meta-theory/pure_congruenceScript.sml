@@ -568,13 +568,16 @@ Proof
               or perhaps the lemma below can be rephrased *)
 QED
 
-Theorem Howe_inter:
-  ∀R vars e1 e2.
-    Howe R vars e1 e2 ⇒
-    ∀t. (∀vars e1 e2. R vars e1 e2 ⇒ R (vars INTER t e1 e2) e1 e2) ⇒
-        Howe R (vars INTER t e1 e2) e1 e2
+Theorem Howe_open_similarity_inter:
+  Howe open_similarity vars e1 e2 ⇒
+  Howe open_similarity (vars ∩ freevars (App e1 e2)) e1 e2
 Proof
-  cheat
+  qsuff_tac ‘
+    ∀R vars e1 e2. Howe R vars e1 e2 ⇒ R = open_similarity ⇒
+                   Howe R (vars ∩ freevars (App e1 e2)) e1 e2’
+  THEN1 metis_tac []
+  \\ ho_match_mp_tac Howe_ind \\ rw []
+  \\ cheat
 QED
 
 Theorem term_rel_open_similarity:
@@ -597,11 +600,15 @@ Proof
   \\ drule app_simulation_SUBSET_app_similarity
   \\ pop_assum kall_tac \\ pop_assum kall_tac
   \\ rw [SUBSET_DEF,IN_DEF,FORALL_PROD]
-  \\ last_x_assum mp_tac
+  \\ drule Howe_open_similarity_inter
+  \\ ‘freevars e1 SUBSET vars ∧ freevars e2 SUBSET vars’ by
+   (assume_tac term_rel_open_similarity
+    \\ imp_res_tac term_rel_Howe
+    \\ fs [term_rel_def] \\ res_tac \\ fs [Exps_def])
+  \\ last_x_assum kall_tac
+  \\ strip_tac
   \\ once_rewrite_tac [open_similarity_inter]
-  \\ strip_tac \\ drule Howe_inter
-  \\ disch_then (qspec_then ‘λe1 e2. freevars (App e1 e2)’ mp_tac)
-  \\ fs [] \\ impl_tac THEN1 simp [Once open_similarity_inter]
+  \\ pop_assum mp_tac
   \\ ‘FINITE (vars ∩ (freevars (App e1 e2)))’ by
         (match_mp_tac FINITE_INTER \\ fs [])
   \\ fs [] \\ rename [‘FINITE t’]
