@@ -43,7 +43,7 @@ End
 Definition Com2_def:
   Com2 R ⇔
     ∀vars x e e'.
-      ~(x IN vars) ∧ {e; e'} SUBSET Exps (x INSERT vars) ⇒
+     (* ~(x IN vars) ∧ *) {e; e'} SUBSET Exps (x INSERT vars) ⇒
       R (x INSERT vars) e e' ⇒ R vars (Lam x e) (Lam x e')
 End
 
@@ -65,8 +65,8 @@ Definition Com5_def:
   Com5 R ⇔
     ∀ vars ves ves' e e'.
       {e; e'} ∪ set (MAP SND ves) ∪ set (MAP SND ves') ⊆
-        Exps (vars ∪ set (MAP FST ves)) ∧
-      DISJOINT (set (MAP FST ves)) vars ⇒
+        Exps (vars ∪ set (MAP FST ves)) ⇒
+   (* DISJOINT (set (MAP FST ves)) vars ⇒ *)
       MAP FST ves = MAP FST ves' ∧
       LIST_REL
         (R (vars ∪ set (MAP FST ves))) (MAP SND ves) (MAP SND ves') ∧
@@ -145,8 +145,8 @@ Inductive Howe: (* TODO: add Cons clause *)
 [Howe2:]
   (∀R x e1 e1' e2 vars.
      Howe R (x INSERT vars) e1 e1' ∧
-     R vars (Lam x e1') e2 ∧
-     ~(x IN vars) ⇒
+     R vars (Lam x e1') e2 ⇒
+     (* ~(x IN vars) ⇒ *)
      Howe R vars (Lam x e1) e2)
   ∧
 [Howe3:]
@@ -165,7 +165,7 @@ Inductive Howe: (* TODO: add Cons clause *)
 [Howe5:]
   (∀R ves ves' e e' e2.
     MAP FST ves = MAP FST ves' ∧
-    DISJOINT vars (set (MAP FST ves)) ∧
+    (* DISJOINT vars (set (MAP FST ves)) ∧ *)
     Howe R (vars ∪ set (MAP FST ves)) e e' ∧
     LIST_REL (Howe R (vars ∪ set (MAP FST ves))) (MAP SND ves) (MAP SND ves') ∧
     R vars (Letrec ves' e') e2
@@ -320,16 +320,80 @@ Proof
 QED
 
 Theorem Howe_Ref_Tra: (* 5.5.1(iii) *)
-  Ref R ⇒
+  Ref R ∧ term_rel R ⇒
   ∀vars e1 e2. R vars e1 e2 ⇒ Howe R vars e1 e2
 Proof
-  cheat
+  strip_tac
+  \\ imp_res_tac Howe_Ref
+  \\ simp [Once SWAP_FORALL_THM]
+  \\ ho_match_mp_tac freevars_ind \\ rw []
+  THEN1 (simp [Once Howe_cases])
+  THEN1
+   (simp [Once Howe_cases]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [term_rel_def] \\ last_x_assum drule
+    \\ pop_assum kall_tac
+    \\ strip_tac
+    \\ ‘∀e. MEM e es ⇒ e IN Exps vars’ by
+      (fs [Exps_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+       \\ rw [] \\ res_tac \\ fs [])
+    \\ qpat_x_assum ‘∀e. _’ mp_tac
+    \\ qpat_x_assum ‘∀e. _’ mp_tac
+    \\ qid_spec_tac ‘es’ \\ Induct \\ fs [] \\ rw []
+    \\ first_x_assum (match_mp_tac o MP_CANON) \\ fs []
+    \\ fs [Ref_def] \\ first_assum (match_mp_tac o MP_CANON) \\ fs [])
+  THEN1
+   (simp [Once Howe_cases]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [term_rel_def] \\ last_x_assum drule
+    \\ strip_tac \\ fs [] \\ rw []
+    \\ first_x_assum match_mp_tac
+    \\ fs [Ref_def] \\ first_assum (match_mp_tac o MP_CANON) \\ fs []
+    \\ fs [Exps_def,SUBSET_DEF])
+  THEN1
+   (simp [Once Howe_cases]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [term_rel_def] \\ last_x_assum drule
+    \\ strip_tac \\ fs [] \\ rw []
+    \\ first_x_assum match_mp_tac
+    \\ fs [Ref_def] \\ first_assum (match_mp_tac o MP_CANON) \\ fs []
+    \\ fs [Exps_def,SUBSET_DEF] \\ metis_tac [])
+  \\ simp [Once Howe_cases]
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ fs [term_rel_def] \\ last_x_assum drule
+  \\ strip_tac \\ fs [] \\ rw []
+  THEN1
+   (first_x_assum match_mp_tac
+    \\ fs [Ref_def] \\ first_assum (match_mp_tac o MP_CANON) \\ fs []
+    \\ fs [Exps_def,SUBSET_DEF] \\ metis_tac [])
+  \\ ‘∀fn e1. MEM (fn,e1) lcs ⇒ e1 IN Exps (vars UNION set (MAP FST lcs))’ by
+   (fs [Exps_def,SUBSET_DEF,FORALL_PROD,EXISTS_PROD,MEM_MAP,PULL_EXISTS]
+    \\ rw [] \\ Cases_on ‘∃p_2. MEM (x,p_2) lcs’
+    THEN1 metis_tac [] \\ disj1_tac
+    \\ last_x_assum match_mp_tac \\ fs [] \\ metis_tac [])
+  \\ qmatch_goalsub_abbrev_tac ‘Howe _ (vars UNION v2)’
+  \\ ‘set (MAP FST lcs) SUBSET v2’ by fs [SUBSET_DEF,EXTENSION]
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ qpat_x_assum ‘∀x y. MEM _ _ ⇒ _’ mp_tac
+  \\ qid_spec_tac ‘v2’
+  \\ qid_spec_tac ‘lcs’
+  \\ Induct \\ fs [FORALL_PROD] \\ rw []
+  THEN1
+   (fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD,AND_IMP_INTRO,PULL_FORALL]
+    \\ first_x_assum match_mp_tac
+    \\ qexists_tac ‘p_1’ \\ fs []
+    \\ fs [Ref_def])
+  \\ first_x_assum (match_mp_tac o MP_CANON) \\ fs []
+  \\ fs [SUBSET_DEF,EXISTS_PROD,FORALL_PROD]
+  \\ metis_tac []
 QED
 
 Definition Sub_def: (* Sub = substitutive *)
   Sub R ⇔
     ∀vars x e1 e1' e2 e2'.
-      x ∉ vars ∧
+      (* x ∉ vars ∧ *)
       {e1; e1'} SUBSET Exps (x INSERT vars) ∧ {e2; e2'} SUBSET Exps {} ⇒
       R (x INSERT vars) e1 e1' ∧ R vars e2 e2' ⇒
       R vars (subst x e2 e1) (subst x e2' e1')
@@ -339,7 +403,7 @@ End
 Definition Cus_def: (* closed under value-substitution *)
   Cus R ⇔
     ∀vars x e1 e1' e2.
-      x ∉ vars ∧
+      (* x ∉ vars ∧ *)
       {e1; e1'} SUBSET Exps (x INSERT vars) ∧ e2 IN Exps {} ⇒
       R (x INSERT vars) e1 e1' ⇒
       R vars (subst x e2 e1) (subst x e2 e1')
@@ -377,29 +441,41 @@ QED
 Theorem Ref_Howe:
   Ref R ⇒ Ref (Howe R)
 Proof
-(*  Unprovable for now, need moar clauses
-  strip_tac >>
-  gvs[Ref_def,Exps_def,PULL_FORALL] >>
-  CONV_TAC SWAP_FORALL_CONV >>
-  qsuff_tac ‘∀e vars vars'. ALL_DISTINCT(vars ++ vars') ∧ set (freevars e) ⊆ set vars ⇒ Howe R vars e e’
-  >- (rpt strip_tac >> first_x_assum match_mp_tac >>
-      rw[] >> qexists_tac ‘[]’ >> rw[]) >>
-  Induct_on ‘e’
-  >- (rename1 ‘Var’ >>
-      rw[Once Howe_cases,ALL_DISTINCT_APPEND])
-  >- (rename1 ‘Prim’ >>
-      cheat)
-  >- (rename1 ‘App’ >>
-      rw[Once Howe_cases] >>
-      first_x_assum drule_all >> strip_tac >>
-      first_x_assum drule_all >> strip_tac >>
-      rpt(goal_assum drule) >>
-      first_x_assum match_mp_tac >>
-      rw[freevars_def] >> gvs[ALL_DISTINCT_APPEND])
-  >- (rename1 ‘Lam’ >>
-      cheat)
- *)
-  cheat
+  strip_tac
+  \\ gvs[Ref_def,Exps_def,PULL_FORALL]
+  \\ CONV_TAC SWAP_FORALL_CONV
+  \\ ho_match_mp_tac freevars_ind \\ rw []
+  THEN1 (rename [‘Var’] \\ rw[Once Howe_cases])
+  THEN1 (rename [‘Prim’] \\ rw[Once Howe_cases]
+         \\ qexists_tac ‘es’ \\ fs []
+         \\ Induct_on ‘es’ \\ fs [])
+  THEN1 (rename [‘App’] \\ rw[Once Howe_cases]
+         \\ ‘freevars (App e e') SUBSET vars’ by (fs [SUBSET_DEF] \\ metis_tac [])
+         \\ metis_tac [])
+  THEN1 (rename [‘Lam’] \\ rw[Once Howe_cases]
+         \\ ‘freevars (Lam n e) SUBSET vars’ by (fs [SUBSET_DEF] \\ metis_tac [])
+         \\ qexists_tac ‘e’ \\ fs []
+         \\ first_x_assum match_mp_tac \\ fs [SUBSET_DEF] \\ metis_tac [])
+  \\ rename [‘Letrec’] \\ rw[Once Howe_cases]
+  \\ qexists_tac ‘lcs’
+  \\ qexists_tac ‘e’ \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  THEN1 (first_x_assum match_mp_tac \\ fs [SUBSET_DEF] \\ metis_tac [])
+  \\ qmatch_goalsub_abbrev_tac ‘Howe _ (vars UNION v2)’
+  \\ ‘set (MAP FST lcs) SUBSET v2’ by fs [SUBSET_DEF,EXTENSION]
+  \\ pop_assum mp_tac
+  \\ qpat_x_assum ‘∀x y. _’ mp_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘v2’
+  \\ qid_spec_tac ‘lcs’
+  \\ Induct \\ fs [FORALL_PROD] \\ rw []
+  THEN1
+   (fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
+    \\ first_x_assum match_mp_tac
+    \\ qexists_tac ‘p_1’ \\ fs [] \\ metis_tac [])
+  \\ first_x_assum (match_mp_tac o MP_CANON) \\ fs []
+  \\ fs [SUBSET_DEF,EXISTS_PROD,FORALL_PROD]
+  \\ metis_tac []
 QED
 
 Theorem Cus_Howe_open_similarity:
@@ -491,13 +567,20 @@ Proof
   cheat
 QED
 
+Theorem term_rel_open_similarity:
+  term_rel open_similarity
+Proof
+  cheat
+QED
+
 Theorem Howe_open_similarity: (* key property *)
   Howe open_similarity = open_similarity
 Proof
   simp [FUN_EQ_THM] \\ rw []
   \\ rename [‘Howe open_similarity vars e1 e2’]
   \\ reverse eq_tac \\ rw []
-  THEN1 (metis_tac [Howe_Ref_Tra,Ref_open_similarity,Tra_open_similarity])
+  THEN1 (metis_tac [Howe_Ref_Tra,Ref_open_similarity,Tra_open_similarity,
+                    term_rel_open_similarity])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def]
   \\ first_x_assum (qspec_then ‘{}’ mp_tac) \\ fs [] \\ rw []
   \\ assume_tac app_simulation_Howe_open_similarity
@@ -746,8 +829,6 @@ Proof
   \\ first_x_assum match_mp_tac \\ fs []
   \\ qexists_tac ‘freevars (App (Letrec xs e) (Letrec xs' e'))’
   \\ fs [Exps_def,SUBSET_DEF]
-  \\ reverse conj_tac
-  THEN1 (fs [IN_DISJOINT] \\ metis_tac [])
   \\ rw [] \\ fs [MEM_MAP,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
   \\ metis_tac []
 QED
