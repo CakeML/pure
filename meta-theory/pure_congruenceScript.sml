@@ -127,10 +127,7 @@ QED
 Theorem Tra_open_bisimilarity:
   Tra open_bisimilarity
 Proof
-  rw[Tra_def, open_bisimilarity_def] >>
-  assume_tac transitive_app_bisimilarity >>
-  fs[transitive_def] >>
-  metis_tac[]
+  fs [Tra_def] \\ metis_tac [open_similarity_transitive,open_bisimilarity_eq]
 QED
 
 
@@ -545,16 +542,25 @@ Theorem IMP_open_similarity_INSERT:
 Proof
   fs [open_similarity_def] \\ rw [] \\ fs [Exps_def]
   \\ rw [bind_def]
+  \\ reverse (Cases_on ‘h IN FDOM f’)
+  THEN1
+   (‘~(h IN freevars e1) ∧ ~(h IN freevars e2)’ by (fs [SUBSET_DEF] \\ metis_tac [])
+    \\ fs [subst_ignore_single]
+    \\ ‘closed Fail’ by fs[closed_def]
+    \\ first_x_assum drule
+    \\ disch_then drule_all
+    \\ fs [] \\ fs [bind_def]
+    \\ metis_tac [])
   \\ ‘∃e. FLOOKUP f h = SOME e ∧ closed e’ by
         (fs [FLOOKUP_DEF,EXTENSION] \\ metis_tac [])
   \\ last_x_assum drule \\ rw []
-  \\ first_x_assum (qspec_then ‘DRESTRICT f vars’ mp_tac)
-  \\ impl_tac THEN1 (fs [EXTENSION,DRESTRICT_DEF] \\ metis_tac [])
+  \\ first_x_assum (qspec_then ‘f’ mp_tac)
+  \\ impl_tac THEN1 (fs [SUBSET_DEF,freevars_subst])
   \\ fs [bind_def,FLOOKUP_DRESTRICT]
   \\ reverse IF_CASES_TAC THEN1 metis_tac [] \\ fs []
   \\ ‘(∀v. v ∈ FRANGE (FEMPTY |+ (h,e)) ⇒ closed v)’ by fs [FRANGE_DEF,FLOOKUP_DEF]
   \\ drule subst_subst_FUNION \\ fs []
-  \\ qsuff_tac ‘FEMPTY |+ (h,e) ⊌ DRESTRICT f vars = f’ THEN1 fs []
+  \\ qsuff_tac ‘FEMPTY |+ (h,e) ⊌ f = f’ THEN1 fs []
   \\ fs [fmap_EXT,FUNION_DEF,EXTENSION,DRESTRICT_DEF,FLOOKUP_DEF]
   \\ metis_tac []
 QED
@@ -564,8 +570,6 @@ Theorem open_similarity_inter:
   open_similarity (vars INTER freevars (App e1 e2)) e1 e2
 Proof
   fs [open_similarity_def] \\ rw [] \\ eq_tac \\ rw []
-  \\ cheat (* hmm, needs to assume that vars is finite
-              or perhaps the lemma below can be rephrased *)
 QED
 
 Theorem Howe_open_similarity_inter:
@@ -620,7 +624,11 @@ Proof
   \\ Induct_on ‘FINITE’ \\ rw []
   THEN1
    (fs [open_similarity_def,FDOM_EQ_EMPTY] \\ res_tac
-    \\ imp_res_tac Howe_vars \\ fs [])
+    \\ imp_res_tac Howe_vars \\ fs []
+    \\ rw [bind_def]
+    \\ ‘∀m. DISJOINT (freevars e2) (FDOM m) ∧
+            DISJOINT (freevars e1') (FDOM m)’ by fs []
+    \\ fs [subst_ignore])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
   \\ pop_assum (first_assum o mp_then Any mp_tac)
   \\ rw [] \\ simp []
@@ -672,7 +680,16 @@ Proof
     \\ metis_tac [])
   \\ fs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ fs [LIST_REL_open_bisimilarity]
-  \\ metis_tac []
+  \\ fs [GSYM PULL_FORALL]
+  THEN1 (metis_tac [])
+  THEN1 (metis_tac [])
+  \\ fs [GSYM CONJ_ASSOC]
+  THEN1
+   (first_x_assum (qspecl_then [‘vars’,‘ves’,‘ves'’,‘e’,‘e'’] mp_tac)
+    \\ impl_tac THEN1 gvs [] \\ rw [])
+  THEN1
+   (first_x_assum (qspecl_then [‘vars’,‘ves'’,‘ves’,‘e'’,‘e’] mp_tac)
+    \\ impl_tac THEN1 gvs [] \\ rw [])
 QED
 
 (* -- contextual equivalence -- *)

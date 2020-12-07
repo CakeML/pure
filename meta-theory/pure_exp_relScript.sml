@@ -689,18 +689,19 @@ Proof
   Cases_on ‘freevars (subst x e1 e2)’ >> fs[FORALL_AND_THM]
 QED
 
+
 (* -- applicative (bi)similarity for open expressions -- *)
 
 Definition open_similarity_def:
   open_similarity names e1 e2 ⇔
-    set(freevars e1) ∪ set(freevars e2) ⊆ names ∧
-    ∀f. names = FDOM f ⇒ bind f e1 ≲ bind f e2
+    freevars e1 ∪ freevars e2 ⊆ names ∧
+    ∀f. freevars e1 ∪ freevars e2 ⊆ FDOM f ⇒ bind f e1 ≲ bind f e2
 End
 
 Definition open_bisimilarity_def:
   open_bisimilarity names e1 e2 ⇔
-    set(freevars e1) ∪ set(freevars e2) ⊆ names ∧
-    ∀f. names = FDOM f ⇒ bind f e1 ≃ bind f e2
+    freevars e1 ∪ freevars e2 ⊆ names ∧
+    ∀f. freevars e1 ∪ freevars e2 ⊆ FDOM f ⇒ bind f e1 ≃ bind f e2
 End
 
 Theorem open_bisimilarity_eq:
@@ -711,13 +712,42 @@ Proof
   \\ fs [open_similarity_def,open_bisimilarity_def,app_bisimilarity_similarity]
 QED
 
+Theorem fail[simp]:
+  Fail ≃ Fail ∧ Fail ≲ Fail
+Proof
+  fs [app_similarity_iff,Once unfold_rel_def]
+  \\ once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def]
+QED
+
 (* (Tra) in the paper has an amusing typo that renders the corresponding
    proposition a tautology *)
 Theorem open_similarity_transitive:
   open_similarity names e1 e2 ∧ open_similarity names e2 e3 ⇒ open_similarity names e1 e3
 Proof
-  rw[open_similarity_def] >>
-  metis_tac[transitive_app_similarity |> SIMP_RULE std_ss[transitive_def]]
+  rw[open_similarity_def]
+  \\ rw [bind_def]
+  \\ rpt (first_x_assum (qspec_then ‘FUNION f (FUN_FMAP (K Fail) (freevars e2))’ mp_tac))
+  \\ fs [FUNION_DEF]
+  \\ impl_tac THEN1 fs [SUBSET_DEF] \\ strip_tac
+  \\ impl_tac THEN1 fs [SUBSET_DEF] \\ strip_tac
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ fs [bind_def]
+  \\ reverse IF_CASES_TAC
+  THEN1
+   (gvs [FLOOKUP_DEF,FUNION_DEF]
+    \\ Cases_on ‘n ∈ FDOM f’ \\ fs [] \\ res_tac \\ fs []
+    \\ fs [FUN_FMAP_DEF] \\ fs [closed_def])
+  \\ fs [] \\ once_rewrite_tac [subst_FDIFF]
+  \\ qmatch_goalsub_abbrev_tac
+       ‘subst f1 _ ≲ _ ⇒ _ ≲ subst f3 _ ⇒ subst f1' _ ≲ subst f3' _’
+  \\ qsuff_tac ‘f1 = f1' ∧ f3 = f3'’
+  THEN1
+   (assume_tac transitive_app_similarity
+    \\ fs [relationTheory.transitive_def]
+    \\ metis_tac [])
+  \\ unabbrev_all_tac \\ rw [fmap_EXT]
+  \\ fs [DRESTRICT_DEF,EXTENSION,SUBSET_DEF,FUN_FMAP_DEF,FUNION_DEF]
+  \\ metis_tac []
 QED
 
 
@@ -732,33 +762,12 @@ val _ = set_fixity "≅" (Infixl 480);
 Overload "≅" = “exp_eq”;
 
 Theorem exp_eq_open_bisimilarity:
-  exp_eq x y ⇔ ∃vars. open_bisimilarity vars x y ∧
-                      FINITE vars ∧ freevars x ∪ freevars y ⊆ vars
+  x ≅ y ⇔ ∃vars. open_bisimilarity vars x y ∧
+                 FINITE vars ∧ freevars x ∪ freevars y ⊆ vars
 Proof
-  eq_tac \\ rw []
-  THEN1
-   (fs [open_bisimilarity_def,SUBSET_DEF]
-    \\ rw [] \\ fs [exp_eq_def]
-    \\ qexists_tac ‘freevars (App x y)’ \\ fs []
-    \\ rw [] \\ first_x_assum match_mp_tac
-    \\ first_x_assum (assume_tac o GSYM) \\ fs [])
-  \\ fs [exp_eq_def,open_bisimilarity_def] \\ rw []
-  \\ fs [bind_def]
-  \\ reverse IF_CASES_TAC \\ fs []
-  THEN1
-   (simp [Once app_bisimilarity_iff] \\ fs [eval_thm,closed_def])
-  \\ first_x_assum (qspec_then ‘FUN_FMAP
-        (λn. if n IN FDOM f then f ' n else Fail) vars’ mp_tac)
-  \\ once_rewrite_tac [subst_FDIFF]
-  \\ fs [FLOOKUP_FUN_FMAP]
-  \\ reverse IF_CASES_TAC
-  THEN1
-   (fs [] \\ gvs [FLOOKUP_DEF] \\ Cases_on ‘n IN FDOM f’ \\ gvs []
-    \\ res_tac \\ fs [closed_def]) \\ fs []
-  \\ match_mp_tac (METIS_PROVE []
-       “x1 = y1 ∧ x2 = y2 ⇒ f x1 x ≃ f x2 y ⇒ f y1 x ≃ f y2 y”)
-  \\ fs [fmap_EXT,EXTENSION,DRESTRICT_DEF,FUN_FMAP_DEF,SUBSET_DEF]
-  \\ metis_tac []
+  fs [exp_eq_def,open_bisimilarity_def]
+  \\ eq_tac \\ rw []
+  \\ qexists_tac ‘freevars x UNION freevars y’ \\ fs []
 QED
 
 Theorem open_bisimilarity_SUBSET:
@@ -768,43 +777,12 @@ Theorem open_bisimilarity_SUBSET:
 Proof
   fs [open_bisimilarity_def] \\ rw []
   \\ imp_res_tac SUBSET_TRANS \\ fs []
-  \\ rw [bind_def]
-  \\ last_x_assum (qspec_then ‘FDOM f’ mp_tac) \\ rw []
-  \\ last_x_assum (qspec_then ‘DRESTRICT f vars’ mp_tac)
-  \\ fs [FDOM_DRESTRICT]
-  \\ impl_tac THEN1 (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-  \\ reverse (rw [bind_def])
-  THEN1 (fs [FLOOKUP_DRESTRICT] \\ res_tac \\ fs [])
-  \\ pop_assum mp_tac
-  \\ once_rewrite_tac [subst_FDIFF]
-  \\ fs [DRESTRICT_DRESTRICT]
-  \\ ‘vars ∩ freevars x = freevars x ∧
-      vars ∩ freevars y = freevars y’ by (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-  \\ fs [] \\ cheat
 QED
 
 Theorem exp_eq_open_bisimilarity_freevars:
-  exp_eq x y ⇔ open_bisimilarity (freevars x ∪ freevars y) x y
+  x ≅ y ⇔ open_bisimilarity (freevars x ∪ freevars y) x y
 Proof
-  cheat (*
-  fs [exp_eq_open_bisimilarity] \\ reverse eq_tac \\ rw []
-  THEN1 (goal_assum (first_assum o mp_then Any mp_tac) \\ fs [])
-  \\ fs [open_bisimilarity_def] \\ rw []
-  \\ rw [bind_def]
-  \\ first_x_assum (qspec_then ‘FUNION (DRESTRICT f vars) (FUN_FMAP (K Fail) vars)’ mp_tac)
-  \\ impl_tac
-  THEN1 (fs [fmap_EXT,EXTENSION,FDOM_DRESTRICT] \\ metis_tac [])
-  \\ reverse (rw [bind_def])
-  THEN1
-   (gvs [FLOOKUP_FUNION,AllCaseEqs(),FLOOKUP_DEF,FUN_FMAP_DEF,FDOM_DRESTRICT]
-    \\ fs [closed_def] \\ res_tac \\ gvs [DRESTRICT_DEF])
-  \\ pop_assum mp_tac
-  \\ once_rewrite_tac [subst_FDIFF]
-  \\ match_mp_tac (METIS_PROVE []
-     “m1 = m1' ∧ m2 = m2' ⇒ subst m1 x ≃ subst m2 y ⇒ subst m1' x ≃ subst m2' y”)
-  \\ fs [fmap_EXT,DRESTRICT_DEF,FUNION_DEF]
-  \\ fs [EXTENSION,SUBSET_DEF] \\ rw []
-  \\ metis_tac [] *)
+  fs [exp_eq_def,open_bisimilarity_def]
 QED
 
 Theorem app_bisimilarity_eq:
@@ -817,13 +795,6 @@ Proof
   \\ fs [bind_def,closed_def]
   \\ reverse (rw [])
   \\ fs [Once app_bisimilarity_iff,closed_def,eval_thm]
-QED
-
-Theorem fail[simp]:
-  Fail ≃ Fail ∧ Fail ≲ Fail
-Proof
-  fs [app_similarity_iff,Once unfold_rel_def]
-  \\ once_rewrite_tac [app_bisimilarity_iff] \\ fs [eval_thm,closed_def]
 QED
 
 val _ = export_theory();
