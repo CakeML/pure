@@ -565,24 +565,161 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem open_similarity_inter:
-  open_similarity vars e1 e2 =
-  open_similarity (vars INTER freevars (App e1 e2)) e1 e2
+Theorem open_similarity_larger:
+  ∀vars e1 e2 vars1.
+    open_similarity vars e1 e2 ∧ vars SUBSET vars1 ⇒ open_similarity vars1 e1 e2
 Proof
-  fs [open_similarity_def] \\ rw [] \\ eq_tac \\ rw []
+  fs [open_similarity_def]
+  \\ rw [] \\ imp_res_tac SUBSET_TRANS \\ fs []
 QED
 
-Theorem Howe_open_similarity_inter:
-  Howe open_similarity vars e1 e2 ⇒
-  Howe open_similarity (vars ∩ freevars (App e1 e2)) e1 e2
+Theorem Howe_larger:
+  Howe R vars e1 e2 ⇒ R = open_similarity ⇒
+  ∀vars1. vars SUBSET vars1 ⇒ Howe R vars1 e1 e2
 Proof
-  qsuff_tac ‘
-    ∀R vars e1 e2. Howe R vars e1 e2 ⇒ R = open_similarity ⇒
-                   Howe R (vars ∩ freevars (App e1 e2)) e1 e2’
-  THEN1 metis_tac []
-  \\ ho_match_mp_tac Howe_ind \\ rw []
-  \\ cheat
+  Induct_on ‘Howe’ \\ rw []
+  THEN1
+   (simp [Once Howe_cases] \\ imp_res_tac open_similarity_larger)
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+    THEN1 (pop_assum match_mp_tac \\ fs [SUBSET_DEF])
+    \\ imp_res_tac open_similarity_larger)
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS] \\ res_tac
+    \\ rpt (goal_assum (first_assum o mp_then Any mp_tac))
+    \\ imp_res_tac open_similarity_larger)
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ qexists_tac ‘es'’ \\ fs [] \\ rw []
+    THEN1
+     (last_x_assum kall_tac \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘es'’ \\ qid_spec_tac ‘es’
+      \\ Induct \\ Cases_on ‘es'’ \\ fs [])
+    \\ imp_res_tac open_similarity_larger)
+  \\ simp [Once Howe_cases,PULL_EXISTS]
+  \\ qexists_tac ‘ves'’ \\ fs [] \\ rw []
+  \\ qexists_tac ‘e2’ \\ fs []
+  \\ imp_res_tac open_similarity_larger \\ fs [] \\ rw []
+  THEN1 (first_x_assum match_mp_tac \\ fs [SUBSET_DEF])
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ qid_spec_tac ‘ves’ \\ qid_spec_tac ‘ves'’
+  \\ Induct \\ Cases_on ‘ves’ \\ fs [FORALL_PROD] \\ rw []
+  THEN1 (first_x_assum match_mp_tac \\ fs [SUBSET_DEF])
+  \\ pop_assum mp_tac
+  \\ rename [‘_ (MAP SND xs) (MAP SND ys)’]
+  \\ match_mp_tac LIST_REL_mono
+  \\ fs [FORALL_PROD] \\ rw []
+  \\ first_x_assum match_mp_tac \\ fs [SUBSET_DEF]
 QED
+
+Theorem Howe_larger = GEN_ALL Howe_larger |> SIMP_RULE std_ss [] |> MP_CANON;
+
+Theorem LIST_REL_Howe_larger:
+  ∀vs ws es ys.
+    LIST_REL (Howe open_similarity vs) es ys ∧ vs SUBSET ws ⇒
+    LIST_REL (Howe open_similarity ws) es ys
+Proof
+  rw [] \\ last_x_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono \\ rw []
+  \\ match_mp_tac Howe_larger
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ fs [SUBSET_DEF]
+QED
+
+Theorem open_similarity_finite:
+  ∀vars e1 e2.
+    open_similarity vars e1 e2 ⇒ ∃vs. open_similarity vs e1 e2 ∧ FINITE vs
+Proof
+  fs [open_similarity_def] \\ rw []
+  \\ qexists_tac ‘freevars e1 UNION freevars e2’ \\ fs []
+QED
+
+Theorem Howe_finite:
+  Howe R vars e1 e2 ⇒ R = open_similarity ⇒
+  ∃ws. Howe R ws e1 e2 ∧ FINITE ws
+Proof
+  Induct_on ‘Howe’ \\ rw []
+  THEN1
+   (simp [Once Howe_cases]
+    \\ imp_res_tac open_similarity_finite
+    \\ qexists_tac ‘vs’ \\ fs [])
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ imp_res_tac open_similarity_finite
+    \\ qexists_tac ‘x INSERT (ws UNION vs)’ \\ fs []
+    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+    THEN1
+     (match_mp_tac Howe_larger
+      \\ goal_assum (first_assum o mp_then Any mp_tac)
+      \\ fs [SUBSET_DEF])
+    \\ match_mp_tac open_similarity_larger
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ imp_res_tac open_similarity_finite
+    \\ qexists_tac ‘vs UNION ws UNION ws'’ \\ fs []
+    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+    \\ qexists_tac ‘e2'’ \\ fs [] \\ rw []
+    \\ TRY (match_mp_tac Howe_larger)
+    \\ TRY (match_mp_tac open_similarity_larger)
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ imp_res_tac open_similarity_finite
+    \\ ‘∃ws1. LIST_REL (Howe open_similarity ws1) es es' ∧ FINITE ws1 ∧ vs SUBSET ws1’ by
+     (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ qid_spec_tac ‘es'’ \\ qid_spec_tac ‘es’
+      \\ Induct \\ fs []
+      THEN1 (goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs [])
+      \\ fs [PULL_EXISTS] \\ rw []
+      \\ first_x_assum drule \\ rw []
+      \\ qexists_tac ‘ws UNION ws1’ \\ fs [] \\ rw []
+      \\ TRY (match_mp_tac Howe_larger)
+      \\ TRY (match_mp_tac LIST_REL_Howe_larger)
+      \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+      \\ fs [SUBSET_DEF])
+    \\ goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs []
+    \\ TRY (match_mp_tac open_similarity_larger)
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  \\ simp [Once Howe_cases,PULL_EXISTS]
+  \\ imp_res_tac open_similarity_finite
+  \\ ‘∃ws1. LIST_REL (Howe open_similarity ws1) (MAP SND ves) (MAP SND ves') ∧
+            FINITE ws1 ∧ vs SUBSET ws1’ by
+    (‘LIST_REL (λe1 e2. ∃ws. Howe open_similarity ws e1 e2 ∧ FINITE ws) (MAP SND ves)
+        (MAP SND ves')’ by
+      (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+       \\ match_mp_tac LIST_REL_mono \\ rw []
+       \\ match_mp_tac Howe_larger)
+     \\ pop_assum mp_tac
+     \\ qid_spec_tac ‘ves'’ \\ qid_spec_tac ‘ves’
+     \\ Induct \\ fs []
+     THEN1 (goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs [])
+     \\ Cases \\ fs [] \\ Cases \\ fs [] \\ PairCases_on ‘h’ \\ fs []
+     \\ fs [PULL_EXISTS] \\ rw []
+     \\ first_x_assum drule \\ rw []
+     \\ qexists_tac ‘ws' UNION ws1’ \\ fs [] \\ rw []
+     \\ TRY (match_mp_tac Howe_larger)
+     \\ TRY (match_mp_tac LIST_REL_Howe_larger)
+     \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+     \\ fs [SUBSET_DEF])
+  \\ qexists_tac ‘ws1 UNION ws’ \\ fs []
+  \\ qexists_tac ‘ves'’ \\ fs []
+  \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+  \\ TRY (match_mp_tac open_similarity_larger)
+  \\ TRY (match_mp_tac Howe_larger)
+  \\ TRY (match_mp_tac LIST_REL_Howe_larger)
+  \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+  \\ fs [SUBSET_DEF]
+QED
+
+Theorem Howe_finite = GEN_ALL Howe_finite |> SIMP_RULE std_ss [] |> MP_CANON;
 
 Theorem term_rel_open_similarity:
   term_rel open_similarity
@@ -604,30 +741,26 @@ Proof
   \\ drule app_simulation_SUBSET_app_similarity
   \\ pop_assum kall_tac \\ pop_assum kall_tac
   \\ rw [SUBSET_DEF,IN_DEF,FORALL_PROD]
-  \\ drule Howe_open_similarity_inter
-  \\ ‘freevars e1 SUBSET vars ∧ freevars e2 SUBSET vars’ by
-   (assume_tac term_rel_open_similarity
+  \\ imp_res_tac Howe_finite
+  \\ qsuff_tac ‘open_similarity ws e1 e2’
+  THEN1
+   (rw [] \\ assume_tac term_rel_open_similarity
     \\ imp_res_tac term_rel_Howe
-    \\ fs [term_rel_def] \\ res_tac \\ fs [Exps_def])
+    \\ fs [term_rel_def] \\ res_tac \\ fs [Exps_def]
+    \\ fs [open_similarity_def])
   \\ last_x_assum kall_tac
-  \\ strip_tac
-  \\ once_rewrite_tac [open_similarity_inter]
-  \\ pop_assum mp_tac
-  \\ ‘FINITE (vars ∩ (freevars (App e1 e2)))’ by
-        (match_mp_tac FINITE_INTER \\ fs [])
-  \\ fs [] \\ rename [‘FINITE t’]
+  \\ qpat_x_assum ‘Howe open_similarity ws e1 e2’ mp_tac
   \\ qid_spec_tac ‘e2’
   \\ qid_spec_tac ‘e1’
   \\ pop_assum mp_tac
-  \\ pop_assum kall_tac
-  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘ws’
   \\ Induct_on ‘FINITE’ \\ rw []
   THEN1
    (fs [open_similarity_def,FDOM_EQ_EMPTY] \\ res_tac
     \\ imp_res_tac Howe_vars \\ fs []
     \\ rw [bind_def]
     \\ ‘∀m. DISJOINT (freevars e2) (FDOM m) ∧
-            DISJOINT (freevars e1') (FDOM m)’ by fs []
+            DISJOINT (freevars e1) (FDOM m)’ by fs []
     \\ fs [subst_ignore])
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
   \\ pop_assum (first_assum o mp_then Any mp_tac)
