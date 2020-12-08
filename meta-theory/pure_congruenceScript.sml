@@ -420,7 +420,18 @@ QED
 Theorem Cus_open_similarity:
   Cus open_similarity
 Proof
-  cheat
+  fs [Cus_def] \\ rw []
+  \\ fs [open_similarity_def]
+  \\ fs [SUBSET_DEF,freevars_subst]
+  \\ conj_tac THEN1 (metis_tac [])
+  \\ rw [bind_def]
+  \\ ‘(∀v. v ∈ FRANGE (FEMPTY |+ (x,e2)) ⇒ closed v)’ by fs [FRANGE_DEF]
+  \\ drule subst_subst_FUNION \\ fs []
+  \\ disch_then kall_tac
+  \\ first_x_assum (qspec_then ‘FEMPTY |+ (x,e2) ⊌ f’ mp_tac)
+  \\ impl_tac THEN1 (fs [FUNION_DEF] \\ metis_tac [])
+  \\ simp [bind_def] \\ IF_CASES_TAC \\ fs []
+  \\ gvs [FLOOKUP_DEF,FUNION_DEF] \\ metis_tac []
 QED
 
 Theorem Cus_open_bisimilarity:
@@ -433,7 +444,7 @@ QED
 Theorem IMP_Howe_Sub: (* 5.5.3 *)
   Ref R ∧ Tra R ∧ Cus R ⇒ Sub (Howe R)
 Proof
-  cheat (* errata: says use 5.5.1(ii), i.e. Howe_Tra *)
+  cheat (* by induction on Howe, errata: says use 5.5.1(ii), i.e. Howe_Tra *)
 QED
 
 Theorem Ref_Howe:
@@ -484,13 +495,6 @@ Proof
        Cus_open_similarity,Tra_open_similarity,Ref_open_similarity]
 QED
 
-Theorem KeyLemma: (* key lemma 5.5.4 *)
-  eval e1 = Closure x e ∧ Howe open_similarity {} e1 e2 ⇒
-  ∃e'. eval e2 = Closure x e' ∧ Howe open_similarity {x} e e'
-Proof
-  cheat
-QED
-
 Theorem Howe_vars:
   Howe open_similarity vars e1 e2 ⇒
   freevars e1 ⊆ vars ∧ freevars e2 ⊆ vars
@@ -517,20 +521,77 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem app_simulation_Howe_open_similarity: (* or replace with the lemma below *)
-  app_simulation (UNCURRY (Howe open_similarity {}))
+Theorem term_rel_open_similarity:
+  term_rel open_similarity
 Proof
-  fs [app_simulation_def,unfold_rel_def]
-  \\ cheat (* KeyLemma? *)
+  fs [term_rel_def,open_similarity_def,Exps_def]
 QED
 
-Theorem Howe_open_similarity_app_similarity: (* has better concl than above *)
-  (UNCURRY (Howe open_similarity ∅)) ⊆ app_similarity
+Theorem app_simulation_Howe_open_similarity:
+  app_simulation (UNCURRY (Howe open_similarity {}))
 Proof
-  fs [SUBSET_DEF,FORALL_PROD,IN_DEF]
-  \\ ho_match_mp_tac app_similarity_companion_coind
-  \\ fs [FF_def,EXISTS_PROD,unfold_rel_def]
-  \\ fs [eval_Cons]
+  fs [app_simulation_def,unfold_rel_def] \\ rpt gen_tac \\ strip_tac
+  \\ ‘∃vars R. Howe R vars e1 e2 ∧ R = open_similarity ∧ vars = {}’ by fs []
+  \\ last_x_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ Induct_on ‘Howe’ \\ rpt conj_tac
+  THEN1
+   (rename [‘Var’]
+    \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ gvs []
+    \\ fs [open_similarity_EMPTY]
+    \\ qpat_x_assum ‘_ ≲ _’ mp_tac
+    \\ simp [Once app_similarity_iff]
+    \\ fs [closed_def,unfold_rel_def])
+  THEN1
+   (rename [‘Lam’]
+    \\ fs [eval_Lam]
+    \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ gvs []
+    \\ fs [open_similarity_EMPTY]
+    \\ qpat_x_assum ‘_ ≲ _’ mp_tac
+    \\ simp [Once app_similarity_iff]
+    \\ fs [unfold_rel_def,eval_Lam]
+    \\ strip_tac \\ fs []
+    \\ conj_tac THEN1
+     (assume_tac term_rel_open_similarity
+      \\ imp_res_tac term_rel_Howe
+      \\ fs [term_rel_def]
+      \\ ‘e1 ∈ Exps {x}’ by res_tac
+      \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+      \\ fs [Exps_def,closed_def,SUBSET_DEF,FILTER_EQ_NIL]
+      \\ fs [EVERY_MEM])
+    \\ rw []
+    \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
+    \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
+    \\ fs [open_similarity_EMPTY]
+    \\ first_x_assum drule \\ rw []
+    \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
+    \\ fs [Tra_open_similarity,term_rel_open_similarity]
+    \\ rewrite_tac [CONJ_ASSOC]
+    \\ conj_tac THEN1
+     (qpat_x_assum ‘∀x. _’ kall_tac
+      \\ assume_tac term_rel_open_similarity
+      \\ imp_res_tac term_rel_Howe
+      \\ fs [term_rel_def]
+      \\ res_tac \\ fs [] \\ rw []
+      \\ match_mp_tac IMP_closed_subst
+      \\ fs [Exps_def]
+      \\ imp_res_tac eval_Closure_closed)
+    \\ first_x_assum match_mp_tac \\ fs []
+    \\ assume_tac term_rel_open_similarity
+    \\ imp_res_tac term_rel_Howe
+    \\ fs [term_rel_def]
+    \\ res_tac \\ fs [])
+  THEN1
+   (rename [‘App’]
+    \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ gvs []
+    \\ fs [open_similarity_EMPTY]
+    \\ drule app_similarity_closed \\ strip_tac \\ fs []
+    \\ conj_tac THEN1 fs [closed_def]
+    \\ fs [app_similarity_iff,Once unfold_rel_def]
+    \\ Cases_on ‘eval e1'’ \\ gvs [eval_App,dest_Closure_def,eval_Cons]
+    \\ cheat)
   \\ cheat
 QED
 
@@ -720,12 +781,6 @@ Proof
 QED
 
 Theorem Howe_finite = GEN_ALL Howe_finite |> SIMP_RULE std_ss [] |> MP_CANON;
-
-Theorem term_rel_open_similarity:
-  term_rel open_similarity
-Proof
-  fs [term_rel_def,open_similarity_def,Exps_def]
-QED
 
 Theorem Howe_open_similarity: (* key property *)
   Howe open_similarity = open_similarity

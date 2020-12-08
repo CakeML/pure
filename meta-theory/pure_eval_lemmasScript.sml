@@ -171,4 +171,23 @@ Proof
   gvs[closed_def]
 QED
 
+Theorem eval_eq_Diverge:
+  eval x = Diverge ⇔ ∀n. eval_to n x = Diverge
+Proof
+  fs [eval_def]
+  \\ once_rewrite_tac [gen_v]
+  \\ fs [AllCaseEqs()]
+  \\ reverse eq_tac \\ rw []
+  THEN1 (qexists_tac ‘0’ \\ fs [v_limit_def,v_lookup])
+  \\ fs [v_limit_def]
+  \\ drule limit_not_default \\ fs []
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ simp [v_lookup,AllCaseEqs()] \\ rw []
+  \\ Cases_on ‘k ≤ n’ \\ res_tac \\ fs []
+  \\ Cases_on ‘eval_to n x = Diverge’ \\ fs []
+  \\ ‘n ≤ k’ by fs []
+  \\ imp_res_tac eval_to_not_diverge_mono
+  \\ metis_tac [LESS_EQ_REFL]
+QED
+
 val _ = export_theory();

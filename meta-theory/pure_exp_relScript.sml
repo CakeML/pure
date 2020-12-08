@@ -797,4 +797,20 @@ Proof
   \\ fs [Once app_bisimilarity_iff,closed_def,eval_thm]
 QED
 
+Theorem app_similarity_closed:
+  x ≲ y ⇒ closed x ∧ closed y
+Proof
+  fs [app_similarity_iff,Once unfold_rel_def]
+QED
+
+Theorem open_similarity_EMPTY:
+  open_similarity ∅ x y = x ≲ y
+Proof
+  rw [open_similarity_def] \\ eq_tac \\ rw []
+  THEN1 (first_x_assum (qspec_then ‘FEMPTY’ mp_tac) \\ fs [])
+  \\ imp_res_tac app_similarity_closed
+  \\ TRY (fs [closed_def] \\ NO_TAC)
+  \\ rw [bind_def]
+QED
+
 val _ = export_theory();
