@@ -444,7 +444,34 @@ QED
 Theorem IMP_Howe_Sub: (* 5.5.3 *)
   Ref R ∧ Tra R ∧ Cus R ⇒ Sub (Howe R)
 Proof
-  cheat (* by induction on Howe, errata: says use 5.5.1(ii), i.e. Howe_Tra *)
+  fs [Sub_def,PULL_FORALL]
+  \\ qsuff_tac ‘
+       ∀R x_vars e1 e1'.
+         Howe R x_vars e1 e1' ⇒
+         ∀vars x e2 e2'. x_vars = x INSERT vars ∧ Ref R ∧ Tra R ∧ Cus R ∧
+            (e1 ∈ Exps (x INSERT vars) ∧ e1' ∈ Exps (x INSERT vars)) ∧
+            closed e2 ∧ closed e2' ∧ Howe R vars e2 e2' ⇒
+            Howe R vars (subst x e2 e1) (subst x e2' e1')’
+  THEN1 fs [PULL_FORALL]
+  \\ Induct_on ‘Howe’ \\ rw [] \\ fs []
+  THEN1
+   (match_mp_tac (Howe_Tra |> MP_CANON |> GEN_ALL)
+    \\ qexists_tac ‘(subst x' e2' (Var x))’
+    \\ rw [] THEN1 cheat THEN1 cheat THEN1 cheat THEN1 cheat
+    THEN1 (fs [subst_single_def] \\ rw [] \\ cheat)
+    \\ fs [Cus_def])
+  (*
+    fs [Cus_def,AND_IMP_INTRO]
+    \\ first_assum (first_assum o mp_then (Pos last) mp_tac)
+    \\ disch_then (qspec_then ‘e2'’ mp_tac)
+    \\ impl_tac THEN1 cheat
+    \\ simp [subst_single_def] \\ strip_tac
+    \\ simp [Once Howe_cases]
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ rw [] THEN1 (fs [INSERT_INSERT])
+    \\ first_x_assum match_mp_tac
+  *)
+  \\ cheat
 QED
 
 Theorem Ref_Howe:
@@ -530,6 +557,8 @@ QED
 Theorem app_simulation_Howe_open_similarity:
   app_simulation (UNCURRY (Howe open_similarity {}))
 Proof
+  cheat
+(*
   fs [app_simulation_def,unfold_rel_def] \\ rpt gen_tac \\ strip_tac
   \\ ‘∃vars R. Howe R vars e1 e2 ∧ R = open_similarity ∧ vars = {}’ by fs []
   \\ last_x_assum kall_tac
@@ -591,8 +620,7 @@ Proof
     \\ conj_tac THEN1 fs [closed_def]
     \\ fs [app_similarity_iff,Once unfold_rel_def]
     \\ Cases_on ‘eval e1'’ \\ gvs [eval_App,dest_Closure_def,eval_Cons]
-    \\ cheat)
-  \\ cheat
+    \\ cheat) *)
 QED
 
 Theorem IMP_open_similarity_INSERT:
