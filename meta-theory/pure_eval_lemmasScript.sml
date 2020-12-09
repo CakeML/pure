@@ -190,4 +190,113 @@ Proof
   \\ metis_tac [LESS_EQ_REFL]
 QED
 
+CoInductive Diverges:
+  (∀f x.
+    Diverges (subst_funs f x) ⇒
+    Diverges (Letrec f x))
+  ∧
+  (∀x y.
+    Diverges x ⇒
+    Diverges (App x y))
+  ∧
+  (∀x y s body.
+    eval x = Closure s body ∧
+    Diverges (bind s y body) ⇒
+    Diverges (App x y))
+  ∧
+  (∀s n x.
+    Diverges x ⇒
+    Diverges (IsEq s n x))
+  ∧
+  (∀s i x.
+    Diverges x ⇒
+    Diverges (Proj s i x))
+  ∧
+  (∀s xs y ys x.
+    eval x = eval (Cons s (xs ++ y::ys)) ∧
+    Diverges y ⇒
+    Diverges (Proj s (LENGTH xs) x))
+  ∧
+  (∀x y z.
+    Diverges x ⇒
+    Diverges (If x y z))
+  ∧
+  (∀x y z.
+    Diverges y ∧ eval x = True ⇒
+    Diverges (If x y z))
+  ∧
+  (∀x y z.
+    Diverges z ∧ eval x = False ⇒
+    Diverges (If x y z))
+  ∧
+  (∀a x xs.
+    Diverges x ∧ MEM x xs ⇒
+    Diverges (Prim (AtomOp a) xs))
+End
+
+Triviality LESS_LENGTH_IMP:
+  ∀xs n. n < LENGTH xs ⇒ ∃ys y zs. xs = ys ++ y::zs ∧ LENGTH ys = n
+Proof
+  Induct \\ fs [] \\ Cases_on ‘n’ \\ fs []
+  \\ rw [] \\ res_tac \\ gvs []
+  \\ qexists_tac ‘h::ys’ \\ fs []
+  \\ qexists_tac ‘y’ \\ fs []
+  \\ qexists_tac ‘zs’ \\ fs []
+QED
+
+Theorem Diverges_iff:
+  ∀e. eval e = Diverge ⇔ Diverges e
+Proof
+  rw [] \\ eq_tac
+  THEN1
+   (qid_spec_tac ‘e’
+    \\ ho_match_mp_tac Diverges_coind
+    \\ rw [] \\ reverse (Cases_on ‘e’) \\ fs []
+    \\ TRY (fs [eval_thm] \\ NO_TAC)
+    THEN1
+     (rename [‘eval (App f x)’]
+      \\ gvs [eval_thm,AllCaseEqs()]
+      \\ Cases_on ‘eval f’ \\ fs [dest_Closure_def])
+    \\ rename [‘eval (Prim p xs)’]
+    \\ reverse (Cases_on ‘p’) \\ fs [eval_thm]
+    \\ gvs [eval_Prim,DefnBase.one_line_ify NONE eval_op_def,
+            AllCaseEqs(),MAP_EQ_CONS,is_eq_def,el_def,MEM_MAP]
+    THEN1 (goal_assum (first_assum o mp_then Any mp_tac) \\ fs [])
+    \\ pop_assum (assume_tac o GSYM) \\ fs []
+    \\ drule eval_eq_Cons_IMP
+    \\ fs [eval_thm] \\ rw [] \\ fs []
+    \\ drule LESS_LENGTH_IMP \\ rw [] \\ fs []
+    \\ qexists_tac ‘ys’
+    \\ qexists_tac ‘y’
+    \\ qexists_tac ‘zs’ \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ qabbrev_tac ‘qs = MAP eval ys’
+    \\ ‘LENGTH ys = LENGTH qs’ by fs [Abbr‘qs’]
+    \\ fs [EL_LENGTH_APPEND])
+  \\ fs [eval_eq_Diverge,PULL_FORALL]
+  \\ gen_tac \\ qid_spec_tac ‘e’ \\ qid_spec_tac ‘n’
+  \\ ho_match_mp_tac eval_to_ind \\ reverse (rw [])
+  \\ TRY (rename [‘Var’] \\ fs [Once Diverges_cases] \\ NO_TAC)
+  \\ TRY (rename [‘Lam’] \\ fs [Once Diverges_cases] \\ NO_TAC)
+  THEN1
+   (rw [eval_to_def] \\ fs [AND_IMP_INTRO]
+    \\ first_x_assum match_mp_tac
+    \\ last_x_assum mp_tac
+    \\ simp [Once Diverges_cases] \\ fs [])
+  THEN1
+   (rw [eval_to_def] \\ fs [AND_IMP_INTRO]
+    \\ qpat_x_assum ‘Diverges _’ mp_tac
+    \\ simp [Once Diverges_cases] \\ rw []
+    \\ cheat (* true *))
+  \\ qpat_x_assum ‘Diverges _’ mp_tac
+  \\ simp [Once Diverges_cases] \\ rw []
+  THEN1 (fs [eval_to_def,eval_op_def,is_eq_def])
+  THEN1 (fs [eval_to_def,eval_op_def,el_def])
+  THEN1
+   (fs [eval_to_def,eval_op_def,el_def,eval_thm] \\ rw []
+    \\ ‘eval_to n x = Constructor s (MAP eval xs' ++ eval y::MAP eval ys)’ by cheat
+    \\ fs [] \\ cheat (* sigh, not provable, I think *))
+  \\ cheat
+QED
+
 val _ = export_theory();
