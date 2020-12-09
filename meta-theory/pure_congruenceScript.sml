@@ -8,7 +8,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory
+     pure_exp_lemmasTheory pure_eval_altTheory pure_limitTheory
      pure_exp_relTheory pure_alpha_equivTheory;
 
 val _ = new_theory "pure_congruence";
@@ -721,6 +721,19 @@ Proof
     \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
            FILTER_EQ_NIL,EVERY_MEM])
   (* the Diverge case below *)
+  \\ simp [Diverges_iff]
+  \\ rpt (pop_assum mp_tac)
+  \\ fs [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  \\ qid_spec_tac ‘e1’
+  \\ qid_spec_tac ‘e2’
+  \\ fs [GSYM PULL_EXISTS]
+  \\ ho_match_mp_tac Diverges_coind
+  \\ fs [PULL_EXISTS]
+  \\ cheat (* is this any better than the induction on eval_to attempted below? *)
+
+(*
+
+  (* induction on eval_to *)
   \\ simp [eval_eq_Diverge] \\ rw []
   \\ rpt (pop_assum mp_tac)
   \\ qid_spec_tac ‘e1’
@@ -731,7 +744,8 @@ Proof
   \\ fs [eval_eq_Diverge,AND_IMP_INTRO]
   (* this appraoch does not look promising.. *)
   \\ cheat
-(*
+
+  (* induction on Howe, won't work for App ... *)
   \\ ‘∃vars R. Howe R vars e1 e2 ∧ R = open_similarity ∧ vars = {}’ by fs []
   \\ last_x_assum kall_tac
   \\ pop_assum mp_tac
@@ -743,6 +757,7 @@ Proof
   \\ Induct_on ‘Howe’ \\ rpt conj_tac
   THEN1 (fs [eval_Var])
   THEN1 (fs [eval_Lam])
+
 *)
 QED
 

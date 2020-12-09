@@ -190,6 +190,8 @@ Proof
   \\ metis_tac [LESS_EQ_REFL]
 QED
 
+(*
+
 CoInductive Diverges:
   (∀f x.
     Diverges (subst_funs f x) ⇒
@@ -298,5 +300,7 @@ Proof
     \\ fs [] \\ cheat (* sigh, not provable, I think *))
   \\ cheat
 QED
+
+*)
 
 val _ = export_theory();
