@@ -3298,7 +3298,24 @@ Proof
   strip_tac >>
   match_mp_tac companion_app_similarity  >>
   match_mp_tac(companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF] |> GEN_ALL) >>
-  conj_tac >- (match_mp_tac(GEN_ALL exp_alpha_Alpha) >> gvs[closed_def,FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]) >>
+  conj_tac >- (match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
+               gvs[closed_def,FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]) >>
+  simp[] >>
+  gvs[closed_def,FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  metis_tac[perm1_def]
+QED
+
+Theorem app_similarity_Lam_Alpha_alt:
+  closed(Lam y e1) ⇒
+  Lam x (perm_exp x y e1) ≲ Lam y e1
+Proof
+  Cases_on ‘x = y’ >- (simp[perm_exp_id,reflexive_app_similarity']) >>
+  strip_tac >>
+  match_mp_tac companion_app_similarity  >>
+  match_mp_tac(companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF] |> GEN_ALL) >>
+  conj_tac >- (match_mp_tac exp_alpha_sym >> simp [Once perm_exp_sym] >>
+               match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
+               gvs[closed_def,FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]) >>
   simp[] >>
   gvs[closed_def,FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   metis_tac[perm1_def]

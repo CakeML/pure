@@ -561,17 +561,29 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem Howe_open_similarity_IMP_closed:
+  Howe open_similarity ∅ x y ⇒ closed x ∧ closed y
+Proof
+  rw [] \\ assume_tac term_rel_open_similarity
+  \\ imp_res_tac term_rel_Howe
+  \\ fs [term_rel_def]
+  \\ res_tac \\ fs [] \\ rw []
+QED
+
+Theorem subst_perm_exp_lemma1:
+  closed (Lam y e_5) ∧ closed e_4' ⇒
+  subst x e_4' (perm_exp x y e_5) ≲ subst y e_4' e_5
+Proof
+  cheat
+QED
+
 Theorem Howe_open_similarity_IMP:
   Howe open_similarity ∅ e1 e2 ∧ closed e1 ∧ closed e2 ⇒
   (∀x ce1.
        eval e1 = Closure x ce1 ⇒
        ∃y ce2.
-           eval e2 = Closure x ce2 ∧
-           (* as stated in Pitts's paper: *)
-           Howe open_similarity {x} ce1 ce2
-           (* Lam case works with this:
-           ∀e. closed e ⇒
-               Howe open_similarity ∅ (subst x e ce1) (subst y e ce2) *)) ∧
+           eval e2 = Closure y ce2 ∧
+           Howe open_similarity {x} ce1 (perm_exp x y ce2)) ∧
   (∀x v1s.
        eval e1 = Constructor x v1s ⇒
        ∃es1 es2.
@@ -581,7 +593,6 @@ Theorem Howe_open_similarity_IMP:
   (∀a. eval e1 = Atom a ⇒ eval e2 = Atom a) ∧
   (eval e1 = Error ⇒ eval e2 = Error)
 Proof
-
   Cases_on ‘eval e1 = Diverge’ \\ fs []
   \\ fs [eval_eq_Diverge] \\ pop_assum mp_tac
   \\ qid_spec_tac ‘e2’
@@ -592,7 +603,7 @@ Proof
   THEN1
    (rename [‘Prim’] \\ cheat)
   THEN1
-   (rename [‘Lam’] \\ cheat (* see comment in the goal -- this needs to be updated
+   (rename [‘Lam’]
     \\ simp [Once Howe_cases]
     \\ fs [eval_Lam]
     \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ gvs []
@@ -601,29 +612,27 @@ Proof
     \\ simp [Once app_similarity_iff]
     \\ fs [unfold_rel_def,eval_Lam]
     \\ strip_tac \\ fs []
-    \\ rw []
-    \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
     \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
     \\ fs [open_similarity_EMPTY]
-    \\ first_x_assum drule \\ rw []
-    \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
     \\ fs [Tra_open_similarity,term_rel_open_similarity]
+    \\ rename [‘Howe open_similarity {s} x t’]
+    \\ qexists_tac ‘t’ \\ fs []
     \\ rewrite_tac [CONJ_ASSOC]
     \\ conj_tac THEN1
-     (qpat_x_assum ‘∀x. _’ kall_tac
-      \\ assume_tac term_rel_open_similarity
-      \\ imp_res_tac term_rel_Howe
-      \\ fs [term_rel_def]
-      \\ res_tac \\ fs [] \\ rw []
-      \\ match_mp_tac IMP_closed_subst
-      \\ fs [Exps_def]
-      \\ imp_res_tac eval_Closure_closed)
-    \\ first_x_assum match_mp_tac \\ fs []
-    \\ assume_tac term_rel_open_similarity
-    \\ imp_res_tac term_rel_Howe
-    \\ fs [term_rel_def]
-    \\ res_tac \\ fs [] *))
-
+     (imp_res_tac Howe_open_similarity_IMP_closed
+      \\ fs [Exps_def] \\ rewrite_tac [GSYM perm_exp_eqvt]
+      \\ drule_all eval_Closure_closed \\ strip_tac
+      \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
+             FILTER_EQ_NIL,EVERY_MEM]
+      \\ rw [] \\ res_tac \\ fs [])
+    \\ fs [open_similarity_def]
+    \\ drule_all eval_Closure_closed \\ strip_tac
+    \\ conj_asm1_tac THEN1
+     (rewrite_tac [GSYM perm_exp_eqvt]
+      \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
+             FILTER_EQ_NIL,EVERY_MEM])
+    \\ rw [] \\ rw [bind_def]
+    \\ cheat (* fiddly but true *))
   THEN1
    (rename [‘App’]
     \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
@@ -641,15 +650,19 @@ Proof
     \\ rpt (disch_then strip_assume_tac)
     \\ rename [‘eval e_1 = Closure x e_2’]
     \\ first_x_assum drule
-    \\ impl_tac THEN1 cheat (* easy closedness *)
+    \\ impl_tac THEN1 (imp_res_tac Howe_open_similarity_IMP_closed \\ fs [])
     \\ strip_tac
-    \\ rename [‘eval _ = Closure x e_5’]
-    \\ ‘Howe open_similarity {} (Lam x e_2) (Lam x e_5)’ by
-      (simp [Once Howe_cases] \\ qexists_tac ‘e_5’ \\ fs []
-       \\ cheat (* follows from refl and closedness *))
+    \\ rename [‘eval _ = Closure y e_5’]
+    \\ ‘Howe open_similarity {} (Lam x e_2) (Lam y e_5)’ by
+      (simp [Once Howe_cases] \\ qexists_tac ‘perm_exp x y e_5’ \\ fs []
+       \\ fs [open_similarity_EMPTY]
+       \\ match_mp_tac app_similarity_Lam_Alpha_alt
+       \\ imp_res_tac Howe_open_similarity_IMP_closed
+       \\ drule_all eval_Closure_closed
+       \\ gvs [SUBSET_DEF,closed_def,FILTER_EQ_NIL,EVERY_MEM])
     \\ assume_tac Sub_Howe_open_similarity
     \\ fs [Sub_def,AND_IMP_INTRO]
-    \\ pop_assum (qspecl_then [‘{}’,‘x’,‘e_2’,‘e_5’,‘e_1'’,‘e_4'’] mp_tac)
+    \\ pop_assum (qspecl_then [‘{}’,‘x’,‘e_2’,‘perm_exp x y e_5’,‘e_1'’,‘e_4'’] mp_tac)
     \\ impl_tac THEN1 (fs [] \\ cheat (* closedness stuff *))
     \\ strip_tac
     \\ simp [eval_App]
@@ -661,16 +674,19 @@ Proof
     \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
     \\ fs [open_similarity_EMPTY]
     \\ fs [Tra_open_similarity,term_rel_open_similarity]
-    \\ qexists_tac ‘subst x e_4' e_5’ \\ fs []
+    \\ qexists_tac ‘subst x e_4' (perm_exp x y e_5)’ \\ fs []
     \\ conj_tac THEN1 cheat (* closedness stuff *)
     \\ conj_tac THEN1 cheat (* closedness stuff *)
+    \\ match_mp_tac (SIMP_RULE std_ss [transitive_def] transitive_app_similarity)
+    \\ qexists_tac ‘subst y e_4' e_5’
+    \\ imp_res_tac Howe_open_similarity_IMP_closed
+    \\ conj_tac THEN1 metis_tac [subst_perm_exp_lemma1]
     \\ qpat_x_assum ‘_ ≲ _’ mp_tac
     \\ rewrite_tac [app_similarity_iff]
     \\ once_rewrite_tac [unfold_rel_def]
-    \\ fs [eval_App]
-    \\ ‘closed (subst x e_4' e_5) ∧ closed e_4'’ by cheat (* closedness stuff *)
+    \\ fs [eval_App,eval_Cons]
+    \\ ‘closed (subst y e_4' e_5)’ by cheat (* closedness stuff *)
     \\ fs [bind_single_def])
-
   \\ cheat
 QED
 
