@@ -104,7 +104,7 @@ Proof
   \\ assume_tac app_similarity_iff
   \\ metis_tac []
 QED
-        
+
 Triviality monotone_bisimilarity:
   monotone (λs. { (e1,e2) | (e1,e2) IN FF s ∧ (e2,e1) IN FF (opp s) })
 Proof
@@ -645,7 +645,7 @@ Proof
   gvs[unfold_rel_def] >>
   Cases_on ‘eval e2’ >> gvs[eval_thm]
 QED
-        
+
 Theorem symmetric_app_bisimilarity: (* exercise (5.3.3) *)
   symmetric $≃
 Proof
@@ -675,6 +675,12 @@ Proof
     by(rpt strip_tac >> gvs[freevars_subst] >>
        drule_all SUBSET_THM >> rw[]) >>
   Cases_on ‘freevars (subst x e1 e2)’ >> fs[FORALL_AND_THM]
+QED
+
+Theorem reflexive_app_bisimilarity:
+  closed x ⇒ x ≃ x
+Proof
+  fs [app_bisimilarity_similarity,reflexive_app_similarity']
 QED
 
 
@@ -799,6 +805,49 @@ Proof
   \\ imp_res_tac app_similarity_closed
   \\ TRY (fs [closed_def] \\ NO_TAC)
   \\ rw [bind_def]
+QED
+
+Theorem eval_IMP_app_bisimilarity:
+  eval x = eval y ∧ closed x ∧ closed y ⇒ x ≃ y
+Proof
+  once_rewrite_tac [app_bisimilarity_iff] \\ simp [] \\ strip_tac
+  \\ conj_asm1_tac \\ fs []
+  THEN1
+   (rw [] \\ match_mp_tac reflexive_app_bisimilarity \\ fs []
+    \\ drule_all eval_Closure_closed \\ rw []
+    \\ match_mp_tac IMP_closed_subst
+    \\ fs [FRANGE_DEF])
+  \\ conj_asm2_tac
+  THEN1
+   (rw [] \\ fs []
+    \\ qexists_tac ‘es2’ \\ fs []
+    \\ qexists_tac ‘es2’ \\ fs []
+    \\ qpat_x_assum ‘EVERY closed es2’ mp_tac
+    \\ qid_spec_tac ‘es2’
+    \\ Induct \\ fs [] \\ rw []
+    \\ match_mp_tac reflexive_app_bisimilarity \\ fs [])
+  \\ rw []
+  \\ drule eval_eq_Cons_IMP
+  \\ strip_tac
+  \\ qexists_tac ‘ts’
+  \\ qexists_tac ‘ts’
+  \\ gvs [eval_thm]
+  \\ ‘EVERY closed ts’ by fs [EVERY_MEM,closed_def,FLAT_EQ_NIL,MEM_MAP,PULL_EXISTS]
+  \\ fs [] \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘ts’
+  \\ Induct \\ fs [] \\ rw [opp_def,IN_DEF]
+  \\ match_mp_tac reflexive_app_bisimilarity \\ fs []
+QED
+
+Theorem App_Lam_bisim:
+  closed (Lam x body) ∧ closed arg ⇒
+  App (Lam x body) arg ≃ subst x arg body
+Proof
+  rw [] \\ match_mp_tac eval_IMP_app_bisimilarity
+  \\ fs [eval_Let,bind_single_def]
+  \\ rw [] THEN1 fs [closed_def]
+  \\ match_mp_tac IMP_closed_subst
+  \\ fs [] \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF]
 QED
 
 val _ = export_theory();
