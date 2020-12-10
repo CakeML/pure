@@ -2,6 +2,14 @@
 TO-DO list
 ==========
 
+To discuss
+----------
+
+ - Should we remove `Letrec` from the language formalisation?
+     - This suggestion is based on a stuck proof in `pure_congruenceTheory`, where `Howe` doesn't (and can't) follow the `eval_to` expansion of the `Letrec`.
+     - We could instead define Letrec as a macro just like we do for `Case`.
+ - Should we switch to a simpler `eval'` definition of the language from `meta-theory/pure_eval_altTheory`?
+
 Wish list
 ---------
 
@@ -27,7 +35,7 @@ Minor tweaks
 
  - [X] change `Letrec` to use `bind_all`
  - [X] define `subst` in terms of `subst_all`
- - [ ] change name of `pure_io` to something like `pure_semantics`
+ - [X] change name of `pure_io` to something like `pure_semantics`
  - [ ] add `Seq` to primitive ops next to `If`, so that:
 
 ```
