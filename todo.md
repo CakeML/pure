@@ -7,8 +7,9 @@ To discuss
 
  - Should we remove `Letrec` from the language formalisation?
      - This suggestion is based on a stuck proof in `pure_congruenceTheory`, where `Howe` doesn't (and can't) follow the `eval_to` expansion of the `Letrec`.
-     - We could instead define Letrec as a macro just like we do for `Case`.
+     - We could instead define `Letrec` as a macro that expands to Curry's *Y combinator*, i.e. `λf. (λx. f (x x)) (λx. f (x x))` but as `App`, `Lam` and `Var`.
  - Should we switch to a simpler `eval'` definition of the language from `meta-theory/pure_eval_altTheory`?
+
 
 Wish list
 ---------
