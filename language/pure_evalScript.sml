@@ -104,7 +104,6 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
-
 (*
    given an expression x, eval returns the denotational
    value associated to it. Since eval might produce

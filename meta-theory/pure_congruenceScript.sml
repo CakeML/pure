@@ -570,11 +570,32 @@ Proof
   \\ res_tac \\ fs [] \\ rw []
 QED
 
-Theorem subst_perm_exp_lemma1:
-  closed (Lam y e_5) ∧ closed e_4' ⇒
-  subst x e_4' (perm_exp x y e_5) ≲ subst y e_4' e_5
+Triviality perm_exp_IN_Exps:
+  freevars ce2 ⊆ {y} ⇒ perm_exp x y ce2 ∈ Exps {x}
 Proof
-  cheat
+  fs [Exps_def]
+  \\ rewrite_tac [GSYM perm_exp_eqvt]
+  \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
+         FILTER_EQ_NIL,EVERY_MEM]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
+Theorem exp_alpha_subst_lemma[local]:
+  closed (Lam y e5) ∧ closed e4 ⇒
+  exp_alpha (subst x e4 (perm_exp x y e5)) (subst y e4 e5)
+Proof
+  rw [] \\ match_mp_tac exp_alpha_Trans
+  \\ qexists_tac ‘perm_exp x y (subst x e4 (perm_exp x y e5))’
+  \\ rw [] THEN1
+   (match_mp_tac exp_alpha_perm_irrel
+    \\ fs [freevars_subst,GSYM perm_exp_eqvt,MEM_MAP,closed_def,FILTER_EQ_NIL,
+           EVERY_MEM,perm1_def] \\ metis_tac [])
+  \\ fs [subst_single_eqvt,perm1_def]
+  \\ match_mp_tac exp_alpha_subst_closed_single'
+  \\ fs [closed_perm]
+  \\ match_mp_tac exp_alpha_sym
+  \\ match_mp_tac exp_alpha_perm_irrel
+  \\ fs [closed_def]
 QED
 
 Theorem Howe_open_similarity_IMP:
@@ -632,7 +653,42 @@ Proof
       \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
              FILTER_EQ_NIL,EVERY_MEM])
     \\ rw [] \\ rw [bind_def]
-    \\ cheat (* fiddly but true *))
+    \\ reverse (Cases_on ‘s IN FDOM f’)
+    THEN1
+     (‘closed t’ by
+        (fs [freevars_def,SUBSET_DEF,closed_def] \\ Cases_on ‘freevars t’ \\ fs [])
+      \\ ‘closed ce2’ by
+        (fs [freevars_def,SUBSET_DEF,closed_def,GSYM perm_exp_eqvt,MEM_MAP,PULL_EXISTS]
+         \\ Cases_on ‘freevars ce2’ \\ fs [] \\ metis_tac [])
+      \\ fs [closed_subst,closed_perm]
+      \\ match_mp_tac (SIMP_RULE std_ss [transitive_def] transitive_app_similarity)
+      \\ qexists_tac ‘ce2’ \\ fs []
+      \\ conj_tac
+      THEN1 (first_x_assum match_mp_tac \\ qexists_tac ‘Fail’ \\ fs [closed_def])
+      \\ match_mp_tac exp_alpha_app_similarity \\ fs [closed_perm]
+      \\ match_mp_tac exp_alpha_perm_irrel \\ fs [closed_def])
+    \\ qabbrev_tac ‘vv = f ' s’
+    \\ ‘closed vv’ by fs [FLOOKUP_DEF,Abbr‘vv’]
+    \\ first_x_assum drule
+    \\ ‘subst f t = subst s vv t’ by
+       (once_rewrite_tac [subst_FDIFF] \\ AP_THM_TAC \\ AP_TERM_TAC
+        \\ fs [fmap_EXT,DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+        \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+    \\ strip_tac
+    \\ match_mp_tac (SIMP_RULE std_ss [transitive_def] transitive_app_similarity)
+    \\ fs []
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ ‘subst f (perm_exp s y ce2) = subst s vv (perm_exp s y ce2)’ by
+       (once_rewrite_tac [subst_FDIFF] \\ AP_THM_TAC \\ AP_TERM_TAC
+        \\ fs [fmap_EXT,DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+        \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+    \\ fs []
+    \\ match_mp_tac exp_alpha_app_similarity
+    \\ conj_tac THEN1
+     (match_mp_tac exp_alpha_sym
+      \\ match_mp_tac exp_alpha_subst_lemma
+      \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF])
+    \\ rw [] \\ match_mp_tac IMP_closed_subst \\ fs [FRANGE_DEF])
   THEN1
    (rename [‘App’]
     \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
@@ -680,7 +736,12 @@ Proof
     \\ match_mp_tac (SIMP_RULE std_ss [transitive_def] transitive_app_similarity)
     \\ qexists_tac ‘subst y e_4' e_5’
     \\ imp_res_tac Howe_open_similarity_IMP_closed
-    \\ conj_tac THEN1 metis_tac [subst_perm_exp_lemma1]
+    \\ conj_tac
+    THEN1
+     (match_mp_tac exp_alpha_app_similarity
+      \\ fs [exp_alpha_subst_lemma]
+      \\ match_mp_tac IMP_closed_subst
+      \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM])
     \\ qpat_x_assum ‘_ ≲ _’ mp_tac
     \\ rewrite_tac [app_similarity_iff]
     \\ once_rewrite_tac [unfold_rel_def]
@@ -699,19 +760,21 @@ Proof
   \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
   \\ pop_assum (first_x_assum o mp_then (Pos last) mp_tac) \\ rw []
   \\ first_x_assum (first_assum o mp_then (Pos last) mp_tac)
-  \\ impl_keep_tac THEN1 cheat (* closedness *)
-  \\ rw []
-  \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
+  \\ impl_keep_tac
+  THEN1 (imp_res_tac eval_Closure_closed
+         \\ imp_res_tac perm_exp_IN_Exps \\ fs [Exps_def])
+  \\ rw [] \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
   \\ fs [open_similarity_EMPTY]
   \\ fs [Tra_open_similarity,term_rel_open_similarity]
   \\ fs [AC CONJ_ASSOC CONJ_SYM]
   \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
-  \\ reverse (rw[])
-  THEN1
-     (match_mp_tac subst_perm_exp_lemma1 \\ fs []
-      \\ imp_res_tac eval_Closure_closed
-      \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM])
-  \\ match_mp_tac IMP_closed_subst
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ reverse conj_asm1_tac
+  THEN1 (match_mp_tac exp_alpha_app_similarity \\ rw []
+         \\ match_mp_tac exp_alpha_subst_lemma \\ fs []
+         \\ imp_res_tac eval_Closure_closed \\ simp [closed_def]
+         \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM])
+  \\ rw [] \\ match_mp_tac IMP_closed_subst
   \\ fs [FRANGE_DEF]
   \\ imp_res_tac eval_Closure_closed
   \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM]

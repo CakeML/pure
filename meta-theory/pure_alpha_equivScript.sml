@@ -3342,4 +3342,30 @@ Proof
   simp[]
 QED
 
+Theorem exp_alpha_app_similarity:
+  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ x ≲ y
+Proof
+  rw [] \\ match_mp_tac companion_app_similarity
+  \\ match_mp_tac(no_IN companion_exp_alpha) \\ fs []
+QED
+
+Theorem exp_alpha_app_bisimilarity:
+  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ x ≃ y
+Proof
+  rw [app_bisimilarity_similarity]
+  \\ match_mp_tac exp_alpha_app_similarity \\ fs []
+  \\ match_mp_tac exp_alpha_sym \\ fs []
+QED
+
+Theorem exp_alpha_exp_eq:
+  ∀x y. exp_alpha x y ⇒ x ≅ y
+Proof
+  fs [exp_eq_def] \\ rw []
+  \\ match_mp_tac exp_alpha_app_bisimilarity
+  \\ conj_tac THEN1 (match_mp_tac exp_alpha_bind_all_closed \\ fs [])
+  \\ rw [bind_def] \\ TRY (fs [closed_def] \\ NO_TAC)
+  \\ match_mp_tac IMP_closed_subst
+  \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
+QED
+
 val _ = export_theory();
