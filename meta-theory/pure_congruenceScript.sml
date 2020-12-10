@@ -561,13 +561,21 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem Howe_open_similarity_IMP_closed:
-  Howe open_similarity ∅ x y ⇒ closed x ∧ closed y
+Theorem Howe_open_similarity_IMP_freevars:
+  Howe open_similarity s x y ⇒ freevars x ⊆ s ∧ freevars y ⊆ s
 Proof
   rw [] \\ assume_tac term_rel_open_similarity
   \\ imp_res_tac term_rel_Howe
   \\ fs [term_rel_def]
   \\ res_tac \\ fs [] \\ rw []
+  \\ fs [Exps_def]
+QED
+
+Theorem Howe_open_similarity_IMP_closed:
+  Howe open_similarity ∅ x y ⇒ closed x ∧ closed y
+Proof
+  rw [] \\ imp_res_tac Howe_open_similarity_IMP_freevars
+  \\ fs [closed_def]
 QED
 
 Triviality perm_exp_IN_Exps:
@@ -719,20 +727,23 @@ Proof
     \\ assume_tac Sub_Howe_open_similarity
     \\ fs [Sub_def,AND_IMP_INTRO]
     \\ pop_assum (qspecl_then [‘{}’,‘x’,‘e_2’,‘perm_exp x y e_5’,‘e_1'’,‘e_4'’] mp_tac)
-    \\ impl_tac THEN1 (fs [] \\ cheat (* closedness stuff *))
+    \\ impl_keep_tac
+    THEN1 (imp_res_tac Howe_open_similarity_IMP_freevars
+           \\ fs [Exps_def] \\ fs [closed_def])
     \\ strip_tac
     \\ simp [eval_App]
     \\ first_x_assum match_mp_tac
     \\ ‘closed e_1'’ by fs [closed_def]
     \\ fs [bind_single_def]
     \\ reverse conj_tac
-    THEN1 cheat (* closedness stuff *)
+    THEN1 (imp_res_tac Howe_open_similarity_IMP_closed \\ fs [])
     \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
     \\ fs [open_similarity_EMPTY]
     \\ fs [Tra_open_similarity,term_rel_open_similarity]
     \\ qexists_tac ‘subst x e_4' (perm_exp x y e_5)’ \\ fs []
-    \\ conj_tac THEN1 cheat (* closedness stuff *)
-    \\ conj_tac THEN1 cheat (* closedness stuff *)
+    \\ rewrite_tac [CONJ_ASSOC]
+    \\ conj_asm1_tac
+    THEN1 (imp_res_tac Howe_open_similarity_IMP_closed \\ fs [])
     \\ match_mp_tac (SIMP_RULE std_ss [transitive_def] transitive_app_similarity)
     \\ qexists_tac ‘subst y e_4' e_5’
     \\ imp_res_tac Howe_open_similarity_IMP_closed
@@ -746,8 +757,9 @@ Proof
     \\ rewrite_tac [app_similarity_iff]
     \\ once_rewrite_tac [unfold_rel_def]
     \\ fs [eval_App,eval_Cons]
-    \\ ‘closed (subst y e_4' e_5)’ by cheat (* closedness stuff *)
-    \\ fs [bind_single_def])
+    \\ fs [bind_single_def]
+    \\ rw [] \\ match_mp_tac IMP_closed_subst
+    \\ fs [FRANGE_DEF,closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF])
   \\ cheat
 QED
 
