@@ -695,70 +695,29 @@ Theorem app_simulation_Howe_open_similarity:
 Proof
   fs [app_simulation_def,unfold_rel_def] \\ rpt gen_tac \\ strip_tac
   \\ drule Howe_open_similarity_IMP_closed \\ strip_tac \\ fs []
-  \\ reverse (Cases_on ‘eval e1 = Diverge’) \\ fs []
+  \\ drule Howe_open_similarity_IMP \\ fs [] \\ rw [] \\ fs []
+  \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
+  \\ pop_assum (first_x_assum o mp_then (Pos last) mp_tac) \\ rw []
+  \\ first_x_assum (first_assum o mp_then (Pos last) mp_tac)
+  \\ impl_keep_tac THEN1 cheat (* closedness *)
+  \\ rw []
+  \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
+  \\ fs [open_similarity_EMPTY]
+  \\ fs [Tra_open_similarity,term_rel_open_similarity]
+  \\ fs [AC CONJ_ASSOC CONJ_SYM]
+  \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
+  \\ reverse (rw[])
   THEN1
-   (drule Howe_open_similarity_IMP \\ fs [] \\ rw [] \\ fs []
-    \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
-    \\ pop_assum (first_x_assum o mp_then (Pos last) mp_tac) \\ rw []
-    \\ first_x_assum (first_assum o mp_then (Pos last) mp_tac)
-    \\ impl_keep_tac THEN1 cheat (* closedness *)
-    \\ rw []
-    \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
-    \\ fs [open_similarity_EMPTY]
-    \\ fs [Tra_open_similarity,term_rel_open_similarity]
-    \\ fs [AC CONJ_ASSOC CONJ_SYM]
-    \\ goal_assum (first_assum o mp_then (Pos last) mp_tac)
-    \\ reverse (rw[])
-    THEN1
      (match_mp_tac subst_perm_exp_lemma1 \\ fs []
       \\ imp_res_tac eval_Closure_closed
       \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM])
-    \\ match_mp_tac IMP_closed_subst
-    \\ fs [FRANGE_DEF]
-    \\ imp_res_tac eval_Closure_closed
-    \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM]
-    \\ rewrite_tac [GSYM perm_exp_eqvt]
-    \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
-           FILTER_EQ_NIL,EVERY_MEM])
-  (* the Diverge case below *)
-  \\ simp [Diverges_iff]
-  \\ rpt (pop_assum mp_tac)
-  \\ fs [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  \\ qid_spec_tac ‘e1’
-  \\ qid_spec_tac ‘e2’
-  \\ fs [GSYM PULL_EXISTS]
-  \\ ho_match_mp_tac Diverges_coind
-  \\ fs [PULL_EXISTS]
-  \\ cheat (* is this any better than the induction on eval_to attempted below? *)
-
-(*
-
-  (* induction on eval_to *)
-  \\ simp [eval_eq_Diverge] \\ rw []
-  \\ rpt (pop_assum mp_tac)
-  \\ qid_spec_tac ‘e1’
-  \\ qid_spec_tac ‘e2’
-  \\ qid_spec_tac ‘n’
-  \\ ho_match_mp_tac eval_to_ind \\ rw []
-  THEN1 fs [closed_def]
-  \\ fs [eval_eq_Diverge,AND_IMP_INTRO]
-  (* this appraoch does not look promising.. *)
-  \\ cheat
-
-  (* induction on Howe, won't work for App ... *)
-  \\ ‘∃vars R. Howe R vars e1 e2 ∧ R = open_similarity ∧ vars = {}’ by fs []
-  \\ last_x_assum kall_tac
-  \\ pop_assum mp_tac
-  \\ pop_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ pop_assum mp_tac
-  \\ Induct_on ‘Howe’ \\ rpt conj_tac
-  THEN1 (fs [eval_Var])
-  THEN1 (fs [eval_Lam])
-
-*)
+  \\ match_mp_tac IMP_closed_subst
+  \\ fs [FRANGE_DEF]
+  \\ imp_res_tac eval_Closure_closed
+  \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM]
+  \\ rewrite_tac [GSYM perm_exp_eqvt]
+  \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
+           FILTER_EQ_NIL,EVERY_MEM]
 QED
 
 Theorem IMP_open_similarity_INSERT:

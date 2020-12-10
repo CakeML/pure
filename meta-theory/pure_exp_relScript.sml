@@ -44,8 +44,6 @@ Definition unfold_rel_def:
     ∧
     (∀a. eval e1 = Atom a ⇒ eval e2 = Atom a)
     ∧
-    (eval e1 = Diverge ⇒ eval e2 = Diverge)
-    ∧
     (eval e1 = Error ⇒ eval e2 = Error)
 End
 
@@ -65,24 +63,6 @@ End
 Definition FF_def:
   FF s = { (e1, e2) | unfold_rel s (e1, e2) }
 End
-
-Theorem FF_opp:
-  FF (opp R) (a,b) ⇔ FF R (b,a)
-Proof
-  fs[FF_def, opp_def, unfold_rel_def] >> eq_tac >> rw[] >>
-  PairCases_on `x` >> gvs[] >>
-  Q.REFINE_EXISTS_TAC `(x1,x2)` >> gvs[IN_DEF]
-  >- (
-    Cases_on `eval a` >> gvs[eval_thm] >>
-    qexists_tac `es2` >> qexists_tac `es1` >> fs[] >>
-    fs[LIST_REL_EL_EQN, opp_def, IN_DEF]
-    )
-  >- (
-    Cases_on `eval b` >> gvs[eval_thm] >>
-    qexists_tac `es2` >> qexists_tac `es1` >> fs[] >>
-    fs[LIST_REL_EL_EQN, opp_def, IN_DEF]
-    )
-QED
 
 Triviality monotone_similarity:
   monotone FF
@@ -124,7 +104,7 @@ Proof
   \\ assume_tac app_similarity_iff
   \\ metis_tac []
 QED
-
+        
 Triviality monotone_bisimilarity:
   monotone (λs. { (e1,e2) | (e1,e2) IN FF s ∧ (e2,e1) IN FF (opp s) })
 Proof
@@ -642,22 +622,30 @@ Proof
   \\ simp[AND_IMP_INTRO]
   \\ MAP_EVERY qid_spec_tac [‘e2’,‘e1’]
   \\ ho_match_mp_tac app_bisimilarity_coinduct
-  \\ rpt GEN_TAC \\ strip_tac \\ fs[FF_opp]
-  \\ rw[FF_def,unfold_rel_def,ELIM_UNCURRY]
+  \\ rpt GEN_TAC \\ strip_tac
+  \\ rw[FF_def,unfold_rel_def,ELIM_UNCURRY,opp_def]
   \\ imp_res_tac app_similarity_closed
   \\ rpt(qpat_x_assum ‘_ ≲ _’
       (strip_assume_tac o PURE_ONCE_REWRITE_RULE[app_similarity_iff]))
   \\ gvs[unfold_rel_def, eval_thm]
-  \\ qexists_tac `es1` \\ qexists_tac `es2` \\ fs[]
-  \\ fs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] \\ rw[]
-  \\ gvs[] \\ rpt (first_x_assum drule \\ strip_tac)
-  \\ assume_tac transitive_app_similarity \\ fs[transitive_def]
-  \\ first_assum irule \\ qexists_tac `EL n es1'` \\ rw[]
-     >- (irule eval_eq_imp_app_similarity \\ fs[])
-  \\ first_assum irule \\ qexists_tac `EL n es2'` \\ rw[]
-  \\ irule eval_eq_imp_app_similarity \\ fs[]
+  \\ (qexists_tac `es1` \\ qexists_tac `es2` \\ fs[]
+      \\ fs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] \\ rw[]
+      \\ gvs[] \\ rpt (first_x_assum drule \\ strip_tac)
+      \\ assume_tac transitive_app_similarity \\ fs[transitive_def,opp_def]
+      \\ first_assum irule \\ qexists_tac `EL n es1'` \\ rw[]
+      >- (irule eval_eq_imp_app_similarity \\ fs[])
+      \\ first_assum irule \\ qexists_tac `EL n es2'` \\ rw[]
+      \\ irule eval_eq_imp_app_similarity \\ fs[])
 QED
 
+Theorem app_bisimilarity_diverge_lemma:
+  e1 ≃ e2 ∧ eval e1 = Diverge ⇒ eval e2 = Diverge
+Proof
+  rw[app_bisimilarity_similarity,app_similarity_iff] >>
+  gvs[unfold_rel_def] >>
+  Cases_on ‘eval e2’ >> gvs[eval_thm]
+QED
+        
 Theorem symmetric_app_bisimilarity: (* exercise (5.3.3) *)
   symmetric $≃
 Proof
