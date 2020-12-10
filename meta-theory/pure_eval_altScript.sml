@@ -37,7 +37,7 @@ Definition eval_alt_to_def:
   eval_alt_to k (Letrec f y) =
     (if k = 0 then alt_Diverge else eval_alt_to (k − 1) (subst_funs f y)) ∧
   eval_alt_to k (Prim p xs) =
-    if k = 0 then alt_Diverge else
+    if k = 0n then alt_Diverge else
     case p of
     | Cons s => alt_Constructor s xs
     | Proj s i =>
@@ -51,7 +51,7 @@ Definition eval_alt_to_def:
     | Lit l => alt_Atom l
     | _ => alt_Error
 Termination
-  cheat
+  WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x).(k,(exp_size x)))`
 End
 
 Definition eval_alt_def:
@@ -60,6 +60,15 @@ Definition eval_alt_def:
     | SOME k => eval_alt_to k e
     | NONE => alt_Diverge
 End
+
+(*
+Definition eval_alt_def:
+  eval_alt e =
+    case some v. ∃k. eval_alt_to k e = v ∧ v ≠ alt_Diverge of
+    | SOME v => v
+    | NONE => alt_Diverge
+End
+*)
 
 Theorem eval_alt_to_IMP_eval_alt:
   eval_alt_to k x ≠ alt_Diverge ⇒
