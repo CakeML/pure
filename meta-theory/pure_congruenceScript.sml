@@ -760,6 +760,11 @@ Proof
     \\ fs [bind_single_def]
     \\ rw [] \\ match_mp_tac IMP_closed_subst
     \\ fs [FRANGE_DEF,closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF])
+  \\ rename [‘Letrec’]
+  \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
+  \\ fs [eval_to_def,AllCaseEqs()]
+  \\ Cases_on ‘n=0’ \\ fs []
+  \\ rpt (disch_then strip_assume_tac) \\ fs []
   \\ cheat
 QED
 
