@@ -8,7 +8,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_eval_altTheory pure_limitTheory
+     pure_exp_lemmasTheory pure_limitTheory
      pure_exp_relTheory pure_alpha_equivTheory;
 
 val _ = new_theory "pure_congruence";

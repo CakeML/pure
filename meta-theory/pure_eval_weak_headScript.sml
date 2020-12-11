@@ -9,83 +9,83 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory
      pure_exp_lemmasTheory pure_limitTheory;
 
-val _ = new_theory "pure_eval_alt";
+val _ = new_theory "pure_eval_weak_head";
 
 Datatype:
-  v_alt = alt_Constructor string (exp list)
-        | alt_Closure string exp
-        | alt_Atom lit
-        | alt_Error
-        | alt_Diverge
+  wh = wh_Constructor string (exp list)
+     | wh_Closure string exp
+     | wh_Atom lit
+     | wh_Error
+     | wh_Diverge
 End
 
-Definition dest_alt_Closure_def:
-  dest_alt_Closure (alt_Closure s e) = SOME (s,e) ∧
-  dest_alt_Closure _ = NONE
+Definition dest_wh_Closure_def:
+  dest_wh_Closure (wh_Closure s e) = SOME (s,e) ∧
+  dest_wh_Closure _ = NONE
 End
 
-Definition eval_alt_to_def:
-  eval_alt_to n (Var s) = alt_Error ∧
-  eval_alt_to k (Lam s x) = alt_Closure s x ∧
-  eval_alt_to k (App x y) =
-    (let v = eval_alt_to k x in
-       if v = alt_Diverge then alt_Diverge else
-         case dest_alt_Closure v of
-           NONE => alt_Error
-         | SOME (s,body) => if k = 0 then alt_Diverge
-                            else eval_alt_to (k − 1) (bind s y body)) ∧
-  eval_alt_to k (Letrec f y) =
-    (if k = 0 then alt_Diverge else eval_alt_to (k − 1) (subst_funs f y)) ∧
-  eval_alt_to k (Prim p xs) =
-    if k = 0n then alt_Diverge else
+Definition eval_wh_to_def:
+  eval_wh_to n (Var s) = wh_Error ∧
+  eval_wh_to k (Lam s x) = wh_Closure s x ∧
+  eval_wh_to k (App x y) =
+    (let v = eval_wh_to k x in
+       if v = wh_Diverge then wh_Diverge else
+         case dest_wh_Closure v of
+           NONE => wh_Error
+         | SOME (s,body) => if k = 0 then wh_Diverge
+                            else eval_wh_to (k − 1) (bind s y body)) ∧
+  eval_wh_to k (Letrec f y) =
+    (if k = 0 then wh_Diverge else eval_wh_to (k − 1) (subst_funs f y)) ∧
+  eval_wh_to k (Prim p xs) =
+    if k = 0n then wh_Diverge else
     case p of
-    | Cons s => alt_Constructor s xs
+    | Cons s => wh_Constructor s xs
     | Proj s i =>
-        (if LENGTH xs ≠ 1 then alt_Error else
-           case eval_alt_to (k-1) (HD xs) of
-           | alt_Constructor t ys => if t = s ∧ i < LENGTH ys
-                                     then eval_alt_to (k-1) (EL i ys)
-                                     else alt_Error
-           | alt_Diverge => alt_Diverge
-           | _ => alt_Error)
-    | Lit l => alt_Atom l
-    | _ => alt_Error
+        (if LENGTH xs ≠ 1 then wh_Error else
+           case eval_wh_to (k-1) (HD xs) of
+           | wh_Constructor t ys => if t = s ∧ i < LENGTH ys
+                                     then eval_wh_to (k-1) (EL i ys)
+                                     else wh_Error
+           | wh_Diverge => wh_Diverge
+           | _ => wh_Error)
+    | Lit l => wh_Atom l
+    | _ => wh_Error
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x).(k,(exp_size x)))`
 End
 
-Definition eval_alt_def:
-  eval_alt e =
-    case some k. eval_alt_to k e ≠ alt_Diverge of
-    | SOME k => eval_alt_to k e
-    | NONE => alt_Diverge
+Definition eval_wh_def:
+  eval_wh e =
+    case some k. eval_wh_to k e ≠ wh_Diverge of
+    | SOME k => eval_wh_to k e
+    | NONE => wh_Diverge
 End
 
 (*
-Definition eval_alt_def:
-  eval_alt e =
-    case some v. ∃k. eval_alt_to k e = v ∧ v ≠ alt_Diverge of
+Definition eval_wh_def:
+  eval_wh e =
+    case some v. ∃k. eval_wh_to k e = v ∧ v ≠ wh_Diverge of
     | SOME v => v
-    | NONE => alt_Diverge
+    | NONE => wh_Diverge
 End
 *)
 
-Theorem eval_alt_to_IMP_eval_alt:
-  eval_alt_to k x ≠ alt_Diverge ⇒
-  eval_alt_to k x = eval_alt x
+Theorem eval_wh_to_IMP_eval_wh:
+  eval_wh_to k x ≠ wh_Diverge ⇒
+  eval_wh_to k x = eval_wh x
 Proof
   cheat (* easy-ish *)
 QED
 
-Theorem eval_alt_eq_Diverge:
-  eval_alt e = alt_Diverge ⇔
-  ∀k. eval_alt_to k e = alt_Diverge
+Theorem eval_wh_eq_Diverge:
+  eval_wh e = wh_Diverge ⇔
+  ∀k. eval_wh_to k e = wh_Diverge
 Proof
   cheat (* easy *)
 QED
 
-Theorem eval_alt_eq_eval_Diverge:
-  eval_alt e = alt_Diverge ⇔ eval e = Diverge
+Theorem eval_wh_eq_eval_Diverge:
+  eval_wh e = wh_Diverge ⇔ eval e = Diverge
 Proof
   cheat (* see eval_eq_eval' further down *)
 QED
@@ -113,7 +113,7 @@ CoInductive Diverges:
     Diverges (Proj s i x))
   ∧
   (∀s xs y ys x.
-    eval_alt x = alt_Constructor s (xs ++ y::ys) ∧
+    eval_wh x = wh_Constructor s (xs ++ y::ys) ∧
     Diverges y ⇒
     Diverges (Proj s (LENGTH xs) x))
   ∧
@@ -134,10 +134,10 @@ CoInductive Diverges:
     Diverges (Prim (AtomOp a) xs))
 End
 
-Theorem eval_IMP_eval_alt_Cons:
+Theorem eval_IMP_eval_wh_Cons:
   eval x = Constructor s xs ⇒
   ∃ys. eval x = eval (Cons s ys) ∧
-       eval_alt x = alt_Constructor s ys
+       eval_wh x = wh_Constructor s ys
 Proof
   cheat
 QED
@@ -171,7 +171,7 @@ Proof
             AllCaseEqs(),MAP_EQ_CONS,is_eq_def,el_def,MEM_MAP]
     THEN1 (goal_assum (first_assum o mp_then Any mp_tac) \\ fs [])
     \\ pop_assum (assume_tac o GSYM) \\ fs []
-    \\ drule eval_IMP_eval_alt_Cons
+    \\ drule eval_IMP_eval_wh_Cons
     \\ fs [eval_thm] \\ rw [] \\ fs []
     \\ drule LESS_LENGTH_IMP \\ rw [] \\ fs []
     \\ qexists_tac ‘ys'’
@@ -181,16 +181,16 @@ Proof
     \\ qabbrev_tac ‘qs = MAP eval ys'’
     \\ ‘LENGTH ys' = LENGTH qs’ by fs [Abbr‘qs’]
     \\ fs [EL_LENGTH_APPEND])
-  \\ fs [GSYM eval_alt_eq_eval_Diverge,eval_alt_eq_Diverge,PULL_FORALL]
+  \\ fs [GSYM eval_wh_eq_eval_Diverge,eval_wh_eq_Diverge,PULL_FORALL]
   \\ gen_tac \\ qid_spec_tac ‘e’ \\ qid_spec_tac ‘k’
-  \\ ho_match_mp_tac eval_alt_to_ind \\ rw []
+  \\ ho_match_mp_tac eval_wh_to_ind \\ rw []
   THEN1 (rename [‘Var’] \\ fs [Once Diverges_cases])
   THEN1 (rename [‘Lam’] \\ fs [Once Diverges_cases])
   THEN1
    (rename [‘App’] \\ cheat (* TODO *))
   THEN1
    (rename [‘Letrec’]
-    \\ rw [eval_alt_to_def] \\ fs [AND_IMP_INTRO]
+    \\ rw [eval_wh_to_def] \\ fs [AND_IMP_INTRO]
     \\ first_x_assum match_mp_tac
     \\ last_x_assum mp_tac
     \\ simp [Once Diverges_cases] \\ fs [])
@@ -199,9 +199,9 @@ Proof
   THEN1
    (gvs [] \\ pop_assum mp_tac
     \\ simp [Once Diverges_cases] \\ rw [] \\ gvs []
-    \\ rw [eval_alt_to_def] \\ fs []
-    \\ Cases_on ‘eval_alt_to (k − 1) x = alt_Diverge’ \\ fs []
-    \\ drule eval_alt_to_IMP_eval_alt \\ strip_tac \\ gvs []
+    \\ rw [eval_wh_to_def] \\ fs []
+    \\ Cases_on ‘eval_wh_to (k − 1) x = wh_Diverge’ \\ fs []
+    \\ drule eval_wh_to_IMP_eval_wh \\ strip_tac \\ gvs []
     \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ fs [EL_LENGTH_APPEND])
   \\ Cases_on ‘∃s. p = Cons s’
@@ -213,14 +213,14 @@ QED
 Definition follow_path_def:
   follow_path f e [] =
     (case f e of
-     | alt_Constructor s xs => (Constructor' s,LENGTH xs)
-     | alt_Closure s x => (Closure' s x,0)
-     | alt_Atom a => (Atom' a,0)
-     | alt_Diverge => (Diverge',0)
-     | alt_Error => (Error',0)) ∧
+     | wh_Constructor s xs => (Constructor' s,LENGTH xs)
+     | wh_Closure s x => (Closure' s x,0)
+     | wh_Atom a => (Atom' a,0)
+     | wh_Diverge => (Diverge',0)
+     | wh_Error => (Error',0)) ∧
   follow_path f e (n::ns) =
     case f e of
-    | alt_Constructor s xs => follow_path f (EL n xs) ns
+    | wh_Constructor s xs => follow_path f (EL n xs) ns
     | _ => (Error',0)
 End
 
@@ -231,18 +231,18 @@ End
 Theorem v_unfold:
   v_unfold f x =
     case f x of
-    | alt_Constructor s xs => Constructor s (MAP (v_unfold f) xs)
-    | alt_Closure s x => Closure s x
-    | alt_Atom a => Atom a
-    | alt_Diverge => Diverge
-    | alt_Error => Error
+    | wh_Constructor s xs => Constructor s (MAP (v_unfold f) xs)
+    | wh_Closure s x => Closure s x
+    | wh_Atom a => Atom a
+    | wh_Diverge => Diverge
+    | wh_Error => Error
 Proof
   fs [v_unfold_def]
   \\ simp [Once gen_v]
   \\ fs [follow_path_def]
   \\ Cases_on ‘f x’ \\ fs []
   \\ qid_spec_tac ‘l’
-  \\ ho_match_mp_tac SNOC_INDUCT \\ rw []
+  \\ Induct using SNOC_INDUCT \\ rw []
   \\ rewrite_tac [GENLIST,GSYM ADD1]
   \\ fs [SNOC_APPEND,EL_LENGTH_APPEND]
   \\ fs [v_unfold_def]
@@ -254,7 +254,7 @@ Proof
 QED
 
 Definition eval'_def:
-  eval' x = v_unfold eval_alt x
+  eval' x = v_unfold eval_wh x
 End
 
 Theorem eval_eq_eval':
