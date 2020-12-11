@@ -2790,7 +2790,8 @@ Triviality closed_Letrec_perm_lemma':
   (closed (Letrec f (perm_exp x y e1)) ⇔
    closed (Letrec f e1))
 Proof
-  rw[closed_def,FILTER_EQ_NIL,EVERY_MEM,MEM_MAP,MEM_FLAT] >>
+  PURE_REWRITE_TAC[closed_def] >>
+  rw[FILTER_EQ_NIL,EVERY_MEM,MEM_MAP,MEM_FLAT] >>
   rw[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
   rw[PULL_EXISTS,ELIM_UNCURRY] >>
   metis_tac[perm1_def,FST,SND,PAIR]
@@ -2836,28 +2837,33 @@ Proof
   rpt strip_tac >>
   simp[subst_funs_def] >>
   match_mp_tac exp_alpha_bind_all_closed'_alt >>
-  simp[IN_FRANGE_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,ALOOKUP_MAP_2,ALOOKUP_APPEND] >>
+  simp[IN_FRANGE_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,
+       ALOOKUP_MAP_2,ALOOKUP_APPEND] >>
   reverse conj_tac
-  >- (rw[EQ_IMP_THM] >>
+  >- (
+      rw[EQ_IMP_THM] >>
       gvs[PULL_EXISTS] >>
       pop_assum mp_tac >>
       simp[AllCaseEqs()] >>
-      strip_tac >>
-      gvs[]
-      >- (first_assum(qspec_then ‘k’ mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
-          simp[] >>
-          rw[] >>
-          gvs[ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
+      strip_tac >> rpt (VAR_EQ_TAC)
+      >- (
+          first_assum(qspec_then ‘k’ mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
+          full_simp_tac std_ss [] >> strip_tac >>
+          Cases_on `x = k` >>
+          full_simp_tac std_ss [ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma] >>
-          gvs[] >>
+          full_simp_tac std_ss [] >>
           imp_res_tac ALOOKUP_MEM >>
-          gvs[MEM_REVERSE,MEM_MAP,ELIM_UNCURRY] >>
-          metis_tac[FST,SND,PAIR])
-      >- (dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma'] >>
+          full_simp_tac std_ss [MEM_REVERSE,MEM_MAP,ELIM_UNCURRY, closed_def] >>
+          simp[]
+          )
+      >- (
+          dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma'] >>
           conj_tac >- simp[] >>
-          gvs[AllCaseEqs(),FORALL_AND_THM,DISJ_IMP_THM,PULL_EXISTS] >>
+          full_simp_tac std_ss [
+            AllCaseEqs(),FORALL_AND_THM,DISJ_IMP_THM,PULL_EXISTS] >>
           Cases_on ‘ALOOKUP (REVERSE funs2) x’ >>
-          gvs[ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
+          full_simp_tac std_ss [ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
           res_tac >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma] >>
           conj_tac >- gvs[] >>
@@ -2865,17 +2871,21 @@ Proof
           imp_res_tac ALOOKUP_MEM >>
           simp[] >>
           gvs[MEM_MAP,EXISTS_PROD] >>
-          metis_tac[])
-      >- (first_assum(qspec_then ‘k’ mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
-          simp[] >>
-          rw[] >>
+          metis_tac[]
+          )
+      >- (
+          first_assum(qspec_then ‘k’ mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
+          full_simp_tac std_ss [] >> strip_tac >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma] >>
           gvs[] >>
           imp_res_tac ALOOKUP_MEM >>
           gvs[MEM_REVERSE,MEM_MAP,ELIM_UNCURRY] >>
-          metis_tac[FST,SND,PAIR])
-      >- (gvs[AllCaseEqs(),FORALL_AND_THM,DISJ_IMP_THM,PULL_EXISTS] >>
-          gvs[ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
+          metis_tac[FST,SND,PAIR]
+          )
+      >- (
+          full_simp_tac std_ss [AllCaseEqs(),FORALL_AND_THM,DISJ_IMP_THM,PULL_EXISTS] >>
+          full_simp_tac std_ss [ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
+          rev_full_simp_tac std_ss [] >>
           qhdtm_x_assum ‘closed’ mp_tac >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma'] >>
           conj_tac >- gvs[] >>
@@ -2886,10 +2896,13 @@ Proof
           simp[] >>
           imp_res_tac ALOOKUP_MEM >>
           gvs[MEM_REVERSE,MEM_MAP,ELIM_UNCURRY] >>
-          metis_tac[FST,SND,PAIR])
+          metis_tac[FST,SND,PAIR]
+          )
       >- (gvs[ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE])
-      >- (gvs[AllCaseEqs(),FORALL_AND_THM,DISJ_IMP_THM,PULL_EXISTS] >>
-          gvs[ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
+      >- (
+          full_simp_tac std_ss [AllCaseEqs(),FORALL_AND_THM,DISJ_IMP_THM,PULL_EXISTS] >>
+          full_simp_tac std_ss [ALOOKUP_NONE,MAP_REVERSE,MEM_REVERSE] >>
+          rev_full_simp_tac std_ss [] >>
           qhdtm_x_assum ‘closed’ mp_tac >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[GEN_ALL closed_Letrec_perm_lemma'] >>
           conj_tac >- gvs[] >>
@@ -2900,7 +2913,9 @@ Proof
           simp[] >>
           imp_res_tac ALOOKUP_MEM >>
           gvs[MEM_REVERSE,MEM_MAP,ELIM_UNCURRY] >>
-          metis_tac[FST,SND,PAIR])) >>
+          metis_tac[FST,SND,PAIR]
+          )
+      ) >>
   simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
   rw[] >>
   rw[flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,ALOOKUP_APPEND,ALOOKUP_MAP_2]
@@ -3298,10 +3313,14 @@ Proof
   strip_tac >>
   match_mp_tac companion_app_similarity  >>
   match_mp_tac(companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF] |> GEN_ALL) >>
-  conj_tac >- (match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
-               gvs[closed_def,FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]) >>
-  simp[] >>
-  gvs[closed_def,FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  conj_tac
+  >- (
+    match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
+    full_simp_tac std_ss [closed_def] >>
+    gvs[FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]
+    ) >>
+  full_simp_tac std_ss [closed_def] >>
+  gvs[FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   metis_tac[perm1_def]
 QED
 
@@ -3313,11 +3332,15 @@ Proof
   strip_tac >>
   match_mp_tac companion_app_similarity  >>
   match_mp_tac(companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF] |> GEN_ALL) >>
-  conj_tac >- (match_mp_tac exp_alpha_sym >> simp [Once perm_exp_sym] >>
-               match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
-               gvs[closed_def,FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]) >>
-  simp[] >>
-  gvs[closed_def,FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  conj_tac
+  >- (
+    match_mp_tac exp_alpha_sym >> simp [Once perm_exp_sym] >>
+    match_mp_tac(GEN_ALL exp_alpha_Alpha) >>
+    full_simp_tac std_ss [closed_def] >>
+    gvs[FILTER_EQ_NIL,EVERY_MEM] >> metis_tac[]
+    ) >>
+  full_simp_tac std_ss [closed_def] >>
+  gvs[FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   metis_tac[perm1_def]
 QED
 

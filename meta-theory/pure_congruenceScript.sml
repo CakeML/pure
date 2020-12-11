@@ -96,7 +96,6 @@ Proof
   \\ rw[open_similarity_def]
   \\ irule reflexive_app_similarity'
   \\ reverse (rw [bind_def])
-  THEN1 fs [closed_def]
   \\ match_mp_tac IMP_closed_subst
   \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
 QED
@@ -133,7 +132,7 @@ QED
 
 (* -- Howe's construction -- *)
 
-Inductive Howe: (* TODO: add Cons clause *)
+Inductive Howe:
 [Howe1:]
   (∀R vars x e2.
      R vars (Var x) e2 ⇒
@@ -603,23 +602,17 @@ Theorem exp_alpha_subst_lemma[local]:
 Proof
   rw [] \\ match_mp_tac exp_alpha_Trans
   \\ qexists_tac ‘perm_exp x y (subst x e4 (perm_exp x y e5))’
-  \\ rw [] THEN1
-   (match_mp_tac exp_alpha_perm_irrel
+  \\ rw [] THEN1 (
+    match_mp_tac exp_alpha_perm_irrel
     \\ fs [freevars_subst,GSYM perm_exp_eqvt,MEM_MAP,closed_def,FILTER_EQ_NIL,
-           EVERY_MEM,perm1_def] \\ metis_tac [])
+           EVERY_MEM,perm1_def, PULL_FORALL, SUBSET_DEF]
+    \\ CCONTR_TAC \\ gvs[])
   \\ fs [subst_single_eqvt,perm1_def]
   \\ match_mp_tac exp_alpha_subst_closed_single'
   \\ fs [closed_perm]
   \\ match_mp_tac exp_alpha_sym
   \\ match_mp_tac exp_alpha_perm_irrel
   \\ fs [closed_def]
-QED
-
-(* TODO: move *)
-Theorem closed_simps[simp]:
-   closed (Prim op xs) = EVERY closed xs
-Proof
-  rw[EQ_IMP_THM,EVERY_MEM,closed_def,FLAT_EQ_NIL,MEM_MAP,PULL_EXISTS]
 QED
 
 Theorem Howe_open_similarity_IMP:
@@ -753,7 +746,11 @@ Proof
     \\ reverse (Cases_on ‘s IN FDOM f’)
     THEN1
      (‘closed t’ by
-        (fs [freevars_def,SUBSET_DEF,closed_def] \\ Cases_on ‘freevars t’ \\ fs [])
+        (
+        rewrite_tac[closed_def, EXTENSION] >> gvs[] >> rw[] >>
+        fs [freevars_def,SUBSET_DEF,closed_def] >>
+        CCONTR_TAC >> gvs[]
+        )
       \\ ‘closed ce2’ by
         (fs [freevars_def,SUBSET_DEF,closed_def,GSYM perm_exp_eqvt,MEM_MAP,PULL_EXISTS]
          \\ Cases_on ‘freevars ce2’ \\ fs [] \\ metis_tac [])
@@ -785,7 +782,8 @@ Proof
      (match_mp_tac exp_alpha_sym
       \\ match_mp_tac exp_alpha_subst_lemma
       \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF])
-    \\ rw [] \\ match_mp_tac IMP_closed_subst \\ fs [FRANGE_DEF])
+    \\ rw [] \\ match_mp_tac IMP_closed_subst \\ fs [FRANGE_DEF]
+    )
   THEN1
    (rename [‘App’]
     \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
@@ -848,7 +846,8 @@ Proof
     \\ fs [eval_App,eval_Cons]
     \\ fs [bind_single_def]
     \\ rw [] \\ match_mp_tac IMP_closed_subst
-    \\ fs [FRANGE_DEF,closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF])
+    \\ fs [FRANGE_DEF,closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF]
+    )
   \\ rename [‘Letrec’]
   \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
   \\ fs [eval_to_def,AllCaseEqs()]
@@ -1475,11 +1474,13 @@ Proof
   \\ rw [bind_def]
   \\ fs [subst_def,PULL_FORALL,AND_IMP_INTRO]
   \\ simp [Once app_bisimilarity_iff] \\ fs [eval_thm]
-  \\ fs [GSYM subst_def,CONJ_ASSOC]
+  \\ fs [CONJ_ASSOC]
   \\ conj_tac
-  THEN1
-   (rw [] \\ match_mp_tac IMP_closed_subst
-    \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
+  THEN1 (
+    rw [] \\ rewrite_tac [GSYM closed_simps, GSYM subst_def]
+    \\ match_mp_tac IMP_closed_subst
+    \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
+    )
   \\ rw []
   \\ first_x_assum (qspecl_then [‘e’,‘f \\ x’] mp_tac)
   \\ impl_tac THEN1

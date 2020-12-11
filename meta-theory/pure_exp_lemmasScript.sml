@@ -50,6 +50,28 @@ Proof
   rw [] \\ match_mp_tac subst_ignore \\ fs [closed_def]
 QED
 
+Theorem closed_simps[simp]:
+  (∀n. closed (Var n) ⇔ F) ∧
+  (∀op es. closed (Prim op es) ⇔ EVERY closed es) ∧
+  (∀e1 e2. closed (App e1 e2) ⇔ closed e1 ∧ closed e2) ∧
+  (∀n e. closed (Lam n e) ⇔ freevars e ⊆ {n}) ∧
+  (∀fns e. closed (Letrec fns e) ⇔
+    freevars e ⊆ set (MAP FST fns) ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST fns)) (MAP SND fns))
+Proof
+  rw[closed_def, freevars_def] >>
+  gvs[FLAT_EQ_NIL, FILTER_EQ_NIL, EVERY_MAP, EVERY_FLAT, EVERY_MEM]
+  >- (gvs[EVERY_MEM, closed_def, SUBSET_DEF])
+  >- (
+    gvs[EVERY_MEM, closed_def, SUBSET_DEF] >>
+    eq_tac >> rw[] >> gvs[MEM_EL, PULL_EXISTS]
+    ) >>
+  eq_tac >> rw[SUBSET_DEF] >>
+  first_x_assum irule >>
+  goal_assum (drule_at Any) >>
+  Cases_on `x` >> gvs[]
+QED
+
 Theorem subst_subst:
   ∀m1 e m2.
     DISJOINT (FDOM m1) (FDOM m2) ∧
@@ -310,15 +332,8 @@ Theorem bind_bind_single:
     bind n x (bind m y e) = bind m y (bind n x e)
 Proof
   rw[] >> fs[bind_def] >>
-  reverse IF_CASES_TAC >> gvs[]
-  >- (
-    IF_CASES_TAC >> gvs[] >>
-    gvs[FLOOKUP_UPDATE] >>
-    rename1 `if n1 = n2 then _ else _` >>
-    Cases_on `n1 = n2` >> gvs[] >>
-    res_tac
-    ) >>
-  reverse IF_CASES_TAC >> gvs[subst_def] >>
+  IF_CASES_TAC >> gvs[] >>
+  IF_CASES_TAC >> gvs[] >>
   irule subst_subst_single >> fs[] >>
   gvs[FLOOKUP_UPDATE]
 QED

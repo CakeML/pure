@@ -845,7 +845,6 @@ Theorem App_Lam_bisim:
 Proof
   rw [] \\ match_mp_tac eval_IMP_app_bisimilarity
   \\ fs [eval_Let,bind_single_def]
-  \\ rw [] THEN1 fs [closed_def]
   \\ match_mp_tac IMP_closed_subst
   \\ fs [] \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF]
 QED
