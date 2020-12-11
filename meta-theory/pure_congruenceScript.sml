@@ -765,6 +765,22 @@ Proof
   \\ fs [eval_to_def,AllCaseEqs()]
   \\ Cases_on ‘n=0’ \\ fs []
   \\ rpt (disch_then strip_assume_tac) \\ fs []
+  \\ rewrite_tac [eval_Letrec]
+  \\ qpat_x_assum ‘Howe _ _ _ _’ mp_tac
+  \\ simp [Once Howe_cases] \\ strip_tac
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ reverse conj_asm2_tac THEN1 cheat (* closedness *)
+  \\ match_mp_tac (MP_CANON Howe_Tra |> GEN_ALL)
+  \\ rename [‘Letrec f2 y2’]
+  \\ qexists_tac ‘subst_funs f2 y2’
+  \\ fs [Tra_open_similarity,term_rel_open_similarity]
+  \\ conj_asm1_tac THEN1 cheat (* closedness *)
+  \\ reverse conj_tac
+  THEN1
+   (qpat_x_assum ‘open_similarity _ _ _’ mp_tac
+    \\ fs [open_similarity_EMPTY,app_similarity_iff]
+    \\ once_rewrite_tac [unfold_rel_def]
+    \\ fs [eval_Letrec])
   \\ cheat
 QED
 
