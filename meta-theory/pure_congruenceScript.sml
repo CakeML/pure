@@ -615,6 +615,13 @@ Proof
   \\ fs [closed_def]
 QED
 
+(* TODO: move *)
+Theorem closed_simps[simp]:
+   closed (Prim op xs) = EVERY closed xs
+Proof
+  rw[EQ_IMP_THM,EVERY_MEM,closed_def,FLAT_EQ_NIL,MEM_MAP,PULL_EXISTS]
+QED
+
 Theorem Howe_open_similarity_IMP:
   Howe open_similarity ∅ e1 e2 ∧ closed e1 ∧ closed e2 ⇒
   (∀x ce1.
@@ -651,10 +658,8 @@ Proof
       \\ gvs[unfold_rel_def,eval_thm]
       \\ irule_at (Pos hd) EQ_REFL
       \\ simp[GSYM PULL_EXISTS]
-      \\ conj_tac THEN1 cheat
-      \\ goal_assum(drule_at (Pat ‘LIST_REL _ _ _’))
+      \\ goal_assum drule
       \\ simp[GSYM PULL_EXISTS]
-      \\ conj_tac THEN1 cheat
       \\ metis_tac[])
      THEN1
       (rename [‘If’]
