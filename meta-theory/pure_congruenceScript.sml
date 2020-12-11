@@ -578,6 +578,15 @@ Proof
   \\ fs [closed_def]
 QED
 
+Theorem LIST_REL_Howe_open_similarity_IMP_closed:
+  ∀xs ys.
+    LIST_REL (Howe open_similarity ∅) xs ys ⇒
+    EVERY closed xs ∧ EVERY closed ys
+Proof
+  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
+  \\ imp_res_tac Howe_open_similarity_IMP_closed
+QED
+
 Triviality perm_exp_IN_Exps:
   freevars ce2 ⊆ {y} ⇒ perm_exp x y ce2 ∈ Exps {x}
 Proof
@@ -856,6 +865,20 @@ Proof
     \\ fs [open_similarity_EMPTY,app_similarity_iff]
     \\ once_rewrite_tac [unfold_rel_def]
     \\ fs [eval_Letrec])
+  \\ fs [subst_funs_def]
+  \\ qmatch_goalsub_abbrev_tac ‘_ (bind (FEMPTY |++ ys1) y1) (bind (FEMPTY |++ ys2) y2)’
+  \\ pop_assum kall_tac
+  \\ ‘LIST_REL (Howe open_similarity {}) (MAP SND ys1) (MAP SND ys2)’ by cheat
+  \\ simp [bind_def]
+  \\ rpt (DEEP_INTRO_TAC (METIS_PROVE [] “b ∧ Q x ⇒ Q (if b then x else y)”))
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ conj_tac THEN1
+   (drule LIST_REL_Howe_open_similarity_IMP_closed \\ rw []
+    \\ fs [flookup_fupdate_list, AllCaseEqs()]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ fs [MEM_REVERSE,EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ res_tac)
+
   \\ cheat
 QED
 
