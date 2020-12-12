@@ -35,6 +35,10 @@ Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
 
+Definition Bottom_def:
+  Bottom = Letrec [("bot",Var "bot")] (Var "bot")
+End
+
 Definition freevars_def[simp]:
   freevars (Var n)     = [n]                               ∧
   freevars (Prim _ es) = (FLAT (MAP freevars es))          ∧

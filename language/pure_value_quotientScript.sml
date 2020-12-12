@@ -1,6 +1,6 @@
 
 open bossLib boolLib;
-open HolKernel pure_evalTheory pure_valueTheory quotient_llistTheory listTheory
+open HolKernel pure_eval_oldTheory pure_valueTheory quotient_llistTheory listTheory
      llistTheory quotient_ltreeTheory quotientLib;
 
 val _ = new_theory "pure_value_quotient";
