@@ -76,6 +76,40 @@ Proof
   PairCases_on `y` >> fs[]
 QED
 
+Definition boundvars_def[simp]:
+  boundvars (Var n)     = []                                ∧
+  boundvars (Prim _ es) = FLAT (MAP boundvars es)           ∧
+  boundvars (App e1 e2) = (boundvars e1 ⧺ boundvars e2)     ∧
+  boundvars (Lam n e)   = n::boundvars e                    ∧
+  boundvars (Letrec lcs e) =
+    FLAT (MAP (λ(v,e). v::boundvars e) lcs) ++ boundvars e
+Termination
+  WF_REL_TAC ‘measure exp_size’ \\ fs[]
+  \\ conj_tac
+  \\ TRY (Induct_on ‘lcs’)
+  \\ TRY (Induct_on ‘es’)
+  \\ rw[] \\ fs [fetch "-" "exp_size_def"] \\ res_tac \\ fs[]
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
+End
+
+Overload boundvars = “λe. set (boundvars e)”
+
+Theorem boundvars_set_def[simp]:
+  (∀n.     boundvars (Var n)        = ∅) ∧
+  (∀op es. boundvars (Prim op es)   = BIGUNION (set (MAP boundvars es))) ∧
+  (∀e1 e2. boundvars (App e1 e2)    = boundvars e1 ∪ boundvars e2) ∧
+  (∀n e.   boundvars (Lam n e)      = n INSERT boundvars e) ∧
+  (∀lcs e. boundvars (Letrec lcs e) =
+    boundvars e ∪ BIGUNION (set (MAP (λ(fn,e). fn INSERT boundvars e) lcs)) )
+Proof
+  rw[boundvars_def, LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+  rw[LIST_TO_SET_FILTER, DELETE_DEF, EXTENSION] >>
+  fs[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+  eq_tac >> rw[] >> fs[]
+  >- ( DISJ2_TAC >> qexists_tac ‘x'’ >> Cases_on ‘x'’ >> fs[])
+  >>   DISJ1_TAC >> qexists_tac ‘y’  >> Cases_on ‘y’  >> fs[]
+QED
+
 Definition closed_def:
   closed e = (freevars e = {})
 End
