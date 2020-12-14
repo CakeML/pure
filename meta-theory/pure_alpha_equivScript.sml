@@ -474,7 +474,7 @@ Proof
     )
   >- (
     IF_CASES_TAC >> gvs[perm_wh_def] >>
-    gvs[subst_funs_eqvt, PAIR_MAP_ALT]
+    cheat (* gvs[subst_funs_eqvt, PAIR_MAP_ALT] *)
     ) >>
   IF_CASES_TAC >> gvs[perm_wh_def] >>
   TOP_CASE_TAC >> gvs[perm_wh_def]
@@ -517,6 +517,7 @@ Proof
   cheat (* TODO *)
 QED
 
+(*
 Theorem eval_to_eqvt:
   ∀v1 v2 k e. perm_v v1 v2 (eval_to k e) =
               eval_to k (perm_exp v1 v2 e)
@@ -607,6 +608,7 @@ Proof
       rw[subst_funs_eqvt_alt]
       )
 QED
+*)
 
 Theorem v_lookup_eqvt:
   ∀v1 v2 path v. (perm_v_prefix v1 v2 ## I) (v_lookup path v) =
@@ -621,6 +623,7 @@ QED
 Theorem eval_eqvt:
   perm_v v1 v2 (eval e) = eval (perm_exp v1 v2 e)
 Proof
+  cheat (*
   simp[eval_def,gen_v_eqvt] >>
   AP_TERM_TAC >>
   rw[FUN_EQ_THM,v_limit_def] >>
@@ -658,17 +661,31 @@ Proof
       ‘(perm_v_prefix v1 v2 ## I) (v_lookup path (eval_to k' e)) = (perm_v_prefix v1 v2 ## I) x’
         by metis_tac[] >>
       qpat_x_assum ‘_ = x’ kall_tac >>
-      gvs[v_lookup_eqvt,eval_to_eqvt])
+      gvs[v_lookup_eqvt,eval_to_eqvt]) *)
 QED
 
-Theorem eval_perm_closure:
+Theorem eval_wh_perm_closure:
+  eval_wh (perm_exp v1 v2 e) =
+    wh_Closure x e' ⇔ eval_wh e = wh_Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
+Proof
+  cheat
+QED
+
+Theorem eval_perm_closure: (* not used *)
   eval (perm_exp v1 v2 e) = Closure x e' ⇔ eval e = Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
 Proof
   simp[GSYM eval_eqvt,perm_v_thm,AllCaseEqs()] >>
   metis_tac[perm1_cancel,perm_exp_cancel]
 QED
 
-Theorem eval_perm_cons:
+Theorem eval_wh_perm_cons:
+  eval_wh (perm_exp v1 v2 e) =
+    wh_Constructor s e' ⇔ eval_wh e = wh_Constructor s (MAP (perm_exp v1 v2) e')
+Proof
+  cheat
+QED
+
+Theorem eval_perm_cons: (* not used *)
   eval (perm_exp v1 v2 e) = Constructor s e' ⇔ eval e = Constructor s (MAP (perm_v v1 v2) e')
 Proof
   simp[GSYM eval_eqvt] >>
@@ -677,26 +694,22 @@ Proof
   rw[MAP_MAP_o,combinTheory.o_DEF]
 QED
 
-Theorem eval_perm_atom:
-  eval (perm_exp v1 v2 e) = Atom a ⇔ eval e = Atom a
+Theorem eval_wh_perm_atom:
+  eval_wh (perm_exp v1 v2 e) = wh_Atom a ⇔ eval_wh e = wh_Atom a
 Proof
-  simp[GSYM eval_eqvt] >>
-  simp[Once perm_v_thm,AllCaseEqs()]
+  cheat
 QED
 
-Theorem eval_perm_diverge:
-  eval (perm_exp v1 v2 e) = Diverge ⇔ eval e = Diverge
+Theorem eval_wh_perm_diverge:
+  eval_wh (perm_exp v1 v2 e) = wh_Diverge ⇔ eval_wh e = wh_Diverge
 Proof
-  simp[GSYM eval_eqvt] >>
-  PURE_ONCE_REWRITE_TAC[perm_v_thm] >>
-  simp[AllCaseEqs()]
+  cheat
 QED
 
-Theorem eval_perm_error:
-  eval (perm_exp v1 v2 e) = Error ⇔ eval e = Error
+Theorem eval_wh_perm_error:
+  eval_wh (perm_exp v1 v2 e) = wh_Error ⇔ eval_wh e = wh_Error
 Proof
-  simp[GSYM eval_eqvt] >>
-  simp[Once perm_v_thm,AllCaseEqs()]
+  cheat
 QED
 
 Theorem compatible_perm:
@@ -704,30 +717,24 @@ Theorem compatible_perm:
                                            e2 = perm_exp v1 v2 e4 ∧ R(e3,e4)})
 Proof
   rw[compatible_def] >> simp[SUBSET_DEF] >>
-  Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_perm_closure] >>
-  simp[closed_perm] >> gvs[eval_perm_closure,eval_perm_cons]
+  Cases >> rw[FF_def,unfold_rel_def,ELIM_UNCURRY,eval_wh_perm_closure] >>
+  simp[closed_perm] >> gvs[eval_wh_perm_closure,eval_wh_perm_cons] >>
+  gvs[eval_wh_perm_atom,eval_wh_perm_diverge,eval_wh_perm_error]
   >- (irule_at (Pos hd) (GSYM perm1_cancel) >>
       irule_at (Pos hd) (GSYM perm_exp_cancel) >>
       rw[] >>
       irule_at (Pos hd) (GSYM perm_exp_cancel) >>
       simp[subst_single_eqvt] >>
       PRED_ASSUM is_forall (irule_at (Pos last)) >>
-      simp[subst_single_eqvt,closed_perm])
-  >- (qexists_tac ‘MAP (perm_exp v1 v2) es1’ >>
-      gvs[eval_thm] >>
-      ‘MAP (perm_v v1 v2) (MAP (perm_v v1 v2) v1s) = MAP (perm_v v1 v2) (MAP eval es1)’
-        by simp[] >>
-      pop_assum(strip_assume_tac o REWRITE_RULE[MAP_MAP_o,combinTheory.o_DEF,perm_v_cancel]) >>
-      gvs[MAP_MAP_o,combinTheory.o_DEF,eval_eqvt] >>
-      simp[eval_perm_cons] >>
-      qexists_tac ‘MAP (perm_exp v1 v2) es2’ >>
-      simp[EVERY_MAP,closed_perm,MAP_MAP_o,combinTheory.o_DEF,eval_eqvt] >>
-      CONV_TAC(DEPTH_CONV ETA_CONV) >>
-      simp[EVERY2_MAP] >>
-      drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
-      rw[] >>
-      metis_tac[]) >>
-  gvs[eval_perm_atom,eval_perm_diverge,eval_perm_error]
+      simp[subst_single_eqvt,closed_perm]) >>
+  qexists_tac ‘MAP (perm_exp v1 v2) e2s’ >>
+  gvs[eval_thm] >>
+  fs [MAP_MAP_o,combinTheory.o_DEF,perm_exp_cancel] >>
+  fs[EVERY2_MAP] >>
+  drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
+  rw[] >>
+  goal_assum (first_assum o mp_then (Pos last) mp_tac) >>
+  irule_at (Pos hd) (GSYM perm_exp_cancel) >> fs []
 QED
 
 Theorem app_similarity_eqvt:
@@ -3041,6 +3048,7 @@ Proof
   simp[perm_exp_sym,exp_alpha_refl]
 QED
 
+(*
 Theorem exp_alpha_eval_to:
   ∀k e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval_to k e1) (eval_to k e2)
 Proof
@@ -3193,6 +3201,7 @@ Proof
       match_mp_tac exp_alpha_subst_funs_vacuous2 >>
       simp[])
 QED
+*)
 
 Theorem v_alpha_v_lookup_pres:
   ∀path v1 v2 v1' v2' n m.
@@ -3215,6 +3224,7 @@ Proof
   >- metis_tac[LIST_REL_EL_EQN]
 QED
 
+(*
 Theorem v_alpha_limit_pres:
   (∀k. v_alpha (f k) (g k)) ∧
   v_limit f path = (vp1,n1) ∧
@@ -3270,6 +3280,7 @@ Proof
   impl_tac >- simp[] >>
   rw[]
 QED
+*)
 
 Theorem gen_v_alpha_pres:
   ∀v1 v2 f g.
@@ -3302,6 +3313,7 @@ QED
 Theorem exp_alpha_eval:
   ∀e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval e1) (eval e2)
 Proof
+  cheat (*
   rw[eval_def] >>
   match_mp_tac gen_v_alpha_pres >>
   ntac 2 (irule_at (Pos last) EQ_REFL) >>
@@ -3312,12 +3324,13 @@ Proof
   dxrule_at (Pat ‘_ = (_,_)’) v_alpha_limit_pres >>
   qpat_x_assum ‘v_limit _ _ = (vp2,n2)’ assume_tac >>
   disch_then(drule_at (Pat ‘_ = (_,_)’)) >>
-  simp[eval_to_res_mono_lemma]
+  simp[eval_to_res_mono_lemma] *)
 QED
 
 Theorem compatible_exp_alpha:
   compatible(λR (x,y). exp_alpha x y ∧ closed x ∧ closed y)
 Proof
+  cheat (*
   simp[compatible_def,SUBSET_DEF] >>
   PairCases >>
   rw[ELIM_UNCURRY] >>
@@ -3370,7 +3383,7 @@ Proof
       gvs[closed_def] >>
       rw[LIST_EQ_REWRITE] >>
       match_mp_tac exp_alpha_Prim >>
-      simp[])
+      simp[]) *)
 QED
 
 Theorem companion_exp_alpha:
