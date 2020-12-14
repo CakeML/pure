@@ -620,10 +620,10 @@ Proof
   simp[oEL_THM] >> rw[EL_MAP,perm_v_prefix_def]
 QED
 
-Theorem eval_eqvt:
+(*
+Theorem eval_eqvt: (* not used *)
   perm_v v1 v2 (eval e) = eval (perm_exp v1 v2 e)
 Proof
-  cheat (*
   simp[eval_def,gen_v_eqvt] >>
   AP_TERM_TAC >>
   rw[FUN_EQ_THM,v_limit_def] >>
@@ -661,8 +661,9 @@ Proof
       ‘(perm_v_prefix v1 v2 ## I) (v_lookup path (eval_to k' e)) = (perm_v_prefix v1 v2 ## I) x’
         by metis_tac[] >>
       qpat_x_assum ‘_ = x’ kall_tac >>
-      gvs[v_lookup_eqvt,eval_to_eqvt]) *)
+      gvs[v_lookup_eqvt,eval_to_eqvt])
 QED
+*)
 
 Theorem eval_wh_perm_closure:
   eval_wh (perm_exp v1 v2 e) =
@@ -2722,6 +2723,21 @@ Proof
   gvs[IN_FRANGE_FLOOKUP]
 QED
 
+Inductive wh_alpha:
+  (wh_alpha (wh_Error) (wh_Error)) ∧
+  (wh_alpha (wh_Diverge) (wh_Diverge)) ∧
+  (∀a. wh_alpha (wh_Atom a) (wh_Atom a)) ∧
+  (∀s x y.
+     exp_alpha x y ⇒
+     wh_alpha (wh_Closure s x) (wh_Closure s y)) ∧
+  (∀x y e1 e2.
+     x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2) ⇒
+     wh_alpha (wh_Closure x e1) (wh_Closure y e2)) ∧
+  (∀s xs ys.
+     LIST_REL exp_alpha xs ys ⇒
+     wh_alpha (wh_Constructor s xs) (wh_Constructor s ys))
+End
+
 val (v_alpha_rules,v_alpha_coind,v_alpha_def) = Hol_coreln
   ‘(∀v. v_alpha v v) ∧
    (∀s vs vs'. LIST_REL v_alpha vs vs' ⇒ v_alpha (Constructor s vs) (Constructor s vs')) ∧
@@ -3266,7 +3282,7 @@ Proof
 QED
 *)
 
-Theorem gen_v_alpha_pres:
+Theorem gen_v_alpha_pres: (* not used *)
   ∀v1 v2 f g.
   (∀path vp1 vp2 n1 n2. f path = (vp1,n1) ∧ g path = (vp2,n2) ⇒ v_prefix_alpha vp1 vp2 ∧ n1 = n2)
   ∧ v1 = gen_v f ∧ v2 = gen_v g
@@ -3294,10 +3310,16 @@ Proof
   rpt(simp[Once gen_v])
 QED
 
-Theorem exp_alpha_eval:
+Theorem exp_alpha_eval_wh:
+  ∀e1 e2. exp_alpha e1 e2 ⇒ wh_alpha (eval_wh e1) (eval_wh e2)
+Proof
+  cheat
+QED
+
+(*
+Theorem exp_alpha_eval: (* not used *)
   ∀e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval e1) (eval e2)
 Proof
-  cheat (*
   rw[eval_def] >>
   match_mp_tac gen_v_alpha_pres >>
   ntac 2 (irule_at (Pos last) EQ_REFL) >>
@@ -3308,30 +3330,40 @@ Proof
   dxrule_at (Pat ‘_ = (_,_)’) v_alpha_limit_pres >>
   qpat_x_assum ‘v_limit _ _ = (vp2,n2)’ assume_tac >>
   disch_then(drule_at (Pat ‘_ = (_,_)’)) >>
-  simp[eval_to_res_mono_lemma] *)
+  simp[eval_to_res_mono_lemma]
+QED
+*)
+
+Triviality LIST_REL_mono:
+  (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ R1 x y) ==>
+  LIST_REL R xs ys ⇒ LIST_REL R1 xs ys
+Proof
+  qid_spec_tac ‘ys’ \\ Induct_on ‘xs’ \\ fs [] \\ rw []
+QED
+
+Theorem eval_wh_Closure_closed:
+  eval_wh e = wh_Closure v body ∧ closed e ⇒ freevars body SUBSET {v}
+Proof
+  rw [] \\ imp_res_tac eval_wh_freevars_SUBSET
+  \\ fs [] \\ fs [SUBSET_DEF]
+  \\ gvs [closed_def] \\ rw[] \\ res_tac \\ fs [] \\ metis_tac []
 QED
 
 Theorem compatible_exp_alpha:
   compatible(λR (x,y). exp_alpha x y ∧ closed x ∧ closed y)
 Proof
-  cheat (*
   simp[compatible_def,SUBSET_DEF] >>
   PairCases >>
   rw[ELIM_UNCURRY] >>
   gvs[FF_def,unfold_rel_def] >>
   rpt strip_tac >>
-  drule exp_alpha_eval >>
+  drule exp_alpha_eval_wh >>
   rpt strip_tac >>
-  gvs[Once v_alpha_def]
-  >- (rw[exp_alpha_Refl] >>
-      match_mp_tac closed_freevars_subst >>
-      drule_all eval_Closure_closed >>
-      simp[])
-  >- (rw[]
-      >- (match_mp_tac exp_alpha_subst_closed'' >> metis_tac[]) >>
-      match_mp_tac closed_freevars_subst >>
-      rpt(drule_then dxrule eval_Closure_closed) >>
-      simp[])
+  gvs[Once wh_alpha_cases]
+  >- (rw[] >- (match_mp_tac exp_alpha_subst_closed'' >> metis_tac[]) >>
+      imp_res_tac eval_wh_Closure_closed >>
+      imp_res_tac eval_wh_freevars_SUBSET >> fs [] >>
+      match_mp_tac closed_freevars_subst >> fs [])
   >- (rw[]
       >- (Cases_on ‘x = y’
           >- (gvs[perm_exp_id] >> match_mp_tac exp_alpha_subst_closed'' >> simp[]) >>
@@ -3344,30 +3376,15 @@ Proof
           match_mp_tac exp_alpha_subst_closed_single >>
           simp[]) >>
       match_mp_tac closed_freevars_subst >>
-      rpt(drule_then dxrule eval_Closure_closed) >>
-      simp[])
-  >- (rw[eval_thm] >>
-      ntac 2 (qexists_tac ‘GENLIST (λn. Proj x n x0) (LENGTH v1s)’) >>
-      simp[MAP_GENLIST,combinTheory.o_DEF,eval_thm,el_def] >>
-      conj_asm1_tac >- (rw[LIST_EQ_REWRITE]) >>
-      simp[] >>
-      simp[LIST_REL_GENLIST,exp_alpha_refl] >>
-      rw[EVERY_MEM,MEM_GENLIST] >>
-      gvs[closed_def]
-     )
-  >- (rw[eval_thm] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      qexists_tac ‘GENLIST (λn. Proj x n x0) (LENGTH v1s)’ >>
-      qexists_tac ‘GENLIST (λn. Proj x n x1) (LENGTH v1s)’ >>
-      simp[MAP_GENLIST,combinTheory.o_DEF,eval_thm,el_def] >>
-      conj_asm1_tac >- (rw[LIST_EQ_REWRITE]) >>
-      simp[] >>
-      simp[LIST_REL_GENLIST,exp_alpha_refl] >>
-      rw[EVERY_MEM,MEM_GENLIST] >>
-      gvs[closed_def] >>
-      rw[LIST_EQ_REWRITE] >>
-      match_mp_tac exp_alpha_Prim >>
-      simp[]) *)
+      imp_res_tac eval_wh_Closure_closed >>
+      imp_res_tac eval_wh_freevars_SUBSET >> fs [] >>
+      match_mp_tac closed_freevars_subst >> fs [])
+  >- (imp_res_tac eval_wh_freevars_SUBSET >>
+      gvs [PULL_EXISTS,MEM_MAP,closed_def,GSYM IMP_DISJ_THM] >>
+      drule_at_then Any match_mp_tac LIST_REL_mono >> rw [] >>
+      rename [‘freevars e4 = _’] >>
+      Cases_on ‘freevars e4 : string list’ \\ fs [] >>
+      ‘MEM h (freevars e4)’ by fs [] >> res_tac)
 QED
 
 Theorem companion_exp_alpha:
