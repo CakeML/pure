@@ -517,8 +517,16 @@ Proof
   cheat (* TODO *)
 QED
 
+Theorem eval_wh_eqvt:
+  ∀v1 v2 e.
+    perm_wh v1 v2 (eval_wh e) =
+    eval_wh (perm_exp v1 v2 e)
+Proof
+  cheat
+QED
+
 (*
-Theorem eval_to_eqvt:
+Theorem eval_to_eqvt: (* not used *)
   ∀v1 v2 k e. perm_v v1 v2 (eval_to k e) =
               eval_to k (perm_exp v1 v2 e)
 Proof
@@ -669,32 +677,42 @@ Theorem eval_wh_perm_closure:
   eval_wh (perm_exp v1 v2 e) = wh_Closure x e'
     ⇔ eval_wh e = wh_Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
 Proof
-  cheat
+  assume_tac (Q.SPECL [‘w1’,‘w2’,‘v1’,‘v2’] perm_wh_inj |> Q.GENL [‘w1’,‘w2’])
+  \\ pop_assum (fn th => simp [Once (GSYM th)])
+  \\ fs [eval_wh_eqvt,perm_wh_def]
 QED
 
 Theorem eval_wh_perm_cons:
   eval_wh (perm_exp v1 v2 e) = wh_Constructor s e'
     ⇔ eval_wh e = wh_Constructor s (MAP (perm_exp v1 v2) e')
 Proof
-  cheat
+  assume_tac (Q.SPECL [‘w1’,‘w2’,‘v1’,‘v2’] perm_wh_inj |> Q.GENL [‘w1’,‘w2’])
+  \\ pop_assum (fn th => simp [Once (GSYM th)])
+  \\ fs [eval_wh_eqvt,perm_wh_def]
 QED
 
 Theorem eval_wh_perm_atom:
   eval_wh (perm_exp v1 v2 e) = wh_Atom a ⇔ eval_wh e = wh_Atom a
 Proof
-  cheat
+  assume_tac (Q.SPECL [‘w1’,‘w2’,‘v1’,‘v2’] perm_wh_inj |> Q.GENL [‘w1’,‘w2’])
+  \\ pop_assum (fn th => simp [Once (GSYM th)])
+  \\ fs [eval_wh_eqvt,perm_wh_def]
 QED
 
 Theorem eval_wh_perm_diverge:
   eval_wh (perm_exp v1 v2 e) = wh_Diverge ⇔ eval_wh e = wh_Diverge
 Proof
-  cheat
+  assume_tac (Q.SPECL [‘w1’,‘w2’,‘v1’,‘v2’] perm_wh_inj |> Q.GENL [‘w1’,‘w2’])
+  \\ pop_assum (fn th => simp [Once (GSYM th)])
+  \\ fs [eval_wh_eqvt,perm_wh_def]
 QED
 
 Theorem eval_wh_perm_error:
   eval_wh (perm_exp v1 v2 e) = wh_Error ⇔ eval_wh e = wh_Error
 Proof
-  cheat
+  assume_tac (Q.SPECL [‘w1’,‘w2’,‘v1’,‘v2’] perm_wh_inj |> Q.GENL [‘w1’,‘w2’])
+  \\ pop_assum (fn th => simp [Once (GSYM th)])
+  \\ fs [eval_wh_eqvt,perm_wh_def]
 QED
 
 Theorem compatible_perm:
