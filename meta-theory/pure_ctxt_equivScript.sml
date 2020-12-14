@@ -29,6 +29,8 @@ Definition plug_def:
   plug (LetrecR xs h) n = Letrec xs (plug h n)
 End
 
+(*
+
 Definition exp_equiv_def:
   exp_equiv x y ⇔
     ∀bindings.
@@ -267,5 +269,7 @@ Proof
   THEN1 (rename [‘Lam’] \\ fs [plug_def,exp_equiv_Lam])
   \\ cheat (* ... can be done once similar def covers all cases ... *)
 QED
+
+*)
 
 val _ = export_theory();
