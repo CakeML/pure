@@ -283,7 +283,9 @@ QED
 
 Definition perm_subst_def:
   perm_subst v1 v2 s =
-  (FUN_FMAP (λz. perm_exp v1 v2 (THE(FLOOKUP s (perm1 v1 v2 z)))) {z | perm1 v1 v2 z ∈ FDOM s})
+  FUN_FMAP
+    (λz. perm_exp v1 v2 (THE(FLOOKUP s (perm1 v1 v2 z))))
+    {z | perm1 v1 v2 z ∈ FDOM s}
 End
 
 Theorem perm_subst_sym:
@@ -299,7 +301,8 @@ Proof
 QED
 
 Theorem perm_subst_flookup:
-  FLOOKUP(perm_subst v1 v2 s) x = OPTION_MAP (perm_exp v1 v2) (FLOOKUP s (perm1 v1 v2 x))
+  FLOOKUP(perm_subst v1 v2 s) x =
+  OPTION_MAP (perm_exp v1 v2) (FLOOKUP s (perm1 v1 v2 x))
 Proof
   rw[perm_subst_def] >>
   dep_rewrite.DEP_ONCE_REWRITE_TAC [FLOOKUP_FUN_FMAP] >>
@@ -451,6 +454,16 @@ Proof
   rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]
 QED
 
+Triviality get_atoms_perm_cancel:
+  ∀v1 v2 l.
+    get_atoms (MAP (perm_wh v1 v2) l) =
+    get_atoms l
+Proof
+  gen_tac >> gen_tac >>
+  Induct >> rw[get_atoms_def] >>
+  BasicProvers.EVERY_CASE_TAC >> gvs[perm_wh_def]
+QED
+
 Theorem eval_wh_to_eqvt:
   ∀v1 v2 k e.
     perm_wh v1 v2 (eval_wh_to k e) =
@@ -474,7 +487,7 @@ Proof
     )
   >- (
     IF_CASES_TAC >> gvs[perm_wh_def] >>
-    cheat (* gvs[subst_funs_eqvt, PAIR_MAP_ALT] *)
+    gvs[subst_funs_eqvt, pure_miscTheory.PAIR_MAP_ALT]
     ) >>
   IF_CASES_TAC >> gvs[perm_wh_def] >>
   TOP_CASE_TAC >> gvs[perm_wh_def]
@@ -508,13 +521,20 @@ Proof
     )
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    TOP_CASE_TAC
-    >- (
-      cheat (* TODO *)
-      ) >>
-    cheat (* TODO *)
-    ) >>
-  cheat (* TODO *)
+    qmatch_goalsub_abbrev_tac `MAP f xs` >>
+    qpat_abbrev_tac `g = λa. eval_wh_to _ (_ a)` >>
+    `MAP g xs = MAP (λa. perm_wh v1 v2 (f a)) xs` by (
+      rw[LIST_EQ_REWRITE, EL_MAP] >>
+      unabbrev_all_tac >> fs[] >>
+      first_x_assum (irule o GSYM) >> gvs[EL_MEM]) >>
+    unabbrev_all_tac >> gvs[] >>
+    simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o] >>
+    simp[get_atoms_perm_cancel] >>
+    TOP_CASE_TAC >> gvs[perm_wh_def] >>
+    rename1 `option_CASE x` >> Cases_on `x` >> gvs[perm_wh_def] >>
+    rename1 `option_CASE x` >> Cases_on `x` >> gvs[perm_wh_def]
+    )
+  >- (IF_CASES_TAC >> gvs[perm_wh_def])
 QED
 
 Theorem eval_wh_eqvt:
@@ -522,101 +542,40 @@ Theorem eval_wh_eqvt:
     perm_wh v1 v2 (eval_wh e) =
     eval_wh (perm_exp v1 v2 e)
 Proof
-  cheat
+  rw[eval_wh_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[]
+  >- (
+    rename1 `eval_wh_to k` >>
+    qspecl_then [`v1`,`v2`,`k`,`e`] assume_tac eval_wh_to_eqvt >>
+    simp[] >>
+    DEEP_INTRO_TAC some_intro >> rw[] >> gvs[] >>
+    rename1 `_ = eval_wh_to k' _` >>
+    irule eval_wh_to_agree >> simp[] >>
+    once_rewrite_tac[GSYM eval_wh_to_eqvt] >>
+    pop_assum kall_tac >> pop_assum kall_tac >>
+    Cases_on `eval_wh_to k e` >> gvs[perm_wh_def]
+    )
+  >- (
+    DEEP_INTRO_TAC some_intro >> rw[] >> gvs[perm_wh_def] >>
+    pop_assum mp_tac >> simp[] >>
+    rename1 `eval_wh_to k` >>
+    qspecl_then [`v1`,`v2`,`k`,`e`] assume_tac (GSYM eval_wh_to_eqvt) >>
+    simp[perm_wh_def]
+    )
 QED
 
-(*
-Theorem eval_to_eqvt: (* not used *)
-  ∀v1 v2 k e. perm_v v1 v2 (eval_to k e) =
-              eval_to k (perm_exp v1 v2 e)
+Theorem follow_path_eval_wh_eqvt:
+  ∀v1 v2 l f e.
+    (perm_v_prefix v1 v2 ## I) (follow_path eval_wh e l) =
+    follow_path eval_wh (perm_exp v1 v2 e) l
 Proof
-  ntac 2 strip_tac >>
-  ho_match_mp_tac eval_to_ind >>
-  rw[] >>
-  rw[perm_v_thm,eval_to_def,perm_exp_def]
-  >- (‘eval_op op (MAP (λa. eval_to k a) xs) = eval_op op (MAP (λa. eval_to k a) xs)’ by metis_tac[] >>
-      dxrule eval_op_cases >> rw[] >>
-      gvs[eval_op_def,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f,MAP_EQ_CONS,MEM_MAP,PULL_EXISTS,DISJ_IMP_THM,
-          FORALL_AND_THM]
-      >- (‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
-            by metis_tac[perm_v_inj] >>
-          simp[perm_v_thm] >>
-          pop_assum kall_tac >>
-          rw[] >>
-          TOP_CASE_TAC >> gvs[perm_v_thm])
-      >- (rw[el_def] >> gvs[perm_v_thm] >>
-          Cases_on ‘eval_to k a’ >> gvs[]
-          >- (gvs[AllCaseEqs()] >> metis_tac[])
-          >- (last_x_assum (assume_tac o GSYM) >>
-              rw[EL_MAP] >>
-              TOP_CASE_TAC >> gvs[perm_v_clauses])
-          >- (gvs[AllCaseEqs()] >> metis_tac[]))
-      >- (IF_CASES_TAC
-          >- (simp[] >> gvs[] >>
-              IF_CASES_TAC >> rw[] >>
-              gvs[] >>
-              rename1 ‘eval_to k e’ >>
-              first_x_assum(qspec_then ‘e’ mp_tac) >>
-              rw[] >>
-              ‘∀x. eval_to k e = x ⇔ (perm_v v1 v2 (eval_to k e) = perm_v v1 v2 x)’
-                by metis_tac[perm_v_inj] >>
-              pop_assum(gvs o single) >>
-              gvs[perm_v_thm]) >>
-          IF_CASES_TAC
-          >- (spose_not_then kall_tac >> gvs[] >> metis_tac[perm_v_clauses,perm_v_cancel]) >>
-          qmatch_goalsub_abbrev_tac ‘OPTION_BIND a1’ >>
-          qpat_abbrev_tac ‘a2 = getAtoms _’ >>
-          ‘a1 = a2’
-            by(unabbrev_all_tac >>
-               ntac 2 (pop_assum kall_tac) >>
-               Induct_on ‘xs’ >>
-               rw[getAtoms_def] >>
-               gvs[DISJ_IMP_THM,FORALL_AND_THM] >>
-               Cases_on ‘eval_to k h’ >> gvs[getAtom_def,perm_v_clauses] >>
-               TRY(qpat_x_assum ‘Closure _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
-               TRY(qpat_x_assum ‘Constructor _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
-               TRY(qpat_x_assum ‘Atom _ = _’ (assume_tac o GSYM) >> gvs[]) >>
-               gvs[getAtom_def]) >>
-          pop_assum(SUBST_ALL_TAC o GSYM) >>
-          ntac 2 (pop_assum kall_tac) >>
-          Cases_on ‘OPTION_BIND a1 (config.parAtomOp a)’ >>
-          gvs[])
-      >- (rw[is_eq_def]
-          >- (‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
-                by metis_tac[perm_v_inj] >>
-              pop_assum(gvs o single) >>
-              gvs[perm_v_thm])
-          >- (TOP_CASE_TAC >> fs[MAP_MAP_o,combinTheory.o_DEF] >>
-              gvs[AllCaseEqs()] >>
-              ‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
-                by metis_tac[perm_v_inj] >>
-              pop_assum(gvs o single) >>
-              gvs[perm_v_thm])
-          >- (TOP_CASE_TAC >> fs[MAP_MAP_o,combinTheory.o_DEF] >>
-              gvs[AllCaseEqs()] >>
-              ‘∀x. eval_to k a = x ⇔ (perm_v v1 v2 (eval_to k a) = perm_v v1 v2 x)’
-                by metis_tac[perm_v_inj] >>
-              pop_assum(gvs o single) >>
-              gvs[perm_v_clauses] >> gvs[perm_v_thm] >> metis_tac[LENGTH_MAP])))
-  >- (gvs[perm_v_clauses])
-  >- (gvs[perm_v_clauses] >>
-      ‘∀x. eval_to k e = x ⇔ (perm_v v1 v2 (eval_to k e) = perm_v v1 v2 x)’
-        by metis_tac[perm_v_inj] >>
-      pop_assum(gvs o single) >>
-      gvs[perm_v_clauses])
-  >- (Cases_on ‘eval_to k e’ >> gvs[dest_Closure_def,perm_v_clauses] >>
-      TRY(qpat_x_assum ‘Closure _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
-      TRY(qpat_x_assum ‘Constructor _ _ = _’ (assume_tac o GSYM) >> gvs[]) >>
-      TRY(qpat_x_assum ‘Atom _ = _’ (assume_tac o GSYM) >> gvs[]) >>
-      rw[] >>
-      simp[GSYM perm_v_thm,bind_single_eqvt])
-  >- (
-      simp[GSYM perm_v_thm] >>
-      rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
-      rw[subst_funs_eqvt_alt]
-      )
+  gen_tac >> gen_tac >>
+  Induct >> rw[follow_path_def] >>
+  simp[GSYM eval_wh_eqvt] >>
+  Cases_on `eval_wh e` >> gvs[perm_wh_def, perm_v_prefix_def] >>
+  gvs[oEL_THM] >>
+  IF_CASES_TAC >> gvs[EL_MAP, perm_v_prefix_def]
 QED
-*)
 
 Theorem v_lookup_eqvt:
   ∀v1 v2 path v. (perm_v_prefix v1 v2 ## I) (v_lookup path v) =
@@ -628,50 +587,14 @@ Proof
   simp[oEL_THM] >> rw[EL_MAP,perm_v_prefix_def]
 QED
 
-(*
-Theorem eval_eqvt: (* not used *)
+Theorem eval_eqvt:
   perm_v v1 v2 (eval e) = eval (perm_exp v1 v2 e)
 Proof
-  simp[eval_def,gen_v_eqvt] >>
-  AP_TERM_TAC >>
-  rw[FUN_EQ_THM,v_limit_def] >>
-  simp[limit_def] >>
-  TOP_CASE_TAC
-  >- (gvs[some_def] >>
-      simp[Once perm_v_prefix_def] >>
-      TOP_CASE_TAC >>
-      gvs[AllCaseEqs()] >>
-      SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
-      pop_assum kall_tac >>
-      rpt strip_tac >>
-      last_x_assum(qspecl_then [‘(perm_v_prefix v1 v2 ## I) x’,‘k’] strip_assume_tac) >>
-      first_x_assum drule >> strip_tac >>
-      rename1 ‘eval_to k'’ >>
-      ‘(perm_v_prefix v1 v2 ## I) (v_lookup path (eval_to k' (perm_exp v1 v2 e))) = (perm_v_prefix v1 v2 ## I) x’
-        by metis_tac[] >>
-      qpat_x_assum ‘_ = x’ kall_tac >>
-      gvs[v_lookup_eqvt,eval_to_eqvt])
-  >- (gvs[some_def] >>
-      SELECT_ELIM_TAC >> conj_tac >- metis_tac[] >>
-      last_x_assum kall_tac >> rpt strip_tac >>
-      IF_CASES_TAC
-      >- (SELECT_ELIM_TAC >>
-          conj_tac >- metis_tac[] >>
-          pop_assum kall_tac >> rw[] >>
-          first_x_assum(qspec_then ‘MAX k k'’ mp_tac) >> simp[] >>
-          first_x_assum(qspec_then ‘MAX k k'’ mp_tac) >> simp[] >>
-          rpt(disch_then(assume_tac o GSYM)) >>
-          rw[v_lookup_eqvt,eval_to_eqvt]) >>
-      gvs[] >>
-      last_x_assum(qspecl_then [‘(perm_v_prefix v1 v2 ## I) x’,‘k’] strip_assume_tac) >>
-      first_x_assum drule >> strip_tac >>
-      rename1 ‘eval_to k'’ >>
-      ‘(perm_v_prefix v1 v2 ## I) (v_lookup path (eval_to k' e)) = (perm_v_prefix v1 v2 ## I) x’
-        by metis_tac[] >>
-      qpat_x_assum ‘_ = x’ kall_tac >>
-      gvs[v_lookup_eqvt,eval_to_eqvt])
+  rw[eval_def, v_unfold_def] >>
+  rw[gen_v_eqvt] >>
+  AP_TERM_TAC >> irule EQ_EXT >> rw[] >>
+  simp[follow_path_eval_wh_eqvt]
 QED
-*)
 
 Theorem eval_wh_perm_closure:
   eval_wh (perm_exp v1 v2 e) = wh_Closure x e'
@@ -761,11 +684,13 @@ Inductive exp_alpha:
 [~Lam:]
   (∀e x e'. exp_alpha e e' ⇒ exp_alpha (Lam x e) (Lam x e')) ∧
 [~Alpha:]
-  (∀e x y. x ≠ y ∧ y ∉ set(freevars e) ⇒ exp_alpha (Lam x e) (Lam y (perm_exp x y e))) ∧
+  (∀e x y. x ≠ y ∧ y ∉ set(freevars e) ⇒
+    exp_alpha (Lam x e) (Lam y (perm_exp x y e))) ∧
 [~Prim:]
   (∀op es es'. LIST_REL exp_alpha es es' ⇒ exp_alpha (Prim op es) (Prim op es')) ∧
 [~App:]
-  (∀e1 e1' e2 e2'. exp_alpha e1 e1' ∧ exp_alpha e2 e2' ⇒ exp_alpha (App e1 e2) (App e1' e2')) ∧
+  (∀e1 e1' e2 e2'. exp_alpha e1 e1' ∧ exp_alpha e2 e2' ⇒
+    exp_alpha (App e1 e2) (App e1' e2')) ∧
 [~Letrec:]
   (∀e1 e2 funs funs'.
      exp_alpha e1 e2 ∧ MAP FST funs = MAP FST funs' ∧
@@ -777,7 +702,10 @@ Inductive exp_alpha:
      y ∉ freevars(Letrec (funs1 ++ (x,e)::funs2) e1)
      ⇒
      exp_alpha (Letrec (funs1 ++ (x,e)::funs2) e1)
-               (Letrec (MAP (perm1 x y ## perm_exp x y) funs1 ++ (y,perm_exp x y e)::MAP (perm1 x y ## perm_exp x y) funs2) (perm_exp x y e1))) ∧
+               (Letrec
+                  (MAP (perm1 x y ## perm_exp x y) funs1 ++
+                       (y,perm_exp x y e)::MAP (perm1 x y ## perm_exp x y) funs2)
+                  (perm_exp x y e1))) ∧
 [~Letrec_Vacuous1:]
   (∀funs1 funs2 x y e e1.
      x ≠ y ∧
@@ -1029,7 +957,8 @@ Proof
           rw[perm1_def] >> gvs[perm1_def,AllCaseEqs()])
       >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN] >>
           simp[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,GSYM perm_exp_eqvt] >>
-          qspec_then ‘λx. freevars(SND x)’ (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
+          qspec_then ‘λx. freevars(SND x)’
+            (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
           simp[GSYM MAP_FLAT] >>
           simp[FILTER_MAP,combinTheory.o_DEF,perm1_right,perm1_simps] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_ID_ON] >>
@@ -1037,7 +966,8 @@ Proof
           rw[perm1_def] >>
           gvs[MEM_MAP,PULL_EXISTS] >>
           metis_tac[FST,SND,PAIR])
-      >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN,FILTER_MAP,combinTheory.o_DEF,perm1_right,perm1_simps] >>
+      >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN,FILTER_MAP,combinTheory.o_DEF,
+               perm1_right,perm1_simps] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_ID_ON] >>
           rw[MEM_FILTER,MEM_FLAT,MEM_MAP] >>
           rw[perm1_def] >>
@@ -1045,7 +975,8 @@ Proof
           metis_tac[FST,SND,PAIR])
       >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN] >>
           simp[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,GSYM perm_exp_eqvt] >>
-          qspec_then ‘λx. freevars(SND x)’ (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
+          qspec_then ‘λx. freevars(SND x)’
+            (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
           simp[GSYM MAP_FLAT] >>
           simp[FILTER_MAP,combinTheory.o_DEF,perm1_right,perm1_simps] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_ID_ON] >>
@@ -1063,7 +994,8 @@ Proof
           rw[perm1_def] >> gvs[perm1_def,AllCaseEqs()])
       >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN] >>
           simp[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,GSYM perm_exp_eqvt] >>
-          qspec_then ‘λx. freevars(SND x)’ (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
+          qspec_then ‘λx. freevars(SND x)’
+            (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
           simp[GSYM MAP_FLAT] >>
           simp[FILTER_MAP,combinTheory.o_DEF,perm1_right,perm1_simps] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_ID_ON] >>
@@ -1071,7 +1003,8 @@ Proof
           rw[perm1_def] >>
           gvs[MEM_MAP,PULL_EXISTS] >>
           metis_tac[FST,SND,PAIR])
-      >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN,FILTER_MAP,combinTheory.o_DEF,perm1_right,perm1_simps] >>
+      >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN,FILTER_MAP,combinTheory.o_DEF,
+               perm1_right,perm1_simps] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_ID_ON] >>
           rw[MEM_FILTER,MEM_FLAT,MEM_MAP] >>
           rw[perm1_def] >>
@@ -1079,7 +1012,8 @@ Proof
           metis_tac[FST,SND,PAIR])
       >- (simp[MAP_PAIR_MAP,MEM_PERM_EQ_GEN] >>
           simp[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,GSYM perm_exp_eqvt] >>
-          qspec_then ‘λx. freevars(SND x)’ (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
+          qspec_then ‘λx. freevars(SND x)’
+            (simp o single o SIMP_RULE std_ss []) MAP_MAP_perm_lemma >>
           simp[GSYM MAP_FLAT] >>
           simp[FILTER_MAP,combinTheory.o_DEF,perm1_right,perm1_simps] >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[MAP_ID_ON] >>
@@ -1172,7 +1106,8 @@ Proof
   conj_tac >- (gvs[MEM_EL] >> metis_tac[]) >>
   rw[] >>
   ‘n < LENGTH f’
-    by(qpat_x_assum ‘MAP _ _ = MAP _ _’ (strip_assume_tac o ONCE_REWRITE_RULE[LIST_EQ_REWRITE]) >>
+    by(qpat_x_assum ‘MAP _ _ = MAP _ _’
+        (strip_assume_tac o ONCE_REWRITE_RULE[LIST_EQ_REWRITE]) >>
        gvs[MEM_MAP,MEM_REVERSE] >>
        gvs[MEM_EL] >>
        spose_not_then strip_assume_tac >>
@@ -1231,7 +1166,8 @@ Theorem exp_alpha_sym:
   ∀e e'.
     exp_alpha e e' ⇒ exp_alpha e' e
 Proof
-  Induct_on ‘exp_alpha’ >> rw[exp_alpha_Refl,exp_alpha_Lam,exp_alpha_Prim,exp_alpha_App]
+  Induct_on ‘exp_alpha’ >>
+  rw[exp_alpha_Refl,exp_alpha_Lam,exp_alpha_Prim,exp_alpha_App]
   >- metis_tac[exp_alpha_Trans]
   >- (match_mp_tac exp_alpha_Trans >>
       irule_at (Pos hd) exp_alpha_Alpha >>
@@ -1253,9 +1189,11 @@ Proof
       conj_tac >- simp[] >>
       conj_tac
       >- (spose_not_then strip_assume_tac >>
-          gvs[MEM_MAP,MEM_FILTER,GSYM perm_exp_eqvt,PAIR_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
+          gvs[MEM_MAP,MEM_FILTER,GSYM perm_exp_eqvt,
+              PAIR_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
           metis_tac[perm1_def,PAIR,FST,SND]) >>
-      simp[perm_exp_sym,perm1_sym,exp_alpha_Refl,MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP])
+      simp[perm_exp_sym,perm1_sym,exp_alpha_Refl,
+           MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP])
   >- (gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
       gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
       match_mp_tac exp_alpha_Trans >>
@@ -1264,9 +1202,11 @@ Proof
       conj_tac >- simp[] >>
       conj_tac
       >- (spose_not_then strip_assume_tac >>
-          gvs[MEM_MAP,MEM_FILTER,GSYM perm_exp_eqvt,PAIR_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
+          gvs[MEM_MAP,MEM_FILTER,GSYM perm_exp_eqvt,PAIR_MAP,
+              ELIM_UNCURRY,PULL_EXISTS] >>
           metis_tac[perm1_def,PAIR,FST,SND]) >>
-      simp[perm_exp_sym,perm1_sym,exp_alpha_Refl,MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP])
+      simp[perm_exp_sym,perm1_sym,exp_alpha_Refl,
+           MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP])
   >- (gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
       gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
       match_mp_tac exp_alpha_Trans >>
@@ -1275,9 +1215,11 @@ Proof
       conj_tac >- simp[] >>
       conj_tac
       >- (spose_not_then strip_assume_tac >>
-          gvs[MEM_MAP,MEM_FILTER,GSYM perm_exp_eqvt,PAIR_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
+          gvs[MEM_MAP,MEM_FILTER,GSYM perm_exp_eqvt,PAIR_MAP,
+              ELIM_UNCURRY,PULL_EXISTS] >>
           metis_tac[perm1_def,PAIR,FST,SND]) >>
-      simp[perm_exp_sym,perm1_sym,exp_alpha_Refl,MAP_MAP_o,combinTheory.o_DEF,PAIR_MAP])
+      simp[perm_exp_sym,perm1_sym,exp_alpha_Refl,MAP_MAP_o,
+           combinTheory.o_DEF,PAIR_MAP])
   >- (gvs[MEM_FILTER] >>
       match_mp_tac exp_alpha_Trans >>
       irule_at (Pos hd) exp_alpha_Letrec_Vacuous2 >>
@@ -1314,9 +1256,11 @@ Proof
       >- (PURE_ONCE_REWRITE_TAC[perm_exp_sym] >>
           match_mp_tac exp_alpha_Alpha >> gvs[MEM_FILTER])
       >- (simp[perm1_def] >> match_mp_tac exp_alpha_Lam >> gvs[MEM_FILTER]))
-  >- (Cases_on ‘x = y’ >- (simp[perm_exp_id,perm1_simps,exp_alpha_Refl,ELIM_UNCURRY]) >>
+  >- (Cases_on ‘x = y’
+      >- (simp[perm_exp_id,perm1_simps,exp_alpha_Refl,ELIM_UNCURRY]) >>
       Cases_on ‘MEM x (MAP FST l)’
-      >- (qpat_x_assum ‘MEM _ (MAP FST l)’ (strip_assume_tac o REWRITE_RULE[MEM_MAP]) >>
+      >- (qpat_x_assum ‘MEM _ (MAP FST l)’
+            (strip_assume_tac o REWRITE_RULE[MEM_MAP]) >>
           qpat_x_assum ‘MEM _ _’ (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
           simp[] >>
           pairarg_tac >>
@@ -1327,7 +1271,8 @@ Proof
           match_mp_tac exp_alpha_Letrec_Alpha >>
           gvs[MEM_FILTER]) >>
       Cases_on ‘MEM y (MAP FST l)’
-      >- (qpat_x_assum ‘MEM _ (MAP FST l)’ (strip_assume_tac o REWRITE_RULE[MEM_MAP]) >>
+      >- (qpat_x_assum ‘MEM _ (MAP FST l)’
+            (strip_assume_tac o REWRITE_RULE[MEM_MAP]) >>
           qpat_x_assum ‘MEM _ _’ (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
           simp[] >>
           pairarg_tac >>
@@ -1354,7 +1299,8 @@ QED
 
 Theorem perm_exp_compose:
   ∀z å e x y.
-    perm_exp x y (perm_exp z å e) = perm_exp (perm1 x y z) (perm1 x y å) (perm_exp x y e)
+    perm_exp x y (perm_exp z å e) =
+    perm_exp (perm1 x y z) (perm1 x y å) (perm_exp x y e)
 Proof
   ho_match_mp_tac perm_exp_ind >>
   rw[perm_exp_def]
@@ -1413,7 +1359,8 @@ Proof
       simp[perm1_eq_cancel,GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN] >>
       conj_asm1_tac
       >- (gvs[MEM_FILTER] >>
-          gvs[DISJ_EQ_IMP |> PURE_ONCE_REWRITE_RULE[DISJ_SYM],MEM_MAP,ELIM_UNCURRY,PULL_EXISTS,
+          gvs[DISJ_EQ_IMP |> PURE_ONCE_REWRITE_RULE[DISJ_SYM],
+              MEM_MAP,ELIM_UNCURRY,PULL_EXISTS,
               GSYM perm_exp_eqvt] >>
           metis_tac[FST,SND,PAIR]) >>
       simp[MAP_MAP_o,ELIM_UNCURRY,combinTheory.o_DEF] >>
@@ -1498,7 +1445,7 @@ Proof
   rw[FRANGE_DEF,EQ_IMP_THM,FDOM_perm_keys]
   >- (goal_assum drule >>
       qspecl_then [‘perm1 x y’] (drule_at (Pos last))
-                             (cj 2 MAP_KEYS_def |> SIMP_RULE std_ss [AND_IMP_INTRO,PULL_FORALL]) >>
+        (cj 2 MAP_KEYS_def |> SIMP_RULE std_ss [AND_IMP_INTRO,PULL_FORALL]) >>
       disch_then(qspecl_then[‘y’,‘x’] mp_tac) >>
       simp[perm1_simps] >>
       impl_tac >- (rw[INJ_DEF]) >>
@@ -1525,12 +1472,14 @@ Theorem exp_alpha_Letrec_Alpha_MEM:
   ∀x y f e1.
   MEM x (MAP FST f) ∧
   ¬MEM y (freevars (Letrec f e1)) ⇒
-  exp_alpha (Letrec f e1) (Letrec (MAP (perm1 x y ## perm_exp x y) f) (perm_exp x y e1))
+  exp_alpha (Letrec f e1)
+            (Letrec (MAP (perm1 x y ## perm_exp x y) f) (perm_exp x y e1))
 Proof
   rpt strip_tac >>
   reverse(Cases_on ‘x = y’)
-  >- (qpat_x_assum ‘MEM _ _’ (strip_assume_tac o
-                              ONCE_REWRITE_RULE[MEM_SPLIT] o ONCE_REWRITE_RULE[MEM_MAP]) >>
+  >- (qpat_x_assum ‘MEM _ _’
+        (strip_assume_tac o
+         ONCE_REWRITE_RULE[MEM_SPLIT] o ONCE_REWRITE_RULE[MEM_MAP]) >>
       rpt VAR_EQ_TAC >>
       rename1 ‘xx::_’ >>
       PairCases_on ‘xx’ >>
@@ -1605,7 +1554,8 @@ Proof
           >- (ho_match_mp_tac IN_FRANGE_DOMSUB_suff >>
               gvs[IN_FRANGE_FLOOKUP,PULL_EXISTS] >>
               metis_tac[closed_perm]) >>
-          rw[fmap_rel_OPTREL_FLOOKUP,DOMSUB_FLOOKUP_THM,fdomsub_eqvt,perm1_simps] >>
+          rw[fmap_rel_OPTREL_FLOOKUP,DOMSUB_FLOOKUP_THM,
+             fdomsub_eqvt,perm1_simps] >>
           rw[] >>
           rw[perm_subst_flookup] >>
           rename [‘FLOOKUP s (perm1 x y z)’] >>
@@ -1639,7 +1589,8 @@ Proof
           >- (ho_match_mp_tac IN_FRANGE_DOMSUB_suff >>
               gvs[IN_FRANGE_FLOOKUP,PULL_EXISTS] >>
               metis_tac[closed_perm]) >>
-          rw[fmap_rel_OPTREL_FLOOKUP,DOMSUB_FLOOKUP_THM,fdomsub_eqvt,perm1_simps] >>
+          rw[fmap_rel_OPTREL_FLOOKUP,DOMSUB_FLOOKUP_THM,
+             fdomsub_eqvt,perm1_simps] >>
           rw[] >>
           rw[perm_subst_flookup] >>
           simp[perm1_sym] >>
@@ -1711,7 +1662,8 @@ Proof
               gvs[MAP_MAP_o,combinTheory.o_DEF] >>
               rw[MEM_MAP] >>
               (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-               conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+               conj_tac
+               >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
               gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY]) >>
           simp[MAP_MAP_o,combinTheory.o_DEF] >>
           match_mp_tac exp_alpha_Letrec >>
@@ -1775,7 +1727,8 @@ Proof
               gvs[MAP_MAP_o,combinTheory.o_DEF] >>
               rw[MEM_MAP] >>
               (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-               conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+               conj_tac
+               >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
               gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY]) >>
           simp[MAP_MAP_o,combinTheory.o_DEF] >>
           match_mp_tac exp_alpha_Letrec >>
@@ -1829,7 +1782,8 @@ Proof
           match_mp_tac exp_alpha_perm_irrel >>
           gvs[IN_FRANGE_FLOOKUP,PULL_EXISTS,closed_def] >>
           res_tac >> gvs[]) >>
-      ‘∀g: string # exp -> exp. MAP (λx'. (perm1 x y (FST x'), g x')) f = MAP (λx'. (FST x'), g x') f’
+      ‘∀g: string # exp -> exp. MAP (λx'. (perm1 x y (FST x'), g x')) f =
+                                MAP (λx'. (FST x'), g x') f’
         by(rw[MAP_EQ_f] >> gvs[MEM_MAP] >> metis_tac[perm1_def]) >>
       pop_assum(Ho_Rewrite.ONCE_REWRITE_TAC o single) >>
       match_mp_tac exp_alpha_Letrec >>
@@ -1853,7 +1807,8 @@ Proof
       match_mp_tac exp_alpha_Trans >>
       first_x_assum(irule_at (Pos hd)) >>
       goal_assum drule >>
-      conj_tac >- (gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS] >> metis_tac[FST,SND,PAIR]) >>
+      conj_tac >- (gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS] >>
+      metis_tac[FST,SND,PAIR]) >>
       conj_tac
       >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
       simp[LIST_TO_SET_MAP] >>
@@ -2021,7 +1976,8 @@ Proof
       match_mp_tac exp_alpha_Lam >>
       irule_at (Pos hd) exp_alpha_subst_closed'_strong >>
       conj_tac
-      >- (match_mp_tac IN_FRANGE_DOMSUB_suff >> simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >> metis_tac[closed_perm]) >>
+      >- (match_mp_tac IN_FRANGE_DOMSUB_suff >>
+      simp[FRANGE_MEM_eqvt,FRANGE_perm_keys] >> metis_tac[closed_perm]) >>
       conj_tac
       >- (metis_tac[IN_FRANGE_DOMSUB_suff]) >>
       rw[fmap_rel_OPTREL_FLOOKUP] >>
@@ -2077,15 +2033,18 @@ Proof
       conj_tac >- simp[] >>
       conj_tac
       >- (spose_not_then strip_assume_tac >>
-          gvs[MEM_MAP,ELIM_UNCURRY,DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM],PULL_EXISTS,FORALL_AND_THM] >>
+          gvs[MEM_MAP,ELIM_UNCURRY,DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM],
+              PULL_EXISTS,FORALL_AND_THM] >>
           pop_assum mp_tac >>
           impl_tac
           >- (rw[] >>
               (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-               conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+               conj_tac >- (simp[FDIFF_def] >>
+               metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
                gvs[])) >>
           dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-          conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+          conj_tac >- (simp[FDIFF_def] >>
+          metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
           gvs[]) >>
       match_mp_tac exp_alpha_Letrec >>
       simp[MAP_MAP_o,combinTheory.o_DEF,perm1_simps,subst_eqvt,FDIFF_eqvt] >>
@@ -2120,7 +2079,9 @@ Proof
       >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
           rw[MAP_EQ_f] >>
           pairarg_tac >> rw[]) >>
-      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ] >>
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,
+         LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,
+         EVERY2_refl_EQ] >>
       (match_mp_tac exp_alpha_subst_closed'_strong >>
        conj_tac
        >- (simp[FDIFF_def] >>
@@ -2191,7 +2152,9 @@ Proof
       >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
           rw[MAP_EQ_f] >>
           pairarg_tac >> rw[]) >>
-      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ] >>
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,
+        LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,
+        EVERY2_refl_EQ] >>
       (match_mp_tac exp_alpha_subst_closed'_strong >>
        conj_tac
        >- (simp[FDIFF_def] >>
@@ -2262,7 +2225,9 @@ Proof
       >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
           rw[MAP_EQ_f] >>
           pairarg_tac >> rw[]) >>
-      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ] >>
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,
+        LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,
+        EVERY2_refl_EQ] >>
       (match_mp_tac exp_alpha_subst_closed'_strong >>
        conj_tac
        >- (simp[FDIFF_def] >>
@@ -2302,11 +2267,13 @@ Proof
           gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
           rpt conj_tac >> rpt gen_tac >>
           (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+           conj_tac
+           >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
           simp[] >>
           rw[MEM_MAP] >>
           (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+           conj_tac >- (simp[FDIFF_def] >>
+           metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
           gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS]) >>
       conj_tac
       >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
@@ -2345,7 +2312,9 @@ Proof
       conj_tac
       >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
           rw[MAP_MAP_o,MAP_EQ_f,ELIM_UNCURRY]) >>
-      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ]
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,
+         LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,
+         EVERY2_refl_EQ]
       >- (match_mp_tac exp_alpha_subst_closed'_strong >>
           conj_tac
           >- (simp[FDIFF_def] >>
@@ -2455,11 +2424,13 @@ Proof
           gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
           rpt conj_tac >> rpt gen_tac >>
           (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+           conj_tac >- (simp[FDIFF_def] >>
+           metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
           simp[] >>
           rw[MEM_MAP] >>
           (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-           conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
+           conj_tac >- (simp[FDIFF_def] >>
+           metis_tac[IN_FRANGE_DRESTRICT_suff])) >>
           gvs[MEM_MAP,ELIM_UNCURRY,PULL_EXISTS]) >>
       conj_tac
       >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
@@ -2469,7 +2440,8 @@ Proof
       >- (gvs[MEM_MAP,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR]) >>
       conj_tac
       >- (dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-          conj_tac >- (simp[FDIFF_def] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
+          conj_tac >- (simp[FDIFF_def] >>
+          metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
           simp[]) >>
       simp[subst_eqvt,FDIFF_eqvt,perm1_simps] >>
       match_mp_tac exp_alpha_Letrec >>
@@ -2504,7 +2476,9 @@ Proof
       conj_tac
       >- (rpt(match_mp_tac APPEND_EQ_IMP >> conj_tac) >>
           rw[MAP_MAP_o,MAP_EQ_f,ELIM_UNCURRY]) >>
-      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,EVERY2_refl_EQ]
+      rw[EVERY2_MAP,LIST_REL_APPEND_EQ,ELIM_UNCURRY,subst_eqvt,FDIFF_eqvt,
+         LIST_TO_SET_MAP,IMAGE_IMAGE,combinTheory.o_DEF,perm1_simps,
+         EVERY2_refl_EQ]
       >- (match_mp_tac exp_alpha_subst_closed'_strong >>
           conj_tac
           >- (simp[FDIFF_def] >>
@@ -2656,7 +2630,8 @@ Proof
   conj_tac >- (simp[FRANGE_perm_keys] >> metis_tac[IN_FRANGE_DRESTRICT_suff]) >>
   simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
   rw[]
-  >- (gvs[perm1_def] >> rw[] >> gvs[] >> Cases_on ‘FLOOKUP s k’ >> gvs[exp_alpha_refl]) >>
+  >- (gvs[perm1_def] >> rw[] >> gvs[] >> Cases_on ‘FLOOKUP s k’ >>
+      gvs[exp_alpha_refl]) >>
   gvs[perm1_def] >> metis_tac[]
 QED
 
@@ -2692,7 +2667,8 @@ QED
 Theorem exp_alpha_subst_funs_closed:
     x ≠ y ∧ MEM x (MAP FST f) ∧ ¬MEM y (freevars(Letrec f e))
     ⇒
-    exp_alpha (subst_funs f e) (subst_funs (MAP (perm1 x y ## perm_exp x y) f) (perm_exp x y e))
+    exp_alpha (subst_funs f e)
+              (subst_funs (MAP (perm1 x y ## perm_exp x y) f) (perm_exp x y e))
 Proof
   rpt strip_tac >>
   rw[subst_funs_def] >>
@@ -2709,7 +2685,8 @@ Proof
   Ho_Rewrite.PURE_ONCE_REWRITE_TAC[GSYM PAIR_MAP_THM] >>
   PURE_REWRITE_TAC[PAIR] >>
   CONV_TAC(DEPTH_CONV ETA_CONV) >>
-  PURE_REWRITE_TAC[fmap_rel_OPTREL_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE] >>
+  PURE_REWRITE_TAC[
+    fmap_rel_OPTREL_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE] >>
   rw[ALOOKUP_MAP_perm',ALOOKUP_MAP_perm] >>
   Cases_on ‘ALOOKUP (REVERSE f) (perm1 x y k)’ >> gvs[] >>
   match_mp_tac exp_alpha_Letrec_Alpha_MEM >>
@@ -2756,17 +2733,19 @@ Inductive wh_alpha:
      wh_alpha (wh_Constructor s xs) (wh_Constructor s ys))
 End
 
-val (v_alpha_rules,v_alpha_coind,v_alpha_def) = Hol_coreln
-  ‘(∀v. v_alpha v v) ∧
-   (∀s vs vs'. LIST_REL v_alpha vs vs' ⇒ v_alpha (Constructor s vs) (Constructor s vs')) ∧
+CoInductive v_alpha:
+[~refl:]
+  (∀v. v_alpha v v) ∧
+[~cons:]
+   (∀s vs vs'. LIST_REL v_alpha vs vs'
+      ⇒ v_alpha (Constructor s vs) (Constructor s vs')) ∧
+[~closure:]
    (∀s e1 e2. exp_alpha e1 e2 ⇒ v_alpha (Closure s e1) (Closure s e2)) ∧
-   (∀x y e1 e2. x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2) ⇒ v_alpha (Closure x e1) (Closure y e2))
-  ’
-
-Theorem v_alpha_refl = cj 1 v_alpha_rules
-Theorem v_alpha_cons = cj 2 v_alpha_rules
-Theorem v_alpha_closure = cj 3 v_alpha_rules
-Theorem v_alpha_alpha = cj 4 v_alpha_rules
+[~alpha:]
+   (∀x y e1 e2.
+      x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2)
+    ⇒ v_alpha (Closure x e1) (Closure y e2))
+End
 
 Inductive v_prefix_alpha:
 [~Refl:]
@@ -2774,7 +2753,9 @@ Inductive v_prefix_alpha:
 [~Closure:]
   (∀e1 e2 x. exp_alpha e1 e2 ⇒ v_prefix_alpha (Closure' x e1) (Closure' x e2)) ∧
 [~Alpha:]
-  (∀x y e1 e2. x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2) ⇒ v_prefix_alpha (Closure' x e1) (Closure' y e2))
+  (∀x y e1 e2.
+      x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2)
+    ⇒ v_prefix_alpha (Closure' x e1) (Closure' y e2))
 End
 
 Theorem v_alpha_trans:
@@ -2783,8 +2764,9 @@ Proof
   CONV_TAC(QUANT_CONV(SWAP_FORALL_CONV)) >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
   ho_match_mp_tac v_alpha_coind >>
-  rw[Once v_alpha_def] >>
-  qhdtm_x_assum ‘v_alpha’ (strip_assume_tac o REWRITE_RULE [v_alpha_def]) >> gvs[]
+  rw[Once v_alpha_cases] >>
+  qhdtm_x_assum ‘v_alpha’ (strip_assume_tac o REWRITE_RULE [v_alpha_cases]) >>
+  gvs[]
   >- (disj2_tac >>
       drule_at_then Any match_mp_tac EVERY2_mono >>
       metis_tac[v_alpha_refl])
@@ -2796,7 +2778,8 @@ Proof
       metis_tac[])
   >- (metis_tac[exp_alpha_Trans])
   >- (metis_tac[exp_alpha_freevars,exp_alpha_Trans])
-  >- (metis_tac[exp_alpha_perm_closed,perm_exp_sym,exp_alpha_Trans,exp_alpha_freevars])
+  >- (metis_tac[exp_alpha_perm_closed,perm_exp_sym,exp_alpha_Trans,
+                exp_alpha_freevars])
   >- (reverse(Cases_on ‘MEM x' (freevars e1')’)
       >- (‘exp_alpha (perm_exp x x' e1') e1'’
             by(match_mp_tac exp_alpha_sym >>
@@ -2892,7 +2875,8 @@ Triviality closed_Letrec_perm_lemma:
    closed (Letrec (funs1 ++ (x,e)::funs2) e1))
 Proof
   strip_tac >>
-  ‘pure_exp$freevars (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1) = freevars (Letrec (funs1 ++ (x,e)::funs2) e1)’
+  ‘pure_exp$freevars (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1) =
+    freevars (Letrec (funs1 ++ (x,e)::funs2) e1)’
     suffices_by metis_tac[closed_def] >>
   match_mp_tac exp_alpha_freevars >>
   match_mp_tac exp_alpha_sym >>
@@ -2932,7 +2916,8 @@ Triviality closed_Letrec_perm_lemma''':
    closed (Letrec (funs1 ++ (x,e)::funs2) e1))
 Proof
   strip_tac >>
-  ‘pure_exp$freevars (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1) = freevars (Letrec (funs1 ++ (x,e)::funs2) e1)’
+  ‘pure_exp$freevars (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1) =
+    freevars (Letrec (funs1 ++ (x,e)::funs2) e1)’
     suffices_by metis_tac[closed_def] >>
   match_mp_tac exp_alpha_freevars >>
   match_mp_tac exp_alpha_sym >>
@@ -2953,7 +2938,8 @@ Proof
   rpt strip_tac >>
   simp[subst_funs_def] >>
   match_mp_tac exp_alpha_bind_all_closed'_alt >>
-  simp[IN_FRANGE_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,ALOOKUP_MAP_2,ALOOKUP_APPEND] >>
+  simp[IN_FRANGE_FLOOKUP,flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,
+       ALOOKUP_MAP_2,ALOOKUP_APPEND] >>
   reverse conj_tac
   >- (rw[EQ_IMP_THM] >>
       gvs[PULL_EXISTS] >>
@@ -3020,7 +3006,8 @@ Proof
           metis_tac[FST,SND,PAIR])) >>
   simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_DRESTRICT] >>
   rw[] >>
-  rw[flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,ALOOKUP_APPEND,ALOOKUP_MAP_2]
+  rw[flookup_fupdate_list,GSYM MAP_REVERSE,REVERSE_APPEND,
+     ALOOKUP_APPEND,ALOOKUP_MAP_2]
   >- (Cases_on ‘ALOOKUP (REVERSE funs2) k’ >>
       gvs[ALOOKUP_NONE,OPTREL_SOME,AllCaseEqs(),PULL_EXISTS] >>
       gvs[MAP_REVERSE] >>
@@ -3059,167 +3046,184 @@ Proof
   rpt strip_tac >>
   match_mp_tac exp_alpha_sym >>
   match_mp_tac exp_alpha_Trans >>
-  qexists_tac ‘subst_funs (funs1 ++ (x, perm_exp y x (perm_exp x y e))::funs2) e1’ >>
+  qexists_tac
+    ‘subst_funs (funs1 ++ (x, perm_exp y x (perm_exp x y e))::funs2) e1’ >>
   conj_tac
   >- (match_mp_tac exp_alpha_subst_funs_vacuous1 >>
       gvs[GSYM perm_exp_eqvt,MEM_PERM_EQ_GEN,perm1_simps]) >>
   simp[perm_exp_sym,exp_alpha_refl]
 QED
 
-(*
-Theorem exp_alpha_eval_to:
-  ∀k e1 e2. exp_alpha e1 e2 ⇒ v_alpha(eval_to k e1) (eval_to k e2)
+Inductive wh_alpha:
+[~refl:]
+  (wh_alpha v v) ∧
+[~cons:]
+  (LIST_REL exp_alpha e1s e2s
+    ⇒ wh_alpha (wh_Constructor s e1s) (wh_Constructor s e2s)) ∧
+[~closure:]
+   (exp_alpha e1 e2 ⇒ wh_alpha (wh_Closure s e1) (wh_Closure s e2)) ∧
+[~alpha:]
+   (x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2)
+    ⇒ wh_alpha (wh_Closure x e1) (wh_Closure y e2))
+End
+
+Triviality wh_alpha_sym_imp:
+  ∀wh1 wh2.
+    wh_alpha wh1 wh2
+  ⇒ wh_alpha wh2 wh1
 Proof
-  ho_match_mp_tac COMPLETE_INDUCTION >>
-  strip_tac >>
-  Induct_on ‘exp_alpha’ >> rw[]
-  >- simp[v_alpha_refl]
-  >- metis_tac[v_alpha_trans]
-  >- (simp[eval_to_def] >> metis_tac[v_alpha_rules])
-  >- (simp[eval_to_def] >>
-      MAP_FIRST match_mp_tac (CONJUNCTS v_alpha_rules) >>
-      simp[GSYM perm_exp_eqvt,MEM_PERM_EQ,exp_alpha_refl])
-  >- (simp[eval_to_def] >>
-      ‘eval_op op (MAP eval es) = eval_op op (MAP eval es)’ by metis_tac[] >>
-      dxrule eval_op_cases >>
-      rw[MAP_EQ_CONS] >> gvs[LIST_REL_CONS1] >>
-      gvs[eval_op_def,v_alpha_refl]
-      >- (match_mp_tac v_alpha_cons >>
-          simp[EVERY2_MAP] >>
-          drule_at_then Any match_mp_tac EVERY2_mono >>
-          rw[])
-      >- (rename1 ‘eval_to _ ee’ >>
-          qpat_x_assum ‘v_alpha (eval_to _ ee) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
-          gvs[] >> rw[v_alpha_refl] >> gvs[])
-      >- (rename1 ‘eval_to _ ee’ >>
-          simp[el_def] >>
-          qpat_x_assum ‘v_alpha (eval_to _ ee) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
-          gvs[] >> rw[v_alpha_refl] >>
-          gvs[LIST_REL_EL_EQN])
-      >- (‘MEM Diverge (MAP (λa. eval_to k a) es) ⇔ MEM Diverge (MAP (λa. eval_to k a) es')’
-            by(gvs[MEM_EL,LIST_REL_EL_EQN] >> rw[EQ_IMP_THM] >>
-               goal_assum drule >>
-               first_x_assum drule >> rw[Once v_alpha_def] >>
-               gvs[EL_MAP]) >>
-          simp[] >>
-          rw[v_alpha_refl] >>
-          ‘getAtoms (MAP (λa. eval_to k a) es) = getAtoms (MAP (λa. eval_to k a) es')’
-            by(qhdtm_x_assum ‘LIST_REL’ mp_tac >>
-               rpt(pop_assum kall_tac) >>
-               Induct_on ‘LIST_REL’ >>
-               rw[getAtoms_def,Once v_alpha_def] >>
-               gvs[getAtom_def]) >>
-          simp[] >>
-          TOP_CASE_TAC >> simp[v_alpha_refl])
-      >- (simp[is_eq_def] >>
-          rename1 ‘eval_to _ ee’ >>
-          qpat_x_assum ‘v_alpha (eval_to _ ee) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
-          gvs[] >> rw[v_alpha_refl] >> gvs[] >>
-          gvs[LIST_REL_EL_EQN]))
-  >- (simp[eval_to_def] >>
-      ‘eval_to k e1 = Diverge ⇔ eval_to k e2 = Diverge’
-        by(res_tac >>
-           qpat_x_assum ‘v_alpha (eval_to _ e1) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
-           gvs[]) >>
-      TOP_CASE_TAC >> gvs[] >>
-      TOP_CASE_TAC
-      >- (qpat_x_assum ‘v_alpha (eval_to _ e1) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
-          gvs[v_alpha_refl,dest_Closure_def]) >>
-      qpat_x_assum ‘v_alpha (eval_to _ e1) _’ (strip_assume_tac o ONCE_REWRITE_RULE[v_alpha_def]) >>
-      gvs[v_alpha_refl,dest_Closure_def,AllCaseEqs()]
-      >- (rw[v_alpha_refl] >>
-          first_x_assum (match_mp_tac o MP_CANON) >>
-          simp[] >>
-          simp[bind_def,FLOOKUP_UPDATE] >>
-          imp_res_tac exp_alpha_closed >> gvs[] >>
-          rw[exp_alpha_refl] >>
-          match_mp_tac exp_alpha_subst_closed' >>
-          simp[fmap_rel_OPTREL_FLOOKUP,FLOOKUP_UPDATE] >>
-          rw[]
-         )
-      >- (rw[v_alpha_refl] >>
-          first_x_assum (match_mp_tac o MP_CANON) >>
-          simp[] >>
-          simp[bind_def,FLOOKUP_UPDATE] >>
-          imp_res_tac exp_alpha_closed >> gvs[] >>
-          rw[exp_alpha_refl] >>
-          match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed_single' >>
-          goal_assum (drule_at (Pat ‘exp_alpha _ _’)) >>
-          simp[] >>
-          match_mp_tac exp_alpha_subst_closed'' >>
-          simp[])
-      >- (rw[v_alpha_refl] >>
-          first_x_assum (match_mp_tac o MP_CANON) >>
-          simp[] >>
-          simp[bind_def,FLOOKUP_UPDATE] >>
-          imp_res_tac exp_alpha_closed >> gvs[] >>
-          rw[exp_alpha_refl] >>
-          match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed_single' >>
-          simp[] >>
-          first_x_assum(irule_at (Pos (hd o tl))) >>
-          simp[] >>
-          match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed'' >>
-          simp[] >>
-          goal_assum drule >>
-          Cases_on ‘x' = y’ >> gvs[perm_exp_id,exp_alpha_refl] >>
-          match_mp_tac exp_alpha_Trans >>
-          irule_at (Pos hd) exp_alpha_subst_closed_single >>
-          goal_assum drule >>
-          simp[exp_alpha_refl] >>
-          imp_res_tac exp_alpha_freevars >>
-          gvs[]))
-  >- (rw[eval_to_def,v_alpha_refl] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
-      simp[subst_funs_def] >>
-      match_mp_tac exp_alpha_Trans >>
-      irule_at (Pos hd) exp_alpha_bind_all_closed >>
-      goal_assum drule >>
-      simp[GSYM subst_funs_def] >>
-      match_mp_tac exp_alpha_subst_funs_closed' >>
-      simp[] >>
-      drule_at_then (Pos last) match_mp_tac EVERY2_mono >>
-      rw[])
-  >- (rw[eval_to_def,v_alpha_refl] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
-      gvs[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
-      match_mp_tac exp_alpha_Trans >>
-      irule_at (Pos hd) exp_alpha_subst_funs_closed >>
-      goal_assum drule >>
-      simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
-      simp[perm1_simps,exp_alpha_refl])
-  >- (rw[eval_to_def,v_alpha_refl] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
-      match_mp_tac exp_alpha_Trans >>
-      irule_at (Pos hd) exp_alpha_subst_funs_closed >>
-      goal_assum drule >>
-      simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
-      simp[perm1_simps,exp_alpha_refl])
-  >- (rw[eval_to_def,v_alpha_refl] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
-      match_mp_tac exp_alpha_Trans >>
-      irule_at (Pos hd) exp_alpha_subst_funs_closed >>
-      goal_assum drule >>
-      simp[DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM]] >>
-      simp[perm1_simps,exp_alpha_refl])
-  >- (rw[eval_to_def,v_alpha_refl] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
-      match_mp_tac exp_alpha_subst_funs_vacuous1 >>
-      simp[])
-  >- (rw[eval_to_def,v_alpha_refl] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
-      match_mp_tac exp_alpha_subst_funs_vacuous2 >>
-      simp[])
+  Induct_on `wh_alpha` >> rw[]
+  >- simp[wh_alpha_refl]
+  >- (
+    irule wh_alpha_cons >>
+    fs[LIST_REL_EL_EQN] >> rw[] >>
+    irule exp_alpha_sym >> fs[]
+    )
+  >- (
+    irule wh_alpha_closure >>
+    irule exp_alpha_sym >> fs[]
+    )
+  >- (
+    irule wh_alpha_alpha >> fs[] >>
+    irule exp_alpha_perm_closed_sym >>
+    qexists_tac `y` >> qexists_tac `x` >>
+    simp[perm_exp_cancel] >>
+    simp[Once perm_exp_sym] >>
+    irule exp_alpha_sym >> fs[]
+    )
 QED
-*)
+
+Theorem wh_alpha_sym:
+  ∀wh1 wh2. wh_alpha wh1 wh2 ⇔ wh_alpha wh2 wh1
+Proof
+  rw[] >> eq_tac >> rw[wh_alpha_sym_imp]
+QED
+
+Triviality perm_exp_eqvt_alt:
+  ∀ v1 v2 e.
+    IMAGE (perm1 v1 v2) (freevars e) = freevars (perm_exp v1 v2 e)
+Proof
+  rw[EXTENSION] >>
+  simp[GSYM perm_exp_eqvt, MEM_MAP]
+QED
+
+Theorem wh_alpha_trans:
+  ∀wh1 wh2 wh3.
+    wh_alpha wh1 wh2 ∧
+    wh_alpha wh2 wh3
+  ⇒ wh_alpha wh1 wh3
+Proof
+  Induct_on `wh_alpha` >> rw[]
+  >- (
+    gvs[Once wh_alpha_cases] >>
+    irule wh_alpha_cons >> fs[] >>
+    gvs[LIST_REL_EL_EQN] >> rw[] >>
+    irule exp_alpha_Trans >>
+    res_tac >> goal_assum drule >> fs[]
+    )
+  >- (
+    reverse (gvs[Once wh_alpha_cases])
+    >- (
+      simp[Once wh_alpha_sym] >>
+      irule wh_alpha_alpha >> fs[] >>
+      imp_res_tac exp_alpha_freevars >> gvs[] >>
+      irule exp_alpha_perm_closed_sym >>
+      qexists_tac `y` >> qexists_tac `s` >> simp[perm_exp_cancel] >>
+      irule exp_alpha_sym >> fs[] >>
+      irule exp_alpha_Trans >>
+      goal_assum drule >>
+      simp[Once perm_exp_sym]
+      ) >>
+    irule wh_alpha_closure >> fs[] >>
+    irule exp_alpha_Trans >>
+    goal_assum drule >> fs[]
+    )
+  >- (
+    imp_res_tac exp_alpha_freevars >>
+    gvs[GSYM perm_exp_eqvt, MEM_MAP, GSYM IMP_DISJ_THM] >>
+    reverse (gvs[Once wh_alpha_cases])
+    >- (
+      rename1 `wh_alpha _ (wh_Closure z _)` >>
+      Cases_on `x = z` >> gvs[]
+      >- (
+        irule wh_alpha_closure >>
+        irule exp_alpha_perm_closed_sym >>
+        irule_at Any exp_alpha_Trans >>
+        goal_assum (drule_at Any) >>
+        irule exp_alpha_perm_closed_sym >>
+        qexists_tac `y` >> qexists_tac `x` >>
+        simp[perm_exp_cancel, Once perm_exp_sym]
+        ) >>
+      irule wh_alpha_alpha >> rw[]
+      >- (
+        imp_res_tac exp_alpha_freevars >>
+        gvs[GSYM perm_exp_eqvt, MEM_MAP, GSYM IMP_DISJ_THM] >>
+        first_x_assum (qspec_then `x` mp_tac) >> simp[perm1_def] >>
+        last_x_assum (qspec_then `x` mp_tac) >>
+        rewrite_tac[perm1_def] >> simp[] >>
+        IF_CASES_TAC >> simp[]
+        )
+      >- (
+        simp[MEM_PERM_EQ_GEN] >>
+        rw[perm1_def]
+        ) >>
+      imp_res_tac exp_alpha_freevars >>
+      gvs[GSYM perm_exp_eqvt] >>
+      gvs[MEM_PERM_EQ_GEN, perm1_simps] >>
+      last_assum (qspec_then `x` mp_tac) >>
+      rewrite_tac[perm1_def] >> simp[] >>
+      IF_CASES_TAC >> gvs[] >>
+      cheat (* TODO *)
+      ) >>
+    cheat (* TODO *)
+    )
+QED
+
+Triviality wh_alpha_Diverge:
+  (wh_alpha wh_Diverge wh2 ⇔ wh2 = wh_Diverge) ∧
+  (wh_alpha wh1 wh_Diverge ⇔ wh1 = wh_Diverge)
+Proof
+  rw[wh_alpha_cases]
+QED
+
+Theorem exp_alpha_eval_wh_to:
+  ∀k e1 e2. exp_alpha e1 e2 ⇒ wh_alpha (eval_wh_to k e1) (eval_wh_to k e2)
+Proof
+  Induct_on `exp_alpha` >> rw[]
+  >- simp[wh_alpha_refl]
+  >- metis_tac[wh_alpha_trans]
+  >- (
+    simp[eval_wh_to_def] >>
+    irule wh_alpha_closure >> fs[]
+    )
+  >- (
+    simp[eval_wh_to_def] >>
+    irule wh_alpha_alpha >>
+    simp[perm_exp_cancel, exp_alpha_refl, GSYM perm_exp_eqvt, MEM_PERM_EQ]
+    )
+  >- (
+    simp[eval_wh_to_def] >>
+    IF_CASES_TAC >> gvs[]
+    >- simp[wh_alpha_refl] >>
+    TOP_CASE_TAC >> gvs[]
+    >- cheat (* TODO *)
+    >- cheat (* TODO *)
+    >- cheat (* TODO *)
+    >- cheat (* TODO *)
+    >- cheat (* TODO *)
+    >- cheat (* TODO *)
+    )
+  >- (
+    simp[eval_wh_to_def] >>
+    IF_CASES_TAC >> gvs[wh_alpha_Diverge]
+    >- (last_x_assum (qspec_then `k` mp_tac) >> gvs[wh_alpha_Diverge]) >>
+    IF_CASES_TAC >> gvs[wh_alpha_Diverge]
+    >- (last_x_assum (qspec_then `k` mp_tac) >> gvs[wh_alpha_Diverge]) >>
+    TOP_CASE_TAC >>
+    cheat (* TODO *)
+    ) >>
+  cheat (* TODO *)
+QED
 
 Theorem v_alpha_v_lookup_pres:
   ∀path v1 v2 v1' v2' n m.
@@ -3231,7 +3235,7 @@ Proof
   Induct >>
   rw[v_lookup] >>
   gvs[AllCaseEqs()] >>
-  gvs[Once v_alpha_def,v_prefix_alpha_cases] >>
+  gvs[Once v_alpha_cases,v_prefix_alpha_cases] >>
   imp_res_tac LIST_REL_LENGTH >>
   gvs[oEL_THM]
   >- (rename1 ‘EL z vs’ >>

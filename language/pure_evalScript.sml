@@ -426,7 +426,10 @@ Definition follow_path_def:
      | wh_Error => (Error',0)) ∧
   follow_path f e (n::ns) =
     case f e of
-    | wh_Constructor s xs => follow_path f (EL n xs) ns
+    | wh_Constructor s xs => (
+        case oEL n xs of
+          NONE => (Error', 0)
+        | SOME x => follow_path f x ns)
     | _ => (Error',0)
 End
 
@@ -450,7 +453,7 @@ Proof
   \\ qid_spec_tac ‘l’
   \\ Induct using SNOC_INDUCT \\ rw []
   \\ rewrite_tac [GENLIST,GSYM ADD1]
-  \\ fs [SNOC_APPEND,EL_LENGTH_APPEND]
+  \\ fs [SNOC_APPEND,EL_LENGTH_APPEND, oEL_THM]
   \\ fs [v_unfold_def]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
   \\ pop_assum (assume_tac o GSYM)
