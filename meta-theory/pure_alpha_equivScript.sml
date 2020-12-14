@@ -671,27 +671,11 @@ Proof
   cheat
 QED
 
-Theorem eval_perm_closure: (* not used *)
-  eval (perm_exp v1 v2 e) = Closure x e' ⇔ eval e = Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
-Proof
-  simp[GSYM eval_eqvt,perm_v_thm,AllCaseEqs()] >>
-  metis_tac[perm1_cancel,perm_exp_cancel]
-QED
-
 Theorem eval_wh_perm_cons:
   eval_wh (perm_exp v1 v2 e) =
     wh_Constructor s e' ⇔ eval_wh e = wh_Constructor s (MAP (perm_exp v1 v2) e')
 Proof
   cheat
-QED
-
-Theorem eval_perm_cons: (* not used *)
-  eval (perm_exp v1 v2 e) = Constructor s e' ⇔ eval e = Constructor s (MAP (perm_v v1 v2) e')
-Proof
-  simp[GSYM eval_eqvt] >>
-  simp[Once perm_v_thm,AllCaseEqs()] >>
-  rw[EQ_IMP_THM,MAP_MAP_o,combinTheory.o_DEF] >>
-  rw[MAP_MAP_o,combinTheory.o_DEF]
 QED
 
 Theorem eval_wh_perm_atom:
