@@ -19,6 +19,25 @@ Datatype:
      | wh_Diverge
 End
 
+Definition freevars_wh_def:
+  (freevars_wh (wh_Constructor s es) = FLAT (MAP freevars es)) ∧
+  (freevars_wh (wh_Closure s e) = FILTER ($≠ s) (freevars e)) ∧
+  (freevars_wh _ = [])
+End
+
+Overload freevars_wh = “λe. set (freevars_wh e)”
+
+Theorem freevars_wh_set_def[simp]:
+  (∀s es. freevars_wh (wh_Constructor s es) = BIGUNION (set (MAP freevars es))) ∧
+  (∀s e.  freevars_wh (wh_Closure s e)      = freevars e DELETE s) ∧
+  (∀a.    freevars_wh (wh_Atom a)           = {}) ∧
+  (       freevars_wh (wh_Error)            = {}) ∧
+  (       freevars_wh (wh_Diverge)          = {})
+Proof
+  rw[freevars_wh_def, LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+  rw[DELETE_DEF, LIST_TO_SET_FILTER, EXTENSION] >> eq_tac >> rw[]
+QED
+
 (* weak-head evalation *)
 
 Definition dest_wh_Closure_def[simp]:
