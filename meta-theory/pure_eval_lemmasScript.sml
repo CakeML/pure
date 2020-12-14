@@ -124,6 +124,18 @@ Proof
       )
 QED
 
+Theorem eval_wh_freevars_SUBSET:
+  ∀e1 v y.
+    eval_wh e1 = v ∧ y ∈ freevars_wh v ⇒
+    y ∈ freevars e1
+Proof
+  simp[eval_wh_def] >> rpt (gen_tac) >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  `∃v. eval_wh_to x e1 = v ∧ v ≠ wh_Diverge` by gvs[] >>
+  drule eval_wh_to_freevars_SUBSET >>
+  metis_tac[]
+QED
+
 Theorem eval_wh_to_Closure_freevars_SUBSET:
   ∀k e1 e2 x y.
     eval_wh_to k e1 = wh_Closure x e2 ∧ MEM y (freevars e2) ⇒
