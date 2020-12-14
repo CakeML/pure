@@ -666,15 +666,15 @@ QED
 *)
 
 Theorem eval_wh_perm_closure:
-  eval_wh (perm_exp v1 v2 e) =
-    wh_Closure x e' ⇔ eval_wh e = wh_Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
+  eval_wh (perm_exp v1 v2 e) = wh_Closure x e'
+    ⇔ eval_wh e = wh_Closure (perm1 v1 v2 x) (perm_exp v1 v2 e')
 Proof
   cheat
 QED
 
 Theorem eval_wh_perm_cons:
-  eval_wh (perm_exp v1 v2 e) =
-    wh_Constructor s e' ⇔ eval_wh e = wh_Constructor s (MAP (perm_exp v1 v2) e')
+  eval_wh (perm_exp v1 v2 e) = wh_Constructor s e'
+    ⇔ eval_wh e = wh_Constructor s (MAP (perm_exp v1 v2) e')
 Proof
   cheat
 QED
