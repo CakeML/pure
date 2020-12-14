@@ -172,6 +172,12 @@ Definition perm_v_prefix_def:
   | v => v
 End
 
+Definition perm_wh_def:
+  (perm_wh x y (wh_Constructor s xs) = wh_Constructor s (MAP (perm_exp x y) xs)) ∧
+  (perm_wh x y (wh_Closure s xs) = wh_Closure (perm1 x y s) (perm_exp x y xs)) ∧
+  (perm_wh x y wh = wh)
+End
+
 Theorem gen_v_eqvt:
   perm_v v1 v2 (gen_v f) = gen_v(λx. (perm_v_prefix v1 v2 ## I) (f x))
 Proof
@@ -230,14 +236,18 @@ Proof
   simp[GSYM RIGHT_FORALL_IMP_THM] >>
   CONV_TAC(RESORT_FORALL_CONV rev) >>
   Cases >> rw[perm_exp_def]
-  >- (gvs[LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS,EL_MAP])
-  >- (gvs[LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS,EL_MAP] >>
-      rw[] >>
-      qpat_x_assum ‘perm_exp _ _ _ = _’ (assume_tac o GSYM) >>
-      ‘e = e'’ by metis_tac[] >>
-      rpt(first_x_assum drule) >>
-      rw[] >>
-      rpt(pairarg_tac >> gvs[]))
+  >- (
+    rw[LIST_EQ_REWRITE] >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
+    )
+  >- (
+    rw[LIST_EQ_REWRITE] >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] >>
+    first_x_assum drule >>
+    Cases_on `EL x l'` >> Cases_on `EL x l` >> rw[] >>
+    first_x_assum irule >> simp[] >>
+    goal_assum drule >> simp[Once EQ_SYM]
+    )
 QED
 
 Theorem perm_v_inj:
@@ -253,6 +263,22 @@ Proof
   qid_spec_tac ‘t'’ >>
   Induct_on ‘t’ >- rw[] >>
   strip_tac >> Cases >> rw[]
+QED
+
+Theorem perm_wh_inj:
+  ∀wh wh' v1 v2. (perm_wh v1 v2 wh = perm_wh v1 v2 wh') ⇔ wh = wh'
+Proof
+  Cases >> Cases >> rw[perm_wh_def] >> eq_tac >> rw[]
+  >- (
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, LIST_EQ_REWRITE] >> rw[] >>
+    irule (iffLR perm_exp_inj) >>
+    first_x_assum drule >> rw[] >>
+    goal_assum drule
+    )
+  >- (
+    irule (iffLR perm_exp_inj) >>
+    goal_assum drule
+    )
 QED
 
 Definition perm_subst_def:
@@ -423,6 +449,72 @@ Proof
   rw[subst_funs_eqvt] >>
   MK_COMB_TAC >> rw[] >> AP_TERM_TAC >>
   rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]
+QED
+
+Theorem eval_wh_to_eqvt:
+  ∀v1 v2 k e.
+    perm_wh v1 v2 (eval_wh_to k e) =
+    eval_wh_to k (perm_exp v1 v2 e)
+Proof
+  gen_tac >> gen_tac >>
+  recInduct eval_wh_to_ind >> rw[] >>
+  gvs[perm_wh_def, eval_wh_to_def, perm_exp_def]
+  >- (
+    IF_CASES_TAC >> gvs[perm_wh_def] >>
+    TOP_CASE_TAC >> gvs[perm_wh_def]
+    >- (
+      Cases_on `eval_wh_to k x` >> gvs[dest_wh_Closure_def, perm_wh_def] >>
+      EVERY_CASE_TAC >> gvs[] >>
+      last_x_assum (assume_tac o GSYM) >> gvs[]
+      ) >>
+    Cases_on `eval_wh_to k x` >> gvs[dest_wh_Closure_def, perm_wh_def] >>
+    last_x_assum (assume_tac o GSYM) >> gvs[] >>
+    IF_CASES_TAC >> gvs[perm_wh_def] >>
+    gvs[bind_single_eqvt]
+    )
+  >- (
+    IF_CASES_TAC >> gvs[perm_wh_def] >>
+    gvs[subst_funs_eqvt, PAIR_MAP_ALT]
+    ) >>
+  IF_CASES_TAC >> gvs[perm_wh_def] >>
+  TOP_CASE_TAC >> gvs[perm_wh_def]
+  >- (
+    IF_CASES_TAC >> gvs[perm_wh_def] >>
+    `∃x1 x2 x3. xs = [x1;x2;x3]` by (
+      Cases_on `xs` >> gvs[] >>
+      Cases_on `t` >> gvs[] >>
+      Cases_on `t'` >> gvs[] >>
+      Cases_on `t` >> gvs[]) >>
+    last_x_assum (assume_tac o GSYM) >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    TOP_CASE_TAC >> gvs[perm_wh_def] >>
+    ntac 2 (IF_CASES_TAC >> gvs[perm_wh_def])
+    )
+  >- rw[MAP_EQ_f]
+  >- (
+    last_x_assum (assume_tac o GSYM) >>
+    IF_CASES_TAC >> gvs[perm_wh_def] >>
+    Cases_on `xs` >> gvs[] >>
+    TOP_CASE_TAC >> gvs[perm_wh_def] >>
+    rpt (IF_CASES_TAC >> gvs[perm_wh_def, EL_MAP])
+    )
+  >- (
+    last_x_assum (assume_tac o GSYM) >>
+    IF_CASES_TAC >> gvs[perm_wh_def] >>
+    Cases_on `xs` >> gvs[] >>
+    TOP_CASE_TAC >> gvs[perm_wh_def] >>
+    rpt (IF_CASES_TAC >> gvs[perm_wh_def]) >>
+    simp[EL_MAP]
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF] >>
+    TOP_CASE_TAC
+    >- (
+      cheat (* TODO *)
+      ) >>
+    cheat (* TODO *)
+    ) >>
+  cheat (* TODO *)
 QED
 
 Theorem eval_to_eqvt:

@@ -42,4 +42,11 @@ Proof
   qexists_tac `h` >> fs[]
 QED
 
+Theorem PAIR_MAP_ALT:
+  ∀f g. (f ## g) = λ(x,y). f x, g y
+Proof
+  rw[] >> irule EQ_EXT >> rw[] >>
+  PairCases_on `x` >> gvs[]
+QED
+
 val _ = export_theory();
