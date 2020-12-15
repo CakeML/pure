@@ -694,13 +694,100 @@ Proof
     gvs[GSYM perm_exp_eqvt, MEM_MAP, PULL_EXISTS, perm1_simps]
     )
   >- (
-    rename1 `App` >> cheat
+    rename1 `App` >>
+    rpt gen_tac >> strip_tac >> strip_tac >>
+    rename1 `Howe open_similarity {} (App e3 e4) e5` >>
+    simp[Once Howe_cases, eval_wh_to_def, AllCaseEqs()] >>
+    Cases_on `eval_wh_to k e3 ≠ wh_Diverge` >> fs[PULL_FORALL, PULL_EXISTS] >>
+    simp[GSYM IMP_DISJ_THM, PULL_FORALL] >>
+    Cases_on `dest_wh_Closure (eval_wh_to k e3)` >> gvs[]
+    >- (
+      rpt gen_tac >> strip_tac >>
+      `dest_wh_Closure (eval_wh e3) = NONE` by (
+        simp[eval_wh_def, eval_wh_to_def] >>
+        DEEP_INTRO_TAC some_intro >> rw[] >>
+        imp_res_tac eval_wh_to_agree >> gvs[]) >>
+      `eval_wh (App e3 e4) = wh_Error` by (
+        simp[Once eval_wh_thm] >>
+        Cases_on `eval_wh e3` >> gvs[dest_wh_Closure_def] >>
+        gvs[eval_wh_def] >> pop_assum mp_tac >>
+        DEEP_INTRO_TAC some_intro >> rw[] >> goal_assum drule) >>
+      simp[] >>
+      rename1 `Howe open_similarity {} e3 e6` >>
+      imp_res_tac Howe_open_similarity_IMP_closed >>
+      first_x_assum drule >> simp[] >> strip_tac >>
+      qpat_x_assum `open_similarity _ _ _` mp_tac >>
+      simp[open_similarity_def, bind_def] >> strip_tac >>
+      pop_assum (qspec_then `FEMPTY` mp_tac) >> gvs[] >>
+      simp[app_similarity_iff, Once unfold_rel_def] >> strip_tac >>
+      first_x_assum irule >>
+      simp[Once eval_wh_thm] >>
+      qsuff_tac `
+        eval_wh e6 ≠ wh_Diverge ∧ dest_wh_Closure (eval_wh e6) = NONE` >>
+      gvs[] >>
+      `eval_wh e3 ≠ wh_Diverge` by (
+        simp[eval_wh_def] >> DEEP_INTRO_TAC some_intro >> rw[] >>
+        goal_assum drule) >>
+      Cases_on `eval_wh e3` >> gvs[dest_wh_Closure_def]
+      ) >>
+    PairCases_on `x` >>
+    `eval_wh e3 = wh_Closure x0 x1` by (
+      simp[eval_wh_def] >> DEEP_INTRO_TAC some_intro >> reverse (rw[])
+      >- goal_assum drule >>
+      imp_res_tac eval_wh_to_agree >> gvs[] >>
+      Cases_on `eval_wh_to x e3` >> gvs[]) >>
+    rpt gen_tac >> disch_then (qspecl_then [`x0`,`x1`] mp_tac) >>
+    ntac 2 (once_rewrite_tac[]) >> strip_tac >>
+    last_x_assum (qspecl_then [`x0`,`x1`] mp_tac) >>
+    ntac 2 (once_rewrite_tac[]) >> asm_rewrite_tac[] >>
+    strip_tac >> strip_tac >>
+    rename1 `Howe _ _ e3 e6` >> rename1 `Howe _ _ e4 e7` >>
+    imp_res_tac Howe_open_similarity_IMP_closed >>
+    last_x_assum drule >> simp[] >> strip_tac >>
+    rename1 `eval_wh e6 = wh_Closure y0 y1` >>
+    assume_tac Sub_Howe_open_similarity >> fs[Sub_def, AND_IMP_INTRO] >>
+    pop_assum (qspecl_then [
+      `{}`,`x0`,`x1`,`perm_exp x0 y0 y1`,`e4`,`e7`] mp_tac) >>
+    fs[Exps_def] >>
+    drule_all eval_wh_Closure_closed >> strip_tac >>
+    qpat_x_assum `eval_wh e3 = _` assume_tac >>
+    drule_all eval_wh_Closure_closed >> strip_tac >> gvs[bind_single_def] >>
+    impl_keep_tac >- (imp_res_tac Howe_open_similarity_IMP_freevars) >>
+    strip_tac >>
+    simp[eval_wh_App, bind_def, FLOOKUP_UPDATE] >>
+    first_x_assum irule >> simp[] >> rw[]
+    >- (irule closed_freevars_subst >> simp[]) >>
+    irule Howe_Tra >>
+    fs[open_similarity_EMPTY, Tra_open_similarity, term_rel_open_similarity] >>
+    rw[] >- (irule closed_freevars_subst >> simp[]) >>
+    qexists_tac `subst x0 e7 (perm_exp x0 y0 y1)` >> simp[] >>
+    rw[] >- (irule closed_freevars_subst >> simp[]) >>
+    irule (SIMP_RULE std_ss [transitive_def] transitive_app_similarity) >>
+    qexists_tac `subst y0 e7 y1` >> rw[]
+    >- (
+      irule exp_alpha_app_similarity >>
+      imp_res_tac Howe_open_similarity_IMP_closed >>
+      fs[exp_alpha_subst_lemma] >> rw[]
+      >- (irule closed_freevars_subst >> simp[]) >>
+      irule exp_alpha_sym >>
+      Cases_on `y0 = x0` >> gvs[perm_exp_id, exp_alpha_Refl] >>
+      drule exp_alpha_subst_closed_single >>
+      rewrite_tac[Once perm_exp_sym] >>
+      disch_then irule >> simp[] >> gvs[SUBSET_DEF, EXTENSION] >>
+      CCONTR_TAC >> gvs[]) >>
+    qpat_x_assum `_ ≲ _` mp_tac >>
+    rewrite_tac[app_similarity_iff] >> once_rewrite_tac[unfold_rel_def] >>
+    fs[eval_wh_App, eval_wh_Cons, bind_single_def] >>
+    rw[] >> irule IMP_closed_subst >> fs[FRANGE_DEF]
     )
   >- (
-    rename1 `Letrec` >> cheat
+    rename1 `Letrec` >> cheat (* TODO *)
     )
   >- (
-    rename1 `Prim` >> cheat
+    rename1 `Prim` >>
+    rpt gen_tac >> ntac 4 strip_tac >>
+    Cases_on `p` >> gvs[eval_wh_thm, eval_wh_to_def] >>
+    cheat (* TODO *)
     )
 QED
 
