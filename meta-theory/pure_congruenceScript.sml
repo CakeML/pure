@@ -868,14 +868,13 @@ Theorem Sub_lift:
       FDOM f = FDOM f' ∧
       (∀k. k ∈ FDOM f ⇒
         f ' k ∈ Exps ∅ ∧ f' ' k ∈ Exps ∅ ∧
-        R vars (f ' k) (f' ' k)) ∧
-      (∀vs vs' ea eb. R vs ea eb ⇒ R (vs ∪ vs') ea eb)
+        R {} (f ' k) (f' ' k))
     ⇒ R vars (subst f e1) (subst f' e1')
 Proof
   strip_tac >> strip_tac >>
   Induct >> rw[]
   >- (Cases_on `f'` >> gvs[]) >>
-  `∃g y'. f' = g |+ (x,y') ∧ x ∉ FDOM g ∧ R vars y y'` by (
+  `∃g y'. f' = g |+ (x,y') ∧ x ∉ FDOM g ∧ R {} y y'` by (
     qexists_tac `f' \\ x` >> qexists_tac `f' ' x` >> gvs[] >>
     first_x_assum (qspec_then `x` assume_tac) >> gvs[] >>
     irule (GSYM FUPDATE_ELIM)>> gvs[IN_DEF, EXTENSION] >> metis_tac[]) >>
@@ -948,22 +947,6 @@ Proof
   >- (gvs[] >> metis_tac[UNION_COMM, UNION_ASSOC, INSERT_SING_UNION])
 QED
 
-Triviality freevars_Letrec_funs:
-  ∀fs e f.
-    closed (Letrec fs e) ∧
-    MEM f fs
-  ⇒ freevars (SND f) ⊆ set (MAP FST fs)
-Proof
-  rewrite_tac[closed_def] >> rewrite_tac[freevars_set_def] >> rw[] >>
-  gvs[SUBSET_DEF, MEM_MAP, EXTENSION] >>
-  PairCases_on `f` >> gvs[] >> rw[] >>
-  Cases_on `x = f0` >> gvs[]
-  >- (goal_assum (drule_at Any) >> simp[]) >>
-  gvs[DISJ_EQ_IMP] >> first_x_assum irule >>
-  simp[EXISTS_PROD, PULL_EXISTS] >> rw[] >>
-  qexistsl_tac [`freevars f1`,`f0`,`f1`] >> simp[]
-QED
-
 Triviality UNION_DIFF_DISTRIBUTE:
   ∀A B C. A ∪ B DIFF C = (A DIFF C) ∪ (B DIFF C)
 Proof
@@ -982,12 +965,8 @@ Triviality closed_Letrec_funs:
     MEM f fs
   ⇒ closed (Letrec fs (SND f))
 Proof
-  rw[] >> drule_all freevars_Letrec_funs >>
-  last_x_assum mp_tac >>
-  rewrite_tac[closed_def] >> rewrite_tac[freevars_set_def] >> rw[] >>
-  drule UNION_DIFF_EMPTY >> strip_tac >>
-  simp[UNION_DIFF_DISTRIBUTE] >>
-  simp[SUBSET_DIFF_EMPTY]
+  rw[EVERY_MEM] >>
+  gvs[MEM_MAP, PULL_EXISTS]
 QED
 
 Triviality FST_THM:
@@ -1003,8 +982,7 @@ Theorem Sub_subst_funs:
     MAP FST f1 = MAP FST f2 ∧
     LIST_REL (R (set (MAP FST f1))) (MAP SND f1) (MAP SND f2) ∧
     R (set (MAP FST f2)) e1 e2 ∧
-    closed (Letrec f1 e1) ∧ closed (Letrec f2 e2) ∧
-    (∀vs vs' ea eb. R vs ea eb ⇒ R (vs ∪ vs') ea eb)
+    closed (Letrec f1 e1) ∧ closed (Letrec f2 e2)
   ⇒ R {} (subst_funs f1 e1) (subst_funs f2 e2)
 Proof
   rw[subst_funs_def] >>
@@ -1017,7 +995,8 @@ Proof
     pop_assum mp_tac >> CASE_TAC >> gvs[] >> strip_tac >> gvs[] >>
     drule ALOOKUP_MEM >> simp[MEM_REVERSE, MEM_MAP] >> strip_tac >>
     PairCases_on `y` >> gvs[] >>
-    drule_all closed_Letrec_funs >> simp[]
+    gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+    last_x_assum irule >> goal_assum drule
     ) >>
   reverse (IF_CASES_TAC)
   >- (
@@ -1027,7 +1006,8 @@ Proof
     pop_assum mp_tac >> CASE_TAC >> gvs[] >> strip_tac >> gvs[] >>
     drule ALOOKUP_MEM >> simp[MEM_REVERSE, MEM_MAP] >> strip_tac >>
     PairCases_on `y` >> gvs[] >>
-    drule_all closed_Letrec_funs >> simp[]
+    gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+    first_x_assum irule >> goal_assum drule
     ) >>
   irule Sub_lift >>
   gvs[FDOM_FUPDATE_LIST, FLOOKUP_DEF, MAP_MAP_o, combinTheory.o_DEF,
@@ -1084,7 +1064,6 @@ Proof
       gvs[FILTER_EQ_NIL, EVERY_MEM]
       ) >>
     rw[open_similarity_def]
-    >- (gvs[closed_def, SUBSET_DEF] >> rw[] >> gvs[FILTER_EQ_NIL, EVERY_MEM])
     >- (
       irule (perm_exp_IN_Exps |> SIMP_RULE (srw_ss()) [Exps_def]) >>
       drule_all eval_wh_Closure_closed >> simp[]
@@ -1210,7 +1189,8 @@ Proof
       drule exp_alpha_subst_closed_single >>
       rewrite_tac[Once perm_exp_sym] >>
       disch_then irule >> simp[] >> gvs[SUBSET_DEF, EXTENSION] >>
-      CCONTR_TAC >> gvs[]) >>
+      CCONTR_TAC >> gvs[]
+      ) >>
     qpat_x_assum `_ ≲ _` mp_tac >>
     rewrite_tac[app_similarity_iff] >> once_rewrite_tac[unfold_rel_def] >>
     fs[eval_wh_App, eval_wh_Cons, bind_single_def] >>

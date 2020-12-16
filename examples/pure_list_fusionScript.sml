@@ -113,7 +113,7 @@ End
 Definition next_list_def:
   next_list f input =
               if (¬closed input) then (INL Fail)
-              else ( if eval input = Diverge then (INL bottom)
+              else ( if eval input = Diverge then (INL Bottom)
                      else (case eval input of
                            | Constructor n vs =>
                                (if n = "nil" ∧ LENGTH vs = 0
