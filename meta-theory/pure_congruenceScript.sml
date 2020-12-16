@@ -278,6 +278,14 @@ Proof
   >- metis_tac[]
 QED
 
+Theorem open_similarity_min_freevars:
+  ∀e1 e2 vars.
+    open_similarity vars e1 e2
+  ⇒ open_similarity (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[open_similarity_def]
+QED
+
 Theorem Howe_Tra: (* 5.5.1(ii) *)
   Tra R ∧ term_rel R ⇒
   ∀vars e1 e2 e3.
@@ -609,6 +617,191 @@ Proof
   Induct >> rw[]
 QED
 
+Theorem Sub_lift:
+  ∀R. Sub R ⇒
+    ∀f f' e1 e1' e2 e2' vars.
+      {e1; e1'} ⊆ Exps (FDOM f ∪ vars) ∧
+      R (FDOM f ∪ vars) e1 e1' ∧
+      FDOM f = FDOM f' ∧
+      (∀k. k ∈ FDOM f ⇒
+        f ' k ∈ Exps ∅ ∧ f' ' k ∈ Exps ∅ ∧
+        R vars (f ' k) (f' ' k)) ∧
+      (∀vs vs' ea eb. R vs ea eb ⇒ R (vs ∪ vs') ea eb)
+    ⇒ R vars (subst f e1) (subst f' e1')
+Proof
+  strip_tac >> strip_tac >>
+  Induct >> rw[]
+  >- (Cases_on `f'` >> gvs[]) >>
+  `∃g y'. f' = g |+ (x,y') ∧ x ∉ FDOM g ∧ R vars y y'` by (
+    qexists_tac `f' \\ x` >> qexists_tac `f' ' x` >> gvs[] >>
+    first_x_assum (qspec_then `x` assume_tac) >> gvs[] >>
+    irule (GSYM FUPDATE_ELIM)>> gvs[IN_DEF, EXTENSION] >> metis_tac[]) >>
+  gvs[] >>
+  once_rewrite_tac[FUPDATE_EQ_FUNION] >>
+  `∀v. v ∈ FRANGE (FEMPTY |+ (x,y)) ⇒ closed v` by (
+    gvs[] >> first_x_assum (qspec_then `x` assume_tac) >> gvs[]) >>
+  drule (GSYM subst_subst_FUNION) >> simp[] >> strip_tac >>
+  pop_assum kall_tac >>
+  drule_at Any subst_subst >>
+  disch_then (qspecl_then [`e1`,`f`] mp_tac) >> impl_tac
+  >- (
+    simp[DISJOINT_DEF, INTER_DEF, EXTENSION] >> rw[] >>
+    fs[IN_FRANGE] >>
+    first_x_assum (qspec_then `k` assume_tac) >> gvs[FAPPLY_FUPDATE_THM] >>
+    FULL_CASE_TAC >> gvs[]
+    ) >>
+  disch_then (rw o single o GSYM) >> pop_assum kall_tac >>
+  `∀v. v ∈ FRANGE (FEMPTY |+ (x,y')) ⇒ closed v` by (
+    gvs[] >> first_x_assum (qspec_then `x` assume_tac) >> gvs[]) >>
+  drule (GSYM subst_subst_FUNION) >> simp[] >> strip_tac >>
+  pop_assum kall_tac >>
+  drule_at Any subst_subst >>
+  disch_then (qspecl_then [`e1'`,`g`] mp_tac) >> impl_tac
+  >- (
+    simp[DISJOINT_DEF, INTER_DEF, EXTENSION] >> rw[] >>
+    fs[IN_FRANGE] >>
+    first_x_assum (qspec_then `k` assume_tac) >> gvs[FAPPLY_FUPDATE_THM] >>
+    `k ∈ FDOM f` by (gvs[EXTENSION, INSERT_DEF] >> metis_tac[]) >> gvs[] >>
+    FULL_CASE_TAC >> gvs[]
+    ) >>
+  disch_then (rw o single o GSYM) >> pop_assum kall_tac >>
+  gvs[Sub_def] >>
+  last_x_assum irule >> gvs[] >> rw[]
+  >- (first_x_assum (qspec_then `x` mp_tac) >> simp[])
+  >- (first_x_assum (qspec_then `x` mp_tac) >> simp[])
+  >- (
+    gvs[Exps_def] >>
+    `∀v. v ∈ FRANGE f ⇒ closed v` by (
+      rw[IN_FRANGE] >>
+      first_x_assum (qspec_then `k` assume_tac) >> gvs[FAPPLY_FUPDATE_THM] >>
+      FULL_CASE_TAC >> gvs[]) >>
+    drule freevars_subst >> rw[] >>
+    gvs[DIFF_DEF, SUBSET_DEF, INSERT_DEF, EXTENSION] >> rw[] >>
+    last_x_assum drule >> strip_tac >> gvs[] >>
+    qpat_x_assum `∀x. _ ⇔ _` (qspec_then `x'` assume_tac) >> gvs[]
+    )
+  >- (
+    gvs[Exps_def] >>
+    `∀v. v ∈ FRANGE g ⇒ closed v` by (
+      rw[IN_FRANGE] >>
+      first_x_assum (qspec_then `k` assume_tac) >> gvs[FAPPLY_FUPDATE_THM] >>
+      `k ∈ FDOM f` by (gvs[EXTENSION, INSERT_DEF] >> metis_tac[]) >> gvs[] >>
+      FULL_CASE_TAC >> gvs[]) >>
+    drule freevars_subst >> rw[] >>
+    gvs[DIFF_DEF, SUBSET_DEF, INSERT_DEF, EXTENSION] >> rw[] >>
+    last_x_assum drule >> strip_tac >> gvs[]
+    ) >>
+  first_x_assum irule >> conj_tac
+  >- (
+    gen_tac >> strip_tac >>
+    first_x_assum (qspec_then `k` assume_tac) >> gvs[FAPPLY_FUPDATE_THM] >>
+    FULL_CASE_TAC >> gvs[] >>
+    first_x_assum drule >> disch_then (qspec_then `{x}` mp_tac) >>
+    once_rewrite_tac[UNION_COMM] >>
+    simp[GSYM INSERT_SING_UNION]
+    ) >>
+  conj_asm1_tac
+  >- (gvs[INSERT_DEF, IN_DEF, EXTENSION] >> rw[] >> gvs[] >> metis_tac[])
+  >- (gvs[] >> metis_tac[UNION_COMM, UNION_ASSOC, INSERT_SING_UNION])
+QED
+
+Triviality freevars_Letrec_funs:
+  ∀fs e f.
+    closed (Letrec fs e) ∧
+    MEM f fs
+  ⇒ freevars (SND f) ⊆ set (MAP FST fs)
+Proof
+  rewrite_tac[closed_def] >> rewrite_tac[freevars_set_def] >> rw[] >>
+  gvs[SUBSET_DEF, MEM_MAP, EXTENSION] >>
+  PairCases_on `f` >> gvs[] >> rw[] >>
+  Cases_on `x = f0` >> gvs[]
+  >- (goal_assum (drule_at Any) >> simp[]) >>
+  gvs[DISJ_EQ_IMP] >> first_x_assum irule >>
+  simp[EXISTS_PROD, PULL_EXISTS] >> rw[] >>
+  qexistsl_tac [`freevars f1`,`f0`,`f1`] >> simp[]
+QED
+
+Triviality UNION_DIFF_DISTRIBUTE:
+  ∀A B C. A ∪ B DIFF C = (A DIFF C) ∪ (B DIFF C)
+Proof
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Triviality UNION_DIFF_EMPTY:
+  ∀A B C. A ∪ B DIFF C = {} ⇒ B DIFF C = {}
+Proof
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Triviality closed_Letrec_funs:
+  ∀ fs e f.
+    closed (Letrec fs e) ∧
+    MEM f fs
+  ⇒ closed (Letrec fs (SND f))
+Proof
+  rw[] >> drule_all freevars_Letrec_funs >>
+  last_x_assum mp_tac >>
+  rewrite_tac[closed_def] >> rewrite_tac[freevars_set_def] >> rw[] >>
+  drule UNION_DIFF_EMPTY >> strip_tac >>
+  simp[UNION_DIFF_DISTRIBUTE] >>
+  simp[SUBSET_DIFF_EMPTY]
+QED
+
+Triviality FST_THM:
+  FST = λ(x,y). x
+Proof
+  irule EQ_EXT >> Cases >> simp[]
+QED
+
+Theorem Sub_subst_funs:
+  ∀R f1 f2 e1 e2.
+    Sub R ∧
+    term_rel R ∧
+    MAP FST f1 = MAP FST f2 ∧
+    LIST_REL (R (set (MAP FST f1))) (MAP SND f1) (MAP SND f2) ∧
+    R (set (MAP FST f2)) e1 e2 ∧
+    closed (Letrec f1 e1) ∧ closed (Letrec f2 e2) ∧
+    (∀vs vs' ea eb. R vs ea eb ⇒ R (vs ∪ vs') ea eb)
+  ⇒ R {} (subst_funs f1 e1) (subst_funs f2 e2)
+Proof
+  rw[subst_funs_def] >>
+  simp[bind_def] >>
+  reverse (IF_CASES_TAC)
+  >- (
+    CCONTR_TAC >>
+    qpat_x_assum `¬ ∀n v. _` mp_tac >> simp[] >> rw[] >>
+    gvs[flookup_fupdate_list] >>
+    pop_assum mp_tac >> CASE_TAC >> gvs[] >> strip_tac >> gvs[] >>
+    drule ALOOKUP_MEM >> simp[MEM_REVERSE, MEM_MAP] >> strip_tac >>
+    PairCases_on `y` >> gvs[] >>
+    drule_all closed_Letrec_funs >> simp[]
+    ) >>
+  reverse (IF_CASES_TAC)
+  >- (
+    CCONTR_TAC >>
+    qpat_x_assum `¬ ∀n v. _` mp_tac >> simp[] >> rw[] >>
+    gvs[flookup_fupdate_list] >>
+    pop_assum mp_tac >> CASE_TAC >> gvs[] >> strip_tac >> gvs[] >>
+    drule ALOOKUP_MEM >> simp[MEM_REVERSE, MEM_MAP] >> strip_tac >>
+    PairCases_on `y` >> gvs[] >>
+    drule_all closed_Letrec_funs >> simp[]
+    ) >>
+  irule Sub_lift >>
+  gvs[FDOM_FUPDATE_LIST, FLOOKUP_DEF, MAP_MAP_o, combinTheory.o_DEF,
+      LAMBDA_PROD, FST_THM, MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
+  reverse (conj_tac)
+  >- (gvs[term_rel_def] >> res_tac >> gvs[]) >>
+  rpt (gen_tac) >> strip_tac >>
+  `∃p_1. MEM (k,p_1) f1` by (
+    gvs[MAP_EQ_EVERY2, MEM_EL, LIST_REL_EL_EQN] >>
+    goal_assum drule >> last_x_assum drule >>
+    Cases_on `EL n f1` >> Cases_on `EL n f2` >> rw[]) >>
+  conj_tac >- (first_x_assum irule >> goal_assum drule) >>
+  qmatch_goalsub_abbrev_tac `MAP a f1` >>
+  qmatch_goalsub_abbrev_tac `MAP b f2` >>
+  cheat (* TODO *)
+QED
+
 Theorem Howe_open_similarity_IMP:
   Howe open_similarity ∅ e1 e2 ∧ closed e1 ∧ closed e2 ⇒
   (∀x ce1.
@@ -781,7 +974,17 @@ Proof
     rw[] >> irule IMP_closed_subst >> fs[FRANGE_DEF]
     )
   >- (
-    rename1 `Letrec` >> cheat (* TODO *)
+    rename1 `Letrec` >>
+    rpt gen_tac >> strip_tac >> gen_tac >> ntac 2 strip_tac >>
+    gvs[eval_wh_thm, eval_wh_to_def] >>
+    Cases_on `k = 0` >> gvs[] >>
+    qpat_x_assum `Howe _ _ _ _` mp_tac >>
+    rename1 `Letrec fa ea` >> simp[Once Howe_cases] >> strip_tac >>
+    rename1 `Letrec fb eb` >>
+    pop_assum mp_tac >>
+    fs[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[unfold_rel_def] >> strip_tac >> gvs[eval_wh_thm] >>
+    cheat (* TODO *)
     )
   >- (
     rename1 `Prim` >>
