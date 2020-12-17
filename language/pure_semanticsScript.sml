@@ -113,7 +113,7 @@ Overload Ret = “λx. Cons "Ret" [x]”
 Overload Act = “λx. Cons "Act" [x]”
 Overload Bind = “λx y. Cons "Bind" [x;y]”
 
-Theorem semanitcs_Ret:
+Theorem semantics_Ret:
   semantics (Ret x) [] = Ret Termination
 Proof
   fs [semantics_def,eval_wh_Cons]
@@ -122,7 +122,7 @@ Proof
   \\ simp [Once next_cases]
 QED
 
-Theorem semanitcs_Ret_App:
+Theorem semantics_Ret_App:
   semantics (Ret x) (f::fs) = semantics (App f x) fs
 Proof
   fs [semantics_def,eval_wh_Cons]
@@ -144,7 +144,7 @@ Proof
   \\ fs [next_action_def]
 QED
 
-Theorem semanitcs_Bottom:
+Theorem semantics_Bottom:
   semantics Bottom xs = Ret SilentDivergence
 Proof
   fs [semantics_def,eval_wh_Bottom]
@@ -153,7 +153,7 @@ Proof
   \\ simp [Once next_cases]
 QED
 
-Theorem semanitcs_Bind:
+Theorem semantics_Bind:
   semantics (Bind x f) fs = semantics x (f::fs)
 Proof
   fs [semantics_def,eval_wh_Cons]
@@ -165,7 +165,7 @@ Proof
   \\ fs [next_action_def]
 QED
 
-Theorem semanitcs_Act:
+Theorem semantics_Act:
   semantics (Act x) fs =
     case eval x of
     | Atom a => Vis a (λy. semantics (Ret (Lit y)) fs)
