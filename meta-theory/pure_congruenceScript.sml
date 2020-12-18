@@ -508,12 +508,13 @@ Proof
   qsuff_tac ‘
      ∀R x_vars e1 e1'.
        Howe R x_vars e1 e1' ⇒
-       ∀vars x e2 e2'. x_vars = x INSERT vars ∧ Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ∧
+       ∀vars x e2 e2'. x_vars = x INSERT vars ∧
+          Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ∧
           (e1 ∈ Exps (x INSERT vars) ∧ e1' ∈ Exps (x INSERT vars)) ∧
           closed e2 ∧ closed e2' ∧ Howe R {} e2 e2' ⇒
           Howe R vars (subst x e2 e1) (subst x e2' e1')’
   >- fs [PULL_FORALL] >>
-  Induct_on `Howe` >> rw[] >> fs[]
+  ho_match_mp_tac Howe_strongind >> rw[] >> fs[]
   >- (
     gvs[subst_single_def] >> reverse (rw[])
     >- (
@@ -525,20 +526,16 @@ Proof
     irule Howe_Tra >> simp[PULL_EXISTS] >>
     qexists_tac ‘e2'` >>
     gvs[Exps_def, freevars_subst_single, closed_def] >> rw[SUBSET_DEF]
-    >- (
-      gvs[IN_DEF, SUBSET_DEF] >> metis_tac[]
-      )
+    >- (gvs[IN_DEF, SUBSET_DEF] >> metis_tac[])
     >- (
       gvs[Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      simp[subst_single_def] >>
-      disch_then irule >>
+      simp[subst_single_def] >> disch_then irule >>
       simp[closed_def, Exps_def]
       )
     >- (
       imp_res_tac term_rel_Howe >>
-      gvs[term_rel_def] >>
-      res_tac >>
+      gvs[term_rel_def] >> res_tac >>
       first_x_assum irule >> fs[]
       )
     )
@@ -549,34 +546,23 @@ Proof
       goal_assum (drule_at Any) >>
       gvs[Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      disch_then (drule_at (Pos last)) >>
-      simp[subst_single_def] >> impl_tac >> fs[Exps_def] >>
-      qpat_x_assum `term_rel _` mp_tac >>
-      simp[term_rel_def] >>
-      disch_then imp_res_tac >>
-      gvs[Exps_def]
-      )
+      simp[subst_single_def] >>
+      disch_then irule >> simp[] >>
+      drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+      gvs[Exps_def, SUBSET_INSERT_DELETE]
+      ) >>
+    irule Howe2 >>
+    qexists_tac `subst x' e2' e1'` >>
+    conj_tac
     >- (
-      irule Howe2 >> fs[] >>
-      rename1 `R (_ INSERT _) (Lam _ le1) _` >>
-      rename1 `subst nm sub_e _` >>
-      qexists_tac `subst nm sub_e le1` >> rw[]
-      >- (
-        gvs[Cus_def] >>
-        first_x_assum (drule_at (Pos last)) >>
-        simp[subst_single_def] >>
-        disch_then irule >> fs[Exps_def] >>
-        qpat_x_assum `term_rel _` mp_tac >>
-        simp[term_rel_def] >>
-        disch_then imp_res_tac >> gvs[Exps_def]
-        )
-      >- (
-        first_assum irule >> fs[INSERT_COMM, Exps_def] >>
-        qpat_x_assum `term_rel _` mp_tac >> simp[term_rel_def] >>
-        disch_then imp_res_tac >> gvs[Exps_def] >>
-        gvs[DELETE_SUBSET_INSERT, INSERT_COMM]
-        )
-      )
+      gvs[Cus_def] >>
+      first_x_assum (drule_at (Pos last)) >> simp[subst_single_def] >>
+      disch_then irule >> gvs[] >>
+      gvs[term_rel_def] >> res_tac
+      ) >>
+    first_x_assum irule >> gvs[INSERT_COMM] >>
+    drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+    gvs[SUBSET_INSERT_DELETE]
     )
   >- (
     gvs[subst_single_def] >>
@@ -585,153 +571,60 @@ Proof
     irule Howe3 >>
     qexists_tac `subst x e' ed` >> qexists_tac `subst x e' ef` >>
     gvs[term_rel_def] >> first_x_assum drule >>
-    rw[]
-    >- (gvs[Cus_def] >> simp[GSYM subst_single_def]) >>
+    rw[] >- (gvs[Cus_def] >> simp[GSYM subst_single_def]) >>
     first_x_assum irule >> gvs[Exps_def]
     )
   >- (
     gvs[subst_single_def] >>
     irule Howe4 >> qexists_tac `MAP (λe. subst x e2' e) es'` >>
-    gvs[term_rel_def] >> first_x_assum drule >>
-    rw[]
-    >- (
-      gvs[Cus_def] >>
-      simp[GSYM subst_single_def]
-      )
-    >- (
-      gvs[LIST_REL_EL_EQN] >> rw[] >>
-      simp[EL_MAP] >>
-      last_x_assum drule >> strip_tac >>
-      pop_assum irule >> gvs[Exps_def] >>
-      gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[]
-      >- (
-        last_x_assum irule >>
-        qexists_tac `EL n es` >> gvs[EL_MEM]
-        )
-      >- (
-        first_x_assum irule >>
-        qexists_tac `EL n es'` >> gvs[EL_MEM]
-        )
-      )
+    gvs[term_rel_def] >> first_x_assum drule >> rw[]
+    >- (gvs[Cus_def] >> simp[GSYM subst_single_def]) >>
+    gvs[LIST_REL_EL_EQN] >> rw[] >>
+    simp[EL_MAP] >>
+    last_x_assum drule >> strip_tac >>
+    pop_assum irule >> gvs[Exps_def] >>
+    gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[]
+    >- (last_x_assum irule >> qexists_tac `EL n es` >> gvs[EL_MEM])
+    >- (first_x_assum irule >> qexists_tac `EL n es'` >> gvs[EL_MEM])
     )
   >- (
     gvs[subst_single_def] >> rw[]
     >- (
+      gvs[INSERT_UNION] >>
       irule Howe5 >>
-      goal_assum drule >> qexists_tac `e1'` >>
-      gvs[term_rel_def] >> first_x_assum drule >>
-      rw[]
-      >- (
-        gvs[Cus_def] >>
-        first_x_assum (drule_at (Pos last)) >>
-        simp[subst_single_def]
-        )
-      >- (
-        gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-        last_x_assum drule >> strip_tac >>
-        pop_assum (drule_at (Pos last)) >> gvs[] >>
-        disch_then (qspecl_then [`vars ∪ set (MAP FST ves')`,`x`] mp_tac) >>
-        gvs[INSERT_UNION_EQ] >>
-        impl_tac
-        >- (
-          gvs[Exps_def] >> simp[GSYM INSERT_UNION_EQ, GSYM DIFF_SUBSET] >>
-          gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[]
-          >- (
-            CCONTR_TAC >> fs[] >>
-            last_x_assum (qspec_then `x` assume_tac) >> gvs[] >>
-            first_x_assum (qspec_then `EL n ves` mp_tac) >>
-            Cases_on `EL n ves` >> gvs[] >> simp[MEM_EL] >>
-            goal_assum drule >> fs[]
-            )
-          >- (
-            CCONTR_TAC >> fs[] >>
-            first_x_assum (qspec_then `x` assume_tac) >> gvs[] >>
-            first_x_assum (qspec_then `EL n ves'` mp_tac) >>
-            Cases_on `EL n ves'` >> gvs[] >> simp[MEM_EL] >>
-            goal_assum drule >> fs[]
-            )
-          ) >>
-          cheat (* TODO - issues with freevars in letrec-bound functions *)
-        )
-      >- (
-        last_x_assum (drule_at (Pos last)) >>
-        disch_then (qspecl_then [`vars ∪ set (MAP FST ves')`,`x`] mp_tac) >>
-        gvs[INSERT_UNION_EQ] >>
-        impl_tac
-        >- (
-          gvs[Exps_def] >> simp[GSYM INSERT_UNION_EQ, GSYM DIFF_SUBSET] >>
-          gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[]
-          >- (
-            CCONTR_TAC >> fs[] >>
-            last_x_assum (qspec_then `x` assume_tac) >> gvs[] >>
-            first_x_assum (qspec_then `EL n ves` mp_tac) >>
-            Cases_on `EL n ves` >> gvs[] >> simp[MEM_EL] >>
-            goal_assum drule >> fs[]
-            )
-          >- (
-            CCONTR_TAC >> fs[] >>
-            first_x_assum (qspec_then `x` assume_tac) >> gvs[] >>
-            first_x_assum (qspec_then `EL n ves'` mp_tac) >>
-            Cases_on `EL n ves'` >> gvs[] >> simp[MEM_EL] >>
-            goal_assum drule >> fs[]
-            )
-          ) >>
-          cheat (* TODO - issues with freevars in letrec-bound functions *)
-        )
+      goal_assum drule >> gvs[] >>
+      goal_assum (drule_at Any) >>
+      gvs[LIST_REL_EL_EQN, Cus_def] >>
+      first_x_assum (drule_at (Pos last)) >>
+      simp[subst_single_def] >> disch_then irule >>
+      drule term_rel_Howe >> gvs[term_rel_def] >> disch_then imp_res_tac >>
+      gvs[Exps_def, DIFF_SUBSET] >>
+      once_rewrite_tac[UNION_COMM] >> simp[] >>
+      first_x_assum drule >> simp[DIFF_SUBSET] >> strip_tac >>
+      simp[Once UNION_COMM]
+      ) >>
+    irule Howe5 >>
+    qexists_tac `subst x e2' e1'` >>
+    qexists_tac `MAP (λ(g,z). (g, subst x e2' z)) ves'` >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    CONV_TAC (DEPTH_CONV ETA_CONV) >> fs[] >>
+    imp_res_tac term_rel_def >> rw[]
+    >- (
+      gvs[Cus_def] >>
+      first_x_assum (drule_at (Pos last)) >>
+      simp[subst_single_def]
       )
     >- (
-      irule Howe5 >>
-      qexists_tac `subst x e2' e1'` >>
-      qexists_tac `MAP (λ(g,z). (g, subst x e2' z)) ves'` >>
-      gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
-      CONV_TAC (DEPTH_CONV ETA_CONV) >> fs[] >>
-      gvs[term_rel_def] >> first_x_assum drule >>
-      rw[]
-      >- (
-        gvs[Cus_def] >>
-        first_x_assum (drule_at (Pos last)) >>
-        simp[subst_single_def]
-        )
-      >- (
-        gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-        last_x_assum drule >> strip_tac >>
-        pop_assum irule >> gvs[INSERT_UNION_EQ] >>
-        gvs[Exps_def] >> simp[GSYM INSERT_UNION_EQ, GSYM DIFF_SUBSET] >>
-        gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[]
-        >- (
-          CCONTR_TAC >> fs[] >>
-          last_x_assum (qspec_then `x'` assume_tac) >> gvs[] >>
-          first_x_assum (qspec_then `EL n ves` mp_tac) >>
-          Cases_on `EL n ves` >> gvs[] >> simp[MEM_EL] >>
-          goal_assum drule >> fs[]
-          )
-        >- (
-          CCONTR_TAC >> fs[] >>
-          first_x_assum (qspec_then `x'` assume_tac) >> gvs[] >>
-          first_x_assum (qspec_then `EL n ves'` mp_tac) >>
-          Cases_on `EL n ves'` >> gvs[] >> simp[MEM_EL] >>
-          goal_assum drule >> fs[]
-          )
-        )
-      >- (
-        last_x_assum irule >> gvs[INSERT_UNION_EQ] >>
-        gvs[Exps_def] >> simp[GSYM INSERT_UNION_EQ, GSYM DIFF_SUBSET] >>
-        gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[]
-        >- (
-          CCONTR_TAC >> fs[] >>
-          last_x_assum (qspec_then `x'` assume_tac) >> gvs[] >>
-          first_x_assum (qspec_then `EL n ves` mp_tac) >>
-          Cases_on `EL n ves` >> gvs[] >> simp[MEM_EL] >>
-          goal_assum drule >> fs[]
-          )
-        >- (
-          CCONTR_TAC >> fs[] >>
-          first_x_assum (qspec_then `x'` assume_tac) >> gvs[] >>
-          first_x_assum (qspec_then `EL n ves'` mp_tac) >>
-          Cases_on `EL n ves'` >> gvs[] >> simp[MEM_EL] >>
-          goal_assum drule >> fs[]
-          )
-        )
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      last_x_assum drule >> strip_tac >>
+      pop_assum irule >> gvs[INSERT_UNION_EQ] >>
+      drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+      simp[]
+      )
+    >- (
+      last_x_assum irule >> gvs[INSERT_UNION_EQ] >>
+      drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+      simp[]
       )
     )
 QED
@@ -774,6 +667,48 @@ Proof
   \\ first_x_assum (match_mp_tac o MP_CANON) \\ fs []
   \\ fs [SUBSET_DEF,EXISTS_PROD,FORALL_PROD]
   \\ metis_tac []
+QED
+
+Theorem Howe_shrink_vars_lemma:
+  ∀vs.
+    FINITE vs ⇒
+  ∀ R vars x e1 e2.
+    Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ∧
+    Howe R (vs ∪ vars) e1 e2 ∧
+    (∀x. x ∈ vs ⇒ x ∉ freevars e1 ∧ x ∉ freevars e2)
+  ⇒ Howe R vars e1 e2
+Proof
+  pred_setLib.SET_INDUCT_TAC >> rw[] >>
+  first_x_assum irule >> simp[] >>
+  drule IMP_Howe_Sub >> rpt (disch_then drule) >>
+  simp[Sub_def] >>
+  disch_then (qspecl_then [`s ∪ vars`,`e`,`e1`,`e2`,`Fail`,`Fail`] mp_tac) >>
+  simp[] >> dep_rewrite.DEP_REWRITE_TAC[subst_ignore_single] >> simp[] >>
+  disch_then irule >>
+  drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+  gvs[INSERT_UNION_EQ] >>
+  drule Ref_Howe >> rw[Ref_def] >>
+  last_x_assum irule >> gvs[GSYM INSERT_UNION_EQ]
+QED
+
+Theorem Howe_min_freevars:
+  ∀R vars x e1 e2.
+    Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ∧
+    Howe R vars e1 e2 ∧ FINITE vars
+  ⇒ Howe R (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[] >>
+  `∃ vars'.
+    vars = vars' ∪ (freevars e1 ∪ freevars e2) ∧
+    FINITE vars' ∧
+    DISJOINT vars' (freevars e1 ∪ freevars e2)` by (
+    drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+    gvs[Exps_def] >>
+    qexists_tac `vars DIFF freevars e1 DIFF freevars e2` >>
+    gvs[EXTENSION, SUBSET_DEF, DISJOINT_DEF] >> metis_tac[]) >>
+  gvs[] >>
+  drule Howe_shrink_vars_lemma >> rpt (disch_then drule) >> disch_then irule >>
+  gvs[DISJOINT_DEF, EXTENSION] >> metis_tac[]
 QED
 
 Theorem Sub_Howe_open_similarity:
@@ -1414,6 +1349,19 @@ Proof
 QED
 
 Theorem Howe_finite = GEN_ALL Howe_finite |> SIMP_RULE std_ss [] |> MP_CANON;
+
+Theorem Howe_open_similarity_min_freevars:
+  ∀R vars x e1 e2.
+    Howe open_similarity vars e1 e2
+  ⇒ Howe open_similarity (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[] >>
+  drule Howe_finite >> strip_tac >>
+  irule Howe_min_freevars >>
+  simp[Cus_open_similarity, Ref_open_similarity,
+      Tra_open_similarity, term_rel_open_similarity] >>
+  goal_assum drule >> simp[]
+QED
 
 Theorem Howe_open_similarity: (* key property *)
   Howe open_similarity = open_similarity
