@@ -18,61 +18,43 @@ Datatype:
   next_res = Act 'e (exp list) | Ret | Div | Err
 End
 
-Inductive next:
-  (∀e stack a.
-    eval_wh e = wh_Atom a ⇒
-    next (wh_Constructor "Act" [e], stack) (Act a stack))
-  ∧
-  (∀m f stack res.
-    next (eval_wh m, f::stack) res ⇒
-    next (wh_Constructor "Bind" [m; f], stack) res)
-  ∧
-  (∀stack.
-    next (wh_Diverge, stack) Div)
-  ∧
-  (∀v.
-    next (wh_Constructor "Ret" [v], []) Ret)
-  ∧
-  (∀f n e x stack res.
-    dest_wh_Closure (eval_wh f) = SOME (n,e) ∧
-    next (eval_wh (bind n x e), stack) res ⇒
-    next (wh_Constructor "Ret" [x], f::stack) res)
-  ∧
-  (∀f x stack.
-    eval_wh f = wh_Diverge ⇒
-    next (wh_Constructor "Ret" [x], f::stack) Div)
-  ∧
-  (∀v stack.
-    (v ≠ wh_Diverge) ∧
-    (∀e. v = wh_Constructor "Act" [e] ⇒
-         ∀a. eval_wh e ≠ wh_Atom a) ∧
-    (∀e. v = wh_Constructor "Ret" [e] ⇒
-         stack ≠ [] ∧
-         ∀f fs. stack = f :: fs ⇒ eval_wh f ≠ wh_Diverge ∧
-                                  dest_wh_Closure (eval_wh f) = NONE) ∧
-    (∀m f. v ≠ wh_Constructor "Bind" [m; f]) ⇒
-    next (v, stack) Err)
+Definition next_def:
+  next (k:num) v stack =
+    case v of
+    | wh_Constructor s es =>
+       (if s = "Ret" ∧ LENGTH es = 1 then
+          (case stack of
+           | [] => Ret
+           | (f::fs) =>
+               if eval_wh f = wh_Diverge then Div else
+                 case dest_wh_Closure (eval_wh f) of
+                 | NONE => Err
+                 | SOME (n,e) => if k = 0 then Div else
+                                   next (k-1) (eval_wh (bind n (HD es) e)) fs)
+        else if s = "Act" ∧ LENGTH es = 1 then
+          (case eval_wh (HD es) of
+           | wh_Atom a => Act a stack
+           | _ => Err)
+        else if s = "Bind" ∧ LENGTH es = 2 then
+          (let m = EL 0 es in
+           let f = EL 1 es in
+             if k = 0 then Div else next (k-1) (eval_wh m) (f::stack))
+        else Err)
+    | wh_Diverge => Div
+    | _ => Err
 End
 
 Definition next_action_def:
-  next_action (wh, stack) =
-    case some res. next (wh, stack) res of
-    | SOME res => res
+  next_action wh stack =
+    case some k. next k wh stack ≠ Div of
     | NONE => Div
-End
-
-Definition continue_def:
-  continue [] k = INL T ∧
-  continue (f::stack) k =
-    case dest_wh_Closure (eval_wh f) of
-    | NONE => INL F
-    | SOME (n,e) => INR (eval_wh (bind n (Lit k) e), stack)
+    | SOME k => next k wh stack
 End
 
 Definition interp'_def:
   interp' =
     io_unfold
-      (λ(v,stack). case next_action (v,stack) of
+      (λ(v,stack). case next_action v stack of
                    | Ret => Ret' Termination
                    | Err => Ret' Error
                    | Div => Ret' SilentDivergence
@@ -86,7 +68,7 @@ End
 
 Theorem interp_def:
   interp wh stack =
-    case next_action (wh,stack) of
+    case next_action wh stack of
     | Ret => Ret Termination
     | Div => Ret SilentDivergence
     | Err => Ret Error
@@ -95,7 +77,7 @@ Theorem interp_def:
 Proof
   fs [Once interp,interp'_def]
   \\ once_rewrite_tac [io_unfold] \\ fs []
-  \\ Cases_on ‘next_action (wh,stack)’ \\ fs []
+  \\ Cases_on ‘next_action wh stack’ \\ fs []
   \\ fs [combinTheory.o_DEF,FUN_EQ_THM] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ fs [interp,interp'_def]
@@ -106,6 +88,32 @@ Definition semantics_def:
   semantics e binds = interp (eval_wh e) binds
 End
 
+
+(* basic lemmas *)
+
+Theorem next_less_eq:
+  ∀k1 x fs. next k1 x fs ≠ Div ⇒ ∀k2. k1 ≤ k2 ⇒ next k1 x fs = next k2 x fs
+Proof
+  ho_match_mp_tac next_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [next_def]
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘s = "Bind"’ \\ fs [] \\ rw []
+  \\ Cases_on ‘s = "Act"’ \\ fs [] \\ rw []
+  \\ Cases_on ‘s = "Ret"’ \\ fs [] \\ rw []
+  \\ Cases_on ‘fs’ \\ fs []
+  \\ fs [AllCaseEqs()]
+  \\ Cases_on ‘dest_wh_Closure (eval_wh h)’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs []
+QED
+
+Theorem next_next:
+  next k1 x fs ≠ Div ∧ next k2 x fs ≠ Div ⇒
+  next k1 x fs = next k2 x fs
+Proof
+  metis_tac [LESS_EQ_CASES, next_less_eq]
+QED
 
 (* descriptive lemmas *)
 
@@ -119,38 +127,40 @@ Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
   \\ fs [next_action_def]
-  \\ simp [Once next_cases]
+  \\ simp [Once next_def]
+  \\ simp [Once next_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
 QED
 
 Theorem semantics_Ret_App:
   semantics (Ret x) (f::fs) = semantics (App f x) fs
 Proof
   fs [semantics_def,eval_wh_Cons]
-  \\ simp [Once interp_def]
+  \\ once_rewrite_tac [interp_def]
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
   \\ fs [next_action_def]
-  \\ simp [Once next_cases]
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
+  \\ Cases_on ‘eval_wh f = wh_Diverge’ \\ fs [eval_wh_thm]
+  THEN1 (simp [Once next_def])
   \\ Cases_on ‘dest_wh_Closure (eval_wh f)’ \\ fs []
   THEN1
-    (fs [eval_wh_thm]
-     \\ Cases_on ‘eval_wh f = wh_Diverge’ \\ fs []
-     \\ simp [Once interp_def]
-     \\ fs [next_action_def]
-     \\ simp [Once next_cases])
+   (simp [Once next_def]
+    \\ DEEP_INTRO_TAC some_intro \\ fs []
+    \\ simp [Once next_def])
   \\ rename [‘_ = SOME xx’] \\ PairCases_on ‘xx’ \\ fs []
-  \\ fs [eval_wh_thm]
-  \\ Cases_on ‘eval_wh f = wh_Diverge’ \\ fs []
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ simp [Once interp_def]
-  \\ fs [next_action_def]
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ reverse (rw [] \\ fs [AllCaseEqs()])
+  THEN1 (qexists_tac ‘x'+1’ \\ fs [])
+  \\ match_mp_tac next_next \\ fs []
 QED
 
 Theorem semantics_Bottom:
   semantics Bottom xs = Ret SilentDivergence
 Proof
-  fs [semantics_def,eval_wh_Bottom]
+  fs [semantics_def,eval_wh_thm]
   \\ simp [Once interp_def]
   \\ fs [next_action_def]
-  \\ simp [Once next_cases]
+  \\ simp [Once next_def]
 QED
 
 Theorem semantics_Bind:
@@ -158,11 +168,15 @@ Theorem semantics_Bind:
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
+  \\ qsuff_tac ‘next_action (wh_Constructor "Bind" [x; f]) fs =
+                next_action (eval_wh x) (f::fs)’
+  THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
-  \\ simp [Once next_cases]
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ simp [Once interp_def]
-  \\ fs [next_action_def]
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ rw [] \\ fs [AllCaseEqs()]
+  THEN1 (match_mp_tac next_next \\ fs [])
+  \\ qexists_tac ‘x'+1’ \\ fs []
 QED
 
 Theorem semantics_Act:
@@ -174,11 +188,12 @@ Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
   \\ fs [next_action_def]
-  \\ simp [Once next_cases,eval_wh_Lit]
-  \\ Cases_on ‘∃a. eval_wh x = wh_Atom a’ \\ fs []
-  \\ fs [eval_def,Once v_unfold]
+  \\ simp [Once next_def,eval_wh_Lit,CaseEq"wh"]
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ simp [Once next_def,eval_wh_Lit,CaseEq"wh"]
+  \\ fs [eval_def]
+  \\ once_rewrite_tac [v_unfold]
   \\ Cases_on ‘eval_wh x’ \\ fs []
 QED
-
 
 val _ = export_theory();
