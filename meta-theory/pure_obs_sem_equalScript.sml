@@ -11,7 +11,8 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite io_treeTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_exp_relTheory pure_semanticsTheory;
+     pure_exp_lemmasTheory pure_exp_relTheory pure_semanticsTheory
+     pure_congruenceTheory;
 
 val _ = new_theory "pure_obs_sem_equal";
 
@@ -22,7 +23,7 @@ Proof
   fs [Once app_bisimilarity_iff]
   \\ Cases_on ‘eval_wh x’ \\ fs []
   \\ rw [] \\ gvs []
-  \\ cheat
+  \\ fs [LIST_REL_EL_EQN]
 QED
 
 Theorem next_lemma[local]:
@@ -48,11 +49,54 @@ Proof
     THEN1 (rw [] \\ simp [Once next_cases]
            \\ first_x_assum irule \\ fs []
            \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs [])
-    \\ cheat)
+    \\ drule_all eval_wh_Cons \\ rw [] \\ fs [])
   THEN1
    (qsuff_tac ‘eval_wh y = wh_Diverge’
     THEN1 (simp [Once next_cases])
-    \\ cheat)
+    \\ imp_res_tac app_bisimilarity_diverge)
+  THEN1
+   (drule_all eval_wh_Cons \\ rw [] \\ fs []
+    \\ simp [Once next_cases] \\ gvs [])
+  THEN1
+   (drule_all eval_wh_Cons \\ rw [] \\ fs []
+    \\ simp [Once next_cases] \\ gvs []
+    \\ Cases_on ‘eval_wh f’ \\ gvs []
+    \\ ‘∃n1 e1. eval_wh y' = wh_Closure n1 e1’ by
+      (qpat_x_assum ‘f ≃ _’ mp_tac
+       \\ simp [Once app_bisimilarity_iff] \\ rw [] \\ fs [])
+    \\ fs [] \\ first_x_assum irule \\ fs []
+    \\ qexists_tac ‘bind n x e’ \\ fs []
+    \\ fs [app_bisimilarity_eq]
+    \\ drule_all eval_wh_Closure_closed \\ pop_assum mp_tac
+    \\ drule_all eval_wh_Closure_closed
+    \\ rpt (disch_then assume_tac)
+    \\ reverse conj_tac
+    THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [])
+    \\ ‘Lam n e ≃ Lam n1 e1’ by
+     (‘f ≃ y'’ by fs [app_bisimilarity_eq]
+      \\ pop_assum mp_tac
+      \\ once_rewrite_tac [app_bisimilarity_iff]
+      \\ fs [eval_wh_Lam])
+    \\ ‘Lam n e ≅ Lam n1 e1’ by fs [app_bisimilarity_eq]
+    \\ fs [exp_eq_Lam] \\ fs [bind_single_def])
+  THEN1
+   (drule_all eval_wh_Cons \\ rw [] \\ fs []
+    \\ imp_res_tac app_bisimilarity_diverge
+    \\ simp [Once next_cases] \\ gvs [])
+  \\ simp [Once next_cases] \\ gvs []
+  \\ qpat_x_assum ‘x ≃ y’ mp_tac
+  \\ simp [Once app_bisimilarity_iff]
+  \\ strip_tac
+  \\ Cases_on ‘eval_wh x’ \\ fs []
+  \\ qabbrev_tac ‘s1 ⇔ s = "Act"’
+  \\ qabbrev_tac ‘s2 ⇔ s = "Ret"’
+  \\ qabbrev_tac ‘s3 ⇔ s = "Bind"’
+  \\ Cases_on ‘s1’ \\ fs []
+  THEN1
+   (gvs [] \\ rw [] \\ gvs []
+    \\ CCONTR_TAC \\ fs []
+    \\ fs [Once app_bisimilarity_iff])
+  \\ Cases_on ‘s2’ \\ fs []
   \\ cheat
 QED
 
@@ -78,7 +122,6 @@ QED
 Theorem bisimilarity_IMP_semantics_eq:
   ∀x y. x ≃ y ⇒ semantics x [] = semantics y []
 Proof
-  cheat (*
   qsuff_tac ‘∀x y xs ys. x ≃ y ∧ LIST_REL (≃) xs ys ⇒
                          semantics x xs = semantics y ys’
   THEN1 (rw [] \\ first_x_assum match_mp_tac)
@@ -96,7 +139,7 @@ Proof
   THEN1
    (strip_tac \\ fs []
     \\ Cases_on ‘path’ \\ fs [io_el_def]
-    \\ ‘wh_Constructor "Ret" [Lit h] = eval_wh (Ret (Lit h))’ by fs [eval_wh_Cons]
+    \\ ‘wh_Constructor "Ret" [Lit h] = eval_wh (Ret (Lit h))’ by fs [eval_wh_thm]
     \\ fs [] \\ first_x_assum irule \\ fs []
     \\ match_mp_tac reflexive_app_bisimilarity \\ fs [])
   \\ qpat_x_assum ‘∀x. _’ kall_tac
@@ -113,7 +156,7 @@ Proof
   \\ reverse impl_tac THEN1 (rw [] \\ fs [])
   \\ assume_tac symmetric_app_bisimilarity
   \\ drule_all symmetric_LIST_REL \\ fs []
-  \\ fs [symmetric_def] *)
+  \\ fs [symmetric_def]
 QED
 
 val _ = export_theory();

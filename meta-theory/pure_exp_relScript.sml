@@ -591,6 +591,15 @@ Proof
   \\ gvs[unfold_rel_def, LIST_REL_EL_EQN] \\ rw[opp_def]
 QED
 
+Theorem app_bisimilarity_diverge:
+  e1 ≃ e2 ∧ eval_wh e1 = wh_Diverge ⇒ eval_wh e2 = wh_Diverge
+Proof
+  rw[app_bisimilarity_similarity,app_similarity_iff] >>
+  gvs[unfold_rel_def, eval_def, v_unfold_def] >>
+  pop_assum mp_tac >> once_rewrite_tac[gen_v] >>
+  Cases_on ‘eval_wh e2’ >> gvs[]
+QED
+
 Theorem app_bisimilarity_diverge_lemma:
   e1 ≃ e2 ∧ eval e1 = Diverge ⇒ eval e2 = Diverge
 Proof

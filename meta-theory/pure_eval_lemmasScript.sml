@@ -158,6 +158,17 @@ Proof
   metis_tac[]
 QED
 
+Theorem eval_wh_Closure_closed:
+  eval_wh e1 = wh_Closure x e2 ∧ closed e1 ⇒
+  set(freevars e2) ⊆ {x}
+Proof
+  gvs[eval_wh_def,AllCaseEqs()] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  drule eval_wh_to_freevars_SUBSET >> simp[] >>
+  rw[SUBSET_DEF] >> gvs[closed_def] >>
+  metis_tac[]
+QED
+
 Theorem eval_eq_Diverge:
   eval x = Diverge ⇔ ∀n. eval_wh_to n x = wh_Diverge
 Proof
