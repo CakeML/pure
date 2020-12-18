@@ -325,6 +325,25 @@ Proof
   rw[open_similarity_def]
 QED
 
+Theorem open_similarity_alt_def:
+  ∀vars e1 e2.
+    open_similarity vars e1 e2 ⇔
+    freevars e1 ∪ freevars e2 ⊆ vars ∧
+    ∀f. freevars e1 ∪ freevars e2 = FDOM f ⇒ bind f e1 ≲ bind f e2
+Proof
+  rw[] >> eq_tac >> rw[] >> gvs[open_similarity_def] >> rw[]
+  >- (first_x_assum irule >> gvs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+  first_x_assum (qspec_then `DRESTRICT f (freevars e1 ∪ freevars e2)` mp_tac) >>
+  simp[FDOM_DRESTRICT] >> impl_tac
+  >- (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+  gvs[bind_def, FLOOKUP_DRESTRICT] >>
+  reverse (rw[]) >> gvs[] >- res_tac >- res_tac >>
+  qmatch_asmsub_abbrev_tac `subst f' _` >>
+  qsuff_tac `subst f e1 = subst f' e1 ∧ subst f e2 = subst f' e2` >> simp[] >>
+  once_rewrite_tac[subst_FDIFF] >> unabbrev_all_tac >>
+  gvs[INTER_UNION]
+QED
+
 Theorem Howe_Tra: (* 5.5.1(ii) *)
   Tra R ∧ term_rel R ⇒
   ∀vars e1 e2 e3.
@@ -910,14 +929,184 @@ Proof
   irule EQ_EXT >> Cases >> simp[]
 QED
 
+Theorem open_similarity_larger:
+  ∀vars e1 e2 vars1.
+    open_similarity vars e1 e2 ∧ vars SUBSET vars1 ⇒ open_similarity vars1 e1 e2
+Proof
+  fs [open_similarity_def]
+  \\ rw [] \\ imp_res_tac SUBSET_TRANS \\ fs []
+QED
+
+Theorem Howe_larger:
+  ∀vars e2 e1 vars1.
+     Howe open_similarity vars e1 e2 ∧ vars ⊆ vars1 ⇒
+     Howe open_similarity vars1 e1 e2
+Proof
+  rw[] >>
+  assume_tac term_rel_open_similarity >>
+  imp_res_tac term_rel_Howe >>
+  gvs[term_rel_def] >>
+  metis_tac[]
+QED
+
+Theorem LIST_REL_Howe_larger:
+  ∀vs ws es ys.
+    LIST_REL (Howe open_similarity vs) es ys ∧ vs SUBSET ws ⇒
+    LIST_REL (Howe open_similarity ws) es ys
+Proof
+  rw [] \\ last_x_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono \\ rw []
+  \\ match_mp_tac Howe_larger
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ fs [SUBSET_DEF]
+QED
+
+Theorem open_similarity_finite:
+  ∀vars e1 e2.
+    open_similarity vars e1 e2 ⇒ ∃vs. open_similarity vs e1 e2 ∧ FINITE vs
+Proof
+  fs [open_similarity_def] \\ rw []
+  \\ qexists_tac ‘freevars e1 UNION freevars e2’ \\ fs []
+QED
+
+Theorem Howe_finite:
+  Howe R vars e1 e2 ⇒ R = open_similarity ⇒
+  ∃ws. Howe R ws e1 e2 ∧ FINITE ws
+Proof
+  Induct_on ‘Howe’ \\ rw []
+  THEN1
+   (simp [Once Howe_cases]
+    \\ imp_res_tac open_similarity_finite
+    \\ qexists_tac ‘vs’ \\ fs [])
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ imp_res_tac open_similarity_finite
+    \\ qexists_tac ‘x INSERT (ws UNION vs)’ \\ fs []
+    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+    THEN1
+     (match_mp_tac Howe_larger
+      \\ goal_assum (first_assum o mp_then Any mp_tac)
+      \\ fs [SUBSET_DEF])
+    \\ match_mp_tac open_similarity_larger
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ imp_res_tac open_similarity_finite
+    \\ qexists_tac ‘vs UNION ws UNION ws'’ \\ fs []
+    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+    \\ qexists_tac ‘e2'’ \\ fs [] \\ rw []
+    \\ TRY (match_mp_tac Howe_larger)
+    \\ TRY (match_mp_tac open_similarity_larger)
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  THEN1
+   (simp [Once Howe_cases,PULL_EXISTS]
+    \\ imp_res_tac open_similarity_finite
+    \\ ‘∃ws1. LIST_REL (Howe open_similarity ws1) es es' ∧ FINITE ws1 ∧ vs SUBSET ws1’ by
+     (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ qid_spec_tac ‘es'’ \\ qid_spec_tac ‘es’
+      \\ Induct \\ fs []
+      THEN1 (goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs [])
+      \\ fs [PULL_EXISTS] \\ rw []
+      \\ first_x_assum drule \\ rw []
+      \\ qexists_tac ‘ws UNION ws1’ \\ fs [] \\ rw []
+      \\ TRY (match_mp_tac Howe_larger)
+      \\ TRY (match_mp_tac LIST_REL_Howe_larger)
+      \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+      \\ fs [SUBSET_DEF])
+    \\ goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs []
+    \\ TRY (match_mp_tac open_similarity_larger)
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [SUBSET_DEF])
+  \\ simp [Once Howe_cases,PULL_EXISTS]
+  \\ imp_res_tac open_similarity_finite
+  \\ ‘∃ws1. LIST_REL (Howe open_similarity ws1) (MAP SND ves) (MAP SND ves') ∧
+            FINITE ws1 ∧ vs SUBSET ws1’ by
+    (‘LIST_REL (λe1 e2. ∃ws. Howe open_similarity ws e1 e2 ∧ FINITE ws) (MAP SND ves)
+        (MAP SND ves')’ by
+      (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+       \\ match_mp_tac LIST_REL_mono \\ rw []
+       \\ match_mp_tac Howe_larger)
+     \\ pop_assum mp_tac
+     \\ qid_spec_tac ‘ves'’ \\ qid_spec_tac ‘ves’
+     \\ Induct \\ fs []
+     THEN1 (goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs [])
+     \\ Cases \\ fs [] \\ Cases \\ fs [] \\ PairCases_on ‘h’ \\ fs []
+     \\ fs [PULL_EXISTS] \\ rw []
+     \\ first_x_assum drule \\ rw []
+     \\ qexists_tac ‘ws' UNION ws1’ \\ fs [] \\ rw []
+     \\ TRY (match_mp_tac Howe_larger)
+     \\ TRY (match_mp_tac LIST_REL_Howe_larger)
+     \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+     \\ fs [SUBSET_DEF])
+  \\ qexists_tac ‘ws1 UNION ws’ \\ fs []
+  \\ qexists_tac ‘ves'’ \\ fs []
+  \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
+  \\ TRY (match_mp_tac open_similarity_larger)
+  \\ TRY (match_mp_tac Howe_larger)
+  \\ TRY (match_mp_tac LIST_REL_Howe_larger)
+  \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
+  \\ fs [SUBSET_DEF]
+QED
+
+Theorem Howe_finite = GEN_ALL Howe_finite |> SIMP_RULE std_ss [] |> MP_CANON;
+
+Theorem Howe_open_similarity_min_freevars:
+  ∀R vars x e1 e2.
+    Howe open_similarity vars e1 e2
+  ⇒ Howe open_similarity (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[] >>
+  drule Howe_finite >> strip_tac >>
+  irule Howe_min_freevars >>
+  simp[Cus_open_similarity, Ref_open_similarity,
+      Tra_open_similarity, term_rel_open_similarity] >>
+  goal_assum drule >> simp[]
+QED
+
+Theorem ALOOKUP_SOME_EL:
+  ∀l k v. ALOOKUP l k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k,v)
+Proof
+  Induct >> rw[] >>
+  PairCases_on `h` >> gvs[] >>
+  FULL_CASE_TAC >> gvs[]
+  >- (qexists_tac `0` >> gvs[]) >>
+  first_x_assum drule >> strip_tac >>
+  qexists_tac `SUC n` >> gvs[]
+QED
+
+Theorem ALOOKUP_SOME_EL_2:
+  ∀l1 l2 k (v:'a).
+    ALOOKUP l1 k = SOME v ∧
+    MAP FST l1 = MAP FST l2
+  ⇒ ∃v'. ALOOKUP l2 k = SOME (v':'a) ∧
+      ∃n. n < LENGTH l1 ∧ EL n l1 = (k,v) ∧ EL n l2 = (k,v')
+Proof
+  Induct >> rw[] >>
+  PairCases_on `h` >> gvs[] >>
+  FULL_CASE_TAC >> gvs[]
+  >- (
+    qexists_tac `SND (EL 0 l2)` >>
+    Cases_on `l2` >> gvs[] >> PairCases_on `h` >> gvs[] >>
+    qexists_tac `0` >> gvs[]
+    ) >>
+  first_x_assum drule >> Cases_on `l2` >> gvs[] >>
+  disch_then (qspec_then `t` assume_tac) >> gvs[] >>
+  PairCases_on `h` >> gvs[] >>
+  qexists_tac `SUC n` >> gvs[]
+QED
+
 Theorem Sub_subst_funs:
   ∀R f1 f2 e1 e2.
     Sub R ∧
     term_rel R ∧
+    Com5 R ∧
     MAP FST f1 = MAP FST f2 ∧
     LIST_REL (R (set (MAP FST f1))) (MAP SND f1) (MAP SND f2) ∧
     R (set (MAP FST f2)) e1 e2 ∧
-    closed (Letrec f1 e1) ∧ closed (Letrec f2 e2)
+    closed (Letrec f1 e1) ∧ closed (Letrec f2 e2) ∧
+    (∀vars ea eb. R vars ea eb ⇒ R (freevars ea ∪ freevars eb) ea eb)
   ⇒ R {} (subst_funs f1 e1) (subst_funs f2 e2)
 Proof
   rw[subst_funs_def] >>
@@ -955,9 +1144,29 @@ Proof
     goal_assum drule >> last_x_assum drule >>
     Cases_on `EL n f1` >> Cases_on `EL n f2` >> rw[]) >>
   conj_tac >- (first_x_assum irule >> goal_assum drule) >>
-  qmatch_goalsub_abbrev_tac `MAP a f1` >>
-  qmatch_goalsub_abbrev_tac `MAP b f2` >>
-  cheat (* TODO *)
+  first_x_assum drule >> first_x_assum drule >>
+  DEP_REWRITE_TAC[fupdate_list_map] >>
+  simp[FDOM_FUPDATE_LIST, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+  goal_assum drule >> goal_assum drule >> rw[] >>
+  `∃v1. ALOOKUP (REVERSE f1) k = SOME v1` by (
+    rw[ALOOKUP_LEAST_EL, MEM_MAP, EXISTS_PROD] >> goal_assum drule) >>
+  `∃v2. ALOOKUP (REVERSE f2) k = SOME v2` by (
+    rw[ALOOKUP_LEAST_EL, MEM_MAP, EXISTS_PROD] >> goal_assum drule) >>
+  imp_res_tac FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME >> gvs[FLOOKUP_DEF] >>
+  ntac 2 (pop_assum kall_tac) >>
+  drule ALOOKUP_SOME_EL_2 >>
+  disch_then (qspec_then `REVERSE f1` assume_tac) >>
+  gvs[MAP_REVERSE, FST_THM] >>
+  gvs[Com5_def] >> last_x_assum irule >>
+  gvs[FST_THM, Exps_def] >>
+  gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, FST_THM, SUBSET_DEF,
+      MEM_MAP, PULL_EXISTS] >>
+  conj_tac >- metis_tac[] >> conj_tac >- metis_tac[] >>
+  gvs[LIST_REL_EL_EQN] >>
+  `n < LENGTH f1` by gvs[] >> gvs[EL_REVERSE] >>
+  qmatch_asmsub_abbrev_tac `EL m _` >>
+  `m < LENGTH f2` by (unabbrev_all_tac >> Cases_on `LENGTH f2 - n` >> gvs[]) >>
+  last_x_assum drule >> simp[EL_MAP]
 QED
 
 Theorem Howe_open_similarity_IMP:
@@ -1142,12 +1351,114 @@ Proof
     pop_assum mp_tac >>
     fs[open_similarity_EMPTY, app_similarity_iff] >>
     simp[unfold_rel_def] >> strip_tac >> gvs[eval_wh_thm] >>
+    `Howe open_similarity {} (subst_funs fa ea) (subst_funs fb eb)` by (
+      irule Sub_subst_funs >>
+      assume_tac term_rel_open_similarity >>
+      simp[term_rel_Howe, Sub_Howe_open_similarity] >>
+      assume_tac Ref_open_similarity >> drule Howe_Ref >> rw[Compatible_def] >>
+      irule Howe_open_similarity_min_freevars >>
+      goal_assum drule) >>
+    first_x_assum drule >>
+    impl_tac
+    >- (
+      assume_tac term_rel_open_similarity >>
+      drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+      gvs[closed_def, Exps_def]
+      ) >>
+    strip_tac >>
+    Cases_on `eval_wh (subst_funs fa ea)` >> gvs[]
+    >- (
+      gvs[LIST_REL_EL_EQN] >> rw[] >>
+      irule Howe_Tra >> assume_tac term_rel_open_similarity >>
+      simp[Tra_open_similarity] >>
+      first_x_assum drule >> strip_tac >>
+      drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+      gvs[Exps_def] >>
+      first_x_assum drule >> strip_tac >>
+      drule app_similarity_closed >> strip_tac >> simp[] >>
+      simp[open_similarity_EMPTY] >>
+      qexists_tac `EL n e2s` >>
+      simp[]
+      ) >>
+    irule Howe_Tra >> assume_tac term_rel_open_similarity >>
+    simp[Tra_open_similarity] >>
+    drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+    simp[] >> gvs[Exps_def] >>
+    conj_asm1_tac
+    >- (
+      rw[SUBSET_DEF] >>
+      rename1 `MEM _ (freevars (_ foo))` >>
+      last_x_assum (qspec_then `Fail` mp_tac) >> rw[] >>
+      imp_res_tac app_similarity_closed >> rename1 `subst bar _ foo` >>
+      `freevars foo ⊆ {bar}` by (
+        irule closed_subst_freevars >>
+        goal_assum (drule_at (Pos last)) >> simp[]) >>
+      gvs[GSYM perm_exp_eqvt, MEM_MAP] >>
+      gvs[SUBSET_DEF, perm1_def]
+      ) >>
+    last_x_assum (qspec_then `{s}` assume_tac) >> gvs[] >>
+    goal_assum (drule_at (Pos last)) >> simp[] >>
+    rw[open_similarity_alt_def] >> rw[bind_def] >>
+    `FDOM f ⊆ {s}` by (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+    rename1 `subst _ (perm_exp s y1 foo) ≲ subst _(perm_exp s y2 bar)` >>
+    Cases_on `f` >> gvs[]
+    >- cheat (* TODO *) >>
+    `∀y. g |+ (s,y) = FEMPTY |+ (s,y)` by (
+      rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
+      fs[SUBSET_DEF] >> metis_tac[]) >>
+    rw[] >>
     cheat (* TODO *)
     )
   >- (
     rename1 `Prim` >>
     rpt gen_tac >> ntac 4 strip_tac >>
-    Cases_on `p` >> gvs[eval_wh_thm, eval_wh_to_def] >>
+    Cases_on `p` >> gvs[eval_wh_Prim, eval_wh_to_def]
+    >- ( (* If *)
+      qpat_x_assum `_ ≠ wh_Diverge` mp_tac >>
+      Cases_on `k = 0` >> simp[] >>
+      Cases_on `xs` >> simp[]
+      >- (
+        qpat_x_assum `Howe _ _ _ _` mp_tac >>
+        simp[Once Howe_cases] >>
+        simp[open_similarity_EMPTY, app_similarity_iff] >>
+        simp[Once unfold_rel_def, eval_wh_Prim]
+        ) >>
+      Cases_on `t` >> simp[]
+      >- (
+        qpat_x_assum `Howe _ _ _ _` mp_tac >>
+        simp[Once Howe_cases, PULL_EXISTS] >>
+        simp[open_similarity_EMPTY, app_similarity_iff] >>
+        simp[Once unfold_rel_def, eval_wh_Prim]
+        ) >>
+      Cases_on `t'` >> simp[]
+      >- (
+        qpat_x_assum `Howe _ _ _ _` mp_tac >>
+        simp[Once Howe_cases, PULL_EXISTS] >>
+        simp[open_similarity_EMPTY, app_similarity_iff] >>
+        simp[Once unfold_rel_def, eval_wh_Prim]
+        ) >>
+      reverse (Cases_on `t`) >> simp[]
+      >- (
+        qpat_x_assum `Howe _ _ _ _` mp_tac >>
+        simp[Once Howe_cases, PULL_EXISTS] >>
+        simp[open_similarity_EMPTY, app_similarity_iff] >>
+        simp[Once unfold_rel_def, eval_wh_Prim]
+        ) >>
+      Cases_on `eval_wh_to (k - 1) h = wh_Diverge` >> simp[] >>
+      `eval_wh h ≠ wh_Diverge` by (
+        simp[eval_wh_neq_Diverge] >> goal_assum drule) >> simp[] >>
+      qpat_x_assum `Howe _ _ _ _` mp_tac >>
+      simp[Once Howe_cases, PULL_EXISTS] >>
+      simp[open_similarity_EMPTY, app_similarity_iff, Once unfold_rel_def] >>
+      simp[eval_wh_Prim] >>
+      rpt gen_tac >> strip_tac >>
+      qpat_x_assum `EVERY _ _` mp_tac >> simp[] >> strip_tac >>
+      first_assum drule >>
+      disch_then (qspec_then `h` mp_tac) >> simp[] >>
+      disch_then drule >> simp[] >> strip_tac >>
+      Cases_on `eval_wh h` >> simp[] >>
+      cheat (* TODO *)
+      ) >>
     cheat (* TODO *)
     )
 QED
@@ -1225,142 +1536,6 @@ Proof
   \\ qsuff_tac ‘FEMPTY |+ (h,e) ⊌ f = f’ THEN1 fs []
   \\ fs [fmap_EXT,FUNION_DEF,EXTENSION,DRESTRICT_DEF,FLOOKUP_DEF]
   \\ metis_tac []
-QED
-
-Theorem open_similarity_larger:
-  ∀vars e1 e2 vars1.
-    open_similarity vars e1 e2 ∧ vars SUBSET vars1 ⇒ open_similarity vars1 e1 e2
-Proof
-  fs [open_similarity_def]
-  \\ rw [] \\ imp_res_tac SUBSET_TRANS \\ fs []
-QED
-
-Theorem Howe_larger:
-  ∀vars e2 e1 vars1.
-     Howe open_similarity vars e1 e2 ∧ vars ⊆ vars1 ⇒
-     Howe open_similarity vars1 e1 e2
-Proof
-  rw[] >>
-  assume_tac term_rel_open_similarity >>
-  imp_res_tac term_rel_Howe >>
-  gvs[term_rel_def] >>
-  metis_tac[]
-QED
-
-Theorem LIST_REL_Howe_larger:
-  ∀vs ws es ys.
-    LIST_REL (Howe open_similarity vs) es ys ∧ vs SUBSET ws ⇒
-    LIST_REL (Howe open_similarity ws) es ys
-Proof
-  rw [] \\ last_x_assum mp_tac
-  \\ match_mp_tac LIST_REL_mono \\ rw []
-  \\ match_mp_tac Howe_larger
-  \\ goal_assum (first_assum o mp_then Any mp_tac)
-  \\ fs [SUBSET_DEF]
-QED
-
-Theorem open_similarity_finite:
-  ∀vars e1 e2.
-    open_similarity vars e1 e2 ⇒ ∃vs. open_similarity vs e1 e2 ∧ FINITE vs
-Proof
-  fs [open_similarity_def] \\ rw []
-  \\ qexists_tac ‘freevars e1 UNION freevars e2’ \\ fs []
-QED
-
-Theorem Howe_finite:
-  Howe R vars e1 e2 ⇒ R = open_similarity ⇒
-  ∃ws. Howe R ws e1 e2 ∧ FINITE ws
-Proof
-  Induct_on ‘Howe’ \\ rw []
-  THEN1
-   (simp [Once Howe_cases]
-    \\ imp_res_tac open_similarity_finite
-    \\ qexists_tac ‘vs’ \\ fs [])
-  THEN1
-   (simp [Once Howe_cases,PULL_EXISTS]
-    \\ imp_res_tac open_similarity_finite
-    \\ qexists_tac ‘x INSERT (ws UNION vs)’ \\ fs []
-    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
-    THEN1
-     (match_mp_tac Howe_larger
-      \\ goal_assum (first_assum o mp_then Any mp_tac)
-      \\ fs [SUBSET_DEF])
-    \\ match_mp_tac open_similarity_larger
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ fs [SUBSET_DEF])
-  THEN1
-   (simp [Once Howe_cases,PULL_EXISTS]
-    \\ imp_res_tac open_similarity_finite
-    \\ qexists_tac ‘vs UNION ws UNION ws'’ \\ fs []
-    \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
-    \\ qexists_tac ‘e2'’ \\ fs [] \\ rw []
-    \\ TRY (match_mp_tac Howe_larger)
-    \\ TRY (match_mp_tac open_similarity_larger)
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ fs [SUBSET_DEF])
-  THEN1
-   (simp [Once Howe_cases,PULL_EXISTS]
-    \\ imp_res_tac open_similarity_finite
-    \\ ‘∃ws1. LIST_REL (Howe open_similarity ws1) es es' ∧ FINITE ws1 ∧ vs SUBSET ws1’ by
-     (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-      \\ qid_spec_tac ‘es'’ \\ qid_spec_tac ‘es’
-      \\ Induct \\ fs []
-      THEN1 (goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs [])
-      \\ fs [PULL_EXISTS] \\ rw []
-      \\ first_x_assum drule \\ rw []
-      \\ qexists_tac ‘ws UNION ws1’ \\ fs [] \\ rw []
-      \\ TRY (match_mp_tac Howe_larger)
-      \\ TRY (match_mp_tac LIST_REL_Howe_larger)
-      \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
-      \\ fs [SUBSET_DEF])
-    \\ goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs []
-    \\ TRY (match_mp_tac open_similarity_larger)
-    \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ fs [SUBSET_DEF])
-  \\ simp [Once Howe_cases,PULL_EXISTS]
-  \\ imp_res_tac open_similarity_finite
-  \\ ‘∃ws1. LIST_REL (Howe open_similarity ws1) (MAP SND ves) (MAP SND ves') ∧
-            FINITE ws1 ∧ vs SUBSET ws1’ by
-    (‘LIST_REL (λe1 e2. ∃ws. Howe open_similarity ws e1 e2 ∧ FINITE ws) (MAP SND ves)
-        (MAP SND ves')’ by
-      (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-       \\ match_mp_tac LIST_REL_mono \\ rw []
-       \\ match_mp_tac Howe_larger)
-     \\ pop_assum mp_tac
-     \\ qid_spec_tac ‘ves'’ \\ qid_spec_tac ‘ves’
-     \\ Induct \\ fs []
-     THEN1 (goal_assum (first_assum o mp_then (Pos hd) mp_tac) \\ fs [])
-     \\ Cases \\ fs [] \\ Cases \\ fs [] \\ PairCases_on ‘h’ \\ fs []
-     \\ fs [PULL_EXISTS] \\ rw []
-     \\ first_x_assum drule \\ rw []
-     \\ qexists_tac ‘ws' UNION ws1’ \\ fs [] \\ rw []
-     \\ TRY (match_mp_tac Howe_larger)
-     \\ TRY (match_mp_tac LIST_REL_Howe_larger)
-     \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
-     \\ fs [SUBSET_DEF])
-  \\ qexists_tac ‘ws1 UNION ws’ \\ fs []
-  \\ qexists_tac ‘ves'’ \\ fs []
-  \\ qexists_tac ‘e2’ \\ fs [] \\ rw []
-  \\ TRY (match_mp_tac open_similarity_larger)
-  \\ TRY (match_mp_tac Howe_larger)
-  \\ TRY (match_mp_tac LIST_REL_Howe_larger)
-  \\ TRY (goal_assum (first_assum o mp_then Any mp_tac))
-  \\ fs [SUBSET_DEF]
-QED
-
-Theorem Howe_finite = GEN_ALL Howe_finite |> SIMP_RULE std_ss [] |> MP_CANON;
-
-Theorem Howe_open_similarity_min_freevars:
-  ∀R vars x e1 e2.
-    Howe open_similarity vars e1 e2
-  ⇒ Howe open_similarity (freevars e1 ∪ freevars e2) e1 e2
-Proof
-  rw[] >>
-  drule Howe_finite >> strip_tac >>
-  irule Howe_min_freevars >>
-  simp[Cus_open_similarity, Ref_open_similarity,
-      Tra_open_similarity, term_rel_open_similarity] >>
-  goal_assum drule >> simp[]
 QED
 
 Theorem Howe_open_similarity: (* key property *)
