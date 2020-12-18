@@ -19,6 +19,9 @@ Datatype:
      | wh_Diverge
 End
 
+Overload wh_True = ``wh_Constructor "True" []``;
+Overload wh_False = ``wh_Constructor "False" []``;
+
 Definition freevars_wh_def:
   (freevars_wh (wh_Constructor s es) = FLAT (MAP freevars es)) ∧
   (freevars_wh (wh_Closure s e) = FILTER ($≠ s) (freevars e)) ∧
@@ -86,8 +89,8 @@ Definition eval_wh_to_def:
       | IsEq s i =>
         (if LENGTH xs ≠ 1 then wh_Error else
            case HD vs of
-           | wh_Constructor t ys => if t ≠ s then wh_Constructor "False" [] else
-                                    if i = LENGTH ys then wh_Constructor "True" []
+           | wh_Constructor t ys => if t ≠ s then wh_False else
+                                    if i = LENGTH ys then wh_True
                                                      else wh_Error
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
@@ -303,9 +306,9 @@ QED
 
 Theorem eval_wh_If:
   eval_wh (If x y z) =
-    if eval_wh x = wh_Diverge                then wh_Diverge else
-    if eval_wh x = wh_Constructor "True" []  then eval_wh y  else
-    if eval_wh x = wh_Constructor "False" [] then eval_wh z  else wh_Error
+    if eval_wh x = wh_Diverge then wh_Diverge else
+    if eval_wh x = wh_True    then eval_wh y  else
+    if eval_wh x = wh_False   then eval_wh z  else wh_Error
 Proof
   fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
   THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
@@ -334,8 +337,8 @@ QED
 Theorem eval_wh_IsEq:
   eval_wh (IsEq s i x) =
     case eval_wh x of
-    | wh_Constructor t ys => if t ≠ s then wh_Constructor "False" []
-                             else if i = LENGTH ys then wh_Constructor "True" []
+    | wh_Constructor t ys => if t ≠ s then wh_False
+                             else if i = LENGTH ys then wh_True
                              else wh_Error
     | wh_Diverge => wh_Diverge
     | _ => wh_Error
@@ -384,6 +387,223 @@ Proof
   \\ fs [] \\ qexists_tac ‘k+k'’ \\ fs []
 QED
 
+Theorem get_atoms_NONE:
+  ∀l. get_atoms l = NONE ⇒ MEM wh_Diverge l
+Proof
+  Induct >> rw[get_atoms_def] >>
+  Cases_on `h` >> gvs[] >>
+  Cases_on `get_atoms l` >> gvs[] >>
+  Cases_on `x` >> gvs[]
+QED
+
+Theorem get_atoms_eval_wh_to_inc:
+  ∀l as.
+    get_atoms (MAP (λa. eval_wh_to k a) l) = SOME as ∧
+    k ≤ k'
+  ⇒ get_atoms (MAP (λa. eval_wh_to k' a) l) = SOME as
+Proof
+  Induct >> rw[get_atoms_def] >>
+  `eval_wh_to k h ≠ wh_Diverge` by (EVERY_CASE_TAC >> gvs[]) >>
+  drule_all eval_wh_inc >> gvs[] >> rw[] >>
+  TOP_CASE_TAC >> gvs[] >>
+  pop_assum mp_tac >>
+  TOP_CASE_TAC >> gvs[]
+QED
+
+Theorem get_atoms_eval_wh_to_SOME:
+  ∀l as.
+    get_atoms (MAP (λa. eval_wh a) l) = SOME as
+  ⇒ ∃k. get_atoms (MAP (λa. eval_wh_to k a) l) = SOME as
+Proof
+  Induct >> rw[get_atoms_def] >> pop_assum mp_tac >>
+  simp[Once eval_wh_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  Cases_on `get_atoms (MAP (λa. eval_wh a) l)` >> gvs[]
+  >- (qexists_tac `x` >> TOP_CASE_TAC >> gvs[]) >>
+  qexists_tac `x + k` >>
+  drule eval_wh_inc >> disch_then (qspec_then `x + k` assume_tac) >> gvs[] >>
+  TOP_CASE_TAC >> gvs[] >>
+  drule get_atoms_eval_wh_to_inc >>
+  disch_then (qspec_then `x + k` assume_tac) >> gvs[]
+QED
+
+Theorem get_atoms_eval_wh_SOME:
+  ∀l k as.
+    get_atoms (MAP (λa. eval_wh_to k a) l) = SOME as
+  ⇒ get_atoms (MAP (λa. eval_wh a) l) = SOME as
+Proof
+  Induct >> rw[get_atoms_def] >>
+  `eval_wh_to k h ≠ wh_Diverge` by (EVERY_CASE_TAC >> gvs[]) >>
+  `eval_wh h ≠ wh_Diverge` by (gvs[eval_wh_neq_Diverge] >> goal_assum drule) >>
+  simp[eval_wh_def] >>
+  DEEP_INTRO_TAC some_intro >> reverse (rw[]) >- goal_assum drule >>
+  drule eval_wh_to_agree >>
+  disch_then (qspec_then `k` assume_tac) >> gvs[] >>
+  TOP_CASE_TAC >> gvs[GSYM eval_wh_def] >>
+  pop_assum mp_tac >>
+  TOP_CASE_TAC >>
+  last_x_assum drule >> gvs[]
+QED
+
+Theorem get_atoms_eval_wh_NONE:
+  ∀l.
+    (∀k. get_atoms (MAP (λa. eval_wh_to k a) l) = NONE)
+  ⇒ get_atoms (MAP (λa. eval_wh a) l) = NONE
+Proof
+  Induct >> rw[get_atoms_def] >>
+  simp[eval_wh_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  simp[GSYM eval_wh_def] >>
+  first_assum (qspec_then `x` mp_tac) >>
+  TOP_CASE_TAC >> gvs[] >> rw[] >>
+  qsuff_tac `get_atoms (MAP (λa. eval_wh a) l) = NONE` >> gvs[] >>
+  first_x_assum irule >> rw[] >>
+  pop_assum mp_tac >>
+  reverse (TOP_CASE_TAC >> gvs[])
+  >- (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `x ≤ k`
+  >- (
+    drule_at Any eval_wh_inc >>
+    disch_then (qspec_then `h` assume_tac) >> gvs[] >>
+    last_x_assum (qspec_then `k` mp_tac) >> gvs[] >>
+    TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[]
+    ) >>
+  gvs[NOT_LESS_EQUAL] >>
+  CCONTR_TAC >>
+  qpat_x_assum `get_atoms _ = NONE` mp_tac >> gvs[] >>
+  `k ≤ x` by gvs[] >>
+  drule_at Any get_atoms_eval_wh_to_inc >>
+  qmatch_asmsub_abbrev_tac `get_atoms a` >>
+  Cases_on `get_atoms a` >> gvs[] >>
+  unabbrev_all_tac >> disch_then drule >> simp[]
+QED
+
+Theorem eval_wh_Prim:
+  eval_wh (Prim If xs) =
+    (case xs of
+        [a;b;c] =>
+          if      eval_wh a = wh_Diverge then wh_Diverge else
+          if      eval_wh a = wh_True    then eval_wh b
+          else if eval_wh a = wh_False   then eval_wh c else wh_Error
+      | _ => wh_Error) ∧
+  eval_wh (Prim (Cons c) xs) = wh_Constructor c xs ∧
+  eval_wh (Prim (IsEq c n) xs) =
+    (case xs of
+        [x] =>
+          (case eval_wh x of
+              wh_Constructor t ys =>
+                if t ≠ c then wh_False
+                else if n = LENGTH ys then wh_True
+                else wh_Error
+            | wh_Diverge => wh_Diverge
+            | _ => wh_Error)
+      | _   => wh_Error) ∧
+  eval_wh (Prim (Proj c n) xs) =
+    (case xs of
+        [x] =>
+          (case eval_wh x of
+              wh_Constructor t ys =>
+                if t = c ∧ n < LENGTH ys then
+                  eval_wh (EL n ys)
+                else wh_Error
+            | wh_Diverge => wh_Diverge
+            | _ => wh_Error)
+      | _ => wh_Error) ∧
+  eval_wh (Prim (AtomOp a) xs) =
+    (let vs = MAP (λx. eval_wh x) xs in
+     case get_atoms vs of
+        NONE => wh_Diverge
+      | SOME NONE => wh_Error
+      | SOME (SOME as) =>
+        case config.parAtomOp a as of
+          NONE => wh_Error
+        | SOME v => wh_Atom v) ∧
+  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error)
+Proof
+  rw[]
+  >- (
+    Cases_on `xs`
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    Cases_on `t`
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    Cases_on `t'`
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    reverse (Cases_on `t`)
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    simp[eval_wh_If]
+    )
+  >- (
+    gvs[eval_wh_def, eval_wh_to_def] >>
+    DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> gvs[]
+    )
+  >- (
+    Cases_on `xs`
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    reverse (Cases_on `t`)
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    simp[eval_wh_IsEq] >> CASE_TAC >> gvs[]
+    )
+  >- (
+    Cases_on `xs`
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    reverse (Cases_on `t`)
+    >- (
+      gvs[eval_wh_def, eval_wh_to_def] >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> simp[]
+      ) >>
+    simp[eval_wh_Proj]
+    )
+  >- (
+    simp[Once eval_wh_def] >> CASE_TAC
+    >- (
+      pop_assum mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      gvs[eval_wh_to_def] >>
+      `∀k. get_atoms (MAP (λa. eval_wh_to k a) xs) = NONE` by (
+        CCONTR_TAC >> gvs[] >>
+        first_x_assum (qspec_then `SUC k` assume_tac) >> gvs[] >>
+        FULL_CASE_TAC >> gvs[] >> FULL_CASE_TAC >> gvs[] >>
+        FULL_CASE_TAC >> gvs[]) >>
+      EVERY_CASE_TAC >> gvs[] >>
+      imp_res_tac get_atoms_eval_wh_NONE >> gvs[]
+      ) >>
+    pop_assum mp_tac >>
+    DEEP_INTRO_TAC some_intro >> rw[] >>
+    gvs[eval_wh_to_def] >>
+    IF_CASES_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[] >>
+    imp_res_tac get_atoms_eval_wh_SOME >> simp[]
+    )
+  >- simp[eval_wh_Lit]
+  >- (
+    simp[eval_wh_def] >>
+    DEEP_INTRO_TAC some_intro >> rw[eval_wh_to_def] >>
+    qexists_tac `1` >> simp[]
+    )
+QED
+
 Theorem eval_wh_thm:
   eval_wh (Var s) = wh_Error ∧
   eval_wh (Lam s x) = wh_Closure s x ∧
@@ -395,15 +615,21 @@ Theorem eval_wh_thm:
          | SOME (s,body) => eval_wh (bind s y body)) ∧
   eval_wh (Letrec f y) = eval_wh (subst_funs f y) ∧
   eval_wh (Cons s xs) = wh_Constructor s xs ∧
+  eval_wh (Proj s i x) =
+    (case eval_wh x of
+    | wh_Constructor t ys => if t = s ∧ i < LENGTH ys
+                             then eval_wh (EL i ys) else wh_Error
+    | wh_Diverge => wh_Diverge
+    | _ => wh_Error) ∧
   eval_wh (Lit l) = wh_Atom l ∧
   eval_wh (If x y z) =
-    (if eval_wh x = wh_Diverge                then wh_Diverge else
-     if eval_wh x = wh_Constructor "True" []  then eval_wh y  else
-     if eval_wh x = wh_Constructor "False" [] then eval_wh z  else wh_Error) ∧
+    (if eval_wh x = wh_Diverge then wh_Diverge else
+     if eval_wh x = wh_True    then eval_wh y  else
+     if eval_wh x = wh_False then eval_wh z  else wh_Error) ∧
   eval_wh (IsEq s i x) =
     (case eval_wh x of
-     | wh_Constructor t ys => if t ≠ s then wh_Constructor "False" []
-                              else if i = LENGTH ys then wh_Constructor "True" []
+     | wh_Constructor t ys => if t ≠ s then wh_False
+                              else if i = LENGTH ys then wh_True
                               else wh_Error
      | wh_Diverge => wh_Diverge
      | _ => wh_Error) ∧
@@ -411,7 +637,8 @@ Theorem eval_wh_thm:
   eval_wh Bottom = wh_Diverge
 Proof
   fs [eval_wh_Lam,eval_wh_Var,eval_wh_App,eval_wh_Letrec,eval_wh_Cons,
-      eval_wh_Bottom,eval_wh_Lit,eval_wh_Fail,eval_wh_If,eval_wh_IsEq]
+      eval_wh_Bottom,eval_wh_Lit,eval_wh_Fail,eval_wh_If,eval_wh_IsEq,
+      eval_wh_Proj]
 QED
 
 (* unlimitied evaluation *)
