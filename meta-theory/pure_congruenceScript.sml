@@ -1897,4 +1897,17 @@ Proof
     \\ fs [exp_eq_subst_perm_exp])
 QED
 
+Theorem exp_eq_Lam_strong:
+  Lam x e1 ≅ Lam y e2 ⇔
+  ∀e.  closed e ⇒ subst x e e1 ≅ subst y e e2
+Proof
+  Cases_on `x = y` >> gvs[]
+  >- simp[exp_eq_Lam_basic_lemma] >>
+  simp[exp_eq_Lam] >> eq_tac >> rw[]
+  >- (first_x_assum irule >> simp[exp_eq_refl]) >>
+  res_tac >>
+  irule exp_eq_trans >> goal_assum drule >>
+  irule exp_eq_subst >> simp[]
+QED
+
 val _ = export_theory();
