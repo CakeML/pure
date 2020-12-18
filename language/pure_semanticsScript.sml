@@ -80,7 +80,7 @@ Definition interp'_def:
                        Vis' a (λy. (wh_Constructor "Ret" [Lit y], new_stack)))
 End
 
-Definition interp_def:
+Definition interp:
   interp v stack = interp' (v, stack)
 End
 
@@ -93,12 +93,12 @@ Theorem interp_def:
     | Act a new_stack =>
         Vis a (λy. interp (wh_Constructor "Ret" [Lit y]) new_stack)
 Proof
-  fs [Once interp_def,interp'_def]
+  fs [Once interp,interp'_def]
   \\ once_rewrite_tac [io_unfold] \\ fs []
   \\ Cases_on ‘next_action (wh,stack)’ \\ fs []
   \\ fs [combinTheory.o_DEF,FUN_EQ_THM] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ fs [interp_def,interp'_def]
+  \\ fs [interp,interp'_def]
   \\ simp [Once io_unfold] \\ fs []
 QED
 
