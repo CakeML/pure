@@ -1872,48 +1872,25 @@ QED
 Theorem Howe_open_similarity: (* key property *)
   Howe open_similarity = open_similarity
 Proof
-  simp [FUN_EQ_THM] \\ rw []
-  \\ rename [‘Howe open_similarity vars e1 e2’]
-  \\ reverse eq_tac \\ rw []
-  THEN1 (metis_tac [Howe_Ref_Tra,Ref_open_similarity,Tra_open_similarity,
-                    term_rel_open_similarity])
-  \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def]
-  \\ first_x_assum (qspec_then ‘{}’ mp_tac) \\ fs [] \\ rw []
-  \\ mp_tac Howe_open_similarity_SUBSET_app_simulation
-  \\ simp[SUBSET_DEF,FORALL_AND_THM,FORALL_PROD,IN_DEF]
-  \\ pop_assum kall_tac
-  \\ rw [SUBSET_DEF,IN_DEF,FORALL_PROD]
-  \\ imp_res_tac Howe_finite
-  \\ qsuff_tac ‘open_similarity ws e1 e2’
-  THEN1
-   (rw [] \\ assume_tac term_rel_open_similarity
-    \\ imp_res_tac term_rel_Howe
-    \\ fs [term_rel_def] \\ res_tac \\ fs [Exps_def]
-    \\ fs [open_similarity_def]
-    \\ cheat (* TODO problem here *))
-  \\ last_x_assum kall_tac
-  \\ qpat_x_assum ‘Howe open_similarity ws e1 e2’ mp_tac
-  \\ qid_spec_tac ‘e2’
-  \\ qid_spec_tac ‘e1’
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘ws’
-  \\ Induct_on ‘FINITE’ \\ rw []
-  THEN1
-   (fs [open_similarity_def,FDOM_EQ_EMPTY] \\ res_tac
-    \\ imp_res_tac Howe_open_similarity_IMP_freevars \\ fs []
-    \\ rw [bind_def]
-    \\ ‘∀m. DISJOINT (freevars e2) (FDOM m) ∧
-            DISJOINT (freevars e1) (FDOM m)’ by fs []
-    \\ fs [subst_ignore] \\ cheat (* TODO *))
-  \\ assume_tac Cus_Howe_open_similarity \\ fs [Cus_def,AND_IMP_INTRO]
-  \\ pop_assum (first_assum o mp_then Any mp_tac)
-  \\ rw [] \\ simp []
-  \\ match_mp_tac IMP_open_similarity_INSERT
-  \\ imp_res_tac Howe_open_similarity_IMP_freevars \\ fs [] \\ rw []
-  \\ fs [Exps_def]
-  \\ first_x_assum match_mp_tac
-  \\ first_x_assum match_mp_tac
-  \\ fs [Exps_def]
+  simp[FUN_EQ_THM] >> rw[] >> rename1 `Howe _ vars e1 e2` >>
+  reverse eq_tac >> rw[]
+  >- metis_tac [Howe_Ref_Tra,Ref_open_similarity,Tra_open_similarity,
+                term_rel_open_similarity] >>
+  imp_res_tac Howe_open_similarity_IMP_freevars >>
+  assume_tac Sub_Howe_open_similarity >>
+  rw[open_similarity_def, bind_def] >> IF_CASES_TAC >> simp[] >>
+  mp_tac Howe_open_similarity_SUBSET_app_simulation >>
+  simp[SUBSET_DEF, FORALL_AND_THM, FORALL_PROD, IN_DEF] >>
+  disch_then irule >>
+  drule Sub_lift >> disch_then irule >> simp[Exps_def] >>
+  reverse conj_tac
+  >- (
+    imp_res_tac Howe_open_similarity_min_freevars >>
+    irule Howe_larger >> goal_assum (drule_at (Pos last)) >> simp[]
+    ) >>
+  strip_tac >> strip_tac >>
+  first_x_assum (qspec_then `k` assume_tac) >> gvs[FLOOKUP_DEF] >>
+  assume_tac Ref_open_similarity >> drule Ref_Howe >> simp[Ref_def]
 QED
 
 Theorem Precongruence_open_similarity: (* part 1 of 5.5.5 *)
