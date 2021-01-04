@@ -3705,6 +3705,16 @@ Proof
   gvs[closed_def]
 QED
 
+Theorem app_similarity_perm_exp_left:
+  ∀e1 e2 x y.  e1 ≲ e2 ⇒ perm_exp x y e1 ≲ e2
+Proof
+  rw[] >>
+  assume_tac transitive_app_similarity >> gvs[transitive_def] >>
+  first_assum irule >> goal_assum (drule_at Any) >>
+  irule app_similarity_perm_exp >>
+  imp_res_tac app_similarity_closed
+QED
+
 Theorem app_similarity_perm_exp_alt:
   ∀e x y.  closed e ⇒ e ≲ perm_exp x y e
 Proof
@@ -3714,6 +3724,16 @@ Proof
   simp[closed_perm] >>
   irule exp_alpha_perm_irrel >>
   gvs[closed_def]
+QED
+
+Theorem app_similarity_perm_exp_right:
+  ∀e1 e2 x y.  e1 ≲ e2 ⇒ e1 ≲ perm_exp x y e2
+Proof
+  rw[] >>
+  assume_tac transitive_app_similarity >> gvs[transitive_def] >>
+  first_assum irule >> goal_assum (drule_at Any) >>
+  irule app_similarity_perm_exp_alt >>
+  imp_res_tac app_similarity_closed
 QED
 
 Theorem exp_eq_perm:
