@@ -360,6 +360,13 @@ Proof
   >- (rw[LIST_TO_SET_MAP,IMAGE_IMAGE,ELIM_UNCURRY,combinTheory.o_DEF])
 QED
 
+Theorem subst_eqvt_alt:
+  subst f (perm_exp x y e) =
+  perm_exp x y (subst (perm_subst x y f) e)
+Proof
+  rw[subst_eqvt, perm_subst_cancel]
+QED
+
 Theorem subst_single_eqvt:
   ∀v1 v2 s e1 e.
     perm_exp v1 v2 (subst s e1 e) =
@@ -370,6 +377,13 @@ Proof
   rw[] >> MK_COMB_TAC >> rw[] >> AP_TERM_TAC >>
   rw[fmap_eq_flookup, perm_subst_flookup] >>
   rw[FLOOKUP_DEF] >> gvs[perm1_cancel]
+QED
+
+Theorem subst_single_eqvt_alt:
+  subst s e' (perm_exp x y e) =
+  perm_exp x y (subst (perm1 x y s) (perm_exp x y e') e)
+Proof
+  rw[subst_single_eqvt, perm_subst_cancel]
 QED
 
 Theorem bind_eqvt:
@@ -3678,6 +3692,28 @@ Proof
   full_simp_tac std_ss [closed_def] >>
   gvs[FILTER_EQ_NIL,GSYM perm_exp_eqvt,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   metis_tac[perm1_def]
+QED
+
+Theorem app_similarity_perm_exp:
+  ∀e x y.  closed e ⇒ perm_exp x y e ≲ e
+Proof
+  rw[] >>
+  irule companion_app_similarity  >>
+  irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
+  simp[closed_perm] >>
+  irule exp_alpha_sym >> irule exp_alpha_perm_irrel >>
+  gvs[closed_def]
+QED
+
+Theorem app_similarity_perm_exp_alt:
+  ∀e x y.  closed e ⇒ e ≲ perm_exp x y e
+Proof
+  rw[] >>
+  irule companion_app_similarity  >>
+  irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
+  simp[closed_perm] >>
+  irule exp_alpha_perm_irrel >>
+  gvs[closed_def]
 QED
 
 Theorem exp_eq_perm:

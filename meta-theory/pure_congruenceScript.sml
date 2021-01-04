@@ -1380,6 +1380,9 @@ Proof
       qexists_tac `EL n e2s` >>
       simp[]
       ) >>
+    rename1 `wh_Closure xa cea` >>
+    rename1 `eval_wh (subst_funs fb _) = wh_Closure xb ceb` >>
+    rename1 `_ ≲ subst xc _ cec` >>
     irule Howe_Tra >> assume_tac term_rel_open_similarity >>
     simp[Tra_open_similarity] >>
     drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
@@ -1396,18 +1399,63 @@ Proof
       gvs[GSYM perm_exp_eqvt, MEM_MAP] >>
       gvs[SUBSET_DEF, perm1_def]
       ) >>
-    last_x_assum (qspec_then `{s}` assume_tac) >> gvs[] >>
+    last_x_assum (qspec_then `{xa}` assume_tac) >> gvs[] >>
     goal_assum (drule_at (Pos last)) >> simp[] >>
     rw[open_similarity_alt_def] >> rw[bind_def] >>
-    `FDOM f ⊆ {s}` by (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
-    rename1 `subst _ (perm_exp s y1 foo) ≲ subst _(perm_exp s y2 bar)` >>
+    `FDOM f ⊆ {xa}` by (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+    assume_tac transitive_app_similarity >> gvs[transitive_def] >>
     Cases_on `f` >> gvs[]
-    >- cheat (* TODO *) >>
-    `∀y. g |+ (s,y) = FEMPTY |+ (s,y)` by (
+    >- (
+      `closed (perm_exp xa xc cec) ∧
+       closed (perm_exp xa xb ceb)` by simp[closed_def] >>
+      gvs[closed_perm] >>
+      first_assum irule >> qexists_tac `ceb` >>
+      irule_at Any app_similarity_perm_exp >> simp[] >>
+      first_assum irule >> qexists_tac `cec` >>
+      irule_at Any app_similarity_perm_exp_alt >> simp[] >>
+      last_x_assum irule >>
+      qexists_tac `Fail` >> simp[]
+      ) >>
+    rename1 `_ |+ (xa,esub)` >>
+    `∀y. g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
       rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
       fs[SUBSET_DEF] >> metis_tac[]) >>
-    rw[] >>
-    cheat (* TODO *)
+    gvs[FLOOKUP_UPDATE] >> pop_assum kall_tac >>
+    first_x_assum (qspec_then `xa` assume_tac) >> gvs[] >>
+    simp[subst_single_eqvt_alt, perm1_def] >>
+    first_assum irule >>
+    qexists_tac `subst xb (perm_exp xa xb esub) ceb` >>
+    irule_at Any app_similarity_perm_exp >>
+    irule_at Any closed_freevars_subst >> simp[closed_perm] >>
+    conj_asm1_tac
+    >- (
+      qpat_x_assum `freevars (perm_exp _ _ ceb) ⊆ _` mp_tac >>
+      simp[SUBSET_DEF, GSYM perm_exp_eqvt, MEM_MAP, PULL_EXISTS] >> rw[] >>
+      first_x_assum drule >> simp[perm1_def] >>
+      IF_CASES_TAC >> simp[] >> IF_CASES_TAC >> simp[]
+      ) >>
+    first_assum irule >>
+    qexists_tac `subst xc (perm_exp xa xc esub) cec` >>
+    irule_at Any app_similarity_perm_exp_alt >>
+    irule_at Any closed_freevars_subst >> simp[closed_perm] >> rw[]
+    >- (
+      qpat_x_assum `freevars (perm_exp _ _ cec) ⊆ _` mp_tac >>
+      simp[SUBSET_DEF, GSYM perm_exp_eqvt, MEM_MAP, PULL_EXISTS] >> rw[] >>
+      first_x_assum drule >> simp[perm1_def] >>
+      IF_CASES_TAC >> simp[] >> IF_CASES_TAC >> simp[]
+      ) >>
+    first_assum irule >>
+    qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+    last_x_assum (irule_at Any) >> simp[closed_perm] >>
+    irule companion_app_similarity  >>
+    irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
+    rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
+    irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+    irule exp_alpha_Trans >>
+    irule_at Any exp_alpha_perm_irrel >>
+    qexistsl_tac [`xb`,`xa`] >> simp[] >>
+    irule_at Any exp_alpha_perm_irrel >>
+    gvs[closed_def, GSYM perm_exp_eqvt]
     )
   >- (
     rename1 `Prim` >>
