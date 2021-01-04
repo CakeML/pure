@@ -32,7 +32,30 @@ End
 Theorem exp_equiv_plug:
   ∀h x y. x ≅ y ⇒ plug h x ≅ plug h y
 Proof
-  cheat
+  recInduct plug_ind >> rw[plug_def]
+  >- ( (* Prim *)
+    irule exp_eq_Prim_cong >>
+    irule LIST_REL_APPEND_suff >> simp[] >>
+    rw[LIST_REL_EL_EQN, exp_eq_refl]
+    )
+  >- ( (* AppL *)
+    irule exp_eq_App_cong >> simp[exp_eq_refl]
+    )
+  >- ( (* AppR *)
+    irule exp_eq_App_cong >> simp[exp_eq_refl]
+    )
+  >- ( (* Lam *)
+    irule exp_eq_Lam_cong >> simp[exp_eq_refl]
+    )
+  >- ( (* LetrecL *)
+    irule exp_eq_Letrec_cong >> simp[exp_eq_refl] >>
+    irule LIST_REL_APPEND_suff >> simp[] >>
+    rw[LIST_REL_EL_EQN, exp_eq_refl]
+    )
+  >- ( (* LetrecR *)
+    irule exp_eq_Letrec_cong >> simp[exp_eq_refl] >>
+    rw[LIST_REL_EL_EQN, exp_eq_refl]
+    )
 QED
 
 val _ = export_theory();
