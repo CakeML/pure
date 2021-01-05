@@ -781,4 +781,81 @@ Proof
   \\ fs [] \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF]
 QED
 
+Definition eval_to_sim_def:
+  eval_to_sim rel ⇔
+    ∀e1 k e2.
+      rel e1 e2 ∧ closed e1 ∧ closed e2 ⇒
+      ∃ck.
+        case eval_wh_to k e1 of
+        | wh_Closure v x =>
+           (∃w y. eval_wh_to (k+ck) e2 = wh_Closure w y ∧
+                  ∀e. closed e ⇒ rel (subst v e x) (subst w e y))
+        | wh_Constructor a xs =>
+           (∃ys. eval_wh_to (k+ck) e2 = wh_Constructor a ys ∧ LIST_REL rel xs ys)
+        | res => eval_wh_to (k+ck) e2 = res
+End
+
+Theorem eval_to_sim_thm:
+  ∀x y. eval_to_sim rel ∧ rel x y ∧ closed x ∧ closed y ⇒ x ≃ y
+Proof
+  ho_match_mp_tac app_bisimilarity_coinduct
+  \\ Cases_on ‘eval_to_sim rel’ \\ fs []
+  \\ fs [FF_def,EXISTS_PROD]
+  \\ fs [unfold_rel_def,opp_def,IN_DEF]
+  \\ rw []
+  THEN1
+   (fs [eval_wh_eq,PULL_EXISTS]
+    \\ fs [eval_to_sim_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ rw [] \\ fs []
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ rw [] \\ fs []
+    \\ irule IMP_closed_subst
+    \\ fs [FRANGE_DEF]
+    \\ imp_res_tac eval_wh_to_Closure_freevars_SUBSET
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ res_tac \\ fs []
+    \\ gvs [closed_def])
+  THEN1
+   (fs [eval_wh_eq,PULL_EXISTS]
+    \\ fs [eval_to_sim_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ rw [] \\ fs []
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [LIST_REL_EL_EQN]
+    \\ cheat)
+  THEN1
+   (fs [eval_wh_eq,PULL_EXISTS,eval_to_sim_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs [] \\ rw [] \\ fs []
+    \\ goal_assum (first_assum o mp_then Any mp_tac))
+  THEN1
+   (fs [eval_wh_eq,PULL_EXISTS,eval_to_sim_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs [] \\ rw [] \\ fs []
+    \\ goal_assum (first_assum o mp_then Any mp_tac))
+  THEN1
+   (fs [eval_wh_eq,PULL_EXISTS]
+    \\ fs [eval_to_sim_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ rw [] \\ fs []
+    \\ ‘eval_wh_to k y ≠ wh_Diverge’ by fs []
+    \\ drule eval_wh_inc
+    \\ disch_then (qspec_then ‘ck+k’ mp_tac) \\ fs []
+    \\ strip_tac
+    \\ fs [] \\ Cases_on ‘eval_wh_to k x’ \\ fs []
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ rw []
+    \\ irule IMP_closed_subst
+    \\ fs [FRANGE_DEF]
+    \\ imp_res_tac eval_wh_to_Closure_freevars_SUBSET
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ res_tac \\ fs []
+    \\ gvs [closed_def])
+  \\ cheat
+QED
+
 val _ = export_theory();
