@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory;
-open pure_expTheory pure_valueTheory pure_limitTheory;
+open pure_expTheory pure_valueTheory pure_limitTheory pure_miscTheory;
 
 val _ = new_theory "pure_eval_old";
 
@@ -1264,22 +1264,6 @@ Proof
   \\ rw[]
   \\ first_x_assum irule
   \\ fs[v_rel'_refl]
-QED
-
-Triviality LIST_REL_SYM:
-  (∀x y. R x y ⇔ R y x) ⇒
-  ∀xs ys. LIST_REL R xs ys ⇔ LIST_REL R ys xs
-Proof
-  strip_tac \\ Induct
-  \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ metis_tac []
-QED
-
-Triviality LIST_REL_TRANS:
-  (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒
-  ∀xs ys zs. LIST_REL R xs ys ∧ LIST_REL R ys zs ⇒ LIST_REL R xs zs
-Proof
-  strip_tac \\ Induct
-  \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [] \\ metis_tac []
 QED
 
 Triviality v_rel'_sym:

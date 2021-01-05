@@ -6,7 +6,8 @@ open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
      pairTheory ltreeTheory llistTheory bagTheory cardinalTheory
      pred_setTheory rich_listTheory combinTheory finite_mapTheory
-open pure_evalTheory pure_expTheory pure_valueTheory pure_exp_lemmasTheory;
+open pure_evalTheory pure_expTheory pure_valueTheory pure_exp_lemmasTheory
+     pure_miscTheory;
 
 val _ = new_theory "pure_eval_surj";
 
@@ -302,20 +303,6 @@ Proof
   first_x_assum (qspec_then `h::path'` assume_tac) >> gvs[]
 QED
 
-Theorem IS_PREFIX_NOT_EQ:
-  ∀x y.
-    IS_PREFIX x y ∧
-    x ≠ y ⇒
-    LENGTH y < LENGTH x
-Proof
-  rpt strip_tac >>
-  spose_not_then strip_assume_tac >>
-  gvs[NOT_LESS] >>
-  imp_res_tac IS_PREFIX_LENGTH >>
-  ‘LENGTH x = LENGTH y’ by DECIDE_TAC >>
-  metis_tac[IS_PREFIX_LENGTH_ANTI]
-QED
-
 Theorem v_uncountable:
   𝕌(:num -> bool) ≼ 𝕌(:v)
 Proof
@@ -575,14 +562,6 @@ Proof
     qexistsl_tac [`body`,`[]`,`x`,`0`] >> gvs[v_lookup]
     ) >>
   Cases_on `path` >> gvs[v_lookup]
-QED
-
-Triviality REPLICATE_11:
-  ∀n m e. REPLICATE n e = REPLICATE m e ⇒ n = m
-Proof
-  Induct >> rw[] >>
-  Cases_on `m` >> gvs[] >>
-  first_x_assum irule >> goal_assum drule
 QED
 
 Theorem cons_names_v_exists_INFINITE:

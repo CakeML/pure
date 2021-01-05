@@ -1,9 +1,13 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory pairTheory listTheory
-     finite_mapTheory pred_setTheory llistTheory;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
+open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
+     finite_mapTheory pred_setTheory arithmeticTheory rich_listTheory
+     ltreeTheory fixedPointTheory
 
 val _ = new_theory "pure_misc";
+
+
+(******************** Finite maps ********************)
 
 Theorem FDIFF_FUNION:
   ∀fm1 fm2 s. FDIFF (fm1 ⊌ fm2) s = (FDIFF fm1 s) ⊌ (FDIFF fm2 s)
@@ -27,13 +31,74 @@ Proof
     )
 QED
 
-Theorem LNTH_2:
-  ∀ n ll. LNTH n ll =
-        if n = 0 then LHD ll
-        else OPTION_JOIN (OPTION_MAP (LNTH (n-1)) (LTL ll))
+Theorem FDIFF_MAP_KEYS_BIJ:
+  BIJ f 𝕌(:α) 𝕌(:β) ⇒
+  FDIFF (MAP_KEYS f fm) (IMAGE f s) = MAP_KEYS f (FDIFF fm s)
 Proof
-  rw[] \\ fs[LNTH] \\ Cases_on ‘n’ \\ fs[LNTH]
+  rpt strip_tac >>
+  simp[FDIFF_def] >>
+  ‘COMPL(IMAGE f s) = IMAGE f (COMPL s)’
+    by(rw[COMPL_DEF,IMAGE_DEF,SET_EQ_SUBSET,SUBSET_DEF] >>
+       gvs[BIJ_DEF,INJ_DEF,SURJ_DEF] >> metis_tac[]) >>
+  pop_assum SUBST_ALL_TAC >>
+  gvs[BIJ_DEF] >>
+  simp[DRESTRICT_MAP_KEYS_IMAGE]
 QED
+
+Theorem DISJOINT_DRESTRICT_FEMPTY:
+  ∀m s. DISJOINT s (FDOM m) ⇒ DRESTRICT m s = FEMPTY
+Proof
+  Induct >> rw[]
+QED
+Theorem fdiff_fdomsub_commute:
+  FDIFF (f \\ x) p = FDIFF f p \\ x
+Proof
+  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[]
+QED
+
+Theorem fdiff_fdomsub_INSERT:
+  FDIFF (f \\ x) p = FDIFF f (x INSERT p)
+Proof
+  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[]
+QED
+
+Theorem fdiff_bound:
+  FDIFF f p = FDIFF f (p ∩ FDOM f)
+Proof
+  rw[FDIFF_def,fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
+  rw[] >> gvs[flookup_thm]
+QED
+
+
+(******************** Functions/Pairs ********************)
+
+Theorem PAIR_MAP_ALT:
+  ∀f g. (f ## g) = λ(x,y). f x, g y
+Proof
+  rw[] >> irule EQ_EXT >> rw[] >>
+  PairCases_on `x` >> gvs[]
+QED
+
+Theorem FST_THM:
+  FST = λ(x,y). x
+Proof
+  irule EQ_EXT >> Cases >> simp[]
+QED
+
+Theorem CURRY_thm:
+  CURRY f = λ x y. f(x,y)
+Proof
+  rw[FUN_EQ_THM]
+QED
+
+Theorem I_def:
+  I = \x. x
+Proof
+  rw [combinTheory.I_DEF, combinTheory.S_DEF]
+QED
+
+
+(******************** Lists ********************)
 
 Theorem NIL_iff_NOT_MEM:
   ∀l. l = [] ⇔ ∀x. ¬MEM x l
@@ -42,11 +107,196 @@ Proof
   qexists_tac `h` >> fs[]
 QED
 
-Theorem PAIR_MAP_ALT:
-  ∀f g. (f ## g) = λ(x,y). f x, g y
+Theorem EVERY2_refl_EQ:
+  LIST_REL R ls ls ⇔ (∀x. MEM x ls ⇒ R x x)
 Proof
-  rw[] >> irule EQ_EXT >> rw[] >>
-  PairCases_on `x` >> gvs[]
+  simp[EQ_IMP_THM,EVERY2_refl] >>
+  Induct_on ‘ls’ >> rw[] >>
+  metis_tac[]
 QED
+
+Theorem MAP_ID_ON:
+  (∀x. MEM x l ⇒ f x = x) ⇒ MAP f l = l
+Proof
+  Induct_on ‘l’ >> rw[]
+QED
+
+Theorem ALOOKUP_SOME_EL:
+  ∀l k v. ALOOKUP l k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k,v)
+Proof
+  Induct >> rw[] >>
+  PairCases_on `h` >> gvs[] >>
+  FULL_CASE_TAC >> gvs[]
+  >- (qexists_tac `0` >> gvs[]) >>
+  first_x_assum drule >> strip_tac >>
+  qexists_tac `SUC n` >> gvs[]
+QED
+
+Theorem ALOOKUP_SOME_EL_2:
+  ∀l1 l2 k (v:'a).
+    ALOOKUP l1 k = SOME v ∧
+    MAP FST l1 = MAP FST l2
+  ⇒ ∃v'. ALOOKUP l2 k = SOME (v':'a) ∧
+      ∃n. n < LENGTH l1 ∧ EL n l1 = (k,v) ∧ EL n l2 = (k,v')
+Proof
+  Induct >> rw[] >>
+  PairCases_on `h` >> gvs[] >>
+  FULL_CASE_TAC >> gvs[]
+  >- (
+    qexists_tac `SND (EL 0 l2)` >>
+    Cases_on `l2` >> gvs[] >> PairCases_on `h` >> gvs[] >>
+    qexists_tac `0` >> gvs[]
+    ) >>
+  first_x_assum drule >> Cases_on `l2` >> gvs[] >>
+  disch_then (qspec_then `t` assume_tac) >> gvs[] >>
+  PairCases_on `h` >> gvs[] >>
+  qexists_tac `SUC n` >> gvs[]
+QED
+
+Theorem IS_PREFIX_NOT_EQ:
+  ∀x y.
+    IS_PREFIX x y ∧
+    x ≠ y ⇒
+    LENGTH y < LENGTH x
+Proof
+  rpt strip_tac >>
+  spose_not_then strip_assume_tac >>
+  gvs[NOT_LESS] >>
+  imp_res_tac IS_PREFIX_LENGTH >>
+  ‘LENGTH x = LENGTH y’ by DECIDE_TAC >>
+  metis_tac[IS_PREFIX_LENGTH_ANTI]
+QED
+
+Theorem REPLICATE_11:
+  ∀n m e. REPLICATE n e = REPLICATE m e ⇒ n = m
+Proof
+  Induct >> rw[] >>
+  Cases_on `m` >> gvs[] >>
+  first_x_assum irule >> goal_assum drule
+QED
+
+Theorem LIST_REL_SYM:
+  (∀x y. R x y ⇔ R y x) ⇒
+  ∀xs ys. LIST_REL R xs ys ⇔ LIST_REL R ys xs
+Proof
+  strip_tac \\ Induct
+  \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ metis_tac []
+QED
+
+Theorem LIST_REL_TRANS:
+  (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒
+  ∀xs ys zs. LIST_REL R xs ys ∧ LIST_REL R ys zs ⇒ LIST_REL R xs zs
+Proof
+  strip_tac \\ Induct
+  \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [] \\ metis_tac []
+QED
+
+Theorem LIST_REL_mono:
+  (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ R1 x y) ==>
+  LIST_REL R xs ys ⇒ LIST_REL R1 xs ys
+Proof
+  qid_spec_tac ‘ys’ \\ Induct_on ‘xs’ \\ fs [] \\ rw []
+QED
+
+Theorem MAP_PAIR_MAP:
+  MAP FST (MAP (f ## g) l) = MAP f (MAP FST l) ∧
+  MAP SND (MAP (f ## g) l) = MAP g (MAP SND l)
+Proof
+  rw[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]
+QED
+
+
+(******************** Lazy lists ********************)
+
+Theorem LNTH_NONE_LLENGTH:
+  ∀ n l .
+    LNTH n l = NONE
+  ⇒ ∃ len.
+      LLENGTH l = SOME len ∧
+      len ≤ n
+Proof
+  Induct >> rw[] >>
+  Cases_on `l` >> fs[LNTH] >>
+  first_x_assum drule >>
+  strip_tac >>
+  qexists_tac `SUC len` >> fs[]
+QED
+
+Theorem LNTH_2:
+  ∀ n ll. LNTH n ll =
+        if n = 0 then LHD ll
+        else OPTION_JOIN (OPTION_MAP (LNTH (n-1)) (LTL ll))
+Proof
+  rw[] \\ fs[LNTH] \\ Cases_on ‘n’ \\ fs[LNTH]
+QED
+
+Theorem LSET_fromList:
+  ∀l. LSET (fromList l) = set l
+Proof
+  Induct \\ rw [fromList_def]
+QED
+
+Theorem ltree_lookup_APPEND:
+  ∀ path1 path2 t.
+    ltree_lookup t (path1 ++ path2) =
+    OPTION_BIND (ltree_lookup t path1) (λsubtree. ltree_lookup subtree path2)
+Proof
+  Induct >> rw[optionTheory.OPTION_BIND_def] >>
+  Cases_on `t` >> fs[ltree_lookup_def] >>
+  Cases_on `LNTH h ts` >> fs[optionTheory.OPTION_BIND_def]
+QED
+
+Theorem ltree_lookup_SOME_gen_ltree:
+  ∀ path f a ts.
+    ltree_lookup (gen_ltree f) path = SOME (Branch a ts)
+  ⇒ f path = (a, LLENGTH ts)
+Proof
+  Induct >> rw[]
+  >- (
+    Cases_on `f []` >> fs[] >>
+    gvs[Once gen_ltree, ltree_lookup_def]
+    ) >>
+  Cases_on `f []` >> fs[] >> rename1 `f [] = (e1, e2)` >>
+  gvs[Once gen_ltree, ltree_lookup_def] >>
+  fs[LNTH_LGENLIST] >>
+  Cases_on `e2` >> gvs[] >>
+  Cases_on `h < x` >> fs[]
+QED
+
+
+(******************** Sets ********************)
+
+Theorem fresh_list:
+  ∀s. FINITE s ⇒ ∃x. x ∉ s:('a list set)
+Proof
+  metis_tac[GSYM INFINITE_LIST_UNIV,NOT_IN_FINITE]
+QED
+
+Theorem DIFF_SUBSET:
+  a DIFF b ⊆ c ⇔ a ⊆ b ∪ c
+Proof
+  rw[SUBSET_DEF, EXTENSION] >>
+  eq_tac >> rw[] >> metis_tac[]
+QED
+
+Theorem UNION_DIFF_DISTRIBUTE:
+  ∀A B C. A ∪ B DIFF C = (A DIFF C) ∪ (B DIFF C)
+Proof
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem UNION_DIFF_EMPTY:
+  ∀A B C. A ∪ B DIFF C = {} ⇒ B DIFF C = {}
+Proof
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem monotone_compose:
+  monotone f ∧ monotone g ⇒ monotone(f o g)
+Proof
+  rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >> res_tac >> metis_tac[]
+QED
+
+(****************************************)
 
 val _ = export_theory();

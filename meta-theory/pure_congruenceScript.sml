@@ -8,8 +8,8 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory
-     pure_exp_relTheory pure_alpha_equivTheory;
+     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
+     pure_alpha_equivTheory pure_miscTheory;
 
 val _ = new_theory "pure_congruence";
 
@@ -513,13 +513,6 @@ Proof
   \\ fs [Cus_def,open_bisimilarity_eq]
 QED
 
-Triviality DIFF_SUBSET:
-  a DIFF b ⊆ c ⇔ a ⊆ b ∪ c
-Proof
-  rw[SUBSET_DEF, EXTENSION] >>
-  eq_tac >> rw[] >> metis_tac[]
-QED
-
 Theorem IMP_Howe_Sub: (* 5.5.3 *)
   Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ⇒ Sub (Howe R)
 Proof
@@ -801,19 +794,6 @@ Proof
   \\ fs [closed_def]
 QED
 
-Triviality SUBSET_SINGLETON:
-  x ⊆ {y} ⇒ (x = {y} ∨ x = {})
-Proof
-  rw[EXTENSION, SUBSET_DEF] >>
-  metis_tac[]
-QED
-
-Triviality DISJOINT_DRESTRICT_FEMPTY:
-  ∀m s. DISJOINT s (FDOM m) ⇒ DRESTRICT m s = FEMPTY
-Proof
-  Induct >> rw[]
-QED
-
 Theorem Sub_lift:
   ∀R. Sub R ⇒
     ∀f f' e1 e1' e2 e2' vars.
@@ -901,18 +881,6 @@ Proof
   >- (gvs[] >> metis_tac[UNION_COMM, UNION_ASSOC, INSERT_SING_UNION])
 QED
 
-Triviality UNION_DIFF_DISTRIBUTE:
-  ∀A B C. A ∪ B DIFF C = (A DIFF C) ∪ (B DIFF C)
-Proof
-  rw[EXTENSION] >> metis_tac[]
-QED
-
-Triviality UNION_DIFF_EMPTY:
-  ∀A B C. A ∪ B DIFF C = {} ⇒ B DIFF C = {}
-Proof
-  rw[EXTENSION] >> metis_tac[]
-QED
-
 Triviality closed_Letrec_funs:
   ∀ fs e f.
     closed (Letrec fs e) ∧
@@ -921,12 +889,6 @@ Triviality closed_Letrec_funs:
 Proof
   rw[EVERY_MEM] >>
   gvs[MEM_MAP, PULL_EXISTS]
-QED
-
-Triviality FST_THM:
-  FST = λ(x,y). x
-Proof
-  irule EQ_EXT >> Cases >> simp[]
 QED
 
 Theorem open_similarity_larger:
@@ -1063,38 +1025,6 @@ Proof
   simp[Cus_open_similarity, Ref_open_similarity,
       Tra_open_similarity, term_rel_open_similarity] >>
   goal_assum drule >> simp[]
-QED
-
-Theorem ALOOKUP_SOME_EL:
-  ∀l k v. ALOOKUP l k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k,v)
-Proof
-  Induct >> rw[] >>
-  PairCases_on `h` >> gvs[] >>
-  FULL_CASE_TAC >> gvs[]
-  >- (qexists_tac `0` >> gvs[]) >>
-  first_x_assum drule >> strip_tac >>
-  qexists_tac `SUC n` >> gvs[]
-QED
-
-Theorem ALOOKUP_SOME_EL_2:
-  ∀l1 l2 k (v:'a).
-    ALOOKUP l1 k = SOME v ∧
-    MAP FST l1 = MAP FST l2
-  ⇒ ∃v'. ALOOKUP l2 k = SOME (v':'a) ∧
-      ∃n. n < LENGTH l1 ∧ EL n l1 = (k,v) ∧ EL n l2 = (k,v')
-Proof
-  Induct >> rw[] >>
-  PairCases_on `h` >> gvs[] >>
-  FULL_CASE_TAC >> gvs[]
-  >- (
-    qexists_tac `SND (EL 0 l2)` >>
-    Cases_on `l2` >> gvs[] >> PairCases_on `h` >> gvs[] >>
-    qexists_tac `0` >> gvs[]
-    ) >>
-  first_x_assum drule >> Cases_on `l2` >> gvs[] >>
-  disch_then (qspec_then `t` assume_tac) >> gvs[] >>
-  PairCases_on `h` >> gvs[] >>
-  qexists_tac `SUC n` >> gvs[]
 QED
 
 Theorem Sub_subst_funs:

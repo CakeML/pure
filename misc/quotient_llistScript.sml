@@ -1,14 +1,8 @@
 
 open bossLib boolLib;
-open HolKernel llistTheory listTheory quotientLib;
+open HolKernel llistTheory listTheory quotientLib pure_miscTheory;
 
 val _ = new_theory "quotient_llist";
-
-Triviality I_def:
-  I = \x. x
-Proof
-  rw [combinTheory.I_DEF, combinTheory.S_DEF]
-QED
 
 Triviality LMAP_id:
   LMAP (\x. x) = \x. x
@@ -23,20 +17,6 @@ Theorem llist_map_I:
   LMAP I = I
 Proof
   rw [I_def, LMAP_id]
-QED
-
-Theorem LNTH_NONE_LLENGTH:
-  ∀ n l .
-    LNTH n l = NONE
-  ⇒ ∃ len.
-      LLENGTH l = SOME len ∧
-      len ≤ n
-Proof
-  Induct >> rw[] >>
-  Cases_on `l` >> fs[LNTH] >>
-  first_x_assum drule >>
-  strip_tac >>
-  qexists_tac `SUC len` >> fs[]
 QED
 
 Theorem llist_rel_equality:

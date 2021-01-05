@@ -7,7 +7,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory;
+     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory pure_miscTheory;
 
 val _ = new_theory "pure_alpha_equiv";
 
@@ -743,13 +743,6 @@ Inductive exp_alpha:
                (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1))
 End
 
-Triviality MAP_PAIR_MAP:
-  MAP FST (MAP (f ## g) l) = MAP f (MAP FST l) ∧
-  MAP SND (MAP (f ## g) l) = MAP g (MAP SND l)
-Proof
-  rw[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]
-QED
-
 Triviality MAP_PAIR_MAP':
   MAP (λ(x,y). h x) (MAP (f ## g) l) = MAP h (MAP f (MAP FST l)) ∧
   MAP (λ(x,y). h y) (MAP (f ## g) l) = MAP h (MAP g (MAP SND l))
@@ -775,29 +768,6 @@ Theorem MAP_MAP_perm_lemma:
   MAP (MAP (perm1 x y)) (MAP f l)
 Proof
   Induct_on ‘l’ >> rw[]
-QED
-
-Theorem closed_subst_freevars:
-  ∀s x y.
-    closed x ∧ closed(subst s x y) ⇒
-    set(freevars y) ⊆ {s}
-Proof
-  rw[] >> pop_assum mp_tac >> drule freevars_subst_single >>
-  disch_then(qspecl_then [‘s’,‘y’] mp_tac) >> rw[] >>
-  gvs[closed_def, DELETE_DEF, SUBSET_DIFF_EMPTY]
-QED
-
-Theorem closed_freevars_subst:
-  ∀s x y.
-    closed x ∧ set(freevars y) ⊆ {s} ⇒
-    closed(subst s x y)
-Proof
-  rw[] >>
-  drule freevars_subst_single >> disch_then (qspecl_then [‘s’,‘y’] mp_tac) >>
-  gvs[DELETE_DEF, closed_def] >> rw[] >>
-  `freevars (subst s x y) = {}` suffices_by gvs[] >>
-  pop_assum SUBST_ALL_TAC >>
-  rw[SUBSET_DIFF_EMPTY]
 QED
 
 Theorem perm1_simps:
@@ -880,20 +850,6 @@ Triviality APPEND_EQ_IMP:
   a = b ∧ c = d ⇒ a ++ c = b ++ d
 Proof
   rw[]
-QED
-
-Theorem EVERY2_refl_EQ:
-  LIST_REL R ls ls ⇔ (∀x. MEM x ls ⇒ R x x)
-Proof
-  simp[EQ_IMP_THM,EVERY2_refl] >>
-  Induct_on ‘ls’ >> rw[] >>
-  metis_tac[]
-QED
-
-Theorem MAP_ID_ON:
-  (∀x. MEM x l ⇒ f x = x) ⇒ MAP f l = l
-Proof
-  Induct_on ‘l’ >> rw[]
 QED
 
 Theorem MEM_PERM_IMP:
@@ -1168,12 +1124,6 @@ Proof
   >- gvs[LIST_EQ_REWRITE,MEM_EL,EL_MAP,PULL_EXISTS]
   >- (gvs[LIST_EQ_REWRITE,MEM_EL,EL_MAP,PULL_EXISTS,ELIM_UNCURRY] >>
       metis_tac[PAIR,FST,SND])
-QED
-
-Theorem fresh_list:
-  ∀s. FINITE s ⇒ ∃x. x ∉ s:('a list set)
-Proof
-  metis_tac[GSYM INFINITE_LIST_UNIV,NOT_IN_FINITE]
 QED
 
 Theorem exp_alpha_sym:
@@ -1506,20 +1456,6 @@ Proof
   CONV_TAC SYM_CONV >>
   match_mp_tac MAP_ID_ON >>
   simp[FORALL_PROD,perm1_simps,perm_exp_id]
-QED
-
-Theorem FDIFF_MAP_KEYS_BIJ:
-  BIJ f 𝕌(:α) 𝕌(:β) ⇒
-  FDIFF (MAP_KEYS f fm) (IMAGE f s) = MAP_KEYS f (FDIFF fm s)
-Proof
-  rpt strip_tac >>
-  simp[FDIFF_def] >>
-  ‘COMPL(IMAGE f s) = IMAGE f (COMPL s)’
-    by(rw[COMPL_DEF,IMAGE_DEF,SET_EQ_SUBSET,SUBSET_DEF] >>
-       gvs[BIJ_DEF,INJ_DEF,SURJ_DEF] >> metis_tac[]) >>
-  pop_assum SUBST_ALL_TAC >>
-  gvs[BIJ_DEF] >>
-  simp[DRESTRICT_MAP_KEYS_IMAGE]
 QED
 
 Theorem exp_alpha_subst_closed:
@@ -3570,13 +3506,6 @@ Proof
   rpt GEN_TAC >> disch_then strip_assume_tac >>
   irule follow_path_v_prefix_alpha >>
   goal_assum drule >> fs[] >> goal_assum drule >> fs[]
-QED
-
-Triviality LIST_REL_mono:
-  (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ R1 x y) ==>
-  LIST_REL R xs ys ⇒ LIST_REL R1 xs ys
-Proof
-  qid_spec_tac ‘ys’ \\ Induct_on ‘xs’ \\ fs [] \\ rw []
 QED
 
 Theorem eval_wh_Closure_closed:

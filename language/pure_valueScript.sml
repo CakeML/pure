@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
      ltreeTheory llistTheory quotient_llistTheory
-     pure_configTheory pure_expTheory;
+     pure_configTheory pure_expTheory pure_miscTheory;
 
 val _ = new_theory "pure_value";
 
@@ -103,16 +103,6 @@ End
 Definition Error_def:
   Error = v_abs Error_rep
 End
-
-(*
- * TODO: Move to llist?
- *)
-Theorem LSET_fromList:
-  ∀l. LSET (fromList l) = set l
-Proof
-  Induct \\ rw [fromList_def]
-QED
-
 
 Theorem v_rep_ok_Atom[local]:
   ∀b. v_rep_ok (Atom_rep b)
@@ -353,17 +343,6 @@ Proof
   rw [boolTheory.DATATYPE_TAG_THM]
 QED
 
-(* TODO: move to ltreeTheory *)
-Theorem ltree_lookup_APPEND:
-  ∀ path1 path2 t.
-    ltree_lookup t (path1 ++ path2) =
-    OPTION_BIND (ltree_lookup t path1) (λsubtree. ltree_lookup subtree path2)
-Proof
-  Induct >> rw[optionTheory.OPTION_BIND_def] >>
-  Cases_on `t` >> fs[ltree_lookup_def] >>
-  Cases_on `LNTH h ts` >> fs[optionTheory.OPTION_BIND_def]
-QED
-
 Theorem v_rep_ok_ltree_el:
   ∀ vtree subtree.
     v_rep_ok vtree ∧
@@ -589,24 +568,6 @@ Definition make_v_rep_def:
       | (Diverge', _) => (Diverge', SOME 0)
       | (Error', _) => (Error', SOME 0))
 End
-
-(* TODO move to ltreeTheory *)
-Theorem ltree_lookup_SOME_gen_ltree:
-  ∀ path f a ts.
-    ltree_lookup (gen_ltree f) path = SOME (Branch a ts)
-  ⇒ f path = (a, LLENGTH ts)
-Proof
-  Induct >> rw[]
-  >- (
-    Cases_on `f []` >> fs[] >>
-    gvs[Once gen_ltree, ltree_lookup_def]
-    ) >>
-  Cases_on `f []` >> fs[] >> rename1 `f [] = (e1, e2)` >>
-  gvs[Once gen_ltree, ltree_lookup_def] >>
-  fs[LNTH_LGENLIST] >>
-  Cases_on `e2` >> gvs[] >>
-  Cases_on `h < x` >> fs[]
-QED
 
 Triviality v_rep_ok_make_v_rep:
   ∀f. v_rep_ok (make_v_rep f)

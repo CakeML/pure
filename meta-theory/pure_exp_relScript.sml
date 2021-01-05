@@ -7,7 +7,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory;
+     pure_exp_lemmasTheory pure_limitTheory pure_miscTheory;
 
 val _ = new_theory "pure_exp_rel";
 
@@ -304,12 +304,6 @@ Proof
   rw[monotone_def,compatible_def]
 QED
 
-Theorem monotone_compose:
-  monotone f ∧ monotone g ⇒ monotone(f o g)
-Proof
-  rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >> res_tac >> metis_tac[]
-QED
-
 Theorem compatible_compose:
   monotone f ∧ compatible f ∧ compatible g ⇒ compatible(f o g)
 Proof
@@ -400,12 +394,6 @@ Proof
   drule_then match_mp_tac SUBSET_TRANS >>
   match_mp_tac(monotone_similarity |> SIMP_RULE std_ss[monotone_def]) >>
   rw[]
-QED
-
-Triviality CURRY_thm:
-  CURRY f = λ x y. f(x,y)
-Proof
-  rw[FUN_EQ_THM]
 QED
 
 Theorem companion_app_similarity:

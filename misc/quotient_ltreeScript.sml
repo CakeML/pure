@@ -1,14 +1,8 @@
 
 open bossLib boolLib;
-open HolKernel quotient_llistTheory ltreeTheory quotientLib;
+open HolKernel quotient_llistTheory ltreeTheory quotientLib pure_miscTheory;
 
 val _ = new_theory "quotient_ltree";
-
-Triviality I_def:
-  I = \x. x
-Proof
-  rw [combinTheory.I_DEF, combinTheory.S_DEF]
-QED
 
 Triviality ltree_map_id:
   ltree_map (\x. x) = \x. x

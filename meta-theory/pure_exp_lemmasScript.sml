@@ -530,18 +530,6 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ res_tac
 QED
 
-Theorem fdiff_fdomsub_commute:
-  FDIFF (f \\ x) p = FDIFF f p \\ x
-Proof
-  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[]
-QED
-
-Theorem fdiff_fdomsub_INSERT:
-  FDIFF (f \\ x) p = FDIFF f (x INSERT p)
-Proof
-  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[]
-QED
-
 Theorem subst_fdomsub:
   ∀f e x. x ∉ freevars e ⇒ subst f e = subst (f \\ x) e
 Proof
@@ -576,13 +564,6 @@ Proof
       rw[])
 QED
 
-Theorem fdiff_bound:
-  FDIFF f p = FDIFF f (p ∩ FDOM f)
-Proof
-  rw[FDIFF_def,fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
-  rw[] >> gvs[flookup_thm]
-QED
-
 Theorem subst_FDIFF'':
   ∀p f x. (∀n. n ∈ p ⇒ n ∉ freevars x) ⇒ subst f x = subst (FDIFF f p) x
 Proof
@@ -600,6 +581,29 @@ Proof
   SIMP_TAC std_ss [GSYM FDIFF_def] >>
   match_mp_tac subst_FDIFF'' >>
   rw[]
+QED
+
+Theorem closed_subst_freevars:
+  ∀s x y.
+    closed x ∧ closed(subst s x y) ⇒
+    set(freevars y) ⊆ {s}
+Proof
+  rw[] >> pop_assum mp_tac >> drule freevars_subst_single >>
+  disch_then(qspecl_then [‘s’,‘y’] mp_tac) >> rw[] >>
+  gvs[closed_def, DELETE_DEF, SUBSET_DIFF_EMPTY]
+QED
+
+Theorem closed_freevars_subst:
+  ∀s x y.
+    closed x ∧ set(freevars y) ⊆ {s} ⇒
+    closed(subst s x y)
+Proof
+  rw[] >>
+  drule freevars_subst_single >> disch_then (qspecl_then [‘s’,‘y’] mp_tac) >>
+  gvs[DELETE_DEF, closed_def] >> rw[] >>
+  `freevars (subst s x y) = {}` suffices_by gvs[] >>
+  pop_assum SUBST_ALL_TAC >>
+  rw[SUBSET_DIFF_EMPTY]
 QED
 
 val _ = export_theory();
