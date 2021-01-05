@@ -75,7 +75,7 @@ Proof
 QED
 
 Theorem eval_wh_to_freevars_SUBSET:
-  ∀k e1 v e2 x y.
+  ∀k e1 v y.
     eval_wh_to k e1 = v ∧ y ∈ freevars_wh v ⇒
     MEM y (freevars e1)
 Proof

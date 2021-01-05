@@ -813,7 +813,15 @@ Proof
     \\ rw [] \\ fs []
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ fs [LIST_REL_EL_EQN]
-    \\ cheat)
+    \\ strip_tac \\ strip_tac
+    \\ imp_res_tac eval_wh_to_freevars_SUBSET
+    \\ fs[closed_def, PULL_EXISTS, MEM_MAP] \\ gvs[]
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ once_rewrite_tac[DISJ_COMM]
+    \\ simp[DISJ_EQ_IMP, NIL_iff_NOT_MEM] \\ rw[]
+      >- (first_x_assum irule >> simp[EL_MEM])
+      >- (last_x_assum irule >> simp[EL_MEM])
+    )
   THEN1
    (fs [eval_wh_eq,PULL_EXISTS,eval_to_sim_def]
     \\ first_x_assum drule_all
@@ -843,7 +851,25 @@ Proof
     \\ fs [SUBSET_DEF] \\ rw []
     \\ res_tac \\ fs []
     \\ gvs [closed_def])
-  \\ cheat
+  THEN1 (
+    fs[eval_wh_eq, PULL_EXISTS, eval_to_sim_def] >>
+    first_x_assum drule_all >> disch_then (qspec_then `k` assume_tac) >> fs[] >>
+    qspecl_then [`ck + k`,`y`,`k`] assume_tac eval_wh_inc >> gvs[] >>
+    EVERY_CASE_TAC >> gvs[] >> goal_assum drule >>
+    gvs[LIST_REL_EL_EQN] >> simp[opp_def, IN_DEF] >> strip_tac >> strip_tac >>
+    imp_res_tac eval_wh_to_freevars_SUBSET >>
+    fs[closed_def, PULL_EXISTS, MEM_MAP] >> gvs[] >>
+    ntac 2 (pop_assum mp_tac) >> once_rewrite_tac[DISJ_COMM] >>
+    simp[DISJ_EQ_IMP, NIL_iff_NOT_MEM] >> rw[]
+    >- (last_x_assum irule >> simp[EL_MEM])
+    >- (first_x_assum irule >> simp[EL_MEM])
+    )
+  >> (
+    fs[eval_wh_eq, PULL_EXISTS, eval_to_sim_def] >>
+    first_x_assum drule_all >> disch_then (qspec_then `k` assume_tac) >> fs[] >>
+    qspecl_then [`ck + k`,`y`,`k`] assume_tac eval_wh_inc >> gvs[] >>
+    EVERY_CASE_TAC >> gvs[] >> goal_assum drule
+    )
 QED
 
 val _ = export_theory();
