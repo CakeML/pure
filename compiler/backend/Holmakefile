@@ -1,0 +1,4 @@
+INCLUDES = ../../language \
+           ../../meta-theory \
+           ../../../cakeml/basis/pure \
+           ../../../cakeml/compiler/backend/reachability
