@@ -103,15 +103,10 @@ Proof
     )
 QED
 
-Definition needs_transitive_def:
-  needs_transitive reach ⇔
-  ∀a b c. needs a b reach ∧ needs b c reach ∧ b ≠ c ⇒ needs a c reach
-End
-
 Theorem top_sort_aux_correct:
   ∀ns reach acc resacc.
     top_sort_aux ns reach acc = resacc ∧
-    needs_transitive reach ∧
+    (∀n m. TC (λa b. needs a b reach) n m ⇒ needs n m reach) ∧
     ALL_DISTINCT ns
   ⇒ ∃res.
       resacc = res ++ acc ∧
@@ -143,17 +138,19 @@ Proof
         qpat_x_assum `∀x. _ ⇔ MEM _ parts0` (assume_tac o GSYM) >> simp[] >>
         goal_assum (drule_at Any) >> simp[]) >>
       `¬ needs y n reach` by gvs[] >>
-      CCONTR_TAC >> fs[needs_transitive_def] >>
-      last_x_assum (qspecl_then [`y`,`dep`,`n`] assume_tac) >> gvs[]
+      CCONTR_TAC >> fs[] >>
+      last_x_assum (qspecl_then [`y`,`n`] mp_tac) >> simp[] >>
+      simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
       )
     >- (
       Cases_on `l'` >> gvs[] >> `dep ≠ n` by (CCONTR_TAC >> gvs[]) >> gvs[] >>
       (qsuff_tac `¬needs dep n reach ∨ needs n dep reach` >- metis_tac[]) >>
       CCONTR_TAC >> gvs[] >>
       `needs y n reach ∧ needs n y reach` by gvs[] >>
-      `y ≠ dep` by metis_tac[] >>
-      fs[needs_transitive_def] >>
-      last_x_assum (qspecl_then [`n`,`y`,`dep`] assume_tac) >> gvs[]
+      qpat_x_assum `¬ needs _ _ _` mp_tac >> simp[] >>
+      last_x_assum irule >>
+      simp[Once TC_CASES1] >> DISJ2_TAC >>
+      goal_assum drule >> simp[Once TC_CASES1]
       )
     >- (
       Cases_on `MEM dep parts2`
@@ -227,7 +224,7 @@ Proof
     first_x_assum drule >> strip_tac >>
     goal_assum drule >> gvs[] >>
     irule (iffRL RTC_CASES2) >> DISJ2_TAC >>
-    goal_assum drule >> simp[needs_def]
+    goal_assum drule >> simp[needs_alt_def]
     )
   >- gvs[domain_union, SUBSET_DEF]
 QED
@@ -263,8 +260,7 @@ Proof
     goal_assum (drule_at Any) >> gvs[needs_alt_def, domain_lookup]
     )
   >- (
-    gvs[Once RTC_CASES1, needs_alt_def] >>
-    DISJ1_TAC >>
+    gvs[Once RTC_CASES1, needs_alt_def] >> DISJ1_TAC >>
     qspecl_then [`nexts`,`aSetx`] assume_tac closure_spt_alt_thm_strong >>
     gvs[] >> gvs[domain_lookup, needs_alt_def] >>
     goal_assum drule >> simp[]
@@ -284,15 +280,18 @@ Proof
   irule TC_RTC >> simp[]
 QED
 
-Theorem needs_transitive_trans_clos:
-  ∀nexts.  needs_transitive (trans_clos nexts)
+Theorem trans_clos_TC_closed:
+  ∀t n m.
+    (λa b. needs a b (trans_clos t))⁺ n m ⇒ needs n m (trans_clos t)
 Proof
-  rw[needs_transitive_def] >>
+  strip_tac >> ho_match_mp_tac TC_INDUCT >> simp[] >> rw[] >>
   imp_res_tac trans_clos_correct >>
-  Cases_on `a = b` >> gvs[RTC_CASES_TC] >>
+  rename1 `RTC _ l m` >>
+  Cases_on `l = m` >> gvs[] >> Cases_on `n = l` >> gvs[] >>
+  gvs[RTC_CASES_TC] >>
   irule trans_clos_correct_imp >>
   irule (TC_RULES |> SPEC_ALL |> CONJUNCT2) >>
-  goal_assum drule >> gvs[]
+  goal_assum drule >> simp[]
 QED
 
 Theorem top_sort_correct:
@@ -312,7 +311,7 @@ Proof
   simp[top_sort_def] >> gen_tac >> strip_tac >>
   drule_at Any top_sort_aux_correct >> simp[] >>
   disch_then (qspecl_then [`trans_clos (fromAList lets)`,`[]`] mp_tac) >>
-  simp[needs_transitive_trans_clos] >> strip_tac >> rw[] >>
+  simp[trans_clos_TC_closed] >> strip_tac >> rw[] >>
   gvs[EXTENSION, GSYM DISJ_ASSOC] >>
   `MEM y (MAP FST lets)` by res_tac >>
   gvs[MEM_MAP, PULL_EXISTS] >>
