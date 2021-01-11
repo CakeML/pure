@@ -69,6 +69,19 @@ Proof
   rw[] >> gvs[flookup_thm]
 QED
 
+Theorem FLOOKUP_FMAP_MAP2:
+  ∀f m k. FLOOKUP (FMAP_MAP2 f m) k = OPTION_MAP (λv. f (k,v)) (FLOOKUP m k)
+Proof
+  rw[FLOOKUP_DEF, FMAP_MAP2_def, FUN_FMAP_DEF]
+QED
+
+Theorem DOMSUB_FMAP_MAP2:
+  ∀f m s. (FMAP_MAP2 f m) \\ s = FMAP_MAP2 f (m \\ s)
+Proof
+  rw[fmap_eq_flookup, DOMSUB_FLOOKUP_THM, FLOOKUP_FMAP_MAP2] >>
+  IF_CASES_TAC >> simp[]
+QED
+
 
 (******************** Functions/Pairs ********************)
 

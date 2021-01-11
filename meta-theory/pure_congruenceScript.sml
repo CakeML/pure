@@ -2323,4 +2323,61 @@ Proof
   irule exp_eq_subst >> simp[]
 QED
 
+Theorem beta_equality:
+  ∀x e1 e2. closed e2 ⇒ App (Lam x e1) e2 ≅ subst x e2 e1
+Proof
+  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
+  irule eval_IMP_app_bisimilarity >> rw[]
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP]) >>
+  simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
+  AP_TERM_TAC >>
+  drule (GSYM subst_subst_single_UPDATE) >> strip_tac >> simp[] >>
+  dep_rewrite.DEP_REWRITE_TAC[subst_subst_FUNION] >>
+  simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
+  rw[] >- res_tac >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[FUNION_COMM] >> simp[] >>
+  simp[GSYM FUPDATE_EQ_FUNION]
+QED
+
+Theorem beta_equality_Letrec:
+  ∀fns e.
+    EVERY (λe. freevars e ⊆ set (MAP FST fns)) (MAP SND fns)
+  ⇒ Letrec fns e ≅ subst_funs fns e
+Proof
+  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
+  irule eval_IMP_app_bisimilarity >> rw[]
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP]) >>
+  simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
+  AP_TERM_TAC >> simp[subst_funs_def, bind_def] >>
+  `(MAP (λ(f',e). (f',subst (FDIFF f (set (MAP FST fns))) e)) fns) = fns` by (
+    irule MAP_ID_ON >> rw[] >> PairCases_on `x` >> simp[] >>
+    irule subst_ignore >> gvs[DISJOINT_DEF, EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
+    last_x_assum drule >>
+    simp[EXTENSION, SUBSET_DEF, FDOM_FDIFF, DISJ_EQ_IMP]) >>
+  gvs[] >> IF_CASES_TAC >> gvs[] >>
+  dep_rewrite.DEP_REWRITE_TAC[subst_subst_FUNION] >>
+  simp[FDIFF_def, IN_FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_DRESTRICT] >>
+  rw[] >- res_tac >>
+  AP_THM_TAC >> AP_TERM_TAC >>
+  simp[fmap_eq_flookup, FLOOKUP_FUNION, FLOOKUP_DRESTRICT,
+       flookup_fupdate_list] >>
+  qmatch_goalsub_abbrev_tac `ALOOKUP l` >> rw[]
+  >- (
+    `ALOOKUP l x = NONE` by (
+      gvs[ALOOKUP_NONE] >> unabbrev_all_tac >>
+      simp[MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF,
+           LAMBDA_PROD, GSYM FST_THM]) >>
+    gvs[] >> CASE_TAC >> simp[]
+    )
+  >- (
+    CASE_TAC >> gvs[] >> CCONTR_TAC >>
+    qpat_x_assum `ALOOKUP _ _ = _` mp_tac >> simp[ALOOKUP_NONE] >>
+    unabbrev_all_tac >>
+    simp[MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF,
+         LAMBDA_PROD, GSYM FST_THM]
+    )
+QED
+
 val _ = export_theory();
