@@ -611,6 +611,13 @@ Proof
   imp_res_tac(transitive_app_similarity |> SIMP_RULE std_ss [transitive_def])
 QED
 
+Theorem app_bisimilarity_trans:
+  ∀x y z. x ≃ y ∧ y ≃ z ⇒ x ≃ z
+Proof
+  assume_tac transitive_app_bisimilarity
+  \\ fs [transitive_def]
+QED
+
 Theorem res_eq_IMP_app_bisimilarity: (* exercise (5.3.5) *)
   ∀e1 e2 x t.
     eval e1 = Closure x t ∧
@@ -776,8 +783,8 @@ Definition eval_to_sim_def:
       ∃ck.
         case eval_wh_to k e1 of
         | wh_Closure v x =>
-           (∃w y. eval_wh_to (k+ck) e2 = wh_Closure w y ∧
-                  ∀e. closed e ⇒ rel (subst v e x) (subst w e y))
+           (∃y. eval_wh_to (k+ck) e2 = wh_Closure v y ∧ rel x y ∧
+                ∀e. closed e ⇒ rel (subst v e x) (subst v e y))
         | wh_Constructor a xs =>
            (∃ys. eval_wh_to (k+ck) e2 = wh_Constructor a ys ∧ LIST_REL rel xs ys)
         | res => eval_wh_to (k+ck) e2 = res
