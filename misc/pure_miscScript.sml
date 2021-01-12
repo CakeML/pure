@@ -82,6 +82,51 @@ Proof
   IF_CASES_TAC >> simp[]
 QED
 
+Theorem fmap_rel_fupdate_list_MAP_FST:
+  ∀R f1 f2 l1 l2.
+    fmap_rel R (f1 |++ l1) (f2 |++ l2)
+  ⇒ set (MAP FST l1) ∪ FDOM f1 = set (MAP FST l2) ∪ FDOM f2
+Proof
+  rw[fmap_rel_def, FDOM_FUPDATE_LIST] >>
+  gvs[EXTENSION] >> metis_tac[]
+QED
+
+(* This exists in finite_mapTheory, but with types unnecessarily specialised *)
+Theorem fmap_rel_FEMPTY2:
+  (fmap_rel (R : 'a -> 'b -> bool) FEMPTY (f1 : 'c |-> 'b) ⇔ f1 = FEMPTY) ∧
+  (fmap_rel R (f2 : 'c |-> 'a) FEMPTY ⇔ f2 = FEMPTY)
+Proof
+  rw[fmap_rel_def] >> simp[FDOM_EQ_EMPTY] >> eq_tac >> rw[]
+QED
+
+Theorem fmap_rel_FUPDATE_I_rewrite:
+  fmap_rel R (f1 \\ k) (f2 \\ k) ∧ R v1 v2 ⇔
+  fmap_rel R (f1 |+ (k,v1)) (f2 |+ (k,v2))
+Proof
+  gvs[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM] >>
+  reverse (eq_tac >> rw[])
+  >- (pop_assum (qspec_then `k` mp_tac) >> simp[]) >>
+  first_x_assum (qspec_then `k'` mp_tac) >> simp[] >>
+  EVERY_CASE_TAC >> gvs[]
+QED
+
+Theorem fmap_rel_ind:
+  ∀R FR.
+    FR FEMPTY FEMPTY ∧
+    (∀k v1 v2 f1 f2.
+      R v1 v2 ∧ FR (f1 \\ k) (f2 \\ k) ⇒ FR (f1 |+ (k,v1)) (f2 |+ (k,v2)))
+  ⇒ ∀f1 f2. fmap_rel R f1 f2 ⇒ FR f1 f2
+Proof
+  rpt gen_tac >> strip_tac >>
+  Induct >> rw[] >- gvs[fmap_rel_FEMPTY2] >>
+  `x ∈ FDOM f2` by gvs[fmap_rel_def] >>
+  imp_res_tac FM_PULL_APART >> gvs[] >>
+  last_x_assum irule >> gvs[DOMSUB_NOT_IN_DOM] >>
+  gvs[GSYM fmap_rel_FUPDATE_I_rewrite] >>
+  first_x_assum irule >>
+  gvs[DOMSUB_NOT_IN_DOM]
+QED
+
 
 (******************** Functions/Pairs ********************)
 

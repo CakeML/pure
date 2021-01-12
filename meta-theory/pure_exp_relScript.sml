@@ -25,6 +25,34 @@ Proof
   fs [Exps_def,closed_def]
 QED
 
+Theorem Exps_simps:
+  (∀v vars. Var v ∈ Exps vars ⇔ v ∈ vars) ∧
+  (∀op l vars. Prim op l ∈ Exps vars ⇔ EVERY (λe. e ∈ Exps vars) l) ∧
+  (∀e1 e2 vars. App e1 e2 ∈ Exps vars ⇔ e1 ∈ Exps vars ∧ e2 ∈ Exps vars) ∧
+  (∀x e vars. Lam x e ∈ Exps vars ⇔ e ∈ Exps (x INSERT vars)) ∧
+  (∀fns e vars. Letrec fns e ∈ Exps vars ⇔
+                  e ∈ Exps (vars ∪ set (MAP FST fns)) ∧
+                  EVERY (λe. e ∈ Exps (vars ∪ set (MAP FST fns))) (MAP SND fns))
+Proof
+  rw[Exps_def, GSYM SUBSET_INSERT_DELETE]
+  >- (
+    rw[SUBSET_DEF, PULL_EXISTS, MEM_MAP, EVERY_MEM,
+       PULL_FORALL, AND_IMP_INTRO] >>
+    metis_tac[]
+    )
+  >- (
+    rw[SUBSET_DEF, PULL_EXISTS, MEM_MAP, EVERY_MEM, EXISTS_PROD] >>
+    metis_tac[]
+    )
+QED
+
+Theorem Exps_SUBSET:
+  ∀e vars vars'. e ∈ Exps vars ∧ vars ⊆ vars' ⇒ e ∈ Exps vars'
+Proof
+  rw[Exps_def, SUBSET_DEF]
+QED
+
+
 (* -- applicative (bi)similarity -- *)
 
 Definition unfold_rel_def:
