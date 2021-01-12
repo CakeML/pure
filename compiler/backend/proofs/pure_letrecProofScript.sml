@@ -5,9 +5,10 @@ open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory pure_exp_lemmasTheory mlmapTheory mlstringTheory
-     (* from CakeML: *) mlmapTheory;
-open pure_exp_relTheory pure_evalTheory;
+open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
+     pure_congruenceTheory pure_miscTheory;
+(* from CakeML: *)
+open mlmapTheory mlstringTheory;
 
 val _ = new_theory "pure_letrecProof";
 
@@ -44,14 +45,15 @@ Definition make_distinct_def:
 End
 
 Definition distinct_def:
-  distinct (Letrec xs y) = Letrec (make_distinct (MAP (λ(n,x). (n, distinct x)) xs)) y ∧
+  distinct (Letrec xs y) =
+    Letrec (make_distinct (MAP (λ(n,x). (n, distinct x)) xs)) y ∧
   distinct (Lam n x) = Lam n (distinct x) ∧
   distinct (Prim p xs) = Prim p (MAP distinct xs) ∧
   distinct (App x y) = App (distinct x) (distinct y) ∧
   distinct res = res
 Termination
-  WF_REL_TAC ‘measure exp_size’ \\ rw []
-  \\ cheat
+  WF_REL_TAC ‘measure exp_size’ >> rw [] >>
+  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
 End
 
 Theorem set_MAP_FST_make_distinct:
@@ -61,10 +63,107 @@ Proof
   \\ rw [] \\ fs [EXTENSION] \\ metis_tac []
 QED
 
-Theorem closed_distinct:
-  closed x ⇒ closed (distinct x)
+Triviality MEM_MAP_FST_make_distinct =
+  set_MAP_FST_make_distinct |> SIMP_RULE std_ss [EXTENSION];
+
+Theorem MEM_make_distinct:
+  ∀x xs. MEM x (make_distinct xs) ⇒ MEM x xs
 Proof
-  cheat
+  strip_tac >> Induct >> rw[make_distinct_def] >>
+  PairCases_on `h` >> gvs[make_distinct_def] >>
+  EVERY_CASE_TAC >> gvs[]
+QED
+
+Theorem make_distinct_ALL_DISTINCT:
+  ∀l. ALL_DISTINCT (make_distinct l)
+Proof
+  Induct >> rw[make_distinct_def] >>
+  PairCases_on `h` >> rw[make_distinct_def, ALL_DISTINCT] >>
+  gvs[Once (GSYM MEM_MAP_FST_make_distinct)] >>
+  gvs[MEM_MAP, FORALL_PROD, PULL_EXISTS]
+QED
+
+Theorem freevars_distinct:
+  ∀x. freevars (distinct x) ⊆ freevars x
+Proof
+  recInduct distinct_ind >> rw[distinct_def] >>
+  gvs[set_MAP_FST_make_distinct, SUBSET_DEF] >> rw[] >> gvs[MEM_FILTER]
+  >- (
+    gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >>
+    imp_res_tac MEM_make_distinct >> gvs[MEM_MAP, FORALL_PROD] >>
+    simp[PULL_EXISTS, EXISTS_PROD] >>
+    rename1 `MEM z _` >> PairCases_on `z` >> gvs[] >>
+    DISJ2_TAC >> goal_assum (drule_at Any) >>
+    last_x_assum irule >> simp[] >> goal_assum drule
+    )
+  >- gvs[MEM_MAP, FORALL_PROD]
+  >- gvs[MEM_MAP, FORALL_PROD]
+  >- (
+    gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+    goal_assum (drule_at Any) >>
+    last_x_assum irule >> simp[]
+    )
+QED
+
+Theorem closed_distinct:
+  ∀x. closed x ⇒ closed (distinct x)
+Proof
+  rw[closed_def, NIL_iff_NOT_MEM] >>
+  CCONTR_TAC >> last_x_assum mp_tac >> gvs[] >> rename1 `MEM y _` >>
+  drule (freevars_distinct |> SIMP_RULE std_ss [SUBSET_DEF]) >> strip_tac >>
+  goal_assum drule
+QED
+
+Triviality ALOOKUP_REVERSE_make_distinct:
+  ∀l x. ALOOKUP (REVERSE (make_distinct l)) x = ALOOKUP (REVERSE l) x
+Proof
+  Induct >> rw[make_distinct_def] >>
+  PairCases_on `h` >> gvs[make_distinct_def] >>
+  IF_CASES_TAC >> simp[ALOOKUP_APPEND] >>
+  EVERY_CASE_TAC >> gvs[ALOOKUP_NONE, MEM_MAP, DISJ_EQ_IMP]
+QED
+
+Theorem make_distinct_FUPDATE_LIST:
+  ∀f l.  f |++ (make_distinct l) = f |++ l
+Proof
+  rw[fmap_eq_flookup, flookup_fupdate_list] >>
+  qspec_then `l` assume_tac ALOOKUP_REVERSE_make_distinct >> simp[]
+QED
+
+Triviality make_distinct_Letrec_exp_eq:
+  ∀xs y.  Letrec xs y ≅ Letrec (make_distinct xs) y
+Proof
+  rw[] >> irule exp_eq_Letrec_cong2 >>
+  simp[make_distinct_FUPDATE_LIST, exp_eq_refl]
+QED
+
+Theorem distinct_exp_eq:
+  ∀x. x ≅ distinct x
+Proof
+  recInduct distinct_ind >> rw[distinct_def] >> gvs[]
+  >- (
+    irule exp_eq_Letrec_cong2 >>
+    simp[exp_eq_refl, make_distinct_FUPDATE_LIST] >>
+    irule fmap_rel_FUPDATE_LIST_same >> simp[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    CONV_TAC (DEPTH_CONV ETA_CONV) >> simp[] >>
+    rw[LIST_REL_EL_EQN, EL_MAP] >> last_x_assum irule >>
+    qexists_tac `FST (EL n xs)` >> simp[EL_MEM]
+    )
+  >- (irule exp_eq_Lam_cong >> simp[])
+  >- (
+    irule exp_eq_Prim_cong >> simp[] >>
+    rw[LIST_REL_EL_EQN, EL_MAP] >> last_x_assum irule >> simp[EL_MEM]
+    )
+  >- (irule exp_eq_App_cong >> simp[])
+  >- simp[exp_eq_Var_cong]
+QED
+
+Theorem distinct_correct:
+  closed x ⇒ x ≃ distinct x
+Proof
+  rw[app_bisimilarity_eq, distinct_exp_eq] >>
+  irule closed_distinct >> simp[]
 QED
 
 (* some infrastructure for the proofs *)
@@ -98,69 +197,6 @@ Proof
   cheat
 QED
 
-Theorem distinct_correct:
-  closed x ⇒ x ≃ distinct x
-Proof
-  rw [] \\ irule eval_to_sim_thm \\ fs [closed_distinct]
-  \\ qabbrev_tac ‘c = λx z. ∃xs y. x = Letrec ys y ∧ z = Letrec (make_distinct ys) y’
-  \\ qexists_tac ‘letrec_rel c’
-  \\ reverse conj_tac
-  THEN1 cheat
-  \\ last_x_assum kall_tac
-  \\ simp [eval_to_sim_def]
-  \\ rw [] \\ pop_assum kall_tac
-  \\ qexists_tac ‘0’ \\ fs []
-  \\ ntac 2 (pop_assum mp_tac)
-  \\ qid_spec_tac ‘e2’
-  \\ qid_spec_tac ‘e1’
-  \\ qid_spec_tac ‘k’
-  \\ fs [AND_IMP_INTRO]
-  \\ ho_match_mp_tac eval_wh_to_ind \\ rw []
-  THEN1
-   (rename [‘Lam s x’]
-    \\ fs [eval_wh_to_def]
-    \\ qpat_x_assum ‘letrec_rel c (Lam s x) e2’ mp_tac
-    \\ simp [Once letrec_rel_cases] \\ rw []
-    \\ fs [eval_wh_to_def]
-    \\ fs [letrec_rel_subst])
-  THEN1
-   (rename [‘App x1 x2’]
-    \\ qpat_x_assum ‘letrec_rel c _ _’ mp_tac
-    \\ simp [Once letrec_rel_cases] \\ rw [] \\ fs []
-    \\ fs [eval_wh_to_def]
-    \\ Cases_on ‘eval_wh_to k x1 = wh_Diverge’ THEN1 fs [] \\ fs []
-    \\ ‘eval_wh_to k g ≠ wh_Diverge’ by
-     (CCONTR_TAC \\ fs []
-      \\ first_x_assum drule \\ fs []
-      \\ Cases_on ‘eval_wh_to k x1’ \\ fs [])
-    \\ fs []
-    \\ first_x_assum drule \\ fs [] \\ rw []
-    \\ Cases_on ‘eval_wh_to k x1’ \\ fs []
-    \\ Cases_on ‘k’ \\ fs []
-    \\ ‘letrec_rel c (bind s x2 e) (bind s y y')’ by cheat
-    \\ last_x_assum drule \\ fs []
-    \\ impl_tac THEN1 cheat (* closedness *)
-    \\ Cases_on ‘eval_wh_to n (bind s x2 e)’ \\ fs [])
-  THEN1
-   (rename [‘Letrec f y’]
-    \\ qpat_x_assum ‘letrec_rel c _ _’ mp_tac
-    \\ simp [Once letrec_rel_cases] \\ reverse (rw []) \\ fs []
-    THEN1
-     (Cases_on ‘k’ \\ fs [eval_wh_to_def]
-      \\ ‘letrec_rel c (subst_funs f y) (subst_funs xs1 y1)’ by cheat
-      \\ first_x_assum drule \\ fs []
-      \\ impl_tac THEN1 cheat (* closedness *)
-      \\ Cases_on ‘eval_wh_to n (subst_funs f y)’ \\ fs [])
-    \\ ‘e2 = Letrec (make_distinct xs1) y1’ by (unabbrev_all_tac \\ gvs [])
-    \\ gvs []
-    \\ Cases_on ‘k’ \\ fs [eval_wh_to_def]
-    \\ ‘letrec_rel c (subst_funs f y) (subst_funs (make_distinct xs1) y1)’ by cheat
-    \\ first_x_assum drule \\ fs []
-    \\ impl_tac THEN1 cheat (* closedness *)
-    \\ Cases_on ‘eval_wh_to n (subst_funs f y)’ \\ fs [])
-  \\ rename [‘Prim p xs’]
-  \\ cheat (* straightforward cases? *)
-QED
 
 Definition valid_split_def:
   valid_split xs xs1 xs2 ⇔
