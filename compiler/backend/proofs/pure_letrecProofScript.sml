@@ -212,10 +212,10 @@ End
 
 Inductive letrec_split:
   (∀xs xs1 xs2 x.
-     valid_split xs xs1 xs2 ⇒
+     valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ⇒
      letrec_split
        (Letrec xs x)
-       (Lets (MAP (λ(a,A). (a, Letrec xs A)) xs1)
+       (subst (FEMPTY |++ (MAP (λ(a,A). (a, Letrec xs A)) xs1))
           (Letrec xs2 x)))
 End
 
@@ -308,10 +308,24 @@ Proof
 QED
 
 Theorem valid_split_thm:
-  valid_split xs xs1 xs2 (* ∧ closed ... *) ⇒
+  valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ⇒
   Letrec xs x ≃ Lets (MAP (λ(a,A). (a, Letrec xs A)) xs1) (Letrec xs2 x)
 Proof
-  cheat (* follows from letrec_split_correct *)
+  rw [] \\ match_mp_tac app_bisimilarity_trans
+  \\ qexists_tac ‘subst (FEMPTY |++ (MAP (λ(a,A). (a, Letrec xs A)) xs1)) (Letrec xs2 x)’
+  \\ ‘closed (subst (FEMPTY |++ MAP (λ(a,A). (a,Letrec xs A)) xs1) (Letrec xs2 x))’
+        by cheat
+  \\ conj_tac
+  THEN1
+   (match_mp_tac letrec_split_correct \\ fs []
+    \\ once_rewrite_tac [letrec_rel_cases] \\ fs []
+    \\ qexists_tac ‘xs’ \\ qexists_tac ‘x’ \\ fs []
+    \\ fs [letrec_split_cases]
+    \\ rw []
+    THEN1 cheat (* ought to be easy *)
+    THEN1 cheat (* ought to be easy *)
+    \\ disj1_tac \\ metis_tac [])
+  \\ cheat
 QED
 
 (* This lemma would allow us to verify a top_sort_any application anywhere
