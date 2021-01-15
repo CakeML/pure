@@ -132,31 +132,31 @@ QED
 
 Inductive Howe:
 [Howe1:]
-  (∀R vars x e2.
+  (∀vars x e2.
      R vars (Var x) e2 ⇒
      Howe R vars (Var x) e2)
   ∧
 [Howe2:]
-  (∀R x e1 e1' e2 vars.
+  (∀x e1 e1' e2 vars.
      Howe R (x INSERT vars) e1 e1' ∧
      R vars (Lam x e1') e2 ⇒
      Howe R vars (Lam x e1) e2)
   ∧
 [Howe3:]
-  (∀R e1 e1' e3 vars.
+  (∀e1 e1' e3 vars.
      Howe R vars e1 e1' ∧
      Howe R vars e2 e2' ∧
      R vars (App e1' e2') e3 ⇒
      Howe R vars (App e1 e2) e3)
   ∧
 [Howe4:]
-  (∀R es es' e op vars.
+  (∀es es' e op vars.
     LIST_REL (Howe R vars) es es' ∧
     R vars (Prim op es') e ⇒
     Howe R vars (Prim op es) e)
   ∧
 [Howe5:]
-  (∀R ves ves' e e' e2.
+  (∀ves ves' e e' e2.
     Howe R (vars ∪ set (MAP FST ves)) e e' ∧
     EVERY (λe. e ∈ Exps (vars ∪ set (MAP FST ves))) (MAP SND ves) ∧
     fmap_rel
@@ -488,7 +488,7 @@ Theorem IMP_Howe_Sub: (* 5.5.3 *)
 Proof
   fs [Sub_def,PULL_FORALL] >>
   qsuff_tac ‘
-     ∀R x_vars e1 e1'.
+     ∀x_vars e1 e1'.
        Howe R x_vars e1 e1' ⇒
        ∀vars x e2 e2'. x_vars = x INSERT vars ∧
           Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ∧
