@@ -5,7 +5,7 @@
   where CA_subst is the capture-avoiding substitution of the free variables "x"
   in the expression "body" with the expression "arg"
 
-  the main theorem above state's that two beta-equivalent expressions
+  The main theorem above states that two beta-equivalent expressions
   belong to the same equivalence class under the eval function.
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
@@ -156,612 +156,6 @@ Proof
   )
 QED
 
-
-(**************** perm_exp lemmas ******************)
-
-Triviality perm1_MAP_set:
- ∀ l.  set l DELETE x DELETE y ⊆ set (MAP (perm1 x y) l)
-Proof
-  Induct \\ fs[]
-  \\ strip_tac \\ rw[perm1_def]
-  \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Triviality subset_union_weakening_gen1:
- A ⊆ x INSERT y INSERT B ⇒ A ⊆ x INSERT y INSERT (B ∪ C)
-Proof
-  fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Triviality subset_union_weakening_gen2:
- A ⊆ x INSERT y INSERT C ⇒ A ⊆ x INSERT y INSERT (B ∪ C)
-Proof
-  fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Triviality Letrec_SUBSET_INSERT_DIFF_DISTRIBUTIVITY:
-  A ⊆ y INSERT x INSERT B ∪ D
-  ∧ E DELETE x DELETE y ⊆ C
-  ⇒
-  A DIFF C ⊆ y INSERT x INSERT ((B ∪ D) DIFF E)
-Proof
-  fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Triviality subset_union_weakening:
-  A ⊆ B ⇒ (A ⊆ (B ∪ C))
-Proof
-  fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Triviality DIFF_UNION_DISTRIBUTIVITY:
-  (A ∪ B) DIFF C = (A DIFF C) ∪ (B DIFF C)
-Proof
-  fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Triviality  perm1_MAP_set2:
- ∀ l. set (MAP (perm1 x y) l) DELETE x DELETE y ⊆ set l
-Proof
-  Induct \\ fs[]
-  \\ strip_tac \\ rw[perm1_def]
-  \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-QED
-
-Theorem freevars_perm_exp_subset:
-  ∀ e. freevars (perm_exp x y e) ⊆ y INSERT x INSERT freevars e
-Proof
-  ho_match_mp_tac freevars_ind \\ rw[]
-  THEN1 (fs[perm_exp_def,perm1_def] \\ rw[])
-  THEN1 (
-    fs[perm_exp_def,perm1_def]
-    \\fs[MAP_MAP_o,combinTheory.o_DEF,LIST_TO_SET_FLAT]
-    \\ Induct_on ‘es’ \\ fs[]
-    \\ strip_tac \\ strip_tac
-    \\ fs[GSYM INSERT_UNION_EQ]
-    \\ rw[]
-    THEN1 (
-      irule subset_union_weakening \\ fs[]
-    )
-    \\ simp[INSERT_UNION_EQ]
-    \\ match_mp_tac (GEN_ALL subset_union_weakening_gen2) \\ fs[]
-  )
-  THEN1(
-    fs[perm_exp_def,perm1_def]
-    \\ conj_tac
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1(
-    fs[perm_exp_def,perm1_def,freevars_def]
-    \\ fs[] \\ rw[]
-    \\ fs [EXTENSION,SUBSET_DEF,MEM_FILTER] \\ TRY( metis_tac [])
-  )
-  THEN1(
-    fs[perm_exp_def]
-    \\ fs[FILTER_FLAT,FILTER_APPEND_DISTRIB,MAP_MAP_o,combinTheory.o_DEF]
-    \\ ‘(λx'. FST ((λ(x',z). (perm1 x y x',perm_exp x y z)) x')) =(perm1 x y) ∘ FST’ by (
-       fs[FUN_EQ_THM]
-       \\ Cases \\ fs[]
-    )
-    \\ fs[] \\ pop_assum kall_tac
-    \\ conj_tac
-    THEN1 (
-      fs[GSYM list_to_set_diff]
-      \\ match_mp_tac Letrec_SUBSET_INSERT_DIFF_DISTRIBUTIVITY \\ fs[]
-      \\ conj_tac
-      THEN1 ( match_mp_tac subset_union_weakening_gen1 \\ fs[])
-      \\ fs[GSYM MAP_MAP_o]
-      \\ fs[perm1_MAP_set]
-    )
-    \\ ‘(λx'. FILTER (λn. ¬MEM n (MAP (perm1 x y ∘ FST) lcs))
-                       ((λ(fn,e'). freevars e')
-                       ((λ(x',z). (perm1 x y x',perm_exp x y z)) x')))
-        =
-        FILTER (λn. ¬MEM n (MAP (perm1 x y ∘ FST) lcs))
-        ∘ freevars
-        ∘ (perm_exp x y)
-        ∘ SND ’ by (
-       fs[FUN_EQ_THM]
-       \\ Cases \\ rw[]
-    ) \\ fs[] \\ pop_assum kall_tac
-    \\ fs[MAP_FILTER]
-    \\ fs[GSYM MAP_MAP_o]
-    \\ fs[GSYM FILTER_FLAT]
-    \\ fs[GSYM list_to_set_diff]
-    \\ match_mp_tac Letrec_SUBSET_INSERT_DIFF_DISTRIBUTIVITY  \\ fs[]
-    \\ reverse (rw[]) THEN1 (fs[perm1_MAP_set])
-    \\ match_mp_tac subset_union_weakening_gen2 \\ fs[]
-    \\ fs[MAP_MAP_o,LIST_TO_SET_FLAT]
-    \\ fs[BIGUNION_SUBSET]
-    \\ fs[MEM_MAP]
-    \\ strip_tac \\ rw[]
-    \\ Cases_on ‘y'’ \\ fs[]
-    \\ match_mp_tac SUBSET_TRANS
-    \\ qexists_tac ‘ y INSERT x INSERT freevars r’
-    \\ conj_tac THEN1 (res_tac \\ fs[])
-    \\ fs[]
-    \\ res_tac
-    \\ ‘set (MAP (λ(fn,e). freevars e) lcs) = set (MAP set (MAP (freevars o SND) lcs))’by(
-      ntac 4 (pop_assum kall_tac)
-      \\ Induct_on ‘lcs’ \\ fs[]
-      \\ Cases \\ fs[]
-    )
-    \\ fs[] \\ pop_assum kall_tac
-    \\ fs[GSYM LIST_TO_SET_FLAT]
-    \\ fs[SUBSET_INSERT_DELETE]
-    \\ Induct_on ‘lcs’ \\ fs[MEM]
-    \\ rw[]
-    \\ res_tac \\ fs[]
-    \\ TRY (Cases_on ‘h’) \\ rw[]
-    \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-  )
-QED
-
-Theorem freevars_perm_exp_subset_inv:
-  ∀e. freevars e ⊆ y INSERT x INSERT freevars (perm_exp x y e)
-Proof
-  ho_match_mp_tac freevars_ind \\ rw[]
-  THEN1 (fs[perm_exp_def,perm1_def] \\ rw[])
-  THEN1 (
-    fs[perm_exp_def,perm1_def]
-    \\fs[MAP_MAP_o,combinTheory.o_DEF,LIST_TO_SET_FLAT]
-    \\ Induct_on ‘es’ \\ fs[]
-    \\ strip_tac \\ strip_tac
-    \\ fs[GSYM INSERT_UNION_EQ]
-    \\ rw[]
-    THEN1 (
-      irule subset_union_weakening \\ fs[]
-    )
-    \\ simp[INSERT_UNION_EQ]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1(
-    fs[perm_exp_def,perm1_def]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1(
-    fs[perm_exp_def,perm1_def]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1(
-    fs[perm_exp_def,perm1_def,freevars_def]
-    \\ fs[] \\ rw[]
-    \\ fs [EXTENSION,SUBSET_DEF,MEM_FILTER] \\ TRY( metis_tac [])
-  )
-  THEN1(
-    fs[perm_exp_def]
-    \\ fs[FILTER_FLAT,FILTER_APPEND_DISTRIB,MAP_MAP_o,combinTheory.o_DEF]
-    \\ ‘(λx'. FST ((λ(x',z). (perm1 x y x',perm_exp x y z)) x')) = (perm1 x y) ∘ FST’ by (
-       fs[FUN_EQ_THM]
-       \\ Cases \\ fs[]
-    )
-    \\ fs[] \\ pop_assum kall_tac
-    \\ ‘(λx'. FILTER (λn. ¬MEM n (MAP (perm1 x y ∘ FST) lcs))
-                       ((λ(fn,e'). freevars e')
-                       ((λ(x',z). (perm1 x y x',perm_exp x y z)) x')))
-        =
-        FILTER (λn. ¬MEM n (MAP (perm1 x y ∘ FST) lcs))
-        ∘ freevars
-        ∘ (perm_exp x y)
-        ∘ SND ’ by (
-       fs[FUN_EQ_THM]
-       \\ Cases \\ rw[]
-    ) \\ fs[] \\ pop_assum kall_tac
-    \\ fs[MAP_FILTER]
-    \\ fs[GSYM MAP_MAP_o]
-    \\ fs[GSYM FILTER_FLAT]
-    \\ fs[GSYM list_to_set_diff]
-    \\ fs[DIFF_UNION_DISTRIBUTIVITY]
-    \\ conj_tac
-    THEN1 (
-      fs[GSYM DIFF_UNION_DISTRIBUTIVITY]
-      \\ match_mp_tac Letrec_SUBSET_INSERT_DIFF_DISTRIBUTIVITY  \\ fs[]
-      \\ conj_tac
-      THEN1 (match_mp_tac subset_union_weakening_gen1 \\ fs[])
-      \\ fs[perm1_MAP_set2]
-    )
-    \\ fs[GSYM DIFF_UNION_DISTRIBUTIVITY]
-    \\ match_mp_tac Letrec_SUBSET_INSERT_DIFF_DISTRIBUTIVITY  \\ fs[]
-    \\ reverse (rw[]) THEN1 (fs[perm1_MAP_set2])
-    \\ match_mp_tac subset_union_weakening_gen2 \\ fs[]
-    \\ fs[MAP_MAP_o] \\ fs[GSYM LIST_TO_SET_FLAT]
-    \\ fs[BIGUNION_SUBSET]
-    \\ fs[MEM_MAP]
-    \\ fs[GSYM UNION_SUBSET]
-    \\ strip_tac \\ rw[]
-    \\ Cases_on ‘y'’ \\ fs[]
-    \\ res_tac
-    \\ match_mp_tac SUBSET_TRANS
-    \\ qexists_tac ‘ y INSERT x INSERT freevars (perm_exp x y r)’
-    \\ conj_tac THEN1 (fs [EXTENSION,SUBSET_DEF] \\ metis_tac[])
-    \\ fs[GSYM LIST_TO_SET_FLAT]
-    \\ fs[SUBSET_INSERT_DELETE]
-    \\ Induct_on ‘lcs’ \\ fs[MEM]
-    \\ rw[]
-    \\ res_tac \\ fs[]
-    \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
-  )
-QED
-
-Theorem freevar_perm_exp_MEM:
- ∀ e. MEM x (freevars e) ⇒ MEM y (freevars (perm_exp x y e))
-Proof
-  ho_match_mp_tac freevars_ind
-  \\ rpt conj_tac
-  THEN1( fs[perm_exp_def,perm1_def] \\ rw[])
-  THEN1(
-     rw[] \\ fs[MEM_MAP] \\ rw[]
-     \\ res_tac
-     \\ fs[freevars_def,perm_exp_def,perm1_def]
-     \\ fs[MEM_FLAT]
-     \\ qexists_tac ‘(freevars (perm_exp x y e))’ \\ fs[]
-     \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-     \\ fs[MEM_MAP]
-     \\ qexists_tac ‘e’ \\ fs[]
-  )
-  THEN1(rw[] \\ fs[perm_exp_def,perm1_def])
-  THEN1(
-    fs[perm_exp_def,perm1_def]
-    \\ rw[] \\ fs[MEM_FILTER]
-  )
-  THEN1(
-    rpt strip_tac
-    \\ fs[freevars_def,perm_exp_def,perm1_def]
-    THEN1 (
-      fs[MEM_FILTER]
-      \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-      \\ CCONTR_TAC \\ fs[]
-      \\ fs[MEM_MAP]
-      \\ Cases_on ‘x'’ \\ fs[]
-      \\ Cases_on ‘q = x’ \\ fs[]
-      THEN1 (first_assum (qspec_then ‘(x,r)’ assume_tac) \\ fs[])
-      \\ Cases_on ‘q = y’ \\ fs[]
-   )
-   \\ fs[MEM_FILTER]
-   \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-   \\ fs[MEM_MAP]
-   \\ CCONTR_TAC \\ fs[]
-   THEN1 (
-     Cases_on ‘x'’ \\ fs[]
-     \\ Cases_on ‘q = x’ \\ rw[] \\ fs[]
-     \\ first_assum (qspec_then ‘(q,r)’ assume_tac) \\ rw[] \\ fs[]
-     \\ Cases_on ‘q = y’ \\ fs[]
-   )
-   \\ rw[]
-   \\ fs[MEM_MAP]
-   \\ fs[MEM_FLAT]
-   \\ fs[MEM_MAP]
-   \\ Cases_on ‘y'’ \\ res_tac \\ fs[] \\ res_tac \\ fs[]
-   \\ first_x_assum (qspec_then ‘freevars (perm_exp x y r)’ assume_tac) \\ rw[] \\ fs[]
-   \\ first_x_assum (qspec_then ‘(q,r)’ assume_tac) \\ rw[] \\ fs[]
-  )
-QED
-
-Theorem freevar_perm_exp_not_MEM:
- ∀ e. ¬MEM x (freevars e) ⇒ ¬ MEM y (freevars (perm_exp x y e))
-Proof
-  ho_match_mp_tac freevars_ind
-  \\ rpt conj_tac
-  THEN1( fs[perm_exp_def,perm1_def] \\ rw[])
-  THEN1(
-    rw[]
-    \\ fs[MEM_MAP]
-    \\ fs[freevars_def,perm_exp_def,perm1_def]
-    \\ fs[MEM_FLAT]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[MEM_MAP]
-    \\ CCONTR_TAC \\ fs[] \\ rw[]
-    \\ res_tac
-    \\ first_assum (qspec_then ‘set (freevars a)’ assume_tac)
-    \\ fs[] \\ fs[]
-    \\ pop_assum (qspec_then ‘a’ assume_tac) \\ fs[]
-  )
-  THEN1(rw[] \\ fs[perm_exp_def,perm1_def])
-  THEN1(
-    fs[perm_exp_def,perm1_def]
-    \\ rw[] \\ fs[MEM_FILTER]
-  )
-  THEN1(
-    fs[freevars_def,perm_exp_def,perm1_def]
-    \\ rw[]
-    THEN1 (
-      fs[MEM_FILTER,MEM_FLAT,MEM_MAP,MAP_MAP_o,combinTheory.o_DEF]
-      \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[]
-      \\ Cases_on ‘y''’ \\ rw[] \\ fs[]
-      \\ res_tac
-      \\ Cases_on ‘MEM x (freevars r)’ \\ fs[]
-      \\ last_x_assum (qspec_then ‘freevars r’ assume_tac) \\ rw[] \\ fs[]
-      \\ pop_assum (qspec_then ‘(q,r)’ assume_tac) \\ rw[] \\ fs[]
-    )
-    \\ fs[GSYM perm1_def]
-    \\ fs[MEM_FILTER]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF] \\ rw[]
-    \\ disj1_tac
-    \\ ‘(λx'. FST ((λ(x',z). (perm1 x y x',perm_exp x y z)) x')) = (perm1 x y) o FST’ by (
-       fs[FUN_EQ_THM]
-       \\ Cases \\ rw[]
-    )
-    \\ fs[] \\ pop_assum kall_tac
-    \\ fs[MEM_MAP]
-    \\ qexists_tac ‘y'’ \\ fs[]
-    \\ Cases_on ‘y'’ \\ fs[perm1_def]
-  )
-QED
-
-Theorem freevars_perm_exp:
-  freevars (perm_exp x y e) =
-     freevars e
-     DIFF (if x ∉ freevars e then {y} else ∅)
-     DIFF (if y ∉ freevars e then {x} else ∅)
-     ∪ (if x ∈ freevars e then {y} else ∅)
-     ∪ (if y ∈ freevars e then {x} else ∅)
-Proof
-  rw[]
-  \\ assume_tac (GEN_ALL freevars_perm_exp_subset)
-  \\ assume_tac (GEN_ALL freevars_perm_exp_subset_inv)
-  \\ assume_tac (GEN_ALL freevar_perm_exp_MEM)
-  \\ assume_tac (GEN_ALL freevar_perm_exp_not_MEM)
-  \\ TRY (fs [EXTENSION,SUBSET_DEF] \\ metis_tac [perm_exp_sym])
-QED
-
-Theorem boundvars_perm_exp_subset:
-  ∀ e.
-  boundvars (perm_exp x y e) ⊆ x INSERT y INSERT (boundvars e)
-Proof
-  recInduct boundvars_ind
-  \\ rw[]
-  THEN1 (fs[perm_exp_def])
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[LIST_TO_SET_FLAT]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[MEM_MAP]
-    \\ fs[BIGUNION_SUBSET]
-    \\ rw[]
-    \\ fs[MEM_MAP]
-    \\ last_assum (qspec_then ‘a’ assume_tac)
-    \\ res_tac \\ fs[]
-    \\ irule SUBSET_TRANS
-    \\ qexists_tac ‘ x INSERT y INSERT boundvars a’
-    \\ fs[]
-    \\ irule SUBSET_INSERT_RIGHT
-    \\ irule SUBSET_INSERT_RIGHT
-    \\ irule SUBSET_BIGUNION_I
-    \\ fs[MEM_MAP]
-    \\ qexists_tac ‘a’ \\ fs[]
-  )
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[DISJOINT_SYM]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1 (
-    fs[perm_exp_def,boundvars_def,perm1_def]
-    \\ rw[]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  \\ fs[perm_exp_def]
-  \\ reverse conj_tac
-  THEN1 (fs[EXTENSION,SUBSET_DEF] \\ metis_tac[])
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs[LIST_TO_SET_FLAT]
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs[MEM_MAP]
-  \\ fs[BIGUNION_SUBSET]
-  \\ rw[]
-  \\ fs[MEM_MAP]
-  \\ Cases_on ‘x'’
-  \\ fs[perm1_def]
-  \\ reverse conj_tac
-  THEN1 (
-     rw[]
-     \\ res_tac
-     \\ irule SUBSET_TRANS
-     \\ qexists_tac ‘x INSERT y INSERT
-                     BIGUNION (set (MAP (λ(fn,e). fn INSERT boundvars e) lcs))’
-     \\ reverse conj_tac
-     THEN1 (fs[EXTENSION,SUBSET_DEF,UNION_DEF] \\ metis_tac[])
-     \\ fs[SUBSET_INSERT_DELETE]
-     \\ irule SUBSET_TRANS
-     \\ qexists_tac ‘q INSERT boundvars r’
-     \\ conj_tac
-     THEN1 (fs[EXTENSION,SUBSET_DEF,UNION_DEF] \\ metis_tac[])
-     \\ irule SUBSET_BIGUNION_I
-     \\ fs[MEM_MAP]
-     \\ qexists_tac ‘(q,r)’ \\ fs[]
-  )
-  \\ rw[]
-  \\ disj2_tac
-  \\ qexists_tac ‘q INSERT boundvars r’
-  \\ fs[]
-  \\ fs[MEM_MAP]
-  \\ qexists_tac ‘(q,r)’ \\ fs[]
-QED
-
-Theorem boundvars_perm_exp_subset_inv:
-  ∀e. boundvars e ⊆ x INSERT y INSERT boundvars (perm_exp x y e)
-Proof
-  recInduct boundvars_ind
-  \\ rw[]
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[LIST_TO_SET_FLAT]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[MEM_MAP]
-    \\ fs[BIGUNION_SUBSET]
-    \\ rw[]
-    \\ fs[MEM_MAP]
-    \\ res_tac
-    \\ irule SUBSET_TRANS
-    \\ qexists_tac ‘ x INSERT y INSERT boundvars (perm_exp x y e)’
-    \\ fs[]
-    \\ irule SUBSET_INSERT_RIGHT
-    \\ irule SUBSET_INSERT_RIGHT
-    \\ irule SUBSET_BIGUNION_I
-    \\ fs[MEM_MAP]
-    \\ qexists_tac ‘e’ \\ fs[]
-  )
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[perm1_def]
-    \\ rw[]
-  )
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[perm1_def]
-    \\ rw[]
-    \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-  )
-  THEN1 (
-    fs[perm_exp_def]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[LIST_TO_SET_FLAT]
-    \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[EXTENSION,UNION_DEF,SUBSET_DEF] \\ metis_tac[]
-  )
-  \\ fs[perm_exp_def]
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs[LIST_TO_SET_FLAT]
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs[BIGUNION_SUBSET]
-  \\ rw[]
-  \\ fs[MEM_MAP]
-  \\ Cases_on ‘y'’
-  \\ fs[perm1_def]
-  \\ rw[]
-  THEN1 (
-    CCONTR_TAC \\ fs[] \\ res_tac \\ fs[MEM_MAP]
-    \\ first_assum (qspec_then ‘q INSERT (boundvars (perm_exp x y r))’ assume_tac) \\ fs[]
-    \\ first_assum (qspec_then ‘(q,r)’ assume_tac) \\ fs[]
-    \\ pop_assum mp_tac \\ rw[]
-  )
-  \\ res_tac
-  \\ fs[SUBSET_INSERT_DELETE]
-  \\ irule SUBSET_TRANS
-  \\ qexists_tac ‘perm1 x y q INSERT boundvars (perm_exp x y r)’
-  \\ conj_tac THEN1 (fs[EXTENSION,SUBSET_DEF] \\ metis_tac[])
-  \\ irule subset_union_weakening
-  \\ irule SUBSET_BIGUNION_I
-  \\ fs[MEM_MAP]
-  \\ qexists_tac ‘(q,r)’ \\ fs[perm1_def] \\ rw[]
-QED
-
-Theorem boundvar_perm_exp_MEM:
- ∀ e. MEM x (boundvars e) ⇒ MEM y (boundvars (perm_exp x y e))
-Proof
-  ho_match_mp_tac boundvars_ind
-  \\ rw[]
-  \\ fs[perm_exp_def]
-  \\ fs[perm1_def]
-  THEN1 (
-    fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[MEM_FLAT]
-    \\ fs[MEM_MAP]
-    \\ rw[]
-    \\ res_tac
-    \\ qexists_tac ‘boundvars (perm_exp x y e)’
-    \\ rw[]
-    \\ qexists_tac ‘e’
-    \\ fs[]
-  )
-  \\ fs[GSYM perm1_def]
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs[MEM_FLAT]
-  \\ fs[MEM_MAP]
-  \\ rw[]
-  \\ Cases_on ‘y'’
-  \\ res_tac \\ fs[] \\ rw[]
-  THEN1 (
-    disj1_tac
-    \\ qexists_tac ‘y::(boundvars (perm_exp q y r))’
-    \\ fs[] \\ rw[]
-    \\ qexists_tac ‘(q,r)’
-    \\ fs[] \\ rw[]
-    \\ fs[perm1_def]
-  )
-  \\ res_tac \\ fs[] \\ rw[]
-  \\ disj1_tac
-  \\ Cases_on ‘MEM y (boundvars (perm_exp x y e))’ \\ fs[]
-  \\ qexists_tac ‘perm1 x y q::(boundvars (perm_exp x y r))’
-  \\ fs[] \\ rw[]
-  \\ qexists_tac ‘(q,r)’
-  \\ fs[] \\ rw[]
-QED
-
-Theorem boundvar_perm_exp_not_MEM:
- ∀ e. ¬MEM x (boundvars e) ⇒ ¬ MEM y (boundvars (perm_exp x y e))
-Proof
-  ho_match_mp_tac boundvars_ind
-  \\ rw[]
-  \\ fs[perm_exp_def]
-  \\ fs[perm1_def]
-  THEN1 (
-    fs[MAP_MAP_o,combinTheory.o_DEF]
-    \\ fs[MEM_FLAT]
-    \\ fs[MEM_MAP]
-    \\ CCONTR_TAC \\ fs[]
-    \\ res_tac \\ rw[]
-    \\ Cases_on ‘MEM x (boundvars a)’ \\ fs[]
-    \\ first_assum (qspec_then ‘boundvars a’ assume_tac) \\ fs[] \\ fs[]
-    \\ metis_tac[]
-  )
-  THEN1 (
-    IF_CASES_TAC \\ fs[]
-  )
-  \\ fs[GSYM perm1_def]
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs[MEM_FLAT]
-  \\ fs[MEM_MAP]
-  \\ rw[]
-  \\ CCONTR_TAC \\ fs[]
-  \\ Cases_on ‘x'’ \\ fs[] \\ rw[]
-  \\ res_tac \\ fs[] \\ rw[]
-  THEN1 (
-    fs[perm1_def]
-    \\ pop_assum mp_tac
-    \\ pop_assum mp_tac
-    \\ IF_CASES_TAC \\ fs[]
-    \\ rw[] \\ res_tac \\ fs[]
-    \\ first_assum (qspec_then ‘q INSERT boundvars r’ assume_tac) \\ fs[]
-    \\ first_assum (qspec_then ‘(q,r)’ assume_tac) \\ fs[]
-  )
-  \\ Cases_on ‘MEM x (boundvars r)’ \\ fs[]
-  \\ first_assum (qspec_then ‘q INSERT boundvars r’ assume_tac) \\ fs[]
-  \\ fs[] \\ rw[]
-  \\ first_assum (qspec_then ‘(q,r)’ assume_tac) \\ fs[]
-QED
-
-Theorem boundvars_perm_exp:
-  boundvars (perm_exp x y e) =
-     boundvars e
-     DIFF (if x ∉ boundvars e then {y} else ∅)
-     DIFF (if y ∉ boundvars e then {x} else ∅)
-     ∪ (if x ∈ boundvars e then {y} else ∅)
-     ∪ (if y ∈ boundvars e then {x} else ∅)
-Proof
-  rw[]
-  \\ assume_tac (GEN_ALL boundvars_perm_exp_subset)
-  \\ assume_tac (GEN_ALL boundvars_perm_exp_subset_inv)
-  \\ assume_tac (GEN_ALL boundvar_perm_exp_MEM)
-  \\ assume_tac (GEN_ALL boundvar_perm_exp_not_MEM)
-  \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [perm_exp_sym]
-QED
-
-
-(*******************)
-
-
-
 Definition perm_exp_list_def:
   perm_exp_list [] e = e ∧
   perm_exp_list ((old,new)::binds) e = perm_exp_list binds (perm_exp old new e)
@@ -855,19 +249,16 @@ Definition avoid_vars_def:
   avoid_vars avoid (Var x) = (Var x) ∧
   avoid_vars avoid (Prim op es) = Prim op (MAP (avoid_vars avoid) es) ∧
   avoid_vars avoid (Lam x e) = (
-                 let fresh = fresh_var x avoid in
-                 let e'    = avoid_vars (x::fresh::avoid) e
-                 in (if MEM x avoid
-                      then Lam fresh (perm_exp x fresh e')
-                      else Lam x e'))                                ∧
+                 let fresh = fresh_var x avoid           in
+                 let e'    = avoid_vars (fresh::x::avoid) e
+                 in Lam fresh (perm_exp x fresh e'))                  ∧
   avoid_vars avoid (App e1 e2) = App (avoid_vars avoid e1)
-                                     (avoid_vars avoid e2)           ∧
+                                     (avoid_vars avoid e2)            ∧
   avoid_vars avoid (Letrec lcs e) =
      let clashes     = nub (FILTER (λx. MEM x avoid) (MAP FST lcs))  in
      let freshes     = fresh_var_list clashes (MAP FST lcs ++ avoid) in
      let new_avoids  = MAP FST lcs ++ avoid ++ MAP SND freshes       in
      let lcs_bodies' = MAP (\x. avoid_vars new_avoids (SND x)) lcs   in
-     (* let lcs_bodies' = MAP ((avoid_vars new_avoids) o SND) lcs       in *)
      let lcs'        = ZIP (MAP FST lcs,lcs_bodies')                 in
      let body'       = avoid_vars new_avoids e
      in  perm_exp_list freshes (Letrec lcs' body')
@@ -913,24 +304,25 @@ Proof
   )
   THEN1 (
     fs[avoid_vars_def]
-    \\ IF_CASES_TAC
+    \\ Cases_on ‘fresh_var x avoid = x’ \\ fs[perm_exp_id] \\ rw[]
     THEN1 (
-      ‘freevars e ⊆ set avoid’ by (fs[EXTENSION,SUBSET_DEF] \\ metis_tac[])
-      \\ res_tac \\ fs[]
-      \\ irule exp_alpha_Trans
-      \\ qexists_tac ‘Lam (fresh_var x avoid) (perm_exp x (fresh_var x avoid) e)’
-      \\ conj_tac
-      THEN1 (
-        irule exp_alpha_Alpha
-        \\ qspecl_then [‘x’,‘avoid’] assume_tac fresh_var_correctness
-        \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
-      )
-      \\ irule exp_alpha_Lam
-      \\ irule exp_alpha_perm_closed
-      \\ last_x_assum irule
+      fs[DELETE_SUBSET_INSERT]
+      \\ irule exp_alpha_Lam \\ fs[]
+    )
+    \\ fs[DELETE_SUBSET_INSERT]
+    \\ last_x_assum mp_tac
+    \\ impl_tac THEN1 (fs[EXTENSION,SUBSET_DEF] \\ metis_tac[])
+    \\ disch_tac
+    \\ irule exp_alpha_Trans
+    \\ qexists_tac ‘Lam (fresh_var x avoid) (perm_exp x (fresh_var x avoid) e)’
+    \\ conj_tac
+    THEN1 (
+      irule exp_alpha_Alpha
+      \\ qspecl_then [‘x’,‘avoid’] assume_tac fresh_var_correctness
       \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
     )
     \\ irule exp_alpha_Lam
+    \\ irule exp_alpha_perm_closed
     \\ last_x_assum irule
     \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
   )
@@ -1613,5 +1005,74 @@ Proof
   \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
 QED
 
+
+(* TODO
+
+Theorem disjoint_namespaces_avoid_vars_mono:
+  ∀ avoids body.
+      DISJOINT (set avoids) (boundvars body)
+    ∧ freevars body ⊆ set avoids
+    ⇒ avoid_vars avoids body = body
+Proof
+  recInduct avoid_vars_ind
+  \\ rpt conj_tac
+  THEN1 (rw[] \\ fs[avoid_vars_def])
+  THEN1 (
+    rw[] \\ fs[avoid_vars_def]
+    \\ irule MAP_ID_ON
+    \\ rw[]
+    \\ fs[BIGUNION_SUBSET]
+    \\ first_x_assum (qspec_then ‘freevars x’ assume_tac)
+    \\ fs[MEM_MAP]
+    \\ res_tac \\ rw[] \\ fs[]
+  )
+  THEN1 (
+    rw[]
+    \\ fs[avoid_vars_def]
+    \\ Cases_on ‘fresh_var x avoid ≠ x’
+    THEN1 (
+      fs[]
+      \\ pop_assum mp_tac \\ fs[]
+      \\ once_rewrite_tac[fresh_var_def]
+      \\ IF_CASES_TAC \\ fs[]
+    )
+    \\ fs[perm_exp_id]
+    \\ last_x_assum irule
+    \\ fs[DELETE_SUBSET_INSERT]
+    \\ cheat (wrong)
+  )
+  THEN1 (
+    rw[]
+    \\ fs[avoid_vars_def]
+    \\ conj_tac
+    \\ last_assum irule
+    \\ fs[EXTENSION,SUBSET_DEF,DISJOINT_DEF] \\ metis_tac[]
+  )
+  \\ rw[]
+  \\ fs[avoid_vars_def]
+  \\ fs[ZIP_MAP]
+  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
+  \\ cheat
+QED 
+
+Theorem disjoint_namespaces_beta_equivalence:
+    DISJOINT (freevars arg)  (boundvars body)
+  ∧ DISJOINT (freevars body) (boundvars body)
+  ⇒ App (Lam x body) arg ≅ subst x arg body
+Proof
+  rw[]
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘CA_subst x arg body’
+  \\ fs[beta_equivalence]
+  \\ fs[CA_subst_def]
+  \\ qspecl_then [‘freevars arg ++ freevars body’,‘body’] assume_tac avoid_vars_safe_renaming
+  \\ fs[]
+  \\ qsuff_tac ‘avoid_vars (freevars arg ++ freevars body) body = body’
+  THEN1 (fs[exp_eq_refl])
+  \\ irule disjoint_namespaces_avoid_vars_mono
+  \\ fs[]
+QED
+
+*)
 
 val _ = export_theory();
