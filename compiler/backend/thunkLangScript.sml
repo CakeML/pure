@@ -1,5 +1,5 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
+open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pure_expTheory;
 
@@ -42,45 +42,156 @@ Datatype:
       | Diverge
 End
 
-Definition dest_Closure_def:
-  dest_Closure (Closure s env x) = SOME (s, env, x) ∧
-  dest_Closure _ = NONE
-End
-
 (* TODO:
  * - Probably much neater to write this in the sum monad!
+ * - Prim
  * - Letrec
  * - At first I thought that “Force” should walk the expression and do
  *   something clever, but now I think it should just strip all “Delay”s
  *   in the expression, and then proceed to evaluate the expression as usual.
  *)
 
+Definition sum_bind_def:
+  sum_bind m f =
+    case m of
+      INL e => INL e
+    | INR x => f x
+End
+
+Definition sum_ignore_bind_def:
+  sum_ignore_bind m x = sum_bind m (K x)
+End
+
+val sum_monadinfo : monadinfo = {
+  bind = “sum_bind”,
+  ignorebind = SOME “sum_ignore_bind”,
+  unit = “INR”,
+  fail = SOME “INL”,
+  choice = NONE,
+  guard = NONE
+  };
+
+val _ = declare_monad ("sum", sum_monadinfo);
+val _ = enable_monad "sum";
+val _ = enable_monadsyntax ();
+
+Definition map_def:
+  map f [] = return [] ∧
+  map f (x::xs) =
+    do
+      y <- f x;
+      ys <- map f xs;
+      return (y::ys)
+    od
+End
+
+Definition dest_Closure_def:
+  dest_Closure (Closure s env x) = return (s, env, x) ∧
+  dest_Closure _ = fail Type_error
+End
+
 Definition force_def:
   force (App f x) = App (force f) (force x) ∧
-  force _ = ARB
+  force (Prim op xs) = Prim op (MAP force xs) ∧
+  force (Lam s x) = (Lam s (force x)) ∧
+  (* I'm not so sure about this one: *)
+  force (Letrec funs x) = Letrec (MAP (λ(v,x). (v, force x)) funs) x ∧
+  force (Delay x) = force x ∧
+  force (Force x) = force x
+Termination
+  WF_REL_TAC ‘measure exp_size’ \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
+  \\ fs [definition "exp_size_def"]
+End
+
+(* TODO
+ * Meh: this isn't right, because we might have a thunk that would turn into
+ *      an atom if forced.
+ *)
+
+Definition get_lits_def:
+  get_lits [] = return [] ∧
+  get_lits (x::xs) =
+    (do
+       y <- case x of Atom l => return l | _ => fail Type_error ;
+       ys <- get_lits xs ;
+       return (y::ys)
+     od)
+End
+
+Definition do_prim_def:
+  do_prim op vs =
+    case op of
+      Cons s => return (Constructor s vs)
+    | Proj s i =>
+        (if LENGTH vs ≠ 1 then fail Type_error else
+           case HD vs of
+             Constructor t ys =>
+               if t = s ∧ i < LENGTH ys then
+                 return (EL i ys)
+               else
+                 fail Type_error
+           | _ => fail Type_error)
+    | IsEq s i =>
+        (if LENGTH vs ≠ 1 then fail Type_error else
+           case HD vs of
+             Constructor t ys =>
+               if t ≠ s then
+                 return (Constructor "False" [])
+               else if i = LENGTH ys then
+                 return (Constructor "True" [])
+               else
+                 fail Type_error
+           | _ => fail Type_error)
+    | Lit l => if vs = [] then return (Atom l) else fail Type_error
+    | If =>
+        (if LENGTH vs ≠ 3 then fail Type_error else
+          case HD vs of
+            Constructor t ys =>
+              if ys = [] then
+                if t = "True" then
+                  return (EL 1 vs)
+                else if t = "False" then
+                  return (EL 2 vs)
+                else fail Type_error
+              else
+                fail Type_error
+          | _ => fail Type_error)
+    | AtomOp x =>
+        do
+          xs <- get_lits vs;
+          case config.parAtomOp x xs of
+            SOME v => return (Atom v)
+          | NONE => fail Type_error
+        od
 End
 
 Definition eval_to_def:
-  eval_to k env (Var n) = INL Type_error ∧
+  eval_to k env (Var n) = fail Type_error ∧
+  eval_to k env (Prim op xs) =
+    (if k = 0n then fail Diverge else
+       do
+         vs <- map (eval_to (k - 1) env) xs;
+         do_prim op vs
+       od) ∧
   eval_to k env (App f x) =
-    (if k = 0n then INL Diverge else
-       case eval_to (k - 1) env f of
-         INL err => INL err
-       | INR fv =>
-           case eval_to (k - 1) env x of
-             INL err => INL err
-           | INR xv =>
-             case dest_Closure fv of
-               NONE => INL Type_error
-             | SOME (s, env, body) =>
-               eval_to (k - 1) ((s, xv)::env) body) ∧
-  eval_to k env (Lam s x) = INR (Closure s env x) ∧
+    (if k = 0n then fail Diverge else
+       do
+         fv <- eval_to (k - 1) env f;
+         xv <- eval_to (k - 1) env x;
+         (s, env, body) <- dest_Closure fv ;
+         eval_to (k - 1) ((s, xv)::env) body
+       od) ∧
+  eval_to k env (Lam s x) = return (Closure s env x) ∧
   eval_to k env (Letrec funs x) = ARB ∧
-  eval_to k env (Delay x) = INR (Thunk env x) ∧
+  eval_to k env (Delay x) = return (Thunk env x) ∧
   eval_to k env (Force x) =
-    if k = 0 then INL Diverge else eval_to (k - 1) env (force x)
+    if k = 0 then
+      fail Diverge
+    else
+      eval_to (k - 1) env (force x)
 End
-
 
 val _ = export_theory ();
 
