@@ -283,39 +283,47 @@ Inductive letrec_split:
      letrec_split
        (Letrec xs x)
        (subst (FEMPTY |++ (MAP (λ(a,A). (a, Letrec xs A)) xs1))
-          (Letrec xs2 x)))
+          (Letrec xs2 x))) ∧
+  (∀xs xs1 xs2 x.
+     valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ∧
+     freevars x ⊆ set (MAP FST xs1) ⇒
+     letrec_split
+       (Letrec xs x)
+       (Letrec xs1 x))
 End
 
 Theorem letrec_split_subst:
   ∀f g a b. letrec_split a b ⇒ letrec_split (subst f a) (subst g b)
 Proof
-  rw[Once letrec_split_cases] >> imp_res_tac valid_split_def >>
-  dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >>
-  dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >> reverse (rw[])
-  >- (rw[letrec_split_cases] >> irule_at Any EQ_REFL >> simp[]) >>
-  simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-  dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-  simp[SUBSET_DIFF_EMPTY, FDOM_FUPDATE_LIST,
-       MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  simp[GSYM FST_THM, DIFF_SUBSET] >> rw[]
-  >- (
-    drule (FRANGE_FUPDATE_LIST_SUBSET |> SIMP_RULE std_ss [SUBSET_DEF]) >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    gvs[MEM_MAP] >> rw[] >> PairCases_on `y` >> gvs[] >>
-    gvs[EVERY_MEM] >> last_x_assum irule >> gvs[MEM_MAP, EXTENSION] >>
-    irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[]
-    )
-  >- (
-    gvs[EXTENSION, SUBSET_DEF] >> rw[] >> last_x_assum drule >>
-    gvs[MEM_MAP] >> metis_tac[]
-    )
-  >- (
-    gvs[SUBSET_DEF, EVERY_MEM] >> rw[] >> rename1 `z ∈ s` >>
-    qsuff_tac `MEM z (MAP FST xs)` >- (gvs[MEM_MAP] >> metis_tac[]) >>
-    first_x_assum irule >> gvs[MEM_MAP] >> PairCases_on `y` >> gvs[] >>
-    goal_assum (drule_at Any) >>
-    irule_at Any OR_INTRO_THM2 >> goal_assum drule >> simp[]
-    )
+  rw[Once letrec_split_cases] >> imp_res_tac valid_split_def
+  THEN1
+   (dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >>
+    dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >> reverse (rw[])
+    >- (rw[letrec_split_cases] >> disj1_tac >> irule_at Any EQ_REFL >> simp[]) >>
+    simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+    simp[SUBSET_DIFF_EMPTY, FDOM_FUPDATE_LIST,
+         MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[GSYM FST_THM, DIFF_SUBSET] >> rw[]
+    >- (
+     drule (FRANGE_FUPDATE_LIST_SUBSET |> SIMP_RULE std_ss [SUBSET_DEF]) >>
+     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+     gvs[MEM_MAP] >> rw[] >> PairCases_on `y` >> gvs[] >>
+     gvs[EVERY_MEM] >> last_x_assum irule >> gvs[MEM_MAP, EXTENSION] >>
+     irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[]
+     )
+    >- (
+     gvs[EXTENSION, SUBSET_DEF] >> rw[] >> last_x_assum drule >>
+     gvs[MEM_MAP] >> metis_tac[]
+     )
+    >- (
+     gvs[SUBSET_DEF, EVERY_MEM] >> rw[] >> rename1 `z ∈ s` >>
+     qsuff_tac `MEM z (MAP FST xs)` >- (gvs[MEM_MAP] >> metis_tac[]) >>
+     first_x_assum irule >> gvs[MEM_MAP] >> PairCases_on `y` >> gvs[] >>
+     goal_assum (drule_at Any) >>
+     irule_at Any OR_INTRO_THM2 >> goal_assum drule >> simp[]
+     ))
+  \\ cheat
 QED
 
 Theorem letrec_rel_split_subst:
@@ -327,8 +335,8 @@ QED
 
 Theorem valid_split_FDIFF:
   valid_split ys ys1 ys2 ⇒
-  FDIFF (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys1 x)) ys1) (set (MAP FST ys2)) =
-  FEMPTY |++ MAP (λ(g,x). (g,Letrec ys1 x)) ys1
+  FDIFF (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys1) (set (MAP FST ys2)) =
+  FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys1
 Proof
   rw[valid_split_def, FDIFF_def] >> irule disjoint_drestrict >>
   simp[FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF,
@@ -394,20 +402,20 @@ Proof
     \\ Cases_on ‘eval_wh_to k x1’ \\ gvs []
     \\ rename [‘eval_wh_to (ck + k) g = wh_Closure _ e1’]
     \\ ‘letrec_rel c (bind s x2 e) (bind s y e1)’ by
-        (
-          fs [bind_single_def] \\ cheat (* TODO *)
-        )
+      (
+      fs [bind_single_def] \\ cheat (* TODO *)
+      )
     \\ Cases_on ‘k’ \\ fs []
     THEN1 (qexists_tac ‘0’ \\ fs [] >>
-      IF_CASES_TAC >> simp[] >>
-      drule eval_wh_inc >> disch_then (qspec_then `ck` (assume_tac o GSYM)) >>
-      gvs[])
+           IF_CASES_TAC >> simp[] >>
+           drule eval_wh_inc >> disch_then (qspec_then `ck` (assume_tac o GSYM)) >>
+           gvs[])
     \\ fs [ADD1]
     \\ last_x_assum drule \\ fs []
     \\ impl_tac THEN1 (
-        simp[bind_single_def] >>
-        cheat (* TODO *)
-        )
+     simp[bind_single_def] >>
+     cheat (* TODO *)
+     )
     \\ strip_tac
     \\ Cases_on ‘eval_wh_to n (bind s x2 e) = wh_Diverge’ \\ fs []
     THEN1
@@ -417,14 +425,14 @@ Proof
       gvs[])
     \\ qexists_tac ‘ck+ck'’
     \\ ‘eval_wh_to (ck + (n + 1) + ck') g = wh_Closure s e1’ by (
-          qspecl_then [`ck + (n + 1) + ck'`,`g`,`ck + (n + 1)`]
-            assume_tac eval_wh_inc >>
-          gvs[])
+      qspecl_then [`ck + (n + 1) + ck'`,`g`,`ck + (n + 1)`]
+      assume_tac eval_wh_inc >>
+      gvs[])
     \\ fs [] \\ Cases_on ‘eval_wh_to n (bind s x2 e)’ \\ fs []
     \\ ‘eval_wh_to (ck + (ck' + n)) (bind s y e1) =
         eval_wh_to (ck' + n) (bind s y e1)’ by (
-          irule eval_wh_inc >> simp[]) >>
-        fs[])
+      irule eval_wh_inc >> simp[]) >>
+    fs[])
   THEN1
    (rename [‘Letrec f y’]
     \\ qpat_x_assum ‘letrec_rel c _ _’ mp_tac
@@ -439,13 +447,25 @@ Proof
     \\ unabbrev_all_tac
     \\ pop_assum mp_tac
     THEN1
-     (simp [Once letrec_split_cases] \\ rw []
-      \\ cheat (* crucial part *))
-    \\ all_tac (* more here in case letrec_split gets more cases *))
+     (simp [Once letrec_split_cases] \\ reverse (rw [])
+      THEN1 (* the easier of the two cases *)
+       (fs [eval_wh_to_def] \\ rw []
+        THEN1 (qexists_tac ‘0’ \\ fs [])
+        \\ fs [] \\ last_x_assum irule
+        \\ cheat (* looks like this is true *))
+      \\ simp [subst_def]
+      \\ drule valid_split_FDIFF \\ fs []
+      \\ disch_then kall_tac
+      \\ qabbrev_tac ‘ss = (FEMPTY |++ MAP (λ(a,A). (a,Letrec xs1 A)) xs1')’
+      \\ qabbrev_tac ‘new_xs = (MAP (λ(f',e). (f',subst ss e)) xs2)’
+      \\ fs [eval_wh_to_def] \\ rw []
+      THEN1 (qexists_tac ‘0’ \\ fs [])
+      \\ fs [] \\ last_x_assum irule
+      \\ cheat (* this is the interesting part *)))
   \\ rename [‘Prim p xs’] >>
-     qpat_x_assum `letrec_rel c _ _` mp_tac >>
-     simp[Once letrec_rel_cases] >> rw[]
-     \\ cheat
+  qpat_x_assum `letrec_rel c _ _` mp_tac >>
+  simp[Once letrec_rel_cases] >> rw[]
+  \\ cheat
 QED
 
 Theorem valid_split_thm:
@@ -502,6 +522,23 @@ Proof
      metis_tac[]
 QED
 
+Theorem valid_split_shrink:
+  valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ∧
+  freevars x ⊆ set (MAP FST xs1) ⇒
+  Letrec xs x ≃ Letrec xs1 x
+Proof
+  rw []
+  \\ match_mp_tac letrec_split_correct \\ fs []
+  \\ reverse (rw [])
+  THEN1 cheat (* closedness *)
+  \\ once_rewrite_tac [letrec_rel_cases] \\ fs []
+  \\ qexists_tac ‘xs’ \\ qexists_tac ‘x’ \\ fs []
+  \\ conj_tac THEN1 cheat
+  \\ conj_tac THEN1 cheat
+  \\ fs [letrec_split_cases]
+  \\ metis_tac []
+QED
+
 (* This lemma would allow us to verify a top_sort_any application anywhere
    in the program. See proof idea below. *)
 Theorem Letrec_Letrec:
@@ -525,7 +562,7 @@ also assume that B is an expressions where a and b are free.
    subst a (Letrec [(a,A);(b,B)] A) (Letrec [(b,B)] r)
  ≃ (* easy *)
    Let a (Letrec [(a,A);(b,B)] A) (Letrec [(b,B)] r)
- ≃ (* because b is not reachable from A *)
+ ≃ (* from valid_split_shrink *)
    Let a (Letrec [(a,A)] A) (Letrec [(b,B)] r)
  ≃ (* easy *)
    Letrec [(a,A)] (Letrec [(b,B)] r)
@@ -544,7 +581,7 @@ both have a1 and a2 free, and B has a1, a2, b free.
    Let a1 (Letrec [(a1,A1);(a2,A2);(b,B)] A1)
    Let a2 (Letrec [(a1,A1);(a2,A2);(b,B)] A2)
      (Letrec [(b,B)] r)
- ≃ (* because b is not reachable from A1 and A2 *)
+ ≃ (* from valid_split_shrink *)
    Let a1 (Letrec [(a1,A1);(a2,A2)] A1)
    Let a2 (Letrec [(a1,A1);(a2,A2)] A2)
      (Letrec [(b,B)] r)
