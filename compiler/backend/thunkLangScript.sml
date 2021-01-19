@@ -1,3 +1,13 @@
+(*
+   thunkLang.
+   ~~~~~~~~~~
+
+    - Extends the pureLang syntax with “Delay” and “Force” in :exp, and
+      “Thunk” in :v.
+    - Call by value.
+    - Environment semantics (avoids mutual recursion between exp and v;
+      “Thunk env exp”).
+ *)
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
@@ -26,30 +36,10 @@ Datatype:
     | Atom lit
 End
 
-(*
- * thunkLang.
- * ~~~~~~~~~~
- *
- *  - Extends the pureLang syntax with “Delay” and “Force” in :exp, and
- *    “Thunk” in :v.
- *  - Call by value.
- *  - Environment semantics (avoids mutual recursion between exp and v;
- *    “Thunk env exp”).
- *)
-
 Datatype:
   err = Type_error
       | Diverge
 End
-
-(* TODO:
- * - Probably much neater to write this in the sum monad!
- * - Prim
- * - Letrec
- * - At first I thought that “Force” should walk the expression and do
- *   something clever, but now I think it should just strip all “Delay”s
- *   in the expression, and then proceed to evaluate the expression as usual.
- *)
 
 Definition sum_bind_def:
   sum_bind m f =
@@ -90,6 +80,23 @@ Definition dest_Closure_def:
   dest_Closure _ = fail Type_error
 End
 
+(* TODO
+ *
+ * What is the semantics of Force?
+ *
+ * - Letrec is wrong, right? I'm not even sure what it means to force
+ *   a bunch of declarations. If we can't force the bodies of the expressions
+ *   then forcing needs to go into eval.
+ *
+ * - Here are some alternatives how this could work:
+ *   1 Force (Delay x) = x
+ *   2 Force (foo_notdelay (bar_notdelay (baz_notdelay ... (Delay x)))) = x
+ *   3 As it is, Force x = remove all Delays in x
+ *
+ *   #1 Seems ok, I guess
+ *   #2 Seems a bit ad-hoc
+ *   #3 Seems ok, I guess
+ *)
 Definition force_def:
   force (App f x) = App (force f) (force x) ∧
   force (Prim op xs) = Prim op (MAP force xs) ∧
@@ -106,8 +113,9 @@ Termination
 End
 
 (* TODO
- * Meh: this isn't right, because we might have a thunk that would turn into
- *      an atom if forced.
+ * I can't figure out what “get_lits” should do in case we come across a
+ * thunk, but it might get clear when we think about how to compile pureLang
+ * into thunkLang. Probably thunks are forbidden here.
  *)
 
 Definition get_lits_def:
@@ -176,7 +184,7 @@ Definition eval_to_def:
          do_prim op vs
        od) ∧
   eval_to k env (App f x) =
-    (if k = 0n then fail Diverge else
+    (if k = 0 then fail Diverge else
        do
          fv <- eval_to (k - 1) env f;
          xv <- eval_to (k - 1) env x;
@@ -184,7 +192,12 @@ Definition eval_to_def:
          eval_to (k - 1) ((s, xv)::env) body
        od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
-  eval_to k env (Letrec funs x) = ARB ∧
+  eval_to k env (Letrec funs x) =
+    (if k = 0 then fail Diverge else
+       let env' = ARB (* Turn Lam-exps into Closures.
+                         Turn other exps into Thunks.
+                         The crux is with the Closure envs. *) in
+         eval_to (k - 1) env' x) ∧
   eval_to k env (Delay x) = return (Thunk env x) ∧
   eval_to k env (Force x) =
     if k = 0 then
