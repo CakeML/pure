@@ -1,4 +1,5 @@
 INCLUDES = ../../language \
            ../../meta-theory \
            $(CAKEMLDIR)/basis/pure \
-           $(CAKEMLDIR)/compiler/backend/reachability
+           $(CAKEMLDIR)/compiler/backend/reachability \
+           $(CAKEMLDIR)/compiler/backend/reachability/proofs
