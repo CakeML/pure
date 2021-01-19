@@ -272,6 +272,14 @@ Definition valid_split_def:
     DISJOINT (set (MAP FST xs2)) (BIGUNION (set (MAP (λ(_,e). freevars e) xs1)))
 End
 
+Theorem trivial_valid_split:
+  ∀l. ALL_DISTINCT (MAP FST l)
+  ⇒ valid_split l l [] ∧
+    valid_split l [] l
+Proof
+  rw[valid_split_def] >> simp[]
+QED
+
 Definition Lets_def:
   Lets [] b = b ∧
   Lets ((v,x)::xs) b = Let v x (Lets xs b)
@@ -340,11 +348,78 @@ Proof
     )
 QED
 
-Theorem letrec_rel_split_subst:
+Triviality letrec_rel_split_subst_single:
   letrec_rel letrec_split x y ⇒
   letrec_rel letrec_split (subst s e x) (subst s e y)
 Proof
   rw[] >> irule letrec_rel_subst >> simp[letrec_split_subst]
+QED
+
+Theorem letrec_rel_split_subst:
+  ∀x y. letrec_rel letrec_split x y ⇒
+    ∀f g. fmap_rel (letrec_rel letrec_split) f g
+  ⇒ letrec_rel letrec_split (subst f x) (subst g y)
+Proof
+  ho_match_mp_tac letrec_rel_ind >> rw[subst_def] >>
+  qabbrev_tac `spl = letrec_split`
+  >- (
+    gvs[fmap_rel_OPTREL_FLOOKUP] >>
+    last_x_assum (qspec_then `n` assume_tac) >>
+    EVERY_CASE_TAC >> gvs[letrec_rel_refl]
+    )
+  >- (
+    simp[Once letrec_rel_cases] >>
+    last_x_assum irule >>
+    gvs[fmap_rel_OPTREL_FLOOKUP, DOMSUB_FLOOKUP_THM] >>
+    rw[] >> EVERY_CASE_TAC >> gvs[]
+    )
+  >- simp[Once letrec_rel_cases]
+  >- (simp[Once letrec_rel_cases] >> gvs[LIST_REL_EL_EQN] >> rw[EL_MAP])
+  >- (
+    simp[Once letrec_rel_cases] >> gvs[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    qexists_tac
+      `(MAP (λ(p1,p2). (p1,subst (FDIFF f (set (MAP FST xs1))) p2)) xs1)` >>
+    qexists_tac `subst (FDIFF f (set (MAP FST xs1))) y` >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    gvs[LIST_REL_EL_EQN] >> rw[]
+    >- (
+      rw[] >> gvs[EL_MAP] >> last_x_assum drule >>
+      qabbrev_tac `a = EL n xs` >> qabbrev_tac `b = EL n xs1` >>
+      PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
+      disch_then irule >>
+      gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >>
+      Cases_on `FLOOKUP f k` >> gvs[letrec_rel_refl]
+      )
+    >- (
+      first_x_assum irule >>
+      gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >>
+      Cases_on `FLOOKUP f k` >> gvs[letrec_rel_refl]
+      )
+    >- (
+      disj1_tac >> unabbrev_all_tac >>
+      drule letrec_split_subst >>
+      disch_then (qspecl_then [`f`,`g`] assume_tac) >>
+      gvs[subst_def]
+      )
+    )
+  >- (
+    simp[subst_def] >> gvs[] >>
+    simp[Once letrec_rel_cases] >> gvs[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    qexists_tac
+      `MAP (λ(f',e). (f',subst (FDIFF g (set (MAP FST xs1))) e)) xs1` >>
+    qexists_tac `subst (FDIFF g (set (MAP FST xs1))) y` >> simp[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    first_assum (irule_at Any) >>
+    gvs[LIST_REL_EL_EQN] >> rw[]
+    >- (gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[]) >>
+    last_x_assum drule >> gvs[EL_MAP] >>
+    qabbrev_tac `a = EL n xs` >> qabbrev_tac `b = EL n xs1` >>
+    PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
+    disch_then irule >>
+    gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[]
+    )
 QED
 
 Theorem valid_split_FDIFF:
@@ -381,6 +456,34 @@ Proof
   irule exp_eq_Lam_cong >> simp[]
 QED
 
+Theorem Lets_APPEND:
+  ∀l1 e l2. Lets (l1 ++ l2) e = Lets l1 (Lets l2 e)
+Proof
+  recInduct Lets_ind >> rw[Lets_def]
+QED
+
+Theorem freevars_Lets:
+  ∀l e.
+    EVERY closed (MAP SND l)
+  ⇒ freevars (Lets l e) = freevars e DIFF set (MAP FST l)
+Proof
+  recInduct Lets_ind >> rw[Lets_def] >> gvs[] >>
+  simp[LIST_TO_SET_FILTER] >> gvs[closed_def] >>
+  gvs[EXTENSION] >> rw[] >> metis_tac[]
+QED
+
+Theorem subst_funs_eq_subst:
+  ∀f. EVERY (λe. freevars e ⊆ set (MAP FST f)) (MAP SND f)
+  ⇒ subst_funs f = subst (FEMPTY |++ MAP (λ(v,e). (v,Letrec f e)) f)
+Proof
+  rw[] >> irule EQ_EXT >> rw[subst_funs_def, bind_def] >> gvs[] >>
+  gvs[flookup_fupdate_list] >> EVERY_CASE_TAC >> gvs[] >>
+  imp_res_tac ALOOKUP_MEM >> gvs[] >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> pairarg_tac >> gvs[]
+  >- (last_x_assum drule >> simp[]) >>
+  gvs[EXISTS_MEM, MEM_MAP]
+QED
+
 Theorem letrec_split_correct:
   letrec_rel letrec_split x y ∧ closed x ∧ closed y ⇒ x ≃ y
 Proof
@@ -399,7 +502,7 @@ Proof
     \\ simp [Once letrec_rel_cases] \\ rw []
     \\ fs [eval_wh_to_def]
     \\ unabbrev_all_tac
-    \\ fs [letrec_rel_split_subst])
+    \\ fs [letrec_rel_split_subst_single])
   THEN1
    (rename [‘App x1 x2’]
     \\ qpat_x_assum ‘letrec_rel c _ _’ mp_tac
@@ -415,11 +518,10 @@ Proof
       \\ Cases_on ‘eval_wh_to k x1’ \\ fs [])
     \\ Cases_on ‘eval_wh_to k x1’ \\ gvs []
     \\ rename [‘eval_wh_to (ck + k) g = wh_Closure _ e1’]
-    \\ ‘letrec_rel c (bind s x2 e) (bind s y e1)’ by
-      (
-      fs [bind_single_def] \\
-      cheat (* TODO *)
-      )
+    \\ ‘letrec_rel c (bind s x2 e) (bind s y e1)’ by (
+      rw[bind_single_def] >> unabbrev_all_tac >>
+      irule letrec_rel_split_subst >> simp[] >>
+      simp[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE] >> rw[])
     \\ Cases_on ‘k’ \\ fs []
     THEN1 (qexists_tac ‘0’ \\ fs [] >>
            IF_CASES_TAC >> simp[] >>
@@ -458,7 +560,20 @@ Proof
     THEN1
      (Cases_on ‘k’ \\ fs [eval_wh_to_def]
       THEN1 (qexists_tac ‘0’ \\ fs []) \\ fs [ADD1]
-      \\ ‘letrec_rel c (subst_funs f y) (subst_funs xs1 y1)’ by cheat (* TODO *)
+      \\ ‘letrec_rel c (subst_funs f y) (subst_funs xs1 y1)’ by (
+        dep_rewrite.DEP_REWRITE_TAC[subst_funs_eq_subst] >> gvs[] >>
+        unabbrev_all_tac >>
+        irule letrec_rel_split_subst >> simp[] >>
+        irule fmap_rel_FUPDATE_LIST_same >>
+        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+        simp[GSYM FST_THM] >>
+        gvs[LIST_REL_EL_EQN] >> rw[] >> gvs[EL_MAP] >>
+        last_assum drule >> rename1 `EL foo f` >>
+        qabbrev_tac `a = EL foo f` >> qabbrev_tac `b = EL foo xs1` >>
+        PairCases_on `a` >> PairCases_on `b` >> gvs[] >> rw[] >>
+        simp[Once letrec_rel_cases] >>
+        goal_assum (drule_at Any) >> qexists_tac `xs1` >> simp[] >>
+        gvs[LIST_REL_EL_EQN, EL_MAP])
       \\ first_x_assum drule \\ fs []
       \\ reverse impl_tac >- rw[] >>
          rw[subst_funs_def, bind_def] >> simp[closed_def] >>
@@ -475,7 +590,11 @@ Proof
        (fs [eval_wh_to_def] \\ rw []
         THEN1 (qexists_tac ‘0’ \\ fs [])
         \\ fs [] \\ last_x_assum irule
-        \\ reverse (rw[]) >- cheat (* TODO *) >>
+        \\ reverse (rw[])
+          >- (
+            dep_rewrite.DEP_REWRITE_TAC[subst_funs_eq_subst] >> gvs[] >>
+            cheat (* TODO issue here *)
+            ) >>
          rw[subst_funs_def, bind_def] >> simp[closed_def] >>
          once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
          dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >>
@@ -491,7 +610,11 @@ Proof
     \\ fs [eval_wh_to_def] \\ rw []
     THEN1 (qexists_tac ‘0’ \\ fs [])
     \\ fs [] \\ last_x_assum irule
-    \\ reverse (rw[]) >- cheat (* TODO - this is the interesting part *)
+    \\ reverse (rw[])
+       >- (
+         dep_rewrite.DEP_REWRITE_TAC[subst_funs_eq_subst] >> gvs[] >>
+         cheat (* TODO *)
+          )
        >- (
          rw[subst_funs_def, bind_def] >> simp[closed_def] >>
          once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
@@ -512,7 +635,15 @@ Proof
          dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
          conj_tac
          >- (
-           cheat (* TODO *)
+            unabbrev_all_tac >>
+            gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+            simp[IN_FRANGE_FLOOKUP, flookup_fupdate_list] >> rw[] >>
+            EVERY_CASE_TAC >> gvs[] >> imp_res_tac ALOOKUP_MEM >> gvs[] >>
+            pop_assum mp_tac >> simp[MEM_MAP, EXISTS_PROD] >> rw[] >>
+            rename1 `MEM (key, value) _` >>
+            simp[closed_def] >> gvs[EVERY_MEM] >>
+            first_x_assum irule >> simp[MEM_MAP, EXISTS_PROD] >>
+            irule_at Any OR_INTRO_THM1 >> goal_assum drule
            ) >>
          unabbrev_all_tac >> simp[FDOM_FUPDATE_LIST] >>
          simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -569,8 +700,29 @@ Proof
     \\ disj1_tac \\ metis_tac [])
   \\ reverse (rw[app_bisimilarity_eq])
     >- (
-      gvs[valid_split_def, MEM_MAP, PULL_EXISTS] >>
-      cheat (* TODO *)
+      gvs[valid_split_def, MEM_MAP, PULL_EXISTS, closed_def] >>
+      once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+      dep_rewrite.DEP_REWRITE_TAC[freevars_Lets] >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+      rw[]
+      >- (
+        gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD] >> rw[closed_def] >>
+        gvs[PULL_EXISTS] >>
+        `freevars p_2 ⊆ set (MAP FST xs)` by res_tac >>
+        gvs[SUBSET_DEF] >>
+        simp[FILTER_EQ_NIL, MEM_MAP, EXISTS_PROD, EVERY_MEM] >> rw[] >>
+        pop_assum mp_tac >> simp[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+        simp[FORALL_PROD] >> gvs[MEM_MAP, EXISTS_PROD] >>
+        rw[] >> metis_tac[]
+        ) >>
+      simp[SUBSET_DIFF_EMPTY, DIFF_SUBSET] >>
+      `set (MAP FST xs2) ∪ set (MAP FST xs1) = set (MAP FST xs)` by (
+        gvs[EXTENSION, MEM_MAP] >> metis_tac[]) >>
+      gvs[] >>
+      gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD] >>
+      gvs[EVERY_MEM] >> rw[] >>
+      first_x_assum irule >> simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
+      metis_tac[]
       ) >>
      irule exp_eq_closed_Lets_subst >>
      gvs[EVERY_MEM, MEM_MAP, EXTENSION, valid_split_def, PULL_EXISTS] >>
