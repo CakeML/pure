@@ -10,7 +10,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      sptreeTheory
 (* fromCakeML: *)
-open reachable_sptProofTheory
+open reachable_sptTheory
 
 val _ = new_theory "top_sort";
 
@@ -56,52 +56,9 @@ Termination
   \\ imp_res_tac partition_LENGTH \\ fs []
 End
 
-(******************** TODO move to CakeML? ********************)
-
-Theorem superdomain_rewrite:
-  ∀n tree.
-      n ∈ domain (superdomain tree) ⇔
-      ∃k aSet. lookup k tree = SOME aSet ∧ n ∈ domain aSet
-Proof
-  rw[] >> eq_tac >> rw[]
-  >- (irule superdomain_inverse_thm >> simp[]) >>
-  CCONTR_TAC >> drule superdomain_not_in_thm >>
-  simp[] >> goal_assum drule >> simp[]
-QED
-
-Theorem domain_spt_fold_union_eq:
-  ∀y tree. domain (spt_fold union y tree) = domain y ∪ domain (superdomain tree)
-Proof
-  rw[EXTENSION, domain_lookup, miscTheory.lookup_spt_fold_union_STRONG] >>
-  eq_tac >> rw[] >> simp[]
-  >- (imp_res_tac superdomain_thm >> gvs[SUBSET_DEF, domain_lookup]) >>
-  DISJ2_TAC >>
-  qspecl_then [`x`,`tree`] assume_tac superdomain_inverse_thm >>
-  gvs[domain_lookup] >> goal_assum drule >> simp[]
-QED
-
-Definition closure_spt_alt_def:
-  closure_spt_alt (reachable: num_set) tree =
-    let sets = inter tree reachable in
-    let nodes = spt_fold union LN sets in
-    if subspt nodes reachable then reachable
-    else closure_spt_alt (union reachable nodes) tree
-Termination
-  WF_REL_TAC `measure (λ (r,t). size (difference (superdomain t) r))` >> rw[] >>
-  gvs[subspt_domain, SUBSET_DEF] >>
-  irule size_diff_less >>
-  fs[domain_union, domain_difference, domain_spt_fold_union_eq,
-     GSYM MEMBER_NOT_EMPTY] >>
-  goal_assum drule >> simp[] >>
-  gvs[superdomain_rewrite, lookup_inter] >>
-  EVERY_CASE_TAC >> gvs[] >> goal_assum drule >> simp[]
-End
-
-(******************** END TODO ********************)
-
 Definition trans_clos_def:
   (* computes the transitive closure for each node given nexts *)
-  trans_clos nexts = map (λx. closure_spt_alt x nexts) nexts
+  trans_clos nexts = map (λx. closure_spt x nexts) nexts
 End
 
 Definition top_sort_def:
@@ -111,8 +68,6 @@ Definition top_sort_def:
     let reach = trans_clos nexts in
       top_sort_aux roots reach []
 End
-
-val _ = computeLib.add_funs [subspt_eq];
 
 Triviality top_sort_test:
    top_sort

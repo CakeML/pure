@@ -8,16 +8,15 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      sptreeTheory
 open top_sortTheory;
 (* fromCakeML: *)
-open reachable_sptProofTheory
+open reachable_sptTheory reachable_sptProofTheory
 
 val _ = new_theory "top_sortProof";
 
-Theorem needs_alt_def:
+Theorem needs_eq_is_adjacent:
   ∀x y tree.
-    needs x y tree ⇔
-    ∃aSetx. lookup x tree = SOME aSetx ∧ lookup y aSetx = SOME ()
+    needs x y tree ⇔ is_adjacent tree x y
 Proof
-  rw[needs_def] >> EVERY_CASE_TAC >> gvs[] >>
+  rw[needs_def, is_adjacent_def] >> EVERY_CASE_TAC >> gvs[] >>
   rename1 `lookup y z` >> Cases_on `lookup y z` >> gvs[]
 QED
 
@@ -183,64 +182,6 @@ Proof
   >> gvs[ALL_DISTINCT_APPEND] >> CCONTR_TAC >> metis_tac[]
 QED
 
-(******************** TODO move to CakeML? ********************)
-
-Theorem rtc_needs:
-  s ⊆ t ∧ (∀k. k ∈ t ⇒ ∀n. needs k n tree ⇒ n ∈ t) ⇒
-  ∀x y. (λa b. needs a b tree)꙳ x y ⇒ x ∈ s ⇒ y ∈ t
-Proof
-  strip_tac >> ho_match_mp_tac RTC_INDUCT_RIGHT1 >>
-  fs[SUBSET_DEF] >> metis_tac []
-QED
-
-Theorem closure_spt_alt_thm:
-  ∀ reachable tree closure (roots : num set).
-    closure_spt_alt reachable tree = closure ∧
-    roots ⊆ domain reachable ∧
-    (∀k. k ∈ domain reachable ⇒ ∃n. n ∈ roots ∧ (λa b. needs a b tree)꙳ n k)
-  ⇒ domain closure = {a | ∃n. n ∈ roots ∧ (λa b. needs a b tree)꙳ n a}
-Proof
-  recInduct closure_spt_alt_ind >> rw[] >>
-  once_rewrite_tac[closure_spt_alt_def] >> simp[] >>
-  IF_CASES_TAC
-  >- (
-    gvs[domain_difference, domain_spt_fold_union_eq, PULL_EXISTS,
-        EXTENSION, SUBSET_DEF, superdomain_rewrite, subspt_domain] >>
-    rw[] >> eq_tac >> rw[] >>
-    gvs[DISJ_EQ_IMP, PULL_EXISTS] >>
-    irule rtc_needs >>
-    irule_at Any SUBSET_REFL >> gvs[SUBSET_DEF] >>
-    goal_assum (drule_at Any) >> gvs[] >> rw[] >>
-    first_x_assum irule >>
-    gvs[lookup_inter, needs_alt_def, domain_lookup] >>
-    qexistsl_tac [`aSetx`,`k`] >> simp[]
-    ) >>
-  first_x_assum irule >> simp[] >> rw[]
-  >- (
-    gvs[domain_union, domain_spt_fold_union_eq,
-        superdomain_rewrite, lookup_inter] >>
-    EVERY_CASE_TAC >> gvs[] >> rename1 `lookup r reachable` >>
-    gvs[domain_lookup] >>
-    first_x_assum drule >> strip_tac >>
-    goal_assum drule >> gvs[] >>
-    irule (iffRL RTC_CASES2) >> DISJ2_TAC >>
-    goal_assum drule >> simp[needs_alt_def]
-    )
-  >- gvs[domain_union, SUBSET_DEF]
-QED
-
-Theorem closure_spt_alt_thm_strong:
-  ∀ tree start.
-    domain (closure_spt_alt start tree) =
-      {a | ∃n. n ∈ domain start ∧ (λa b. needs a b tree)꙳ n a}
-Proof
-  rw[] >> irule closure_spt_alt_thm >>
-  irule_at Any EQ_REFL >> simp[] >> rw[] >>
-  goal_assum drule >> gvs[Once RTC_CASES1]
-QED
-
-(******************** END TODO ********************)
-
 Triviality domain_lookup_num_set:
   ∀t k. k ∈ domain t ⇔ lookup k t = SOME ()
 Proof
@@ -249,21 +190,18 @@ QED
 
 Theorem trans_clos_correct:
   ∀nexts n m.
-    needs n m (trans_clos nexts) ∨ n = m ⇔ (RTC (λx y. needs x y nexts)) n m
+    needs n m (trans_clos nexts) ∨ n = m ⇔ is_reachable nexts n m
 Proof
-  rw[trans_clos_def, Once needs_alt_def] >>
+  rw[trans_clos_def, needs_eq_is_adjacent, is_adjacent_def] >>
   rw[lookup_map, PULL_EXISTS, GSYM domain_lookup_num_set] >>
-  eq_tac >> rw[] >> gvs[]
+  eq_tac >> rw[] >> gvs[is_reachable_def, closure_spt_thm]
   >- (
-    qspecl_then [`nexts`,`x`] assume_tac closure_spt_alt_thm_strong >> gvs[] >>
     irule (iffRL RTC_CASES1) >> DISJ2_TAC >>
-    goal_assum (drule_at Any) >> gvs[needs_alt_def, domain_lookup]
+    goal_assum (drule_at Any) >> gvs[is_adjacent_def, domain_lookup]
     )
   >- (
-    gvs[Once RTC_CASES1, needs_alt_def] >> DISJ1_TAC >>
-    qspecl_then [`nexts`,`aSetx`] assume_tac closure_spt_alt_thm_strong >>
-    gvs[] >> gvs[domain_lookup, needs_alt_def] >>
-    goal_assum drule >> simp[]
+    gvs[Once RTC_CASES1, is_adjacent_def] >> DISJ1_TAC >>
+    gvs[domain_lookup] >> goal_assum drule >> simp[]
     )
 QED
 
@@ -271,12 +209,12 @@ Theorem trans_clos_correct_imp:
   ∀nexts n m.
     (TC (λx y. needs x y nexts)) n m ⇒ needs n m (trans_clos nexts)
 Proof
-  simp[trans_clos_def] >> rw[] >> gvs[needs_alt_def] >>
+  simp[trans_clos_def, needs_eq_is_adjacent] >>
+  CONV_TAC (DEPTH_CONV ETA_CONV) >> rw[] >> gvs[is_adjacent_def] >>
   rw[lookup_map, PULL_EXISTS, GSYM domain_lookup_num_set] >>
-  gvs[Once TC_CASES1] >>
-  qspecl_then [`nexts`,`aSetx`] assume_tac closure_spt_alt_thm_strong >>
-  gvs[] >> gvs[domain_lookup, needs_alt_def] >>
-  goal_assum drule >> simp[] >>
+  gvs[Once TC_CASES1, closure_spt_thm, is_adjacent_def] >>
+  gvs[domain_lookup] >>
+  goal_assum drule >> simp[is_reachable_def] >>
   irule TC_RTC >> simp[]
 QED
 
@@ -285,12 +223,13 @@ Theorem trans_clos_TC_closed:
     (λa b. needs a b (trans_clos t))⁺ n m ⇒ needs n m (trans_clos t)
 Proof
   strip_tac >> ho_match_mp_tac TC_INDUCT >> simp[] >> rw[] >>
-  imp_res_tac trans_clos_correct >>
+  imp_res_tac trans_clos_correct >> gvs[is_reachable_def] >>
   rename1 `RTC _ l m` >>
   Cases_on `l = m` >> gvs[] >> Cases_on `n = l` >> gvs[] >>
   gvs[RTC_CASES_TC] >>
   irule trans_clos_correct_imp >>
-  irule (TC_RULES |> SPEC_ALL |> CONJUNCT2) >>
+  irule (TC_RULES |> SPEC_ALL |> CONJUNCT2) >> gvs[needs_eq_is_adjacent] >>
+  CONV_TAC (DEPTH_CONV ETA_CONV) >>
   goal_assum drule >> simp[]
 QED
 

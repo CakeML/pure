@@ -794,16 +794,6 @@ Proof
   metis_tac[eval_eq_imp_app_similarity]
 QED
 
-Theorem App_Lam_bisim:
-  closed (Lam x body) ∧ closed arg ⇒
-  App (Lam x body) arg ≃ subst x arg body
-Proof
-  rw [] \\ match_mp_tac eval_IMP_app_bisimilarity
-  \\ fs [eval_Let,bind_single_def]
-  \\ match_mp_tac IMP_closed_subst
-  \\ fs [] \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF]
-QED
-
 Definition eval_to_sim_def:
   eval_to_sim rel ⇔
     ∀e1 k e2.
