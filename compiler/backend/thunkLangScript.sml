@@ -19,18 +19,19 @@ Type vname = “:string”;
 Type op = “:pure_exp$op”;
 
 Datatype:
-  exp = Var vname                        (* variable                *)
-      | Prim op (exp list)               (* primitive operations    *)
-      | App exp exp                      (* function application    *)
-      | Lam vname exp                    (* lambda                  *)
-      | Letrec ((vname # exp) list) exp  (* mutually recursive exps *)
-      | Delay exp                        (* creates a Thunk value   *)
-      | Force exp                        (* evaluates a Thunk       *)
+  exp = Var vname                                (* variable                *)
+      | Prim op (exp list)                       (* primitive operations    *)
+      | App exp exp                              (* function application    *)
+      | Lam vname exp                            (* lambda                  *)
+      | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
+      | Delay exp                                (* creates a Thunk value   *)
+      | Force exp                                (* evaluates a Thunk       *)
 End
 
 Datatype:
   v = Constructor string (v list)
     | Closure vname ((vname # v) list) exp
+    | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
     | Thunk ((vname # v) list) exp
     | Atom lit
 End
@@ -39,6 +40,11 @@ Datatype:
   err = Type_error
       | Diverge
 End
+
+(* TODO
+ * - Declare data type with e.g. Error | Result
+ *   for readability
+ *)
 
 Definition sum_bind_def:
   sum_bind m f =
@@ -86,6 +92,33 @@ Definition dest_Closure_def:
   dest_Closure _ = fail Type_error
 End
 
+Definition dest_Thunk_def:
+  dest_Thunk (Thunk env x) = return (env, x) ∧
+  dest_Thunk _ = fail Type_error
+End
+
+Definition lookup_var_def:
+  lookup_var env x =
+    case ALOOKUP env x of
+      NONE => fail Type_error
+    | SOME v => return v
+End
+
+Definition dest_Recclosure_def:
+  dest_Recclosure (Recclosure funs env fn) = return (funs, env, fn) ∧
+  dest_Recclosure _ = fail Type_error
+End
+
+Definition dest_anyClosure_def:
+  dest_anyClosure v =
+    dest_Closure v ++
+    do
+      (funs, env, fn) <- dest_Recclosure v;
+      (var, bod) <- lookup_var funs fn ;
+      return (var, bind_funs funs env, bod)
+    od
+End
+
 (* TODO
  * I can't figure out what “get_lits” should do in case we come across a
  * thunk, but it might get clear when we think about how to compile pureLang
@@ -127,7 +160,8 @@ Definition do_prim_def:
                  fail Type_error
            | _ => fail Type_error)
     | Lit l => if vs = [] then return (Atom l) else fail Type_error
-    | If =>
+    (* TODO Make If an expression *)
+    (*| If =>
         (if LENGTH vs ≠ 3 then
            fail Type_error
          else if HD vs = Constructor "True" [] then
@@ -135,7 +169,7 @@ Definition do_prim_def:
          else if HD vs = Constructor "False" [] then
            return (EL 2 vs)
          else
-           fail Type_error)
+           fail Type_error) *)
     | AtomOp x =>
         do
           xs <- get_lits vs;
@@ -145,18 +179,27 @@ Definition do_prim_def:
         od
 End
 
-(*
- * Another semantics for “Force”:
- * - If we get a thunk value, we evaluate its code
- * - If we don't get a thunk value, we just return it
- *
- * (This is the only place in the semantics where we deal with
- * thunks.)
- *
+Definition bind_funs_def:
+  bind_funs funs env =
+    MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env
+End
+
+(* TODO
+ * - Overload fail Type_error and fail Diverge?
  *)
 
+Definition can_def:
+  can f x =
+    case f x of
+      INL _ => F
+    | INR _ => T
+End
+
 Definition eval_to_def:
-  eval_to k env (Var n) = fail Type_error ∧
+  eval_to k env (Var n) =
+    (case ALOOKUP env n of
+       SOME v => return v
+     | NONE => fail Type_error) ∧
   eval_to k env (Prim op xs) =
     (if k = 0n then fail Diverge else
        do
@@ -168,24 +211,21 @@ Definition eval_to_def:
        do
          fv <- eval_to (k - 1) env f;
          xv <- eval_to (k - 1) env x;
-         (s, env, body) <- dest_Closure fv ;
+         (s, env, body) <- dest_anyClosure fv ;
          eval_to (k - 1) ((s, xv)::env) body
        od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
-       let env' = ARB (* Turn Lam-exps into Closures.
-                         Turn other exps into Thunks.
-                         The crux is with the Closure envs. *) in
-         eval_to (k - 1) env' x) ∧
+       eval_to (k - 1) (bind_funs funs env) x) ∧
   eval_to k env (Delay x) = return (Thunk env x) ∧
   eval_to k env (Force x) =
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) env x;
-         case v of
-           Thunk env body => eval_to (k - 1) env body
-         | _ => return v
+         (env', body) <- dest_Thunk v;
+         w <- eval_to (k - 1) env' body;
+         if can dest_Thunk w then fail Type_error else return w
        od)
 End
 
