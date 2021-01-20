@@ -88,6 +88,18 @@ Definition map_def:
     od
 End
 
+Definition can_def:
+  can f x =
+    case f x of
+      INL _ => F
+    | INR _ => T
+End
+
+Definition bind_funs_def:
+  bind_funs funs env =
+    MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env
+End
+
 Definition dest_Closure_def:
   dest_Closure (Closure s env x) = return (s, env, x) ∧
   dest_Closure _ = fail Type_error
@@ -164,21 +176,9 @@ Definition do_prim_def:
         od
 End
 
-Definition bind_funs_def:
-  bind_funs funs env =
-    MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env
-End
-
 (* TODO
  * - Overload fail Type_error and fail Diverge?
  *)
-
-Definition can_def:
-  can f x =
-    case f x of
-      INL _ => F
-    | INR _ => T
-End
 
 Definition eval_to_def:
   eval_to k env (Var n) = lookup_var env n ∧
