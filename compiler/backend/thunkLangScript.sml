@@ -51,18 +51,25 @@ Definition sum_ignore_bind_def:
   sum_ignore_bind m x = sum_bind m (K x)
 End
 
+Definition sum_choice_def:
+  sum_choice (m1: 'a + 'b) (m2: 'a + 'b) =
+    case m1 of
+      INL _ => m2
+    | INR _ => m1
+End
+
 val sum_monadinfo : monadinfo = {
   bind = “sum_bind”,
   ignorebind = SOME “sum_ignore_bind”,
-  unit = “INR”,
-  fail = SOME “INL”,
-  choice = NONE,
+  unit = “INR: 'b -> 'a + 'b”,
+  fail = SOME “INL: 'a -> 'a + 'b”,
+  choice = SOME “sum_choice”,
   guard = NONE
   };
 
 val _ = declare_monad ("sum", sum_monadinfo);
-val _ = enable_monad "sum";
 val _ = enable_monadsyntax ();
+val _ = enable_monad "sum";
 
 Definition map_def:
   map f [] = return [] ∧
