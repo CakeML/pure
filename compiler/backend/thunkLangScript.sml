@@ -196,10 +196,7 @@ Definition can_def:
 End
 
 Definition eval_to_def:
-  eval_to k env (Var n) =
-    (case ALOOKUP env n of
-       SOME v => return v
-     | NONE => fail Type_error) ∧
+  eval_to k env (Var n) = lookup_var env n ∧
   eval_to k env (Prim op xs) =
     (if k = 0n then fail Diverge else
        do
