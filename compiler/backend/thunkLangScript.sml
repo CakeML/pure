@@ -28,7 +28,6 @@ Datatype:
       | Force exp                        (* evaluates a Thunk       *)
 End
 
-
 Datatype:
   v = Constructor string (v list)
     | Closure vname ((vname # v) list) exp
@@ -78,38 +77,6 @@ End
 Definition dest_Closure_def:
   dest_Closure (Closure s env x) = return (s, env, x) ∧
   dest_Closure _ = fail Type_error
-End
-
-(* TODO
- *
- * What is the semantics of Force?
- *
- * - Letrec is wrong, right? I'm not even sure what it means to force
- *   a bunch of declarations. If we can't force the bodies of the expressions
- *   then forcing needs to go into eval.
- *
- * - Here are some alternatives how this could work:
- *   1 Force (Delay x) = x
- *   2 Force (foo_notdelay (bar_notdelay (baz_notdelay ... (Delay x)))) = x
- *   3 As it is, Force x = remove all Delays in x
- *
- *   #1 Seems ok, I guess
- *   #2 Seems a bit ad-hoc
- *   #3 Seems ok, I guess
- *)
-Definition force_def:
-  force (App f x) = App (force f) (force x) ∧
-  force (Prim op xs) = Prim op (MAP force xs) ∧
-  force (Lam s x) = (Lam s (force x)) ∧
-  (* I'm not so sure about this one: *)
-  force (Letrec funs x) = Letrec (MAP (λ(v,x). (v, force x)) funs) x ∧
-  force (Delay x) = force x ∧
-  force (Force x) = force x
-Termination
-  WF_REL_TAC ‘measure exp_size’ \\ rw []
-  \\ rename1 ‘MEM _ xs’
-  \\ Induct_on ‘xs’ \\ rw []
-  \\ fs [definition "exp_size_def"]
 End
 
 (* TODO
@@ -175,6 +142,16 @@ Definition do_prim_def:
         od
 End
 
+(*
+ * Another semantics for “Force”:
+ * - If we get a thunk value, we evaluate its code
+ * - If we don't get a thunk value, we just return it
+ *
+ * (This is the only place in the semantics where we deal with
+ * thunks.)
+ *
+ *)
+
 Definition eval_to_def:
   eval_to k env (Var n) = fail Type_error ∧
   eval_to k env (Prim op xs) =
@@ -200,10 +177,20 @@ Definition eval_to_def:
          eval_to (k - 1) env' x) ∧
   eval_to k env (Delay x) = return (Thunk env x) ∧
   eval_to k env (Force x) =
-    if k = 0 then
-      fail Diverge
-    else
-      eval_to (k - 1) env (force x)
+    (if k = 0 then fail Diverge else
+       do
+         v <- eval_to (k - 1) env x;
+         case v of
+           Thunk env body => eval_to (k - 1) env body
+         | _ => return v
+       od)
+End
+
+Definition eval_def:
+  eval env x =
+    case some k. eval_to k env x ≠ INL Diverge of
+      NONE => fail Diverge
+    | SOME k => eval_to k env x
 End
 
 val _ = export_theory ();
