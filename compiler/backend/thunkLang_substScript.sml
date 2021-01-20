@@ -72,10 +72,12 @@ Definition dest_Thunk_def:
   dest_Thunk _ = fail Type_error
 End
 
+(* TODO Define. *)
 Definition bind_def:
   bind name val bod = Var ""
 End
 
+(* TODO Define. *)
 Definition bind_funs_def:
   bind_funs funs bod = Var ""
 End
