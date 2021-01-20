@@ -121,18 +121,14 @@ Definition do_prim_def:
            | _ => fail Type_error)
     | Lit l => if vs = [] then return (Atom l) else fail Type_error
     | If =>
-        (if LENGTH vs ≠ 3 then fail Type_error else
-          case HD vs of
-            Constructor t ys =>
-              if ys = [] then
-                if t = "True" then
-                  return (EL 1 vs)
-                else if t = "False" then
-                  return (EL 2 vs)
-                else fail Type_error
-              else
-                fail Type_error
-          | _ => fail Type_error)
+        (if LENGTH vs ≠ 3 then
+           fail Type_error
+         else if HD vs = Constructor "True" [] then
+           return (EL 1 vs)
+         else if HD vs = Constructor "False" [] then
+           return (EL 2 vs)
+         else
+           fail Type_error)
     | AtomOp x =>
         do
           xs <- get_lits vs;
