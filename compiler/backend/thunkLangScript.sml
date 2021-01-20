@@ -24,6 +24,7 @@ Datatype:
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
+      | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* creates a Thunk value   *)
       | Force exp                                (* evaluates a Thunk       *)
 End
@@ -119,12 +120,6 @@ Definition dest_anyClosure_def:
     od
 End
 
-(* TODO
- * I can't figure out what “get_lits” should do in case we come across a
- * thunk, but it might get clear when we think about how to compile pureLang
- * into thunkLang. Probably thunks are forbidden here.
- *)
-
 Definition get_lits_def:
   get_lits [] = return [] ∧
   get_lits (x::xs) =
@@ -160,16 +155,6 @@ Definition do_prim_def:
                  fail Type_error
            | _ => fail Type_error)
     | Lit l => if vs = [] then return (Atom l) else fail Type_error
-    (* TODO Make If an expression *)
-    (*| If =>
-        (if LENGTH vs ≠ 3 then
-           fail Type_error
-         else if HD vs = Constructor "True" [] then
-           return (EL 1 vs)
-         else if HD vs = Constructor "False" [] then
-           return (EL 2 vs)
-         else
-           fail Type_error) *)
     | AtomOp x =>
         do
           xs <- get_lits vs;
@@ -212,6 +197,17 @@ Definition eval_to_def:
          eval_to (k - 1) ((s, xv)::env) body
        od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
+  eval_to k env (If x y z) =
+    (if k = 0 then fail Diverge else
+       do
+         v <- eval_to (k - 1) env x;
+         if v = Constructor "True" [] then
+           eval_to (k - 1) env y
+         else if v = Constructor "False" [] then
+           eval_to (k - 1) env z
+         else
+           fail Type_error
+       od) ∧
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (bind_funs funs env) x) ∧
