@@ -1,22 +1,38 @@
 (*
-  A substitution-based semantics for thunkLang.
+   thunkLang.
+   ~~~~~~~~~~
 
-  (The semantics in [thunkLang_envScript.sml] is environment-based.)
-
+   thunkLang is the next language in the compiler after pureLang.
+   - It has a call-by-value semantics.
+   - It extends the pureLang syntax with explicit syntax for delaying and
+     forcing computations (“Delay” and “Force”) and “Thunk” values.
+   - This version has a substitution-based semantics. See
+     [thunkLangScript.sml] for an environment-based version.
  *)
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory;
-open thunkLangTheory;
+     pure_expTheory thunkLang_primitivesTheory;
 
 val _ = new_theory "thunkLang_subst";
 
 Datatype:
+  exp = Var vname                                (* variable                *)
+      | Prim op (exp list)                       (* primitive operations    *)
+      | App exp exp                              (* function application    *)
+      | Lam vname exp                            (* lambda                  *)
+      | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
+      | If exp exp exp                           (* if-then-else            *)
+      | Delay exp                                (* creates a Thunk value   *)
+      | Force exp                                (* evaluates a Thunk       *)
+      | Value v;                                 (* for substitution        *)
+
   v = Constructor string (v list)
     | Closure vname exp
     | Thunk exp
     | Atom lit
 End
+
+val exp_size_def = fetch "-" "exp_size_def";
 
 Definition get_lits_def:
   get_lits [] = return [] ∧
@@ -32,6 +48,7 @@ Definition do_prim_def:
   do_prim op vs =
     case op of
       Cons s => return (Constructor s vs)
+    | If => fail Type_error
     | Proj s i =>
         (if LENGTH vs ≠ 1 then fail Type_error else
            case HD vs of
@@ -72,17 +89,70 @@ Definition dest_Thunk_def:
   dest_Thunk _ = fail Type_error
 End
 
-(* TODO Define. *)
-Definition bind_def:
-  bind name val bod = Var ""
+Definition freevars_def:
+  freevars (Var n) = {n} ∧
+  freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
+  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
+  freevars (App x y) = freevars x ∪ freevars y ∧
+  freevars (Lam s b)   = freevars b DIFF {s} ∧
+  freevars (Letrec f x) =
+    freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
+  freevars (Delay x) = freevars x ∧
+  freevars (Force x) = freevars x ∧
+  freevars (Value v) = ∅ (* TODO Think about this later *)
+Termination
+  WF_REL_TAC ‘measure exp_size’
+  \\ fs [] \\ gen_tac
+  \\ Induct \\ rw []
+  \\ res_tac
+  \\ fs [exp_size_def]
 End
 
-(* TODO Define. *)
-Definition bind_funs_def:
-  bind_funs funs bod = Var ""
+Definition closed_def:
+  closed e ⇔ freevars e = ∅
+End
+
+Definition subst_def:
+  subst m (Var s) =
+    (case FLOOKUP m s of
+       NONE => Var s
+     | SOME x => x) ∧
+  subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
+  subst m (If x y z) =
+    If (subst m x) (subst m y) (subst m z) ∧
+  subst m (App x y) = App (subst m x) (subst m y) ∧
+  subst m (Lam s x) = Lam s (subst (m \\ s) x) ∧
+  subst m (Letrec f x) =
+    (let m1 = FDIFF m (set (MAP FST f ++ MAP (FST o SND) f)) in
+      Letrec (MAP (λ(f,x,e). (f,x,subst m1 e)) f) (subst m1 x)) ∧
+  subst m (Delay x) = Delay (subst m x) ∧
+  subst m (Force x) = Force (subst m x) ∧
+  subst m (Value v) = Value v (* TODO Think about this later *)
+Termination
+  WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
+  \\ fs [exp_size_def]
+End
+
+Overload subst1 = “λname v e. subst (FEMPTY |+ (name,v)) e”;
+
+Definition bind_def:
+  bind m e =
+    if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then
+      return (subst m e)
+    else
+      fail Type_error
+End
+
+Overload bind1 = “λname v e. bind (FEMPTY |+ (name,v)) e”;
+
+Definition subst_funs_def:
+  subst_funs f = bind (FEMPTY |++ (MAP (λ(g,v,x). (g, Letrec f x)) f))
 End
 
 Definition eval_to_def:
+  eval_to k (Value v) = return v ∧
   eval_to k (Var n) = fail Type_error ∧
   eval_to k (Prim op xs) =
     (if k = 0n then fail Diverge else
@@ -96,7 +166,8 @@ Definition eval_to_def:
          fv <- eval_to (k - 1) f;
          xv <- eval_to (k - 1) x;
          (s, body) <- dest_Closure fv ;
-         eval_to (k - 1) (bind s xv body)
+         y <- bind1 s (Value xv) body;
+         eval_to (k - 1) y
        od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
   eval_to k (If x y z) =
@@ -112,7 +183,10 @@ Definition eval_to_def:
        od) ∧
   eval_to k (Letrec funs x) =
     (if k = 0 then fail Diverge else
-       eval_to (k - 1) (bind_funs funs x)) ∧
+       do
+         y <- subst_funs funs x;
+         eval_to (k - 1) y
+       od) ∧
   eval_to k (Delay x) = return (Thunk x) ∧
   eval_to k (Force x) =
     (if k = 0 then fail Diverge else
