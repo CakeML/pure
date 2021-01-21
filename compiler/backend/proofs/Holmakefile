@@ -1,5 +1,6 @@
 INCLUDES = .. \
            ../../../language \
            ../../../meta-theory \
-           ../../../../cakeml/basis/pure \
-           ../../../../cakeml/compiler/backend/reachability/proofs
+           $(CAKEMLDIR)/basis/pure \
+           $(CAKEMLDIR)/compiler/backend/reachability \
+           $(CAKEMLDIR)/compiler/backend/reachability/proofs
