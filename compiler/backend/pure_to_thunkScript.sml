@@ -10,6 +10,12 @@ open pure_expTheory thunkLang_substTheory;
 
 val _ = new_theory "pure_to_thunk";
 
+(* TODO:
+ * Force needs to be inserted somewhere. One possible candidate is at operator
+ * application (when the value of an operation on primitives is requested, we
+ * need to evaluate all its arguments fully).
+ *)
+
 Definition compile_exp_def:
   compile_exp (Var n : pure_exp$exp) = thunkLang_subst$Var n ∧
   compile_exp (Prim op xs) =
@@ -18,7 +24,7 @@ Definition compile_exp_def:
           (compile_exp (EL 1 xs))
           (compile_exp (EL 2 xs))
      else
-       Prim op (MAP compile_exp xs)) ∧
+       Prim op (MAP (λx. Force (compile_exp x)) xs)) ∧
   compile_exp (App x y) = App (compile_exp x) (Delay (compile_exp y)) ∧
   compile_exp (Lam v x) = Lam v (compile_exp x) ∧
   compile_exp (Letrec funs x) =
