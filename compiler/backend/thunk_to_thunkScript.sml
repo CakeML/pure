@@ -20,7 +20,7 @@ Definition compile_exp_def:
     If (compile_exp x) (compile_exp y) (compile_exp z) ∧
   compile_exp (Delay x) = Delay (compile_exp x) ∧
   compile_exp (Force x) = Force (compile_exp x) ∧
-  compile_exp (Value v) = Var ""
+  compile_exp (Value v) = Lam "%dummy%" (Var "%dummy%")
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ rw []
   \\ rename1 ‘MEM _ xs’
