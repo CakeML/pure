@@ -169,5 +169,27 @@ Definition eval_def:
     | SOME k => eval_to k env x
 End
 
+Definition freevars_def:
+  freevars (Var n) = {n} ∧
+  freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
+  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
+  freevars (App x y) = freevars x ∪ freevars y ∧
+  freevars (Lam s b)   = freevars b DIFF {s} ∧
+  freevars (Letrec f x) =
+    freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
+  freevars (Delay x) = freevars x ∧
+  freevars (Force x) = freevars x
+Termination
+  WF_REL_TAC ‘measure exp_size’
+  \\ fs [] \\ gen_tac
+  \\ Induct \\ rw []
+  \\ res_tac
+  \\ fs [fetch "-" "exp_size_def"]
+End
+
+Definition closed_def:
+  closed e ⇔ freevars e = ∅
+End
+
 val _ = export_theory ();
 
