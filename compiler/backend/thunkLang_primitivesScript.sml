@@ -31,11 +31,19 @@ Definition sum_choice_def:
     | INR _ => m1
 End
 
+Definition return_def[simp]:
+  return = INR
+End
+
+Definition fail_def[simp]:
+  fail = INL
+End
+
 val sum_monadinfo : monadinfo = {
   bind = “sum_bind”,
   ignorebind = SOME “sum_ignore_bind”,
-  unit = “INR: 'b -> 'a + 'b”,
-  fail = SOME “INL: 'a -> 'a + 'b”,
+  unit = “return”,
+  fail = SOME “fail”,
   choice = SOME “sum_choice”,
   guard = NONE
   };
