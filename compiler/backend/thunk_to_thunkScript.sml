@@ -10,9 +10,10 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 val _ = new_theory "thunk_to_thunk";
 
 Definition compile_exp_def:
-  compile_exp (Var n) = Var n ∧
+  compile_exp (Var n: thunkLang_subst$exp) = Var n : thunkLang$exp ∧
   compile_exp (Prim op xs) = Prim op (MAP compile_exp xs) ∧
   compile_exp (App x y) = App (compile_exp x) (compile_exp y) ∧
+  compile_exp (Lam s x) = Lam s (compile_exp x) ∧
   compile_exp (Letrec f x) =
     Letrec (MAP (λ(fn, vn, x). (fn, vn, compile_exp x)) f) (compile_exp x) ∧
   compile_exp (If x y z) =
