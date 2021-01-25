@@ -693,6 +693,22 @@ Proof
   \\ fs [eval_wh_thm,closed_def]
 QED
 
+Theorem open_bisimilarity_suff:
+  (∀f. FDOM f = freevars e1 ∪ freevars e2 ⇒ bind f e1 ≃ bind f e2) ⇒
+  open_bisimilarity (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[open_bisimilarity_def] >> rw[bind_def] >>
+  qabbrev_tac `g = DRESTRICT f (freevars e1 ∪ freevars e2)` >>
+  `subst f e1 = subst g e1` by (
+    unabbrev_all_tac >> once_rewrite_tac[subst_FDIFF] >> simp[INTER_UNION]) >>
+  `subst f e2 = subst g e2` by (
+    unabbrev_all_tac >> once_rewrite_tac[subst_FDIFF] >> simp[INTER_UNION]) >>
+  last_x_assum (qspec_then `g` mp_tac) >> unabbrev_all_tac >>
+  simp[FDOM_DRESTRICT] >> impl_tac
+  >- (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+  rw[bind_def] >> gvs[FLOOKUP_DRESTRICT] >> metis_tac[]
+QED
+
 (* (Tra) in the paper has an amusing typo that renders the corresponding
    proposition a tautology *)
 Theorem open_similarity_transitive:

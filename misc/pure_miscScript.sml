@@ -127,6 +127,12 @@ Proof
   gvs[DOMSUB_NOT_IN_DOM]
 QED
 
+Theorem FDIFF_FDIFF:
+  ∀fm s1 s2. FDIFF (FDIFF fm s1) s2 = FDIFF fm (s1 ∪ s2)
+Proof
+  rw[FDIFF_def, DRESTRICT_DRESTRICT, fmap_eq_flookup, FLOOKUP_DRESTRICT]
+QED
+
 
 (******************** Functions/Pairs ********************)
 
@@ -141,6 +147,13 @@ Theorem FST_THM:
   FST = λ(x,y). x
 Proof
   irule EQ_EXT >> Cases >> simp[]
+QED
+
+Theorem SND_THM:
+  SND = λ(x,y). y
+Proof
+  irule EQ_EXT >> rw[] >>
+  PairCases_on `x` >> rw[]
 QED
 
 Theorem CURRY_thm:

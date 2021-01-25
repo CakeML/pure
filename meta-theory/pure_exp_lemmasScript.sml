@@ -593,6 +593,16 @@ Proof
   gvs[closed_def, DELETE_DEF, SUBSET_DIFF_EMPTY]
 QED
 
+Theorem closed_subst_all_freevars:
+  ∀m e.
+    (∀v. v ∈ FRANGE m ⇒ closed v) ∧
+    closed (subst m e)
+  ⇒ freevars e ⊆ FDOM m
+Proof
+  rw[] >> imp_res_tac freevars_subst >>
+  gvs[closed_def, EXTENSION, NIL_iff_NOT_MEM, SUBSET_DEF, DISJ_EQ_IMP]
+QED
+
 Theorem closed_freevars_subst:
   ∀s x y.
     closed x ∧ set(freevars y) ⊆ {s} ⇒
