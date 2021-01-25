@@ -978,7 +978,40 @@ Proof
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
       CASE_TAC >> gvs[]
       >- (
-        cheat (* TODO *)
+        qsuff_tac `get_atoms (MAP (λa. eval_wh_to (k − 1) a) ys) = NONE`
+        >- (rw[] >> qexists_tac `0` >> simp[]) >>
+        gvs[get_atoms_NONE_eq] >> imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+        csimp[EL_MAP] >> gvs[EL_MAP] >>
+        map_every (fn pat => qpat_x_assum pat mp_tac)
+          [`∀e1. MEM e1 _ ⇒ _`, `n < _`,`eval_wh_to _ _ = _`, `∀m. m < _ ⇒ _`,
+           `EVERY _ _`, `EVERY _ _`, `LENGTH _ = _`] >>
+        qid_spec_tac `n` >>
+        qpat_x_assum `LIST_REL _ _ _` mp_tac >>
+        map_every qid_spec_tac [`ys`,`xs`] >>
+        ho_match_mp_tac LIST_REL_ind >> rw[] >>
+        Cases_on `n` >> gvs[]
+        >- (
+          qexists_tac `0` >> gvs[] >>
+          first_x_assum (qspec_then `h1` mp_tac) >> simp[] >>
+          disch_then drule_all >> rw[] >>
+          CCONTR_TAC >> drule eval_wh_inc >>
+          disch_then (qspec_then `ck + k - 1` mp_tac) >> simp[]
+          ) >>
+        rename1 `n < _` >>
+        Cases_on `eval_wh_to (k - 1) h2 = wh_Diverge`
+        >- (qexists_tac `0` >> simp[]) >>
+        last_x_assum (qspec_then `n` mp_tac) >> simp[IMP_CONJ_THM] >>
+        impl_tac
+        >- (rw[] >> last_x_assum (qspec_then `SUC m` mp_tac) >> simp[]) >>
+        strip_tac >> rename1 `l < _` >>
+        qexists_tac `SUC l` >> simp[] >> rw[] >>
+        Cases_on `m` >> gvs[] >>
+        last_x_assum (qspec_then `0` assume_tac) >> gvs[] >>
+        first_x_assum (qspec_then `h1` mp_tac) >> simp[] >>
+        disch_then drule_all >> strip_tac >>
+        drule eval_wh_to_agree >>
+        disch_then (qspec_then `ck + k - 1` mp_tac) >> rw[] >>
+        metis_tac[]
         ) >>
       Cases_on `x` >> gvs[]
       >- (
@@ -986,12 +1019,76 @@ Proof
         qsuff_tac
           `∃ck. get_atoms (MAP (λa. eval_wh_to (ck + k − 1) a) ys) = SOME NONE`
         >- (rw[] >> qexists_tac `ck` >> simp[]) >>
-        simp[get_atoms_SOME_NONE_eq] >>
-        gvs[LIST_REL_EL_EQN] >> goal_assum drule >> simp[EL_MAP] >>
-        cheat (* TODO *)
+        simp[get_atoms_SOME_NONE_eq] >> csimp[EL_MAP] >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[] >> goal_assum drule >>
+        map_every (fn pat => qpat_x_assum pat mp_tac)
+          [`∀e1. MEM e1 _ ⇒ _`, `n < _`,` ∀a. eval_wh_to _ _ ≠ _`,
+           `∀m. m ≤ _ ⇒ _`, `EVERY _ _`, `EVERY _ _`, `LENGTH _ = _`] >>
+        qid_spec_tac `n` >>
+        qpat_x_assum `LIST_REL _ _ _` mp_tac >>
+        map_every qid_spec_tac [`ys`,`xs`] >>
+        ho_match_mp_tac LIST_REL_ind >> rw[] >>
+        Cases_on `n` >> gvs[]
+        >- (
+          pop_assum (qspec_then `h1` mp_tac) >> simp[] >>
+          disch_then drule_all >> strip_tac >>
+          qexists_tac `ck` >>
+          Cases_on `eval_wh_to (k - 1) h1` >> gvs[]
+          ) >>
+        rename1 `SUC n` >>
+        last_x_assum (qspec_then `n` mp_tac) >> simp[] >> impl_tac
+        >- (rw[] >> last_x_assum (qspec_then `SUC m` mp_tac) >> simp[]) >>
+        strip_tac >>
+        first_x_assum (qspec_then `h1` mp_tac) >> simp[] >>
+        disch_then drule_all >> strip_tac >>
+        qexists_tac `ck + ck'` >> rw[]
+        >- (
+          qpat_x_assum `∀a. _ ≠ wh_Atom a` (qspec_then `a` mp_tac) >>
+          first_x_assum (qspec_then `n` mp_tac) >> simp[] >> strip_tac >>
+          drule eval_wh_inc >>
+          disch_then (qspec_then `ck + (ck' + k) - 1` assume_tac) >> gvs[]
+          ) >>
+        Cases_on `m` >> gvs[]
+        >- (
+          qspecl_then [`ck + (ck' + k) - 1`,`h2`,`ck' + k - 1`]
+            assume_tac eval_wh_inc >>
+          gvs[] >>
+          full_case_tac >> gvs[] >>
+          last_x_assum (qspec_then `0` assume_tac) >> gvs[]
+          )
+        >- (
+          rename1 `m ≤ _` >>
+          first_x_assum drule >> strip_tac >>
+          drule eval_wh_inc >>
+          disch_then (qspec_then `ck + (ck' + k) - 1` assume_tac) >> gvs[]
+          )
         ) >>
       rename1 `SOME (SOME as)` >>
-      cheat (* TODO *)
+      qsuff_tac
+        `∃ck. get_atoms (MAP (λa. eval_wh_to (ck + k − 1) a) ys) = SOME (SOME as)`
+      >- (rw[] >> qexists_tac `ck` >> simp[] >> CASE_TAC >> gvs[]) >>
+      gvs[get_atoms_SOME_SOME_eq, EVERY2_MAP] >>
+      map_every (fn pat => qpat_x_assum pat mp_tac)
+        [`∀e1. MEM e1 _ ⇒ _`, `LIST_REL _ _ _`, `EVERY _ _`, `EVERY _ _`] >>
+      qid_spec_tac `as` >>
+      qpat_x_assum `LIST_REL _ _ _` mp_tac >>
+      map_every qid_spec_tac [`ys`,`xs`] >>
+      ho_match_mp_tac LIST_REL_strongind >> rw[] >>
+      rename1 `LIST_REL _ _ as` >>
+      qsuff_tac
+        `∃ck. LIST_REL (λa a'. eval_wh_to (ck + k − 1) a = wh_Atom a') ys as`
+      >- (
+        pop_assum (qspec_then `h1` mp_tac) >> simp[] >>
+        disch_then drule_all >> rw[] >>
+        qexists_tac `ck + ck'` >>
+        qspecl_then [`ck + ck' + k - 1`,`h2`,`ck + k - 1`]
+          assume_tac eval_wh_inc >>
+        gvs[LIST_REL_EL_EQN] >> rw[] >>
+        qspecl_then [`ck + ck' + k - 1`,`EL n ys`,`ck' + k - 1`]
+          assume_tac eval_wh_inc >>
+        gvs[]
+        ) >>
+      last_x_assum irule >> simp[]
       )
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
@@ -1073,6 +1170,45 @@ Proof
      res_tac >> fs[] >>
      gvs[EVERY_MEM, MEM_MAP] >>
      metis_tac[]
+QED
+
+Theorem valid_split_thm_alt:
+  valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ⇒
+  Letrec xs x ≃
+  subst (FEMPTY |++ MAP (λ(a,A). (a, Letrec xs A)) xs1) (Letrec xs2 x)
+Proof
+  rw[] >> irule app_bisimilarity_trans >>
+  irule_at Any valid_split_thm >> goal_assum drule >> simp[] >>
+  simp[app_bisimilarity_eq] >>
+  irule_at Any (iffLR exp_eq_sym) >>
+  irule_at Any exp_eq_closed_Lets_subst >>
+  `freevars (Letrec xs2 x) ⊆ set (MAP FST xs1)` by (
+    simp[DIFF_SUBSET] >> rw[]
+    >- (gvs[valid_split_def, EXTENSION, MEM_MAP, SUBSET_DEF] >> metis_tac[]) >>
+    gvs[EVERY_MEM, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+    gvs[valid_split_def, EXTENSION, MEM_MAP, SUBSET_DEF] >> metis_tac[]
+    ) >>
+  conj_asm1_tac
+  >- (
+    gvs[EVERY_MAP, LAMBDA_PROD] >>
+    gvs[valid_split_def, EXTENSION, EVERY_MEM]
+    ) >>
+  rw[]
+  >- (
+    simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    dep_rewrite.DEP_REWRITE_TAC[freevars_Lets] >>
+    gvs[SUBSET_DIFF_EMPTY, DIFF_SUBSET] >>
+    conj_tac >- gvs[EVERY_MAP] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM]
+    )
+  >- (
+    simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >>
+    gvs[FDOM_FUPDATE_LIST, SUBSET_DIFF_EMPTY, DIFF_SUBSET] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >> simp[] >>
+    gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS]
+    )
 QED
 
 Theorem valid_split_shrink:

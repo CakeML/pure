@@ -518,6 +518,35 @@ Proof
     )
 QED
 
+Theorem get_atoms_NONE_eq:
+  ∀l. get_atoms l = NONE ⇔
+    ∃n.
+      n < LENGTH l ∧
+      EL n l = wh_Diverge ∧
+      ∀m. m < n ⇒ ∃a. EL m l = wh_Atom a
+Proof
+  Induct >> rw[get_atoms_def] >>
+  eq_tac >> rw[]
+  >- (
+    reverse (Cases_on `h`) >> gvs[]
+    >- (qexists_tac `0` >> gvs[]) >>
+    full_case_tac >> gvs[]
+    >- (
+      qexists_tac `SUC n` >> gvs[] >> rw[] >>
+      Cases_on `m` >> gvs[]
+      ) >>
+    Cases_on `x` >> gvs[]
+    )
+  >- (
+    Cases_on `n` >> gvs[] >> rename1 `EL n _` >>
+    `∃a. h = wh_Atom a` by (
+      pop_assum (qspec_then `0` mp_tac) >> rw[]) >>
+    EVERY_CASE_TAC >> gvs[] >>
+    first_x_assum (qspec_then `n` mp_tac) >> gvs[DISJ_EQ_IMP] >> rw[] >>
+    first_x_assum (qspec_then `SUC m` mp_tac) >> gvs[]
+    )
+QED
+
 Theorem eval_wh_Prim:
   eval_wh (Prim If xs) =
     (case xs of
