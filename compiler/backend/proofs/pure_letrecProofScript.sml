@@ -1236,13 +1236,202 @@ Proof
   \\ metis_tac []
 QED
 
+
+Theorem FDIFF_FDIFF:
+  ∀fm s1 s2. FDIFF (FDIFF fm s1) s2 = FDIFF fm (s1 ∪ s2)
+Proof
+  rw[FDIFF_def, DRESTRICT_DRESTRICT, fmap_eq_flookup, FLOOKUP_DRESTRICT]
+QED
+
+Theorem closed_subst_all_freevars:
+  ∀m e.
+    (∀v. v ∈ FRANGE m ⇒ closed v) ∧
+    closed (subst m e)
+  ⇒ freevars e ⊆ FDOM m
+Proof
+  rw[] >> imp_res_tac freevars_subst >>
+  gvs[closed_def, EXTENSION, NIL_iff_NOT_MEM, SUBSET_DEF, DISJ_EQ_IMP]
+QED
+
+Theorem open_bisimilarity_suff:
+  (∀f. FDOM f = freevars e1 ∪ freevars e2 ⇒ bind f e1 ≃ bind f e2) ⇒
+  open_bisimilarity (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[open_bisimilarity_def] >> rw[bind_def] >>
+  qabbrev_tac `g = DRESTRICT f (freevars e1 ∪ freevars e2)` >>
+  `subst f e1 = subst g e1` by (
+    unabbrev_all_tac >> once_rewrite_tac[subst_FDIFF] >> simp[INTER_UNION]) >>
+  `subst f e2 = subst g e2` by (
+    unabbrev_all_tac >> once_rewrite_tac[subst_FDIFF] >> simp[INTER_UNION]) >>
+  last_x_assum (qspec_then `g` mp_tac) >> unabbrev_all_tac >>
+  simp[FDOM_DRESTRICT] >> impl_tac
+  >- (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+  rw[bind_def] >> gvs[FLOOKUP_DRESTRICT] >> metis_tac[]
+QED
+
+Triviality app_bisimilarity_subst:
+  ∀fm1 e fm2.
+    fmap_rel ($≃) fm1 fm2 ∧
+    freevars e ⊆ FDOM fm1
+  ⇒ subst fm1 e ≃ subst fm2 e
+Proof
+  rw[app_bisimilarity_eq]
+  >- (
+    gvs[exp_eq_open_bisimilarity_freevars] >>
+    irule Sub_lift >> gvs[fmap_rel_def, Exps_def, closed_def] >> rw[]
+    >- (last_x_assum (qspec_then `k` assume_tac) >> gvs[])
+    >- (
+      assume_tac Sub_Howe_open_similarity >> gvs[Howe_open_similarity] >>
+      gvs[open_bisimilarity_eq, Sub_def]
+      )
+    >- gvs[SUBSET_DEF]
+    >- (
+      assume_tac Ref_open_bisimilarity >> gvs[Ref_def] >>
+      pop_assum irule >> simp[Exps_def] >> gvs[SUBSET_DEF]
+      )
+    ) >>
+  gvs[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+  dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[SUBSET_DIFF_EMPTY] >>
+  gvs[fmap_rel_def, IN_FRANGE] >> rw[closed_def] >>
+  metis_tac[]
+QED
+
+Triviality beta_equality_Letrec_app_bisimilarity:
+  closed (Letrec fns e) ⇒ Letrec fns e ≃ subst_funs fns e
+Proof
+  rw[app_bisimilarity_eq]
+  >- (irule beta_equality_Letrec >> simp[]) >>
+  rw[subst_funs_def, bind_def, closed_def] >>
+  once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+  dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >>
+  simp[IN_FRANGE_FLOOKUP, closed_def, SUBSET_DIFF_EMPTY, FDOM_FUPDATE_LIST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM]
+QED
+
 (* This lemma would allow us to verify a top_sort_any application anywhere
    in the program. See proof idea below. *)
 Theorem Letrec_Letrec:
-  valid_split xs xs1 xs2 ⇒
-  Letrec xs y ≅ Letrec xs1 (Letrec xs2 y)
+  valid_split xs ys zs ⇒
+  Letrec xs e ≅ Letrec ys (Letrec zs e)
 Proof
-  cheat
+  rw[] >>
+  once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
+  irule open_bisimilarity_suff >> rw[] >>
+  `FDOM f = freevars e ∪
+    BIGUNION (set (MAP (λ(fn,e). freevars e) xs)) DIFF set (MAP FST xs)` by (
+    gvs[valid_split_def, EXTENSION, SUBSET_DEF, MEM_MAP,
+        PULL_EXISTS, EXISTS_PROD, FORALL_PROD, DISJOINT_DEF] >>
+    rw[] >> metis_tac[]) >>
+  gvs[] >> pop_assum kall_tac >> rw[bind_def] >>
+  simp[subst_def, FDIFF_FDIFF] >>
+  `set (MAP FST ys) ∪ set (MAP FST zs) = set (MAP FST xs)` by (
+    gvs[valid_split_def, EXTENSION, MEM_MAP] >> metis_tac[]) >>
+  simp[] >>
+  `DISJOINT (set (MAP FST xs)) (FDOM f)` by (
+    gvs[DISJOINT_DEF, EXTENSION] >> metis_tac[]) >>
+  drule disjoint_drestrict >> simp[GSYM FDIFF_def] >> disch_then kall_tac >>
+  qpat_x_assum `_ = _` (SUBST_ALL_TAC o GSYM) >>
+  pop_assum mp_tac >> once_rewrite_tac[DISJOINT_UNION] >> strip_tac >>
+  imp_res_tac disjoint_drestrict >> gvs[GSYM FDIFF_def] >>
+  ntac 4 (pop_assum kall_tac) >>
+  `set (MAP FST ys) ∪ set (MAP FST zs) = set (MAP FST xs)` by (
+    gvs[valid_split_def, EXTENSION, MEM_MAP] >> metis_tac[]) >>
+  irule app_bisimilarity_trans >>
+  irule_at Any valid_split_thm_alt >> simp[GSYM CONJ_ASSOC] >>
+  qexists_tac `MAP (λ(f',e). (f',subst f e)) zs` >>
+  qexists_tac `MAP (λ(f',e). (f',subst f e)) ys` >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  conj_asm1_tac
+  >- (
+    gvs[valid_split_def] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    gvs[LIST_TO_SET_MAP, EXISTS_PROD, PULL_EXISTS] >> rw[] >>
+    last_x_assum drule >> rw[] >>
+    qsuff_tac `freevars (subst f p_2) ⊆ freevars p_2`
+    >- (rw[] >> irule DISJOINT_SUBSET >> goal_assum drule >> simp[]) >>
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[FDIFF_def] >>
+    simp[IN_FRANGE_FLOOKUP]
+    ) >>
+  conj_asm1_tac
+  >- (
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >>
+    simp[DIFF_SUBSET, IN_FRANGE_FLOOKUP] >>
+    gvs[SUBSET_DEF, valid_split_def, EXTENSION]
+    ) >>
+  conj_asm1_tac
+  >- (
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >>
+    simp[DIFF_SUBSET, IN_FRANGE_FLOOKUP] >>
+    gvs[valid_split_def, SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    rw[GSYM DISJ_ASSOC] >>
+    disj2_tac >> disj1_tac >> goal_assum drule >> metis_tac[]
+    ) >>
+  qmatch_goalsub_abbrev_tac `Letrec zs1 e1` >>
+  qpat_abbrev_tac `xs1 = MAP _ xs` >>
+  `MAP (λ(p1,p2). (p1,Letrec xs1 (subst f p2))) ys =
+   MAP (λ(p1,p2). (p1, Letrec xs1 p2)) (MAP (λ(p1,p2). (p1, subst f p2)) ys)` by
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[] >> pop_assum kall_tac >>
+  qpat_abbrev_tac `ys1 = MAP _ ys` >>
+  irule app_bisimilarity_trans >>
+  irule_at Any app_bisimilarity_subst >>
+  simp[FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[GSYM FST_THM, DIFF_SUBSET] >>
+  qexists_tac `FEMPTY |++ MAP (λ(p1,p2). (p1,Letrec ys1 p2)) ys1` >> rw[]
+  >- (
+    irule fmap_rel_FUPDATE_LIST_same >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[LIST_REL_EL_EQN] >> rw[EL_MAP] >> Cases_on `EL n ys1` >> simp[] >>
+    irule valid_split_shrink >>
+    simp[PULL_EXISTS] >> goal_assum (drule_at Any) >>
+    gvs[valid_split_def] >>
+    unabbrev_all_tac >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+    gvs[EL_MAP, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+    Cases_on `EL n ys` >> gvs[] >> rename1 `(q,r)` >>
+    conj_asm2_tac
+    >- (gvs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+    first_x_assum (qspecl_then [`q`,`r`] mp_tac) >>
+    impl_tac >- metis_tac[EL_MEM] >> rw[] >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
+    first_x_assum (qspecl_then [`q`,`r`] mp_tac) >>
+    impl_tac >- metis_tac[EL_MEM] >> rw[] >>
+    gvs[SUBSET_DEF, DISJOINT_DEF, EXTENSION] >> metis_tac[]
+    )
+  >- (
+    unabbrev_all_tac >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    simp[Once UNION_COMM]
+    )
+  >- (
+    unabbrev_all_tac >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    simp[Once UNION_COMM] >>
+    simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
+    first_x_assum irule >> gvs[valid_split_def, EXTENSION] >> metis_tac[]
+    ) >>
+  dep_rewrite.DEP_REWRITE_TAC[GSYM subst_funs_eq_subst] >> conj_asm1_tac
+  >- (
+    gvs[valid_split_def, EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
+    unabbrev_all_tac >> gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+    PairCases_on `y` >> gvs[] >>
+    first_x_assum drule >> strip_tac >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+    qsuff_tac `freevars (subst f y1) ⊆ set (MAP FST xs)`
+    >- (gvs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+    metis_tac[]
+    ) >>
+  irule (symmetric_app_bisimilarity |> SIMP_RULE std_ss [symmetric_def] |> iffLR) >>
+  irule beta_equality_Letrec_app_bisimilarity >> simp[DIFF_SUBSET] >>
+  unabbrev_all_tac >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+  simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+  rw[] >> simp[Once UNION_COMM] >>
+  gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
+  last_x_assum irule >> gvs[valid_split_def, EXTENSION] >>
+  metis_tac[]
 QED
 
 (*
