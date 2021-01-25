@@ -1005,7 +1005,27 @@ Proof
   \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
 QED
 
+Theorem beta_bisimilarity:
+  closed (Let x arg body) ⇒
+  Let x arg body ≃ CA_subst x arg body
+Proof
+  simp[app_bisimilarity_eq]
+  \\ rw[beta_equivalence]
+  \\ fs[CA_subst_def,closed_def]
+  \\ qspecl_then [‘x’,‘arg’,‘(avoid_vars (freevars body) body)’]
+                 assume_tac freevars_subst_single
+  \\ fs[closed_def] \\ res_tac \\ fs[]
+  \\ qsuff_tac ‘freevars (subst x arg (avoid_vars (freevars body) body)) = ∅’
+  THEN1 (fs[])
+  \\ pop_assum (fn t => once_rewrite_tac[t])
+  \\ qspecl_then [‘freevars body’,‘body’] mp_tac freevars_avoid_vars_mono
+  \\ fs[]
+  \\ rw[]
+  \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[MEM]
+QED
 
+
+        
 (* TODO
 
 Theorem disjoint_namespaces_avoid_vars_mono:
