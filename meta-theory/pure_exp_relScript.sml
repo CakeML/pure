@@ -25,6 +25,34 @@ Proof
   fs [Exps_def,closed_def]
 QED
 
+Theorem Exps_simps:
+  (∀v vars. Var v ∈ Exps vars ⇔ v ∈ vars) ∧
+  (∀op l vars. Prim op l ∈ Exps vars ⇔ EVERY (λe. e ∈ Exps vars) l) ∧
+  (∀e1 e2 vars. App e1 e2 ∈ Exps vars ⇔ e1 ∈ Exps vars ∧ e2 ∈ Exps vars) ∧
+  (∀x e vars. Lam x e ∈ Exps vars ⇔ e ∈ Exps (x INSERT vars)) ∧
+  (∀fns e vars. Letrec fns e ∈ Exps vars ⇔
+                  e ∈ Exps (vars ∪ set (MAP FST fns)) ∧
+                  EVERY (λe. e ∈ Exps (vars ∪ set (MAP FST fns))) (MAP SND fns))
+Proof
+  rw[Exps_def, GSYM SUBSET_INSERT_DELETE]
+  >- (
+    rw[SUBSET_DEF, PULL_EXISTS, MEM_MAP, EVERY_MEM,
+       PULL_FORALL, AND_IMP_INTRO] >>
+    metis_tac[]
+    )
+  >- (
+    rw[SUBSET_DEF, PULL_EXISTS, MEM_MAP, EVERY_MEM, EXISTS_PROD] >>
+    metis_tac[]
+    )
+QED
+
+Theorem Exps_SUBSET:
+  ∀e vars vars'. e ∈ Exps vars ∧ vars ⊆ vars' ⇒ e ∈ Exps vars'
+Proof
+  rw[Exps_def, SUBSET_DEF]
+QED
+
+
 (* -- applicative (bi)similarity -- *)
 
 Definition unfold_rel_def:
@@ -611,6 +639,13 @@ Proof
   imp_res_tac(transitive_app_similarity |> SIMP_RULE std_ss [transitive_def])
 QED
 
+Theorem app_bisimilarity_trans:
+  ∀x y z. x ≃ y ∧ y ≃ z ⇒ x ≃ z
+Proof
+  assume_tac transitive_app_bisimilarity
+  \\ fs [transitive_def]
+QED
+
 Theorem res_eq_IMP_app_bisimilarity: (* exercise (5.3.5) *)
   ∀e1 e2 x t.
     eval e1 = Closure x t ∧
@@ -656,6 +691,22 @@ Proof
   fs [app_similarity_iff,Once unfold_rel_def]
   \\ once_rewrite_tac [app_bisimilarity_iff]
   \\ fs [eval_wh_thm,closed_def]
+QED
+
+Theorem open_bisimilarity_suff:
+  (∀f. FDOM f = freevars e1 ∪ freevars e2 ⇒ bind f e1 ≃ bind f e2) ⇒
+  open_bisimilarity (freevars e1 ∪ freevars e2) e1 e2
+Proof
+  rw[open_bisimilarity_def] >> rw[bind_def] >>
+  qabbrev_tac `g = DRESTRICT f (freevars e1 ∪ freevars e2)` >>
+  `subst f e1 = subst g e1` by (
+    unabbrev_all_tac >> once_rewrite_tac[subst_FDIFF] >> simp[INTER_UNION]) >>
+  `subst f e2 = subst g e2` by (
+    unabbrev_all_tac >> once_rewrite_tac[subst_FDIFF] >> simp[INTER_UNION]) >>
+  last_x_assum (qspec_then `g` mp_tac) >> unabbrev_all_tac >>
+  simp[FDOM_DRESTRICT] >> impl_tac
+  >- (gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
+  rw[bind_def] >> gvs[FLOOKUP_DRESTRICT] >> metis_tac[]
 QED
 
 (* (Tra) in the paper has an amusing typo that renders the corresponding
@@ -766,8 +817,8 @@ Definition eval_to_sim_def:
       ∃ck.
         case eval_wh_to k e1 of
         | wh_Closure v x =>
-           (∃w y. eval_wh_to (k+ck) e2 = wh_Closure w y ∧
-                  ∀e. closed e ⇒ rel (subst v e x) (subst w e y))
+           (∃y. eval_wh_to (k+ck) e2 = wh_Closure v y ∧ rel x y ∧
+                ∀e. closed e ⇒ rel (subst v e x) (subst v e y))
         | wh_Constructor a xs =>
            (∃ys. eval_wh_to (k+ck) e2 = wh_Constructor a ys ∧ LIST_REL rel xs ys)
         | res => eval_wh_to (k+ck) e2 = res
