@@ -1368,6 +1368,7 @@ QED
 
 (************)
 
+
 Definition valid_split_lift_def:
   valid_split_lift l ⇔
     ∀left right.
@@ -1504,5 +1505,142 @@ Proof
   Cases_on `ALOOKUP xs k` >> gvs[] >>
   Cases_on `ALOOKUP (FLAT (split_one xs)) k` >> gvs[]
 QED
+
+
+(************)
+
+
+Triviality beta_equality_app_bisimilarity:
+  closed (Let v x e) ⇒ Let v x e ≃ subst v x e
+Proof
+  rw[app_bisimilarity_eq]
+  >- (irule beta_equality >> simp[]) >>
+  irule closed_freevars_subst >> simp[]
+QED
+
+Theorem exp_eq_Letrec_irrel:
+  ∀xs y.
+    DISJOINT (set (MAP FST xs)) (freevars y)
+  ⇒ Letrec xs y ≅ y
+Proof
+  rw[] >>
+  once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
+  irule open_bisimilarity_suff >> rw[] >>
+  `FDOM f = BIGUNION (set (MAP (λ(fn,e). freevars e) xs)) DIFF
+    set (MAP FST xs) ∪ freevars y` by (
+    gvs[EXTENSION] >> metis_tac[]) >>
+  gvs[] >> pop_assum kall_tac >>
+  rw[bind_def, subst_def, DOMSUB_NOT_IN_DOM] >>
+  `FDIFF f (set (MAP FST xs)) = f` by (
+    rw[fmap_eq_flookup, FDIFF_def, FLOOKUP_DRESTRICT] >>
+    IF_CASES_TAC >> rw[FLOOKUP_DEF] >> gvs[DISJOINT_DEF, EXTENSION] >>
+    metis_tac[]) >>
+  simp[] >>
+  irule app_bisimilarity_trans >>
+  irule_at Any beta_equality_Letrec_app_bisimilarity >> simp[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  conj_asm1_tac >> rw[]
+  >- (
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    )
+  >- (
+    gvs[EVERY_MAP, EVERY_MEM] >> rw[] >> PairCases_on `x` >> simp[] >>
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD, DISJ_EQ_IMP] >>
+    rw[EXISTS_PROD] >>
+    first_x_assum irule >> goal_assum drule >> goal_assum drule
+    ) >>
+  simp[subst_funs_def, bind_def, flookup_fupdate_list] >>
+  simp[GSYM MAP_REVERSE, ALOOKUP_MAP] >>
+  reverse IF_CASES_TAC >> gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD]
+  >- (
+    EVERY_CASE_TAC >> gvs[EXISTS_MAP, EXISTS_MEM, EXISTS_PROD] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[] >> metis_tac[]
+    ) >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >>
+  reverse conj_asm1_tac >- simp[reflexive_app_bisimilarity] >>
+  gvs[DISJOINT_DEF, EXTENSION, SUBSET_DEF, closed_def, DISJ_EQ_IMP] >>
+  rw[NIL_iff_NOT_MEM] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
+  rw[IN_FRANGE_FLOOKUP, closed_def] >> metis_tac[]
+QED
+
+Theorem clean_all_correct:
+  ∀e. e ≅ clean_all e
+Proof
+  recInduct clean_all_ind >> reverse (rw[clean_all_def])
+  >- rw[exp_eq_refl]
+  >- (irule exp_eq_App_cong >> simp[])
+  >- (
+    irule exp_eq_Prim_cong >> gvs[LIST_REL_EL_EQN] >> rw[EL_MAP] >>
+    last_x_assum irule >> gvs[EVERY_EL, EL_MEM]
+    )
+  >- (irule exp_eq_Lam_cong >> simp[]) >>
+  EVERY_CASE_TAC >> gvs[exp_eq_refl]
+  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
+  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
+  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
+  >- (
+    irule exp_eq_trans >> qexists_tac `Let q r y` >>
+    irule_at Any exp_eq_App_cong >> simp[exp_eq_refl] >>
+    irule_at Any exp_eq_Lam_cong >> simp[] >>
+    once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
+    irule open_bisimilarity_suff >> rw[] >>
+    `FDOM f = freevars y ∪ freevars r DIFF {q}` by (
+      gvs[EXTENSION] >> metis_tac[]) >>
+    gvs[] >> pop_assum kall_tac >>
+    rw[bind_def, subst_def, DOMSUB_NOT_IN_DOM] >>
+    `FDIFF f {q} = f` by (
+      rw[fmap_eq_flookup, FDIFF_def, FLOOKUP_DRESTRICT] >>
+      IF_CASES_TAC >> rw[FLOOKUP_DEF]) >>
+    simp[] >>
+    irule app_bisimilarity_trans >>
+    irule_at Any beta_equality_Letrec_app_bisimilarity >> simp[] >> conj_asm1_tac
+    >- (
+      dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+      gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]
+      ) >>
+    irule app_bisimilarity_trans >>
+    irule_at (Pos last) (symmetric_app_bisimilarity |>
+                          SIMP_RULE std_ss [symmetric_def] |> iffLR) >>
+    irule_at Any beta_equality_app_bisimilarity >> simp[] >> conj_asm1_tac
+    >- (
+      simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+      dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+      rw[EXTENSION] >> metis_tac[]
+      ) >>
+    simp[subst_funs_def, bind_def, flookup_fupdate_list] >>
+    reverse IF_CASES_TAC >> gvs[] >- (EVERY_CASE_TAC >> gvs[]) >>
+    irule app_bisimilarity_subst >> simp[FDOM_FUPDATE_LIST] >>
+    simp[FUPDATE_EQ_FUPDATE_LIST] >>
+    irule fmap_rel_FUPDATE_LIST_same >> simp[] >>
+    rw[app_bisimilarity_eq] >> irule exp_eq_Letrec_irrel >>
+    simp[] >> gvs[closed_def]
+    )
+  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
+  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
+  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
+  >- (
+    irule exp_eq_trans >> goal_assum (drule_at Any) >>
+    irule exp_eq_Letrec_irrel >> simp[]
+    )
+QED
+
+
+(************)
+
+
+Theorem simplify_correct:
+  ∀e. e ≅ simplify e
+Proof
+  rw[simplify_def] >>
+  irule exp_eq_trans >> irule_at (Pos last) clean_all_correct >>
+  irule exp_eq_trans >> irule_at (Pos last) split_all_correct >>
+  simp[distinct_letrecs_distinct] >>
+  irule distinct_exp_eq
+QED
+
 
 val _ = export_theory();
