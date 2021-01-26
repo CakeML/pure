@@ -36,7 +36,7 @@ End
 
 Definition distinct_def:
   distinct (Letrec xs y) =
-    Letrec (make_distinct (MAP (λ(n,x). (n, distinct x)) xs)) y ∧
+    Letrec (make_distinct (MAP (λ(n,x). (n, distinct x)) xs)) (distinct y) ∧
   distinct (Lam n x) = Lam n (distinct x) ∧
   distinct (Prim p xs) = Prim p (MAP distinct xs) ∧
   distinct (App x y) = App (distinct x) (distinct y) ∧
@@ -52,23 +52,22 @@ Definition make_Letrecs_def:
 End
 
 Definition split_one_def:
-  split_one fns e =
+  split_one fns =
     let deps = MAP (λ(fn,body). (fn, freevars body)) fns in
     let sorted = top_sort_any deps in
-    let res_fns = MAP (λl. MAP (λs. (s, THE (ALOOKUP fns s))) l) sorted in
-    make_Letrecs res_fns e
+    MAP (λl. MAP (λs. (s, THE (ALOOKUP fns s))) l) sorted
 End
 
 Definition split_all_def:
   split_all (Letrec xs y) =
     (let xs1 = MAP (λ(fn,e). (fn, split_all e)) xs in
-    split_one xs1 (split_all y)) ∧
+     make_Letrecs (split_one xs) (split_all y)) ∧
   split_all (Lam n x) = Lam n (split_all x) ∧
   split_all (Prim p xs) = Prim p (MAP split_all xs) ∧
   split_all (App x y) = App (split_all x) (split_all y) ∧
   split_all res = res
 Termination
-  WF_REL_TAC ‘measure exp_size’ >> rw [] >>
+  WF_REL_TAC `measure exp_size` >> rw [] >>
   Induct_on `xs` >> rw[] >> gvs[exp_size_def]
 End
 
