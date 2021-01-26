@@ -1567,6 +1567,45 @@ Proof
   rw[IN_FRANGE_FLOOKUP, closed_def] >> metis_tac[]
 QED
 
+Theorem exp_eq_Letrec_Let:
+  ∀v x e.
+    v ∉ freevars x
+  ⇒ Letrec [(v,x)] e ≅ Let v x e
+Proof
+  rw[] >> once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
+  irule open_bisimilarity_suff >> rw[] >>
+  `FDOM f = freevars e ∪ freevars x DIFF {v}` by (
+    gvs[EXTENSION] >> metis_tac[]) >>
+  gvs[] >> pop_assum kall_tac >>
+  rw[bind_def, subst_def, DOMSUB_NOT_IN_DOM] >>
+  `FDIFF f {v} = f` by (
+    rw[fmap_eq_flookup, FDIFF_def, FLOOKUP_DRESTRICT] >>
+    IF_CASES_TAC >> rw[FLOOKUP_DEF]) >>
+  simp[] >>
+  irule app_bisimilarity_trans >>
+  irule_at Any beta_equality_Letrec_app_bisimilarity >> simp[] >> conj_asm1_tac
+  >- (
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]
+    ) >>
+  irule app_bisimilarity_trans >>
+  irule_at (Pos last) (symmetric_app_bisimilarity |>
+                        SIMP_RULE std_ss [symmetric_def] |> iffLR) >>
+  irule_at Any beta_equality_app_bisimilarity >> simp[] >> conj_asm1_tac
+  >- (
+    simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
+    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    rw[EXTENSION] >> metis_tac[]
+    ) >>
+  simp[subst_funs_def, bind_def, flookup_fupdate_list] >>
+  reverse IF_CASES_TAC >> gvs[] >- (EVERY_CASE_TAC >> gvs[]) >>
+  irule app_bisimilarity_subst >> simp[FDOM_FUPDATE_LIST] >>
+  simp[FUPDATE_EQ_FUPDATE_LIST] >>
+  irule fmap_rel_FUPDATE_LIST_same >> simp[] >>
+  rw[app_bisimilarity_eq] >> irule exp_eq_Letrec_irrel >>
+  simp[] >> gvs[closed_def]
+QED
+
 Theorem clean_all_correct:
   ∀e. e ≅ clean_all e
 Proof
@@ -1586,38 +1625,7 @@ Proof
     irule exp_eq_trans >> qexists_tac `Let q r y` >>
     irule_at Any exp_eq_App_cong >> simp[exp_eq_refl] >>
     irule_at Any exp_eq_Lam_cong >> simp[] >>
-    once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
-    irule open_bisimilarity_suff >> rw[] >>
-    `FDOM f = freevars y ∪ freevars r DIFF {q}` by (
-      gvs[EXTENSION] >> metis_tac[]) >>
-    gvs[] >> pop_assum kall_tac >>
-    rw[bind_def, subst_def, DOMSUB_NOT_IN_DOM] >>
-    `FDIFF f {q} = f` by (
-      rw[fmap_eq_flookup, FDIFF_def, FLOOKUP_DRESTRICT] >>
-      IF_CASES_TAC >> rw[FLOOKUP_DEF]) >>
-    simp[] >>
-    irule app_bisimilarity_trans >>
-    irule_at Any beta_equality_Letrec_app_bisimilarity >> simp[] >> conj_asm1_tac
-    >- (
-      dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
-      gvs[EXTENSION, SUBSET_DEF] >> metis_tac[]
-      ) >>
-    irule app_bisimilarity_trans >>
-    irule_at (Pos last) (symmetric_app_bisimilarity |>
-                          SIMP_RULE std_ss [symmetric_def] |> iffLR) >>
-    irule_at Any beta_equality_app_bisimilarity >> simp[] >> conj_asm1_tac
-    >- (
-      simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-      dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
-      rw[EXTENSION] >> metis_tac[]
-      ) >>
-    simp[subst_funs_def, bind_def, flookup_fupdate_list] >>
-    reverse IF_CASES_TAC >> gvs[] >- (EVERY_CASE_TAC >> gvs[]) >>
-    irule app_bisimilarity_subst >> simp[FDOM_FUPDATE_LIST] >>
-    simp[FUPDATE_EQ_FUPDATE_LIST] >>
-    irule fmap_rel_FUPDATE_LIST_same >> simp[] >>
-    rw[app_bisimilarity_eq] >> irule exp_eq_Letrec_irrel >>
-    simp[] >> gvs[closed_def]
+    irule exp_eq_Letrec_Let >> simp[]
     )
   >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
   >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
