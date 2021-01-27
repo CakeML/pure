@@ -4,6 +4,8 @@ open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory;
 open pure_expTheory pure_valueTheory pure_limitTheory pure_miscTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "pure_eval_old";
 
 Overload True  = “Constructor "True" []”;
@@ -315,9 +317,9 @@ Proof
     reverse (rw[]) >> fs[] >>
     last_x_assum (qspec_then `[]` mp_tac) >>
     simp[v_cmp_def, v_lookup]
-    >- (Cases_on `x1` >> fs[])
-    >- (Cases_on `x1` >> fs[])
-    >> (Cases_on `b` >> fs[])
+    >- (Cases_on `x1` >> rw [] >> gvs[])
+    >- (Cases_on `x1` >> rw [] >> gvs[])
+    >> (Cases_on `b` >> rw [] >> gvs[])
     )
   >- ( (* op = IsEq s *)
     fs[eval_op_def] >>

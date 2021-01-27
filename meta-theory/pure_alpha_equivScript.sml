@@ -9,6 +9,8 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory pure_miscTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "pure_alpha_equiv";
 
 val no_IN = SIMP_RULE std_ss [IN_DEF];

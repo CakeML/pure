@@ -99,13 +99,13 @@ Proof
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [next_def]
   \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘s = "Bind"’ \\ fs [] \\ rw []
-  \\ Cases_on ‘s = "Act"’ \\ fs [] \\ rw []
+  \\ Cases_on ‘s = "Bind"’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘s = "Act"’ THEN1 (fs [] \\ rw [])
   \\ Cases_on ‘s = "Ret"’ \\ fs [] \\ rw []
   \\ Cases_on ‘fs’ \\ fs []
   \\ fs [AllCaseEqs()]
   \\ Cases_on ‘dest_wh_Closure (eval_wh h)’ \\ fs []
-  \\ PairCases_on ‘x’ \\ fs []
+  \\ PairCases_on ‘x’ \\ gvs []
 QED
 
 Theorem next_next:
@@ -151,7 +151,7 @@ Proof
   \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
   \\ reverse (rw [] \\ fs [AllCaseEqs()])
   THEN1 (qexists_tac ‘x'+1’ \\ fs [])
-  \\ match_mp_tac next_next \\ fs []
+  \\ match_mp_tac next_next \\ gvs []
 QED
 
 Theorem semantics_Bottom:
@@ -175,8 +175,8 @@ Proof
   \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
   \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
   \\ rw [] \\ fs [AllCaseEqs()]
-  THEN1 (match_mp_tac next_next \\ fs [])
-  \\ qexists_tac ‘x'+1’ \\ fs []
+  THEN1 (match_mp_tac next_next \\ gvs [])
+  \\ qexists_tac ‘x'+1’ \\ gvs []
 QED
 
 Theorem semantics_Act:

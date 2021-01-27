@@ -10,6 +10,8 @@ open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
 (* from CakeML: *)
 open mllistTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "pure_letrecProof";
 
 

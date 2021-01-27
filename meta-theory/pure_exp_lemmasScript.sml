@@ -4,6 +4,8 @@ open stringTheory optionTheory pairTheory listTheory
      finite_mapTheory pred_setTheory dep_rewrite;
 open pure_miscTheory pure_configTheory pure_expTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "pure_exp_lemmas";
 
 

@@ -17,6 +17,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_miscTheory
      pure_exp_relTheory pure_alpha_equivTheory pure_congruenceTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "pure_beta_equiv";
 
@@ -1025,7 +1026,7 @@ Proof
 QED
 
 
-        
+
 (* TODO
 
 Theorem disjoint_namespaces_avoid_vars_mono:
@@ -1073,7 +1074,7 @@ Proof
   \\ fs[ZIP_MAP]
   \\ fs[MAP_MAP_o,combinTheory.o_DEF]
   \\ cheat
-QED 
+QED
 
 Theorem disjoint_namespaces_beta_equivalence:
     DISJOINT (freevars arg)  (boundvars body)
