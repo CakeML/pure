@@ -114,6 +114,17 @@ Proof
   drule fresh_var_avoid_eq >> simp[]
 QED
 
+Theorem fresh_var_list_unchanged:
+  ∀l avoid.
+    DISJOINT (set l) (set avoid) ∧
+    ALL_DISTINCT l
+  ⇒ MAP SND (fresh_var_list l avoid) = l
+Proof
+  Induct >> rw[fresh_var_list_def]
+  >- metis_tac[fresh_var_DISJ] >>
+  qspecl_then [`h`,`avoid`] assume_tac fresh_var_DISJ >> gvs[]
+QED
+
 Definition exp_size_alt_def:
   exp_size_alt (Var v) = 1 ∧
   exp_size_alt (Prim op xs) = 1 + SUM (MAP exp_size_alt xs) ∧
@@ -163,6 +174,15 @@ Proof
   irule_at Any exp_alpha_perm_irrel >> simp[] >>
   irule exp_alpha_perm_closed >>
   last_x_assum irule >> simp[]
+QED
+
+Theorem perm_exp_list_unchanged:
+  ∀l e.
+    MAP FST l = MAP SND l
+  ⇒ perm_exp_list l e = e
+Proof
+  Induct >> rw[perm_exp_list_def] >>
+  PairCases_on `h` >> gvs[] >> rw[perm_exp_list_def, perm_exp_id]
 QED
 
 Theorem freevars_perm_exp_list_unchanged:
@@ -511,73 +531,78 @@ Proof
   gvs[freevars_equiv]
 QED
 
-(* TODO
-
+(* ALL_DISTINCT is necessary - consider ``freshen [] (Lam "x" (Lam "x" Fail))`` *)
 Theorem disjoint_namespaces_avoid_vars_mono:
-  ∀ avoids body.
-      DISJOINT (set avoids) (boundvars body)
-    ∧ freevars body ⊆ set avoids
-    ⇒ avoid_vars avoids body = body
+  ∀avoids e.
+    DISJOINT (set avoids) (boundvars e) ∧
+    ALL_DISTINCT (boundvars_l e) ∧
+    freevars e ⊆ set avoids
+  ⇒ freshen avoids e = e
 Proof
-  recInduct avoid_vars_ind
-  \\ rpt conj_tac
-  THEN1 (rw[] \\ fs[avoid_vars_def])
-  THEN1 (
-    rw[] \\ fs[avoid_vars_def]
-    \\ irule MAP_ID_ON
-    \\ rw[]
-    \\ fs[BIGUNION_SUBSET]
-    \\ first_x_assum (qspec_then ‘freevars x’ assume_tac)
-    \\ fs[MEM_MAP]
-    \\ res_tac \\ rw[] \\ fs[]
-  )
-  THEN1 (
-    rw[]
-    \\ fs[avoid_vars_def]
-    \\ Cases_on ‘fresh_var x avoid ≠ x’
-    THEN1 (
-      fs[]
-      \\ pop_assum mp_tac \\ fs[]
-      \\ once_rewrite_tac[fresh_var_def]
-      \\ IF_CASES_TAC \\ fs[]
+  recInduct freshen_ind >> rw[freshen_def]
+  >- (
+    irule MAP_ID_ON >> rw[] >> first_x_assum irule >>
+    gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
+    qspecl_then [`es`,`x`] assume_tac (GEN_ALL MEM_SING_APPEND) >> gvs[] >>
+    gvs[ALL_DISTINCT_APPEND]
     )
-    \\ fs[perm_exp_id]
-    \\ last_x_assum irule
-    \\ fs[DELETE_SUBSET_INSERT]
-    \\ cheat (wrong)
-  )
-  THEN1 (
-    rw[]
-    \\ fs[avoid_vars_def]
-    \\ conj_tac
-    \\ last_assum irule
-    \\ fs[EXTENSION,SUBSET_DEF,DISJOINT_DEF] \\ metis_tac[]
-  )
-  \\ rw[]
-  \\ fs[avoid_vars_def]
-  \\ fs[ZIP_MAP]
-  \\ fs[MAP_MAP_o,combinTheory.o_DEF]
-  \\ cheat
+  >- metis_tac[fresh_var_DISJ]
+  >- (
+    qspecl_then [`x`,`avoid`] assume_tac fresh_var_DISJ >> gvs[perm_exp_id] >>
+    first_x_assum irule >> gvs[SUBSET_INSERT_DELETE] >>
+    gvs[boundvars_equiv]
+    )
+  >- (last_x_assum irule >> gvs[ALL_DISTINCT_APPEND] >> simp[Once DISJOINT_SYM])
+  >- (last_x_assum irule >> gvs[ALL_DISTINCT_APPEND] >> simp[Once DISJOINT_SYM]) >>
+  gvs[FLAT_APPEND, ALL_DISTINCT_APPEND] >>
+  last_x_assum assume_tac >> last_x_assum (DEP_REWRITE_TAC o single) >>
+  DEP_REWRITE_TAC[fresh_var_list_unchanged, perm_exp_list_unchanged] >>
+  csimp[MAP_FST_fresh_var_list] >> rpt conj_asm1_tac >> gvs[DIFF_SUBSET]
+  >- (
+    gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP] >> rw[] >>
+    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+    gvs[boundvars_equiv] >>
+    last_x_assum irule >> PairCases_on `y` >> gvs[] >> rw[] >> gvs[]
+    )
+  >- simp[Once DISJOINT_SYM] >>
+  irule MAP_ID_ON >> simp[FORALL_PROD] >> rw[] >>
+  qpat_x_assum `∀n e. _` mp_tac >>
+  DEP_REWRITE_TAC[fresh_var_list_unchanged] >> simp[] >>
+  disch_then irule >> simp[] >>
+  gvs[BIGUNION_SUBSET, MEM_FLAT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+  goal_assum (drule_at Any) >>
+  drule ALL_DISTINCT_FLAT_IMP >> simp[MEM_MAP, PULL_EXISTS] >>
+  disch_then drule >> simp[] >> strip_tac >>
+  gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP] >> reverse (rw[])
+  >- res_tac
+  >- (
+    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> PairCases_on `y` >> gvs[] >>
+    gvs[boundvars_equiv] >> first_x_assum irule >> simp[PULL_EXISTS] >>
+    goal_assum drule >> goal_assum drule
+    )
+  >- (
+    CCONTR_TAC >> gvs[] >>
+    last_x_assum drule >> strip_tac >> first_x_assum drule >> gvs[]
+    )
 QED
 
 Theorem disjoint_namespaces_beta_equivalence:
-    DISJOINT (freevars arg)  (boundvars body)
-  ∧ DISJOINT (freevars body) (boundvars body)
-  ⇒ App (Lam x body) arg ≅ subst x arg body
+    DISJOINT (freevars arg) (boundvars body) ∧
+    DISJOINT (freevars body) (boundvars body) ∧
+    ALL_DISTINCT (boundvars_l body)
+  ⇒ App (Lam x body) arg ≅ subst1 x arg body
 Proof
   rw[]
   \\ irule exp_eq_trans
-  \\ qexists_tac ‘CA_subst x arg body’
-  \\ fs[beta_equivalence]
-  \\ fs[CA_subst_def]
-  \\ qspecl_then [‘freevars arg ++ freevars body’,‘body’] assume_tac avoid_vars_safe_renaming
+  \\ qexists_tac ‘ca_subst x arg body’
+  \\ fs[beta_equivalence, ca_subst_def]
+  \\ qspecl_then [‘freevars_l arg ++ freevars_l body’,‘body’]
+      assume_tac freshen_safe_renaming
   \\ fs[]
-  \\ qsuff_tac ‘avoid_vars (freevars arg ++ freevars body) body = body’
+  \\ qsuff_tac ‘freshen (freevars_l arg ++ freevars_l body) body = body’
   THEN1 (fs[exp_eq_refl])
   \\ irule disjoint_namespaces_avoid_vars_mono
-  \\ fs[]
+  \\ fs[freevars_equiv]
 QED
-
-*)
 
 val _ = export_theory();
