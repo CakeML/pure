@@ -689,6 +689,75 @@ Proof
   gvs[DELETE_DEF, closed_def] >> rw[] >> gvs[SUBSET_DIFF_EMPTY]
 QED
 
+(* TODO prove more general version *)
+Theorem subst1_distrib:
+  ∀ body f v arg.
+    (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
+    DISJOINT (freevars arg) (boundvars body)
+  ⇒ subst f (subst1 v arg body) = subst1 v (subst f arg) (subst (f \\ v) body)
+Proof
+  ho_match_mp_tac freevars_ind >> rw[]
+  >- (
+    gvs[subst_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM] >>
+    EVERY_CASE_TAC >> gvs[subst_def, FLOOKUP_UPDATE] >>
+    last_x_assum drule >> simp[]
+    )
+  >- (
+    gvs[subst_def, MAP_MAP_o, combinTheory.o_DEF] >>
+    rw[MAP_EQ_f] >> last_x_assum irule >> simp[] >>
+    conj_tac >- metis_tac[] >>
+    gvs[MEM_MAP, PULL_EXISTS]
+    )
+  >- (
+    gvs[subst_def] >> rw[] >> first_x_assum irule >>
+    metis_tac[DISJOINT_SYM]
+    )
+  >- (
+    gvs[subst1_def] >>
+    IF_CASES_TAC >> gvs[subst_def, DOMSUB_NOT_IN_DOM] >>
+    once_rewrite_tac[DOMSUB_COMMUTES] >>
+    `subst f arg = subst (f \\ n) arg` by (irule subst_fdomsub >> simp[]) >>
+    simp[] >>
+    last_x_assum irule >> simp[DOMSUB_FLOOKUP_THM] >> metis_tac[]
+    )
+  >- (
+    gvs[subst_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[GSYM FST_THM] >> rw[]
+    >- (
+      rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+      gvs[FDIFF_FUPDATE] >> IF_CASES_TAC >> gvs[]
+      >- (
+        gvs[fdiff_fdomsub_INSERT] >>
+        AP_THM_TAC >> rpt (AP_TERM_TAC) >>
+        rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
+        ) >>
+      simp[fdiff_fdomsub_commute] >>
+      `subst f arg = subst (FDIFF f (set (MAP FST lcs))) arg` by (
+        irule subst_FDIFF' >> rw[] >>
+        gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP]) >>
+      simp[] >>
+      last_x_assum irule >> simp[FLOOKUP_FDIFF] >> conj_tac >- metis_tac[] >>
+      simp[PULL_EXISTS] >> goal_assum (drule_at Any) >>
+      rw[Once DISJOINT_SYM] >>
+      first_x_assum irule >> gvs[MEM_MAP, EXISTS_PROD, FORALL_PROD] >>
+      goal_assum (drule_at Any) >> simp[]
+      ) >>
+    simp[FDIFF_FUPDATE] >> rw[]
+    >- (
+      simp[fdiff_fdomsub_INSERT] >> AP_THM_TAC >> rpt (AP_TERM_TAC) >>
+      rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
+      ) >>
+    simp[fdiff_fdomsub_commute] >>
+    `subst f arg = subst (FDIFF f (set (MAP FST lcs))) arg` by (
+      irule subst_FDIFF' >> rw[] >>
+      gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP]) >>
+    simp[] >>
+    first_x_assum irule >> simp[FLOOKUP_FDIFF] >> conj_tac >- metis_tac[] >>
+    simp[Once DISJOINT_SYM]
+    )
+QED
+
+
 (******************* freevars ********************)
 
 Theorem boundvars_equiv:
