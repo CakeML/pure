@@ -99,7 +99,7 @@ Definition freevars_def:
     freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
   freevars (Delay x) = freevars x ∧
   freevars (Force x) = freevars x ∧
-  freevars (Value v) = ∅ (* TODO Think about this later *)
+  freevars (Value v) = ∅
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ fs [] \\ gen_tac
@@ -127,7 +127,7 @@ Definition subst_def:
       Letrec (MAP (λ(f,x,e). (f,x,subst m1 e)) f) (subst m1 x)) ∧
   subst m (Delay x) = Delay (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
-  subst m (Value v) = Value v (* TODO Think about this later *)
+  subst m (Value v) = Value v
 Termination
   WF_REL_TAC `measure (exp_size o SND)` \\ rw []
   \\ rename1 ‘MEM _ xs’
