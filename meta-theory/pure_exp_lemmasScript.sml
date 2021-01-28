@@ -170,6 +170,45 @@ Proof
     )
 QED
 
+Theorem subst_subst_DISJOINT_FUNION:
+  ∀m1 e m2.
+    DISJOINT (FDOM m1) (BIGUNION (IMAGE freevars (FRANGE m2)))
+  ⇒ subst m1 (subst m2 e) = subst (m2 ⊌ m1) e
+Proof
+  recInduct subst_ind >> rw[] >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS]
+  >- (
+    simp[subst_def, FLOOKUP_FUNION] >>
+    EVERY_CASE_TAC >> gvs[subst_def] >>
+    irule subst_ignore >> metis_tac[DISJOINT_SYM]
+    )
+  >- (
+    simp[subst_def, MAP_MAP_o, combinTheory.o_DEF] >>
+    rw[MAP_EQ_f] >> last_x_assum irule >> simp[] >> metis_tac[]
+    )
+  >- (
+    simp[subst_def] >> metis_tac[]
+    )
+  >- (
+    simp[subst_def, DOMSUB_FUNION] >>
+    last_x_assum irule >> simp[DOMSUB_FLOOKUP_THM] >> rw[] >>
+    last_x_assum drule >> gvs[DISJOINT_DEF, EXTENSION] >> metis_tac[]
+    )
+  >- (
+    simp[subst_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[GSYM FST_THM] >> rw[MAP_EQ_f, FDIFF_FUNION]
+    >- (
+      PairCases_on `e` >> gvs[] >>
+      last_x_assum irule >> simp[PULL_EXISTS] >> goal_assum (drule_at Any) >>
+      rw[FDIFF_def, FLOOKUP_DRESTRICT, FDOM_DRESTRICT] >>
+      first_x_assum drule >> simp[DISJOINT_DEF, EXTENSION] >> metis_tac[]
+      )
+    >- (
+      first_x_assum irule >> rw[FDIFF_def, FLOOKUP_DRESTRICT, FDOM_DRESTRICT] >>
+      first_x_assum drule >> simp[DISJOINT_DEF, EXTENSION] >> metis_tac[]
+      )
+    )
+QED
+
 (******************* bind ********************)
 
 Theorem bind_FEMPTY[simp]:
