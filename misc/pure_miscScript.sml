@@ -133,6 +133,15 @@ Proof
   rw[FDIFF_def, DRESTRICT_DRESTRICT, fmap_eq_flookup, FLOOKUP_DRESTRICT]
 QED
 
+Theorem DOMSUB_FUPDATE_LIST:
+  ∀l m x. (m |++ l) \\ x = (m \\ x) |++ (FILTER ($<> x o FST) l)
+Proof
+  Induct >> rw[FUPDATE_LIST_THM, fmap_eq_flookup] >>
+  PairCases_on `h` >> gvs[] >>
+  gvs[flookup_fupdate_list, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE] >>
+  CASE_TAC >> gvs[]
+QED
+
 
 (******************** Functions/Pairs ********************)
 
@@ -274,6 +283,41 @@ Theorem MAP_PAIR_MAP:
   MAP SND (MAP (f ## g) l) = MAP g (MAP SND l)
 Proof
   rw[MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]
+QED
+
+Theorem ALOOKUP_SOME:
+  ALOOKUP l k = SOME v ⇒ MEM k (MAP FST l)
+Proof
+  rw[] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP] >>
+  goal_assum (drule_at Any) >> simp[]
+QED
+
+Theorem LIST_REL_imp_OPTREL_ALOOKUP:
+  ∀(R:'a -> 'a -> bool) l1 l2.
+    LIST_REL R (MAP SND l1) (MAP SND l2) ∧ MAP FST l1 = MAP FST l2
+  ⇒ ∀k. OPTREL R (ALOOKUP l1 k) (ALOOKUP l2 k) ∧
+        OPTREL R (ALOOKUP (REVERSE l1) k) (ALOOKUP (REVERSE l2) k)
+Proof
+  rw[LIST_REL_EL_EQN]
+  >- (
+    Cases_on `ALOOKUP l1 k` >> Cases_on `ALOOKUP l2 k` >> gvs[ALOOKUP_NONE] >>
+    imp_res_tac ALOOKUP_SOME >> gvs[] >>
+    drule ALOOKUP_SOME_EL_2 >>
+    disch_then (qspec_then `l1` assume_tac) >> gvs[] >>
+    last_x_assum drule >> simp[EL_MAP]
+    )
+  >- (
+    Cases_on `ALOOKUP (REVERSE l1) k` >>
+    Cases_on `ALOOKUP (REVERSE l2) k` >> gvs[ALOOKUP_NONE] >>
+    imp_res_tac ALOOKUP_SOME >> gvs[MAP_REVERSE] >>
+    drule ALOOKUP_SOME_EL_2 >>
+    disch_then (qspec_then `REVERSE l1` assume_tac) >> gvs[MAP_REVERSE] >>
+    drule (GSYM EL_REVERSE) >>
+    qspecl_then [`n`,`l1`] mp_tac (GSYM EL_REVERSE) >> rw[] >> gvs[] >>
+    qmatch_asmsub_abbrev_tac `EL k1 _` >>
+    `k1 < LENGTH l2` by (unabbrev_all_tac >> DECIDE_TAC) >>
+    last_x_assum drule >> simp[EL_MAP]
+    )
 QED
 
 

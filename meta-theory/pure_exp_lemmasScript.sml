@@ -1,5 +1,5 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
 open stringTheory optionTheory pairTheory listTheory
      finite_mapTheory pred_setTheory dep_rewrite;
 open pure_miscTheory pure_configTheory pure_expTheory;
