@@ -138,40 +138,7 @@ QED
 Theorem letrec_lam_subst:
   ∀f x g y.  letrec_lam x y ⇒ letrec_lam (subst f x) (subst g y)
 Proof
-  simp[Once letrec_lam_cases] >> rw[] >> rename1 `Letrec xs x`
-  >- (
-    ntac 2 (DEP_ONCE_REWRITE_TAC[subst_ignore]) >>
-    simp[letrec_lam_cases, PULL_EXISTS] >>
-    irule_at Any EQ_REFL >> simp[] >>
-    imp_res_tac apps_ok_freevars_subst >> simp[] >>
-    drule_all lams_ok_imp_freevars >> strip_tac >> gvs[] >>
-    imp_res_tac lams_ok_imps >> gvs[] >>
-    qmatch_goalsub_abbrev_tac `DISJOINT s` >> qsuff_tac `s = {}` >> gvs[] >>
-    unabbrev_all_tac >> gvs[SUBSET_DIFF_EMPTY, BIGUNION_SUBSET, EVERY_MEM] >>
-    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
-    gvs[MEM_EL, PULL_EXISTS] >> Cases_on `EL n ys` >> gvs[] >>
-    last_x_assum drule >> Cases_on `EL n xs` >> gvs[] >> rw[] >>
-    gvs[lams_ok_def, LIST_REL_EL_EQN] >> last_x_assum drule >> simp[] >>
-    strip_tac >> gvs[] >> EVERY_CASE_TAC >> gvs[] >>
-    simp[GSYM SUBSET_INSERT_DELETE]
-    )
-  >- (
-    ntac 2 (DEP_ONCE_REWRITE_TAC[subst_ignore]) >>
-    simp[letrec_lam_cases, PULL_EXISTS] >>
-    irule_at Any EQ_REFL >> simp[] >>
-    imp_res_tac apps_ok_freevars_subst >> simp[] >>
-    drule_all lams_ok_imp_freevars >> strip_tac >> gvs[] >>
-    imp_res_tac lams_ok_imps >> gvs[closed_def] >> rw[] >>
-    qmatch_goalsub_abbrev_tac `DISJOINT s` >> qsuff_tac `s = {}` >> gvs[] >>
-    unabbrev_all_tac >> gvs[SUBSET_DIFF_EMPTY, BIGUNION_SUBSET, EVERY_MEM] >>
-    simp[GSYM SUBSET_INSERT_DELETE, SUBSET_INSERT_RIGHT] >>
-    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
-    gvs[MEM_EL, PULL_EXISTS] >> Cases_on `EL n ys` >> gvs[] >>
-    last_x_assum drule >> Cases_on `EL n xs` >> gvs[] >> rw[] >>
-    gvs[lams_ok_def, LIST_REL_EL_EQN] >> last_x_assum drule >> simp[] >>
-    strip_tac >> gvs[] >> EVERY_CASE_TAC >> gvs[] >>
-    simp[GSYM SUBSET_INSERT_DELETE]
-    )
+  rw[] >> drule letrec_lam_closed >> simp[]
 QED
 
 Theorem letrec_rel_lam_subst:
@@ -542,19 +509,9 @@ Proof
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
       IF_CASES_TAC >> gvs[LIST_REL_EL_EQN] >>
-      `∃x1 x2 x3. xs = [x1;x2;x3]` by (
-        Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
-        Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[]
-        ) >>
-      `∃y1 y2 y3. ys = [y1;y2;y3]` by (
-        Cases_on `ys` >> gvs[] >> Cases_on `t` >> gvs[] >>
-        Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[]
-        ) >>
-      gvs[] >>
-      first_assum (qspec_then `0` assume_tac) >>
-      first_assum (qspec_then `1` assume_tac) >>
-      first_x_assum (qspec_then `2` assume_tac) >> gvs[] >>
-      gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      `∃x1 x2 x3. xs = [x1;x2;x3]` by fs[LENGTH_EQ_NUM_compute] >>
+      `∃y1 y2 y3. ys = [y1;y2;y3]` by fs[LENGTH_EQ_NUM_compute] >>
+      gvs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
       first_x_assum drule_all >> strip_tac >> gvs[] >>
       reverse (Cases_on `eval_wh_to (k - 1) x1`) >> gvs[]
       >- (qexists_tac `ck` >> gvs[])
@@ -604,10 +561,8 @@ Proof
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> simp[]) >>
       IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
-      `∃x. xs = [x]` by (
-        Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[]) >>
-      `∃y. ys = [y]` by (
-        Cases_on `ys` >> gvs[] >> Cases_on `t` >> gvs[]) >>
+      `∃x. xs = [x]` by fs[LENGTH_EQ_NUM_compute] >>
+      `∃y. ys = [y]` by fs[LENGTH_EQ_NUM_compute] >>
       gvs[] >>
       first_x_assum drule_all >> rw[] >>
       Cases_on `eval_wh_to (k - 1) x` >> gvs[] >>
@@ -618,10 +573,8 @@ Proof
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> simp[]) >>
       IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
-      `∃x. xs = [x]` by (
-        Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[]) >>
-      `∃y. ys = [y]` by (
-        Cases_on `ys` >> gvs[] >> Cases_on `t` >> gvs[]) >>
+      `∃x. xs = [x]` by fs[LENGTH_EQ_NUM_compute] >>
+      `∃y. ys = [y]` by fs[LENGTH_EQ_NUM_compute] >>
       gvs[] >>
       first_x_assum drule_all >> rw[] >>
       reverse (Cases_on `eval_wh_to (k - 1) x`) >> gvs[]

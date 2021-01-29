@@ -322,7 +322,7 @@ Proof
   metis_tac[]
 QED
 
-Theorem letrec_rel_freevars:
+Theorem letrec_rel_split_freevars:
   ∀x y. letrec_rel letrec_split x y ⇒ freevars x = freevars y
 Proof
   ho_match_mp_tac letrec_rel_ind >> rw[] >> gvs[freevars_set_def]
@@ -355,49 +355,7 @@ QED
 Theorem letrec_split_subst:
   ∀f g a b. letrec_split a b ⇒ letrec_split (subst f a) (subst g b)
 Proof
-  rw[Once letrec_split_cases] >> imp_res_tac valid_split_def
-  THEN1
-   (dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >>
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >> reverse (rw[])
-    >- (rw[letrec_split_cases] >> disj1_tac >> irule_at Any EQ_REFL >> simp[]) >>
-    simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[freevars_subst] >>
-    simp[SUBSET_DIFF_EMPTY, FDOM_FUPDATE_LIST,
-         MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM FST_THM, DIFF_SUBSET] >> rw[]
-    >- (
-     drule (FRANGE_FUPDATE_LIST_SUBSET |> SIMP_RULE std_ss [SUBSET_DEF]) >>
-     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-     gvs[MEM_MAP] >> rw[] >> PairCases_on `y` >> gvs[] >>
-     gvs[EVERY_MEM] >> last_x_assum irule >> gvs[MEM_MAP, EXTENSION] >>
-     irule_at Any OR_INTRO_THM1 >> goal_assum drule >> simp[]
-     )
-    >- (
-     gvs[EXTENSION, SUBSET_DEF] >> rw[] >> last_x_assum drule >>
-     gvs[MEM_MAP] >> metis_tac[]
-     )
-    >- (
-     gvs[SUBSET_DEF, EVERY_MEM] >> rw[] >> rename1 `z ∈ s` >>
-     qsuff_tac `MEM z (MAP FST xs)` >- (gvs[MEM_MAP] >> metis_tac[]) >>
-     first_x_assum irule >> gvs[MEM_MAP] >> PairCases_on `y` >> gvs[] >>
-     goal_assum (drule_at Any) >>
-     irule_at Any OR_INTRO_THM2 >> goal_assum drule >> simp[]
-     ))
-  >- (
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >>
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[closed_subst] >> reverse (rw[])
-    >- (simp[Once letrec_split_cases] >> DISJ2_TAC >> goal_assum drule) >>
-    gvs[EVERY_MEM, SUBSET_DEF, EXTENSION] >> rw[] >> rename1 `MEM z _` >>
-    `MEM e (MAP SND xs)` by metis_tac[MEM_MAP] >>
-    last_x_assum drule >> disch_then drule >>
-    simp[MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD] >> rw[]
-    >- goal_assum drule >>
-    qpat_x_assum `MEM _ (MAP _ xs1)` mp_tac >>
-    qpat_x_assum `∀s._` mp_tac >> simp[MEM_MAP, PULL_EXISTS] >> rw[] >>
-    first_x_assum drule >> simp[DISJOINT_DEF, EXTENSION] >> pairarg_tac >>
-    gvs[] >> simp[MEM_MAP, PULL_EXISTS, DISJ_EQ_IMP] >>
-    disch_then drule >> simp[]
-    )
+  rw[] >> drule letrec_split_closed >> simp[]
 QED
 
 Theorem letrec_rel_split_subst:
@@ -585,7 +543,7 @@ Proof
         >- (
           rename1 `_ (subst_funs ys1 _)` >>
           dep_rewrite.DEP_REWRITE_TAC[subst_funs_eq_subst] >> gvs[] >>
-          imp_res_tac letrec_rel_freevars >>
+          imp_res_tac letrec_rel_split_freevars >>
           once_rewrite_tac[subst_FDIFF] >>
           irule letrec_rel_split_subst >> simp[] >>
           simp[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_DRESTRICT, flookup_fupdate_list] >>
@@ -769,19 +727,9 @@ Proof
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
       IF_CASES_TAC >> gvs[LIST_REL_EL_EQN] >>
-      `∃x1 x2 x3. xs = [x1;x2;x3]` by (
-        Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
-        Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[]
-        ) >>
-      `∃y1 y2 y3. ys = [y1;y2;y3]` by (
-        Cases_on `ys` >> gvs[] >> Cases_on `t` >> gvs[] >>
-        Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[]
-        ) >>
-      gvs[] >>
-      first_assum (qspec_then `0` assume_tac) >>
-      first_assum (qspec_then `1` assume_tac) >>
-      first_x_assum (qspec_then `2` assume_tac) >> gvs[] >>
-      gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      `∃x1 x2 x3. xs = [x1;x2;x3]` by fs[LENGTH_EQ_NUM_compute] >>
+      `∃y1 y2 y3. ys = [y1;y2;y3]` by fs[LENGTH_EQ_NUM_compute] >>
+      gvs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
       first_x_assum drule_all >> strip_tac >> gvs[] >>
       reverse (Cases_on `eval_wh_to (k - 1) x1`) >> gvs[]
       >- (qexists_tac `ck` >> gvs[])
@@ -836,10 +784,8 @@ Proof
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> simp[]) >>
       IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
-      `∃x. xs = [x]` by (
-        Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[]) >>
-      `∃y. ys = [y]` by (
-        Cases_on `ys` >> gvs[] >> Cases_on `t` >> gvs[]) >>
+      `∃x. xs = [x]` by fs[LENGTH_EQ_NUM_compute] >>
+      `∃y. ys = [y]` by fs[LENGTH_EQ_NUM_compute] >>
       gvs[] >>
       first_x_assum drule_all >> rw[] >>
       Cases_on `eval_wh_to (k - 1) x` >> gvs[] >>
@@ -850,10 +796,8 @@ Proof
     >- (
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> simp[]) >>
       IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
-      `∃x. xs = [x]` by (
-        Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[]) >>
-      `∃y. ys = [y]` by (
-        Cases_on `ys` >> gvs[] >> Cases_on `t` >> gvs[]) >>
+      `∃x. xs = [x]` by fs[LENGTH_EQ_NUM_compute] >>
+      `∃y. ys = [y]` by fs[LENGTH_EQ_NUM_compute] >>
       gvs[] >>
       first_x_assum drule_all >> rw[] >>
       reverse (Cases_on `eval_wh_to (k - 1) x`) >> gvs[]
