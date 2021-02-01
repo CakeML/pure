@@ -163,6 +163,10 @@ Definition unit_def:
   unit = Prim (Cons "") []
 End
 
+Definition delay_def:
+  delay x = Closure "%Delay%" x
+End
+
 Definition eval_to_def:
   eval_to k (Value v) = return v ∧
   eval_to k (Var n) = fail Type_error ∧
@@ -199,7 +203,7 @@ Definition eval_to_def:
          y <- subst_funs funs x;
          eval_to (k - 1) y
        od) ∧
-  eval_to k (Delay x) = return (Thunk F (Closure "%Delay%" x)) ∧
+  eval_to k (Delay x) = return (Thunk F (delay x)) ∧
   eval_to k (Box x) =
     (if k = 0 then fail Diverge else
        do

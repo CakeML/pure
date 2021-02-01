@@ -3,11 +3,13 @@
  *)
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pred_setTheory thunkLang_primitivesTheory thunkLangTheory
+     pred_setTheory rich_listTheory thunkLang_primitivesTheory thunkLangTheory
      finite_mapTheory thunkLang_substTheory;
 open thunk_to_thunkTheory;
 
 val _ = new_theory "thunk_to_thunkProof";
+
+val _ = numLib.prefer_num ();
 
 Theorem compile_exp_freevars:
   ∀x. freevars (compile_exp x) = freevars x
@@ -75,8 +77,12 @@ Inductive exp_rel:
       exp_rel env (Letrec f x) (Letrec f' x')) ∧
 [exp_rel_Delay:]
   (∀env x x'.
-     exp_rel env x x' ⇒
+     v_rel (Thunk F (delay x)) (Thunk F (delay env x')) ⇒
        exp_rel env (Delay x) (Delay x')) ∧
+[exp_rel_Box:]
+  (∀env x x'.
+     exp_rel env x x' ⇒
+       exp_rel env (Box x) (Box x')) ∧
 [exp_rel_Force:]
   (∀env x x'.
      exp_rel env x x' ⇒
@@ -91,9 +97,9 @@ Inductive exp_rel:
      exp_rel env (Lam s x) (Lam s' x') ⇒
        v_rel (Closure s x) (Closure s' env x')) ∧
 [v_rel_Thunk:]
-  (∀env x x'.
-    exp_rel env x x' ⇒
-      v_rel (Thunk x) (Thunk env x')) ∧
+  (∀v w nf.
+     v_rel v w ⇒
+       v_rel (Thunk nf v) (Thunk nf w)) ∧
 [v_rel_Atom:]
   (∀l l'.
      l = l' ⇒
@@ -140,6 +146,11 @@ Theorem exp_rel_def:
      exp_rel env (Delay x) y =
      ∃z.
        y = Delay z ∧
+       v_rel (Thunk F (delay x)) (Thunk F (delay env z))) ∧
+  (∀x.
+     exp_rel env (Box x) y =
+     ∃z.
+       y = Box z ∧
        exp_rel env x z) ∧
   (∀x.
      exp_rel env (Force x) y =
@@ -167,10 +178,10 @@ Theorem v_rel_def:
      v_rel (Closure s x) v ⇔
      ∃env y. v = Closure s env y ∧
              exp_rel env (Lam s x) (Lam s y)) ∧
-  (∀x.
-     v_rel (Thunk x) v ⇔
-     ∃env y. v = Thunk env y ∧
-             exp_rel env x y) ∧
+  (∀nf v.
+     v_rel (Thunk nf v) w ⇔
+     ∃u. w = Thunk nf u ∧
+             v_rel v u) ∧
   (∀x.
      v_rel (Atom x) v ⇔ v = Atom x)
 Proof
@@ -230,6 +241,7 @@ Proof
     \\ first_x_assum drule \\ simp [])
 QED
 
+(* TODO Move to thunkLang_primitives *)
 Theorem map_INR:
   map f xs = INR ys ⇒
     ∀n. n < LENGTH xs ⇒
@@ -244,6 +256,7 @@ Proof
   \\ Cases \\ fs []
 QED
 
+(* TODO Move to thunkLang_primitives *)
 Theorem map_LENGTH:
   ∀xs ys.
     map f xs = INR ys ⇒ LENGTH ys = LENGTH xs
@@ -262,22 +275,21 @@ Theorem dest_Closure_v_rel:
     (∀err. dest_Closure v = INL err ⇒ dest_Closure w = INL err) ∧
     (∀s x.
        dest_Closure v = INR (s, x) ⇒
-         ∃env y. dest_Closure w = INR (s, env, y) ∨
-             exp_rel env x y)
+         ∃env y. dest_Closure w = INR (s, env, y) ∧
+                 exp_rel (FILTER (λ(n, x). n ≠ s) env) x y)
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
   \\ simp [thunkLangTheory.dest_Closure_def,
            thunkLang_substTheory.dest_Closure_def,
-           v_rel_def]
+           v_rel_def, exp_rel_def]
   \\ metis_tac []
 QED
 
 Theorem dest_Thunk_v_rel:
   v_rel v w ⇒
     (∀err. dest_Thunk v = INL err ⇒ dest_Thunk w = INL err) ∧
-    (∀x. dest_Thunk v = INR x ⇒
-       ∃env y. dest_Thunk w = INR (env, y) ∧
-               exp_rel env x y)
+    (∀nf x. dest_Thunk v = INR (nf, x) ⇒
+       ∃y. dest_Thunk w = INR (nf, y) ∧ v_rel x y)
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
   \\ simp [thunkLangTheory.dest_Thunk_def,
@@ -354,7 +366,8 @@ Proof
   >- (
     metis_tac [])
   \\ ho_match_mp_tac exp_rel_strongind
-  \\ simp [exp_rel_def, ALOOKUP_FILTER, MEM_MAP, v_rel_def]
+  \\ simp [exp_rel_def, ALOOKUP_FILTER, MEM_MAP, v_rel_def,
+           thunkLangTheory.delay_def, thunkLang_substTheory.delay_def]
   \\ rw [] \\ fs []
   \\ fs [FUN_EQ_THM, ALOOKUP_FILTER, LIST_REL_EL_EQN]
   \\ rw []
@@ -431,6 +444,8 @@ Proof
     \\ rw [EL_MAP])
   >- (
     cheat (* TODO Letrec case *))
+  >- (
+    rw [v_rel_def, thunkLangTheory.delay_def, thunkLang_substTheory.delay_def])
 QED
 
 Theorem exp_rel_Lam[local]:
@@ -439,7 +454,7 @@ Theorem exp_rel_Lam[local]:
     exp_rel ((s,w)::env) (subst1 s (Value v) b) y
 Proof
   strip_tac
-  \\ once_rewrite_tac [rich_listTheory.CONS_APPEND]
+  \\ once_rewrite_tac [CONS_APPEND]
   \\ irule_at Any exp_rel_ALOOKUP_EQ
   \\ irule_at Any exp_rel_subst
   \\ goal_assum (first_assum o mp_then Any mp_tac) \\ simp []
@@ -486,6 +501,12 @@ Proof
     simp [thunkLangTheory.do_prim_def, thunkLang_substTheory.do_prim_def]
     \\ CASE_TAC \\ fs [v_rel_def, LIST_REL_EL_EQN]
     \\ strip_tac \\ fs [])
+QED
+
+Theorem closed_unit[local,simp]:
+  closed unit
+Proof
+  rw [closed_def, unit_def, freevars_def]
 QED
 
 Theorem eval_to_exp_rel:
@@ -568,18 +589,18 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x'’ \\ fs []
     \\ ‘∃r. dest_Closure y = r’ by fs []
     \\ drule_then strip_assume_tac dest_Closure_v_rel
-    \\ reverse (Cases_on ‘∃s b. y = Closure s b’) \\ fs []
+    \\ CASE_TAC \\ gvs []
     >- ((* INL *)
       Cases_on ‘y’
       \\ gvs [dest_Closure_def, dest_anyClosure_def, sum_choice_def,
               sum_bind_def, dest_Recclosure_def,
               thunkLangTheory.dest_Closure_def, v_rel_def])
+    \\ pairarg_tac \\ gvs []
     \\ gvs [dest_Closure_def, dest_anyClosure_def, sum_choice_def,
             sum_bind_def, dest_Recclosure_def,
             thunkLangTheory.dest_Closure_def, v_rel_def]
-    \\ fs [bind_def, finite_mapTheory.FLOOKUP_UPDATE, closed_def, freevars_def]
+    \\ fs [bind_def, FLOOKUP_UPDATE, closed_def, freevars_def]
     \\ first_x_assum irule
-    \\ fs [exp_rel_def]
     \\ irule exp_rel_Lam \\ fs [])
   >- ((* Lam *)
     rw [exp_rel_def]
@@ -612,9 +633,17 @@ Proof
     \\ simp [bind_funs_def]
     \\ cheat (* TODO *))
   >- ((* Delay *)
+    rw [exp_rel_def, v_rel_def,
+        thunkLangTheory.delay_def,
+        thunkLang_substTheory.delay_def])
+  >- ((* Box *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
-             v_rel_def])
+    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ simp [sum_bind_def]
+    \\ CASE_TAC \\ fs []
+    \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
+    \\ simp [v_rel_def])
   >- ((* Force *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
@@ -625,14 +654,19 @@ Proof
     \\ ‘∃r. dest_Thunk y = r’ by fs []
     \\ drule_then strip_assume_tac dest_Thunk_v_rel
     \\ Cases_on ‘dest_Thunk y’ \\ gvs []
-    \\ rename1 ‘exp_rel env1 bod bod1’ \\ gvs []
-    \\ first_x_assum (drule_then strip_assume_tac)
-    \\ CASE_TAC \\ fs []
-    \\ drule_then strip_assume_tac dest_Thunk_v_rel
-    \\ simp [can_def]
+    (*\\ rename1 ‘exp_rel env1 bod bod1’ \\ gvs []*)
+    \\ first_assum (drule_then strip_assume_tac) \\ gvs []
+    \\ pairarg_tac \\ gvs []
     \\ IF_CASES_TAC \\ fs []
+    \\ qpat_x_assum ‘INR _ = _’ (assume_tac o SYM)
+    \\ rename1 ‘dest_Closure w1’
+    \\ ‘∃r. dest_Closure w1 = r’ by fs []
+    \\ drule_then strip_assume_tac dest_Closure_v_rel
     \\ CASE_TAC \\ gvs []
-    \\ Cases_on ‘dest_Thunk y'’ \\ fs [])
+    \\ simp [bind_def, FLOOKUP_UPDATE]
+    \\ pairarg_tac \\ gvs []
+    \\ first_x_assum irule
+    \\ cheat (* Need something for substituting the unit *))
 QED
 
 (* TODO What was this for? *)

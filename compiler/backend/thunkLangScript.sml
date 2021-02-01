@@ -127,6 +127,10 @@ Definition unit_def:
   unit = Constructor "" []
 End
 
+Definition delay_def:
+  delay env x = Closure "%delay%" env x
+End
+
 Definition eval_to_def:
   eval_to k env (Var n) = lookup_var env n ∧
   eval_to k env (Prim op xs) =
@@ -158,7 +162,7 @@ Definition eval_to_def:
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (bind_funs funs env) x) ∧
-  eval_to k env (Delay x) = return (Thunk F (Closure "%Delay%" env x)) ∧
+  eval_to k env (Delay x) = return (Thunk F (delay env x)) ∧
   eval_to k env (Box x) =
     (if k = 0 then fail Diverge else
        do
