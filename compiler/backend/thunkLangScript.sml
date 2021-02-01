@@ -16,6 +16,8 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 
 val _ = new_theory "thunkLang";
 
+val _ = numLib.prefer_num();
+
 Type vname = “:string”;
 Type op = “:pure_exp$op”;
 
@@ -26,7 +28,8 @@ Datatype:
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
-      | Delay exp                                (* creates a Thunk value   *)
+      | Delay exp                                (* delays a computation    *)
+      | Box exp                                  (* boxes a computation     *)
       | Force exp                                (* evaluates a Thunk       *)
 End
 
@@ -34,7 +37,7 @@ Datatype:
   v = Constructor string (v list)
     | Closure vname ((vname # v) list) exp
     | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
-    | Thunk ((vname # v) list) exp
+    | Thunk bool v
     | Atom lit
 End
 
@@ -49,7 +52,7 @@ Definition dest_Closure_def:
 End
 
 Definition dest_Thunk_def:
-  dest_Thunk (Thunk env x) = return (env, x) ∧
+  dest_Thunk (Thunk nf x) = return (nf, x) ∧
   dest_Thunk _ = fail Type_error
 End
 
@@ -120,10 +123,14 @@ Definition do_prim_def:
         od
 End
 
+Definition unit_def:
+  unit = Constructor "" []
+End
+
 Definition eval_to_def:
   eval_to k env (Var n) = lookup_var env n ∧
   eval_to k env (Prim op xs) =
-    (if k = 0n then fail Diverge else
+    (if k = 0 then fail Diverge else
        do
          vs <- map (eval_to (k - 1) env) xs;
          do_prim op vs
@@ -151,14 +158,23 @@ Definition eval_to_def:
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (bind_funs funs env) x) ∧
-  eval_to k env (Delay x) = return (Thunk env x) ∧
+  eval_to k env (Delay x) = return (Thunk F (Closure "%Delay%" env x)) ∧
+  eval_to k env (Box x) =
+    (if k = 0 then fail Diverge else
+       do
+        v <- eval_to (k - 1) env x;
+        return (Thunk T v)
+      od) ∧
   eval_to k env (Force x) =
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) env x;
-         (env', body) <- dest_Thunk v;
-         w <- eval_to (k - 1) env' body;
-         if can dest_Thunk w then fail Type_error else return w
+         (nf, w) <- dest_Thunk v;
+         if nf then return w else
+           do
+             (s, env', body) <- dest_Closure w;
+             eval_to (k - 1) ((s, unit)::env') body
+           od
        od)
 End
 
@@ -178,6 +194,7 @@ Definition freevars_def:
   freevars (Letrec f x) =
     freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
   freevars (Delay x) = freevars x ∧
+  freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’

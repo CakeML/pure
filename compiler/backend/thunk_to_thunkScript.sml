@@ -19,6 +19,7 @@ Definition compile_exp_def:
   compile_exp (If x y z) =
     If (compile_exp x) (compile_exp y) (compile_exp z) ∧
   compile_exp (Delay x) = Delay (compile_exp x) ∧
+  compile_exp (Box x) = Box (compile_exp x) ∧
   compile_exp (Force x) = Force (compile_exp x) ∧
   compile_exp (Value v) = Lam "%dummy%" (Var "%dummy%")
 Termination

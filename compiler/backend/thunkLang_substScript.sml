@@ -15,6 +15,8 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 
 val _ = new_theory "thunkLang_subst";
 
+val _ = numLib.prefer_num();
+
 Datatype:
   exp = Var vname                                (* variable                *)
       | Prim op (exp list)                       (* primitive operations    *)
@@ -22,13 +24,14 @@ Datatype:
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
-      | Delay exp                                (* creates a Thunk value   *)
+      | Delay exp                                (* delays a computation    *)
+      | Box exp                                  (* boxes a computation     *)
       | Force exp                                (* evaluates a Thunk       *)
       | Value v;                                 (* for substitution        *)
 
   v = Constructor string (v list)
     | Closure vname exp
-    | Thunk exp
+    | Thunk bool v
     | Atom lit
 End
 
@@ -85,7 +88,7 @@ Definition dest_Closure_def:
 End
 
 Definition dest_Thunk_def:
-  dest_Thunk (Thunk x) = return x ∧
+  dest_Thunk (Thunk nf x) = return (nf, x) ∧
   dest_Thunk _ = fail Type_error
 End
 
@@ -98,6 +101,7 @@ Definition freevars_def:
   freevars (Letrec f x) =
     freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
   freevars (Delay x) = freevars x ∧
+  freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
   freevars (Value v) = ∅
 Termination
@@ -112,6 +116,9 @@ Definition closed_def:
   closed e ⇔ freevars e = ∅
 End
 
+(*
+ * TODO: Use alists instead of finite_maps
+ *)
 Definition subst_def:
   subst m (Var s) =
     (case FLOOKUP m s of
@@ -126,6 +133,7 @@ Definition subst_def:
     (let m1 = FDIFF m (set (MAP FST f ++ MAP (FST o SND) f)) in
       Letrec (MAP (λ(f,x,e). (f,x,subst m1 e)) f) (subst m1 x)) ∧
   subst m (Delay x) = Delay (subst m x) ∧
+  subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
   subst m (Value v) = Value v
 Termination
@@ -151,11 +159,15 @@ Definition subst_funs_def:
   subst_funs f = bind (FEMPTY |++ (MAP (λ(g,v,x). (g, Letrec f x)) f))
 End
 
+Definition unit_def:
+  unit = Prim (Cons "") []
+End
+
 Definition eval_to_def:
   eval_to k (Value v) = return v ∧
   eval_to k (Var n) = fail Type_error ∧
   eval_to k (Prim op xs) =
-    (if k = 0n then fail Diverge else
+    (if k = 0 then fail Diverge else
        do
          vs <- map (eval_to (k - 1)) xs;
          do_prim op vs
@@ -187,14 +199,24 @@ Definition eval_to_def:
          y <- subst_funs funs x;
          eval_to (k - 1) y
        od) ∧
-  eval_to k (Delay x) = return (Thunk x) ∧
+  eval_to k (Delay x) = return (Thunk F (Closure "%Delay%" x)) ∧
+  eval_to k (Box x) =
+    (if k = 0 then fail Diverge else
+       do
+        v <- eval_to (k - 1) x;
+        return (Thunk T v)
+      od) ∧
   eval_to k (Force x) =
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) x;
-         y <- dest_Thunk v;
-         w <- eval_to (k - 1) y;
-         if can dest_Thunk w then fail Type_error else return w
+         (nf, w) <- dest_Thunk v;
+         if nf then return w else
+           do
+             (s, body) <- dest_Closure w;
+             y <- bind1 s unit body;
+             eval_to (k - 1) y
+           od
        od)
 End
 
