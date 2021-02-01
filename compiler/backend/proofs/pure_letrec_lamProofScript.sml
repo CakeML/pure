@@ -6,7 +6,8 @@ open arithmeticTheory listTheory alistTheory optionTheory pairTheory dep_rewrite
      pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
      pure_congruenceTheory pure_miscTheory pure_eval_lemmasTheory
-     pure_letrecTheory pure_letrecProofTheory;
+     pure_letrecTheory pure_letrecProofTheory
+     pure_letrec_lamTheory pure_beta_equivTheory;
 
 val _ = new_theory "pure_letrec_lamProof";
 
@@ -734,6 +735,142 @@ Proof
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
       IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
       )
+    )
+QED
+
+Theorem Letrec_Lam:
+  ∀apps xs ys e.
+    apps_ok apps ∧
+    lams_ok apps xs ys
+  ⇒ Letrec xs e ≅ Letrec ys (subst apps e)
+Proof
+  rw[] >>
+  once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
+  irule open_bisimilarity_suff >> rw[] >> gvs[apps_ok_freevars_subst] >>
+  imp_res_tac lams_ok_imps >> imp_res_tac lams_ok_imp_freevars >> gvs[] >>
+  rw[bind_def, subst_def] >>
+  `FDIFF f (set (MAP FST ys)) = f` by (
+    simp[FDIFF_def] >> irule disjoint_drestrict >>
+    simp[DISJOINT_DEF, EXTENSION] >> metis_tac[]) >>
+  pop_assum SUBST_ALL_TAC >>
+  DEP_REWRITE_TAC[subst_subst_DISJOINT_FUNION] >> conj_asm1_tac
+  >- (
+    rw[] >> drule_all apps_ok_FRANGE_freevars >> strip_tac >>
+    gvs[SUBSET_DEF, DISJOINT_DEF, EXTENSION] >> metis_tac[]
+    ) >>
+  DEP_ONCE_REWRITE_TAC[FUNION_COMM] >> conj_asm1_tac
+  >- (gvs[SUBSET_DEF, DISJOINT_DEF, EXTENSION] >> metis_tac[]) >>
+  DEP_REWRITE_TAC[GSYM subst_subst_FUNION] >> simp[IN_FRANGE_FLOOKUP] >>
+  irule letrec_lam_correct >> simp[GSYM CONJ_ASSOC] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  simp[apps_ok_freevars_subst, EVERY_MAP] >> csimp[] >> conj_asm1_tac
+  >- (
+    simp[EVERY_MEM] >> rw[] >>
+    rename1 `MEM ex _` >> PairCases_on `ex` >> gvs[] >>
+    DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    simp[DIFF_SUBSET, DIFF_INTER] >>
+    qsuff_tac `MEM (freevars ex1) (MAP (λ(fn,e). freevars e) xs)`
+    >- (gvs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+    once_rewrite_tac[MEM_MAP] >> simp[EXISTS_PROD] >>
+    goal_assum (drule_at Any) >> simp[]
+    ) >>
+  conj_asm1_tac
+  >- (
+    DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    simp[DIFF_SUBSET, DIFF_INTER] >> gvs[SUBSET_DEF, EXTENSION] >> metis_tac[]
+    ) >>
+  conj_asm1_tac
+  >- (
+    simp[EVERY_MEM] >> rw[] >>
+    rename1 `MEM ey _` >> PairCases_on `ey` >> gvs[] >>
+    DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
+    simp[DIFF_SUBSET, DIFF_INTER] >>
+    qsuff_tac `MEM (freevars ey1) (MAP (λ(fn,e). freevars e) ys)`
+    >- (gvs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+    once_rewrite_tac[MEM_MAP] >> simp[EXISTS_PROD] >>
+    goal_assum (drule_at Any) >> simp[]
+    ) >>
+  simp[Once letrec_rel_cases] >>
+  qexistsl_tac [`MAP (λ(p1,p2). (p1,subst f p2)) xs`,`subst f e`] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  simp[LIST_REL_EL_EQN, letrec_rel_refl] >> disj1_tac >>
+  simp[letrec_lam_cases] >>
+  goal_assum (drule_at Any) >> simp[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  simp[EVERY_MAP] >>
+  gvs[lams_ok_def] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+  map_every qpat_abbrev_tac [`a = EL n xs`,`b = EL n ys`] >>
+  map_every PairCases_on [`a`,`b`] >> gvs[] >>
+  last_x_assum drule >> gvs[] >> strip_tac >> gvs[] >>
+  IF_CASES_TAC >> gvs[] >>
+  `subst apps (subst f a1) = subst f (subst apps a1)` by (
+    once_rewrite_tac[EQ_SYM_EQ] >>
+    DEP_ONCE_REWRITE_TAC[subst_subst_DISJOINT_FUNION] >> simp[] >>
+    DEP_ONCE_REWRITE_TAC[FUNION_COMM] >> simp[] >>
+    DEP_REWRITE_TAC[GSYM subst_subst_FUNION] >> simp[IN_FRANGE_FLOOKUP]) >>
+  pop_assum SUBST_ALL_TAC >> gvs[] >>
+  goal_assum (drule_at Any) >> simp[subst_def] >>
+  irule_at Any (GSYM subst_fdomsub) >>
+  simp[apps_ok_freevars_subst] >> gvs[EVERY_MEM] >>
+  last_x_assum (qspec_then `EL n xs` assume_tac) >> gvs[EL_MEM] >>
+  gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+(********************)
+
+Theorem closed_cl_tm[simp]:
+  closed (cl_tm)
+Proof
+  rw[cl_tm_def, closed_def]
+QED
+
+Theorem apps_ok_make_apps:
+  ∀fns. apps_ok (make_apps fns)
+Proof
+  recInduct make_apps_ind >> simp[make_apps_def, apps_ok_def] >> rw[] >>
+  Cases_on `e` >> gvs[FLOOKUP_UPDATE] >>
+  EVERY_CASE_TAC >> gvs[FLOOKUP_DEF]
+QED
+
+Theorem FDOM_make_apps:
+  ∀fns. FDOM (make_apps fns) ⊆ set (MAP FST fns)
+Proof
+  recInduct make_apps_ind >> simp[make_apps_def] >> rw[]
+  >- (irule SUBSET_INSERT_RIGHT >> simp[]) >>
+  Cases_on `e` >> gvs[FDOM_FUPDATE]
+QED
+
+Theorem lambdify_one_correct:
+  ∀fns e. Letrec fns e ≅ lambdify_one fns e
+Proof
+  rw[lambdify_one_def] >>
+  irule Letrec_Lam >> simp[apps_ok_make_apps] >>
+  rw[lams_ok_def, LIST_REL_EL_EQN, EL_MAP, FDOM_make_apps] >>
+  Cases_on `EL n fns` >> gvs[] >>
+  IF_CASES_TAC >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `fresh_var x l` >>
+  qspecl_then [`x`,`l`] assume_tac fresh_var_correctness >> unabbrev_all_tac >>
+  gvs[] >> rename1 `¬MEM fresh _` >>
+  gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, FORALL_PROD] >>
+  first_x_assum irule >> qexists_tac `q` >> metis_tac[EL_MEM]
+QED
+
+Theorem lambdify_all_correct:
+  ∀e. e ≅ lambdify_all e
+Proof
+  recInduct freevars_ind >> rw[lambdify_all_def, exp_eq_refl]
+  >- (
+    irule exp_eq_Prim_cong >> rw[LIST_REL_EL_EQN, EL_MAP] >>
+    first_x_assum irule >> simp[EL_MEM]
+    )
+  >- (irule exp_eq_App_cong >> simp[])
+  >- (irule exp_eq_Lam_cong >> simp[])
+  >- (
+    irule exp_eq_trans >> qexists_tac `Letrec lcs (lambdify_all e)` >>
+    irule_at Any exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl] >>
+    simp[lambdify_one_correct]
     )
 QED
 
