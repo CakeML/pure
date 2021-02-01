@@ -31,6 +31,7 @@ Datatype:
 
   v = Constructor string (v list)
     | Closure vname exp
+    | Recclosure ((vname # vname # exp) list) vname
     | Thunk bool v
     | Atom lit
 End
@@ -92,6 +93,22 @@ Definition dest_Thunk_def:
   dest_Thunk _ = fail Type_error
 End
 
+Definition dest_Recclosure_def:
+  dest_Recclosure (Recclosure funs fn) = return (funs, fn) ∧
+  dest_Recclosure _ = fail Type_error
+End
+
+Definition dest_anyClosure_def:
+  dest_anyClosure v =
+    dest_Closure v ++
+    do
+      (funs, fn) <- dest_Recclosure v;
+      case ALOOKUP funs fn of
+        SOME (var, bod) => return (var, bod)
+      | NONE => fail Type_error
+    od
+End
+
 Definition freevars_def:
   freevars (Var n) = {n} ∧
   freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
@@ -116,22 +133,22 @@ Definition closed_def:
   closed e ⇔ freevars e = ∅
 End
 
-(*
- * TODO: Use alists instead of finite_maps
- *)
 Definition subst_def:
   subst m (Var s) =
-    (case FLOOKUP m s of
+    (case ALOOKUP m s of
        NONE => Var s
-     | SOME x => x) ∧
+     | SOME x => Value x) ∧
   subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
   subst m (If x y z) =
     If (subst m x) (subst m y) (subst m z) ∧
   subst m (App x y) = App (subst m x) (subst m y) ∧
-  subst m (Lam s x) = Lam s (subst (m \\ s) x) ∧
+  subst m (Lam s x) = Lam s (subst (FILTER (λ(n, x). n ≠ s) m) x) ∧
   subst m (Letrec f x) =
-    (let m1 = FDIFF m (set (MAP FST f ++ MAP (FST o SND) f)) in
-      Letrec (MAP (λ(f,x,e). (f,x,subst m1 e)) f) (subst m1 x)) ∧
+    (let m1 =
+       FILTER (λ(n, x). ¬MEM n (MAP FST f)) m in
+         Letrec (MAP (λ(f,xn,e).
+                  (f,xn,subst (FILTER (λ(n,x). n ≠ xn) m1) e)) f)
+                (subst m1 x)) ∧
   subst m (Delay x) = Delay (subst m x) ∧
   subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
@@ -143,24 +160,20 @@ Termination
   \\ fs [exp_size_def]
 End
 
-Overload subst1 = “λname v e. subst (FEMPTY |+ (name,v)) e”;
+Overload subst1 = “λname v e. subst [(name,v)] e”;
 
 Definition bind_def:
-  bind m e =
-    if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then
-      return (subst m e)
-    else
-      fail Type_error
+  bind m v = return (subst m v)
 End
 
-Overload bind1 = “λname v e. bind (FEMPTY |+ (name,v)) e”;
+Overload bind1 = “λname v e. bind [(name,v)] e”;
 
 Definition subst_funs_def:
-  subst_funs f = bind (FEMPTY |++ (MAP (λ(g,v,x). (g, Letrec f x)) f))
+  subst_funs f = bind ((MAP (λ(g,v,x). (g, Recclosure f g)) f))
 End
 
 Definition unit_def:
-  unit = Prim (Cons "") []
+  unit = Constructor "" []
 End
 
 Definition delay_def:
@@ -182,7 +195,7 @@ Definition eval_to_def:
          fv <- eval_to (k - 1) f;
          xv <- eval_to (k - 1) x;
          (s, body) <- dest_Closure fv ;
-         y <- bind1 s (Value xv) body;
+         y <- bind1 s xv body;
          eval_to (k - 1) y
        od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
