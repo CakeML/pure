@@ -18,8 +18,7 @@ Definition compile_exp_def:
     Letrec (MAP (λ(fn, vn, x). (fn, vn, compile_exp x)) f) (compile_exp x) ∧
   compile_exp (If x y z) =
     If (compile_exp x) (compile_exp y) (compile_exp z) ∧
-  compile_exp (Delay x) = Delay (compile_exp x) ∧
-  compile_exp (Box x) = Box (compile_exp x) ∧
+  compile_exp (Delay f x) = Delay f (compile_exp x) ∧
   compile_exp (Force x) = Force (compile_exp x) ∧
   compile_exp (Value v) = Lam "%dummy%" (Var "%dummy%")
 Termination

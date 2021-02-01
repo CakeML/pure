@@ -28,8 +28,7 @@ Datatype:
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
-      | Delay exp                                (* delays a computation    *)
-      | Box exp                                  (* boxes a computation     *)
+      | Delay bool exp                           (* delays a computation    *)
       | Force exp                                (* evaluates a Thunk       *)
 End
 
@@ -127,10 +126,6 @@ Definition unit_def:
   unit = Constructor "" []
 End
 
-Definition delay_def:
-  delay env x = Closure "%delay%" env x
-End
-
 Definition eval_to_def:
   eval_to k env (Var n) = lookup_var env n ∧
   eval_to k env (Prim op xs) =
@@ -162,12 +157,11 @@ Definition eval_to_def:
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (bind_funs funs env) x) ∧
-  eval_to k env (Delay x) = return (Thunk F (delay env x)) ∧
-  eval_to k env (Box x) =
+  eval_to k env (Delay b x) =
     (if k = 0 then fail Diverge else
        do
         v <- eval_to (k - 1) env x;
-        return (Thunk T v)
+        return (Thunk b v)
       od) ∧
   eval_to k env (Force x) =
     (if k = 0 then fail Diverge else
@@ -197,8 +191,7 @@ Definition freevars_def:
   freevars (Lam s b)   = freevars b DIFF {s} ∧
   freevars (Letrec f x) =
     freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
-  freevars (Delay x) = freevars x ∧
-  freevars (Box x) = freevars x ∧
+  freevars (Delay f x) = freevars x ∧
   freevars (Force x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’

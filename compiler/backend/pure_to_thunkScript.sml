@@ -25,7 +25,7 @@ Definition compile_exp_def:
           (compile_exp (EL 2 xs))
      else
        Prim op (MAP (λx. Force (compile_exp x)) xs)) ∧
-  compile_exp (App x y) = App (compile_exp x) (Delay (compile_exp y)) ∧
+  compile_exp (App x y) = App (compile_exp x) (Delay T (compile_exp y)) ∧
   compile_exp (Lam v x) = Lam v (compile_exp x) ∧
   compile_exp (Letrec funs x) =
     Letrec (MAP (λ(fn, x). case x of
@@ -48,7 +48,7 @@ Definition No_Value_def:
   No_Value (Lam v x) = No_Value x ∧
   No_Value (Letrec f x) = (EVERY No_Value (MAP (SND o SND) f) ∧ No_Value x) ∧
   No_Value (If x y z) = (No_Value x ∧ No_Value y ∧ No_Value z) ∧
-  No_Value (Delay x) = No_Value x ∧
+  No_Value (Delay T x) = No_Value x ∧
   No_Value (Force x) = No_Value x ∧
   No_Value (Value v) = F
 Termination

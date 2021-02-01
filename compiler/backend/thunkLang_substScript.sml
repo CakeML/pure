@@ -24,8 +24,7 @@ Datatype:
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
-      | Delay exp                                (* delays a computation    *)
-      | Box exp                                  (* boxes a computation     *)
+      | Delay bool exp                           (* delays a computation    *)
       | Force exp                                (* evaluates a Thunk       *)
       | Value v;                                 (* for substitution        *)
 
@@ -117,8 +116,7 @@ Definition freevars_def:
   freevars (Lam s b)   = freevars b DIFF {s} ∧
   freevars (Letrec f x) =
     freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
-  freevars (Delay x) = freevars x ∧
-  freevars (Box x) = freevars x ∧
+  freevars (Delay f x) = freevars x ∧
   freevars (Force x) = freevars x ∧
   freevars (Value v) = ∅
 Termination
@@ -149,8 +147,7 @@ Definition subst_def:
          Letrec (MAP (λ(f,xn,e).
                   (f,xn,subst (FILTER (λ(n,x). n ≠ xn) m1) e)) f)
                 (subst m1 x)) ∧
-  subst m (Delay x) = Delay (subst m x) ∧
-  subst m (Box x) = Box (subst m x) ∧
+  subst m (Delay b x) = Delay b (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
   subst m (Value v) = Value v
 Termination
@@ -169,15 +166,11 @@ End
 Overload bind1 = “λname v e. bind [(name,v)] e”;
 
 Definition subst_funs_def:
-  subst_funs f = bind ((MAP (λ(g,v,x). (g, Recclosure f g)) f))
+  subst_funs f = bind (MAP (λ(g,v,x). (g, Recclosure f g)) f)
 End
 
 Definition unit_def:
   unit = Constructor "" []
-End
-
-Definition delay_def:
-  delay x = Closure "%Delay%" x
 End
 
 Definition eval_to_def:
@@ -216,12 +209,11 @@ Definition eval_to_def:
          y <- subst_funs funs x;
          eval_to (k - 1) y
        od) ∧
-  eval_to k (Delay x) = return (Thunk F (delay x)) ∧
-  eval_to k (Box x) =
+  eval_to k (Delay f x) =
     (if k = 0 then fail Diverge else
        do
         v <- eval_to (k - 1) x;
-        return (Thunk T v)
+        return (Thunk f v)
       od) ∧
   eval_to k (Force x) =
     (if k = 0 then fail Diverge else
