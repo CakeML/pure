@@ -412,7 +412,6 @@ Theorem exp_rel_subst:
   ∀env x y binds extra.
     exp_rel env x y ∧
     env_rel binds extra ∧
-    ALL_DISTINCT (MAP FST extra) ∧
     (∀k. MEM k (MAP FST extra) ⇒ ¬MEM k (MAP FST env)) ⇒
       exp_rel (extra ++ env) (subst binds x) y
 Proof
@@ -421,7 +420,6 @@ Proof
        exp_rel env x y ⇒
          ∀binds extra.
            env_rel binds extra ∧
-           ALL_DISTINCT (MAP FST extra) ∧
            (∀k. MEM k (MAP FST extra) ⇒ ¬MEM k (MAP FST env)) ⇒
              exp_rel (extra ++ env) (subst binds x) y) ∧
     (∀v w. v_rel v w ⇒ T)’
@@ -440,8 +438,8 @@ Proof
   >- (
     rw []
     \\ fs [env_rel_def]
-    \\ CASE_TAC
-    \\ fs [exp_rel_def, ALOOKUP_APPEND, CaseEq "option", ALOOKUP_NONE]
+    \\ CASE_TAC \\ fs [exp_rel_def, ALOOKUP_APPEND, CaseEq "option",
+                       ALOOKUP_NONE]
     >- (
       metis_tac [])
     \\ res_tac
@@ -459,16 +457,6 @@ Proof
     \\ simp [GSYM CONJ_ASSOC]
     \\ rpt conj_tac
     >- (
-      irule ALL_DISTINCT_MAP_INJ
-      \\ irule_at Any FILTER_ALL_DISTINCT
-      \\ drule_then assume_tac ALL_DISTINCT_MAP
-      \\ rw [MEM_FILTER, FORALL_PROD]
-      \\ pairarg_tac \\ gvs []
-      \\ pairarg_tac \\ gvs []
-      \\ drule_then dxrule ALOOKUP_ALL_DISTINCT_MEM \\ strip_tac
-      \\ drule_then dxrule ALOOKUP_ALL_DISTINCT_MEM \\ strip_tac
-      \\ fs [])
-    >- (
       simp [ELIM_UNCURRY, MAP_FILTER_lemma])
     \\ rw []
     \\ fs [ALOOKUP_FILTER])
@@ -484,7 +472,7 @@ Proof
     \\ fsrw_tac [boolSimps.ETA_ss] []
     \\ simp [FILTER_APPEND_DISTRIB]
     \\ first_x_assum (irule_at Any) \\ fs []
-    \\ conj_asm1_tac
+    \\ rpt conj_tac
     >- (
       fs [env_rel_def, LAMBDA_PROD, ALOOKUP_FILTER]
       \\ qpat_x_assum ‘MAP FST binds = _’ mp_tac
@@ -493,18 +481,6 @@ Proof
       \\ qid_spec_tac ‘extra’
       \\ Induct_on ‘binds’ \\ Cases_on ‘extra’ \\ simp []
       \\ rw [] \\ fs [])
-    \\ conj_asm1_tac
-    >- ((* TODO *)
-      irule ALL_DISTINCT_MAP_INJ
-      \\ irule_at Any FILTER_ALL_DISTINCT
-      \\ drule_then assume_tac ALL_DISTINCT_MAP
-      \\ fs [MEM_FILTER, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
-      \\ rw []
-      \\ fs [env_rel_def]
-      \\ drule_then dxrule ALOOKUP_ALL_DISTINCT_MEM \\ strip_tac
-      \\ drule_then dxrule ALOOKUP_ALL_DISTINCT_MEM \\ strip_tac
-      \\ fs [])
-    \\ conj_asm1_tac
     >- (
       fs [MEM_MAP, MEM_FILTER, PULL_EXISTS]
       \\ metis_tac [PAIR, FST, SND])
@@ -519,18 +495,6 @@ Proof
     >- (
       fs [MEM_MAP, MEM_FILTER, PULL_EXISTS]
       \\ metis_tac [PAIR, FST, SND])
-    \\ conj_tac
-    >- ((* TODO *)
-      irule ALL_DISTINCT_MAP_INJ
-      \\ irule_at Any FILTER_ALL_DISTINCT
-      \\ qpat_x_assum ‘ALL_DISTINCT (MAP FST extra)’ assume_tac
-      \\ drule_then assume_tac ALL_DISTINCT_MAP
-      \\ fs [MEM_FILTER, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
-      \\ rw []
-      \\ fs [env_rel_def]
-      \\ drule_then dxrule ALOOKUP_ALL_DISTINCT_MEM \\ strip_tac
-      \\ drule_then dxrule ALOOKUP_ALL_DISTINCT_MEM \\ strip_tac
-      \\ fs [])
     \\ fs [env_rel_def, LAMBDA_PROD, ALOOKUP_FILTER]
     \\ qpat_x_assum ‘MAP FST binds = _’ mp_tac
     \\ rpt (pop_assum kall_tac)
@@ -759,37 +723,27 @@ Proof
           \\ Induct_on ‘funs’ \\ Cases_on ‘g’ \\ simp []
           \\ rw [] \\ fs [ELIM_UNCURRY])
     \\ qpat_x_assum ‘LIST_REL _ _ _’ kall_tac
-    \\ ‘ALL_DISTINCT (MAP FST funs)’ by cheat (* TODO *)
-    \\ rpt conj_tac
+    \\ conj_tac
     >- (
       rw [DISJ_EQ_IMP]
       \\ strip_tac
       \\ gvs [MEM_MAP, ELIM_UNCURRY, MEM_FILTER, DISJ_EQ_IMP])
-    >- (
-      fsrw_tac [boolSimps.ETA_ss] [MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY]
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ rpt (pop_assum kall_tac)
-      \\ qid_spec_tac ‘g’
-      \\ Induct_on ‘funs’ \\ Cases_on ‘g’ \\ simp [])
     \\ fs [env_rel_def]
     \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R’
     \\ srw_tac [boolSimps.ETA_ss] [MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY]
-    \\ rw []
-    \\ drule ALOOKUP_MEM
-    \\ rw [MEM_MAP, MEM_EL, PULL_EXISTS]
-    \\ qpat_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ rewrite_tac [LIST_REL_EL_EQN] \\ rw [] \\ gvs []
-    \\ first_x_assum (drule_then strip_assume_tac)
-    \\ irule_at Any ALOOKUP_ALL_DISTINCT_MEM
-    \\ srw_tac [boolSimps.ETA_ss] [MAP_MAP_o, combinTheory.o_DEF]
-    \\ rw [MEM_MAP, ELIM_UNCURRY, PULL_EXISTS]
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ gs [markerTheory.Abbrev_def]
+    \\ gvs [Once LAMBDA_PROD, ALOOKUP_MAP_2]
+    \\ gvs [Once LAMBDA_PROD, ALOOKUP_MAP_2, PULL_EXISTS]
+    \\ simp [v_rel_def]
+    \\ qpat_x_assum ‘MAP FST _ = _’ mp_tac
     \\ pop_assum mp_tac
-    \\ rw [ELIM_UNCURRY]
-    \\ irule_at Any EQ_REFL
-    \\ simp [EL_MEM, v_rel_def])
+    \\ rpt (pop_assum kall_tac)
+    \\ rename1 ‘ALOOKUP xs x = SOME v’
+    \\ qid_spec_tac ‘v’
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘g’
+    \\ Induct_on ‘xs’ \\ Cases_on ‘g’ \\ simp []
+    \\ Cases \\ simp []
+    \\ PairCases_on ‘h’ \\ rw [])
   >- ((* Delay *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
