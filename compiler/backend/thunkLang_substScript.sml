@@ -194,7 +194,7 @@ Definition eval_to_def:
        do
          fv <- eval_to (k - 1) f;
          xv <- eval_to (k - 1) x;
-         (s, body) <- dest_Closure fv ;
+         (s, body) <- dest_anyClosure fv ;
          y <- bind1 s xv body;
          eval_to (k - 1) y
        od) ∧
