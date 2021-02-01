@@ -830,16 +830,14 @@ Theorem apps_ok_make_apps:
   ∀fns. apps_ok (make_apps fns)
 Proof
   recInduct make_apps_ind >> simp[make_apps_def, apps_ok_def] >> rw[] >>
-  Cases_on `e` >> gvs[FLOOKUP_UPDATE] >>
-  EVERY_CASE_TAC >> gvs[FLOOKUP_DEF]
+  gvs[FLOOKUP_UPDATE] >> EVERY_CASE_TAC >> gvs[FLOOKUP_DEF]
 QED
 
 Theorem FDOM_make_apps:
   ∀fns. FDOM (make_apps fns) ⊆ set (MAP FST fns)
 Proof
-  recInduct make_apps_ind >> simp[make_apps_def] >> rw[]
-  >- (irule SUBSET_INSERT_RIGHT >> simp[]) >>
-  Cases_on `e` >> gvs[FDOM_FUPDATE]
+  recInduct make_apps_ind >> simp[make_apps_def] >> rw[] >>
+  simp[SUBSET_INSERT_RIGHT]
 QED
 
 Theorem lambdify_one_correct:

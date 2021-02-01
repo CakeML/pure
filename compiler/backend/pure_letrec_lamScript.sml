@@ -18,12 +18,8 @@ End
 
 Definition make_apps_def:
   make_apps [] = FEMPTY ∧
-  make_apps ((v,e)::fs) =
-    let res = make_apps fs in
-    if v ∈ FDOM res then res else
-    case e of
-      Lam _ _ => res
-    | _ => res |+ (v, App (Var v) cl_tm)
+  make_apps ((_,Lam _ _)::fs) = make_apps fs ∧
+  make_apps ((v,e)::fs) = make_apps fs |+ (v, App (Var v) cl_tm)
 End
 
 Definition lambdify_one_def:
