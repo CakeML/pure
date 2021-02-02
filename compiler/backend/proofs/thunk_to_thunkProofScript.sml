@@ -519,6 +519,153 @@ Proof
            env_rel_def]
 QED
 
+Theorem ALOOKUP_lemma[local]:
+  ∀funs fn funs1.
+    MAP FST funs = MAP FST funs1 ∧
+    MAP (FST o SND) funs = MAP (FST o SND) funs1 ⇒
+      OPTION_MAP FST (ALOOKUP funs fn) =
+      OPTION_MAP FST (ALOOKUP funs1 fn)
+Proof
+  ho_match_mp_tac ALOOKUP_ind
+  \\ strip_tac
+  >- (
+    strip_tac
+    \\ Cases
+    \\ simp [])
+  \\ gen_tac
+  \\ PairCases
+  \\ Cases
+  >- (
+    simp [EXISTS_PROD, PULL_EXISTS]
+    \\ rw [])
+  \\ PairCases_on ‘h’
+  \\ simp []
+  \\ strip_tac
+  \\ strip_tac
+  \\ Cases \\ simp []
+  \\ PairCases_on ‘h’ \\ simp []
+  \\ rw [] \\ fs []
+QED
+
+Theorem ALOOKUP_least_lemma[local]:
+  ∀xs x v.
+    ALOOKUP xs x = SOME v ⇒
+      ∃n.
+        n < LENGTH xs ∧
+        EL n xs = (x, v) ∧
+        ∀m. m < n ⇒ FST (EL m xs) ≠ x
+Proof
+  ho_match_mp_tac ALOOKUP_ind \\ rw []
+  >- (
+    qexists_tac ‘0’ \\ simp [])
+  \\ first_x_assum (drule_then strip_assume_tac)
+  \\ Q.REFINE_EXISTS_TAC ‘SUC k’ \\ simp []
+  \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
+  \\ Cases \\ simp []
+QED
+
+Theorem dest_anyClosure_v_rel:
+  v_rel v w ⇒
+    (∀err. dest_anyClosure v = INL err ⇒ dest_anyClosure w = INL err) ∧
+    (∀s x.
+       dest_anyClosure v = INR (s, x) ⇒
+         ∃env y.
+           dest_anyClosure w = INR (s, env, y) ∧
+           exp_rel (FILTER (λ(n,x). n ≠ s) env ) x y)
+Proof
+  strip_tac
+  \\ ‘∃r1. dest_Closure v = r1’  by fs []
+  \\ ‘∃r2. dest_Recclosure v = r2’  by fs []
+  \\ drule_then strip_assume_tac dest_Closure_v_rel
+  \\ drule_then strip_assume_tac dest_Recclosure_v_rel
+  \\ simp [thunkLangTheory.dest_anyClosure_def,
+            thunkLang_substTheory.dest_anyClosure_def,
+            sum_choice_def, sum_bind_def]
+  \\ Cases_on ‘r2’ \\ fs []
+  >- (
+    Cases_on ‘r1’ \\ gvs []
+    \\ rw [] \\ fs [])
+  \\ reverse (Cases_on ‘r1’) \\ fs []
+  >- (
+    Cases_on ‘v’
+    \\ fs [dest_Closure_def, dest_Recclosure_def])
+  \\ pairarg_tac \\ gvs []
+  \\ simp [lookup_var_def]
+  \\ rename1 ‘INR (funs1, _, _)’
+  \\ ‘LIST_REL (λ(fn,xn,b) (gn,yn,c). fn = gn ∧ xn = yn) funs funs1’
+    by (qmatch_goalsub_abbrev_tac ‘LIST_REL Q’
+        \\ qmatch_asmsub_abbrev_tac ‘LIST_REL P’
+        \\ ‘∀x y. P x y ⇒ Q x y’ by rw [ELIM_UNCURRY, Abbr ‘P’, Abbr ‘Q’]
+        \\ drule_then irule EVERY2_mono \\ fs [])
+  \\ ‘MAP FST funs = MAP FST funs1 ∧
+      MAP (FST o SND) funs = MAP (FST o SND) funs1’
+    by (pop_assum mp_tac
+        \\ rpt (pop_assum kall_tac)
+        \\ qid_spec_tac ‘funs1’
+        \\ Induct_on ‘funs’ \\ Cases_on ‘funs1’ \\ simp []
+        \\ rw [] \\ fs [ELIM_UNCURRY])
+  \\ ‘ALOOKUP funs fn = NONE ⇒ ALOOKUP funs1 fn = NONE’ by rw [ALOOKUP_NONE]
+  \\ Cases_on ‘ALOOKUP funs fn’ \\ gs []
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  >- (
+    fs [ALOOKUP_NONE]
+    \\ ‘¬MEM fn (MAP FST funs)’ by fs []
+    \\ drule_then assume_tac ALOOKUP_MEM
+    \\ gs [MEM_MAP, FORALL_PROD])
+  \\ Cases_on ‘v’ \\ gvs [dest_Recclosure_def, v_rel_def]
+  \\ gvs [thunkLangTheory.dest_Recclosure_def]
+  \\ pairarg_tac \\ gvs []
+  \\ drule_all_then (qspec_then ‘fn’ assume_tac) ALOOKUP_lemma
+  \\ gvs [OPTION_MAP_DEF]
+  \\ rename1 ‘exp_rel (FILTER (λ(n,x). n ≠ m) (bind_funs funs1 env)) bod1 bod’
+  \\ ‘exp_rel (FILTER (λ(n, x). ¬MEM n (MAP FST funs1) ∧ n ≠ m) env) bod1 bod’
+    by (fs [LIST_REL_EL_EQN]
+        \\ imp_res_tac ALOOKUP_least_lemma
+        \\ rename1 ‘EL k funs’
+        \\ ‘∀j. j < LENGTH funs ⇒ FST (EL j funs) = FST (EL j funs1)’
+          by (qpat_x_assum ‘MAP FST _ = MAP _ _’ mp_tac
+              \\ rpt (pop_assum kall_tac)
+              \\ qid_spec_tac ‘funs1’
+              \\ Induct_on ‘funs’ \\ Cases_on ‘funs1’ \\ simp []
+              \\ rw []
+              \\ first_x_assum (drule_then assume_tac)
+              \\ Cases_on ‘j’ \\ fs [])
+        \\ ‘k = n’
+          by (CCONTR_TAC
+              \\ Cases_on ‘k < n’ \\ fs []
+              >- (
+                first_x_assum (drule_then assume_tac)
+                \\ first_x_assum (drule_then assume_tac)
+                \\ gvs [])
+              \\ ‘n < k’ by fs []
+              \\ ‘n < LENGTH funs’ by fs []
+              \\ first_x_assum (drule_then assume_tac)
+              \\ first_x_assum (drule_then assume_tac)
+              \\ gvs [])
+        \\ gvs []
+        \\ fs [LIST_REL_EL_EQN]
+        \\ last_x_assum (qspec_then ‘k’ assume_tac)
+        \\ pairarg_tac \\ gvs [])
+  \\ irule exp_rel_ALOOKUP_EQ
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ simp [FUN_EQ_THM, ALOOKUP_FILTER]
+  \\ rw [MEM_MAP, PULL_FORALL, DISJ_EQ_IMP, bind_funs_def]
+  \\ simp [ALOOKUP_APPEND, ALOOKUP_MAP_2, LAMBDA_PROD]
+  \\ CASE_TAC \\ gvs []
+  >- (
+    imp_res_tac ALOOKUP_MEM
+    \\ gs [FORALL_PROD, DISJ_EQ_IMP, MEM_MAP])
+  >- (
+    PairCases_on ‘y’
+    \\ fs [ALOOKUP_FAILS])
+  \\ cheat (* TODO: Wat? *)
+  (*
+     It could be that I used the wrong environment for the exp_rel and that
+     this lookup went past the env additions
+   *)
+QED
+
 Theorem do_prim_v_rel:
   LIST_REL v_rel vs ws ⇒
     case do_prim op vs of
@@ -637,31 +784,11 @@ Proof
     \\ simp [map_def, sum_bind_def]
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ Cases_on ‘eval_to (k - 1) x'’ \\ fs []
-    \\ ‘∃r. dest_Closure y = r’ by fs []
-    \\ drule_then strip_assume_tac dest_Closure_v_rel
-    \\ ‘∃t. dest_Recclosure y = t’ by fs []
-    \\ drule_then strip_assume_tac dest_Recclosure_v_rel
+    \\ ‘∃r. dest_anyClosure y = r’ by fs []
+    \\ drule_then strip_assume_tac dest_anyClosure_v_rel
     \\ CASE_TAC \\ gvs []
-    >- ((* INL *)
-      Cases_on ‘y’
-      \\ gvs [dest_Closure_def,
-              thunkLangTheory.dest_Recclosure_def,
-              thunkLang_substTheory.dest_Recclosure_def,
-              thunkLangTheory.dest_anyClosure_def,
-              thunkLang_substTheory.dest_anyClosure_def,
-              sum_choice_def, sum_bind_def, v_rel_def]
-      \\ simp [lookup_var_def]
-      \\ cheat (* TODO *))
     \\ pairarg_tac \\ gvs []
-    (*\\ gvs [dest_Closure_def, dest_anyClosure_def, sum_choice_def,
-            sum_bind_def, dest_Recclosure_def,
-            thunkLangTheory.dest_Closure_def, v_rel_def] *)
-    \\ fs [bind_def]
-    \\ ‘∃env' body'.
-          dest_anyClosure w = INR (s, env', body') ∧
-          exp_rel (FILTER (λ(n,x). n ≠ s) env') body body'’
-      by cheat
-    \\ fs []
+    \\ simp [bind_def]
     \\ first_x_assum irule
     \\ irule exp_rel_Lam \\ fs [])
   >- ((* Lam *)
