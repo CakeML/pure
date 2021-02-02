@@ -28,5 +28,21 @@ Termination
   \\ fs [thunkLang_substTheory.exp_size_def]
 End
 
+Definition rce_def:
+  rce (Var n: thunkLang$exp) = Var n : thunkLang_subst$exp ∧
+  rce (Prim op xs) = Prim op (MAP rce xs) ∧
+  rce (App x y) = App (rce x) (rce y) ∧
+  rce (Lam s x) = Lam s (rce x) ∧
+  rce (Letrec f x) = Letrec (MAP (λ(fn, vn, x). (fn, vn, rce x)) f) (rce x) ∧
+  rce (If x y z) = If (rce x) (rce y) (rce z) ∧
+  rce (Delay f x) = Delay f (rce x) ∧
+  rce (Force x) = Force (rce x)
+Termination
+  WF_REL_TAC ‘measure exp_size’ \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
+  \\ fs [thunkLangTheory.exp_size_def]
+End
+
 val _ = export_theory ();
 
