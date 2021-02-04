@@ -82,55 +82,6 @@ Definition do_prim_def:
         od
 End
 
-Definition dest_Closure_def:
-  dest_Closure (Closure s x) = return (s, x) ∧
-  dest_Closure _ = fail Type_error
-End
-
-Definition dest_Thunk_def:
-  dest_Thunk (Thunk nf x) = return (nf, x) ∧
-  dest_Thunk _ = fail Type_error
-End
-
-Definition dest_Recclosure_def:
-  dest_Recclosure (Recclosure funs fn) = return (funs, fn) ∧
-  dest_Recclosure _ = fail Type_error
-End
-
-Definition dest_anyClosure_def:
-  dest_anyClosure v =
-    dest_Closure v ++
-    do
-      (funs, fn) <- dest_Recclosure v;
-      case ALOOKUP funs fn of
-        SOME (var, bod) => return (var, bod)
-      | NONE => fail Type_error
-    od
-End
-
-Definition freevars_def:
-  freevars (Var n) = {n} ∧
-  freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
-  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
-  freevars (App x y) = freevars x ∪ freevars y ∧
-  freevars (Lam s b)   = freevars b DIFF {s} ∧
-  freevars (Letrec f x) =
-    freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
-  freevars (Delay f x) = freevars x ∧
-  freevars (Force x) = freevars x ∧
-  freevars (Value v) = ∅
-Termination
-  WF_REL_TAC ‘measure exp_size’
-  \\ fs [] \\ gen_tac
-  \\ Induct \\ rw []
-  \\ res_tac
-  \\ fs [exp_size_def]
-End
-
-Definition closed_def:
-  closed e ⇔ freevars e = ∅
-End
-
 Definition subst_def:
   subst m (Var s) =
     (case ALOOKUP m s of
@@ -169,6 +120,59 @@ Definition subst_funs_def:
   subst_funs f = bind (MAP (λ(g,v,x). (g, Recclosure f g)) f)
 End
 
+Definition dest_Closure_def:
+  dest_Closure (Closure s x) = return (s, x) ∧
+  dest_Closure _ = fail Type_error
+End
+
+Definition dest_Thunk_def:
+  dest_Thunk (Thunk nf x) = return (nf, x) ∧
+  dest_Thunk _ = fail Type_error
+End
+
+Definition dest_Recclosure_def:
+  dest_Recclosure (Recclosure funs fn) = return (funs, fn) ∧
+  dest_Recclosure _ = fail Type_error
+End
+
+Definition dest_anyClosure_def:
+  dest_anyClosure v =
+    do
+      (s, bod) <- dest_Closure v;
+       return (s, bod, [])
+    od ++
+    do
+      (funs, fn) <- dest_Recclosure v;
+      case ALOOKUP funs fn of
+        SOME (var, bod) =>
+          return (var, bod, MAP (λ(g,v,x). (g, Recclosure funs g)) funs)
+      | NONE => fail Type_error
+    od
+End
+
+Definition freevars_def:
+  freevars (Var n) = {n} ∧
+  freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
+  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
+  freevars (App x y) = freevars x ∪ freevars y ∧
+  freevars (Lam s b)   = freevars b DIFF {s} ∧
+  freevars (Letrec f x) =
+    freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
+  freevars (Delay f x) = freevars x ∧
+  freevars (Force x) = freevars x ∧
+  freevars (Value v) = ∅
+Termination
+  WF_REL_TAC ‘measure exp_size’
+  \\ fs [] \\ gen_tac
+  \\ Induct \\ rw []
+  \\ res_tac
+  \\ fs [exp_size_def]
+End
+
+Definition closed_def:
+  closed e ⇔ freevars e = ∅
+End
+
 Definition unit_def:
   unit = Constructor "" []
 End
@@ -187,8 +191,8 @@ Definition eval_to_def:
        do
          fv <- eval_to (k - 1) f;
          xv <- eval_to (k - 1) x;
-         (s, body) <- dest_anyClosure fv ;
-         y <- bind1 s xv body;
+         (s, body, post) <- dest_anyClosure fv;
+         y <- bind ((s, xv)::post) body;
          eval_to (k - 1) y
        od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
