@@ -682,5 +682,41 @@ Proof
       compile_exp_freevars]
 QED
 
+Theorem rce_compile:
+  ∀x. compile_exp (rce x) = x
+Proof
+  ho_match_mp_tac rce_ind
+  \\ simp [rce_def, compile_exp_def] \\ rw []
+  \\ rename1 ‘MAP _ _ = xs’
+  \\ fsrw_tac [boolSimps.ETA_ss] [MAP_MAP_o, combinTheory.o_DEF]
+  \\ Induct_on ‘xs’ \\ fs [] \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ metis_tac []
+QED
+
+Theorem exp_rel_rce:
+  ∀x. exp_rel [] (rce x) x
+Proof
+  ho_match_mp_tac rce_ind
+  \\ simp [rce_def, exp_rel_def]
+  \\ rw []
+  \\ fs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] \\ rw []
+  \\ pairarg_tac \\ gvs []
+  \\ pairarg_tac \\ gvs []
+  \\ first_x_assum irule
+  \\ first_assum (irule_at Any) \\ fs []
+QED
+
+Theorem eval_to_rce:
+  eval_to k (rce x) = res ⇒
+  case res of
+    INL err => eval_to k [] x = INL err
+  | INR v => ∃w. eval_to k [] x = INR w ∧ v_rel v w
+Proof
+  strip_tac
+  \\ irule_at Any eval_to_exp_rel
+  \\ irule_at Any exp_rel_rce \\ fs []
+QED
+
 val _ = export_theory ();
 
