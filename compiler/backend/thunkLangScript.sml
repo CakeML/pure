@@ -170,8 +170,8 @@ Definition eval_to_def:
          (nf, w) <- dest_Thunk v;
          if nf then return w else
            do
-             (s, env', body) <- dest_Closure w;
-             eval_to (k - 1) ((s, unit)::env') body
+             (s, env, body) <- dest_anyClosure w;
+             eval_to (k - 1) ((s, unit)::env) body
            od
        od)
 End

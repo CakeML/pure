@@ -226,8 +226,8 @@ Definition eval_to_def:
          (nf, w) <- dest_Thunk v;
          if nf then return w else
            do
-             (s, body) <- dest_Closure w;
-             y <- bind1 s unit body;
+             (s, body, post) <- dest_anyClosure w;
+             y <- bind ((s, unit)::post) body;
              eval_to (k - 1) y
            od
        od)
