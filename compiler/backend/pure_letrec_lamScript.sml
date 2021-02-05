@@ -1,8 +1,8 @@
 (*
   Lambdifying of Letrec
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open pure_expTheory pure_miscTheory pure_beta_equivTheory;
+open HolKernel Parse boolLib bossLib;
+open pure_expTheory pure_beta_equivTheory pure_letrecTheory;
 
 val _ = new_theory "pure_letrec_lam";
 
@@ -33,15 +33,7 @@ Definition lambdify_one_def:
 End
 
 Definition lambdify_all_def:
-  lambdify_all (Letrec xs e) =
-    lambdify_one (MAP (λ(a,b). a, lambdify_all b) xs) (lambdify_all e) ∧
-  lambdify_all (Lam n x) = Lam n (lambdify_all x) ∧
-  lambdify_all (Prim p xs) = Prim p (MAP lambdify_all xs) ∧
-  lambdify_all (App x y) = App (lambdify_all x) (lambdify_all y) ∧
-  lambdify_all res = res
-Termination
-  WF_REL_TAC `measure exp_size` >> rw [] >>
-  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
+  lambdify_all e = letrec_recurse lambdify_one e
 End
 
 val _ = export_theory();

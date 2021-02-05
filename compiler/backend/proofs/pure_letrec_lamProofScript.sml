@@ -867,21 +867,7 @@ QED
 Theorem lambdify_all_correct:
   ∀e. e ≅ lambdify_all e
 Proof
-  recInduct freevars_ind >> rw[lambdify_all_def, exp_eq_refl]
-  >- (
-    irule exp_eq_Prim_cong >> rw[LIST_REL_EL_EQN, EL_MAP] >>
-    first_x_assum irule >> simp[EL_MEM]
-    )
-  >- (irule exp_eq_App_cong >> simp[])
-  >- (irule exp_eq_Lam_cong >> simp[]) >>
-  irule exp_eq_trans >> qexists_tac `Letrec lcs (lambdify_all e)` >>
-  irule_at Any exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl] >>
-  irule exp_eq_trans >>
-  qexists_tac `Letrec (MAP (λ(a,b). (a,lambdify_all b)) lcs) (lambdify_all e)` >>
-  irule_at Any exp_eq_Letrec_cong >>
-  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-  simp[LIST_REL_EL_EQN, EL_MAP, exp_eq_refl] >> rw[]
-  >- (Cases_on `EL n lcs` >> gvs[] >> last_x_assum irule >> metis_tac[EL_MEM]) >>
+  rw[lambdify_all_def] >> irule exp_eq_letrec_recurse >>
   simp[lambdify_one_correct]
 QED
 
@@ -972,8 +958,9 @@ QED
 Theorem letrecs_ok_lambdify_all:
   ∀e. letrecs_ok (lambdify_all e)
 Proof
-  recInduct lambdify_all_ind >>
-  reverse (rw[lambdify_all_def, letrecs_ok_def])
+  recInduct freevars_ind >>
+  rw[lambdify_all_def, letrec_recurse_def, letrecs_ok_def] >>
+  gvs[GSYM lambdify_all_def]
   >- simp[EVERY_MAP, EVERY_MEM] >>
   irule letrecs_ok_lambdify_one >> simp[] >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>

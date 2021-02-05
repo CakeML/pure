@@ -14,6 +14,29 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "pure_letrecProof";
 
+(******************** letrec_recurse ********************)
+
+Theorem exp_eq_letrec_recurse:
+  ∀P f.
+    (∀fns e. Letrec fns e ≅ f fns e)
+  ⇒ ∀e. e ≅ letrec_recurse f e
+Proof
+  ntac 3 strip_tac >>
+  recInduct freevars_ind >> rw[letrec_recurse_def] >> gvs[]
+  >- simp[exp_eq_Var_cong]
+  >- (
+    irule exp_eq_Prim_cong >> simp[] >> rw[LIST_REL_EL_EQN, EL_MAP] >>
+    last_x_assum irule >> simp[EL_MEM] >> gvs[EVERY_EL]
+    )
+  >- (irule exp_eq_App_cong >> simp[])
+  >- (irule exp_eq_Lam_cong >> simp[]) >>
+  irule exp_eq_trans >> last_x_assum $ irule_at (Pos last) >>
+  irule exp_eq_Letrec_cong >> simp[exp_eq_refl] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  rw[LIST_REL_EL_EQN, EL_MAP] >> Cases_on `EL n lcs` >> simp[] >>
+  last_x_assum irule >> metis_tac[EL_MEM]
+QED
+
 
 (******************** Distinctness pass ********************)
 
@@ -45,44 +68,42 @@ QED
 
 Definition letrecs_distinct_def:
   (letrecs_distinct (Letrec xs y) ⇔
-    ALL_DISTINCT (MAP FST xs) ∧ letrecs_distinct y) ∧
+    ALL_DISTINCT (MAP FST xs) ∧
+    EVERY letrecs_distinct (MAP SND xs) ∧
+    letrecs_distinct y) ∧
   (letrecs_distinct (Lam n x) ⇔ letrecs_distinct x) ∧
   (letrecs_distinct (Prim p xs) ⇔ EVERY letrecs_distinct xs) ∧
   (letrecs_distinct (App x y) ⇔ letrecs_distinct x ∧ letrecs_distinct y) ∧
   (letrecs_distinct _ ⇔ T)
 Termination
   WF_REL_TAC `measure (λe. exp_size e)` >> rw[exp_size_def] >>
-  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
+  Induct_on `xs` >> rw[] >> gvs[exp_size_def] >>
+  PairCases_on `h` >> gvs[exp_size_def]
 End
 
 Theorem distinct_letrecs_distinct:
   ∀e. letrecs_distinct (distinct e)
 Proof
-  recInduct distinct_ind >> rw[letrecs_distinct_def, distinct_def]
-  >- rw[make_distinct_ALL_DISTINCT]
-  >- rw[EVERY_MAP, EVERY_MEM]
+  simp[distinct_def] >>
+  recInduct freevars_ind >> rw[letrecs_distinct_def, letrec_recurse_def] >>
+  simp[EVERY_MAP, EVERY_MEM, make_distinct_ALL_DISTINCT] >>
+  rw[] >> drule MEM_make_distinct >> simp[MEM_MAP, EXISTS_PROD] >>
+  strip_tac >> gvs[] >> last_x_assum drule >> simp[]
 QED
 
 Theorem freevars_distinct:
   ∀x. freevars (distinct x) ⊆ freevars x
 Proof
-  recInduct distinct_ind >> rw[distinct_def] >>
-  gvs[set_MAP_FST_make_distinct, SUBSET_DEF] >> rw[] >> gvs[MEM_FILTER]
-  >- (
-    gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >>
-    imp_res_tac MEM_make_distinct >> gvs[MEM_MAP, FORALL_PROD] >>
-    simp[PULL_EXISTS, EXISTS_PROD] >>
-    rename1 `MEM z _` >> PairCases_on `z` >> gvs[] >>
-    DISJ2_TAC >> goal_assum (drule_at Any) >>
-    last_x_assum irule >> simp[] >> goal_assum drule
-    )
-  >- gvs[MEM_MAP, FORALL_PROD]
-  >- gvs[MEM_MAP, FORALL_PROD]
-  >- (
-    gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
-    goal_assum (drule_at Any) >>
-    last_x_assum irule >> simp[]
-    )
+  simp[distinct_def] >>
+  recInduct freevars_ind >> rw[letrec_recurse_def] >> gvs[GSYM distinct_def] >>
+  gvs[set_MAP_FST_make_distinct, SUBSET_DEF] >> rw[] >>
+  gvs[MEM_FILTER, MEM_FLAT, MEM_MAP, FORALL_PROD, PULL_EXISTS]
+  >- metis_tac[] >>
+  simp[EXISTS_PROD] >>
+  imp_res_tac MEM_make_distinct >> gvs[MEM_MAP, PULL_EXISTS] >>
+  rename1 `MEM z _` >> PairCases_on `z` >> gvs[] >>
+  DISJ2_TAC >> goal_assum (drule_at Any) >>
+  last_x_assum irule >> simp[] >> goal_assum drule
 QED
 
 Theorem closed_distinct:
@@ -120,23 +141,8 @@ QED
 Theorem distinct_exp_eq:
   ∀x. x ≅ distinct x
 Proof
-  recInduct distinct_ind >> rw[distinct_def] >> gvs[]
-  >- (
-    irule exp_eq_Letrec_cong2 >>
-    simp[exp_eq_refl, make_distinct_FUPDATE_LIST] >>
-    irule fmap_rel_FUPDATE_LIST_same >> simp[] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> simp[] >>
-    rw[LIST_REL_EL_EQN, EL_MAP] >> last_x_assum irule >>
-    qexists_tac `FST (EL n xs)` >> simp[EL_MEM]
-    )
-  >- (irule exp_eq_Lam_cong >> simp[])
-  >- (
-    irule exp_eq_Prim_cong >> simp[] >>
-    rw[LIST_REL_EL_EQN, EL_MAP] >> last_x_assum irule >> simp[EL_MEM]
-    )
-  >- (irule exp_eq_App_cong >> simp[])
-  >- simp[exp_eq_Var_cong]
+  rw[distinct_def] >> irule exp_eq_letrec_recurse >> rw[] >>
+  simp[make_distinct_Letrec_exp_eq]
 QED
 
 Theorem distinct_correct:
@@ -1427,29 +1433,45 @@ QED
 Theorem split_all_correct:
   ∀e. letrecs_distinct e ⇒ e ≅ split_all e
 Proof
-  recInduct split_all_ind >>
-  reverse (rw[split_all_def, exp_eq_refl, letrecs_distinct_def])
-  >- (irule exp_eq_App_cong >> simp[])
+  simp[split_all_def] >> recInduct freevars_ind >>
+  rw[letrec_recurse_def, exp_eq_refl, letrecs_distinct_def] >>
+  gvs[GSYM split_all_def]
   >- (
     irule exp_eq_Prim_cong >> gvs[LIST_REL_EL_EQN] >> rw[EL_MAP] >>
     last_x_assum irule >> gvs[EVERY_EL, EL_MEM]
     )
+  >- (irule exp_eq_App_cong >> simp[])
   >- (irule exp_eq_Lam_cong >> simp[]) >>
   irule exp_eq_trans >>
-  irule_at Any make_Letrecs_correct >> simp[split_one_correct] >>
-  irule exp_eq_Letrec_cong2 >> gvs[] >>
+  irule_at Any make_Letrecs_correct >> irule_at Any split_one_correct >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  irule exp_eq_trans >>
+  irule_at Any exp_eq_Letrec_cong >> goal_assum (drule_at Any) >>
+  qexists_tac `MAP (λ(n,x). n, split_all x) lcs` >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[]
+  >- (
+    pairarg_tac >> gvs[] >> last_x_assum irule >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[EL_MEM]
+    ) >>
+  irule exp_eq_Letrec_cong2 >> gvs[exp_eq_refl] >>
   simp[fmap_rel_OPTREL_FLOOKUP, flookup_fupdate_list] >> rw[] >>
+  qmatch_goalsub_abbrev_tac `MAP foo _` >>
+  `ALL_DISTINCT (MAP FST (MAP foo lcs))` by (
+    unabbrev_all_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]) >>
   drule split_one_FLAT >> rw[EXTENSION] >>
   drule miscTheory.MEM_ALOOKUP >> strip_tac >>
   drule split_one_correct >> simp[valid_split_lift_def] >>
   disch_then (qspec_then `[]` assume_tac) >> gvs[valid_split_def] >>
   simp[alookup_distinct_reverse] >>
-  qsuff_tac `ALOOKUP xs k = ALOOKUP (FLAT (split_one xs)) k`
-  >- (rw[] >> CASE_TAC >> gvs[exp_eq_refl]) >>
-  drule miscTheory.MEM_ALOOKUP >> strip_tac >> gvs[FORALL_PROD] >>
+  qpat_abbrev_tac `bar = MAP foo lcs` >>
+  qsuff_tac `OPTREL $≅ (ALOOKUP bar k) (ALOOKUP (FLAT (split_one bar)) k)`
+  >- (rw[] >> CASE_TAC >> CASE_TAC >> gvs[exp_eq_refl]) >>
+  gvs[] >> drule miscTheory.MEM_ALOOKUP >> strip_tac >> gvs[FORALL_PROD] >>
   pop_assum (qspec_then `k` assume_tac) >>
-  Cases_on `ALOOKUP xs k` >> gvs[] >>
-  Cases_on `ALOOKUP (FLAT (split_one xs)) k` >> gvs[]
+  Cases_on `ALOOKUP bar k` >> gvs[] >>
+  Cases_on `ALOOKUP (FLAT (split_one bar)) k` >> gvs[] >>
+  first_x_assum (qspec_then `x` assume_tac) >> gvs[exp_eq_refl]
 QED
 
 
@@ -1555,31 +1577,10 @@ QED
 Theorem clean_all_correct:
   ∀e. e ≅ clean_all e
 Proof
-  recInduct clean_all_ind >> reverse (rw[clean_all_def])
-  >- rw[exp_eq_refl]
-  >- (irule exp_eq_App_cong >> simp[])
-  >- (
-    irule exp_eq_Prim_cong >> gvs[LIST_REL_EL_EQN] >> rw[EL_MAP] >>
-    last_x_assum irule >> gvs[EVERY_EL, EL_MEM]
-    )
-  >- (irule exp_eq_Lam_cong >> simp[]) >>
-  EVERY_CASE_TAC >> gvs[exp_eq_refl]
-  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
-  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
-  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
-  >- (
-    irule exp_eq_trans >> qexists_tac `Let q r y` >>
-    irule_at Any exp_eq_App_cong >> simp[exp_eq_refl] >>
-    irule_at Any exp_eq_Lam_cong >> simp[] >>
-    irule exp_eq_Letrec_Let >> simp[]
-    )
-  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
-  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
-  >- (irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl])
-  >- (
-    irule exp_eq_trans >> goal_assum (drule_at Any) >>
-    irule exp_eq_Letrec_irrel >> simp[]
-    )
+  rw[clean_all_def] >> irule exp_eq_letrec_recurse >> rw[clean_one_def]
+  >- simp[exp_eq_Letrec_irrel] >>
+  EVERY_CASE_TAC >> gvs[exp_eq_refl] >>
+  irule exp_eq_Letrec_Let >> simp[]
 QED
 
 
