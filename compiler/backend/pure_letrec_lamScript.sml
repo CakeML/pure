@@ -33,7 +33,8 @@ Definition lambdify_one_def:
 End
 
 Definition lambdify_all_def:
-  lambdify_all (Letrec xs e) = lambdify_one xs (lambdify_all e) ∧
+  lambdify_all (Letrec xs e) =
+    lambdify_one (MAP (λ(a,b). a, lambdify_all b) xs) (lambdify_all e) ∧
   lambdify_all (Lam n x) = Lam n (lambdify_all x) ∧
   lambdify_all (Prim p xs) = Prim p (MAP lambdify_all xs) ∧
   lambdify_all (App x y) = App (lambdify_all x) (lambdify_all y) ∧

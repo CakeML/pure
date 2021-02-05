@@ -840,6 +840,15 @@ Proof
   simp[SUBSET_INSERT_RIGHT]
 QED
 
+Theorem FRANGE_make_apps:
+  ∀fns. FRANGE (make_apps fns) ⊆ set (MAP ((λv. App (Var v) cl_tm) o FST) fns)
+Proof
+  recInduct make_apps_ind >> simp[make_apps_def] >> rw[] >>
+  simp[SUBSET_INSERT_RIGHT] >>
+  gvs[SUBSET_DEF, IN_FRANGE_FLOOKUP, PULL_EXISTS, DOMSUB_FLOOKUP_THM] >>
+  metis_tac[]
+QED
+
 Theorem lambdify_one_correct:
   ∀fns e. Letrec fns e ≅ lambdify_one fns e
 Proof
@@ -864,12 +873,112 @@ Proof
     first_x_assum irule >> simp[EL_MEM]
     )
   >- (irule exp_eq_App_cong >> simp[])
-  >- (irule exp_eq_Lam_cong >> simp[])
+  >- (irule exp_eq_Lam_cong >> simp[]) >>
+  irule exp_eq_trans >> qexists_tac `Letrec lcs (lambdify_all e)` >>
+  irule_at Any exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl] >>
+  irule exp_eq_trans >>
+  qexists_tac `Letrec (MAP (λ(a,b). (a,lambdify_all b)) lcs) (lambdify_all e)` >>
+  irule_at Any exp_eq_Letrec_cong >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+  simp[LIST_REL_EL_EQN, EL_MAP, exp_eq_refl] >> rw[]
+  >- (Cases_on `EL n lcs` >> gvs[] >> last_x_assum irule >> metis_tac[EL_MEM]) >>
+  simp[lambdify_one_correct]
+QED
+
+(********************)
+
+Definition letrecs_ok_def:
+  letrecs_ok (Letrec xs e) =
+    (letrecs_ok e ∧
+     EVERY (λe. case e of Lam _ b => letrecs_ok b | _ => F) (MAP SND xs)) ∧
+  letrecs_ok (Lam n x) = letrecs_ok x ∧
+  letrecs_ok (Prim p xs) = EVERY letrecs_ok xs ∧
+  letrecs_ok (App x y) = (letrecs_ok x ∧ letrecs_ok y) ∧
+  letrecs_ok _ = T
+Termination
+  WF_REL_TAC `measure exp_size` >> rw [] >>
+  Induct_on `xs` >> rw[] >> gvs[exp_size_def] >>
+  PairCases_on `h` >> gvs[exp_size_def]
+End
+
+Theorem letrecs_ok_subst:
+  ∀e apps.
+    letrecs_ok e ∧ (∀v. v ∈ FRANGE apps ⇒ letrecs_ok v)
+  ⇒ letrecs_ok (subst apps e)
+Proof
+  recInduct letrecs_ok_ind >> rw[letrecs_ok_def, subst_def]
   >- (
-    irule exp_eq_trans >> qexists_tac `Letrec lcs (lambdify_all e)` >>
-    irule_at Any exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl] >>
-    simp[lambdify_one_correct]
+    last_x_assum assume_tac >> last_x_assum irule >>
+    gvs[IN_FRANGE_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >>
+    metis_tac[]
     )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
+    first_x_assum drule >> CASE_TAC >> gvs[] >> strip_tac >>
+    simp[subst_def] >> last_x_assum irule >> simp[PULL_EXISTS, MEM_MAP] >>
+    goal_assum (drule_at Any) >> simp[] >>
+    gvs[IN_FRANGE_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT, DOMSUB_FLOOKUP_THM] >>
+    metis_tac[]
+    )
+  >- (
+    last_x_assum irule >>
+    gvs[IN_FRANGE_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT, DOMSUB_FLOOKUP_THM] >>
+    metis_tac[]
+    )
+  >- gvs[EVERY_MAP, EVERY_MEM]
+  >- (
+    CASE_TAC >> gvs[letrecs_ok_def, IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+    last_x_assum drule >> simp[]
+    )
+QED
+
+Theorem NOTIN_FDOM_make_apps:
+  ∀fns f e.
+    f ∉ FDOM (make_apps fns) ∧ MEM (f,e) fns ⇒ ∃x body. e = Lam x body
+Proof
+  recInduct make_apps_ind >> rw[make_apps_def] >> metis_tac[]
+QED
+
+Theorem letrecs_ok_lambdify_one:
+  ∀fns e.
+    EVERY letrecs_ok (MAP SND fns) ∧ letrecs_ok e
+  ⇒ letrecs_ok (lambdify_one fns e)
+Proof
+  rw[lambdify_one_def, letrecs_ok_def] >>
+  qspec_then `fns` assume_tac FRANGE_make_apps >> gvs[SUBSET_DEF]
+  >- (
+    irule letrecs_ok_subst >> simp[] >> rw[] >>
+    first_x_assum drule >> simp[MEM_MAP, PULL_EXISTS] >> rw[] >>
+    simp[letrecs_ok_def, cl_tm_def]
+    ) >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, COND_RAND] >>
+  gvs[EVERY_MAP, LAMBDA_PROD] >> gvs[EVERY_MEM] >> rw[] >>
+  rename1 `MEM f _` >> PairCases_on `f` >> gvs[] >>
+  IF_CASES_TAC >> gvs[]
+  >- (
+    irule letrecs_ok_subst >> last_x_assum drule >> simp[] >> rw[] >>
+    last_x_assum drule >> simp[MEM_MAP, PULL_EXISTS] >> rw[] >>
+    simp[letrecs_ok_def, cl_tm_def]
+    ) >>
+  drule_all NOTIN_FDOM_make_apps >> strip_tac >> gvs[subst_def] >>
+  last_x_assum drule >> simp[letrecs_ok_def] >> rw[] >>
+  irule letrecs_ok_subst >> simp[] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, DOMSUB_FLOOKUP_THM] >> rw[] >>
+  last_x_assum drule >> simp[MEM_MAP, PULL_EXISTS] >> rw[] >>
+  simp[letrecs_ok_def, cl_tm_def]
+QED
+
+Theorem letrecs_ok_lambdify_all:
+  ∀e. letrecs_ok (lambdify_all e)
+Proof
+  recInduct lambdify_all_ind >>
+  reverse (rw[lambdify_all_def, letrecs_ok_def])
+  >- simp[EVERY_MAP, EVERY_MEM] >>
+  irule letrecs_ok_lambdify_one >> simp[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[EVERY_MAP, LAMBDA_PROD] >> simp[EVERY_MEM, FORALL_PROD] >> rw[] >>
+  last_x_assum drule >> simp[]
 QED
 
 val _ = export_theory();
