@@ -13,22 +13,14 @@ Datatype:
       | Diverge
 End
 
-Definition sum_bind_def:
-  sum_bind m f =
-    case m of
-      INL e => INL e
-    | INR x => f x
+Definition sum_bind_def[simp]:
+  sum_bind (INL e) f = INL e ∧
+  sum_bind (INR x) f = f x
 End
 
-Definition sum_ignore_bind_def:
-  sum_ignore_bind m x = sum_bind m (K x)
-End
-
-Definition sum_choice_def:
-  sum_choice (m1: 'a + 'b) (m2: 'a + 'b) =
-    case m1 of
-      INL _ => m2
-    | INR _ => m1
+Definition sum_choice_def[simp]:
+  sum_choice (INL v: 'a + 'b) (m2: 'a + 'b) = m2 ∧
+  sum_choice (INR x) m2 = INR x
 End
 
 Definition return_def[simp]:
@@ -38,6 +30,12 @@ End
 Definition fail_def[simp]:
   fail = INL
 End
+
+Theorem sum_bind_assoc:
+  sum_bind (sum_bind m f) g = sum_bind m (λx. sum_bind (f x) g)
+Proof
+  Cases_on ‘m’ \\ simp []
+QED
 
 val sum_monadinfo : monadinfo = {
   bind = “sum_bind”,
@@ -84,36 +82,46 @@ Proof
   eq_tac
   >- (
     qid_spec_tac ‘err’
-    \\ Induct_on ‘xs’
-    \\ simp [map_def, sum_bind_def]
-    \\ rw [CaseEq "sum"]
+    \\ Induct_on ‘xs’ \\ simp [map_def]
+    \\ rpt gen_tac
+    \\ Cases_on ‘f h’ \\ rw []
     >- (
-      qexists_tac ‘0’
-      \\ simp [])
-    >- (
-      first_x_assum (drule_then strip_assume_tac)
-      \\ qexists_tac ‘SUC n’ \\ simp []
-      \\ Cases \\ fs []))
+       qexists_tac ‘0’
+       \\ simp [])
+    \\ Cases_on ‘map f xs’ \\ rw [] \\ fs []
+    \\ qexists_tac ‘SUC n’ \\ simp []
+    \\ Cases \\ fs [])
   >- (
     simp [PULL_EXISTS]
     \\ qid_spec_tac ‘err’
-    \\ Induct_on ‘xs’
-    \\ simp [map_def, sum_bind_def]
+    \\ Induct_on ‘xs’ \\ simp [map_def]
     \\ gen_tac
     \\ gen_tac
     \\ Cases \\ simp []
     \\ rename1 ‘n < LENGTH xs’
-    \\ rw [CaseEq "sum", DISJ_EQ_IMP]
-    \\ first_x_assum (drule_then (drule_then strip_assume_tac))
-    \\ simp [GSYM PULL_EXISTS]
-    \\ conj_tac
+    \\ Cases_on ‘f h’ \\ rw []
     >- (
-      first_assum (qspec_then ‘0’ mp_tac)
-      \\ impl_tac >- simp []
-      \\ strip_tac \\ fs []
-      \\ Cases_on ‘f h’ \\ fs [])
+      first_x_assum drule
+      \\ simp []
+      \\ impl_tac \\ rw []
+      >- (
+        ‘SUC m < SUC n’ by fs []
+        \\ first_x_assum drule
+        \\ simp [])
+      \\ ‘0 < SUC n’ by fs []
+      \\ first_x_assum drule
+      \\ simp [])
+    \\ reverse (Cases_on ‘map f xs’) \\ rw [] \\ fs []
+    >- (
+      pop_assum mp_tac
+      \\ simp []
+      \\ first_assum (irule_at Any) \\ simp []
+      \\ rw [DISJ_EQ_IMP]
+      \\ ‘SUC m < SUC n’ by fs []
+      \\ first_x_assum drule
+      \\ simp [])
     \\ first_x_assum irule
-    \\ rw []
+    \\ first_assum (irule_at Any) \\ rw []
     \\ ‘SUC m < SUC n’ by fs []
     \\ first_x_assum drule \\ simp [])
 QED
@@ -124,25 +132,19 @@ Theorem map_INR:
         ∃y. f (EL n xs) = INR y
 Proof
   qid_spec_tac ‘ys’
-  \\ Induct_on ‘xs’
-  \\ simp [map_def, sum_bind_def]
-  \\ rpt gen_tac
-  \\ simp [CaseEq "sum"]
-  \\ strip_tac
-  \\ Cases \\ fs []
+  \\ Induct_on ‘xs’ \\ simp [map_def]
+  \\ rpt gen_tac \\ strip_tac \\ Cases
+  \\ Cases_on ‘f h’ \\ fs []
+  \\ Cases_on ‘map f xs’ \\ gvs []
 QED
 
 Theorem map_LENGTH:
   ∀xs ys.
     map f xs = INR ys ⇒ LENGTH ys = LENGTH xs
 Proof
-  Induct
-  \\ simp [map_def, sum_bind_def]
-  \\ gen_tac
-  \\ Cases \\ simp []
-  \\ CASE_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
-  \\ rw [] \\ fs []
+  Induct \\ simp [map_def] \\ rw []
+  \\ Cases_on `f h` \\ fs []
+  \\ Cases_on `map f xs` \\ gvs []
 QED
 
 (* TODO Urk *)
@@ -154,13 +156,22 @@ Theorem map_LIST_REL_mono:
     LIST_REL (λx y. R x y ⇒ Q (OUTR (f x)) (OUTR (g y))) xs ys ⇒
       LIST_REL Q vs ws
 Proof
-  Induct \\ simp [map_def]
-  \\ gen_tac
-  \\ Cases \\ simp [map_def, sum_bind_def]
-  \\ rw [CaseEq "sum"] \\ fs []
+  Induct \\ Cases_on ‘ys’ \\ simp [map_def]
+  \\ qx_gen_tac ‘h1’
+  \\ Cases_on `f h1` \\ fs []
+  \\ Cases_on ‘g h’ \\ fs []
+  \\ Cases_on ‘map f xs’ \\ fs []
+  \\ Cases_on ‘map g t’ \\ fs [] \\ rw []
   \\ first_x_assum (irule_at Any) \\ fs []
   \\ first_x_assum (irule_at Any) \\ fs []
-  \\ first_x_assum drule \\ fs []
+QED
+
+Theorem map_EQ_f:
+  ∀xs.
+    (∀x. MEM x xs ⇒ f x = g x) ⇒
+      map f xs = map g xs
+Proof
+  Induct \\ simp [map_def, sum_bind_def] \\ rw []
 QED
 
 val _ = export_theory ();
