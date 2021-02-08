@@ -25,18 +25,13 @@ Theorem partition_lemma[local]:
     partition n ks reach acc = (xas,ybs,zcs) ∧
     acc = (as,bs,cs)
   ⇒ ∃xs ys zs. xas = xs ++ as ∧ ybs = ys ++ bs ∧ zcs = zs ++ cs ∧
-    (set (xs ++ ys ++ zs) = set ks) ∧
-    (∀x. MEM x xs ⇒ ¬ needs x n reach) ∧
-    (∀y. MEM y ys ⇒ needs y n reach ∧ needs n y reach) ∧
-    (∀z. MEM z zs ⇒ needs z n reach ∧ ¬ needs n z reach) ∧
-    (∀k. MEM k ks ∧ ¬ needs k n reach ⇒ MEM k xs) ∧
-    (∀k. MEM k ks ∧ needs k n reach ∧ needs n k reach ⇒ MEM k ys) ∧
-    (∀k. MEM k ks ∧ needs k n reach ∧ ¬ needs n k reach ⇒ MEM k zs)
+      (set (xs ++ ys ++ zs) = set ks) ∧
+      (∀x. MEM x ks ⇒ (MEM x xs ⇔ ¬ needs x n reach)) ∧
+      (∀y. MEM y ks ⇒ (MEM y ys ⇔ needs y n reach ∧ needs n y reach)) ∧
+      (∀z. MEM z ks ⇒ (MEM z zs ⇔ needs z n reach ∧ ¬ needs n z reach))
 Proof
   recInduct partition_ind >> once_rewrite_tac[partition_def] >> gvs[] >> rw[] >>
   first_x_assum drule >> strip_tac >> gvs[] >>
-  reverse conj_tac
-  >- (rpt conj_tac >> gen_tac >> strip_tac >> gvs[]) >>
   gvs[EXTENSION, GSYM DISJ_ASSOC] >> metis_tac[]
 QED
 
@@ -44,20 +39,16 @@ Theorem partition_thm:
   ∀n ks reach as bs cs res.
     partition n ks reach (as, bs, cs) = res
   ⇒ ∃xs ys zs.
-      partition n ks reach (as, bs, cs) = (xs ++ as, ys ++ bs, zs ++ cs) ∧
+      res = (xs ++ as, ys ++ bs, zs ++ cs) ∧
       (set (xs ++ ys ++ zs) = set ks) ∧
-      (∀x. MEM x xs ⇒ ¬ needs x n reach) ∧
-      (∀y. MEM y ys ⇒ needs y n reach ∧ needs n y reach) ∧
-      (∀z. MEM z zs ⇒ needs z n reach ∧ ¬ needs n z reach) ∧
-      (∀k. MEM k ks ∧ ¬ needs k n reach ⇒ MEM k xs) ∧
-      (∀k. MEM k ks ∧ needs k n reach ∧ needs n k reach ⇒ MEM k ys) ∧
-      (∀k. MEM k ks ∧ needs k n reach ∧ ¬ needs n k reach ⇒ MEM k zs)
+      (∀x. MEM x ks ⇒ (MEM x xs ⇔ ¬ needs x n reach)) ∧
+      (∀y. MEM y ks ⇒ (MEM y ys ⇔ needs y n reach ∧ needs n y reach)) ∧
+      (∀z. MEM z ks ⇒ (MEM z zs ⇔ needs z n reach ∧ ¬ needs n z reach))
 Proof
   rw[] >>
   qspecl_then [`n`,`ks`,`reach`,`(as,bs,cs)`] assume_tac partition_lemma >>
   qpat_abbrev_tac `p = partition n ks reach acc` >>
-  PairCases_on `p` >> gvs[] >>
-  rw[] >> metis_tac[]
+  PairCases_on `p` >> gvs[]
 QED
 
 Theorem ALL_DISTINCT_APPEND_SWAP:
@@ -114,72 +105,109 @@ Theorem top_sort_aux_correct:
       ∀xss ys zss y.
         (* for any element ys in the result res, for any y in that ys: *)
         res = xss ++ [ys] ++ zss ∧ MEM y ys ⇒
-        (* all dependencies of y must be defined in ys or earlier in xss *)
-        ∀dep. needs y dep reach ∧ MEM dep ns ⇒ MEM dep (FLAT xss ++ ys)
+        (* for any defined dependencies of y *)
+        ∀dep. needs y dep reach ∧ MEM dep ns ⇒
+          (* mutual dependencies must by in ys, all others in xss *)
+          (¬ needs dep y reach ⇔ MEM dep (FLAT xss)) ∧
+          (  needs dep y reach ⇔ MEM dep ys)
 Proof
   recInduct top_sort_aux_ind >> simp[top_sort_aux_def] >> rw[] >>
   qpat_abbrev_tac `parts = partition _ _ _ _` >>
   PairCases_on `parts` >> gvs[] >>
   drule partition_thm >> strip_tac >> gvs[] >>
+  gvs[EXTENSION, GSYM DISJ_ASSOC] >>
   drule partition_ALL_DISTINCT >> simp[] >> strip_tac >>
   `ALL_DISTINCT parts0 ∧ ALL_DISTINCT parts2` by gvs[ALL_DISTINCT_APPEND] >>
-  last_x_assum drule >> last_x_assum drule >> rw[] >>
-  gvs [EXTENSION, GSYM DISJ_ASSOC] >> reverse (rw[])
-  >- (
-    gvs[MEM_FLAT, PULL_FORALL] >>
+  last_x_assum drule >> last_x_assum drule >> rw[] >> simp[] >>
+  conj_asm1_tac >- (gvs[ALL_DISTINCT_APPEND] >> CCONTR_TAC >> metis_tac[]) >>
+  conj_tac >- (gvs[ALL_DISTINCT_APPEND] >> CCONTR_TAC >> metis_tac[]) >>
+  rpt gen_tac >> strip_tac >> gen_tac >>
+  `ALL_DISTINCT (FLAT (xss ++ [ys]))` by (
     qpat_x_assum `_ = _ ++ _ ++ _` (mp_tac o GSYM) >>
-    simp[APPEND_EQ_APPEND_MID] >> strip_tac >> gvs[GSYM DISJ_ASSOC]
+    simp[APPEND_EQ_APPEND_MID] >> strip_tac >> gvs[ALL_DISTINCT_APPEND]
+    >- (rename1 `FLAT l1` >> Cases_on `l1` >> gvs[]) >- metis_tac[]) >>
+  strip_tac >> gvs[] >> Cases_on `needs dep y reach` >> gvs[]
+  >- (
+    conj_asm2_tac >- (simp[] >> gvs[ALL_DISTINCT_APPEND] >> metis_tac[]) >>
+    qpat_x_assum `_ = _ ++ _ ++ _` (mp_tac o GSYM) >>
+    simp[APPEND_EQ_APPEND_MID] >> strip_tac >> gvs[]
+    >- metis_tac[]
+    >- (rename1 `_ ++ FLAT l1` >> Cases_on `l1` >> gvs[])
+    >- metis_tac[]
+    )
+  >- (
+    reverse conj_asm1_tac
+    >- (simp[] >> gvs[ALL_DISTINCT_APPEND] >> metis_tac[]) >>
+    qpat_x_assum `_ = _ ++ _ ++ _` (mp_tac o GSYM) >>
+    simp[APPEND_EQ_APPEND_MID] >> strip_tac >> gvs[]
+    >- metis_tac[] >>
+    rename1 `_ ++ FLAT l1` >> Cases_on `l1` >> gvs[] >> metis_tac[]
+    )
+  >- (
+    conj_asm2_tac >- (simp[] >> gvs[ALL_DISTINCT_APPEND] >> metis_tac[]) >>
+    qpat_x_assum `_ = _ ++ _ ++ _` (mp_tac o GSYM) >>
+    simp[APPEND_EQ_APPEND_MID] >> strip_tac >> gvs[]
     >- (
-      last_x_assum irule >> simp[PULL_EXISTS] >>
-      goal_assum (drule_at Any) >> simp[] >>
-      last_x_assum irule >> simp[] >>
-      `MEM y parts0` by (
-        qpat_x_assum `∀x. _ ⇔ MEM _ parts0` (assume_tac o GSYM) >> simp[] >>
-        goal_assum (drule_at Any) >> simp[]) >>
-      `¬ needs y n reach` by gvs[] >>
-      CCONTR_TAC >> fs[] >>
+      qsuff_tac `MEM dep parts0` >- metis_tac[] >>
+      CCONTR_TAC >> gvs[] >>
+      `¬ needs y n reach` by metis_tac[] >>
       last_x_assum (qspecl_then [`y`,`n`] mp_tac) >> simp[] >>
       simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
       )
     >- (
-      Cases_on `l'` >> gvs[] >> `dep ≠ n` by (CCONTR_TAC >> gvs[]) >> gvs[] >>
-      (qsuff_tac `¬needs dep n reach ∨ needs n dep reach` >- metis_tac[]) >>
-      CCONTR_TAC >> gvs[] >>
-      `needs y n reach ∧ needs n y reach` by gvs[] >>
-      qpat_x_assum `¬ needs _ _ _` mp_tac >> simp[] >>
-      last_x_assum irule >>
-      simp[Once TC_CASES1] >> DISJ2_TAC >>
-      goal_assum drule >> simp[Once TC_CASES1]
+      rename1 `_ ++ FLAT l1` >> Cases_on `l1` >> gvs[] >>
+      simp[DISJ_EQ_IMP] >> strip_tac >>
+      `needs y n reach ∧ needs n y reach` by metis_tac[] >>
+      CCONTR_TAC >> gvs[]
+      >- (
+        last_x_assum (qspecl_then [`dep`,`n`] mp_tac) >> simp[] >>
+        simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
+        )
+      >- (
+        last_x_assum (qspecl_then [`n`,`dep`] mp_tac) >> simp[] >>
+        simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
+        )
       )
     >- (
-      Cases_on `MEM dep parts2`
+      qsuff_tac `MEM dep parts2` >- metis_tac[] >>
+      `needs y n reach ∧ ¬ needs n y reach` by metis_tac[] >>
+      CCONTR_TAC >> gvs[]
       >- (
-        first_x_assum (qspec_then `l` mp_tac) >> simp[] >>
-        rpt (disch_then drule) >>
-        strip_tac >> simp[] >> DISJ1_TAC >>
-        goal_assum (drule_at Any) >> simp[]
-        ) >>
-      Cases_on `MEM dep parts0`
+        last_x_assum (qspecl_then [`dep`,`n`] mp_tac) >> simp[] >>
+        simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
+        )
       >- (
-        qpat_x_assum `∀x. _ ⇔ MEM _ parts0` (assume_tac o GSYM) >> fs[] >>
-        DISJ1_TAC >> goal_assum (drule_at Any) >> simp[]
-        ) >>
-      `MEM dep parts1` by metis_tac[] >>
-      DISJ1_TAC >> qexists_tac `n::parts1` >> simp[]
+        last_x_assum (qspecl_then [`n`,`y`] mp_tac) >> simp[] >>
+        simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
+        )
       )
     )
   >- (
-    gvs[MEM_FLAT, PULL_FORALL] >>
-    `¬ MEM y parts0` by metis_tac[] >>
+    reverse conj_asm1_tac
+    >- (simp[] >> gvs[ALL_DISTINCT_APPEND] >> metis_tac[]) >>
     qpat_x_assum `_ = _ ++ _ ++ _` (mp_tac o GSYM) >>
-    simp[APPEND_EQ_APPEND_MID] >> reverse strip_tac >> gvs[GSYM DISJ_ASSOC]
-    >- (DISJ1_TAC >> qexists_tac `dep::parts1` >> simp[])
-    >- (Cases_on `l'` >> gvs[]) >>
-    irule FALSITY >> pop_assum mp_tac >> simp[] >>
-    qpat_x_assum `∀x. _ ⇔ MEM _ parts0` (assume_tac o GSYM) >>
-    simp[] >> goal_assum (drule_at Any) >> simp[]
+    simp[APPEND_EQ_APPEND_MID] >> strip_tac >> gvs[]
+    >- (
+      qsuff_tac `MEM dep parts0` >- metis_tac[] >>
+      CCONTR_TAC >> gvs[] >>
+      `¬ needs y n reach` by metis_tac[] >>
+      last_x_assum (qspecl_then [`y`,`n`] mp_tac) >> simp[] >>
+      simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
+      )
+    >- (
+      rename1 `_ ++ FLAT l1` >> Cases_on `l1` >> gvs[] >>
+      `needs y n reach ∧ needs n y reach` by metis_tac[] >>
+      CCONTR_TAC >> gvs[] >>
+      last_x_assum (qspecl_then [`dep`,`y`] mp_tac) >> simp[] >>
+      simp[Once TC_CASES1] >> goal_assum drule >> simp[Once TC_CASES1]
+      )
+    >- (
+      simp[DISJ_EQ_IMP] >> strip_tac >> gvs[] >>
+      qsuff_tac `MEM dep parts2` >- metis_tac[] >>
+      `needs y n reach ∧ ¬ needs n y reach` by metis_tac[] >>
+      CCONTR_TAC >> gvs[]
+      )
     )
-  >> gvs[ALL_DISTINCT_APPEND] >> CCONTR_TAC >> metis_tac[]
 QED
 
 Triviality domain_lookup_num_set:
@@ -233,7 +261,7 @@ Proof
   goal_assum drule >> simp[]
 QED
 
-Theorem top_sort_correct:
+Theorem top_sort_correct_weak:
   ∀lets res.
     ALL_DISTINCT (MAP FST lets) ∧
     res = top_sort lets ⇒
@@ -256,12 +284,36 @@ Proof
   gvs[MEM_MAP, PULL_EXISTS] >>
   rename1 `MEM y _` >> PairCases_on `y` >> gvs[] >>
   drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[] >> rw[] >>
-  first_x_assum irule >> simp[] >>
-  goal_assum drule >>
+  first_x_assum (qspecl_then [`xss`,`ys`,`zss`] mp_tac) >> simp[] >>
+  disch_then drule >> disch_then $ drule_at Any >>
+  reverse impl_tac
+  >- (qmatch_goalsub_abbrev_tac `¬foo ⇔ _` >> Cases_on `foo` >> gvs[]) >>
   irule trans_clos_correct_imp >>
   simp[Once TC_CASES1, needs_def] >> DISJ1_TAC >>
-  simp[needs_def] >>
-  gvs[domain_lookup, lookup_fromAList]
+  simp[needs_def] >> gvs[domain_lookup, lookup_fromAList]
+QED
+
+Theorem top_sort_correct:
+  ∀lets res.
+    ALL_DISTINCT (MAP FST lets) ∧
+    res = top_sort lets ⇒
+      ALL_DISTINCT (FLAT res) ∧
+      set (FLAT res) = set (MAP FST lets) ∧
+      ∀xss ys zss y.
+        (* for any element ys in the result res, for any y in that ys: *)
+        res = xss ++ [ys] ++ zss ∧ MEM y ys ⇒
+        (* for any defined dependencies of y *)
+        ∀dep. is_reachable (fromAList lets) y dep ∧ MEM dep (MAP FST lets) ⇒
+          (¬ is_reachable (fromAList lets) dep y ⇔ MEM dep (FLAT xss)) ∧
+          (  is_reachable (fromAList lets) dep y ⇔ MEM dep ys)
+Proof
+  simp[top_sort_def] >> gen_tac >> strip_tac >>
+  drule_at Any top_sort_aux_correct >> simp[] >>
+  disch_then (qspecl_then [`trans_clos (fromAList lets)`,`[]`] mp_tac) >>
+  simp[trans_clos_TC_closed] >> strip_tac >>
+  rpt gen_tac >> ntac 3 strip_tac >>
+  first_x_assum drule >> disch_then drule >>
+  gvs[GSYM trans_clos_correct, ALL_DISTINCT_APPEND] >> metis_tac[]
 QED
 
 Theorem to_nums_correct:
@@ -306,7 +358,7 @@ Proof
   first_x_assum (qspec_then `EL n t` assume_tac) >> gvs[EL_MEM]
 QED
 
-Theorem top_sort_any_correct:
+Theorem top_sort_any_correct_weak:
   ∀lets res.
     ALL_DISTINCT (MAP FST lets) ∧
     res = top_sort_any lets ⇒
@@ -326,7 +378,7 @@ Proof
   qabbrev_tac `from_num = fromAList (MAPi (λi n. (i,n)) names)` >>
   qabbrev_tac `arg = MAPi (λi (n,ns). (i,to_nums to_num ns)) lets` >>
   gvs[] >> strip_tac >> gvs[] >>
-  qspec_then `arg` assume_tac top_sort_correct >> gvs[] >>
+  qspec_then `arg` assume_tac top_sort_correct_weak >> gvs[] >>
   pop_assum mp_tac >> impl_keep_tac
   >- (
     gvs[Abbr `arg`, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -402,6 +454,68 @@ Proof
     DISJ2_TAC >>
     goal_assum (drule_at Any) >> simp[EL_MAP]
     )
+QED
+
+Definition depends_on_def:
+  depends_on alist x y ⇔
+    RTC (λa b. ∃deps.
+      ALOOKUP alist a = SOME deps ∧ MEM b deps ∧ MEM b (MAP FST alist)) x y
+End
+
+Triviality top_sort_any_depends_on_weak:
+  ∀lets res.
+    (∀xss ys zss y.
+      res = xss ++ [ys] ++ zss ∧ MEM y ys ⇒
+      ∃deps. ALOOKUP lets y = SOME deps ∧
+             ∀d. MEM d deps ∧ MEM d (MAP FST lets) ⇒ MEM d (FLAT xss ++ ys))
+  ⇒ ∀a b. depends_on lets a b ⇒
+    ∀xss ys zss y.
+      res = xss ++ [ys] ++ zss ∧ MEM a ys ⇒
+      MEM b (FLAT xss ++ ys)
+Proof
+  ntac 3 strip_tac >> simp[depends_on_def] >>
+  Induct_on `RTC` >> rw[] >> gvs[] >>
+  rename1 `RTC _ c _` >>
+  last_x_assum (drule_at Any) >>
+  disch_then (qspecl_then [`xss`,`zss`] mp_tac) >> simp[] >>
+  disch_then drule_all >> reverse strip_tac
+  >- (first_x_assum irule >> simp[]) >>
+  pop_assum mp_tac >> simp[Once MEM_FLAT] >> strip_tac >>
+  qspecl_then [`xss`,`l`] assume_tac $ GEN_ALL MEM_SING_APPEND >>
+  gvs[]
+QED
+
+Theorem top_sort_any_correct:
+  ∀lets res.
+    ALL_DISTINCT (MAP FST lets) ∧
+    res = top_sort_any lets ⇒
+      ALL_DISTINCT (FLAT res) ∧
+      set (FLAT res) = set (MAP FST lets) ∧
+      ∀xss ys zss y.
+        (* for any element ys in the result res, for any y in that ys: *)
+        res = xss ++ [ys] ++ zss ∧ MEM y ys ⇒
+        (* all dependencies of y must be defined in ys or earlier, i.e. xss *)
+        ∀dep. depends_on lets y dep ⇒
+          MEM dep (FLAT xss ++ ys) ∧
+          (depends_on lets dep y ⇒ MEM dep ys)
+Proof
+  rpt gen_tac >> strip_tac >>
+  drule_all top_sort_any_correct_weak >> simp[] >> strip_tac >> rw[]
+  >- (
+    irule (top_sort_any_depends_on_weak |> SIMP_RULE (srw_ss()) []) >>
+    qexistsl_tac [`y`,`lets`,`top_sort_any lets`,`zss`] >> simp[]
+    ) >>
+  qspecl_then [`lets`,`top_sort_any lets`]
+    mp_tac top_sort_any_depends_on_weak >>
+  rw[] >>
+  first_assum (qspecl_then [`y`,`dep`] mp_tac) >> simp[] >>
+  disch_then (qspecl_then [`xss`,`ys`,`zss`] mp_tac) >> dsimp[] >>
+  simp[MEM_FLAT] >> strip_tac >>
+  qspecl_then [`xss`,`l`] assume_tac $ GEN_ALL MEM_SING_APPEND >> gvs[] >>
+  irule FALSITY >>
+  first_x_assum drule >>
+  disch_then (qspecl_then [`a`,`l`,`c ++ [ys] ++ zss`] mp_tac) >> simp[] >>
+  gvs[ALL_DISTINCT_APPEND] >> metis_tac[]
 QED
 
 val _ = export_theory();

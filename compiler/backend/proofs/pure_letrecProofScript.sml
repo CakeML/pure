@@ -1357,7 +1357,7 @@ Theorem split_one_correct:
 Proof
   rw[split_one_def] >>
   map_every qpat_abbrev_tac [`l = MAP _ lets`, `res = top_sort_any _`] >>
-  qspecl_then [`l`,`res`] mp_tac top_sort_any_correct >>
+  qspecl_then [`l`,`res`] mp_tac top_sort_any_correct_weak >>
   unabbrev_all_tac >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
   rw[valid_split_lift_def] >> rw[valid_split_def]
@@ -1401,7 +1401,7 @@ Theorem split_one_FLAT:
 Proof
   rw[split_one_def] >>
   map_every qpat_abbrev_tac [`l = MAP _ lets`, `res = top_sort_any _`] >>
-  qspecl_then [`l`,`res`] mp_tac top_sort_any_correct >>
+  qspecl_then [`l`,`res`] mp_tac top_sort_any_correct_weak >>
   unabbrev_all_tac >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
   strip_tac >> CONV_TAC (DEPTH_CONV ETA_CONV) >> simp[GSYM MAP_FLAT] >>
