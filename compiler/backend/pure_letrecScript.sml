@@ -2,7 +2,7 @@
   Simplification of Letrec
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
-open pure_expTheory pure_miscTheory top_sortTheory;
+open pure_expTheory pure_miscTheory topological_sortTheory;
 
 val _ = new_theory "pure_letrec";
 

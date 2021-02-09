@@ -6,9 +6,7 @@ open arithmeticTheory listTheory alistTheory optionTheory pairTheory dep_rewrite
      pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
      pure_congruenceTheory pure_miscTheory pure_eval_lemmasTheory
-     pure_letrecTheory top_sortProofTheory;
-(* from CakeML: *)
-open mllistTheory;
+     pure_letrecTheory topological_sortTheory;
 
 val _ = new_theory "pure_letrec_funProof";
 
