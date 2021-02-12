@@ -240,5 +240,70 @@ Definition eval_def:
     | SOME k => eval_to k x
 End
 
+Theorem eval_to_subst_mono:
+  ∀k x j.
+    eval_to k x ≠ INL Diverge ∧
+    k < j ⇒
+      eval_to j x = eval_to k x
+Proof
+  ho_match_mp_tac eval_to_ind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  >- ((* Value *)
+    simp [eval_to_def])
+  >- ((* Var *)
+    simp [eval_to_def])
+  >- ((* Prim *)
+    rw [eval_to_def]
+    \\ Cases_on ‘map (λx. eval_to (k - 1) x) xs’ \\ fs []
+    >- (
+      ‘map (λx. eval_to (j - 1) x) xs = INL x’ suffices_by rw []
+      \\ fs [map_INL]
+      \\ first_assum (irule_at Any) \\ fs [])
+    \\ Cases_on ‘map (λx. eval_to (j - 1) x) xs’ \\ fs []
+    >- (
+      ‘F’ suffices_by rw []
+      \\ gvs [map_INL]
+      \\ drule_then assume_tac map_INR
+      \\ first_x_assum (drule_then strip_assume_tac) \\ fs []
+      \\ ‘eval_to (k - 1) (EL n xs) ≠ INL Diverge’ by fs []
+      \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs [])
+    \\ ‘map (λx. eval_to (j - 1) x) xs = map (λx. eval_to (k - 1) x) xs’
+      suffices_by rw []
+    \\ irule map_EQ_f \\ rw []
+    \\ first_x_assum irule \\ fs []
+    \\ last_x_assum (mp_then Any mp_tac map_INR)
+    \\ fs [MEM_EL]
+    \\ disch_then (drule_then strip_assume_tac) \\ fs [])
+  >- ((* App *)
+    rename1 ‘App x y’
+    \\ rw [eval_to_def]
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) y’ \\ fs []
+    \\ rename1 ‘dest_anyClosure z’
+    \\ Cases_on ‘dest_anyClosure z’ \\ fs []
+    \\ pairarg_tac \\ gvs [bind_def])
+  >- ((* Lam *)
+    simp [eval_to_def])
+  >- ((* If *)
+    rename1 ‘If x y z’
+    \\ rw [eval_to_def]
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ rw [] \\ fs [])
+  >- ((* Letrec *)
+    rw [eval_to_def, subst_funs_def, bind_def])
+  >- ((* Delay *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs [])
+  >- ((* Force *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ Cases_on ‘dest_Thunk y’ \\ fs []
+    \\ pairarg_tac \\ gvs []
+    \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘dest_anyClosure w’ \\ fs []
+    \\ pairarg_tac \\ gvs [bind_def])
+QED
+
 val _ = export_theory ();
 
