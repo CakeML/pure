@@ -111,7 +111,7 @@ End
 Overload subst1 = “λname v e. subst [(name,v)] e”;
 
 Definition bind_def:
-  bind m v = return (subst m v)
+  bind m v = subst m v
 End
 
 Overload bind1 = “λname v e. bind [(name,v)] e”;
@@ -192,7 +192,7 @@ Definition eval_to_def:
          fv <- eval_to (k - 1) f;
          xv <- eval_to (k - 1) x;
          (s, body, post) <- dest_anyClosure fv;
-         y <- bind ((s, xv)::post) body;
+         y <<- bind ((s, xv)::post) body;
          eval_to (k - 1) y
        od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
@@ -210,7 +210,7 @@ Definition eval_to_def:
   eval_to k (Letrec funs x) =
     (if k = 0 then fail Diverge else
        do
-         y <- subst_funs funs x;
+         y <<- subst_funs funs x;
          eval_to (k - 1) y
        od) ∧
   eval_to k (Delay f x) =
@@ -227,7 +227,7 @@ Definition eval_to_def:
          if nf then return w else
            do
              (s, body, post) <- dest_anyClosure w;
-             y <- bind ((s, unit)::post) body;
+             y <<- bind ((s, unit)::post) body;
              eval_to (k - 1) y
            od
        od)

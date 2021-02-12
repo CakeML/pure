@@ -580,8 +580,7 @@ Proof
     \\ CASE_TAC \\ fs []
     \\ simp [bind_def, subst_funs_def]
     \\ Cases_on ‘x2’ \\ gvs [dest_Recclosure_def, v_rel_def]
-    \\ pairarg_tac \\ gvs []
-    \\ gvs []
+    \\ pairarg_tac \\ gvs [bind_def]
     \\ first_x_assum irule
     \\ irule exp_rel_subst_app2 \\ fs [])
   >- ((* Lam *)
@@ -607,8 +606,8 @@ Proof
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
     \\ IF_CASES_TAC \\ fs []
-    \\ simp [subst_funs_def, bind_def, bind_funs_def]
     \\ first_x_assum irule
+    \\ fs [subst_funs_def, bind_def, bind_funs_def]
     (* TODO Could re-use the exp_rel_subst_app theorem if it was a bit more
             general *)
     \\ irule exp_rel_ALOOKUP_EQ
@@ -660,7 +659,6 @@ Proof
     \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
     \\ drule_then strip_assume_tac dest_Thunk_v_rel
     \\ Cases_on ‘dest_Thunk y’ \\ gvs []
-    \\ first_assum (drule_then strip_assume_tac) \\ gvs []
     \\ pairarg_tac \\ gvs []
     \\ IF_CASES_TAC \\ fs []
     \\ rename1 ‘dest_anyClosure w1’
@@ -700,7 +698,7 @@ Proof
     \\ drule_all_then (qspec_then ‘fn’ strip_assume_tac) ALOOKUP_LIST_REL
     \\ Cases_on ‘ALOOKUP xs fn’ \\ gs []
     \\ CASE_TAC \\ fs []
-    \\ simp [bind_def, subst_funs_def]
+    \\ fs [bind_def, subst_funs_def]
     \\ Cases_on ‘w1’ \\ gvs [dest_Recclosure_def, v_rel_def]
     \\ pairarg_tac \\ gvs []
     \\ first_x_assum irule
