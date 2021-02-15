@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
-     pure_evalTheory;
+     pure_evalTheory thunkLang_primitivesTheory;
 
 val _ = new_theory "pure_to_thunkProof";
 
@@ -46,6 +46,8 @@ End
       produces a “Thunk” value that can only be dealt with by the semantics of
       ‘Force’. But if we wrap both branches with ‘Force’ it's essentially a
       no-op). A valid ‘If’ requires three arguments and that's basically it.
+    - ‘Cons’ receives special treatment because SOME_SPECIAL_REASON. TODO Why,
+      and how?
     - All other operations are re-used as-is in thunkLang, with arguments
       compiled 'directly.'
   * [Letrec]
@@ -149,6 +151,10 @@ Proof
   \\ rw [] \\ gs []
 QED
 
+(*
+  TODO: The name thunk_rel doesn't say much
+ *)
+
 Inductive thunk_rel:
   (∀ctxt x s y.
      exp_rel ctxt x y ⇒
@@ -172,6 +178,27 @@ Proof
   rw [] \\ simp [Once thunk_rel_cases]
 QED
 
+(*
+  We use the pureLang semantics that evaluates to weak head normal form.
+  Error, Diverge and Closure are related to their thunkLang counterparts in
+  the obvious way. Constructors are related as follows: constructor names are
+  the same, the number of arguments are the same, and each argument to the
+  constructor pureLang-side is related to a (possibly suspended) computation
+  wrapped in “Thunk” on the thunkLang-side. See above for thunk_rel.
+
+  (This was based on a discussion with Magnus. “thunk_rel” is perhaps a
+  description of how laziness is supposed to work around constructors?)
+
+  TODO
+    This is wrong: Thunk values are not related to anything. I think a
+    normalized thunk should maybe be related to the same things as its body,
+    and a non-normalized thunk should (a) have a lambda and (b) be related to
+    the lambda body.
+
+    Then v_rel has to become inductive. (Not really an issue.)
+
+ *)
+
 Definition v_rel_def:
   v_rel ctxt wh_Error (INL Type_error) = T ∧
   v_rel ctxt wh_Diverge (INL Diverge) = T ∧
@@ -179,6 +206,7 @@ Definition v_rel_def:
     (s = t ∧ exp_rel ((s, Raw)::ctxt) x y) ∧
   v_rel ctxt (wh_Constructor s xs) (INR (Constructor t ys)) =
     (s = t ∧ LIST_REL (thunk_rel ctxt) xs ys) ∧
+  v_rel ctxt (wh_Atom a) (INR (Atom b)) = (a = b) ∧
   v_rel ctxt _ _ = F
 End
 
@@ -252,21 +280,121 @@ Proof
     \\ gvs [exp_rel_def]
     \\ first_x_assum (drule_all_then assume_tac)
     \\ simp [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) g’ \\ fs []
-    >- ((* thunk sem errors *)
-      rename1 ‘INL err’
-      \\ Cases_on ‘err’ \\ gs [v_rel_rev]
-      >- ((* more errors *)
-        ‘eval_to (k - 1) g ≠ INL Diverge’ by fs []
-        \\ ‘k - 1 < k’ by fs []
-        \\ drule_all_then assume_tac eval_to_subst_mono
-        \\ gs [v_rel_rev])
-      \\ cheat (* TODO mismatch between the two sides *))
-    \\ cheat (* TODO *))
+      (* TODO
+           Prove lemma about substituted expressions:
+             exp_rel between the bound thing (bind (q, y, r)) in pureLang,
+             in some context ((q,Raw)::ctxt ?) with some corresponding thing
+             in thunkLang.
+       *)
+    \\ cheat)
   >- ((* Letrec *)
     cheat (* TODO Not done *))
   >- ((* Prim *)
-    cheat (* TODO Do later *))
+    rename1 ‘Prim op xs’
+    \\ rw [exp_rel_def]
+    >- ((* If *)
+      simp [eval_to_def, eval_wh_to_def]
+      \\ IF_CASES_TAC \\ fs [v_rel_def]
+      \\ gvs [LENGTH_EQ_NUM_compute]
+      \\ map_every rename1 [
+          ‘exp_rel ctxt y1 x1’,
+          ‘exp_rel ctxt y2 x2’,
+          ‘exp_rel ctxt y3 x3’]
+      \\ fsrw_tac [boolSimps.DNF_ss] []
+      \\ fs [eval_wh_to_def, CaseEq "wh", CaseEq "bool"]
+      \\ first_x_assum (drule_then assume_tac)
+      \\ CASE_TAC \\ Cases_on ‘eval_to (k - 1) x1’ \\ fs [v_rel_def]
+      \\ rename1 ‘INR res’
+      \\ Cases_on ‘res’ \\ fs [v_rel_def])
+    >- ((* ¬ If *)
+      simp [eval_to_def, eval_wh_to_def]
+      \\ IF_CASES_TAC \\ fs [v_rel_def]
+      \\ rename1 ‘LIST_REL _ xs ys’
+      \\ Cases_on ‘op’ \\ fs [do_prim_def]
+      >- ((* Cons *)
+        cheat (* TODO thunk_rel *))
+      >- ((* IsEq *)
+        fs [eval_wh_to_def]
+        \\ IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+        \\ rename1 ‘exp_rel ctxt x y’
+        \\ Cases_on ‘eval_wh_to (k - 1) x = wh_Error’ \\ fs []
+        \\ first_x_assum (drule_then strip_assume_tac)
+        \\ simp [map_def]
+        \\ Cases_on ‘eval_wh_to (k - 1) x’
+        \\ Cases_on ‘eval_to (k - 1) y’
+        \\ fs [v_rel_def, CaseEq "bool"]
+        \\ rename1 ‘v_rel _ _ (INR res)’
+        \\ Cases_on ‘res’ \\ gvs [v_rel_def]
+        \\ IF_CASES_TAC \\ fs [v_rel_def]
+        \\ IF_CASES_TAC \\ fs [v_rel_def]
+        \\ fs [LIST_REL_EL_EQN])
+      >- ((* Proj *)
+        fs [eval_wh_to_def]
+        \\ IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+        \\ rename1 ‘exp_rel ctxt x y’
+        \\ Cases_on ‘eval_wh_to (k - 1) x = wh_Error’ \\ fs []
+        \\ first_x_assum (drule_then strip_assume_tac)
+        \\ simp [map_def]
+        \\ Cases_on ‘eval_wh_to (k - 1) x’
+        \\ Cases_on ‘eval_to (k - 1) y’
+        \\ fs [v_rel_def, CaseEq "bool"]
+        \\ rename1 ‘v_rel _ _ (INR res)’
+        \\ Cases_on ‘res’ \\ gvs [v_rel_def]
+        \\ cheat (* LIST_REL thunk_rel currently doesn't say much *))
+      >- ((* AtomOp *)
+        fs [eval_wh_to_def, CaseEq "option"]
+        \\ CASE_TAC \\ fs []
+        >- (
+          gvs [get_atoms_NONE_eq, EL_MAP, LIST_REL_EL_EQN]
+          \\ ‘eval_to (k - 1) (EL n ys) = INL Diverge’
+            by (‘MEM (EL n xs) xs’ by fs [EL_MEM]
+                \\ first_x_assum (drule_then assume_tac)
+                \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by fs []
+                \\ first_x_assum (drule_all_then assume_tac)
+                \\ Cases_on ‘eval_to (k - 1) (EL n ys)’ \\ gs [v_rel_def]
+                \\ rename1 ‘INL err’ \\ Cases_on ‘err’ \\ fs [v_rel_def])
+          \\ ‘∀m. m < n ⇒ ∃a. eval_to (k - 1) (EL m ys) = INR (Atom a)’
+            by (rw []
+                \\ ‘m < LENGTH ys’ by fs []
+                \\ first_x_assum (drule_then strip_assume_tac)
+                \\ first_x_assum (drule_then strip_assume_tac)
+                \\ ‘MEM (EL m xs) xs’ by fs [EL_MEM]
+                \\ first_x_assum (drule_then assume_tac)
+                \\ ‘eval_wh_to (k - 1) (EL m xs) ≠ wh_Error’ by fs []
+                \\ first_x_assum (drule_all_then assume_tac)
+                \\ Cases_on ‘eval_to (k - 1) (EL m ys)’ \\ gs [v_rel_def]
+                \\ rename1 ‘INR res’ \\ Cases_on ‘res’ \\ fs [v_rel_def])
+          \\ Cases_on ‘map (λx. eval_to (k - 1) x) ys’ \\ fs []
+          >- (
+            gvs [map_INL]
+            \\ rename1 ‘eval_to _ (EL m ys) = INL err’
+            \\ ‘n ≤ m’
+              by (CCONTR_TAC
+                  \\ ‘m < n’ by fs []
+                  \\ first_x_assum (drule_then strip_assume_tac)
+                  \\ gs [])
+            \\ Cases_on ‘m = n’ \\ fs [v_rel_def])
+          \\ drule map_INR
+          \\ disch_then (drule_then strip_assume_tac) \\ fs [])
+        \\ gvs [GSYM (AP_TERM “$¬” (SPEC_ALL optionTheory.NOT_IS_SOME_EQ_NONE)),
+                IS_SOME_EXISTS, get_atoms_SOME_SOME_eq, EVERY2_MAP]
+        \\ Cases_on ‘map (λx. eval_to (k - 1) x) ys’ \\ fs []
+        >- (
+          gvs [map_INL, LIST_REL_EL_EQN]
+          \\ first_x_assum (drule_then assume_tac)
+          \\ first_x_assum (drule_then assume_tac)
+          \\ ‘MEM (EL n xs) xs’ by fs [EL_MEM]
+          \\ first_x_assum (drule_then assume_tac)
+          \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by fs []
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ gs [v_rel_def])
+        \\ rename1 ‘map _ _ = INR res’
+        \\ drule_then assume_tac map_INR
+        \\ gvs [LIST_REL_EL_EQN]
+        \\ drule_then assume_tac map_LENGTH
+        \\ cheat (* TODO lemma about get_lits *))
+      >- ((* Lit *)
+        gvs [eval_wh_to_def, CaseEq "bool", map_def, v_rel_def])))
 QED
 
 val _ = export_theory ();
