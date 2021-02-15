@@ -12,17 +12,17 @@ val _ = new_theory "pure_to_thunkProof";
 
    Some variables point to computations that have been
    suspended by a lambda on the thunkLang side. These variables
-   need to be forced, and are thus tagged with ‘Thunk’.
+   need to be forced, and are thus tagged with ‘Suspended’.
  *)
 
 Datatype:
-  vmode = Raw | Thunk
+  vmode = Raw | Suspended
 End
 
 Inductive exp_rel:
-[exp_rel_Var_Thunk:]
+[exp_rel_Var_Suspended:]
   (∀ctxt n.
-     ALOOKUP ctxt n = SOME Thunk ⇒
+     ALOOKUP ctxt n = SOME Suspended ⇒
        exp_rel ctxt (Var n) (Force (Var n))) ∧
 [exp_rel_Var_Raw:]
   (∀ctxt n.
@@ -66,7 +66,7 @@ TypeBase.case_def_of “:pure_exp$exp”
 Theorem exp_rel_def[local]:
   (∀n.
      exp_rel ctxt (Var n) y ⇔
-       (ALOOKUP ctxt n = SOME Thunk ∧
+       (ALOOKUP ctxt n = SOME Suspended ∧
         y = Force (Var n)) ∨
        (ALOOKUP ctxt n = SOME Raw ∧
         y = Var n)) ∧
