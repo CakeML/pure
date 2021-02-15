@@ -17,6 +17,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_miscTheory
      pure_exp_relTheory pure_alpha_equivTheory pure_congruenceTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "pure_beta_equiv";
 
@@ -1005,6 +1006,26 @@ Proof
   \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[]
 QED
 
+Theorem beta_bisimilarity:
+  closed (Let x arg body) ⇒
+  Let x arg body ≃ CA_subst x arg body
+Proof
+  simp[app_bisimilarity_eq]
+  \\ rw[beta_equivalence]
+  \\ fs[CA_subst_def,closed_def]
+  \\ qspecl_then [‘x’,‘arg’,‘(avoid_vars (freevars body) body)’]
+                 assume_tac freevars_subst_single
+  \\ fs[closed_def] \\ res_tac \\ fs[]
+  \\ qsuff_tac ‘freevars (subst x arg (avoid_vars (freevars body) body)) = ∅’
+  THEN1 (fs[])
+  \\ pop_assum (fn t => once_rewrite_tac[t])
+  \\ qspecl_then [‘freevars body’,‘body’] mp_tac freevars_avoid_vars_mono
+  \\ fs[]
+  \\ rw[]
+  \\ fs[EXTENSION,SUBSET_DEF] \\ metis_tac[MEM]
+QED
+
+
 
 (* TODO
 
@@ -1053,7 +1074,7 @@ Proof
   \\ fs[ZIP_MAP]
   \\ fs[MAP_MAP_o,combinTheory.o_DEF]
   \\ cheat
-QED 
+QED
 
 Theorem disjoint_namespaces_beta_equivalence:
     DISJOINT (freevars arg)  (boundvars body)

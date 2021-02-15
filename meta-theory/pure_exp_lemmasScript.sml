@@ -1,8 +1,10 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
 open stringTheory optionTheory pairTheory listTheory
      finite_mapTheory pred_setTheory dep_rewrite;
 open pure_miscTheory pure_configTheory pure_expTheory;
+
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "pure_exp_lemmas";
 
@@ -167,6 +169,62 @@ Proof
     gvs[FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >> res_tac
     )
 QED
+
+Theorem subst_subst_DISJOINT_FUNION:
+  ∀m1 e m2.
+    DISJOINT (FDOM m1) (BIGUNION (IMAGE freevars (FRANGE m2)))
+  ⇒ subst m1 (subst m2 e) = subst (m2 ⊌ m1) e
+Proof
+  recInduct subst_ind >> rw[] >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS]
+  >- (
+    simp[subst_def, FLOOKUP_FUNION] >>
+    EVERY_CASE_TAC >> gvs[subst_def] >>
+    irule subst_ignore >> metis_tac[DISJOINT_SYM]
+    )
+  >- (
+    simp[subst_def, MAP_MAP_o, combinTheory.o_DEF] >>
+    rw[MAP_EQ_f] >> last_x_assum irule >> simp[] >> metis_tac[]
+    )
+  >- (
+    simp[subst_def] >> metis_tac[]
+    )
+  >- (
+    simp[subst_def, DOMSUB_FUNION] >>
+    last_x_assum irule >> simp[DOMSUB_FLOOKUP_THM] >> rw[] >>
+    last_x_assum drule >> gvs[DISJOINT_DEF, EXTENSION] >> metis_tac[]
+    )
+  >- (
+    simp[subst_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[GSYM FST_THM] >> rw[MAP_EQ_f, FDIFF_FUNION]
+    >- (
+      PairCases_on `e` >> gvs[] >>
+      last_x_assum irule >> simp[PULL_EXISTS] >> goal_assum (drule_at Any) >>
+      rw[FDIFF_def, FLOOKUP_DRESTRICT, FDOM_DRESTRICT] >>
+      first_x_assum drule >> simp[DISJOINT_DEF, EXTENSION] >> metis_tac[]
+      )
+    >- (
+      first_x_assum irule >> rw[FDIFF_def, FLOOKUP_DRESTRICT, FDOM_DRESTRICT] >>
+      first_x_assum drule >> simp[DISJOINT_DEF, EXTENSION] >> metis_tac[]
+      )
+    )
+QED
+
+Theorem subst_id:
+  ∀f e.
+    (∀k v. FLOOKUP f k = SOME v ⇒ v = Var k)
+  ⇒ subst f e = e
+Proof
+  recInduct subst_ind >> rw[subst_def]
+  >- (CASE_TAC >> res_tac >> gvs[])
+  >- rw[MAP_ID_ON]
+  >- (last_x_assum irule >> simp[DOMSUB_FLOOKUP_THM])
+  >- (
+    irule MAP_ID_ON >> simp[FORALL_PROD] >> rw[] >>
+    last_x_assum irule >> simp[FDIFF_def, FLOOKUP_DRESTRICT] >> goal_assum drule
+    )
+  >- (first_x_assum irule >> simp[FDIFF_def, FLOOKUP_DRESTRICT])
+QED
+
 
 (******************* bind ********************)
 
@@ -591,6 +649,16 @@ Proof
   rw[] >> pop_assum mp_tac >> drule freevars_subst_single >>
   disch_then(qspecl_then [‘s’,‘y’] mp_tac) >> rw[] >>
   gvs[closed_def, DELETE_DEF, SUBSET_DIFF_EMPTY]
+QED
+
+Theorem closed_subst_all_freevars:
+  ∀m e.
+    (∀v. v ∈ FRANGE m ⇒ closed v) ∧
+    closed (subst m e)
+  ⇒ freevars e ⊆ FDOM m
+Proof
+  rw[] >> imp_res_tac freevars_subst >>
+  gvs[closed_def, EXTENSION, NIL_iff_NOT_MEM, SUBSET_DEF, DISJ_EQ_IMP]
 QED
 
 Theorem closed_freevars_subst:

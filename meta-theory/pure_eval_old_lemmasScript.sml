@@ -9,6 +9,8 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_eval_oldTheory
      pure_exp_lemmasTheory pure_limitTheory;
 
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
 val _ = new_theory "pure_eval_old_lemmas";
 
 (* Premise not necessary, but convenient for drule:ing.

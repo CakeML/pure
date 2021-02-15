@@ -183,4 +183,16 @@ Proof
   >- (goal_assum drule)
 QED
 
+Theorem subst_funs_eq_subst:
+  ∀f. EVERY (λe. freevars e ⊆ set (MAP FST f)) (MAP SND f)
+  ⇒ subst_funs f = subst (FEMPTY |++ MAP (λ(v,e). (v,Letrec f e)) f)
+Proof
+  rw[] >> irule EQ_EXT >> rw[subst_funs_def, bind_def] >> gvs[] >>
+  gvs[flookup_fupdate_list] >> EVERY_CASE_TAC >> gvs[] >>
+  imp_res_tac ALOOKUP_MEM >> gvs[] >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> pairarg_tac >> gvs[]
+  >- (last_x_assum drule >> simp[]) >>
+  gvs[EXISTS_MEM, MEM_MAP]
+QED
+
 val _ = export_theory();
