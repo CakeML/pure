@@ -294,13 +294,20 @@ Proof
     \\ gvs [exp_rel_def]
     \\ first_x_assum (drule_all_then assume_tac)
     \\ simp [eval_to_def]
+    \\ Cases_on ‘eval_wh_to k x = wh_Diverge’ \\ fs []
+    \\ ‘eval_to k g ≠ INL Diverge’ by (strip_tac \\ gs [v_rel_rev])
+    \\ ‘eval_to k g ≠ INL Type_error’ by (strip_tac \\ gs [v_rel_rev])
+    \\ cheat
       (* TODO
-           Prove lemma about substituted expressions:
+         - Prove lemma about substituted expressions:
              exp_rel between the bound thing (bind (q, y, r)) in pureLang,
              in some context ((q,Raw)::ctxt ?) with some corresponding thing
              in thunkLang.
-       *)
-    \\ cheat)
+         - Line up clocks. There's something wrong here; I don't think
+           the thunkLang app should check the clock until the last call.
+           The argument should never diverge thunkLang side because it
+           should be a real suspension i.e., Delay T (Closure ...).
+       *))
   >- ((* Letrec *)
     cheat (* TODO Not done *))
   >- ((* Prim *)
@@ -320,13 +327,13 @@ Proof
       \\ CASE_TAC \\ Cases_on ‘eval_to (k - 1) x1’ \\ fs [v_rel_def]
       \\ rename1 ‘INR res’
       \\ Cases_on ‘res’ \\ fs [v_rel_def])
-    >- ((* ¬ If *)
+    >- ((* Cons *)
+      cheat)
+    >- ((* ∉ {If; Cons} *)
       simp [eval_to_def, eval_wh_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
       \\ rename1 ‘LIST_REL _ xs ys’
       \\ Cases_on ‘op’ \\ fs [do_prim_def]
-      >- ((* Cons *)
-        cheat (* TODO thunk_rel *))
       >- ((* IsEq *)
         fs [eval_wh_to_def]
         \\ IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
