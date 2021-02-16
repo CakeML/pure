@@ -648,15 +648,13 @@ Proof
   >- ((* Delay *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
-    \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ first_x_assum (drule_then strip_assume_tac) \\ fs []
     \\ simp [v_rel_def])
   >- ((* Force *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
-    \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
     \\ drule_then strip_assume_tac dest_Thunk_v_rel
     \\ Cases_on ‘dest_Thunk y’ \\ gvs []
@@ -675,6 +673,7 @@ Proof
     >- (
       Cases_on ‘dest_Closure w1’ \\ gvs []
       \\ pairarg_tac \\ gvs [bind_def]
+      \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
       \\ irule exp_rel_subst_app1 \\ fs [])
     \\ reverse (Cases_on ‘dest_Closure w1’) \\ fs []
@@ -702,6 +701,7 @@ Proof
     \\ fs [bind_def, subst_funs_def]
     \\ Cases_on ‘w1’ \\ gvs [dest_Recclosure_def, v_rel_def]
     \\ pairarg_tac \\ gvs []
+    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule_at Any exp_rel_subst_app2 \\ fs [])
 QED

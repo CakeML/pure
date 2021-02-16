@@ -157,22 +157,20 @@ Definition eval_to_def:
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (bind_funs funs env) x) ∧
   eval_to k env (Delay b x) =
-    (if k = 0 then fail Diverge else
-       do
-        v <- eval_to (k - 1) env x;
-        return (Thunk b v)
-      od) ∧
+    (do
+       v <- eval_to k env x;
+       return (Thunk b v)
+     od) ∧
   eval_to k env (Force x) =
-    (if k = 0 then fail Diverge else
-       do
-         v <- eval_to (k - 1) env x;
-         (nf, w) <- dest_Thunk v;
-         if nf then return w else
-           do
-             (s, env, body) <- dest_anyClosure w;
-             eval_to (k - 1) ((s, unit)::env) body
-           od
-       od)
+    (do
+       v <- eval_to k env x;
+       (nf, w) <- dest_Thunk v;
+       if nf then return w else
+         do
+           (s, env, body) <- dest_anyClosure w;
+           if k = 0 then fail Diverge else eval_to (k - 1) ((s, unit)::env) body
+         od
+     od)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ(k, c, x). (k, exp_size x))’
 End
@@ -259,15 +257,16 @@ Proof
     rw [eval_to_def])
   >- ((* Delay *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs [])
+    \\ Cases_on ‘eval_to k env x’ \\ fs [])
   >- ((* Force *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
+    \\ Cases_on ‘eval_to k env x’ \\ fs []
     \\ Cases_on ‘dest_Thunk y’ \\ fs []
     \\ pairarg_tac \\ gvs []
     \\ IF_CASES_TAC \\ fs []
     \\ Cases_on ‘dest_anyClosure w’ \\ fs []
-    \\ pairarg_tac \\ gvs [])
+    \\ pairarg_tac \\ gvs []
+    \\ IF_CASES_TAC \\ fs [])
 QED
 
 val _ = export_theory ();

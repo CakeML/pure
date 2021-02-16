@@ -213,23 +213,21 @@ Definition eval_to_def:
          eval_to (k - 1) y
        od) ∧
   eval_to k (Delay f x) =
-    (if k = 0 then fail Diverge else
-       do
-        v <- eval_to (k - 1) x;
-        return (Thunk f v)
-      od) ∧
+    (do
+       v <- eval_to k x;
+       return (Thunk f v)
+     od) ∧
   eval_to k (Force x) =
-    (if k = 0 then fail Diverge else
-       do
-         v <- eval_to (k - 1) x;
-         (nf, w) <- dest_Thunk v;
-         if nf then return w else
-           do
-             (s, body, post) <- dest_anyClosure w;
-             y <<- bind ((s, unit)::post) body;
-             eval_to (k - 1) y
-           od
-       od)
+    (do
+       v <- eval_to k x;
+       (nf, w) <- dest_Thunk v;
+       if nf then return w else
+         do
+           (s, body, post) <- dest_anyClosure w;
+           y <<- bind ((s, unit)::post) body;
+           if k = 0 then fail Diverge else eval_to (k - 1) y
+         od
+     od)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ(k, x). (k, exp_size x))’
 End
@@ -296,15 +294,16 @@ Proof
     rw [eval_to_def, subst_funs_def, bind_def])
   >- ((* Delay *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs [])
+    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ Cases_on ‘dest_Thunk y’ \\ fs []
     \\ pairarg_tac \\ gvs []
     \\ IF_CASES_TAC \\ fs []
     \\ Cases_on ‘dest_anyClosure w’ \\ fs []
-    \\ pairarg_tac \\ gvs [bind_def])
+    \\ pairarg_tac \\ gvs [bind_def]
+    \\ IF_CASES_TAC \\ fs [])
 QED
 
 val _ = export_theory ();
