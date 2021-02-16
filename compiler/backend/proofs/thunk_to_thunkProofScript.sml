@@ -538,15 +538,14 @@ Proof
   >- ((* App *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
-    \\ IF_CASES_TAC \\ fs []
     \\ rename1 ‘exp_rel env y y1’
     \\ first_x_assum (drule_then assume_tac)
     \\ first_x_assum (drule_then assume_tac)
-    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
-    \\ Cases_on ‘eval_to (k - 1) y’ \\ fs []
+    \\ Cases_on ‘eval_to k x’ \\ fs []
+    \\ Cases_on ‘eval_to k y’ \\ fs []
     \\ simp [thunkLangTheory.dest_anyClosure_def,
              thunkLang_substTheory.dest_anyClosure_def]
-    \\ rename1 ‘eval_to (k - 1) x = INR x2’
+    \\ rename1 ‘eval_to k x = INR x2’
     \\ qpat_x_assum ‘v_rel x2 _’ assume_tac
     \\ drule_then strip_assume_tac dest_Closure_v_rel
     \\ drule_then strip_assume_tac dest_Recclosure_v_rel
@@ -554,6 +553,7 @@ Proof
     >- (
       Cases_on ‘dest_Closure x2’ \\ gvs []
       \\ pairarg_tac \\ gvs [bind_def]
+      \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
       \\ irule exp_rel_subst_app1 \\ fs [])
     \\ reverse (Cases_on ‘dest_Closure x2’) \\ fs []
@@ -581,6 +581,7 @@ Proof
     \\ simp [bind_def, subst_funs_def]
     \\ Cases_on ‘x2’ \\ gvs [dest_Recclosure_def, v_rel_def]
     \\ pairarg_tac \\ gvs [bind_def]
+    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule exp_rel_subst_app2 \\ fs [])
   >- ((* Lam *)

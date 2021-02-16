@@ -135,13 +135,12 @@ Definition eval_to_def:
          do_prim op vs
        od) ∧
   eval_to k env (App f x) =
-    (if k = 0 then fail Diverge else
-       do
-         fv <- eval_to (k - 1) env f;
-         xv <- eval_to (k - 1) env x;
-         (s, env, body) <- dest_anyClosure fv ;
-         eval_to (k - 1) ((s, xv)::env) body
-       od) ∧
+    (do
+       fv <- eval_to k env f;
+       xv <- eval_to k env x;
+       (s, env, body) <- dest_anyClosure fv;
+       if k = 0 then fail Diverge else eval_to (k - 1) ((s, xv)::env) body
+     od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
   eval_to k env (If x y z) =
     (if k = 0 then fail Diverge else
@@ -174,6 +173,8 @@ Definition eval_to_def:
              eval_to (k - 1) ((s, unit)::env) body
            od
        od)
+Termination
+  WF_REL_TAC ‘inv_image ($< LEX $<) (λ(k, c, x). (k, exp_size x))’
 End
 
 Definition eval_def:
@@ -241,11 +242,12 @@ Proof
   >- ((* App *)
     rename1 ‘App x y’
     \\ rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
-    \\ Cases_on ‘eval_to (k - 1) env y’ \\ fs []
+    \\ Cases_on ‘eval_to k env x’ \\ fs []
+    \\ Cases_on ‘eval_to k env y’ \\ fs []
     \\ rename1 ‘dest_anyClosure z’
     \\ Cases_on ‘dest_anyClosure z’ \\ fs []
-    \\ pairarg_tac \\ gvs [])
+    \\ pairarg_tac \\ gvs []
+    \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
     simp [eval_to_def])
   >- ((* If *)
