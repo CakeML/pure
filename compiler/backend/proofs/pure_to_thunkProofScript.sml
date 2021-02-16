@@ -48,8 +48,8 @@ End
       no-op). A valid ‘If’ requires three arguments and that's basically it.
     - ‘Cons’ receives special treatment. I think we should treat constructor
       application as an n-ary “App”.
-    - All other operations are re-used as-is in thunkLang, with arguments
-      compiled 'directly.'
+    - Non-‘Cons’/‘If’ ops should still receive laziness but I'm not sure how
+      it should happen.
   * [Letrec]
     - TODO
 
