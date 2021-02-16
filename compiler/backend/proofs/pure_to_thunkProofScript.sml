@@ -249,6 +249,13 @@ Proof
 QED
  *)
 
+Theorem get_lits_map[local]:
+  get_lits = map (λx. case x of Atom l => INR l | _ => INL Type_error)
+Proof
+  simp [FUN_EQ_THM]
+  \\ Induct \\ simp [get_lits_def, map_def]
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x res y ctxt.
     eval_wh_to k x = res ∧
@@ -284,11 +291,11 @@ Proof
     >- ((* thunk sem errors *)
       rename1 ‘INL err’
       \\ Cases_on ‘err’ \\ fs [v_rel_rev])
-    \\ rename1 ‘eval_to k g = INR res’
-    \\ IF_CASES_TAC \\ fs [v_rel_def]
-    \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
-    \\ Cases_on ‘res’ \\ gvs [v_rel_def]
     \\ simp [dest_anyClosure_def, thunkLang_substTheory.dest_Closure_def]
+    \\ rename1 ‘eval_to k g = INR res’
+    \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
+    \\ Cases_on ‘res’ \\ gvs [v_rel_def, thunkLang_substTheory.dest_Closure_def]
+    \\ IF_CASES_TAC \\ fs [v_rel_def]
     \\ first_x_assum irule
     \\ simp [pure_expTheory.bind_def, FLOOKUP_UPDATE]
     \\ cheat
@@ -317,14 +324,26 @@ Proof
       \\ rename1 ‘INR res’
       \\ Cases_on ‘res’ \\ fs [v_rel_def])
     >- ((* Cons *)
+      simp [eval_wh_to_def, eval_to_def]
+      \\ IF_CASES_TAC \\ fs [v_rel_def]
+      \\ rename1 ‘LIST_REL _ xs ys’
       (* TODO
-         this never gets evaluated on the pureLang side so we can't say
-         whether or not anything errors. hence the induction hypothesis is
-         useless (as it hinges on this). it might be helpful to not assume that
-         the pureLang side is error-free to work around this. doesn't solve what
-         looks like a broken thunk_rel implementation though.
+         All expressions in xs are related to a suspended version of the
+         expression in ys. If we knew that the expressions in xs didn't
+         error then we could establish
+         >
+         > ∃s. s ∉ freevars s ∧
+         >     v_rel ctxt (eval_wh_to (k - 1) x)
+         >                (eval_to (k - 1) (Delay T (Lam s y)))
+         >
+         for each pair (x, y) ∈ ZIP xs ys. This means
+         >
+         >    v_rel ctxt (eval_wh_to (k - 1) x) (INR (Thunk T (Closure s y)))
+         >
+         for each pair (x, y) ∈ ZIP xs ys. To close this goal, we need the
+         above to imply thunk_rel for x and y--I think.
        *)
-      cheat)
+      \\ cheat)
     >- ((* ∉ {If; Cons} *)
       simp [eval_to_def, eval_wh_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
@@ -357,7 +376,11 @@ Proof
         \\ fs [v_rel_def, CaseEq "bool"]
         \\ rename1 ‘v_rel _ _ (INR res)’
         \\ Cases_on ‘res’ \\ gvs [v_rel_def]
-        \\ cheat (* LIST_REL thunk_rel currently doesn't say much *))
+        (* TODO
+           To say anything here we need to satisfy exp_rel between the two
+           sides, but thunk_rel gives no such promises
+         *)
+        \\ cheat)
       >- ((* AtomOp *)
         fs [eval_wh_to_def, CaseEq "option"]
         \\ CASE_TAC \\ fs []
@@ -406,10 +429,38 @@ Proof
           \\ first_x_assum (drule_all_then assume_tac)
           \\ gs [v_rel_def])
         \\ rename1 ‘map _ _ = INR res’
-        \\ drule_then assume_tac map_INR
-        \\ gvs [LIST_REL_EL_EQN]
-        \\ drule_then assume_tac map_LENGTH
-        \\ cheat (* TODO lemma about get_lits *))
+        \\ rename1 ‘LIST_REL _ xs zs’
+        \\ fs [LIST_REL_EL_EQN]
+        \\ drule_then assume_tac map_INR \\ fs []
+        \\ Cases_on ‘get_lits res’
+        >- ((* errors *)
+          gvs [get_lits_map, map_INL]
+          \\ drule_then assume_tac map_LENGTH \\ gvs []
+          \\ ‘MEM (EL n xs) xs’ by fs [EL_MEM]
+          \\ last_x_assum (drule_then assume_tac)
+          \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by fs []
+          \\ ‘exp_rel ctxt (EL n xs) (EL n ys)’ by fs [] \\ fs []
+          \\ first_x_assum (drule_then assume_tac) \\ gs []
+          \\ Cases_on ‘EL n res’ \\ gs [v_rel_def])
+        \\ fs []
+        \\ rename1 ‘get_lits res = INR ws’
+        \\ drule_then assume_tac map_LENGTH \\ fs [get_lits_map]
+        \\ drule_then assume_tac map_LENGTH \\ gvs []
+        \\ qsuff_tac ‘∀n. n < LENGTH zs ⇒ EL n zs = EL n ws’
+        >- (
+          strip_tac
+          \\ ‘LENGTH zs = LENGTH ws’ by fs []
+          \\ drule LIST_EQ \\ rw []
+          \\ fs [v_rel_def])
+        \\ rw []
+        \\ ‘MEM (EL n xs) xs’ by fs [EL_MEM]
+        \\ last_x_assum (drule_then assume_tac)
+        \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by fs []
+        \\ ‘exp_rel ctxt (EL n xs) (EL n ys)’ by fs [] \\ fs []
+        \\ first_x_assum (drule_then assume_tac) \\ gs []
+        \\ drule_then (qspec_then ‘n’ assume_tac) map_INR \\ gs []
+        \\ Cases_on ‘EL n res’ \\ gvs []
+        \\ fs [v_rel_def])
       >- ((* Lit *)
         gvs [eval_wh_to_def, CaseEq "bool", map_def, v_rel_def])))
 QED
