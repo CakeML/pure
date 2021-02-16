@@ -129,7 +129,7 @@ QED
 Theorem map_INR:
   map f xs = INR ys ⇒
     ∀n. n < LENGTH xs ⇒
-        ∃y. f (EL n xs) = INR y
+        ∃y. f (EL n xs) = INR (EL n ys)
 Proof
   qid_spec_tac ‘ys’
   \\ Induct_on ‘xs’ \\ simp [map_def]
