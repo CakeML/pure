@@ -89,9 +89,17 @@ Inductive exp_rel:
      exp_rel ctxt (EL 1 xs) y ∧
      exp_rel ctxt (EL 2 xs) z ⇒
        exp_rel ctxt (Prim If xs) (If x y z)) ∧
+[exp_rel_Cons:]
+  (∀ctxt xs ys n m.
+     LIST_REL (λx y.
+       ∃s. s ∉ freevars y ∧
+           exp_rel ctxt x (Delay T (Lam s y))) xs ys ∧
+     n = m ⇒
+       exp_rel ctxt (Prim (Cons n) xs) (Prim (Cons m) ys)) ∧
 [exp_rel_Prim:]
   (∀ctxt op xs xs'.
      op ≠ If ∧
+     (∀n. op ≠ Cons n) ∧
      LIST_REL (exp_rel ctxt) xs xs' ⇒
        exp_rel ctxt (Prim op xs) (Prim op xs')) ∧
 [exp_rel_Letrec:]
@@ -133,15 +141,21 @@ Theorem exp_rel_def[local]:
           exp_rel ctxt (EL 0 xs) x1 ∧
           exp_rel ctxt (EL 1 xs) x2 ∧
           exp_rel ctxt (EL 2 xs) x3) ∨
+       (∃xs' n.
+          y = Prim op xs' ∧
+          op = Cons n ∧
+          LIST_REL (λx y.
+            ∃s. s ∉ freevars y ∧ exp_rel ctxt x (Delay T (Lam s y))) xs xs') ∨
        (∃xs'.
           y = Prim op xs' ∧
           op ≠ If ∧
+          (∀n. op ≠ Cons n) ∧
           LIST_REL (exp_rel ctxt) xs xs')) ∧
   (∀f x.
      exp_rel ctxt (App f x) y ⇔
        ∃g z s.
          y = App g (Delay T (Lam s z)) ∧
-         s ∈ freevars x ∧
+         s ∉ freevars x ∧
          exp_rel ctxt f g ∧
          exp_rel ctxt x z)
 Proof
