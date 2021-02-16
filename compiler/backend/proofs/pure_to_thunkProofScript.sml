@@ -272,41 +272,30 @@ Proof
     >- ((* pure sem diverges *)
       rw [exp_rel_def]
       \\ simp [eval_to_def]
-      \\ IF_CASES_TAC \\ fs [v_rel_def]
-      \\ ‘∃r. eval_to (k - 1) g = r’ by fs []
       \\ first_x_assum (drule_then assume_tac)
-      \\ ‘eval_to k g = INL Diverge’
-        by (Cases_on ‘eval_to k g’ \\ fs [v_rel_def]
-            \\ rename1 ‘err = Diverge’
-            \\ Cases_on ‘err’ \\ fs [v_rel_def])
-      \\ ‘eval_to (k - 1) g = INL Diverge’ suffices_by rw [v_rel_def]
-      \\ CCONTR_TAC
-      \\ ‘k - 1 < k’ by fs []
-      \\ drule_all_then assume_tac eval_to_subst_mono \\ gs [])
+      \\ Cases_on ‘eval_to k g’ \\ fs [v_rel_def])
     \\ Cases_on ‘dest_wh_Closure (eval_wh_to k x)’ \\ csimp []
     \\ BasicProvers.TOP_CASE_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs []
-    >- ((* pure sem diverges *)
-      strip_tac
-      \\ fs [exp_rel_def, eval_to_def, v_rel_def])
     \\ strip_tac
+    \\ gvs [exp_rel_def, eval_to_def]
     \\ ‘eval_wh_to k x ≠ wh_Error’ by (strip_tac \\ fs [])
-    \\ gvs [exp_rel_def]
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ simp [eval_to_def]
-    \\ Cases_on ‘eval_wh_to k x = wh_Diverge’ \\ fs []
-    \\ ‘eval_to k g ≠ INL Diverge’ by (strip_tac \\ gs [v_rel_rev])
-    \\ ‘eval_to k g ≠ INL Type_error’ by (strip_tac \\ gs [v_rel_rev])
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ fs []
+    \\ Cases_on ‘eval_to k g’ \\ fs []
+    >- ((* thunk sem errors *)
+      rename1 ‘INL err’
+      \\ Cases_on ‘err’ \\ fs [v_rel_rev])
+    \\ rename1 ‘eval_to k g = INR res’
+    \\ IF_CASES_TAC \\ fs [v_rel_def]
+    \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
+    \\ Cases_on ‘res’ \\ gvs [v_rel_def]
+    \\ simp [dest_anyClosure_def, thunkLang_substTheory.dest_Closure_def]
+    \\ first_x_assum irule
+    \\ simp [pure_expTheory.bind_def, FLOOKUP_UPDATE]
     \\ cheat
       (* TODO
-         - Prove lemma about substituted expressions:
-             exp_rel between the bound thing (bind (q, y, r)) in pureLang,
-             in some context ((q,Raw)::ctxt ?) with some corresponding thing
-             in thunkLang.
-         - Line up clocks. There's something wrong here; I don't think
-           the thunkLang app should check the clock until the last call.
-           The argument should never diverge thunkLang side because it
-           should be a real suspension i.e., Delay T (Closure ...).
+           lemma about exp_rel and bound thunk stuff.
+           we need for substitution to fail on both sides unless
+           the expression (body) is closed.
        *))
   >- ((* Letrec *)
     cheat (* TODO Not done *))
@@ -328,6 +317,13 @@ Proof
       \\ rename1 ‘INR res’
       \\ Cases_on ‘res’ \\ fs [v_rel_def])
     >- ((* Cons *)
+      (* TODO
+         this never gets evaluated on the pureLang side so we can't say
+         whether or not anything errors. hence the induction hypothesis is
+         useless (as it hinges on this). it might be helpful to not assume that
+         the pureLang side is error-free to work around this. doesn't solve what
+         looks like a broken thunk_rel implementation though.
+       *)
       cheat)
     >- ((* ∉ {If; Cons} *)
       simp [eval_to_def, eval_wh_to_def]
