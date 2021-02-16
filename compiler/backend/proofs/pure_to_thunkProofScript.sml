@@ -80,7 +80,7 @@ Inductive exp_rel:
   (∀ctxt x x' y y' s.
      exp_rel ctxt x x' ∧
      exp_rel ctxt y y' ∧
-     s ∈ freevars y ⇒
+     s ∉ freevars y ⇒
        exp_rel ctxt (App x y) (App x' (Delay T (Lam s y')))) ∧
 [exp_rel_If:]
   (∀ctxt xs x y z.
