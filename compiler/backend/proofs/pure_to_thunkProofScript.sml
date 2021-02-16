@@ -46,8 +46,8 @@ End
       produces a “Thunk” value that can only be dealt with by the semantics of
       ‘Force’. But if we wrap both branches with ‘Force’ it's essentially a
       no-op). A valid ‘If’ requires three arguments and that's basically it.
-    - ‘Cons’ receives special treatment because SOME_SPECIAL_REASON. TODO Why,
-      and how?
+    - ‘Cons’ receives special treatment. I think we should treat constructor
+      application as an n-ary “App”.
     - All other operations are re-used as-is in thunkLang, with arguments
       compiled 'directly.'
   * [Letrec]
