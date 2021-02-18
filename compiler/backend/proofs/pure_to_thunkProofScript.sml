@@ -19,10 +19,6 @@ Datatype:
   vmode = Raw | Suspended
 End
 
-Definition suspend_def:
-  suspend v x = Delay T (Lam v x)
-End
-
 (*
   NOTES ON COMPILING PURELANG TO THUNKLANG:
 
@@ -52,7 +48,10 @@ End
       essentially a no-op).
     - Non-If prim-ops need to have the computation of their arguments
       suspended. All these operations should be treated as if they were
-      n-ary ‘App’s. TODO we should accept both types of thunks here.
+      n-ary ‘App’s.
+    - Non-{If,Cons} prim ops need to accept ‘Thunk’s in the semantics.
+      do_prim probably needs to be fused with eval_to to force evaluation
+      another step?
   * [Letrec]
     - TODO
 
@@ -60,10 +59,6 @@ End
     - Something looked fishy with the thunkLang substitution. I think could be
       helpful if it gets stuck with a Type_error when we substitute in non-
       closed expressions.
-    - The clocks seem to be a bit off between the two semantics. I tried to
-      line them up a bit already, but there might be some discrepancies still.
-      I was able to avoid some cases by ignoring expressions that cause the
-      pureLang semantics to get stuck with wh_Errors.
  *)
 
 Inductive exp_rel:
@@ -84,7 +79,7 @@ Inductive exp_rel:
      exp_rel ctxt x x' ∧
      exp_rel ctxt y y' ∧
      s ∉ freevars y ⇒
-       exp_rel ctxt (App x y) (App x' (suspend s y'))) ∧
+       exp_rel ctxt (App x y) (App x' (Delay T (Lam s y')))) ∧
 [exp_rel_If:]
   (∀ctxt xs x y z.
      LENGTH xs = 3 ∧
@@ -98,7 +93,7 @@ Inductive exp_rel:
      LIST_REL (exp_rel ctxt) xs ys ∧
      LIST_REL (λs y. s ∉ freevars y) ss ys ⇒
        exp_rel ctxt (Prim op xs)
-                    (Prim op (MAP2 suspend ss ys))) ∧
+                    (Prim op (MAP2 (λs y. Delay T (Lam s y)) ss ys))) ∧
 [exp_rel_Letrec:]
   (∀ctxt f f' x x'.
      exp_rel ctxt (Letrec f x) (Letrec f' x'))
@@ -127,13 +122,13 @@ Theorem exp_rel_def[local]:
           exp_rel ctxt (EL 2 xs) x3) ∨
        (∃ss ys.
           op ≠ If ∧
-          y = Prim op (MAP2 suspend ss ys) ∧
+          y = Prim op (MAP2 (λs y. Delay T (Lam s y)) ss ys) ∧
           LIST_REL (exp_rel ctxt) xs ys ∧
           LIST_REL (λs y. s ∉ freevars y) ss ys)) ∧
   (∀f x.
      exp_rel ctxt (App f x) y ⇔
        ∃g z s.
-         y = App g (suspend s z) ∧
+         y = App g (Delay T (Lam s z)) ∧
          s ∉ freevars x ∧
          exp_rel ctxt f g ∧
          exp_rel ctxt x z)
@@ -241,7 +236,7 @@ Proof
       \\ Cases_on ‘eval_to k g’ \\ fs [v_rel_def])
     \\ rw [exp_rel_def]
     \\ first_x_assum (drule_then assume_tac)
-    \\ rw [suspend_def, eval_to_def]
+    \\ rw [eval_to_def]
     \\ Cases_on ‘eval_wh_to k x = wh_Error’ \\ fs []
     >- ((* pure sem errors *)
       simp [eval_to_def]
@@ -293,11 +288,11 @@ Proof
     >- ((* Non-If *)
       simp [eval_wh_to_def, eval_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
-      \\ qmatch_goalsub_abbrev_tac ‘map f (MAP2 _ _ _)’
-      \\ ‘∃res. map f (MAP2 suspend ss ys) = INR res’
-        by (Cases_on ‘map f (MAP2 suspend ss ys)’ \\ fs []
-            \\ gvs [map_INL, Abbr ‘f’, EL_MAP2, suspend_def, eval_to_def])
-      \\ simp [do_prim_def, Abbr ‘f’, suspend_def]
+      \\ qmatch_goalsub_abbrev_tac ‘map f (MAP2 g _ _)’
+      \\ ‘∃res. map f (MAP2 g ss ys) = INR res’
+        by (Cases_on ‘map f (MAP2 g ss ys)’ \\ fs []
+            \\ gvs [map_INL, Abbr ‘f’, Abbr ‘g’, EL_MAP2, eval_to_def])
+      \\ simp [do_prim_def, Abbr ‘f’, Abbr ‘g’]
       \\ drule map_INR
       \\ gvs [LIST_REL_EL_EQN, EL_MAP2, eval_to_def]
       \\ disch_then (assume_tac o GSYM)
@@ -309,7 +304,7 @@ Proof
         \\ ‘MEM (EL n xs) xs’ by fs [EL_MEM]
         \\ last_x_assum (drule_all_then assume_tac)
         \\ last_x_assum (drule_all_then assume_tac) \\ fs []
-        \\ fs [suspend_def, eval_to_def, thunk_rel_cases])
+        \\ fs [eval_to_def, thunk_rel_cases])
       >- ((* IsEq *)
         IF_CASES_TAC \\ gvs [v_rel_def, LENGTH_EQ_NUM_compute]
         \\ cheat (* TODO We have suspended computations on the RHS *))
