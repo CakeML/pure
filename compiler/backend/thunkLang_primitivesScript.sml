@@ -18,6 +18,10 @@ Definition sum_bind_def[simp]:
   sum_bind (INR x) f = f x
 End
 
+Definition sum_ignore_bind_def[simp]:
+  sum_ignore_bind m1 m2 = sum_bind m1 (λu. m2)
+End
+
 Definition sum_choice_def[simp]:
   sum_choice (INL v: 'a + 'b) (m2: 'a + 'b) = m2 ∧
   sum_choice (INR x) m2 = INR x
@@ -49,6 +53,10 @@ val sum_monadinfo : monadinfo = {
 val _ = declare_monad ("sum", sum_monadinfo);
 val _ = enable_monadsyntax ();
 val _ = enable_monad "sum";
+
+Definition assert_def[simp]:
+  assert P = if P then INR () else INL Type_error
+End
 
 Definition map_def:
   map f [] = return [] ∧
@@ -172,6 +180,15 @@ Theorem map_EQ_f:
 Proof
   Induct \\ simp [map_def, sum_bind_def] \\ rw []
 QED
+
+Theorem map_single[simp]:
+  (map f [x] = INR [v] ⇔ f x = INR v) ∧
+  (map f [x] = INL e ⇔ f x = INL e)
+Proof
+  simp [map_def]
+  \\ Cases_on ‘f x’ \\ fs []
+QED
+
 
 val _ = export_theory ();
 

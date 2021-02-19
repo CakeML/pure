@@ -77,49 +77,9 @@ Definition dest_anyClosure_def:
     od
 End
 
-Definition get_lits_def:
-  get_lits [] = return [] ∧
-  get_lits (x::xs) =
-    (do
-       y <- case x of Atom l => return l | _ => fail Type_error ;
-       ys <- get_lits xs ;
-       return (y::ys)
-     od)
-End
-
-Definition do_prim_def:
-  do_prim op vs =
-    case op of
-      Cons s => return (Constructor s vs)
-    | If => fail Type_error
-    | Proj s i =>
-        (if LENGTH vs ≠ 1 then fail Type_error else
-           case HD vs of
-             Constructor t ys =>
-               if t = s ∧ i < LENGTH ys then
-                 return (EL i ys)
-               else
-                 fail Type_error
-           | _ => fail Type_error)
-    | IsEq s i =>
-        (if LENGTH vs ≠ 1 then fail Type_error else
-           case HD vs of
-             Constructor t ys =>
-               if t ≠ s then
-                 return (Constructor "False" [])
-               else if i = LENGTH ys then
-                 return (Constructor "True" [])
-               else
-                 fail Type_error
-           | _ => fail Type_error)
-    | Lit l => if vs = [] then return (Atom l) else fail Type_error
-    | AtomOp x =>
-        do
-          xs <- get_lits vs;
-          case config.parAtomOp x xs of
-            SOME v => return (Atom v)
-          | NONE => fail Type_error
-        od
+Definition dest_Constructor_def:
+  dest_Constructor (Constructor s vs) = return (s, vs) ∧
+  dest_Constructor _ = fail Type_error
 End
 
 Definition unit_def:
@@ -128,12 +88,6 @@ End
 
 Definition eval_to_def:
   eval_to k env (Var n) = lookup_var env n ∧
-  eval_to k env (Prim op xs) =
-    (if k = 0 then fail Diverge else
-       do
-         vs <- map (eval_to (k - 1) env) xs;
-         do_prim op vs
-       od) ∧
   eval_to k env (App f x) =
     (do
        fv <- eval_to k env f;
@@ -170,7 +124,47 @@ Definition eval_to_def:
            (s, env, body) <- dest_anyClosure w;
            if k = 0 then fail Diverge else eval_to (k - 1) ((s, unit)::env) body
          od
-     od)
+     od) ∧
+  eval_to k env (Prim op xs) =
+    (if k = 0 then fail Diverge else
+       case op of
+         Cons s =>
+           do
+             vs <- map (eval_to (k - 1) env) xs;
+             return (Constructor s vs)
+           od
+       | If => fail Type_error
+       | Proj s i =>
+           do
+             assert (LENGTH xs = 1);
+             v <- eval_to (k - 1) env (HD xs);
+             (t, ys) <- dest_Constructor v;
+             assert (t = s ∧ i < LENGTH ys);
+             return (EL i ys)
+           od
+       | IsEq s i =>
+           do
+             assert (LENGTH xs = 1);
+             v <- eval_to (k - 1) env (HD xs);
+             (t, ys) <- dest_Constructor v;
+             assert (t = s ⇒ i = LENGTH ys);
+             return (Constructor (if t ≠ s then "False" else "True") [])
+           od
+       | Lit l =>
+           do
+             assert (xs = []);
+             return (Atom l)
+           od
+       | AtomOp x =>
+           do
+             vs <- map (eval_to (k - 1) env) xs;
+             ls <- map (λv. case v of
+                              Atom l => return l
+                            | _ => fail Type_error) vs;
+             case config.parAtomOp x ls of
+               SOME v => return (Atom v)
+             | NONE => fail Type_error
+           od)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ(k, c, x). (k, exp_size x))’
 End
@@ -215,28 +209,6 @@ Proof
   \\ rpt gen_tac
   >- ((* Value *)
     simp [eval_to_def])
-  >- ((* Prim *)
-    rw [eval_to_def]
-    \\ Cases_on ‘map (λx. eval_to (k - 1) env x) xs’ \\ fs []
-    >- (
-      ‘map (λx. eval_to (j - 1) env x) xs = INL x’ suffices_by rw []
-      \\ fs [map_INL]
-      \\ first_assum (irule_at Any) \\ fs [])
-    \\ Cases_on ‘map (λx. eval_to (j - 1) env x) xs’ \\ fs []
-    >- (
-      ‘F’ suffices_by rw []
-      \\ gvs [map_INL]
-      \\ drule_then assume_tac map_INR
-      \\ first_x_assum (drule_then strip_assume_tac) \\ fs []
-      \\ ‘eval_to (k - 1) env (EL n xs) ≠ INL Diverge’ by fs []
-      \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs [])
-    \\ ‘map (λx. eval_to (j - 1) env x) xs = map (λx. eval_to (k - 1) env x) xs’
-      suffices_by rw []
-    \\ irule map_EQ_f \\ rw []
-    \\ first_x_assum irule \\ fs []
-    \\ last_x_assum (mp_then Any mp_tac map_INR)
-    \\ fs [MEM_EL]
-    \\ disch_then (drule_then strip_assume_tac) \\ fs [])
   >- ((* App *)
     rename1 ‘App x y’
     \\ rw [eval_to_def]
@@ -267,6 +239,76 @@ Proof
     \\ Cases_on ‘dest_anyClosure w’ \\ fs []
     \\ pairarg_tac \\ gvs []
     \\ IF_CASES_TAC \\ fs [])
+  >- ((* Prim *)
+    dsimp []
+    \\ strip_tac
+    \\ strip_tac
+    \\ Cases_on ‘op’ \\ rw [eval_to_def] \\ gs []
+    >- ((* Cons *)
+      Cases_on ‘map (λx. eval_to (j - 1) env x) xs’ \\ fs []
+      >- (
+        reverse (Cases_on ‘map (λx. eval_to (k - 1) env x) xs’) \\ fs []
+        >- (
+          fs [map_INL]
+          \\ drule_then assume_tac map_INR
+          \\ first_x_assum (drule_then assume_tac) \\ gs [])
+        \\ gvs [map_INL]
+        \\ rename1 ‘eval_to (j - 1) env (EL m xs) = INL d’
+        \\ rename1 ‘eval_to (k - 1) env (EL n xs) = INL e’
+        \\ Cases_on ‘m < n’ \\ gs []
+        \\ Cases_on ‘m = n’ \\ gs []
+        \\ ‘n < m’ by gs []
+        \\ first_assum (drule_then assume_tac)
+        \\ ‘eval_to (k - 1) env (EL n xs) ≠ INL Diverge’ by fs []
+        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs [])
+      \\ Cases_on ‘map (λx. eval_to (k - 1) env x) xs’ \\ fs []
+      >- (
+        fs [map_INL]
+        \\ drule_then assume_tac map_INR
+        \\ first_x_assum (drule_then assume_tac) \\ gs [])
+      \\ imp_res_tac map_LENGTH
+      \\ first_assum (mp_then Any assume_tac map_INR)
+      \\ last_assum (mp_then Any assume_tac map_INR)
+      \\ irule LIST_EQ \\ rw [] \\ gs [])
+    >- ((* IsEq *)
+      gvs [LENGTH_EQ_NUM_compute]
+      \\ rename1 ‘eval_to (k - 1) env x’
+      \\ ‘eval_to (k - 1) env x ≠ INL Diverge’ by (strip_tac \\ fs [])
+      \\ gs [])
+    >- ((* Proj *)
+      gvs [LENGTH_EQ_NUM_compute]
+      \\ rename1 ‘eval_to (k - 1) env x’
+      \\ ‘eval_to (k - 1) env x ≠ INL Diverge’ by (strip_tac \\ fs [])
+      \\ gs [])
+    >- ((* AtomOp *)
+      Cases_on ‘map (λx. eval_to (j - 1) env x) xs’ \\ fs []
+      >- (
+        reverse (Cases_on ‘map (λx. eval_to (k - 1) env x) xs’) \\ fs []
+        >- (
+          fs [map_INL]
+          \\ drule_then assume_tac map_INR
+          \\ first_x_assum (drule_then assume_tac) \\ gs [])
+        \\ gvs [map_INL]
+        \\ rename1 ‘eval_to (j - 1) env (EL m xs) = INL d’
+        \\ rename1 ‘eval_to (k - 1) env (EL n xs) = INL e’
+        \\ Cases_on ‘m < n’ \\ gs []
+        \\ Cases_on ‘m = n’ \\ gs []
+        \\ ‘n < m’ by gs []
+        \\ first_assum (drule_then assume_tac)
+        \\ ‘eval_to (k - 1) env (EL n xs) ≠ INL Diverge’ by fs []
+        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs [])
+      \\ Cases_on ‘map (λx. eval_to (k - 1) env x) xs’ \\ fs []
+      >- (
+        fs [map_INL]
+        \\ drule_then assume_tac map_INR
+        \\ first_x_assum (drule_then assume_tac) \\ gs [])
+      \\ rename1 ‘map (λx. eval_to (j - 1) env x) _ = INR v’
+      \\ rename1 ‘map (λx. eval_to (k - 1) env x) _ = INR w’
+      \\ ‘v = w’ suffices_by rw []
+      \\ imp_res_tac map_LENGTH
+      \\ first_assum (mp_then Any assume_tac map_INR)
+      \\ last_assum (mp_then Any assume_tac map_INR)
+      \\ irule LIST_EQ \\ rw [] \\ gs []))
 QED
 
 val _ = export_theory ();
