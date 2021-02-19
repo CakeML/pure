@@ -1,12 +1,15 @@
 (*
   Proof of correctness for the pure_to_thunk compiler pass.
  *)
+
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
      pure_evalTheory thunkLang_primitivesTheory;
 
 val _ = new_theory "pure_to_thunkProof";
+
+val _ = numLib.prefer_num ();
 
 (* TODO: Move to pure_to_thunk
 
@@ -49,9 +52,7 @@ End
     - Non-If prim-ops need to have the computation of their arguments
       suspended. All these operations should be treated as if they were
       n-ary ‘App’s.
-    - Non-{If,Cons} prim ops need to accept ‘Thunk’s in the semantics.
-      do_prim probably needs to be fused with eval_to to force evaluation
-      another step?
+    - Non-{If,Cons} prim ops need to “Force” their arguments.
   * [Letrec]
     - TODO
 
@@ -79,7 +80,7 @@ Inductive exp_rel:
      exp_rel ctxt x x' ∧
      exp_rel ctxt y y' ∧
      s ∉ freevars y ⇒
-       exp_rel ctxt (App x y) (App x' (Delay T (Lam s y')))) ∧
+       exp_rel ctxt (App x y) (App x' (Delay F (Lam s y')))) ∧
 [exp_rel_If:]
   (∀ctxt xs x y z.
      LENGTH xs = 3 ∧
@@ -87,13 +88,21 @@ Inductive exp_rel:
      exp_rel ctxt (EL 1 xs) y ∧
      exp_rel ctxt (EL 2 xs) z ⇒
        exp_rel ctxt (Prim If xs) (If x y z)) ∧
+[exp_rel_Cons:]
+  (∀ctxt n m ss xs ys.
+     LIST_REL (exp_rel ctxt) xs ys ∧
+     LIST_REL (λs y. s ∉ freevars y) ss ys ∧
+     n = m ⇒
+       exp_rel ctxt (Prim (Cons n) xs)
+                    (Prim (Cons m) (MAP2 (λs y. Delay F (Lam s y)) ss ys))) ∧
 [exp_rel_Prim:]
   (∀ctxt op ss xs ys.
      op ≠ If ∧
+     (∀n. op ≠ Cons n) ∧
      LIST_REL (exp_rel ctxt) xs ys ∧
      LIST_REL (λs y. s ∉ freevars y) ss ys ⇒
        exp_rel ctxt (Prim op xs)
-                    (Prim op (MAP2 (λs y. Delay T (Lam s y)) ss ys))) ∧
+                    (Prim op (MAP2 (λs y. Force (Delay F (Lam s y))) ss ys))) ∧
 [exp_rel_Letrec:]
   (∀ctxt f f' x x'.
      exp_rel ctxt (Letrec f x) (Letrec f' x'))
@@ -120,15 +129,21 @@ Theorem exp_rel_def[local]:
           exp_rel ctxt (EL 0 xs) x1 ∧
           exp_rel ctxt (EL 1 xs) x2 ∧
           exp_rel ctxt (EL 2 xs) x3) ∨
+       (∃ss n ys.
+          op = Cons n ∧
+          y = Prim op (MAP2 (λs y. Delay F (Lam s y)) ss ys) ∧
+          LIST_REL (exp_rel ctxt) xs ys ∧
+          LIST_REL (λs y. s ∉ freevars y) ss ys) ∨
        (∃ss ys.
           op ≠ If ∧
-          y = Prim op (MAP2 (λs y. Delay T (Lam s y)) ss ys) ∧
+          (∀n. op ≠ Cons n) ∧
+          y = Prim op (MAP2 (λs y. Force (Delay F (Lam s y))) ss ys) ∧
           LIST_REL (exp_rel ctxt) xs ys ∧
           LIST_REL (λs y. s ∉ freevars y) ss ys)) ∧
   (∀f x.
      exp_rel ctxt (App f x) y ⇔
        ∃g z s.
-         y = App g (Delay T (Lam s z)) ∧
+         y = App g (Delay F (Lam s z)) ∧
          s ∉ freevars x ∧
          exp_rel ctxt f g ∧
          exp_rel ctxt x z)
@@ -148,20 +163,20 @@ Inductive thunk_rel:
 [thunk_rel_Suspended:]
   (∀ctxt x s y.
      exp_rel ctxt x y ⇒
-       thunk_rel ctxt x (Thunk T (Closure s y))) ∧
+       thunk_rel ctxt x (Thunk F (Closure s y))) ∧
 [thunk_rel_Raw:]
   (∀ctxt x k y v.
     exp_rel ctxt x y ∧
     eval_to k y = INR v ⇒
-      thunk_rel ctxt x (Thunk F v))
+      thunk_rel ctxt x (Thunk T v))
 End
 
 Theorem thunk_rel_def[local]:
-  thunk_rel ctxt x (Thunk T e) =
+  thunk_rel ctxt x (Thunk F e) =
     (∃s y.
        e = Closure s y ∧
        exp_rel ctxt x y) ∧
-  thunk_rel ctxt x (Thunk F v) =
+  thunk_rel ctxt x (Thunk T v) =
     (∃k y.
        exp_rel ctxt x y ∧
        eval_to k y = INR v)
@@ -200,13 +215,6 @@ Theorem v_rel_rev[local]:
 Proof
   Cases_on ‘x’ \\ rw [v_rel_def, EQ_IMP_THM] \\ fs []
   \\ Cases_on ‘err’ \\ fs [v_rel_def]
-QED
-
-Theorem get_lits_map[local]:
-  get_lits = map (λx. case x of Atom l => INR l | _ => INL Type_error)
-Proof
-  simp [FUN_EQ_THM]
-  \\ Induct \\ simp [get_lits_def, map_def]
 QED
 
 Theorem exp_rel_eval_to:
@@ -285,38 +293,44 @@ Proof
       \\ IF_CASES_TAC \\ fs []
       \\ IF_CASES_TAC \\ fs []
       \\ IF_CASES_TAC \\ fs [v_rel_def])
-    >- ((* Non-If *)
+    >- ((* Cons *)
       simp [eval_wh_to_def, eval_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
       \\ qmatch_goalsub_abbrev_tac ‘map f (MAP2 g _ _)’
       \\ ‘∃res. map f (MAP2 g ss ys) = INR res’
         by (Cases_on ‘map f (MAP2 g ss ys)’ \\ fs []
             \\ gvs [map_INL, Abbr ‘f’, Abbr ‘g’, EL_MAP2, eval_to_def])
-      \\ simp [do_prim_def, Abbr ‘f’, Abbr ‘g’]
+      \\ simp [Abbr ‘f’, Abbr ‘g’, v_rel_def]
       \\ drule map_INR
       \\ gvs [LIST_REL_EL_EQN, EL_MAP2, eval_to_def]
       \\ disch_then (assume_tac o GSYM)
       \\ drule_then assume_tac map_LENGTH \\ gvs []
-      \\ Cases_on ‘op’ \\ fs []
-      >- ((* Cons *)
-        gvs [v_rel_def, LIST_REL_EL_EQN]
-        \\ rw [] \\ gvs []
-        \\ ‘MEM (EL n xs) xs’ by fs [EL_MEM]
-        \\ last_x_assum (drule_all_then assume_tac)
-        \\ last_x_assum (drule_all_then assume_tac) \\ fs []
-        \\ fs [eval_to_def, thunk_rel_cases])
+      \\ rw [thunk_rel_cases])
+    >- ((* Non-{If, Cons} *)
+      simp [eval_wh_to_def, eval_to_def]
+      \\ IF_CASES_TAC \\ fs [v_rel_def]
+      \\ gvs [LIST_REL_EL_EQN, eval_to_def]
+      \\ Cases_on ‘op’ \\ fs [dest_Thunk_def]
       >- ((* IsEq *)
-        IF_CASES_TAC \\ gvs [v_rel_def, LENGTH_EQ_NUM_compute]
-        \\ cheat (* TODO We have suspended computations on the RHS *))
+        IF_CASES_TAC \\ fs [v_rel_def]
+        \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+        \\ rename1 ‘exp_rel _ x y’
+        \\ rename1 ‘Lam var bod’
+        \\ first_x_assum (drule_then assume_tac)
+        \\ cheat (* RHS ticks two clocks *))
       >- ((* Proj *)
-        IF_CASES_TAC \\ gvs [v_rel_def, LENGTH_EQ_NUM_compute]
-        \\ cheat (* TODO We have suspended computations on the RHS *))
+        IF_CASES_TAC \\ fs [v_rel_def]
+        \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+        \\ rename1 ‘exp_rel _ x y’
+        \\ rename1 ‘Lam var bod’
+        \\ first_x_assum (drule_then assume_tac)
+        \\ cheat (* RHS ticks two clocks *))
       >- ((* AtomOp *)
-        fs [eval_wh_to_def, CaseEq "option"]
-        \\ cheat (* TODO We have suspended computations on the RHS *))
+        cheat (* Same issues as the other two cases but buried in map-MAP2 *))
       >- ((* Lit *)
-        IF_CASES_TAC \\ gvs [v_rel_def]
-        \\ IF_CASES_TAC \\ gvs [v_rel_def])))
+        IF_CASES_TAC \\ fs [v_rel_def]
+        \\ gs [MAP2_MAP, ZIP_EQ_NIL]
+        \\ IF_CASES_TAC \\ fs [v_rel_def])))
 QED
 
 val _ = export_theory ();
