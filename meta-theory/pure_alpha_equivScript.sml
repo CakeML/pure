@@ -593,11 +593,7 @@ Proof
   TOP_CASE_TAC >> gvs[perm_wh_def]
   >- (
     IF_CASES_TAC >> gvs[perm_wh_def] >>
-    `∃x1 x2 x3. xs = [x1;x2;x3]` by (
-      Cases_on `xs` >> gvs[] >>
-      Cases_on `t` >> gvs[] >>
-      Cases_on `t'` >> gvs[] >>
-      Cases_on `t` >> gvs[]) >>
+    `∃x1 x2 x3. xs = [x1;x2;x3]` by gvs[LENGTH_EQ_NUM_compute] >>
     last_x_assum (assume_tac o GSYM) >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
     TOP_CASE_TAC >> gvs[perm_wh_def] >>
@@ -635,6 +631,14 @@ Proof
     rename1 `option_CASE x` >> Cases_on `x` >> gvs[perm_wh_def]
     )
   >- (IF_CASES_TAC >> gvs[perm_wh_def])
+  >- (
+    Cases_on `LENGTH xs = 2` >> gvs[perm_wh_def] >>
+    `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >> gvs[] >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    EVERY_CASE_TAC >> gvs[perm_wh_def] >>
+    Cases_on `eval_wh_to (k - 1) x1` >> gvs[perm_wh_def] >>
+    Cases_on `eval_wh_to (k - 1) x2` >> gvs[perm_wh_def]
+    )
 QED
 
 Theorem eval_wh_eqvt:
@@ -3346,24 +3350,19 @@ Proof
     TOP_CASE_TAC >> gvs[]
     >- (
       imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      IF_CASES_TAC >- simp[wh_alpha_cases] >>
-      Cases_on `es` >> gvs[] >>
-      Cases_on `t` >> gvs[] >>
-      Cases_on `t'` >> gvs[] >>
-      Cases_on `t` >> gvs[] >>
+      IF_CASES_TAC >- simp[wh_alpha_cases] >> gvs[] >>
+      `∃e1 e2 e3 e1' e2' e3'. es = [e1;e2;e3] ∧ es' = [e1';e2';e3']` by
+        gvs[LENGTH_EQ_NUM_compute] >> gvs[] >>
       first_x_assum (qspec_then `k - 1` mp_tac) >> gvs[] >>
       disch_then imp_res_tac >>
-      qpat_x_assum `wh_alpha (_ h) _` mp_tac >>
+      qpat_x_assum `wh_alpha (_ e1) _` mp_tac >>
       simp[Once wh_alpha_cases] >>
       TOP_CASE_TAC >> gvs[] >> rw[] >>
       simp[wh_alpha_cases] >>
       IF_CASES_TAC >> gvs[] >>
       IF_CASES_TAC >> gvs[]
       )
-    >- (
-      irule wh_alpha_cons >>
-      gvs[LIST_REL_EL_EQN] >> rw[]
-      )
+    >- (irule wh_alpha_cons >> gvs[LIST_REL_EL_EQN] >> rw[])
     >- (
       imp_res_tac LIST_REL_LENGTH >> gvs[] >>
       IF_CASES_TAC >- simp[wh_alpha_cases] >>
@@ -3406,6 +3405,17 @@ Proof
     >- (
       imp_res_tac LIST_REL_LENGTH >> gvs[] >>
       Cases_on `es` >> gvs[wh_alpha_cases]
+      )
+    >- (
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      reverse $ Cases_on `LENGTH es = 2` >> gvs[] >- simp[wh_alpha_cases] >>
+      `∃e1 e2 e1' e2' . es = [e1;e2] ∧ es' = [e1';e2']` by
+        gvs[LENGTH_EQ_NUM_compute] >> gvs[] >>
+      last_x_assum (qspec_then `k - 1` mp_tac) >> gvs[] >>
+      disch_then imp_res_tac >>
+      qpat_x_assum `wh_alpha (_ e1) _` mp_tac >> simp[Once wh_alpha_cases] >>
+      qpat_x_assum `wh_alpha (_ e2) _` mp_tac >> simp[Once wh_alpha_cases] >>
+      rw[] >> gvs[] >> simp[Once wh_alpha_cases]
       )
     )
   >- (
