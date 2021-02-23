@@ -687,57 +687,68 @@ Proof
       \\ IF_CASES_TAC \\ fs [])
     >- ((* AtomOp *)
       gvs [LIST_REL_EL_EQN]
-      \\ Cases_on ‘map (λx. eval_to (k - 1) x) xs’ \\ fs []
+      \\ qmatch_goalsub_abbrev_tac ‘map f xs’
+      \\ qmatch_goalsub_abbrev_tac ‘map g ys’
+      \\ Cases_on ‘map f xs’ \\ fs []
       >- (
-        reverse (Cases_on ‘map (λx. eval_to (k - 1) env x) ys’) \\ fs []
+        reverse (Cases_on ‘map g ys’) \\ fs []
         >- (
-          gvs [map_INL]
-          \\ drule_then assume_tac map_INR \\ gs []
+          gvs [map_INL, Abbr ‘f’, Abbr ‘g’]
+          \\ drule_then assume_tac map_LENGTH
+          \\ dxrule_then drule map_INR \\ gs []
+          \\ CASE_TAC \\ fs []
+          \\ CASE_TAC \\ fs [] \\ rw []
           \\ last_x_assum (drule_then assume_tac)
-          \\ last_x_assum (drule_all_then assume_tac) \\ gs [])
+          \\ last_x_assum (drule_all_then mp_tac)
+          \\ CASE_TAC \\ fs [] \\ rw []
+          \\ gvs [CaseEq "v", v_rel_def])
         \\ gvs [map_INL]
         \\ rename1 ‘EL m xs’
         \\ rename1 ‘EL n ys’
+        \\ unabbrev_all_tac
         \\ ‘exp_rel env (EL n xs) (EL n ys)’ by gs []
         \\ last_assum (drule_then assume_tac)
         \\ ‘exp_rel env (EL m xs) (EL m ys)’ by gs []
         \\ last_x_assum (drule_then assume_tac) \\ gs []
-        \\ Cases_on ‘eval_to (k - 1) (EL n xs)’ \\ gvs []
-        \\ Cases_on ‘n < m’ \\ gs []
-        \\ Cases_on ‘m < n’ \\ gs []
-        \\ ‘m = n’ by gs [] \\ fs [])
-      \\ Cases_on ‘map (λx. eval_to (k - 1) env x) ys’ \\ fs []
+        \\ Cases_on ‘n < m’
+        >- (
+          first_x_assum drule
+          \\ CASE_TAC \\ fs []
+          \\ CASE_TAC \\ fs []
+          \\ gs [v_rel_def])
+        \\ Cases_on ‘m < n’
+        >- (
+          first_x_assum drule
+          \\ CASE_TAC \\ fs []
+          \\ CASE_TAC \\ fs []
+          \\ gs [v_rel_def, CaseEqs ["v", "sum"]])
+        \\ ‘m = n’ by fs []
+        \\ pop_assum SUBST_ALL_TAC \\ gvs []
+        \\ gs [v_rel_def, CaseEqs ["sum", "v"]])
+      \\ drule_then assume_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR
+      \\ Cases_on ‘map g ys’ \\ fs [Abbr ‘f’, Abbr ‘g’]
       >- (
         gvs [map_INL]
-        \\ drule_then assume_tac map_INR \\ gs []
-        \\ last_x_assum (drule_then assume_tac)
-        \\ last_x_assum (drule_all_then assume_tac) \\ gs [])
-      \\ rename1 ‘map _ xs = INR v’
-      \\ rename1 ‘map _ ys = INR w’
-      \\ ‘LIST_REL v_rel v w’
-        by (imp_res_tac map_LENGTH
-            \\ first_assum (mp_then Any assume_tac map_INR)
-            \\ last_assum (mp_then Any assume_tac map_INR)
-            \\ rw [LIST_REL_EL_EQN] \\ gvs []
-            \\ last_x_assum (drule_then assume_tac)
-            \\ last_x_assum (drule_then assume_tac) \\ gs [])
-      \\ qmatch_goalsub_abbrev_tac ‘map f v’
-      \\ qmatch_goalsub_abbrev_tac ‘map g w’
-      \\ qsuff_tac ‘map f v = map g w’
-      >- (
-        strip_tac \\ gs []
-        \\ Cases_on ‘map g w’ \\ fs []
+        \\ first_x_assum drule
         \\ CASE_TAC \\ fs []
-        \\ simp [v_rel_def])
-      \\ qpat_x_assum ‘LIST_REL v_rel v w’ mp_tac
-      \\ unabbrev_all_tac
-      \\ rpt (pop_assum kall_tac)
-      \\ qid_spec_tac ‘w’
-      \\ Induct_on ‘v’ \\ Cases_on ‘w’ \\ simp [map_def]
-      \\ rw [] \\ gs []
-      \\ rename1 ‘v_rel x y’
+        \\ CASE_TAC \\ fs [] \\ rw []
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum drule
+        \\ CASE_TAC \\ fs [] \\ rw [v_rel_def]
+        \\ gs [])
+      \\ drule_then assume_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR
+      \\ rename1 ‘LENGTH zs = LENGTH ys’
+      \\ qsuff_tac ‘y = zs’
+      >- (
+        rw [CaseEqs ["sum", "option"]]
+        \\ CASE_TAC \\ fs [v_rel_def])
+      \\ irule LIST_EQ \\ rw []
       \\ first_x_assum (drule_then assume_tac)
-      \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gs [v_rel_def])
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ gs [v_rel_def, CaseEqs ["sum", "v"]])
     >- ((* Lit *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
