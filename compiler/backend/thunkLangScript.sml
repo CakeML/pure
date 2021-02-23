@@ -155,13 +155,13 @@ Definition eval_to_def:
              assert (xs = []);
              return (Atom l)
            od
-       | AtomOp x =>
+       | AtomOp aop =>
            do
-             vs <- map (eval_to (k - 1) env) xs;
-             ls <- map (λv. case v of
-                              Atom l => return l
-                            | _ => fail Type_error) vs;
-             case config.parAtomOp x ls of
+             ys <- map (λx. case eval_to (k - 1) env x of
+                              INR (Atom l) => return l
+                            | INL e => fail e
+                            | _ => fail Type_error) xs;
+             case config.parAtomOp aop ys of
                SOME v => return (Atom v)
              | NONE => fail Type_error
            od)
@@ -281,34 +281,44 @@ Proof
       \\ ‘eval_to (k - 1) env x ≠ INL Diverge’ by (strip_tac \\ fs [])
       \\ gs [])
     >- ((* AtomOp *)
-      Cases_on ‘map (λx. eval_to (j - 1) env x) xs’ \\ fs []
+      qmatch_goalsub_abbrev_tac ‘map f xs’
+      \\ qmatch_asmsub_abbrev_tac ‘map g xs’
+      \\ Cases_on ‘map f xs’ \\ fs []
       >- (
-        reverse (Cases_on ‘map (λx. eval_to (k - 1) env x) xs’) \\ fs []
+        reverse (Cases_on ‘map g xs’) \\ fs []
         >- (
-          fs [map_INL]
-          \\ drule_then assume_tac map_INR
-          \\ first_x_assum (drule_then assume_tac) \\ gs [])
-        \\ gvs [map_INL]
-        \\ rename1 ‘eval_to (j - 1) env (EL m xs) = INL d’
-        \\ rename1 ‘eval_to (k - 1) env (EL n xs) = INL e’
+          fs [map_INL, Abbr ‘f’, Abbr ‘g’]
+          \\ drule_all_then assume_tac map_INR
+          \\ gs [CaseEqs ["sum", "v"]])
+        \\ fs [map_INL, Abbr ‘f’, Abbr ‘g’]
+        \\ rename1 ‘sum_CASE (eval_to (j - 1) env (EL m xs)) _ _ = INL d’
+        \\ rename1 ‘sum_CASE (eval_to (k - 1) env (EL n xs)) _ _ = INL e’
         \\ Cases_on ‘m < n’ \\ gs []
+        >- (
+          first_x_assum (drule_then assume_tac)
+          \\ gs [CaseEq "sum"])
         \\ Cases_on ‘m = n’ \\ gs []
+        >- (
+          gvs [CaseEq "sum"])
         \\ ‘n < m’ by gs []
         \\ first_assum (drule_then assume_tac)
-        \\ ‘eval_to (k - 1) env (EL n xs) ≠ INL Diverge’ by fs []
-        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs [])
-      \\ Cases_on ‘map (λx. eval_to (k - 1) env x) xs’ \\ fs []
+        \\ ‘eval_to (k - 1) env (EL n xs) ≠ INL Diverge’ by (strip_tac \\ fs [])
+        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ mp_tac))
+        \\ simp []
+        \\ disch_then (assume_tac o SYM) \\ fs [])
+      \\ Cases_on ‘map g xs’ \\ fs []
       >- (
-        fs [map_INL]
-        \\ drule_then assume_tac map_INR
-        \\ first_x_assum (drule_then assume_tac) \\ gs [])
-      \\ rename1 ‘map (λx. eval_to (j - 1) env x) _ = INR v’
-      \\ rename1 ‘map (λx. eval_to (k - 1) env x) _ = INR w’
+        fs [map_INL, Abbr ‘f’, Abbr ‘g’]
+        \\ drule_all_then assume_tac map_INR
+        \\ gs [CaseEq "sum"])
+      \\ rename1 ‘map f _ = INR v’
+      \\ rename1 ‘map g _ = INR w’
       \\ ‘v = w’ suffices_by rw []
       \\ imp_res_tac map_LENGTH
       \\ first_assum (mp_then Any assume_tac map_INR)
       \\ last_assum (mp_then Any assume_tac map_INR)
-      \\ irule LIST_EQ \\ rw [] \\ gs []))
+      \\ unabbrev_all_tac
+      \\ irule LIST_EQ \\ rw [] \\ gs [CaseEqs ["sum", "v"]]))
 QED
 
 val _ = export_theory ();
