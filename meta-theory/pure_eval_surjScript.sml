@@ -77,7 +77,8 @@ Proof
                  ∪ IMAGE (UNCURRY pure_exp$IsEq) 𝕌(:string # num)
                  ∪ IMAGE (UNCURRY pure_exp$Proj) 𝕌(:string # num)
                  ∪ IMAGE pure_exp$AtomOp 𝕌(:atom_op)
-                 ∪ IMAGE pure_exp$Lit 𝕌(:lit)’
+                 ∪ IMAGE pure_exp$Lit 𝕌(:lit)
+                 ∪ {pure_exp$Seq}’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
        conj_tac >> Cases >> rw[ELIM_UNCURRY] >>
        metis_tac[FST,SND]) >>
@@ -114,29 +115,7 @@ Proof
   rw[] >>
   simp[COUNTABLE_IMAGE]
 QED
-(*
-Theorem exp_size_MEM:
-  MEM s x ⇒ exp_size s ≤ exp6_size x
-Proof
-  Induct_on ‘x’ >> rw[exp_size_def] >> res_tac >> DECIDE_TAC
-QED
 
-Theorem exp_size_MEM':
-  MEM s x ⇒ exp_size(SND s) ≤ exp4_size x
-Proof
-  Induct_on ‘x’ >> simp[] >>
-  PairCases >> rw[exp_size_def] >> rw[] >>
-  res_tac >> DECIDE_TAC
-QED
-
-Theorem exp_size_MEM'':
-  MEM s x ⇒ exp_size(SND(SND s)) ≤ exp1_size x
-Proof
-  Induct_on ‘x’ >> simp[] >>
-  PairCases >> rw[exp_size_def] >> rw[] >>
-  res_tac >> DECIDE_TAC
-QED
-*)
 Theorem COUNTABLE_PRODUCT_2:
   COUNTABLE s ∧ COUNTABLE t ⇒
   COUNTABLE {f x y | s x ∧ t y }
@@ -614,43 +593,17 @@ Proof
     drule cons_names_subst_funs >> strip_tac >> simp[] >>
     gvs[MEM_MAP] >> rename1 `MEM foo _` >> PairCases_on `foo` >> gvs[] >>
     metis_tac[]
-    )
-  >- (
+    ) >>
+  (
     Cases_on `∃c. p = Cons c` >> gvs[cons_names_wh_def, add_TF_def]
     >- metis_tac[] >>
     qsuff_tac
       `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨ n = "True" ∨ n = "False"`
     >- (CASE_TAC >> gvs[]) >>
-    Cases_on `p` >> gvs[MEM_MAP, PULL_EXISTS]
-    >- (
-      Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
-      EVERY_CASE_TAC >> gvs[cons_names_wh_def]
-      )
-    >- (
-      Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
-      EVERY_CASE_TAC >> gvs[cons_names_wh_def] >>
-      first_x_assum drule >> strip_tac >> simp[] >>
-      first_x_assum irule >> gvs[MEM_MAP, PULL_EXISTS, MEM_EL] >>
-      metis_tac[]
-      ) >>
-    EVERY_CASE_TAC >> gvs[]
-    )
-  >- (
-    Cases_on `∃c. p = Cons c` >> gvs[cons_names_wh_def, add_TF_def]
-    >- metis_tac[] >>
-    qsuff_tac
-      `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨ n = "True" ∨ n = "False"`
-    >- (CASE_TAC >> gvs[]) >>
-    Cases_on `p` >> gvs[MEM_MAP, PULL_EXISTS]
-    >- (
-      Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
-      Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[] >>
-      EVERY_CASE_TAC >> gvs[cons_names_wh_def, PULL_FORALL] >>
-      first_x_assum (drule_at Any) >> strip_tac >> gvs[] >>
-      metis_tac[]
-      ) >>
-    EVERY_CASE_TAC >> gvs[]
-    )
+    Cases_on `p` >> gvs[MEM_MAP, PULL_EXISTS] >>
+    EVERY_CASE_TAC >> gvs[cons_names_wh_def, LENGTH_EQ_NUM_compute, MEM_MAP] >>
+    metis_tac[EL_MEM]
+  )
 QED
 
 Theorem cons_names_eval_wh:
