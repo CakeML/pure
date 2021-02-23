@@ -121,6 +121,8 @@ Proof
         goal_assum (drule_at Any) >> gvs[EL_MEM]
         )
       >- (CCONTR_TAC >> gvs[])
+      \\ gvs [LENGTH_EQ_NUM_compute,PULL_FORALL,AND_IMP_INTRO]
+      \\ res_tac \\ fs [] \\ metis_tac []
       )
 QED
 

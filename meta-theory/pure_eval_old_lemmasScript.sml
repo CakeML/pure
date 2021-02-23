@@ -32,7 +32,8 @@ Theorem eval_op_cases:
     (∃s n x1 x2 xs'. op = IsEq s n ∧ xs = x1::x2::xs') ∨
     (∃s i. op = Proj s i ∧ xs = []) ∨
     (∃s i x1 x2 xs'. op = Proj s i ∧ xs = x1::x2::xs') ∨
-    (∃b x xs'. op = Lit b ∧ xs = x::xs')
+    (∃b x xs'. op = Lit b ∧ xs = x::xs') ∨
+    (op = Seq)
 Proof
   ho_match_mp_tac eval_op_ind >> rw[]
 QED
