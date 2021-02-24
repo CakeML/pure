@@ -758,9 +758,14 @@ Theorem eval_wh_Prim_alt:
         case config.parAtomOp a as of
           NONE => wh_Error
         | SOME v => wh_Atom v) ∧
-  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error)
+  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error) ∧
+  eval_wh (Prim Seq xs) =
+    if LENGTH xs ≠ 2 then wh_Error else
+    if MEM wh_Error (MAP eval_wh xs) then wh_Error else
+    if MEM wh_Diverge (MAP eval_wh xs) then wh_Diverge else
+    eval_wh (LAST xs)
 Proof
-  rw[eval_wh_Prim] >>
+  reverse $ rw[eval_wh_Prim] >> gvs[LENGTH_EQ_NUM_compute] >>
   Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
   Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[]
 QED
