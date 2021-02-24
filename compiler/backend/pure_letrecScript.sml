@@ -2,7 +2,7 @@
   Simplification of Letrec
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
-open pure_expTheory pure_miscTheory top_sortTheory;
+open pure_expTheory pure_miscTheory topological_sortTheory;
 
 val _ = new_theory "pure_letrec";
 
@@ -11,6 +11,20 @@ val _ = new_theory "pure_letrec";
   will produce a giant Letrec holding all the top-level functions. It
   makes sense to split this up and clean it up as much as possible early.
 *)
+
+(*******************)
+
+Definition letrec_recurse_def:
+  letrec_recurse f (Letrec xs y) =
+    f (MAP (λ(n,x). n, letrec_recurse f x) xs) (letrec_recurse f y) ∧
+  letrec_recurse f (Lam n x) = Lam n (letrec_recurse f x) ∧
+  letrec_recurse f (Prim p xs) = Prim p (MAP (letrec_recurse f) xs) ∧
+  letrec_recurse f (App x y) = App (letrec_recurse f x) (letrec_recurse f y) ∧
+  letrec_recurse f res = res
+Termination
+  WF_REL_TAC ‘measure (exp_size o SND)’ >> rw [] >>
+  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
+End
 
 (*******************)
 
@@ -27,15 +41,7 @@ Definition make_distinct_def:
 End
 
 Definition distinct_def:
-  distinct (Letrec xs y) =
-    Letrec (make_distinct (MAP (λ(n,x). (n, distinct x)) xs)) (distinct y) ∧
-  distinct (Lam n x) = Lam n (distinct x) ∧
-  distinct (Prim p xs) = Prim p (MAP distinct xs) ∧
-  distinct (App x y) = App (distinct x) (distinct y) ∧
-  distinct res = res
-Termination
-  WF_REL_TAC ‘measure exp_size’ >> rw [] >>
-  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
+  distinct e = letrec_recurse (λfns e. Letrec (make_distinct fns) e) e
 End
 
 
@@ -57,16 +63,7 @@ Definition split_one_def:
 End
 
 Definition split_all_def:
-  split_all (Letrec xs y) =
-    (let xs1 = MAP (λ(fn,e). (fn, split_all e)) xs in
-     make_Letrecs (split_one xs) (split_all y)) ∧
-  split_all (Lam n x) = Lam n (split_all x) ∧
-  split_all (Prim p xs) = Prim p (MAP split_all xs) ∧
-  split_all (App x y) = App (split_all x) (split_all y) ∧
-  split_all res = res
-Termination
-  WF_REL_TAC `measure exp_size` >> rw [] >>
-  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
+  split_all e = letrec_recurse (λfns e. make_Letrecs (split_one fns) e) e
 End
 
 
@@ -76,21 +73,16 @@ End
      - change any Letrec [(v,x)] y into Let v x y, when v not free in x
 *)
 
+Definition clean_one_def:
+  clean_one fns e =
+    if DISJOINT (set (MAP FST fns)) (freevars e) then e else
+    case fns of
+      [(v,x)] => if v ∈ freevars x then Letrec fns e else Let v x e
+    | _ => Letrec fns e
+End
+
 Definition clean_all_def:
-  clean_all (Letrec xs y) = (
-    let y' = clean_all y in
-    if DISJOINT (set (MAP FST xs)) (freevars y) then y' else
-    case xs of
-      [(v,x)] => if v ∈ freevars x then Letrec xs y else Let v x y'
-    | _ => Letrec xs y'
-    ) ∧
-  clean_all (Lam n x) = Lam n (clean_all x) ∧
-  clean_all (Prim p xs) = Prim p (MAP clean_all xs) ∧
-  clean_all (App x y) = App (clean_all x) (clean_all y) ∧
-  clean_all res = res
-Termination
-  WF_REL_TAC `measure exp_size` >> rw [] >>
-  Induct_on `xs` >> rw[] >> gvs[exp_size_def]
+  clean_all e = letrec_recurse clean_one e
 End
 
 
@@ -105,5 +97,7 @@ Definition simplify_def:
     let c = clean_all s in
     c
 End
+
+(*******************)
 
 val _ = export_theory();

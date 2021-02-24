@@ -209,6 +209,23 @@ Proof
     )
 QED
 
+Theorem subst_id:
+  ∀f e.
+    (∀k v. FLOOKUP f k = SOME v ⇒ v = Var k)
+  ⇒ subst f e = e
+Proof
+  recInduct subst_ind >> rw[subst_def]
+  >- (CASE_TAC >> res_tac >> gvs[])
+  >- rw[MAP_ID_ON]
+  >- (last_x_assum irule >> simp[DOMSUB_FLOOKUP_THM])
+  >- (
+    irule MAP_ID_ON >> simp[FORALL_PROD] >> rw[] >>
+    last_x_assum irule >> simp[FDIFF_def, FLOOKUP_DRESTRICT] >> goal_assum drule
+    )
+  >- (first_x_assum irule >> simp[FDIFF_def, FLOOKUP_DRESTRICT])
+QED
+
+
 (******************* bind ********************)
 
 Theorem bind_FEMPTY[simp]:
