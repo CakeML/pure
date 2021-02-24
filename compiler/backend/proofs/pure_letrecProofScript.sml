@@ -290,6 +290,87 @@ Proof
     )
 QED
 
+Theorem letrec_rel_freevars:
+  (∀a b. c a b ⇒ freevars a = freevars b) ⇒
+  ∀x y. letrec_rel c x y ⇒ freevars x = freevars y
+Proof
+  strip_tac >>
+  ho_match_mp_tac letrec_rel_ind >> rw[] >> gvs[freevars_set_def]
+  >- (
+    rw[EXTENSION] >> gvs[LIST_REL_EL_EQN, MEM_MAP, PULL_EXISTS] >>
+    metis_tac[EL_MEM, MEM_EL]
+    ) >>
+  last_x_assum imp_res_tac >> gvs[] >>
+  qsuff_tac `MAP (λ(fn,e). freevars e) xs = MAP (λ(fn,e). freevars e) xs1` >>
+  gvs[] >> gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] >> rw[] >>
+  ntac 2 (last_x_assum drule) >> gvs[UNCURRY, EL_MAP]
+QED
+
+Theorem letrec_rel_subst:
+  (∀f g a b. c a b ⇒ c (subst f a) (subst g b)) ⇒
+  ∀x y. letrec_rel c x y ⇒
+    ∀f g. fmap_rel (letrec_rel c) f g
+  ⇒ letrec_rel c (subst f x) (subst g y)
+Proof
+  strip_tac >> ho_match_mp_tac letrec_rel_ind >> rw[subst_def]
+  >- (
+    gvs[fmap_rel_OPTREL_FLOOKUP] >>
+    last_x_assum (qspec_then `n` assume_tac) >>
+    EVERY_CASE_TAC >> gvs[letrec_rel_refl]
+    )
+  >- (
+    simp[Once letrec_rel_cases] >>
+    last_x_assum irule >>
+    gvs[fmap_rel_OPTREL_FLOOKUP, DOMSUB_FLOOKUP_THM] >>
+    rw[] >> EVERY_CASE_TAC >> gvs[]
+    )
+  >- simp[Once letrec_rel_cases]
+  >- (simp[Once letrec_rel_cases] >> gvs[LIST_REL_EL_EQN] >> rw[EL_MAP])
+  >- (
+    simp[Once letrec_rel_cases] >> gvs[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    qexists_tac
+      `(MAP (λ(p1,p2). (p1,subst (FDIFF f (set (MAP FST xs1))) p2)) xs1)` >>
+    qexists_tac `subst (FDIFF f (set (MAP FST xs1))) y` >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    gvs[LIST_REL_EL_EQN] >> rw[]
+    >- (
+      rw[] >> gvs[EL_MAP] >> last_x_assum drule >> strip_tac >>
+      last_x_assum drule >>
+      qabbrev_tac `a = EL n xs` >> qabbrev_tac `b = EL n xs1` >>
+      PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
+      disch_then irule >>
+      gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >>
+      Cases_on `FLOOKUP f k` >> gvs[letrec_rel_refl]
+      )
+    >- (
+      first_x_assum irule >>
+      gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >>
+      Cases_on `FLOOKUP f k` >> gvs[letrec_rel_refl]
+      )
+    >- (disj1_tac >> last_x_assum drule >> simp[subst_def])
+    )
+  >- (
+    simp[subst_def] >> gvs[] >>
+    simp[Once letrec_rel_cases] >> gvs[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    qexists_tac
+      `MAP (λ(f',e). (f',subst (FDIFF g (set (MAP FST xs1))) e)) xs1` >>
+    qexists_tac `subst (FDIFF g (set (MAP FST xs1))) y` >> simp[] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    first_assum (irule_at Any) >>
+    gvs[LIST_REL_EL_EQN] >> rw[]
+    >- (gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[]) >>
+    last_x_assum drule >> gvs[EL_MAP] >>
+    qabbrev_tac `a = EL n xs` >> qabbrev_tac `b = EL n xs1` >>
+    PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
+    disch_then irule >>
+    gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[]
+    )
+QED
+
+(**)
+
 Theorem letrec_split_closed:
   ∀x y. letrec_split x y ⇒ closed x ∧ closed y
 Proof
@@ -329,31 +410,9 @@ QED
 Theorem letrec_rel_split_freevars:
   ∀x y. letrec_rel letrec_split x y ⇒ freevars x = freevars y
 Proof
-  ho_match_mp_tac letrec_rel_ind >> rw[] >> gvs[freevars_set_def]
-  >- (
-    rw[EXTENSION] >> gvs[LIST_REL_EL_EQN, MEM_MAP, PULL_EXISTS] >>
-    metis_tac[EL_MEM, MEM_EL]
-    )
-  >- (
-    drule letrec_split_closed >> gvs[closed_simps] >> rw[] >>
-    gvs[closed_def, SUBSET_DIFF_EMPTY] >>
-    gvs[EVERY_MEM, SUBSET_DEF, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD] >>
-    rw[] >> first_x_assum irule >>
-    pop_assum mp_tac >> simp[Once MEM_EL] >> rw[] >>
-    qexistsl_tac [`SND (EL n xs1)`, `p_1`] >> gvs[LIST_REL_EL_EQN] >>
-    last_x_assum drule >> gvs[EL_MAP] >> strip_tac >> gvs[] >>
-    Cases_on `EL n xs` >> Cases_on `EL n xs1` >> gvs[] >>
-    qpat_x_assum `MAP _ _ = MAP _ _` mp_tac >>
-    simp[Once LIST_EQ_REWRITE] >>
-    disch_then drule >> rw[EL_MAP] >>
-    metis_tac[EL_MEM]
-    )
-  >- (
-    qsuff_tac `MAP (λ(fn,e). freevars e) xs = MAP (λ(fn,e). freevars e) xs1`
-    >- gvs[] >>
-    gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] >> rw[] >>
-    ntac 2 (last_x_assum drule) >> gvs[UNCURRY, EL_MAP]
-    )
+  rw[] >> irule letrec_rel_freevars >>
+  goal_assum $ drule_at Any >> rw[] >>
+  drule letrec_split_closed >> gvs[closed_def]
 QED
 
 Theorem letrec_split_subst:
@@ -367,66 +426,8 @@ Theorem letrec_rel_split_subst:
     ∀f g. fmap_rel (letrec_rel letrec_split) f g
   ⇒ letrec_rel letrec_split (subst f x) (subst g y)
 Proof
-  ho_match_mp_tac letrec_rel_ind >> rw[subst_def] >>
-  qabbrev_tac `spl = letrec_split`
-  >- (
-    gvs[fmap_rel_OPTREL_FLOOKUP] >>
-    last_x_assum (qspec_then `n` assume_tac) >>
-    EVERY_CASE_TAC >> gvs[letrec_rel_refl]
-    )
-  >- (
-    simp[Once letrec_rel_cases] >>
-    last_x_assum irule >>
-    gvs[fmap_rel_OPTREL_FLOOKUP, DOMSUB_FLOOKUP_THM] >>
-    rw[] >> EVERY_CASE_TAC >> gvs[]
-    )
-  >- simp[Once letrec_rel_cases]
-  >- (simp[Once letrec_rel_cases] >> gvs[LIST_REL_EL_EQN] >> rw[EL_MAP])
-  >- (
-    simp[Once letrec_rel_cases] >> gvs[] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-    qexists_tac
-      `(MAP (λ(p1,p2). (p1,subst (FDIFF f (set (MAP FST xs1))) p2)) xs1)` >>
-    qexists_tac `subst (FDIFF f (set (MAP FST xs1))) y` >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-    gvs[LIST_REL_EL_EQN] >> rw[]
-    >- (
-      rw[] >> gvs[EL_MAP] >> last_x_assum drule >>
-      qabbrev_tac `a = EL n xs` >> qabbrev_tac `b = EL n xs1` >>
-      PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
-      disch_then irule >>
-      gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >>
-      Cases_on `FLOOKUP f k` >> gvs[letrec_rel_refl]
-      )
-    >- (
-      first_x_assum irule >>
-      gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[] >>
-      Cases_on `FLOOKUP f k` >> gvs[letrec_rel_refl]
-      )
-    >- (
-      disj1_tac >> unabbrev_all_tac >>
-      drule letrec_split_subst >>
-      disch_then (qspecl_then [`f`,`g`] assume_tac) >>
-      gvs[subst_def]
-      )
-    )
-  >- (
-    simp[subst_def] >> gvs[] >>
-    simp[Once letrec_rel_cases] >> gvs[] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-    qexists_tac
-      `MAP (λ(f',e). (f',subst (FDIFF g (set (MAP FST xs1))) e)) xs1` >>
-    qexists_tac `subst (FDIFF g (set (MAP FST xs1))) y` >> simp[] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-    first_assum (irule_at Any) >>
-    gvs[LIST_REL_EL_EQN] >> rw[]
-    >- (gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[]) >>
-    last_x_assum drule >> gvs[EL_MAP] >>
-    qabbrev_tac `a = EL n xs` >> qabbrev_tac `b = EL n xs1` >>
-    PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
-    disch_then irule >>
-    gvs[fmap_rel_OPTREL_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >> rw[]
-    )
+  rw[] >> irule letrec_rel_subst >> rw[] >>
+  irule letrec_split_subst >> simp[]
 QED
 
 Triviality letrec_rel_split_subst_single:
