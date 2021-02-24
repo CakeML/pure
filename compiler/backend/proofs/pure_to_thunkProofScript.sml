@@ -289,6 +289,91 @@ Proof
   dsimp [arithmeticTheory.LESS_OR_EQ, eval_to_subst_mono]
 QED
 
+Theorem exp_rel_freevars[local]:
+  ∀ctxt x y.
+    exp_rel ctxt x y ⇒ freevars x = freevars y
+Proof
+  ho_match_mp_tac exp_rel_strongind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  >- ((* Var *)
+    rw [freevars_def])
+  >- ((* Var *)
+    rw [freevars_def])
+  >- ((* Lam *)
+    rw [freevars_def, DELETE_DEF])
+  >- ((* App *)
+    rw [freevars_def]
+    \\ rename1 ‘freevars xx = freevars yy’
+    \\ ‘s ∉ freevars yy’ by gs []
+    \\ rw [DIFF_DEF, EXTENSION, EQ_IMP_THM] \\ fs[]
+    \\ rw [] \\ fs [])
+  >- ((* If *)
+    rw [freevars_def]
+    \\ gvs [LENGTH_EQ_NUM_compute, AC UNION_COMM UNION_ASSOC])
+  >- ((* Cons *)
+    strip_tac
+    \\ rw [freevars_def, EXTENSION]
+    \\ eq_tac \\ rw []
+    >- (
+      first_assum (irule_at Any)
+      \\ gvs [MEM_MAP, MAP2_MAP, EXISTS_PROD, LIST_REL_EL_EQN, MEM_EL]
+      \\ rename1 ‘m < LENGTH (freevars _)’
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ qexists_tac ‘Delay F (Lam (EL n ss) (EL n ys))’
+      \\ simp [freevars_def]
+      \\ first_assum (irule_at Any)
+      \\ simp [EL_ZIP, DIFF_DEF, EXTENSION, EL_MAP]
+      \\ rw [EQ_IMP_THM]
+      \\ strip_tac \\ gvs [])
+    >- (
+      first_assum (irule_at Any)
+      \\ gvs [MEM_MAP, MAP2_MAP, EXISTS_PROD, LIST_REL_EL_EQN, MEM_EL, EL_MAP,
+              freevars_def, EL_ZIP]
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ irule_at Any EQ_REFL
+      \\ first_assum (irule_at Any)
+      \\ rw [DIFF_DEF, EXTENSION, EQ_IMP_THM]))
+  >- ((* Proj *)
+    rw [freevars_def]
+    \\ AP_TERM_TAC
+    \\ AP_TERM_TAC
+    \\ fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN])
+  >- ((* Prim *)
+    rw [freevars_def]
+    \\ AP_TERM_TAC
+    \\ AP_TERM_TAC
+    \\ fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN])
+  >- ((* Letrec *)
+    rw [freevars_def]
+    \\ cheat (* TODO wrong *))
+QED
+
+Theorem MAP_EQ_EL[local]:
+  ∀xs ys.
+    MAP f xs = MAP g ys ⇒
+      ∀n. n < LENGTH xs ⇒ f (EL n xs) = g (EL n ys)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ simp [PULL_FORALL]
+  \\ Cases_on ‘n’ \\ simp []
+QED
+
+(* TODO
+   - This is not true. There is no case in exp_rel
+     for substituted values on the right hand side.
+ *)
+Theorem exp_rel_subst:
+  ∀ys y xs x.
+    (∀k. OPTREL (thunk_rel ctxt) (FLOOKUP xs k) (ALOOKUP ys k)) ∧
+    MAP FST ys = MAP FST extra ∧
+    exp_rel (extra ++ ctxt) x y ⇒
+      exp_rel ctxt (subst xs x) (subst ys y)
+Proof
+  cheat
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x res y ctxt.
     eval_wh_to k x = res ∧
@@ -340,13 +425,13 @@ Proof
                               v_rel_def]
     \\ IF_CASES_TAC \\ fs [v_rel_def]
     \\ first_x_assum irule
-    \\ simp [pure_expTheory.bind_def, FLOOKUP_UPDATE]
-    \\ cheat
-      (* TODO
-           lemma about exp_rel and bound thunk stuff.
-           we need for substitution to fail on both sides unless
-           the expression (body) is closed.
-       *))
+    \\ simp [pure_expTheory.bind_def, FLOOKUP_UPDATE, bind_def]
+    \\ ‘closed y’ by cheat (* TODO: Check whether this holds in thunk sem *)
+    \\ imp_res_tac exp_rel_freevars \\ fs []
+    \\ irule exp_rel_subst
+    \\ simp [FLOOKUP_UPDATE, CaseEq "bool", COND_RAND, thunk_rel_rules,
+             EXISTS_PROD, PULL_EXISTS]
+    \\ first_assum (irule_at Any))
   >- ((* Letrec *)
     cheat (* TODO Not done *))
   >- ((* Prim *)
