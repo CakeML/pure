@@ -735,6 +735,49 @@ Proof
       IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
       IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
       )
+    >- (
+      IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      Cases_on `LENGTH ys ≠ 2` >> gvs[] >>
+      IF_CASES_TAC >> gvs[]
+      >- (
+        gvs[MEM_MAP] >> last_x_assum drule >> simp[] >>
+        gvs[MEM_EL, LIST_REL_EL_EQN] >>
+        first_x_assum drule >> strip_tac >> disch_then drule >> gvs[EVERY_EL] >>
+        rw[] >> metis_tac[]
+        ) >>
+      `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
+      `∃y1 y2. ys = [y1;y2]` by gvs[LENGTH_EQ_NUM_compute] >>
+      gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      ntac 2 (first_x_assum drule_all >> strip_tac) >>
+      `eval_wh_to (ck + k − 1) y1 ≠ wh_Error` by (
+        Cases_on `eval_wh_to (k - 1) x1` >> gvs[]) >>
+       `eval_wh_to (ck' + k − 1) y2 ≠ wh_Error` by (
+        Cases_on `eval_wh_to (k - 1) x2` >> gvs[]) >>
+      IF_CASES_TAC >> gvs[]
+      >- (
+        qexists_tac `0` >> simp[] >>
+        `eval_wh_to (k - 1) y1 = wh_Diverge` by (
+          CCONTR_TAC >> drule eval_wh_inc >> simp[] >>
+          qexists_tac `ck + k - 1` >> gvs[]) >>
+        simp[] >> IF_CASES_TAC >> gvs[] >>
+        qspecl_then [`ck' + k - 1`,`y2`,`k - 1`] assume_tac eval_wh_inc >> gvs[]
+        )
+      >- (
+        qexists_tac `0` >> simp[] >>
+        `eval_wh_to (k - 1) y2 = wh_Diverge` by (
+          CCONTR_TAC >> drule eval_wh_inc >> simp[] >>
+          qexists_tac `ck' + k - 1` >> gvs[]) >>
+        simp[] >> IF_CASES_TAC >> gvs[] >>
+        qspecl_then [`ck + k - 1`,`y1`,`k - 1`] assume_tac eval_wh_inc >> gvs[]
+        ) >>
+      qexists_tac `ck + ck'` >> simp[] >>
+      qspecl_then [`ck + ck' + k - 1`,`y1`,`ck + k - 1`] mp_tac eval_wh_inc >>
+      gvs[] >> strip_tac >>
+      qspecl_then [`ck + ck' + k - 1`,`y2`,`ck' + k - 1`] mp_tac eval_wh_inc >>
+      gvs[] >> strip_tac >>
+      EVERY_CASE_TAC >> gvs[]
+      )
     )
 QED
 
