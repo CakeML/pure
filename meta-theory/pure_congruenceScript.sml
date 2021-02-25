@@ -2490,4 +2490,100 @@ Proof
     )
 QED
 
+Theorem Let_Seq:
+  Let w e (Seq x y) ≅ Seq (Let w e x) (Let w e y)
+Proof
+  cheat
+QED
+
+Theorem Seq_assoc:
+  Seq (Seq x y) z ≅ Seq x (Seq y z)
+Proof
+  cheat
+QED
+
+Theorem Let_Var:
+  Let w e (Var w) ≅ e
+Proof
+  cheat
+QED
+
+Theorem Let_Var2:
+  v ≠ w ⇒ Let w e (Var v) ≅ Var v
+Proof
+  cheat
+QED
+
+Theorem Let_Prim:
+  Let w e (Prim p xs) ≅ Prim p (MAP (Let w e) xs)
+Proof
+  cheat
+QED
+
+Theorem Let_Prim_alt:
+  Let w e (Prim p []) ≅ Prim p [] ∧
+  Let w e (Prim p [a]) ≅ Prim p [Let w e a] ∧
+  Let w e (Prim p [a;b]) ≅ Prim p [Let w e a; Let w e b] ∧
+  Let w e (Prim p [a;b;c]) ≅ Prim p [Let w e a; Let w e b; Let w e c]
+Proof
+  cheat
+QED
+
+Theorem Proj_Seq:
+  Proj n i e ≅ Seq e (Proj n i e)
+Proof
+  cheat
+QED
+
+Triviality eval_wh_Seq_id:
+  eval_wh (Seq x x) = eval_wh x
+Proof
+  fs [eval_wh_Seq] \\ rw [] \\ fs []
+QED
+
+Theorem Seq_id:
+  Seq x x ≅ x
+Proof
+  cheat
+  (*
+
+  rw [exp_eq_def,bind_def,subst_def]
+  \\ rw [] \\ fs [FLOOKUP_DEF]
+  \\ once_rewrite_tac [app_bisimilarity_iff]
+  \\ fs [eval_wh_Seq_id]
+  \\ conj_asm1_tac \\ fs []
+  THEN1
+   (match_mp_tac IMP_closed_subst \\ fs []
+    \\ fs [FRANGE_DEF,PULL_EXISTS])
+  \\ Cases_on ‘eval_wh (subst f x)’ \\ fs []
+  \\ res_tac \\ drule eval_wh_freevars_SUBSET \\ rw []
+
+
+
+
+  \\ fs [] \\ fs [eval_wh_Seq]
+  \\ Cases_on ‘eval_wh (subst f x)’ \\ fs []
+
+
+  THEN1
+   (fs [closed_def,MEM_MAP,GSYM IMP_DISJ_THM,PULL_FORALL]
+    \\ strip_tac
+    \\ ‘EVERY closed l’ by
+     (rw [EVERY_MEM,closed_def]
+      \\ Cases_on ‘freevars e’ \\ fs [] \\ metis_tac [IN_INSERT])
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘l’ \\ Induct
+    \\ fs [opp_def,IN_DEF,reflexive_app_bisimilarity])
+  \\ rw []
+  \\ match_mp_tac reflexive_app_bisimilarity
+  \\ match_mp_tac IMP_closed_subst \\ fs []
+  \\ drule eval_wh_Closure_closed \\ fs [] *)
+QED
+
+Theorem Proj_Cons:
+  Proj s (LENGTH xs) (Cons s (xs ++ y::ys)) ≅ y
+Proof
+  cheat
+QED
+
 val _ = export_theory();
