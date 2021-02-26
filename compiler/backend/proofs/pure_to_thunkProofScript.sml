@@ -11,16 +11,9 @@ val _ = new_theory "pure_to_thunkProof";
 
 val _ = numLib.prefer_num ();
 
-(* TODO: Move to pure_to_thunk
-
-   Some variables point to computations that have been
-   suspended by a lambda on the thunkLang side. These variables
-   need to be forced, and are thus tagged with ‘Suspended’.
+(* TODO
+   - All variables are suspended. Update notes.
  *)
-
-Datatype:
-  vmode = Raw | Suspended
-End
 
 (*
   NOTES ON COMPILING PURELANG TO THUNKLANG:
@@ -67,97 +60,86 @@ End
  *)
 
 Inductive exp_rel:
-[exp_rel_Var_Suspended:]
-  (∀ctxt n.
-     ALOOKUP ctxt n = SOME Suspended ⇒
-       exp_rel ctxt (Var n) (Force (Var n))) ∧
-[exp_rel_Var_Raw:]
-  (∀ctxt n.
-     ALOOKUP ctxt n = SOME Raw ⇒
-       exp_rel ctxt (Var n) (Var n)) ∧
+[exp_rel_Var:]
+  (∀n.
+     exp_rel (Var n) (Force (Var n))) ∧
 [exp_rel_Lam:]
-  (∀ctxt s (x: pure_exp$exp) (x': thunkLang_subst$exp).
-     exp_rel ((s, Raw)::ctxt) x x' ⇒
-       exp_rel ctxt (Lam s x) (Lam s x')) ∧
+  (∀s (x: pure_exp$exp) (x': thunkLang_subst$exp).
+     exp_rel x x' ⇒
+       exp_rel (Lam s x) (Lam s x')) ∧
 [exp_rel_App:]
-  (∀ctxt x x' y y' s.
-     exp_rel ctxt x x' ∧
-     exp_rel ctxt y y' ∧
+  (∀x x' y y' s.
+     exp_rel x x' ∧
+     exp_rel y y' ∧
      s ∉ freevars y ⇒
-       exp_rel ctxt (App x y) (App x' (Delay F (Lam s y')))) ∧
+       exp_rel (App x y) (App x' (Delay F (Lam s y')))) ∧
 [exp_rel_If:]
-  (∀ctxt xs x y z.
+  (∀xs x y z.
      LENGTH xs = 3 ∧
-     exp_rel ctxt (EL 0 xs) x ∧
-     exp_rel ctxt (EL 1 xs) y ∧
-     exp_rel ctxt (EL 2 xs) z ⇒
-       exp_rel ctxt (Prim If xs) (If x y z)) ∧
+     exp_rel (EL 0 xs) x ∧
+     exp_rel (EL 1 xs) y ∧
+     exp_rel (EL 2 xs) z ⇒
+       exp_rel (Prim If xs) (If x y z)) ∧
 [exp_rel_Cons:]
-  (∀ctxt n m ss xs ys.
-     LIST_REL (exp_rel ctxt) xs ys ∧
-     LIST_REL (λs y. s ∉ freevars y) ss ys ∧
-     n = m ⇒
-       exp_rel ctxt (Prim (Cons n) xs)
-                    (Prim (Cons m) (MAP2 (λs y. Delay F (Lam s y)) ss ys))) ∧
+  (∀n ss xs ys.
+     LIST_REL exp_rel xs ys ∧
+     LIST_REL (λs y. s ∉ freevars y) ss ys ⇒
+       exp_rel (Prim (Cons n) xs)
+               (Prim (Cons n) (MAP2 (λs y. Delay F (Lam s y)) ss ys))) ∧
 [exp_rel_Proj:]
-  (∀ctxt s i xs ys.
-     LIST_REL (exp_rel ctxt) xs ys ⇒
-       exp_rel ctxt (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
+  (∀s i xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
 [exp_rel_Prim:]
-  (∀ctxt op xs ys.
+  (∀op xs ys.
      op ≠ If ∧
      (∀n. op ≠ Cons n) ∧
      (∀s i. op ≠ Proj s i) ∧
-     LIST_REL (exp_rel ctxt) xs ys ⇒
-       exp_rel ctxt (Prim op xs) (Prim op ys)) ∧
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Letrec:]
-  (∀ctxt f f' x x'.
-     exp_rel ctxt (Letrec f x) (Letrec f' x'))
-     (* FIXME This bit will involve more context-fiddling *)
+  (∀f f' x x'.
+     exp_rel (Letrec f x) (Letrec f' x')) (* TODO *)
 End
 
 Theorem exp_rel_def[local]:
   (∀n.
-     exp_rel ctxt (Var n) y ⇔
-       (ALOOKUP ctxt n = SOME Suspended ∧
-        y = Force (Var n)) ∨
-       (ALOOKUP ctxt n = SOME Raw ∧
-        y = Var n)) ∧
+     exp_rel (Var n) y ⇔ y = Force (Var n)) ∧
   (∀s x.
-     exp_rel ctxt (Lam s x) y ⇔
+     exp_rel (Lam s x) y ⇔
        ∃z. y = Lam s z ∧
-           exp_rel ((s, Raw)::ctxt) x z) ∧
+           exp_rel x z) ∧
   (∀op xs.
-     exp_rel ctxt (Prim op xs) y ⇔
+     exp_rel (Prim op xs) y ⇔
        (∃x1 x2 x3.
           y = If x1 x2 x3 ∧
           op = If ∧
           LENGTH xs = 3 ∧
-          exp_rel ctxt (EL 0 xs) x1 ∧
-          exp_rel ctxt (EL 1 xs) x2 ∧
-          exp_rel ctxt (EL 2 xs) x3) ∨
+          exp_rel (EL 0 xs) x1 ∧
+          exp_rel (EL 1 xs) x2 ∧
+          exp_rel (EL 2 xs) x3) ∨
        (∃ss n ys.
           op = Cons n ∧
           y = Prim op (MAP2 (λs y. Delay F (Lam s y)) ss ys) ∧
-          LIST_REL (exp_rel ctxt) xs ys ∧
+          LIST_REL exp_rel xs ys ∧
           LIST_REL (λs y. s ∉ freevars y) ss ys) ∨
        (∃ss s i ys.
           op = Proj s i ∧
           y = Force (Prim op ys) ∧
-          LIST_REL (exp_rel ctxt) xs ys) ∨
+          LIST_REL exp_rel xs ys) ∨
        (∃ss ys.
           op ≠ If ∧
           (∀n. op ≠ Cons n) ∧
           (∀s i. op ≠ Proj s i) ∧
           y = Prim op ys ∧
-          LIST_REL (exp_rel ctxt) xs ys)) ∧
+          LIST_REL exp_rel xs ys)) ∧
   (∀f x.
-     exp_rel ctxt (App f x) y ⇔
+     exp_rel (App f x) y ⇔
        ∃g z s.
          y = App g (Delay F (Lam s z)) ∧
          s ∉ freevars x ∧
-         exp_rel ctxt f g ∧
-         exp_rel ctxt x z)
+         exp_rel f g ∧
+         exp_rel x z)
 Proof
   rw []
   \\ simp [Once exp_rel_cases]
@@ -166,43 +148,38 @@ Proof
   \\ irule_at Any EQ_REFL \\ fs []
 QED
 
-Inductive thunk_rel:
-[thunk_rel_Suspended:]
-  (∀ctxt x s y.
-     s ∉ freevars y ∧
-     exp_rel ctxt x y ⇒
-       thunk_rel ctxt x (Thunk F (Closure s y))) ∧
-[thunk_rel_Raw:]
-  (∀ctxt x y v.
-    exp_rel ctxt x y ∧
-    eval_to 0 y = INR v ⇒
-      thunk_rel ctxt x (Thunk T v))
+Definition thunk_rel_def:
+  thunk_rel x v ⇔
+    ∃s y.
+      v = Thunk F (Closure s y) ∧
+      s ∉ freevars y ∧
+      exp_rel x y
 End
 
 Definition v_rel_def:
-  v_rel ctxt wh_Error (INL Type_error) = T ∧
-  v_rel ctxt wh_Diverge (INL Diverge) = T ∧
-  v_rel ctxt (wh_Closure s x) (INR (Closure t y)) =
-    (s = t ∧ exp_rel ((s, Raw)::ctxt) x y) ∧
-  v_rel ctxt (wh_Constructor s xs) (INR (Constructor t ys)) =
-    (s = t ∧ LIST_REL (thunk_rel ctxt) xs ys) ∧
-  v_rel ctxt (wh_Atom a) (INR (Atom b)) = (a = b) ∧
-  v_rel ctxt _ _ = F
+  v_rel wh_Error (INL Type_error) = T ∧
+  v_rel wh_Diverge (INL Diverge) = T ∧
+  v_rel (wh_Closure s x) (INR (Closure t y)) =
+    (s = t ∧ exp_rel x y) ∧
+  v_rel (wh_Constructor s xs) (INR (Constructor t ys)) =
+    (s = t ∧ LIST_REL thunk_rel xs ys) ∧
+  v_rel (wh_Atom a) (INR (Atom b)) = (a = b) ∧
+  v_rel _ _ = F
 End
 
 Theorem v_rel_rev[local]:
-  v_rel ctxt x (INL err) =
+  v_rel x (INL err) =
     ((x = wh_Error ∧ err = Type_error) ∨
      (x = wh_Diverge ∧ err = Diverge)) ∧
-  v_rel ctxt x (INR (Closure s y)) =
+  v_rel x (INR (Closure s y)) =
     (∃b.
        x = wh_Closure s b ∧
-       exp_rel ((s, Raw)::ctxt) b y) ∧
-  v_rel ctxt x (INR (Constructor s ys)) =
+       exp_rel b y) ∧
+  v_rel x (INR (Constructor s ys)) =
     (∃xs.
        x = wh_Constructor s xs ∧
-       LIST_REL (thunk_rel ctxt) xs ys) ∧
-  v_rel ctxt x (INR (Atom l)) =
+       LIST_REL thunk_rel xs ys) ∧
+  v_rel x (INR (Atom l)) =
     (x = wh_Atom l)
 Proof
   Cases_on ‘x’ \\ rw [v_rel_def, EQ_IMP_THM] \\ fs []
@@ -283,6 +260,7 @@ Proof
   \\ Cases_on ‘eval_to k x’ \\ fs [dest_Thunk_def]
 QED
 
+(* TODO Move to thunkLang_subst *)
 Theorem eval_to_subst_mono_le[local]:
   ∀k x j. eval_to k x ≠ INL Diverge ∧ k ≤ j ⇒ eval_to j x = eval_to k x
 Proof
@@ -290,14 +268,12 @@ Proof
 QED
 
 Theorem exp_rel_freevars[local]:
-  ∀ctxt x y.
-    exp_rel ctxt x y ⇒ freevars x = freevars y
+  ∀x y.
+    exp_rel x y ⇒ freevars x = freevars y
 Proof
   ho_match_mp_tac exp_rel_strongind
   \\ rpt conj_tac
   \\ rpt gen_tac
-  >- ((* Var *)
-    rw [freevars_def])
   >- ((* Var *)
     rw [freevars_def])
   >- ((* Lam *)
@@ -366,19 +342,18 @@ QED
  *)
 Theorem exp_rel_subst:
   ∀ys y xs x.
-    (∀k. OPTREL (thunk_rel ctxt) (FLOOKUP xs k) (ALOOKUP ys k)) ∧
-    MAP FST ys = MAP FST extra ∧
-    exp_rel (extra ++ ctxt) x y ⇒
-      exp_rel ctxt (subst xs x) (subst ys y)
+    (∀k. OPTREL thunk_rel (FLOOKUP xs k) (ALOOKUP ys k)) ∧
+    exp_rel x y ⇒
+      exp_rel (subst xs x) (subst ys y)
 Proof
   cheat
 QED
 
 Theorem exp_rel_eval_to:
-  ∀k x res y ctxt.
+  ∀k x res y.
     eval_wh_to k x = res ∧
-    exp_rel ctxt x y ⇒
-      v_rel ctxt res (eval_to k y)
+    exp_rel x y ⇒
+      v_rel res (eval_to k y)
 Proof
   ho_match_mp_tac eval_wh_to_ind
   \\ rpt conj_tac
@@ -429,7 +404,7 @@ Proof
     \\ ‘closed y’ by cheat (* TODO: Check whether this holds in thunk sem *)
     \\ imp_res_tac exp_rel_freevars \\ fs []
     \\ irule exp_rel_subst
-    \\ simp [FLOOKUP_UPDATE, CaseEq "bool", COND_RAND, thunk_rel_rules,
+    \\ simp [FLOOKUP_UPDATE, CaseEq "bool", COND_RAND, thunk_rel_def,
              EXISTS_PROD, PULL_EXISTS]
     \\ first_assum (irule_at Any))
   >- ((* Letrec *)
@@ -443,7 +418,7 @@ Proof
       \\ gvs [LENGTH_EQ_NUM_compute]
       \\ fsrw_tac [boolSimps.DNF_ss] []
       \\ rpt (first_x_assum (drule_then assume_tac))
-      \\ rename1 ‘exp_rel ctxt y1 x1’
+      \\ rename1 ‘exp_rel y1 x1’
       \\ CASE_TAC \\ Cases_on ‘eval_to (k - 1) x1’ \\ fs [v_rel_def]
       \\ rename1 ‘INR res’ \\ Cases_on ‘res’ \\ gvs [v_rel_def]
       \\ IF_CASES_TAC \\ fs []
@@ -462,14 +437,14 @@ Proof
       \\ gvs [LIST_REL_EL_EQN, EL_MAP2, eval_to_def]
       \\ disch_then (assume_tac o GSYM)
       \\ drule_then assume_tac map_LENGTH \\ gvs []
-      \\ rw [thunk_rel_cases])
+      \\ rw [thunk_rel_def])
     >- ((* Proj *)
       simp [eval_wh_to_def, eval_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
       \\ gvs [LIST_REL_EL_EQN, eval_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
       \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
-      \\ rename1 ‘exp_rel _ x y’
+      \\ rename1 ‘exp_rel x y’
       \\ first_x_assum (drule_then assume_tac)
       \\ Cases_on ‘eval_to (k - 1) y’ \\ fs [v_rel_rev]
       \\ rename1 ‘dest_Constructor v’
@@ -481,15 +456,8 @@ Proof
       \\ fs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gvs [v_rel_def]
       \\ first_x_assum (drule_then assume_tac)
-      \\ fs [thunk_rel_cases, dest_Thunk_def, dest_anyClosure_def,
-             thunkLang_substTheory.dest_Closure_def, bind1_fresh]
-      \\ rename1 ‘eval_to 0 z’
-      \\ ‘v_rel ctxt (eval_wh_to (k - 1) (EL i xs)) (eval_to 0 z)’
-        suffices_by gs []
-      \\ ‘0 ≤ k - 1’ by fs []
-      \\ ‘eval_to 0 z ≠ INL Diverge’ by (strip_tac \\ fs [])
-      \\ drule_all_then assume_tac eval_to_subst_mono_le
-      \\ pop_assum (assume_tac o SYM) \\ gs [])
+      \\ fs [thunk_rel_def, dest_Thunk_def, dest_anyClosure_def,
+             thunkLang_substTheory.dest_Closure_def, bind1_fresh])
     >- ((* {IsEq, AtomOp, Lit} *)
       simp [eval_wh_to_def, eval_to_def]
       \\ IF_CASES_TAC \\ fs [v_rel_def]
@@ -498,7 +466,7 @@ Proof
       >- ((* IsEq *)
         IF_CASES_TAC \\ fs [v_rel_def]
         \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
-        \\ rename1 ‘exp_rel _ x y’
+        \\ rename1 ‘exp_rel x y’
         \\ first_x_assum (drule_then assume_tac)
         \\ Cases_on ‘eval_to (k - 1) y’ \\ fs [v_rel_rev]
         \\ rename1 ‘dest_Constructor v’
@@ -523,7 +491,7 @@ Proof
             \\ Cases_on ‘m < n’ \\ gs []
             >- (
               first_x_assum (drule_then strip_assume_tac)
-              \\ ‘exp_rel ctxt (EL m xs) (EL m ys) ∧ MEM (EL m xs) xs’
+              \\ ‘exp_rel (EL m xs) (EL m ys) ∧ MEM (EL m xs) xs’
                 by fs [EL_MEM]
               \\ last_x_assum (drule_all_then assume_tac)
               \\ gvs [AllCaseEqs (), v_rel_def])
@@ -532,13 +500,13 @@ Proof
               first_x_assum drule
               \\ CASE_TAC \\ fs []
               \\ CASE_TAC \\ fs []
-              \\ ‘exp_rel ctxt (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
+              \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
                 by fs [EL_MEM]
               \\ last_x_assum (drule_all_then assume_tac)
               \\ gvs [AllCaseEqs (), v_rel_def, v_rel_rev])
             \\ ‘m = n’ by fs []
             \\ pop_assum SUBST_ALL_TAC \\ gvs []
-            \\ ‘exp_rel ctxt (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
+            \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
               by fs [EL_MEM]
             \\ last_x_assum (drule_all_then assume_tac)
             \\ gvs [AllCaseEqs (), v_rel_def, v_rel_rev])
@@ -546,7 +514,7 @@ Proof
           \\ dxrule_then drule_all map_INR \\ fs []
           \\ CASE_TAC \\ fs []
           \\ CASE_TAC \\ fs [] \\ rw []
-          \\ ‘exp_rel ctxt (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
+          \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
             by fs [EL_MEM]
           \\ last_x_assum (drule_all_then assume_tac)
           \\ gs [v_rel_def])
@@ -559,7 +527,7 @@ Proof
             \\ rename1 ‘m < LENGTH ys’
             \\ Cases_on ‘m ≤ n’ \\ gs []
             >- (
-              ‘exp_rel ctxt (EL m xs) (EL m ys) ∧ MEM (EL m xs) xs’
+              ‘exp_rel (EL m xs) (EL m ys) ∧ MEM (EL m xs) xs’
                 by fs [EL_MEM]
               \\ last_x_assum (drule_all_then assume_tac)
               \\ gvs [AllCaseEqs (), v_rel_def, v_rel_rev])
@@ -567,14 +535,14 @@ Proof
             \\ first_x_assum drule
             \\ CASE_TAC \\ fs []
             \\ CASE_TAC \\ fs []
-            \\ ‘exp_rel ctxt (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
+            \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
               by fs [EL_MEM]
             \\ last_x_assum (drule_all_then assume_tac) \\ gs [v_rel_rev])
           \\ drule_then assume_tac map_LENGTH
           \\ dxrule_then drule_all map_INR \\ fs []
           \\ CASE_TAC \\ fs []
           \\ CASE_TAC \\ fs [] \\ rw []
-          \\ ‘exp_rel ctxt (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
+          \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
             by fs [EL_MEM]
           \\ last_x_assum (drule_all_then assume_tac)
           \\ gs [v_rel_rev])
@@ -582,7 +550,7 @@ Proof
         \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’]
         >- (
           gvs [map_INL]
-          \\ ‘exp_rel ctxt (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
+          \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
             by fs [EL_MEM]
           \\ last_x_assum (drule_all_then assume_tac)
           \\ gs [v_rel_def, AllCaseEqs ()])
@@ -597,7 +565,7 @@ Proof
         \\ dxrule_then drule map_INR \\ simp []
         \\ CASE_TAC \\ fs []
         \\ CASE_TAC \\ fs [] \\ rw []
-        \\ ‘exp_rel ctxt (EL x xs) (EL x ys) ∧ MEM (EL x xs) xs’
+        \\ ‘exp_rel (EL x xs) (EL x ys) ∧ MEM (EL x xs) xs’
           by fs [EL_MEM]
         \\ last_x_assum (drule_all_then assume_tac)
         \\ gvs [v_rel_rev])
