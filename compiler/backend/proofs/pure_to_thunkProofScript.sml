@@ -60,14 +60,14 @@ val _ = numLib.prefer_num ();
       when pureLang subst fails
  *)
 
-Overload Suspend = “λs y. Force (Value (Thunk F (Closure s y)))”;
+Overload Suspend = “λy. Force (Value (Thunk (INR y)))”;
 
 Inductive exp_rel:
 [exp_rel_Value:]
   (∀x y s.
      exp_rel x y ∧
-     s ∉ freevars y ⇒
-       exp_rel (Let s Fail x) (Suspend s y)) ∧
+     s ∉ freevars y (* Hmm *) ⇒
+       exp_rel (Let s Fail x) (Suspend y)) ∧
 [exp_rel_Var:]
   (∀n.
      exp_rel (Var n) (Force (Var n))) ∧
@@ -79,18 +79,16 @@ Inductive exp_rel:
   (∀f g x y s.
      exp_rel f g ∧
      exp_rel x y ∧
-     s ∉ freevars y ⇒
-       exp_rel (App f (Let s Fail x)) (App g (Delay F (Lam s y)))) ∧
+     s ∉ freevars y (* Hmm *) ⇒
+       exp_rel (App f (Let s Fail x)) (App g (Delay y))) ∧
 [exp_rel_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1; y1; z1] [x2; y2; z2] ⇒
        exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
 [exp_rel_Cons:]
-  (∀n ss xs ys.
-     LIST_REL exp_rel xs ys ∧
-     LIST_REL (λs y. s ∉ freevars y) ss ys ⇒
-       exp_rel (Cons n xs)
-               (Prim (Cons n) (MAP2 (λs y. Delay F (Lam s y)) ss ys))) ∧
+  (∀n xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Cons n xs) (Prim (Cons n) (MAP Delay ys))) ∧
 [exp_rel_Proj:]
   (∀s i xs ys.
      LIST_REL exp_rel xs ys ⇒
@@ -109,10 +107,15 @@ End
 
 Definition thunk_rel_def:
   thunk_rel x v ⇔
-    ∃s y.
-      v = Thunk F (Closure s y) ∧
-      s ∉ freevars y ∧
-      exp_rel x y
+    (∃y.
+       v = Thunk (INR y) ∧
+       exp_rel x y)
+  (*
+    (∃y w.
+       v = Thunk (INL w) ∧
+       eval_to 0 y = INR w
+       exp_rel x y)
+  *)
 End
 
 Definition v_rel_def[simp]:
@@ -179,6 +182,8 @@ Proof
     cheat (* TODO subst_def is broken *))
   >- ((* Delay *)
     fs [subst_def, freevars_def])
+  >- ((* Box *)
+    fs [subst_def, freevars_def])
   >- ((* Force *)
     fs [subst_def, freevars_def])
   >- ((* Value *)
@@ -221,9 +226,9 @@ Theorem exp_rel_subst:
   ∀x y a b n s.
     exp_rel x y ∧
     exp_rel a b ∧
-    s ∉ freevars b ⇒
+    s ∉ freevars b (* TODO Hmm *) ⇒
       exp_rel (subst n (Let s Fail a) x)
-              (subst1 n (Thunk F (Closure s b)) y)
+              (subst1 n (Thunk (INR b)) y)
 Proof
   ho_match_mp_tac pure_expTheory.freevars_ind \\ rw []
   >- ((* Var *)
@@ -240,10 +245,13 @@ Proof
     >- ((* Cons *)
       simp [subst_single_def, subst_def]
       \\ rw [Once exp_rel_cases]
-      \\ qmatch_goalsub_abbrev_tac ‘MAP f (MAP2 g _ _)’
-      \\ cheat (* Hmm... doesn't fit unless we manage to
-                  substitute past the lambda. It's not possible unless
-                  ‘n ∉ ss’? whats going on *))
+      \\ qmatch_goalsub_abbrev_tac ‘MAP f (MAP g _)’
+      \\ qexists_tac ‘MAP f ys’
+      \\ unabbrev_all_tac
+      \\ simp [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f, subst1_def]
+      \\ fs [LIST_REL_EL_EQN] \\ rw []
+      \\ first_x_assum irule \\ fs [MEM_EL]
+      \\ irule_at Any EQ_REFL \\ fs [])
     >- ((* Proj *)
       simp [subst_single_def, subst_def]
       \\ simp [Once exp_rel_cases, EVERY2_MAP]
@@ -262,19 +270,21 @@ Proof
     \\ rw [Once exp_rel_cases]
     >- ((* Gadget *)
       simp [Once exp_rel_cases, subst_single_def, subst_def]
+      \\ last_x_assum mp_tac
+      \\ simp [Once exp_rel_cases, PULL_EXISTS]
+      \\ disch_then (drule_all_then (qspec_then ‘n’ mp_tac))
+      \\ simp [subst1_def]
       \\ IF_CASES_TAC \\ fs []
+      \\ rw [Once exp_rel_cases]
+      \\ gvs [subst_single_def]
       \\ cheat (* TODO idk *))
     \\ cheat (* chaos *))
   >- ((* Lam *)
     qpat_x_assum ‘exp_rel (Lam n x) _’ mp_tac
     \\ rw [Once exp_rel_cases]
-    \\ simp [subst_single_def, subst_def]
+    \\ simp [subst_single_def, subst1_def]
     \\ IF_CASES_TAC \\ gvs []
-    >- (
-      irule exp_rel_Lam
-      \\ cheat (* TODO empty subst is empty *))
-    \\ irule exp_rel_Lam
-    \\ simp [])
+    \\ irule exp_rel_Lam \\ fs [])
   >- ((* Letrec *)
     cheat (* TODO *))
 QED
@@ -364,13 +374,13 @@ Proof
     >- ((* Cons *)
       simp [eval_wh_to_def, eval_to_def]
       \\ IF_CASES_TAC \\ fs []
-      \\ qmatch_goalsub_abbrev_tac ‘map f (MAP2 g _ _)’
-      \\ ‘∃res. map f (MAP2 g ss ys) = INR res’
-        by (Cases_on ‘map f (MAP2 g ss ys)’ \\ fs []
-            \\ gvs [map_INL, Abbr ‘f’, Abbr ‘g’, EL_MAP2, eval_to_def])
-      \\ simp [Abbr ‘f’, Abbr ‘g’]
+      \\ qmatch_goalsub_abbrev_tac ‘map f _’
+      \\ ‘∃res. map f (MAP Delay ys) = INR res’
+        by (Cases_on ‘map f (MAP Delay ys)’ \\ fs []
+            \\ gvs [map_INL, Abbr ‘f’, EL_MAP, eval_to_def])
+      \\ simp [Abbr ‘f’]
       \\ drule map_INR
-      \\ gvs [LIST_REL_EL_EQN, EL_MAP2, eval_to_def]
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP, eval_to_def]
       \\ disch_then (assume_tac o GSYM)
       \\ drule_then assume_tac map_LENGTH \\ gvs []
       \\ rw [thunk_rel_def])

@@ -25,14 +25,15 @@ Datatype:
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
-      | Delay bool exp                           (* delays a computation    *)
+      | Delay exp                                (* suspend in a Thunk      *)
+      | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
       | Value v;                                 (* for substitution        *)
 
   v = Constructor string (v list)
     | Closure vname exp
     | Recclosure ((vname # vname # exp) list) vname
-    | Thunk bool v
+    | Thunk (v + exp)
     | Atom lit
 End
 
@@ -48,13 +49,9 @@ Definition subst_def:
     If (subst m x) (subst m y) (subst m z) ∧
   subst m (App x y) = App (subst m x) (subst m y) ∧
   subst m (Lam s x) = Lam s (subst (FILTER (λ(n, x). n ≠ s) m) x) ∧
-  subst m (Letrec f x) =
-    (let m1 =
-       FILTER (λ(n, x). ¬MEM n (MAP FST f)) m in
-         Letrec (MAP (λ(f,xn,e).
-                  (f,xn,subst (FILTER (λ(n,x). n ≠ xn) m1) e)) f)
-                (subst m1 x)) ∧
-  subst m (Delay b x) = Delay b (subst m x) ∧
+  subst m (Letrec f x) = Letrec f x (* TODO *) ∧
+  subst m (Delay x) = Delay (subst m x) ∧
+  subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
   subst m (Value v) = Value v
 Termination
@@ -65,6 +62,31 @@ Termination
 End
 
 Overload subst1 = “λname v e. subst [(name,v)] e”;
+
+Theorem subst_empty:
+  subst [] x = x
+Proof
+  ‘∀m x. m = [] ⇒ subst m x = x’ suffices_by rw []
+  \\ ho_match_mp_tac subst_ind
+  \\ rw [subst_def]
+  \\ Induct_on ‘xs’ \\ fs []
+QED
+
+Theorem subst1_def:
+  subst1 n v (Var s) = (if n = s then Value v else Var s) ∧
+  subst1 n v (Prim op xs) = Prim op (MAP (subst1 n v) xs) ∧
+  subst1 n v (If x y z) =
+    If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
+  subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y) ∧
+  subst1 n v (Lam s x) = (if n = s then Lam s x else Lam s (subst1 n v x)) ∧
+  subst1 n v (Letrec f x) = Letrec f x (* TODO *) ∧
+  subst1 n v (Delay x) = Delay (subst1 n v x) ∧
+  subst1 n v (Box x) = Box (subst1 n v x) ∧
+  subst1 n v (Force x) = Force (subst1 n v x) ∧
+  subst1 n v (Value v) = Value v
+Proof
+  rw [subst_def, COND_RAND, subst_empty]
+QED
 
 Definition bind_def:
   bind m v = subst m v
@@ -82,7 +104,7 @@ Definition dest_Closure_def:
 End
 
 Definition dest_Thunk_def:
-  dest_Thunk (Thunk nf x) = return (nf, x) ∧
+  dest_Thunk (Thunk x) = return x ∧
   dest_Thunk _ = fail Type_error
 End
 
@@ -117,9 +139,9 @@ Definition freevars_def:
   freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b)   = freevars b DIFF {s} ∧
-  freevars (Letrec f x) =
-    freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
-  freevars (Delay f x) = freevars x ∧
+  freevars (Letrec f x) = ∅ (* TODO *) ∧
+  freevars (Delay x) = freevars x ∧
+  freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
   freevars (Value v) = ∅
 Termination
@@ -167,21 +189,19 @@ Definition eval_to_def:
          y <<- subst_funs funs x;
          eval_to (k - 1) y
        od) ∧
-  eval_to k (Delay f x) =
+  eval_to k (Delay x) = return (Thunk (INR x)) ∧
+  eval_to k (Box x) =
     (do
        v <- eval_to k x;
-       return (Thunk f v)
+       return (Thunk (INL v))
      od) ∧
   eval_to k (Force x) =
     (do
        v <- eval_to k x;
-       (nf, w) <- dest_Thunk v;
-       if nf then return w else
-         do
-           (s, body, post) <- dest_anyClosure w;
-           y <<- bind ((s, unit)::post) body;
-           if k = 0 then fail Diverge else eval_to (k - 1) y
-         od
+       wx <- dest_Thunk v;
+       case wx of
+         INL v => return v
+       | INR y => if k = 0 then fail Diverge else eval_to (k - 1) y
      od) ∧
   eval_to k (Prim op xs) =
     (if k = 0 then fail Diverge else
@@ -268,14 +288,14 @@ Proof
   >- ((* Delay *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
+  >- ((* Box *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ Cases_on ‘dest_Thunk y’ \\ fs []
-    \\ pairarg_tac \\ gvs []
-    \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘dest_anyClosure w’ \\ fs []
-    \\ pairarg_tac \\ gvs [bind_def]
+    \\ CASE_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Prim *)
     dsimp []

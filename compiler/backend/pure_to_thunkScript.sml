@@ -16,6 +16,7 @@ val _ = new_theory "pure_to_thunk";
  * need to evaluate all its arguments fully).
  *)
 
+(*
 Definition compile_exp_def:
   compile_exp (Var n : pure_exp$exp) = thunkLang_subst$Var n ∧
   compile_exp (Prim op xs) =
@@ -78,6 +79,6 @@ Proof
     \\ strip_tac
     \\ res_tac)
 QED
-
+ *)
 val _ = export_theory ();
 

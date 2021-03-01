@@ -28,7 +28,8 @@ Datatype:
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
-      | Delay bool exp                           (* delays a computation    *)
+      | Delay exp                                (* suspend in a Thunk      *)
+      | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
 End
 
@@ -36,7 +37,7 @@ Datatype:
   v = Constructor string (v list)
     | Closure vname ((vname # v) list) exp
     | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
-    | Thunk bool v
+    | Thunk (v + (vname # v) list # exp)
     | Atom lit
 End
 
@@ -51,7 +52,7 @@ Definition dest_Closure_def:
 End
 
 Definition dest_Thunk_def:
-  dest_Thunk (Thunk nf x) = return (nf, x) ∧
+  dest_Thunk (Thunk x) = return x ∧
   dest_Thunk _ = fail Type_error
 End
 
@@ -110,20 +111,19 @@ Definition eval_to_def:
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (bind_funs funs env) x) ∧
-  eval_to k env (Delay b x) =
+  eval_to k env (Delay x) = return (Thunk (INR (env, x))) ∧
+  eval_to k env (Box x) =
     (do
        v <- eval_to k env x;
-       return (Thunk b v)
+       return (Thunk (INL v))
      od) ∧
   eval_to k env (Force x) =
     (do
        v <- eval_to k env x;
-       (nf, w) <- dest_Thunk v;
-       if nf then return w else
-         do
-           (s, env, body) <- dest_anyClosure w;
-           if k = 0 then fail Diverge else eval_to (k - 1) ((s, unit)::env) body
-         od
+       wx <- dest_Thunk v;
+       case wx of
+         INL v => return v
+       | INR (env, y) => if k = 0 then fail Diverge else eval_to (k - 1) env y
      od) ∧
   eval_to k env (Prim op xs) =
     (if k = 0 then fail Diverge else
@@ -181,10 +181,10 @@ Definition freevars_def:
   freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
   freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
-  freevars (Lam s b)   = freevars b DIFF {s} ∧
-  freevars (Letrec f x) =
-    freevars x DIFF set (MAP FST f ++ MAP (FST o SND) f) ∧
-  freevars (Delay f x) = freevars x ∧
+  freevars (Lam s b) = freevars b DIFF {s} ∧
+  freevars (Letrec f x) = ∅ (* TODO *) ∧
+  freevars (Delay x) = freevars x ∧
+  freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’
@@ -230,14 +230,15 @@ Proof
   >- ((* Delay *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k env x’ \\ fs [])
+  >- ((* Box *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to k env x’ \\ fs [])
   >- ((* Force *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k env x’ \\ fs []
     \\ Cases_on ‘dest_Thunk y’ \\ fs []
-    \\ pairarg_tac \\ gvs []
-    \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on ‘dest_anyClosure w’ \\ fs []
-    \\ pairarg_tac \\ gvs []
+    \\ CASE_TAC \\ fs []
+    \\ CASE_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Prim *)
     dsimp []

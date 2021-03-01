@@ -18,7 +18,8 @@ Definition compile_exp_def:
     Letrec (MAP (λ(fn, vn, x). (fn, vn, compile_exp x)) f) (compile_exp x) ∧
   compile_exp (If x y z) =
     If (compile_exp x) (compile_exp y) (compile_exp z) ∧
-  compile_exp (Delay f x) = Delay f (compile_exp x) ∧
+  compile_exp (Delay x) = Delay (compile_exp x) ∧
+  compile_exp (Box x) = Box (compile_exp x) ∧
   compile_exp (Force x) = Force (compile_exp x) ∧
   compile_exp (Value v) = Lam "%dummy%" (Var "%dummy%")
 Termination
@@ -35,7 +36,8 @@ Definition rce_def:
   rce (Lam s x) = Lam s (rce x) ∧
   rce (Letrec f x) = Letrec (MAP (λ(fn, vn, x). (fn, vn, rce x)) f) (rce x) ∧
   rce (If x y z) = If (rce x) (rce y) (rce z) ∧
-  rce (Delay f x) = Delay f (rce x) ∧
+  rce (Delay x) = Delay (rce x) ∧
+  rce (Box x) = Box (rce x) ∧
   rce (Force x) = Force (rce x)
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ rw []
