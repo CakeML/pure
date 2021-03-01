@@ -11,6 +11,7 @@ open thunk_to_thunkTheory;
 val _ = new_theory "thunk_to_thunkProof";
 
 val _ = numLib.prefer_num ();
+ (*
 
 Inductive exp_rel:
 [exp_rel_Value:]
@@ -903,6 +904,6 @@ Proof
   \\ irule eval_rce
   \\ simp [compile_exp_rce]
 QED
-
+   *)
 val _ = export_theory ();
 

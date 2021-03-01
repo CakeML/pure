@@ -5,7 +5,9 @@
    thunkLang is the next language in the compiler after pureLang.
    - It has a call-by-value semantics.
    - It extends the pureLang syntax with explicit syntax for delaying and
-     forcing computations (“Delay” and “Force”) and “Thunk” values.
+     forcing computations (“Delay” and “Force”) and “Thunk” values. Non-
+     suspended thunks can be created with “Box”.
+   - Any expression bound by a Letrec must be one of “Lam”, “Delay” or “Box”.
    - This version has a substitution-based semantics. See
      [thunkLangScript.sml] for an environment-based version.
  *)
@@ -23,7 +25,7 @@ Datatype:
       | Prim op (exp list)                       (* primitive operations    *)
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
-      | Letrec ((vname # vname # exp) list) exp  (* mutually recursive exps *)
+      | Letrec ((vname # exp) list) exp          (* mutually recursive exps *)
       | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
@@ -32,7 +34,6 @@ Datatype:
 
   v = Constructor string (v list)
     | Closure vname exp
-    | Recclosure ((vname # vname # exp) list) vname
     | Thunk (v + exp)
     | Atom lit
 End
@@ -43,13 +44,15 @@ Definition subst_def:
   subst m (Var s) =
     (case ALOOKUP m s of
        NONE => Var s
-     | SOME x => Value x) ∧
+     | SOME x => x) ∧
   subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
   subst m (If x y z) =
     If (subst m x) (subst m y) (subst m z) ∧
   subst m (App x y) = App (subst m x) (subst m y) ∧
   subst m (Lam s x) = Lam s (subst (FILTER (λ(n, x). n ≠ s) m) x) ∧
-  subst m (Letrec f x) = Letrec f x (* TODO *) ∧
+  subst m (Letrec f x) =
+    (let m1 = FILTER (λ(n, v). ¬MEM n (MAP FST f)) m in
+       Letrec (MAP (λ(n, x). (n, subst m1 x)) f) (subst m1 x)) ∧
   subst m (Delay x) = Delay (subst m x) ∧
   subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
@@ -69,23 +72,28 @@ Proof
   ‘∀m x. m = [] ⇒ subst m x = x’ suffices_by rw []
   \\ ho_match_mp_tac subst_ind
   \\ rw [subst_def]
-  \\ Induct_on ‘xs’ \\ fs []
+  \\ rename1 ‘MAP _ xs’
+  \\ Induct_on ‘xs’ \\ fs [FORALL_PROD, SF SFY_ss]
 QED
 
 Theorem subst1_def:
-  subst1 n v (Var s) = (if n = s then Value v else Var s) ∧
+  subst1 n v (Var s) = (if n = s then v else Var s) ∧
   subst1 n v (Prim op xs) = Prim op (MAP (subst1 n v) xs) ∧
   subst1 n v (If x y z) =
     If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
   subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y) ∧
   subst1 n v (Lam s x) = (if n = s then Lam s x else Lam s (subst1 n v x)) ∧
-  subst1 n v (Letrec f x) = Letrec f x (* TODO *) ∧
+  subst1 n v (Letrec f x) =
+    (if MEM n (MAP FST f) then
+       Letrec f x
+     else
+       Letrec (MAP (λ(f, x). (f, subst1 n v x)) f) (subst1 n v x)) ∧
   subst1 n v (Delay x) = Delay (subst1 n v x) ∧
   subst1 n v (Box x) = Box (subst1 n v x) ∧
   subst1 n v (Force x) = Force (subst1 n v x) ∧
-  subst1 n v (Value v) = Value v
+  subst1 n v (Value w) = Value w
 Proof
-  rw [subst_def, COND_RAND, subst_empty]
+  rw [subst_def, COND_RAND, subst_empty, ELIM_UNCURRY]
 QED
 
 Definition bind_def:
@@ -95,40 +103,20 @@ End
 Overload bind1 = “λname v e. bind [(name,v)] e”;
 
 Definition subst_funs_def:
-  subst_funs f = bind (MAP (λ(g,v,x). (g, Recclosure f g)) f)
+  subst_funs f = bind (MAP (λ(g, x). (g, Letrec f x)) f)
 End
 
-Definition dest_Closure_def:
+Definition dest_Closure_def[simp]:
   dest_Closure (Closure s x) = return (s, x) ∧
   dest_Closure _ = fail Type_error
 End
 
-Definition dest_Thunk_def:
+Definition dest_Thunk_def[simp]:
   dest_Thunk (Thunk x) = return x ∧
   dest_Thunk _ = fail Type_error
 End
 
-Definition dest_Recclosure_def:
-  dest_Recclosure (Recclosure funs fn) = return (funs, fn) ∧
-  dest_Recclosure _ = fail Type_error
-End
-
-Definition dest_anyClosure_def:
-  dest_anyClosure v =
-    do
-      (s, bod) <- dest_Closure v;
-       return (s, bod, [])
-    od ++
-    do
-      (funs, fn) <- dest_Recclosure v;
-      case ALOOKUP funs fn of
-        SOME (var, bod) =>
-          return (var, bod, MAP (λ(g,v,x). (g, Recclosure funs g)) funs)
-      | NONE => fail Type_error
-    od
-End
-
-Definition dest_Constructor_def:
+Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
 End
@@ -139,16 +127,18 @@ Definition freevars_def:
   freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b)   = freevars b DIFF {s} ∧
-  freevars (Letrec f x) = ∅ (* TODO *) ∧
+  freevars (Letrec f x) =
+    ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
+     set (MAP FST f)) ∧
   freevars (Delay x) = freevars x ∧
   freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
   freevars (Value v) = ∅
 Termination
   WF_REL_TAC ‘measure exp_size’
-  \\ fs [] \\ gen_tac
-  \\ Induct \\ rw []
-  \\ res_tac
+  \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
   \\ fs [exp_size_def]
 End
 
@@ -167,8 +157,8 @@ Definition eval_to_def:
     (do
        fv <- eval_to k f;
        xv <- eval_to k x;
-       (s, body, post) <- dest_anyClosure fv;
-       y <<- bind ((s, xv)::post) body;
+       (s, body) <- dest_Closure fv;
+       y <<- bind1 s (Value xv) body;
        if k = 0 then fail Diverge else eval_to (k - 1) y
      od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
@@ -185,10 +175,7 @@ Definition eval_to_def:
        od) ∧
   eval_to k (Letrec funs x) =
     (if k = 0 then fail Diverge else
-       do
-         y <<- subst_funs funs x;
-         eval_to (k - 1) y
-       od) ∧
+       eval_to (k - 1) (subst_funs funs x)) ∧
   eval_to k (Delay x) = return (Thunk (INR x)) ∧
   eval_to k (Box x) =
     (do
@@ -272,8 +259,8 @@ Proof
     \\ rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ Cases_on ‘eval_to k y’ \\ fs []
-    \\ rename1 ‘dest_anyClosure z’
-    \\ Cases_on ‘dest_anyClosure z’ \\ fs []
+    \\ rename1 ‘dest_Closure z’
+    \\ Cases_on ‘dest_Closure z’ \\ fs []
     \\ pairarg_tac \\ gvs [bind_def]
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
@@ -284,10 +271,9 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ rw [] \\ fs [])
   >- ((* Letrec *)
-    rw [eval_to_def, subst_funs_def, bind_def])
+    rw [eval_to_def, subst_funs_def])
   >- ((* Delay *)
-    rw [eval_to_def]
-    \\ Cases_on ‘eval_to k x’ \\ fs [])
+    rw [eval_to_def])
   >- ((* Box *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
