@@ -34,6 +34,7 @@ Datatype:
 
   v = Constructor string (v list)
     | Closure vname exp
+    | Recclosure ((vname # exp) list) vname
     | Thunk (v + exp)
     | Atom lit
 End
@@ -44,7 +45,7 @@ Definition subst_def:
   subst m (Var s) =
     (case ALOOKUP m s of
        NONE => Var s
-     | SOME x => x) ∧
+     | SOME x => Value x) ∧
   subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
   subst m (If x y z) =
     If (subst m x) (subst m y) (subst m z) ∧
@@ -66,7 +67,7 @@ End
 
 Overload subst1 = “λname v e. subst [(name,v)] e”;
 
-Theorem subst_empty:
+Theorem subst_empty[simp]:
   subst [] x = x
 Proof
   ‘∀m x. m = [] ⇒ subst m x = x’ suffices_by rw []
@@ -77,7 +78,7 @@ Proof
 QED
 
 Theorem subst1_def:
-  subst1 n v (Var s) = (if n = s then v else Var s) ∧
+  subst1 n v (Var s) = (if n = s then Value v else Var s) ∧
   subst1 n v (Prim op xs) = Prim op (MAP (subst1 n v) xs) ∧
   subst1 n v (If x y z) =
     If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
@@ -103,12 +104,31 @@ End
 Overload bind1 = “λname v e. bind [(name,v)] e”;
 
 Definition subst_funs_def:
-  subst_funs f = bind (MAP (λ(g, x). (g, Letrec f x)) f)
+  subst_funs f = bind (MAP (λ(g, x). (g, Recclosure f g)) f)
 End
 
 Definition dest_Closure_def[simp]:
   dest_Closure (Closure s x) = return (s, x) ∧
   dest_Closure _ = fail Type_error
+End
+
+Definition dest_Recclosure_def[simp]:
+  dest_Recclosure (Recclosure f n) = return (f, n) ∧
+  dest_Recclosure _ = fail Type_error
+End
+
+Definition dest_anyClosure_def:
+  dest_anyClosure v =
+    do
+      (s, x) <- dest_Closure v;
+       return (s, x, [])
+    od ++
+    do
+      (f, n) <- dest_Recclosure v;
+      case ALOOKUP f n of
+        SOME (Lam s x) => return (s, x, MAP (λ(g, x). (g, Recclosure f g)) f)
+      | _ => fail Type_error
+    od
 End
 
 Definition dest_Thunk_def[simp]:
@@ -157,8 +177,8 @@ Definition eval_to_def:
     (do
        fv <- eval_to k f;
        xv <- eval_to k x;
-       (s, body) <- dest_Closure fv;
-       y <<- bind1 s (Value xv) body;
+       (s, body, binds) <- dest_anyClosure fv;
+       y <<- bind ((s, xv)::binds) body;
        if k = 0 then fail Diverge else
          do
            assert (closed x);
@@ -263,8 +283,8 @@ Proof
     \\ rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ Cases_on ‘eval_to k y’ \\ fs []
-    \\ rename1 ‘dest_Closure z’
-    \\ Cases_on ‘dest_Closure z’ \\ fs []
+    \\ rename1 ‘dest_anyClosure z’
+    \\ Cases_on ‘dest_anyClosure z’ \\ fs []
     \\ pairarg_tac \\ gvs [bind_def]
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
