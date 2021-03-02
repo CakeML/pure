@@ -159,7 +159,11 @@ Definition eval_to_def:
        xv <- eval_to k x;
        (s, body) <- dest_Closure fv;
        y <<- bind1 s (Value xv) body;
-       if k = 0 then fail Diverge else eval_to (k - 1) y
+       if k = 0 then fail Diverge else
+         do
+           assert (closed x);
+           eval_to (k - 1) y
+         od
      od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
   eval_to k (If x y z) =
