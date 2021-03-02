@@ -76,15 +76,10 @@ Proof
 QED
 
 Inductive exp_rel:
-(*
-[exp_rel_Value_Raw:]
-  (∀x y v.
-     exp_rel x y ∧
-     eval_to 0 v = y ⇒
-       exp_rel x (Raw v)) ∧ *)
 [exp_rel_Value_Suspend:]
   (∀x y.
-     exp_rel x y ⇒
+     exp_rel x y ∧
+     closed x ⇒
        exp_rel (Tick x) (Suspend y)) ∧
 [exp_rel_Var:]
   (∀n.
@@ -119,24 +114,16 @@ Inductive exp_rel:
        exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Letrec:]
   (∀f g x y.
-     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ exp_rel x y) f g ∧
+     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧
+       ∃z. y = Delay z ∧ exp_rel x z) f g ∧
      exp_rel x y ⇒
        exp_rel (Letrec f x) (Letrec g y))
 End
 
 Definition thunk_rel_def:
   thunk_rel x v ⇔
-    (* the computation is suspended *)
-    (∃y.
-       v = Thunk (INR y) ∧
-       exp_rel x y) (* ∨
-    TODO
-    (* the computation is already done *)
-    (∃y w.
-       v = Thunk (INL w) ∧
-       exp_rel x y ∧
-       eval_to 0 y = INR w)
-    *)
+    ∃y. v = Thunk (INR y) ∧
+        exp_rel x y
 End
 
 Definition v_rel_def[simp]:
@@ -169,85 +156,6 @@ Proof
   \\ Cases_on ‘err’ \\ fs [v_rel_def]
 QED
 
-(*
-Theorem subst_fresh[local]:
-  ∀m bod.
-    EVERY (λ(v, x). v ∉ freevars bod) m ⇒
-      subst m bod = bod
-Proof
-  ho_match_mp_tac subst_ind \\ rw []
-  >- ((* Var *)
-    fs [subst_def, EVERY_MEM, freevars_def, ELIM_UNCURRY]
-    \\ CASE_TAC \\ fs []
-    \\ drule_then assume_tac ALOOKUP_MEM
-    \\ gs [FORALL_PROD])
-  >- ((* Prim *)
-    fs [subst_def, EVERY_MEM, freevars_def, ELIM_UNCURRY]
-    \\ irule pure_miscTheory.MAP_ID_ON \\ rw []
-    \\ first_x_assum irule
-    \\ gs [DISJ_EQ_IMP, MEM_MAP]
-    \\ CCONTR_TAC
-    \\ qpat_x_assum ‘MEM _ _’ mp_tac \\ simp []
-    \\ fs [ELIM_UNCURRY]
-    \\ first_assum irule
-    \\ first_assum (irule_at Any) \\ fs [])
-  >- ((* If *)
-    fs [subst_def, EVERY_MEM, freevars_def, ELIM_UNCURRY])
-  >- ((* App *)
-    fs [subst_def, EVERY_MEM, freevars_def, ELIM_UNCURRY])
-  >- ((* Lam *)
-    fs [subst_def, EVERY_MEM, freevars_def, ELIM_UNCURRY]
-    \\ first_x_assum irule
-    \\ rw [MEM_FILTER]
-    \\ first_x_assum drule \\ fs [])
-  >- ((* Letrec *)
-    fs [subst_def]
-    \\ first_x_assum (irule_at Any) \\ fs []
-    \\ conj_tac
-    >- (
-      fs [EVERY_MEM, MEM_FILTER]
-      \\ simp [FORALL_PROD]
-      \\ rw []
-      \\ fs [MEM_MAP, FORALL_PROD]
-      \\ first_x_assum (drule_then assume_tac)
-      \\ fs [freevars_def]
-      \\ gvs [MEM_MAP, FORALL_PROD]
-      \\ PairCases_on ‘y’
-      \\ first_x_assum (drule_then assume_tac)
-      \\ strip_tac
-      \\
-    )
-    \\ fs [EVERY_MEM, freevars_def]
-    \\
-    \\
-    cheat (* TODO subst_def is broken *))
-  >- ((* Delay *)
-    fs [subst_def, freevars_def])
-  >- ((* Box *)
-    fs [subst_def, freevars_def])
-  >- ((* Force *)
-    fs [subst_def, freevars_def])
-  >- ((* Value *)
-    fs [subst_def, freevars_def])
-QED
-(**)
-Theorem subst1_fresh[local]:
-  v ∉ freevars bod ⇒
-    subst1 v x bod = bod
-Proof
-  strip_tac
-  \\ irule_at Any subst_fresh \\ fs []
-QED
-(**)
-Theorem bind1_fresh[local]:
-  v ∉ freevars bod ⇒
-  bind1 v x bod = bod
-Proof
-  strip_tac
-  \\ simp [bind_def, subst1_fresh]
-QED
-*)
-
 (* TODO Move to thunkLang_subst *)
 Theorem eval_to_subst_mono_le[local]:
   ∀k x j. eval_to k x ≠ INL Diverge ∧ k ≤ j ⇒ eval_to j x = eval_to k x
@@ -264,14 +172,36 @@ Proof
   \\ Cases_on ‘n’ \\ simp []
 QED
 
+Theorem exp_ind_alt[local]:
+ ∀P.
+   (∀n. P (Var n: pure_exp$exp)) ∧
+   (∀v0 es. (∀a. MEM a es ⇒ P a) ⇒ P (Prim v0 es)) ∧
+   (∀e1 e2. (∀e3. exp_size e3 ≤ exp_size e2 ⇒ P e3) ∧ P e1 ⇒ P (App e1 e2)) ∧
+   (∀n e. P e ⇒ P (Lam n e)) ∧
+   (∀lcs e. (∀fn e'. MEM (fn,e') lcs ⇒ P e') ∧ P e ⇒ P (Letrec lcs e)) ⇒
+     ∀v. P v
+Proof
+  gen_tac
+  \\ strip_tac
+  \\ gen_tac
+  \\ completeInduct_on ‘exp_size v’ \\ rw []
+  \\ fs [PULL_FORALL]
+  \\ Cases_on ‘v’ \\ fs []
+  \\ last_x_assum irule \\ rw []
+  \\ first_x_assum irule
+  \\ fs [pure_expTheory.exp_size_def]
+  \\ imp_res_tac pure_expTheory.exp_size_lemma \\ fs []
+QED
+
 Theorem exp_rel_subst:
   ∀x y a b n s.
     exp_rel x y ∧
-    exp_rel a b ⇒
+    exp_rel a b ∧
+    closed a ⇒
       exp_rel (subst n (Tick a) x)
-              (subst1 n (Value (Thunk (INR b))) y)
+              (subst1 n (Thunk (INR b)) y)
 Proof
-  ho_match_mp_tac pure_expTheory.freevars_ind \\ rw []
+  ho_match_mp_tac exp_ind_alt \\ rw []
   >- ((* Var *)
     simp [subst_single_def]
     \\ ‘y = Force (Var n)’ by fs [Once exp_rel_cases]
@@ -312,9 +242,8 @@ Proof
     \\ qmatch_asmsub_rename_tac ‘exp_rel x y’
     \\ simp [subst_single_def, subst1_def]
     \\ irule exp_rel_App \\ fs []
-    \\ cheat (* this doesn't add up.
-                induction means I need “exp_rel (Tick x) ...”
-                but that's backwards *))
+    \\ first_x_assum irule
+    \\ fs [pure_expTheory.exp_size_def])
   >- ((* Lam *)
     qpat_x_assum ‘exp_rel (Lam n x) _’ mp_tac
     \\ rw [Once exp_rel_cases]
@@ -326,8 +255,7 @@ Proof
     \\ rw [Once exp_rel_cases]
     >- ((* Suspend *)
       fs [subst_single_def, subst1_def]
-      \\ irule exp_rel_Value_Suspend
-      \\ cheat (* Wrong: mismatch. There's one tick too many here *))
+      \\ irule exp_rel_Value_Suspend \\ fs [])
     \\ simp [subst_single_def, subst1_def]
     \\ ‘MAP FST g = MAP FST lcs’
       by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
@@ -342,6 +270,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ first_x_assum drule
     \\ pairarg_tac \\ gvs [] \\ rw []
+    \\ simp [subst1_def]
     \\ first_x_assum irule \\ fs []
     \\ simp [MEM_EL]
     \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -349,79 +278,59 @@ Proof
 QED
 
 Theorem exp_rel_freevars:
-  ∀x y. exp_rel x y ⇒ freevars y ⊆ freevars x
+  ∀x y. exp_rel x y ⇒ freevars x = freevars y
 Proof
-  ho_match_mp_tac pure_expTheory.freevars_ind \\ rw []
-  >- (
-    fs [Once exp_rel_cases, freevars_def])
+  ho_match_mp_tac exp_rel_ind \\ rw []
+  \\ fs [freevars_def, pure_expTheory.closed_def, DELETE_DEF,
+         AC UNION_COMM UNION_ASSOC, MAP_MAP_o, combinTheory.o_DEF]
   >- (
     pop_assum mp_tac
-    \\ rw [Once exp_rel_cases]
-    \\ fs [freevars_def, SF DNF_ss]
-    >- (
-      res_tac
-      \\ fs [SF SFY_ss, AC UNION_COMM UNION_ASSOC, SUBSET_DEF])
-    \\ simp [MAP_MAP_o, combinTheory.o_DEF, freevars_def]
-    \\ ‘LIST_REL (λx y. freevars y ⊆ freevars x) es ys’
-      by (gvs [LIST_REL_EL_EQN] \\ rw []
-          \\ first_x_assum irule \\ fs [EL_MEM])
-    \\ pop_assum mp_tac
-    \\ rpt (pop_assum kall_tac)
     \\ qid_spec_tac ‘ys’
-    \\ Induct_on ‘es’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
-    \\ first_x_assum (drule_then assume_tac) \\ fs []
-    \\ fs [SUBSET_DEF])
+    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
+    \\ res_tac \\ fs [])
   >- (
     pop_assum mp_tac
-    \\ rw [Once exp_rel_cases]
-    \\ fs [freevars_def, AC UNION_COMM UNION_ASSOC]
-    \\ res_tac
-    \\ irule_at Any SUBSET_TRANS
-    \\ first_assum (irule_at Any) \\ fs []
-    \\ irule_at Any SUBSET_TRANS
-    \\ first_assum (irule_at Any) \\ fs []
-    \\ cheat (* Something is wrong with exp_rel I guess *))
+    \\ qid_spec_tac ‘ys’
+    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
+    \\ res_tac \\ fs [])
   >- (
     pop_assum mp_tac
-    \\ rw [Once exp_rel_cases]
-    \\ fs [freevars_def, DELETE_DEF, SUBSET_DEF, SF SFY_ss])
+    \\ qid_spec_tac ‘ys’
+    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
+    \\ res_tac \\ fs [])
   >- (
-    pop_assum mp_tac
-    \\ rw [Once exp_rel_cases] \\ fs [freevars_def]
-    \\ rename1 ‘freevars y ∪ _ DIFF _ ⊆ _’
-    \\ ‘MAP FST g = MAP FST lcs’
+    ‘MAP FST f = MAP FST g’
       by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
           \\ rpt (pop_assum kall_tac)
           \\ qid_spec_tac ‘g’
-          \\ Induct_on ‘lcs’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
+          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
     \\ fs []
-    \\ ‘LIST_REL (λ(fn, x) (gn, y). freevars y ⊆ freevars x) lcs g’
-      by (gvs [LIST_REL_EL_EQN] \\ rw []
-          \\ pairarg_tac \\ gvs []
-          \\ pairarg_tac \\ gvs []
-          \\ first_x_assum irule \\ fs [EL_MEM]
-          \\ first_x_assum drule
-          \\ pairarg_tac \\ gvs [] \\ rw [MEM_EL]
-          \\ first_assum (irule_at Any) \\ fs [])
-    \\ qmatch_goalsub_abbrev_tac ‘A ∪ B DIFF C ⊆ A1 ∪ B1 DIFF C’
-    \\ ‘B ⊆ B1’
-      by (unabbrev_all_tac
-          \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ qid_spec_tac ‘g’
-          \\ Induct_on ‘lcs’ \\ Cases_on ‘g’ \\ simp []
-          \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
-          \\ irule_at Any SUBSET_TRANS
-          \\ first_assum (irule_at Any) \\ fs [])
-    \\ fs [SUBSET_DEF]
-    \\ rw [] \\ fs []
-    \\ unabbrev_all_tac
-    \\ fs [SF SFY_ss])
+    \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
+    \\ last_x_assum mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ qid_spec_tac ‘g’
+    \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp []
+    \\ gen_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rw [] \\ fs [freevars_def])
+QED
+
+Theorem exp_rel_closed:
+  exp_rel x y ⇒ closed x = closed y
+Proof
+  metis_tac [closed_def, pure_expTheory.closed_def, exp_rel_freevars,
+             pure_miscTheory.NIL_iff_NOT_MEM]
+QED
+
+Theorem closed_Delay[local,simp]:
+  closed (Delay x) = closed x
+Proof
+  rw [closed_def, freevars_def]
 QED
 
 Theorem exp_rel_subst_funs[local]:
-  ∀f x g y.
-    LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ exp_rel x y) f g ∧
+  ∀x f g y.
+    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ ∃z. y = Delay z ∧ exp_rel x z) f g ∧
     exp_rel x y ⇒
       exp_rel (subst_funs f x) (subst_funs g y)
 Proof
@@ -465,17 +374,21 @@ Proof
     \\ simp []
     \\ Cases_on ‘dest_wh_Closure (eval_wh_to k x)’ \\ fs []
     >- ((* not a pureLang closure: thunk sem must also error *)
-      Cases_on ‘eval_wh_to k x’ \\ Cases_on ‘res’ \\ gvs [])
+      Cases_on ‘eval_wh_to k x’ \\ Cases_on ‘res’ \\ gvs [dest_anyClosure_def])
     \\ BasicProvers.TOP_CASE_TAC \\ fs []
     \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
-    \\ Cases_on ‘res’ \\ gvs []
+    \\ Cases_on ‘res’ \\ gvs [dest_anyClosure_def]
     \\ IF_CASES_TAC \\ fs []
-    \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE, bind_def, closed_def]
-    \\ imp_res_tac exp_rel_freevars
-    \\ reverse IF_CASES_TAC \\ fs []
-    >- cheat (* TODO need freevars to walk past values *)
+    \\ rename1 ‘Tick z1’
+    \\ rename1 ‘exp_rel z1 z2’
+    \\ imp_res_tac exp_rel_closed \\ gvs []
+    \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE, bind_def, closed_def,
+           pure_expTheory.closed_def]
+    \\ ‘∀k. eval_wh_to k Fail = wh_Error’ by cheat (* TODO Fix in pure_eval *)
+    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
-    \\ irule exp_rel_subst \\ fs [])
+    \\ irule exp_rel_subst
+    \\ fs [pure_expTheory.closed_def])
   >- ((* Letrec *)
     rw []
     \\ pop_assum mp_tac
