@@ -1061,7 +1061,13 @@ Proof
     CASE_TAC >> gvs[v_lookup] >>
     imp_res_tac getAtoms_eval_to_SOME >> fs[]
     )
-  \\ Cases_on ‘y’ \\ cheat
+  \\ Cases_on ‘y’
+  \\ fs [gen_v_nullary_Constructor,v_limit_eqn]
+  \\ qexists_tac `k` >> strip_tac >> strip_tac >>
+  drule LIST_MAP_eval_to_not_diverge_mono >> disch_then drule >> fs[] >>
+  strip_tac >>
+  CASE_TAC >> gvs[v_lookup] >>
+  imp_res_tac getAtoms_eval_to_SOME >> fs[]
 QED
 
 Theorem eval_Fail:
