@@ -94,7 +94,6 @@ Definition eval_wh_to_def:
                                                      else wh_Error
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
-      | Lit l => (if xs = [] then wh_Atom l else wh_Error)
       | If =>
         (if LENGTH xs ≠ 3 then wh_Error else
            case HD vs of
@@ -150,8 +149,6 @@ Proof
     \\ Cases_on ‘n = 0’ \\ fs [])
   THEN1 (Cases_on ‘n = 0’ \\ fs [])
   \\ Cases_on ‘∃s. p = Cons s’ \\ gvs []
-  THEN1 (rw [] \\ fs [])
-  \\ Cases_on ‘∃s. p = Lit s’ \\ gvs []
   THEN1 (rw [] \\ fs [])
   \\ Cases_on ‘p = Seq’ \\ gvs []
   THEN1
@@ -301,13 +298,6 @@ QED
 
 Theorem eval_wh_Cons:
   eval_wh (Cons s xs) = wh_Constructor s xs
-Proof
-  fs [Once eval_wh_eq,eval_wh_to_def]
-  \\ qexists_tac ‘1’ \\ fs []
-QED
-
-Theorem eval_wh_Lit:
-  eval_wh (Lit l) = wh_Atom l
 Proof
   fs [Once eval_wh_eq,eval_wh_to_def]
   \\ qexists_tac ‘1’ \\ fs []
@@ -635,8 +625,7 @@ Theorem eval_wh_Prim:
       | SOME (SOME as) =>
         case config.parAtomOp a as of
           NONE => wh_Error
-        | SOME v => wh_Atom v) ∧
-  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error)
+        | SOME v => wh_Atom v)
 Proof
   rw[]
   >- (
@@ -717,12 +706,6 @@ Proof
     TOP_CASE_TAC >> gvs[] >>
     imp_res_tac get_atoms_eval_wh_SOME >> simp[]
     )
-  >- simp[eval_wh_Lit]
-  >- (
-    simp[eval_wh_def] >>
-    DEEP_INTRO_TAC some_intro >> rw[eval_wh_to_def] >>
-    qexists_tac `1` >> simp[]
-    )
 QED
 
 Theorem eval_wh_Prim_alt:
@@ -758,7 +741,6 @@ Theorem eval_wh_Prim_alt:
         case config.parAtomOp a as of
           NONE => wh_Error
         | SOME v => wh_Atom v) ∧
-  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error) ∧
   eval_wh (Prim Seq xs) =
     if LENGTH xs ≠ 2 then wh_Error else
     if MEM wh_Error (MAP eval_wh xs) then wh_Error else
@@ -787,7 +769,6 @@ Theorem eval_wh_thm:
                              then eval_wh (EL i ys) else wh_Error
     | wh_Diverge => wh_Diverge
     | _ => wh_Error) ∧
-  eval_wh (Lit l) = wh_Atom l ∧
   eval_wh (If x y z) =
     (if eval_wh x = wh_Diverge then wh_Diverge else
      if eval_wh x = wh_True    then eval_wh y  else
@@ -808,7 +789,7 @@ Theorem eval_wh_thm:
   eval_wh Bottom = wh_Diverge
 Proof
   fs [eval_wh_Lam,eval_wh_Var,eval_wh_App,eval_wh_Letrec,eval_wh_Cons,
-      eval_wh_Bottom,eval_wh_Lit,eval_wh_Fail,eval_wh_If,eval_wh_IsEq,
+      eval_wh_Bottom,eval_wh_Fail,eval_wh_If,eval_wh_IsEq,
       eval_wh_Proj,eval_wh_Seq]
 QED
 
@@ -978,12 +959,6 @@ Proof
   \\ simp [Once v_unfold]
 QED
 
-Theorem eval_Lit:
-  eval (Lit l) = Atom l
-Proof
-  simp [eval_def,Once v_unfold,eval_wh_thm]
-QED
-
 Theorem eval_Let:
   eval (Let s x y) = eval (bind s x y)
 Proof
@@ -1010,7 +985,6 @@ Theorem eval_thm:
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
-  eval (Lit l) = Atom l ∧
   eval (Let s x y) = eval (bind s x y) ∧
   eval (If x y z) =
     (if eval x = Diverge then Diverge  else
@@ -1026,7 +1000,7 @@ Theorem eval_thm:
          | SOME (s,body) => eval (bind s y body))
 Proof
   fs [eval_App,eval_Fail,eval_Bottom,eval_Var,eval_Cons,eval_Lam,eval_Letrec,
-      eval_If,eval_Proj,eval_IsEq,eval_Lit]
+      eval_If,eval_Proj,eval_IsEq]
 QED
 
 val _ = export_theory();

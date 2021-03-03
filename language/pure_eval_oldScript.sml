@@ -79,7 +79,6 @@ Definition eval_op_def:
        case OPTION_BIND (getAtoms xs) (config.parAtomOp a) of
           SOME b => Atom b
         | _      => Error )  ∧
-  (eval_op (Lit b) [] = Atom b) ∧
   (eval_op _ _ = Error)
 End
 
@@ -1058,15 +1057,6 @@ Proof
     )
 QED
 
-Theorem eval_Lit:
-  eval (Prim (Lit b) []) = Atom b ∧
-  eval (Prim (Lit b) (x::xs)) = Error
-Proof
-  fs[eval_def, eval_to_def, eval_op_def] >>
-  once_rewrite_tac[gen_v] >> fs[] >>
-  fs[v_limit_def, v_lookup]
-QED
-
 Theorem eval_Fail:
   eval Fail = Error
 Proof
@@ -1105,7 +1095,6 @@ Proof
     \\ fs [v_limit_def,v_lookup]
     )
   >- fs[eval_PrimOp, eval_op_def] (* AtomOp *)
-  >- (Cases_on `xs` >> fs[eval_Lit, eval_op_def]) (* Lit *)
   \\ fs[eval_PrimOp, eval_op_def]
   \\ fs [eval_def,eval_to_def,Once gen_v,eval_op_def]
   \\ fs [v_limit_def,v_lookup]
