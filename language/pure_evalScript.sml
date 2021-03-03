@@ -74,8 +74,7 @@ Definition eval_wh_to_def:
   eval_wh_to k (Letrec f y) =
     (if k = 0 then wh_Diverge else eval_wh_to (k − 1) (subst_funs f y)) ∧
   eval_wh_to k (Prim p xs) =
-    if k = 0n then wh_Diverge else
-    let vs = MAP (eval_wh_to (k-1)) xs in
+    let vs = MAP (if k = 0n then K wh_Diverge else eval_wh_to (k-1)) xs in
       case p of
       | Cons s => wh_Constructor s xs
       | Proj s i =>
@@ -117,6 +116,7 @@ Definition eval_wh_to_def:
              | NONE => wh_Error)
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x).(k,(exp_size x)))`
+  \\ rw [] \\ Cases_on ‘xs’ \\ fs []
 End
 
 Definition eval_wh_def:
@@ -125,6 +125,12 @@ Definition eval_wh_def:
     | SOME k => eval_wh_to k e
     | NONE => wh_Diverge
 End
+
+Theorem eval_wh_to_Fail[simp]:
+  eval_wh_to k Fail = wh_Error
+Proof
+  fs [eval_wh_to_def]
+QED
 
 Theorem eval_wh_eq_Diverge:
   eval_wh e = wh_Diverge ⇔ ∀k. eval_wh_to k e = wh_Diverge
@@ -152,8 +158,7 @@ Proof
     \\ TOP_CASE_TAC \\ PairCases_on ‘x'’ \\ fs []
     \\ Cases_on ‘n = 0’ \\ fs [])
   THEN1 (Cases_on ‘n = 0’ \\ fs [])
-  \\ Cases_on ‘∃s. p = Cons s’ \\ gvs []
-  THEN1 (rw [] \\ fs [])
+  \\ Cases_on ‘∃s. p = Cons s’ THEN1 gvs [] \\ gvs []
   \\ Cases_on ‘p = Seq’ \\ gvs []
   THEN1
    (Cases_on ‘n = 0’ \\ fs []
@@ -161,7 +166,8 @@ Proof
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ fs [PULL_FORALL]
     \\ full_simp_tac std_ss [SF DNF_ss]
-    \\ rpt (last_x_assum (qspec_then ‘n-1’ assume_tac))
+    \\ last_assum (qspecl_then [‘h’,‘n-1’] assume_tac)
+    \\ last_x_assum (qspecl_then [‘h'’,‘n-1’] assume_tac)
     \\ gvs []
     \\ Cases_on ‘eval_wh_to (n − 1) h = wh_Error’ \\ fs []
     \\ Cases_on ‘eval_wh_to (n − 1) h' = wh_Error’ \\ fs []
@@ -175,16 +181,13 @@ Proof
     \\ ‘n-1 ≤ k-1’ by fs []
     \\ first_x_assum (first_assum o mp_then (Pos last) mp_tac)
     \\ Cases_on ‘eval_wh_to (n − 1) h’ \\ fs []
-    \\ first_assum (qspec_then ‘h'’ assume_tac) \\ fs []
-    \\ first_x_assum (qspec_then ‘h''’ assume_tac) \\ fs []
-    \\ ‘n-1 ≤ k-1’ by fs []
-    \\ rpt (first_x_assum (first_assum o mp_then (Pos last) mp_tac))
     \\ rw [] \\ gvs [])
   \\ Cases_on ‘∃s. p = AtomOp s’ \\ gvs []
   THEN1
    (Cases_on ‘n = 0’ \\ fs []
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [PULL_FORALL,AND_IMP_INTRO]
+    THEN1 (Cases_on ‘xs’ \\ fs [get_atoms_def])
     \\ ‘n-1 ≤ k-1’ by fs []
     \\ rpt (first_x_assum (first_assum o mp_then (Pos last) mp_tac))
     \\ Cases_on ‘get_atoms (MAP (λa. eval_wh_to (n − 1) a) xs) = NONE’ \\ fs []
@@ -310,8 +313,7 @@ QED
 Theorem eval_wh_Fail:
   eval_wh Fail = wh_Error
 Proof
-  fs [Once eval_wh_eq,eval_wh_to_def]
-  \\ qexists_tac ‘1’ \\ fs []
+  fs [eval_wh_def] \\ DEEP_INTRO_TAC some_intro \\ rw[]
 QED
 
 Theorem eval_wh_Seq:
@@ -329,10 +331,11 @@ Proof
   THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
          \\ qexists_tac ‘k+1’ \\ fs [])
   \\ fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
-  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
+         \\ rw [] \\ Cases_on ‘k’ \\ gvs [])
   \\ fs [eval_wh_eq] \\ fs [eval_wh_to_def]
-  \\ disj2_tac
-  \\ Cases_on ‘eval_wh y = wh_Diverge’ \\ fs [eval_wh_eq]
+  \\ IF_CASES_TAC \\ gvs [] \\ rw []
+  \\ every_case_tac \\ gvs []
   \\ qexists_tac ‘k+k'+1’ \\ fs []
   \\ ‘eval_wh_to (k+k') x = eval_wh_to k x’ by (match_mp_tac eval_wh_inc \\ fs [])
   \\ ‘eval_wh_to (k+k') y = eval_wh_to k' y’ by (match_mp_tac eval_wh_inc \\ fs [])
@@ -346,7 +349,7 @@ Theorem eval_wh_If:
     if eval_wh x = wh_False   then eval_wh z  else wh_Error
 Proof
   fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
-  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def] \\ rw [])
   \\ Cases_on ‘eval_wh x’ \\ fs []
   \\ TRY (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
           \\ qexists_tac ‘k+1’ \\ fs [] \\ NO_TAC)
@@ -379,7 +382,7 @@ Theorem eval_wh_IsEq:
     | _ => wh_Error
 Proof
   fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
-  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def] \\ rw [])
   \\ Cases_on ‘eval_wh x’ \\ fs []
   \\ TRY (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
           \\ qexists_tac ‘k+1’ \\ fs [] \\ NO_TAC)
@@ -398,7 +401,7 @@ Theorem eval_wh_Proj:
     | _ => wh_Error
 Proof
   fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
-  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def] \\ rw [])
   \\ Cases_on ‘eval_wh x’ \\ fs []
   \\ TRY (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
           \\ qexists_tac ‘k+1’ \\ fs [] \\ NO_TAC)
@@ -659,7 +662,7 @@ Proof
     )
   >- (
     gvs[eval_wh_def, eval_wh_to_def] >>
-    DEEP_INTRO_TAC some_intro >> rw[] >> qexists_tac `1` >> gvs[]
+    DEEP_INTRO_TAC some_intro >> rw[]
     )
   >- (
     Cases_on `xs`
@@ -707,7 +710,8 @@ Proof
     pop_assum mp_tac >>
     DEEP_INTRO_TAC some_intro >> rw[] >>
     gvs[eval_wh_to_def] >>
-    IF_CASES_TAC >> gvs[] >>
+    IF_CASES_TAC >> gvs[]
+    THEN1 (Cases_on ‘xs’ \\ fs [get_atoms_def]) >>
     TOP_CASE_TAC >> gvs[] >>
     TOP_CASE_TAC >> gvs[] >>
     imp_res_tac get_atoms_eval_wh_SOME >> simp[] >>
