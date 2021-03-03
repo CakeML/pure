@@ -105,12 +105,16 @@ Definition eval_wh_to_def:
       | Seq =>
         (if LENGTH xs ≠ 2 ∨ MEM wh_Error vs then wh_Error else
          if MEM wh_Diverge vs then wh_Diverge else LAST vs)
-      | AtomOp a =>
+      | AtomOp op =>
         (case get_atoms vs of
          | NONE => wh_Diverge
          | SOME NONE => wh_Error
          | SOME (SOME as) =>
-             case config.parAtomOp a as of SOME v => wh_Atom v | NONE => wh_Error)
+             case eval_op op as of
+             | SOME (INL v) => wh_Atom v
+             | SOME (INR T) => wh_True
+             | SOME (INR F) => wh_False
+             | NONE => wh_Error)
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λ(k,x).(k,(exp_size x)))`
 End
@@ -617,15 +621,17 @@ Theorem eval_wh_Prim:
            if eval_wh x = wh_Diverge then wh_Diverge else
              eval_wh y)
       | _ => wh_Error) ∧
-  eval_wh (Prim (AtomOp a) xs) =
-    (let vs = MAP (λx. eval_wh x) xs in
+  eval_wh (Prim (AtomOp op) xs) =
+    (let vs = MAP eval_wh xs in
      case get_atoms vs of
         NONE => wh_Diverge
       | SOME NONE => wh_Error
       | SOME (SOME as) =>
-        case config.parAtomOp a as of
-          NONE => wh_Error
-        | SOME v => wh_Atom v)
+        case eval_op op as of
+        | SOME (INL v) => wh_Atom v
+        | SOME (INR T) => wh_True
+        | SOME (INR F) => wh_False
+        | NONE => wh_Error)
 Proof
   rw[]
   >- (
@@ -694,17 +700,18 @@ Proof
       `∀k. get_atoms (MAP (λa. eval_wh_to k a) xs) = NONE` by (
         CCONTR_TAC >> gvs[] >>
         first_x_assum (qspec_then `SUC k` assume_tac) >> gvs[] >>
-        FULL_CASE_TAC >> gvs[] >> FULL_CASE_TAC >> gvs[] >>
-        FULL_CASE_TAC >> gvs[]) >>
+        rpt (FULL_CASE_TAC >> gvs[])) >>
       EVERY_CASE_TAC >> gvs[] >>
-      imp_res_tac get_atoms_eval_wh_NONE >> gvs[]
+      imp_res_tac get_atoms_eval_wh_NONE >> gvs[SF ETA_ss]
       ) >>
     pop_assum mp_tac >>
     DEEP_INTRO_TAC some_intro >> rw[] >>
     gvs[eval_wh_to_def] >>
     IF_CASES_TAC >> gvs[] >>
     TOP_CASE_TAC >> gvs[] >>
-    imp_res_tac get_atoms_eval_wh_SOME >> simp[]
+    TOP_CASE_TAC >> gvs[] >>
+    imp_res_tac get_atoms_eval_wh_SOME >> simp[] >>
+    gvs[SF ETA_ss]
     )
 QED
 
@@ -732,15 +739,17 @@ Theorem eval_wh_Prim_alt:
           if t = c ∧ n < LENGTH ys then eval_wh (EL n ys) else wh_Error
       | wh_Diverge => wh_Diverge
       | _ => wh_Error) ∧
-  eval_wh (Prim (AtomOp a) xs) =
-    (let vs = MAP (λx. eval_wh x) xs in
+  eval_wh (Prim (AtomOp op) xs) =
+    (let vs = MAP eval_wh xs in
      case get_atoms vs of
         NONE => wh_Diverge
       | SOME NONE => wh_Error
       | SOME (SOME as) =>
-        case config.parAtomOp a as of
-          NONE => wh_Error
-        | SOME v => wh_Atom v) ∧
+        case eval_op op as of
+        | SOME (INL v) => wh_Atom v
+        | SOME (INR T) => wh_True
+        | SOME (INR F) => wh_False
+        | NONE => wh_Error) ∧
   eval_wh (Prim Seq xs) =
     if LENGTH xs ≠ 2 then wh_Error else
     if MEM wh_Error (MAP eval_wh xs) then wh_Error else

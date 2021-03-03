@@ -76,8 +76,10 @@ Definition eval_op_def:
   (eval_op (Proj s i) [x] = el s i x) ∧
   (eval_op (AtomOp a) xs =
      if MEM Diverge xs then Diverge else
-       case OPTION_BIND (getAtoms xs) (config.parAtomOp a) of
-          SOME b => Atom b
+       case OPTION_BIND (getAtoms xs) (pure_config$eval_op a) of
+        | SOME (INL b) => Atom b
+        | SOME (INR T) => True
+        | SOME (INR F) => False
         | _      => Error )  ∧
   (eval_op _ _ = Error)
 End
@@ -1021,9 +1023,11 @@ Theorem eval_PrimOp:
   eval (Prim (AtomOp a) es) =
   (let xs = MAP eval es in
    if MEM Diverge xs then Diverge else
-      case OPTION_BIND (getAtoms xs) (config.parAtomOp a) of
-       | (SOME n) => Atom n
-       | _        => Error)
+      case OPTION_BIND (getAtoms xs) (eval_op a) of
+       | SOME (INL n) => Atom n
+       | SOME (INR T) => True
+       | SOME (INR F) => False
+       | _            => Error)
 Proof
   fs[] >> rw[]
   >- (
@@ -1047,6 +1051,8 @@ Proof
     CASE_TAC >> gvs[v_lookup] >>
     imp_res_tac getAtoms_eval_to_SOME >> fs[]
     )
+  \\ Cases_on ‘x’
+  \\ fs[eval_def, eval_to_def, gen_v_Error, gen_v_Atom, eval_op_def]
   >- (
     qexists_tac `0` >> fs[v_limit_eqn] >>
     qexists_tac `k` >> strip_tac >> strip_tac >>
@@ -1055,6 +1061,7 @@ Proof
     CASE_TAC >> gvs[v_lookup] >>
     imp_res_tac getAtoms_eval_to_SOME >> fs[]
     )
+  \\ Cases_on ‘y’ \\ cheat
 QED
 
 Theorem eval_Fail:
