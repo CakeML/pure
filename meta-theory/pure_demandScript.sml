@@ -188,4 +188,36 @@ Proof
   \\ fs [Proj_Cons]
 QED
 
+Datatype:
+  ctxt = Nil
+       | Append ctxt ctxt
+       | Bind string exp ctxt
+       | RecBind (string # exp) ctxt
+End
+
+Inductive find: (* i i o o *)
+[find_Bottom:]
+  (∀e c.
+    find e c {} e) ∧
+[find_Seq:]
+  (∀e c p ds v.
+    find e c ds e ∧ (p,v) ∈ ds ⇒
+    find e c ds (Seq (Var v) e))
+End
+
+(*
+
+  let foo = lam (a + 2) in
+    lam x (foo x)
+-->
+  let foo = lam a (seq a (a + 2)) in
+    lam x (foo x)
+-->
+  let foo = lam a (seq a (a + 2)) in
+    lam x (seq x (foo x))
+
+  Letrec [(f,x)] rest
+
+*)
+
 val _ = export_theory();
