@@ -43,7 +43,7 @@ val exp_size_def = fetch "-" "exp_size_def";
 
 Definition subst_def:
   subst m (Var s) =
-    (case ALOOKUP m s of
+    (case ALOOKUP (REVERSE m) s of
        NONE => Var s
      | SOME x => Value x) ∧
   subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
