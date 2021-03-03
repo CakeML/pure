@@ -67,9 +67,30 @@ Proof
   rw[]
 QED
 
+Theorem int_countable:
+  COUNTABLE 𝕌(:int)
+Proof
+  irule (INST_TYPE [beta |-> ``:num # num``] inj_countable) >>
+  qexistsl_tac [`int_REP`] >>
+  cheat (* TODO *)
+QED
+
+Theorem atom_op_countable:
+  COUNTABLE 𝕌(:atom_op)
+Proof
+  `𝕌(:atom_op) =
+      {Eq; Add; Sub; Mul; Div; Mod; Lt; Leq; Gt; Geq;
+       Len; Elem; Concat; Implode; StrLt; StrLeq; StrGt; StrGeq} ∪
+      IMAGE Lit 𝕌(:lit)` by (
+        rw[EXTENSION] >> Cases_on `x` >> gvs[]) >>
+  pop_assum SUBST_ALL_TAC >> simp[] >>
+  `𝕌(:lit) = IMAGE Int 𝕌(:int) ∪ IMAGE Str 𝕌(:string)` by (
+      rw[EXTENSION] >> Cases_on `x` >> gvs[]) >>
+  pop_assum SUBST_ALL_TAC >> simp[] >>
+  simp[COUNTABLE_IMAGE, string_countable, int_countable]
+QED
+
 Theorem op_countable:
-  COUNTABLE 𝕌(:atom_op) ∧ COUNTABLE 𝕌(:lit)
-  ⇒
   COUNTABLE 𝕌(:op)
 Proof
   rpt strip_tac >>
@@ -77,14 +98,15 @@ Proof
                  ∪ IMAGE (UNCURRY pure_exp$IsEq) 𝕌(:string # num)
                  ∪ IMAGE (UNCURRY pure_exp$Proj) 𝕌(:string # num)
                  ∪ IMAGE pure_exp$AtomOp 𝕌(:atom_op)
-                 ∪ IMAGE pure_exp$Lit 𝕌(:lit)
                  ∪ {pure_exp$Seq}’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
        conj_tac >> Cases >> rw[ELIM_UNCURRY] >>
        metis_tac[FST,SND]) >>
   pop_assum SUBST_ALL_TAC >>
-  simp[union_countable_IFF,COUNTABLE_IMAGE,string_countable,prod_countable,num_countable]
+  simp[union_countable_IFF,COUNTABLE_IMAGE,
+       string_countable,prod_countable,num_countable,atom_op_countable]
 QED
+
 
 Theorem list_countable_res:
   COUNTABLE {x | P x} ⇒ COUNTABLE {l | EVERY P l}
@@ -144,11 +166,8 @@ Proof
 QED
 
 Theorem exp_countable:
-  COUNTABLE 𝕌(:atom_op) ∧ COUNTABLE 𝕌(:lit)
-  ⇒
   COUNTABLE 𝕌(:pure_exp$exp)
 Proof
-  strip_tac >>
   qsuff_tac ‘∀n. COUNTABLE {s:pure_exp$exp | exp_size s ≤ n}’
   >- (strip_tac >>
       ‘𝕌(:exp) = BIGUNION(IMAGE (λn. {s:exp | exp_size s ≤ n}) 𝕌(:num))’
@@ -339,12 +358,9 @@ Proof
 QED
 
 Theorem eval_not_surj:
-  COUNTABLE 𝕌(:atom_op) ∧ COUNTABLE 𝕌(:lit)
-  ⇒
   ¬SURJ eval 𝕌(:exp) 𝕌(:v)
 Proof
-  strip_tac >>
-  dxrule_all_then strip_assume_tac exp_countable >>
+  assume_tac exp_countable >>
   spose_not_then strip_assume_tac >>
   ‘𝕌(:v) ≼ 𝕌(:exp)’ by(metis_tac[cardleq_SURJ]) >>
   metis_tac[v_uncountable,CANTOR_THM_UNIV,cardleq_TRANS,exp_countable,COUNTABLE_ALT_cardleq]
@@ -593,7 +609,20 @@ Proof
     drule cons_names_subst_funs >> strip_tac >> simp[] >>
     gvs[MEM_MAP] >> rename1 `MEM foo _` >> PairCases_on `foo` >> gvs[] >>
     metis_tac[]
-    ) >>
+    )
+  THEN_LT Q.SELECT_GOALS_LT_THEN [`p = Proj _ _`]
+  (
+    Cases_on `∃c. p = Cons c` >> gvs[cons_names_wh_def, add_TF_def]
+    >- metis_tac[] >>
+    qsuff_tac
+      `n ∈ BIGUNION (set (MAP (λe. cons_names e) xs)) ∨ n = "True" ∨ n = "False"`
+    >- (CASE_TAC >> gvs[]) >>
+    Cases_on `p` >> gvs[MEM_MAP, PULL_EXISTS] >>
+    EVERY_CASE_TAC >> gvs[cons_names_wh_def, LENGTH_EQ_NUM_compute, MEM_MAP] >>
+    res_tac >> simp[] >>
+    first_x_assum irule >> simp[cons_names_wh_def, MEM_MAP, PULL_EXISTS] >>
+    metis_tac[EL_MEM]
+  ) >>
   (
     Cases_on `∃c. p = Cons c` >> gvs[cons_names_wh_def, add_TF_def]
     >- metis_tac[] >>
@@ -662,7 +691,7 @@ Proof
   irule_at Any EQ_REFL >> simp[]
 QED
 
-Theorem eval_not_surj_strong:
+Theorem eval_not_surj_alt:
   ¬SURJ eval 𝕌(:exp) 𝕌(:v)
 Proof
   rw[SURJ_DEF] >>
