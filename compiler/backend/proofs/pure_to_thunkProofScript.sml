@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
      pure_evalTheory thunkLang_primitivesTheory
-open pure_exp_lemmasTheory;
+open pure_exp_lemmasTheory pure_miscTheory;
 
 val _ = new_theory "pure_to_thunkProof";
 
@@ -114,10 +114,9 @@ Inductive exp_rel:
        exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Letrec:]
   (∀f g x y.
-     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧
-       ∃z. y = Delay z ∧ exp_rel x z) f g ∧
+     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ closed x ∧ exp_rel x y) f g ∧
      exp_rel x y ⇒
-       exp_rel (Letrec f x) (Letrec g y))
+       exp_rel (Letrec f x) (Letrec (MAP (λ(gn, x). (gn, Delay x)) g) y))
 End
 
 Definition thunk_rel_def:
@@ -262,19 +261,21 @@ Proof
           \\ rpt (pop_assum kall_tac)
           \\ qid_spec_tac ‘g’
           \\ Induct_on ‘lcs’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
-    \\ IF_CASES_TAC \\ fs []
-    \\ irule exp_rel_Letrec \\ fs []
-    \\ simp [EVERY2_MAP, LAMBDA_PROD]
-    \\ gvs [LIST_REL_EL_EQN] \\ rw []
-    \\ pairarg_tac \\ gvs []
-    \\ pairarg_tac \\ gvs []
-    \\ first_x_assum drule
-    \\ pairarg_tac \\ gvs [] \\ rw []
-    \\ simp [subst1_def]
-    \\ first_x_assum irule \\ fs []
-    \\ simp [MEM_EL]
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ first_assum (irule_at Any) \\ fs [])
+    \\ simp [Once MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+             GSYM pure_miscTheory.FST_THM]
+    \\ IF_CASES_TAC \\ fs [exp_rel_Letrec]
+    \\ rw [subst1_def, Once exp_rel_cases]
+    \\ qmatch_goalsub_abbrev_tac ‘MAP G (MAP H g)’
+    \\ ‘MAP G (MAP H g) = MAP H (MAP G g)’
+      by simp [Abbr ‘G’, Abbr ‘H’, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+               subst1_def]
+    \\ first_assum (irule_at Any)
+    \\ gvs [EVERY2_MAP, Abbr ‘G’, Abbr ‘H’, LIST_REL_EL_EQN] \\ rw []
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ first_x_assum (irule_at Any) \\ fs [MEM_EL]
+    \\ first_assum (irule_at Any) \\ fs []
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ pairarg_tac \\ gvs [])
 QED
 
 Theorem exp_rel_freevars:
@@ -305,14 +306,13 @@ Proof
           \\ qid_spec_tac ‘g’
           \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
     \\ fs []
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, freevars_def,
+             GSYM pure_miscTheory.FST_THM]
     \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
     \\ last_x_assum mp_tac
     \\ rpt (pop_assum kall_tac)
     \\ qid_spec_tac ‘g’
-    \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp []
-    \\ gen_tac
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ rw [] \\ fs [freevars_def])
+    \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs [ELIM_UNCURRY])
 QED
 
 Theorem exp_rel_closed:
@@ -330,11 +330,61 @@ QED
 
 Theorem exp_rel_subst_funs[local]:
   ∀x f g y.
-    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ ∃z. y = Delay z ∧ exp_rel x z) f g ∧
+    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ closed x ∧ exp_rel x y) f g ∧
     exp_rel x y ⇒
-      exp_rel (subst_funs f x) (subst_funs g y)
+      exp_rel (subst_funs f x) (subst_funs (MAP (λ(gn, x). (gn, Delay x)) g) y)
 Proof
-  cheat
+  rpt gen_tac
+  \\ strip_tac
+  \\ simp [subst_funs_def, bind_def, pure_expTheory.subst_funs_def,
+           pure_expTheory.bind_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  >- ((* FIXME blergh: *)
+    ‘F’ suffices_by rw []
+    \\ pop_assum mp_tac \\ simp []
+    \\ fs [flookup_fupdate_list]
+    \\ ‘LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧ MAP FST f = MAP FST g’
+      by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+          \\ rpt (pop_assum kall_tac)
+          \\ qid_spec_tac ‘g’
+          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs [ELIM_UNCURRY])
+    \\ drule_then (qspec_then ‘n’ assume_tac) LIST_REL_imp_OPTREL_ALOOKUP
+    \\ gs [CaseEq "option", OPTREL_def]
+    \\ imp_res_tac ALOOKUP_SOME
+    \\ fs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+           GSYM FST_THM, ALOOKUP_NONE]
+    \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_REVERSE, MEM_MAP]
+    \\ pairarg_tac \\ gvs []
+    \\ pop_assum mp_tac
+    \\ simp [MEM_EL, Once EQ_SYM_EQ]
+    \\ strip_tac \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ ‘freevars (SND (EL n f)) = EMPTY’
+      by fs [pure_expTheory.closed_def, ELIM_UNCURRY]
+    \\ gvs []
+    \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST f)) (MAP SND f)’ suffices_by rw []
+    \\ rw [EVERY_EL]
+    \\ last_x_assum drule
+    \\ simp [EL_MAP, pure_expTheory.closed_def, ELIM_UNCURRY])
+  \\ pop_assum kall_tac
+  \\ rpt (pop_assum mp_tac)
+  \\ map_every qid_spec_tac [‘g’, ‘f’, ‘y’, ‘x’]
+  \\ ho_match_mp_tac exp_ind_alt \\ rw []
+  >- ((* Var *)
+    cheat
+  )
+  >- ((* Prim *)
+    cheat
+  )
+  >- ((* App *)
+    cheat
+  )
+  >- ((* Lam *)
+    cheat
+  )
+  >- ((* Letrec *)
+    cheat
+  )
 QED
 
 Theorem exp_rel_eval_to:
