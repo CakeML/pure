@@ -34,6 +34,7 @@ Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 Overload Seq  = “λx y. Prim Seq [x; y]”        (* Seq  at exp level *)
 Overload Fail = “Prim If []”                   (* causes Error      *)
+Overload Lit  = “λl. Prim (AtomOp (Lit l)) []” (* Lit at exp level  *)
 
 Definition Bottom_def:
   Bottom = Letrec [("bot",Var "bot")] (Var "bot")
