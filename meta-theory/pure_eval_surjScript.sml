@@ -70,9 +70,23 @@ QED
 Theorem int_countable:
   COUNTABLE 𝕌(:int)
 Proof
-  irule (INST_TYPE [beta |-> ``:num # num``] inj_countable) >>
-  qexistsl_tac [`int_REP`] >>
-  cheat (* TODO *)
+  irule (INST_TYPE [beta |-> ``:num``] inj_countable) >>
+  qexistsl_tac [`λi. if i < 0 then 2 * (Num (-i)) else 2 * Num i + 1`,`univ(:num)`] >>
+  simp[num_countable, INJ_IFF] >> rw[] >>
+  Cases_on `i` >> gvs[] >>
+  Cases_on `i'` >> gvs[]
+  >- (
+    rename1 `_ * n ≠ _ * m + _` >>
+    qsuff_tac `EVEN (2 * n) ∧ ODD (2 * m + 1)`
+    >- (strip_tac >> CCONTR_TAC >> gvs[ODD_EVEN]) >>
+    simp[EVEN_DOUBLE, ODD_ADD, ODD_MULT]
+    )
+  >- (
+    rename1 `_ * n + _ ≠ _ * m` >>
+    qsuff_tac `EVEN (2 * m) ∧ ODD (2 * n + 1)`
+    >- (strip_tac >> CCONTR_TAC >> gvs[ODD_EVEN]) >>
+    simp[EVEN_DOUBLE, ODD_ADD, ODD_MULT]
+    )
 QED
 
 Theorem atom_op_countable:
