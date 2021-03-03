@@ -1106,6 +1106,9 @@ Proof
     )
   >- fs[eval_PrimOp, eval_op_def] (* AtomOp *)
   >- (Cases_on `xs` >> fs[eval_Lit, eval_op_def]) (* Lit *)
+  \\ fs[eval_PrimOp, eval_op_def]
+  \\ fs [eval_def,eval_to_def,Once gen_v,eval_op_def]
+  \\ fs [v_limit_def,v_lookup]
 QED
 
 Theorem eval_core:

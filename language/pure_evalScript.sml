@@ -103,6 +103,9 @@ Definition eval_wh_to_def:
                if t = "False" ∧ ys = [] then EL 2 vs else wh_Error)
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
+      | Seq =>
+        (if LENGTH xs ≠ 2 ∨ MEM wh_Error vs then wh_Error else
+         if MEM wh_Diverge vs then wh_Diverge else LAST vs)
       | AtomOp a =>
         (case get_atoms vs of
          | NONE => wh_Diverge
@@ -150,6 +153,19 @@ Proof
   THEN1 (rw [] \\ fs [])
   \\ Cases_on ‘∃s. p = Lit s’ \\ gvs []
   THEN1 (rw [] \\ fs [])
+  \\ Cases_on ‘p = Seq’ \\ gvs []
+  THEN1
+   (Cases_on ‘n = 0’ \\ fs []
+    \\ Cases_on ‘LENGTH xs = 2’ \\ fs []
+    \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ fs [PULL_FORALL]
+    \\ full_simp_tac std_ss [SF DNF_ss]
+    \\ rpt (last_x_assum (qspec_then ‘n-1’ assume_tac))
+    \\ gvs []
+    \\ Cases_on ‘eval_wh_to (n − 1) h = wh_Error’ \\ fs []
+    \\ Cases_on ‘eval_wh_to (n − 1) h' = wh_Error’ \\ fs []
+    \\ Cases_on ‘eval_wh_to (n − 1) h = wh_Diverge’ \\ fs []
+    \\ Cases_on ‘eval_wh_to (n − 1) h' = wh_Diverge’ \\ fs [])
   \\ Cases_on ‘∃s. p = If’ \\ gvs []
   THEN1
    (Cases_on ‘n = 0’ \\ fs []
@@ -302,6 +318,31 @@ Theorem eval_wh_Fail:
 Proof
   fs [Once eval_wh_eq,eval_wh_to_def]
   \\ qexists_tac ‘1’ \\ fs []
+QED
+
+Theorem eval_wh_Seq:
+  eval_wh (Seq x y) =
+    if eval_wh x = wh_Error   then wh_Error   else
+    if eval_wh y = wh_Error   then wh_Error   else
+    if eval_wh x = wh_Diverge then wh_Diverge else
+      eval_wh y
+Proof
+  fs []
+  \\ Cases_on ‘eval_wh x = wh_Error’ \\ fs []
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
+         \\ qexists_tac ‘k+1’ \\ fs [])
+  \\ Cases_on ‘eval_wh y = wh_Error’ \\ fs []
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
+         \\ qexists_tac ‘k+1’ \\ fs [])
+  \\ fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
+  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
+  \\ fs [eval_wh_eq] \\ fs [eval_wh_to_def]
+  \\ disj2_tac
+  \\ Cases_on ‘eval_wh y = wh_Diverge’ \\ fs [eval_wh_eq]
+  \\ qexists_tac ‘k+k'+1’ \\ fs []
+  \\ ‘eval_wh_to (k+k') x = eval_wh_to k x’ by (match_mp_tac eval_wh_inc \\ fs [])
+  \\ ‘eval_wh_to (k+k') y = eval_wh_to k' y’ by (match_mp_tac eval_wh_inc \\ fs [])
+  \\ fs [] \\ qexists_tac ‘k'’ \\ fs []
 QED
 
 Theorem eval_wh_If:
@@ -578,6 +619,14 @@ Theorem eval_wh_Prim:
             | wh_Diverge => wh_Diverge
             | _ => wh_Error)
       | _ => wh_Error) ∧
+  (eval_wh (Prim Seq xs) =
+      case xs of
+      | [x;y] =>
+          (if eval_wh x = wh_Error then wh_Error else
+           if eval_wh y = wh_Error then wh_Error else
+           if eval_wh x = wh_Diverge then wh_Diverge else
+             eval_wh y)
+      | _ => wh_Error) ∧
   eval_wh (Prim (AtomOp a) xs) =
     (let vs = MAP (λx. eval_wh x) xs in
      case get_atoms vs of
@@ -644,6 +693,10 @@ Proof
     simp[eval_wh_Proj]
     )
   >- (
+    every_case_tac \\ fs [eval_wh_Seq]
+    \\ fs [eval_wh_def,eval_wh_to_def,CaseEq"bool",AllCaseEqs()]
+    \\ DEEP_INTRO_TAC some_intro >> rw[])
+  >- (
     simp[Once eval_wh_def] >> CASE_TAC
     >- (
       pop_assum mp_tac >>
@@ -705,9 +758,14 @@ Theorem eval_wh_Prim_alt:
         case config.parAtomOp a as of
           NONE => wh_Error
         | SOME v => wh_Atom v) ∧
-  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error)
+  eval_wh (Prim (Lit l) xs) = (if xs = [] then wh_Atom l else wh_Error) ∧
+  eval_wh (Prim Seq xs) =
+    if LENGTH xs ≠ 2 then wh_Error else
+    if MEM wh_Error (MAP eval_wh xs) then wh_Error else
+    if MEM wh_Diverge (MAP eval_wh xs) then wh_Diverge else
+    eval_wh (LAST xs)
 Proof
-  rw[eval_wh_Prim] >>
+  reverse $ rw[eval_wh_Prim] >> gvs[LENGTH_EQ_NUM_compute] >>
   Cases_on `xs` >> gvs[] >> Cases_on `t` >> gvs[] >>
   Cases_on `t'` >> gvs[] >> Cases_on `t` >> gvs[]
 QED
@@ -741,12 +799,17 @@ Theorem eval_wh_thm:
                               else wh_Error
      | wh_Diverge => wh_Diverge
      | _ => wh_Error) ∧
+  eval_wh (Seq x y) =
+    (if eval_wh x = wh_Error then wh_Error
+     else if eval_wh y = wh_Error then wh_Error
+     else if eval_wh x = wh_Diverge then wh_Diverge
+     else eval_wh y) ∧
   eval_wh Fail = wh_Error ∧
   eval_wh Bottom = wh_Diverge
 Proof
   fs [eval_wh_Lam,eval_wh_Var,eval_wh_App,eval_wh_Letrec,eval_wh_Cons,
       eval_wh_Bottom,eval_wh_Lit,eval_wh_Fail,eval_wh_If,eval_wh_IsEq,
-      eval_wh_Proj]
+      eval_wh_Proj,eval_wh_Seq]
 QED
 
 (* unlimitied evaluation *)

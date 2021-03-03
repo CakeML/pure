@@ -913,4 +913,29 @@ Proof
     )
 QED
 
+Theorem eval_IMP_exp_eq:
+  (∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
+       freevars x ⊆ FDOM f ∧ freevars y ⊆ FDOM f ⇒
+       eval (subst f x) = eval (subst f y)) ⇒
+  x ≅ y
+Proof
+  fs [exp_eq_def] \\ rw [bind_def]
+  \\ match_mp_tac eval_IMP_app_bisimilarity
+  \\ rw [] THEN1 metis_tac []
+  \\ irule IMP_closed_subst
+  \\ fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+QED
+
+Theorem eval_wh_IMP_exp_eq:
+  (∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
+       freevars x ⊆ FDOM f ∧ freevars y ⊆ FDOM f ⇒
+       eval_wh (subst f x) = eval_wh (subst f y)) ⇒
+  x ≅ y
+Proof
+  rw [] \\ irule eval_IMP_exp_eq
+  \\ rw [] \\ first_x_assum drule \\ fs []
+  \\ fs [eval_def]
+  \\ once_rewrite_tac [v_unfold] \\ fs []
+QED
+
 val _ = export_theory();

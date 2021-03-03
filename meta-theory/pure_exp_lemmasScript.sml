@@ -310,7 +310,7 @@ Proof
   >- (
     gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
     reverse (rw[bind_def]) >> gvs[] >- res_tac >>
-    fs[subst_def]
+    fs[subst_def] >> res_tac
     )
   >- (drule bind_App >> fs[])
   >- (drule bind_Lam >> fs[])
