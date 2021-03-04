@@ -9,6 +9,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 
 val _ = new_theory "thunk_to_thunk";
 
+(*
 Definition compile_exp_def:
   compile_exp (Var n: thunkLang_subst$exp) = Var n : thunkLang$exp ∧
   compile_exp (Prim op xs) = Prim op (MAP compile_exp xs) ∧
@@ -45,6 +46,6 @@ Termination
   \\ Induct_on ‘xs’ \\ rw []
   \\ fs [thunkLangTheory.exp_size_def]
 End
-
+ *)
 val _ = export_theory ();
 
