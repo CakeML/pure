@@ -22,7 +22,6 @@ Theorem eval_op_cases:
     (∃x1 x2 x3. op = If ∧ xs = [x1;x2;x3]) ∨
     (∃s i x. op = Proj s i ∧ xs = [x]) ∨
     (∃a. op = AtomOp a) ∨
-    (∃b. op = Lit b ∧ xs = []) ∨
     (op = If ∧ xs = []) ∨
     (∃x. op = If ∧ xs = [x]) ∨
     (∃x1 x2. op = If ∧ xs = [x1;x2]) ∨
@@ -32,7 +31,6 @@ Theorem eval_op_cases:
     (∃s n x1 x2 xs'. op = IsEq s n ∧ xs = x1::x2::xs') ∨
     (∃s i. op = Proj s i ∧ xs = []) ∨
     (∃s i x1 x2 xs'. op = Proj s i ∧ xs = x1::x2::xs') ∨
-    (∃b x xs'. op = Lit b ∧ xs = x::xs') ∨
     (op = Seq)
 Proof
   ho_match_mp_tac eval_op_ind >> rw[]
@@ -118,9 +116,7 @@ Proof
           rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
           gvs[PULL_EXISTS,MEM_EL] >>
           metis_tac[])
-      >- (PURE_FULL_CASE_TAC >> gvs[] >>
-          rename1 ‘if XX then _ else _’ >>
-          PURE_FULL_CASE_TAC >> gvs[])
+      >- (EVERY_CASE_TAC >> gvs[])
       >- (gvs[is_eq_def] >>
           rpt(PURE_FULL_CASE_TAC >> gvs[])))
   >- (rename1 ‘Lam’ >> gvs[freevars_def,MEM_FILTER,eval_to_def])

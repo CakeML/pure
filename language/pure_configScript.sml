@@ -4,23 +4,83 @@ open arithmeticTheory integerTheory stringTheory optionTheory;
 
 val _ = new_theory "pure_config";
 
-(* Configuration record for the parametric atoms.
-   parAtomOp:
-     It takes an element of type 'a (from AtomOp) and returns a
-     function that takes a "'b list" element and SOME b if the
-     number of arguments is correct, NONE otherwise
-*)
-
 Datatype:
-  conf = <| parAtomOp  : 'a -> 'b list -> 'b option; |>
+  lit = Int int | Str string
 End
 
-(*
- * Assume an abstract configuration exists.
- *)
+Datatype:
+  atom_op =
+    (* literal Int or Str *)
+      Lit lit
+    (* equality *)
+    | Eq
+    (* integer operations *)
+    | Add | Sub | Mul | Div | Mod
+    | Lt | Leq | Gt | Geq
+    (* string operations *)
+    | Len | Elem | Concat | Implode
+    | StrLt | StrLeq | StrGt | StrGeq
+End
 
-val atom_op_ty = new_type ("atom_op", 0);
-val atom_lit_ty = new_type ("lit", 0);
-val the_config = new_constant ("config", “:(atom_op, lit) conf”);
+Overload Atom[local] = “λl. SOME (INL l) : (lit + bool) option”;
+Overload Bool[local] = “λb. SOME (INR b) : (lit + bool) option”;
+
+Definition concat_def:
+  concat [] = SOME "" ∧
+  concat (Str s :: t) = OPTION_MAP (λr. s ++ r) (concat t) ∧
+  concat (Int _ :: _) = NONE
+End
+
+Definition implode_def:
+  implode [] = SOME "" ∧
+  implode (Int i :: t) = OPTION_MAP (λr. CHR (Num (i % 256)) :: r) (implode t) ∧
+  implode (Str _ :: _) = NONE
+End
+
+Definition str_el_def:
+  str_elem s i =
+    if 0 ≤ i ∧ i < & LENGTH s then & (ORD (EL (Num i) s)) else -1
+End
+
+Definition eval_op_def:
+  eval_op (Lit l) [] = Atom l ∧
+  eval_op Eq  [x; y] = Bool (x = y) ∧
+  eval_op Add [Int i; Int j] = Atom (Int (i + j)) ∧
+  eval_op Sub [Int i; Int j] = Atom (Int (i - j)) ∧
+  eval_op Mul [Int i; Int j] = Atom (Int (i * j)) ∧
+  eval_op Div [Int i; Int j] = Atom (Int (if j = 0 then 0 else i / j)) ∧
+  eval_op Mod [Int i; Int j] = Atom (Int (if j = 0 then 0 else i % j)) ∧
+  eval_op Lt  [Int i; Int j] = Bool (i < j) ∧
+  eval_op Leq [Int i; Int j] = Bool (i ≤ j) ∧
+  eval_op Gt  [Int i; Int j] = Bool (i > j) ∧
+  eval_op Geq [Int i; Int j] = Bool (i ≥ j) ∧
+  eval_op Let [Str s]  = Atom (Int (& (LENGTH s))) ∧
+  eval_op Elem [Str s; Int i] = (Atom (Int (str_elem s i))) ∧
+  eval_op Concat strs = OPTION_MAP (INL o Str) (concat strs) ∧
+  eval_op Implode ords = OPTION_MAP (INL o Str) (implode ords) ∧
+  eval_op StrLt  [Str s; Str t] = Bool (s < t) ∧
+  eval_op StrLeq [Str s; Str t] = Bool (s ≤ t) ∧
+  eval_op StrGt  [Str s; Str t] = Bool (s > t) ∧
+  eval_op StrGeq [Str s; Str t] = Bool (s ≥ t) ∧
+  eval_op _ _ = NONE
+End
+
+Theorem eval_op_SOME =
+  “eval_op op vs = SOME r”
+  |> SIMP_CONV (srw_ss()) [DefnBase.one_line_ify NONE eval_op_def,
+                           AllCaseEqs(),PULL_EXISTS];
+
+Theorem eval_op_NONE =
+  “eval_op op vs = NONE”
+  |> SIMP_CONV (srw_ss()) [DefnBase.one_line_ify NONE eval_op_def,
+                           AllCaseEqs(),PULL_EXISTS];
+
+Definition isStr_def[simp]:
+  isStr (Str s) = T ∧ isStr _ = F
+End
+
+Definition isInt_def[simp]:
+  isInt (Int i) = T ∧ isInt _ = F
+End
 
 val _ = export_theory ();

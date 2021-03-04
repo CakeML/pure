@@ -416,15 +416,47 @@ Proof
   >- (
     rename1 `Prim _ _ = _ _ zs` >>
     Cases_on `zs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite]
+    )
+  >- (
+    qexists_tac ‘0’
+    \\ simp [eval_wh_to_def]
+    \\ Cases_on ‘p’ \\ fs [LIST_REL_EL_EQN]
+    >- (
+      IF_CASES_TAC \\ gvs []
+      \\ fs [LENGTH_EQ_NUM_compute])
+    >- (
+      IF_CASES_TAC \\ gvs []
+      \\ fs [LENGTH_EQ_NUM_compute])
+    >- (
+      IF_CASES_TAC \\ gvs []
+      \\ fs [LENGTH_EQ_NUM_compute])
+    >- (
+      Cases_on ‘ys = []’ \\ fs []
+      >- (
+        fs [get_atoms_def, AllCaseEqs ()]
+        \\ CASE_TAC \\ fs []
+        \\ CASE_TAC \\ fs []
+        \\ CASE_TAC \\ fs [])
+      \\ ‘xs ≠ []’ by (strip_tac \\ fs [])
+      \\ simp [get_atoms_MAP_Diverge])
+    >- (
+      Cases_on ‘ys = []’ \\ fs []
+      \\ ‘xs ≠ []’ by (strip_tac \\ fs [])
+      \\ simp [MEM_MAP]
+      \\ IF_CASES_TAC \\ fs []))
+  >- (
+    rename1 `Prim _ _ = _ _ zs` >>
+    Cases_on `zs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite]
     ) >>
   Cases_on `p` >> gvs[eval_wh_to_def]
   >- (
-    IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
+    (*IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>*)
     IF_CASES_TAC >> gvs[LIST_REL_EL_EQN] >>
     `∃x1 x2 x3. xs = [x1;x2;x3]` by fs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2 y3. ys = [y1;y2;y3]` by fs[LENGTH_EQ_NUM_compute] >>
     gvs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
-    first_x_assum drule_all >> strip_tac >> gvs[] >>
+    qpat_x_assum ‘letrec_fun x1 _’ assume_tac >>
+    first_assum (drule_all_then strip_assume_tac) >> gvs[] >>
     reverse (Cases_on `eval_wh_to (k - 1) x1`) >> gvs[]
     >- (qexists_tac `ck` >> gvs[])
     >- (qexists_tac `ck` >> gvs[])
@@ -438,7 +470,8 @@ Proof
         qexists_tac `ck` >> gvs[] >>
         Cases_on `l` >> gvs[] >> Cases_on `ys'` >> gvs[]
         ) >>
-      last_x_assum drule_all >> strip_tac >> gvs[] >>
+      qpat_x_assum ‘letrec_fun x3 _’ assume_tac >>
+      first_assum (drule_all_then strip_assume_tac) >> gvs[] >>
       reverse (Cases_on `eval_wh_to (k - 1) x3`) >> gvs[]
       >- (
         qexists_tac `ck'` >>
@@ -457,7 +490,8 @@ Proof
       Cases_on `l` >> gvs[] >> Cases_on `ys'` >> gvs[]
       )
     >- (
-      first_x_assum drule_all >> strip_tac >> gvs[] >>
+      qpat_x_assum ‘letrec_fun x2 _’ assume_tac >>
+      first_assum (drule_all_then strip_assume_tac) >> gvs[] >>
       reverse (Cases_on `eval_wh_to (k - 1) x2`) >> gvs[]
       >- (
         qexists_tac `ck'` >>
@@ -473,10 +507,6 @@ Proof
       )
     )
   >- (
-    IF_CASES_TAC >> gvs[] >> qexists_tac `0` >> simp[]
-    )
-  >- (
-    IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> simp[]) >>
     IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
     `∃x. xs = [x]` by fs[LENGTH_EQ_NUM_compute] >>
     `∃y. ys = [y]` by fs[LENGTH_EQ_NUM_compute] >>
@@ -488,12 +518,11 @@ Proof
     IF_CASES_TAC >> gvs[]
     )
   >- (
-    IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> simp[]) >>
     IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
     `∃x. xs = [x]` by fs[LENGTH_EQ_NUM_compute] >>
     `∃y. ys = [y]` by fs[LENGTH_EQ_NUM_compute] >>
     gvs[wordsTheory.NUMERAL_LESS_THM] >>
-    first_x_assum drule_all >> rw[] >>
+    first_assum (drule_all_then strip_assume_tac) >>
     reverse (Cases_on `eval_wh_to (k - 1) x`) >> gvs[]
     >- (qexists_tac `ck` >> gvs[])
     >- (qexists_tac `ck` >> gvs[])
@@ -533,7 +562,6 @@ Proof
     qexists_tac `ck + ck'` >> gvs[]
     )
   >- (
-    IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
     CASE_TAC >> gvs[]
     >- (
       qsuff_tac `get_atoms (MAP (λa. eval_wh_to (k − 1) a) ys) = NONE`
@@ -541,7 +569,7 @@ Proof
       gvs[get_atoms_NONE_eq] >> imp_res_tac LIST_REL_LENGTH >> gvs[] >>
       csimp[EL_MAP] >> gvs[EL_MAP] >>
       map_every (fn pat => qpat_x_assum pat mp_tac)
-        [`∀e1. MEM e1 _ ⇒ _`, `n < _`,`eval_wh_to _ _ = _`, `∀m. m < _ ⇒ _`,
+        [`∀e1 e2. MEM e1 _ ⇒ _`, `n < _`,`eval_wh_to _ _ = _`, `∀m. m < _ ⇒ _`,
          `EVERY _ _`, `EVERY _ _`, `LENGTH _ = _`] >>
       qid_spec_tac `n` >>
       qpat_x_assum `LIST_REL _ _ _` mp_tac >>
@@ -569,7 +597,8 @@ Proof
       disch_then drule_all >> strip_tac >>
       drule eval_wh_to_agree >>
       disch_then (qspec_then `ck + k - 1` mp_tac) >> rw[] >>
-      metis_tac[]
+      Cases_on ‘eval_wh_to (k - 1) h1’ \\ gvs []
+      \\ metis_tac[]
       ) >>
     Cases_on `x` >> gvs[]
     >- (
@@ -580,7 +609,7 @@ Proof
       simp[get_atoms_SOME_NONE_eq] >> csimp[EL_MAP] >>
       imp_res_tac LIST_REL_LENGTH >> gvs[] >> goal_assum drule >>
       map_every (fn pat => qpat_x_assum pat mp_tac)
-        [`∀e1. MEM e1 _ ⇒ _`, `n < _`,` ∀a. eval_wh_to _ _ ≠ _`,
+        [`∀e1 e2. MEM e1 _ ⇒ _`, `n < _`,` ∀a. eval_wh_to _ _ ≠ _`,
          `∀m. m ≤ _ ⇒ _`, `EVERY _ _`, `EVERY _ _`, `LENGTH _ = _`] >>
       qid_spec_tac `n` >>
       qpat_x_assum `LIST_REL _ _ _` mp_tac >>
@@ -624,10 +653,15 @@ Proof
     rename1 `SOME (SOME as)` >>
     qsuff_tac
       `∃ck. get_atoms (MAP (λa. eval_wh_to (ck + k − 1) a) ys) = SOME (SOME as)`
-    >- (rw[] >> qexists_tac `ck` >> simp[] >> CASE_TAC >> gvs[]) >>
+    >- (
+      rw[]
+      \\ qexists_tac `ck` \\ simp[]
+      \\ CASE_TAC \\ gvs[]
+      \\ CASE_TAC \\ gvs[]
+      \\ CASE_TAC \\ gvs[]) >>
     gvs[get_atoms_SOME_SOME_eq, EVERY2_MAP] >>
     map_every (fn pat => qpat_x_assum pat mp_tac)
-      [`∀e1. MEM e1 _ ⇒ _`, `LIST_REL _ _ _`, `EVERY _ _`, `EVERY _ _`] >>
+      [`∀e1 es. MEM e1 _ ⇒ _`, `LIST_REL _ _ _`, `EVERY _ _`, `EVERY _ _`] >>
     qid_spec_tac `as` >>
     qpat_x_assum `LIST_REL _ _ _` mp_tac >>
     map_every qid_spec_tac [`ys`,`xs`] >>
@@ -636,24 +670,20 @@ Proof
     qsuff_tac
       `∃ck. LIST_REL (λa a'. eval_wh_to (ck + k − 1) a = wh_Atom a') ys as`
     >- (
-      pop_assum (qspec_then `h1` mp_tac) >> simp[] >>
-      disch_then drule_all >> rw[] >>
-      qexists_tac `ck + ck'` >>
-      qspecl_then [`ck + ck' + k - 1`,`h2`,`ck + k - 1`]
-        assume_tac eval_wh_inc >>
-      gvs[LIST_REL_EL_EQN] >> rw[] >>
-      qspecl_then [`ck + ck' + k - 1`,`EL n ys`,`ck' + k - 1`]
-        assume_tac eval_wh_inc >>
-      gvs[]
+      disch_then (qx_choose_then ‘ck’ mp_tac)
+      \\ pop_assum (qspec_then `h1` mp_tac) \\ simp[]
+      \\ disch_then drule_all \\ rw[]
+      \\ qexists_tac `ck + ck'`
+      \\ qspecl_then [`ck + ck' + k - 1`,`h2`,`ck' + k - 1`]
+        assume_tac eval_wh_inc
+      \\ gvs[LIST_REL_EL_EQN] \\ rw[]
+      \\ qspecl_then [`ck + ck' + k - 1`,`EL n ys`,`ck + k - 1`]
+        assume_tac eval_wh_inc
+      \\ gvs[]
       ) >>
     last_x_assum irule >> simp[]
     )
   >- (
-    IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
-    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
-    )
-  >- (
-    IF_CASES_TAC >> gvs[] >- (qexists_tac `0` >> gvs[]) >>
     imp_res_tac LIST_REL_LENGTH >>
     IF_CASES_TAC >> gvs[]
     >- (
@@ -665,7 +695,9 @@ Proof
     `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2. ys = [y1;y2]` by gvs[LENGTH_EQ_NUM_compute] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-    ntac 2 (first_x_assum drule_all >> strip_tac) >>
+    first_assum (drule_all_then strip_assume_tac) >>
+    qpat_x_assum ‘letrec_fun x2 _’ assume_tac >>
+    first_assum (drule_all_then strip_assume_tac) >>
     `eval_wh_to (ck + k − 1) y1 ≠ wh_Error` by (
       Cases_on `eval_wh_to (k - 1) x1` >> gvs[]) >>
      `eval_wh_to (ck' + k − 1) y2 ≠ wh_Error` by (

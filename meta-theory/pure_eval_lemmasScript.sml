@@ -100,29 +100,31 @@ Proof
       )
   >- (
       rename1 ‘Prim’ >> gs[eval_wh_to_def] >>
-      qpat_x_assum `(if _ then _ else _) = _` mp_tac >>
-      IF_CASES_TAC >> gvs[] >- (rw[] >> gvs[freevars_wh_def]) >>
-      TOP_CASE_TAC >> gvs[] >>
+      Cases_on `p` >> gvs[] >>
       gvs[AllCaseEqs(),MAP_EQ_CONS,DISJ_IMP_THM,FORALL_AND_THM] >>
       rw[] >> gvs[freevars_wh_def, EL_MAP, MEM_MAP, PULL_EXISTS]
       >- (
+        EVERY_CASE_TAC >> gvs[freevars_wh_def] >>
         first_x_assum (qspec_then `EL 1 xs` assume_tac) >> gvs[EL_MEM] >>
         res_tac >> goal_assum drule >> gvs[EL_MEM]
         )
       >- (
+        EVERY_CASE_TAC >> gvs[freevars_wh_def] >>
         first_x_assum (qspec_then `EL 2 xs` assume_tac) >> gvs[EL_MEM] >>
         res_tac >> goal_assum drule >> gvs[EL_MEM]
         )
-      >- (goal_assum drule >> simp[])
+      >- (EVERY_CASE_TAC >> gvs[freevars_wh_def])
       >- (
-        Cases_on `xs` >> gvs[PULL_EXISTS] >>
-        first_x_assum irule >> gvs[MEM_MAP, PULL_EXISTS] >>
-        res_tac >>
-        goal_assum (drule_at Any) >> gvs[EL_MEM]
+        EVERY_CASE_TAC >> gvs[freevars_wh_def, LENGTH_EQ_NUM_compute] >>
+        res_tac >> last_x_assum irule >>
+        simp[freevars_wh_def, MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+        goal_assum $ drule_at Any >> simp[EL_MEM]
         )
-      >- (CCONTR_TAC >> gvs[])
-      \\ gvs [LENGTH_EQ_NUM_compute,PULL_FORALL,AND_IMP_INTRO]
-      \\ res_tac \\ fs [] \\ metis_tac []
+      >- (EVERY_CASE_TAC >> gvs[freevars_wh_def])
+      >- (
+        EVERY_CASE_TAC >> gvs[freevars_wh_def, LENGTH_EQ_NUM_compute] >>
+        metis_tac[]
+        )
       )
 QED
 

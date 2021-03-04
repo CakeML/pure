@@ -589,55 +589,57 @@ Proof
     IF_CASES_TAC >> gvs[perm_wh_def] >>
     gvs[subst_funs_eqvt, pure_miscTheory.PAIR_MAP_ALT]
     ) >>
-  IF_CASES_TAC >> gvs[perm_wh_def] >>
   TOP_CASE_TAC >> gvs[perm_wh_def]
+  >- (IF_CASES_TAC >> gvs[perm_wh_def, LENGTH_EQ_NUM_compute])
+  >- (CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
+  >- (IF_CASES_TAC >> gvs[perm_wh_def, LENGTH_EQ_NUM_compute])
+  >- (IF_CASES_TAC >> gvs[perm_wh_def, LENGTH_EQ_NUM_compute])
   >- (
-    IF_CASES_TAC >> gvs[perm_wh_def] >>
-    `∃x1 x2 x3. xs = [x1;x2;x3]` by gvs[LENGTH_EQ_NUM_compute] >>
-    last_x_assum (assume_tac o GSYM) >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-    TOP_CASE_TAC >> gvs[perm_wh_def] >>
-    ntac 2 (IF_CASES_TAC >> gvs[perm_wh_def])
-    )
-  >- rw[MAP_EQ_f]
-  >- (
-    last_x_assum (assume_tac o GSYM) >>
-    IF_CASES_TAC >> gvs[perm_wh_def] >>
-    Cases_on `xs` >> gvs[] >>
-    TOP_CASE_TAC >> gvs[perm_wh_def] >>
-    rpt (IF_CASES_TAC >> gvs[perm_wh_def, EL_MAP])
+    simp[MAP_MAP_o, combinTheory.o_DEF] >> EVERY_CASE_TAC >> gvs[perm_wh_def]
     )
   >- (
-    last_x_assum (assume_tac o GSYM) >>
-    IF_CASES_TAC >> gvs[perm_wh_def] >>
-    Cases_on `xs` >> gvs[] >>
-    TOP_CASE_TAC >> gvs[perm_wh_def] >>
-    rpt (IF_CASES_TAC >> gvs[perm_wh_def]) >>
-    simp[EL_MAP]
+    IF_CASES_TAC >> gvs[LENGTH_EQ_NUM_compute, perm_wh_def, MEM_MAP]
+    )
+  >- (
+    IF_CASES_TAC >> gvs[perm_wh_def, LENGTH_EQ_NUM_compute] >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >> pop_assum $ assume_tac o GSYM >>
+    EVERY_CASE_TAC >> gvs[perm_wh_def]
+    )
+  >- (CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
+  >- (
+    IF_CASES_TAC >> gvs[perm_wh_def, LENGTH_EQ_NUM_compute] >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >> pop_assum $ assume_tac o GSYM >>
+    CASE_TAC >> gvs[perm_wh_def] >>
+    EVERY_CASE_TAC >> gvs[perm_wh_def]
+    )
+  >- (
+    IF_CASES_TAC >> gvs[perm_wh_def, LENGTH_EQ_NUM_compute] >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >> pop_assum $ assume_tac o GSYM >>
+    EVERY_CASE_TAC >> gvs[perm_wh_def, EL_MAP]
     )
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF] >>
     qmatch_goalsub_abbrev_tac `MAP f xs` >>
     qpat_abbrev_tac `g = λa. eval_wh_to _ (_ a)` >>
     `MAP g xs = MAP (λa. perm_wh v1 v2 (f a)) xs` by (
-      rw[LIST_EQ_REWRITE, EL_MAP] >>
-      unabbrev_all_tac >> fs[] >>
-      first_x_assum (irule o GSYM) >> gvs[EL_MEM]) >>
+      rw[MAP_EQ_f] >> unabbrev_all_tac >> gvs[] >>
+      first_x_assum $ irule o GSYM >> goal_assum drule) >>
     unabbrev_all_tac >> gvs[] >>
     simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o] >>
-    simp[get_atoms_perm_cancel] >>
+    TOP_CASE_TAC >> gvs[] >>
+    simp[get_atoms_perm_cancel, perm_wh_def] >>
     TOP_CASE_TAC >> gvs[perm_wh_def] >>
     rename1 `option_CASE x` >> Cases_on `x` >> gvs[perm_wh_def] >>
-    rename1 `option_CASE x` >> Cases_on `x` >> gvs[perm_wh_def]
+    rename1 `sum_CASE x` >> Cases_on `x` >> gvs[perm_wh_def] >>
+    IF_CASES_TAC >> gvs[perm_wh_def]
     )
-  >- (IF_CASES_TAC >> gvs[perm_wh_def])
   >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF] >>
     Cases_on `LENGTH xs = 2` >> gvs[perm_wh_def] >>
-    `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >> gvs[] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-    EVERY_CASE_TAC >> gvs[perm_wh_def] >>
-    Cases_on `eval_wh_to (k - 1) x1` >> gvs[perm_wh_def] >>
-    Cases_on `eval_wh_to (k - 1) x2` >> gvs[perm_wh_def]
+    gvs[LENGTH_EQ_NUM_compute, DISJ_IMP_THM, FORALL_AND_THM] >>
+    pop_assum $ assume_tac o GSYM >>
+    Cases_on `eval_wh_to (k - 1) h` >> gvs[perm_wh_def] >>
+    Cases_on `eval_wh_to (k - 1) h'` >> gvs[perm_wh_def]
     )
 QED
 
@@ -3344,15 +3346,13 @@ Proof
     simp[perm_exp_cancel, exp_alpha_refl, GSYM perm_exp_eqvt, MEM_PERM_EQ]
     )
   >- (
-    simp[eval_wh_to_def] >>
-    IF_CASES_TAC >> gvs[]
-    >- simp[wh_alpha_refl] >>
-    TOP_CASE_TAC >> gvs[]
+    simp[eval_wh_to_def] >> TOP_CASE_TAC >> gvs[] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[]
     >- (
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      IF_CASES_TAC >- simp[wh_alpha_cases] >> gvs[] >>
+      IF_CASES_TAC >> gvs[] >- simp[wh_alpha_refl] >>
       `∃e1 e2 e3 e1' e2' e3'. es = [e1;e2;e3] ∧ es' = [e1';e2';e3']` by
         gvs[LENGTH_EQ_NUM_compute] >> gvs[] >>
+      IF_CASES_TAC >> gvs[] >- simp[wh_alpha_refl] >>
       first_x_assum (qspec_then `k - 1` mp_tac) >> gvs[] >>
       disch_then imp_res_tac >>
       qpat_x_assum `wh_alpha (_ e1) _` mp_tac >>
@@ -3364,9 +3364,9 @@ Proof
       )
     >- (irule wh_alpha_cons >> gvs[LIST_REL_EL_EQN] >> rw[])
     >- (
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
       IF_CASES_TAC >- simp[wh_alpha_cases] >>
       Cases_on `es` >> gvs[] >>
+      IF_CASES_TAC >- simp[wh_alpha_refl] >>
       last_x_assum (qspec_then `k - 1` mp_tac) >> gvs[] >>
       disch_then drule >>
       simp[Once wh_alpha_cases] >>
@@ -3375,9 +3375,9 @@ Proof
       simp[wh_alpha_cases]
       )
     >- (
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
       IF_CASES_TAC >- simp[wh_alpha_cases] >>
       Cases_on `es` >> gvs[] >>
+      IF_CASES_TAC >- simp[wh_alpha_cases] >>
       last_x_assum (qspec_then `k - 1` mp_tac) >> impl_tac >- fs[] >>
       strip_tac >> first_assum drule >>
       SIMP_TAC bool_ss [Once wh_alpha_cases] >>
@@ -3393,6 +3393,8 @@ Proof
       qsuff_tac `get_atoms (MAP f e1s) = get_atoms (MAP f e2s)`
       >- (rw[] >> TOP_CASE_TAC >> simp[wh_alpha_cases]) >>
       unabbrev_all_tac >>
+      IF_CASES_TAC >> simp[]
+      >- (AP_TERM_TAC >> rw[MAP_EQ_EVERY2, LIST_REL_EL_EQN]) >>
       qpat_x_assum `LIST_REL _ _ _` mp_tac >>
       qid_spec_tac `e2s` >> qid_spec_tac `e1s` >>
       ho_match_mp_tac LIST_REL_ind >> simp[] >> rw[get_atoms_def] >>
@@ -3403,16 +3405,12 @@ Proof
       first_assum SUBST_ALL_TAC >> simp[]
       )
     >- (
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      Cases_on `es` >> gvs[wh_alpha_cases]
-      )
-    >- (
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      reverse $ Cases_on `LENGTH es = 2` >> gvs[] >- simp[wh_alpha_cases] >>
+      Cases_on `LENGTH es ≠ 2` >> gvs[] >- simp[wh_alpha_refl] >>
       `∃e1 e2 e1' e2' . es = [e1;e2] ∧ es' = [e1';e2']` by
         gvs[LENGTH_EQ_NUM_compute] >> gvs[] >>
-      last_x_assum (qspec_then `k - 1` mp_tac) >> gvs[] >>
-      disch_then imp_res_tac >>
+      Cases_on `k = 0` >> gvs[] >- simp[wh_alpha_refl] >>
+      last_x_assum (qspec_then `k - 1` assume_tac) >> gvs[] >>
+      res_tac >> qpat_x_assum `∀ e. _` kall_tac >>
       qpat_x_assum `wh_alpha (_ e1) _` mp_tac >> simp[Once wh_alpha_cases] >>
       qpat_x_assum `wh_alpha (_ e2) _` mp_tac >> simp[Once wh_alpha_cases] >>
       rw[] >> gvs[] >> simp[Once wh_alpha_cases]
