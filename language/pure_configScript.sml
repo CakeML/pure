@@ -1,6 +1,6 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory integerTheory stringTheory optionTheory;
+open arithmeticTheory integerTheory stringTheory optionTheory intLib;
 
 val _ = new_theory "pure_config";
 
@@ -64,7 +64,11 @@ Definition eval_op_def[simp]:
   eval_op Elem [Str s; Int i] = (Atom (Int (str_elem s i))) ∧
   eval_op Concat strs = OPTION_MAP (INL o Str) (concat strs) ∧
   eval_op Implode ords = OPTION_MAP (INL o Str) (implode ords) ∧
-  eval_op Substring [Str s; Int i] = Atom (Str (DROP (Num (i % (& LENGTH s))) s)) ∧
+  eval_op Substring [Str s; Int i] =
+    Atom (Str (DROP (Num (i % (& LENGTH s))) s)) ∧
+  eval_op Substring [Str s; Int i; Int l] =
+    (if l < 0 then Atom (Str "") else
+      Atom (Str (TAKE (Num l) (DROP (Num (i % (& LENGTH s))) s)))) ∧
   eval_op StrLt  [Str s; Str t] = Bool (s < t) ∧
   eval_op StrLeq [Str s; Str t] = Bool (s ≤ t) ∧
   eval_op StrGt  [Str s; Str t] = Bool (s > t) ∧
