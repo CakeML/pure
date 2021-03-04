@@ -439,12 +439,6 @@ Proof
   simp[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE] >> rw[]
 QED
 
-Theorem get_atoms_MAP_Diverge[local]:
-  ys ≠ [] ⇒ get_atoms (MAP (K wh_Diverge) ys) = NONE
-Proof
-  Induct_on ‘ys’ \\ simp [get_atoms_def]
-QED
-
 Theorem letrec_split_correct:
   letrec_rel letrec_split x y ∧ closed x ∧ closed y ⇒ x ≃ y
 Proof
