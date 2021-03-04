@@ -5,6 +5,14 @@ open arithmeticTheory listTheory stringTheory alistTheory optionTheory
 
 val _ = new_theory "pure_semantics";
 
+(*
+
+TODO:
+ - add Handle[x,f], Raise[v]
+ - add Alloc[len,init], Update[loc,i,v], Deref[loc,i], Length[loc]
+
+*)
+
 
 (* definitions *)
 
@@ -16,6 +24,38 @@ End
 
 Datatype:
   next_res = Act 'e (exp list) | Ret | Div | Err
+End
+
+Definition with_atom_def:
+  with_atom e f =
+    case eval_wh e of
+    | wh_Diverge => Div
+    | wh_Atom a => f a
+    | _ => Err
+End
+
+Definition get_atoms_def:
+  get_atoms [] = SOME [] ∧
+  get_atoms (wh_Atom a :: xs) = OPTION_MAP (λas. a::as) (get_atoms xs) ∧
+  get_atoms _ = NONE
+End
+
+Definition with_atoms_def:
+  with_atoms es f =
+    let vs = MAP eval_wh es in
+      if MEM wh_Error vs then Err else
+      if MEM wh_Diverge vs then Div else
+        case get_atoms vs of
+        | SOME as => f as
+        | NONE => Err
+End
+
+Definition with_atom_def:
+  with_atom es f = with_atoms es (λvs. f (HD vs))
+End
+
+Definition with_atom2_def:
+  with_atom2 es f = with_atoms es (λvs. f (EL 0 vs) (EL 1 vs))
 End
 
 Definition next_def:
@@ -32,9 +72,10 @@ Definition next_def:
                  | SOME (n,e) => if k = 0 then Div else
                                    next (k-1) (eval_wh (bind n (HD es) e)) fs)
         else if s = "Act" ∧ LENGTH es = 1 then
-          (case eval_wh (HD es) of
-           | wh_Atom a => Act a stack
-           | _ => Err)
+          (with_atom es (λa.
+             case a of
+             | Msg channel content => Act (channel, content) stack
+             | _ => Err))
         else if s = "Bind" ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
@@ -59,7 +100,7 @@ Definition interp'_def:
                    | Err => Ret' Error
                    | Div => Ret' SilentDivergence
                    | Act a new_stack =>
-                       Vis' a (λy. (wh_Constructor "Ret" [Lit y], new_stack)))
+                       Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)], new_stack)))
 End
 
 Definition interp:
@@ -73,7 +114,7 @@ Theorem interp_def:
     | Div => Ret SilentDivergence
     | Err => Ret Error
     | Act a new_stack =>
-        Vis a (λy. interp (wh_Constructor "Ret" [Lit y]) new_stack)
+        Vis a (λy. interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack)
 Proof
   fs [Once interp,interp'_def]
   \\ once_rewrite_tac [io_unfold] \\ fs []
@@ -180,20 +221,16 @@ Proof
 QED
 
 Theorem semantics_Act:
-  semantics (Act x) fs =
-    case eval x of
-    | Atom a => Vis a (λy. semantics (Ret (Lit y)) fs)
-    | _      => Ret Error
+  eval_wh x = wh_Atom (Msg c s) ⇒
+  semantics (Act x) fs = Vis (c,s) (λy. semantics (Ret (Lit (Str y))) fs)
 Proof
-  fs [semantics_def,eval_wh_Cons]
+  strip_tac
+  \\ fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
   \\ fs [next_action_def]
-  \\ simp [Once next_def,CaseEq"wh"]
+  \\ simp [Once next_def,CaseEq"wh",with_atom_def,with_atoms_def,get_atoms_def]
   \\ DEEP_INTRO_TAC some_intro \\ fs []
-  \\ simp [Once next_def,CaseEq"wh"]
-  \\ fs [eval_def]
-  \\ once_rewrite_tac [v_unfold]
-  \\ Cases_on ‘eval_wh x’ \\ fs []
+  \\ simp [Once next_def,CaseEq"wh",with_atom_def,with_atoms_def,get_atoms_def]
 QED
 
 val _ = export_theory();
