@@ -27,16 +27,10 @@ Datatype:
        | HC exp cont (* RHS of Handle, rest *)
 End
 
-Datatype:
-  next_res = Act 'e cont | Ret | Div | Err
-End
+Type state[pp] = “:(wh list) list”;
 
-Definition with_atom_def:
-  with_atom e f =
-    case eval_wh e of
-    | wh_Diverge => Div
-    | wh_Atom a => f a
-    | _ => Err
+Datatype:
+  next_res = Act 'e cont state | Ret | Div | Err
 End
 
 Definition get_atoms_def:
@@ -64,7 +58,7 @@ Definition with_atom2_def:
 End
 
 Definition next_def:
-  next (k:num) v stack =
+  next (k:num) v stack (state:state) =
     case v of
     | wh_Constructor s es =>
        (if s = "Ret" ∧ LENGTH es = 1 then
@@ -74,71 +68,75 @@ Definition next_def:
               (if eval_wh f = wh_Diverge then Div else
                  case dest_wh_Closure (eval_wh f) of
                  | NONE => Err
-                 | SOME (n,e) => if k = 0 then Div else
-                                   next (k-1) (eval_wh (bind n (HD es) e)) fs)
-           | HC f fs => if k = 0 then Div else next (k-1) v fs)
+                 | SOME (n,e) =>
+                     if k = 0 then Div
+                     else next (k-1) (eval_wh (bind n (HD es) e)) fs state)
+           | HC f fs => if k = 0 then Div else next (k-1) v fs state)
         else if s = "Raise" ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
-           | BC f fs => if k = 0 then Div else next (k-1) v fs
+           | BC f fs => if k = 0 then Div else next (k-1) v fs state
            | HC f fs =>
               (if eval_wh f = wh_Diverge then Div else
                  case dest_wh_Closure (eval_wh f) of
                  | NONE => Err
-                 | SOME (n,e) => if k = 0 then Div else
-                                   next (k-1) (eval_wh (bind n (HD es) e)) fs))
+                 | SOME (n,e) =>
+                    if k = 0 then Div
+                    else next (k-1) (eval_wh (bind n (HD es) e)) fs state))
         else if s = "Act" ∧ LENGTH es = 1 then
           (with_atom es (λa.
              case a of
-             | Msg channel content => Act (channel, content) stack
+             | Msg channel content => Act (channel, content) stack state
              | _ => Err))
         else if s = "Bind" ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
-             if k = 0 then Div else next (k-1) (eval_wh m) (BC f stack))
+             if k = 0 then Div else next (k-1) (eval_wh m) (BC f stack) state)
         else if s = "Handle" ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
-             if k = 0 then Div else next (k-1) (eval_wh m) (HC f stack))
+             if k = 0 then Div else next (k-1) (eval_wh m) (HC f stack) state)
         else Err)
     | wh_Diverge => Div
     | _ => Err
 End
 
 Definition next_action_def:
-  next_action wh stack =
-    case some k. next k wh stack ≠ Div of
+  next_action wh stack state =
+    case some k. next k wh stack state ≠ Div of
     | NONE => Div
-    | SOME k => next k wh stack
+    | SOME k => next k wh stack state
 End
 
 Definition interp'_def:
   interp' =
     io_unfold
-      (λ(v,stack). case next_action v stack of
-                   | Ret => Ret' Termination
-                   | Err => Ret' Error
-                   | Div => Ret' SilentDivergence
-                   | Act a new_stack =>
-                       Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)], new_stack)))
+      (λ(v,stack,state).
+        case next_action v stack state of
+        | Ret => Ret' Termination
+        | Err => Ret' Error
+        | Div => Ret' SilentDivergence
+        | Act a new_stack new_state =>
+            Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)],
+                    new_stack, new_state)))
 End
 
 Definition interp:
-  interp v stack = interp' (v, stack)
+  interp v stack state = interp' (v, stack, state)
 End
 
 Theorem interp_def:
-  interp wh stack =
-    case next_action wh stack of
+  interp wh stack state =
+    case next_action wh stack state of
     | Ret => Ret Termination
     | Div => Ret SilentDivergence
     | Err => Ret Error
-    | Act a new_stack =>
-        Vis a (λy. interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack)
+    | Act a new_stack new_state =>
+        Vis a (λy. interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack new_state)
 Proof
   fs [Once interp,interp'_def]
   \\ once_rewrite_tac [io_unfold] \\ fs []
-  \\ Cases_on ‘next_action wh stack’ \\ fs []
+  \\ Cases_on ‘next_action wh stack state’ \\ fs []
   \\ fs [combinTheory.o_DEF,FUN_EQ_THM] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ fs [interp,interp'_def]
@@ -146,14 +144,18 @@ Proof
 QED
 
 Definition semantics_def:
-  semantics e binds = interp (eval_wh e) binds
+  semantics e stack state = interp (eval_wh e) stack state
+End
+
+Definition itree_of_def:
+  itree_of e = semantics e Done []
 End
 
 
 (* basic lemmas *)
 
 Theorem next_less_eq:
-  ∀k1 x fs. next k1 x fs ≠ Div ⇒ ∀k2. k1 ≤ k2 ⇒ next k1 x fs = next k2 x fs
+  ∀k1 x fs st. next k1 x fs st ≠ Div ⇒ ∀k2. k1 ≤ k2 ⇒ next k1 x fs st = next k2 x fs st
 Proof
   ho_match_mp_tac next_ind \\ rw []
   \\ pop_assum mp_tac
@@ -176,11 +178,12 @@ Proof
 QED
 
 Theorem next_next:
-  next k1 x fs ≠ Div ∧ next k2 x fs ≠ Div ⇒
-  next k1 x fs = next k2 x fs
+  next k1 x fs st ≠ Div ∧ next k2 x fs st ≠ Div ⇒
+  next k1 x fs st = next k2 x fs st
 Proof
   metis_tac [LESS_EQ_CASES, next_less_eq]
 QED
+
 
 (* descriptive lemmas *)
 
@@ -191,7 +194,7 @@ Overload Bind = “λx y. Cons "Bind" [x;y]”
 Overload Handle = “λx y. Cons "Handle" [x;y]”
 
 Theorem semantics_Ret:
-  semantics (Ret x) Done = Ret Termination
+  semantics (Ret x) Done s = Ret Termination
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
@@ -202,7 +205,7 @@ Proof
 QED
 
 Theorem semantics_Raise:
-  semantics (Raise x) Done = Ret Termination
+  semantics (Raise x) Done s = Ret Termination
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
@@ -213,7 +216,7 @@ Proof
 QED
 
 Theorem semantics_Ret_HC:
-  semantics (Ret x) (HC f fs) = semantics (Ret x) fs
+  semantics (Ret x) (HC f fs) s = semantics (Ret x) fs s
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ once_rewrite_tac [interp_def]
@@ -229,7 +232,7 @@ Proof
 QED
 
 Theorem semantics_Raise_BC:
-  semantics (Raise x) (BC f fs) = semantics (Raise x) fs
+  semantics (Raise x) (BC f fs) s = semantics (Raise x) fs s
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ once_rewrite_tac [interp_def]
@@ -245,7 +248,7 @@ Proof
 QED
 
 Theorem semantics_Ret_BC:
-  semantics (Ret x) (BC f fs) = semantics (App f x) fs
+  semantics (Ret x) (BC f fs) s = semantics (App f x) fs s
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ once_rewrite_tac [interp_def]
@@ -267,7 +270,7 @@ Proof
 QED
 
 Theorem semantics_Bottom:
-  semantics Bottom xs = Ret SilentDivergence
+  semantics Bottom xs s = Ret SilentDivergence
 Proof
   fs [semantics_def,eval_wh_thm]
   \\ simp [Once interp_def]
@@ -276,12 +279,12 @@ Proof
 QED
 
 Theorem semantics_Bind:
-  semantics (Bind x f) fs = semantics x (BC f fs)
+  semantics (Bind x f) fs s = semantics x (BC f fs) s
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
-  \\ qsuff_tac ‘next_action (wh_Constructor "Bind" [x; f]) fs =
-                next_action (eval_wh x) (BC f fs)’
+  \\ qsuff_tac ‘next_action (wh_Constructor "Bind" [x; f]) fs s =
+                next_action (eval_wh x) (BC f fs) s’
   THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
   \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
@@ -292,12 +295,12 @@ Proof
 QED
 
 Theorem semantics_Handle:
-  semantics (Handle x f) fs = semantics x (HC f fs)
+  semantics (Handle x f) fs s = semantics x (HC f fs) s
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
-  \\ qsuff_tac ‘next_action (wh_Constructor "Handle" [x; f]) fs =
-                next_action (eval_wh x) (HC f fs)’
+  \\ qsuff_tac ‘next_action (wh_Constructor "Handle" [x; f]) fs s =
+                next_action (eval_wh x) (HC f fs) s’
   THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
   \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
@@ -308,8 +311,8 @@ Proof
 QED
 
 Theorem semantics_Act:
-  eval_wh x = wh_Atom (Msg c s) ⇒
-  semantics (Act x) fs = Vis (c,s) (λy. semantics (Ret (Lit (Str y))) fs)
+  eval_wh x = wh_Atom (Msg c t) ⇒
+  semantics (Act x) fs s = Vis (c,t) (λy. semantics (Ret (Lit (Str y))) fs s)
 Proof
   strip_tac
   \\ fs [semantics_def,eval_wh_Cons]
