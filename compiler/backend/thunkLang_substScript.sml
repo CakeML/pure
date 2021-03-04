@@ -136,6 +136,21 @@ Definition dest_Thunk_def[simp]:
   dest_Thunk _ = fail Type_error
 End
 
+Definition dest_anyThunk_def:
+  dest_anyThunk v =
+    do
+      w <- dest_Thunk v;
+      return (w, [])
+    od ++
+    do
+      (f, n) <- dest_Recclosure v;
+      case ALOOKUP f n of
+        SOME (Delay x) => return (INR x, f)
+      | SOME (Box x) => return (INR x, f)
+      | _ => fail Type_error
+    od
+End
+
 Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
@@ -209,10 +224,11 @@ Definition eval_to_def:
   eval_to k (Force x) =
     (do
        v <- eval_to k x;
-       wx <- dest_Thunk v;
+       (wx, binds) <- dest_anyThunk v;
        case wx of
          INL v => return v
-       | INR y => if k = 0 then fail Diverge else eval_to (k - 1) y
+       | INR y => if k = 0 then fail Diverge else
+                    eval_to (k - 1) (subst_funs binds y)
      od) ∧
   eval_to k (Prim op xs) =
     (if k = 0 then fail Diverge else
@@ -304,7 +320,8 @@ Proof
   >- ((* Force *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
-    \\ Cases_on ‘dest_Thunk y’ \\ fs []
+    \\ Cases_on ‘dest_anyThunk y’ \\ fs []
+    \\ pairarg_tac \\ gvs []
     \\ CASE_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Prim *)
