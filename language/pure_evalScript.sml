@@ -585,6 +585,12 @@ Proof
     )
 QED
 
+Theorem get_atoms_MAP_Diverge:
+  ys ≠ [] ⇒ get_atoms (MAP (K wh_Diverge) ys) = NONE
+Proof
+  Induct_on ‘ys’ \\ simp [get_atoms_def]
+QED
+
 Theorem eval_wh_Prim:
   eval_wh (Prim If xs) =
     (case xs of
