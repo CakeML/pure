@@ -8,7 +8,6 @@ val _ = new_theory "pure_semantics";
 (*
 
 TODO:
- - add Handle[x,f], Raise[v]
  - add Alloc[len,init], Update[loc,i,v], Deref[loc,i], Length[loc]
 
 *)
@@ -23,7 +22,13 @@ Datatype:
 End
 
 Datatype:
-  next_res = Act 'e (exp list) | Ret | Div | Err
+  cont = Done        (* nothing left to do *)
+       | BC exp cont (* RHS of Bind, rest *)
+       | HC exp cont (* RHS of Handle, rest *)
+End
+
+Datatype:
+  next_res = Act 'e cont | Ret | Div | Err
 End
 
 Definition with_atom_def:
@@ -64,13 +69,24 @@ Definition next_def:
     | wh_Constructor s es =>
        (if s = "Ret" ∧ LENGTH es = 1 then
           (case stack of
-           | [] => Ret
-           | (f::fs) =>
-               if eval_wh f = wh_Diverge then Div else
+           | Done => Ret
+           | BC f fs =>
+              (if eval_wh f = wh_Diverge then Div else
                  case dest_wh_Closure (eval_wh f) of
                  | NONE => Err
                  | SOME (n,e) => if k = 0 then Div else
                                    next (k-1) (eval_wh (bind n (HD es) e)) fs)
+           | HC f fs => if k = 0 then Div else next (k-1) v fs)
+        else if s = "Raise" ∧ LENGTH es = 1 then
+          (case stack of
+           | Done => Ret
+           | BC f fs => if k = 0 then Div else next (k-1) v fs
+           | HC f fs =>
+              (if eval_wh f = wh_Diverge then Div else
+                 case dest_wh_Closure (eval_wh f) of
+                 | NONE => Err
+                 | SOME (n,e) => if k = 0 then Div else
+                                   next (k-1) (eval_wh (bind n (HD es) e)) fs))
         else if s = "Act" ∧ LENGTH es = 1 then
           (with_atom es (λa.
              case a of
@@ -79,7 +95,11 @@ Definition next_def:
         else if s = "Bind" ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
-             if k = 0 then Div else next (k-1) (eval_wh m) (f::stack))
+             if k = 0 then Div else next (k-1) (eval_wh m) (BC f stack))
+        else if s = "Handle" ∧ LENGTH es = 2 then
+          (let m = EL 0 es in
+           let f = EL 1 es in
+             if k = 0 then Div else next (k-1) (eval_wh m) (HC f stack))
         else Err)
     | wh_Diverge => Div
     | _ => Err
@@ -142,11 +162,17 @@ Proof
   \\ Cases_on ‘x’ \\ fs []
   \\ Cases_on ‘s = "Bind"’ THEN1 (fs [] \\ rw [])
   \\ Cases_on ‘s = "Act"’ THEN1 (fs [] \\ rw [])
-  \\ Cases_on ‘s = "Ret"’ \\ fs [] \\ rw []
-  \\ Cases_on ‘fs’ \\ fs []
-  \\ fs [AllCaseEqs()]
-  \\ Cases_on ‘dest_wh_Closure (eval_wh h)’ \\ fs []
-  \\ PairCases_on ‘x’ \\ gvs []
+  \\ Cases_on ‘s = "Raise"’
+  THEN1
+   (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
+    \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
+    \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
+  \\ Cases_on ‘s = "Ret"’
+  THEN1
+   (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
+    \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
+    \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
+  \\ rw [] \\ fs []
 QED
 
 Theorem next_next:
@@ -159,11 +185,13 @@ QED
 (* descriptive lemmas *)
 
 Overload Ret = “λx. Cons "Ret" [x]”
+Overload Raise = “λx. Cons "Raise" [x]”
 Overload Act = “λx. Cons "Act" [x]”
 Overload Bind = “λx y. Cons "Bind" [x;y]”
+Overload Handle = “λx y. Cons "Handle" [x;y]”
 
 Theorem semantics_Ret:
-  semantics (Ret x) [] = Ret Termination
+  semantics (Ret x) Done = Ret Termination
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
@@ -173,8 +201,51 @@ Proof
   \\ DEEP_INTRO_TAC some_intro \\ fs []
 QED
 
-Theorem semantics_Ret_App:
-  semantics (Ret x) (f::fs) = semantics (App f x) fs
+Theorem semantics_Raise:
+  semantics (Raise x) Done = Ret Termination
+Proof
+  fs [semantics_def,eval_wh_Cons]
+  \\ simp [Once interp_def]
+  \\ fs [next_action_def]
+  \\ simp [Once next_def]
+  \\ simp [Once next_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+QED
+
+Theorem semantics_Ret_HC:
+  semantics (Ret x) (HC f fs) = semantics (Ret x) fs
+Proof
+  fs [semantics_def,eval_wh_Cons]
+  \\ once_rewrite_tac [interp_def]
+  \\ ntac 4 AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp [Once next_action_def]
+  \\ once_rewrite_tac [next_def] \\ fs []
+  \\ simp [Once next_action_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac next_next
+  \\ qexists_tac ‘x'+1’ \\ fs []
+QED
+
+Theorem semantics_Raise_BC:
+  semantics (Raise x) (BC f fs) = semantics (Raise x) fs
+Proof
+  fs [semantics_def,eval_wh_Cons]
+  \\ once_rewrite_tac [interp_def]
+  \\ ntac 4 AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp [Once next_action_def]
+  \\ once_rewrite_tac [next_def] \\ fs []
+  \\ simp [Once next_action_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac next_next
+  \\ qexists_tac ‘x'+1’ \\ fs []
+QED
+
+Theorem semantics_Ret_BC:
+  semantics (Ret x) (BC f fs) = semantics (App f x) fs
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ once_rewrite_tac [interp_def]
@@ -205,12 +276,28 @@ Proof
 QED
 
 Theorem semantics_Bind:
-  semantics (Bind x f) fs = semantics x (f::fs)
+  semantics (Bind x f) fs = semantics x (BC f fs)
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ simp [Once interp_def]
   \\ qsuff_tac ‘next_action (wh_Constructor "Bind" [x; f]) fs =
-                next_action (eval_wh x) (f::fs)’
+                next_action (eval_wh x) (BC f fs)’
+  THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
+  \\ fs [next_action_def]
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ rw [] \\ fs [AllCaseEqs()]
+  THEN1 (match_mp_tac next_next \\ gvs [])
+  \\ qexists_tac ‘x'+1’ \\ gvs []
+QED
+
+Theorem semantics_Handle:
+  semantics (Handle x f) fs = semantics x (HC f fs)
+Proof
+  fs [semantics_def,eval_wh_Cons]
+  \\ simp [Once interp_def]
+  \\ qsuff_tac ‘next_action (wh_Constructor "Handle" [x; f]) fs =
+                next_action (eval_wh x) (HC f fs)’
   THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
   \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
