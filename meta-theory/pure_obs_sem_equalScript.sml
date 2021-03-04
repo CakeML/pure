@@ -14,8 +14,6 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_exp_relTheory pure_semanticsTheory
      pure_congruenceTheory;
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
 val _ = new_theory "pure_obs_sem_equal";
 
 Triviality eval_wh_Cons:
@@ -54,14 +52,18 @@ Proof
     \\ rw [] \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute,res_rel_def]
     \\ qpat_x_assum ‘_ ≃ _’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
+    \\ fs [with_atom_def,with_atoms_def]
     \\ Cases_on ‘eval_wh h’
-    \\ Cases_on ‘eval_wh h'’ \\ fs [res_rel_def])
+    \\ Cases_on ‘eval_wh h'’ \\ fs [res_rel_def,get_atoms_def]
+    \\ gvs [] \\ Cases_on ‘l’ \\ fs [res_rel_def])
   \\ Cases_on ‘s = "Bind"’ \\ fs []
   THEN1
    (imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ rw [] \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute,res_rel_def])
   \\ reverse IF_CASES_TAC
-  THEN1 (imp_res_tac LIST_REL_LENGTH \\ fs [] \\ fs [res_rel_def])
+  THEN1
+   (rw [] \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ fs [res_rel_def])
   \\ gvs [LENGTH_EQ_NUM_compute]
   \\ Cases_on ‘xs’ \\ gvs [res_rel_def]
   \\ assume_tac symmetric_app_bisimilarity
@@ -127,7 +129,7 @@ Proof
   THEN1
    (strip_tac \\ fs []
     \\ Cases_on ‘path’ \\ fs [io_el_def]
-    \\ ‘wh_Constructor "Ret" [Lit h] = eval_wh (Ret (Lit h))’ by fs [eval_wh_thm]
+    \\ ‘wh_Constructor "Ret" [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
     \\ fs [] \\ first_x_assum irule \\ fs []
     \\ match_mp_tac reflexive_app_bisimilarity \\ fs [])
   \\ qsuff_tac ‘res_rel (next_action (eval_wh x) xs) (next_action (eval_wh y) ys)’
