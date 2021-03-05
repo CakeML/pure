@@ -689,4 +689,27 @@ Proof
   gvs[DELETE_DEF, closed_def] >> rw[] >> gvs[SUBSET_DIFF_EMPTY]
 QED
 
+(******************* freevars ********************)
+
+Theorem boundvars_equiv:
+  ∀e. boundvars e = set (boundvars_l e)
+Proof
+  recInduct boundvars_l_ind >> rw[]
+  >- (
+    gvs[LIST_TO_SET_MAP, LIST_TO_SET_FLAT] >> AP_TERM_TAC >>
+    rw[EXTENSION] >> metis_tac[]
+    )
+  >- (
+    gvs[LIST_TO_SET_MAP, LIST_TO_SET_FLAT] >>
+    simp[IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[EXTENSION, EXISTS_PROD, PULL_EXISTS] >> eq_tac >> rw[] >> metis_tac[]
+    )
+QED
+
+Theorem boundvars_FINITE[simp]:
+  ∀e. FINITE (boundvars e)
+Proof
+  simp[boundvars_equiv]
+QED
+
 val _ = export_theory();

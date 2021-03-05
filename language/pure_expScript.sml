@@ -74,10 +74,11 @@ Definition boundvars_def[simp]:
   boundvars (App e1 e2)    = boundvars e1 ∪ boundvars e2 ∧
   boundvars (Lam n e)      = n INSERT boundvars e ∧
   boundvars (Letrec lcs e) =
-    boundvars e ∪ set (MAP FST lcs) ∪ BIGUNION (set (MAP (λ(fn,e). freevars e) lcs))
+    boundvars e ∪ set (MAP FST lcs) ∪ BIGUNION (set (MAP (λ(fn,e). boundvars e) lcs))
 Termination
   WF_REL_TAC `measure exp_size` >> rw[] >> gvs[] >>
-  Induct_on `es` >> rw[] >> gvs[fetch "-" "exp_size_def"]
+  rename1 `MEM _ l` >>
+  Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
 End
 
 Definition boundvars_l_def[simp]:
