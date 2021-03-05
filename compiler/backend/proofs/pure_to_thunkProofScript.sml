@@ -63,7 +63,9 @@ val _ = numLib.prefer_num ();
 
 Overload Suspend[local] = “λx. Force (Value (Thunk (INR x)))”;
 
-Overload Raw[local] = “λv. Force (Value (Thunk (INL v)))”
+Overload Raw[local] = “λv. Force (Value (Thunk (INL v)))”;
+
+Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
 
 Overload Tick[local] = “λx. Letrec [] (x: pure_exp$exp)”;
 
@@ -76,6 +78,12 @@ Proof
 QED
 
 Inductive exp_rel:
+[exp_rel_Value_Rec:]
+  (∀f g x y n.
+     LIST_REL (\(fn, x) (gn, y). fn = gn ∧ closed x ∧ exp_rel x y) f g ∧
+     ALOOKUP (REVERSE f) n = SOME x ∧
+     ALOOKUP (REVERSE g) n = SOME y ⇒
+       exp_rel (Letrec f x) (Rec (MAP (λ(gn, y). (gn, Delay y)) g) n)) ∧
 [exp_rel_Value_Suspend:]
   (∀x y.
      exp_rel x y ∧
@@ -252,6 +260,14 @@ Proof
   >- ((* Letrec *)
     qpat_x_assum ‘exp_rel (Letrec _ _) _’ mp_tac
     \\ rw [Once exp_rel_cases]
+    >- ((* Rec *)
+      fs [subst_single_def, subst1_def]
+      \\ IF_CASES_TAC \\ fs []
+      \\ irule exp_rel_Value_Rec \\ fs []
+      \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP, EVERY2_MAP]
+      \\ gvs [LIST_REL_EL_EQN] \\ rw []
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ first_x_assum (drule_then assume_tac) \\ gs [])
     >- ((* Suspend *)
       fs [subst_single_def, subst1_def]
       \\ irule exp_rel_Value_Suspend \\ fs [])
@@ -284,6 +300,33 @@ Proof
   ho_match_mp_tac exp_rel_ind \\ rw []
   \\ fs [freevars_def, pure_expTheory.closed_def, DELETE_DEF,
          AC UNION_COMM UNION_ASSOC, MAP_MAP_o, combinTheory.o_DEF]
+  >- (
+    ‘freevars x = EMPTY’
+      by (drule_then (qspec_then ‘REVERSE f’ mp_tac) ALOOKUP_SOME_EL_2
+          \\ impl_tac
+          >- (
+            last_x_assum mp_tac
+            \\ rpt (pop_assum kall_tac)
+            \\ qid_spec_tac ‘g’
+            \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
+          \\ rw [] \\ gvs [EL_REVERSE, LIST_REL_EL_EQN]
+          \\ qmatch_asmsub_abbrev_tac ‘EL m f’
+          \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+          \\ first_x_assum (drule_then assume_tac) \\ gs [])
+    \\ fs []
+    \\ qsuff_tac ‘∀x. x ∈ set (MAP (λ(fn,e). freevars e) f) ⇒ x = EMPTY’
+    >- (
+      rw [EXTENSION]
+      \\ fs [MEM_MAP, PULL_EXISTS]
+      \\ rw [DISJ_EQ_IMP]
+      \\ pairarg_tac \\ gvs [])
+    \\ simp [MEM_MAP, MEM_EL]
+    \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ rw [] \\ pairarg_tac \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ first_x_assum (drule_then assume_tac)
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs [])
   >- (
     pop_assum mp_tac
     \\ qid_spec_tac ‘ys’
@@ -415,7 +458,36 @@ Proof
       by (first_x_assum (drule_then assume_tac)
           \\ pairarg_tac \\ gvs [])
     \\ gvs []
-    \\ cheat (* TODO Uhhh.. *))
+    \\ irule exp_rel_Value_Rec
+    \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
+    \\ ‘MAP FST (REVERSE f) = MAP FST (REVERSE g)’
+      by (last_x_assum mp_tac
+          \\ qpat_x_assum ‘LENGTH f = _’ mp_tac
+          \\ rpt (pop_assum kall_tac)
+          \\ qid_spec_tac ‘g’
+          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp []
+          \\ rw []
+          >- (
+            first_x_assum drule
+            \\ impl_tac \\ fs []
+            \\ rw []
+            \\ pairarg_tac \\ gvs []
+            \\ pairarg_tac \\ gvs []
+            \\ first_x_assum (qspec_then ‘SUC n’ assume_tac) \\ gs [])
+          \\ first_x_assum (qspec_then ‘0’ assume_tac)
+          \\ pairarg_tac \\ gvs []
+          \\ pairarg_tac \\ gvs [])
+    \\ conj_asm1_tac
+    >- (
+      fs [GSYM MAP_REVERSE, ALOOKUP_MAP])
+    \\ conj_tac
+    >- (
+      CCONTR_TAC \\ fs []
+      \\ Cases_on ‘ALOOKUP (REVERSE g) fn’ \\ gs []
+      \\ imp_res_tac ALOOKUP_SOME
+      \\ gs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+             GSYM FST_THM, ALOOKUP_NONE])
+    \\ fs [LIST_REL_EL_EQN])
   >- ((* Prim *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
@@ -454,11 +526,15 @@ Proof
   >- ((* Letrec *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
-    >- ((* Tick *)
-      cheat
-    )
-    \\ fs []
-    \\ rw [subst_def, pure_expTheory.subst_def]
+    \\ rw [subst_def, pure_expTheory.subst_def, exp_rel_Value_Suspend]
+    >- ((* Rec *)
+      irule exp_rel_Value_Rec \\ fs []
+      \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
+      \\ fs [EVERY2_MAP, LAMBDA_PROD, LIST_REL_EL_EQN] \\ rw []
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ rename1 ‘EL m lcs’
+      \\ ‘MEM (EL m lcs) lcs’ by fs [EL_MEM]
+      \\ first_x_assum (drule_all_then assume_tac) \\ gs [])
     \\ qmatch_goalsub_abbrev_tac
       ‘exp_rel (Letrec ff xx) (Letrec (MAP f1 (MAP f2 gg)) yy)’
     \\ ‘MAP f1 (MAP f2 gg) = MAP f2 (MAP f1 gg)’
@@ -467,7 +543,7 @@ Proof
                    FORALL_PROD, subst_def])
     \\ pop_assum SUBST1_TAC
     \\ unabbrev_all_tac
-    \\ irule exp_rel_Letrec
+    \\ irule exp_rel_Letrec \\ fs []
     \\ cheat (* TODO maybe *))
 QED
 
@@ -528,6 +604,23 @@ Proof
     \\ pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_wh_to_def, eval_to_def]
+    >- ((* Rec *)
+      imp_res_tac ALOOKUP_SOME \\ fs [dest_anyThunk_def]
+      \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
+      \\ IF_CASES_TAC \\ fs []
+      \\ first_x_assum irule
+      \\ irule exp_rel_subst_funs \\ fs []
+      \\ drule_then (qspec_then ‘REVERSE f’ mp_tac) ALOOKUP_SOME_EL_2
+      \\ impl_tac
+      >- (
+        last_x_assum mp_tac
+        \\ rpt (pop_assum kall_tac)
+        \\ qid_spec_tac ‘g’
+        \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
+      \\ rw [] \\ gvs [LIST_REL_EL_EQN, EL_REVERSE]
+      \\ qmatch_asmsub_abbrev_tac ‘EL m f’
+      \\ ‘m < LENGTH g’ by gvs [Abbr ‘m’]
+      \\ first_x_assum (drule_then assume_tac) \\ gs [])
     >- ((* Tick *)
       IF_CASES_TAC \\ fs [dest_anyThunk_def]
       \\ first_x_assum irule
