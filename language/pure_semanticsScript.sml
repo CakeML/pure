@@ -122,6 +122,20 @@ Definition next_def:
                     else next (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
                              stack state)
              | _ => Err))
+        else if s = "Update" ∧ LENGTH es = 3 then
+          (with_atom2 [EL 0 es; EL 1 es] (λa a'.
+             case (a, a') of
+             | (Loc n, Int i) =>
+                 (if LENGTH state ≤ n then Err else
+                  if 0 ≤ i ∧ i < & LENGTH (EL n state) then
+                    if k = 0 then Div
+                    else next (k-1) (wh_Constructor "Ret" [Cons "" []])
+                           stack (LUPDATE (LUPDATE (EL 2 es) (Num i) (EL n state)) n state)
+                  else
+                    if k = 0 then Div
+                    else next (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
+                             stack state)
+             | _ => Err))
         else Err)
     | wh_Diverge => Div
     | _ => Err
@@ -224,6 +238,17 @@ Proof
     \\ fs [AllCaseEqs()]
     \\ first_x_assum irule \\ fs []
     \\ metis_tac [])
+  \\ Cases_on ‘s = "Update"’ THEN1
+   (fs [] \\ rw [with_atom2_def,with_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
+    \\ Cases_on ‘eval_wh h'’ \\ gvs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ IF_CASES_TAC \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ fs [AllCaseEqs()]
+    \\ first_x_assum irule \\ fs []
+    \\ metis_tac [])
   \\ rw [] \\ fs []
 QED
 
@@ -245,6 +270,7 @@ Overload Handle = “λx y. Cons "Handle" [x;y]”
 Overload Alloc = “λx y. Cons "Alloc" [x;y]”
 Overload Length = “λx. Cons "Length" [x]”
 Overload Deref = “λx y. Cons "Deref" [x;y]”
+Overload Update = “λx y z. Cons "Update" [x;y;z]”
 
 Theorem semantics_Ret:
   semantics (Ret x) Done s = Ret Termination
@@ -419,6 +445,25 @@ Theorem semantics_Deref:
   eval_wh y = wh_Atom (Int (& i)) ∧ i < LENGTH (EL n s) ⇒
   semantics (Deref x y) fs s =
   semantics (Ret (EL i (EL n s))) fs s
+Proof
+  strip_tac
+  \\ fs [semantics_def,eval_wh_Cons]
+  \\ once_rewrite_tac [interp_def]
+  \\ once_rewrite_tac [next_action_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
+  \\ fs [with_atom2_def,with_atoms_def,get_atoms_def]
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac next_next \\ fs []
+  \\ qexists_tac ‘x'+1’ \\ fs []
+QED
+
+Theorem semantics_Update:
+  eval_wh x = wh_Atom (Loc n) ∧ n < LENGTH s ∧
+  eval_wh y = wh_Atom (Int (& i)) ∧ i < LENGTH (EL n s) ⇒
+  semantics (Update x y z) fs s =
+  semantics (Ret (Cons "" [])) fs (LUPDATE (LUPDATE z i (EL n s)) n s)
 Proof
   strip_tac
   \\ fs [semantics_def,eval_wh_Cons]
