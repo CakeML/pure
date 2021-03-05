@@ -30,7 +30,7 @@ Definition next_def:
                  case dest_wh_Closure (eval_wh f) of
                  | NONE => Err
                  | SOME (n,e) => if k = 0 then Div else
-                                   next (k-1) (eval_wh (bind n (HD es) e)) fs)
+                                   next (k-1) (eval_wh (bind1 n (HD es) e)) fs)
         else if s = "Act" ∧ LENGTH es = 1 then
           (case eval_wh (HD es) of
            | wh_Atom a => Act a stack
