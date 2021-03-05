@@ -12,11 +12,6 @@ val _ = new_theory "pure_to_thunkProof";
 
 val _ = numLib.prefer_num ();
 
-(* TODO
-   - All variables are suspended. Update notes.
-   - Are they though?
- *)
-
 (*
   NOTES ON COMPILING PURELANG TO THUNKLANG:
 
@@ -24,19 +19,19 @@ val _ = numLib.prefer_num ();
 
   As pureLang is lazy it allows non-functional value declarations that are
   mutually recursive, and lazy value declarations. All such computations are
-  suspended behind a “Delay T (Closure «fresh_var»  «defn»)” thunkLang-side.
-  We keep track of which variables are suspended and which are not using a
-  context.
+  suspended thunkLang-side by Lam, Box or Delay. This relation (exp_rel) acts as
+  if the compiler inserted Delay everywhere, but the compiler can insert Box
+  for things that do not require a thunk to be allocated, such as a lambda.
 
   * [Var]
-    - ‘Suspended’ variables are forced thunkLang-side.
-    - ‘Raw’ variables are evaluated as-is.
+    - All variables are wrapped in ‘Force’ as if they were suspended either by
+      a Thunk or a Recclosure.
   * [Lam]
-    - Lambdas are already lazy. The bound variable is treated as ‘Raw’.
+    - Lambdas are already lazy.
   * [App]
-    - The function argument is evaluated in the same way on both sides, but
-      the function argument computation is suspended thunkLang-side by wrapping
-      it in a “Delay T (Closure ...)”-thing (using a fresh variable).
+    - The function expression is evaluated in the same way on both sides, but
+      the computation of the argument to the function computation is suspended
+      thunkLang-side by wrapping it in a Delay expression.
   * [Prim]
     - ‘If’ receives special treatment because we need it to retain its laziness
       in thunkLang (Why isn't it possible to suspend the branches by wrapping
@@ -49,25 +44,23 @@ val _ = numLib.prefer_num ();
     - ‘Force’ is applied to ‘Proj’ to put it in weak head normal form (this
       corresponds to the additional evaluate performed in the pureLang
       semantics).
-    - The rest of the operations naturally produce results in weak head normal
-      form, so we don't do anything special about these
+    - The remainder of the operations already produce results in weak head
+      normal form, so we don't do anything special to them.
   * [Letrec]
-    - TODO
-
-  Various TODO:
-    - thunkLang subst or thunkLang freevars (I don't know which) makes a
-      mistake with Letrecs
-    - thunkLang subst should check whether the expression is closed and fail
-      when pureLang subst fails
+    - We expect all expressions in the list of bindings to be suspended by
+      something (either Lam or Delay or Box), so we insert Delay everywhere.
  *)
 
 Overload Suspend[local] = “λx. Force (Value (Thunk (INR x)))”;
 
-Overload Raw[local] = “λv. Force (Value (Thunk (INL v)))”;
-
 Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
 
 Overload Tick[local] = “λx. Letrec [] (x: pure_exp$exp)”;
+
+(* TODO
+   - The Tick definition and this theorem are maybe interesting to keep
+     elsewhere. It's not used here.
+ *)
 
 Theorem eval_Tick[local]:
   k ≠ 0 ⇒ eval_wh_to k (Tick x) = eval_wh_to (k - 1) x
