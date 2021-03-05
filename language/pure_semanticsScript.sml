@@ -95,8 +95,18 @@ Definition next_def:
                  (let n = if len < 0 then 0 else Num len in
                   let new_state = state ++ [REPLICATE n (EL 1 es)] in
                     if k = 0 then Div
-                    else next (k-1) (wh_Constructor "Ret" [Lit (Loc (& LENGTH state))])
+                    else next (k-1) (wh_Constructor "Ret" [Lit (Loc (LENGTH state))])
                            stack new_state)
+             | _ => Err))
+        else if s = "Length" ∧ LENGTH es = 1 then
+          (with_atom [HD es] (λa.
+             case a of
+             | Loc n =>
+                 (if LENGTH state ≤ n then Err else
+                  if k = 0 then Div
+                  else next (k-1) (wh_Constructor "Ret"
+                                     [Lit (Int (& (LENGTH (EL n state))))])
+                           stack state)
              | _ => Err))
         else Err)
     | wh_Diverge => Div
@@ -183,6 +193,12 @@ Proof
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ fs [])
+  \\ Cases_on ‘s = "Length"’ THEN1
+   (fs [] \\ rw [with_atom_def,with_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ IF_CASES_TAC \\ fs [] \\ IF_CASES_TAC \\ fs [])
   \\ rw [] \\ fs []
 QED
 
@@ -202,6 +218,7 @@ Overload Act = “λx. Cons "Act" [x]”
 Overload Bind = “λx y. Cons "Bind" [x;y]”
 Overload Handle = “λx y. Cons "Handle" [x;y]”
 Overload Alloc = “λx y. Cons "Alloc" [x;y]”
+Overload Length = “λx. Cons "Length" [x]”
 
 Theorem semantics_Ret:
   semantics (Ret x) Done s = Ret Termination
@@ -339,6 +356,24 @@ Theorem semantics_Alloc:
   eval_wh x = wh_Atom (Int (& n)) ⇒
   semantics (Alloc x y) fs s =
   semantics (Ret (Lit (Loc (LENGTH s)))) fs (s ++ [REPLICATE n y])
+Proof
+  strip_tac
+  \\ fs [semantics_def,eval_wh_Cons]
+  \\ once_rewrite_tac [interp_def]
+  \\ once_rewrite_tac [next_action_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
+  \\ fs [with_atom_def,with_atoms_def,get_atoms_def]
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac next_next \\ fs []
+  \\ qexists_tac ‘x'+1’ \\ fs []
+QED
+
+Theorem semantics_Length:
+  eval_wh x = wh_Atom (Loc n) ∧ n < LENGTH s ⇒
+  semantics (Length x) fs s =
+  semantics (Ret (Lit (Int (& LENGTH (EL n s))))) fs s
 Proof
   strip_tac
   \\ fs [semantics_def,eval_wh_Cons]
