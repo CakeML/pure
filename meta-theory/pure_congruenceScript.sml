@@ -437,7 +437,7 @@ Definition Sub_def: (* Sub = substitutive *)
       (* x ∉ vars ∧ *)
       {e1; e1'} ⊆ Exps (x INSERT vars) ∧ {e2; e2'} ⊆ Exps {} ⇒
       R (x INSERT vars) e1 e1' ∧ R {} e2 e2' ⇒
-      R vars (subst x e2 e1) (subst x e2' e1')
+      R vars (subst1 x e2 e1) (subst1 x e2' e1')
   (* This definition has been tweaked to only insert closed expressions e2, e2' *)
 End
 
@@ -447,7 +447,7 @@ Definition Cus_def: (* closed under value-substitution *)
       (* x ∉ vars ∧ *)
       {e1; e1'} SUBSET Exps (x INSERT vars) ∧ e2 IN Exps {} ⇒
       R (x INSERT vars) e1 e1' ⇒
-      R vars (subst x e2 e1) (subst x e2 e1')
+      R vars (subst1 x e2 e1) (subst1 x e2 e1')
   (* This definition has been tweaked to only insert closed expressions e2 *)
 End
 
@@ -496,25 +496,25 @@ Proof
           Ref R ∧ Tra R ∧ Cus R ∧ term_rel R ∧
           (e1 ∈ Exps (x INSERT vars) ∧ e1' ∈ Exps (x INSERT vars)) ∧
           closed e2 ∧ closed e2' ∧ Howe R {} e2 e2' ⇒
-          Howe R vars (subst x e2 e1) (subst x e2' e1')’
+          Howe R vars (subst1 x e2 e1) (subst1 x e2' e1')’
   >- fs [PULL_FORALL] >>
   ho_match_mp_tac Howe_strongind >> rw[] >> fs[]
   >- (
-    gvs[subst_single_def] >> reverse (rw[])
+    gvs[subst1_def] >> reverse (rw[])
     >- (
       irule Howe1 >>
       gvs[Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      simp[subst_single_def]
+      simp[subst1_def]
       ) >>
     irule Howe_Tra >> simp[PULL_EXISTS] >>
     qexists_tac ‘e2'` >>
-    gvs[Exps_def, freevars_subst_single, closed_def] >> rw[SUBSET_DEF]
+    gvs[Exps_def, freevars_subst1, closed_def] >> rw[SUBSET_DEF]
     >- (gvs[IN_DEF, SUBSET_DEF] >> metis_tac[])
     >- (
       gvs[Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      simp[subst_single_def] >> disch_then irule >>
+      simp[subst1_def] >> disch_then irule >>
       simp[closed_def, Exps_def]
       )
     >- (
@@ -524,23 +524,23 @@ Proof
       )
     )
   >- (
-    fs[subst_single_def] >> rw[]
+    fs[subst1_def] >> rw[]
     >- (
       irule Howe2 >> fs[] >>
       goal_assum (drule_at Any) >>
       gvs[Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      simp[subst_single_def] >>
+      simp[subst1_def] >>
       disch_then irule >> simp[] >>
       drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
       gvs[Exps_def, SUBSET_INSERT_DELETE]
       ) >>
     irule Howe2 >>
-    qexists_tac `subst x' e2' e1'` >>
+    qexists_tac `subst1 x' e2' e1'` >>
     conj_tac
     >- (
       gvs[Cus_def] >>
-      first_x_assum (drule_at (Pos last)) >> simp[subst_single_def] >>
+      first_x_assum (drule_at (Pos last)) >> simp[subst1_def] >>
       disch_then irule >> gvs[] >>
       gvs[term_rel_def] >> res_tac
       ) >>
@@ -549,20 +549,20 @@ Proof
     gvs[SUBSET_INSERT_DELETE]
     )
   >- (
-    gvs[subst_single_def] >>
-    rename1 `Howe _ _ (App (subst x e ea) (subst x e eb)) (subst x e' ec)` >>
+    gvs[subst1_def] >>
+    rename1 `Howe _ _ (App (subst1 x e ea) (subst1 x e eb)) (subst1 x e' ec)` >>
     rename1 `R (_ INSERT _) (App ed ef) _` >>
     irule Howe3 >>
-    qexists_tac `subst x e' ed` >> qexists_tac `subst x e' ef` >>
+    qexists_tac `subst1 x e' ed` >> qexists_tac `subst1 x e' ef` >>
     gvs[term_rel_def] >> first_x_assum drule >>
-    rw[] >- (gvs[Cus_def] >> simp[GSYM subst_single_def]) >>
+    rw[] >- (gvs[Cus_def] >> simp[GSYM subst1_def]) >>
     first_x_assum irule >> gvs[Exps_def]
     )
   >- (
-    gvs[subst_single_def] >>
-    irule Howe4 >> qexists_tac `MAP (λe. subst x e2' e) es'` >>
+    gvs[subst1_def] >>
+    irule Howe4 >> qexists_tac `MAP (λe. subst1 x e2' e) es'` >>
     gvs[term_rel_def] >> first_x_assum drule >> rw[]
-    >- (gvs[Cus_def] >> simp[GSYM subst_single_def]) >>
+    >- (gvs[Cus_def] >> simp[GSYM subst1_def]) >>
     gvs[LIST_REL_EL_EQN] >> rw[] >>
     simp[EL_MAP] >>
     last_x_assum drule >> strip_tac >>
@@ -572,7 +572,7 @@ Proof
     >- (first_x_assum irule >> qexists_tac `EL n es'` >> gvs[EL_MEM])
     )
   >- (
-    gvs[subst_single_def] >> rw[]
+    gvs[subst1_def] >> rw[]
     >- (
       gvs[INSERT_UNION] >>
       irule Howe5 >> simp[] >>
@@ -580,7 +580,7 @@ Proof
       imp_res_tac fmap_rel_fupdate_list_MAP_FST >>
       gvs[fmap_rel_def, Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      simp[subst_single_def] >> disch_then irule >>
+      simp[subst1_def] >> disch_then irule >>
       drule term_rel_Howe >> gvs[term_rel_def] >> disch_then imp_res_tac >>
       gvs[Exps_simps, INSERT_UNION] >>
       first_x_assum drule >> simp[Exps_simps, INSERT_UNION]
@@ -591,11 +591,11 @@ Proof
       gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
       CONV_TAC (DEPTH_CONV ETA_CONV) >> fs[] >>
       gvs[EVERY_EL, EL_MAP] >> rw[] >> last_x_assum drule >> simp[Exps_def] >>
-      imp_res_tac freevars_subst_single >> simp[] >>
+      imp_res_tac freevars_subst1 >> simp[] >>
       simp[INSERT_UNION, GSYM SUBSET_INSERT_DELETE]
       ) >>
-    qexists_tac `subst x e2' e1'` >>
-    qexists_tac `MAP (λ(g,z). (g, subst x e2' z)) ves'` >>
+    qexists_tac `subst1 x e2' e1'` >>
+    qexists_tac `MAP (λ(g,z). (g, subst1 x e2' z)) ves'` >>
     gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
     CONV_TAC (DEPTH_CONV ETA_CONV) >> fs[] >>
     imp_res_tac fmap_rel_fupdate_list_MAP_FST >> gvs[] >>
@@ -603,7 +603,7 @@ Proof
     >- (
       gvs[Cus_def] >>
       first_x_assum (drule_at (Pos last)) >>
-      simp[subst_single_def]
+      simp[subst1_def]
       )
     >- (
       gvs[fmap_rel_OPTREL_FLOOKUP, flookup_fupdate_list, GSYM MAP_REVERSE] >>
@@ -665,7 +665,7 @@ Proof
   drule IMP_Howe_Sub >> rpt (disch_then drule) >>
   simp[Sub_def] >>
   disch_then (qspecl_then [`s ∪ vars`,`e`,`e1`,`e2`,`Fail`,`Fail`] mp_tac) >>
-  simp[] >> dep_rewrite.DEP_REWRITE_TAC[subst_ignore_single] >> simp[] >>
+  simp[] >> dep_rewrite.DEP_REWRITE_TAC[subst1_ignore] >> simp[] >>
   disch_then irule >>
   drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
   gvs[INSERT_UNION_EQ] >>
@@ -739,7 +739,7 @@ Triviality perm_exp_IN_Exps:
   freevars ce2 ⊆ {y} ⇒ perm_exp x y ce2 ∈ Exps {x}
 Proof
   fs [Exps_def]
-  \\ rewrite_tac [GSYM perm_exp_eqvt]
+  \\ rewrite_tac [freevars_eqvt]
   \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
          FILTER_EQ_NIL,EVERY_MEM]
   \\ rw [] \\ res_tac \\ fs []
@@ -747,17 +747,17 @@ QED
 
 Theorem exp_alpha_subst_lemma[local]:
   closed (Lam y e5) ∧ closed e4 ⇒
-  exp_alpha (subst x e4 (perm_exp x y e5)) (subst y e4 e5)
+  exp_alpha (subst1 x e4 (perm_exp x y e5)) (subst1 y e4 e5)
 Proof
   rw [] \\ match_mp_tac exp_alpha_Trans
-  \\ qexists_tac ‘perm_exp x y (subst x e4 (perm_exp x y e5))’
+  \\ qexists_tac ‘perm_exp x y (subst1 x e4 (perm_exp x y e5))’
   \\ rw [] THEN1 (
     match_mp_tac exp_alpha_perm_irrel
-    \\ fs [freevars_subst,GSYM perm_exp_eqvt,MEM_MAP,closed_def,FILTER_EQ_NIL,
+    \\ fs [freevars_subst,freevars_eqvt,MEM_MAP,closed_def,FILTER_EQ_NIL,
            EVERY_MEM,perm1_def, PULL_FORALL, SUBSET_DEF]
     \\ CCONTR_TAC \\ gvs[])
-  \\ fs [subst_single_eqvt,perm1_def]
-  \\ match_mp_tac exp_alpha_subst_closed_single'
+  \\ fs [subst1_eqvt,perm1_def]
+  \\ match_mp_tac exp_alpha_subst1_closed'
   \\ fs [closed_perm]
   \\ match_mp_tac exp_alpha_sym
   \\ match_mp_tac exp_alpha_perm_irrel
@@ -1115,8 +1115,8 @@ Proof
     reverse (Cases_on `s ∈ FDOM f`)
     >- (
       `closed e3 ∧ closed ce2` by (
-        gvs[closed_def, freevars_def, pure_miscTheory.NIL_iff_NOT_MEM] >>
-        gvs[SUBSET_DEF, GSYM perm_exp_eqvt, MEM_MAP, PULL_EXISTS] >>
+        gvs[closed_def, freevars_def, EXTENSION] >>
+        gvs[SUBSET_DEF, freevars_eqvt, MEM_MAP, PULL_EXISTS] >>
         metis_tac[perm1_def]) >>
       fs[closed_subst, closed_perm] >>
       irule (SIMP_RULE std_ss [transitive_def] transitive_app_similarity) >>
@@ -1126,17 +1126,17 @@ Proof
       irule exp_alpha_perm_irrel >> gvs[closed_def]
       ) >>
     qabbrev_tac `e = f ' s` >>
-    `freevars e = []` by gvs[FLOOKUP_DEF, Abbr `e`] >>
+    `freevars e = {}` by gvs[FLOOKUP_DEF, Abbr `e`] >>
     first_x_assum drule >>
-    `subst f e3 = subst s e e3` by (
+    `subst f e3 = subst1 s e e3` by (
       once_rewrite_tac [subst_FDIFF] >> AP_THM_TAC >> AP_TERM_TAC >>
       gvs[fmap_EXT, DRESTRICT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
     rw[] >>
     irule (SIMP_RULE std_ss [transitive_def] transitive_app_similarity) >>
     goal_assum drule >>
-    `subst f (perm_exp s y ce2) = subst s e (perm_exp s y ce2)` by (
+    `subst f (perm_exp s y ce2) = subst1 s e (perm_exp s y ce2)` by (
       once_rewrite_tac [subst_FDIFF] >> AP_THM_TAC >> AP_TERM_TAC >>
-      gvs[fmap_EXT, DRESTRICT_DEF, EXTENSION, SUBSET_DEF, GSYM perm_exp_eqvt] >>
+      gvs[fmap_EXT, DRESTRICT_DEF, EXTENSION, SUBSET_DEF, freevars_eqvt] >>
       gvs[MEM_MAP, PULL_EXISTS] >> rw[] >> fs[perm1_def] >> metis_tac[]) >>
     rw[] >>
     irule exp_alpha_app_similarity >> reverse (rw[])
@@ -1146,7 +1146,7 @@ Proof
       fs[closed_def, FILTER_EQ_NIL, EVERY_MEM, SUBSET_DEF]
       ) >>
     irule IMP_closed_subst >> fs[FRANGE_DEF, closed_def, SUBSET_DEF] >>
-    gvs[GSYM perm_exp_eqvt, MEM_MAP, PULL_EXISTS, perm1_simps]
+    gvs[freevars_eqvt, MEM_MAP, PULL_EXISTS, perm1_simps]
     )
   >- (
     rename1 `App` >>
@@ -1206,34 +1206,34 @@ Proof
     fs[Exps_def] >>
     drule_all eval_wh_Closure_closed >> strip_tac >>
     qpat_x_assum `eval_wh e3 = _` assume_tac >>
-    drule_all eval_wh_Closure_closed >> strip_tac >> gvs[bind_single_def] >>
+    drule_all eval_wh_Closure_closed >> strip_tac >> gvs[bind1_def] >>
     impl_keep_tac >- (imp_res_tac Howe_open_similarity_IMP_freevars) >>
     strip_tac >>
     simp[eval_wh_App, bind_def, FLOOKUP_UPDATE] >>
     first_x_assum irule >> simp[] >> rw[]
-    >- (irule closed_freevars_subst >> simp[]) >>
+    >- (irule closed_freevars_subst1 >> simp[]) >>
     irule Howe_Tra >>
     fs[open_similarity_EMPTY, Tra_open_similarity, term_rel_open_similarity] >>
-    rw[] >- (irule closed_freevars_subst >> simp[]) >>
-    qexists_tac `subst x0 e7 (perm_exp x0 y0 y1)` >> simp[] >>
-    rw[] >- (irule closed_freevars_subst >> simp[]) >>
+    rw[] >- (irule closed_freevars_subst1 >> simp[]) >>
+    qexists_tac `subst1 x0 e7 (perm_exp x0 y0 y1)` >> simp[] >>
+    rw[] >- (irule closed_freevars_subst1 >> simp[]) >>
     irule (SIMP_RULE std_ss [transitive_def] transitive_app_similarity) >>
-    qexists_tac `subst y0 e7 y1` >> rw[]
+    qexists_tac `subst1 y0 e7 y1` >> rw[]
     >- (
       irule exp_alpha_app_similarity >>
       imp_res_tac Howe_open_similarity_IMP_closed >>
       fs[exp_alpha_subst_lemma] >> rw[]
-      >- (irule closed_freevars_subst >> simp[]) >>
+      >- (irule closed_freevars_subst1 >> simp[]) >>
       irule exp_alpha_sym >>
       Cases_on `y0 = x0` >> gvs[perm_exp_id, exp_alpha_Refl] >>
-      drule exp_alpha_subst_closed_single >>
+      drule exp_alpha_subst1_closed >>
       rewrite_tac[Once perm_exp_sym] >>
       disch_then irule >> simp[] >> gvs[SUBSET_DEF, EXTENSION] >>
       CCONTR_TAC >> gvs[]
       ) >>
     qpat_x_assum `_ ≲ _` mp_tac >>
     rewrite_tac[app_similarity_iff] >> once_rewrite_tac[unfold_rel_def] >>
-    fs[eval_wh_App, eval_wh_Cons, bind_single_def] >>
+    fs[eval_wh_App, eval_wh_Cons, bind1_def] >>
     rw[] >> irule IMP_closed_subst >> fs[FRANGE_DEF]
     )
   >- (
@@ -1279,7 +1279,7 @@ Proof
       ) >>
     rename1 `wh_Closure xa cea` >>
     rename1 `eval_wh (subst_funs fb _) = wh_Closure xb ceb` >>
-    rename1 `_ ≲ subst xc _ cec` >>
+    rename1 `eval_wh e2 = wh_Closure xc cec` >>
     irule Howe_Tra >> assume_tac term_rel_open_similarity >>
     simp[Tra_open_similarity] >>
     drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
@@ -1287,14 +1287,14 @@ Proof
     conj_asm1_tac
     >- (
       rw[SUBSET_DEF] >>
-      rename1 `MEM _ (freevars (_ foo))` >>
+      rename1 `_ ∈ freevars (_ foo)` >>
       last_x_assum (qspec_then `Fail` mp_tac) >> rw[] >>
-      imp_res_tac app_similarity_closed >> rename1 `subst bar _ foo` >>
+      imp_res_tac app_similarity_closed >> rename1 `subst1 bar _ foo` >>
       `freevars foo ⊆ {bar}` by (
-        irule closed_subst_freevars >>
+        irule closed_subst1_freevars >>
         goal_assum (drule_at (Pos last)) >> simp[]) >>
-      gvs[GSYM perm_exp_eqvt, MEM_MAP] >>
-      gvs[SUBSET_DEF, perm1_def]
+      gvs[freevars_eqvt, MEM_MAP] >>
+      pop_assum mp_tac >> simp[SUBSET_DEF, perm1_simps]
       ) >>
     last_x_assum (qspec_then `{xa}` assume_tac) >> gvs[] >>
     goal_assum (drule_at (Pos last)) >> simp[] >>
@@ -1315,27 +1315,27 @@ Proof
       fs[SUBSET_DEF] >> metis_tac[]) >>
     gvs[FLOOKUP_UPDATE] >> pop_assum kall_tac >>
     first_x_assum (qspec_then `xa` assume_tac) >> gvs[] >>
-    simp[subst_single_eqvt_alt, perm1_def] >>
+    simp[subst1_eqvt_alt, perm1_def] >>
     irule app_similarity_perm_exp_left >>
     irule app_similarity_perm_exp_right >>
     first_assum irule >>
-    qexists_tac `subst xc (perm_exp xa xb esub) cec` >>
+    qexists_tac `subst1 xc (perm_exp xa xb esub) cec` >>
     last_assum (irule_at Any) >> simp[closed_perm] >>
     irule companion_app_similarity  >>
     irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-    rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >> rw[]
+    rpt (irule_at Any closed_freevars_subst1) >> simp[closed_perm] >> rw[]
     >- (
       qpat_x_assum `freevars (perm_exp _ _ cec) ⊆ _` mp_tac >>
-      simp[SUBSET_DEF, GSYM perm_exp_eqvt, MEM_MAP, PULL_EXISTS] >> rw[] >>
+      simp[SUBSET_DEF, freevars_eqvt, MEM_MAP, PULL_EXISTS] >> rw[] >>
       first_x_assum drule >> simp[perm1_def] >>
       IF_CASES_TAC >> simp[] >> IF_CASES_TAC >> simp[]
       ) >>
-    irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+    irule exp_alpha_subst1_closed' >> simp[closed_perm] >>
     irule exp_alpha_Trans >>
     irule_at Any exp_alpha_perm_irrel >>
     qexistsl_tac [`xb`,`xa`] >> simp[] >>
     irule_at Any exp_alpha_perm_irrel >>
-    gvs[closed_def, GSYM perm_exp_eqvt]
+    gvs[closed_def, freevars_eqvt]
     ) >>
   rename1 `Prim` >>
   rpt gen_tac >> ntac 4 strip_tac >>
@@ -1389,7 +1389,7 @@ Proof
       irule Howe_Tra >> assume_tac term_rel_open_similarity >>
       simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
       goal_assum (drule_at (Pos last)) >>
-      imp_res_tac eval_wh_Closure_closed >> simp[GSYM perm_exp_eqvt] >>
+      imp_res_tac eval_wh_Closure_closed >> simp[freevars_eqvt] >>
       conj_asm1_tac
       >- (
         qpat_x_assum `freevars ce2' ⊆ _` mp_tac >>
@@ -1400,7 +1400,7 @@ Proof
         qpat_x_assum `freevars ce2 ⊆ _` mp_tac >>
         simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
         ) >>
-      fs[perm_exp_eqvt] >>
+      fs[GSYM freevars_eqvt] >>
       rw[open_similarity_alt_def, bind_def] >>
       IF_CASES_TAC >> simp[] >>
       rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
@@ -1425,22 +1425,22 @@ Proof
         PURE_REWRITE_TAC[SUBSET_DEF, IN_SING] >> strip_tac >> strip_tac >>
         metis_tac[]) >>
       pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >>
-      simp[subst_single_eqvt_alt, perm1_simps] >>
+      simp[subst1_eqvt_alt, perm1_simps] >>
       irule app_similarity_perm_exp_left >>
       irule app_similarity_perm_exp_right >>
       assume_tac transitive_app_similarity >> gvs[transitive_def] >>
       first_assum irule >>
-      qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+      qexists_tac `subst1 xb (perm_exp xa xc esub) ceb` >>
       last_x_assum (irule_at Any) >> simp[closed_perm] >>
       irule companion_app_similarity  >>
       irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-      rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
-      irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+      rpt (irule_at Any closed_freevars_subst1) >> simp[closed_perm] >>
+      irule exp_alpha_subst1_closed' >> simp[closed_perm] >>
       irule exp_alpha_Trans >>
       irule_at Any exp_alpha_perm_irrel >>
       qexistsl_tac [`xc`,`xa`] >> simp[] >>
       irule_at Any exp_alpha_perm_irrel >>
-      gvs[closed_def, GSYM perm_exp_eqvt]
+      gvs[closed_def, freevars_eqvt]
       ) >>
     simp[] >>
     Cases_on `eval_wh x1 = wh_False` >> simp[]
@@ -1467,7 +1467,7 @@ Proof
       irule Howe_Tra >> assume_tac term_rel_open_similarity >>
       simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
       goal_assum (drule_at (Pos last)) >>
-      imp_res_tac eval_wh_Closure_closed >> simp[GSYM perm_exp_eqvt] >>
+      imp_res_tac eval_wh_Closure_closed >> simp[freevars_eqvt] >>
       conj_asm1_tac
       >- (
         qpat_x_assum `freevars ce2' ⊆ _` mp_tac >>
@@ -1478,7 +1478,7 @@ Proof
         qpat_x_assum `freevars ce2 ⊆ _` mp_tac >>
         simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
         ) >>
-      fs[perm_exp_eqvt] >>
+      fs[GSYM freevars_eqvt] >>
       rw[open_similarity_alt_def, bind_def] >>
       IF_CASES_TAC >> simp[] >>
       rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
@@ -1503,22 +1503,22 @@ Proof
         PURE_REWRITE_TAC[SUBSET_DEF, IN_SING] >> strip_tac >> strip_tac >>
         metis_tac[]) >>
       pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >>
-      simp[subst_single_eqvt_alt, perm1_simps] >>
+      simp[subst1_eqvt_alt, perm1_simps] >>
       irule app_similarity_perm_exp_left >>
       irule app_similarity_perm_exp_right >>
       assume_tac transitive_app_similarity >> gvs[transitive_def] >>
       first_assum irule >>
-      qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+      qexists_tac `subst1 xb (perm_exp xa xc esub) ceb` >>
       last_x_assum (irule_at Any) >> simp[closed_perm] >>
       irule companion_app_similarity  >>
       irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-      rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
-      irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+      rpt (irule_at Any closed_freevars_subst1) >> simp[closed_perm] >>
+      irule exp_alpha_subst1_closed' >> simp[closed_perm] >>
       irule exp_alpha_Trans >>
       irule_at Any exp_alpha_perm_irrel >>
       qexistsl_tac [`xc`,`xa`] >> simp[] >>
       irule_at Any exp_alpha_perm_irrel >>
-      gvs[closed_def, GSYM perm_exp_eqvt]
+      gvs[closed_def, freevars_eqvt]
       ) >>
     simp[] >> rpt strip_tac >>
     first_x_assum irule >> rw[] >> fs[] >>
@@ -1592,9 +1592,9 @@ Proof
     irule Howe_Tra >>
     simp[Tra_open_similarity, term_rel_open_similarity, Exps_def] >>
     imp_res_tac eval_wh_Closure_closed >> simp[] >> conj_asm1_tac
-    >- gvs[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
+    >- gvs[freevars_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
     goal_assum (drule_at (Pos last)) >> conj_asm1_tac
-    >- gvs[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
+    >- gvs[freevars_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
     simp[open_similarity_alt_def] >> rw[bind_def] >>
     rename1 `subst _ (perm_exp xa xc cec) ≲ subst _ (perm_exp xa xb ceb)` >>
     Cases_on `f` >> gvs[]
@@ -1616,22 +1616,22 @@ Proof
       rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
       fs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
     pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >> pop_assum kall_tac >>
-    simp[subst_single_eqvt_alt, perm1_simps] >>
+    simp[subst1_eqvt_alt, perm1_simps] >>
     irule app_similarity_perm_exp_left >>
     irule app_similarity_perm_exp_right >>
     assume_tac transitive_app_similarity >> gvs[transitive_def] >>
     first_assum irule >>
-    qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+    qexists_tac `subst1 xb (perm_exp xa xc esub) ceb` >>
     last_x_assum (irule_at Any) >> simp[closed_perm] >>
     irule companion_app_similarity  >>
     irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-    rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
-    irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+    rpt (irule_at Any closed_freevars_subst1) >> simp[closed_perm] >>
+    irule exp_alpha_subst1_closed' >> simp[closed_perm] >>
     irule exp_alpha_Trans >>
     irule_at Any exp_alpha_perm_irrel >>
     qexistsl_tac [`xc`,`xa`] >> simp[] >>
     irule_at Any exp_alpha_perm_irrel >>
-    gvs[closed_def, GSYM perm_exp_eqvt]
+    gvs[closed_def, freevars_eqvt]
     )
   >- ( (* AtomOp *)
     qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
@@ -1750,13 +1750,13 @@ Proof
       >- (
         rename1 `freevars (_ d) ⊆ _` >>
         qpat_x_assum `freevars d ⊆ _` mp_tac >>
-        simp[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def]
+        simp[freevars_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def]
         ) >>
       conj_asm1_tac
       >- (
         rename1 `freevars (_ d) ⊆ _` >>
         qpat_x_assum `freevars d ⊆ _` mp_tac >>
-        simp[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def]
+        simp[freevars_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def]
         ) >>
       simp[open_similarity_alt_def] >> rw[bind_def] >>
       rename1 `subst _ (perm_exp xa xc cec) ≲ subst _ (perm_exp xa xb ceb)` >>
@@ -1781,22 +1781,22 @@ Proof
         ntac 5 $ pop_assum mp_tac >> simp[SUBSET_DEF, EXTENSION] >> metis_tac[]
         ) >>
       pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >> pop_assum kall_tac >>
-      simp[subst_single_eqvt_alt, perm1_simps] >>
+      simp[subst1_eqvt_alt, perm1_simps] >>
       irule app_similarity_perm_exp_left >>
       irule app_similarity_perm_exp_right >>
       assume_tac transitive_app_similarity >> gvs[transitive_def] >>
       first_assum irule >>
-      qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+      qexists_tac `subst1 xb (perm_exp xa xc esub) ceb` >>
       last_x_assum (irule_at Any) >> simp[closed_perm] >>
       irule companion_app_similarity  >>
       irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-      rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
-      irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+      rpt (irule_at Any closed_freevars_subst1) >> simp[closed_perm] >>
+      irule exp_alpha_subst1_closed' >> simp[closed_perm] >>
       irule exp_alpha_Trans >>
       irule_at Any exp_alpha_perm_irrel >>
       qexistsl_tac [`xc`,`xa`] >> simp[] >>
       irule_at Any exp_alpha_perm_irrel >>
-      gvs[closed_def, GSYM perm_exp_eqvt]
+      gvs[closed_def, freevars_eqvt]
     )
     )
 QED
@@ -1840,14 +1840,14 @@ Proof
   \\ fs [FRANGE_DEF]
   \\ imp_res_tac eval_wh_Closure_closed
   \\ fs [closed_def,SUBSET_DEF,FILTER_EQ_NIL,EVERY_MEM]
-  \\ rewrite_tac [GSYM perm_exp_eqvt]
+  \\ rewrite_tac [freevars_eqvt]
   \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,perm1_def,closed_def,
       FILTER_EQ_NIL,EVERY_MEM]
 QED
 
 Theorem IMP_open_similarity_INSERT:
   (* This has been modified to only subst in closed expressions *)
-  (∀e. closed e ⇒ open_similarity vars (subst h e e1) (subst h e e2)) ∧
+  (∀e. closed e ⇒ open_similarity vars (subst1 h e e1) (subst1 h e e2)) ∧
   h ∉ vars ∧ e1 IN Exps (h INSERT vars) ∧ e2 IN Exps (h INSERT vars) ⇒
   open_similarity (h INSERT vars) e1 e2
 Proof
@@ -1856,7 +1856,7 @@ Proof
   \\ reverse (Cases_on ‘h IN FDOM f’)
   THEN1
    (‘~(h IN freevars e1) ∧ ~(h IN freevars e2)’ by (fs [SUBSET_DEF] \\ metis_tac [])
-    \\ fs [subst_ignore_single]
+    \\ fs [subst1_ignore]
     \\ ‘closed Fail’ by fs[closed_def]
     \\ first_x_assum drule
     \\ disch_then drule_all
@@ -2162,7 +2162,7 @@ QED
 
 Theorem exp_eq_subst:
   y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
-  subst x y1 e1 ≅ subst x y2 e1
+  subst1 x y1 e1 ≅ subst1 x y2 e1
 Proof
   rw [] \\ qid_spec_tac ‘e1’
   \\ ho_match_mp_tac freevars_ind \\ rw []
@@ -2190,7 +2190,7 @@ QED
 
 Theorem exp_eq_Lam_basic_lemma[local]:
   Lam x e1 ≅ Lam x e2 ⇔
-  ∀y. closed y ⇒ subst x y e1 ≅ subst x y e2
+  ∀y. closed y ⇒ subst1 x y e1 ≅ subst1 x y e2
 Proof
   fs [exp_eq_def] \\ eq_tac \\ rw []
   THEN1 (
@@ -2254,7 +2254,7 @@ Theorem exp_eq_Lam_lemma[local]:
   Lam x e1 ≅ Lam x e2 ⇔
   ∀y1 y2.
     y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
-    subst x y1 e1 ≅ subst x y2 e2
+    subst1 x y1 e1 ≅ subst1 x y2 e2
 Proof
   fs [exp_eq_Lam_basic_lemma] \\ reverse eq_tac \\ rw []
   THEN1 (first_x_assum match_mp_tac \\ fs [exp_eq_refl])
@@ -2265,7 +2265,7 @@ Proof
 QED
 
 Theorem exp_eq_forall_subst:
-  ∀v. x ≅ y ⇔ ∀z. closed z ⇒ subst v z x ≅ subst v z y
+  ∀v. x ≅ y ⇔ ∀z. closed z ⇒ subst1 v z x ≅ subst1 v z y
 Proof
   fs [exp_eq_def] \\ rw [] \\ eq_tac \\ rw []
   THEN1
@@ -2278,8 +2278,8 @@ Proof
     \\ gvs [FLOOKUP_FUNION,FLOOKUP_UPDATE,AllCaseEqs()] \\ res_tac)
   \\ reverse (Cases_on ‘v IN FDOM f’)
   THEN1
-   (‘~(MEM v (freevars x)) ∧ ~(MEM v (freevars y))’ by (fs [SUBSET_DEF] \\ metis_tac [])
-    \\ gvs [subst_ignore_single]
+   (‘v ∉ freevars x ∧ v ∉ freevars y’ by (fs [SUBSET_DEF] \\ metis_tac [])
+    \\ gvs [subst1_ignore]
     \\ fs [PULL_FORALL,AND_IMP_INTRO]
     \\ first_x_assum irule \\ fs [] \\ qexists_tac ‘Fail’ \\ fs [closed_def])
   \\ rw [bind_def] \\ fs []
@@ -2299,21 +2299,21 @@ Proof
 QED
 
 Theorem exp_eq_free:
-  ~MEM v (freevars y) ⇒
-  (x ≅ y ⇔ ∀z. closed z ⇒ subst v z x ≅ y)
+  v ∉ freevars y ⇒
+  (x ≅ y ⇔ ∀z. closed z ⇒ subst1 v z x ≅ y)
 Proof
-  metis_tac [exp_eq_forall_subst,subst_ignore_single]
+  metis_tac [exp_eq_forall_subst,subst1_ignore]
 QED
 
 Theorem exp_eq_perm_IMP:
   ∀x y e e'.
-    ~(MEM x (freevars e')) ∧ ~(MEM y (freevars e')) ∧ e ≅ perm_exp x y e' ⇒ e ≅ e'
+    x ∉ freevars e' ∧ y NOTIN freevars e' ∧ e ≅ perm_exp x y e' ⇒ e ≅ e'
 Proof
   metis_tac [exp_eq_perm,exp_eq_sym,exp_eq_trans]
 QED
 
 Theorem exp_eq_subst_perm_exp:
-  closed e' ⇒ subst y e' e ≅ subst y (perm_exp x y e') e
+  closed e' ⇒ subst1 y e' e ≅ subst1 y (perm_exp x y e') e
 Proof
   rw [] \\ match_mp_tac exp_eq_subst \\ fs [closed_perm]
   \\ match_mp_tac exp_eq_perm \\ fs [closed_def]
@@ -2321,17 +2321,17 @@ QED
 
 Triviality Lam_Lam:
   Lam x e1 ≅ Lam y e2 ⇔
-  ∀xv yv. closed xv ∧ closed yv ⇒ subst y yv (Lam x e1) ≅ subst x xv (Lam y e2)
+  ∀xv yv. closed xv ∧ closed yv ⇒ subst1 y yv (Lam x e1) ≅ subst1 x xv (Lam y e2)
 Proof
   Cases_on ‘x=y’ \\ fs [subst_def]
   \\ ‘closed Fail’ by fs [closed_def]
   THEN1 metis_tac []
-  \\ ‘~MEM y (freevars (Lam y e2))’ by fs [MEM_FILTER]
+  \\ ‘y ∉ freevars (Lam y e2)’ by fs[]
   \\ drule exp_eq_free
   \\ disch_then (once_rewrite_tac o single)
   \\ simp [subst_def]
-  \\ ‘∀e1. ~MEM x (freevars (Lam x e1))’ by fs [MEM_FILTER]
-  \\ ‘(∀e1 x'. Lam x e1 ≅ x' ⇔ ∀z. closed z ⇒ Lam x e1 ≅ subst x z x')’
+  \\ ‘∀e1. x ∉ freevars (Lam x e1)’ by fs []
+  \\ ‘(∀e1 x'. Lam x e1 ≅ x' ⇔ ∀z. closed z ⇒ Lam x e1 ≅ subst1 x z x')’
          by metis_tac [exp_eq_sym,exp_eq_free]
   \\ pop_assum (simp o single o Once)
   \\ fs [subst_def,PULL_FORALL,AND_IMP_INTRO]
@@ -2340,22 +2340,22 @@ QED
 
 Triviality subst_subst_lemma:
   closed y1 ∧ closed y2 ⇒
-  (subst x y1 e1 ≅ subst y y2 e2 ⇔
+  (subst1 x y1 e1 ≅ subst1 y y2 e2 ⇔
    ∀xv yv. closed xv ∧ closed yv ⇒
-           subst y yv (subst x y1 e1) ≅ subst x xv (subst y y2 e2))
+           subst1 y yv (subst1 x y1 e1) ≅ subst1 x xv (subst1 y y2 e2))
 Proof
   strip_tac
-  \\ Cases_on ‘x=y’ \\ fs [subst_def,subst_subst_eq]
+  \\ Cases_on ‘x=y’ \\ fs [subst_def,subst1_subst1_eq]
   THEN1 metis_tac []
   \\ ‘closed Fail’ by fs [closed_def]
   \\ simp [subst_def]
-  \\ ‘~MEM y (freevars (subst y y2 e2))’ by fs [freevars_subst]
+  \\ ‘y ∉  freevars (subst1 y y2 e2)’ by fs [freevars_subst]
   \\ drule exp_eq_free
   \\ disch_then (once_rewrite_tac o single)
-  \\ drule_at (Pos last) subst_subst_single
+  \\ drule_at (Pos last) subst1_subst1
   \\ disch_then (simp o single)
-  \\ ‘∀e1. ~MEM x (freevars (subst x y1 e1))’ by fs [freevars_subst]
-  \\ ‘(∀e1 x'. subst x y1 e1 ≅ x' ⇔ ∀z. closed z ⇒ subst x y1 e1 ≅ subst x z x')’
+  \\ ‘∀e1. x ∉  freevars (subst1 x y1 e1)’ by fs [freevars_subst]
+  \\ ‘(∀e1 x'. subst1 x y1 e1 ≅ x' ⇔ ∀z. closed z ⇒ subst1 x y1 e1 ≅ subst1 x z x')’
          by metis_tac [exp_eq_sym,exp_eq_free]
   \\ pop_assum (simp o single o Once)
   \\ fs [subst_def,PULL_FORALL,AND_IMP_INTRO]
@@ -2366,63 +2366,63 @@ Theorem exp_eq_Lam:
   Lam x e1 ≅ Lam y e2 ⇔
   ∀y1 y2.
     y1 ≅ y2 ∧ closed y1 ∧ closed y2 ⇒
-    subst x y1 e1 ≅ subst y y2 e2
+    subst1 x y1 e1 ≅ subst1 y y2 e2
 Proof
   Cases_on ‘x = y’ THEN1 metis_tac [exp_eq_Lam_lemma]
   \\ fs [Lam_Lam]
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [subst_def])) \\ fs []
   \\ CONV_TAC (RAND_CONV (SIMP_CONV std_ss [Once subst_subst_lemma])) \\ fs []
   \\ fs [PULL_FORALL,AND_IMP_INTRO]
-  \\ ‘∀t xv. closed xv ⇒ (t ≅ Lam y (subst x xv e2) ⇔
-                          t ≅ Lam x (subst y (perm_exp x y xv) (perm_exp x y e2)))’ by
+  \\ ‘∀t xv. closed xv ⇒ (t ≅ Lam y (subst1 x xv e2) ⇔
+                          t ≅ Lam x (subst1 y (perm_exp x y xv) (perm_exp x y e2)))’ by
    (rw [] \\ eq_tac \\ rw []
     \\ match_mp_tac exp_eq_perm_IMP
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’
-    \\ fs [MEM_FILTER,freevars_subst,closed_perm]
-    \\ fs [perm_exp_def,perm1_def,subst_single_eqvt])
+    \\ fs [MEM_FILTER,freevars_subst1,closed_perm]
+    \\ fs [perm_exp_def,perm1_def,subst1_eqvt])
   \\ fs [exp_eq_Lam_lemma,DOMSUB_FUPDATE_THM]
   \\ fs [PULL_FORALL,AND_IMP_INTRO]
-  \\ drule_at Any subst_subst_single
+  \\ drule_at Any subst1_subst1
   \\ disch_then (simp o single o GSYM)
   \\ pop_assum kall_tac
   \\ eq_tac \\ rw [] \\ fs [AC CONJ_ASSOC CONJ_COMM]
   \\ first_x_assum (first_x_assum o mp_then (Pos last) mp_tac)
   THEN1
    (disch_then (qspecl_then [‘xv’,‘yv’] assume_tac) \\ gvs []
-    \\ drule_at (Pos last) subst_subst_single
+    \\ drule_at (Pos last) subst1_subst1
     \\ fs [] \\ disch_then kall_tac
     \\ match_mp_tac exp_eq_trans
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ match_mp_tac exp_eq_perm_IMP
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs []
-    \\ fs [freevars_subst,subst_single_eqvt,perm1_def]
-    \\ drule_at (Pos last) subst_subst_single
+    \\ fs [freevars_subst,subst1_eqvt,perm1_def]
+    \\ drule_at (Pos last) subst1_subst1
     \\ fs [closed_perm] \\ disch_then kall_tac
-    \\ rename [‘subst _ _ e ≅ _’]
+    \\ rename [‘subst1 _ _ e ≅ _’]
     \\ once_rewrite_tac [perm_exp_sym]
     \\ fs [exp_eq_subst_perm_exp])
   THEN1
    (disch_then (qspecl_then [‘xv’,‘yv’] assume_tac) \\ gvs []
     \\ match_mp_tac exp_eq_trans
     \\ ‘y ≠ x’ by fs []
-    \\ drule_at (Pos last) subst_subst_single
+    \\ drule_at (Pos last) subst1_subst1
     \\ fs [closed_perm]
     \\ disch_then (qspecl_then [‘e1’,‘y1’,‘yv’] assume_tac) \\ rfs []
     \\ pop_assum (rewrite_tac o single)
     \\ goal_assum (first_assum o mp_then Any mp_tac)
-    \\ drule_at (Pos last) subst_subst_single
+    \\ drule_at (Pos last) subst1_subst1
     \\ fs [closed_perm]
     \\ disch_then (qspecl_then [‘e2’,‘xv’,‘y2’] assume_tac) \\ rfs []
     \\ pop_assum (rewrite_tac o single)
     \\ match_mp_tac exp_eq_perm_IMP
     \\ qexists_tac ‘x’ \\ qexists_tac ‘y’ \\ fs []
-    \\ fs [freevars_subst,subst_single_eqvt,perm1_def, closed_perm]
+    \\ fs [freevars_subst,subst1_eqvt,perm1_def, closed_perm]
     \\ fs [exp_eq_subst_perm_exp])
 QED
 
 Theorem exp_eq_Lam_strong:
   Lam x e1 ≅ Lam y e2 ⇔
-  ∀e.  closed e ⇒ subst x e e1 ≅ subst y e e2
+  ∀e.  closed e ⇒ subst1 x e e1 ≅ subst1 y e e2
 Proof
   Cases_on `x = y` >> gvs[]
   >- simp[exp_eq_Lam_basic_lemma] >>
@@ -2434,7 +2434,7 @@ Proof
 QED
 
 Theorem beta_equality:
-  ∀x e1 e2. closed e2 ⇒ App (Lam x e1) e2 ≅ subst x e2 e1
+  ∀x e1 e2. closed e2 ⇒ App (Lam x e1) e2 ≅ subst1 x e2 e1
 Proof
   rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
   irule eval_IMP_app_bisimilarity >> rw[]
@@ -2442,7 +2442,7 @@ Proof
   >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP]) >>
   simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
   AP_TERM_TAC >>
-  drule (GSYM subst_subst_single_UPDATE) >> strip_tac >> simp[] >>
+  drule (GSYM subst_subst1_UPDATE) >> strip_tac >> simp[] >>
   dep_rewrite.DEP_REWRITE_TAC[subst_subst_FUNION] >>
   simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
   rw[] >- res_tac >>
@@ -2495,8 +2495,8 @@ Theorem Let_Seq:
 Proof
   irule eval_wh_IMP_exp_eq \\ rw []
   \\ fs [subst_def,eval_wh_Seq]
-  \\ fs [eval_wh_App,eval_wh_Lam,bind_single_def]
-  \\ rw [] \\ fs [] \\ fs [subst_single_def,eval_wh_Seq]
+  \\ fs [eval_wh_App,eval_wh_Lam,bind1_def]
+  \\ rw [] \\ fs [] \\ fs [subst1_def,eval_wh_Seq]
 QED
 
 Theorem Seq_assoc:
@@ -2512,8 +2512,8 @@ Theorem Let_Var:
 Proof
   irule eval_wh_IMP_exp_eq
   \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
-  \\ fs [eval_wh_App,eval_wh_Lam,bind_single_def]
-  \\ fs [subst_single_def]
+  \\ fs [eval_wh_App,eval_wh_Lam,bind1_def]
+  \\ fs [subst1_def]
   \\ qsuff_tac ‘closed (subst f e)’ \\ fs []
   \\ irule IMP_closed_subst
   \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
@@ -2524,13 +2524,13 @@ Theorem Let_Var2:
 Proof
   rw [] \\ irule eval_wh_IMP_exp_eq
   \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
-  \\ fs [eval_wh_App,eval_wh_Lam,bind_single_def]
+  \\ fs [eval_wh_App,eval_wh_Lam,bind1_def]
   \\ ‘closed (subst f e)’ by
     (irule IMP_closed_subst
      \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
   \\ fs [DOMSUB_FLOOKUP_THM]
   \\ CASE_TAC \\ fs []
-  \\ fs [subst_single_def]
+  \\ fs [subst1_def]
   \\ res_tac \\ fs [closed_subst]
 QED
 
@@ -2542,7 +2542,7 @@ Proof
   \\ ‘closed (subst f e)’ by
     (irule IMP_closed_subst
      \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
-  \\ fs [bind_single_def,subst_single_def]
+  \\ fs [bind1_def,subst1_def]
   \\ fs [MAP_MAP_o,combinTheory.o_DEF]
   \\ fs [eval_wh_def]
   \\ cheat
