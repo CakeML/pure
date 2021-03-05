@@ -442,6 +442,12 @@ Proof
     )
 QED
 
+Theorem freevars_FINITE[simp]:
+  ∀e. FINITE (freevars e)
+Proof
+  simp[freevars_equiv]
+QED
+
 Theorem freevars_expandLets:
   ∀y i cn nm vs cs.
     y ∈ freevars (expandLets i cn nm vs cs) ∧ y ≠ nm ⇒
