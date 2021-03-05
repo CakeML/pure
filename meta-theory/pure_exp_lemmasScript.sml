@@ -61,17 +61,18 @@ Theorem closed_simps[simp]:
     freevars e ⊆ set (MAP FST fns) ∧
     EVERY (λe. freevars e ⊆ set (MAP FST fns)) (MAP SND fns))
 Proof
-  rw[closed_def, freevars_def] >>
-  gvs[FLAT_EQ_NIL, FILTER_EQ_NIL, EVERY_MAP, EVERY_FLAT, EVERY_MEM]
-  >- (gvs[EVERY_MEM, closed_def, SUBSET_DEF])
+  rw[closed_def, freevars_def]
   >- (
-    gvs[EVERY_MEM, closed_def, SUBSET_DEF] >>
-    eq_tac >> rw[] >> gvs[MEM_EL, PULL_EXISTS]
-    ) >>
-  eq_tac >> rw[SUBSET_DEF] >>
-  first_x_assum irule >>
-  goal_assum (drule_at Any) >>
-  Cases_on `x` >> gvs[]
+    gvs[rich_listTheory.LIST_TO_SET_EQ_SING, EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
+    eq_tac >> rw[] >> gvs[closed_def]
+    )
+  >- (
+    rw[EXTENSION, SUBSET_DEF] >> eq_tac >> rw[] >> metis_tac[]
+    )
+  >- (
+    gvs[SUBSET_DIFF_EMPTY, BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
+    simp[FORALL_PROD]
+    )
 QED
 
 Theorem subst_subst:
@@ -325,14 +326,14 @@ QED
 
 (******************* single subst/bind ********************)
 
-Theorem subst_single_def:
-  (∀n v s. subst n v (Var s) = (if n = s then v else Var s)) ∧
-  (∀n v op xs. subst n v (Prim op xs) = Prim op (MAP (subst n v) xs)) ∧
-  (∀n v x y. subst n v (App x y) = App (subst n v x) (subst n v y)) ∧
-  (∀n v s x. subst n v (Lam s x) = Lam s (if s = n then x else subst n v x)) ∧
-  (∀n v f x. subst n v (Letrec f x) =
+Theorem subst1_def:
+  (∀n v s. subst1 n v (Var s) = (if n = s then v else Var s)) ∧
+  (∀n v op xs. subst1 n v (Prim op xs) = Prim op (MAP (subst1 n v) xs)) ∧
+  (∀n v x y. subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y)) ∧
+  (∀n v s x. subst1 n v (Lam s x) = Lam s (if s = n then x else subst1 n v x)) ∧
+  (∀n v f x. subst1 n v (Letrec f x) =
     (if MEM n (MAP FST f) then Letrec f x else
-      Letrec (MAP (λ(g,z). (g, subst n v z )) f) (subst n v x)))
+      Letrec (MAP (λ(g,z). (g, subst1 n v z )) f) (subst1 n v x)))
 Proof
   rw[subst_def, FLOOKUP_UPDATE, FDIFF_def, subst_FEMPTY] >> gvs[]
   >- (
@@ -344,18 +345,18 @@ Proof
     )
 QED
 
-Theorem subst_ignore_single:
-  ∀ n v e. ¬MEM n (freevars e) ⇒ subst n v e = e
+Theorem subst1_ignore:
+  ∀ n v e. n ∉ freevars e ⇒ subst1 n v e = e
 Proof
   rw[] >>
   irule subst_ignore >>
   gvs[pred_setTheory.EXTENSION, finite_mapTheory.FDOM_FUPDATE]
 QED
 
-Theorem subst_subst_single:
+Theorem subst1_subst1:
   ∀m n x y.
     closed x ∧ closed y ∧ m ≠ n ⇒
-    subst n x (subst m y e) = subst m y (subst n x e)
+    subst1 n x (subst1 m y e) = subst1 m y (subst1 n x e)
 Proof
   rw[] >>
   qspecl_then [
@@ -367,10 +368,10 @@ Proof
   fs[fmap_eq_flookup, FLOOKUP_FUNION, FLOOKUP_UPDATE] >> rw[]
 QED
 
-Theorem subst_subst_single_UPDATE:
+Theorem subst_subst1_UPDATE:
   ∀m e n v.
     closed v ⇒
-    subst (m |+ (n,v)) e = subst m (subst n v e)
+    subst (m |+ (n,v)) e = subst m (subst1 n v e)
 Proof
   rw[] >>
   simp[Once FUPDATE_EQ_FUNION] >>
@@ -378,28 +379,28 @@ Proof
   fs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, PULL_EXISTS]
 QED
 
-Theorem bind_single_def:
-  ∀n v e. bind n v e = if closed v then subst n v e else Fail
+Theorem bind1_def:
+  ∀n v e. bind1 n v e = if closed v then subst1 n v e else Fail
 Proof
   rw[bind_def] >> gvs[FLOOKUP_UPDATE]
 QED
 
-Theorem bind_bind_single:
+Theorem bind1_bind1:
   ∀m n x y.
     closed x ∧ m ≠ n ⇒
-    bind n x (bind m y e) = bind m y (bind n x e)
+    bind1 n x (bind1 m y e) = bind1 m y (bind1 n x e)
 Proof
   rw[] >> fs[bind_def] >>
   IF_CASES_TAC >> gvs[] >>
   IF_CASES_TAC >> gvs[] >>
-  irule subst_subst_single >> fs[] >>
+  irule subst1_subst1 >> fs[] >>
   gvs[FLOOKUP_UPDATE]
 QED
 
-Theorem bind_bind_single_UPDATE:
+Theorem bind_bind1_UPDATE:
   ∀m e n v.
     closed v ∧ n ∉ FDOM m ⇒
-    bind (m |+ (n,v)) e = bind m (bind n v e)
+    bind (m |+ (n,v)) e = bind m (bind1 n v e)
 Proof
   rw[] >> fs[bind_def] >>
   reverse IF_CASES_TAC >> gvs[]
@@ -418,49 +419,60 @@ Proof
     first_assum (qspec_then `n2` assume_tac) >> gvs[]
     ) >>
   IF_CASES_TAC >> gvs[FLOOKUP_UPDATE] >>
-  fs[Once subst_subst_single_UPDATE]
+  fs[Once subst_subst1_UPDATE]
 QED
 
 (******************* freevars ********************)
 
+Theorem freevars_equiv:
+  ∀e. freevars e = set (freevars_l e)
+Proof
+  recInduct freevars_ind >> rw[]
+  >- (
+    gvs[LIST_TO_SET_FLAT, LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF] >>
+    AP_TERM_TAC >> rw[EXTENSION] >> metis_tac[]
+    )
+  >- (
+    simp[LIST_TO_SET_FILTER] >> rw[EXTENSION] >> eq_tac >> rw[]
+    )
+  >- (
+    simp[LIST_TO_SET_FILTER, LIST_TO_SET_FLAT, LIST_TO_SET_MAP, FORALL_PROD] >>
+    simp[IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[EXTENSION, EXISTS_PROD] >> metis_tac[]
+    )
+QED
+
 Theorem freevars_expandLets:
   ∀y i cn nm vs cs.
-    MEM y (freevars (expandLets i cn nm vs cs)) ∧ y ≠nm ⇒
-    MEM y (FILTER (λn. ¬MEM n vs) (freevars cs))
+    y ∈ freevars (expandLets i cn nm vs cs) ∧ y ≠ nm ⇒
+    y ∈ freevars cs DIFF set vs
 Proof
   strip_tac >>
-  Induct_on ‘vs’ >>
-  rw[expandLets_def,MEM_FILTER] >>
-  gvs[] >>
-  gvs[MEM_FILTER] >> metis_tac[]
+  Induct_on ‘vs’ >> rw[expandLets_def] >>
+  res_tac >> gvs[]
 QED
 
 Theorem freevars_expandRows:
   ∀y nm css.
-    MEM y (freevars (expandRows nm css)) ∧ y ≠ nm ⇒
-      ∃cn vs cs. MEM (cn,vs,cs) css ∧ MEM y (FILTER (λn. ¬MEM n vs) (freevars cs))
+    y ∈ freevars (expandRows nm css) ∧ y ≠ nm ⇒
+      ∃cn vs cs. MEM (cn,vs,cs) css ∧ y ∈ freevars cs DIFF set vs
 Proof
   strip_tac >>
   ho_match_mp_tac expandRows_ind >>
   rw[freevars_def,expandRows_def,freevars_expandLets] >>
-  gvs[MEM_FILTER] >>
-  imp_res_tac freevars_expandLets >>
-  gvs[MEM_FILTER] >>
+  imp_res_tac freevars_expandLets >> gvs[] >>
   metis_tac[]
 QED
 
 Theorem freevars_expandCases:
   ∀y x nm css.
-    MEM y (freevars (expandCases x nm css)) ⇒
+    y ∈ freevars (expandCases x nm css) ⇒
       (nm ≠ y ∧
-       ∃cn vs cs. MEM (cn,vs,cs) css ∧ MEM y (FILTER (λn. ¬MEM n vs) (freevars cs))) ∨
-      MEM y (freevars x)
+       ∃cn vs cs. MEM (cn,vs,cs) css ∧ y ∈ freevars cs DIFF set vs) ∨
+      y ∈ freevars x
 Proof
   rw[expandCases_def,MEM_FILTER] >> simp[] >>
-  disj1_tac >>
-  drule freevars_expandRows >>
-  impl_tac >- simp[] >>
-  rw[MEM_FILTER]
+  disj1_tac >> drule freevars_expandRows >> simp[]
 QED
 
 Theorem freevars_subst:
@@ -527,32 +539,29 @@ Proof
     )
 QED
 
-Theorem freevars_subst_single:
+Theorem freevars_subst1:
   ∀n v e.
     closed v ⇒
-    freevars (subst n v e) = freevars e DELETE n
+    freevars (subst1 n v e) = freevars e DELETE n
 Proof
   rw[] >>
   qspec_then `FEMPTY |+ (n,v)` assume_tac freevars_subst >> fs[DELETE_DEF]
 QED
 
-Theorem subst_subst_eq:
-  closed y ⇒ subst v x (subst v y e) = subst v y e
+Theorem subst1_subst1_eq:
+  closed y ⇒ subst1 v x (subst1 v y e) = subst1 v y e
 Proof
-  rw [] \\ match_mp_tac subst_ignore_single
-  \\ fs [freevars_subst]
+  rw [] \\ match_mp_tac subst1_ignore
+  \\ fs [freevars_subst1]
 QED
 
-Theorem freevars_subst_single_iff:
+Theorem closed_subst1_iff:
   ∀ n e x y.
     closed x ∧ closed y
-  ⇒ (closed (subst n x e) ⇔ closed (subst n y e))
+  ⇒ (closed (subst1 n x e) ⇔ closed (subst1 n y e))
 Proof
   rw[] >> fs[closed_def] >>
-  qspec_then `FEMPTY |+ (n,x)` assume_tac freevars_subst >>
-  qspec_then `FEMPTY |+ (n,y)` assume_tac freevars_subst >>
-  gvs[FRANGE_FLOOKUP, FLOOKUP_UPDATE, closed_def, EXTENSION] >>
-  fs[NIL_iff_NOT_MEM]
+  DEP_REWRITE_TAC[freevars_subst1] >> simp[closed_def]
 QED
 
 Theorem freevars_bind:
@@ -567,25 +576,23 @@ Proof
   gvs[FRANGE_FLOOKUP] >> res_tac
 QED
 
-Theorem freevars_bind_single:
+Theorem freevars_bind1:
   ∀ n v e.
-    set (freevars (bind n v e)) =
+    freevars (bind1 n v e) =
     if closed v then freevars e DELETE n else {}
 Proof
   rw[bind_def] >> gvs[FLOOKUP_UPDATE] >>
-  irule freevars_subst_single >> simp[]
+  irule freevars_subst1 >> simp[]
 QED
 
 Theorem IMP_closed_subst:
-  (∀v. v ∈ FRANGE m ⇒ closed v) ∧ freevars e SUBSET FDOM m ⇒
+  (∀v. v ∈ FRANGE m ⇒ closed v) ∧ freevars e ⊆ FDOM m ⇒
   closed (subst m e)
 Proof
   rw [] \\ drule freevars_subst
   \\ disch_then (qspec_then ‘e’ mp_tac)
   \\ fs [EXTENSION,SUBSET_DEF,closed_def]
-  \\ Cases_on ‘freevars (subst m e) : string list’ \\ fs []
-  \\ qexists_tac ‘h’ \\ fs []
-  \\ CCONTR_TAC \\ fs [] \\ res_tac
+  \\ metis_tac[]
 QED
 
 Theorem IMP_closed_bind:
@@ -596,47 +603,44 @@ Proof
   simp[IN_FRANGE_FLOOKUP]
 QED
 
+Theorem subst_FDIFF':
+  ∀f x p. (∀n. n ∈ p ⇒ n ∉ freevars x) ⇒ subst f x = subst (FDIFF f p) x
+Proof
+  recInduct subst_ind >> rw[subst_def]
+  >- simp[FDIFF_def, FLOOKUP_DRESTRICT]
+  >- (
+    rw[MAP_EQ_f] >> first_x_assum irule >> rw[] >>
+    gvs[MEM_MAP, PULL_EXISTS] >> metis_tac[]
+    )
+  >- (
+    simp[GSYM fdiff_fdomsub_commute] >>
+    first_x_assum $ qspec_then `p DELETE s` mp_tac >> gvs[] >> impl_tac
+    >- (rw[] >> gvs[] >> res_tac) >>
+    simp[fdiff_fdomsub_INSERT] >> strip_tac >>
+    AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> rw[EXTENSION] >> metis_tac[]
+    )
+  >- (
+    rw[MAP_EQ_f] >> pairarg_tac >> gvs[FDIFF_FDIFF] >> simp[Once UNION_COMM] >>
+    last_x_assum drule >>
+    disch_then $ qspec_then `p DIFF set (MAP FST f)` mp_tac >>
+    impl_tac >> simp[] >>
+    gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> rw[] >> metis_tac[]
+    )
+  >- (
+    gvs[FDIFF_FDIFF] >> simp[Once UNION_COMM] >>
+    first_x_assum $ qspec_then `p DIFF set (MAP FST f)` mp_tac >>
+    impl_tac >> simp[] >> rw[] >>
+    metis_tac[]
+    )
+QED
+
 Theorem subst_fdomsub:
   ∀f e x. x ∉ freevars e ⇒ subst f e = subst (f \\ x) e
 Proof
-  ho_match_mp_tac subst_ind >>
-  rw[subst_def,DOMSUB_FLOOKUP_THM,MAP_EQ_f,DOMSUB_IDEM]
-  >- (first_x_assum(match_mp_tac o MP_CANON) >>
-      gvs[MEM_MAP] >> metis_tac[])
-  >- metis_tac[DOMSUB_COMMUTES,DOMSUB_IDEM]
-  >- metis_tac[DOMSUB_COMMUTES,DOMSUB_IDEM]
-  >- (pairarg_tac >> gvs[] >>
-      simp[fdiff_fdomsub_commute] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR])
-  >- (simp[fdiff_fdomsub_commute] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      gvs[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY] >> metis_tac[FST,SND,PAIR])
-  >- (pairarg_tac >> gvs[] >>
-      simp[fdiff_fdomsub_INSERT,ABSORPTION_RWT])
-  >- (simp[fdiff_fdomsub_INSERT,ABSORPTION_RWT])
-QED
-
-Theorem subst_FDIFF':
-  ∀p f x. FINITE p ∧ (∀n. n ∈ p ⇒ n ∉ freevars x) ⇒ subst f x = subst (FDIFF f p) x
-Proof
-  Induct_on ‘FINITE’ >>
-  rpt strip_tac
-  >- simp[FDIFF_def,DRESTRICT_UNIV]
-  >- (qpat_x_assum ‘∀f x. _ ⇒ subst _ _ = _’ (dep_rewrite.DEP_ONCE_REWRITE_TAC o single o MP_CANON) >>
-      conj_tac >- rw[] >>
-      simp[GSYM fdiff_fdomsub_INSERT,fdiff_fdomsub_commute] >>
-      match_mp_tac subst_fdomsub >>
-      rw[])
-QED
-
-Theorem subst_FDIFF'':
-  ∀p f x. (∀n. n ∈ p ⇒ n ∉ freevars x) ⇒ subst f x = subst (FDIFF f p) x
-Proof
-  rpt strip_tac >>
-  ONCE_REWRITE_TAC[fdiff_bound] >>
-  match_mp_tac subst_FDIFF' >>
-  rw[FINITE_INTER]
+  rw[] >>
+  `f \\ x = FDIFF f {x}` by (
+    rw[fmap_eq_flookup, DOMSUB_FLOOKUP_THM, FLOOKUP_FDIFF] >> rw[]) >>
+  simp[] >> irule subst_FDIFF' >> simp[]
 QED
 
 Theorem subst_FDIFF:
@@ -645,21 +649,21 @@ Proof
   rw[] >>
   SIMP_TAC std_ss [SimpR “$=”,Once(GSYM COMPL_COMPL)] >>
   SIMP_TAC std_ss [GSYM FDIFF_def] >>
-  match_mp_tac subst_FDIFF'' >>
+  match_mp_tac subst_FDIFF' >>
   rw[]
 QED
 
-Theorem closed_subst_freevars:
+Theorem closed_subst1_freevars:
   ∀s x y.
-    closed x ∧ closed(subst s x y) ⇒
-    set(freevars y) ⊆ {s}
+    closed x ∧ closed(subst1 s x y) ⇒
+    freevars y ⊆ {s}
 Proof
-  rw[] >> pop_assum mp_tac >> drule freevars_subst_single >>
+  rw[] >> pop_assum mp_tac >> drule freevars_subst1 >>
   disch_then(qspecl_then [‘s’,‘y’] mp_tac) >> rw[] >>
   gvs[closed_def, DELETE_DEF, SUBSET_DIFF_EMPTY]
 QED
 
-Theorem closed_subst_all_freevars:
+Theorem closed_subst_freevars:
   ∀m e.
     (∀v. v ∈ FRANGE m ⇒ closed v) ∧
     closed (subst m e)
@@ -669,17 +673,14 @@ Proof
   gvs[closed_def, EXTENSION, NIL_iff_NOT_MEM, SUBSET_DEF, DISJ_EQ_IMP]
 QED
 
-Theorem closed_freevars_subst:
+Theorem closed_freevars_subst1:
   ∀s x y.
-    closed x ∧ set(freevars y) ⊆ {s} ⇒
-    closed(subst s x y)
+    closed x ∧ freevars y ⊆ {s} ⇒
+    closed(subst1 s x y)
 Proof
   rw[] >>
-  drule freevars_subst_single >> disch_then (qspecl_then [‘s’,‘y’] mp_tac) >>
-  gvs[DELETE_DEF, closed_def] >> rw[] >>
-  `freevars (subst s x y) = {}` suffices_by gvs[] >>
-  pop_assum SUBST_ALL_TAC >>
-  rw[SUBSET_DIFF_EMPTY]
+  drule freevars_subst1 >> disch_then (qspecl_then [‘s’,‘y’] mp_tac) >>
+  gvs[DELETE_DEF, closed_def] >> rw[] >> gvs[SUBSET_DIFF_EMPTY]
 QED
 
 val _ = export_theory();
