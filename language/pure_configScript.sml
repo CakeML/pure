@@ -48,8 +48,7 @@ Definition str_el_def:
 End
 
 Definition eval_op_def[simp]:
-  eval_op (Lit (Int i)) [] = Atom (Int i) ∧
-  eval_op (Lit (Str s)) [] = Atom (Str s) ∧
+  eval_op (Lit l) [] = Atom l ∧
   eval_op Eq  [x; y] = Bool (x = y) ∧
   eval_op Add [Int i; Int j] = Atom (Int (i + j)) ∧
   eval_op Sub [Int i; Int j] = Atom (Int (i - j)) ∧

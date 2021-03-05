@@ -5,14 +5,6 @@ open arithmeticTheory listTheory stringTheory alistTheory optionTheory
 
 val _ = new_theory "pure_semantics";
 
-(*
-
-TODO:
- - add Alloc[len,init], Update[loc,i,v], Deref[loc,i], Length[loc]
-
-*)
-
-
 (* definitions *)
 
 Datatype:
@@ -27,7 +19,7 @@ Datatype:
        | HC exp cont (* RHS of Handle, rest *)
 End
 
-Type state[pp] = “:(wh list) list”;
+Type state[pp] = “:(exp list) list”;
 
 Datatype:
   next_res = Act 'e cont state | Ret | Div | Err
@@ -57,6 +49,14 @@ Definition with_atom2_def:
   with_atom2 es f = with_atoms es (λvs. f (EL 0 vs) (EL 1 vs))
 End
 
+Definition apply_closure_def:
+  apply_closure f arg cont =
+    if eval_wh f = wh_Diverge then Div else
+      case dest_wh_Closure (eval_wh f) of
+      | NONE => Err
+      | SOME (n,e) => cont (eval_wh (bind n arg e))
+End
+
 Definition next_def:
   next (k:num) v stack (state:state) =
     case v of
@@ -64,30 +64,17 @@ Definition next_def:
        (if s = "Ret" ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
-           | BC f fs =>
-              (if eval_wh f = wh_Diverge then Div else
-                 case dest_wh_Closure (eval_wh f) of
-                 | NONE => Err
-                 | SOME (n,e) =>
-                     if k = 0 then Div
-                     else next (k-1) (eval_wh (bind n (HD es) e)) fs state)
+           | BC f fs => apply_closure f (HD es) (λw.
+                          if k = 0 then Div
+                          else next (k-1) w fs state)
            | HC f fs => if k = 0 then Div else next (k-1) v fs state)
         else if s = "Raise" ∧ LENGTH es = 1 then
           (case stack of
            | Done => Ret
            | BC f fs => if k = 0 then Div else next (k-1) v fs state
-           | HC f fs =>
-              (if eval_wh f = wh_Diverge then Div else
-                 case dest_wh_Closure (eval_wh f) of
-                 | NONE => Err
-                 | SOME (n,e) =>
-                    if k = 0 then Div
-                    else next (k-1) (eval_wh (bind n (HD es) e)) fs state))
-        else if s = "Act" ∧ LENGTH es = 1 then
-          (with_atom es (λa.
-             case a of
-             | Msg channel content => Act (channel, content) stack state
-             | _ => Err))
+           | HC f fs => apply_closure f (HD es) (λw.
+                          if k = 0 then Div
+                          else next (k-1) w fs state))
         else if s = "Bind" ∧ LENGTH es = 2 then
           (let m = EL 0 es in
            let f = EL 1 es in
@@ -96,6 +83,21 @@ Definition next_def:
           (let m = EL 0 es in
            let f = EL 1 es in
              if k = 0 then Div else next (k-1) (eval_wh m) (HC f stack) state)
+        else if s = "Act" ∧ LENGTH es = 1 then
+          (with_atom es (λa.
+             case a of
+             | Msg channel content => Act (channel, content) stack state
+             | _ => Err))
+        else if s = "Alloc" ∧ LENGTH es = 2 then
+          (with_atom [HD es] (λa.
+             case a of
+             | Int len =>
+                 (let n = if len < 0 then 0 else Num len in
+                  let new_state = state ++ [REPLICATE n (EL 1 es)] in
+                    if k = 0 then Div
+                    else next (k-1) (wh_Constructor "Ret" [Lit (Loc (& LENGTH state))])
+                           stack new_state)
+             | _ => Err))
         else Err)
     | wh_Diverge => Div
     | _ => Err
@@ -161,8 +163,9 @@ Proof
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [next_def]
-  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs [apply_closure_def]
   \\ Cases_on ‘s = "Bind"’ THEN1 (fs [] \\ rw [])
+  \\ Cases_on ‘s = "Handle"’ THEN1 (fs [] \\ rw [])
   \\ Cases_on ‘s = "Act"’ THEN1 (fs [] \\ rw [])
   \\ Cases_on ‘s = "Raise"’
   THEN1
@@ -174,6 +177,12 @@ Proof
    (fs [] \\ rw [] \\ Cases_on ‘fs’ \\ fs []
     \\ Cases_on ‘dest_wh_Closure (eval_wh e)’ \\ fs []
     \\ rw [] \\ fs [] \\ PairCases_on ‘x’ \\ gvs [] \\ rw [] \\ fs [])
+  \\ Cases_on ‘s = "Alloc"’ THEN1
+   (fs [] \\ rw [with_atom_def,with_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ IF_CASES_TAC \\ fs [])
   \\ rw [] \\ fs []
 QED
 
@@ -192,6 +201,7 @@ Overload Raise = “λx. Cons "Raise" [x]”
 Overload Act = “λx. Cons "Act" [x]”
 Overload Bind = “λx y. Cons "Bind" [x;y]”
 Overload Handle = “λx y. Cons "Handle" [x;y]”
+Overload Alloc = “λx y. Cons "Alloc" [x;y]”
 
 Theorem semantics_Ret:
   semantics (Ret x) Done s = Ret Termination
@@ -254,7 +264,8 @@ Proof
   \\ once_rewrite_tac [interp_def]
   \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
   \\ fs [next_action_def]
-  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
+  \\ fs [apply_closure_def]
   \\ Cases_on ‘eval_wh f = wh_Diverge’ \\ fs [eval_wh_thm]
   THEN1 (simp [Once next_def])
   \\ Cases_on ‘dest_wh_Closure (eval_wh f)’ \\ fs []
@@ -287,7 +298,8 @@ Proof
                 next_action (eval_wh x) (BC f fs) s’
   THEN1 (rw [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once interp_def])
   \\ fs [next_action_def]
-  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def])) \\ fs []
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
+  \\ fs [apply_closure_def]
   \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
   \\ rw [] \\ fs [AllCaseEqs()]
   THEN1 (match_mp_tac next_next \\ gvs [])
@@ -321,6 +333,24 @@ Proof
   \\ simp [Once next_def,CaseEq"wh",with_atom_def,with_atoms_def,get_atoms_def]
   \\ DEEP_INTRO_TAC some_intro \\ fs []
   \\ simp [Once next_def,CaseEq"wh",with_atom_def,with_atoms_def,get_atoms_def]
+QED
+
+Theorem semantics_Alloc:
+  eval_wh x = wh_Atom (Int (& n)) ⇒
+  semantics (Alloc x y) fs s =
+  semantics (Ret (Lit (Loc (LENGTH s)))) fs (s ++ [REPLICATE n y])
+Proof
+  strip_tac
+  \\ fs [semantics_def,eval_wh_Cons]
+  \\ once_rewrite_tac [interp_def]
+  \\ once_rewrite_tac [next_action_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
+  \\ fs [with_atom_def,with_atoms_def,get_atoms_def]
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac next_next \\ fs []
+  \\ qexists_tac ‘x'+1’ \\ fs []
 QED
 
 val _ = export_theory();
