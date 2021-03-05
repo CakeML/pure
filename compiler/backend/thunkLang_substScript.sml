@@ -125,7 +125,7 @@ Definition dest_anyClosure_def:
     od ++
     do
       (f, n) <- dest_Recclosure v;
-      case ALOOKUP f n of
+      case ALOOKUP (REVERSE f) n of
         SOME (Lam s x) => return (s, x, MAP (λ(g, x). (g, Recclosure f g)) f)
       | _ => fail Type_error
     od
@@ -144,7 +144,7 @@ Definition dest_anyThunk_def:
     od ++
     do
       (f, n) <- dest_Recclosure v;
-      case ALOOKUP f n of
+      case ALOOKUP (REVERSE f) n of
         SOME (Delay x) => return (INR x, f)
       | SOME (Box x) => return (INR x, f)
       | _ => fail Type_error
