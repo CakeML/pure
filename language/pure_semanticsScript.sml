@@ -99,7 +99,7 @@ Definition next_def:
                            stack new_state)
              | _ => Err))
         else if s = "Length" ∧ LENGTH es = 1 then
-          (with_atom [HD es] (λa.
+          (with_atom es (λa.
              case a of
              | Loc n =>
                  (if LENGTH state ≤ n then Err else
@@ -107,6 +107,20 @@ Definition next_def:
                   else next (k-1) (wh_Constructor "Ret"
                                      [Lit (Int (& (LENGTH (EL n state))))])
                            stack state)
+             | _ => Err))
+        else if s = "Deref" ∧ LENGTH es = 2 then
+          (with_atom2 es (λa a'.
+             case (a, a') of
+             | (Loc n, Int i) =>
+                 (if LENGTH state ≤ n then Err else
+                  if 0 ≤ i ∧ i < & LENGTH (EL n state) then
+                    if k = 0 then Div
+                    else next (k-1) (wh_Constructor "Ret" [EL (Num i) (EL n state)])
+                             stack state
+                  else
+                    if k = 0 then Div
+                    else next (k-1) (wh_Constructor "Raise" [Cons "Subscript" []])
+                             stack state)
              | _ => Err))
         else Err)
     | wh_Diverge => Div
@@ -199,6 +213,17 @@ Proof
     \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ fs [] \\ IF_CASES_TAC \\ fs [])
+  \\ Cases_on ‘s = "Deref"’ THEN1
+   (fs [] \\ rw [with_atom2_def,with_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘eval_wh h’ \\ gvs [get_atoms_def]
+    \\ Cases_on ‘eval_wh h'’ \\ gvs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ BasicProvers.TOP_CASE_TAC \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ IF_CASES_TAC \\ fs [] \\ IF_CASES_TAC \\ fs []
+    \\ fs [AllCaseEqs()]
+    \\ first_x_assum irule \\ fs []
+    \\ metis_tac [])
   \\ rw [] \\ fs []
 QED
 
@@ -219,6 +244,7 @@ Overload Bind = “λx y. Cons "Bind" [x;y]”
 Overload Handle = “λx y. Cons "Handle" [x;y]”
 Overload Alloc = “λx y. Cons "Alloc" [x;y]”
 Overload Length = “λx. Cons "Length" [x]”
+Overload Deref = “λx y. Cons "Deref" [x;y]”
 
 Theorem semantics_Ret:
   semantics (Ret x) Done s = Ret Termination
@@ -382,6 +408,25 @@ Proof
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
   \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
   \\ fs [with_atom_def,with_atoms_def,get_atoms_def]
+  \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac next_next \\ fs []
+  \\ qexists_tac ‘x'+1’ \\ fs []
+QED
+
+Theorem semantics_Deref:
+  eval_wh x = wh_Atom (Loc n) ∧ n < LENGTH s ∧
+  eval_wh y = wh_Atom (Int (& i)) ∧ i < LENGTH (EL n s) ⇒
+  semantics (Deref x y) fs s =
+  semantics (Ret (EL i (EL n s))) fs s
+Proof
+  strip_tac
+  \\ fs [semantics_def,eval_wh_Cons]
+  \\ once_rewrite_tac [interp_def]
+  \\ once_rewrite_tac [next_action_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [next_def]))
+  \\ fs [with_atom2_def,with_atoms_def,get_atoms_def]
   \\ rpt (DEEP_INTRO_TAC some_intro \\ fs [])
   \\ rw [] \\ rw [] \\ fs []
   \\ imp_res_tac next_next \\ fs []
