@@ -239,6 +239,7 @@ Definition eval_to_def:
              return (Constructor s vs)
            od
        | If => fail Type_error
+       | Seq => fail Type_error
        | Proj s i =>
            do
              assert (LENGTH xs = 1);
@@ -255,19 +256,16 @@ Definition eval_to_def:
              assert (t = s ⇒ i = LENGTH ys);
              return (Constructor (if t ≠ s then "False" else "True") [])
            od
-       | Lit l =>
-           do
-             assert (xs = []);
-             return (Atom l)
-           od
        | AtomOp aop =>
            do
              ys <- map (λx. case eval_to (k - 1) x of
                               INR (Atom l) => return l
                             | INL err => fail err
                             | _ => fail Type_error) xs;
-             case config.parAtomOp aop ys of
-               SOME v => return (Atom v)
+             case eval_op aop ys of
+               SOME (INL v) => return (Atom v)
+             | SOME (INR b) =>
+               return (Constructor (if b then "True" else "False") [])
              | NONE => fail Type_error
            od)
 Termination
