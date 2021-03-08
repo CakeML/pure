@@ -193,6 +193,83 @@ Proof
   \\ imp_res_tac pure_expTheory.exp_size_lemma \\ fs []
 QED
 
+Theorem FLOOKUP_FDIFF_EQ:
+  ∀ks m k.
+    FLOOKUP (FDIFF m ks) k = if k ∈ ks then NONE else FLOOKUP m k
+Proof
+  cheat
+QED
+
+(*
+Theorem exp_rel_subst_list:
+  ∀x y xs ys.
+    exp_rel x y ∧
+    MAP FST xs = MAP FST ys ∧
+    LIST_REL exp_rel (MAP SND xs) (MAP SND ys) ∧
+    EVERY closed (MAP SND xs) ⇒
+      exp_rel (subst (FDIFF (FEMPTY |++ MAP (λ(n,x). (n, Tick x)) xs) zs) x)
+              (subst (FILTER (λ(n,x). n ∉ zs)
+                       (MAP (λ(n,x). (n, Thunk (INR x))) ys)) y)
+Proof
+
+  ho_match_mp_tac exp_ind_alt \\ rw []
+
+  >- ((* Var *)
+
+    ‘y = Force (Var n)’ by fs [Once exp_rel_cases]
+    \\ simp [subst_def, pure_expTheory.subst_def, flookup_fupdate_list,
+             GSYM MAP_REVERSE, ALOOKUP_MAP]
+    \\ simp [FLOOKUP_FDIFF_EQ]
+    \\ Cases_on ‘n ∈ zs’ \\ fs []
+    >- (
+      rw [FILTER_MAP, GSYM MAP_REVERSE, ALOOKUP_MAP, combinTheory.o_DEF,
+          LAMBDA_PROD]
+      \\ CASE_TAC \\ fs []
+      \\ imp_res_tac ALOOKUP_SOME
+      \\ gs [MAP_REVERSE, MEM_MAP, MEM_FILTER, LAMBDA_PROD, EXISTS_PROD])
+    \\ simp [flookup_fupdate_list]
+
+    \\ CASE_TAC \\ CASE_TAC \\ fs []
+    \\ imp_res_tac ALOOKUP_SOME
+    \\ gvs [ALOOKUP_NONE, GSYM MAP_REVERSE, GSYM FILTER_REVERSE,
+            ALOOKUP_FILTER, ALOOKUP_MAP, MEM_MAP, MEM_FILTER, LAMBDA_PROD,
+            EXISTS_PROD]
+
+    \\ Cases_on ‘FLOOKUP (FDIFF (’
+    \\ irule exp_rel_Value_Suspend
+
+    \\ drule_then (qspec_then ‘REVERSE xs’ mp_tac) ALOOKUP_SOME_EL_2
+    \\ rw [MAP_REVERSE]
+    \\ gvs [EL_REVERSE, LIST_REL_EL_EQN, EVERY_EL]
+    \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
+    \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
+    \\ irule exp_rel_Value_Suspend
+    \\ first_x_assum (drule_then assume_tac)
+    \\ first_x_assum (drule_then assume_tac)
+    \\ gs [EL_MAP])
+  >- ((* Prim *)
+    cheat
+  )
+  >- ((* App *)
+    cheat
+  )
+
+  >- ((* Lam *)
+    qpat_x_assum ‘exp_rel (Lam n x) _’ mp_tac
+    \\ rw [Once exp_rel_cases]
+    \\ fs [subst_def, pure_expTheory.subst_def]
+    \\ irule exp_rel_Lam
+    \\ first_x_assum drule_all
+    \\ rw []
+
+
+  )
+
+
+QED
+*)
+
+
 Theorem exp_rel_subst:
   ∀x y a b n s.
     exp_rel x y ∧
@@ -370,117 +447,36 @@ Proof
   Induct \\ rw [FDIFF_def]
 QED
 
-(* TODO:
-   - Maybe, with some fixes.
- *)
-
-Theorem exp_rel_subst_funs[local]:
-  ∀x f g y.
+Theorem exp_rel_subst_list[local]:
+  ∀x f g y ks.
     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ closed x ∧ exp_rel x y) f g ∧
     exp_rel x y ⇒
-      exp_rel (subst_funs f x) (subst_funs (MAP (λ(gn, x). (gn, Delay x)) g) y)
+      exp_rel
+        (subst
+           (FEMPTY |++
+            MAP (λ(g,x). (g,Letrec f x))
+              (FILTER (λ(n,x). n ∉ ks) f)) x)
+        (subst
+           (MAP
+              (λ(gn,x).(gn, Recclosure (MAP (λ(gn,x). (gn,Delay x)) g) gn))
+              (FILTER (λ(n,x). n ∉ ks) (MAP (λ(gn,x). (gn,Delay x)) g))) y)
 Proof
-  rpt gen_tac
-  \\ strip_tac
-  \\ simp [subst_funs_def, bind_def, pure_expTheory.subst_funs_def,
-           pure_expTheory.bind_def]
-  \\ reverse IF_CASES_TAC \\ fs []
-  >- ((* FIXME blergh: *)
-    ‘F’ suffices_by rw []
-    \\ pop_assum mp_tac \\ simp []
-    \\ fs [flookup_fupdate_list]
-    \\ ‘LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧ MAP FST f = MAP FST g’
-      by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ qid_spec_tac ‘g’
-          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs [ELIM_UNCURRY])
-    \\ drule_then (qspec_then ‘n’ assume_tac) LIST_REL_imp_OPTREL_ALOOKUP
-    \\ gs [CaseEq "option", OPTREL_def]
-    \\ imp_res_tac ALOOKUP_SOME
-    \\ fs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-           GSYM FST_THM, ALOOKUP_NONE]
-    \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_REVERSE, MEM_MAP]
-    \\ pairarg_tac \\ gvs []
-    \\ pop_assum mp_tac
-    \\ simp [MEM_EL, Once EQ_SYM_EQ]
-    \\ strip_tac \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN]
-    \\ ‘freevars (SND (EL n f)) = EMPTY’
-      by fs [pure_expTheory.closed_def, ELIM_UNCURRY]
-    \\ gvs []
-    \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST f)) (MAP SND f)’ suffices_by rw []
-    \\ rw [EVERY_EL]
-    \\ last_x_assum drule
-    \\ simp [EL_MAP, pure_expTheory.closed_def, ELIM_UNCURRY])
-  \\ pop_assum kall_tac
-  \\ rpt (pop_assum mp_tac)
-  \\ map_every qid_spec_tac [‘g’, ‘f’, ‘y’, ‘x’]
-  \\ ho_match_mp_tac exp_ind_alt \\ rw []
+  ho_match_mp_tac exp_ind_alt \\ rw []
   >- ((* Var *)
     ‘y = Force (Var n)’ by fs [Once exp_rel_cases]
     \\ simp [pure_expTheory.subst_def, flookup_fupdate_list, subst_def,
              MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-    \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP (REVERSE (MAP f1 f))’
-    \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP (REVERSE (MAP g1 g))’
-    \\ ‘MAP FST (MAP f1 f) = MAP FST (MAP g1 g)’
-      by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-          \\ unabbrev_all_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ qid_spec_tac ‘g’
-          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs []
-          \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FORALL_PROD,
-                 GSYM FST_THM]
-          \\ fs [ELIM_UNCURRY])
-    \\ ‘ALOOKUP (REVERSE (MAP f1 f)) n = NONE ⇔
-        ALOOKUP (REVERSE (MAP g1 g)) n = NONE’
-      by rw [Abbr ‘f1’, Abbr ‘g1’, ALOOKUP_NONE, MAP_REVERSE]
-    \\ CASE_TAC \\ fs []
-    \\ CASE_TAC \\ fs []
-    \\ unabbrev_all_tac
-    \\ qmatch_asmsub_abbrev_tac ‘ALOOKUP (REVERSE f1) n = SOME x’
-    \\ drule_then (qspec_then ‘REVERSE f1’ mp_tac) ALOOKUP_SOME_EL_2
-    \\ rw [Abbr ‘f1’, MAP_REVERSE]
-    \\ gvs [EL_REVERSE, EL_MAP, LIST_REL_EL_EQN]
-    \\ pairarg_tac \\ gvs []
-    \\ pairarg_tac \\ gvs []
-    \\ qmatch_asmsub_abbrev_tac ‘EL m f’
-    \\ rename1 ‘EL m f = (fn, x)’
-    \\ rename1 ‘EL m g = (fn, y)’
-    \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
-    \\ ‘closed x ∧ exp_rel x y’
-      by (first_x_assum (drule_then assume_tac)
-          \\ pairarg_tac \\ gvs [])
-    \\ gvs []
-    \\ irule exp_rel_Value_Rec
-    \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
-    \\ ‘MAP FST (REVERSE f) = MAP FST (REVERSE g)’
+    \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP, GSYM FILTER_REVERSE, ALOOKUP_FILTER,
+             ALOOKUP_MAP_2]
+    \\ IF_CASES_TAC \\ fs []
+    \\ ‘MAP FST f = MAP FST g’
       by (last_x_assum mp_tac
-          \\ qpat_x_assum ‘LENGTH f = _’ mp_tac
           \\ rpt (pop_assum kall_tac)
           \\ qid_spec_tac ‘g’
-          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp []
-          \\ rw []
-          >- (
-            first_x_assum drule
-            \\ impl_tac \\ fs []
-            \\ rw []
-            \\ pairarg_tac \\ gvs []
-            \\ pairarg_tac \\ gvs []
-            \\ first_x_assum (qspec_then ‘SUC n’ assume_tac) \\ gs [])
-          \\ first_x_assum (qspec_then ‘0’ assume_tac)
-          \\ pairarg_tac \\ gvs []
-          \\ pairarg_tac \\ gvs [])
-    \\ conj_asm1_tac
-    >- (
-      fs [GSYM MAP_REVERSE, ALOOKUP_MAP])
-    \\ conj_tac
-    >- (
-      CCONTR_TAC \\ fs []
-      \\ Cases_on ‘ALOOKUP (REVERSE g) fn’ \\ gs []
-      \\ imp_res_tac ALOOKUP_SOME
-      \\ gs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-             GSYM FST_THM, ALOOKUP_NONE])
-    \\ fs [LIST_REL_EL_EQN])
+          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs [ELIM_UNCURRY])
+    \\ CASE_TAC \\ CASE_TAC \\ fs []
+    \\ imp_res_tac ALOOKUP_SOME \\ gvs [ALOOKUP_NONE, MAP_REVERSE]
+    \\ irule exp_rel_Value_Rec \\ fs [])
   >- ((* Prim *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
@@ -515,7 +511,25 @@ Proof
     \\ rw [Once exp_rel_cases]
     \\ rw [subst_def, pure_expTheory.subst_def]
     \\ irule exp_rel_Lam
-    \\ cheat (* something about fdomsub and FILTER *))
+    \\ qmatch_goalsub_abbrev_tac ‘MAP f1 (FILTER _ gg)’
+    \\ ‘(FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks) gg)) \\ n =
+        FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks ∪ {n}) gg)’
+      by (fs [DOMSUB_FUPDATE_LIST, combinTheory.o_DEF, FILTER_MAP, LAMBDA_PROD,
+              FILTER_FILTER, Abbr ‘f1’]
+          \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+          \\ rw [FUN_EQ_THM, EQ_IMP_THM])
+    \\ pop_assum SUBST_ALL_TAC
+    \\ unabbrev_all_tac
+    \\ qmatch_goalsub_abbrev_tac ‘FILTER _ (MAP f2 (FILTER _ gg))’
+    \\ ‘FILTER (λ(m,x). m ≠ n) (MAP f2 (FILTER (λ(m,x). m ∉ ks) gg)) =
+        MAP f2 (FILTER (λ(m, x). m ∉ ks ∪ {n}) gg)’
+      by (simp [FILTER_MAP, combinTheory.o_DEF, FILTER_FILTER, LAMBDA_PROD,
+                Abbr ‘f2’]
+          \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+          \\ rw [FUN_EQ_THM, EQ_IMP_THM])
+    \\ pop_assum SUBST_ALL_TAC
+    \\ unabbrev_all_tac
+    \\ first_x_assum irule \\ fs [])
   >- ((* Letrec *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
@@ -537,7 +551,97 @@ Proof
     \\ pop_assum SUBST1_TAC
     \\ unabbrev_all_tac
     \\ irule exp_rel_Letrec \\ fs []
-    \\ cheat (* TODO maybe *))
+      (* Replace all FILTER (λ(m,x). m ∉ ks) with ∉ ks ∪ {n} *)
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ qmatch_goalsub_abbrev_tac ‘MAP f1 (FILTER _ gg)’
+    \\ ‘FDIFF (FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks) gg))
+              (set (MAP FST lcs)) =
+        FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks ∪ set (MAP FST lcs)) gg)’
+      by cheat (* TODO FDIFF is nasty *)
+    \\ pop_assum SUBST1_TAC
+    \\ unabbrev_all_tac
+    \\ qmatch_goalsub_abbrev_tac ‘FILTER _ (MAP f2 (FILTER _ gg))’
+    \\ ‘FILTER (λ(m,x). ¬MEM m (MAP FST g'))
+               (MAP f2 (FILTER (λ(m,x). m ∉ ks) gg)) =
+        MAP f2 (FILTER (λ(m, x). m ∉ ks ∪ set (MAP FST g')) gg)’
+      by (simp [FILTER_MAP, combinTheory.o_DEF, FILTER_FILTER, LAMBDA_PROD,
+                Abbr ‘f2’]
+          \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+          \\ rw [FUN_EQ_THM, EQ_IMP_THM])
+    \\ pop_assum SUBST1_TAC
+    \\ unabbrev_all_tac
+    \\ rename1 ‘LIST_REL _ f1 g1’
+    \\ ‘MAP FST g1 = MAP FST f1’
+      by (qpat_x_assum ‘LIST_REL _ f1 _’ mp_tac
+          \\ rpt (pop_assum kall_tac)
+          \\ qid_spec_tac ‘g1’
+          \\ Induct_on ‘f1’ \\ Cases_on ‘g1’ \\ simp []
+          \\ rw [] \\ fs [ELIM_UNCURRY])
+    \\ pop_assum SUBST_ALL_TAC
+    \\ first_x_assum (irule_at Any) \\ fs []
+    \\ simp [EVERY2_MAP, LAMBDA_PROD]
+    \\ simp [LIST_REL_EL_EQN]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ rw [] \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ rename1 ‘EL n f1 = (v1, b1)’
+    \\ ‘MEM (v1, b1) f1’
+      by (rw [MEM_EL, Once EQ_SYM_EQ]
+          \\ first_assum (irule_at Any) \\ fs [])
+    \\ first_x_assum drule
+    \\ qpat_x_assum ‘LIST_REL _ f _’ assume_tac
+    \\ disch_then drule
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ first_x_assum (drule_then assume_tac)
+    \\ pairarg_tac \\ gvs []
+    \\ disch_then (drule_then (qspec_then ‘ks ∪ set (MAP FST f1)’ mp_tac))
+    \\ qmatch_goalsub_abbrev_tac ‘subst s1’ \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac ‘subst s2’
+    \\ ‘s1 = s2’ suffices_by (rw [] \\ fs [])
+    \\ unabbrev_all_tac
+    \\ simp [FILTER_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
+QED
+
+Theorem exp_rel_subst_funs:
+  ∀x f g y ks.
+    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ closed x ∧ exp_rel x y) f g ∧
+    exp_rel x y ⇒
+      exp_rel (subst_funs f x)
+              (subst_funs (MAP (λ(gn, x). (gn, Delay x)) g) y)
+Proof
+  rpt gen_tac
+  \\ strip_tac
+  \\ simp [subst_funs_def, bind_def, pure_expTheory.subst_funs_def,
+           pure_expTheory.bind_def]
+  \\ reverse IF_CASES_TAC \\ fs []
+  >- (
+    ‘F’ suffices_by rw []
+    \\ pop_assum mp_tac \\ simp []
+    \\ fs [flookup_fupdate_list, FILTER_MAP, GSYM MAP_REVERSE, ALOOKUP_MAP,
+           CaseEq "option"]
+    \\ simp [EVERY_MAP, LAMBDA_PROD, EVERY_FILTER]
+    \\ ‘MAP FST f = MAP FST g’
+      by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+          \\ rpt (pop_assum kall_tac)
+          \\ qid_spec_tac ‘g’
+          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs [ELIM_UNCURRY])
+    \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_REVERSE, MEM_MAP, MEM_FILTER]
+    \\ pop_assum mp_tac
+    \\ simp [MEM_EL, Once EQ_SYM_EQ]
+    \\ strip_tac \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ rename1 ‘m < LENGTH g’
+    \\ ‘freevars (SND (EL m f)) = EMPTY’
+      by fs [pure_expTheory.closed_def, ELIM_UNCURRY]
+    \\ gvs [EVERY_EL] \\ rw []
+    \\ pairarg_tac \\ gvs []
+    \\ first_x_assum (drule_then assume_tac)
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ gs [pure_expTheory.closed_def])
+  \\ drule_all_then (qspec_then ‘EMPTY’ mp_tac) exp_rel_subst_list
+  \\ simp [FILTER_T, GSYM LAMBDA_PROD]
 QED
 
 Theorem exp_rel_eval_to:
