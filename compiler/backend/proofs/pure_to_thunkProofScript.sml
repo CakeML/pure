@@ -622,7 +622,7 @@ Proof
     >- ((* pure sem errors *)
       Cases_on ‘eval_to k g’ \\ fs [])
     \\ ‘∃res. eval_to k g = INR res’
-      by (Cases_on ‘eval_to k g’ \\ fs [v_rel_rev])
+      by (Cases_on ‘eval_to k g’ \\ fs [])
     \\ simp []
     \\ Cases_on ‘dest_wh_Closure (eval_wh_to k x)’ \\ fs []
     >- ((* not a pureLang closure: thunk sem must also error *)
@@ -636,7 +636,6 @@ Proof
     \\ imp_res_tac exp_rel_closed \\ gvs []
     \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE, bind_def, closed_def,
            pure_expTheory.closed_def]
-    \\ ‘∀k. eval_wh_to k Fail = wh_Error’ by cheat (* TODO Fix in pure_eval *)
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule exp_rel_subst
@@ -674,15 +673,39 @@ Proof
     \\ irule exp_rel_subst_funs \\ fs [])
   >- ((* Prim *)
     rename1 ‘Prim op xs’
-    \\ rw []
-    \\ pop_assum mp_tac
+    \\ rw [] \\ pop_assum mp_tac
+    >- ((* No clock *)
+      rw [Once exp_rel_cases]
+      \\ simp [eval_to_def, eval_wh_to_def, map_MAP, combinTheory.o_DEF]
+      >- (
+        qmatch_goalsub_abbrev_tac ‘map f ys’
+        \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’, map_INL]
+        \\ gvs [LIST_REL_EL_EQN]
+        \\ drule_then assume_tac map_LENGTH \\ fs []
+        \\ rw [] \\ gvs []
+        \\ drule_all_then assume_tac map_INR \\ fs []
+        \\ pop_assum (assume_tac o SYM) \\ fs []
+        \\ gs [thunk_rel_def])
+      >- (
+        IF_CASES_TAC \\ fs [LIST_REL_EL_EQN]
+        \\ fs [LENGTH_EQ_NUM_compute])
+      \\ Cases_on ‘op’ \\ fs [LIST_REL_EL_EQN]
+      >- (
+        IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute])
+      >- (
+        Cases_on ‘xs’ \\ fs [get_atoms_def]
+        \\ cheat (* AtomOp diverges in the wrong place *))
+      \\ simp [MEM_MAP]
+      \\ cheat (* TODO No Seq *))
     \\ rw [Once exp_rel_cases]
     >- ((* If *)
       simp [eval_to_def, eval_wh_to_def]
-      \\ IF_CASES_TAC \\ fs []
-      \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ fsrw_tac [boolSimps.DNF_ss] []
-      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ gvs [LENGTH_EQ_NUM_compute, SF DNF_ss]
+      \\ first_assum (drule_then assume_tac)
+      \\ qpat_x_assum ‘exp_rel y1 _’ assume_tac
+      \\ first_assum (drule_then assume_tac)
+      \\ qpat_x_assum ‘exp_rel x1 _’ assume_tac
+      \\ first_x_assum (drule_then assume_tac)
       \\ CASE_TAC \\ Cases_on ‘eval_to (k - 1) x2’ \\ fs []
       \\ rename1 ‘INR res’ \\ Cases_on ‘res’ \\ gvs []
       \\ IF_CASES_TAC \\ fs []
@@ -691,7 +714,6 @@ Proof
       \\ IF_CASES_TAC \\ fs [])
     >- ((* Cons *)
       simp [eval_wh_to_def, eval_to_def]
-      \\ IF_CASES_TAC \\ fs []
       \\ qmatch_goalsub_abbrev_tac ‘map f _’
       \\ ‘∃res. map f (MAP Delay ys) = INR res’
         by (Cases_on ‘map f (MAP Delay ys)’ \\ fs []
@@ -704,49 +726,47 @@ Proof
       \\ rw [thunk_rel_def])
     >- ((* Proj *)
       simp [eval_wh_to_def, eval_to_def]
-      \\ IF_CASES_TAC \\ fs []
-      \\ gvs [LIST_REL_EL_EQN, eval_to_def]
-      \\ IF_CASES_TAC \\ fs []
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+      \\ IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
+      \\ gvs [eval_to_def, LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
       \\ rename1 ‘exp_rel x y’
-      \\ first_x_assum (drule_then assume_tac)
-      \\ Cases_on ‘eval_to (k - 1) y’ \\ fs [v_rel_rev]
+      \\ first_assum (drule_then assume_tac)
+      \\ Cases_on ‘eval_to (k - 1) y’ \\ fs []
       \\ rename1 ‘dest_Constructor v’
       \\ Cases_on ‘dest_Constructor v’
       >- (
         Cases_on ‘eval_wh_to (k - 1) x’ \\ Cases_on ‘v’ \\ gvs [])
-      \\ Cases_on ‘v’ \\ gvs [v_rel_rev]
-      \\ fs [LIST_REL_EL_EQN]
+      \\ Cases_on ‘v’ \\ gvs []
+      \\ gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gvs []
       \\ first_x_assum (drule_then assume_tac)
       \\ fs [thunk_rel_def, dest_anyThunk_def, subst_funs_def, bind_def])
     >- ((* {IsEq, AtomOp, Lit} *)
       simp [eval_wh_to_def, eval_to_def]
-      \\ IF_CASES_TAC \\ fs []
       \\ gvs [LIST_REL_EL_EQN, eval_to_def]
       \\ Cases_on ‘op’ \\ fs []
       >- ((* IsEq *)
         IF_CASES_TAC \\ fs []
         \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
         \\ rename1 ‘exp_rel x y’
-        \\ first_x_assum (drule_then assume_tac)
-        \\ Cases_on ‘eval_to (k - 1) y’ \\ fs [v_rel_rev]
+        \\ first_assum (drule_then assume_tac)
+        \\ Cases_on ‘eval_to (k - 1) y’ \\ fs []
         \\ rename1 ‘dest_Constructor v’
         \\ Cases_on ‘dest_Constructor v’ \\ fs []
         >- (
           Cases_on ‘eval_to (k - 1) y’ \\ Cases_on ‘eval_wh_to (k - 1) x’
           \\ Cases_on ‘v’ \\ gvs [])
         \\ pairarg_tac \\ gvs []
-        \\ Cases_on ‘v’ \\ gvs [v_rel_rev]
+        \\ Cases_on ‘v’ \\ gvs []
         \\ drule_then assume_tac LIST_REL_LENGTH
         \\ IF_CASES_TAC \\ gvs []
         \\ IF_CASES_TAC \\ gvs [])
       >- ((* AtomOp *)
         qmatch_goalsub_abbrev_tac ‘map f ys’
+        \\ fs [MEM_EL, PULL_EXISTS]
         \\ CASE_TAC \\ fs []
         >- (
           gvs [get_atoms_NONE_eq, EL_MAP]
-          \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’, v_rel_rev]
+          \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’]
           >- (
             gvs [map_INL]
             \\ rename1 ‘m < LENGTH ys’
@@ -765,13 +785,13 @@ Proof
               \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
                 by fs [EL_MEM]
               \\ last_x_assum (drule_all_then assume_tac)
-              \\ gvs [AllCaseEqs (), v_rel_rev])
+              \\ gvs [AllCaseEqs ()])
             \\ ‘m = n’ by fs []
             \\ pop_assum SUBST_ALL_TAC \\ gvs []
             \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
               by fs [EL_MEM]
             \\ last_x_assum (drule_all_then assume_tac)
-            \\ gvs [AllCaseEqs (), v_rel_rev])
+            \\ gvs [AllCaseEqs ()])
           \\ drule_then assume_tac map_LENGTH
           \\ dxrule_then drule_all map_INR \\ fs []
           \\ CASE_TAC \\ fs []
@@ -783,7 +803,7 @@ Proof
         \\ CASE_TAC \\ fs []
         >- (
           gvs [get_atoms_SOME_NONE_eq, EL_MAP]
-          \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’, v_rel_rev]
+          \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’]
           >- (
             gvs [map_INL]
             \\ rename1 ‘m < LENGTH ys’
@@ -792,14 +812,14 @@ Proof
               ‘exp_rel (EL m xs) (EL m ys) ∧ MEM (EL m xs) xs’
                 by fs [EL_MEM]
               \\ last_x_assum (drule_all_then assume_tac)
-              \\ gvs [AllCaseEqs (), v_rel_rev])
+              \\ gvs [AllCaseEqs ()])
             \\ fs [arithmeticTheory.NOT_LESS_EQUAL]
             \\ first_x_assum drule
             \\ CASE_TAC \\ fs []
             \\ CASE_TAC \\ fs []
             \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
               by fs [EL_MEM]
-            \\ last_x_assum (drule_all_then assume_tac) \\ gs [v_rel_rev])
+            \\ last_x_assum (drule_all_then assume_tac) \\ gs [])
           \\ drule_then assume_tac map_LENGTH
           \\ dxrule_then drule_all map_INR \\ fs []
           \\ CASE_TAC \\ fs []
@@ -807,7 +827,7 @@ Proof
           \\ ‘exp_rel (EL n xs) (EL n ys) ∧ MEM (EL n xs) xs’
             by fs [EL_MEM]
           \\ last_x_assum (drule_all_then assume_tac)
-          \\ gs [v_rel_rev])
+          \\ gs [])
         \\ gvs [get_atoms_SOME_SOME_eq, LIST_REL_EL_EQN, EL_MAP]
         \\ Cases_on ‘map f ys’ \\ fs [Abbr ‘f’]
         >- (
@@ -820,7 +840,9 @@ Proof
         \\ qsuff_tac ‘y = zs’
         >- (
           rw []
-          \\ CASE_TAC \\ fs [])
+          \\ CASE_TAC \\ fs []
+          \\ CASE_TAC \\ fs []
+          \\ IF_CASES_TAC \\ fs [])
         \\ drule_then assume_tac map_LENGTH
         \\ irule LIST_EQ \\ rw [] \\ gvs []
         \\ ‘x < LENGTH ys’ by fs []
@@ -831,9 +853,10 @@ Proof
           by fs [EL_MEM]
         \\ last_x_assum (drule_all_then assume_tac)
         \\ gvs [])
-      >- ((* Lit *)
+      >- ((* Seq *)
         IF_CASES_TAC \\ fs []
-        \\ IF_CASES_TAC \\ fs [])))
+        \\ gvs [LENGTH_EQ_NUM_compute]
+        \\ cheat (* TODO *))))
 QED
 
 val _ = export_theory ();

@@ -231,11 +231,10 @@ Definition eval_to_def:
                     eval_to (k - 1) (subst_funs binds y)
      od) ∧
   eval_to k (Prim op xs) =
-    (if k = 0 then fail Diverge else
-       case op of
-         Cons s =>
+    (case op of
+       Cons s =>
            do
-             vs <- map (eval_to (k - 1)) xs;
+             vs <- map (λx. eval_to k x) xs;
              return (Constructor s vs)
            od
        | If => fail Type_error
@@ -243,7 +242,7 @@ Definition eval_to_def:
        | Proj s i =>
            do
              assert (LENGTH xs = 1);
-             v <- eval_to (k - 1) (HD xs);
+             v <- if k = 0 then fail Diverge else eval_to (k - 1) (HD xs);
              (t, ys) <- dest_Constructor v;
              assert (t = s ∧ i < LENGTH ys);
              return (EL i ys)
@@ -251,25 +250,27 @@ Definition eval_to_def:
        | IsEq s i =>
            do
              assert (LENGTH xs = 1);
-             v <- eval_to (k - 1) (HD xs);
+             v <- if k = 0 then fail Diverge else eval_to (k - 1) (HD xs);
              (t, ys) <- dest_Constructor v;
              assert (t = s ⇒ i = LENGTH ys);
              return (Constructor (if t ≠ s then "False" else "True") [])
            od
        | AtomOp aop =>
-           do
-             ys <- map (λx. case eval_to (k - 1) x of
-                              INR (Atom l) => return l
-                            | INL err => fail err
-                            | _ => fail Type_error) xs;
-             case eval_op aop ys of
-               SOME (INL v) => return (Atom v)
-             | SOME (INR b) =>
-               return (Constructor (if b then "True" else "False") [])
-             | NONE => fail Type_error
-           od)
+           if k = 0 then fail Diverge else
+             do
+               ys <- map (λx. case eval_to (k - 1) x of
+                                INR (Atom l) => return l
+                              | INL err => fail err
+                              | _ => fail Type_error) xs;
+               case eval_op aop ys of
+                 SOME (INL v) => return (Atom v)
+               | SOME (INR b) =>
+                 return (Constructor (if b then "True" else "False") [])
+               | NONE => fail Type_error
+             od)
 Termination
-  WF_REL_TAC ‘inv_image ($< LEX $<) (I ## exp_size)’
+  WF_REL_TAC ‘inv_image ($< LEX $<) (I ## exp_size)’ \\ rw []
+  \\ Induct_on ‘xs’ \\ rw [] \\ fs [exp_size_def]
 End
 
 Definition eval_def:
@@ -326,25 +327,26 @@ Proof
     dsimp []
     \\ strip_tac
     \\ strip_tac
+    \\ fs [MEM_EL, PULL_EXISTS]
     \\ Cases_on ‘op’ \\ rw [eval_to_def] \\ gs []
     >- ((* Cons *)
-      Cases_on ‘map (λx. eval_to (j - 1) x) xs’ \\ fs []
+      Cases_on ‘map (λx. eval_to j x) xs’ \\ fs []
       >- (
-        reverse (Cases_on ‘map (λx. eval_to (k - 1) x) xs’) \\ fs []
+        reverse (Cases_on ‘map (λx. eval_to k x) xs’) \\ fs []
         >- (
           fs [map_INL]
           \\ drule_then assume_tac map_INR
           \\ first_x_assum (drule_then assume_tac) \\ gs [])
         \\ gvs [map_INL]
-        \\ rename1 ‘eval_to (j - 1) (EL m xs) = INL d’
-        \\ rename1 ‘eval_to (k - 1) (EL n xs) = INL e’
+        \\ rename1 ‘eval_to j (EL m xs) = INL d’
+        \\ rename1 ‘eval_to k (EL n xs) = INL e’
         \\ Cases_on ‘m < n’ \\ gs []
         \\ Cases_on ‘m = n’ \\ gs []
         \\ ‘n < m’ by gs []
         \\ first_assum (drule_then assume_tac)
-        \\ ‘eval_to (k - 1) (EL n xs) ≠ INL Diverge’ by fs []
-        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs [])
-      \\ Cases_on ‘map (λx. eval_to (k - 1) x) xs’ \\ fs []
+        \\ ‘eval_to k (EL n xs) ≠ INL Diverge’ by fs []
+        \\ first_x_assum (drule_then assume_tac) \\ gs [])
+      \\ Cases_on ‘map (λx. eval_to k x) xs’ \\ fs []
       >- (
         fs [map_INL]
         \\ drule_then assume_tac map_INR
@@ -384,6 +386,7 @@ Proof
         >- (
           gvs [CaseEq "sum"])
         \\ ‘n < m’ by gs []
+        \\ ‘n < LENGTH xs’ by gs []
         \\ first_assum (drule_then assume_tac)
         \\ ‘eval_to (k - 1) (EL n xs) ≠ INL Diverge’ by (strip_tac \\ fs [])
         \\ first_x_assum (drule_then (qspec_then ‘j - 1’ mp_tac))

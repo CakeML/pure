@@ -189,6 +189,23 @@ Proof
   \\ Cases_on ‘f x’ \\ fs []
 QED
 
+Theorem map_K_INL:
+  xs ≠ [] ⇒ map (K (INL e)) xs = INL e
+Proof
+  Induct_on ‘xs’ \\ simp [map_def]
+QED
+
+Theorem map_CONG[defncong]:
+  ∀xs ys f g.
+    xs = ys ∧
+    (∀x. MEM x xs ⇒ f x = g x) ⇒
+      map f xs = map g ys
+Proof
+  Induct \\ simp [map_def] \\ rw []
+  \\ Cases_on ‘g h’ \\ fs []
+  \\ ‘map f xs = map g xs’ suffices_by simp_tac std_ss []
+  \\ first_x_assum irule \\ fs []
+QED
 
 val _ = export_theory ();
 
