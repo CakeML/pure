@@ -193,83 +193,6 @@ Proof
   \\ imp_res_tac pure_expTheory.exp_size_lemma \\ fs []
 QED
 
-Theorem FLOOKUP_FDIFF_EQ:
-  ∀ks m k.
-    FLOOKUP (FDIFF m ks) k = if k ∈ ks then NONE else FLOOKUP m k
-Proof
-  cheat
-QED
-
-(*
-Theorem exp_rel_subst_list:
-  ∀x y xs ys.
-    exp_rel x y ∧
-    MAP FST xs = MAP FST ys ∧
-    LIST_REL exp_rel (MAP SND xs) (MAP SND ys) ∧
-    EVERY closed (MAP SND xs) ⇒
-      exp_rel (subst (FDIFF (FEMPTY |++ MAP (λ(n,x). (n, Tick x)) xs) zs) x)
-              (subst (FILTER (λ(n,x). n ∉ zs)
-                       (MAP (λ(n,x). (n, Thunk (INR x))) ys)) y)
-Proof
-
-  ho_match_mp_tac exp_ind_alt \\ rw []
-
-  >- ((* Var *)
-
-    ‘y = Force (Var n)’ by fs [Once exp_rel_cases]
-    \\ simp [subst_def, pure_expTheory.subst_def, flookup_fupdate_list,
-             GSYM MAP_REVERSE, ALOOKUP_MAP]
-    \\ simp [FLOOKUP_FDIFF_EQ]
-    \\ Cases_on ‘n ∈ zs’ \\ fs []
-    >- (
-      rw [FILTER_MAP, GSYM MAP_REVERSE, ALOOKUP_MAP, combinTheory.o_DEF,
-          LAMBDA_PROD]
-      \\ CASE_TAC \\ fs []
-      \\ imp_res_tac ALOOKUP_SOME
-      \\ gs [MAP_REVERSE, MEM_MAP, MEM_FILTER, LAMBDA_PROD, EXISTS_PROD])
-    \\ simp [flookup_fupdate_list]
-
-    \\ CASE_TAC \\ CASE_TAC \\ fs []
-    \\ imp_res_tac ALOOKUP_SOME
-    \\ gvs [ALOOKUP_NONE, GSYM MAP_REVERSE, GSYM FILTER_REVERSE,
-            ALOOKUP_FILTER, ALOOKUP_MAP, MEM_MAP, MEM_FILTER, LAMBDA_PROD,
-            EXISTS_PROD]
-
-    \\ Cases_on ‘FLOOKUP (FDIFF (’
-    \\ irule exp_rel_Value_Suspend
-
-    \\ drule_then (qspec_then ‘REVERSE xs’ mp_tac) ALOOKUP_SOME_EL_2
-    \\ rw [MAP_REVERSE]
-    \\ gvs [EL_REVERSE, LIST_REL_EL_EQN, EVERY_EL]
-    \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
-    \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
-    \\ irule exp_rel_Value_Suspend
-    \\ first_x_assum (drule_then assume_tac)
-    \\ first_x_assum (drule_then assume_tac)
-    \\ gs [EL_MAP])
-  >- ((* Prim *)
-    cheat
-  )
-  >- ((* App *)
-    cheat
-  )
-
-  >- ((* Lam *)
-    qpat_x_assum ‘exp_rel (Lam n x) _’ mp_tac
-    \\ rw [Once exp_rel_cases]
-    \\ fs [subst_def, pure_expTheory.subst_def]
-    \\ irule exp_rel_Lam
-    \\ first_x_assum drule_all
-    \\ rw []
-
-
-  )
-
-
-QED
-*)
-
-
 Theorem exp_rel_subst:
   ∀x y a b n s.
     exp_rel x y ∧
@@ -441,6 +364,7 @@ Proof
   rw [closed_def, freevars_def]
 QED
 
+(* TODO Move to pure_misc? *)
 Theorem FDIFF_EMPTY[simp]:
   ∀m. FDIFF m EMPTY = m
 Proof
@@ -551,13 +475,34 @@ Proof
     \\ pop_assum SUBST1_TAC
     \\ unabbrev_all_tac
     \\ irule exp_rel_Letrec \\ fs []
-      (* Replace all FILTER (λ(m,x). m ∉ ks) with ∉ ks ∪ {n} *)
     \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
     \\ qmatch_goalsub_abbrev_tac ‘MAP f1 (FILTER _ gg)’
     \\ ‘FDIFF (FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks) gg))
               (set (MAP FST lcs)) =
         FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks ∪ set (MAP FST lcs)) gg)’
-      by cheat (* TODO FDIFF is nasty *)
+      by (‘∀x. (λ(m,x). m ∉ ks) (f1 x) = (λ(m,x). m ∉ ks) x’
+            by rw [Abbr ‘f1’, ELIM_UNCURRY]
+          \\ ‘∀x. (λ(m,x). m ∉ ks ∪ set (MAP FST lcs)) (f1 x) =
+                  (λ(m,x). m ∉ ks ∪ set (MAP FST lcs)) x’
+            by rw [Abbr ‘f1’, ELIM_UNCURRY]
+          \\ simp [MAP_FILTER]
+          \\ unabbrev_all_tac
+          \\ rename1 ‘FDIFF (_ |++ FILTER _ xs) zs’
+          \\ rpt (pop_assum kall_tac)
+          \\ simp [fmap_EXT]
+          \\ conj_tac
+          >- (
+            rw [EXTENSION, FDOM_FDIFF, FDOM_FUPDATE_LIST, MEM_MAP, MEM_FILTER,
+                LAMBDA_PROD, EXISTS_PROD, EQ_IMP_THM]
+            \\ fs [SF SFY_ss])
+          \\ rw [FDOM_FUPDATE_LIST, MEM_MAP, MEM_FILTER, LAMBDA_PROD,
+                 EXISTS_PROD, FDIFF_def, DRESTRICT_DEF,
+                 FUPDATE_LIST_EQ_APPEND_REVERSE]
+          \\ qmatch_goalsub_abbrev_tac ‘alist_to_fmap al’
+          \\ Cases_on ‘ALOOKUP al x’
+          \\ gs [ALOOKUP_NONE, Abbr ‘al’, MAP_REVERSE, MEM_MAP, MEM_FILTER,
+                 LAMBDA_PROD, EXISTS_PROD, FDOM_FUPDATE_LIST,
+                 GSYM FILTER_REVERSE, ALOOKUP_FILTER])
     \\ pop_assum SUBST1_TAC
     \\ unabbrev_all_tac
     \\ qmatch_goalsub_abbrev_tac ‘FILTER _ (MAP f2 (FILTER _ gg))’
