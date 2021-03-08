@@ -50,6 +50,7 @@ Theorem DISJOINT_DRESTRICT_FEMPTY:
 Proof
   Induct >> rw[]
 QED
+
 Theorem fdiff_fdomsub_commute:
   FDIFF (f \\ x) p = FDIFF f p \\ x
 Proof
@@ -140,6 +141,26 @@ Proof
   PairCases_on `h` >> gvs[] >>
   gvs[flookup_fupdate_list, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE] >>
   CASE_TAC >> gvs[]
+QED
+
+Theorem FLOOKUP_FDIFF:
+  FLOOKUP (FDIFF fm s) k = if k ∈ s then NONE else FLOOKUP fm k
+Proof
+  rw[FDIFF_def, FLOOKUP_DRESTRICT] >> gvs[]
+QED
+
+Theorem FDIFF_FUPDATE:
+  FDIFF (fm |+ (k,v)) s =
+  if k ∈ s then FDIFF fm s else (FDIFF fm s) |+ (k,v)
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_UPDATE] >>
+  EVERY_CASE_TAC >> gvs[]
+QED
+
+Theorem FDIFF_FEMPTY[simp]:
+  FDIFF FEMPTY s = FEMPTY
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FDIFF]
 QED
 
 

@@ -15,7 +15,7 @@ Datatype:
      | IsEq string num    (* compare cons tag and num of args         *)
      | Proj string num    (* reading a field of a constructor         *)
      | AtomOp atom_op     (* primitive parametric operator over Atoms *)
-     | Lit lit            (* parametric literal Atom                  *)
+     | Seq                (* diverges if arg1 does, else same as arg2 *)
 End
 
 Datatype:
@@ -29,11 +29,12 @@ End
 (* some abbreviations *)
 Overload Let  = “λs x y. App (Lam s y) x”      (* let-expression    *)
 Overload If   = “λx y z. Prim If [x; y; z]”    (* If   at exp level *)
-Overload Lit  = “λa. Prim (Lit a) []”          (* Lit  at exp level *)
 Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
 Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
-Overload Fail = “Prim (Lit ARB) [Prim (Lit ARB)[]]” (* causes Error *)
+Overload Seq  = “λx y. Prim Seq [x; y]”        (* Seq  at exp level *)
+Overload Fail = “Prim If []”                   (* causes Error      *)
+Overload Lit  = “λl. Prim (AtomOp (Lit l)) []” (* Lit at exp level  *)
 
 Definition Bottom_def:
   Bottom = Letrec [("bot",Var "bot")] (Var "bot")

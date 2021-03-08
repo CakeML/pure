@@ -1336,270 +1336,428 @@ Proof
     qexistsl_tac [`xb`,`xa`] >> simp[] >>
     irule_at Any exp_alpha_perm_irrel >>
     gvs[closed_def, GSYM perm_exp_eqvt]
-    )
-  >- (
-    rename1 `Prim` >>
-    rpt gen_tac >> ntac 4 strip_tac >>
-    Cases_on `p` >> gvs[eval_wh_Prim_alt, eval_wh_to_def]
-    >- ( (* If *)
-      qpat_x_assum `_ ≠ wh_Diverge` mp_tac >>
-      Cases_on `k = 0` >> simp[] >>
-      qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
-      simp[open_similarity_EMPTY, app_similarity_iff] >>
-      simp[Once unfold_rel_def, eval_wh_Prim_alt] >>
+    ) >>
+  rename1 `Prim` >>
+  rpt gen_tac >> ntac 4 strip_tac >>
+  Cases_on `p` >> gvs[eval_wh_Prim_alt, eval_wh_to_def]
+  >- ( (* If *)
+    qpat_x_assum `_ ≠ wh_Diverge` mp_tac >>
+    qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
+    simp[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[Once unfold_rel_def, eval_wh_Prim_alt] >>
+    strip_tac >>
+    ntac 4 (pop_assum mp_tac) >>
+    imp_res_tac LIST_REL_LENGTH >>
+    IF_CASES_TAC >> gvs[] >>
+    `∃x1 x2 x3. xs = [x1;x2;x3]` by gvs[LENGTH_EQ_NUM_compute] >>
+    `∃es1 es2 es3. es' = [es1;es2;es3]` by fs[] >>
+    rpt VAR_EQ_TAC >> ntac 2 (pop_assum kall_tac) >> simp[] >>
+    qpat_x_assum `LIST_REL _ _ _` mp_tac >> simp[] >> strip_tac >>
+    Cases_on `k = 0` >> simp[] >>
+    qpat_x_assum `∀e. _` mp_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+    strip_tac >>
+    assume_tac term_rel_open_similarity >>
+    drule term_rel_Howe >> simp[term_rel_def] >>
+    disch_then imp_res_tac >>
+    FULL_SIMP_TAC std_ss [Exps_EMPTY_closed] >>
+    Cases_on `eval_wh_to (k - 1) x1 = wh_Diverge` >> simp[] >>
+    `eval_wh x1 ≠ wh_Diverge` by (
+      simp[eval_wh_neq_Diverge] >> goal_assum drule) >>
+    simp[] >>
+    first_assum drule >> disch_then drule >> simp[] >>
+    Cases_on `eval_wh x1 = wh_True` >> simp[]
+    >- (
       strip_tac >>
-      ntac 4 (pop_assum mp_tac) >>
-      imp_res_tac LIST_REL_LENGTH >>
-      IF_CASES_TAC >> gvs[] >>
-      `∃x1 x2 x3. xs = [x1;x2;x3]` by (
-        Cases_on `xs` >> fs[] >> Cases_on `t` >> fs[] >>
-        Cases_on `t'` >> fs[] >> Cases_on `t` >> fs[]) >>
-      `∃es1 es2 es3. es' = [es1;es2;es3]` by fs[] >>
-      rpt VAR_EQ_TAC >> ntac 2 (pop_assum kall_tac) >> simp[] >>
-      qpat_x_assum `LIST_REL _ _ _` mp_tac >> simp[] >> strip_tac >>
-      assume_tac term_rel_open_similarity >>
-      drule term_rel_Howe >> simp[term_rel_def] >>
-      disch_then imp_res_tac >>
-      FULL_SIMP_TAC std_ss [Exps_EMPTY_closed] >>
-      Cases_on `eval_wh_to (k - 1) x1 = wh_Diverge` >> simp[] >>
-      `eval_wh x1 ≠ wh_Diverge` by (
-        simp[eval_wh_neq_Diverge] >> goal_assum drule) >>
-      simp[] >>
-      last_assum (qspec_then `x1` mp_tac) >> simp[] >> disch_then drule >>
-      simp[] >>
-      Cases_on `eval_wh x1 = wh_True` >> simp[]
+      `eval_wh_to (k - 1) x1 = wh_True` by (
+        gvs[eval_wh_eq] >>
+        qspecl_then [`k''`,`k - 1`,`x1`] assume_tac (GEN_ALL eval_wh_to_agree) >>
+        gvs[]) >>
+      simp[] >> ntac 5 strip_tac >>
+      last_x_assum drule >> disch_then drule >> simp[] >>
+      Cases_on `eval_wh x2` >> gvs[] >> strip_tac >> gvs[]
       >- (
-        strip_tac >>
-        `eval_wh_to (k - 1) x1 = wh_True` by (
-          gvs[eval_wh_eq] >>
-          qspecl_then [`k''`,`k - 1`,`x1`] assume_tac (GEN_ALL eval_wh_to_agree) >>
-          gvs[]) >>
-        simp[] >> ntac 5 strip_tac >>
-        last_x_assum (qspec_then `x2` mp_tac) >> simp[] >>
-        disch_then drule >> simp[] >> strip_tac >>
-        Cases_on `eval_wh x2` >> gvs[]
-        >- (
-          gvs[LIST_REL_EL_EQN] >> rw[] >>
-          irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-          simp[Tra_open_similarity, PULL_EXISTS] >>
-          first_x_assum drule >> strip_tac >>
-          goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY] >>
-          drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
-          gvs[Exps_def] >>
-          first_x_assum drule >> strip_tac >>
-          imp_res_tac app_similarity_closed
-          ) >>
+        gvs[LIST_REL_EL_EQN] >> rw[] >>
         irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-        simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
-        goal_assum (drule_at (Pos last)) >>
-        imp_res_tac eval_wh_Closure_closed >> simp[GSYM perm_exp_eqvt] >>
-        conj_asm1_tac
-        >- (
-          qpat_x_assum `freevars ce2' ⊆ _` mp_tac >>
-          simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
-          ) >>
-        conj_asm1_tac
-        >- (
-          qpat_x_assum `freevars ce2 ⊆ _` mp_tac >>
-          simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
-          ) >>
-        fs[perm_exp_eqvt] >>
-        rw[open_similarity_alt_def, bind_def] >>
-        IF_CASES_TAC >> simp[] >>
-        rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
-        Cases_on `f` >> gvs[]
-        >- (
-          irule app_similarity_perm_exp_left >>
-          irule app_similarity_perm_exp_right >>
-          `closed (perm_exp xa xc cec) ∧
-           closed (perm_exp xa xb ceb)` by simp[closed_def] >> gvs[closed_perm] >>
-          last_x_assum irule >> qexists_tac `Fail` >> simp[]
-          ) >>
-        `x = xa` by (
-          pop_assum kall_tac >> ntac 3 (pop_assum mp_tac) >>
-          simp[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
-        gvs[] >>
-        rename1 `_ |+ (xa,esub)` >>
-        `g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
-          rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
-          IF_CASES_TAC >> simp[] >> CCONTR_TAC >> gvs[EXTENSION] >>
-          res_tac >>
-          rpt (qpat_x_assum `freevars (perm_exp _ _ _) ⊆ _` mp_tac) >>
-          PURE_REWRITE_TAC[SUBSET_DEF, IN_SING] >> strip_tac >> strip_tac >>
-          metis_tac[]) >>
-        pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >>
-        simp[subst_single_eqvt_alt, perm1_simps] >>
+        simp[Tra_open_similarity, PULL_EXISTS] >>
+        first_x_assum drule >> strip_tac >>
+        goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY] >>
+        drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+        gvs[Exps_def] >>
+        first_x_assum drule >> strip_tac >>
+        imp_res_tac app_similarity_closed
+        ) >>
+      irule Howe_Tra >> assume_tac term_rel_open_similarity >>
+      simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
+      goal_assum (drule_at (Pos last)) >>
+      imp_res_tac eval_wh_Closure_closed >> simp[GSYM perm_exp_eqvt] >>
+      conj_asm1_tac
+      >- (
+        qpat_x_assum `freevars ce2' ⊆ _` mp_tac >>
+        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
+        ) >>
+      conj_asm1_tac
+      >- (
+        qpat_x_assum `freevars ce2 ⊆ _` mp_tac >>
+        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
+        ) >>
+      fs[perm_exp_eqvt] >>
+      rw[open_similarity_alt_def, bind_def] >>
+      IF_CASES_TAC >> simp[] >>
+      rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
+      Cases_on `f` >> gvs[]
+      >- (
         irule app_similarity_perm_exp_left >>
         irule app_similarity_perm_exp_right >>
-        assume_tac transitive_app_similarity >> gvs[transitive_def] >>
-        first_assum irule >>
-        qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
-        last_x_assum (irule_at Any) >> simp[closed_perm] >>
-        irule companion_app_similarity  >>
-        irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-        rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
-        irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
-        irule exp_alpha_Trans >>
-        irule_at Any exp_alpha_perm_irrel >>
-        qexistsl_tac [`xc`,`xa`] >> simp[] >>
-        irule_at Any exp_alpha_perm_irrel >>
-        gvs[closed_def, GSYM perm_exp_eqvt]
+        `closed (perm_exp xa xc cec) ∧
+         closed (perm_exp xa xb ceb)` by simp[closed_def] >> gvs[closed_perm] >>
+        last_x_assum irule >> qexists_tac `Fail` >> simp[]
         ) >>
-      simp[] >>
-      Cases_on `eval_wh x1 = wh_False` >> simp[]
+      `x = xa` by (
+        pop_assum kall_tac >> ntac 3 (pop_assum mp_tac) >>
+        simp[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+      gvs[] >>
+      rename1 `_ |+ (xa,esub)` >>
+      `g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
+        rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
+        IF_CASES_TAC >> simp[] >> CCONTR_TAC >> gvs[EXTENSION] >>
+        res_tac >>
+        rpt (qpat_x_assum `freevars (perm_exp _ _ _) ⊆ _` mp_tac) >>
+        PURE_REWRITE_TAC[SUBSET_DEF, IN_SING] >> strip_tac >> strip_tac >>
+        metis_tac[]) >>
+      pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >>
+      simp[subst_single_eqvt_alt, perm1_simps] >>
+      irule app_similarity_perm_exp_left >>
+      irule app_similarity_perm_exp_right >>
+      assume_tac transitive_app_similarity >> gvs[transitive_def] >>
+      first_assum irule >>
+      qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+      last_x_assum (irule_at Any) >> simp[closed_perm] >>
+      irule companion_app_similarity  >>
+      irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
+      rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
+      irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+      irule exp_alpha_Trans >>
+      irule_at Any exp_alpha_perm_irrel >>
+      qexistsl_tac [`xc`,`xa`] >> simp[] >>
+      irule_at Any exp_alpha_perm_irrel >>
+      gvs[closed_def, GSYM perm_exp_eqvt]
+      ) >>
+    simp[] >>
+    Cases_on `eval_wh x1 = wh_False` >> simp[]
+    >- (
+      strip_tac >>
+      `eval_wh_to (k - 1) x1 = wh_False` by (
+        gvs[eval_wh_eq] >>
+        qspecl_then [`k''`,`k - 1`,`x1`] assume_tac (GEN_ALL eval_wh_to_agree) >>
+        gvs[]) >>
+      simp[] >> ntac 5 strip_tac >>
+      last_x_assum drule >> disch_then drule >> simp[] >> strip_tac >>
+      Cases_on `eval_wh x3` >> gvs[]
       >- (
-        strip_tac >>
-        `eval_wh_to (k - 1) x1 = wh_False` by (
-          gvs[eval_wh_eq] >>
-          qspecl_then [`k''`,`k - 1`,`x1`] assume_tac (GEN_ALL eval_wh_to_agree) >>
-          gvs[]) >>
-        simp[] >> ntac 5 strip_tac >>
-        last_x_assum (qspec_then `x3` mp_tac) >> simp[] >>
-        disch_then drule >> simp[] >> strip_tac >>
-        Cases_on `eval_wh x3` >> gvs[]
-        >- (
-          gvs[LIST_REL_EL_EQN] >> rw[] >>
-          irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-          simp[Tra_open_similarity, PULL_EXISTS] >>
-          first_x_assum drule >> strip_tac >>
-          goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY] >>
-          drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
-          gvs[Exps_def] >>
-          first_x_assum drule >> strip_tac >>
-          imp_res_tac app_similarity_closed
-          ) >>
+        gvs[LIST_REL_EL_EQN] >> rw[] >>
         irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-        simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
-        goal_assum (drule_at (Pos last)) >>
-        imp_res_tac eval_wh_Closure_closed >> simp[GSYM perm_exp_eqvt] >>
-        conj_asm1_tac
-        >- (
-          qpat_x_assum `freevars ce2' ⊆ _` mp_tac >>
-          simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
-          ) >>
-        conj_asm1_tac
-        >- (
-          qpat_x_assum `freevars ce2 ⊆ _` mp_tac >>
-          simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
-          ) >>
-        fs[perm_exp_eqvt] >>
-        rw[open_similarity_alt_def, bind_def] >>
-        IF_CASES_TAC >> simp[] >>
-        rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
-        Cases_on `f` >> gvs[]
-        >- (
-          irule app_similarity_perm_exp_left >>
-          irule app_similarity_perm_exp_right >>
-          `closed (perm_exp xa xc cec) ∧
-           closed (perm_exp xa xb ceb)` by simp[closed_def] >> gvs[closed_perm] >>
-          last_x_assum irule >> qexists_tac `Fail` >> simp[]
-          ) >>
-        `x = xa` by (
-          pop_assum kall_tac >> ntac 3 (pop_assum mp_tac) >>
-          simp[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
-        gvs[] >>
-        rename1 `_ |+ (xa,esub)` >>
-        `g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
-          rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
-          IF_CASES_TAC >> simp[] >> CCONTR_TAC >> gvs[EXTENSION] >>
-          res_tac >>
-          rpt (qpat_x_assum `freevars (perm_exp _ _ _) ⊆ _` mp_tac) >>
-          PURE_REWRITE_TAC[SUBSET_DEF, IN_SING] >> strip_tac >> strip_tac >>
-          metis_tac[]) >>
-        pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >>
-        simp[subst_single_eqvt_alt, perm1_simps] >>
+        simp[Tra_open_similarity, PULL_EXISTS] >>
+        first_x_assum drule >> strip_tac >>
+        goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY] >>
+        drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+        gvs[Exps_def] >>
+        first_x_assum drule >> strip_tac >>
+        imp_res_tac app_similarity_closed
+        ) >>
+      irule Howe_Tra >> assume_tac term_rel_open_similarity >>
+      simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
+      goal_assum (drule_at (Pos last)) >>
+      imp_res_tac eval_wh_Closure_closed >> simp[GSYM perm_exp_eqvt] >>
+      conj_asm1_tac
+      >- (
+        qpat_x_assum `freevars ce2' ⊆ _` mp_tac >>
+        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
+        ) >>
+      conj_asm1_tac
+      >- (
+        qpat_x_assum `freevars ce2 ⊆ _` mp_tac >>
+        simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_simps]
+        ) >>
+      fs[perm_exp_eqvt] >>
+      rw[open_similarity_alt_def, bind_def] >>
+      IF_CASES_TAC >> simp[] >>
+      rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
+      Cases_on `f` >> gvs[]
+      >- (
         irule app_similarity_perm_exp_left >>
         irule app_similarity_perm_exp_right >>
-        assume_tac transitive_app_similarity >> gvs[transitive_def] >>
-        first_assum irule >>
-        qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
-        last_x_assum (irule_at Any) >> simp[closed_perm] >>
-        irule companion_app_similarity  >>
-        irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
-        rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
-        irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
-        irule exp_alpha_Trans >>
-        irule_at Any exp_alpha_perm_irrel >>
-        qexistsl_tac [`xc`,`xa`] >> simp[] >>
-        irule_at Any exp_alpha_perm_irrel >>
-        gvs[closed_def, GSYM perm_exp_eqvt]
+        `closed (perm_exp xa xc cec) ∧
+         closed (perm_exp xa xb ceb)` by simp[closed_def] >> gvs[closed_perm] >>
+        last_x_assum irule >> qexists_tac `Fail` >> simp[]
         ) >>
-      simp[] >> rpt strip_tac >>
-      first_x_assum irule >> rw[] >> fs[] >>
-      Cases_on `eval_wh x1` >> fs[]
-      )
-    >- ( (* Cons *)
-      Cases_on `k = 0` >> gvs[] >>
-      qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
-      simp[open_similarity_EMPTY, app_similarity_iff] >>
-      simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >> simp[] >>
-      gvs[LIST_REL_EL_EQN] >> rw[] >>
-      irule Howe_Tra >> simp[Tra_open_similarity, term_rel_open_similarity] >>
-      gvs[EVERY_EL] >> rpt (first_x_assum drule >> strip_tac) >>
-      imp_res_tac app_similarity_closed >> simp[] >>
-      goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY]
-      )
-    >- ( (* IsEq *)
-      Cases_on `k = 0` >> gvs[] >>
-      qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
-      simp[open_similarity_EMPTY, app_similarity_iff] >>
-      simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
-      imp_res_tac LIST_REL_LENGTH >>
-      IF_CASES_TAC >> gvs[] >>
-      Cases_on `xs` >> gvs[] >>
-      rename1 `Howe _ _ a b` >>
-      `eval_wh_to (k − 1) a ≠ wh_Diverge` by (CCONTR_TAC >> gvs[]) >>
-      `eval_wh a ≠ wh_Diverge` by (
-        simp[eval_wh_neq_Diverge] >> goal_assum drule) >>
+      `x = xa` by (
+        pop_assum kall_tac >> ntac 3 (pop_assum mp_tac) >>
+        simp[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
       gvs[] >>
-      last_x_assum drule >> simp[] >> strip_tac >>
-      Cases_on `eval_wh a` >> gvs[] >>
-      IF_CASES_TAC >> gvs[] >>
-      drule LIST_REL_LENGTH >> gvs[] >>
-      IF_CASES_TAC >> gvs[]
-      )
-    >- ( (* Proj *)
-      Cases_on `k = 0` >> fs[] >>
-      qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
-      simp[open_similarity_EMPTY, app_similarity_iff] >>
-      simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
-      imp_res_tac LIST_REL_LENGTH >>
-      IF_CASES_TAC >> fs[] >> Cases_on `xs` >> fs[] >>
-      gvs[] >>
-      rename1 `Howe _ _ a b` >>
-      `eval_wh_to (k − 1) a ≠ wh_Diverge` by (CCONTR_TAC >> fs[]) >>
-      `eval_wh a ≠ wh_Diverge` by (
-        simp[eval_wh_neq_Diverge] >> goal_assum drule) >>
-      fs[] >>
-      last_x_assum drule >> simp[] >> strip_tac >>
-      Cases_on `eval_wh a` >> fs[] >>
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      IF_CASES_TAC >> gvs[] >>
-      `eval_wh_to (k - 1) a = eval_wh a` by (
-        gvs[eval_wh_eq] >> irule_at Any EQ_REFL) >> gvs[] >>
-      gvs[LIST_REL_EL_EQN] >>
-      first_x_assum drule >> strip_tac >>
+      rename1 `_ |+ (xa,esub)` >>
+      `g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
+        rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
+        IF_CASES_TAC >> simp[] >> CCONTR_TAC >> gvs[EXTENSION] >>
+        res_tac >>
+        rpt (qpat_x_assum `freevars (perm_exp _ _ _) ⊆ _` mp_tac) >>
+        PURE_REWRITE_TAC[SUBSET_DEF, IN_SING] >> strip_tac >> strip_tac >>
+        metis_tac[]) >>
+      pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >>
+      simp[subst_single_eqvt_alt, perm1_simps] >>
+      irule app_similarity_perm_exp_left >>
+      irule app_similarity_perm_exp_right >>
+      assume_tac transitive_app_similarity >> gvs[transitive_def] >>
+      first_assum irule >>
+      qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+      last_x_assum (irule_at Any) >> simp[closed_perm] >>
+      irule companion_app_similarity  >>
+      irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
+      rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
+      irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+      irule exp_alpha_Trans >>
+      irule_at Any exp_alpha_perm_irrel >>
+      qexistsl_tac [`xc`,`xa`] >> simp[] >>
+      irule_at Any exp_alpha_perm_irrel >>
+      gvs[closed_def, GSYM perm_exp_eqvt]
+      ) >>
+    simp[] >> rpt strip_tac >>
+    first_x_assum irule >> rw[] >> fs[] >>
+    Cases_on `eval_wh x1` >> fs[]
+    )
+  >- ( (* Cons *)
+    qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
+    simp[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >> simp[] >>
+    gvs[LIST_REL_EL_EQN] >> rw[] >>
+    irule Howe_Tra >> simp[Tra_open_similarity, term_rel_open_similarity] >>
+    gvs[EVERY_EL] >> rpt (first_x_assum drule >> strip_tac) >>
+    imp_res_tac app_similarity_closed >> simp[] >>
+    goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY]
+    )
+  >- ( (* IsEq *)
+    qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
+    simp[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
+    imp_res_tac LIST_REL_LENGTH >>
+    IF_CASES_TAC >> gvs[] >>
+    Cases_on `xs` >> gvs[] >>
+    rename1 `Howe _ _ a b` >>
+    Cases_on `k = 0` >> gvs[] >>
+    `eval_wh_to (k − 1) a ≠ wh_Diverge` by (CCONTR_TAC >> gvs[]) >>
+    `eval_wh a ≠ wh_Diverge` by (
+      simp[eval_wh_neq_Diverge] >> goal_assum drule) >>
+    gvs[] >>
+    last_x_assum drule >> disch_then drule >> simp[] >> strip_tac >>
+    Cases_on `eval_wh a` >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >>
+    drule LIST_REL_LENGTH >> gvs[] >>
+    IF_CASES_TAC >> gvs[]
+    )
+  >- ( (* Proj *)
+    qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
+    simp[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
+    imp_res_tac LIST_REL_LENGTH >>
+    IF_CASES_TAC >> fs[] >> Cases_on `xs` >> fs[] >>
+    gvs[] >>
+    rename1 `Howe _ _ a b` >>
+    Cases_on `k = 0` >> gvs[] >>
+    `eval_wh_to (k − 1) a ≠ wh_Diverge` by (CCONTR_TAC >> fs[]) >>
+    `eval_wh a ≠ wh_Diverge` by (
+      simp[eval_wh_neq_Diverge] >> goal_assum drule) >>
+    fs[] >>
+    last_x_assum drule >> disch_then drule >> simp[] >> strip_tac >>
+    Cases_on `eval_wh a` >> fs[] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >>
+    `eval_wh_to (k - 1) a = eval_wh a` by (
+      gvs[eval_wh_eq] >> irule_at Any EQ_REFL) >> gvs[] >>
+    gvs[LIST_REL_EL_EQN] >>
+    first_x_assum drule >> strip_tac >>
+    assume_tac term_rel_open_similarity >> drule term_rel_Howe >>
+    simp[term_rel_def] >> disch_then imp_res_tac >> rfs[Exps_def] >>
+    last_x_assum drule >> simp[] >> strip_tac >>
+    Cases_on `eval_wh (EL n l)` >> gvs[]
+    >- (
+      rw[] >> first_x_assum drule >> strip_tac >>
+      last_x_assum drule >> strip_tac >>
       assume_tac term_rel_open_similarity >> drule term_rel_Howe >>
       simp[term_rel_def] >> disch_then imp_res_tac >> rfs[Exps_def] >>
-      last_x_assum drule >> simp[] >> strip_tac >>
-      Cases_on `eval_wh (EL n l)` >> gvs[]
-      >- (
-        rw[] >> first_x_assum drule >> strip_tac >>
-        last_x_assum drule >> strip_tac >>
-        assume_tac term_rel_open_similarity >> drule term_rel_Howe >>
-        simp[term_rel_def] >> disch_then imp_res_tac >> rfs[Exps_def] >>
-        irule Howe_Tra >>
-        simp[Tra_open_similarity, term_rel_open_similarity, Exps_def] >>
-        imp_res_tac app_similarity_closed >> simp[] >>
-        simp[open_similarity_EMPTY] >>
-        goal_assum (drule_at (Pos last)) >> simp[]
-        ) >>
       irule Howe_Tra >>
       simp[Tra_open_similarity, term_rel_open_similarity, Exps_def] >>
-      imp_res_tac eval_wh_Closure_closed >> simp[] >> conj_asm1_tac
-      >- gvs[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
-      goal_assum (drule_at (Pos last)) >> conj_asm1_tac
-      >- gvs[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
+      imp_res_tac app_similarity_closed >> simp[] >>
+      simp[open_similarity_EMPTY] >>
+      goal_assum (drule_at (Pos last)) >> simp[]
+      ) >>
+    irule Howe_Tra >>
+    simp[Tra_open_similarity, term_rel_open_similarity, Exps_def] >>
+    imp_res_tac eval_wh_Closure_closed >> simp[] >> conj_asm1_tac
+    >- gvs[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
+    goal_assum (drule_at (Pos last)) >> conj_asm1_tac
+    >- gvs[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
+    simp[open_similarity_alt_def] >> rw[bind_def] >>
+    rename1 `subst _ (perm_exp xa xc cec) ≲ subst _ (perm_exp xa xb ceb)` >>
+    Cases_on `f` >> gvs[]
+    >- (
+      `closed (perm_exp xa xc cec) ∧
+       closed (perm_exp xa xb ceb)` by simp[closed_def] >>
+      gvs[closed_perm] >>
+      irule app_similarity_perm_exp_left >>
+      irule app_similarity_perm_exp_right >>
+      last_x_assum irule >> qexists_tac `Fail` >> simp[]
+      ) >>
+    `x = xa` by (
+      pop_assum mp_tac >> pop_assum kall_tac >>
+      ntac 2 (pop_assum mp_tac) >> simp[SUBSET_DEF, EXTENSION] >>
+      metis_tac[]) >>
+    gvs[] >>
+    rename1 `_ |+ (xa,esub)` >>
+    `g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
+      rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
+      fs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+    pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >> pop_assum kall_tac >>
+    simp[subst_single_eqvt_alt, perm1_simps] >>
+    irule app_similarity_perm_exp_left >>
+    irule app_similarity_perm_exp_right >>
+    assume_tac transitive_app_similarity >> gvs[transitive_def] >>
+    first_assum irule >>
+    qexists_tac `subst xb (perm_exp xa xc esub) ceb` >>
+    last_x_assum (irule_at Any) >> simp[closed_perm] >>
+    irule companion_app_similarity  >>
+    irule (companion_exp_alpha |> SIMP_RULE std_ss [IN_DEF]) >>
+    rpt (irule_at Any closed_freevars_subst) >> simp[closed_perm] >>
+    irule exp_alpha_subst_closed_single' >> simp[closed_perm] >>
+    irule exp_alpha_Trans >>
+    irule_at Any exp_alpha_perm_irrel >>
+    qexistsl_tac [`xc`,`xa`] >> simp[] >>
+    irule_at Any exp_alpha_perm_irrel >>
+    gvs[closed_def, GSYM perm_exp_eqvt]
+    )
+  >- ( (* AtomOp *)
+    qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
+    simp[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
+    Cases_on `k = 0` >> gvs[]
+    >- (
+      Cases_on `xs` >> gvs[get_atoms_def] >>
+      Cases_on `eval_op a []` >> gvs[pure_configTheory.eval_op_SOME]
+      ) >>
+    Cases_on `get_atoms (MAP (λa. eval_wh_to (k − 1) a) xs)` >> gvs[] >>
+    drule get_atoms_eval_wh_SOME >> strip_tac >> gvs[] >>
+    CASE_TAC >> gvs[] >>
+    `x' = x` by (
+      ntac 2 $ pop_assum mp_tac >>
+      CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[]) >>
+    VAR_EQ_TAC >> reverse $ CASE_TAC >> gvs[]
+    >- (
+      qsuff_tac `get_atoms (MAP eval_wh es') = SOME (SOME x')`
+      >- (strip_tac >> gvs[] >> EVERY_CASE_TAC >> gvs[]) >>
+      gvs[get_atoms_SOME_SOME_eq, LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      last_x_assum (qspec_then `EL n xs` mp_tac) >> simp[EL_MEM] >>
+      last_x_assum drule >> strip_tac >>
+      disch_then $ drule_at Any >> simp[] >> impl_tac >> simp[] >>
+      gvs[EVERY_EL]
+      ) >>
+    qsuff_tac `get_atoms (MAP eval_wh es') = SOME NONE` >> gvs[] >>
+    pop_assum mp_tac >> simp[get_atoms_SOME_NONE_eq] >> strip_tac >>
+    qexists_tac `n` >> gvs[LIST_REL_EL_EQN, EL_MAP] >>
+    last_assum (qspec_then `EL n xs` mp_tac) >> simp[EL_MEM] >>
+    last_assum drule >> strip_tac >>
+    disch_then $ drule_at Any >> gvs[EVERY_EL] >> strip_tac >>
+    `∀a. eval_wh (EL n xs) ≠ wh_Atom a` by (
+      CCONTR_TAC >> gvs[] >> gvs[eval_wh_eq] >>
+      first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
+      drule eval_wh_to_agree >>
+      disch_then (qspec_then `k'` assume_tac) >> gvs[]) >>
+    `eval_wh (EL n xs) ≠ wh_Diverge` by (
+      gvs[eval_wh_neq_Diverge] >>
+      first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
+      goal_assum drule) >>
+    rw[] >- (Cases_on `eval_wh (EL n xs)` >> gvs[]) >>
+    first_x_assum drule >> strip_tac >>
+    `eval_wh (EL m xs) ≠ wh_Diverge` by (
+      gvs[eval_wh_neq_Diverge] >> goal_assum drule) >>
+    last_x_assum (qspec_then `EL m xs` mp_tac) >> simp[EL_MEM] >>
+    disch_then drule >>
+    `m < LENGTH es'` by gvs[] >> res_tac >>
+    disch_then drule >> simp[] >>
+    strip_tac >> Cases_on `eval_wh (EL m xs)` >> gvs[]
+    )
+  >- ( (* Seq *)
+    qpat_x_assum `_ ≠ wh_Diverge` mp_tac >>
+    qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
+    simp[open_similarity_EMPTY, app_similarity_iff] >>
+    simp[Once unfold_rel_def, eval_wh_Prim_alt] >>
+    strip_tac >> ntac 4 (pop_assum mp_tac) >>
+    imp_res_tac LIST_REL_LENGTH >> IF_CASES_TAC >> gvs[] >>
+    `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
+    `∃es1 es2. es' = [es1;es2]` by fs[] >>
+    rpt VAR_EQ_TAC >> ntac 2 (pop_assum kall_tac) >> simp[] >>
+    Cases_on `k = 0` >> simp[] >>
+    qpat_x_assum `LIST_REL _ _ _` mp_tac >> simp[] >> strip_tac >>
+    qpat_x_assum `∀e. _` mp_tac >>
+    simp[DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >>
+    first_assum (qspec_then `x1` mp_tac) >>
+    first_x_assum (qspec_then `x2` mp_tac) >> strip_tac >> strip_tac >>
+    Cases_on `eval_wh_to (k - 1) x1 = wh_Error`
+    >- (
+      `eval_wh x1 = wh_Error` by (
+        simp[eval_wh_eq] >> goal_assum drule) >>
+      simp[] >> gvs[]
+      ) >>
+    Cases_on `eval_wh_to (k - 1) x2 = wh_Error`
+    >- (
+      `eval_wh x2 = wh_Error` by (
+        simp[eval_wh_eq] >> goal_assum drule) >>
+      simp[] >> gvs[]
+      ) >>
+    simp[] >>
+    Cases_on `eval_wh_to (k − 1) x1 = wh_Diverge` >> simp[] >>
+    Cases_on `eval_wh_to (k − 1) x2 = wh_Diverge` >> simp[] >>
+    `eval_wh x1 ≠ wh_Error ∧ eval_wh x1 ≠ wh_Diverge ∧
+     eval_wh x2 ≠ wh_Error ∧ eval_wh x2 ≠ wh_Diverge` by (
+      simp[eval_wh_eq] >> rw[]
+      >- (
+        Cases_on `eval_wh_to k' x1 = wh_Diverge` >> simp[] >>
+        qspecl_then [`k'`,`k - 1`] mp_tac $ GEN_ALL eval_wh_to_agree >> simp[]
+        )
+      >- goal_assum drule
+      >- (
+        Cases_on `eval_wh_to k' x2 = wh_Diverge` >> simp[] >>
+        qspecl_then [`k'`,`k - 1`] mp_tac $ GEN_ALL eval_wh_to_agree >> simp[]
+        )
+      >- goal_assum drule
+      ) >>
+    ntac 2 (qpat_x_assum `EVERY _ _` mp_tac >> simp[] >> strip_tac) >>
+    ntac 2 $ first_x_assum $ drule_all_then assume_tac >>
+    Cases_on `eval_wh x1` >> gvs[] >> Cases_on `eval_wh x2` >> gvs[] >>
+    rw[] >> simp[] >> gvs[LIST_REL_EL_EQN] >> rw[] >>
+    irule Howe_Tra >> assume_tac term_rel_open_similarity >>
+    simp[Tra_open_similarity, PULL_EXISTS]
+    THEN_LT Q.SELECT_GOALS_LT_THEN [`closed _`]
+      (
+      rpt $ first_x_assum $ drule_then assume_tac >>
+      goal_assum $ drule_at $ Pos last >> simp[open_similarity_EMPTY] >>
+      imp_res_tac app_similarity_closed >> simp[] >>
+      drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
+      gvs[Exps_EMPTY_closed] >> NO_TAC
+      ) >>
+    (
+      gvs[Exps_def] >>
+      imp_res_tac eval_wh_Closure_closed >> gvs[Exps_def] >>
+      goal_assum $ drule_at $ Pos last >> simp[open_similarity_EMPTY] >>
+      simp[] >> conj_asm1_tac
+      >- (
+        rename1 `freevars (_ d) ⊆ _` >>
+        qpat_x_assum `freevars d ⊆ _` mp_tac >>
+        simp[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def]
+        ) >>
+      conj_asm1_tac
+      >- (
+        rename1 `freevars (_ d) ⊆ _` >>
+        qpat_x_assum `freevars d ⊆ _` mp_tac >>
+        simp[GSYM perm_exp_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def]
+        ) >>
       simp[open_similarity_alt_def] >> rw[bind_def] >>
       rename1 `subst _ (perm_exp xa xc cec) ≲ subst _ (perm_exp xa xb ceb)` >>
       Cases_on `f` >> gvs[]
@@ -1619,7 +1777,9 @@ Proof
       rename1 `_ |+ (xa,esub)` >>
       `g |+ (xa,esub) = FEMPTY |+ (xa,esub)` by (
         rw[fmap_eq_flookup, FLOOKUP_UPDATE, FLOOKUP_DEF] >>
-        fs[SUBSET_DEF, EXTENSION] >> metis_tac[]) >>
+        IF_CASES_TAC >> simp[] >>
+        ntac 5 $ pop_assum mp_tac >> simp[SUBSET_DEF, EXTENSION] >> metis_tac[]
+        ) >>
       pop_assum SUBST_ALL_TAC >> gvs[FLOOKUP_UPDATE] >> pop_assum kall_tac >>
       simp[subst_single_eqvt_alt, perm1_simps] >>
       irule app_similarity_perm_exp_left >>
@@ -1637,57 +1797,7 @@ Proof
       qexistsl_tac [`xc`,`xa`] >> simp[] >>
       irule_at Any exp_alpha_perm_irrel >>
       gvs[closed_def, GSYM perm_exp_eqvt]
-      )
-    >- ( (* AtomOp *)
-      Cases_on `k = 0` >> gvs[] >>
-      qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
-      simp[open_similarity_EMPTY, app_similarity_iff] >>
-      simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
-      Cases_on `get_atoms (MAP (λa. eval_wh_to (k − 1) a) xs)` >> gvs[] >>
-      drule get_atoms_eval_wh_SOME >> strip_tac >> gvs[] >>
-      reverse CASE_TAC >> gvs[]
-      >- (
-        `get_atoms (MAP (λx. eval_wh x) es') = SOME (SOME x')` by (
-          gvs[get_atoms_SOME_SOME_eq, LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-          last_x_assum (qspec_then `EL n xs` mp_tac) >> simp[EL_MEM] >>
-          last_x_assum drule >> strip_tac >>
-          disch_then drule >> impl_tac >> simp[] >>
-          gvs[EVERY_EL]) >>
-        gvs[] >> CASE_TAC >> gvs[]
-        ) >>
-      qsuff_tac `get_atoms (MAP (λx. eval_wh x) es') = SOME NONE` >> gvs[] >>
-      pop_assum mp_tac >> simp[get_atoms_SOME_NONE_eq] >> strip_tac >>
-      qexists_tac `n` >> gvs[LIST_REL_EL_EQN, EL_MAP] >>
-      last_assum (qspec_then `EL n xs` mp_tac) >> simp[EL_MEM] >>
-      last_assum drule >> strip_tac >>
-      disch_then drule >> gvs[EVERY_EL] >> strip_tac >>
-      `∀a. eval_wh (EL n xs) ≠ wh_Atom a` by (
-        CCONTR_TAC >> gvs[] >> gvs[eval_wh_eq] >>
-        first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
-        drule eval_wh_to_agree >>
-        disch_then (qspec_then `k'` assume_tac) >> gvs[]) >>
-      `eval_wh (EL n xs) ≠ wh_Diverge` by (
-        gvs[eval_wh_neq_Diverge] >>
-        first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
-        goal_assum drule) >>
-      rw[] >- (Cases_on `eval_wh (EL n xs)` >> gvs[]) >>
-      first_x_assum drule >> strip_tac >>
-      `eval_wh (EL m xs) ≠ wh_Diverge` by (
-        gvs[eval_wh_neq_Diverge] >> goal_assum drule) >>
-      last_x_assum (qspec_then `EL m xs` mp_tac) >> simp[EL_MEM] >>
-      `m < LENGTH es'` by gvs[] >> res_tac >>
-      disch_then drule >> simp[] >>
-      strip_tac >> Cases_on `eval_wh (EL m xs)` >> gvs[]
-      )
-    >- ( (* Lit *)
-      Cases_on `k = 0` >> gvs[] >>
-      qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
-      simp[open_similarity_EMPTY, app_similarity_iff] >>
-      simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
-      gvs[LIST_REL_EL_EQN] >>
-      Cases_on `xs` >> gvs[] >>
-      Cases_on `es'` >> gvs[]
-      )
+    )
     )
 QED
 
@@ -2378,6 +2488,100 @@ Proof
     simp[MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF,
          LAMBDA_PROD, GSYM FST_THM]
     )
+QED
+
+Theorem Let_Seq:
+  Let w e (Seq x y) ≅ Seq (Let w e x) (Let w e y)
+Proof
+  irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_def,eval_wh_Seq]
+  \\ fs [eval_wh_App,eval_wh_Lam,bind_single_def]
+  \\ rw [] \\ fs [] \\ fs [subst_single_def,eval_wh_Seq]
+QED
+
+Theorem Seq_assoc:
+  Seq (Seq x y) z ≅ Seq x (Seq y z)
+Proof
+  irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_def,eval_wh_Seq]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem Let_Var:
+  Let w e (Var w) ≅ e
+Proof
+  irule eval_wh_IMP_exp_eq
+  \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
+  \\ fs [eval_wh_App,eval_wh_Lam,bind_single_def]
+  \\ fs [subst_single_def]
+  \\ qsuff_tac ‘closed (subst f e)’ \\ fs []
+  \\ irule IMP_closed_subst
+  \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
+QED
+
+Theorem Let_Var2:
+  v ≠ w ⇒ Let w e (Var v) ≅ Var v
+Proof
+  rw [] \\ irule eval_wh_IMP_exp_eq
+  \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
+  \\ fs [eval_wh_App,eval_wh_Lam,bind_single_def]
+  \\ ‘closed (subst f e)’ by
+    (irule IMP_closed_subst
+     \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
+  \\ fs [DOMSUB_FLOOKUP_THM]
+  \\ CASE_TAC \\ fs []
+  \\ fs [subst_single_def]
+  \\ res_tac \\ fs [closed_subst]
+QED
+
+Theorem Let_Prim:
+  ∀xs. Let w e (Prim p xs) ≅ Prim p (MAP (Let w e) xs)
+Proof
+  rw [] \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_def,eval_wh_App,eval_wh_Lam]
+  \\ ‘closed (subst f e)’ by
+    (irule IMP_closed_subst
+     \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
+  \\ fs [bind_single_def,subst_single_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+  \\ fs [eval_wh_def]
+  \\ cheat
+QED
+
+Theorem Let_Prim_alt:
+  Let w e (Prim p []) ≅ Prim p [] ∧
+  Let w e (Prim p [a]) ≅ Prim p [Let w e a] ∧
+  Let w e (Prim p [a;b]) ≅ Prim p [Let w e a; Let w e b] ∧
+  Let w e (Prim p [a;b;c]) ≅ Prim p [Let w e a; Let w e b; Let w e c]
+Proof
+  qspec_then ‘[]’ mp_tac Let_Prim \\ rw []
+  \\ qspec_then ‘[a]’ mp_tac Let_Prim \\ rw []
+  \\ qspec_then ‘[a;b]’ mp_tac Let_Prim \\ rw []
+  \\ qspec_then ‘[a;b;c]’ mp_tac Let_Prim \\ rw []
+QED
+
+Theorem Proj_Seq:
+  Proj n i e ≅ Seq e (Proj n i e)
+Proof
+  irule eval_wh_IMP_exp_eq
+  \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
+  \\ fs [eval_wh_Proj]
+QED
+
+Theorem Seq_id:
+  Seq x x ≅ x
+Proof
+  irule eval_wh_IMP_exp_eq
+  \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
+QED
+
+Theorem Proj_Cons:
+  Proj s (LENGTH xs) (Cons s (xs ++ y::ys)) ≅ y
+Proof
+  irule eval_wh_IMP_exp_eq \\ rw [subst_def,eval_wh_thm]
+  \\ ‘LENGTH xs = LENGTH (MAP (λa. subst f a) xs)’ by fs []
+  \\ pop_assum (rewrite_tac o single)
+  \\ simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD]
 QED
 
 val _ = export_theory();

@@ -1,12 +1,10 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory rich_listTheory stringTheory alistTheory
-     optionTheory llistTheory;
-open pure_evalTheory pure_valueTheory pure_expTheory pure_exp_lemmasTheory pure_miscTheory;
-
+     optionTheory llistTheory BasicProvers pred_setTheory finite_mapTheory;
+open pure_evalTheory pure_valueTheory pure_expTheory pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory pure_alpha_equivTheory pure_beta_equivTheory;
+     
 val _ = new_theory "pure_list_fusion";
-
-(*********** Some PureCake programs *************)
 
 Definition nil_def:
   nil = Prim (Cons "nil") []
@@ -14,6 +12,10 @@ End
 
 Definition cons_def:
   cons xs = Prim (Cons "cons") xs
+End
+
+Definition dot_def:
+  dot f g = Lam "x" (App f (App g (Var "x")))
 End
 
 Definition LAMREC_def:
@@ -28,7 +30,7 @@ Definition map_def:
              (Lam "l"
                (Case (Var "l") "v" [
                     ("nil" ,         [],  nil );
-                    ("cons", ["x";"xs"],  cons [App (Var "f"  ) (Var "x" )
+                    ("cons", ["x";"xs"],  cons [App (Var "f") (Var "x" )
                                                ;App (App (Var "MAP") (Var "f")) (Var "xs")]
                     )
                    ])
@@ -46,69 +48,42 @@ Definition map_f_def:
                    ])
 End
 
-Definition Apps_rev_def:
-  Apps_rev [] = Fail                     ∧
-  Apps_rev [x] = x                       ∧
-  Apps_rev (x::xs) = App (Apps_rev xs) x
-End
 
-Definition Apps_def:
-  Apps xs = Apps_rev (REVERSE xs)
-End
-
-(*
-(*used to control recursive steps during the proofs*)
-Theorem eval_LAMREC3:
-  v≠f (*∧ closed (LAMREC f v b)*) ⇒
-  eval (App (LAMREC f v b) y) =
-       eval (App (Lam v ( subst f (LAMREC f v b) b) ) y)
+Triviality app_bisimilarity_trans:
+  ∀x y z. x ≃ y ∧ y ≃ z ⇒ x ≃ z
 Proof
-  rpt strip_tac
-  \\ fs[Once LAMREC_def]
-  \\ fs[eval_thm]
-  \\ fs[bind_def]
-  \\ rw[]
-  \\ fs[subst_def]
-  \\ fs[eval_thm]
-  \\ fs[subst_funs_def]
-  \\ fs[bind_def,closed_def]
-  \\ fs[eval_thm]
-  \\ fs[subst_def]
-  \\ fs[eval_Let]
-  \\ fs[bind_def]
-  \\ fs[LAMREC_def]
-  \\ metis_tac [subst_swap]
-QED
-
-Theorem eval_LAMREC2:
-  (*b has no other free variables except v and f*)
-  (∀ k. MEM k (freevars b) ⇒ k = v ∨ k = f) ⇒
-  eval (LAMREC f v b) = if closed (Lam v (Letrec [(f,v,b)] b))
-                        then eval (Lam v ( Letrec [(f,v,b)] b ))
-                        else Error
-Proof
-  rpt strip_tac
-  \\ fs[Once LAMREC_def]
-  \\ fs[eval_thm] \\ fs[closed_def,no_var_no_subst,freevars_subst_lemma_gen]
-  \\ fs[FILTER_APPEND]
-  \\ fs[FILTER_FILTER]
-  \\ fs[AC CONJ_ASSOC CONJ_COMM]
-  \\ rw[] \\ fs[FILTER_NEQ_NIL]
+  rw[]
+  \\ assume_tac transitive_app_bisimilarity
+  \\ fs[relationTheory.transitive_def]
   \\ res_tac \\ fs[]
 QED
-*)
 
-Triviality not_diverge_is_eq:
-  x ≠ Diverge ⇒ is_eq s n x ≠ Diverge
+Triviality app_bisimilarity_sym:
+  ∀x y. x ≃ y ⇒ y ≃ x
 Proof
-  rw[] \\ Cases_on ‘x’ \\ fs[is_eq_def]
-  \\ IF_CASES_TAC \\ fs[]
-  \\ IF_CASES_TAC \\ fs[]
+  rw[]
+  \\ assume_tac symmetric_app_bisimilarity
+  \\ fs[relationTheory.symmetric_def]
 QED
 
-Definition compose_def:
- compose f g = Lam "x" (App f (App g (Var "x")))
-End
+
+(*
+ we want to prove a naïve list fusion transformation:
+
+  ∀ f g. MAP (dot f g) ≅ dot (MAP f) (MAP g)
+
+ to do so, we need to define a bisimulation argument
+ between the two expressions.
+
+ We want to prove that the two functions consume thier
+ input in the same way, producing observationally equivalent
+ results.
+
+ To help us with that, we define a function in HOL
+ as model to show the behavior of map
+ for the possible ways in which the co-datatype list
+ can be consumed (either nil or cons)
+*)
 
 Definition next_list_def:
   next_list f input =
@@ -127,182 +102,327 @@ Definition next_list_def:
                            | _ => (INL Fail)))
 End
 
+(*
+  then we state a lemma that says that, when two
+  expressions are bisimilar to the same model, those
+  are ≃-related.
 
-(* progress map f *)
-Theorem progress_map_f:
-  ∀ f. closed f ⇒ progress (App map f) (next_list f)
-Proof
-  cheat (* TODO
-  rw[]
-  \\ simp[progress_def] \\ rw[]
-  \\ fs[exp_rel_def,eval_thm]
-  \\ simp[map_def,LAMREC_def,cons_def,nil_def]
-  \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-  \\ reverse IF_CASES_TAC THEN1 (fs[next_list_def,closed_def,v_rel_refl])
-  \\ simp[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-  \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
-          no_var_no_subst,is_eq_def,el_def,LNTH_2]
-  \\ fs[next_list_def,closed_def]
-  \\ Cases_on ‘eval input = Diverge’ THEN1 (fs[eval_thm,v_rel_refl,eval_bottom])
-  \\ fs[]
-  \\ Cases_on ‘eval input’ \\ fs[eval_thm,v_rel_refl]
-  \\ Cases_on ‘s = "nil" ∧ t = []’ THEN1 (fs[eval_thm,nil_def,v_rel_refl])
-  \\ Cases_on ‘s = "cons" ∧ LENGTH t = 2’ THEN1 (
-    fs[eval_thm]
-    \\ IF_CASES_TAC \\ fs[]
-    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
-            no_var_no_subst,is_eq_def,el_def,LNTH_2]
-    \\ simp[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
-            no_var_no_subst,is_eq_def,el_def,LNTH_2]
-    \\ IF_CASES_TAC \\ fs[v_rel_refl]
-  )
-  \\ fs[eval_thm,v_rel_refl]
-  \\ Cases_on ‘s = "nil"’ \\ fs[]
-  \\ Cases_on ‘s = "cons"’ \\ fs[]
-  \\ fs[eval_thm,v_rel_refl]
-  *)
-QED
+  TODO: can we also make it work for ≅ ?
+*)
 
-(* progress map f (cheap version)*)
-Theorem progress_map_f_f:
-  ∀ f. closed f ⇒ progress (map_f f) (next_list f)
-Proof
-  cheat (* TODO
-  rw[]
-  \\ fs[progress_def,exp_rel_def] \\ rw[]
-  \\ fs[eval_thm]
-  \\ fs[map_f_def,LAMREC_def,cons_def,nil_def]
-  \\ fs[bind_def,subst_def,subst_funs_def,eval_thm,closed_def]
-  \\ reverse IF_CASES_TAC THEN1 (fs[next_list_def,closed_def,v_rel_refl])
-  \\ fs[next_list_def,closed_def]
-  \\ fs[eval_thm,no_var_no_subst,bind_def,subst_def,subst_funs_def,closed_def]
-  \\ fs[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-  \\ fs[eval_thm,no_var_no_subst,bind_def,subst_def,subst_funs_def,closed_def]
-  \\ Cases_on ‘eval input = Diverge’ THEN1(fs[is_eq_def,eval_bottom,v_rel_refl])
-  \\ fs [not_diverge_is_eq]
-  \\ Cases_on ‘eval input’ \\ fs[eval_thm,v_rel_refl,is_eq_def]
-  \\ Cases_on ‘s = "nil" ∧ t = []’ THEN1 (fs[eval_thm,nil_def,v_rel_refl])
-  \\ Cases_on ‘s = "cons" ∧ LENGTH t = 2’ THEN1 (
-    fs[eval_thm]
-    \\ IF_CASES_TAC \\ fs[]
-    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
-            no_var_no_subst,is_eq_def,el_def,LNTH_2]
-    \\ simp[expandCases_def,expandRows_def,expandLets_def,eval_thm]
-    \\ simp[bind_def,subst_def,subst_funs_def,eval_thm,closed_def,
-            no_var_no_subst,is_eq_def,el_def,LNTH_2]
-    \\ IF_CASES_TAC \\ fs[v_rel_refl]
-  )
-  \\ fs[eval_thm,v_rel_refl]
-  \\ Cases_on ‘s = "nil"’ \\ fs[]
-  \\ Cases_on ‘s = "cons"’ \\ fs[]
-  \\ fs[eval_thm,v_rel_refl]
-  *)
-QED
+Definition progress_def:
+  progress exp next =
+    ∀input.
+        closed input ⇒
+        (App exp input) ≃
+                 (case next input of
+                  | INL final => final
+                  | INR (n,x,rec_input) =>
+                      Cons n [x; App exp rec_input])
+End
 
-(*valid only within an exp_rel context*)
-Triviality equational_reasoning:
-  exp_rel e1 e2 ⇒ e1 = e2
+Theorem progress_lemma:
+  ∀ exp1 exp2 next.
+  progress exp1 next ∧ progress exp2 next ∧
+  isClos (eval exp1) ∧ isClos (eval exp2) ⇒
+  exp1 ≃ exp2
 Proof
   cheat
 QED
 
+        
+Theorem progress_equivalence:
+  ∀ exp1 exp2 model.
+  exp1 ≃ exp2 ∧
+  progress exp1 model
+   ⇒ progress exp2 model 
+Proof
+  cheat
+QED
+
+Theorem progress_map_f:
+  ∀ f. closed f ⇒ progress (App map f) (next_list f)
+Proof
+  rw[progress_def]
+  \\fs[closed_def]
+  \\rw[exp_eq_def,bind_def,subst_def] \\ rw[]
+  \\irule eval_IMP_app_bisimilarity
+  \\rw[closed_def]
+  THEN1(
+    rw[dot_def,map_def,nil_def,cons_def,LAMREC_def]
+    \\rw[expandCases_def,expandRows_def,expandLets_def]
+  )
+  THEN1(
+    simp[next_list_def,closed_def]
+    \\rw[]\\fs[Bottom_def]
+    \\FULL_CASE_TAC \\ fs[]
+    \\FULL_CASE_TAC \\ fs[]
+    THEN1(
+      rw[dot_def,map_def,nil_def,cons_def,LAMREC_def]
+      \\rw[expandCases_def,expandRows_def,expandLets_def]
+    )
+    \\rw[nil_def]
+  )
+  \\simp[map_def,LAMREC_def,cons_def,nil_def]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[subst_funs_def]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[expandCases_def,expandRows_def,expandLets_def]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[is_eq_def]
+  \\Cases_on ‘eval input = Diverge’ \\ fs[]
+  THEN1(
+    simp[next_list_def,closed_def,eval_thm]
+  )
+  \\FULL_CASE_TAC \\ fs[]
+  \\TRY(simp[next_list_def,closed_def,eval_thm])
+  \\rw[]\\fs[]
+  \\TRY(
+    simp[next_list_def,closed_def,eval_thm]
+    \\fs[nil_def,eval_thm]
+    \\FULL_CASE_TAC \\ fs[]
+    \\FULL_CASE_TAC \\ fs[]
+  )
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[subst_funs_def]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[is_eq_def]    
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[is_eq_def,el_def]
+  \\Cases_on ‘EL 1 t = Diverge’ \\ fs[]
+  \\ rw[] \\ fs[]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[subst_funs_def]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+QED
+
+Theorem progress_map_f_f:
+  ∀ f. closed f ⇒ progress (map_f f) (next_list f)
+Proof
+  rw[progress_def]
+  \\fs[closed_def]
+  \\rw[exp_eq_def,bind_def,subst_def] \\ rw[]
+  \\irule eval_IMP_app_bisimilarity
+  \\rw[closed_def]
+  THEN1(
+    rw[dot_def,map_f_def,nil_def,cons_def,LAMREC_def]
+    \\rw[expandCases_def,expandRows_def,expandLets_def]
+  )
+  THEN1(
+    simp[next_list_def] \\ fs[closed_def]
+    \\ rw[] \\ fs[Bottom_def]
+    \\ FULL_CASE_TAC \\ fs[] \\ rw[] \\ fs[nil_def,map_f_def,LAMREC_def]
+    \\ EVAL_TAC \\ fs[FILTER_FILTER]
+  )
+  \\simp[map_f_def,LAMREC_def,cons_def,nil_def]
+  \\simp[eval_thm]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\simp[subst_funs_def]
+  \\simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[eval_thm]
+  \\reverse (rw[FILTER_FILTER])
+  THEN1 (
+    pop_assum mp_tac
+    \\ rw[FILTER_FILTER,expandCases_def,expandRows_def,expandLets_def]
+  )
+  \\simp[expandCases_def,expandRows_def,expandLets_def]
+  \\simp[eval_thm,bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\simp[is_eq_def]
+  \\Cases_on ‘eval input = Diverge’ \\ fs[]
+  THEN1 (simp[next_list_def,closed_def,eval_thm])
+  \\ FULL_CASE_TAC \\ fs[next_list_def,closed_def,eval_thm]
+  \\ Cases_on ‘s = "nil" ∧ t = []’ \\ fs[nil_def,eval_thm]
+  \\ Cases_on ‘s = "cons" ∧ LENGTH t = 2’ \\ fs[]
+  THEN1(
+    simp[eval_thm,subst_funs_def]
+    \\ simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+    \\ simp[eval_thm,subst_funs_def]    
+    \\ simp[bind_def,subst_def,closed_def
+        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  )
+  \\ rw[] \\ fs[eval_thm]
+  \\ FULL_CASE_TAC \\ fs[]
+QED
+
 Theorem progress_compose_fg:
   ∀ f g. closed f ∧ closed g
-  ⇒ progress (compose (App map f) (App map g)) (next_list (compose f g))
+  ⇒ progress (dot (App map f) (App map g)) (next_list (dot f g))
 Proof
-  cheat (* TODO
   rw[]
-  \\ ‘∀ h. closed h ⇒ exp_rel (App map h) (map_f h)’ by (
+  \\ ‘∀ h. closed h ⇒ (App map h) ≃ (map_f h)’ by (
     rpt strip_tac
-    \\ qspecl_then [‘next_list h’,‘map_f h’,‘App map h’]
-             assume_tac (GEN_ALL progress_lemma)
+    \\ qspecl_then [‘App map h’,‘map_f h’,‘next_list h’]
+             assume_tac progress_lemma
     \\ assume_tac progress_map_f
     \\ assume_tac progress_map_f_f
     \\ res_tac
     \\ ‘isClos (eval (App map h))’ by (
-       simp[map_def,LAMREC_def,cons_def,nil_def]
-       \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
-       \\ simp[isClos_def]
+       cheat
     )
     \\ ‘isClos (eval (map_f h))’ by (
-       simp[map_f_def,LAMREC_def,cons_def,nil_def]
-       \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
-       \\ simp[isClos_def]
+       cheat
     )
     \\ res_tac
   )
   \\ first_assum (qspec_then ‘f’ assume_tac)
   \\ first_assum (qspec_then ‘g’ assume_tac)
   \\ res_tac
-  \\ imp_res_tac equational_reasoning \\ fs[] (*morally correct*)
-  \\ fs[compose_def,progress_def]
+  \\ ‘dot (App map f) (App map g) ≃ dot (map_f f) (map_f g)’ by (
+    simp[dot_def]
+    \\ simp[app_bisimilarity_eq]
+    \\ rw[]
+    \\ TRY (
+      fs[closed_def]
+      \\ simp[map_f_def,map_def,LAMREC_def,expandCases_def
+             ,expandRows_def,expandLets_def,cons_def,nil_def]
+      \\ FAIL_TAC "rollback"
+    )
+    \\ irule exp_eq_Lam_cong
+    \\ irule exp_eq_App_cong
+    \\ rw[]
+    THEN1 (
+      irule exp_eq_App_cong
+      \\ rw[exp_eq_Var_cong]
+      \\ imp_res_tac app_bisimilarity_eq
+    )
+    \\ imp_res_tac app_bisimilarity_eq
+  )
+  \\ irule progress_equivalence
+  \\ qexists_tac ‘dot (map_f f) (map_f g)’
+  \\ rw[app_bisimilarity_sym]
+  \\ fs[dot_def,progress_def]
   \\ strip_tac
-  \\ fs[exp_rel_def,eval_thm]
-  \\ fs[bind_def,closed_def,subst_def]
-  \\ Cases_on ‘¬closed input’ THEN1 (fs[next_list_def,closed_def,v_rel_refl])
-  \\ fs[closed_def]
-  \\ fs[map_f_def,LAMREC_def,cons_def]
-  *)
+  \\ strip_tac
+  \\ irule eval_IMP_app_bisimilarity
+  \\ rw[]
+  \\ TRY (
+     fs[closed_def]
+     \\ simp[map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
+            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]
+     \\ rpt ( FULL_CASE_TAC \\ fs[Bottom_def] )
+     \\ FAIL_TAC "rollback"
+  )
+  \\ simp [eval_thm]
+  \\ simp [bind_def,subst_def,closed_def
+          ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\ ‘closed (map_f f)’ by (
+    fs[closed_def]
+    \\ simp[closed_def,map_f_def,LAMREC_def,expandCases_def
+           ,expandRows_def,expandLets_def,cons_def,nil_def]
+  )
+  \\ ‘closed (map_f g)’ by (
+    fs[closed_def]
+    \\ simp[closed_def,map_f_def,LAMREC_def,expandCases_def
+           ,expandRows_def,expandLets_def,cons_def,nil_def]
+  )
+  \\ simp[closed_subst] \\ fs[closed_def]
+  \\ simp[eval_thm]
+  \\ ntac 2
+      (simp[closed_def,Once map_f_def,LAMREC_def,expandCases_def
+           ,expandRows_def,expandLets_def,cons_def,nil_def])
+  \\ ntac 6
+      (simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+          ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM])
+  \\ simp[is_eq_def]  
+  \\ simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
+          ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
+  \\ ntac 5
+     ( simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+            ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
+            ,FUPDATE_LIST_THM,is_eq_def] )
+  \\ Cases_on ‘eval input = Diverge’ \\ fs[eval_thm,is_eq_def]
+  \\ ‘eval (map_f g) ≠ Diverge’ by (
+    simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
+         ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
+    \\ simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+            ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
+            ,FUPDATE_LIST_THM,is_eq_def]
+  ) \\ fs[]
+  \\ Cases_on ‘dest_Closure (eval (map_f g))’ \\ fs[]
+  THEN1 (
+    Cases_on ‘eval input’ \\ fs[eval_thm]
+    \\ pop_assum mp_tac
+    \\ pop_assum mp_tac
+    \\ simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
+            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
+    \\ simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+            ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
+            ,FUPDATE_LIST_THM,is_eq_def]
+  )
+  \\ fs[dest_Closure_def] 
+  \\ Cases_on ‘eval (map_f g)’ \\ fs[]
+  \\ pop_assum mp_tac
+  \\ simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
+            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
+  \\ ntac 2
+     (simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+           ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
+           ,FUPDATE_LIST_THM,is_eq_def])
+  \\ cheat  
+  (*go on with the symbolic evaluation...*)
 QED
 
-(*   (map f) o (map g) l = map (f o g) l   *)
+
 Theorem map_fusion:
  ∀ f g. closed f ∧ closed g ⇒
-      exp_rel (compose (App map f) (App map g)) (App map (compose f g))
+     (dot (App map f) (App map g)) ≃ (App map (dot f g))
 Proof
-  cheat (* TODO
   rw[]
-  \\ ‘closed (compose f g)’ by (fs[compose_def,closed_def])
-  \\ qspecl_then [‘next_list (compose f g)’,
-                  ‘App map (compose f g)’,
-                  ‘compose (App map f) (App map g)’]
-          assume_tac (GEN_ALL progress_lemma)
-  \\ qspec_then ‘compose f g’ assume_tac progress_map_f
+  \\ ‘closed (dot f g)’ by (fs[dot_def,closed_def])
+  \\ qspecl_then [‘App map (dot f g)’,
+                  ‘dot (App map f) (App map g)’,
+                  ‘next_list (dot f g)’]
+          assume_tac progress_lemma
+  \\ qspec_then ‘dot f g’ assume_tac progress_map_f
   \\ qspecl_then [‘f’,‘g’] assume_tac progress_compose_fg
-  \\ ‘isClos (eval (compose (App map f) (App map g)))’ by (
-     simp[map_def,LAMREC_def,cons_def,nil_def,compose_def]
-     \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
-     \\ simp[isClos_def]
+  \\ ‘isClos (eval (dot (App map f) (App map g)))’ by (
+     cheat
   )
-  \\ ‘isClos (eval (App map (compose f g)))’ by (
-     simp[map_def,LAMREC_def,cons_def,nil_def,compose_def]
-     \\ ‘freevars f = []’ by (fs[closed_def])
-     \\ ‘freevars g = []’ by (fs[closed_def])
-     \\ simp[eval_thm,bind_def,subst_def,subst_funs_def,closed_def]
-     \\ simp[isClos_def]
+  \\ ‘isClos (eval (App map (dot f g)))’ by (
+     cheat
   )
-  \\ res_tac
-  *)
+  \\ fs[app_bisimilarity_sym]
 QED
 
-
-(*
-Theorem deforestation:
-  ∀ c l f g.
-  closed f ∧ closed g ∧ closed l ∧
-  f = Lam fn fb ∧ g = Lam gn ge
-   ⇒
-   exp_rel
-     (*(map f) (map g l)*)
-     (*Apps map [f;Apps map [g;l]]*)
-     (App (App map f) (App (App map g) l))
-     (*map (f.g) l*)
-     (App (App map (App (App dot f) g)) l)
-Proof
-  rw[]
-  \\ fs[exp_rel_def,v_rel_def,v_rel'_def] \\ strip_tac
-  \\ fs [eval_thm]
-  \\ ‘eval map ≠ Diverge’ by (cheat)
-  \\ fs [map_def,eval_thm]
-  \\ fs [bind_def]
-  \\ fs [subst_def]
-  \\ fs [eval_thm]
-  \\ fs [closed_def]
-  \\ fs [subst_def]
-  \\ cheat
-QED
-*)
+        
 
 
 val _ = export_theory();

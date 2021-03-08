@@ -310,7 +310,7 @@ Proof
   >- (
     gvs[FRANGE_FLOOKUP, PULL_EXISTS] >>
     reverse (rw[bind_def]) >> gvs[] >- res_tac >>
-    fs[subst_def]
+    fs[subst_def] >> res_tac
     )
   >- (drule bind_App >> fs[])
   >- (drule bind_Lam >> fs[])
@@ -586,6 +586,14 @@ Proof
   \\ Cases_on ‘freevars (subst m e) : string list’ \\ fs []
   \\ qexists_tac ‘h’ \\ fs []
   \\ CCONTR_TAC \\ fs [] \\ res_tac
+QED
+
+Theorem IMP_closed_bind:
+  ∀e m. freevars e ⊆ FDOM m ⇒ closed (bind m e)
+Proof
+  rw[bind_def] >>
+  irule IMP_closed_subst >>
+  simp[IN_FRANGE_FLOOKUP]
 QED
 
 Theorem subst_fdomsub:
