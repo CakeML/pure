@@ -102,8 +102,9 @@ Definition eval_wh_to_def:
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
       | Seq =>
-        (if LENGTH xs ≠ 2 ∨ MEM wh_Error vs then wh_Error else
-         if MEM wh_Diverge vs then wh_Diverge else LAST vs)
+        (if LENGTH xs ≠ 2 then wh_Error else
+         if HD vs = wh_Diverge ∨ HD vs = wh_Error then HD vs else
+         LAST vs)
       | AtomOp op =>
         (case get_atoms vs of
          | NONE => wh_Diverge
@@ -319,7 +320,6 @@ QED
 Theorem eval_wh_Seq:
   eval_wh (Seq x y) =
     if eval_wh x = wh_Error   then wh_Error   else
-    if eval_wh y = wh_Error   then wh_Error   else
     if eval_wh x = wh_Diverge then wh_Diverge else
       eval_wh y
 Proof
@@ -327,15 +327,12 @@ Proof
   \\ Cases_on ‘eval_wh x = wh_Error’ \\ fs []
   THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
          \\ qexists_tac ‘k+1’ \\ fs [])
-  \\ Cases_on ‘eval_wh y = wh_Error’ \\ fs []
-  THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
-         \\ qexists_tac ‘k+1’ \\ fs [])
   \\ fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
   THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def]
          \\ rw [] \\ Cases_on ‘k’ \\ gvs [])
   \\ fs [eval_wh_eq] \\ fs [eval_wh_to_def]
-  \\ IF_CASES_TAC \\ gvs [] \\ rw []
-  \\ every_case_tac \\ gvs []
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (rw [] \\ gs [])
   \\ qexists_tac ‘k+k'+1’ \\ fs []
   \\ ‘eval_wh_to (k+k') x = eval_wh_to k x’ by (match_mp_tac eval_wh_inc \\ fs [])
   \\ ‘eval_wh_to (k+k') y = eval_wh_to k' y’ by (match_mp_tac eval_wh_inc \\ fs [])
@@ -626,7 +623,6 @@ Theorem eval_wh_Prim:
       case xs of
       | [x;y] =>
           (if eval_wh x = wh_Error then wh_Error else
-           if eval_wh y = wh_Error then wh_Error else
            if eval_wh x = wh_Diverge then wh_Diverge else
              eval_wh y)
       | _ => wh_Error) ∧
@@ -762,8 +758,8 @@ Theorem eval_wh_Prim_alt:
         | NONE => wh_Error) ∧
   eval_wh (Prim Seq xs) =
     if LENGTH xs ≠ 2 then wh_Error else
-    if MEM wh_Error (MAP eval_wh xs) then wh_Error else
-    if MEM wh_Diverge (MAP eval_wh xs) then wh_Diverge else
+    if HD (MAP eval_wh xs) = wh_Error then wh_Error else
+    if HD (MAP eval_wh xs) = wh_Diverge then wh_Diverge else
     eval_wh (LAST xs)
 Proof
   reverse $ rw[eval_wh_Prim] >> gvs[LENGTH_EQ_NUM_compute] >>
@@ -801,7 +797,6 @@ Theorem eval_wh_thm:
      | _ => wh_Error) ∧
   eval_wh (Seq x y) =
     (if eval_wh x = wh_Error then wh_Error
-     else if eval_wh y = wh_Error then wh_Error
      else if eval_wh x = wh_Diverge then wh_Diverge
      else eval_wh y) ∧
   eval_wh Fail = wh_Error ∧
