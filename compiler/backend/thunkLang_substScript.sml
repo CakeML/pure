@@ -26,6 +26,7 @@ Datatype:
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # exp) list) exp          (* mutually recursive exps *)
+      | Let vname exp exp                        (* non-recursive let       *)
       | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
@@ -50,7 +51,8 @@ Definition subst_def:
   subst m (If x y z) =
     If (subst m x) (subst m y) (subst m z) ∧
   subst m (App x y) = App (subst m x) (subst m y) ∧
-  subst m (Lam s x) = Lam s (subst (FILTER (λ(n, x). n ≠ s) m) x) ∧
+  subst m (Lam s x) = Lam s (subst (FILTER (λ(n,x). n ≠ s) m) x) ∧
+  subst m (Let s x y) = Let s (subst m x) (subst (FILTER (λ(n,x). n ≠ s) m) y) ∧
   subst m (Letrec f x) =
     (let m1 = FILTER (λ(n, v). ¬MEM n (MAP FST f)) m in
        Letrec (MAP (λ(n, x). (n, subst m1 x)) f) (subst m1 x)) ∧
@@ -84,6 +86,8 @@ Theorem subst1_def:
     If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
   subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y) ∧
   subst1 n v (Lam s x) = (if n = s then Lam s x else Lam s (subst1 n v x)) ∧
+  subst1 n v (Let s x y) =
+    Let s (subst1 n v x) (if n = s then y else subst1 n v y) ∧
   subst1 n v (Letrec f x) =
     (if MEM n (MAP FST f) then
        Letrec f x
@@ -201,6 +205,11 @@ Definition eval_to_def:
          od
      od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
+  eval_to k (Let n x y) =
+    (do
+       v <- eval_to k x;
+       if k = 0 then fail Diverge else eval_to (k - 1) (bind1 n v y)
+     od) ∧
   eval_to k (If x y z) =
     (if k = 0 then fail Diverge else
        do
@@ -304,6 +313,10 @@ Proof
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
     simp [eval_to_def])
+  >- ((* Let *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to k x’ \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
   >- ((* If *)
     rename1 ‘If x y z’
     \\ rw [eval_to_def]
