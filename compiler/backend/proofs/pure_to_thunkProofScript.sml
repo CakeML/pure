@@ -693,8 +693,16 @@ Proof
       >- (
         IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute])
       >- (
-        Cases_on ‘xs’ \\ fs [get_atoms_def]
-        \\ cheat (* AtomOp diverges in the wrong place *))
+        Cases_on ‘xs = []’ \\ fs [get_atoms_def, LIST_REL_EL_EQN, map_def]
+        >- (
+          CASE_TAC \\ fs []
+          \\ CASE_TAC \\ fs []
+          \\ IF_CASES_TAC \\ fs [])
+        \\ ‘ys ≠ []’ by (strip_tac \\ fs [])
+        \\ qmatch_goalsub_abbrev_tac ‘map f ys’
+        \\ ‘f = K (INL Diverge)’ by rw [combinTheory.K_DEF]
+        \\ pop_assum SUBST_ALL_TAC
+        \\ simp [map_K_INL, get_atoms_MAP_Diverge])
       \\ simp [MEM_MAP]
       \\ cheat (* TODO No Seq *))
     \\ rw [Once exp_rel_cases]

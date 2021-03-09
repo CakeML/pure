@@ -256,18 +256,18 @@ Definition eval_to_def:
              return (Constructor (if t ≠ s then "False" else "True") [])
            od
        | AtomOp aop =>
-           if k = 0 then fail Diverge else
-             do
-               ys <- map (λx. case eval_to (k - 1) x of
+           do
+             ys <- map (λx. if k = 0 then fail Diverge else
+                              case eval_to (k - 1) x of
                                 INR (Atom l) => return l
                               | INL err => fail err
                               | _ => fail Type_error) xs;
-               case eval_op aop ys of
-                 SOME (INL v) => return (Atom v)
-               | SOME (INR b) =>
-                 return (Constructor (if b then "True" else "False") [])
-               | NONE => fail Type_error
-             od)
+             case eval_op aop ys of
+               SOME (INL v) => return (Atom v)
+             | SOME (INR b) =>
+               return (Constructor (if b then "True" else "False") [])
+             | NONE => fail Type_error
+           od)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (I ## exp_size)’ \\ rw []
   \\ Induct_on ‘xs’ \\ rw [] \\ fs [exp_size_def]
@@ -374,17 +374,18 @@ Proof
         >- (
           fs [map_INL, Abbr ‘f’, Abbr ‘g’]
           \\ drule_all_then assume_tac map_INR
-          \\ gs [CaseEqs ["sum", "v"]])
+          \\ gs [CaseEqs ["sum", "v", "bool"]])
         \\ fs [map_INL, Abbr ‘f’, Abbr ‘g’]
-        \\ rename1 ‘sum_CASE (eval_to (j - 1) (EL m xs)) _ _ = INL d’
-        \\ rename1 ‘sum_CASE (eval_to (k - 1) (EL n xs)) _ _ = INL e’
+        \\ rename1 ‘sum_CASE (eval_to (j - 1) (EL m xs)) _ _’
+        \\ rename1 ‘sum_CASE (eval_to (k - 1) (EL n xs)) _ _’
         \\ Cases_on ‘m < n’ \\ gs []
         >- (
           first_x_assum (drule_then assume_tac)
-          \\ gs [CaseEq "sum"])
+          \\ gs [CaseEqs ["sum", "bool"]])
         \\ Cases_on ‘m = n’ \\ gs []
         >- (
-          gvs [CaseEq "sum"])
+          gvs [CaseEqs ["sum", "bool"]])
+        \\ gvs [CaseEq "bool"]
         \\ ‘n < m’ by gs []
         \\ ‘n < LENGTH xs’ by gs []
         \\ first_assum (drule_then assume_tac)
@@ -396,7 +397,7 @@ Proof
       >- (
         fs [map_INL, Abbr ‘f’, Abbr ‘g’]
         \\ drule_all_then assume_tac map_INR
-        \\ gs [CaseEq "sum"])
+        \\ gs [CaseEqs ["sum", "bool"]])
       \\ rename1 ‘map f _ = INR v’
       \\ rename1 ‘map g _ = INR w’
       \\ ‘v = w’ suffices_by rw []
@@ -404,6 +405,7 @@ Proof
       \\ first_assum (mp_then Any assume_tac map_INR)
       \\ last_assum (mp_then Any assume_tac map_INR)
       \\ unabbrev_all_tac
+      \\ Cases_on ‘k = 0’ \\ fs []
       \\ irule LIST_EQ \\ rw [] \\ gs [CaseEqs ["sum", "v"]]))
 QED
 
