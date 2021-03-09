@@ -588,6 +588,14 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ res_tac
 QED
 
+Theorem IMP_closed_bind:
+  ∀e m. freevars e ⊆ FDOM m ⇒ closed (bind m e)
+Proof
+  rw[bind_def] >>
+  irule IMP_closed_subst >>
+  simp[IN_FRANGE_FLOOKUP]
+QED
+
 Theorem subst_fdomsub:
   ∀f e x. x ∉ freevars e ⇒ subst f e = subst (f \\ x) e
 Proof
