@@ -163,9 +163,10 @@ End
 Definition freevars_def:
   freevars (Var n) = {n} ∧
   freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
-  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
+  freevars (If x y z) = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
-  freevars (Lam s b)   = freevars b DIFF {s} ∧
+  freevars (Lam s b) = freevars b DIFF {s} ∧
+  freevars (Let s x y) = freevars x ∪ (freevars y DIFF {s}) ∧
   freevars (Letrec f x) =
     ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
      set (MAP FST f)) ∧
@@ -206,10 +207,11 @@ Definition eval_to_def:
      od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
   eval_to k (Let n x y) =
-    (do
-       v <- eval_to k x;
-       if k = 0 then fail Diverge else eval_to (k - 1) (bind1 n v y)
-     od) ∧
+    (if k = 0 then fail Diverge else
+       do
+         v <- eval_to (k - 1) x;
+         eval_to (k - 1) (bind1 n v y)
+       od) ∧
   eval_to k (If x y z) =
     (if k = 0 then fail Diverge else
        do
@@ -315,7 +317,7 @@ Proof
     simp [eval_to_def])
   >- ((* Let *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to k x’ \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* If *)
     rename1 ‘If x y z’
