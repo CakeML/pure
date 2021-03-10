@@ -94,6 +94,31 @@ Definition unit_def:
   unit = Constructor "" []
 End
 
+Definition freevars_def:
+  freevars (Var n) = {n} ∧
+  freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
+  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
+  freevars (App x y) = freevars x ∪ freevars y ∧
+  freevars (Lam s b) = freevars b DIFF {s} ∧
+  freevars (Let s x y) = freevars x ∪ (freevars y DIFF {s}) ∧
+  freevars (Letrec f x) =
+    ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
+     set (MAP FST f)) ∧
+  freevars (Delay x) = freevars x ∧
+  freevars (Box x) = freevars x ∧
+  freevars (Force x) = freevars x
+Termination
+  WF_REL_TAC ‘measure exp_size’
+  \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
+  \\ fs [fetch "-" "exp_size_def"]
+End
+
+Definition closed_def:
+  closed e ⇔ freevars e = ∅
+End
+
 Definition eval_to_def:
   eval_to k env (Var n) =
     (case ALOOKUP env n of
@@ -193,31 +218,6 @@ Definition eval_def:
     case some k. eval_to k env x ≠ INL Diverge of
       NONE => fail Diverge
     | SOME k => eval_to k env x
-End
-
-Definition freevars_def:
-  freevars (Var n) = {n} ∧
-  freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
-  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
-  freevars (App x y) = freevars x ∪ freevars y ∧
-  freevars (Lam s b) = freevars b DIFF {s} ∧
-  freevars (Let s x y) = freevars x ∪ (freevars y DIFF {s}) ∧
-  freevars (Letrec f x) =
-    ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
-     set (MAP FST f)) ∧
-  freevars (Delay x) = freevars x ∧
-  freevars (Box x) = freevars x ∧
-  freevars (Force x) = freevars x
-Termination
-  WF_REL_TAC ‘measure exp_size’
-  \\ rw []
-  \\ rename1 ‘MEM _ xs’
-  \\ Induct_on ‘xs’ \\ rw []
-  \\ fs [fetch "-" "exp_size_def"]
-End
-
-Definition closed_def:
-  closed e ⇔ freevars e = ∅
 End
 
 Theorem eval_to_mono:
