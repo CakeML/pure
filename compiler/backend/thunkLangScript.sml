@@ -104,7 +104,11 @@ Definition eval_to_def:
        fv <- eval_to k env f;
        xv <- eval_to k env x;
        (s, env, body) <- dest_anyClosure fv;
-       if k = 0 then fail Diverge else eval_to (k - 1) ((s, xv)::env) body
+       if k = 0 then fail Diverge else
+         do
+           assert (closed x);
+           eval_to (k - 1) ((s, xv)::env) body
+         od
      od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
   eval_to k env (Let n x y) =
