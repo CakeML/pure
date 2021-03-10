@@ -7,79 +7,75 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pred_setTheory rich_listTheory thunkLang_primitivesTheory thunkLangTheory
      finite_mapTheory thunkLang_substTheory;
 open thunk_to_thunkTheory;
+open pure_miscTheory;
 
 val _ = new_theory "thunk_to_thunkProof";
 
 val _ = numLib.prefer_num ();
- (*
 
 Inductive exp_rel:
 [exp_rel_Value:]
-  (∀env n v v'.
-     ALOOKUP env n = SOME v' ∧
-     v_rel v v' ⇒
+  (∀env n v w.
+     ALOOKUP env n = SOME w ∧
+     v_rel v w ⇒
        exp_rel env (Value v) (Var n)) ∧
 [exp_rel_Var:]
-  (∀env n n'.
-     ALOOKUP env n = NONE ∧
-     n = n' ⇒
-       exp_rel env (Var n) (Var n')) ∧
+  (∀env n.
+     ALOOKUP env n = NONE ⇒
+       exp_rel env (Var n) (Var n)) ∧
 [exp_rel_App:]
-  (∀env x x' y y'.
-     exp_rel env x x' ∧
-     exp_rel env y y' ⇒
-       exp_rel env (App x y) (App x' y')) ∧
+  (∀env x1 x2 y1 y2.
+     exp_rel env x1 x2 ∧
+     exp_rel env y1 y2 ⇒
+       exp_rel env (App x1 y1) (App x2 y2)) ∧
 [exp_rel_Lam:]
-  (∀env x x' s s'.
-     exp_rel (FILTER (λ(n, x). n ≠ s) env) x x' ∧
-     s = s' ⇒
-       exp_rel env (Lam s x) (Lam s' x')) ∧
+  (∀env x y s.
+     exp_rel (FILTER (λ(n,x). n ≠ s) env) x y ⇒
+       exp_rel env (Lam s x) (Lam s y)) ∧
+[exp_rel_Let:]
+  (∀env x1 x2 y1 y2 s.
+     exp_rel env x1 x2 ∧
+     exp_rel (FILTER (λ(n,x). n ≠ s) env) y1 y2 ⇒
+       exp_rel env (Let s x1 y1) (Let s x2 y2)) ∧
 [exp_rel_If:]
-  (∀env x x' y y' z z'.
-     exp_rel env x x' ∧
-     exp_rel env y y' ∧
-     exp_rel env z z' ⇒
-       exp_rel env (If x y z) (If x' y' z')) ∧
+  (∀env x1 x2 y1 y2 z1 z2.
+     LIST_REL (exp_rel env) [x1;y1;z1] [x2;y2;z2] ⇒
+       exp_rel env (If x1 y1 z1) (If x2 y2 z2)) ∧
 [exp_rel_Prim:]
-  (∀env op op' xs xs'.
-     LIST_REL (exp_rel env) xs xs' ∧
-     op = op' ⇒
-       exp_rel env (Prim op xs) (Prim op' xs')) ∧
+  (∀env op xs ys.
+     LIST_REL (exp_rel env) xs ys ⇒
+       exp_rel env (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Letrec:]
-  (∀env f f' x x'.
-     LIST_REL (λ(fn,xn,b) (gn,yn,c).
-       fn = gn ∧ xn = yn ∧
-       exp_rel (FILTER (λ(n, x). ¬MEM n (MAP FST f) ∧ n ≠ xn) env) b c) f f' ∧
-     exp_rel (FILTER (λ(n, x). ¬MEM n (MAP FST f)) env) x x' ⇒
-       exp_rel env (Letrec f x) (Letrec f' x')) ∧
+  (∀env f g x y.
+     LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
+                 exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c) f g ∧
+     exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) x y ⇒
+       exp_rel env (Letrec f x) (Letrec g y)) ∧
 [exp_rel_Delay:]
-  (∀env x x'.
-     exp_rel env x x' ⇒
-       exp_rel env (Delay x) (Delay x')) ∧
+  (∀env x y.
+     exp_rel env x y ⇒
+       exp_rel env (Delay x) (Delay y)) ∧
 [exp_rel_Box:]
-  (∀env x x'.
-     exp_rel env x x' ⇒
-       exp_rel env (Box x) (Box x')) ∧
+  (∀env x y.
+     exp_rel env x y ⇒
+       exp_rel env (Box x) (Box y)) ∧
 [exp_rel_Force:]
-  (∀env x x'.
-     exp_rel env x x' ⇒
-       exp_rel env (Force x) (Force x')) ∧
+  (∀env x y.
+     exp_rel env x y ⇒
+       exp_rel env (Force x) (Force y)) ∧
 [v_rel_Constructor:]
-  (∀s s' vs vs'.
-     LIST_REL v_rel vs vs' ∧
-     s = s' ⇒
-       v_rel (Constructor s vs) (Constructor s' vs')) ∧
+  (∀s vs ws.
+     LIST_REL v_rel vs ws ⇒
+       v_rel (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_Closure:]
-  (∀env s s' x x'.
-     exp_rel env (Lam s x) (Lam s' x') ⇒
-       v_rel (Closure s x) (Closure s' env x')) ∧
+  (∀env s x y.
+     exp_rel env (Lam s x) (Lam s y) ⇒
+       v_rel (Closure s x) (Closure s env y)) ∧
 [v_rel_Recclosure:]
-  (∀env f f' n n'.
-     LIST_REL (λ(fn,xn,b) (gn,yn,c).
-       fn = gn ∧ xn = yn ∧
-       exp_rel (FILTER (λ(n, x). ¬MEM n (MAP FST f) ∧ n ≠ xn) env) b c) f f' ∧
-       n = n' ⇒
-        v_rel (Recclosure f n) (Recclosure f' env n')) ∧
+  (∀env f g n.
+     LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
+                 exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c) f g ⇒
+       v_rel (Recclosure f n) (Recclosure g env n)) ∧
 [v_rel_Thunk_v:]
   (∀v w.
      v_rel v w ⇒
@@ -89,9 +85,8 @@ Inductive exp_rel:
      exp_rel env x y ⇒
        v_rel (Thunk (INR x)) (Thunk (INR (env, y)))) ∧
 [v_rel_Atom:]
-  (∀l l'.
-     l = l' ⇒
-       v_rel (Atom l) (Atom l'))
+  (∀l.
+     v_rel (Atom l) (Atom l))
 End
 
 Theorem exp_rel_def:
@@ -114,7 +109,13 @@ Theorem exp_rel_def:
      exp_rel env (Lam s x) y =
      ∃z.
        y = Lam s z ∧
-       exp_rel (FILTER (λ(n, x). n ≠ s) env) x z) ∧
+       exp_rel (FILTER (λ(n,x). n ≠ s) env) x z) ∧
+  (∀s x1 y1.
+     exp_rel env (Let s x1 y1) y =
+     ∃x2 y2.
+       y = Let s x2 y2 ∧
+       exp_rel env x1 x2 ∧
+       exp_rel (FILTER (λ(n,x). n ≠ s) env) y1 y2) ∧
   (∀x y z.
      exp_rel env (If x y z) w =
      ∃a b c.
@@ -126,9 +127,9 @@ Theorem exp_rel_def:
      exp_rel env (Letrec f x) y =
      ∃g z.
        y = Letrec g z ∧
-       LIST_REL (λ(fn,xn,b) (gn,yn,c).
-         fn = gn ∧ xn = yn ∧
-         exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f) ∧ n ≠ xn) env) b c) f g ∧
+       LIST_REL (λ(fn,b) (gn,c).
+         fn = gn ∧
+         exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c) f g ∧
        exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) x z) ∧
   (∀x.
      exp_rel env (Delay x) y =
@@ -170,12 +171,10 @@ Theorem v_rel_def:
        exp_rel env (Lam s x) (Lam s y)) ∧
   (∀f x.
      v_rel (Recclosure f x) v ⇔
-     ∃f' env.
-       v = Recclosure f' env x ∧
-       LIST_REL (λ(fn,xn,b) (gn,yn,c).
-         fn = gn ∧ xn = yn ∧
-         exp_rel (FILTER (λ(n, x).
-           ¬MEM n (MAP FST f) ∧ n ≠ xn) env) b c) f f') ∧
+     ∃g env.
+       v = Recclosure g env x ∧
+       LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
+         exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c) f g) ∧
   (∀v.
      v_rel (Thunk (INL v)) w ⇔
      ∃u. w = Thunk (INL u) ∧
@@ -265,12 +264,10 @@ Theorem dest_Recclosure_v_rel:
     (∀err. dest_Recclosure v = INL err ⇒ dest_Recclosure w = INL err) ∧
     (∀f n.
        dest_Recclosure v = INR (f, n) ⇒
-         ∃f' env.
-           dest_Recclosure w = INR (f', env, n) ∧
-           LIST_REL (λ(fn,xn,b) (gn,yn,c).
-             fn = gn ∧ xn = yn ∧
-             exp_rel (FILTER (λ(n,x).
-               ¬MEM n (MAP FST f) ∧ n ≠ xn) env) b c) f f')
+         ∃g env.
+           dest_Recclosure w = INR (g, env, n) ∧
+           LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
+             exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c) f g)
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
   \\ simp [thunkLangTheory.dest_Recclosure_def,
@@ -297,7 +294,7 @@ Definition env_rel_def:
   env_rel binds env ⇔
     MAP FST binds = MAP FST env ∧
     ∀k v.
-      ALOOKUP binds k = SOME v ⇒
+      ALOOKUP (REVERSE binds) k = SOME v ⇒
         ∃w. ALOOKUP env k = SOME w ∧
             v_rel v w
 End
@@ -344,6 +341,7 @@ Theorem exp_rel_subst:
     (∀k. MEM k (MAP FST extra) ⇒ ¬MEM k (MAP FST env)) ⇒
       exp_rel (extra ++ env) (subst binds x) y
 Proof
+
   qsuff_tac ‘
     (∀env x y.
        exp_rel env x y ⇒
@@ -358,35 +356,34 @@ Proof
   \\ rpt conj_tac
   \\ rpt gen_tac
   \\ simp [subst_def, exp_rel_def]
-  >- (
-    rw []
-    \\ fs [ALOOKUP_APPEND, MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
+  >- ((* Value *)
+    rw [ALOOKUP_APPEND]
     \\ CASE_TAC \\ fs []
-    \\ imp_res_tac ALOOKUP_MEM \\ fs []
-    \\ res_tac)
-  >- (
-    rw []
-    \\ fs [env_rel_def]
-    \\ CASE_TAC \\ fs [exp_rel_def, ALOOKUP_APPEND, CaseEq "option",
-                       ALOOKUP_NONE]
-    >- (
-      metis_tac [])
-    \\ res_tac
-    \\ gvs [exp_rel_def, ALOOKUP_APPEND]
-    \\ first_x_assum (irule_at Any) \\ fs [])
-  >- (
-    rw []
-    \\ simp [FILTER_APPEND_DISTRIB]
+    \\ dxrule_then assume_tac ALOOKUP_SOME
+    \\ dxrule_then assume_tac ALOOKUP_SOME
+    \\ gs [])
+  >- ((* Var *)
+    rw [env_rel_def]
+    \\ CASE_TAC \\ gs [exp_rel_def, ALOOKUP_APPEND, CaseEq "option",
+                       ALOOKUP_NONE, MAP_REVERSE]
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ first_assum (irule_at Any) \\ fs [])
+  >- ((* Lam *)
+    rw [FILTER_APPEND_DISTRIB]
     \\ first_x_assum irule
-    \\ conj_tac
-    >- (
-      fs [MEM_MAP, MEM_FILTER, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
-      \\ metis_tac [])
-    \\ fs [env_rel_def, ALOOKUP_FILTER, MAP_FILTER_FST, ELIM_UNCURRY])
-  >- (
+    \\ fs [MEM_MAP, MEM_FILTER, MAP_FILTER, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
+    \\ fs [env_rel_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
+    \\ fs [ELIM_UNCURRY, MAP_FILTER_FST])
+  >- ((* Let *)
+    rw [FILTER_APPEND_DISTRIB]
+    \\ first_x_assum irule
+    \\ fs [MEM_MAP, MEM_FILTER, MAP_FILTER, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
+    \\ fs [env_rel_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
+    \\ fs [ELIM_UNCURRY, MAP_FILTER_FST])
+  >- ((* If *)
     rw []
     \\ fs [LIST_REL_EL_EQN, EL_MAP])
-  >- (
+  >- ((* Letrec *)
     cheat (*
     simp [FILTER_FILTER, MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY]
     \\ strip_tac
@@ -414,6 +411,7 @@ Proof
     \\ rw [FUN_EQ_THM, AC CONJ_COMM CONJ_ASSOC] *))
 QED
 
+(*
 Theorem exp_rel_subst_app1[local]:
   exp_rel (FILTER (λ(n,x). n ≠ s) env) b c ∧
   v_rel v w ⇒
