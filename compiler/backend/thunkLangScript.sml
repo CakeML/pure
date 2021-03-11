@@ -165,10 +165,11 @@ Definition eval_to_def:
   eval_to k env (Force x) =
     (do
        v <- eval_to k env x;
-       wx <- dest_Thunk v;
+       (wx, binds) <- dest_anyThunk v;
        case wx of
          INL v => return v
-       | INR (env, y) => if k = 0 then fail Diverge else eval_to (k - 1) env y
+       | INR (env, y) => if k = 0 then fail Diverge else
+                           eval_to (k - 1) (bind_funs binds env) y
      od) ∧
   eval_to k env (Prim op xs) =
     (case op of
@@ -262,7 +263,8 @@ Proof
   >- ((* Force *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k env x’ \\ fs []
-    \\ Cases_on ‘dest_Thunk y’ \\ fs []
+    \\ Cases_on ‘dest_anyThunk y’ \\ fs []
+    \\ pairarg_tac \\ gvs []
     \\ CASE_TAC \\ fs []
     \\ CASE_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [])

@@ -627,15 +627,14 @@ Proof
     \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
     \\ drule_then strip_assume_tac dest_Thunk_v_rel
     \\ drule_then strip_assume_tac dest_Recclosure_v_rel
-    \\ simp [dest_anyThunk_def]
-    \\ reverse (Cases_on ‘dest_Thunk y’ \\ gvs [])
+    \\ simp [thunkLangTheory.dest_anyThunk_def,
+             thunkLang_substTheory.dest_anyThunk_def]
+    \\ reverse (Cases_on ‘dest_Thunk y’) \\ gvs []
     >- (
       IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
       \\ simp [subst_funs_def, bind_def])
     \\ Cases_on ‘dest_Recclosure y’ \\ gvs []
-    >- (
-      Cases_on ‘y’ \\ gs [])
     \\ Cases_on ‘y’ \\ gs []
     \\ pairarg_tac \\ gvs []
     \\ Cases_on ‘w’ \\ gvs [v_rel_def]
@@ -650,7 +649,23 @@ Proof
     \\ simp [EVERY2_REVERSE]
     \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
     \\ CASE_TAC \\ gs []
-    \\ cheat (* Some mismatch here *))
+    \\ CASE_TAC \\ gvs [exp_rel_def]
+    \\ IF_CASES_TAC \\ gs [subst_funs_def, bind_def]
+    \\ first_x_assum irule
+    \\ irule exp_rel_ALOOKUP_EQ
+    \\ irule_at Any exp_rel_subst
+    \\ first_assum (irule_at Any)
+    \\ qmatch_goalsub_abbrev_tac ‘REVERSE (env1 ++ extra1)’
+    \\ qexists_tac ‘extra1’
+    \\ unabbrev_all_tac
+    \\ fs [env_rel_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MAP_REVERSE,
+           GSYM FST_THM]
+    \\ simp [FUN_EQ_THM, GSYM MAP_REVERSE, ALOOKUP_MAP_2, GSYM FILTER_REVERSE,
+             ALOOKUP_FILTER, REVERSE_APPEND, ALOOKUP_APPEND, GSYM ALOOKUP_NONE]
+    \\ rw [] \\ rpt CASE_TAC \\ gs [ALOOKUP_NONE, PULL_EXISTS, v_rel_def,
+                                    MAP_REVERSE]
+    \\ drule_then (qspec_then ‘REVERSE ys’ mp_tac) ALOOKUP_SOME_EL_2
+    \\ rw [MAP_REVERSE] \\ gvs [v_rel_def])
   >- ((* Prim *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
