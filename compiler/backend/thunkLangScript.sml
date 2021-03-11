@@ -41,7 +41,7 @@ End
 
 Definition bind_funs_def[simp]:
   bind_funs funs env =
-    MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env
+    env ++ MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs
 End
 
 Definition dest_Closure_def[simp]:
@@ -121,7 +121,7 @@ End
 
 Definition eval_to_def:
   eval_to k env (Var n) =
-    (case ALOOKUP env n of
+    (case ALOOKUP (REVERSE env) n of
        SOME v => return v
      | NONE => fail Type_error) ∧
   eval_to k env (App f x) =
@@ -132,7 +132,7 @@ Definition eval_to_def:
        if k = 0 then fail Diverge else
          do
            assert (closed x);
-           eval_to (k - 1) ((s, xv)::env) body
+           eval_to (k - 1) (env ++ [(s,xv)]) body
          od
      od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
@@ -140,7 +140,7 @@ Definition eval_to_def:
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) env x;
-         eval_to (k - 1) ((n, v)::env) y
+         eval_to (k - 1) (env ++ [(n,v)]) y
        od) ∧
   eval_to k env (If x y z) =
     (if k = 0 then fail Diverge else
