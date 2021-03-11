@@ -198,7 +198,7 @@ Definition eval_to_def:
        fv <- eval_to k f;
        xv <- eval_to k x;
        (s, body, binds) <- dest_anyClosure fv;
-       y <<- bind ((s, xv)::binds) body;
+       y <<- bind (binds ++ [(s, xv)]) body;
        if k = 0 then fail Diverge else
          do
            assert (closed x);
