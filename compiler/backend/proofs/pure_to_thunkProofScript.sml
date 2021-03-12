@@ -615,7 +615,7 @@ Theorem exp_rel_subst_funs:
 Proof
   rpt gen_tac
   \\ strip_tac
-  \\ simp [subst_funs_def, bind_def, pure_expTheory.subst_funs_def,
+  \\ simp [subst_funs_def, pure_expTheory.subst_funs_def,
            pure_expTheory.bind_def]
   \\ reverse IF_CASES_TAC \\ fs []
   >- (
@@ -715,7 +715,7 @@ Proof
     (*\\ rename1 ‘exp_rel z1 z2’*)
     \\ imp_res_tac exp_rel_closed \\ gvs []
     \\ first_x_assum irule
-    \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE, bind_def]
+    \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE]
     \\ irule_at Any exp_rel_subst \\ fs []
     \\ irule_at Any closed_freevars_subst1
     \\ fs [pure_expTheory.closed_def])
@@ -750,7 +750,7 @@ Proof
       \\ first_x_assum irule
       \\ fs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
              flookup_fupdate_list, FDOM_FUPDATE_LIST, subst_ignore,
-             subst_funs_def, bind_def])
+             subst_funs_def])
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule_at Any exp_rel_subst_funs \\ fs []
@@ -834,12 +834,12 @@ Proof
       \\ gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gvs []
       \\ first_x_assum (drule_all_then assume_tac)
-      \\ fs [thunk_rel_def, dest_anyThunk_def, subst_funs_def, bind_def,
+      \\ fs [thunk_rel_def, dest_anyThunk_def, subst_funs_def,
              EVERY_EL])
     >- ((* Seq *)
       drule_then assume_tac exp_rel_freevars \\ fs []
       \\ simp [eval_wh_to_def, eval_to_def]
-      \\ simp [subst_funs_def, bind_def]
+      \\ simp [subst_funs_def]
       \\ fs [SF DNF_ss]
       \\ first_assum (drule_all_then assume_tac) \\ fs []
       \\ qpat_x_assum ‘exp_rel x1 _’ assume_tac

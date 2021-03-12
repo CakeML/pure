@@ -455,8 +455,8 @@ Proof
   >- (
     simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
     \\ dsimp [ELIM_UNCURRY, MAP_FILTER_FST, MEM_FILTER])
-  \\ simp [FUN_EQ_THM, bind_funs_def, ALOOKUP_APPEND, REVERSE_APPEND,
-           GSYM MAP_REVERSE, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
+  \\ simp [FUN_EQ_THM, ALOOKUP_APPEND, REVERSE_APPEND, GSYM MAP_REVERSE,
+           GSYM FILTER_REVERSE, ALOOKUP_FILTER]
   \\ strip_tac
   \\ IF_CASES_TAC \\ gvs []
   \\ CASE_TAC \\ fs []
@@ -499,7 +499,7 @@ Proof
     \\ Cases_on ‘dest_Recclosure x2’ \\ fs []
     >- (
       Cases_on ‘dest_Closure x2’ \\ gvs []
-      \\ pairarg_tac \\ gvs [bind_def]
+      \\ pairarg_tac \\ gvs []
       \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum (qspec_then ‘[]’ assume_tac) \\ fs []
       \\ first_x_assum irule
@@ -521,8 +521,8 @@ Proof
     \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
     \\ Cases_on ‘ALOOKUP (REVERSE xs) n’ \\ gs []
     \\ CASE_TAC \\ gvs [exp_rel_def]
-    \\ simp [bind_def, subst_funs_def]
-    \\ Cases_on ‘x2’ \\ gvs [dest_Recclosure_def, v_rel_def, bind_def]
+    \\ simp [subst_funs_def]
+    \\ Cases_on ‘x2’ \\ gvs [dest_Recclosure_def, v_rel_def]
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule exp_rel_subst_app2 \\ fs []
@@ -539,7 +539,7 @@ Proof
     \\ IF_CASES_TAC \\ fs []
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ first_x_assum (drule_then strip_assume_tac) \\ fs []
-    \\ gvs [bind_def]
+    \\ gvs []
     \\ first_x_assum irule
     \\ irule exp_rel_subst_app1 \\ fs [])
   >- ((* If *)
@@ -562,7 +562,7 @@ Proof
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
-    \\ fs [subst_funs_def, bind_def, bind_funs_def]
+    \\ fs [subst_funs_def]
     \\ irule exp_rel_ALOOKUP_EQ
     \\ irule_at Any exp_rel_subst
     \\ first_assum (irule_at Any) \\ simp []
@@ -615,7 +615,7 @@ Proof
     >- (
       IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
-      \\ simp [subst_funs_def, bind_def])
+      \\ simp [subst_funs_def])
     \\ Cases_on ‘dest_Recclosure y’ \\ gvs []
     \\ Cases_on ‘y’ \\ gs []
     \\ pairarg_tac \\ gvs []
@@ -632,7 +632,7 @@ Proof
     \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
     \\ CASE_TAC \\ gs []
     \\ CASE_TAC \\ gvs [exp_rel_def]
-    \\ IF_CASES_TAC \\ gs [subst_funs_def, bind_def]
+    \\ IF_CASES_TAC \\ gs [subst_funs_def]
     \\ first_x_assum irule
     \\ irule exp_rel_ALOOKUP_EQ
     \\ irule_at Any exp_rel_subst

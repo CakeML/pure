@@ -39,8 +39,8 @@ Datatype:
     | Atom lit
 End
 
-Definition bind_funs_def[simp]:
-  bind_funs funs env =
+Definition subst_funs_def[simp]:
+  subst_funs funs env =
     env ++ MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs
 End
 
@@ -60,7 +60,7 @@ Definition dest_anyClosure_def:
     do
       (f, env, n) <- dest_Recclosure v;
       case ALOOKUP (REVERSE f) n of
-        SOME (Lam s x) => return (s, bind_funs f env, x)
+        SOME (Lam s x) => return (s, subst_funs f env, x)
       | _ => fail Type_error
     od
 End
@@ -151,7 +151,7 @@ Definition eval_to_def:
        od) ∧
   eval_to k env (Letrec funs x) =
     (if k = 0 then fail Diverge else
-       eval_to (k - 1) (bind_funs funs env) x) ∧
+       eval_to (k - 1) (subst_funs funs env) x) ∧
   eval_to k env (Delay x) = return (Thunk (INR (env, x))) ∧
   eval_to k env (Box x) =
     (do
@@ -165,7 +165,7 @@ Definition eval_to_def:
        case wx of
          INL v => return v
        | INR (env, y) => if k = 0 then fail Diverge else
-                           eval_to (k - 1) (bind_funs binds env) y
+                           eval_to (k - 1) (subst_funs binds env) y
      od) ∧
   eval_to k env (Prim op xs) =
     (case op of

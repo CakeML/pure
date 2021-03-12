@@ -101,14 +101,8 @@ Proof
   rw [subst_def, COND_RAND, subst_empty, ELIM_UNCURRY]
 QED
 
-Definition bind_def:
-  bind m v = subst m v
-End
-
-Overload bind1 = “λname v e. bind [(name,v)] e”;
-
 Definition subst_funs_def:
-  subst_funs f = bind (MAP (λ(g, x). (g, Recclosure f g)) f)
+  subst_funs f = subst (MAP (λ(g, x). (g, Recclosure f g)) f)
 End
 
 Definition dest_Closure_def[simp]:
@@ -198,7 +192,7 @@ Definition eval_to_def:
        fv <- eval_to k f;
        xv <- eval_to k x;
        (s, body, binds) <- dest_anyClosure fv;
-       y <<- bind (binds ++ [(s, xv)]) body;
+       y <<- subst (binds ++ [(s, xv)]) body;
        if k = 0 then fail Diverge else eval_to (k - 1) y
      od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
@@ -206,7 +200,7 @@ Definition eval_to_def:
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) x;
-         eval_to (k - 1) (bind1 n v y)
+         eval_to (k - 1) (subst1 n v y)
        od) ∧
   eval_to k (If x y z) =
     (if k = 0 then fail Diverge else
@@ -307,7 +301,7 @@ Proof
     \\ Cases_on ‘eval_to k y’ \\ fs []
     \\ rename1 ‘dest_anyClosure z’
     \\ Cases_on ‘dest_anyClosure z’ \\ fs []
-    \\ pairarg_tac \\ gvs [bind_def]
+    \\ pairarg_tac \\ gvs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
     simp [eval_to_def])
