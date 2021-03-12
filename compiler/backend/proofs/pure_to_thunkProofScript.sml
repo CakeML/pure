@@ -166,15 +166,6 @@ Proof
   \\ Cases_on ‘err’ \\ fs [v_rel_def]
 QED
 
-Theorem MAP_EQ_EL[local]:
-  ∀xs ys.
-    MAP f xs = MAP g ys ⇒
-      ∀n. n < LENGTH xs ⇒ f (EL n xs) = g (EL n ys)
-Proof
-  Induct \\ Cases_on ‘ys’ \\ simp [PULL_FORALL]
-  \\ Cases_on ‘n’ \\ simp []
-QED
-
 Theorem exp_ind_alt[local]:
  ∀P.
    (∀n. P (Var n: pure_exp$exp)) ∧
@@ -257,10 +248,10 @@ Proof
     \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, freevars_def,
              GSYM pure_miscTheory.FST_THM]
     \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
-    \\ last_x_assum mp_tac
-    \\ rpt (pop_assum kall_tac)
-    \\ qid_spec_tac ‘g’
-    \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ fs [ELIM_UNCURRY])
+    \\ gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] \\ rw[]
+    \\ last_x_assum drule \\ pairarg_tac \\ gvs[] \\ pairarg_tac \\ gvs[]
+    \\ rw[] \\ gvs[]
+    )
 QED
 
 Theorem exp_rel_closed:
@@ -270,12 +261,15 @@ Proof
              pure_miscTheory.NIL_iff_NOT_MEM]
 QED
 
+Theorem subst_single_def[local] = pure_exp_lemmasTheory.subst1_def;
+Theorem subst1_def[local] = thunkLang_substTheory.subst1_def;
+
 Theorem exp_rel_subst:
   ∀x y a b n s.
     exp_rel x y ∧
     exp_rel a b ∧
     closed a ⇒
-      exp_rel (subst n (Tick a) x)
+      exp_rel (subst1 n (Tick a) x)
               (subst1 n (Thunk (INR b)) y)
 Proof
   ho_match_mp_tac exp_ind_alt \\ rw []
@@ -308,10 +302,10 @@ Proof
       \\ irule_at Any EQ_REFL \\ fs [])
     >- ((* Seq *)
       simp [subst_single_def, subst1_def]
-      \\ IF_CASES_TAC \\ gvs [subst_ignore_single]
+      \\ IF_CASES_TAC \\ gvs [subst1_ignore]
       \\ irule exp_rel_Seq \\ fs []
       \\ ‘closed (Tick a)’ by fs [pure_expTheory.closed_def]
-      \\ fs [freevars_subst_single, SF DNF_ss]
+      \\ fs [freevars_subst1, SF DNF_ss]
       \\ last_x_assum (irule_at Any) \\ fs []
       \\ last_assum (irule_at Any) \\ fs [])
     >- ((* Others *)
@@ -723,7 +717,7 @@ Proof
     \\ first_x_assum irule
     \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE, bind_def]
     \\ irule_at Any exp_rel_subst \\ fs []
-    \\ irule_at Any closed_freevars_subst
+    \\ irule_at Any closed_freevars_subst1
     \\ fs [pure_expTheory.closed_def])
   >- ((* Letrec *)
     rw []
