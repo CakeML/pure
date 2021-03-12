@@ -977,5 +977,50 @@ Proof
         \\ gvs [])))
 QED
 
+Theorem v_rel_mono:
+  x ≠ wh_Diverge ∧
+  v_rel x (eval_to k y) ⇒
+    ∀j. k ≤ j ⇒ v_rel x (eval_to j y)
+Proof
+  rw []
+  \\ ‘eval_to k y ≠ INL Diverge’ by (strip_tac \\ fs [])
+  \\ Cases_on ‘k = j’ \\ fs []
+  \\ ‘k < j’ by fs []
+  \\ drule_all_then assume_tac eval_to_subst_mono \\ fs []
+QED
+
+Theorem exp_rel_eval:
+  eval_wh x = res ∧
+  exp_rel x y ∧
+  closed x ⇒
+    v_rel res (eval y)
+Proof
+  rw [eval_wh_def, thunkLang_substTheory.eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ rw []
+  >- (
+    rename1 ‘eval_to k’
+    \\ rename1 ‘eval_wh_to j’
+    \\ Cases_on ‘j ≤ k’ \\ fs []
+    >- (
+      irule v_rel_mono \\ fs []
+      \\ first_assum (irule_at Any)
+      \\ irule_at Any exp_rel_eval_to
+      \\ first_assum (irule_at Any) \\ fs [])
+    \\ ‘k < j’ by fs []
+    \\ drule_all_then assume_tac eval_to_subst_mono
+    \\ pop_assum (SUBST_ALL_TAC o SYM)
+    \\ irule exp_rel_eval_to
+    \\ first_assum (irule_at Any) \\ fs [])
+  >- (
+    irule exp_rel_eval_to
+    \\ first_assum (irule_at Any) \\ fs [])
+  \\ rename1 ‘eval_wh_to j’
+  \\ ‘v_rel (eval_wh_to j x) (eval_to j y)’ suffices_by rw []
+  \\ irule_at Any exp_rel_eval_to
+  \\ first_assum (irule_at Any) \\ fs []
+QED
+
 val _ = export_theory ();
 
