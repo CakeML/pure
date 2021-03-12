@@ -2,8 +2,10 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory rich_listTheory stringTheory alistTheory
      optionTheory llistTheory BasicProvers pred_setTheory finite_mapTheory;
-open pure_evalTheory pure_valueTheory pure_expTheory pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory pure_alpha_equivTheory pure_beta_equivTheory;
-     
+open pure_evalTheory pure_valueTheory pure_expTheory pure_exp_lemmasTheory
+     pure_miscTheory pure_exp_relTheory pure_congruenceTheory
+     pure_alpha_equivTheory pure_beta_equivTheory;
+
 val _ = new_theory "pure_list_fusion";
 
 Definition nil_def:
@@ -130,156 +132,148 @@ Proof
   cheat
 QED
 
-        
+
 Theorem progress_equivalence:
   ∀ exp1 exp2 model.
   exp1 ≃ exp2 ∧
   progress exp1 model
-   ⇒ progress exp2 model 
+   ⇒ progress exp2 model
 Proof
   cheat
 QED
+
+val eval_rewrites =
+  [bind_def,subst_def,closed_def,freevars_equiv,
+   FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM];
 
 Theorem progress_map_f:
   ∀ f. closed f ⇒ progress (App map f) (next_list f)
 Proof
   rw[progress_def]
-  \\fs[closed_def]
-  \\rw[exp_eq_def,bind_def,subst_def] \\ rw[]
-  \\irule eval_IMP_app_bisimilarity
-  \\rw[closed_def]
+  \\ fs[closed_def, freevars_equiv]
+  \\ rw[exp_eq_def,bind_def,subst_def] \\ rw[]
+  \\ irule eval_IMP_app_bisimilarity
+  \\ rw[closed_def, freevars_equiv]
   THEN1(
     rw[dot_def,map_def,nil_def,cons_def,LAMREC_def]
-    \\rw[expandCases_def,expandRows_def,expandLets_def]
+    \\ rw[expandCases_def,expandRows_def,expandLets_def]
   )
   THEN1(
-    simp[next_list_def,closed_def]
-    \\rw[]\\fs[Bottom_def]
-    \\FULL_CASE_TAC \\ fs[]
-    \\FULL_CASE_TAC \\ fs[]
+    simp[next_list_def,closed_def, freevars_equiv]
+    \\ rw[] \\ fs[Bottom_def]
+    \\ FULL_CASE_TAC \\ fs[]
+    \\ FULL_CASE_TAC \\ fs[]
     THEN1(
       rw[dot_def,map_def,nil_def,cons_def,LAMREC_def]
-      \\rw[expandCases_def,expandRows_def,expandLets_def]
+      \\ rw[expandCases_def,expandRows_def,expandLets_def, GSYM DELETE_DEF]
     )
-    \\rw[nil_def]
+    \\ rw[nil_def]
   )
-  \\simp[map_def,LAMREC_def,cons_def,nil_def]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[subst_funs_def]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[expandCases_def,expandRows_def,expandLets_def]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[is_eq_def]
-  \\Cases_on ‘eval input = Diverge’ \\ fs[]
+  \\ simp[map_def,LAMREC_def,cons_def,nil_def]
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[subst_funs_def]
+  \\ simp eval_rewrites
+  \\ simp[expandCases_def,expandRows_def,expandLets_def]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[is_eq_def]
+  \\ Cases_on ‘eval input = Diverge’ \\ fs[]
   THEN1(
-    simp[next_list_def,closed_def,eval_thm]
+    simp[next_list_def,closed_def,eval_thm,freevars_equiv]
   )
-  \\FULL_CASE_TAC \\ fs[]
-  \\TRY(simp[next_list_def,closed_def,eval_thm])
-  \\rw[]\\fs[]
-  \\TRY(
-    simp[next_list_def,closed_def,eval_thm]
-    \\fs[nil_def,eval_thm]
-    \\FULL_CASE_TAC \\ fs[]
-    \\FULL_CASE_TAC \\ fs[]
+  \\ FULL_CASE_TAC \\ fs[]
+  \\ TRY(simp[next_list_def,closed_def,freevars_equiv,eval_thm])
+  \\ rw[]\\fs[]
+  \\ TRY(
+    simp[next_list_def,closed_def,freevars_equiv,eval_thm]
+    \\ fs[nil_def,eval_thm]
+    \\ FULL_CASE_TAC \\ fs[]
+    \\ FULL_CASE_TAC \\ fs[]
   )
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[subst_funs_def]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[is_eq_def]    
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[is_eq_def,el_def]
-  \\Cases_on ‘EL 1 t = Diverge’ \\ fs[]
-  \\ rw[] \\ fs[]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[subst_funs_def]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[subst_funs_def]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[is_eq_def]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[is_eq_def,el_def]
+  \\ Cases_on ‘EL 1 t = Diverge’ \\ fs[]
+  \\  rw[] \\ fs[]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[subst_funs_def]
+  \\ simp eval_rewrites
 QED
 
 Theorem progress_map_f_f:
   ∀ f. closed f ⇒ progress (map_f f) (next_list f)
 Proof
   rw[progress_def]
-  \\fs[closed_def]
+  \\fs[closed_def,freevars_equiv]
   \\rw[exp_eq_def,bind_def,subst_def] \\ rw[]
   \\irule eval_IMP_app_bisimilarity
-  \\rw[closed_def]
+  \\rw[closed_def,freevars_equiv]
   THEN1(
     rw[dot_def,map_f_def,nil_def,cons_def,LAMREC_def]
     \\rw[expandCases_def,expandRows_def,expandLets_def]
   )
   THEN1(
-    simp[next_list_def] \\ fs[closed_def]
+    simp[next_list_def] \\ fs[closed_def,freevars_equiv]
     \\ rw[] \\ fs[Bottom_def]
     \\ FULL_CASE_TAC \\ fs[] \\ rw[] \\ fs[nil_def,map_f_def,LAMREC_def]
     \\ EVAL_TAC \\ fs[FILTER_FILTER]
   )
-  \\simp[map_f_def,LAMREC_def,cons_def,nil_def]
-  \\simp[eval_thm]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\simp[subst_funs_def]
-  \\simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[eval_thm]
-  \\reverse (rw[FILTER_FILTER])
+  \\ simp[map_f_def,LAMREC_def,cons_def,nil_def]
+  \\ simp[eval_thm]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ simp[subst_funs_def]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm]
+  \\ reverse (rw[FILTER_FILTER])
   THEN1 (
     pop_assum mp_tac
     \\ rw[FILTER_FILTER,expandCases_def,expandRows_def,expandLets_def]
   )
-  \\simp[expandCases_def,expandRows_def,expandLets_def]
-  \\simp[eval_thm,bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\simp[is_eq_def]
-  \\Cases_on ‘eval input = Diverge’ \\ fs[]
-  THEN1 (simp[next_list_def,closed_def,eval_thm])
-  \\ FULL_CASE_TAC \\ fs[next_list_def,closed_def,eval_thm]
-  \\ Cases_on ‘s = "nil" ∧ t = []’ \\ fs[nil_def,eval_thm]
-  \\ Cases_on ‘s = "cons" ∧ LENGTH t = 2’ \\ fs[]
-  THEN1(
-    simp[eval_thm,subst_funs_def]
-    \\ simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-    \\ simp[eval_thm,subst_funs_def]    
-    \\ simp[bind_def,subst_def,closed_def
-        ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  )
-  \\ rw[] \\ fs[eval_thm]
-  \\ FULL_CASE_TAC \\ fs[]
+  \\ simp[expandCases_def,expandRows_def,expandLets_def]
+  \\ simp eval_rewrites
+  \\ simp[is_eq_def]
+  \\ Cases_on ‘eval input = Diverge’ \\ fs[]
+  THEN1 (
+    simp[next_list_def,closed_def,freevars_equiv,eval_thm,
+         bind1_def,subst1_def,is_eq_def]
+    ) >>
+  simp[next_list_def, closed_def, freevars_equiv] >>
+  FULL_CASE_TAC >> gvs (eval_thm :: is_eq_def :: eval_rewrites) >>
+  Cases_on `s = "nil"` >> gvs[nil_def, eval_thm]
+  >- (Cases_on `t = []` >> gvs[nil_def, eval_thm]) >>
+  Cases_on `s = "cons"` >> gvs[nil_def, eval_thm] >>
+  Cases_on `LENGTH t = 2` >> gvs[nil_def, eval_thm] >> rw[]
+  >- simp eval_rewrites
+  >- (
+    irule FALSITY >>
+    gvs[subst_funs_def] >> gvs eval_rewrites >> gvs[eval_thm]
+    ) >>
+  simp[eval_thm,subst_funs_def]
+  \\ simp eval_rewrites
+  \\ simp[eval_thm,subst_funs_def]
+  \\ simp eval_rewrites
 QED
 
 Theorem progress_compose_fg:
@@ -310,7 +304,7 @@ Proof
     \\ simp[app_bisimilarity_eq]
     \\ rw[]
     \\ TRY (
-      fs[closed_def]
+      fs[closed_def,freevars_equiv]
       \\ simp[map_f_def,map_def,LAMREC_def,expandCases_def
              ,expandRows_def,expandLets_def,cons_def,nil_def]
       \\ FAIL_TAC "rollback"
@@ -334,45 +328,39 @@ Proof
   \\ irule eval_IMP_app_bisimilarity
   \\ rw[]
   \\ TRY (
-     fs[closed_def]
+     fs[closed_def,freevars_equiv]
      \\ simp[map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
             ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]
      \\ rpt ( FULL_CASE_TAC \\ fs[Bottom_def] )
      \\ FAIL_TAC "rollback"
   )
   \\ simp [eval_thm]
-  \\ simp [bind_def,subst_def,closed_def
-          ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM]
-  \\ ‘closed (map_f f)’ by (
-    fs[closed_def]
-    \\ simp[closed_def,map_f_def,LAMREC_def,expandCases_def
+  \\ simp eval_rewrites
+  \\ ‘closed (map_f f) ∧ closed (map_f g)’ by (
+    fs[closed_def,freevars_equiv]
+    \\ simp[closed_def,freevars_equiv,map_f_def,LAMREC_def,expandCases_def
            ,expandRows_def,expandLets_def,cons_def,nil_def]
   )
-  \\ ‘closed (map_f g)’ by (
-    fs[closed_def]
-    \\ simp[closed_def,map_f_def,LAMREC_def,expandCases_def
-           ,expandRows_def,expandLets_def,cons_def,nil_def]
-  )
-  \\ simp[closed_subst] \\ fs[closed_def]
+  \\ simp[closed_subst] \\ fs[closed_def,freevars_equiv]
   \\ simp[eval_thm]
   \\ ntac 2
-      (simp[closed_def,Once map_f_def,LAMREC_def,expandCases_def
+      (simp[closed_def,freevars_equiv,Once map_f_def,LAMREC_def,expandCases_def
            ,expandRows_def,expandLets_def,cons_def,nil_def])
   \\ ntac 6
-      (simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+      (simp [Once eval_thm,bind_def,subst_def,closed_def,freevars_equiv,subst_funs_def
           ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM,FUPDATE_LIST_THM])
-  \\ simp[is_eq_def]  
+  \\ simp[is_eq_def]
   \\ simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
-          ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
+          ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]
   \\ ntac 5
-     ( simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+     ( simp [Once eval_thm,bind_def,subst_def,closed_def,freevars_equiv,subst_funs_def
             ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
             ,FUPDATE_LIST_THM,is_eq_def] )
   \\ Cases_on ‘eval input = Diverge’ \\ fs[eval_thm,is_eq_def]
   \\ ‘eval (map_f g) ≠ Diverge’ by (
     simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
-         ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
-    \\ simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+         ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def,freevars_equiv]
+    \\ simp [Once eval_thm,bind_def,subst_def,closed_def,freevars_equiv,subst_funs_def
             ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
             ,FUPDATE_LIST_THM,is_eq_def]
   ) \\ fs[]
@@ -382,21 +370,21 @@ Proof
     \\ pop_assum mp_tac
     \\ pop_assum mp_tac
     \\ simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
-            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
-    \\ simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def,freevars_equiv]
+    \\ simp [Once eval_thm,bind_def,subst_def,closed_def,freevars_equiv,subst_funs_def
             ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
             ,FUPDATE_LIST_THM,is_eq_def]
   )
-  \\ fs[dest_Closure_def] 
+  \\ fs[dest_Closure_def]
   \\ Cases_on ‘eval (map_f g)’ \\ fs[]
   \\ pop_assum mp_tac
   \\ simp [Once map_f_def,map_def,LAMREC_def,expandCases_def,next_list_def
-            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def]       
+            ,expandRows_def,expandLets_def,cons_def,nil_def,closed_def,freevars_equiv]
   \\ ntac 2
-     (simp [Once eval_thm,bind_def,subst_def,closed_def,subst_funs_def
+     (simp [Once eval_thm,bind_def,subst_def,closed_def,freevars_equiv,subst_funs_def
            ,FLOOKUP_UPDATE,FDIFF_def,DOMSUB_FUPDATE_THM
            ,FUPDATE_LIST_THM,is_eq_def])
-  \\ cheat  
+  \\ cheat
   (*go on with the symbolic evaluation...*)
 QED
 
@@ -422,7 +410,7 @@ Proof
   \\ fs[app_bisimilarity_sym]
 QED
 
-        
+
 
 
 val _ = export_theory();

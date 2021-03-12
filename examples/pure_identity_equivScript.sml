@@ -29,7 +29,7 @@ Proof
  simp[id_def,iidd_def]
  \\ once_rewrite_tac [exp_eq_sym]
  \\ qspecl_then [‘"x"’,‘Var "x"’,‘Var "y"’] assume_tac (GEN_ALL beta_equivalence)
- \\ fs[ca_subst_def,freshen_def,subst_single_def]
+ \\ fs[ca_subst_def,freshen_def,subst1_def]
  \\ qspecl_then [‘Lam "y" Hole’] assume_tac exp_equiv_plug
  \\ res_tac
  \\ fs[plug_def]
