@@ -468,9 +468,9 @@ Proof
   irule cons_names_subst >> simp[]
 QED
 
-Theorem cons_names_bind_single:
+Theorem cons_names_bind1:
   ∀ x e' e n.
-    n ∈ cons_names (bind x e' e)
+    n ∈ cons_names (bind1 x e' e)
   ⇒ n ∈ cons_names e ∨ n ∈ cons_names e'
 Proof
   rw[] >>

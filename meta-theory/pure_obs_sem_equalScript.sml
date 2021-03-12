@@ -133,7 +133,7 @@ Proof
        \\ once_rewrite_tac [app_bisimilarity_iff]
        \\ fs [eval_wh_Lam])
     \\ ‘Lam s1 e1 ≅ Lam s2 e2’ by fs [app_bisimilarity_eq]
-    \\ fs [exp_eq_Lam] \\ fs [bind_single_def])
+    \\ fs [exp_eq_Lam] \\ fs [bind1_def])
   \\ Cases_on ‘s = "Raise"’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
@@ -186,7 +186,7 @@ Proof
        \\ once_rewrite_tac [app_bisimilarity_iff]
        \\ fs [eval_wh_Lam])
     \\ ‘Lam s1 e1 ≅ Lam s2 e2’ by fs [app_bisimilarity_eq]
-    \\ fs [exp_eq_Lam] \\ fs [bind_single_def])
+    \\ fs [exp_eq_Lam] \\ fs [bind1_def])
   \\ Cases_on ‘s = "Length"’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []

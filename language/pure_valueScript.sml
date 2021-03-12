@@ -679,13 +679,13 @@ QED
 Definition freevars_v_def:
   freevars_v v name ⇔
     ∃path s x k.
-      v_lookup path v = (Closure' s x, k) ∧ MEM name (freevars (Lam s x))
+      v_lookup path v = (Closure' s x, k) ∧ name ∈ freevars (Lam s x)
 End
 
-Theorem freevars_v_MEM:
+Theorem freevars_v_IN:
   name ∈ freevars_v v ⇔
     ∃path s x k.
-      v_lookup path v = (Closure' s x, k) ∧ MEM name (freevars (Lam s x))
+      v_lookup path v = (Closure' s x, k) ∧ name ∈ freevars (Lam s x)
 Proof
   rw[IN_DEF,freevars_v_def]
 QED

@@ -17,7 +17,7 @@ End
 (*TODO: a tactic that, given a goal like:
 
         exp_alpha (Lam "y" (Var "y")) (Lam "x" (Var "x"))
-        
+
         checks whether two closed expressions are exp_alpha, and, if so,
         proves the goal.
         Alternatively, de Bruijn indexes.
@@ -29,13 +29,13 @@ Proof
  simp[id_def,iidd_def]
  \\ once_rewrite_tac [exp_eq_sym]
  \\ qspecl_then [‘"x"’,‘Var "x"’,‘Var "y"’] assume_tac (GEN_ALL beta_equivalence)
- \\ fs[CA_subst_def,avoid_vars_def,subst_single_def]
+ \\ fs[ca_subst_def,freshen_def,subst1_def]
  \\ qspecl_then [‘Lam "y" Hole’] assume_tac exp_equiv_plug
  \\ res_tac
  \\ fs[plug_def]
  \\ irule exp_eq_trans
  \\ qexists_tac ‘Lam "y" (Var "y")’ \\ fs[]
- \\ irule exp_alpha_exp_eq 
+ \\ irule exp_alpha_exp_eq
  \\ qspecl_then [‘"x"’,‘"y"’,‘Lam "y" (Var "y")’] assume_tac exp_alpha_perm_irrel
  \\ fs[perm_exp_def,perm1_def]
 QED
@@ -43,5 +43,5 @@ QED
 Theorem id_iidd_equivalence_expanded =
    id_iidd_equivalence |> REWRITE_RULE [iidd_def,id_def]
 
-            
+
 val _ = export_theory();

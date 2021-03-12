@@ -340,6 +340,24 @@ Proof
     )
 QED
 
+Theorem ALL_DISTINCT_FLAT_IMP:
+  ∀l m. ALL_DISTINCT (FLAT l) ∧ MEM m l ⇒ ALL_DISTINCT m
+Proof
+  Induct >> rw[] >> gvs[ALL_DISTINCT_APPEND]
+QED
+
+Theorem ALL_DISTINCT_FLAT_IMP_APPEND:
+  ∀l m1 m2. ALL_DISTINCT (FLAT l) ∧ MEM m1 l ∧ MEM m2 l ∧ m1 ≠ m2
+  ⇒ ALL_DISTINCT (m1 ++ m2)
+Proof
+  Induct >> reverse (rw[])
+  >- (last_x_assum irule >> gvs[ALL_DISTINCT_APPEND]) >>
+  gvs[ALL_DISTINCT_APPEND] >>
+  irule_at Any ALL_DISTINCT_FLAT_IMP >> goal_assum drule >> simp[] >> rw[] >>
+  CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[MEM_FLAT] >>
+  goal_assum drule >> simp[]
+QED
+
 
 (******************** Lazy lists ********************)
 
@@ -400,6 +418,14 @@ QED
 
 
 (******************** Sets ********************)
+
+Theorem EMPTY_iff_NOTIN:
+  ∀s. s = {} ⇔ ∀x. x ∉ s
+Proof
+  rw[] >> eq_tac >> rw[] >>
+  once_rewrite_tac[GSYM SUBSET_EMPTY] >>
+  once_rewrite_tac[SUBSET_DEF] >> rw[]
+QED
 
 Theorem fresh_list:
   ∀s. FINITE s ⇒ ∃x. x ∉ s:('a list set)

@@ -62,7 +62,7 @@ Definition unfold_rel_def:
       eval_wh e1 = wh_Closure x ce1
       ⇒ ∃y ce2.
           eval_wh e2 = wh_Closure y ce2 ∧
-          ∀e. closed e ⇒ rel (subst x e ce1, subst y e ce2))
+          ∀e. closed e ⇒ rel (subst1 x e ce1, subst1 y e ce2))
     ∧
     (∀x e1s.
       eval_wh e1 = wh_Constructor x e1s
@@ -232,7 +232,7 @@ Proof
     imp_res_tac eval_wh_freevars_SUBSET >>
     gvs[freevars_wh_def, MEM_MAP, PULL_EXISTS, closed_def] >>
     gvs[pure_miscTheory.NIL_iff_NOT_MEM, DISJ_COMM] >>
-    gvs[GSYM IMP_DISJ_THM]
+    gvs[GSYM IMP_DISJ_THM] >> rw[EXTENSION]
     >- (first_x_assum irule >> gvs[EL_MEM])
     >- (last_x_assum irule >> gvs[EL_MEM])
     )
@@ -240,7 +240,7 @@ Proof
     simp[GSYM eval_def] >>
     gvs[v_unfold] >> FULL_CASE_TAC >> gvs[] >> rw[] >>
     imp_res_tac eval_wh_freevars_SUBSET >> gvs[freevars_wh_def] >>
-    drule freevars_subst_single >> simp[closed_def, EXTENSION] >>
+    drule freevars_subst1 >> simp[closed_def, EXTENSION] >>
     gvs[closed_def, pure_miscTheory.NIL_iff_NOT_MEM]
     )
 QED
@@ -257,12 +257,12 @@ Proof
     rw[LIST_REL_EL_EQN] >>
     imp_res_tac eval_wh_freevars_SUBSET >>
     gvs[freevars_wh_def, closed_def, pure_miscTheory.NIL_iff_NOT_MEM, MEM_MAP] >>
-    rw[] >> rename1 `MEM vars _` >>
+    rw[EXTENSION] >> rename1 `vars ∉ _` >>
     pop_assum (qspecl_then [`vars`,`freevars (EL n e1s)`] assume_tac) >> gvs[] >>
     pop_assum (qspec_then `EL n e1s` assume_tac) >> gvs[EL_MEM]
     ) >>
   imp_res_tac eval_wh_freevars_SUBSET >> gvs[freevars_wh_def] >>
-  drule freevars_subst_single >> simp[closed_def, EXTENSION] >>
+  drule freevars_subst1 >> simp[closed_def, EXTENSION] >>
   gvs[closed_def, pure_miscTheory.NIL_iff_NOT_MEM]
 QED
 
@@ -712,7 +712,8 @@ QED
 (* (Tra) in the paper has an amusing typo that renders the corresponding
    proposition a tautology *)
 Theorem open_similarity_transitive:
-  open_similarity names e1 e2 ∧ open_similarity names e2 e3 ⇒ open_similarity names e1 e3
+  open_similarity names e1 e2 ∧ open_similarity names e2 e3
+  ⇒ open_similarity names e1 e3
 Proof
   rw[open_similarity_def]
   \\ rw [bind_def]
@@ -818,7 +819,7 @@ Definition eval_to_sim_def:
         case eval_wh_to k e1 of
         | wh_Closure v x =>
            (∃y. eval_wh_to (k+ck) e2 = wh_Closure v y ∧ rel x y ∧
-                ∀e. closed e ⇒ rel (subst v e x) (subst v e y))
+                ∀e. closed e ⇒ rel (subst1 v e x) (subst1 v e y))
         | wh_Constructor a xs =>
            (∃ys. eval_wh_to (k+ck) e2 = wh_Constructor a ys ∧ LIST_REL rel xs ys)
         | res => eval_wh_to (k+ck) e2 = res
@@ -859,7 +860,7 @@ Proof
     \\ fs[closed_def, PULL_EXISTS, MEM_MAP] \\ gvs[]
     \\ ntac 2 (pop_assum mp_tac)
     \\ once_rewrite_tac[DISJ_COMM]
-    \\ simp[DISJ_EQ_IMP, NIL_iff_NOT_MEM] \\ rw[]
+    \\ simp[DISJ_EQ_IMP, NIL_iff_NOT_MEM] \\ rw[EXTENSION]
       >- (first_x_assum irule >> simp[EL_MEM])
       >- (last_x_assum irule >> simp[EL_MEM])
     )
@@ -901,7 +902,7 @@ Proof
     imp_res_tac eval_wh_to_freevars_SUBSET >>
     fs[closed_def, PULL_EXISTS, MEM_MAP] >> gvs[] >>
     ntac 2 (pop_assum mp_tac) >> once_rewrite_tac[DISJ_COMM] >>
-    simp[DISJ_EQ_IMP, NIL_iff_NOT_MEM] >> rw[]
+    simp[DISJ_EQ_IMP, NIL_iff_NOT_MEM] >> rw[EXTENSION]
     >- (last_x_assum irule >> simp[EL_MEM])
     >- (first_x_assum irule >> simp[EL_MEM])
     )

@@ -97,7 +97,7 @@ Definition eval_to_def:
        | NONE => Error
        | SOME (s,body) =>
            if k = 0n then Diverge else
-             eval_to (k-1) (bind s y body)) ∧
+             eval_to (k-1) (bind1 s y body)) ∧
   eval_to k (Letrec f y) =
     (if k = 0 then Diverge else
       eval_to (k-1) (subst_funs f y))
@@ -725,7 +725,7 @@ Theorem eval_App:
     let v = eval x in
       if v = Diverge then Diverge else
         case dest_Closure v of
-        | SOME (s,body) => eval (bind s y body)
+        | SOME (s,body) => eval (bind1 s y body)
         | NONE => Error
 Proof
   fs [eval_def, eval_to_def] >>
@@ -760,7 +760,7 @@ Proof
 QED
 
 Theorem eval_Let:
-  eval (Let s x y) = eval (bind s x y)
+  eval (Let s x y) = eval (bind1 s x y)
 Proof
   fs [eval_App,eval_Lam,dest_Closure_def,bind_def]
 QED
@@ -1123,7 +1123,7 @@ Theorem eval_core:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind s y body)) ∧
+         | SOME (s,body) => eval (bind1 s y body)) ∧
   eval (Case x nm css) = eval (expandCases x nm css)
 Proof
   fs [eval_Var,eval_Prim,eval_Lam,eval_Letrec,eval_App,eval_Case]
@@ -1136,7 +1136,7 @@ Theorem eval_thm:
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
-  eval (Let s x y) = eval (bind s x y) ∧
+  eval (Let s x y) = eval (bind1 s x y) ∧
   eval (If x y z) = (
        if eval x = Diverge then Diverge  else
        if eval x = True    then eval y else
@@ -1148,7 +1148,7 @@ Theorem eval_thm:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind s y body))
+         | SOME (s,body) => eval (bind1 s y body))
 Proof
   fs [eval_Fail,eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
       eval_IsEq,bind_def,eval_Letrec,eval_Case]
@@ -1227,8 +1227,8 @@ Definition v_rel'_def:
     | Closure s1 x1 =>
         ∃ s2 x2.
           v2 = Closure s2 x2 ∧
-          ∀z. v_rel' n (eval (bind s1 z x1))
-                       (eval (bind s2 z x2))
+          ∀z. v_rel' n (eval (bind1 s1 z x1))
+                       (eval (bind1 s2 z x2))
     | Diverge => v2 = Diverge
     | Error => v2 = Error)
 End
@@ -1263,7 +1263,7 @@ QED
 
 Theorem v_rel_Closure:
   (∀x y. exp_rel x y
-    ⇒ exp_rel (bind m x b) (bind n y d)) ⇒
+    ⇒ exp_rel (bind1 m x b) (bind1 n y d)) ⇒
   v_rel (Closure m b) (Closure n d)
 Proof
   rw [PULL_FORALL,exp_rel_def,v_rel_def] \\ fs []
@@ -1314,7 +1314,7 @@ Theorem v_rel_rules:
      b1 = b2 ⇒
        v_rel (Atom b1) (Atom b2)) ∧
   (∀n1 x1 n2 x2.
-     (∀z. v_rel (eval (bind n1 z x1)) (eval (bind n2 z x2))) ⇒
+     (∀z. v_rel (eval (bind1 n1 z x1)) (eval (bind1 n2 z x2))) ⇒
        v_rel (Closure n1 x1) (Closure n2 x2)) ∧
   (∀n1 x1 n2 x2.
      n1 = n2 ∧
@@ -1350,7 +1350,7 @@ Theorem v_rel_rules':
   (∀n1 x1 n2 x2.
      (∀z1 z2.
        v_rel (eval z1) (eval z2) ⇒
-       v_rel (eval (bind n1 z1 x1)) (eval (bind n2 z2 x2))) ⇒
+       v_rel (eval (bind1 n1 z1 x1)) (eval (bind1 n2 z2 x2))) ⇒
        v_rel (Closure n1 x1) (Closure n2 x2)) ∧
   (∀n1 x1 n2 x2.
      n1 = n2 ∧
@@ -1371,7 +1371,7 @@ Theorem v_rel_cases:
   (∀s x y. v_rel (Closure s x) y ⇔
     ∃s' x'.
       y = Closure s' x' ∧
-      ∀z. exp_rel (bind s z x) (bind s' z x')) ∧
+      ∀z. exp_rel (bind1 s z x) (bind1 s' z x')) ∧
   (∀x. v_rel Diverge x ⇔ x = Diverge) ∧
   (∀x. v_rel Error x ⇔ x = Error)
 Proof

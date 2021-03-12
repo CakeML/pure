@@ -22,24 +22,17 @@ End
 Overload wh_True = ``wh_Constructor "True" []``;
 Overload wh_False = ``wh_Constructor "False" []``;
 
-Definition freevars_wh_def:
-  (freevars_wh (wh_Constructor s es) = FLAT (MAP freevars es)) ∧
-  (freevars_wh (wh_Closure s e) = FILTER ($≠ s) (freevars e)) ∧
-  (freevars_wh _ = [])
+Definition freevars_wh_def[simp]:
+  freevars_wh (wh_Constructor s es) = BIGUNION (set (MAP freevars es)) ∧
+  freevars_wh (wh_Closure s e)      = freevars e DELETE s ∧
+  freevars_wh _                     = {}
 End
 
-Overload freevars_wh = “λe. set (freevars_wh e)”
-
-Theorem freevars_wh_set_def[simp]:
-  (∀s es. freevars_wh (wh_Constructor s es) = BIGUNION (set (MAP freevars es))) ∧
-  (∀s e.  freevars_wh (wh_Closure s e)      = freevars e DELETE s) ∧
-  (∀a.    freevars_wh (wh_Atom a)           = {}) ∧
-  (       freevars_wh (wh_Error)            = {}) ∧
-  (       freevars_wh (wh_Diverge)          = {})
-Proof
-  rw[freevars_wh_def, LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
-  rw[DELETE_DEF, LIST_TO_SET_FILTER, EXTENSION] >> eq_tac >> rw[]
-QED
+Definition freevars_wh_l_def[simp]:
+  (freevars_wh_l (wh_Constructor s es) = FLAT (MAP freevars_l es)) ∧
+  (freevars_wh_l (wh_Closure s e) = FILTER ($≠ s) (freevars_l e)) ∧
+  (freevars_wh_l _ = [])
+End
 
 (* weak-head evalation *)
 
@@ -70,7 +63,7 @@ Definition eval_wh_to_def:
          case dest_wh_Closure v of
            NONE => wh_Error
          | SOME (s,body) => if k = 0 then wh_Diverge
-                            else eval_wh_to (k − 1) (bind s y body)) ∧
+                            else eval_wh_to (k − 1) (bind1 s y body)) ∧
   eval_wh_to k (Letrec f y) =
     (if k = 0 then wh_Diverge else eval_wh_to (k − 1) (subst_funs f y)) ∧
   eval_wh_to k (Prim p xs) =
@@ -271,7 +264,7 @@ Theorem eval_wh_App:
        if v = wh_Diverge then wh_Diverge else
          case dest_wh_Closure v of
            NONE => wh_Error
-         | SOME (s,body) => eval_wh (bind s y body)
+         | SOME (s,body) => eval_wh (bind1 s y body)
 Proof
   fs [] \\ Cases_on ‘eval_wh x = wh_Diverge’ \\ fs []
   THEN1 (fs [eval_wh_eq] \\ fs [eval_wh_to_def])
@@ -775,7 +768,7 @@ Theorem eval_wh_thm:
        if v = wh_Diverge then wh_Diverge else
          case dest_wh_Closure v of
            NONE => wh_Error
-         | SOME (s,body) => eval_wh (bind s y body)) ∧
+         | SOME (s,body) => eval_wh (bind1 s y body)) ∧
   eval_wh (Letrec f y) = eval_wh (subst_funs f y) ∧
   eval_wh (Cons s xs) = wh_Constructor s xs ∧
   eval_wh (Proj s i x) =
@@ -906,7 +899,7 @@ Theorem eval_App:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind s y body))
+         | SOME (s,body) => eval (bind1 s y body))
 Proof
   simp [eval_def,Once v_unfold,eval_wh_thm]
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -974,7 +967,7 @@ Proof
 QED
 
 Theorem eval_Let:
-  eval (Let s x y) = eval (bind s x y)
+  eval (Let s x y) = eval (bind1 s x y)
 Proof
   fs [eval_App,eval_Lam]
 QED
@@ -999,7 +992,7 @@ Theorem eval_thm:
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
-  eval (Let s x y) = eval (bind s x y) ∧
+  eval (Let s x y) = eval (bind1 s x y) ∧
   eval (If x y z) =
     (if eval x = Diverge then Diverge  else
      if eval x = True    then eval y else
@@ -1011,7 +1004,7 @@ Theorem eval_thm:
        if v = Diverge then Diverge else
          case dest_Closure v of
          | NONE => Error
-         | SOME (s,body) => eval (bind s y body))
+         | SOME (s,body) => eval (bind1 s y body))
 Proof
   fs [eval_App,eval_Fail,eval_Bottom,eval_Var,eval_Cons,eval_Lam,eval_Letrec,
       eval_If,eval_Proj,eval_IsEq]

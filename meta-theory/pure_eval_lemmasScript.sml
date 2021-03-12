@@ -56,28 +56,40 @@ Theorem freevars_v_simps[simp]:
   (v ∈ freevars_v Error) = F ∧
   (v ∈ freevars_v Diverge) = F ∧
   (v ∈ freevars_v (Atom a)) = F ∧
-  (v ∈ freevars_v (Closure x e)) = MEM v (FILTER ($<> x) (freevars e)) ∧
+  (v ∈ freevars_v (Closure x e)) = (v ∈ freevars e DELETE x) ∧
   (v ∈ freevars_v (Constructor x xs)) = (v ∈ BIGUNION(IMAGE freevars_v (set xs)))
 Proof
-  gvs[freevars_v_MEM,MEM_FILTER] >>
+  gvs[freevars_v_IN] >>
   gvs[v_lookup_Error,v_lookup_Diverge,v_lookup_Atom,v_lookup_Closure,
       v_lookup_Constructor,AllCaseEqs(), oEL_THM] >>
-  conj_tac >- (eq_tac >> rw[]) >>
-  rw[EQ_IMP_THM,MEM_EL,PULL_EXISTS]
-  >- (goal_assum (drule_at (Pat ‘_ < _’)) >>
-      simp[freevars_v_MEM] >>
-      goal_assum drule >>
-      rw[rich_listTheory.EL_MEM,MEM_FILTER])
-  >- (gvs[freevars_v_MEM,LIST_TO_SET_FILTER] >>
-      qexists_tac ‘n::path’ >>
-      rw[] >>
-      metis_tac[MEM_EL])
+  rw[EQ_IMP_THM,PULL_EXISTS]
+  >- (
+    rw[freevars_v_IN, PULL_EXISTS] >>
+    goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    gvs[freevars_v_IN, MEM_EL] >>
+    qexists_tac `n::path` >> simp[]
+    )
+QED
+
+Theorem freevars_wh_equiv:
+  ∀w. freevars_wh w = set (freevars_wh_l w)
+Proof
+  recInduct freevars_wh_ind >> rw[]
+  >- (
+    gvs[LIST_TO_SET_FLAT, LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF] >>
+    AP_TERM_TAC >> rw[EXTENSION, freevars_equiv]
+    )
+  >- (
+    simp[LIST_TO_SET_FILTER, EXTENSION, freevars_equiv] >> rw[] >> eq_tac >> rw[]
+    )
 QED
 
 Theorem eval_wh_to_freevars_SUBSET:
   ∀k e1 v y.
     eval_wh_to k e1 = v ∧ y ∈ freevars_wh v ⇒
-    MEM y (freevars e1)
+    y ∈ freevars e1
 Proof
   ho_match_mp_tac eval_wh_to_ind >> rpt strip_tac
   >- (rename1 ‘Var’ >> gvs[eval_wh_to_def])
@@ -87,7 +99,7 @@ Proof
       pop_assum mp_tac >> IF_CASES_TAC >> gvs[] >>
       rpt (CASE_TAC >> gvs[]) >> rw[] >> res_tac >>
       Cases_on `eval_wh_to k e1` >> gvs[dest_wh_Closure_def] >>
-      gvs[bind_single_def] >> FULL_CASE_TAC >> gvs[] >>
+      gvs[bind1_def] >> FULL_CASE_TAC >> gvs[] >>
       res_tac >> gvs[freevars_subst]
       )
   >- (
@@ -142,8 +154,8 @@ QED
 
 Theorem eval_wh_to_Closure_freevars_SUBSET:
   ∀k e1 e2 x y.
-    eval_wh_to k e1 = wh_Closure x e2 ∧ MEM y (freevars e2) ⇒
-    x = y ∨ MEM y (freevars e1)
+    eval_wh_to k e1 = wh_Closure x e2 ∧ y ∈ freevars e2 ⇒
+    x = y ∨ y ∈ freevars e1
 Proof
   rpt strip_tac >> drule eval_wh_to_freevars_SUBSET >> simp[] >>
   metis_tac[]
@@ -151,7 +163,7 @@ QED
 
 Theorem eval_Closure_closed:
   eval e1 = Closure x e2 ∧ closed e1 ⇒
-  set(freevars e2) ⊆ {x}
+  freevars e2 ⊆ {x}
 Proof
   rw[eval_def, v_unfold_def] >>
   fs[Once gen_v, Once follow_path_def] >>
@@ -164,7 +176,7 @@ QED
 
 Theorem eval_wh_Closure_closed:
   eval_wh e1 = wh_Closure x e2 ∧ closed e1 ⇒
-  set(freevars e2) ⊆ {x}
+  freevars e2 ⊆ {x}
 Proof
   gvs[eval_wh_def,AllCaseEqs()] >>
   DEEP_INTRO_TAC some_intro >> rw[] >>

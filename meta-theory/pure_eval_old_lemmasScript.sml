@@ -81,28 +81,27 @@ Theorem freevars_v_simps[simp]:
   (v ∈ freevars_v Error) = F ∧
   (v ∈ freevars_v Diverge) = F ∧
   (v ∈ freevars_v (Atom a)) = F ∧
-  (v ∈ freevars_v (Closure x e)) = MEM v (FILTER ($<> x) (freevars e)) ∧
+  (v ∈ freevars_v (Closure x e)) = (v ∈ freevars e DELETE x) ∧
   (v ∈ freevars_v (Constructor x xs)) = (v ∈ BIGUNION(IMAGE freevars_v (set xs)))
 Proof
-  gvs[freevars_v_MEM,MEM_FILTER] >>
+  gvs[freevars_v_IN] >>
   gvs[v_lookup_Error,v_lookup_Diverge,v_lookup_Atom,v_lookup_Closure,
       v_lookup_Constructor,AllCaseEqs(), oEL_THM] >>
-  conj_tac >- (eq_tac >> rw[]) >>
-  rw[EQ_IMP_THM,MEM_EL,PULL_EXISTS]
-  >- (goal_assum (drule_at (Pat ‘_ < _’)) >>
-      simp[freevars_v_MEM] >>
-      goal_assum drule >>
-      rw[rich_listTheory.EL_MEM,MEM_FILTER])
-  >- (gvs[freevars_v_MEM,LIST_TO_SET_FILTER] >>
-      qexists_tac ‘n::path’ >>
-      rw[] >>
-      metis_tac[MEM_EL])
+  rw[EQ_IMP_THM,PULL_EXISTS]
+  >- (
+    simp[freevars_v_IN, PULL_EXISTS] >>
+    goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    gvs[freevars_v_IN, MEM_EL] >>
+    qexists_tac `n::path` >> simp[]
+    )
 QED
 
 Theorem eval_to_freevars_SUBSET:
   ∀k e1 v e2 x y.
     eval_to k e1 = v ∧ y ∈ freevars_v v ⇒
-    MEM y (freevars e1)
+    y ∈ freevars e1
 Proof
   ho_match_mp_tac eval_to_ind >> rpt strip_tac
   >- (rename1 ‘Var’ >> gvs[eval_to_def])
@@ -124,7 +123,7 @@ Proof
       rename1 ‘App’ >>
       gvs[freevars_def,MEM_FILTER,eval_to_def] >>
       rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
-      res_tac >> fs[bind_single_def] >>
+      res_tac >> fs[bind1_def] >>
       PURE_FULL_CASE_TAC >> fs[freevars_subst] >>
       gvs[dest_Closure_def,AllCaseEqs(),MEM_FILTER,PULL_EXISTS]
       )
@@ -142,8 +141,8 @@ QED
 
 Theorem eval_to_Closure_freevars_SUBSET:
   ∀k e1 e2 x y.
-    eval_to k e1 = Closure x e2 ∧ MEM y (freevars e2) ⇒
-    x = y ∨ MEM y (freevars e1)
+    eval_to k e1 = Closure x e2 ∧ y ∈ freevars e2 ⇒
+    x = y ∨ y ∈ freevars e1
 Proof
   rpt strip_tac >> drule eval_to_freevars_SUBSET >>
   simp[MEM_FILTER] >>
@@ -152,7 +151,7 @@ QED
 
 Theorem eval_Closure_closed:
   eval e1 = Closure x e2 ∧ closed e1 ⇒
-  set(freevars e2) ⊆ {x}
+  freevars e2 ⊆ {x}
 Proof
   rw[eval_def,Once gen_v] >>
   gvs[AllCaseEqs()] >>

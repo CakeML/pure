@@ -57,7 +57,7 @@ End
 
 Definition split_one_def:
   split_one fns =
-    let deps = MAP (λ(fn,body). (fn, freevars body)) fns in
+    let deps = MAP (λ(fn,body). (fn, freevars_l body)) fns in
     let sorted = top_sort_any deps in
     MAP (λl. MAP (λs. (s, THE (ALOOKUP fns s))) l) sorted
 End

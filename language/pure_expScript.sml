@@ -41,75 +41,58 @@ Definition Bottom_def:
 End
 
 Definition freevars_def[simp]:
-  freevars (Var n)     = [n]                               ∧
-  freevars (Prim _ es) = (FLAT (MAP freevars es))          ∧
-  freevars (App e1 e2) = (freevars e1 ⧺ freevars e2)       ∧
-  freevars (Lam n e)   = (FILTER ($≠ n) (freevars e))      ∧
+  freevars (Var n)        = {n} ∧
+  freevars (Prim op es)   = BIGUNION (set (MAP freevars es)) ∧
+  freevars (App e1 e2)    = freevars e1 ∪ freevars e2 ∧
+  freevars (Lam n e)      = freevars e DELETE n ∧
   freevars (Letrec lcs e) =
-    FILTER (\n. ¬ MEM n (MAP FST lcs))
-           (freevars e ⧺ FLAT (MAP (λ(fn,e). freevars e) lcs))
+    freevars e ∪ BIGUNION (set (MAP (λ(fn,e). freevars e) lcs))
+      DIFF set (MAP FST lcs)
 Termination
-  WF_REL_TAC ‘measure exp_size’ \\ fs[]
-  \\ conj_tac \\ TRY conj_tac
-  \\ TRY (Induct_on ‘lcs’)
-  \\ TRY (Induct_on ‘css’)
-  \\ TRY (Induct_on ‘es’)
-  \\ rw [] \\ fs [fetch "-" "exp_size_def"] \\ res_tac \\ fs[]
-  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
+  WF_REL_TAC `measure exp_size` >> rw[] >> gvs[] >>
+  rename1 `MEM _ l` >>
+  Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
 End
 
-Overload freevars = “λe. set (freevars e)”
-
-Theorem freevars_set_def[simp]:
-  (∀n.     freevars (Var n)        = {n}) ∧
-  (∀op es. freevars (Prim op es)   = BIGUNION (set (MAP freevars es))) ∧
-  (∀e1 e2. freevars (App e1 e2)    = freevars e1 ∪ freevars e2) ∧
-  (∀n e.   freevars (Lam n e)      = freevars e DELETE n) ∧
-  (∀lcs e. freevars (Letrec lcs e) =
-    freevars e ∪ BIGUNION (set (MAP (λ(fn,e). freevars e) lcs))
-      DIFF set (MAP FST lcs))
-Proof
-  rw[freevars_def, LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
-  rw[LIST_TO_SET_FILTER, DELETE_DEF, EXTENSION] >>
-  fs[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
-  eq_tac >> rw[] >> fs[] >>
-  DISJ2_TAC >> qexists_tac `y` >> fs[] >>
-  PairCases_on `y` >> fs[]
-QED
+Definition freevars_l_def[simp]:
+  freevars_l (Var n)     = [n]                              ∧
+  freevars_l (Prim _ es) = (FLAT (MAP freevars_l es))       ∧
+  freevars_l (App e1 e2) = (freevars_l e1 ⧺ freevars_l e2)  ∧
+  freevars_l (Lam n e)   = (FILTER ($≠ n) (freevars_l e))   ∧
+  freevars_l (Letrec lcs e) =
+    FILTER (\n. ¬ MEM n (MAP FST lcs))
+           (freevars_l e ⧺ FLAT (MAP (λ(fn,e). freevars_l e) lcs))
+Termination
+  WF_REL_TAC `measure exp_size` >> rw[] >> gvs[] >>
+  rename1 `MEM _ l` >>
+  Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
+End
 
 Definition boundvars_def[simp]:
-  boundvars (Var n)     = []                                ∧
-  boundvars (Prim _ es) = FLAT (MAP boundvars es)           ∧
-  boundvars (App e1 e2) = (boundvars e1 ⧺ boundvars e2)     ∧
-  boundvars (Lam n e)   = n::boundvars e                    ∧
+  boundvars (Var n)        = ∅ ∧
+  boundvars (Prim op es)   = BIGUNION (set (MAP boundvars es)) ∧
+  boundvars (App e1 e2)    = boundvars e1 ∪ boundvars e2 ∧
+  boundvars (Lam n e)      = n INSERT boundvars e ∧
   boundvars (Letrec lcs e) =
-    FLAT (MAP (λ(v,e). v::boundvars e) lcs) ++ boundvars e
+    boundvars e ∪ set (MAP FST lcs) ∪ BIGUNION (set (MAP (λ(fn,e). boundvars e) lcs))
 Termination
-  WF_REL_TAC ‘measure exp_size’ \\ fs[]
-  \\ conj_tac
-  \\ TRY (Induct_on ‘lcs’)
-  \\ TRY (Induct_on ‘es’)
-  \\ rw[] \\ fs [fetch "-" "exp_size_def"] \\ res_tac \\ fs[]
-  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs[]
+  WF_REL_TAC `measure exp_size` >> rw[] >> gvs[] >>
+  rename1 `MEM _ l` >>
+  Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
 End
 
-Overload boundvars = “λe. set (boundvars e)”
-
-Theorem boundvars_set_def[simp]:
-  (∀n.     boundvars (Var n)        = ∅) ∧
-  (∀op es. boundvars (Prim op es)   = BIGUNION (set (MAP boundvars es))) ∧
-  (∀e1 e2. boundvars (App e1 e2)    = boundvars e1 ∪ boundvars e2) ∧
-  (∀n e.   boundvars (Lam n e)      = n INSERT boundvars e) ∧
-  (∀lcs e. boundvars (Letrec lcs e) =
-    boundvars e ∪ BIGUNION (set (MAP (λ(fn,e). fn INSERT boundvars e) lcs)) )
-Proof
-  rw[boundvars_def, LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
-  rw[LIST_TO_SET_FILTER, DELETE_DEF, EXTENSION] >>
-  fs[MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
-  eq_tac >> rw[] >> fs[]
-  >- ( DISJ2_TAC >> qexists_tac ‘x'’ >> Cases_on ‘x'’ >> fs[])
-  >>   DISJ1_TAC >> qexists_tac ‘y’  >> Cases_on ‘y’  >> fs[]
-QED
+Definition boundvars_l_def[simp]:
+  boundvars_l (Var n)     = []                                ∧
+  boundvars_l (Prim _ es) = FLAT (MAP boundvars_l es)         ∧
+  boundvars_l (App e1 e2) = (boundvars_l e1 ⧺ boundvars_l e2) ∧
+  boundvars_l (Lam n e)   = n::boundvars_l e                  ∧
+  boundvars_l (Letrec lcs e) =
+    MAP FST lcs ++ FLAT (MAP (λ(v,e). boundvars_l e) lcs) ++ boundvars_l e
+Termination
+  WF_REL_TAC `measure exp_size` >> rw[] >> gvs[] >>
+  rename1 `MEM _ l` >>
+  Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
+End
 
 Definition closed_def:
   closed e = (freevars e = {})
@@ -139,14 +122,14 @@ Termination
   \\ imp_res_tac exp_size_lemma \\ fs []
 End
 
-Overload subst = ``λname v e. subst (FEMPTY |+ (name,v)) e``;
+Overload subst1 = ``λname v e. subst (FEMPTY |+ (name,v)) e``;
 
 Definition bind_def:
   bind m e =
     if (∀n v. FLOOKUP m n = SOME v ⇒ closed v) then subst m e else Fail
 End
 
-Overload bind = ``λname v e. bind (FEMPTY |+ (name,v)) e``;
+Overload bind1 = ``λname v e. bind (FEMPTY |+ (name,v)) e``;
 
 Definition subst_funs_def:
   subst_funs f = bind (FEMPTY |++ (MAP (λ(g,x). (g,Letrec f x)) f))

@@ -54,7 +54,7 @@ Definition apply_closure_def:
     if eval_wh f = wh_Diverge then Div else
       case dest_wh_Closure (eval_wh f) of
       | NONE => Err
-      | SOME (n,e) => cont (eval_wh (bind n arg e))
+      | SOME (n,e) => cont (eval_wh (bind1 n arg e))
 End
 
 Definition next_def:
