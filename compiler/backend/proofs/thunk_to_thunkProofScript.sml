@@ -290,21 +290,6 @@ Proof
            v_rel_def, exp_rel_def]
 QED
 
-Theorem exp_rel_freevars:
-  ∀env x y.
-    exp_rel env x y ⇒ freevars x = freevars y
-Proof
-  cheat
-QED
-
-Theorem exp_rel_closed:
-  ∀env x y.
-    exp_rel env x y ⇒ closed x = closed y
-Proof
-  rw [thunkLangTheory.closed_def, thunkLang_substTheory.closed_def]
-  \\ drule exp_rel_freevars \\ fs []
-QED
-
 Definition env_rel_def:
   env_rel binds env ⇔
     MAP FST binds = MAP FST env ∧
@@ -511,12 +496,10 @@ Proof
     \\ qpat_x_assum ‘v_rel x2 _’ assume_tac
     \\ drule_then strip_assume_tac dest_Closure_v_rel
     \\ drule_then strip_assume_tac dest_Recclosure_v_rel
-    \\ imp_res_tac exp_rel_closed \\ gs []
     \\ Cases_on ‘dest_Recclosure x2’ \\ fs []
     >- (
       Cases_on ‘dest_Closure x2’ \\ gvs []
       \\ pairarg_tac \\ gvs [bind_def]
-      \\ IF_CASES_TAC \\ fs []
       \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum (qspec_then ‘[]’ assume_tac) \\ fs []
       \\ first_x_assum irule
@@ -540,7 +523,6 @@ Proof
     \\ CASE_TAC \\ gvs [exp_rel_def]
     \\ simp [bind_def, subst_funs_def]
     \\ Cases_on ‘x2’ \\ gvs [dest_Recclosure_def, v_rel_def, bind_def]
-    \\ IF_CASES_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule exp_rel_subst_app2 \\ fs []
