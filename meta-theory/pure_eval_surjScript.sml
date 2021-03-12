@@ -94,14 +94,21 @@ Theorem atom_op_countable:
 Proof
   `𝕌(:atom_op) =
       {Eq; Add; Sub; Mul; Div; Mod; Lt; Leq; Gt; Geq;
-       Len; Elem; Concat; Implode; StrLt; StrLeq; StrGt; StrGeq} ∪
+       Len; Elem; Concat; Implode; Substring; StrLt; StrLeq; StrGt; StrGeq} ∪
+      IMAGE Message 𝕌(:string) ∪
       IMAGE Lit 𝕌(:lit)` by (
         rw[EXTENSION] >> Cases_on `x` >> gvs[]) >>
   pop_assum SUBST_ALL_TAC >> simp[] >>
-  `𝕌(:lit) = IMAGE Int 𝕌(:int) ∪ IMAGE Str 𝕌(:string)` by (
-      rw[EXTENSION] >> Cases_on `x` >> gvs[]) >>
+  `𝕌(:lit) = IMAGE Int 𝕌(:int) ∪ IMAGE Str 𝕌(:string)
+             ∪ IMAGE Loc 𝕌(:num)
+             ∪ IMAGE (λ(x,y). Msg x y) (𝕌(:string) × 𝕌(:string))` by (
+      rw[EXTENSION,EXISTS_PROD] >> Cases_on `x` >> gvs[]) >>
   pop_assum SUBST_ALL_TAC >> simp[] >>
-  simp[COUNTABLE_IMAGE, string_countable, int_countable]
+  simp[COUNTABLE_IMAGE, string_countable, int_countable] >>
+  irule COUNTABLE_IMAGE >>
+  irule COUNTABLE_IMAGE >>
+  irule pred_setTheory.cross_countable >>
+  fs [string_countable]
 QED
 
 Theorem op_countable:
