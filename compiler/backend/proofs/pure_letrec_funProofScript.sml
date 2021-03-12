@@ -14,16 +14,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 (******************** Definitions ********************)
 
-Definition Apps_def:
-  Apps x [] = x ∧
-  Apps x (a::as) = Apps (App x a) as
-End
-
-Definition Lams_def:
-  Lams [] b = b ∧
-  Lams (v::vs) b = Lam v (Lams vs b)
-End
-
 (* the input is a variable specification: recursive calls will be made
    with these arguments in this order:
     - NONE indicates var value can change,

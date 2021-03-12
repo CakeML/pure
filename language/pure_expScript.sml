@@ -36,6 +36,16 @@ Overload Seq  = “λx y. Prim Seq [x; y]”        (* Seq  at exp level *)
 Overload Fail = “Prim If []”                   (* causes Error      *)
 Overload Lit  = “λl. Prim (AtomOp (Lit l)) []” (* Lit at exp level  *)
 
+Definition Apps_def:
+  Apps x [] = x ∧
+  Apps x (a::as) = Apps (App x a) as
+End
+
+Definition Lams_def:
+  Lams [] b = b ∧
+  Lams (v::vs) b = Lam v (Lams vs b)
+End
+
 Definition Bottom_def:
   Bottom = Letrec [("bot",Var "bot")] (Var "bot")
 End
