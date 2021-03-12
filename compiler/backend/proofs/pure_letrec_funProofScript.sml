@@ -54,7 +54,7 @@ End
 Inductive body_rel:
   (* recursive function f does not appear *)
   (∀x.
-     ~MEM f (freevars x) ⇒
+     f ∉ freevars x ⇒
      body_rel f args x (subst (make_subst args) x))
   ∧
   (* This is the recursive call function: short form on LHS; long form on RHS *)
@@ -194,7 +194,7 @@ Proof
 QED
 
 Theorem freevars_Apps[simp]:
-  ∀es e. freevars (Apps e es) = freevars e ∪ set (FLAT (MAP freevars es))
+  ∀es e. freevars (Apps e es) = freevars e ∪ BIGUNION (set (MAP freevars es))
 Proof
   Induct >> rw[Apps_def] >> simp[UNION_ASSOC]
 QED
@@ -282,10 +282,10 @@ Proof
   cheat (* TODO *)
 QED
 
-Theorem letrec_fun_subst_single:
+Theorem letrec_fun_subst1:
   ∀x y a b s.
     letrec_fun x y ∧ letrec_fun a b
-  ⇒ letrec_fun (subst s a x) (subst s b y)
+  ⇒ letrec_fun (subst1 s a x) (subst1 s b y)
 Proof
   cheat (* TODO *)
 QED
@@ -314,7 +314,7 @@ Proof
     qpat_x_assum `letrec_fun _ _` mp_tac >> simp[Once letrec_fun_cases] >> rw[]
     >- (Cases_on `xs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite]) >>
     simp[eval_wh_to_def] >> rw[] >>
-    irule letrec_fun_subst_single >> simp[letrec_fun_refl]
+    irule letrec_fun_subst1 >> simp[letrec_fun_refl]
     )
   >- (
     rename1 `App a b` >>
@@ -334,17 +334,17 @@ Proof
         drule eval_wh_inc >> disch_then $ qspec_then `ck` $ assume_tac o GSYM >>
         gvs[]
         ) >>
-      gvs[bind_single_def] >>
-      last_x_assum $ qspec_then `subst s y eg` mp_tac >> impl_keep_tac
+      gvs[bind1_def] >>
+      last_x_assum $ qspec_then `subst1 s y eg` mp_tac >> impl_keep_tac
       >- (
         simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
         DEP_REWRITE_TAC[freevars_subst] >> simp[SUBSET_DIFF_EMPTY, SUBSET_DEF] >>
         imp_res_tac eval_wh_to_Closure_freevars_SUBSET >>
         gvs[closed_def, NIL_iff_NOT_MEM] >>
-        irule letrec_fun_subst_single >> simp[]
+        irule letrec_fun_subst1 >> simp[]
         ) >>
       strip_tac >> gvs[] >>
-      Cases_on `eval_wh_to (k - 1) (subst s b ea) = wh_Diverge` >> gvs[]
+      Cases_on `eval_wh_to (k - 1) (subst1 s b ea) = wh_Diverge` >> gvs[]
       >- (
         qexists_tac `ck'` >> IF_CASES_TAC >> gvs[] >>
         drule eval_wh_to_agree >>
@@ -352,10 +352,10 @@ Proof
         ) >>
       qexists_tac `ck + ck'` >> gvs[] >>
       qspecl_then [`ck + (ck' + k)`,`g`,`ck + k`] assume_tac eval_wh_inc >> gvs[] >>
-      qspecl_then [`ck + (ck' + k) - 1`,`subst s y eg`,`ck' + k - 1`]
+      qspecl_then [`ck + (ck' + k) - 1`,`subst1 s y eg`,`ck' + k - 1`]
         assume_tac eval_wh_inc >>
       gvs[] >>
-      Cases_on `eval_wh_to (k - 1) (subst s b ea)` >> gvs[]
+      Cases_on `eval_wh_to (k - 1) (subst1 s b ea)` >> gvs[]
       ) >>
     cheat (* TODO *)
     )
@@ -534,7 +534,7 @@ Proof
     first_x_assum drule >> rw[] >>
     last_x_assum drule >> impl_tac
     >- (
-      gvs[closed_def, NIL_iff_NOT_MEM] >>
+      gvs[closed_def, EMPTY_iff_NOTIN] >>
       CCONTR_TAC >> gvs[] >>
       imp_res_tac eval_wh_to_freevars_SUBSET >> gvs[MEM_MAP]
       >- (

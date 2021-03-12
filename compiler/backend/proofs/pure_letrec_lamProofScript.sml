@@ -28,7 +28,7 @@ Definition lams_ok_def:
          v1 = v2 ∧
          if v1 IN FDOM apps then
            (* if this is an updated binding, then add a Lam, and subst apps: *)
-           ∃w. ~(MEM w (freevars x1)) ∧ ~(MEM w (MAP FST xs)) ∧
+           ∃w. w ∉ freevars x1 ∧ ~(MEM w (MAP FST xs)) ∧
                x2 = Lam w (subst apps x1)
          else (* otherwise only subst apps: *) x2 = subst apps x1)
       xs ys
@@ -58,11 +58,14 @@ Proof
   last_x_assum drule >> strip_tac >> gvs[FLOOKUP_DEF, closed_def]
 QED
 
-Theorem apps_ok_freevars_subst:
-  ∀apps x. apps_ok apps ⇒ freevars (subst apps x) = (freevars x : string list)
+Theorem apps_ok_freevars_l_subst:
+  ∀apps x. apps_ok apps ⇒ freevars_l (subst apps x) = freevars_l x
 Proof
   recInduct subst_ind >> rw[] >> gvs[apps_ok_def, subst_def]
-  >- (CASE_TAC >> simp[] >> first_x_assum drule >> rw[] >> gvs[closed_def])
+  >- (
+    CASE_TAC >> simp[] >> first_x_assum drule >> rw[] >>
+    gvs[closed_def, freevars_equiv]
+    )
   >- (simp[MAP_MAP_o, combinTheory.o_DEF] >> AP_TERM_TAC >> rw[MAP_EQ_f])
   >- gvs[DOMSUB_FLOOKUP_THM]
   >- (
@@ -71,6 +74,12 @@ Proof
     AP_TERM_TAC >> simp[] >> AP_TERM_TAC >> simp[] >>
     rw[MAP_EQ_f] >> PairCases_on `e` >> gvs[] >> res_tac
     )
+QED
+
+Triviality apps_ok_freevars_subst:
+  ∀apps x. apps_ok apps ⇒ freevars (subst apps x) = freevars x
+Proof
+  rw[freevars_equiv, apps_ok_freevars_l_subst]
 QED
 
 Triviality lams_ok_imps:
@@ -130,10 +139,10 @@ Proof
   irule letrec_lam_subst >> simp[]
 QED
 
-Triviality letrec_rel_lam_subst_single:
+Triviality letrec_rel_lam_subst1:
   letrec_rel letrec_lam x y ∧
   letrec_rel letrec_lam a b ⇒
-  letrec_rel letrec_lam (subst s a x) (subst s b y)
+  letrec_rel letrec_lam (subst1 s a x) (subst1 s b y)
 Proof
   rw[] >> irule letrec_rel_lam_subst >>
   simp[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE] >> rw[]
@@ -331,7 +340,7 @@ Proof
     \\ simp [Once letrec_rel_cases] \\ rw []
     \\ fs [eval_wh_to_def]
     \\ unabbrev_all_tac \\ rw[]
-    \\ irule letrec_rel_lam_subst_single
+    \\ irule letrec_rel_lam_subst1
     \\ simp[letrec_rel_refl])
   THEN1
    (rename [‘App x1 x2’]
@@ -348,8 +357,8 @@ Proof
       \\ Cases_on ‘eval_wh_to k x1’ \\ fs [])
     \\ Cases_on ‘eval_wh_to k x1’ \\ gvs []
     \\ rename [‘eval_wh_to (ck + k) g = wh_Closure _ e1’]
-    \\ ‘letrec_rel c (bind s x2 e) (bind s y e1)’ by (
-      rw[bind_single_def] >> unabbrev_all_tac >>
+    \\ ‘letrec_rel c (bind1 s x2 e) (bind1 s y e1)’ by (
+      rw[bind1_def] >> unabbrev_all_tac >>
       irule letrec_rel_lam_subst >> simp[] >>
       simp[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE] >> rw[])
     \\ Cases_on ‘k’ \\ fs []
@@ -360,14 +369,14 @@ Proof
     \\ fs [ADD1]
     \\ last_x_assum drule \\ fs []
     \\ impl_tac THEN1 (
-         simp[bind_single_def] >>
+         simp[bind1_def] >>
          imp_res_tac eval_wh_to_Closure_freevars_SUBSET >> simp[closed_def] >>
          once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-         dep_rewrite.DEP_REWRITE_TAC[freevars_subst_single] >> simp[] >>
+         dep_rewrite.DEP_REWRITE_TAC[freevars_subst1] >> simp[] >>
          rw[EXTENSION, DISJ_EQ_IMP] >>
          first_x_assum drule >> rw[] >> gvs[closed_def])
     \\ strip_tac
-    \\ Cases_on ‘eval_wh_to n (bind s x2 e) = wh_Diverge’ \\ fs []
+    \\ Cases_on ‘eval_wh_to n (bind1 s x2 e) = wh_Diverge’ \\ fs []
     THEN1
      (qexists_tac ‘ck'’ \\ fs [] \\ IF_CASES_TAC \\ fs [] >>
       drule eval_wh_to_agree >>
@@ -378,9 +387,9 @@ Proof
       qspecl_then [`ck + (n + 1) + ck'`,`g`,`ck + (n + 1)`]
       assume_tac eval_wh_inc >>
       gvs[])
-    \\ fs [] \\ Cases_on ‘eval_wh_to n (bind s x2 e)’ \\ fs []
-    \\ ‘eval_wh_to (ck + (ck' + n)) (bind s y e1) =
-        eval_wh_to (ck' + n) (bind s y e1)’ by (
+    \\ fs [] \\ Cases_on ‘eval_wh_to n (bind1 s x2 e)’ \\ fs []
+    \\ ‘eval_wh_to (ck + (ck' + n)) (bind1 s y e1) =
+        eval_wh_to (ck' + n) (bind1 s y e1)’ by (
       irule eval_wh_inc >> simp[]) >>
     fs[])
   THEN1
@@ -455,7 +464,7 @@ Proof
             ) >>
           simp[subst_def] >> irule (GSYM subst_fdomsub) >>
           simp[apps_ok_freevars_subst] >> metis_tac[SUBSET_DEF])
-    \\ fs [eval_wh_to_def] \\ fs [bind_single_def])
+    \\ fs [eval_wh_to_def] \\ fs [bind1_def])
   >- (
     rename [‘Prim p xs’] >>
     qpat_x_assum `letrec_rel c _ _` mp_tac >>
@@ -557,7 +566,7 @@ Proof
       first_x_assum drule >> rw[] >>
       last_x_assum drule >> impl_tac
       >- (
-        gvs[closed_def, NIL_iff_NOT_MEM] >>
+        gvs[closed_def, EMPTY_iff_NOTIN] >>
         CCONTR_TAC >> gvs[] >>
         imp_res_tac eval_wh_to_freevars_SUBSET >> gvs[MEM_MAP]
         >- (
@@ -875,7 +884,7 @@ Proof
   qmatch_goalsub_abbrev_tac `fresh_var x l` >>
   qspecl_then [`x`,`l`] assume_tac fresh_var_correctness >> unabbrev_all_tac >>
   gvs[] >> rename1 `¬MEM fresh _` >>
-  gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, FORALL_PROD] >>
+  gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, FORALL_PROD, freevars_equiv] >>
   first_x_assum irule >> qexists_tac `q` >> metis_tac[EL_MEM]
 QED
 

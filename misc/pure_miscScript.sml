@@ -420,6 +420,14 @@ QED
 
 (******************** Sets ********************)
 
+Theorem EMPTY_iff_NOTIN:
+  ∀s. s = {} ⇔ ∀x. x ∉ s
+Proof
+  rw[] >> eq_tac >> rw[] >>
+  once_rewrite_tac[GSYM SUBSET_EMPTY] >>
+  once_rewrite_tac[SUBSET_DEF] >> rw[]
+QED
+
 Theorem fresh_list:
   ∀s. FINITE s ⇒ ∃x. x ∉ s:('a list set)
 Proof
