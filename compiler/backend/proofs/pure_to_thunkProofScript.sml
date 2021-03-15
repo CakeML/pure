@@ -110,9 +110,8 @@ Inductive exp_rel:
 [exp_rel_Seq:]
   (∀x1 x2 y1 y2.
      LIST_REL exp_rel [x1; y1] [x2; y2] ∧
-     closed x1 ∧
-     s ∉ freevars y1 ⇒
-       exp_rel (Seq x1 y1) (Let s x2 y2)) ∧
+     closed x1 ⇒
+       exp_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
 [exp_rel_Prim:]
   (∀op xs ys.
      op ≠ If ∧
@@ -195,70 +194,50 @@ Proof
          AC UNION_COMM UNION_ASSOC, MAP_MAP_o, combinTheory.o_DEF]
   >- (
     ‘freevars x = EMPTY’
-      by (drule_then (qspec_then ‘REVERSE f’ mp_tac) ALOOKUP_SOME_EL_2
-          \\ impl_tac
-          >- (
-            last_x_assum mp_tac
-            \\ rpt (pop_assum kall_tac)
-            \\ qid_spec_tac ‘g’
-            \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
-          \\ rw [] \\ gvs [EL_REVERSE, LIST_REL_EL_EQN]
+      by (imp_res_tac ALOOKUP_SOME_EL
+          \\ gvs [LIST_REL_EL_EQN, EL_REVERSE, ELIM_UNCURRY]
           \\ qmatch_asmsub_abbrev_tac ‘EL m f’
-          \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+          \\ ‘m < LENGTH g’ by gvs [Abbr ‘m’]
           \\ first_x_assum (drule_then assume_tac) \\ gs [])
     \\ fs []
-    \\ qsuff_tac ‘∀x. x ∈ set (MAP (λ(fn,e). freevars e) f) ⇒ x = EMPTY’
+    \\ qsuff_tac ‘∀x. x ∈ set (MAP (λ(f,x). freevars x) f) ⇒ x = EMPTY’
     >- (
-      rw [EXTENSION]
-      \\ fs [MEM_MAP, PULL_EXISTS]
-      \\ rw [DISJ_EQ_IMP]
-      \\ pairarg_tac \\ gvs [])
-    \\ simp [MEM_MAP, MEM_EL]
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ rw [] \\ pairarg_tac \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN]
+      rw [EXTENSION] \\ fs [MEM_MAP]
+      \\ rw [DISJ_EQ_IMP] \\ fs []
+      \\ pairarg_tac \\ gvs []
+      \\ res_tac \\ gvs [FORALL_PROD])
+    \\ rw [EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP]
+    \\ gvs [MEM_EL, LIST_REL_EL_EQN, EL_MAP]
     \\ first_x_assum (drule_then assume_tac)
-    \\ pairarg_tac \\ gvs []
-    \\ pairarg_tac \\ gvs [])
+    \\ rpt (pairarg_tac \\ gvs []))
   >- (
-    pop_assum mp_tac
-    \\ qid_spec_tac ‘ys’
-    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
-    \\ res_tac \\ fs [])
+    AP_TERM_TAC \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >- (
-    pop_assum mp_tac
-    \\ qid_spec_tac ‘ys’
-    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
-    \\ res_tac \\ fs [])
+    AP_TERM_TAC \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >- (
-    rw [EXTENSION, EQ_IMP_THM]
-    \\ strip_tac \\ gs [])
+    AP_TERM_TAC \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >- (
-    pop_assum mp_tac
-    \\ qid_spec_tac ‘ys’
-    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ simp [] \\ rw []
-    \\ res_tac \\ fs [])
-  >- (
-    ‘MAP FST f = MAP FST g’
-      by (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ qid_spec_tac ‘g’
-          \\ Induct_on ‘f’ \\ Cases_on ‘g’ \\ simp [ELIM_UNCURRY])
-    \\ fs []
-    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, freevars_def,
-             GSYM pure_miscTheory.FST_THM]
+    gvs [LIST_REL_CONJ, ELIM_UNCURRY, SF ETA_ss]
+    \\ ‘MAP FST f = MAP FST g’
+      by (irule LIST_EQ
+          \\ gs [LIST_REL_EL_EQN, EL_MAP])
+    \\ gvs [freevars_def]
     \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
-    \\ gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] \\ rw[]
-    \\ last_x_assum drule \\ pairarg_tac \\ gvs[] \\ pairarg_tac \\ gvs[]
-    \\ rw[] \\ gvs[]
-    )
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
 QED
 
 Theorem exp_rel_closed:
   exp_rel x y ⇒ closed x = closed y
 Proof
-  metis_tac [closed_def, pure_expTheory.closed_def, exp_rel_freevars,
-             pure_miscTheory.NIL_iff_NOT_MEM]
+  rw [closed_def, pure_expTheory.closed_def]
+  \\ drule exp_rel_freevars \\ simp []
 QED
 
 Theorem subst_single_def[local] = pure_exp_lemmasTheory.subst1_def;
@@ -302,10 +281,8 @@ Proof
       \\ irule_at Any EQ_REFL \\ fs [])
     >- ((* Seq *)
       simp [subst_single_def, subst1_def]
-      \\ IF_CASES_TAC \\ gvs [subst1_ignore]
       \\ irule exp_rel_Seq \\ fs []
-      \\ ‘closed (Tick a)’ by fs [pure_expTheory.closed_def]
-      \\ fs [freevars_subst1, SF DNF_ss]
+      \\ fs [SF DNF_ss]
       \\ last_x_assum (irule_at Any) \\ fs []
       \\ last_assum (irule_at Any) \\ fs [])
     >- ((* Others *)
@@ -429,58 +406,12 @@ Proof
       \\ fs [EVERY2_MAP, LIST_REL_EL_EQN]
       \\ rw [] \\ gvs [EL_MEM])
     >- ((* Seq *)
-      irule exp_rel_Seq \\ fs []
-      \\ conj_tac
-      >- (
-        DEP_REWRITE_TAC [freevars_subst] \\ fs []
-        \\ simp [FRANGE_FLOOKUP, flookup_fupdate_list, GSYM MAP_REVERSE,
-                 GSYM FILTER_REVERSE, ALOOKUP_MAP, ALOOKUP_FILTER]
-        \\ rw []
-        \\ gvs [CaseEq "option"]
-        \\ imp_res_tac ALOOKUP_SOME_EL
-        \\ gvs [EL_REVERSE, LIST_REL_EL_EQN]
-        \\ qmatch_asmsub_abbrev_tac ‘EL m f’
-        \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
-        \\ first_assum (drule_then assume_tac)
-        \\ rpt (pairarg_tac \\ fs [])
-        \\ gvs [pure_expTheory.closed_def]
-        \\ rw [EVERY_MAP, EVERY_EL]
-        \\ first_x_assum (drule_then assume_tac)
-        \\ rpt (pairarg_tac \\ fs []))
-      \\ fs [SF DNF_ss]
-      \\ qmatch_goalsub_abbrev_tac ‘MAP f1 (FILTER _ gg)’
-      \\ ‘FILTER (λ(n,v). n ≠ s) (MAP f1 (FILTER (λ(n,x). n ∉ ks) gg)) =
-          MAP f1 (FILTER (λ(m,x). m ∉ ks ∪ {s}) gg)’
-        by (simp [FILTER_MAP, combinTheory.o_DEF, FILTER_FILTER, LAMBDA_PROD,
-                  Abbr ‘f1’]
-            \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-            \\ rw [FUN_EQ_THM, EQ_IMP_THM])
-      \\ pop_assum SUBST_ALL_TAC
-      \\ unabbrev_all_tac
-      \\ first_x_assum (irule_at Any) \\ fs []
-      \\ first_assum (irule_at Any) \\ fs []
-      \\ qmatch_goalsub_abbrev_tac ‘MAP f1 (FILTER _ gg)’
-      \\ ‘subst (FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks) gg)) y1 =
-          subst (FEMPTY |++ MAP f1 (FILTER (λ(m,x). m ∉ ks ∪ {s}) gg)) y1’
-        by (qmatch_goalsub_abbrev_tac ‘subst m2 _ = _’
-            \\ drule_then (qspec_then ‘m2’ mp_tac) subst_fdomsub
-            \\ strip_tac \\ unabbrev_all_tac
-            \\ pop_assum SUBST1_TAC
-            \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-            \\ simp [DOMSUB_FUPDATE_LIST, combinTheory.o_DEF, FILTER_MAP,
-                     LAMBDA_PROD, FILTER_FILTER]
-            \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-            \\ rw [FUN_EQ_THM, EQ_IMP_THM])
-      \\ pop_assum SUBST_ALL_TAC
-      \\ qmatch_goalsub_abbrev_tac ‘FILTER f2 (MAP _ _)’
-      \\ ‘f2 = λ(m,x). m ∉ ks ∪ {s}’ by fs []
-      \\ pop_assum SUBST_ALL_TAC
-      \\ pop_assum kall_tac
-      \\ unabbrev_all_tac
-      \\ first_assum (irule_at Any) \\ fs [])
-    \\ irule exp_rel_Prim
-    \\ fs [EVERY2_MAP, LIST_REL_EL_EQN]
-    \\ rw [] \\ gvs [EL_MEM])
+      irule exp_rel_Seq \\ fs [SF DNF_ss]
+      \\ first_x_assum irule \\ fs []
+      \\ first_assum (irule_at Any))
+    \\ irule exp_rel_Prim \\ fs [EVERY2_MAP]
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ rw [])
   >- ((* App *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
@@ -711,8 +642,6 @@ Proof
     \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
     \\ Cases_on ‘res’ \\ gvs [dest_anyClosure_def]
     \\ IF_CASES_TAC \\ fs []
-    (*\\ rename1 ‘Tick z1’*)
-    (*\\ rename1 ‘exp_rel z1 z2’*)
     \\ imp_res_tac exp_rel_closed \\ gvs []
     \\ first_x_assum irule
     \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE]
@@ -837,16 +766,13 @@ Proof
       \\ fs [thunk_rel_def, dest_anyThunk_def, subst_funs_def,
              EVERY_EL])
     >- ((* Seq *)
-      drule_then assume_tac exp_rel_freevars \\ fs []
-      \\ simp [eval_wh_to_def, eval_to_def]
-      \\ simp [subst_funs_def]
+      simp [eval_wh_to_def, eval_to_def]
       \\ fs [SF DNF_ss]
       \\ first_assum (drule_all_then assume_tac) \\ fs []
       \\ qpat_x_assum ‘exp_rel x1 _’ assume_tac
       \\ first_x_assum (drule_all_then assume_tac) \\ fs []
-      \\ simp [subst1_fresh]
-      \\ IF_CASES_TAC \\ gvs []
-      \\ Cases_on ‘eval_to (k - 1) x2’ \\ fs [])
+      \\ Cases_on ‘eval_to (k - 1) x2’ \\ fs []
+      \\ IF_CASES_TAC \\ gvs [])
     >- ((* {IsEq, AtomOp, Lit} *)
       simp [eval_wh_to_def, eval_to_def]
       \\ gvs [LIST_REL_EL_EQN, eval_to_def]

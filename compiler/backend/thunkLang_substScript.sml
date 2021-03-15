@@ -26,7 +26,7 @@ Datatype:
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # exp) list) exp          (* mutually recursive exps *)
-      | Let vname exp exp                        (* non-recursive let       *)
+      | Let (vname option) exp exp               (* non-recursive let       *)
       | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
@@ -52,7 +52,9 @@ Definition subst_def:
     If (subst m x) (subst m y) (subst m z) ∧
   subst m (App x y) = App (subst m x) (subst m y) ∧
   subst m (Lam s x) = Lam s (subst (FILTER (λ(n,x). n ≠ s) m) x) ∧
-  subst m (Let s x y) = Let s (subst m x) (subst (FILTER (λ(n,x). n ≠ s) m) y) ∧
+  subst m (Let NONE x y) = Let NONE (subst m x) (subst m y) ∧
+  subst m (Let (SOME s) x y) =
+    Let (SOME s) (subst m x) (subst (FILTER (λ(n,x). n ≠ s) m) y) ∧
   subst m (Letrec f x) =
     (let m1 = FILTER (λ(n, v). ¬MEM n (MAP FST f)) m in
        Letrec (MAP (λ(n, x). (n, subst m1 x)) f) (subst m1 x)) ∧
@@ -86,8 +88,10 @@ Theorem subst1_def:
     If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
   subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y) ∧
   subst1 n v (Lam s x) = (if n = s then Lam s x else Lam s (subst1 n v x)) ∧
-  subst1 n v (Let s x y) =
-    Let s (subst1 n v x) (if n = s then y else subst1 n v y) ∧
+  subst1 n v (Let NONE x y) =
+    Let NONE (subst1 n v x) (subst1 n v y) ∧
+  subst1 n v (Let (SOME s) x y) =
+    Let (SOME s) (subst1 n v x) (if n = s then y else subst1 n v y) ∧
   subst1 n v (Letrec f x) =
     (if MEM n (MAP FST f) then
        Letrec f x
@@ -160,7 +164,8 @@ Definition freevars_def:
   freevars (If x y z) = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b) = freevars b DIFF {s} ∧
-  freevars (Let s x y) = freevars x ∪ (freevars y DIFF {s}) ∧
+  freevars (Let NONE x y) = freevars x ∪ freevars y ∧
+  freevars (Let (SOME s) x y) = freevars x ∪ (freevars y DIFF {s}) ∧
   freevars (Letrec f x) =
     ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
      set (MAP FST f)) ∧
@@ -196,7 +201,13 @@ Definition eval_to_def:
        if k = 0 then fail Diverge else eval_to (k - 1) y
      od) ∧
   eval_to k (Lam s x) = return (Closure s x) ∧
-  eval_to k (Let n x y) =
+  eval_to k (Let NONE x y) =
+    (if k = 0 then fail Diverge else
+       do
+         eval_to (k - 1) x;
+         eval_to (k - 1) y
+       od) ∧
+  eval_to k (Let (SOME n) x y) =
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) x;
@@ -305,7 +316,11 @@ Proof
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
     simp [eval_to_def])
-  >- ((* Let *)
+  >- ((* Let NONE *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
+  >- ((* Let SOME *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])

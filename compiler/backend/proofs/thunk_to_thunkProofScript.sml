@@ -32,11 +32,16 @@ Inductive exp_rel:
   (∀env x y s.
      exp_rel (FILTER (λ(n,x). n ≠ s) env) x y ⇒
        exp_rel env (Lam s x) (Lam s y)) ∧
-[exp_rel_Let:]
+[exp_rel_Let_NONE:]
+  (∀env x1 x2 y1 y2.
+     exp_rel env x1 x2 ∧
+     exp_rel env y1 y2 ⇒
+       exp_rel env (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+[exp_rel_Let_SOME:]
   (∀env x1 x2 y1 y2 s.
      exp_rel env x1 x2 ∧
      exp_rel (FILTER (λ(n,x). n ≠ s) env) y1 y2 ⇒
-       exp_rel env (Let s x1 y1) (Let s x2 y2)) ∧
+       exp_rel env (Let (SOME s) x1 y1) (Let (SOME s) x2 y2)) ∧
 [exp_rel_If:]
   (∀env x1 x2 y1 y2 z1 z2.
      LIST_REL (exp_rel env) [x1;y1;z1] [x2;y2;z2] ⇒
@@ -116,10 +121,16 @@ Theorem exp_rel_def:
      ∃z.
        y = Lam s z ∧
        exp_rel (FILTER (λ(n,x). n ≠ s) env) x z) ∧
-  (∀s x1 y1.
-     exp_rel env (Let s x1 y1) y =
+  (∀x1 y1.
+     exp_rel env (Let NONE x1 y1) y =
      ∃x2 y2.
-       y = Let s x2 y2 ∧
+       y = Let NONE x2 y2 ∧
+       exp_rel env x1 x2 ∧
+       exp_rel env y1 y2) ∧
+  (∀s x1 y1.
+     exp_rel env (Let (SOME s) x1 y1) y =
+     ∃x2 y2.
+       y = Let (SOME s) x2 y2 ∧
        exp_rel env x1 x2 ∧
        exp_rel (FILTER (λ(n,x). n ≠ s) env) y1 y2) ∧
   (∀x y z.
@@ -520,9 +531,10 @@ Proof
     \\ simp [EVERY2_REVERSE]
     \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
     \\ Cases_on ‘ALOOKUP (REVERSE xs) n’ \\ gs []
-    \\ CASE_TAC \\ gvs [exp_rel_def]
-    \\ simp [subst_funs_def]
-    \\ Cases_on ‘x2’ \\ gvs [dest_Recclosure_def, v_rel_def]
+    \\ reverse CASE_TAC \\ gvs [exp_rel_def]
+    >- (
+      rename1 ‘Let opt _ _’
+      \\ Cases_on ‘opt’ \\ fs [exp_rel_def])
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule exp_rel_subst_app2 \\ fs []
@@ -532,7 +544,16 @@ Proof
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
              v_rel_def, exp_rel_def])
-  >- ((* Let *)
+  >- ((* Let NONE *)
+    rename1 ‘Let NONE x1 y1’
+    \\ rw [exp_rel_def]
+    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
+             v_rel_def, exp_rel_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x1’ \\ fs []
+    \\ first_x_assum (drule_then strip_assume_tac) \\ fs []
+    \\ first_x_assum (drule_then strip_assume_tac) \\ fs [])
+  >- ((* Let SOME *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
              v_rel_def, exp_rel_def]
@@ -632,6 +653,10 @@ Proof
     \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
     \\ CASE_TAC \\ gs []
     \\ CASE_TAC \\ gvs [exp_rel_def]
+    >- (
+      rename1 ‘Let opt _ _’
+      \\ Cases_on ‘opt’
+      \\ gvs [exp_rel_def])
     \\ IF_CASES_TAC \\ gs [subst_funs_def]
     \\ first_x_assum irule
     \\ irule exp_rel_ALOOKUP_EQ
@@ -845,10 +870,17 @@ Proof
            thunkLang_substTheory.freevars_def]
   \\ strip_tac
   >- (
-    simp [MAP_MAP_o, combinTheory.o_DEF, EXTENSION, MEM_MAP]
-    \\ metis_tac [])
+    simp [MAP_MAP_o, combinTheory.o_DEF]
+    \\ AP_TERM_TAC
+    \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [MEM_EL, PULL_EXISTS, EL_MAP])
   >- (
-    rw [EVERY_MEM, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF, EXTENSION]
+    rename1 ‘Let opt _ _’
+    \\ Cases_on ‘opt’ \\ gs [thunkLangTheory.freevars_def,
+                             thunkLang_substTheory.freevars_def])
+  >- (
+    rw [MEM_MAP, MAP_MAP_o, combinTheory.o_DEF, EXTENSION]
     \\ fs [EXISTS_PROD, FORALL_PROD]
     \\ metis_tac [])
 QED
@@ -897,6 +929,9 @@ Proof
   \\ simp [rce_def, exp_rel_def]
   \\ rw []
   \\ fs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] \\ rw []
+  >- (
+    rename1 ‘Let opt _ _’
+    \\ Cases_on ‘opt’ \\ fs [exp_rel_def])
   \\ fs [ELIM_UNCURRY]
   \\ first_x_assum irule
   \\ first_assum (irule_at Any) \\ fs []

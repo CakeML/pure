@@ -24,7 +24,7 @@ Datatype:
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname #  exp) list) exp         (* mutually recursive exps *)
-      | Let vname exp exp                        (* non-recursive let       *)
+      | Let (vname option) exp exp               (* non-recursive let       *)
       | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
@@ -100,7 +100,8 @@ Definition freevars_def:
   freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b) = freevars b DIFF {s} ∧
-  freevars (Let s x y) = freevars x ∪ (freevars y DIFF {s}) ∧
+  freevars (Let NONE x y) = freevars x ∪ freevars y ∧
+  freevars (Let (SOME s) x y) = freevars x ∪ (freevars y DIFF {s}) ∧
   freevars (Letrec f x) =
     ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
      set (MAP FST f)) ∧
@@ -132,7 +133,13 @@ Definition eval_to_def:
        if k = 0 then fail Diverge else eval_to (k - 1) (env ++ [(s,xv)]) body
      od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
-  eval_to k env (Let n x y) =
+  eval_to k env (Let NONE x y) =
+    (if k = 0 then fail Diverge else
+       do
+         eval_to (k - 1) env x;
+         eval_to (k - 1) env y
+       od) ∧
+  eval_to k env (Let (SOME n) x y) =
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) env x;
@@ -239,7 +246,11 @@ Proof
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Lam *)
     simp [eval_to_def])
-  >- ((* Let *)
+  >- ((* Let NONE *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
+  >- ((* Let SOME *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])
