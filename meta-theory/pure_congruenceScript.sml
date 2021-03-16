@@ -2537,15 +2537,24 @@ QED
 Theorem Let_Prim:
   ∀xs. Let w e (Prim p xs) ≅ Prim p (MAP (Let w e) xs)
 Proof
-  rw [] \\ irule eval_wh_IMP_exp_eq \\ rw []
-  \\ fs [subst_def,eval_wh_App,eval_wh_Lam]
-  \\ ‘closed (subst f e)’ by
-    (irule IMP_closed_subst
-     \\ fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS])
-  \\ fs [bind1_def,subst1_def]
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF]
-  \\ fs [eval_wh_def]
-  \\ cheat
+  rw[exp_eq_def, bind_def] >> rw[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, subst_def] >>
+  gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
+  simp[app_bisimilarity_eq] >> reverse conj_asm2_tac
+  >- (
+    gvs[EVERY_MAP, EVERY_MEM, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
+    DEP_REWRITE_TAC[freevars_subst, IMP_closed_subst] >>
+    simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM] >>
+    conj_asm1_tac >- (rw[] >> res_tac) >> rw[] >>
+    DEP_REWRITE_TAC[freevars_subst] >>
+    simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM] >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    ) >>
+  gvs[] >> irule exp_eq_trans >> irule_at Any beta_equality >> simp[] >>
+  simp[subst_def] >> irule exp_eq_Prim_cong >>
+  rw[LIST_REL_EL_EQN, EL_MAP] >>
+  irule $ iffLR exp_eq_sym >> irule exp_eq_trans >>
+  irule_at Any beta_equality >> simp[exp_eq_refl]
 QED
 
 Theorem Let_Prim_alt:
