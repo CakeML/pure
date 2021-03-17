@@ -67,4 +67,40 @@ Termination
   \\ first_x_assum (qspec_then ‘K 0’ mp_tac) \\ fs []
 End
 
+Definition freevars_cexp_def[simp]:
+  freevars_cexp (Var c v) = {v} ∧
+  freevars_cexp (Prim c op es) = BIGUNION (set (MAP freevars_cexp es)) ∧
+  freevars_cexp (App c e es) =
+    freevars_cexp e ∪ BIGUNION (set (MAP freevars_cexp es)) ∧
+  freevars_cexp (Lam c vs e) = freevars_cexp e DIFF set vs ∧
+  freevars_cexp (Let c v e1 e2) = freevars_cexp e1 ∪ (freevars_cexp e2 DELETE v) ∧
+  freevars_cexp (Letrec c fns e) =
+    freevars_cexp e ∪ BIGUNION (set (MAP (λ(fn,e). freevars_cexp e) fns))
+      DIFF set (MAP FST fns) ∧
+  freevars_cexp (Case c e v css) = freevars_cexp e ∪
+    (BIGUNION (set (MAP (λ(_,vs,ec). freevars_cexp ec DIFF set vs) css)) DELETE v)
+Termination
+  WF_REL_TAC `measure (cexp_size (K 0))` >> rw [] >>
+  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
+End
+
+Definition freevars_cexp_l_def[simp]:
+  freevars_cexp_l (Var c v) = [v] ∧
+  freevars_cexp_l (Prim c op es) = FLAT (MAP freevars_cexp_l es) ∧
+  freevars_cexp_l (App c e es) =
+    freevars_cexp_l e ++ FLAT (MAP freevars_cexp_l es) ∧
+  freevars_cexp_l (Lam c vs e) = FILTER (λv. ¬MEM v vs) (freevars_cexp_l e) ∧
+  freevars_cexp_l (Let c v e1 e2) =
+    freevars_cexp_l e1 ++ (FILTER ($≠ v) (freevars_cexp_l e2)) ∧
+  freevars_cexp_l (Letrec c fns e) =
+    FILTER (λv. ¬MEM v (MAP FST fns))
+      (freevars_cexp_l e ++ FLAT (MAP (λ(fn,e). freevars_cexp_l e) fns)) ∧
+  freevars_cexp_l (Case c e v css) = freevars_cexp_l e ++
+    FILTER ($≠ v)
+      (FLAT (MAP (λ(_,vs,ec). FILTER (λv. ¬MEM v vs) (freevars_cexp_l ec)) css))
+Termination
+  WF_REL_TAC `measure (cexp_size (K 0))` >> rw [] >>
+  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
+End
+
 val _ = export_theory();
