@@ -781,4 +781,47 @@ Proof
   simp[boundvars_equiv]
 QED
 
+
+(******************* Apps / Lams ********************)
+
+Theorem freevars_Lams[simp]:
+  ∀vs e. freevars (Lams vs e) = freevars e DIFF set vs
+Proof
+  Induct >> rw[Lams_def] >> gvs[EXTENSION] >> rw[] >> metis_tac[]
+QED
+
+Theorem subst_Lams:
+  ∀l x f. subst f (Lams l x) = Lams l (subst (FDIFF f (set l)) x)
+Proof
+  Induct >> rw[Lams_def] >- simp[FDIFF_def, DRESTRICT_UNIV] >>
+  simp[subst_def, fdiff_fdomsub_INSERT]
+QED
+
+Theorem freevars_Apps[simp]:
+  ∀es e. freevars (Apps e es) = freevars e ∪ BIGUNION (set (MAP freevars es))
+Proof
+  Induct >> rw[Apps_def] >> simp[UNION_ASSOC]
+QED
+
+Theorem subst_Apps:
+  ∀l x f. subst f (Apps x l) = Apps (subst f x) (MAP (subst f) l)
+Proof
+  Induct >> rw[Apps_def, subst_def]
+QED
+
+Theorem Apps_SNOC:
+  (∀x. Apps x [] = x) ∧
+  (∀ys x y. Apps x (SNOC y ys) = App (Apps x ys) y)
+Proof
+  conj_tac >- rw[Apps_def] >>
+  Induct >> rw[Apps_def]
+QED
+
+Theorem Let_Lams:
+  Let x a (Lams ys e) = App (Lams (x::ys) e) a
+Proof
+  rw[Lams_def]
+QED
+
+
 val _ = export_theory();
