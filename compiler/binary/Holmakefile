@@ -1,0 +1,6 @@
+INCLUDES = ../../language \
+           ../../meta-theory \
+           $(CAKEMLDIR)/basis/pure \
+           $(CAKEMLDIR)/basis \
+	   $(CAKEMLDIR)/translator \
+           $(HOLDIR)/examples/algorithms
