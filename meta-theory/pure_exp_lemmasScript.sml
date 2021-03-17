@@ -796,6 +796,14 @@ Proof
   Induct >> rw[Lams_def] >> simp[subst_def, fdiff_fdomsub_INSERT]
 QED
 
+Theorem Lams_SNOC:
+  (∀e. Lams [] e = e) ∧
+  (∀vs v. Lams (SNOC v vs) e = Lams vs (Lam v e))
+Proof
+  conj_tac >- rw[Lams_def] >>
+  Induct >> rw[Lams_def]
+QED
+
 Theorem freevars_Apps[simp]:
   ∀es e. freevars (Apps e es) = freevars e ∪ BIGUNION (set (MAP freevars es))
 Proof

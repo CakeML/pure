@@ -58,4 +58,24 @@ Proof
     )
 QED
 
+(****************************************)
+
+Definition plug_ctxt_def:
+  plug_ctxt Hole n = n ∧
+  plug_ctxt (Prim op xs1 h xs2) n = Prim op xs1 (plug_ctxt h n) xs2 ∧
+  plug_ctxt (AppL h y) n = AppL (plug_ctxt h n) y ∧
+  plug_ctxt (AppR x h) n = AppR x (plug_ctxt h n) ∧
+  plug_ctxt (Lam v h) n = Lam v (plug_ctxt h n) ∧
+  plug_ctxt (LetrecL xs1 (f,h) xs2 x) n = LetrecL xs1 (f, plug_ctxt h n) xs2 x ∧
+  plug_ctxt (LetrecR xs h) n = LetrecR xs (plug_ctxt h n)
+End
+
+Theorem plug_plug_ctxt:
+  ∀c1 c2 e. plug (plug_ctxt c1 c2) e = plug c1 (plug c2 e)
+Proof
+  recInduct plug_ctxt_ind >> rw[plug_def, plug_ctxt_def]
+QED
+
+(****************************************)
+
 val _ = export_theory();
