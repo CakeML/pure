@@ -1,5 +1,5 @@
 (*
-   Perrty printing of cexp
+   Pretty printing and basic parsing of cexp
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
@@ -8,6 +8,8 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_cexpTheory printingTheory parsingTheory intLib source_valuesTheory;
 
 val _ = new_theory "pure_print";
+
+(* --- pretty printing --- *)
 
 Definition sexp_of_op_def:
   sexp_of_op (Cons s) = [Name "cons"; Name s] ∧
@@ -61,13 +63,6 @@ Definition str_of_def:
   str_of x = vs2str [sexp_of x] []
 End
 
-(*
-
-fun print_cexp tm =
-  “str_of ^tm” |> EVAL |> concl |> rand |> stringSyntax.fromHOLstring |> print;
-
-*)
-
 Triviality str_of_test1:
   str_of (Lam () ["x";"y"] (Prim () (AtomOp Add) [Var () "x"; Var () "y"])) =
     "\n(lam (x y) (+ x y))\n\n"
@@ -90,6 +85,8 @@ Triviality str_of_test1:
 Proof
   EVAL_TAC
 QED
+
+(* --- basic parsing --- *)
 
 Definition num_to_str_aux_def:
   num_to_str_aux n aux =
@@ -206,53 +203,6 @@ Definition parse_prog_def:
     let (values,_,main) = bindings_of (parse (lexer s) (Num 0) []) in
       Letrec () values main
 End
-
-(*
-
-fun dest_QUOTE (q: term frag list) =
-  let
-    fun drop_until [] = []
-      | drop_until (x::xs) = if x = #")" then xs else drop_until xs;
-  in
-    case q of
-      [QUOTE str] => (String.implode o drop_until o String.explode) str
-    | _ => failwith "not a single QUOTE"
-  end;
-
-fun parse_cexp s =
-  mk_comb(“parse_cexp”,stringLib.fromMLstring s)
-  |> EVAL |> concl |> rand;
-
-fun parse_prog s =
-  mk_comb(“parse_prog”,stringLib.fromMLstring s)
-  |> EVAL |> concl |> rand;
-
-val Cexp = parse_cexp o dest_QUOTE
-val Prog = parse_prog o dest_QUOTE
-
-val p = Prog ‘
-
-(define if
-  (lam (x y z) (case x temp ((True) y)
-                            ((False) z))))
-
-(define even
-  (lam (n) (app if (= n (int 0))
-                   (cons True)
-                   (app odd (- n (int 1))))))
-
-(define odd
-  (lam (n) (app if (= n (int 0))
-                   (cons False)
-                   (app even (- n (int 1))))))
-
-(app even (int 8))
-
-’
-
-val _ = print_cexp p
-
-*)
 
 Triviality parse_cexp_test1:
   parse_cexp "(+ a b)" =
