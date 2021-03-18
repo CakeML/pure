@@ -28,10 +28,10 @@ val read_print_v_tm = fetch_v "read_print" st;
   applied to process the input.
  *)
 
-Definition process_stdin_using_def:
-  process_stdin_using fs f =
+Definition map_stdin_def:
+  map_stdin f fs =
     add_stdout (fastForwardFD fs 0)
-               (f (concat (all_lines_inode fs (UStream «stdin»))))
+               (f (implode (THE (ALOOKUP fs.inode_tbl (UStream «stdin»)))))
 End
 
 (*
@@ -42,11 +42,10 @@ Theorem read_print_spec:
   (∃inp. stdin fs inp 0) ⇒
   (STRING_TYPE --> STRING_TYPE) f fv ⇒
     app (p: 'ffi ffi_proj) ^read_print_v_tm [fv]
-      (STDIO fs * COMMANDLINE cl)
+      (COMMANDLINE cl * STDIO fs)
       (POSTv uv.
          &UNIT_TYPE () uv *
-         STDIO (process_stdin_using fs f) *
-         COMMANDLINE cl)
+         STDIO (map_stdin f fs))
 Proof
   xcf "read_print" st
   \\ reverse (Cases_on `STD_streams fs`)
@@ -65,9 +64,8 @@ Proof
   \\ first_assum (irule_at Any) \\ fs []
   \\ qexists_tac ‘fastForwardFD fs 0’
   \\ xsimpl
-  \\ simp [process_stdin_using_def]
-  \\ fs [stdin_def]
-  \\ cheat
+  \\ fs [map_stdin_def, stdin_def]
+  \\ xsimpl
 QED
 
 (*
@@ -85,29 +83,33 @@ val st = get_ml_prog_state ();
 val main_v = fetch_v "main" st;
 
 Theorem main_spec:
-  app (p: 'ffi ffi_proj) ^main_v [fv]
-    (STDIO fs * COMMANDLINE cl)
-    (POSTv uv.
-      &UNIT_TYPE () uv *
-      STDIO (process_stdin_using fs I) *
-      COMMANDLINE cl)
+  (∃inp. stdin fs inp 0) ⇒
+    app (p: 'ffi ffi_proj) ^main_v [Conv NONE []]
+      (COMMANDLINE cl * STDIO fs)
+      (POSTv uv.
+        &UNIT_TYPE () uv *
+        STDIO (map_stdin I fs))
 Proof
   xcf "main" st
   \\ xapp
   \\ irule_at Any i_v_thm \\ fs []
-  \\ cheat
+  \\ first_assum (irule_at Any)
 QED
 
 Theorem main_whole_prog_spec:
-  whole_prog_spec ^main_v cl fs NONE
-    ((=) (process_stdin_using fs I))
+  (∃inp. stdin fs inp 0) ⇒
+    whole_prog_spec ^main_v cl fs NONE ((=) (map_stdin I fs))
 Proof
-  cheat
+  rw [whole_prog_spec_def, SEP_CLAUSES]
+  \\ irule_at Any main_spec
+  \\ first_assum (irule_at Any)
+  \\ rw [map_stdin_def, GSYM add_stdo_with_numchars,
+         GSYM fastForwardFD_with_numchars, with_same_numchars]
 QED
 
 val st = get_ml_prog_state ();
 val (semantics_thm, prog_tm) =
-  whole_prog_thm st "main" ((*UNDISCH*) main_whole_prog_spec);
+  whole_prog_thm st "main" (UNDISCH main_whole_prog_spec);
 
 Definition io_prog_def:
   io_prog = ^prog_tm
