@@ -163,6 +163,18 @@ Proof
   rw[fmap_eq_flookup, FLOOKUP_FDIFF]
 QED
 
+Theorem FDIFF_EMPTY[simp]:
+  ∀f. FDIFF f {} = f
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FDIFF]
+QED
+
+Theorem FDIFF_FMAP_MAP2:
+  ∀f m s. FDIFF (FMAP_MAP2 f m) s = FMAP_MAP2 f (FDIFF m s)
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_FMAP_MAP2] >> rw[]
+QED
+
 
 (******************** Functions/Pairs ********************)
 

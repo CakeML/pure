@@ -793,8 +793,7 @@ QED
 Theorem subst_Lams:
   ∀l x f. subst f (Lams l x) = Lams l (subst (FDIFF f (set l)) x)
 Proof
-  Induct >> rw[Lams_def] >- simp[FDIFF_def, DRESTRICT_UNIV] >>
-  simp[subst_def, fdiff_fdomsub_INSERT]
+  Induct >> rw[Lams_def] >> simp[subst_def, fdiff_fdomsub_INSERT]
 QED
 
 Theorem freevars_Apps[simp]:

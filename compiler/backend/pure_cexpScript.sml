@@ -103,4 +103,22 @@ Termination
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
 End
 
+Definition substc_def:
+  substc f (Var c v) = (case FLOOKUP f v of SOME e => e | NONE => Var c v) ∧
+  substc f (Prim c op es) = Prim c op (MAP (substc f) es) ∧
+  substc f (App c e es) = App c (substc f e) (MAP (substc f) es) ∧
+  substc f (Lam c vs e) = Lam c vs (substc (FDIFF f (set vs)) e) ∧
+  substc f (Let c v e1 e2) = Let c v (substc f e1) (substc (f \\ v) e2) ∧
+  substc f (Letrec c fns e) =
+    Letrec c
+      (MAP (λ(fn,e). (fn, substc (FDIFF f (set (MAP FST fns))) e)) fns)
+      (substc (FDIFF f (set (MAP FST fns))) e) ∧
+  substc f (Case c e v css) =
+    Case c (substc f e) v
+      (MAP (λ(cn,vs,e). (cn,vs, substc (FDIFF f (v INSERT set vs)) e)) css)
+Termination
+  WF_REL_TAC `measure (cexp_size (K 0) o  SND)` >> rw [] >>
+  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
+End
+
 val _ = export_theory();
