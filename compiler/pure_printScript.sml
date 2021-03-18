@@ -156,7 +156,7 @@ Definition cexp_of_def:
      else if h = Name "lam" then
        Lam () (names_of (el0 t)) (cexp_of (el1 t))
      else if h = Name "app" then
-       App () (cexp_of (el0 t)) (cexps_of (el1 t))
+       App () (cexp_of (el0 t)) (cexps_of (tail t))
      else if h = Name "letrec" then
        let (fs,x) = letrec_of t in
          Letrec () fs x
@@ -187,24 +187,70 @@ Definition parse_cexp_def:
   parse_cexp s = cexp_of (head (parse (lexer s) (Num 0) []))
 End
 
+Definition bindings_of_def:
+  bindings_of (Num _) = ([], [], Var () "[malformed]") ∧
+  bindings_of (Pair h t) =
+    if isNum t then
+      ([],[],cexp_of h)
+    else if el0 h = Name "define" then
+      let (vs,data,main) = bindings_of t in
+        ((name_of (el1 h),cexp_of (el2 h))::vs,data,main)
+    else if el0 h = Name "data" then
+      let (vs,data,main) = bindings_of t in
+        (vs,tail h::data,main)
+    else bindings_of t
+End
+
+Definition parse_prog_def:
+  parse_prog s =
+    let (values,_,main) = bindings_of (parse (lexer s) (Num 0) []) in
+      Letrec () values main
+End
+
 (*
 
-fun parse_cexp s =
-  mk_comb(“parse_cexp”,stringLib.fromMLstring s)
-  |> EVAL |> concl |> rand;
-
-fun cexp q =
+fun dest_QUOTE (q: term frag list) =
   let
     fun drop_until [] = []
       | drop_until (x::xs) = if x = #")" then xs else drop_until xs;
   in
     case q of
-      [QUOTE str] => str |> String.explode
-                         |> drop_until
-                         |> String.implode
-                         |> parse_cexp
+      [QUOTE str] => (String.implode o drop_until o String.explode) str
     | _ => failwith "not a single QUOTE"
   end;
+
+fun parse_cexp s =
+  mk_comb(“parse_cexp”,stringLib.fromMLstring s)
+  |> EVAL |> concl |> rand;
+
+fun parse_prog s =
+  mk_comb(“parse_prog”,stringLib.fromMLstring s)
+  |> EVAL |> concl |> rand;
+
+val Cexp = parse_cexp o dest_QUOTE
+val Prog = parse_prog o dest_QUOTE
+
+val p = Prog ‘
+
+(define if
+  (lam (x y z) (case x temp ((True) y)
+                            ((False) z))))
+
+(define even
+  (lam (n) (app if (= n (int 0))
+                   (cons True)
+                   (app odd (- n (int 1))))))
+
+(define odd
+  (lam (n) (app if (= n (int 0))
+                   (cons False)
+                   (app even (- n (int 1))))))
+
+(app even (int 8))
+
+’
+
+val _ = print_cexp p
 
 *)
 
