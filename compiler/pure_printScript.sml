@@ -163,7 +163,7 @@ Definition cexp_of_def:
      else if h = Name "case" then
        Case () (cexp_of (el0 t)) (name_of (el1 t)) (rows_of (tail (tail t)))
      else (* must be a Prim case *)
-       cop_of h (el1 t) (el2 t) (cexps_of t)) ∧
+       cop_of h (el0 t) (el1 t) (cexps_of t)) ∧
   cexps_of (Num n) = [] ∧
   cexps_of (Pair h t) = cexp_of h :: cexps_of t ∧
   letrec_of (Num n) = ([],Var () "[malformed]") ∧
@@ -187,6 +187,27 @@ Definition parse_cexp_def:
   parse_cexp s = cexp_of (head (parse (lexer s) (Num 0) []))
 End
 
+(*
+
+fun parse_cexp s =
+  mk_comb(“parse_cexp”,stringLib.fromMLstring s)
+  |> EVAL |> concl |> rand;
+
+fun cexp q =
+  let
+    fun drop_until [] = []
+      | drop_until (x::xs) = if x = #")" then xs else drop_until xs;
+  in
+    case q of
+      [QUOTE str] => str |> String.explode
+                         |> drop_until
+                         |> String.implode
+                         |> parse_cexp
+    | _ => failwith "not a single QUOTE"
+  end;
+
+*)
+
 Triviality parse_cexp_test1:
   parse_cexp "(+ a b)" =
     Prim () (AtomOp Add) [Var () "a"; Var () "b"]
@@ -196,7 +217,7 @@ QED
 
 Triviality parse_cexp_test2:
   parse_cexp "(let a (int 6) (+ a b))" =
-     Let () "a" (Prim () (AtomOp (Lit (Int 0))) [])
+     Let () "a" (Prim () (AtomOp (Lit (Int 6))) [])
        (Prim () (AtomOp Add) [Var () "a"; Var () "b"])
 Proof
   EVAL_TAC
