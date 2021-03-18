@@ -3,9 +3,14 @@
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
 open listTheory pairTheory;
-open pure_cexpTheory pure_letrecTheory;
+open pure_cexpTheory pure_letrecTheory pure_beta_equivTheory;
 
 val _ = new_theory "pure_letrec_cexp";
+
+(*
+  TODO: improve efficiency by using freevar sets, and avoiding recomputation
+  of freevars (perhaps by using annotations at cexp AST nodes)
+*)
 
 (*******************)
 
@@ -27,7 +32,7 @@ Termination
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]
 End
 
-(********************)
+(********** pure_letrecTheory **********)
 
 (*
   1. a pass that ensures, for every Letrec xs y, that ALL_DISTINCT (MAP FST xs)
@@ -81,16 +86,49 @@ Definition clean_all_cexp_def:
 End
 
 
+(********** pure_letrec_lamTheory **********)
+
+Definition cl_cexp_def:
+  cl_cexp c = Prim c (Cons "") []
+End
+
+(* We should never hit the `Lam _ [] _`, `App _ _ []` cases. *)
+Definition make_apps_cexp_def:
+  make_apps_cexp c [] = FEMPTY ∧
+  make_apps_cexp c ((v,Lam _ [] e)::fs) = make_apps_cexp c ((v,e)::fs) ∧
+  make_apps_cexp c ((_,Lam _ _ _)::fs) = make_apps_cexp c fs ∧
+  make_apps_cexp c ((v,App _ e [])::fs) = make_apps_cexp c ((v,e)::fs) ∧
+  make_apps_cexp c ((v,e)::fs) =
+    make_apps_cexp c fs |+ (v, App c (Var c v) [cl_cexp c])
+End
+
+Definition lambdify_one_cexp_def:
+  lambdify_one_cexp c letrec_c fns e =
+    let apps = make_apps_cexp c fns in
+    let fresh = fresh_var "x" (MAP FST fns ++ FLAT (MAP (freevars_cexp_l o SND) fns)) in
+    let fns' = MAP (λ(v,f).
+                if v ∈ FDOM apps then (v, Lam c [fresh] (substc apps f))
+                else (v,substc apps f)) fns in
+    Letrec letrec_c fns' (substc apps e)
+End
+
+Definition lambdify_all_cexp_def:
+  lambdify_all_cexp c e = letrec_recurse_cexp (lambdify_one_cexp c) e
+End
+
+(*******************)
+
 (*
     Putting it all together:
 *)
 
-Definition simplify_cexp_def:
-  simplify_cexp e =
+Definition transform_cexp_def:
+  transform_cexp cfg e =
     let d = distinct_cexp e in
     let s = split_all_cexp d in
     let c = clean_all_cexp s in
-    c
+    let l = lambdify_all_cexp cfg c in
+    l
 End
 
 (*******************)

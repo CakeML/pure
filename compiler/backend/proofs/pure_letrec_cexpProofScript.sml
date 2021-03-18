@@ -2,11 +2,13 @@
    Verification of pure_letrec_cexp
 *)
 open HolKernel Parse boolLib bossLib BasicProvers;
-open listTheory pairTheory alistTheory pred_setTheory
+open listTheory pairTheory alistTheory pred_setTheory finite_mapTheory
      sptreeTheory topological_sortTheory;
 open pure_miscTheory pure_expTheory pure_cexpTheory
      pure_letrec_cexpTheory pure_letrecTheory pure_letrecProofTheory
-     pure_exp_lemmasTheory pure_cexp_lemmasTheory pure_congruenceTheory;
+     pure_letrec_lamTheory pure_letrec_lamProofTheory
+     pure_exp_lemmasTheory pure_cexp_lemmasTheory pure_congruenceTheory
+     pure_beta_equivTheory;
 
 val _ = new_theory "pure_letrec_cexpProof";
 
@@ -62,7 +64,7 @@ Proof
     )
 QED
 
-(********************)
+(********** pure_letrecProofTheory **********)
 
 Theorem distinct_cexp_correct:
   ∀ce. exp_of (distinct_cexp ce) = distinct (exp_of ce)
@@ -112,18 +114,6 @@ Proof
   reverse $ Cases_on `lookup n (to_nums l l1)` >> gvs[]
   >- (goal_assum drule >> simp[]) >>
   Cases_on `lookup n (to_nums l l2)` >> gvs[] >> res_tac >> fs[]
-QED
-
-Theorem MAPi_EQ_l:
-  ∀l1 l2 f.
-    LENGTH l1 = LENGTH l2 ∧
-    (∀n. n < LENGTH l1 ⇒ f n (EL n l1) = f n (EL n l2))
-  ⇒ MAPi f l1 = MAPi f l2
-Proof
-  Induct >> rw[] >> Cases_on `l2` >> gvs[] >> rw[]
-  >- (first_x_assum $ qspec_then `0` mp_tac >> simp[]) >>
-  first_x_assum irule >> simp[] >> rw[] >>
-  first_x_assum $ qspec_then `SUC n` mp_tac >> simp[]
 QED
 
 Triviality top_sort_set_eq:
@@ -232,10 +222,67 @@ Proof
   rw[clean_all_cexp_correct, clean_all_correct]
 QED
 
-Theorem simplify_cexp_correct:
-  ∀ce. exp_of ce ≅ exp_of (simplify_cexp ce)
+(********** pure_letrec_lamProofTheory **********)
+
+Triviality make_apps_Lams:
+  make_apps ((v, Lams [] e)::l) = make_apps ((v,e)::l) ∧
+  make_apps ((v, Lams (x::xs) e)::l) = make_apps l
 Proof
-  rw[simplify_cexp_def] >>
+  rw[make_apps_def, Lams_def]
+QED
+
+Triviality exp_of_cl_cexp[simp]:
+  exp_of (cl_cexp c) = cl_tm
+Proof
+  rw[cl_cexp_def, cl_tm_def, exp_of_def, op_of_def]
+QED
+
+Theorem make_apps_cexp_correct:
+  ∀c fns.
+    make_apps (MAP (λ(v,e). (v, exp_of e)) fns) =
+    FMAP_MAP2 (λ(k,v). exp_of v) (make_apps_cexp c fns)
+Proof
+  recInduct make_apps_cexp_ind >>
+  rw[make_apps_cexp_def, make_apps_def, exp_of_def, Lams_def, Apps_def] >>
+  simp[FMAP_MAP2_FUPDATE, exp_of_def, Apps_def] >>
+  rename1 `MAP _ a` >> Cases_on `a` using SNOC_CASES >>
+  gvs[Apps_SNOC, MAP_SNOC, make_apps_def]
+QED
+
+Theorem lambdify_all_cexp_correct:
+  ∀c ce. exp_of (lambdify_all_cexp c ce) = lambdify_all (exp_of ce)
+Proof
+  rw[lambdify_all_cexp_def, lambdify_all_def] >>
+  irule letrec_recurse_exp_of >> simp[exp_of_def] >>
+  once_rewrite_tac[lambdify_one_cexp_def, lambdify_one_def] >>
+  LET_ELIM_TAC >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+  `fresh = fresh'` by (
+    unabbrev_all_tac >> irule fresh_var_avoid_eq >> simp[] >>
+    AP_TERM_TAC >> simp[LIST_TO_SET_FLAT, LIST_TO_SET_MAP] >>
+    AP_TERM_TAC >> simp[IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[GSYM freevars_cexp_equiv, GSYM freevars_equiv, freevars_exp_of]) >>
+  `apps = FMAP_MAP2 (λ(k,v). exp_of v) apps'` by (
+    unabbrev_all_tac >> gvs[make_apps_cexp_correct]) >>
+  gvs[] >> rw[exp_of_def] >> gvs[subst_exp_of] >>
+  simp[Abbr `fns'`, Abbr `fns''`, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[FMAP_MAP2_THM] >>
+  IF_CASES_TAC >> gvs[exp_of_def, Lams_def, subst_exp_of]
+QED
+
+Theorem lambdify_all_cexp_exp_eq:
+  ∀c ce. exp_of ce ≅ exp_of (lambdify_all_cexp c ce)
+Proof
+  rw[lambdify_all_cexp_correct, lambdify_all_correct]
+QED
+
+(********************)
+
+Theorem transform_cexp_correct:
+  ∀c ce. exp_of ce ≅ exp_of (transform_cexp c ce)
+Proof
+  rw[transform_cexp_def] >>
+  irule exp_eq_trans >> irule_at (Pos last) lambdify_all_cexp_exp_eq >>
   irule exp_eq_trans >> irule_at (Pos last) clean_all_cexp_exp_eq >>
   irule exp_eq_trans >> irule_at (Pos last) split_all_cexp_exp_eq >>
   simp[distinct_cexp_correct, distinct_letrecs_distinct, distinct_exp_eq]

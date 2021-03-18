@@ -175,6 +175,12 @@ Proof
   rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_FMAP_MAP2] >> rw[]
 QED
 
+Theorem FMAP_MAP2_FEMPTY[simp]:
+  ∀f. FMAP_MAP2 f FEMPTY = FEMPTY
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FMAP_MAP2]
+QED
+
 
 (******************** Functions/Pairs ********************)
 
@@ -369,6 +375,18 @@ Proof
   irule_at Any ALL_DISTINCT_FLAT_IMP >> goal_assum drule >> simp[] >> rw[] >>
   CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[MEM_FLAT] >>
   goal_assum drule >> simp[]
+QED
+
+Theorem MAPi_EQ_l:
+  ∀l1 l2 f.
+    LENGTH l1 = LENGTH l2 ∧
+    (∀n. n < LENGTH l1 ⇒ f n (EL n l1) = f n (EL n l2))
+  ⇒ MAPi f l1 = MAPi f l2
+Proof
+  Induct >> rw[] >> Cases_on `l2` >> gvs[] >> rw[]
+  >- (first_x_assum $ qspec_then `0` mp_tac >> simp[]) >>
+  first_x_assum irule >> simp[] >> rw[] >>
+  first_x_assum $ qspec_then `SUC n` mp_tac >> simp[]
 QED
 
 
