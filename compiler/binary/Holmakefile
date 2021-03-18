@@ -3,4 +3,12 @@ INCLUDES = ../../language \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/basis \
 	   $(CAKEMLDIR)/translator \
+	   $(CAKEMLDIR)/compiler \
            $(HOLDIR)/examples/algorithms
+
+all: $(DEFAULT_TARGETS)
+
+ioprog: ioprog.S $(CAKEMLDIR)/basis/basis_ffi.o
+	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+
+EXTRA_CLEANS=ioprog ioprog.S
