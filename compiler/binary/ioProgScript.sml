@@ -23,7 +23,7 @@ val st = get_ml_prog_state ();
 val read_print_v_tm = fetch_v "read_print" st;
 
 (*
-  'process_stdin_using' is the specification of what read_print does to the
+  'map_stdin' is the specification of what read_print does to the
   file system model. It is parametrized on the file system and the function
   applied to process the input.
  *)
