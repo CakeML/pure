@@ -9,7 +9,7 @@ open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite io_treeTheory;
+     dep_rewrite io_treeTheory intLib;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_exp_relTheory pure_semanticsTheory
      pure_congruenceTheory;
@@ -313,14 +313,12 @@ Proof
   Induct \\ fs [PULL_EXISTS] \\ rw [symmetric_def]
 QED
 
-Theorem bisimilarity_IMP_semantics_eq:
-  ∀x y. x ≃ y ⇒ semantics x Done [] = semantics y Done []
+Theorem bisimilarity_IMP_all_semantics_eq:
+  ∀x y xs ys st st'.
+    x ≃ y ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (≃)) st st'
+  ⇒ semantics x xs st = semantics y ys st'
 Proof
-  qsuff_tac ‘∀x y xs ys st st'.
-    x ≃ y ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (≃)) st st' ⇒
-    semantics x xs st = semantics y ys st'’
-  THEN1 (rw [] \\ first_x_assum match_mp_tac)
-  \\ fs [io_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
+  fs [io_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
   \\ EVERY (map qid_spec_tac [‘st'’,‘st’,‘ys’,‘xs’,‘y’,‘x’])
   \\ completeInduct_on ‘LENGTH path’ \\ rw [] \\ fs [PULL_FORALL]
   \\ fs [semantics_def]
@@ -353,6 +351,12 @@ Proof
   \\ dxrule next_less_eq
   \\ disch_then (qspec_then ‘x'+x''’ assume_tac)
   \\ disch_then (qspec_then ‘x'+x''’ assume_tac) \\ fs []
+QED
+
+Theorem bisimilarity_IMP_semantics_eq:
+  ∀x y. x ≃ y ⇒ semantics x Done [] = semantics y Done []
+Proof
+  rw[] >> irule bisimilarity_IMP_all_semantics_eq >> simp[]
 QED
 
 val _ = export_theory();
