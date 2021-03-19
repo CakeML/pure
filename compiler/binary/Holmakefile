@@ -1,4 +1,6 @@
 INCLUDES = ../../language \
+           .. \
+           ../backend \
            ../../meta-theory \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/basis \
