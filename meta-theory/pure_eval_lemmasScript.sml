@@ -6,7 +6,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
      dep_rewrite;
-open pure_expTheory pure_valueTheory pure_evalTheory
+open pure_miscTheory pure_expTheory pure_valueTheory pure_evalTheory
      pure_exp_lemmasTheory pure_limitTheory;
 
 val _ = new_theory "pure_eval_lemmas";
@@ -209,6 +209,29 @@ Proof
   gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> pairarg_tac >> gvs[]
   >- (last_x_assum drule >> simp[]) >>
   gvs[EXISTS_MEM, MEM_MAP]
+QED
+
+Theorem eval_Apps_Lams:
+  ∀l e.
+    EVERY (closed o SND) l
+  ⇒ eval_wh (Apps (Lams (MAP FST l) e) (MAP SND l)) =
+    eval_wh (subst (FEMPTY |++ l) e)
+Proof
+  Induct using SNOC_INDUCT >>
+  rw[MAP_SNOC, Lams_SNOC, Apps_SNOC, FUPDATE_LIST_THM] >>
+  PairCases_on `x` >> gvs[] >>
+  simp[eval_wh_thm] >> gvs[SNOC_APPEND] >>
+  simp[subst_def, eval_wh_thm, bind_def, FLOOKUP_UPDATE] >>
+  simp[FUPDATE_LIST_APPEND, GSYM FUPDATE_EQ_FUPDATE_LIST] >>
+  DEP_REWRITE_TAC[subst_subst_FUNION] >> conj_tac
+  >- (
+    simp[DOMSUB_FUPDATE_LIST] >> ho_match_mp_tac IN_FRANGE_FUPDATE_LIST_suff >>
+    simp[combinTheory.o_DEF, MEM_MAP, PULL_EXISTS, MEM_FILTER] >> rw[] >>
+    gvs[EVERY_MEM]
+    ) >>
+  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+  rw[fmap_eq_flookup, FLOOKUP_FUNION, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE] >>
+  IF_CASES_TAC >> gvs[] >> CASE_TAC >> simp[]
 QED
 
 val _ = export_theory();
