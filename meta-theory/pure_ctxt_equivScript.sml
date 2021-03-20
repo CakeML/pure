@@ -135,6 +135,42 @@ Proof
     )
 QED
 
+Theorem semantics_Length_alt:
+  semantics (Length e) k st =
+    case eval_wh e of
+      wh_Diverge => Ret SilentDivergence
+    | wh_Atom (Loc n) =>
+        if LENGTH st ≤ n then Ret Error else
+        semantics (Ret (Lit (Int (&LENGTH (EL n st))))) k st
+    | _ => Ret Error
+Proof
+  reverse $ Cases_on `∃a. eval_wh e = wh_Atom a` >> gvs[]
+  >- (
+    rw[semantics_def, eval_wh_thm] >>
+    simp[Once interp_def, next_action_def] >>
+    simp[Once next_def, with_atom_def, with_atoms_def] >>
+    Cases_on `eval_wh e` >> gvs[get_atoms_def] >>
+    DEEP_INTRO_TAC some_intro >> rw[] >>
+    simp[Once next_def, with_atom_def, with_atoms_def, get_atoms_def]
+    ) >>
+  reverse $ Cases_on `∃n. a = Loc n` >> gvs[]
+  >- (
+    rw[semantics_def, eval_wh_thm] >>
+    simp[Once interp_def, next_action_def] >>
+    simp[Once next_def, with_atom_def, with_atoms_def, get_atoms_def] >>
+    Cases_on `a` >> gvs[] >>
+    DEEP_INTRO_TAC some_intro >> rw[] >>
+    simp[Once next_def, with_atom_def, with_atoms_def, get_atoms_def]
+    ) >>
+  reverse $ IF_CASES_TAC >> gvs[]
+  >- (DEP_REWRITE_TAC[semantics_Length] >> simp[]) >>
+  rw[semantics_def, eval_wh_thm] >>
+  simp[Once interp_def, next_action_def] >>
+  simp[Once next_def, with_atom_def, with_atoms_def, get_atoms_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  simp[Once next_def, with_atom_def, with_atoms_def, get_atoms_def]
+QED
+
 
 (******************** Contextual equivalence ********************)
 
@@ -165,6 +201,13 @@ Definition wh_to_cons_def:
   wh_to_cons  wh_Error = wh_Err
 End
 
+Triviality app_bisimilarity_wh_to_cons:
+  ∀x y. x ≃ y ⇒ wh_to_cons (eval_wh x) = wh_to_cons (eval_wh y)
+Proof
+  rw[Once app_bisimilarity_iff_alt2] >>
+  Cases_on `eval_wh x` >> gvs[wh_to_cons_def]
+QED
+
 Definition step_eval_wh_def:
   step_eval_wh [] e = SOME (wh_to_cons $ eval_wh e) ∧
   step_eval_wh (INL (s,n) :: rest) e =
@@ -187,11 +230,52 @@ Proof
   PairCases_on `x` >> rw[step_eval_wh_def]
 QED
 
-Triviality app_bisimilarity_wh_to_cons:
-  ∀x y. x ≃ y ⇒ wh_to_cons (eval_wh x) = wh_to_cons (eval_wh y)
+(* Creating a context to distinguish `Loc`s: *)
+Definition BindAllocs_def:
+  BindAllocs 0 e = Length e ∧
+  BindAllocs (SUC n) e = Bind (Alloc (Lit (Int 0)) Fail) (Lam "" $ BindAllocs n e)
+End
+
+Definition BindAllocsC_def:
+  BindAllocsC 0 = Prim (Cons "Length") [] Hole [] ∧
+  BindAllocsC (SUC n) =
+    Prim (Cons "Bind") [Alloc (Lit (Int 0)) Fail] (Lam "" $ BindAllocsC n) []
+End
+
+Theorem plug_BindAllocsC:
+  ∀n. plug (BindAllocsC n) e = BindAllocs n e
 Proof
-  rw[Once app_bisimilarity_iff_alt2] >>
-  Cases_on `eval_wh x` >> gvs[wh_to_cons_def]
+  Induct >> rw[BindAllocsC_def, BindAllocs_def, plug_def]
+QED
+
+Triviality freevars_BindAllocs:
+  ∀n e. freevars (BindAllocs n e) ⊆ freevars e
+Proof
+  Induct >> rw[BindAllocs_def] >>
+  simp[DELETE_SUBSET_INSERT] >> gvs[SUBSET_DEF]
+QED
+
+Theorem semantics_BindAllocs:
+  ∀n e k st.
+  closed e ⇒
+  semantics (BindAllocs n e) k st =
+    semantics (Length e) k (st ++ REPLICATE n [])
+Proof
+  Induct >> rw[BindAllocs_def] >>
+  simp[semantics_Bind] >>
+  `eval_wh (Lit (Int 0)) = wh_Atom (Int &0)` by
+    simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
+  drule semantics_Alloc >> rw[] >>
+  simp[semantics_Ret_BC] >>
+  qmatch_goalsub_abbrev_tac `semantics foo _ st' = _` >>
+  `semantics foo k st' = semantics (BindAllocs n e) k st'` by (
+    unabbrev_all_tac >>
+    simp[semantics_def, eval_wh_thm, bind1_def] >>
+    DEP_REWRITE_TAC[subst1_ignore] >>
+    simp[GSYM semantics_def] >> simp[semantics_def, eval_wh_thm] >>
+    CCONTR_TAC >> gvs[closed_def] >>
+    drule (freevars_BindAllocs |> SIMP_RULE std_ss [SUBSET_DEF]) >> gvs[]) >>
+  simp[Abbr `st'`] >> AP_TERM_TAC >> simp[GSYM APPEND_ASSOC]
 QED
 
 
@@ -570,8 +654,39 @@ Proof
       )
     >- ( (* Loc *)
       reverse $ Cases_on `∃m. eval_wh e2' = wh_Atom (Loc m)` >> gvs[]
-      >- cheat (* TODO - allocate n arrays then attempt to access *)
-      >- cheat (* TODO - allocate min (n, m) arrays then attempt to access *)
+      >- (
+        qexists_tac `BindAllocsC (SUC n)` >>
+        simp[plug_BindAllocsC, closed_def, EMPTY_iff_NOTIN] >> conj_tac
+        >- (
+          CCONTR_TAC >> gvs[closed_def] >>
+          drule (freevars_BindAllocs |> SIMP_RULE std_ss [SUBSET_DEF]) >> gvs[]
+          ) >>
+        simp[itree_of_def, semantics_BindAllocs] >>
+        simp[semantics_Length_alt, semantics_Ret] >>
+        EVERY_CASE_TAC >> gvs[]
+        ) >>
+      Cases_on `n < m` >> gvs[]
+      >- (
+        qexists_tac `BindAllocsC (SUC n)` >>
+        simp[plug_BindAllocsC, closed_def, EMPTY_iff_NOTIN] >> conj_tac
+        >- (
+          CCONTR_TAC >> gvs[closed_def] >>
+          drule (freevars_BindAllocs |> SIMP_RULE std_ss [SUBSET_DEF]) >> gvs[]
+          ) >>
+        simp[itree_of_def, semantics_BindAllocs] >>
+        simp[semantics_Length_alt, semantics_Ret]
+        )
+      >- (
+        qexists_tac `BindAllocsC (SUC m)` >>
+        simp[plug_BindAllocsC, closed_def, EMPTY_iff_NOTIN] >> conj_tac
+        >- (
+          CCONTR_TAC >> gvs[closed_def] >>
+          drule (freevars_BindAllocs |> SIMP_RULE std_ss [SUBSET_DEF]) >> gvs[]
+          ) >>
+        simp[itree_of_def, semantics_BindAllocs] >>
+        simp[semantics_Length_alt, semantics_Ret] >>
+        IF_CASES_TAC >> gvs[NOT_LESS, wh_to_cons_def]
+        )
       )
     >- ( (* Msg *)
       qexists_tac `Prim (Cons "Act") [] Hole []` >> simp[plug_def] >>
@@ -612,7 +727,15 @@ Proof
       Cases_on `eval_wh e1'` >> gvs[wh_to_cons_def]
       )
     >- ( (* Loc *)
-      cheat (* TODO - allocate n arrays then attempt to access *)
+      qexists_tac `BindAllocsC (SUC n)` >>
+      simp[plug_BindAllocsC, closed_def, EMPTY_iff_NOTIN] >> conj_tac
+      >- (
+        CCONTR_TAC >> gvs[closed_def] >>
+        drule (freevars_BindAllocs |> SIMP_RULE std_ss [SUBSET_DEF]) >> gvs[]
+        ) >>
+      simp[itree_of_def, semantics_BindAllocs] >>
+      simp[semantics_Length_alt, semantics_Ret] >>
+      EVERY_CASE_TAC >> gvs[]
       )
     >- ( (* Msg *)
       qexists_tac `Prim (Cons "Act") [] Hole []` >> simp[plug_def] >>
