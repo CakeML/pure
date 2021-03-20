@@ -830,5 +830,18 @@ Proof
   rw[Lams_def]
 QED
 
+Theorem closed_Apps[simp]:
+  closed (Apps e es) ⇔ closed e ∧ EVERY closed es
+Proof
+  rw[closed_def, freevars_Apps] >> Cases_on `es` >> simp[] >>
+  once_rewrite_tac[EXTENSION] >> simp[closed_def, MEM_MAP, EVERY_MEM] >>
+  eq_tac >> rw[] >> metis_tac[]
+QED
+
+Theorem closed_Lams[simp]:
+  closed (Lams vs e) ⇔ freevars e ⊆ set vs
+Proof
+  rw[closed_def, freevars_Lams] >> simp[SUBSET_DIFF_EMPTY]
+QED
 
 val _ = export_theory();

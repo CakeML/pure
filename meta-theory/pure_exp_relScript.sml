@@ -161,6 +161,30 @@ Theorem app_bisimilarity_iff_alt =
     |> SIMP_RULE (std_ss++boolSimps.CONJ_ss) [IN_DEF,opp_def]
     |> REWRITE_RULE [GSYM CONJ_ASSOC];
 
+Theorem app_bisimilarity_iff_alt2:
+  ∀e1 e2.
+    e1 ≃ e2 ⇔
+      closed e1 ∧ closed e2 ∧
+      case eval_wh e1 of
+        wh_Closure x ce1 =>
+          ∃y ce2. eval_wh e2 = wh_Closure y ce2 ∧
+                  ∀e. closed e ⇒ subst1 x e ce1 ≃ subst1 y e ce2
+      | wh_Constructor x e1s =>
+          ∃e2s. eval_wh e2 = wh_Constructor x e2s ∧
+                LIST_REL (CURRY app_bisimilarity) e1s e2s
+      | res => eval_wh e2 = res
+Proof
+  rw[Once app_bisimilarity_iff] >> eq_tac >> strip_tac >> simp[]
+  >- (
+    Cases_on `eval_wh e1` >> gvs[] >>
+    Cases_on `eval_wh e2` >> gvs[]
+    )
+  >- (
+    Cases_on `eval_wh e1` >> gvs[] >>
+    gvs[LIST_REL_EL_EQN] >> rw[opp_def, IN_DEF]
+    )
+QED
+
 Theorem app_bisimulation_SUBSET_app_bisimilarity:
   app_bisimulation R ⇒ R ⊆ app_bisimilarity
 Proof
