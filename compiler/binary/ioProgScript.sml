@@ -6,6 +6,8 @@ open basis pure_printTheory;
 
 val _ = new_theory "ioProg";
 
+val _ = set_grammar_ancestry["pure_print", "basisProg", "basis_ffi"];
+
 val _ = translation_extends "basisProg";
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
