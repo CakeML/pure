@@ -2,11 +2,16 @@
   A CakeML program that reads from stdio, applies a pure function, and
   prints to stdout.
  *)
-open basis pure_printTheory;
+open basis pure_printTheory
+     pure_letrec_cexpTheory pure_cexp_lemmasTheory pure_letrec_cexpProofTheory;
 
 val _ = new_theory "ioProg";
 
-val _ = set_grammar_ancestry["pure_print", "basisProg", "basis_ffi"];
+val _ = set_grammar_ancestry[
+          "pure_print",
+          "basisProg",
+          "basis_ffi"
+        ];
 
 val _ = translation_extends "basisProg";
 
@@ -54,6 +59,133 @@ val res = translate cop_of_def;
 val res = translate cexp_of_def;
 val res = translate bindings_of_def;
 val res = translate parse_prog_def;
+
+(* -- backend -- *)
+
+(* topological_sortTheory *)
+
+val res = translate sptreeTheory.spt_center_def;
+val res = translate sptreeTheory.spt_left_def;
+val res = translate sptreeTheory.spt_right_def;
+val res = translate sptreeTheory.mk_BN_def;
+val res = translate sptreeTheory.mk_BS_def;
+val res = translate sptreeTheory.inter_def;
+val res = translate sptreeTheory.union_def;
+val res = translate sptreeTheory.subspt_eq;
+val res = translate sptreeTheory.spt_fold_def;
+val res = translate sptreeTheory.map_def;
+val res = translate insert_def;
+val res = translate fromAList_def;
+val res = translate sptreeTheory.lookup_def;
+
+val res = translate spt_closureTheory.closure_spt_def;
+val res = translate topological_sortTheory.trans_clos_def;
+val res = translate topological_sortTheory.needs_def;
+val res = translate topological_sortTheory.partition_def;
+val res = translate topological_sortTheory.top_sort_aux_def;
+val res = translate topological_sortTheory.top_sort_def;
+val res = translate topological_sortTheory.to_nums_def;
+val res = translate topological_sortTheory.top_sort_any_def
+val _ = Q.prove (
+  `∀v. top_sort_any_side v`,
+  rw[fetch "-" "top_sort_any_side_def"] >>
+  Cases_on `v` >> gvs[]) |>
+  update_precondition;
+
+(* pure_letrec_cexpTheory *)
+
+val res = translate letrec_recurse_cexp_def;
+val res =
+  translate $
+    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]
+      pure_letrecTheory.make_distinct_def
+val res = translate distinct_cexp_def;
+val res = translate make_Letrecs_cexp_def;
+val res =
+  translate $
+    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]
+      pure_cexpTheory.freevars_cexp_l_def
+val res = translate split_one_cexp_def;
+val _ = Q.prove (
+  `∀v. split_one_cexp_side v`,
+  rw[fetch "-" "split_one_cexp_side_def"] >> gvs[LAMBDA_PROD] >>
+  qmatch_asmsub_abbrev_tac `topological_sort$top_sort_any l` >>
+  qspec_then `l` assume_tac top_sort_any_sets >>
+  gvs[EXTENSION, MEM_FLAT] >> pop_assum $ assume_tac o iffLR >>
+  gvs[PULL_EXISTS] >> pop_assum drule_all >> rw[] >>
+  unabbrev_all_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  CCONTR_TAC >> gvs[ALOOKUP_NONE, pure_miscTheory.FST_THM]) |>
+  update_precondition;
+val res = translate split_all_cexp_def;
+
+Theorem clean_one_cexp_alt:
+  pure_letrec_cexp$clean_one_cexp c fns e =
+    let fvs = freevars_cexp_l e in
+    if EVERY (λv. ¬ MEM v fvs) (MAP FST fns) then e else
+    case fns of
+      [(v,x)] => if MEM v (freevars_cexp_l x) then Letrec c fns e else Let c v x e
+    | _ => Letrec c fns e
+Proof
+  rw[clean_one_cexp_def] >> gvs[freevars_cexp_equiv]
+  >- gvs[DISJOINT_ALT, EXISTS_MEM]
+  >- gvs[DISJOINT_ALT, EVERY_MEM]
+QED
+
+val res =
+  translate $
+    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO] clean_one_cexp_alt;
+val res = translate clean_all_cexp_def;
+
+val res = translate cl_cexp_def;
+val res = translate make_apps_cexp_def;
+
+val res =
+  translate_no_ind $
+    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]
+      pure_beta_equivTheory.fresh_var_def;
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  gen_tac >> strip_tac >>
+  irule $ latest_ind () >> simp[MEMBER_INTRO]) |>
+  update_precondition;
+
+Triviality FLOOKUP_INTRO_COND:
+  ∀k fm.
+    (if v ∈ FDOM fm then A else B) =
+    case FLOOKUP fm v of SOME _ => A | NONE => B
+Proof
+  rw[FLOOKUP_DEF]
+QED
+
+Triviality FDIFF_ELIM_LIST_TO_SET:
+  ∀l fm.
+    FDIFF fm (set l) =
+    FOLDL (λm v. m \\ v) fm l
+Proof
+  Induct >> rw[] >>
+  simp[GSYM pure_miscTheory.fdiff_fdomsub_INSERT]
+QED
+
+val res = translate_no_ind
+  (pure_cexpTheory.substc_def |>
+   REWRITE_RULE [GSYM LIST_TO_SET_THM, FDIFF_ELIM_LIST_TO_SET]);
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp res))`,
+  gen_tac >> strip_tac >>
+  irule $ latest_ind () >>
+  rpt strip_tac >> last_x_assum irule >> rpt strip_tac >>
+  gvs[FORALL_PROD, FDIFF_ELIM_LIST_TO_SET, GSYM pure_miscTheory.fdiff_fdomsub_INSERT]
+  >- (last_x_assum drule >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
+  >- (pop_assum mp_tac >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
+  >- (pop_assum mp_tac >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
+  >- (last_x_assum drule >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])) |>
+  update_precondition;
+
+val res = translate
+  (lambdify_one_cexp_def |> REWRITE_RULE [FLOOKUP_INTRO_COND])
+val res = translate lambdify_all_cexp_def;
+
+val res = translate transform_cexp_def;
 
 (* -- printer -- *)
 

@@ -155,7 +155,7 @@ Proof
   unabbrev_all_tac >> gvs[]
 QED
 
-Triviality top_sort_any_sets:
+Theorem top_sort_any_sets:
   ∀l. set (FLAT (top_sort_any l)) = set (MAP FST l)
 Proof
   gen_tac >> once_rewrite_tac[top_sort_any_def] >> LET_ELIM_TAC >>
