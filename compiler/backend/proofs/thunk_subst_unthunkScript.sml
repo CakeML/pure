@@ -19,7 +19,8 @@ Inductive exp_rel:
      exp_rel (Delay (Force (Var v))) (Var v)) ∧
 [exp_rel_Value:]
   (∀x y.
-     exp_rel x y ⇒
+     exp_rel x y ∧
+     closed x ⇒
        exp_rel (Value (Thunk (INR x))) (Value (Thunk (INR y)))) ∧
 [exp_rel_Lam:]
   (∀x y.
@@ -62,7 +63,9 @@ Definition v_rel_def[simp]:
   v_rel (INL x: err + v) z =
     (∃y. z = INL y ∧ x = y) ∧
   v_rel (INR (Closure s x)) z =
-    (∃y. z = INR (Closure s y) ∧ exp_rel x y) ∧
+    (∃y. z = INR (Closure s y) ∧
+             exp_rel x y ∧
+             freevars x ⊆ {s}) ∧
   v_rel (INR (Constructor s vs)) z =
     (∃ws. z = INR (Constructor s ws) ∧
           LIST_REL (λv w. ∃x y.
@@ -72,7 +75,9 @@ Definition v_rel_def[simp]:
   v_rel (INR (Atom x)) z =
     (z = INR (Atom x)) ∧
   v_rel (INR (Thunk (INR x))) z =
-    (∃y. z = INR (Thunk (INR y)) ∧ exp_rel x y) ∧
+    (∃y. z = INR (Thunk (INR y)) ∧
+         exp_rel x y ∧
+         closed x) ∧
   v_rel _ _ = F
 End
 
@@ -89,7 +94,8 @@ Theorem v_rel_rev[simp]:
   (∀s y.
      v_rel v (INR (Closure s y)) =
        (∃x. v = INR (Closure s x) ∧
-            exp_rel x y)) ∧
+            exp_rel x y ∧
+            freevars x ⊆ {s})) ∧
   (∀v a.
      v_rel v (INR (Atom a)) = (v = INR (Atom a))) ∧
   (∀v y.
@@ -97,15 +103,12 @@ Theorem v_rel_rev[simp]:
        (∃x z.
             v = INR (Thunk (INR x)) ∧
             y = INR z ∧
-            exp_rel x z))
+            exp_rel x z ∧
+            closed x))
 Proof
-  rw [] \\ Cases_on ‘v’ \\ rw []
-  >- (
-    simp [EQ_SYM_EQ])
-  \\ rename1 ‘INR z’
-  \\ Cases_on ‘z’ \\ fs []
-  \\ simp [EQ_SYM_EQ]
-  \\ rename1 ‘Thunk z’ \\ Cases_on ‘z’ \\ fs []
+  rw [] \\ Cases_on ‘v’ \\ rw [EQ_SYM_EQ]
+  \\ rename1 ‘INR z’ \\ Cases_on ‘z’ \\ csimp [EQ_SYM_EQ]
+  \\ rename1 ‘Thunk zz’ \\ Cases_on ‘zz’ \\ simp []
 QED
 
 Theorem exp_size_lemma[local]:
@@ -146,9 +149,58 @@ Proof
   \\ imp_res_tac exp_size_lemma \\ fs []
 QED
 
+Theorem MAP_FST_FILTER[local]:
+  MAP FST (FILTER (λ(a,b). P a) xs) = FILTER P (MAP FST xs)
+Proof
+  irule LIST_EQ
+  \\ rw [EL_MAP, FILTER_MAP, combinTheory.o_DEF, LAMBDA_PROD]
+QED
+
+Theorem freevars_subst:
+  ∀m x. freevars (subst m x) = freevars x DIFF set (MAP FST m)
+Proof
+  ho_match_mp_tac subst_ind \\ rw []
+  \\ rw [subst_def]
+  \\ simp [freevars_def]
+  \\ fs [AC UNION_COMM UNION_ASSOC, UNION_DIFF_DISTRIBUTE]
+  >- (
+    CASE_TAC \\ fs [freevars_def, ALOOKUP_NONE, MAP_REVERSE]
+    \\ drule ALOOKUP_SOME
+    \\ simp [MAP_REVERSE])
+  >- (
+    rw [MAP_MAP_o, combinTheory.o_DEF, EXTENSION, EQ_IMP_THM]
+    \\ gvs [MEM_MAP]
+    \\ irule_at Any EQ_REFL
+    \\ first_assum (irule_at Any) \\ fs []
+    \\ rw [MEM_MAP])
+  >- (
+    simp [DIFF_COMM]
+    \\ rw [EXTENSION, MEM_MAP, MEM_FILTER, EQ_IMP_THM]
+    \\ gs [ELIM_UNCURRY, DISJ_EQ_IMP])
+  >- (
+    simp [UNION_DIFF_DISTRIBUTE, AC UNION_COMM UNION_ASSOC, DIFF_COMM]
+    \\ AP_TERM_TAC
+    \\ rw [EXTENSION, MEM_MAP, MEM_FILTER, EQ_IMP_THM]
+    \\ gs [ELIM_UNCURRY, DISJ_EQ_IMP])
+  >- (
+    cheat)
+QED
+
+Theorem freevars_subst1:
+  ∀x. freevars (subst1 s v x) = freevars x DIFF {s}
+Proof
+  simp [freevars_subst]
+QED
+
+Theorem closed_subst1:
+  closed (subst1 s v x) ⇔ freevars x ⊆ {s}
+Proof
+  rw [closed_def, freevars_subst1, SUBSET_DIFF_EMPTY]
+QED
+
 Theorem exp_rel_subst:
   ∀x y v w s.
-    v_rel (INR v : err + v) (INR w) ∧
+    v_rel (INR v) (INR w) ∧
     exp_rel x y ⇒
       exp_rel (subst1 s v x) (subst1 s w y)
 Proof
@@ -198,8 +250,8 @@ Proof
     rw [Once exp_rel_cases]
     >- ((* Var *)
       simp [subst1_def]
-      \\ IF_CASES_TAC \\ fs [exp_rel_Var]
-      \\ cheat (* Ok if they are thunks... *))
+      \\ IF_CASES_TAC \\ gvs [exp_rel_Var]
+      \\ cheat (* Unclear how to get around this *))
     \\ simp [subst1_def]
     \\ irule exp_rel_Delay \\ fs [])
   >- ((* Box *)
@@ -255,11 +307,11 @@ Proof
     \\ ‘[(s,v2)] = [] ++ [(s,v2)]’ by fs [] \\ pop_assum SUBST1_TAC
     \\ first_x_assum irule \\ fs []
     \\ irule_at Any exp_rel_subst \\ fs []
-    \\ fs [closed_def, freevars_def]
-    \\ cheat (* substitution closed *))
+    \\ simp [closed_subst1])
   >- ((* Lam *)
     rw [Once exp_rel_cases]
-    \\ simp [eval_to_def])
+    \\ simp [eval_to_def]
+    \\ fs [closed_def, freevars_def, SUBSET_DIFF_EMPTY])
   >- ((* Let NONE *)
     rw [Once exp_rel_cases]
     \\ rename1 ‘Let NONE x y’
@@ -291,10 +343,13 @@ Proof
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule \\ fs []
-    \\ cheat (* TODO subst_funs theorem *))
+    \\ fs [subst_funs_def, closed_def, freevars_subst, freevars_def]
+    \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
+           GSYM FST_THM]
+    \\ cheat (* TODO subst_funs theorem, should be no issue *))
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ fs [closed_def, freevars_def]
-    \\ simp [eval_to_def])
+    \\ simp [eval_to_def, closed_def])
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
@@ -317,8 +372,7 @@ Proof
       \\ Cases_on ‘s’ \\ fs [])
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
-    \\ simp [subst_funs_def]
-    \\ cheat (* should enforce closedness in v_rel *))
+    \\ simp [subst_funs_def])
   >- ((* Prim *)
     rw [Once exp_rel_cases]
     \\ simp [eval_to_def]
