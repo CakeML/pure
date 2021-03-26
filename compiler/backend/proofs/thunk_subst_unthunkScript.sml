@@ -40,10 +40,10 @@ Inductive exp_rel:
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Let:]
-  (∀x1 y1 x2 y2.
+  (∀s x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       exp_rel (Let s x1 y1) (Let s x2 y2)) ∧
 [exp_rel_Letrec:]
   (∀f x g y.
      LIST_REL (λ(f,x) (g,y). f = g ∧ exp_rel x y) f g ∧
@@ -71,7 +71,8 @@ Definition v_rel_def[simp]:
           LIST_REL (λv w. ∃x y.
                  v = Thunk (INR x) ∧
                  w = Thunk (INR y) ∧
-                 exp_rel x y) vs ws) ∧
+                 exp_rel x y ∧
+                 closed x) vs ws) ∧
   v_rel (INR (Atom x)) z =
     (z = INR (Atom x)) ∧
   v_rel (INR (Thunk (INR x))) z =
@@ -90,7 +91,8 @@ Theorem v_rel_rev[simp]:
              LIST_REL (λv w. ∃x y.
                     v = Thunk (INR x) ∧
                     w = Thunk (INR y) ∧
-                    exp_rel x y) ws vs)) ∧
+                    exp_rel x y ∧
+                    closed x) ws vs)) ∧
   (∀s y.
      v_rel v (INR (Closure s y)) =
        (∃x. v = INR (Closure s x) ∧
@@ -156,6 +158,13 @@ Proof
   \\ rw [EL_MAP, FILTER_MAP, combinTheory.o_DEF, LAMBDA_PROD]
 QED
 
+(* TODO pure_misc? *)
+Theorem LIST_TO_SET_FILTER_DIFF:
+  set (FILTER P l) = set l DIFF {x | ¬P x}
+Proof
+  rw [LIST_TO_SET_FILTER, DIFF_DEF, INTER_DEF, EXTENSION, CONJ_COMM]
+QED
+
 Theorem freevars_subst:
   ∀m x. freevars (subst m x) = freevars x DIFF set (MAP FST m)
 Proof
@@ -183,27 +192,34 @@ Proof
     \\ rw [EXTENSION, MEM_MAP, MEM_FILTER, EQ_IMP_THM]
     \\ gs [ELIM_UNCURRY, DISJ_EQ_IMP])
   >- (
-    cheat)
+    fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ fs [MAP_FST_FILTER]
+    \\ fs [LIST_TO_SET_FILTER_DIFF]
+    \\ fs [DIFF_COMM, UNION_DIFF_DISTRIBUTE, AC UNION_COMM UNION_ASSOC]
+    \\ fs [GSYM DIFF_UNION]
+    \\ AP_TERM_TAC
+    \\ rw [EXTENSION, DISJ_EQ_IMP, EQ_IMP_THM]
+    \\ gvs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ gvs [SF SFY_ss]
+    \\ gvs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD])
 QED
 
-Theorem freevars_subst1:
-  ∀x. freevars (subst1 s v x) = freevars x DIFF {s}
+Theorem closed_subst:
+  closed (subst m x) ⇔ freevars x ⊆ set (MAP FST m)
 Proof
-  simp [freevars_subst]
-QED
-
-Theorem closed_subst1:
-  closed (subst1 s v x) ⇔ freevars x ⊆ {s}
-Proof
-  rw [closed_def, freevars_subst1, SUBSET_DIFF_EMPTY]
+  rw [closed_def, freevars_subst, SUBSET_DIFF_EMPTY]
 QED
 
 Theorem exp_rel_subst:
-  ∀x y v w s.
-    v_rel (INR v) (INR w) ∧
+  ∀x y vs ws.
+    LIST_REL (λv w. v_rel (INR v) (INR w)) (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ∧
     exp_rel x y ⇒
-      exp_rel (subst1 s v x) (subst1 s w y)
+      exp_rel (subst vs x) (subst ws y)
 Proof
+  cheat
+(*
   ho_match_mp_tac exp_ind_alt \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Var *)
@@ -264,6 +280,7 @@ Proof
     rw [Once exp_rel_cases]
     \\ simp [subst1_def]
     \\ irule exp_rel_Value \\ fs [])
+       *)
 QED
 
 Theorem exp_rel_eval_to:
@@ -307,7 +324,7 @@ Proof
     \\ ‘[(s,v2)] = [] ++ [(s,v2)]’ by fs [] \\ pop_assum SUBST1_TAC
     \\ first_x_assum irule \\ fs []
     \\ irule_at Any exp_rel_subst \\ fs []
-    \\ simp [closed_subst1])
+    \\ simp [closed_subst])
   >- ((* Lam *)
     rw [Once exp_rel_cases]
     \\ simp [eval_to_def]
@@ -323,7 +340,18 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ Cases_on ‘eval_to (k - 1) x2’ \\ fs [])
   >- ((* Let SOME *)
-    rw [Once exp_rel_cases])
+    rw [Once exp_rel_cases]
+    \\ rename1 ‘Let (SOME n) x y’
+    \\ ‘closed x ∧ freevars y ⊆ {n}’
+      by fs [closed_def, freevars_def, SUBSET_DIFF_EMPTY]
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ first_x_assum (drule_then assume_tac)
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x2’ \\ fs []
+    \\ first_x_assum irule
+    \\ fs [closed_subst]
+    \\ irule exp_rel_subst \\ fs [])
   >- ((* If *)
     rw [Once exp_rel_cases]
     \\ rename1 ‘If x y z’
@@ -346,7 +374,10 @@ Proof
     \\ fs [subst_funs_def, closed_def, freevars_subst, freevars_def]
     \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
            GSYM FST_THM]
-    \\ cheat (* TODO subst_funs theorem, should be no issue *))
+    \\ irule exp_rel_subst
+    \\ fs [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP, LAMBDA_PROD,
+           GSYM FST_THM]
+    \\ cheat (* TODO forgot v_rel for Recclosures *))
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ fs [closed_def, freevars_def]
     \\ simp [eval_to_def, closed_def])
@@ -376,8 +407,164 @@ Proof
   >- ((* Prim *)
     rw [Once exp_rel_cases]
     \\ simp [eval_to_def]
+    \\ gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
+    \\ ‘∀n. n < LENGTH xs ⇒ closed (EL n xs)’
+      by gvs [closed_def, freevars_def, LIST_TO_SET_EQ_SING, EVERY_MAP,
+              EVERY_EL]
     \\ Cases_on ‘op’ \\ fs []
-    \\ cheat (* TODO this is just recursively applying whatever *))
+    >- ((* Cons *)
+      Cases_on ‘map (λx. eval_to k x) xs’ \\ fs []
+      >- (
+        gvs [map_INL]
+        \\ Cases_on ‘map (λy. eval_to k y) ys’ \\ fs []
+        >- (
+          gvs [map_INL]
+          \\ rename1 ‘m < LENGTH ys’
+          \\ Cases_on ‘m < n’
+          >- (
+            first_x_assum (drule_then assume_tac)
+            \\ last_x_assum (drule_all_then assume_tac)
+            \\ last_x_assum (drule_all_then assume_tac)
+            \\ gs [])
+          \\ Cases_on ‘n < m’
+          >- (
+            qpat_x_assum ‘n < LENGTH ys’ assume_tac
+            \\ first_x_assum (drule_then assume_tac)
+            \\ last_x_assum (drule_all_then assume_tac)
+            \\ last_x_assum (drule_all_then assume_tac)
+            \\ gs [])
+          \\ ‘n = m’ by fs []
+          \\ pop_assum SUBST_ALL_TAC \\ gvs []
+          \\ first_x_assum (drule_then assume_tac)
+          \\ first_x_assum (drule_then assume_tac)
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ gs [])
+        \\ drule_then assume_tac map_LENGTH
+        \\ dxrule_then assume_tac map_INR \\ fs []
+        \\ last_x_assum (drule_all_then assume_tac)
+        \\ last_x_assum (drule_all_then assume_tac)
+        \\ gs [])
+      \\ drule_then assume_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR \\ fs []
+      \\ Cases_on ‘map (λy. eval_to k y) ys’ \\ fs []
+      >- (
+        gvs [map_INL]
+        \\ last_x_assum (drule_all_then assume_tac)
+        \\ last_x_assum (drule_all_then assume_tac)
+        \\ gs [])
+      \\ drule_then assume_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR \\ fs []
+      \\ rw [LIST_REL_EL_EQN]
+      \\ cheat (* Everything needs to be a thunk here *))
+    >- ((* IsEq *)
+      IF_CASES_TAC \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”]
+      \\ rename1 ‘exp_rel x y’
+      \\ first_x_assum (drule_then assume_tac)
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+      \\ Cases_on ‘eval_to (k - 1) y’ \\ fs []
+      \\ rename1 ‘dest_Constructor z’
+      \\ Cases_on ‘dest_Constructor z’ \\ fs []
+      >- (
+        Cases_on ‘z’ \\ fs []
+        \\ rename1 ‘Thunk zz’ \\ Cases_on ‘zz’ \\ fs [])
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘z’ \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ fs [])
+    >- ((* Proj *)
+      IF_CASES_TAC \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”]
+      \\ rename1 ‘exp_rel x y’
+      \\ first_x_assum (drule_then assume_tac)
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
+      \\ Cases_on ‘eval_to (k - 1) y’ \\ fs []
+      \\ rename1 ‘dest_Constructor z’
+      \\ Cases_on ‘dest_Constructor z’ \\ fs []
+      >- (
+        Cases_on ‘z’ \\ fs []
+        \\ rename1 ‘Thunk zz’ \\ Cases_on ‘zz’ \\ fs [])
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘z’ \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ fs []
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ gvs [])
+    >- ((* AtomOp *)
+      Cases_on ‘k = 0’ \\ fs []
+      >- (
+        Cases_on ‘xs = []’ \\ fs [map_def]
+        >- (
+          CASE_TAC \\ fs []
+          \\ CASE_TAC \\ fs [])
+        \\ ‘ys ≠ []’ by (strip_tac \\ fs [])
+        \\ qmatch_goalsub_abbrev_tac ‘map f’
+        \\ ‘f = K (INL Diverge)’ by fs [Abbr ‘f’, FUN_EQ_THM]
+        \\ simp [map_K_INL])
+      \\ qmatch_goalsub_abbrev_tac ‘map f xs’
+      \\ Cases_on ‘map f xs’ \\ fs []
+      >- (
+        gvs [map_INL]
+        \\ Cases_on ‘map f ys’ \\ fs []
+        >- (
+          gvs [map_INL, Abbr ‘f’]
+          \\ rename1 ‘m < LENGTH ys’
+          \\ Cases_on ‘m < n’
+          >- (
+            first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_then assume_tac)
+            \\ gvs [CaseEqs ["sum", "v"]]
+            \\ cheat (* Forgot Recclosures *))
+          \\ Cases_on ‘n < m’
+          >- (
+            qpat_x_assum ‘n < LENGTH ys’ assume_tac
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_then assume_tac)
+            \\ gvs [CaseEqs ["sum", "v"]]
+            \\ rename1 ‘Thunk s’ \\ Cases_on ‘s’ \\ gs [])
+          \\ ‘m = n’ by fs []
+          \\ pop_assum SUBST_ALL_TAC \\ gvs []
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ gs [CaseEqs ["sum", "v"]])
+        \\ drule_then assume_tac map_LENGTH
+        \\ dxrule_then assume_tac map_INR
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ gs [Abbr ‘f’, CaseEqs ["sum", "v"]])
+      \\ drule_then assume_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR
+      \\ Cases_on ‘map f ys’ \\ fs []
+      >- (
+        gvs [map_INL]
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ gs [Abbr ‘f’, CaseEqs ["sum", "v"]])
+      \\ drule_then assume_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR
+      \\ rename1 ‘LENGTH zs = LENGTH ys’
+      \\ qsuff_tac ‘y = zs’
+      >- (
+        rw []
+        \\ CASE_TAC \\ fs []
+        \\ CASE_TAC \\ fs [])
+      \\ irule LIST_EQ \\ rw []
+      \\ gs [Abbr ‘f’, CaseEqs ["sum", "v"]]
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ gs []))
 QED
 
 val _ = export_theory ();
