@@ -211,76 +211,105 @@ Proof
   rw [closed_def, freevars_subst, SUBSET_DIFF_EMPTY]
 QED
 
+(* TODO pure_misc? *)
+Theorem LIST_REL_FILTER[local]:
+  ∀xs ys.
+    LIST_REL R xs ys ⇒
+    MAP FST xs = MAP FST ys ⇒
+      LIST_REL R (FILTER (λ(x,y). P x) xs)  (FILTER (λ(x,y). P x) ys)
+Proof
+  ho_match_mp_tac LIST_REL_ind \\ rw [] \\ fs [ELIM_UNCURRY]
+QED
+
 Theorem exp_rel_subst:
-  ∀x y vs ws.
+  ∀vs x ws y.
     LIST_REL (λv w. v_rel (INR v) (INR w)) (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ∧
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
 Proof
-  cheat
-(*
-  ho_match_mp_tac exp_ind_alt \\ rw []
+  ho_match_mp_tac subst_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Var *)
     rw [Once exp_rel_cases])
   >- ((* Prim *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ irule exp_rel_Prim
     \\ simp [EVERY2_MAP]
     \\ gvs [LIST_REL_EL_EQN] \\ rw []
     \\ first_x_assum irule \\ fs [EL_MEM])
   >- ((* If *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ irule exp_rel_If \\ fs [])
   >- ((* App *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ irule exp_rel_App \\ fs [])
   >- ((* Lam *)
     rw [Once exp_rel_cases]
-    \\ gvs [subst1_def]
-    \\ IF_CASES_TAC \\ gvs [exp_rel_Lam])
-  >- ((* Let *)
+    \\ gvs [subst_def]
+    \\ irule exp_rel_Lam
+    \\ first_x_assum irule
+    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+    \\ irule LIST_REL_FILTER \\ fs [])
+  >- ((* Let NONE *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ irule exp_rel_Let \\ fs [])
+  >- ((* Let SOME *)
+    rw [Once exp_rel_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_Let \\ fs []
+    \\ first_x_assum irule
+    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+    \\ irule LIST_REL_FILTER \\ fs [])
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ ‘MAP FST f = MAP FST g’
       by (fs [ELIM_UNCURRY, LIST_REL_CONJ]
           \\ irule LIST_EQ
           \\ gvs [LIST_REL_EL_EQN] \\ rw [EL_MAP])
-    \\ IF_CASES_TAC \\ gs [exp_rel_Letrec]
     \\ irule exp_rel_Letrec
-    \\ simp [EVERY2_MAP, LAMBDA_PROD]
-    \\ gvs [LIST_REL_EL_EQN] \\ rw []
-    \\ first_x_assum (drule_then assume_tac)
+    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
+    \\ first_x_assum (irule_at Any)
+    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
+    \\ irule_at Any LIST_REL_FILTER \\ fs []
+    \\ irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
     \\ first_x_assum irule
-    \\ rw [MEM_EL, Once EQ_SYM_EQ, SF SFY_ss])
+    \\ simp [MAP_FST_FILTER, LIST_REL_FILTER]
+    \\ gs [SF SFY_ss])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     >- ((* Var *)
-      simp [subst1_def]
-      \\ IF_CASES_TAC \\ gvs [exp_rel_Var]
-      \\ cheat (* Unclear how to get around this *))
-    \\ simp [subst1_def]
+      simp [subst_def]
+      \\ CASE_TAC \\ fs []
+      >- (
+        CASE_TAC \\ gvs [ALOOKUP_NONE, exp_rel_Var]
+        \\ drule_then assume_tac ALOOKUP_SOME
+        \\ gs [MAP_REVERSE])
+      \\ drule_then assume_tac ALOOKUP_SOME
+      \\ CASE_TAC \\ gvs [ALOOKUP_NONE, exp_rel_Var, MAP_REVERSE]
+      \\ cheat (* Value-Value *))
+    \\ simp [subst_def]
     \\ irule exp_rel_Delay \\ fs [])
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ irule exp_rel_Force \\ fs [])
   >- ((* Value *)
     rw [Once exp_rel_cases]
-    \\ simp [subst1_def]
+    \\ simp [subst_def]
     \\ irule exp_rel_Value \\ fs [])
-       *)
 QED
 
 Theorem exp_rel_eval_to:
