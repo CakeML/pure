@@ -121,4 +121,14 @@ Termination
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
 End
 
+Definition get_info_def:
+  get_info (Var c _) = c ∧
+  get_info (Prim c _ _) = c ∧
+  get_info (App c _ _) = c ∧
+  get_info (Lam c _ _) = c ∧
+  get_info (Let c _ _ _) = c ∧
+  get_info (Letrec c _ _) = c ∧
+  get_info (Case c _ _ _) = c
+End
+
 val _ = export_theory();
