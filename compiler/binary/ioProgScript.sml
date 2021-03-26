@@ -92,19 +92,25 @@ val _ = Q.prove (
   Cases_on `v` >> gvs[]) |>
   update_precondition;
 
+
+(* pure_varsTheory *)
+val res = translate pure_varsTheory.var_cmp_def;
+val res = translate pure_varsTheory.empty_def;
+val res = translate pure_varsTheory.list_union_def;
+val res = translate pure_varsTheory.list_delete_def;
+
 (* pure_letrec_cexpTheory *)
 
+val res = translate pure_cexpTheory.get_info_def;
+
 val res = translate letrec_recurse_cexp_def;
+val res = translate letrec_recurse_fvs_def;
 val res =
   translate $
     REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]
       pure_letrecTheory.make_distinct_def
 val res = translate distinct_cexp_def;
 val res = translate make_Letrecs_cexp_def;
-val res =
-  translate $
-    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]
-      pure_cexpTheory.freevars_cexp_l_def
 val res = translate split_one_cexp_def;
 val _ = Q.prove (
   `∀v. split_one_cexp_side v`,
@@ -117,73 +123,8 @@ val _ = Q.prove (
   CCONTR_TAC >> gvs[ALOOKUP_NONE, pure_miscTheory.FST_THM]) |>
   update_precondition;
 val res = translate split_all_cexp_def;
-
-Theorem clean_one_cexp_alt:
-  pure_letrec_cexp$clean_one_cexp c fns e =
-    let fvs = freevars_cexp_l e in
-    if EVERY (λv. ¬ MEM v fvs) (MAP FST fns) then e else
-    case fns of
-      [(v,x)] => if MEM v (freevars_cexp_l x) then Letrec c fns e else Let c v x e
-    | _ => Letrec c fns e
-Proof
-  rw[clean_one_cexp_def] >> gvs[freevars_cexp_equiv]
-  >- gvs[DISJOINT_ALT, EXISTS_MEM]
-  >- gvs[DISJOINT_ALT, EVERY_MEM]
-QED
-
-val res =
-  translate $
-    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO] clean_one_cexp_alt;
+val res = translate clean_one_cexp_def;
 val res = translate clean_all_cexp_def;
-
-val res = translate cl_cexp_def;
-val res = translate make_apps_cexp_def;
-
-val res =
-  translate_no_ind $
-    REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]
-      pure_beta_equivTheory.fresh_var_def;
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  gen_tac >> strip_tac >>
-  irule $ latest_ind () >> simp[MEMBER_INTRO]) |>
-  update_precondition;
-
-Triviality FLOOKUP_INTRO_COND:
-  ∀k fm.
-    (if v ∈ FDOM fm then A else B) =
-    case FLOOKUP fm v of SOME _ => A | NONE => B
-Proof
-  rw[FLOOKUP_DEF]
-QED
-
-Triviality FDIFF_ELIM_LIST_TO_SET:
-  ∀l fm.
-    FDIFF fm (set l) =
-    FOLDL (λm v. m \\ v) fm l
-Proof
-  Induct >> rw[] >>
-  simp[GSYM pure_miscTheory.fdiff_fdomsub_INSERT]
-QED
-
-val res = translate_no_ind
-  (pure_cexpTheory.substc_def |>
-   REWRITE_RULE [GSYM LIST_TO_SET_THM, FDIFF_ELIM_LIST_TO_SET]);
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  gen_tac >> strip_tac >>
-  irule $ latest_ind () >>
-  rpt strip_tac >> last_x_assum irule >> rpt strip_tac >>
-  gvs[FORALL_PROD, FDIFF_ELIM_LIST_TO_SET, GSYM pure_miscTheory.fdiff_fdomsub_INSERT]
-  >- (last_x_assum drule >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
-  >- (pop_assum mp_tac >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
-  >- (pop_assum mp_tac >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])
-  >- (last_x_assum drule >> CONV_TAC $ DEPTH_CONV ETA_CONV >> simp[])) |>
-  update_precondition;
-
-val res = translate
-  (lambdify_one_cexp_def |> REWRITE_RULE [FLOOKUP_INTRO_COND])
-val res = translate lambdify_all_cexp_def;
 
 val res = translate transform_cexp_def;
 
