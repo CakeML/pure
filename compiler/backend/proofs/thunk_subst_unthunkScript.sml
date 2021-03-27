@@ -366,6 +366,60 @@ Proof
     \\ irule exp_rel_Value \\ fs [])
 QED
 
+Theorem dest_Closure_v_rel:
+  v_rel v w ⇒
+    (∀err. dest_Closure v = INL err ⇒ dest_Closure w = INL err) ∧
+    (∀s x.
+       dest_Closure v = INR (s, x) ⇒
+         ∃env y.
+           dest_Closure w = INR (s, y) ∧
+           exp_rel x y ∧
+           freevars x ⊆ {s})
+Proof
+  Cases_on ‘v’ \\ Cases_on ‘w’
+  \\ rw [Once exp_rel_cases]
+  \\ rw [Once exp_rel_cases]
+QED
+
+Theorem dest_Thunk_v_rel:
+  v_rel v w ⇒
+    (∀err. dest_Thunk v = INL err ⇒ dest_Thunk w = INL err) ∧
+    (∀nf x. dest_Thunk v = INR x ⇒
+       ∃y.
+         dest_Thunk w = INR y ∧
+           ((∃v1 v2.
+               x = INL v1 ∧
+               y = INL v2 ∧
+               v_rel v1 v2) ∨
+            (∃env x1 x2.
+               x = INR x1 ∧
+               y = INR x2 ∧
+               exp_rel x1 x2)))
+Proof
+  Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw []
+QED
+
+Theorem dest_Recclosure_v_rel:
+  v_rel v w ⇒
+    (∀err. dest_Recclosure v = INL err ⇒ dest_Recclosure w = INL err) ∧
+    (∀f n.
+       dest_Recclosure v = INR (f, n) ⇒
+         ∃g env.
+           dest_Recclosure w = INR (g, n) ∧
+           LIST_REL (λ(fn,b) (gn,c).
+                       fn = gn ∧
+                       exp_rel b c ∧
+                       freevars b ⊆ set (MAP FST f)) f g ∧
+           (∀x. OPTREL exp_rel (ALOOKUP (REVERSE f) x) (ALOOKUP (REVERSE g) x)))
+Proof
+  Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw []
+  \\ irule LIST_REL_ALOOKUP
+  \\ rw [EVERY2_REVERSE]
+  \\ irule LIST_REL_mono
+  \\ first_assum (irule_at Any)
+  \\ simp [ELIM_UNCURRY]
+QED
+
 Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem exp_rel_eval_to:
@@ -392,18 +446,15 @@ Proof
     \\ rename1 ‘exp_rel y1 y2’
     \\ Cases_on ‘eval_to k x1’ \\ Cases_on ‘eval_to k x2’ \\ fs []
     \\ Cases_on ‘eval_to k y1’ \\ Cases_on ‘eval_to k y2’ \\ fs []
+    \\ drule_then strip_assume_tac dest_Closure_v_rel
+    \\ drule_then strip_assume_tac dest_Recclosure_v_rel
     \\ rename1 ‘dest_anyClosure y’
     \\ Cases_on ‘dest_anyClosure y’ \\ fs []
-    >- ((* TODO A lemma about dest_anyClosure perhaps *)
+    >- (
       rename1 ‘dest_anyClosure z’
       \\ Cases_on ‘y’ \\ Cases_on ‘z’ \\ gvs [dest_anyClosure_def]
-      \\ rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
-        by (irule LIST_REL_ALOOKUP
-            \\ simp [EVERY2_REVERSE]
-            \\ irule LIST_REL_mono
-            \\ first_assum (irule_at Any)
-            \\ rw [ELIM_UNCURRY])
+      \\ rename1 ‘ALOOKUP (REVERSE _) ss’
+      \\ first_x_assum (qspec_then ‘ss’ assume_tac)
       \\ gs [OPTREL_def]
       \\ qpat_x_assum ‘exp_rel x0 y0’ mp_tac
       \\ Cases_on ‘x0’ \\ rw [Once exp_rel_cases] \\ fs [])
@@ -411,14 +462,8 @@ Proof
     \\ rename1 ‘dest_anyClosure z’
     \\ reverse (Cases_on ‘y’) \\ Cases_on ‘z’ \\ gvs [dest_anyClosure_def]
     >- (
-      rename1 ‘LIST_REL _ xs ys’
-      \\ rename1 ‘Recclosure xs t’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) t) (ALOOKUP (REVERSE ys) t)’
-        by (irule LIST_REL_ALOOKUP
-            \\ simp [EVERY2_REVERSE]
-            \\ irule LIST_REL_mono
-            \\ first_assum (irule_at Any)
-            \\ rw [ELIM_UNCURRY])
+      rename1 ‘Recclosure l ss’
+      \\ first_x_assum (qspec_then ‘ss’ assume_tac)
       \\ gs [OPTREL_def]
       \\ qpat_x_assum ‘exp_rel x0 y0’ mp_tac
       \\ Cases_on ‘x0’ \\ rw [Once exp_rel_cases] \\ gvs []
@@ -435,6 +480,7 @@ Proof
       \\ drule_then assume_tac ALOOKUP_SOME_EL
       \\ gvs [EL_REVERSE]
       \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
+      \\ rename1 ‘n < LENGTH ys’
       \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
       \\ first_x_assum (drule_then assume_tac)
       \\ gvs [freevars_def, DIFF_SUBSET, UNION_COMM])
@@ -511,7 +557,10 @@ Proof
     >- ((* Var *)
       fs [closed_def, freevars_def])
     >- ((* Value_Delay *)
-      cheat (* Both values need to be thunks *)
+      rw [eval_to_def, closed_def, freevars_def]
+        (* Thunk (INR (Force (Value v))) related to w *)
+      \\ cheat (* The right side value needs to be a thunk
+                  related to the value on the left arrrgg what *)
     )
     \\ fs [closed_def, freevars_def, eval_to_def])
   >- ((* Box *)
@@ -523,17 +572,54 @@ Proof
     \\ ‘closed x’ by fs [closed_def, freevars_def]
     \\ first_x_assum (drule_then assume_tac) \\ gs []
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ fs []
+    \\ drule_then strip_assume_tac dest_Recclosure_v_rel
+    \\ drule_then strip_assume_tac dest_Thunk_v_rel
     \\ rename1 ‘dest_anyThunk z’
     \\ Cases_on ‘dest_anyThunk z’ \\ fs []
     >- (
       rename1 ‘dest_anyThunk zz’
       \\ Cases_on ‘z’ \\ Cases_on ‘zz’ \\ fs [dest_anyThunk_def]
-      \\ cheat (* TODO a lemma about dest_anyThunk *))
+      \\ rename1 ‘ALOOKUP (REVERSE _) ss’
+      \\ first_x_assum (qspec_then ‘ss’ assume_tac)
+      \\ gs [OPTREL_def]
+      \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
+      \\ Cases_on ‘x0’ \\ rw [Once exp_rel_cases] \\ gvs [])
     \\ pairarg_tac \\ gvs []
     \\ rename1 ‘dest_anyThunk zz’
     \\ Cases_on ‘z’ \\ Cases_on ‘zz’ \\ gvs [dest_anyThunk_def]
     >- (
-      cheat (* The same lemma again *))
+      rename1 ‘ALOOKUP (REVERSE _) ss’
+      \\ first_x_assum (qspec_then ‘ss’ assume_tac)
+      \\ gs [OPTREL_def]
+      \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
+      \\ Cases_on ‘x0’ \\ rw [Once exp_rel_cases] \\ gvs []
+      >- ((* Var *)
+        cheat (* Lost cause because some crucial invariant is missing *))
+      >- ((* Value *)
+        cheat (* Same as above *))
+      \\ IF_CASES_TAC \\ fs []
+      \\ first_x_assum irule
+      \\ simp [subst_funs_def, closed_subst]
+      \\ irule_at Any exp_rel_subst
+      \\ simp [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+               GSYM FST_THM]
+      \\ irule_at Any LIST_REL_mono
+      \\ first_assum (irule_at Any)
+      \\ simp [ELIM_UNCURRY]
+      \\ rename1 ‘LIST_REL _ xs ys’
+      \\ irule_at Any LIST_EQ
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP]
+      \\ imp_res_tac ALOOKUP_SOME_EL \\ gs [EL_REVERSE]
+      \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
+      \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
+      \\ first_assum (drule_then assume_tac)
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ gvs [freevars_def]
+      \\ rw []
+      \\ first_x_assum (drule_then assume_tac)
+      \\ pairarg_tac \\ gvs []
+      \\ pairarg_tac \\ gvs [])
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ simp [subst_funs_def])
