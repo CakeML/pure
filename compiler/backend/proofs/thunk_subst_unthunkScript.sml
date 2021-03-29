@@ -13,14 +13,164 @@ val _ = new_theory "thunk_subst_unthunk";
 
 val _ = numLib.prefer_num ();
 
+(* --------------------------
+   INVARIANT:
+   --------------------------
+
+   All variables should be substituted with something thunked.
+
+   --------------------------
+   THE INVARIANT IS ANNOYING:
+   --------------------------
+
+   The invariant is a bit annoying to express, because not all things are
+   expected to evaluate to thunked things. For instance:
+
+   - In (App f x) f must evaluate to a Closure or a Recclosure
+   - When evaluating (Prim (Cons ...) [...]), the result is a constructor, not
+     a thunk, but the arguments are thunks
+   - When evaluating other non-proj things, the result is not necessarily
+     a thunk
+
+   --------------------------
+   EXPRESSING THE INVARIANT:
+   --------------------------
+
+   Wherever we substitute we expect to encounter a dest_anyThunk-able value
+   as the value to be substituted in. There are three places in the thunkLang
+   semantics where we substitute:
+
+   1. in function applications, i.e., (App f x)
+   2. in mutually recursive lets, i.e., (Letrec f x)
+   3. when forcing thunks, i.e. (Force x)
+
+   In (3), the semantics already ensure that the x evaluates to a thunk, so we
+   ignore it.
+
+   --------------------------
+   UPHOLDING THE INVARIANT:
+   --------------------------
+
+   The invariant should be trivially satisfied initially by the pure_to_thunk
+   pass relation, as it wraps everything it can in Delay expressions. (One of)
+   the annoying bit(s) about this invariant is that it's clocked.
+
+ *)
+
+Inductive exp_inv:
+[exp_inv_Value:]
+  (∀x k.
+     exp_inv k x ⇒
+       exp_inv k (Value (Thunk (INR x)))) ∧
+[exp_inv_App:]
+  (∀f x k y.
+     0 < k ∧
+     exp_inv k f ∧
+     eval_to (k - 1) x = INR (Thunk (INR y)) ∧
+     exp_inv (k - 1) y ⇒
+       exp_inv k (App f x)) ∧
+[exp_inv_Let:]
+  (∀s x y k.
+     0 < k ∧
+     exp_inv (k - 1) x ∧
+     exp_inv (k - 1) y ⇒
+       exp_inv k (Let s x y)) ∧
+[exp_inv_If:]
+  (∀x y z k.
+     0 < k ∧
+     exp_inv (k - 1) x ∧
+     exp_inv (k - 1) y ∧
+     exp_inv (k - 1) z ⇒
+       exp_inv k (If x y z)) ∧
+[exp_inv_Letrec:]
+  (∀f x k.
+     0 < k ∧
+     EVERY (λ(fn,x). exp_inv k x (* TODO *)) f ∧
+     exp_inv (k - 1) x ⇒
+       exp_inv k (Letrec f x)) ∧
+[exp_inv_Force:]
+  (∀x k.
+     0 < k ∧
+     exp_inv (k - 1) x ⇒
+       exp_inv k (Force x)) ∧
+[exp_inv_Cons:]
+  (∀s xs k.
+     EVERY (exp_inv k) xs ⇒
+       exp_inv k (Prim (Cons s) xs)) ∧
+[exp_inv_IsEq:]
+  (∀s i xs k.
+     0 < k ∧
+     EVERY (exp_inv (k - 1)) xs ⇒
+       exp_inv k (Prim (IsEq s i) xs)) ∧
+[exp_inv_Proj:]
+  (∀s i xs k.
+     0 < k ∧
+     EVERY (exp_inv (k - 1)) xs ⇒
+       exp_inv k (Prim (Proj s i) xs)) ∧
+[exp_inv_AtomOp:]
+  (∀op xs k.
+     0 < k ∧
+     EVERY (exp_inv (k - 1)) xs ⇒
+       exp_inv k (Prim (AtomOp op) xs))
+End
+
+(* --------------------------
+   COMPILATION:
+   --------------------------
+
+   Since every variable is to be substituted by something thunked, we expect
+   that we can replace any (Delay (Force (Var v))) by (Var v). Here is a hand-
+   wavy motivation:
+
+   Using some abuse of notation (as variables don't evaluate to anything in the
+   substitution semantics; they cause the semantics to get stuck) we have that:
+
+     eval (Var v) = Thunk (INR x) for some x
+
+   Because
+     eval (Value (Thunk (INR x))) = Thunk (INR x)
+   And because
+     eval (Force (Value (Thunk (INR x)))) = eval x
+   And because
+     eval (Delay x) = Thunk (INR x) for all x
+   It follows that:
+     eval (Delay (Force (Var v))) = Thunk (INR (Force (Var v)))
+                                  = Thunk (INR (eval x)) for some x (see above)
+
+   Thus if we replace Delay (Force (Var v)) with v, we get
+
+     v1 := eval (Delay (Force (Var v))) = Thunk (INR (Force (Var v)))
+     v2 := eval (Var v) = Thunk (INR x) for some x
+
+   And thus whenever we force this thunk somewhere else, what we get is
+
+     eval (Force v1) = eval (Force (Thunk (INR (Force (Var v)))))
+                     = eval (Force (Var v))
+                     = eval x
+                     = eval (Force (Thunk (INR x)))
+                     = eval (Force v2)
+
+   ---
+
+   N.B. Force can be applied to regular-old thunks, but it can also be applied
+   to Recclosures, but it's not very different.
+
+ *)
+
 Inductive exp_rel:
 [exp_rel_Var:]
   (∀v.
      exp_rel (Delay (Force (Var v))) (Var v)) ∧
-[exp_rel_Delay_Value:]
-  (∀v w.
-     v_rel v w ⇒
-       exp_rel (Delay (Force (Value v))) (Value w)) ∧
+[exp_rel_Delay_Value_Thunk:]
+  (∀x y.
+     v_rel (Thunk (INR x)) (Thunk (INR y)) ⇒
+       exp_rel (Delay (Force (Value (Thunk (INR x)))))
+               (Value (Thunk (INR y)))) ∧
+[exp_rel_Delay_Value_Recclosure:]
+  (∀f g n.
+     v_rel (Recclosure f n) (Recclosure g n) ⇒
+       exp_rel (Delay (Force (Value (Recclosure f n))))
+               (Value (Recclosure g n))) ∧
 [exp_rel_Value:]
   (∀v w.
      v_rel v w ⇒
@@ -69,8 +219,8 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
-                   exp_rel x y ∧
-                   freevars x ⊆ set (MAP FST f)) f g ⇒
+                 exp_rel x y ∧
+                 freevars x ⊆ set (MAP FST f)) f g ⇒
       v_rel (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
@@ -275,9 +425,20 @@ Proof
   \\ Cases \\ Cases \\ rw []
 QED
 
+Definition thunk_rel_def:
+  thunk_rel v w ⇔
+    v_rel v w ∧
+    ((∃x y.
+        v = Thunk (INR x) ∧
+        w = Thunk (INR y)) ∨
+     (∃f g n.
+        v = Recclosure f n ∧
+        w = Recclosure g n))
+End
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
-    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
+    LIST_REL thunk_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ∧
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
@@ -343,16 +504,19 @@ Proof
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     >- ((* Var *)
-      ‘OPTREL v_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
+      ‘OPTREL thunk_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
         by (irule LIST_REL_ALOOKUP
             \\ simp [EVERY2_REVERSE]
             \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
             \\ pop_assum mp_tac
             \\ rpt (pop_assum kall_tac)
             \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
-      \\ fs [subst_def, OPTREL_def, exp_rel_Var, exp_rel_Delay_Value])
-    >- ((* Value *)
-      simp [subst_def, exp_rel_Delay_Value])
+      \\ fs [subst_def, OPTREL_def, exp_rel_Var]
+      \\ rw [Once exp_rel_cases] \\ gvs [thunk_rel_def])
+    >- ((* Value Thunk *)
+      simp [subst_def, exp_rel_Delay_Value_Thunk])
+    >- ((* Value Recclosure *)
+      simp [subst_def, exp_rel_Delay_Value_Recclosure])
     \\ simp [subst_def, exp_rel_Delay])
   >- ((* Box *)
     rw [Once exp_rel_cases])
@@ -422,6 +586,48 @@ QED
 
 Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
 
+Theorem closed_simps[local,simp]:
+  (∀f x. closed (App f x) ⇔ closed f ∧ closed x) ∧
+  (∀s x y. closed (Let (SOME s) x y) ⇔ closed x ∧ freevars y ⊆ {s}) ∧
+  (∀s x y. closed (Lam s x) ⇔ freevars x ⊆ {s}) ∧
+  (∀x y. closed (Let NONE x y) ⇔ closed x ∧ closed y) ∧
+  (∀x y z. closed (If x y z) ⇔ closed x ∧ closed y ∧ closed z) ∧
+  (∀f x. closed (Letrec f x) ⇔
+     BIGUNION (set (MAP (λ(f,x). freevars x) f)) ⊆ set (MAP FST f) ∧
+     freevars x ⊆ set (MAP FST f)) ∧
+  (∀op xs. closed (Prim op xs) ⇔ EVERY closed xs) ∧
+  (∀x. closed (Force x) ⇔ closed x)  ∧
+  (∀x. closed (Delay x) ⇔ closed x)  ∧
+  (∀x. closed (Box x) ⇔ closed x)  ∧
+  (∀v. closed (Value v) ⇔ T)  ∧
+  (∀v. closed (Var v) ⇔ F)
+Proof
+  rw [closed_def, freevars_def]
+  \\ simp [SUBSET_DIFF_EMPTY, AC CONJ_COMM CONJ_ASSOC]
+  \\ rw [DISJ_EQ_IMP, EQ_IMP_THM]
+  \\ fs [LIST_TO_SET_EQ_SING, EVERY_MAP, GSYM closed_def, SF ETA_ss]
+  \\ Cases_on ‘xs’ \\ fs []
+QED
+
+Theorem exp_inv_mono:
+  ∀k x. exp_inv k x ⇒ ∀j. k < j ⇒ exp_inv j x
+Proof
+  ho_match_mp_tac exp_inv_strongind \\ rw []
+  \\ rw [Once exp_inv_cases]
+  >- (
+    rename1 ‘eval_to (k - 1) x1 = INR (Thunk (INR x2))’
+    \\ ‘exp_inv (j - 1) x2’ by fs []
+    \\ first_x_assum (irule_at Any)
+    \\ ‘eval_to (k - 1) x1 ≠ INL Diverge’ by (strip_tac \\ fs [])
+    \\ drule_then (qspec_then ‘j - 1’ mp_tac) eval_to_subst_mono
+    \\ simp [])
+  >- (
+    gvs [EVERY_MEM] \\ rw []
+    \\ first_x_assum drule
+    \\ simp [ELIM_UNCURRY])
+  \\ gvs [EVERY_MEM] \\ rw []
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ∧
@@ -433,8 +639,6 @@ Proof
   >- ((* Value *)
     rw [Once exp_rel_cases]
     \\ simp [eval_to_def])
-  >- ((* Var *)
-    fs [closed_def, freevars_def])
   >- ((* App *)
     rename1 ‘App x1 y1’
     \\ rw [Once exp_rel_cases]
@@ -460,6 +664,7 @@ Proof
       \\ Cases_on ‘x0’ \\ rw [Once exp_rel_cases] \\ fs [])
     \\ pairarg_tac \\ gvs []
     \\ rename1 ‘dest_anyClosure z’
+
     \\ reverse (Cases_on ‘y’) \\ Cases_on ‘z’ \\ gvs [dest_anyClosure_def]
     >- (
       rename1 ‘Recclosure l ss’
@@ -483,7 +688,13 @@ Proof
       \\ rename1 ‘n < LENGTH ys’
       \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
       \\ first_x_assum (drule_then assume_tac)
-      \\ gvs [freevars_def, DIFF_SUBSET, UNION_COMM])
+      \\ gvs [freevars_def, DIFF_SUBSET, UNION_COMM]
+      \\ cheat
+        (* TODO we don't know that the argument evaluated to a thunked thing.
+                the biggest problem here is that not all things are thunked.
+                for instance, the function value isn't; it might also be
+                a closure as well as a recclosure *)
+      )
     \\ IF_CASES_TAC \\ gvs []
     \\ rename1 ‘eval_to k y1 = INR v1’
     \\ rename1 ‘eval_to k y2 = INR v2’
@@ -552,7 +763,9 @@ Proof
     \\ first_assum (irule_at Any)
     \\ gvs [ELIM_UNCURRY, EL_MAP, LIST_REL_EL_EQN] \\ rw []
     \\ gvs [BIGUNION_SUBSET, MEM_EL, PULL_EXISTS, EL_MAP])
+
   >- ((* Delay *)
+
     rw [Once exp_rel_cases]
     >- ((* Var *)
       fs [closed_def, freevars_def])
