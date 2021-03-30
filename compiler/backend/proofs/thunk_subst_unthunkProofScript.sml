@@ -141,42 +141,13 @@ End
    COMPILATION:
    --------------------------
 
-   Since every variable is to be substituted by something thunked, we expect
-   that we can replace any (Delay (Force (Var v))) by (Var v). Here is a hand-
-   wavy motivation:
-
-   Using some abuse of notation (as variables don't evaluate to anything in the
-   substitution semantics; they cause the semantics to get stuck) we have that:
-
-     eval (Var v) = Thunk (INR x) for some x
-
-   Because
-     eval (Value (Thunk (INR x))) = Thunk (INR x)
-   And because
-     eval (Force (Value (Thunk (INR x)))) = eval x
-   And because
-     eval (Delay x) = Thunk (INR x) for all x
-   It follows that:
-     eval (Delay (Force (Var v))) = Thunk (INR (Force (Var v)))
-                                  = Thunk (INR (eval x)) for some x (see above)
-
-   Thus if we replace Delay (Force (Var v)) with v, we get
-
-     v1 := eval (Delay (Force (Var v))) = Thunk (INR (Force (Var v)))
-     v2 := eval (Var v) = Thunk (INR x) for some x
-
-   And thus whenever we force this thunk somewhere else, what we get is
-
-     eval (Force v1) = eval (Force (Thunk (INR (Force (Var v)))))
-                     = eval (Force (Var v))
-                     = eval x
-                     = eval (Force (Thunk (INR x)))
-                     = eval (Force v2)
-
-   ---
-
-   N.B. Force can be applied to regular-old thunks, but it can also be applied
-   to Recclosures, but it's not very different.
+   We can replace all occurrences of (Delay (Force (Var v))) floating around
+   in the middle of expressions with (Var v), but we can't touch those that sit
+   at the top of bindings such as Letrecs, because Letrecs turn into
+   Recclosures, and Recclosures that look like this are used as thunks. If we
+   remove the Delay's sitting directly in a Letrec declaration then the
+   resulting code will get stuck when it is forced somewhere. Otherwise, we
+   expect that every variable will be replaced by a thunk.
 
  *)
 
@@ -212,12 +183,16 @@ Inductive exp_rel:
        exp_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
 [exp_rel_Letrec:]
   (∀f x g y.
-     LIST_REL (λ(f,x) (g,y). f = g ∧ exp_rel x y) f g ∧
+     LIST_REL (λ(f,x) (g,y).
+                 f = g ∧
+                 (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
+                 (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y)) f g ∧
      exp_rel x y ⇒
        exp_rel (Letrec f x) (Letrec g y)) ∧
 [exp_rel_Delay:]
   (∀x y.
-     exp_rel x y ⇒
+     exp_rel x y ∧
+     (∀v. x ≠ Force (Var v)) ⇒
        exp_rel (Delay x) (Delay y)) ∧
 [exp_rel_Force:]
   (∀x y.
@@ -232,7 +207,8 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
-                 exp_rel x y ∧
+                 (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
+                 (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
                  freevars x ⊆ set (MAP FST f)) f g ⇒
       v_rel (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_Constructor:]
@@ -260,7 +236,8 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
-                 exp_rel x y ∧
+                 (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
+                 (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
                  freevars x ⊆ set (MAP FST f)) f g ⇒
       thunk_rel (Recclosure f n) (Recclosure g n))
 End
@@ -275,9 +252,10 @@ Theorem v_rel_def[simp]:
      v_rel (Recclosure f n) z =
        (∃g. z = Recclosure g n ∧
             LIST_REL (λ(fn,x) (gn,y).
-                   fn = gn ∧
-                   exp_rel x y ∧
-                   freevars x ⊆ set (MAP FST f)) f g)) ∧
+                        fn = gn ∧
+                        (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
+                        (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                        freevars x ⊆ set (MAP FST f)) f g)) ∧
   (∀s vs z.
      v_rel (Constructor s vs) z =
        (∃ws. z = Constructor s ws ∧
@@ -308,10 +286,11 @@ Theorem v_rel_rev[simp]:
   (∀g n.
      v_rel v (Recclosure g n) =
        (∃f. v = Recclosure f n ∧
-          LIST_REL (λ(fn,x) (gn,y).
-                 fn = gn ∧
-                 exp_rel x y ∧
-                 freevars x ⊆ set (MAP FST f)) f g)) ∧
+            LIST_REL (λ(fn,x) (gn,y).
+                        fn = gn ∧
+                        (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
+                        (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                        freevars x ⊆ set (MAP FST f)) f g)) ∧
   (∀v s vs.
      v_rel v (Constructor s vs) =
        (∃ws. v = Constructor s ws ∧
@@ -454,6 +433,17 @@ Proof
   \\ Cases \\ Cases \\ rw []
 QED
 
+Theorem subst_recursive[local]:
+  (∀xs x y. subst xs x = Delay y ⇔ ∃z. x = Delay z ∧ subst xs z = y) ∧
+  (∀xs x y. subst xs x = Force y ⇔ ∃z. x = Force z ∧ subst xs z = y) ∧
+  (∀xs x v. subst xs x = Var v ⇔ x = Var v ∧ ¬MEM v (MAP FST xs))
+Proof
+  rpt conj_tac
+  \\ Cases_on ‘x’ \\ rw [subst_def, CaseEq "option", ALOOKUP_NONE]
+  \\ rw [MAP_REVERSE, MEM_REVERSE, EQ_IMP_THM] \\ fs []
+  \\ rename1 ‘Let s _ _’ \\ Cases_on ‘s’ \\ simp [subst_def]
+QED
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL thunk_rel (MAP SND vs) (MAP SND ws) ∧
@@ -503,18 +493,30 @@ Proof
           \\ gvs [LIST_REL_EL_EQN] \\ rw [EL_MAP])
     \\ irule exp_rel_Letrec
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-    \\ first_x_assum (irule_at Any)
+    \\ first_assum (irule_at Any)
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
     \\ irule_at Any LIST_REL_FILTER \\ fs []
     \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any) \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename1 ‘MEM (p,v1) f’
+    \\ ‘∀v. v1 ≠ Delay (Force (Var v))’
+      by (rpt strip_tac \\ rw []
+          \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
+          \\ rw [Once exp_rel_cases])
+    \\ gs [subst_recursive]
     \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER, LIST_REL_FILTER]
-    \\ gs [SF SFY_ss])
+    \\ simp [MAP_FST_FILTER]
+    \\ first_assum (irule_at Any)
+    \\ irule_at Any LIST_REL_FILTER
+    \\ irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any)
+    \\ first_assum (irule_at Any)
+    \\ gvs [ELIM_UNCURRY])
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ simp [subst_def, exp_rel_Value, exp_rel_Delay]
+    rw [Once exp_rel_cases] \\ simp [subst_def, exp_rel_Value, exp_rel_Delay,
+                                     subst_recursive]
     \\ ‘OPTREL thunk_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
       by (irule LIST_REL_ALOOKUP
           \\ simp [EVERY2_REVERSE]
@@ -570,21 +572,25 @@ Theorem dest_Recclosure_v_rel:
   v_rel v w ⇒
     (∀err. dest_Recclosure v = INL err ⇒ dest_Recclosure w = INL err) ∧
     (∀f n.
-       dest_Recclosure v = INR (f, n) ⇒
+       dest_Recclosure v = INR (f,n) ⇒
          ∃g env.
-           dest_Recclosure w = INR (g, n) ∧
-           LIST_REL (λ(fn,b) (gn,c).
+           dest_Recclosure w = INR (g,n) ∧
+           LIST_REL (λ(fn,x) (gn,y).
                        fn = gn ∧
-                       exp_rel b c ∧
-                       freevars b ⊆ set (MAP FST f)) f g ∧
-           (∀x. OPTREL exp_rel (ALOOKUP (REVERSE f) x) (ALOOKUP (REVERSE g) x)))
+                       (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
+                       (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                       freevars x ⊆ set (MAP FST f)) f g ∧
+           (∀x. OPTREL (λx y.
+                          (∀v. x = Delay (Force (Var v)) ⇒ y = x) ∧
+                          (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y))
+                       (ALOOKUP (REVERSE f) x) (ALOOKUP (REVERSE g) x)))
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw []
   \\ irule LIST_REL_ALOOKUP
   \\ rw [EVERY2_REVERSE]
   \\ irule LIST_REL_mono
   \\ first_assum (irule_at Any)
-  \\ simp [ELIM_UNCURRY]
+  \\ rw [ELIM_UNCURRY]
 QED
 
 Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
@@ -658,8 +664,10 @@ Proof
     \\ rename1 ‘ALOOKUP _ ss’
     \\ first_x_assum (qspec_then ‘ss’ assume_tac)
     \\ fs [OPTREL_def]
-    \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-    \\ Cases_on ‘x0’ \\ rw [Once exp_rel_cases] \\ fs []
+    \\ Cases_on ‘∃v. x = Delay (Force (Var v))’ \\ gs []
+    \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
+    \\ rw [Once exp_rel_cases] \\ fs []
+    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule_at Any exp_rel_subst
     \\ fs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
@@ -743,13 +751,17 @@ Proof
       \\ simp [subst_funs_def])
         (* Recclosure *)
     \\ rename1 ‘ALOOKUP _ ss’
-    \\ first_x_assum (qspec_then ‘ss’ assume_tac)
-    \\ fs [OPTREL_def]
+    \\ first_assum (qspec_then ‘ss’ mp_tac)
+    \\ rewrite_tac [OPTREL_def]
+    \\ rw [] \\ fs []
+    \\ rename1 ‘x0 ≠ _ ⇒ exp_rel x0 y0’
+    \\ ‘∀v. x0 ≠ Delay (Force (Var v))’
+      by (rpt strip_tac \\ gvs []
+          \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
+          \\ rw [Once exp_rel_cases])
+    \\ gs []
     \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
     \\ rw [Once exp_rel_cases] \\ fs []
-    >- ((* LHS is (Delay(Force(Var v))), RHS is (Var v) *)
-      cheat (* apparently we should not have thunk rel'd the recclosures *)
-      )
     >- ((* Values not allowed *)
       fs [EVERY_MAP, EVERY_EL]
       \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
@@ -768,6 +780,18 @@ Proof
     \\ irule_at Any LIST_EQ
     \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any)
+    \\ drule_then assume_tac LIST_REL_LENGTH \\ simp []
+    \\ conj_tac
+    >- (
+      rw []
+      \\ pairarg_tac \\ gvs []
+      \\ pairarg_tac \\ gvs []
+      \\ rename1 ‘MEM (p,v1) l’
+      \\ ‘∀v. v1 ≠ Delay (Force (Var v))’
+        by (rpt strip_tac \\ rw []
+            \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
+            \\ rw [Once exp_rel_cases])
+      \\ gs [thunk_rel_def])
     \\ rename1 ‘LIST_REL _ xs ys’
     \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, thunk_rel_def]
     \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
@@ -775,8 +799,8 @@ Proof
     \\ gvs [EL_REVERSE]
     \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
     \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
-    \\ first_x_assum (drule_then assume_tac)
-    \\ gvs [freevars_def, ELIM_UNCURRY]
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ gvs [freevars_def]
     \\ cheat (* exp_inv under subst *))
   >- ((* Prim *)
     cheat (* TODO not really done *)) (*
