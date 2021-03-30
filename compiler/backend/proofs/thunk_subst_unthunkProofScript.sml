@@ -44,6 +44,10 @@ Inductive exp_inv:
 [exp_inv_Var:]
   (∀v.
      exp_inv (Var v)) ∧
+[exp_inv_Value:]
+  (∀v.
+     v_inv v ⇒
+       exp_inv (Value v)) ∧
 [exp_inv_App:]
   (∀f x.
      exp_inv f ∧
@@ -80,14 +84,35 @@ Inductive exp_inv:
 [exp_inv_Force:]
   (∀x.
     exp_inv x ⇒
-      exp_inv (Force x))
+      exp_inv (Force x)) ∧
+[v_inv_Atom:]
+  (∀x.
+     v_inv (Atom x)) ∧
+[v_inv_Constructor:]
+  (∀s vs.
+     EVERY v_inv vs ⇒
+       v_inv (Constructor s vs)) ∧
+[v_inv_Closure:]
+  (∀s x.
+     exp_inv x ⇒
+       v_inv (Closure s x)) ∧
+[v_inv_Recclosure:]
+  (∀f n.
+     EVERY exp_inv (MAP SND f) ⇒
+       v_inv (Recclosure f n)) ∧
+[v_inv_Thunk:]
+  (∀x.
+     exp_inv x ⇒
+       v_inv (Thunk (INR x)))
 End
 
 Theorem exp_inv_def:
   (∀v.
      exp_inv (Var v) = T) ∧
   (∀v.
-     exp_inv (Value v) = F) ∧
+     exp_inv (Value v) = v_inv v) ∧
+  (∀x.
+     exp_inv (Box x) = F) ∧
   (∀f x.
      exp_inv (App f x) =
        (∃y. x = Delay y ∧
@@ -125,17 +150,16 @@ Proof
   \\ rw [EQ_IMP_THM]
 QED
 
-Definition v_inv_def[simp]:
-  v_inv (Constructor s vs) = EVERY v_inv vs ∧
-  v_inv (Closure s x) = exp_inv x ∧
-  v_inv (Recclosure f n) = EVERY exp_inv (MAP SND f) ∧
-  v_inv (Thunk (INL v)) = F ∧
-  v_inv (Thunk (INR x)) = exp_inv x ∧
-  v_inv (Atom x) = T
-Termination
-  WF_REL_TAC ‘measure v_size’ \\ rw []
-  \\ imp_res_tac exp_size_lemma \\ fs []
-End
+Theorem v_inv_def[simp]:
+  (∀s vs. v_inv (Constructor s vs) = EVERY v_inv vs) ∧
+  (∀s x. v_inv (Closure s x) = exp_inv x) ∧
+  (∀f n. v_inv (Recclosure f n) = EVERY exp_inv (MAP SND f)) ∧
+  (∀v. v_inv (Thunk (INL v)) = F) ∧
+  (∀x. v_inv (Thunk (INR x)) = exp_inv x) ∧
+  (∀x. v_inv (Atom x) = T)
+Proof
+  rw [] \\ rw [Once exp_inv_cases]
+QED
 
 (* --------------------------
    COMPILATION:
@@ -619,6 +643,51 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
+Theorem exp_inv_subst:
+  ∀xs x.
+    EVERY v_inv (MAP SND xs) ∧
+    exp_inv x ⇒
+      exp_inv (subst xs x)
+Proof
+  ho_match_mp_tac subst_ind \\ rw [] \\ fs [exp_inv_def]
+  >- ((* Var *)
+    simp [subst_def]
+    \\ CASE_TAC \\ fs [exp_inv_def]
+    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+    \\ gs [EVERY_EL, EL_MAP, EL_REVERSE]
+    \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
+    \\ ‘m < LENGTH xs’ by fs [Abbr ‘m’]
+    \\ first_x_assum (drule_then assume_tac) \\ gs [])
+  >- ((* Prim *)
+    gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
+  >- ((* If *)
+    simp [subst_def, exp_inv_def])
+  >- ((* App *)
+    gvs [subst_def, exp_inv_def])
+  >- ((* Lam *)
+    gvs [subst_def, exp_inv_def]
+    \\ first_x_assum irule
+    \\ gs [EVERY_MAP, EVERY_FILTER, EVERY_MEM, ELIM_UNCURRY, SF SFY_ss])
+  >- ((* Let NONE *)
+    gs [subst_def, exp_inv_def])
+  >- ((* Letrec *)
+    gs [subst_def, exp_inv_def]
+    \\ gvs [EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+            EVERY_FILTER, GSYM FST_THM]
+    \\ qpat_x_assum ‘EVERY _ xs ⇒ _’ (irule_at Any)
+    \\ gvs [EVERY_MEM, FORALL_PROD, subst_def, SF SFY_ss]
+    \\ qmatch_goalsub_abbrev_tac ‘subst m’
+    \\ qexists_tac ‘MAP (λ(n,x). (n,subst m x)) g’
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MEM_MAP, EXISTS_PROD,
+           PULL_EXISTS, subst_def, exp_inv_def, SF SFY_ss])
+  >- ((* Delay *)
+    fs [subst_def, exp_inv_def])
+  >- ((* Box *)
+    fs [subst_def, exp_inv_def])
+  >- ((* Value *)
+    fs [subst_def, exp_inv_def])
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ∧
@@ -657,9 +726,8 @@ Proof
       \\ pop_assum SUBST1_TAC
       \\ first_x_assum irule \\ fs []
       \\ simp [closed_subst]
-      \\ irule_at Any exp_rel_subst
-      \\ simp [thunk_rel_def]
-      \\ cheat (* subst preserves exp_inv *))
+      \\ irule_at Any exp_rel_subst \\ simp [thunk_rel_def]
+      \\ irule exp_inv_subst \\ simp [])
         (* Recclosure *)
     \\ rename1 ‘ALOOKUP _ ss’
     \\ first_x_assum (qspec_then ‘ss’ assume_tac)
@@ -686,7 +754,10 @@ Proof
     \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ gvs [freevars_def, DIFF_SUBSET, UNION_COMM]
-    \\ cheat (* subst preserves exp_inv *))
+    \\ irule exp_inv_subst
+    \\ gs [EVERY_MAP, EVERY_EL]
+    \\ first_x_assum (drule_then assume_tac)
+    \\ gvs [exp_inv_def])
   >- ((* Lam *)
     rw [Once exp_rel_cases, Once exp_inv_cases]
     \\ fs [exp_inv_def, eval_to_def])
@@ -700,7 +771,7 @@ Proof
   >- ((* Let SOME *)
     rw [Once exp_rel_cases])
   >- ((* If *)
-    rw [Once exp_rel_cases, Once exp_inv_cases]
+    rw [Once exp_rel_cases] \\ fs [exp_inv_def]
     \\ rename1 ‘If x y z’
     \\ rw [eval_to_def] \\ gvs [exp_inv_def]
     \\ first_x_assum (drule_then assume_tac) \\ fs []
@@ -724,18 +795,22 @@ Proof
     \\ irule_at Any LIST_EQ
     \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any)
-    \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY, thunk_rel_def, freevars_def,
-            MAP_MAP_o, combinTheory.o_DEF]
-    \\ simp [SF ETA_ss]
-    \\ gvs [BIGUNION_SUBSET, MEM_EL, PULL_EXISTS, EL_MAP]
-    \\ cheat (* subst preserves exp_inv *))
+    \\ gvs [EL_MAP, thunk_rel_def, freevars_def, MAP_MAP_o, combinTheory.o_DEF]
+    \\ drule_then assume_tac LIST_REL_LENGTH \\ simp []
+    \\ irule_at Any exp_inv_subst
+    \\ simp [EVERY_MAP, LAMBDA_PROD, exp_inv_def]
+    \\ gvs [EVERY_MEM, ELIM_UNCURRY, MEM_MAP, PULL_EXISTS, EL_MAP,
+            LIST_REL_EL_EQN, freevars_def, BIGUNION_SUBSET, MEM_MAP,
+            PULL_EXISTS, EL_MEM, MEM_MAP, SF SFY_ss, SF ETA_ss])
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ fs [exp_inv_def]
-    \\ rw [eval_to_def])
+    \\ rw [eval_to_def, exp_inv_def]
+    \\ gvs [thunk_rel_def]
+    \\ cheat (* LHS: Delay Force Value, RHS: Value. thunk_rel *))
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
-    rw [Once exp_rel_cases, Once exp_inv_cases]
+    rw [Once exp_rel_cases]
     \\ rw [eval_to_def] \\ gvs [exp_inv_def]
     \\ rename1 ‘exp_rel x y’
     \\ first_x_assum (drule_then assume_tac) \\ gs []
@@ -762,7 +837,8 @@ Proof
     \\ gs []
     \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
     \\ rw [Once exp_rel_cases] \\ fs []
-    >- ((* Values not allowed *)
+    >- ((* Tough luck: values are allowed *)
+      cheat (*
       fs [EVERY_MAP, EVERY_EL]
       \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
       \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
@@ -770,7 +846,8 @@ Proof
       \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
       \\ ‘m < LENGTH xs’ by fs [Abbr ‘m’, LIST_REL_LENGTH]
       \\ first_x_assum (drule_then assume_tac)
-      \\ gvs [exp_inv_def])
+      \\ gvs [exp_inv_def]
+      \\ gvs [thunk_rel_def] *))
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ simp [subst_funs_def, closed_subst]
@@ -801,7 +878,10 @@ Proof
     \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ gvs [freevars_def]
-    \\ cheat (* exp_inv under subst *))
+    \\ irule exp_inv_subst
+    \\ gs [EVERY_MAP, EVERY_EL]
+    \\ first_x_assum (drule_then assume_tac)
+    \\ gvs [exp_inv_def])
   >- ((* Prim *)
     cheat (* TODO not really done *)) (*
     rw [Once exp_rel_cases]
