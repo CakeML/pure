@@ -9,7 +9,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunkLang_primitivesTheory dep_rewrite;
 open pure_miscTheory;
 
-val _ = new_theory "thunk_subst_unthunk";
+val _ = new_theory "thunk_subst_unthunkProof";
 
 val _ = numLib.prefer_num ();
 
