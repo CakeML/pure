@@ -31,44 +31,18 @@ QED
    All variables should be substituted with something thunked.
 
    --------------------------
-   THE INVARIANT IS ANNOYING:
-   --------------------------
-
-   The invariant is a bit annoying to express, because not all things are
-   expected to evaluate to thunked things. For instance:
-
-   - In (App f x) f must evaluate to a Closure or a Recclosure
-   - When evaluating (Prim (Cons ...) [...]), the result is a constructor, not
-     a thunk, but the arguments are thunks
-   - When evaluating other non-proj things, the result is not necessarily
-     a thunk
-
-   --------------------------
    EXPRESSING THE INVARIANT:
    --------------------------
 
-   Wherever we substitute we expect to encounter a dest_anyThunk-able value
-   as the value to be substituted in. There are three places in the thunkLang
-   semantics where we substitute:
-
-   1. in function applications, i.e., (App f x)
-   2. in mutually recursive lets, i.e., (Letrec f x)
-   3. when forcing thunks, i.e. (Force x)
-
-   In (3), the semantics already ensure that the x evaluates to a thunk, so we
-   ignore it.
-
-   --------------------------
-   UPHOLDING THE INVARIANT:
-   --------------------------
-
-   The invariant should be trivially satisfied initially by the pure_to_thunk
-   pass relation, as it wraps everything it can in Delay expressions. (One of)
-   the annoying bit(s) about this invariant is that it's clocked.
+   The invariant is satisfied by code that looks exactly as the code produced
+   by the pure_to_thunk pass.
 
  *)
 
 Inductive exp_inv:
+[exp_inv_Var:]
+  (∀v.
+     exp_inv (Var v)) ∧
 [exp_inv_App:]
   (∀f x.
      exp_inv f ∧
@@ -98,6 +72,7 @@ Inductive exp_inv:
   (∀op xs. (* TODO *)
      EVERY exp_inv xs ⇒
        exp_inv (Prim op xs)) ∧
+(* TODO It may not be meaningful to promise exp_inv x *)
 [exp_inv_Delay:]
   (∀x.
      exp_inv x ⇒
@@ -105,18 +80,14 @@ Inductive exp_inv:
 [exp_inv_Force:]
   (∀x.
     exp_inv x ⇒
-      exp_inv (Force x)) ∧
-[exp_inv_Thunk:]
-  (∀x.
-     exp_inv x ⇒
-       exp_inv (Value (Thunk (INR x)))) ∧
-[exp_inv_Recclosure:]
-  (∀f.
-     EVERY exp_inv (MAP SND f) ⇒
-       exp_inv (Value (Recclosure f n)))
+      exp_inv (Force x))
 End
 
 Theorem exp_inv_def:
+  (∀v.
+     exp_inv (Var v) = T) ∧
+  (∀v.
+     exp_inv (Value v) = F) ∧
   (∀f x.
      exp_inv (App f x) =
        (∃y. x = Delay y ∧
@@ -148,13 +119,7 @@ Theorem exp_inv_def:
        exp_inv x) ∧
   (∀x.
      exp_inv (Delay x) =
-       exp_inv x) ∧
-  (∀x.
-     exp_inv (Value v) =
-       ((∃x. v = Thunk (INR x) ∧
-             exp_inv x) ∨
-        (∃f n. v = Recclosure f n ∧
-               EVERY exp_inv (MAP SND f))))
+       exp_inv x)
 Proof
   rw [] \\ rw [Once exp_inv_cases]
   \\ rw [EQ_IMP_THM]
@@ -207,18 +172,6 @@ Inductive exp_rel:
 [exp_rel_Var:]
   (∀v.
      exp_rel (Delay (Force (Var v))) (Var v)) ∧
-(*
-[exp_rel_Delay_Value_Thunk:]
-  (∀x y.
-     v_rel (Thunk (INR x)) (Thunk (INR y)) ⇒
-       exp_rel (Delay (Force (Value (Thunk (INR x)))))
-               (Value (Thunk (INR y)))) ∧
-[exp_rel_Delay_Value_Recclosure:]
-  (∀f g n.
-     v_rel (Recclosure f n) (Recclosure g n) ⇒
-       exp_rel (Delay (Force (Value (Recclosure f n))))
-               (Value (Recclosure g n))) ∧
- *)
 [exp_rel_Value:]
   (∀v w.
      thunk_rel v w ⇒
@@ -624,6 +577,7 @@ QED
 
 Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
 
+(* TODO thunkLang props? *)
 Theorem closed_simps[local,simp]:
   (∀f x. closed (App f x) ⇔ closed f ∧ closed x) ∧
   (∀s x y. closed (Let (SOME s) x y) ⇔ closed x ∧ freevars y ⊆ {s}) ∧
@@ -754,9 +708,7 @@ Proof
     \\ gvs [BIGUNION_SUBSET, MEM_EL, PULL_EXISTS, EL_MAP]
     \\ cheat (* subst preserves exp_inv and other junk *))
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ fs []
-    >- ((* Delay (Force (Value v)) -> Value w *)
-      cheat (* TODO not right *))
+    rw [Once exp_rel_cases] \\ fs [exp_inv_def]
     \\ rw [eval_to_def])
   >- ((* Box *)
     rw [Once exp_rel_cases])
@@ -770,14 +722,43 @@ Proof
     \\ rename1 ‘eval_to k y = INR v2’
     \\ drule_then strip_assume_tac dest_Recclosure_v_rel
     \\ drule_then strip_assume_tac dest_Thunk_v_rel
-    \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
-    >- (
+    \\ reverse (Cases_on ‘v1’) \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
+    >- ((* Thunk *)
+      IF_CASES_TAC \\ fs []
+      \\ first_x_assum irule
+      \\ simp [subst_funs_def]
+      \\ cheat (* exp_inv needs to hold for the eval_to result *))
+        (* Recclosure *)
+    \\ rename1 ‘ALOOKUP _ ss’
+    \\ first_x_assum (qspec_then ‘ss’ assume_tac)
+    \\ fs [OPTREL_def]
+    \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
+    \\ rw [Once exp_rel_cases] \\ fs []
+    >- ((* LHS is (Delay(Force(Var v))), RHS is (Var v) *)
+      cheat (* apparently we should not have thunk rel'd the recclosures *)
+      )
+    >- ((* Same, but values that are thunk rel'd *)
       cheat
-    )
+      )
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
-    \\ simp [subst_funs_def]
-    \\ cheat (* Invariant needs to be preserved by what comes out *))
+    \\ simp [subst_funs_def, closed_subst]
+    \\ irule_at Any exp_rel_subst
+    \\ simp [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+             GSYM FST_THM]
+    \\ irule_at Any LIST_EQ
+    \\ irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any)
+    \\ rename1 ‘LIST_REL _ xs ys’
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, thunk_rel_def]
+    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+    \\ gvs [EL_REVERSE]
+    \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
+    \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
+    \\ first_x_assum (drule_then assume_tac)
+    \\ gvs [freevars_def, ELIM_UNCURRY]
+    \\ cheat (* exp_inv under subst *))
   >- ((* Prim *)
     cheat (* TODO not really done *)) (*
     rw [Once exp_rel_cases]
