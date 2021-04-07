@@ -46,6 +46,7 @@ Inductive exp_inv:
      exp_inv (Var v)) ∧
 [exp_inv_Value:]
   (∀v.
+     (* TODO we can always expect this to be a suspended thunk *)
      v_inv v ⇒
        exp_inv (Value v)) ∧
 [exp_inv_App:]
@@ -726,8 +727,9 @@ Proof
       \\ pop_assum SUBST1_TAC
       \\ first_x_assum irule \\ fs []
       \\ simp [closed_subst]
-      \\ irule_at Any exp_rel_subst \\ simp [thunk_rel_def]
-      \\ irule exp_inv_subst \\ simp [])
+      \\ irule_at Any exp_inv_subst
+      \\ irule_at Any exp_rel_subst \\ simp []
+      \\ irule_at Any thunk_rel_Thunk \\ simp [])
         (* Recclosure *)
     \\ rename1 ‘ALOOKUP _ ss’
     \\ first_x_assum (qspec_then ‘ss’ assume_tac)
@@ -803,10 +805,11 @@ Proof
             LIST_REL_EL_EQN, freevars_def, BIGUNION_SUBSET, MEM_MAP,
             PULL_EXISTS, EL_MEM, MEM_MAP, SF SFY_ss, SF ETA_ss])
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ fs [exp_inv_def]
-    \\ rw [eval_to_def, exp_inv_def]
-    \\ gvs [thunk_rel_def]
-    \\ cheat (* LHS: Delay Force Value, RHS: Value. thunk_rel *))
+    rw [Once exp_rel_cases] \\ gvs [exp_inv_def]
+    >- (
+      cheat (* TODO *)
+    )
+    \\ cheat)
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
@@ -837,17 +840,9 @@ Proof
     \\ gs []
     \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
     \\ rw [Once exp_rel_cases] \\ fs []
-    >- ((* Tough luck: values are allowed *)
-      cheat (*
-      fs [EVERY_MAP, EVERY_EL]
-      \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-      \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-      \\ gvs [EL_REVERSE]
-      \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
-      \\ ‘m < LENGTH xs’ by fs [Abbr ‘m’, LIST_REL_LENGTH]
-      \\ first_x_assum (drule_then assume_tac)
-      \\ gvs [exp_inv_def]
-      \\ gvs [thunk_rel_def] *))
+    >- (
+      cheat (* values should be dest_thunk-able *)
+      )
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ simp [subst_funs_def, closed_subst]
