@@ -396,8 +396,8 @@ Inductive exp_rel:
   (∀f x g y.
      LIST_REL (λ(f,x) (g,y).
                  f = g ∧
-                 (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                 (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y)) f g ∧
+                 (is_doublethunk x ⇒ x = y) ∧
+                 (¬is_doublethunk x ⇒ exp_rel x y)) f g ∧
      exp_rel x y ⇒
        exp_rel (Letrec f x) (Letrec g y)) ∧
 [exp_rel_Delay:]
@@ -603,6 +603,15 @@ Proof
   \\ Cases_on ‘ALOOKUP (REVERSE xs) v’ \\ gs [ALOOKUP_NONE, MAP_REVERSE]
 QED
 
+Theorem LIST_REL_EL_MONO:
+  ∀P xs ys Q.
+    (∀n. n < LENGTH xs ∧ P (EL n xs) (EL n ys) ⇒ Q (EL n xs) (EL n ys)) ∧
+    LIST_REL P xs ys ⇒
+      LIST_REL Q xs ys
+Proof
+  cheat
+QED
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL thunk_rel (MAP SND vs) (MAP SND ws) ∧
@@ -656,24 +665,20 @@ Proof
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
     \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_mono
+    \\ irule_at Any LIST_REL_EL_MONO
     \\ first_assum (irule_at Any) \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename1 ‘MEM (p,v1) f’
-    \\ cheat (* TODO don't know why this still doesn't hold! *) (*
-    \\ ‘∀v. v1 ≠ Delay (Force (Var v))’
-      by (rpt strip_tac \\ rw []
-          \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
-          \\ rw [Once exp_rel_cases])
-    \\ gs [subst_recursive]
+    \\ rw [is_doublethunk_subst] \\ gvs []
+    >- (
+      cheat (* This case is broken when stuff are doublethunks, because
+               then clearly we can't have equality on both sides.
+               I don't know why this worked before. *))
     \\ first_x_assum irule
     \\ simp [MAP_FST_FILTER]
+    \\ gvs [MEM_EL, PULL_EXISTS]
+    \\ rw [Once EQ_SYM_EQ]
     \\ first_assum (irule_at Any)
-    \\ irule_at Any LIST_REL_FILTER
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ first_assum (irule_at Any)
-    \\ gvs [ELIM_UNCURRY] *))
+    \\ irule_at Any LIST_REL_FILTER \\ fs [])
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ simp [subst_def, exp_rel_Value, exp_rel_Delay,
                                      subst_recursive]
@@ -710,25 +715,23 @@ Proof
   \\ rw [Once exp_rel_cases]
 QED
 
-(*
 Theorem dest_Thunk_v_rel:
   v_rel v w ⇒
     (∀err. dest_Thunk v = INL err ⇒ dest_Thunk w = INL err) ∧
     (∀nf x. dest_Thunk v = INR x ⇒
-       ∃y.
-         dest_Thunk w = INR y ∧
-           ((∃v1 v2.
-               x = INL v1 ∧
-               y = INL v2 ∧
-               v_rel v1 v2)) ∨
-            (∃x1 x2.
-               x = INR x1 ∧
-               y = INR x2 ∧
-               exp_rel x1 x2)))
+       (∃y.
+          dest_Thunk w = INR y ∧
+          ∃x1 x2.
+            x = INR x1 ∧
+            y = INR x2 ∧
+            exp_rel x1 x2) ∨
+       (
+          is_thunky w ∧
+          thunk_rel v w))
 Proof
-  Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw []
+  Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw [DISJ_EQ_IMP]
+  \\ gvs [thunk_rel_Thunk_Changed, v_rel_Thunk_def]
 QED
- *)
 
 Theorem dest_Recclosure_v_rel:
   v_rel v w ⇒
@@ -1001,8 +1004,6 @@ Proof
     \\ gvs [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP, LAMBDA_PROD,
             GSYM FST_THM]
     \\ irule_at Any LIST_EQ
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
     \\ simp [Once thunk_rel_def]
     \\ gvs [EL_MAP, freevars_def, MAP_MAP_o, combinTheory.o_DEF]
     \\ drule_then assume_tac LIST_REL_LENGTH \\ simp []
@@ -1011,7 +1012,12 @@ Proof
     \\ gvs [EVERY_MEM, ELIM_UNCURRY, MEM_MAP, PULL_EXISTS, EL_MAP,
             LIST_REL_EL_EQN, freevars_def, BIGUNION_SUBSET, MEM_MAP,
             PULL_EXISTS, EL_MEM, MEM_MAP, SF SFY_ss, SF ETA_ss]
-    \\ cheat (* TODO what broke? *))
+    \\ rw []
+    \\ gvs [MEM_EL, PULL_EXISTS]
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ qmatch_asmsub_abbrev_tac ‘is_doublethunk (Delay z)’
+    \\ Cases_on ‘is_doublethunk (Delay z)’ \\ gs [Once EQ_SYM_EQ, SF SFY_ss]
+    \\ gs [Once exp_rel_cases])
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ gvs [exp_inv_def, eval_to_def]
     \\ simp [v_rel_Thunk_Changed, v_rel_Thunk_Same])
@@ -1025,68 +1031,45 @@ Proof
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ fs []
     \\ rename1 ‘eval_to k x = INR v1’
     \\ rename1 ‘eval_to k y = INR v2’
-    \\ cheat (* TODO: restore dest_Thunk_v_rel when we know more *) (*
     \\ drule_then strip_assume_tac dest_Recclosure_v_rel
     \\ drule_then strip_assume_tac dest_Thunk_v_rel
-    \\ reverse (Cases_on ‘v1’) \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
-    >- ((* Thunk *)
-      IF_CASES_TAC \\ fs []
-      \\ first_x_assum irule
-      \\ simp [subst_funs_def])
-        (* Recclosure *)
-    \\ rename1 ‘ALOOKUP _ ss’
-    \\ first_assum (qspec_then ‘ss’ mp_tac)
-    \\ rewrite_tac [OPTREL_def]
-    \\ rw [] \\ fs []
-    \\ rename1 ‘x0 ≠ _ ⇒ exp_rel x0 y0’
-    \\ ‘∀v. x0 ≠ Delay (Force (Var v))’
-      by (rpt strip_tac \\ gvs []
-          \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
-          \\ rw [Once exp_rel_cases])
-    \\ gs []
-    \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-    \\ rw [Once exp_rel_cases] \\ fs []
+    \\ Cases_on ‘dest_anyThunk v1’ \\ gs []
     >- (
-      first_x_assum (qspec_then ‘ss’ assume_tac)
+      Cases_on ‘dest_anyThunk v2’ \\ gs []
+      >-
+       (Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
+        \\ first_x_assum (qspec_then ‘s’ assume_tac)
+        \\ gvs [OPTREL_def, CaseEq "exp"])
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
+      \\ first_x_assum (qspec_then ‘s’ assume_tac)
       \\ gvs [OPTREL_def]
-      \\ cheat (* values should be dest_thunk-able *)
-      )
-    \\ IF_CASES_TAC \\ fs []
-    \\ first_x_assum irule
-    \\ simp [subst_funs_def, closed_subst]
-    \\ irule_at Any exp_rel_subst
-    \\ simp [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-             GSYM FST_THM]
-    \\ irule_at Any LIST_EQ
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ drule_then assume_tac LIST_REL_LENGTH \\ simp []
-    \\ conj_tac
+      \\ rename1 ‘is_doublethunk x1’
+      \\ Cases_on ‘is_doublethunk x1’ \\ gvs []
+      >- (
+        gs [CaseEq "exp"])
+      \\ qpat_x_assum ‘exp_rel x1 _’ mp_tac
+      \\ rw [Once exp_rel_cases] \\ fs [])
+    \\ Cases_on ‘dest_anyThunk v2’ \\ gs []
     >- (
-      rw []
-      \\ pairarg_tac \\ gvs []
-      \\ pairarg_tac \\ gvs []
-      \\ rename1 ‘MEM (p,v1) l’
-      \\ ‘∀v. v1 ≠ Delay (Force (Var v))’
-        by (rpt strip_tac \\ rw []
-            \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
-            \\ rw [Once exp_rel_cases])
-      \\ gs [thunk_rel_def])
-    \\ rename1 ‘LIST_REL _ xs ys’
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, thunk_rel_def]
-    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-    \\ gvs [EL_REVERSE]
-    \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
-    \\ ‘m < LENGTH ys’ by fs [Abbr ‘m’]
-    \\ first_assum (drule_then strip_assume_tac)
-    \\ qpat_x_assum ‘∀n. _ < _ ⇒ _’ mp_tac
-    \\ gvs [freevars_def] \\ rw []
-    \\ irule exp_inv_subst
-    \\ gs [EVERY_MAP, EVERY_EL]
-    \\ last_x_assum (drule_then strip_assume_tac)
-    \\ gvs [] *)
-    )
+      Cases_on ‘v2’ \\ reverse (gvs [dest_anyThunk_def])
+      >- (
+        cheat (* Problems, because we can have a recclosure on the right
+                 and not really say anything about the thunk value on the
+                 left? *))
+      \\ first_x_assum (qspec_then ‘s’ assume_tac)
+      \\ gvs [OPTREL_def]
+      \\ rename1 ‘is_doublethunk x1’
+      \\ Cases_on ‘is_doublethunk x1’ \\ gvs []
+      >- (
+        gs [CaseEq "exp"])
+      \\ qpat_x_assum ‘exp_rel x1 _’ mp_tac
+      \\ rw [Once exp_rel_cases] \\ fs [])
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ ‘∃v w. wx = INR v ∧ wx' = INR w’ by cheat \\ fs []
+    \\ ‘freevars v ⊆ set (MAP FST binds)’ by cheat \\ fs []
+    \\ cheat (* TODO fix *))
   >- ((* Prim *)
     cheat (* TODO not really done *)) (*
     rw [Once exp_rel_cases]
