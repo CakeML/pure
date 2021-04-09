@@ -134,11 +134,14 @@ QED
 Theorem subst_recursive[local]:
   (∀xs x y. subst xs x = Delay y ⇔ ∃z. x = Delay z ∧ subst xs z = y) ∧
   (∀xs x y. subst xs x = Force y ⇔ ∃z. x = Force z ∧ subst xs z = y) ∧
-  (∀xs x v. subst xs x = Var v ⇔ x = Var v ∧ ¬MEM v (MAP FST xs))
+  (∀xs x v. subst xs x = Var v ⇔ x = Var v ∧ ¬MEM v (MAP FST xs)) ∧
+  (∀xs x v. subst xs x = Value v ⇔ x = Value v ∨
+                                   ∃n. x = Var n ∧
+                                       ALOOKUP (REVERSE xs) n = SOME v)
 Proof
-  rpt conj_tac
-  \\ Cases_on ‘x’ \\ rw [subst_def, CaseEq "option", ALOOKUP_NONE]
-  \\ rw [MAP_REVERSE, MEM_REVERSE, EQ_IMP_THM] \\ fs []
+  rpt conj_tac \\  gen_tac
+  \\ Cases \\ rw [subst_def, CaseEq "option", ALOOKUP_NONE]
+  \\ rw [MAP_REVERSE, MEM_REVERSE, EQ_IMP_THM] \\ fs [SF SFY_ss]
   \\ rename1 ‘Let s _ _’ \\ Cases_on ‘s’ \\ simp [subst_def]
 QED
 
@@ -339,9 +342,25 @@ QED
 
 Definition is_thunky_def[simp]:
   is_thunky (Thunk (INR x)) = T ∧
-  is_thunky (Recclosure f n) = T ∧
+  is_thunky (Recclosure f n) = EVERY (λx. ∃y. x = Delay y) (MAP SND f) ∧
   is_thunky _ = F
 End
+
+Definition is_doublethunk_def[simp]:
+  is_doublethunk (Delay (Force (Var v))) = T ∧
+  is_doublethunk (Delay (Force (Value v))) = T ∧
+  is_doublethunk _ = F
+End
+
+Theorem is_doublethunk_alt:
+  is_doublethunk x =
+    ((∃v. x = Delay (Force (Var v))) ∨
+     (∃v. x = Delay (Force (Value v))))
+Proof
+  Cases_on ‘x’ \\ rw []
+  \\ rename1 ‘Delay e’ \\ Cases_on ‘e’ \\ rw []
+  \\ rename1 ‘Force e’ \\ Cases_on ‘e’ \\ rw []
+QED
 
 Inductive exp_rel:
 [exp_rel_Var:]
@@ -399,8 +418,8 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
-                 (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                 (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                 (is_doublethunk x ⇒ x = y) ∧
+                 (¬is_doublethunk x ⇒ exp_rel x y) ∧
                  freevars x ⊆ set (MAP FST f)) f g ⇒
       v_rel (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_Constructor:]
@@ -437,16 +456,23 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
-                 (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                 (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
-                 freevars x ⊆ set (MAP FST f)) f g ⇒
-      thunk_rel (Recclosure f n) (Recclosure g n))
+                 (is_doublethunk x ⇒ x = y) ∧
+                 (¬is_doublethunk x ⇒ exp_rel x y) ∧
+                 freevars x ⊆ set (MAP FST f)) f g ∧
+     is_thunky (Recclosure g n) ⇒
+       thunk_rel (Recclosure f n) (Recclosure g n))
 End
 
 Theorem thunk_rel_is_thunky:
   ∀v w. thunk_rel v w ⇒ is_thunky v ∧ is_thunky w
 Proof
   Induct \\ rw [Once exp_rel_cases] \\ fs []
+  \\ gvs [LIST_REL_EL_EQN, EVERY_MAP, EVERY_EL] \\ rw []
+  \\ first_x_assum (drule_then strip_assume_tac)
+  \\ first_x_assum (drule_then strip_assume_tac)
+  \\ gvs [ELIM_UNCURRY]
+  \\ Cases_on ‘is_doublethunk (SND (EL n l))’ \\ gs []
+  \\ fs [Once exp_rel_cases]
 QED
 
 Theorem v_rel_def[simp]:
@@ -460,8 +486,8 @@ Theorem v_rel_def[simp]:
        (∃g. z = Recclosure g n ∧
             LIST_REL (λ(fn,x) (gn,y).
                         fn = gn ∧
-                        (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                        (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                        (is_doublethunk x ⇒ x = y) ∧
+                        (¬is_doublethunk x ⇒ exp_rel x y) ∧
                         freevars x ⊆ set (MAP FST f)) f g)) ∧
   (∀s vs z.
      v_rel (Constructor s vs) z =
@@ -517,11 +543,12 @@ Theorem v_rel_rev[simp]:
        ((∃f. v = Recclosure f n ∧
              LIST_REL (λ(fn,x) (gn,y).
                          fn = gn ∧
-                         (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                         (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                         (is_doublethunk x ⇒ x = y) ∧
+                         (¬is_doublethunk x ⇒ exp_rel x y) ∧
                          freevars x ⊆ set (MAP FST f)) f g) ∨
         (∃w. v = Thunk (INR (Force (Value w))) ∧
-             thunk_rel w (Recclosure g n)))) ∧
+             thunk_rel w (Recclosure g n) ∧
+             is_thunky (Recclosure g n)))) ∧
   (∀v s vs.
      v_rel v (Constructor s vs) =
        (∃ws. v = Constructor s ws ∧
@@ -552,10 +579,11 @@ Theorem thunk_rel_def:
      (∃f g n.
         v = Recclosure f n ∧
         w = Recclosure g n ∧
+        is_thunky w ∧
         LIST_REL (λ(fn,x) (gn,y).
                     fn = gn ∧
-                    (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                    (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                    (is_doublethunk x ⇒ x = y) ∧
+                    (¬is_doublethunk x ⇒ exp_rel x y) ∧
                     freevars x ⊆ set (MAP FST f)) f g))
 Proof
   rw [Once exp_rel_cases]
@@ -563,6 +591,16 @@ Proof
   \\ gs [thunk_rel_is_thunky, SF SFY_ss]
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac \\ rw [Once exp_rel_cases]
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac \\ rw [Once exp_rel_cases]
+QED
+
+Theorem is_doublethunk_subst:
+  is_doublethunk (subst xs x) = is_doublethunk x
+Proof
+  rw [is_doublethunk_alt, EQ_IMP_THM]
+  \\ gvs [subst_recursive]
+  \\ rw [DISJ_EQ_IMP]
+  \\ CCONTR_TAC
+  \\ Cases_on ‘ALOOKUP (REVERSE xs) v’ \\ gs [ALOOKUP_NONE, MAP_REVERSE]
 QED
 
 Theorem exp_rel_subst:
@@ -622,6 +660,7 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
     \\ rename1 ‘MEM (p,v1) f’
+    \\ cheat (* TODO don't know why this still doesn't hold! *) (*
     \\ ‘∀v. v1 ≠ Delay (Force (Var v))’
       by (rpt strip_tac \\ rw []
           \\ first_x_assum (qspec_then ‘HD v::v’ mp_tac)
@@ -634,7 +673,7 @@ Proof
     \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any)
     \\ first_assum (irule_at Any)
-    \\ gvs [ELIM_UNCURRY])
+    \\ gvs [ELIM_UNCURRY] *))
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ simp [subst_def, exp_rel_Value, exp_rel_Delay,
                                      subst_recursive]
@@ -695,18 +734,19 @@ Theorem dest_Recclosure_v_rel:
   v_rel v w ⇒
     (∀err. dest_Recclosure v = INL err ⇒
              dest_Recclosure w = INL err ∨
-             ∃u. v = Thunk (INR (Force (Value u)))) ∧
+             ∃u. v = Thunk (INR (Force (Value u))) ∧
+                 is_thunky w) ∧
     (∀f n.
        dest_Recclosure v = INR (f,n) ⇒
          ∃g. dest_Recclosure w = INR (g,n) ∧
              LIST_REL (λ(fn,x) (gn,y).
                          fn = gn ∧
-                         (∀v. x = Delay (Force (Var v)) ⇒ x = y) ∧
-                         (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y) ∧
+                         (is_doublethunk x ⇒ x = y) ∧
+                         (¬is_doublethunk x ⇒ exp_rel x y) ∧
                          freevars x ⊆ set (MAP FST f)) f g ∧
              (∀x. OPTREL (λx y.
-                            (∀v. x = Delay (Force (Var v)) ⇒ y = x) ∧
-                            (∀v. x ≠ Delay (Force (Var v)) ⇒ exp_rel x y))
+                            (is_doublethunk x ⇒ x = y) ∧
+                            (¬is_doublethunk x ⇒ exp_rel x y))
                          (ALOOKUP (REVERSE f) x) (ALOOKUP (REVERSE g) x)))
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’ \\ rw []
@@ -795,7 +835,7 @@ Proof
       \\ drule_then strip_assume_tac dest_Closure_v_rel
       \\ drule_then strip_assume_tac dest_Recclosure_v_rel
       \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyClosure_def]
-      >- ((* Closure func *)
+      >- ((* Closure *)
         IF_CASES_TAC \\ fs []
         \\ qmatch_asmsub_abbrev_tac ‘v_rel v1 v2’
         \\ ‘[(s,v1)] = [] ++ [(s,v1)]’ by fs [] \\ pop_assum SUBST1_TAC
@@ -809,11 +849,13 @@ Proof
         \\ irule_at Any thunk_rel_Thunk_Changed
         \\ drule_then strip_assume_tac thunk_rel_is_thunky
         \\ fs [v_rel_Thunk_def])
-      >- ((* Recclosure func *)
+      >- ((* Recclosure *)
         rename1 ‘ALOOKUP _ ss’
         \\ first_x_assum (qspec_then ‘ss’ assume_tac)
         \\ fs [OPTREL_def]
-        \\ Cases_on ‘∃v. x = Delay (Force (Var v))’ \\ gs []
+        \\ Cases_on ‘is_doublethunk x’ \\ gvs []
+        >- (
+          CASE_TAC \\ fs [])
         \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
         \\ rw [Once exp_rel_cases] \\ fs []
         \\ IF_CASES_TAC \\ fs []
@@ -840,14 +882,23 @@ Proof
         \\ strip_tac
         \\ irule_at Any exp_inv_subst
         \\ gs [EVERY_MAP, EVERY_EL] \\ rw []
-        \\ last_x_assum (drule_then assume_tac)
-        \\ gvs [exp_inv_def])
-          (* Thunk func: TODO this should not happen *)
-          (* but dest_Recclosure allows it, apparently *)
-          (* if we knew that the x2 Recclosure was full of Delays, from *)
-          (* the thunk-rel, then it'd be fine. maybe is_thunky is too weak *)
-      \\ gvs [v_rel_Thunk_def, exp_inv_def]
-      \\ cheat)
+        \\ last_assum (drule_then strip_assume_tac) \\ gvs []
+        \\ gvs [exp_inv_def]
+        \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
+        \\ rename1 ‘is_doublethunk (Delay z)’
+        \\ Cases_on ‘is_doublethunk (Delay z)’ \\ gs [Once EQ_SYM_EQ, SF SFY_ss]
+        \\ qpat_x_assum ‘exp_rel (Delay z) _’ mp_tac
+        \\ rw [Once exp_rel_cases] \\ fs [])
+          (* Thunk *)
+      \\ rename1 ‘ALOOKUP (REVERSE f) ss’
+      \\ ‘∀x. ALOOKUP (REVERSE f) ss = SOME x ⇒ ∃y. x = Delay y’
+        suffices_by (rw [] \\ CASE_TAC \\ gs [])
+      \\ gvs [EVERY_MAP, EVERY_EL] \\ rw []
+      \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+      \\ gvs [EL_REVERSE]
+      \\ qmatch_asmsub_abbrev_tac ‘EL m f’
+      \\ ‘m < LENGTH f’ by fs [Abbr ‘m’]
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gs [])
         (* Don't strip the thunk *)
     \\ gvs [exp_inv_def, eval_to_def]
     \\ drule_then strip_assume_tac dest_Closure_v_rel
@@ -869,7 +920,9 @@ Proof
       rename1 ‘ALOOKUP _ ss’
       \\ first_x_assum (qspec_then ‘ss’ assume_tac)
       \\ fs [OPTREL_def]
-      \\ Cases_on ‘∃v. x = Delay (Force (Var v))’ \\ gs []
+      \\ Cases_on ‘is_doublethunk x’ \\ gvs []
+      >- (
+        CASE_TAC \\ gs [])
       \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
       \\ rw [Once exp_rel_cases] \\ fs []
       \\ IF_CASES_TAC \\ fs []
@@ -897,10 +950,22 @@ Proof
       \\ irule_at Any exp_inv_subst
       \\ gs [EVERY_MAP, EVERY_EL] \\ rw []
       \\ last_x_assum (drule_then assume_tac)
-      \\ gvs [exp_inv_def])
+      \\ gvs [exp_inv_def]
+      \\ first_x_assum (drule_then strip_assume_tac) \\ gs []
+      \\ rename1 ‘is_doublethunk (Delay z)’
+      \\ Cases_on ‘is_doublethunk (Delay z)’ \\ gs [Once EQ_SYM_EQ, SF SFY_ss]
+      \\ qpat_x_assum ‘exp_rel (Delay z) _’ mp_tac
+      \\ rw [Once exp_rel_cases] \\ fs [])
         (* Thunk *)
-    \\ gvs [exp_inv_def]
-    \\ cheat (* TODO shouldn't thunk_rel carry over thunky-ness of recclosures?  *))
+    \\ rename1 ‘ALOOKUP (REVERSE f) ss’
+    \\ ‘∀x. ALOOKUP (REVERSE f) ss = SOME x ⇒ ∃y. x = Delay y’
+      suffices_by (rw [] \\ CASE_TAC \\ gs [])
+    \\ gvs [EVERY_MAP, EVERY_EL] \\ rw []
+    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+    \\ gvs [EL_REVERSE]
+    \\ qmatch_asmsub_abbrev_tac ‘EL m f’
+    \\ ‘m < LENGTH f’ by fs [Abbr ‘m’]
+    \\ first_x_assum (drule_then strip_assume_tac) \\ gs [])
   >- ((* Lam *)
     rw [Once exp_rel_cases, Once exp_inv_cases]
     \\ fs [exp_inv_def, eval_to_def])
@@ -945,7 +1010,8 @@ Proof
     \\ simp [EVERY_MAP, LAMBDA_PROD, exp_inv_def]
     \\ gvs [EVERY_MEM, ELIM_UNCURRY, MEM_MAP, PULL_EXISTS, EL_MAP,
             LIST_REL_EL_EQN, freevars_def, BIGUNION_SUBSET, MEM_MAP,
-            PULL_EXISTS, EL_MEM, MEM_MAP, SF SFY_ss, SF ETA_ss])
+            PULL_EXISTS, EL_MEM, MEM_MAP, SF SFY_ss, SF ETA_ss]
+    \\ cheat (* TODO what broke? *))
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ gvs [exp_inv_def, eval_to_def]
     \\ simp [v_rel_Thunk_Changed, v_rel_Thunk_Same])
