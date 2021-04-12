@@ -75,6 +75,23 @@ Proof
   ho_match_mp_tac LIST_REL_ind \\ rw [] \\ fs [ELIM_UNCURRY]
 QED
 
+Theorem LIST_REL_EL_MONO:
+  ∀xs ys.
+    (∀n. n < LENGTH xs ∧ P (EL n xs) (EL n ys) ⇒ Q (EL n xs) (EL n ys)) ∧
+    LIST_REL P xs ys ⇒
+      LIST_REL Q xs ys
+Proof
+  once_rewrite_tac [CONJ_COMM]
+  \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ ho_match_mp_tac LIST_REL_ind \\ simp []
+  \\ rw []
+  >- (
+    first_x_assum (qspec_then ‘0’ assume_tac)
+    \\ fs [])
+  \\ first_x_assum irule \\ rw []
+  \\ first_x_assum (qspec_then ‘SUC n’ assume_tac) \\ fs []
+QED
+
 Theorem LIST_REL_ALOOKUP[local]:
   ∀xs ys.
     LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
@@ -601,15 +618,6 @@ Proof
   \\ rw [DISJ_EQ_IMP]
   \\ CCONTR_TAC
   \\ Cases_on ‘ALOOKUP (REVERSE xs) v’ \\ gs [ALOOKUP_NONE, MAP_REVERSE]
-QED
-
-Theorem LIST_REL_EL_MONO:
-  ∀P xs ys Q.
-    (∀n. n < LENGTH xs ∧ P (EL n xs) (EL n ys) ⇒ Q (EL n xs) (EL n ys)) ∧
-    LIST_REL P xs ys ⇒
-      LIST_REL Q xs ys
-Proof
-  cheat
 QED
 
 Theorem exp_rel_subst:
