@@ -408,11 +408,12 @@ Inductive exp_rel:
        v_rel (Closure s x) (Closure s y)) ∧
 [v_rel_Recclosure:]
   (∀f g n.
-     LIST_REL (λ(f,x) (g,y).
-                 f = g ∧
+     LIST_REL (λ(fn,x) (gn,y).
+                 fn = gn ∧
                  is_delay x ∧
                  is_delay y ∧
-                 exp_rel x y) f g ⇒
+                 exp_rel x y ∧
+                 freevars x ⊆ set (MAP FST f)) f g ⇒
        v_rel (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
@@ -446,11 +447,12 @@ Inductive exp_rel:
        thunk_rel (Thunk (INR x)) (Thunk (INR y))) ∧
 [thunk_rel_Recclosure:]
   (∀f g n.
-     LIST_REL (λ(f,x) (g,y).
-                 f = g ∧
+     LIST_REL (λ(fn,x) (gn,y).
+                 fn = gn ∧
                  is_delay x ∧
                  is_delay y ∧
-                 exp_rel x y) f g ∧
+                 exp_rel x y ∧
+                 freevars x ⊆ set (MAP FST f)) f g ∧
      is_thunky (Recclosure g n) ⇒
        thunk_rel (Recclosure f n) (Recclosure g n))
 End
@@ -474,11 +476,12 @@ Theorem v_rel_def[simp]:
   (∀f n z.
      v_rel (Recclosure f n) z =
        (∃g. z = Recclosure g n ∧
-            LIST_REL (λ(f,x) (g,y).
-                        f = g ∧
+            LIST_REL (λ(fn,x) (gn,y).
+                        fn = gn ∧
                         is_delay x ∧
                         is_delay y ∧
-                        exp_rel x y) f g)) ∧
+                        exp_rel x y ∧
+                        freevars x ⊆ set (MAP FST f)) f g)) ∧
   (∀s vs z.
      v_rel (Constructor s vs) z =
        (∃ws. z = Constructor s ws ∧
@@ -531,11 +534,12 @@ Theorem v_rel_rev[simp]:
   (∀g n.
      v_rel v (Recclosure g n) =
        ((∃f. v = Recclosure f n ∧
-             LIST_REL (λ(f,x) (g,y).
-                         f = g ∧
+             LIST_REL (λ(fn,x) (gn,y).
+                         fn = gn ∧
                          is_delay x ∧
                          is_delay y ∧
-                         exp_rel x y) f g) ∨
+                         exp_rel x y ∧
+                         freevars x ⊆ set (MAP FST f)) f g) ∨
         (∃w. v = Thunk (INR (Force (Value w))) ∧
              thunk_rel w (Recclosure g n) ∧
              is_thunky (Recclosure g n)))) ∧
@@ -570,11 +574,12 @@ Theorem thunk_rel_def:
         v = Recclosure f n ∧
         w = Recclosure g n ∧
         is_thunky w ∧
-        LIST_REL (λ(f,x) (g,y).
-                    f = g ∧
+        LIST_REL (λ(fn,x) (gn,y).
+                    fn = gn ∧
                     is_delay x ∧
                     is_delay y ∧
-                    exp_rel x y) f g))
+                    exp_rel x y ∧
+                    freevars x ⊆ set (MAP FST f)) f g))
 Proof
   rw [Once exp_rel_cases]
   \\ rw [EQ_IMP_THM] \\ rw [DISJ_EQ_IMP]
@@ -723,6 +728,31 @@ Proof
     fs [subst_def, exp_inv_def])
 QED
 
+Theorem thunk_rel_finite:
+  thunk_rel x y ⇒
+    ∃n z. x = FUNPOW (Thunk o INR o Force o Value) n z ∧
+          thunk_rel z y
+Proof
+  qsuff_tac ‘
+    (∀x y. exp_rel x y ⇒ T) ∧
+    (∀v w. v_rel v w ⇒ T) ∧
+    (∀x y.
+       thunk_rel x y ⇒
+         ∃n z. x = FUNPOW (Thunk o INR o Force o Value) n z ∧
+               thunk_rel z y)’
+  >- rw []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw []
+  >- (
+    first_assum (irule_at Any)
+    \\ Q.REFINE_EXISTS_TAC ‘SUC m’
+    \\ simp [arithmeticTheory.FUNPOW_SUC]
+    \\ irule_at Any EQ_REFL)
+  \\ qexists_tac ‘0’
+  \\ (irule_at Any thunk_rel_Thunk_Same ORELSE
+      irule_at Any thunk_rel_Recclosure)
+  \\ simp []
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ∧
@@ -849,29 +879,42 @@ Proof
     \\ rename1 ‘eval_to k x = INR v1’
     \\ rename1 ‘eval_to k y = INR v2’
     \\ ‘0 < k’ by cheat \\ gs []
-    \\ Cases_on ‘∃l s. v2 = Recclosure l s’ \\ fs []
-    >- (
-      ‘∀x. thunk_rel x (Recclosure l s) ⇒
-             ∃n y. x = FUNPOW (Thunk o INR o Force o Value) n (Recclosure l1 s) ∧
-                   thunk_rel (Recclosure l1 s) (Recclosure l s)’
-        by cheat
-      \\ gvs []
-      >- (
-        cheat (* OK *)
-      )
+    \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
+    >- ((* Recclosure - Recclosure *)
+      rename1 ‘LIST_REL _ f g’
+      \\ ‘OPTREL (λ_x _y. is_delay _x ∧
+                          is_delay _y ∧
+                          exp_rel _x _y ∧
+                          freevars _x ⊆ set (MAP FST f))
+                 (ALOOKUP (REVERSE f) s)
+                 (ALOOKUP (REVERSE g) s)’
+        by (irule LIST_REL_ALOOKUP
+            \\ simp [EVERY2_REVERSE]
+            \\ gvs [LIST_REL_EL_EQN])
+      \\ gvs [OPTREL_def]
+      \\ Cases_on ‘_x’ \\ Cases_on ‘_y’ \\ fs []
+      \\ first_x_assum irule
+      \\ qpat_x_assum ‘exp_rel (Delay _) _’ mp_tac
+      \\ simp [Once exp_rel_cases] \\ strip_tac
+      \\ simp [subst_funs_def]
+      \\ irule_at Any exp_inv_subst
+      \\ irule_at Any exp_rel_subst
+      \\ irule_at Any LIST_EQ
+      \\ gvs [closed_subst, MAP_MAP_o, combinTheory.o_DEF, EVERY_MAP,
+              EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM, Once thunk_rel_def]
+      \\ gvs [EVERY_EL, ELIM_UNCURRY, EL_MAP, LIST_REL_EL_EQN]
+      \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+      \\ gvs [EL_REVERSE, freevars_def]
+      \\ qmatch_asmsub_abbrev_tac ‘EL m f’
+      \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+      \\ ‘exp_inv e’ by (first_x_assum (drule_then strip_assume_tac) \\ gs [])
+      \\ gs [] \\ rw []
       \\ first_x_assum (drule_then strip_assume_tac)
-      \\ gvs []
-      \\ qid_spec_tac ‘n’
-      \\ Induct \\ gs []
-      >- (
-        simp [dest_anyThunk_def, subst_funs_def, subst_def, eval_to_def]
-        \\ cheat (* OK, aside from clocks *))
-      \\ fs [arithmeticTheory.FUNPOW_SUC]
-      \\ simp [EVAL “dest_anyThunk (Thunk x)”]
-      \\ simp [subst_funs_def, subst_def]
-      \\ simp [eval_to_def]
-      \\ cheat (* OK aside from clocks *))
-    \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [dest_anyThunk_def]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ gvs [Once exp_rel_cases])
+    >- ((* anything - Recclosure *)
+      cheat)
+        (* Thunk - Thunk *)
     \\ cheat)
   >- ((* Prim *)
     cheat (* TODO not really done *)) (*
