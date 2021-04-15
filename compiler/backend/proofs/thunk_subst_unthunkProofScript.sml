@@ -817,6 +817,7 @@ Theorem exp_rel_eval_to:
             (eval_to k x)
             (eval_to j y)
 Proof
+
   ho_match_mp_tac eval_to_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Value *)
@@ -1100,11 +1101,14 @@ Proof
     \\ Cases_on ‘eval_to j1 x2’ \\ gs []
     \\ IF_CASES_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs [])
-  \\ cheat (* TODO
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     \\ rw [eval_to_def] \\ gvs [exp_inv_def]
-    \\ first_x_assum irule \\ fs []
+    >- ((* k = 0 *)
+      qexists_tac ‘0’
+      \\ simp [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC j’ \\ simp []
+    \\ first_x_assum (irule_at Any)
     \\ fs [subst_funs_def, closed_def, freevars_subst, freevars_def]
     \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
            GSYM FST_THM]
@@ -1129,6 +1133,7 @@ Proof
     \\ simp [v_rel_Thunk_Changed, v_rel_Thunk_Same])
   >- ((* Box *)
     rw [Once exp_rel_cases])
+  \\ cheat (*
   >- ((* Force *)
     rw [Once exp_rel_cases]
     \\ rw [eval_to_def] \\ gvs [exp_inv_def]
