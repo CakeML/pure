@@ -44,8 +44,6 @@ Datatype:
       | Handle exp vname exp
 End
 
-Overload "Cons" = ``λs es. Prim (Cons s) es``
-
 Datatype:
   v = Constructor string (v list)
     | Closure vname ((vname # v) list) exp
@@ -67,12 +65,17 @@ Datatype:
        | ClosureK env vname exp
        | IfK env exp exp
        | CaseK env vname ((vname # vname list # exp) list)
+       | RaiseK
        | HandleK env vname exp
        | PrimK env sop (v list) (exp list)
 End
 
 Datatype:
-  step_res = Exp (env # exp) | Val v | Error
+  step_res = Exp (env # exp)
+           | Val v
+           | Exn v
+           | Action string
+           | Error
 End
 
 Definition get_atoms_def:
@@ -99,11 +102,7 @@ Definition step_def:
     (Exp (env, e1), st, ClosureK env x e2 :: k) ∧
   step st k (Exp (env, If e e1 e2)) = (Exp (env, e), st, IfK env e1 e2 :: k) ∧
   step st k (Exp (env, Case e v css)) = (Exp (env, e), st, CaseK env v css :: k) ∧
-  step st k (Exp (env, Raise e)) = (
-    case k of
-      [] => ARB (* TODO *)
-    | HandleK henv x e2 :: k => (Exp (env, e), st, ClosureK henv x e2 :: k)
-    | _ :: k => (Exp (env, Raise e), st, k)) ∧
+  step st k (Exp (env, Raise e)) = (Exp (env, e), st, RaiseK :: k) ∧
   step st k (Exp (env, Handle e1 x e2)) = (Exp (env, e1), st, (HandleK env x e2 :: k)) ∧
   step st k (Exp (env, Prim sop es)) = (case sop of
     | Cons s => (
@@ -141,11 +140,17 @@ Definition step_def:
         if LENGTH es ≠ 3 then (Error, st, k) else
         (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
     | FFI msg =>
-        if LENGTH es ≠ 1 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
+        if LENGTH es ≠ 0 then (Error, st, k) else
+        (Action msg, st, k) (* TODO check how FFI relates to Constructor "Act" *)
     ) ∧
 
   step st k Error = (Error, st, k) ∧
+
+  step st [] (Exn v) = (Exn v, st, []) ∧
+  step st (k::ks) (Exn v) = (
+    case k of
+      HandleK env x e => (Exp ((x,v)::env, e), st, ks)
+    | _ => (Exn v, st, ks)) ∧
 
   step st [] (Val v) = (Val v, st, []) ∧
   step st (AppK env e :: k) (Val v) = (
@@ -167,6 +172,7 @@ Definition step_def:
           (Exp (ZIP (ns, vs) ++ (n,v)::env, e), st, k)
         else (Val v, st, (CaseK env n ((c,ns,e)::css) :: k))
     | _ => (Error, st, k)) ∧
+  step st (RaiseK :: k) (Val v) = (Exn v, st, k) ∧
   step st (HandleK env x e :: k) (Val v) = (Val v, st, k) ∧
   step st (PrimK env sop vs' [] :: k) (Val v) = (let vs = SNOC v vs' in
     case sop of
@@ -239,13 +245,55 @@ Definition step_def:
                   (Exp (env, Raise (Prim (Cons "Subscript") [])), st, k)
             | _ => (Error, st, k))
         | _ => (Error, st, k))
-    | FFI msg =>
-        if LENGTH vs ≠ 1 then (Error, st, k) else (
-          ARB (* TODO *)
-        )
-      ) ∧
+    | FFI msg => (Error, st, k)
+    ) ∧
   step st (PrimK env sop vs (e::es) :: k) (Val v) =
     (Exp (env, e), st, (PrimK env sop (SNOC v vs) es :: k))
+End
+
+(* Values, exceptions, and errors are only halts once we have consumed
+   the continuation. Actions always halt. *)
+Definition is_halt_def:
+  is_halt (Val v, st, []) = T ∧
+  is_halt (Exn v, st, []) = T ∧
+  is_halt (Error, st, []) = T ∧
+  is_halt (Action s, st, k) = T ∧
+  is_halt _ = F
+End
+
+Definition step_n_def:
+  step_n n (sr, st, k) = FUNPOW (λ(sr, st, k). step st k sr) n (sr, st, k)
+End
+
+Datatype:
+  snext_res = Act 'e (cont list) state | Ret | Div | Err
+End
+
+Definition step_until_halt_def:
+  step_until_halt (sr, st, k) =
+    case some n. is_halt (step_n n (sr, st, k)) of
+      NONE => Div
+    | SOME n =>
+        case step_n n (sr, st, k) of
+          (Action s, st, k) => Act s k st
+        | (Error, _, _) => Err
+        | _ => Ret
+End
+
+Definition sinterp'_def:
+  sinterp' =
+    io_unfold
+      (λ(sr, st, k).
+        case step_until_halt (sr, st, k) of
+        | Ret => Ret' Termination
+        | Err => Ret' Error
+        | Div => Ret' SilentDivergence
+        | Act a k' st' =>
+            Vis' a (λy. (Val (Atom (Str y)), st', k')))
+End
+
+Definition sinterp:
+  sinterp sr st k = interp' (sr, st, k)
 End
 
 (********** Notes **********)
