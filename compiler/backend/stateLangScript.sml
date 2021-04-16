@@ -4,10 +4,11 @@
 
    stateLang is the next language in the compiler after thunkLang, and the
    last language before CakeML.
-   - Has a continuation-passing style, call-by-value semantics.
-   - Removes explicit syntax for delaying/forcing computations
-   - Introduces explicit state and case statements
- *)
+   - Has a continuation-passing style, call-by-value, small-step semantics.
+   - Removes primitives for delaying/forcing computations.
+   - Introduces state/exception primitives and case statements.
+   - Makes function application a primitive operation, as in CakeML.
+*)
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
@@ -17,8 +18,12 @@ val _ = new_theory "stateLang";
 
 val _ = numLib.prefer_num();
 
+
+(******************** Datatypes ********************)
+
 Datatype:
   sop = (* Primitive operations *)
+      | AppOp              (* function application                     *)
       | Cons string        (* datatype constructor                     *)
       | AtomOp atom_op     (* primitive parametric operator over Atoms *)
       | Ref                (* create a new reference                   *)
@@ -32,9 +37,9 @@ Datatype:
 End
 
 Datatype:
-  exp = Var vname                                 (* variable                *)
-      | Prim sop (exp list)                       (* primitive operations    *)
-      | App exp exp                               (* function application    *)
+  exp = (* stateLang expressions *)
+      | Var vname                                 (* variable                *)
+      | App sop (exp list)                        (* application - prim/fun  *)
       | Lam vname exp                             (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp   (* mutually recursive exps *)
       | Let (vname option) exp exp                (* non-recursive let       *)
@@ -45,38 +50,51 @@ Datatype:
 End
 
 Datatype:
-  v = Constructor string (v list)
+  v = (* stateLang values *)
+    | Constructor string (v list)
     | Closure vname ((vname # v) list) exp
     | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
     | Atom lit
 End
 
-Type env[pp] = ``:(vname # v) list``;
+Type env[pp] = ``:(vname # v) list``; (* value environments *)
 
 Datatype:
-  cell = Refcell v | Array (v list)
+  cell = Refcell v | Array (v list) (* state cells *)
 End
 
-Type state[pp] = ``:cell list``;
+Type state[pp] = ``:cell list``; (* state *)
 
 Datatype:
-  cont = AppK env exp
-       | SeqK env exp
-       | ClosureK env vname exp
+  cont = (* continuations *)
+       | AppK env sop (v list) (exp list)
+          (* values in call-order, exps in reverse order *)
+       | LetK env (vname option) exp
        | IfK env exp exp
        | CaseK env vname ((vname # vname list # exp) list)
        | RaiseK
        | HandleK env vname exp
-       | PrimK env sop (v list) (exp list)
 End
 
 Datatype:
-  step_res = Exp (env # exp)
+  step_res = (* small-step results *)
+           | Exp env exp
            | Val v
            | Exn v
-           | Action string
+           | Action string string
            | Error
 End
+
+Datatype:
+  snext_res = (* top-level observable results *)
+            | Act (string # string) (cont list) state
+            | Ret
+            | Div
+            | Err
+End
+
+
+(******************** Helper functions ********************)
 
 Definition get_atoms_def:
   get_atoms [] = SOME [] ∧
@@ -84,189 +102,211 @@ Definition get_atoms_def:
   get_atoms _ = NONE
 End
 
-Definition mk_recclosure_def:
-  mk_recclosure fns env =
+Definition mk_rec_env_def:
+  mk_rec_env fns env =
   (MAP (λ(fn, _). (fn, Recclosure fns env fn)) fns) ++ env
 End
 
-Definition step_def:
-  step st k (Exp (env, Var x)) = (
-    case ALOOKUP env x of
-      SOME v => (Val v, st, k)
-    | NONE => (Error, st, k)) ∧
-  step st k (Exp (env, App e1 e2)) = (Exp (env, e1), st, AppK env e2 :: k) ∧
-  step st k (Exp (env, Lam x body)) = (Val $ Closure x env body, st, k) ∧
-  step st k (Exp (env, Letrec fns e)) = (Exp (mk_recclosure fns env, e), st, k) ∧
-  step st k (Exp (env, Let NONE e1 e2)) = (Exp (env, e2), st, SeqK env e2 :: k) ∧
-  step st k (Exp (env, Let (SOME x) e1 e2)) =
-    (Exp (env, e1), st, ClosureK env x e2 :: k) ∧
-  step st k (Exp (env, If e e1 e2)) = (Exp (env, e), st, IfK env e1 e2 :: k) ∧
-  step st k (Exp (env, Case e v css)) = (Exp (env, e), st, CaseK env v css :: k) ∧
-  step st k (Exp (env, Raise e)) = (Exp (env, e), st, RaiseK :: k) ∧
-  step st k (Exp (env, Handle e1 x e2)) = (Exp (env, e1), st, (HandleK env x e2 :: k)) ∧
-  step st k (Exp (env, Prim sop es)) = (case sop of
-    | Cons s => (
-        case es of
-          [] => (Val (Constructor s []), st, k)
-        | e::es => (Exp (env, e), st, PrimK env (Cons s) [] es :: k))
-    | AtomOp aop => (
-        case es of
-          [] => (
-            case eval_op aop [] of
-              SOME (INL v) => (Val (Atom v), st, k)
-            | SOME (INR b) =>
-                (Val (Constructor (if b then "True" else "False") []), st, k)
-            | _ => (Error, st, k))
-        | _ => (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k))
-    | Ref =>
-        if LENGTH es ≠ 1 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | Set =>
-        if LENGTH es ≠ 2 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | Deref =>
-        if LENGTH es ≠ 1 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | Alloc =>
-        if LENGTH es ≠ 2 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | Length =>
-        if LENGTH es ≠ 1 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | Sub =>
-        if LENGTH es ≠ 2 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | Update =>
-        if LENGTH es ≠ 3 then (Error, st, k) else
-        (Exp (env, HD es), st, PrimK env sop [] (TL es) :: k)
-    | FFI msg =>
-        if LENGTH es ≠ 0 then (Error, st, k) else
-        (Action msg, st, k) (* TODO check how FFI relates to Constructor "Act" *)
-    ) ∧
+(* Check correct number of arguments for App *)
+Definition num_args_ok_def:
+  num_args_ok AppOp n = (n = 2) ∧
+  num_args_ok (Cons s) n = T ∧
+  num_args_ok (AtomOp aop) n = T ∧
+  num_args_ok Ref n = (n = 1) ∧
+  num_args_ok Set n = (n = 2) ∧
+  num_args_ok Deref n = (n = 1) ∧
+  num_args_ok Alloc n = (n = 2) ∧
+  num_args_ok Length n = (n = 1) ∧
+  num_args_ok Sub n = (n = 2) ∧
+  num_args_ok Update n = (n = 3) ∧
+  num_args_ok (FFI channel) n = (n = 1)
+End
 
-  step st k Error = (Error, st, k) ∧
+(* Continue with an expression *)
+Definition continue_def:
+  continue env exp st k = (Exp env exp, st, k)
+End
 
-  step st [] (Exn v) = (Exn v, st, []) ∧
-  step st (k::ks) (Exn v) = (
-    case k of
-      HandleK env x e => (Exp ((x,v)::env, e), st, ks)
-    | _ => (Exn v, st, ks)) ∧
+(* Push continuation onto the stack and continue with an expression *)
+Definition push_def:
+  push env exp st k ks = (Exp env exp, st, k::ks)
+End
 
-  step st [] (Val v) = (Val v, st, []) ∧
-  step st (AppK env e :: k) (Val v) = (
+(* Produce a value *)
+Definition value_def:
+  value v st k = (Val v, st, k)
+End
+
+(* Produce an error *)
+Definition error_def:
+  error st k = (Error, st, k)
+End
+
+
+(******************** Semantics functions ********************)
+
+(* Carry out an application - assumes:
+    - arguments are in call-order
+    - enough arguments are passed *)
+Definition application_def:
+  application AppOp env vs st k = (
+    case HD vs of
+      Closure x cenv e => continue ((x, EL 1 vs)::cenv) e st k
+    | Recclosure fns cenv f => (
+        case ALOOKUP fns f of
+          SOME (x,e) => continue ((x, EL 1 vs)::mk_rec_env fns env) e st k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application (Cons s) env vs st k = value (Constructor s vs) st k ∧
+  application (AtomOp aop) env vs st k = (
+    case get_atoms vs of
+      NONE => error st k
+    | SOME as =>
+      case eval_op aop as of
+        SOME $ INL a => value (Atom a) st k
+      | SOME $ INR T => value (Constructor "True" []) st k
+      | SOME $ INR F => value (Constructor "False" []) st k
+      | _            => error st k) ∧
+  application Ref env vs st k =
+    value (Atom $ Loc $ LENGTH st) (SNOC (Refcell $ HD vs) st) k ∧
+  application Set env vs st k = (
+    case HD vs of
+      Atom $ Loc n => (
+        case oEL n st of
+          SOME $ Refcell _ =>
+            value (Constructor "" []) (LUPDATE (Refcell (EL 1 vs)) n st) k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application Deref env vs st k = (
+    case HD vs of
+      Atom $ Loc n => (
+        case oEL n st of
+          SOME $ Refcell v => value v st k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application Alloc env vs st k = (
+    case HD vs of
+      Atom $ Int i =>
+        let n = if i < 0 then 0 else Num i in
+        value (Atom $ Loc $ LENGTH st) (SNOC (Array $ REPLICATE n (EL 1 vs)) st) k
+    | _ => error st k) ∧
+  application Length env vs st k = (
+    case HD vs of
+      Atom $ Loc n => (
+        case oEL n st of
+          SOME $ Array l => value (Atom $ Int $ & LENGTH l) st k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application Sub env vs st k = (
+    case (EL 0 vs, EL 1 vs) of
+      (Atom $ Loc n, Atom $ Int i) => (
+        case oEL n st of
+          SOME $ Array l =>
+            if 0 ≤ i ∧ i > & LENGTH l then
+              value (EL (Num i) l) st k
+            else
+              continue env (Raise $ App (Cons "Subscript") []) st k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application Update env vs st k = (
+    case (EL 0 vs, EL 1 vs) of
+      (Atom $ Loc n, Atom $ Int i) => (
+        case oEL n st of
+          SOME $ Array l =>
+            if 0 ≤ i ∧ i > & LENGTH l then
+              value
+                (Constructor "" [])
+                (LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n st)
+                k
+            else
+              continue env (Raise $ App (Cons "Subscript") []) st k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application (FFI channel) env vs st k = (
+    case HD vs of
+      Atom $ Str content => (Action channel content, st, k)
+    | _ => error st k)
+End
+
+(* Return a value and handle a continuation *)
+Definition return_def:
+  return v st [] = value v st [] ∧
+  return v st (LetK env NONE e :: k) = continue env e st k ∧
+  return v st (LetK env (SOME x) e :: k) = continue ((x,v)::env) e st k ∧
+  return v st (IfK env e1 e2 :: k) = (
     case v of
-      Closure x cenv body => (Exp (env, e), st, ClosureK cenv x body :: k)
-    | _ => (Error, st, k)) ∧
-  step st (SeqK env e :: k) (Val v) = (Exp (env, e), st, k) ∧
-  step st (ClosureK cenv x body :: k) (Val v) = (Exp ((x,v)::cenv, body), st, k) ∧
-  step st (IfK env e1 e2 :: k) (Val v) = (
-    case v of
-      Constructor "True" [] => (Exp (env, e1), st, k)
-    | Constructor "False" [] => (Exp (env, e2), st, k)
-    | _ => (Error, st, k)) ∧
-  step st (CaseK env n [] :: k) (Val v) = (Error, st, k) ∧
-  step st (CaseK env n ((c,ns,e)::css) :: k) (Val v) = (
+      Constructor "True" [] => continue env e1 st k
+    | Constructor "False" [] => continue env e2 st k
+    | _ => error st k) ∧
+  return v st (CaseK env n [] :: k) = error st k ∧
+  return v st (CaseK env n ((c,ns,e)::css) :: k) = (
     case v of
       Constructor c' vs =>
         if c = c' ∧ LENGTH vs = LENGTH ns then
-          (Exp (ZIP (ns, vs) ++ (n,v)::env, e), st, k)
-        else (Val v, st, (CaseK env n ((c,ns,e)::css) :: k))
-    | _ => (Error, st, k)) ∧
-  step st (RaiseK :: k) (Val v) = (Exn v, st, k) ∧
-  step st (HandleK env x e :: k) (Val v) = (Val v, st, k) ∧
-  step st (PrimK env sop vs' [] :: k) (Val v) = (let vs = SNOC v vs' in
-    case sop of
-    | Cons s => (Val (Constructor s vs), st, k)
-    | AtomOp aop => (
-        case get_atoms vs of
-          NONE => (Error, st, k)
-        | SOME as => (
-          case eval_op aop as of
-            SOME (INL v) => (Val (Atom v), st, k)
-          | SOME (INR b) =>
-              (Val (Constructor (if b then "True" else "False") []), st, k)
-          | _ => (Error, st, k)))
-    | Ref =>
-        if LENGTH vs ≠ 1 then (Error, st, k) else
-        (Val (Atom $ Loc $ LENGTH st), st ++ [Refcell $ HD vs], k)
-    | Set =>
-        if LENGTH vs ≠ 2 then (Error, st, k) else (
-        case HD vs of
-          Atom (Loc n) => (
-            case oEL n st of
-              SOME (Refcell _) =>
-                (Val (Constructor "" []), LUPDATE (Refcell (EL 1 vs)) n st, k)
-            | _ => (Error, st, k))
-        | _ => (Error, st, k))
-    | Deref =>
-        if LENGTH vs ≠ 1 then (Error, st, k) else (
-        case HD vs of
-          Atom (Loc n) => (
-            case oEL n st of
-              SOME (Refcell v) => (Val v, st, k)
-            | _ => (Error, st, k))
-        | _ => (Error, st, k))
-    | Alloc =>
-        if LENGTH vs ≠ 2 then (Error, st, k) else (
-        case HD vs of
-          Atom (Int i) =>
-            let n = if i < 0 then 0 else Num i in
-            (Val (Atom $ Loc $ LENGTH st), st ++ [Array $ REPLICATE n (EL 1 vs)], k))
-    | Length =>
-        if LENGTH vs ≠ 1 then (Error, st, k) else (
-        case HD vs of
-          Atom (Loc n) => (
-            case oEL n st of
-              SOME (Array l) => (Val (Atom $ Int $ & LENGTH l), st, k)
-            | _ => (Error, st, k))
-        | _ => (Error, st, k))
-    | Sub =>
-        if LENGTH vs ≠ 2 then (Error, st, k) else (
-        case (EL 0 vs, EL 1 vs) of
-          (Atom (Loc n), Atom (Int i)) => (
-            case oEL n st of
-              SOME (Array l) =>
-                if 0 ≤ i ∧ i > & LENGTH l then
-                  (Val $ EL (Num i) l, st, k)
-                else
-                  (Exp (env, Raise (Prim (Cons "Subscript") [])), st, k)
-            | _ => (Error, st, k))
-        | _ => (Error, st, k))
-    | Update =>
-        if LENGTH vs ≠ 3 then (Error, st, k) else (
-        case (EL 0 vs, EL 1 vs) of
-          (Atom (Loc n), Atom (Int i)) => (
-            case oEL n st of
-              SOME (Array l) =>
-                if 0 ≤ i ∧ i > & LENGTH l then
-                  (Val $ Constructor "" [],
-                   LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n st, k)
-                else
-                  (Exp (env, Raise (Prim (Cons "Subscript") [])), st, k)
-            | _ => (Error, st, k))
-        | _ => (Error, st, k))
-    | FFI msg => (Error, st, k)
-    ) ∧
-  step st (PrimK env sop vs (e::es) :: k) (Val v) =
-    (Exp (env, e), st, (PrimK env sop (SNOC v vs) es :: k))
+          continue (ZIP (ns, vs) ++ (n,v)::env) e st k
+        else value v st (CaseK env n css :: k)
+    | _ => error st k) ∧
+  return v st (RaiseK :: k) = (Exn v, st, k) ∧
+  return v st (HandleK env x e :: k) = value v st k ∧
+  return v st (AppK env sop vs' [] :: k) = (let vs = v::vs' in
+    if ¬ num_args_ok sop (LENGTH vs) then error st k else
+    application sop env vs st k) ∧
+  return v st (AppK env sop vs (e::es) :: k) =
+    continue env e st (AppK env sop (v::vs) es :: k)
 End
 
-(* Values, exceptions, and errors are only halts once we have consumed
-   the continuation. Actions always halt. *)
+(* Perform a single step of evaluation *)
+Definition step_def:
+  step st k (Exp env $ Var x) = (
+    case ALOOKUP env x of
+      SOME v => value v st k
+    | NONE => error st k) ∧
+  step st k (Exp env $ Lam x body) = value (Closure x env body) st k ∧
+  step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
+  step st k (Exp env $ Let xopt e1 e2) = push env e2 st (LetK env xopt e2) k ∧
+  step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
+  step st k (Exp env $ Case e v css) = push env e st (CaseK env v css) k ∧
+  step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
+  step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
+  step st k (Exp env $ App sop es) = (
+    if ¬ num_args_ok sop (LENGTH es) then error st k else
+    case REVERSE es of (* right-to-left evaluation *)
+      [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
+        application sop env [] st k
+    | e::es' => push env e st (AppK env sop [] es') k) ∧
+
+  (***** Errors *****)
+  step st k Error = error st k ∧
+
+  (***** Exceptions *****)
+  step st [] (Exn v) = (Exn v, st, []) ∧
+  step st (k::ks) (Exn v) = (
+    case k of
+      HandleK env x e => continue ((x,v)::env) e st ks
+    | _ => (Exn v, st, ks)) ∧
+
+  (***** Values *****)
+  step st k (Val v) = return v st k ∧
+
+  (***** Actions *****)
+  step st k (Action ch c) = (Action ch c, st, k)
+End
+
+
+(******************** Top-level semantics ********************)
+
+(* Values and exceptions are only halting points once we have consumed the
+   continuation. Errors and actions are always halting points. *)
 Definition is_halt_def:
   is_halt (Val v, st, []) = T ∧
   is_halt (Exn v, st, []) = T ∧
-  is_halt (Error, st, []) = T ∧
-  is_halt (Action s, st, k) = T ∧
+  is_halt (Error, st, k) = T ∧
+  is_halt (Action ch c, st, k) = T ∧
   is_halt _ = F
 End
 
 Definition step_n_def:
   step_n n (sr, st, k) = FUNPOW (λ(sr, st, k). step st k sr) n (sr, st, k)
-End
-
-Datatype:
-  snext_res = Act 'e (cont list) state | Ret | Div | Err
 End
 
 Definition step_until_halt_def:
@@ -275,13 +315,13 @@ Definition step_until_halt_def:
       NONE => Div
     | SOME n =>
         case step_n n (sr, st, k) of
-          (Action s, st, k) => Act s k st
+          (Action ch c, st, k) => Act (ch,c) k st
         | (Error, _, _) => Err
         | _ => Ret
 End
 
-Definition sinterp'_def:
-  sinterp' =
+Definition sinterp_def:
+  sinterp sr st k =
     io_unfold
       (λ(sr, st, k).
         case step_until_halt (sr, st, k) of
@@ -289,14 +329,12 @@ Definition sinterp'_def:
         | Err => Ret' Error
         | Div => Ret' SilentDivergence
         | Act a k' st' =>
-            Vis' a (λy. (Val (Atom (Str y)), st', k')))
+            Vis' a (λy. value (Atom $ Str y) st' k' ))
+      (sr, st, k)
 End
 
-Definition sinterp:
-  sinterp sr st k = interp' (sr, st, k)
-End
 
-(********** Notes **********)
+(******************** Notes ********************)
 
 (*
 
@@ -307,7 +345,7 @@ End
   Prim (Cons "Ret") [x]       --> (fn u => App "force" (compile x ()))
   Prim (Cons "Bind") [x; y]   --> (fn u => Let v (compile x ()) (compile y () v))
   Prim (Cons "Handle") [x; y] --> (fn u => Handle (compile x ()) v (compile y () v))
-  Prim (Msg ffi) [x]          --> (fn u => Prim (FFI ffi) [compile x])
+  Prim (Msg ffi) [x]          --> (fn u => App (FFI ffi) [compile x])
   Prim (Cons "Act" [msg])     --> (fn u => compile msg ())
 
   Box x                       --> (Ref (Cons "INR" [(compile x)]))
@@ -353,5 +391,7 @@ fun force t =
   cakeml_semantics : exp -> io_oracle -> io_trace
 
 *)
+
+(****************************************)
 
 val _ = export_theory ();
