@@ -1057,7 +1057,6 @@ Proof
     \\ qexists_tac ‘j2’ \\ gs [])
   >- ((* Let SOME *)
     rw [Once exp_rel_cases])
-  \\ cheat (*
   >- ((* If *)
     rw [Once exp_rel_cases] \\ fs [exp_inv_def]
     \\ rename1 ‘If x y z’
@@ -1069,64 +1068,77 @@ Proof
     \\ first_x_assum (drule_then assume_tac) \\ fs []
     \\ first_x_assum (drule_then assume_tac) \\ fs []
     \\ map_every rename1 [
-      ‘_ (eval_to _ x) (eval_to j1 x2)’,
-      ‘_ (eval_to _ y) (eval_to j2 y2)’,
-      ‘_ (eval_to _ z) (eval_to j3 z2)’]
-    \\ Cases_on ‘eval_to (k - 1) x = INL Diverge’ \\ fs []
+      ‘eval_to (j1 + k - 1) x’,
+      ‘eval_to (j2 + k - 1) y’,
+      ‘eval_to (j3 + k - 1) z’]
+    \\ Cases_on ‘eval_to (k - 1) x2 = INL Diverge’ \\ fs []
     >- (
-      qexists_tac ‘0’
-      \\ simp [])
-    \\ Cases_on ‘eval_to (k - 1) x = INL Type_error’ \\ fs []
+      qexists_tac ‘j1’
+      \\ Cases_on ‘eval_to (j1 + k - 1) x’ \\ gs [])
+    \\ Cases_on ‘eval_to (k - 1) x2 = INL Type_error’ \\ fs []
     >- (
-      qexists_tac ‘SUC j1’ \\ simp []
-      \\ Cases_on ‘eval_to j1 x2’ \\ fs [])
-    \\ ‘∃res. eval_to (k - 1) x = INR res’
-      by (Cases_on ‘eval_to (k - 1) x’ \\ fs []
-          \\ rename1 ‘eval_to (k - 1) x = INL err’
+      qexists_tac ‘j1’ \\ simp []
+      \\ Cases_on ‘eval_to (j1 + k - 1) x’ \\ gs [])
+    \\ ‘∃res. eval_to (k - 1) x2 = INR res’
+      by (Cases_on ‘eval_to (k - 1) x2’ \\ fs []
+          \\ rename1 ‘eval_to (k - 1) x2 = INL err’
           \\ Cases_on ‘err’ \\ gs [])
-    \\ qpat_x_assum ‘_ (eval_to _ x) (eval_to j1 x2)’ assume_tac
-    \\ dxrule_then assume_tac result_rel_mono \\ gs []
+    \\ ‘eval_to (j1 + k - 1) x ≠ INL Diverge’
+      by (strip_tac \\ gs [])
+    \\ qpat_x_assum ‘_ (eval_to _ x) (eval_to _ x2)’ assume_tac
+    \\ drule_then assume_tac result_rel_mono_left \\ gs []
+    \\ ‘∃res. eval_to (j1 + k - 1) x = INR res’
+      by (pop_assum (qspec_then ‘0’ assume_tac)
+          \\ Cases_on ‘eval_to (j1 + k - 1) x’ \\ gs [])
     \\ IF_CASES_TAC \\ gvs []
     >- ((* First branch taken *)
-      ‘∃res. eval_to j1 x2 = INR res’
-        by (‘j1 ≤ j1’ by fs []
-            \\ first_x_assum (drule_then assume_tac)
-            \\ Cases_on ‘eval_to j1 x2’ \\ gs [])
-      \\ Cases_on ‘eval_to (k - 1) y = INL Diverge’ \\ gs []
+      Cases_on ‘eval_to (k - 1) y2 = INL Diverge’ \\ gs []
       >- (
-        qexists_tac ‘0’
-        \\ simp [])
-      \\ qexists_tac ‘SUC (MAX j1 j2)’
-      \\ qpat_x_assum ‘_ (eval_to _ y) (eval_to j2 y2)’ assume_tac
-      \\ dxrule_then (qspec_then ‘MAX j1 j2’ assume_tac) result_rel_mono
-      \\ gs []
-      \\ first_x_assum (qspec_then ‘MAX j1 j2’ assume_tac) \\ gs []
-      \\ Cases_on ‘eval_to (k - 1) y’ \\ Cases_on ‘eval_to (MAX j1 j2) x2’
-      \\ gs [])
-    \\ IF_CASES_TAC \\ gvs []
-    >- ((* Second branch taken *)
-      ‘∃res. eval_to j1 x2 = INR res’
-        by (‘j1 ≤ j1’ by fs []
-            \\ first_x_assum (drule_then assume_tac)
-            \\ Cases_on ‘eval_to j1 x2’ \\ gs [])
-      \\ Cases_on ‘eval_to (k - 1) z = INL Diverge’ \\ gs []
+        Cases_on ‘eval_to (j2 + k - 1) y’ \\ gs []
+        \\ Cases_on ‘eval_to (j2 + k - 1) x = INL Diverge’ \\ gs []
+        >- (
+          qexists_tac ‘j2’ \\ simp [])
+        \\ ‘eval_to (j2 + k - 1) x = eval_to (j1 + k - 1) x’
+          by (drule_then (qspec_then ‘j1 + k - 1’ assume_tac) eval_to_mono
+              \\ ‘eval_to (j1 + k - 1) x ≠ INL Diverge’ by fs []
+              \\ drule_then (qspec_then ‘j2 + k - 1’ assume_tac) eval_to_mono
+              \\ Cases_on ‘j1 < j2’ \\ gs [])
+        \\ qexists_tac ‘j2’ \\ simp [])
+      \\ ‘eval_to (j2 + k - 1) y ≠ INL Diverge’
+        by (strip_tac
+            \\ Cases_on ‘eval_to (k - 1) y2’ \\ gs [])
+      \\ qpat_x_assum ‘_ (_ _ y) (_ _ y2)’ assume_tac
+      \\ drule_all_then (qspec_then ‘j1’ assume_tac) result_rel_mono_left
+      \\ first_x_assum (qspec_then ‘j2’ assume_tac)
+      \\ qexists_tac ‘j1 + j2’
+      \\ Cases_on ‘eval_to (j1 + j2 + k - 1) x’ \\ gs [])
+    \\ reverse IF_CASES_TAC \\ gvs []
+    >- (
+      qexists_tac ‘j1’ \\ simp []
+      \\ IF_CASES_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs [])
+        (* Second branch taken *)
+    \\ Cases_on ‘eval_to (k - 1) z2 = INL Diverge’ \\ gs []
+    >- (
+      Cases_on ‘eval_to (j3 + k - 1) z’ \\ gs []
+      \\ Cases_on ‘eval_to (j3 + k - 1) x = INL Diverge’ \\ gs []
       >- (
-        qexists_tac ‘0’
-        \\ simp [])
-      \\ qexists_tac ‘SUC (MAX j1 j3)’
-      \\ qpat_x_assum ‘_ (eval_to _ z) (eval_to j3 z2)’ assume_tac
-      \\ dxrule_then (qspec_then ‘MAX j1 j3’ assume_tac) result_rel_mono
-      \\ gs []
-      \\ first_x_assum (qspec_then ‘MAX j1 j3’ assume_tac) \\ gs []
-      \\ Cases_on ‘eval_to (k - 1) y’ \\ Cases_on ‘eval_to (MAX j1 j3) x2’
-      \\ gs [])
-        (* No branch; type error *)
-    \\ qexists_tac ‘SUC j1’ \\ gs []
-    \\ ‘j1 ≤ j1’ by fs []
-    \\ first_x_assum (drule_then assume_tac)
-    \\ Cases_on ‘eval_to j1 x2’ \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs [])
+        qexists_tac ‘j3’ \\ simp [])
+      \\ ‘eval_to (j3 + k - 1) x = eval_to (j1 + k - 1) x’
+        by (drule_then (qspec_then ‘j1 + k - 1’ assume_tac) eval_to_mono
+            \\ ‘eval_to (j1 + k - 1) x ≠ INL Diverge’ by fs []
+            \\ drule_then (qspec_then ‘j3 + k - 1’ assume_tac) eval_to_mono
+            \\ Cases_on ‘j1 < j3’ \\ gs [])
+      \\ qexists_tac ‘j3’ \\ simp [])
+    \\ ‘eval_to (j3 + k - 1) z ≠ INL Diverge’
+      by (strip_tac
+          \\ Cases_on ‘eval_to (k - 1) z2’ \\ gs [])
+    \\ qpat_x_assum ‘_ (_ _ z) (_ _ z2)’ assume_tac
+    \\ drule_all_then (qspec_then ‘j1’ assume_tac) result_rel_mono_left
+    \\ first_x_assum (qspec_then ‘j3’ assume_tac)
+    \\ qexists_tac ‘j1 + j3’
+    \\ Cases_on ‘eval_to (j1 + j3 + k - 1) x’ \\ gs [])
+  \\ cheat (*
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     \\ rw [eval_to_def] \\ gvs [exp_inv_def]
