@@ -359,11 +359,11 @@ Inductive exp_rel:
   (∀v.
      exp_rel (Delay (Force (Var v))) (Var v)) ∧
 [exp_rel_Value:]
-  (∀v w.
-     thunk_rel v w ⇒
+  (∀n v w.
+     thunk_rel n v w ⇒
        exp_rel (Delay (Force (Value v))) (Value w)) ∧
 [exp_rel_Lam:]
-  (∀x y.
+  (∀s x y.
      exp_rel x y ⇒
        exp_rel (Lam s x) (Lam s y)) ∧
 [exp_rel_App:]
@@ -429,22 +429,22 @@ Inductive exp_rel:
      closed x ⇒
        v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
 [v_rel_Thunk_Changed:]
-  (∀v w.
-     thunk_rel v w ⇒
+  (∀n v w.
+     thunk_rel n v w ⇒
        v_rel (Thunk (INR (Force (Value v)))) w) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
 [thunk_rel_Thunk_Changed:]
-  (∀v w.
-     thunk_rel v w ∧
+  (∀n v w.
+     thunk_rel n v w ∧
      is_thunky w ⇒
-       thunk_rel (Thunk (INR (Force (Value v)))) w) ∧
+       thunk_rel (SUC n) (Thunk (INR (Force (Value v)))) w) ∧
 [thunk_rel_Thunk_Same:]
   (∀x y.
      exp_rel x y ∧
      closed x ⇒
-       thunk_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+       thunk_rel 0 (Thunk (INR x)) (Thunk (INR y))) ∧
 [thunk_rel_Recclosure:]
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
@@ -454,17 +454,22 @@ Inductive exp_rel:
                  exp_rel x y ∧
                  freevars x ⊆ set (MAP FST f)) f g ∧
      is_thunky (Recclosure g n) ⇒
-       thunk_rel (Recclosure f n) (Recclosure g n))
+       thunk_rel 0 (Recclosure f n) (Recclosure g n))
 End
 
 Theorem thunk_rel_is_thunky:
-  ∀v w. thunk_rel v w ⇒ is_thunky v ∧ is_thunky w
+  ∀n v w. thunk_rel n v w ⇒ is_thunky v ∧ is_thunky w
 Proof
-  Induct \\ rw [Once exp_rel_cases] \\ fs []
-  \\ gvs [LIST_REL_EL_EQN, EVERY_MAP, EVERY_EL] \\ rw []
+  qsuff_tac ‘
+    (∀x y. exp_rel x y ⇒ T) ∧
+    (∀v w. v_rel v w ⇒ T) ∧
+    (∀n v w. thunk_rel n v w ⇒ is_thunky v ∧ is_thunky w)’
+  >- rw []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw []
+  \\ gvs [LIST_REL_EL_EQN, EVERY_MAP, EVERY_EL, ELIM_UNCURRY] \\ rw []
   \\ first_x_assum (drule_then strip_assume_tac)
   \\ first_x_assum (drule_then strip_assume_tac)
-  \\ gvs [ELIM_UNCURRY, Once exp_rel_cases]
+  \\ gvs [Once exp_rel_cases]
 QED
 
 Theorem v_rel_def[simp]:
@@ -504,9 +509,9 @@ Theorem v_rel_Thunk_def:
             (∀v. w ≠ Force (Value v)) ∧
             exp_rel w y ∧
             closed w) ∨
-     (∃v. x = INR (Force (Value v)) ∧
-          thunk_rel v z ∧
-          is_thunky z))
+     (∃n v. x = INR (Force (Value v)) ∧
+            thunk_rel n v z ∧
+            is_thunky z))
 Proof
   rw [Once exp_rel_cases]
   \\ rw [EQ_SYM_EQ, AC CONJ_COMM CONJ_ASSOC, EQ_IMP_THM]
@@ -540,9 +545,9 @@ Theorem v_rel_rev[simp]:
                          is_delay y ∧
                          exp_rel x y ∧
                          freevars x ⊆ set (MAP FST f)) f g) ∨
-        (∃w. v = Thunk (INR (Force (Value w))) ∧
-             thunk_rel w (Recclosure g n) ∧
-             is_thunky (Recclosure g n)))) ∧
+        (∃k w. v = Thunk (INR (Force (Value w))) ∧
+               thunk_rel k w (Recclosure g n) ∧
+               is_thunky (Recclosure g n)))) ∧
   (∀v s vs.
      v_rel v (Constructor s vs) =
        (∃ws. v = Constructor s ws ∧
@@ -556,21 +561,24 @@ Theorem v_rel_rev[simp]:
 Proof
   rw [] \\ Cases_on ‘v’ \\ simp []
   \\ rw [EQ_IMP_THM]
-  \\ fs [v_rel_Thunk_def]
+  \\ fs [v_rel_Thunk_def, SF SFY_ss]
 QED
 
 Theorem thunk_rel_def:
-  thunk_rel v w ⇔
+  thunk_rel k v w ⇔
     ((∃x y.
+        k = 0 ∧
         v = Thunk (INR x) ∧
         w = Thunk (INR y) ∧
         (∀v. x ≠ Force (Value v)) ∧
         closed x ∧
         exp_rel x y) ∨
-     (∃u.
+     (∃j u.
+        k = SUC j ∧
         v = Thunk (INR (Force (Value u))) ∧
-        thunk_rel u w) ∨
+        thunk_rel j u w) ∨
      (∃f g n.
+        k = 0 ∧
         v = Recclosure f n ∧
         w = Recclosure g n ∧
         is_thunky w ∧
@@ -600,7 +608,7 @@ QED
 
 Theorem exp_rel_subst:
   ∀vs x ws y.
-    LIST_REL thunk_rel (MAP SND vs) (MAP SND ws) ∧
+    LIST_REL (λv w. ∃n. thunk_rel n v w) (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ∧
     exp_rel x y ⇒
       exp_rel (subst vs x) (subst ws y)
@@ -661,10 +669,13 @@ Proof
     \\ first_assum (irule_at Any)
     \\ irule_at Any LIST_REL_FILTER \\ fs [])
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ simp [subst_def, exp_rel_Value, exp_rel_Delay]
-    \\ ‘OPTREL thunk_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
-      suffices_by (rw []
-                   \\ fs [subst_def, OPTREL_def, exp_rel_Var, exp_rel_Value])
+    rw [Once exp_rel_cases] \\ simp [subst_def, exp_rel_Value, exp_rel_Delay,
+                                     SF SFY_ss]
+    \\ ‘OPTREL (λv w. ∃n. thunk_rel n v w)
+               (ALOOKUP (REVERSE vs) v)
+               (ALOOKUP (REVERSE ws) v)’
+      suffices_by (rw [] \\ fs [subst_def, OPTREL_def, exp_rel_Var,
+                                exp_rel_Value, SF SFY_ss])
     \\ irule LIST_REL_ALOOKUP
     \\ simp [EVERY2_REVERSE]
     \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
@@ -728,6 +739,7 @@ Proof
     fs [subst_def, exp_inv_def])
 QED
 
+(*
 Theorem thunk_rel_finite_Recclosure:
   thunk_rel x (Recclosure g s) ⇒
     ∃n f. x = FUNPOW (Thunk o INR o Force o Value) n (Recclosure f s) ∧
@@ -781,6 +793,7 @@ Proof
   \\ qexists_tac ‘x’
   \\ simp []
 QED
+ *)
 
 Theorem result_rel_mono_left[local]:
   ($= +++ (λv w. v_rel v w ∧ v_inv v))
@@ -983,9 +996,12 @@ Proof
           \\ irule_at Any exp_inv_subst
           \\ gvs [closed_subst, eval_to_def]
           \\ Cases_on ‘v1’ \\ Cases_on ‘v2’
-          \\ gvs [dest_anyClosure_def, v_rel_Thunk_def, thunk_rel_Thunk_Same]
+          \\ gvs [dest_anyClosure_def, v_rel_Thunk_def]
           >- (
-            irule thunk_rel_Thunk_Changed \\ gs [])
+            irule_at Any thunk_rel_Thunk_Same \\ gs [])
+          >- (
+            irule_at Any thunk_rel_Thunk_Changed \\ gs []
+            \\ first_assum (irule_at Any))
           \\ qmatch_asmsub_abbrev_tac ‘LIST_REL _ f g’ \\ gvs []
           \\ rename1 ‘ALOOKUP (REVERSE g) s1’
           \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
@@ -1167,8 +1183,8 @@ Proof
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ gs [Once exp_rel_cases]) *)
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ gvs [exp_inv_def, eval_to_def]
-    \\ simp [v_rel_Thunk_Changed, v_rel_Thunk_Same])
+    rw [Once exp_rel_cases] \\ gvs [exp_inv_def, eval_to_def, v_rel_Thunk_Same,
+                                    v_rel_Thunk_Changed, SF SFY_ss])
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
@@ -1223,84 +1239,93 @@ Proof
               \\ simp [])
         \\ qexists_tac ‘j1 + j’
         \\ gs [dest_anyThunk_def])
-      \\ drule_then strip_assume_tac thunk_rel_finite_Thunk \\ gvs []
-      \\ Induct_on ‘n’
-      >- ((* base *)
-        rw []
-        \\ Cases_on ‘k = 0’ \\ gs []
+      \\ Cases_on ‘k = 0’ \\ simp []
+      >- (
+        qexists_tac ‘0’
+        \\ Cases_on ‘eval_to 0 x = INL Diverge’ \\ gs []
         >- (
-          qexists_tac ‘0’
-          \\ Cases_on ‘eval_to 0 x = INL Diverge’ \\ gs []
-          >- (
-            simp [dest_anyThunk_def])
-          \\ ‘eval_to 0 x = eval_to j x’
-            by (once_rewrite_tac [EQ_SYM_EQ]
-                \\ irule eval_to_mono
-                \\ simp [])
-          \\ simp [dest_anyThunk_def])
-        \\ first_x_assum
-          (qspec_then ‘[]’ assume_tac o CONV_RULE SWAP_FORALL_CONV)
-        \\ gs [subst_funs_def, exp_inv_def]
-        \\ first_x_assum (drule_all_then strip_assume_tac)
-        \\ rename1 ‘_ (eval_to (j1 + k - 1) z1)’
-        \\ Cases_on ‘eval_to (k - 1) w = INL Diverge’ \\ gs []
-        >- (
-          Cases_on ‘eval_to (j1 + k) x = INL Diverge’ \\ gs []
-          >- (
-            qexists_tac ‘j1’
-            \\ simp [dest_anyThunk_def])
-          \\ ‘eval_to (SUC j1 + k) x = eval_to (j + k) x’
-            by (drule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono
-                \\ ‘eval_to (j + k) x ≠ INL Diverge’ by fs []
-                \\ drule_then (qspec_then ‘SUC j1 + k’ assume_tac) eval_to_mono
-                \\ Cases_on ‘j ≤ j1’ \\ gs []
-                \\ Cases_on ‘j ≤ SUC j1’ \\ gs []
-                \\ irule eval_to_mono \\ gs [])
-          \\ qexists_tac ‘SUC j1’
-          \\ simp [dest_anyThunk_def, eval_to_def, subst_funs_def,
-                   arithmeticTheory.ADD1])
-        \\ ‘eval_to (j1 + k - 1) z1 ≠ INL Diverge’
-          by (strip_tac
-              \\ Cases_on ‘eval_to (k - 1) w’ \\ gs [])
-        \\ drule_then (qspec_then ‘1 + j’ assume_tac) result_rel_mono_left
-        \\ ‘eval_to (j1 + 2 + j + k) x = eval_to (j + k) x’
-          by (irule eval_to_mono
+          simp [dest_anyThunk_def])
+        \\ ‘eval_to 0 x = eval_to j x’
+          by (once_rewrite_tac [EQ_SYM_EQ]
+              \\ irule eval_to_mono
               \\ simp [])
-        \\ qexists_tac ‘j1 + 2 + j’
-        \\ simp [dest_anyThunk_def, eval_to_def]
-        \\ gs [subst_funs_def])
-          (* step *)
-      \\ rw []
-      \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
-      \\ impl_keep_tac
+        \\ simp [dest_anyThunk_def])
+      \\ ‘∀m. eval_to (m + j + k) x = eval_to (j + k) x’
+        by (strip_tac
+            \\ irule eval_to_mono
+            \\ simp [])
+      \\ first_x_assum (qspec_then ‘[]’ assume_tac o CONV_RULE SWAP_FORALL_CONV)
+      \\ gs [dest_anyThunk_def, subst_funs_def]
+      \\ Cases_on ‘eval_to (k - 1) z = INL Diverge’ \\ gs []
       >- (
-        gs [arithmeticTheory.FUNPOW_SUC, exp_inv_def])
-      \\ impl_keep_tac
+        qexists_tac ‘0’
+        \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
+        \\ ‘eval_to k x = eval_to (j + k) x’
+          by (once_rewrite_tac [EQ_SYM_EQ]
+              \\ irule eval_to_mono
+              \\ simp [])
+        \\ gs [exp_inv_def]
+        \\ ntac 3 (last_x_assum kall_tac)
+        \\ qpat_x_assum ‘eval_to k y = _’ kall_tac
+        \\ qpat_x_assum ‘eval_to (j + k) x = _’ kall_tac
+        \\ qpat_x_assum ‘∀m. eval_to _ _ = _’ kall_tac
+        \\ qpat_x_assum ‘eval_to k x = _’ kall_tac
+        \\ qpat_x_assum ‘thunk_rel _ _ _’ mp_tac
+        \\ qpat_x_assum ‘thunk_inv v’ mp_tac
+        \\ qid_spec_tac ‘v’
+        \\ Induct_on ‘n’
+        >- (
+          rw [Once thunk_rel_def]
+          \\ gs [exp_inv_def]
+          \\ first_x_assum (drule_all_then strip_assume_tac)
+          \\ gs [eval_to_def, dest_anyThunk_def, subst_funs_def]
+          \\ IF_CASES_TAC \\ gs []
+          \\ rename1 ‘eval_to (j + k - 1) x’
+          \\ Cases_on ‘eval_to (k - 2) x = INL Diverge’ \\ gs []
+          \\ drule_then (qspec_then ‘k - 2 + j + 1’ assume_tac) eval_to_mono
+          \\ gs [])
+        \\ rw [Once thunk_rel_def]
+        \\ fs [thunk_inv_def, exp_inv_def]
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ simp [eval_to_def, dest_anyThunk_def]
+        \\ IF_CASES_TAC \\ gs [subst_funs_def]
+        \\ Cases_on ‘eval_to (k - 2) (Force (Value u)) = INL Diverge’ \\ gs []
+        \\ drule_then (qspec_then ‘k - 1’ assume_tac) eval_to_mono
+        \\ gs [])
+      \\ Q.REFINE_EXISTS_TAC ‘m + j’
+      \\ gs [exp_inv_def]
+      \\ ntac 3 (last_x_assum kall_tac)
+      \\ qpat_x_assum ‘eval_to k y = _’ kall_tac
+      \\ qpat_x_assum ‘eval_to (j + k) x = _’ kall_tac
+      \\ qpat_x_assum ‘∀m. eval_to _ _ = _’ kall_tac
+      \\ qpat_x_assum ‘thunk_rel _ _ _’ mp_tac
+      \\ qpat_x_assum ‘thunk_inv v’ mp_tac
+      \\ qid_spec_tac ‘v’
+      \\ Induct_on ‘n’
       >- (
-        gs [arithmeticTheory.FUNPOW_SUC, Once thunk_rel_def])
-      \\ impl_keep_tac
-      >- (
-        gs [arithmeticTheory.FUNPOW]
-        \\ AP_TERM_TAC
-        \\ AP_TERM_TAC
-        \\ AP_TERM_TAC
-        \\ cheat (* TODO need to generalize *))
-      \\ strip_tac
-      \\ cheat (* TODO mess *))
+        rw [Once thunk_rel_def]
+        \\ gs [exp_inv_def]
+        \\ first_x_assum (drule_all_then strip_assume_tac)
+        \\ gs [eval_to_def, dest_anyThunk_def, subst_funs_def]
+        \\ rename1 ‘eval_to (j1 + k - 1) x’
+        \\ qexists_tac ‘SUC j1’ \\ gs []
+        \\ ‘eval_to (j1 + k - 1) x ≠ INL Diverge’
+          by (strip_tac
+              \\ Cases_on ‘eval_to (k - 1) z’ \\ gs [])
+        \\ dxrule_then (qspec_then ‘j’ assume_tac) result_rel_mono_left
+        \\ gs [arithmeticTheory.ADD1])
+      \\ rw [Once thunk_rel_def]
+      \\ fs [thunk_inv_def, exp_inv_def]
+      \\ first_x_assum (drule_all_then strip_assume_tac)
+      \\ simp [eval_to_def, dest_anyThunk_def]
+      \\ qexists_tac ‘SUC m’
+      \\ simp [arithmeticTheory.ADD1, subst_funs_def])
     \\ Cases_on ‘∃f n. v2 = Recclosure f n’ \\ gvs []
-    >- ((* Recclosure - Recclosure *)
-      cheat (* No induction *))
-    >- ((* Thunk - Recclosure *)
-      drule_then strip_assume_tac thunk_rel_finite_Recclosure \\ gvs []
-      \\ qid_spec_tac ‘n’
-      \\ Induct
-      \\ cheat (* Induction; do entire proof second time*))
-    \\ ‘eval_to (SUC j + k) x = eval_to (j + k) x’
-      by (irule eval_to_mono \\ simp [])
-    \\ qexists_tac ‘SUC j’ \\ simp []
-    \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
-    \\ gvs [v_rel_Thunk_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
+    >- ((* both are recclosures *)
+      cheat)
+    >- ((* rhs is recclosure *)
+      cheat)
+    \\ cheat (* Both sides should fail on dest_anyThunk *))
   >- ((* Prim *)
     cheat (* TODO not really done *)) (*
     rw [Once exp_rel_cases]
