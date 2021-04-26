@@ -96,6 +96,26 @@ End
 
 (******************** Helper functions ********************)
 
+Definition freevars_def:
+  freevars (Var v) = {v} ∧
+  freevars (App sop es) = BIGUNION (set (MAP freevars es)) ∧
+  freevars (Lam x e) = freevars e DELETE x ∧
+  freevars (Letrec fns e) =
+    (freevars e ∪ (BIGUNION $ set $ MAP (λ(f,x,e). freevars e DELETE x) fns)) DIFF
+    set (MAP FST fns) ∧
+  freevars (Let NONE e1 e2) = freevars e1 ∪ freevars e2 ∧
+  freevars (Let (SOME x) e1 e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
+  freevars (If e e1 e2) = freevars e ∪ freevars e1 ∪ freevars e2 ∧
+  freevars (Case e v css) =
+    freevars e ∪
+    (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v) ∧
+  freevars (Raise e) = freevars e ∧
+  freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x)
+Termination
+  WF_REL_TAC `measure (λe. exp_size e)` >> rw[fetch "-" "exp_size_def"] >>
+  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
+End
+
 Definition get_atoms_def:
   get_atoms [] = SOME [] ∧
   get_atoms (Atom a :: xs) = OPTION_MAP (λas. a::as) (get_atoms xs) ∧
@@ -334,63 +354,43 @@ Definition sinterp_def:
 End
 
 
-(******************** Notes ********************)
+(******************** Lemmas ********************)
 
-(*
+val step_ss = simpLib.named_rewrites "step_ss" [
+    continue_def,
+    push_def,
+    value_def,
+    error_def,
+    return_def,
+    application_def,
+    step_def
+    ];
 
-  thunks are ((unit -> 'a) + 'a) ref
+Theorem is_halt_step_same:
+  ∀sr st k. is_halt (sr, st, k) ⇒ step st k sr = (sr, st, k)
+Proof
+  Cases_on `sr` >> gvs[is_halt_def, SF step_ss] >> rw[]
+  >- (Cases_on `k` >> gvs[is_halt_def, SF step_ss])
+  >- (Cases_on `k` >> gvs[is_halt_def, SF step_ss])
+QED
 
-  thunkLang                       stateLang
+Theorem step_n_alt:
+  step_n 0 res = res ∧
+  step_n (SUC n) res = (λ(sr,st,k). step st k sr) (step_n n res)
+Proof
+  PairCases_on `res` >>
+  rw[step_n_def, arithmeticTheory.FUNPOW_0, arithmeticTheory.FUNPOW_SUC]
+QED
 
-  Prim (Cons "Ret") [x]       --> (fn u => App "force" (compile x ()))
-  Prim (Cons "Bind") [x; y]   --> (fn u => Let v (compile x ()) (compile y () v))
-  Prim (Cons "Handle") [x; y] --> (fn u => Handle (compile x ()) v (compile y () v))
-  Prim (Msg ffi) [x]          --> (fn u => App (FFI ffi) [compile x])
-  Prim (Cons "Act" [msg])     --> (fn u => compile msg ())
+Theorem step_n_mono:
+  ∀n res. is_halt (step_n n res) ⇒ ∀m. n < m ⇒ step_n n res = step_n m res
+Proof
+  rw[] >> Induct_on `m` >> gvs[] >>
+  PairCases_on `res` >> rw[step_n_alt] >>
+  Cases_on `n = m` >> gvs[] >>
+  pairarg_tac >> gvs[is_halt_step_same]
+QED
 
-  Box x                       --> (Ref (Cons "INR" [(compile x)]))
-  Delay x                     --> (Ref (Cons "INL" [fn u => (compile x) ()]))
-  Force x                     --> force (compile x)
-
-fun force t =
-  case !t of
-  | INL f => let val v = f () in (t := INR v; v) end
-  | INR v => v
-
-
-  thunk$Letrec [(x, y + 1); ...] rest
-
--->
-
-  (* declare all references *)
-  Let x (Ref (INL (fn u => Raise Bind)))
-  (* use the bindings *)
-  Letrec [...]
-  (* update the references *)
-    (x := INL (fn u => y + 1); compiler rest))
-
-
-
-  step (Exp (LitInt i)) s c = (Val (Lit i), s, c)
-  step (Exp (Raise x)) s c = (Exp x, s, RaiseC c)
-
-  step (Val v) s (RaiseC (LetC ... c)) = (Val v, s, RaiseC c)
-
-  eval exp s c = Act ffi msg s' c'
-
-
-
-  thunk$semantics (Bind (Bind (Ret ...) (Bind ... (Act ...))))
-~
-  state$eval (fn _ => ...) ()
-
-  eval : exp -> v
-
-  itree_of : exp -> itree
-
-  cakeml_semantics : exp -> io_oracle -> io_trace
-
-*)
 
 (****************************************)
 
