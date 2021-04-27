@@ -1154,14 +1154,12 @@ Proof
     \\ first_x_assum (qspec_then ‘j3’ assume_tac)
     \\ qexists_tac ‘j1 + j3’
     \\ Cases_on ‘eval_to (j1 + j3 + k - 1) x’ \\ gs [])
-  >- cheat (*
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     \\ rw [eval_to_def] \\ gvs [exp_inv_def]
     >- ((* k = 0 *)
       qexists_tac ‘0’
       \\ simp [])
-    \\ Q.REFINE_EXISTS_TAC ‘SUC j’ \\ simp []
     \\ first_x_assum (irule_at Any)
     \\ fs [subst_funs_def, closed_def, freevars_subst, freevars_def]
     \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
@@ -1181,7 +1179,7 @@ Proof
     \\ rw []
     \\ gvs [MEM_EL, PULL_EXISTS]
     \\ first_x_assum (drule_then strip_assume_tac)
-    \\ gs [Once exp_rel_cases]) *)
+    \\ gs [Once exp_rel_cases])
   >- ((* Delay *)
     rw [Once exp_rel_cases] \\ gvs [exp_inv_def, eval_to_def, v_rel_Thunk_Same,
                                     v_rel_Thunk_Changed, SF SFY_ss])
