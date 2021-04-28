@@ -220,8 +220,13 @@ Inductive exp_inv:
      exp_inv y ∧
      exp_inv z ⇒
        exp_inv (If x y z)) ∧
+[exp_inv_Prim_Cons:]
+  (∀nm xs.
+     EVERY exp_inv xs ⇒
+       exp_inv (Prim (Cons nm) (MAP Delay xs))) ∧
 [exp_inv_Prim:]
   (∀op xs. (* TODO *)
+     (∀nm. op ≠ Cons nm) ∧
      EVERY exp_inv xs ⇒
        exp_inv (Prim op xs)) ∧
 [exp_inv_Delay:]
@@ -291,7 +296,12 @@ Theorem exp_inv_def:
        (exp_inv x ∧
         exp_inv y ∧
         exp_inv z)) ∧
+  (∀nm xs.
+     exp_inv (Prim (Cons nm) xs) =
+       (∃ys. xs = MAP Delay ys ∧
+             EVERY exp_inv ys)) ∧
   (∀op xs.
+     (∀nm. op ≠ Cons nm) ⇒
      exp_inv (Prim op xs) =
        (EVERY exp_inv xs)) ∧ (* TODO *)
   (∀x.
@@ -710,7 +720,13 @@ Proof
     \\ ‘m < LENGTH xs’ by fs [Abbr ‘m’]
     \\ first_x_assum (drule_then assume_tac) \\ gs [])
   >- ((* Prim *)
-    gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
+    Cases_on ‘∃nm. op = Cons nm’ \\ gs []
+    >- (
+      gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss]
+      \\ qexists_tac ‘MAP (subst xs) ys’
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, subst_def]
+      \\ gvs [MEM_MAP, PULL_EXISTS, exp_inv_def, subst_def])
+    \\ gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
   >- ((* If *)
     simp [subst_def, exp_inv_def])
   >- ((* App *)
@@ -1661,14 +1677,34 @@ Proof
               EVERY_EL]
     \\ Cases_on ‘op’ \\ fs []
     >- ((* Cons *)
-      cheat (* TODO Figure out how to deal with map *))
+      gvs [exp_inv_def, EL_MAP, map_MAP, combinTheory.o_DEF]
+      \\ simp [eval_to_def]
+      \\ rename1 ‘LENGTH xs = LENGTH ys’
+      \\ Cases_on ‘map (λx. INR (Thunk (INR x)): err + v) xs’ \\ gs []
+      >- (
+        gs [map_INL])
+      \\ rename1 ‘map _ xs = INR vs’ \\ gs []
+      \\ Cases_on ‘map (λx. eval_to k x) ys’ \\ gs []
+      >- (
+        drule_then assume_tac map_LENGTH
+        \\ dxrule_then assume_tac map_INR \\ gs []
+        \\ gs [map_INL]
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ gvs [Once exp_rel_cases, eval_to_def])
+      \\ imp_res_tac map_LENGTH
+      \\ dxrule_then assume_tac map_INR \\ gs []
+      \\ dxrule_then assume_tac map_INR \\ gs []
+      \\ cheat (* Not sure about this conclusion;
+                  should just be thunk_rel *))
     >- ((* IsEq *)
       IF_CASES_TAC \\ fs []
       \\ IF_CASES_TAC \\ fs []
       >- ((* k = 0 *)
         qexists_tac ‘0’
         \\ simp [])
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”]
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”, exp_inv_def]
       \\ rename1 ‘exp_rel x y’
       \\ first_x_assum (drule_then strip_assume_tac)
       \\ qexists_tac ‘j’
@@ -1687,7 +1723,7 @@ Proof
       >- ((* k = 0 *)
         qexists_tac ‘0’
         \\ simp [])
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”]
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”, exp_inv_def]
       \\ rename1 ‘exp_rel x y’
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
       \\ qexists_tac ‘j’
@@ -1706,7 +1742,19 @@ Proof
       \\ gs [EVERY_EL]
       \\ first_x_assum (drule_then assume_tac) \\ gs [])
     >- ((* AtomOp *)
-      cheat (* TODO map again *)))
+      Cases_on ‘k = 0’ \\ gs []
+      >- (
+        qexists_tac ‘0’
+        \\ Cases_on ‘xs = []’ \\ gs []
+        >- (
+          simp [map_def]
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs [])
+        \\ ‘ys ≠ []’ by (strip_tac \\ gs [])
+        \\ simp [GSYM (SIMP_CONV (srw_ss()) [combinTheory.K_DEF]
+                                            “K (INL Diverge)”),
+                 map_K_INL])
+      \\ cheat (* TODO map again *)))
 QED
 
 val _ = export_theory ();
