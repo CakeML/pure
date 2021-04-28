@@ -427,11 +427,7 @@ Inductive exp_rel:
        v_rel (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
-     LIST_REL (λv w. ∃x y.
-                 v = Thunk (INR x) ∧
-                 w = Thunk (INR y) ∧
-                 exp_rel x y ∧
-                 closed x) vs ws ⇒
+     LIST_REL (λv w. ∃n. thunk_rel n v w) vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_Thunk_Same:]
   (∀x y.
@@ -500,11 +496,7 @@ Theorem v_rel_def[simp]:
   (∀s vs z.
      v_rel (Constructor s vs) z =
        (∃ws. z = Constructor s ws ∧
-             LIST_REL (λv w. ∃x y.
-                    v = Thunk (INR x) ∧
-                    w = Thunk (INR y) ∧
-                    exp_rel x y ∧
-                    closed x) vs ws)) ∧
+             LIST_REL (λv w. ∃n. thunk_rel n v w) vs ws)) ∧
   (∀x z.
      v_rel (Atom x) z = (z = Atom x))
 Proof
@@ -561,11 +553,7 @@ Theorem v_rel_rev[simp]:
   (∀v s vs.
      v_rel v (Constructor s vs) =
        (∃ws. v = Constructor s ws ∧
-             LIST_REL (λv w. ∃x y.
-                    v = Thunk (INR x) ∧
-                    w = Thunk (INR y) ∧
-                    exp_rel x y ∧
-                    closed x) ws vs)) ∧
+             LIST_REL (λv w. ∃n. thunk_rel n v w) ws vs)) ∧
   (∀v a.
      v_rel v (Atom a) = (v = Atom a))
 Proof
@@ -1696,8 +1684,17 @@ Proof
       \\ imp_res_tac map_LENGTH
       \\ dxrule_then assume_tac map_INR \\ gs []
       \\ dxrule_then assume_tac map_INR \\ gs []
-      \\ cheat (* Not sure about this conclusion;
-                  should just be thunk_rel *))
+      \\ gs [LIST_REL_EL_EQN, EVERY_EL] \\ rw []
+      \\ rpt (first_x_assum (drule_all_then strip_assume_tac))
+      \\ gs [eval_to_def]
+      \\ qpat_x_assum ‘_ = EL n vs’ (assume_tac o SYM)
+      \\ gs [v_rel_Thunk_def]
+      >- (
+        rw [Once exp_rel_cases])
+      \\ qpat_x_assum ‘exp_rel _ (EL n ys)’ mp_tac
+      \\ rw [Once exp_rel_cases] \\ gvs []
+      \\ irule_at Any thunk_rel_Thunk_Changed \\ gs []
+      \\ first_assum (irule_at Any))
     >- ((* IsEq *)
       IF_CASES_TAC \\ fs []
       \\ IF_CASES_TAC \\ fs []
@@ -1738,9 +1735,7 @@ Proof
       \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum (drule_then strip_assume_tac)
       \\ gvs []
-      \\ irule_at Any v_rel_Thunk_Same
-      \\ gs [EVERY_EL]
-      \\ first_x_assum (drule_then assume_tac) \\ gs [])
+      \\ cheat (* All Proj's are Forced *))
     >- ((* AtomOp *)
       Cases_on ‘k = 0’ \\ gs []
       >- (
