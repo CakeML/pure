@@ -224,9 +224,14 @@ Inductive exp_inv:
   (∀nm xs.
      EVERY exp_inv xs ⇒
        exp_inv (Prim (Cons nm) (MAP Delay xs))) ∧
+[exp_inv_Prim_Proj:]
+  (∀s i xs.
+     EVERY exp_inv xs ⇒
+       exp_inv (Force (Prim (Proj s i) xs))) ∧
 [exp_inv_Prim:]
   (∀op xs. (* TODO *)
      (∀nm. op ≠ Cons nm) ∧
+     (∀s i. op ≠ Proj s i) ∧
      EVERY exp_inv xs ⇒
        exp_inv (Prim op xs)) ∧
 [exp_inv_Delay:]
@@ -302,17 +307,21 @@ Theorem exp_inv_def:
              EVERY exp_inv ys)) ∧
   (∀op xs.
      (∀nm. op ≠ Cons nm) ⇒
+     (∀s i. op ≠ Proj s i) ⇒
      exp_inv (Prim op xs) =
-       (EVERY exp_inv xs)) ∧ (* TODO *)
+       EVERY exp_inv xs) ∧
+  (∀s i xs.
+     exp_inv (Force (Prim (Proj s i) xs)) =
+       EVERY exp_inv xs) ∧
   (∀x.
-     exp_inv (Force x) =
-       exp_inv x) ∧
+     (∀s i xs. x ≠ Prim (Proj s i) xs) ⇒
+     exp_inv (Force x) = exp_inv x) ∧
   (∀x.
      exp_inv (Delay x) =
        exp_inv x)
 Proof
   rw [] \\ rw [Once exp_inv_cases]
-  \\ rw [EQ_IMP_THM]
+  \\ rw [Once exp_inv_cases]
 QED
 
 Theorem v_inv_def[simp]:
@@ -692,112 +701,89 @@ QED
 
 Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
 
+Theorem ALOOKUP_SOME_REVERSE_EL[local]:
+  ALOOKUP (REVERSE l) k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k, v)
+Proof
+  strip_tac
+  \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+  \\ gvs [EL_REVERSE]
+  \\ qmatch_asmsub_abbrev_tac ‘EL m l’
+  \\ first_assum (irule_at (Pos (el 2)))
+  \\ gs [Abbr ‘m’]
+QED
+
 Theorem exp_inv_subst:
   ∀xs x.
     EVERY thunk_inv (MAP SND xs) ∧
     exp_inv x ⇒
       exp_inv (subst xs x)
 Proof
-  ho_match_mp_tac subst_ind \\ rw [] \\ fs [exp_inv_def]
+  qsuff_tac ‘
+    (∀x. exp_inv x ⇒
+       ∀xs. EVERY thunk_inv (MAP SND xs) ⇒
+         exp_inv (subst xs x)) ∧
+    (∀v. v_inv v ⇒ T) ∧
+    (∀v. thunk_inv v ⇒ T)’
+  >- rw []
+  \\ ho_match_mp_tac exp_inv_strongind \\ rw []
   >- ((* Var *)
     simp [subst_def]
     \\ CASE_TAC \\ fs [exp_inv_def]
-    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-    \\ gs [EVERY_EL, EL_MAP, EL_REVERSE]
-    \\ qmatch_asmsub_abbrev_tac ‘EL m xs’
-    \\ ‘m < LENGTH xs’ by fs [Abbr ‘m’]
+    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+    \\ gs [EVERY_EL, EL_MAP]
     \\ first_x_assum (drule_then assume_tac) \\ gs [])
-  >- ((* Prim *)
-    Cases_on ‘∃nm. op = Cons nm’ \\ gs []
-    >- (
-      gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss]
-      \\ qexists_tac ‘MAP (subst xs) ys’
-      \\ rw [MAP_MAP_o, combinTheory.o_DEF, subst_def]
-      \\ gvs [MEM_MAP, PULL_EXISTS, exp_inv_def, subst_def])
-    \\ gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
-  >- ((* If *)
-    simp [subst_def, exp_inv_def])
+  >- ((* Value *)
+    gvs [subst_def, exp_inv_def])
   >- ((* App *)
     gvs [subst_def, exp_inv_def])
   >- ((* Lam *)
     gvs [subst_def, exp_inv_def]
     \\ first_x_assum irule
     \\ gs [EVERY_MAP, EVERY_FILTER, EVERY_MEM, ELIM_UNCURRY, SF SFY_ss])
-  >- ((* Let NONE *)
-    gs [subst_def, exp_inv_def])
   >- ((* Letrec *)
     gs [subst_def, exp_inv_def]
     \\ gvs [EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
             EVERY_FILTER, GSYM FST_THM]
-    \\ qpat_x_assum ‘EVERY _ xs ⇒ _’ (irule_at Any)
+    \\ qpat_x_assum ‘∀xs. EVERY _ xs ⇒ _’ (irule_at Any)
     \\ gvs [EVERY_MEM, FORALL_PROD, subst_def, SF SFY_ss]
     \\ qmatch_goalsub_abbrev_tac ‘subst m’
-    \\ qexists_tac ‘MAP (λ(n,x). (n,subst m x)) g’
+    \\ qexists_tac ‘MAP (λ(n,x). (n,subst m x)) f’
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MEM_MAP, EXISTS_PROD,
-           PULL_EXISTS, subst_def, exp_inv_def, SF SFY_ss])
+           PULL_EXISTS, subst_def, exp_inv_def, SF SFY_ss]
+    \\ qunabbrev_tac ‘m’
+    \\ conj_tac
+    >- (
+      rw [MEM_FILTER]
+      \\ first_x_assum (irule_at Any)
+      \\ first_assum (irule_at Any))
+    \\ rw []
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ first_x_assum irule
+    \\ rw [MEM_FILTER]
+    \\ first_x_assum (irule_at Any)
+    \\ first_assum (irule_at Any))
+  >- ((* Let NONE *)
+    gvs [subst_def, exp_inv_def])
+  >- ((* If *)
+    gvs [subst_def, exp_inv_def])
+  >- ((* Prim Cons *)
+      gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss]
+      \\ rename1 ‘subst ys’
+      \\ qexists_tac ‘MAP (subst ys) xs’
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, subst_def]
+      \\ gvs [MEM_MAP, PULL_EXISTS, exp_inv_def, subst_def])
+  >- ((* Prim Proj *)
+    gs [subst_def]
+    \\ irule exp_inv_Prim_Proj
+    \\ gvs [EVERY_EL, EL_MAP])
+  >- ((* Prim *)
+    gvs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
   >- ((* Delay *)
-    fs [subst_def, exp_inv_def])
-  >- ((* Box *)
-    fs [subst_def, exp_inv_def])
-  >- ((* Value *)
-    fs [subst_def, exp_inv_def])
+    gvs [subst_def, exp_inv_def])
+  >- ((* Force *)
+    simp [subst_def]
+    \\ irule exp_inv_Force \\ gs [])
 QED
-
-(*
-Theorem thunk_rel_finite_Recclosure:
-  thunk_rel x (Recclosure g s) ⇒
-    ∃n f. x = FUNPOW (Thunk o INR o Force o Value) n (Recclosure f s) ∧
-          thunk_rel (Recclosure f s) (Recclosure g s)
-Proof
-  qsuff_tac ‘
-    (∀x y. exp_rel x y ⇒ T) ∧
-    (∀v w. v_rel v w ⇒ T) ∧
-    (∀x y.
-       thunk_rel x y ⇒
-       ∀g s. y = Recclosure g s ⇒
-         ∃n f. x = FUNPOW (Thunk o INR o Force o Value) n (Recclosure f s) ∧
-               thunk_rel (Recclosure f s) (Recclosure g s))’
-  >- rw []
-  \\ ho_match_mp_tac exp_rel_strongind \\ rw []
-  >- (
-    first_assum (irule_at Any)
-    \\ Q.REFINE_EXISTS_TAC ‘SUC m’
-    \\ simp [arithmeticTheory.FUNPOW_SUC]
-    \\ irule_at Any EQ_REFL)
-  \\ qexists_tac ‘0’
-  \\ irule_at Any thunk_rel_Recclosure
-  \\ simp []
-QED
-
-Theorem thunk_rel_finite_Thunk:
-  thunk_rel x (Thunk y) ⇒
-    ∃n z w. x = FUNPOW (Thunk o INR o Force o Value) n (Thunk (INR z)) ∧
-            y = INR w ∧
-            closed z ∧
-            exp_rel z w
-Proof
-  qsuff_tac ‘
-    (∀x y. exp_rel x y ⇒ T) ∧
-    (∀v w. v_rel v w ⇒ T) ∧
-    (∀x x1.
-       thunk_rel x x1 ⇒
-       ∀y. x1 = Thunk y ⇒
-         ∃n z w. x = FUNPOW (Thunk o INR o Force o Value) n (Thunk (INR z)) ∧
-                 y = INR w ∧
-                 closed z ∧
-                 exp_rel z w)’
-  >- rw []
-  \\ ho_match_mp_tac exp_rel_strongind \\ rw []
-  >- (
-    first_assum (irule_at Any)
-    \\ Q.REFINE_EXISTS_TAC ‘SUC m’
-    \\ simp [arithmeticTheory.FUNPOW_SUC]
-    \\ irule_at Any EQ_REFL)
-  \\ qexists_tac ‘0’
-  \\ qexists_tac ‘x’
-  \\ simp []
-QED
- *)
 
 Theorem result_rel_mono_left[local]:
   ($= +++ (λv w. v_rel v w ∧ v_inv v))
@@ -1199,7 +1185,106 @@ Proof
     rw [Once exp_rel_cases])
   >- ((* Force *)
     rw [Once exp_rel_cases]
-    \\ rw [eval_to_def] \\ gvs [exp_inv_def]
+    \\ rw [eval_to_def]
+    \\ Cases_on ‘∃s i xs. x = Prim (Proj s i) xs’ \\ gvs [exp_inv_def]
+    >- ((* Prim Proj *)
+      qpat_x_assum ‘exp_rel (Prim _ _) _’ mp_tac
+      \\ rw [Once exp_rel_cases]
+      \\ gs [Once exp_inv_cases]
+      \\ simp [eval_to_def]
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      >- ((* k = 0 *)
+        qexists_tac ‘0’
+        \\ simp [])
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”, exp_inv_def]
+      \\ rename1 ‘exp_rel x y’
+      \\ first_assum (qspec_then ‘[]’ mp_tac o CONV_RULE SWAP_FORALL_CONV)
+      \\ simp_tac list_ss [subst_funs_def, subst_empty]
+      \\ disch_then (drule_all_then (qx_choose_then ‘j’ assume_tac))
+      \\ qexists_tac ‘j’
+      \\ Cases_on ‘eval_to (j + k - 1) x’
+      \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
+      \\ rename1 ‘v_rel v1 v2’
+      \\ Cases_on ‘dest_Constructor v1’ \\ gs []
+      >- (
+        Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [v_rel_Thunk_def])
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [LIST_REL_EL_EQN, v_rel_Thunk_def]
+      \\ IF_CASES_TAC \\ gvs []
+      \\ rename1 ‘LENGTH f = LENGTH g’
+      \\ first_x_assum (drule_then (qx_choose_then ‘n’ assume_tac))
+      \\ Cases_on ‘dest_anyThunk (EL i f)’ \\ gs []
+      >- (
+        gs [Once thunk_rel_def, dest_anyThunk_def]
+        \\ rename1 ‘LIST_REL _ f1 g1’
+        \\ rename1 ‘ALOOKUP (REVERSE g1) n1’
+        \\ ‘MEM n1 (MAP FST g1)’ by cheat
+        \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
+                   (ALOOKUP (REVERSE f1) n1)
+                   (ALOOKUP (REVERSE g1) n1)’
+          by (irule LIST_REL_ALOOKUP
+              \\ rw [EVERY2_REVERSE]
+              \\ irule LIST_REL_mono
+              \\ first_assum (irule_at Any)
+              \\ rw [ELIM_UNCURRY])
+        \\ gs [OPTREL_def, ALOOKUP_NONE, MAP_REVERSE]
+        \\ CASE_TAC \\ gs [CaseEq "exp"])
+      \\ pairarg_tac \\ gvs []
+      \\ CASE_TAC \\ gvs []
+      >- (
+        gs [Once thunk_rel_def, dest_anyThunk_def, CaseEqs ["option", "exp"]])
+      \\ Cases_on ‘dest_anyThunk (EL i g)’ \\ gs []
+      >- (
+        gvs [Once thunk_rel_def, dest_anyThunk_def]
+        >- (
+          drule_then assume_tac thunk_rel_is_thunky
+          \\ Cases_on ‘EL i g’ \\ gvs []
+          \\ rename1 ‘ALOOKUP (REVERSE g1) n1’
+          \\ ‘MEM n1 (MAP FST g1)’ by cheat
+          \\ Cases_on ‘ALOOKUP (REVERSE g1) n1’ \\ gs []
+          >- (
+            gs [ALOOKUP_NONE, MAP_REVERSE])
+          \\ ‘∃f1. thunk_rel 0 (Recclosure f1 n1) (Recclosure g1 n1)’
+            by (qpat_x_assum ‘thunk_rel _ _ _’ mp_tac
+                \\ rename1 ‘thunk_rel N w _’
+                \\ map_every qid_spec_tac [‘n1’, ‘g1’, ‘w’, ‘N’]
+                \\ Induct \\ rw []
+                >- (
+                  gs [Once thunk_rel_def]
+                  \\ rw [Once thunk_rel_def]
+                  \\ first_assum (irule_at Any))
+                \\ rw []
+                \\ pop_assum mp_tac
+                \\ rw [Once thunk_rel_def]
+                \\ first_x_assum (drule_then (irule_at Any)))
+          \\ gs [Once thunk_rel_def]
+          \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+          \\ gvs [LIST_REL_EL_EQN]
+          \\ first_x_assum (drule_then assume_tac)
+          \\ gvs [ELIM_UNCURRY, dest_anyThunk_def, CaseEq "exp"])
+        \\ rename1 ‘LIST_REL _ f1 g1’
+        \\ rename1 ‘ALOOKUP (REVERSE g1) n1’
+        \\ ‘MEM n1 (MAP FST g1)’ by cheat
+        \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
+                   (ALOOKUP (REVERSE f1) n1)
+                   (ALOOKUP (REVERSE g1) n1)’
+          by (irule LIST_REL_ALOOKUP
+              \\ rw [EVERY2_REVERSE]
+              \\ irule LIST_REL_mono
+              \\ first_assum (irule_at Any)
+              \\ rw [ELIM_UNCURRY])
+        \\ gs [OPTREL_def, ALOOKUP_NONE, MAP_REVERSE,
+               CaseEqs ["option", "exp"]])
+      \\ pairarg_tac \\ gvs []
+      \\ CASE_TAC \\ gs []
+      >- (
+        drule_then assume_tac thunk_rel_is_thunky
+        \\ Cases_on ‘EL i g’ \\ gs []
+        \\ gvs [Once thunk_rel_def, dest_anyThunk_def,
+                CaseEqs ["option", "exp"]])
+      \\ cheat (* TODO Don't give the clock witness so early *))
     \\ rename1 ‘exp_rel x y’
     \\ first_x_assum (drule_then assume_tac) \\ gs []
     \\ Cases_on ‘eval_to k y’ \\ fs []
@@ -1275,7 +1360,7 @@ Proof
               \\ irule eval_to_mono
               \\ simp [])
         \\ gs [exp_inv_def]
-        \\ ntac 3 (last_x_assum kall_tac)
+        \\ ntac 4 (last_x_assum kall_tac)
         \\ qpat_x_assum ‘eval_to k y = _’ kall_tac
         \\ qpat_x_assum ‘eval_to (j + k) x = _’ kall_tac
         \\ qpat_x_assum ‘∀m. eval_to _ _ = _’ kall_tac
@@ -1304,7 +1389,7 @@ Proof
         \\ gs [])
       \\ Q.REFINE_EXISTS_TAC ‘m + j’
       \\ gs [exp_inv_def]
-      \\ ntac 3 (last_x_assum kall_tac)
+      \\ ntac 4 (last_x_assum kall_tac)
       \\ qpat_x_assum ‘eval_to k y = _’ kall_tac
       \\ qpat_x_assum ‘eval_to (j + k) x = _’ kall_tac
       \\ qpat_x_assum ‘∀m. eval_to _ _ = _’ kall_tac
@@ -1579,7 +1664,7 @@ Proof
       \\ Q.REFINE_EXISTS_TAC ‘m + j’
       \\ gs [exp_inv_def]
       \\ last_x_assum assume_tac
-      \\ ntac 3 (last_x_assum kall_tac)
+      \\ ntac 4 (last_x_assum kall_tac)
       \\ map_every (fn tm => qpat_x_assum tm kall_tac) [
           ‘eval_to k y = _’,
           ‘eval_to (j + k) x = _’,
@@ -1715,27 +1800,7 @@ Proof
       \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [LIST_REL_EL_EQN, v_rel_Thunk_def]
       \\ IF_CASES_TAC \\ gs [])
     >- ((* Proj *)
-      IF_CASES_TAC \\ fs []
-      \\ IF_CASES_TAC \\ fs []
-      >- ((* k = 0 *)
-        qexists_tac ‘0’
-        \\ simp [])
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1 ⇔ n = 0”, exp_inv_def]
-      \\ rename1 ‘exp_rel x y’
-      \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
-      \\ qexists_tac ‘j’
-      \\ Cases_on ‘eval_to (j + k - 1) x’
-      \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
-      \\ rename1 ‘v_rel v1 v2’
-      \\ Cases_on ‘dest_Constructor v1’ \\ gs []
-      >- (
-        Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [v_rel_Thunk_def])
-      \\ pairarg_tac \\ gvs []
-      \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [LIST_REL_EL_EQN, v_rel_Thunk_def]
-      \\ IF_CASES_TAC \\ fs []
-      \\ first_x_assum (drule_then strip_assume_tac)
-      \\ gvs []
-      \\ cheat (* All Proj's are Forced *))
+      gvs [Once exp_inv_cases])
     >- ((* AtomOp *)
       Cases_on ‘k = 0’ \\ gs []
       >- (
