@@ -92,12 +92,17 @@ Proof
   \\ first_x_assum (qspec_then ‘SUC n’ assume_tac) \\ fs []
 QED
 
-Theorem LIST_REL_ALOOKUP[local]:
+Theorem LIST_REL_OPTREL[local]:
   ∀xs ys.
     LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
-      OPTREL R (ALOOKUP xs k) (ALOOKUP ys k)
+      OPTREL R (ALOOKUP (REVERSE xs) k) (ALOOKUP (REVERSE ys) k)
 Proof
-  ho_match_mp_tac LIST_REL_ind
+  qsuff_tac ‘
+    ∀xs ys.
+      LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
+        OPTREL R (ALOOKUP xs k) (ALOOKUP ys k)’
+  >- rw []
+  \\ ho_match_mp_tac LIST_REL_ind
   \\ simp [OPTREL_def]
   \\ Cases \\ Cases \\ rw []
 QED
@@ -170,6 +175,17 @@ Proof
   \\ rw [DISJ_EQ_IMP, EQ_IMP_THM]
   \\ fs [LIST_TO_SET_EQ_SING, EVERY_MAP, GSYM closed_def, SF ETA_ss]
   \\ Cases_on ‘xs’ \\ fs []
+QED
+
+Theorem ALOOKUP_SOME_REVERSE_EL[local]:
+  ALOOKUP (REVERSE l) k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k, v)
+Proof
+  strip_tac
+  \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
+  \\ gvs [EL_REVERSE]
+  \\ qmatch_asmsub_abbrev_tac ‘EL m l’
+  \\ first_assum (irule_at (Pos (el 2)))
+  \\ gs [Abbr ‘m’]
 QED
 
 (* --------------------------
@@ -683,8 +699,7 @@ Proof
                (ALOOKUP (REVERSE ws) v)’
       suffices_by (rw [] \\ fs [subst_def, OPTREL_def, exp_rel_Var,
                                 exp_rel_Value, SF SFY_ss])
-    \\ irule LIST_REL_ALOOKUP
-    \\ simp [EVERY2_REVERSE]
+    \\ irule LIST_REL_OPTREL
     \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
     \\ pop_assum mp_tac
     \\ rpt (pop_assum kall_tac)
@@ -700,17 +715,6 @@ Proof
 QED
 
 Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
-
-Theorem ALOOKUP_SOME_REVERSE_EL[local]:
-  ALOOKUP (REVERSE l) k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k, v)
-Proof
-  strip_tac
-  \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-  \\ gvs [EL_REVERSE]
-  \\ qmatch_asmsub_abbrev_tac ‘EL m l’
-  \\ first_assum (irule_at (Pos (el 2)))
-  \\ gs [Abbr ‘m’]
-QED
 
 Theorem exp_inv_subst:
   ∀xs x.
@@ -909,8 +913,7 @@ Proof
           suffices_by (rw [] \\ gs [OPTREL_def]
                        \\ qpat_x_assum `exp_rel _x _` mp_tac
                        \\ rw [Once exp_rel_cases] \\ gs [])
-        \\ irule LIST_REL_ALOOKUP
-        \\ gs [EVERY2_REVERSE]
+        \\ irule LIST_REL_OPTREL \\ gs []
         \\ irule LIST_REL_mono
         \\ first_assum (irule_at Any)
         \\ simp [ELIM_UNCURRY])
@@ -922,11 +925,8 @@ Proof
       \\ reverse (Cases_on ‘v1’) \\ Cases_on ‘v2’ \\ gs [dest_anyClosure_def]
       >- (
         gs [CaseEqs ["option", "exp"], EVERY_EL]
-        \\ drule_then strip_assume_tac ALOOKUP_SOME_EL
-        \\ gs [EL_REVERSE, EL_MAP]
-        \\ qmatch_asmsub_abbrev_tac ‘EL m l’
-        \\ ‘m < LENGTH l’ by fs [Abbr ‘m’]
-        \\ first_x_assum (drule_then strip_assume_tac) \\ gs [])
+        \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+        \\ first_x_assum (drule_then strip_assume_tac) \\ gs [EL_MAP])
       \\ qmatch_asmsub_abbrev_tac ‘LIST_REL _ f g’ \\ gvs []
       \\ rename1 ‘ALOOKUP (REVERSE g) s1’
       \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
@@ -934,11 +934,10 @@ Proof
         suffices_by (rw [] \\ gs [OPTREL_def]
                      \\ qpat_x_assum `exp_rel _x _` mp_tac
                      \\ rw [Once exp_rel_cases] \\ gs [])
-        \\ irule LIST_REL_ALOOKUP
-        \\ gs [EVERY2_REVERSE]
-        \\ irule LIST_REL_mono
-        \\ first_assum (irule_at Any)
-        \\ simp [ELIM_UNCURRY])
+      \\ irule LIST_REL_OPTREL \\ gs []
+      \\ irule LIST_REL_mono
+      \\ first_assum (irule_at Any)
+      \\ simp [ELIM_UNCURRY])
     \\ simp [eval_to_def]
     \\ Cases_on ‘dest_anyClosure v2’ \\ gs []
     >- (
@@ -953,21 +952,18 @@ Proof
         suffices_by (rw [] \\ gs [OPTREL_def]
                      \\ qpat_x_assum `exp_rel _x _` mp_tac
                      \\ rw [Once exp_rel_cases] \\ gs [])
-        \\ irule LIST_REL_ALOOKUP
-        \\ gs [EVERY2_REVERSE]
-        \\ irule LIST_REL_mono
-        \\ first_assum (irule_at Any)
-        \\ simp [ELIM_UNCURRY])
+      \\ irule LIST_REL_OPTREL \\ gs []
+      \\ irule LIST_REL_mono
+      \\ first_assum (irule_at Any)
+      \\ simp [ELIM_UNCURRY])
     \\ pairarg_tac \\ gvs []
     \\ Cases_on ‘dest_anyClosure v1’ \\ gs []
     >- (
       reverse (Cases_on ‘v1’) \\ Cases_on ‘v2’ \\ gvs [dest_anyClosure_def]
       >- (
         gs [CaseEqs ["option", "exp"], EVERY_EL]
-        \\ drule_then strip_assume_tac ALOOKUP_SOME_EL
-        \\ gs [EL_REVERSE, EL_MAP]
-        \\ qmatch_asmsub_abbrev_tac ‘EL m l’
-        \\ ‘m < LENGTH l’ by fs [Abbr ‘m’]
+        \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+        \\ gs [EL_MAP]
         \\ first_x_assum (drule_then strip_assume_tac) \\ gs [])
       \\ qmatch_asmsub_abbrev_tac ‘LIST_REL _ f g’ \\ gvs []
       \\ rename1 ‘ALOOKUP (REVERSE g) s1’
@@ -976,11 +972,10 @@ Proof
         suffices_by (rw [] \\ gs [OPTREL_def]
                      \\ qpat_x_assum `exp_rel _x _` mp_tac
                      \\ rw [Once exp_rel_cases] \\ gs [])
-        \\ irule LIST_REL_ALOOKUP
-        \\ gs [EVERY2_REVERSE]
-        \\ irule LIST_REL_mono
-        \\ first_assum (irule_at Any)
-        \\ simp [ELIM_UNCURRY])
+      \\ irule LIST_REL_OPTREL \\ gs []
+      \\ irule LIST_REL_mono
+      \\ first_assum (irule_at Any)
+      \\ simp [ELIM_UNCURRY])
     \\ rename1 ‘dest_anyClosure v1 = INR vv’
     \\ PairCases_on ‘vv’
     \\ qmatch_goalsub_abbrev_tac ‘eval_to (k - 1) (subst binds1 body1)’
@@ -1007,8 +1002,7 @@ Proof
             suffices_by (rw [] \\ gs [OPTREL_def]
                          \\ qpat_x_assum `exp_rel _x _` mp_tac
                          \\ rw [Once exp_rel_cases] \\ gs [])
-          \\ irule LIST_REL_ALOOKUP
-          \\ gs [EVERY2_REVERSE]
+          \\ irule LIST_REL_OPTREL \\ gs []
           \\ irule LIST_REL_mono
           \\ first_assum (irule_at Any)
           \\ simp [ELIM_UNCURRY])
@@ -1224,13 +1218,13 @@ Proof
         \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
                    (ALOOKUP (REVERSE f1) n1)
                    (ALOOKUP (REVERSE g1) n1)’
-          by (irule LIST_REL_ALOOKUP
-              \\ rw [EVERY2_REVERSE]
-              \\ irule LIST_REL_mono
-              \\ first_assum (irule_at Any)
-              \\ rw [ELIM_UNCURRY])
-        \\ gs [OPTREL_def, ALOOKUP_NONE, MAP_REVERSE]
-        \\ CASE_TAC \\ gs [CaseEq "exp"])
+          suffices_by (rw []
+                       \\ gs [OPTREL_def, ALOOKUP_NONE, MAP_REVERSE]
+                       \\ CASE_TAC \\ gs [CaseEq "exp"])
+        \\ irule LIST_REL_OPTREL \\ gs []
+        \\ irule LIST_REL_mono
+        \\ first_assum (irule_at Any)
+        \\ rw [ELIM_UNCURRY])
       \\ pairarg_tac \\ gvs []
       \\ CASE_TAC \\ gvs []
       >- (
@@ -1270,13 +1264,13 @@ Proof
         \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
                    (ALOOKUP (REVERSE f1) n1)
                    (ALOOKUP (REVERSE g1) n1)’
-          by (irule LIST_REL_ALOOKUP
-              \\ rw [EVERY2_REVERSE]
-              \\ irule LIST_REL_mono
-              \\ first_assum (irule_at Any)
-              \\ rw [ELIM_UNCURRY])
-        \\ gs [OPTREL_def, ALOOKUP_NONE, MAP_REVERSE,
-               CaseEqs ["option", "exp"]])
+          suffices_by (rw []
+                       \\ gs [OPTREL_def, ALOOKUP_NONE, MAP_REVERSE,
+                              CaseEqs ["option", "exp"]])
+        \\ irule LIST_REL_OPTREL \\ gs []
+        \\ irule LIST_REL_mono
+        \\ first_assum (irule_at Any)
+        \\ rw [ELIM_UNCURRY])
       \\ pairarg_tac \\ gvs []
       \\ CASE_TAC \\ gs []
       >- (
@@ -1361,12 +1355,13 @@ Proof
               \\ simp [])
         \\ gs [exp_inv_def]
         \\ ntac 4 (last_x_assum kall_tac)
-        \\ qpat_x_assum ‘eval_to k y = _’ kall_tac
-        \\ qpat_x_assum ‘eval_to (j + k) x = _’ kall_tac
-        \\ qpat_x_assum ‘∀m. eval_to _ _ = _’ kall_tac
-        \\ qpat_x_assum ‘eval_to k x = _’ kall_tac
+        \\ map_every (fn tm => qpat_x_assum tm kall_tac) [
+          ‘eval_to k y = _’,
+          ‘eval_to (j + k) x = _’,
+          ‘∀m. eval_to _ _ = _’,
+          ‘eval_to k x = _’ ]
         \\ qpat_x_assum ‘thunk_rel _ _ _’ mp_tac
-        \\ qpat_x_assum ‘thunk_inv v’ mp_tac
+        \\ qpat_x_assum  ‘thunk_inv v’ mp_tac
         \\ qid_spec_tac ‘v’
         \\ Induct_on ‘n’
         >- (
@@ -1385,14 +1380,14 @@ Proof
         \\ simp [eval_to_def, dest_anyThunk_def]
         \\ IF_CASES_TAC \\ gs [subst_funs_def]
         \\ Cases_on ‘eval_to (k - 2) (Force (Value u)) = INL Diverge’ \\ gs []
-        \\ drule_then (qspec_then ‘k - 1’ assume_tac) eval_to_mono
-        \\ gs [])
+        \\ drule_then (qspec_then ‘k - 1’ assume_tac) eval_to_mono \\ gs [])
       \\ Q.REFINE_EXISTS_TAC ‘m + j’
       \\ gs [exp_inv_def]
       \\ ntac 4 (last_x_assum kall_tac)
-      \\ qpat_x_assum ‘eval_to k y = _’ kall_tac
-      \\ qpat_x_assum ‘eval_to (j + k) x = _’ kall_tac
-      \\ qpat_x_assum ‘∀m. eval_to _ _ = _’ kall_tac
+      \\ map_every (fn tm => qpat_x_assum tm kall_tac) [
+        ‘eval_to k y = _’,
+        ‘eval_to (j + k) x = _’,
+        ‘∀m. eval_to _ _ = _’ ]
       \\ qpat_x_assum ‘thunk_rel _ _ _’ mp_tac
       \\ qpat_x_assum ‘thunk_inv v’ mp_tac
       \\ qid_spec_tac ‘v’
@@ -1403,18 +1398,17 @@ Proof
         \\ first_x_assum (drule_all_then strip_assume_tac)
         \\ gs [eval_to_def, dest_anyThunk_def, subst_funs_def]
         \\ rename1 ‘eval_to (j1 + k - 1) x’
-        \\ qexists_tac ‘SUC j1’ \\ gs []
+        \\ qexists_tac ‘j1 + 1’ \\ gs []
         \\ ‘eval_to (j1 + k - 1) x ≠ INL Diverge’
           by (strip_tac
               \\ Cases_on ‘eval_to (k - 1) z’ \\ gs [])
         \\ dxrule_then (qspec_then ‘j’ assume_tac) result_rel_mono_left
-        \\ gs [arithmeticTheory.ADD1])
+        \\ gs [])
       \\ rw [Once thunk_rel_def]
       \\ fs [thunk_inv_def, exp_inv_def]
       \\ first_x_assum (drule_all_then strip_assume_tac)
       \\ simp [eval_to_def, dest_anyThunk_def]
-      \\ qexists_tac ‘SUC m’
-      \\ simp [arithmeticTheory.ADD1, subst_funs_def])
+      \\ qexists_tac ‘m + 1’ \\ gs [subst_funs_def])
     \\ Cases_on ‘∃g n. v2 = Recclosure g n’ \\ gvs []
     >- ((* Recclosure - Recclosure *)
       rename1 ‘LIST_REL _ f g’
@@ -1428,8 +1422,7 @@ Proof
           suffices_by (rw [] \\ gs [OPTREL_def]
                        \\ qpat_x_assum `exp_rel _x _` mp_tac
                        \\ rw [Once exp_rel_cases] \\ gs [])
-        \\ irule LIST_REL_ALOOKUP
-        \\ gs [EVERY2_REVERSE]
+        \\ irule LIST_REL_OPTREL \\ gs []
         \\ irule LIST_REL_mono
         \\ first_assum (irule_at Any)
         \\ simp [ELIM_UNCURRY])
@@ -1452,30 +1445,24 @@ Proof
             suffices_by (rw [] \\ gs [OPTREL_def]
                          \\ qpat_x_assum `exp_rel _x _` mp_tac
                          \\ rw [Once exp_rel_cases] \\ gs [])
-          \\ irule LIST_REL_ALOOKUP
-          \\ gs [EVERY2_REVERSE]
+          \\ irule LIST_REL_OPTREL \\ gs []
           \\ irule LIST_REL_mono
           \\ first_assum (irule_at Any)
           \\ simp [ELIM_UNCURRY])
-        \\ drule_then strip_assume_tac ALOOKUP_SOME_EL
-        \\ gvs [EVERY_EL, EL_REVERSE, LIST_REL_EL_EQN]
-        \\ qmatch_asmsub_abbrev_tac ‘EL m g’
-        \\ ‘m < LENGTH g’ by fs [Abbr ‘m’, LIST_REL_EL_EQN]
+        \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+        \\ gvs [EVERY_EL, LIST_REL_EL_EQN]
         \\ first_x_assum (drule_then strip_assume_tac)
         \\ gs [ELIM_UNCURRY])
       \\ reverse (gvs [dest_anyThunk_def, CaseEqs ["option", "exp"]])
       >- (
-        drule_then strip_assume_tac ALOOKUP_SOME_EL
-        \\ gvs [LIST_REL_EL_EQN, EL_REVERSE]
-        \\ qmatch_asmsub_abbrev_tac ‘EL m g’
-        \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+        drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+        \\ gvs [LIST_REL_EL_EQN]
         \\ first_x_assum (drule_then strip_assume_tac)
         \\ gvs [ELIM_UNCURRY])
       \\ qmatch_asmsub_rename_tac ‘ALOOKUP (REVERSE g) s’
       \\ ‘OPTREL (λ_x _y. is_delay _x ∧ is_delay _y ∧ exp_rel _x _y)
                  (ALOOKUP (REVERSE f) s) (ALOOKUP (REVERSE g) s)’
-        by (irule LIST_REL_ALOOKUP
-            \\ gs [EVERY2_REVERSE]
+        by (irule LIST_REL_OPTREL \\ gs []
             \\ irule LIST_REL_mono
             \\ first_assum (irule_at Any)
             \\ simp [ELIM_UNCURRY])
@@ -1502,10 +1489,8 @@ Proof
             >- (
               first_x_assum (drule_then strip_assume_tac)
               \\ Cases_on ‘SND (EL n g)’ \\ gs [])
-            \\ drule_then strip_assume_tac ALOOKUP_SOME_EL
-            \\ gvs [LIST_REL_EL_EQN, EVERY_EL, EL_REVERSE]
-            \\ qmatch_asmsub_abbrev_tac ‘EL m f’
-            \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+            \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+            \\ gvs [LIST_REL_EL_EQN, EVERY_EL]
             \\ rpt (first_x_assum (drule_then strip_assume_tac))
             \\ gs [EL_MAP, freevars_def])
       \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -1535,11 +1520,6 @@ Proof
       >- (
         ‘F’ suffices_by rw []
         \\ ‘MEM n (MAP FST g)’ by cheat
-          (* This property holds for all recclosures that are not from the
-           * outside (i.e., they are not injected using Value), but there's
-           * no invariant about that in this proof yet. We need this to prove
-           * this case, I think. If we don't have this, then the RHS can fail
-           * when the LHS doesn't. *)
         \\ Cases_on ‘ALOOKUP (REVERSE g) n’ \\ gs []
         >- (
           gs [ALOOKUP_NONE, MAP_REVERSE])
@@ -1557,10 +1537,8 @@ Proof
               \\ rw [Once thunk_rel_def]
               \\ first_x_assum (drule_then (irule_at Any)))
         \\ gs [Once thunk_rel_def]
-        \\ drule_then strip_assume_tac ALOOKUP_SOME_EL
-        \\ gvs [LIST_REL_EL_EQN, EL_REVERSE]
-        \\ qmatch_asmsub_abbrev_tac ‘EL m g’
-        \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+        \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+        \\ gvs [LIST_REL_EL_EQN]
         \\ first_x_assum (drule_then assume_tac)
         \\ gvs [ELIM_UNCURRY, dest_anyThunk_def, CaseEq "exp"])
       \\ pairarg_tac \\ gvs []
@@ -1608,8 +1586,7 @@ Proof
           \\ ‘OPTREL (λ_x _y. exp_rel _x _y ∧ is_delay _x ∧ is_delay _y)
                      (ALOOKUP (REVERSE f) n)
                      (ALOOKUP (REVERSE g) n)’
-            by (irule LIST_REL_ALOOKUP
-                \\ rw [EVERY2_REVERSE]
+            by (irule LIST_REL_OPTREL \\ gs []
                 \\ irule LIST_REL_mono
                 \\ first_assum (irule_at Any)
                 \\ simp [ELIM_UNCURRY])
@@ -1633,10 +1610,8 @@ Proof
                 \\ first_assum (irule_at Any)
                 \\ simp [ELIM_UNCURRY]
                 \\ irule_at Any LIST_EQ
-                \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-                \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_REVERSE, ELIM_UNCURRY]
-                \\ qmatch_asmsub_abbrev_tac ‘EL m f’
-                \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+                \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+                \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
                 \\ first_x_assum (drule_then strip_assume_tac)
                 \\ qpat_x_assum ‘exp_rel (Delay x1) _’ mp_tac
                 \\ rw [Once exp_rel_cases] \\ gs [freevars_def]
@@ -1647,16 +1622,13 @@ Proof
           \\ Cases_on ‘eval_to (k - 2) (subst_funs f x1) = INL Diverge’ \\ gs []
           \\ drule_then (qspec_then ‘k - 2 + j + 1’ assume_tac) eval_to_mono
           \\ gs [])
-           (* TODO Urk: *)
         \\ rw [Once thunk_rel_def]
         \\ fs [thunk_inv_def, exp_inv_def]
-        \\ first_x_assum drule_all
-        \\ strip_tac
+        \\ first_x_assum (drule_all_then assume_tac)
         \\ simp [dest_anyThunk_def, subst_funs_def]
         \\ simp [eval_to_def]
         \\ pop_assum mp_tac
-        \\ simp [eval_to_def, dest_anyThunk_def]
-        \\ strip_tac
+        \\ gs [eval_to_def, dest_anyThunk_def]
         \\ gs [subst_funs_def]
         \\ IF_CASES_TAC \\ gs []
         \\ Cases_on ‘eval_to (k - 2) (Force (Value u)) = INL Diverge’ \\ gs []
@@ -1680,8 +1652,7 @@ Proof
         \\ ‘OPTREL (λ_x _y. exp_rel _x _y ∧ is_delay _x ∧ is_delay _y)
                    (ALOOKUP (REVERSE f) n)
                    (ALOOKUP (REVERSE g) n)’
-          by (irule LIST_REL_ALOOKUP
-              \\ rw [EVERY2_REVERSE]
+          by (irule LIST_REL_OPTREL \\ gs []
               \\ irule LIST_REL_mono
               \\ first_assum (irule_at Any)
               \\ simp [ELIM_UNCURRY])
@@ -1704,10 +1675,8 @@ Proof
               \\ first_assum (irule_at Any)
               \\ simp [ELIM_UNCURRY]
               \\ irule_at Any LIST_EQ
-              \\ dxrule_then strip_assume_tac ALOOKUP_SOME_EL
-              \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_REVERSE, ELIM_UNCURRY]
-              \\ qmatch_asmsub_abbrev_tac ‘EL m f’
-              \\ ‘m < LENGTH g’ by fs [Abbr ‘m’]
+              \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+              \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
               \\ first_x_assum (drule_then strip_assume_tac)
               \\ qpat_x_assum ‘exp_rel (Delay x1) _’ mp_tac
               \\ rw [Once exp_rel_cases] \\ gs [freevars_def]
@@ -1715,7 +1684,7 @@ Proof
               \\ first_x_assum (drule_then strip_assume_tac) \\ gs [])
         \\ first_x_assum (drule_all_then strip_assume_tac)
         \\ rename1 ‘eval_to (j1 + k - 1) (subst_funs f x1)’
-        \\ qexists_tac ‘SUC j1’ \\ simp [arithmeticTheory.ADD1]
+        \\ qexists_tac ‘j1 + 1’ \\ simp []
         \\ ‘eval_to (j1 + k - 1) (subst_funs f x1) ≠ INL Diverge’
           by (strip_tac
               \\ Cases_on ‘eval_to (k - 1) (subst_funs g x2)’ \\ gs [])
@@ -1723,16 +1692,13 @@ Proof
         \\ gs [])
       \\ rw [Once thunk_rel_def]
       \\ fs [thunk_inv_def, exp_inv_def]
-      \\ first_x_assum drule_all
-      \\ strip_tac
+      \\ first_x_assum (drule_all_then (qx_choose_then ‘m1’ assume_tac))
       \\ simp [dest_anyThunk_def, subst_funs_def]
       \\ simp [eval_to_def]
       \\ pop_assum mp_tac
-      \\ simp [eval_to_def, dest_anyThunk_def]
-      \\ strip_tac
+      \\ rw [eval_to_def, dest_anyThunk_def]
       \\ gs [subst_funs_def]
-      \\ rename1 ‘j + (k + m1) - 1’
-      \\ qexists_tac ‘SUC m1’ \\ simp [arithmeticTheory.ADD1])
+      \\ qexists_tac ‘m1 + 1’ \\ simp [])
     \\ Cases_on ‘dest_anyThunk v2’ \\ gs []
     >- (
       qexists_tac ‘j’
@@ -1762,9 +1728,7 @@ Proof
         drule_then assume_tac map_LENGTH
         \\ dxrule_then assume_tac map_INR \\ gs []
         \\ gs [map_INL]
-        \\ first_x_assum (drule_then assume_tac)
-        \\ first_x_assum (drule_then assume_tac)
-        \\ first_x_assum (drule_then assume_tac)
+        \\ rpt (first_x_assum (drule_all_then assume_tac))
         \\ gvs [Once exp_rel_cases, eval_to_def])
       \\ imp_res_tac map_LENGTH
       \\ dxrule_then assume_tac map_INR \\ gs []
