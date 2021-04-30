@@ -1,0 +1,3 @@
+INCLUDES = ../misc \
+           $(CAKEMLDIR)/misc/lem_lib_stub \
+           $(CAKEMLDIR)/semantics \
