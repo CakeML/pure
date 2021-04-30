@@ -28,7 +28,7 @@
   Note that we can still model by infinite internal actions (silent
   divergence) by having a special type of 'r dedicated to that.
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
+open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory llistTheory alistTheory optionTheory;
 open mp_then pred_setTheory relationTheory pairTheory combinTheory;
 
@@ -341,6 +341,57 @@ Proof
 QED
 
 
+(* io_unfold with errors - i.e. the environment can return an error *)
+
+Definition io_unfold_err_path_def:
+  (io_unfold_err_path f err seed [] =
+     case f seed of
+     | Ret' r => Return r
+     | Vis' e g => Event e) ∧
+  (io_unfold_err_path f err seed (n::rest) =
+     case f seed of
+     | Ret' r => Return ARB
+     | Vis' e g =>
+        case n of
+        | INL x => if rest = [] then Return (err x) else Return ARB
+        | INR y => io_unfold_err_path f err (g y) rest)
+End
+
+Definition io_unfold_err:
+  io_unfold_err f err seed =
+    io_abs (io_unfold_err_path f err seed)
+End
+
+Theorem io_rep_abs_io_unfold_err_path[local]:
+  io_rep (io_abs (io_unfold_err_path f err s)) =
+  io_unfold_err_path f err s
+Proof
+  gvs[GSYM io_repabs, io_rep_ok_def] >>
+  qid_spec_tac `s` >> Induct_on `path` >- gvs[path_ok_def] >>
+  gvs[io_unfold_err_path_def] >> rw[] >>
+  reverse EVERY_CASE_TAC >> gvs[] >>
+  gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
+  first_x_assum irule >>
+  simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]
+QED
+
+Theorem io_unfold_err:
+  io_unfold_err f err seed =
+    case f seed of
+    | Ret' r   => Ret r
+    | Vis' e g => Vis e (λa. case a of
+                              INL x => Ret $ err x
+                            | INR y => io_unfold_err f err (g y))
+Proof
+  CASE_TAC >> gvs[io_unfold_err] >>
+  gvs[Ret_def, Vis_def] >> AP_TERM_TAC >> simp[FUN_EQ_THM] >>
+  Cases >> gvs[io_unfold_err_path_def, Ret_rep_def, Vis_rep_def] >>
+  TOP_CASE_TAC >> gvs[io_rep_abs_io_unfold_err_path] >>
+  DEP_REWRITE_TAC[iffLR io_repabs] >> simp[] >>
+  gvs[io_rep_ok_def, path_ok_def, PULL_EXISTS]
+QED
+
+
 (* proving equivalences *)
 
 Definition io_el_def:
@@ -460,6 +511,7 @@ val _ = List.app Theory.delete_binding
    "Vis_rep_def", "Vis_def",
    "path_ok_def", "io_rep_ok_def",
    "io_unfold_path_def", "io_unfold_path_ind",
+   "io_unfold_err_path_def", "io_unfold_err_path_ind",
    "io_el_TY_DEF", "io_absrep", "io_next_TY_DEF"];
 
 val _ = export_theory();
