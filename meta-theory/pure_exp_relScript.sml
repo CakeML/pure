@@ -161,6 +161,30 @@ Theorem app_bisimilarity_iff_alt =
     |> SIMP_RULE (std_ss++boolSimps.CONJ_ss) [IN_DEF,opp_def]
     |> REWRITE_RULE [GSYM CONJ_ASSOC];
 
+Theorem app_bisimilarity_iff_alt2:
+  ∀e1 e2.
+    e1 ≃ e2 ⇔
+      closed e1 ∧ closed e2 ∧
+      case eval_wh e1 of
+        wh_Closure x ce1 =>
+          ∃y ce2. eval_wh e2 = wh_Closure y ce2 ∧
+                  ∀e. closed e ⇒ subst1 x e ce1 ≃ subst1 y e ce2
+      | wh_Constructor x e1s =>
+          ∃e2s. eval_wh e2 = wh_Constructor x e2s ∧
+                LIST_REL (CURRY app_bisimilarity) e1s e2s
+      | res => eval_wh e2 = res
+Proof
+  rw[Once app_bisimilarity_iff] >> eq_tac >> strip_tac >> simp[]
+  >- (
+    Cases_on `eval_wh e1` >> gvs[] >>
+    Cases_on `eval_wh e2` >> gvs[]
+    )
+  >- (
+    Cases_on `eval_wh e1` >> gvs[] >>
+    gvs[LIST_REL_EL_EQN] >> rw[opp_def, IN_DEF]
+    )
+QED
+
 Theorem app_bisimulation_SUBSET_app_bisimilarity:
   app_bisimulation R ⇒ R ⊆ app_bisimilarity
 Proof
@@ -938,5 +962,94 @@ Proof
   \\ fs [eval_def]
   \\ once_rewrite_tac [v_unfold] \\ fs []
 QED
+
+(****************************************)
+
+Definition approx_def:
+  approx 0 e1 e2 = T ∧
+  approx (SUC k) e1 e2 =
+    case eval_wh e1 of
+      wh_Closure x a =>
+        ∃y b. eval_wh e2 = wh_Closure y b ∧
+              ∀e. closed e ⇒ approx k (subst1 x e a) (subst1 y e b)
+    | wh_Constructor c eas =>
+        ∃ebs. eval_wh e2 = wh_Constructor c ebs ∧
+              LIST_REL (approx k) eas ebs
+    | wh_Diverge => T
+    | res => eval_wh e2 = res
+End
+
+Definition approx_eq_def:
+  approx_eq k e1 e2 ⇔ approx k e1 e2 ∧ approx k e2 e1
+End
+
+Theorem approx_eq_thm:
+  approx_eq 0 e1 e2 = T ∧
+  approx_eq (SUC k) e1 e2 =
+    case eval_wh e1 of
+      wh_Closure x a =>
+        ∃y b. eval_wh e2 = wh_Closure y b ∧
+              ∀e. closed e ⇒ approx_eq k (subst1 x e a) (subst1 y e b)
+    | wh_Constructor c eas =>
+        ∃ebs. eval_wh e2 = wh_Constructor c ebs ∧
+              LIST_REL (approx_eq k) eas ebs
+    | res => eval_wh e2 = res
+Proof
+  rw[approx_eq_def, approx_def] >> eq_tac >> rw[]
+  >- (
+    reverse $ Cases_on `eval_wh e1` >> gvs[]
+    >- (EVERY_CASE_TAC >> gvs[]) >>
+    gvs[LIST_REL_EL_EQN] >> rw[approx_eq_def]
+    ) >>
+  Cases_on `eval_wh e1` >> gvs[] >>
+  gvs[LIST_REL_EL_EQN, approx_eq_def]
+QED
+
+Theorem approx_eq_app_similarity:
+  ∀e1 e2.
+    closed e1 ∧ closed e2 ∧ (∀k. approx k e1 e2) ⇔ e1 ≲ e2
+Proof
+  rw[] >> reverse $ eq_tac
+  >- (
+    strip_tac >> imp_res_tac app_similarity_closed >> simp[] >>
+    gen_tac >> ntac 2 $ pop_assum kall_tac >> pop_assum mp_tac >>
+    map_every qid_spec_tac [`e2`,`e1`,`k`] >>
+    Induct >> rw[approx_def] >> gvs[app_similarity_iff] >>
+    pop_assum mp_tac >> once_rewrite_tac[unfold_rel_def] >>
+    strip_tac >> Cases_on `eval_wh e1` >>
+    gvs[LIST_REL_EL_EQN, GSYM app_similarity_iff]
+    ) >>
+  map_every qid_spec_tac [`e2`,`e1`] >>
+  ho_match_mp_tac app_similarity_companion_coind >>
+  rw[FF_def, EXISTS_PROD, unfold_rel_def] >>
+  first_assum (qspec_then `SUC 0` mp_tac) >>
+  once_rewrite_tac[approx_def] >> simp[] >> rw[] >> simp[]
+  >- (
+    rw[] >> irule companion_rel >> simp[] >>
+    rpt $ irule_at Any IMP_closed_subst >>
+    simp[IN_FRANGE_FLOOKUP, FLOOKUP_UPDATE] >>
+    imp_res_tac eval_wh_Closure_closed >> rw[] >>
+    last_x_assum $ qspec_then `SUC k` mp_tac >> simp[approx_def]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN] >> rw[] >>
+    irule companion_rel >> simp[] >>
+    imp_res_tac eval_wh_freevars_SUBSET >>
+    gvs[closed_def, DISJ_EQ_IMP, MEM_MAP, PULL_FORALL] >>
+    rw[EMPTY_iff_NOTIN] >- metis_tac[EL_MEM] >- metis_tac[EL_MEM] >>
+    last_x_assum $ qspec_then `SUC k` mp_tac >> simp[approx_def] >>
+    rw[LIST_REL_EL_EQN]
+    )
+QED
+
+Theorem approx_eq_app_bisimilarity:
+  ∀e1 e2.
+    closed e1 ∧ closed e2 ∧ (∀k. approx_eq k e1 e2) ⇔ e1 ≃ e2
+Proof
+  rw[app_bisimilarity_similarity, approx_eq_def, GSYM approx_eq_app_similarity] >>
+  eq_tac >> rw[]
+QED
+
+(********************)
 
 val _ = export_theory();

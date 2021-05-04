@@ -168,41 +168,6 @@ End
 
 (******************** Lemmas ********************)
 
-Theorem freevars_Lams[simp]:
-  ∀vs e. freevars (Lams vs e) = freevars e DIFF set vs
-Proof
-  Induct >> rw[Lams_def] >>
-  gvs[LIST_TO_SET_FILTER, INTER_DEF, EXTENSION] >>
-  metis_tac[]
-QED
-
-Theorem subst_Lams:
-  ∀l x f. subst f (Lams l x) = Lams l (subst (FDIFF f (set l)) x)
-Proof
-  Induct >> rw[Lams_def] >- simp[FDIFF_def, DRESTRICT_UNIV] >>
-  simp[subst_def, fdiff_fdomsub_INSERT]
-QED
-
-Theorem freevars_Apps[simp]:
-  ∀es e. freevars (Apps e es) = freevars e ∪ BIGUNION (set (MAP freevars es))
-Proof
-  Induct >> rw[Apps_def] >> simp[UNION_ASSOC]
-QED
-
-Theorem subst_Apps:
-  ∀l x f. subst f (Apps x l) = Apps (subst f x) (MAP (subst f) l)
-Proof
-  Induct >> rw[Apps_def, subst_def]
-QED
-
-Triviality Apps_SNOC_rewrite:
-  (∀x. Apps x [] = x) ∧
-  (∀ys x y. Apps x (SNOC y ys) = App (Apps x ys) y)
-Proof
-  conj_tac >- rw[Apps_def] >>
-  Induct >> rw[Apps_def]
-QED
-
 Theorem subst_make_subst_unchanged:
     (∀n v. MEM (SOME (n,v)) args ⇒ v = Var n)
   ⇒ subst (make_subst args) e = e
@@ -302,7 +267,7 @@ Proof
   >- (
     rename1 `Lam v e` >>
     qpat_x_assum `letrec_fun _ _` mp_tac >> simp[Once letrec_fun_cases] >> rw[]
-    >- (Cases_on `xs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite]) >>
+    >- (Cases_on `xs` using SNOC_CASES >> gvs[Apps_SNOC]) >>
     simp[eval_wh_to_def] >> rw[] >>
     irule letrec_fun_subst1 >> simp[letrec_fun_refl]
     )
@@ -376,7 +341,7 @@ Proof
       gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >> metis_tac[]
       )
     >- (
-      Cases_on `xs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite] >>
+      Cases_on `xs` using SNOC_CASES >> gvs[Apps_SNOC] >>
       imp_res_tac args_rel_LENGTH >> gvs[Lams_def, make_subst_def, Apps_def] >>
       simp[eval_wh_to_def] >> IF_CASES_TAC >> gvs[]
       >- (qexists_tac `0` >> simp[]) >>
@@ -405,7 +370,7 @@ Proof
   simp[Once letrec_fun_cases] >> rw[]
   >- (
     rename1 `Prim _ _ = _ _ zs` >>
-    Cases_on `zs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite]
+    Cases_on `zs` using SNOC_CASES >> gvs[Apps_SNOC]
     )
   >- (
     qexists_tac ‘0’
@@ -436,7 +401,7 @@ Proof
       \\ IF_CASES_TAC \\ fs []))
   >- (
     rename1 `Prim _ _ = _ _ zs` >>
-    Cases_on `zs` using SNOC_CASES >> gvs[Apps_SNOC_rewrite]
+    Cases_on `zs` using SNOC_CASES >> gvs[Apps_SNOC]
     ) >>
   Cases_on `p` >> gvs[eval_wh_to_def]
   >- (

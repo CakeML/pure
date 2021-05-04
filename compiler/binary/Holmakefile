@@ -1,0 +1,17 @@
+INCLUDES = ../../language \
+           .. \
+           ../backend \
+           ../backend/proofs \
+           ../../meta-theory \
+           $(CAKEMLDIR)/basis/pure \
+           $(CAKEMLDIR)/basis \
+           $(CAKEMLDIR)/translator \
+           $(CAKEMLDIR)/compiler \
+           $(HOLDIR)/examples/algorithms
+
+ioprog: ioprog.S $(CAKEMLDIR)/basis/basis_ffi.o ioCompileTheory.uo
+	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+
+ioprog.S: ioCompileTheory.uo
+
+EXTRA_CLEANS=ioprog ioprog.S
