@@ -7,7 +7,7 @@ open io_treeTheory;
 val _ = new_theory "cakeml_semantics"
 
 Datatype:
-  result = Rval v | Rraise v
+  app_result = Rval v | Rraise v
 End
 
 Definition do_app_def:
@@ -345,24 +345,24 @@ Type "ctxt"[pp] = ``:ctxt_frame # v sem_env``;
 Type "small_state"[pp] = ``:v sem_env # v store # exp_or_val # ctxt list``;
 
 Datatype:
-  e_step_result = Estep small_state
-                | Effi string (word8 list) (word8 list) num
+  estep_result = Estep small_state
+               | Effi string (word8 list) (word8 list) num
                         (v sem_env) (v store) (ctxt list)
-                | Edone
-                | Etype_error
+               | Edone
+               | Etype_error
 End
 
 Definition push_def:
-  push env s e c cs : e_step_result = Estep (env, s, Exp e, (c,env)::cs)
+  push env s e c cs : estep_result = Estep (env, s, Exp e, (c,env)::cs)
 End
 
 (* This is value_def in stateLang *)
 Definition return_def:
-  return env s v c : e_step_result = Estep (env, s, Val v, c)
+  return env s v c : estep_result = Estep (env, s, Val v, c)
 End
 
 Definition application_def:
-  application op env s vs c : e_step_result =
+  application op env s vs c : estep_result =
     case op of
       Opapp => (
         case do_opapp vs of
@@ -385,7 +385,7 @@ End
 
 (* This is return_def in stateLang *)
 Definition continue_def:
-  continue s v [] : e_step_result = Edone ∧
+  continue s v [] : estep_result = Edone ∧
   continue s v ((Craise, env)::cs) = (
     case cs of
       [] => Edone
@@ -435,8 +435,8 @@ Definition continue_def:
   continue s v ((Clannot l, env) :: c) = return env s v c
 End
 
-Definition e_step_def:
-  estep (env, s, Val v, c) : e_step_result = continue s v c ∧
+Definition estep_def:
+  estep (env, s, Val v, c) : estep_result = continue s v c ∧
   estep (env, s, Exp $ Lit l, c) = return env s (Litv l) c ∧
   estep (env, s, Exp $ Raise e, c) = push env s e Craise c ∧
   estep (env, s, Exp $ Handle e pes, c) = push env s e (Chandle pes) c ∧
@@ -509,11 +509,33 @@ Datatype:
          | FinalFFI ffi_outcome
 End
 
-(* TODO what if FFI returns a word8 list of different length?
-   Here CakeML would have an FFI_failed, but it's more tricky to handle here. *)
+Definition cml_io_unfold_err_def:
+  cml_io_unfold_err f =
+    io_unfold_err f
+      ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
+      FinalFFI, FinalFFI FFI_failed)
+End
+
+Theorem cml_io_unfold_err:
+  cml_io_unfold_err f seed =
+    case f seed of
+    | Ret' r   => Ret r
+    | Vis' (s, ws1, ws2) g =>
+        Vis (s, ws1, ws2)
+          (λa. case a of
+                  INL x => Ret $ FinalFFI x
+                | INR y =>
+                    if LENGTH ws2 = LENGTH y then cml_io_unfold_err f (g y)
+                    else Ret $ FinalFFI FFI_failed)
+Proof
+  CASE_TAC >> gvs[cml_io_unfold_err_def] >>
+  simp[Once io_unfold_err] >>
+  PairCases_on `e` >> gvs[]
+QED
+
 Definition interp_def:
   interp e =
-    io_unfold_err
+    cml_io_unfold_err
       (λe.
         case step_until_halt e of
         | Ret => Ret' Termination
@@ -523,9 +545,8 @@ Definition interp_def:
             Vis' (s, ws1, ws2)
               (λr:word8 list.
                 Estep (env, LUPDATE (W8array r) n st, Val $ Conv NONE [], cs)))
-      FinalFFI
       e
 End
 
-val _ = export_theory()
+val _ = export_theory();
 

@@ -344,17 +344,19 @@ QED
 (* io_unfold with errors - i.e. the environment can return an error *)
 
 Definition io_unfold_err_path_def:
-  (io_unfold_err_path f err seed [] =
+  (io_unfold_err_path f (rel, err_f, err) seed [] =
      case f seed of
      | Ret' r => Return r
      | Vis' e g => Event e) ∧
-  (io_unfold_err_path f err seed (n::rest) =
+  (io_unfold_err_path f (rel, err_f, err) seed (n::rest) =
      case f seed of
      | Ret' r => Return ARB
      | Vis' e g =>
         case n of
-        | INL x => if rest = [] then Return (err x) else Return ARB
-        | INR y => io_unfold_err_path f err (g y) rest)
+        | INL x => if rest = [] then Return (err_f x) else Return ARB
+        | INR y =>
+            if rel e y then io_unfold_err_path f (rel, err_f, err) (g y) rest
+            else if rest = [] then Return err else Return ARB)
 End
 
 Definition io_unfold_err:
@@ -368,7 +370,7 @@ Theorem io_rep_abs_io_unfold_err_path[local]:
 Proof
   gvs[GSYM io_repabs, io_rep_ok_def] >>
   qid_spec_tac `s` >> Induct_on `path` >- gvs[path_ok_def] >>
-  gvs[io_unfold_err_path_def] >> rw[] >>
+  PairCases_on `err` >> gvs[io_unfold_err_path_def] >> rw[] >>
   reverse EVERY_CASE_TAC >> gvs[] >>
   gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
   first_x_assum irule >>
@@ -376,17 +378,21 @@ Proof
 QED
 
 Theorem io_unfold_err:
-  io_unfold_err f err seed =
+  io_unfold_err f (rel, err_f, err) seed =
     case f seed of
     | Ret' r   => Ret r
-    | Vis' e g => Vis e (λa. case a of
-                              INL x => Ret $ err x
-                            | INR y => io_unfold_err f err (g y))
+    | Vis' e g =>
+        Vis e
+          (λa. case a of
+                  INL x => Ret $ err_f x
+                | INR y =>
+                    if rel e y then io_unfold_err f (rel, err_f, err) (g y)
+                    else Ret err)
 Proof
   CASE_TAC >> gvs[io_unfold_err] >>
   gvs[Ret_def, Vis_def] >> AP_TERM_TAC >> simp[FUN_EQ_THM] >>
   Cases >> gvs[io_unfold_err_path_def, Ret_rep_def, Vis_rep_def] >>
-  TOP_CASE_TAC >> gvs[io_rep_abs_io_unfold_err_path] >>
+  rpt TOP_CASE_TAC >> gvs[io_rep_abs_io_unfold_err_path] >>
   DEP_REWRITE_TAC[iffLR io_repabs] >> simp[] >>
   gvs[io_rep_ok_def, path_ok_def, PULL_EXISTS]
 QED
