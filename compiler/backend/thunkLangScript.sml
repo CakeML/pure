@@ -178,7 +178,7 @@ Definition eval_to_def:
     (case op of
        Cons s =>
            do
-             vs <- map (λx. eval_to k env x) xs;
+             vs <- result_map (λx. eval_to k env x) xs;
              return (Constructor s vs)
            od
        | If => fail Type_error
@@ -201,11 +201,11 @@ Definition eval_to_def:
            od
        | AtomOp aop =>
            do
-             ys <- map (λx. if k = 0 then fail Diverge else
-                              case eval_to (k - 1) env x of
-                                INR (Atom l) => return l
-                              | INL err => fail err
-                              | _ => fail Type_error) xs;
+             ys <- result_map (λx. if k = 0 then fail Diverge else
+                                     case eval_to (k - 1) env x of
+                                       INR (Atom l) => return l
+                                     | INL err => fail err
+                                     | _ => fail Type_error) xs;
              case eval_op aop ys of
                SOME (INL v) => return (Atom v)
              | SOME (INR b) =>
@@ -227,10 +227,18 @@ End
 Theorem eval_to_mono:
   ∀k env x j.
     eval_to k env x ≠ INL Diverge ∧
-    k < j ⇒
+    k ≤ j ⇒
       eval_to j env x = eval_to k env x
 Proof
-  ho_match_mp_tac eval_to_ind
+  qsuff_tac ‘
+    ∀k env x j.
+      eval_to k env x ≠ INL Diverge ∧
+      k < j ⇒
+        eval_to j env x = eval_to k env x’
+  >- (
+    rw []
+    \\ Cases_on ‘k = j’ \\ gs [])
+  \\ ho_match_mp_tac eval_to_ind
   \\ rpt conj_tac
   \\ rpt gen_tac
   >- ((* Value *)
@@ -279,34 +287,28 @@ Proof
     dsimp []
     \\ strip_tac
     \\ strip_tac
-    \\ fs [MEM_EL, PULL_EXISTS]
     \\ Cases_on ‘op’ \\ rw [eval_to_def] \\ gs []
     >- ((* Cons *)
-      Cases_on ‘map (λx. eval_to j env x) xs’ \\ fs []
+      last_x_assum mp_tac
+      \\ gs [result_map_def, EXISTS_MAP, EXISTS_MEM]
+      \\ IF_CASES_TAC \\ gs []
       >- (
-        reverse (Cases_on ‘map (λx. eval_to k env x) xs’) \\ fs []
-        >- (
-          fs [map_INL]
-          \\ drule_then assume_tac map_INR
-          \\ first_x_assum (drule_then assume_tac) \\ gs [])
-        \\ gvs [map_INL]
-        \\ rename1 ‘eval_to j env (EL m xs)’
-        \\ rename1 ‘eval_to k env (EL n xs)’
-        \\ Cases_on ‘m < n’ \\ gs []
-        \\ Cases_on ‘m = n’ \\ gs []
-        \\ ‘n < m’ by gs []
-        \\ first_assum (drule_then assume_tac)
-        \\ ‘eval_to k env (EL n xs) ≠ INL Diverge’ by fs []
-        \\ first_x_assum (drule_then assume_tac) \\ gs [])
-      \\ Cases_on ‘map (λx. eval_to k env x) xs’ \\ fs []
+        IF_CASES_TAC \\ gs []
+        \\ ‘eval_to k env x ≠ INL Diverge’
+          by (Cases_on ‘eval_to k env x’ \\ gs [])
+        \\ first_x_assum (drule_all_then assume_tac) \\ gs [])
+      \\ IF_CASES_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
       >- (
-        fs [map_INL]
-        \\ drule_then assume_tac map_INR
-        \\ first_x_assum (drule_then assume_tac) \\ gs [])
-      \\ imp_res_tac map_LENGTH
-      \\ first_assum (mp_then Any assume_tac map_INR)
-      \\ last_assum (mp_then Any assume_tac map_INR)
-      \\ irule LIST_EQ \\ rw [] \\ gs [])
+        Cases_on ‘∃err. eval_to k env x = INL err’ \\ gs []
+        \\ Cases_on ‘err’ \\ gs [])
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        Cases_on ‘∃err. eval_to k env x = INL err’ \\ gs []
+        \\ Cases_on ‘err’ \\ gs [])
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+      \\ Cases_on ‘∃err. eval_to k env x = INL err’ \\ gs []
+      \\ Cases_on ‘err’ \\ gs [])
     >- ((* IsEq *)
       gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘eval_to (k - 1) env x’
@@ -318,47 +320,44 @@ Proof
       \\ ‘eval_to (k - 1) env x ≠ INL Diverge’ by (strip_tac \\ fs [])
       \\ gs [])
     >- ((* AtomOp *)
-      qmatch_goalsub_abbrev_tac ‘map f xs’
-      \\ qmatch_asmsub_abbrev_tac ‘map g xs’
-      \\ Cases_on ‘map f xs’ \\ fs []
+      qmatch_goalsub_abbrev_tac ‘result_map f xs’
+      \\ qmatch_asmsub_abbrev_tac ‘result_map g xs’
+      \\ last_x_assum mp_tac
+      \\ gs [result_map_def, EXISTS_MAP, EXISTS_MEM]
+      \\ IF_CASES_TAC \\ gs []
       >- (
-        reverse (Cases_on ‘map g xs’) \\ fs []
-        >- (
-          fs [map_INL, Abbr ‘f’, Abbr ‘g’]
-          \\ drule_all_then assume_tac map_INR
-          \\ gs [CaseEqs ["sum", "v", "bool"]])
-        \\ fs [map_INL, Abbr ‘f’, Abbr ‘g’]
-        \\ rename1 ‘eval_to (j - 1) env (EL m xs)’
-        \\ rename1 ‘eval_to (k - 1) env (EL n xs)’
-        \\ Cases_on ‘m < n’ \\ gs []
-        >- (
-          first_x_assum (drule_then assume_tac)
-          \\ gs [CaseEqs ["sum", "bool"]])
-        \\ Cases_on ‘m = n’ \\ gs []
-        >- (
-          gvs [CaseEqs ["sum", "bool"]])
-        \\ gvs [CaseEq "bool"]
-        \\ ‘n < m’ by gs []
-        \\ ‘n < LENGTH xs’ by gs []
-        \\ first_assum (drule_then assume_tac)
-        \\ ‘eval_to (k - 1) env (EL n xs) ≠ INL Diverge’ by (strip_tac \\ fs [])
-        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ mp_tac))
-        \\ simp []
-        \\ disch_then (assume_tac o SYM) \\ fs [])
-      \\ Cases_on ‘map g xs’ \\ fs []
+        IF_CASES_TAC \\ gs []
+        \\ gs [Abbr ‘g’, Abbr ‘f’, CaseEq "bool"]
+        \\ first_x_assum (qspec_then ‘x’ mp_tac)
+        \\ CASE_TAC \\ gs [] \\ rw []
+        \\ gs [CaseEq "sum"])
+      \\ IF_CASES_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
       >- (
-        fs [map_INL, Abbr ‘f’, Abbr ‘g’]
-        \\ drule_all_then assume_tac map_INR
-        \\ gs [CaseEqs ["sum", "bool"]])
-      \\ rename1 ‘map f _ = INR v’
-      \\ rename1 ‘map g _ = INR w’
-      \\ ‘v = w’ suffices_by rw []
-      \\ imp_res_tac map_LENGTH
-      \\ first_assum (mp_then Any assume_tac map_INR)
-      \\ last_assum (mp_then Any assume_tac map_INR)
-      \\ unabbrev_all_tac
-      \\ Cases_on ‘k = 0’ \\ fs []
-      \\ irule LIST_EQ \\ rw [] \\ gs [CaseEqs ["sum", "v"]]))
+        gs [Abbr ‘g’, Abbr ‘f’, CaseEq "bool"]
+        \\ first_x_assum (qspec_then ‘x’ mp_tac)
+        \\ CASE_TAC \\ gs [] \\ rw []
+        \\ gs [CaseEq "sum"])
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        gs [Abbr ‘g’, Abbr ‘f’]
+        \\ first_x_assum (qspec_then ‘x’ mp_tac)
+        \\ first_x_assum (qspec_then ‘x’ mp_tac)
+        \\ CASE_TAC \\ gs [] \\ rw []
+        \\ gs [CaseEq "sum"])
+      \\ qsuff_tac ‘MAP (OUTR o g) xs = MAP (OUTR o f) xs’
+      >- (
+        rw [MAP_MAP_o, combinTheory.o_DEF])
+      \\ rw [MAP_EQ_f]
+      \\ ntac 4 (first_x_assum (qspec_then ‘e’ assume_tac))
+      \\ Cases_on ‘∃err. f e = INL err’ \\ gs []
+      >- (
+        Cases_on ‘err’ \\ gs [])
+      \\ Cases_on ‘∃err. g e = INL err’ \\ gs []
+      >- (
+        Cases_on ‘err’ \\ gs [])
+      \\ Cases_on ‘f e’ \\ Cases_on ‘g e’ \\ gs [Abbr ‘f’, Abbr ‘g’]
+      \\ gs [CaseEqs ["bool", "sum"]]))
 QED
 
 val _ = export_theory ();
