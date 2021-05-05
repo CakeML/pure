@@ -71,9 +71,9 @@ End
 Definition result_map_def:
   result_map f xs =
     let ys = MAP f xs in
-      if EXISTS ($= (INL Type_error)) ys then
+      if MEM (INL Type_error) ys then
         INL Type_error
-      else if EXISTS ($= (INL Diverge)) ys then
+      else if MEM (INL Diverge) ys then
         INL Diverge
       else
         INR (MAP OUTR ys)
@@ -222,13 +222,13 @@ Theorem result_map_INR:
   result_map f xs = INR res ⇔ map f xs = INR res
 Proof
   rw [EQ_IMP_THM]
-  \\ gvs [result_map_def, EXISTS_MAP, MAP_MAP_o, combinTheory.o_DEF,
-          CaseEq "bool"]
+  \\ gvs [result_map_def, MAP_MAP_o, combinTheory.o_DEF,
+          MEM_MAP, CaseEq "bool"]
   >- (
     Induct_on ‘xs’ \\ gs [map_def]
     \\ rw [] \\ gs []
     \\ Cases_on ‘f h’ \\ gs []
-    \\ Cases_on ‘x’ \\ gs [])
+    \\ Cases_on ‘x’ \\ gs [SF DNF_ss])
   \\ pop_assum mp_tac
   \\ qid_spec_tac ‘res’
   \\ Induct_on ‘xs’ \\ simp [map_def]
@@ -243,8 +243,7 @@ Theorem result_map_CONG[defncong]:
     (∀x. MEM x xs ⇒ f x = g x) ⇒
       result_map f xs = result_map g ys
 Proof
-  rw [result_map_def, EVERY_MEM, EXISTS_MEM, MEM_MAP, MAP_MAP_o,
-      combinTheory.o_DEF, MAP_EQ_f] \\ gs []
+  rw [result_map_def, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] \\ gs []
   \\ TRY (
     first_assum (irule_at Any)
     \\ strip_tac \\ gvs []

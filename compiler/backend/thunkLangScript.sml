@@ -290,7 +290,7 @@ Proof
     \\ Cases_on ‘op’ \\ rw [eval_to_def] \\ gs []
     >- ((* Cons *)
       last_x_assum mp_tac
-      \\ gs [result_map_def, EXISTS_MAP, EXISTS_MEM]
+      \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
@@ -323,28 +323,25 @@ Proof
       qmatch_goalsub_abbrev_tac ‘result_map f xs’
       \\ qmatch_asmsub_abbrev_tac ‘result_map g xs’
       \\ last_x_assum mp_tac
-      \\ gs [result_map_def, EXISTS_MAP, EXISTS_MEM]
+      \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
         \\ gs [Abbr ‘g’, Abbr ‘f’, CaseEq "bool"]
-        \\ first_x_assum (qspec_then ‘x’ mp_tac)
-        \\ CASE_TAC \\ gs [] \\ rw []
-        \\ gs [CaseEq "sum"])
+        \\ first_x_assum (qspec_then ‘y’ mp_tac)
+        \\ CASE_TAC \\ gs [] \\ rw [] \\ gs [CaseEq "sum"])
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       >- (
         gs [Abbr ‘g’, Abbr ‘f’, CaseEq "bool"]
-        \\ first_x_assum (qspec_then ‘x’ mp_tac)
-        \\ CASE_TAC \\ gs [] \\ rw []
-        \\ gs [CaseEq "sum"])
+        \\ first_x_assum (qspec_then ‘y’ mp_tac)
+        \\ CASE_TAC \\ gs [] \\ rw [] \\ gs [CaseEq "sum"])
       \\ IF_CASES_TAC \\ gs []
       >- (
         gs [Abbr ‘g’, Abbr ‘f’]
-        \\ first_x_assum (qspec_then ‘x’ mp_tac)
-        \\ first_x_assum (qspec_then ‘x’ mp_tac)
-        \\ CASE_TAC \\ gs [] \\ rw []
-        \\ gs [CaseEq "sum"])
+        \\ first_x_assum (qspec_then ‘y’ mp_tac)
+        \\ first_x_assum (qspec_then ‘y’ mp_tac)
+        \\ CASE_TAC \\ gs [] \\ rw [] \\ gs [CaseEq "sum"])
       \\ qsuff_tac ‘MAP (OUTR o g) xs = MAP (OUTR o f) xs’
       >- (
         rw [MAP_MAP_o, combinTheory.o_DEF])
