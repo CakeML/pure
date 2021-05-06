@@ -292,23 +292,15 @@ Proof
       last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
+      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
-        \\ ‘eval_to k env x ≠ INL Diverge’
-          by (Cases_on ‘eval_to k env x’ \\ gs [])
-        \\ first_x_assum (drule_all_then assume_tac) \\ gs [])
+        \\ IF_CASES_TAC  \\ gs []
+        \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)])
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
-      >- (
-        Cases_on ‘∃err. eval_to k env x = INL err’ \\ gs []
-        \\ Cases_on ‘err’ \\ gs [])
-      \\ IF_CASES_TAC \\ gs []
-      >- (
-        Cases_on ‘∃err. eval_to k env x = INL err’ \\ gs []
-        \\ Cases_on ‘err’ \\ gs [])
-      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
-      \\ Cases_on ‘∃err. eval_to k env x = INL err’ \\ gs []
-      \\ Cases_on ‘err’ \\ gs [])
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
     >- ((* IsEq *)
       gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘eval_to (k - 1) env x’
@@ -325,36 +317,52 @@ Proof
       \\ last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
+      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
-        \\ gs [Abbr ‘g’, Abbr ‘f’, CaseEq "bool"]
-        \\ first_x_assum (qspec_then ‘y’ mp_tac)
-        \\ CASE_TAC \\ gs [] \\ rw [] \\ gs [CaseEq "sum"])
+        >- (
+          rename1 ‘MEM x xs’
+          \\ unabbrev_all_tac
+          \\ ‘eval_to (j - 1) env x = INL Diverge’
+            by gs [CaseEqs ["sum", "v"]]
+          \\ gs [CaseEq "bool"]
+          \\ first_x_assum (drule_then assume_tac)
+          \\ gs [CaseEqs ["sum", "v"]])
       \\ IF_CASES_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      >- (
-        gs [Abbr ‘g’, Abbr ‘f’, CaseEq "bool"]
-        \\ first_x_assum (qspec_then ‘y’ mp_tac)
-        \\ CASE_TAC \\ gs [] \\ rw [] \\ gs [CaseEq "sum"])
-      \\ IF_CASES_TAC \\ gs []
-      >- (
-        gs [Abbr ‘g’, Abbr ‘f’]
-        \\ first_x_assum (qspec_then ‘y’ mp_tac)
-        \\ first_x_assum (qspec_then ‘y’ mp_tac)
-        \\ CASE_TAC \\ gs [] \\ rw [] \\ gs [CaseEq "sum"])
-      \\ qsuff_tac ‘MAP (OUTR o g) xs = MAP (OUTR o f) xs’
-      >- (
-        rw [MAP_MAP_o, combinTheory.o_DEF])
-      \\ rw [MAP_EQ_f]
-      \\ ntac 4 (first_x_assum (qspec_then ‘e’ assume_tac))
-      \\ Cases_on ‘∃err. f e = INL err’ \\ gs []
-      >- (
-        Cases_on ‘err’ \\ gs [])
-      \\ Cases_on ‘∃err. g e = INL err’ \\ gs []
-      >- (
-        Cases_on ‘err’ \\ gs [])
-      \\ Cases_on ‘f e’ \\ Cases_on ‘g e’ \\ gs [Abbr ‘f’, Abbr ‘g’]
-      \\ gs [CaseEqs ["bool", "sum"]]))
+      \\ ‘F’ suffices_by rw []
+      \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ unabbrev_all_tac
+      \\ first_x_assum (drule_then assume_tac) \\ gs []
+      \\ gs [CaseEqs ["sum", "v", "bool"]])
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      ‘F’ suffices_by rw []
+      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ unabbrev_all_tac \\ gs []
+      \\ gs [CaseEqs ["sum", "v", "bool"]])
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      ‘F’ suffices_by rw []
+      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ unabbrev_all_tac \\ gs []
+      \\ gs [CaseEqs ["sum", "v", "bool"]])
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF]
+    \\ strip_tac
+    \\ ‘MAP (OUTR o f) xs = MAP (OUTR o g) xs’
+      suffices_by rw [combinTheory.o_DEF]
+    \\ rw [MAP_EQ_f]
+    \\ ntac 4 (first_x_assum (qspec_then ‘e’ assume_tac))
+    \\ Cases_on ‘∃err. f e = INL err’ \\ gs []
+    >- (
+      Cases_on ‘err’ \\ gs [])
+    \\ Cases_on ‘∃err. g e = INL err’ \\ gs []
+    >- (
+      Cases_on ‘err’ \\ gs [])
+    \\ Cases_on ‘f e’ \\ Cases_on ‘g e’ \\ gs [Abbr ‘f’, Abbr ‘g’]
+    \\ gs [CaseEqs ["bool", "sum"]]))
 QED
 
 val _ = export_theory ();

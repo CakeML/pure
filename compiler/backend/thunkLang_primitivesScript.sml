@@ -71,10 +71,10 @@ End
 Definition result_map_def:
   result_map f xs =
     let ys = MAP f xs in
-      if MEM (INL Type_error) ys then
-        INL Type_error
-      else if MEM (INL Diverge) ys then
+      if MEM (INL Diverge) ys then
         INL Diverge
+      else if MEM (INL Type_error) ys then
+        INL Type_error
       else
         INR (MAP OUTR ys)
 End
