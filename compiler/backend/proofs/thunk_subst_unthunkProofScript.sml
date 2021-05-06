@@ -2505,80 +2505,21 @@ Proof
         \\ CASE_TAC \\ gs []
         \\ CASE_TAC \\ gs [v_ok_def])
       \\ gvs [LIST_REL_EL_EQN, EVERY_EL, exp_inv_def]
-      \\ Cases_on ‘result_map g ys = INL Type_error’ \\ gs []
-      >- (
-        gs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS]
-        \\ unabbrev_all_tac
-        \\ ‘eval_to (k - 1) (EL n ys) ≠ INL Diverge’
-          by (strip_tac \\ gs [])
-        \\ rpt (first_x_assum (drule_all_then strip_assume_tac))
-        \\ qexists_tac ‘j’
-        \\ first_assum (irule_at Any)
-        \\ Cases_on ‘eval_to (k - 1) (EL n ys)’
-        \\ Cases_on ‘eval_to (j + k - 1) (EL n xs)’ \\ gs []
-        \\ CASE_TAC \\ gs [])
       \\ Cases_on ‘result_map g ys = INL Diverge’ \\ gs []
       >- (
         gs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS]
         \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ qexists_tac ‘0’
         \\ first_assum (irule_at Any)
-        \\ reverse conj_tac
-        >- (
-          rpt (first_x_assum (drule_all_then strip_assume_tac))
-          \\ unabbrev_all_tac \\ gs []
-          \\ ‘eval_to (k - 1) (EL n ys) = INL Diverge’
-            by gs [CaseEqs ["sum", "v"]]
-          \\ simp [CaseEqs ["sum", "v"]]
-          \\ irule eval_to_Diverge
-          \\ qexists_tac ‘j + k - 1’ \\ simp []
-          \\ Cases_on ‘eval_to (j + k - 1) (EL n xs)’
-          \\ Cases_on ‘eval_to ( k - 1) (EL n ys)’ \\ gs [])
-        \\ qx_gen_tac ‘m’ \\ strip_tac
-        \\ strip_tac
         \\ rpt (first_x_assum (drule_all_then strip_assume_tac))
         \\ unabbrev_all_tac \\ gs []
-        \\ first_x_assum (qspec_then ‘m’ assume_tac) \\ gs []
-        \\ ‘eval_to (k - 1) (EL m ys) ≠ INL Type_error’
+        \\ ‘eval_to (k - 1) (EL n ys) = INL Diverge’
           by gs [CaseEqs ["sum", "v"]]
-        \\ qsuff_tac ‘eval_to (j + k - 1) (EL m xs) = eval_to (k - 1) (EL m xs)’
-        >- (
-          Cases_on ‘eval_to (j + k - 1) (EL m xs)’
-          \\ Cases_on ‘eval_to (k - 1) (EL m xs)’
-          \\ Cases_on ‘eval_to (k - 1) (EL m ys)’ \\ gs []
-          \\ strip_tac
-          \\ gvs [CaseEq "v"]
-          \\ rename1 ‘_ = INR v1’ \\ Cases_on ‘v1’ \\ gs [])
-        \\ irule eval_to_mono \\ gs []
-        \\ strip_tac \\ gvs [])
-      \\ ‘∀j. result_map (f j) xs ≠ INL Type_error’
-        by (CCONTR_TAC \\ gs []
-            \\ gs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS,
-                   DISJ_EQ_IMP]
-            \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-            \\ rpt (first_x_assum (drule_all_then strip_assume_tac))
-            \\ unabbrev_all_tac \\ gs []
-            \\ rename1 ‘(_ +++ _) (eval_to (j1 + k - 1) _)’
-            \\ qsuff_tac ‘eval_to (j1 + k - 1) (EL n xs) =
-                          eval_to (j + k - 1) (EL n xs)’
-            >- (
-              Cases_on ‘eval_to (j1 + k - 1) (EL n xs)’
-              \\ Cases_on ‘eval_to (j + k - 1) (EL n xs)’
-              \\ Cases_on ‘eval_to (k - 1) (EL n ys)’ \\ gvs []
-              \\ strip_tac \\ gvs []
-              \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []
-              \\ gs [CaseEq "v"]
-              \\ rename1 ‘v_rel _ v1’
-              \\ Cases_on ‘v1’ \\ gs [])
-            \\ Cases_on ‘j ≤ j1’ \\ gs []
-            >- (
-              irule eval_to_mono \\ gs []
-              \\ strip_tac \\ gs [])
-            \\ rw [Once EQ_SYM_EQ]
-            \\ irule eval_to_mono \\ gs []
-            \\ strip_tac \\ gs []
-            \\ Cases_on ‘eval_to (k − 1) (EL n ys)’ \\ gvs []
-            \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [])
+        \\ simp [CaseEqs ["sum", "v"]]
+        \\ irule eval_to_Diverge
+        \\ qexists_tac ‘j + k - 1’ \\ simp []
+        \\ Cases_on ‘eval_to (j + k - 1) (EL n xs)’
+        \\ Cases_on ‘eval_to ( k - 1) (EL n ys)’ \\ gs [])
       \\ ‘∃j.
             ∀n. n < LENGTH xs ⇒
               ($= +++ (λv w. v_rel v w ∧ v_inv v ∧ v_ok v))
@@ -2620,9 +2561,9 @@ Proof
           \\ gs [Abbr ‘g’, result_map_def, MEM_MAP, CaseEq "bool",
                  MEM_EL, PULL_EXISTS])
       \\ ‘result_map (f j) xs ≠ INL Diverge’
-        by (gs [result_map_def, CaseEq "bool", MEM_MAP]
-            \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-            \\ disj2_tac \\ rw []
+        by (
+            gs [result_map_def, CaseEq "bool", MEM_MAP]
+            \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)] \\ rw []
             \\ gvs [MEM_EL, PULL_EXISTS]
             \\ first_x_assum (drule_then assume_tac)
             \\ strip_tac
@@ -2632,7 +2573,29 @@ Proof
             \\ Cases_on ‘eval_to (k - 1) (EL n ys)’ \\ gvs []
             \\ gs [CaseEq "v"])
       \\ qexists_tac ‘j’
-      \\ gs [result_map_def, CaseEq "bool", MAP_MAP_o, combinTheory.o_DEF]
+      \\ gs [result_map_def, MAP_MAP_o, combinTheory.o_DEF]
+      \\ IF_CASES_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        IF_CASES_TAC \\ gs []
+        \\ fs [MEM_MAP, Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ gvs [MEM_EL, PULL_EXISTS]
+        \\ first_assum (irule_at Any)
+        \\ ntac 3 (first_x_assum (drule_then assume_tac))
+        \\ unabbrev_all_tac \\ gs []
+        \\ rpt CASE_TAC \\ gs [CaseEqs ["sum", "v"]])
+      \\ IF_CASES_TAC \\ gs []
+      \\ conj_tac
+      >- (
+        fs [MEM_MAP, Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ gvs [MEM_EL, PULL_EXISTS] \\ rw []
+        \\ strip_tac
+        \\ ntac 4 (first_x_assum (drule_then assume_tac))
+        \\ unabbrev_all_tac \\ gs []
+        \\ Cases_on ‘eval_to (j + k - 1) (EL n xs)’
+        \\ Cases_on ‘eval_to (k - 1) (EL n ys)’ \\ gs [CaseEqs ["sum", "v"]]
+        \\ rename1 ‘v_rel v1 _’
+        \\ Cases_on ‘v1’ \\ gs [])
       \\ irule LIST_EQ
       \\ gvs [MEM_EL, PULL_EXISTS, EL_MAP]
       \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
