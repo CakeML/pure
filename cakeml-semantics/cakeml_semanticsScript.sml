@@ -374,7 +374,7 @@ Definition application_def:
             case store_lookup lnum s of
               SOME (W8array ws) =>
                 Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
-            | NONE => Etype_error)
+            | _ => Etype_error)
         | _ => Etype_error)
     | _ => (
         case do_app s op vs of

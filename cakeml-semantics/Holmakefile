@@ -1,3 +1,4 @@
 INCLUDES = ../misc \
            $(CAKEMLDIR)/misc/lem_lib_stub \
            $(CAKEMLDIR)/semantics \
+           $(CAKEMLDIR)/semantics/alt_semantics \
