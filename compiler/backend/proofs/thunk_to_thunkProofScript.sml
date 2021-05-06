@@ -679,43 +679,49 @@ Proof
     \\ Cases_on ‘op’ \\ fs []
     >- ((* Cons *)
       gvs [LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
-      \\ Cases_on ‘map (λx. eval_to k x) xs’ \\ fs []
+      \\ qmatch_goalsub_abbrev_tac ‘result_map f xs’
+      \\ qmatch_goalsub_abbrev_tac ‘result_map g ys’
+      \\ Cases_on ‘result_map f xs’ \\ fs []
       >- (
-        reverse (Cases_on ‘map (λx. eval_to k env x) ys’) \\ fs []
+        reverse (Cases_on ‘result_map g ys’) \\ fs []
         >- (
-          gvs [map_INL]
-          \\ drule_then assume_tac map_INR \\ gs []
-          \\ first_x_assum (drule_then assume_tac) \\ gs []
-          \\ first_x_assum (drule_then assume_tac) \\ gs []
-          \\ first_x_assum (drule_then assume_tac) \\ gs [])
-        \\ gvs [map_INL]
-        \\ rename1 ‘EL m xs’
-        \\ rename1 ‘EL n ys’
-        \\ ‘exp_rel env (EL n xs) (EL n ys)’ by gs []
-        \\ last_assum (drule_all_then assume_tac)
-        \\ ‘exp_rel env (EL m xs) (EL m ys)’ by gs []
+          gvs [result_map_def, CaseEq "bool", MEM_MAP]
+          \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+          \\ unabbrev_all_tac
+          \\ gs [MEM_EL, PULL_EXISTS]
+          \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [])
+        \\ gvs [result_map_def, CaseEq "bool", MEM_MAP]
+        \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ unabbrev_all_tac \\ gs []
+        \\ gvs [MEM_EL, PULL_EXISTS]
+        >- (
+          rpt (first_x_assum (drule_then assume_tac)) \\ gs []
+          \\ pop_assum mp_tac \\ gs []
+          \\ CASE_TAC \\ gs [])
+        \\ rename1 ‘eval_to k (EL m xs)’
         \\ qpat_x_assum ‘m < LENGTH ys’ assume_tac
-        \\ last_x_assum (drule_all_then assume_tac)
-        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gvs []
-        \\ Cases_on ‘n < m’ \\ gs []
-        \\ Cases_on ‘m < n’ \\ gs []
-        \\ ‘m = n’ by gs [] \\ fs [])
-      \\ Cases_on ‘map (λx. eval_to k env x) ys’ \\ fs []
+        \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [])
+      \\ Cases_on ‘result_map g ys’ \\ gs []
       >- (
-        gvs [map_INL]
-        \\ drule_then assume_tac map_INR \\ gs []
-        \\ first_x_assum (drule_then assume_tac) \\ gs []
-        \\ first_x_assum (drule_then assume_tac) \\ gs []
-        \\ first_x_assum (drule_all_then assume_tac) \\ gs [])
-      \\ fs [v_rel_def, LIST_REL_EL_EQN]
-      \\ imp_res_tac map_LENGTH \\ fs []
-      \\ first_assum (mp_then Any assume_tac map_INR)
-      \\ last_assum (mp_then Any assume_tac map_INR) \\ gs []
-      \\ rw [] \\ gs []
-      \\ last_x_assum (drule_all_then assume_tac) \\ gs []
-      \\ first_x_assum (drule_then assume_tac)
-      \\ first_x_assum (drule_then assume_tac)
-      \\ last_x_assum (drule_all_then assume_tac) \\ gvs [])
+        gvs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS]
+        \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ unabbrev_all_tac \\ gs []
+        \\ rpt (first_x_assum (drule_all_then assume_tac))
+        \\ pop_assum mp_tac
+        \\ CASE_TAC \\ gs []
+        \\ strip_tac \\ gs [])
+      \\ gvs [v_rel_def, LIST_REL_EL_EQN, result_map_def, CaseEq "bool",
+              MEM_MAP]
+      \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [MAP_MAP_o, combinTheory.o_DEF, EL_MAP] \\ rw []
+      \\ gvs [MEM_EL, PULL_EXISTS]
+      \\ rpt (first_x_assum (drule_all_then assume_tac))
+      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ unabbrev_all_tac \\ gs []
+      \\ Cases_on ‘eval_to k (EL n xs)’ \\ Cases_on ‘eval_to k env (EL n ys)’
+      \\ gvs []
+      \\ rename1 ‘INL err’
+      \\ Cases_on ‘err’ \\ gs [])
     >- ((* IsEq *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ fs []
@@ -744,78 +750,76 @@ Proof
       \\ IF_CASES_TAC \\ fs [])
     >- ((* AtomOp *)
       gvs [LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
-      \\ qmatch_goalsub_abbrev_tac ‘map f xs’
-      \\ qmatch_goalsub_abbrev_tac ‘map g ys’
-      \\ Cases_on ‘map f xs’ \\ fs []
+      \\ Cases_on ‘k = 0’ \\ gs []
       >- (
-        reverse (Cases_on ‘map g ys’) \\ fs []
+        simp [result_map_def, MEM_MAP, GSYM NOT_NULL_MEM, NULL_EQ]
+        \\ IF_CASES_TAC \\ gs []
         >- (
-          gvs [map_INL, Abbr ‘f’, Abbr ‘g’]
-          \\ drule_then assume_tac map_LENGTH
-          \\ dxrule_then drule map_INR \\ gs []
-          \\ IF_CASES_TAC \\ fs []
-          \\ CASE_TAC \\ fs []
-          \\ CASE_TAC \\ fs [] \\ rw []
-          \\ last_x_assum (drule_all_then assume_tac)
-          \\ last_x_assum (drule_all_then mp_tac)
-          \\ CASE_TAC \\ fs [] \\ rw []
-          \\ gvs [CaseEq "v", v_rel_def])
-        \\ gvs [map_INL]
-        \\ rename1 ‘EL m xs’
-        \\ rename1 ‘EL n ys’
-        \\ unabbrev_all_tac
-        \\ Cases_on ‘k = 0’ \\ fs []
-        \\ ‘exp_rel env (EL n xs) (EL n ys)’ by gs []
-        \\ last_assum (drule_all_then assume_tac)
-        \\ ‘exp_rel env (EL m xs) (EL m ys)’ by gs []
-        \\ qpat_x_assum ‘m < LENGTH ys’ assume_tac
-        \\ last_x_assum (drule_all_then assume_tac) \\ gs []
-        \\ Cases_on ‘n < m’
-        >- (
-          first_x_assum drule
-          \\ CASE_TAC \\ fs []
-          \\ CASE_TAC \\ fs []
-          \\ gs [v_rel_def])
-        \\ Cases_on ‘m < n’
-        >- (
-          first_x_assum drule
-          \\ CASE_TAC \\ fs []
-          \\ CASE_TAC \\ fs []
-          \\ gs [v_rel_def, CaseEqs ["v", "sum"]])
-        \\ ‘m = n’ by fs []
-        \\ pop_assum SUBST_ALL_TAC \\ gvs []
-        \\ gs [v_rel_def, AllCaseEqs ()])
-      \\ drule_then assume_tac map_LENGTH
-      \\ dxrule_then assume_tac map_INR
-      \\ Cases_on ‘map g ys’ \\ fs [Abbr ‘f’, Abbr ‘g’]
+          IF_CASES_TAC \\ gs [])
+        \\ CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs [v_rel_def])
+      \\ qmatch_goalsub_abbrev_tac ‘result_map f xs’
+      \\ qmatch_goalsub_abbrev_tac ‘result_map g ys’
+      \\ qsuff_tac ‘result_map f xs = result_map g ys’
       >- (
-        gvs [map_INL]
-        \\ first_x_assum drule
-        \\ IF_CASES_TAC \\ fs []
-        \\ CASE_TAC \\ fs []
-        \\ CASE_TAC \\ fs [] \\ rw []
+        rw []
+        \\ Cases_on ‘result_map g ys’ \\ gs []
+        \\ CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs [v_rel_def])
+      \\ gs [result_map_def, MEM_MAP]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        IF_CASES_TAC \\ gs []
+        \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ gvs [MEM_EL, PULL_EXISTS]
         \\ first_x_assum (drule_then assume_tac)
-        \\ first_x_assum drule_all
-        \\ CASE_TAC \\ fs [] \\ rw [v_rel_def]
-        \\ gs [])
-      \\ drule_then assume_tac map_LENGTH
-      \\ dxrule_then assume_tac map_INR
-      \\ rename1 ‘LENGTH zs = LENGTH ys’
-      \\ Cases_on ‘k = 0’ \\ fs []
+        \\ unabbrev_all_tac \\ gs []
+        \\ rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [CaseEqs ["sum", "v"]])
+      \\ IF_CASES_TAC \\ gs []
       >- (
-        first_x_assum (qspec_then ‘0’ assume_tac) \\ gvs []
-        \\ CASE_TAC \\ fs []
-        \\ CASE_TAC \\ fs [v_rel_def])
-      \\ qsuff_tac ‘y = zs’
+        reverse IF_CASES_TAC \\ gs []
+        >- (
+          fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+          \\ gvs [MEM_EL, PULL_EXISTS]
+          \\ first_x_assum (drule_then assume_tac)
+          \\ unabbrev_all_tac \\ gs []
+          \\ rpt (first_x_assum (drule_then assume_tac))
+          \\ first_assum (irule_at Any) \\ gs []
+          \\ pop_assum mp_tac
+          \\ rpt CASE_TAC \\ gs [CaseEqs ["v"], v_rel_def])
+        \\ unabbrev_all_tac \\ gs []
+        \\ gvs [MEM_EL, PULL_EXISTS]
+        \\ rpt (first_x_assum (drule_then assume_tac))
+        \\ pop_assum mp_tac
+        \\ rpt CASE_TAC \\ gs []
+        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "thunkLang$v"]])
+      \\ IF_CASES_TAC \\ gs []
       >- (
-        rw [CaseEqs ["sum", "option"]]
-        \\ CASE_TAC \\ fs [v_rel_def]
-        \\ CASE_TAC \\ fs [v_rel_def])
-      \\ irule LIST_EQ \\ rw []
-      \\ first_x_assum (drule_then assume_tac)
-      \\ first_x_assum (drule_then assume_tac)
-      \\ first_x_assum (drule_all_then assume_tac)
-      \\ gs [v_rel_def, CaseEqs ["sum", "v"]]))
+        fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ unabbrev_all_tac
+        \\ gvs [MEM_EL, PULL_EXISTS]
+        \\ rpt (first_x_assum (drule_then assume_tac))
+        \\ pop_assum mp_tac
+        \\ rpt CASE_TAC \\ gs []
+        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "thunkLang$v"]])
+      \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [EL_MAP, MEM_EL, PULL_EXISTS]
+      \\ unabbrev_all_tac \\ gs [] \\ rw []
+      >- (
+        rpt (first_x_assum (drule_then assume_tac))
+        \\ pop_assum mp_tac
+        \\ CASE_TAC \\ gs [] \\ rw []
+        \\ gs [CaseEqs ["thunkLang$v", "v"]]
+        \\ rename1 ‘v_rel v1 v2’
+        \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [v_rel_def])
+      \\ simp [MAP_MAP_o, combinTheory.o_DEF]
+      \\ irule LIST_EQ
+      \\ gvs [EL_MAP] \\ rw []
+      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gs [v_rel_def]))
 QED
 
 Theorem eval_exp_rel:
@@ -846,13 +850,12 @@ Proof
   \\ strip_tac
   \\ ‘∃r. eval_to k x = r’ by fs []
   \\ drule_all_then assume_tac eval_to_exp_rel
-  \\ Cases_on ‘k = j’ \\ fs []
-  \\ Cases_on ‘j < k’ \\ gvs []
+  \\ Cases_on ‘j ≤ k’ \\ gvs []
   >- (
     drule_all eval_to_mono
     \\ disch_then (assume_tac o SYM)
     \\ gs [])
-  \\ ‘k < j’ by fs []
+  \\ ‘k ≤ j’ by fs []
   \\ drule_all eval_to_subst_mono
   \\ disch_then (assume_tac o SYM) \\ gs []
   \\ irule_at Any eval_to_exp_rel
