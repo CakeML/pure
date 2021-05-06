@@ -1705,27 +1705,16 @@ Proof
         simp[eval_wh_eq] >> goal_assum drule) >>
       simp[] >> gvs[]
       ) >>
-    Cases_on `eval_wh_to (k - 1) x2 = wh_Error`
-    >- (
-      `eval_wh x2 = wh_Error` by (
-        simp[eval_wh_eq] >> goal_assum drule) >>
-      simp[] >> gvs[]
-      ) >>
-    simp[] >>
     Cases_on `eval_wh_to (k − 1) x1 = wh_Diverge` >> simp[] >>
     Cases_on `eval_wh_to (k − 1) x2 = wh_Diverge` >> simp[] >>
     `eval_wh x1 ≠ wh_Error ∧ eval_wh x1 ≠ wh_Diverge ∧
-     eval_wh x2 ≠ wh_Error ∧ eval_wh x2 ≠ wh_Diverge` by (
+     eval_wh x2 ≠ wh_Diverge` by (
       simp[eval_wh_eq] >> rw[]
       >- (
         Cases_on `eval_wh_to k' x1 = wh_Diverge` >> simp[] >>
         qspecl_then [`k'`,`k - 1`] mp_tac $ GEN_ALL eval_wh_to_agree >> simp[]
         )
       >- goal_assum drule
-      >- (
-        Cases_on `eval_wh_to k' x2 = wh_Diverge` >> simp[] >>
-        qspecl_then [`k'`,`k - 1`] mp_tac $ GEN_ALL eval_wh_to_agree >> simp[]
-        )
       >- goal_assum drule
       ) >>
     ntac 2 (qpat_x_assum `EVERY _ _` mp_tac >> simp[] >> strip_tac) >>

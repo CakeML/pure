@@ -252,10 +252,10 @@ Proof
 QED
 
 Theorem ALOOKUP_SOME_EL_2:
-  ∀l1 l2 k (v:'a).
+  ∀(l1: ('k # 'a) list) (l2: ('k # 'b) list) k v.
     ALOOKUP l1 k = SOME v ∧
     MAP FST l1 = MAP FST l2
-  ⇒ ∃v'. ALOOKUP l2 k = SOME (v':'a) ∧
+  ⇒ ∃v'. ALOOKUP l2 k = SOME v' ∧
       ∃n. n < LENGTH l1 ∧ EL n l1 = (k,v) ∧ EL n l2 = (k,v')
 Proof
   Induct >> rw[] >>
@@ -332,7 +332,7 @@ Proof
 QED
 
 Theorem LIST_REL_imp_OPTREL_ALOOKUP:
-  ∀(R:'a -> 'a -> bool) l1 l2.
+  ∀(R:'a -> 'b -> bool) l1 l2.
     LIST_REL R (MAP SND l1) (MAP SND l2) ∧ MAP FST l1 = MAP FST l2
   ⇒ ∀k. OPTREL R (ALOOKUP l1 k) (ALOOKUP l2 k) ∧
         OPTREL R (ALOOKUP (REVERSE l1) k) (ALOOKUP (REVERSE l2) k)
@@ -341,16 +341,15 @@ Proof
   >- (
     Cases_on `ALOOKUP l1 k` >> Cases_on `ALOOKUP l2 k` >> gvs[ALOOKUP_NONE] >>
     imp_res_tac ALOOKUP_SOME >> gvs[] >>
-    drule ALOOKUP_SOME_EL_2 >>
-    disch_then (qspec_then `l1` assume_tac) >> gvs[] >>
+    drule_all_then strip_assume_tac ALOOKUP_SOME_EL_2 >> gvs[] >>
     last_x_assum drule >> simp[EL_MAP]
     )
   >- (
     Cases_on `ALOOKUP (REVERSE l1) k` >>
     Cases_on `ALOOKUP (REVERSE l2) k` >> gvs[ALOOKUP_NONE] >>
     imp_res_tac ALOOKUP_SOME >> gvs[MAP_REVERSE] >>
-    drule ALOOKUP_SOME_EL_2 >>
-    disch_then (qspec_then `REVERSE l1` assume_tac) >> gvs[MAP_REVERSE] >>
+    ‘MAP FST (REVERSE l1) = MAP FST (REVERSE l2)’ by fs [MAP_REVERSE] >>
+    drule_all_then strip_assume_tac ALOOKUP_SOME_EL_2 >> gvs[MAP_REVERSE] >>
     drule (GSYM EL_REVERSE) >>
     qspecl_then [`n`,`l1`] mp_tac (GSYM EL_REVERSE) >> rw[] >> gvs[] >>
     qmatch_asmsub_abbrev_tac `EL k1 _` >>
