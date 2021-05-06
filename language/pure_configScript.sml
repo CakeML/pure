@@ -94,4 +94,9 @@ Definition isInt_def[simp]:
   isInt (Int i) = T ∧ isInt _ = F
 End
 
+Definition reserved_cns_def:
+  reserved_cns =
+    ["Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"]
+End
+
 val _ = export_theory ();

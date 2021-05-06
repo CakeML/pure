@@ -5,7 +5,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory
-open pure_exp_lemmasTheory pure_miscTheory
+open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
      thunkLangTheory thunkLang_primitivesTheory thunkLang_cexpTheory
      stateLangTheory;
 
@@ -33,12 +33,12 @@ Overload "force" =
 
 Definition Lets_def:
   Lets [] e = e ∧
-  Lets ((x,a)::rest) e = Let x a (Lets rest e)
+  Lets ((x,a)::rest) e = stateLang$Let x a (Lets rest e)
 End
 
 Definition Sets_def:
   Sets [] e = e ∧
-  Sets ((x,a)::rest) e = Let NONE (App Set [x; a]) (Sets rest e)
+  Sets ((x,a)::rest) e = stateLang$Let NONE (App Set [x; a]) (Sets rest e)
 End
 
 
@@ -54,7 +54,7 @@ End
   things, allowing us to "force" them by removing the `Delay`.
 *)
 
-(* TODO HOL give "index too large" error and does not name all rules *)
+(* TODO HOL gives "index too large" error and does not name all rules *)
 Inductive compile_rel:
   letrec_funs_rel fvs [] [] [] ∧
 
@@ -126,7 +126,7 @@ Inductive compile_rel:
    u ∉ freevars se1 ∪ freevars se2 ∧ x ∉ freevars se2 ∧ u ≠ x ⇒
   compile_rel
     (Prim (Cons "Handle") [Delay te1; Delay te2])
-    (Lam u $ Handle (app se1 (Var u)) x (Lam x (app (app se2 (Var x)) (Var u))))) ∧
+    (Lam u $ Handle (app se1 (Var u)) x (app (app se2 (Var x)) (Var u)))) ∧
 
 [~Alloc:]
   (LIST_REL compile_rel tes ses ∧
@@ -155,7 +155,7 @@ Inductive compile_rel:
 
 [~Cons:]
   (LIST_REL compile_rel tes ses ∧
-   ¬MEM s ["Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"] ⇒
+   ¬MEM s reserved_cns ⇒
   compile_rel (Prim (Cons s) tes) (App (Cons s) ses)) ∧
 
 [~Case:]
@@ -191,8 +191,9 @@ Inductive compile_rel:
    compile_rel te se
   ⇒ compile_rel
       (Letrec fns te)
-      (Lets (MAP (λ(fn,_). (SOME fn, ref (inl (Lam u (Raise $ cons0 TODO))))) fns) $
-        Letrec sfns $ Sets sets se)) ∧
+      (Lets
+        (MAP (λ(fn,_). (SOME fn, ref (inl (Lam u (Raise $ cons0 TODO))))) fns) $
+        stateLang$Letrec sfns $ Sets sets se)) ∧
 
 [~Let:]
   (compile_rel te1 se1 ∧
