@@ -144,6 +144,18 @@ Definition let_bind_def:
                                od))
 End
 
+Theorem mapM_cong:
+  ∀l1 l2 f f'.
+    l1 = l2 ∧ (∀x. MEM x l2 ⇒ f x = f' x) ⇒ mapM f l1 = mapM f' l2
+Proof
+  simp[] >>
+  Induct >>
+  rw[mapM_cons] >>
+  metis_tac[]
+QED
+
+val _ = DefnBase.export_cong "mapM_cong"
+
 (*A-normalization algorithm for cexp expressions.
   Originally from https://dl.acm.org/doi/10.1145/173262.155113*)
 Definition normalize_def:
@@ -190,7 +202,11 @@ Definition normalize_def:
                                normalize_names es (λ anf_es.
                                  k (anf_e::anf_es))))
 Termination
-  cheat
+  WF_REL_TAC ‘measure (λx. case x of INL(a,b) => cexp_size ARB a | INR(a,b) => cexp6_size ARB a)’ >>
+  rw[] >>
+  imp_res_tac cexp_size_lemma >>
+  pop_assum(qspec_then ‘ARB’ mp_tac) >>
+  DECIDE_TAC
 End
 
 (*
