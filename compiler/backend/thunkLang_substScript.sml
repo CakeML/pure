@@ -7,6 +7,9 @@
    - It extends the pureLang syntax with explicit syntax for delaying and
      forcing computations (“Delay” and “Force”) and “Thunk” values. Non-
      suspended thunks can be created with “Box”.
+   - Suspended computations can be wrapped in “MkTick” to cause the suspended
+     evaluation to consume one extra clock tick by producing a value wrapped in
+     “DoTick”.
    - Any expression bound by a Letrec must be one of “Lam”, “Delay” or “Box”.
    - This version has a substitution-based semantics. See
      [thunkLangScript.sml] for an environment-based version.
@@ -31,13 +34,15 @@ Datatype:
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
-      | Value v;                                 (* for substitution        *)
+      | Value v                                  (* for substitution        *)
+      | MkTick exp;                              (* creates a delayed Tick  *)
 
   v = Constructor string (v list)
     | Closure vname exp
     | Recclosure ((vname # exp) list) vname
     | Thunk (v + exp)
     | Atom lit
+    | DoTick v                                   (* extra clock when forced *)
 End
 
 val exp_size_def = fetch "-" "exp_size_def";
@@ -61,7 +66,8 @@ Definition subst_def:
   subst m (Delay x) = Delay (subst m x) ∧
   subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
-  subst m (Value v) = Value v
+  subst m (Value v) = Value v ∧
+  subst m (MkTick x) = MkTick (subst m x)
 Termination
   WF_REL_TAC `measure (exp_size o SND)` \\ rw []
   \\ rename1 ‘MEM _ xs’
@@ -100,7 +106,8 @@ Theorem subst1_def:
   subst1 n v (Delay x) = Delay (subst1 n v x) ∧
   subst1 n v (Box x) = Box (subst1 n v x) ∧
   subst1 n v (Force x) = Force (subst1 n v x) ∧
-  subst1 n v (Value w) = Value w
+  subst1 n v (Value w) = Value w ∧
+  subst1 n v (MkTick x) = MkTick (subst1 n v x)
 Proof
   rw [subst_def, COND_RAND, subst_empty, ELIM_UNCURRY]
 QED
@@ -131,6 +138,13 @@ Definition dest_anyClosure_def:
         SOME (Lam s x) => return (s, x, MAP (λ(g, x). (g, Recclosure f g)) f)
       | _ => fail Type_error
     od
+End
+
+Definition dest_Tick_def:
+  dest_Tick (DoTick v) =
+    (let (w, n) = dest_Tick v in
+       (w, SUC n)) ∧
+  dest_Tick v = (v, 0)
 End
 
 Definition dest_Thunk_def[simp]:
@@ -172,7 +186,8 @@ Definition freevars_def:
   freevars (Delay x) = freevars x ∧
   freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
-  freevars (Value v) = ∅
+  freevars (Value v) = ∅ ∧
+  freevars (MkTick x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ rw []
@@ -183,10 +198,6 @@ End
 
 Definition closed_def:
   closed e ⇔ freevars e = ∅
-End
-
-Definition unit_def:
-  unit = Constructor "" []
 End
 
 Definition eval_to_def:
@@ -236,11 +247,18 @@ Definition eval_to_def:
   eval_to k (Force x) =
     (do
        v <- eval_to k x;
-       (wx, binds) <- dest_anyThunk v;
+       (w, ticks) <<- dest_Tick v;
+       (wx, binds) <- dest_anyThunk w;
        case wx of
          INL v => return v
-       | INR y => if k = 0 then fail Diverge else
-                    eval_to (k - 1) (subst_funs binds y)
+       | INR y =>
+           if k ≤ ticks then fail Diverge else
+             eval_to (k - ticks - 1) (subst_funs binds y)
+     od) ∧
+  eval_to k (MkTick x) =
+    (do
+       v <- eval_to k x;
+       return (DoTick v)
      od) ∧
   eval_to k (Prim op xs) =
     (case op of
@@ -291,6 +309,63 @@ Definition eval_def:
       NONE => fail Diverge
     | SOME k => eval_to k x
 End
+
+(*
+ * The system provides a really dumb induction theorem in the Force
+ * case because of the dest_Tick nonsense. Here's a better one:
+ *)
+
+Theorem eval_to_ind:
+  ∀P. (∀k v. P k (Value v)) ∧ (∀k n. P k (Var n)) ∧
+      (∀k f x.
+         (∀y binds s xv body.
+            y = subst (binds ++ [(s,xv)]) body ∧ k ≠ 0 ⇒ P (k − 1) y) ∧
+         P k f ∧ P k x ⇒
+         P k (App f x)) ∧ (∀k s x. P k (Lam s x)) ∧
+      (∀k x y.
+         (k ≠ 0 ⇒ P (k − 1) x) ∧ (k ≠ 0 ⇒ P (k − 1) y) ⇒
+         P k (Let NONE x y)) ∧
+      (∀k n x y.
+         (∀v. k ≠ 0 ⇒ P (k − 1) (subst1 n v y)) ∧ (k ≠ 0 ⇒ P (k − 1) x) ⇒
+         P k (Let (SOME n) x y)) ∧
+      (∀k x y z.
+         (∀v. k ≠ 0 ∧ v ≠ Constructor "True" [] ∧
+              v = Constructor "False" [] ⇒
+              P (k − 1) z) ∧
+         (∀v. k ≠ 0 ∧ v = Constructor "True" [] ⇒ P (k − 1) y) ∧
+         (k ≠ 0 ⇒ P (k − 1) x) ⇒
+         P k (If x y z)) ∧
+      (∀k funs x.
+         (k ≠ 0 ⇒ P (k − 1) (subst_funs funs x)) ⇒ P k (Letrec funs x)) ∧
+      (∀k x. P k (Delay x)) ∧ (∀k x. P k x ⇒ P k (Box x)) ∧
+      (∀k x.
+         (∀j wx y binds.
+            wx = INR y ∧ j < k ⇒
+            P (k − j - 1) (subst_funs binds y)) ∧
+            P k x ⇒
+         P k (Force x)) ∧ (∀k x. P k x ⇒ P k (MkTick x)) ∧
+      (∀k op xs.
+         (∀aop x. op = AtomOp aop ∧ MEM x xs ∧ k ≠ 0 ⇒ P (k − 1) x) ∧
+         (∀s x. op = Cons s ∧ MEM x xs ⇒ P k x) ∧
+         (∀s'' i'. op = IsEq s'' i' ∧ k ≠ 0 ⇒ P (k − 1) (HD xs)) ∧
+         (∀s' i. op = Proj s' i ∧ k ≠ 0 ⇒ P (k − 1) (HD xs)) ⇒
+         P k (Prim op xs)) ⇒
+      ∀v v1. P v v1
+Proof
+  strip_tac
+  \\ strip_tac
+  \\ ho_match_mp_tac eval_to_ind \\ gs [] \\ rw []
+  \\ last_x_assum irule \\ simp [] \\ rw []
+  \\ first_x_assum irule \\ gs []
+  \\ Induct_on ‘j’ \\ rw []
+  >- (
+    qexists_tac ‘Atom foo’
+    \\ gs [dest_Tick_def])
+  \\ Cases_on ‘k’ \\ gs []
+  \\ qexists_tac ‘DoTick v’
+  \\ gs [dest_Tick_def]
+  \\ pairarg_tac \\ gvs []
+QED
 
 Theorem eval_to_subst_mono:
   ∀k x j.
@@ -347,10 +422,13 @@ Proof
   >- ((* Force *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
-    \\ Cases_on ‘dest_anyThunk y’ \\ fs []
     \\ pairarg_tac \\ gvs []
-    \\ CASE_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs [])
+    \\ Cases_on ‘dest_anyThunk w’ \\ fs []
+    \\ pairarg_tac \\ gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ gs [CaseEq "bool"])
+  >- ((* MkTick *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Prim *)
     dsimp []
     \\ strip_tac
