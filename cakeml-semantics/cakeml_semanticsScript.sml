@@ -373,7 +373,8 @@ Definition application_def:
           [Litv (StrLit conf); Loc lnum] => (
             case store_lookup lnum s of
               SOME (W8array ws) =>
-                Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
+                if n = "" then Estep (env, s, Val $ Conv NONE [], c)
+                else Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
             | _ => Etype_error)
         | _ => Etype_error)
     | _ => (
@@ -481,6 +482,18 @@ Definition step_n_def:
   step_n (SUC n) (Estep st) = step_n n (estep st) ∧
   step_n _ e = e
 End
+
+Theorem step_n_alt_def:
+  step_n 0 e = e ∧
+  step_n (SUC n) e = (
+    case step_n n e of
+    | Estep st => estep st
+    | e => e)
+Proof
+  rw[step_n_def] >>
+  qid_spec_tac `e` >> qid_spec_tac `n` >>
+  Induct >> Cases >> rewrite_tac[step_n_def] >> simp[]
+QED
 
 Datatype:
   next_res = (* top-level observable results *)
