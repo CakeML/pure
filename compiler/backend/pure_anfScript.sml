@@ -84,12 +84,12 @@ QED
 (* we use ANF as rigid way of writing normal pure_lang cexp expressions *)
 
 Definition cexp_of_def:
-  cexp_of (Var d x) = (Var d x) ∧
+  cexp_of (pure_anf$Var d x) = (pure_cexp$Var d x) ∧
   cexp_of (Lam d args b) = Lam d args (cexp_of b) ∧
   cexp_of (App d f args) = App d (cexp_of f) (MAP cexp_of args) ∧
   cexp_of (Prim d cop args) = Prim d cop (MAP cexp_of args) ∧
   cexp_of (Case d v cases) =
-       Case d v (MAP (λ(n,as,b).(n,as,cexp_of b)) cases)  ∧
+       Case d (Var d v) v (MAP (λ(n,as,b).(n,as,cexp_of b)) cases)  ∧
   cexp_of (Let d v a b) = Let d v (cexp_of a) (cexp_of b) ∧
   cexp_of (Letrec d binds body) =
        Letrec d (MAP (λ(v,e).(v,cexp_of e)) binds) (cexp_of body)
@@ -317,7 +317,11 @@ Definition anf_of_def:
   anf_of e = normalize e (return) (start_state e)
 End
 
-
+Theorem anf_of_correct:
+  ∀e. exp_of e ≅ exp_of (cexp_of(FST(anf_of e)))
+Proof
+  cheat
+QED
 
 (*
 
