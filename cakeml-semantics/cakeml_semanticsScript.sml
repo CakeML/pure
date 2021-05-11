@@ -483,18 +483,6 @@ Definition step_n_def:
   step_n _ e = e
 End
 
-Theorem step_n_alt_def:
-  step_n 0 e = e ∧
-  step_n (SUC n) e = (
-    case step_n n e of
-    | Estep st => estep st
-    | e => e)
-Proof
-  rw[step_n_def] >>
-  qid_spec_tac `e` >> qid_spec_tac `n` >>
-  Induct >> Cases >> rewrite_tac[step_n_def] >> simp[]
-QED
-
 Datatype:
   next_res = (* top-level observable results *)
            | Act string (word8 list) (word8 list)
@@ -528,23 +516,6 @@ Definition cml_io_unfold_err_def:
       ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
       FinalFFI, FinalFFI FFI_failed)
 End
-
-Theorem cml_io_unfold_err:
-  cml_io_unfold_err f seed =
-    case f seed of
-    | Ret' r   => Ret r
-    | Vis' (s, ws1, ws2) g =>
-        Vis (s, ws1, ws2)
-          (λa. case a of
-                  INL x => Ret $ FinalFFI x
-                | INR y =>
-                    if LENGTH ws2 = LENGTH y then cml_io_unfold_err f (g y)
-                    else Ret $ FinalFFI FFI_failed)
-Proof
-  CASE_TAC >> gvs[cml_io_unfold_err_def] >>
-  simp[Once io_unfold_err] >>
-  PairCases_on `e` >> gvs[]
-QED
 
 Definition interp_def:
   interp e =
