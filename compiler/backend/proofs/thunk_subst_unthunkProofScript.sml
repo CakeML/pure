@@ -1038,5 +1038,32 @@ Proof
       \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []))
 QED
 
+Theorem exp_rel_eval:
+  exp_rel x y ∧
+  exp_inv x ∧
+  closed x ⇒
+    ($= +++ (λv w. v_rel v w ∧ v_inv v)) (eval x) (eval y)
+Proof
+  simp [eval_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw []
+  >- (
+    rename1 ‘_ (eval_to k x) (eval_to j y)’
+    \\ drule_all_then (qspec_then ‘MAX j k’ assume_tac) exp_rel_eval_to
+    \\ drule_then (qspec_then ‘j’ assume_tac) eval_to_subst_mono
+    \\ qpat_x_assum ‘eval_to j y ≠ INL _’ assume_tac
+    \\ drule_then (qspec_then ‘k’ assume_tac) eval_to_subst_mono
+    \\ Cases_on ‘k ≤ j’ \\ gvs [arithmeticTheory.MAX_DEF])
+  >- (
+    rename1 ‘_ _ (eval_to k y)’
+    \\ first_x_assum (qspec_then ‘k’ (assume_tac o SYM)) \\ simp []
+    \\ irule exp_rel_eval_to
+    \\ simp [])
+  \\ rename1 ‘_ (eval_to k x) _’
+  \\ first_x_assum (qspec_then ‘k’ (assume_tac o SYM)) \\ simp []
+  \\ irule exp_rel_eval_to \\ simp []
+QED
+
 val _ = export_theory ();
 
