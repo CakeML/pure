@@ -186,7 +186,7 @@ Definition eval_to_def:
        case dest_Tick v of
          SOME w =>
            if k = 0 then fail Diverge else
-             eval_to (k - 1) (env ++ [(dummy,w)]) (Force (Var dummy))
+             eval_to (k - 1) [(dummy,w)] (Force (Var dummy))
        | NONE =>
            do (wx, binds) <- dest_anyThunk v;
               case wx of
