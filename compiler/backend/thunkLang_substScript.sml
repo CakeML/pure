@@ -7,6 +7,9 @@
    - It extends the pureLang syntax with explicit syntax for delaying and
      forcing computations (“Delay” and “Force”) and “Thunk” values. Non-
      suspended thunks can be created with “Box”.
+   - Suspended computations can be wrapped in “MkTick” to cause the suspended
+     evaluation to consume one extra clock tick by producing a value wrapped in
+     “DoTick”.
    - Any expression bound by a Letrec must be one of “Lam”, “Delay” or “Box”.
    - This version has a substitution-based semantics. See
      [thunkLangScript.sml] for an environment-based version.
@@ -31,13 +34,15 @@ Datatype:
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
-      | Value v;                                 (* for substitution        *)
+      | Value v                                  (* for substitution        *)
+      | MkTick exp;                              (* creates a delayed Tick  *)
 
   v = Constructor string (v list)
     | Closure vname exp
     | Recclosure ((vname # exp) list) vname
     | Thunk (v + exp)
     | Atom lit
+    | DoTick v                                   (* extra clock when forced *)
 End
 
 val exp_size_def = fetch "-" "exp_size_def";
@@ -61,7 +66,8 @@ Definition subst_def:
   subst m (Delay x) = Delay (subst m x) ∧
   subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
-  subst m (Value v) = Value v
+  subst m (Value v) = Value v ∧
+  subst m (MkTick x) = MkTick (subst m x)
 Termination
   WF_REL_TAC `measure (exp_size o SND)` \\ rw []
   \\ rename1 ‘MEM _ xs’
@@ -100,7 +106,8 @@ Theorem subst1_def:
   subst1 n v (Delay x) = Delay (subst1 n v x) ∧
   subst1 n v (Box x) = Box (subst1 n v x) ∧
   subst1 n v (Force x) = Force (subst1 n v x) ∧
-  subst1 n v (Value w) = Value w
+  subst1 n v (Value w) = Value w ∧
+  subst1 n v (MkTick x) = MkTick (subst1 n v x)
 Proof
   rw [subst_def, COND_RAND, subst_empty, ELIM_UNCURRY]
 QED
@@ -131,6 +138,11 @@ Definition dest_anyClosure_def:
         SOME (Lam s x) => return (s, x, MAP (λ(g, x). (g, Recclosure f g)) f)
       | _ => fail Type_error
     od
+End
+
+Definition dest_Tick_def[simp]:
+  dest_Tick (DoTick v) = SOME v ∧
+  dest_Tick _ = NONE
 End
 
 Definition dest_Thunk_def[simp]:
@@ -172,7 +184,8 @@ Definition freevars_def:
   freevars (Delay x) = freevars x ∧
   freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
-  freevars (Value v) = ∅
+  freevars (Value v) = ∅ ∧
+  freevars (MkTick x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ rw []
@@ -183,10 +196,6 @@ End
 
 Definition closed_def:
   closed e ⇔ freevars e = ∅
-End
-
-Definition unit_def:
-  unit = Constructor "" []
 End
 
 Definition eval_to_def:
@@ -236,11 +245,23 @@ Definition eval_to_def:
   eval_to k (Force x) =
     (do
        v <- eval_to k x;
-       (wx, binds) <- dest_anyThunk v;
-       case wx of
-         INL v => return v
-       | INR y => if k = 0 then fail Diverge else
+       case dest_Tick v of
+         SOME w =>
+           if k = 0 then fail Diverge else
+             eval_to (k - 1) (Force (Value w))
+       | NONE =>
+           do (wx, binds) <- dest_anyThunk v;
+              case wx of
+                INL v => return v
+              | INR y =>
+                  if k = 0 then fail Diverge else
                     eval_to (k - 1) (subst_funs binds y)
+           od
+     od) ∧
+  eval_to k (MkTick x) =
+    (do
+       v <- eval_to k x;
+       return (DoTick v)
      od) ∧
   eval_to k (Prim op xs) =
     (case op of
@@ -345,12 +366,25 @@ Proof
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
-    rw [eval_to_def]
+    rw []
+    \\ gs [Once eval_to_def]
+    \\ simp [SimpLHS, Once eval_to_def]
+    \\ simp [SimpRHS, Once eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
-    \\ Cases_on ‘dest_anyThunk y’ \\ fs []
-    \\ pairarg_tac \\ gvs []
-    \\ CASE_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs [])
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    >- (
+      Cases_on ‘dest_anyThunk y’ \\ gs []
+      \\ pairarg_tac \\ gvs []
+      \\ BasicProvers.TOP_CASE_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      \\ first_x_assum irule \\ simp []
+      \\ first_assum (irule_at Any))
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_assum irule \\ simp []
+    \\ first_assum (irule_at Any))
+  >- ((* MkTick *)
+    rw [eval_to_def]
+    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Prim *)
     dsimp []
     \\ strip_tac

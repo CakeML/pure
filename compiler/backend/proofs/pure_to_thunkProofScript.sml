@@ -656,9 +656,10 @@ Proof
     rw []
     \\ qpat_x_assum ‘exp_rel (Letrec f y) _’ mp_tac
     \\ rw [Once exp_rel_cases]
-    \\ simp [eval_wh_to_def, eval_to_def]
+    \\ simp [eval_wh_to_def, Once eval_to_def]
     >- ((* Rec *)
-      imp_res_tac ALOOKUP_SOME \\ fs [dest_anyThunk_def]
+      CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
+      \\ imp_res_tac ALOOKUP_SOME \\ fs [dest_anyThunk_def]
       \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
       \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
@@ -682,7 +683,8 @@ Proof
              ALOOKUP_MAP_2]
       \\ rw [])
     >- ((* Tick *)
-      IF_CASES_TAC \\ fs [dest_anyThunk_def]
+      CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
+      \\ IF_CASES_TAC \\ fs [dest_anyThunk_def]
       \\ first_x_assum irule
       \\ fs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
              flookup_fupdate_list, FDOM_FUPDATE_LIST, subst_ignore,
@@ -704,16 +706,19 @@ Proof
     \\ rw [] \\ qpat_x_assum ‘exp_rel (Prim op xs) _’ mp_tac
     >- ((* k = 0 *)
       rw [Once exp_rel_cases]
-      \\ simp [eval_to_def, eval_wh_to_def, result_map_MAP, combinTheory.o_DEF]
+      \\ simp [Once eval_to_def, eval_wh_to_def, result_map_MAP,
+               combinTheory.o_DEF]
       >- (
-        qmatch_goalsub_abbrev_tac ‘result_map f ys’
+        simp [eval_to_def]
+        \\ qmatch_goalsub_abbrev_tac ‘result_map f ys’
         \\ Cases_on ‘result_map f ys’ \\ fs [Abbr ‘f’]
         \\ gvs [result_map_def, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF,
                 LIST_REL_EL_EQN]
         \\ rw [] \\ gvs [EL_MAP]
         \\ gs [thunk_rel_def])
       >- (
-        IF_CASES_TAC \\ fs [LIST_REL_EL_EQN]
+        simp [eval_to_def]
+        \\ IF_CASES_TAC \\ fs [LIST_REL_EL_EQN]
         \\ fs [LENGTH_EQ_NUM_compute])
       \\ Cases_on ‘op’ \\ fs [LIST_REL_EL_EQN]
       >- (
@@ -756,9 +761,11 @@ Proof
             result_map_def, MEM_MAP, MAP_MAP_o, EVERY2_MAP, thunk_rel_def,
             SF ETA_ss])
     >- ((* Proj *)
-      simp [eval_wh_to_def, eval_to_def]
+      simp [eval_wh_to_def, Once eval_to_def]
+      \\ simp [Once eval_to_def]
       \\ IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
-      \\ gvs [eval_to_def, LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+      \\ gvs [Once eval_to_def, LENGTH_EQ_NUM_compute,
+              DECIDE “∀n. n < 1 ⇔ n = 0”]
       \\ rename1 ‘exp_rel x y’
       \\ ‘eval_wh_to (k - 1) x ≠ wh_Error’
         by (strip_tac
@@ -864,14 +871,13 @@ Proof
 QED
 
 Theorem exp_rel_eval:
-  eval_wh x = res ∧
-  res ≠ wh_Error ∧
+  eval_wh x ≠ wh_Error ∧
   exp_rel x y ∧
   closed x ⇒
-    v_rel res (eval y)
+    v_rel (eval_wh x) (eval y)
 Proof
   strip_tac
-  \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
+  \\ qpat_x_assum ‘eval_wh _ ≠ _’ mp_tac
   \\ simp [eval_wh_def, thunkLang_substTheory.eval_def]
   \\ DEEP_INTRO_TAC some_intro \\ fs []
   \\ DEEP_INTRO_TAC some_intro \\ fs []
@@ -884,19 +890,22 @@ Proof
       irule v_rel_mono \\ fs []
       \\ first_assum (irule_at Any)
       \\ irule_at Any exp_rel_eval_to
+      \\ first_assum (irule_at Any) \\ fs []
       \\ first_assum (irule_at Any) \\ fs [])
     \\ ‘k ≤ j’ by fs []
     \\ drule_all_then assume_tac eval_to_subst_mono
     \\ pop_assum (SUBST_ALL_TAC o SYM)
     \\ irule exp_rel_eval_to
+    \\ first_assum (irule_at Any) \\ fs []
     \\ first_assum (irule_at Any) \\ fs [])
   >- (
     irule exp_rel_eval_to
     \\ first_assum (irule_at Any) \\ fs [])
+  \\ CCONTR_TAC
   \\ rename1 ‘eval_wh_to j’
-  \\ ‘v_rel (eval_wh_to j x) (eval_to j y)’ suffices_by rw []
-  \\ irule_at Any exp_rel_eval_to
-  \\ first_assum (irule_at Any) \\ fs []
+  \\ ‘∃res. eval_wh_to j x = res ∧ res ≠ wh_Error’
+    by gs []
+  \\ drule_all_then assume_tac exp_rel_eval_to \\ gs []
 QED
 
 val _ = export_theory ();
