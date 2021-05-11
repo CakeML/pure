@@ -68,6 +68,10 @@ Inductive exp_rel:
   (∀env x y.
      exp_rel env x y ⇒
        exp_rel env (Force x) (Force y)) ∧
+[exp_rel_MkTick:]
+  (∀env x y.
+     exp_rel env x y ⇒
+       exp_rel env (MkTick x) (MkTick y)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
@@ -91,7 +95,11 @@ Inductive exp_rel:
        v_rel (Thunk (INR x)) (Thunk (INR (env, y)))) ∧
 [v_rel_Atom:]
   (∀l.
-     v_rel (Atom l) (Atom l))
+     v_rel (Atom l) (Atom l)) ∧
+[v_rel_DoTick:]
+  (∀v w.
+     v_rel v w ⇒
+       v_rel (DoTick v) (DoTick w))
 End
 
 Theorem exp_rel_def:
@@ -162,6 +170,11 @@ Theorem exp_rel_def:
      exp_rel env (Force x) y =
      ∃z.
        y = Force z ∧
+       exp_rel env x z) ∧
+  (∀x.
+     exp_rel env (MkTick x) y =
+     ∃z.
+       y = MkTick z ∧
        exp_rel env x z)
 Proof
   rpt conj_tac
@@ -195,7 +208,11 @@ Theorem v_rel_def:
      ∃env y. w = Thunk (INR (env, y)) ∧
              exp_rel env x y) ∧
   (∀x.
-     v_rel (Atom x) v ⇔ v = Atom x)
+     v_rel (Atom x) v ⇔ v = Atom x) ∧
+  (∀x.
+     v_rel (DoTick x) v ⇔
+     ∃y. v = DoTick y ∧
+         v_rel x y)
 Proof
   rpt conj_tac
   \\ rpt gen_tac
@@ -207,15 +224,10 @@ Theorem v_rel_Thunk[local,simp]:
   ¬v_rel (Thunk x) (Constructor s t) ∧
   ¬v_rel (Thunk x) (Closure s env y) ∧
   ¬v_rel (Thunk x) (Recclosure funs env n) ∧
-  ¬v_rel (Thunk x) (Atom l)
+  ¬v_rel (Thunk x) (Atom l) ∧
+  ¬v_rel (Thunk x) (DoTick z)
 Proof
   Cases_on ‘x’ \\ rw [v_rel_def]
-QED
-
-Theorem v_rel_unit[local,simp]:
-  v_rel unit unit
-Proof
-  rw [v_rel_def, thunkLangTheory.unit_def, thunkLang_substTheory.unit_def]
 QED
 
 Theorem ALOOKUP_LIST_REL[local]:
@@ -476,6 +488,19 @@ Proof
          MAP_REVERSE]
 QED
 
+(* TODO fix IH instead: *)
+Theorem dest_Tick_exists[simp,local]:
+  (∃x. thunkLang_subst$dest_Tick x = NONE) ∧
+  (∀y. ∃x. thunkLang_subst$dest_Tick x = SOME y)
+Proof
+  rw []
+  >- (
+    qexists_tac ‘Atom foo’
+    \\ simp [])
+  \\ qexists_tac ‘DoTick y’
+  \\ simp []
+QED
+
 Theorem eval_to_exp_rel:
   ∀k x res env y.
     eval_to k x = res ∧
@@ -625,54 +650,79 @@ Proof
     \\ simp [v_rel_def])
   >- ((* Force *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ simp [Once thunkLangTheory.eval_to_def,
+             Once thunkLang_substTheory.eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ first_x_assum (drule_then strip_assume_tac) \\ gvs []
-    \\ drule_then strip_assume_tac dest_Thunk_v_rel
-    \\ drule_then strip_assume_tac dest_Recclosure_v_rel
-    \\ simp [thunkLangTheory.dest_anyThunk_def,
-             thunkLang_substTheory.dest_anyThunk_def]
-    \\ reverse (Cases_on ‘dest_Thunk y’) \\ gvs []
+    \\ Cases_on ‘dest_Tick y’ \\ gs []
     >- (
-      IF_CASES_TAC \\ fs []
-      \\ first_x_assum irule
-      \\ simp [subst_funs_def])
-    \\ Cases_on ‘dest_Recclosure y’ \\ gvs []
-    \\ Cases_on ‘y’ \\ gs []
-    \\ pairarg_tac \\ gvs []
-    \\ Cases_on ‘w’ \\ gvs [v_rel_def]
-    \\ rename1 ‘LIST_REL _ xs ys’
-    \\ ‘MAP FST (REVERSE xs) = MAP FST (REVERSE ys)’
-      by (qpat_x_assum ‘LIST_REL _ xs _’ mp_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ rename1 ‘exp_rel foo’
-          \\ qid_spec_tac ‘ys’
-          \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [ELIM_UNCURRY])
-    \\ drule ALOOKUP_LIST_REL
-    \\ simp [EVERY2_REVERSE]
-    \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
-    \\ CASE_TAC \\ gs []
-    \\ CASE_TAC \\ gvs [exp_rel_def]
-    >- (
-      rename1 ‘Let opt _ _’
-      \\ Cases_on ‘opt’
-      \\ gvs [exp_rel_def])
-    \\ IF_CASES_TAC \\ gs [subst_funs_def]
-    \\ first_x_assum irule
-    \\ irule exp_rel_ALOOKUP_EQ
-    \\ irule_at Any exp_rel_subst
-    \\ first_assum (irule_at Any)
-    \\ qmatch_goalsub_abbrev_tac ‘REVERSE (env1 ++ extra1)’
-    \\ qexists_tac ‘extra1’
-    \\ unabbrev_all_tac
-    \\ fs [env_rel_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MAP_REVERSE,
-           GSYM FST_THM]
-    \\ simp [FUN_EQ_THM, GSYM MAP_REVERSE, ALOOKUP_MAP_2, GSYM FILTER_REVERSE,
-             ALOOKUP_FILTER, REVERSE_APPEND, ALOOKUP_APPEND, GSYM ALOOKUP_NONE]
-    \\ rw [] \\ rpt CASE_TAC \\ gs [ALOOKUP_NONE, PULL_EXISTS, v_rel_def,
-                                    MAP_REVERSE]
-    \\ drule_then (qspec_then ‘REVERSE ys’ mp_tac) ALOOKUP_SOME_EL_2
-    \\ rw [MAP_REVERSE] \\ gvs [v_rel_def])
+      ‘dest_Tick w = NONE’
+        by (Cases_on ‘y’ \\ Cases_on ‘w’
+            \\ gs [v_rel_def])
+      \\ simp []
+      \\ drule_then strip_assume_tac dest_Thunk_v_rel
+      \\ drule_then strip_assume_tac dest_Recclosure_v_rel
+      \\ simp [thunkLangTheory.dest_anyThunk_def,
+               thunkLang_substTheory.dest_anyThunk_def]
+      \\ reverse (Cases_on ‘dest_Thunk y’) \\ gvs []
+      >- (
+        simp [Once thunkLangTheory.eval_to_def,
+              thunkLangTheory.dest_anyThunk_def])
+      >- (
+        IF_CASES_TAC \\ gs []
+        \\ simp [Once thunkLangTheory.eval_to_def,
+                 thunkLangTheory.dest_anyThunk_def]
+        \\ first_x_assum irule
+        \\ simp [subst_funs_def])
+      \\ Cases_on ‘dest_Recclosure y’ \\ gvs []
+      \\ Cases_on ‘y’ \\ gs []
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘w’ \\ gvs [v_rel_def]
+      \\ rename1 ‘LIST_REL _ xs ys’
+      \\ ‘MAP FST (REVERSE xs) = MAP FST (REVERSE ys)’
+        by (qpat_x_assum ‘LIST_REL _ xs _’ mp_tac
+            \\ rpt (pop_assum kall_tac)
+            \\ rename1 ‘exp_rel foo’
+            \\ qid_spec_tac ‘ys’
+            \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [ELIM_UNCURRY])
+      \\ drule ALOOKUP_LIST_REL
+      \\ simp [EVERY2_REVERSE]
+      \\ disch_then (drule_then (qspec_then ‘n’ assume_tac))
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gvs [exp_rel_def]
+      >- (
+        rename1 ‘Let opt _ _’
+        \\ Cases_on ‘opt’
+        \\ gvs [exp_rel_def])
+      \\ IF_CASES_TAC \\ gs [subst_funs_def]
+      \\ simp [Once thunkLangTheory.eval_to_def,
+               thunkLangTheory.dest_anyThunk_def]
+      \\ first_x_assum irule \\ simp []
+      \\ irule exp_rel_ALOOKUP_EQ
+      \\ irule_at Any exp_rel_subst
+      \\ first_assum (irule_at Any)
+      \\ qmatch_goalsub_abbrev_tac ‘REVERSE (env1 ++ extra1)’
+      \\ qexists_tac ‘extra1’
+      \\ unabbrev_all_tac
+      \\ fs [env_rel_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MAP_REVERSE,
+             GSYM FST_THM]
+      \\ simp [FUN_EQ_THM, GSYM MAP_REVERSE, ALOOKUP_MAP_2, GSYM FILTER_REVERSE,
+               ALOOKUP_FILTER, REVERSE_APPEND, ALOOKUP_APPEND, GSYM ALOOKUP_NONE]
+      \\ rw [] \\ rpt CASE_TAC \\ gs [ALOOKUP_NONE, PULL_EXISTS, v_rel_def,
+                                      MAP_REVERSE]
+      \\ drule_then (qspec_then ‘REVERSE ys’ mp_tac) ALOOKUP_SOME_EL_2
+      \\ rw [MAP_REVERSE] \\ gvs [v_rel_def])
+    \\ Cases_on ‘y’ \\ Cases_on ‘w’ \\ gvs [v_rel_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ qabbrev_tac ‘foo = λv. eval_to (k - 1) [dummy,v] (Force (Var dummy))’
+    \\ simp [Once thunkLangTheory.eval_to_def]
+    \\ simp [Abbr ‘foo’])
+  >- ((* MkTick *)
+    rw [exp_rel_def]
+    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ Cases_on ‘eval_to k x’ \\ gs []
+    \\ first_x_assum (drule_all_then strip_assume_tac)
+    \\ gs [v_rel_def])
   >- ((* Prim *)
     rw [exp_rel_def]
     \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
@@ -908,7 +958,8 @@ Definition no_Value_def:
   no_Value (If x y z) = (no_Value x ∧ no_Value y ∧ no_Value z) ∧
   no_Value (Delay x) = no_Value x ∧
   no_Value (Box x) = no_Value x ∧
-  no_Value (Force x) = no_Value x
+  no_Value (Force x) = no_Value x ∧
+  no_Value (MkTick x) = no_Value x
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ simp []
   \\ rw [] \\ rename1 ‘MEM _ xs’
