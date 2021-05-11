@@ -550,7 +550,7 @@ Inductive exp_inv:
      exp_inv (Var v)) ∧
 [exp_inv_Value:]
   (∀v.
-     thunk_inv v ⇒
+     v_inv v ⇒
        exp_inv (Value v)) ∧
 [exp_inv_App:]
   (∀f x.
@@ -617,22 +617,14 @@ Inductive exp_inv:
 [v_inv_Thunk:]
   (∀x.
      exp_inv x ⇒
-       v_inv (Thunk (INR x))) ∧
-[thunk_inv_Thunk:]
-  (∀x.
-     exp_inv x ⇒
-       thunk_inv (Thunk (INR x))) ∧
-[thunk_inv_Recclosure:]
-  (∀f n.
-     EVERY (λv. ∃x. v = Delay x ∧ exp_inv x) (MAP SND f) ⇒
-       thunk_inv (Recclosure f n))
+       v_inv (Thunk (INR x)))
 End
 
 Theorem exp_inv_def:
   (∀v.
      exp_inv (Var v) = T) ∧
   (∀v.
-     exp_inv (Value v) = thunk_inv v) ∧
+     exp_inv (Value v) = v_inv v) ∧
   (∀x.
      exp_inv (Box x) = F) ∧
   (∀f x.
@@ -693,19 +685,6 @@ Proof
   rw [] \\ rw [Once exp_inv_cases, AC CONJ_COMM CONJ_ASSOC]
 QED
 
-Theorem thunk_inv_def[simp]:
-  (∀f n.
-     thunk_inv (Recclosure f n) =
-       (EVERY (λv. ∃x. v = Delay x ∧ exp_inv x) (MAP SND f))) ∧
-  (∀t. thunk_inv (Thunk t) = (∃x. t = INR x ∧ exp_inv x)) ∧
-  (∀s vs. ¬thunk_inv (Constructor s vs)) ∧
-  (∀s x. ¬thunk_inv (Closure s x)) ∧
-  (∀x. ¬thunk_inv (Atom x)) ∧
-  (∀x. ¬thunk_inv (DoTick x))
-Proof
-  rw [] \\ rw [Once exp_inv_cases, SF DNF_ss]
-QED
-
 (* --------------------------
    COMPILATION:
    --------------------------
@@ -733,6 +712,10 @@ Inductive exp_rel:
   (∀v w.
      v_rel v w ⇒
        exp_rel (Delay (Force (Value v))) (MkTick (Value w))) ∧
+[exp_rel_Value_Unchanged:]
+  (∀v w.
+     v_rel v w ⇒
+       exp_rel (Value v) (Value w)) ∧
 [exp_rel_Lam:]
   (∀s x y.
      exp_rel x y ⇒
@@ -834,7 +817,6 @@ Theorem v_rel_Thunk_def:
   v_rel (Thunk x) z =
     ((∃y w. z = Thunk (INR y) ∧
             x = INR w ∧
-            (∀v. w ≠ Force (Value v)) ∧
             exp_rel w y ∧
             closed w) ∨
      (∃v y. x = INR (Force (Value v)) ∧
@@ -887,8 +869,7 @@ Theorem v_rel_rev[simp]:
          v = Thunk (INR x) ∧
          s = INR y ∧
          exp_rel x y ∧
-         closed x ∧
-         (∀v. x ≠ Force (Value v)))) ∧
+         closed x)) ∧
   (∀v a.
      v_rel v (Atom a) = (v = Atom a))
 Proof
@@ -987,7 +968,9 @@ Proof
     \\ simp [subst_def]
     \\ irule exp_rel_Force \\ fs [])
   >- ((* Value *)
-    rw [Once exp_rel_cases])
+    rw [Once exp_rel_cases]
+    \\ simp [subst_def]
+    \\ rw [Once exp_rel_cases])
   >- ((* MkTick *)
     rw [Once exp_rel_cases])
 QED
@@ -996,16 +979,15 @@ Theorem SUM_REL_def[simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem exp_inv_subst:
   ∀xs x.
-    EVERY thunk_inv (MAP SND xs) ∧
+    EVERY v_inv (MAP SND xs) ∧
     exp_inv x ⇒
       exp_inv (subst xs x)
 Proof
   qsuff_tac ‘
     (∀x. exp_inv x ⇒
-       ∀xs. EVERY thunk_inv (MAP SND xs) ⇒
+       ∀xs. EVERY v_inv (MAP SND xs) ⇒
          exp_inv (subst xs x)) ∧
-    (∀v. v_inv v ⇒ T) ∧
-    (∀v. thunk_inv v ⇒ T)’
+    (∀v. v_inv v ⇒ T)’
   >- rw []
   \\ ho_match_mp_tac exp_inv_strongind \\ rw []
   >- ((* Var *)
@@ -1160,11 +1142,13 @@ Theorem exp_rel_eval_to:
         (eval_to k x)
         (eval_to k y)
 Proof
-
   ho_match_mp_tac eval_to_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Value *)
-    rw [Once exp_rel_cases])
+    rw [Once exp_rel_cases]
+    \\ gs [eval_to_def, exp_inv_def, exp_ok_def]
+    \\ Cases_on ‘k'’
+    )
   >- ((* App *)
     rename1 ‘App x1 y1’
     \\ rw [Once exp_rel_cases]
@@ -1260,9 +1244,7 @@ Proof
                                    v_ok_def, v_rel_Thunk_Same])
   >- ((* Box *)
     rw [Once exp_rel_cases])
-
   >- ((* Force *)
-
     rw [Once exp_rel_cases]
     \\ CONV_TAC (PATH_CONV "lr" (SIMP_CONV (srw_ss()) [Once eval_to_def]))
     \\ CONV_TAC (PATH_CONV "r" (SIMP_CONV (srw_ss()) [Once eval_to_def]))
@@ -1344,7 +1326,13 @@ Proof
           (* DoTick *)
       \\ simp [subst_funs_def]
       \\ rename1 ‘v_rel v1 v2’
-      \\ cheat (* There's no exp_rel for this *))
+      \\ first_x_assum irule
+      \\ gs [EVERY_EL, EL_MAP]
+      \\ rpt (first_x_assum (drule_then strip_assume_tac))
+      \\ gs [exp_inv_def, v_ok_def, exp_ok_def]
+      \\ irule exp_rel_Force
+      \\ irule exp_rel_Value_Unchanged
+      \\ gs [])
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ rename1 ‘v_rel v1 v2’
     \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyThunk_def]
@@ -1386,7 +1374,13 @@ Proof
     \\ simp [subst_funs_def]
     \\ gs [exp_inv_def, v_ok_def]
     \\ simp [subst_funs_def]
-    \\ cheat (* TODO No exp_rel for this *))
+    \\ first_x_assum irule
+    \\ gs [EVERY_EL, EL_MAP]
+    \\ rpt (first_x_assum (drule_then strip_assume_tac))
+    \\ gs [exp_inv_def, v_ok_def, exp_ok_def]
+    \\ irule exp_rel_Force
+    \\ irule exp_rel_Value_Unchanged
+    \\ gs [])
   >- ((* MkTick *)
     rw [Once exp_rel_cases])
   >- ((* Prim *)
