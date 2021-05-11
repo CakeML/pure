@@ -140,11 +140,9 @@ Definition dest_anyClosure_def:
     od
 End
 
-Definition dest_Tick_def:
-  dest_Tick (DoTick v) =
-    (let (w, n) = dest_Tick v in
-       (w, SUC n)) ∧
-  dest_Tick v = (v, 0)
+Definition dest_Tick_def[simp]:
+  dest_Tick (DoTick v) = SOME v ∧
+  dest_Tick _ = NONE
 End
 
 Definition dest_Thunk_def[simp]:
@@ -247,13 +245,18 @@ Definition eval_to_def:
   eval_to k (Force x) =
     (do
        v <- eval_to k x;
-       (w, ticks) <<- dest_Tick v;
-       (wx, binds) <- dest_anyThunk w;
-       case wx of
-         INL v => return v
-       | INR y =>
-           if k ≤ ticks then fail Diverge else
-             eval_to (k - ticks - 1) (subst_funs binds y)
+       case dest_Tick v of
+         SOME w =>
+           if k = 0 then fail Diverge else
+             eval_to (k - 1) (Force (Value w))
+       | NONE =>
+           do (wx, binds) <- dest_anyThunk v;
+              case wx of
+                INL v => return v
+              | INR y =>
+                  if k = 0 then fail Diverge else
+                    eval_to (k - 1) (subst_funs binds y)
+           od
      od) ∧
   eval_to k (MkTick x) =
     (do
@@ -310,63 +313,6 @@ Definition eval_def:
     | SOME k => eval_to k x
 End
 
-(*
- * The system provides a really dumb induction theorem in the Force
- * case because of the dest_Tick nonsense. Here's a better one:
- *)
-
-Theorem eval_to_ind:
-  ∀P. (∀k v. P k (Value v)) ∧ (∀k n. P k (Var n)) ∧
-      (∀k f x.
-         (∀y binds s xv body.
-            y = subst (binds ++ [(s,xv)]) body ∧ k ≠ 0 ⇒ P (k − 1) y) ∧
-         P k f ∧ P k x ⇒
-         P k (App f x)) ∧ (∀k s x. P k (Lam s x)) ∧
-      (∀k x y.
-         (k ≠ 0 ⇒ P (k − 1) x) ∧ (k ≠ 0 ⇒ P (k − 1) y) ⇒
-         P k (Let NONE x y)) ∧
-      (∀k n x y.
-         (∀v. k ≠ 0 ⇒ P (k − 1) (subst1 n v y)) ∧ (k ≠ 0 ⇒ P (k − 1) x) ⇒
-         P k (Let (SOME n) x y)) ∧
-      (∀k x y z.
-         (∀v. k ≠ 0 ∧ v ≠ Constructor "True" [] ∧
-              v = Constructor "False" [] ⇒
-              P (k − 1) z) ∧
-         (∀v. k ≠ 0 ∧ v = Constructor "True" [] ⇒ P (k − 1) y) ∧
-         (k ≠ 0 ⇒ P (k − 1) x) ⇒
-         P k (If x y z)) ∧
-      (∀k funs x.
-         (k ≠ 0 ⇒ P (k − 1) (subst_funs funs x)) ⇒ P k (Letrec funs x)) ∧
-      (∀k x. P k (Delay x)) ∧ (∀k x. P k x ⇒ P k (Box x)) ∧
-      (∀k x.
-         (∀j wx y binds.
-            wx = INR y ∧ j < k ⇒
-            P (k − j - 1) (subst_funs binds y)) ∧
-            P k x ⇒
-         P k (Force x)) ∧ (∀k x. P k x ⇒ P k (MkTick x)) ∧
-      (∀k op xs.
-         (∀aop x. op = AtomOp aop ∧ MEM x xs ∧ k ≠ 0 ⇒ P (k − 1) x) ∧
-         (∀s x. op = Cons s ∧ MEM x xs ⇒ P k x) ∧
-         (∀s'' i'. op = IsEq s'' i' ∧ k ≠ 0 ⇒ P (k − 1) (HD xs)) ∧
-         (∀s' i. op = Proj s' i ∧ k ≠ 0 ⇒ P (k − 1) (HD xs)) ⇒
-         P k (Prim op xs)) ⇒
-      ∀v v1. P v v1
-Proof
-  strip_tac
-  \\ strip_tac
-  \\ ho_match_mp_tac eval_to_ind \\ gs [] \\ rw []
-  \\ last_x_assum irule \\ simp [] \\ rw []
-  \\ first_x_assum irule \\ gs []
-  \\ Induct_on ‘j’ \\ rw []
-  >- (
-    qexists_tac ‘Atom foo’
-    \\ gs [dest_Tick_def])
-  \\ Cases_on ‘k’ \\ gs []
-  \\ qexists_tac ‘DoTick v’
-  \\ gs [dest_Tick_def]
-  \\ pairarg_tac \\ gvs []
-QED
-
 Theorem eval_to_subst_mono:
   ∀k x j.
     eval_to k x ≠ INL Diverge ∧
@@ -420,12 +366,22 @@ Proof
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
-    rw [eval_to_def]
+    rw []
+    \\ gs [Once eval_to_def]
+    \\ simp [SimpLHS, Once eval_to_def]
+    \\ simp [SimpRHS, Once eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
-    \\ pairarg_tac \\ gvs []
-    \\ Cases_on ‘dest_anyThunk w’ \\ fs []
-    \\ pairarg_tac \\ gvs []
-    \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ gs [CaseEq "bool"])
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    >- (
+      Cases_on ‘dest_anyThunk y’ \\ gs []
+      \\ pairarg_tac \\ gvs []
+      \\ BasicProvers.TOP_CASE_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      \\ first_x_assum irule \\ simp []
+      \\ first_assum (irule_at Any))
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_assum irule \\ simp []
+    \\ first_assum (irule_at Any))
   >- ((* MkTick *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
