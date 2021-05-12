@@ -13,33 +13,6 @@ val _ = new_theory "thunk_subst_unthunkProof";
 
 val _ = numLib.prefer_num ();
 
-(* TODO pure_misc? *)
-Theorem LIST_REL_FILTER[local]:
-  ∀xs ys.
-    LIST_REL R xs ys ⇒
-    MAP FST xs = MAP FST ys ⇒
-      LIST_REL R (FILTER (λ(x,y). P x) xs)  (FILTER (λ(x,y). P x) ys)
-Proof
-  ho_match_mp_tac LIST_REL_ind \\ rw [] \\ fs [ELIM_UNCURRY]
-QED
-
-Theorem LIST_REL_EL_MONO:
-  ∀xs ys.
-    (∀n. n < LENGTH xs ∧ P (EL n xs) (EL n ys) ⇒ Q (EL n xs) (EL n ys)) ∧
-    LIST_REL P xs ys ⇒
-      LIST_REL Q xs ys
-Proof
-  once_rewrite_tac [CONJ_COMM]
-  \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
-  \\ ho_match_mp_tac LIST_REL_ind \\ simp []
-  \\ rw []
-  >- (
-    first_x_assum (qspec_then ‘0’ assume_tac)
-    \\ fs [])
-  \\ first_x_assum irule \\ rw []
-  \\ first_x_assum (qspec_then ‘SUC n’ assume_tac) \\ fs []
-QED
-
 (* --------------------------
    INVARIANT:
    --------------------------
