@@ -76,11 +76,11 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(f,x) (g,y). f = g ∧ exp_rel x y) f g ⇒
        v_rel (Recclosure f n) (Recclosure g n)) ∧
-[v_rel_Thunk_INL:]
+[v_rel_Thunk_INR:]
   (∀x y.
      exp_rel x y ⇒
        v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk_INL:]
   (∀v w.
      v_rel v w ⇒
        v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
