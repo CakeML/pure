@@ -165,6 +165,12 @@ Definition dest_anyThunk_def:
     od
 End
 
+Definition properThunk_def[simp]:
+  properThunk (Thunk x) = (∃y. x = INR y) ∧
+  properThunk (Recclosure f n) = (∃x. ALOOKUP (REVERSE f) n = SOME (Delay x)) ∧
+  properThunk _ = F
+End
+
 Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
@@ -261,6 +267,7 @@ Definition eval_to_def:
   eval_to k (MkTick x) =
     (do
        v <- eval_to k x;
+       assert (properThunk v);
        return (DoTick v)
      od) ∧
   eval_to k (Prim op xs) =
