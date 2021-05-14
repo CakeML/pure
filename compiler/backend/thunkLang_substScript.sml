@@ -249,21 +249,18 @@ Definition eval_to_def:
        return (Thunk (INL v))
      od) ∧
   eval_to k (Force x) =
-    (do
-       v <- eval_to k x;
-       case dest_Tick v of
-         SOME w =>
-           if k = 0 then fail Diverge else
-             eval_to (k - 1) (Force (Value w))
-       | NONE =>
-           do (wx, binds) <- dest_anyThunk v;
-              case wx of
-                INL v => return v
-              | INR y =>
-                  if k = 0 then fail Diverge else
-                    eval_to (k - 1) (subst_funs binds y)
-           od
-     od) ∧
+    (if k = 0 then fail Diverge else
+       do
+         v <- eval_to k x;
+         case dest_Tick v of
+           SOME w => eval_to (k - 1) (Force (Value w))
+         | NONE =>
+             do (wx, binds) <- dest_anyThunk v;
+                case wx of
+                  INL v => return v
+                | INR y => eval_to (k - 1) (subst_funs binds y)
+             od
+       od) ∧
   eval_to k (MkTick x) =
     (do
        v <- eval_to k x;
@@ -377,16 +374,15 @@ Proof
     \\ gs [Once eval_to_def]
     \\ simp [SimpLHS, Once eval_to_def]
     \\ simp [SimpRHS, Once eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     >- (
       Cases_on ‘dest_anyThunk y’ \\ gs []
       \\ pairarg_tac \\ gvs []
       \\ BasicProvers.TOP_CASE_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
       \\ first_x_assum irule \\ simp []
       \\ first_assum (irule_at Any))
-    \\ IF_CASES_TAC \\ gs []
     \\ first_assum irule \\ simp []
     \\ first_assum (irule_at Any))
   >- ((* MkTick *)
