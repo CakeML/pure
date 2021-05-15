@@ -902,7 +902,100 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     \\ last_x_assum (qspec_then ‘j1 + k’ assume_tac) \\ gs [])
   >- ((* Prim *)
-    cheat)
+    rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    >- ((* Cons *)
+      qabbrev_tac ‘f = λj. eval_to (j + k)’
+      \\ simp [SF ETA_ss]
+      \\ qmatch_goalsub_abbrev_tac ‘result_map g ys’
+      \\ ‘∃j. ($= +++ (LIST_REL v_rel)) (result_map (f j) xs) (result_map g ys)’
+        suffices_by (
+          rw []
+          \\ qexists_tac ‘j’
+          \\ Cases_on ‘result_map (f j) xs’
+          \\ Cases_on ‘result_map g ys’ \\ gs [])
+      \\ ‘∀j. result_map (f j) xs ≠ INL Type_error’
+        by (rpt strip_tac
+            \\ first_x_assum (qspec_then ‘k + j’ mp_tac)
+            \\ simp [eval_to_def, SF ETA_ss])
+      \\ cheat)
+    >- ((* IsEq *)
+      IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        qexists_tac ‘0’
+        \\ simp [])
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+      \\ rename1 ‘exp_rel x y’
+      \\ first_x_assum drule
+      \\ impl_keep_tac
+      >- (
+        qx_gen_tac ‘ck’
+        \\ strip_tac
+        \\ first_x_assum (qspec_then ‘ck + 1’ mp_tac)
+        \\ simp [eval_to_def])
+      \\ disch_then (qx_choose_then ‘j’ assume_tac)
+      \\ first_x_assum (qspec_then ‘j + k - 1’ assume_tac)
+      \\ qexists_tac ‘j’
+      \\ Cases_on ‘eval_to (k - 1) y’
+      \\ Cases_on ‘eval_to (j + k - 1) x’ \\ gs []
+      \\ rename1 ‘v_rel v1 u1’
+      \\ Cases_on ‘v1’ \\ Cases_on ‘u1’ \\ gvs []
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs [])
+    >- ((* Proj *)
+      IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        qexists_tac ‘0’
+        \\ simp [])
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+      \\ rename1 ‘exp_rel x y’
+      \\ first_x_assum drule
+      \\ impl_keep_tac
+      >- (
+        qx_gen_tac ‘ck’
+        \\ strip_tac
+        \\ first_x_assum (qspec_then ‘ck + 1’ mp_tac)
+        \\ simp [eval_to_def])
+      \\ disch_then (qx_choose_then ‘j’ assume_tac)
+      \\ first_x_assum (qspec_then ‘j + k - 1’ assume_tac)
+      \\ qexists_tac ‘j’
+      \\ Cases_on ‘eval_to (k - 1) y’
+      \\ Cases_on ‘eval_to (j + k - 1) x’ \\ gs []
+      \\ rename1 ‘v_rel v1 u1’
+      \\ Cases_on ‘v1’ \\ Cases_on ‘u1’ \\ gvs []
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs [])
+    >- ((* AtomOp *)
+      Cases_on ‘k = 0’ \\ gs []
+      >- (
+        qexists_tac ‘0’ \\ simp []
+        \\ gvs [LIST_REL_EL_EQN, result_map_def, MEM_MAP, GSYM NOT_NULL_MEM,
+                NULL_EQ]
+        \\ Cases_on ‘xs’ \\ Cases_on ‘ys’ \\ gvs []
+        \\ CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs [])
+      \\ qabbrev_tac ‘f = λj x. case eval_to (j + k - 1) x of
+                                  INR (Atom l) => INR l
+                                | INL err => INL err
+                                | _ => INL Type_error’
+      \\ qmatch_goalsub_abbrev_tac ‘result_map g ys’
+      \\ simp [SF ETA_ss]
+      \\ ‘∃j. result_map (f j) xs = result_map g ys’
+        suffices_by (
+          rw []
+          \\ qexists_tac ‘j’ \\ gs []
+          \\ Cases_on ‘result_map g ys’ \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs [])
+      \\ ‘∀j. result_map (f j) xs ≠ INL Type_error’
+        by (rpt strip_tac
+            \\ first_x_assum (qspec_then ‘k + j’ mp_tac)
+            \\ simp [eval_to_def]
+            \\ CONV_TAC (ONCE_DEPTH_CONV ETA_CONV) \\ gs [])
+      \\ cheat))
 QED
 
 Theorem eval_not_error[local]:
