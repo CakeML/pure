@@ -310,6 +310,76 @@ Termination
   \\ Induct_on ‘xs’ \\ rw [] \\ fs [exp_size_def]
 End
 
+Theorem eval_to_ind:
+  ∀P.
+    (∀k v. P k (Value v)) ∧
+    (∀k n. P k (Var n)) ∧
+    (∀k f x.
+       (∀y binds s xv body.
+          y = subst (binds ⧺ [(s,xv)]) body ∧ k ≠ 0 ⇒ P (k − 1) y) ∧
+       P k f ∧ P k x ⇒
+       P k (App f x)) ∧
+    (∀k s x. P k (Lam s x)) ∧
+    (∀k x y.
+       (k ≠ 0 ⇒ P (k − 1) x) ∧ (k ≠ 0 ⇒ P (k − 1) y) ⇒
+       P k (Let NONE x y)) ∧
+    (∀k n x y.
+       (∀v. k ≠ 0 ⇒ P (k − 1) (subst1 n v y)) ∧
+       (k ≠ 0 ⇒ P (k − 1) x) ⇒
+         P k (Let (SOME n) x y)) ∧
+    (∀k x y z.
+      (∀v. k ≠ 0 ∧
+           v ≠ Constructor "True" [] ∧
+           v = Constructor "False" [] ⇒
+             P (k − 1) z) ∧
+      (∀v. k ≠ 0 ∧ v = Constructor "True" [] ⇒ P (k − 1) y) ∧
+      (k ≠ 0 ⇒ P (k − 1) x) ⇒
+        P k (If x y z)) ∧
+    (∀k funs x.
+      (k ≠ 0 ⇒ P (k − 1) (subst_funs funs x)) ⇒ P k (Letrec funs x)) ∧
+    (∀k x. P k (Delay x)) ∧
+    (∀k x. P k x ⇒ P k (Box x)) ∧
+    (∀k x.
+      (∀y binds.
+         k ≠ 0 ⇒
+           P (k − 1) (subst_funs binds y)) ∧
+      (∀w.
+         k ≠ 0 ⇒
+           P (k − 1) (Force (Value w))) ∧
+      (k ≠ 0 ⇒ P k x) ⇒
+        P k (Force x)) ∧
+    (∀k x. P k x ⇒ P k (MkTick x)) ∧
+    (∀k op xs.
+      (∀aop x.
+         op = AtomOp aop ∧
+         MEM x xs ∧
+         k ≠ 0 ⇒
+           P (k − 1) x) ∧
+      (∀s x.
+         op = Cons s ∧
+         MEM x xs ⇒
+           P k x) ∧
+      (∀s'' i'.
+         op = IsEq s'' i' ∧
+         k ≠ 0 ⇒
+           P (k − 1) (HD xs)) ∧
+      (∀s' i.
+         op = Proj s' i ∧
+         k ≠ 0 ⇒
+           P (k − 1) (HD xs)) ⇒
+            P k (Prim op xs)) ⇒
+        ∀v v1. P v v1
+Proof
+  rw []
+  \\ irule eval_to_ind \\ rw []
+  \\ last_x_assum irule \\ rw []
+  >- (
+    first_x_assum irule \\ gs []
+    \\ qexists_tac ‘Atom foo’ \\ gs [])
+  \\ first_x_assum irule \\ gs []
+  \\ qexists_tac ‘DoTick w’ \\ gs []
+QED
+
 Definition eval_def:
   eval x =
     case some k. eval_to k x ≠ INL Diverge of
@@ -377,14 +447,9 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    >- (
-      Cases_on ‘dest_anyThunk y’ \\ gs []
-      \\ pairarg_tac \\ gvs []
-      \\ BasicProvers.TOP_CASE_TAC \\ gs []
-      \\ first_x_assum irule \\ simp []
-      \\ first_assum (irule_at Any))
-    \\ first_assum irule \\ simp []
-    \\ first_assum (irule_at Any))
+    \\ Cases_on ‘dest_anyThunk y’ \\ gs []
+    \\ pairarg_tac \\ gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
   >- ((* MkTick *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
