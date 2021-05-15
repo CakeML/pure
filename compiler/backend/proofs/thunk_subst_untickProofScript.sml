@@ -468,63 +468,68 @@ Proof
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def])
   >- ((* Let NONE *)
-    cheat (*
     rename1 ‘Let NONE x1 x2’
     \\ rw [Once exp_rel_cases]
-    \\ gs [eval_to_def]
+    \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     >- (
       qexists_tac ‘0’
       \\ simp [])
-    \\ ‘eval_to (k - 1) x1 ≠ INL Type_error’
-      by (strip_tac \\ gs [])
+    \\ ‘∀ck. eval_to ck x1 ≠ INL Type_error’
+      by (qx_gen_tac ‘ck’ \\ strip_tac
+          \\ qpat_x_assum ‘∀ck. eval_to _ _ ≠ _’ mp_tac \\ simp []
+          \\ qexists_tac ‘1 + ck’
+          \\ simp [eval_to_def])
     \\ first_x_assum (drule_all_then (qx_choose_then ‘j1’ assume_tac))
-    \\ Cases_on ‘eval_to (k - 1) x1 = INL Diverge’ \\ gs []
+    \\ Cases_on ‘eval_to (k - 1) y1 = INL Diverge’ \\ gs []
     >- (
       qexists_tac ‘j1’
-      \\ Cases_on ‘eval_to (j1 + k - 1) y1’ \\ gs [])
-    \\ ‘eval_to (k - 1) x2 ≠ INL Type_error’
-      by (strip_tac
-          \\ Cases_on ‘eval_to (k - 1) x1’ \\ gs [eval_to_def]
+      \\ Cases_on ‘eval_to (j1 + k - 1) x1’ \\ gs [])
+    \\ ‘∃u1. eval_to (k - 1) y1 = INR u1’
+      by (first_x_assum (qspec_then ‘j1 + k - 1’ assume_tac)
+          \\ Cases_on ‘eval_to (k - 1) y1’ \\ gs []
+          \\ Cases_on ‘eval_to (j1 + k - 1) x1’ \\ gs []
           \\ rename1 ‘INL err’
           \\ Cases_on ‘err’ \\ gs [])
-    \\ ‘∃v1. eval_to (k - 1) x1 = INR v1’
-      by (Cases_on ‘eval_to (k - 1) x1’
-          \\ rename1 ‘INL err’
-          \\ Cases_on ‘err’ \\ gs[])
     \\ gs []
-    \\ ‘eval_to (k - 1) x2 ≠ INL Type_error’
-      by (strip_tac \\ gs [eval_to_def])
+    \\ ‘∃v1. eval_to (j1 + k - 1) x1 = INR v1’
+      by (Cases_on ‘eval_to (j1 + k - 1) x1’ \\ gs [])
+    \\ ‘∀i. eval_to (i + j1 + k - 1) x1 = eval_to (j1 + k - 1) x1’
+      by (strip_tac \\ irule eval_to_subst_mono \\ gs [])
+    \\ gs []
+    \\ ‘∀ck. eval_to ck x2 ≠ INL Type_error’
+      by (qx_gen_tac ‘ck’ \\ strip_tac
+          \\ ‘eval_to (j1 + k - 1) x1 ≠ INL Diverge’ by gs []
+          \\ drule_then (qspec_then ‘j1 + ck + k’ assume_tac) eval_to_subst_mono
+          \\ gs []
+          \\ last_x_assum (qspec_then ‘j1 + ck + k’ mp_tac)
+          \\ simp [eval_to_def]
+          \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
+          \\ irule eval_to_subst_mono \\ gs [])
     \\ first_x_assum (drule_all_then (qx_choose_then ‘j2’ assume_tac))
-    \\ Cases_on ‘eval_to (k - 1) x2 = INL Diverge’ \\ gs []
+    \\ Cases_on ‘eval_to (k - 1) y2 = INL Diverge’ \\ gs []
     >- (
-      Cases_on ‘eval_to (k - 1) y1 = INL Diverge’ \\ gs []
+      Cases_on ‘eval_to (k - 1) x1 = INL Diverge’ \\ gs []
       >- (
         qexists_tac ‘0’
         \\ simp [])
-      \\ ‘∀j. eval_to (j + k - 1) y1 = eval_to (k - 1) y1’
+      \\ ‘∀j. eval_to (j + k - 1) x1 = eval_to (k - 1) x1’
         by (strip_tac
             \\ irule eval_to_subst_mono \\ gs [])
-      \\ qexists_tac ‘j2’
-      \\ Cases_on ‘eval_to (k - 1) y1’ \\ gs [])
-    \\ ‘∃v2. eval_to (k - 1) x2 = INR v2’
-      by (Cases_on ‘eval_to (k - 1) x2’
-          \\ rename1 ‘INL err’
-          \\ Cases_on ‘err’ \\ gs[])
+      \\ qexists_tac ‘j2’ \\ gs [])
+    \\ ‘∃u2. eval_to (k - 1) y2 = INR u2’
+      by (first_x_assum (qspec_then ‘j2 + k - 1’ assume_tac)
+          \\ Cases_on ‘eval_to (k - 1) y2’ \\ gs []
+          \\ rename1 ‘INL err’ \\ Cases_on ‘err’ \\ gs []
+          \\ Cases_on ‘eval_to (j2 + k - 1) x2’ \\ gs [])
     \\ gs []
-    \\ ‘∀j2. eval_to (j1 + j2 + k - 1) y1 = eval_to (j1 + k - 1) y1’
-      by (strip_tac
-          \\ irule eval_to_subst_mono \\ gs []
+    \\ qexists_tac ‘j1 + j2’
+    \\ qpat_x_assum ‘∀i. eval_to _ x1 = _’ (qspec_then ‘j2’ assume_tac) \\ gs []
+    \\ ‘eval_to (j1 + j2 + k - 1) x2 = eval_to (j2 + k - 1) x2’
+      by (irule eval_to_subst_mono \\ gs []
           \\ strip_tac \\ gs [])
-    \\ ‘∀j1. eval_to (j1 + j2 + k - 1) y2 = eval_to (j2 + k - 1) y2’
-      by (strip_tac
-          \\ irule eval_to_subst_mono \\ gs []
-          \\ strip_tac \\ gs []
-          \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [])
-    \\ qexists_tac ‘j1 + j2’ \\ gs []
-    \\ Cases_on ‘eval_to (j1 + k - 1) y1’ \\ gs []
-    *)
-    )
+    \\ gs [])
+
   >- ((* Let SOME *)
     cheat (*
     rename1 ‘Let (SOME n) x1 x2’
@@ -611,6 +616,7 @@ Proof
     \\ first_x_assum (drule_all_then (qx_choose_then ‘j1’ assume_tac))
     \\ qexists_tac ‘j1’
     \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to (j1 + k) x’ \\ gs [])
+
   >- ((* Force *)
     cheat (*
     rw [Once exp_rel_cases] \\ rename1 ‘exp_rel x y’
