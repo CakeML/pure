@@ -697,7 +697,23 @@ Proof
     \\ qexists_tac ‘j1 + j2’ \\ gs []
     \\ Cases_on ‘eval_to (j1 + k - 1) x1’ \\ gs [])
   >- ((* Letrec *)
-    cheat)
+    rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      qexists_tac ‘0’
+      \\ simp [])
+    \\ first_x_assum (irule_at Any)
+    \\ simp [subst_funs_def]
+    \\ irule_at Any exp_rel_subst
+    \\ irule_at Any LIST_EQ
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
+             GSYM FST_THM, EVERY2_MAP]
+    \\ gvs [ELIM_UNCURRY, EL_MAP, LIST_REL_EL_EQN]
+    \\ qx_gen_tac ‘ck’ \\ strip_tac
+    \\ qpat_x_assum ‘∀ck. eval_to ck (Letrec _ _) ≠ _’ mp_tac
+    \\ simp [eval_to_def]
+    \\ qexists_tac ‘ck + 1’ \\ gs [subst_funs_def, ELIM_UNCURRY])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def])
