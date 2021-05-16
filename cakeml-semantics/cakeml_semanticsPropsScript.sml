@@ -618,10 +618,10 @@ Theorem cml_io_unfold_err:
     | Vis' (s, ws1, ws2) g =>
         Vis (s, ws1, ws2)
           (λa. case a of
-                  INL x => Ret $ FinalFFI x
+                  INL x => Ret $ FinalFFI (s, ws1, ws2) x
                 | INR y =>
                     if LENGTH ws2 = LENGTH y then cml_io_unfold_err f (g y)
-                    else Ret $ FinalFFI FFI_failed)
+                    else Ret $ FinalFFI (s, ws1, ws2) FFI_failed)
 Proof
   CASE_TAC >> gvs[cml_io_unfold_err_def] >>
   simp[Once io_unfold_err] >>
@@ -637,13 +637,13 @@ Theorem interp:
     | Act s ws1 ws2 n env st cs =>
         Vis (s, ws1, ws2)
           (λa. case a of
-                | INL x => Ret $ FinalFFI x
+                | INL x => Ret $ FinalFFI (s, ws1, ws2) x
                 | INR y =>
                     if LENGTH ws2 = LENGTH y then
                       interp $
                         Estep (env, LUPDATE (W8array y) n st,
                                Val $ Conv NONE [], cs)
-                    else Ret $ FinalFFI FFI_failed)
+                    else Ret $ FinalFFI (s, ws1, ws2) FFI_failed)
 Proof
   rw[interp_def] >> rw[Once cml_io_unfold_err] >> simp[] >>
   CASE_TAC >> gvs[] >> rw[FUN_EQ_THM]
@@ -659,8 +659,10 @@ Theorem trace_prefix_interp:
     | Act s conf ws lnum env st cs =>
         case oracle s ffi_st conf ws of
         | Oracle_return ffi_st' ws' =>
-            if LENGTH ws ≠ LENGTH ws' ∧ n = 0 then ([], NONE)
-            else if LENGTH ws ≠ LENGTH ws' then ([], SOME $ FinalFFI FFI_failed)
+            if LENGTH ws ≠ LENGTH ws' ∧ n = 0 then
+              ([], NONE)
+            else if LENGTH ws ≠ LENGTH ws' then
+              ([], SOME $ FinalFFI (s, conf, ws) FFI_failed)
             else let (io, res) =
               trace_prefix n (oracle, ffi_st')
                 (interp $
@@ -668,7 +670,7 @@ Theorem trace_prefix_interp:
             in ((IO_event s conf (ZIP (ws,ws')))::io, res)
         | Oracle_final outcome =>
             if n = 0 then ([], NONE) else
-            ([], SOME $ FinalFFI outcome)
+            ([], SOME $ FinalFFI (s, conf, ws) outcome)
 Proof
   rw[trace_prefix_def] >> rw[Once interp] >>
   CASE_TAC >> gvs[trace_prefix_def] >>

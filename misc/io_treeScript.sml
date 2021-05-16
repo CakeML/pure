@@ -353,10 +353,10 @@ Definition io_unfold_err_path_def:
      | Ret' r => Return ARB
      | Vis' e g =>
         case n of
-        | INL x => if rest = [] then Return (err_f x) else Return ARB
+        | INL x => if rest = [] then Return (err_f e x) else Return ARB
         | INR y =>
             if rel e y then io_unfold_err_path f (rel, err_f, err) (g y) rest
-            else if rest = [] then Return err else Return ARB)
+            else if rest = [] then Return $ err e else Return ARB)
 End
 
 Definition io_unfold_err:
@@ -384,10 +384,10 @@ Theorem io_unfold_err:
     | Vis' e g =>
         Vis e
           (λa. case a of
-                  INL x => Ret $ err_f x
+                  INL x => Ret $ err_f e x
                 | INR y =>
                     if rel e y then io_unfold_err f (rel, err_f, err) (g y)
-                    else Ret err)
+                    else Ret $ err e)
 Proof
   CASE_TAC >> gvs[io_unfold_err] >>
   gvs[Ret_def, Vis_def] >> AP_TERM_TAC >> simp[FUN_EQ_THM] >>

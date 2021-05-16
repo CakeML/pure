@@ -507,14 +507,14 @@ Datatype:
   result = SilentDivergence
          | Termination
          | Error
-         | FinalFFI ffi_outcome
+         | FinalFFI (string # word8 list # word8 list) ffi_outcome
 End
 
 Definition cml_io_unfold_err_def:
   cml_io_unfold_err f =
     io_unfold_err f
       ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
-      FinalFFI, FinalFFI FFI_failed)
+      FinalFFI, (λe. FinalFFI e FFI_failed))
 End
 
 Definition interp_def:
