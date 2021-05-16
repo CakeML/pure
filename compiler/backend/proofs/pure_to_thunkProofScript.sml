@@ -657,11 +657,11 @@ Proof
     \\ qpat_x_assum ‘exp_rel (Letrec f y) _’ mp_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_wh_to_def, Once eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
     >- ((* Rec *)
       CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
       \\ imp_res_tac ALOOKUP_SOME \\ fs [dest_anyThunk_def]
       \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
-      \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
       \\ irule_at Any exp_rel_subst_funs \\ fs []
       \\ drule_then (qspec_then ‘REVERSE f’ mp_tac) ALOOKUP_SOME_EL_2
@@ -683,13 +683,12 @@ Proof
              ALOOKUP_MAP_2]
       \\ rw [])
     >- ((* Tick *)
-      CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
-      \\ IF_CASES_TAC \\ fs [dest_anyThunk_def]
+      CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def]))
+      \\ gs [dest_anyThunk_def]
       \\ first_x_assum irule
       \\ fs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
              flookup_fupdate_list, FDOM_FUPDATE_LIST, subst_ignore,
              subst_funs_def, eval_wh_to_def])
-    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule_at Any exp_rel_subst_funs \\ fs []
     \\ gs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
@@ -717,9 +716,9 @@ Proof
         \\ rw [] \\ gvs [EL_MAP]
         \\ gs [thunk_rel_def])
       >- (
-        simp [eval_to_def]
-        \\ IF_CASES_TAC \\ fs [LIST_REL_EL_EQN]
-        \\ fs [LENGTH_EQ_NUM_compute])
+        gvs [eval_to_def, eval_wh_to_def, LIST_REL_EL_EQN]
+        \\ IF_CASES_TAC \\ gs []
+        \\ gvs [LENGTH_EQ_NUM_compute])
       \\ Cases_on ‘op’ \\ fs [LIST_REL_EL_EQN]
       >- (
         IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute])
