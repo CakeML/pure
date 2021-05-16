@@ -797,8 +797,7 @@ Proof
             \\ qexists_tac ‘k + ck + j1’ \\ gs [subst_funs_def, ELIM_UNCURRY]
             \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
             \\ irule eval_to_subst_mono \\ gs [])
-      \\ last_x_assum (qspec_then ‘Atom foo’ mp_tac) \\ simp []
-      \\ disch_then (drule_all_then (qx_choose_then ‘j3’ assume_tac))
+      \\ last_x_assum (drule_all_then (qx_choose_then ‘j3’ assume_tac))
       \\ Cases_on ‘eval_to (k - 1) (subst_funs w2 x2) = INL Diverge’ \\ gs []
       >- (
         Cases_on ‘eval_to k x = INL Diverge’
@@ -861,8 +860,7 @@ Proof
           \\ gs [subst_funs_def, ELIM_UNCURRY]
           \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
           \\ irule eval_to_subst_mono \\ gs [])
-    \\ last_x_assum (qspec_then ‘Atom foo’ mp_tac) \\ simp []
-    \\ disch_then (drule_all_then (qx_choose_then ‘j3’ assume_tac))
+    \\ last_x_assum (drule_all_then (qx_choose_then ‘j3’ assume_tac))
     \\ Cases_on ‘eval_to (k - 1) (subst_funs w2 x2) = INL Diverge’ \\ gs []
     >- (
       Cases_on ‘eval_to k x = INL Diverge’
