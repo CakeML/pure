@@ -87,7 +87,7 @@ Inductive exp_rel:
        exp_rel (Force x) (Force y)) ∧
 [~MkTick:]
   (∀x y.
-     exp_rel x y ⇒ (* MkTick fails if x isn't thunkd, y doesn't *)
+     exp_rel x y ⇒
        exp_rel (MkTick x) y) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
@@ -311,6 +311,7 @@ Theorem exp_rel_eval_to:
             (eval_to (j + k) x)
             (eval_to k y)
 Proof
+
   ho_match_mp_tac eval_to_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
   >- ((* Value *)
