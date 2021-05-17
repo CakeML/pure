@@ -201,7 +201,7 @@ QED
 
 Theorem application_rel_FFI:
   application (FFI s) env st vs cs1 = Effi s conf ws lnum env st cs1 ⇒
-    store_lookup lnum st = SOME $ W8array ws ∧
+    store_lookup lnum st = SOME $ W8array ws ∧ s ≠ "" ∧
     application (FFI s) env (st, ffi) vs cs2 =
       case ffi.oracle s ffi.ffi_state conf ws of
       | Oracle_return ffi' ws' =>
@@ -244,7 +244,7 @@ Proof
   IF_CASES_TAC >> gvs[]
 QED
 
-Theorem e_step_ffi_changed:
+Theorem e_step_ffi_changed_estep_to_Effi:
   e_step (env, (st, ffi), ev, cs2) = Estep (env', (st', ffi'), ev', cs2') ∧
   ffi ≠ ffi' ∧
   ctxt_rel cs1 cs2 ⇒
@@ -295,7 +295,90 @@ Proof
   >- (rpt (CASE_TAC >> gvs[SF itree_ss]))
 QED
 
-Theorem step_result_rel_single_FFI':
+Theorem step_result_rel_single_FFI_strong:
+  ∀ea eb.
+    step_result_rel (Estep ea) (Estep eb) ∧
+    estep ea = Effi s conf ws lnum env st cs1
+  ⇒ ∃env' ffi conf'.
+      conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
+      ea = (env',st, Val (Litv $ StrLit conf'),
+            (Capp (FFI s) [Loc lnum] [], env)::cs1) ∧
+      store_lookup lnum st = SOME (W8array ws) ∧ s ≠ "" ∧
+      get_ffi (Estep eb) = SOME ffi ∧
+      e_step eb =
+        case ffi.oracle s ffi.ffi_state conf ws of
+        | Oracle_return ffi' ws' =>
+            if LENGTH ws' ≠ LENGTH ws then
+              Eabort $ Rffi_error $ Final_event s conf ws FFI_failed
+            else
+              Estep (env,
+                (LUPDATE (W8array ws') lnum st,
+                 ffi with <|
+                    ffi_state := ffi';
+                    io_events := ffi.io_events ++ [IO_event s conf (ZIP (ws,ws'))]
+                    |>),
+                Val $ Conv NONE [], (TL $ SND $ SND $ SND eb))
+        | Oracle_final outcome =>
+            Eabort $ Rffi_error $ Final_event s conf ws outcome
+Proof
+  rpt PairCases >> gvs[step_result_rel_cases] >> rw[] >>
+  rename1 `estep (env0,st0,ev0,cs10)` >>
+  Cases_on `ev0` >> gvs[estep_def]
+  >- (
+    Cases_on `e` >> gvs[estep_def, SF itree_ss] >>
+    every_case_tac >> gvs[] >>
+    imp_res_tac application_eq_Effi_fields >> gvs[]
+    ) >>
+  Cases_on `cs10` >> gvs[SF itree_ss] >>
+  PairCases_on `h` >> Cases_on `h0` >> gvs[SF itree_ss]
+  >- (every_case_tac >> gvs[])
+  >- (
+    rename1 `Capp _ _ es` >> Cases_on `es` >> gvs[SF itree_ss] >>
+    imp_res_tac application_eq_Effi_fields >> gvs[] >>
+    drule application_rel_FFI >>
+    disch_then $ qspecl_then [`eb2`,`TL eb4`] assume_tac >> gvs[] >>
+    gvs[ctxt_rel_def] >> pairarg_tac >> gvs[ctxt_frame_rel_cases] >>
+    simp[e_step_def, SF smallstep_ss]
+    )
+  >- (every_case_tac >> gvs[])
+  >- (every_case_tac >> gvs[])
+  >- (every_case_tac >> gvs[])
+  >- (
+    rename1 `Cmat l` >> Cases_on `l` >> gvs[SF itree_ss] >>
+    PairCases_on `h` >> gvs[SF itree_ss] >>
+    every_case_tac >> gvs[]
+    )
+  >- (
+    rename1 `Ccon _ _ ls` >> Cases_on `ls` >> gvs[SF itree_ss] >>
+    every_case_tac >> gvs[]
+    )
+QED
+
+Theorem step_result_rel_single_FFI_error:
+  ∀ea eb.
+    step_result_rel (Estep ea) (Estep eb) ∧
+    e_step eb = Eabort (Rffi_error (Final_event s conf ws outcome))
+  ⇒ ∃lnum env. estep ea =
+    Effi s conf ws lnum env (FST $ SND ea) (TL $ SND $ SND $ SND ea)
+Proof
+  rpt $ PairCases >> rw[e_step_def] >>
+  every_case_tac >> gvs[SF smallstep_ss]
+  >- (
+    gvs[cml_application_thm] >>
+    every_case_tac >> gvs[SF smallstep_ss] >>
+    gvs[semanticPrimitivesTheory.do_app_def]
+    ) >>
+  FULL_CASE_TAC >> gvs[] >>
+  every_case_tac >> gvs[cml_application_thm] >>
+  every_case_tac >> gvs[SF smallstep_ss] >>
+  gvs[semanticPrimitivesPropsTheory.do_app_cases] >>
+  gvs[step_result_rel_cases, ctxt_rel_def] >>
+  pairarg_tac >> gvs[ctxt_frame_rel_cases] >>
+  gvs[SF itree_ss, application_def, call_FFI_def] >>
+  every_case_tac >> gvs[store_lookup_def]
+QED
+
+Theorem step_result_rel_single':
   (∀ffi. get_ffi (e_step e2) = SOME ffi ⇒ get_ffi (Estep e2) = SOME ffi) ∧
   (∀a. e_step e2 ≠ Eabort $ Rffi_error a) ∧
   step_result_rel (Estep e1) (Estep e2)
@@ -329,7 +412,7 @@ Proof
   Cases_on `e_step (env,(st,ffi),ev,cs2)` >> gvs[get_ffi_def] >>
   disch_then $ qspec_then `n` mp_tac >> simp[get_ffi_def] >> rw[] >> gvs[] >>
   first_assum $ once_rewrite_tac o single o GSYM >>
-  irule step_result_rel_single_FFI' >>
+  irule step_result_rel_single' >>
   simp[get_ffi_def, step_result_rel_cases]
 QED
 
@@ -481,7 +564,7 @@ Proof
       gvs[get_ffi_def] >> pop_assum mp_tac >> impl_tac >> rw[] >> gvs[is_halt_def] >>
       qsuff_tac `¬is_Effi (estep (env',st',e',cs1'))` >- gvs[is_Effi_def] >>
       irule step_result_rel_not_Effi >>
-      irule_at Any step_result_rel_single_FFI' >>
+      irule_at Any step_result_rel_single' >>
       simp[step_result_rel_cases, PULL_EXISTS, ctxt_rel_def] >>
       goal_assum $ drule_at Any >> qexists_tac `ffi` >> simp[get_ffi_def]) >>
     DEEP_INTRO_TAC some_intro >> reverse $ rw[] >> gvs[]
@@ -546,6 +629,770 @@ Proof
     simp[is_halt_def]
     )
 QED
+
+
+(******************** trace_prefix ********************)
+
+Theorem is_halt_step_n_const:
+  ∀n e. is_halt (step_n n e) ⇒ ∀m. n < m ⇒ step_n n e = step_n m e
+Proof
+  Induct >> rw[step_n_def]
+  >- (Cases_on `e` >> gvs[is_halt_def]) >>
+  Cases_on `e` >> gvs[step_n_def, is_halt_def] >>
+  Cases_on `m` >> gvs[step_n_def]
+QED
+
+Theorem is_halt_step_n_min:
+  ∀n e. is_halt (step_n n e) ⇒
+  ∃m. m ≤ n ∧ step_n m e = step_n n e ∧ ∀l. l < m ⇒ ¬is_halt (step_n l e)
+Proof
+  Induct >> rw[step_n_alt_def] >>
+  every_case_tac >> gvs[is_halt_def]
+  >- (
+    last_x_assum kall_tac >>
+    qexists_tac `SUC n` >> simp[step_n_alt_def] >> rw[] >>
+    CCONTR_TAC >> gvs[] >>
+    Cases_on `l = n` >> gvs[is_halt_def] >>
+    drule is_halt_step_n_const >>
+    disch_then $ qspec_then `n` assume_tac >> gvs[is_halt_def]
+    ) >>
+  last_x_assum $ qspec_then `e` assume_tac >> gvs[is_halt_def] >>
+  qexists_tac `m` >> simp[]
+QED
+
+Theorem step_until_halt_take_step:
+  ∀a. ¬ is_halt (Estep a)
+  ⇒ step_until_halt (Estep a) = step_until_halt (estep a)
+Proof
+  rw[step_until_halt_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  DEEP_INTRO_TAC some_intro >> rw[]
+  >- (
+    qspecl_then [`x`,`SUC x'`,`Estep a`] assume_tac is_halt_step_n_eq >>
+    gvs[step_n_def]
+    )
+  >- (Cases_on `x` >> gvs[step_n_def])
+  >- (first_x_assum $ qspec_then `SUC x` assume_tac >> gvs[step_n_def])
+QED
+
+Theorem trace_prefix_Error:
+  ctxt_rel cs1 cs2 ⇒
+  ((∃n io. trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,ev,cs1))) = (io, SOME Error)) ⇔
+  ∃est2.
+    RTC e_step_reln
+      (env, (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>), ev, cs2)
+      est2 ∧
+    e_step est2 = Eabort Rtype_error)
+Proof
+  rw[] >> eq_tac >> rw[] >> rpt $ pop_assum mp_tac
+  >- (
+    map_every qid_spec_tac
+      [`ev`,`ffi`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,`n`] >>
+    Induct >> rw[trace_prefix_interp] >>
+    gvs[step_until_halt_def] >> every_case_tac >> gvs[]
+    >- (pairarg_tac >> gvs[trace_prefix_def])
+    >- (
+      pairarg_tac >> gvs[] >>
+      rename1 `Effi _ _ _ lnum env' st' cs1'` >>
+      rename1 `_ conf ws = Oracle_return ffi_st' ws'` >>
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      once_rewrite_tac[RTC_CASES_RTC_TWICE] >> simp[PULL_EXISTS] >>
+      rw[Once RTC_CASES2] >> irule_at Any OR_INTRO_THM2 >>
+      simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
+      rw[Once e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+      goal_assum drule >> rw[e_step_reln_def] >>
+      drule_at Any step_result_rel_single_FFI_strong >>
+      simp[step_result_rel_cases, PULL_EXISTS] >>
+      disch_then drule >> simp[get_ffi_def] >>
+      disch_then $ qspec_then `ffi'` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi2),_,_` >>
+      gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+      last_x_assum drule >> disch_then drule >>
+      unabbrev_all_tac >> gvs[]
+      )
+    >- (
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      rw[Once e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+      goal_assum drule >>
+      qspec_then `(env',st',ev',cs1')` assume_tac step_result_rel_single >>
+      gvs[step_result_rel_cases, is_Effi_def]
+      )
+    )
+  >- (
+    simp[e_step_reln_eq_step_n_cml, PULL_EXISTS, AND_IMP_INTRO] >> gen_tac >>
+    map_every qid_spec_tac
+      [`est2`,`ev`,`ffi`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,`n`] >>
+    Induct >> rw[]
+    >- (
+      gvs[step_n_cml_def] >>
+      qexists_tac `SUC 0` >> once_rewrite_tac[trace_prefix_interp] >>
+      simp[step_until_halt_def] >>
+      `estep (env,st,ev,cs1) = Etype_error` by (
+        qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
+        qspecl_then [`env,(st,ffi0),ev,cs2`,`env,st,ev,cs1`]
+          assume_tac $ GEN_ALL step_result_rel_single' >>
+        gvs[get_ffi_def, step_result_rel_cases]) >>
+      DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+      >- (qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >> simp[is_halt_def]) >>
+      Cases_on `x` >> gvs[step_n_def, is_halt_def]
+      ) >>
+    gvs[step_n_cml_def] >>
+    qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
+    Cases_on `e_step (env,(st,ffi0),ev,cs2)` >> gvs[] >>
+    Cases_on `get_ffi (Estep p) = SOME ffi0`
+    >- (
+      qspecl_then [`env,(st,ffi0),ev,cs2`,`env,st,ev,cs1`]
+        assume_tac $ GEN_ALL step_result_rel_single' >>
+      gvs[get_ffi_def, step_result_rel_cases] >>
+      last_x_assum drule >>
+      disch_then $ qspecl_then [`env'`,`st'`,`ffi_st`,`oracle`,`ffi`,`ev'`] mp_tac >>
+      simp[] >> strip_tac >> rename1 `trace_prefix m _` >>
+      qexists_tac `m` >> pop_assum mp_tac >>
+      Cases_on `m` >> once_rewrite_tac[trace_prefix_interp] >> rw[] >>
+      DEP_ONCE_REWRITE_TAC[step_until_halt_take_step] >> simp[is_halt_def]
+      ) >>
+    PairCases_on `p` >> gvs[get_ffi_def] >>
+    rename1 `Estep (env',(st',ffi'),ev',cs2')` >>
+    drule e_step_ffi_changed >> simp[] >>
+    drule e_step_ffi_changed_estep_to_Effi >> simp[] >> disch_then drule >>
+    strip_tac >> strip_tac >> gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+    Q.REFINE_EXISTS_TAC `SUC m` >> once_rewrite_tac[trace_prefix_interp] >>
+    simp[step_until_halt_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+    >- (
+      qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >>
+      simp[estep_def, SF itree_ss, is_halt_def]
+      ) >>
+    Cases_on `x` >> gvs[step_n_def, is_halt_def] >>
+    unabbrev_all_tac >> gvs[ctxt_frame_rel_cases] >>
+    simp[UNCURRY] >> last_x_assum drule >> disch_then $ drule_at Any >>
+    qmatch_asmsub_abbrev_tac `step_n_cml n (Estep (_,(st',_),vv,_))` >>
+    disch_then $ qspecl_then
+      [`env'`,`st'`,`ffi'.ffi_state`,`ffi'.oracle`,`ffi'`,`vv`] mp_tac >>
+    reverse impl_tac >> rw[] >> simp[]
+    >- (qexists_tac `n'` >> simp[]) >>
+    qpat_x_assum `step_n_cml _ _ = _` (SUBST_ALL_TAC o GSYM) >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+    rw[ffi_state_component_equality]
+    )
+QED
+
+Theorem trace_prefix_Termination:
+  ctxt_rel cs1 cs2 ⇒
+  ((∃n. trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,ev,cs1))) = (io, SOME Termination)) ⇔
+  ∃est2 ffi'.
+    RTC e_step_reln
+      (env, (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>), ev, cs2)
+      est2 ∧
+    is_halt_cml (Estep est2) ∧
+    get_ffi (Estep est2) = SOME ffi' ∧
+    ffi'.io_events = ffi.io_events ++ io)
+Proof
+  rw[] >> eq_tac >> rw[] >> rpt $ pop_assum mp_tac
+  >- (
+    map_every qid_spec_tac
+      [`ev`,`ffi`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,`n`] >>
+    Induct >> rw[trace_prefix_interp] >>
+    gvs[step_until_halt_def] >> every_case_tac >> gvs[]
+    >- (
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >> gvs[is_halt_def]
+      )
+    >- (pairarg_tac >> gvs[trace_prefix_def])
+    >- (
+      pairarg_tac >> gvs[] >>
+      rename1 `Effi _ conf ws lnum env' st' cs1'` >>
+      rename1 `_ conf ws = Oracle_return ffi_st' ws'` >>
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      once_rewrite_tac[RTC_CASES_RTC_TWICE] >> simp[PULL_EXISTS] >>
+      rw[Once RTC_CASES2] >> irule_at Any OR_INTRO_THM2 >>
+      simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
+      rw[Once e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+      goal_assum drule >> rw[e_step_reln_def] >>
+      drule_at Any step_result_rel_single_FFI_strong >>
+      simp[step_result_rel_cases, PULL_EXISTS] >>
+      disch_then drule >> simp[get_ffi_def] >>
+      disch_then $ qspec_then `ffi'` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi2),_,_` >>
+      gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+      last_x_assum drule >> disch_then drule >>
+      disch_then $ qspec_then `ffi2` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[] >> goal_assum drule >> gvs[]
+      )
+    >- (
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      rw[Once e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+      goal_assum drule >>
+      gvs[estep_to_Edone, ctxt_rel_def, is_halt_cml_def, get_ffi_def] >>
+      unabbrev_all_tac >> gvs[] >>
+      pairarg_tac >> gvs[is_halt_cml_def, ctxt_frame_rel_cases]
+      )
+    )
+  >- (
+    simp[e_step_reln_eq_step_n_cml, PULL_EXISTS, AND_IMP_INTRO] >> gen_tac >>
+    map_every qid_spec_tac
+      [`est2`,`ev`,`ffi`,`ffi'`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,`n`] >>
+    Induct >> rw[]
+    >- (
+      gvs[step_n_cml_def] >>
+      qexists_tac `SUC 0` >> once_rewrite_tac[trace_prefix_interp] >>
+      simp[step_until_halt_def] >>
+      `estep (env,st,ev,cs1) = Edone` by (
+        simp[estep_to_Edone] >>
+        Cases_on `ev` >> gvs[is_halt_cml_def] >>
+        Cases_on `cs2` >> gvs[is_halt_cml_def, ctxt_rel_def] >>
+        pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+        Cases_on `c2` >> gvs[is_halt_cml_def, ctxt_frame_rel_cases] >>
+        Cases_on `t` >> gvs[is_halt_cml_def]) >>
+      DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+      >- (qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >> simp[is_halt_def]) >>
+      Cases_on `x` >> gvs[step_n_def, is_halt_def, get_ffi_def]
+      ) >>
+    gvs[step_n_cml_def] >>
+    qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
+    rename1 `get_ffi (Estep final_est) = SOME final_ffi` >>
+    Cases_on `e_step (env,(st,ffi0),ev,cs2)` >> gvs[] >>
+    Cases_on `get_ffi (Estep p) = SOME ffi0`
+    >- (
+      qspecl_then [`env,(st,ffi0),ev,cs2`,`env,st,ev,cs1`]
+        assume_tac $ GEN_ALL step_result_rel_single' >>
+      gvs[get_ffi_def, step_result_rel_cases] >>
+      last_x_assum drule >>
+      disch_then $ qspecl_then
+        [`io`,`env'`,`st'`,`ffi_st`,`oracle`,`final_ffi`,`ffi`,`ev'`] mp_tac >>
+      simp[] >> strip_tac >> rename1 `trace_prefix m _` >>
+      qexists_tac `m` >> pop_assum mp_tac >>
+      Cases_on `m` >> once_rewrite_tac[trace_prefix_interp] >> rw[] >>
+      DEP_ONCE_REWRITE_TAC[step_until_halt_take_step] >> simp[is_halt_def]
+      ) >>
+    PairCases_on `p` >> gvs[get_ffi_def] >>
+    rename1 `Estep (env',(st',ffi1),ev',cs2')` >>
+    drule e_step_ffi_changed >> simp[] >>
+    drule e_step_ffi_changed_estep_to_Effi >> simp[] >> disch_then drule >>
+    strip_tac >> strip_tac >> gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+    Q.REFINE_EXISTS_TAC `SUC m` >> once_rewrite_tac[trace_prefix_interp] >>
+    simp[step_until_halt_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+    >- (
+      qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >>
+      simp[estep_def, SF itree_ss, is_halt_def]
+      ) >>
+    Cases_on `x` >> gvs[step_n_def, is_halt_def] >>
+    unabbrev_all_tac >> gvs[ctxt_frame_rel_cases] >>
+    last_x_assum drule >>
+    qmatch_asmsub_abbrev_tac `step_n_cml n (Estep (_,(st',_),vv,_))` >>
+    qmatch_asmsub_abbrev_tac `_ ++ [new_event]` >>
+    disch_then $ qspecl_then
+      [`TL io`,`env'`,`st'`,`ffi1.ffi_state`,
+       `ffi1.oracle`,`final_ffi`,`ffi1`,`vv`,`final_est`] mp_tac >>
+    simp[] >> reverse $ impl_keep_tac >> gvs[] >> rw[]
+    >- (qexists_tac `n'` >> simp[])
+    >- (
+      qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+      rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+      rw[ffi_state_component_equality]
+      ) >>
+    imp_res_tac io_events_mono_e_step >>
+    imp_res_tac io_events_mono_step_n_cml >> gvs[io_events_mono_def] >>
+    PairCases_on `final_est` >> gvs[get_ffi_def] >>
+    Cases_on `io` >> gvs[]
+    )
+QED
+
+Theorem trace_prefix_FinalFFI:
+  ctxt_rel cs1 cs2 ⇒
+  ((∃n. trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,ev,cs1))) = (io, SOME $ FinalFFI (s,conf,ws) outcome)) ⇔
+  ∃final_est final_ffi.
+    RTC e_step_reln
+      (env, (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>), ev, cs2)
+      final_est ∧
+    get_ffi (Estep final_est) = SOME final_ffi ∧
+    final_ffi.io_events = ffi.io_events ++ io ∧
+    e_step final_est = Eabort (Rffi_error $ Final_event s conf ws outcome))
+Proof
+  rw[] >> eq_tac >> rw[] >> rpt $ pop_assum mp_tac
+  >- (
+    map_every qid_spec_tac
+      [`ev`,`ffi`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,
+       `s`,`conf`,`ws`,`outcome`,`n`] >>
+    Induct >> rw[trace_prefix_interp] >>
+    gvs[step_until_halt_def] >> every_case_tac >> gvs[]
+    >- (pairarg_tac >> gvs[trace_prefix_def])
+    >- (
+      rename1 `Effi _ conf ws lnum env' st' cs1'` >>
+      rename1 `_ conf ws = Oracle_return ffi_st' ws'` >>
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      rw[e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+      goal_assum drule >>
+      drule_at Any step_result_rel_single_FFI_strong >>
+      simp[step_result_rel_cases, PULL_EXISTS] >>
+      disch_then drule >> simp[get_ffi_def] >>
+      disch_then $ qspec_then `ffi'` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[]
+      )
+    >- (
+      pairarg_tac >> gvs[] >>
+      rename1 `Effi s1 conf1 ws1 lnum env' st' cs1'` >>
+      rename1 `_ conf1 ws1 = Oracle_return ffi_st' ws'` >>
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      drule_at Any step_result_rel_single_FFI_strong >>
+      simp[step_result_rel_cases, PULL_EXISTS] >>
+      disch_then drule >> simp[get_ffi_def] >>
+      disch_then $ qspec_then `ffi'` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[] >>
+      gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+      pairarg_tac >> gvs[] >>
+      last_x_assum drule >>
+      disch_then drule >>
+      qmatch_asmsub_abbrev_tac `Estep (_,(_,ffi1),_,_)` >>
+      disch_then $ qspec_then `ffi1` mp_tac >>
+      strip_tac >> gvs[] >>
+      rpt $ goal_assum $ drule_at Any >>
+      gvs[e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+      qexists_tac `SUC n' + l` >> simp[step_n_cml_add] >> simp[step_n_cml_def] >>
+      unabbrev_all_tac >> gvs[]
+      )
+    >- (
+      rename1 `Effi s1 conf1 ws1 lnum env' st' cs1'` >>
+      rename1 `_ conf1 ws1 = Oracle_final final_event` >>
+      qpat_x_assum `(some n. _ ) = _` mp_tac >>
+      DEEP_INTRO_TAC some_intro >> rw[] >>
+      drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+      qpat_x_assum `step_n x _ = _` kall_tac >>
+      qpat_x_assum `_ ≤ x` kall_tac >>
+      `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+      pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+      Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+      qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+        mp_tac step_result_rel_n >>
+      simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+      strip_tac >> gvs[get_ffi_def] >>
+      qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+      drule_at Any step_result_rel_single_FFI_strong >>
+      simp[step_result_rel_cases, PULL_EXISTS] >>
+      disch_then drule >> simp[get_ffi_def] >>
+      disch_then $ qspec_then `ffi'` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[] >>
+      gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+      pairarg_tac >> gvs[] >>
+      goal_assum $ drule_at Any >> simp[get_ffi_def] >>
+      rw[e_step_reln_eq_step_n_cml] >>
+      qexists_tac `l` >> simp[step_n_cml_def]
+      )
+    )
+  >- (
+    simp[e_step_reln_eq_step_n_cml, PULL_EXISTS, AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
+    gen_tac >>
+    map_every qid_spec_tac
+      [`final_est`,`ev`,`ffi`,`final_ffi`,`oracle`,`ffi_st`,`st`,`env`,
+       `io`,`cs2`,`cs1`,`s`,`conf`,`ws`,`outcome`,`n`] >>
+    Induct >> rw[]
+    >- (
+      gvs[step_n_cml_def, get_ffi_def] >>
+      qexists_tac `SUC $ SUC 0` >> once_rewrite_tac[trace_prefix_interp] >>
+      simp[step_until_halt_def] >>
+      DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+      >- (
+        drule_at Any step_result_rel_single_FFI_error >>
+        simp[step_result_rel_cases, PULL_EXISTS] >> disch_then drule >> rw[] >>
+        qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >> simp[is_halt_def]
+        ) >>
+      drule_at Any step_result_rel_single_FFI_error >>
+      simp[step_result_rel_cases, PULL_EXISTS] >> disch_then drule >> rw[] >>
+      Cases_on `x` >> gvs[step_n_def, is_halt_def, get_ffi_def] >>
+      drule_at Any step_result_rel_single_FFI_strong >>
+      simp[step_result_rel_cases, PULL_EXISTS] >> disch_then drule >>
+      qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
+      disch_then $ qspec_then `ffi0` mp_tac >> simp[get_ffi_def] >>
+      unabbrev_all_tac >> gvs[] >> rw[] >>
+      pop_assum $ assume_tac o GSYM >>
+      (* TODO odd looping behaviour here without this irritating case split *)
+      Cases_on `oracle s ffi_st (MAP (λc. n2w (ORD c)) (EXPLODE conf')) ws`
+      >- (gvs[] >> IF_CASES_TAC >> gvs[])
+      >- (simp[] >> gvs[])
+      ) >>
+    gvs[step_n_cml_def] >>
+    qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
+    Cases_on `e_step (env,(st,ffi0),ev,cs2)` >> gvs[] >>
+    Cases_on `get_ffi (Estep p) = SOME ffi0`
+    >- (
+      qspecl_then [`env,(st,ffi0),ev,cs2`,`env,st,ev,cs1`]
+        assume_tac $ GEN_ALL step_result_rel_single' >>
+      gvs[get_ffi_def, step_result_rel_cases] >>
+      last_x_assum drule >>
+      disch_then $ qspecl_then
+        [`outcome`,`ws`,`conf`,`s`,`io`, `env'`,`st'`,
+         `ffi_st`,`oracle`,`final_ffi`,`ffi`,`ev'`,`final_est`] mp_tac >>
+      simp[] >> strip_tac >> rename1 `trace_prefix m _` >>
+      qexists_tac `m` >> pop_assum mp_tac >>
+      Cases_on `m` >> once_rewrite_tac[trace_prefix_interp] >> rw[] >>
+      DEP_ONCE_REWRITE_TAC[step_until_halt_take_step] >> simp[is_halt_def]
+      ) >>
+    PairCases_on `p` >> gvs[get_ffi_def] >>
+    rename1 `Estep (env',(st',ffi1),ev',cs2')` >>
+    drule e_step_ffi_changed >> simp[] >>
+    drule e_step_ffi_changed_estep_to_Effi >> simp[] >> disch_then drule >>
+    strip_tac >> strip_tac >> gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+    Q.REFINE_EXISTS_TAC `SUC m` >> once_rewrite_tac[trace_prefix_interp] >>
+    simp[step_until_halt_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+    >- (
+      qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >>
+      simp[estep_def, SF itree_ss, is_halt_def]
+      ) >>
+    Cases_on `x` >> gvs[step_n_def, is_halt_def] >>
+    unabbrev_all_tac >> gvs[ctxt_frame_rel_cases] >>
+    last_x_assum drule >>
+    qmatch_asmsub_abbrev_tac `step_n_cml n (Estep (_,(st',_),vv,_))` >>
+    qmatch_asmsub_abbrev_tac `_ ++ [new_event]` >>
+    disch_then $ qspecl_then
+      [`outcome`,`ws`,`conf`,`s`,`TL io`,`env'`,`st'`,`ffi1.ffi_state`,
+       `ffi1.oracle`,`final_ffi`,`ffi1`,`vv`,`final_est`] mp_tac >>
+    simp[] >> reverse $ impl_keep_tac >> gvs[] >> rw[]
+    >- (qexists_tac `n'` >> simp[])
+    >- (
+      qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+      rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+      rw[ffi_state_component_equality]
+      ) >>
+    imp_res_tac io_events_mono_e_step >>
+    imp_res_tac io_events_mono_step_n_cml >> gvs[io_events_mono_def] >>
+    PairCases_on `final_est` >> gvs[get_ffi_def] >>
+    Cases_on `io` >> gvs[]
+    )
+QED
+
+Theorem trace_prefix_SilentDivergence_LR:
+  ctxt_rel cs1 cs2 ∧
+  trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,ev,cs1))) = (io, SOME SilentDivergence) ⇒
+  ∃final_est final_ffi.
+    RTC e_step_reln
+      (env, (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>), ev, cs2)
+      final_est ∧
+    ¬ is_halt_cml (Estep final_est) ∧
+    get_ffi (Estep final_est) = SOME final_ffi ∧
+    final_ffi.io_events = ffi.io_events ++ io
+Proof
+  map_every qid_spec_tac
+    [`ev`,`ffi`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,`n`] >>
+  Induct >> rw[trace_prefix_interp] >>
+  gvs[step_until_halt_def] >> every_case_tac >> gvs[]
+  >- (
+    qpat_x_assum `(some n. _ ) = _` mp_tac >>
+    DEEP_INTRO_TAC some_intro >> rw[] >> gvs[is_halt_def] >>
+    pop_assum $ qspec_then `SUC 0` mp_tac >> rewrite_tac[step_n_def] >>
+    rw[Once RTC_CASES1, PULL_EXISTS] >>
+    irule_at Any OR_INTRO_THM1 >> simp[get_ffi_def] >>
+    CCONTR_TAC >> gvs[] >>
+    Cases_on `ev` >> gvs[is_halt_cml_def] >>
+    Cases_on `cs2` >> gvs[is_halt_cml_def, ctxt_rel_def]
+    >- (gvs[SF itree_ss, is_halt_def]) >>
+    PairCases_on `h` >> Cases_on `h0` >> gvs[is_halt_cml_def] >>
+    pairarg_tac >> gvs[ctxt_frame_rel_cases] >>
+    Cases_on `t` >> gvs[is_halt_cml_def] >>
+    gvs[SF itree_ss, is_halt_def]
+    )
+  >- (pairarg_tac >> gvs[trace_prefix_def])
+  >- (
+    pairarg_tac >> gvs[] >>
+    rename1 `Effi _ conf ws lnum env' st' cs1'` >>
+    rename1 `_ conf ws = Oracle_return ffi_st' ws'` >>
+    qpat_x_assum `(some n. _ ) = _` mp_tac >>
+    DEEP_INTRO_TAC some_intro >> rw[] >>
+    drule is_halt_step_n_min >> strip_tac >> gvs[] >>
+    qpat_x_assum `step_n x _ = _` kall_tac >>
+    qpat_x_assum `_ ≤ x` kall_tac >>
+    `∃l. m = SUC l` by (Cases_on `m` >> gvs[step_n_def]) >> gvs[] >>
+    pop_assum $ qspec_then `l` assume_tac >> gvs[] >>
+    Cases_on `step_n l (Estep (env,st,ev,cs1))` >> gvs[is_halt_def] >>
+    qmatch_goalsub_abbrev_tac `_,(_,ffi0),_,_` >>
+    qspecl_then [`l`,`Estep (env,st,ev,cs1)`,`Estep (env,(st,ffi0),ev,cs2)`]
+      mp_tac step_result_rel_n >>
+    simp[step_result_rel_cases, is_Effi_def, get_ffi_def] >>
+    strip_tac >> gvs[get_ffi_def] >>
+    qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
+    once_rewrite_tac[RTC_CASES_RTC_TWICE] >> simp[PULL_EXISTS] >>
+    rw[Once RTC_CASES2] >> irule_at Any OR_INTRO_THM2 >>
+    simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
+    rw[Once e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+    goal_assum drule >> rw[e_step_reln_def] >>
+    drule_at Any step_result_rel_single_FFI_strong >>
+    simp[step_result_rel_cases, PULL_EXISTS] >>
+    disch_then drule >> simp[get_ffi_def] >>
+    disch_then $ qspec_then `ffi'` assume_tac >> gvs[] >>
+    unabbrev_all_tac >> gvs[] >>
+    qmatch_goalsub_abbrev_tac `_,(_,ffi2),_,_` >>
+    gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+    last_x_assum drule >> disch_then drule >>
+    disch_then $ qspec_then `ffi2` assume_tac >> gvs[] >>
+    unabbrev_all_tac >> gvs[] >> goal_assum drule >> gvs[]
+    )
+QED
+
+Theorem trace_prefix_divergence_RL:
+  ffi0 = ffi with <| oracle := oracle; ffi_state := ffi_st |> ⇒
+  ctxt_rel cs1 cs2 ∧
+  (∀est1. RTC e_step_reln (env,(st,ffi0),ev,cs2) est1
+    ⇒ ∃est2. e_step_reln est1 est2) ∧
+  RTC e_step_reln (env,(st,ffi0),ev,cs2) final_est ∧
+  get_ffi (Estep final_est) = SOME final_ffi ∧
+  final_ffi.io_events = ffi0.io_events ++ io ⇒
+  ∃n res.
+    trace_prefix n (oracle, ffi_st)
+      (interp (Estep (env,st,ev,cs1))) = (io, res) ∧
+    (res = NONE ∨ res = SOME SilentDivergence)
+Proof
+  strip_tac >> csimp[e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+  gen_tac >> pop_assum kall_tac >>
+  map_every qid_spec_tac
+    [`ev`,`ffi`,`oracle`,`ffi_st`,`st`,`env`,`io`,`cs2`,`cs1`,
+     `final_est`,`final_ffi`,`n`] >>
+  Induct >> rw[step_n_cml_def]
+  >- (gvs[get_ffi_def] >> qexists_tac `0` >> simp[trace_prefix_interp]) >>
+  qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
+  Cases_on `e_step (env,(st,ffi0),ev,cs2)` >> gvs[] >>
+  Cases_on `get_ffi (Estep p) = SOME ffi0`
+  >- (
+    qspecl_then [`env,(st,ffi0),ev,cs2`,`env,st,ev,cs1`]
+      assume_tac $ GEN_ALL step_result_rel_single' >>
+    gvs[get_ffi_def, step_result_rel_cases] >>
+    last_x_assum drule >>
+    disch_then $ qspecl_then
+      [`final_ffi`,`final_est`,`io`,`env'`,
+       `st'`,`ffi_st`,`oracle`,`ffi`,`ev'`] mp_tac >>
+    simp[] >> impl_tac >> rw[]
+    >- (last_x_assum irule >> qexists_tac `SUC n'` >> simp[step_n_cml_def]) >>
+    rename1 `trace_prefix m _` >> qexists_tac `m` >> pop_assum mp_tac >>
+    Cases_on `m` >> once_rewrite_tac[trace_prefix_interp] >> rw[] >>
+    DEP_ONCE_REWRITE_TAC[step_until_halt_take_step] >> simp[is_halt_def]
+    ) >>
+  PairCases_on `p` >> gvs[get_ffi_def] >>
+  rename1 `Estep (env',(st',ffi1),ev',cs2')` >>
+  drule e_step_ffi_changed >> simp[] >>
+  drule e_step_ffi_changed_estep_to_Effi >> simp[] >> disch_then drule >>
+  strip_tac >> strip_tac >> gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+  Q.REFINE_EXISTS_TAC `SUC m` >> once_rewrite_tac[trace_prefix_interp] >>
+  simp[step_until_halt_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+  >- (
+    pop_assum $ qspec_then `SUC 0` mp_tac >> rewrite_tac[step_n_def] >>
+    simp[SF itree_ss, is_halt_def]
+    ) >>
+  Cases_on `x` >> gvs[step_n_def, is_halt_def] >>
+  unabbrev_all_tac >> gvs[ctxt_frame_rel_cases] >>
+  last_x_assum drule >>
+  qmatch_asmsub_abbrev_tac `step_n_cml n (Estep (_,(st',_),vv,_))` >>
+  qmatch_asmsub_abbrev_tac `_ ++ [new_event]` >>
+
+  disch_then $ qspecl_then
+    [`final_ffi`,`final_est`,`TL io`,`env'`,`st'`,`ffi1.ffi_state`,
+     `ffi1.oracle`,`ffi1`,`vv`] mp_tac >>
+  simp[] >> reverse $ impl_keep_tac >> gvs[] >> rw[]
+  >- (qexists_tac `n'` >> simp[])
+  >- (qexists_tac `n'` >> simp[])
+  >- (
+    last_x_assum irule >> qexists_tac `SUC n'` >> simp[step_n_cml_def] >>
+    pop_assum $ SUBST_ALL_TAC o GSYM >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> rw[ffi_state_component_equality]
+    )
+  >- (
+    qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+    rw[ffi_state_component_equality]
+    ) >>
+  imp_res_tac io_events_mono_e_step >>
+  imp_res_tac io_events_mono_step_n_cml >> gvs[io_events_mono_def] >>
+  PairCases_on `final_est` >> gvs[get_ffi_def] >>
+  Cases_on `io` >> gvs[]
+QED
+
+
+(******************** Collected results ********************)
+
+Theorem small_eval_trace_prefix_termination:
+  (small_eval env (st,ffi) e [] ((st',ffi'), Rval v) ∨
+   small_eval env (st,ffi) e [] ((st',ffi'), Rerr (Rraise v)))
+  ⇒ ∃n io.
+      trace_prefix n (ffi.oracle, ffi.ffi_state)
+        (interp (Estep (env,st,Exp e,[]))) = (io, SOME Termination) ∧
+      ffi'.io_events = ffi.io_events ++ io
+Proof
+  rpt strip_tac >>
+  `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule $ iffRL trace_prefix_Termination >>
+  gvs[small_eval_def, e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+  imp_res_tac io_events_mono_step_n_cml >>
+  gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
+  disch_then $ qspecl_then
+    [`st`,`ffi.oracle`,`l`,`ffi.ffi_state`,`ffi`,`Exp e`,`env`] mp_tac
+  >- (
+    disch_then $ qspec_then `(env',(st',ffi'),Val v,[])` mp_tac >> simp[get_ffi_def] >>
+    disch_then irule >> simp[is_halt_cml_def] >>
+    qexists_tac `n` >>
+    qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+    simp[ffi_state_component_equality]
+    )
+  >- (
+    disch_then $ qspec_then `(env',(st',ffi'),Val v,[Craise (),env''])` mp_tac >>
+    simp[get_ffi_def] >>
+    disch_then irule >> simp[is_halt_cml_def] >>
+    qexists_tac `n` >>
+    qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+    simp[ffi_state_component_equality]
+    )
+QED
+
+Theorem small_eval_trace_prefix_type_error:
+  small_eval env (st,ffi) e [] ((st',ffi'), Rerr (Rabort Rtype_error))
+  ⇒ ∃n io.
+      trace_prefix n (ffi.oracle, ffi.ffi_state)
+        (interp (Estep (env,st,Exp e,[]))) = (io, SOME Error)
+Proof
+  rpt strip_tac >> irule $ iffRL trace_prefix_Error >> simp[PULL_EXISTS] >>
+  simp[ctxt_rel_def] >>
+  gvs[small_eval_def] >> goal_assum $ drule_at Any >>
+  qexists_tac `ffi` >> gvs[e_step_reln_eq_step_n_cml] >>
+  qexists_tac `n` >> pop_assum $ SUBST_ALL_TAC o GSYM >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[ffi_state_component_equality]
+QED
+
+Theorem small_eval_trace_prefix_ffi_error:
+  small_eval env (st,ffi) e []
+        ((st',ffi'), Rerr (Rabort $ Rffi_error $ Final_event s conf ws outcome))
+  ⇒ ∃n io.
+      trace_prefix n (ffi.oracle, ffi.ffi_state)
+        (interp (Estep (env,st,Exp e,[]))) = (io, SOME $ FinalFFI (s,conf,ws) outcome) ∧
+      ffi'.io_events = ffi.io_events ++ io
+Proof
+  rpt strip_tac >> `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule $ iffRL trace_prefix_FinalFFI >>
+  gvs[small_eval_def, e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+  imp_res_tac io_events_mono_step_n_cml >>
+  gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
+  disch_then $ qspecl_then
+    [`ws`,`st`,`s`,`outcome`,`ffi.oracle`,`l`,`ffi.ffi_state`,`ffi`,
+     `Exp e`,`env`,`conf`,`(env',(st',ffi'),e',c')`,`ffi'`,`n`] mp_tac >>
+  simp[get_ffi_def] >> disch_then irule >>
+  qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[ffi_state_component_equality]
+QED
+
+Theorem e_diverges_trace_prefix:
+  e_diverges env (st,ffi) e ∧
+  RTC e_step_reln (env,(st,ffi),Exp e,[]) (env',(st',ffi'),e',c')
+  ⇒ ∃n io res.
+      trace_prefix n (ffi.oracle, ffi.ffi_state)
+        (interp (Estep (env,st,Exp e,[]))) = (io, res) ∧
+      ffi'.io_events = ffi.io_events ++ io ∧
+      (res = NONE ∨ res = SOME SilentDivergence)
+Proof
+  rpt strip_tac >> `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule_at Any trace_prefix_divergence_RL >> simp[] >>
+  gvs[e_diverges_def, small_eval_def, e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+  imp_res_tac io_events_mono_step_n_cml >>
+  gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
+  disch_then $ qspecl_then
+    [`st`,`ffi.oracle`,`l`,`ffi'`,`(env',(st',ffi'),e',c')`,
+     `ffi.ffi_state`,`ffi`,`Exp e`,`env`,`n`] mp_tac >>
+  disch_then irule >> simp[get_ffi_def] >>
+  qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >> reverse $ rw[]
+  >- (rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>  simp[ffi_state_component_equality])
+  >- (
+    PairCases_on `est1` >> rename1 `_ = Estep (a,(b,c),d,f)` >>
+    last_x_assum $ qspecl_then [`a`,`(b,c)`,`d`,`f`,`n`] mp_tac >>
+    reverse impl_tac >> rw[] >- goal_assum drule >>
+    qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>  simp[ffi_state_component_equality]
+    )
+QED
+
+(* TODO lift infinite behaviour relation to lprefix_lub *)
+
+(****************************************)
 
 val _ = export_theory();
 

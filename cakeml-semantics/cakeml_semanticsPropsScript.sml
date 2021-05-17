@@ -113,13 +113,14 @@ val itree_ss = simpLib.named_rewrites "itree_ss" [
     ];
 
 Theorem step_n_same[simp]:
-  ∀n.
-    step_n n Edone = Edone ∧
-    step_n n Etype_error = Etype_error ∧
-    step_n n (Effi s ws1 ws2 n env st cs) = (Effi s ws1 ws2 n env st cs) ∧
-    step_n_cml n Estuck = Estuck ∧
-    step_n_cml n (Eabort a) = Eabort a
+  (∀n. step_n n Edone = Edone) ∧
+  (∀n. step_n n Etype_error = Etype_error) ∧
+  (∀n s conf ws lnum env st cs.
+    step_n n (Effi s conf ws lnum env st cs) = (Effi s conf ws lnum env st cs)) ∧
+  (∀n. step_n_cml n Estuck = Estuck) ∧
+  (∀n a. step_n_cml n (Eabort a) = Eabort a)
 Proof
+  rpt conj_tac >>
   Cases >> rw[step_n_def, step_n_cml_def]
 QED
 
