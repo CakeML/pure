@@ -166,22 +166,13 @@ Overload tshift = ``shift_db 0``;
 Overload tshift_scheme = ``λn (vars,scheme). (vars, shift_db vars n scheme)``;
 Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_scheme n scheme))``;
 
-(* Does a type specialise a type scheme in a given variable context? *)
-Definition specialises_def:
-  specialises db (vars, scheme) t =
-    ∃subs.
-      EVERY (freetyvars_ok db) subs ∧
-      LENGTH subs = vars ∧
-      tsubst subs scheme = t
-End
-
-Type typedef[pp] = ``:(string # num # type list) list``;
+Type typedef[pp] = ``:num # ((string # type list) list)``;
 Type typedefs[pp] = ``:typedef list``;
 Type exndef[pp] = ``:(string # type list) list``;
 (*
-  A type definition is a collection of constructor definitions.
-  Each of these is a name and a (closed) type scheme for its arguments
-  (``:num # type list``).
+  A type definition is an arity and a collection of constructor definitions.
+  Each constructor definition is a name and a type scheme for its arguments
+  (closed wrt the type definition arity).
 
   Like CakeML, use numbers to refer to types - known typedefs represented as
     : typedef list
@@ -191,45 +182,101 @@ Type exndef[pp] = ``:(string # type list) list``;
 
   E.g. the type definitions for Maybe and List might look like:
   [
-    [
-      ("Nothing", 0, []);
-      ("Just", 1, [Var 0])
-    ];
-    [
-      ("Nil", 0, []);
-      ("Cons", 1, [Var 0; TypeCons 1 [Var 0]]);
-    ]
+    (1, [ ("Nothing", []) ; ("Just", [Var 0]) ]);
+    (1, [ ("Nil", []) ; ("Cons", [Var 0; TypeCons 1 [Var 0]]) ])
   ]
 
   The exception definition is a list of constructors associated to (closed)
   argument types.
 *)
 
+(* Does a type only contain defined constructors? *)
+Definition type_constructors_ok_def:
+  type_constructors_ok (typedefs : typedefs) (TypeVar n) = T ∧
+  type_constructors_ok typedefs (PrimTy pty) = T ∧
+  type_constructors_ok typedefs  Exception = T ∧
+  type_constructors_ok typedefs (TypeCons id tyargs) = (
+    EVERY (type_constructors_ok typedefs) tyargs ∧
+    ∃arity constructors.
+      (* Type definition exists: *)
+        oEL id typedefs = SOME (arity, constructors) ∧
+      (* And has correct arity: *)
+        LENGTH tyargs = arity) ∧
+  type_constructors_ok typedefs (Tuple ts) =
+    EVERY (type_constructors_ok typedefs) ts ∧
+  type_constructors_ok typedefs (Function ts t) = (
+    type_constructors_ok typedefs t ∧
+    EVERY (type_constructors_ok typedefs) ts) ∧
+  type_constructors_ok typedefs (Array t) = type_constructors_ok typedefs t ∧
+  type_constructors_ok typedefs (M t) = type_constructors_ok typedefs t
+Termination
+  WF_REL_TAC `measure (type_size o SND)` >> rw[fetch "-" "type_size_def"] >>
+  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "type_size_def"] >> gvs[]
+End
+
+Definition type_ok_def:
+  type_ok typedefs db t ⇔
+    freetyvars_ok db t ∧
+    type_constructors_ok typedefs t
+End
+
+Theorem type_ok:
+  (∀tds v n. type_ok tds n (TypeVar v) ⇔ v < n) ∧
+  (∀tds p n. type_ok tds n (PrimTy p) ⇔ T) ∧
+  (∀tds n. type_ok tds n Exception ⇔ T) ∧
+  (∀tds ts n c.
+    type_ok tds n (TypeCons c ts) ⇔
+    EVERY (λa. type_ok tds n a) ts ∧
+    ∃ctors. oEL c tds = SOME (LENGTH ts, ctors)) ∧
+  (∀tds ts n. type_ok tds n (Tuple ts) ⇔ EVERY (λa. type_ok tds n a) ts) ∧
+  (∀tds ts t n.
+   type_ok tds n (Function ts t) ⇔
+   EVERY (λa. type_ok tds n a) ts ∧ type_ok tds n t) ∧
+  (∀tds t n. type_ok tds n (Array t) ⇔ type_ok tds n t) ∧
+  (∀tds t n. type_ok tds n (M t) ⇔ type_ok tds n t)
+Proof
+  rw[type_ok_def, type_constructors_ok_def, freetyvars_ok_def] >>
+  gvs[EVERY_CONJ] >> eq_tac >> gvs[]
+QED
+
+Overload type_scheme_ok =
+  ``λtdefs db (vars,scheme). type_ok tdefs (db + vars) scheme``
+
+(* Does a type specialise a type scheme in a given variable context/namespace? *)
+Definition specialises_def:
+  specialises tdefs db (vars, scheme) t =
+    ∃subs.
+      EVERY (type_ok tdefs db) subs ∧
+      LENGTH subs = vars ∧
+      tsubst subs scheme = t
+End
+
+
 (* Our namespace is an exception definition and some datatype definitions *)
 Definition namespace_ok_def:
   namespace_ok (exndef : exndef, typedefs : typedefs) ⇔
     (* No empty type definitions: *)
-      EVERY (λtd. td ≠ []) typedefs ∧
-    (* Unique constructor names: *)
-      ALL_DISTINCT (MAP FST exndef ++ MAP FST (FLAT typedefs)) ∧
-    (* Every data constructor type scheme is closed: *)
-      EVERY (λ(cn,vars,scheme). EVERY (freetyvars_ok vars) scheme) (FLAT typedefs) ∧
-    (* Every exception constructor type is closed: *)
-      EVERY (λ(cn,tys). EVERY (freetyvars_ok 0) tys) exndef ∧
-    (* Every constructor name is unreserved: *)
-      EVERY (λcn. ¬MEM cn data_reserved_cns)
-        (MAP FST exndef ++ MAP FST (FLAT typedefs))
-    (* TODO make sure every mentioned type actually exists (?) *)
+      EVERY (λ(ar,td). td ≠ []) typedefs ∧
+    (* Unique, unreserved constructor names: *)
+      ALL_DISTINCT (data_reserved_cns ++
+        MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
+    (* Every constructor type is closed wrt type arity and uses only defined types: *)
+      EVERY (λ(ar,td).
+        EVERY (λ(cn,argtys). EVERY (type_ok typedefs ar) argtys) td) typedefs ∧
+    (* Every exception constructor type is closed and uses only defined types: *)
+      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef
 End
 
 Definition type_cons_def:
   type_cons (typedefs : typedefs) (cname,carg_tys) (tyid,tyargs) ⇔
-    ∃typedef vars schemes.
-      oEL tyid typedefs = SOME typedef ∧ (* there is some type definition *)
-      ALOOKUP typedef cname = SOME (vars, schemes) ∧ (* which declares the constructor *)
-      (* and we can specialise its free tyvars appropriately *)
-      vars = LENGTH tyargs ∧
-      LIST_REL (λs t. tsubst tyargs s = t) schemes carg_tys
+    ∃arity constructors schemes.
+      (* There is some type definition: *)
+        oEL tyid typedefs = SOME (arity, constructors) ∧
+      (* Which declares the constructor: *)
+        ALOOKUP constructors cname = SOME schemes ∧
+      (* And we can specialise it appropriately: *)
+        LENGTH tyargs = arity ∧
+        LIST_REL (λs t. tsubst tyargs s = t) schemes carg_tys
 End
 
 Definition type_exception_def:
@@ -255,7 +302,7 @@ End
 *)
 Inductive type_cexp:
 [~Var:]
-  (ALOOKUP env x = SOME s ∧ specialises db s t ⇒
+  (ALOOKUP env x = SOME s ∧ specialises (SND ns) db s t ⇒
       type_cexp ns db st env (Var c x) t) ∧
 
 [~Tuple:]
@@ -273,7 +320,7 @@ Inductive type_cexp:
 
 [~Raise:]
   (type_cexp ns db st env e Exception ∧
-   freetyvars_ok db t ⇒
+   type_ok (SND ns) db t ⇒
       type_cexp ns db st env (Prim c (Cons "Raise") [e]) (M t)) ∧
 
 [~Handle:]
@@ -310,9 +357,15 @@ Inductive type_cexp:
    type_exception exndef (cname,carg_ts) ⇒
       type_cexp (exndef,typedefs) db st env (Prim c (Cons cname) es) Exception) ∧
 
+[~True:]
+  (type_cexp ns db st env (Prim c (Cons "True") []) (PrimTy Bool)) ∧
+
+[~False:]
+  (type_cexp ns db st env (Prim c (Cons "False") []) (PrimTy Bool)) ∧
+
 [~Cons:]
   (LIST_REL (type_cexp (exndef,typedefs) db st env) es carg_ts ∧
-   EVERY (freetyvars_ok db) tyargs ∧
+   EVERY (type_ok typedefs db) tyargs ∧
    type_cons typedefs (cname,carg_ts) (tyid,tyargs) ⇒
       type_cexp (exndef,typedefs) db st env
         (Prim c (Cons cname) es) (TypeCons tyid tyargs)) ∧
@@ -337,7 +390,7 @@ Inductive type_cexp:
       type_cexp ns db st env (App c e es) t) ∧
 
 [~Lam:]
-  (EVERY (freetyvars_ok db) arg_tys ∧
+  (EVERY (type_ok (SND ns) db) arg_tys ∧
    LENGTH arg_tys = LENGTH xs ∧
    type_cexp ns db st (ZIP (xs, MAP ($, 0) arg_tys) ++ env) e ret_ty
       ⇒ type_cexp ns db st env (Lam c xs e) (Function arg_tys ret_ty)) ∧
@@ -355,22 +408,23 @@ Inductive type_cexp:
         (tshift_env vars $ ZIP (MAP FST fns,schemes) ++ env)
         e scheme)
     fns schemes ∧
-   EVERY (freetyvars_ok_scheme db) schemes ∧
+   EVERY (type_scheme_ok (SND ns) db) schemes ∧
    type_cexp ns db st (ZIP (MAP FST fns, schemes) ++ env) e t ⇒
       type_cexp ns db st env (Letrec c fns e) t) ∧
 
 [~Case:]
   (type_cexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
-   oEL tyid typedefs = SOME typedef ∧
+   (* The type exists with correct arity: *)
+     oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
    (* Pattern match is exhaustive: *)
-      PERM (MAP FST typedef) (MAP FST css) ∧
+      PERM (MAP FST constructors) (MAP FST css) ∧
       (* TODO this forbids duplicated patterns - perhaps overkill? *)
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
-      ∃vars schemes ptys.
-        EVERY (freetyvars_ok db) ptys ∧
-        ALOOKUP typedef cname = SOME (vars, schemes) ∧
-        (* Type arities match (should be the case from typing e): *)
-          vars = LENGTH tyargs ∧
+      ∃schemes ptys.
+        EVERY (type_ok typedefs db) ptys ∧
+        ALOOKUP typedef cname = SOME schemes ∧
+        (* Type arities match (should hopefully be the case from typing e): *)
+          LENGTH tyargs = arity ∧
         (* Constructor arities match: *)
           LENGTH pvars = LENGTH schemes ∧
         (* Constructor argument types match: *)
@@ -433,21 +487,21 @@ Theorem type_cexp_freetyvars_ok:
   ⇒ freetyvars_ok db t
 Proof
   Induct_on `type_cexp` >> rpt conj_tac >>
-  rw[freetyvars_ok_def] >>
+  rw[type_ok_def, freetyvars_ok_def] >>
   gvs[LIST_REL_EL_EQN, IMP_CONJ_THM, FORALL_AND_THM]
   >- (
     PairCases_on `s` >> gvs[specialises_def] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, type_ok_def] >>
     first_x_assum drule >> strip_tac >> gvs[] >>
     irule freetyvars_ok_tsubst >> simp[EVERY_MEM]
     )
   >- gvs[EVERY_EL]
-  >- gvs[EVERY_EL]
+  >- gvs[EVERY_EL, type_ok_def]
   >- gvs[oEL_THM, EVERY_EL]
-  >- gvs[EVERY_EL]
+  >- gvs[EVERY_EL, type_ok_def]
   >- (
     first_x_assum irule >>
-    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL]
+    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL, type_ok_def]
     )
   >- (
     ntac 2 $ first_x_assum irule >> gvs[EVERY_MEM, FORALL_PROD] >>
@@ -467,11 +521,87 @@ Proof
     last_x_assum kall_tac >> last_x_assum drule >> simp[]
     )
   >- (
-    gvs[EVERY_MEM, oEL_THM, namespace_ok_def] >>
-    Cases_on `css` >> gvs[] >- gvs[MEM_EL] >>
+    gvs[EVERY_MEM, oEL_THM, namespace_ok_def, type_ok_def] >>
+    Cases_on `css` >> gvs[] >- gvs[MEM_EL, FORALL_PROD] >>
     last_x_assum $ qspec_then `h` assume_tac >> gvs[] >>
     pairarg_tac >> gvs[] >>
     qpat_x_assum `_ ⇒ freetyvars_ok db t` irule >>
+    simp[MEM_ZIP, EL_MAP, PULL_EXISTS] >>
+    gvs[MEM_EL, PULL_EXISTS]
+    )
+QED
+
+Theorem type_constructors_ok_subst_db:
+  ∀skip ts t tdefs.
+    type_constructors_ok tdefs t ∧
+    EVERY (type_constructors_ok tdefs) ts
+  ⇒ type_constructors_ok tdefs (subst_db skip ts t)
+Proof
+  recInduct subst_db_ind >> rw[subst_db_def, type_constructors_ok_def] >>
+  gvs[EVERY_MAP, EVERY_MEM] >> gvs[MEM_EL, PULL_EXISTS]
+QED
+
+Theorem type_constructors_ok_shift_db:
+  ∀skip shift t tdefs.
+    type_constructors_ok tdefs t
+  ⇒ type_constructors_ok tdefs (shift_db skip shift t)
+Proof
+  recInduct shift_db_ind >> rw[shift_db_def, type_constructors_ok_def] >>
+  gvs[EVERY_MAP, EVERY_MEM]
+QED
+
+Theorem type_cexp_type_ok:
+  ∀ ns db st env e t.
+    EVERY (type_ok (SND ns) db) st ∧
+    EVERY (λ(v,scheme). type_scheme_ok (SND ns) db scheme) env ∧
+    namespace_ok ns ∧
+    type_cexp ns db st env e t
+  ⇒ type_ok (SND ns) db t
+Proof
+  Induct_on `type_cexp` >> rpt conj_tac >> rw[type_ok] >>
+  gvs[LIST_REL_EL_EQN, IMP_CONJ_THM, FORALL_AND_THM]
+  >- (
+    PairCases_on `s` >> gvs[specialises_def] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, type_ok_def] >>
+    first_x_assum drule >> strip_tac >> gvs[] >>
+    irule_at Any freetyvars_ok_tsubst >> simp[EVERY_MEM] >>
+    irule_at Any type_constructors_ok_subst_db >> simp[EVERY_MEM]
+    )
+  >- gvs[EVERY_EL]
+  >- gvs[EVERY_EL, type_ok_def]
+  >- gvs[type_cons_def]
+  >- gvs[oEL_THM, EVERY_EL]
+  >- gvs[EVERY_EL, type_ok_def]
+  >- (
+    first_x_assum irule >>
+    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL, type_ok_def]
+    )
+  >- (
+    ntac 2 $ first_x_assum irule >> gvs[EVERY_MEM, FORALL_PROD] >>
+    rw[] >> gvs[MEM_MAP, EXISTS_PROD] >>
+    first_x_assum drule >> rw[]
+    >- (
+      gvs[type_ok_def] >>
+      drule freetyvars_ok_shift_db >> rename1 `MEM (a,b,c) _` >>
+      disch_then $ qspecl_then [`b`,`new`] assume_tac >> gvs[] >>
+      irule type_constructors_ok_shift_db >> simp[]
+      )
+    >- (
+      gvs[type_ok_def] >>
+      drule freetyvars_ok_mono >> disch_then irule >> simp[]
+      )
+    )
+  >- (
+    first_x_assum irule >>
+    rw[EVERY_EL, EL_ZIP, EL_MAP] >> pairarg_tac >> gvs[EVERY_EL] >>
+    last_x_assum kall_tac >> last_x_assum drule >> simp[]
+    )
+  >- (
+    gvs[EVERY_MEM, oEL_THM, namespace_ok_def] >>
+    Cases_on `css` >> gvs[] >- gvs[MEM_EL, FORALL_PROD] >>
+    last_x_assum $ qspec_then `h` assume_tac >> gvs[] >>
+    pairarg_tac >> gvs[] >>
+    qpat_x_assum `_ ⇒ type_ok typedefs db t` irule >>
     simp[MEM_ZIP, EL_MAP, PULL_EXISTS] >>
     gvs[MEM_EL, PULL_EXISTS]
     )
