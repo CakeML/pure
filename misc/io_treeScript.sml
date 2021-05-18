@@ -7,13 +7,15 @@
   program's observable I/O behaviour and also model of the I/O
   behaviour of the external world.
 
-  Our version of the type for interaction trees, io, has the
-  following constructors.  Here Ret ends an interaction tree with a
-  return value; Vis is a visible event that returns a value that the
-  rest of the interaction tree can depend on.
+  Our version of the type for interaction trees, io, has the following
+  constructors.  Here Ret ends an interaction tree with a return
+  value; Div is internal silent divergence (an infinite run of Taus);
+  Vis is a visible event that returns a value that the rest of the
+  interaction tree can depend on.
 
     ('a,'e,'r) io  =
        Ret 'r                        --  termination with result 'r
+    |  Div                           --  end in silent divergence
     |  Vis 'e ('a -> ('a,'e,'r) io)  --  visible event 'e with answer 'a,
                                          then continue based on answer
 
@@ -23,10 +25,9 @@
 
   We omit Tau since it makes reasoning about intereaction trees
   messy. It causes a mess because one then has to deal with equality
-  up to deletion of finite runs of Tau actions, ugh.
+  up to deletion of finite runs of Tau actions, ugh. We model an
+  infinite run of Taus using Div.
 
-  Note that we can still model by infinite internal actions (silent
-  divergence) by having a special type of 'r dedicated to that.
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory llistTheory alistTheory optionTheory;
@@ -38,7 +39,7 @@ val _ = new_theory "io_tree";
 (* make type definition *)
 
 Datatype:
-  io_el = Event 'e | Return 'r
+  io_el = Event 'e | Return 'r | Stuck
 End
 
 Type io_rep[local] = ``:'a list -> ('e,'r) io_el``;
@@ -48,7 +49,7 @@ Definition path_ok_def:
   path_ok path ^f <=>
     !xs y ys.
       path = xs ++ y::ys ==>
-      ∀z. f xs ≠ Return z  (* a path cannot continue past a Return *)
+      f xs ≠ Stuck ∧ ∀z. f xs ≠ Return z (* a path cannot continue past a Stuck/Return *)
 End
 
 Definition io_rep_ok_def:
@@ -103,6 +104,11 @@ Definition Ret_rep_def:
     \path. if path = [] then Return x else Return ARB
 End
 
+Definition Div_rep_def:
+  Div_rep =
+    \path. if path = [] then Stuck else Return ARB
+End
+
 Definition Vis_rep_def:
   Vis_rep e g =
     \path. case path of
@@ -114,19 +120,30 @@ Definition Ret_def:
   Ret x = io_abs (Ret_rep x)
 End
 
+Definition Div_def:
+  Div = io_abs Div_rep
+End
+
 Definition Vis_def:
   Vis e g = io_abs (Vis_rep e (io_rep o g))
 End
 
 Theorem io_rep_ok_Ret[local]:
-  !x. io_rep_ok (Ret_rep x : ('a,'e,'r) io_rep)
+  !x. io_rep_ok (Ret_rep x : ('a,'b,'c) io_rep)
 Proof
   fs [io_rep_ok_def,Ret_rep_def]
   \\ rw [] \\ fs [path_ok_def]
 QED
 
+Theorem io_rep_ok_Div[local]:
+  io_rep_ok (Div_rep : ('a,'b,'c) io_rep)
+Proof
+  fs [io_rep_ok_def,Div_rep_def]
+  \\ rw [] \\ fs [path_ok_def]
+QED
+
 Theorem io_rep_ok_Vis[local]:
-  !a g. (!a. io_rep_ok (g a)) ==> io_rep_ok (Vis_rep e g)
+  !a g. (!a. io_rep_ok (g a)) ==> io_rep_ok (Vis_rep e g  : ('a,'b,'c) io_rep)
 Proof
   fs [io_rep_ok_def,Vis_rep_def]
   \\ rw [] \\ CCONTR_TAC \\ fs [AllCaseEqs()]
@@ -187,32 +204,41 @@ Theorem io_11 = LIST_CONJ [Ret_11, Vis_11];
 
 (* distinctness theorem *)
 
-Theorem io_distinct:
-  !x e g. Ret x ≠ Vis e g
+Theorem io_all_distinct[local]:
+  !x e g. ALL_DISTINCT [Ret x; Div; Vis e g :('a,'b,'c) io]
 Proof
-  rw [Ret_def,Vis_def]
-  \\ qpat_abbrev_tac `xx = Ret_rep x`
-  \\ `io_rep_ok xx` by fs [Abbr`xx`,io_rep_ok_Ret]
-  \\ fs [Abbr`xx`]
+  rw [Ret_def,Div_def,Vis_def]
+  \\ assume_tac io_rep_ok_Div
   \\ qspec_then `x` assume_tac io_rep_ok_Ret
   \\ qspec_then `t` assume_tac io_rep_ok_io_rep
   \\ qspecl_then [`e`,`io_rep o g`] mp_tac io_rep_ok_Vis
   \\ impl_tac THEN1 fs []
   \\ rw [] \\ simp [io_abs_11]
   \\ rw [] \\ fs [FUN_EQ_THM]
-  \\ qexists_tac `[]` \\ fs [Ret_rep_def,Vis_rep_def]
+  \\ qexists_tac `[]` \\ fs [Ret_rep_def,Div_rep_def,Vis_rep_def]
 QED
+
+Theorem io_distinct = io_all_distinct
+  |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
 
 (* prove cases theorem *)
 
 Theorem rep_exists[local]:
-  io_rep_ok f ==>
-    (?x. f = Ret_rep x) \/
-    ?a g. f = Vis_rep a g /\ !v. io_rep_ok (g v)
+  io_rep_ok f ⇒
+    (∃x. f = Ret_rep x) ∨
+    (f = Div_rep) ∨
+    ∃a g. f = Vis_rep a g ∧ ∀v. io_rep_ok (g v)
 Proof
   fs [io_rep_ok_def] \\ rw []
   \\ reverse (Cases_on `f []`)
+  THEN1
+   (disj2_tac \\ disj1_tac
+    \\ fs [FUN_EQ_THM]
+    \\ Cases \\ fs [Div_rep_def]
+    \\ first_x_assum match_mp_tac
+    \\ fs [path_ok_def]
+    \\ qexists_tac `[]` \\ fs [])
   THEN1
    (disj1_tac
     \\ qexists_tac ‘r’ \\ fs []
@@ -232,9 +258,9 @@ Proof
 QED
 
 Theorem io_cases:
-  !t. (?x. t = Ret x) \/ (?a g. t = Vis a g)
+  ∀t. (∃x. t = Ret x) ∨ (t = Div) ∨ (∃a g. t = Vis a g)
 Proof
-  fs [GSYM io_rep_11,Ret_def,Vis_def] \\ gen_tac
+  fs [GSYM io_rep_11,Ret_def,Div_def,Vis_def] \\ gen_tac
   \\ qabbrev_tac `f = io_rep t`
   \\ `io_rep_ok f` by fs [Abbr`f`]
   \\ drule rep_exists \\ strip_tac \\ fs [] \\ rw []
@@ -252,22 +278,28 @@ QED
 (* io_CASE constant *)
 
 Definition io_CASE[nocompute]:
-  io_CASE (t:('a,'e,'r) io) ret vis =
+  io_CASE (t:('a,'e,'r) io) ret div vis =
     case io_rep t [] of
     | Return r => ret r
-    | Event e => vis e (\a. (io_abs (\path. io_rep t (a::path))))
+    | Stuck    => div
+    | Event e  => vis e (\a. (io_abs (\path. io_rep t (a::path))))
 End
 
 Theorem io_CASE[compute]:
-  io_CASE (Ret r) ret vis = ret r /\
-  io_CASE (Vis a g) ret vis = vis a g
+  io_CASE (Ret r)   ret div vis = ret r ∧
+  io_CASE Div       ret div vis = div ∧
+  io_CASE (Vis a g) ret div vis = vis a g
 Proof
-  rw [io_CASE,Ret_def,Vis_def]
+  rw [io_CASE,Ret_def,Div_def,Vis_def]
   \\ qmatch_goalsub_abbrev_tac `io_rep (io_abs xx)`
   THEN1
    (`io_rep_ok xx` by fs [Abbr`xx`,io_rep_ok_Ret]
     \\ fs [io_repabs] \\ unabbrev_all_tac
     \\ fs [Ret_rep_def])
+  THEN1
+   (`io_rep_ok xx` by fs [Abbr`xx`,io_rep_ok_Div]
+    \\ fs [io_repabs] \\ unabbrev_all_tac
+    \\ fs [Div_rep_def])
   THEN1
    (`io_rep_ok xx` by
       (fs [Abbr`xx`] \\ match_mp_tac io_rep_ok_Vis \\ fs [])
@@ -278,9 +310,10 @@ Proof
 QED
 
 Theorem io_CASE_eq:
-  io_CASE t ret vis = v <=>
-    (?r. t = Ret r /\ ret r = v) \/
-    (?a g. t = Vis a g /\ vis a g = v)
+  io_CASE t ret div vis = v ⇔
+    (∃r. t = Ret r ∧ ret r = v) ∨
+    (t = Div ∧ div = v) ∨
+    (∃a g. t = Vis a g ∧ vis a g = v)
 Proof
   qspec_then `t` strip_assume_tac io_cases \\ rw []
   \\ fs [io_CASE,io_11,io_distinct]
@@ -291,17 +324,20 @@ QED
 
 Datatype:
   io_next = Ret' 'r
+          | Div'
           | Vis' 'e ('a -> 'seed)
 End
 
 Definition io_unfold_path_def:
   (io_unfold_path f seed [] =
      case f seed of
-     | Ret' r => Return r
+     | Ret' r   => Return r
+     | Div'     => Stuck
      | Vis' e g => Event e) /\
   (io_unfold_path f seed (n::rest) =
      case f seed of
-     | Ret' r => Return ARB
+     | Ret' r   => Return ARB
+     | Div'     => Return ARB
      | Vis' e g => io_unfold_path f (g n) rest)
 End
 
@@ -327,6 +363,7 @@ Theorem io_unfold:
   io_unfold f seed =
     case f seed of
     | Ret' r   => Ret r
+    | Div'     => Div
     | Vis' e g => Vis e (io_unfold f o g)
 Proof
   Cases_on `f seed` \\ fs []
@@ -334,6 +371,10 @@ Proof
    (fs [io_unfold,Ret_def] \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]
     \\ Cases \\ fs [io_unfold_path_def,Ret_rep_def]
     \\ Cases_on `h` \\ fs [io_unfold_path_def,Ret_rep_def])
+  THEN1
+   (fs [io_unfold,Div_def] \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]
+    \\ Cases \\ fs [io_unfold_path_def,Div_rep_def]
+    \\ Cases_on `h` \\ fs [io_unfold_path_def,Div_rep_def])
   \\ fs [io_unfold,Vis_def] \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]
   \\ Cases \\ fs [io_unfold_path_def,Vis_rep_def]
   \\ fs [io_unfold_path_def,Vis_rep_def]
@@ -346,11 +387,13 @@ QED
 Definition io_unfold_err_path_def:
   (io_unfold_err_path f (rel, err_f, err) seed [] =
      case f seed of
-     | Ret' r => Return r
+     | Ret' r   => Return r
+     | Div'     => Stuck
      | Vis' e g => Event e) ∧
   (io_unfold_err_path f (rel, err_f, err) seed (n::rest) =
      case f seed of
-     | Ret' r => Return ARB
+     | Ret' r   => Return ARB
+     | Div'     => Return ARB
      | Vis' e g =>
         case n of
         | INL x => if rest = [] then Return (err_f e x) else Return ARB
@@ -371,16 +414,21 @@ Proof
   gvs[GSYM io_repabs, io_rep_ok_def] >>
   qid_spec_tac `s` >> Induct_on `path` >- gvs[path_ok_def] >>
   PairCases_on `err` >> gvs[io_unfold_err_path_def] >> rw[] >>
-  reverse EVERY_CASE_TAC >> gvs[] >>
-  gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
+  TOP_CASE_TAC >> fs []
+  >- gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
   first_x_assum irule >>
-  simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]
+  gvs [path_ok_def] >>
+  gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
+  metis_tac []
 QED
 
 Theorem io_unfold_err:
   io_unfold_err f (rel, err_f, err) seed =
     case f seed of
     | Ret' r   => Ret r
+    | Div'     => Div
     | Vis' e g =>
         Vis e
           (λa. case a of
@@ -389,10 +437,13 @@ Theorem io_unfold_err:
                     if rel e y then io_unfold_err f (rel, err_f, err) (g y)
                     else Ret $ err e)
 Proof
-  CASE_TAC >> gvs[io_unfold_err] >>
-  gvs[Ret_def, Vis_def] >> AP_TERM_TAC >> simp[FUN_EQ_THM] >>
-  Cases >> gvs[io_unfold_err_path_def, Ret_rep_def, Vis_rep_def] >>
+  CASE_TAC >> once_rewrite_tac [io_unfold_err] >>
+  gvs[Ret_def, Div_def, Vis_def] >> AP_TERM_TAC >> simp[FUN_EQ_THM] >>
+  Cases >> gvs[io_unfold_err_path_def, Ret_rep_def, Div_rep_def, Vis_rep_def] >>
   rpt TOP_CASE_TAC >> gvs[io_rep_abs_io_unfold_err_path] >>
+  once_rewrite_tac [io_unfold_err] >> gvs [] >>
+  once_rewrite_tac [GSYM io_unfold_err] >> gvs [] >>
+  gvs[Ret_def, Div_def, Vis_def, Ret_rep_def, Div_rep_def, Vis_rep_def] >>
   DEP_REWRITE_TAC[iffLR io_repabs] >> simp[] >>
   gvs[io_rep_ok_def, path_ok_def, PULL_EXISTS]
 QED
@@ -402,15 +453,17 @@ QED
 
 Definition io_el_def:
   io_el t [] =
-    io_CASE t (\r. Return r) (\e g. Event e) /\
+    io_CASE t (\r. Return r) Stuck (\e g. Event e) /\
   io_el t (a::ns) =
-    io_CASE t (\r. Return ARB) (\e g. io_el (g a) ns)
+    io_CASE t (\r. Return ARB) (Return ARB) (\e g. io_el (g a) ns)
 End
 
 Theorem io_el_def:
-  io_el (Ret r) [] = Return r /\
+  io_el (Ret r) []   = Return r /\
+  io_el Div []       = Stuck /\
   io_el (Vis e g) [] = Event e /\
-  io_el (Ret r) (a::ns) = Return ARB /\
+  io_el (Ret r) (a::ns)   = Return ARB /\
+  io_el Div (a::ns)       = Return ARB /\
   io_el (Vis e g) (a::ns) = io_el (g a) ns
 Proof
   fs [io_el_def,io_CASE]
@@ -450,11 +503,12 @@ Proof
 QED
 
 Theorem io_bisimulation:
-  !t1 t2.
+  ∀t1 t2.
     t1 = t2 <=>
-    ?R. R t1 t2 /\
-        (!x t. R (Ret x) t ==> t = Ret x) /\
-        (!a f t. R (Vis a f) t ==> ?b g. t = Vis a g /\ !s. R (f s) (g s))
+    ∃R. R t1 t2 /\
+        (∀x t. R (Ret x) t ==> t = Ret x) /\
+        (∀t. R Div t ==> t = Div) /\
+        (∀a f t. R (Vis a f) t ==> ∃b g. t = Vis a g /\ ∀s. R (f s) (g s))
 Proof
   rw [] \\ eq_tac \\ rw []
   THEN1 (qexists_tac `(=)` \\ fs [io_11])
@@ -472,11 +526,12 @@ QED
 (* register with TypeBase *)
 
 Theorem io_CASE_cong:
-  !M M' ret tau vis ret' vis'.
+  ∀M M' ret div vis ret' div' vis'.
     M = M' /\
-    (!x. M' = Ret x ==> ret x = ret' x) /\
-    (!a g. M' = Vis a g ==> vis a g = vis' a g) ==>
-    io_CASE M ret vis = io_CASE M' ret' vis'
+    (∀x. M' = Ret x ==> ret x = ret' x) /\
+    (M' = Div ==> div = div') /\
+    (∀a g. M' = Vis a g ==> vis a g = vis' a g) ==>
+    io_CASE M ret div vis = io_CASE M' ret' div' vis'
 Proof
   rw [] \\ qspec_then `M` strip_assume_tac io_cases
   \\ rw [] \\ fs [io_CASE]
@@ -485,6 +540,7 @@ QED
 Theorem datatype_io:
   DATATYPE ((io
     (Ret : 'r -> ('a, 'e, 'r) io)
+    (Div : ('a, 'e, 'r) io)
     (Vis : 'e -> ('a -> ('a, 'e, 'r) io) -> ('a, 'e, 'r) io)):bool)
 Proof
   rw [boolTheory.DATATYPE_TAG_THM]
@@ -514,6 +570,7 @@ val _ = TypeBase.export
 
 val _ = List.app Theory.delete_binding
   ["Ret_rep_def", "Ret_def",
+   "Div_rep_def", "Div_def",
    "Vis_rep_def", "Vis_def",
    "path_ok_def", "io_rep_ok_def",
    "io_unfold_path_def", "io_unfold_path_ind",
