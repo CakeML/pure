@@ -219,7 +219,8 @@ Proof
 QED
 
 Theorem io_distinct = io_all_distinct
-  |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> SPEC_ALL;
+  |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> SPEC_ALL |>
+  CONJUNCTS |> map GEN_ALL |> LIST_CONJ;
 
 
 (* prove cases theorem *)
@@ -414,10 +415,11 @@ Proof
   gvs[GSYM io_repabs, io_rep_ok_def] >>
   qid_spec_tac `s` >> Induct_on `path` >- gvs[path_ok_def] >>
   PairCases_on `err` >> gvs[io_unfold_err_path_def] >> rw[] >>
+  TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs []
   >- gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
-  TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
+  reverse $ TOP_CASE_TAC >> fs []
+  >- gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
   first_x_assum irule >>
   gvs [path_ok_def] >>
   gvs[path_ok_def, APPEND_EQ_CONS, io_unfold_err_path_def] >>
@@ -558,7 +560,7 @@ val _ = TypeBase.export
       encode = NONE,
       lift = NONE,
       one_one = SOME io_11,
-      distinct = NONE,
+      distinct = SOME io_distinct,
       fields = [],
       accessors = [],
       updates = [],

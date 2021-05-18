@@ -347,7 +347,7 @@ Definition sinterp_def:
         case step_until_halt (sr, st, k) of
         | Ret => Ret' Termination
         | Err => Ret' Error
-        | Div => Ret' SilentDivergence
+        | Div => Div'
         | Act a k' st' =>
             Vis' a (λy. value (Atom $ Str y) st' k' ))
       (sr, st, k)

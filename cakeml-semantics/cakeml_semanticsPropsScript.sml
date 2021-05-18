@@ -71,6 +71,7 @@ End
 Definition trace_prefix_def:
   trace_prefix 0 (oracle, ffi_st) itree = ([], NONE) ∧
   trace_prefix (SUC n) (oracle, ffi_st) (Ret r) = ([], SOME r) ∧
+  trace_prefix (SUC n) (oracle, ffi_st)  Div    = ([], NONE) ∧
   trace_prefix (SUC n) (oracle, ffi_st) (Vis (s, conf, ws) f) =
     case oracle s ffi_st conf ws of
     | Oracle_return ffi_st' ws' =>
@@ -657,7 +658,8 @@ QED
 Theorem cml_io_unfold_err:
   cml_io_unfold_err f seed =
     case f seed of
-    | Ret' r   => Ret r
+    | Ret' r => Ret r
+    | Div' => Div
     | Vis' (s, ws1, ws2) g =>
         Vis (s, ws1, ws2)
           (λa. case a of
@@ -676,7 +678,7 @@ Theorem interp:
     case step_until_halt e of
     | Ret => Ret Termination
     | Err => Ret Error
-    | Div => Ret SilentDivergence
+    | Div => Div
     | Act s ws1 ws2 n env st cs =>
         Vis (s, ws1, ws2)
           (λa. case a of
@@ -698,7 +700,7 @@ Theorem trace_prefix_interp:
     case step_until_halt e of
     | Ret => ([], SOME Termination)
     | Err => ([], SOME Error)
-    | Div => ([], SOME SilentDivergence)
+    | Div => ([], NONE)
     | Act s conf ws lnum env st cs =>
         case oracle s ffi_st conf ws of
         | Oracle_return ffi_st' ws' =>

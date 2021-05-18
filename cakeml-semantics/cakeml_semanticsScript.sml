@@ -504,8 +504,7 @@ Definition step_until_halt_def:
 End
 
 Datatype:
-  result = SilentDivergence
-         | Termination
+  result = Termination
          | Error
          | FinalFFI (string # word8 list # word8 list) ffi_outcome
 End
@@ -524,7 +523,7 @@ Definition interp_def:
         case step_until_halt e of
         | Ret => Ret' Termination
         | Err => Ret' Error
-        | Div => Ret' SilentDivergence
+        | Div => Div'
         | Act s ws1 ws2 n env st cs =>
             Vis' (s, ws1, ws2)
               (λr:word8 list.
