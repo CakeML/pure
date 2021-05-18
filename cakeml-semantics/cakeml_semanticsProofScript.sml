@@ -633,47 +633,94 @@ QED
 
 (******************** trace_prefix ********************)
 
-Theorem is_halt_step_n_const:
-  ∀n e. is_halt (step_n n e) ⇒ ∀m. n < m ⇒ step_n n e = step_n m e
+(*
+  TODO the proofs below are quite messy and repetititive.
+  This is partly because they focus on the "wrong" parts of the two traces
+  which are being related - we case split on the first chunk of each trace,
+  where actually we want to reuse the theorems above and think about the
+  last bit of the trace.
+
+  Perhaps modifying `trace_prefix` as follows might be useful - it now returns
+  the remaining bit of itree left to process. Together with the lemma below,
+  we might be able to "fast-forward" the proof on to the interesting part of
+  the traces.
+
+****************************************
+
+Definition trace_prefix_def:
+  trace_prefix 0 (oracle, ffi_st) itree = ([], NONE, SOME itree) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Ret r) = ([], SOME r, NONE) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Vis (s, conf, ws) f) =
+    case oracle s ffi_st conf ws of
+    | Oracle_return ffi_st' ws' =>
+        let (io, res, rest) = trace_prefix n (oracle, ffi_st') (f $ INR ws') in
+        if LENGTH ws ≠ LENGTH ws' then (io, res, rest)
+        else (IO_event s conf (ZIP (ws,ws'))::io, res, rest)
+    | Oracle_final outcome => trace_prefix n (oracle, ffi_st) (f $ INL outcome)
+End
+
+Theorem trace_prefix_interp:
+  trace_prefix 0 (oracle, ffi_st) (interp e) = ([], NONE, SOME $ interp e) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (interp e) =
+    case step_until_halt e of
+    | Ret => ([], SOME Termination, NONE)
+    | Err => ([], SOME Error, NONE)
+    | Div => ([], SOME SilentDivergence, NONE)
+    | Act s conf ws lnum env st cs =>
+        case oracle s ffi_st conf ws of
+        | Oracle_return ffi_st' ws' =>
+            if LENGTH ws ≠ LENGTH ws' ∧ n = 0 then
+              ([], NONE, SOME $ Ret (FinalFFI (s,conf,ws) FFI_failed))
+            else if LENGTH ws ≠ LENGTH ws' then
+              ([], SOME $ FinalFFI (s, conf, ws) FFI_failed, NONE)
+            else let (io, res, rest) =
+              trace_prefix n (oracle, ffi_st')
+                (interp $
+                  Estep (env, LUPDATE (W8array ws') lnum st, Val $ Conv NONE [], cs))
+            in ((IO_event s conf (ZIP (ws,ws')))::io, res, rest)
+        | Oracle_final outcome =>
+            if n = 0 then
+              ([], NONE, SOME $ Ret (FinalFFI (s,conf,ws) outcome))
+            else
+              ([], SOME $ FinalFFI (s, conf, ws) outcome, NONE)
 Proof
-  Induct >> rw[step_n_def]
-  >- (Cases_on `e` >> gvs[is_halt_def]) >>
-  Cases_on `e` >> gvs[step_n_def, is_halt_def] >>
-  Cases_on `m` >> gvs[step_n_def]
+  rw[trace_prefix_def] >> rw[Once interp] >>
+  CASE_TAC >> gvs[trace_prefix_def] >>
+  reverse $ CASE_TAC >> gvs[]
+  >- (Cases_on `n` >> gvs[trace_prefix_def]) >>
+  IF_CASES_TAC >> gvs[] >>
+  Cases_on `n` >> gvs[trace_prefix_def]
 QED
 
-Theorem is_halt_step_n_min:
-  ∀n e. is_halt (step_n n e) ⇒
-  ∃m. m ≤ n ∧ step_n m e = step_n n e ∧ ∀l. l < m ⇒ ¬is_halt (step_n l e)
+Theorem trace_prefix_interp_SOME:
+  ∀n oracle ffi_st e io r rest.
+    trace_prefix (SUC n) (oracle,ffi_st) (interp e) = (io, SOME r, rest)
+  ⇒ rest = NONE ∧
+    ∃m rest'.
+      m < SUC n ∧ trace_prefix m (oracle,ffi_st) (interp e) = (io, NONE, rest') ∧
+      rest' = SOME $ Ret r
 Proof
-  Induct >> rw[step_n_alt_def] >>
-  every_case_tac >> gvs[is_halt_def]
+  Induct >> once_rewrite_tac[trace_prefix_interp] >> rw[] >>
+  every_case_tac >> gvs[]
+  >- gvs[trace_prefix_interp]
+  >- gvs[trace_prefix_interp]
+  >- (gvs[trace_prefix_interp] >> rw[Once interp])
+  >- (gvs[trace_prefix_interp] >> rw[Once interp])
+  >- (gvs[trace_prefix_interp] >> rw[Once interp])
+  >- (pairarg_tac >> gvs[] >> last_x_assum drule >> simp[])
+  >- (qexists_tac `SUC 0` >> rewrite_tac[trace_prefix_interp] >> simp[])
   >- (
-    last_x_assum kall_tac >>
-    qexists_tac `SUC n` >> simp[step_n_alt_def] >> rw[] >>
-    CCONTR_TAC >> gvs[] >>
-    Cases_on `l = n` >> gvs[is_halt_def] >>
-    drule is_halt_step_n_const >>
-    disch_then $ qspec_then `n` assume_tac >> gvs[is_halt_def]
-    ) >>
-  last_x_assum $ qspec_then `e` assume_tac >> gvs[is_halt_def] >>
-  qexists_tac `m` >> simp[]
-QED
-
-Theorem step_until_halt_take_step:
-  ∀a. ¬ is_halt (Estep a)
-  ⇒ step_until_halt (Estep a) = step_until_halt (estep a)
-Proof
-  rw[step_until_halt_def] >>
-  DEEP_INTRO_TAC some_intro >> rw[] >>
-  DEEP_INTRO_TAC some_intro >> rw[]
-  >- (
-    qspecl_then [`x`,`SUC x'`,`Estep a`] assume_tac is_halt_step_n_eq >>
-    gvs[step_n_def]
+    pairarg_tac >> gvs[] >>
+    last_x_assum drule >> strip_tac >> gvs[] >>
+    qexists_tac `SUC m` >> simp[trace_prefix_interp]
     )
-  >- (Cases_on `x` >> gvs[step_n_def])
-  >- (first_x_assum $ qspec_then `SUC x` assume_tac >> gvs[step_n_def])
+  >- (qexists_tac `SUC 0` >> rewrite_tac[trace_prefix_interp] >> simp[])
+  >- (qexists_tac `0` >> rw[Once trace_prefix_interp] >> rw[Once interp])
+  >- (qexists_tac `0` >> rw[Once trace_prefix_interp] >> rw[Once interp])
+  >- (qexists_tac `0` >> rw[Once trace_prefix_interp] >> rw[Once interp])
 QED
+*)
+
 
 Theorem trace_prefix_Error:
   ctxt_rel cs1 cs2 ⇒

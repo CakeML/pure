@@ -612,6 +612,48 @@ Proof
     )
 QED
 
+Theorem is_halt_step_n_const:
+  ∀n e. is_halt (step_n n e) ⇒ ∀m. n < m ⇒ step_n n e = step_n m e
+Proof
+  Induct >> rw[step_n_def]
+  >- (Cases_on `e` >> gvs[is_halt_def]) >>
+  Cases_on `e` >> gvs[step_n_def, is_halt_def] >>
+  Cases_on `m` >> gvs[step_n_def]
+QED
+
+Theorem is_halt_step_n_min:
+  ∀n e. is_halt (step_n n e) ⇒
+  ∃m. m ≤ n ∧ step_n m e = step_n n e ∧ ∀l. l < m ⇒ ¬is_halt (step_n l e)
+Proof
+  Induct >> rw[step_n_alt_def] >>
+  every_case_tac >> gvs[is_halt_def]
+  >- (
+    last_x_assum kall_tac >>
+    qexists_tac `SUC n` >> simp[step_n_alt_def] >> rw[] >>
+    CCONTR_TAC >> gvs[] >>
+    Cases_on `l = n` >> gvs[is_halt_def] >>
+    drule is_halt_step_n_const >>
+    disch_then $ qspec_then `n` assume_tac >> gvs[is_halt_def]
+    ) >>
+  last_x_assum $ qspec_then `e` assume_tac >> gvs[is_halt_def] >>
+  qexists_tac `m` >> simp[]
+QED
+
+Theorem step_until_halt_take_step:
+  ∀a. ¬ is_halt (Estep a)
+  ⇒ step_until_halt (Estep a) = step_until_halt (estep a)
+Proof
+  rw[step_until_halt_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  DEEP_INTRO_TAC some_intro >> rw[]
+  >- (
+    qspecl_then [`x`,`SUC x'`,`Estep a`] assume_tac is_halt_step_n_eq >>
+    gvs[step_n_def]
+    )
+  >- (Cases_on `x` >> gvs[step_n_def])
+  >- (first_x_assum $ qspec_then `SUC x` assume_tac >> gvs[step_n_def])
+QED
+
 Theorem cml_io_unfold_err:
   cml_io_unfold_err f seed =
     case f seed of
