@@ -389,9 +389,14 @@ Inductive type_cexp:
    LIST_REL (type_cexp ns db st env) es ts ⇒
       type_cexp ns db st env (App c e es) t) ∧
 
+[~PartialApp:]
+  (type_cexp ns db st env e (Function (ts ++ rest) t) ∧
+   LIST_REL (type_cexp ns db st env) es ts ∧ ts ≠ [] ∧ rest ≠ [] ⇒
+      type_cexp ns db st env (App c e es) (Function rest t)) ∧
+
 [~Lam:]
   (EVERY (type_ok (SND ns) db) arg_tys ∧
-   LENGTH arg_tys = LENGTH xs ∧
+   LENGTH arg_tys = LENGTH xs ∧ xs ≠ [] ∧
    type_cexp ns db st (ZIP (xs, MAP ($, 0) arg_tys) ++ env) e ret_ty
       ⇒ type_cexp ns db st env (Lam c xs e) (Function arg_tys ret_ty)) ∧
 
