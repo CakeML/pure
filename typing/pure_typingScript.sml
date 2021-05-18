@@ -191,24 +191,24 @@ Type exndef[pp] = ``:(string # type list) list``;
 *)
 
 (* Does a type only contain defined constructors? *)
-Definition type_constructors_ok_def:
-  type_constructors_ok (typedefs : typedefs) (TypeVar n) = T ∧
-  type_constructors_ok typedefs (PrimTy pty) = T ∧
-  type_constructors_ok typedefs  Exception = T ∧
-  type_constructors_ok typedefs (TypeCons id tyargs) = (
-    EVERY (type_constructors_ok typedefs) tyargs ∧
+Definition type_wf_def:
+  type_wf (typedefs : typedefs) (TypeVar n) = T ∧
+  type_wf typedefs (PrimTy pty) = T ∧
+  type_wf typedefs  Exception = T ∧
+  type_wf typedefs (TypeCons id tyargs) = (
+    EVERY (type_wf typedefs) tyargs ∧
     ∃arity constructors.
       (* Type definition exists: *)
         oEL id typedefs = SOME (arity, constructors) ∧
       (* And has correct arity: *)
         LENGTH tyargs = arity) ∧
-  type_constructors_ok typedefs (Tuple ts) =
-    EVERY (type_constructors_ok typedefs) ts ∧
-  type_constructors_ok typedefs (Function ts t) = (
-    type_constructors_ok typedefs t ∧
-    EVERY (type_constructors_ok typedefs) ts) ∧
-  type_constructors_ok typedefs (Array t) = type_constructors_ok typedefs t ∧
-  type_constructors_ok typedefs (M t) = type_constructors_ok typedefs t
+  type_wf typedefs (Tuple ts) =
+    EVERY (type_wf typedefs) ts ∧
+  type_wf typedefs (Function ts t) = (
+    type_wf typedefs t ∧
+    ts ≠ [] ∧ EVERY (type_wf typedefs) ts) ∧
+  type_wf typedefs (Array t) = type_wf typedefs t ∧
+  type_wf typedefs (M t) = type_wf typedefs t
 Termination
   WF_REL_TAC `measure (type_size o SND)` >> rw[fetch "-" "type_size_def"] >>
   rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "type_size_def"] >> gvs[]
@@ -217,7 +217,7 @@ End
 Definition type_ok_def:
   type_ok typedefs db t ⇔
     freetyvars_ok db t ∧
-    type_constructors_ok typedefs t
+    type_wf typedefs t
 End
 
 Theorem type_ok:
@@ -231,11 +231,11 @@ Theorem type_ok:
   (∀tds ts n. type_ok tds n (Tuple ts) ⇔ EVERY (λa. type_ok tds n a) ts) ∧
   (∀tds ts t n.
    type_ok tds n (Function ts t) ⇔
-   EVERY (λa. type_ok tds n a) ts ∧ type_ok tds n t) ∧
+   EVERY (λa. type_ok tds n a) ts ∧ ts ≠ [] ∧ type_ok tds n t) ∧
   (∀tds t n. type_ok tds n (Array t) ⇔ type_ok tds n t) ∧
   (∀tds t n. type_ok tds n (M t) ⇔ type_ok tds n t)
 Proof
-  rw[type_ok_def, type_constructors_ok_def, freetyvars_ok_def] >>
+  rw[type_ok_def, type_wf_def, freetyvars_ok_def] >>
   gvs[EVERY_CONJ] >> eq_tac >> gvs[]
 QED
 
@@ -396,7 +396,7 @@ Inductive type_cexp:
 
 [~Lam:]
   (EVERY (type_ok (SND ns) db) arg_tys ∧
-   LENGTH arg_tys = LENGTH xs ∧ xs ≠ [] ∧
+   LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
    type_cexp ns db st (ZIP (xs, MAP ($, 0) arg_tys) ++ env) e ret_ty
       ⇒ type_cexp ns db st env (Lam c xs e) (Function arg_tys ret_ty)) ∧
 
@@ -536,22 +536,22 @@ Proof
     )
 QED
 
-Theorem type_constructors_ok_subst_db:
+Theorem type_wf_subst_db:
   ∀skip ts t tdefs.
-    type_constructors_ok tdefs t ∧
-    EVERY (type_constructors_ok tdefs) ts
-  ⇒ type_constructors_ok tdefs (subst_db skip ts t)
+    type_wf tdefs t ∧
+    EVERY (type_wf tdefs) ts
+  ⇒ type_wf tdefs (subst_db skip ts t)
 Proof
-  recInduct subst_db_ind >> rw[subst_db_def, type_constructors_ok_def] >>
+  recInduct subst_db_ind >> rw[subst_db_def, type_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM] >> gvs[MEM_EL, PULL_EXISTS]
 QED
 
-Theorem type_constructors_ok_shift_db:
+Theorem type_wf_shift_db:
   ∀skip shift t tdefs.
-    type_constructors_ok tdefs t
-  ⇒ type_constructors_ok tdefs (shift_db skip shift t)
+    type_wf tdefs t
+  ⇒ type_wf tdefs (shift_db skip shift t)
 Proof
-  recInduct shift_db_ind >> rw[shift_db_def, type_constructors_ok_def] >>
+  recInduct shift_db_ind >> rw[shift_db_def, type_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM]
 QED
 
@@ -570,7 +570,7 @@ Proof
     imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, type_ok_def] >>
     first_x_assum drule >> strip_tac >> gvs[] >>
     irule_at Any freetyvars_ok_tsubst >> simp[EVERY_MEM] >>
-    irule_at Any type_constructors_ok_subst_db >> simp[EVERY_MEM]
+    irule_at Any type_wf_subst_db >> simp[EVERY_MEM]
     )
   >- gvs[EVERY_EL]
   >- gvs[EVERY_EL, type_ok_def]
@@ -589,7 +589,7 @@ Proof
       gvs[type_ok_def] >>
       drule freetyvars_ok_shift_db >> rename1 `MEM (a,b,c) _` >>
       disch_then $ qspecl_then [`b`,`new`] assume_tac >> gvs[] >>
-      irule type_constructors_ok_shift_db >> simp[]
+      irule type_wf_shift_db >> simp[]
       )
     >- (
       gvs[type_ok_def] >>
