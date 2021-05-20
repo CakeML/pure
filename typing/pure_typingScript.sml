@@ -368,18 +368,19 @@ Inductive type_cexp:
 
 [~Let:]
   (* TODO CHECK - should not need value restriction for call-by-name semantics *)
-  (type_cexp ns (db + new) st (tshift_env new env) e1 t1 ∧
+  (* However this just desugars to normal application *)
+  (type_cexp ns (db + new) (MAP (tshift new) st) (tshift_env new env) e1 t1 ∧
    type_cexp ns db st ((x,new,t1)::env) e2 t2 ⇒
       type_cexp ns db st env (Let c x e1 e2) t2) ∧
 
 [~Letrec:]
   (LIST_REL
     (λ(fn,body) (vars,scheme).
-      type_cexp ns (db + vars) st
+      type_cexp ns (db + vars) (MAP (tshift vars) st)
         (tshift_env vars $ ZIP (MAP FST fns,schemes) ++ env)
-        e scheme)
+        body scheme)
     fns schemes ∧
-   EVERY (type_scheme_ok (SND ns) db) schemes ∧
+   EVERY (type_scheme_ok (SND ns) db) schemes ∧ fns ≠ [] ∧
    type_cexp ns db st (ZIP (MAP FST fns, schemes) ++ env) e t ⇒
       type_cexp ns db st env (Letrec c fns e) t) ∧
 
