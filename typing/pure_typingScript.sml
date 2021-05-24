@@ -93,6 +93,12 @@ Termination
   rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "type_size_def"] >> gvs[]
 End
 
+Overload subst_db_scheme =
+  ``λn ts (vars,scheme).
+      (vars, subst_db (n + vars) (MAP (shift_db 0 vars) ts) scheme)``;
+Overload shift_db_scheme =
+  ``λskip shift (vars,scheme).
+      (vars, shift_db (skip + vars) shift scheme)``;
 Overload tsubst = ``subst_db 0``;
 Overload tshift = ``shift_db 0``;
 Overload tshift_scheme = ``λn (vars,scheme). (vars, shift_db vars n scheme)``;
@@ -393,8 +399,7 @@ Inductive type_cexp:
       (* TODO this forbids duplicated patterns - perhaps overkill? *)
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃schemes ptys.
-        EVERY (type_ok typedefs db) ptys ∧
-        ALOOKUP typedef cname = SOME schemes ∧
+        ALOOKUP constructors cname = SOME schemes ∧
         (* Type arities match (should hopefully be the case from typing e): *)
           LENGTH tyargs = arity ∧
         (* Constructor arities match: *)

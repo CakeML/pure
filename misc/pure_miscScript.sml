@@ -388,6 +388,14 @@ Proof
   first_x_assum $ qspec_then `SUC n` mp_tac >> simp[]
 QED
 
+Theorem MAP_ZIP_ALT:
+  LENGTH l1 = LENGTH l2 ⇒
+  MAP (λ(a,b). (a, g b)) (ZIP (l1, l2)) = ZIP (l1, MAP g l2) ∧
+  MAP (λ(a,b). (f a, b)) (ZIP (l1, l2)) = ZIP (MAP f l1, l2)
+Proof
+  rw[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
+QED
+
 
 (******************** Lazy lists ********************)
 
