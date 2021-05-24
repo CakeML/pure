@@ -50,6 +50,7 @@ Type type_scheme[pp] = ``:num # type``;
   Together, the exception definition and a collection of type definitions form
   our typing namespace.
 *)
+(* TODO make finite maps *)
 Type typedef[pp] = ``:num # ((string # type list) list)``;
 Type typedefs[pp] = ``:typedef list``;
 Type exndef[pp] = ``:(string # type list) list``;
@@ -395,7 +396,8 @@ Inductive type_cexp:
    (* The type exists with correct arity: *)
      oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
    (* Pattern match is exhaustive: *)
-      PERM (MAP FST constructors) (MAP FST css) ∧
+      set (MAP FST constructors) = set (MAP FST css) ∧
+      LENGTH constructors = LENGTH css ∧
       (* TODO this forbids duplicated patterns - perhaps overkill? *)
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃schemes ptys.
