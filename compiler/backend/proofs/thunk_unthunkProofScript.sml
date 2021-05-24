@@ -5,11 +5,11 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
+     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunk_substPropsTheory;
+open pure_miscTheory thunkLangPropsTheory;
 
-val _ = new_theory "thunk_subst_unthunkProof";
+val _ = new_theory "thunk_unthunkProof";
 
 val _ = numLib.prefer_num ();
 
@@ -849,9 +849,9 @@ Proof
   >- (
     rename1 ‘_ (eval_to k x) (eval_to j y)’
     \\ drule_all_then (qspec_then ‘MAX j k’ assume_tac) exp_rel_eval_to
-    \\ drule_then (qspec_then ‘j’ assume_tac) eval_to_subst_mono
+    \\ drule_then (qspec_then ‘j’ assume_tac) eval_to_mono
     \\ qpat_x_assum ‘eval_to j y ≠ INL _’ assume_tac
-    \\ drule_then (qspec_then ‘k’ assume_tac) eval_to_subst_mono
+    \\ drule_then (qspec_then ‘k’ assume_tac) eval_to_mono
     \\ Cases_on ‘k ≤ j’ \\ gvs [arithmeticTheory.MAX_DEF])
   >- (
     rename1 ‘_ _ (eval_to k y)’

@@ -4,7 +4,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
+     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      pure_evalTheory thunkLang_primitivesTheory dep_rewrite;
 open pure_exp_lemmasTheory pure_miscTheory;
 
@@ -15,7 +15,7 @@ val _ = numLib.prefer_num ();
 (*
   NOTES ON COMPILING PURELANG TO THUNKLANG:
 
-  thunkLang_subst-pureLang simulation.
+  thunkLang-pureLang simulation.
 
   As pureLang is lazy it allows non-functional value declarations that are
   mutually recursive, and lazy value declarations. All such computations are
@@ -241,7 +241,7 @@ Proof
 QED
 
 Theorem subst_single_def[local] = pure_exp_lemmasTheory.subst1_def;
-Theorem subst1_def[local] = thunkLang_substTheory.subst1_def;
+Theorem subst1_def[local] = thunkLangTheory.subst1_def;
 
 Theorem exp_rel_subst:
   ∀x y a b n s.
@@ -834,7 +834,7 @@ Proof
         >- (
           gs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS]
           \\ unabbrev_all_tac \\ gs []
-          \\ gvs [CaseEqs ["sum", "thunkLang_subst$v"], LIST_REL_EL_EQN]
+          \\ gvs [CaseEqs ["sum", "thunkLang$v"], LIST_REL_EL_EQN]
           \\ first_x_assum (drule_then assume_tac)
           \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by gs []
           \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [])
@@ -866,7 +866,7 @@ Proof
   \\ ‘eval_to k y ≠ INL Diverge’ by (strip_tac \\ fs [])
   \\ Cases_on ‘k = j’ \\ fs []
   \\ ‘k < j’ by fs []
-  \\ drule_all_then assume_tac eval_to_subst_mono \\ fs []
+  \\ drule_all_then assume_tac eval_to_mono \\ fs []
 QED
 
 Theorem exp_rel_eval:
@@ -877,7 +877,7 @@ Theorem exp_rel_eval:
 Proof
   strip_tac
   \\ qpat_x_assum ‘eval_wh _ ≠ _’ mp_tac
-  \\ simp [eval_wh_def, thunkLang_substTheory.eval_def]
+  \\ simp [eval_wh_def, thunkLangTheory.eval_def]
   \\ DEEP_INTRO_TAC some_intro \\ fs []
   \\ DEEP_INTRO_TAC some_intro \\ fs []
   \\ rw []
@@ -892,7 +892,7 @@ Proof
       \\ first_assum (irule_at Any) \\ fs []
       \\ first_assum (irule_at Any) \\ fs [])
     \\ ‘k ≤ j’ by fs []
-    \\ drule_all_then assume_tac eval_to_subst_mono
+    \\ drule_all_then assume_tac eval_to_mono
     \\ pop_assum (SUBST_ALL_TAC o SYM)
     \\ irule exp_rel_eval_to
     \\ first_assum (irule_at Any) \\ fs []
