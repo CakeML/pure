@@ -4,11 +4,11 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
+     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory;
 open pure_miscTheory;
 
-val _ = new_theory "thunk_substProps";
+val _ = new_theory "thunkLangProps";
 
 val _ = numLib.prefer_num ();
 

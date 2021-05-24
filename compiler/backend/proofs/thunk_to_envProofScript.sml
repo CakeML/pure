@@ -4,12 +4,12 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pred_setTheory rich_listTheory thunkLang_primitivesTheory thunkLangTheory
-     finite_mapTheory thunkLang_substTheory;
-open thunk_to_thunkTheory;
-open pure_miscTheory thunk_substPropsTheory;
+     pred_setTheory rich_listTheory thunkLang_primitivesTheory envLangTheory
+     finite_mapTheory thunkLangTheory;
+open thunk_to_envTheory;
+open pure_miscTheory thunkLangPropsTheory;
 
-val _ = new_theory "thunk_to_thunkProof";
+val _ = new_theory "thunk_to_envProof";
 
 val _ = numLib.prefer_num ();
 
@@ -361,8 +361,7 @@ Theorem dest_Closure_v_rel:
            exp_rel (FILTER (λ(n, x). n ≠ s) env) x y)
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
-  \\ simp [thunkLangTheory.dest_Closure_def,
-           thunkLang_substTheory.dest_Closure_def,
+  \\ simp [envLangTheory.dest_Closure_def, thunkLangTheory.dest_Closure_def,
            v_rel_def, exp_rel_def]
 QED
 
@@ -383,8 +382,7 @@ Theorem dest_Thunk_v_rel:
                exp_rel env x1 x2)))
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
-  \\ simp [thunkLangTheory.dest_Thunk_def,
-           thunkLang_substTheory.dest_Thunk_def,
+  \\ simp [envLangTheory.dest_Thunk_def, thunkLangTheory.dest_Thunk_def,
            v_rel_def]
   \\ Cases_on ‘s’ \\ simp [v_rel_def]
 QED
@@ -401,8 +399,8 @@ Theorem dest_Recclosure_v_rel:
              exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c) f g)
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
-  \\ simp [thunkLangTheory.dest_Recclosure_def,
-           thunkLang_substTheory.dest_Recclosure_def,
+  \\ simp [envLangTheory.dest_Recclosure_def,
+           thunkLangTheory.dest_Recclosure_def,
            v_rel_def, exp_rel_def]
 QED
 
@@ -417,8 +415,8 @@ Theorem dest_Constructor_v_rel:
            LIST_REL v_rel vs ws)
 Proof
   Cases_on ‘v’ \\ Cases_on ‘w’
-  \\ simp [thunkLangTheory.dest_Constructor_def,
-           thunkLang_substTheory.dest_Constructor_def,
+  \\ simp [envLangTheory.dest_Constructor_def,
+           thunkLangTheory.dest_Constructor_def,
            v_rel_def, exp_rel_def]
 QED
 
@@ -655,20 +653,20 @@ Proof
   \\ rpt gen_tac
   >- ((* Value *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def])
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def])
   >- ((* Var *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def ])
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def ])
   >- ((* App *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def]
     \\ rename1 ‘exp_rel env y y1’
     \\ first_x_assum (drule_all_then assume_tac)
     \\ first_x_assum (drule_all_then assume_tac)
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ Cases_on ‘eval_to k y’ \\ fs []
-    \\ simp [thunkLangTheory.dest_anyClosure_def,
-             thunkLang_substTheory.dest_anyClosure_def]
+    \\ simp [envLangTheory.dest_anyClosure_def,
+             thunkLangTheory.dest_anyClosure_def]
     \\ rename1 ‘eval_to k x = INR x2’
     \\ qpat_x_assum ‘v_rel x2 _’ assume_tac
     \\ drule_all_then strip_assume_tac dest_Closure_v_rel
@@ -716,12 +714,12 @@ Proof
     \\ gs [])
   >- ((* Lam *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def,
              v_rel_def, exp_rel_def])
   >- ((* Let NONE *)
     rename1 ‘Let NONE x1 y1’
     \\ rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def,
              v_rel_def, exp_rel_def]
     \\ IF_CASES_TAC \\ fs []
     \\ Cases_on ‘eval_to (k - 1) x1’ \\ fs []
@@ -729,7 +727,7 @@ Proof
     \\ first_x_assum (drule_then strip_assume_tac) \\ fs [])
   >- ((* Let SOME *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def,
              v_rel_def, exp_rel_def]
     \\ IF_CASES_TAC \\ fs []
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
@@ -740,7 +738,7 @@ Proof
     \\ irule exp_inv_subst \\ gs [])
   >- ((* If *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def]
     \\ IF_CASES_TAC \\ fs []
     \\ rpt (first_x_assum (drule_then assume_tac)) \\ fs []
     \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
@@ -755,7 +753,7 @@ Proof
     \\ Cases_on ‘y’ \\ rw [] \\ gvs [v_rel_def])
   >- ((* Letrec *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def]
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ fs [subst_funs_def]
@@ -790,18 +788,17 @@ Proof
     \\ gs [EVERY_MAP, ELIM_UNCURRY])
   >- ((* Delay *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def,
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def,
              v_rel_def])
   >- ((* Box *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ first_x_assum (drule_then strip_assume_tac) \\ fs []
     \\ simp [v_rel_def])
   >- ((* Force *)
     rw [exp_rel_def]
-    \\ simp [Once thunkLangTheory.eval_to_def,
-             Once thunkLang_substTheory.eval_to_def]
+    \\ simp [Once envLangTheory.eval_to_def, Once thunkLangTheory.eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
@@ -810,17 +807,14 @@ Proof
       Cases_on ‘y’ \\ gs [])
     \\ drule_all_then strip_assume_tac dest_Thunk_v_rel
     \\ drule_all_then strip_assume_tac dest_Recclosure_v_rel
-    \\ simp [thunkLangTheory.dest_anyThunk_def,
-             thunkLang_substTheory.dest_anyThunk_def]
+    \\ simp [envLangTheory.dest_anyThunk_def, thunkLangTheory.dest_anyThunk_def]
     \\ reverse (Cases_on ‘dest_Thunk y’) \\ gvs []
     >- (
       Cases_on ‘y’ \\ gvs []
-      \\ simp [Once thunkLangTheory.eval_to_def,
-               thunkLangTheory.dest_anyThunk_def])
+      \\ simp [Once envLangTheory.eval_to_def, envLangTheory.dest_anyThunk_def])
     >- (
       Cases_on ‘y’ \\ gvs []
-      \\ simp [Once thunkLangTheory.eval_to_def,
-               thunkLangTheory.dest_anyThunk_def]
+      \\ simp [Once envLangTheory.eval_to_def, envLangTheory.dest_anyThunk_def]
       \\ first_x_assum irule
       \\ simp [subst_funs_def])
     \\ Cases_on ‘dest_Recclosure y’ \\ gvs []
@@ -847,8 +841,7 @@ Proof
       rename1 ‘Let opt _ _’
       \\ Cases_on ‘opt’
       \\ gvs [exp_rel_def])
-    \\ simp [Once thunkLangTheory.eval_to_def,
-             thunkLangTheory.dest_anyThunk_def]
+    \\ simp [Once envLangTheory.eval_to_def, envLangTheory.dest_anyThunk_def]
     \\ first_x_assum irule \\ simp []
     \\ simp [subst_funs_def]
     \\ irule_at Any exp_rel_ALOOKUP_EQ
@@ -877,7 +870,7 @@ Proof
     rw [exp_rel_def])
   >- ((* Prim *)
     rw [exp_rel_def]
-    \\ simp [thunkLangTheory.eval_to_def, thunkLang_substTheory.eval_to_def]
+    \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def]
     \\ Cases_on ‘op’ \\ fs []
     >- ((* Cons *)
       gvs [LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
@@ -997,7 +990,7 @@ Proof
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ rpt CASE_TAC \\ gs []
-        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "thunkLang$v"]])
+        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "envLang$v"]])
       \\ IF_CASES_TAC \\ gs []
       >- (
         fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
@@ -1006,7 +999,7 @@ Proof
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ rpt CASE_TAC \\ gs []
-        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "thunkLang$v"]])
+        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "envLang$v"]])
       \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ gs [EL_MAP, MEM_EL, PULL_EXISTS]
       \\ unabbrev_all_tac \\ gs [] \\ rw []
@@ -1014,7 +1007,7 @@ Proof
         rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ CASE_TAC \\ gs [] \\ rw []
-        \\ gs [CaseEqs ["thunkLang$v", "v"]]
+        \\ gs [CaseEqs ["envLang$v", "v"]]
         \\ rename1 ‘v_rel v1 v2’
         \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs [v_rel_def])
       \\ simp [MAP_MAP_o, combinTheory.o_DEF]
@@ -1034,7 +1027,7 @@ Theorem eval_exp_rel:
       INL err => eval env y = INL err
     | INR v => ∃w. eval env y = INR w ∧ v_rel v w ∧ v_inv v
 Proof
-  rw [thunkLang_substTheory.eval_def, thunkLangTheory.eval_def]
+  rw [thunkLangTheory.eval_def, envLangTheory.eval_def]
   \\ DEEP_INTRO_TAC some_intro \\ simp []
   \\ reverse strip_tac
   >- (
@@ -1057,11 +1050,11 @@ Proof
   \\ drule_all_then assume_tac eval_to_exp_rel
   \\ Cases_on ‘j ≤ k’ \\ gvs []
   >- (
-    drule_all eval_to_mono
+    drule_all envLangTheory.eval_to_mono
     \\ disch_then (assume_tac o SYM)
     \\ gs [])
   \\ ‘k ≤ j’ by fs []
-  \\ drule_all eval_to_subst_mono
+  \\ drule_all thunkLangTheory.eval_to_mono
   \\ disch_then (assume_tac o SYM) \\ gs []
   \\ irule_at Any eval_to_exp_rel
   \\ irule_at Any EQ_REFL \\ fs []
@@ -1073,9 +1066,8 @@ Proof
   ho_match_mp_tac compile_exp_ind
   \\ rpt conj_tac
   \\ rpt gen_tac
-  \\ simp [compile_exp_def,
-           thunkLangTheory.freevars_def,
-           thunkLang_substTheory.freevars_def]
+  \\ simp [compile_exp_def, envLangTheory.freevars_def,
+           thunkLangTheory.freevars_def]
   \\ strip_tac
   >- (
     strip_tac
@@ -1086,8 +1078,8 @@ Proof
     \\ gvs [MEM_EL, PULL_EXISTS, EL_MAP, EVERY_EL])
   >- (
     rename1 ‘Let opt _ _’
-    \\ Cases_on ‘opt’ \\ gs [thunkLangTheory.freevars_def,
-                             thunkLang_substTheory.freevars_def])
+    \\ Cases_on ‘opt’ \\ gs [envLangTheory.freevars_def,
+                             thunkLangTheory.freevars_def])
   >- (
     rw [MEM_MAP, MAP_MAP_o, combinTheory.o_DEF, EXTENSION, EVERY_MEM]
     \\ fs [EXISTS_PROD, FORALL_PROD]
@@ -1097,7 +1089,7 @@ QED
 Theorem compile_exp_closed:
   ∀x. exp_inv x ⇒ closed (compile_exp x) = closed x
 Proof
-  rw [thunkLangTheory.closed_def, thunkLang_substTheory.closed_def,
+  rw [envLangTheory.closed_def, thunkLangTheory.closed_def,
       compile_exp_freevars]
 QED
 
@@ -1122,7 +1114,7 @@ Definition no_Value_def:
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ simp []
   \\ rw [] \\ rename1 ‘MEM _ xs’
-  \\ Induct_on ‘xs’ \\ rw [] \\ fs [thunkLang_substTheory.exp_size_def]
+  \\ Induct_on ‘xs’ \\ rw [] \\ fs [thunkLangTheory.exp_size_def]
 End
 
 Theorem exp_inv_rce:

@@ -6,7 +6,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open listTheory rich_listTheory;
-open pure_expTheory thunkLang_substTheory;
+open pure_expTheory thunkLangTheory;
 
 val _ = new_theory "pure_to_thunk";
 
