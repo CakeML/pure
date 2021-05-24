@@ -23,7 +23,7 @@ Definition compile_exp_def:
   compile_exp (Box x) = Box (compile_exp x) ∧
   compile_exp (Force x) = Force (compile_exp x) ∧
   compile_exp (Value v) = Lam "%dummy%" (Var "%dummy%") ∧
-  compile_exp (MkTick x) = MkTick (compile_exp x)
+  compile_exp (MkTick x) = Lam "%dummy%" (Var "%dummy%")
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ rw []
   \\ rename1 ‘MEM _ xs’
@@ -41,8 +41,7 @@ Definition rce_def:
   rce (If x y z) = If (rce x) (rce y) (rce z) ∧
   rce (Delay x) = Delay (rce x) ∧
   rce (Box x) = Box (rce x) ∧
-  rce (Force x) = Force (rce x) ∧
-  rce (MkTick x) = MkTick (rce x)
+  rce (Force x) = Force (rce x)
 Termination
   WF_REL_TAC ‘measure exp_size’ \\ rw []
   \\ rename1 ‘MEM _ xs’
