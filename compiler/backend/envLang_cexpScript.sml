@@ -1,12 +1,12 @@
 (*
-  Expressions for thunkLang as seen by the compiler
+  Expressions for envLang as seen by the compiler
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory rich_listTheory finite_mapTheory;
-open thunkLangTheory;
+open envLangTheory;
 
-val _ = new_theory "thunkLang_cexp";
+val _ = new_theory "envLang_cexp";
 
 Datatype:
   cop = Cons string
@@ -56,7 +56,7 @@ Definition rows_of_def:
 End
 
 Definition exp_of_def:
-  exp_of (Var c n) : exp  = Var n ∧
+  exp_of (Var c n) : exp  = envLang$Var n ∧
   exp_of (Prim c cop es)  = Prim (op_of cop) (MAP exp_of es) ∧
   exp_of (App c e es)     = Apps (exp_of e) (MAP exp_of es) ∧
   exp_of (Lam c xs e)     = Lams xs (exp_of e) ∧

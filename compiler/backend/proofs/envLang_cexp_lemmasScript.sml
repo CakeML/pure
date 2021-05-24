@@ -1,9 +1,12 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory thunkLang_cexpTheory thunkLangTheory;
+     optionTheory pairTheory pred_setTheory finite_mapTheory
+     envLangTheory;
+open pure_miscTheory envLang_cexpTheory ;
 
-val _ = new_theory "thunkLang_cexp_lemmas";
+val _ = new_theory "envLang_cexp_lemmas";
+
+val freevars_def = envLangTheory.freevars_def;
 
 Theorem freevars_Lams[simp]:
   ∀vs e. freevars (Lams vs e) = freevars e DIFF set vs

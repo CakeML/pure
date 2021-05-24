@@ -4,7 +4,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLang_substTheory
+     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      pure_evalTheory thunkLang_primitivesTheory dep_rewrite;
 open pure_exp_lemmasTheory pure_miscTheory;
 
@@ -15,7 +15,7 @@ val _ = numLib.prefer_num ();
 (*
   NOTES ON COMPILING PURELANG TO THUNKLANG:
 
-  thunkLang_subst-pureLang simulation.
+  thunkLang-pureLang simulation.
 
   As pureLang is lazy it allows non-functional value declarations that are
   mutually recursive, and lazy value declarations. All such computations are
@@ -241,7 +241,7 @@ Proof
 QED
 
 Theorem subst_single_def[local] = pure_exp_lemmasTheory.subst1_def;
-Theorem subst1_def[local] = thunkLang_substTheory.subst1_def;
+Theorem subst1_def[local] = thunkLangTheory.subst1_def;
 
 Theorem exp_rel_subst:
   ∀x y a b n s.
@@ -657,11 +657,11 @@ Proof
     \\ qpat_x_assum ‘exp_rel (Letrec f y) _’ mp_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_wh_to_def, Once eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
     >- ((* Rec *)
       CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
       \\ imp_res_tac ALOOKUP_SOME \\ fs [dest_anyThunk_def]
       \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
-      \\ IF_CASES_TAC \\ fs []
       \\ first_x_assum irule
       \\ irule_at Any exp_rel_subst_funs \\ fs []
       \\ drule_then (qspec_then ‘REVERSE f’ mp_tac) ALOOKUP_SOME_EL_2
@@ -683,13 +683,12 @@ Proof
              ALOOKUP_MAP_2]
       \\ rw [])
     >- ((* Tick *)
-      CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
-      \\ IF_CASES_TAC \\ fs [dest_anyThunk_def]
+      CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def]))
+      \\ gs [dest_anyThunk_def]
       \\ first_x_assum irule
       \\ fs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
              flookup_fupdate_list, FDOM_FUPDATE_LIST, subst_ignore,
              subst_funs_def, eval_wh_to_def])
-    \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum irule
     \\ irule_at Any exp_rel_subst_funs \\ fs []
     \\ gs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
@@ -717,9 +716,9 @@ Proof
         \\ rw [] \\ gvs [EL_MAP]
         \\ gs [thunk_rel_def])
       >- (
-        simp [eval_to_def]
-        \\ IF_CASES_TAC \\ fs [LIST_REL_EL_EQN]
-        \\ fs [LENGTH_EQ_NUM_compute])
+        gvs [eval_to_def, eval_wh_to_def, LIST_REL_EL_EQN]
+        \\ IF_CASES_TAC \\ gs []
+        \\ gvs [LENGTH_EQ_NUM_compute])
       \\ Cases_on ‘op’ \\ fs [LIST_REL_EL_EQN]
       >- (
         IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute])
@@ -835,7 +834,7 @@ Proof
         >- (
           gs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS]
           \\ unabbrev_all_tac \\ gs []
-          \\ gvs [CaseEqs ["sum", "thunkLang_subst$v"], LIST_REL_EL_EQN]
+          \\ gvs [CaseEqs ["sum", "thunkLang$v"], LIST_REL_EL_EQN]
           \\ first_x_assum (drule_then assume_tac)
           \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by gs []
           \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [])
@@ -867,7 +866,7 @@ Proof
   \\ ‘eval_to k y ≠ INL Diverge’ by (strip_tac \\ fs [])
   \\ Cases_on ‘k = j’ \\ fs []
   \\ ‘k < j’ by fs []
-  \\ drule_all_then assume_tac eval_to_subst_mono \\ fs []
+  \\ drule_all_then assume_tac eval_to_mono \\ fs []
 QED
 
 Theorem exp_rel_eval:
@@ -878,7 +877,7 @@ Theorem exp_rel_eval:
 Proof
   strip_tac
   \\ qpat_x_assum ‘eval_wh _ ≠ _’ mp_tac
-  \\ simp [eval_wh_def, thunkLang_substTheory.eval_def]
+  \\ simp [eval_wh_def, thunkLangTheory.eval_def]
   \\ DEEP_INTRO_TAC some_intro \\ fs []
   \\ DEEP_INTRO_TAC some_intro \\ fs []
   \\ rw []
@@ -893,7 +892,7 @@ Proof
       \\ first_assum (irule_at Any) \\ fs []
       \\ first_assum (irule_at Any) \\ fs [])
     \\ ‘k ≤ j’ by fs []
-    \\ drule_all_then assume_tac eval_to_subst_mono
+    \\ drule_all_then assume_tac eval_to_mono
     \\ pop_assum (SUBST_ALL_TAC o SYM)
     \\ irule exp_rel_eval_to
     \\ first_assum (irule_at Any) \\ fs []

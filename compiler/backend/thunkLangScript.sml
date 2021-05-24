@@ -5,12 +5,15 @@
    thunkLang is the next language in the compiler after pureLang.
    - It has a call-by-value semantics.
    - It extends the pureLang syntax with explicit syntax for delaying and
-     forcing computations (“Delay” and “Force”) and “Thunk” values.
+     forcing computations (“Delay” and “Force”) and “Thunk” values. Non-
+     suspended thunks can be created with “Box”.
    - Suspended computations can be wrapped in “MkTick” to cause the suspended
      evaluation to consume one extra clock tick by producing a value wrapped in
      “DoTick”.
-   - This version has an environment-based semantics. See
-     [thunkLang_substScript.sml] for a substitution-based version.
+   - Any expression bound by a Letrec must be one of “Lam”, “Delay” or “Box”.
+   - thunkLang has a substitution-based semantics. See [envLangScript.sml]
+     for the next language in the compiler, which has an environment-based
+     semantics.
  *)
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
@@ -26,46 +29,114 @@ Datatype:
       | Prim op (exp list)                       (* primitive operations    *)
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
-      | Letrec ((vname #  exp) list) exp         (* mutually recursive exps *)
+      | Letrec ((vname # exp) list) exp          (* mutually recursive exps *)
       | Let (vname option) exp exp               (* non-recursive let       *)
       | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
-      | MkTick exp                               (* creates a delayed Tick  *)
-End
+      | Value v                                  (* for substitution        *)
+      | MkTick exp;                              (* creates a delayed Tick  *)
 
-Datatype:
   v = Constructor string (v list)
-    | Closure vname ((vname # v) list) exp
-    | Recclosure ((vname # exp) list) ((vname # v) list) vname
-    | Thunk (v + (vname # v) list # exp)
+    | Closure vname exp
+    | Recclosure ((vname # exp) list) vname
+    | Thunk (v + exp)
     | Atom lit
     | DoTick v                                   (* extra clock when forced *)
 End
 
-Definition subst_funs_def[simp]:
-  subst_funs funs env =
-    env ++ MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs
+val exp_size_def = fetch "-" "exp_size_def";
+
+Definition subst_def:
+  subst m (Var s) =
+    (case ALOOKUP (REVERSE m) s of
+       NONE => Var s
+     | SOME x => Value x) ∧
+  subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
+  subst m (If x y z) =
+    If (subst m x) (subst m y) (subst m z) ∧
+  subst m (App x y) = App (subst m x) (subst m y) ∧
+  subst m (Lam s x) = Lam s (subst (FILTER (λ(n,x). n ≠ s) m) x) ∧
+  subst m (Let NONE x y) = Let NONE (subst m x) (subst m y) ∧
+  subst m (Let (SOME s) x y) =
+    Let (SOME s) (subst m x) (subst (FILTER (λ(n,x). n ≠ s) m) y) ∧
+  subst m (Letrec f x) =
+    (let m1 = FILTER (λ(n, v). ¬MEM n (MAP FST f)) m in
+       Letrec (MAP (λ(n, x). (n, subst m1 x)) f) (subst m1 x)) ∧
+  subst m (Delay x) = Delay (subst m x) ∧
+  subst m (Box x) = Box (subst m x) ∧
+  subst m (Force x) = Force (subst m x) ∧
+  subst m (Value v) = Value v ∧
+  subst m (MkTick x) = MkTick (subst m x)
+Termination
+  WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
+  \\ fs [exp_size_def]
+End
+
+Overload subst1 = “λname v e. subst [(name,v)] e”;
+
+Theorem subst_empty[simp]:
+  subst [] x = x
+Proof
+  ‘∀m x. m = [] ⇒ subst m x = x’ suffices_by rw []
+  \\ ho_match_mp_tac subst_ind
+  \\ rw [subst_def]
+  \\ rename1 ‘MAP _ xs’
+  \\ Induct_on ‘xs’ \\ fs [FORALL_PROD, SF SFY_ss]
+QED
+
+Theorem subst1_def:
+  subst1 n v (Var s) = (if n = s then Value v else Var s) ∧
+  subst1 n v (Prim op xs) = Prim op (MAP (subst1 n v) xs) ∧
+  subst1 n v (If x y z) =
+    If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
+  subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y) ∧
+  subst1 n v (Lam s x) = (if n = s then Lam s x else Lam s (subst1 n v x)) ∧
+  subst1 n v (Let NONE x y) =
+    Let NONE (subst1 n v x) (subst1 n v y) ∧
+  subst1 n v (Let (SOME s) x y) =
+    Let (SOME s) (subst1 n v x) (if n = s then y else subst1 n v y) ∧
+  subst1 n v (Letrec f x) =
+    (if MEM n (MAP FST f) then
+       Letrec f x
+     else
+       Letrec (MAP (λ(f, x). (f, subst1 n v x)) f) (subst1 n v x)) ∧
+  subst1 n v (Delay x) = Delay (subst1 n v x) ∧
+  subst1 n v (Box x) = Box (subst1 n v x) ∧
+  subst1 n v (Force x) = Force (subst1 n v x) ∧
+  subst1 n v (Value w) = Value w ∧
+  subst1 n v (MkTick x) = MkTick (subst1 n v x)
+Proof
+  rw [subst_def, COND_RAND, subst_empty, ELIM_UNCURRY]
+QED
+
+Definition subst_funs_def:
+  subst_funs f = subst (MAP (λ(g, x). (g, Recclosure f g)) f)
 End
 
 Definition dest_Closure_def[simp]:
-  dest_Closure (Closure s env x) = return (s, env, x) ∧
+  dest_Closure (Closure s x) = return (s, x) ∧
   dest_Closure _ = fail Type_error
 End
 
 Definition dest_Recclosure_def[simp]:
-  dest_Recclosure (Recclosure funs env fn) = return (funs, env, fn) ∧
+  dest_Recclosure (Recclosure f n) = return (f, n) ∧
   dest_Recclosure _ = fail Type_error
 End
 
 Definition dest_anyClosure_def:
   dest_anyClosure v =
-    dest_Closure v ++
     do
-      (f, env, n) <- dest_Recclosure v;
+      (s, x) <- dest_Closure v;
+       return (s, x, [])
+    od ++
+    do
+      (f, n) <- dest_Recclosure v;
       case ALOOKUP (REVERSE f) n of
-        SOME (Lam s x) => return (s, subst_funs f env, x)
+        SOME (Lam s x) => return (s, x, MAP (λ(g, x). (g, Recclosure f g)) f)
       | _ => fail Type_error
     od
 End
@@ -87,10 +158,10 @@ Definition dest_anyThunk_def:
       return (w, [])
     od ++
     do
-      (f, env, n) <- dest_Recclosure v;
+      (f, n) <- dest_Recclosure v;
       case ALOOKUP (REVERSE f) n of
-        SOME (Delay x) => return (INR (env, x), f)
-      | SOME (Box x) => return (INR (env, x), f)
+        SOME (Delay x) => return (INR x, f)
+      | SOME (Box x) => return (INR x, f)
       | _ => fail Type_error
     od
 End
@@ -100,14 +171,10 @@ Definition dest_Constructor_def[simp]:
   dest_Constructor _ = fail Type_error
 End
 
-Definition unit_def:
-  unit = Constructor "" []
-End
-
 Definition freevars_def:
   freevars (Var n) = {n} ∧
   freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
-  freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
+  freevars (If x y z) = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b) = freevars b DIFF {s} ∧
   freevars (Let NONE x y) = freevars x ∪ freevars y ∧
@@ -118,94 +185,87 @@ Definition freevars_def:
   freevars (Delay x) = freevars x ∧
   freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
+  freevars (Value v) = ∅ ∧
   freevars (MkTick x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ rw []
   \\ rename1 ‘MEM _ xs’
   \\ Induct_on ‘xs’ \\ rw []
-  \\ fs [fetch "-" "exp_size_def"]
+  \\ fs [exp_size_def]
 End
 
 Definition closed_def:
   closed e ⇔ freevars e = ∅
 End
 
-Definition dummy_def:
-  dummy = "%dummy%"
-End
-
 Definition eval_to_def:
-  eval_to k env (Var n) =
-    (case ALOOKUP (REVERSE env) n of
-       SOME v => return v
-     | NONE => fail Type_error) ∧
-  eval_to k env (App f x) =
+  eval_to k (Value v) = return v ∧
+  eval_to k (Var n) = fail Type_error ∧
+  eval_to k (App f x) =
     (do
-       fv <- eval_to k env f;
-       xv <- eval_to k env x;
-       (s, env, body) <- dest_anyClosure fv;
-       if k = 0 then fail Diverge else eval_to (k - 1) (env ++ [(s,xv)]) body
+       fv <- eval_to k f;
+       xv <- eval_to k x;
+       (s, body, binds) <- dest_anyClosure fv;
+       y <<- subst (binds ++ [(s, xv)]) body;
+       if k = 0 then fail Diverge else eval_to (k - 1) y
      od) ∧
-  eval_to k env (Lam s x) = return (Closure s env x) ∧
-  eval_to k env (Let NONE x y) =
+  eval_to k (Lam s x) = return (Closure s x) ∧
+  eval_to k (Let NONE x y) =
     (if k = 0 then fail Diverge else
        do
-         eval_to (k - 1) env x;
-         eval_to (k - 1) env y
+         eval_to (k - 1) x;
+         eval_to (k - 1) y
        od) ∧
-  eval_to k env (Let (SOME n) x y) =
+  eval_to k (Let (SOME n) x y) =
     (if k = 0 then fail Diverge else
        do
-         v <- eval_to (k - 1) env x;
-         eval_to (k - 1) (env ++ [(n,v)]) y
+         v <- eval_to (k - 1) x;
+         eval_to (k - 1) (subst1 n v y)
        od) ∧
-  eval_to k env (If x y z) =
+  eval_to k (If x y z) =
     (if k = 0 then fail Diverge else
        do
-         v <- eval_to (k - 1) env x;
+         v <- eval_to (k - 1) x;
          if v = Constructor "True" [] then
-           eval_to (k - 1) env y
+           eval_to (k - 1) y
          else if v = Constructor "False" [] then
-           eval_to (k - 1) env z
+           eval_to (k - 1) z
          else
            fail Type_error
        od) ∧
-  eval_to k env (Letrec funs x) =
+  eval_to k (Letrec funs x) =
     (if k = 0 then fail Diverge else
-       eval_to (k - 1) (subst_funs funs env) x) ∧
-  eval_to k env (Delay x) = return (Thunk (INR (env, x))) ∧
-  eval_to k env (Box x) =
+       eval_to (k - 1) (subst_funs funs x)) ∧
+  eval_to k (Delay x) = return (Thunk (INR x)) ∧
+  eval_to k (Box x) =
     (do
-       v <- eval_to k env x;
+       v <- eval_to k x;
        return (Thunk (INL v))
      od) ∧
-  eval_to k env (Force x) =
+  eval_to k (Force x) =
+    (if k = 0 then fail Diverge else
+       do
+         v <- eval_to k x;
+         case dest_Tick v of
+           SOME w => eval_to (k - 1) (Force (Value w))
+         | NONE =>
+             do (wx, binds) <- dest_anyThunk v;
+                case wx of
+                  INL v => return v
+                | INR y => eval_to (k - 1) (subst_funs binds y)
+             od
+       od) ∧
+  eval_to k (MkTick x) =
     (do
-       v <- eval_to k env x;
-       case dest_Tick v of
-         SOME w =>
-           if k = 0 then fail Diverge else
-             eval_to (k - 1) [(dummy,w)] (Force (Var dummy))
-       | NONE =>
-           do (wx, binds) <- dest_anyThunk v;
-              case wx of
-                INL v => return v
-              | INR (env, y) =>
-                  if k = 0 then fail Diverge else
-                    eval_to (k - 1) (subst_funs binds env) y
-           od
-     od) ∧
-  eval_to k env (MkTick x) =
-    (do
-       v <- eval_to k env x;
+       v <- eval_to k x;
        return (DoTick v)
      od) ∧
-  eval_to k env (Prim op xs) =
+  eval_to k (Prim op xs) =
     (case op of
        Cons s =>
            do
-             vs <- result_map (λx. eval_to k env x) xs;
+             vs <- result_map (λx. eval_to k x) xs;
              return (Constructor s vs)
            od
        | If => fail Type_error
@@ -213,7 +273,7 @@ Definition eval_to_def:
        | Proj s i =>
            do
              assert (LENGTH xs = 1);
-             v <- if k = 0 then fail Diverge else eval_to (k - 1) env (HD xs);
+             v <- if k = 0 then fail Diverge else eval_to (k - 1) (HD xs);
              (t, ys) <- dest_Constructor v;
              assert (t = s ∧ i < LENGTH ys);
              return (EL i ys)
@@ -221,7 +281,7 @@ Definition eval_to_def:
        | IsEq s i =>
            do
              assert (LENGTH xs = 1);
-             v <- if k = 0 then fail Diverge else eval_to (k - 1) env (HD xs);
+             v <- if k = 0 then fail Diverge else eval_to (k - 1) (HD xs);
              (t, ys) <- dest_Constructor v;
              assert (t = s ⇒ i = LENGTH ys);
              return (Constructor (if t ≠ s then "False" else "True") [])
@@ -229,10 +289,10 @@ Definition eval_to_def:
        | AtomOp aop =>
            do
              ys <- result_map (λx. if k = 0 then fail Diverge else
-                                     case eval_to (k - 1) env x of
-                                       INR (Atom l) => return l
-                                     | INL err => fail err
-                                     | _ => fail Type_error) xs;
+                                    case eval_to (k - 1) x of
+                                      INR (Atom l) => return l
+                                    | INL err => fail err
+                                    | _ => fail Type_error) xs;
              case eval_op aop ys of
                SOME (INL v) => return (Atom v)
              | SOME (INR b) =>
@@ -240,28 +300,98 @@ Definition eval_to_def:
              | NONE => fail Type_error
            od)
 Termination
-  WF_REL_TAC ‘inv_image ($< LEX $<) (λ(k, c, x). (k, exp_size x))’ \\ rw []
-  \\ Induct_on ‘xs’ \\ rw [] \\ fs [fetch "-" "exp_size_def"]
+  WF_REL_TAC ‘inv_image ($< LEX $<) (I ## exp_size)’ \\ rw []
+  \\ Induct_on ‘xs’ \\ rw [] \\ fs [exp_size_def]
 End
 
+Theorem eval_to_ind:
+  ∀P.
+    (∀k v. P k (Value v)) ∧
+    (∀k n. P k (Var n)) ∧
+    (∀k f x.
+       (∀y binds s xv body.
+          y = subst (binds ⧺ [(s,xv)]) body ∧ k ≠ 0 ⇒ P (k − 1) y) ∧
+       P k f ∧ P k x ⇒
+       P k (App f x)) ∧
+    (∀k s x. P k (Lam s x)) ∧
+    (∀k x y.
+       (k ≠ 0 ⇒ P (k − 1) x) ∧ (k ≠ 0 ⇒ P (k − 1) y) ⇒
+       P k (Let NONE x y)) ∧
+    (∀k n x y.
+       (∀v. k ≠ 0 ⇒ P (k − 1) (subst1 n v y)) ∧
+       (k ≠ 0 ⇒ P (k − 1) x) ⇒
+         P k (Let (SOME n) x y)) ∧
+    (∀k x y z.
+      (∀v. k ≠ 0 ∧
+           v ≠ Constructor "True" [] ∧
+           v = Constructor "False" [] ⇒
+             P (k − 1) z) ∧
+      (∀v. k ≠ 0 ∧ v = Constructor "True" [] ⇒ P (k − 1) y) ∧
+      (k ≠ 0 ⇒ P (k − 1) x) ⇒
+        P k (If x y z)) ∧
+    (∀k funs x.
+      (k ≠ 0 ⇒ P (k − 1) (subst_funs funs x)) ⇒ P k (Letrec funs x)) ∧
+    (∀k x. P k (Delay x)) ∧
+    (∀k x. P k x ⇒ P k (Box x)) ∧
+    (∀k x.
+      (∀y binds.
+         k ≠ 0 ⇒
+           P (k − 1) (subst_funs binds y)) ∧
+      (∀w.
+         k ≠ 0 ⇒
+           P (k − 1) (Force (Value w))) ∧
+      (k ≠ 0 ⇒ P k x) ⇒
+        P k (Force x)) ∧
+    (∀k x. P k x ⇒ P k (MkTick x)) ∧
+    (∀k op xs.
+      (∀aop x.
+         op = AtomOp aop ∧
+         MEM x xs ∧
+         k ≠ 0 ⇒
+           P (k − 1) x) ∧
+      (∀s x.
+         op = Cons s ∧
+         MEM x xs ⇒
+           P k x) ∧
+      (∀s'' i'.
+         op = IsEq s'' i' ∧
+         k ≠ 0 ⇒
+           P (k − 1) (HD xs)) ∧
+      (∀s' i.
+         op = Proj s' i ∧
+         k ≠ 0 ⇒
+           P (k − 1) (HD xs)) ⇒
+            P k (Prim op xs)) ⇒
+        ∀v v1. P v v1
+Proof
+  rw []
+  \\ irule eval_to_ind \\ rw []
+  \\ last_x_assum irule \\ rw []
+  >- (
+    first_x_assum irule \\ gs []
+    \\ qexists_tac ‘Atom foo’ \\ gs [])
+  \\ first_x_assum irule \\ gs []
+  \\ qexists_tac ‘DoTick w’ \\ gs []
+QED
+
 Definition eval_def:
-  eval env x =
-    case some k. eval_to k env x ≠ INL Diverge of
+  eval x =
+    case some k. eval_to k x ≠ INL Diverge of
       NONE => fail Diverge
-    | SOME k => eval_to k env x
+    | SOME k => eval_to k x
 End
 
 Theorem eval_to_mono:
-  ∀k env x j.
-    eval_to k env x ≠ INL Diverge ∧
+  ∀k x j.
+    eval_to k x ≠ INL Diverge ∧
     k ≤ j ⇒
-      eval_to j env x = eval_to k env x
+      eval_to j x = eval_to k x
 Proof
   qsuff_tac ‘
-    ∀k env x j.
-      eval_to k env x ≠ INL Diverge ∧
+    ∀k x j.
+      eval_to k x ≠ INL Diverge ∧
       k < j ⇒
-        eval_to j env x = eval_to k env x’
+        eval_to j x = eval_to k x’
   >- (
     rw []
     \\ Cases_on ‘k = j’ \\ gs [])
@@ -270,11 +400,13 @@ Proof
   \\ rpt gen_tac
   >- ((* Value *)
     simp [eval_to_def])
+  >- ((* Var *)
+    simp [eval_to_def])
   >- ((* App *)
     rename1 ‘App x y’
     \\ rw [eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs []
-    \\ Cases_on ‘eval_to k env y’ \\ fs []
+    \\ Cases_on ‘eval_to k x’ \\ fs []
+    \\ Cases_on ‘eval_to k y’ \\ fs []
     \\ rename1 ‘dest_anyClosure z’
     \\ Cases_on ‘dest_anyClosure z’ \\ fs []
     \\ pairarg_tac \\ gvs []
@@ -283,46 +415,38 @@ Proof
     simp [eval_to_def])
   >- ((* Let NONE *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* Let SOME *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ IF_CASES_TAC \\ fs [])
   >- ((* If *)
     rename1 ‘If x y z’
     \\ rw [eval_to_def]
-    \\ Cases_on ‘eval_to (k - 1) env x’ \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ fs []
     \\ rw [] \\ fs [])
   >- ((* Letrec *)
-    rw [eval_to_def])
+    rw [eval_to_def, subst_funs_def])
   >- ((* Delay *)
-    rw [eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs [])
+    rw [eval_to_def])
   >- ((* Box *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs [])
+    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
     rw []
     \\ gs [Once eval_to_def]
     \\ simp [SimpLHS, Once eval_to_def]
     \\ simp [SimpRHS, Once eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    >- (
-      Cases_on ‘dest_anyThunk y’ \\ gs []
-      \\ pairarg_tac \\ gvs []
-      \\ BasicProvers.TOP_CASE_TAC \\ gs []
-      \\ BasicProvers.TOP_CASE_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ first_x_assum irule \\ simp []
-      \\ first_assum (irule_at Any))
     \\ IF_CASES_TAC \\ gs []
-    \\ first_assum irule \\ simp []
-    \\ first_assum (irule_at Any))
+    \\ Cases_on ‘eval_to k x’ \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ Cases_on ‘dest_anyThunk y’ \\ gs []
+    \\ pairarg_tac \\ gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
   >- ((* MkTick *)
     rw [eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs [])
+    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Prim *)
     dsimp []
     \\ strip_tac
@@ -332,24 +456,24 @@ Proof
       last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
         \\ IF_CASES_TAC  \\ gs []
-        \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)])
+        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)])
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
     >- ((* IsEq *)
       gvs [LENGTH_EQ_NUM_compute]
-      \\ rename1 ‘eval_to (k - 1) env x’
-      \\ ‘eval_to (k - 1) env x ≠ INL Diverge’ by (strip_tac \\ fs [])
+      \\ rename1 ‘eval_to (k - 1) x’
+      \\ ‘eval_to (k - 1) x ≠ INL Diverge’ by (strip_tac \\ fs [])
       \\ gs [])
     >- ((* Proj *)
       gvs [LENGTH_EQ_NUM_compute]
-      \\ rename1 ‘eval_to (k - 1) env x’
-      \\ ‘eval_to (k - 1) env x ≠ INL Diverge’ by (strip_tac \\ fs [])
+      \\ rename1 ‘eval_to (k - 1) x’
+      \\ ‘eval_to (k - 1) x ≠ INL Diverge’ by (strip_tac \\ fs [])
       \\ gs [])
     >- ((* AtomOp *)
       qmatch_goalsub_abbrev_tac ‘result_map f xs’
@@ -357,35 +481,35 @@ Proof
       \\ last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
         >- (
           rename1 ‘MEM x xs’
           \\ unabbrev_all_tac
-          \\ ‘eval_to (j - 1) env x = INL Diverge’
+          \\ ‘eval_to (j - 1) x = INL Diverge’
             by gs [CaseEqs ["sum", "v"]]
           \\ gs [CaseEq "bool"]
           \\ first_x_assum (drule_then assume_tac)
           \\ gs [CaseEqs ["sum", "v"]])
       \\ IF_CASES_TAC \\ gs []
       \\ ‘F’ suffices_by rw []
-      \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ unabbrev_all_tac
       \\ first_x_assum (drule_then assume_tac) \\ gs []
       \\ gs [CaseEqs ["sum", "v", "bool"]])
     \\ IF_CASES_TAC \\ gs []
     >- (
       ‘F’ suffices_by rw []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ unabbrev_all_tac \\ gs []
       \\ gs [CaseEqs ["sum", "v", "bool"]])
     \\ IF_CASES_TAC \\ gs []
     >- (
       ‘F’ suffices_by rw []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ unabbrev_all_tac \\ gs []
       \\ gs [CaseEqs ["sum", "v", "bool"]])
