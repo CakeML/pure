@@ -32,7 +32,6 @@ Datatype:
       | Delay exp                                (* suspend in a Thunk      *)
       | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
-      | MkTick exp                               (* creates a delayed Tick  *)
 End
 
 Datatype:
@@ -41,7 +40,6 @@ Datatype:
     | Recclosure ((vname # exp) list) ((vname # v) list) vname
     | Thunk (v + (vname # v) list # exp)
     | Atom lit
-    | DoTick v                                   (* extra clock when forced *)
 End
 
 Definition subst_funs_def[simp]:
@@ -68,11 +66,6 @@ Definition dest_anyClosure_def:
         SOME (Lam s x) => return (s, subst_funs f env, x)
       | _ => fail Type_error
     od
-End
-
-Definition dest_Tick_def[simp]:
-  dest_Tick (DoTick v) = SOME v ∧
-  dest_Tick _ = NONE
 End
 
 Definition dest_Thunk_def[simp]:
@@ -117,8 +110,7 @@ Definition freevars_def:
      set (MAP FST f)) ∧
   freevars (Delay x) = freevars x ∧
   freevars (Box x) = freevars x ∧
-  freevars (Force x) = freevars x ∧
-  freevars (MkTick x) = freevars x
+  freevars (Force x) = freevars x
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ rw []
@@ -129,10 +121,6 @@ End
 
 Definition closed_def:
   closed e ⇔ freevars e = ∅
-End
-
-Definition dummy_def:
-  dummy = "%dummy%"
 End
 
 Definition eval_to_def:
@@ -181,26 +169,14 @@ Definition eval_to_def:
        return (Thunk (INL v))
      od) ∧
   eval_to k env (Force x) =
-    (do
-       v <- eval_to k env x;
-       case dest_Tick v of
-         SOME w =>
-           if k = 0 then fail Diverge else
-             eval_to (k - 1) [(dummy,w)] (Force (Var dummy))
-       | NONE =>
-           do (wx, binds) <- dest_anyThunk v;
-              case wx of
-                INL v => return v
-              | INR (env, y) =>
-                  if k = 0 then fail Diverge else
-                    eval_to (k - 1) (subst_funs binds env) y
-           od
-     od) ∧
-  eval_to k env (MkTick x) =
-    (do
-       v <- eval_to k env x;
-       return (DoTick v)
-     od) ∧
+    (if k = 0 then fail Diverge else
+       do
+         v <- eval_to k env x;
+         (wx, binds) <- dest_anyThunk v;
+         case wx of
+           INL v => return v
+         | INR (env, y) => eval_to (k - 1) (subst_funs binds env) y
+       od) ∧
   eval_to k env (Prim op xs) =
     (case op of
        Cons s =>
@@ -307,22 +283,12 @@ Proof
     \\ gs [Once eval_to_def]
     \\ simp [SimpLHS, Once eval_to_def]
     \\ simp [SimpRHS, Once eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    >- (
-      Cases_on ‘dest_anyThunk y’ \\ gs []
-      \\ pairarg_tac \\ gvs []
-      \\ BasicProvers.TOP_CASE_TAC \\ gs []
-      \\ BasicProvers.TOP_CASE_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ first_x_assum irule \\ simp []
-      \\ first_assum (irule_at Any))
     \\ IF_CASES_TAC \\ gs []
-    \\ first_assum irule \\ simp []
-    \\ first_assum (irule_at Any))
-  >- ((* MkTick *)
-    rw [eval_to_def]
-    \\ Cases_on ‘eval_to k env x’ \\ fs [])
+    \\ Cases_on ‘eval_to k env x’ \\ fs []
+    \\ Cases_on ‘dest_anyThunk y’ \\ gs []
+    \\ pairarg_tac \\ gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
   >- ((* Prim *)
     dsimp []
     \\ strip_tac
