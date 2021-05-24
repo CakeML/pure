@@ -556,9 +556,6 @@ Proof
     \\ rw [Once exp_rel_cases] \\ gs [eval_to_def]
     \\ rename1 ‘dest_anyClosure v1’
     \\ rename1 ‘v_rel v1 v2’
-    THENL [
-      Cases_on ‘properThunk w’ \\ gs [],
-      ALL_TAC ]
     THEN (
       Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyClosure_def]
       >- ((* Thunk-Thunk *)
@@ -627,9 +624,7 @@ Proof
     \\ rw [ELIM_UNCURRY, freevars_def, MAP_MAP_o, combinTheory.o_DEF,
            SF ETA_ss])
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same]
-    \\ IF_CASES_TAC \\ gs [exp_inv_def]
-    \\ cheat (* RHS needs to be properThunk (but it should be) *))
+    rw [Once exp_rel_cases] \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)

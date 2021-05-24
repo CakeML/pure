@@ -165,12 +165,6 @@ Definition dest_anyThunk_def:
     od
 End
 
-Definition properThunk_def[simp]:
-  properThunk (Thunk x) = (∃y. x = INR y) ∧
-  properThunk (Recclosure f n) = (∃x. ALOOKUP (REVERSE f) n = SOME (Delay x)) ∧
-  properThunk _ = F
-End
-
 Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
@@ -264,7 +258,6 @@ Definition eval_to_def:
   eval_to k (MkTick x) =
     (do
        v <- eval_to k x;
-       assert (properThunk v);
        return (DoTick v)
      od) ∧
   eval_to k (Prim op xs) =
@@ -462,12 +455,12 @@ Proof
       last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
         \\ IF_CASES_TAC  \\ gs []
-        \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)])
+        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)])
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
@@ -487,7 +480,7 @@ Proof
       \\ last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
@@ -501,21 +494,21 @@ Proof
           \\ gs [CaseEqs ["sum", "v"]])
       \\ IF_CASES_TAC \\ gs []
       \\ ‘F’ suffices_by rw []
-      \\ fs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ unabbrev_all_tac
       \\ first_x_assum (drule_then assume_tac) \\ gs []
       \\ gs [CaseEqs ["sum", "v", "bool"]])
     \\ IF_CASES_TAC \\ gs []
     >- (
       ‘F’ suffices_by rw []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ unabbrev_all_tac \\ gs []
       \\ gs [CaseEqs ["sum", "v", "bool"]])
     \\ IF_CASES_TAC \\ gs []
     >- (
       ‘F’ suffices_by rw []
-      \\ gs [Once (METIS_PROVE [] “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ unabbrev_all_tac \\ gs []
       \\ gs [CaseEqs ["sum", "v", "bool"]])
