@@ -8,6 +8,68 @@ val _ = new_theory "pure_typingProps";
 
 (******************** Basic lemmas ********************)
 
+Theorem type_wf_type_application:
+  ∀fts rt ats tdefs t.
+    EVERY (type_wf tdefs) fts ∧ type_wf tdefs rt ∧ EVERY (type_wf tdefs) ats ∧
+    type_application fts rt ats = SOME t
+  ⇒ type_wf tdefs t
+Proof
+  recInduct type_application_ind >> rw[type_application_def, type_wf_def] >>
+  gvs[type_wf_def, SF ETA_ss]
+QED
+
+Theorem freetyvars_ok_type_application:
+  ∀fts rt ats db t.
+  EVERY (freetyvars_ok db) fts ∧ freetyvars_ok db rt ∧
+  EVERY (freetyvars_ok db) ats ∧
+  type_application fts rt ats = SOME t
+  ⇒ freetyvars_ok db t
+Proof
+  recInduct type_application_ind >> rw[type_application_def, freetyvars_ok_def] >>
+  gvs[freetyvars_ok_def, SF ETA_ss]
+QED
+
+Theorem type_ok_type_application:
+  EVERY (type_ok tdefs db) fts ∧ type_ok tdefs db rt ∧
+  EVERY (type_ok tdefs db) ats ∧
+  type_application fts rt ats = SOME t
+  ⇒ type_ok tdefs db t
+Proof
+  rw[EVERY_MEM, type_ok_def]
+  >- (
+    irule freetyvars_ok_type_application >> rpt $ goal_assum drule >>
+    gvs[EVERY_MEM]
+    )
+  >- (
+    irule type_wf_type_application >> rpt $ goal_assum drule >>
+    gvs[EVERY_MEM]
+    )
+QED
+
+Theorem subst_db_type_application:
+  ∀fts rt ats t n ts.
+    type_application fts rt ats = SOME t
+  ⇒ type_application
+      (MAP (subst_db n ts) fts) (subst_db n ts rt) (MAP (subst_db n ts) ats) =
+      SOME (subst_db n ts t)
+Proof
+  recInduct type_application_ind >> rw[type_application_def] >>
+  gvs[subst_db_def, type_application_def, SF ETA_ss]
+QED
+
+Theorem shift_db_type_application:
+  ∀fts rt ats t skip shift.
+    type_application fts rt ats = SOME t
+  ⇒ type_application
+      (MAP (shift_db skip shift) fts)
+      (shift_db skip shift rt)
+      (MAP (shift_db skip shift) ats)
+    = SOME $ shift_db skip shift t
+Proof
+  recInduct type_application_ind >> rw[type_application_def] >>
+  gvs[shift_db_def, type_application_def, SF ETA_ss]
+QED
+
 Theorem get_PrimTys_SOME:
   ∀ts pts.
     get_PrimTys ts = SOME pts ⇔
@@ -256,6 +318,10 @@ Proof
   >- gvs[EVERY_EL]
   >- gvs[EVERY_EL, type_ok_def]
   >- gvs[oEL_THM, EVERY_EL]
+  >- (
+    irule freetyvars_ok_type_application >>
+    goal_assum drule >> gvs[EVERY_EL]
+    )
   >- gvs[EVERY_EL, type_ok_def]
   >- (
     first_x_assum irule >>
@@ -315,6 +381,9 @@ Proof
   >- gvs[EVERY_EL]
   >- gvs[type_cons_def]
   >- gvs[oEL_THM, EVERY_EL]
+  >- (
+    irule type_ok_type_application >> goal_assum drule >> gvs[EVERY_EL]
+    )
   >- gvs[EVERY_EL]
   >- (
     first_x_assum irule >>
@@ -360,11 +429,6 @@ Theorem type_cexp_cexp_wf:
 Proof
   Induct_on `type_cexp` >> rw[cexp_wf_def, type_wf_def, type_ok] >>
   gvs[EVERY_EL, LIST_REL_EL_EQN, EL_ZIP, EL_MAP]
-  >- (
-    imp_res_tac type_cexp_type_ok >>
-    gvs[EVERY_EL, LIST_REL_EL_EQN, type_ok, type_wf_def] >>
-    Cases_on `es` >> gvs[]
-    )
   >- (
     imp_res_tac type_cexp_type_ok >>
     gvs[EVERY_EL, LIST_REL_EL_EQN, type_ok, type_wf_def] >>
@@ -440,7 +504,7 @@ Proof
     pairarg_tac >> gvs[MEM_EL] >> last_x_assum drule >>
     pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >> strip_tac >>
     pop_assum mp_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> simp[MAP_ZIP]
+    simp[SF ETA_ss, MAP_ZIP]
     )
   >- (
     gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
@@ -477,8 +541,9 @@ Proof
   >- gvs[oEL_THM, EL_APPEND_EQN]
   >- (ntac 2 $ goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN])
   >- metis_tac[]
-  >- (disj1_tac >> qexists_tac `ts` >> gvs[LIST_REL_EL_EQN])
-  >- (disj2_tac >> qexists_tac `ts` >> gvs[LIST_REL_EL_EQN])
+  >- (
+    rpt $ goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN]
+    )
   >- (
     irule EVERY_MONOTONIC >> rw[] >> goal_assum $ drule_at Any >> rw[] >>
     drule type_ok_mono >> simp[]
@@ -550,9 +615,8 @@ Proof
     qexists_tac `MAP (subst_db n ts) carg_ts` >> simp[EL_MAP] >> rw[]
     >- (gvs[EVERY_MEM] >> rw[] >> irule type_ok_subst_db >> simp[EVERY_MEM]) >>
     gvs[type_cons_def, LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-    first_x_assum $ drule o GSYM >> rw[subst_db_subst_db] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> AP_TERM_TAC >>
-    DEP_REWRITE_TAC [subst_db_unchanged] >>
+    first_x_assum $ drule o GSYM >> rw[subst_db_subst_db, SF ETA_ss] >>
+    AP_TERM_TAC >> DEP_REWRITE_TAC [subst_db_unchanged] >>
     gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` kall_tac >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` drule >> simp[] >>
@@ -574,12 +638,10 @@ Proof
     )
   >- metis_tac[]
   >- (
-    disj1_tac >> gvs[LIST_REL_EL_EQN] >>
-    first_x_assum $ irule_at Any >> gvs[EL_MAP]
-    )
-  >- (
-    disj2_tac >> gvs[LIST_REL_EL_EQN] >>
-    first_x_assum $ irule_at $ Pos hd >> gvs[EL_MAP]
+    drule subst_db_type_application >>
+    disch_then $ qspecl_then [`n`,`ts'`] assume_tac >>
+    goal_assum $ drule_at $ Any >> gvs[] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, SF ETA_ss]
     )
   >- (
     gvs[EVERY_MAP, EVERY_MEM] >> rw[] >>
@@ -652,9 +714,8 @@ Proof
     >- (gvs[LIST_REL_EL_EQN, ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]) >>
     gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
     last_x_assum $ drule o GSYM >> rw[] >>
-    rw[subst_db_subst_db] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> AP_TERM_TAC >>
-    DEP_REWRITE_TAC [subst_db_unchanged] >>
+    rw[subst_db_subst_db, SF ETA_ss] >>
+    AP_TERM_TAC >> DEP_REWRITE_TAC [subst_db_unchanged] >>
     gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` kall_tac >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` drule >> simp[] >>
@@ -705,9 +766,8 @@ Proof
     qexists_tac `MAP (shift_db skip shift) carg_ts` >> simp[EL_MAP] >> rw[]
     >- (gvs[EVERY_MEM] >> rw[] >> irule type_ok_shift_db >> simp[EVERY_MEM]) >>
     gvs[type_cons_def, LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-    first_x_assum $ drule o GSYM >> rw[GSYM subst_db_shift_db_2] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> AP_TERM_TAC >>
-    DEP_REWRITE_TAC [shift_db_unchanged] >>
+    first_x_assum $ drule o GSYM >> rw[GSYM subst_db_shift_db_2, SF ETA_ss] >>
+    AP_TERM_TAC >> DEP_REWRITE_TAC [shift_db_unchanged] >>
     gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` kall_tac >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` drule >> simp[] >>
@@ -729,12 +789,10 @@ Proof
     )
   >- metis_tac[]
   >- (
-    disj1_tac >> gvs[LIST_REL_EL_EQN] >>
-    first_x_assum $ irule_at Any >> gvs[EL_MAP]
-    )
-  >- (
-    disj2_tac >> gvs[LIST_REL_EL_EQN] >>
-    first_x_assum $ irule_at $ Pos hd >> gvs[EL_MAP]
+    drule shift_db_type_application >>
+    disch_then $ qspecl_then [`skip`,`shift`] assume_tac >>
+    goal_assum $ drule_at Any >> gvs[] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, SF ETA_ss]
     )
   >- (
     gvs[EVERY_MAP, EVERY_MEM] >> rw[] >>
@@ -783,9 +841,8 @@ Proof
     >- (gvs[LIST_REL_EL_EQN, ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]) >>
     gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
     last_x_assum $ drule o GSYM >> rw[] >>
-    rw[GSYM subst_db_shift_db_2] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> AP_TERM_TAC >>
-    DEP_REWRITE_TAC [shift_db_unchanged] >>
+    rw[GSYM subst_db_shift_db_2, SF ETA_ss] >>
+    AP_TERM_TAC >> DEP_REWRITE_TAC [shift_db_unchanged] >>
     gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` kall_tac >>
     qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` drule >> simp[] >>
@@ -843,12 +900,8 @@ Proof
     )
   >- metis_tac[]
   >- (
-    disj1_tac >> gvs[LIST_REL_EL_EQN, EL_MAP] >> irule_at Any EQ_REFL >> rw[]
-    >- (last_x_assum irule >> simp[EL_MAP])
-    >- (last_x_assum drule >> strip_tac >> gvs[EL_MAP])
-    )
-  >- (
-    disj2_tac >> gvs[LIST_REL_EL_EQN, EL_MAP] >> irule_at Any EQ_REFL >> rw[]
+    gvs[LIST_REL_EL_EQN, EL_MAP] >> irule_at Any EQ_REFL >> rw[] >>
+    goal_assum $ drule_at Any >> rw[]
     >- (last_x_assum irule >> simp[EL_MAP])
     >- (last_x_assum drule >> strip_tac >> gvs[EL_MAP])
     )
@@ -918,8 +971,7 @@ Proof
     irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
     rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
     gvs[LIST_REL_EL_EQN, EL_MAP] >>
-    simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
-    CONV_TAC (DEPTH_CONV ETA_CONV) >> simp[MAP_ZIP] >>
+    simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss, MAP_ZIP] >>
     rw[EXTENSION] >> metis_tac[]
     )
 QED

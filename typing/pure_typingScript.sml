@@ -255,6 +255,19 @@ Definition type_exception_def:
       ALOOKUP exndef cname = SOME carg_tys
 End
 
+Definition type_application_def:
+  type_application [] rt [] = SOME rt ∧
+  type_application (ft::fts) rt [] = SOME $ Function (ft::fts) rt ∧
+  type_application [] (Function fts rt) (at::ats) =
+    type_application fts rt (at::ats) ∧
+  type_application (ft::fts) rt (at::ats) =
+    (if ft ≠ at then NONE else type_application fts rt ats) ∧
+  type_application _ _ _ = NONE
+Termination
+  WF_REL_TAC
+    `inv_image ($< LEX $<) (λ(fts,rt,ats). (type_size rt, LENGTH fts))` >> rw[]
+End
+
 Definition get_PrimTys_def:
   get_PrimTys [] = SOME [] ∧
   get_PrimTys (PrimTy pty :: rest) = OPTION_MAP (CONS pty) (get_PrimTys rest) ∧
@@ -359,13 +372,9 @@ Inductive type_cexp:
 
 [~App:]
   (type_cexp ns db st env e (Function ts t) ∧
-   LIST_REL (type_cexp ns db st env) es ts ⇒
-      type_cexp ns db st env (App c e es) t) ∧
-
-[~PartialApp:]
-  (type_cexp ns db st env e (Function (ts ++ rest) t) ∧
-   LIST_REL (type_cexp ns db st env) es ts ∧ ts ≠ [] ∧ rest ≠ [] ⇒
-      type_cexp ns db st env (App c e es) (Function rest t)) ∧
+   LIST_REL (type_cexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ∧
+   type_application ts t arg_tys = SOME res_ty ⇒
+      type_cexp ns db st env (App c e es) res_ty) ∧
 
 [~Lam:]
   (EVERY (type_ok (SND ns) db) arg_tys ∧
