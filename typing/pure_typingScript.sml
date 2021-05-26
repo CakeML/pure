@@ -246,7 +246,7 @@ Definition type_cons_def:
         ALOOKUP constructors cname = SOME schemes ∧
       (* And we can specialise it appropriately: *)
         LENGTH tyargs = arity ∧
-        LIST_REL (λs t. tsubst tyargs s = t) schemes carg_tys
+        MAP (tsubst tyargs) schemes = carg_tys
 End
 
 (* Typing judgments for exceptions *)
@@ -416,7 +416,7 @@ Inductive type_cexp:
         (* Constructor arities match: *)
           LENGTH pvars = LENGTH schemes ∧
         (* Constructor argument types match: *)
-          LIST_REL (λs t. tsubst tyargs s = t) schemes ptys ∧
+          MAP (tsubst tyargs) schemes = ptys ∧
         (* Continuation is well-typed: *)
           type_cexp (exndef,typedefs) db st
             (ZIP (pvars, MAP ($, 0) ptys) ++ (v,0,TypeCons tyid tyargs)::env)
