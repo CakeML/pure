@@ -37,7 +37,7 @@ Theorem oracle_imp_itree_preservation:
   ⇒
   bisimilar_up_to_oom safe_for_space
     (ARB interp prog s env) (* TODO: need prog-level semantics for CakeML *)
-    (interp mc ms)
+    (machine_sem_itree mc ms)
 Proof
   cheat
 QED
