@@ -198,7 +198,7 @@ Inductive type_atom_op:
   (type_lit l t ⇒ type_atom_op (Lit l) [] t) ∧
 
 [~Eq:]
-  (type_atom_op Eq [t;t] Bool) ∧
+  (t ≠ Bool ⇒ type_atom_op Eq [t;t] Bool) ∧
 
 [~IntOps_Int:]
   (MEM op [Add; Sub; Mul; Div; Mod] ⇒
@@ -393,11 +393,11 @@ Inductive type_cexp:
   (LIST_REL
     (λ(fn,body) (vars,scheme).
       type_cexp ns (db + vars) (MAP (tshift vars) st)
-        (tshift_env vars $ ZIP (MAP FST fns,schemes) ++ env)
+        (tshift_env vars $ REVERSE (ZIP (MAP FST fns,schemes)) ++ env)
         body scheme)
     fns schemes ∧
    EVERY (type_scheme_ok (SND ns) db) schemes ∧ fns ≠ [] ∧
-   type_cexp ns db st (ZIP (MAP FST fns, schemes) ++ env) e t ⇒
+   type_cexp ns db st (REVERSE (ZIP (MAP FST fns, schemes)) ++ env) e t ⇒
       type_cexp ns db st env (Letrec c fns e) t) ∧
 
 [~Case:]

@@ -181,6 +181,14 @@ Proof
   rw[fmap_eq_flookup, FLOOKUP_FMAP_MAP2]
 QED
 
+Theorem FMAP_MAP2_FUPDATE_LIST:
+  ∀l m f.
+    FMAP_MAP2 f (m |++ l) = FMAP_MAP2 f m |++ MAP (λ(k,v). (k, f (k,v))) l
+Proof
+  Induct >> rw[FUPDATE_LIST_THM] >>
+  PairCases_on `h` >> simp[FMAP_MAP2_FUPDATE]
+QED
+
 
 (******************** Functions/Pairs ********************)
 

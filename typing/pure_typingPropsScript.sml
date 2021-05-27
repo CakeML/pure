@@ -8,6 +8,51 @@ val _ = new_theory "pure_typingProps";
 
 (******************** Basic lemmas ********************)
 
+Theorem type_ind:
+  ∀P.
+    (∀n. P (TypeVar n)) ∧ (∀p. P (PrimTy p)) ∧ P Exception ∧
+    (∀l. (∀t. MEM t l ⇒ P t) ⇒ ∀n. P (TypeCons n l)) ∧
+    (∀l. (∀t. MEM t l ⇒ P t) ⇒ ∀n. P (Tuple l)) ∧
+    (∀l t. (∀t. MEM t l ⇒ P t) ∧ P t ⇒ ∀n. P (Function l t)) ∧
+    (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ⇒
+    (∀t. P t)
+Proof
+  ntac 3 strip_tac >>
+  completeInduct_on `type_size t` >> rw[] >>
+  Cases_on `t` >> gvs[type_size_def] >>
+  last_x_assum irule >> rw[] >>
+  first_x_assum irule >> simp[] >>
+  Induct_on `l` >> rw[] >> gvs[type_size_def]
+QED
+
+Theorem type_atom_op_not_Loc:
+  type_atom_op op ts t ⇒ ∀n. op ≠ Lit $ Loc n
+Proof
+  rw[type_atom_op_cases, type_lit_cases]
+QED
+
+Theorem type_atom_op_no_Bool:
+  type_atom_op op ts t ⇒ ¬ MEM Bool ts
+Proof
+  rw[type_atom_op_cases] >> gvs[] >> Induct_on `ts` >> gvs[]
+QED
+
+Theorem type_application_alt_def:
+  ∀fts rt ats.
+    type_application fts rt ats =
+      if LENGTH ats < LENGTH fts ∧ TAKE (LENGTH ats) fts = ats then
+        SOME (Function (DROP (LENGTH ats) fts) rt)
+      else if ats = fts then SOME rt
+      else if fts = TAKE (LENGTH fts) ats then (
+        case rt of
+        | Function fts' rt' => type_application fts' rt' (DROP (LENGTH fts) ats)
+        | _ => NONE
+      )
+      else NONE
+Proof
+  recInduct type_application_ind >> rw[type_application_def] >> gvs[]
+QED
+
 Theorem type_wf_type_application:
   ∀fts rt ats tdefs t.
     EVERY (type_wf tdefs) fts ∧ type_wf tdefs rt ∧ EVERY (type_wf tdefs) ats ∧
@@ -72,11 +117,11 @@ QED
 
 Theorem get_PrimTys_SOME:
   ∀ts pts.
-    get_PrimTys ts = SOME pts ⇔
-    LIST_REL (λt pt. t = PrimTy pt) ts pts
+    get_PrimTys ts = SOME pts ⇔ ts = MAP PrimTy pts
 Proof
   Induct >> rw[get_PrimTys_def] >>
-  Cases_on `h` >> gvs[get_PrimTys_def] >> eq_tac >> rw[]
+  Cases_on `h` >> gvs[get_PrimTys_def] >>
+  Cases_on `pts` >> gvs[] >> eq_tac >> rw[]
 QED
 
 
@@ -159,6 +204,14 @@ Theorem shift_db_shift_db:
     shift_db n shiftn (shift_db m shiftm t)
 Proof
   recInduct shift_db_ind >> rw[shift_db_def] >>
+  rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+QED
+
+Theorem tshift_tshift:
+  ∀t s1 s2.
+    tshift s1 (tshift s2 t) = tshift (s1 + s2) t
+Proof
+  Induct using type_ind >> rw[shift_db_def] >>
   rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
 QED
 
@@ -340,7 +393,7 @@ Proof
       )
     )
   >- (
-    first_x_assum irule >>
+    first_x_assum irule >> simp[rich_listTheory.EVERY_REVERSE] >>
     rw[EVERY_EL, EL_ZIP, EL_MAP] >> pairarg_tac >> gvs[EVERY_EL] >>
     last_x_assum kall_tac >> last_x_assum drule >> simp[]
     )
@@ -398,7 +451,7 @@ Proof
     disch_then $ qspecl_then [`b`,`new`] assume_tac >> gvs[]
     )
   >- (
-    first_x_assum irule >>
+    first_x_assum irule >> simp[rich_listTheory.EVERY_REVERSE] >>
     rw[EVERY_EL, EL_ZIP, EL_MAP] >> pairarg_tac >> gvs[EVERY_EL]
     )
   >- (
@@ -456,11 +509,22 @@ Proof
     >- (
       first_x_assum drule >> strip_tac >> gvs[] >>
       drule type_ok_shift_db >> simp[]
+      )
+    >- (
+      DEP_REWRITE_TAC[EL_REVERSE] >> simp[] >>
+      qmatch_goalsub_abbrev_tac `EL m _` >>
+      `m < LENGTH schemes` by (unabbrev_all_tac >> gvs[]) >> simp[EL_ZIP] >>
+      Cases_on `EL m schemes` >> gvs[] >> last_x_assum drule >> rw[] >>
+      drule type_ok_shift_db >> simp[]
       ) >>
     qmatch_goalsub_abbrev_tac `_ (_ m)` >>
     PairCases_on `m` >> gvs[] >>
     first_x_assum drule >> strip_tac >> gvs[] >>
     drule type_ok_shift_db >> simp[]
+    )
+  >- (
+    first_x_assum irule >> rw[] >>
+    DEP_REWRITE_TAC [EL_REVERSE] >> simp[EL_ZIP]
     )
   >- (
     rw[] >> first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >>
@@ -497,6 +561,7 @@ Proof
     )
   >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
   >- (
+    gvs[rich_listTheory.MAP_REVERSE, MAP_ZIP] >>
     simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
     pairarg_tac >> gvs[MEM_EL] >> last_x_assum drule >>
     pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >> strip_tac >>
@@ -626,10 +691,7 @@ Proof
     rpt $ goal_assum $ drule_at Any >> simp[] >> rw[] >>
     last_x_assum drule >> strip_tac >>
     pop_assum drule_all >>
-    qsuff_tac `subst_db n ts' (EL n' ts) = EL n' ts` >> gvs[] >>
-    irule subst_db_unchanged >> qexists_tac `0` >> simp[] >>
-    gvs[get_PrimTys_SOME, LIST_REL_EL_EQN] >>
-    last_x_assum drule >> rw[freetyvars_ok_def]
+    imp_res_tac get_PrimTys_SOME >> gvs[EL_MAP, subst_db_def]
     )
   >- metis_tac[]
   >- (
@@ -664,6 +726,7 @@ Proof
     simp[GSYM shift_db_shift_db]
     )
   >- (
+    gvs[rich_listTheory.MAP_REVERSE] >>
     gvs[LIST_REL_EL_EQN, MAP_ZIP_ALT] >>
     first_x_assum $ irule_at Any >> simp[] >> reverse $ rw[]
     >- (
@@ -777,10 +840,7 @@ Proof
     rpt $ goal_assum $ drule_at Any >> simp[] >> rw[] >>
     last_x_assum drule >> strip_tac >>
     pop_assum $ qspecl_then [`skip`,`shift`] mp_tac >>
-    qsuff_tac `shift_db skip shift (EL n ts) = EL n ts` >> gvs[] >>
-    irule shift_db_unchanged >> qexists_tac `0` >> simp[] >>
-    gvs[get_PrimTys_SOME, LIST_REL_EL_EQN] >>
-    last_x_assum drule >> rw[freetyvars_ok_def]
+    imp_res_tac get_PrimTys_SOME >> gvs[EL_MAP, shift_db_def]
     )
   >- metis_tac[]
   >- (
@@ -805,6 +865,7 @@ Proof
     last_x_assum $ qspecl_then [`new + skip`,`shift`] mp_tac >> simp[]
     )
   >- (
+    gvs[rich_listTheory.MAP_REVERSE] >>
     gvs[LIST_REL_EL_EQN, MAP_ZIP_ALT] >>
     first_x_assum $ irule_at Any >> simp[] >> reverse $ rw[]
     >- (
@@ -925,8 +986,9 @@ Proof
     gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
     first_x_assum $ irule_at Any >> simp[FDIFF_FDIFF] >>
     qmatch_goalsub_abbrev_tac `ZIP z` >>
-    first_x_assum $ qspecl_then [`ZIP z ++ prefix`,`env`,`ces`] mp_tac >> simp[] >>
-    unabbrev_all_tac >>
+    first_x_assum $ qspecl_then
+      [`REVERSE (ZIP z) ++ prefix`,`env`,`ces`] mp_tac >> simp[] >>
+    unabbrev_all_tac >> gvs[rich_listTheory.MAP_REVERSE] >>
     gvs[LIST_REL_EL_EQN, EL_MAP, MAP_ZIP] >> rw[Once UNION_COMM] >>
     qmatch_goalsub_abbrev_tac `_ (_ a) b` >>
     PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
@@ -974,14 +1036,26 @@ Theorem type_cexp_closing_subst:
   ∀ns db st env e t ces.
     type_cexp ns db st env e t ∧
     namespace_ok ns ∧
-    MAP FST env = MAP FST ces ∧
+    MAP FST env = MAP FST (REVERSE ces) ∧
     LIST_REL (λce (vars,scheme).
         type_cexp ns (db + vars) (MAP (tshift vars) st) [] ce scheme)
-      (MAP SND ces) (MAP SND env)
-  ⇒ type_cexp ns db st [] (substc (FEMPTY |++ REVERSE ces) e) t
+      (MAP SND (REVERSE ces)) (MAP SND env)
+  ⇒ type_cexp ns db st [] (substc (FEMPTY |++ ces) e) t
 Proof
   rw[] >> drule type_cexp_subst >> simp[] >>
   disch_then $ drule_at Any >> simp[]
+QED
+
+Theorem type_cexp_closing_subst1:
+  ∀ns db st var tvars scheme e t ce.
+    type_cexp ns db st [var,tvars,scheme] e t ∧
+    namespace_ok ns ∧
+    type_cexp ns (db + tvars) (MAP (tshift tvars) st) [] ce scheme
+  ⇒ type_cexp ns db st [] (substc1 var ce e) t
+Proof
+  rw[finite_mapTheory.FUPDATE_EQ_FUPDATE_LIST] >>
+  irule type_cexp_closing_subst >> simp[PULL_EXISTS, EXISTS_PROD] >>
+  goal_assum drule >> simp[]
 QED
 
 

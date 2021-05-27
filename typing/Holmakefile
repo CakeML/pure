@@ -1,1 +1,1 @@
-INCLUDES = ../misc ../language ../compiler/backend
+INCLUDES = ../misc ../language ../compiler/backend ../compiler/backend/proofs

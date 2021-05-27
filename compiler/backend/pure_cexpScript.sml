@@ -121,6 +121,8 @@ Termination
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
 End
 
+Overload substc1 = ``λname v e. substc (FEMPTY |+ (name,v)) e``;
+
 Definition get_info_def:
   get_info (Var c _) = c ∧
   get_info (Prim c _ _) = c ∧
