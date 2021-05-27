@@ -155,7 +155,7 @@ Inductive compile_rel:
 
 [~Cons:]
   (LIST_REL compile_rel tes ses ∧
-   ¬MEM s monad_cns ⇒
+   s ∉ monad_cns ⇒
   compile_rel (Prim (Cons s) tes) (App (Cons s) ses)) ∧
 
 [~Case:]

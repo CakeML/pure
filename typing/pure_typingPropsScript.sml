@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory pred_setTheory;
+     listTheory rich_listTheory alistTheory pred_setTheory;
 open pure_miscTheory pure_cexpTheory pure_configTheory pure_typingTheory
 
 val _ = new_theory "pure_typingProps";
@@ -351,6 +351,16 @@ QED
 
 (******************** Typing judgements ********************)
 
+Theorem type_cexp_Lam_single:
+  type_cexp ns db st ((v,0,ft)::env) (Lam () vs body) (Function fts rt) ∧
+  type_ok (SND ns) db ft ⇔
+  type_cexp ns db st env (Lam () (v::vs) body) (Function (ft::fts) rt) ∧
+  fts ≠ []
+Proof
+  once_rewrite_tac[type_cexp_cases] >> rw[] >>
+  gvs[APPEND_ASSOC_CONS] >> eq_tac >> rw[]
+QED
+
 Theorem type_cexp_freetyvars_ok:
   ∀ ns db st env e t.
     EVERY (freetyvars_ok db) st ∧
@@ -393,7 +403,7 @@ Proof
       )
     )
   >- (
-    first_x_assum irule >> simp[rich_listTheory.EVERY_REVERSE] >>
+    first_x_assum irule >> simp[EVERY_REVERSE] >>
     rw[EVERY_EL, EL_ZIP, EL_MAP] >> pairarg_tac >> gvs[EVERY_EL] >>
     last_x_assum kall_tac >> last_x_assum drule >> simp[]
     )
@@ -451,7 +461,7 @@ Proof
     disch_then $ qspecl_then [`b`,`new`] assume_tac >> gvs[]
     )
   >- (
-    first_x_assum irule >> simp[rich_listTheory.EVERY_REVERSE] >>
+    first_x_assum irule >> simp[EVERY_REVERSE] >>
     rw[EVERY_EL, EL_ZIP, EL_MAP] >> pairarg_tac >> gvs[EVERY_EL]
     )
   >- (
@@ -484,6 +494,10 @@ Proof
     imp_res_tac type_cexp_type_ok >>
     gvs[EVERY_EL, LIST_REL_EL_EQN, type_ok, type_wf_def] >>
     Cases_on `es` >> gvs[]
+    )
+  >- (
+    first_x_assum irule >> gvs[REVERSE_ZIP, EL_ZIP] >> rw[] >>
+    DEP_REWRITE_TAC[EL_REVERSE] >> simp[EL_MAP]
     )
   >- (Cases_on `xs` >> gvs[])
   >- (
@@ -531,6 +545,9 @@ Proof
     pop_assum irule >> gvs[EL_ZIP, EL_MAP] >> reverse $ rw[]
     >- (imp_res_tac type_cexp_type_ok >> gvs[type_ok, EVERY_EL]) >>
     imp_res_tac type_cexp_type_ok >> gvs[type_ok, EVERY_EL] >>
+    simp[REVERSE_ZIP, EL_ZIP] >> DEP_REWRITE_TAC[EL_REVERSE] >> simp[EL_MAP] >>
+    qmatch_goalsub_abbrev_tac `EL m _` >>
+    `m < LENGTH schemes` by (unabbrev_all_tac >> gvs[]) >>
     irule type_ok_subst_db >> simp[EVERY_MEM, MEM_EL, PULL_EXISTS] >>
     gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
     first_x_assum drule >> strip_tac >> first_x_assum drule >> simp[] >>
@@ -559,9 +576,10 @@ Proof
     imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL, EXISTS_PROD] >>
     PairCases_on `s` >> goal_assum drule >> goal_assum drule
     )
+  >- gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
   >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
   >- (
-    gvs[rich_listTheory.MAP_REVERSE, MAP_ZIP] >>
+    gvs[MAP_REVERSE, MAP_ZIP] >>
     simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
     pairarg_tac >> gvs[MEM_EL] >> last_x_assum drule >>
     pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >> strip_tac >>
@@ -572,7 +590,7 @@ Proof
     gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
     pairarg_tac >> gvs[EVERY_MEM] >>
     first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-    gvs[MAP_ZIP, DIFF_SUBSET]
+    gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
     )
 QED
 
@@ -626,7 +644,7 @@ Proof
     rpt $ goal_assum $ drule_at Any >> gvs[] >>
     irule_at Any EVERY_MONOTONIC >>
     goal_assum $ drule_at Any >> rw[] >> pairarg_tac >> gvs[] >>
-    gvs[rich_listTheory.APPEND_ASSOC_CONS]
+    gvs[APPEND_ASSOC_CONS]
     )
 QED
 
@@ -706,7 +724,7 @@ Proof
     )
   >- (
     first_x_assum drule_all >>
-    gvs[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]
+    gvs[MAP_REVERSE, ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]
     )
   >- (
     first_x_assum drule_all >> disch_then $ irule_at Any >>
@@ -726,7 +744,7 @@ Proof
     simp[GSYM shift_db_shift_db]
     )
   >- (
-    gvs[rich_listTheory.MAP_REVERSE] >>
+    gvs[MAP_REVERSE] >>
     gvs[LIST_REL_EL_EQN, MAP_ZIP_ALT] >>
     first_x_assum $ irule_at Any >> simp[] >> reverse $ rw[]
     >- (
@@ -768,7 +786,7 @@ Proof
     first_x_assum drule >> strip_tac >>
     goal_assum $ drule_at Any >> simp[] >>
     first_x_assum drule_all >> rw[] >>
-    gvs[MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
     gvs[subst_db_subst_db] >>
     irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
     rpt AP_THM_TAC >> AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
@@ -855,7 +873,7 @@ Proof
     )
   >- (
     first_x_assum drule_all >>
-    gvs[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]
+    gvs[MAP_REVERSE, ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]
     )
   >- (
     first_x_assum drule_all >> disch_then $ irule_at Any >>
@@ -865,7 +883,7 @@ Proof
     last_x_assum $ qspecl_then [`new + skip`,`shift`] mp_tac >> simp[]
     )
   >- (
-    gvs[rich_listTheory.MAP_REVERSE] >>
+    gvs[MAP_REVERSE] >>
     gvs[LIST_REL_EL_EQN, MAP_ZIP_ALT] >>
     first_x_assum $ irule_at Any >> simp[] >> reverse $ rw[]
     >- (
@@ -893,7 +911,7 @@ Proof
     first_x_assum drule >> strip_tac >>
     goal_assum $ drule_at Any >> simp[] >>
     pop_assum $ qspecl_then [`skip`,`shift`] mp_tac >> rw[] >>
-    gvs[MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
     gvs[GSYM subst_db_shift_db_2] >>
     irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
     rpt AP_THM_TAC >> AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
@@ -964,8 +982,8 @@ Proof
   >- (
     simp[FDIFF_FDIFF] >>
     qmatch_goalsub_abbrev_tac `ZIP z` >>
-    last_x_assum $ qspecl_then [`ZIP z ++ prefix`,`env`,`ces`] mp_tac >>
-    simp[] >> unabbrev_all_tac >> simp[MAP_ZIP] >> simp[Once UNION_COMM]
+    last_x_assum $ qspecl_then [`REVERSE (ZIP z) ++ prefix`,`env`,`ces`] mp_tac >>
+    simp[] >> unabbrev_all_tac >> simp[MAP_REVERSE, MAP_ZIP] >> simp[Once UNION_COMM]
     )
   >- (
     first_x_assum $ qspecl_then [`(x,new,t)::prefix`,`env`,`ces`] mp_tac >>
@@ -988,7 +1006,7 @@ Proof
     qmatch_goalsub_abbrev_tac `ZIP z` >>
     first_x_assum $ qspecl_then
       [`REVERSE (ZIP z) ++ prefix`,`env`,`ces`] mp_tac >> simp[] >>
-    unabbrev_all_tac >> gvs[rich_listTheory.MAP_REVERSE] >>
+    unabbrev_all_tac >> gvs[MAP_REVERSE] >>
     gvs[LIST_REL_EL_EQN, EL_MAP, MAP_ZIP] >> rw[Once UNION_COMM] >>
     qmatch_goalsub_abbrev_tac `_ (_ a) b` >>
     PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
@@ -1021,9 +1039,10 @@ Proof
     gvs[EVERY_MAP, EVERY_MEM] >> rw[] >> simp[FDIFF_FDIFF] >>
     PairCases_on `x` >> gvs[] >>
     first_x_assum drule >> strip_tac >> gvs[] >>
-    qmatch_goalsub_abbrev_tac `ZIP z ++ cons::_` >>
-    first_x_assum $ qspecl_then [`ZIP z ++ cons::prefix`,`env`,`ces`] mp_tac >>
-    simp[] >> unabbrev_all_tac >> simp[] >> rw[] >>
+    qmatch_goalsub_abbrev_tac `REVERSE (ZIP z) ++ cons::_` >>
+    first_x_assum $ qspecl_then
+      [`REVERSE (ZIP z) ++ cons::prefix`,`env`,`ces`] mp_tac >>
+    simp[] >> unabbrev_all_tac >> simp[] >> rw[] >> gvs[MAP_REVERSE] >>
     irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
     rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
     gvs[LIST_REL_EL_EQN, EL_MAP] >>
