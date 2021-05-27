@@ -23,16 +23,17 @@ Definition bisimilar_up_to_oom_def:
   bisimilar_up_to_oom exact a b = ∀xs. same_up_to_oom exact a b xs
 End
 
-(* TODO: this is a bit off, since mc contains two oracles! these are
-         next_interfer and ffi_interfer, which are a bit problematic..
-         I believe the target_semantics should not use ffi_interfer.
-         It's unclear what to do about next_interfer. *)
+(* TODO: This is might be a bit off since the machine configuation mc
+         contains two oracles: next_interfer (desciribing the
+         interference from the OS between each instruction execution!)
+         and ffi_interfer (describing how state changes at each FFI
+         call, based on what the FFI f says are the new bytes). *)
 Theorem oracle_imp_itree_preservation:
-  (∀or.
-    Fail ∉ semantics_prog (s with ffi := or) env prog ∧
-    machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
+  (∀f.
+    Fail ∉ semantics_prog (s with ffi := f) env prog ∧
+    machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
       extend_with_resource_limit' safe_for_space
-        (semantics_prog (s with ffi := or) env prog))
+        (semantics_prog (s with ffi := f) env prog))
   ⇒
   bisimilar_up_to_oom safe_for_space
     (ARB interp prog s env) (* TODO: need prog-level semantics for CakeML *)
