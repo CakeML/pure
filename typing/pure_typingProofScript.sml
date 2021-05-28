@@ -66,6 +66,13 @@ Proof
   Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC]
 QED
 
+Triviality type_wh_Function_eq_wh_Closure:
+  type_wh ns db st env wh (Function ft rt) ⇒
+    wh = wh_Diverge ∨ ∃x body. wh = wh_Closure x body
+Proof
+  rw[type_wh_cases] >> gvs[Once type_cexp_cases]
+QED
+
 Triviality type_cexp_type_ok_unit =
   type_cexp_type_ok |> INST_TYPE [alpha |-> ``:unit``];
 
@@ -79,7 +86,7 @@ Proof
   strip_tac >> completeInduct_on `k` >>
   recInduct exp_of_ind >> rw[exp_of_def]
   >- gvs[Once type_cexp_cases]
-  >- (
+  >- ( (* Prim *)
     Cases_on `p` >> gvs[op_of_def]
     >- (
       simp[eval_wh_to_def, type_wh_cases, SF ETA_ss] >>
@@ -150,7 +157,7 @@ Proof
       simp[type_wh_cases]
       )
     )
-  >- (
+  >- ( (* Let *)
     gvs[eval_wh_to_def] >> rw[]
     >- (
       simp[type_wh_cases] >> irule type_cexp_type_ok_unit >> simp[] >>
@@ -165,16 +172,146 @@ Proof
     simp[bind1_def] >> IF_CASES_TAC >> gvs[] >>
     imp_res_tac type_cexp_freevars_cexp >> gvs[closed_def, freevars_exp_of]
     )
-  >- (
-    cheat (* TODO Apps case *)
+  >- ( (* Apps *)
+    qpat_x_assum `type_cexp _ _ _ _ _ _` mp_tac >> rw[Once type_cexp_cases] >>
+    rename1 `Function _ rt` >>
+    qpat_x_assum `∀a. MEM a _ ⇒ _` kall_tac >> qpat_x_assum `_ ≠ _` kall_tac >>
+    first_x_assum drule_all >> strip_tac >>
+    ntac 2 $ pop_assum mp_tac >> qpat_x_assum `type_cexp _ _ _ _ _ _` mp_tac >>
+    map_every qid_spec_tac [`f`,`t`,`rt`,`ts`] >>
+    pop_assum mp_tac >> map_every qid_spec_tac [`arg_tys`,`xs`] >>
+    ho_match_mp_tac LIST_REL_strongind >> rw[]
+    >- (
+      simp[Apps_def] >>
+      Cases_on `ts` >> gvs[type_application_def] >>
+      imp_res_tac type_cexp_type_ok >> gvs[type_ok]
+      ) >>
+    Cases_on `ts` >> gvs[type_application_def]
+    >- (imp_res_tac type_cexp_type_ok >> gvs[type_ok]) >>
+    rename1 `Function (ft::fts)` >> rename1 `exp_of arg :: _ args` >>
+    simp[Apps_def] >> Cases_on `arg_tys` >> gvs[]
+    >- (
+      simp[Apps_def, eval_wh_to_def] >>
+      `type_ok (SND ns) db t` by (
+        irule type_ok_type_application >> goal_assum drule >> simp[] >>
+        imp_res_tac type_cexp_type_ok >> gvs[type_ok, SF ETA_ss]) >>
+      IF_CASES_TAC >> gvs[] >- simp[type_wh_cases] >>
+      imp_res_tac type_wh_Function_eq_wh_Closure >> gvs[] >>
+      IF_CASES_TAC >> gvs[] >- simp[type_wh_cases] >>
+      imp_res_tac type_cexp_freevars_cexp >> gvs[] >>
+      simp[bind1_def, closed_def, freevars_exp_of] >>
+      rename1 `subst1 var _ _` >>
+      last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+      ntac 2 $ disch_then drule >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+      strip_tac >> gvs[] >>
+      drule_at Any type_cexp_cexp_wf >> simp[] >> strip_tac >>
+      Cases_on `ce` >> gvs[exp_of_def]
+      >- (Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC, cexp_wf_def]) >>
+      Cases_on `l` >> gvs[cexp_wf_def, Lams_def] >> rename1 `v::vs` >>
+      Cases_on `vs = []`
+      >- (
+        qpat_x_assum `type_cexp _ _ _ _ _ _` mp_tac >>
+        rw[Once type_cexp_cases] >> gvs[Lams_def] >>
+        pop_assum $ qspec_then `substc1 v arg c` mp_tac >>
+        simp[subst_exp_of, FMAP_MAP2_FUPDATE, exp_of_def] >> disch_then irule >>
+        irule type_cexp_closing_subst1 >> simp[] >>
+        gvs[type_application_def] >> goal_assum drule >> simp[]
+        ) >>
+      disch_then $ qspec_then `substc1 v arg (Lam () vs c)` mp_tac >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE, exp_of_def] >> disch_then irule >>
+      drule $ iffRL type_cexp_Lam_single >> impl_keep_tac
+      >- (
+        qpat_x_assum `type_cexp _ _ _ _ _ _` mp_tac >>
+        rw[Once type_cexp_cases] >> gvs[] >> Cases_on `fts` >> gvs[]
+        ) >>
+      rw[] >> Cases_on `fts` >> gvs[type_application_def] >>
+      irule type_cexp_closing_subst1 >> simp[] >> goal_assum drule >> simp[]
+      ) >>
+    rename1 `type_application _ _ $ at::ats` >> Cases_on `fts` >> gvs[]
+    >- (
+      Cases_on `rt` >> gvs[type_application_def] >>
+      rename1 `Function _ $ Function fts rt` >>
+      first_x_assum $ qspecl_then [`fts`,`rt`] mp_tac >> simp[Apps_def] >>
+      disch_then $ qspec_then `App () f [arg]` mp_tac >>
+      simp[exp_of_def, Apps_def] >>
+      disch_then irule >> rw[]
+      >- (
+        simp[Once type_cexp_cases, PULL_EXISTS] >>
+        rpt $ goal_assum drule >> simp[type_application_def]
+        ) >>
+      simp[eval_wh_to_def] >>
+      `type_ok (SND ns) db (Function fts rt)` by (
+        imp_res_tac type_cexp_type_ok >> gvs[type_ok]) >>
+      IF_CASES_TAC >> gvs[] >- simp[type_wh_cases] >>
+      imp_res_tac type_wh_Function_eq_wh_Closure >> gvs[] >>
+      IF_CASES_TAC >> gvs[] >- simp[type_wh_cases] >>
+      imp_res_tac type_cexp_freevars_cexp >> gvs[] >>
+      simp[bind1_def, closed_def, freevars_exp_of] >>
+      rename1 `subst1 var _ _` >>
+      last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+      ntac 2 $ disch_then drule >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+      strip_tac >> gvs[] >>
+      drule_at Any type_cexp_cexp_wf >> simp[] >> strip_tac >>
+      Cases_on `ce` >> gvs[exp_of_def]
+      >- (Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC, cexp_wf_def]) >>
+      Cases_on `l` >> gvs[cexp_wf_def, Lams_def] >> rename1 `v::vs` >>
+      reverse $ Cases_on `vs = []`
+      >- (
+        qpat_x_assum `type_cexp _ _ _ _ _ _` mp_tac >>
+        simp[Once type_cexp_cases]
+        ) >>
+      qpat_x_assum `type_cexp _ _ _ _ _ _` mp_tac >>
+      rw[Once type_cexp_cases] >> gvs[Lams_def] >>
+      pop_assum $ qspec_then `substc1 v arg c` mp_tac >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE, exp_of_def] >>
+      disch_then irule >>
+      irule type_cexp_closing_subst1 >> simp[] >>
+      gvs[type_application_def] >> goal_assum drule >> simp[]
+      ) >>
+    rename1 `ft1::ft2::fts` >>
+    gvs[type_application_def] >>
+    first_x_assum $ qspecl_then [`at::fts`,`rt`] mp_tac >> simp[] >>
+    simp[Apps_def, type_application_def] >>
+    disch_then $ qspec_then `App () f [arg]` mp_tac >>
+    simp[exp_of_def, Apps_def] >>
+    disch_then irule >> rw[]
+    >- (
+      simp[Once type_cexp_cases, PULL_EXISTS] >>
+      rpt $ goal_assum drule >> simp[type_application_def]
+      ) >>
+    simp[eval_wh_to_def] >>
+    `type_ok (SND ns) db (Function (at::fts) rt)` by (
+      imp_res_tac type_cexp_type_ok >> gvs[type_ok]) >>
+    IF_CASES_TAC >> gvs[] >- simp[type_wh_cases] >>
+    imp_res_tac type_wh_Function_eq_wh_Closure >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >- simp[type_wh_cases] >>
+    imp_res_tac type_cexp_freevars_cexp >> gvs[] >>
+    simp[bind1_def, closed_def, freevars_exp_of] >>
+    rename1 `subst1 var _ _` >>
+    last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+    ntac 2 $ disch_then drule >>
+    qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+    strip_tac >> gvs[] >>
+    drule_at Any type_cexp_cexp_wf >> simp[] >> strip_tac >>
+    Cases_on `ce` >> gvs[exp_of_def]
+    >- (Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC, cexp_wf_def]) >>
+    Cases_on `l` >> gvs[cexp_wf_def, Lams_def] >> rename1 `Lam _ $ v::vs` >>
+    drule $ iffRL type_cexp_Lam_single >> simp[] >> strip_tac >>
+    disch_then $ qspec_then `substc1 v arg (Lam () vs c)` mp_tac >>
+    simp[subst_exp_of, FMAP_MAP2_FUPDATE, exp_of_def] >>
+    disch_then irule >>
+    irule type_cexp_closing_subst1 >> simp[] >>
+    goal_assum drule >> simp[]
     )
-  >- (
+  >- ( (* Lams *)
     imp_res_tac type_cexp_cexp_wf >> gvs[cexp_wf_def] >>
     Cases_on `vs` >> gvs[Lams_def] >> simp[eval_wh_to_def] >>
     simp[Once type_wh_cases] >>
     goal_assum drule >> simp[exp_of_def, Lams_def]
     )
-  >- (
+  >- ( (* Letrec *)
     simp[eval_wh_to_def] >> rw[]
     >- (
       simp[type_wh_cases] >> irule type_cexp_type_ok_unit >> simp[] >>
@@ -239,8 +376,11 @@ Proof
       metis_tac[MEM_EL]
       )
     )
-  >- (
-    cheat (* TODO Case case *)
+  >- ( (* Case *)
+    simp[eval_wh_to_def, bind1_def, closed_def, freevars_exp_of] >>
+    imp_res_tac type_cexp_freevars_cexp >> gvs[] >> IF_CASES_TAC >> gvs[]
+    >- (simp[type_wh_cases] >> imp_res_tac type_cexp_type_ok >> gvs[]) >>
+    cheat (* TODO *)
     )
 QED
 
