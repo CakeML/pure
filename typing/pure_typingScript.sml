@@ -415,6 +415,8 @@ Inductive type_cexp:
           LENGTH tyargs = arity ∧
         (* Constructor arities match: *)
           LENGTH pvars = LENGTH schemes ∧
+        (* Pattern variables do not shadow case split: *)
+          ¬ MEM v pvars ∧
         (* Constructor argument types match: *)
           MAP (tsubst tyargs) schemes = ptys ∧
         (* Continuation is well-typed: *)
