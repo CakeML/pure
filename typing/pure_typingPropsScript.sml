@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory rich_listTheory alistTheory pred_setTheory;
-open pure_miscTheory pure_cexpTheory pure_configTheory pure_typingTheory
+open pure_miscTheory pure_tcexpTheory pure_configTheory pure_typingTheory
 
 val _ = new_theory "pure_typingProps";
 
@@ -351,25 +351,25 @@ QED
 
 (******************** Typing judgements ********************)
 
-Theorem type_cexp_Lam_single:
-  type_cexp ns db st ((v,0,ft)::env) (Lam () vs body) (Function fts rt) ∧
+Theorem type_tcexp_Lam_single:
+  type_tcexp ns db st ((v,0,ft)::env) (Lam vs body) (Function fts rt) ∧
   type_ok (SND ns) db ft ⇔
-  type_cexp ns db st env (Lam () (v::vs) body) (Function (ft::fts) rt) ∧
+  type_tcexp ns db st env (Lam (v::vs) body) (Function (ft::fts) rt) ∧
   fts ≠ []
 Proof
-  once_rewrite_tac[type_cexp_cases] >> rw[] >>
+  once_rewrite_tac[type_tcexp_cases] >> rw[] >>
   gvs[APPEND_ASSOC_CONS] >> eq_tac >> rw[]
 QED
 
-Theorem type_cexp_freetyvars_ok:
+Theorem type_tcexp_freetyvars_ok:
   ∀ ns db st env e t.
     EVERY (freetyvars_ok db) st ∧
     EVERY (λ(v,scheme). freetyvars_ok_scheme db scheme) env ∧
     namespace_ok ns ∧
-    type_cexp ns db st env e t
+    type_tcexp ns db st env e t
   ⇒ freetyvars_ok db t
 Proof
-  Induct_on `type_cexp` >> rpt conj_tac >>
+  Induct_on `type_tcexp` >> rpt conj_tac >>
   rw[type_ok_def, freetyvars_ok_def] >>
   gvs[LIST_REL_EL_EQN, IMP_CONJ_THM, FORALL_AND_THM]
   >- (
@@ -421,17 +421,26 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[] >>
     irule freetyvars_ok_mono >> goal_assum $ drule_at Any >> simp[]
     )
+  >- (
+    irule freetyvars_ok_tsubst >> gvs[SF ETA_ss] >>
+    gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
+    first_x_assum kall_tac >> first_x_assum drule >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
+    disch_then drule >> qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >> gvs[] >>
+    disch_then drule >> rw[type_ok_def] >>
+    irule freetyvars_ok_mono >> goal_assum $ drule_at Any >> simp[]
+    )
 QED
 
-Theorem type_cexp_type_ok:
+Theorem type_tcexp_type_ok:
   ∀ ns db st env e t.
     EVERY (type_ok (SND ns) db) st ∧
     EVERY (λ(v,scheme). type_scheme_ok (SND ns) db scheme) env ∧
     namespace_ok ns ∧
-    type_cexp ns db st env e t
+    type_tcexp ns db st env e t
   ⇒ type_ok (SND ns) db t
 Proof
-  Induct_on `type_cexp` >> rpt conj_tac >> rw[type_ok] >>
+  Induct_on `type_tcexp` >> rpt conj_tac >> rw[type_ok] >>
   gvs[LIST_REL_EL_EQN, IMP_CONJ_THM, FORALL_AND_THM]
   >- (
     PairCases_on `s` >> gvs[specialises_def] >>
@@ -478,20 +487,29 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
     irule freetyvars_ok_mono >> goal_assum $ drule_at Any >> simp[]
     )
+  >- (
+    irule type_ok_subst_db >> gvs[SF ETA_ss] >>
+    gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
+    first_x_assum kall_tac >> first_x_assum drule >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
+    disch_then drule >> qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >> gvs[] >>
+    disch_then drule >> rw[] >>
+    irule type_ok_mono >> goal_assum $ drule_at Any >> simp[]
+    )
 QED
 
-Theorem type_cexp_cexp_wf:
+Theorem type_tcexp_tcexp_wf:
   ∀ ns db st env e t.
     EVERY (type_ok (SND ns) db) st ∧
     EVERY (λ(v,scheme). type_scheme_ok (SND ns) db scheme) env ∧
     namespace_ok ns ∧
-    type_cexp ns db st env e t
-  ⇒ cexp_wf e
+    type_tcexp ns db st env e t
+  ⇒ tcexp_wf e
 Proof
-  Induct_on `type_cexp` >> rw[cexp_wf_def, type_wf_def, type_ok] >>
+  Induct_on `type_tcexp` >> rw[tcexp_wf_def, type_wf_def, type_ok] >>
   gvs[EVERY_EL, LIST_REL_EL_EQN, EL_ZIP, EL_MAP]
   >- (
-    imp_res_tac type_cexp_type_ok >>
+    imp_res_tac type_tcexp_type_ok >>
     gvs[EVERY_EL, LIST_REL_EL_EQN, type_ok, type_wf_def] >>
     Cases_on `es` >> gvs[]
     )
@@ -509,7 +527,7 @@ Proof
     )
   >- (
     first_x_assum irule >>
-    imp_res_tac type_cexp_type_ok >> pop_assum irule >>
+    imp_res_tac type_tcexp_type_ok >> pop_assum irule >>
     gvs[EVERY_EL, LIST_REL_EL_EQN, EL_MAP] >> reverse $ rw[]
     >- (irule type_ok_shift_db >> simp[]) >>
     qpat_abbrev_tac `a = EL n env` >> PairCases_on `a` >> gvs[] >>
@@ -543,8 +561,8 @@ Proof
   >- (
     rw[] >> first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >>
     pop_assum irule >> gvs[EL_ZIP, EL_MAP] >> reverse $ rw[]
-    >- (imp_res_tac type_cexp_type_ok >> gvs[type_ok, EVERY_EL]) >>
-    imp_res_tac type_cexp_type_ok >> gvs[type_ok, EVERY_EL] >>
+    >- (imp_res_tac type_tcexp_type_ok >> gvs[type_ok, EVERY_EL]) >>
+    imp_res_tac type_tcexp_type_ok >> gvs[type_ok, EVERY_EL] >>
     simp[REVERSE_ZIP, EL_ZIP] >> DEP_REWRITE_TAC[EL_REVERSE] >> simp[EL_MAP] >>
     qmatch_goalsub_abbrev_tac `EL m _` >>
     `m < LENGTH schemes` by (unabbrev_all_tac >> gvs[]) >>
@@ -564,12 +582,12 @@ Proof
     )
 QED
 
-Theorem type_cexp_freevars_cexp:
+Theorem type_tcexp_freevars_tcexp:
   ∀ns db st env e t.
-    type_cexp ns db st env e t
-  ⇒ freevars_cexp e ⊆ set (MAP FST env)
+    type_tcexp ns db st env e t
+  ⇒ freevars_tcexp e ⊆ set (MAP FST env)
 Proof
-  Induct_on `type_cexp` >> rw[] >>
+  Induct_on `type_tcexp` >> rw[] >>
   simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
   gvs[LIST_REL_EL_EQN, MEM_EL, MAP_ZIP, DIFF_SUBSET, SUBSET_INSERT_DELETE]
   >- (
@@ -594,13 +612,13 @@ Proof
     )
 QED
 
-Theorem type_cexp_weaken:
+Theorem type_tcexp_weaken:
   ∀ns db st env e t db' st' env'.
-    type_cexp ns db st env e t
-  ⇒ type_cexp ns (db + db') (st ++ st') (env ++ env') e t
+    type_tcexp ns db st env e t
+  ⇒ type_tcexp ns (db + db') (st ++ st') (env ++ env') e t
 Proof
   ntac 3 gen_tac >>
-  Induct_on `type_cexp` >> rw[] >> rw[Once type_cexp_cases]
+  Induct_on `type_tcexp` >> rw[] >> rw[Once type_tcexp_cases]
   >- (
     simp[ALOOKUP_APPEND] >> PairCases_on `s` >> gvs[specialises_def] >>
     qexists_tac `subs` >> gvs[] >>
@@ -646,24 +664,25 @@ Proof
     goal_assum $ drule_at Any >> rw[] >> pairarg_tac >> gvs[] >>
     gvs[APPEND_ASSOC_CONS]
     )
+  >- (rpt $ goal_assum $ drule_at Any >> gvs[])
 QED
 
 
 (******************** Substitutions ********************)
 
-Theorem type_cexp_subst_db:
+Theorem type_tcexp_subst_db:
   ∀ns db st env e t n ts.
-    type_cexp ns db st env e t ∧
+    type_tcexp ns db st env e t ∧
     namespace_ok ns ∧
     EVERY (type_ok (SND ns) (db - LENGTH ts)) ts ∧
     n + LENGTH ts ≤ db
-  ⇒ type_cexp ns (db - LENGTH ts)
+  ⇒ type_tcexp ns (db - LENGTH ts)
       (MAP (subst_db n ts) st)
       (MAP (λ(s,scheme). (s, subst_db_scheme n ts scheme)) env)
       e
       (subst_db n ts t)
 Proof
-  Induct_on `type_cexp` >> rw[subst_db_def] >> rw[Once type_cexp_cases]
+  Induct_on `type_tcexp` >> rw[subst_db_def] >> rw[Once type_tcexp_cases]
   >- (
     simp[ALOOKUP_MAP] >>
     PairCases_on `s` >> gvs[specialises_def] >>
@@ -800,19 +819,33 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
     goal_assum drule >> simp[]
     )
+  >- (
+    gvs[oEL_THM] >>
+    ntac 3 $ goal_assum $ drule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    simp[subst_db_subst_db, SF ETA_ss] >> AP_TERM_TAC >>
+    DEP_REWRITE_TAC [subst_db_unchanged] >>
+    gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
+    qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` kall_tac >>
+    qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` drule >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
+    qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+    disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
+    goal_assum drule >> simp[]
+    )
 QED
 
-Theorem type_cexp_shift_db:
+Theorem type_tcexp_shift_db:
   ∀ns db st env e t skip shift.
-    type_cexp ns db st env e t ∧
+    type_tcexp ns db st env e t ∧
     namespace_ok ns
-  ⇒ type_cexp ns (db + shift)
+  ⇒ type_tcexp ns (db + shift)
       (MAP (shift_db skip shift) st)
       (MAP (λ(s,scheme). (s, shift_db_scheme skip shift scheme)) env)
       e
       (shift_db skip shift t)
 Proof
-  Induct_on `type_cexp` >> rw[shift_db_def] >> rw[Once type_cexp_cases]
+  Induct_on `type_tcexp` >> rw[shift_db_def] >> rw[Once type_tcexp_cases]
   >- (
     simp[ALOOKUP_MAP] >>
     PairCases_on `s` >> gvs[specialises_def] >>
@@ -925,36 +958,50 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
     goal_assum drule >> simp[]
     )
+  >- (
+    gvs[oEL_THM] >>
+    ntac 3 $ goal_assum $ drule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    simp[GSYM subst_db_shift_db_2, SF ETA_ss] >> AP_TERM_TAC >>
+    DEP_REWRITE_TAC [shift_db_unchanged] >>
+    gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
+    qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` kall_tac >>
+    qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _ (EL n typedefs)` drule >> simp[] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
+    qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+    disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
+    goal_assum drule >> simp[]
+    )
 QED
 
-Theorem type_cexp_subst:
+Theorem type_tcexp_subst:
   ∀ns db st env' prefix env e t ces.
-    type_cexp ns db st env' e t ∧
+    type_tcexp ns db st env' e t ∧
     env' = prefix ++ env ∧
     namespace_ok ns ∧
     MAP FST env = MAP FST ces ∧
     LIST_REL (λce (vars,scheme).
-        type_cexp ns (db + vars) (MAP (tshift vars) st) [] ce scheme)
+        type_tcexp ns (db + vars) (MAP (tshift vars) st) [] ce scheme)
       (MAP SND ces) (MAP SND env)
-  ⇒ type_cexp ns db st prefix
-      (substc (FDIFF (FEMPTY |++ REVERSE ces) (set (MAP FST prefix))) e) t
+  ⇒ type_tcexp ns db st prefix
+      (subst_tc (FDIFF (FEMPTY |++ REVERSE ces) (set (MAP FST prefix))) e) t
 Proof
-  Induct_on `type_cexp` >> rw[substc_def]
+  Induct_on `type_tcexp` >> rw[subst_tc_def]
   >- (
     rw[FLOOKUP_FDIFF, flookup_fupdate_list] >> gvs[ALOOKUP_APPEND]
-    >- (every_case_tac >> gvs[ALOOKUP_NONE] >> rw[Once type_cexp_cases]) >>
+    >- (every_case_tac >> gvs[ALOOKUP_NONE] >> rw[Once type_tcexp_cases]) >>
     gvs[GSYM ALOOKUP_NONE] >>
     drule_all ALOOKUP_SOME_EL_2 >> rw[] >> simp[] >>
     PairCases_on `s` >> gvs[specialises_def] >>
     gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> rw[EL_MAP] >>
-    drule type_cexp_subst_db >> simp[] >>
+    drule type_tcexp_subst_db >> simp[] >>
     disch_then $ qspecl_then [`0`,`subs`] mp_tac >>
     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
     simp[subst_db_shift_db_unchanged] >> gvs[GSYM LAMBDA_PROD] >> rw[] >>
-    drule type_cexp_weaken >>
+    drule type_tcexp_weaken >>
     disch_then $ qspecl_then [`0`,`[]`,`prefix`] mp_tac >> simp[]
     ) >>
-  rw[Once type_cexp_cases] >> gvs[]
+  rw[Once type_tcexp_cases] >> gvs[]
   >- (gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[])
   >- metis_tac[]
   >- metis_tac[]
@@ -996,7 +1043,7 @@ Proof
     gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
     qmatch_goalsub_abbrev_tac `_ (_ a)` >> PairCases_on `a` >> gvs[] >>
     first_x_assum drule >> rw[] >> simp[GSYM shift_db_shift_db] >>
-    drule type_cexp_shift_db >> simp[] >>
+    drule type_tcexp_shift_db >> simp[] >>
     disch_then $ qspecl_then [`a1`,`new`] assume_tac >>
     gvs[MAP_MAP_o, combinTheory.o_DEF]
     )
@@ -1012,7 +1059,7 @@ Proof
     PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
     last_x_assum drule >> simp[] >> strip_tac >>
     simp[GSYM MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    qmatch_goalsub_abbrev_tac `type_cexp _ _ _ pre` >>
+    qmatch_goalsub_abbrev_tac `type_tcexp _ _ _ pre` >>
     first_x_assum $ qspecl_then [`pre`,`tshift_env b0 env`,`ces`] mp_tac >>
     unabbrev_all_tac >>
     simp[GSYM MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -1020,7 +1067,7 @@ Proof
     >- (
       qmatch_goalsub_abbrev_tac `_ (_ c)` >> PairCases_on `c` >> gvs[] >>
       last_x_assum drule >> rw[] >> simp[GSYM shift_db_shift_db] >>
-      drule type_cexp_shift_db >> simp[] >>
+      drule type_tcexp_shift_db >> simp[] >>
       disch_then $ qspecl_then [`c1`,`b0`] assume_tac >>
       gvs[MAP_MAP_o, combinTheory.o_DEF]
       ) >>
@@ -1049,31 +1096,32 @@ Proof
     simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss, MAP_ZIP] >>
     rw[EXTENSION] >> metis_tac[]
     )
+  >- (rpt $ goal_assum $ drule_at Any >> gvs[])
 QED
 
-Theorem type_cexp_closing_subst:
+Theorem type_tcexp_closing_subst:
   ∀ns db st env e t ces.
-    type_cexp ns db st env e t ∧
+    type_tcexp ns db st env e t ∧
     namespace_ok ns ∧
     MAP FST env = MAP FST (REVERSE ces) ∧
     LIST_REL (λce (vars,scheme).
-        type_cexp ns (db + vars) (MAP (tshift vars) st) [] ce scheme)
+        type_tcexp ns (db + vars) (MAP (tshift vars) st) [] ce scheme)
       (MAP SND (REVERSE ces)) (MAP SND env)
-  ⇒ type_cexp ns db st [] (substc (FEMPTY |++ ces) e) t
+  ⇒ type_tcexp ns db st [] (subst_tc (FEMPTY |++ ces) e) t
 Proof
-  rw[] >> drule type_cexp_subst >> simp[] >>
+  rw[] >> drule type_tcexp_subst >> simp[] >>
   disch_then $ drule_at Any >> simp[]
 QED
 
-Theorem type_cexp_closing_subst1:
+Theorem type_tcexp_closing_subst1:
   ∀ns db st var tvars scheme e t ce.
-    type_cexp ns db st [var,tvars,scheme] e t ∧
+    type_tcexp ns db st [var,tvars,scheme] e t ∧
     namespace_ok ns ∧
-    type_cexp ns (db + tvars) (MAP (tshift tvars) st) [] ce scheme
-  ⇒ type_cexp ns db st [] (substc1 var ce e) t
+    type_tcexp ns (db + tvars) (MAP (tshift tvars) st) [] ce scheme
+  ⇒ type_tcexp ns db st [] (subst_tc1 var ce e) t
 Proof
   rw[finite_mapTheory.FUPDATE_EQ_FUPDATE_LIST] >>
-  irule type_cexp_closing_subst >> simp[PULL_EXISTS, EXISTS_PROD] >>
+  irule type_tcexp_closing_subst >> simp[PULL_EXISTS, EXISTS_PROD] >>
   goal_assum drule >> simp[]
 QED
 
