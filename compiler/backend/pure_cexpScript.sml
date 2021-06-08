@@ -141,7 +141,8 @@ Definition cexp_wf_def:
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec _ fns e) = (EVERY cexp_wf $ MAP SND fns ∧ cexp_wf e ∧ fns ≠ []) ∧
   cexp_wf (Case _ e v css) = (
-    cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [])
+    cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
+    ¬ MEM v (FLAT $ MAP (FST o SND) css))
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> rw[fetch "-" "cexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>

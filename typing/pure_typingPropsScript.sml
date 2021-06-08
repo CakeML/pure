@@ -580,6 +580,12 @@ Proof
     imp_res_tac sortingTheory.PERM_LENGTH >>
     Cases_on `css` >> gvs[]
     )
+  >- (
+    simp[MEM_FLAT, MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
+    rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM >>
+    last_x_assum drule >> simp[] >> strip_tac >> gvs[]
+    )
+  >- gvs[oEL_THM]
 QED
 
 Theorem type_tcexp_freevars_tcexp:

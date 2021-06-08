@@ -41,8 +41,8 @@ Definition exp_of_def:
   exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (n,exp_of x)) rs) (exp_of x) ∧
   exp_of (Case x v rs) = Let v (exp_of x)
                           (rows_of v (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs)) ∧
-  exp_of (SafeProj cn ar i e) = If (IsEq cn ar (exp_of e))
-                                  (Proj cn i (exp_of e)) Bottom
+  exp_of (SafeProj cn ar i e) =
+    If (IsEq cn ar (exp_of e)) (Proj cn i (exp_of e)) Bottom
 Termination
   WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
@@ -109,8 +109,9 @@ Definition tcexp_wf_def:
   tcexp_wf (Let v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
   tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP SND fns ∧ tcexp_wf e ∧ fns ≠ []) ∧
   tcexp_wf (Case e v css) = (
-    tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧ css ≠ []) ∧
-  tcexp_wf (SafeProj cn ar i e) = tcexp_wf e
+    tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧
+    css ≠ [] ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css)) ∧
+  tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>

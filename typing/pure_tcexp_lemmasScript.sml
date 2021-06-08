@@ -2,7 +2,8 @@
 open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_tcexpTheory pure_expTheory pure_exp_lemmasTheory;
+open pure_miscTheory pure_cexpTheory
+     pure_tcexpTheory pure_expTheory pure_exp_lemmasTheory;
 
 val _ = new_theory "pure_tcexp_lemmas";
 
@@ -101,5 +102,15 @@ Proof
     simp[fdiff_fdomsub_INSERT, FDIFF_FMAP_MAP2]
     )
 QED
+
+Theorem cexp_wf_tcexp_wf:
+  ∀e. cexp_wf e ⇔ tcexp_wf (tcexp_of e)
+Proof
+  recInduct cexp_wf_ind >> rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def] >>
+  gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
+      EXISTS_PROD, PULL_EXISTS, MEM_FLAT] >>
+  eq_tac >> rw[] >> metis_tac[]
+QED
+
 
 val _ = export_theory();
