@@ -1,9 +1,10 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
-open arithmeticTheory listTheory stringTheory alistTheory
+open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
+open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_cexpTheory
-     pure_tcexpTheory pure_expTheory pure_exp_lemmasTheory;
+open pure_miscTheory pure_cexpTheory pure_cexp_lemmasTheory
+     pure_tcexpTheory pure_expTheory pure_exp_lemmasTheory
+     pure_evalTheory pure_exp_relTheory pure_congruenceTheory;
 
 val _ = new_theory "pure_tcexp_lemmas";
 
@@ -103,6 +104,15 @@ Proof
     )
 QED
 
+Theorem lets_for_APPEND:
+  ∀ws1 ws2 cn ar v n w b.
+    lets_for cn ar v (ws1 ++ ws2) b =
+      lets_for cn ar v ws1 (lets_for cn ar v ws2 b)
+Proof
+  Induct >> rw[lets_for_def] >>
+  PairCases_on `h` >> simp[lets_for_def]
+QED
+
 Theorem cexp_wf_tcexp_wf:
   ∀e. cexp_wf e ⇔ tcexp_wf (tcexp_of e)
 Proof
@@ -110,6 +120,213 @@ Proof
   gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
       EXISTS_PROD, PULL_EXISTS, MEM_FLAT] >>
   eq_tac >> rw[] >> metis_tac[]
+QED
+
+
+(********************)
+
+
+Theorem exp_eq_lets_for_cong:
+  ∀vs cn i v a b. a ≅ b ⇒
+  lets_for cn i v vs a ≅ lets_for cn i v vs b
+Proof
+  Induct >> rw[lets_for_def] >>
+  PairCases_on `h` >> rw[lets_for_def] >>
+  irule exp_eq_App_cong >> simp[exp_eq_refl] >>
+  irule exp_eq_Lam_cong >> first_x_assum irule >> simp[]
+QED
+
+Triviality subst1_lets_for_closed:
+  ¬ MEM var (MAP SND vs) ∧ closed x
+  ⇒ subst1 var x (lets_for cn ar v vs e) =
+    subst1 var x (lets_for cn ar v vs (subst1 var x e))
+Proof
+  Induct_on `vs` >> rw[lets_for_def] >- simp[subst1_subst1_eq] >>
+  PairCases_on `h` >> gvs[lets_for_def, subst1_def]
+QED
+
+Triviality subst1_lets_for_cexp_closed:
+  ¬ MEM var (MAP SND vs) ∧ closed x
+  ⇒ subst1 var x (lets_for cn v vs e) =
+    subst1 var x (lets_for cn v vs (subst1 var x e))
+Proof
+  Induct_on `vs` >> rw[pure_cexpTheory.lets_for_def]
+  >- simp[subst1_subst1_eq] >>
+  PairCases_on `h` >> gvs[pure_cexpTheory.lets_for_def, subst1_def]
+QED
+
+Theorem lets_for_exp_eq_lemma:
+  ∀vs e.
+    closed x ∧ eval_wh x = wh_Constructor cn es ∧
+    ¬ MEM v vs ⇒
+  subst1 v x (lets_for cn (LENGTH es) v (MAPi (λi v. (i,v)) vs) e) ≅
+  subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs) e)
+Proof
+  Induct using SNOC_INDUCT
+  >- rw[lets_for_def, pure_cexpTheory.lets_for_def, exp_eq_refl] >>
+  rw[SNOC_APPEND, lets_for_APPEND, pure_cexp_lemmasTheory.lets_for_APPEND,
+     indexedListsTheory.MAPi_APPEND] >>
+  simp[lets_for_def, pure_cexpTheory.lets_for_def] >>
+  DEP_ONCE_REWRITE_TAC[subst1_lets_for_closed, subst1_lets_for_cexp_closed] >>
+  simp[combinTheory.o_DEF, subst1_def] >>
+  qmatch_goalsub_abbrev_tac `_ (lets_for _ _ _ _ a) ≅ _ (lets_for _ _ _ b)` >>
+  qsuff_tac `a ≅ b`
+  >- (
+    rw[] >> irule exp_eq_trans >> last_x_assum $ irule_at $ Pos last >> simp[] >>
+    irule $ iffLR exp_eq_forall_subst >> simp[] >>
+    irule exp_eq_lets_for_cong >> simp[]
+    ) >>
+  unabbrev_all_tac >> `closed Bottom` by gvs[Bottom_def] >> simp[] >>
+  irule exp_eq_App_cong >> simp[exp_eq_refl] >>
+  irule eval_wh_IMP_exp_eq >> rw[subst_def, eval_wh_thm]
+QED
+
+Theorem lets_for_exp_eq:
+  ¬ MEM v vs ⇒
+  If (IsEq cn (LENGTH vs) (Var v))
+    (lets_for cn (LENGTH vs) v (MAPi (λi v. (i,v)) vs) e) rest ≅
+  If (IsEq cn (LENGTH vs) (Var v))
+    (lets_for cn v (MAPi (λi v. (i,v)) vs) e) rest
+Proof
+  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[subst_def] >>
+  simp[Once app_bisimilarity_iff] >>
+  rpt $ irule_at Any IMP_closed_subst >> simp[] >>
+  conj_tac >- simp[IN_FRANGE_FLOOKUP] >>
+  TOP_CASE_TAC >> gvs[] >- gvs[FLOOKUP_DEF] >>
+  conj_tac >- res_tac >>
+  simp[eval_wh_thm] >>
+  Cases_on `eval_wh x` >> gvs[] >>
+  IF_CASES_TAC >> gvs[] >>
+  Cases_on `s ≠ cn` >> gvs[]
+  >- (
+    qsuff_tac `subst f rest ≃ subst f rest`
+    >- simp[Once app_bisimilarity_iff] >>
+    irule reflexive_app_bisimilarity >> irule IMP_closed_subst >>
+    simp[IN_FRANGE_FLOOKUP]
+    ) >>
+  Cases_on `LENGTH vs ≠ LENGTH l` >> gvs[] >>
+  `∃g. f = g |+ (v,x) ∧ v ∉ FDOM g` by (
+    qexists_tac `f \\ v` >> simp[] >>
+    irule $ GSYM FUPDATE_ELIM >> gvs[FLOOKUP_DEF]) >>
+  gvs[] >>
+  `subst (g |+ (v,x)) (lets_for cn (LENGTH l) v (MAPi (λi v. (i,v)) vs) e) =
+   subst1 v x (lets_for cn (LENGTH l) v (MAPi (λi v. (i,v)) vs)
+      (subst (FDIFF g (set vs)) e))` by (
+        once_rewrite_tac[FUPDATE_EQ_FUNION] >>
+        DEP_ONCE_REWRITE_TAC[FUNION_COMM] >>
+        DEP_ONCE_REWRITE_TAC[GSYM subst_subst_FUNION] >> gvs[FLOOKUP_UPDATE] >>
+        drule subst_lets_for >> simp[combinTheory.o_DEF] >> strip_tac >>
+        rw[] >> first_x_assum irule >> gvs[IN_FRANGE_FLOOKUP] >>
+        qexists_tac `k` >> simp[] >> rw[] >> gvs[FLOOKUP_DEF]) >>
+  gvs[] >>
+  `subst (g |+ (v,x)) (lets_for cn v (MAPi (λi v. (i,v)) vs) e) =
+   subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs)
+      (subst (FDIFF g (set vs)) e))` by (
+        once_rewrite_tac[FUPDATE_EQ_FUNION] >>
+        DEP_ONCE_REWRITE_TAC[FUNION_COMM] >>
+        DEP_ONCE_REWRITE_TAC[GSYM subst_subst_FUNION] >> gvs[FLOOKUP_UPDATE] >>
+        drule pure_cexp_lemmasTheory.subst_lets_for >> rw[combinTheory.o_DEF] >>
+        first_x_assum irule >> gvs[IN_FRANGE_FLOOKUP] >>
+        qexists_tac `k` >> simp[] >> rw[] >> gvs[FLOOKUP_DEF]) >>
+  gvs[] >> ntac 2 $ pop_assum kall_tac >>
+  qmatch_goalsub_abbrev_tac `lets_for _ _ _ _ e'` >>
+  qsuff_tac
+    `subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs) e') ≃
+     subst1 v x (lets_for cn (LENGTH l) v (MAPi (λi v. (i,v)) vs) e')`
+  >- (
+    simp[Once app_bisimilarity_iff] >> strip_tac >> gvs[] >> rw[] >>
+    first_x_assum drule >> strip_tac >> goal_assum drule
+    >- metis_tac[symmetric_app_bisimilarity |>
+                  SIMP_RULE (srw_ss()) [relationTheory.symmetric_def]]
+    >- (
+      gvs[LIST_REL_EL_EQN, opp_def, IN_DEF] >>
+      metis_tac[symmetric_app_bisimilarity |>
+                  SIMP_RULE (srw_ss()) [relationTheory.symmetric_def]]
+      )
+    >- metis_tac[symmetric_app_bisimilarity |>
+                  SIMP_RULE (srw_ss()) [relationTheory.symmetric_def]]
+    >- (
+      gvs[LIST_REL_EL_EQN, opp_def, IN_DEF] >>
+      metis_tac[symmetric_app_bisimilarity |>
+                  SIMP_RULE (srw_ss()) [relationTheory.symmetric_def]]
+      )
+    ) >>
+  `closed x` by (
+    gvs[FLOOKUP_UPDATE] >> first_x_assum irule >> qexists_tac `v` >> simp[]) >>
+  `freevars e' ⊆ v INSERT set vs` by (
+    unabbrev_all_tac >> DEP_REWRITE_TAC[freevars_subst] >>
+    gvs[SUBSET_DEF, freevars_lets_for, IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF,
+        combinTheory.o_DEF, FLOOKUP_UPDATE] >> rw[]
+    >- (first_x_assum irule >> qexists_tac `k` >> rw[] >> gvs[FLOOKUP_DEF])
+    >- (Cases_on `vs` >> gvs[] >> metis_tac[])
+    >- (Cases_on `vs` >> gvs[] >> metis_tac[])
+    ) >>
+  reverse $ rw[app_bisimilarity_eq]
+  >- (
+    irule IMP_closed_subst >> simp[freevars_lets_for, combinTheory.o_DEF] >>
+    Cases_on `vs` >> gvs[SUBSET_DEF] >> metis_tac[]
+    )
+  >- (
+    irule IMP_closed_subst >>
+    simp[pure_cexp_lemmasTheory.freevars_lets_for, combinTheory.o_DEF] >>
+    Cases_on `vs` >> gvs[SUBSET_DEF] >> metis_tac[]
+    ) >>
+  once_rewrite_tac[exp_eq_sym] >> irule lets_for_exp_eq_lemma >> simp[]
+QED
+
+Theorem exp_of_tcexp_of_exp_eq:
+  ∀e. cexp_wf e ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pure_cexp$exp_of e
+Proof
+  recInduct tcexp_of_ind >>
+  rw[cexp_wf_def, tcexp_of_def, exp_of_def, pure_cexpTheory.exp_of_def]
+  >- simp[exp_eq_Var_cong]
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF] >>
+    irule exp_eq_Prim_cong >> rw[LIST_REL_EL_EQN, EL_MAP] >>
+    first_x_assum irule >> simp[EL_MEM] >> gvs[EVERY_EL]
+    )
+  >- (
+    irule exp_eq_App_cong >> simp[] >>
+    irule exp_eq_Lam_cong >> simp[]
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF] >>
+    pop_assum kall_tac >> gvs[EVERY_MEM] >> pop_assum kall_tac >>
+    Induct_on `xs` using SNOC_INDUCT >> rw[MAP_SNOC, Apps_SNOC] >>
+    irule exp_eq_App_cong >> simp[]
+    )
+  >- (
+    pop_assum kall_tac >> gvs[] >>
+    Induct_on `vs` >> rw[Lams_def] >>
+    irule exp_eq_Lam_cong >> simp[]
+    )
+  >- (
+    irule exp_eq_Letrec_cong >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[LIST_REL_EL_EQN, EL_MAP] >> pairarg_tac >> gvs[] >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
+    first_x_assum irule >> gvs[MEM_EL, PULL_EXISTS, FORALL_PROD] >>
+    goal_assum $ drule_at Any >> gvs[] >>
+    first_x_assum irule >> goal_assum drule >> gvs[]
+    ) >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  irule exp_eq_App_cong >> simp[] >>
+  irule exp_eq_Lam_cong >> simp[] >>
+  qpat_x_assum `_ ≠ _` kall_tac >>
+  Induct_on `rs` >> rw[rows_of_def, pure_cexpTheory.rows_of_def]
+  >- simp[exp_eq_refl] >>
+  pairarg_tac >> gvs[rows_of_def, pure_cexpTheory.rows_of_def] >>
+  qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>
+  irule exp_eq_trans >> irule_at Any exp_eq_Prim_cong >>
+  qmatch_goalsub_abbrev_tac `[a;b c;_]` >>
+  qexists_tac `[a;b (exp_of p2);rows]` >> unabbrev_all_tac >> simp[exp_eq_refl] >>
+  last_x_assum $ irule_at Any >> rw[]
+  >- (
+    first_x_assum irule >> simp[] >> qexistsl_tac [`c`,`vs`] >> simp[]
+    )
+  >- (irule exp_eq_lets_for_cong >> simp[]) >>
+  rename [`If _ (_ e) rest`,`IsEq cn (_ vs) _`] >>
+  simp[lets_for_exp_eq]
 QED
 
 

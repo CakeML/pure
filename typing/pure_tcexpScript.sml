@@ -1,10 +1,11 @@
 (*
-   This file defines expressions for pure_lang as the compiler sees them.
+   This file defines expressions for pure_lang as the type system sees them.
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_expTheory pure_cexpTheory;
+open pure_cexpTheory pure_cexp_lemmasTheory pure_expTheory pure_evalTheory
+     pure_exp_lemmasTheory pure_exp_relTheory pure_congruenceTheory;
 
 val _ = new_theory "pure_tcexp";
 
@@ -117,5 +118,6 @@ Termination
   gvs[MEM_MAP, EXISTS_PROD] >>
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
 End
+
 
 val _ = export_theory();

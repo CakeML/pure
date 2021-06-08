@@ -92,15 +92,6 @@ Proof
   CCONTR_TAC >> drule eval_wh_inc >> simp[] >> qexists_tac `k` >> simp[]
 QED
 
-Theorem lets_for_APPEND:
-  ∀ws1 ws2 cn ar v n w b.
-    lets_for cn ar v (ws1 ++ ws2) b =
-      lets_for cn ar v ws1 (lets_for cn ar v ws2 b)
-Proof
-  Induct >> rw[lets_for_def] >>
-  PairCases_on `h` >> simp[lets_for_def]
-QED
-
 Theorem eval_wh_to_lets_for:
   ∀vs e k cn v b.
   closed e ∧ vs ≠ [] ∧ ¬ MEM v vs ⇒
@@ -196,7 +187,7 @@ Proof
   Induct >> rw[combinTheory.o_DEF]
 QED
 
-Theorem type_soundness:
+Theorem type_soundness_up_to:
   ∀k ce ns db st t.
     namespace_ok ns ∧
     EVERY (type_ok (SND ns) db) st ∧
@@ -579,6 +570,16 @@ Proof
     last_x_assum irule >> simp[] >>
     gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_MAP]
     )
+QED
+
+Theorem type_soundness:
+  namespace_ok ns ∧
+  EVERY (type_ok (SND ns) db) st ∧
+  type_tcexp ns db st [] ce t ⇒
+  type_wh ns db st [] (eval_wh $ exp_of ce) t
+Proof
+  rw[] >> drule_all type_soundness_up_to >> strip_tac >>
+  rw[eval_wh_def] >> DEEP_INTRO_TAC some_intro >> rw[] >> gvs[]
 QED
 
 

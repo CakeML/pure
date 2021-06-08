@@ -383,8 +383,7 @@ Inductive type_tcexp:
       ⇒ type_tcexp ns db st env (Lam xs e) (Function arg_tys ret_ty)) ∧
 
 [~Let:]
-  (* TODO CHECK - should not need value restriction for call-by-name semantics *)
-  (* However this just desugars to normal application *)
+  (* TODO this just desugars to normal application - do we want polymorphism? *)
   (type_tcexp ns (db + new) (MAP (tshift new) st) (tshift_env new env) e1 t1 ∧
    type_tcexp ns db st ((x,new,t1)::env) e2 t2 ⇒
       type_tcexp ns db st env (Let x e1 e2) t2) ∧
