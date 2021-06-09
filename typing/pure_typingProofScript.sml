@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory rich_listTheory alistTheory finite_mapTheory;
 open pure_miscTheory pure_configTheory pure_expTheory pure_exp_lemmasTheory
-     pure_evalTheory pure_tcexpTheory pure_tcexp_lemmasTheory
+     pure_semanticsTheory pure_evalTheory pure_tcexpTheory pure_tcexp_lemmasTheory
      pure_typingTheory pure_typingPropsTheory;
 
 val _ = new_theory "pure_typingProof";
@@ -77,6 +77,20 @@ Triviality type_wh_TypeCons_eq_wh_Constructor:
 Proof
   rw[type_wh_cases] >> gvs[Once type_tcexp_cases, exp_of_def] >>
   Cases_on `es` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC]
+QED
+
+Triviality type_wh_Array_eq_Loc:
+  type_wh ns db st env wh (Array t) ⇒
+    wh = wh_Diverge ∨ ∃a n. wh = wh_Atom (Loc n) ∧ oEL n st = SOME t
+Proof
+  rw[type_wh_cases]
+  >- gvs[Once type_tcexp_cases]
+  >- (
+    reverse $ Cases_on `ce` >> gvs[exp_of_def] >>
+    gvs[Once type_tcexp_cases] >>
+    Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC]
+    )
+  >- gvs[Once type_tcexp_cases]
 QED
 
 Theorem eval_wh_to_Case_wh_Diverge:
@@ -572,7 +586,7 @@ Proof
     )
 QED
 
-Theorem type_soundness:
+Theorem type_soundness_eval_wh:
   namespace_ok ns ∧
   EVERY (type_ok (SND ns) db) st ∧
   type_tcexp ns db st [] ce t ⇒
@@ -580,6 +594,391 @@ Theorem type_soundness:
 Proof
   rw[] >> drule_all type_soundness_up_to >> strip_tac >>
   rw[eval_wh_def] >> DEEP_INTRO_TAC some_intro >> rw[] >> gvs[]
+QED
+
+
+(********************)
+
+
+Theorem type_wh_monad:
+  type_wh ns db st env wh (M t) ⇒
+  wh = wh_Diverge ∨
+  ∃cn es. wh = wh_Constructor cn es ∧ cn ∈ monad_cns
+Proof
+  reverse $ rw[type_wh_cases]
+  >- gvs[Once type_tcexp_cases]
+  >- (
+    Cases_on `ce` >> gvs[exp_of_def]
+    >- (
+      Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC] >>
+      gvs[Once type_tcexp_cases]
+      )
+    >- (Cases_on `l` >> gvs[Lams_def] >> gvs[Once type_tcexp_cases])
+    )
+  >- gvs[Once type_tcexp_cases, monad_cns_def]
+QED
+
+Definition type_exp_def:
+  type_exp ns db st e t ⇔
+    ∃tce. type_tcexp ns db st [] tce t ∧ exp_of tce = e
+End
+
+Datatype:
+  cont_type = DoneT
+            | BCT type type cont_type (* arg type, return type *)
+            | HCT type cont_type      (* return type *)
+End
+
+Definition unwind_stack_def:
+  unwind_stack DoneT = NONE ∧
+  unwind_stack (BCT t1 t2 stack) = unwind_stack stack ∧
+  unwind_stack (HCT t stack) = SOME (t, stack)
+End
+
+Inductive type_cont:
+  type_cont ns db st Done DoneT ∧
+
+  (type_exp ns db st cont (Function [t1] (M t2)) ∧
+   type_cont ns db st stack t ⇒
+    type_cont ns db st (BC cont stack) (BCT t1 t2 t)) ∧
+
+  (type_exp ns db st cont (Function [Exception] (M t1)) ∧
+   type_cont ns db st stack t ⇒
+    type_cont ns db st (HC cont stack) (HCT t1 t))
+End
+
+Inductive config_type_ok:
+  config_type_ok (t, DoneT) t ∧
+
+  (config_type_ok (t2, stack) t ∧
+   (∀t3 stack'.
+    unwind_stack stack = SOME (t3, stack') ⇒ config_type_ok (t3, stack') t) ⇒
+      config_type_ok (t1, BCT t1 t2 stack) t) ∧
+
+   (config_type_ok (t2, stack) t ∧
+    config_type_ok (t1, stack) t ⇒
+      config_type_ok (t1, HCT t2 stack) t)
+End
+
+Definition type_config_def:
+  type_config ns db st (wh, stack, state) t ⇔
+    ∃wh_ty stack_ty.
+      LIST_REL (λes t. EVERY (λe. type_exp ns db st e t) es) state st ∧
+      type_wh ns db st [] wh (M wh_ty) ∧
+      type_cont ns db st stack stack_ty ∧
+      config_type_ok (wh_ty, stack_ty) t
+End
+
+Inductive type_next_res:
+  type_next_res ns db st Ret t ∧
+  type_next_res ns db st Div t ∧
+  ((∀y. type_config ns db st (wh_Constructor "Ret" [Lit $ Str y], stack, state) t) ⇒
+    type_next_res ns db st (pure_semantics$Act a stack state) t)
+End
+
+Theorem config_type_ok_unwind_stack:
+  ∀stack_ty wh_ty t.
+    config_type_ok (wh_ty, stack_ty) t ⇒
+  ∀t' s'. unwind_stack stack_ty = SOME (t',s') ⇒ config_type_ok (t',s') t
+Proof
+  Induct >> rw[unwind_stack_def]
+  >- (
+    first_x_assum irule >> simp[] >>
+    qpat_x_assum `config_type_ok _ _` mp_tac >>
+    once_rewrite_tac[config_type_ok_cases] >>
+    strip_tac >> once_rewrite_tac[GSYM config_type_ok_cases] >> gvs[] >>
+    goal_assum drule
+    )
+  >- (
+    pop_assum mp_tac >>
+    once_rewrite_tac[config_type_ok_cases] >>
+    strip_tac >> once_rewrite_tac[GSYM config_type_ok_cases] >> gvs[]
+    )
+QED
+
+Theorem type_cont_weaken_state:
+  type_cont ns db st stack stack_ty ⇒
+  type_cont ns db (st ++ st') stack stack_ty
+Proof
+  Induct_on `type_cont` >> rw[] >> simp[Once type_cont_cases] >>
+  gvs[type_exp_def] >> irule_at Any EQ_REFL >>
+  drule type_tcexp_weaken >>
+  disch_then $ qspecl_then [`0`,`st'`,`[]`] mp_tac >> simp[]
+QED
+
+Theorem type_soundness_next:
+  ∀k st wh stack state t.
+    namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
+    type_config ns db st (wh, stack, state) t
+  ⇒ ∃st'.
+    type_next_res ns db (st ++ st') (next k wh stack state) t ∧
+    EVERY (type_ok (SND ns) db) st'
+Proof
+  strip_tac >> completeInduct_on `k` >> rw[] >>
+  last_x_assum $ qspec_then `k - 1` assume_tac >> gvs[] >>
+  qpat_x_assum `type_config _ _ _ _ _` mp_tac >> rw[Once type_config_def] >>
+  imp_res_tac type_wh_monad >> gvs[]
+  >- (simp[next_def, type_next_res_cases] >> goal_assum drule) >>
+  qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[type_wh_cases] >>
+  simp[Once type_tcexp_cases] >> strip_tac >> gvs[monad_cns_def] >>
+  once_rewrite_tac[next_def] >> simp[]
+  >- (
+    TOP_CASE_TAC >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule)
+    >- (
+      gvs[Once type_cont_cases, apply_closure_def, type_exp_def] >>
+      IF_CASES_TAC >- (simp[type_next_res_cases] >> goal_assum drule) >>
+      drule_all type_soundness_eval_wh >> strip_tac >>
+      drule type_wh_Function_eq_wh_Closure >> rw[] >> simp[] >>
+      IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+      last_x_assum drule >> disch_then irule >>
+      simp[type_config_def, type_exp_def] >> goal_assum $ drule_at Any >>
+      qpat_x_assum `config_type_ok _ _` mp_tac >>
+      simp[Once config_type_ok_cases] >> strip_tac >> gvs[] >>
+      goal_assum $ drule_at Any >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+      strip_tac >> gvs[] >>
+      drule_at (Pos last) type_tcexp_tcexp_wf >> rw[] >>
+      Cases_on `ce` >> gvs[tcexp_wf_def, exp_of_def]
+      >- (Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC]) >>
+      Cases_on `l` >> gvs[] >> rename1 `v::vs` >>
+      reverse $ Cases_on `vs` >> gvs[Once type_tcexp_cases, Lams_def] >>
+      `closed (exp_of e)` by (
+        imp_res_tac type_tcexp_freevars_tcexp >>
+        gvs[closed_def, freevars_exp_of]) >>
+      simp[bind1_def] >>
+      drule type_tcexp_closing_subst1 >> simp[] >>
+      disch_then drule >> strip_tac >>
+      drule_at (Pos last) type_soundness_eval_wh >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      )
+    >- (
+      IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+      first_x_assum irule >> simp[type_config_def] >>
+      qpat_x_assum `type_cont _ _ _ _ _` mp_tac >> rw[Once type_cont_cases] >>
+      goal_assum $ drule_at Any >>
+      qpat_x_assum `config_type_ok _ _` mp_tac >> rw[Once config_type_ok_cases] >>
+      goal_assum $ drule_at Any >>
+      simp[type_wh_cases, PULL_EXISTS] >> irule_at Any EQ_REFL >>
+      simp[Once type_tcexp_cases]
+      )
+    )
+  >- (
+    IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    first_x_assum irule >> simp[type_config_def] >>
+    qexistsl_tac [`t1`,`BCT t1 wh_ty stack_ty`] >>
+    simp[Once type_cont_cases, type_exp_def, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    irule_at Any type_soundness_eval_wh >> simp[] >>
+    simp[Once config_type_ok_cases] >>
+    ho_match_mp_tac config_type_ok_unwind_stack >> goal_assum drule
+    )
+  >- (
+    TOP_CASE_TAC >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule)
+    >- (
+      IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+      first_x_assum irule >> simp[type_config_def] >>
+      qpat_x_assum `type_cont _ _ _ _ _` mp_tac >> rw[Once type_cont_cases] >>
+      goal_assum $ drule_at Any >>
+      qpat_x_assum `config_type_ok _ _` mp_tac >>
+      simp[Once config_type_ok_cases] >> strip_tac >> gvs[] >>
+      goal_assum $ drule_at Any >>
+      simp[type_wh_cases, PULL_EXISTS] >> irule_at Any EQ_REFL >>
+      simp[Once type_tcexp_cases] >> gvs[type_exp_def] >>
+      drule_at Any type_tcexp_type_ok >> gvs[type_ok]
+      )
+    >- (
+      gvs[Once type_cont_cases, apply_closure_def, type_exp_def] >>
+      IF_CASES_TAC >- (simp[type_next_res_cases] >> goal_assum drule) >>
+      drule_all type_soundness_eval_wh >> strip_tac >>
+      drule type_wh_Function_eq_wh_Closure >> rw[] >> simp[] >>
+      IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+      last_x_assum drule >> disch_then irule >>
+      simp[type_config_def, type_exp_def] >> goal_assum $ drule_at Any >>
+      qpat_x_assum `config_type_ok _ _` mp_tac >>
+      simp[Once config_type_ok_cases] >> strip_tac >> gvs[] >>
+      qexists_tac `t1` >> simp[] >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+      strip_tac >> gvs[] >>
+      drule_at (Pos last) type_tcexp_tcexp_wf >> rw[] >>
+      Cases_on `ce` >> gvs[tcexp_wf_def, exp_of_def]
+      >- (Cases_on `l` using SNOC_CASES >> gvs[MAP_SNOC, Apps_SNOC]) >>
+      Cases_on `l` >> gvs[] >> rename1 `v::vs` >>
+      reverse $ Cases_on `vs` >> gvs[Once type_tcexp_cases, Lams_def] >>
+      `closed (exp_of e)` by (
+        imp_res_tac type_tcexp_freevars_tcexp >>
+        gvs[closed_def, freevars_exp_of]) >>
+      simp[bind1_def] >>
+      drule type_tcexp_closing_subst1 >> simp[] >>
+      disch_then drule >> strip_tac >>
+      drule_at (Pos last) type_soundness_eval_wh >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      )
+    )
+  >- (
+    IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    first_x_assum irule >> simp[type_config_def] >>
+    qexistsl_tac [`wh_ty`,`HCT wh_ty stack_ty`] >>
+    simp[Once type_cont_cases, Once config_type_ok_cases] >>
+    simp[type_exp_def, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
+    irule type_soundness_eval_wh >> simp[]
+    )
+  >- (
+    drule_at (Pos last) type_soundness_eval_wh >> rw[] >>
+    drule type_wh_PrimTy_eq_wh_Atom >> simp[] >>
+    simp[with_atom_def, with_atoms_def] >> strip_tac >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases, type_lit_cases] >>
+    strip_tac >> gvs[] >> qexists_tac `[]` >> simp[] >>
+    rw[type_next_res_cases] >> simp[type_config_def] >>
+    goal_assum $ drule_at Any >> simp[type_wh_cases, PULL_EXISTS] >>
+    qexists_tac `Prim (AtomOp $ Lit $ Str y) []` >>
+    simp[exp_of_def, pure_cexpTheory.op_of_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases] >>
+    simp[get_PrimTys_def, type_atom_op_cases, type_lit_cases]
+    )
+  >- (
+    qpat_x_assum `_ (PrimTy _)` assume_tac >>
+    drule_at (Pos last) type_soundness_eval_wh >> rw[] >>
+    drule type_wh_PrimTy_eq_wh_Atom >> simp[] >>
+    simp[with_atom_def, with_atoms_def] >> strip_tac >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases, type_lit_cases] >>
+    strip_tac >> gvs[] >> IF_CASES_TAC >> gvs[]
+    >- (qexists_tac `[]` >> simp[type_next_res_cases]) >>
+    Q.REFINE_EXISTS_TAC `[t'] ++ rest` >> simp[] >>
+    `type_ok (SND ns) db t'` by (
+      irule type_tcexp_type_ok >> simp[] >>
+      goal_assum $ drule_at $ Pos last >> simp[]) >>
+    simp[] >> first_x_assum irule >> simp[type_config_def, GSYM CONJ_ASSOC] >>
+    irule_at Any type_cont_weaken_state >> goal_assum drule >>
+    goal_assum $ drule_at Any >> conj_tac
+    >- (
+      gvs[LIST_REL_EL_EQN, EVERY_MEM] >> rw[] >>
+      last_x_assum drule_all >> strip_tac >> gvs[type_exp_def] >>
+      irule_at Any EQ_REFL >> drule type_tcexp_weaken >>
+      disch_then $ qspecl_then [`0`,`[t']`,`[]`] mp_tac >> simp[]
+      ) >>
+    simp[type_wh_cases, Once type_tcexp_cases, PULL_EXISTS] >>
+    qexists_tac `Prim (AtomOp $ Lit $ Loc $ LENGTH state) []` >>
+    simp[exp_of_def, pure_cexpTheory.op_of_def] >>
+    simp[Once type_tcexp_cases, oEL_THM, EL_APPEND_EQN] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >> rw[DISJ_EQ_IMP] >>
+    simp[type_exp_def] >> irule_at Any EQ_REFL >>
+    qpat_x_assum `_ e2 t'` assume_tac >> drule type_tcexp_weaken >>
+    disch_then $ qspecl_then [`0`,`[t']`,`[]`] mp_tac >> simp[]
+    )
+  >- (
+    drule_at (Pos last) type_soundness_eval_wh >> rw[] >>
+    drule type_wh_Array_eq_Loc >> simp[] >>
+    simp[with_atom_def, with_atoms_def] >> strip_tac >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases, oEL_THM] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    first_x_assum irule >> simp[type_config_def] >>
+    simp[type_wh_cases, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    qmatch_goalsub_abbrev_tac `Lit a` >>
+    qexists_tac `Prim (AtomOp $ Lit a) []` >>
+    simp[exp_of_def, pure_cexpTheory.op_of_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases] >>
+    simp[get_PrimTys_def, type_atom_op_cases] >>
+    unabbrev_all_tac >> simp[type_lit_def]
+    )
+  >- (
+    drule_at (Pos last) type_soundness_eval_wh >> simp[] >> strip_tac >>
+    drule type_wh_PrimTy_eq_wh_Atom >> simp[] >>
+    qpat_x_assum `type_tcexp _ _ _ _ e1 _` assume_tac >>
+    drule_at (Pos last) type_soundness_eval_wh >> simp[] >> strip_tac >>
+    drule type_wh_Array_eq_Loc >> simp[] >>
+    simp[with_atom2_def, with_atoms_def] >> ntac 2 strip_tac >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule)
+    >- (simp[type_next_res_cases] >> goal_assum drule)
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases, oEL_THM] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ (PrimTy _)` mp_tac >>
+    simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases, type_lit_cases] >>
+    strip_tac >> gvs[] >>
+    Cases_on `k = 0` >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    IF_CASES_TAC >> gvs[]
+    >- (
+      first_x_assum irule >> simp[type_config_def] >>
+      goal_assum $ drule_at Any >> simp[] >>
+      simp[type_wh_cases, PULL_EXISTS] >>
+      gvs[LIST_REL_EL_EQN] >>
+      last_x_assum drule >> simp[EVERY_EL, type_exp_def] >>
+      disch_then $ qspec_then `Num i` mp_tac >> simp[] >> impl_tac
+      >- (Cases_on `i` >> gvs[]) >>
+      strip_tac >> gvs[] >>
+      goal_assum $ drule o GSYM >> simp[Once type_tcexp_cases]
+      ) >>
+    first_x_assum irule >> simp[type_config_def] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    simp[type_wh_cases, PULL_EXISTS] >>
+    qexists_tac `Prim (Cons "Subscript") []` >>
+    simp[exp_of_def, pure_cexpTheory.op_of_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases] >> gvs[EVERY_EL]
+    )
+  >- (
+    qpat_x_assum `type_tcexp _ _ _ _ e2 _` assume_tac >>
+    drule_at (Pos last) type_soundness_eval_wh >> simp[] >> strip_tac >>
+    drule type_wh_PrimTy_eq_wh_Atom >> simp[] >>
+    qpat_x_assum `type_tcexp _ _ _ _ e1 _` assume_tac >>
+    drule_at (Pos last) type_soundness_eval_wh >> simp[] >> strip_tac >>
+    drule type_wh_Array_eq_Loc >> simp[] >>
+    simp[with_atom2_def, with_atoms_def] >> ntac 2 strip_tac >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule)
+    >- (simp[type_next_res_cases] >> goal_assum drule)
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases, oEL_THM] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ (PrimTy _)` mp_tac >>
+    simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases, type_lit_cases] >>
+    strip_tac >> gvs[] >>
+    Cases_on `k = 0` >> gvs[]
+    >- (simp[type_next_res_cases] >> goal_assum drule) >>
+    IF_CASES_TAC >> gvs[]
+    >- (
+      first_x_assum irule >> simp[type_config_def] >>
+      goal_assum $ drule_at Any >> simp[] >>
+      simp[type_wh_cases, PULL_EXISTS] >>
+      qexists_tac `Prim (Cons "") []` >>
+      simp[exp_of_def, pure_cexpTheory.op_of_def] >>
+      ntac 2 $ simp[Once type_tcexp_cases] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL] >> rw[EL_LUPDATE] >>
+      IF_CASES_TAC >> gvs[EL_LUPDATE] >>
+      simp[type_exp_def] >> goal_assum drule >> simp[]
+      ) >>
+    first_x_assum irule >> simp[type_config_def] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    simp[type_wh_cases, PULL_EXISTS] >>
+    qexists_tac `Prim (Cons "Subscript") []` >>
+    simp[exp_of_def, pure_cexpTheory.op_of_def] >>
+    ntac 2 $ simp[Once type_tcexp_cases, type_ok]
+    )
+QED
+
+Theorem type_soundness_next_action:
+  ∀ns db st wh stack state.
+    namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
+    type_config ns db st (wh, stack, state) t
+  ⇒ ∃st'.
+      type_next_res ns db (st ++ st') (next_action wh stack state) t ∧
+      EVERY (type_ok (SND ns) db) st'
+Proof
+  rw[next_action_def] >>
+  DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+  >- (simp[type_next_res_cases] >> goal_assum drule) >>
+  drule_all type_soundness_next >> simp[]
 QED
 
 

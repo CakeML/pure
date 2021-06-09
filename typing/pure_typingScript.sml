@@ -313,7 +313,7 @@ Inductive type_tcexp:
 
 [~Act:]
   (type_tcexp ns db st env e (PrimTy Message) ⇒
-      type_tcexp ns db st env (Prim (Cons "Act") [e]) (M Unit)) ∧
+      type_tcexp ns db st env (Prim (Cons "Act") [e]) (M $ PrimTy String)) ∧
 
 [~Alloc:]
   (type_tcexp ns db st env e1 (PrimTy Integer) ∧
