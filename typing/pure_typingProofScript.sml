@@ -968,7 +968,7 @@ Proof
 QED
 
 Theorem type_soundness_next_action:
-  ∀ns db st wh stack state.
+  ∀ns db st wh stack state t.
     namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
     type_config ns db st (wh, stack, state) t
   ⇒ ∃st'.
@@ -979,6 +979,74 @@ Proof
   DEEP_INTRO_TAC some_intro >> reverse $ rw[]
   >- (simp[type_next_res_cases] >> goal_assum drule) >>
   drule_all type_soundness_next >> simp[]
+QED
+
+CoInductive safe_itree:
+  (safe_itree (Ret Termination)) ∧
+  (safe_itree Div) ∧
+  ((∀s:string. safe_itree (rest s)) ⇒ safe_itree (Vis (e:string # string) rest))
+End
+
+Theorem type_soundness_interp:
+  ∀ns db st wh stack state t.
+    namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
+    type_config ns db st (wh, stack, state) t
+  ⇒ safe_itree (interp wh stack state)
+Proof
+  qsuff_tac
+    `∀tree.
+      (∃ns db st wh stack state t.
+      namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
+      type_config ns db st (wh, stack, state) t ∧
+      tree = interp wh stack state)
+    ⇒ safe_itree tree`
+  >- (rw[] >> first_x_assum irule >> rpt $ goal_assum drule >> simp[]) >>
+  ho_match_mp_tac safe_itree_coind >> rw[] >>
+  drule_all type_soundness_next_action >>
+  simp[Once type_next_res_cases] >> strip_tac >> gvs[]
+  >- (once_rewrite_tac[interp_def] >> simp[])
+  >- (once_rewrite_tac[interp_def] >> simp[]) >>
+  ntac 2 disj2_tac >> rw[Once interp_def] >>
+  goal_assum drule >> irule_at Any $ EQ_REFL >>
+  first_x_assum $ qspec_then `s` assume_tac >>
+  goal_assum $ drule_at $ Pos last >> simp[]
+QED
+
+Theorem type_soundness_tcexp:
+  namespace_ok ns ∧ type_tcexp ns db [] [] tce (M t) ⇒
+  safe_itree (itree_of (exp_of tce))
+Proof
+  rw[itree_of_def, semantics_def] >>
+  irule type_soundness_interp >>
+  simp[type_config_def, PULL_EXISTS] >>
+  simp[Once type_cont_cases, Once config_type_ok_cases] >>
+  goal_assum drule >>
+  irule_at Any type_soundness_eval_wh >> simp[] >>
+  goal_assum drule
+QED
+
+Theorem type_soundness_cexp:
+  namespace_ok ns ∧ type_tcexp ns db [] [] (tcexp_of ce) (M t) ⇒
+  safe_itree (itree_of (exp_of ce))
+Proof
+  rw[] >>
+  `itree_of (exp_of ce) = itree_of (exp_of $ tcexp_of ce)` by (
+    rw[itree_of_def] >>
+    irule pure_obs_sem_equalTheory.bisimilarity_IMP_semantics_eq >>
+    simp[pure_exp_relTheory.app_bisimilarity_eq] >>
+    irule_at Any $ iffLR pure_congruenceTheory.exp_eq_sym >>
+    irule_at Any exp_of_tcexp_of_exp_eq >>
+    drule type_tcexp_freevars_tcexp >> strip_tac >>
+    drule_at (Pos last) type_tcexp_tcexp_wf >> strip_tac >> gvs[] >>
+    simp[cexp_wf_tcexp_wf, closed_def, freevars_exp_of] >>
+    gvs[freevars_tcexp_of, pure_cexp_lemmasTheory.freevars_exp_of]) >>
+  rw[itree_of_def, semantics_def] >>
+  irule type_soundness_interp >>
+  simp[type_config_def, PULL_EXISTS] >>
+  simp[Once type_cont_cases, Once config_type_ok_cases] >>
+  goal_assum drule >>
+  irule_at Any type_soundness_eval_wh >> simp[] >>
+  goal_assum drule
 QED
 
 

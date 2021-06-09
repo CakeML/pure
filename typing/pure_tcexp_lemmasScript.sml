@@ -122,6 +122,29 @@ Proof
   eq_tac >> rw[] >> metis_tac[]
 QED
 
+Theorem freevars_tcexp_of:
+  ∀ce. freevars_tcexp (tcexp_of ce) = freevars_cexp ce
+Proof
+  recInduct freevars_cexp_ind >>
+  rw[freevars_cexp_def, tcexp_of_def, freevars_tcexp_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF]
+  >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f])
+  >- (ntac 3 AP_TERM_TAC >> rw[MAP_EQ_f])
+  >- (
+    simp[LAMBDA_PROD, GSYM FST_THM] >>
+    AP_THM_TAC >> ntac 4 AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+    first_x_assum irule >> goal_assum drule
+    )
+  >- (
+    simp[LAMBDA_PROD, GSYM FST_THM] >>
+    AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+    AP_THM_TAC >> AP_TERM_TAC >>
+    first_x_assum irule >> goal_assum drule
+    )
+QED
+
 
 (********************)
 
