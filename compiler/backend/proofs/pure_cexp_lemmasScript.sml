@@ -135,4 +135,14 @@ Proof
     )
 QED
 
+Theorem lets_for_APPEND:
+  ∀ws1 ws2 cn ar v n w b.
+    lets_for cn v (ws1 ++ ws2) b =
+      lets_for cn v ws1 (lets_for cn v ws2 b)
+Proof
+  Induct >> rw[lets_for_def] >>
+  PairCases_on `h` >> simp[lets_for_def]
+QED
+
+
 val _ = export_theory();

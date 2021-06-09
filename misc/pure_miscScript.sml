@@ -181,6 +181,14 @@ Proof
   rw[fmap_eq_flookup, FLOOKUP_FMAP_MAP2]
 QED
 
+Theorem FMAP_MAP2_FUPDATE_LIST:
+  ∀l m f.
+    FMAP_MAP2 f (m |++ l) = FMAP_MAP2 f m |++ MAP (λ(k,v). (k, f (k,v))) l
+Proof
+  Induct >> rw[FUPDATE_LIST_THM] >>
+  PairCases_on `h` >> simp[FMAP_MAP2_FUPDATE]
+QED
+
 
 (******************** Functions/Pairs ********************)
 
@@ -380,12 +388,27 @@ Theorem MAPi_EQ_l:
   ∀l1 l2 f.
     LENGTH l1 = LENGTH l2 ∧
     (∀n. n < LENGTH l1 ⇒ f n (EL n l1) = f n (EL n l2))
-  ⇒ MAPi f l1 = MAPi f l2
+  ⇔ MAPi f l1 = MAPi f l2
 Proof
-  Induct >> rw[] >> Cases_on `l2` >> gvs[] >> rw[]
-  >- (first_x_assum $ qspec_then `0` mp_tac >> simp[]) >>
-  first_x_assum irule >> simp[] >> rw[] >>
-  first_x_assum $ qspec_then `SUC n` mp_tac >> simp[]
+  Induct using SNOC_INDUCT >> rw[] >>
+  gvs[SNOC_APPEND, indexedListsTheory.MAPi_APPEND] >>
+  Cases_on `l2` using SNOC_CASES >>
+  gvs[SNOC_APPEND, indexedListsTheory.MAPi_APPEND, EL_APPEND_EQN] >> rw[] >>
+  eq_tac >> rw[] >> res_tac
+  >- (
+    first_x_assum $ irule o iffLR >> rw[] >>
+    first_x_assum $ qspec_then `n` mp_tac >> simp[]
+    )
+  >- (first_x_assum $ qspec_then `LENGTH l1` mp_tac >> simp[])
+  >- (IF_CASES_TAC >> gvs[] >> `n = LENGTH l` by gvs[] >> simp[])
+QED
+
+Theorem MAP_ZIP_ALT:
+  LENGTH l1 = LENGTH l2 ⇒
+  MAP (λ(a,b). (a, g b)) (ZIP (l1, l2)) = ZIP (l1, MAP g l2) ∧
+  MAP (λ(a,b). (f a, b)) (ZIP (l1, l2)) = ZIP (MAP f l1, l2)
+Proof
+  rw[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
 QED
 
 
