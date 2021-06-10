@@ -54,9 +54,8 @@ End
   things, allowing us to "force" them by removing the `Delay`.
 *)
 
-(* TODO HOL gives "index too large" error and does not name all rules *)
-Inductive compile_rel:
-  letrec_funs_rel fvs [] [] [] ∧
+(* TODO HOL gives "index too large" error if below comment is
+   within Inductive ... End and does not name all rules *)
 
   (*
     In general, we have:
@@ -79,6 +78,8 @@ Inductive compile_rel:
     -->
       Let x (Ref _) ... (Letrec [...] (x := INR b'; ...; e'))
   *)
+Inductive compile_rel:
+  letrec_funs_rel fvs [] [] [] ∧
 
   (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ∧
    f_fn ∉ fvs ∧ u ∉ freevars se ⇒
