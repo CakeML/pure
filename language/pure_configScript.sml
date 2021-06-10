@@ -1,6 +1,6 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory integerTheory stringTheory optionTheory intLib;
+open arithmeticTheory integerTheory stringTheory optionTheory intLib pred_setTheory;
 
 val _ = new_theory "pure_config";
 
@@ -93,5 +93,22 @@ End
 Definition isInt_def[simp]:
   isInt (Int i) = T ∧ isInt _ = F
 End
+
+Definition monad_cns_def:
+  monad_cns =
+    {"Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"}
+End
+
+Definition reserved_cns_def:
+  reserved_cns = {"";"True";"False";"Subscript"} ∪ monad_cns
+End
+
+Theorem reserved_cns_def:
+  reserved_cns =
+    {"";"True";"False";"Subscript";
+     "Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"}
+Proof
+  rw[reserved_cns_def, monad_cns_def, EXTENSION] >> eq_tac >> rw[]
+QED
 
 val _ = export_theory ();

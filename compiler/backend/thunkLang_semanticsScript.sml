@@ -154,7 +154,7 @@ Definition interp'_def:
         case next_action sv stack state of
         | Ret => Ret' pure_semantics$Termination
         | Err => Ret' pure_semantics$Error
-        | Div => Ret' pure_semantics$SilentDivergence
+        | Div => Div'
         | Act a new_stack new_state =>
             Vis' a
               (λy. (INR $ Constructor "Ret" [Atom (Str y)], new_stack, new_state)))
@@ -171,7 +171,7 @@ Theorem interp_def:
   interp sv stack state =
     case next_action sv stack state of
     | Ret => Ret pure_semantics$Termination
-    | Div => Ret pure_semantics$SilentDivergence
+    | Div => Div
     | Err => Ret pure_semantics$Error
     | Act a new_stack new_state =>
         Vis a

@@ -8,8 +8,7 @@ val _ = new_theory "pure_semantics";
 (* definitions *)
 
 Datatype:
-  result = SilentDivergence
-         | Termination
+  result = Termination
          | Error
 End
 
@@ -155,7 +154,7 @@ Definition interp'_def:
         case next_action v stack state of
         | Ret => Ret' Termination
         | Err => Ret' Error
-        | Div => Ret' SilentDivergence
+        | Div => Div'
         | Act a new_stack new_state =>
             Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)],
                     new_stack, new_state)))
@@ -169,8 +168,8 @@ Theorem interp_def:
   interp wh stack state =
     case next_action wh stack state of
     | Ret => Ret Termination
-    | Div => Ret SilentDivergence
     | Err => Ret Error
+    | Div => Div
     | Act a new_stack new_state =>
         Vis a (λy. interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack new_state)
 Proof
@@ -350,7 +349,7 @@ Proof
 QED
 
 Theorem semantics_Bottom:
-  semantics Bottom xs s = Ret SilentDivergence
+  semantics Bottom xs s = Div
 Proof
   fs [semantics_def,eval_wh_thm]
   \\ simp [Once interp_def]

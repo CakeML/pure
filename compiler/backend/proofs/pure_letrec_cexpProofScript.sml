@@ -320,7 +320,7 @@ Proof
   >- (Cases_on `l2` >> gvs[]) >>
   AP_TERM_TAC >> AP_TERM_TAC >>
   imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-  irule MAPi_EQ_l >> rw[] >>
+  irule $ iffLR MAPi_EQ_l >> rw[] >>
   qmatch_goalsub_abbrev_tac `_ a = _ b` >>
   PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
   irule to_nums_set_eq >> gvs[LIST_REL_EL_EQN, EL_MAP] >>

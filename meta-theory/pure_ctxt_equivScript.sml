@@ -138,7 +138,7 @@ QED
 Theorem semantics_Length_alt:
   semantics (Length e) k st =
     case eval_wh e of
-      wh_Diverge => Ret SilentDivergence
+      wh_Diverge => Div
     | wh_Atom (Loc n) =>
         if LENGTH st ≤ n then Ret Error else
         semantics (Ret (Lit (Int (&LENGTH (EL n st))))) k st
@@ -576,7 +576,7 @@ Proof
 QED
 
 Triviality interp_simps[simp]:
-  (∀k st. interp wh_Diverge k st = Ret SilentDivergence) ∧
+  (∀k st. interp wh_Diverge k st = Div) ∧
   (∀x. interp (wh_Constructor "Ret" [x]) Done [] = Ret Termination) ∧
   (∀k st. interp wh_Error k st = Ret Error)
 Proof
