@@ -1,15 +1,15 @@
 (*
-  Correctness for compilation from thunkLang to stateLang
+  Correctness for compilation from envLang to stateLang
  *)
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory
 open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     thunkLangTheory thunkLang_primitivesTheory thunkLang_cexpTheory
+     envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
      stateLangTheory;
 
-val _ = new_theory "thunk_to_stateProof";
+val _ = new_theory "env_to_stateProof";
 
 Overload "inl" = ``λe. App (Cons "INL") [e]``;
 Overload "inr" = ``λe. App (Cons "INR") [e]``;
@@ -46,11 +46,11 @@ End
 
 (*
   We don't seem to be able to remain error-preserving in both directions here,
-  as `thunkLang$Cons "bind" _` etc. become lambdas in stateLang.
+  as `envLang$Cons "bind" _` etc. become lambdas in stateLang.
   As a result, `App (thinkLang$Cons "bind" _) _` gives an error, whereas
   `App (Lam _ _) _` succeeds.
 
-  Note that we expect the arguments to `thunkLang$Cons _` to be `Delay`-wrapped
+  Note that we expect the arguments to `envLang$Cons _` to be `Delay`-wrapped
   things, allowing us to "force" them by removing the `Delay`.
 *)
 
@@ -59,22 +59,22 @@ End
 
   (*
     In general, we have:
-      thunkLang$Letrec [(x, y); ...] e
+      envLang$Letrec [(x, y); ...] e
     -->
       Let x (Ref (INL (fn u => Raise Bind))) ... (* declare all references *)
       Letrec [...] (* use the bindings *)
         (x := INL (fn u => y); ...) (* update the references *)
 
   As `y` can only be `Box`, `Delay`, or `Lam`:
-      thunkLang$Letrec [(x, Lam a b); ...] e
+      envLang$Letrec [(x, Lam a b); ...] e
     -->
       Let x (Ref _) ... (Letrec [(x, a, b'); ...] (x := INL x; ...; e'))
 
-      thunkLang$Letrec [(x, Delay d); ...] e
+      envLang$Letrec [(x, Delay d); ...] e
     -->
       Let x (Ref _) ... (Letrec [(fresh1, fresh2, d'); ...] (x := INL fresh1; ...; e'))
 
-      thunkLang$Letrec [(x, Box b); ...] e
+      envLang$Letrec [(x, Box b); ...] e
     -->
       Let x (Ref _) ... (Letrec [...] (x := INR b'; ...; e'))
   *)
@@ -95,7 +95,7 @@ Inductive compile_rel:
 
 
 [~Var:]
-  compile_rel (thunkLang$Var v) (stateLang$Var v) ∧
+  compile_rel (envLang$Var v) (stateLang$Var v) ∧
 
 [~Ret:]
   (compile_rel te se ∧ u ∉ freevars se ⇒
@@ -226,7 +226,7 @@ End
 Inductive value_rel:
 [~Constructor:]
   (LIST_REL (value_rel st) tvs svs ⇒
-  value_rel st (thunkLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
+  value_rel st (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
 
 [~Closure:]
   (MAP FST tenv = MAP FST senv ∧
@@ -258,7 +258,7 @@ End
 
   thunks are ((unit -> 'a) + 'a) ref
 
-  thunkLang                       stateLang
+  envLang                       stateLang
 
   Prim (Cons "Ret") [x]       --> (fn u => App "force" (compile x ()))
   Prim (Cons "Bind") [x; y]   --> (fn u => Let v (compile x ()) (compile y () v))
@@ -276,7 +276,7 @@ fun force t =
   | INR v => v
 
 
-  thunk$Letrec [(x, y + 1); ...] rest
+  env$Letrec [(x, y + 1); ...] rest
 
 -->
 
@@ -298,7 +298,7 @@ fun force t =
 
 
 
-  thunk$semantics (Bind (Bind (Ret ...) (Bind ... (Act ...))))
+  env$semantics (Bind (Bind (Ret ...) (Bind ... (Act ...))))
 ~
   state$eval (fn _ => ...) ()
 

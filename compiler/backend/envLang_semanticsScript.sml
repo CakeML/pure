@@ -4,11 +4,11 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pure_semanticsTheory
-     thunkLang_primitivesTheory thunkLangTheory io_treeTheory;
+     thunkLang_primitivesTheory envLangTheory io_treeTheory;
 
-val _ = new_theory "thunkLang_semantics";
+val _ = new_theory "envLang_semantics";
 
-val _ = set_grammar_ancestry ["thunkLang", "io_tree"];
+val _ = set_grammar_ancestry ["envLang", "io_tree"];
 
 
 (******************** Datatypes and helpers ********************)
