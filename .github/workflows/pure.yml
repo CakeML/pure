@@ -37,10 +37,6 @@ jobs:
       run: |
         cd pure/language
         HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
-    - name: Build typing
-      run: |
-        cd pure/typing
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build meta-theory
       run: |
         cd pure/meta-theory
@@ -52,6 +48,10 @@ jobs:
     - name: Build compiler/backend/proofs
       run: |
         cd pure/compiler/backend/proofs
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+    - name: Build typing
+      run: |
+        cd pure/typing
         HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build compiler
       run: |
