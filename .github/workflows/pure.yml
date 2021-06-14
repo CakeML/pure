@@ -25,43 +25,47 @@ jobs:
       with:
         repository: CakeML/CakeML
         path: cakeml
+    - name: Set envvars
+      run: |
+        echo "HOLDIR=/opt/HOL" >> $GITHUB_ENV
+        echo "CAKEMLDIR=/cakeml/" >> $GITHUB_ENV
     - name: Build misc
       run: |
         cd pure/misc
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build language
       run: |
         cd pure/language
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build typing
       run: |
         cd pure/typing
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build meta-theory
       run: |
         cd pure/meta-theory
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build compiler/backend
       run: |
         cd pure/compiler/backend
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build compiler/backend/proofs
       run: |
         cd pure/compiler/backend/proofs
-        Holmake 
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build compiler
       run: |
         cd pure/compiler
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build compiler/binary
       run: |
         cd pure/compiler/binary
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build examples
       run: |
         cd pure/examples
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
     - name: Build cakeml-semantics
       run: |
         cd pure/cakeml-semantics
-        Holmake
+        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
