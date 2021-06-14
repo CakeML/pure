@@ -408,6 +408,11 @@ Proof
     last_x_assum kall_tac >> last_x_assum drule >> simp[]
     )
   >- (
+    first_x_assum irule >> simp[EVERY_REVERSE] >>
+    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP] >> rw[] >>
+    last_x_assum irule >> simp[EL_MEM]
+    )
+  >- (
     gvs[EVERY_MEM, oEL_THM, namespace_ok_def, type_ok_def] >>
     Cases_on `css` >> gvs[] >- gvs[MEM_EL, FORALL_PROD] >>
     first_x_assum $ qspec_then `h` assume_tac >> gvs[] >>
@@ -421,6 +426,7 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[] >>
     irule freetyvars_ok_mono >> goal_assum $ drule_at Any >> simp[]
     )
+  >- gvs[oEL_THM, EVERY_EL]
   >- (
     irule freetyvars_ok_tsubst >> gvs[SF ETA_ss] >>
     gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
@@ -474,6 +480,11 @@ Proof
     rw[EVERY_EL, EL_ZIP, EL_MAP] >> pairarg_tac >> gvs[EVERY_EL]
     )
   >- (
+    first_x_assum irule >> simp[EVERY_REVERSE] >>
+    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP] >> rw[] >>
+    last_x_assum irule >> simp[EL_MEM]
+    )
+  >- (
     gvs[EVERY_MEM, oEL_THM, namespace_ok_def] >>
     Cases_on `css` >> gvs[] >- gvs[MEM_EL, FORALL_PROD] >>
     last_x_assum $ qspec_then `h` assume_tac >> gvs[] >>
@@ -487,6 +498,7 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
     irule freetyvars_ok_mono >> goal_assum $ drule_at Any >> simp[]
     )
+  >- gvs[oEL_THM, EVERY_EL]
   >- (
     irule type_ok_subst_db >> gvs[SF ETA_ss] >>
     gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
@@ -559,6 +571,11 @@ Proof
     DEP_REWRITE_TAC [EL_REVERSE] >> simp[EL_ZIP]
     )
   >- (
+    first_x_assum irule >> last_x_assum assume_tac >>
+    drule_at (Pos last) type_tcexp_type_ok >> simp[EVERY_EL, type_ok] >> rw[] >>
+    DEP_REWRITE_TAC[EL_REVERSE] >> simp[EL_ZIP, EL_MAP]
+    )
+  >- (
     rw[] >> first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >>
     pop_assum irule >> gvs[EL_ZIP, EL_MAP] >> reverse $ rw[]
     >- (imp_res_tac type_tcexp_type_ok >> gvs[type_ok, EVERY_EL]) >>
@@ -586,6 +603,7 @@ Proof
     last_x_assum drule >> simp[] >> strip_tac >> gvs[]
     )
   >- gvs[oEL_THM]
+  >- gvs[oEL_THM]
 QED
 
 Theorem type_tcexp_freevars_tcexp:
@@ -610,6 +628,7 @@ Proof
     pop_assum mp_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
     simp[SF ETA_ss, MAP_ZIP]
     )
+  >- gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET, GSYM SUBSET_INSERT_DELETE]
   >- (
     gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
     pairarg_tac >> gvs[EVERY_MEM] >>
@@ -665,12 +684,16 @@ Proof
       )
     )
   >- (
-    rpt $ goal_assum $ drule_at Any >> gvs[] >>
+    disj1_tac >> first_x_assum $ irule_at Any >> gvs[APPEND_ASSOC_CONS]
+    )
+  >- (
+    disj2_tac >> rpt $ goal_assum $ drule_at Any >> gvs[] >>
     irule_at Any EVERY_MONOTONIC >>
     goal_assum $ drule_at Any >> rw[] >> pairarg_tac >> gvs[] >>
     gvs[APPEND_ASSOC_CONS]
     )
-  >- (rpt $ goal_assum $ drule_at Any >> gvs[])
+  >- (disj1_tac >> rpt $ goal_assum $ drule_at Any >> gvs[])
+  >- (disj2_tac >> rpt $ goal_assum $ drule_at Any >> gvs[])
 QED
 
 
@@ -804,7 +827,11 @@ Proof
     rw[GSYM shift_db_shift_db]
     )
   >- (
-    gvs[oEL_THM] >>
+    disj1_tac >> first_x_assum $ irule_at Any >>
+    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
+    )
+  >- (
+    disj2_tac >> gvs[oEL_THM] >>
     ntac 2 $ goal_assum $ drule_at Any >>
     last_x_assum $ irule_at Any >> simp[] >>
     gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
@@ -825,8 +852,9 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
     goal_assum drule >> simp[]
     )
+  >- (disj1_tac >> first_x_assum $ irule_at Any >> gvs[oEL_THM, EL_MAP])
   >- (
-    gvs[oEL_THM] >>
+    disj2_tac >> gvs[oEL_THM] >>
     ntac 3 $ goal_assum $ drule_at Any >> simp[] >>
     first_x_assum $ irule_at Any >> simp[] >>
     simp[subst_db_subst_db, SF ETA_ss] >> AP_TERM_TAC >>
@@ -943,7 +971,11 @@ Proof
     simp[GSYM shift_db_shift_db, MAP_MAP_o, combinTheory.o_DEF]
     )
   >- (
-    gvs[oEL_THM] >>
+    disj1_tac >> first_x_assum $ irule_at Any >>
+    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
+    )
+  >- (
+    disj2_tac >> gvs[oEL_THM] >>
     ntac 2 $ goal_assum $ drule_at Any >>
     last_x_assum $ irule_at Any >> simp[] >>
     gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
@@ -964,8 +996,9 @@ Proof
     disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
     goal_assum drule >> simp[]
     )
+  >- (disj1_tac >> first_x_assum $ irule_at Any >> gvs[oEL_THM, EL_MAP])
   >- (
-    gvs[oEL_THM] >>
+    disj2_tac >> gvs[oEL_THM] >>
     ntac 3 $ goal_assum $ drule_at Any >> simp[] >>
     first_x_assum $ irule_at Any >> simp[] >>
     simp[GSYM subst_db_shift_db_2, SF ETA_ss] >> AP_TERM_TAC >>
@@ -1086,7 +1119,18 @@ Proof
       )
     )
   >- (
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
+    disj1_tac >>
+    first_x_assum $ irule_at Any >> simp[FDIFF_FDIFF] >>
+    qmatch_goalsub_abbrev_tac `REVERSE (ZIP z) ++ cons::_` >>
+    first_x_assum $ qspecl_then
+      [`REVERSE (ZIP z) ++ cons::prefix`,`env`,`ces`] mp_tac >>
+    simp[] >> unabbrev_all_tac >> simp[] >> rw[] >> gvs[MAP_REVERSE, MAP_ZIP] >>
+    irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+    rw[EXTENSION] >> eq_tac >> rw[] >> metis_tac[]
+    )
+  >- (
+    disj2_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
     rpt $ goal_assum $ drule_at Any >>
     first_x_assum $ irule_at Any >> simp[] >>
     gvs[EVERY_MAP, EVERY_MEM] >> rw[] >> simp[FDIFF_FDIFF] >>
@@ -1102,7 +1146,8 @@ Proof
     simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss, MAP_ZIP] >>
     rw[EXTENSION] >> metis_tac[]
     )
-  >- (rpt $ goal_assum $ drule_at Any >> gvs[])
+  >- (disj1_tac >> rpt $ goal_assum $ drule_at Any >> gvs[])
+  >- (disj2_tac >> rpt $ goal_assum $ drule_at Any >> gvs[])
 QED
 
 Theorem type_tcexp_closing_subst:

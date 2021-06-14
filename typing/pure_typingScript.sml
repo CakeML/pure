@@ -399,6 +399,15 @@ Inductive type_tcexp:
    type_tcexp ns db st (REVERSE (ZIP (MAP FST fns, schemes)) ++ env) e t ⇒
       type_tcexp ns db st env (Letrec fns e) t) ∧
 
+[~TupleCase:]
+  (type_tcexp ns db st env e (Tuple tyargs) ∧
+   css = [("",pvars,cexp)] ∧ ¬ MEM v pvars ∧
+   LENGTH pvars = LENGTH tyargs ∧
+   type_tcexp ns db st
+      (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
+        cexp t ⇒
+      type_tcexp ns db st env (Case e v css) t) ∧
+
 [~Case:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
    (* The type exists with correct arity: *)
@@ -422,6 +431,12 @@ Inductive type_tcexp:
             cexp t
       ) css ⇒
       type_tcexp (exndef,typedefs) db st env (Case e v css) t) ∧
+
+[~TupleSafeProj:]
+  (type_tcexp ns db st env e (Tuple tyargs) ∧
+   LENGTH tyargs = arity ∧ oEL i tyargs = SOME t ⇒
+    type_tcexp ns db st env (SafeProj "" arity i e) t) ∧
+
 [~SafeProj:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
    (* The type exists with correct arity: *)
