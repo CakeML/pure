@@ -32,40 +32,40 @@ jobs:
     - name: Build misc
       run: |
         cd pure/misc
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build language
       run: |
         cd pure/language
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build meta-theory
       run: |
         cd pure/meta-theory
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build compiler/backend
       run: |
         cd pure/compiler/backend
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build compiler/backend/proofs
       run: |
         cd pure/compiler/backend/proofs
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build typing
       run: |
         cd pure/typing
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build compiler
       run: |
         cd pure/compiler
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build compiler/binary
       run: |
         cd pure/compiler/binary
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build examples
       run: |
         cd pure/examples
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
     - name: Build cakeml-semantics
       run: |
         cd pure/cakeml-semantics
-        HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} Holmake
+        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
