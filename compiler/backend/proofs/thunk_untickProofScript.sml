@@ -963,6 +963,8 @@ Proof
         by (rpt strip_tac
             \\ first_x_assum (qspec_then ‘k + j’ mp_tac)
             \\ simp [eval_to_def, SF ETA_ss])
+      \\ gs [MEM_EL, LIST_REL_EL_EQN, result_map_def, EL_MAP, PULL_EXISTS,
+             SF CONJ_ss]
       \\ cheat)
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
