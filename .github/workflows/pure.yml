@@ -28,7 +28,7 @@ jobs:
     - name: Set envvars
       run: |
         echo "HOLDIR=/opt/HOL" >> $GITHUB_ENV
-        echo "CAKEMLDIR=/cakeml/" >> $GITHUB_ENV
+        echo "CAKEMLDIR=$(pwd)/cakeml/" >> $GITHUB_ENV
     - name: Build misc
       run: |
         cd pure/misc
