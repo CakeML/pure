@@ -14,6 +14,10 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
     container: cakeml/hol4:latest
+    # Set environment variables
+    env:
+      HOLDIR: /opt/HOL
+      CAKEMLDIR: ${{ github.workspace }}/cakeml
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout pure
@@ -25,47 +29,43 @@ jobs:
       with:
         repository: CakeML/CakeML
         path: cakeml
-    - name: Set envvars
-      run: |
-        echo "HOLDIR=/opt/HOL" >> $GITHUB_ENV
-        echo "CAKEMLDIR=$(pwd)/cakeml/" >> $GITHUB_ENV
     - name: Build misc
       run: |
         cd pure/misc
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build language
       run: |
         cd pure/language
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build meta-theory
       run: |
         cd pure/meta-theory
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build compiler/backend
       run: |
         cd pure/compiler/backend
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build compiler/backend/proofs
       run: |
         cd pure/compiler/backend/proofs
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build typing
       run: |
         cd pure/typing
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build compiler
       run: |
         cd pure/compiler
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build compiler/binary
       run: |
         cd pure/compiler/binary
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build examples
       run: |
         cd pure/examples
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
     - name: Build cakeml-semantics
       run: |
         cd pure/cakeml-semantics
-        export HOLDIR=${{ env.HOLDIR }} CAKEMLDIR=${{ env.CAKEMLDIR }} && Holmake
+        Holmake
