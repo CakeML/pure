@@ -1,9 +1,9 @@
 (*
-   Observable semantics for thunkLang.
+   Observable semantics for envLang.
 *)
 open HolKernel Parse boolLib bossLib BasicProvers;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_semanticsTheory
+     pure_semanticsTheory pure_configTheory
      thunkLang_primitivesTheory envLangTheory io_treeTheory;
 
 val _ = new_theory "envLang_semantics";
@@ -149,7 +149,7 @@ End
 
 Definition interp'_def:
   interp' =
-    io_unfold
+    io_unfold_err
       (λ(sv,stack,state).
         case next_action sv stack state of
         | Ret => Ret' pure_semantics$Termination
@@ -158,6 +158,9 @@ Definition interp'_def:
         | Act a new_stack new_state =>
             Vis' a
               (λy. (INR $ Constructor "Ret" [Atom (Str y)], new_stack, new_state)))
+      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+       pure_semantics$FinalFFI,
+       λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
 End
 
 
@@ -174,12 +177,18 @@ Theorem interp_def:
     | Div => Div
     | Err => Ret pure_semantics$Error
     | Act a new_stack new_state =>
-        Vis a
-        (λy. interp (INR $ Constructor "Ret" [Atom (Str y)]) new_stack new_state)
+        Vis a (λs. case s of
+          | INL x =>
+              Ret $ pure_semantics$FinalFFI a x
+          | INR y =>
+              if STRLEN y ≤ max_FFI_return_size then
+                interp (INR $ Constructor "Ret" [Atom (Str y)]) new_stack new_state
+              else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
 Proof
   rw[Once interp, interp'_def] >>
-  once_rewrite_tac[io_unfold] >> gvs[] >>
+  once_rewrite_tac[io_unfold_err] >> gvs[] >>
   CASE_TAC >> gvs[combinTheory.o_DEF, FUN_EQ_THM] >> rw[] >>
+  CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >>
   rw[Once interp, interp'_def]
 QED
 
