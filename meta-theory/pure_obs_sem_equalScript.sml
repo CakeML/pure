@@ -332,6 +332,7 @@ Proof
   THEN1
    (strip_tac \\ fs []
     \\ Cases_on ‘path’ \\ fs [io_el_def]
+    \\ CASE_TAC \\ gvs[] \\ CASE_TAC \\ gvs[] \\ rename1 `Str h`
     \\ ‘wh_Constructor "Ret" [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
     \\ fs [] \\ first_x_assum irule \\ fs []
     \\ match_mp_tac reflexive_app_bisimilarity \\ fs [])

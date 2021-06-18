@@ -1044,8 +1044,10 @@ QED
 
 CoInductive safe_itree:
   (safe_itree (Ret Termination)) ∧
+  (safe_itree (Ret $ FinalFFI e f)) ∧
   (safe_itree Div) ∧
-  ((∀s:string. safe_itree (rest s)) ⇒ safe_itree (Vis (e:string # string) rest))
+  ((∀s:final_ffi + string. safe_itree (rest s))
+      ⇒ safe_itree (Vis (e:string # string) rest))
 End
 
 Theorem type_soundness_interp:
@@ -1057,19 +1059,23 @@ Proof
   qsuff_tac
     `∀tree.
       (∃ns db st wh stack state t.
-      namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
+      (namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
       type_config ns db st (wh, stack, state) t ∧
-      tree = interp wh stack state)
+      tree = interp wh stack state)) ∨ (∃e f. tree = Ret (FinalFFI e f))
     ⇒ safe_itree tree`
-  >- (rw[] >> first_x_assum irule >> rpt $ goal_assum drule >> simp[]) >>
+  >- (
+    rw[] >> first_x_assum irule >> disj1_tac >>
+    rpt $ goal_assum drule >> simp[]
+    ) >>
   ho_match_mp_tac safe_itree_coind >> rw[] >>
   drule_all type_soundness_next_action >>
   simp[Once type_next_res_cases] >> strip_tac >> gvs[]
   >- (once_rewrite_tac[interp_def] >> simp[])
   >- (once_rewrite_tac[interp_def] >> simp[]) >>
-  ntac 2 disj2_tac >> rw[Once interp_def] >>
+  ntac 3 disj2_tac >> rw[Once interp_def] >>
+  CASE_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >> disj1_tac >>
   goal_assum drule >> irule_at Any $ EQ_REFL >>
-  first_x_assum $ qspec_then `s` assume_tac >>
+  first_x_assum $ qspec_then `y` assume_tac >>
   goal_assum $ drule_at $ Pos last >> simp[]
 QED
 

@@ -1,15 +1,20 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory pure_evalTheory io_treeTheory;
+     pure_evalTheory io_treeTheory pure_configTheory;
 
 val _ = new_theory "pure_semantics";
 
 (* definitions *)
 
 Datatype:
+  final_ffi = FFI_failure | FFI_divergence
+End
+
+Datatype:
   result = Termination
          | Error
+         | FinalFFI (string # string) final_ffi
 End
 
 Datatype:
@@ -149,7 +154,7 @@ End
 
 Definition interp'_def:
   interp' =
-    io_unfold
+    io_unfold_err
       (λ(v,stack,state).
         case next_action v stack state of
         | Ret => Ret' Termination
@@ -158,6 +163,9 @@ Definition interp'_def:
         | Act a new_stack new_state =>
             Vis' a (λy. (wh_Constructor "Ret" [Lit (Str y)],
                     new_stack, new_state)))
+      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+       FinalFFI,
+       λs. FinalFFI s FFI_failure)
 End
 
 Definition interp:
@@ -171,15 +179,19 @@ Theorem interp_def:
     | Err => Ret Error
     | Div => Div
     | Act a new_stack new_state =>
-        Vis a (λy. interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack new_state)
+        Vis a (λs. case s of
+          | INL x => Ret $ FinalFFI a x
+          | INR y =>
+              if STRLEN y ≤ max_FFI_return_size then
+                interp (wh_Constructor "Ret" [Lit (Str y)]) new_stack new_state
+              else Ret $ FinalFFI a FFI_failure)
 Proof
   fs [Once interp,interp'_def]
-  \\ once_rewrite_tac [io_unfold] \\ fs []
+  \\ once_rewrite_tac [io_unfold_err] \\ fs []
   \\ Cases_on ‘next_action wh stack state’ \\ fs []
   \\ fs [combinTheory.o_DEF,FUN_EQ_THM] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ fs [interp,interp'_def]
-  \\ simp [Once io_unfold] \\ fs []
 QED
 
 Definition semantics_def:
@@ -392,7 +404,13 @@ QED
 
 Theorem semantics_Act:
   eval_wh x = wh_Atom (Msg c t) ⇒
-  semantics (Act x) fs s = Vis (c,t) (λy. semantics (Ret (Lit (Str y))) fs s)
+  semantics (Act x) fs s =
+    Vis (c,t) (λr. case r of
+      | INL x => Ret $ FinalFFI (c,t) x
+      | INR y =>
+          if STRLEN y ≤ max_FFI_return_size then
+            semantics (Ret (Lit (Str y))) fs s
+          else Ret $ FinalFFI (c,t) FFI_failure)
 Proof
   strip_tac
   \\ fs [semantics_def,eval_wh_Cons]

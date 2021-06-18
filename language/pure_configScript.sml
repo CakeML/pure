@@ -111,4 +111,8 @@ Proof
   rw[reserved_cns_def, monad_cns_def, EXTENSION] >> eq_tac >> rw[]
 QED
 
+Definition max_FFI_return_size_def:
+  max_FFI_return_size = 4096n (* bytes *)
+End
+
 val _ = export_theory ();
