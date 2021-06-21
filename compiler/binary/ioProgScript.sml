@@ -96,8 +96,11 @@ val _ = Q.prove (
 (* pure_varsTheory *)
 val res = translate pure_varsTheory.var_cmp_def;
 val res = translate pure_varsTheory.empty_def;
-val res = translate pure_varsTheory.list_union_def;
-val res = translate pure_varsTheory.list_delete_def;
+
+val res = translate (pure_varsTheory.list_union_def |>
+                      SIMP_RULE std_ss [mllistTheory.foldl_intro]);
+val res = translate (pure_varsTheory.list_delete_def |>
+                      SIMP_RULE std_ss [mllistTheory.foldl_intro]);
 
 (* pure_letrec_cexpTheory *)
 
