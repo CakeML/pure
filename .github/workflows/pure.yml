@@ -57,6 +57,12 @@ jobs:
       run: |
         cd pure/compiler
         Holmake
+    - name: Build CakeML dependencies for compiler/binary
+      run: |
+        cd cakeml/compiler
+        Holmake
+        cd ../basis
+        Holmake
     - name: Build compiler/binary
       run: |
         cd pure/compiler/binary
