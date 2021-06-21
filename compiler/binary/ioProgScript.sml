@@ -2,7 +2,7 @@
   A CakeML program that reads from stdio, applies a pure function, and
   prints to stdout.
  *)
-open basis pure_printTheory
+open basis pure_printTheory lispProgTheory
      pure_letrec_cexpTheory pure_cexp_lemmasTheory pure_letrec_cexpProofTheory;
 
 val _ = new_theory "ioProg";
@@ -13,43 +13,14 @@ val _ = set_grammar_ancestry[
           "basis_ffi"
         ];
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "lispProg";
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
-(* -- lexer -- *)
-
-val res = translate parsingTheory.end_line_def;
-val res = translate parsingTheory.read_num_def;
-
-val res = translate_no_ind
-  (REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO] parsingTheory.lex_def);
-
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ fs [FORALL_PROD]
-  \\ gvs [MEMBER_def])
-  |> update_precondition;
-
-val res = translate parsingTheory.lexer_def;
-
 (* -- parser -- *)
 
-val res = translate source_valuesTheory.isNum_def;
-val res = translate source_valuesTheory.head_def;
-val res = translate source_valuesTheory.tail_def;
-val res = translate source_valuesTheory.list_def;
 val res = translate source_valuesTheory.el1_def;
 val res = translate source_valuesTheory.el2_def;
-val res = translate source_valuesTheory.name_def;
-val res = translate parsingTheory.quote_def;
-val res = translate parsingTheory.parse_def;
 val res = translate num_to_str_aux_def;
 val res = translate num_to_str_def;
 val res = translate num_of_def;
@@ -132,45 +103,6 @@ val res = translate clean_all_cexp_def;
 val res = translate transform_cexp_def;
 
 (* -- printer -- *)
-
-val res = translate dropWhile_def;
-val res = translate printingTheory.is_comment_def;
-val res = translate printingTheory.flatten_def;
-
-val res = translate printingTheory.num2str_def;
-
-val _ = Q.prove(
-  ‘∀n. num2str_side n’,
-  ho_match_mp_tac printingTheory.num2str_ind
-  \\ rw [] \\ rw [Once (fetch "-" "num2str_side_def")]
-  \\ gvs []
-  \\ ‘n MOD 10 < 10’ by gvs []
-  \\ decide_tac)
-  |> update_precondition;
-
-val res = translate printingTheory.num2ascii_def;
-val res = translate printingTheory.ascii_name_def;
-
-val _ = Q.prove(
-  ‘∀n. ascii_name_side n’,
-  fs [fetch "-" "ascii_name_side_def"]
-  \\ once_rewrite_tac [printingTheory.num2ascii_def]
-  \\ rw [] \\ gvs [AllCaseEqs()])
-  |> update_precondition;
-
-val res = translate printingTheory.name2str_def;
-
-val res = translate printingTheory.dest_list_def;
-val res = translate printingTheory.dest_quote_def;
-val res = translate printingTheory.newlines_def;
-val res = translate printingTheory.v2pretty_def;
-val res = translate printingTheory.get_size_def;
-val res = translate printingTheory.get_next_size_def;
-val res = translate printingTheory.remove_all_def;
-val res = translate printingTheory.smart_remove_def;
-val res = translate printingTheory.annotate_def;
-val res = translate printingTheory.v2str_def;
-val res = translate printingTheory.vs2str_def;
 
 val res = translate sexp_of_op_def;
 
