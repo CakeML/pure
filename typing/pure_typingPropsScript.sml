@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory rich_listTheory alistTheory pred_setTheory;
+     listTheory rich_listTheory alistTheory pred_setTheory sortingTheory;
 open pure_miscTheory pure_tcexpTheory pure_configTheory pure_typingTheory
 
 val _ = new_theory "pure_typingProps";
@@ -63,6 +63,12 @@ Proof
   Induct >> rw[Functions_def] >> csimp[Functions_def]
   >- (qexists_tac `bs` >> simp[]) >>
   Cases_on `bs` >> gvs[Functions_def]
+QED
+
+Theorem FINITE_reserved_cns[simp]:
+  FINITE reserved_cns
+Proof
+  rw[reserved_cns_def]
 QED
 
 
@@ -584,7 +590,7 @@ Proof
   >- (
     gvs[namespace_ok_def, oEL_THM, EVERY_EL] >>
     first_x_assum drule >> pairarg_tac >> gvs[] >> rw[] >>
-    imp_res_tac sortingTheory.PERM_LENGTH >>
+    imp_res_tac PERM_LENGTH >>
     Cases_on `css` >> gvs[]
     )
   >- (

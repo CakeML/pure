@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
 open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
      finite_mapTheory pred_setTheory arithmeticTheory rich_listTheory
-     ltreeTheory fixedPointTheory
+     ltreeTheory fixedPointTheory sortingTheory
 
 val _ = new_theory "pure_misc";
 
@@ -187,6 +187,61 @@ Theorem FMAP_MAP2_FUPDATE_LIST:
 Proof
   Induct >> rw[FUPDATE_LIST_THM] >>
   PairCases_on `h` >> simp[FMAP_MAP2_FUPDATE]
+QED
+
+Theorem FUNION_KEYS_EXISTS[local]:
+  ∀ f m1 m2. ∃u.
+      FDOM u = FDOM m1 ∪ FDOM m2 ∧
+      ∀x. u ' x =
+        if x ∈ FDOM m1 ∧ x ∈ FDOM m2 then f (m1 ' x) (m2 ' x)
+        else if x ∈ FDOM m1 then m1 ' x else m2 ' x
+Proof
+  gen_tac >> Induct >> rw[]
+  >- (qexists_tac `m2` >> simp[]) >>
+  first_x_assum $ qspec_then `m2` assume_tac >> gvs[] >>
+  Cases_on `x ∈ FDOM m2` >> gvs[]
+  >- (
+    qexists_tac `u |+ (x,f y (m2 ' x))` >>
+    gvs[pred_setTheory.INSERT_UNION_EQ, FAPPLY_FUPDATE_THM] >>
+    rw[] >> gvs[]
+    )
+  >- (
+    qexists_tac `u |+ (x,y)` >>
+    gvs[pred_setTheory.INSERT_UNION_EQ, FAPPLY_FUPDATE_THM] >>
+    rw[] >> gvs[]
+    )
+QED
+
+val FUNION_KEYS_DEF = new_specification
+  ("FUNION_KEYS_DEF", ["FUNION_KEYS"],
+   CONV_RULE (ONCE_DEPTH_CONV SKOLEM_CONV) FUNION_KEYS_EXISTS);
+
+Theorem FLOOKUP_FUNION_KEYS[local]:
+  FLOOKUP (FUNION_KEYS f m1 m2) k =
+    case (FLOOKUP m1 k, FLOOKUP m2 k) of
+    | (SOME v1, SOME v2) => SOME $ f v1 v2
+    | (f1, f2) => OPTION_CHOICE f1 f2
+Proof
+  rw[FLOOKUP_DEF, FUNION_KEYS_DEF] >> gvs[]
+QED
+
+Theorem FLOOKUP_FUNION_KEYS = FLOOKUP_FUNION_KEYS |> SIMP_RULE (srw_ss()) [];
+
+Theorem FLOOKUP_FUNION_KEYS_COMM:
+  (∀x y. f x y = f y x) ⇒
+  FUNION_KEYS f m1 m2 = FUNION_KEYS f m2 m1
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FUNION_KEYS] >>
+  pop_assum $ rewrite_tac o single o Once >> every_case_tac >> gvs[]
+QED
+
+Theorem FLOOKUP_FUNION_KEYS_ASSOC:
+  (∀x y z. f (f x y) z = f x (f y z)) ⇒
+  FUNION_KEYS f m1 (FUNION_KEYS f m2 m3) =
+  FUNION_KEYS f (FUNION_KEYS f m1 m2) m3
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FUNION_KEYS] >>
+  every_case_tac >> gvs[]
 QED
 
 
@@ -409,6 +464,46 @@ Theorem MAP_ZIP_ALT:
   MAP (λ(a,b). (f a, b)) (ZIP (l1, l2)) = ZIP (MAP f l1, l2)
 Proof
   rw[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
+QED
+
+Theorem PERM_FLAT:
+  ∀l1 l2. PERM l1 l2 ⇒ PERM (FLAT l1) (FLAT l2)
+Proof
+  Induct_on `PERM` >> rw[]
+  >- (irule PERM_CONG >> simp[])
+  >- (irule PERM_CONG >> simp[] >> simp[Once PERM_FUN_APPEND])
+  >- (irule PERM_TRANS >> goal_assum drule >> simp[])
+QED
+
+Theorem ALL_DISTINCT_LENGTH_EQ_MEM:
+  ∀l1 l2.
+    ALL_DISTINCT l1 ∧ LENGTH l2 ≤ LENGTH l1 ∧
+    (∀x. MEM x l1 ⇒ MEM x l2)
+  ⇒ (∀x. MEM x l2 ⇒ MEM x l1)
+Proof
+  Induct >> rw[DISJ_EQ_IMP] >>
+  first_x_assum irule >> simp[] >>
+  qexists_tac `FILTER ($<> h) l2` >> rw[] >> gvs[MEM_FILTER]
+  >- (CCONTR_TAC >> gvs[]) >>
+  first_x_assum $ qspec_then `h` assume_tac >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `FILTER P` >>
+  qspecl_then [`P`,`l2`] mp_tac rich_listTheory.LENGTH_FILTER_LESS >>
+  impl_tac >> gvs[EXISTS_MEM] >>
+  goal_assum drule >> unabbrev_all_tac >> gvs[]
+QED
+
+Theorem PERM_ALL_DISTINCT_LENGTH:
+  ∀l1 l2.
+    ALL_DISTINCT l1 ∧ LENGTH l2 ≤ LENGTH l1 ∧
+    (∀x. MEM x l1 ⇒ MEM x l2)
+  ⇒ PERM l1 l2
+Proof
+  Induct >> rw[] >>
+  first_assum $ qspec_then `h` mp_tac >> rewrite_tac[] >>
+  strip_tac >> imp_res_tac MEM_SPLIT >> gvs[] >>
+  gvs[sortingTheory.PERM_CONS_EQ_APPEND] >>
+  irule_at Any EQ_REFL >> last_x_assum irule >> gvs[DISJ_IMP_THM] >> rw[] >>
+  first_x_assum drule >> rw[] >> gvs[]
 QED
 
 
