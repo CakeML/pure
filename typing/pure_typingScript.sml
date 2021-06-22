@@ -18,7 +18,7 @@ Datatype:
        | Exception
        | TypeCons num (type list)
        | Tuple (type list)
-       | Function (type list) type
+       | Function type type
        | Array type
        | M type
 End
@@ -69,8 +69,8 @@ Definition subst_db_def:
   subst_db skip ts  Exception = Exception ∧
   subst_db skip ts (TypeCons n tcs) = TypeCons n (MAP (subst_db skip ts) tcs) ∧
   subst_db skip ts (Tuple tcs) = Tuple  (MAP (subst_db skip ts) tcs) ∧
-  subst_db skip ts (Function tfs t) =
-    Function (MAP (subst_db skip ts) tfs) (subst_db skip ts t) ∧
+  subst_db skip ts (Function tf t) =
+    Function (subst_db skip ts tf) (subst_db skip ts t) ∧
   subst_db skip ts (Array t) = Array (subst_db skip ts t) ∧
   subst_db skip ts (M t) = M (subst_db skip ts t)
 Termination
@@ -85,8 +85,8 @@ Definition shift_db_def:
   shift_db skip n  Exception = Exception ∧
   shift_db skip n (TypeCons tn tcs) = TypeCons tn (MAP (shift_db skip n) tcs) ∧
   shift_db skip n (Tuple tcs) = Tuple  (MAP (shift_db skip n) tcs) ∧
-  shift_db skip n (Function tfs t) =
-    Function (MAP (shift_db skip n) tfs) (shift_db skip n t) ∧
+  shift_db skip n (Function tf t) =
+    Function (shift_db skip n tf) (shift_db skip n t) ∧
   shift_db skip n (Array t) = Array (shift_db skip n t) ∧
   shift_db skip n (M t) = M (shift_db skip n t)
 Termination
@@ -105,6 +105,11 @@ Overload tshift = ``shift_db 0``;
 Overload tshift_scheme = ``λn (vars,scheme). (vars, shift_db vars n scheme)``;
 Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_scheme n scheme))``;
 
+Definition Functions_def:
+  Functions [] t = t ∧
+  Functions (at::ats) t = Function at (Functions ats t)
+End
+
 
 (******************** Properties of types ********************)
 
@@ -114,8 +119,8 @@ Definition freetyvars_ok_def:
   freetyvars_ok n  Exception = T ∧
   freetyvars_ok n (TypeCons c ts) = EVERY (freetyvars_ok n) ts ∧
   freetyvars_ok n (Tuple ts) = EVERY (freetyvars_ok n) ts ∧
-  freetyvars_ok n (Function ts t) =
-    (EVERY (freetyvars_ok n) ts ∧ freetyvars_ok n t) ∧
+  freetyvars_ok n (Function tf t) =
+    (freetyvars_ok n tf ∧ freetyvars_ok n t) ∧
   freetyvars_ok n (Array t) = freetyvars_ok n t ∧
   freetyvars_ok n (M t) = freetyvars_ok n t
 Termination
@@ -140,9 +145,8 @@ Definition type_wf_def:
         LENGTH tyargs = arity) ∧
   type_wf typedefs (Tuple ts) =
     EVERY (type_wf typedefs) ts ∧
-  type_wf typedefs (Function ts t) = (
-    type_wf typedefs t ∧
-    ts ≠ [] ∧ EVERY (type_wf typedefs) ts) ∧
+  type_wf typedefs (Function tf t) = (
+    type_wf typedefs t ∧ type_wf typedefs tf) ∧
   type_wf typedefs (Array t) = type_wf typedefs t ∧
   type_wf typedefs (M t) = type_wf typedefs t
 Termination
@@ -255,19 +259,6 @@ Definition type_exception_def:
       ALOOKUP exndef cname = SOME carg_tys
 End
 
-Definition type_application_def:
-  type_application [] rt [] = SOME rt ∧
-  type_application (ft::fts) rt [] = SOME $ Function (ft::fts) rt ∧
-  type_application [] (Function fts rt) (at::ats) =
-    type_application fts rt (at::ats) ∧
-  type_application (ft::fts) rt (at::ats) =
-    (if ft ≠ at then NONE else type_application fts rt ats) ∧
-  type_application _ _ _ = NONE
-Termination
-  WF_REL_TAC
-    `inv_image ($< LEX $<) (λ(fts,rt,ats). (type_size rt, LENGTH fts))` >> rw[]
-End
-
 Definition get_PrimTys_def:
   get_PrimTys [] = SOME [] ∧
   get_PrimTys (PrimTy pty :: rest) = OPTION_MAP (CONS pty) (get_PrimTys rest) ∧
@@ -298,7 +289,7 @@ Inductive type_tcexp:
 
 [~Bind:]
   (type_tcexp ns db st env e1 (M t1) ∧
-   type_tcexp ns db st env e2 (Function [t1] (M t2)) ⇒
+   type_tcexp ns db st env e2 (Function t1 (M t2)) ⇒
       type_tcexp ns db st env (Prim (Cons "Bind") [e1;e2]) (M t2)) ∧
 
 [~Raise:]
@@ -308,7 +299,7 @@ Inductive type_tcexp:
 
 [~Handle:]
   (type_tcexp ns db st env e1 (M t) ∧
-   type_tcexp ns db st env e2 (Function [Exception] (M t)) ⇒
+   type_tcexp ns db st env e2 (Function Exception (M t)) ⇒
       type_tcexp ns db st env (Prim (Cons "Handle") [e1;e2]) (M t)) ∧
 
 [~Act:]
@@ -371,16 +362,15 @@ Inductive type_tcexp:
       type_tcexp ns db st env (Prim Seq [e1; e2]) t2) ∧
 
 [~App:]
-  (type_tcexp ns db st env e (Function ts t) ∧
-   LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ∧
-   type_application ts t arg_tys = SOME res_ty ⇒
-      type_tcexp ns db st env (App e es) res_ty) ∧
+  (type_tcexp ns db st env e (Functions arg_tys ret_ty) ∧
+   LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ⇒
+      type_tcexp ns db st env (App e es) ret_ty) ∧
 
 [~Lam:]
   (EVERY (type_ok (SND ns) db) arg_tys ∧
    LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
    type_tcexp ns db st (REVERSE (ZIP (xs, MAP ($, 0) arg_tys)) ++ env) e ret_ty
-      ⇒ type_tcexp ns db st env (Lam xs e) (Function arg_tys ret_ty)) ∧
+      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty)) ∧
 
 [~Let:]
   (* TODO this just desugars to normal application - do we want polymorphism? *)

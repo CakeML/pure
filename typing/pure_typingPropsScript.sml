@@ -12,8 +12,8 @@ Theorem type_ind:
   ∀P.
     (∀n. P (TypeVar n)) ∧ (∀p. P (PrimTy p)) ∧ P Exception ∧
     (∀l. (∀t. MEM t l ⇒ P t) ⇒ ∀n. P (TypeCons n l)) ∧
-    (∀l. (∀t. MEM t l ⇒ P t) ⇒ ∀n. P (Tuple l)) ∧
-    (∀l t. (∀t. MEM t l ⇒ P t) ∧ P t ⇒ ∀n. P (Function l t)) ∧
+    (∀l. (∀t. MEM t l ⇒ P t) ⇒ P (Tuple l)) ∧
+    (∀tf t. P tf ∧ P t ⇒ P (Function tf t)) ∧
     (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ⇒
     (∀t. P t)
 Proof
@@ -37,84 +37,6 @@ Proof
   rw[type_atom_op_cases] >> gvs[] >> Induct_on `ts` >> gvs[]
 QED
 
-Theorem type_application_alt_def:
-  ∀fts rt ats.
-    type_application fts rt ats =
-      if LENGTH ats < LENGTH fts ∧ TAKE (LENGTH ats) fts = ats then
-        SOME (Function (DROP (LENGTH ats) fts) rt)
-      else if ats = fts then SOME rt
-      else if fts = TAKE (LENGTH fts) ats then (
-        case rt of
-        | Function fts' rt' => type_application fts' rt' (DROP (LENGTH fts) ats)
-        | _ => NONE
-      )
-      else NONE
-Proof
-  recInduct type_application_ind >> rw[type_application_def] >> gvs[]
-QED
-
-Theorem type_wf_type_application:
-  ∀fts rt ats tdefs t.
-    EVERY (type_wf tdefs) fts ∧ type_wf tdefs rt ∧ EVERY (type_wf tdefs) ats ∧
-    type_application fts rt ats = SOME t
-  ⇒ type_wf tdefs t
-Proof
-  recInduct type_application_ind >> rw[type_application_def, type_wf_def] >>
-  gvs[type_wf_def, SF ETA_ss]
-QED
-
-Theorem freetyvars_ok_type_application:
-  ∀fts rt ats db t.
-  EVERY (freetyvars_ok db) fts ∧ freetyvars_ok db rt ∧
-  EVERY (freetyvars_ok db) ats ∧
-  type_application fts rt ats = SOME t
-  ⇒ freetyvars_ok db t
-Proof
-  recInduct type_application_ind >> rw[type_application_def, freetyvars_ok_def] >>
-  gvs[freetyvars_ok_def, SF ETA_ss]
-QED
-
-Theorem type_ok_type_application:
-  EVERY (type_ok tdefs db) fts ∧ type_ok tdefs db rt ∧
-  EVERY (type_ok tdefs db) ats ∧
-  type_application fts rt ats = SOME t
-  ⇒ type_ok tdefs db t
-Proof
-  rw[EVERY_MEM, type_ok_def]
-  >- (
-    irule freetyvars_ok_type_application >> rpt $ goal_assum drule >>
-    gvs[EVERY_MEM]
-    )
-  >- (
-    irule type_wf_type_application >> rpt $ goal_assum drule >>
-    gvs[EVERY_MEM]
-    )
-QED
-
-Theorem subst_db_type_application:
-  ∀fts rt ats t n ts.
-    type_application fts rt ats = SOME t
-  ⇒ type_application
-      (MAP (subst_db n ts) fts) (subst_db n ts rt) (MAP (subst_db n ts) ats) =
-      SOME (subst_db n ts t)
-Proof
-  recInduct type_application_ind >> rw[type_application_def] >>
-  gvs[subst_db_def, type_application_def, SF ETA_ss]
-QED
-
-Theorem shift_db_type_application:
-  ∀fts rt ats t skip shift.
-    type_application fts rt ats = SOME t
-  ⇒ type_application
-      (MAP (shift_db skip shift) fts)
-      (shift_db skip shift rt)
-      (MAP (shift_db skip shift) ats)
-    = SOME $ shift_db skip shift t
-Proof
-  recInduct type_application_ind >> rw[type_application_def] >>
-  gvs[shift_db_def, type_application_def, SF ETA_ss]
-QED
-
 Theorem get_PrimTys_SOME:
   ∀ts pts.
     get_PrimTys ts = SOME pts ⇔ ts = MAP PrimTy pts
@@ -122,6 +44,25 @@ Proof
   Induct >> rw[get_PrimTys_def] >>
   Cases_on `h` >> gvs[get_PrimTys_def] >>
   Cases_on `pts` >> gvs[] >> eq_tac >> rw[]
+QED
+
+Theorem Functions_APPEND:
+  ∀as bs a.
+    Functions (as ++ bs) a = Functions as (Functions bs a)
+Proof
+  Induct >> rw[Functions_def]
+QED
+
+Theorem Functions_eq_imp:
+  ∀as a bs b.
+    Functions as a = Functions bs b ⇒
+    ∃cs.
+      (as = bs ++ cs ∧ b = Functions cs a) ∨
+      (bs = as ++ cs ∧ a = Functions cs b)
+Proof
+  Induct >> rw[Functions_def] >> csimp[Functions_def]
+  >- (qexists_tac `bs` >> simp[]) >>
+  Cases_on `bs` >> gvs[Functions_def]
 QED
 
 
@@ -150,7 +91,7 @@ Theorem subst_db_unchanged:
   ⇒ subst_db skip ts t = t
 Proof
   recInduct subst_db_ind >> reverse $ rw[subst_db_def, freetyvars_ok_def]
-  >- metis_tac[] >>
+  >- metis_tac[] >- metis_tac[] >>
   irule MAP_ID_ON >> gvs[EVERY_MEM] >> metis_tac[]
 QED
 
@@ -161,7 +102,7 @@ Theorem shift_db_unchanged:
   ⇒ shift_db skip shift t = t
 Proof
   recInduct shift_db_ind >> reverse $ rw[shift_db_def, freetyvars_ok_def]
-  >- metis_tac[] >>
+  >- metis_tac[] >- metis_tac[] >>
   irule MAP_ID_ON >> gvs[EVERY_MEM] >> metis_tac[]
 QED
 
@@ -211,7 +152,7 @@ Theorem tshift_tshift:
   ∀t s1 s2.
     tshift s1 (tshift s2 t) = tshift (s1 + s2) t
 Proof
-  Induct using type_ind >> rw[shift_db_def] >>
+  ho_match_mp_tac type_ind >> rw[shift_db_def] >>
   rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
 QED
 
@@ -339,8 +280,8 @@ Theorem type_ok:
     ∃ctors. oEL c tds = SOME (LENGTH ts, ctors)) ∧
   (∀tds ts n. type_ok tds n (Tuple ts) ⇔ EVERY (λa. type_ok tds n a) ts) ∧
   (∀tds ts t n.
-   type_ok tds n (Function ts t) ⇔
-   EVERY (λa. type_ok tds n a) ts ∧ ts ≠ [] ∧ type_ok tds n t) ∧
+   type_ok tds n (Function tf t) ⇔
+    type_ok tds n tf ∧ type_ok tds n t) ∧
   (∀tds t n. type_ok tds n (Array t) ⇔ type_ok tds n t) ∧
   (∀tds t n. type_ok tds n (M t) ⇔ type_ok tds n t)
 Proof
@@ -348,18 +289,70 @@ Proof
   gvs[EVERY_CONJ] >> eq_tac >> gvs[]
 QED
 
+Theorem freetyvars_ok_Functions:
+  ∀ats rt db.
+    freetyvars_ok db (Functions ats rt) ⇔
+    EVERY (freetyvars_ok db) ats ∧
+    freetyvars_ok db rt
+Proof
+  Induct >> rw[Functions_def, freetyvars_ok_def] >> eq_tac >> rw[]
+QED
+
+Theorem type_ok_Functions:
+  ∀ats rt tds db.
+    type_ok tds db (Functions ats rt) ⇔
+    EVERY (type_ok tds db) ats ∧
+    type_ok tds db rt
+Proof
+  Induct >> rw[Functions_def, type_ok] >> eq_tac >> rw[]
+QED
+
+Theorem subst_db_Functions:
+  ∀ats rt n ts.
+    subst_db n ts (Functions ats rt) =
+    Functions (MAP (subst_db n ts) ats) (subst_db n ts rt)
+Proof
+  Induct >> rw[Functions_def, subst_db_def]
+QED
+
+Theorem shift_db_Functions:
+  ∀ats rt skip shift.
+    shift_db skip shift (Functions ats rt) =
+    Functions (MAP (shift_db skip shift) ats) (shift_db skip shift rt)
+Proof
+  Induct >> rw[Functions_def, shift_db_def]
+QED
+
 
 (******************** Typing judgements ********************)
 
+(*
 Theorem type_tcexp_Lam_single:
-  type_tcexp ns db st ((v,0,ft)::env) (Lam vs body) (Function fts rt) ∧
+  type_tcexp ns db st ((v,0,ft)::env) (Lam vs body) (Functions fts rt) ∧
   type_ok (SND ns) db ft ⇔
-  type_tcexp ns db st env (Lam (v::vs) body) (Function (ft::fts) rt) ∧
+  type_tcexp ns db st env (Lam (v::vs) body) (Functions (ft::fts) rt) ∧
   fts ≠ []
 Proof
   once_rewrite_tac[type_tcexp_cases] >> rw[] >>
   gvs[APPEND_ASSOC_CONS] >> eq_tac >> rw[]
+  >- (
+    imp_res_tac Functions_eq_imp >> gvs[Functions_APPEND]
+    >- (
+      qexistsl_tac [`ft::arg_tys`,`Functions cs rt`] >>
+      gvs[APPEND_ASSOC_CONS, Functions_def, Functions_APPEND]
+      )
+    >- (
+      qexistsl_tac [`ft::fts ++ cs`,`ret_ty`] >>
+      gvs[APPEND_ASSOC_CONS, Functions_def, Functions_APPEND]
+      )
+    )
+  >- (
+    imp_res_tac Functions_eq_imp >> gvs[Functions_APPEND] >>
+    Cases_on `fts` >> gvs[] >>
+    Cases_on `cs` >> gvs[] >>
+    )
 QED
+*)
 
 Theorem type_tcexp_freetyvars_ok:
   ∀ ns db st env e t.
@@ -381,14 +374,12 @@ Proof
   >- gvs[EVERY_EL]
   >- gvs[EVERY_EL, type_ok_def]
   >- gvs[oEL_THM, EVERY_EL]
+  >- gvs[freetyvars_ok_Functions]
   >- (
-    irule freetyvars_ok_type_application >>
-    goal_assum drule >> gvs[EVERY_EL]
-    )
-  >- gvs[EVERY_EL, type_ok_def]
-  >- (
-    first_x_assum irule >>
-    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL, type_ok_def]
+    gvs[freetyvars_ok_Functions, EVERY_EL, type_ok_def] >>
+    first_x_assum irule >> rw[] >>
+    simp[ZIP_MAP, GSYM MAP_REVERSE, EL_MAP, REVERSE_ZIP, EL_ZIP] >>
+    DEP_REWRITE_TAC[EL_REVERSE] >> gvs[]
     )
   >- (
     ntac 2 $ first_x_assum irule >> gvs[EVERY_MEM, FORALL_PROD] >>
@@ -458,13 +449,12 @@ Proof
   >- gvs[EVERY_EL]
   >- gvs[type_cons_def]
   >- gvs[oEL_THM, EVERY_EL]
+  >- gvs[type_ok_Functions]
   >- (
-    irule type_ok_type_application >> goal_assum drule >> gvs[EVERY_EL]
-    )
-  >- gvs[EVERY_EL]
-  >- (
-    first_x_assum irule >>
-    gvs[EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL]
+    gvs[type_ok_Functions, EVERY_EL] >>
+    first_x_assum irule >> rw[] >>
+    simp[ZIP_MAP, GSYM MAP_REVERSE, EL_MAP, REVERSE_ZIP, EL_ZIP] >>
+    DEP_REWRITE_TAC[EL_REVERSE] >> gvs[]
     )
   >- (
     ntac 2 $ first_x_assum irule >> gvs[EVERY_MEM, FORALL_PROD] >>
@@ -668,7 +658,8 @@ Proof
     rpt $ goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN]
     )
   >- (
-    irule EVERY_MONOTONIC >> rw[] >> goal_assum $ drule_at Any >> rw[] >>
+    irule_at Any EQ_REFL >> simp[] >>
+    irule EVERY_MONOTONIC >> goal_assum $ drule_at Any >> rw[] >>
     drule type_ok_mono >> simp[]
     )
   >- (qexistsl_tac [`new`,`t`] >> gvs[])
@@ -761,18 +752,14 @@ Proof
     )
   >- metis_tac[]
   >- (
-    drule subst_db_type_application >>
-    disch_then $ qspecl_then [`n`,`ts'`] assume_tac >>
-    goal_assum $ drule_at $ Any >> gvs[] >>
+    gvs[subst_db_Functions] >> last_x_assum $ irule_at Any >> simp[] >>
     gvs[LIST_REL_EL_EQN, EL_MAP, SF ETA_ss]
     )
   >- (
-    gvs[EVERY_MAP, EVERY_MEM] >> rw[] >>
-    irule type_ok_subst_db >> simp[EVERY_MEM]
-    )
-  >- (
-    first_x_assum drule_all >>
-    gvs[MAP_REVERSE, ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]
+    gvs[subst_db_Functions] >> irule_at Any EQ_REFL >>
+    gvs[EVERY_MAP, EVERY_MEM] >> rw[]
+    >- (irule type_ok_subst_db >> simp[EVERY_MEM])
+    >- gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF]
     )
   >- (
     first_x_assum drule_all >> disch_then $ irule_at Any >>
@@ -929,18 +916,14 @@ Proof
     )
   >- metis_tac[]
   >- (
-    drule shift_db_type_application >>
-    disch_then $ qspecl_then [`skip`,`shift`] assume_tac >>
-    goal_assum $ drule_at Any >> gvs[] >>
+    gvs[shift_db_Functions] >> last_x_assum $ irule_at Any >> simp[] >>
     gvs[LIST_REL_EL_EQN, EL_MAP, SF ETA_ss]
     )
   >- (
-    gvs[EVERY_MAP, EVERY_MEM] >> rw[] >>
-    irule type_ok_shift_db >> simp[EVERY_MEM]
-    )
-  >- (
-    first_x_assum drule_all >>
-    gvs[MAP_REVERSE, ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF]
+    gvs[shift_db_Functions] >> irule_at Any EQ_REFL >>
+    gvs[EVERY_MAP, EVERY_MEM] >> rw[]
+    >- (irule type_ok_shift_db >> simp[EVERY_MEM])
+    >- gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF]
     )
   >- (
     first_x_assum drule_all >> disch_then $ irule_at Any >>
@@ -1060,13 +1043,14 @@ Proof
     )
   >- metis_tac[]
   >- (
+    last_x_assum $ drule_at Any >> simp[] >> strip_tac >>
     gvs[LIST_REL_EL_EQN, EL_MAP] >> irule_at Any EQ_REFL >> rw[] >>
-    goal_assum $ drule_at Any >> rw[]
-    >- (last_x_assum irule >> simp[EL_MAP])
-    >- (last_x_assum drule >> strip_tac >> gvs[EL_MAP])
+    last_x_assum drule >> strip_tac >>
+    pop_assum $ drule_at Any >> simp[] >>
+    disch_then irule >> rw[EL_MAP]
     )
   >- (
-    simp[FDIFF_FDIFF] >>
+    simp[FDIFF_FDIFF] >> irule_at Any EQ_REFL >> simp[] >>
     qmatch_goalsub_abbrev_tac `ZIP z` >>
     last_x_assum $ qspecl_then [`REVERSE (ZIP z) ++ prefix`,`env`,`ces`] mp_tac >>
     simp[] >> unabbrev_all_tac >> simp[MAP_REVERSE, MAP_ZIP] >> simp[Once UNION_COMM]
