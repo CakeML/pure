@@ -519,95 +519,55 @@ Proof
     qexists_tac `ck + ck'` >> gvs[]
     )
   >- (
-    cheat (* TODO: This previously worked (and probably still does) *) (*
     CASE_TAC >> gvs[]
     >- (
       qsuff_tac `get_atoms (MAP (λa. eval_wh_to (k − 1) a) ys) = NONE`
       >- (rw[] >> qexists_tac `0` >> simp[]) >>
-      gvs[get_atoms_NONE_eq] >> imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      csimp[EL_MAP] >> gvs[EL_MAP] >>
-      map_every (fn pat => qpat_x_assum pat mp_tac)
-        [`∀e1 e2. MEM e1 _ ⇒ _`, `n < _`,`eval_wh_to _ _ = _`, `∀m. m < _ ⇒ _`,
-         `EVERY _ _`, `EVERY _ _`, `LENGTH _ = _`] >>
-      qid_spec_tac `n` >>
-      qpat_x_assum `LIST_REL _ _ _` mp_tac >>
-      map_every qid_spec_tac [`ys`,`xs`] >>
-      ho_match_mp_tac LIST_REL_ind >> rw[] >>
-      Cases_on `n` >> gvs[]
+      gs [get_atoms_NONE_eq]
+      \\ gvs [MEM_MAP, EVERY_MAP, EVERY_MEM, MEM_EL, PULL_EXISTS,
+              LIST_REL_EL_EQN]
+      \\ simp [RIGHT_EXISTS_AND_THM]
+      \\ conj_tac
       >- (
-        qexists_tac `0` >> gvs[] >>
-        first_x_assum (qspec_then `h1` mp_tac) >> simp[] >>
-        disch_then drule_all >> rw[] >>
-        CCONTR_TAC >> drule eval_wh_inc >>
-        disch_then (qspec_then `ck + k - 1` mp_tac) >> simp[]
-        ) >>
-      rename1 `n < _` >>
-      Cases_on `eval_wh_to (k - 1) h2 = wh_Diverge`
-      >- (qexists_tac `0` >> simp[]) >>
-      last_x_assum (qspec_then `n` mp_tac) >> simp[IMP_CONJ_THM] >>
-      impl_tac
-      >- (rw[] >> last_x_assum (qspec_then `SUC m` mp_tac) >> simp[]) >>
-      strip_tac >> rename1 `l < _` >>
-      qexists_tac `SUC l` >> simp[] >> rw[] >>
-      Cases_on `m` >> gvs[] >>
-      last_x_assum (qspec_then `0` assume_tac) >> gvs[] >>
-      first_x_assum (qspec_then `h1` mp_tac) >> simp[] >>
-      disch_then drule_all >> strip_tac >>
-      drule eval_wh_to_agree >>
-      disch_then (qspec_then `ck + k - 1` mp_tac) >> rw[] >>
-      Cases_on ‘eval_wh_to (k - 1) h1’ \\ gvs []
-      \\ metis_tac[]
-      ) >>
+        qx_gen_tac ‘m’
+        \\ strip_tac
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_all_then (qx_choose_then ‘ck’ assume_tac))
+        \\ strip_tac
+        \\ ‘eval_wh_to (k - 1) (EL m ys) ≠ wh_Diverge’
+          by (strip_tac \\ gs [])
+        \\ drule_then (qspec_then ‘ck + k - 1’ assume_tac) eval_wh_inc \\ gs []
+        \\ Cases_on ‘eval_wh_to (k - 1) (EL m xs)’ \\ gs [])
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_all_then (qx_choose_then ‘ck’ assume_tac))
+      \\ first_assum (irule_at Any)
+      \\ CCONTR_TAC
+      \\ drule_then (qspec_then ‘ck + k - 1’ assume_tac) eval_wh_inc \\ gs []
+    ) >>
     Cases_on `x` >> gvs[]
     >- (
       gvs[get_atoms_SOME_NONE_eq, EL_MAP] >>
       qsuff_tac
         `∃ck. get_atoms (MAP (λa. eval_wh_to (ck + k − 1) a) ys) = SOME NONE`
       >- (rw[] >> qexists_tac `ck` >> simp[]) >>
-      simp[get_atoms_SOME_NONE_eq] >> csimp[EL_MAP] >>
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >> goal_assum drule >>
-      map_every (fn pat => qpat_x_assum pat mp_tac)
-        [`∀e1 e2. MEM e1 _ ⇒ _`, `n < _`,` ∀a. eval_wh_to _ _ ≠ _`,
-         `∀m. m ≤ _ ⇒ _`, `EVERY _ _`, `EVERY _ _`, `LENGTH _ = _`] >>
-      qid_spec_tac `n` >>
-      qpat_x_assum `LIST_REL _ _ _` mp_tac >>
-      map_every qid_spec_tac [`ys`,`xs`] >>
-      ho_match_mp_tac LIST_REL_ind >> rw[] >>
-      Cases_on `n` >> gvs[]
-      >- (
-        pop_assum (qspec_then `h1` mp_tac) >> simp[] >>
-        disch_then drule_all >> strip_tac >>
-        qexists_tac `ck` >>
-        Cases_on `eval_wh_to (k - 1) h1` >> gvs[]
-        ) >>
-      rename1 `SUC n` >>
-      last_x_assum (qspec_then `n` mp_tac) >> simp[] >> impl_tac
-      >- (rw[] >> last_x_assum (qspec_then `SUC m` mp_tac) >> simp[]) >>
-      strip_tac >>
-      first_x_assum (qspec_then `h1` mp_tac) >> simp[] >>
-      disch_then drule_all >> strip_tac >>
-      qexists_tac `ck + ck'` >> rw[]
-      >- (
-        qpat_x_assum `∀a. _ ≠ wh_Atom a` (qspec_then `a` mp_tac) >>
-        first_x_assum (qspec_then `n` mp_tac) >> simp[] >> strip_tac >>
-        drule eval_wh_inc >>
-        disch_then (qspec_then `ck + (ck' + k) - 1` assume_tac) >> gvs[]
-        ) >>
-      Cases_on `m` >> gvs[]
-      >- (
-        qspecl_then [`ck + (ck' + k) - 1`,`h2`,`ck' + k - 1`]
-          assume_tac eval_wh_inc >>
-        gvs[] >>
-        full_case_tac >> gvs[] >>
-        last_x_assum (qspec_then `0` assume_tac) >> gvs[]
-        )
-      >- (
-        rename1 `m ≤ _` >>
-        first_x_assum drule >> strip_tac >>
-        drule eval_wh_inc >>
-        disch_then (qspec_then `ck + (ck' + k) - 1` assume_tac) >> gvs[]
-        )
-      ) >>
+      simp[get_atoms_SOME_NONE_eq] >> csimp[] >>
+      gvs [EVERY_MEM, EXISTS_MAP, EXISTS_MEM, MEM_EL, PULL_EXISTS,
+           LIST_REL_EL_EQN]
+      \\ first_assum (irule_at Any)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_all_then (qx_choose_then ‘ck’ assume_tac))
+      \\ qexists_tac ‘ck’
+      \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs)’ \\ gs []
+    ) >>
     rename1 `SOME (SOME as)` >>
     qsuff_tac
       `∃ck. get_atoms (MAP (λa. eval_wh_to (ck + k − 1) a) ys) = SOME (SOME as)`
@@ -617,9 +577,9 @@ Proof
       \\ CASE_TAC \\ gvs[]
       \\ CASE_TAC \\ gvs[]
       \\ CASE_TAC \\ gvs[]) >>
-    gvs[get_atoms_SOME_SOME_eq, EVERY2_MAP] >>
-    map_every (fn pat => qpat_x_assum pat mp_tac)
-      [`∀e1 es. MEM e1 _ ⇒ _`, `LIST_REL _ _ _`, `EVERY _ _`, `EVERY _ _`] >>
+    gvs [get_atoms_SOME_SOME_eq, EVERY2_MAP, MEM_EL, PULL_EXISTS]
+    \\ map_every (fn pat => qpat_x_assum pat mp_tac)
+      [`∀e1 n. n < _ ⇒ _`, `LIST_REL _ _ _`, `EVERY _ _`, `EVERY _ _`] >>
     qid_spec_tac `as` >>
     qpat_x_assum `LIST_REL _ _ _` mp_tac >>
     map_every qid_spec_tac [`ys`,`xs`] >>
@@ -630,6 +590,7 @@ Proof
     >- (
       disch_then (qx_choose_then ‘ck’ mp_tac)
       \\ pop_assum (qspec_then `h1` mp_tac) \\ simp[]
+      \\ disch_then (qspec_then ‘0’ mp_tac) \\ simp []
       \\ disch_then drule_all \\ rw[]
       \\ qexists_tac `ck + ck'`
       \\ qspecl_then [`ck + ck' + k - 1`,`h2`,`ck' + k - 1`]
@@ -639,7 +600,9 @@ Proof
         assume_tac eval_wh_inc
       \\ gvs[]
       ) >>
-    last_x_assum irule >> simp[] *)
+    last_x_assum irule >> simp[] \\ rw []
+    \\ first_x_assum irule \\ gs []
+    \\ qexists_tac ‘n’ \\ gs []
     )
   >- (
     imp_res_tac LIST_REL_LENGTH >>
