@@ -338,37 +338,6 @@ Proof
   \\ Cases_on ‘s1’ \\ Cases_on ‘s2’ \\ gs []
 QED
 
-Theorem result_map_Diverge[local]:
-  xs ≠ [] ⇒ result_map (λx. INL Diverge) xs = INL Diverge
-Proof
-  rw [result_map_def, MEM_MAP]
-  \\ Cases_on ‘xs’ \\ gs [SF DNF_ss]
-QED
-
-Theorem result_map_NIL[simp,local]:
-  result_map f [] = INR []
-Proof
-  rw [result_map_def]
-QED
-
-Theorem result_map_SING[local]:
-  result_map f [x] =
-    case f x of
-      INR r => INR [r]
-    | INL e => INL e
-Proof
-  rw [result_map_def]
-  \\ CASE_TAC \\ gs []
-  \\ rename1 ‘err ≠ _’
-  \\ Cases_on ‘err’ \\ gs []
-QED
-
-Theorem err_inv_nchotomy:
-  ¬(x ≠ Diverge ∧ x ≠ Type_error)
-Proof
-  rw [err_nchotomy, Once DISJ_COMM]
-QED
-
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ∧
