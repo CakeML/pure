@@ -13,22 +13,6 @@ val _ = new_theory "thunk_untickProof";
 
 val _ = numLib.prefer_num ();
 
-(* TODO
- * I think the semantics should have a result_map which behaves like the one
- * below. It doesn't make sense that the semantics of an erroneous expression,
- * which happens to contain a diverging expression, is not Error!
- *)
-
-Theorem result_map_def:
-  result_map f xs =
-    let ys = MAP f xs in
-      if MEM (INL Type_error) ys then INL Type_error
-      else if MEM (INL Diverge) ys then INL Diverge
-      else INR (MAP OUTR ys)
-Proof
-  cheat
-QED
-
 Definition is_Lam_def[simp]:
   is_Lam (Lam s x) = T ∧
   is_Lam _ = F
