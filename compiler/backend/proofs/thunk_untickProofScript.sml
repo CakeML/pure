@@ -1194,13 +1194,6 @@ Proof
                                 | _ => INL Type_error’
       \\ qmatch_goalsub_abbrev_tac ‘result_map g ys’
       \\ simp [SF ETA_ss]
-      \\ ‘∃j. result_map (f j) xs = result_map g ys’
-        suffices_by (
-          rw []
-          \\ qexists_tac ‘j’ \\ gs []
-          \\ Cases_on ‘result_map g ys’ \\ gs []
-          \\ CASE_TAC \\ gs []
-          \\ CASE_TAC \\ gs [])
       \\ ‘∀j. result_map (f j) xs ≠ INL Type_error’
         by (rpt strip_tac
             \\ first_x_assum (qspec_then ‘k + j’ mp_tac)
@@ -1213,6 +1206,12 @@ Proof
             \\ rw [] \\ gs [])
       \\ gs []
       \\ gvs [LIST_REL_EL_EQN]
+      \\ ‘∃j. result_map (f j) xs = result_map g ys’
+        suffices_by (
+          disch_then (qx_choose_then ‘j’ assume_tac)
+          \\ qexists_tac ‘j’ \\ simp []
+          \\ Cases_on ‘result_map g ys’ \\ gs []
+          \\ rpt CASE_TAC \\ gs [])
       \\ Cases_on ‘result_map g ys = INL Diverge’ \\ gs []
       >- (
         unabbrev_all_tac \\ gs []
@@ -1252,24 +1251,13 @@ Proof
             \\ first_x_assum (drule_then (qspec_then ‘j’ assume_tac)) \\ gs []
             \\ rename1 ‘v_rel v w’
             \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [])
-      \\ gs [MEM_EL, PULL_EXISTS]
-      (* The induction doesn't go through because:
-       *
-       *   result_map f xs ≠ INL Type_error
-       *
-       * does not imply
-       *
-       *   result_map f (x::xs) ≠ INL Type_error
-       *
-       * because if xs = [] we get success on the one side, and potentially
-       * non-success on the other.
-       *)
       \\ ‘∃j. ∀n. n < LENGTH ys ⇒
                   ($= +++ v_rel) (eval_to (j + k - 1) (EL n xs))
                                  (eval_to (k - 1) (EL n ys))’
         by (unabbrev_all_tac
+            \\ qpat_x_assum ‘∀ck. eval_to _ _ ≠ INL _’ kall_tac
             \\ ntac 4 (pop_assum mp_tac)
-            \\ ntac 4 (last_x_assum mp_tac)
+            \\ ntac 3 (last_x_assum mp_tac)
             \\ qid_spec_tac ‘ys’
             \\ Induct_on ‘xs’ \\ simp []
             \\ qx_gen_tac ‘x’
@@ -1279,7 +1267,7 @@ Proof
             \\ last_x_assum (qspec_then ‘ys’ mp_tac)
             \\ simp [AND_IMP_INTRO, GSYM CONJ_ASSOC]
             \\ impl_tac
-            >- ((* TODO There's a cheat below; bad ind. hyp *)
+            >- (
               rw []
               \\ TRY (
                 rpt (qpat_x_assum ‘∀n. n < SUC _ ⇒ _’
@@ -1288,8 +1276,6 @@ Proof
                 \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
                 \\ rw [] \\ gs []
                 \\ NO_TAC)
-              >- ((* This part doesn't hold if xs = [] *)
-                cheat )
               \\ strip_tac
               \\ gs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL,
                      PULL_EXISTS]
@@ -1317,7 +1303,6 @@ Proof
             \\ strip_tac
             \\ rpt (qpat_x_assum ‘∀n. n < SUC _ ⇒ _’
                      (qspec_then ‘SUC n’ assume_tac)) \\ gs []
-            \\ first_x_assum (drule_then assume_tac)
             \\ first_x_assum (drule_then assume_tac)
             \\ ‘eval_to (j + k - 1) (EL n xs) ≠ INL Diverge’
               by (strip_tac \\ Cases_on ‘eval_to (k - 1) (EL n ys)’ \\ gs [])
