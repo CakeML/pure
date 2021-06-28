@@ -18,7 +18,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory thunkLang_primitivesTheory;
+     pure_expTheory thunkLang_primitivesTheory pure_miscTheory;
 
 val _ = new_theory "thunkLang";
 
@@ -456,13 +456,16 @@ Proof
       last_x_assum mp_tac
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      >- (
+        first_x_assum (drule_then (drule_at_then Any assume_tac))
+        \\ rw [] \\ gs [])
+      \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
+      \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       >- (
-        IF_CASES_TAC \\ gs []
-        \\ IF_CASES_TAC  \\ gs []
-        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)])
-      \\ IF_CASES_TAC \\ gs []
+        first_x_assum (drule_then (drule_at_then Any assume_tac))
+        \\ rw [] \\ gs [])
+      \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
       \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
     >- ((* IsEq *)
@@ -479,54 +482,50 @@ Proof
       qmatch_goalsub_abbrev_tac ‘result_map f xs’
       \\ qmatch_asmsub_abbrev_tac ‘result_map g xs’
       \\ last_x_assum mp_tac
+      \\ Cases_on ‘k = 0’ \\ gs []
+      >- (
+        gs [result_map_def, MEM_MAP]
+        \\ Cases_on ‘xs = []’ \\ gs []
+        \\ gs [pure_miscTheory.NIL_iff_NOT_MEM, Abbr ‘f’, Abbr ‘g’]
+        \\ rw [] \\ gs [])
       \\ gs [result_map_def, MEM_MAP]
       \\ IF_CASES_TAC \\ gs []
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      >- (
+        rw [] \\ gs [Abbr ‘f’, Abbr ‘g’]
+        \\ pop_assum kall_tac
+        \\ ‘eval_to (k - 1) y ≠ INL Diverge’
+          by (strip_tac \\ gs [])
+        \\ first_x_assum (qspec_then ‘y’ assume_tac)
+        \\ gs [])
+      \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
+      \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       >- (
-        IF_CASES_TAC \\ gs []
-        >- (
-          rename1 ‘MEM x xs’
-          \\ unabbrev_all_tac
-          \\ ‘eval_to (j - 1) x = INL Diverge’
-            by gs [CaseEqs ["sum", "v"]]
-          \\ gs [CaseEq "bool"]
-          \\ first_x_assum (drule_then assume_tac)
-          \\ gs [CaseEqs ["sum", "v"]])
+        rw [] \\ gs [Abbr ‘f’, Abbr ‘g’]
+        \\ ‘eval_to (k - 1) y ≠ INL Diverge’
+          by (strip_tac \\ gs [])
+        \\ first_x_assum (qspec_then ‘y’ assume_tac) \\ gs [])
+      \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
-      \\ ‘F’ suffices_by rw []
-      \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-      \\ unabbrev_all_tac
-      \\ first_x_assum (drule_then assume_tac) \\ gs []
-      \\ gs [CaseEqs ["sum", "v", "bool"]])
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      ‘F’ suffices_by rw []
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-      \\ rpt (first_x_assum (drule_then assume_tac))
-      \\ unabbrev_all_tac \\ gs []
-      \\ gs [CaseEqs ["sum", "v", "bool"]])
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      ‘F’ suffices_by rw []
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-      \\ rpt (first_x_assum (drule_then assume_tac))
-      \\ unabbrev_all_tac \\ gs []
-      \\ gs [CaseEqs ["sum", "v", "bool"]])
-    \\ gs [MAP_MAP_o, combinTheory.o_DEF]
-    \\ strip_tac
-    \\ ‘MAP (OUTR o f) xs = MAP (OUTR o g) xs’
-      suffices_by rw [combinTheory.o_DEF]
-    \\ rw [MAP_EQ_f]
-    \\ ntac 4 (first_x_assum (qspec_then ‘e’ assume_tac))
-    \\ Cases_on ‘∃err. f e = INL err’ \\ gs []
-    >- (
-      Cases_on ‘err’ \\ gs [])
-    \\ Cases_on ‘∃err. g e = INL err’ \\ gs []
-    >- (
-      Cases_on ‘err’ \\ gs [])
-    \\ Cases_on ‘f e’ \\ Cases_on ‘g e’ \\ gs [Abbr ‘f’, Abbr ‘g’]
-    \\ gs [CaseEqs ["bool", "sum"]]))
+      >- (
+        first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ gs [Abbr ‘f’, Abbr ‘g’]
+        \\ first_x_assum (drule_then (qspec_then ‘j - 1’ assume_tac)) \\ gs []
+        \\ Cases_on ‘eval_to (k - 1) y’ \\ gs [])
+      \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
+      \\ ‘MAP (OUTR o f) xs = MAP (OUTR o g) xs’
+        suffices_by rw [combinTheory.o_DEF, MAP_MAP_o]
+      \\ rw [MAP_EQ_f]
+      \\ ntac 4 (first_x_assum (qspec_then ‘e’ assume_tac))
+      \\ Cases_on ‘f e’ \\ gs []
+      >- (
+        rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
+      \\ Cases_on ‘g e’ \\ gs []
+      >- (
+        rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
+      \\ gs [Abbr ‘f’, Abbr ‘g’, CaseEq "sum"]))
 QED
 
 val _ = export_theory ();
