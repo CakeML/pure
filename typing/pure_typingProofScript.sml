@@ -240,7 +240,8 @@ Proof
       CASE_TAC >> gvs[] >- simp[type_wh_cases, type_ok] >>
       CASE_TAC >> gvs[]
       >- (
-        gvs[get_atoms_SOME_NONE_eq, LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS] >>
+        gvs[get_atoms_SOME_NONE_eq, EXISTS_MEM, LIST_REL_EL_EQN, EL_MAP, MEM_EL,
+            PULL_EXISTS] >>
         first_x_assum drule >> strip_tac >>
         last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
         disch_then drule_all >> strip_tac >>

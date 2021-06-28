@@ -797,14 +797,18 @@ Proof
           \\ rename1 ‘m < LENGTH ys’
           \\ rpt (first_x_assum (drule_then assume_tac))
           \\ Cases_on ‘eval_to (k - 1) (EL m ys)’
-          \\ gvs [CaseEqs ["sum", "v"]])
+          \\ gvs [CaseEqs ["sum", "v"]]
+          \\ rename1 ‘v_rel _ w’
+          \\ Cases_on ‘w’ \\ gs [])
         \\ gvs [result_map_def, CaseEq "bool", Abbr ‘f’, MEM_MAP, MEM_EL,
                 PULL_EXISTS]
         \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         >- (
           rpt (first_x_assum (drule_then assume_tac))
           \\ Cases_on ‘eval_to (k - 1) (EL n ys)’
-          \\ gs [CaseEqs ["sum", "v"]])
+          \\ gs [CaseEqs ["sum", "v"]]
+          \\ rename1 ‘v_rel _ w’
+          \\ Cases_on ‘w’ \\ gs [])
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ Cases_on ‘eval_to (k - 1) (EL n ys)’
         \\ gvs [CaseEqs ["sum", "v"], v_rel_Thunk_def])
