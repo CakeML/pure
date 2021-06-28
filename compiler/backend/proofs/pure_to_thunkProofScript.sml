@@ -731,9 +731,8 @@ Proof
         \\ IF_CASES_TAC \\ fs [])
       \\ ‘ys ≠ []’ by (strip_tac \\ fs [])
       \\ simp [get_atoms_MAP_Diverge]
-      \\ ‘∃x. MEM x ys’
-        by (qexists_tac ‘HD ys’ \\ Cases_on ‘xs’ \\ Cases_on ‘ys’ \\ gs [])
-      \\ simp [SF SFY_ss])
+      \\ gs [NIL_iff_NOT_MEM]
+      \\ rw [] \\ gs [])
     \\ rw [Once exp_rel_cases]
     >- ((* If *)
       simp [eval_to_def, eval_wh_to_def]
@@ -819,14 +818,34 @@ Proof
         \\ gs [MEM_EL, PULL_EXISTS, EVERY_EL, eval_wh_to_def]
         \\ CASE_TAC \\ fs []
         >- (
-          gvs [get_atoms_NONE_eq, EL_MAP]
+          gvs [get_atoms_NONE_eq, EVERY_MAP, MEM_MAP, EVERY_MEM, MEM_EL,
+               PULL_EXISTS]
           \\ ‘result_map f ys = INL Diverge’
             suffices_by rw []
           \\ gvs [result_map_def, MEM_MAP, MEM_EL, PULL_EXISTS, CaseEq "bool"]
-          \\ unabbrev_all_tac
-          \\ first_assum (irule_at Any) \\ gs []
-          \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’ by gs []
-          \\ rpt (first_x_assum (drule_all_then assume_tac))
+          \\ simp [RIGHT_EXISTS_AND_THM]
+          \\ reverse conj_tac
+          >- (
+            first_assum (irule_at Any)
+            \\ first_x_assum (drule_then assume_tac)
+            \\ ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Error’
+              by (strip_tac \\ gs [])
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ first_x_assum (drule_all_then assume_tac)
+            \\ unabbrev_all_tac \\ gs []
+            \\ CASE_TAC \\ gs [])
+          \\ qx_gen_tac ‘m’
+          \\ rw [DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”]
+          \\ first_x_assum (drule_then assume_tac)
+          \\ ‘eval_wh_to (k - 1) (EL m xs) ≠ wh_Error’
+            by (strip_tac \\ gs [])
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ unabbrev_all_tac \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ Cases_on ‘eval_wh_to (k - 1) (EL m xs)’ \\ gs []
           \\ CASE_TAC \\ gs [])
         \\ CASE_TAC \\ gs []
         \\ gvs [get_atoms_SOME_SOME_eq, EVERY2_MAP]
