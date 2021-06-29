@@ -51,10 +51,10 @@ Inductive exp_inv:
      exp_inv x ⇒
        exp_inv (Letrec (MAP (λ(f,x). (f, Delay x)) f) x)) ∧
 [exp_inv_Let:]
-  (∀x y.
+  (∀bv x y.
      exp_inv x ∧
      exp_inv y ⇒
-       exp_inv (Let NONE x y)) ∧
+       exp_inv (Let bv x y)) ∧
 [exp_inv_If:]
   (∀x y z.
      exp_inv x ∧
@@ -119,10 +119,9 @@ Theorem exp_inv_def:
   (∀s x.
      exp_inv (Lam s x) =
        exp_inv x) ∧
-  (∀s x y.
-     exp_inv (Let s x y) =
-       (s = NONE ∧
-        exp_inv x ∧
+  (∀bv x y.
+     exp_inv (Let bv x y) =
+       (exp_inv x ∧
         exp_inv y)) ∧
   (∀f x.
      exp_inv (Letrec f x) =
@@ -508,8 +507,10 @@ Proof
     \\ rw [MEM_FILTER]
     \\ first_x_assum (irule_at Any)
     \\ first_assum (irule_at Any))
-  >- ((* Let NONE *)
-    gvs [subst_def, exp_inv_def])
+  >- ((* Let *)
+    Cases_on ‘bv’ \\ gvs [subst_def, exp_inv_def]
+    \\ first_x_assum irule
+    \\ gs [EVERY_MAP, EVERY_MEM, MEM_FILTER])
   >- ((* If *)
     gvs [subst_def, exp_inv_def])
   >- ((* Prim Cons *)
