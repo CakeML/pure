@@ -263,25 +263,17 @@ Inductive exp_rel:
      exp_rel f g ∧
      exp_rel x y ⇒
        exp_rel (App f x) (App g y)) ∧
-(* The Case rules are problematic at present because:
- * - the step from CaseRows generates a more general CaseLet, with arbitrary
- *   lists as arguments
- * - having CaseLet as a rule means we need to get this rules through the
- *   eval_to induction, but at that stage there's no way of knowing that we
- *   passed a CaseRow. (maybe we should skip that rule, and attempt to find out
- *   what is required to show exp_rel for a CaseLets, if possible)
- *)
+[exp_rel_Proj:]
+  (∀x y v i.
+     exp_rel x y ⇒
+       exp_rel (Delay (Force (Prim (Proj v i) [x])))
+               (MkTick (Prim (Proj v i) [y]))) ∧
 [exp_rel_CaseRows:]
   (∀x y xs ys.
      exp_rel x y ∧
      LIST_REL (λ(c,vs,x) (d,ws,y). c = d ∧ vs = ws ∧ exp_rel x y) xs ys ∧
      DISJOINT (set (FLAT (MAP (FST o SND) xs))) (freevars x) ⇒
        exp_rel (DelayCaseRows x xs) (TickCaseRows y ys)) ∧
-[exp_rel_CaseLet:]
-  (∀x1 y1 x2 y2 i s.
-     exp_rel x1 y1 ∧
-     exp_rel x2 y2 ⇒
-       exp_rel (DelayCaseLet x1 v [i,s] x2) (TickCaseLet y1 v [i,s] y2)) ∧
 [exp_rel_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1;y1;z1] [x2;y2;z2] ⇒
@@ -291,10 +283,10 @@ Inductive exp_rel:
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Let:]
-  (∀x1 y1 x2 y2.
+  (∀bv x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       exp_rel (Let bv x1 y1) (Let bv x2 y2)) ∧
 [exp_rel_Letrec:]
   (∀f x g y.
      LIST_REL (λ(f,x) (g,y).
@@ -343,18 +335,6 @@ Inductive exp_rel:
   (∀x.
      v_rel (Atom x) (Atom x))
 End
-
-Theorem exp_rel_cases =
-  exp_rel_cases |> SIMP_RULE std_ss [mk_case_lets_def];
-
-Theorem exp_rel_rules =
-  exp_rel_rules |> SIMP_RULE std_ss [mk_case_lets_def];
-
-Theorem exp_rel_ind =
-  exp_rel_ind |> SIMP_RULE std_ss [mk_case_lets_def];
-
-Theorem exp_rel_CaseLet =
-  exp_rel_CaseLet |> SIMP_RULE std_ss [mk_case_lets_def];
 
 Theorem v_rel_def[simp]:
   (∀s x z.
@@ -471,6 +451,23 @@ Proof
   \\ simp [FILTER_FILTER, LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]
 QED
 
+Theorem exp_rel_mk_case_lets:
+  ∀f x v vs x1 g y y1.
+    exp_rel x y ∧
+    exp_rel x1 y1 ∧
+    f = Delay o Force ∧
+    g = MkTick ⇒
+      exp_rel (DelayCaseLet x v vs x1) (TickCaseLet y v vs y1)
+Proof
+  ho_match_mp_tac mk_case_lets_ind \\ rw []
+  \\ simp [mk_case_lets_def]
+  \\ irule exp_rel_Let
+  \\ first_x_assum (irule_at Any) \\ gs []
+  \\ irule exp_rel_Proj \\ gs []
+QED
+
+Theorem exp_rel_mk_case_lets = SIMP_RULE std_ss [] exp_rel_mk_case_lets;
+
 Theorem DelayCaseLet_subst[local] =
   mk_case_lets_subst
   |> Q.SPEC ‘Delay o Force’
@@ -528,8 +525,7 @@ Proof
       \\ simp [subst_def]
       \\ rw [Once exp_rel_cases]
       \\ first_x_assum (irule_at Any) \\ simp []
-      \\ cheat (* exp_rel (DelayCaseLet ...) (TickCaseLet ...) *)
-    )
+      \\ irule exp_rel_mk_case_lets \\ gs [])
     \\ simp [subst_def]
     \\ irule exp_rel_If \\ fs [])
   >- ((* App *)
@@ -548,22 +544,14 @@ Proof
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
     \\ irule exp_rel_Let \\ fs [])
-  >- ((* Let SOME (Let Proj) *)
+  >- ((* Let SOME *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
-    \\ irule exp_rel_CaseLet
-    \\ first_x_assum (irule_at Any)
+    \\ irule exp_rel_Let \\ gs []
+    \\ first_x_assum irule
     \\ fs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ first_x_assum drule
-    \\ simp [Once exp_rel_cases, PULL_EXISTS]
-    \\ simp [Once exp_rel_cases, PULL_EXISTS]
-    \\ simp [Once exp_rel_cases, PULL_EXISTS]
-    \\ disch_then drule
-    \\ simp [subst_def, Once exp_rel_cases]
-    \\ simp [Once exp_rel_cases]
-    \\ simp [Once exp_rel_cases])
+    \\ irule LIST_REL_FILTER \\ fs [])
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     >- (
@@ -594,6 +582,14 @@ Proof
     rw [Once exp_rel_cases]
     \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
     \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R _ _’
+    >~ [‘Proj v i’] >- (
+      irule exp_rel_Proj
+      \\ first_x_assum drule
+      \\ simp [Once exp_rel_cases, PULL_EXISTS]
+      \\ simp [Once exp_rel_cases, PULL_EXISTS]
+      \\ disch_then drule
+      \\ simp [subst_def, Once exp_rel_cases]
+      \\ simp [Once exp_rel_cases])
     \\ ‘OPTREL R (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
       by (irule LIST_REL_OPTREL
           \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ, Abbr ‘R’]
@@ -716,6 +712,15 @@ Proof
     \\ rw [Once exp_rel_cases] \\ gs [eval_to_def]
     \\ rename1 ‘dest_anyClosure v1’
     \\ rename1 ‘v_rel v1 v2’
+    >~ [‘Prim (Proj v i) [x]’] >- (
+      Cases_on ‘k = 0’ \\ gs []
+      \\ rename1 ‘exp_rel x y’
+      \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
+      \\ rename1 ‘eval_to (k - 1) y = INR w’
+      \\ Cases_on ‘dest_Constructor w’ \\ gs []
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ qpat_x_assum ‘(_ +++ _) _ _’ mp_tac
+      \\ IF_CASES_TAC \\ gs [])
     THEN (
       Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gvs [dest_anyClosure_def]
       >- ((* Thunk-Thunk *)
@@ -728,7 +733,7 @@ Proof
         \\ simp [closed_subst]
         \\ irule_at Any exp_inv_subst
         \\ irule_at Any exp_rel_subst \\ simp []
-        \\ unabbrev_all_tac \\ gs []
+        \\ unabbrev_all_tac \\ gs [exp_inv_def]
         \\ (irule_at Any v_rel_Thunk_Changed ORELSE
             irule_at Any v_rel_Thunk_Same))
       >- ((* Recclosure-Recclosure *)
@@ -756,11 +761,15 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [])
   >- ((* Let SOME *)
     rw [Once exp_rel_cases]
-    \\ gs [exp_inv_def]
-    \\ simp [eval_to_def]
-    \\ IF_CASES_TAC \\ gs []
-    \\ cheat (* Proof doesn't know that we're inside an if! *)
-    )
+    \\ gvs [exp_inv_def]
+    \\ rename1 ‘exp_rel x1 x2’
+    \\ rename1 ‘exp_rel y1 y2’
+    \\ rw [eval_to_def]
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    \\ first_x_assum irule
+    \\ gs [closed_subst, exp_inv_subst]
+    \\ irule_at Any exp_rel_subst \\ gs [])
   >- ((* If *)
     rw [Once exp_rel_cases] \\ fs [exp_inv_def]
     >- ((* Let Proj *)
@@ -798,7 +807,7 @@ Proof
           IF_CASES_TAC \\ gs []
           \\ gvs [CaseEq "bool"]
           \\ first_x_assum (irule_at Any)
-          \\ cheat (* exp_rel (DelayCaseLet ...) (TickCaseLet ...) *))
+          \\ irule exp_rel_mk_case_lets \\ gs [])
         \\ IF_CASES_TAC \\ gs []
         \\ gs [CaseEq "bool"]
         \\ first_x_assum (irule_at Any)
@@ -837,7 +846,10 @@ Proof
     \\ rw [ELIM_UNCURRY, freevars_def, MAP_MAP_o, combinTheory.o_DEF,
            SF ETA_ss])
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
+    rw [Once exp_rel_cases] \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same]
+    \\ cheat (* The left side needs to tick, and we can't have something fail
+                on the right side, so it would be good if we can make it a
+                value *))
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
