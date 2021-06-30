@@ -179,6 +179,79 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
+Theorem subst_remove:
+  ∀vs x bvs.
+    DISJOINT bvs (freevars x) ⇒
+      subst (FILTER (λ(n,x). n ∉ bvs) vs) x =
+      subst vs x
+Proof
+  ho_match_mp_tac subst_ind \\ rw []
+  >- ((* Var *)
+    gs [freevars_def]
+    \\ simp [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER])
+  >- ((* Prim *)
+    gs [freevars_def]
+    \\ rw [subst_def, MAP_EQ_f]
+    \\ gs [MEM_MAP, DISJ_EQ_IMP, SF DNF_ss,
+           DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”])
+  >- ((* If *)
+    gs [freevars_def, subst_def, DISJOINT_SYM])
+  >- ((* App *)
+    gs [freevars_def, subst_def, DISJOINT_SYM])
+  >- ((* Lam *)
+    gs [freevars_def, subst_def, DISJOINT_SYM, FILTER_FILTER,
+        LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]
+    \\ first_x_assum (qspec_then ‘bvs DIFF {s}’ mp_tac)
+    \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss]
+    \\ disch_then irule
+    \\ gs [DISJOINT_ALT, DISJ_EQ_IMP]
+    \\ rpt strip_tac \\ gs [])
+  >- ((* Let NONE *)
+    gs [freevars_def, subst_def, FILTER_FILTER, DISJOINT_SYM])
+  >- ((* Let SOME *)
+    gs [freevars_def, subst_def, DISJOINT_SYM, FILTER_FILTER,
+        LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]
+    \\ first_x_assum (qspec_then ‘bvs DIFF {s}’ mp_tac)
+    \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss]
+    \\ disch_then irule
+    \\ gs [DISJOINT_ALT, DISJ_EQ_IMP]
+    \\ rpt strip_tac \\ gs [])
+  >- ((* Letrec *)
+    gs [freevars_def, subst_def, MAP_EQ_f, FILTER_FILTER, LAMBDA_PROD,
+        FORALL_PROD]
+    \\ ‘DISJOINT (bvs DIFF set (MAP FST f)) (freevars x)’
+      by (gs [DISJOINT_ALT, DISJ_EQ_IMP]
+          \\ rpt strip_tac \\ gs [])
+    \\ first_x_assum drule
+    \\ disch_then (SUBST1_TAC o SYM)
+    \\ simp [SF DNF_ss, AC CONJ_COMM CONJ_ASSOC]
+    \\ rw []
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then ‘bvs DIFF set (MAP FST f)’ mp_tac)
+    \\ impl_tac
+    >- (
+      gs [DISJOINT_ALT, DISJ_EQ_IMP]
+      \\ rpt strip_tac \\ gs []
+      \\ first_x_assum (drule_then assume_tac) \\ gs []
+      \\ first_x_assum (drule_then assume_tac)
+      \\ gs [DISJ_EQ_IMP, MEM_MAP])
+    \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss])
+  >- ((* Delay *)
+    gs [freevars_def, subst_def])
+  >- ((* Box *)
+    gs [freevars_def, subst_def])
+  >- ((* Force *)
+    gs [freevars_def, subst_def])
+  >- ((* Value *)
+    gs [freevars_def, subst_def])
+  >- ((* MkTick *)
+    gs [freevars_def, subst_def])
+QED
+
+
+
+
+
 (* TODO pure_misc? *)
 Theorem ALOOKUP_SOME_REVERSE_EL:
   ALOOKUP (REVERSE l) k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k, v)
