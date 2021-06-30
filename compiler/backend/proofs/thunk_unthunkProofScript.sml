@@ -13,19 +13,24 @@ val _ = new_theory "thunk_unthunkProof";
 
 val _ = numLib.prefer_num ();
 
+(* TODO move *)
+Theorem MAP_SND_MAPi_PROD[local]:
+  MAP SND (MAPi $, vs) = vs
+Proof
+  rw [indexedListsTheory.MAP_MAPi, combinTheory.o_DEF]
+  \\ irule LIST_EQ \\ simp []
+QED
+
 (* --------------------------
-   INVARIANT:
+   exp_inv:
    --------------------------
 
-   All variables should be substituted with something thunked.
-
-   --------------------------
-   EXPRESSING THE INVARIANT:
-   --------------------------
-
-   The invariant is satisfied by code that looks exactly as the code produced
-   by the pure_to_thunk pass.
-
+   The thunk_unthunk step sits just after the pure_to_thunk step, and the syntax
+   is expected look like the syntax produced by the latter:
+   - variables are bound to thunks using Delays under Letrecs,
+   - arguments to function- and constructor application are thunked using Delay,
+   - projections can be found only under force (because constructor arguments
+     are always thunks)
  *)
 
 Inductive exp_inv:
@@ -169,16 +174,16 @@ Proof
 QED
 
 (* --------------------------
-   COMPILATION:
+   exp_rel:
    --------------------------
 
-   We can replace all occurrences of (Delay (Force (Var v))) floating around
-   in the middle of expressions with (Var v), but we can't touch those that sit
-   at the top of bindings such as Letrecs, because Letrecs turn into
-   Recclosures, and Recclosures that look like this are used as thunks. If we
-   remove the Delay's sitting directly in a Letrec declaration then the
-   resulting code will get stuck when it is forced somewhere. Otherwise, we
-   expect that every variable will be replaced by a thunk.
+   - Since all variables will be substituted away by thunk values, an expression
+     “Delay (Force (Var v))” will in practice evaluate to the same thing as
+     “Var v” would, but consume more clock. The exception are those expressions
+     used in Letrecs.
+
+   - When compiling case expressions, the pure_to_thunk step creates similarily
+     unneccessary thunk allocations around projections.
 
  *)
 
