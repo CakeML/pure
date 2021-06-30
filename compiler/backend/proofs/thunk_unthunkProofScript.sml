@@ -182,6 +182,16 @@ QED
 
  *)
 
+Definition Fail_def:
+  Fail = Prim If []
+End
+
+Theorem eval_to_Fail[local]:
+  eval_to k Fail = INL Type_error
+Proof
+  rw [eval_to_def, Fail_def]
+QED
+
 Definition is_delay_def[simp]:
   is_delay (Delay x) = T ∧
   is_delay _ = F
