@@ -219,7 +219,6 @@ End
 (*
   We include arity as an argument to handle the fact that
   Substring/Concat/Implode separately have multiple possible arities.
-  TODO unclear as yet on how to handle Eq.
 *)
 Definition infer_atom_op_def:
   (infer_atom_op ar (Lit $ Int i) =
@@ -229,7 +228,6 @@ Definition infer_atom_op_def:
   (infer_atom_op ar (Lit $ Msg s1 s2) =
     if ar = 0 then SOME ([], Message) else NONE) ∧
   (infer_atom_op ar (Lit $ Loc n) = NONE) ∧
-  (infer_atom_op ar Eq = NONE (* TODO - how to handle Eq? *)) ∧
   (infer_atom_op ar Add =
     if ar = 2 then SOME ([Integer; Integer], Integer) else NONE) ∧
   (infer_atom_op ar Sub =
@@ -240,6 +238,8 @@ Definition infer_atom_op_def:
     if ar = 2 then SOME ([Integer; Integer], Integer) else NONE) ∧
   (infer_atom_op ar Mod =
     if ar = 2 then SOME ([Integer; Integer], Integer) else NONE) ∧
+  (infer_atom_op ar Eq =
+    if ar = 2 then SOME ([Integer; Integer], Bool) else NONE) ∧
   (infer_atom_op ar Lt =
     if ar = 2 then SOME ([Integer; Integer], Bool) else NONE) ∧
   (infer_atom_op ar Leq =
@@ -257,6 +257,8 @@ Definition infer_atom_op_def:
   (infer_atom_op ar Substring =
     if ar = 2 then SOME ([String; Integer], String)
     else if ar = 3 then SOME ([String; Integer; Integer], String) else NONE) ∧
+  (infer_atom_op ar StrEq =
+    if ar = 2 then SOME ([String; String], Bool) else NONE) ∧
   (infer_atom_op ar StrLt =
     if ar = 2 then SOME ([String; String], Bool) else NONE) ∧
   (infer_atom_op ar StrLeq =

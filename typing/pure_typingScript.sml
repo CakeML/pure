@@ -201,15 +201,12 @@ Inductive type_atom_op:
 [~Lit:]
   (type_lit l t ⇒ type_atom_op (Lit l) [] t) ∧
 
-[~Eq:]
-  (t ≠ Bool ⇒ type_atom_op Eq [t;t] Bool) ∧
-
 [~IntOps_Int:]
   (MEM op [Add; Sub; Mul; Div; Mod] ⇒
     type_atom_op op [Integer;Integer] Integer) ∧
 
 [~IntOps_Bool:]
-  (MEM op [Lt; Leq; Gt; Geq] ⇒
+  (MEM op [Eq; Lt; Leq; Gt; Geq] ⇒
     type_atom_op op [Integer;Integer] Bool) ∧
 
 [~Len:]
@@ -233,7 +230,7 @@ Inductive type_atom_op:
   (type_atom_op Substring [String;Integer;Integer] String) ∧
 
 [~StrOps_Bool:]
-  (MEM op [StrLt; StrLeq; StrGt; StrGeq] ⇒
+  (MEM op [StrEq; StrLt; StrLeq; StrGt; StrGeq] ⇒
     type_atom_op op [String;String] Bool) ∧
 
 [~Message:]
