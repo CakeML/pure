@@ -1,9 +1,59 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory stringTheory optionTheory
+open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
      listTheory alistTheory finite_mapTheory sptreeTheory;
-open pure_miscTheory pure_typingTheory pure_inferenceTheory;
+open pure_miscTheory pure_typingTheory pure_typingPropsTheory pure_inferenceTheory;
 
 val _ = new_theory "pure_inferenceProps";
+
+Theorem itype_ind:
+  ∀P.
+    (∀n. P (DBVar n)) ∧ (∀p. P (PrimTy p)) ∧ P Exception ∧
+    (∀l. (∀t. MEM t l ⇒ P t) ⇒ ∀n. P (TypeCons n l)) ∧
+    (∀l. (∀t. MEM t l ⇒ P t) ⇒ P (Tuple l)) ∧
+    (∀tf t. P tf ∧ P t ⇒ P (Function tf t)) ∧
+    (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ∧ (∀n. P (CVar n)) ⇒
+    (∀t. P t)
+Proof
+  ntac 3 strip_tac >>
+  completeInduct_on `itype_size t` >> rw[] >>
+  Cases_on `t` >> gvs[itype_size_def] >>
+  last_x_assum irule >> rw[] >>
+  first_x_assum irule >> simp[] >>
+  Induct_on `l` >> rw[] >> gvs[itype_size_def]
+QED
+
+Theorem freecvars_empty_eq_type_of:
+  ∀it. freecvars it = {} ⇔ (∃t. type_of it = SOME t)
+Proof
+  recInduct itype_ind >> reverse $ rw[freecvars_def, type_of_def]
+  >- (eq_tac >> rw[] >> rpt $ goal_assum drule >> simp[]) >>
+  (
+    Induct_on `l` >> rw[] >> gvs[INSERT_EQ_SING] >> eq_tac >> rw[]
+    >- (
+      goal_assum drule >>
+      first_x_assum $ irule o iffLR >>
+      rw[DISJ_EQ_IMP, Once EXTENSION, MEM_MAP] >>
+      gvs[LIST_TO_SET_MAP, SUBSET_DEF] >> eq_tac >> rw[] >>
+      Cases_on `l` >> gvs[] >> metis_tac[]
+      )
+    >- (goal_assum drule)
+    >- gvs[LIST_TO_SET_MAP, SUBSET_DEF]
+  )
+QED
+
+Theorem type_of_itype_of:
+  ∀t. type_of (itype_of t) = SOME t
+Proof
+  recInduct type_ind >> rw[itype_of_def, type_of_def] >>
+  Induct_on `l` >> rw[]
+QED
+
+Theorem type_of_SOME:
+  ∀it t. type_of it = SOME t ⇒ itype_of t = it
+Proof
+  recInduct itype_ind >> rw[] >> gvs[type_of_def, itype_of_def] >>
+  rpt $ pop_assum mp_tac >> qid_spec_tac `z` >> Induct_on `l` >> rw[] >> gvs[]
+QED
 
 Theorem aunion_comm:
   a1 ⋓ a2 = a2 ⋓ a1
