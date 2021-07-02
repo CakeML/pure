@@ -93,8 +93,8 @@ Theorem atom_op_countable:
   COUNTABLE 𝕌(:atom_op)
 Proof
   `𝕌(:atom_op) =
-      {Eq; Add; Sub; Mul; Div; Mod; Lt; Leq; Gt; Geq;
-       Len; Elem; Concat; Implode; Substring; StrLt; StrLeq; StrGt; StrGeq} ∪
+      {Add; Sub; Mul; Div; Mod; Eq; Lt; Leq; Gt; Geq;
+       Len; Elem; Concat; Implode; Substring; StrEq; StrLt; StrLeq; StrGt; StrGeq} ∪
       IMAGE Message 𝕌(:string) ∪
       IMAGE Lit 𝕌(:lit)` by (
         rw[EXTENSION] >> Cases_on `x` >> gvs[]) >>
@@ -127,7 +127,6 @@ Proof
   simp[union_countable_IFF,COUNTABLE_IMAGE,
        string_countable,prod_countable,num_countable,atom_op_countable]
 QED
-
 
 Theorem list_countable_res:
   COUNTABLE {x | P x} ⇒ COUNTABLE {l | EVERY P l}

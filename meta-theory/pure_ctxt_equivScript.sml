@@ -642,15 +642,17 @@ Proof
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
-      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def, dest_Atom_def]
+      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def, dest_Atom_def] >>
+      every_case_tac >> gvs[pure_configTheory.eval_op_SOME]
       )
     >- ( (* Str *)
       qexists_tac
-        `Prim If [] (Prim (AtomOp Eq) [Lit (Str s)] Hole []) [Ret Fail; Fail]` >>
+        `Prim If [] (Prim (AtomOp StrEq) [Lit (Str s)] Hole []) [Ret Fail; Fail]` >>
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
-      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def, dest_Atom_def]
+      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def, dest_Atom_def] >>
+      every_case_tac >> gvs[pure_configTheory.eval_op_SOME]
       )
     >- ( (* Loc *)
       reverse $ Cases_on `∃m. eval_wh e2' = wh_Atom (Loc m)` >> gvs[]
@@ -720,7 +722,7 @@ Proof
       )
     >- ( (* Str *)
       qexists_tac
-        `Prim If [] (Prim (AtomOp Eq) [Lit (Str s)] Hole []) [Ret Fail; Fail]` >>
+        `Prim If [] (Prim (AtomOp StrEq) [Lit (Str s)] Hole []) [Ret Fail; Fail]` >>
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
