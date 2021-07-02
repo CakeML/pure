@@ -13,14 +13,6 @@ val _ = new_theory "thunk_unthunkProof";
 
 val _ = numLib.prefer_num ();
 
-(* TODO move *)
-Theorem MAP_SND_MAPi_PROD[local]:
-  MAP SND (MAPi $, vs) = vs
-Proof
-  rw [indexedListsTheory.MAP_MAPi, combinTheory.o_DEF]
-  \\ irule LIST_EQ \\ simp []
-QED
-
 (* --------------------------
    exp_inv:
    --------------------------
@@ -177,77 +169,17 @@ QED
    exp_rel:
    --------------------------
 
-   - Since all variables will be substituted away by thunk values, an expression
-     “Delay (Force (Var v))” will in practice evaluate to the same thing as
-     “Var v” would, but consume more clock. The exception are those expressions
-     used in Letrecs.
-
-   - When compiling case expressions, the pure_to_thunk step creates similarily
-     unneccessary thunk allocations around projections.
+   Since all variables will be substituted away by thunk values, an expression
+   “Delay (Force (Var v))” will in practice evaluate to the same thing as
+   “Var v” would, but consume more clock. The exception are those expressions
+   used in Letrecs.
 
  *)
-
-Definition Fail_def:
-  Fail = Prim If []
-End
-
-Theorem eval_to_Fail[local]:
-  eval_to k Fail = INL Type_error
-Proof
-  rw [eval_to_def, Fail_def]
-QED
 
 Definition is_delay_def[simp]:
   is_delay (Delay x) = T ∧
   is_delay _ = F
 End
-
-Definition is_value_def[simp]:
-  is_value (Value v) = T ∧
-  is_value _ = F
-End
-
-Definition mk_case_lets_def:
-  mk_case_lets f v c [] x = x ∧
-  mk_case_lets f v c ((i,w)::vs) x =
-    Let (SOME w) (f (Prim (Proj c i) [v]))
-                 (mk_case_lets f v c vs x)
-End
-
-Definition mk_case_rows_def:
-  mk_case_rows f v [] = Fail ∧
-  mk_case_rows f v ((c,vs,x)::rows) =
-    If (Prim (IsEq c (LENGTH vs)) [v])
-       (mk_case_lets f v c (MAPi $, vs) x)
-       (mk_case_rows f v rows)
-End
-
-Overload Tick = “Letrec []”;
-
-Overload DelayCaseLet = “mk_case_lets (Tick o Tick o Delay o Force)”;
-Overload DelayCaseRows = “mk_case_rows (Tick o Tick o Delay o Force)”;
-
-Overload TickCaseLet = “mk_case_lets I”;
-Overload TickCaseRows = “mk_case_rows I”;
-
-Theorem mk_case_rows_neq:
-  (∀f v ws n. mk_case_rows f v ws ≠ Var n) ∧
-  (∀f v ws w. mk_case_rows f v ws ≠ Value w) ∧
-  (∀f v ws s x. mk_case_rows f v ws ≠ Lam s x) ∧
-  (∀f v ws s x y. mk_case_rows f v ws ≠ Let s x y) ∧
-  (∀f v ws x y. mk_case_rows f v ws ≠ App x y) ∧
-  (∀f v ws x. mk_case_rows f v ws ≠ Delay x) ∧
-  (∀f v ws op x. op ≠ If ∨ x ≠ [] ⇒ mk_case_rows f v ws ≠ Prim op x) ∧
-  (∀f v ws x. mk_case_rows f v ws ≠ MkTick x) ∧
-  (∀f v ws x. mk_case_rows f v ws ≠ Box x) ∧
-  (∀f v ws x. mk_case_rows f v ws ≠ Force x)
-Proof
-  rpt conj_tac \\ ho_match_mp_tac mk_case_rows_ind
-  \\ simp [mk_case_rows_def, Fail_def]
-QED
-
-Theorem mk_case_rows_neq[simp] =
-  CONJ mk_case_rows_neq (GSYM mk_case_rows_neq)
 
 Inductive exp_rel:
 [exp_rel_Var:]
@@ -270,31 +202,6 @@ Inductive exp_rel:
      exp_rel f g ∧
      exp_rel x y ⇒
        exp_rel (App f x) (App g y)) ∧
-[exp_rel_Case:]
-  (∀x y v xs ys.
-     exp_rel x y ∧
-     LIST_REL (λ(c,vs,x) (d,ws,y). c = d ∧ vs = ws ∧ exp_rel x y) xs ys ∧
-     DISJOINT ({v} ∪ set (FLAT (MAP (FST o SND) xs))) (freevars x) ∧
-     v ∉ set (FLAT (MAP (FST o SND) xs)) ∧
-     xs ≠ [] ⇒
-       exp_rel (Let (SOME v) (Delay x)
-                    (DelayCaseRows (Force (Var v)) xs))
-               (Let (SOME v) (Delay y)
-                    (TickCaseRows (Force (Var v)) ys))) ∧
-[exp_rel_CaseRows_Var:]
-  (∀v xs ys.
-     LIST_REL (λ(c,vs,x) (d,ws,y). c = d ∧ vs = ws ∧ exp_rel x y) xs ys ∧
-     v ∉ set (FLAT (MAP (FST o SND) xs)) ∧
-     xs ≠ [] ⇒
-       exp_rel (DelayCaseRows (Force (Var v)) xs)
-               (TickCaseRows (Force (Var v)) ys)) ∧
-[exp_rel_CaseRows_Value:]
-  (∀v w xs ys.
-     v_rel v w ∧
-     LIST_REL (λ(c,vs,x) (d,ws,y). c = d ∧ vs = ws ∧ exp_rel x y) xs ys ∧
-     xs ≠ [] ⇒
-       exp_rel (DelayCaseRows (Force (Value v)) xs)
-               (TickCaseRows (Force (Value w)) ys)) ∧
 [exp_rel_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1;y1;z1] [x2;y2;z2] ⇒
@@ -356,12 +263,6 @@ Inductive exp_rel:
   (∀x.
      v_rel (Atom x) (Atom x))
 End
-
-Theorem exp_rel_Fail[simp]:
-  exp_rel Fail Fail
-Proof
-  rw [Fail_def, Once exp_rel_cases]
-QED
 
 Theorem v_rel_def[simp]:
   (∀s x z.
@@ -462,90 +363,6 @@ Proof
   \\ Cases_on ‘s’ \\ rw [subst_def]
 QED
 
-Theorem mk_case_lets_subst:
-  ∀f x s vs y ws.
-    (∀ws x. subst ws (f x) = f (subst ws x)) ∧
-    DISJOINT (set (MAP SND vs)) (freevars x) ⇒
-      subst ws (mk_case_lets f x s vs y) =
-      mk_case_lets f (subst ws x) s vs
-                     (subst (FILTER (λ(n,x). ¬MEM n (MAP SND vs)) ws) y)
-Proof
-  ho_match_mp_tac mk_case_lets_ind \\ rw []
-  \\ simp [mk_case_lets_def, subst_def, ELIM_UNCURRY]
-  \\ ‘DISJOINT (set [w]) (freevars x)’
-    by gs []
-  \\ dxrule_then (qspec_then ‘ws’ assume_tac) subst_remove \\ gs []
-  \\ simp [FILTER_FILTER, LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]
-QED
-
-Theorem subst_Fail[simp]:
-  subst vs Fail = Fail
-Proof
-  rw [subst_def, Fail_def]
-QED
-
-Theorem mk_case_rows_subst:
-  ∀f x xs vs.
-    (∀ws x. subst ws (f x) = f (subst ws x)) ∧
-    DISJOINT (set (FLAT (MAP (FST o SND) xs))) (freevars x) ⇒
-      subst vs (mk_case_rows f x xs) =
-      mk_case_rows f (subst vs x)
-           (MAP (λ(c,ps,x). (c,ps,subst (FILTER (λ(n,x). ¬MEM n ps) vs) x)) xs)
-Proof
-  ho_match_mp_tac mk_case_rows_ind \\ rw []
-  \\ simp [mk_case_rows_def, subst_def]
-  \\ qmatch_goalsub_rename_tac ‘subst ws’
-  \\ ‘FILTER (λ(n,x). ¬MEM n vs) ws =
-      FILTER (λ(n,x). ¬MEM n (MAP SND (MAPi $, vs))) ws’
-    by simp [MAP_SND_MAPi_PROD]
-  \\ pop_assum SUBST1_TAC
-  \\ irule mk_case_lets_subst
-  \\ simp [MAP_SND_MAPi_PROD]
-QED
-
-(*
-Theorem exp_rel_mk_case_lets[local]:
-  ∀f x v vs x1 g y y1.
-    exp_rel x1 y1 ∧
-    ((∃v. x = Force (Var v) ∧ y = Force (Var v)) ∨
-     (exp_rel x y ∧ ∃v. x = Force (Value v))) ∧
-    f = Tick o Tick o Delay o Force ∧
-    g = MkTick ⇒
-      exp_rel (DelayCaseLet x v vs x1) (TickCaseLet y v vs y1)
-Proof
-  ho_match_mp_tac mk_case_lets_ind \\ rw []
-  \\ simp [mk_case_lets_def]
-  \\ irule exp_rel_Let
-  \\ first_x_assum (irule_at Any) \\ gs []
-  >- (
-    irule exp_rel_Proj_Var )
-  \\ qpat_x_assum ‘exp_rel (Force (Value _)) _’ mp_tac
-  \\ simp [Once exp_rel_cases, PULL_EXISTS]
-  \\ rw [Once exp_rel_cases]
-  \\ irule exp_rel_Proj_Value \\ gs []
-QED
-*)
-
-Theorem DelayCaseLet_subst =
-  mk_case_lets_subst
-  |> Q.SPEC ‘Tick o Tick o Delay o Force’
-  |> SIMP_RULE (srw_ss()) [subst_def, ELIM_UNCURRY, LET_THM];
-
-Theorem TickCaseLet_subst =
-  mk_case_lets_subst
-  |> Q.SPEC ‘I’
-  |> SIMP_RULE (srw_ss()) [subst_def];
-
-Theorem DelayCaseRows_subst =
-  mk_case_rows_subst
-  |> Q.SPEC ‘Tick o Tick o Delay o Force’
-  |> SIMP_RULE (srw_ss()) [subst_def, ELIM_UNCURRY, LET_THM];
-
-Theorem TickCaseRows_subst =
-  mk_case_rows_subst
-  |> Q.SPEC ‘I’
-  |> SIMP_RULE (srw_ss()) [subst_def];
-
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
@@ -558,71 +375,16 @@ Proof
   >- ((* Var *)
     rw [Once exp_rel_cases])
   >- ((* Prim *)
-    rw [Once exp_rel_cases] \\ gs []
-    >~ [‘_ (_ _ (Prim _ _)) (_ _ (Prim _ _))’] >-  (
-      simp [subst_def]
-      \\ irule exp_rel_Prim
-      \\ gs [EVERY2_MAP]
-      \\ irule LIST_REL_mono
-      \\ first_assum (irule_at Any) \\ rw [])
-    \\ first_x_assum irule \\ gs []
-    \\ (irule_at Any exp_rel_CaseRows_Var ORELSE
-        irule_at Any exp_rel_CaseRows_Value) \\ gs []
-    \\ Cases_on ‘op’ \\ Cases_on ‘xs’ \\ gs []
-    \\ rename1 ‘xs ≠ []’
-    \\ Cases_on ‘xs’ \\ gs [mk_case_rows_def]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ gs [mk_case_rows_def])
-  >- ((* If *)
-    rw [Once exp_rel_cases] \\ gs []
-    >~ [‘_ (_ _ (If _ _ _)) (_ _ (If _ _ _))’] >- (
-      simp [subst_def]
-      \\ irule exp_rel_If \\ fs [])
-    \\ DEP_REWRITE_TAC [DelayCaseRows_subst]
-    \\ DEP_REWRITE_TAC [TickCaseRows_subst]
-    \\ simp [freevars_def]
-    \\ ‘MAP (FST o SND) xs = MAP (FST o SND) ys’
-      by (irule LIST_EQ
-          \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ gs []
-    >- ((* CaseRows_Var *)
-      simp [subst_def]
-      \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
-        by (irule LIST_REL_OPTREL
-            \\ gs [EVERY2_MAP, LIST_REL_CONJ, ELIM_UNCURRY]
-            \\ qpat_x_assum ‘MAP FST vs = _’ mp_tac
-            \\ qid_spec_tac ‘ws’
-            \\ qid_spec_tac ‘vs’
-            \\ Induct \\ simp []
-            \\ gen_tac \\ Cases \\ simp [])
-      \\ gs [OPTREL_def]
-      >- (
-        (* TODO: the substitution together with my induction hypothesis really
-         *       messes with things here *)
-        irule exp_rel_CaseRows_Var
-        \\ gs [MEM_FLAT, EVERY2_MAP, LAMBDA_PROD, MAP_MAP_o, combinTheory.o_DEF]
-        \\ irule LIST_REL_mono
-        \\ first_assum (irule_at Any)
-        \\ simp [FORALL_PROD]
-        \\ map_every qx_gen_tac [‘ctor’,‘bvs’,‘x1’,‘y1’] \\ rw []
-        \\ cheat (* TODO bleh *)
-      )
-      \\ irule exp_rel_CaseRows_Value
-      \\ gs [EVERY2_MAP, LAMBDA_PROD]
-      \\ irule LIST_REL_mono
-      \\ first_assum (irule_at Any)
-      \\ simp [FORALL_PROD]
-      \\ map_every qx_gen_tac [‘ctor’,‘bvs’,‘x1’,‘y1’] \\ rw []
-      \\ cheat (* For these cases:
-                  Use another induction theorem? *))
+    rw [Once exp_rel_cases]
     \\ simp [subst_def]
-    \\ irule exp_rel_CaseRows_Value
-    \\ gs [EVERY2_MAP, LAMBDA_PROD]
+    \\ irule exp_rel_Prim
+    \\ gs [EVERY2_MAP]
     \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD]
-    \\ map_every qx_gen_tac [‘ctor’,‘bvs’,‘x1’,‘y1’] \\ rw []
-    \\ cheat (* Same as above *))
+    \\ first_assum (irule_at Any) \\ rw [])
+  >- ((* If *)
+    rw [Once exp_rel_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_If \\ fs [])
   >- ((* App *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -641,19 +403,6 @@ Proof
     \\ irule exp_rel_Let \\ fs [])
   >- ((* Let SOME *)
     rw [Once exp_rel_cases]
-    >- ((* Let Proj *)
-      simp [subst_def]
-      \\ qmatch_asmsub_rename_tac ‘exp_rel x1 x2’
-      \\ last_x_assum (drule_then (qspec_then ‘Delay x2’ mp_tac))
-      \\ simp [subst_def, Once exp_rel_cases, PULL_EXISTS]
-      \\ rw [Once exp_rel_cases]
-      \\ irule exp_rel_Let
-      \\ simp [Once exp_rel_cases]
-      \\ first_x_assum irule
-      \\ gs [MAP_FST_FILTER, EVERY2_MAP]
-      \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ simp []
-      \\ irule_at Any LIST_REL_FILTER \\ simp []
-      \\ irule exp_rel_CaseRows_Var \\ gs [])
     \\ simp [subst_def]
     \\ irule exp_rel_Let \\ gs []
     \\ first_x_assum irule
@@ -662,30 +411,26 @@ Proof
     \\ irule LIST_REL_FILTER \\ fs [])
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
-    >~ [‘_ (_ _ (Letrec _ _)) (_ _ (Letrec _ _))’] >- (
-      simp [subst_def]
-      \\ ‘MAP FST f = MAP FST g’
-        by (fs [ELIM_UNCURRY, LIST_REL_CONJ]
-            \\ irule LIST_EQ
-            \\ gvs [LIST_REL_EL_EQN] \\ rw [EL_MAP])
-      \\ irule exp_rel_Letrec
-      \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-      \\ first_assum (irule_at Any)
-      \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-      \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
-      \\ irule_at Any LIST_REL_FILTER \\ fs []
-      \\ irule_at Any LIST_REL_EL_MONO
-      \\ first_assum (irule_at Any) \\ rw []
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ first_x_assum irule
-      \\ simp [MAP_FST_FILTER]
-      \\ gvs [MEM_EL, PULL_EXISTS]
-      \\ rw [Once EQ_SYM_EQ]
-      \\ first_assum (irule_at Any)
-      \\ irule_at Any LIST_REL_FILTER \\ fs [])
-    \\ Cases_on ‘xs’ \\ gs [mk_case_rows_def]
+    \\ simp [subst_def]
+    \\ ‘MAP FST f = MAP FST g’
+      by (fs [ELIM_UNCURRY, LIST_REL_CONJ]
+          \\ irule LIST_EQ
+          \\ gvs [LIST_REL_EL_EQN] \\ rw [EL_MAP])
+    \\ irule exp_rel_Letrec
+    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
+    \\ first_assum (irule_at Any)
+    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
+    \\ irule_at Any LIST_REL_FILTER \\ fs []
+    \\ irule_at Any LIST_REL_EL_MONO
+    \\ first_assum (irule_at Any) \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ gs [mk_case_rows_def])
+    \\ first_x_assum irule
+    \\ simp [MAP_FST_FILTER]
+    \\ gvs [MEM_EL, PULL_EXISTS]
+    \\ rw [Once EQ_SYM_EQ]
+    \\ first_assum (irule_at Any)
+    \\ irule_at Any LIST_REL_FILTER \\ fs [])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
@@ -809,10 +554,7 @@ Proof
     \\ first_x_assum (drule_all_then strip_assume_tac)
     \\ Cases_on ‘eval_to k x1’ \\ Cases_on ‘eval_to k g’ \\ gs []
     \\ qpat_x_assum ‘exp_rel (Delay _) _’ mp_tac
-    \\ rw [Once exp_rel_cases]
-    >~ [‘Force (Var v)’] >- (
-      gs [closed_def])
-    \\ gs [eval_to_def]
+    \\ rw [Once exp_rel_cases] \\ gs [eval_to_def]
     \\ rename1 ‘dest_anyClosure v1’
     \\ rename1 ‘v_rel v1 v2’
     THEN (
@@ -855,40 +597,6 @@ Proof
     \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [])
   >- ((* Let SOME *)
     rw [Once exp_rel_cases]
-    >- ((* Let Proj *)
-      simp [eval_to_def]
-      \\ gs [exp_inv_def]
-      \\ IF_CASES_TAC \\ gs []
-      \\ first_x_assum irule
-      \\ simp [closed_subst, exp_inv_subst]
-      \\ DEP_REWRITE_TAC [DelayCaseRows_subst]
-      \\ DEP_REWRITE_TAC [TickCaseRows_subst]
-      \\ gs [freevars_def]
-      \\ ‘MAP (FST o SND) ys = MAP (FST o SND) xs’
-        by (irule LIST_EQ
-            \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY])
-      \\ simp []
-      \\ qmatch_goalsub_abbrev_tac ‘MAP f xs’
-      \\ qmatch_goalsub_abbrev_tac ‘MAP g ys’
-      \\ qmatch_asmsub_rename_tac ‘exp_rel x1 x2’
-      \\ ‘MAP f xs = MAP (λ(a,b,c). (a,b,subst [(n, Thunk (INR x1))] c)) xs’
-        by (gs [MAP_EQ_f, Abbr ‘f’, MEM_FLAT, ELIM_UNCURRY] \\ rw []
-            \\ gs [MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS])
-      \\ pop_assum SUBST1_TAC
-      \\ ‘MAP g ys = MAP (λ(a,b,c). (a,b,subst [(n, Thunk (INR x2))] c)) ys’
-        by (‘¬MEM n (FLAT (MAP (FST o SND) ys))’ by gs []
-            \\ qpat_x_assum ‘MAP _ ys = _’ kall_tac
-            \\ qpat_x_assum ‘¬MEM n (FLAT (MAP _ xs))’ kall_tac
-            \\ gs [MAP_EQ_f, Abbr ‘g’, MEM_FLAT, ELIM_UNCURRY] \\ rw []
-            \\ gs [MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS])
-      \\ pop_assum SUBST1_TAC
-      \\ simp [subst1_def]
-      \\ irule exp_rel_CaseRows_Value
-      \\ gs [EVERY2_MAP, LAMBDA_PROD]
-      \\ irule LIST_REL_mono
-      \\ first_assum (irule_at Any)
-      \\ simp [FORALL_PROD] \\ rw []
-      \\ irule exp_rel_subst \\ gs [])
     \\ gvs [exp_inv_def]
     \\ rename1 ‘exp_rel x1 x2’
     \\ rename1 ‘exp_rel y1 y2’
@@ -900,42 +608,31 @@ Proof
     \\ irule_at Any exp_rel_subst \\ gs [])
   >- ((* If *)
     rw [Once exp_rel_cases] \\ fs [exp_inv_def]
-    >~ [‘_ (_ _ (If _ _ _)) (_ _ (If _ _ _))’] >- (
-      rename1 ‘If x y z’
-      \\ rw [eval_to_def] \\ gvs [exp_inv_def]
-      \\ first_x_assum (drule_then assume_tac) \\ fs []
-      \\ first_x_assum (drule_then assume_tac) \\ fs []
-      \\ first_x_assum (drule_then assume_tac) \\ fs []
-      \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs [])
-    >- ((* Var *)
-      Cases_on ‘xs’ \\ gs [mk_case_rows_def]
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ gvs [mk_case_rows_def])
-    \\ cheat
-       (* ... (eval_to k (DelayCaseRows ...)) (eval_to k(TickCaseRows ...)) *))
+    \\ rename1 ‘If x y z’
+    \\ rw [eval_to_def] \\ gvs [exp_inv_def]
+    \\ first_x_assum (drule_then assume_tac) \\ fs []
+    \\ first_x_assum (drule_then assume_tac) \\ fs []
+    \\ first_x_assum (drule_then assume_tac) \\ fs []
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs [])
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
-    >~ [‘_ (_ _ (Letrec _ _)) (_ _ (Letrec _ _))’] >- (
-      rw [eval_to_def] \\ gvs [exp_inv_def]
-      \\ first_x_assum irule
-      \\ simp [subst_funs_def, closed_subst]
-      \\ irule_at Any exp_rel_subst
-      \\ irule_at Any exp_inv_subst
-      \\ irule_at Any LIST_EQ
-      \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
-             GSYM FST_THM, EL_MAP, EVERY_MAP, SF CONJ_ss]
-      \\ gs [ELIM_UNCURRY]
-      \\ gvs [LIST_REL_EL_EQN, EL_MAP, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS,
-              freevars_def, MEM_EL]
-      \\ rw [ELIM_UNCURRY, freevars_def, MAP_MAP_o, combinTheory.o_DEF,
-             SF ETA_ss])
-    \\ Cases_on ‘xs’ \\ gs [mk_case_rows_def]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ gvs [mk_case_rows_def])
+    \\ rw [eval_to_def] \\ gvs [exp_inv_def]
+    \\ first_x_assum irule
+    \\ simp [subst_funs_def, closed_subst]
+    \\ irule_at Any exp_rel_subst
+    \\ irule_at Any exp_inv_subst
+    \\ irule_at Any LIST_EQ
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SUBSET_DIFF_EMPTY,
+           GSYM FST_THM, EL_MAP, EVERY_MAP, SF CONJ_ss]
+    \\ gs [ELIM_UNCURRY]
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS,
+            freevars_def, MEM_EL]
+    \\ rw [ELIM_UNCURRY, freevars_def, MAP_MAP_o, combinTheory.o_DEF,
+           SF ETA_ss])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
@@ -1047,15 +744,6 @@ Proof
     rw [Once exp_rel_cases])
   >- ((* Prim *)
     rw [Once exp_rel_cases]
-    \\ TRY ((* Fail *)
-      Cases_on ‘op’ \\ gs []
-      \\ Cases_on ‘xs’ \\ gs []
-      \\ rename1 ‘DelayCaseRows x xs’
-      \\ Cases_on ‘xs’ \\ gs [mk_case_rows_def, Fail_def, eval_to_def]
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ gs [mk_case_rows_def]
-      \\ NO_TAC)
-    \\ gvs []
     \\ simp [eval_to_def]
     \\ Cases_on ‘op’ \\ gs [exp_inv_def, EVERY_EL, EL_MAP, LIST_REL_EL_EQN]
     >- ((* Cons *)
