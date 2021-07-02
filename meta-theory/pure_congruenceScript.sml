@@ -1639,9 +1639,11 @@ Proof
     simp[Once unfold_rel_def, eval_wh_Prim_alt] >> strip_tac >>
     Cases_on `k = 0` >> gvs[]
     >- (
-      Cases_on `xs` >> gvs[get_atoms_def] >>
-      Cases_on `eval_op a []` >> gvs[pure_configTheory.eval_op_SOME]
-      ) >>
+      gs [get_atoms_def, EXISTS_MAP, EVERY_MAP, MEM_MAP, MAP_MAP_o,
+          combinTheory.o_DEF]
+      \\ gs [EVERY_MEM, EXISTS_MEM]
+      \\ Cases_on ‘xs’ \\ gvs [SF DNF_ss]
+      \\ Cases_on ‘eval_op a []’ \\ gvs [pure_configTheory.eval_op_SOME]) >>
     Cases_on `get_atoms (MAP (λa. eval_wh_to (k − 1) a) xs)` >> gvs[] >>
     drule get_atoms_eval_wh_SOME >> strip_tac >> gvs[] >>
     CASE_TAC >> gvs[] >>
@@ -1660,28 +1662,26 @@ Proof
       ) >>
     qsuff_tac `get_atoms (MAP eval_wh es') = SOME NONE` >> gvs[] >>
     pop_assum mp_tac >> simp[get_atoms_SOME_NONE_eq] >> strip_tac >>
+    pop_assum mp_tac >>
+    rw [EXISTS_MAP, EXISTS_MEM, MEM_EL, PULL_EXISTS] >>
     qexists_tac `n` >> gvs[LIST_REL_EL_EQN, EL_MAP] >>
     last_assum (qspec_then `EL n xs` mp_tac) >> simp[EL_MEM] >>
     last_assum drule >> strip_tac >>
     disch_then $ drule_at Any >> gvs[EVERY_EL] >> strip_tac >>
+    ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Diverge ’
+      by (Cases_on ‘eval_wh_to (k - 1) (EL n xs) = wh_Diverge ’ >> gs []) >>
     `∀a. eval_wh (EL n xs) ≠ wh_Atom a` by (
       CCONTR_TAC >> gvs[] >> gvs[eval_wh_eq] >>
       first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
       drule eval_wh_to_agree >>
-      disch_then (qspec_then `k'` assume_tac) >> gvs[]) >>
+      disch_then (qspec_then `k'` assume_tac) >> gvs[] >>
+      Cases_on ‘eval_wh_to (k - 1) (EL n xs)’ >> gvs[]) >>
     `eval_wh (EL n xs) ≠ wh_Diverge` by (
       gvs[eval_wh_neq_Diverge] >>
-      first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
       goal_assum drule) >>
-    rw[] >- (Cases_on `eval_wh (EL n xs)` >> gvs[]) >>
+    gs [] >>
     first_x_assum drule >> strip_tac >>
-    `eval_wh (EL m xs) ≠ wh_Diverge` by (
-      gvs[eval_wh_neq_Diverge] >> goal_assum drule) >>
-    last_x_assum (qspec_then `EL m xs` mp_tac) >> simp[EL_MEM] >>
-    disch_then drule >>
-    `m < LENGTH es'` by gvs[] >> res_tac >>
-    disch_then drule >> simp[] >>
-    strip_tac >> Cases_on `eval_wh (EL m xs)` >> gvs[]
+    Cases_on ‘eval_wh (EL n xs)’ >> gvs []
     )
   >- ( (* Seq *)
     qpat_x_assum `_ ≠ wh_Diverge` mp_tac >>

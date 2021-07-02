@@ -41,17 +41,21 @@ Definition dest_wh_Closure_def[simp]:
   dest_wh_Closure _ = NONE
 End
 
+Definition dest_Atom_def:
+  dest_Atom (wh_Atom x) = x
+End
+
+Definition error_Atom_def[simp]:
+  error_Atom (wh_Atom x) = F ∧
+  error_Atom wh_Diverge = F ∧
+  error_Atom _ = T
+End
+
 Definition get_atoms_def:
-  get_atoms [] = SOME (SOME []) ∧
-  get_atoms (v::vs) =
-    case v of
-    | wh_Diverge => NONE (* diverge *)
-    | wh_Atom a =>
-        (case get_atoms vs of
-         | NONE => NONE
-         | SOME NONE => SOME NONE
-         | SOME (SOME vs) => SOME (SOME (a::vs)))
-    | _ => SOME NONE (* error *)
+  get_atoms vs =
+    if EXISTS error_Atom vs then SOME NONE
+    else if MEM wh_Diverge vs then NONE
+    else SOME (SOME (MAP dest_Atom vs))
 End
 
 Definition eval_wh_to_def:
@@ -181,15 +185,27 @@ Proof
    (Cases_on ‘n = 0’ \\ fs []
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [PULL_FORALL,AND_IMP_INTRO]
-    THEN1 (Cases_on ‘xs’ \\ fs [get_atoms_def])
-    \\ ‘n-1 ≤ k-1’ by fs []
-    \\ rpt (first_x_assum (first_assum o mp_then (Pos last) mp_tac))
-    \\ Cases_on ‘get_atoms (MAP (λa. eval_wh_to (n − 1) a) xs) = NONE’ \\ fs []
-    \\ pop_assum mp_tac \\ qid_spec_tac ‘xs’
-    \\ Induct \\ fs [] \\ rw []
-    \\ first_assum (qspec_then ‘h’ mp_tac) \\ strip_tac \\ fs []
-    \\ Cases_on ‘eval_wh_to (n − 1) h’ \\ fs [get_atoms_def]
-    \\ Cases_on ‘get_atoms (MAP (λa. eval_wh_to (n − 1) a) xs')’ \\ fs [])
+    THEN1 (
+      gs [get_atoms_def, CaseEq "bool", CaseEq "option", MEM_MAP]
+      \\ fs [GSYM pure_miscTheory.NIL_iff_NOT_MEM]
+      \\ gs [EXISTS_MAP, combinTheory.o_DEF, EVERY_MAP])
+    \\ gs [CaseEqs ["bool", "option", "sum"]]
+    \\ qpat_x_assum ‘_ ≠ NONE’ mp_tac
+    \\ simp [Once get_atoms_def]
+    \\ gs [MEM_MAP, CaseEq "bool", EXISTS_MAP, EXISTS_MEM]
+    \\ rw [] \\ gs []
+    >- (
+      ‘eval_wh_to (n - 1) a ≠ wh_Diverge’
+        by (strip_tac \\ gs [])
+      \\ ‘n-1 ≤ k-1’ by fs []
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ gs [get_atoms_def, MEM_MAP, EXISTS_MAP, EXISTS_MEM]
+      \\ metis_tac [])
+    \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+    \\ AP_TERM_TAC
+    \\ rw [MAP_EQ_f]
+    \\ first_x_assum irule
+    \\ gs [SF SFY_ss])
   \\ Cases_on ‘∃s i. p = Proj s i’
   THEN1
    (Cases_on ‘n = 0’ \\ gvs []
@@ -430,12 +446,19 @@ Theorem get_atoms_eval_wh_to_inc:
     k ≤ k'
   ⇒ get_atoms (MAP (λa. eval_wh_to k' a) l) = SOME as
 Proof
-  Induct >> rw[get_atoms_def] >>
-  `eval_wh_to k h ≠ wh_Diverge` by (EVERY_CASE_TAC >> gvs[]) >>
-  drule_all eval_wh_inc >> gvs[] >> rw[] >>
-  TOP_CASE_TAC >> gvs[] >>
-  pop_assum mp_tac >>
-  TOP_CASE_TAC >> gvs[]
+  rpt strip_tac
+  \\ Cases_on ‘as’ \\ gs []
+  >- (
+    gs [get_atoms_def, MEM_MAP, CaseEq "bool", EXISTS_MAP, EXISTS_MEM]
+    \\ `eval_wh_to k a ≠ wh_Diverge`
+      by (strip_tac \\ gs [])
+    \\ drule_all eval_wh_inc \\ rw []
+    \\ first_x_assum (irule_at Any) \\ gs [])
+  \\ gs [get_atoms_def, MEM_MAP, CaseEq "bool", EVERY_MAP, EVERY_MEM]
+  \\ gvs [DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”, MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+  \\ rw [] \\ gs []
+  \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []
+  \\ drule_all eval_wh_inc \\ rw []
 QED
 
 Theorem get_atoms_eval_wh_to_SOME:
@@ -443,16 +466,36 @@ Theorem get_atoms_eval_wh_to_SOME:
     get_atoms (MAP (λa. eval_wh a) l) = SOME as
   ⇒ ∃k. get_atoms (MAP (λa. eval_wh_to k a) l) = SOME as
 Proof
-  Induct >> rw[get_atoms_def] >> pop_assum mp_tac >>
-  simp[Once eval_wh_def] >>
-  DEEP_INTRO_TAC some_intro >> rw[] >>
-  Cases_on `get_atoms (MAP (λa. eval_wh a) l)` >> gvs[]
-  >- (qexists_tac `x` >> TOP_CASE_TAC >> gvs[]) >>
-  qexists_tac `x + k` >>
-  drule eval_wh_inc >> disch_then (qspec_then `x + k` assume_tac) >> gvs[] >>
-  TOP_CASE_TAC >> gvs[] >>
-  drule get_atoms_eval_wh_to_inc >>
-  disch_then (qspec_then `x + k` assume_tac) >> gvs[]
+  rpt gen_tac
+  \\ Cases_on ‘as’ \\ gs []
+  >- (
+    gs [get_atoms_def, MEM_MAP, CaseEq "bool", PULL_EXISTS, EXISTS_MAP,
+        EXISTS_MEM]
+    \\ gen_tac
+    \\ simp [eval_wh_def]
+    \\ DEEP_INTRO_TAC some_intro
+    \\ rw [] \\ gs [SF SFY_ss])
+  \\ gs [get_atoms_def, MEM_MAP, CaseEq "bool",
+         DECIDE “A ⇒ ¬MEM x y ⇔ MEM x y ⇒ ¬A”,
+         EVERY_MAP, EVERY_MEM]
+  \\ rw [] \\ gs [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+  \\ rpt (pop_assum mp_tac)
+  \\ Induct_on ‘l’ \\ gs []
+  \\ qx_gen_tac ‘x’ \\ rw [] \\ gs [SF DNF_ss]
+  \\ qpat_x_assum ‘eval_wh x ≠ _’ mp_tac
+  \\ qpat_x_assum ‘¬_ (eval_wh x)’ mp_tac
+  \\ simp [Once eval_wh_def]
+  \\ simp [Once eval_wh_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ qmatch_asmsub_rename_tac ‘eval_wh_to k1 x’
+  \\ drule_then (qspec_then ‘k1 + k’ assume_tac) eval_wh_inc \\ gs []
+  \\ ‘∀a. MEM a l ⇒ eval_wh_to (k1 + k) a = eval_wh_to k a’
+    by (rw [] \\ irule eval_wh_inc \\ gs [])
+  \\ qexists_tac ‘k1 + k’ \\ gs []
+  \\ AP_TERM_TAC
+  \\ simp [eval_wh_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ irule eval_wh_to_agree \\ gs []
 QED
 
 Theorem get_atoms_eval_wh_SOME:
@@ -460,17 +503,37 @@ Theorem get_atoms_eval_wh_SOME:
     get_atoms (MAP (λa. eval_wh_to k a) l) = SOME as
   ⇒ get_atoms (MAP (λa. eval_wh a) l) = SOME as
 Proof
-  Induct >> rw[get_atoms_def] >>
-  `eval_wh_to k h ≠ wh_Diverge` by (EVERY_CASE_TAC >> gvs[]) >>
-  `eval_wh h ≠ wh_Diverge` by (gvs[eval_wh_neq_Diverge] >> goal_assum drule) >>
-  simp[eval_wh_def] >>
-  DEEP_INTRO_TAC some_intro >> reverse (rw[]) >- goal_assum drule >>
-  drule eval_wh_to_agree >>
-  disch_then (qspec_then `k` assume_tac) >> gvs[] >>
-  TOP_CASE_TAC >> gvs[GSYM eval_wh_def] >>
-  pop_assum mp_tac >>
-  TOP_CASE_TAC >>
-  last_x_assum drule >> gvs[]
+  rpt gen_tac
+  \\ Cases_on ‘as’ \\ gs []
+  >- (
+    gs [get_atoms_def, MEM_MAP, CaseEq "bool", PULL_EXISTS, EXISTS_MEM] \\ rw []
+    \\ first_assum (irule_at Any)
+    \\ simp [eval_wh_def]
+    \\ DEEP_INTRO_TAC some_intro \\ rw []
+    >- (
+      drule_then (qspec_then ‘k’ assume_tac) eval_wh_to_agree
+      \\ Cases_on ‘eval_wh_to k a’ \\ Cases_on ‘eval_wh_to x a’ \\ gs [])
+    \\ qexists_tac ‘k’ \\ gs []
+    \\ Cases_on ‘eval_wh_to k a’ \\ gs [])
+  \\ gs [get_atoms_def, MEM_MAP, CaseEq "bool", EVERY_MAP, EVERY_MEM,
+         DECIDE “A ⇒ ¬MEM x y ⇔ MEM x y ⇒ ¬A”]
+  \\ rw [] \\ gs [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+  \\ simp [eval_wh_def]
+  >- (
+    DEEP_INTRO_TAC some_intro \\ rw []
+    \\ first_x_assum (drule_then assume_tac)
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule_then (qspec_then ‘x’ assume_tac) eval_wh_to_agree
+    \\ gs [])
+  >- (
+    DEEP_INTRO_TAC some_intro \\ rw []
+    \\ first_x_assum (irule_at Any)
+    \\ gs [])
+  \\ rw []
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ AP_TERM_TAC
+  \\ irule eval_wh_to_agree
+  \\ gs []
 QED
 
 Theorem get_atoms_eval_wh_NONE:
@@ -478,33 +541,44 @@ Theorem get_atoms_eval_wh_NONE:
     (∀k. get_atoms (MAP (λa. eval_wh_to k a) l) = NONE)
   ⇒ get_atoms (MAP (λa. eval_wh a) l) = NONE
 Proof
-  Induct >> rw[get_atoms_def] >>
-  simp[eval_wh_def] >>
-  DEEP_INTRO_TAC some_intro >> rw[] >>
-  simp[GSYM eval_wh_def] >>
-  first_assum (qspec_then `x` mp_tac) >>
-  TOP_CASE_TAC >> gvs[] >> rw[] >>
-  qsuff_tac `get_atoms (MAP (λa. eval_wh a) l) = NONE` >> gvs[] >>
-  first_x_assum irule >> rw[] >>
-  pop_assum mp_tac >>
-  reverse (TOP_CASE_TAC >> gvs[])
-  >- (TOP_CASE_TAC >> gvs[]) >>
-  Cases_on `x ≤ k`
+  rw [get_atoms_def, EXISTS_MAP, EXISTS_MEM, MEM_MAP] \\ gs []
   >- (
-    drule_at Any eval_wh_inc >>
-    disch_then (qspec_then `h` assume_tac) >> gvs[] >>
-    last_x_assum (qspec_then `k` mp_tac) >> gvs[] >>
-    TOP_CASE_TAC >> gvs[] >>
-    TOP_CASE_TAC >> gvs[]
-    ) >>
-  gvs[NOT_LESS_EQUAL] >>
-  CCONTR_TAC >>
-  qpat_x_assum `get_atoms _ = NONE` mp_tac >> gvs[] >>
-  `k ≤ x` by gvs[] >>
-  drule_at Any get_atoms_eval_wh_to_inc >>
-  qmatch_asmsub_abbrev_tac `get_atoms a` >>
-  Cases_on `get_atoms a` >> gvs[] >>
-  unabbrev_all_tac >> disch_then drule >> simp[]
+    pop_assum mp_tac
+    \\ simp [eval_wh_def]
+    \\ DEEP_INTRO_TAC some_intro \\ rw []
+    \\ qexists_tac ‘x’
+    \\ rw [] \\ gs [DISJ_EQ_IMP])
+  \\ gs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, DISJ_EQ_IMP]
+  \\ rpt (pop_assum mp_tac)
+  \\ Induct_on ‘l’ \\ simp []
+  \\ qx_gen_tac ‘x’ \\ rw [] \\ gs []
+  \\ gs [SF DNF_ss]
+  \\ qpat_x_assum ‘eval_wh x ≠ _’ mp_tac
+  \\ qpat_x_assum ‘¬_ (eval_wh x)’ mp_tac
+  \\ simp [eval_wh_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ rename1 ‘eval_wh_to k1 x’
+  \\ qexists_tac ‘k1 + k’
+  \\ ‘eval_wh_to (k1 + k) x = eval_wh_to k1 x’
+    by (irule eval_wh_inc \\ gs [])
+  \\ gs []
+  \\ IF_CASES_TAC \\ gs []
+  \\ rw [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
+  \\ gs [DISJ_EQ_IMP] \\ gs [CaseEq "bool"]
+  >- (
+    ‘F’ suffices_by rw []
+    \\ pop_assum kall_tac
+    \\ rename1 ‘MEM y l’
+    \\ last_x_assum drule
+    \\ simp [eval_wh_def]
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ ‘eval_wh_to k y ≠ wh_Diverge’ by (strip_tac \\ gs [])
+    \\ gs [SF SFY_ss]
+    \\ qx_gen_tac ‘k2’ \\ strip_tac
+    \\ drule_then (qspec_then ‘k’ assume_tac) eval_wh_to_agree \\ gs [])
+  \\ gs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, DISJ_EQ_IMP]
+  \\ last_x_assum (drule_then assume_tac)
+  \\ drule_then (qspec_then ‘k1 + k’ assume_tac) eval_wh_inc \\ gs []
 QED
 
 Theorem get_atoms_SOME_SOME_eq:
@@ -512,73 +586,39 @@ Theorem get_atoms_SOME_SOME_eq:
     get_atoms ls = SOME (SOME as) ⇔
     LIST_REL (λl a. l = wh_Atom a) ls as
 Proof
-  Induct >> rw[] >> eq_tac >> rw[get_atoms_def] >> gvs[] >>
-  EVERY_CASE_TAC >> gvs[] >>
-  qexists_tac `x'` >>
-  last_x_assum (qspec_then `x'` assume_tac) >> gvs[]
+  rw [get_atoms_def, EXISTS_MEM] \\ gs [DISJ_EQ_IMP]
+  \\ gs [LIST_REL_EL_EQN, MEM_EL] \\ rw [EQ_IMP_THM] \\ gs []
+  >- (
+    first_x_assum (irule_at Any) \\ strip_tac \\ gs [])
+  >- (
+    first_x_assum (irule_at Any) \\ strip_tac \\ gs [])
+  >- (
+    gs [EL_MAP, PULL_EXISTS, DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”]
+    \\ rpt (first_x_assum (drule_then assume_tac))
+    \\ Cases_on ‘EL n ls’ \\ gs [dest_Atom_def])
+  \\ irule LIST_EQ
+  \\ gs [SF CONJ_ss, EL_MAP, PULL_EXISTS, dest_Atom_def]
 QED
 
 Theorem get_atoms_SOME_NONE_eq:
   ∀ls.
-    get_atoms ls = SOME NONE ⇔
-    ∃n.
-      n < LENGTH ls ∧
-      (∀a. EL n ls ≠ wh_Atom a) ∧
-      (∀m. m ≤ n ⇒ EL m ls ≠ wh_Diverge)
+    get_atoms ls = SOME NONE ⇔ EXISTS error_Atom ls
 Proof
-  Induct >> rw[get_atoms_def] >> eq_tac >> rw[]
-  >- (
-    reverse (Cases_on `∃a. h = wh_Atom a`) >> gvs[]
-    >- (qexists_tac `0` >> gvs[] >> EVERY_CASE_TAC >> gvs[]) >>
-    EVERY_CASE_TAC >> gvs[] >>
-    qexists_tac `SUC n` >> simp[] >> rw[] >>
-    Cases_on `m` >> gvs[]
-    )
-  >- (
-    Cases_on `n` >> gvs[]
-    >- (EVERY_CASE_TAC >> gvs[]) >>
-    reverse TOP_CASE_TAC >> gvs[]
-    >- (first_x_assum (qspec_then `0` assume_tac) >> fs[]) >>
-    qsuff_tac `get_atoms ls = SOME NONE`
-    >- (strip_tac >> CASE_TAC >> gvs[]) >>
-    rw[] >> goal_assum drule >> simp[] >>
-    rw[] >> first_x_assum (qspec_then `SUC m` assume_tac) >> gvs[]
-    )
+  rw [get_atoms_def]
 QED
 
 Theorem get_atoms_NONE_eq:
-  ∀l. get_atoms l = NONE ⇔
-    ∃n.
-      n < LENGTH l ∧
-      EL n l = wh_Diverge ∧
-      ∀m. m < n ⇒ ∃a. EL m l = wh_Atom a
+  ∀l. get_atoms l = NONE ⇔ EVERY (λx. ¬error_Atom x) l ∧ MEM wh_Diverge l
 Proof
-  Induct >> rw[get_atoms_def] >>
-  eq_tac >> rw[]
-  >- (
-    reverse (Cases_on `h`) >> gvs[]
-    >- (qexists_tac `0` >> gvs[]) >>
-    full_case_tac >> gvs[]
-    >- (
-      qexists_tac `SUC n` >> gvs[] >> rw[] >>
-      Cases_on `m` >> gvs[]
-      ) >>
-    Cases_on `x` >> gvs[]
-    )
-  >- (
-    Cases_on `n` >> gvs[] >> rename1 `EL n _` >>
-    `∃a. h = wh_Atom a` by (
-      pop_assum (qspec_then `0` mp_tac) >> rw[]) >>
-    EVERY_CASE_TAC >> gvs[] >>
-    first_x_assum (qspec_then `n` mp_tac) >> gvs[DISJ_EQ_IMP] >> rw[] >>
-    first_x_assum (qspec_then `SUC m` mp_tac) >> gvs[]
-    )
+  rw [get_atoms_def, combinTheory.o_DEF, EXISTS_MEM, EVERY_MEM]
+  \\ gs [DISJ_EQ_IMP]
 QED
 
 Theorem get_atoms_MAP_Diverge:
   ys ≠ [] ⇒ get_atoms (MAP (K wh_Diverge) ys) = NONE
 Proof
-  Induct_on ‘ys’ \\ simp [get_atoms_def]
+  rw [get_atoms_def, EXISTS_MAP, MEM_MAP]
+  \\ gs [pure_miscTheory.NIL_iff_NOT_MEM, SF SFY_ss]
 QED
 
 Theorem eval_wh_Prim:
@@ -706,7 +746,7 @@ Proof
     DEEP_INTRO_TAC some_intro >> rw[] >>
     gvs[eval_wh_to_def] >>
     IF_CASES_TAC >> gvs[]
-    THEN1 (Cases_on ‘xs’ \\ fs [get_atoms_def]) >>
+    THEN1 (Cases_on ‘xs’ \\ fs [get_atoms_def, EXISTS_MAP]) >>
     TOP_CASE_TAC >> gvs[] >>
     TOP_CASE_TAC >> gvs[] >>
     imp_res_tac get_atoms_eval_wh_SOME >> simp[] >>

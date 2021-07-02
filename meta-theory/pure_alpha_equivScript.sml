@@ -502,14 +502,33 @@ Proof
   rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]
 QED
 
+Theorem error_Atom_perm_wh:
+  ∀v1 v2 x. error_Atom (perm_wh v1 v2 x) = error_Atom x
+Proof
+  ho_match_mp_tac perm_wh_ind \\ rw [perm_wh_def]
+QED
+
+Theorem dest_Atom_perm_wh:
+  ∀v1 v2 x. ¬error_Atom x ⇒ dest_Atom (perm_wh v1 v2 x) = dest_Atom x
+Proof
+  ho_match_mp_tac perm_wh_ind \\ rw [perm_wh_def]
+QED
+
 Triviality get_atoms_perm_cancel:
   ∀v1 v2 l.
-    get_atoms (MAP (perm_wh v1 v2) l) =
-    get_atoms l
+    get_atoms (MAP (perm_wh v1 v2) l) = get_atoms l
 Proof
-  gen_tac >> gen_tac >>
-  Induct >> rw[get_atoms_def] >>
-  BasicProvers.EVERY_CASE_TAC >> gvs[perm_wh_def]
+  rw [get_atoms_def, EXISTS_MAP, error_Atom_perm_wh, SF ETA_ss]
+  \\ gs [MEM_MAP]
+  >- (
+    Cases_on ‘y’ \\ gs [perm_wh_def])
+  >- (
+    gs [DISJ_EQ_IMP, Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+    \\ first_x_assum (drule_then assume_tac)
+    \\ gs [perm_wh_def])
+  \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+  \\ irule dest_Atom_perm_wh
+  \\ gs [EVERY_MEM]
 QED
 
 Theorem eval_wh_to_eqvt:
@@ -3286,18 +3305,47 @@ Proof
       rename1 `LIST_REL _ e1s e2s` >>
       qmatch_goalsub_abbrev_tac `MAP f e1s` >>
       qsuff_tac `get_atoms (MAP f e1s) = get_atoms (MAP f e2s)`
-      >- (rw[] >> TOP_CASE_TAC >> simp[wh_alpha_cases]) >>
-      unabbrev_all_tac >>
-      IF_CASES_TAC >> simp[]
-      >- (AP_TERM_TAC >> rw[MAP_EQ_EVERY2, LIST_REL_EL_EQN]) >>
-      qpat_x_assum `LIST_REL _ _ _` mp_tac >>
-      qid_spec_tac `e2s` >> qid_spec_tac `e1s` >>
-      ho_match_mp_tac LIST_REL_ind >> simp[] >> rw[get_atoms_def] >>
-      last_x_assum (qspec_then `k - 1` mp_tac) >> gvs[] >>
-      disch_then drule >>
-      simp[Once wh_alpha_cases] >>
-      TOP_CASE_TAC >> gvs[] >> rw[] >>
-      first_assum SUBST_ALL_TAC >> simp[]
+      >- (rw[] >> TOP_CASE_TAC >> simp[wh_alpha_cases])
+      \\ unabbrev_all_tac
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        AP_TERM_TAC
+        \\ irule LIST_EQ
+        \\ csimp [EL_MAP])
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ ‘∀n. n < LENGTH e2s ⇒
+                wh_alpha (eval_wh_to (k - 1) (EL n e1s))
+                         (eval_wh_to (k - 1) (EL n e2s))’
+        by rw []
+      \\ ntac 2 (last_x_assum kall_tac)
+      \\ simp [get_atoms_def, EXISTS_MAP, MEM_MAP, MAP_MAP_o,
+               combinTheory.o_DEF]
+      \\ gvs [combinTheory.o_DEF, EVERY_MEM, EXISTS_MEM, MEM_EL, PULL_EXISTS]
+      \\ simp [AC CONJ_COMM CONJ_ASSOC]
+      \\ rw [] \\ gs [DISJ_EQ_IMP]
+      >- (
+        rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [Once wh_alpha_cases])
+      >- (
+        rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [Once wh_alpha_cases])
+      >- (
+        qpat_x_assum ‘_ < LENGTH _’ kall_tac
+        \\ rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [Once wh_alpha_cases])
+      >- (
+        rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [Once wh_alpha_cases])
+      >- (
+        rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [Once wh_alpha_cases])
+      >- (
+        rpt (first_x_assum (drule_then assume_tac))
+        \\ gs [Once wh_alpha_cases])
+      \\ irule LIST_EQ
+      \\ rw [EL_MAP]
+      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ gs [Once wh_alpha_cases]
       )
     >- (
       Cases_on `LENGTH es ≠ 2` >> gvs[] >- simp[wh_alpha_refl] >>

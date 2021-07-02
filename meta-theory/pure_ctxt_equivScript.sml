@@ -642,7 +642,7 @@ Proof
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
-      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def]
+      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def, dest_Atom_def]
       )
     >- ( (* Str *)
       qexists_tac
@@ -650,7 +650,7 @@ Proof
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
-      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def]
+      Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def, dest_Atom_def]
       )
     >- ( (* Loc *)
       reverse $ Cases_on `∃m. eval_wh e2' = wh_Atom (Loc m)` >> gvs[]
@@ -716,7 +716,7 @@ Proof
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
-      Cases_on `eval_wh e1'` >> gvs[wh_to_cons_def]
+      Cases_on `eval_wh e1'` >> gvs[wh_to_cons_def, dest_Atom_def]
       )
     >- ( (* Str *)
       qexists_tac
@@ -724,7 +724,7 @@ Proof
       simp[plug_def] >>
       simp[itree_of_def, semantics_def, eval_wh_thm] >>
       simp[eval_wh_Prim, pure_evalTheory.get_atoms_def] >>
-      Cases_on `eval_wh e1'` >> gvs[wh_to_cons_def]
+      Cases_on `eval_wh e1'` >> gvs[wh_to_cons_def, dest_Atom_def]
       )
     >- ( (* Loc *)
       qexists_tac `BindAllocsC (SUC n)` >>

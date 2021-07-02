@@ -972,7 +972,8 @@ Proof
         \\ first_x_assum (drule_then assume_tac)
         \\ unabbrev_all_tac \\ gs []
         \\ rpt (first_x_assum (drule_then assume_tac))
-        \\ gs [CaseEqs ["sum", "v"]])
+        \\ gvs [CaseEqs ["sum", "v"]]
+        \\ rename1 ‘v_rel _ w’ \\ Cases_on ‘w’ \\ gs [v_rel_def])
       \\ IF_CASES_TAC \\ gs []
       >- (
         reverse IF_CASES_TAC \\ gs []
@@ -990,7 +991,13 @@ Proof
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ rpt CASE_TAC \\ gs []
-        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "envLang$v"]])
+        >- (
+          strip_tac \\ gs [CaseEqs ["sum", "envLang$v"]])
+        \\ rw [DISJ_EQ_IMP]
+        \\ strip_tac
+        \\ last_x_assum (qspec_then ‘EL n xs’ assume_tac)
+        \\ gs [CaseEqs ["sum", "envLang$v", "v"]]
+        \\ Cases_on ‘y’ \\ gvs [v_rel_def])
       \\ IF_CASES_TAC \\ gs []
       >- (
         fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
@@ -999,7 +1006,12 @@ Proof
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ rpt CASE_TAC \\ gs []
-        \\ rpt strip_tac \\ gs [CaseEqs ["sum", "envLang$v"]])
+        >- (
+          strip_tac \\ gs [CaseEqs ["sum", "envLang$v"]])
+        \\ rw [DISJ_EQ_IMP]
+        \\ strip_tac
+        \\ gs [CaseEqs ["sum", "envLang$v", "v"]]
+        \\ Cases_on ‘y’ \\ gvs [v_rel_def])
       \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ gs [EL_MAP, MEM_EL, PULL_EXISTS]
       \\ unabbrev_all_tac \\ gs [] \\ rw []
