@@ -19,8 +19,34 @@ Overload Tick = “λx: exp. Letrec [] x”;
 
 Overload IsEq = “λs i (x: exp). Prim (IsEq s i) [x]”;
 
+Theorem subst_FILTER[local]:
+  w ∉ freevars x ⇒
+    subst (FILTER (λ(n,x). n ≠ w) vs) x = subst vs x
+Proof
+  strip_tac
+  \\ ‘DISJOINT {w} (freevars x)’ by gs []
+  \\ drule_all subst_remove
+  \\ gs []
+QED
+
+Theorem subst1_notin_frees:
+  n ∉ freevars x ⇒
+    subst1 n v x = x
+Proof
+  strip_tac
+  \\ drule subst_FILTER
+  \\ disch_then (qspec_then ‘[n,v]’ mp_tac)
+  \\ simp []
+QED
+
+Theorem subst1_commutes:
+  n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
+Proof
+  cheat
+QED
+
 (* -------------------------------------------------------------------------
- * exp_rel_lift_Lift:
+ * exp_rel_lift:
  * ------------------------------------------------------------------------- *)
 
 Inductive exp_rel_lift:
@@ -202,26 +228,6 @@ Theorem result_rel_refl[local,simp]:
   ($= +++ v_rel_lift) (eval_to k x) (eval_to k x)
 Proof
   Cases_on ‘eval_to k x’ \\ gs []
-QED
-
-Theorem subst_FILTER[local]:
-  w ∉ freevars x ⇒
-    subst (FILTER (λ(n,x). n ≠ w) vs) x = subst vs x
-Proof
-  strip_tac
-  \\ ‘DISJOINT {w} (freevars x)’ by gs []
-  \\ drule_all subst_remove
-  \\ gs []
-QED
-
-Theorem subst1_notin_frees:
-  n ∉ freevars x ⇒
-    subst1 n v x = x
-Proof
-  strip_tac
-  \\ drule subst_FILTER
-  \\ disch_then (qspec_then ‘[n,v]’ mp_tac)
-  \\ simp []
 QED
 
 Theorem exp_rel_lift_freevars:
@@ -653,6 +659,646 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
       \\ rename1 ‘v_rel_lift v w’
+      \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs [])
+    >- ((* AtomOp *)
+      qmatch_goalsub_abbrev_tac ‘result_map f xs’
+      \\ qmatch_goalsub_abbrev_tac ‘result_map g ys’
+      \\ ‘MAP f xs = MAP g ys’
+        suffices_by (
+          rw []
+          \\ simp [result_map_def]
+          \\ IF_CASES_TAC \\ gs []
+          \\ IF_CASES_TAC \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs [])
+      \\ unabbrev_all_tac
+      \\ irule LIST_EQ
+      \\ gvs [LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+      \\ rw []
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ rpt CASE_TAC \\ gs []))
+QED
+
+(* -------------------------------------------------------------------------
+ * exp_rel_d2b:
+ *
+ * Replace “Delay” with “Box” when an expression is immediately forced. Uses
+ * less clock ticks on the right side.
+ * (Induction does not go through in the exp_rel_d2b_eval_to proof)
+ * ------------------------------------------------------------------------- *)
+
+Inductive exp_rel_d2b:
+(* Delay-to-Box *)
+[exp_rel_d2b_D2B:]
+  (∀v w x1 x2.
+     exp_rel_d2b x1 x2 ∧
+     exp_rel_d2b y1 y2 ∧
+     v ≠ w ⇒
+       exp_rel_d2b (Let (SOME v) (Delay x1)
+                        (Let (SOME w) (Force (Var v)) y1))
+                   (Let (SOME w) (Tick (Tick x2))
+                        (Let (SOME v) (Box (Var w)) y2))) ∧
+(* Reflexivity: *)
+[exp_rel_d2b_Refl:]
+  (∀x.
+     exp_rel_d2b x x) ∧
+[v_rel_d2b_Refl:]
+  (∀v.
+     v_rel_d2b v v) ∧
+(* Boilerplate: *)
+[exp_rel_d2b_App:]
+  (∀f g x y.
+     exp_rel_d2b f g ∧
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (App f x) (App g y)) ∧
+[exp_rel_d2b_Lam:]
+  (∀s x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Lam s x) (Lam s y)) ∧
+[exp_rel_d2b_Letrec:]
+  (∀f g x y.
+     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_d2b x y) f g ∧
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Letrec f x) (Letrec g y)) ∧
+[exp_rel_d2b_Let:]
+  (∀bv x1 y1 x2 y2.
+     exp_rel_d2b x1 x2 ∧
+     exp_rel_d2b y1 y2 ⇒
+       exp_rel_d2b (Let bv x1 y1) (Let bv x2 y2)) ∧
+[exp_rel_d2b_If:]
+  (∀x1 x2 y1 y2 z1 z2.
+     LIST_REL exp_rel_d2b [x1;y1;z1] [x2;y2;z2] ⇒
+       exp_rel_d2b (If x1 y1 z1) (If x2 y2 z2)) ∧
+[exp_rel_d2b_Prim:]
+  (∀op xs ys.
+     LIST_REL exp_rel_d2b xs ys ⇒
+       exp_rel_d2b (Prim op xs) (Prim op ys)) ∧
+[exp_rel_d2b_Delay:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Delay x) (Delay y)) ∧
+[exp_rel_d2b_Box:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Box x) (Box y)) ∧
+[exp_rel_d2b_Force:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Force x) (Force y)) ∧
+[exp_rel_d2b_MkTick:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (MkTick x) (MkTick y)) ∧
+[exp_rel_d2b_Var:]
+  (∀v.
+     exp_rel_d2b (Var v) (Var v)) ∧
+[exp_rel_d2b_Value:]
+  (∀v w.
+     v_rel_d2b v w ⇒
+     exp_rel_d2b (Value v) (Value w)) ∧
+[exp_rel_d2b_App:]
+  (∀f g x y.
+     exp_rel_d2b f g ∧
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (App f x) (App g y)) ∧
+[exp_rel_d2b_Lam:]
+  (∀s x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Lam s x) (Lam s y)) ∧
+[exp_rel_d2b_Letrec:]
+  (∀f g x y.
+     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_d2b x y) f g ∧
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Letrec f x) (Letrec g y)) ∧
+[exp_rel_d2b_Let:]
+  (∀bv x1 y1 x2 y2.
+     exp_rel_d2b x1 x2 ∧
+     exp_rel_d2b y1 y2 ⇒
+       exp_rel_d2b (Let bv x1 y1) (Let bv x2 y2)) ∧
+[exp_rel_d2b_If:]
+  (∀x1 x2 y1 y2 z1 z2.
+     LIST_REL exp_rel_d2b [x1;y1;z1] [x2;y2;z2] ⇒
+       exp_rel_d2b (If x1 y1 z1) (If x2 y2 z2)) ∧
+[exp_rel_d2b_Prim:]
+  (∀op xs ys.
+     LIST_REL exp_rel_d2b xs ys ⇒
+       exp_rel_d2b (Prim op xs) (Prim op ys)) ∧
+[exp_rel_d2b_Delay:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Delay x) (Delay y)) ∧
+[exp_rel_d2b_Box:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Box x) (Box y)) ∧
+[exp_rel_d2b_Force:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (Force x) (Force y)) ∧
+[exp_rel_d2b_MkTick:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       exp_rel_d2b (MkTick x) (MkTick y)) ∧
+[v_rel_d2b_Atom:]
+  (∀x.
+     v_rel_d2b (Atom x) (Atom x)) ∧
+[v_rel_d2b_Constructor:]
+  (∀vs ws.
+     LIST_REL v_rel_d2b vs ws ⇒
+       v_rel_d2b (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_d2b_Closure:]
+  (∀s x y.
+     exp_rel_d2b x y ⇒
+       v_rel_d2b (Closure s x) (Closure s y)) ∧
+[v_rel_d2b_DoTick:]
+  (∀v w.
+     v_rel_d2b v w ⇒
+       v_rel_d2b (DoTick v) (DoTick w)) ∧
+[v_rel_d2b_Recclosure:]
+  (∀f g n.
+     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_d2b x y) f g ⇒
+       v_rel_d2b (Recclosure f n) (Recclosure g n)) ∧
+[v_rel_d2b_Thunk_INL:]
+  (∀x y.
+     exp_rel_d2b x y ⇒
+       v_rel_d2b (Thunk (INR x)) (Thunk (INR y))) ∧
+[v_rel_d2b_Thunk_INR:]
+  (∀v w.
+     v_rel_d2b v w ⇒
+       v_rel_d2b (Thunk (INL v)) (Thunk (INL w)))
+End
+
+Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+
+Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+
+Theorem v_rel_d2b_cases[local] = CONJUNCT2 exp_rel_d2b_cases;
+
+(* Boilerplate *)
+Theorem v_rel_d2b_def[simp]:
+  (v_rel_d2b (Closure s x) z ⇔ ∃y. z = Closure s y ∧ exp_rel_d2b x y) ∧
+  (v_rel_d2b z (Closure s x) ⇔ ∃y. z = Closure s y ∧ exp_rel_d2b y x) ∧
+  (v_rel_d2b (Constructor s vs) z ⇔ ∃ws. z = Constructor s ws ∧
+                                     LIST_REL v_rel_d2b vs ws) ∧
+  (v_rel_d2b z (Constructor s vs) ⇔ ∃ws. z = Constructor s ws ∧
+                                     LIST_REL v_rel_d2b ws vs) ∧
+  (v_rel_d2b (Recclosure f n) z ⇔ ∃g. z = Recclosure g n ∧
+                                  LIST_REL ($= ### exp_rel_d2b) f g) ∧
+  (v_rel_d2b z (Recclosure f n) ⇔ ∃g. z = Recclosure g n ∧
+                                  LIST_REL ($= ### exp_rel_d2b) g f) ∧
+  (v_rel_d2b (Atom a) z ⇔ z = Atom a) ∧
+  (v_rel_d2b z (Atom a) ⇔ z = Atom a) ∧
+  (v_rel_d2b (Thunk (INL v)) z ⇔ ∃w. z = Thunk (INL w) ∧ v_rel_d2b v w) ∧
+  (v_rel_d2b z (Thunk (INL v)) ⇔ ∃w. z = Thunk (INL w) ∧ v_rel_d2b w v) ∧
+  (v_rel_d2b (Thunk (INR x)) z ⇔ ∃y. z = Thunk (INR y) ∧ exp_rel_d2b x y) ∧
+  (v_rel_d2b z (Thunk (INR x)) ⇔ ∃y. z = Thunk (INR y) ∧ exp_rel_d2b y x)
+Proof
+  strip_tac \\ rw [Once v_rel_d2b_cases]
+  \\ rw [Once v_rel_d2b_cases, EQ_IMP_THM]
+  \\ rw [Once v_rel_d2b_cases, EVERY2_refl_EQ, exp_rel_d2b_Refl]
+  \\ pairarg_tac \\ gvs [exp_rel_d2b_Refl]
+QED
+
+Theorem exp_rel_d2b_Refl[simp] = exp_rel_d2b_Refl;
+
+Theorem v_rel_d2b_Refl[simp] = v_rel_d2b_Refl;
+
+Theorem result_rel_refl[local,simp]:
+  ($= +++ v_rel_d2b) (eval_to k x) (eval_to k x)
+Proof
+  Cases_on ‘eval_to k x’ \\ gs []
+QED
+
+Theorem exp_rel_d2b_freevars:
+  exp_rel_d2b x y ⇒ freevars x = freevars y
+Proof
+  qsuff_tac ‘
+    (∀x y. exp_rel_d2b x y ⇒ freevars x = freevars y) ∧
+    (∀v w. v_rel_d2b v w ⇒ T)’
+  >- rw []
+  \\ ho_match_mp_tac exp_rel_d2b_strongind
+  \\ simp [freevars_def]
+  \\ rw []
+  >- (
+    rw [EXTENSION, EQ_IMP_THM] \\ gs []
+    \\ metis_tac [])
+  >- (
+    rw [EXTENSION, EQ_IMP_THM] \\ gs []
+    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
+           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss]
+    \\ metis_tac [])
+  >- (
+    Cases_on ‘bv’ \\ gs [freevars_def])
+  >- (
+    ‘MAP freevars xs = MAP freevars ys’
+      suffices_by rw [SF ETA_ss]
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+  >- (
+    rw [EXTENSION, EQ_IMP_THM] \\ gs []
+    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
+           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss]
+    \\ metis_tac [])
+  >- (
+    Cases_on ‘bv’ \\ gs [freevars_def])
+  >- (
+    ‘MAP freevars xs = MAP freevars ys’
+      suffices_by rw [SF ETA_ss]
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+QED
+
+Theorem exp_rel_d2b_subst:
+  ∀vs x ws y.
+    LIST_REL v_rel_d2b (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ∧
+    exp_rel_d2b x y ⇒
+      exp_rel_d2b (subst vs x) (subst ws y)
+Proof
+  ho_match_mp_tac subst_ind \\ rw []
+  \\ qpat_x_assum ‘exp_rel_d2b _ _’ mp_tac
+  >- ((* Var *)
+    rw [Once exp_rel_d2b_cases, subst_def] \\ gs []
+    \\ ‘OPTREL v_rel_d2b (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
+      by (irule LIST_REL_OPTREL
+          \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
+          \\ pop_assum mp_tac
+          \\ qid_spec_tac ‘ws’
+          \\ qid_spec_tac ‘vs’
+          \\ Induct \\ simp []
+          \\ gen_tac \\ Cases \\ simp [])
+    \\ gs [OPTREL_def]
+    \\ rw [Once exp_rel_d2b_cases])
+  >- ((* Prim *)
+    rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_Prim
+    \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ rw [])
+  >- ((* If *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_If \\ fs [])
+  >- ((* App *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_App \\ fs [])
+  >- ((* Lam *)
+    rw [Once exp_rel_d2b_cases]
+    \\ gvs [subst_def]
+    \\ irule exp_rel_d2b_Lam
+    \\ first_x_assum irule
+    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+    \\ irule LIST_REL_FILTER \\ fs [])
+  >- ((* Let NONE *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_Let \\ fs [])
+  >- ((* Let SOME *)
+    rw [Once exp_rel_d2b_cases] \\ gs []
+    >- (
+      last_x_assum (drule_then (qspec_then ‘Delay x2’ mp_tac))
+      \\ simp [Once exp_rel_d2b_cases, PULL_EXISTS, subst_def]
+      \\ simp [Once exp_rel_d2b_cases, PULL_EXISTS]
+      \\ gs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
+      \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ gs []
+      \\ ‘LIST_REL v_rel_d2b (MAP SND (FILTER (λ(n,x). P n) vs))
+                             (MAP SND (FILTER (λ(n,x). P n) ws))’
+        by (gs [EVERY2_MAP]
+            \\ irule LIST_REL_FILTER \\ gs [])
+      \\ first_x_assum drule
+      \\ simp [MAP_FST_FILTER, ELIM_UNCURRY]
+      \\ disch_then (qspec_then ‘Let (SOME w) (Force (Var s)) y2’ mp_tac)
+      \\ simp [Once exp_rel_d2b_cases]
+      \\ simp [Once exp_rel_d2b_cases, PULL_EXISTS, subst_def,
+               GSYM FILTER_REVERSE, ALOOKUP_FILTER, LAMBDA_PROD]
+      \\ simp [Once exp_rel_d2b_cases]
+      \\ ‘OPTREL v_rel_d2b (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
+        by (irule LIST_REL_OPTREL
+            \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
+            \\ qpat_x_assum ‘MAP _ _ = _’ mp_tac
+            \\ qid_spec_tac ‘ws’
+            \\ qid_spec_tac ‘vs’
+            \\ Induct \\ simp []
+            \\ gen_tac \\ Cases \\ simp [])
+      \\ gs [OPTREL_def, FILTER_FILTER, LAMBDA_PROD]
+      \\ rw [] \\ gs []
+      \\ irule exp_rel_d2b_D2B
+      \\ gs [AC CONJ_COMM CONJ_ASSOC])
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_Let \\ gs []
+    \\ first_x_assum irule
+    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+    \\ irule LIST_REL_FILTER \\ fs [])
+  >- ((* Letrec *)
+    rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_Letrec
+    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
+    \\ first_assum (irule_at Any)
+    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
+    >- (
+      qabbrev_tac ‘P = λx. ¬MEM x (MAP FST f)’ \\ fs []
+      \\ irule_at Any LIST_REL_FILTER \\ fs []
+      \\ gs [EVERY2_refl_EQ] \\ rw []
+      \\ pairarg_tac \\ gvs []
+      \\ first_x_assum irule
+      \\ simp [MAP_FST_FILTER, SF SFY_ss]
+      \\ irule LIST_REL_FILTER \\ gs [])
+    \\ `MAP FST f = MAP FST g`
+      by (irule LIST_EQ
+          \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
+    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
+    \\ irule_at Any LIST_REL_FILTER \\ fs []
+    \\ simp [SF ETA_ss]
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any)
+    \\ rw []
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ first_x_assum irule
+    \\ simp [MAP_FST_FILTER, SF SFY_ss, SF ETA_ss]
+    \\ irule LIST_REL_FILTER \\ gs [ELIM_UNCURRY])
+  >- ((* Delay *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def, exp_rel_d2b_Value, exp_rel_d2b_Delay, SF SFY_ss]
+    \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R _ _’
+    \\ ‘OPTREL R (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
+      by (irule LIST_REL_OPTREL
+          \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ, Abbr ‘R’]
+          \\ pop_assum mp_tac
+          \\ rpt (pop_assum kall_tac)
+          \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
+    \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_d2b_Var, exp_rel_d2b_Value])
+  >- ((* Box *)
+    rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_Box
+    \\ first_x_assum irule \\ gs [])
+  >- ((* Force *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_Force \\ fs [])
+  >- ((* Value *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def]
+    \\ rw [Once exp_rel_d2b_cases])
+  >- ((* MkTick *)
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_d2b_MkTick
+    \\ first_x_assum irule \\ gs [])
+QED
+
+Theorem exp_rel_d2b_eval_to:
+  ∀k x y.
+    exp_rel_d2b x y ⇒
+      ($= +++ v_rel_d2b)
+        (eval_to k x)
+        (eval_to k y)
+Proof
+  ho_match_mp_tac eval_to_ind \\ simp []
+  \\ rpt conj_tac \\ rpt gen_tac
+  >~ [‘Value v’] >- (
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [eval_to_def])
+  >~ [‘Var n’] >- (
+    rw [Once exp_rel_d2b_cases]
+    \\ simp [eval_to_def])
+  >~ [‘App f x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ rename1 ‘exp_rel_d2b x y’
+    \\ gs [eval_to_def]
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k g’ \\ gvs []
+    \\ rename1 ‘v_rel_d2b v w’
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def]
+    >- ((* Closure *)
+      IF_CASES_TAC \\ gs []
+      \\ rename1 ‘(_ +++ _) (_ _ (subst1 s u1 e1)) (_ _ (subst1 s u2 e2))’
+      \\ ‘[s,u1] = [] ++ [s,u1]’ by gs [] \\ pop_assum SUBST1_TAC
+      \\ ‘[s,u2] = [] ++ [s,u2]’ by gs [] \\ pop_assum SUBST1_TAC
+      \\ first_x_assum irule \\ gs []
+      \\ irule exp_rel_d2b_subst \\ gs [])
+        (* Recclosure *)
+    \\ rename1 ‘LIST_REL _ xs ys’
+    \\ ‘OPTREL exp_rel_d2b (ALOOKUP (REVERSE xs) s)
+                       (ALOOKUP (REVERSE ys) s)’
+      by (irule LIST_REL_OPTREL \\ gs [])
+    \\ gs [OPTREL_def]
+    \\ gvs [Once exp_rel_d2b_cases]
+    THENL [
+      CASE_TAC \\ gs [],
+      ALL_TAC,
+      ALL_TAC ]
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule
+    \\ irule exp_rel_d2b_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP,
+                                  LAMBDA_PROD, GSYM FST_THM]
+    \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
+    \\ irule LIST_EQ \\ gvs [EL_MAP])
+  >~ [‘Lam s x’] >- (
+    rw [Once exp_rel_d2b_cases]
+    \\ gs [eval_to_def])
+  >~ [‘Let NONE x y’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ last_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [])
+  >~ [‘Let (SOME n) x y’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    >- ((* D2B *)
+      cheat (* TODO Does not hold *)
+    )
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ last_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    \\ first_x_assum irule
+    \\ irule exp_rel_d2b_subst \\ gs [])
+  >~ [‘If x1 y1 z1’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs [])
+  >~ [‘Letrec f x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule
+    \\ simp [subst_funs_def]
+    \\ irule exp_rel_d2b_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP,
+                                  LAMBDA_PROD, GSYM FST_THM]
+    \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
+    \\ irule LIST_EQ \\ gvs [EL_MAP])
+  >~ [‘Delay x’] >- (
+    rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def])
+  >~ [‘Box x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def]
+    \\ rename1 ‘exp_rel_d2b x y’
+    \\ first_x_assum (drule_then assume_tac)
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs [])
+  >~ [‘Force x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ rename1 ‘exp_rel_d2b x y’
+    \\ CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
+    \\ CONV_TAC (RAND_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
+    \\ rename1 ‘v_rel_d2b v w’
+    \\ Cases_on ‘dest_Tick v’ \\ gs []
+    >- (
+      ‘dest_Tick w = NONE’
+        by (Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
+            \\ gs [Once v_rel_d2b_cases])
+      \\ gs []
+      \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
+      >- (
+        rename1 ‘LIST_REL _ xs ys’
+        \\ ‘OPTREL exp_rel_d2b (ALOOKUP (REVERSE xs) s)
+                           (ALOOKUP (REVERSE ys) s)’
+          by (irule LIST_REL_OPTREL \\ gs [])
+        \\ gs [OPTREL_def]
+        \\ Cases_on ‘x0 = y0’ \\ gvs []
+        >- (
+          CASE_TAC \\ gs []
+          \\ first_x_assum irule
+          \\ gs [subst_funs_def]
+          \\ irule exp_rel_d2b_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF,
+                                        EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM]
+          \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
+          \\ irule LIST_EQ \\ gvs [EL_MAP])
+        \\ gvs [Once exp_rel_d2b_cases]
+        \\ first_x_assum irule
+        \\ simp [subst_funs_def]
+        \\ irule exp_rel_d2b_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF,
+                                      EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM]
+        \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
+        \\ irule LIST_EQ \\ gvs [EL_MAP])
+      \\ CASE_TAC \\ gs []
+      \\ first_x_assum irule
+      \\ simp [subst_funs_def])
+    \\ ‘∃y. dest_Tick w = SOME y’
+        by (Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
+            \\ gs [Once v_rel_d2b_cases])
+    \\ gs []
+    \\ first_x_assum irule
+    \\ rw [Once exp_rel_d2b_cases]
+    \\ rw [Once exp_rel_d2b_cases]
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [Once v_rel_d2b_cases])
+  >~ [‘MkTick x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def]
+    \\ rename1 ‘exp_rel_d2b x y’
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
+    \\ rw [Once v_rel_d2b_cases])
+  >~ [‘Prim op xs’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_d2b_cases] \\ gs []
+    \\ simp [eval_to_def]
+    \\ Cases_on ‘op’ \\ gs []
+    >- ((* Cons *)
+      gs [result_map_def, MEM_MAP, PULL_EXISTS, LIST_REL_EL_EQN, MEM_EL]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
+        \\ first_x_assum (drule_then assume_tac) \\ gs []
+        \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+        \\ Cases_on ‘eval_to k (EL n ys)’ \\ gvs []
+        \\ rw [] \\ gs [])
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        IF_CASES_TAC \\ gs []
+        >- (
+          rename1 ‘m < LENGTH ys’
+          \\ first_x_assum (drule_then assume_tac)
+          \\ first_x_assum (drule_then assume_tac)
+          \\ first_x_assum (drule_all_then assume_tac)
+          \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs [])
+        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ rw [] \\ gs []
+        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ first_x_assum (drule_then assume_tac) \\ gs []
+        \\ first_x_assum (drule_then assume_tac) \\ gs []
+        \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+        \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+        \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
+      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rw [EVERY2_MAP, LIST_REL_EL_EQN]
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ Cases_on ‘eval_to k (EL n xs)’
+      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
+    >- ((* IsEq *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1n ⇔ n = 0”]
+      \\ IF_CASES_TAC \\ gs []
+      \\ rename1 ‘exp_rel_d2b x y’
+      \\ first_x_assum (drule_then assume_tac)
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
+      \\ rename1 ‘v_rel_d2b v w’
+      \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs [])
+    >- ((* Proj *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1n ⇔ n = 0”]
+      \\ IF_CASES_TAC \\ gs []
+      \\ rename1 ‘exp_rel_d2b x y’
+      \\ first_x_assum (drule_then assume_tac)
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
+      \\ rename1 ‘v_rel_d2b v w’
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs [])
     >- ((* AtomOp *)
