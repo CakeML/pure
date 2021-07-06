@@ -19,17 +19,16 @@ Overload Tick = “λx: exp. Letrec [] x”;
 
 Overload IsEq = “λs i (x: exp). Prim (IsEq s i) [x]”;
 
-Overload Nop = “Delay (Prim If [])”;
-
 Inductive exp_rel:
 (* Lifting case: *)
 [exp_rel_Lift:]
-  (∀x1 y1 y2 z1 z2 w.
+  (∀x1 x2 y1 y2 z1 z2 w.
      w ∉ freevars y1 ∪ freevars z1 ∧
+     exp_rel x1 x2 ∧
      exp_rel y1 y2 ∧
      exp_rel z1 z2 ⇒
        exp_rel (Tick (If (IsEq s i x1) y1 z1))
-               (Let (SOME w) (Tick (Tick x1)) (If (IsEq s i (Var w)) y2 z2))) ∧
+               (Let (SOME w) (Tick (Tick x2)) (If (IsEq s i (Var w)) y2 z2))) ∧
 (* Reflexivity: *)
 [exp_rel_Refl:]
   (∀x.
@@ -324,9 +323,6 @@ Proof
       \\ simp [LAMBDA_PROD, ALOOKUP_FILTER]
       \\ imp_res_tac exp_rel_freevars \\ gs []
       \\ gs [subst_FILTER]
-      \\ cheat (* TODO: expects subst ws x2 on the right!   *)
-               (*       because of equality in the relation *)
-      (*
       \\ irule exp_rel_Lift \\ gs []
       \\ simp [freevars_subst]
       \\ gs [ELIM_UNCURRY]
@@ -335,7 +331,7 @@ Proof
       \\ simp [Once exp_rel_cases, PULL_EXISTS]
       \\ simp [Once exp_rel_cases, PULL_EXISTS]
       \\ simp [Once exp_rel_cases, PULL_EXISTS]
-      \\ rw [] \\ gs [] *))
+      \\ rw [] \\ gs [])
     \\ simp [subst_def]
     \\ irule exp_rel_Letrec
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
@@ -483,17 +479,21 @@ Proof
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
-      \\ Cases_on ‘eval_to (k - 3) x1’ \\ gs []
-      \\ rename1 ‘_ = INR v’ \\ Cases_on ‘dest_Constructor v’ \\ gs []
-      \\ pairarg_tac \\ gvs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ simp [CaseEq "bool"]
-      \\ DEP_REWRITE_TAC [subst1_notin_frees]
-      \\ imp_res_tac exp_rel_freevars \\ gs []
       \\ first_x_assum
-        (qspec_then ‘If (IsEq s i x1) y2 z2’ mp_tac)
+        (qspec_then ‘If (IsEq s i x2) y2 z2’ mp_tac)
       \\ simp [Once exp_rel_cases, eval_to_def]
-      \\ gs [CaseEq "bool"])
+      \\ simp [Once exp_rel_cases]
+      \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) LHS RHS’
+      \\ strip_tac
+      \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) LHS RHS2’
+      \\ ‘RHS = RHS2’
+        suffices_by (rw [] \\ first_x_assum irule)
+      \\ unabbrev_all_tac
+      \\ Cases_on ‘eval_to (k - 3) x2’ \\ gs []
+      \\ rename1 ‘_ = INR res’ \\ Cases_on ‘dest_Constructor res’ \\ gs []
+      \\ pairarg_tac \\ gvs []
+      \\ DEP_REWRITE_TAC [subst1_notin_frees]
+      \\ imp_res_tac exp_rel_freevars \\ gs [])
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule
@@ -670,7 +670,6 @@ Proof
       \\ first_x_assum (drule_all_then assume_tac)
       \\ rpt CASE_TAC \\ gs []))
 QED
-
 
 val _ = export_theory ();
 
