@@ -110,49 +110,6 @@ Inductive exp_rel_lift:
   (∀v w.
      v_rel_lift v w ⇒
      exp_rel_lift (Value v) (Value w)) ∧
-[exp_rel_lift_App:]
-  (∀f g x y.
-     exp_rel_lift f g ∧
-     exp_rel_lift x y ⇒
-       exp_rel_lift (App f x) (App g y)) ∧
-[exp_rel_lift_Lam:]
-  (∀s x y.
-     exp_rel_lift x y ⇒
-       exp_rel_lift (Lam s x) (Lam s y)) ∧
-[exp_rel_lift_Letrec:]
-  (∀f g x y.
-     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_lift x y) f g ∧
-     exp_rel_lift x y ⇒
-       exp_rel_lift (Letrec f x) (Letrec g y)) ∧
-[exp_rel_lift_Let:]
-  (∀bv x1 y1 x2 y2.
-     exp_rel_lift x1 x2 ∧
-     exp_rel_lift y1 y2 ⇒
-       exp_rel_lift (Let bv x1 y1) (Let bv x2 y2)) ∧
-[exp_rel_lift_If:]
-  (∀x1 x2 y1 y2 z1 z2.
-     LIST_REL exp_rel_lift [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel_lift (If x1 y1 z1) (If x2 y2 z2)) ∧
-[exp_rel_lift_Prim:]
-  (∀op xs ys.
-     LIST_REL exp_rel_lift xs ys ⇒
-       exp_rel_lift (Prim op xs) (Prim op ys)) ∧
-[exp_rel_lift_Delay:]
-  (∀x y.
-     exp_rel_lift x y ⇒
-       exp_rel_lift (Delay x) (Delay y)) ∧
-[exp_rel_lift_Box:]
-  (∀x y.
-     exp_rel_lift x y ⇒
-       exp_rel_lift (Box x) (Box y)) ∧
-[exp_rel_lift_Force:]
-  (∀x y.
-     exp_rel_lift x y ⇒
-       exp_rel_lift (Force x) (Force y)) ∧
-[exp_rel_lift_MkTick:]
-  (∀x y.
-     exp_rel_lift x y ⇒
-       exp_rel_lift (MkTick x) (MkTick y)) ∧
 [v_rel_lift_Atom:]
   (∀x.
      v_rel_lift (Atom x) (Atom x)) ∧
@@ -225,19 +182,6 @@ Proof
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
     \\ metis_tac [])
-  >- (
-    rw [EXTENSION, EQ_IMP_THM] \\ gs []
-    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
-           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss]
-    \\ metis_tac [])
-  >- (
-    Cases_on ‘bv’ \\ gs [freevars_def])
-  >- (
-    ‘MAP freevars xs = MAP freevars ys’
-      suffices_by rw [SF ETA_ss]
-    \\ irule LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
     \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
@@ -714,49 +658,6 @@ Inductive exp_rel_d2b:
   (∀v w.
      v_rel_d2b v w ⇒
      exp_rel_d2b (Value v) (Value w)) ∧
-[exp_rel_d2b_App:]
-  (∀f g x y.
-     exp_rel_d2b f g ∧
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (App f x) (App g y)) ∧
-[exp_rel_d2b_Lam:]
-  (∀s x y.
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (Lam s x) (Lam s y)) ∧
-[exp_rel_d2b_Letrec:]
-  (∀f g x y.
-     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_d2b x y) f g ∧
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (Letrec f x) (Letrec g y)) ∧
-[exp_rel_d2b_Let:]
-  (∀bv x1 y1 x2 y2.
-     exp_rel_d2b x1 x2 ∧
-     exp_rel_d2b y1 y2 ⇒
-       exp_rel_d2b (Let bv x1 y1) (Let bv x2 y2)) ∧
-[exp_rel_d2b_If:]
-  (∀x1 x2 y1 y2 z1 z2.
-     LIST_REL exp_rel_d2b [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel_d2b (If x1 y1 z1) (If x2 y2 z2)) ∧
-[exp_rel_d2b_Prim:]
-  (∀op xs ys.
-     LIST_REL exp_rel_d2b xs ys ⇒
-       exp_rel_d2b (Prim op xs) (Prim op ys)) ∧
-[exp_rel_d2b_Delay:]
-  (∀x y.
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (Delay x) (Delay y)) ∧
-[exp_rel_d2b_Box:]
-  (∀x y.
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (Box x) (Box y)) ∧
-[exp_rel_d2b_Force:]
-  (∀x y.
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (Force x) (Force y)) ∧
-[exp_rel_d2b_MkTick:]
-  (∀x y.
-     exp_rel_d2b x y ⇒
-       exp_rel_d2b (MkTick x) (MkTick y)) ∧
 [v_rel_d2b_Atom:]
   (∀x.
      v_rel_d2b (Atom x) (Atom x)) ∧
@@ -830,19 +731,6 @@ Proof
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
     \\ metis_tac [])
-  >- (
-    rw [EXTENSION, EQ_IMP_THM] \\ gs []
-    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
-           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss]
-    \\ metis_tac [])
-  >- (
-    Cases_on ‘bv’ \\ gs [freevars_def])
-  >- (
-    ‘MAP freevars xs = MAP freevars ys’
-      suffices_by rw [SF ETA_ss]
-    \\ irule LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >- (
     rw [EXTENSION, EQ_IMP_THM] \\ gs []
     \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
