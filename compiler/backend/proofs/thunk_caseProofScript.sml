@@ -59,13 +59,6 @@ Inductive exp_rel_lift:
      exp_rel_lift z1 z2 ⇒
        exp_rel_lift (Tick (If (IsEq s i x1) y1 z1))
                (Let (SOME w) (Tick (Tick x2)) (If (IsEq s i (Var w)) y2 z2))) ∧
-(* Reflexivity: *)
-[exp_rel_lift_Refl:]
-  (∀x.
-     exp_rel_lift x x) ∧
-[v_rel_lift_Refl:]
-  (∀v.
-     v_rel_lift v v) ∧
 (* Boilerplate: *)
 [exp_rel_lift_App:]
   (∀f g x y.
@@ -216,18 +209,8 @@ Theorem v_rel_lift_def[simp]:
 Proof
   strip_tac \\ rw [Once v_rel_lift_cases]
   \\ rw [Once v_rel_lift_cases, EQ_IMP_THM]
-  \\ rw [Once v_rel_lift_cases, EVERY2_refl_EQ, exp_rel_lift_Refl]
-  \\ pairarg_tac \\ gvs [exp_rel_lift_Refl]
-QED
-
-Theorem exp_rel_lift_Refl[simp] = exp_rel_lift_Refl;
-
-Theorem v_rel_lift_Refl[simp] = v_rel_lift_Refl;
-
-Theorem result_rel_refl[local,simp]:
-  ($= +++ v_rel_lift) (eval_to k x) (eval_to k x)
-Proof
-  Cases_on ‘eval_to k x’ \\ gs []
+  \\ rw [Once v_rel_lift_cases, EVERY2_refl_EQ]
+  \\ pairarg_tac \\ gvs []
 QED
 
 Theorem exp_rel_lift_freevars:
@@ -347,14 +330,6 @@ Proof
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
     \\ first_assum (irule_at Any)
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-    >- (
-      qabbrev_tac ‘P = λx. ¬MEM x (MAP FST f)’ \\ fs []
-      \\ irule_at Any LIST_REL_FILTER \\ fs []
-      \\ gs [EVERY2_refl_EQ] \\ rw []
-      \\ pairarg_tac \\ gvs []
-      \\ first_x_assum irule
-      \\ simp [MAP_FST_FILTER, SF SFY_ss]
-      \\ irule LIST_REL_FILTER \\ gs [])
     \\ `MAP FST f = MAP FST g`
       by (irule LIST_EQ
           \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
@@ -439,10 +414,6 @@ Proof
       by (irule LIST_REL_OPTREL \\ gs [])
     \\ gs [OPTREL_def]
     \\ gvs [Once exp_rel_lift_cases]
-    THENL [
-      CASE_TAC \\ gs [],
-      ALL_TAC,
-      ALL_TAC ]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule
     \\ irule exp_rel_lift_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP,
@@ -545,15 +516,6 @@ Proof
                            (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL \\ gs [])
         \\ gs [OPTREL_def]
-        \\ Cases_on ‘x0 = y0’ \\ gvs []
-        >- (
-          CASE_TAC \\ gs []
-          \\ first_x_assum irule
-          \\ gs [subst_funs_def]
-          \\ irule exp_rel_lift_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF,
-                                        EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM]
-          \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
-          \\ irule LIST_EQ \\ gvs [EL_MAP])
         \\ gvs [Once exp_rel_lift_cases]
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
@@ -638,7 +600,8 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
       \\ Cases_on ‘eval_to k (EL n xs)’
-      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
+      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
+      \\ rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
     >- ((* IsEq *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
@@ -700,13 +663,6 @@ Inductive exp_rel_d2b:
                         (Let (SOME w) (Force (Var v)) y1))
                    (Let (SOME w) (Tick (Tick x2))
                         (Let (SOME v) (Box (Var w)) y2))) ∧
-(* Reflexivity: *)
-[exp_rel_d2b_Refl:]
-  (∀x.
-     exp_rel_d2b x x) ∧
-[v_rel_d2b_Refl:]
-  (∀v.
-     v_rel_d2b v v) ∧
 (* Boilerplate: *)
 [exp_rel_d2b_App:]
   (∀f g x y.
@@ -857,18 +813,8 @@ Theorem v_rel_d2b_def[simp]:
 Proof
   strip_tac \\ rw [Once v_rel_d2b_cases]
   \\ rw [Once v_rel_d2b_cases, EQ_IMP_THM]
-  \\ rw [Once v_rel_d2b_cases, EVERY2_refl_EQ, exp_rel_d2b_Refl]
-  \\ pairarg_tac \\ gvs [exp_rel_d2b_Refl]
-QED
-
-Theorem exp_rel_d2b_Refl[simp] = exp_rel_d2b_Refl;
-
-Theorem v_rel_d2b_Refl[simp] = v_rel_d2b_Refl;
-
-Theorem result_rel_refl[local,simp]:
-  ($= +++ v_rel_d2b) (eval_to k x) (eval_to k x)
-Proof
-  Cases_on ‘eval_to k x’ \\ gs []
+  \\ rw [Once v_rel_d2b_cases, EVERY2_refl_EQ]
+  \\ pairarg_tac \\ gvs []
 QED
 
 Theorem exp_rel_d2b_freevars:
@@ -966,6 +912,7 @@ Proof
       last_x_assum (drule_then (qspec_then ‘Delay x2’ mp_tac))
       \\ simp [Once exp_rel_d2b_cases, PULL_EXISTS, subst_def]
       \\ simp [Once exp_rel_d2b_cases, PULL_EXISTS]
+      \\ strip_tac
       \\ gs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
       \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ gs []
       \\ ‘LIST_REL v_rel_d2b (MAP SND (FILTER (λ(n,x). P n) vs))
@@ -976,8 +923,11 @@ Proof
       \\ simp [MAP_FST_FILTER, ELIM_UNCURRY]
       \\ disch_then (qspec_then ‘Let (SOME w) (Force (Var s)) y2’ mp_tac)
       \\ simp [Once exp_rel_d2b_cases]
+      \\ simp [Once exp_rel_d2b_cases]
+      \\ simp [Once exp_rel_d2b_cases]
       \\ simp [Once exp_rel_d2b_cases, PULL_EXISTS, subst_def,
                GSYM FILTER_REVERSE, ALOOKUP_FILTER, LAMBDA_PROD]
+      \\ simp [Once exp_rel_d2b_cases]
       \\ simp [Once exp_rel_d2b_cases]
       \\ ‘OPTREL v_rel_d2b (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
         by (irule LIST_REL_OPTREL
@@ -1004,14 +954,6 @@ Proof
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
     \\ first_assum (irule_at Any)
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-    >- (
-      qabbrev_tac ‘P = λx. ¬MEM x (MAP FST f)’ \\ fs []
-      \\ irule_at Any LIST_REL_FILTER \\ fs []
-      \\ gs [EVERY2_refl_EQ] \\ rw []
-      \\ pairarg_tac \\ gvs []
-      \\ first_x_assum irule
-      \\ simp [MAP_FST_FILTER, SF SFY_ss]
-      \\ irule LIST_REL_FILTER \\ gs [])
     \\ `MAP FST f = MAP FST g`
       by (irule LIST_EQ
           \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
@@ -1096,10 +1038,6 @@ Proof
       by (irule LIST_REL_OPTREL \\ gs [])
     \\ gs [OPTREL_def]
     \\ gvs [Once exp_rel_d2b_cases]
-    THENL [
-      CASE_TAC \\ gs [],
-      ALL_TAC,
-      ALL_TAC ]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule
     \\ irule exp_rel_d2b_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF, EVERY2_MAP,
@@ -1185,15 +1123,6 @@ Proof
                            (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL \\ gs [])
         \\ gs [OPTREL_def]
-        \\ Cases_on ‘x0 = y0’ \\ gvs []
-        >- (
-          CASE_TAC \\ gs []
-          \\ first_x_assum irule
-          \\ gs [subst_funs_def]
-          \\ irule exp_rel_d2b_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF,
-                                        EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM]
-          \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
-          \\ irule LIST_EQ \\ gvs [EL_MAP])
         \\ gvs [Once exp_rel_d2b_cases]
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
@@ -1278,7 +1207,8 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
       \\ Cases_on ‘eval_to k (EL n xs)’
-      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
+      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
+      \\ rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
     >- ((* IsEq *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
