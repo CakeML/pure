@@ -1,7 +1,8 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
      listTheory alistTheory finite_mapTheory sptreeTheory;
-open pure_miscTheory pure_typingTheory pure_typingPropsTheory pure_inferenceTheory;
+open pure_miscTheory pure_typingTheory pure_typingPropsTheory
+     pure_inference_commonTheory pure_inferenceTheory;
 
 val _ = new_theory "pure_inferenceProps";
 
