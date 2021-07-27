@@ -3,7 +3,7 @@
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     pred_setTheory relationTheory listTheory finite_mapTheory;
+     pred_setTheory relationTheory listTheory alistTheory finite_mapTheory;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory substTheory;
 open pure_typingTheory pure_inference_commonTheory;
 
@@ -1099,9 +1099,9 @@ Theorem pure_apply_subst:
     pure_apply_subst s (Array t) = Array (pure_apply_subst s t)) ∧
   (∀s t.
     pure_apply_subst s (M t) = M (pure_apply_subst s t)) ∧
-  (∀s t.  pure_apply_subst s (DBVar n) = DBVar n) ∧
-  (∀s t.  pure_apply_subst s (PrimTy p) = PrimTy p) ∧
-  (∀s t.  pure_apply_subst s Exception = Exception)
+  (∀s n. pure_apply_subst s (DBVar n) = DBVar n) ∧
+  (∀s p. pure_apply_subst s (PrimTy p) = PrimTy p) ∧
+  (∀s. pure_apply_subst s Exception = Exception)
 Proof
   rw[pure_apply_subst_def, encode_itype_def, FLOOKUP_o_f, decode_utype_def] >>
   every_case_tac >> rw[decode_encode, decode_utype_def]
@@ -1134,10 +1134,72 @@ Proof
     )
 QED
 
+Theorem walkstar_strongind:
+  ∀P.
+    (∀s t.
+      (∀t1 t2. wfs s ∧ walk s t = Pair t1 t2 ⇒ P s t2) ∧
+      (∀t1 t2. wfs s ∧ walk s t = Pair t1 t2 ⇒ P s t1)
+     ⇒ P s t)
+  ⇒ ∀s t. wfs s ⇒ P s t
+Proof
+  ntac 5 strip_tac >>
+  qid_spec_tac `t` >>
+  ho_match_mp_tac walkstar_ind >> rw[]
+QED
+
 Definition pure_walkstar_def:
   pure_walkstar s t =
     THE o decode_utype $ walkstar (encode_itype o_f s) (encode_itype t)
 End
+
+Theorem pure_walkstar_ind:
+ ∀s. pure_wfs s ⇒
+  ∀P.
+    (∀t.
+      (∀c ts a. pure_walk s t = TypeCons c ts ∧ MEM a ts ⇒ P a) ∧
+      (∀ts a. pure_walk s t = Tuple ts ∧ MEM a ts ⇒ P a) ∧
+      (∀t1 t2. pure_walk s t = Function t1 t2 ⇒ P t1 ∧ P t2) ∧
+      (∀t'. pure_walk s t = Array t' ⇒ P t') ∧
+      (∀t'. pure_walk s t = M t' ⇒ P t')
+     ⇒ P t)
+  ⇒ ∀t. P t
+Proof
+  rw[] >> imp_res_tac pure_wfs_def >>
+  imp_res_tac $ GEN_ALL $ DISCH_ALL walkstar_ind >>
+  qsuff_tac `(λx.
+    (∀u. x = encode_itype u ⇒ P u) ∧
+    (∀c us. x = Pair (Const (uTypeCons c)) (encode_itypes us) ⇒ EVERY P us) ∧
+    (∀us. x = Pair (Const uTuple) (encode_itypes us) ⇒ EVERY P us) ∧
+    (∀u1 u2. x = Pair (Const uFunction)
+                  (Pair (encode_itype u1) (encode_itype u2)) ⇒ P u1 ∧ P u2) ∧
+    (∀u. x = Pair (Const uArray) (encode_itype u) ⇒ P u) ∧
+    (∀u. x = Pair (Const uM) (encode_itype u) ⇒ P u) ∧
+    (∀u1 u2. x = Pair (encode_itype u1) (encode_itype u2) ⇒ P u1 ∧ P u2) ∧
+    (∀u us. x = Pair (encode_itype u) (encode_itypes us) ⇒ EVERY P (u::us)))
+      (encode_itype t)`
+  >- simp[decode_encode] >>
+  pop_assum irule >> BETA_TAC >> rw[decode_encode]
+  >- (
+    rfs[encode_walk] >> first_x_assum irule >> rw[] >>
+    gvs[encode_walk, encode_itype_def, encode_itype_injective, EVERY_MEM] >>
+    Cases_on `ts` >> gvs[encode_itype_def, encode_itype_injective, EVERY_MEM]
+    )
+  >- (Cases_on `us` >> fs[encode_itype_def, encode_itype_injective])
+  >- (Cases_on `us` >> fs[encode_itype_def, encode_itype_injective]) >>
+  rfs[encode_walk, encode_itype_injective] >>
+  Cases_on `us` >> fs[encode_itype_def, encode_itype_injective]
+QED
+
+Theorem pure_walkstar_wf_lemma:
+  ∀s. pure_wfs s ⇒
+    ∀t. decode_utype $ walkstar (encode_itype o_f s) (encode_itype t) ≠ NONE
+Proof
+  strip_tac >> strip_tac >>
+  imp_res_tac pure_walkstar_ind >> pop_assum ho_match_mp_tac >> rw[] >>
+  imp_res_tac pure_wfs_def >> simp[Once walkstar_def, encode_walk] >>
+  Cases_on `pure_walk s t` >> gvs[encode_itype_def, decode_utype_def] >>
+  pop_assum kall_tac >> Induct_on `l` >> rw[encode_itype_def, decode_utype_def]
+QED
 
 Theorem pure_walkstar_wf:
   (∀t s. pure_wfs s ⇒
@@ -1147,7 +1209,10 @@ Theorem pure_walkstar_wf:
     decode_utypes $
       walkstar (encode_itype o_f s) (encode_itypes ts) ≠ NONE)
 Proof
-  cheat (* TODO *)
+  conj_tac >- simp[pure_walkstar_wf_lemma] >>
+  Induct >> rw[] >> imp_res_tac pure_wfs_def >>
+  simp[encode_itype_def, decode_utype_def, Once walkstar_def] >>
+  irule pure_walkstar_wf_lemma >> simp[]
 QED
 
 Theorem pure_walkstar_ts_lemma:
@@ -1159,6 +1224,14 @@ Proof
   gvs[Once apply_ts_thm, decode_utype_def, pure_walkstar_def] >>
   assume_tac pure_walkstar_wf >> gvs[] >>
   Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype h)` >> gvs[]
+QED
+
+Theorem pure_walkstar_ts_lemma_alt:
+  ∀l s. pure_wfs s ⇒
+    MAP (pure_walkstar s) l =
+    THE $ decode_utypes ((encode_itype o_f s) ◁ encode_itypes l)
+Proof
+  rw[] >> DEP_REWRITE_TAC[pure_walkstar_ts_lemma] >> simp[]
 QED
 
 Theorem pure_walkstar:
@@ -1203,66 +1276,13 @@ Theorem encode_walkstar:
     walkstar (encode_itype o_f s) (encode_itype t) =
     encode_itype (pure_walkstar s t)
 Proof
-  rw[pure_walkstar_def] >> imp_res_tac pure_wfs_def >>
-  rw[Once walkstar_def, pure_walk_def] >>
-  Cases_on `t` >>
-  gvs[encode_itype_def, decode_utype_def, decode_encode, encode_vwalk] >>
-  gvs[pure_walkstar_ts_lemma, option_bind_case] >>
-  assume_tac pure_walkstar_wf >> gvs[]
-  >- (CASE_TAC >> CASE_TAC >> gvs[])
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    )
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    ) >>
-  Cases_on `pure_vwalk s n` >>
-  gvs[encode_itype_def, decode_utype_def, pure_walkstar_ts_lemma, option_bind_case]
-  >- (CASE_TAC >> CASE_TAC >> gvs[])
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    )
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    )
-QED
-
-Theorem pure_walkstar_ind:
- ∀s. pure_wfs s ⇒
-  ∀P.
-    (∀t.
-      (∀c ts a. pure_walk s t = TypeCons c ts ∧ MEM a ts ⇒ P a) ∧
-      (∀ts a. pure_walk s t = Tuple ts ∧ MEM a ts ⇒ P a) ∧
-      (∀t1 t2. pure_walk s t = Function t1 t2 ⇒ P t1 ∧ P t2) ∧
-      (∀t'. pure_walk s t = Array t' ⇒ P t') ∧
-      (∀t'. pure_walk s t = M t' ⇒ P t')
-     ⇒ P t)
-  ⇒ ∀t. P t
-Proof
-  rw[] >> imp_res_tac pure_wfs_def >>
-  imp_res_tac $ GEN_ALL $ DISCH_ALL walkstar_ind >>
-  qsuff_tac `(λx.
-    (∀u. x = encode_itype u ⇒ P u) ∧
-    (∀c us. x = Pair (Const (uTypeCons c)) (encode_itypes us) ⇒ EVERY P us) ∧
-    (∀us. x = Pair (Const uTuple) (encode_itypes us) ⇒ EVERY P us) ∧
-    (∀u1 u2. x = Pair (Const uFunction)
-                  (Pair (encode_itype u1) (encode_itype u2)) ⇒ P u1 ∧ P u2) ∧
-    (∀u. x = Pair (Const uArray) (encode_itype u) ⇒ P u) ∧
-    (∀u. x = Pair (Const uM) (encode_itype u) ⇒ P u) ∧
-    (∀u1 u2. x = Pair (encode_itype u1) (encode_itype u2) ⇒ P u1 ∧ P u2) ∧
-    (∀u us. x = Pair (encode_itype u) (encode_itypes us) ⇒ EVERY P (u::us)))
-      (encode_itype t)`
-  >- simp[decode_encode] >>
-  pop_assum irule >> BETA_TAC >> rw[decode_encode]
-  >- (
-    rfs[encode_walk] >> first_x_assum irule >> rw[] >>
-    gvs[encode_walk, encode_itype_def, encode_itype_injective, EVERY_MEM] >>
-    Cases_on `ts` >> gvs[encode_itype_def, encode_itype_injective, EVERY_MEM]
-    )
-  >- (Cases_on `us` >> fs[encode_itype_def, encode_itype_injective])
-  >- (Cases_on `us` >> fs[encode_itype_def, encode_itype_injective]) >>
-  rfs[encode_walk, encode_itype_injective] >>
-  Cases_on `us` >> fs[encode_itype_def, encode_itype_injective]
+  rw[] >> imp_res_tac pure_walkstar_ind >>
+  qid_spec_tac `t` >> pop_assum ho_match_mp_tac >> rw[] >>
+  rw[Once pure_walkstar] >> imp_res_tac pure_wfs_def >>
+  rw[Once walkstar_def, Once encode_walk] >>
+  Cases_on `pure_walk s t` >> rw[encode_itype_def] >>
+  qpat_x_assum `pure_walk _ _ = _` kall_tac >>
+  Induct_on `l` >> rw[encode_itype_def]
 QED
 
 Definition pure_collapse_def:
