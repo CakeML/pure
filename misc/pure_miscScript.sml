@@ -9,28 +9,6 @@ val _ = new_theory "pure_misc";
 
 (******************** Finite maps ********************)
 
-Theorem FDIFF_FUNION:
-  ∀fm1 fm2 s. FDIFF (fm1 ⊌ fm2) s = (FDIFF fm1 s) ⊌ (FDIFF fm2 s)
-Proof
-  rw[FDIFF_def, DRESTRICTED_FUNION] >>
-  rw[fmap_eq_flookup] >>
-  rw[FLOOKUP_DRESTRICT, FLOOKUP_FUNION] >> fs[] >>
-  rw[FLOOKUP_DEF]
-QED
-
-Theorem BIGUNION_DIFF:
-  ∀as b. (BIGUNION as) DIFF b = BIGUNION {a DIFF b | a ∈ as}
-Proof
-  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
-  >- (
-    qexists_tac `s DIFF b` >> fs[] >>
-    goal_assum (drule_at Any) >> fs[]
-    )
-  >- (
-    goal_assum (drule_at Any) >> fs[]
-    )
-QED
-
 Theorem FDIFF_MAP_KEYS_BIJ:
   BIJ f 𝕌(:α) 𝕌(:β) ⇒
   FDIFF (MAP_KEYS f fm) (IMAGE f s) = MAP_KEYS f (FDIFF fm s)
@@ -45,44 +23,6 @@ Proof
   simp[DRESTRICT_MAP_KEYS_IMAGE]
 QED
 
-Theorem DISJOINT_DRESTRICT_FEMPTY:
-  ∀m s. DISJOINT s (FDOM m) ⇒ DRESTRICT m s = FEMPTY
-Proof
-  Induct >> rw[]
-QED
-
-Theorem fdiff_fdomsub_commute:
-  FDIFF (f \\ x) p = FDIFF f p \\ x
-Proof
-  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[]
-QED
-
-Theorem fdiff_fdomsub_INSERT:
-  FDIFF (f \\ x) p = FDIFF f (x INSERT p)
-Proof
-  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[]
-QED
-
-Theorem fdiff_bound:
-  FDIFF f p = FDIFF f (p ∩ FDOM f)
-Proof
-  rw[FDIFF_def,fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
-  rw[] >> gvs[flookup_thm]
-QED
-
-Theorem FLOOKUP_FMAP_MAP2:
-  ∀f m k. FLOOKUP (FMAP_MAP2 f m) k = OPTION_MAP (λv. f (k,v)) (FLOOKUP m k)
-Proof
-  rw[FLOOKUP_DEF, FMAP_MAP2_def, FUN_FMAP_DEF]
-QED
-
-Theorem DOMSUB_FMAP_MAP2:
-  ∀f m s. (FMAP_MAP2 f m) \\ s = FMAP_MAP2 f (m \\ s)
-Proof
-  rw[fmap_eq_flookup, DOMSUB_FLOOKUP_THM, FLOOKUP_FMAP_MAP2] >>
-  IF_CASES_TAC >> simp[]
-QED
-
 Theorem fmap_rel_fupdate_list_MAP_FST:
   ∀R f1 f2 l1 l2.
     fmap_rel R (f1 |++ l1) (f2 |++ l2)
@@ -90,158 +30,6 @@ Theorem fmap_rel_fupdate_list_MAP_FST:
 Proof
   rw[fmap_rel_def, FDOM_FUPDATE_LIST] >>
   gvs[EXTENSION] >> metis_tac[]
-QED
-
-(* This exists in finite_mapTheory, but with types unnecessarily specialised *)
-Theorem fmap_rel_FEMPTY2:
-  (fmap_rel (R : 'a -> 'b -> bool) FEMPTY (f1 : 'c |-> 'b) ⇔ f1 = FEMPTY) ∧
-  (fmap_rel R (f2 : 'c |-> 'a) FEMPTY ⇔ f2 = FEMPTY)
-Proof
-  rw[fmap_rel_def] >> simp[FDOM_EQ_EMPTY] >> eq_tac >> rw[]
-QED
-
-Theorem fmap_rel_FUPDATE_I_rewrite:
-  fmap_rel R (f1 \\ k) (f2 \\ k) ∧ R v1 v2 ⇔
-  fmap_rel R (f1 |+ (k,v1)) (f2 |+ (k,v2))
-Proof
-  gvs[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM] >>
-  reverse (eq_tac >> rw[])
-  >- (pop_assum (qspec_then `k` mp_tac) >> simp[]) >>
-  first_x_assum (qspec_then `k'` mp_tac) >> simp[] >>
-  EVERY_CASE_TAC >> gvs[]
-QED
-
-Theorem fmap_rel_ind:
-  ∀R FR.
-    FR FEMPTY FEMPTY ∧
-    (∀k v1 v2 f1 f2.
-      R v1 v2 ∧ FR (f1 \\ k) (f2 \\ k) ⇒ FR (f1 |+ (k,v1)) (f2 |+ (k,v2)))
-  ⇒ ∀f1 f2. fmap_rel R f1 f2 ⇒ FR f1 f2
-Proof
-  rpt gen_tac >> strip_tac >>
-  Induct >> rw[] >- gvs[fmap_rel_FEMPTY2] >>
-  `x ∈ FDOM f2` by gvs[fmap_rel_def] >>
-  imp_res_tac FM_PULL_APART >> gvs[] >>
-  last_x_assum irule >> gvs[DOMSUB_NOT_IN_DOM] >>
-  gvs[GSYM fmap_rel_FUPDATE_I_rewrite] >>
-  first_x_assum irule >>
-  gvs[DOMSUB_NOT_IN_DOM]
-QED
-
-Theorem FDIFF_FDIFF:
-  ∀fm s1 s2. FDIFF (FDIFF fm s1) s2 = FDIFF fm (s1 ∪ s2)
-Proof
-  rw[FDIFF_def, DRESTRICT_DRESTRICT, fmap_eq_flookup, FLOOKUP_DRESTRICT]
-QED
-
-Theorem DOMSUB_FUPDATE_LIST:
-  ∀l m x. (m |++ l) \\ x = (m \\ x) |++ (FILTER ($<> x o FST) l)
-Proof
-  Induct >> rw[FUPDATE_LIST_THM, fmap_eq_flookup] >>
-  PairCases_on `h` >> gvs[] >>
-  gvs[flookup_fupdate_list, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE] >>
-  CASE_TAC >> gvs[]
-QED
-
-Theorem FLOOKUP_FDIFF:
-  FLOOKUP (FDIFF fm s) k = if k ∈ s then NONE else FLOOKUP fm k
-Proof
-  rw[FDIFF_def, FLOOKUP_DRESTRICT] >> gvs[]
-QED
-
-Theorem FDIFF_FUPDATE:
-  FDIFF (fm |+ (k,v)) s =
-  if k ∈ s then FDIFF fm s else (FDIFF fm s) |+ (k,v)
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_UPDATE] >>
-  EVERY_CASE_TAC >> gvs[]
-QED
-
-Theorem FDIFF_FEMPTY[simp]:
-  FDIFF FEMPTY s = FEMPTY
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF]
-QED
-
-Theorem FDIFF_EMPTY[simp]:
-  ∀f. FDIFF f {} = f
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF]
-QED
-
-Theorem FDIFF_FMAP_MAP2:
-  ∀f m s. FDIFF (FMAP_MAP2 f m) s = FMAP_MAP2 f (FDIFF m s)
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_FMAP_MAP2] >> rw[]
-QED
-
-Theorem FMAP_MAP2_FEMPTY[simp]:
-  ∀f. FMAP_MAP2 f FEMPTY = FEMPTY
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FMAP_MAP2]
-QED
-
-Theorem FMAP_MAP2_FUPDATE_LIST:
-  ∀l m f.
-    FMAP_MAP2 f (m |++ l) = FMAP_MAP2 f m |++ MAP (λ(k,v). (k, f (k,v))) l
-Proof
-  Induct >> rw[FUPDATE_LIST_THM] >>
-  PairCases_on `h` >> simp[FMAP_MAP2_FUPDATE]
-QED
-
-Theorem FUNION_KEYS_EXISTS[local]:
-  ∀ f m1 m2. ∃u.
-      FDOM u = FDOM m1 ∪ FDOM m2 ∧
-      ∀x. u ' x =
-        if x ∈ FDOM m1 ∧ x ∈ FDOM m2 then f (m1 ' x) (m2 ' x)
-        else if x ∈ FDOM m1 then m1 ' x else m2 ' x
-Proof
-  gen_tac >> Induct >> rw[]
-  >- (qexists_tac `m2` >> simp[]) >>
-  first_x_assum $ qspec_then `m2` assume_tac >> gvs[] >>
-  Cases_on `x ∈ FDOM m2` >> gvs[]
-  >- (
-    qexists_tac `u |+ (x,f y (m2 ' x))` >>
-    gvs[pred_setTheory.INSERT_UNION_EQ, FAPPLY_FUPDATE_THM] >>
-    rw[] >> gvs[]
-    )
-  >- (
-    qexists_tac `u |+ (x,y)` >>
-    gvs[pred_setTheory.INSERT_UNION_EQ, FAPPLY_FUPDATE_THM] >>
-    rw[] >> gvs[]
-    )
-QED
-
-val FUNION_KEYS_DEF = new_specification
-  ("FUNION_KEYS_DEF", ["FUNION_KEYS"],
-   CONV_RULE (ONCE_DEPTH_CONV SKOLEM_CONV) FUNION_KEYS_EXISTS);
-
-Theorem FLOOKUP_FUNION_KEYS[local]:
-  FLOOKUP (FUNION_KEYS f m1 m2) k =
-    case (FLOOKUP m1 k, FLOOKUP m2 k) of
-    | (SOME v1, SOME v2) => SOME $ f v1 v2
-    | (f1, f2) => OPTION_CHOICE f1 f2
-Proof
-  rw[FLOOKUP_DEF, FUNION_KEYS_DEF] >> gvs[]
-QED
-
-Theorem FLOOKUP_FUNION_KEYS = FLOOKUP_FUNION_KEYS |> SIMP_RULE (srw_ss()) [];
-
-Theorem FLOOKUP_FUNION_KEYS_COMM:
-  (∀x y. f x y = f y x) ⇒
-  FUNION_KEYS f m1 m2 = FUNION_KEYS f m2 m1
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FUNION_KEYS] >>
-  pop_assum $ rewrite_tac o single o Once >> every_case_tac >> gvs[]
-QED
-
-Theorem FLOOKUP_FUNION_KEYS_ASSOC:
-  (∀x y z. f (f x y) z = f x (f y z)) ⇒
-  FUNION_KEYS f m1 (FUNION_KEYS f m2 m3) =
-  FUNION_KEYS f (FUNION_KEYS f m1 m2) m3
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FUNION_KEYS] >>
-  every_case_tac >> gvs[]
 QED
 
 
@@ -605,6 +393,20 @@ Theorem monotone_compose:
 Proof
   rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >> res_tac >> metis_tac[]
 QED
+
+Theorem BIGUNION_DIFF:
+  ∀as b. (BIGUNION as) DIFF b = BIGUNION {a DIFF b | a ∈ as}
+Proof
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+  >- (
+    qexists_tac `s DIFF b` >> fs[] >>
+    goal_assum (drule_at Any) >> fs[]
+    )
+  >- (
+    goal_assum (drule_at Any) >> fs[]
+    )
+QED
+
 
 (****************************************)
 
