@@ -294,7 +294,7 @@ Proof
     disch_then $ qspecl_then [`subst_tc1 v x y`,`t`] mp_tac >>
     simp[subst_exp_of, FMAP_MAP2_FUPDATE] >> impl_tac
     >- (irule type_tcexp_closing_subst1 >> simp[] >> goal_assum drule >> simp[]) >>
-    simp[bind1_def] >> IF_CASES_TAC >> gvs[] >>
+    simp[bind1_def, FMAP_MAP2_FEMPTY] >> IF_CASES_TAC >> gvs[] >>
     imp_res_tac type_tcexp_freevars_tcexp >> gvs[closed_def, freevars_exp_of]
     )
   >- ( (* Apps *)
@@ -321,7 +321,8 @@ Proof
     rename1 `ats ≠ []` >> Cases_on `ats` >> gvs[Functions_def] >>
     last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
     disch_then $ qspec_then `subst_tc1 x h1 ce` mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE] >> disch_then irule >> simp[] >>
+    simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY] >>
+    disch_then irule >> simp[] >>
     irule type_tcexp_closing_subst1 >> simp[] >>
     goal_assum drule >> simp[]
     )
@@ -350,7 +351,7 @@ Proof
     ntac 2 $ disch_then drule >>
     disch_then $ qspecl_then
       [`subst_tc (FEMPTY |++ MAP (λ(g,x). (g, Letrec rs x)) rs) x`,`t`] mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST] >> impl_tac
+    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, FMAP_MAP2_FEMPTY] >> impl_tac
     >- (
       irule type_tcexp_closing_subst >> simp[] >> goal_assum $ drule_at Any >>
       imp_res_tac LIST_REL_LENGTH >> simp[MAP_REVERSE, MAP_ZIP] >>
@@ -434,7 +435,7 @@ Proof
       disch_then $ qspec_then
         `subst_tc (FEMPTY |++ ((v,x)::
           (MAPi (λi v. (v, SafeProj "" (LENGTH tyargs) i x)) pvars))) cexp` mp_tac >>
-      simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC] >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC, FMAP_MAP2_FEMPTY] >>
       simp[exp_of_def, combinTheory.o_DEF] >>
       disch_then irule >> simp[] >>
       irule type_tcexp_closing_subst >>
@@ -481,7 +482,7 @@ Proof
     disch_then $ qspec_then
       `subst_tc (FEMPTY |++ ((v,x)::
         (MAPi (λi v. (v, SafeProj cname (LENGTH schemes) i x)) vs))) ce` mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC] >>
+    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC, FMAP_MAP2_FEMPTY] >>
     simp[exp_of_def, combinTheory.o_DEF] >>
     disch_then irule >> simp[] >>
     irule type_tcexp_closing_subst >>
@@ -689,7 +690,7 @@ Proof
       drule type_tcexp_closing_subst1 >> simp[] >>
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
-      simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY]
       )
     >- (
       IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
@@ -748,7 +749,7 @@ Proof
       drule type_tcexp_closing_subst1 >> simp[] >>
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
-      simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY]
       )
     )
   >- (

@@ -230,13 +230,13 @@ Proof
     )
   >- (
     simp[subst_def, Once letrec_rel_cases] >>
-    simp[GSYM fdiff_fdomsub_commute, fdiff_fdomsub_INSERT] >>
+    simp[GSYM FDIFF_FDOMSUB, FDIFF_FDOMSUB_INSERT] >>
     last_x_assum irule >> simp[] >>
     irule_at Any EQ_REFL >> simp[]
     )
   >- (
     simp[subst_def, Once letrec_rel_cases] >>
-    simp[GSYM fdiff_fdomsub_commute, fdiff_fdomsub_INSERT] >> rw[] >>
+    simp[GSYM FDIFF_FDOMSUB, FDIFF_FDOMSUB_INSERT] >> rw[] >>
     last_x_assum irule >> simp[] >>
     irule_at Any EQ_REFL >> simp[]
     )

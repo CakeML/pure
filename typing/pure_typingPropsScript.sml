@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory rich_listTheory alistTheory pred_setTheory sortingTheory;
+     listTheory rich_listTheory alistTheory pred_setTheory sortingTheory
+     finite_mapTheory;
 open pure_miscTheory pure_tcexpTheory pure_configTheory pure_typingTheory
 
 val _ = new_theory "pure_typingProps";
@@ -1063,7 +1064,7 @@ Proof
     )
   >- (
     first_x_assum $ qspecl_then [`(x,new,t)::prefix`,`env`,`ces`] mp_tac >>
-    simp[GSYM fdiff_fdomsub_commute, fdiff_fdomsub_INSERT] >>
+    simp[GSYM FDIFF_FDOMSUB, FDIFF_FDOMSUB_INSERT] >>
     disch_then $ irule_at Any >>
     first_x_assum $ qspecl_then
       [`tshift_env new prefix`,`tshift_env new env`,`ces`] mp_tac >>
