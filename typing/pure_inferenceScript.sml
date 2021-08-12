@@ -446,6 +446,209 @@ Termination
 End
 
 
+(******************** Constraint solving ********************)
+
+(*
+  Generalise CVars greater than/equal to `cv`, starting at deBruijn index `db`.
+  Avoid generalising the CVars given by `avoid`.
+  Return the number generalised, the generalised type, and a substitution
+  encapsulating the generalisation.
+*)
+Definition generalise_def:
+  generalise cv db (avoid : num_set) s (DBVar n) = (0n, s, DBVar n) ∧
+  generalise cv db avoid s (PrimTy p) = (0, s, PrimTy p) ∧
+  generalise cv db avoid s  Exception = (0, s, Exception) ∧
+
+  generalise cv db avoid s (TypeCons id ts) = (
+    let (n, s', ts') = generalise_list cv db avoid s ts in (n, s', TypeCons id ts')) ∧
+
+  generalise cv db avoid s (Tuple ts) = (
+    let (n, s', ts') = generalise_list cv db avoid s ts in (n, s', Tuple ts')) ∧
+
+  generalise cv db avoid s (Function t1 t2) = (
+    let (n1, s', t1') = generalise cv db avoid s t1 in
+    let (n2, s'', t2') = generalise cv (db + n1) avoid s' t2 in
+    (n1 + n2, s'', Function t1' t2')) ∧
+
+  generalise cv db avoid s (Array t) = (
+    let (n, s', t') = generalise cv db avoid s t in (n, s', Array t')) ∧
+
+  generalise cv db avoid s (M t) = (
+    let (n, s', t') = generalise cv db avoid s t in (n, s', M t')) ∧
+
+  generalise cv db avoid s (CVar c) = (
+    if cv ≤ c ∧ lookup c avoid = NONE then (
+      case FLOOKUP s c of
+      | SOME n => (0, s, DBVar n)
+      | NONE => (1, s |+ (c,db), DBVar db))
+    else (0, s, CVar c)) ∧
+
+  generalise_list cv db avoid s [] = (0, s, []) ∧
+  generalise_list cv db avoid s (t::ts) =
+    let (n, s', t') = generalise cv db avoid s t in
+    let (ns, s'', ts') = generalise_list cv (db + n) avoid s' ts in
+    (n + ns, s'', t'::ts')
+End
+
+Definition satisfies_def:
+  satisfies s (Unify d t1 t2) = (pure_apply_subst s t1 = pure_apply_subst s t2) ∧
+
+  satisfies s (Instantiate d t (vars, scheme)) = (
+    ∃subs.
+      LENGTH subs = vars ∧
+      pure_apply_subst s t = pure_apply_subst s (isubst subs scheme)) ∧
+
+  satisfies s (Implicit d tsub vars tsup) = (
+    let (vars, s', scheme) = generalise 0 0 vars FEMPTY tsup in
+    ∃subs.
+      LENGTH subs = vars ∧
+      pure_apply_subst s tsub = pure_apply_subst s (isubst subs scheme))
+End
+
+Definition freecvars_def:
+  freecvars (DBVar n) = LN ∧
+  freecvars (PrimTy p) = LN ∧
+  freecvars  Exception = LN ∧
+  freecvars (TypeCons id ts) = FOLDL union LN (MAP freecvars ts) ∧
+  freecvars (Tuple ts) = FOLDL union LN (MAP freecvars ts) ∧
+  freecvars (Function t1 t2) = union (freecvars t1) (freecvars t2) ∧
+  freecvars (Array t) = freecvars t ∧
+  freecvars (M t) = freecvars t ∧
+  freecvars (CVar n) = insert n () LN
+Termination
+  WF_REL_TAC `measure itype_size` >> rw[itype_size_def] >>
+  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[itype_size_def] >> gvs[]
+End
+
+Definition subst_vars_def:
+  subst_vars s (vars : num_set) =
+    foldi (λn u acc. union acc $ freecvars $ pure_apply_subst s (CVar n)) 0 LN vars
+End
+
+Definition subst_constraint_def:
+  subst_constraint s (Unify d t1 t2) =
+    Unify d (pure_apply_subst s t1) (pure_apply_subst s t2) ∧
+  subst_constraint s (Instantiate d t1 (vars, t2)) =
+    Instantiate d (pure_apply_subst s t1) (vars, pure_apply_subst s t2) ∧
+  subst_constraint s (Implicit d t1 vs t2) =
+    Implicit d (pure_apply_subst s t1) (subst_vars s vs) (pure_apply_subst s t2)
+End
+
+Definition activevars_def:
+  activevars (Unify d t1 t2) = union (freecvars t1) (freecvars t2) ∧
+  activevars (Implicit d t1 vars t2) =
+    union (freecvars t1) (inter vars (freecvars t2)) ∧
+  activevars (Instantiate d t (vars, scheme)) =
+    union (freecvars t) (freecvars scheme)
+End
+
+
+(* TODO this approach is naive *)
+
+Definition is_solveable_def:
+  is_solveable (Unify d t1 t2) cs = T ∧
+  is_solveable (Instantiate d t sch) cs = T ∧
+  is_solveable (Implicit d t1 vars t2) cs =
+    let active = FOLDL (λacc c. union (activevars c) acc) LN cs in
+    (inter (difference (freecvars t2) vars) active = LN)
+End
+
+(* TODO reverse shouldn't be necessary here *)
+Definition get_solveable_def:
+  get_solveable [] cs = NONE ∧
+  get_solveable (c::rest) cs =
+    if is_solveable c (REVERSE cs ++ rest) then
+      SOME (c, REVERSE cs ++ rest)
+    else get_solveable rest (c::cs)
+End
+
+Theorem get_solveable_SOME:
+  ∀cs rev_cs c cs'.
+    get_solveable cs rev_cs = SOME (c, cs')
+  ⇒ ∃left right.
+      cs = left ++ [c] ++ right ∧
+      cs' = REVERSE rev_cs ++ left ++ right ∧
+      is_solveable c cs'
+Proof
+  Induct >> rw[get_solveable_def] >> simp[]
+  >- (qexists_tac `[]` >> simp[]) >>
+  last_x_assum drule >> rw[] >> qexists_tac `h::left` >> simp[]
+QED
+
+Definition constraint_weight_def:
+  constraint_weight (Unify _ _ _) = 1n ∧
+  constraint_weight (Instantiate _ _ _ ) = 2n ∧
+  constraint_weight (Implicit _ _ _ _ ) = 3n
+End
+
+Theorem constraint_weight_subst_constraint[simp]:
+  ∀t s. constraint_weight (subst_constraint s t) = constraint_weight t
+Proof
+  Cases >> rw[subst_constraint_def, constraint_weight_def] >>
+  PairCases_on `p` >> rw[subst_constraint_def, constraint_weight_def]
+QED
+
+Definition solve_def:
+  solve [] = return [] ∧
+
+  solve cs = case get_solveable cs [] of
+    | NONE => return (ARB cs)
+
+    | SOME $ (Unify d t1 t2, cs) => do
+        sub <- oreturn $ pure_unify FEMPTY t1 t2;
+        cs' <<- MAP (subst_constraint sub) cs;
+        solve_rest <- solve cs';
+        return (sub :: solve_rest) od
+
+    | SOME $ (Instantiate d t (vs, scheme), cs) => do
+        freshes <- fresh_vars vs;
+        inst_scheme <<- isubst (MAP CVar freshes) scheme;
+        solve (Unify d t inst_scheme :: cs) od
+
+    | SOME $ (Implicit d t1 vs t2, cs) => do
+        (n, s, scheme) <<- generalise 0 0 vs FEMPTY t2;
+        solve (Instantiate d t1 (n, scheme) :: cs) od
+Termination
+  WF_REL_TAC `measure $ λl. SUM $ MAP constraint_weight l` >>
+  rw[constraint_weight_def, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+  drule get_solveable_SOME >> strip_tac >> gvs[] >>
+  Cases_on `left` >> gvs[SUM_APPEND, constraint_weight_def]
+End
+
+Definition example_2_exp_def:
+  example_2_exp =
+    pure_cexp$Lam () ["m"] $
+      Let () "y" (Var () "m") $
+        Let () "x" (App () (Var () "y") [Prim () (Cons "True") []]) $
+         Var () "x"
+End
+
+Definition example_2_infer_def:
+  example_2_infer = infer ([], [(0, [ ("True", []) ; ("False", []) ])])
+                LN example_2_exp 0
+End
+
+Theorem example_2_infer:
+  example_2_infer = SOME $
+    ((Function (CVar 0) (CVar 1),
+      fromList var_cmp [],
+      [
+        Unify () (CVar 0) (CVar 4);
+        Implicit () (CVar 2) (LS ()) (CVar 4);
+        Implicit () (CVar 1) (LS ()) (CVar 3);
+        Unify () (CVar 2) (Function (PrimTy Bool) (CVar 3))
+      ]), 5)
+Proof
+  EVAL_TAC
+QED
+
+Definition example_2_solve_def:
+  example_2_solve =
+    let ((t, _, cs), cvs) = THE example_2_infer in
+    (t, solve cs cvs)
+End
+
+
 (********************)
 
 val _ = export_theory();

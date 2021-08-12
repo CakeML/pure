@@ -164,5 +164,59 @@ Proof
   last_x_assum $ qspecl_then [`SUC n`,`m`] assume_tac >> gvs[ADD_CLAUSES]
 QED
 
+(* TODO *)
+Theorem infer_no_db_vars:
+  ∀ns as e s t as' cs s'.
+    namespace_ok ns ∧
+    infer ns as e s = SOME ((t, as', cs), s')
+  ⇒ TODO
+Proof
+  cheat
+QED
+
+Theorem generalise_avoid_all:
+  (∀t cv db avoid s.
+    pure_vars t ⊆ domain avoid ⇒ generalise cv db avoid s t = (0, s, t))
+Proof
+  ho_match_mp_tac itype_ind >> rw[pure_vars, generalise_def] >>
+  gvs[pred_setTheory.BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, EVERY_MEM, domain_lookup] >>
+  Induct_on `ts` >> rw[generalise_def] >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `_ (_ a) = _` >> PairCases_on `a` >> gvs[]
+QED
+
+Theorem freecvars_pure_vars:
+  (∀t. domain (freecvars t) = pure_vars t)
+Proof
+  ho_match_mp_tac itype_ind >> rw[freecvars_def, pure_vars] >> gvs[SF ETA_ss] >>
+  simp[domain_union, pred_setTheory.UNION_ASSOC] >>
+  qsuff_tac
+    `∀t. domain (FOLDL union t (MAP freecvars ts)) =
+        domain t ∪ BIGUNION (set (MAP pure_vars ts))` >> simp[] >>
+  Induct_on `ts` >> rw[] >> gvs[domain_union, UNION_ASSOC]
+QED
+
+(* TODO *)
+Theorem satisfies_lemmas:
+  satisfies s (Unify d t1 t2) = satisfies s (Unify d t2 t1) ∧
+  satisfies s (Unify d t1 t2) = satisfies s (Instantiate d t1 (0, t2)) ∧
+  satisfies s (Unify d t1 t2) = satisfies s (Implicit d t1 (freecvars t2) t2) ∧
+  satisfies s (Implicit d t1 vs t2) =
+    let (vars, s', scheme) = generalise cv TODO (subst_vars s vs) FEMPTY t2 in
+    satisfies s (Instantiate d t1 (vars, scheme))
+Proof
+  cheat
+QED
+
+Theorem get_solveable_SOME_LENGTH:
+  ∀cs rev_cs c cs'.
+    get_solveable cs rev_cs = SOME (c, cs')
+  ⇒ 0 < LENGTH (cs ++ rev_cs) ∧ LENGTH cs' = LENGTH (cs ++ rev_cs) - 1
+Proof
+  rpt gen_tac >> strip_tac >>
+  drule get_solveable_SOME >> strip_tac >> gvs[]
+QED
+
+
+
 val _ = export_theory();
 
