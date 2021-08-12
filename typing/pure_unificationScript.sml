@@ -59,26 +59,6 @@ Definition decode_utype_def:
   decode_utypes _ = NONE
 End
 
-(*
-Definition decode_utype_def:
-  decode_utype (Var n) = CVar n ∧
-  decode_utype (Const (uDBVar n)) = DBVar n ∧
-  decode_utype (Const (uPrimTy p)) = PrimTy p ∧
-  decode_utype (Const  uException) = Exception ∧
-  decode_utype (Pair (Const (uTypeCons n)) uts) = TypeCons n $ decode_utypes uts ∧
-  decode_utype (Pair (Const  uTuple) uts) = Tuple $ decode_utypes uts ∧
-  decode_utype (Pair (Const uFunction) (Pair ut1 ut2)) =
-    Function (decode_utype ut1) (decode_utypes ut2) ∧
-  decode_utype (Pair (Const  uArray) ut1) = Array $ decode_utype ut1 ∧
-  decode_utype (Pair (Const  uM) ut1) = M $ decode_utype ut1 ∧
-  decode_utype _ = ARB ∧
-
-  decode_utypes (Const uNone) = [] ∧
-  decode_utypes (Pair u1 u2) = (decode_utype u1)::(decode_utypes u2) ∧
-  decode_utypes _ = ARB
-End
-*)
-
 Triviality I_o_f:
   ∀m. I o_f m = m
 Proof

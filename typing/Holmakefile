@@ -1,2 +1,3 @@
 INCLUDES = ../misc ../language ../compiler/backend ../compiler/backend/proofs\
+           ../meta-theory\
            $(HOLDIR)/examples/algorithms/unification/triangular/first-order

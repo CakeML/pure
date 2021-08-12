@@ -17,24 +17,26 @@ Datatype:
         | CVar num
 End
 
+Theorem itype_ind:
+  ∀P.
+    (∀n. P (DBVar n)) ∧ (∀p. P (PrimTy p)) ∧ P Exception ∧
+    (∀id ts. (∀a. MEM a ts ⇒ P a) ⇒ P (TypeCons id ts)) ∧
+    (∀ts. (∀a. MEM a ts ⇒ P a) ⇒ P (Tuple ts)) ∧
+    (∀t1 t2. P t1 ∧ P t2 ⇒ P (Function t1 t2)) ∧
+    (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ∧ (∀n. P (CVar n))
+  ⇒ ∀v. P v
+Proof
+  ntac 3 strip_tac >>
+  completeInduct_on `itype_size v` >> rw[] >>
+  Cases_on `v` >> gvs[fetch "-" "itype_size_def"] >>
+  last_x_assum irule >> rw[] >>
+  first_x_assum irule >> simp[] >>
+  Induct_on `l` >> rw[] >> gvs[fetch "-" "itype_size_def"]
+QED
+
 Definition iFunctions_def:
   iFunctions [] t = t ∧
   iFunctions (at::ats) t = Function at (iFunctions ats t)
-End
-
-Definition freecvars_def:
-  freecvars (DBVar n) = {} ∧
-  freecvars (PrimTy p) = {} ∧
-  freecvars  Exception = {} ∧
-  freecvars (TypeCons id ts) = BIGUNION (set (MAP freecvars ts)) ∧
-  freecvars (Tuple ts) = BIGUNION (set (MAP freecvars ts)) ∧
-  freecvars (Function t1 t2) = freecvars t1 ∪ freecvars t2 ∧
-  freecvars (Array t) = freecvars t ∧
-  freecvars (M t) = freecvars t ∧
-  freecvars (CVar n) = {n}
-Termination
-  WF_REL_TAC `measure itype_size` >> rw[fetch "-" "itype_size_def"] >>
-  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "itype_size_def"] >> gvs[]
 End
 
 Definition isubst_def:

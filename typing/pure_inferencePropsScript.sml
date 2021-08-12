@@ -6,23 +6,6 @@ open pure_miscTheory pure_typingTheory pure_typingPropsTheory
 
 val _ = new_theory "pure_inferenceProps";
 
-Theorem itype_ind:
-  ∀P.
-    (∀n. P (DBVar n)) ∧ (∀p. P (PrimTy p)) ∧ P Exception ∧
-    (∀l. (∀t. MEM t l ⇒ P t) ⇒ ∀n. P (TypeCons n l)) ∧
-    (∀l. (∀t. MEM t l ⇒ P t) ⇒ P (Tuple l)) ∧
-    (∀tf t. P tf ∧ P t ⇒ P (Function tf t)) ∧
-    (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ∧ (∀n. P (CVar n)) ⇒
-    (∀t. P t)
-Proof
-  ntac 3 strip_tac >>
-  completeInduct_on `itype_size t` >> rw[] >>
-  Cases_on `t` >> gvs[itype_size_def] >>
-  last_x_assum irule >> rw[] >>
-  first_x_assum irule >> simp[] >>
-  Induct_on `l` >> rw[] >> gvs[itype_size_def]
-QED
-
 Theorem freecvars_empty_eq_type_of:
   ∀it. freecvars it = {} ⇔ (∃t. type_of it = SOME t)
 Proof
