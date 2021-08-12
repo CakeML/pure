@@ -10,8 +10,8 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory finite_mapTheory sptreeTheory monadsyntax;
-open pure_typingTheory pure_cexpTheory pure_configTheory
-     pure_inference_commonTheory;
+open pure_typingTheory pure_cexpTheory pure_configTheory pure_varsTheory
+     pure_inference_commonTheory pure_unificationTheory pure_miscTheory;
 
 val _ = new_theory "pure_inference";
 
@@ -87,10 +87,10 @@ Datatype:
              | Implicit 'a itype (num_set) itype
 End
 
-Type assumptions[pp] = ``:string |-> num_set``;
+Type assumptions[pp] = ``:num_set var_map``;
 
 Definition aunion_def:
-  aunion = FUNION_KEYS union : assumptions -> assumptions -> assumptions
+  aunion = unionWith sptree$union : assumptions -> assumptions -> assumptions
 End
 
 val _ = set_mapped_fixity {term_name = "aunion", tok = UTF8.chr 0x22D3,
@@ -98,9 +98,13 @@ val _ = set_mapped_fixity {term_name = "aunion", tok = UTF8.chr 0x22D3,
 
 Definition get_assumptions_def:
   get_assumptions var (assumptions : assumptions) =
-    case FLOOKUP assumptions var of
+    case lookup assumptions var of
     | NONE => []
     | SOME cvars => MAP FST $ toAList cvars
+End
+
+Definition singleton_def:
+  singleton k v = insert empty k v
 End
 
 
@@ -187,7 +191,7 @@ End
 Definition infer_def:
   infer (ns : exndef # typedefs) mset (pure_cexp$Var d x) = do
     fresh <- fresh_var;
-    return (CVar fresh, FEMPTY |+ (x, insert fresh () LN), []) od ∧
+    return (CVar fresh, singleton x (insert fresh () LN), []) od ∧
 
   infer ns mset (Prim d (Cons s) es) = (
     if s = "" then do
@@ -196,7 +200,7 @@ Definition infer_def:
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- infer ns mset e;
                 return (ty::tys, as ⋓ as', cs' ++ cs) od)
-            (return ([],FEMPTY,[])) es;
+            (return ([],empty,[])) es;
       return (Tuple tys, as, cs) od
 
     else if s = "Ret" then (
@@ -294,12 +298,12 @@ Definition infer_def:
 
     else if s = "True" ∨ s = "False" then (
       case es of
-      | [] => return (PrimTy Bool, FEMPTY, [])
+      | [] => return (PrimTy Bool, empty, [])
       | _ => fail)
 
     else if s = "Subscript" then (
       case es of
-      | [] => return (Exception, FEMPTY, [])
+      | [] => return (Exception, empty, [])
       | _ => fail)
 
     else do
@@ -308,7 +312,7 @@ Definition infer_def:
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- infer ns mset e;
                 return (ty::tys, as ⋓ as', cs' ++ cs) od)
-            (return ([],FEMPTY,[])) es;
+            (return ([],empty,[])) es;
       case ALOOKUP (FST ns) s of
       (* Exceptions *)
       | SOME arg_tys => (
@@ -333,7 +337,7 @@ Definition infer_def:
               (tys, as, cs) <- acc;
               (ty, as', cs') <- infer ns mset e;
               return (ty::tys, as ⋓ as', cs' ++ cs) od)
-          (return ([],FEMPTY,[])) es;
+          (return ([],empty,[])) es;
     return (PrimTy ret_ty, as,
             (list$MAP2 (λt a. Unify d t (PrimTy a)) tys arg_tys) ++ cs) od ∧
 
@@ -349,7 +353,7 @@ Definition infer_def:
               (tys, as, cs) <- acc;
               (ty, as', cs') <- infer ns mset e;
               return (ty::tys, as ⋓ as', cs' ++ cs) od)
-          (return ([],FEMPTY,[])) es;
+          (return ([],empty,[])) es;
     (tyf, asf, csf) <- infer ns mset e;
     fresh <- fresh_var;
     return (CVar fresh, as ⋓ asf,
@@ -360,7 +364,7 @@ Definition infer_def:
     freshes <- fresh_vars (LENGTH xs);
     cfreshes <<- MAP CVar freshes;
     (ty, as, cs) <- infer ns (list_insert freshes mset) e;
-    return (iFunctions cfreshes ty, FDIFF as (set xs),
+    return (iFunctions cfreshes ty, list_delete as xs,
             FLAT (list$MAP2
               (λf x. MAP (Unify d (CVar f) o CVar) $ get_assumptions x as)
             freshes xs) ++ cs) od) ∧
@@ -368,7 +372,7 @@ Definition infer_def:
   infer ns mset (Let d x e1 e2) = do
     (ty2, as2, cs2) <- infer ns mset e2;
     (ty1, as1, cs1) <- infer ns mset e1;
-    return (ty2, as1 ⋓ (as2 \\ x),
+    return (ty2, as1 ⋓ (delete as2 x),
             (MAP (λn. Implicit d (CVar n) mset ty1) $ get_assumptions x as2) ++
               cs1 ++ cs2) od ∧
 
@@ -379,8 +383,8 @@ Definition infer_def:
               (tys, as, cs) <- acc;
               (ty, as', cs') <- infer ns mset e;
               return (ty::tys, as ⋓ as', cs' ++ cs) od)
-          (return ([],FEMPTY,[])) fns;
-    return (tye, FDIFF (ase ⋓ asfns) (set (MAP FST fns)),
+          (return ([],empty,[])) fns;
+    return (tye, list_delete (ase ⋓ asfns) (MAP FST fns),
             (FLAT $ list$MAP2
                 (λ(x,b) tyfn. MAP (λn. Implicit d (CVar n) mset tyfn) $
                                               get_assumptions x (ase ⋓ asfns))
@@ -403,7 +407,7 @@ Definition infer_def:
       pvar_constraints <<- list$MAP2
         (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v asrest)
           (v::pvars) (cfresh_v::cfresh_tyargs);
-      return (tyrest, ase ⋓ (FDIFF asrest (v INSERT set pvars)),
+      return (tyrest, ase ⋓ (list_delete asrest (v :: pvars)),
                 (Unify d cfresh_v tye)::(Unify d tye (Tuple cfresh_tyargs))::
                 (FLAT pvar_constraints) ++ cse ++ csrest) od
 
@@ -425,9 +429,9 @@ Definition infer_def:
                 pvar_constraints <<- list$MAP2
                   (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v as')
                     (v::pvars) (cfresh_v::expected_cname_arg_tys);
-                return (ty::tys, ((FDIFF as' (v INSERT set pvars)) ⋓ as),
+                return (ty::tys, ((list_delete as' (v :: pvars)) ⋓ as),
                         (FLAT pvar_constraints) ++ cs' ++ cs) od)
-            (return ([],FEMPTY,[])) css;
+            (return ([],empty,[])) css;
       (tye, ase, cse) <- infer ns mset e;
 
       return (HD tys, ase ⋓ as,

@@ -2,23 +2,23 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
      listTheory alistTheory finite_mapTheory sptreeTheory;
 open pure_miscTheory pure_typingTheory pure_typingPropsTheory
-     pure_inference_commonTheory pure_inferenceTheory;
+     pure_inference_commonTheory pure_unificationTheory pure_inferenceTheory;
 
 val _ = new_theory "pure_inferenceProps";
 
-Theorem freecvars_empty_eq_type_of:
-  ∀it. freecvars it = {} ⇔ (∃t. type_of it = SOME t)
+Theorem pure_vars_empty_eq_type_of:
+  ∀it. pure_vars it = {} ⇔ (∃t. type_of it = SOME t)
 Proof
-  recInduct itype_ind >> reverse $ rw[freecvars_def, type_of_def]
+  recInduct itype_ind >> reverse $ rw[pure_vars, type_of_def]
   >- (eq_tac >> rw[] >> rpt $ goal_assum drule >> simp[]) >>
   (
-    Induct_on `l` >> rw[] >> gvs[INSERT_EQ_SING] >> eq_tac >> rw[]
+    Induct_on `ts` >> rw[] >> gvs[INSERT_EQ_SING] >> eq_tac >> rw[]
     >- (
       goal_assum drule >>
       first_x_assum $ irule o iffLR >>
       rw[DISJ_EQ_IMP, Once EXTENSION, MEM_MAP] >>
       gvs[LIST_TO_SET_MAP, SUBSET_DEF] >> eq_tac >> rw[] >>
-      Cases_on `l` >> gvs[] >> metis_tac[]
+      Cases_on `ts` >> gvs[] >> metis_tac[]
       )
     >- (goal_assum drule)
     >- gvs[LIST_TO_SET_MAP, SUBSET_DEF]
@@ -36,19 +36,7 @@ Theorem type_of_SOME:
   ∀it t. type_of it = SOME t ⇒ itype_of t = it
 Proof
   recInduct itype_ind >> rw[] >> gvs[type_of_def, itype_of_def] >>
-  rpt $ pop_assum mp_tac >> qid_spec_tac `z` >> Induct_on `l` >> rw[] >> gvs[]
-QED
-
-Theorem aunion_comm:
-  a1 ⋓ a2 = a2 ⋓ a1
-Proof
-  rw[aunion_def] >> irule FLOOKUP_FUNION_KEYS_COMM >> simp[union_num_set_sym]
-QED
-
-Theorem aunion_assoc:
-  a1 ⋓ (a2 ⋓ a3) = (a1 ⋓ a2) ⋓ a3
-Proof
-  rw[aunion_def] >> irule FLOOKUP_FUNION_KEYS_ASSOC >> simp[union_assoc]
+  rpt $ pop_assum mp_tac >> qid_spec_tac `z` >> Induct_on `ts` >> rw[] >> gvs[]
 QED
 
 Theorem infer_atom_op_LENGTH:
