@@ -615,37 +615,9 @@ Termination
   Cases_on `left` >> gvs[SUM_APPEND, constraint_weight_def]
 End
 
-Definition example_2_exp_def:
-  example_2_exp =
-    pure_cexp$Lam () ["m"] $
-      Let () "y" (Var () "m") $
-        Let () "x" (App () (Var () "y") [Prim () (Cons "True") []]) $
-         Var () "x"
-End
-
-Definition example_2_infer_def:
-  example_2_infer = infer ([], [(0, [ ("True", []) ; ("False", []) ])])
-                LN example_2_exp 0
-End
-
-Theorem example_2_infer:
-  example_2_infer = SOME $
-    ((Function (CVar 0) (CVar 1),
-      fromList var_cmp [],
-      [
-        Unify () (CVar 0) (CVar 4);
-        Implicit () (CVar 2) (LS ()) (CVar 4);
-        Implicit () (CVar 1) (LS ()) (CVar 3);
-        Unify () (CVar 2) (Function (PrimTy Bool) (CVar 3))
-      ]), 5)
-Proof
-  EVAL_TAC
-QED
-
-Definition example_2_solve_def:
-  example_2_solve =
-    let ((t, _, cs), cvs) = THE example_2_infer in
-    (t, solve cs cvs)
+Definition subst_solution_def:
+  subst_solution [] ty = ty ∧
+  subst_solution (s::ss) ty = subst_solution ss (pure_walkstar s ty)
 End
 
 
