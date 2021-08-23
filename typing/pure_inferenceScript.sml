@@ -491,18 +491,18 @@ Definition generalise_def:
 End
 
 Definition satisfies_def:
-  satisfies s (Unify d t1 t2) = (pure_apply_subst s t1 = pure_apply_subst s t2) ∧
+  satisfies s (Unify d t1 t2) = (pure_walkstar s t1 = pure_walkstar s t2) ∧
 
   satisfies s (Instantiate d t (vars, scheme)) = (
     ∃subs.
       LENGTH subs = vars ∧
-      pure_apply_subst s t = pure_apply_subst s (isubst subs scheme)) ∧
+      pure_walkstar s t = pure_walkstar s (isubst subs scheme)) ∧
 
   satisfies s (Implicit d tsub vars tsup) = (
     let (vars, s', scheme) = generalise 0 0 vars FEMPTY tsup in
     ∃subs.
       LENGTH subs = vars ∧
-      pure_apply_subst s tsub = pure_apply_subst s (isubst subs scheme))
+      pure_walkstar s tsub = pure_walkstar s (isubst subs scheme))
 End
 
 Definition freecvars_def:
@@ -522,16 +522,16 @@ End
 
 Definition subst_vars_def:
   subst_vars s (vars : num_set) =
-    foldi (λn u acc. union acc $ freecvars $ pure_apply_subst s (CVar n)) 0 LN vars
+    foldi (λn u acc. union acc $ freecvars $ pure_walkstar s (CVar n)) 0 LN vars
 End
 
 Definition subst_constraint_def:
   subst_constraint s (Unify d t1 t2) =
-    Unify d (pure_apply_subst s t1) (pure_apply_subst s t2) ∧
+    Unify d (pure_walkstar s t1) (pure_walkstar s t2) ∧
   subst_constraint s (Instantiate d t1 (vars, t2)) =
-    Instantiate d (pure_apply_subst s t1) (vars, pure_apply_subst s t2) ∧
+    Instantiate d (pure_walkstar s t1) (vars, pure_walkstar s t2) ∧
   subst_constraint s (Implicit d t1 vs t2) =
-    Implicit d (pure_apply_subst s t1) (subst_vars s vs) (pure_apply_subst s t2)
+    Implicit d (pure_walkstar s t1) (subst_vars s vs) (pure_walkstar s t2)
 End
 
 Definition activevars_def:
@@ -592,7 +592,7 @@ Definition solve_def:
   solve [] = return [] ∧
 
   solve cs = case get_solveable cs [] of
-    | NONE => return (ARB cs)
+    | NONE => fail
 
     | SOME $ (Unify d t1 t2, cs) => do
         sub <- oreturn $ pure_unify FEMPTY t1 t2;

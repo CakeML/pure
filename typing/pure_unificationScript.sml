@@ -21,7 +21,7 @@ Datatype:
         | uNone
 End
 
-Definition encode_itype_def:
+Definition encode_itype_def[nocompute]:
   encode_itype (DBVar n) = Const (uDBVar n) ∧
   encode_itype (PrimTy p) = Const (uPrimTy p) ∧
   encode_itype  Exception = Const (uException) ∧
@@ -37,7 +37,7 @@ Definition encode_itype_def:
   encode_itypes (t::ts) = Pair (encode_itype t) (encode_itypes ts)
 End
 
-Definition decode_utype_def:
+Definition decode_utype_def[nocompute]:
   decode_utype (Var n) = SOME $ CVar n ∧
   decode_utype (Const (uDBVar n)) = SOME $ DBVar n ∧
   decode_utype (Const (uPrimTy p)) = SOME $ PrimTy p ∧
@@ -84,11 +84,11 @@ Proof
   Induct >> rw[encode_itype_def, decode_utype_def]
 QED
 
-Definition pure_wfs_def:
+Definition pure_wfs_def[nocompute]:
   pure_wfs s = wfs (encode_itype o_f s)
 End
 
-Definition pure_vwalk_def:
+Definition pure_vwalk_def[nocompute]:
   pure_vwalk s v = THE $ decode_utype (vwalk (encode_itype o_f s) v)
 End
 
@@ -118,7 +118,7 @@ Proof
   Cases_on `x` >> gvs[encode_itype_def, decode_utype_def, decode_encode]
 QED
 
-Definition pure_walk_def:
+Definition pure_walk_def[nocompute]:
   pure_walk s t = THE $ decode_utype (walk (encode_itype o_f s) (encode_itype t))
 End
 
@@ -132,11 +132,11 @@ Proof
   Cases_on `t` >> gvs[decode_utype_def, encode_itype_def, decode_encode]
 QED
 
-Definition pure_oc_def:
+Definition pure_oc_def[nocompute]:
   pure_oc s t v = oc (encode_itype o_f s) (encode_itype t) v
 End
 
-Definition pure_vars_def:
+Definition pure_vars_def[nocompute]:
   pure_vars t = vars (encode_itype t)
 End
 
@@ -184,7 +184,7 @@ Proof
   Cases_on `x` >> gvs[encode_itype_def, pure_oc_lemma]
 QED
 
-Definition pure_ext_s_check_def:
+Definition pure_ext_s_check_def[nocompute]:
   pure_ext_s_check s v t =
     OPTION_MAP ((o_f) (THE o decode_utype)) $
       ext_s_check (encode_itype o_f s) v (encode_itype t)
@@ -198,7 +198,7 @@ Proof
      combinTheory.o_DEF, decode_encode]
 QED
 
-Definition pure_unify_def:
+Definition pure_unify_def[nocompute]:
   pure_unify s t1 t2 =
     OPTION_MAP ((o_f) (THE o decode_utype)) $
       unify (encode_itype o_f s) (encode_itype t1) (encode_itype t2)
@@ -702,7 +702,10 @@ Theorem pure_unify:
           pure_unifyl s [t11;t12] [t21;t22]
       | (Array t1, Array t2) => pure_unify s t1 t2
       | (M t1, M t2) => pure_unify s t1 t2
-      | (t1, t2) => if t1 = t2 then SOME s else NONE
+      | (DBVar db1, DBVar db2) => if db1 = db2 then SOME s else NONE
+      | (PrimTy pty1, PrimTy pty2) => if pty1 = pty2 then SOME s else NONE
+      | (Exception, Exception) => SOME s
+      | (t1, t2) => NONE
 Proof
   rw[pure_unify_def] >> imp_res_tac pure_wfs_def >>
   rw [Once unify_def, pure_walk_def] >>
@@ -1049,7 +1052,7 @@ Proof
     )
 QED
 
-Definition pure_apply_subst_def:
+Definition pure_apply_subst_def[nocompute]:
   pure_apply_subst s t =
     THE $ decode_utype $ subst_APPLY (encode_itype o_f s) (encode_itype t)
 End
@@ -1127,7 +1130,7 @@ Proof
   ho_match_mp_tac walkstar_ind >> rw[]
 QED
 
-Definition pure_walkstar_def:
+Definition pure_walkstar_def[nocompute]:
   pure_walkstar s t =
     THE o decode_utype $ walkstar (encode_itype o_f s) (encode_itype t)
 End
@@ -1265,7 +1268,7 @@ Proof
   Induct_on `l` >> rw[encode_itype_def]
 QED
 
-Definition pure_collapse_def:
+Definition pure_collapse_def[nocompute]:
   pure_collapse s = (THE o decode_utype) o_f collapse (encode_itype o_f s)
 End
 
@@ -1377,7 +1380,7 @@ Proof
   rw[encode_walkstar, decode_encode]
 QED
 
-Definition pure_vR_def:
+Definition pure_vR_def[nocompute]:
   pure_vR s = vR (encode_itype o_f s)
 End
 
@@ -1396,7 +1399,7 @@ Proof
   goal_assum drule >> simp[] >> CASE_TAC >> gvs[]
 QED
 
-Definition pure_rangevars_def:
+Definition pure_rangevars_def[nocompute]:
   pure_rangevars s = rangevars (encode_itype o_f s)
 End
 
