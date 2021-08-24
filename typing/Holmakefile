@@ -1,4 +1,4 @@
 INCLUDES = ../misc ../language ../compiler/backend ../compiler/backend/proofs\
-           ../meta-theory\
+           ../meta-theory ../compiler\
            $(CAKEMLDIR)/basis/pure\
            $(HOLDIR)/examples/algorithms/unification/triangular/first-order

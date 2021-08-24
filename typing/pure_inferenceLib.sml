@@ -2,10 +2,10 @@
 structure pure_inferenceLib = struct
 
 local
-  open HolKernel boolLib bossLib pure_unificationTheory
+  open HolKernel boolLib bossLib
   open computeLib reduceLib optionLib pairLib listSimps stringLib sptreeLib
-       combinLib finite_mapLib
-  open basisComputeLib pure_unificationTheory pure_inferenceTheory
+       combinLib finite_mapLib pred_setLib
+  open basisComputeLib pure_unificationTheory pure_inferenceTheory pure_printTheory
 
   val pure_wfs_FEMPTY = Q.prove(`pure_wfs FEMPTY`, rw[pure_wfs_def]);
 
@@ -87,9 +87,9 @@ in
       ()
     end
 
-  val pure_infer_compset = let
+  fun pure_infer_compset () = let
     val cmp = reduceLib.num_compset ()
-    val _ = Lib.C computeLib.extend_compset cmp $ List.concat [
+    val _ = Lib.C computeLib.extend_compset cmp (
               computeLib.Extenders [
                 optionLib.OPTION_rws,
                 pairLib.add_pair_compset,
@@ -107,10 +107,23 @@ in
                 "pure_inference", "pure_inference_common",
                 "mlmap", "mlstring", "balanced_map", "pure_vars"
                 ]
-          ]
+          )
     in cmp end
 
-  val pure_infer_eval = CBV_CONV pure_infer_compset
+  val pure_infer_eval = CBV_CONV (pure_infer_compset ())
+
+  fun pure_parse_infer_compset () = let
+    val cmp = pure_infer_compset ()
+    val _ = Lib.C computeLib.extend_compset cmp (
+              computeLib.Extenders [pred_setLib.add_pred_set_compset] ::
+              computeLib.Tys [``:source_values$v``] ::
+              map (computeLib.Defs o theory_computes) [
+                "pure_print", "parsing", "source_values"
+                ]
+              )
+    in cmp end
+
+  val pure_parse_infer_eval = CBV_CONV (pure_parse_infer_compset ())
 
 end
 
