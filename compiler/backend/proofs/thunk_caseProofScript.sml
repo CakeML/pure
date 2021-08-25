@@ -19,6 +19,7 @@ Overload Tick = “λx: exp. Letrec [] x”;
 
 Overload IsEq = “λs i (x: exp). Prim (IsEq s i) [x]”;
 
+(* TODO move to thunkProps *)
 Theorem subst_FILTER[local]:
   w ∉ freevars x ⇒
     subst (FILTER (λ(n,x). n ≠ w) vs) x = subst vs x
@@ -29,6 +30,7 @@ Proof
   \\ gs []
 QED
 
+(* TODO move to thunkProps *)
 Theorem subst1_notin_frees:
   n ∉ freevars x ⇒
     subst1 n v x = x
@@ -39,10 +41,39 @@ Proof
   \\ simp []
 QED
 
+(* TODO move to thunkProps *)
 Theorem subst1_commutes:
-  n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
+  ∀x v n m w.
+    n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
 Proof
-  cheat
+  ho_match_mp_tac exp_ind
+  \\ rpt conj_tac
+  \\ simp [subst1_def] \\ rw []
+  \\ simp [subst1_def]
+  >- (
+    simp [MAP_MAP_o, combinTheory.o_DEF]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS])
+  >- (
+    IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def])
+  >- (
+    rename1 ‘Let x’
+    \\ Cases_on ‘x’ \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def])
+  >- (
+    IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS, ELIM_UNCURRY,
+            DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+    \\ rw []
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ irule_at Any PAIR)
 QED
 
 (* -------------------------------------------------------------------------

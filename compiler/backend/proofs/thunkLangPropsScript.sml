@@ -37,7 +37,7 @@ Theorem exp_ind:
     (∀x. P x ⇒ P (Box x)) ∧
     (∀x. P x ⇒ P (Force x)) ∧
     (∀v. P (Value v)) ∧
-    (∀x. P (MkTick x)) ⇒
+    (∀x. P x ⇒ P (MkTick x)) ⇒
       ∀v. P v
 Proof
   gen_tac
