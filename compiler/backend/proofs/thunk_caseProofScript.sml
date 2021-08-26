@@ -1778,11 +1778,15 @@ Inductive exp_rel_inl:
        v_rel_inl (DoTick v) (DoTick w)) ∧
 [v_rel_inl_Recclosure:]
   (∀f g n.
-     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_inl FEMPTY x y) f g ⇒
+     LIST_REL (λ(fn,x) (gn,y).
+                 freevars x ⊆ set (MAP FST f) ∧
+                 fn = gn ∧
+                   exp_rel_inl FEMPTY x y) f g ⇒
        v_rel_inl (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_inl_Thunk_INR:]
   (∀x y.
-     exp_rel_inl FEMPTY x y ⇒
+     exp_rel_inl FEMPTY x y ∧
+     closed x ⇒
        v_rel_inl (Thunk (INR x)) (Thunk (INR y))) ∧
 [v_rel_inl_Thunk_INL:]
   (∀v w.
@@ -2156,8 +2160,10 @@ Proof
       \\ gs [fmap_rel_def, flookup_thm, SUBSET_DEF]
       \\ strip_tac \\ gs []
       \\ res_tac)
-    \\ rpt strip_tac
-    \\ rw [v_rel_inl_def, LIST_REL_EL_EQN, ELIM_UNCURRY]
+    \\ rw [v_rel_inl_def, LIST_REL_EL_EQN, ELIM_UNCURRY, closed_def]
+    >- (
+      gvs [BIGUNION, SUBSET_DEF, PULL_EXISTS, MEM_EL, EL_MAP, SF CONJ_ss,
+           SF SFY_ss])
     \\ irule exp_rel_inl_freevars
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ first_assum (irule_at Any) \\ rw []
@@ -2204,7 +2210,8 @@ Proof
         rename1 ‘LIST_REL _ xs ys’
         \\ ‘OPTREL (exp_rel_inl FEMPTY) (ALOOKUP (REVERSE xs) s)
                                         (ALOOKUP (REVERSE ys) s)’
-          by (irule LIST_REL_OPTREL \\ gs [])
+          by (irule LIST_REL_OPTREL \\ gs []
+              \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
         \\ gvs [Once exp_rel_inl_cases]
         \\ first_x_assum irule
@@ -2223,12 +2230,17 @@ Proof
         \\ gs [DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD,
                DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, SF SFY_ss]
         \\ simp [closed_subst]
-        \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-        \\ cheat (* needs Recclosure Thunk contents to be closed *))
+        \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
+               LIST_REL_EL_EQN]
+        \\ imp_res_tac ALOOKUP_SOME_EL
+        \\ gvs [EL_REVERSE]
+        \\ qmatch_asmsub_abbrev_tac ‘EL mm xs’
+        \\ ‘mm < LENGTH ys’ by gs [Abbr ‘mm’]
+        \\ first_x_assum (drule_then assume_tac)
+        \\ gs [ELIM_UNCURRY, freevars_def])
       \\ CASE_TAC \\ gs []
       \\ first_x_assum irule
-      \\ simp [subst_funs_def, SF SFY_ss]
-      \\ cheat (* closed, as above *))
+      \\ simp [subst_funs_def, SF SFY_ss])
     \\ ‘∃y. dest_Tick w = SOME y’
         by (Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
             \\ gs [Once v_rel_inl_cases])
