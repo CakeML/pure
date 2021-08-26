@@ -1770,7 +1770,8 @@ Inductive exp_rel_inl:
        v_rel_inl (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_inl_Closure:]
   (∀s x y.
-     exp_rel_inl FEMPTY x y ⇒
+     exp_rel_inl FEMPTY x y ∧
+     freevars x ⊆ {s} ⇒
        v_rel_inl (Closure s x) (Closure s y)) ∧
 [v_rel_inl_DoTick:]
   (∀v w.
@@ -2093,6 +2094,53 @@ Proof
   >~ [‘Value v’] >- (
     rw [Once exp_rel_inl_cases]
     \\ simp [eval_to_def])
+  >~ [‘App f x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_inl_cases] \\ gs []
+    \\ rename1 ‘exp_rel_inl _ x y’
+    \\ gs [eval_to_def]
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k g’ \\ gvs []
+    \\ rename1 ‘v_rel_inl v w’
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def]
+    >- ((* Closure *)
+      IF_CASES_TAC \\ gs []
+      \\ rename1 ‘(_ +++ _) (_ _ (subst1 s u1 e1)) (_ _ (subst1 s u2 e2))’
+      \\ ‘[s,u1] = [] ++ [s,u1]’ by gs [] \\ pop_assum SUBST1_TAC
+      \\ ‘[s,u2] = [] ++ [s,u2]’ by gs [] \\ pop_assum SUBST1_TAC
+      \\ first_x_assum irule \\ gs [closed_subst]
+      \\ irule_at Any exp_rel_inl_subst
+      \\ first_assum (irule_at Any) \\ gs [])
+        (* Recclosure *)
+    \\ rename1 ‘LIST_REL _ xs ys’
+    \\ ‘OPTREL (exp_rel_inl FEMPTY) (ALOOKUP (REVERSE xs) s)
+                                    (ALOOKUP (REVERSE ys) s)’
+      by (irule LIST_REL_OPTREL \\ gs []
+          \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
+    \\ gs [OPTREL_def]
+    \\ gvs [Once exp_rel_inl_cases]
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule
+    \\ irule_at Any exp_rel_inl_subst
+    \\ first_assum (irule_at Any)
+    \\ simp [EVERY2_MAP, LAMBDA_PROD]
+    \\ irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any)
+    \\ csimp [FORALL_PROD]
+    \\ gs [DISJOINT_ALT, MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss,
+           MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
+           DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, fmap_rel_def,
+           IN_FRANGE_FLOOKUP]
+    \\ gs [flookup_thm]
+    \\ irule_at Any LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, closed_subst]
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF]
+    \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ gvs [freevars_def, SUBSET_DEF, SF ETA_ss] \\ rw []
+    \\ rw [DISJ_SYM, DISJ_EQ_IMP])
   >~ [‘Lam s x’] >- (
     rw [Once exp_rel_inl_cases]
     \\ gs [eval_to_def, fmap_rel_def, v_rel_inl_def]
@@ -2232,10 +2280,7 @@ Proof
         \\ simp [closed_subst]
         \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
                LIST_REL_EL_EQN]
-        \\ imp_res_tac ALOOKUP_SOME_EL
-        \\ gvs [EL_REVERSE]
-        \\ qmatch_asmsub_abbrev_tac ‘EL mm xs’
-        \\ ‘mm < LENGTH ys’ by gs [Abbr ‘mm’]
+        \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
         \\ first_x_assum (drule_then assume_tac)
         \\ gs [ELIM_UNCURRY, freevars_def])
       \\ CASE_TAC \\ gs []
@@ -2249,52 +2294,12 @@ Proof
     \\ rw [Once exp_rel_inl_cases]
     \\ rw [Once exp_rel_inl_cases]
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [Once v_rel_inl_cases])
-  \\ cheat
- (*
-  >~ [‘App f x’] >- (
-    strip_tac
-    \\ rw [Once exp_rel_inl_cases] \\ gs []
-    \\ rename1 ‘exp_rel_inl _ x y’
-    \\ gs [eval_to_def]
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k g’ \\ gvs []
-    \\ rename1 ‘v_rel_inl v w’
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
-    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def]
-    >- ((* Closure *)
-      IF_CASES_TAC \\ gs []
-      \\ rename1 ‘(_ +++ _) (_ _ (subst1 s u1 e1)) (_ _ (subst1 s u2 e2))’
-      \\ ‘[s,u1] = [] ++ [s,u1]’ by gs [] \\ pop_assum SUBST1_TAC
-      \\ ‘[s,u2] = [] ++ [s,u2]’ by gs [] \\ pop_assum SUBST1_TAC
-      \\ first_x_assum irule \\ gs []
-      \\ irule_at Any exp_rel_inl_subst
-      \\ first_assum (irule_at Any) \\ gs [])
-        (* Recclosure *)
-    \\ rename1 ‘LIST_REL _ xs ys’
-    \\ rename1 ‘DISJOINT (FDOM m1)’
-    \\ ‘OPTREL (exp_rel_inl m1) (ALOOKUP (REVERSE xs) s)
-                                (ALOOKUP (REVERSE ys) s)’
-      by (irule LIST_REL_OPTREL \\ gs [])
-    \\ gs [OPTREL_def]
-    \\ gvs [Once exp_rel_inl_cases]
-    \\ IF_CASES_TAC \\ gs []
-    \\ first_x_assum irule
-    \\ irule_at Any exp_rel_inl_subst
-    \\ first_assum (irule_at Any)
-    \\ simp [EVERY2_MAP, LAMBDA_PROD]
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ csimp [FORALL_PROD]
-    \\ gs [DISJOINT_ALT, MEM_MAP, EXISTS_PROD, PULL_EXISTS,
-           DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, SF SFY_ss]
-    \\ rw []
-    \\ first_assum (irule_at Any)
-    \\ rw [] \\ gs [SF SFY_ss])
   >~ [‘Delay x’] >- (
     rw [Once exp_rel_inl_cases] \\ gs []
     \\ simp [eval_to_def]
-    \\ first_assum (irule_at Any))
+    \\ irule exp_rel_inl_freevars
+    \\ first_assum (irule_at Any)
+    \\ gs [closed_def])
   >~ [‘Box x’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
@@ -2310,6 +2315,8 @@ Proof
     \\ first_x_assum (drule_all_then assume_tac)
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ rw [Once v_rel_inl_cases])
+  \\ cheat
+ (*
   \\ cheat
   >~ [‘Prim op xs’] >- (
     strip_tac
