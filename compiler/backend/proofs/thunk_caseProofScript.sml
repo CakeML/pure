@@ -950,6 +950,8 @@ Theorem eval_to_WF_IND[local] =
               ($= +++ v_rel_d2b) (eval_to (j + k) x) (eval_to k y)’
   |> SIMP_RULE std_ss [FORALL_PROD]
 
+(* TODO: Assume ∀j. eval_to (j + k) x ≠ Type_error for Prim case to go through
+ *)
 Theorem exp_rel_d2b_eval_to:
   ∀k x y.
     exp_rel_d2b x y ⇒
