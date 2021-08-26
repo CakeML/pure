@@ -5,7 +5,8 @@ local
   open HolKernel boolLib bossLib
   open computeLib reduceLib optionLib pairLib listSimps stringLib sptreeLib
        combinLib finite_mapLib pred_setLib
-  open basisComputeLib pure_unificationTheory pure_inferenceTheory pure_printTheory
+  open basisComputeLib
+  open pure_unificationTheory pure_inferenceTheory pure_printTheory pure_printLib
 
   val pure_wfs_FEMPTY = Q.prove(`pure_wfs FEMPTY`, rw[pure_wfs_def]);
 
@@ -19,6 +20,7 @@ local
       ThmSetData.added_thms
 
 in
+  val toMLstring = stringLib.fromMLstring o dest_QUOTE;
 
   fun add_unify_compset compset = let
 
@@ -93,7 +95,9 @@ in
               computeLib.Extenders [
                 optionLib.OPTION_rws,
                 pairLib.add_pair_compset,
-                listSimps.list_rws,
+                listLib.list_rws,
+                alistLib.add_alist_compset,
+                listLib.add_rich_list_compset,
                 stringLib.add_string_compset,
                 sptreeLib.add_sptree_compset,
                 combinLib.add_combin_compset,
