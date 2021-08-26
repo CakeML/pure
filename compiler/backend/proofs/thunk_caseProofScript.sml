@@ -2315,19 +2315,17 @@ Proof
     \\ first_x_assum (drule_all_then assume_tac)
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ rw [Once v_rel_inl_cases])
-  \\ cheat
- (*
-  \\ cheat
   >~ [‘Prim op xs’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
     \\ simp [eval_to_def]
-    \\ Cases_on ‘op’ \\ gs []
+    \\ Cases_on ‘op’ \\ gs [EVERY_EL]
     >- ((* Cons *)
       gs [result_map_def, MEM_MAP, PULL_EXISTS, LIST_REL_EL_EQN, MEM_EL]
       \\ IF_CASES_TAC \\ gs []
       >- (
         gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
+        \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gvs []
@@ -2337,16 +2335,18 @@ Proof
       >- (
         IF_CASES_TAC \\ gs []
         >- (
-          rename1 ‘m < LENGTH ys’
+          rename1 ‘j < LENGTH ys’
+          \\ first_x_assum (drule_then assume_tac)
           \\ first_x_assum (drule_then assume_tac)
           \\ first_x_assum (drule_then assume_tac)
           \\ first_x_assum (drule_all_then assume_tac)
-          \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs [])
+          \\ Cases_on ‘eval_to k (EL j xs)’ \\ gs [])
         \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ rw [] \\ gs []
         \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_then assume_tac) \\ gs []
+        \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
@@ -2357,6 +2357,7 @@ Proof
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
       \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
@@ -2364,6 +2365,7 @@ Proof
         first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
@@ -2375,6 +2377,7 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
+      \\ first_x_assum (drule_all_then assume_tac)
       \\ Cases_on ‘eval_to k (EL n xs)’
       \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
       \\ rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
@@ -2383,7 +2386,7 @@ Proof
       \\ IF_CASES_TAC \\ gs []
       \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1n ⇔ n = 0”]
       \\ IF_CASES_TAC \\ gs []
-      \\ rename1 ‘exp_rel_inl x y’
+      \\ rename1 ‘exp_rel_inl m x y’
       \\ first_x_assum (drule_then assume_tac)
       \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
       \\ rename1 ‘v_rel_inl v w’
@@ -2394,7 +2397,7 @@ Proof
       \\ IF_CASES_TAC \\ gs []
       \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “n < 1n ⇔ n = 0”]
       \\ IF_CASES_TAC \\ gs []
-      \\ rename1 ‘exp_rel_inl x y’
+      \\ rename1 ‘exp_rel_inl m x y’
       \\ first_x_assum (drule_then assume_tac)
       \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
       \\ rename1 ‘v_rel_inl v w’
@@ -2417,7 +2420,8 @@ Proof
       \\ rw []
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
-      \\ rpt CASE_TAC \\ gs [])) *)
+      \\ first_x_assum (drule_all_then assume_tac)
+      \\ rpt CASE_TAC \\ gs []))
 QED
 
 val _ = export_theory ();
