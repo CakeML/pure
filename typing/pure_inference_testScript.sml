@@ -18,6 +18,34 @@ Definition parse_and_infer_def:
     od 0
 End
 
+(* do `k` steps of `solve`, for debugging purposes *)
+Definition solve_k_def:
+  solve_k 0 cs = return (ARB "Timeout" cs) ∧
+  solve_k _ [] = return [] ∧
+
+  solve_k (SUC n) cs = case get_solveable cs [] of
+    | NONE => fail
+
+    | SOME $ (Unify d t1 t2, cs) => do
+        sub <- oreturn $ pure_unify FEMPTY t1 t2;
+        cs' <<- MAP (subst_constraint sub) cs;
+        solve_rest <- solve_k n cs';
+        return (sub :: solve_rest) od
+
+    | SOME $ (Instantiate d t (vs, scheme), cs) => do
+        freshes <- fresh_vars vs;
+        inst_scheme <<- isubst (MAP CVar freshes) scheme;
+        solve_k n (Unify d t inst_scheme :: cs) od
+
+    | SOME $ (Implicit d t1 vs t2, cs) => do
+        (nvs, s, scheme) <<- generalise 0 0 vs FEMPTY t2;
+        solve_k n (Instantiate d t1 (nvs, scheme) :: cs) od
+End
+
+Definition bool_datatype_def[simp]:
+  bool_datatype : typedef = (0n, [("True", []); ("False", [])])
+End
+
 Definition option_datatype_def[simp]:
   option_datatype : typedef = (1n, [("Nothing", []); ("Just", [TypeVar 0])])
 End
@@ -34,7 +62,8 @@ End
 Definition simple_ns_def[simp]:
   simple_ns = (
     [] : exndef , (* no exceptions *)
-    [option_datatype; nat_datatype 1; list_datatype 2] (* options, nats, lists *)
+    [bool_datatype; option_datatype;
+     nat_datatype 2; list_datatype 3] (* bools, options, nats, lists *)
   )
 End
 
@@ -59,8 +88,7 @@ Proof
 QED
 
 Definition example_2_infer_def[simp]:
-  example_2_infer = infer ([], [(0, [ ("True", []) ; ("False", []) ])])
-                LN example_2_exp 0
+  example_2_infer = infer simple_ns LN example_2_exp 0
 End
 
 Theorem example_2_infer:
