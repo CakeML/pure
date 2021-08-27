@@ -1673,35 +1673,27 @@ QED
  * Inline forced Box-thunks under a Let.
  * ------------------------------------------------------------------------- *)
 
-Definition fmap_rel_def:
-  fmap_rel m m1 names =
-    ∀k v.
-      FLOOKUP m1 k = SOME v ⇒
-        FLOOKUP m k = SOME v ∧
-        k ∉ names ∧
-        v ∉ names
-End
-
 Inductive exp_rel_inl:
 (* Inlining *)
 [exp_rel_inl_Inline:]
-  (∀m v w.
-     FLOOKUP m v = SOME w ⇒
-       exp_rel_inl m (Force (Var v)) (Tick (Var w))) ∧
-[exp_rel_inl_Inline_Value:]
-  (∀m v w.
-     v_rel_inl v w ⇒
-       exp_rel_inl m (Force (Value (Thunk (INL v)))) (Tick (Value w))) ∧
+  (∀m v.
+     v ∈ m ⇒
+       exp_rel_inl m (Var v) (Box (Var v))) ∧
+[exp_rel_inl_NoInline:]
+  (∀m v.
+     v ∉ m ⇒
+       exp_rel_inl m (Var v) (Var v)) ∧
 [exp_rel_inl_Bind:]
   (∀m v w y1 y2.
-     exp_rel_inl (m |+ (v, w)) y1 y2 ⇒
+     exp_rel_inl (v INSERT m) y1 y2 ⇒
        exp_rel_inl m (Let (SOME v) (Box (Var w)) y1)
-                     (Let (SOME v) (Box (Var w)) y2)) ∧
+                     (Let (SOME v) (Var w) y2)) ∧
 [exp_rel_inl_Bind_Value:]
-  (∀m u v w y1 y2.
-     v_rel_inl u v ⇒
-       exp_rel_inl m (Let (SOME w) (Box (Value u)) y1)
-                     (Let (SOME w) (Box (Value v)) y2)) ∧
+  (∀m v x1 x2 y1 y2.
+     exp_rel_inl (v INSERT m) y1 y2 ∧
+     v_rel_inl x1 x2 ⇒
+       exp_rel_inl m (Let (SOME v) (Box (Value x1)) y1)
+                     (Let (SOME v) (Value x2) y2)) ∧
 (* Boilerplate: *)
 [exp_rel_inl_App:]
   (∀m f g x y.
@@ -1710,20 +1702,23 @@ Inductive exp_rel_inl:
        exp_rel_inl m (App f x) (App g y)) ∧
 [exp_rel_inl_Lam:]
   (∀m1 m s x y.
-     fmap_rel m m1 {s} ∧
+     m1 ⊆ m ∧
+     s ∉ m1 ∧
      exp_rel_inl m1 x y ⇒
        exp_rel_inl m (Lam s x) (Lam s y)) ∧
 [exp_rel_inl_Letrec:]
   (∀m m1 f g x y.
-     fmap_rel m m1 (set (MAP FST f)) ∧
+     m1 ⊆ m ∧
+     DISJOINT (set (MAP FST f)) m1 ∧
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_inl m1 x y) f g ∧
      exp_rel_inl m1 x y ⇒
        exp_rel_inl m (Letrec f x) (Letrec g y)) ∧
 [exp_rel_inl_Let_SOME:]
   (∀m m1 bv x1 y1 x2 y2.
+     m1 ⊆ m ∧
+     bv ∉ m1 ∧
      exp_rel_inl m x1 x2 ∧
-     exp_rel_inl m1 y1 y2 ∧
-     fmap_rel m m1 {bv} ⇒
+     exp_rel_inl m1 y1 y2 ⇒
        exp_rel_inl m (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2)) ∧
 [exp_rel_inl_Let_NONE:]
   (∀m x1 y1 x2 y2.
@@ -1754,9 +1749,6 @@ Inductive exp_rel_inl:
   (∀m x y.
      exp_rel_inl m x y ⇒
        exp_rel_inl m (MkTick x) (MkTick y)) ∧
-[exp_rel_inl_Var:]
-  (∀m v.
-     exp_rel_inl m (Var v) (Var v)) ∧
 [exp_rel_inl_Value:]
   (∀m v w.
      v_rel_inl v w ⇒
@@ -1770,7 +1762,7 @@ Inductive exp_rel_inl:
        v_rel_inl (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_inl_Closure:]
   (∀s x y.
-     exp_rel_inl FEMPTY x y ∧
+     exp_rel_inl EMPTY x y ∧
      freevars x ⊆ {s} ⇒
        v_rel_inl (Closure s x) (Closure s y)) ∧
 [v_rel_inl_DoTick:]
@@ -1782,11 +1774,11 @@ Inductive exp_rel_inl:
      LIST_REL (λ(fn,x) (gn,y).
                  freevars x ⊆ set (MAP FST f) ∧
                  fn = gn ∧
-                   exp_rel_inl FEMPTY x y) f g ⇒
+                 exp_rel_inl EMPTY x y) f g ⇒
        v_rel_inl (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_inl_Thunk_INR:]
   (∀x y.
-     exp_rel_inl FEMPTY x y ∧
+     exp_rel_inl EMPTY x y ∧
      closed x ⇒
        v_rel_inl (Thunk (INR x)) (Thunk (INR y))) ∧
 [v_rel_inl_Thunk_INL:]
@@ -1818,7 +1810,7 @@ Theorem v_rel_inl_def[simp] =
   |> LIST_CONJ;
 
 Theorem exp_rel_inl_freevars:
-  (∀k. k ∈ freevars x ⇒ FLOOKUP m k = FLOOKUP m1 k) ∧
+  m ∩ freevars x = m1 ∩ freevars x ∧
   exp_rel_inl m x y ⇒
     exp_rel_inl m1 x y
 Proof
@@ -1826,70 +1818,86 @@ Proof
     (∀m x y.
        exp_rel_inl m x y ⇒
        ∀m1.
-         (∀k. k ∈ freevars x ⇒ FLOOKUP m1 k = FLOOKUP m k) ⇒
-         exp_rel_inl m1 x y) ∧
+         m ∩ freevars x = m1 ∩ freevars x ⇒
+           exp_rel_inl m1 x y) ∧
     (∀v w. v_rel_inl v w ⇒ T)’
   >- (
-    rw [SF SFY_ss]
-    \\ first_x_assum irule
-    \\ first_x_assum (irule_at Any)
-    \\ simp [SF SFY_ss])
+    rw [SF SFY_ss])
   \\ ho_match_mp_tac exp_rel_inl_strongind \\ simp []
   \\ rw []
-  >- ((* Inline Var *)
+  >- ((* Inline *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Inline
-    \\ gs [])
-  >- ((* Inline Value *)
+    \\ gs [INTER_DEF, EXTENSION, EQ_IMP_THM, SF SFY_ss])
+  >- ((* NoInline *)
     gs [freevars_def]
-    \\ irule exp_rel_inl_Inline_Value
-    \\ gs [])
+    \\ irule exp_rel_inl_NoInline
+    \\ gs [INTER_DEF, EXTENSION, EQ_IMP_THM, SF SFY_ss])
   >- ((* Let Bind *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Bind
     \\ first_assum (irule_at Any)
-    \\ simp [FLOOKUP_UPDATE])
+    \\ gs [INTER_DEF, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP])
   >- ((* Let Bind Value *)
     gs [freevars_def]
-    \\ irule exp_rel_inl_Bind_Value
-    \\ first_assum (irule_at Any))
+    \\ irule exp_rel_inl_Bind_Value \\ gs []
+    \\ first_assum (irule_at Any)
+    \\ gs [INTER_DEF, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP])
   >- ((* App *)
     gs [freevars_def]
-    \\ irule exp_rel_inl_App \\ gs [])
+    \\ irule exp_rel_inl_App \\ gs []
+    \\ first_x_assum (irule_at Any)
+    \\ first_x_assum (irule_at Any)
+    \\ gs [INTER_DEF, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP])
   >- ((* Lam *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Lam \\ gs []
-    \\ qexists_tac ‘DRESTRICT m (freevars x)’
-    \\ first_x_assum (irule_at Any)
-    \\ simp [FLOOKUP_DRESTRICT]
-    \\ gs [fmap_rel_def, FLOOKUP_DRESTRICT]
-    \\ CCONTR_TAC \\ gvs []
-    \\ res_tac \\ gs [])
+    \\ qexists_tac ‘m ∩ (freevars x DIFF {s})’
+    \\ gs [SUBSET_DEF, INTER_DEF, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP])
   >- ((* Letrec *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Letrec \\ gs []
-    \\ qexists_tac ‘DRESTRICT m (freevars (Letrec f x))’
-    \\ gs [freevars_def]
-    \\ cheat)
+    \\ qmatch_asmsub_rename_tac ‘m2 ⊆ m’
+    \\ qexists_tac ‘m2 ∩ freevars (Letrec f x)’
+    \\ first_x_assum (irule_at (Pos last))
+    \\ irule_at Any LIST_REL_mono
+    \\ first_x_assum (irule_at (Pos (el 2)))
+    \\ rw []
+    >- (
+      gvs [ELIM_UNCURRY]
+      \\ first_x_assum irule
+      \\ gs [IN_INTER, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP, SUBSET_DEF,
+             IN_DISJOINT, freevars_def, ELIM_UNCURRY, MEM_MAP]
+      \\ metis_tac [])
+    \\ gs [IN_INTER, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP, SUBSET_DEF,
+           IN_DISJOINT, freevars_def, ELIM_UNCURRY, MEM_MAP]
+    \\ metis_tac [])
   >- ((* Let SOME *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Let_SOME \\ gs []
-    \\ cheat (* Same as Lam *))
+    \\ first_x_assum (irule_at Any)
+    \\ first_x_assum (irule_at Any)
+    \\ qmatch_asmsub_rename_tac ‘m2 ⊆ m’
+    \\ qmatch_asmsub_rename_tac ‘freevars x1 DIFF _’
+    \\ qexists_tac ‘m2 ∩ (freevars x ∪ freevars x1 DIFF {bv})’
+    \\ gs [IN_INTER, EXTENSION, EQ_IMP_THM, DISJ_EQ_IMP, SUBSET_DEF])
   >- ((* Let NONE *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Let_NONE
-    \\ gs [])
+    \\ gs [IN_INTER, EXTENSION, EQ_IMP_THM])
   >- ((* If *)
     gs [freevars_def]
-    \\ irule exp_rel_inl_If \\ gs [])
+    \\ irule exp_rel_inl_If \\ gs []
+    \\ gs [IN_INTER, EXTENSION, EQ_IMP_THM])
   >- ((* Prim *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Prim \\ gs []
     \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any)
+    \\ first_x_assum (irule_at Any)
     \\ rw [] \\ gs []
     \\ first_x_assum irule \\ rw []
-    \\ gs [MEM_MAP, PULL_EXISTS, SF SFY_ss])
+    \\ gs [IN_INTER, EXTENSION, EQ_IMP_THM, MEM_MAP]
+    \\ metis_tac [])
   >- ((* Delay *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Delay \\ gs [])
@@ -1902,9 +1910,6 @@ Proof
   >- ((* MkTick *)
     gs [freevars_def]
     \\ irule exp_rel_inl_MkTick \\ gs [])
-  >- ((* Var *)
-    gs [freevars_def]
-    \\ irule exp_rel_inl_Var)
   >- ((* Value *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Value \\ gs [])
@@ -1913,8 +1918,7 @@ QED
 Theorem exp_rel_inl_subst:
   ∀vs x ws y m.
     MAP FST vs = MAP FST ws ∧
-    DISJOINT (set (MAP FST vs)) (FDOM m) ∧
-    DISJOINT (set (MAP FST vs)) (FRANGE m) ∧
+    DISJOINT (set (MAP FST vs)) m ∧
     LIST_REL v_rel_inl (MAP SND vs) (MAP SND ws) ∧
     exp_rel_inl m x y ⇒
       exp_rel_inl m (subst vs x) (subst ws y)
@@ -1922,11 +1926,14 @@ Proof
   ho_match_mp_tac subst_ind \\ rw []
   \\ qpat_x_assum ‘exp_rel_inl _ _ _’ mp_tac
   >- ((* Var *)
-    rw [Once exp_rel_inl_cases, subst_def] \\ gs [freevars_def]
+    rw [Once exp_rel_inl_cases] \\ gs [freevars_def, subst_def, IN_DISJOINT,
+                                       DISJ_EQ_IMP]
     \\ ‘OPTREL v_rel_inl (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
       suffices_by (
         strip_tac
-        \\ gs [OPTREL_def, exp_rel_inl_Var, exp_rel_inl_Value])
+        \\ gs [OPTREL_def, exp_rel_inl_Inline, exp_rel_inl_NoInline,
+               exp_rel_inl_Value]
+        \\ imp_res_tac ALOOKUP_SOME \\ gs [MAP_REVERSE])
     \\ irule LIST_REL_OPTREL
     \\ gs [LIST_REL_CONJ, ELIM_UNCURRY, EVERY2_MAP]
     \\ last_x_assum mp_tac
@@ -1960,13 +1967,12 @@ Proof
     rw [Once exp_rel_inl_cases]
     \\ gs [freevars_def, subst_def]
     \\ irule exp_rel_inl_Lam
-    \\ first_assum (irule_at Any)
+    \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any)
     \\ fs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
     \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, fmap_rel_def, FORALL_PROD,
-           EXISTS_PROD, MEM_MAP, flookup_thm, IN_FRANGE_FLOOKUP]
+    \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, SUBSET_DEF]
     \\ metis_tac [])
   >- ((* Let NONE *)
     rw [Once exp_rel_inl_cases]
@@ -1986,36 +1992,41 @@ Proof
             \\ qid_spec_tac ‘vs’
             \\ Induct \\ simp []
             \\ gen_tac \\ Cases \\ simp [])
-      \\ gs [OPTREL_def, exp_rel_inl_Bind_Value]
-      \\ irule exp_rel_inl_Bind
+      \\ gs [OPTREL_def]
+      \\ (irule exp_rel_inl_Bind ORELSE irule exp_rel_inl_Bind_Value) \\ gs []
       \\ first_x_assum irule
       \\ gvs [MAP_FST_FILTER, EVERY2_MAP, LAMBDA_PROD]
       \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ simp []
       \\ irule_at Any LIST_REL_FILTER \\ gs []
-      \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, fmap_rel_def, ALOOKUP_NONE,
-             MAP_REVERSE, IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
-      \\ gs [flookup_thm]
+      \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, ALOOKUP_NONE, MAP_REVERSE]
       \\ metis_tac [])
-    >- ((* Let Bind Value *)
+    >- (
       simp [subst_def]
-      \\ irule exp_rel_inl_Bind_Value \\ gs [])
+      \\ irule exp_rel_inl_Bind_Value \\ gs []
+      \\ first_x_assum irule
+      \\ gvs [MAP_FST_FILTER, EVERY2_MAP, LAMBDA_PROD]
+      \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ simp []
+      \\ irule_at Any LIST_REL_FILTER \\ gs []
+      \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, ALOOKUP_NONE, MAP_REVERSE]
+      \\ metis_tac [])
     \\ simp [subst_def]
     \\ irule exp_rel_inl_Let_SOME \\ simp []
-    \\ first_assum (irule_at Any)
+    \\ first_assum (irule_at Any) \\ gs []
     \\ first_x_assum (irule_at Any)
     \\ gs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ simp []
     \\ irule_at Any LIST_REL_FILTER \\ gs []
-    \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, fmap_rel_def, ALOOKUP_NONE,
-           MAP_REVERSE, IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
-    \\ gs [flookup_thm]
+    \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, SUBSET_DEF]
     \\ metis_tac [])
   >- ((* Letrec *)
     rw [Once exp_rel_inl_cases] \\ gs []
     \\ simp [subst_def]
     \\ irule exp_rel_inl_Letrec
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-    \\ first_assum (irule_at Any)
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ first_assum (irule_at (Pos (el 2)))
+    \\ gs [DISJOINT_SUBSET]
+    \\ first_x_assum (irule_at Any)
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
     \\ `MAP FST f = MAP FST g`
       by (irule LIST_EQ
@@ -2023,23 +2034,18 @@ Proof
     \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
     \\ irule_at Any LIST_REL_FILTER \\ fs []
     \\ simp [SF ETA_ss]
-    \\ simp [combinTheory.o_DEF, MAP_MAP_o, LAMBDA_PROD, GSYM FST_THM]
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
     \\ conj_tac
     >- (
-      rw []
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ first_x_assum irule
-      \\ simp [MAP_FST_FILTER, SF SFY_ss, SF ETA_ss]
-      \\ irule_at Any LIST_REL_FILTER \\ gs [ELIM_UNCURRY]
-      \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, fmap_rel_def, IN_FRANGE_FLOOKUP]
-      \\ gs [flookup_thm]
-      \\ metis_tac [])
-    \\ gs [IN_DISJOINT, MEM_FILTER, Abbr ‘P’, fmap_rel_def, IN_FRANGE_FLOOKUP]
-    \\ gs [flookup_thm]
-    \\ metis_tac [])
+      gvs [IN_DISJOINT, MEM_FILTER, SUBSET_DEF, DISJ_COMM, DISJ_EQ_IMP,
+           Abbr ‘P’, SF DNF_ss])
+    \\ irule_at Any LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ rw []
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ first_x_assum irule
+    \\ gs [MAP_FST_FILTER, SF ETA_ss]
+    \\ irule_at Any LIST_REL_FILTER
+    \\ gvs [ELIM_UNCURRY, IN_DISJOINT, MEM_FILTER, SUBSET_DEF, DISJ_COMM,
+            DISJ_EQ_IMP, Abbr ‘P’, SF DNF_ss, SF SFY_ss])
   >- ((* Delay *)
     rw [Once exp_rel_inl_cases]
     \\ simp [subst_def]
@@ -2054,18 +2060,6 @@ Proof
     \\ first_x_assum (irule_at Any) \\ gs [])
   >- ((* Force *)
     rw [Once exp_rel_inl_cases]
-    >~ [‘Force (Var v)’] >- (
-      simp [subst_def, FILTER_T, ELIM_UNCURRY]
-      \\ ‘¬MEM v (MAP FST ws) ∧ ¬MEM w (MAP FST ws)’
-        by (gs [IN_DISJOINT, IN_FRANGE_FLOOKUP]
-            \\ gs [flookup_thm]
-            \\ metis_tac [])
-      \\ rpt CASE_TAC \\ imp_res_tac ALOOKUP_SOME \\ gs [MAP_REVERSE]
-      \\ irule exp_rel_inl_Inline \\ gs [])
-    >~ [‘Thunk (INL v)’] >- (
-      simp [subst_def]
-      \\ irule exp_rel_inl_Inline_Value
-      \\ gs [])
     \\ simp [subst_def]
     \\ irule exp_rel_inl_Force
     \\ first_x_assum irule \\ gs [])
@@ -2115,8 +2109,8 @@ Proof
       \\ first_assum (irule_at Any) \\ gs [])
         (* Recclosure *)
     \\ rename1 ‘LIST_REL _ xs ys’
-    \\ ‘OPTREL (exp_rel_inl FEMPTY) (ALOOKUP (REVERSE xs) s)
-                                    (ALOOKUP (REVERSE ys) s)’
+    \\ ‘OPTREL (exp_rel_inl EMPTY) (ALOOKUP (REVERSE xs) s)
+                                   (ALOOKUP (REVERSE ys) s)’
       by (irule LIST_REL_OPTREL \\ gs []
           \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
     \\ gs [OPTREL_def]
@@ -2129,27 +2123,21 @@ Proof
     \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any)
     \\ csimp [FORALL_PROD]
-    \\ gs [DISJOINT_ALT, MEM_MAP, EXISTS_PROD, PULL_EXISTS, SF SFY_ss,
-           MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
-           DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, fmap_rel_def,
-           IN_FRANGE_FLOOKUP]
-    \\ gs [flookup_thm]
+    \\ simp [closed_subst, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM
+             FST_THM]
     \\ irule_at Any LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, closed_subst]
-    \\ simp [MAP_MAP_o, combinTheory.o_DEF]
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
     \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
     \\ first_x_assum (drule_then strip_assume_tac)
-    \\ gvs [freevars_def, SUBSET_DEF, SF ETA_ss] \\ rw []
-    \\ rw [DISJ_SYM, DISJ_EQ_IMP])
+    \\ gvs [freevars_def, SUBSET_DEF, SF ETA_ss, SF DNF_ss, DISJ_SYM,
+            DISJ_EQ_IMP])
   >~ [‘Lam s x’] >- (
     rw [Once exp_rel_inl_cases]
-    \\ gs [eval_to_def, fmap_rel_def, v_rel_inl_def]
+    \\ gs [eval_to_def, v_rel_inl_def]
     \\ irule exp_rel_inl_freevars
-    \\ qexists_tac ‘m1’ \\ rw []
-    \\ gs [SUBSET_DEF]
-    \\ res_tac \\ gvs []
-    \\ Cases_on ‘FLOOKUP m1 s’ \\ gs []
-    \\ res_tac \\ gvs [])
+    \\ gs [SUBSET_DEF, EXTENSION]
+    \\ first_assum (irule_at Any)
+    \\ rw [Once DISJ_SYM, DISJ_EQ_IMP])
   >~ [‘Let NONE x y’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
@@ -2162,15 +2150,12 @@ Proof
   >~ [‘Let (SOME n) x y’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
-    >- ((* Let Bind Value *)
+    >- ((* Bind Value *)
       simp [eval_to_def]
       \\ IF_CASES_TAC \\ gs []
       \\ first_x_assum irule
       \\ simp [closed_subst]
-      \\ irule_at Any exp_rel_inl_subst
-      \\ qexists_tac ‘FEMPTY’ \\ simp []
-      \\ irule exp_rel_inl_freevars
-      \\ cheat (* exp_rel m y y2 missing *))
+      \\ cheat (* meh. wrong *))
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum (drule_then assume_tac)
@@ -2178,14 +2163,8 @@ Proof
     \\ first_x_assum irule
     \\ simp [closed_subst]
     \\ irule_at Any exp_rel_inl_subst
-    \\ qexists_tac ‘FEMPTY’
-    \\ simp []
-    \\ irule exp_rel_inl_freevars
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ rw []
-    \\ gs [fmap_rel_def, flookup_thm, SUBSET_DEF]
-    \\ strip_tac \\ gs []
-    \\ res_tac \\ fs [])
+    \\ first_assum (irule_at Any)
+    \\ simp [])
   >~ [‘Letrec f x’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
@@ -2198,27 +2177,17 @@ Proof
     \\ simp [subst_funs_def, closed_subst, MAP_MAP_o, combinTheory.o_DEF,
              LAMBDA_PROD, GSYM FST_THM, EVERY2_MAP]
     \\ irule_at Any LIST_EQ
-    \\ qexists_tac ‘FEMPTY’
     \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-    (* bleh: *)
-    \\ reverse conj_tac
-    >- (
-      irule exp_rel_inl_freevars \\ gs []
-      \\ first_assum (irule_at Any) \\ rw []
-      \\ gs [fmap_rel_def, flookup_thm, SUBSET_DEF]
-      \\ strip_tac \\ gs []
-      \\ res_tac)
-    \\ rw [v_rel_inl_def, LIST_REL_EL_EQN, ELIM_UNCURRY, closed_def]
-    >- (
-      gvs [BIGUNION, SUBSET_DEF, PULL_EXISTS, MEM_EL, EL_MAP, SF CONJ_ss,
-           SF SFY_ss])
-    \\ irule exp_rel_inl_freevars
-    \\ first_x_assum (drule_then strip_assume_tac)
-    \\ first_assum (irule_at Any) \\ rw []
-    \\ gvs [BIGUNION, SUBSET_DEF, PULL_EXISTS, MEM_EL, EL_MAP, SF CONJ_ss]
-    \\ first_x_assum (drule_all_then strip_assume_tac)
-    \\ gvs [flookup_thm, fmap_rel_def, MEM_EL, PULL_EXISTS, SF CONJ_ss, EL_MAP]
-    \\ strip_tac \\ gs [])
+    \\ first_assum (irule_at (Pos last)) \\ gs []
+    \\ ntac 2 strip_tac
+    \\ qx_gen_tac ‘j’
+    \\ strip_tac
+    \\ gvs [BIGUNION, SUBSET_DEF, PULL_EXISTS, MEM_EL, EL_MAP, SUBSET_DEF,
+            INTER_DEF, EXTENSION, DISJ_EQ_IMP, SF CONJ_ss, SF SFY_ss]
+    \\ irule_at Any exp_rel_inl_freevars
+    \\ gs [INTER_DEF, EXTENSION, SF SFY_ss, SF CONJ_ss, DISJ_EQ_IMP,
+           MEM_EL, PULL_EXISTS, IN_DISJOINT, EL_MAP]
+    \\ metis_tac [])
   >~ [‘If x1 y1 z1’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
@@ -2235,11 +2204,6 @@ Proof
   >~ [‘Force x’] >- (
     strip_tac
     \\ rw [Once exp_rel_inl_cases] \\ gs []
-    >- ((* Inline *)
-      once_rewrite_tac [eval_to_def]
-      \\ IF_CASES_TAC \\ gs []
-      \\ simp [Once eval_to_def, subst_funs_def]
-      \\ simp [dest_anyThunk_def, eval_to_def])
     \\ rename1 ‘exp_rel_inl m x y’
     \\ CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
     \\ CONV_TAC (RAND_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
@@ -2256,8 +2220,8 @@ Proof
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
       >- (
         rename1 ‘LIST_REL _ xs ys’
-        \\ ‘OPTREL (exp_rel_inl FEMPTY) (ALOOKUP (REVERSE xs) s)
-                                        (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL (exp_rel_inl EMPTY) (ALOOKUP (REVERSE xs) s)
+                                       (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL \\ gs []
               \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
