@@ -16,7 +16,7 @@ Datatype:
   type = TypeVar num
        | PrimTy prim_ty
        | Exception
-       | TypeCons num (type list)
+       | TypeCons string (type list)
        | Tuple (type list)
        | Function type type
        | Array type
@@ -32,28 +32,30 @@ Type type_scheme[pp] = ``:num # type``;
   Each constructor definition is a name and a type scheme for its arguments
   (closed wrt the type definition arity).
 
-  Like CakeML, use numbers to refer to types - known typedefs represented as
-    : typedef list
+  Unlike CakeML, use strings to refer to types - known typedefs represented as
+    : string |-> typedef
   We could instead have:
-    : (string # typedef) list     or     : string |-> typedef     etc.
+    : (string # typedef) list     etc.
   Unlike CakeML, we group constructors by their type (i.e. group siblings).
 
   E.g. the type definitions for Maybe and List might look like:
+
+  FEMPTY |++
   [
-    (1, [ ("Nothing", []) ; ("Just", [Var 0]) ]);
-    (1, [ ("Nil", []) ; ("Cons", [Var 0; TypeCons 1 [Var 0]]) ])
+    ("Maybe", (1n, FEMPTY |++ [ ("Nothing", []) ; ("Just", [TypeVar 0]) ]));
+    ("List", (1, FEMPTY |++ [
+                  ("Nil", []) ; ("Cons", [TypeVar 0; TypeCons "List" [TypeVar 0]]) ]))
   ]
 
-  The exception definition is a list of constructors associated to (closed)
-  argument types.
+  The exception definition is a map from constructors to (closed) argument types.
 
   Together, the exception definition and a collection of type definitions form
   our typing namespace.
 *)
 (* TODO make finite maps *)
-Type typedef[pp] = ``:num # ((string # type list) list)``;
-Type typedefs[pp] = ``:typedef list``;
-Type exndef[pp] = ``:(string # type list) list``;
+Type typedef[pp] = ``:num # (string |-> type list)``;
+Type typedefs[pp] = ``:string |-> typedef``;
+Type exndef = ``:(string |-> type list)``;
 
 
 (********** Substitutions and shifts **********)
@@ -140,7 +142,7 @@ Definition type_wf_def:
     EVERY (type_wf typedefs) tyargs ∧
     ∃arity constructors.
       (* Type definition exists: *)
-        oEL id typedefs = SOME (arity, constructors) ∧
+        FLOOKUP typedefs id = SOME (arity, constructors) ∧
       (* And has correct arity: *)
         LENGTH tyargs = arity) ∧
   type_wf typedefs (Tuple ts) =
@@ -176,15 +178,18 @@ End
 Definition namespace_ok_def:
   namespace_ok (exndef : exndef, typedefs : typedefs) ⇔
     (* No empty type definitions: *)
-      EVERY (λ(ar,td). td ≠ []) typedefs ∧
+      (∀ar td. (ar, td) ∈ FRANGE typedefs ⇒ td ≠ FEMPTY) ∧
     (* Unique, unreserved constructor names: *)
       ALL_DISTINCT (SET_TO_LIST reserved_cns ++
-        MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
+        SET_TO_LIST (FDOM exndef) ++
+        (FLAT $ MAP (SET_TO_LIST o FDOM o SND o SND) $ fmap_to_alist typedefs)) ∧
     (* Every constructor type is closed wrt type arity and uses only defined types: *)
-      EVERY (λ(ar,td).
-        EVERY (λ(cn,argtys). EVERY (type_ok typedefs ar) argtys) td) typedefs ∧
+      (∀ar td. (ar, td) ∈ FRANGE typedefs ⇒
+        ∀cn argtys. FLOOKUP td cn = SOME argtys ⇒
+          EVERY (type_ok typedefs ar) argtys) ∧
     (* Every exception constructor type is closed and uses only defined types: *)
-      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef
+      (∀cn tys. FLOOKUP exndef cn = SOME tys ⇒
+        EVERY (type_ok typedefs 0) tys)
 End
 
 
@@ -242,9 +247,9 @@ Definition type_cons_def:
   type_cons (typedefs : typedefs) (cname,carg_tys) (tyid,tyargs) ⇔
     ∃arity constructors schemes.
       (* There is some type definition: *)
-        oEL tyid typedefs = SOME (arity, constructors) ∧
+        FLOOKUP typedefs tyid = SOME (arity, constructors) ∧
       (* Which declares the constructor: *)
-        ALOOKUP constructors cname = SOME schemes ∧
+        FLOOKUP constructors cname = SOME schemes ∧
       (* And we can specialise it appropriately: *)
         LENGTH tyargs = arity ∧
         MAP (tsubst tyargs) schemes = carg_tys
@@ -253,7 +258,7 @@ End
 (* Typing judgments for exceptions *)
 Definition type_exception_def:
   type_exception (exndef : exndef) (cname, carg_tys) ⇔
-      ALOOKUP exndef cname = SOME carg_tys
+      FLOOKUP exndef cname = SOME carg_tys
 End
 
 Definition get_PrimTys_def:
@@ -398,14 +403,14 @@ Inductive type_tcexp:
 [~Case:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
    (* The type exists with correct arity: *)
-     oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
+     FLOOKUP typedefs tyid = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
    (* Pattern match is exhaustive: *)
-      set (MAP FST constructors) = set (MAP FST css) ∧
-      LENGTH constructors = LENGTH css ∧
+      FDOM constructors = set (MAP FST css) ∧
+      CARD (FDOM constructors) = LENGTH css ∧
       (* TODO this forbids duplicated patterns - perhaps overkill? *)
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃schemes ptys.
-        ALOOKUP constructors cname = SOME schemes ∧
+        FLOOKUP constructors cname = SOME schemes ∧
         (* Constructor arities match: *)
           LENGTH pvars = LENGTH schemes ∧
         (* Pattern variables do not shadow case split: *)
@@ -427,9 +432,9 @@ Inductive type_tcexp:
 [~SafeProj:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
    (* The type exists with correct arity: *)
-      oEL tyid typedefs = SOME (tyarity, constructors) ∧ LENGTH tyargs = tyarity ∧
+      FLOOKUP typedefs tyid = SOME (tyarity, constructors) ∧ LENGTH tyargs = tyarity ∧
    (* The constructor exists with correct arity: *)
-      ALOOKUP constructors cname = SOME tys ∧ LENGTH tys = arity ∧
+      FLOOKUP constructors cname = SOME tys ∧ LENGTH tys = arity ∧
    (* We can project the constructor argument at the right type: *)
       oEL i tys = SOME scheme ∧ tsubst tyargs scheme = t ⇒
     type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
