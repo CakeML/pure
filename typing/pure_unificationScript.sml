@@ -13,7 +13,7 @@ Datatype:
   utype = uDBVar num
         | uPrimTy prim_ty
         | uException
-        | uTypeCons num
+        | uTypeCons string
         | uTuple
         | uFunction
         | uArray
@@ -737,7 +737,7 @@ Proof
   >- simp[Once unify_def]
   >- (
     simp[Once unify_def] >>
-    Cases_on `pure_vwalk s n'` >> gvs[decode_encode] >>
+    Cases_on `pure_vwalk s n` >> gvs[decode_encode] >>
     simp[encode_itype_def] >> rw[] >>
     simp[pure_ext_s_check, Once pure_oc, pure_walk, decode_utype_def, pure_oc_def] >>
     gvs[combinTheory.o_DEF, decode_encode]

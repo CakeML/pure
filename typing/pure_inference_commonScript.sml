@@ -9,7 +9,7 @@ Datatype:
   itype = DBVar num
         | PrimTy prim_ty
         | Exception
-        | TypeCons num (itype list)
+        | TypeCons string (itype list)
         | Tuple (itype list)
         | Function itype itype
         | Array itype
