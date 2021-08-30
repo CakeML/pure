@@ -452,9 +452,8 @@ Proof
       gvs[closed_def, freevars_exp_of] >>
       disch_then $ qspecl_then [`v`,`rs`] mp_tac >> reverse $ impl_tac
       >- rw[exp_of_def, type_wh_cases] >>
-      gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
-      qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _` drule >> simp[] >>
-      Cases_on `rs` >> gvs[]
+      Cases_on `rs` >> gvs[FDOM_EQ_EMPTY] >>
+      gvs[namespace_ok_def, IN_FRANGE_FLOOKUP, PULL_EXISTS]
       ) >>
     first_x_assum drule >> simp[] >> disch_then drule_all >> rw[] >>
     drule type_wh_TypeCons_eq_wh_Constructor >> rw[] >> gvs[] >>
@@ -463,11 +462,7 @@ Proof
     drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
     disch_then $ qspec_then `rs` mp_tac >>
     Cases_on `ALOOKUP rs cname` >> gvs[]
-    >- (
-      gvs[ALOOKUP_NONE, pred_setTheory.EXTENSION] >>
-      imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >>
-      metis_tac[]
-      ) >>
+    >- gvs[ALOOKUP_NONE, pred_setTheory.EXTENSION, FLOOKUP_DEF] >>
     rename1 `SOME y` >> namedCases_on `y` ["vs ce"] >> simp[] >>
     imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
     first_x_assum drule >> simp[] >> strip_tac >>
