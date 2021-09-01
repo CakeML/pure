@@ -35,11 +35,16 @@ Definition solve_k_def:
     | SOME $ (Instantiate d t (vs, scheme), cs) => do
         freshes <- fresh_vars vs;
         inst_scheme <<- isubst (MAP CVar freshes) scheme;
-        solve_k n (Unify d t inst_scheme :: cs) od
+        solve_k (SUC n) (Unify d t inst_scheme :: cs) od
 
     | SOME $ (Implicit d t1 vs t2, cs) => do
         (nvs, s, scheme) <<- generalise 0 0 vs FEMPTY t2;
-        solve_k n (Instantiate d t1 (nvs, scheme) :: cs) od
+        solve_k (SUC n) (Instantiate d t1 (nvs, scheme) :: cs) od
+Termination
+  WF_REL_TAC `inv_image ($< LEX $<) $ λ(k,l). (k, SUM $ MAP constraint_weight l)` >>
+  rw[constraint_weight_def, listTheory.MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+  drule get_solveable_SOME >> strip_tac >> gvs[] >>
+  Cases_on `left` >> gvs[listTheory.SUM_APPEND, constraint_weight_def]
 End
 
 Definition parse_and_get_constraints_def:
@@ -60,7 +65,7 @@ Definition parse_and_solve_k_def:
     od 0
 End
 
-val debug_eval =
+fun debug_eval tm =
   let val cmp = pure_parse_infer_compset ()
       val _ = computeLib.extend_compset
                 [computeLib.Defs [
@@ -68,7 +73,8 @@ val debug_eval =
                   fetch "-" "parse_and_get_constraints_def",
                   fetch "-" "parse_and_solve_k_def"
                   ]] cmp
-  in computeLib.CBV_CONV cmp end;
+  in (SIMP_CONV (srw_ss()) [parse_and_infer_def]
+        THENC computeLib.CBV_CONV cmp) tm end;
 
 Definition bool_datatype_def[simp]:
   bool_datatype : typedef = (0n, [("True", []); ("False", [])])
@@ -191,16 +197,90 @@ Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
 QED
 
+val even_odd_str = toMLstring `
+  (letrec
+    (even (lam (x)
+      (case x temp
+        (Z (cons True))
+        ((S (xx)) (app odd xx)))))
+    (odd (lam (x)
+      (case x temp
+        (Z (cons False))
+        ((S (xx)) (app even xx)))))
+    (cons 0 even odd))`;
+
+Theorem even_odd_str_type:
+  parse_and_infer parse_cexp simple_ns ^even_odd_str =
+    return (0, Tuple [
+      Function (TypeCons 2 []) (PrimTy Bool);
+      Function (TypeCons 2 []) (PrimTy Bool)
+      ]) 14
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval
+QED
+
+val ntimes_str = toMLstring `
+  (letrec
+    (o (lam (f g x) (app f (app g x))))
+
+    (ntimes (lam (f n)
+      (case n temp
+        (Z (lam (x) x))
+        ((S (m)) (app o f (app ntimes f m))))))
+    (cons 0 o ntimes))`;
+
+Theorem ntimes_str_type:
+  parse_and_infer parse_cexp simple_ns ^ntimes_str =
+    (* ∀α β γ δ.
+          (α -> β) -> (γ -> α) -> γ -> β
+          (δ -> δ) -> Nat -> (δ -> δ) *)
+    return (4, Tuple [
+      Functions [Function (TypeVar 0) (TypeVar 1);
+                 Function (TypeVar 2) (TypeVar 0)]
+        (Function (TypeVar 2) (TypeVar 1));
+
+      Functions [Function (TypeVar 3) (TypeVar 3); TypeCons 2 []]
+        (Function (TypeVar 3) (TypeVar 3))
+      ]) 32
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+QED
+
+val curried_mult_str = toMLstring `
+  (letrec
+    (o (lam (f g x) (app f (app g x))))
+
+    (ntimes (lam (f n)
+      (case n temp
+        (Z (lam (x) x))
+        ((S (m)) (app o f (app ntimes f m))))))
+
+    (add (lam (x y)
+      (case x temp
+        (Z y)
+        ((S (xx)) (app add xx (cons S y))))))
+
+    (mult (lam (x y) (app ntimes (app add x) y (cons Z))))
+
+    mult)`;
+
+Theorem curried_mult_str_type:
+  parse_and_infer parse_cexp simple_ns ^curried_mult_str =
+    return (0, Functions [TypeCons 2 []; TypeCons 2 []] (TypeCons 2 [])) 45
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+QED
+
 (********************)
 
 Definition even_nat_datatype_def[simp]:
   even_nat_datatype odd_nat_id : typedef =
-    (0n, [("EZ", []) ;("ES", [TypeCons odd_nat_id []])])
+    (0n, [("Z", []) ;("S", [TypeCons odd_nat_id []])])
 End
 
 Definition odd_nat_datatype_def[simp]:
   odd_nat_datatype even_nat_id : typedef =
-    (0n, [("OS", [TypeCons even_nat_id []])])
+    (0n, [("O", [TypeCons even_nat_id []])])
 End
 
 Definition even_odd_ns_def[simp]:
@@ -214,10 +294,10 @@ val add_even_even_str = toMLstring `
   (letrec
     (add_ee (lam (e1 e2)
       (case e1 temp1
-        (EZ e2)
-        ((ES (o1))
+        (Z e2)
+        ((S (o1))
           (case o1 temp1
-            ((OS (e)) (cons ES (cons OS (app add_ee e e2))))
+            ((O (e)) (cons S (cons O (app add_ee e e2))))
           )))))
    add_ee)`;
 
@@ -232,29 +312,27 @@ val add_even_odd_nats_str = toMLstring `
   (letrec
     (add_ee (lam (e1 e2)
       (case e1 temp
-        (EZ e2)
-        ((ES (o1)) (cons ES (app add_eo e2 o1))))))
+        (Z e2)
+        ((S (o1)) (cons S (app add_eo e2 o1))))))
 
     (add_eo (lam (e o)
       (case e temp
-        (EZ o)
-        ((ES (o1)) (cons OS (app add_oo o1 o))))))
+        (Z o)
+        ((S (o1)) (cons O (app add_oo o1 o))))))
 
     (add_oo (lam (o1 o2)
       (case o1 temp
-        ((OS (e)) e (cons ES (app add_eo e o2))))))
+        ((O (e)) (cons S (app add_eo e o2))))))
 
   (cons 0 add_ee add_eo add_oo))`;
 
-(* TODO bug here:
-    add_oo is given type `odd -> α -> even` instead of `odd -> odd -> even` *)
 Theorem add_str_type:
   parse_and_infer parse_cexp even_odd_ns ^add_even_odd_nats_str =
-    return (1, Tuple [
+    return (0, Tuple [
       Functions [TypeCons 0 []; TypeCons 0 []] (TypeCons 0 []);
       Functions [TypeCons 0 []; TypeCons 1 []] (TypeCons 1 []);
-      Functions [TypeCons 1 []; TypeVar 0] (TypeCons 0 []);
-      ]) 28
+      Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 0 []);
+      ]) 29
 Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
 QED
