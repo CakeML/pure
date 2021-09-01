@@ -1690,6 +1690,13 @@ QED
  * Inline forced Box-thunks under a Let.
  * ------------------------------------------------------------------------- *)
 
+Definition ok_binder_def[simp]:
+  ok_binder (Lam s x) = T ∧
+  ok_binder (Box x) = T ∧
+  ok_binder (Delay x) = T ∧
+  ok_binder _ = F
+End
+
 Inductive exp_rel_inl:
 (* Inlining *)
 [exp_rel_inl_Inline:]
@@ -1729,7 +1736,7 @@ Inductive exp_rel_inl:
 [exp_rel_inl_Letrec:]
   (∀m m1 f g x y.
      m1 = m DIFF set (MAP FST f) ∧
-     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel_inl m1 x y) f g ∧
+     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ ok_binder x ∧ exp_rel_inl m1 x y) f g ∧
      exp_rel_inl m1 x y ⇒
        exp_rel_inl m (Letrec f x) (Letrec g y)) ∧
 [exp_rel_inl_Let_SOME:]
@@ -1791,6 +1798,7 @@ Inductive exp_rel_inl:
      LIST_REL (λ(fn,x) (gn,y).
                  freevars x ⊆ set (MAP FST f) ∧
                  fn = gn ∧
+                 ok_binder x ∧
                  exp_rel_inl EMPTY x y) f g ⇒
        v_rel_inl (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_inl_Thunk_INR:]
@@ -1932,6 +1940,12 @@ Proof
   >- ((* Value *)
     gs [freevars_def]
     \\ irule exp_rel_inl_Value \\ gs [])
+QED
+
+Theorem ok_binder_subst[local,simp]:
+  ∀x. ok_binder x ⇒ ok_binder (subst vs x)
+Proof
+  Cases \\ simp [subst_def]
 QED
 
 Theorem exp_rel_inl_subst:
@@ -2262,13 +2276,14 @@ Proof
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
       >- (
         rename1 ‘LIST_REL _ xs ys’
-        \\ ‘OPTREL (exp_rel_inl EMPTY) (ALOOKUP (REVERSE xs) s)
-                                       (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL (λx0 y0. ok_binder x0 ∧
+                            exp_rel_inl EMPTY x0 y0)
+                   (ALOOKUP (REVERSE xs) s)
+                   (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL \\ gs []
               \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
         \\ gvs [Once exp_rel_inl_cases]
-        >- cheat (* TODO add invariant about Recclosure thunks *)
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
         \\ irule_at Any exp_rel_inl_subst
