@@ -198,7 +198,9 @@ Proof
     \\ first_x_assum irule
     \\ fs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs [])
+    \\ irule LIST_REL_FILTER \\ fs []
+    \\ irule EVERY2_mono
+    \\ first_x_assum (irule_at Any) \\ gs [])
   >- ((* Let NONE *)
     rw [Once exp_rel_cases] \\ simp [subst_def]
     \\ irule exp_rel_Let \\ fs [])
@@ -209,7 +211,9 @@ Proof
     \\ first_x_assum irule
     \\ fs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs [])
+    \\ irule LIST_REL_FILTER \\ fs []
+    \\ irule EVERY2_mono
+    \\ first_x_assum (irule_at Any) \\ gs [])
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -223,15 +227,16 @@ Proof
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
     \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_EL_MONO
-    \\ first_assum (irule_at Any) \\ rw []
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER]
-    \\ gvs [MEM_EL, PULL_EXISTS]
-    \\ rw [Once EQ_SYM_EQ]
+    \\ irule_at Any EVERY2_mono
+    \\ first_assum (irule_at Any) \\ simp []
+    \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any)
-    \\ irule_at Any LIST_REL_FILTER \\ fs [])
+    \\ simp [FORALL_PROD] \\ rw []
+    \\ first_x_assum irule
+    \\ simp [MAP_FST_FILTER, SF SFY_ss]
+    \\ irule_at Any LIST_REL_FILTER \\ fs []
+    \\ irule_at Any EVERY2_mono
+    \\ first_assum (irule_at Any) \\ simp [])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def, exp_rel_Delay])
