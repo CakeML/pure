@@ -76,10 +76,6 @@ fun debug_eval tm =
   in (SIMP_CONV (srw_ss()) [parse_and_infer_def]
         THENC computeLib.CBV_CONV cmp) tm end;
 
-Definition bool_datatype_def[simp]:
-  bool_datatype : typedef = (0n, [("True", []); ("False", [])])
-End
-
 Definition option_datatype_def[simp]:
   option_datatype : typedef = (1n, [("Nothing", []); ("Just", [TypeVar 0])])
 End
@@ -96,8 +92,7 @@ End
 Definition simple_ns_def[simp]:
   simple_ns = (
     [] : exndef , (* no exceptions *)
-    [bool_datatype; option_datatype;
-     nat_datatype 2; list_datatype 3] (* bools, options, nats, lists *)
+    [option_datatype; nat_datatype 1; list_datatype 2] (* bools, options, nats, lists *)
   )
 End
 
@@ -192,7 +187,7 @@ val add_str = toMLstring `
 
 Theorem add_str_type:
   parse_and_infer parse_cexp simple_ns ^add_str =
-    return (0, Functions [TypeCons 2 []; TypeCons 2 []] (TypeCons 2 [])) 10
+    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 10
 Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
 QED
@@ -212,8 +207,8 @@ val even_odd_str = toMLstring `
 Theorem even_odd_str_type:
   parse_and_infer parse_cexp simple_ns ^even_odd_str =
     return (0, Tuple [
-      Function (TypeCons 2 []) (PrimTy Bool);
-      Function (TypeCons 2 []) (PrimTy Bool)
+      Function (TypeCons 1 []) (PrimTy Bool);
+      Function (TypeCons 1 []) (PrimTy Bool)
       ]) 14
 Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval
@@ -239,7 +234,7 @@ Theorem ntimes_str_type:
                  Function (TypeVar 2) (TypeVar 0)]
         (Function (TypeVar 2) (TypeVar 1));
 
-      Functions [Function (TypeVar 3) (TypeVar 3); TypeCons 2 []]
+      Functions [Function (TypeVar 3) (TypeVar 3); TypeCons 1 []]
         (Function (TypeVar 3) (TypeVar 3))
       ]) 32
 Proof
@@ -266,7 +261,7 @@ val curried_mult_str = toMLstring `
 
 Theorem curried_mult_str_type:
   parse_and_infer parse_cexp simple_ns ^curried_mult_str =
-    return (0, Functions [TypeCons 2 []; TypeCons 2 []] (TypeCons 2 [])) 45
+    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 45
 Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
 QED
