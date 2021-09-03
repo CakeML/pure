@@ -17,6 +17,11 @@ Datatype:
         | CVar num
 End
 
+Overload Unit = ``Tuple []``;
+Overload IntTy = ``PrimTy Integer``;
+Overload BoolTy = ``PrimTy Bool``;
+Overload StrTy = ``PrimTy String``;
+
 Theorem itype_ind:
   ∀P.
     (∀n. P (DBVar n)) ∧ (∀p. P (PrimTy p)) ∧ P Exception ∧
