@@ -3450,9 +3450,7 @@ QED
  *   can diverge inside the Let. the new program always needs one extra
  *   clock to get past the second Proj, but if we give it extra then the clocks
  *   wont line up when we get to x/y.
- * - need an extra invariant to tells us all constructor args are thunked
- * - there's a rule missing in v_rel_case that should allow us to strip
- *   one Thunk-layer from Thunk (INR (Value (Thunk (INR v))))
+ * - v_rel_case_Proj becomes an issue in Force. it might help generalizing it
  *
  * ------------------------------------------------------------------------- *)
 
@@ -3460,19 +3458,25 @@ Inductive exp_rel_case:
 (* Proj *)
 [exp_rel_case_Proj:]
   (∀x y s i v w.
-    exp_rel_case x y ⇒
-      exp_rel_case (Seq (Proj s i (Var v))
-                        (Let (SOME w) (Delay (Force (Proj s i (Var v)))) x))
-                   (Seq (Proj s i (Var v))
-                        (Let (SOME w) (Proj s i (Var v)) y))) ∧
+     exp_rel_case x y ⇒
+       exp_rel_case (Seq (Proj s i (Var v))
+                         (Let (SOME w) (Delay (Force (Proj s i (Var v)))) x))
+                    (Seq (Proj s i (Var v))
+                         (Let (SOME w) (MkTick (Proj s i (Var v))) y))) ∧
 [exp_rel_case_Proj_Value:]
   (∀x y s i u v w.
-    exp_rel_case x y ∧
-    v_rel_case u v ⇒
-      exp_rel_case (Seq (Proj s i (Value u))
-                        (Let (SOME w) (Delay (Force (Proj s i (Value u)))) x))
-                   (Seq (Proj s i (Value v))
-                        (Let (SOME w) (Proj s i (Value v)) y))) ∧
+     exp_rel_case x y ∧
+     v_rel_case u v ⇒
+       exp_rel_case (Seq (Proj s i (Value u))
+                         (Let (SOME w) (Delay (Force (Proj s i (Value u)))) x))
+                    (Seq (Proj s i (Value v))
+                         (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
+[v_rel_case_Proj:]
+  (∀xs ys s i.
+     i < LENGTH xs ∧
+     v_rel_case (EL i xs) (EL i ys) ⇒
+       v_rel_case (Thunk (INR (Force (Proj s i (Value (Constructor s xs))))))
+                  (DoTick (EL i ys))) ∧
 (* Boilerplate: *)
 [exp_rel_case_App:]
   (∀f g x y.
@@ -3576,6 +3580,8 @@ Theorem v_rel_case_def[simp] =
     “v_rel_case z (Recclosure s x)”,
     “v_rel_case (Constructor s x) z”,
     “v_rel_case z (Constructor s x)”,
+    “v_rel_case (DoTick x) z”,
+    “v_rel_case z (DoTick x)”,
     “v_rel_case (Atom s) z”,
     “v_rel_case z (Atom s)”,
     “v_rel_case (Thunk (INL s)) z”,
@@ -3748,30 +3754,23 @@ Proof
     >~ [‘Let NONE x1 y1’] >- (
       strip_tac
       \\ rw [Once exp_rel_case_cases] \\ gs []
-      >- ((* Proj Value *)
-        simp [eval_to_def]
+      >~ [‘Proj s i (Value u)’] >- (
+        once_rewrite_tac [eval_to_def]
         \\ IF_CASES_TAC \\ gs []
+        \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
         \\ IF_CASES_TAC \\ gs []
+        \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
         \\ Cases_on ‘u’ \\ Cases_on ‘v’ \\ gs []
+        \\ rename1 ‘LIST_REL _ xs ys’
         \\ gvs [LIST_REL_EL_EQN]
         \\ IF_CASES_TAC \\ gvs []
-        \\ ‘2 < k’ by cheat (* TODO left doesn't tick after the first part of
-                                    the Seq, but the right side ticks straight
-                                    away. clocks are in sync otherwise.
-                             *) \\ gs []
+        \\ first_x_assum (drule_then assume_tac)
+        \\ simp [eval_to_def]
+        \\ ‘2 < k’ by cheat \\ gs []
         \\ first_x_assum irule
         \\ simp [closed_subst, eval_to_wo_def]
         \\ irule exp_rel_case_subst \\ simp []
-        \\ cheat (* needs the thunk relation from thunk_unthunkProof:
-                    - all constructors have thunks in them (via invariant?
-                      we don't know this from anything else at this place in
-                      the proof)
-                    - thunks are removed like this:
-                      > Thunk (INR (Value (Thunk (INR something))))
-                      becomes
-                      > Thunk (INR related_something)
-                      or similar
-                  *))
+        \\ first_assum (irule_at Any) \\ gs [])
       \\ simp [eval_to_def]
       \\ IF_CASES_TAC \\ gs []
       \\ ‘($= +++ v_rel_case) (eval_to (k - 1) x1) (eval_to (k - 1) x2)’
@@ -3798,6 +3797,146 @@ Proof
     strip_tac
     \\ rw [Once exp_rel_case_cases]
     \\ simp [eval_to_def])
+  >~ [‘Prim op xs’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_case_cases]
+    \\ ‘∀j. j ≤ k ⇒
+          ∀n. n < LENGTH xs ⇒
+            ($= +++ v_rel_case) (eval_to j (EL n xs)) (eval_to j (EL n ys))’
+      by (rpt strip_tac
+          \\ first_x_assum irule
+          \\ simp [eval_to_wo_def, exp_size_def]
+          \\ gs [EVERY_EL, LIST_REL_EL_EQN]
+          \\ rw [DISJ_EQ_IMP]
+          \\ ‘MEM (EL n xs) xs’
+            by (simp [MEM_EL]
+                \\ first_assum (irule_at Any)
+                \\ gs [])
+          \\ drule_then assume_tac (CONJUNCT1 exp_size_lemma)
+          \\ gs [])
+    \\ simp [eval_to_def]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ Cases_on ‘op’ \\ gs []
+    >- ((* Cons *)
+      first_x_assum (qspec_then ‘k’ assume_tac)
+      \\ ‘($= +++ LIST_REL v_rel_case) (result_map (eval_to k) xs)
+                                       (result_map (eval_to k) ys)’
+        suffices_by (
+          rw [SF ETA_ss]
+          \\ Cases_on ‘result_map (eval_to k) xs’
+          \\ Cases_on ‘result_map (eval_to k) ys’ \\ gs [])
+      \\ Cases_on ‘result_map (eval_to k) xs’ \\ gs []
+      >- (
+        gvs [result_map_def, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP,
+             CaseEq "bool", SF CONJ_ss]
+        \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+        \\ ‘($= +++ v_rel_case) (eval_to k (EL n xs)) (eval_to k (EL n ys))’
+          by gs []
+        \\ Cases_on ‘eval_to k (EL n ys)’ \\ gvs [SF SFY_ss]
+        \\ IF_CASES_TAC \\ gs []
+        \\ rename1 ‘m < LENGTH ys’
+        \\ first_x_assum (drule_then assume_tac)
+        \\ first_x_assum (drule_then assume_tac)
+        \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs [])
+      \\ Cases_on ‘result_map (eval_to k) ys’ \\ gs []
+      >- (
+        gvs [result_map_def, CaseEq "bool", MEM_EL, EL_MAP,
+             DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+        \\ rpt (first_x_assum (drule_then assume_tac))
+        \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
+      \\ gvs [result_map_def, CaseEq "bool", MEM_EL, EL_MAP,
+              DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”,
+              EVERY2_MAP]
+      \\ rw [LIST_REL_EL_EQN]
+      \\ rpt (first_x_assum (drule_then assume_tac))
+      \\ Cases_on ‘eval_to k (EL n xs)’
+      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
+      \\ rename1 ‘err ≠ Type_error’
+      \\ Cases_on ‘err’ \\ gs [])
+    >- ((* IsEq *)
+      first_x_assum (qspec_then ‘k - 1’ assume_tac) \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ rename1 ‘exp_rel_case x y’
+      \\ IF_CASES_TAC \\ gs []
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
+      \\ rename1 ‘v_rel_case v1 v2’ \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs []
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs [])
+    >- ((* Proj *)
+      first_x_assum (qspec_then ‘k - 1’ assume_tac) \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ rename1 ‘exp_rel_case x y’
+      \\ IF_CASES_TAC \\ gs []
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
+      \\ rename1 ‘v_rel_case v1 v2’ \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs []
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs [])
+    >- ((* AtomOp *)
+      Cases_on ‘k = 0’ \\ gs []
+      >- (
+        simp [result_map_def, MEM_MAP, GSYM NOT_NULL_MEM, NULL_EQ]
+        \\ Cases_on ‘xs’ \\ Cases_on ‘ys’ \\ gs []
+        \\ CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs [])
+      \\ first_x_assum (qspec_then ‘k - 1’ assume_tac) \\ gs []
+      \\ qmatch_goalsub_abbrev_tac ‘result_map f’
+      \\ ‘MAP f xs = MAP f ys’
+        suffices_by (
+          strip_tac
+          \\ gs [result_map_def, MEM_MAP]
+          \\ IF_CASES_TAC \\ gs []
+          \\ IF_CASES_TAC \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs [])
+      \\ irule LIST_EQ
+      \\ rw [EL_MAP, SF CONJ_ss, Abbr ‘f’]
+      \\ first_x_assum (drule_then assume_tac)
+      \\ rpt CASE_TAC \\ gs []))
+  >~ [‘Force x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_case_cases]
+    \\ once_rewrite_tac [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ rename1 ‘exp_rel_case x y’
+    \\ ‘($= +++ v_rel_case) (eval_to k x) (eval_to k y)’
+      by (first_x_assum irule
+          \\ simp [eval_to_wo_def, exp_size_def])
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
+    \\ rename1 ‘v_rel_case v w’
+    \\ Cases_on ‘dest_Tick v’ \\ gs []
+    >- (
+      Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
+      >- (
+        rename1 ‘LIST_REL _ xs ys’
+        \\ ‘OPTREL exp_rel_case (ALOOKUP (REVERSE xs) s)
+                                (ALOOKUP (REVERSE ys) s)’
+          by (irule LIST_REL_OPTREL
+              \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+        \\ gs [OPTREL_def]
+        \\ qpat_x_assum ‘exp_rel_case x0 _’ mp_tac
+        \\ rw [Once exp_rel_case_cases] \\ gs []
+        \\ first_x_assum irule \\ simp [subst_funs_def]
+        \\ irule_at Any exp_rel_case_subst
+        \\ irule_at Any LIST_EQ
+        \\ simp [closed_subst, eval_to_wo_def, MAP_MAP_o, combinTheory.o_DEF,
+                 LAMBDA_PROD, GSYM FST_THM, EVERY2_MAP]
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
+        \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
+        \\ first_x_assum (drule_then assume_tac)
+        \\ gs [freevars_def])
+      >- (
+        CASE_TAC \\ gs []
+        \\ simp [subst_funs_def]
+        \\ first_x_assum irule
+        \\ simp [eval_to_wo_def])
+      \\ cheat (* stuck *))
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs []
+    \\ first_x_assum irule
+    \\ simp [eval_to_wo_def]
+    \\ irule exp_rel_case_Force
+    \\ irule exp_rel_case_Value \\ gs [])
   \\ cheat
 QED
 
