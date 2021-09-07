@@ -23,63 +23,6 @@ Overload Proj = “λs i (x: exp). Prim (Proj s i) [x]”;
 
 Overload Seq = “λx: exp. λy. Let NONE x y”;
 
-(* TODO move to thunkProps *)
-Theorem subst_FILTER[local]:
-  w ∉ freevars x ⇒
-    subst (FILTER (λ(n,x). n ≠ w) vs) x = subst vs x
-Proof
-  strip_tac
-  \\ ‘DISJOINT {w} (freevars x)’ by gs []
-  \\ drule_all subst_remove
-  \\ gs []
-QED
-
-(* TODO move to thunkProps *)
-Theorem subst1_notin_frees:
-  n ∉ freevars x ⇒
-    subst1 n v x = x
-Proof
-  strip_tac
-  \\ drule subst_FILTER
-  \\ disch_then (qspec_then ‘[n,v]’ mp_tac)
-  \\ simp []
-QED
-
-(* TODO move to thunkProps *)
-Theorem subst1_commutes:
-  ∀x v n m w.
-    n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
-Proof
-  ho_match_mp_tac exp_ind
-  \\ rpt conj_tac
-  \\ simp [subst1_def] \\ rw []
-  \\ simp [subst1_def]
-  >- (
-    simp [MAP_MAP_o, combinTheory.o_DEF]
-    \\ irule LIST_EQ
-    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS])
-  >- (
-    IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def])
-  >- (
-    rename1 ‘Let x’
-    \\ Cases_on ‘x’ \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def])
-  >- (
-    IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def]
-    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-    \\ irule LIST_EQ
-    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS, ELIM_UNCURRY,
-            DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
-    \\ rw []
-    \\ first_x_assum (irule_at Any) \\ gs []
-    \\ first_x_assum (irule_at Any) \\ gs []
-    \\ irule_at Any PAIR)
-QED
-
 (* -------------------------------------------------------------------------
  * exp_rel_lift:
  * ------------------------------------------------------------------------- *)
@@ -298,16 +241,17 @@ Proof
       simp [subst_def, ELIM_UNCURRY, GSYM FILTER_REVERSE]
       \\ simp [LAMBDA_PROD, ALOOKUP_FILTER]
       \\ imp_res_tac exp_rel_lift_freevars \\ gs []
-      \\ gs [subst_FILTER]
+      \\ gs [ELIM_UNCURRY, FILTER_T] \\ gs [LAMBDA_PROD]
       \\ irule exp_rel_lift_Lift \\ gs []
       \\ simp [freevars_subst]
-      \\ gs [ELIM_UNCURRY]
+      \\ ‘DISJOINT {w} (freevars y2) ∧ DISJOINT {w} (freevars z2)’
+        by gs [IN_DISJOINT]
+      \\ imp_res_tac subst_remove \\ gs []
       \\ first_x_assum (drule_then (qspec_then ‘If (IsEq s i x2) y2 z2’ mp_tac))
       \\ simp [Once exp_rel_lift_cases, PULL_EXISTS, subst_def]
       \\ simp [Once exp_rel_lift_cases, PULL_EXISTS]
       \\ simp [Once exp_rel_lift_cases, PULL_EXISTS]
-      \\ simp [Once exp_rel_lift_cases, PULL_EXISTS]
-      \\ rw [] \\ gs [])
+      \\ simp [Once exp_rel_lift_cases, PULL_EXISTS])
     \\ simp [subst_def]
     \\ irule exp_rel_lift_Letrec
     \\ gvs [EVERY2_MAP, LAMBDA_PROD]

@@ -231,6 +231,45 @@ Proof
     gs [freevars_def, subst_def])
 QED
 
+Theorem subst1_notin_frees =
+  subst_remove
+  |> Q.SPECL [‘[n,v]’,‘x’,‘{n}’]
+  |> SIMP_RULE (srw_ss()) [IN_DISJOINT];
+
+Theorem subst1_commutes:
+  ∀x v n m w.
+    n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
+Proof
+  ho_match_mp_tac exp_ind
+  \\ rpt conj_tac
+  \\ simp [subst1_def] \\ rw []
+  \\ simp [subst1_def]
+  >- (
+    simp [MAP_MAP_o, combinTheory.o_DEF]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS])
+  >- (
+    IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def])
+  >- (
+    rename1 ‘Let x’
+    \\ Cases_on ‘x’ \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def])
+  >- (
+    IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS, ELIM_UNCURRY,
+            DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+    \\ rw []
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ irule_at Any PAIR)
+QED
+
 (* TODO pure_misc? *)
 Theorem ALOOKUP_SOME_REVERSE_EL:
   ALOOKUP (REVERSE l) k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k, v)
