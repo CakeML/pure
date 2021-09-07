@@ -37,7 +37,7 @@ Theorem exp_ind:
     (∀x. P x ⇒ P (Box x)) ∧
     (∀x. P x ⇒ P (Force x)) ∧
     (∀v. P (Value v)) ∧
-    (∀x. P (MkTick x)) ⇒
+    (∀x. P x ⇒ P (MkTick x)) ⇒
       ∀v. P v
 Proof
   gen_tac
@@ -55,7 +55,7 @@ QED
 (* TODO move to pure_misc? *)
 Theorem LIST_REL_FILTER:
   ∀xs ys.
-    LIST_REL R xs ys ⇒
+    LIST_REL (λx y. P (FST x) ∧ P (FST y) ⇒ R x y) xs ys ⇒
     MAP FST xs = MAP FST ys ⇒
       LIST_REL R (FILTER (λ(x,y). P x) xs)  (FILTER (λ(x,y). P x) ys)
 Proof
@@ -84,23 +84,6 @@ Theorem MAP_FST_FILTER:
 Proof
   irule LIST_EQ
   \\ rw [EL_MAP, FILTER_MAP, combinTheory.o_DEF, LAMBDA_PROD]
-QED
-
-Theorem LIST_REL_EL_MONO:
-  ∀xs ys.
-    (∀n. n < LENGTH xs ∧ P (EL n xs) (EL n ys) ⇒ Q (EL n xs) (EL n ys)) ∧
-    LIST_REL P xs ys ⇒
-      LIST_REL Q xs ys
-Proof
-  once_rewrite_tac [CONJ_COMM]
-  \\ once_rewrite_tac [GSYM AND_IMP_INTRO]
-  \\ ho_match_mp_tac LIST_REL_ind \\ simp []
-  \\ rw []
-  >- (
-    first_x_assum (qspec_then ‘0’ assume_tac)
-    \\ fs [])
-  \\ first_x_assum irule \\ rw []
-  \\ first_x_assum (qspec_then ‘SUC n’ assume_tac) \\ fs []
 QED
 
 Theorem LIST_TO_SET_FILTER_DIFF[local]:
@@ -179,6 +162,115 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
+Theorem subst_remove:
+  ∀vs x bvs.
+    DISJOINT bvs (freevars x) ⇒
+      subst (FILTER (λ(n,x). n ∉ bvs) vs) x =
+      subst vs x
+Proof
+  ho_match_mp_tac subst_ind \\ rw []
+  >- ((* Var *)
+    gs [freevars_def]
+    \\ simp [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER])
+  >- ((* Prim *)
+    gs [freevars_def]
+    \\ rw [subst_def, MAP_EQ_f]
+    \\ gs [MEM_MAP, DISJ_EQ_IMP, SF DNF_ss,
+           DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”])
+  >- ((* If *)
+    gs [freevars_def, subst_def, DISJOINT_SYM])
+  >- ((* App *)
+    gs [freevars_def, subst_def, DISJOINT_SYM])
+  >- ((* Lam *)
+    gs [freevars_def, subst_def, DISJOINT_SYM, FILTER_FILTER,
+        LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]
+    \\ first_x_assum (qspec_then ‘bvs DIFF {s}’ mp_tac)
+    \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss]
+    \\ disch_then irule
+    \\ gs [DISJOINT_ALT, DISJ_EQ_IMP]
+    \\ rpt strip_tac \\ gs [])
+  >- ((* Let NONE *)
+    gs [freevars_def, subst_def, FILTER_FILTER, DISJOINT_SYM])
+  >- ((* Let SOME *)
+    gs [freevars_def, subst_def, DISJOINT_SYM, FILTER_FILTER,
+        LAMBDA_PROD, AC CONJ_COMM CONJ_ASSOC]
+    \\ first_x_assum (qspec_then ‘bvs DIFF {s}’ mp_tac)
+    \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss]
+    \\ disch_then irule
+    \\ gs [DISJOINT_ALT, DISJ_EQ_IMP]
+    \\ rpt strip_tac \\ gs [])
+  >- ((* Letrec *)
+    gs [freevars_def, subst_def, MAP_EQ_f, FILTER_FILTER, LAMBDA_PROD,
+        FORALL_PROD]
+    \\ ‘DISJOINT (bvs DIFF set (MAP FST f)) (freevars x)’
+      by (gs [DISJOINT_ALT, DISJ_EQ_IMP]
+          \\ rpt strip_tac \\ gs [])
+    \\ first_x_assum drule
+    \\ disch_then (SUBST1_TAC o SYM)
+    \\ simp [SF DNF_ss, AC CONJ_COMM CONJ_ASSOC]
+    \\ rw []
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then ‘bvs DIFF set (MAP FST f)’ mp_tac)
+    \\ impl_tac
+    >- (
+      gs [DISJOINT_ALT, DISJ_EQ_IMP]
+      \\ rpt strip_tac \\ gs []
+      \\ first_x_assum (drule_then assume_tac) \\ gs []
+      \\ first_x_assum (drule_then assume_tac)
+      \\ gs [DISJ_EQ_IMP, MEM_MAP])
+    \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss])
+  >- ((* Delay *)
+    gs [freevars_def, subst_def])
+  >- ((* Box *)
+    gs [freevars_def, subst_def])
+  >- ((* Force *)
+    gs [freevars_def, subst_def])
+  >- ((* Value *)
+    gs [freevars_def, subst_def])
+  >- ((* MkTick *)
+    gs [freevars_def, subst_def])
+QED
+
+Theorem subst1_notin_frees =
+  subst_remove
+  |> Q.SPECL [‘[n,v]’,‘x’,‘{n}’]
+  |> SIMP_RULE (srw_ss()) [IN_DISJOINT]
+  |> GSYM;
+
+Theorem subst1_commutes:
+  ∀x v n m w.
+    n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
+Proof
+  ho_match_mp_tac exp_ind
+  \\ rpt conj_tac
+  \\ simp [subst1_def] \\ rw []
+  \\ simp [subst1_def]
+  >- (
+    simp [MAP_MAP_o, combinTheory.o_DEF]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS])
+  >- (
+    IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def])
+  >- (
+    rename1 ‘Let x’
+    \\ Cases_on ‘x’ \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def])
+  >- (
+    IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ IF_CASES_TAC \\ simp [subst1_def]
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS, ELIM_UNCURRY,
+            DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+    \\ rw []
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ first_x_assum (irule_at Any) \\ gs []
+    \\ irule_at Any PAIR)
+QED
+
 (* TODO pure_misc? *)
 Theorem ALOOKUP_SOME_REVERSE_EL:
   ALOOKUP (REVERSE l) k = SOME v ⇒ ∃n. n < LENGTH l ∧ EL n l = (k, v)
@@ -190,6 +282,24 @@ Proof
   \\ first_assum (irule_at (Pos (el 2)))
   \\ gs [Abbr ‘m’]
 QED
+
+(* Wellfounded relation that can be used with WF_IND to avoid annoying
+ * induction theorems.
+ *)
+
+Definition eval_to_wo_def:
+  eval_to_wo = inv_image ($< LEX $<) (I ## exp_size)
+End
+
+Theorem eval_to_wo_WF:
+  WF eval_to_wo
+Proof
+  rw [eval_to_wo_def]
+  \\ irule relationTheory.WF_inv_image
+  \\ irule WF_LEX \\ gs []
+QED
+
+Theorem eval_to_wo_def = REWRITE_RULE [LEX_DEF] eval_to_wo_def;
 
 val _ = export_theory ();
 
