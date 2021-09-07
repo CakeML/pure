@@ -28,16 +28,6 @@ Overload Proj = “λs i (x: exp). Prim (Proj s i) [x]”;
 
 Overload Seq = “λx: exp. λy. Let NONE x y”;
 
-(* -------------------------------------------------------------------------
- * TODO:
- * - the clocks line up in the Proj case, but the code on the right side
- *   can diverge inside the Let. the new program always needs one extra
- *   clock to get past the second Proj, but if we give it extra then the clocks
- *   wont line up when we get to x/y.
- * - v_rel_Proj becomes an issue in Force. it might help generalizing it
- *
- * ------------------------------------------------------------------------- *)
-
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧
   ok_binder (Box x) = T ∧
@@ -165,7 +155,7 @@ Inductive exp_rel:
   (∀x y s i v w.
      exp_rel x y ⇒
        exp_rel (Seq (Proj s i (Var v))
-                    (Let (SOME w) (Delay (Force (Proj s i (Var v)))) x))
+                    (Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x))
                (Seq (Proj s i (Var v))
                     (Let (SOME w) (MkTick (Proj s i (Var v))) y))) ∧
 [exp_rel_Proj_Value:]
@@ -173,7 +163,7 @@ Inductive exp_rel:
      exp_rel x y ∧
      v_rel u v ⇒
        exp_rel (Seq (Proj s i (Value u))
-                    (Let (SOME w) (Delay (Force (Proj s i (Value u)))) x))
+                    (Let (SOME w) (Tick (Delay (Force (Proj s i (Value u))))) x))
                (Seq (Proj s i (Value v))
                     (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
 [v_rel_Proj:]
@@ -347,13 +337,13 @@ Proof
     \\ qmatch_asmsub_rename_tac ‘exp_rel x y’
     >- ((* Proj *)
       ‘exp_rel (subst (FILTER (λ(n,x). n ≠ w) vs) x)
-                    (subst (FILTER (λ(n,x). n ≠ w) ws) y)’
-        by (first_x_assum
-              (drule_then
-                (qspec_then ‘Let (SOME w) (Delay (Force (Proj s i (Var v)))) y’
-                 mp_tac))
+               (subst (FILTER (λ(n,x). n ≠ w) ws) y)’
+        by (first_x_assum (drule_then
+              (qspec_then ‘Let (SOME w)
+                               (Tick (Delay (Force (Proj s i (Var v))))) y’
+               mp_tac))
             \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def]
-            \\ ntac 5 (simp [Once exp_rel_cases, PULL_EXISTS]))
+            \\ ntac 6 (simp [Once exp_rel_cases, PULL_EXISTS]))
       \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
         by (irule LIST_REL_OPTREL
             \\ gs [LIST_REL_CONJ, ELIM_UNCURRY, EVERY2_MAP]
@@ -362,17 +352,17 @@ Proof
             \\ qid_spec_tac ‘ws’
             \\ Induct_on ‘vs’ \\ simp []
             \\ Cases_on ‘ws’ \\ simp [])
-      \\ gs [OPTREL_def, exp_rel_Proj, exp_rel_Proj_Value])
+      \\ gs [OPTREL_def, exp_rel_Proj, exp_rel_Proj_Value,
+             ELIM_UNCURRY, FILTER_T])
     >- (
       ‘exp_rel (subst (FILTER (λ(n,x). n ≠ w) vs) x)
-                    (subst (FILTER (λ(n,x). n ≠ w) ws) y)’
-        by (first_x_assum
-              (drule_then
-                (qspec_then ‘Let (SOME w)
-                                 (Delay (Force (Proj s i (Value v)))) y’
-                 mp_tac))
+               (subst (FILTER (λ(n,x). n ≠ w) ws) y)’
+        by (first_x_assum (drule_then
+              (qspec_then ‘Let (SOME w)
+                               (Tick (Delay (Force (Proj s i (Value v))))) y’
+               mp_tac))
             \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def]
-            \\ ntac 5 (simp [Once exp_rel_cases, PULL_EXISTS]))
+            \\ ntac 6 (simp [Once exp_rel_cases, PULL_EXISTS]))
       \\ gs [exp_rel_Proj_Value])
     \\ irule exp_rel_Let_NONE \\ gs [])
   >- ((* Let SOME *)
@@ -470,12 +460,12 @@ Proof
         \\ IF_CASES_TAC \\ gvs []
         \\ first_x_assum (drule_then assume_tac)
         \\ simp [eval_to_def]
-        \\ ‘2 < k’ by cheat \\ gs []
+        \\ IF_CASES_TAC \\ gs []
+        \\ simp [subst_funs_def, eval_to_def]
         \\ first_x_assum irule
         \\ simp [closed_subst, eval_to_wo_def]
         \\ conj_tac >- cheat (* exp_inv_subst *)
-        \\ irule exp_rel_subst \\ simp []
-        \\ first_assum (irule_at Any) \\ gs [])
+        \\ irule exp_rel_subst \\ simp [])
       \\ simp [eval_to_def]
       \\ IF_CASES_TAC \\ gs []
       \\ ‘($= +++ (λv w. v_inv v ∧ v_rel v w)) (eval_to (k - 1) x1)
