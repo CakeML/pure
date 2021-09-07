@@ -625,6 +625,27 @@ Proof
       \\ simp [eval_to_wo_def]
       \\ irule exp_rel_Force
       \\ irule exp_rel_Value \\ gs [])
+    \\ Cases_on ‘dest_Tick w’ \\ gs []
+    >~ [‘dest_Tick w = SOME u’] >- (
+      Cases_on ‘v’ \\ gvs []
+      \\ simp [dest_anyThunk_def, subst_funs_def]
+      \\ CASE_TAC \\ gvs []
+      \\ ‘($= +++ (λv w. v_inv v ∧ v_rel v w))
+            (eval_to (k - 1) (Force (Value (EL i xs))))
+            (eval_to (k - 1) (Force (Value u)))’
+        by (first_x_assum irule
+            \\ gvs [EVERY_EL, eval_to_wo_def]
+            \\ first_x_assum (drule_then strip_assume_tac)
+            \\ simp []
+            \\ irule exp_rel_Force
+            \\ irule exp_rel_Value \\ gs [])
+      \\ pop_assum mp_tac
+      \\ once_rewrite_tac [eval_to_def] \\ simp []
+      \\ IF_CASES_TAC \\ gs []
+      \\ simp [Once eval_to_def]
+      \\ strip_tac
+      \\ simp [Once eval_to_def]
+      \\ simp [Once eval_to_def])
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
     >- ((* Recclosure *)
       rename1 ‘LIST_REL _ xs ys’
@@ -645,25 +666,11 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ gs [freevars_def]
       \\ cheat (* exp_inv_subst *))
-    >- ((* Thunk *)
-      CASE_TAC \\ gs []
-      \\ simp [subst_funs_def]
-      \\ first_x_assum irule
-      \\ simp [eval_to_wo_def])
-    \\ simp [subst_funs_def]
-    \\ gvs [EVERY_EL]
-    \\ ‘∃z1. EL i xs = Thunk (INR z1) ∧ exp_inv z1’
-      by gs []
-    \\ once_rewrite_tac [eval_to_def] \\ simp []
-    \\ IF_CASES_TAC \\ simp []
-    \\ simp [Once eval_to_def]
-    \\ simp [Once eval_to_def, dest_anyThunk_def, subst_funs_def]
-    \\ simp [Once eval_to_def]
+        (* Thunk *)
     \\ CASE_TAC \\ gs []
-    >- (
-      first_x_assum irule
-      \\ simp [eval_to_wo_def])
-    \\ cheat (* repetition of the last case again but one level deeper *))
+    \\ simp [subst_funs_def]
+    \\ first_x_assum irule
+    \\ simp [eval_to_wo_def])
   \\ cheat
 QED
 
