@@ -72,7 +72,8 @@ Inductive exp_rel:
   (∀f g x y.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
-                 exp_rel x y) f g ∧
+                 exp_rel x y ∧
+                 ok_binder x) f g ∧
      exp_rel x y ⇒
        exp_rel (Letrec f x) (Letrec g y)) ∧
 [exp_rel_Let_SOME:]
@@ -175,6 +176,12 @@ Theorem v_rel_def[simp] =
     “v_rel z (Thunk (INR s))” ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
+
+Theorem ok_binder_subst[local,simp]:
+  ∀x. ok_binder x ⇒ ok_binder (subst vs x)
+Proof
+  Cases \\ simp [subst_def]
+QED
 
 Theorem exp_rel_subst:
   ∀vs x ws y m.
@@ -335,6 +342,49 @@ Proof
   ho_match_mp_tac eval_to_WF_IND
   \\ simp [case_goal_def]
   \\ gen_tac \\ Cases \\ simp []
+  >~ [‘App f x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ rename1 ‘exp_rel x y’
+    \\ ‘($= +++ v_rel) (eval_to k f) (eval_to k g)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
+    \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k g’ \\ gs []
+    \\ rename1 ‘v_rel v w’
+    \\ ‘($= +++ v_rel) (eval_to k x) (eval_to k y)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def]
+    >- ((* Closure *)
+      IF_CASES_TAC \\ gs []
+      \\ first_x_assum irule
+      \\ simp [closed_subst, eval_to_wo_def]
+      \\ irule exp_rel_subst
+      \\ simp [])
+        (* Recclosure *)
+    \\ rename1 ‘LIST_REL _ xs ys’
+    \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      by (irule LIST_REL_OPTREL
+          \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+    \\ gs [OPTREL_def]
+    \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
+    \\ rw [Once exp_rel_cases] \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule
+    \\ simp [closed_subst, eval_to_wo_def]
+    \\ irule_at Any exp_rel_subst
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
+             EVERY2_MAP]
+    \\ irule_at Any LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ gvs [freevars_def, SUBSET_DEF]
+    \\ rw [Once DISJ_COMM, DISJ_EQ_IMP])
+  >~ [‘Lam s x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def])
   >~ [‘Let bv x y’] >- (
     Cases_on ‘bv’ \\ gs []
     >~ [‘Let NONE x1 y1’] >- (
@@ -542,7 +592,51 @@ Proof
     \\ simp [subst_funs_def]
     \\ first_x_assum irule
     \\ simp [eval_to_wo_def])
-  \\ cheat
+  >~ [‘MkTick x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ rename1 ‘exp_rel x y’
+    \\ ‘($= +++ v_rel) (eval_to k x) (eval_to k y)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs [])
+  >~ [‘Box x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ rename1 ‘exp_rel x y’
+    \\ ‘($= +++ v_rel) (eval_to k x) (eval_to k y)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs [])
+  >~ [‘If x1 y1 z1’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ ‘($= +++ v_rel) (eval_to (k - 1) x1) (eval_to (k - 1) x2)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def])
+    \\ ‘($= +++ v_rel) (eval_to (k - 1) y1) (eval_to (k - 1) y2)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def])
+    \\ ‘($= +++ v_rel) (eval_to (k - 1) z1) (eval_to (k - 1) z2)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def])
+    \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs [])
+  >~ [‘Letrec f x’] >- (
+    strip_tac
+    \\ rw [Once exp_rel_cases]
+    \\ simp [eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule
+    \\ simp [subst_funs_def, closed_subst, eval_to_wo_def]
+    \\ irule_at Any exp_rel_subst
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ irule_at Any LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, BIGUNION, MEM_EL, PULL_EXISTS,
+            EL_MAP, EVERY2_MAP, SUBSET_DEF, SF CONJ_ss]
+    \\ rw [] \\ gs [SF SFY_ss])
 QED
 
 Theorem exp_rel_eval_to =
