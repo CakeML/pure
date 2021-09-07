@@ -234,7 +234,8 @@ QED
 Theorem subst1_notin_frees =
   subst_remove
   |> Q.SPECL [‘[n,v]’,‘x’,‘{n}’]
-  |> SIMP_RULE (srw_ss()) [IN_DISJOINT];
+  |> SIMP_RULE (srw_ss()) [IN_DISJOINT]
+  |> GSYM;
 
 Theorem subst1_commutes:
   ∀x v n m w.
@@ -281,6 +282,24 @@ Proof
   \\ first_assum (irule_at (Pos (el 2)))
   \\ gs [Abbr ‘m’]
 QED
+
+(* Wellfounded relation that can be used with WF_IND to avoid annoying
+ * induction theorems.
+ *)
+
+Definition eval_to_wo_def:
+  eval_to_wo = inv_image ($< LEX $<) (I ## exp_size)
+End
+
+Theorem eval_to_wo_WF:
+  WF eval_to_wo
+Proof
+  rw [eval_to_wo_def]
+  \\ irule relationTheory.WF_inv_image
+  \\ irule WF_LEX \\ gs []
+QED
+
+Theorem eval_to_wo_def = REWRITE_RULE [LEX_DEF] eval_to_wo_def;
 
 val _ = export_theory ();
 
