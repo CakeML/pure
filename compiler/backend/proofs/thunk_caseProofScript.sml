@@ -177,11 +177,11 @@ Inductive exp_rel:
                (Seq (Proj s i (Value v))
                     (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
 [v_rel_Proj:]
-  (∀xs ys s i.
+  (∀xs s i.
      i < LENGTH xs ∧
-     v_rel (EL i xs) (EL i ys) ⇒
+     v_rel (EL i xs) v ⇒
        v_rel (Thunk (INR (Force (Proj s i (Value (Constructor s xs))))))
-             (DoTick (EL i ys))) ∧
+             (DoTick v)) ∧
 (* Boilerplate: *)
 [exp_rel_App:]
   (∀f g x y.
