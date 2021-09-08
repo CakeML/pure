@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open listTheory rich_listTheory;
 open pure_cexpTheory envLang_cexpTheory;
 
-val _ = new_theory "pure_to_thunk"; (* TODO this name *)
+val _ = new_theory "pure_to_env";
 
 Definition compile_exp_def:
   compile_exp (pure_cexp$Var a n) =
