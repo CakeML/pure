@@ -386,6 +386,13 @@ Inductive type_tcexp:
    type_tcexp ns db st (REVERSE (ZIP (MAP FST fns, schemes)) ++ env) e t ⇒
       type_tcexp ns db st env (Letrec fns e) t) ∧
 
+[~BoolCase:]
+  (type_tcexp ns db st env e (PrimTy Bool) ∧
+   LENGTH css = 2 ∧ set (MAP FST css) = {"True";"False"} ∧
+   EVERY (λ(cn,pvars,cexp). pvars = [] ∧
+    type_tcexp ns db st ((v,0,PrimTy Bool)::env) cexp t) css ⇒
+      type_tcexp ns db st env (Case e v css) t) ∧
+
 [~TupleCase:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
    css = [("",pvars,cexp)] ∧ ¬ MEM v pvars ∧

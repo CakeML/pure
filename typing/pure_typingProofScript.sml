@@ -61,6 +61,15 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
+Triviality type_wh_PrimTy_Bool_eq_wh_Constructor:
+  type_wh ns db st env wh (PrimTy Bool) ⇒
+    wh = wh_Diverge ∨ wh = wh_Constructor "True" [] ∨ wh = wh_Constructor "False" []
+Proof
+  rw[type_wh_cases] >> gvs[Once type_tcexp_cases]
+  >- (Cases_on `arg_tys` >> gvs[Functions_def])
+  >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
+QED
+
 Triviality type_wh_Function_eq_wh_Closure:
   type_wh ns db st env wh (Function ft rt) ⇒
     wh = wh_Diverge ∨ ∃x body. wh = wh_Closure x body
@@ -410,6 +419,37 @@ Proof
     drule_at (Pos last) type_tcexp_type_ok >> rw[] >>
     qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
     rw[Once type_tcexp_cases] >> gvs[]
+    >- ( (* BoolCase *)
+      Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
+      >- (
+        drule_at Any eval_wh_to_Case_wh_Diverge >>
+        gvs[closed_def, freevars_exp_of] >>
+        disch_then $ qspecl_then [`v`,`rs`] mp_tac >>
+        impl_tac >- (Cases_on `rs` >> gvs[]) >>
+        rw[exp_of_def, type_wh_cases]
+        ) >>
+      first_x_assum $ drule_all >> strip_tac >>
+      `∃cn. eval_wh_to k (exp_of x) = wh_Constructor cn []` by (
+        drule type_wh_PrimTy_Bool_eq_wh_Constructor >> rw[] >> gvs[]) >>
+      drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of, FUPDATE_LIST_THM] >>
+      disch_then $ qspec_then `rs` mp_tac >>
+      `∃ce. ALOOKUP rs cn = SOME ([],ce)` by (
+        gvs[pred_setTheory.EXTENSION] >>
+        first_x_assum $ qspec_then `cn` assume_tac >>
+        Cases_on `ALOOKUP rs cn` >> gvs[ALOOKUP_NONE] >>
+        drule type_wh_PrimTy_Bool_eq_wh_Constructor >> strip_tac >> gvs[] >>
+        Cases_on `x'` >> gvs[] >>
+        imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, FORALL_PROD] >> metis_tac[]) >>
+      simp[exp_of_def] >> disch_then $ qspec_then `v` assume_tac >> gvs[]
+      >- simp[type_wh_cases] >>
+      last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+      ntac 2 $ disch_then drule >>
+      imp_res_tac ALOOKUP_MEM >> gvs[FORALL_PROD, EVERY_MEM] >>
+      first_x_assum drule >> strip_tac >>
+      drule type_tcexp_closing_subst1 >> simp[] >>
+      disch_then drule >> strip_tac >>
+      disch_then drule >> simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY]
+      )
     >- ( (* TupleCase *)
       Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
       >- (
