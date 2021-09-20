@@ -634,7 +634,7 @@ QED
 (******************** trace_prefix ********************)
 
 (*
-  TODO the proofs below are quite messy and repetititive.
+  TODO the proofs below are quite messy and repetitive.
   This is partly because they focus on the "wrong" parts of the two traces
   which are being related - we case split on the first chunk of each trace,
   where actually we want to reuse the theorems above and think about the
@@ -725,12 +725,14 @@ QED
 
 Theorem trace_prefix_Error:
   ctxt_rel cs1 cs2 ⇒
-  ((∃n io. trace_prefix n (oracle, ffi_st)
+  ((∃n. trace_prefix n (oracle, ffi_st)
     (interp (Estep (env,st,ev,cs1))) = (io, SOME Error)) ⇔
-  ∃est2.
+  ∃est2 ffi'.
     RTC e_step_reln
       (env, (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>), ev, cs2)
       est2 ∧
+    get_ffi (Estep est2) = SOME ffi' ∧
+    ffi'.io_events = ffi.io_events ++ io ∧
     e_step est2 = Eabort Rtype_error)
 Proof
   rw[] >> eq_tac >> rw[] >> rpt $ pop_assum mp_tac
@@ -771,7 +773,9 @@ Proof
       qmatch_goalsub_abbrev_tac `_,(_,ffi2),_,_` >>
       gvs[ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
       last_x_assum drule >> disch_then drule >>
-      unabbrev_all_tac >> gvs[]
+      disch_then $ qspec_then `ffi2` assume_tac >> gvs[] >>
+      unabbrev_all_tac >> gvs[] >>
+      goal_assum drule >> goal_assum drule >> simp[]
       )
     >- (
       qpat_x_assum `(some n. _ ) = _` mp_tac >>
@@ -789,9 +793,9 @@ Proof
       strip_tac >> gvs[get_ffi_def] >>
       qpat_x_assum `step_n (SUC _) _ = _` mp_tac >> rw[step_n_alt_def] >>
       rw[Once e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
-      goal_assum drule >>
+      goal_assum drule >> simp[get_ffi_def] >>
       qspec_then `(env',st',ev',cs1')` assume_tac step_result_rel_single >>
-      gvs[step_result_rel_cases, is_Effi_def]
+      gvs[step_result_rel_cases, is_Effi_def] >> unabbrev_all_tac >> gvs[]
       )
     )
   >- (
@@ -810,7 +814,7 @@ Proof
         gvs[get_ffi_def, step_result_rel_cases]) >>
       DEEP_INTRO_TAC some_intro >> reverse $ rw[]
       >- (qexists_tac `SUC 0` >> rewrite_tac[step_n_def] >> simp[is_halt_def]) >>
-      Cases_on `x` >> gvs[step_n_def, is_halt_def]
+      Cases_on `x` >> gvs[step_n_def, is_halt_def] >> gvs[get_ffi_def]
       ) >>
     gvs[step_n_cml_def] >>
     qmatch_asmsub_abbrev_tac `_,(_,ffi0),_,_` >>
@@ -821,13 +825,15 @@ Proof
         assume_tac $ GEN_ALL step_result_rel_single' >>
       gvs[get_ffi_def, step_result_rel_cases] >>
       last_x_assum drule >>
-      disch_then $ qspecl_then [`env'`,`st'`,`ffi_st`,`oracle`,`ffi`,`ev'`] mp_tac >>
+      disch_then $ qspecl_then
+        [`io`,`env'`,`st'`,`ffi_st`,`oracle`,`ffi`,`ev'`] mp_tac >>
       simp[] >> strip_tac >> rename1 `trace_prefix m _` >>
       qexists_tac `m` >> pop_assum mp_tac >>
       Cases_on `m` >> once_rewrite_tac[trace_prefix_interp] >> rw[] >>
       DEP_ONCE_REWRITE_TAC[step_until_halt_take_step] >> simp[is_halt_def]
       ) >>
     PairCases_on `p` >> gvs[get_ffi_def] >>
+    rename1 `get_ffi _ = SOME ffi_new` >>
     rename1 `Estep (env',(st',ffi'),ev',cs2')` >>
     drule e_step_ffi_changed >> simp[] >>
     drule e_step_ffi_changed_estep_to_Effi >> simp[] >> disch_then drule >>
@@ -842,13 +848,20 @@ Proof
     unabbrev_all_tac >> gvs[ctxt_frame_rel_cases] >>
     simp[UNCURRY] >> last_x_assum drule >> disch_then $ drule_at Any >>
     qmatch_asmsub_abbrev_tac `step_n_cml n (Estep (_,(st',_),vv,_))` >>
+    qmatch_asmsub_abbrev_tac `_ ++ [new_event]` >>
     disch_then $ qspecl_then
-      [`env'`,`st'`,`ffi'.ffi_state`,`ffi'.oracle`,`ffi'`,`vv`] mp_tac >>
-    reverse impl_tac >> rw[] >> simp[]
-    >- (qexists_tac `n'` >> simp[]) >>
-    qpat_x_assum `step_n_cml _ _ = _` (SUBST_ALL_TAC o GSYM) >>
-    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-    rw[ffi_state_component_equality]
+      [`TL io`,`env'`,`st'`,`ffi'.ffi_state`, `ffi'.oracle`,`ffi'`,`vv`] mp_tac >>
+    simp[] >> reverse $ impl_keep_tac >> gvs[] >> rw[]
+    >- (qexists_tac `n'` >> simp[])
+    >- (
+      qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
+      rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+      rw[ffi_state_component_equality]
+      ) >>
+    imp_res_tac io_events_mono_e_step >>
+    imp_res_tac io_events_mono_step_n_cml >> gvs[io_events_mono_def] >>
+    PairCases_on `est2` >> gvs[get_ffi_def] >>
+    Cases_on `io` >> gvs[]
     )
 QED
 
@@ -1265,7 +1278,7 @@ Proof
 QED
 
 
-(******************** Collected results ********************)
+(******************** Collected results for expressions ********************)
 
 Theorem small_eval_trace_prefix_termination:
   (small_eval env (st,ffi) e [] ((st',ffi'), Rval v) ∨
@@ -1302,18 +1315,68 @@ Proof
     )
 QED
 
+Theorem trace_prefix_small_eval_termination:
+  trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,Exp e,[]))) = (io, SOME Termination)
+  ⇒ ∃st' ffi' v.
+      (small_eval env (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>)
+        e [] ((st',ffi'), Rval v) ∨
+      small_eval env (st, ffi with <| oracle := oracle; ffi_state := ffi_st |>)
+        e [] ((st',ffi'), Rerr (Rraise v))) ∧
+      ffi'.io_events = ffi.io_events ++ io
+Proof
+  rw[] >>
+  `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule $ iffLR trace_prefix_Termination >> simp[PULL_EXISTS] >>
+  disch_then drule >> disch_then $ qspec_then `ffi` assume_tac >> gvs[] >>
+  PairCases_on `est2` >> Cases_on `est23` >> gvs[is_halt_cml_def] >>
+  Cases_on `est24` >> gvs[is_halt_cml_def, get_ffi_def, small_eval_def]
+  >- (
+    irule_at Any OR_INTRO_THM1 >> simp[PULL_EXISTS] >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    PairCases_on `h` >> Cases_on `h0` >> Cases_on `t` >> gvs[is_halt_cml_def] >>
+    irule_at Any OR_INTRO_THM2 >> simp[PULL_EXISTS] >>
+    goal_assum drule >> simp[]
+    )
+QED
+
 Theorem small_eval_trace_prefix_type_error:
   small_eval env (st,ffi) e [] ((st',ffi'), Rerr (Rabort Rtype_error))
   ⇒ ∃n io.
       trace_prefix n (ffi.oracle, ffi.ffi_state)
-        (interp (Estep (env,st,Exp e,[]))) = (io, SOME Error)
+        (interp (Estep (env,st,Exp e,[]))) = (io, SOME Error) ∧
+      ffi'.io_events = ffi.io_events ++ io
 Proof
-  rpt strip_tac >> irule $ iffRL trace_prefix_Error >> simp[PULL_EXISTS] >>
-  simp[ctxt_rel_def] >>
-  gvs[small_eval_def] >> goal_assum $ drule_at Any >>
-  qexists_tac `ffi` >> gvs[e_step_reln_eq_step_n_cml] >>
-  qexists_tac `n` >> pop_assum $ SUBST_ALL_TAC o GSYM >>
-  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[ffi_state_component_equality]
+  rpt strip_tac >>
+  `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule $ iffRL trace_prefix_Error >>
+  gvs[small_eval_def, e_step_reln_eq_step_n_cml, PULL_EXISTS] >>
+  imp_res_tac io_events_mono_step_n_cml >>
+  gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
+  disch_then $ qspecl_then
+    [`st`,`ffi.oracle`,`l`,`ffi.ffi_state`,`ffi`,`Exp e`,`env`] mp_tac >>
+  qmatch_goalsub_abbrev_tac `(_,(_,ffi0),_)` >>
+  `ffi0 = ffi` by (unabbrev_all_tac >> gvs[ffi_state_component_equality]) >>
+  gvs[] >> pop_assum kall_tac >>
+  disch_then drule >> simp[get_ffi_def]
+QED
+
+Theorem trace_prefix_small_eval_type_error:
+  trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,Exp e,[]))) = (io, SOME Error)
+  ⇒ ∃st' ffi'.
+      small_eval env (st,ffi with <| oracle := oracle; ffi_state := ffi_st|>)
+        e [] ((st',ffi'), Rerr (Rabort Rtype_error)) ∧
+      ffi'.io_events = ffi.io_events ++ io
+Proof
+  rw[] >>
+  `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule $ iffLR trace_prefix_Error >> simp[PULL_EXISTS] >>
+  disch_then drule >> disch_then $ qspec_then `ffi` assume_tac >> gvs[] >>
+  simp[small_eval_def, PULL_EXISTS] >>
+  PairCases_on `est2` >> goal_assum drule >> simp[] >> gvs[get_ffi_def]
 QED
 
 Theorem small_eval_trace_prefix_ffi_error:
@@ -1336,6 +1399,22 @@ Proof
   qpat_x_assum `step_n_cml n _ = _` $ SUBST_ALL_TAC o GSYM >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[ffi_state_component_equality]
+QED
+
+Theorem trace_prefix_small_eval_ffi_error:
+  trace_prefix n (oracle, ffi_st)
+    (interp (Estep (env,st,Exp e,[]))) = (io, SOME $ FinalFFI (s,conf,ws) outcome)
+  ⇒ ∃st' ffi'.
+      small_eval env (st,ffi with <| oracle := oracle; ffi_state := ffi_st|>)
+        e [] ((st',ffi'), Rerr (Rabort $ Rffi_error $ Final_event s conf ws outcome)) ∧
+      ffi'.io_events = ffi.io_events ++ io
+Proof
+  rw[] >>
+  `ctxt_rel ([] : ctxt list) []` by gvs[ctxt_rel_def] >>
+  drule $ iffLR trace_prefix_FinalFFI >> simp[PULL_EXISTS] >>
+  disch_then drule >> disch_then $ qspec_then `ffi` assume_tac >> gvs[] >>
+  simp[small_eval_def, PULL_EXISTS] >>
+  PairCases_on `final_est` >> goal_assum drule >> simp[] >> gvs[get_ffi_def]
 QED
 
 Theorem e_diverges_trace_prefix:
@@ -1367,6 +1446,8 @@ Proof
 QED
 
 (* TODO lift infinite behaviour relation to lprefix_lub *)
+
+(******************** Declarations ********************)
 
 (****************************************)
 
