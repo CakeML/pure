@@ -34,10 +34,7 @@ Definition compile_exp_def:
           (compile_exp x)
           (compile_exp y) ∧
   compile_exp (Letrec a funs x) =
-    Letrec a (MAP (λ(f,x).
-                case x of
-                  Lam _ _ _ => (f, compile_exp x)
-                | _ => (f, Delay a (compile_exp x))) funs)
+    Letrec a (MAP (λ(f,x). (f, Delay a (compile_exp x))) funs)
              (compile_exp x) ∧
   compile_exp (Case a x bv rows) =
     Case a (compile_exp x)
