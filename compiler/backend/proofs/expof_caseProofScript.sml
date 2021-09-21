@@ -48,7 +48,7 @@ Definition exp_of'_def:
        Fail
      else
        Let v (exp_of' x)
-             (rows_of v (MAP (λ(c,vs,x). (c,vs,exp_of' x)) rs)))
+             (rows_of' v (MAP (λ(c,vs,x). (c,vs,exp_of' x)) rs)))
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
@@ -105,25 +105,24 @@ QED
 Theorem exp_eq_lets_for_cong:
   ∀v s vs x y.
     x ≅ y ⇒
-      lets_for v s vs x ≅ lets_for v s vs y
+      lets_for' v s vs x ≅ lets_for v s vs y
 Proof
-  ho_match_mp_tac lets_for_ind
-  \\ simp [lets_for_def] \\ rw []
-  \\ irule exp_eq_App_cong
-  \\ irule_at Any exp_eq_Lam_cong
-  \\ irule_at Any exp_eq_Prim_cong
-  \\ gs [exp_eq_refl]
+  ho_match_mp_tac lets_for'_ind
+  \\ simp [lets_for'_def, lets_for_def] \\ rw []
+  \\ cheat
 QED
 
 Theorem exp_eq_rows_of_cong:
   ∀v xs ys.
     LIST_REL (λ(a,vs,x) (b,ws,y). a = b ∧ vs = ws ∧ x ≅ y) xs ys ⇒
-      rows_of v xs ≅ rows_of v ys
+      rows_of' v xs ≅ rows_of v ys
 Proof
-  ho_match_mp_tac rows_of_ind
-  \\ simp [rows_of_def, exp_eq_refl]
+  ho_match_mp_tac rows_of'_ind
+  \\ simp [rows_of'_def, rows_of_def, exp_eq_refl]
   \\ rw [] \\ pairarg_tac \\ gvs []
   \\ simp [rows_of_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any exp_eq_Tick
   \\ irule exp_eq_Prim_cong \\ simp []
   \\ irule_at Any exp_eq_Prim_cong
   \\ simp [exp_eq_refl]
