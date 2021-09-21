@@ -22,8 +22,6 @@ Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
 
-Overload Tick = “λx: exp. Letrec [] x”;
-
 Inductive exp_rel:
 (* Force replacement *)
 [exp_rel_Unbox:]

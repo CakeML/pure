@@ -22,8 +22,6 @@ Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
 
-Overload Tick = “λx: exp. Letrec [] x”;
-
 Overload Proj = “λs i (x: exp). Prim (Proj s i) [x]”;
 
 Overload Seq = “λx: exp. λy. Let NONE x y”;

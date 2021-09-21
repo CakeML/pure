@@ -46,6 +46,8 @@ Datatype:
     | DoTick v                                   (* extra clock when forced *)
 End
 
+Overload Tick = “λx. Letrec [] x”;
+
 val exp_size_def = fetch "-" "exp_size_def";
 
 Definition subst_def:

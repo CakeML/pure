@@ -20,8 +20,6 @@ val _ = numLib.prefer_num ();
 
 Overload IsEq = “λs i (x: exp). Prim (IsEq s i) [x]”;
 
-Overload Tick = “λx: exp. Letrec [] x”;
-
 Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
