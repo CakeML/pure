@@ -1,10 +1,10 @@
 (*
   The third in a series of transformations to simplify case-compilation from
   pureLang to thunkLang. See:
-  - [thunk_liftProofScript.sml]
-  - [thunk_d2bProofScript.sml]
-  - [thunk_unboxProofScript.sml]
-  - [thunk_caseProofScript.sml]
+  - [thunk_case_liftProofScript.sml]
+  - [thunk_case_d2bProofScript.sml]
+  - [thunk_case_unboxProofScript.sml]
+  - [thunk_case_projProofScript.sml]
   for the others.
  *)
 
@@ -14,7 +14,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory;
 open pure_miscTheory thunkLangPropsTheory;
 
-val _ = new_theory "thunk_inlProof";
+val _ = new_theory "thunk_case_inlProof";
 
 val _ = numLib.prefer_num ();
 
