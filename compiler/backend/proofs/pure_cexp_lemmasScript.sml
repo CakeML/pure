@@ -81,6 +81,12 @@ Proof
     pairarg_tac >> gvs[] >> res_tac
     )
   >- (
+    cheat (* not true *)
+  )
+  >- (
+    cheat (* not true *)
+  )
+  >- (
     simp[Once UNION_COMM] >> AP_TERM_TAC >>
     simp[freevars_rows_of] >> Cases_on `css` >> gvs[] >>
     PairCases_on `h` >> gvs[] >> rw[EXTENSION, PULL_EXISTS] >>

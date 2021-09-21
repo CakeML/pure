@@ -59,8 +59,12 @@ Definition exp_of_def:
   exp_of (App _ f xs)    = Apps (exp_of f) (MAP exp_of xs) ∧
   exp_of (Lam d vs x)    = Lams vs (exp_of x) ∧
   exp_of (Letrec d rs x) = Letrec (MAP (λ(n,x). (n,exp_of x)) rs) (exp_of x) ∧
-  exp_of (Case d x v rs) = Let v (exp_of x)
-                             (rows_of v (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs))
+  exp_of (Case d x v rs) =
+    (if MEM v (FLAT (MAP (FST o SND) rs)) then
+       Fail
+     else
+       Let v (exp_of x)
+             (rows_of v (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs)))
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
