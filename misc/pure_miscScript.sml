@@ -119,7 +119,7 @@ Theorem fmap_rel_ind:
   ⇒ ∀f1 f2. fmap_rel R f1 f2 ⇒ FR f1 f2
 Proof
   rpt gen_tac >> strip_tac >>
-  Induct >> rw[] >- gvs[fmap_rel_FEMPTY2] >>
+  Induct >> rw[] >>
   `x ∈ FDOM f2` by gvs[fmap_rel_def] >>
   imp_res_tac FM_PULL_APART >> gvs[] >>
   last_x_assum irule >> gvs[DOMSUB_NOT_IN_DOM] >>
