@@ -56,8 +56,6 @@ Overload Suspend[local] = “λx. Force (Value (Thunk (INR x)))”;
 
 Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
 
-Overload Tick[local] = “λx. Letrec [] (x: pure_exp$exp)”;
-
 (* TODO
    - The Tick definition and this theorem are maybe interesting to keep
      elsewhere. It's not used here.

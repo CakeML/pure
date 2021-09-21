@@ -11,8 +11,6 @@ open pure_miscTheory pure_evalTheory pure_expTheory pure_exp_relTheory
 
 val _ = new_theory "pure_ticksProof";
 
-Overload Tick = “λx: pure_exp$exp. Letrec [] x”;
-
 Inductive TickRel:
 [~Var:]
   (∀v.
