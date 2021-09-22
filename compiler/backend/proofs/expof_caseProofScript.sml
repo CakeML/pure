@@ -95,21 +95,14 @@ Proof
   \\ irule exp_eq_Lam_cong \\ gs []
 QED
 
-Theorem exp_eq_Tick:
-  Tick x ≅ x
+Theorem exp_eq_Tick_cong:
+  x ≅ y ⇒ Tick x ≅ y
 Proof
-  irule eval_wh_IMP_exp_eq
-  \\ rw [eval_wh_thm, subst_def, subst_funs_def, bind_def, FUPDATE_LIST_THM]
-QED
-
-Theorem exp_eq_lets_for_cong:
-  ∀v s vs x y.
-    x ≅ y ⇒
-      lets_for' v s vs x ≅ lets_for v s vs y
-Proof
-  ho_match_mp_tac lets_for'_ind
-  \\ simp [lets_for'_def, lets_for_def] \\ rw []
-  \\ cheat
+  strip_tac
+  \\ irule exp_eq_trans
+  \\ first_assum (irule_at Any)
+  \\ irule eval_wh_IMP_exp_eq
+  \\ simp [subst_def, eval_wh_thm, subst_funs_def, FUPDATE_LIST_THM]
 QED
 
 Theorem exp_eq_rows_of_cong:
@@ -121,12 +114,8 @@ Proof
   \\ simp [rows_of'_def, rows_of_def, exp_eq_refl]
   \\ rw [] \\ pairarg_tac \\ gvs []
   \\ simp [rows_of_def]
-  \\ irule exp_eq_trans
-  \\ irule_at Any exp_eq_Tick
-  \\ irule exp_eq_Prim_cong \\ simp []
-  \\ irule_at Any exp_eq_Prim_cong
-  \\ simp [exp_eq_refl]
-  \\ irule exp_eq_lets_for_cong \\ gs []
+  \\ irule exp_eq_Tick_cong
+  \\ cheat (* the If IsEq is important *)
 QED
 
 Theorem exp_of_exp_eq:
@@ -153,8 +142,7 @@ Proof
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Apps_cong
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] \\ rw []
-    \\ irule exp_eq_trans
-    \\ irule_at Any exp_eq_Tick \\ gs [])
+    \\ irule exp_eq_Tick_cong \\ gs [])
   >- ((* Lam *)
     strip_tac
     \\ simp [exp_of_def, exp_of'_def]
