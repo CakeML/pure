@@ -14,18 +14,15 @@ val _ = new_theory "thunk_unthunkProof";
 val _ = numLib.prefer_num ();
 
 (* --------------------------
-   INVARIANT:
+   exp_inv:
    --------------------------
 
-   All variables should be substituted with something thunked.
-
-   --------------------------
-   EXPRESSING THE INVARIANT:
-   --------------------------
-
-   The invariant is satisfied by code that looks exactly as the code produced
-   by the pure_to_thunk pass.
-
+   The thunk_unthunk step sits just after the pure_to_thunk step, and the syntax
+   is expected look like the syntax produced by the latter:
+   - variables are bound to thunks using Delays under Letrecs,
+   - arguments to function- and constructor application are thunked using Delay,
+   - projections can be found only under force (because constructor arguments
+     are always thunks)
  *)
 
 Inductive exp_inv:
@@ -51,10 +48,10 @@ Inductive exp_inv:
      exp_inv x ⇒
        exp_inv (Letrec (MAP (λ(f,x). (f, Delay x)) f) x)) ∧
 [exp_inv_Let:]
-  (∀x y.
+  (∀bv x y.
      exp_inv x ∧
      exp_inv y ⇒
-       exp_inv (Let NONE x y)) ∧
+       exp_inv (Let bv x y)) ∧
 [exp_inv_If:]
   (∀x y z.
      exp_inv x ∧
@@ -119,10 +116,9 @@ Theorem exp_inv_def:
   (∀s x.
      exp_inv (Lam s x) =
        exp_inv x) ∧
-  (∀s x y.
-     exp_inv (Let s x y) =
-       (s = NONE ∧
-        exp_inv x ∧
+  (∀bv x y.
+     exp_inv (Let bv x y) =
+       (exp_inv x ∧
         exp_inv y)) ∧
   (∀f x.
      exp_inv (Letrec f x) =
@@ -170,16 +166,13 @@ Proof
 QED
 
 (* --------------------------
-   COMPILATION:
+   exp_rel:
    --------------------------
 
-   We can replace all occurrences of (Delay (Force (Var v))) floating around
-   in the middle of expressions with (Var v), but we can't touch those that sit
-   at the top of bindings such as Letrecs, because Letrecs turn into
-   Recclosures, and Recclosures that look like this are used as thunks. If we
-   remove the Delay's sitting directly in a Letrec declaration then the
-   resulting code will get stuck when it is forced somewhere. Otherwise, we
-   expect that every variable will be replaced by a thunk.
+   Since all variables will be substituted away by thunk values, an expression
+   “Delay (Force (Var v))” will in practice evaluate to the same thing as
+   “Var v” would, but consume more clock. The exception are those expressions
+   used in Letrecs.
 
  *)
 
@@ -218,10 +211,10 @@ Inductive exp_rel:
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Let:]
-  (∀x1 y1 x2 y2.
+  (∀bv x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       exp_rel (Let bv x1 y1) (Let bv x2 y2)) ∧
 [exp_rel_Letrec:]
   (∀f x g y.
      LIST_REL (λ(f,x) (g,y).
@@ -385,9 +378,9 @@ Proof
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
     \\ irule exp_rel_Prim
-    \\ simp [EVERY2_MAP]
-    \\ gvs [LIST_REL_EL_EQN] \\ rw []
-    \\ first_x_assum irule \\ fs [EL_MEM])
+    \\ gs [EVERY2_MAP]
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ rw [])
   >- ((* If *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -403,13 +396,23 @@ Proof
     \\ first_x_assum irule
     \\ fs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs [])
+    \\ irule LIST_REL_FILTER \\ fs []
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ simp [])
   >- ((* Let NONE *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
     \\ irule exp_rel_Let \\ fs [])
   >- ((* Let SOME *)
-    rw [Once exp_rel_cases])
+    rw [Once exp_rel_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_Let \\ gs []
+    \\ first_x_assum irule
+    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+    \\ irule LIST_REL_FILTER \\ fs []
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ simp [])
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -423,15 +426,16 @@ Proof
     \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
     \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_EL_MONO
+    \\ irule_at Any EVERY2_mono
     \\ first_assum (irule_at Any) \\ rw []
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER]
-    \\ gvs [MEM_EL, PULL_EXISTS]
-    \\ rw [Once EQ_SYM_EQ]
+    \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any)
-    \\ irule_at Any LIST_REL_FILTER \\ fs [])
+    \\ simp [FORALL_PROD] \\ rw []
+    \\ first_assum irule
+    \\ simp [MAP_FST_FILTER, SF SFY_ss]
+    \\ irule_at Any LIST_REL_FILTER \\ fs []
+    \\ irule_at Any EVERY2_mono
+    \\ first_assum (irule_at Any) \\ rw [])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
@@ -508,8 +512,10 @@ Proof
     \\ rw [MEM_FILTER]
     \\ first_x_assum (irule_at Any)
     \\ first_assum (irule_at Any))
-  >- ((* Let NONE *)
-    gvs [subst_def, exp_inv_def])
+  >- ((* Let *)
+    Cases_on ‘bv’ \\ gvs [subst_def, exp_inv_def]
+    \\ first_x_assum irule
+    \\ gs [EVERY_MAP, EVERY_MEM, MEM_FILTER])
   >- ((* If *)
     gvs [subst_def, exp_inv_def])
   >- ((* Prim Cons *)
@@ -568,7 +574,7 @@ Proof
         \\ simp [closed_subst]
         \\ irule_at Any exp_inv_subst
         \\ irule_at Any exp_rel_subst \\ simp []
-        \\ unabbrev_all_tac \\ gs []
+        \\ unabbrev_all_tac \\ gs [exp_inv_def]
         \\ (irule_at Any v_rel_Thunk_Changed ORELSE
             irule_at Any v_rel_Thunk_Same))
       >- ((* Recclosure-Recclosure *)
@@ -595,7 +601,16 @@ Proof
     \\ first_x_assum (drule_all_then assume_tac)
     \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [])
   >- ((* Let SOME *)
-    rw [Once exp_rel_cases])
+    rw [Once exp_rel_cases]
+    \\ gvs [exp_inv_def]
+    \\ rename1 ‘exp_rel x1 x2’
+    \\ rename1 ‘exp_rel y1 y2’
+    \\ rw [eval_to_def]
+    \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
+    \\ first_x_assum irule
+    \\ gs [closed_subst, exp_inv_subst]
+    \\ irule_at Any exp_rel_subst \\ gs [])
   >- ((* If *)
     rw [Once exp_rel_cases] \\ fs [exp_inv_def]
     \\ rename1 ‘If x y z’
@@ -624,7 +639,8 @@ Proof
     \\ rw [ELIM_UNCURRY, freevars_def, MAP_MAP_o, combinTheory.o_DEF,
            SF ETA_ss])
   >- ((* Delay *)
-    rw [Once exp_rel_cases] \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
+    rw [Once exp_rel_cases]
+    \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
@@ -733,7 +749,6 @@ Proof
     rw [Once exp_rel_cases])
   >- ((* Prim *)
     rw [Once exp_rel_cases]
-    \\ gvs []
     \\ simp [eval_to_def]
     \\ Cases_on ‘op’ \\ gs [exp_inv_def, EVERY_EL, EL_MAP, LIST_REL_EL_EQN]
     >- ((* Cons *)
