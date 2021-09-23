@@ -664,7 +664,8 @@ Theorem decl_step_ffi_changed:
               ffi_state := ffi_st;
               io_events := st.ffi.io_events ++
                  [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))] |>
-            |>
+            |> ∧
+    dcs = dcs'
 Proof
   simp[decl_step_def] >>
   Cases_on `∃d. dev = Decl d` >> gvs[]
@@ -752,6 +753,23 @@ Proof
   gvs[dstep_n_cml_alt_def] >>
   disch_then $ qspec_then `n` mp_tac >> gvs[] >> strip_tac >> gvs[] >>
   irule io_events_mono_decl_step >> simp[] >> goal_assum drule
+QED
+
+Theorem dstep_n_cml_preserved_FFI:
+  ∀n e e' env.
+    dstep_n_cml env n e = Dstep e' ∧ dget_ffi (Dstep e') = dget_ffi e
+  ⇒ ∀m. m < n ⇒ dget_ffi (dstep_n_cml env m e) = dget_ffi (Dstep e')
+Proof
+  rw[] >> imp_res_tac LESS_STRONG_ADD >>
+  gvs[dstep_n_cml_add |> ONCE_REWRITE_RULE[ADD_COMM]] >> rename1 `SUC n` >>
+  Cases_on `dstep_n_cml env m e` >> gvs[] >>
+  PairCases_on `p` >> rename1 `(dst1,dev1,dcs1)` >>
+  Cases_on `e` >> gvs[] >>
+  PairCases_on `p` >> rename1 `_ = dget_ffi $ _ (dst,dev,dcs)` >>
+  PairCases_on `e'` >>
+  rename1 `dstep_n_cml _ (SUC _) _ = Dstep (dst2,dev2,dcs2)` >>
+  imp_res_tac io_events_mono_dstep_n_cml >> gvs[dget_ffi_def] >>
+  imp_res_tac io_events_mono_antisym >> gvs[]
 QED
 
 
