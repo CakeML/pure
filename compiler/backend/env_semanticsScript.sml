@@ -25,6 +25,25 @@ Datatype:
   next_res = Act 'e cont state | Ret | Div | Err
 End
 
+Definition force_def:
+  force v =
+    do
+      (wx, binds) <- dest_anyThunk v;
+      case wx of
+        INL v => return v
+      | INR (env, y) => eval (subst_funs binds env) y
+    od
+End
+
+Definition force_list_def:
+  force_list [] = INR [] ∧
+  force_list (v::vs) =
+    case (force v, force_list vs) of
+    | (INL err, _)    => INL err
+    | (_, INL err)    => INL err
+    | (INR w, INR ws) => INR (w::ws)
+End
+
 Definition get_atoms_def:
   get_atoms [] = SOME [] ∧
   get_atoms (Atom a :: xs) = OPTION_MAP (λas. a::as) (get_atoms xs) ∧
@@ -33,9 +52,13 @@ End
 
 Definition with_atoms_def:
   with_atoms vs f =
-    case get_atoms vs of
-    | SOME as => f as
-    | NONE => Err
+    case force_list vs of
+    | INL Diverge => Div
+    | INL Type_error => Err
+    | INR ws =>
+      case get_atoms vs of
+      | SOME as => f as
+      | NONE => Err
 End
 
 Definition apply_closure_def:
@@ -45,6 +68,13 @@ Definition apply_closure_def:
     | _ => Err
 End
 
+Definition force_apply_closure_def:
+  force_apply_closure f arg cont =
+    case force f of
+    | INR f' => apply_closure f' arg cont
+    | INL Diverge => Div
+    | INL Type_error => Err
+End
 
 (******************** Intermediate definitions ********************)
 
@@ -60,7 +90,7 @@ Definition next_def:
             (case stack of
              | Done => Ret
              | BC f fs =>
-                apply_closure f (HD vs)
+                force_apply_closure f (HD vs)
                   (λw. if k = 0 then Div else next (k-1) w fs state)
              | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
           else if s = "Raise" ∧ LENGTH vs = 1 then
@@ -68,7 +98,7 @@ Definition next_def:
              | Done => Ret
              | BC f fs => if k = 0 then Div else next (k-1) sv fs state
              | HC f fs =>
-                apply_closure f (HD vs)
+                force_apply_closure f (HD vs)
                   (λw. if k = 0 then Div else next (k-1) w fs state))
           else if s = "Bind" ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
@@ -218,36 +248,36 @@ Proof
   Cases_on `s = "Raise"` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
-    simp[apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
+    simp[apply_closure_def,force_apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
   Cases_on `s = "Ret"` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >>
     reverse $ TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
-    simp[apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
+    simp[apply_closure_def,force_apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
   Cases_on `s = "Alloc"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 3 (TOP_CASE_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    ntac 4 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Int i]` >> simp[]
     ) >>
   Cases_on `s = "Length"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 4 (TOP_CASE_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    ntac 5 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n]` >> simp[]
     ) >>
   Cases_on `s = "Deref"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 6 (TOP_CASE_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     ) >>
   Cases_on `s = "Update"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 6 (TOP_CASE_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     )
 QED
