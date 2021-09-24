@@ -44,11 +44,12 @@ Definition exp_of'_def:
   exp_of' (Letrec d rs x) =
     Letrec (MAP (λ(n,x). (n,exp_of' x)) rs) (exp_of' x) ∧
   exp_of' (Case d x v rs) =
-    (if MEM v (FLAT (MAP (FST o SND) rs)) then
-       Fail
+    (let caseexp =
+       Let v (exp_of' x) (rows_of' v (MAP (λ(c,vs,x). (c,vs,exp_of' x)) rs))
+     in if MEM v (FLAT (MAP (FST o SND) rs)) then
+       Seq Fail caseexp
      else
-       Let v (exp_of' x)
-             (rows_of' v (MAP (λ(c,vs,x). (c,vs,exp_of' x)) rs)))
+       caseexp)
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
