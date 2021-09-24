@@ -55,19 +55,12 @@ Proof
   >- (
     rw[letrec_recurse_Apps] >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
     first_x_assum drule >> rw[] >> AP_TERM_TAC >> rw[MAP_EQ_f]
-    )
-  >- (
-    cheat
-  )
-  >- (
-    cheat
-  )
-  >- (
-    rw[letrec_recurse_rows_of] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    last_x_assum irule >> simp[] >> goal_assum drule
-    )
+    ) >>
+  gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
+  rw[letrec_recurse_rows_of] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  last_x_assum irule >> simp[] >> goal_assum drule
 QED
 
 (********************)
@@ -236,15 +229,12 @@ Proof
   >- (
     rw[letrec_recurse_Apps] >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
     first_x_assum drule >> rw[] >> AP_TERM_TAC >> rw[MAP_EQ_f]
-    )
-  >- cheat
-  >- cheat
-  >- (
-    rw[letrec_recurse_rows_of] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    last_x_assum irule >> simp[] >> goal_assum drule
-    )
+    ) >>
+  gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
+  rw[letrec_recurse_rows_of] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  last_x_assum irule >> simp[] >> goal_assum drule
 QED
 
 
