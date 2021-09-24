@@ -79,19 +79,11 @@ Proof
     simp[LAMBDA_PROD, GSYM FST_THM] >>
     AP_THM_TAC >> ntac 4 AP_TERM_TAC >> rw[MAP_EQ_f] >>
     pairarg_tac >> gvs[] >> res_tac
-    )
-  >- (
-    cheat (* not true *)
-  )
-  >- (
-    cheat (* not true *)
-  )
-  >- (
-    simp[Once UNION_COMM] >> AP_TERM_TAC >>
-    simp[freevars_rows_of] >> Cases_on `css` >> gvs[] >>
-    PairCases_on `h` >> gvs[] >> rw[EXTENSION, PULL_EXISTS] >>
-    simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
-    )
+    ) >>
+  simp[Once UNION_COMM] >> AP_TERM_TAC >>
+  simp[freevars_rows_of] >> Cases_on `css` >> gvs[] >>
+  PairCases_on `h` >> gvs[] >> rw[EXTENSION, PULL_EXISTS] >>
+  simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
 QED
 
 Theorem subst_lets_for:
@@ -132,13 +124,11 @@ Proof
     rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
     first_x_assum drule >> rw[FDIFF_FMAP_MAP2]
     )
-  >- simp[FDIFF_FMAP_MAP2]
-  >- (
-    simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
-    first_x_assum drule >> rw[] >>
-    simp[fdiff_fdomsub_INSERT, FDIFF_FMAP_MAP2]
-    )
+  >- simp[FDIFF_FMAP_MAP2] >>
+  simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
+  first_x_assum drule >> rw[] >>
+  simp[fdiff_fdomsub_INSERT, FDIFF_FMAP_MAP2]
 QED
 
 Theorem lets_for_APPEND:
