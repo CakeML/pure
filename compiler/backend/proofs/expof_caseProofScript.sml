@@ -12,21 +12,22 @@ open pure_miscTheory pure_evalTheory pure_expTheory pure_exp_relTheory
 
 val _ = new_theory "expof_caseProof";
 
-Overload Assert = “λp x. If p x Fail”;
+(* TODO move to pure_exp? *)
+Overload Unit = “Prim (Cons "") []”;
 
 Definition lets_for'_def:
-  lets_for' cn v [] b = b ∧
-  lets_for' cn v ((n,w)::ws) b =
-    Seq (Proj cn n (Var v))
+  lets_for' m cn v [] b = b ∧
+  lets_for' m cn v ((n,w)::ws) b =
+    Seq (If (IsEq cn m (Var v)) Unit Fail)
         (Let w (Proj cn n (Var v))
-               (lets_for' cn v ws b))
+               (lets_for' m cn v ws b))
 End
 
 Definition rows_of'_def:
   rows_of' v [] = Fail ∧
   rows_of' v ((cn,vs,b)::rest) =
     Tick (If (IsEq cn (LENGTH vs) (Var v))
-             (lets_for' cn v (MAPi (λi v. (i,v)) vs) b)
+             (lets_for' (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
              (rows_of' v rest))
 End
 
@@ -56,26 +57,7 @@ Termination
   \\ first_x_assum (qspec_then ‘K 0’ mp_tac) \\ fs []
 End
 
-Theorem Assert_exp_eq:
-  v ∉ freevars p ⇒
-    If p (Let v y x) e ≅
-    If p (Let v y (Assert p x)) e
-Proof
-  strip_tac
-  \\ irule eval_wh_IMP_exp_eq
-  \\ strip_tac
-  \\ strip_tac \\ gs []
-  \\ simp [subst_def, eval_wh_thm, bind_def, FLOOKUP_UPDATE]
-  \\ IF_CASES_TAC \\ gs []
-  \\ IF_CASES_TAC \\ gs []
-  \\ IF_CASES_TAC \\ gs []
-  \\ drule_then (qspec_then ‘f’ (assume_tac o SYM)) subst_fdomsub \\ gs []
-  \\ simp [subst_def, eval_wh_thm, bind_def, FLOOKUP_UPDATE]
-  \\ ‘subst1 v (subst f y) (subst f p) = subst f p’ suffices_by gs []
-  \\ irule subst_ignore
-  \\ simp [freevars_subst, IN_FRANGE, flookup_thm, SF SFY_ss]
-QED
-
+(* TODO pure_cexp_lemmas? *)
 Theorem exp_eq_Apps_cong:
   ∀xs ys x y.
     x ≅ y ∧
@@ -87,6 +69,7 @@ Proof
   \\ irule exp_eq_App_cong \\ gs []
 QED
 
+(* TODO pure_cexp_lemmas? *)
 Theorem exp_eq_Lams_cong:
   x ≅ y ⇒
     Lams vs x ≅ Lams vs y
@@ -106,8 +89,106 @@ Proof
   \\ simp [subst_def, eval_wh_thm, subst_funs_def, FUPDATE_LIST_THM]
 QED
 
+(* TODO pure_cexp_lemmas? *)
+Theorem exp_eq_Let_cong:
+  a ≅ c ∧
+  b ≅ d ⇒
+    Let v a b ≅ Let v c d
+Proof
+  strip_tac
+  \\ irule exp_eq_App_cong
+  \\ irule_at Any exp_eq_Lam_cong
+  \\ gs []
+QED
+
+(* TODO pure_cexp_lemmas? *)
+Theorem exp_eq_If_cong:
+  a ≅ d ∧ b ≅ e ∧ c ≅ f ⇒
+    If a b c ≅ If d e f
+Proof
+  strip_tac
+  \\ irule exp_eq_Prim_cong
+  \\ gs []
+QED
+
+Theorem exp_eq_IsEq_Proj[local]:
+  w ≠ v ⇒
+    If (IsEq cn m (Var v))
+       (Let w (Proj cn n (Var v)) a) b ≅
+    If (IsEq cn m (Var v))
+       (Let w (Proj cn n (Var v))
+              (If (IsEq cn m (Var v)) a Fail)) b
+Proof
+  strip_tac
+  \\ irule eval_wh_IMP_exp_eq
+  \\ rw [subst_def, bind_def]
+  \\ ‘∃u. FLOOKUP f v = SOME u’
+    by (Cases_on ‘FLOOKUP f v’ \\ gs [flookup_thm])
+  \\ gs [DOMSUB_FLOOKUP_THM]
+  \\ simp [eval_wh_thm, subst_def, bind_def, FLOOKUP_UPDATE]
+  \\ rw [] \\ gs [subst_def, eval_wh_thm]
+QED
+
+Theorem exp_eq_IsEq_Seq_Proj[local]:
+  w ≠ v ⇒
+    If (IsEq cn n (Var v))
+       (Seq (If (IsEq cn n (Var v)) Unit Fail)
+            (Let w (Proj cn m (Var v)) x)) a ≅
+    If (IsEq cn n (Var v))
+       (Seq (If (IsEq cn n (Var v)) Unit Fail)
+            (Let w (Proj cn m (Var v))
+                   (If (IsEq cn n (Var v)) x Fail))) a
+Proof
+  strip_tac
+  \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ ‘∃u. FLOOKUP f v = SOME u’
+    by (Cases_on ‘FLOOKUP f v’ \\ gs [flookup_thm])
+  \\ res_tac
+  \\ simp [subst_def, DOMSUB_FLOOKUP_THM, eval_wh_thm, bind_def,
+           FLOOKUP_UPDATE]
+QED
+
+Theorem exp_eq_lets_of_cong:
+  ∀n cn v ws x y a b.
+   x ≅ y ∧
+   a ≅ b ∧
+   ¬MEM v (MAP SND ws) ∧
+   (∀m. MEM m (MAP FST ws) ⇒ m ≤ n) ⇒
+     If (IsEq cn n (Var v)) (lets_for' n cn v ws x) a ≅
+     If (IsEq cn n (Var v)) (lets_for cn v ws y) b
+Proof
+  ho_match_mp_tac lets_for'_ind
+  \\ rw [] \\ gs [lets_for'_def, lets_for_def]
+  >- (
+    irule exp_eq_Prim_cong
+    \\ simp [exp_eq_refl])
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos last) (iffLR exp_eq_sym)
+  \\ irule_at (Pos hd) exp_eq_IsEq_Proj \\ simp []
+  \\ irule exp_eq_trans
+  \\ irule_at Any exp_eq_IsEq_Seq_Proj \\ simp []
+  \\ ‘Fail ≅ Fail’ by gs [exp_eq_refl]
+  \\ gs [SF DNF_ss]
+  \\ first_x_assum (drule_all_then assume_tac)
+  \\ once_rewrite_tac [exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any exp_eq_If_cong
+  \\ irule_at Any exp_eq_refl
+  \\ irule_at Any exp_eq_Let_cong
+  \\ irule_at Any exp_eq_refl
+  \\ first_x_assum (irule_at Any o ONCE_REWRITE_RULE [exp_eq_sym])
+  \\ first_assum (irule_at Any o ONCE_REWRITE_RULE [exp_eq_sym])
+  \\ rename1 ‘Seq _ X’
+  \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ ‘∃u. FLOOKUP f v = SOME u’
+    by (Cases_on ‘FLOOKUP f v’ \\ gs [flookup_thm])
+  \\ res_tac
+  \\ simp [subst_def, eval_wh_thm]
+QED
+
 Theorem exp_eq_rows_of_cong:
   ∀v xs ys.
+    ¬MEM v (FLAT (MAP (FST o SND) xs)) ∧
     LIST_REL (λ(a,vs,x) (b,ws,y). a = b ∧ vs = ws ∧ x ≅ y) xs ys ⇒
       rows_of' v xs ≅ rows_of v ys
 Proof
@@ -116,7 +197,9 @@ Proof
   \\ rw [] \\ pairarg_tac \\ gvs []
   \\ simp [rows_of_def]
   \\ irule exp_eq_Tick_cong
-  \\ cheat (* the If IsEq is important *)
+  \\ irule exp_eq_lets_of_cong
+  \\ rw [indexedListsTheory.MEM_MAPi]
+  \\ gs [MEM_EL]
 QED
 
 Theorem exp_of_exp_eq:
@@ -162,11 +245,14 @@ Proof
     strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ IF_CASES_TAC \\ gs [exp_eq_refl]
-    \\ irule exp_eq_App_cong
-    \\ irule_at Any exp_eq_Lam_cong \\ gs []
+    >- (
+      irule eval_wh_IMP_exp_eq
+      \\ simp [eval_wh_thm, subst_def])
+    \\ irule exp_eq_Let_cong \\ gs []
     \\ irule exp_eq_rows_of_cong
-    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, ELIM_UNCURRY]
-    \\ rw []
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
+           LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
+    \\ rw [ELIM_UNCURRY]
     \\ first_x_assum irule
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘EL n rs’ \\ gs []
