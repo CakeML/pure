@@ -402,6 +402,25 @@ Inductive type_tcexp:
         cexp t ⇒
       type_tcexp ns db st env (Case e v css) t) ∧
 
+[~ExceptionCase:]
+  (type_tcexp (exndef,typedefs) db st env e Exception ∧
+   (* Pattern match is exhaustive: *)
+      "Subscript" INSERT set (MAP FST exndef) = set (MAP FST css) ∧
+      LENGTH exndef + 1 = LENGTH css ∧
+      (* TODO this forbids duplicated patterns - perhaps overkill? *)
+   EVERY (λ(cname,pvars,cexp). (* For each case: *)
+      ∃tys.
+        (ALOOKUP exndef cname = SOME tys ∨ (cname = "Subscript" ∧ pvars = [])) ∧
+        (* Pattern variables do not shadow case split: *)
+          ¬ MEM v pvars ∧
+        (* Constructor arities match *)
+          LENGTH tys = LENGTH pvars ∧
+        (* Continuation is well-typed: *)
+          type_tcexp (exndef,typedefs) db st
+            (REVERSE (ZIP (pvars, MAP ($, 0) tys)) ++ (v,0,Exception)::env) cexp t
+      ) css ⇒
+      type_tcexp (exndef,typedefs) db st env (Case e v css) t) ∧
+
 [~Case:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
    (* The type exists with correct arity: *)
@@ -430,6 +449,12 @@ Inductive type_tcexp:
   (type_tcexp ns db st env e (Tuple tyargs) ∧
    LENGTH tyargs = arity ∧ oEL i tyargs = SOME t ⇒
     type_tcexp ns db st env (SafeProj "" arity i e) t) ∧
+
+[~ExceptionSafeProj:]
+  (type_tcexp (exndef,typedefs) db st env e Exception ∧
+   ALOOKUP exndef cname = SOME tys ∧
+   LENGTH tys = arity ∧ oEL i tys = SOME t ⇒
+    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t) ∧
 
 [~SafeProj:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
