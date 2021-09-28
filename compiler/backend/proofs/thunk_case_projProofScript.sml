@@ -26,6 +26,14 @@ Overload Proj = “λs i (x: exp). Prim (Proj s i) [x]”;
 
 Overload Seq = “λx: exp. λy. Let NONE x y”;
 
+Overload IsEq = “λs i (x: exp). Prim (IsEq s i) [x]”;
+
+(* TODO move to thunkLangScript.sml *)
+Overload Unit = “Prim (Cons "") []”;
+
+(* TODO move to thunkLangScript.sml *)
+Overload Fail = “Prim If []:exp”;
+
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧
   ok_binder (Box x) = T ∧
@@ -36,19 +44,21 @@ End
 Inductive exp_rel:
 (* Proj *)
 [exp_rel_Proj:]
-  (∀x y s i v w.
+  (∀x y s i j v w.
+     i < j ∧
      exp_rel x y ⇒
-       exp_rel (Seq (Proj s i (Var v))
+       exp_rel (Seq (If (IsEq s j (Var v)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x))
-               (Seq (Proj s i (Var v))
+               (Seq (If (IsEq s j (Var v)) Unit Fail)
                     (Let (SOME w) (MkTick (Proj s i (Var v))) y))) ∧
 [exp_rel_Proj_Value:]
-  (∀x y s i u v w.
+  (∀x y s i j u v w.
+     i < j ∧
      exp_rel x y ∧
      v_rel u v ⇒
-       exp_rel (Seq (Proj s i (Value u))
+       exp_rel (Seq (If (IsEq s j (Value u)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Value u))))) x))
-               (Seq (Proj s i (Value v))
+               (Seq (If (IsEq s j (Value v)) Unit Fail)
                     (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
 [v_rel_Proj:]
   (∀xs s i.
@@ -394,14 +404,12 @@ Proof
         \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
         \\ IF_CASES_TAC \\ gs []
         \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
-        \\ Cases_on ‘u’ \\ Cases_on ‘v’ \\ gs []
-        \\ rename1 ‘LIST_REL _ xs ys’
-        \\ gvs [LIST_REL_EL_EQN]
-        \\ IF_CASES_TAC \\ gvs []
-        \\ first_x_assum (drule_then strip_assume_tac)
-        \\ simp [eval_to_def]
-        \\ IF_CASES_TAC \\ simp []
-        \\ simp [subst_funs_def, eval_to_def]
+        \\ IF_CASES_TAC \\ gs []
+        \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
+        \\ Cases_on ‘u’ \\ Cases_on ‘v’ \\ gvs []
+        \\ rename1 ‘s1 = s2 ⇒ _’ \\ Cases_on ‘s1 = s2’ \\ simp [eval_to_def]
+        \\ gvs [LIST_REL_EL_EQN, eval_to_def, result_map_def, subst_funs_def]
+        \\ IF_CASES_TAC \\ gs [subst_funs_def]
         \\ first_x_assum irule
         \\ simp [closed_subst, eval_to_wo_def]
         \\ irule exp_rel_subst \\ gs [])
