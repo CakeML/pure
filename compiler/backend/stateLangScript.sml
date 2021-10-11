@@ -26,9 +26,6 @@ Datatype:
       | AppOp              (* function application                     *)
       | Cons string        (* datatype constructor                     *)
       | AtomOp atom_op     (* primitive parametric operator over Atoms *)
-      | Ref                (* create a new reference                   *)
-      | Set                (* set a reference                          *)
-      | Deref              (* read a reference                         *)
       | Alloc              (* allocate an array                        *)
       | Length             (* query the length of an array             *)
       | Sub                (* de-reference a value in an array         *)
@@ -47,6 +44,7 @@ Datatype:
       | Case exp vname ((vname # vname list # exp) list)
       | Raise exp
       | Handle exp vname exp
+      | Force         (* abbreviates a Lam that implements forcing of thunks *)
 End
 
 Datatype:
@@ -59,16 +57,12 @@ End
 
 Type env[pp] = ``:(vname # v) list``; (* value environments *)
 
-Datatype:
-  cell = Refcell v | Array (v list) (* state cells *)
-End
-
-Type state[pp] = ``:cell list``; (* state *)
+Type state[pp] = ``:(v list) list``; (* state *)
 
 Datatype:
   cont = (* continuations *)
        | AppK env sop (v list) (exp list)
-          (* values in call-order, exps in reverse order *)
+         (* values in call-order, exps in reverse order *)
        | LetK env (vname option) exp
        | IfK env exp exp
        | CaseK env vname ((vname # vname list # exp) list)
@@ -93,10 +87,9 @@ Datatype:
             | Err
 End
 
-
 (******************** Helper functions ********************)
 
-Definition freevars_def:
+Definition freevars_def[simp]:
   freevars (Var v) = {v} ∧
   freevars (App sop es) = BIGUNION (set (MAP freevars es)) ∧
   freevars (Lam x e) = freevars e DELETE x ∧
@@ -109,6 +102,7 @@ Definition freevars_def:
   freevars (Case e v css) =
     freevars e ∪
     (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v) ∧
+  freevars Force = {} ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x)
 Termination
@@ -128,7 +122,7 @@ Definition mk_rec_env_def:
 End
 
 (* Check correct number of arguments for App *)
-Definition num_args_ok_def:
+Definition num_args_ok_def[simp]:
   num_args_ok AppOp n = (n = 2) ∧
   num_args_ok (Cons s) n = T ∧
   num_args_ok (AtomOp aop) n = T ∧
@@ -187,41 +181,24 @@ Definition application_def:
       | SOME $ INR T => value (Constructor "True" []) st k
       | SOME $ INR F => value (Constructor "False" []) st k
       | _            => error st k) ∧
-  application Ref env vs st k =
-    value (Atom $ Loc $ LENGTH st) (SNOC (Refcell $ HD vs) st) k ∧
-  application Set env vs st k = (
-    case HD vs of
-      Atom $ Loc n => (
-        case oEL n st of
-          SOME $ Refcell _ =>
-            value (Constructor "" []) (LUPDATE (Refcell (EL 1 vs)) n st) k
-        | _ => error st k)
-    | _ => error st k) ∧
-  application Deref env vs st k = (
-    case HD vs of
-      Atom $ Loc n => (
-        case oEL n st of
-          SOME $ Refcell v => value v st k
-        | _ => error st k)
-    | _ => error st k) ∧
   application Alloc env vs st k = (
     case HD vs of
       Atom $ Int i =>
         let n = if i < 0 then 0 else Num i in
-        value (Atom $ Loc $ LENGTH st) (SNOC (Array $ REPLICATE n (EL 1 vs)) st) k
+        value (Atom $ Loc $ LENGTH st) (SNOC (REPLICATE n (EL 1 vs)) st) k
     | _ => error st k) ∧
   application Length env vs st k = (
     case HD vs of
       Atom $ Loc n => (
         case oEL n st of
-          SOME $ Array l => value (Atom $ Int $ & LENGTH l) st k
+          SOME l => value (Atom $ Int $ & LENGTH l) st k
         | _ => error st k)
     | _ => error st k) ∧
   application Sub env vs st k = (
     case (EL 0 vs, EL 1 vs) of
       (Atom $ Loc n, Atom $ Int i) => (
         case oEL n st of
-          SOME $ Array l =>
+          SOME l =>
             if 0 ≤ i ∧ i > & LENGTH l then
               value (EL (Num i) l) st k
             else
@@ -232,11 +209,11 @@ Definition application_def:
     case (EL 0 vs, EL 1 vs) of
       (Atom $ Loc n, Atom $ Int i) => (
         case oEL n st of
-          SOME $ Array l =>
+          SOME l =>
             if 0 ≤ i ∧ i > & LENGTH l then
               value
                 (Constructor "" [])
-                (LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n st)
+                (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n st)
                 k
             else
               continue env (Raise $ App (Cons "Subscript") []) st k
@@ -275,6 +252,20 @@ Definition return_def:
     continue env e st (AppK env sop (v::vs) es :: k)
 End
 
+Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
+Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
+
+Overload force_exp =
+  “Lam "thunk" $
+     Let (SOME "fst") (App Sub [Var "thunk"; IntLit 0]) $
+     Let (SOME "snd") (App Sub [Var "thunk"; IntLit 1]) $
+       If (Eq (Var "fst") (IntLit 0))
+         (Let (SOME "v") (App AppOp [Var "snd"; IntLit 0]) $
+          Let NONE (App Update [Var "thunk"; IntLit 0; IntLit 1]) $
+          Let NONE (App Update [Var "thunk"; IntLit 1; Var "v"]) $
+            Var "v")
+         (Var "snd")”
+
 (* Perform a single step of evaluation *)
 Definition step_def:
   step st k (Exp env $ Var x) = (
@@ -294,6 +285,7 @@ Definition step_def:
       [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
         application sop env [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
+  step st k (Exp env $ Force) = continue env force_exp st k ∧
 
   (***** Errors *****)
   step st k Error = error st k ∧
