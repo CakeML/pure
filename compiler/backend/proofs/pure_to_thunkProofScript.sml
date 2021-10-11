@@ -2,11 +2,11 @@
   Proof of correctness for the pure_to_thunk compiler pass.
  *)
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
+open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     pure_evalTheory thunkLang_primitivesTheory dep_rewrite;
-open pure_exp_lemmasTheory pure_miscTheory;
+     pure_semanticsTheory thunk_semanticsTheory pure_evalTheory
+     thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory;
 
 val _ = new_theory "pure_to_thunkProof";
 
@@ -55,19 +55,6 @@ val _ = numLib.prefer_num ();
 Overload Suspend[local] = “λx. Force (Value (Thunk (INR x)))”;
 
 Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
-
-(* TODO
-   - The Tick definition and this theorem are maybe interesting to keep
-     elsewhere. It's not used here.
- *)
-
-Theorem eval_Tick[local]:
-  k ≠ 0 ⇒ eval_wh_to k (Tick x) = eval_wh_to (k - 1) x
-Proof
-  rw [eval_wh_to_def]
-  \\ simp [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
-           flookup_fupdate_list, subst_ignore, FDOM_FUPDATE_LIST]
-QED
 
 Inductive exp_rel:
 [exp_rel_Value_Rec:]
@@ -922,6 +909,245 @@ Proof
   \\ ‘∃res. eval_wh_to j x = res ∧ res ≠ wh_Error’
     by gs []
   \\ drule_all_then assume_tac exp_rel_eval_to \\ gs []
+QED
+
+(*
+Definition val_rel_def:
+  val_rel x v ⇔
+    ∃w. eval_wh x = w ∧
+        v_rel w (INR v)
+End
+ *)
+
+Definition cont_rel_def[simp]:
+  cont_rel Done Done = T ∧
+  cont_rel (BC x c) (BC v d) = (thunk_rel x v ∧ cont_rel c d) ∧
+  cont_rel (HC x c) (HC v d) = (thunk_rel x v ∧ cont_rel c d) ∧
+  cont_rel _ _ = F
+End
+
+Definition state_rel_def:
+  state_rel = LIST_REL (LIST_REL val_rel)
+End
+
+Definition next_rel_def[simp]:
+  next_rel Ret Ret = T ∧
+  next_rel Div Div = T ∧
+  next_rel Err Err = T ∧
+  next_rel (Act a c s) (Act b d t) = (a = b ∧ cont_rel c d ∧ state_rel s t) ∧
+  next_rel _ _ = F
+End
+
+(* bleh *)
+
+Theorem pure_to_thunk_next[local]:
+  ∀k v c s w d t.
+    v_rel v w ∧
+    cont_rel c d ∧
+    state_rel s t ∧
+    next k v c s ≠ Err ⇒
+      next_rel (next k v c s) (next k w d t)
+Proof
+  ho_match_mp_tac pure_semanticsTheory.next_ind \\ rw []
+  \\ simp [Once pure_semanticsTheory.next_def]
+  \\ Cases_on ‘v = wh_Error’ \\ gs []
+  >- ((* Error *)
+    gs [Once pure_semanticsTheory.next_def])
+  \\ Cases_on ‘v = wh_Diverge’ \\ gs []
+  >- ((* Diverge *)
+    Cases_on ‘w’ \\ gvs []
+    \\ simp [Once thunk_semanticsTheory.next_def])
+  \\ Cases_on ‘∃x. v = wh_Atom x’ \\ gs []
+  >- ((* Atom *)
+    gs [Once pure_semanticsTheory.next_def])
+  \\ Cases_on ‘∃s x. v = wh_Closure s x’
+  >- ((* Closure *)
+    gs [Once pure_semanticsTheory.next_def])
+  \\ ‘∃n xs. v = wh_Constructor n xs’
+    by (Cases_on ‘v’ \\ gs [])
+  \\ gvs []
+  \\ rename1 ‘v_rel _ w’ \\ Cases_on ‘w’ \\ gvs []
+  \\ rename1 ‘v_rel _ (INR w)’ \\ Cases_on ‘w’ \\ gvs []
+  \\ gs [LIST_REL_EL_EQN]
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Ret *)
+    gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
+    \\ simp [Once thunk_semanticsTheory.next_def]
+    \\ Cases_on ‘k = 0’ \\ gs []
+    >- (
+      Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
+      \\ simp [force_apply_closure_def, force_def]
+      \\ gvs [thunk_rel_def, dest_anyThunk_def, subst_funs_def]
+      \\ ‘eval_wh e ≠ wh_Error’
+        by (strip_tac
+            \\ gs [Once pure_semanticsTheory.next_def,
+                   pure_semanticsTheory.apply_closure_def])
+      \\ ‘closed e’
+        by cheat (* TODO where? *)
+      \\ drule_all_then assume_tac exp_rel_eval
+      \\ simp [pure_semanticsTheory.apply_closure_def]
+      \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gs []
+      \\ rename1 ‘v_rel _ (INR w)’
+      \\ Cases_on ‘w’ \\ gs []
+      \\ simp [thunk_semanticsTheory.apply_closure_def,
+               dest_anyClosure_def])
+    \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
+    >- (
+      simp [force_apply_closure_def, force_def]
+      \\ gvs [thunk_rel_def, dest_anyThunk_def, subst_funs_def]
+      \\ ‘eval_wh e ≠ wh_Error’
+        by (strip_tac
+            \\ gs [Once pure_semanticsTheory.next_def,
+                   pure_semanticsTheory.apply_closure_def])
+      \\ ‘closed e’
+        by cheat (* TODO where? *)
+      \\ drule_all_then assume_tac exp_rel_eval
+      \\ simp [pure_semanticsTheory.apply_closure_def]
+      \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gs []
+      \\ rename1 ‘v_rel _ (INR w)’
+      \\ Cases_on ‘w’ \\ gs []
+      \\ simp [thunk_semanticsTheory.apply_closure_def,
+               dest_anyClosure_def]
+      \\ first_x_assum irule \\ gs []
+      \\ irule_at Any exp_rel_eval
+      \\ gvs [pure_expTheory.bind_def, FLOOKUP_UPDATE]
+      \\ qmatch_asmsub_rename_tac ‘exp_rel a b’
+      \\ ‘closed a’
+        by cheat (* TODO where? *)
+      \\ simp [closed_subst]
+      \\ conj_tac
+      >- (
+        strip_tac
+        \\ gvs [Once pure_semanticsTheory.next_def,
+                pure_semanticsTheory.apply_closure_def,
+                pure_expTheory.bind_def, FLOOKUP_UPDATE]
+        \\ gvs [Once pure_semanticsTheory.next_def])
+      \\ reverse conj_tac
+      >- (
+        gvs [Once pure_semanticsTheory.next_def,
+             pure_semanticsTheory.apply_closure_def,
+             pure_expTheory.bind_def, FLOOKUP_UPDATE])
+      \\ cheat (* need better exp_rel_subst theorem *))
+    \\ first_x_assum irule \\ gs []
+    \\ gvs [Once pure_semanticsTheory.next_def,
+            pure_semanticsTheory.apply_closure_def,
+            pure_expTheory.bind_def, FLOOKUP_UPDATE])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Raise *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Bind *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Handle *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Act *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Alloc *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Length *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Deref *)
+    cheat
+  )
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Update *)
+    cheat
+  )
+  \\ rw [Once thunk_semanticsTheory.next_def]
+QED
+
+Theorem pure_to_thunk_interp[local]:
+  v_rel v w ∧
+  cont_rel c d ∧
+  state_rel s t ∧
+  interp v c s ≠ Ret Error ⇒
+    interp v c s = interp w d t
+Proof
+  strip_tac
+  \\ simp [Once pure_semanticsTheory.interp_def,
+           Once thunk_semanticsTheory.interp_def]
+  \\ simp [pure_semanticsTheory.next_action_def,
+           thunk_semanticsTheory.next_action_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ rw [] \\ gs []
+  >- ((* Neither side diverges *)
+    rename1 ‘pure_semantics$next k’
+    \\ rename1 ‘thunk_semantics$next j’
+    \\ ‘next k v c s ≠ Err’
+      by (gs [Once pure_semanticsTheory.interp_def,
+              pure_semanticsTheory.next_action_def]
+          \\ qpat_x_assum ‘_ ≠ Ret Error’ mp_tac
+          \\ DEEP_INTRO_TAC some_intro \\ simp []
+          \\ ntac 2 strip_tac \\ gs []
+          \\ ‘next k v c s = next x v c s’
+            by (irule pure_semanticsTheory.next_next \\ gs [])
+          \\ CASE_TAC \\ gs [])
+    \\ drule_all_then assume_tac pure_to_thunk_next
+    \\ ‘next k w d t ≠ Div’
+      by (strip_tac
+          \\ Cases_on ‘next k v c s’ \\ gs [])
+    \\ ‘next j w d t = next k w d t’
+      by (irule thunk_semanticsTheory.next_next \\ gs [])
+    \\ gs []
+    \\ Cases_on ‘next k v c s’ \\ Cases_on ‘next k w d t’ \\ gvs []
+    \\ rw [FUN_EQ_THM]
+    \\ CASE_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ simp [Once pure_semanticsTheory.interp_def,
+             Once thunk_semanticsTheory.interp_def,
+             pure_semanticsTheory.next_action_def,
+             thunk_semanticsTheory.next_action_def]
+    \\ cheat (* ind ? *))
+  >- ((* Right side diverges *)
+    ‘next x v c s ≠ Err’ by gs []
+    \\ drule_all_then assume_tac pure_to_thunk_next
+    \\ Cases_on ‘next x w d t’ \\ gs [])
+      (* Left side diverges *)
+  \\ rename1 ‘pure_semantics$next k’
+  \\ ‘next k v c s ≠ Err’
+    by (gs [Once pure_semanticsTheory.interp_def,
+            pure_semanticsTheory.next_action_def]
+        \\ qpat_x_assum ‘_ ≠ Ret Error’ mp_tac
+        \\ DEEP_INTRO_TAC some_intro \\ simp []
+        \\ ntac 2 strip_tac \\ gs []
+        \\ ‘next k v c s = next x v c s’
+          by (irule pure_semanticsTheory.next_next \\ gs [])
+        \\ CASE_TAC \\ gs [])
+  \\ drule_all_then assume_tac pure_to_thunk_next
+  \\ Cases_on ‘next k v c s’ \\ gs []
+QED
+
+Theorem pure_to_thunk_semantics:
+  exp_rel x y ∧
+  closed x ∧
+  semantics x Done [] ≠ Ret Error ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ gs [pure_semanticsTheory.semantics_def,
+         thunk_semanticsTheory.semantics_def]
+  \\ ‘eval_wh x ≠ wh_Error’
+    by (strip_tac
+        \\ gs [Once pure_semanticsTheory.interp_def]
+        \\ gs [pure_semanticsTheory.next_action_def]
+        \\ gs [pure_semanticsTheory.next_def]
+        \\ qpat_x_assum ‘_ ≠ Ret Error’ mp_tac \\ simp []
+        \\ DEEP_INTRO_TAC some_intro \\ simp [])
+  \\ drule_all_then assume_tac exp_rel_eval
+  \\ irule pure_to_thunk_interp
+  \\ gs [state_rel_def]
 QED
 
 val _ = export_theory ();
