@@ -322,12 +322,14 @@ Definition infer_def:
           else fail)
       | NONE => case infer_cons 0 (SND ns) s of
       (* Constructors *)
-      | SOME (n, ar, arg_tys) => do
-          freshes <- fresh_vars ar;
-          cfreshes <<- MAP CVar freshes;
-          return (TypeCons n cfreshes, as,
-          (list$MAP2
-            (λt a. Unify d t (isubst cfreshes $ itype_of a)) tys arg_tys) ++ cs) od
+      | SOME (n, ar, arg_tys) => (
+          if LENGTH arg_tys = LENGTH tys then do
+            freshes <- fresh_vars ar;
+            cfreshes <<- MAP CVar freshes;
+            return (TypeCons n cfreshes, as,
+            (list$MAP2
+              (λt a. Unify d t (isubst cfreshes $ itype_of a)) tys arg_tys) ++ cs) od
+          else fail)
       | NONE => fail od) ∧
 
   infer ns mset (Prim d (AtomOp aop) es) = do

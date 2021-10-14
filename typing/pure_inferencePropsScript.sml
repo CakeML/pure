@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
-     listTheory alistTheory finite_mapTheory sptreeTheory;
+     listTheory rich_listTheory alistTheory finite_mapTheory sptreeTheory;
+open mlmapTheory;
 open pure_miscTheory pure_typingTheory pure_typingPropsTheory
      pure_inference_commonTheory pure_unificationTheory pure_inferenceTheory;
 
@@ -105,6 +106,27 @@ Proof
     )
 QED
 
+Theorem infer_cons_SOME:
+  ∀n typedefs cname m arity schemes exndefs.
+    infer_cons n typedefs cname = SOME (m, arity, schemes) ∧
+    namespace_ok (exndefs, typedefs)
+  ⇒ ∃constructors.
+      oEL (m - n) typedefs = SOME (arity, constructors) ∧
+      ALOOKUP constructors cname = SOME schemes
+Proof
+  rw[] >>
+  `ALL_DISTINCT (MAP FST (FLAT (MAP SND typedefs)))` by
+    gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+  imp_res_tac infer_cons_mono >> imp_res_tac LESS_EQUAL_ADD >> gvs[] >>
+  qpat_x_assum `namespace_ok _` kall_tac >> ntac 2 $ pop_assum mp_tac >>
+  map_every qid_spec_tac [`p`,`cname`,`typedefs`,`n`] >>
+  recInduct infer_cons_ind >> rw[infer_cons_def] >>
+  reverse $ every_case_tac >> gvs[oEL_THM]
+  >- (`p = 0` by DECIDE_TAC >> pop_assum SUBST_ALL_TAC >> gvs[]) >>
+  Cases_on `p` >> gvs[] >- (imp_res_tac infer_cons_mono >> gvs[]) >>
+  pop_assum irule >> simp[] >> gvs[ALL_DISTINCT_APPEND]
+QED
+
 Theorem get_typedef_mono:
   ∀n tdefs cnames m ar cs.
     get_typedef n tdefs cnames = SOME (m, ar, cs)
@@ -164,14 +186,16 @@ Proof
   last_x_assum $ qspecl_then [`SUC n`,`m`] assume_tac >> gvs[ADD_CLAUSES]
 QED
 
-(* TODO *)
-Theorem infer_no_db_vars:
-  ∀ns as e s t as' cs s'.
-    namespace_ok ns ∧
-    infer ns as e s = SOME ((t, as', cs), s')
-  ⇒ TODO
+Theorem get_typedef_SOME:
+  ∀n tdefs cnames_arities m arity cs exndefs.
+    get_typedef n tdefs cnames_arities = SOME (m, arity, cs) ∧
+    namespace_ok (exndefs, tdefs)
+  ⇒ oEL (m - n) tdefs = SOME (arity, cs) ∧
+    PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) cs) cnames_arities
 Proof
-  cheat
+  rpt gen_tac >> strip_tac >>
+  imp_res_tac get_typedef_mono >> imp_res_tac LESS_EQUAL_ADD >> gvs[] >>
+  drule_all $ iffLR get_typedef >> simp[]
 QED
 
 Theorem generalise_avoid_all:
@@ -195,7 +219,7 @@ Proof
   Induct_on `ts` >> rw[] >> gvs[domain_union, UNION_ASSOC]
 QED
 
-(* TODO *)
+(* TODO
 Theorem satisfies_lemmas:
   satisfies s (Unify d t1 t2) = satisfies s (Unify d t2 t1) ∧
   satisfies s (Unify d t1 t2) = satisfies s (Instantiate d t1 (0, t2)) ∧
@@ -206,6 +230,7 @@ Theorem satisfies_lemmas:
 Proof
   cheat
 QED
+*)
 
 Theorem get_solveable_SOME_LENGTH:
   ∀cs rev_cs c cs'.
@@ -216,6 +241,46 @@ Proof
   drule get_solveable_SOME >> strip_tac >> gvs[]
 QED
 
+Theorem pure_vars_isubst_SUBSET:
+  ∀s t. pure_vars (isubst s t) ⊆ pure_vars t ∪ BIGUNION (set (MAP pure_vars s))
+Proof
+  recInduct isubst_ind >> rw[isubst_def, pure_vars] >>
+  gvs[LIST_TO_SET_MAP, SUBSET_DEF, PULL_EXISTS] >> rw[]
+  >- (goal_assum drule >> simp[EL_MEM]) >>
+  last_x_assum drule_all >> strip_tac >> simp[] >> metis_tac[]
+QED
+
+Theorem pure_vars_iFunctions:
+  pure_vars (iFunctions tys ty) = BIGUNION (set (MAP pure_vars tys)) ∪ pure_vars ty
+Proof
+  Induct_on `tys` >> rw[iFunctions_def, pure_vars] >> simp[UNION_ASSOC]
+QED
+
+Theorem map_ok_singleton[simp]:
+  ∀k v. map_ok (singleton k v)
+Proof
+  rw[singleton_def] >> irule $ cj 1 insert_thm >> simp[]
+QED
+
+Theorem cmp_of_singleton[simp]:
+  ∀k v. cmp_of (singleton k v) = var_cmp
+Proof
+  rw[singleton_def]
+QED
+
+Theorem lookup_singleton:
+  ∀k v k'. lookup (singleton k v) k' = if k = k' then SOME v else NONE
+Proof
+  rpt gen_tac >> simp[singleton_def] >>
+  DEP_REWRITE_TAC[lookup_insert] >> simp[]
+QED
+
+Theorem pure_vars_itype_of[simp]:
+  ∀t. pure_vars (itype_of t) = {}
+Proof
+  recInduct type_ind >> rw[itype_of_def, pure_vars] >>
+  Induct_on `l` >> gvs[] >> rw[] >> gvs[]
+QED
 
 
 val _ = export_theory();

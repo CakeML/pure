@@ -32,6 +32,13 @@ Proof
   gvs[EXTENSION] >> metis_tac[]
 QED
 
+Theorem FRANGE_FDIFF_SUBSET:
+  FRANGE (FDIFF m s) ⊆ FRANGE m
+Proof
+  rw[FRANGE_DEF, SUBSET_DEF, FDIFF_def, DRESTRICT_DEF] >>
+  goal_assum drule >> simp[]
+QED
+
 
 (******************** Functions/Pairs ********************)
 
