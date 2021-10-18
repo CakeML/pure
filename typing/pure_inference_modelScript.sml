@@ -262,10 +262,24 @@ Inductive minfer:
           IMAGE (λn. mImplicit (CVar n) mset tyfn) (get_massumptions as x)) fns tys))
         ety) ∧
 
+[~BoolCase:]
+  (minfer ns mset e1 as1 cs1 ty1 ∧
+   minfer ns mset e2 as2 cs2 ty2 ∧
+   minfer ns mset e eas ecs ety ∧
+   cvars_disjoint [(eas,ecs,ety);(as1,cs1,ty1);(as2,cs2,ty2)] ∧
+   f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
+   {cn1; cn2} = {"True";"False"}
+    ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)])
+        ((maunion eas (maunion as1 as2)) \\ v)
+        (mUnify (CVar f) ety INSERT mUnify ety BoolTy INSERT mUnify ty1 ty2 INSERT
+          ecs ∪ cs1 ∪ cs2)
+        ty1) ∧
+
 [~TupleCase:]
   (¬MEM v pvars ∧
    minfer ns (f INSERT set freshes ∪ mset) rest asrest csrest tyrest ∧
    minfer ns mset e eas ecs ety ∧
+   cvars_disjoint [(eas,ecs,ety);(asrest,csrest,tyrest)] ∧
    EVERY (λf.
     f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars asrest csrest tyrest)
     (f::freshes) ∧
@@ -278,6 +292,36 @@ Inductive minfer:
         (mUnify (CVar f) ety INSERT mUnify ety (Tuple $ MAP CVar freshes) INSERT
           BIGUNION (set pvar_cs) ∪ cs)
         tyrest) ∧
+
+[~ExceptionCase:]
+  (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
+   PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) (FST ns))
+    (MAP (λ(cn,pvars,rest). (cn, LENGTH pvars)) cases) ∧
+   LENGTH cases = LENGTH tys ∧
+   LENGTH ass = LENGTH css ∧
+   LIST_REL (λ((cname,pvars,rest),ty) (a,c).
+      minfer ns (f INSERT mset) rest a c ty)
+      (ZIP (cases,tys)) (ZIP (ass,css)) ∧
+   minfer ns mset e eas ecs ety ∧
+   cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
+   f ∉ mset ∧
+   EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty)
+    (ZIP (eas::ass,ZIP(ecs::css,ety::tys))) ∧
+   LENGTH final_as = LENGTH final_cs ∧
+   LIST_REL (λ((cn,pvars,rest),as,cs) (as',cs').
+    ∃schemes.
+      ALOOKUP (FST ns) cn = SOME schemes ∧
+      let pvar_cs = list$MAP2
+        (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
+          (v::pvars) (CVar f :: MAP itype_of schemes) in
+      as' = FDIFF as (v INSERT set pvars) ∧
+      cs' = BIGUNION (set pvar_cs) ∪ cs)
+    (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs))
+    ⇒ minfer ns mset (Case d e v cases)
+        (FOLDR maunion FEMPTY (eas::final_as))
+        (mUnify (CVar f) ety INSERT mUnify ety Exception INSERT
+          set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪ BIGUNION (set final_cs))
+        (HD tys)) ∧
 
 [~Case:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
@@ -1760,6 +1804,11 @@ Proof
         rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[MAP2_MAP, LIST_TO_SET_MAP]
         )
       >- gvs[domain_list_insert_alt, INSERT_UNION_EQ]
+      >- (
+        gvs[cvars_disjoint_def] >>
+        irule SUBSET_DISJOINT >> ntac 2 $ goal_assum $ drule_at Any >>
+        simp[DISJOINT_ALT]
+        )
       >- (CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[])
       >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[])
       >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[])
@@ -1901,7 +1950,8 @@ Proof
       rw[] >> gvs[] >>
       last_x_assum drule >> impl_tac >- (rw[] >> first_x_assum drule >> simp[]) >>
       strip_tac >> gvs[] >>
-      simp[Once minfer_cases, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+      simp[Once minfer_cases] >> ntac 2 $ irule_at Any $ OR_INTRO_THM2 >>
+      simp[PULL_EXISTS, GSYM CONJ_ASSOC] >>
       goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
       gvs[domain_list_insert_alt, INSERT_UNION_EQ] >>
       goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
@@ -1910,13 +1960,6 @@ Proof
           LIST_TO_SET_MAP, IMAGE_IMAGE, pure_vars, pure_vars_iFunctions,
           BIGUNION_SUBSET, PULL_EXISTS, MEM_GENLIST, EXISTS_PROD] >>
       rw[]
-      >- (
-        gvs[assumptions_rel_def, aunion_def] >> simp[PULL_FORALL] >> rpt gen_tac >>
-        DEP_REWRITE_TAC[lookup_unionWith] >>
-        DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm] >> simp[] >>
-        simp[Once maunion_def, FLOOKUP_FMERGE] >>
-        rw[] >> every_case_tac >> gvs[] >> metis_tac[wf_union, domain_union]
-        )
       >- (
         gvs[cvars_disjoint_def] >>
         once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
@@ -2001,6 +2044,13 @@ Proof
           CCONTR_TAC >> gvs[SUBSET_DEF] >>
           first_x_assum $ drule_at Any >> simp[EL_MEM]
           )
+        )
+      >- (
+        gvs[assumptions_rel_def, aunion_def] >> simp[PULL_FORALL] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[lookup_unionWith] >>
+        DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm] >> simp[] >>
+        simp[Once maunion_def, FLOOKUP_FMERGE] >>
+        rw[] >> every_case_tac >> gvs[] >> metis_tac[wf_union, domain_union]
         )
       >- (
         gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, BIGUNION_SUBSET] >>
