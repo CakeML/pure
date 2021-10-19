@@ -67,10 +67,7 @@ Definition purePEG_def[nocompute]:
     start := NT nDecls I lrOK;
     rules :=
     FEMPTY |++ [
-        (INL nDecls,
-         choice (seql [NT nDecl I lrEQ; NT nDecls I lrEQ] (mkNT nDecls))
-                (empty (mkNT nDecls []))
-                sumID);
+        (INL nDecls, rpt (NT nDecl I lrEQ) FLAT);
         (INL nDecl,
          seql [tok isAlphaT mktokLf lrEQ;
                tok ((=) $ SymbolT "::") mktokLf lrGT;
@@ -148,7 +145,7 @@ val spec0 =
 
 val mkNT = ``INL : ppegnt -> ppegnt + num``
 
-Theorem cmlPEG_exec_thm[compute] =
+Theorem purePEG_exec_thm[compute] =
   TypeBase.constructors_of ``:ppegnt``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
     |> map (SIMP_RULE bool_ss (purepeg_rules_applied @ distinct_ths @
@@ -177,13 +174,25 @@ Theorem good2 =
                      \ bar :: C\n")
           [] [] NONE [] done failed”
 
-(* stops at -> line, leaving it in input still to be consumed *)
+(* stops at bar line, leaving it in input still to be consumed *)
 Theorem bad1 =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun "foo :: A -> B\n\
                      \bar :: C\n\
                      \-> D\n\
                      \baz :: D")
+          [] [] NONE [] done failed”
+
+Theorem bad1a =
+    EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
+          (lexer_fun "bar :: C\n\
+                     \-> D")
+          [] [] NONE [] done failed”
+
+Theorem bad1b =
+    EVAL “ispeg_exec purePEG (nt (INL nDecl) I lrOK)
+          (lexer_fun "bar :: C\n\
+                     \-> D")
           [] [] NONE [] done failed”
 
 (* stops with no input consumed, which is a bit weird *)
