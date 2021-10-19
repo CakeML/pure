@@ -75,19 +75,19 @@ Definition coreloop_def[nocompute]:
                    (case i of
                         [] => let err = (EOF, G.anyEOF)
                               in
-                                AP fk i [] r (OME eo (SOME err)) (err::errs)
+                                AP fk i p r (OME eo (SOME err)) (err::errs)
                       | h::t => AP k t (lpTOP::p) (SOME (tf h) :: r) eo errs)
                  | EV (tok P tf2 R) i ps r eo errs k fk =>
                    (case i of
                         [] => let err = (EOF, G.tokEOF)
                               in
-                                AP fk i [] r (OME eo (SOME err)) (err::errs)
+                                AP fk i ps r (OME eo (SOME err)) (err::errs)
                       | (tk,Locs l1 l2)::t =>
                           if P tk then
                             AP k t (rel_at_col R (loccol l1)::ps)
                                (SOME (tf2 (tk,Locs l1 l2))::r) eo errs
                           else let err = (sloc i, G.tokFALSE)
-                               in AP fk i [] r (OME eo (SOME err))
+                               in AP fk i ps r (OME eo (SOME err))
                                      (err::errs))
                  | EV (nt n tf3 R) i p r eo errs k fk =>
                    if n ∈ FDOM G.rules then
@@ -99,9 +99,9 @@ Definition coreloop_def[nocompute]:
                         (restoreEO eo
                          (ksym e2
                           (lpconj (appf2 f k)
-                           (addErr (sloc i) G.iFAIL $ cmpEO eo $
-                            returnTo i r fk))
-                          (cmpEO eo $ returnTo i r fk)))
+                           (addErr (sloc i) G.iFAIL $ cmpEO eo $ setlps p $
+                            returnTo i r $ fk))
+                          (setlps p $ cmpEO eo $ returnTo i r fk)))
                         fk
                  | EV (choice e1 e2 cf) i p r eo errs k fk =>
                      EV e1 i p r eo errs
@@ -112,19 +112,20 @@ Definition coreloop_def[nocompute]:
                           (cmpErrs fk))
                  | EV (rpt e lf) i p r eo errs k fk =>
                      EV e i (lpTOP::p) (NONE::r) eo errs
-                        (lpconj (restoreEO eo $ listsym e lf k)
-                         (returnTo i r $ poplist lf k))
-                        (setlps p $ poplist lf k)
+                        (lpconj (restoreEO eo $ listsym e lf $ k)
+                         (returnTo i (NONE::r) $ restoreEO eo $
+                          addErr (sloc i) G.iFAIL $ poplist lf $ k))
+                        (poplist lf k)
                  | EV (not e v) i p r eo errs k fk =>
                      EV e i p r eo errs
-                        (restoreEO eo $ setlps [] $
-                           returnTo i r (addErr (sloc i) G.notFAIL fk))
+                        (restoreEO eo $ returnTo i r $ setlps p $
+                         addErr (sloc i) G.notFAIL fk)
                         (restoreEO eo $ setlps (lpTOP :: p) $
                          returnTo i (SOME v::r) (dropErr k))
                  | EV (error err) i p r eo errs k fk =>
                      let err = (sloc i, err)
                      in
-                       AP fk i [] r (OME eo (SOME err)) (err :: errs)
+                       AP fk i p r (OME eo (SOME err)) (err :: errs)
                  | AP done i _ [] _ _ => Looped
                  | AP done i _ (NONE :: t) _ _ => Looped
                  | AP done i [] _ _ _ => Looped
@@ -154,7 +155,11 @@ Definition coreloop_def[nocompute]:
                  | AP (returnTo i r k) i' p r' eo errs => AP k i p r eo errs
                  | AP (restoreEO eo k) i p r eo' errs => AP k i p r eo errs
                  | AP (listsym e f k) i p r eo errs =>
-                     EV e i p r eo errs (restoreEO eo $ listsym e f k)
+                     EV e i p r eo errs
+                        (lpconj
+                         (restoreEO eo $ listsym e f k)
+                         (returnTo i r $ restoreEO eo $
+                          addErr (sloc i) G.iFAIL $ poplist f $ k))
                         (poplist f k)
                  | AP (poplist f k) i p r eo [] => Looped
                  | AP (poplist f k) i p r eo (e :: errs) =>
@@ -164,7 +169,7 @@ Definition coreloop_def[nocompute]:
                  | AP (lpcomp R k) i [] r eo errs => Looped
                  | AP (lpconj k fk) i (p1::p2::ps) r eo errs =>
                      let p = conjpred p2 p1 in
-                       if p = lpBOT then AP fk i [] r eo errs
+                       if p = lpBOT then AP fk i (p2::ps) r eo errs
                        else AP k i (p::ps) r eo errs
                  | AP (setlps ps k) i _ r eo errs => AP k i ps r eo errs
                  | Result r => Result r
@@ -315,6 +320,19 @@ Proof
   simp[EQ_IMP_THM] >> rpt strip_tac >> Cases_on ‘ls’  >> simp[]
 QED
 
+Theorem poplist_aux[simp,local]:
+  ∀vs A. poplist_aux A (MAP SOME vs ++ [NONE] ++ stk) = (REVERSE vs ++ A, stk)
+Proof
+  Induct >> simp[poplist_aux_def]
+QED
+
+Theorem poplistval_correct[simp]:
+  poplistval f (MAP SOME vs ++ NONE :: stk) =
+  SOME (f (REVERSE vs)) :: stk
+Proof
+  simp[poplistval_def]
+QED
+
 Theorem exec_correct0[local]:
   (∀i e r.
      ispeg_eval G (i,e) r ⇒
@@ -325,15 +343,17 @@ Theorem exec_correct0[local]:
      (∀k fk stk eo errs l err ps.
         r = Failure l err ⇒
         ispeg_exec G e i ps stk eo errs k fk =
-        applykont G fk i [] stk (OME eo (SOME (l,err))) ((l,err)::errs))) ∧
+        applykont G fk i ps stk (OME eo (SOME (l,err))) ((l,err)::errs))) ∧
   (∀p0 i e j vlist errp.
      ispeg_eval_list G p0 (i,e) (j,vlist,errp) ⇒
-     ∀f k stk eo err p errs vs ps.
+     ∀vs f k stk eo err p errs ps.
        errp = (err,p) ⇒
        ispeg_exec G e i (p0::ps) (MAP SOME vs ++ (NONE::stk))
                 eo
                 errs
-                (restoreEO eo $ listsym e f k)
+                (lpconj (restoreEO eo $ listsym e f k)
+                 (returnTo i (MAP SOME vs ++ (NONE::stk)) $ restoreEO eo $
+                  addErr (sloc i) G.iFAIL $ poplist f $ k))
                 (poplist f k) =
        applykont G k j (p::ps) (SOME (f (REVERSE vs ++ vlist)) :: stk)
                  (OME eo (SOME err))
@@ -343,34 +363,15 @@ Proof
   simp[peg_exec_thm, peg_nt_thm, applykont_thm, FORALL_result, AllCaseEqs(),
        arithmeticTheory.ADD1, MAXerr_def, pairTheory.FORALL_PROD,
        FORALL_locs]
-  >- ((* locsle comparison *) rw[optmax_def, MAXerr_def] >>
+  >- ((* locsle comparison (choice has both branches fail) *)
+      rw[optmax_def, MAXerr_def] >>
       simp[Excl "OME_ASSOC", GSYM OME_ASSOC, optmax_def, MAXerr_def])
-  >- ((* rpt - no elements succeed *)
-      map_every qx_gen_tac [`e`, `f`, `i`, `j`, `vlist`, ‘errl’, ‘err’] >>
-      strip_tac >>
-      map_every qx_gen_tac [‘eo0’, `k`, `stk`, ‘errs’] >>
-      first_x_assum (qspecl_then [`f`, `k`, `stk`, ‘eo0’, ‘errs’, `[]`]
-                     mp_tac) >>
-      simp[])
-  >- ((* poplistval works *)
-      rpt strip_tac >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-      rpt (pop_assum (K ALL_TAC)) >>
-      simp[poplistval_def] >>
-      qmatch_abbrev_tac `
-        (λ(values,rest). SOME (f values)::rest)
-        (poplist_aux [] (MAP SOME vs ++ [NONE] ++ stk)) =
-        SOME (f (REVERSE vs))::stk` >>
-      qsuff_tac `∀a. poplist_aux a (MAP SOME vs ++ [NONE] ++ stk) =
-                     (REVERSE vs ++ a, stk)` >- simp[] >>
-      Induct_on `vs` >> simp[poplist_aux_def])
+  >- ((* rpt *)
+      rpt strip_tac >> first_x_assum $ qspec_then ‘[]’ mp_tac >> simp[])
   >- ((* rpt - some elements succeed *)
-      map_every qx_gen_tac [`e`, ‘eo0’, ‘errl’, ‘err’, `i0`, `i1`, `j`, `v`, `vs`] >>
-      strip_tac >>
-      map_every qx_gen_tac [`f`, `k`, `stk`, ‘eo’, ‘errs’, `vs'`] >>
-      first_x_assum (qspecl_then [`f`, `k`, `stk`, ‘eo’, ‘errs’,
-                                  `v::vs'`] mp_tac) >>
-      simp[] >>
-      simp_tac bool_ss [GSYM listTheory.APPEND_ASSOC, listTheory.APPEND])
+      rpt strip_tac >> rename [‘SOME v::(MAP SOME vs ++ NONE::rest)’] >>
+      first_x_assum $ qspec_then ‘v::vs’ mp_tac >> simp[] >>
+      REWRITE_TAC [GSYM listTheory.APPEND_ASSOC, listTheory.APPEND])
 QED
 
 Theorem exec_correct =
@@ -380,82 +381,84 @@ Theorem pegexec_succeeds =
   exec_correct
     |> CONJUNCTS |> hd |> SPEC_ALL
     |> Q.INST [`k` |-> `done`, `fk` |-> `failed`, `stk` |-> `[]`,
-               ‘errs’ |-> ‘[]’]
+               ‘errs’ |-> ‘[]’, ‘ps’ |-> ‘[]’]
     |> SIMP_RULE (srw_ss()) [applykont_thm]
 
 Theorem pegexec_fails =
   exec_correct |> CONJUNCTS |> tl |> hd |> SPEC_ALL
                |> Q.INST [`k` |-> `done`, `fk` |-> `failed`,
-                          `stk` |-> `[]`, ‘errs’ |-> ‘[]’]
+                          `stk` |-> `[]`, ‘errs’ |-> ‘[]’, ‘ps’ |-> ‘[]’]
                |> SIMP_RULE (srw_ss()) [applykont_thm]
 
 val pair_CASES = pairTheory.pair_CASES
 val option_CASES = optionTheory.option_nchotomy
 val list_CASES = listTheory.list_CASES
 
-Theorem pegexec:
-  peg_eval G (s,e) r ⇒ peg_exec G e s [] NONE [] done failed = Result r
+Theorem ispegexec:
+  ispeg_eval G (s,e) r ⇒ ispeg_exec G e s [] [] NONE [] done failed = Result r
 Proof
   strip_tac >>
   Cases_on ‘r’ >> (drule pegexec_succeeds ORELSE drule pegexec_fails) >>
   simp[]
 QED
 
-Theorem peg_eval_executed:
+Theorem ispeg_eval_executed:
   wfG G ∧ e ∈ Gexprs G ⇒
-    (peg_eval G (s,e) r ⇔ peg_exec G e s [] NONE [] done failed = Result r)
+    (ispeg_eval G (s,e) r ⇔
+       ispeg_exec G e s [] [] NONE [] done failed = Result r)
 Proof
   strip_tac >> eq_tac >- simp[pegexec] >>
   strip_tac >>
-  `∃r'. peg_eval G (s,e) r'` by metis_tac[peg_eval_total] >>
+  ‘∃r'. ispeg_eval G (s,e) r'’ by metis_tac[ispeg_eval_total] >>
   first_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
-  simp[] >> first_x_assum (assume_tac o MATCH_MP pegexec) >> fs[]
+  simp[] >> first_x_assum (assume_tac o MATCH_MP ispegexec) >> fs[]
 QED
 
 Definition destResult_def[simp]: destResult (Result r) = r
 End
 
-Definition pegparse_def:
-  pegparse G s =
+Definition ispegparse_def:
+  ispegparse G s =
     if wfG G then
-      case destResult (peg_exec G G.start s [] NONE [] done failed) of
-        Success s v eo => SOME (s,v,eo)
+      case destResult (ispeg_exec G G.start s [] [] NONE [] done failed) of
+        Success s v eo p => SOME (s,v,eo,p)
       | _ => NONE
     else NONE
 End
 
-Theorem pegparse_eq_SOME:
-  pegparse G s = SOME (s', v, eo) ⇔
-  wfG G ∧ peg_eval G (s,G.start) (Success s' v eo)
+Theorem ispegparse_eq_SOME:
+  ispegparse G s = SOME (s', v, eo, p) ⇔
+  wfG G ∧ ispeg_eval G (s,G.start) (Success s' v eo p)
 Proof
-  Tactical.REVERSE (Cases_on `wfG G`) >- simp[pegparse_def] >>
-  `∃r. peg_eval G (s,G.start) r`
-    by metis_tac [peg_eval_total, start_IN_Gexprs] >>
+  Tactical.REVERSE (Cases_on `wfG G`) >- simp[ispegparse_def] >>
+  `∃r. ispeg_eval G (s,G.start) r`
+    by metis_tac [ispeg_eval_total, start_IN_Gexprs] >>
   first_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
   simp[] >>
   reverse (Cases_on ‘r’)
-  >- (rw[pegparse_def] >> drule pegexec_fails >> simp[]) >>
-  rw[pegparse_def] >> drule pegexec_succeeds >> simp[] >> metis_tac[]
+  >- (rw[ispegparse_def] >> drule pegexec_fails >> simp[]) >>
+  rw[ispegparse_def] >> drule pegexec_succeeds >> simp[] >> metis_tac[]
 QED
 
 Theorem pegparse_eq_NONE:
-  pegparse G s = NONE ⇔ ¬wfG G ∨ ∃l e. peg_eval G (s,G.start) (Failure l e)
+  ispegparse G s = NONE ⇔ ¬wfG G ∨ ∃l e. ispeg_eval G (s,G.start) (Failure l e)
 Proof
-  Cases_on `wfG G` >> simp[pegparse_def] >>
-  `∃r. peg_eval G (s,G.start) r`
-    by metis_tac [peg_eval_total, start_IN_Gexprs] >>
+  Cases_on `wfG G` >> simp[ispegparse_def] >>
+  `∃r. ispeg_eval G (s,G.start) r`
+    by metis_tac [ispeg_eval_total, start_IN_Gexprs] >>
   first_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
   simp[] >> reverse (Cases_on ‘r’) >> simp[]
   >- (drule pegexec_fails >> simp[]) >>
   drule pegexec_succeeds >> simp[]
 QED
 
-Theorem peg_exec_total:
-  wfG G ==> ∃r. peg_exec G G.start i [] NONE [] done failed = Result r
+Theorem ispeg_exec_total:
+  wfG G ==> ∃r. ispeg_exec G G.start i [] [] NONE [] done failed = Result r
 Proof
   strip_tac >>
-  `∃pr. peg_eval G (i, G.start) pr` by simp[peg_eval_total, start_IN_Gexprs] >>
-  pop_assum mp_tac >> simp[peg_eval_executed, start_IN_Gexprs]
+  ‘∃pr. ispeg_eval G (i, G.start) pr’
+    by simp[ispeg_eval_total,start_IN_Gexprs] >>
+  pop_assum mp_tac >> simp[ispeg_eval_executed, start_IN_Gexprs]
 QED
 
 (*
@@ -464,7 +467,7 @@ QED
         coreloop G (pegexec$EV G.start i [] NONE [] done failed) = SOME (Result r)
 *)
 Theorem coreloop_total =
-  peg_exec_total |> SIMP_RULE (srw_ss()) [peg_exec_def, AllCaseEqs()]
+  ispeg_exec_total |> SIMP_RULE (srw_ss()) [peg_exec_def, AllCaseEqs()]
 
 val _ = app (fn s => ignore (remove_ovl_mapping s {Thy = "pegexec", Name = s}))
             ["AP", "EV"]
