@@ -6,7 +6,7 @@ open ispegsTheory locationTheory
 
 open rich_listTheory;
 
-val _ = new_theory "pegexec"
+val _ = new_theory "ispegexec"
 
 Datatype:
   kont =
@@ -256,6 +256,10 @@ val better_peg_execs =
                       ([`e` |-> `rpt e lf`], []),
                       ([‘e’ |-> ‘error err’], [])]
 
+Theorem ispeg_nt_thm =
+  peg_exec_thm ([`e` |-> `nt n nfn R`], [Once COND_RAND, option_case_COND])
+  |> SIMP_RULE (srw_ss()) []
+
 val better_apply =
     map (SIMP_RULE (srw_ss()) [] o inst_thm applykont_def)
         [([`k` |-> `ksym e k fk`], []),
@@ -407,7 +411,7 @@ Theorem ispeg_eval_executed:
     (ispeg_eval G (s,e) r ⇔
        ispeg_exec G e s [] [] NONE [] done failed = Result r)
 Proof
-  strip_tac >> eq_tac >- simp[pegexec] >>
+  strip_tac >> eq_tac >- simp[ispegexec] >>
   strip_tac >>
   ‘∃r'. ispeg_eval G (s,e) r'’ by metis_tac[ispeg_eval_total] >>
   first_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
@@ -469,7 +473,8 @@ QED
 Theorem coreloop_total =
   ispeg_exec_total |> SIMP_RULE (srw_ss()) [peg_exec_def, AllCaseEqs()]
 
-val _ = app (fn s => ignore (remove_ovl_mapping s {Thy = "pegexec", Name = s}))
-            ["AP", "EV"]
+val _ = app
+        (fn s => ignore (remove_ovl_mapping s {Thy = "ispegexec", Name = s}))
+        ["AP", "EV"]
 
 val _ = export_theory()
