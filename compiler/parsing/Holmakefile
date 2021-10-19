@@ -1,1 +1,6 @@
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free
+ifndef CAKEDIR
+CAKEDIR = $(HOME)/cakeml/master
+endif
+
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
+           $(CAKEDIR)/semantics

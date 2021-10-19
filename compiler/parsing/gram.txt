@@ -1,0 +1,7 @@
+TyBase ::= Idᵍᵉ | "("ᵍᵉ TySeq1ᵍᵉ ")"ᵍᵉ
+TySeq1 ::= Tyᵍᵉ | Tyᵍᵉ ","ᵍᵉ TySeq1ᵍᵉ
+Ty     ::= TyBaseᵍᵉ | TyBaseᵍᵉ "->"ᵍᵉ Tyᵍᵉ
+
+Decl ::= Id⁼ "::"ᵍᵗ Tyᵍᵗ
+
+Decls ::= Decl⁼ Decls⁼ | ε
