@@ -166,13 +166,13 @@ Theorem good1 =
                      \   -> D\n\
                      \baz :: D\n\
                      \qux::(A->B)->C")
-          [] [] NONE [] done failed”
+          lpTOP [] NONE [] done failed”
 
 Theorem good2 =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun " foo :: A -> B -> C\n\
                      \ bar :: C\n")
-          [] [] NONE [] done failed”
+          lpTOP [] NONE [] done failed”
 
 (* stops at bar line, leaving it in input still to be consumed *)
 Theorem bad1 =
@@ -181,13 +181,13 @@ Theorem bad1 =
                      \bar :: C\n\
                      \-> D\n\
                      \baz :: D")
-          [] [] NONE [] done failed”
+          lpTOP [] NONE [] done failed”
 
 Theorem bad1a =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun "bar :: C\n\
                      \-> D")
-          [] [] NONE [] done failed”
+          lpTOP [] NONE [] done failed”
 
 Theorem bad1b =
     EVAL “ispeg_exec purePEG (nt (INL nDecl) I lrOK)
