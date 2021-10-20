@@ -86,6 +86,13 @@ Datatype:
   pegresult = Success 'a 'c ((locs # 'e) option) locpred
             | Failure locs 'e
 End
+
+Theorem UNCURRY_Failure_EQ_Success[simp]:
+  UNCURRY Failure fle ≠ Success s r eo p
+Proof
+  Cases_on ‘fle’ >> simp[]
+QED
+
 Definition isSuccess_def[simp]:
   isSuccess (Success _ _ _ _) = T ∧
   isSuccess (Failure _ _) = F
@@ -201,6 +208,33 @@ Definition comppred_def[simp]:
   comppred lrGT lpTOP = lpTOP
 End
 
+Definition precomp_def[simp]:
+  precomp (lpxLT n) lrEQ = lpxLT n ∧
+  precomp (lpxLT n) R    = (if n = 0 then lpBOT else lpTOP) ∧
+  precomp p         lrOK = lpTOP ∧
+  precomp p         lrEQ = p ∧
+  precomp p         lrGE = lpTOP ∧
+  precomp p         lrGT = lpTOP
+End
+
+Theorem precomp_top[simp]:
+  precomp lpTOP R = lpTOP
+Proof
+  Cases_on ‘R’ >> simp[]
+QED
+
+Theorem precomp_EQ_bot[simp]:
+  precomp p R = lpBOT ⇔ p = lpBOT
+Proof
+  Cases_on ‘p’ >> simp[] >> Cases_on ‘R’ >> simp[AllCaseEqs()]
+QED
+
+Theorem precomp_correct:
+  evalpred P p ∧ evalrel R p c ⇒ evalpred (precomp P R) c
+Proof
+  Cases_on ‘P’ >> simp[] >> Cases_on ‘R’ >> simp[]
+QED
+
 Theorem comppred_lpTOP[simp]:
   comppred R lpTOP = lpTOP
 Proof
@@ -228,118 +262,161 @@ Proof
       irule_at Any prim_recTheory.LESS_SUC_REFL)
 QED
 
+Definition checkpred_def:
+  checkpred G p i r eo fl =
+  if p = lpBOT then Failure fl G.iFAIL
+  else Success i r eo p
+End
+
+Theorem checkpred_EQ_Success[simp]:
+  checkpred G p1 i1 r1 eo1 fl = Success i2 r2 eo2 p2 ⇔
+  p1 ≠ lpBOT ∧ i1 = i2 ∧ r1 = r2 ∧ eo1 = eo2 ∧ p1 = p2
+Proof
+  simp[checkpred_def, AllCaseEqs()]
+QED
+
+Theorem checkpred_EQ_Failure[simp]:
+  checkpred G p i r eo fl1 = Failure fl2 fe ⇔
+  p = lpBOT ∧ fl1 = fl2 ∧ fe = G.iFAIL
+Proof
+  simp[checkpred_def, AllCaseEqs(), EQ_SYM_EQ]
+QED
+
+Overload EOF = “Locs EOFpt EOFpt”
 Inductive ispeg_eval:
 [~empty:]
-  (∀s c. ispeg_eval G (s, empty c) (Success s c NONE lpTOP)) ∧
+  (∀s c p. ispeg_eval G p (s, empty c) (checkpred G p s c NONE (sloc s))) ∧
 [~nt_success:]
-  (∀n s s' r eo P R f.
-     n ∈ FDOM G.rules ∧ ispeg_eval G (s, G.rules ' n) (Success s' r eo P) ⇒
-     ispeg_eval G (s, nt n f R) (Success s' (f r) eo (comppred R P))) ∧
+  (∀n s s' r eo P0 P R f.
+     n ∈ FDOM G.rules ∧
+     ispeg_eval G (precomp P0 R) (s, G.rules ' n) (Success s' r eo P)
+   ⇒
+     ispeg_eval G P0 (s, nt n f R)
+                (checkpred G (conjpred P0 (comppred R P))
+                           s' (f r) eo
+                           (sloc s))) ∧
 [~nt_failure:]
-  (∀n s fl fe R f.
-     n ∈ FDOM G.rules ∧ ispeg_eval G (s, G.rules ' n) (Failure fl fe) ⇒
-     ispeg_eval G (s, nt n f R) (Failure fl fe)) ∧
+  (∀n s fl fe R p f.
+     n ∈ FDOM G.rules ∧
+     ispeg_eval G (precomp p R) (s, G.rules ' n) (Failure fl fe)
+   ⇒
+     ispeg_eval G p (s, nt n f R) (Failure fl fe)) ∧
 [~any_success:]
-  (∀h t f. ispeg_eval G (h::t, any f) (Success t (f h) NONE lpTOP)) ∧
+  (∀h t f p. ispeg_eval G p (h::t, any f) (checkpred G p t (f h) NONE (SND h)))∧
 [~any_failure:]
-  (∀f. ispeg_eval G ([], any f) (Failure EOF G.anyEOF)) ∧
+  (∀f p. ispeg_eval G p ([], any f) (Failure EOF G.anyEOF)) ∧
 [~tok_success:]
-  (∀tk l1 l2 t P f R.
+  (∀tk l1 l2 t P f R p.
      P tk ⇒
-     ispeg_eval G ((tk,Locs l1 l2)::t, tok P f R)
-              (Success t (f (tk,Locs l1 l2)) NONE (rel_at_col R $ loccol l1))) ∧
+     ispeg_eval G p ((tk,Locs l1 l2)::t, tok P f R)
+                (checkpred G (conjpred p (rel_at_col R $ loccol l1))
+                           t (f (tk,Locs l1 l2)) NONE (Locs l1 l2))) ∧
 [~tok_failureF:]
-  (∀h t P f R.
+  (∀h t P f R p.
      ¬P (FST h) ⇒
-     ispeg_eval G (h::t, tok P f R) (Failure (SND h) G.tokFALSE)) ∧
+     ispeg_eval G p (h::t, tok P f R) (Failure (SND h) G.tokFALSE)) ∧
 [~tok_failureEOF:]
-  (∀P f R. ispeg_eval G ([], tok P f R) (Failure EOF G.tokEOF)) ∧
+  (∀P f R p. ispeg_eval G p ([], tok P f R) (Failure EOF G.tokEOF)) ∧
 [~not_success:]
-  (∀e s c fr.
-     ispeg_eval G (s, e) fr ∧ isFailure fr ⇒
-     ispeg_eval G (s, not e c) (Success s c NONE lpTOP)) ∧
+  (∀e s c fr p.
+     ispeg_eval G p (s, e) fr ∧ isFailure fr ⇒
+     ispeg_eval G p (s, not e c) (checkpred G p s c NONE (sloc s))) ∧
 [~not_failure:]
-  (∀e s r c.
-     ispeg_eval G (s, e) r ∧ isSuccess r ⇒
-     ispeg_eval G (s, not e c) (Failure (sloc s) G.notFAIL))  ∧
+  (∀e s r c p s' eo p'.
+     ispeg_eval G p (s, e) (Success s' r eo p') ⇒
+     ispeg_eval G p (s, not e c) (Failure (sloc s) G.notFAIL))  ∧
 [~seq_fail1:]
-  (∀e1 e2 s f fl fe.
-     ispeg_eval G (s, e1) (Failure fl fe) ⇒
-     ispeg_eval G (s, seq e1 e2 f) (Failure fl fe)) ∧
+  (∀e1 e2 s f fl fe p.
+     ispeg_eval G p (s, e1) (Failure fl fe) ⇒
+     ispeg_eval G p (s, seq e1 e2 f) (Failure fl fe)) ∧
 [~seq_fail2:]
-  (∀e1 e2 P f s0 eo s1 c1 fl fe.
-     ispeg_eval G (s0, e1) (Success s1 c1 eo P) ∧
-     ispeg_eval G (s1, e2) (Failure fl fe) ⇒
-     ispeg_eval G (s0, seq e1 e2 f) (Failure fl fe)) ∧
-[~seq_failindent:]
-  (∀e1 e2 s0 s1 s2 c1 c2 f eo1 eo2 P1 P2.
-     ispeg_eval G (s0, e1) (Success s1 c1 eo1 P1) ∧
-     ispeg_eval G (s1, e2) (Success s2 c2 eo2 P2) ∧
-     conjpred P1 P2 = lpBOT ⇒
-     ispeg_eval G (s0, seq e1 e2 f) (Failure (sloc s0) G.iFAIL)) ∧
+  (∀e1 e2 p0 p1 f s0 eo s1 c1 fl fe.
+     ispeg_eval G p0 (s0, e1) (Success s1 c1 eo p1) ∧
+     ispeg_eval G p1 (s1, e2) (Failure fl fe) ⇒
+     ispeg_eval G p0 (s0, seq e1 e2 f) (Failure fl fe)) ∧
 [~seq_success:]
-  (∀e1 e2 s0 s1 s2 c1 c2 f eo1 eo2 P1 P2.
-     ispeg_eval G (s0, e1) (Success s1 c1 eo1 P1) ∧
-     ispeg_eval G (s1, e2) (Success s2 c2 eo2 P2) ∧
-     conjpred P1 P2 ≠ lpBOT ⇒
-     ispeg_eval G (s0, seq e1 e2 f) (Success s2 (f c1 c2) eo2 $ conjpred P1 P2)) ∧
+  (∀e1 e2 s0 s1 s2 c1 c2 f eo1 eo2 P0 P1 P2.
+     ispeg_eval G P0 (s0, e1) (Success s1 c1 eo1 P1) ∧
+     ispeg_eval G P1 (s1, e2) (Success s2 c2 eo2 P2)
+    ⇒
+     ispeg_eval G P0 (s0, seq e1 e2 f) (Success s2 (f c1 c2) eo2 P2)) ∧
 [~choice_fail:]
-  (∀e1 e2 s f fl1 fe1 fl2 fe2.
-     ispeg_eval G (s, e1) (Failure fl1 fe1) ∧
-     ispeg_eval G (s, e2) (Failure fl2 fe2) ⇒
-     ispeg_eval G (s, choice e1 e2 f)
+  (∀e1 e2 s f fl1 fe1 fl2 fe2 p.
+     ispeg_eval G p (s, e1) (Failure fl1 fe1) ∧
+     ispeg_eval G p (s, e2) (Failure fl2 fe2) ⇒
+     ispeg_eval G p (s, choice e1 e2 f)
               (UNCURRY Failure (MAXerr (fl1,fe1) (fl2,fe2)))) ∧
 [~choice_success1:]
-  (∀e1 e2 s0 f s r eo P.
-     ispeg_eval G (s0, e1) (Success s r eo P) ⇒
-     ispeg_eval G (s0, choice e1 e2 f) (Success s (f (INL r)) eo P)) ∧
+  (∀e1 e2 s0 f s r eo P0 P.
+     ispeg_eval G P0 (s0, e1) (Success s r eo P) ⇒
+     ispeg_eval G P0 (s0, choice e1 e2 f) (Success s (f (INL r)) eo P)) ∧
 [~choice_success2:]
-  (∀e1 e2 s0 s r eo f fl fe P.
-     ispeg_eval G (s0, e1) (Failure fl fe) ∧
-     ispeg_eval G (s0, e2) (Success s r eo P) ⇒
-     ispeg_eval G (s0, choice e1 e2 f)
+  (∀e1 e2 s0 s r eo f fl fe P0 P.
+     ispeg_eval G P0 (s0, e1) (Failure fl fe) ∧
+     ispeg_eval G P0 (s0, e2) (Success s r eo P) ⇒
+     ispeg_eval G P0 (s0, choice e1 e2 f)
               (Success s (f (INR r)) (optmax MAXerr (SOME (fl,fe)) eo) P)) ∧
 [~error:]
-  (∀e s. ispeg_eval G (s, error e) (Failure (sloc s) e)) ∧
+  (∀e s p. ispeg_eval G p (s, error e) (Failure (sloc s) e)) ∧
 [~rpt:]
-  (∀e f s s1 list err P.
-     ispeg_eval_list G lpTOP (s, e) (s1,list,err,P) ⇒
-     ispeg_eval G (s, rpt e f) (Success s1 (f list) (SOME err) P)) ∧
+  (∀e f s s1 list err P0 P.
+     ispeg_eval_list G P0 (s, e) (s1,list,err,P) ⇒
+     ispeg_eval G P0 (s, rpt e f)
+                (checkpred G P s1 (f list) (SOME err) (sloc s))) ∧
 [~list_nil:]
-  (∀e s fl fe P. ispeg_eval G (s, e) (Failure fl fe) ⇒
+  (∀e s fl fe P. ispeg_eval G P (s, e) (Failure fl fe) ⇒
                  ispeg_eval_list G P (s, e) (s,[],(fl,fe),P)) ∧
-[~list_nilindent:]
-  (∀e s0 s r eo P0 P.
-     ispeg_eval G (s0, e) (Success s r eo P) ∧ conjpred P0 P = lpBOT ⇒
-     ispeg_eval_list G P0 (s0, e) (s0,[],(sloc s0,G.iFAIL),P0)) ∧
 [~list_cons:]
   (∀e eo0 eo s0 s1 s2 c cs P0 P1 P2.
-     ispeg_eval G (s0, e) (Success s1 c eo0 P1) ∧ conjpred P0 P1 ≠ lpBOT ∧
-     ispeg_eval_list G (conjpred P0 P1) (s1, e) (s2,cs,eo,P2) ⇒
+     ispeg_eval G P0 (s0, e) (Success s1 c eo0 P1) ∧
+     ispeg_eval_list G P1 (s1, e) (s2,cs,eo,P2) ⇒
      ispeg_eval_list G P0 (s0, e) (s2,c::cs,eo,P2))
 End
+
+Theorem ispeg_eval_Success_neverbot0[local]:
+  (∀P0 ie r. ispeg_eval G P0 ie r ⇒
+             ∀i r0 eo p. r = Success i r0 eo p ⇒ p ≠ lpBOT) ∧
+  (∀P0 ie r. ispeg_eval_list G P0 ie r ⇒
+             ∀i rs eo p. r = (i,rs,eo,p) ∧ p = lpBOT ⇒ P0 = lpBOT)
+Proof
+  ho_match_mp_tac ispeg_eval_ind >> rw[] >> simp[]
+QED
+
+Theorem ispeg_eval_Success_neverbot =
+        SIMP_RULE (srw_ss()) [SF DNF_ss] ispeg_eval_Success_neverbot0
+
+Theorem ispeg_eval_indpred_tightens0[local]:
+  (∀p0 ie r. ispeg_eval G p0 ie r ⇒
+             ∀i r0 eo p. r = Success i r0 eo p ⇒
+                         ∀n. evalpred p n ⇒ evalpred p0 n) ∧
+  (∀p0 ie r. ispeg_eval_list G p0 ie r ⇒
+             ∀i rs eo p. r = (i,rs,eo,p) ⇒
+                         ∀n. evalpred p n ⇒ evalpred p0 n)
+Proof
+  ho_match_mp_tac ispeg_eval_ind >> rw[] >> gs[conjpred_correct]
+QED
+
+Theorem ispeg_eval_indpred_tightens =
+        SIMP_RULE (srw_ss()) [SF DNF_ss] ispeg_eval_indpred_tightens0
 
 val fprod = HO_REWR_CONV pairTheory.FORALL_PROD
 Theorem ispeg_eval_strongind' =
   ispeg_eval_strongind
-    |> Q.SPECL [`G`, `\es0 r. P1 (FST es0) (SND es0) r`,
-                ‘\p es0 sr. P2 p (FST es0) (SND es0) (FST sr)
+    |> Q.SPECL [`G`, `\p0 es0 r. P1 p0 (FST es0) (SND es0) r`,
+                ‘\p es0 sr. P2 p (FST es0) (SND es0)
+                               (FST sr)
                                (FST $ SND sr)
-                               (SND $ SND sr)’]
+                               (FST $ SND $ SND sr)
+                               (SND $ SND $ SND sr)’]
     |> SIMP_RULE (srw_ss()) []
     |> UNDISCH |> CONJ_PAIR
     |> (SIMP_RULE (srw_ss()) [pairTheory.FORALL_PROD] ##
         CONV_RULE (BINDER_CONV fprod THENC
-                   LAST_FORALL_CONV (fprod THENC LAST_FORALL_CONV fprod)))
+                   LAST_FORALL_CONV (fprod THENC LAST_FORALL_CONV fprod THENC
+                                     LAST_FORALL_CONV fprod)))
     |> uncurry CONJ
     |> SIMP_RULE (srw_ss()) []
     |> DISCH_ALL;
-
-Theorem UNCURRY_Failure_EQ_Success[simp]:
-  UNCURRY Failure fle ≠ Success s r eo p
-Proof
-  Cases_on ‘fle’ >> simp[]
-QED
 
 Theorem IS_PREFIX_MEM:
   l1 ≼ l2 ∧ MEM e l1 ⇒ MEM e l2
@@ -347,26 +424,26 @@ Proof
   simp[IS_PREFIX_APPEND, PULL_EXISTS]
 QED
 
+Theorem MEM_sloc_MAP_SND[local,simp]:
+  sloc s ≠ EOF ⇒ MEM (sloc s) (MAP SND s)
+Proof
+  Cases_on ‘s’ >> simp[sloc_def]
+QED
+
 Theorem ispeg_eval_suffix0[local]:
-  (∀s0 e sr.
-     ispeg_eval G (s0,e) sr ⇒
+  (∀p0 s0 e sr.
+     ispeg_eval G p0 (s0,e) sr ⇒
      (∀s r eo p.
        sr = Success s r eo p ⇒ IS_SUFFIX s0 s) ∧
      (∀fl fe. sr = Failure fl fe ∧ fl ≠ EOF ⇒ MEM fl (MAP SND s0))) ∧
-  ∀P s0 e s rl err.
-    ispeg_eval_list G P (s0,e) (s,rl,err) ⇒ IS_SUFFIX s0 s
+  ∀p0 s0 e s rl err p.
+    ispeg_eval_list G p0 (s0,e) (s,rl,err,p) ⇒ IS_SUFFIX s0 s
 Proof
   HO_MATCH_MP_TAC ispeg_eval_strongind' THEN
   SRW_TAC [][IS_SUFFIX_compute, IS_PREFIX_APPEND3, IS_PREFIX_REFL] THEN
   gvs[resultmap_EQ_Success] >~
   [‘UNCURRY Failure (MAXerr (fl1,_) (fl2,_))’]
   >- (Cases_on ‘locsle fl1 fl2’ >> gvs[MAXerr_def]) >~
-  [‘isSuccess sr’, ‘MEM (sloc s0) (MAP SND s0)’]
-  >- (Cases_on ‘s0’ >> gvs[sloc_def]) >~
-  [‘sloc s0 ≠ EOF’, ‘MEM (sloc s0) (MAP SND s0)’]
-  >- (Cases_on ‘s0’ >> gvs[sloc_def]) >~
-  [‘sloc s0 ≠ EOF’, ‘MEM (sloc s0) (MAP SND s0)’]
-  >- (Cases_on ‘s0’ >> gvs[sloc_def]) >~
   [‘MEM fl (MAP SND s0)’, ‘REVERSE s1 ≼ REVERSE s0’]
   >- (gvs[MEM_MAP] >>
       metis_tac[IS_PREFIX_MEM, MEM_REVERSE]) >>
@@ -379,29 +456,32 @@ Theorem ispeg_eval_suffix =
 
 (* Theorem 3.2 *)
 Theorem peg_deterministic:
-  (∀s0 e sr. ispeg_eval G (s0,e) sr ⇒
-             ∀sr'. ispeg_eval G (s0,e) sr' ⇔ sr' = sr) ∧
-  ∀P s0 e s rl err.
-    ispeg_eval_list G P (s0,e) (s,rl,err) ⇒
-    ∀srl'. ispeg_eval_list G P (s0,e) srl' ⇔ srl' = (s,rl,err)
+  (∀p0 s0 e sr. ispeg_eval G p0 (s0,e) sr ⇒
+             ∀sr'. ispeg_eval G p0 (s0,e) sr' ⇔ sr' = sr) ∧
+  ∀p0 s0 e s rl err p.
+    ispeg_eval_list G p0 (s0,e) (s,rl,err,p) ⇒
+    ∀srl'. ispeg_eval_list G p0 (s0,e) srl' ⇔ srl' = (s,rl,err,p)
 Proof
   HO_MATCH_MP_TAC ispeg_eval_strongind' THEN SRW_TAC [][] THEN
   ONCE_REWRITE_TAC [ispeg_eval_cases] THEN SRW_TAC [][] THEN
-  csimp[] >>
-  TRY (Q.MATCH_ASSUM_RENAME_TAC ‘isSuccess result’ >>
-       Cases_on ‘result’ >> fs[]) THEN
-  TRY (Q.MATCH_ASSUM_RENAME_TAC ‘isFailure result’ >>
-       Cases_on ‘result’ >> fs[]) >>
+  csimp[] >~
+  [‘isFailure sr’] >- (Cases_on ‘sr’ >> gs[]) >>
   rename [‘_ = Failure (SND h) _’] >> Cases_on ‘h’ >> gs[]
 QED
 
-Theorem peg_nullable_lpTOP:
-  (∀s0 e sr. ispeg_eval G (s0,e) sr ⇒
-             ∀r eo p. sr = (Success s0 r eo p) ⇒ p = lpTOP) ∧
-  (∀P s0 e s rl err.
-     ispeg_eval_list G P (s0,e) (s,rl,err) ⇒ s0 = s ⇒ SND err = P)
+Theorem conjpred_comppred_lemma:
+  conjpred p (comppred R (precomp p R)) = p
 Proof
-  ho_match_mp_tac ispeg_eval_strongind' >> rw[]
+  Cases_on ‘R’ >> simp[] >> Cases_on ‘p’ >> simp[] >> rw[]
+QED
+
+Theorem peg_nullable_lpTOP:
+  (∀p0 s0 e sr. ispeg_eval G p0 (s0,e) sr ⇒
+                ∀r eo p. sr = Success s0 r eo p ⇒ p = p0) ∧
+  (∀p0 s0 e s rl err p.
+     ispeg_eval_list G p0 (s0,e) (s,rl,err,p) ⇒ s0 = s ⇒ p = p0)
+Proof
+  ho_match_mp_tac ispeg_eval_strongind' >> rw[conjpred_comppred_lemma]
   >- (drule_then assume_tac $ cj 1 ispeg_eval_suffix >>
       rev_drule_then assume_tac $ cj 1 ispeg_eval_suffix >>
       gvs[IS_SUFFIX_compute] >> dxrule_all IS_PREFIX_ANTISYM >> rw[]) >>
@@ -412,14 +492,13 @@ QED
 
 (* Lemma 3.3 *)
 Theorem peg_badrpt:
-  ispeg_eval G (s0,e) (Success s0 r eo p) ⇒
-  ∀r. ¬ispeg_eval G (s0, rpt e f) r
+  ispeg_eval G p0 (s0,e) (Success s0 r eo p) ⇒
+  ∀r. ¬ispeg_eval G p0 (s0, rpt e f) r
 Proof
   strip_tac >> simp[Once ispeg_eval_cases] >> rw[] >>
   rpt strip_tac >> dxrule_then assume_tac $ cj 2 peg_deterministic  >>
   drule ispeg_eval_list_cons >> simp[] >>
-  drule $ cj 1 peg_nullable_lpTOP >> simp[] >> rw[] >>
-  first_assum (irule_at Any o iffRL) >> simp[]
+  drule $ cj 1 peg_nullable_lpTOP >> simp[]
 QED
 
 Inductive peg0:
@@ -475,7 +554,8 @@ Inductive peg0:
   (* error *)
   (∀e. pegfail G (error e)) ∧
 
-  (* general *)
+(* general *)
+[pegfail_nontop:]
   ∀e. pegnontop G e ⇒ pegfail G e
 End
 
@@ -486,7 +566,7 @@ Proof
 QED
 
 Theorem ispeg_eval_suffix':
-  ispeg_eval G (s0,e) (Success s c eo p) ⇒
+  ispeg_eval G p0 (s0,e) (Success s c eo p) ⇒
   s0 = s ∨ IS_SUFFIX s0 s ∧ LENGTH s < LENGTH s0
 Proof
   strip_tac >>
@@ -500,7 +580,7 @@ Proof
 QED
 
 Theorem ispeg_eval_list_suffix':
-  ispeg_eval_list G p (s0, e) (s,rl,err) ⇒
+  ispeg_eval_list G p0 (s0, e) (s,rl,err,p) ⇒
   s0 = s ∨ IS_SUFFIX s0 s ∧ LENGTH s < LENGTH s0
 Proof
   strip_tac >>
@@ -526,66 +606,131 @@ Proof
   rw[EQ_IMP_THM] >- (Cases_on ‘r’ >> metis_tac[]) >> metis_tac[]
 QED
 
+Theorem isFailure_checkpred[simp]:
+  isFailure (checkpred G p i r eo l) ⇔ p = lpBOT
+Proof
+  rw[checkpred_def]
+QED
+
+Theorem IS_SUFFIX_ANTISYM:
+  IS_SUFFIX a b ∧ IS_SUFFIX b a ⇒ a = b
+Proof
+  metis_tac[IS_SUFFIX_compute, IS_PREFIX_ANTISYM, REVERSE_11]
+QED
+
+Definition eqpred_def:
+  eqpred p1 p2 ⇔ ∀n. evalpred p1 n = evalpred p2 n
+End
+val _ = set_fixity "!~" (Infix(NONASSOC, 450))
+Overload "!~" = “λp1 p2. ¬(eqpred p1 p2)”
+
+Theorem eqpred_refl[simp]:
+  eqpred p p
+Proof
+  simp[eqpred_def]
+QED
+
+Theorem Kevalprev[simp,local]:
+  (∀n. evalpred pv n) ⇔ (pv = lpTOP)
+Proof
+  Cases_on ‘pv’ >> simp[] >>
+  metis_tac[DECIDE “¬(SUC n < n)”, DECIDE “n ≠ SUC n”]
+QED
+
+Theorem eqpred_lemma:
+  eqpred pv (precomp p r) ⇒
+  eqpred (conjpred p (comppred r pv)) p ∧
+  (conjpred p (comppred r pv) = lpBOT ⇔ p = lpBOT)
+Proof
+  simp[eqpred_def, GSYM evalpred_EQ_BOT, FUN_EQ_THM] >>
+  Cases_on ‘p’ >> simp[] >>
+  Cases_on ‘r’ >> simp[conjpred_correct, comppred_correct] >> rw[] >>
+  metis_tac [DECIDE “m ≤ m”, DECIDE “n < SUC n”]
+QED
+
+Theorem ispeg_eval_lpBOT1_Success[simp]:
+  ¬ispeg_eval G lpBOT (s0,e) (Success s r eo p)
+Proof
+  strip_tac >>
+  drule $ cj 1 ispeg_eval_indpred_tightens >> simp[] >>
+  ‘p ≠ lpBOT’ suffices_by (simp[GSYM evalpred_EQ_BOT, FUN_EQ_THM]) >>
+  strip_tac >> gvs[ispeg_eval_Success_neverbot]
+QED
+
+Theorem ispeg_eval_list_lpBOT1:
+  ispeg_eval_list G lpBOT (s0,e) (s,rs,err,p) ⇒ p = lpBOT
+Proof
+  strip_tac >> drule $ cj 2 ispeg_eval_indpred_tightens >>
+  simp[GSYM evalpred_EQ_BOT, FUN_EQ_THM]
+QED
+
 Theorem lemma4_1a0[local]:
-  (∀s0 e r.
-     ispeg_eval G (s0, e) r ⇒
+  (∀p0 s0 e r.
+     ispeg_eval G p0 (s0, e) r ⇒
      (∀c eo p. r = Success s0 c eo p ⇒ peg0 G e) ∧
-     (∀s c eo p. r = Success s c eo p ∧ p ≠ lpTOP ⇒ pegnontop G e) ∧
-     (isFailure r ⇒ pegfail G e) ∧
+     (∀s c eo p. r = Success s c eo p ∧ p !~ p0 ⇒ pegnontop G e) ∧
+     (isFailure r ⇒ pegfail G e ∨ p0 = lpBOT) ∧
      (∀s c eo p. r = Success s c eo p ∧ LENGTH s < LENGTH s0 ⇒ peggt0 G e)) ∧
-  (∀P0 s0 e s rl errp.
-     ispeg_eval_list G P0 (s0,e) (s,rl,errp) ⇒
-     ∀err P. errp = (err,P) ⇒
-             (s0 = s ⇒ pegfail G e ∨ P0 = lpBOT) ∧
-             (LENGTH s < LENGTH s0 ⇒ peggt0 G e) ∧
-             (P0 = lpTOP ∧ P ≠ lpTOP ⇒ pegnontop G e))
+  (∀P0 s0 e s rl err P.
+     ispeg_eval_list G P0 (s0,e) (s,rl,err,P) ⇒
+     (s0 = s ⇒ pegfail G e ∨ P0 = lpBOT) ∧
+     (LENGTH s < LENGTH s0 ⇒ peggt0 G e) ∧
+     (P0 !~ P ⇒ pegnontop G e))
 Proof
   ho_match_mp_tac ispeg_eval_strongind' >>
   simp[peg0_rules, FORALL_result, pairTheory.FORALL_PROD] >>
   rpt conj_tac >> rpt gen_tac >~
-  [‘pegnontop G (nt n f R)’]
-  >- (simp[comppred_EQ_TOP] >> rpt strip_tac >> rule_match peg0_rules >>
-      simp[]) >~
+  [‘pegnontop G (nt n f R)’, ‘conjpred p0 (comppred R p)’]
+  >- (Cases_on ‘p0 = lpBOT’ >> simp[] >>
+      Cases_on ‘eqpred p (precomp p0 R)’ >> simp[eqpred_lemma] >>
+      rpt strip_tac >~
+      [‘pegnontop _ (nt _ _ _)’] >- (rule_match peg0_rules >> simp[]) >>
+      simp[peg0_rules]) >~
+  [‘pegfail G (G.rules ' n)’, ‘pegfail G (nt _ _ _)’]
+  >- (rw[] >> simp[peg0_rules]) >~
   [‘pegnontop G (tok P f R)’]
   >- (rpt strip_tac >> rule_match peg0_rules >> strip_tac >>
       gvs[]) >~
+  [‘peg0 _ (not _ _)’] >- (rw[] >> simp[peg0_rules]) >~
   [‘pegfail G (not e f)’]
   >- (rpt strip_tac >> imp_res_tac ispeg_eval_suffix' >> gvs[peg0_rules]) >~
-  [‘pegfail G (seq e1 e2 f)’, ‘ispeg_eval G (s1,e2) (Failure _ _)’]
-  >- (rpt strip_tac >> metis_tac[peg0_rules, ispeg_eval_suffix']) >~
-  [‘pegfail G (seq e1 e2 f)’, ‘ispeg_eval G (s0,e1) (Success s1 r1 eo1 p1)’,
-   ‘ispeg_eval G (s1,e2) (Success s2 r2 eo2 p2)’]
-  >- (rpt strip_tac >> irule pegfail_seq >>
-      imp_res_tac ispeg_eval_suffix' >> gvs[]
-      >- (drule $ cj 1 peg_nullable_lpTOP >> rw[] >>
-          rev_drule $ cj 1 peg_nullable_lpTOP >> rw[] >> gvs[])
-      >- (‘p2 = lpTOP’ by (irule $ cj 1 peg_nullable_lpTOP >> metis_tac[]) >>
-          gvs[peg0_rules])
-      >- (‘p1 = lpTOP’ by (irule $ cj 1 peg_nullable_lpTOP >> metis_tac[]) >>
-          gvs[peg0_rules]) >>
-      ‘¬(p1 = lpTOP ∧ p2 = lpTOP)’ by (strip_tac >> gvs[]) >>
-      metis_tac[peg0_rules]) >~
-  [‘peggt0 G (seq e1 e2 f)’]
-  >- (rpt strip_tac >> rule_match peg0_rules
-      >- (gvs[] >>
-          drule $ cj 1 ispeg_eval_suffix >> rev_drule $ cj 1 ispeg_eval_suffix>>
-          simp[IS_SUFFIX_compute] >> rpt strip_tac >>
-          dxrule_all IS_PREFIX_ANTISYM >> simp[])
-      >- metis_tac[conjpred_def]
-      >- (drule $ cj 1 ispeg_eval_suffix' >> rw[] >> gvs[] >>
-          rev_drule $ cj 1 ispeg_eval_suffix' >> rw[] >> gvs[])) >~
-  [‘ispeg_eval G (s0,e) (Success s1 r eo1 p1)’,
-   ‘ispeg_eval_list G (conjpred p0 p1) (s1,e) _’]
+  [‘pegfail G (seq e1 e2 f)’, ‘ispeg_eval G p0 (s0,e1) (Failure _ _)’]
+  >- (rw[] >> simp[peg0_rules]) >~
+  [‘pegfail G (seq e1 e2 f)’, ‘ispeg_eval G _ (s1,e2) (Failure _ _)’]
+  >- (rpt strip_tac >>
+      metis_tac[peg0_rules, ispeg_eval_suffix', ispeg_eval_Success_neverbot]) >~
+  [‘pegnontop G (seq e1 e2 f)’,
+   ‘ispeg_eval G p0 (s0,e1) (Success s1 r1 eo1 p1)’,
+   ‘ispeg_eval G p1 (s1,e2) (Success s2 r2 eo2 p2)’]
+  >- (rpt strip_tac >> gvs[] >~
+      [‘peg0 _ (seq _ _ _)’]
+      >- (rule_match peg0_rules >> rpt (dxrule ispeg_eval_suffix') >>
+          metis_tac[IS_SUFFIX_ANTISYM]) >~
+      [‘pegnontop _ (seq _ _ _)’]
+      >- (rule_match peg0_rules >>
+          rpt (dxrule $ cj 1 ispeg_eval_indpred_tightens) >>
+          Cases_on ‘eqpred p1 p0’ >> gvs[] >> gs[eqpred_def] >> metis_tac[]) >>
+      rule_match peg0_rules >> Cases_on ‘s1 = s0’ >> gvs[] >>
+      metis_tac[ispeg_eval_suffix']) >~
+  [‘pegfail _ (choice _ _ _)’] >- (rpt strip_tac >> simp[peg0_rules]) >~
+  [‘peg0 _ (choice _ _ _)’]
+  >- (rpt strip_tac >> simp[peg0_rules] >> gvs[]) >~
+  [‘ispeg_eval_list G p0 (s0,e) (s,rs,(fl,fe),p)’,
+   ‘p = lpBOT ⇒ pegfail _ _ ∨ _’]
+  >- (rpt strip_tac >> gvs[peg0_rules]
+      >- (drule ispeg_eval_list_lpBOT1 >> simp[])
+      >- (rule_match peg0_rules >> first_x_assum irule >> strip_tac >> gvs[] >>
+          gvs[eqpred_def]) >>
+      drule $ cj 2 ispeg_eval_Success_neverbot >> simp[]) >~
+  [‘ispeg_eval G p0 (s0,e) (Success s1 r eo1 p1)’,
+   ‘ispeg_eval_list G p1 (s1,e) (s,rs,(fl,fe),p)’]
   >- (rpt strip_tac >~
-      [‘s0 = s’, ‘ispeg_eval _ (s0,e) (Success s1 _ _ _ )’]
-      >- (drule $ cj 1 ispeg_eval_suffix >>
-          drule $ cj 3 ispeg_eval_suffix >> rw[IS_SUFFIX_compute] >>
-          dxrule_all IS_PREFIX_ANTISYM >> simp[] >> strip_tac >> gvs[])
+      [‘s0 = s’, ‘ispeg_eval _ _ (s0,e) (Success s1 _ _ _ )’]
+      >- (drule $ cj 1 ispeg_eval_suffix >> drule $ cj 3 ispeg_eval_suffix >>
+          rw[] >> dxrule_all IS_SUFFIX_ANTISYM >> strip_tac >>
+          gvs[ispeg_eval_Success_neverbot])
       >- (drule ispeg_eval_suffix' >> rw[] >> simp[]) >>
-      gvs[] >> metis_tac[]) >>
-  rpt strip_tac >>
-  rename [‘conjpred p1 p2 = lpBOT’, ‘p1 = lpBOT’] >>
-  Cases_on ‘p2 = lpTOP’ >> gvs[peg0_rules]
+      Cases_on ‘eqpred p1 p’ >> gvs[] >> gvs[eqpred_def] >> metis_tac[])
 QED
 
 Theorem lemma4_1a = lemma4_1a0 |> SIMP_RULE (srw_ss() ++ DNF_ss) [AND_IMP_INTRO]
@@ -663,38 +808,38 @@ val pair_CASES = pairTheory.pair_CASES
 val option_CASES = optionTheory.option_nchotomy
 
 Theorem reducing_ispeg_eval_makes_list[local]:
-  (∀s. LENGTH s < n ⇒ ∃r. ispeg_eval G (s, e) r) ∧ ¬peg0 G e ∧ LENGTH s0 < n ⇒
+  (∀s p. LENGTH s < n ⇒ ∃r. ispeg_eval G p (s, e) r) ∧ ¬peg0 G e ∧
+  LENGTH s0 < n ⇒
   ∀P. ∃s' rl err p'. ispeg_eval_list G P (s0,e) (s',rl,err,p')
 Proof
   strip_tac >> completeInduct_on `LENGTH s0` >> rw[] >>
   gs[SF DNF_ss] >>
-  ‘(∃fl fe. ispeg_eval G (s0,e) (Failure fl fe)) ∨
-   ∃s1 c eo p. ispeg_eval G (s0,e) (Success s1 c eo p)’
+  ‘(∃fl fe. ispeg_eval G P (s0,e) (Failure fl fe)) ∨
+   ∃s1 c eo p. ispeg_eval G P (s0,e) (Success s1 c eo p)’
     by metis_tac [result_cases]
   >- metis_tac [ispeg_eval_list_nil] >>
   `s0 ≠ s1` by metis_tac [lemma4_1a] >>
   `LENGTH s1 < LENGTH s0` by metis_tac [ispeg_eval_suffix'] >>
-  Cases_on ‘conjpred P p = lpBOT’
-  >- (irule_at Any ispeg_eval_list_nilindent >> metis_tac[]) >>
-  irule_at Any ispeg_eval_list_cons >> gs[pairTheory.EXISTS_PROD] >>
-  metis_tac []
+  irule_at Any ispeg_eval_list_cons >> first_x_assum $ irule_at Any >>
+  metis_tac[]
 QED
 
 Theorem ispeg_eval_total:
-  wfG G ⇒ ∀s e. e ∈ Gexprs G ⇒ ∃r. ispeg_eval G (s,e) r
+  wfG G ⇒ ∀s p e. e ∈ Gexprs G ⇒ ∃r. ispeg_eval G p (s,e) r
 Proof
   simp[wfG_def] >> strip_tac >> gen_tac >>
   completeInduct_on ‘LENGTH s’ >>
   gs[SF DNF_ss] >> rpt strip_tac >>
+  qid_spec_tac ‘p’ >>
   ‘wfpeg G e’ by metis_tac[] >>
   Q.UNDISCH_THEN ‘e ∈ Gexprs G’ mp_tac >>
   pop_assum mp_tac >> qid_spec_tac ‘e’ >>
   Induct_on ‘wfpeg’ >> rw[] >~
   [‘nt n f R ∈ Gexprs G’]
   >- (‘G.rules ' n ∈ Gexprs G’
-        suffices_by (strip_tac >>
-                     first_x_assum $ drule_then
-                                   $ qx_choose_then ‘result’ strip_assume_tac >>
+        suffices_by (strip_tac >> gvs[] >>
+                     first_x_assum (qspec_then ‘precomp p R’ $
+                                    qx_choose_then ‘result’ strip_assume_tac) >>
                      Cases_on ‘result’ >>
                      metis_tac [ispeg_eval_nt_success, ispeg_eval_nt_failure])>>
       dsimp[Gexprs_def, FRANGE_DEF] >>
@@ -702,9 +847,9 @@ Proof
   [‘empty _ ∈ Gexprs G’] >- metis_tac [ispeg_eval_empty] >~
   [‘any _ ∈ Gexprs G’]
   >- metis_tac [ispeg_eval_any_success, ispeg_eval_any_failure,list_CASES] >~
-  [‘ispeg_eval _ (s, tok t f R)’]
+  [‘ispeg_eval _ _ (s, tok t f R)’]
   >- (Cases_on ‘s’ >- metis_tac [ispeg_eval_tok_failureEOF] >>
-      rename [‘ispeg_eval _ (h::rest, tok _ _ _)’] >>
+      rename [‘ispeg_eval _ _ (h::rest, tok _ _ _)’] >>
       ‘∃l1 l2 t. h = (t, Locs l1 l2)’
         by metis_tac[pair_CASES, TypeBase.nchotomy_of “:locs”] >> gvs[] >>
       metis_tac[ispeg_eval_tok_success, ispeg_eval_tok_failureF, pairTheory.FST,
@@ -715,8 +860,8 @@ Proof
                             ispeg_eval_not_failure] >~
   [‘seq e1 e2 f ∈ Gexprs G’]
   >- (‘e1 ∈ Gexprs G’ by imp_res_tac IN_Gexprs_E >>
-      ‘(∃fl fe. ispeg_eval G (s,e1) (Failure fl fe))  ∨
-       ∃s' c eo p. ispeg_eval G (s,e1) (Success s' c eo p)’
+      ‘(∃fl fe. ispeg_eval G p (s,e1) (Failure fl fe))  ∨
+       ∃s' c eo p'. ispeg_eval G p (s,e1) (Success s' c eo p')’
         by metis_tac[result_cases]
       >- (irule_at Any ispeg_eval_seq_fail1 >> metis_tac[]) >>
       Cases_on ‘s' = s’
@@ -724,25 +869,22 @@ Proof
           ‘e2 ∈ Gexprs G’ by imp_res_tac IN_Gexprs_E >>
           metis_tac [ispeg_eval_rules, result_cases]) >>
       ‘LENGTH s' < LENGTH s’ by metis_tac [ispeg_eval_suffix'] >>
-      ‘∃r'. ispeg_eval G (s',e2) r'’ by metis_tac [IN_Gexprs_E] >>
+      ‘∃r'. ispeg_eval G p' (s',e2) r'’ by metis_tac [IN_Gexprs_E] >>
       metis_tac [result_cases, ispeg_eval_rules]) >~
   [‘choice e1 e2’]
   >- (drule_then strip_assume_tac (cj 3 IN_Gexprs_E) >> fs[] >>
       metis_tac [ispeg_eval_rules, result_cases]) >~
   [‘rpt e f’]
   >- (imp_res_tac IN_Gexprs_E >>
-      ‘(∃fl fe. ispeg_eval G (s, e) (Failure fl fe)) ∨
-       ∃s' c eo p. ispeg_eval G (s,e) (Success s' c eo p)’
+      ‘(∃fl fe. ispeg_eval G p (s, e) (Failure fl fe)) ∨
+       ∃s' c eo p'. ispeg_eval G p (s,e) (Success s' c eo p')’
         by metis_tac [result_cases]
-      >- (‘ispeg_eval_list G lpTOP (s,e) (s,[],(fl,fe), lpTOP)’
+      >- (‘ispeg_eval_list G p (s,e) (s,[],(fl,fe),p)’
             by metis_tac [ispeg_eval_list_nil] >>
           metis_tac [ispeg_eval_rpt]) >>
       ‘s' ≠ s’ by metis_tac [lemma4_1a] >>
       ‘LENGTH s' < LENGTH s’ by metis_tac [ispeg_eval_suffix'] >>
       irule_at Any ispeg_eval_rpt >>
-      Cases_on ‘p = lpBOT’
-      >- (irule_at Any ispeg_eval_list_nilindent >> gvs[] >>
-          goal_assum drule) >>
       irule_at Any ispeg_eval_list_cons >> simp[] >>
       rpt (goal_assum drule) >>
       metis_tac[reducing_ispeg_eval_makes_list])
@@ -774,41 +916,38 @@ val checkAhead_def = Define`
 `;
 
 Theorem ispeg_eval_seq_SOME:
-  ispeg_eval G (i0, seq s1 s2 f) (Success i r eo p) ⇔
+  ispeg_eval G p0 (i0, seq s1 s2 f) (Success i r eo p) ⇔
     ∃i1 r1 r2 eo1 p1 p2.
-      ispeg_eval G (i0, s1) (Success i1 r1 eo1 p1) ∧
-      ispeg_eval G (i1, s2) (Success i r2 eo p2) ∧ r = f r1 r2 ∧
-      p = conjpred p1 p2 ∧ p ≠ lpBOT
+      ispeg_eval G p0 (i0, s1) (Success i1 r1 eo1 p1) ∧
+      ispeg_eval G p1 (i1, s2) (Success i r2 eo p) ∧ r = f r1 r2
 Proof simp[Once ispeg_eval_cases] >> metis_tac[]
 QED
 
 Theorem ispeg_eval_seq_NONE:
-  ispeg_eval G (i0, seq s1 s2 f) (Failure fl fe) ⇔
-  ispeg_eval G (i0, s1) (Failure fl fe) ∨
-  (∃i r eo p. ispeg_eval G (i0,s1) (Success i r eo p) ∧
-            ispeg_eval G (i,s2) (Failure fl fe)) ∨
-  (∃i1 i2 r1 r2 eo1 eo2 p1 p2.
-     ispeg_eval G (i0,s1) (Success i1 r1 eo1 p1) ∧
-     ispeg_eval G (i1,s2) (Success i2 r2 eo2 p2) ∧
-     conjpred p1 p2 = lpBOT ∧ fl = sloc i0 ∧ fe = G.iFAIL)
+  ispeg_eval G p0 (i0, seq s1 s2 f) (Failure fl fe) ⇔
+    ispeg_eval G p0 (i0, s1) (Failure fl fe) ∨
+    (∃i r eo p. ispeg_eval G p0 (i0,s1) (Success i r eo p) ∧
+                ispeg_eval G p (i,s2) (Failure fl fe))
 Proof
   simp[Once ispeg_eval_cases] >> metis_tac[]
 QED
 
 Theorem ispeg_eval_tok_NONE =
-  “ispeg_eval G (i, tok P f R) (Failure fl fe)”
+  “ispeg_eval G p (i, tok P f R) (Failure fl fe)”
     |> SIMP_CONV (srw_ss()) [Once ispeg_eval_cases]
 
 Theorem ispeg_eval_tok_SOME:
-  ispeg_eval G (i0, tok P f R) (Success i r eo p) ⇔
+  ispeg_eval G p0 (i0, tok P f R) (Success i r eo p) ⇔
   ∃h l1 l2. P h ∧ i0 = (h,Locs l1 l2)::i ∧ r = f (h,Locs l1 l2) ∧ eo = NONE ∧
-            p = rel_at_col R (loccol l1)
+            p = conjpred p0 (rel_at_col R (loccol l1)) ∧ p ≠ lpBOT
 Proof simp[Once ispeg_eval_cases, pairTheory.EXISTS_PROD] >> metis_tac[]
 QED
 
 Theorem ispeg_eval_empty[simp]:
-  ispeg_eval G (i, empty r) x ⇔ x = Success i r NONE lpTOP
-Proof simp[Once ispeg_eval_cases]
+  ispeg_eval G p (i, empty r) x ⇔
+    p = lpBOT ∧ x = Failure (sloc i) G.iFAIL ∨
+    p ≠ lpBOT ∧ x = Success i r NONE p
+Proof simp[Once ispeg_eval_cases] >> Cases_on ‘x’ >> simp[] >> metis_tac[]
 QED
 
 (* Theorem ispeg_eval_NT_SOME:
