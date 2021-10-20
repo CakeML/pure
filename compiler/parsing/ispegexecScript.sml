@@ -62,7 +62,6 @@ Datatype:
 End
 
 Overload OME[local] = “optmax MAXerr”
-Overload EOF[local] = “Locs EOFpt EOFpt”
 
 Definition coreloop_def[nocompute]:
   coreloop G =

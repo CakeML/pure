@@ -174,8 +174,8 @@ Theorem good2 =
                      \ bar :: C\n")
           lpTOP [] NONE [] done failed”
 
-(* stops at bar line, leaving it in input still to be consumed *)
-Theorem bad1 =
+(* stops at arrow line, leaving it in input still to be consumed *)
+Theorem fail1 =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun "foo :: A -> B\n\
                      \bar :: C\n\
@@ -183,23 +183,25 @@ Theorem bad1 =
                      \baz :: D")
           lpTOP [] NONE [] done failed”
 
-Theorem bad1a =
+(* also stops at arrow *)
+Theorem fail1a =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun "bar :: C\n\
                      \-> D")
           lpTOP [] NONE [] done failed”
 
-Theorem bad1b =
+(* and again *)
+Theorem fail1b =
     EVAL “ispeg_exec purePEG (nt (INL nDecl) I lrOK)
           (lexer_fun "bar :: C\n\
                      \-> D")
-          [] [] NONE [] done failed”
+          lpTOP [] NONE [] done failed”
 
-(* stops with no input consumed, which is a bit weird *)
-Theorem bad2 =
+(* stops with at bar line *)
+Theorem fail2 =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun " foo :: A -> B\n\
                      \bar :: C\n")
-          [] [] NONE [] done failed”
+          lpTOP [] NONE [] done failed”
 
 val _ = export_theory();

@@ -62,18 +62,17 @@ Datatype:
 End
 
 (* a locpred encodes a predicate that is true of an indentation;
-   use lpxLT 0 for a bottom/always-false value
  *)
 Datatype:
-  locpred = lpTOP | lpxLT num | lpxEQ num
+  locpred = lpIval num num | lpBOT | lpxGE num
 End
-Overload lpBOT = “lpxLT 0”
+Overload lpTOP = “lpxGE 0”
 
 Definition rel_at_col_def[simp]:
   rel_at_col lrOK c = lpTOP ∧
-  rel_at_col lrGE c = lpxLT (c + 1) ∧
-  rel_at_col lrGT c = lpxLT c ∧
-  rel_at_col lrEQ c = lpxEQ c
+  rel_at_col lrGE c = lpIval 0 c ∧
+  rel_at_col lrGT c = (if c = 0 then lpBOT else lpIval 0 (c - 1)) ∧
+  rel_at_col lrEQ c = lpIval c 0
 End
 
 Definition loccol_def[simp]:
@@ -153,75 +152,99 @@ Proof
 QED
 
 Definition evalpred_def[simp]:
-  evalpred lpTOP n = T ∧
-  evalpred (lpxLT m) n = (n < m) ∧
-  evalpred (lpxEQ m) n = (m = n)
+  evalpred lpBOT n = F ∧
+  evalpred (lpIval m sz) n = (m ≤ n ∧ n ≤ m + sz) ∧
+  evalpred (lpxGE m) n = (m ≤ n)
 End
 
 Theorem evalpred_EQ_BOT:
   (evalpred p = λn. F) ⇔ p = lpBOT
 Proof
-  simp[FUN_EQ_THM] >> Cases_on ‘p’ >> simp[] >> eq_tac >> simp[] >>
-  CONV_TAC CONTRAPOS_CONV >> simp[] >> strip_tac >>
-  rename [‘_ < n’] >> qexists_tac ‘n - 1’ >> simp[]
+  simp[FUN_EQ_THM] >> Cases_on ‘p’ >> simp[] >>
+  irule_at Any arithmeticTheory.LESS_EQ_REFL >> simp[]
 QED
 
-Definition conjpred_def[simp]:
-  conjpred lpTOP p = p ∧
-  conjpred p lpTOP = p ∧
-  conjpred (lpxLT m) (lpxLT n) = lpxLT (MIN m n) ∧
-  conjpred (lpxLT m) (lpxEQ n) = (if n < m then lpxEQ n else lpxLT 0) ∧
-  conjpred (lpxEQ m) (lpxLT n) = (if m < n then lpxEQ m else lpxLT 0) ∧
-  conjpred (lpxEQ m) (lpxEQ n) = if m = n then lpxEQ m else lpxLT 0
+Definition conjpred_def:
+  conjpred lpBOT p = lpBOT ∧
+  conjpred p lpBOT = lpBOT ∧
+  conjpred (lpIval m1 sz1) (lpIval m2 sz2) =
+  (if m1 + sz1 < m2 ∨ m2 + sz2 < m1 then lpBOT
+   else let l = MAX m1 m2 in
+          lpIval l (MIN (m1 + sz1) (m2 + sz2) - l)) ∧
+  conjpred (lpIval m sz) (lpxGE n) =
+    (if m + sz < n then lpBOT
+     else let l = MAX m n
+          in lpIval (MAX m n) (m + sz - l)) ∧
+  conjpred (lpxGE n) (lpIval m sz) =
+    (if m + sz < n then lpBOT
+     else let l = MAX m n
+          in lpIval (MAX m n) (m + sz - l)) ∧
+  conjpred (lpxGE m) (lpxGE n) = lpxGE (MAX m n)
 End
 
 Theorem conjTOP_ID[simp]:
   conjpred lpTOP p = p ∧
   conjpred p lpTOP = p
 Proof
-  Cases_on ‘p’ >> simp[]
+  Cases_on ‘p’ >> simp[conjpred_def]
 QED
 
 Theorem conjBOT_BOT[simp]:
   conjpred lpBOT p = lpBOT ∧
   conjpred p lpBOT = lpBOT
 Proof
-  Cases_on ‘p’ >> simp[]
+  Cases_on ‘p’ >> simp[conjpred_def]
 QED
 
 Theorem conjpred_correct:
   evalpred (conjpred p q) n ⇔ evalpred p n ∧ evalpred q n
 Proof
-  Cases_on ‘p’ >> simp[] >> Cases_on ‘q’ >> simp[] >>
-  rw[]
+  Cases_on ‘p’ >> simp[conjpred_def] >>
+  Cases_on ‘q’ >> simp[conjpred_def] >>
+  rw[conjpred_def, arithmeticTheory.MAX_DEF, arithmeticTheory.MIN_DEF]
 QED
 
 Definition comppred_def[simp]:
-  comppred lrOK (lpxLT n) = (if n = 0 then lpBOT else lpTOP) ∧
+  comppred r lpBOT = lpBOT ∧
   comppred lrOK p = lpTOP ∧
   comppred lrEQ p = p ∧
-  comppred lrGE (lpxEQ m) = (* m >= _, i.e., *) lpxLT (m + 1) ∧
-  comppred lrGE (lpxLT m) = lpxLT m ∧
-  comppred lrGE lpTOP = lpTOP ∧
-  comppred lrGT (lpxEQ m) = lpxLT m ∧
-  comppred lrGT (lpxLT m) = (if m ≤ 1 then lpBOT else lpxLT (m - 1)) ∧
-  comppred lrGT lpTOP = lpTOP
+  comppred lrGE (lpIval m sz) = lpIval 0 (m + sz) ∧
+  comppred lrGE (lpxGE m) = lpTOP ∧
+  comppred lrGT (lpIval m sz) = (if m = 0 ∧ sz = 0 then lpBOT
+                                 else lpIval 0 (m + sz - 1)) ∧
+  comppred lrGT (lpxGE m) = lpTOP
 End
 
-Definition precomp_def[simp]:
-  precomp (lpxLT n) lrEQ = lpxLT n ∧
-  precomp (lpxLT n) R    = (if n = 0 then lpBOT else lpTOP) ∧
-  precomp p         lrOK = lpTOP ∧
-  precomp p         lrEQ = p ∧
-  precomp p         lrGE = lpTOP ∧
-  precomp p         lrGT = lpTOP
-End
-
-Theorem precomp_top[simp]:
-  precomp lpTOP R = lpTOP
+Theorem comppred_lpTOP[simp]:
+  comppred R lpTOP = lpTOP
 Proof
   Cases_on ‘R’ >> simp[]
 QED
+
+Theorem comppred_correct:
+  evalpred (comppred R P) p ⇔
+    ∃c. evalpred P c ∧ evalrel R p c
+Proof
+  Cases_on ‘P’ >> simp[] >> Cases_on ‘R’ >> simp[]
+  >- (eq_tac >> strip_tac >> simp[] >> first_assum $ irule_at (Pos last) >>
+      simp[])
+  >- (rw[] >> gvs[] >> eq_tac >> strip_tac >> simp[] >>
+      rename [‘p ≤ m + n - 1’] >> qexists_tac ‘m + n’ >> simp[])
+  >- (irule_at Any arithmeticTheory.LESS_EQ_REFL >> simp[])
+  >- (rename [‘m ≤ _ ∧ n ≤ _’] >> qexists_tac ‘MAX m n’ >> simp[])
+  >- (rename [‘m ≤ _ ∧ n < _’] >> qexists_tac ‘MAX m (n + 1)’ >> simp[]) >>
+  irule_at Any arithmeticTheory.LESS_EQ_REFL
+QED
+
+Definition precomp_def[simp]:
+  precomp lpBOT         R = lpBOT ∧
+  precomp p             lrOK = lpTOP ∧
+  precomp p             lrEQ = p ∧
+  precomp (lpIval m sz) lrGE = lpxGE m ∧
+  precomp (lpxGE m)     lrGE = lpxGE m ∧
+  precomp (lpIval m sz) lrGT = lpxGE (m + 1) ∧
+  precomp (lpxGE m)     lrGT = lpxGE (m + 1)
+End
 
 Theorem precomp_EQ_bot[simp]:
   precomp p R = lpBOT ⇔ p = lpBOT
@@ -235,31 +258,53 @@ Proof
   Cases_on ‘P’ >> simp[] >> Cases_on ‘R’ >> simp[]
 QED
 
-Theorem comppred_lpTOP[simp]:
-  comppred R lpTOP = lpTOP
+Definition isnat_ival_def:
+  isnat_ival A ⇔ (∃a b. A = { n | a ≤ n ∧ n ≤ b }) ∨ ∃a. A = { n | a ≤ n }
+End
+
+Theorem evalpred_11:
+  evalpred p = evalpred q ⇔ p = q
 Proof
-  Cases_on ‘R’ >> simp[]
+  simp[FUN_EQ_THM, Once EQ_IMP_THM] >> Cases_on ‘p’ >> simp[] >>
+  Cases_on ‘q’ >> simp[] >~
+  [‘_ ⇒ m = n’]
+  >- (CCONTR_TAC >> gvs[] >> first_x_assum $ qspec_then ‘MIN m n’ mp_tac >>
+      simp[]) >~
+  [‘_ ⇒ m1 = m2 ∧ sz1 = sz2’]
+  >- (strip_tac >> Cases_on ‘m1 = m2’ >> simp[]
+      >- (gvs[] >> CCONTR_TAC >>
+          first_x_assum $ qspec_then ‘m1 + MAX sz1 sz2’ mp_tac >> simp[]) >>
+      first_x_assum $ qspec_then ‘MIN m1 m2’ mp_tac >> simp[]) >~
+  [‘_ ⇎ _’]
+  >- (simp[EQ_SYM_EQ] >>
+      rename [‘n ≤ _ ⇎ m ≤ _ ∧ _ ≤ m + sz’] >>
+      qexists_tac ‘MAX n (m + sz + 1)’ >> simp[]) >~
+  [‘_ ⇎ _’]
+  >- (simp[EQ_SYM_EQ] >>
+      rename [‘n ≤ _ ⇎ m ≤ _ ∧ _ ≤ m + sz’] >>
+      qexists_tac ‘MAX n (m + sz + 1)’ >> simp[]) >>
+  irule_at Any arithmeticTheory.LESS_EQ_REFL >> simp[]
 QED
 
-Theorem comppred_EQ_TOP:
-  comppred R P = lpTOP ⇔
-    P = lpTOP ∨ R = lrOK ∧ (case P of lpxLT n => 0 < n | _ => T)
+Theorem preds_are_nat_ivals:
+  ∀p. isnat_ival (evalpred p)
 Proof
-  Cases_on ‘R’ >> Cases_on ‘P’ >> simp[] >> rw[]
+  Cases_on ‘p’ >> simp[isnat_ival_def, FUN_EQ_THM]
+  >- (disj1_tac >> rename [‘m ≤ _ ∧ _ ≤ m + sz’] >>
+      qexistsl_tac [‘m’, ‘m + sz’] >> simp[])
+  >- (disj1_tac >> qexistsl_tac [‘1’, ‘0’] >> simp[])
+  >- (disj2_tac >> rename [‘n ≤ _ ⇔ _ ≤ _’] >>
+      qexists_tac ‘n’ >> simp[])
 QED
 
-Theorem comppred_correct:
-  evalpred (comppred R P) p ⇔
-    ∃c. evalpred P c ∧ evalrel R p c
+Theorem nat_ivals_have_preds:
+  isnat_ival A ⇒ ∃p. evalpred p = A
 Proof
-  Cases_on ‘P’ >> simp[] >> Cases_on ‘R’ >> simp[]
-  >- irule_at Any arithmeticTheory.LESS_EQ_REFL
-  >- irule_at Any prim_recTheory.LESS_SUC_REFL
-  >- (eq_tac >> strip_tac >> simp[] >> first_x_assum $ irule_at Any >> simp[])
-  >- (rw[] >> eq_tac >> strip_tac >> simp[] >>
-      first_x_assum $ irule_at Any >> simp[])
-  >- (rw[] >> rename [‘_ < m’] >> Cases_on ‘m’ >> gvs[] >>
-      irule_at Any prim_recTheory.LESS_SUC_REFL)
+  simp[isnat_ival_def] >> strip_tac >> simp[FUN_EQ_THM]
+  >- (rename [‘_ ⇔ lo ≤ _ ∧ _ ≤ hi’] >> Cases_on ‘lo ≤ hi’
+      >- (qexists_tac ‘lpIval lo (hi - lo)’ >> simp[]) >>
+      qexists_tac ‘lpBOT’ >> simp[]) >>
+  rename [‘_ ⇔ lo ≤ _’] >> qexists_tac ‘lpxGE lo’ >> simp[]
 QED
 
 Definition checkpred_def:
@@ -279,7 +324,7 @@ Theorem checkpred_EQ_Failure[simp]:
   checkpred G p i r eo fl1 = Failure fl2 fe ⇔
   p = lpBOT ∧ fl1 = fl2 ∧ fe = G.iFAIL
 Proof
-  simp[checkpred_def, AllCaseEqs(), EQ_SYM_EQ]
+  simp[checkpred_def, AllCaseEqs()] >> metis_tac[]
 QED
 
 Overload EOF = “Locs EOFpt EOFpt”
@@ -472,7 +517,7 @@ QED
 Theorem conjpred_comppred_lemma:
   conjpred p (comppred R (precomp p R)) = p
 Proof
-  Cases_on ‘R’ >> simp[] >> Cases_on ‘p’ >> simp[] >> rw[]
+  Cases_on ‘R’ >> simp[conjpred_def] >> Cases_on ‘p’ >> simp[conjpred_def]
 QED
 
 Theorem peg_nullable_lpTOP:
@@ -618,36 +663,6 @@ Proof
   metis_tac[IS_SUFFIX_compute, IS_PREFIX_ANTISYM, REVERSE_11]
 QED
 
-Definition eqpred_def:
-  eqpred p1 p2 ⇔ ∀n. evalpred p1 n = evalpred p2 n
-End
-val _ = set_fixity "!~" (Infix(NONASSOC, 450))
-Overload "!~" = “λp1 p2. ¬(eqpred p1 p2)”
-
-Theorem eqpred_refl[simp]:
-  eqpred p p
-Proof
-  simp[eqpred_def]
-QED
-
-Theorem Kevalprev[simp,local]:
-  (∀n. evalpred pv n) ⇔ (pv = lpTOP)
-Proof
-  Cases_on ‘pv’ >> simp[] >>
-  metis_tac[DECIDE “¬(SUC n < n)”, DECIDE “n ≠ SUC n”]
-QED
-
-Theorem eqpred_lemma:
-  eqpred pv (precomp p r) ⇒
-  eqpred (conjpred p (comppred r pv)) p ∧
-  (conjpred p (comppred r pv) = lpBOT ⇔ p = lpBOT)
-Proof
-  simp[eqpred_def, GSYM evalpred_EQ_BOT, FUN_EQ_THM] >>
-  Cases_on ‘p’ >> simp[] >>
-  Cases_on ‘r’ >> simp[conjpred_correct, comppred_correct] >> rw[] >>
-  metis_tac [DECIDE “m ≤ m”, DECIDE “n < SUC n”]
-QED
-
 Theorem ispeg_eval_lpBOT1_Success[simp]:
   ¬ispeg_eval G lpBOT (s0,e) (Success s r eo p)
 Proof
@@ -668,21 +683,21 @@ Theorem lemma4_1a0[local]:
   (∀p0 s0 e r.
      ispeg_eval G p0 (s0, e) r ⇒
      (∀c eo p. r = Success s0 c eo p ⇒ peg0 G e) ∧
-     (∀s c eo p. r = Success s c eo p ∧ p !~ p0 ⇒ pegnontop G e) ∧
+     (∀s c eo p. r = Success s c eo p ∧ p ≠ p0 ⇒ pegnontop G e) ∧
      (isFailure r ⇒ pegfail G e ∨ p0 = lpBOT) ∧
      (∀s c eo p. r = Success s c eo p ∧ LENGTH s < LENGTH s0 ⇒ peggt0 G e)) ∧
   (∀P0 s0 e s rl err P.
      ispeg_eval_list G P0 (s0,e) (s,rl,err,P) ⇒
      (s0 = s ⇒ pegfail G e ∨ P0 = lpBOT) ∧
      (LENGTH s < LENGTH s0 ⇒ peggt0 G e) ∧
-     (P0 !~ P ⇒ pegnontop G e))
+     (P0 ≠ P ⇒ pegnontop G e))
 Proof
   ho_match_mp_tac ispeg_eval_strongind' >>
   simp[peg0_rules, FORALL_result, pairTheory.FORALL_PROD] >>
   rpt conj_tac >> rpt gen_tac >~
   [‘pegnontop G (nt n f R)’, ‘conjpred p0 (comppred R p)’]
   >- (Cases_on ‘p0 = lpBOT’ >> simp[] >>
-      Cases_on ‘eqpred p (precomp p0 R)’ >> simp[eqpred_lemma] >>
+      Cases_on ‘p = precomp p0 R’ >> simp[conjpred_comppred_lemma] >>
       rpt strip_tac >~
       [‘pegnontop _ (nt _ _ _)’] >- (rule_match peg0_rules >> simp[]) >>
       simp[peg0_rules]) >~
@@ -709,7 +724,7 @@ Proof
       [‘pegnontop _ (seq _ _ _)’]
       >- (rule_match peg0_rules >>
           rpt (dxrule $ cj 1 ispeg_eval_indpred_tightens) >>
-          Cases_on ‘eqpred p1 p0’ >> gvs[] >> gs[eqpred_def] >> metis_tac[]) >>
+          Cases_on ‘p1 = p0’ >> gvs[]) >>
       rule_match peg0_rules >> Cases_on ‘s1 = s0’ >> gvs[] >>
       metis_tac[ispeg_eval_suffix']) >~
   [‘pegfail _ (choice _ _ _)’] >- (rpt strip_tac >> simp[peg0_rules]) >~
@@ -717,10 +732,7 @@ Proof
   >- (rpt strip_tac >> simp[peg0_rules] >> gvs[]) >~
   [‘ispeg_eval_list G p0 (s0,e) (s,rs,(fl,fe),p)’,
    ‘p = lpBOT ⇒ pegfail _ _ ∨ _’]
-  >- (rpt strip_tac >> gvs[peg0_rules]
-      >- (drule ispeg_eval_list_lpBOT1 >> simp[])
-      >- (rule_match peg0_rules >> first_x_assum irule >> strip_tac >> gvs[] >>
-          gvs[eqpred_def]) >>
+  >- (rpt strip_tac >> gvs[peg0_rules] >>
       drule $ cj 2 ispeg_eval_Success_neverbot >> simp[]) >~
   [‘ispeg_eval G p0 (s0,e) (Success s1 r eo1 p1)’,
    ‘ispeg_eval_list G p1 (s1,e) (s,rs,(fl,fe),p)’]
@@ -730,7 +742,7 @@ Proof
           rw[] >> dxrule_all IS_SUFFIX_ANTISYM >> strip_tac >>
           gvs[ispeg_eval_Success_neverbot])
       >- (drule ispeg_eval_suffix' >> rw[] >> simp[]) >>
-      Cases_on ‘eqpred p1 p’ >> gvs[] >> gvs[eqpred_def] >> metis_tac[])
+      Cases_on ‘p1 = p’ >> gvs[])
 QED
 
 Theorem lemma4_1a = lemma4_1a0 |> SIMP_RULE (srw_ss() ++ DNF_ss) [AND_IMP_INTRO]
