@@ -1,13 +1,13 @@
 open HolKernel Parse boolLib bossLib;
 
 
-open stringTheory grammarTheory ispegexecTheory ispegsTheory tokenUtilsTheory
+open stringTheory grammarTheory ispegexecTheory ispegTheory tokenUtilsTheory
 local open lexer_funTheory in end
 
 val _ = new_theory "purePEG";
 
-val _ = set_grammar_ancestry ["tokenUtils", "ispegs", "grammar", "lexer_fun",
-                              "ispegexec"]
+val _ = set_grammar_ancestry
+        ["tokenUtils", "grammar", "lexer_fun", "ispegexec"]
 
 
 Datatype:

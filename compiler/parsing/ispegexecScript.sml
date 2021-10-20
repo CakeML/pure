@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 
 open boolSimps
 
-open ispegsTheory locationTheory
+open ispegTheory locationTheory
 
 open rich_listTheory;
 

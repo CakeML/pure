@@ -4,7 +4,7 @@ open grammarTheory finite_mapTheory
 open locationTheory
 open listTheory rich_listTheory
 
-val _ = new_theory "ispegs"
+val _ = new_theory "ispeg"
 
 (* Based on HOL's core PEG theory, which is based on
      Koprowski and Binzstok, "TRX: A Formally Verified Parser Interpreter".
