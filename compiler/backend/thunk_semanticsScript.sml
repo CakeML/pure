@@ -55,7 +55,7 @@ Definition with_atoms_def:
     | INL Diverge => Div
     | INL Type_error => Err
     | INR ws =>
-      case get_atoms vs of
+      case get_atoms ws of
       | SOME as => f as
       | NONE => Err
 End
@@ -102,11 +102,11 @@ Definition next_def:
           else if s = "Bind" ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
-               if k = 0 then Div else next (k-1) (INR m) (BC f stack) state)
+               if k = 0 then Div else next (k-1) (force m) (BC f stack) state)
           else if s = "Handle" ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
-               if k = 0 then Div else next (k-1) (INR m) (HC f stack) state)
+               if k = 0 then Div else next (k-1) (force m) (HC f stack) state)
           else if s = "Act" ∧ LENGTH vs = 1 then
             (with_atoms vs (λas.
                case HD as of
