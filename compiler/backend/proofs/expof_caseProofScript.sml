@@ -79,16 +79,6 @@ Proof
   \\ irule exp_eq_Lam_cong \\ gs []
 QED
 
-Theorem exp_eq_Tick_cong:
-  x ≅ y ⇒ Tick x ≅ y
-Proof
-  strip_tac
-  \\ irule exp_eq_trans
-  \\ first_assum (irule_at Any)
-  \\ irule eval_wh_IMP_exp_eq
-  \\ simp [subst_def, eval_wh_thm, subst_funs_def, FUPDATE_LIST_THM]
-QED
-
 (* TODO pure_cexp_lemmas? *)
 Theorem exp_eq_Let_cong:
   a ≅ c ∧
