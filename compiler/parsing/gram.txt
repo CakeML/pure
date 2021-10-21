@@ -1,7 +1,11 @@
-TyBase ::= Idᵍᵉ | "("ᵍᵉ TySeq1ᵍᵉ ")"ᵍᵉ
-TySeq1 ::= Tyᵍᵉ | Tyᵍᵉ ","ᵍᵉ TySeq1ᵍᵉ
-Ty     ::= TyBaseᵍᵉ | TyBaseᵍᵉ "->"ᵍᵉ Tyᵍᵉ
+TyBase ::= capIDᵍᵉ | lcIdᵍᵉ
+        |  "("ᵍᵉ (Tyᵍᵉ (","ᵍᵉ Tyᵍᵉ)꙳ | ε) ")"ᵍᵉ
+        | "["ᵍᵉ Tyᵍᵉ "]"ᵍᵉ
+TyApp  ::= (TyBaseᵍᵉ)⁺
+Ty     ::= TyAppᵍᵉ ("->"ᵍᵉ TyAppᵍᵉ)꙳
 
-Decl ::= Id⁼ "::"ᵍᵗ Tyᵍᵗ
+TyConDecl     ::= capIdᵍᵉ (TyBaseᵍᵉ)꙳
 
-Decls ::= Decl⁼ Decls⁼ | ε
+Decl ::= lcId⁼ "::"ᵍᵗ Tyᵍᵗ
+      |  "data"⁼ capIDᵍᵗ (lcIdᵍᵗ)꙳ "="ᵍᵗ TyConDeclᵍᵗ ("|"ᵍᵗ TyConDeclᵍᵗ)꙳
+Decls ::= (Decl⁼)꙳
