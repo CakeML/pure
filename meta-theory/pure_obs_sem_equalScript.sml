@@ -126,14 +126,16 @@ Proof
     \\ drule_all eval_wh_Closure_closed
     \\ rpt (disch_then assume_tac)
     \\ reverse conj_tac
-    THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [])
+    THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [FLOOKUP_UPDATE])
     \\ ‘Lam s1 e1 ≃ Lam s2 e2’ by
       (‘h1 ≃ h2’ by fs [app_bisimilarity_eq]
        \\ pop_assum mp_tac
        \\ once_rewrite_tac [app_bisimilarity_iff]
        \\ fs [eval_wh_Lam])
     \\ ‘Lam s1 e1 ≅ Lam s2 e2’ by fs [app_bisimilarity_eq]
-    \\ fs [exp_eq_Lam] \\ fs [bind1_def])
+    \\ fs [exp_eq_Lam, bind1_def, closed_def]
+    \\ first_x_assum irule \\ simp []
+    \\ metis_tac [exp_eq_refl, exp_eq_sym, exp_eq_trans, exp_eq_Tick_cong])
   \\ Cases_on ‘s = "Raise"’
   THEN1
    (asm_rewrite_tac [CONS_11] \\ simp_tac (srw_ss()) []
@@ -179,14 +181,16 @@ Proof
     \\ drule_all eval_wh_Closure_closed
     \\ rpt (disch_then assume_tac)
     \\ reverse conj_tac
-    THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [])
+    THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [FLOOKUP_UPDATE])
     \\ ‘Lam s1 e1 ≃ Lam s2 e2’ by
       (‘h1 ≃ h2’ by fs [app_bisimilarity_eq]
        \\ pop_assum mp_tac
        \\ once_rewrite_tac [app_bisimilarity_iff]
        \\ fs [eval_wh_Lam])
     \\ ‘Lam s1 e1 ≅ Lam s2 e2’ by fs [app_bisimilarity_eq]
-    \\ fs [exp_eq_Lam] \\ fs [bind1_def])
+    \\ fs [exp_eq_Lam] \\ fs [bind1_def, closed_def]
+    \\ first_x_assum irule \\ simp []
+    \\ metis_tac [exp_eq_refl, exp_eq_sym, exp_eq_trans, exp_eq_Tick_cong])
   \\ Cases_on ‘s = "Length"’
   THEN1
    (pop_assum mp_tac \\ simp_tac (srw_ss()) []
