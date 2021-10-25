@@ -116,7 +116,8 @@ End
 Definition thunk_rel_def:
   thunk_rel x v ⇔
     ∃y. v = Thunk (INR y) ∧
-        exp_rel x y
+        exp_rel x y ∧
+        closed x
 End
 
 Definition v_rel_def[simp]:
@@ -700,7 +701,7 @@ Proof
         \\ gvs [result_map_def, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF,
                 LIST_REL_EL_EQN]
         \\ rw [] \\ gvs [EL_MAP]
-        \\ gs [thunk_rel_def])
+        \\ gs [thunk_rel_def, EVERY_EL])
       >- (
         gvs [eval_to_def, eval_wh_to_def, LIST_REL_EL_EQN]
         \\ IF_CASES_TAC \\ gs []
@@ -743,7 +744,8 @@ Proof
     >- ((* Cons *)
       simp [eval_wh_to_def, eval_to_def, result_map_MAP, combinTheory.o_DEF,
             result_map_def, MEM_MAP, MAP_MAP_o, EVERY2_MAP, thunk_rel_def,
-            SF ETA_ss])
+            SF ETA_ss]
+      \\ gs [LIST_REL_EL_EQN, EVERY_EL])
     >- ((* Proj *)
       simp [eval_wh_to_def, Once eval_to_def]
       \\ simp [Once eval_to_def]
@@ -941,19 +943,14 @@ Theorem pure_to_thunk_next[local]:
 Proof
   ho_match_mp_tac pure_semanticsTheory.next_ind \\ rw []
   \\ simp [Once pure_semanticsTheory.next_def]
-  \\ Cases_on ‘v = wh_Error’ \\ gs []
+  \\ Cases_on ‘v = wh_Error ∨
+               v = wh_Diverge ∨
+               (∃x. v = wh_Atom x) ∨
+               (∃s x. v = wh_Closure s x)’
   >- ((* Error *)
-    gs [Once pure_semanticsTheory.next_def])
-  \\ Cases_on ‘v = wh_Diverge’ \\ gs []
-  >- ((* Diverge *)
-    Cases_on ‘w’ \\ gvs []
-    \\ simp [Once thunk_semanticsTheory.next_def])
-  \\ Cases_on ‘∃x. v = wh_Atom x’ \\ gs []
-  >- ((* Atom *)
-    gs [Once pure_semanticsTheory.next_def])
-  \\ Cases_on ‘∃s x. v = wh_Closure s x’
-  >- ((* Closure *)
-    gs [Once pure_semanticsTheory.next_def])
+    gvs [Once pure_semanticsTheory.next_def]
+    \\ Cases_on ‘w’ \\ gs [Once thunk_semanticsTheory.next_def]
+    \\ gs [Once pure_semanticsTheory.next_def])
   \\ ‘∃n xs. v = wh_Constructor n xs’
     by (Cases_on ‘v’ \\ gs [])
   \\ gvs []
@@ -1115,12 +1112,8 @@ Proof
     \\ namedCases_on ‘eval y2’ ["a", "a"] \\ gs []
     \\ Cases_on ‘a’ \\ gvs [thunk_semanticsTheory.get_atoms_def]
     \\ first_x_assum irule
-    \\ gs [state_rel_def]
-    \\ conj_tac
-    >- (
-      gs [LIST_REL_REPLICATE_same]
-      \\ rw [] \\ gs [thunk_rel_def])
-    \\ cheat (* oops: atom on the right is not a thunk. *))
+    \\ gs [state_rel_def, LIST_REL_REPLICATE_same, thunk_rel_def]
+    \\ gs [LIST_REL_EL_EQN, exp_rel_rules])
   \\ IF_CASES_TAC \\ gs []
   >- ((* Length *)
     simp [Once thunk_semanticsTheory.next_def]
@@ -1153,7 +1146,7 @@ Proof
       by gs [state_rel_def, LIST_REL_EL_EQN, arithmeticTheory.NOT_LESS_EQUAL]
     \\ gs []
     \\ first_x_assum irule \\ gs []
-    \\ cheat (* oops: atom on the right is not a thunk. *))
+    \\ gs [state_rel_def, thunk_rel_def, LIST_REL_EL_EQN, exp_rel_rules])
   \\ IF_CASES_TAC \\ gs []
   >- ((* Deref *)
     simp [Once thunk_semanticsTheory.next_def]
@@ -1199,30 +1192,36 @@ Proof
     >- (
       IF_CASES_TAC \\ gs []
       \\ reverse IF_CASES_TAC \\ gs []
-      >- (
-        gs [state_rel_def, LIST_REL_EL_EQN])
-      \\ first_x_assum irule \\ gs []
       \\ gs [state_rel_def, LIST_REL_EL_EQN]
-      \\ ‘closed (EL (Num i) (EL n s))’ by cheat \\ gs []
+      \\ first_x_assum irule
       \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
       \\ first_x_assum drule
-      \\ ‘LENGTH (EL n s) = LENGTH (EL n t)’ by cheat \\ gs []
-      \\ disch_then irule
-      \\ intLib.ARITH_TAC)
+      \\ strip_tac
+      \\ ‘Num i < LENGTH (EL n s)’
+        by intLib.ARITH_TAC
+      \\ first_x_assum (drule_then assume_tac) \\ gs [thunk_rel_def])
     >- (
       IF_CASES_TAC \\ gs []
       \\ first_x_assum irule \\ gs []
       \\ first_assum (irule_at Any)
       \\ first_assum (irule_at Any)
-      \\ cheat (* constructors are not thunk_rel *))
+      \\ gs [thunk_rel_def]
+      \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
+        by gs []
+      \\ pop_assum SUBST1_TAC
+      \\ simp [exp_rel_Cons])
     \\ IF_CASES_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs []
-    >- (
-      gs [state_rel_def, LIST_REL_EL_EQN])
+    \\ gs [state_rel_def, LIST_REL_EL_EQN]
     \\ first_x_assum irule
     \\ first_assum (irule_at Any)
     \\ first_assum (irule_at Any) \\ gs []
-    \\ cheat (* constructors are not thunk_rel *))
+    \\ gs [thunk_rel_def]
+    \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
+      by gs []
+    \\ pop_assum SUBST1_TAC
+    \\ simp [exp_rel_Cons]
+    \\ intLib.ARITH_TAC)
   \\ IF_CASES_TAC \\ gs []
   >- ((* Update *)
     simp [Once thunk_semanticsTheory.next_def]
@@ -1267,22 +1266,45 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     >- (
       IF_CASES_TAC \\ gs []
-      \\ reverse IF_CASES_TAC \\ gs []
-      >- (
-        gs [state_rel_def, LIST_REL_EL_EQN])
+      \\ IF_CASES_TAC \\ gs []
+      \\ gs [state_rel_def, LIST_REL_EL_EQN]
       \\ first_x_assum irule \\ gs []
-      \\ gs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
-      \\ rw [LENGTH_LUPDATE, EL_LUPDATE] \\ rw []
+      \\ reverse conj_tac
       >- (
-        first_x_assum drule
-        \\ rw []
-        \\ first_x_assum (qspec_then ‘Num i’ assume_tac)
-        \\ gs []
-        \\ cheat (* ???? *))
-      \\ cheat (* Cons & Constructor are not thunk_rel *))
-    \\ cheat (* this will end up the same way *))
+        simp [thunk_rel_def]
+        \\ ‘Cons "" [] = Cons "" (MAP Delay [])’
+          by gs []
+        \\ pop_assum SUBST1_TAC
+        \\ simp [exp_rel_Cons])
+      \\ qx_gen_tac ‘m’
+      \\ rw [LENGTH_LUPDATE, EL_LUPDATE] \\ rw []
+      \\ gs [thunk_rel_def])
+    >- (
+      IF_CASES_TAC \\ gs []
+      \\ gs [state_rel_def, LIST_REL_EL_EQN]
+      \\ first_x_assum irule \\ gs []
+      \\ simp [thunk_rel_def]
+      \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
+        by gs []
+      \\ pop_assum SUBST1_TAC
+      \\ simp [exp_rel_Cons]
+      \\ intLib.ARITH_TAC)
+    \\ IF_CASES_TAC \\ gs [arithmeticTheory.NOT_LESS_EQUAL, state_rel_def,
+                           LIST_REL_EL_EQN]
+    \\ first_x_assum irule \\ gs []
+    \\ simp [thunk_rel_def]
+    \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
+      by gs []
+    \\ pop_assum SUBST1_TAC
+    \\ simp [exp_rel_Cons]
+    \\ intLib.ARITH_TAC)
   \\ rw [Once thunk_semanticsTheory.next_def]
 QED
+
+(* TODO
+ * - This proof needs to be set up to use some io_tree_unfold_something theorem
+ *   (see the real definition of interp in pure_semantics).
+ *)
 
 Theorem pure_to_thunk_interp[local]:
   v_rel v w ∧
