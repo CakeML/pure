@@ -11,36 +11,13 @@ open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
 
 val _ = new_theory "env_to_stateProof";
 
-Overload "inl" = ``λe. App (Cons "INL") [e]``;
-Overload "inr" = ``λe. App (Cons "INR") [e]``;
 Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
-Overload "ref" = ``λe. App Ref [e]``;
 Overload "cons0" = ``λs. App (Cons s) []``;
-
-(*
-fun force t =
-  case !t of
-  | INL f => let val v = f () in (t := INR v; v) end
-  | INR v => v
-*)
-Overload "force" =
-  ``Lam "v" $ Case (Var "v") "v" [
-          ("INL", ["f"],
-              Let (SOME "v") (app (Var "f") (App (Cons "") [])) $
-                Let NONE (App Set [e; inr (Var "v")]) (Var "v"));
-          ("INR", ["v"], Var "v")
-          ]``;
 
 Definition Lets_def:
   Lets [] e = e ∧
   Lets ((x,a)::rest) e = stateLang$Let x a (Lets rest e)
 End
-
-Definition Sets_def:
-  Sets [] e = e ∧
-  Sets ((x,a)::rest) e = stateLang$Let NONE (App Set [x; a]) (Sets rest e)
-End
-
 
 (****************************************)
 
@@ -54,45 +31,7 @@ End
   things, allowing us to "force" them by removing the `Delay`.
 *)
 
-(* TODO HOL gives "index too large" error if below comment is
-   within Inductive ... End and does not name all rules *)
-
-  (*
-    In general, we have:
-      envLang$Letrec [(x, y); ...] e
-    -->
-      Let x (Ref (INL (fn u => Raise Bind))) ... (* declare all references *)
-      Letrec [...] (* use the bindings *)
-        (x := INL (fn u => y); ...) (* update the references *)
-
-  As `y` can only be `Box`, `Delay`, or `Lam`:
-      envLang$Letrec [(x, Lam a b); ...] e
-    -->
-      Let x (Ref _) ... (Letrec [(x, a, b'); ...] (x := INL x; ...; e'))
-
-      envLang$Letrec [(x, Delay d); ...] e
-    -->
-      Let x (Ref _) ... (Letrec [(fresh1, fresh2, d'); ...] (x := INL fresh1; ...; e'))
-
-      envLang$Letrec [(x, Box b); ...] e
-    -->
-      Let x (Ref _) ... (Letrec [...] (x := INR b'; ...; e'))
-  *)
 Inductive compile_rel:
-  letrec_funs_rel fvs [] [] [] ∧
-
-  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ∧
-   f_fn ∉ fvs ∧ u ∉ freevars se ⇒
-  letrec_funs_rel fvs
-    ((f, Delay te)::tfns) ((f_fn, u, se)::sfns) ((Var f, inl (Var f_fn))::sets)) ∧
-
-  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
-   letrec_funs_rel fvs
-    ((f, Lam x te)::tfns) ((f, x, se)::sfns) ((Var f, inl (Var f))::sets)) ∧
-
-  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
-  letrec_funs_rel fvs ((f, Box te)::tfns) sfns ((Var f, inr se)::sets)) ∧
-
 
 [~Var:]
   compile_rel (envLang$Var v) (stateLang$Var v) ∧
@@ -218,8 +157,47 @@ Inductive compile_rel:
 
 [~Force:]
   (compile_rel te se ⇒
-  compile_rel (Force te) (App AppOp [force; se]))
+  compile_rel (Force te) (App AppOp [force; se])) ∧
+
+  letrec_funs_rel fvs [] [] [] ∧
+
+  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ∧
+   f_fn ∉ fvs ∧ u ∉ freevars se ⇒
+  letrec_funs_rel fvs
+    ((f, Delay te)::tfns) ((f_fn, u, se)::sfns) ((Var f, inl (Var f_fn))::sets)) ∧
+
+  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
+   letrec_funs_rel fvs
+    ((f, Lam x te)::tfns) ((f, x, se)::sfns) ((Var f, inl (Var f))::sets)) ∧
+
+  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
+  letrec_funs_rel fvs ((f, Box te)::tfns) sfns ((Var f, inr se)::sets))
+
 End
+(* TODO HOL gives "index too large" error if below comment is
+   within Inductive ... End and does not name all rules *)
+
+  (*
+    In general, we have:
+      envLang$Letrec [(x, y); ...] e
+    -->
+      Let x (Ref (INL (fn u => Raise Bind))) ... (* declare all references *)
+      Letrec [...] (* use the bindings *)
+        (x := INL (fn u => y); ...) (* update the references *)
+
+  As `y` can only be `Box`, `Delay`, or `Lam`:
+      envLang$Letrec [(x, Lam a b); ...] e
+    -->
+      Let x (Ref _) ... (Letrec [(x, a, b'); ...] (x := INL x; ...; e'))
+
+      envLang$Letrec [(x, Delay d); ...] e
+    -->
+      Let x (Ref _) ... (Letrec [(fresh1, fresh2, d'); ...] (x := INL fresh1; ...; e'))
+
+      envLang$Letrec [(x, Box b); ...] e
+    -->
+      Let x (Ref _) ... (Letrec [...] (x := INR b'; ...; e'))
+  *)
 
 
 (* TODO *)
@@ -313,4 +291,3 @@ fun force t =
 (****************************************)
 
 val _ = export_theory ();
-
