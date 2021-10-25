@@ -11,6 +11,13 @@ open pure_miscTheory thunkLangPropsTheory;
 
 val _ = new_theory "thunk_untickProof";
 
+val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
+                              "thunkLang", "quotient_sum", "quotient_pair"];
+
+Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+
+Theorem PAIR_REL_THM[local,simp] = quotient_pairTheory.PAIR_REL_THM;
+
 val _ = numLib.prefer_num ();
 
 Definition is_Lam_def[simp]:
@@ -263,9 +270,6 @@ Proof
   >- rw [SF SFY_ss]
   \\ ho_match_mp_tac exp_rel_strongind \\ rw []
 QED
-
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
-Theorem PAIR_REL_THM[local,simp] = quotient_pairTheory.PAIR_REL_THM;
 
 fun psimp p ths =
   CONV_TAC (PATH_CONV p (SIMP_CONV (srw_ss()) ths));

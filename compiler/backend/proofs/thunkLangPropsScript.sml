@@ -10,6 +10,8 @@ open pure_miscTheory;
 
 val _ = new_theory "thunkLangProps";
 
+val _ = set_grammar_ancestry ["thunkLang", "pure_misc"];
+
 val _ = numLib.prefer_num ();
 
 Theorem exp_size_lemma:

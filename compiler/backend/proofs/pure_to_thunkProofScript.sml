@@ -11,6 +11,10 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 
 val _ = new_theory "pure_to_thunkProof";
 
+val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
+                              "pure_semantics", "thunk_semantics",
+                              "pure_exp_lemmas", "pure_misc"];
+
 val _ = numLib.prefer_num ();
 
 (*
@@ -71,7 +75,7 @@ Inductive exp_rel:
        exp_rel (Tick x) (Suspend y)) ∧
 [exp_rel_Var:]
   (∀n.
-     exp_rel (Var n) (Force (Var n))) ∧
+     exp_rel (pure_exp$Var n) (Force (Var n))) ∧
 [exp_rel_Lam:]
   (∀s x y.
      exp_rel x y ⇒

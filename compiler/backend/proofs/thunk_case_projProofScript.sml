@@ -16,23 +16,15 @@ open pure_miscTheory thunkLangPropsTheory;
 
 val _ = new_theory "thunk_case_projProof";
 
+val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
+                              "thunkLang", "wellorder", "quotient_sum",
+                              "quotient_pair", "thunkLangProps"];
+
 val _ = numLib.prefer_num ();
 
 Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
-
-Overload Proj = “λs i (x: exp). Prim (Proj s i) [x]”;
-
-Overload Seq = “λx: exp. λy. Let NONE x y”;
-
-Overload IsEq = “λs i (x: exp). Prim (IsEq s i) [x]”;
-
-(* TODO move to thunkLangScript.sml *)
-Overload Unit = “Prim (Cons "") []”;
-
-(* TODO move to thunkLangScript.sml *)
-Overload Fail = “Prim If []:exp”;
 
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧

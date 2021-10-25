@@ -22,6 +22,8 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 
 val _ = new_theory "thunkLang";
 
+val _ = set_grammar_ancestry ["thunkLang_primitives", "pure_misc", "pure_exp"];
+
 val _ = numLib.prefer_num();
 
 Datatype:
@@ -49,6 +51,11 @@ End
 Overload Tick = “λx. Letrec [] x”;
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
 Overload Cons = “λs xs. Prim (Cons s) xs”;
+Overload IsEq = “λs i x. Prim (IsEq s i) [x]”;
+Overload Proj = “λs i x. Prim (Proj s i) [x]”;
+Overload Seq = “λx. λy. Let NONE x y”;
+Overload Unit = “Prim (Cons "") []”;
+Overload Fail = “Prim If []”;
 
 val exp_size_def = fetch "-" "exp_size_def";
 
