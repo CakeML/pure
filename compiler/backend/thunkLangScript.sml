@@ -47,6 +47,8 @@ Datatype:
 End
 
 Overload Tick = “λx. Letrec [] x”;
+Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
+Overload Cons = “λs xs. Prim (Cons s) xs”;
 
 val exp_size_def = fetch "-" "exp_size_def";
 

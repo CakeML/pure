@@ -120,7 +120,8 @@ Definition next_def:
                     let new_state = state ++ [REPLICATE n (EL 1 vs)] in
                       if k = 0 then Div else
                         next (k-1)
-                          (INR $ Constructor "Ret" [Atom (Loc (LENGTH state))])
+                          (INR $ Constructor "Ret" [
+                             Thunk (INR (Lit (Loc (LENGTH state))))])
                           stack new_state)
                | _ => Err))
           else if s = "Length" ∧ LENGTH vs = 1 then
@@ -130,7 +131,8 @@ Definition next_def:
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                       next (k-1)
-                        (INR $ Constructor "Ret" [Atom (Int (& (LENGTH (EL n state))))])
+                        (INR $ Constructor "Ret" [
+                           Thunk (INR (Lit (Int (& (LENGTH (EL n state))))))])
                         stack state)
                | _ => Err))
           else if s = "Deref" ∧ LENGTH vs = 2 then
@@ -145,7 +147,8 @@ Definition next_def:
                         stack state
                     else
                       next (k-1)
-                        (INR $ Constructor "Raise" [Constructor "Subscript" []])
+                        (INR $ Constructor "Raise" [
+                           Thunk (INR (Cons "Subscript" []))])
                         stack state)
                | _ => Err))
           else if s = "Update" ∧ LENGTH vs = 3 then
@@ -156,12 +159,14 @@ Definition next_def:
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                       next (k-1)
-                        (INR $ Constructor "Ret" [Constructor "" []])
+                        (INR $ Constructor "Ret" [
+                           Thunk (INR (Cons "" []))])
                         stack
                         (LUPDATE (LUPDATE (EL 2 vs) (Num i) (EL n state)) n state)
                     else
                       next (k-1)
-                        (INR $ Constructor "Raise" [Constructor "Subscript" []])
+                        (INR $ Constructor "Raise" [
+                           Thunk (INR (Cons "Subscript" []))])
                         stack state)
                | _ => Err))
           else Err)
