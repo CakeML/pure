@@ -7,6 +7,8 @@ open pure_miscTheory pure_typingTheory pure_typingPropsTheory
 
 val _ = new_theory "pure_inferenceProps";
 
+(******************* General results ********************)
+
 Theorem pure_vars_empty_eq_type_of:
   ∀it. pure_vars it = {} ⇔ (∃t. type_of it = SOME t)
 Proof
@@ -39,6 +41,72 @@ Proof
   recInduct itype_ind >> rw[] >> gvs[type_of_def, itype_of_def] >>
   rpt $ pop_assum mp_tac >> qid_spec_tac `z` >> Induct_on `ts` >> rw[] >> gvs[]
 QED
+
+Theorem isubst_itype_of:
+  ∀ts t. isubst (MAP itype_of ts) (itype_of t) = itype_of (subst_db 0 ts t)
+Proof
+  qsuff_tac
+    `∀n:num ts t. isubst (MAP itype_of ts) (itype_of t) = itype_of (subst_db 0 ts t)`
+  >- rw[] >>
+  ho_match_mp_tac subst_db_ind >>
+  rw[subst_db_def, isubst_def, itype_of_def] >>
+  rw[EL_MAP, MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+QED
+
+Theorem freecvars_pure_vars:
+  (∀t. domain (freecvars t) = pure_vars t)
+Proof
+  ho_match_mp_tac itype_ind >> rw[freecvars_def, pure_vars] >> gvs[SF ETA_ss] >>
+  simp[domain_union, pred_setTheory.UNION_ASSOC] >>
+  qsuff_tac
+    `∀t. domain (FOLDL union t (MAP freecvars ts)) =
+        domain t ∪ BIGUNION (set (MAP pure_vars ts))` >> simp[] >>
+  Induct_on `ts` >> rw[] >> gvs[domain_union, UNION_ASSOC]
+QED
+
+Theorem pure_vars_isubst_SUBSET:
+  ∀s t. pure_vars (isubst s t) ⊆ pure_vars t ∪ BIGUNION (set (MAP pure_vars s))
+Proof
+  recInduct isubst_ind >> rw[isubst_def, pure_vars] >>
+  gvs[LIST_TO_SET_MAP, SUBSET_DEF, PULL_EXISTS] >> rw[]
+  >- (goal_assum drule >> simp[EL_MEM]) >>
+  last_x_assum drule_all >> strip_tac >> simp[] >> metis_tac[]
+QED
+
+Theorem pure_vars_pure_apply_subst_SUBSET:
+  ∀t s. pure_vars (pure_apply_subst s t) ⊆
+    (pure_vars t DIFF FDOM s) ∪ BIGUNION (IMAGE pure_vars (FRANGE s))
+Proof
+  recInduct itype_ind >> reverse $ rw[pure_apply_subst, pure_vars] >>
+  simp[LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF, BIGUNION_SUBSET,
+       FLOOKUP_DEF, pure_vars] >>
+  gvs[SUBSET_DEF] >> rw[PULL_EXISTS]
+  >- (goal_assum drule >> simp[FRANGE_DEF] >> metis_tac[]) >>
+  metis_tac[]
+QED
+
+Theorem pure_vars_iFunctions:
+  pure_vars (iFunctions tys ty) = BIGUNION (set (MAP pure_vars tys)) ∪ pure_vars ty
+Proof
+  Induct_on `tys` >> rw[iFunctions_def, pure_vars] >> simp[UNION_ASSOC]
+QED
+
+Theorem pure_vars_itype_of[simp]:
+  ∀t. pure_vars (itype_of t) = {}
+Proof
+  recInduct type_ind >> rw[itype_of_def, pure_vars] >>
+  Induct_on `l` >> gvs[] >> rw[] >> gvs[]
+QED
+
+Theorem pure_apply_subst_itype_of[simp]:
+  ∀t s. pure_apply_subst s (itype_of t) = itype_of t
+Proof
+  recInduct type_ind >> rw[itype_of_def, pure_apply_subst] >>
+  rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+QED
+
+
+(******************* Inference results ********************)
 
 Theorem infer_atom_op_LENGTH:
   infer_atom_op ar aop = SOME (arg_tys, ret_ty) ⇒
@@ -208,30 +276,6 @@ Proof
   qmatch_goalsub_abbrev_tac `_ (_ a) = _` >> PairCases_on `a` >> gvs[]
 QED
 
-Theorem freecvars_pure_vars:
-  (∀t. domain (freecvars t) = pure_vars t)
-Proof
-  ho_match_mp_tac itype_ind >> rw[freecvars_def, pure_vars] >> gvs[SF ETA_ss] >>
-  simp[domain_union, pred_setTheory.UNION_ASSOC] >>
-  qsuff_tac
-    `∀t. domain (FOLDL union t (MAP freecvars ts)) =
-        domain t ∪ BIGUNION (set (MAP pure_vars ts))` >> simp[] >>
-  Induct_on `ts` >> rw[] >> gvs[domain_union, UNION_ASSOC]
-QED
-
-(* TODO
-Theorem satisfies_lemmas:
-  satisfies s (Unify d t1 t2) = satisfies s (Unify d t2 t1) ∧
-  satisfies s (Unify d t1 t2) = satisfies s (Instantiate d t1 (0, t2)) ∧
-  satisfies s (Unify d t1 t2) = satisfies s (Implicit d t1 (freecvars t2) t2) ∧
-  satisfies s (Implicit d t1 vs t2) =
-    let (vars, s', scheme) = generalise cv TODO (subst_vars s vs) FEMPTY t2 in
-    satisfies s (Instantiate d t1 (vars, scheme))
-Proof
-  cheat
-QED
-*)
-
 Theorem get_solveable_SOME_LENGTH:
   ∀cs rev_cs c cs'.
     get_solveable cs rev_cs = SOME (c, cs')
@@ -239,21 +283,6 @@ Theorem get_solveable_SOME_LENGTH:
 Proof
   rpt gen_tac >> strip_tac >>
   drule get_solveable_SOME >> strip_tac >> gvs[]
-QED
-
-Theorem pure_vars_isubst_SUBSET:
-  ∀s t. pure_vars (isubst s t) ⊆ pure_vars t ∪ BIGUNION (set (MAP pure_vars s))
-Proof
-  recInduct isubst_ind >> rw[isubst_def, pure_vars] >>
-  gvs[LIST_TO_SET_MAP, SUBSET_DEF, PULL_EXISTS] >> rw[]
-  >- (goal_assum drule >> simp[EL_MEM]) >>
-  last_x_assum drule_all >> strip_tac >> simp[] >> metis_tac[]
-QED
-
-Theorem pure_vars_iFunctions:
-  pure_vars (iFunctions tys ty) = BIGUNION (set (MAP pure_vars tys)) ∪ pure_vars ty
-Proof
-  Induct_on `tys` >> rw[iFunctions_def, pure_vars] >> simp[UNION_ASSOC]
 QED
 
 Theorem map_ok_singleton[simp]:
@@ -275,13 +304,102 @@ Proof
   DEP_REWRITE_TAC[lookup_insert] >> simp[]
 QED
 
-Theorem pure_vars_itype_of[simp]:
-  ∀t. pure_vars (itype_of t) = {}
+Triviality pure_vars_pure_apply_subst_DBVar_o_f[simp]:
+  ∀t s.
+    pure_vars (pure_apply_subst (DBVar o_f s) t) =
+    pure_vars t DIFF FDOM s
 Proof
-  recInduct type_ind >> rw[itype_of_def, pure_vars] >>
-  Induct_on `l` >> gvs[] >> rw[] >> gvs[]
+  recInduct freecvars_ind >> rw[pure_apply_subst, pure_vars] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, BIGUNION_DIFF_LIST_TO_SET]
+  >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f])
+  >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f])
+  >- simp[UNION_DIFF_DISTRIBUTE]
+  >- simp[FLOOKUP_DEF, pure_vars]
+  >- simp[FLOOKUP_DEF, pure_vars]
 QED
 
+Theorem generalise:
+  (∀t db avoid s new sub ty.
+    generalise db avoid s t = (new,sub,ty) ⇒
+      s SUBMAP sub ∧
+      CARD (FDOM sub DIFF FDOM s) = new ∧
+      (∀v. v ∈ FRANGE sub ∧ v ∉ FRANGE s ⇒ db ≤ v ∧ v < db + new) ∧
+      (∀sup. sub SUBMAP sup ⇒
+        pure_apply_subst (DBVar o_f (FDIFF sup (domain avoid))) t = ty)
+    ) ∧
+  (∀ts db avoid s new sub tys.
+    generalise_list db avoid s ts = (new,sub,tys) ⇒
+      s SUBMAP sub ∧
+      CARD (FDOM sub DIFF FDOM s) = new ∧
+      (∀v. v ∈ FRANGE sub ∧ v ∉ FRANGE s ⇒ db ≤ v ∧ v < db + new) ∧
+      (∀sup. sub SUBMAP sup ⇒
+        MAP (pure_apply_subst (DBVar o_f (FDIFF sup (domain avoid)))) ts = tys)
+      )
+Proof
+  Induct >> rpt gen_tac >> strip_tac >>
+  gvs[generalise_def, pure_vars, pure_apply_subst]
+  >- (pairarg_tac >> gvs[pure_vars] >> first_x_assum drule >> strip_tac >> gvs[])
+  >- (pairarg_tac >> gvs[pure_vars] >> first_x_assum drule >> strip_tac >> gvs[])
+  >- (
+    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[pure_vars] >>
+    ntac 2 (first_x_assum drule >> strip_tac >> gvs[]) >>
+    irule_at Any SUBMAP_TRANS >> goal_assum drule >> simp[] >>
+    rename1 `s1 SUBMAP s2` >> rename1 `s2 SUBMAP s3` >>
+    imp_res_tac SUBMAP_FDOM_SUBSET >> gvs[] >>
+    drule_all SUBSET_TRANS >> strip_tac >>
+    imp_res_tac SUBSET_INTER2 >> simp[] >>
+    imp_res_tac (CARD_SUBSET |> SIMP_RULE std_ss [PULL_FORALL, AND_IMP_INTRO]) >>
+    gvs[] >> reverse conj_tac
+    >- (
+      rw[] >> first_x_assum irule >> irule SUBMAP_TRANS >>
+      goal_assum drule >> simp[]
+      ) >>
+    gen_tac >> strip_tac >> Cases_on `v ∈ FRANGE s2` >> gvs[]
+    >- (first_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
+    >- (last_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
+    )
+  >- (pairarg_tac >> gvs[pure_vars] >> first_x_assum drule >> strip_tac >> gvs[])
+  >- (pairarg_tac >> gvs[pure_vars] >> first_x_assum drule >> strip_tac >> gvs[])
+  >- (
+    gvs[FLOOKUP_o_f, FLOOKUP_FDIFF, domain_lookup] >>
+    Cases_on `lookup n avoid` >> gvs[] >>
+    last_x_assum mp_tac >> reverse CASE_TAC >> gvs[] >> strip_tac >> gvs[]
+    >- (rw[] >> gvs[SUBMAP_FLOOKUP_EQN] >> first_x_assum drule >> simp[]) >>
+    gvs[FLOOKUP_DEF, INSERT_INTER, SUBMAP_DEF, FAPPLY_FUPDATE_THM] >>
+    reverse conj_tac >- metis_tac[] >>
+    gen_tac >> strip_tac >> gvs[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+    )
+  >- (
+    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+    ntac 2 (first_x_assum drule >> strip_tac >> gvs[]) >>
+    irule_at Any SUBMAP_TRANS >> goal_assum drule >> simp[] >>
+    rename1 `s1 SUBMAP s2` >> rename1 `s2 SUBMAP s3` >>
+    imp_res_tac SUBMAP_FDOM_SUBSET >> gvs[] >>
+    drule_all SUBSET_TRANS >> strip_tac >>
+    imp_res_tac SUBSET_INTER2 >> simp[] >>
+    imp_res_tac (CARD_SUBSET |> SIMP_RULE std_ss [PULL_FORALL, AND_IMP_INTRO]) >>
+    gvs[] >> reverse conj_tac
+    >- (
+      rw[] >> first_x_assum irule >> irule SUBMAP_TRANS >>
+      goal_assum drule >> simp[]
+      ) >>
+    gen_tac >> strip_tac >> Cases_on `v ∈ FRANGE s2` >> gvs[]
+    >- (first_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
+    >- (last_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
+    )
+QED
+
+Theorem generalise_0_FEMPTY:
+  ∀avoid t new sub ty.
+    generalise 0 avoid FEMPTY t = (new, sub, ty)
+  ⇒ CARD (FDOM sub) = new ∧
+    (∀v. v ∈ FRANGE sub ⇒ v < new) ∧
+    pure_apply_subst (DBVar o_f (FDIFF sub (domain avoid))) t = ty
+Proof
+  rpt gen_tac >> strip_tac >> drule $ cj 1 generalise >> simp[]
+QED
+
+(********************)
 
 val _ = export_theory();
 

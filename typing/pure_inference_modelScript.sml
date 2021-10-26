@@ -503,6 +503,16 @@ Proof
   rw[EXTENSION, domain_list_insert]
 QED
 
+Theorem FLOOKUP_maunion:
+  ∀a b k.
+    FLOOKUP (maunion a b) k =
+      case FLOOKUP a k of
+      | NONE => FLOOKUP b k
+      | SOME av => SOME (case FLOOKUP b k of NONE => av | SOME bv => av ∪ bv)
+Proof
+  rw[maunion_def, FLOOKUP_FMERGE] >> rpt CASE_TAC >> simp[]
+QED
+
 Theorem FLOOKUP_FOLDR_maunion:
   ∀ms base k.
     FLOOKUP (FOLDR maunion base ms) k =

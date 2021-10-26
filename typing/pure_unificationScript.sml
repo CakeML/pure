@@ -1254,6 +1254,29 @@ Proof
     )
 QED
 
+Theorem pure_walkstar_alt:
+  ∀s. pure_wfs s ⇒
+    (∀v. pure_walkstar s (DBVar v) = DBVar v) ∧
+    (∀pty. pure_walkstar s (PrimTy pty) = PrimTy pty) ∧
+    (pure_walkstar s Exception = Exception) ∧
+    (∀id ts. pure_walkstar s (TypeCons id ts) =
+              TypeCons id (MAP (pure_walkstar s) ts)) ∧
+    (∀ts. pure_walkstar s (Tuple ts) = Tuple (MAP (pure_walkstar s) ts)) ∧
+    (∀t1 t2. pure_walkstar s (Function t1 t2) =
+              Function (pure_walkstar s t1) (pure_walkstar s t2)) ∧
+    (∀t. pure_walkstar s (Array t) = Array (pure_walkstar s t)) ∧
+    (∀t. pure_walkstar s (M t) = M (pure_walkstar s t)) ∧
+    (∀v. pure_walkstar s (CVar v) =
+      case FLOOKUP s v of
+      | NONE => CVar v
+      | SOME t => pure_walkstar s t)
+Proof
+  rw[] >> simp[Once pure_walkstar, Once pure_walk] >>
+  simp[Once pure_vwalk] >>
+  CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >>
+  simp[SimpRHS, Once pure_walkstar, Once pure_walk]
+QED
+
 Theorem encode_walkstar:
   ∀s t. pure_wfs s ⇒
     walkstar (encode_itype o_f s) (encode_itype t) =

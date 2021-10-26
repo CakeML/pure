@@ -492,21 +492,6 @@ Definition generalise_def:
     (n + ns, s'', t'::ts')
 End
 
-Definition satisfies_def:
-  satisfies s (Unify d t1 t2) = (pure_walkstar s t1 = pure_walkstar s t2) ∧
-
-  satisfies s (Instantiate d t (vars, scheme)) = (
-    ∃subs.
-      LENGTH subs = vars ∧
-      pure_walkstar s t = pure_walkstar s (isubst subs scheme)) ∧
-
-  satisfies s (Implicit d tsub vars tsup) = (
-    let (vars, s', scheme) = generalise 0 0 vars FEMPTY tsup in
-    ∃subs.
-      LENGTH subs = vars ∧
-      pure_walkstar s tsub = pure_walkstar s (isubst subs scheme))
-End
-
 Definition freecvars_def:
   freecvars (DBVar n) = LN ∧
   freecvars (PrimTy p) = LN ∧
