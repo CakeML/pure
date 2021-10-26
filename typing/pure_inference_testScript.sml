@@ -12,7 +12,7 @@ Definition parse_and_infer_def:
       if ¬ null as then fail else return ();
       subs <- solve cs;
       sub_ty <<- subst_solution subs ty;
-      (vars, _, gen_ty) <<- generalise 0 0 LN FEMPTY sub_ty;
+      (vars, _, gen_ty) <<- generalise 0 LN FEMPTY sub_ty;
       res_ty <- oreturn $ type_of gen_ty;
       return (vars, res_ty)
     od 0
@@ -38,7 +38,7 @@ Definition solve_k_def:
         solve_k (SUC n) (Unify d t inst_scheme :: cs) od
 
     | SOME $ (Implicit d t1 vs t2, cs) => do
-        (nvs, s, scheme) <<- generalise 0 0 vs FEMPTY t2;
+        (nvs, s, scheme) <<- generalise 0 vs FEMPTY t2;
         solve_k (SUC n) (Instantiate d t1 (nvs, scheme) :: cs) od
 Termination
   WF_REL_TAC `inv_image ($< LEX $<) $ λ(k,l). (k, SUM $ MAP constraint_weight l)` >>

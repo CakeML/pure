@@ -200,7 +200,7 @@ QED
 
 Theorem generalise_avoid_all:
   (∀t cv db avoid s.
-    pure_vars t ⊆ domain avoid ⇒ generalise cv db avoid s t = (0, s, t))
+    pure_vars t ⊆ domain avoid ⇒ generalise db avoid s t = (0, s, t))
 Proof
   ho_match_mp_tac itype_ind >> rw[pure_vars, generalise_def] >>
   gvs[pred_setTheory.BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, EVERY_MEM, domain_lookup] >>

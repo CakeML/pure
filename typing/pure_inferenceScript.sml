@@ -457,38 +457,38 @@ End
   encapsulating the generalisation.
 *)
 Definition generalise_def:
-  generalise cv db (avoid : num_set) s (DBVar n) = (0n, s, DBVar n) ∧
-  generalise cv db avoid s (PrimTy p) = (0, s, PrimTy p) ∧
-  generalise cv db avoid s  Exception = (0, s, Exception) ∧
+  generalise db (avoid : num_set) s (DBVar n) = (0n, s, DBVar n) ∧
+  generalise db avoid s (PrimTy p) = (0, s, PrimTy p) ∧
+  generalise db avoid s  Exception = (0, s, Exception) ∧
 
-  generalise cv db avoid s (TypeCons id ts) = (
-    let (n, s', ts') = generalise_list cv db avoid s ts in (n, s', TypeCons id ts')) ∧
+  generalise db avoid s (TypeCons id ts) = (
+    let (n, s', ts') = generalise_list db avoid s ts in (n, s', TypeCons id ts')) ∧
 
-  generalise cv db avoid s (Tuple ts) = (
-    let (n, s', ts') = generalise_list cv db avoid s ts in (n, s', Tuple ts')) ∧
+  generalise db avoid s (Tuple ts) = (
+    let (n, s', ts') = generalise_list db avoid s ts in (n, s', Tuple ts')) ∧
 
-  generalise cv db avoid s (Function t1 t2) = (
-    let (n1, s', t1') = generalise cv db avoid s t1 in
-    let (n2, s'', t2') = generalise cv (db + n1) avoid s' t2 in
+  generalise db avoid s (Function t1 t2) = (
+    let (n1, s', t1') = generalise db avoid s t1 in
+    let (n2, s'', t2') = generalise (db + n1) avoid s' t2 in
     (n1 + n2, s'', Function t1' t2')) ∧
 
-  generalise cv db avoid s (Array t) = (
-    let (n, s', t') = generalise cv db avoid s t in (n, s', Array t')) ∧
+  generalise db avoid s (Array t) = (
+    let (n, s', t') = generalise db avoid s t in (n, s', Array t')) ∧
 
-  generalise cv db avoid s (M t) = (
-    let (n, s', t') = generalise cv db avoid s t in (n, s', M t')) ∧
+  generalise db avoid s (M t) = (
+    let (n, s', t') = generalise db avoid s t in (n, s', M t')) ∧
 
-  generalise cv db avoid s (CVar c) = (
-    if cv ≤ c ∧ lookup c avoid = NONE then (
+  generalise db avoid s (CVar c) = (
+    if lookup c avoid = NONE then (
       case FLOOKUP s c of
       | SOME n => (0, s, DBVar n)
       | NONE => (1, s |+ (c,db), DBVar db))
     else (0, s, CVar c)) ∧
 
-  generalise_list cv db avoid s [] = (0, s, []) ∧
-  generalise_list cv db avoid s (t::ts) =
-    let (n, s', t') = generalise cv db avoid s t in
-    let (ns, s'', ts') = generalise_list cv (db + n) avoid s' ts in
+  generalise_list db avoid s [] = (0, s, []) ∧
+  generalise_list db avoid s (t::ts) =
+    let (n, s', t') = generalise db avoid s t in
+    let (ns, s'', ts') = generalise_list (db + n) avoid s' ts in
     (n + ns, s'', t'::ts')
 End
 
@@ -608,7 +608,7 @@ Definition solve_def:
         solve (Unify d t inst_scheme :: cs) od
 
     | SOME $ (Implicit d t1 vs t2, cs) => do
-        (n, s, scheme) <<- generalise 0 0 vs FEMPTY t2;
+        (n, s, scheme) <<- generalise 0 vs FEMPTY t2;
         solve (Instantiate d t1 (n, scheme) :: cs) od
 Termination
   WF_REL_TAC `measure $ λl. SUM $ MAP constraint_weight l` >>
