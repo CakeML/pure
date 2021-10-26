@@ -39,6 +39,12 @@ Proof
   goal_assum drule >> simp[]
 QED
 
+Theorem FDOM_FDIFF_alt:
+  FDOM (FDIFF m s) = FDOM m DIFF s
+Proof
+  rw[EXTENSION, FDOM_FDIFF]
+QED
+
 
 (******************** Functions/Pairs ********************)
 
@@ -402,16 +408,18 @@ Proof
 QED
 
 Theorem BIGUNION_DIFF:
-  ∀as b. (BIGUNION as) DIFF b = BIGUNION {a DIFF b | a ∈ as}
+  ∀as b. (BIGUNION as) DIFF b = BIGUNION (IMAGE (λa. a DIFF b) as)
 Proof
   rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
-  >- (
-    qexists_tac `s DIFF b` >> fs[] >>
-    goal_assum (drule_at Any) >> fs[]
-    )
-  >- (
-    goal_assum (drule_at Any) >> fs[]
-    )
+  >- (qexists_tac `s DIFF b` >> fs[] >> goal_assum (drule_at Any) >> fs[])
+  >- (goal_assum (drule_at Any) >> fs[])
+QED
+
+Theorem BIGUNION_DIFF_LIST_TO_SET:
+  BIGUNION (set l) DIFF s = BIGUNION (set (MAP (λx. x DIFF s) l))
+Proof
+  rw[Once EXTENSION, MEM_MAP] >> eq_tac >> rw[PULL_EXISTS] >>
+  goal_assum drule >> simp[]
 QED
 
 
