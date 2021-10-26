@@ -102,13 +102,12 @@ Inductive minfer:
   (minfer ns mset e1 as1 cs1 ty1 ∧
    minfer ns mset e2 as2 cs2 ty2 ∧
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2)] ∧
-   f1 ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
-   f2 ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2
+   f ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2
     ⇒ minfer ns mset (Prim d (Cons "Handle") [e1;e2])
         (maunion as1 as2)
-        ({mUnify ty1 (M $ CVar f1); mUnify ty2 (Function Exception (M $ CVar f2))}
+        ({mUnify ty1 (M $ CVar f); mUnify ty2 (Function Exception (M $ CVar f))}
           ∪ cs1 ∪ cs2)
-        (M $ CVar f2)) ∧
+        (M $ CVar f)) ∧
 
 [~Act:]
   (minfer ns mset e as cs ty
@@ -680,7 +679,7 @@ Proof
     >- (rw[] >> last_x_assum drule >> simp[]) >>
     strip_tac >> gvs[] >>
     simp[Once minfer_cases, PULL_EXISTS] >>
-    ntac 2 $ goal_assum $ drule_at Any >> qexists_tac `r'` >> rw[]
+    ntac 2 $ goal_assum $ drule_at Any >> rw[]
     >- (
       gvs[assumptions_rel_def] >> simp[PULL_FORALL, aunion_def] >>
       rpt gen_tac >> DEP_REWRITE_TAC[lookup_unionWith] >>
@@ -694,9 +693,6 @@ Proof
       simp[cvars_disjoint_def, DISJOINT_ALT] >> rw[] >> CCONTR_TAC >> gvs[SUBSET_DEF] >>
       first_x_assum drule >> strip_tac >> first_x_assum drule >> strip_tac >> gvs[]
       )
-    >- (CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[])
-    >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[])
-    >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[])
     >- (CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[])
     >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[])
     >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[])

@@ -234,11 +234,11 @@ Definition infer_def:
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
           (ty1, as1, cs1) <- infer ns mset e1;
-          fresh1 <- fresh_var; fresh2 <- fresh_var;
+          fresh <- fresh_var;
           return
-            (M $ CVar fresh2, as1 ⋓ as2,
-             (Unify d ty1 $ M $ CVar fresh1)::
-              (Unify d ty2 $ Function Exception (M $ CVar fresh2))::(cs1++cs2))
+            (M $ CVar fresh, as1 ⋓ as2,
+             (Unify d ty1 $ M $ CVar fresh)::
+              (Unify d ty2 $ Function Exception (M $ CVar fresh))::(cs1++cs2))
           od
       | _ => fail)
 
