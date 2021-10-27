@@ -26,12 +26,14 @@ End
 
 Definition force_def:
   force v =
-    do
-      (wx, binds) <- dest_anyThunk v;
-      case wx of
-        INL v => return v
-      | INR y => eval (subst_funs binds y)
-    od
+    case dest_Tick v of
+      SOME w => eval (Force (Value w))
+    | NONE =>
+        do (wx, binds) <- dest_anyThunk v;
+           case wx of
+             INL v => return v
+           | INR y => eval (subst_funs binds y)
+        od
 End
 
 Definition force_list_def:
