@@ -7,12 +7,12 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 
 val _ = new_theory "thunk_unthunkProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "quotient_sum"];
+                              "thunkLang", "quotient_sum", "thunk_semantics"];
 
 val _ = numLib.prefer_num ();
 
@@ -883,6 +883,231 @@ Proof
   \\ rename1 ‘_ (eval_to k x) _’
   \\ first_x_assum (qspec_then ‘k’ (assume_tac o SYM)) \\ simp []
   \\ irule exp_rel_eval_to \\ simp []
+QED
+
+Definition cont_rel_def[simp]:
+  cont_rel Done Done = T ∧
+  cont_rel (BC v c) (BC w d) = (v_rel v w ∧ v_inv v ∧ cont_rel c d) ∧
+  cont_rel (HC v c) (HC w d) = (v_rel v w ∧ v_inv v ∧ cont_rel c d) ∧
+  cont_rel _ _ = F
+End
+
+Definition state_rel_def:
+  state_rel = LIST_REL (LIST_REL (λv w. v_rel v w ∧ v_inv v))
+End
+
+Definition next_rel_def[simp]:
+  next_rel (Act a c s) (Act b d t) = (a = b ∧ cont_rel c d ∧ state_rel s t) ∧
+  next_rel Ret Ret = T ∧
+  next_rel Div Div = T ∧
+  next_rel Err Err = T ∧
+  next_rel _ _ = F
+End
+
+(* force preserves relation *)
+Theorem v_rel_force:
+  v_inv v ∧
+  v_rel v w ⇒
+    ($= +++ (λv w. v_rel v w ∧ v_inv v)) (force v) (force w)
+Proof
+  rw [force_def]
+  \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def, exp_inv_def]
+  \\ simp [subst_funs_def]
+  >- (
+    rename1 ‘LIST_REL _ xs ys’
+    \\ ‘OPTREL (λx y. is_delay x ∧ is_delay y ∧ exp_rel x y ∧
+                     freevars x ⊆ set (MAP FST xs))
+              (ALOOKUP (REVERSE xs) s)
+              (ALOOKUP (REVERSE ys) s)’
+      by (irule LIST_REL_OPTREL
+          \\ gs [LIST_REL_EL_EQN])
+    \\ gs [OPTREL_def]
+    \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gs []
+    \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
+    \\ irule exp_rel_eval
+    \\ irule_at Any exp_inv_subst
+    \\ irule_at Any exp_rel_subst
+    \\ simp [closed_subst, EVERY_MAP, EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF,
+             LAMBDA_PROD, GSYM FST_THM]
+    \\ gs [freevars_def]
+    \\ gvs [EVERY_EL, LIST_REL_EL_EQN]
+    \\ irule_at Any LIST_EQ
+    \\ gs [Once exp_rel_cases, FORALL_PROD, EL_MAP, ELIM_UNCURRY, EVERY_EL,
+           SF CONJ_ss]
+    \\ last_x_assum (drule_all_then strip_assume_tac) \\ gs [])
+  >- (
+    irule exp_rel_eval \\ gs [])
+  \\ irule exp_rel_eval \\ gs []
+  \\ simp [exp_inv_def, exp_rel_Force, exp_rel_Value_Unchanged]
+QED
+
+(* apply_closure preserves relation *)
+Theorem next_rel_apply_closure:
+  v_rel v1 w1 ∧ v_inv v1 ∧
+  v_rel v2 w2 ∧ v_inv v2 ∧
+  (∀x y. ($= +++ (λv w. v_rel v w ∧ v_inv v)) x y ⇒ next_rel (f x) (g y)) ⇒
+    next_rel (apply_closure v1 v2 f)
+             (apply_closure w1 w2 g)
+Proof
+  rw [apply_closure_def]
+  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [dest_anyClosure_def]
+  >- (
+    first_x_assum irule
+    \\ irule exp_rel_eval
+    \\ gs [exp_inv_subst, closed_subst, exp_rel_subst])
+  \\ rename1 ‘LIST_REL _ xs ys’
+  \\ ‘OPTREL (λx y. exp_rel x y ∧ is_delay x ∧ is_delay y ∧
+                    freevars x ⊆ set (MAP FST xs))
+             (ALOOKUP (REVERSE xs) s)
+             (ALOOKUP (REVERSE ys) s)’
+    by (irule LIST_REL_OPTREL
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+  \\ gs [OPTREL_def]
+  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gs []
+QED
+
+Theorem unthunk_next:
+  ∀k v c s w d t.
+    ($= +++ (λv w. v_rel v w ∧ v_inv v)) v w ∧
+    cont_rel c d ∧
+    state_rel s t ⇒
+      next_rel (next k v c s) (next k w d t)
+Proof
+  ho_match_mp_tac next_ind \\ rw []
+  \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs []
+  >- (
+    simp [next_def]
+    \\ CASE_TAC \\ gs [])
+  \\ rename1 ‘v_rel v w’
+  \\ Cases_on ‘(∃s x. v = Closure s x) ∨
+               (∃f n. v = Recclosure f n) ∨
+               (∃x. v = Thunk x) ∨
+               (∃x. v = Atom x) ∨
+               (∃x. v = DoTick x)’
+  >- (
+    gvs []
+    >~ [‘Thunk x’] >- (
+      Cases_on ‘w’ \\ gs []
+      \\ simp [next_def])
+    \\ simp [next_def])
+  \\  fs []
+  \\ ‘∃nm vs. v = Constructor nm vs’
+    by (Cases_on ‘v’ \\ gs [])
+  \\ gvs []
+  \\ simp [Once next_def]
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Ret *)
+    gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
+    \\ Cases_on ‘k = 0’ \\ gs []
+    >- (
+      Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
+      \\ simp [Once next_def, force_apply_closure_def]
+      \\ drule_all_then assume_tac v_rel_force
+      \\ rename1 ‘v_rel v w’
+      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs[]
+      >- (
+        CASE_TAC \\ gs [])
+      \\ irule next_rel_apply_closure \\ gs [])
+    \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
+    >- (
+      simp [Once next_def])
+    >- (
+      qmatch_goalsub_abbrev_tac ‘next_rel X’
+      \\ simp [Once next_def]
+      \\ simp [Abbr ‘X’, force_apply_closure_def]
+      \\ drule_all_then assume_tac v_rel_force
+      \\ rename1 ‘v_rel v w’
+      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs[]
+      >- (
+        CASE_TAC \\ gs [])
+      \\ irule next_rel_apply_closure \\ gs [])
+    \\ qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def])
+  \\ IF_CASES_TAC
+  >- ((* Raise *)
+    gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
+    \\ Cases_on ‘k = 0’ \\ gs []
+    >- (
+      Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
+      \\ simp [Once next_def, force_apply_closure_def]
+      \\ drule_all_then assume_tac v_rel_force
+      \\ rename1 ‘v_rel v w’
+      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs[]
+      >- (
+        CASE_TAC \\ gs [])
+      \\ irule next_rel_apply_closure \\ gs [])
+    \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
+    >- (
+      simp [Once next_def])
+    >- (
+      qmatch_goalsub_abbrev_tac ‘next_rel X’
+      \\ simp [Once next_def])
+    \\ qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’, force_apply_closure_def]
+    \\ drule_all_then assume_tac v_rel_force
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs[]
+    >- (
+      CASE_TAC \\ gs [])
+    \\ irule next_rel_apply_closure \\ gs [])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Bind *)
+    cheat)
+  \\ cheat
+QED
+
+Theorem unthunk_next_action:
+  ($= +++ (λv w. v_rel v w ∧ v_inv v)) v w ∧
+  cont_rel c d ∧
+  state_rel s t ⇒
+    next_rel (next_action v c s) (next_action w d t)
+Proof
+  rw [next_action_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ simp [PULL_FORALL]
+  \\ qx_gen_tac ‘i’
+  \\ qx_gen_tac ‘j’
+  \\ qx_gen_tac ‘k’
+  \\ rw []
+  >- (
+    drule_all_then assume_tac unthunk_next \\ gs []
+    \\ drule_then (qspec_then ‘i’ mp_tac) next_next
+    \\ impl_tac \\ rw []
+    \\ strip_tac
+    \\ first_x_assum (qspec_then ‘i’ assume_tac) \\ gs []
+    \\ Cases_on ‘next i w d t’ \\ gs [])
+  \\ drule_all_then assume_tac unthunk_next \\ gs [SF SFY_ss]
+QED
+
+Theorem unthunk_interp:
+  ($= +++ (λv w. v_rel v w ∧ v_inv v)) v w ∧
+  cont_rel c d ∧
+  state_rel s t ⇒
+    interp v c s = interp w d t
+Proof
+  strip_tac
+  \\ simp [interp, interp'_def]
+  \\ simp [Once io_treeTheory.io_unfold_err, SimpLHS]
+  \\ simp [Once io_treeTheory.io_unfold_err, SimpRHS]
+  \\ qsuff_tac ‘next_rel (next_action v c s) (next_action w d t)’
+  >- (
+    cheat (* io_bleh_err *))
+  \\ irule unthunk_next_action \\ gs []
+QED
+
+Theorem unthunk_semantics:
+  exp_rel x y ∧
+  closed x ∧
+  exp_inv x ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  rw [semantics_def]
+  \\ irule unthunk_interp
+  \\ gs [cont_rel_def, state_rel_def]
+  \\ drule_all_then strip_assume_tac exp_rel_eval
+  \\ Cases_on ‘eval x’ \\ Cases_on ‘eval y’ \\ gs []
 QED
 
 val _ = export_theory ();
