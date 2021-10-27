@@ -3,7 +3,7 @@
   the pure_to_thunk stage of the compiler.
  *)
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
+open HolKernel Parse boolLib bossLib term_tactic monadsyntax intLib;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
@@ -966,6 +966,7 @@ Proof
   \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gs []
 QED
 
+(* next preserves relation *)
 Theorem unthunk_next:
   ∀k v c s w d t.
     ($= +++ (λv w. v_rel v w ∧ v_inv v)) v w ∧
@@ -1053,8 +1054,218 @@ Proof
     \\ irule next_rel_apply_closure \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- ((* Bind *)
-    cheat)
-  \\ cheat
+    gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+        DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”]
+    \\ IF_CASES_TAC \\ gvs [SF DNF_ss]
+    >- (
+      simp [Once next_def])
+    \\ qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’]
+    \\ first_x_assum irule \\ gs []
+    \\ irule v_rel_force \\ gs [])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Handle *)
+    gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+        DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”]
+    \\ IF_CASES_TAC \\ gvs [SF DNF_ss]
+    >- (
+      simp [Once next_def])
+    \\ qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’]
+    \\ first_x_assum irule \\ gs []
+    \\ irule v_rel_force \\ gs [])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Act *)
+    simp [Once next_def]
+    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
+    \\ simp [with_atoms_def, force_list_def]
+    \\ drule_all v_rel_force
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rw []
+    \\ rename1 ‘v_rel a b’
+    \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ gvs [get_atoms_def]
+    \\ CASE_TAC \\ gs [])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Alloc *)
+    qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’]
+    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+           DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
+    \\ gvs [with_atoms_def, force_list_def]
+    \\ drule_all v_rel_force
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rw []
+    \\ rename1 ‘v_rel a b’
+    \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ gvs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule \\ gs []
+    \\ ‘HD [Int i] = Int i’
+      by gs []
+    \\ pop_assum (irule_at Any)
+    \\ gs [exp_inv_def, state_rel_def, LIST_REL_REPLICATE_same]
+    \\ gs [LIST_REL_EL_EQN, exp_rel_rules])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Length *)
+    qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’]
+    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+           DECIDE “∀x. x < 1n ⇔ x = 0”, SF DNF_ss]
+    \\ gvs [with_atoms_def, force_list_def]
+    \\ drule_all v_rel_force
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rw []
+    \\ rename1 ‘v_rel a b’
+    \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ gvs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ gs [state_rel_def, LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum irule \\ gs []
+    \\ ‘HD [Loc n] = Loc n’
+      by gs []
+    \\ pop_assum (irule_at Any)
+    \\ gs [exp_inv_def, state_rel_def, LIST_REL_REPLICATE_same]
+    \\ gs [LIST_REL_EL_EQN, exp_rel_rules])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Deref *)
+    qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’]
+    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+           DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
+    \\ gvs [with_atoms_def, force_list_def]
+    \\ drule_all v_rel_force
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rw []
+    \\ qmatch_goalsub_rename_tac ‘force a’
+    \\ rename1 ‘v_rel a b’
+    \\ qpat_x_assum ‘v_rel a b’ assume_tac
+    \\ qpat_x_assum ‘v_inv a’ assume_tac
+    \\ drule_all_then assume_tac v_rel_force
+    \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ gvs [get_atoms_def]
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rename1 ‘force v = INR v1’
+    \\ rename1 ‘force a = INR v2’
+    \\ rename1 ‘force w = INR w1’
+    \\ rename1 ‘force b = INR w2’
+    \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [get_atoms_def]
+    \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ gs [get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ gs [state_rel_def, LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      first_x_assum irule \\ gs []
+      \\ ‘HD [Loc n; Int i] = Loc n ∧ EL 1 [Loc n; Int i] = Int i’
+        by gs []
+      \\ pop_assum (irule_at Any) \\ gs []
+      \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
+      \\ first_x_assum drule
+      \\ strip_tac \\ gs []
+      \\ first_x_assum irule
+      \\ intLib.ARITH_TAC)
+    >- (
+      first_x_assum irule \\ gs []
+      \\ first_assum (irule_at Any)
+      \\ first_assum (irule_at Any)
+      \\ ‘HD [Loc n; Int i] = Loc n ∧ EL 1 [Loc n; Int i] = Int i’
+        by gs []
+      \\ pop_assum (irule_at Any) \\ gs []
+      \\ simp [exp_inv_def]
+      \\ irule exp_rel_Prim \\ gs [])
+    \\ last_x_assum irule \\ gs []
+    \\ simp [exp_inv_def, exp_rel_Prim]
+    \\ gs [GSYM integerTheory.INT_NOT_LE]
+    \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ ‘HD [Loc n; Int i] = Loc n ∧ EL 1 [Loc n; Int i] = Int i’
+      by gs []
+    \\ pop_assum (irule_at Any) \\ gs [])
+  \\ IF_CASES_TAC \\ gs []
+  >- ((* Update *)
+    qmatch_goalsub_abbrev_tac ‘next_rel X’
+    \\ simp [Once next_def]
+    \\ simp [Abbr ‘X’]
+    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+           DECIDE “∀x. x < 3n ⇔ x = 0 ∨ x = 1 ∨ x = 2”, SF DNF_ss]
+    \\ gvs [with_atoms_def, force_list_def]
+    \\ drule_all v_rel_force
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rw []
+    \\ qmatch_goalsub_rename_tac ‘force a’
+    \\ rename1 ‘v_rel a b’
+    \\ qpat_x_assum ‘v_rel a b’ assume_tac
+    \\ qpat_x_assum ‘v_inv a’ assume_tac
+    \\ drule_all_then assume_tac v_rel_force
+    \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ gvs [get_atoms_def]
+    >- (
+      CASE_TAC \\ gs [])
+    \\ rename1 ‘force v = INR v1’
+    \\ rename1 ‘force a = INR v2’
+    \\ rename1 ‘force w = INR w1’
+    \\ rename1 ‘force b = INR w2’
+    \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [get_atoms_def]
+    \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ gs [get_atoms_def]
+    \\ gs [get_atoms_def] \\ gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ gs [state_rel_def, LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    >- (
+      first_x_assum irule \\ gs []
+      \\ ‘HD [Loc n; Int i] = Loc n ∧ EL 1 [Loc n; Int i] = Int i’
+        by gs []
+      \\ pop_assum (irule_at Any) \\ gs []
+      \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
+      \\ simp [exp_inv_def, exp_rel_Prim]
+      \\ rw [EL_LUPDATE] \\ rw [])
+    >- (
+      first_x_assum irule \\ gs []
+      \\ simp [exp_inv_def, exp_rel_Prim]
+      \\ first_assum (irule_at Any)
+      \\ first_assum (irule_at Any)
+      \\ ‘HD [Loc n; Int i] = Loc n ∧ EL 1 [Loc n; Int i] = Int i’
+        by gs []
+      \\ pop_assum (irule_at Any) \\ gs [])
+    \\ last_x_assum irule \\ gs []
+    \\ simp [exp_inv_def, exp_rel_Prim]
+    \\ gs [GSYM integerTheory.INT_NOT_LE]
+    \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ ‘HD [Loc n; Int i] = Loc n ∧ EL 1 [Loc n; Int i] = Int i’
+      by gs []
+    \\ pop_assum (irule_at Any) \\ gs [])
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ rw [Once next_def] \\ gs []
 QED
 
 Theorem unthunk_next_action:
