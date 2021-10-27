@@ -1298,14 +1298,36 @@ Theorem unthunk_interp:
   state_rel s t ⇒
     interp v c s = interp w d t
 Proof
-  strip_tac
-  \\ simp [interp, interp'_def]
-  \\ simp [Once io_treeTheory.io_unfold_err, SimpLHS]
-  \\ simp [Once io_treeTheory.io_unfold_err, SimpRHS]
-  \\ qsuff_tac ‘next_rel (next_action v c s) (next_action w d t)’
+  rw[Once io_treeTheory.io_bisimulation] >>
+  qexists_tac `λt1 t2.
+    t1 = t2 ∨
+    ∃v c s w d t.
+      t1 = interp v c s ∧
+      t2 = interp w d t ∧
+      ($= +++ (λv w. v_rel v w ∧ v_inv v)) v w ∧
+      cont_rel c d ∧ state_rel s t` >>
+  rw[]
+  >- (disj2_tac >> rpt $ irule_at Any EQ_REFL >> simp[])
   >- (
-    cheat (* io_bleh_err *))
-  \\ irule unthunk_next_action \\ gs []
+    drule_all unthunk_next_action >> strip_tac >>
+    qpat_x_assum `Ret _ = _` mp_tac >>
+    once_rewrite_tac[interp_def] >>
+    Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[]
+    )
+  >- (
+    drule_all unthunk_next_action >> strip_tac >>
+    qpat_x_assum `_ = Div` mp_tac >>
+    once_rewrite_tac[interp_def] >>
+    Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[]
+    )
+  >- (
+    drule_all unthunk_next_action >> strip_tac >>
+    qpat_x_assum `Vis _ _ = _` mp_tac >>
+    ntac 2 $ rw[Once interp_def] >>
+    Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[] >>
+    rw[] >> CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >> disj2_tac >>
+    rpt $ irule_at Any EQ_REFL >> simp[]
+    )
 QED
 
 Theorem unthunk_semantics:
