@@ -11,6 +11,9 @@ open pure_miscTheory thunkLangPropsTheory;
 
 val _ = new_theory "thunk_to_envProof";
 
+val _ = set_grammar_ancestry ["pred_set", "rich_list", "envLang", "thunkLang",
+                              "thunk_to_env", "thunkLangProps" ]
+
 val _ = numLib.prefer_num ();
 
 (*

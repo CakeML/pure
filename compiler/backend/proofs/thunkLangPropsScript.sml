@@ -5,12 +5,12 @@
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory;
+     thunkLang_primitivesTheory thunk_semanticsTheory;
 open pure_miscTheory;
 
 val _ = new_theory "thunkLangProps";
 
-val _ = set_grammar_ancestry ["thunkLang", "pure_misc"];
+val _ = set_grammar_ancestry ["thunkLang", "pure_misc", "thunk_semantics"];
 
 val _ = numLib.prefer_num ();
 
