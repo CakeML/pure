@@ -192,7 +192,8 @@ Definition interp'_def:
         | Div => Div'
         | Act a new_stack new_state =>
             Vis' a
-              (λy. (INR $ Constructor "Ret" [Atom (Str y)], new_stack, new_state)))
+              (λy. (INR $ Constructor "Ret" [Thunk (INR (Lit (Str y)))],
+                    new_stack, new_state)))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
@@ -217,7 +218,9 @@ Theorem interp_def:
               Ret $ pure_semantics$FinalFFI a x
           | INR y =>
               if STRLEN y ≤ max_FFI_return_size then
-                interp (INR $ Constructor "Ret" [Atom (Str y)]) new_stack new_state
+                interp (INR $ Constructor "Ret" [Thunk (INR (Lit (Str y)))])
+                       new_stack
+                       new_state
               else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
 Proof
   rw[Once interp, interp'_def] >>

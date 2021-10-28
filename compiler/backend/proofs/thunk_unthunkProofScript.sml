@@ -1326,7 +1326,7 @@ Proof
     ntac 2 $ rw[Once interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[] >>
     rw[] >> CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >> disj2_tac >>
-    rpt $ irule_at Any EQ_REFL >> simp[]
+    rpt $ irule_at Any EQ_REFL >> simp[exp_rel_rules, exp_inv_def]
     )
 QED
 

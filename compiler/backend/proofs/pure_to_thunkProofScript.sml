@@ -1305,10 +1305,49 @@ Proof
   \\ rw [Once thunk_semanticsTheory.next_def]
 QED
 
-(* TODO
- * - This proof needs to be set up to use some io_tree_unfold_something theorem
- *   (see the real definition of interp in pure_semantics).
- *)
+Theorem pure_to_thunk_next_action:
+  v_rel v w ∧
+  cont_rel c d ∧
+  state_rel s t ⇒
+  next_action v c s ≠ Err ⇒
+    next_rel (next_action v c s) (next_action w d t)
+Proof
+  rw [thunk_semanticsTheory.next_action_def]
+  \\ ‘∀k. next k v c s ≠ Err’
+    by (rpt strip_tac
+        \\ qpat_x_assum ‘next_action _ _ _ ≠ _’ mp_tac
+        \\ rw [pure_semanticsTheory.next_action_def]
+        \\ DEEP_INTRO_TAC some_intro \\ simp []
+        \\ rw []
+        >- (
+          qpat_assum ‘_ = Err’ (SUBST1_TAC o SYM)
+          \\ irule pure_semanticsTheory.next_next
+          \\ gs [])
+        \\ qexists_tac ‘k’ \\ gs [])
+  \\ rw [pure_semanticsTheory.next_action_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ simp [PULL_FORALL]
+  \\ qx_gen_tac ‘i’
+  \\ qx_gen_tac ‘j’
+  \\ qx_gen_tac ‘k’
+  \\ rw []
+  >- (
+    ‘next j v c s ≠ Err’
+      by gs []
+    \\ drule_all_then assume_tac pure_to_thunk_next
+    \\ drule_then (qspec_then ‘j’ mp_tac) next_next
+    \\ impl_tac \\ rw []
+    \\ strip_tac \\ gs []
+    \\ Cases_on ‘next j v c s’ \\ gs [])
+  \\ ‘next i v c s ≠ Err’
+    by gs []
+  \\ drule_all_then assume_tac pure_to_thunk_next
+  \\ gs []
+  \\ ‘next k v c s ≠ Err’
+    by gs []
+  \\ drule_all_then assume_tac pure_to_thunk_next \\ gs []
+QED
 
 Theorem pure_to_thunk_interp[local]:
   v_rel v w ∧
@@ -1318,58 +1357,60 @@ Theorem pure_to_thunk_interp[local]:
     interp v c s = interp w d t
 Proof
   strip_tac
-  \\ simp [Once pure_semanticsTheory.interp_def,
-           Once thunk_semanticsTheory.interp_def]
-  \\ simp [pure_semanticsTheory.next_action_def,
-           thunk_semanticsTheory.next_action_def]
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ rw [] \\ gs []
-  >- ((* Neither side diverges *)
-    rename1 ‘pure_semantics$next k’
-    \\ rename1 ‘thunk_semantics$next j’
-    \\ ‘next k v c s ≠ Err’
-      by (gs [Once pure_semanticsTheory.interp_def,
-              pure_semanticsTheory.next_action_def]
-          \\ qpat_x_assum ‘_ ≠ Ret Error’ mp_tac
-          \\ DEEP_INTRO_TAC some_intro \\ simp []
-          \\ ntac 2 strip_tac \\ gs []
-          \\ ‘next k v c s = next x v c s’
-            by (irule pure_semanticsTheory.next_next \\ gs [])
-          \\ CASE_TAC \\ gs [])
-    \\ drule_all_then assume_tac pure_to_thunk_next
-    \\ ‘next k w d t ≠ Div’
+  \\ rw [Once io_treeTheory.io_bisimulation]
+  \\ qexists_tac ‘
+    λt1 t2.
+      t1 = t2 ∨
+      ∃v c s w d t.
+        t1 = interp v c s ∧
+        t2 = interp w d t ∧
+        interp v c s ≠ Ret Error ∧
+        v_rel v w ∧
+        cont_rel c d ∧ state_rel s t’
+  \\ rw []
+  >- (
+    disj2_tac
+    \\ irule_at Any EQ_REFL
+    \\ irule_at Any EQ_REFL
+    \\ gs [])
+  >- (
+    ‘next_action v' c' s' ≠ Err’
       by (strip_tac
-          \\ Cases_on ‘next k v c s’ \\ gs [])
-    \\ ‘next j w d t = next k w d t’
-      by (irule thunk_semanticsTheory.next_next \\ gs [])
-    \\ gs []
-    \\ Cases_on ‘next k v c s’ \\ Cases_on ‘next k w d t’ \\ gvs []
-    \\ rw [FUN_EQ_THM]
-    \\ CASE_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    \\ simp [Once pure_semanticsTheory.interp_def,
-             Once thunk_semanticsTheory.interp_def,
-             pure_semanticsTheory.next_action_def,
-             thunk_semanticsTheory.next_action_def]
-    \\ cheat (* ind ? *))
-  >- ((* Right side diverges *)
-    ‘next x v c s ≠ Err’ by gs []
-    \\ drule_all_then assume_tac pure_to_thunk_next
-    \\ Cases_on ‘next x w d t’ \\ gs [])
-      (* Left side diverges *)
-  \\ rename1 ‘pure_semantics$next k’
-  \\ ‘next k v c s ≠ Err’
-    by (gs [Once pure_semanticsTheory.interp_def,
-            pure_semanticsTheory.next_action_def]
-        \\ qpat_x_assum ‘_ ≠ Ret Error’ mp_tac
-        \\ DEEP_INTRO_TAC some_intro \\ simp []
-        \\ ntac 2 strip_tac \\ gs []
-        \\ ‘next k v c s = next x v c s’
-          by (irule pure_semanticsTheory.next_next \\ gs [])
-        \\ CASE_TAC \\ gs [])
-  \\ drule_all_then assume_tac pure_to_thunk_next
-  \\ Cases_on ‘next k v c s’ \\ gs []
+          \\ qpat_x_assum ‘interp v' _ _ ≠ _’ mp_tac
+          \\ rw [Once pure_semanticsTheory.interp_def])
+    \\ drule_all_then assume_tac pure_to_thunk_next_action
+    \\ qpat_x_assum ‘Ret _ = _’ mp_tac
+    \\ once_rewrite_tac [thunk_semanticsTheory.interp_def,
+                         pure_semanticsTheory.interp_def]
+    \\ Cases_on ‘next_action v' c' s'’
+    \\ Cases_on ‘next_action w' d' t''’ \\ gvs [])
+  >- (
+    ‘next_action v' c' s' ≠ Err’
+      by (strip_tac
+          \\ qpat_x_assum ‘interp v' _ _ = _’ mp_tac
+          \\ rw [Once pure_semanticsTheory.interp_def])
+    \\ drule_all_then assume_tac pure_to_thunk_next_action
+    \\ qpat_x_assum ‘_ = Div’ mp_tac
+    \\ once_rewrite_tac [thunk_semanticsTheory.interp_def,
+                         pure_semanticsTheory.interp_def]
+    \\ Cases_on ‘next_action v' c' s'’
+    \\ Cases_on ‘next_action w' d' t''’ \\ gvs [])
+  \\ ‘next_action v' c' s' ≠ Err’
+    by (strip_tac
+        \\ qpat_x_assum ‘interp v' _ _ ≠ _’ mp_tac
+        \\ rw [Once pure_semanticsTheory.interp_def])
+  \\ drule_all_then assume_tac pure_to_thunk_next_action
+  \\ qpat_x_assum ‘Vis _ _ = _’ mp_tac
+  \\ rw [Once pure_semanticsTheory.interp_def]
+  \\ rw [Once thunk_semanticsTheory.interp_def]
+  \\ Cases_on ‘next_action v' c' s'’
+  \\ Cases_on ‘next_action w' d' t''’ \\ gvs [] \\ rw []
+  \\ CASE_TAC \\ gs [] \\ rw []
+  \\ disj2_tac
+  \\ irule_at Any EQ_REFL
+  \\ irule_at Any EQ_REFL \\ gs []
+  \\ simp [thunk_rel_def, exp_rel_Prim]
+  \\ cheat (* gah *)
 QED
 
 Theorem pure_to_thunk_semantics:
