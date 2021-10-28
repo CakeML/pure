@@ -125,6 +125,7 @@ Theorem example_2_infer:
     ((Function (CVar 0) (CVar 1),
       fromList var_cmp [],
       [
+        Unify () (CVar 0) (CVar 0);
         Unify () (CVar 0) (CVar 4);
         Implicit () (CVar 2) (LS ()) (CVar 4);
         Implicit () (CVar 1) (LS ()) (CVar 3);
@@ -145,6 +146,7 @@ Theorem example_2_solve:
     Function (CVar 0) (CVar 1),
     SOME (
       [
+        FEMPTY;
         FEMPTY |+ (0,CVar 4); FEMPTY |+ (2,CVar 4);
         FEMPTY |+ (4,Function (PrimTy Bool) (CVar 3));
         FEMPTY |+ (1,CVar 3)

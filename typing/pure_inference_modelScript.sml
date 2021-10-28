@@ -96,7 +96,8 @@ Inductive minfer:
   (minfer ns mset e as cs ty ∧
    f ∉ mset ∪ new_vars as cs ty
     ⇒ minfer ns mset (Prim d (Cons "Raise") [e])
-        as (mUnify ty Exception INSERT cs) (M $ CVar f)) ∧
+        as (mUnify (CVar f) (CVar f) INSERT mUnify ty Exception INSERT cs)
+        (M $ CVar f)) ∧
 
 [~Handle:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -188,7 +189,8 @@ Inductive minfer:
    cname ∉ reserved_cns
     ⇒ minfer ns mset (Prim d (Cons cname) es)
         (FOLDR maunion FEMPTY ass)
-        (set (list$MAP2
+        (set (MAP (λf. mUnify (CVar f) (CVar f)) freshes) ∪
+         set (list$MAP2
               (λt a. mUnify t (isubst (MAP CVar freshes) $ itype_of a)) tys arg_tys) ∪
           BIGUNION (set css))
         (TypeCons id (MAP CVar freshes))) ∧
@@ -234,7 +236,8 @@ Inductive minfer:
    EVERY (λf. f ∉ mset ∪ new_vars as cs ty) freshes
     ⇒ minfer ns mset (Lam d xs e)
         (FDIFF as (set xs))
-        (cs ∪ (BIGUNION $ set $ list$MAP2 (λf x.
+        (cs ∪ set (MAP (λf. mUnify (CVar f) (CVar f)) freshes) ∪
+         (BIGUNION $ set $ list$MAP2 (λf x.
           IMAGE (λn. mUnify (CVar f) (CVar n)) (get_massumptions as x)) freshes xs))
         (iFunctions (MAP CVar freshes) ty)) ∧
 
@@ -1501,8 +1504,8 @@ Proof
         CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule >> simp[]
         ) >>
       DEP_REWRITE_TAC[MAP2_MAP] >>
-      simp[LIST_TO_SET_MAP, LIST_TO_SET_FLAT] >>
-      simp[Once UNION_COMM] >> AP_TERM_TAC >>
+      simp[LIST_TO_SET_MAP, LIST_TO_SET_FLAT, IMAGE_IMAGE, combinTheory.o_DEF] >>
+      simp[AC UNION_ASSOC UNION_COMM] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
       simp[IMAGE_BIGUNION, IMAGE_IMAGE, LIST_TO_SET_MAP,
            combinTheory.o_DEF, LAMBDA_PROD] >>
       rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> ntac 2 $ rw[Once FUN_EQ_THM] >>
@@ -1519,6 +1522,7 @@ Proof
       >- (irule SUBSET_BIGUNION >> simp[FRANGE_FDIFF_SUBSET]) >>
       rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
       )
+    >- simp[pure_vars, BIGUNION_SUBSET, PULL_EXISTS, MEM_GENLIST]
     >- (
       simp[pure_vars, BIGUNION_SUBSET, PULL_EXISTS] >> rpt gen_tac >>
       PairCases_on `x` >> once_rewrite_tac[UNCURRY] >> BETA_TAC >>

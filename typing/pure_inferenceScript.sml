@@ -226,7 +226,8 @@ Definition infer_def:
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
           fresh <- fresh_var;
-          return (M $ CVar fresh, as, (Unify d ty Exception)::cs) od
+          return (M $ CVar fresh, as,
+            (Unify d (CVar fresh) (CVar fresh))::(Unify d ty Exception)::cs) od
       | _ => fail)
 
     else if s = "Handle" then (
@@ -327,7 +328,8 @@ Definition infer_def:
             freshes <- fresh_vars ar;
             cfreshes <<- MAP CVar freshes;
             return (TypeCons n cfreshes, as,
-            (list$MAP2
+            (MAP (λcf. Unify d cf cf) cfreshes ++
+             list$MAP2
               (λt a. Unify d t (isubst cfreshes $ itype_of a)) tys arg_tys) ++ cs) od
           else fail)
       | NONE => fail od) ∧
@@ -367,6 +369,7 @@ Definition infer_def:
     cfreshes <<- MAP CVar freshes;
     (ty, as, cs) <- infer ns (list_insert freshes mset) e;
     return (iFunctions cfreshes ty, list_delete as xs,
+            MAP (λcf. Unify d cf cf) cfreshes ++
             FLAT (list$MAP2
               (λf x. MAP (Unify d (CVar f) o CVar) $ get_assumptions x as)
             freshes xs) ++ cs) od) ∧
