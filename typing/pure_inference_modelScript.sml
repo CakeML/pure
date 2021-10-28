@@ -146,7 +146,7 @@ Inductive minfer:
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2);(as3,cs3,ty3)] ∧
    f ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∪ new_vars as3 cs3 ty3
     ⇒ minfer ns mset (Prim d (Cons "Update") [e1;e2;e3])
-        as
+        (maunion as1 (maunion as2 as3))
         ({mUnify ty3 (CVar f); mUnify ty2 IntTy; mUnify ty1 (Array $ CVar f)}
           ∪ cs1 ∪ cs2 ∪ cs3)
         (M Unit)) ∧
@@ -185,8 +185,8 @@ Inductive minfer:
    LENGTH freshes = ar ∧
    EVERY (λf. f ∉ mset ∧
     EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty) (ZIP (ass,ZIP(css,tys)))) freshes ∧
-   s ∉ reserved_cns
-    ⇒ minfer ns mset (Prim d (Cons s) es)
+   cname ∉ reserved_cns
+    ⇒ minfer ns mset (Prim d (Cons cname) es)
         (FOLDR maunion FEMPTY ass)
         (set (list$MAP2
               (λt a. mUnify t (isubst (MAP CVar freshes) $ itype_of a)) tys arg_tys) ∪
@@ -213,7 +213,8 @@ Inductive minfer:
         (maunion as1 as2) (cs1 ∪ cs2) ty2) ∧
 
 [~App:]
-  (LENGTH es = LENGTH tys ∧
+  (¬NULL es ∧
+   LENGTH es = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
    LIST_REL (λ(e,ty) (a,c). minfer ns mset e a c ty)
       (ZIP (es,tys)) (ZIP (ass,css)) ∧
@@ -269,8 +270,10 @@ Inductive minfer:
    f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
    {cn1; cn2} = {"True";"False"}
     ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)])
-        ((maunion eas (maunion as1 as2)) \\ v)
+        (maunion eas (maunion as1 as2 \\ v))
         (mUnify (CVar f) ety INSERT mUnify ety BoolTy INSERT mUnify ty1 ty2 INSERT
+          IMAGE (λn. mUnify (CVar n) (CVar f))
+            (get_massumptions as1 v ∪ get_massumptions as2 v) ∪
           ecs ∪ cs1 ∪ cs2)
         ty1) ∧
 
@@ -282,19 +285,20 @@ Inductive minfer:
    EVERY (λf.
     f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars asrest csrest tyrest)
     (f::freshes) ∧
+   LENGTH pvars = LENGTH freshes ∧
    pvar_cs =
     list$MAP2
       (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions asrest v))
       (v::pvars) (MAP CVar $ f::freshes)
     ⇒ minfer ns mset (Case d e v [("",pvars,rest)])
-        (maunion as (FDIFF asrest (set (v::pvars))))
+        (maunion eas (FDIFF asrest (set (v::pvars))))
         (mUnify (CVar f) ety INSERT mUnify ety (Tuple $ MAP CVar freshes) INSERT
-          BIGUNION (set pvar_cs) ∪ cs)
+          BIGUNION (set pvar_cs) ∪ ecs ∪ csrest)
         tyrest) ∧
 
 [~ExceptionCase:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
-   PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) (FST ns))
+   PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) (("Subscript",[])::FST ns))
     (MAP (λ(cn,pvars,rest). (cn, LENGTH pvars)) cases) ∧
    LENGTH cases = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
@@ -308,6 +312,7 @@ Inductive minfer:
     (ZIP (eas::ass,ZIP(ecs::css,ety::tys))) ∧
    LENGTH final_as = LENGTH final_cs ∧
    LIST_REL (λ((cn,pvars,rest),as,cs) (as',cs').
+    ((cn = "Subscript" ∧ pvars = []) ∨ cn ≠ "Subscript") ∧
     ∃schemes.
       ALOOKUP (FST ns) cn = SOME schemes ∧
       let pvar_cs = list$MAP2
@@ -329,6 +334,7 @@ Inductive minfer:
     (MAP (λ(cn,pvars,rest). (cn, LENGTH pvars)) cases) ∧
    LENGTH cases = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
+   ar = LENGTH freshes ∧
    LIST_REL (λ((cname,pvars,rest),ty) (a,c).
       minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
       (ZIP (cases,tys)) (ZIP (ass,css)) ∧
@@ -811,7 +817,7 @@ Proof
     strip_tac >> gvs[] >>
     simp[Once minfer_cases, PULL_EXISTS, GSYM CONJ_ASSOC] >>
     ntac 3 $ goal_assum $ drule_at Any >> simp[] >>
-    qexistsl_tac [`maunion (maunion mas' mas) mas''`,`r''`] >> rw[]
+    qexists_tac `r''` >> rw[]
     >- (
       gvs[assumptions_rel_def] >> simp[PULL_FORALL, aunion_def] >>
       rpt gen_tac >> DEP_REWRITE_TAC[lookup_unionWith] >>
@@ -1798,10 +1804,9 @@ Proof
       DEP_REWRITE_TAC[MAP2_MAP] >>
       simp[MAP2_MAP, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
            LIST_TO_SET_MAP, LIST_TO_SET_FLAT, IMAGE_IMAGE, IMAGE_BIGUNION] >>
+      goal_assum $ drule_at Any >>
       qexistsl_tac [
-        `mas'`,`mas`,`IMAGE to_mconstraint (set ecs ∪ set csrest)`,
-        `IMAGE to_mconstraint (set csrest)`, `mas'`,
-        `IMAGE to_mconstraint (set ecs)`,`ety`,`n`,
+        `mas`, `IMAGE to_mconstraint (set csrest)`,`n`,
         `GENLIST (λn'. n' + SUC n) (LENGTH pvars)`] >>
       rw[] >> gvs[LIST_TO_SET_MAP]
       >- (
