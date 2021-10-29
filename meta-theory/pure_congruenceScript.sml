@@ -2582,4 +2582,37 @@ Proof
   \\ simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD]
 QED
 
+Theorem eval_wh_to_Lit[simp]:
+  eval_wh_to k (Lit l) = wh_Atom l
+Proof
+  simp[eval_wh_to_def, get_atoms_def]
+QED
+
+Theorem eval_wh_to_atom2:
+  eval_wh_to k (Prim (AtomOp opn) [Lit l1; Lit l2]) =
+  if k = 0 then wh_Diverge
+  else case eval_op opn [l1; l2] of
+         NONE => wh_Error
+       | SOME (INL v) => wh_Atom v
+       | SOME (INR T) => wh_True
+       | SOME (INR F) => wh_False
+Proof
+  rw[eval_wh_to_def] >> simp[get_atoms_def, dest_Atom_def]
+QED
+
+Theorem case_someT:
+  option_CASE (some x. T) none (λy. v) = v
+Proof
+  DEEP_INTRO_TAC optionTheory.some_intro >> simp[]
+QED
+
+Theorem exp_eq_Add:
+  Prim (AtomOp Add) [Lit (Int i); Lit (Int j)] ≅ Lit (Int (i + j))
+Proof
+  irule eval_wh_IMP_exp_eq >>
+  simp[freevars_def, subst_def, eval_wh_def, case_someT, eval_wh_to_atom2] >>
+  rpt strip_tac >>
+  DEEP_INTRO_TAC optionTheory.some_intro >> simp[AllCaseEqs()]
+QED
+
 val _ = export_theory();
