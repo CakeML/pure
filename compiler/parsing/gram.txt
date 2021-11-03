@@ -1,5 +1,5 @@
 TyBase ::= capIDᵍᵉ | lcIdᵍᵉ
-        |  "("ᵍᵉ (Tyᵍᵉ (","ᵍᵉ Tyᵍᵉ)꙳ | ε) ")"ᵍᵉ
+        |  "("ᵍᵉ (Tyᵍᵉ (","ᵍᵉ Tyᵍᵉ)꙳)? ")"ᵍᵉ
         | "["ᵍᵉ Tyᵍᵉ "]"ᵍᵉ
 TyApp  ::= (TyBaseᵍᵉ)⁺
 Ty     ::= TyAppᵍᵉ ("->"ᵍᵉ TyAppᵍᵉ)꙳
@@ -8,4 +8,19 @@ TyConDecl     ::= capIdᵍᵉ (TyBaseᵍᵉ)꙳
 
 Decl ::= lcId⁼ "::"ᵍᵗ Tyᵍᵗ
       |  "data"⁼ capIDᵍᵗ (lcIdᵍᵗ)꙳ "="ᵍᵗ TyConDeclᵍᵗ ("|"ᵍᵗ TyConDeclᵍᵗ)꙳
+      |  lcId⁼ (APatᵍᵗ)꙳ FunRHSᵍᵗ
 Decls ::= (Decl⁼)꙳
+
+APat ::= lcId⁼ | Lit⁼
+
+FunRHS ::= "="ᵍᵉ Expᵍᵉ
+
+Exp ::= "\"ᵍᵉ (APatᵍᵉ)⁺ "->"ᵍᵉ Expᵍᵉ
+     |  "if"ᵍᵉ Expᵍᵉ "then"ᵍᵉ Expᵍᵉ "else"ᵍᵉ Expᵍᵉ
+     |  IExpᵍᵉ
+
+IExp ::= FExpᵍᵉ (Opᵍᵉ FExpᵍᵉ)꙳
+Op   ::= "$"⁼ | "$!"⁼ | "`seq`"⁼ | "+"⁼ | "*"⁼ | ":"⁼
+
+FExp ::= AExpᵍᵉ (AExpᵍᵉ)꙳
+AExp ::= Lit⁼ | "("⁼ Expᵍᵉ ")"ᵍᵉ | lcId⁼

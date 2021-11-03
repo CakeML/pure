@@ -1,31 +1,36 @@
 open HolKernel Parse boolLib bossLib;
 
-local open stringTheory in end
+local open stringTheory integerTheory in end
 val _ = new_theory "pureAST";
 
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
 
-   The use of the ugly tyTup constructor guarantees the absence of unary tuples.
+   The tyTup constructor should never be applied to a singleton list
 *)
 Datatype:
   tyAST = tyOp string (tyAST list)
         | tyVar string
-        | tyUnit
-        | tyTup tyAST tyAST (tyAST list)
+        | tyTup (tyAST list)
+End
+
+Datatype:
+  litAST = litInt int
 End
 
 Datatype:
   patAST = patVar string
          | patApp string (patAST list)
+         | patTup (patAST list)
+         | patLit litAST
 End
-
 
 Datatype:
   expAST = expVar string
          | expApp expAST expAST
-         | expAbs (patAST list) expAST
+         | expAbs patAST expAST
          | expIf expAST expAST expAST
+         | expLit litAST
 End
 
 Datatype:
