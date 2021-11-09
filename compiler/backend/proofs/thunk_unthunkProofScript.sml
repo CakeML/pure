@@ -12,7 +12,8 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 val _ = new_theory "thunk_unthunkProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "quotient_sum", "thunk_semantics"];
+                              "thunkLang", "quotient_sum", "thunk_semantics",
+                              "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
@@ -889,10 +890,6 @@ Proof
   \\ first_x_assum (qspec_then ‘k’ (assume_tac o SYM)) \\ simp []
   \\ irule exp_rel_eval_to \\ simp []
 QED
-
-(* -------------------------------------------------------------------------
- * Slightly generalized simulations
- * ------------------------------------------------------------------------- *)
 
 (* -------------------------------------------------------------------------
  * Top-level semantics
