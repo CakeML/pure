@@ -898,6 +898,7 @@ Definition rel_ok_def:
   rel_ok Rv Re ⇔
     (∀s x v.
        Rv (Closure s x) v ⇒
+          freevars x ⊆ {s} ∧
           ∃y. v = Closure s y ∧
               Re x y) ∧
     (∀s vs v.
@@ -996,7 +997,8 @@ End
 Definition sim_ok_def:
   sim_ok Rv Re ⇔
     (∀x y.
-       Re x y ⇒
+       Re x y ∧
+       closed x ⇒
          ($= +++ Rv) (eval x) (eval y)) ∧
     (∀vs ws x y.
        LIST_REL Rv (MAP SND vs) (MAP SND ws) ∧
@@ -1071,9 +1073,12 @@ Proof
       \\ gs [subst_funs_def, sim_ok_def]
       \\ first_x_assum irule
       \\ simp [closed_subst]
-      \\ imp_res_tac ALOOKUP_SOME_REVERSE_EL
-      \\ gvs [EVERY_MEM, MEM_EL, PULL_EXISTS, MAP_MAP_o, combinTheory.o_DEF,
-             LAMBDA_PROD, EL_MAP, GSYM FST_THM]
+      \\ (conj_tac >- (
+            gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+            \\ imp_res_tac ALOOKUP_SOME_REVERSE_EL
+            \\ gvs [EVERY_MEM, MEM_EL, PULL_EXISTS]
+            \\ first_x_assum (drule_then assume_tac)
+            \\ gs [EL_MAP, freevars_def]))
       \\ first_x_assum irule
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
              EVERY2_MAP]
@@ -1149,7 +1154,9 @@ Proof
     res_tac \\ gvs []
     \\ simp [dest_anyClosure_def]
     \\ first_x_assum irule
-    \\ gs [sim_ok_def])
+    \\ gs [sim_ok_def]
+    \\ first_x_assum irule
+    \\ simp [closed_subst])
   \\ Cases_on ‘∃f n. v1 = Recclosure f n’ \\ gvs []
   >- (
     res_tac \\ gvs []
@@ -1167,9 +1174,16 @@ Proof
       \\ first_x_assum irule
       \\ simp [closed_subst, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
                GSYM FST_THM]
-      \\ first_x_assum irule
+      \\ first_x_assum (irule_at Any)
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
              EVERY2_MAP]
+      \\ reverse conj_tac
+      >- (
+        imp_res_tac ALOOKUP_SOME_REVERSE_EL
+        \\ gvs [EVERY_EL, EL_MAP]
+        \\ first_x_assum (drule_then assume_tac)
+        \\ gs [freevars_def, SUBSET_DEF]
+        \\ rw [DISJ_COMM, DISJ_EQ_IMP])
       \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY] \\ rw []
       \\ rename1 ‘_ (_ _ (FST (EL m xs))) (_ _ (FST (EL m ys)))’
       \\ ‘FST (EL m xs) = FST (EL m ys)’
@@ -1187,18 +1201,6 @@ Proof
   \\ Cases_on ‘s’ \\ gs []
   \\ res_tac \\ gs []
   \\ res_tac \\ gs []
-QED
-
-(* bah *)
-Theorem HD_EXISTS[local]:
-  ∀n v. ∃xs. EL n xs = v
-Proof
-  Induct \\ rw []
-  >- (
-    qexists_tac ‘[v]’
-    \\ gs [])
-  \\ first_x_assum (qspec_then ‘v’ strip_assume_tac)
-  \\ qexists_tac ‘x::xs’ \\ simp []
 QED
 
 fun print_tac str g = (print (str ^ "\n"); ALL_TAC g);
@@ -1398,7 +1400,8 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule \\ gs []
-    \\ simp [SF SFY_ss, Q.SPEC ‘0’ HD_EXISTS |> SIMP_RULE list_ss []]
+    \\ simp [PULL_EXISTS]
+    \\ qexists_tac ‘[Int i]’ \\ simp []
     \\ gs [state_rel_def, LIST_REL_REPLICATE_same]
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs []
     \\ gs [LIST_REL_EL_EQN, SF SFY_ss]
@@ -1437,7 +1440,8 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule \\ gs []
-    \\ simp [SF SFY_ss, Q.SPEC ‘0’ HD_EXISTS |> SIMP_RULE list_ss []]
+    \\ simp [PULL_EXISTS]
+    \\ qexists_tac ‘[Loc n]’ \\ simp []
     \\ gs [state_rel_def, LIST_REL_REPLICATE_same]
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs []
     \\ gs [LIST_REL_EL_EQN, SF SFY_ss]
@@ -1809,9 +1813,7 @@ Theorem sim_ok_exp_rel[local]:
   sim_ok (λv w. v_rel v w ∧ v_inv v) (λx y. exp_rel x y ∧ exp_inv x)
 Proof
   rw [sim_ok_def]
-  >- (
-    irule exp_rel_eval \\ simp []
-    \\ cheat (* closed *))
+  \\ simp [exp_rel_eval]
   >- (
     irule exp_rel_subst
     \\ gs [LIST_REL_CONJ, SF ETA_ss])
