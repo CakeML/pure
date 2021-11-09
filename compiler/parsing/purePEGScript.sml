@@ -127,7 +127,13 @@ Definition purePEG_def[nocompute]:
                        (mkNT nTyBase);
                   seql [tokGE ((=)LbrackT); NT nTy I lrGE; tokGE((=) RbrackT)]
                        (mkNT nTyBase)]);
-        (INL nTyApp, RPT1 (NT nTyBase I lrGE));
+        (INL nTyApp,
+         choicel [seq
+                  (tokGE capname_tok)
+                  (choice (RPT1 (NT nTyBase I lrGE)) (empty []) sumID)
+                  (λpt1 pt2. if NULL pt2 then mkNT nTyApp (mkNT nTyBase pt1)
+                             else mkNT nTyApp (pt1 ++ pt2));
+                  pegf (NT nTyBase I lrGE) (mkNT nTyApp)]);
 
         (INL nTy,
          pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=)ArrowT))) (mkNT nTy));
@@ -297,6 +303,8 @@ val ty2 = testty "Foo -> a"
 val ty3 = testty "a -> b -> c"
 val ty4 = testty "(a -> B) -> c"
 val ty5 = testty "Foo a B"
+val ty6 = testty "Foo [Bar] -> a"
+val ty7 = testty " Foo Bar ->\na"
 
 Theorem gooddata1 =
         EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
