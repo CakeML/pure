@@ -2,35 +2,13 @@ open HolKernel Parse boolLib bossLib;
 
 
 open stringTheory grammarTheory ispegexecTheory ispegTheory tokenUtilsTheory
+     pureNTTheory
 local open lexer_funTheory stringLib in end
 
 val _ = new_theory "purePEG";
 
 val _ = set_grammar_ancestry
-        ["tokenUtils", "grammar", "lexer_fun", "ispegexec"]
-
-
-Datatype:
-  ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
-         | nAPat | nFunRHS | nExp | nIExp | nLit | nOp | nFExp | nAExp
-End
-
-val distinct_ths = let
-  val ntlist = TypeBase.constructors_of ``:ppegnt``
-  fun recurse [] = []
-    | recurse (t::ts) = let
-      val eqns = map (fn t' => mk_eq(t,t')) ts
-      val ths0 = map (SIMP_CONV (srw_ss()) []) eqns
-      val ths1 = map (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ))) ths0
-    in
-      ths0 @ ths1 @ recurse ts
-    end
-in
-  recurse ntlist
-end
-
-
-val _ = computeLib.add_thms distinct_ths computeLib.the_compset
+        ["tokenUtils", "grammar", "lexer_fun", "ispegexec", "pureNT"]
 
 
 Definition sumID_def[simp]:
@@ -245,8 +223,8 @@ val mkNT = ``INL : ppegnt -> ppegnt + num``
 Theorem purePEG_exec_thm[compute] =
   TypeBase.constructors_of ``:ppegnt``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
-    |> map (SIMP_RULE bool_ss (purepeg_rules_applied @ distinct_ths @
-                               [sumTheory.INL_11]))
+    |> map (SIMP_RULE bool_ss (purepeg_rules_applied @
+                               [pureNTs_distinct, sumTheory.INL_11]))
     |> LIST_CONJ;
 
 
