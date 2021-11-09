@@ -103,7 +103,11 @@ Inductive exp_inv:
 [v_inv_Thunk:]
   (∀x.
      exp_inv x ⇒
-       v_inv (Thunk (INR x)))
+       v_inv (Thunk (INR x))) ∧
+[v_inv_DoTick:]
+  (∀v.
+     v_inv v ⇒
+       v_inv (DoTick v))
 End
 
 Theorem exp_inv_def:
@@ -165,6 +169,7 @@ Theorem v_inv_def[simp]:
            EVERY (λv. ∃x. v = Delay x ∧ exp_inv x) (MAP SND f)) ∧
   (∀v. v_inv (Thunk (INL v)) = F) ∧
   (∀x. v_inv (Thunk (INR x)) = exp_inv x) ∧
+  (∀v. v_inv (DoTick v) = v_inv v) ∧
   (∀x. v_inv (Atom x) = T)
 Proof
   rw [] \\ rw [Once exp_inv_cases, AC CONJ_COMM CONJ_ASSOC]
@@ -893,8 +898,7 @@ Definition rel_ok_def:
   rel_ok Rv Re ⇔
     (∀s x v.
        Rv (Closure s x) v ⇒
-          ∃y. closed x ∧
-              v = Closure s y ∧
+          ∃y. v = Closure s y ∧
               Re x y) ∧
     (∀s vs v.
        Rv (Constructor s vs) v ⇒
@@ -918,35 +922,10 @@ Definition rel_ok_def:
          ∃w. v = DoTick w ∧
              Rv u w) ∧
     (* Expression relation structure: *)
-    (∀s y.
-       Re (Var s) y ⇒
-         y = Var s) ∧
     (∀op xs y.
        Re (Prim op xs) y ⇒
          ∃ys. y = Prim op ys ∧
               LIST_REL Re xs ys) ∧
-    (∀s x y z.
-       Re (Let s x y) z ⇒
-         ∃x1 y1. z = Let s x1 y1 ∧
-                 Re x x1 ∧
-                 Re y y1) ∧
-    (∀f x y.
-       Re (Letrec f x) y ⇒
-         ∃g z. y = Letrec g z ∧
-               MAP FST f = MAP FST g ∧
-               LIST_REL Re (MAP SND f) (MAP SND g) ∧
-               Re x z) ∧
-    (∀f x y.
-       Re (App f x) y ⇒
-         ∃g z. y = App g z ∧
-               Re f g ∧
-               Re x z) ∧
-    (∀x1 y1 z1 y.
-       Re (If x1 y1 z1) y ⇒
-         ∃x2 y2 z2. y = If x2 y2 z2 ∧
-                    Re x1 x2 ∧
-                    Re y1 y2 ∧
-                    Re z1 z2) ∧
     (* Really what's important is that only Delay and Box map to
      * Delay and box, and only Lam maps to Lam. Some things we want to
      * leave open exactly what they map to; it's not important here.
@@ -1000,27 +979,6 @@ Definition rel_ok_inv_def:
     (∀op xs ys.
        LIST_REL Re xs ys ⇒
          Re (Prim op xs) (Prim op ys)) ∧
-    (∀f x g y.
-       Re f g ∧
-       Re x y ⇒
-         Re (App f x) (App g y)) ∧
-    (∀s x y.
-       Re x y ⇒
-         Re (Lam s x) (Lam s y)) ∧
-    (∀f x g y.
-       MAP FST f = MAP FST g ∧
-       LIST_REL Re (MAP SND f) (MAP SND g) ∧
-       Re x y ⇒
-         Re (Letrec f x) (Letrec g y)) ∧
-    (∀s x1 y1 x2 y2.
-       Re x1 x2 ∧
-       Re y1 y2 ⇒
-         Re (Let s x1 y1) (Let s x2 y2)) ∧
-    (∀x1 y1 z1 x2 y2 z2.
-       Re x1 x2 ∧
-       Re y1 y2 ∧
-       Re z1 z2 ⇒
-         Re (If x1 y1 z1) (If x2 y2 z2)) ∧
     (∀x y.
        Re x y ⇒
          Re (Delay x) (Delay y)) ∧
@@ -1038,8 +996,7 @@ End
 Definition sim_ok_def:
   sim_ok Rv Re ⇔
     (∀x y.
-       Re x y ∧
-       closed x ⇒
+       Re x y ⇒
          ($= +++ Rv) (eval x) (eval y)) ∧
     (∀vs ws x y.
        LIST_REL Rv (MAP SND vs) (MAP SND ws) ∧
@@ -1117,7 +1074,6 @@ Proof
       \\ imp_res_tac ALOOKUP_SOME_REVERSE_EL
       \\ gvs [EVERY_MEM, MEM_EL, PULL_EXISTS, MAP_MAP_o, combinTheory.o_DEF,
              LAMBDA_PROD, EL_MAP, GSYM FST_THM]
-      \\ (conj_tac >- ( first_x_assum (drule_then mp_tac) \\ gs [freevars_def]))
       \\ first_x_assum irule
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
              EVERY2_MAP]
@@ -1193,10 +1149,7 @@ Proof
     res_tac \\ gvs []
     \\ simp [dest_anyClosure_def]
     \\ first_x_assum irule
-    \\ gs [sim_ok_def]
-    \\ first_x_assum irule
-    \\ simp [closed_subst]
-    \\ gs [closed_def])
+    \\ gs [sim_ok_def])
   \\ Cases_on ‘∃f n. v1 = Recclosure f n’ \\ gvs []
   >- (
     res_tac \\ gvs []
@@ -1214,13 +1167,6 @@ Proof
       \\ first_x_assum irule
       \\ simp [closed_subst, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
                GSYM FST_THM]
-      \\ conj_tac
-      >- (
-        gvs [EVERY_EL, EL_MAP]
-        \\ imp_res_tac ALOOKUP_SOME_REVERSE_EL
-        \\ first_x_assum (drule_then assume_tac)
-        \\ gs [freevars_def, SUBSET_DEF] \\ rw []
-        \\ rw [DISJ_COMM, DISJ_EQ_IMP])
       \\ first_x_assum irule
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
              EVERY2_MAP]
@@ -1254,6 +1200,10 @@ Proof
   \\ first_x_assum (qspec_then ‘v’ strip_assume_tac)
   \\ qexists_tac ‘x::xs’ \\ simp []
 QED
+
+fun print_tac str g = (print (str ^ "\n"); ALL_TAC g);
+
+val _ = print "Proving unthunk_next ...\n";
 
 (* next preserves relation *)
 Theorem unthunk_next:
@@ -1300,6 +1250,7 @@ Proof
   \\ gvs []
   \\ res_tac \\ gvs []
   \\ simp [Once next_def]
+  \\ print_tac "Ret [1/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Ret *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1333,6 +1284,7 @@ Proof
       \\ irule next_rel_apply_closure \\ gs [SF SFY_ss])
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
     \\ simp [Once next_def])
+  \\ print_tac "Raise [2/9]"
   \\ IF_CASES_TAC
   >- ((* Raise *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1366,6 +1318,7 @@ Proof
     >- (
       CASE_TAC \\ gs [])
     \\ irule next_rel_apply_closure \\ gs [SF SFY_ss])
+  \\ print_tac "Bind [3/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Bind *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1380,6 +1333,7 @@ Proof
     \\ simp [Abbr ‘X’]
     \\ first_x_assum irule \\ gs []
     \\ irule v_rel_force \\ gs [SF SFY_ss])
+  \\ print_tac "Handle [4/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Handle *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1394,6 +1348,7 @@ Proof
     \\ simp [Abbr ‘X’]
     \\ first_x_assum irule \\ gs []
     \\ irule v_rel_force \\ gs [SF SFY_ss])
+  \\ print_tac "Act [5/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Act *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1414,6 +1369,7 @@ Proof
       \\ Cases_on ‘x’ \\ res_tac \\ gs []
       \\ res_tac \\ gs [])
     \\ CASE_TAC \\ gs [])
+  \\ print_tac "Alloc [6/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Alloc *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1449,6 +1405,7 @@ Proof
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs []
     \\ first_assum (irule_at Any)
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs [SF SFY_ss])
+  \\ print_tac "Length [7/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Length *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1487,6 +1444,7 @@ Proof
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs []
     \\ first_assum (irule_at Any)
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs [SF SFY_ss])
+  \\ print_tac "Deref [8/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Deref *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1573,6 +1531,7 @@ Proof
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ FIRST (List.map irule rel_ok_inv_conjs) \\ gs [SF SFY_ss])
+  \\ print_tac "Update [9/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Update *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -1752,7 +1711,6 @@ Proof
 QED
 
 (* Problems:
- * - Closure closed? Why
  * - Variables
  * - App, Delay, Box, MkTick: it doesnt always hold true that they are the
  *   same
@@ -1761,14 +1719,44 @@ QED
 Theorem rel_ok_exp_rel[local]:
   rel_ok (λv w. v_rel v w ∧ v_inv v) (λx y. exp_rel x y ∧ exp_inv x)
 Proof
-  cheat
+  simp [rel_ok_def]
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ strip_tac \\ gvs []
+  >- (
+    gs [LIST_REL_EL_EQN, EVERY_EL])
+  >- (
+    gs [LIST_REL_EL_EQN, EVERY_EL]
+    \\ irule_at Any LIST_EQ
+    \\ gvs [EL_MAP, ELIM_UNCURRY] \\ rw []
+    \\ first_x_assum (drule_then strip_assume_tac)
+    \\ gs [exp_inv_def])
+  >- ((* Prim *)
+    gvs [Once exp_rel_cases, exp_inv_def]
+    \\ gvs [LIST_REL_CONJ, SF ETA_ss]
+    \\ Cases_on ‘op’ \\ gs [exp_inv_def]
+    \\ gvs [LIST_REL_EL_EQN, EVERY_EL, EL_MAP, exp_inv_def]
+    \\ gvs [Once exp_inv_cases])
+  >- (
+    gs [Once exp_rel_cases, exp_inv_def])
+  >- (
+    gs [Once exp_rel_cases, exp_inv_def])
+  >- ((* Delay left *)
+    gs [Once exp_rel_cases]
+    \\ cheat (* If its a Delay (Force x), then this doesn't hold *))
+  >- ((* Delay right *)
+    gs [Once exp_rel_cases, exp_inv_def])
+  >- ((* Box left *)
+    gs [Once exp_rel_cases, exp_inv_def])
+  >- ((* Box right *)
+    gs [Once exp_rel_cases, exp_inv_def])
+  >- ((* Thunk left again *)
+    gvs [Once exp_rel_cases, exp_inv_def]
+    \\ cheat (* Does not always hold: we can elect not to change *))
 QED
 
 (* Problems:
- * - Recclosures, can contain more than Delays
- * - Variables: probably need to remove them
- * - App, Letrecs
- * - Delay, Box, MkTick
+ * - Recclosures, Prim: is_delay, proj
+ * - Delay, Box, Var
  *)
 
 Theorem rel_ok_inv_exp_rel[local]:
@@ -1776,14 +1764,54 @@ Theorem rel_ok_inv_exp_rel[local]:
              (λx y. exp_rel x y ∧ exp_inv x)
 Proof
   rw [rel_ok_inv_def]
-  \\ cheat
+  >- (
+    gs [LIST_REL_EL_EQN, EVERY_EL, ELIM_UNCURRY, EL_MAP]
+    \\ cheat (* is_delay *))
+  >- (
+    gs [LIST_REL_EL_EQN, EVERY_EL, ELIM_UNCURRY, EL_MAP]
+    \\ cheat (* is_delay *))
+  >- (
+    gs [LIST_REL_EL_EQN, EVERY_EL, ELIM_UNCURRY, EL_MAP])
+  >- (
+    gs [LIST_REL_EL_EQN, EVERY_EL, ELIM_UNCURRY, EL_MAP])
+  >- (
+    cheat (* var - var *))
+  >- (
+    cheat (* exp_inv var *))
+  >- (
+    irule exp_rel_Prim
+    \\ gs [LIST_REL_CONJ, SF ETA_ss])
+  >- (
+    Cases_on ‘op’ \\ rw [exp_inv_def]
+    \\ gs [LIST_REL_EL_EQN, EVERY_EL]
+    \\ cheat (* is_delay, proj *))
+  >- (
+    rw [exp_rel_App, exp_inv_App]
+    \\ cheat (* exp_inv *))
+  >- (
+    gs [exp_inv_def])
+  >- (
+    cheat (* box - box *))
+  >- (
+    gs [exp_inv_def]
+    \\ cheat (* v_inv box *))
+  >- (
+    rw [Once exp_rel_cases])
+  >- (
+    rw [Once exp_inv_cases])
+  >- (
+    rw [Once exp_rel_cases])
+  >- (
+    rw [Once exp_inv_cases])
 QED
 
 Theorem sim_ok_exp_rel[local]:
   sim_ok (λv w. v_rel v w ∧ v_inv v) (λx y. exp_rel x y ∧ exp_inv x)
 Proof
   rw [sim_ok_def]
-  \\ simp [exp_rel_eval]
+  >- (
+    irule exp_rel_eval \\ simp []
+    \\ cheat (* closed *))
   >- (
     irule exp_rel_subst
     \\ gs [LIST_REL_CONJ, SF ETA_ss])
