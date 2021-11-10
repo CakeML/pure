@@ -7,12 +7,13 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 
 val _ = new_theory "thunk_untickProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "quotient_sum", "quotient_pair"];
+                              "thunkLang", "quotient_sum", "quotient_pair",
+                              "thunkLangProps"];
 
 Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
 
@@ -1363,6 +1364,107 @@ Proof
     (qspec_then ‘k’ (qx_choose_then ‘m’ assume_tac)) exp_rel_eval_to
   \\ Cases_on ‘eval_to (k + m) x’ \\ gvs []
   \\ drule_then (qspec_then ‘k + m’ assume_tac) eval_to_mono \\ gs []
+QED
+
+(* -------------------------------------------------------------------------
+ * Top-level semantics
+ * ------------------------------------------------------------------------- *)
+
+(* Issues:
+ * - exp_rel_eval only works if eval x ≠ INL Type_error
+ * - proof relies on opening eval/eval_to a few times
+ *)
+
+Theorem untick_apply_force[local]:
+  v_rel v w ⇒
+    ($= +++ v_rel) (force v) (force w)
+Proof
+  cheat
+QED
+
+Theorem untick_apply_closure[local]:
+  v_rel v1 w1 ∧
+  v_rel v2 w2 ∧
+  (∀x y.
+     ($= +++ v_rel ) x y ⇒
+       next_rel v_rel (f x) (g y)) ⇒
+    next_rel v_rel
+             (apply_closure v1 v2 f)
+             (apply_closure w1 w2 g)
+Proof
+  rw [apply_closure_def]
+  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
+  >- (
+    first_x_assum irule
+    \\ irule exp_rel_eval
+    \\ gs [closed_subst]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ cheat (* eval ... ≠ error *))
+  >- (
+    rename1 ‘LIST_REL _ xs ys’
+    \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
+               (ALOOKUP (REVERSE xs) s)
+               (ALOOKUP (REVERSE ys) s)’
+      by (irule LIST_REL_OPTREL
+          \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+    \\ gs [OPTREL_def]
+    \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+    \\ rw [Once exp_rel_cases] \\ gs []
+    \\ first_x_assum irule \\ gs []
+    \\ irule exp_rel_eval
+    \\ irule_at Any exp_rel_subst
+    \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ irule_at Any LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    \\ cheat (* eval ... ≠ error *))
+  >- (
+    cheat (* error on the left *)
+  )
+  >- (
+    cheat (* error on the left *)
+  )
+QED
+
+Theorem untick_rel_ok[local]:
+  rel_ok v_rel
+Proof
+  rw [rel_ok_def]
+  >- ((* force preserves rel *)
+    simp [untick_apply_force])
+  >- ((* apply_closure preserves rel *)
+    simp [untick_apply_closure])
+  >- ((* Thunks go to Thunks or DoTicks *)
+    Cases_on ‘s’ \\ gs [])
+  >- ((* Something false: right side is never a DoTick here *)
+    cheat
+  )
+  >- ((* Equal literals are related *)
+    simp [exp_rel_Prim])
+  >- ((* Equal 0-arity conses are related *)
+    simp [exp_rel_Prim])
+QED
+
+Theorem untick_sim_ok[local]:
+  sim_ok v_rel exp_rel
+Proof
+  rw [sim_ok_def]
+  \\ simp [exp_rel_eval]
+  >- (
+    irule exp_rel_eval \\ gs []
+    \\ cheat (* failure *))
+  \\ irule exp_rel_subst
+  \\ gs [LIST_REL_CONJ, SF ETA_ss]
+QED
+
+Theorem untick_semantics:
+  exp_rel x y ∧
+  closed x ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ irule sim_ok_semantics
+  \\ irule_at Any untick_sim_ok
+  \\ irule_at Any untick_rel_ok \\ gs []
 QED
 
 val _ = export_theory ();
