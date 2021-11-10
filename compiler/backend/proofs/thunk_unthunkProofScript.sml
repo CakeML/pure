@@ -1008,12 +1008,10 @@ Theorem unthunk_semantics:
   closed x ⇒
     semantics x Done [] = semantics y Done []
 Proof
-  rw [semantics_def]
-  \\ irule unthunk_interp
-  \\ assume_tac unthunk_sim_ok
-  \\ first_assum (irule_at Any) \\ gs []
-  \\ simp [unthunk_rel_ok, state_rel_def]
-  \\ gs [cont_rel_def, state_rel_def, sim_ok_def]
+  strip_tac
+  \\ irule sim_ok_semantics
+  \\ irule_at Any unthunk_sim_ok
+  \\ irule_at Any unthunk_rel_ok \\ gs []
 QED
 
 val _ = export_theory ();

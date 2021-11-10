@@ -392,10 +392,10 @@ End
 
 fun print_tac str g = (print (str ^ "\n"); ALL_TAC g);
 
-val _ = print "Proving unthunk_next ...\n";
+val _ = print "Proving sim_ok_next ...\n";
 
 (* next preserves relation *)
-Theorem unthunk_next:
+Theorem sim_ok_next:
   ∀k v c s w d t.
     rel_ok Rv ∧
     sim_ok Rv Re ∧
@@ -712,7 +712,7 @@ Proof
   \\ rw [Once next_def] \\ gs []
 QED
 
-Theorem unthunk_next_action:
+Theorem sim_ok_next_action:
   rel_ok Rv ∧
   sim_ok Rv Re ∧
   ($= +++ Rv) v w ∧
@@ -729,16 +729,16 @@ Proof
   \\ qx_gen_tac ‘k’
   \\ rw []
   >- (
-    drule_all_then assume_tac unthunk_next \\ gs []
+    drule_all_then assume_tac sim_ok_next \\ gs []
     \\ drule_then (qspec_then ‘i’ mp_tac) next_next
     \\ impl_tac \\ rw []
     \\ strip_tac
     \\ first_x_assum (qspec_then ‘i’ assume_tac) \\ gs []
     \\ Cases_on ‘next i w d t’ \\ gs [])
-  \\ drule_all_then assume_tac unthunk_next \\ gs [SF SFY_ss]
+  \\ drule_all_then assume_tac sim_ok_next \\ gs [SF SFY_ss]
 QED
 
-Theorem unthunk_interp:
+Theorem sim_ok_interp:
   rel_ok Rv ∧
   sim_ok Rv Re ∧
   ($= +++ Rv) v w ∧
@@ -758,19 +758,19 @@ Proof
   rw[]
   >- (disj2_tac >> rpt $ irule_at Any EQ_REFL >> simp[])
   >- (
-    drule_all unthunk_next_action >> strip_tac >>
+    drule_all sim_ok_next_action >> strip_tac >>
     qpat_x_assum `Ret _ = _` mp_tac >>
     once_rewrite_tac[interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[]
     )
   >- (
-    drule_all unthunk_next_action >> strip_tac >>
+    drule_all sim_ok_next_action >> strip_tac >>
     qpat_x_assum `_ = Div` mp_tac >>
     once_rewrite_tac[interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[]
     )
   >- (
-    drule_all unthunk_next_action >> strip_tac >>
+    drule_all sim_ok_next_action >> strip_tac >>
     qpat_x_assum `Vis _ _ = _` mp_tac >>
     ntac 2 $ rw[Once interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[] >>
@@ -779,7 +779,7 @@ Proof
     gs [rel_ok_def])
 QED
 
-Theorem rel_ok_semantics:
+Theorem sim_ok_semantics:
   rel_ok Rv ∧
   sim_ok Rv Re ∧
   Re x y ∧
@@ -787,7 +787,7 @@ Theorem rel_ok_semantics:
     semantics x Done [] = semantics y Done []
 Proof
   rw [semantics_def]
-  \\ irule unthunk_interp
+  \\ irule sim_ok_interp
   \\ first_assum (irule_at Any)
   \\ gs [cont_rel_def, state_rel_def, sim_ok_def]
 QED
