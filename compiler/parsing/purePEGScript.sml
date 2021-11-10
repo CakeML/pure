@@ -114,8 +114,7 @@ Definition purePEG_def[nocompute]:
                    RPT1 (NT nAPat I lrGT);
                    NT nFunRHS I lrGT] (mkNT nDecl)]);
         (INL nTyConDecl,
-         seql [tokGE capname_tok;
-               rpt (choice (NT nTyBase I lrGE) (tokGE capname_tok) sumID) FLAT]
+         seql [tokGE capname_tok; rpt (NT nTyBase I lrGE) FLAT]
               (mkNT nTyConDecl));
 
         (INL nTyBase,

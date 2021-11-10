@@ -75,23 +75,38 @@ Definition astType_def:
            (tys, rest') <- astSepType ArrowT nTyApp rest;
            SOME $ mkFunTy (ty1::tys)
          od
+   else if nt1 = nTyApp then
+     case args of
+     | [] => NONE
+     | [pt] => astType nTyBase pt
+     | op_pt :: rest =>
+         do
+           opnm <- destAlphaT ' (destTOK ' (destLf op_pt)) ;
+           ty_args <- astTypeBaseL rest ;
+           SOME $ tyOp opnm ty_args
+         od
    else
      NONE) ∧
-  (astSepType sept nt pts =
-   case pts of
-     [] => SOME ([], [])
-   | [pt] => SOME ([], pts)
-   | pt1::pt2::rest =>
+  (astSepType sept nt [] = SOME ([], [])) ∧
+  (astSepType sept nt [pt] = SOME ([], [pt])) ∧
+  (astSepType sept nt (pt1::pt2::rest) =
        do
          assert(tokcheck pt1 sept);
          r <- astType nt pt2 ;
          (rs, pts) <- astSepType sept nt rest;
          SOME (r::rs, pts)
-       od ++ SOME ([], pts))
+       od ++ SOME ([], pt1::pt2::rest)) ∧
+  (astTypeBaseL [] = SOME []) ∧
+  (astTypeBaseL (pt::rest) = do
+     ty1 <- astType nTyBase pt ;
+     tys <- astTypeBaseL rest ;
+     SOME (ty1 :: tys)
+   od)
 Termination
   WF_REL_TAC ‘measure (λs. case s of
                              INL (_, pt) => ptsize pt
-                           | INR (_, _, pts) => ptlsize pts)’ >> rw[]
+                           | INR (INL (_, _, pts)) => ptlsize pts
+                           | INR (INR pts) => ptlsize pts)’ >> rw[]
 End
 
 

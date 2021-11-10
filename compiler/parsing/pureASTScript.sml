@@ -14,6 +14,11 @@ Datatype:
         | tyTup (tyAST list)
 End
 
+Overload boolTy = “tyOp "Bool" []”;
+Overload intTy = “tyOp "Int" []”
+Overload listTy = “λty. tyOp "List" [ty]”
+Overload funTy = “λd r. tyOp "Fun" [d; r]”
+
 Datatype:
   litAST = litInt int
 End
