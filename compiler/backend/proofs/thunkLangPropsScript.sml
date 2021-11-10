@@ -355,13 +355,15 @@ Definition next_rel_def[simp]:
 End
 
 Definition rel_ok_def:
-  rel_ok Rv ⇔
+  rel_ok allow_error Rv ⇔
     (∀v w.
-       Rv v w ⇒
+       Rv v w ∧
+       (¬allow_error ⇒ force v ≠ INL Type_error) ⇒
          ($= +++ Rv) (force v) (force w)) ∧
     (∀v1 w1 v2 w2 f g.
        Rv v1 w1 ∧
        Rv v2 w2 ∧
+       (¬allow_error ⇒ apply_closure v1 v2 f ≠ Err) ⇒
        (∀x y. ($= +++ Rv) x y ⇒ next_rel Rv (f x) (g y)) ⇒
          next_rel Rv (apply_closure v1 v2 f)
                      (apply_closure w1 w2 g)) ∧
@@ -374,7 +376,7 @@ Definition rel_ok_def:
     (∀x w.
        Rv (Atom x) w ⇒ w = Atom x) ∧
     (∀v w.
-       Rv (DoTick v) w ⇒ ∃u. w = DoTick u) ∧
+       Rv (DoTick v) w ⇒ (∃u. w = DoTick u) ∨ F) ∧
     (∀s vs w.
        Rv (Constructor s vs) w ⇒ ∃ws. w = Constructor s ws ∧
                                       LIST_REL Rv vs ws) ∧
@@ -398,11 +400,12 @@ val _ = print "Proving sim_ok_next ...\n";
 (* next preserves relation *)
 Theorem sim_ok_next:
   ∀k v c s w d t.
-    rel_ok Rv ∧
+    rel_ok allow_error Rv ∧
     sim_ok allow_error Rv Re ∧
     ($= +++ Rv) v w ∧
     cont_rel Rv c d ∧
-    state_rel Rv s t ⇒
+    state_rel Rv s t ∧
+    (¬allow_error ⇒ next k v c s ≠ Err) ⇒
       next_rel Rv (next k v c s) (next k w d t)
 Proof
   ho_match_mp_tac next_ind \\ rw []
@@ -431,7 +434,7 @@ Proof
   \\ print_tac "Ret [1/9]"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Ret *)
-    qpat_assum ‘rel_ok _’ mp_tac
+    qpat_assum ‘rel_ok _ _’ mp_tac
     \\ simp_tac std_ss [rel_ok_def] \\ rw []
     \\ res_tac
     \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
@@ -441,19 +444,40 @@ Proof
       \\ simp [Once next_def, force_apply_closure_def]
       \\ rename1 ‘Rv v w’
       \\ ‘($= +++ Rv) (force v) (force w)’
-        by gs []
+        by (first_x_assum irule \\ gs [] \\ rw []
+            \\ strip_tac \\ gs []
+            \\ gs [Once next_def, force_apply_closure_def])
       \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-      \\ CASE_TAC \\ gs [])
+      >- (
+        CASE_TAC \\ gs [])
+      \\ first_x_assum irule \\ gs [] \\ rw []
+      \\ strip_tac
+      \\ gs [Once next_def, force_apply_closure_def])
     \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
     >- (
       simp [Once next_def])
+    \\ cheat (* apply_closure ≠ Err is too hash w/o the same restr. on next_rel *)
+    (*
     >- (
       qmatch_goalsub_abbrev_tac ‘next_rel _ X’
       \\ simp [Once next_def]
       \\ simp [Abbr ‘X’, force_apply_closure_def]
       \\ rename1 ‘Rv v w’
       \\ ‘($= +++ Rv) (force v) (force w)’
-        by gs []
+        by (first_x_assum irule \\ gs [] \\ rw []
+            \\ strip_tac \\ gs []
+            \\ gs [Once next_def, force_apply_closure_def])
+      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+      >- (
+        CASE_TAC \\ gs [])
+      \\ first_x_assum irule \\ gs []
+      \\ gs [Once next_def, force_apply_closure_def]
+      \\ first_x_assum irule \\ gs [] \\ rw []
+      \\ first_x_assum irule \\ gs []
+      \\ rw [] \\ gs []
+      \\ gs [Once apply_closure_def, AllCaseEqs()]
+      \\ strip_tac
+      \\ gs [Once next_def, force_apply_closure_def])
       \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
       \\ CASE_TAC \\ gs [])
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
@@ -461,8 +485,10 @@ Proof
     \\ qunabbrev_tac ‘X’
     \\ first_x_assum irule \\ gs []
     \\ first_x_assum irule
-    \\ gs [DECIDE “∀n. n < 1n ⇔ n = 0”])
+    \\ gs [DECIDE “∀n. n < 1n ⇔ n = 0”]
+     *))
   \\ print_tac "Raise [2/9]"
+  \\ cheat (*
   \\ IF_CASES_TAC
   >- ((* Raise *)
     qpat_assum ‘rel_ok _’ mp_tac
@@ -710,76 +736,105 @@ Proof
     \\ qexists_tac ‘[Loc n; Int i]’ \\ simp [])
   \\ gs [rel_ok_def]
   \\ res_tac \\ gvs [] \\ imp_res_tac LIST_REL_LENGTH
-  \\ rw [Once next_def] \\ gs []
+  \\ rw [Once next_def] \\ gs [] *)
 QED
 
 val _ = print "Done with sim_ok_next.\n";
 
 Theorem sim_ok_next_action:
-  rel_ok Rv ∧
+  rel_ok allow_error Rv ∧
   sim_ok allow_error Rv Re ∧
   ($= +++ Rv) v w ∧
   cont_rel Rv c d ∧
-  state_rel Rv s t ⇒
+  state_rel Rv s t ∧
+  (¬allow_error ⇒ next_action v c s ≠ Err) ⇒
     next_rel Rv (next_action v c s) (next_action w d t)
 Proof
-  rw [next_action_def]
+  strip_tac
+  \\ rw [next_action_def]
   \\ DEEP_INTRO_TAC some_intro \\ simp []
   \\ DEEP_INTRO_TAC some_intro \\ simp []
   \\ simp [PULL_FORALL]
   \\ qx_gen_tac ‘i’
   \\ qx_gen_tac ‘j’
   \\ qx_gen_tac ‘k’
+  \\ ‘∀m. ¬allow_error ⇒ next m v c s ≠ Err’
+    by (rpt strip_tac \\ gs []
+        \\ gs [next_action_def]
+        \\ qpat_x_assum ‘_ ≠ Err’ mp_tac
+        \\ DEEP_INTRO_TAC some_intro \\ simp []
+        \\ simp [PULL_EXISTS]
+        \\ qexists_tac ‘m’ \\ gs []
+        \\ rw []
+        \\ drule_then (qspec_then ‘m’ assume_tac) next_next
+        \\ gs [])
   \\ rw []
   >- (
-    drule_all_then assume_tac sim_ok_next \\ gs []
+    first_x_assum (qspec_then ‘i’ assume_tac)
+    \\ drule_all_then assume_tac sim_ok_next \\ gs []
     \\ drule_then (qspec_then ‘i’ mp_tac) next_next
     \\ impl_tac \\ rw []
     \\ strip_tac
-    \\ first_x_assum (qspec_then ‘i’ assume_tac) \\ gs []
     \\ Cases_on ‘next i w d t’ \\ gs [])
+  >- (
+    last_x_assum (qspec_then ‘i’ assume_tac)
+    \\ drule_all_then assume_tac sim_ok_next \\ gs [SF SFY_ss])
+  \\ last_x_assum (qspec_then ‘k’ assume_tac)
   \\ drule_all_then assume_tac sim_ok_next \\ gs [SF SFY_ss]
 QED
 
 Theorem sim_ok_interp:
-  rel_ok Rv ∧
+  rel_ok allow_error Rv ∧
   sim_ok allow_error Rv Re ∧
   ($= +++ Rv) v w ∧
   cont_rel Rv c d ∧
-  state_rel Rv s t ⇒
+  state_rel Rv s t ∧
+  (¬allow_error ⇒ interp v c s ≠ Ret pure_semantics$Error) ⇒
     interp v c s = interp w d t
 Proof
-  rw[Once io_treeTheory.io_bisimulation] >>
+  strip_tac \\
+  rw [Once io_treeTheory.io_bisimulation] >>
   qexists_tac `λt1 t2.
     t1 = t2 ∨
     ∃v c s w d t.
       t1 = interp v c s ∧
       t2 = interp w d t ∧
       ($= +++ Rv) v w ∧
+      (¬allow_error ⇒ t1 ≠ Ret pure_semantics$Error) ∧
       cont_rel Rv c d ∧
       state_rel Rv s t` >>
   rw[]
   >- (disj2_tac >> rpt $ irule_at Any EQ_REFL >> simp[])
   >- (
+    ‘¬allow_error ⇒ next_action v' c' s' ≠ Err’
+      by (rpt strip_tac \\ gs []
+          \\ gs [Once interp_def]) \\
     drule_all sim_ok_next_action >> strip_tac >>
     qpat_x_assum `Ret _ = _` mp_tac >>
     once_rewrite_tac[interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[]
     )
   >- (
+    ‘¬allow_error ⇒ next_action v' c' s' ≠ Err’
+      by (rpt strip_tac \\ gs []
+          \\ gs [Once interp_def]) \\
     drule_all sim_ok_next_action >> strip_tac >>
     qpat_x_assum `_ = Div` mp_tac >>
     once_rewrite_tac[interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[]
     )
   >- (
+    ‘¬allow_error ⇒ next_action v' c' s' ≠ Err’
+      by (rpt strip_tac \\ gs []
+          \\ gs [Once interp_def]) \\
     drule_all sim_ok_next_action >> strip_tac >>
     qpat_x_assum `Vis _ _ = _` mp_tac >>
     ntac 2 $ rw[Once interp_def] >>
     Cases_on `next_action v' c' s'` >> Cases_on `next_action w' d' t''` >> gvs[] >>
     rw[] >> CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >> disj2_tac >>
     rpt $ irule_at Any EQ_REFL >> simp[] >>
-    gs [rel_ok_def])
+    gs [rel_ok_def]
+    \\ cheat (* interp foo ≠ err *))
 QED
 
 Theorem semantics_fail:
@@ -796,7 +851,7 @@ QED
 Theorem semantics_fail = CONTRAPOS semantics_fail;
 
 Theorem sim_ok_semantics:
-  rel_ok Rv ∧
+  rel_ok allow_error Rv ∧
   sim_ok allow_error Rv Re ∧
   Re x y ∧
   closed x ∧
@@ -806,11 +861,14 @@ Proof
   strip_tac
   \\ rw [semantics_def]
   \\ irule sim_ok_interp
-  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at (Pos (el 4)))
   \\ gs [cont_rel_def, state_rel_def, sim_ok_def]
-  \\ first_x_assum irule \\ rw [] \\ gs []
-  \\ irule semantics_fail
-  \\ gs [SF SFY_ss]
+  \\ first_x_assum (irule_at Any) \\ gs []
+  \\ rw []
+  >- (
+    irule semantics_fail
+    \\ gs [SF SFY_ss])
+  \\ gs [semantics_def]
 QED
 
 val _ = export_theory ();

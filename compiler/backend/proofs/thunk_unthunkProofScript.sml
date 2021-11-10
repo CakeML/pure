@@ -968,7 +968,7 @@ Proof
 QED
 
 Theorem unthunk_rel_ok[local]:
-  rel_ok (λv w. v_rel v w ∧ v_inv v)
+  rel_ok T (λv w. v_rel v w ∧ v_inv v)
 Proof
   rw [rel_ok_def]
   >- ((* force preserves rel *)

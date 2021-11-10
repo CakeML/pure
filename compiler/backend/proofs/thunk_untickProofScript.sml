@@ -1370,23 +1370,44 @@ QED
  * Top-level semantics
  * ------------------------------------------------------------------------- *)
 
-(* Issues:
- * - exp_rel_eval only works if eval x ≠ INL Type_error
- * - proof relies on opening eval/eval_to a few times
- *)
-
 Theorem untick_apply_force[local]:
-  v_rel v w ⇒
+  v_rel v w ∧
+  force v ≠ INL Type_error ⇒
     ($= +++ v_rel) (force v) (force w)
 Proof
-  cheat
+  rw [force_def]
+  \\ drule_then assume_tac v_rel_dest_Tick
+  \\ drule_then assume_tac v_rel_dest_anyThunk \\ gs []
+  \\ Cases_on ‘dest_Tick v’ \\ gs []
+  >- (
+    Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [dest_anyThunk_def]
+    >- (
+      rename1 ‘LIST_REL _ xs ys’
+      \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
+                 (ALOOKUP (REVERSE xs) s)
+                 (ALOOKUP (REVERSE ys) s)’
+        by (irule LIST_REL_OPTREL
+            \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+      \\ gs [OPTREL_def]
+      \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+      \\ rw [Once exp_rel_cases] \\ gs []
+      \\ irule exp_rel_eval \\ gs []
+      \\ rw [subst_funs_def]
+      \\ irule_at Any exp_rel_subst
+      \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+      \\ irule_at Any LIST_EQ
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY])
+    \\ CASE_TAC \\ gs [subst_funs_def]
+    \\ irule exp_rel_eval \\ gs [])
+  \\ cheat (* nasty ticks. ind? *)
 QED
 
 Theorem untick_apply_closure[local]:
   v_rel v1 w1 ∧
   v_rel v2 w2 ∧
+  apply_closure v1 v2 f ≠ Err ∧
   (∀x y.
-     ($= +++ v_rel ) x y ⇒
+     ($= +++ v_rel) x y ⇒
        next_rel v_rel (f x) (g y)) ⇒
     next_rel v_rel
              (apply_closure v1 v2 f)
@@ -1399,34 +1420,28 @@ Proof
     \\ irule exp_rel_eval
     \\ gs [closed_subst]
     \\ irule_at Any exp_rel_subst \\ gs []
-    \\ cheat (* eval ... ≠ error *))
-  >- (
-    rename1 ‘LIST_REL _ xs ys’
-    \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
-               (ALOOKUP (REVERSE xs) s)
-               (ALOOKUP (REVERSE ys) s)’
-      by (irule LIST_REL_OPTREL
-          \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ gs [OPTREL_def]
-    \\ qpat_x_assum ‘exp_rel x y’ mp_tac
-    \\ rw [Once exp_rel_cases] \\ gs []
-    \\ first_x_assum irule \\ gs []
-    \\ irule exp_rel_eval
-    \\ irule_at Any exp_rel_subst
-    \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-    \\ irule_at Any LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-    \\ cheat (* eval ... ≠ error *))
-  >- (
-    cheat (* error on the left *)
-  )
-  >- (
-    cheat (* error on the left *)
-  )
+    \\ cheat (* does f need to be something special or can it be id?
+                or at least f Err = Err *))
+  \\ rename1 ‘LIST_REL _ xs ys’
+  \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
+             (ALOOKUP (REVERSE xs) s)
+             (ALOOKUP (REVERSE ys) s)’
+    by (irule LIST_REL_OPTREL
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+  \\ gs [OPTREL_def]
+  \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+  \\ rw [Once exp_rel_cases] \\ gs []
+  \\ first_x_assum irule \\ gs []
+  \\ irule exp_rel_eval
+  \\ irule_at Any exp_rel_subst
+  \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+  \\ irule_at Any LIST_EQ
+  \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+  \\ cheat (* same about f *)
 QED
 
 Theorem untick_rel_ok[local]:
-  rel_ok v_rel
+  rel_ok F v_rel
 Proof
   rw [rel_ok_def]
   >- ((* force preserves rel *)
