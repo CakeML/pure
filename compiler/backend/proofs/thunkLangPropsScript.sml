@@ -321,10 +321,11 @@ Theorem eval_to_wo_def = REWRITE_RULE [LEX_DEF] eval_to_wo_def;
  * ------------------------------------------------------------------------- *)
 
 Definition sim_ok_def:
-  sim_ok Rv Re ⇔
+  sim_ok allow_error Rv Re ⇔
     (∀x y.
        Re x y ∧
-       closed x ⇒
+       closed x ∧
+       (¬allow_error ⇒ eval x ≠ INL Type_error) ⇒
          ($= +++ Rv) (eval x) (eval y)) ∧
     (∀vs ws x y.
        LIST_REL Rv (MAP SND vs) (MAP SND ws) ∧
@@ -398,7 +399,7 @@ val _ = print "Proving sim_ok_next ...\n";
 Theorem sim_ok_next:
   ∀k v c s w d t.
     rel_ok Rv ∧
-    sim_ok Rv Re ∧
+    sim_ok allow_error Rv Re ∧
     ($= +++ Rv) v w ∧
     cont_rel Rv c d ∧
     state_rel Rv s t ⇒
@@ -712,9 +713,11 @@ Proof
   \\ rw [Once next_def] \\ gs []
 QED
 
+val _ = print "Done with sim_ok_next.\n";
+
 Theorem sim_ok_next_action:
   rel_ok Rv ∧
-  sim_ok Rv Re ∧
+  sim_ok allow_error Rv Re ∧
   ($= +++ Rv) v w ∧
   cont_rel Rv c d ∧
   state_rel Rv s t ⇒
@@ -740,7 +743,7 @@ QED
 
 Theorem sim_ok_interp:
   rel_ok Rv ∧
-  sim_ok Rv Re ∧
+  sim_ok allow_error Rv Re ∧
   ($= +++ Rv) v w ∧
   cont_rel Rv c d ∧
   state_rel Rv s t ⇒
@@ -781,9 +784,10 @@ QED
 
 Theorem sim_ok_semantics:
   rel_ok Rv ∧
-  sim_ok Rv Re ∧
+  sim_ok allow_error Rv Re ∧
   Re x y ∧
-  closed x ⇒
+  closed x ∧
+  (¬allow_error ⇒ eval x ≠ INL Type_error) ⇒
     semantics x Done [] = semantics y Done []
 Proof
   rw [semantics_def]

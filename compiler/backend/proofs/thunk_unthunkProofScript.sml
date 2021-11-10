@@ -991,7 +991,7 @@ Proof
 QED
 
 Theorem unthunk_sim_ok[local]:
-  sim_ok (λv w. v_rel v w ∧ v_inv v) (λx y. exp_rel x y ∧ exp_inv x)
+  sim_ok T (λv w. v_rel v w ∧ v_inv v) (λx y. exp_rel x y ∧ exp_inv x)
 Proof
   rw [sim_ok_def]
   \\ simp [exp_rel_eval]

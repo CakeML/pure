@@ -1445,20 +1445,17 @@ Proof
 QED
 
 Theorem untick_sim_ok[local]:
-  sim_ok v_rel exp_rel
+  sim_ok F v_rel exp_rel
 Proof
   rw [sim_ok_def]
   \\ simp [exp_rel_eval]
-  >- (
-    irule exp_rel_eval \\ gs []
-    \\ cheat (* failure *))
-  \\ irule exp_rel_subst
-  \\ gs [LIST_REL_CONJ, SF ETA_ss]
+  \\ irule exp_rel_subst \\ gs []
 QED
 
 Theorem untick_semantics:
   exp_rel x y ∧
-  closed x ⇒
+  closed x ∧
+  eval x ≠ INL Type_error ⇒
     semantics x Done [] = semantics y Done []
 Proof
   strip_tac
