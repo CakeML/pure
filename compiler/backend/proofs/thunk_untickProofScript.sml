@@ -1455,7 +1455,7 @@ QED
 Theorem untick_semantics:
   exp_rel x y ∧
   closed x ∧
-  eval x ≠ INL Type_error ⇒
+  semantics x Done [] ≠ Ret pure_semantics$Error ⇒
     semantics x Done [] = semantics y Done []
 Proof
   strip_tac

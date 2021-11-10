@@ -782,18 +782,35 @@ Proof
     gs [rel_ok_def])
 QED
 
+Theorem semantics_fail:
+  eval x = INL Type_error ⇒
+    semantics x c s = Ret pure_semantics$Error
+Proof
+  rw [semantics_def]
+  \\ simp [Once interp_def]
+  \\ simp [next_action_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp [] \\ rw []
+  \\ simp [Once next_def]
+QED
+
+Theorem semantics_fail = CONTRAPOS semantics_fail;
+
 Theorem sim_ok_semantics:
   rel_ok Rv ∧
   sim_ok allow_error Rv Re ∧
   Re x y ∧
   closed x ∧
-  (¬allow_error ⇒ eval x ≠ INL Type_error) ⇒
+  (¬allow_error ⇒ semantics x Done [] ≠ Ret pure_semantics$Error) ⇒
     semantics x Done [] = semantics y Done []
 Proof
-  rw [semantics_def]
+  strip_tac
+  \\ rw [semantics_def]
   \\ irule sim_ok_interp
   \\ first_assum (irule_at Any)
   \\ gs [cont_rel_def, state_rel_def, sim_ok_def]
+  \\ first_x_assum irule \\ rw [] \\ gs []
+  \\ irule semantics_fail
+  \\ gs [SF SFY_ss]
 QED
 
 val _ = export_theory ();
