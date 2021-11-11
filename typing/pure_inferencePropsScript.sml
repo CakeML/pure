@@ -117,9 +117,8 @@ Proof
 QED
 
 Theorem infer_atom_op:
-  aop ≠ Eq ⇒
-  (infer_atom_op (LENGTH arg_tys) aop = SOME (arg_tys, ret_ty) ⇔
-    type_atom_op aop arg_tys ret_ty)
+  infer_atom_op (LENGTH arg_tys) aop = SOME (arg_tys, ret_ty) ⇔
+  type_atom_op aop arg_tys ret_ty
 Proof
   rw[] >> Cases_on `aop` >> rw[infer_atom_op_def] >> gvs[] >>
   gvs[Once type_atom_op_cases] >> rw[EQ_IMP_THM] >> gvs[]
@@ -323,7 +322,10 @@ Theorem generalise:
     generalise db avoid s t = (new,sub,ty) ⇒
       s SUBMAP sub ∧
       CARD (FDOM sub DIFF FDOM s) = new ∧
-      (∀v. v ∈ FRANGE sub ∧ v ∉ FRANGE s ⇒ db ≤ v ∧ v < db + new) ∧
+      FDOM s ∪ (pure_vars t DIFF domain avoid) = FDOM sub ∧
+      ((∀v. v ∈ FRANGE s ⇒ v < db) ⇒
+        FRANGE sub DIFF FRANGE s = {v | db ≤ v ∧ v < db + new}) ∧
+      pure_vars ty ⊆ domain avoid ∧
       (∀sup. sub SUBMAP sup ⇒
         pure_apply_subst (DBVar o_f (FDIFF sup (domain avoid))) t = ty)
     ) ∧
@@ -331,7 +333,10 @@ Theorem generalise:
     generalise_list db avoid s ts = (new,sub,tys) ⇒
       s SUBMAP sub ∧
       CARD (FDOM sub DIFF FDOM s) = new ∧
-      (∀v. v ∈ FRANGE sub ∧ v ∉ FRANGE s ⇒ db ≤ v ∧ v < db + new) ∧
+      FDOM s ∪ (BIGUNION (set (MAP pure_vars ts)) DIFF domain avoid) = FDOM sub ∧
+      ((∀v. v ∈ FRANGE s ⇒ v < db) ⇒
+        FRANGE sub DIFF FRANGE s = {v | db ≤ v ∧ v < db + new}) ∧
+      BIGUNION (set (MAP pure_vars tys)) ⊆ domain avoid ∧
       (∀sup. sub SUBMAP sup ⇒
         MAP (pure_apply_subst (DBVar o_f (FDIFF sup (domain avoid)))) ts = tys)
       )
@@ -349,25 +354,47 @@ Proof
     drule_all SUBSET_TRANS >> strip_tac >>
     imp_res_tac SUBSET_INTER2 >> simp[] >>
     imp_res_tac (CARD_SUBSET |> SIMP_RULE std_ss [PULL_FORALL, AND_IMP_INTRO]) >>
-    gvs[] >> reverse conj_tac
+    gvs[] >> conj_tac >> rpt $ reverse conj_tac
+    >- (gvs[EXTENSION] >> metis_tac[])
     >- (
       rw[] >> first_x_assum irule >> irule SUBMAP_TRANS >>
       goal_assum drule >> simp[]
       ) >>
-    gen_tac >> strip_tac >> Cases_on `v ∈ FRANGE s2` >> gvs[]
-    >- (first_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
-    >- (last_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
+    rw[] >> gvs[] >> qpat_x_assum `(∀v. _) ⇒ _` mp_tac >> impl_tac
+    >- (
+      rw[] >> gvs[EXTENSION] >> Cases_on `v ∈ FRANGE s1` >> gvs[] >>
+      res_tac >> simp[]
+      ) >>
+    rw[] >> gvs[EXTENSION, EQ_IMP_THM, FORALL_AND_THM, IMP_CONJ_THM] >>
+    rw[] >> gvs[] >> Cases_on `x ∈ FRANGE s2` >> gvs[]
+    >- (res_tac >> simp[])
+    >- (res_tac >> simp[])
+    >- (fs[FRANGE_DEF, SUBMAP_DEF] >> metis_tac[])
+    >- (rpt $ first_x_assum $ drule_at Any >> simp[])
+    >- (rpt $ first_x_assum $ drule_at Any >> simp[])
+    >- (
+      CCONTR_TAC >> qpat_x_assum `_ ∉ _` mp_tac >> gvs[] >>
+      fs[FRANGE_DEF, SUBMAP_DEF] >> metis_tac[]
+      )
     )
   >- (pairarg_tac >> gvs[pure_vars] >> first_x_assum drule >> strip_tac >> gvs[])
   >- (pairarg_tac >> gvs[pure_vars] >> first_x_assum drule >> strip_tac >> gvs[])
   >- (
     gvs[FLOOKUP_o_f, FLOOKUP_FDIFF, domain_lookup] >>
-    Cases_on `lookup n avoid` >> gvs[] >>
+    Cases_on `lookup n avoid` >> gvs[pure_vars, domain_lookup] >>
     last_x_assum mp_tac >> reverse CASE_TAC >> gvs[] >> strip_tac >> gvs[]
-    >- (rw[] >> gvs[SUBMAP_FLOOKUP_EQN] >> first_x_assum drule >> simp[]) >>
-    gvs[FLOOKUP_DEF, INSERT_INTER, SUBMAP_DEF, FAPPLY_FUPDATE_THM] >>
+    >- (
+      conj_tac >- (gvs[FLOOKUP_DEF, pure_vars, EXTENSION] >> metis_tac[]) >>
+      rw[] >> gvs[pure_vars, domain_lookup, SUBMAP_FLOOKUP_EQN] >>
+      first_x_assum drule >> simp[]
+      ) >>
+    gvs[FLOOKUP_DEF, INSERT_INTER, SUBMAP_DEF, FAPPLY_FUPDATE_THM,
+        pure_vars, domain_lookup] >>
+    conj_tac >- (gvs[FLOOKUP_DEF, pure_vars, EXTENSION] >> metis_tac[]) >>
     reverse conj_tac >- metis_tac[] >>
-    gen_tac >> strip_tac >> gvs[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+    rw[] >- (first_x_assum drule >> simp[]) >>
+    rw[EXTENSION] >> eq_tac >> rw[] >> simp[] >>
+    metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_DEF]
     )
   >- (
     pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
@@ -378,14 +405,28 @@ Proof
     drule_all SUBSET_TRANS >> strip_tac >>
     imp_res_tac SUBSET_INTER2 >> simp[] >>
     imp_res_tac (CARD_SUBSET |> SIMP_RULE std_ss [PULL_FORALL, AND_IMP_INTRO]) >>
-    gvs[] >> reverse conj_tac
+    gvs[] >> conj_tac >> rpt $ reverse conj_tac
+    >- (gvs[EXTENSION] >> metis_tac[])
     >- (
       rw[] >> first_x_assum irule >> irule SUBMAP_TRANS >>
       goal_assum drule >> simp[]
       ) >>
-    gen_tac >> strip_tac >> Cases_on `v ∈ FRANGE s2` >> gvs[]
-    >- (first_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
-    >- (last_x_assum $ drule_at $ Pat `_ ∈ _` >> simp[])
+    rw[] >> gvs[] >> qpat_x_assum `(∀v. _) ⇒ _` mp_tac >> impl_tac
+    >- (
+      rw[] >> gvs[EXTENSION] >> Cases_on `v ∈ FRANGE s1` >> gvs[] >>
+      res_tac >> simp[]
+      ) >>
+    rw[] >> gvs[EXTENSION, EQ_IMP_THM, FORALL_AND_THM, IMP_CONJ_THM] >>
+    rw[] >> gvs[] >> Cases_on `x ∈ FRANGE s2` >> gvs[]
+    >- (res_tac >> simp[])
+    >- (res_tac >> simp[])
+    >- (fs[FRANGE_DEF, SUBMAP_DEF] >> metis_tac[])
+    >- (rpt $ first_x_assum $ drule_at Any >> simp[])
+    >- (rpt $ first_x_assum $ drule_at Any >> simp[])
+    >- (
+      CCONTR_TAC >> qpat_x_assum `_ ∉ _` mp_tac >> gvs[] >>
+      fs[FRANGE_DEF, SUBMAP_DEF] >> metis_tac[]
+      )
     )
 QED
 
@@ -393,10 +434,12 @@ Theorem generalise_0_FEMPTY:
   ∀avoid t new sub ty.
     generalise 0 avoid FEMPTY t = (new, sub, ty)
   ⇒ CARD (FDOM sub) = new ∧
-    (∀v. v ∈ FRANGE sub ⇒ v < new) ∧
+    FDOM sub = pure_vars t DIFF domain avoid ∧
+    FRANGE sub = count new ∧
+    pure_vars ty ⊆ domain avoid ∧
     pure_apply_subst (DBVar o_f (FDIFF sub (domain avoid))) t = ty
 Proof
-  rpt gen_tac >> strip_tac >> drule $ cj 1 generalise >> simp[]
+  rpt gen_tac >> strip_tac >> drule $ cj 1 generalise >> rw[count_def]
 QED
 
 (********************)
