@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
 open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
      finite_mapTheory pred_setTheory arithmeticTheory rich_listTheory
-     ltreeTheory fixedPointTheory sortingTheory
+     sptreeTheory ltreeTheory fixedPointTheory sortingTheory
 
 val _ = new_theory "pure_misc";
 
@@ -43,6 +43,20 @@ Theorem FDOM_FDIFF_alt:
   FDOM (FDIFF m s) = FDOM m DIFF s
 Proof
   rw[EXTENSION, FDOM_FDIFF]
+QED
+
+Theorem FDIFF_FMERGE:
+  ∀f a b s. FDIFF (FMERGE f a b) s = FMERGE f (FDIFF a s) (FDIFF b s)
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_FMERGE] >>
+  TOP_CASE_TAC >> gvs[]
+QED
+
+Theorem FRANGE_ALT_DEF:
+  ∀fm. FRANGE fm = IMAGE ($' fm) (FDOM fm)
+Proof
+  rw[FRANGE_DEF, EXTENSION] >> eq_tac >> rw[] >>
+  goal_assum $ drule_at Any >> simp[]
 QED
 
 
@@ -420,6 +434,16 @@ Theorem BIGUNION_DIFF_LIST_TO_SET:
 Proof
   rw[Once EXTENSION, MEM_MAP] >> eq_tac >> rw[PULL_EXISTS] >>
   goal_assum drule >> simp[]
+QED
+
+
+(******************** sptrees ********************)
+
+Theorem wf_list_to_num_set:
+  ∀l. wf (list_to_num_set l)
+Proof
+  Induct >> rw[list_to_num_set_def] >>
+  irule wf_insert >> simp[]
 QED
 
 
