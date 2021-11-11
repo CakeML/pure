@@ -44,6 +44,44 @@ Definition iFunctions_def:
   iFunctions (at::ats) t = Function at (iFunctions ats t)
 End
 
+Definition freedbvars_def:
+  (freedbvars (DBVar n) = {n}) ∧
+  (freedbvars (PrimTy pty) = {}) ∧
+  (freedbvars Exception = {}) ∧
+  (freedbvars (TypeCons id its) = BIGUNION (set (MAP freedbvars its))) ∧
+  (freedbvars (Tuple its) = BIGUNION (set (MAP freedbvars its))) ∧
+  (freedbvars (Function it1 it2) = freedbvars it1 ∪ freedbvars it2) ∧
+  (freedbvars (Array it) = freedbvars it) ∧
+  (freedbvars (M it) = freedbvars it) ∧
+  (freedbvars (CVar cv) = {})
+Termination
+  WF_REL_TAC `measure itype_size` >> rw[fetch "-" "itype_size_def"] >>
+  rename1 `MEM a its` >> Induct_on `its` >> rw[] >> gvs[fetch "-" "itype_size_def"]
+End
+
+Definition itype_wf_def:
+  itype_wf (typedefs : typedefs) (DBVar n) = T ∧
+  itype_wf typedefs (PrimTy pty) = T ∧
+  itype_wf typedefs  Exception = T ∧
+  itype_wf typedefs (TypeCons id tyargs) = (
+    EVERY (itype_wf typedefs) tyargs ∧
+    ∃arity constructors.
+      (* Type definition exists: *)
+        oEL id typedefs = SOME (arity, constructors) ∧
+      (* And has correct arity: *)
+        LENGTH tyargs = arity) ∧
+  itype_wf typedefs (Tuple ts) =
+    EVERY (itype_wf typedefs) ts ∧
+  itype_wf typedefs (Function tf t) = (
+    itype_wf typedefs t ∧ itype_wf typedefs tf) ∧
+  itype_wf typedefs (Array t) = itype_wf typedefs t ∧
+  itype_wf typedefs (M t) = itype_wf typedefs t ∧
+  itype_wf typedefs (CVar cv) = T
+Termination
+  WF_REL_TAC `measure (itype_size o SND)` >> rw[fetch "-" "itype_size_def"] >>
+  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "itype_size_def"] >> gvs[]
+End
+
 Definition isubst_def:
   isubst ts (DBVar v) = (
     if v < LENGTH ts then EL v ts else DBVar (v - LENGTH ts)) ∧

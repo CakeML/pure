@@ -390,6 +390,12 @@ Proof
   rw[UNION_COMM]
 QED
 
+Theorem FDIFF_maunion:
+  FDIFF (maunion a b) s = maunion (FDIFF a s) (FDIFF b s)
+Proof
+  rw[maunion_def, FDIFF_FMERGE]
+QED
+
 Theorem list_disjoint_alt_def:
   list_disjoint l ⇔
     ∀left right. l = left ++ right ⇒

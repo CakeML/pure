@@ -1493,6 +1493,32 @@ Proof
   gvs[encode_walkstar, decode_encode, encode_itype_injective]
 QED
 
+Theorem pure_walkstar_alt_ind:
+ ∀s. pure_wfs s ⇒
+  ∀P.
+    (∀v. P (DBVar v)) ∧ (∀p. P (PrimTy p)) ∧ (P Exception) ∧
+    (∀c ts. (∀a. MEM a ts ⇒ P a) ⇒ P (TypeCons c ts)) ∧
+    (∀ts. (∀a. MEM a ts ⇒ P a) ⇒ P (Tuple ts)) ∧
+    (∀t1 t2. P t1 ∧ P t2 ⇒ P (Function t1 t2)) ∧
+    (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ∧
+    (∀v. (∀t. FLOOKUP s v = SOME t ⇒ P t) ⇒ P (CVar v))
+  ⇒ ∀t. P t
+Proof
+  gen_tac >> strip_tac >> gen_tac >> strip_tac >>
+  imp_res_tac pure_walkstar_ind >>
+  pop_assum irule >> rw[] >>
+  Cases_on `t` >> gvs[pure_walk] >>
+  `∀t. pure_vwalk s n = t ⇒ P t` by (
+    rw[] >> Cases_on `pure_vwalk s n` >> gvs[] >>
+    drule pure_vwalk_to_var >> disch_then drule >> rw[] >>
+    first_x_assum irule >> simp[FLOOKUP_DEF]) >>
+  pop_assum mp_tac >> ntac 5 $ pop_assum kall_tac >> rw[] >>
+  imp_res_tac pure_vwalk_ind >>
+  pop_assum $ qspec_then ` λn. P (pure_vwalk s n) ⇒ P (CVar n)` mp_tac >> simp[] >>
+  disch_then irule >> rw[] >> gvs[Once pure_vwalk] >>
+  Cases_on `FLOOKUP s v` >> gvs[] >> Cases_on `x` >> gvs[]
+QED
+
 
 (********************* Encoding-independent results ********************)
 
