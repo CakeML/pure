@@ -916,14 +916,6 @@ Proof
   drule_all type_soundness_next >> simp[]
 QED
 
-CoInductive safe_itree:
-  (safe_itree (Ret Termination)) ∧
-  (safe_itree (Ret $ FinalFFI e f)) ∧
-  (safe_itree Div) ∧
-  ((∀s:final_ffi + string. safe_itree (rest s))
-      ⇒ safe_itree (Vis (e:string # string) rest))
-End
-
 Theorem type_soundness_interp:
   ∀ns db st wh stack state t.
     namespace_ok ns ∧ EVERY (type_ok (SND ns) db) st ∧
