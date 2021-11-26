@@ -321,7 +321,6 @@ Definition astExp_def:
    else if nt1 = nIExp then
      case args of
      | [] => NONE
-     | [pt] => astExp nFExp pt
      | pt :: rest => do
                       v <- astExp nFExp pt ;
                       preclist <- grabPairs (astExp nFExp) astOp [INR v] rest ;
@@ -342,11 +341,7 @@ Definition astExp_def:
 Termination
   WF_REL_TAC ‘measure (ptsize o SND)’ >>
   simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM] >>
-  rpt strip_tac >> simp[] >~
-  [‘MEM x xs’, ‘ptsize x < _’, ‘MAP ptsize xs’]
-  >- (‘ptsize x ≤ SUM (MAP ptsize xs)’ suffices_by simp[] >>
-      qpat_x_assum ‘MEM _ _’ mp_tac >> Induct_on ‘xs’ >> simp[DISJ_IMP_THM] >>
-      rpt strip_tac >> gs[]) >>
+  rpt strip_tac >> simp[] >>
   TRY (drule_then strip_assume_tac grab_EQ_SOME_APPEND >>
        pop_assum (assume_tac o Q.AP_TERM ‘SUM o MAP ptsize’) >>
        gs[listTheory.SUM_APPEND]) >>
