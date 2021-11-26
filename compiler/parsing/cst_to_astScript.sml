@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 
 open pureNTTheory pureASTTheory tokenUtilsTheory grammarTheory
+local open precparserTheory in end
 
 val _ = new_theory "cst_to_ast";
 
@@ -53,6 +54,28 @@ Proof
   rpt strip_tac >> first_x_assum drule >> simp[]
 QED
 
+Definition grabPairs_def[simp]:
+  grabPairs vf opf A [] = SOME (REVERSE A) ∧
+  grabPairs vf opf A [_] = NONE ∧
+  grabPairs vf opf A (pt1 :: pt2 :: rest) =
+  do
+    opv <- opf pt1 ;
+    v <- vf pt2 ;
+    grabPairs vf opf (INR v :: INL opv :: A) rest
+  od
+End
+
+Theorem grabPairs_cong[defncong]:
+  ∀opf1 opf2 l1 l2 vf1 vf2 A1 A2 .
+    opf1 = opf2 ∧ l1 = l2 ∧ (∀e. MEM e l2 ⇒ vf1 e = vf2 e) ∧ A1 = A2 ⇒
+    grabPairs vf1 opf1 A1 l1 = grabPairs vf2 opf2 A2 l2
+Proof
+  simp[] >> qx_genl_tac [‘opf2’, ‘l2’, ‘vf1’, ‘vf2’] >>
+  completeInduct_on ‘LENGTH l2’ >>
+  gs[SF DNF_ss] >> Cases_on ‘l2’ >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+  rpt strip_tac >> gvs[] >> rename [‘grabPairs _ _ _ (h::t)’] >>
+  Cases_on ‘t’ >> simp[]
+QED
 
 Definition astType_def:
   astType nt (Lf _) = NONE ∧
@@ -150,6 +173,15 @@ Definition astLit_def:
     | _ => NONE
 End
 
+Definition astOp_def:
+  astOp pt = do
+               t <- destTOK ' (destLf pt) ;
+               destSymbolT t ++ (if t = StarT then SOME "*"
+                                 else if t = ColonT then SOME ":"
+                                 else NONE)
+             od
+End
+
 Theorem SUM_MAP_EL_lemma:
   ∀xs i. i < LENGTH xs ⇒ f (EL i xs) ≤ SUM (MAP f xs)
 Proof
@@ -171,6 +203,81 @@ Definition astPat_def:
    else NONE)
 End
 
+Datatype: associativity = Left | Right | NonAssoc
+End
+
+(* Table 4.1 from
+     https://www.haskell.org/onlinereport/haskell2010/haskellch4.html
+   omitting alpha-ids in backquotes
+*)
+val tabinfo = [
+  (".", (9, “Right”)),
+  ("^", (8, “Right”)),
+  ("^^", (8, “Right”)),
+  ("**", (8, “Right”)),
+  ("*", (7, “Left”)),
+  ("/", (7, “Left”)),
+  ("+", (6, “Left”)),
+  ("-", (6, “Left”)),
+  (":", (5, “Right”)),
+  ("++", (5, “Right”)),
+  ("==", (4, “NonAssoc”)),
+  ("/=", (4, “NonAssoc”)),
+  ("<", (4, “NonAssoc”)),
+  ("<=", (4, “NonAssoc”)),
+  (">", (4, “NonAssoc”)),
+  (">=", (4, “NonAssoc”)),
+  ("&&", (3, “Right”)),
+  ("||", (2, “Right”)),
+  (">>", (1, “Left”)),
+  (">>=", (1, “Left”)),
+  ("$", (0, “Right”)),
+  ("$!", (0, “Right”))
+]
+val s = mk_var("s", “:string”)
+val def = List.foldr (fn ((t,(i,tm)), A) =>
+              mk_cond(mk_eq(s,stringSyntax.fromMLstring t),
+                      optionSyntax.mk_some
+                         (pairSyntax.mk_pair(
+                           numSyntax.mk_numeral (Arbnum.fromInt i), tm)),
+                      A))
+            “NONE : (num # associativity) option”
+            tabinfo
+Definition tokprec_def:
+tokprec s = ^def
+End
+
+Definition tok_action_def:
+  tok_action (INL stktok, INL inptok) =
+  do (stkprec, stka) <- tokprec stktok ;
+     (inpprec, inpa) <- tokprec inptok ;
+     if inpprec < stkprec then SOME Reduce
+     else if stkprec < inpprec then SOME Shift
+     else if stka ≠ inpa ∨ stka = NonAssoc then NONE
+     else if stka = Left then SOME Reduce
+     else SOME Shift
+  od ∧
+  tok_action _ = NONE
+End
+
+Definition handlePrecs_def:
+  handlePrecs sumlist =
+  precparser$precparse
+  <| rules := tok_action ;
+     reduce :=
+       (λa1 op a2. SOME $ expApp (expApp (expVar $ OUTL op) a1) a2);
+     lift := OUTR ;
+     isOp := ISL;
+     mkApp := (λa b. SOME $ expApp a b)
+  |> ([], sumlist)
+End
+
+
+Theorem list_size_MAP_SUM:
+  list_size f l = LENGTH l + SUM (MAP f l)
+Proof
+  Induct_on‘l’ >> simp[listTheory.list_size_def]
+QED
 
 Definition astExp_def:
   astExp _ (Lf _) = NONE ∧
@@ -213,8 +320,13 @@ Definition astExp_def:
      | _ => NONE
    else if nt1 = nIExp then
      case args of
-       [pt] => astExp nFExp pt
-     | _ => NONE
+     | [] => NONE
+     | [pt] => astExp nFExp pt
+     | pt :: rest => do
+                      v <- astExp nFExp pt ;
+                      preclist <- grabPairs (astExp nFExp) astOp [INR v] rest ;
+                      handlePrecs preclist
+                    od
    else if nt1 = nFExp then
      case args of
        [] => NONE
@@ -228,17 +340,18 @@ Definition astExp_def:
    else
      NONE)
 Termination
-  WF_REL_TAC ‘measure (ptree_size o SND)’ >> simp[miscTheory.LLOOKUP_EQ_EL] >>
-  rpt strip_tac >~
-  [‘MEM x xs’, ‘ptree_size x < _’, ‘MAP ptree_size xs’]
-  >- (‘ptree_size x ≤ SUM (MAP ptree_size xs)’ suffices_by simp[] >>
+  WF_REL_TAC ‘measure (ptsize o SND)’ >>
+  simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM] >>
+  rpt strip_tac >> simp[] >~
+  [‘MEM x xs’, ‘ptsize x < _’, ‘MAP ptsize xs’]
+  >- (‘ptsize x ≤ SUM (MAP ptsize xs)’ suffices_by simp[] >>
       qpat_x_assum ‘MEM _ _’ mp_tac >> Induct_on ‘xs’ >> simp[DISJ_IMP_THM] >>
       rpt strip_tac >> gs[]) >>
   TRY (drule_then strip_assume_tac grab_EQ_SOME_APPEND >>
-       pop_assum (assume_tac o Q.AP_TERM ‘SUM o MAP ptree_size’) >>
+       pop_assum (assume_tac o Q.AP_TERM ‘SUM o MAP ptsize’) >>
        gs[listTheory.SUM_APPEND]) >>
-  qmatch_goalsub_abbrev_tac ‘ptree_size (EL i ptl)’ >>
-  ‘ptree_size (EL i ptl) ≤ SUM (MAP ptree_size ptl)’
+  qmatch_goalsub_abbrev_tac ‘ptsize (EL i ptl)’ >>
+  ‘ptsize (EL i ptl) ≤ SUM (MAP ptsize ptl)’
     suffices_by simp[Abbr‘i’] >>
   simp[Abbr‘i’, Abbr‘ptl’, SUM_MAP_EL_lemma]
 End

@@ -28,6 +28,9 @@ fun fptest (nt, s, cf, exp) =
                                 [nt,stringSyntax.fromMLstring s,
                                  inst [alpha |-> “:locs”] cf])))
 
+val _ = temp_overload_on ("pureCONS", “λh t. expApp (expApp (expVar ":") h) t”)
+val threetimesfour = “expApp (expApp (expVar "*") (expLit (litInt 3)))
+                             (expLit (litInt 4))”
 val _ = app fptest [
   (“nTy”, "[Int]", “astType nTy”, “listTy intTy”),
   (“nTy”, "a -> B", “astType nTy”, “funTy (tyVar "a") (tyOp "B" [])”),
@@ -41,6 +44,11 @@ val _ = app fptest [
      (expAbs (patVar "y") (expApp (expVar "y") (expVar "x")))”),
   (“nExp”, " if p x \nthen 1 else 2", “astExp nExp”,
    “expIf (expApp (expVar "p") (expVar "x")) (expLit (litInt 1))
-          (expLit (litInt 2)) ”)
+          (expLit (litInt 2))”),
+  (“nExp”, "3 * 4 + 6", “astExp nExp”,
+   “expApp (expApp (expVar "+") ^threetimesfour) (expLit (litInt 6))”),
+  (“nExp”, "6 + 3 * 4", “astExp nExp”,
+   “expApp (expApp (expVar "+") (expLit (litInt 6))) ^threetimesfour”),
+  (“nExp”, "h1:h2:t", “astExp nExp”,
+    “pureCONS (expVar "h1") (pureCONS (expVar "h2") (expVar "t"))”)
 ]
-
