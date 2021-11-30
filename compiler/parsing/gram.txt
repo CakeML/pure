@@ -23,4 +23,7 @@ IExp ::= FExpᵍᵉ (Opᵍᵉ FExpᵍᵉ)꙳
 Op   ::= "$"⁼ | "$!"⁼ | "`seq`"⁼ | "+"⁼ | "*"⁼ | ":"⁼
 
 FExp ::= AExpᵍᵉ (AExpᵍᵉ)꙳
-AExp ::= Lit⁼ | "("⁼ Expᵍᵉ ")"ᵍᵉ | lcId⁼
+AExp ::= Lit⁼
+      | "("⁼ (Expᵍᵉ (","ᵍᵉ Expᵍᵉ)꙳)? ")"ᵍᵉ
+      | "["⁼ (Expᵍᵉ (","ᵍᵉ Expᵍᵉ)꙳)? "]"ᵍᵉ
+      | lcId⁼

@@ -260,15 +260,31 @@ Definition tok_action_def:
   tok_action _ = NONE
 End
 
+Definition mkSym_def:
+  mkSym s = THE (do
+                  c1 <- oHD s ;
+                  if isUpper c1 then SOME $ expCon s []
+                  else if isAlpha c1 ∨ c1 ≠ #":" then SOME $ expVar s
+                  else SOME $ expCon s []
+                od ++ SOME (expVar s))
+End
+
+Definition mkApp_def:
+  mkApp f args =
+  case f of
+    expCon s args0 => expCon s (args0 ++ args)
+  | _ => FOLDL expApp f args
+End
+
 Definition handlePrecs_def:
   handlePrecs sumlist =
   precparser$precparse
   <| rules := tok_action ;
      reduce :=
-       (λa1 op a2. SOME $ expApp (expApp (expVar $ OUTL op) a1) a2);
+       (λa1 op a2. SOME $ mkApp (mkSym $ OUTL op) [a1; a2]);
      lift := OUTR ;
      isOp := ISL;
-     mkApp := (λa b. SOME $ expApp a b)
+     mkApp := (λa b. SOME $ expApp a b) (* won't get called *)
   |> ([], sumlist)
 End
 
@@ -279,23 +295,42 @@ Proof
   Induct_on‘l’ >> simp[listTheory.list_size_def]
 QED
 
+Theorem ptsize_nonzero[simp]:
+  0 < ptsize a
+Proof
+  Cases_on ‘a’ >> simp[parsetree_size_def]
+QED
+
 Definition astExp_def:
-  astExp _ (Lf _) = NONE ∧
+  (astExp _ (Lf _) = NONE) ∧
   (astExp nt1 (Nd nt2 args) =
    if INL nt1 ≠ FST nt2 then NONE
    else if nt1 = nAExp then
      case args of
-       [pt] =>
+       [] => NONE
+     | [pt] =>
          do
            vnm <- destAlphaT ' (destTOK ' (destLf pt)) ;
-           SOME $ expVar vnm
+           SOME $ mkSym vnm
          od ++ (lift expLit $ astLit pt)
-     | [lp;ept;rp] =>
+     | [lp;rp] =>
          do
            assert (tokcheck lp LparT ∧ tokcheck rp RparT);
-           astExp nExp ept;
+           SOME $ expTup []
+         od ++
+         do assert (tokcheck lp LbrackT ∧ tokcheck rp RbrackT);
+            SOME $ pNIL
          od
-     | _ => NONE
+     | ld :: pt1 :: rest =>
+         do rd <- (do assert (tokcheck ld LparT); SOME RparT; od) ++
+                  (do assert (tokcheck ld LbrackT); SOME RbrackT; od) ;
+            ast1 <- astExp nExp pt1;
+            asts <- astSepExp rd rest ;
+            if rd = RparT then
+              if NULL asts then SOME ast1
+              else SOME $ expTup (ast1::asts)
+            else SOME (FOLDR pCONS pNIL (ast1::asts))
+         od
    else if nt1 = nExp then
      case args of
        [pt] => astExp nIExp pt
@@ -334,14 +369,25 @@ Definition astExp_def:
            f_e <- astExp nAExp fpt;
            (aes, tail) <- grab (astExp nAExp) rest;
            assert (NULL tail);
-           SOME $ FOLDL expApp f_e aes
+           SOME $ mkApp f_e aes
          od
    else
-     NONE)
+     NONE) ∧
+  (astSepExp rd [] = NONE) ∧
+  (astSepExp rd [pt] = do assert (tokcheck pt rd); SOME [] od) ∧
+  (astSepExp rd (pt1 :: pt2 :: rest) =
+   do
+     assert (tokcheck pt1 CommaT);
+     ast <- astExp nExp pt2 ;
+     asts <- astSepExp rd rest ;
+     SOME (ast :: asts)
+   od)
 Termination
-  WF_REL_TAC ‘measure (ptsize o SND)’ >>
+  WF_REL_TAC ‘measure (λs. case s of
+                             INL (_, pt) => ptsize pt
+                           | INR (_, pts) => 1 + SUM (MAP ptsize pts))’ >>
   simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM] >>
-  rpt strip_tac >> simp[] >>
+  rpt strip_tac >> simp[arithmeticTheory.ZERO_LESS_ADD] >>
   TRY (drule_then strip_assume_tac grab_EQ_SOME_APPEND >>
        pop_assum (assume_tac o Q.AP_TERM ‘SUM o MAP ptsize’) >>
        gs[listTheory.SUM_APPEND]) >>

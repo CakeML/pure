@@ -166,8 +166,12 @@ Definition purePEG_def[nocompute]:
         (INL nAExp,
          choicel [pegf (NT nLit I lrEQ) (mkNT nAExp);
                   seql [tok ((=) LparT) mktokLf lrEQ;
-                        NTGE nExp; tokGE ((=) RparT)] (mkNT nAExp);
-                  tok lcname_tok (mkNT nAExp o mktokLf) lrEQ]);
+                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
+                        tokGE ((=) RparT)] (mkNT nAExp);
+                  seql [tok ((=) LbrackT) mktokLf lrEQ;
+                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
+                        tokGE ((=) RbrackT)] (mkNT nAExp);
+                  tok isAlphaT (mkNT nAExp o mktokLf) lrEQ]);
 
         (INL nLit,
          choicel [tok isInt (mkNT nLit o mktokLf) lrEQ]);

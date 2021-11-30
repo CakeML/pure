@@ -32,11 +32,25 @@ End
 
 Datatype:
   expAST = expVar string
+         | expCon string (expAST list)
+         | expTup (expAST list)
          | expApp expAST expAST
          | expAbs patAST expAST
          | expIf expAST expAST expAST
          | expLit litAST
 End
+
+val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
+Overload pNIL = “expCon "[]" []”
+Overload pCONS = “λe1 e2. expCon ":" [e1;e2]”
+val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
+
+val _ = set_fixity "⬝" (Infixl 600)
+Overload "⬝" = “expApp”
+val _ = add_rule {term_name = "expAbs", fixity = Prefix 1,
+                  block_style = (AroundEachPhrase, (PP.CONSISTENT, 0)),
+                  pp_elements = [TOK "𝝺", TM, TOK "．", BreakSpace(1,2)],
+                  paren_style = OnlyIfNecessary}
 
 Datatype:
   declAST = declId string tyAST
