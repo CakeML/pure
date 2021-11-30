@@ -83,6 +83,7 @@ End
 Overload tokGE = “λp. tok p mktokLf lrGE”
 Overload tokGT = “λp. tok p mktokLf lrGT”
 Overload NTGE = “λn. NT n I lrGE”
+Overload NTGT = “λn. NT n I lrGT”
 
 Definition purePEG_def[nocompute]:
   purePEG = <|
@@ -140,6 +141,7 @@ Definition purePEG_def[nocompute]:
         (INL nAPat,
          choicel [pegf (tok lcname_tok mktokLf lrEQ) (mkNT nAPat);
                   pegf (NT nLit I lrEQ) (mkNT nAPat)]);
+        (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
 
         (INL nFunRHS,
          seql [tok ((=) EqualsT) mktokLf lrGE; NT nExp I lrGE] (mkNT nFunRHS));
@@ -151,7 +153,12 @@ Definition purePEG_def[nocompute]:
                   seql [tokGE ((=) IfT); NTGE nExp;
                         tokGE ((=) ThenT); NTGE nExp;
                         tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
+                  seql [tokGE ((=) LetT) ; NTGE nEqBindSeq ;
+                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
                   pegf (NTGE nIExp) (mkNT nExp)]);
+        (INL nEqBindSeq, rpt (NT nEqBind I lrEQ) FLAT);
+        (INL nEqBind, seql [NT nPat I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
+                           (mkNT nEqBind));
         (INL nIExp,
          seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp] I) FLAT]
               (mkNT nIExp));

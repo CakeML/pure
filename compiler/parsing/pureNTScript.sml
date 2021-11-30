@@ -4,7 +4,8 @@ val _ = new_theory "pureNT";
 
 Datatype:
   ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
-         | nAPat | nFunRHS | nExp | nIExp | nLit | nOp | nFExp | nAExp
+         | nPat | nAPat | nFunRHS | nExp | nIExp | nLit | nOp | nFExp | nAExp
+         | nEqBindSeq | nEqBind
 End
 
 val distinct_ths = let
