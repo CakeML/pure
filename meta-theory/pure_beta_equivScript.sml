@@ -134,8 +134,6 @@ Definition exp_size_alt_def:
     1 + exp_size_alt e + SUM (MAP (λ(v,fn). exp_size_alt fn) fns)
 Termination
   WF_REL_TAC `measure (λe. exp_size e)` >> rw[exp_size_def]
-  >- (Induct_on `fns` >> rw[] >> gvs[exp_size_def])
-  >- (Induct_on `xs` >> rw[] >> gvs[exp_size_def])
 End
 
 Theorem perm_exp_size:
@@ -261,9 +259,9 @@ Proof
       (freshen (MAP SND (fresh_var_list (MAP FST lcs) avoid) ++ avoid) p2)` by (
       rw[] >> first_x_assum irule >> simp[PULL_EXISTS] >> goal_assum drule >>
       qspecl_then [`MAP FST lcs`,`avoid`] assume_tac fresh_var_list_SUBSET >>
-      gvs[SUBSET_DEF] >> rw[] >>
+      rgs[SUBSET_DEF] >> rw[] >>
       qsuff_tac `MEM x (MAP FST lcs) ∨ MEM x avoid` >- metis_tac[] >>
-      last_x_assum irule >> simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+      first_x_assum irule >> simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
       goal_assum drule >> goal_assum drule) >>
     last_x_assum kall_tac >>
     qmatch_goalsub_abbrev_tac `exp_alpha _ (perm_exp_list l exp)` >>
@@ -420,12 +418,12 @@ Proof
     IF_CASES_TAC >> gvs[]
     )
   >- simp[fresh_var_correctness] >>
-  gvs[DIFF_SUBSET, AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
+  rgs[DIFF_SUBSET, AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
   qspecl_then [`MAP FST lcs`,`avoid`] assume_tac fresh_var_list_SUBSET >>
   `freevars e ⊆
     set (MAP SND (fresh_var_list (MAP FST lcs) avoid)) ∪ set avoid` by (
       irule SUBSET_TRANS >> goal_assum drule >> simp[]) >>
-  gvs[] >> rw[boundvars_perm_exp_list]
+  rgs[] >> rw[boundvars_perm_exp_list]
   >- (
     qmatch_goalsub_abbrev_tac `IMAGE _ bvars` >>
     `DISJOINT (set (MAP FST lcs)) bvars` by (
@@ -606,3 +604,4 @@ Proof
 QED
 
 val _ = export_theory();
+
