@@ -190,7 +190,7 @@ Theorem eval_eq_Diverge:
 Proof
   fs [eval_def, v_unfold_def]
   \\ once_rewrite_tac [gen_v, follow_path_def]
-  \\ CASE_TAC \\ CASE_TAC \\ gvs[AllCaseEqs(), follow_path_def, eval_wh_def]
+  \\ CASE_TAC \\ CASE_TAC \\ rgs[AllCaseEqs(), follow_path_def, eval_wh_def]
   \\ pop_assum mp_tac \\ DEEP_INTRO_TAC some_intro \\ rw[]
   >- (goal_assum drule)
   >- (goal_assum drule)
@@ -235,3 +235,4 @@ Proof
 QED
 
 val _ = export_theory();
+
