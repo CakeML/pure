@@ -1144,10 +1144,10 @@ Proof
   ‘n < LENGTH f’
     by(qpat_x_assum ‘MAP _ _ = MAP _ _’
         (strip_assume_tac o ONCE_REWRITE_RULE[LIST_EQ_REWRITE]) >>
-       gvs[MEM_MAP,MEM_REVERSE] >>
-       gvs[MEM_EL] >>
+       rgs[MEM_MAP,MEM_REVERSE] >>
+       rgs[MEM_EL] >>
        spose_not_then strip_assume_tac >>
-       gvs[NOT_LESS] >>
+       rgs[NOT_LESS] >>
        last_x_assum (qspec_then ‘PRE (LENGTH f - n'')’ mp_tac) >>
        impl_tac >- DECIDE_TAC >>
        simp[EL_MAP,EL_REVERSE] >>
@@ -2045,7 +2045,7 @@ Proof
       conj_tac >- simp[] >>
       conj_tac
       >- (spose_not_then strip_assume_tac >>
-          gvs[MEM_MAP,ELIM_UNCURRY,DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM],
+          rgs[MEM_MAP,ELIM_UNCURRY,DISJ_EQ_IMP |> ONCE_REWRITE_RULE[DISJ_SYM],
               PULL_EXISTS,FORALL_AND_THM] >>
           pop_assum mp_tac >>
           impl_tac
@@ -3451,11 +3451,11 @@ Proof
   Induct >>
   rw[v_lookup] >>
   gvs[AllCaseEqs()] >>
-  gvs[Once v_alpha_cases,v_prefix_alpha_cases] >>
+  rgs[Once v_alpha_cases,v_prefix_alpha_cases] >>
   imp_res_tac LIST_REL_LENGTH >>
   gvs[oEL_THM]
   >- (rename1 ‘EL z vs’ >>
-      ‘v_alpha (EL z vs') (EL z vs)’
+      ‘v_alpha (EL z vs) (EL z vs')’
         by(gvs[LIST_REL_EL_EQN]) >>
       first_x_assum drule_all >>
       strip_tac >> simp[])
@@ -3748,3 +3748,4 @@ Proof
 QED
 
 val _ = export_theory();
+
