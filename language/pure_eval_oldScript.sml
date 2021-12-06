@@ -1201,18 +1201,18 @@ Proof
   \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
   \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
            subst_funs_def,closed_def, flookup_fupdate_list]
-  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ reverse (IF_CASES_TAC) \\ rgs[] THEN1 (Cases_on `n = "z"` >> gvs[])
   \\ simp [eval_thm,dest_Closure_def,subst_def,bind_def,
            subst_funs_def,closed_def, flookup_fupdate_list]
-  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ reverse (IF_CASES_TAC) \\ rgs[] THEN1 (Cases_on `n = "z"` >> gvs[])
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rewrite_tac [zeros_def]
   \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
            subst_funs_def,closed_def, flookup_fupdate_list]
-  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ reverse (IF_CASES_TAC) \\ rgs[] THEN1 (Cases_on `n = "z"` >> gvs[])
   \\ simp [Once eval_thm,dest_Closure_def,subst_def,bind_def,
            subst_funs_def,closed_def, flookup_fupdate_list]
-  \\ reverse (IF_CASES_TAC) \\ gvs[] THEN1 (Cases_on `n = "z"` >> gvs[])
+  \\ reverse (IF_CASES_TAC) \\ rgs[] THEN1 (Cases_on `n = "z"` >> gvs[])
 QED
 
 (************ value and expression relations ************)
@@ -1497,3 +1497,4 @@ Proof
 QED
 
 val _ = export_theory();
+
