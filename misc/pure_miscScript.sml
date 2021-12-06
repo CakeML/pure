@@ -463,7 +463,7 @@ Proof
     gvs[Once gen_ltree, ltree_lookup_def]
     ) >>
   Cases_on `f []` >> fs[] >> rename1 `f [] = (e1, e2)` >>
-  gvs[Once gen_ltree, ltree_lookup_def] >>
+  rgs[Once gen_ltree, ltree_lookup_def] >>
   fs[LNTH_LGENLIST] >>
   Cases_on `e2` >> gvs[] >>
   Cases_on `h < x` >> fs[]
@@ -514,3 +514,4 @@ QED
 (****************************************)
 
 val _ = export_theory();
+
