@@ -251,8 +251,8 @@ Proof
     rename1 `letrec_lam (Letrec zs _) z` >>
     simp[subst_def, FDIFF_FDIFF] >> qpat_abbrev_tac `r = s ∪ set (MAP FST zs)` >>
     simp[Once letrec_rel_cases] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
-    gvs[LIST_REL_CONJ] >>
+    rgs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+    rgs[LIST_REL_CONJ] >>
     irule_at Any OR_INTRO_THM1 >>
     qexists_tac
       `subst (FDIFF (FEMPTY |++ MAP (λ(v,e). (v,Letrec cs e)) cs) r)
@@ -261,7 +261,7 @@ Proof
       `MAP (λ(p1,p2). (p1,
         subst (FDIFF (FEMPTY |++ MAP (λ(v,e). (v,Letrec cs e)) cs) r)
           (subst (FDIFF sub r) p2))) zs` >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+    rgs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
     reverse (rw[])
     >- (
       first_x_assum irule >> simp[] >> goal_assum (drule_at Any) >> simp[]
@@ -282,7 +282,7 @@ Proof
       `FDIFF (FEMPTY |++ MAP (λ(v,e). (v,Letrec cs e)) cs) r`
       ] mp_tac) >>
     simp[subst_def, FDIFF_FDIFF] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+    rgs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
     `r ∪ set (MAP FST zs) = r` by (
       unabbrev_all_tac >> gvs[EXTENSION] >> metis_tac[]) >> gvs[] >>
     qsuff_tac
@@ -290,7 +290,7 @@ Proof
         (subst (FDIFF sub s) z) =
        subst (FDIFF (FEMPTY |++ MAP (λ(v,e). (v,Letrec cs e)) cs) s)
         (subst (FDIFF sub s) z)` >>
-    gvs[] >>
+    rgs[] >>
     qpat_x_assum `letrec_lam _ _` mp_tac >> simp[Once letrec_lam_cases] >>
     strip_tac >> gvs[] >>
     `MAP FST ys = MAP FST zs` by (
@@ -457,8 +457,8 @@ Proof
           simp[subst_funs_def, bind_def] >>
           reverse IF_CASES_TAC >> gvs[]
           >- (
-            gvs[flookup_fupdate_list] >>
-            pop_assum mp_tac >> CASE_TAC >> strip_tac >> gvs[] >>
+            rgs[flookup_fupdate_list] >>
+            rgs [CaseEq "option"] \\
             imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD] >>
             metis_tac[]
             ) >>
@@ -486,12 +486,12 @@ Proof
   rename [‘Prim p xs’] >>
   qpat_x_assum `letrec_rel c _ _` mp_tac >>
   simp[Once letrec_rel_cases] >> rw[] >>
-  Cases_on `p` >> gvs[eval_wh_to_def]
+  Cases_on `p` >> rgs[eval_wh_to_def] \\ gvs []
   >- (
     IF_CASES_TAC >> gvs[LIST_REL_EL_EQN] >>
     `∃x1 x2 x3. xs = [x1;x2;x3]` by fs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2 y3. ys = [y1;y2;y3]` by fs[LENGTH_EQ_NUM_compute] >>
-    gvs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
+    rgs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
     qpat_x_assum ‘letrec_rel c x1 _’ assume_tac >>
     first_assum drule_all >> strip_tac >> gvs[] >>
     reverse (Cases_on `eval_wh_to (k - 1) x1`) >> gvs[]
@@ -623,7 +623,7 @@ Proof
       \\ CCONTR_TAC
       \\ drule_then (qspec_then ‘ck + k - 1’ assume_tac) eval_wh_inc \\ gs []
     ) >>
-    Cases_on `x` >> gvs[]
+    Cases_on `x` >> rgs [] \\ gvs[]
     >- (
       gvs[get_atoms_SOME_NONE_eq, EL_MAP] >>
       qsuff_tac
@@ -650,7 +650,7 @@ Proof
       \\ CASE_TAC \\ gvs[]
       \\ CASE_TAC \\ gvs[]
       \\ CASE_TAC \\ gvs[]) >>
-    gvs [get_atoms_SOME_SOME_eq, EVERY2_MAP, EVERY_MEM, MEM_EL, PULL_EXISTS]
+    rgs [get_atoms_SOME_SOME_eq, EVERY2_MAP, EVERY_MEM, MEM_EL, PULL_EXISTS]
     \\ map_every (fn pat => qpat_x_assum pat mp_tac)
       [`∀e1 n. n < _ ⇒ _`, `LIST_REL _ _ _`, `∀n. n < _ ⇒ _`, `∀n. n < _ ⇒ _`]
     \\ qid_spec_tac `as` >>
@@ -676,12 +676,12 @@ Proof
       \\ gvs[]
       ) >>
     last_x_assum irule >> simp[]
-    \\ rw [] \\ gs []
+    \\ rw [] \\ rgs []
     >- (
       first_x_assum irule \\ gs []
       \\ qexists_tac ‘n’
       \\ gs [])
-    \\ gvs [LIST_REL_EL_EQN]
+    \\ rgs [LIST_REL_EL_EQN]
     \\ ‘SUC n < SUC (LENGTH ys)’ by gs []
     \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []
     )
@@ -690,7 +690,7 @@ Proof
     IF_CASES_TAC >> gvs[] >>
     `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2. ys = [y1;y2]` by gvs[LENGTH_EQ_NUM_compute] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM] >>
     first_assum (drule_all_then strip_assume_tac) >>
     qpat_x_assum ‘letrec_rel c x2 _’ assume_tac >>
     first_x_assum (drule_all_then strip_assume_tac) >>
@@ -950,3 +950,4 @@ Proof
 QED
 
 val _ = export_theory();
+
