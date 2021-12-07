@@ -974,7 +974,7 @@ Proof
     IF_CASES_TAC >> gvs[] >>
     `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2. ys = [y1;y2]` by gvs[LENGTH_EQ_NUM_compute] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM] >> gvs [] \\
     first_assum drule_all >>
     qpat_x_assum ‘letrec_rel c x1 _’ mp_tac >>
     first_x_assum drule_all >> rpt strip_tac >>
@@ -1125,7 +1125,7 @@ Proof
   \\ match_mp_tac letrec_split_correct \\ fs []
   \\ reverse (rw [])
   THEN1 (
-    gvs[EVERY_MEM, valid_split_def] >> rw[] >> gvs[EXTENSION] >>
+    rgs[EVERY_MEM, valid_split_def] >> rw[] >> gvs[EXTENSION] >>
     `MEM e (MAP SND xs)` by metis_tac[MEM_MAP] >>
     first_x_assum drule >> rw[] >>
     qpat_x_assum `MEM _ (_ xs1)` mp_tac >>
@@ -1194,7 +1194,7 @@ Proof
     gvs[valid_split_def, EXTENSION, SUBSET_DEF, MEM_MAP,
         PULL_EXISTS, EXISTS_PROD, FORALL_PROD, DISJOINT_DEF] >>
     rw[] >> metis_tac[]) >>
-  gvs[] >> pop_assum kall_tac >> rw[bind_def] >>
+  rgs[] \\ gvs [] >> pop_assum kall_tac >> rw[bind_def] >>
   simp[subst_def, FDIFF_FDIFF] >>
   `set (MAP FST ys) ∪ set (MAP FST zs) = set (MAP FST xs)` by (
     gvs[valid_split_def, EXTENSION, MEM_MAP] >> metis_tac[]) >>
@@ -1483,7 +1483,7 @@ Proof
   irule_at Any exp_eq_Letrec_cong >> goal_assum (drule_at Any) >>
   qexists_tac `MAP (λ(n,x). n, split_all x) lcs` >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-  gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[]
+  rgs[LIST_REL_EL_EQN, EL_MAP] >> rw[]
   >- (
     pairarg_tac >> gvs[] >> last_x_assum irule >>
     gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[EL_MEM]
@@ -1496,16 +1496,16 @@ Proof
   drule split_one_FLAT >> rw[EXTENSION] >>
   drule miscTheory.MEM_ALOOKUP >> strip_tac >>
   drule split_one_correct >> simp[valid_split_lift_def] >>
-  disch_then (qspec_then `[]` assume_tac) >> gvs[valid_split_def] >>
+  disch_then (qspec_then `[]` assume_tac) >> rgs[valid_split_def] >>
   simp[alookup_distinct_reverse] >>
   qpat_abbrev_tac `bar = MAP foo lcs` >>
   qsuff_tac `OPTREL $≅ (ALOOKUP bar k) (ALOOKUP (FLAT (split_one bar)) k)`
   >- (rw[] >> CASE_TAC >> CASE_TAC >> gvs[exp_eq_refl]) >>
-  gvs[] >> drule miscTheory.MEM_ALOOKUP >> strip_tac >> gvs[FORALL_PROD] >>
+  rgs[] >> drule miscTheory.MEM_ALOOKUP >> strip_tac >> rgs[FORALL_PROD] >>
   pop_assum (qspec_then `k` assume_tac) >>
-  Cases_on `ALOOKUP bar k` >> gvs[] >>
-  Cases_on `ALOOKUP (FLAT (split_one bar)) k` >> gvs[] >>
-  first_x_assum (qspec_then `x` assume_tac) >> gvs[exp_eq_refl]
+  Cases_on `ALOOKUP bar k` >> rgs[] >>
+  Cases_on `ALOOKUP (FLAT (split_one bar)) k` >> rgs[] >>
+  first_x_assum (qspec_then `x` assume_tac) >> rgs[exp_eq_refl]
 QED
 
 
@@ -1531,7 +1531,7 @@ Proof
   `FDOM f = BIGUNION (set (MAP (λ(fn,e). freevars e) xs)) DIFF
     set (MAP FST xs) ∪ freevars y` by (
     gvs[EXTENSION] >> metis_tac[]) >>
-  gvs[] >> pop_assum kall_tac >>
+  rgs[] >> pop_assum kall_tac >>
   rw[bind_def, subst_def, DOMSUB_NOT_IN_DOM] >>
   `FDIFF f (set (MAP FST xs)) = f` by (
     rw[fmap_eq_flookup, FDIFF_def, FLOOKUP_DRESTRICT] >>
@@ -1578,7 +1578,7 @@ Proof
   irule open_bisimilarity_suff >> rw[] >>
   `FDOM f = freevars e ∪ freevars x DIFF {v}` by (
     gvs[EXTENSION] >> metis_tac[]) >>
-  gvs[] >> pop_assum kall_tac >>
+  rgs[] >> pop_assum kall_tac >>
   rw[bind_def, subst_def, DOMSUB_NOT_IN_DOM] >>
   `FDIFF f {v} = f` by (
     rw[fmap_eq_flookup, FDIFF_def, FLOOKUP_DRESTRICT] >>
