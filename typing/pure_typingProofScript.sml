@@ -209,7 +209,7 @@ Theorem type_soundness_up_to:
 Proof
   strip_tac >> completeInduct_on `k` >>
   recInduct exp_of_ind >> rw[exp_of_def]
-  >- gvs[Once type_tcexp_cases]
+  >- rgs[Once type_tcexp_cases]
   >- ( (* Prim *)
     Cases_on `p` >> gvs[pure_cexpTheory.op_of_def]
     >- (
@@ -217,7 +217,7 @@ Proof
       goal_assum $ drule_at Any >> simp[]
       )
     >- (
-      gvs[Once type_tcexp_cases]
+      rgs[Once type_tcexp_cases]
       >- (
         simp[eval_wh_to_def, get_atoms_def] >>
         simp[Once type_wh_cases] >> simp[Once type_tcexp_cases]
@@ -283,7 +283,7 @@ Proof
       )
     )
   >- ( (* Let *)
-    gvs[eval_wh_to_def] >> rw[]
+    rgs[eval_wh_to_def] >> rw[]
     >- (
       simp[type_wh_cases] >> irule type_tcexp_type_ok >> simp[] >>
       rpt $ goal_assum $ drule_at Any >> simp[]
@@ -408,7 +408,7 @@ Proof
     drule type_tcexp_freevars_tcexp >> rw[] >>
     drule_at (Pos last) type_tcexp_type_ok >> rw[] >>
     qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
-    rw[Once type_tcexp_cases] >> gvs[]
+    rw[Once type_tcexp_cases] >> rgs[]
     >- ( (* TupleCase *)
       Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
       >- (
@@ -448,10 +448,10 @@ Proof
     Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
     >- (
       drule_at Any eval_wh_to_Case_wh_Diverge >>
-      gvs[closed_def, freevars_exp_of] >>
+      rgs[closed_def, freevars_exp_of] >>
       disch_then $ qspecl_then [`v`,`rs`] mp_tac >> reverse $ impl_tac
       >- rw[exp_of_def, type_wh_cases] >>
-      gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
+      rgs[oEL_THM, namespace_ok_def, EVERY_EL] >>
       qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _` drule >> simp[] >>
       Cases_on `rs` >> gvs[]
       ) >>
@@ -660,13 +660,13 @@ Proof
   strip_tac >> completeInduct_on `k` >> rw[] >>
   last_x_assum $ qspec_then `k - 1` assume_tac >> gvs[] >>
   qpat_x_assum `type_config _ _ _ _ _` mp_tac >> rw[Once type_config_def] >>
-  imp_res_tac type_wh_monad >> gvs[]
+  imp_res_tac type_wh_monad >> rgs[]
   >- (simp[next_def, type_next_res_cases] >> goal_assum drule) >>
   qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[type_wh_cases] >>
-  simp[Once type_tcexp_cases] >> strip_tac >> gvs[monad_cns_def] >>
+  simp[Once type_tcexp_cases] >> strip_tac >> rgs[monad_cns_def] >>
   once_rewrite_tac[next_def] >> simp[]
   >- (
-    TOP_CASE_TAC >> gvs[]
+    TOP_CASE_TAC >> rgs [] \\ gvs []
     >- (simp[type_next_res_cases] >> goal_assum drule)
     >- (
       gvs[Once type_cont_cases, apply_closure_def, type_exp_def] >>
@@ -682,7 +682,7 @@ Proof
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
       strip_tac >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
       Cases_on `arg_tys` >> gvs[Functions_def] >>
-      `closed (exp_of e)` by (
+      `closed (Tick (exp_of e))` by (
         imp_res_tac type_tcexp_freevars_tcexp >>
         gvs[closed_def, freevars_exp_of]) >>
       simp[bind1_def] >>
@@ -690,7 +690,8 @@ Proof
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
       simp[subst_exp_of, FMAP_MAP2_FUPDATE]
-      )
+      \\ cheat (* TODO no more *)
+    )
     >- (
       IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
       first_x_assum irule >> simp[type_config_def] >>
@@ -741,7 +742,7 @@ Proof
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
       strip_tac >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
       Cases_on `arg_tys` >> gvs[Functions_def] >>
-      `closed (exp_of e)` by (
+      `closed (Tick (exp_of e))` by (
         imp_res_tac type_tcexp_freevars_tcexp >>
         gvs[closed_def, freevars_exp_of]) >>
       simp[bind1_def] >>
@@ -749,6 +750,7 @@ Proof
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
       simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      \\ cheat (* TODO *)
       )
     )
   >- (
