@@ -427,7 +427,7 @@ Proof
                (∃x. v = DoTick x)’
   >- (
     gvs [rel_ok_def]
-    \\ res_tac \\ gvs []
+    \\ res_tac \\ rgs []
     >~ [‘Atom x’] >- (
       Cases_on ‘w’ \\ res_tac \\ gs []
       \\ simp [next_def])
@@ -437,7 +437,7 @@ Proof
     by (Cases_on ‘v’ \\ gs [])
   \\ gvs []
   \\ simp [Once next_def]
-  \\ print_tac "Ret [1/9]"
+  \\ print_tac "[1/9] Ret"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Ret *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -470,18 +470,18 @@ Proof
       \\ ‘($= +++ Rv) (force v) (force w)’
         by (first_x_assum irule \\ gs [] \\ rw []
             \\ strip_tac \\ gs []
-            \\ gs [Once next_def, force_apply_closure_def])
+            \\ rgs [Once next_def, force_apply_closure_def])
       \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
       >- (
         CASE_TAC \\ gs [])
       \\ first_x_assum irule \\ gs []
-      \\ gs [Once next_def, force_apply_closure_def] \\ rw [])
+      \\ rgs [Once next_def, force_apply_closure_def] \\ rw [])
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
     \\ simp [Once next_def]
     \\ qunabbrev_tac ‘X’
     \\ first_x_assum irule \\ gs [] \\ rw []
     \\ gs [Once next_def])
-  \\ print_tac "Raise [2/9]"
+  \\ print_tac "[2/9] Raise"
   \\ IF_CASES_TAC
   >- ((* Raise *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -527,14 +527,14 @@ Proof
     \\ first_x_assum irule \\ gs []
     \\ qpat_x_assum ‘¬_ ⇒ _’ mp_tac
     \\ simp [Once next_def, force_apply_closure_def] \\ rw [])
-  \\ print_tac "Bind [3/9]"
+  \\ print_tac "[3/9] Bind"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Bind *)
     qpat_assum ‘rel_ok _ _’ mp_tac
     \\ simp_tac std_ss [rel_ok_def] \\ strip_tac \\ gs [] \\ res_tac \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+    \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
             DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”]
-    \\ IF_CASES_TAC \\ gvs [SF DNF_ss]
+    \\ rw [] \\ rgs [SF DNF_ss]
     >- (
       simp [Once next_def])
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
@@ -551,14 +551,14 @@ Proof
     \\ first_x_assum irule \\ gs []
     \\ rw [] \\ gs []
     \\ gs [Once next_def])
-  \\ print_tac "Handle [4/9]"
+  \\ print_tac "[4/9] Handle"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Handle *)
     qpat_assum ‘rel_ok _ _’ mp_tac
     \\ simp_tac std_ss [rel_ok_def] \\ strip_tac \\ gs [] \\ res_tac \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+    \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
             DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”]
-    \\ IF_CASES_TAC \\ gvs [SF DNF_ss]
+    \\ rw [] \\ rgs [SF DNF_ss]
     >- (
       simp [Once next_def])
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
@@ -575,7 +575,7 @@ Proof
     \\ first_x_assum irule \\ gs []
     \\ rw [] \\ gs []
     \\ gs [Once next_def])
-  \\ print_tac "Act [5/9]"
+  \\ print_tac "[5/9] Act"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Act *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -596,7 +596,7 @@ Proof
     \\ rename1 ‘Rv a b’
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
     \\ CASE_TAC \\ gs [])
-  \\ print_tac "Alloc [6/9]"
+  \\ print_tac "[6/9] Alloc"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Alloc *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -604,13 +604,13 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
     \\ simp [Once next_def]
     \\ simp [Abbr ‘X’]
-    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
-           DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
-    \\ gvs [with_atoms_def, force_list_def]
+    \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+            DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
+    \\ rgs [with_atoms_def, force_list_def]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, force_list_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
@@ -628,7 +628,7 @@ Proof
     \\ ‘LENGTH s = LENGTH t’ by gs [LIST_REL_EL_EQN] \\ gs []
     \\ strip_tac \\ gvs []
     \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-  \\ print_tac "Length [7/9]"
+  \\ print_tac "[7/9] Length"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Length *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -636,13 +636,13 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
     \\ simp [Once next_def]
     \\ simp [Abbr ‘X’]
-    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+    \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
            DECIDE “∀x. x < 1n ⇔ x = 0”, SF DNF_ss]
-    \\ gvs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, force_list_def]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, force_list_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
@@ -665,7 +665,7 @@ Proof
     \\ gs []
     \\ strip_tac \\ gvs []
     \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-  \\ print_tac "Deref [8/9]"
+  \\ print_tac "[8/9] Deref"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Deref *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -673,13 +673,13 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
     \\ simp [Once next_def]
     \\ simp [Abbr ‘X’]
-    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+    \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
            DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
-    \\ gvs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, force_list_def]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, force_list_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
@@ -690,7 +690,7 @@ Proof
     \\ rename1 ‘Rv a b’
     \\ ‘¬allow_error ⇒ force a ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, force_list_def])
     \\ ‘($= +++ Rv) (force a) (force b)’
       by gs []
     \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ gvs [get_atoms_def]
@@ -720,19 +720,19 @@ Proof
       \\ last_x_assum (drule_then strip_assume_tac)
       \\ first_x_assum (irule_at Any)
       \\ rw [] >- intLib.ARITH_TAC
-      \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
     >- (
       first_x_assum irule \\ gs []
       \\ simp [PULL_EXISTS]
       \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
       \\ strip_tac \\ gvs []
-      \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
     \\ last_x_assum irule \\ gs []
     \\ simp [PULL_EXISTS]
     \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
     \\ strip_tac \\ gvs []
-    \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-  \\ print_tac "Update [9/9]"
+    \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+  \\ print_tac "[9/9] Update"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Update *)
     qpat_assum ‘rel_ok _ _’ mp_tac
@@ -740,13 +740,13 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
     \\ simp [Once next_def]
     \\ simp [Abbr ‘X’]
-    \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
+    \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
            DECIDE “∀x. x < 3n ⇔ x = 0 ∨ x = 1 ∨ x = 2”, SF DNF_ss]
-    \\ gvs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, force_list_def]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, force_list_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
@@ -757,7 +757,7 @@ Proof
     \\ rename1 ‘Rv a b’
     \\ ‘¬allow_error ⇒ force a ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, force_list_def])
     \\ ‘($= +++ Rv) (force a) (force b)’
       by gs []
     \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ gvs [get_atoms_def]
@@ -785,17 +785,17 @@ Proof
       \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
       \\ rw [] \\ rw [LENGTH_LUPDATE]
       \\ rw [EL_LUPDATE]
-      \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
     >- (
       first_x_assum irule \\ gs []
       \\ simp [PULL_EXISTS]
       \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
       \\ strip_tac \\ gvs []
-      \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
     \\ last_x_assum irule \\ gs []
     \\ simp [PULL_EXISTS]
     \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-    \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+    \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
   \\ gs [rel_ok_def]
   \\ res_tac \\ gvs [] \\ imp_res_tac LIST_REL_LENGTH
   \\ rw [Once next_def] \\ gs []
@@ -867,13 +867,13 @@ Proof
        state_rel Rv s t)` >>
   rw []
   >~ [‘Vis a f’] >- (
-    gs [Once pure_semanticsTheory.safe_itree_cases])
+    rgs [Once pure_semanticsTheory.safe_itree_cases])
   >~ [‘interp v c s = interp w d t’] >- (
     disj2_tac >> rpt $ irule_at Any EQ_REFL >> simp[]
   )
   \\ ‘¬allow_error ⇒ next_action v' c' s' ≠ Err’
     by (rpt strip_tac \\ gs []
-        \\ gs [Once interp_def, Once pure_semanticsTheory.safe_itree_cases])
+        \\ rgs [Once interp_def, Once pure_semanticsTheory.safe_itree_cases])
   \\ drule_all sim_ok_next_action \\ strip_tac
   >- (
     qpat_x_assum `_ = Ret _` mp_tac
@@ -891,7 +891,7 @@ Proof
     \\ rw [Once interp_def]
     \\ Cases_on `next_action v' c' s'`
     \\ Cases_on `next_action w' d' t''` \\ gvs []
-    \\ rw [] \\ gs [Once pure_semanticsTheory.safe_itree_cases]
+    \\ rw [] \\ rgs [Once pure_semanticsTheory.safe_itree_cases]
     \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs []
     \\ disj2_tac
     \\ rpt (irule_at Any EQ_REFL) \\ simp []
@@ -905,8 +905,8 @@ Proof
   simp [semantics_def, Once interp_def, next_action_def]
   \\ DEEP_INTRO_TAC some_intro \\ simp []
   \\ rw [] \\ strip_tac \\ gs []
-  \\ gs [Once next_def]
-  \\ gs [Once pure_semanticsTheory.safe_itree_cases]
+  \\ rgs [Once next_def]
+  \\ rgs [Once pure_semanticsTheory.safe_itree_cases]
 QED
 
 Theorem sim_ok_semantics:
