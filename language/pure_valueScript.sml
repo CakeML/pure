@@ -378,8 +378,8 @@ Proof
   last_assum drule_all >> strip_tac >>
   gvs[llist_rel_def] >>
   Cases_on `LNTH h ts` >> Cases_on `LNTH h ts'` >> fs[] >>
-  imp_res_tac LNTH_NONE_LLENGTH >> gvs[] >>
-  imp_res_tac LNTH_LLENGTH_NONE >> gvs[] >>
+  imp_res_tac LNTH_NONE_LLENGTH >> rgs[] >>
+  imp_res_tac LNTH_LLENGTH_NONE >> rgs[] >>
   first_x_assum irule >> reverse (rw[])
   >- (
     first_x_assum irule >>
@@ -822,3 +822,4 @@ Proof
 QED
 
 val _ = export_theory ();
+

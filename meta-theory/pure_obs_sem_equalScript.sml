@@ -223,9 +223,10 @@ Proof
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
     \\ rpt strip_tac \\ gvs [res_rel_def]
     \\ gvs [res_rel_def,with_atom2_def,with_atoms_def]
-    \\ rename [‘e1 ≃ e1'’] \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ qmatch_goalsub_rename_tac ‘[eval_wh e1; eval_wh e2]’
+    \\ rename1 ‘e1 ≃ e1'’ \\ qpat_x_assum ‘e1 ≃ _’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
-    \\ rename [‘e2 ≃ e2'’] \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ rename1 ‘e2 ≃ e2'’ \\ qpat_x_assum ‘e2 ≃ _’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
     \\ Cases_on ‘eval_wh e1’ \\ Cases_on ‘eval_wh e1'’ \\ fs [res_rel_def,get_atoms_def]
     \\ Cases_on ‘eval_wh e2’ \\ Cases_on ‘eval_wh e2'’ \\ fs [res_rel_def,get_atoms_def]
@@ -292,7 +293,7 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac []
     \\ IF_CASES_TAC \\ pop_assum mp_tac
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
-    \\ rpt strip_tac \\ gvs [res_rel_def]
+    \\ rpt strip_tac \\ rgs [res_rel_def] \\ rw []
     \\ rename [‘e ≃ e'’]
     \\ gvs [res_rel_def,with_atom_def,with_atoms_def]
     \\ qpat_x_assum ‘_ ≃ _’ mp_tac
@@ -365,3 +366,4 @@ Proof
 QED
 
 val _ = export_theory();
+

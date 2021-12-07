@@ -2,34 +2,13 @@ open HolKernel Parse boolLib bossLib;
 
 
 open stringTheory grammarTheory ispegexecTheory ispegTheory tokenUtilsTheory
+     pureNTTheory
 local open lexer_funTheory stringLib in end
 
 val _ = new_theory "purePEG";
 
 val _ = set_grammar_ancestry
-        ["tokenUtils", "grammar", "lexer_fun", "ispegexec"]
-
-
-Datatype:
-  ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
-End
-
-val distinct_ths = let
-  val ntlist = TypeBase.constructors_of ``:ppegnt``
-  fun recurse [] = []
-    | recurse (t::ts) = let
-      val eqns = map (fn t' => mk_eq(t,t')) ts
-      val ths0 = map (SIMP_CONV (srw_ss()) []) eqns
-      val ths1 = map (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ))) ths0
-    in
-      ths0 @ ths1 @ recurse ts
-    end
-in
-  recurse ntlist
-end
-
-
-val _ = computeLib.add_thms distinct_ths computeLib.the_compset
+        ["tokenUtils", "grammar", "lexer_fun", "ispegexec", "pureNT"]
 
 
 Definition sumID_def[simp]:
@@ -64,7 +43,7 @@ Definition choicel_def:
   choicel (h::t) = choice h (choicel t) sumID
 End
 
-Definition rpt1_def:
+Definition RPT1_def:
   RPT1 e = seql [e; rpt e FLAT] I
 End
 
@@ -87,11 +66,15 @@ Definition capname_tok_def:
   od = SOME ()
 End
 
+Definition keywords_def:
+  keywords = ["data"; "where"; "let"; "in"; "if"; "then"; "else"; "do";]
+End
+
 Definition lcname_tok_def:
   lcname_tok tk <=>
   do
     s <- destAlphaT tk;
-    assert (s ≠ "data");
+    assert (¬MEM s keywords);
     c1 <- oHD s;
     assert $ isLower c1
   od = SOME ()
@@ -99,6 +82,8 @@ End
 
 Overload tokGE = “λp. tok p mktokLf lrGE”
 Overload tokGT = “λp. tok p mktokLf lrGT”
+Overload NTGE = “λn. NT n I lrGE”
+Overload NTGT = “λn. NT n I lrGT”
 
 Definition purePEG_def[nocompute]:
   purePEG = <|
@@ -114,7 +99,7 @@ Definition purePEG_def[nocompute]:
         (INL nDecl,
          choicel [
              (* declare id and its type *)
-             seql [tok isAlphaT mktokLf lrEQ;
+             seql [tok lcname_tok mktokLf lrEQ;
                    tokGT ((=) $ SymbolT "::");
                    NT nTy I lrGT] (mkNT nDecl);
              (* declare new data type and its constructors *)
@@ -124,10 +109,13 @@ Definition purePEG_def[nocompute]:
                    tokGT ((=) EqualsT) ;
                    sepby1 (NT nTyConDecl I lrGT)
                           (tokGT ((=) BarT))]
-                  (mkNT nDecl)]);
+                  (mkNT nDecl);
+             (* define value *)
+             seql [tok lcname_tok mktokLf lrEQ;
+                   RPT1 (NT nAPat I lrGT);
+                   NT nFunRHS I lrGT] (mkNT nDecl)]);
         (INL nTyConDecl,
-         seql [tokGE capname_tok;
-               rpt (choice (NT nTyBase I lrGE) (tokGE capname_tok) sumID) FLAT]
+         seql [tokGE capname_tok; rpt (NT nTyBase I lrGE) FLAT]
               (mkNT nTyConDecl));
 
         (INL nTyBase,
@@ -139,10 +127,61 @@ Definition purePEG_def[nocompute]:
                        (mkNT nTyBase);
                   seql [tokGE ((=)LbrackT); NT nTy I lrGE; tokGE((=) RbrackT)]
                        (mkNT nTyBase)]);
-        (INL nTyApp, RPT1 (NT nTyBase I lrGE));
+        (INL nTyApp,
+         choicel [seq
+                  (tokGE capname_tok)
+                  (choice (RPT1 (NT nTyBase I lrGE)) (empty []) sumID)
+                  (λpt1 pt2. if NULL pt2 then mkNT nTyApp (mkNT nTyBase pt1)
+                             else mkNT nTyApp (pt1 ++ pt2));
+                  pegf (NT nTyBase I lrGE) (mkNT nTyApp)]);
 
         (INL nTy,
          pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=)ArrowT))) (mkNT nTy));
+
+        (INL nAPat,
+         choicel [pegf (tok lcname_tok mktokLf lrEQ) (mkNT nAPat);
+                  pegf (NT nLit I lrEQ) (mkNT nAPat)]);
+        (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
+
+        (INL nFunRHS,
+         seql [tok ((=) EqualsT) mktokLf lrGE; NT nExp I lrGE] (mkNT nFunRHS));
+
+        (INL nExp,
+         choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
+                        tokGE ((=) ArrowT);
+                        NTGE nExp] (mkNT nExp);
+                  seql [tokGE ((=) IfT); NTGE nExp;
+                        tokGE ((=) ThenT); NTGE nExp;
+                        tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
+                  seql [tokGE ((=) LetT) ; NTGE nEqBindSeq ;
+                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
+                  pegf (NTGE nIExp) (mkNT nExp)]);
+        (INL nEqBindSeq, rpt (NT nEqBind I lrEQ) FLAT);
+        (INL nEqBind, seql [NT nPat I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
+                           (mkNT nEqBind));
+        (INL nIExp,
+         seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp] I) FLAT]
+              (mkNT nIExp));
+        (INL nOp,
+         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT)
+             mktokLf
+             lrEQ);
+
+        (INL nFExp,
+         seql [NTGE nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+
+        (INL nAExp,
+         choicel [pegf (NT nLit I lrEQ) (mkNT nAExp);
+                  seql [tok ((=) LparT) mktokLf lrEQ;
+                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
+                        tokGE ((=) RparT)] (mkNT nAExp);
+                  seql [tok ((=) LbrackT) mktokLf lrEQ;
+                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
+                        tokGE ((=) RbrackT)] (mkNT nAExp);
+                  tok isAlphaT (mkNT nAExp o mktokLf) lrEQ]);
+
+        (INL nLit,
+         choicel [tok isInt (mkNT nLit o mktokLf) lrEQ]);
       ]
   |>
 End
@@ -200,8 +239,8 @@ val mkNT = ``INL : ppegnt -> ppegnt + num``
 Theorem purePEG_exec_thm[compute] =
   TypeBase.constructors_of ``:ppegnt``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
-    |> map (SIMP_RULE bool_ss (purepeg_rules_applied @ distinct_ths @
-                               [sumTheory.INL_11]))
+    |> map (SIMP_RULE bool_ss (purepeg_rules_applied @
+                               [pureNTs_distinct, sumTheory.INL_11]))
     |> LIST_CONJ;
 
 
@@ -210,21 +249,32 @@ Theorem gettok[local,compute] = lexer_funTheory.get_token_def
 val input2 = EVAL “lexer_fun "foo ::\n A -> B"”
 val input3 = EVAL “lexer_fun "foo :: A\n     ->\n B"”
 *)
-Theorem good1 =
-    EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
-          (lexer_fun "foo :: A -> (B,\n\
+
+fun test n s =
+  EVAL “ispeg_exec purePEG (nt (INL ^n) I lrOK)
+          (lexer_fun ^(stringLib.fromMLstring s))
+          lpTOP [] NONE [] done failed” |> concl |> rhs
+val testty = test “nTy”
+
+
+val good1 = test “nDecls”
+                     "foo :: A -> (B,\n\
                      \ C,D)\n\
                      \bar :: C\n\
                      \   -> D\n\
                      \baz :: D\n\
-                     \qux::(A->B)->C")
-          lpTOP [] NONE [] done failed”
+                     \qux::(A->B)->C"
 
 Theorem good2 =
     EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
           (lexer_fun " foo :: A -> [B -> C]\n\
                      \ bar :: C\n")
           lpTOP [] NONE [] done failed”
+
+Theorem good3 =
+        EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
+             (lexer_fun "foo b x = if b then 10 else g (x + 11)")
+             lpTOP [] NONE [] done failed”
 
 (* stops at arrow line, leaving it in input still to be consumed *)
 Theorem fail1 =
@@ -256,11 +306,6 @@ Theorem fail2 =
                      \bar :: C\n")
           lpTOP [] NONE [] done failed”
 
-fun test n s =
-  EVAL “ispeg_exec purePEG (nt (INL ^n) I lrOK)
-          (lexer_fun ^(stringLib.fromMLstring s))
-          lpTOP [] NONE [] done failed” |> concl |> rhs
-val testty = test “nTy”
 
 val ty1 = testty "Foo"
 val ty1a = testty "a"
@@ -268,6 +313,8 @@ val ty2 = testty "Foo -> a"
 val ty3 = testty "a -> b -> c"
 val ty4 = testty "(a -> B) -> c"
 val ty5 = testty "Foo a B"
+val ty6 = testty "Foo [Bar] -> a"
+val ty7 = testty " Foo Bar ->\na"
 
 Theorem gooddata1 =
         EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)

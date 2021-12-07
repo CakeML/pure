@@ -749,7 +749,7 @@ Proof
   \\ fs [bind_def]
   \\ reverse IF_CASES_TAC
   THEN1
-   (gvs [FLOOKUP_DEF,FUNION_DEF]
+   (rgs [FLOOKUP_DEF,FUNION_DEF]
     \\ Cases_on ‘n ∈ FDOM f’ \\ fs [] \\ res_tac \\ fs []
     \\ fs [FUN_FMAP_DEF] \\ fs [closed_def])
   \\ fs [] \\ once_rewrite_tac [subst_FDIFF]
@@ -1053,3 +1053,4 @@ QED
 (********************)
 
 val _ = export_theory();
+

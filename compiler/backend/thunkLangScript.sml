@@ -446,7 +446,7 @@ Proof
     \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
     rw []
-    \\ gs [Once eval_to_def]
+    \\ rgs [Once eval_to_def]
     \\ simp [SimpLHS, Once eval_to_def]
     \\ simp [SimpRHS, Once eval_to_def]
     \\ IF_CASES_TAC \\ gs []
