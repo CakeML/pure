@@ -705,7 +705,7 @@ Proof
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
     \\ reverse (Cases_on ‘dest_Tick y’) \\ gs []
     >- (
-      Cases_on ‘y’ \\ gs [Once v_rel_cases])
+      Cases_on ‘y’ \\ rgs [Once v_rel_cases])
     \\ drule_all_then strip_assume_tac dest_Thunk_v_rel
     \\ drule_all_then strip_assume_tac dest_Recclosure_v_rel
     \\ simp [envLangTheory.dest_anyThunk_def, thunkLangTheory.dest_anyThunk_def]
@@ -749,7 +749,7 @@ Proof
     \\ gs [OPTREL_def])
   >- ((* MkTick *)
     rw [exp_rel_def]
-    \\ gs [Once exp_rel_cases])
+    \\ rgs [Once exp_rel_cases])
   >- ((* Prim *)
     rw [exp_rel_def]
     \\ simp [envLangTheory.eval_to_def, thunkLangTheory.eval_to_def]
@@ -767,14 +767,14 @@ Proof
           \\ unabbrev_all_tac
           \\ gs [MEM_EL, PULL_EXISTS]
           \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [EVERY_EL])
-        \\ gvs [result_map_def, CaseEq "bool", MEM_MAP]
+        \\ rgs [result_map_def, CaseEq "bool", MEM_MAP] \\ gvs []
         \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-        \\ unabbrev_all_tac \\ gs []
-        \\ gvs [MEM_EL, PULL_EXISTS]
+        \\ unabbrev_all_tac \\ rgs []
+        \\ rgs [MEM_EL, PULL_EXISTS] \\ gvs []
         >- (
           rpt (first_x_assum (drule_then assume_tac)) \\ gs [EVERY_EL]
           \\ pop_assum mp_tac \\ gs []
-          \\ CASE_TAC \\ gs [])
+          \\ CASE_TAC \\ rgs [])
         \\ rename1 ‘eval_to k (EL m xs)’
         \\ qpat_x_assum ‘m < LENGTH ys’ assume_tac
         \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [EVERY_EL])
@@ -845,7 +845,7 @@ Proof
         \\ Cases_on ‘result_map g ys’ \\ gs []
         \\ CASE_TAC \\ gs []
         \\ CASE_TAC \\ gs [v_rel_def])
-      \\ gs [result_map_def, MEM_MAP, EVERY_EL]
+      \\ rgs [result_map_def, MEM_MAP, EVERY_EL]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
@@ -869,7 +869,7 @@ Proof
           \\ pop_assum mp_tac
           \\ rpt CASE_TAC \\ gs [CaseEqs ["v"], v_rel_def])
         \\ unabbrev_all_tac \\ gs []
-        \\ gvs [MEM_EL, PULL_EXISTS]
+        \\ rgs [MEM_EL, PULL_EXISTS] \\ gvs []
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ rpt CASE_TAC \\ gs []
@@ -884,7 +884,7 @@ Proof
       >- (
         fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ unabbrev_all_tac
-        \\ gvs [MEM_EL, PULL_EXISTS]
+        \\ rgs [MEM_EL, PULL_EXISTS] \\ gvs []
         \\ rpt (first_x_assum (drule_then assume_tac))
         \\ pop_assum mp_tac
         \\ rpt CASE_TAC \\ gs []
