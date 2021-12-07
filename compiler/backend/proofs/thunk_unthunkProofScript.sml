@@ -649,7 +649,7 @@ Proof
            SF ETA_ss])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
-    \\ gs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
+    \\ rgs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
   >- ((* Box *)
     rw [Once exp_rel_cases])
   >- ((* Force *)
@@ -690,7 +690,7 @@ Proof
                    (ALOOKUP (REVERSE ys) s1)’
           by (irule LIST_REL_OPTREL
               \\ gs [LIST_REL_CONJ, ELIM_UNCURRY])
-        \\ gs [OPTREL_def]
+        \\ rgs [OPTREL_def]
         \\ Cases_on ‘_x’ \\ gs [] \\ Cases_on ‘_y’ \\ gs []
         \\ first_x_assum irule
         \\ simp [closed_subst, subst_funs_def]
@@ -699,18 +699,18 @@ Proof
         \\ irule_at Any LIST_EQ
         \\ simp [EVERY2_MAP, EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF,
                  LAMBDA_PROD, GSYM FST_THM]
-        \\ gs [ELIM_UNCURRY, LIST_REL_CONJ]
+        \\ rgs [ELIM_UNCURRY, LIST_REL_CONJ]
         \\ irule_at Any LIST_REL_mono
         \\ first_assum (irule_at Any) \\ simp []
-        \\ Cases_on ‘xs = []’ \\ gs []
+        \\ Cases_on ‘xs = []’ \\ rgs []
         \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
-        \\ gvs [LIST_REL_EL_EQN, EVERY_EL, MEM_EL, PULL_EXISTS, EL_MAP,
+        \\ rgs [LIST_REL_EL_EQN, EVERY_EL, MEM_EL, PULL_EXISTS, EL_MAP,
                 EVERY_EL, Once exp_rel_cases, exp_inv_def, SF CONJ_ss]
         \\ rpt (first_x_assum (drule_then strip_assume_tac))
-        \\ gvs [exp_inv_def, freevars_def, EVERY_EL, EL_MAP,
+        \\ rgs [exp_inv_def, freevars_def, EVERY_EL, EL_MAP,
                 LIST_REL_EL_EQN, ELIM_UNCURRY]
         \\ rpt (first_x_assum (drule_then strip_assume_tac))
-        \\ gvs [exp_inv_def, freevars_def])
+        \\ rgs [exp_inv_def, freevars_def])
       >- ((* Thunk-Thunk *)
         first_x_assum irule
         \\ gs [subst_funs_def, EVERY_EL]
@@ -733,7 +733,7 @@ Proof
                  (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL
             \\ gs [LIST_REL_CONJ, ELIM_UNCURRY])
-      \\ gs [OPTREL_def]
+      \\ rgs [OPTREL_def]
       \\ Cases_on ‘_x’ \\ gs [] \\ Cases_on ‘_y’ \\ gs []
       \\ first_x_assum irule
       \\ simp [closed_subst, subst_funs_def]
@@ -742,9 +742,9 @@ Proof
       \\ irule_at Any LIST_EQ
       \\ simp [EVERY2_MAP, EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF,
                LAMBDA_PROD, GSYM FST_THM]
-      \\ gs [ELIM_UNCURRY, LIST_REL_CONJ]
+      \\ rgs [ELIM_UNCURRY, LIST_REL_CONJ]
       \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
-      \\ gvs [LIST_REL_EL_EQN, EVERY_EL, MEM_EL, PULL_EXISTS, EL_MAP, EVERY_EL,
+      \\ rgs [LIST_REL_EL_EQN, EVERY_EL, MEM_EL, PULL_EXISTS, EL_MAP, EVERY_EL,
               Once exp_rel_cases, exp_inv_def, SF CONJ_ss]
       \\ rpt (first_x_assum (drule_then strip_assume_tac))
       \\ gs [exp_inv_def, freevars_def])
@@ -761,7 +761,7 @@ Proof
     \\ simp [eval_to_def]
     \\ Cases_on ‘op’ \\ gs [exp_inv_def, EVERY_EL, EL_MAP, LIST_REL_EL_EQN]
     >- ((* Cons *)
-      gvs [result_map_def, MAP_MAP_o, combinTheory.o_DEF, MEM_MAP, eval_to_def,
+      rgs [result_map_def, MAP_MAP_o, combinTheory.o_DEF, MEM_MAP, eval_to_def,
            PULL_EXISTS, MEM_EL]
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -771,7 +771,7 @@ Proof
       >- (
         rpt (first_x_assum (drule_then assume_tac))
         \\ gs [exp_inv_def])
-      \\ gvs [EVERY2_MAP, EVERY_MAP, LIST_REL_EL_EQN, EVERY_EL]
+      \\ rgs [EVERY2_MAP, EVERY_MAP, LIST_REL_EL_EQN, EVERY_EL]
       \\ rw []
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [exp_inv_def])
@@ -787,7 +787,7 @@ Proof
       \\ drule_then assume_tac LIST_REL_LENGTH
       \\ IF_CASES_TAC \\ gs [])
     >- ((* Proj *)
-      gvs [Once exp_inv_cases])
+      rgs [Once exp_inv_cases])
     >- ((* AtomOp *)
       Cases_on ‘k = 0’ \\ gs []
       >- (
@@ -810,7 +810,7 @@ Proof
       >- (
         Cases_on ‘result_map f ys’
         >- (
-          gvs [result_map_def, CaseEq "bool", Abbr ‘f’, MEM_MAP, MEM_EL,
+          rgs [result_map_def, CaseEq "bool", Abbr ‘f’, MEM_MAP, MEM_EL,
                PULL_EXISTS]
           \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
           >- (
@@ -821,7 +821,7 @@ Proof
           \\ rename1 ‘m < LENGTH ys’
           \\ rpt (first_x_assum (drule_then assume_tac))
           \\ Cases_on ‘eval_to (k - 1) (EL m ys)’
-          \\ gvs [CaseEqs ["sum", "v"]]
+          \\ rgs [CaseEqs ["sum", "v"]]
           \\ rename1 ‘v_rel _ w’
           \\ Cases_on ‘w’ \\ gs [])
         \\ gvs [result_map_def, CaseEq "bool", Abbr ‘f’, MEM_MAP, MEM_EL,
@@ -908,7 +908,7 @@ Proof
                (ALOOKUP (REVERSE ys) s)’
       by (irule LIST_REL_OPTREL
           \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ gs [OPTREL_def]
+    \\ rgs [OPTREL_def]
     \\ CASE_TAC \\ gs []
     \\ CASE_TAC \\ gs []
     \\ rw [subst_funs_def]
@@ -916,15 +916,15 @@ Proof
     \\ simp [closed_subst]
     \\ irule_at Any exp_inv_subst
     \\ irule_at Any exp_rel_subst
-    \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-           GSYM FST_THM, EVERY_MAP]
+    \\ rgs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+            GSYM FST_THM, EVERY_MAP]
     \\ irule_at Any LIST_EQ
-    \\ gvs [EL_MAP, SF CONJ_ss, EVERY_EL, ELIM_UNCURRY]
-    \\ gvs [LIST_REL_EL_EQN]
+    \\ rgs [EL_MAP, SF CONJ_ss, EVERY_EL, ELIM_UNCURRY]
+    \\ rgs [LIST_REL_EL_EQN]
     \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
     \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
     \\ first_x_assum (drule_then strip_assume_tac)
-    \\ gs [Once exp_rel_cases]
+    \\ rgs [Once exp_rel_cases]
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ gs [freevars_def])
   >- (
