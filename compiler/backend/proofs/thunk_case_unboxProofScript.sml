@@ -296,7 +296,7 @@ Proof
       by (irule LIST_REL_OPTREL \\ gs []
           \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
     \\ gs [OPTREL_def]
-    \\ gvs [Once exp_rel_cases]
+    \\ rgs [Once exp_rel_cases]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule
     \\ irule_at Any exp_rel_subst
@@ -391,7 +391,7 @@ Proof
           by (irule LIST_REL_OPTREL \\ gs []
               \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
-        \\ gvs [Once exp_rel_cases]
+        \\ rgs [Once exp_rel_cases]
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
         \\ irule_at Any exp_rel_subst
@@ -447,7 +447,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gvs []
         \\ rw [] \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
@@ -457,15 +457,15 @@ Proof
           \\ first_x_assum (drule_then assume_tac)
           \\ first_x_assum (drule_all_then assume_tac)
           \\ Cases_on ‘eval_to k (EL j xs)’ \\ gs [])
-        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ rw [] \\ gs []
-        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         first_x_assum (drule_then assume_tac)
@@ -473,7 +473,7 @@ Proof
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         first_x_assum (drule_then assume_tac)
@@ -482,7 +482,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ rw [EVERY2_MAP, LIST_REL_EL_EQN]
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_then assume_tac)
