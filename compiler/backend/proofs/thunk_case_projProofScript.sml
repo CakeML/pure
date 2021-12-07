@@ -377,6 +377,7 @@ Proof
              EVERY2_MAP]
     \\ irule_at Any LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
     \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ gvs [freevars_def, SUBSET_DEF]
@@ -582,6 +583,7 @@ Proof
       \\ simp [closed_subst, eval_to_wo_def, MAP_MAP_o, combinTheory.o_DEF,
                LAMBDA_PROD, GSYM FST_THM, EVERY2_MAP]
       \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
+      \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
       \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
       \\ first_x_assum (drule_then assume_tac)
       \\ gs [freevars_def])
