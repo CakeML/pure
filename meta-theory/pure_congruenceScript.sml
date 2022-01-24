@@ -1081,7 +1081,7 @@ Theorem Howe_open_similarity_IMP:
   (eval_wh e1 = wh_Error ⇒ eval_wh e2 = wh_Error)
 Proof
   Cases_on ‘eval_wh e1 = wh_Diverge’ >> fs [] >>
-  qspec_then `e1` assume_tac (GEN_ALL eval_wh_eq_Diverge) >> gvs[] >>
+  qspec_then `e1` assume_tac (GEN_ALL eval_wh_eq_Diverge) >> rgs[] >>
   pop_assum mp_tac >>
   MAP_EVERY qid_spec_tac [`e2`,`e1`,`k`] >>
   ho_match_mp_tac eval_wh_to_ind >> rpt (conj_tac)
@@ -1161,7 +1161,7 @@ Proof
       `dest_wh_Closure (eval_wh e3) = NONE` by (
         simp[eval_wh_def, eval_wh_to_def] >>
         DEEP_INTRO_TAC some_intro >> rw[] >>
-        imp_res_tac eval_wh_to_agree >> gvs[]) >>
+        imp_res_tac eval_wh_to_agree >> rgs[]) >>
       `eval_wh (App e3 e4) = wh_Error` by (
         simp[Once eval_wh_thm] >>
         Cases_on `eval_wh e3` >> gvs[dest_wh_Closure_def] >>
@@ -1189,7 +1189,7 @@ Proof
     `eval_wh e3 = wh_Closure x0 x1` by (
       simp[eval_wh_def] >> DEEP_INTRO_TAC some_intro >> reverse (rw[])
       >- goal_assum drule >>
-      imp_res_tac eval_wh_to_agree >> gvs[] >>
+      imp_res_tac eval_wh_to_agree >> rgs[] >>
       Cases_on `eval_wh_to x e3` >> gvs[]) >>
     rpt gen_tac >> disch_then (qspecl_then [`x0`,`x1`] mp_tac) >>
     ntac 2 (once_rewrite_tac[]) >> strip_tac >>
@@ -1339,7 +1339,7 @@ Proof
     ) >>
   rename1 `Prim` >>
   rpt gen_tac >> ntac 4 strip_tac >>
-  Cases_on `p` >> gvs[eval_wh_Prim_alt, eval_wh_to_def]
+  Cases_on `p` >> rgs[eval_wh_Prim_alt, eval_wh_to_def]
   >- ( (* If *)
     qpat_x_assum `_ ≠ wh_Diverge` mp_tac >>
     qpat_x_assum `Howe _ _ _ _` mp_tac >> simp[Once Howe_cases] >>
@@ -1369,12 +1369,12 @@ Proof
     >- (
       strip_tac >>
       `eval_wh_to (k - 1) x1 = wh_True` by (
-        gvs[eval_wh_eq] >>
+        rgs[eval_wh_eq] >>
         qspecl_then [`k''`,`k - 1`,`x1`] assume_tac (GEN_ALL eval_wh_to_agree) >>
-        gvs[]) >>
+        rgs[]) >>
       simp[] >> ntac 5 strip_tac >>
       last_x_assum drule >> disch_then drule >> simp[] >>
-      Cases_on `eval_wh x2` >> gvs[] >> strip_tac >> gvs[]
+      Cases_on `eval_wh x2` >> gvs[] >> strip_tac >> rgs[]
       >- (
         gvs[LIST_REL_EL_EQN] >> rw[] >>
         irule Howe_Tra >> assume_tac term_rel_open_similarity >>
@@ -1404,7 +1404,7 @@ Proof
       rw[open_similarity_alt_def, bind_def] >>
       IF_CASES_TAC >> simp[] >>
       rename1 `_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)` >>
-      Cases_on `f` >> gvs[]
+      Cases_on `f` >> rgs[]
       >- (
         irule app_similarity_perm_exp_left >>
         irule app_similarity_perm_exp_right >>
@@ -1447,9 +1447,9 @@ Proof
     >- (
       strip_tac >>
       `eval_wh_to (k - 1) x1 = wh_False` by (
-        gvs[eval_wh_eq] >>
+        rgs[eval_wh_eq] >>
         qspecl_then [`k''`,`k - 1`,`x1`] assume_tac (GEN_ALL eval_wh_to_agree) >>
-        gvs[]) >>
+        rgs[]) >>
       simp[] >> ntac 5 strip_tac >>
       last_x_assum drule >> disch_then drule >> simp[] >> strip_tac >>
       Cases_on `eval_wh x3` >> gvs[]
@@ -1568,8 +1568,8 @@ Proof
     fs[] >>
     last_x_assum drule >> disch_then drule >> simp[] >> strip_tac >>
     Cases_on `eval_wh a` >> fs[] >>
-    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-    IF_CASES_TAC >> gvs[] >>
+    imp_res_tac LIST_REL_LENGTH >> rgs[] >>
+    IF_CASES_TAC >> rgs[] >>
     `eval_wh_to (k - 1) a = eval_wh a` by (
       gvs[eval_wh_eq] >> irule_at Any EQ_REFL) >> gvs[] >>
     gvs[LIST_REL_EL_EQN] >>
@@ -1597,7 +1597,7 @@ Proof
     >- gvs[freevars_eqvt, SUBSET_DEF, MEM_MAP, PULL_EXISTS, perm1_def] >>
     simp[open_similarity_alt_def] >> rw[bind_def] >>
     rename1 `subst _ (perm_exp xa xc cec) ≲ subst _ (perm_exp xa xb ceb)` >>
-    Cases_on `f` >> gvs[]
+    Cases_on `f` >> rgs[]
     >- (
       `closed (perm_exp xa xc cec) ∧
        closed (perm_exp xa xb ceb)` by simp[closed_def] >>
@@ -1671,7 +1671,7 @@ Proof
     ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Diverge ’
       by (Cases_on ‘eval_wh_to (k - 1) (EL n xs) = wh_Diverge ’ >> gs []) >>
     `∀a. eval_wh (EL n xs) ≠ wh_Atom a` by (
-      CCONTR_TAC >> gvs[] >> gvs[eval_wh_eq] >>
+      CCONTR_TAC >> gvs[] >> rgs[eval_wh_eq] >>
       first_x_assum (qspec_then `n` assume_tac) >> gvs[] >>
       drule eval_wh_to_agree >>
       disch_then (qspec_then `k'` assume_tac) >> gvs[] >>
@@ -1679,7 +1679,7 @@ Proof
     `eval_wh (EL n xs) ≠ wh_Diverge` by (
       gvs[eval_wh_neq_Diverge] >>
       goal_assum drule) >>
-    gs [] >>
+    rgs [] >>
     first_x_assum drule >> strip_tac >>
     Cases_on ‘eval_wh (EL n xs)’ >> gvs []
     )
@@ -1719,7 +1719,7 @@ Proof
       ) >>
     ntac 2 (qpat_x_assum `EVERY _ _` mp_tac >> simp[] >> strip_tac) >>
     ntac 2 $ first_x_assum $ drule_all_then assume_tac >>
-    Cases_on `eval_wh x1` >> gvs[] >> Cases_on `eval_wh x2` >> gvs[] >>
+    Cases_on `eval_wh x1` >> gvs[] >> Cases_on `eval_wh x2` >> rgs[] >>
     rw[] >> simp[] >> gvs[LIST_REL_EL_EQN] >> rw[] >>
     irule Howe_Tra >> assume_tac term_rel_open_similarity >>
     simp[Tra_open_similarity, PULL_EXISTS]
@@ -1729,7 +1729,7 @@ Proof
       goal_assum $ drule_at $ Pos last >> simp[open_similarity_EMPTY] >>
       imp_res_tac app_similarity_closed >> simp[] >>
       drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
-      gvs[Exps_EMPTY_closed] >> NO_TAC
+      rgs[Exps_EMPTY_closed] >> NO_TAC
       ) >>
     (
       gvs[Exps_def] >>
@@ -2582,4 +2582,38 @@ Proof
   \\ simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD]
 QED
 
+Theorem eval_wh_to_Lit[simp]:
+  eval_wh_to k (Lit l) = wh_Atom l
+Proof
+  simp[eval_wh_to_def, get_atoms_def]
+QED
+
+Theorem eval_wh_to_atom2:
+  eval_wh_to k (Prim (AtomOp opn) [Lit l1; Lit l2]) =
+  if k = 0 then wh_Diverge
+  else case eval_op opn [l1; l2] of
+         NONE => wh_Error
+       | SOME (INL v) => wh_Atom v
+       | SOME (INR T) => wh_True
+       | SOME (INR F) => wh_False
+Proof
+  rw[eval_wh_to_def] >> simp[get_atoms_def, dest_Atom_def]
+QED
+
+Theorem case_someT:
+  option_CASE (some x. T) none (λy. v) = v
+Proof
+  DEEP_INTRO_TAC optionTheory.some_intro >> simp[]
+QED
+
+Theorem exp_eq_Add:
+  Prim (AtomOp Add) [Lit (Int i); Lit (Int j)] ≅ Lit (Int (i + j))
+Proof
+  irule eval_wh_IMP_exp_eq >>
+  simp[freevars_def, subst_def, eval_wh_def, case_someT, eval_wh_to_atom2] >>
+  rpt strip_tac >>
+  DEEP_INTRO_TAC optionTheory.some_intro >> simp[AllCaseEqs()]
+QED
+
 val _ = export_theory();
+

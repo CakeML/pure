@@ -217,7 +217,7 @@ Proof
       \\ rpt strip_tac \\ gs []
       \\ first_x_assum (drule_then assume_tac) \\ gs []
       \\ first_x_assum (drule_then assume_tac)
-      \\ gs [DISJ_EQ_IMP, MEM_MAP])
+      \\ rgs [DISJ_EQ_IMP, MEM_MAP])
     \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss])
   >- ((* Delay *)
     gs [freevars_def, subst_def])
