@@ -226,7 +226,9 @@ Theorem type_soundness_up_to:
 Proof
   strip_tac >> completeInduct_on `k` >>
   recInduct exp_of_ind >> rw[exp_of_def]
-  >- gvs[Once type_tcexp_cases]
+  >- ( (* Var *)
+    last_x_assum kall_tac >> gvs[Once type_tcexp_cases]
+    )
   >- ( (* Prim *)
     Cases_on `p` >> gvs[pure_cexpTheory.op_of_def]
     >- (
@@ -234,11 +236,8 @@ Proof
       goal_assum $ drule_at Any >> simp[]
       )
     >- (
-      gvs[Once type_tcexp_cases]
-      >- (
-        simp[eval_wh_to_def, get_atoms_def] >>
-        simp[Once type_wh_cases] >> simp[Once type_tcexp_cases]
-        ) >>
+      rgs[Once type_tcexp_cases] >> gvs[]
+      >- (simp[Once type_wh_cases] >> simp[Once type_tcexp_cases]) >>
       imp_res_tac get_PrimTys_SOME >>
       gvs[eval_wh_to_def, MAP_MAP_o, combinTheory.o_DEF] >>
       IF_CASES_TAC >> gvs[]
@@ -512,7 +511,7 @@ Proof
         `cn ≠ "Subscript"` by (
           imp_res_tac ALOOKUP_MEM >>
           gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-          first_x_assum $ qspec_then `"Subscript"` mp_tac >>
+          qpat_x_assum `∀e. _ ∈ _ ⇒ ¬ _` $ qspec_then `"Subscript"` mp_tac >>
           rw[reserved_cns_def, MEM_MAP, FORALL_PROD] >> metis_tac[]
           ) >>
         drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
@@ -557,7 +556,6 @@ Proof
         `ALOOKUP exndef "Subscript" = NONE` by (
           simp[ALOOKUP_NONE] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
           first_x_assum irule >> simp[reserved_cns_def]) >>
-
         first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
         disch_then $ qspec_then `v` mp_tac >> simp[exp_of_def] >> rw[] >> gvs[]
         >- rw[type_wh_cases] >>
@@ -582,8 +580,7 @@ Proof
         disch_then $ qspecl_then [`v`,`rs`] mp_tac >> reverse $ impl_tac
         >- rw[exp_of_def, type_wh_cases] >>
         gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
-        qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _` drule >> simp[] >>
-        Cases_on `rs` >> gvs[]
+        last_x_assum drule >> simp[] >> Cases_on `rs` >> gvs[]
         ) >>
       first_x_assum drule >> simp[] >> disch_then drule_all >> rw[] >>
       drule type_wh_TypeCons_eq_wh_Constructor >> rw[] >> gvs[] >>
@@ -663,7 +660,7 @@ Proof
         gvs[] >>
         `cn ≠ "Subscript"` by (
           imp_res_tac ALOOKUP_MEM >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-          first_x_assum $ qspec_then `"Subscript"` mp_tac >>
+          last_x_assum $ qspec_then `"Subscript"` mp_tac >>
           rw[reserved_cns_def, MEM_MAP, FORALL_PROD] >> metis_tac[]) >>
         gvs[] >> mp_tac eval_wh_Bottom >> simp[eval_wh_def] >>
         DEEP_INTRO_TAC some_intro >> rw[type_wh_cases]

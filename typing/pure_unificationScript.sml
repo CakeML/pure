@@ -306,7 +306,7 @@ Proof
       unabbrev_all_tac >> rw[]
       >- (irule_at Any EQ_REFL) >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -314,7 +314,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -322,7 +322,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -330,7 +330,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -384,7 +384,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -456,7 +456,7 @@ Proof
       unabbrev_all_tac >> rw[]
       >- (irule_at Any EQ_REFL) >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -464,7 +464,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -472,7 +472,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -480,7 +480,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -534,7 +534,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -553,7 +553,7 @@ Proof
       unabbrev_all_tac >> rw[]
       >- (irule_at Any EQ_REFL) >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -561,7 +561,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -569,7 +569,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -577,7 +577,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -631,7 +631,7 @@ Proof
     >- (
       unabbrev_all_tac >> rw[] >>
       mp_tac encode_walk >> simp[pure_wfs_def] >>
-      disch_then imp_res_tac >> gvs[] >> gvs[pure_walk_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
       qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
       qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
       qexists_tac `m |+ (k,foo)` >> rw[]
@@ -680,7 +680,7 @@ Proof
   simp[OPTION_MAP_CASE, combinTheory.o_DEF] >>
   CASE_TAC >> simp[] >>
   imp_res_tac encode_unify_alt >> gvs[combinTheory.o_DEF, decode_encode] >>
-  last_x_assum irule >> gvs[pure_wfs_def, pure_unify_def] >>
+  last_x_assum irule >> rgs[pure_wfs_def, pure_unify_def] >>
   irule wfs_unify >> goal_assum drule >>
   irule_at Any EQ_TRANS >> pop_assum $ irule_at Any >> simp[PULL_EXISTS] >>
   goal_assum drule >> simp[]
@@ -1515,7 +1515,7 @@ Proof
   pop_assum mp_tac >> ntac 5 $ pop_assum kall_tac >> rw[] >>
   imp_res_tac pure_vwalk_ind >>
   pop_assum $ qspec_then ` λn. P (pure_vwalk s n) ⇒ P (CVar n)` mp_tac >> simp[] >>
-  disch_then irule >> rw[] >> gvs[Once pure_vwalk] >>
+  disch_then irule >> rw[] >> rgs[Once pure_vwalk] >>
   Cases_on `FLOOKUP s v` >> gvs[] >> Cases_on `x` >> gvs[]
 QED
 

@@ -93,7 +93,7 @@ Proof
     reverse $ Cases_on `tys` >> gvs[]
     >- (Cases_on `cases` >> gvs[] >> rpt (pairarg_tac >> gvs[])) >>
     PairCases_on `ns` >> gvs[namespace_ok_def, oEL_THM, EVERY_EL] >>
-    first_x_assum drule >> simp[]
+    last_x_assum drule >> simp[]
     )
 QED
 
@@ -151,13 +151,13 @@ Proof
     qsuff_tac `MEM (cname, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) ns0)`
     >- (
       rw[] >> gvs[MEM_MAP, EXISTS_PROD] >>
-      drule ALOOKUP_ALL_DISTINCT_MEM >> disch_then drule >> simp[]
+      rev_drule ALOOKUP_ALL_DISTINCT_MEM >> disch_then drule >> simp[]
       ) >>
     drule $ iffRL sortingTheory.PERM_MEM_EQ >>
     simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
     simp[Once MEM_EL, PULL_EXISTS] >>
     disch_then drule >> simp[DISJ_IMP_THM] >> strip_tac >> gvs[] >>
-    first_x_assum $ qspec_then `"Subscript"` mp_tac >>
+    last_x_assum $ qspec_then `"Subscript"` mp_tac >>
     simp[pure_configTheory.reserved_cns_def] >>
     imp_res_tac ALOOKUP_MEM >> simp[MEM_MAP, EXISTS_PROD] >> goal_assum drule
     )
@@ -336,7 +336,7 @@ Proof
         qsuff_tac `MEM (cname, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) ns0)`
         >- (
           rw[] >> gvs[MEM_MAP, EXISTS_PROD] >>
-          drule ALOOKUP_ALL_DISTINCT_MEM >> disch_then drule >> simp[]
+          rev_drule ALOOKUP_ALL_DISTINCT_MEM >> disch_then drule >> simp[]
           ) >>
         drule $ iffRL sortingTheory.PERM_MEM_EQ >>
         simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
@@ -349,11 +349,10 @@ Proof
       )
     )
   >- (
-    first_x_assum $ qspec_then `0` mp_tac >>
-    impl_keep_tac
+    first_x_assum $ qspec_then `0` mp_tac >> impl_keep_tac
     >- (
       PairCases_on `ns` >> gvs[namespace_ok_def] >>
-      gvs[EVERY_EL, oEL_THM] >> first_x_assum drule >> simp[] >> strip_tac >>
+      gvs[EVERY_EL, oEL_THM] >> last_x_assum drule >> simp[] >> strip_tac >>
       imp_res_tac sortingTheory.PERM_LENGTH >> gvs[] >> Cases_on `cdefs` >> gvs[]
       ) >>
     last_x_assum assume_tac >> last_x_assum $ qspec_then `0` mp_tac >> simp[] >>
@@ -577,7 +576,7 @@ Proof
     )
   >- ( (* Bind *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
+    rgs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     ntac 2 $ last_x_assum $ irule_at Any >>
     rpt $ goal_assum $ drule_at Any >> simp[] >>
@@ -614,7 +613,7 @@ Proof
     )
   >- ( (* Raise *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
+    rgs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     last_x_assum $ irule_at Any >>
     rpt $ goal_assum $ drule_at Any >>
@@ -638,7 +637,7 @@ Proof
     )
   >- ( (* Handle *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
+    rgs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     ntac 2 $ last_x_assum $ irule_at Any >>
     rpt $ goal_assum $ drule_at Any >>
@@ -673,7 +672,7 @@ Proof
     )
   >- ( (* Act *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
+    rgs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     last_x_assum irule >> rpt $ goal_assum $ drule_at Any >>
     simp[cj 2 pure_walkstar_alt, pure_apply_subst, type_of_def] >> rw[] >>
@@ -681,7 +680,7 @@ Proof
     )
   >- ( (* Alloc *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
+    rgs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     ntac 2 $ last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
     simp[cj 2 pure_walkstar_alt, pure_apply_subst, type_of_def] >> rw[]
@@ -714,7 +713,7 @@ Proof
     )
   >- ( (* Length *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
+    rgs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
     simp[cj 7 pure_walkstar_alt, pure_apply_subst, type_of_def] >>
@@ -726,7 +725,7 @@ Proof
     )
   >- ( (* Deref *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
+    rgs[Once pure_walkstar_alt, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     ntac 2 $ last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
     simp[cj 2 pure_walkstar_alt, cj 7 pure_walkstar_alt] >>
@@ -760,7 +759,7 @@ Proof
     )
   >- ( (* Update *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM1 >> gvs[] >>
-    gvs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
+    rgs[Ntimes pure_walkstar_alt 2, pure_apply_subst, type_of_def] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     ntac 3 $ last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
     simp[cj 2 pure_walkstar_alt, cj 7 pure_walkstar_alt] >>
@@ -832,7 +831,7 @@ Proof
     )
   >- ( (* Exception *)
     gvs[cj 3 pure_walkstar_alt, pure_apply_subst, type_of_def] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS, satisfies_def] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS, satisfies_def] >>
     simp[Once type_tcexp_cases] >> disj1_tac >>
     PairCases_on `ns` >> gvs[LIST_REL_EL_EQN, type_exception_def, EL_MAP, EL_ZIP] >>
     rw[] >> first_x_assum drule >> strip_tac >>
@@ -868,9 +867,9 @@ Proof
       )
     )
   >- ( (* Cons *)
-    gvs[Once pure_walkstar_alt, pure_apply_subst] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
-    gvs[MAP2_MAP, MEM_MAP, PULL_EXISTS, MEM_ZIP, satisfies_def] >>
+    rgs[Once pure_walkstar_alt, pure_apply_subst] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+    rgs[MAP2_MAP, MEM_MAP, PULL_EXISTS, MEM_ZIP, satisfies_def] >>
     drule $ cj 2 type_of_SOME_lemma >> strip_tac >> gvs[] >>
     simp[Once type_tcexp_cases] >>
     PairCases_on `ns` >> gvs[LIST_REL_EL_EQN, EL_MAP, EL_ZIP] >>
@@ -940,8 +939,8 @@ Proof
     )
   >- ( (* AtomOp *)
     simp[Once type_tcexp_cases] >> irule_at Any OR_INTRO_THM2 >>
-    gvs[Once pure_walkstar, pure_walk, pure_apply_subst, type_of_def] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
+    rgs[Once pure_walkstar, pure_walk, pure_apply_subst, type_of_def] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     drule infer_atom_op_LENGTH >> disch_then $ assume_tac o GSYM >> gvs[] >>
     gvs[infer_atom_op, get_PrimTys_SOME] >> goal_assum $ drule_at Any >>
     gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
@@ -1035,7 +1034,7 @@ Proof
       )
     )
   >- ( (* App *)
-    gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
     `∃t. type_of (pure_apply_subst (itype_of o_f closing)
           (pure_walkstar sub (iFunctions tys (CVar f)))) = SOME t` by (
       rw[GSYM pure_vars_empty_eq_type_of] >>
@@ -1176,7 +1175,7 @@ Proof
   >- ( (* Let *)
     simp[Once type_tcexp_cases] >>
     ntac 2 $ last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS, satisfies_def] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS, satisfies_def] >>
     qabbrev_tac `monos = BIGUNION (IMAGE (pure_vars o pure_walkstar sub o CVar) mset)` >>
     `∃smonos : num_set. domain smonos = monos ∧ wf smonos` by (
       qexists_tac `list_to_num_set (SET_TO_LIST monos)` >>
@@ -1276,7 +1275,7 @@ Proof
           >- (rw[FRANGE_DEF, PULL_EXISTS]) >>
           qpat_x_assum `pure_apply_subst inst _ = _` $ assume_tac o GSYM >>
           qpat_x_assum `pure_apply_subst inst' _ = _` $ assume_tac o GSYM >>
-          gvs[] >> qpat_x_assum `pure_vars _ ⊆ _` mp_tac >>
+          rgs[] >> qpat_x_assum `pure_vars _ ⊆ _` mp_tac >>
           simp[Once $ GSYM pure_vars_pure_apply_subst_SUBSET_lemma] >>
           strip_tac >> simp[FRANGE_DEF, PULL_EXISTS] >>
           rw[] >> `x ∈ pure_vars wlkit` by gvs[SUBSET_DEF] >>
@@ -1326,12 +1325,12 @@ Proof
         qspecl_then [`wlkit`,`inst'`] mp_tac freedbvars_pure_apply_subst_SUPERSET >>
         simp[DISJ_EQ_IMP, IMAGE_EQ_SING] >> strip_tac >> gvs[] >>
         gvs[FRANGE_DEF] >> `x ∈ pure_vars wlkit` by gvs[SUBSET_DEF] >>
-        first_x_assum $ drule_at Any >> impl_tac >- (CCONTR_TAC >> gvs[]) >>
+        first_x_assum $ drule_at Any >> impl_tac >- (CCONTR_TAC >> rgs[]) >>
         simp[pure_apply_subst, FLOOKUP_DEF]) >>
       `∀v. v ∈ FRANGE inst' ⇒ itype_wf (SND ns) v` by (
         qpat_x_assum `pure_apply_subst inst _ = _` $ assume_tac o GSYM >>
         qpat_x_assum `pure_apply_subst inst' _ = _` $ assume_tac o GSYM >>
-        rw[] >> gvs[] >> qpat_x_assum `pure_walkstar _ (CVar _) = _` assume_tac >>
+        rw[] >> rgs[] >> qpat_x_assum `pure_walkstar _ (CVar _) = _` assume_tac >>
         `itype_wf (SND ns) (pure_walkstar sub (CVar n))` by (
           irule itype_wf_pure_walkstar >> simp[itype_wf_def]) >>
         gvs[] >> drule pure_apply_subst_itype_wf >> gvs[FRANGE_DEF] >>
@@ -1543,10 +1542,10 @@ Proof
           CASE_TAC >> simp[] >> strip_tac >> simp[]
           ) >>
         gvs[ALOOKUP_NONE, MEM_MAP, EXISTS_PROD] >>
-        CCONTR_TAC >> gvs[Once MEM_EL] >>
+        simp[Once MEM_EL] >> CCONTR_TAC >> gvs[] >>
         first_x_assum $ qspecl_then [`0`,`EL n ts`] mp_tac >> simp[] >>
         DEP_REWRITE_TAC[MEM_ZIP] >> gvs[MAP_EQ_EVERY2, EL_MAP] >>
-        goal_assum drule >> simp[EL_MAP]
+        gvs[MEM_EL] >> goal_assum drule >> simp[EL_MAP]
         )
       >- (
         drule ALOOKUP_MEM >> simp[] >>
@@ -1619,7 +1618,7 @@ Proof
     `c ≠ "Subscript"` by (
       qpat_x_assum `namespace_ok _` assume_tac >>
       gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-      first_x_assum $ qspec_then `"Subscript"` mp_tac >>
+      last_x_assum $ qspec_then `"Subscript"` mp_tac >>
       impl_tac >- simp[pure_configTheory.reserved_cns_def] >> strip_tac >>
       CCONTR_TAC >> gvs[] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP]) >>
     gvs[] >> conj_asm1_tac
@@ -1633,7 +1632,7 @@ Proof
       qsuff_tac `MEM (c, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) ns0)`
       >- (
         rw[] >> gvs[MEM_MAP, EXISTS_PROD] >>
-        drule ALOOKUP_ALL_DISTINCT_MEM >> disch_then drule >> simp[]
+        rev_drule ALOOKUP_ALL_DISTINCT_MEM >> disch_then drule >> simp[]
         ) >>
       drule $ iffRL sortingTheory.PERM_MEM_EQ >>
       simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
@@ -1641,7 +1640,7 @@ Proof
       ) >>
     first_x_assum irule >> rpt $ goal_assum $ drule_at Any >> simp[] >> rw[]
     >- (
-      last_x_assum irule >> simp[MEM_EL, PULL_EXISTS] >>
+      first_x_assum irule >> simp[MEM_EL, PULL_EXISTS] >>
       goal_assum drule >> simp[]
       )
     >- (
@@ -1710,7 +1709,7 @@ Proof
     >- (
       `¬MEM k pvars` by (
         gvs[ALOOKUP_NONE, MEM_MAP, EXISTS_PROD] >>
-        CCONTR_TAC >> gvs[Once MEM_EL] >>
+        simp[MEM_EL] >> CCONTR_TAC >> gvs[] >>
         first_x_assum $ qspecl_then [`0`,`EL n' schemes`] mp_tac >> simp[] >>
         DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >>
         goal_assum drule >> simp[EL_MAP]) >>
@@ -1799,8 +1798,8 @@ Proof
       ) >>
     first_x_assum irule >> rpt $ goal_assum $ drule_at Any >> simp[] >> rw[]
     >- (
-      last_x_assum irule >> simp[MEM_EL, PULL_EXISTS] >>
-      goal_assum drule >> simp[]
+      qpat_x_assum `∀c s. _ ∧ _ ⇒ _` irule >> simp[MEM_EL, PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> simp[]
       )
     >- (
       first_x_assum irule >> reverse $ gvs[new_vars_def] >>
@@ -1871,7 +1870,7 @@ Proof
     >- (
       `¬MEM k pvars` by (
         gvs[ALOOKUP_NONE, MEM_MAP, EXISTS_PROD] >>
-        CCONTR_TAC >> gvs[Once MEM_EL] >>
+        simp[MEM_EL] >> CCONTR_TAC >> gvs[] >>
         first_x_assum $ qspecl_then [`0`,`tsubst ts (EL n' schemes)`] mp_tac >>
         simp[] >> DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >>
         goal_assum drule >> simp[EL_MAP]) >>

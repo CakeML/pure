@@ -897,7 +897,7 @@ Proof
         simp[BIGUNION_SUBSET, PULL_EXISTS] >>
         gen_tac >> DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >> strip_tac >> gvs[] >>
         gvs[pure_vars_iFunctions, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
-        last_x_assum irule >> simp[EL_MEM]
+        first_x_assum irule >> simp[EL_MEM]
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
       ntac 3 $ pop_assum kall_tac >> pop_assum mp_tac >>
@@ -914,7 +914,8 @@ Proof
       last_x_assum drule >> strip_tac >> gvs[] >>
       last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
       disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
-      strip_tac >> gvs[] >> ntac 2 $ goal_assum $ drule_at Any >>
+      strip_tac >> gvs[] >> goal_assum $ drule_at Any >>
+      goal_assum $ rev_drule_at Any >>
       once_rewrite_tac[GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
       >- (
         gvs[assumptions_rel_def, aunion_def, PULL_FORALL] >> rpt gen_tac >>
@@ -1052,7 +1053,8 @@ Proof
       last_x_assum drule >> strip_tac >> gvs[] >>
       last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
       disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
-      strip_tac >> gvs[] >> ntac 2 $ goal_assum $ drule_at Any >>
+      strip_tac >> gvs[] >> goal_assum $ drule_at Any >>
+      goal_assum $ rev_drule_at Any >>
       once_rewrite_tac[GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
       >- (
         gvs[assumptions_rel_def, aunion_def, PULL_FORALL] >> rpt gen_tac >>
@@ -1124,7 +1126,7 @@ Proof
         gvs[new_vars_def, pure_vars, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, BIGUNION_SUBSET, PULL_EXISTS, FORALL_PROD,
             MEM_ZIP, pure_vars_iFunctions] >>
-        rw[] >> last_x_assum irule >> simp[EL_MEM]
+        rw[] >> first_x_assum irule >> simp[EL_MEM]
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
       ntac 3 $ pop_assum kall_tac >> pop_assum mp_tac >>
@@ -1142,7 +1144,8 @@ Proof
       last_x_assum drule >> strip_tac >> gvs[] >>
       last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
       disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
-      strip_tac >> gvs[] >> ntac 2 $ goal_assum $ drule_at Any >>
+      strip_tac >> gvs[] >> goal_assum $ drule_at Any >>
+      goal_assum $ rev_drule_at Any >>
       once_rewrite_tac[GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
       >- (
         gvs[assumptions_rel_def, aunion_def, PULL_FORALL] >> rpt gen_tac >>
@@ -1213,7 +1216,7 @@ Proof
       imp_res_tac infer_atom_op_LENGTH >> gvs[] >>
       gvs[new_vars_def, LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF,
           BIGUNION_SUBSET, PULL_EXISTS, MEM_ZIP, pure_vars, pure_vars_iFunctions] >>
-      rw[] >> last_x_assum irule >> simp[EL_MEM]
+      rw[] >> first_x_assum irule >> simp[EL_MEM]
       ) >>
     qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
     pop_assum kall_tac >> pop_assum mp_tac >> last_x_assum mp_tac >>
@@ -1229,7 +1232,8 @@ Proof
     last_x_assum drule >> strip_tac >> gvs[] >>
     last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
     disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
-    strip_tac >> gvs[] >> ntac 2 $ goal_assum $ drule_at Any >>
+    strip_tac >> gvs[] >> goal_assum $ drule_at Any >>
+    goal_assum $ rev_drule_at Any >>
     once_rewrite_tac[GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
     >- (
       gvs[assumptions_rel_def, aunion_def, PULL_FORALL] >> rpt gen_tac >>
@@ -1361,7 +1365,7 @@ Proof
           disch_then $ mp_tac o iffLR >> simp[PULL_EXISTS] >>
           disch_then drule >> simp[EL_MEM] >> strip_tac >> gvs[]
           )
-        >- (last_x_assum irule >> simp[EL_MEM])
+        >- (first_x_assum irule >> simp[EL_MEM])
         )
       >- (CCONTR_TAC >> gvs[] >> first_x_assum drule >> rw[])
       >- (
@@ -1438,7 +1442,8 @@ Proof
     last_x_assum drule >> strip_tac >> gvs[] >>
     last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
     disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
-    strip_tac >> gvs[] >> ntac 2 $ goal_assum $ drule_at Any >>
+    strip_tac >> gvs[] >> goal_assum $ drule_at Any >>
+    goal_assum $ rev_drule_at Any >>
     once_rewrite_tac[GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
     >- (
       gvs[assumptions_rel_def, aunion_def, PULL_FORALL] >> rpt gen_tac >>
@@ -1674,7 +1679,7 @@ Proof
           disch_then $ mp_tac o iffLR >> simp[PULL_EXISTS] >>
           disch_then drule >> simp[EL_MEM] >> strip_tac >> gvs[]
           )
-        >- (last_x_assum irule >> simp[EL_MEM])
+        >- (first_x_assum irule >> simp[EL_MEM])
         )
       >- (
         drule $ SIMP_RULE std_ss [SUBSET_DEF] FRANGE_FDIFF_SUBSET >>
@@ -2042,7 +2047,10 @@ Proof
             BIGUNION_SUBSET, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
         gen_tac >> strip_tac >> gvs[] >> rpt conj_tac
         >- (CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[])
-        >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum $ drule_at Any >> simp[])
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ rev_drule_at Any >> simp[]
+          )
         >- (
           CCONTR_TAC >> gvs[SUBSET_DEF, PULL_FORALL] >>
           first_x_assum drule_all >> simp[]
@@ -2055,15 +2063,15 @@ Proof
         rw[]
         >- (
           CCONTR_TAC >> gvs[] >>
-          first_x_assum $ drule_at Any >> disch_then $ drule_at Any >> simp[EL_MEM]
+          first_x_assum $ rev_drule_at Any >> disch_then $ drule_at Any >> simp[EL_MEM]
           )
         >- (
           CCONTR_TAC >> gvs[] >>
-          first_x_assum $ drule_at Any >> disch_then $ drule_at Any >> simp[EL_MEM]
+          first_x_assum $ rev_drule_at Any >> disch_then $ drule_at Any >> simp[EL_MEM]
           )
         >- (
           CCONTR_TAC >> gvs[SUBSET_DEF] >>
-          first_x_assum $ drule_at Any >> simp[EL_MEM]
+          first_x_assum $ rev_drule_at Any >> simp[EL_MEM]
           )
         )
       >- (
@@ -2085,7 +2093,8 @@ Proof
           pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
           gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
           first_x_assum $ drule_at Any >> simp[EL_MEM] >>
-          disch_then $ drule_at Any >> simp[EL_MEM]
+          disch_then $ drule_at Any >> simp[EL_MEM] >>
+          disch_then drule >> simp[]
           )
         >- (
           rpt gen_tac >> first_x_assum drule >> strip_tac >> conj_tac
@@ -2105,7 +2114,7 @@ Proof
       >- (
         gvs[SUBSET_DEF] >> gen_tac >> strip_tac >>
         Cases_on `tyrest` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-        first_x_assum drule >> simp[]
+        last_x_assum drule >> simp[]
         )
       >- (
         gvs[SUBSET_DEF] >> gen_tac >> strip_tac >>
