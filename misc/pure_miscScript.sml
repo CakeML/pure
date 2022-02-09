@@ -1,8 +1,8 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
 open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
      finite_mapTheory pred_setTheory arithmeticTheory rich_listTheory
-     sptreeTheory ltreeTheory fixedPointTheory sortingTheory
+     sptreeTheory ltreeTheory fixedPointTheory sortingTheory logrootTheory
 
 val _ = new_theory "pure_misc";
 
@@ -59,8 +59,39 @@ Proof
   goal_assum $ drule_at Any >> simp[]
 QED
 
+Theorem CARD_fmap_injection:
+  ∀fm. CARD (FDOM fm) = CARD (FRANGE fm) ⇔
+    (∀k1 k2 v. FLOOKUP fm k1 = SOME v ∧ FLOOKUP fm k2 = SOME v ⇒ k1 = k2)
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    qspecl_then [`FRANGE fm`,`FDOM fm`,`$' fm`] mp_tac $ GEN_ALL FINITE_SURJ_BIJ >>
+    simp[] >> impl_tac >> rw[]
+    >- (rw[SURJ_DEF, FRANGE_DEF] >> goal_assum drule >> simp[]) >>
+    simp[FRANGE_ALT_DEF] >> gvs[BIJ_DEF, INJ_DEF, FLOOKUP_DEF]
+    )
+  >- (
+    simp[FRANGE_ALT_DEF] >> irule $ GSYM INJ_CARD_IMAGE_EQ >> simp[] >>
+    qexists_tac `FRANGE fm` >> simp[FRANGE_ALT_DEF] >>
+    gvs[INJ_DEF, FLOOKUP_DEF]
+    )
+QED
 
-(******************** Functions/Pairs ********************)
+Theorem SUBMAP_FDIFF[simp]:
+  ∀m s. FDIFF m s ⊑ m
+Proof
+  rw[SUBMAP_FLOOKUP_EQN, FLOOKUP_FDIFF]
+QED
+
+Theorem FUNION_FDIFF:
+  FUNION m1 m2 = FUNION m1 (FDIFF m2 (FDOM m1))
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FUNION, FLOOKUP_FDIFF] >>
+  CASE_TAC >> simp[] >> IF_CASES_TAC >> gvs[FLOOKUP_DEF]
+QED
+
+
+(******************** Functions/Pairs/Options ********************)
 
 Theorem PAIR_MAP_ALT:
   ∀f g. (f ## g) = λ(x,y). f x, g y
@@ -92,6 +123,12 @@ Theorem I_def:
   I = \x. x
 Proof
   rw [combinTheory.I_DEF, combinTheory.S_DEF]
+QED
+
+Theorem OPTION_MAP2_OPTION_MAP:
+  OPTION_MAP2 f (SOME x) y = OPTION_MAP (f x) y
+Proof
+  Cases_on `y` >> simp[]
 QED
 
 
@@ -321,6 +358,13 @@ Proof
   first_x_assum drule >> rw[] >> gvs[]
 QED
 
+Theorem ALOOKUP_MAP_3:
+  ∀f l. ALOOKUP (MAP (λ(x,y,z). (x,y,f z)) l) = OPTION_MAP (I ## f) o ALOOKUP l
+Proof
+  gen_tac >> Induct >> rw[FUN_EQ_THM] >>
+  pairarg_tac >> gvs[] >> rw[]
+QED
+
 
 (******************** Lazy lists ********************)
 
@@ -436,6 +480,12 @@ Proof
   goal_assum drule >> simp[]
 QED
 
+Theorem IMAGE_K_EMPTY:
+  IMAGE (λx. {}) s = if s = {} then {} else {{}}
+Proof
+  rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[MEMBER_NOT_EMPTY]
+QED
+
 
 (******************** sptrees ********************)
 
@@ -444,6 +494,59 @@ Theorem wf_list_to_num_set:
 Proof
   Induct >> rw[list_to_num_set_def] >>
   irule wf_insert >> simp[]
+QED
+
+Theorem lrnext_alt_thm:
+  ∀n. sptree$lrnext n = 2 ** (LOG 2 (n + 1))
+Proof
+  strip_tac >> completeInduct_on `n` >> rw[] >>
+  rw[Once lrnext_def] >- simp[LOG_RWT] >>
+  first_x_assum $ qspec_then `(n - 1) DIV 2` mp_tac >>
+  impl_tac >> rw[] >- simp[DIV_LT_X] >>
+  simp[GSYM EXP] >> Cases_on `EVEN n` >>
+  gvs[GSYM ODD_EVEN] >> imp_res_tac EVEN_ODD_EXISTS >> gvs[]
+  >- (
+    `(2 * m - 1) DIV 2 = m - 1` by intLib.ARITH_TAC >> simp[] >>
+    simp[LOG_add_digit]
+    )
+  >- (
+    once_rewrite_tac[Once MULT_COMM] >> simp[MULT_DIV] >>
+    simp[ADD1] >> simp[Once LOG_RWT, SimpRHS] >>
+    once_rewrite_tac[MULT_COMM] >> simp[ADD_DIV_ADD_DIV]
+    )
+QED
+
+Theorem lrnext_lrnext:
+  ∀n. sptree$lrnext (n + sptree$lrnext n) = 2 * sptree$lrnext n
+Proof
+  rw[lrnext_alt_thm] >>
+  qpat_abbrev_tac `m = n + 1` >>
+  `n + (2 ** LOG 2 m + 1) = m + 2 ** LOG 2 m` by (unabbrev_all_tac >> simp[]) >>
+  pop_assum SUBST_ALL_TAC >>
+  Cases_on `m = 0` >> gvs[] >>
+  `m + 2 ** LOG 2 m = 2 ** (LOG 2 m + 1) + m MOD 2 ** LOG 2 m` by (
+    qspec_then `m` mp_tac $ GSYM LOG_MOD >> impl_tac >- simp[] >>
+    simp[GSYM ADD1, EXP]) >>
+  pop_assum SUBST_ALL_TAC >>
+  once_rewrite_tac[ADD_COMM] >>
+  DEP_REWRITE_TAC[LOG_ADD] >> simp[GSYM ADD1, EXP] >>
+  qmatch_goalsub_abbrev_tac `_ MOD a` >>
+  `a ≠ 0` by (unabbrev_all_tac >> simp[]) >>
+  qspecl_then [`m`,`a`] mp_tac MOD_LESS >>
+  impl_tac >- simp[] >> intLib.ARITH_TAC
+QED
+
+Theorem lrnext_lrnext_2:
+  ∀n k. sptree$lrnext (n + 2 * sptree$lrnext n) = 2 * sptree$lrnext n
+Proof
+  rw[lrnext_alt_thm] >>
+  qpat_abbrev_tac `m = n + 1` >>
+  `n + (2 * 2 ** LOG 2 m + 1) = m + 2 * 2 ** LOG 2 m` by (unabbrev_all_tac >> simp[]) >>
+  `n + 2 = m + 1` by (unabbrev_all_tac >> simp[]) >>
+  ntac 2 $ pop_assum SUBST_ALL_TAC >>
+  Cases_on `m = 0` >> gvs[] >>
+  simp[GSYM EXP] >> DEP_REWRITE_TAC[LOG_ADD] >> simp[] >>
+  qspecl_then [`2`,`m`] mp_tac LOG >> simp[ADD1]
 QED
 
 
