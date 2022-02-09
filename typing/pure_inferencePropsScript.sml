@@ -207,7 +207,7 @@ Proof
 QED
 
 
-(********** freedbvars/itype_wf **********)
+(********** freedbvars/itype_wf/itype_ok **********)
 
 Theorem freetyvars_ok_freedbvars:
   ∀t db. freetyvars_ok db t ⇔ ∀n. n ∈ freedbvars (itype_of t) ⇒ n < db
@@ -390,6 +390,77 @@ Theorem pure_apply_subst_itype_of[simp]:
 Proof
   recInduct type_ind >> rw[itype_of_def, pure_apply_subst] >>
   rw[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+QED
+
+Theorem itype_ok:
+  (∀tds v n. itype_ok tds n (CVar v) ⇔ T) ∧
+  (∀tds v n. itype_ok tds n (DBVar v) ⇔ v < n) ∧
+  (∀tds p n. itype_ok tds n (PrimTy p) ⇔ T) ∧
+  (∀tds n. itype_ok tds n Exception ⇔ T) ∧
+  (∀tds ts n c.
+    itype_ok tds n (TypeCons c ts) ⇔
+    EVERY (λa. itype_ok tds n a) ts ∧
+    ∃ctors. LLOOKUP tds c = SOME (LENGTH ts,ctors)) ∧
+  (∀tds ts n. itype_ok tds n (Tuple ts) ⇔ EVERY (λa. itype_ok tds n a) ts) ∧
+  (∀tds tf t n.
+    itype_ok tds n (Function tf t) ⇔ itype_ok tds n tf ∧ itype_ok tds n t) ∧
+  (∀tds t n. itype_ok tds n (Array t) ⇔ itype_ok tds n t) ∧
+  (∀tds t n. itype_ok tds n (M t) ⇔ itype_ok tds n t)
+Proof
+  rw[itype_ok_def, itype_wf_def, freedbvars_def] >>
+  gvs[EVERY_CONJ] >> eq_tac >> gvs[] >>
+  gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, EVERY_MEM] >> rw[]
+QED
+
+Theorem itype_ok_iFunctions:
+  ∀ts t tds db. itype_ok tds db (iFunctions ts t) ⇔
+    EVERY (itype_ok tds db) ts ∧ itype_ok tds db t
+Proof
+  Induct >> rw[iFunctions_def] >>
+  simp[itype_ok] >> eq_tac >> rw[]
+QED
+
+Theorem itype_ok_type_ok:
+  ∀t tdefs db. itype_ok tdefs db (itype_of t) ⇔ type_ok tdefs db t
+Proof
+  rw[itype_ok_def, type_ok_def] >>
+  simp[freetyvars_ok_freedbvars_alt, GSYM type_wf_itype_wf]
+QED
+
+Theorem itype_ok_pure_apply_subst:
+  ∀it sub tdefs db.
+    itype_ok tdefs db it ∧
+    (∀it. it ∈ FRANGE sub ⇒ itype_ok tdefs db it)
+  ⇒ itype_ok tdefs db (pure_apply_subst sub it)
+Proof
+  Induct using itype_ind >> rw[pure_apply_subst, itype_ok] >>
+  gvs[EVERY_MAP, EVERY_MEM] >>
+  CASE_TAC >> simp[itype_ok] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >> res_tac
+QED
+
+Theorem itype_ok_pure_walkstar:
+  ∀sub. pure_wfs sub ⇒
+  ∀it tdefs db.
+    (∀it. it ∈ FRANGE sub ⇒ itype_ok tdefs db it) ∧
+    itype_ok tdefs db it
+  ⇒ itype_ok tdefs db (pure_walkstar sub it)
+Proof
+  gen_tac >> strip_tac >>
+  qspec_then `sub` mp_tac pure_walkstar_alt_ind >> simp[] >>
+  disch_then ho_match_mp_tac >> rw[] >>
+  gvs[pure_walkstar_alt, itype_ok, EVERY_MAP, EVERY_MEM] >>
+  CASE_TAC >> gvs[itype_ok] >>
+  first_x_assum irule >> simp[] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >> res_tac
+QED
+
+Theorem itype_ok_ishift:
+  ∀shift tdefs n t.
+    itype_ok tdefs n t ⇒ itype_ok tdefs (n + shift) (ishift shift t)
+Proof
+  rw[] >> Induct_on `t` using itype_ind >> rw[itype_ok, ishift_def] >>
+  gvs[EVERY_MAP, EVERY_MEM]
 QED
 
 

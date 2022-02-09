@@ -82,6 +82,12 @@ Termination
   rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "itype_size_def"] >> gvs[]
 End
 
+Definition itype_ok_def:
+  itype_ok typedefs db t ⇔
+    freedbvars t ⊆ count db ∧
+    itype_wf typedefs t
+End
+
 Definition isubst_def:
   isubst ts (DBVar v) = (
     if v < LENGTH ts then EL v ts else DBVar (v - LENGTH ts)) ∧
