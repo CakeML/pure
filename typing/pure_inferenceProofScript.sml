@@ -620,23 +620,257 @@ Proof
   gvs[FRANGE_DEF, EXTENSION]
 QED
 
+Theorem pure_walkstar_pure_apply_subst_pure_walkstar[local]:
+  ∀s. pure_wfs s ⇒
+  ∀it sub. (∀v. v ∈ FRANGE sub ⇒ pure_vars v = {}) ⇒
+  pure_walkstar s (pure_apply_subst sub (pure_walkstar s it)) =
+  pure_apply_subst sub (pure_walkstar s it)
+Proof
+  gen_tac >> strip_tac >>
+  qspec_then `s` mp_tac pure_walkstar_alt_ind >> simp[] >>
+  disch_then ho_match_mp_tac >> rw[pure_walkstar_alt, pure_apply_subst]
+  >- simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+  >- simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+  CASE_TAC >> gvs[] >>
+  simp[pure_apply_subst] >> CASE_TAC >> gvs[pure_walkstar_alt] >>
+  irule pure_walkstar_unchanged >> simp[] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+  first_x_assum drule >> simp[]
+QED
+
+Triviality new_vars_SUBSET:
+  BIGUNION (FRANGE as) ⊆ BIGUNION (FRANGE as') ∧ cs ⊆ cs' ∧
+  pure_vars it ⊆ pure_vars it' ∧
+  v ∈ new_vars as cs it ⇒
+  v ∈ new_vars as' cs' it'
+Proof
+  rw[new_vars_def] >> gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Triviality new_vars_SUBSET_minfer:
+  BIGUNION (FRANGE as) ⊆ BIGUNION (FRANGE as') ∧ cs ⊆ cs' ∧
+  pure_vars it ⊆ new_vars as cs Exception ⇒
+  ∀n. n ∈ new_vars as cs it ⇒ n ∈ new_vars as' cs' it'
+Proof
+  rw[new_vars_def] >> gvs[SUBSET_DEF, pure_vars] >> metis_tac[]
+QED
+
+
+Triviality pure_vars_csubst_EMPTY_suff:
+  (∀it. it ∈ FRANGE s ⇒ pure_vars it = {}) ∧
+  pure_vars t ⊆ FDOM s ⇒
+  pure_vars (csubst s t) = {}
+Proof
+  rw[] >> once_rewrite_tac[GSYM SUBSET_EMPTY] >> irule SUBSET_TRANS >>
+  irule_at Any pure_vars_pure_apply_subst_SUBSET >>
+  simp[IMAGE_EQ_SING, SUBSET_DIFF_EMPTY]
+QED
+
+Triviality freedbvars_isubst_EMPTY_suff:
+  ∀it its.
+    freedbvars it ⊆ count (LENGTH its) ∧
+    EVERY ( λit. freedbvars it = {}) its
+  ⇒ freedbvars (isubst its it) = {}
+Proof
+  Induct using itype_ind >> rw[isubst_def, freedbvars_def] >>
+  gvs[LIST_TO_SET_MAP, IMAGE_EQ_SING, PULL_EXISTS, DISJ_EQ_IMP, BIGUNION_SUBSET] >>
+  gvs[EVERY_EL]
+QED
+
+Triviality shift_shift_let_lemma:
+  ∀it t sub vs1 vs2.
+    type_of (csubst (ishift vs1 o_f sub) it) = SOME t ∧
+    freedbvars it ⊆ count vs1 ⇒
+    type_of (csubst ((ishift vs1 ∘ ishift vs2) o_f sub) it) =
+    SOME (shift_db vs1 vs2 t)
+Proof
+  Induct using itype_ind >> rw[] >>
+  gvs[pure_apply_subst, freedbvars_def, type_of_def, shift_db_def]
+  >- (
+    ntac 2 $ pop_assum mp_tac >> qid_spec_tac `z` >>
+    Induct_on `ts` >> rw[] >> gvs[]
+    )
+  >- (
+    ntac 2 $ pop_assum mp_tac >> qid_spec_tac `z` >>
+    Induct_on `ts` >> rw[] >> gvs[]
+    ) >>
+  gvs[FLOOKUP_o_f] >> CASE_TAC >> gvs[type_of_def] >>
+  drule_then (assume_tac o GSYM) type_of_SOME >> simp[] >>
+  simp[ishift_itype_of, type_of_itype_of] >> gvs[type_of_ishift] >>
+  simp[tshift_tshift] >> simp[GSYM tshift_tshift] >> simp[GSYM shift_db_shift_db]
+QED
+
+
 
 (******************** Definitions/apparatus ********************)
 
-Definition satisfies_def:
-  satisfies s (mUnify t1 t2) = (pure_walkstar s t1 = pure_walkstar s t2) ∧
+Definition msubst_vars_def:
+  msubst_vars s vars = BIGUNION (IMAGE (pure_vars o pure_walkstar s o CVar) vars)
+End
 
-  satisfies s (mInstantiate t (vars, scheme)) = (
+Theorem subst_vars_msubst_vars:
+  ∀s vs. pure_wfs s ⇒
+    domain (subst_vars s vs) = msubst_vars s (domain vs)
+Proof
+  rw[subst_vars_def, msubst_vars_def] >>
+  qsuff_tac
+    `∀m b.
+      domain (
+        foldi (λn u acc. union acc (freecvars (pure_walkstar s (CVar n)))) m b vs) =
+      BIGUNION (IMAGE
+        (pure_vars o pure_walkstar s o CVar o (λi. m + sptree$lrnext m * i))
+        (domain vs))
+        ∪ domain b`
+  >- rw[Once lrnext_def, combinTheory.o_DEF] >>
+  qid_spec_tac `vs` >> Induct >> rw[foldi_def] >>
+  simp[pure_walkstar_alt, freecvars_def, domain_union]
+  >- (CASE_TAC >> simp[freecvars_pure_vars, domain_union, Once UNION_COMM]) >>
+  simp[IMAGE_IMAGE, combinTheory.o_DEF] >>
+  simp[lrnext_lrnext, lrnext_lrnext_2, LEFT_ADD_DISTRIB]
+  >- simp[AC UNION_ASSOC UNION_COMM] >>
+  qmatch_goalsub_abbrev_tac `BIGUNION A ∪ (BIGUNION B ∪ _ ∪ C) = C' ∪ _ ∪ _ ∪ _` >>
+  qsuff_tac `C = C'` >> rw[] >- simp[AC UNION_ASSOC UNION_COMM] >>
+  unabbrev_all_tac >> CASE_TAC >> simp[freecvars_pure_vars]
+QED
+
+Theorem msubst_vars_UNION:
+  msubst_vars s (a ∪ b) = msubst_vars s a ∪ msubst_vars s b
+Proof
+  simp[msubst_vars_def]
+QED
+
+Definition ctxt_vars_def:
+  ctxt_vars ctxt = BIGUNION (set (MAP (λ(x,vs,t). pure_vars t) ctxt))
+End
+
+Theorem ctxt_vars:
+  ctxt_vars [] = {} ∧
+  ctxt_vars ((x,vs,t)::ctxt) = pure_vars t ∪ ctxt_vars ctxt ∧
+  ctxt_vars (ctxt ++ ctxt') = ctxt_vars ctxt ∪ ctxt_vars ctxt'
+Proof
+  simp[ctxt_vars_def]
+QED
+
+Definition subst_ctxt_def:
+  subst_ctxt s ctxt = MAP (λ(x,vs,t). (x,vs,pure_walkstar s t)) ctxt
+End
+
+Theorem subst_ctxt:
+  subst_ctxt s [] = [] ∧
+  subst_ctxt s ((x,vs,t)::ctxt) =
+    (x,vs,pure_walkstar s t)::(subst_ctxt s ctxt) ∧
+  subst_ctxt s (ctxt ++ ctxt') = subst_ctxt s ctxt ++ subst_ctxt s ctxt'
+Proof
+  simp[subst_ctxt_def]
+QED
+
+Theorem ctxt_vars_subst_ctxt:
+  pure_wfs s ⇒
+  ctxt_vars (subst_ctxt s ctxt) = msubst_vars s (ctxt_vars ctxt)
+Proof
+  Induct_on `ctxt` >> simp[ctxt_vars, subst_ctxt, msubst_vars_def] >>
+  rw[] >> PairCases_on `h` >> simp[ctxt_vars, subst_ctxt, msubst_vars_def] >>
+  simp[pure_vars_pure_walkstar_alt]
+QED
+
+Definition satisfies_def:
+  satisfies tdefs s (mUnify t1 t2) = (pure_walkstar s t1 = pure_walkstar s t2) ∧
+
+  satisfies tdefs s (mInstantiate t (vars, scheme)) = (
     ∃subs.
-      LENGTH subs = vars ∧
+      LENGTH subs = vars ∧ EVERY (itype_ok tdefs 0) subs ∧
+      EVERY (λit. pure_vars it ⊆ pure_vars (pure_walkstar s t)) subs ∧
       pure_walkstar s t = isubst subs (pure_walkstar s scheme)) ∧
 
-  satisfies s (mImplicit tsub vars tsup) = (
+  satisfies tdefs s (mImplicit tsub vars tsup) = (
     ∃sub.
-      DISJOINT (FDOM sub) (pure_vars (pure_walkstar s tsub)) ∧
-      DISJOINT (FDOM sub) (BIGUNION (IMAGE (pure_vars o pure_walkstar s o CVar) vars)) ∧
+      FDOM sub ⊆ pure_vars (pure_walkstar s tsup) DIFF (msubst_vars s vars) ∧
+      (∀it. it ∈ FRANGE sub ⇒ itype_ok tdefs 0 it ∧
+        pure_vars it ⊆ pure_vars (pure_walkstar s tsub)) ∧
       pure_walkstar s tsub = pure_apply_subst sub (pure_walkstar s tsup))
 End
+
+Theorem satisfies_lemmas:
+    satisfies tdefs s (mUnify t1 t2) = satisfies tdefs s (mInstantiate t1 (0, t2)) ∧
+    (pure_wfs s ⇒
+      satisfies tdefs s (mUnify t1 t2) =
+      satisfies tdefs s (mImplicit t1 (pure_vars t2) t2)) ∧
+    (pure_wfs s ∧ freedbvars (pure_walkstar s t2) = {} ⇒
+      satisfies tdefs s (mImplicit t1 vs t2) =
+        ∀gen.
+          let new = pure_vars (pure_walkstar s t2) DIFF msubst_vars s vs in
+          FDOM gen = new ∧
+          FRANGE gen = count (CARD new)
+        ⇒ satisfies tdefs s $ mInstantiate t1 $
+            (CARD new, csubst (DBVar o_f gen) (pure_walkstar s t2)))
+Proof
+  rpt conj_tac >> rw[satisfies_def]
+  >- (
+    eq_tac >> rw[] >- (qexists_tac `FEMPTY` >> simp[]) >>
+    gvs[msubst_vars_def, PULL_EXISTS] >>
+    irule pure_apply_subst_unchanged >>
+    simp[pure_vars_pure_walkstar_alt] >> simp[PULL_EXISTS, pure_vars] >>
+    simp[Once DISJOINT_SYM] >> rw[DISJOINT_ALT] >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    ) >>
+  eq_tac >> rw[] >> gvs[]
+  >- (
+    simp[Once pure_apply_subst_min] >>
+    qmatch_goalsub_abbrev_tac `csubst sub'` >>
+    qspecl_then [`gen`,`sub'`,`pure_walkstar s t2`]
+      mp_tac pure_apply_subst_split_isubst >>
+    simp[] >> impl_tac >> rw[]
+    >- (
+      unabbrev_all_tac >> gvs[FDOM_DRESTRICT] >>
+      gvs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]
+      ) >>
+    qmatch_asmsub_abbrev_tac `isubst its` >>
+    qexists_tac `its` >> simp[] >>
+    DEP_REWRITE_TAC[pure_walkstar_pure_apply_subst_pure_walkstar] >>
+    simp[GSYM IMAGE_FRANGE, PULL_EXISTS, pure_vars] >>
+    unabbrev_all_tac >> simp[] >>
+    simp[EVERY_GENLIST] >> rw[]
+    >- (
+      simp[pure_apply_subst, FLOOKUP_DRESTRICT] >>
+      every_case_tac >> gvs[itype_ok] >>
+      gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >> metis_tac[]
+      )
+    >- (
+      rw[SUBSET_DEF] >>
+      simp[pure_vars_pure_apply_subst] >> simp[PULL_EXISTS, pure_vars] >>
+      goal_assum drule >>
+      qsuff_tac `gm ' n ∈ FDOM gen` >- rw[] >>
+      gvs[fmap_linv_alt_def] >> simp[IN_FRANGE_FLOOKUP, FLOOKUP_DEF] >>
+      goal_assum drule >> simp[]
+      )
+    >- simp[Once pure_apply_subst_min]
+    )
+  >- (
+    qmatch_asmsub_abbrev_tac `FDOM _ = diff` >>
+    `FINITE diff` by (unabbrev_all_tac >> irule FINITE_DIFF >> simp[]) >>
+    drule $ INST_TYPE [beta |-> ``:num``] cardinalTheory.CARD_CARDEQ_I >>
+    disch_then $ qspec_then `count (CARD diff)` mp_tac >> simp[] >>
+    rw[cardinalTheory.cardeq_def] >>
+    first_x_assum $ qspec_then `FUN_FMAP f diff` mp_tac >> simp[] >>
+    imp_res_tac BIJ_IMAGE >> rw[] >> simp[] >>
+    pop_assum mp_tac >>
+    DEP_REWRITE_TAC[pure_walkstar_pure_apply_subst_pure_walkstar] >>
+    simp[GSYM IMAGE_FRANGE, PULL_EXISTS, pure_vars] >> strip_tac >>
+    simp[isubst_pure_apply_subst_alt] >>
+    irule_at Any EQ_REFL >> unabbrev_all_tac >> simp[DISJOINT_DIFF] >>
+    simp[GSYM IMAGE_FRANGE, PULL_EXISTS] >> rw[]
+    >- (
+      rw[isubst_def] >- gvs[EVERY_EL, pure_vars] >>
+      irule FALSITY >> pop_assum mp_tac >> simp[] >> gvs[BIJ_IFF_INV]
+      ) >>
+    reverse $ rw[isubst_def]
+    >- (irule FALSITY >> pop_assum mp_tac >> simp[] >> gvs[BIJ_IFF_INV]) >>
+    simp[pure_vars_pure_apply_subst] >>
+    simp[combinTheory.o_DEF, SUBSET_DEF, PULL_EXISTS] >> rw[] >>
+    simp[pure_apply_subst, FLOOKUP_o_f, FLOOKUP_FUN_FMAP] >>
+    qexists_tac `x'` >> simp[isubst_def]
+    )
+QED
 
 
 (******************** Main results ********************)
