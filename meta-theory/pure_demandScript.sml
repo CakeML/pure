@@ -83,6 +83,53 @@ Proof
   \\ fs [Let_Prim_alt]
 QED
 
+Theorem demands_Seq:
+  e demands d ⇒ (Seq e e') demands d
+Proof
+  PairCases_on ‘d’
+  \\ rw [demands_def]
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘Seq (Seq (Projs d0 (Var d1)) e) e'’
+  \\ conj_tac THEN1 (irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
+  \\ fs [Seq_assoc]
+QED
+
+(*
+Theorem seq2_means_same:
+  Var v ≅ Seq (Var w) (Var v) ⇒ v = w
+Proof
+  rw []
+  \\ qsuff_tac ‘Seq (Var v) (Var v) ≅ Seq (Var w) (Var v)’
+  \\ rw []
+  \\ qsuff_tac ‘Var v ≅ Var w’
+
+\\ rw [exp_eq_def]
+
+  \\ qsuff_tac ‘v ∈ FDOM (λn. (Var n)) ∧ w ∈ FDOM (λn. (Var n)) ⇒ bind (λn. (Var n)) (Var v) ≃ bind (λn. (Var n)) (Var w)’
+QED
+
+Theorem demands_Proj2:
+  ∀e v. e demands ([], v) ⇒
+  ∀n i.
+  (Proj n i e) demands ([(n,i)], v)
+Proof
+  Induct \\ rw [demands_def, Projs_def]
+
+  rw [demands_def, Projs_def, Once exp_eq_def]
+  irule eval_wh_IMP_exp_eq
+  gen_tac
+  rw [eval_wh_def]
+  Induct
+  THEN1 (gen_tac \\ gen_tac \\ strip_tac
+   \\ qsuff_tac ‘v = s’ by ( pop_assum // rw [demands_def])
+   \\ rw [] \\ fs [demands_Proj_Var])
+
+  rw [demands_def, Projs_def]
+  \\ irule exp_eq_trans \\ qexists_tac ‘Proj n i (Seq (Proj n i (Var v)) e)’
+  \\ conj_tac
+QED
+*)
+
 Theorem demands_Let1:
   e demands d ∧ e' demands ([],w) ⇒ (Let w e e') demands d
 Proof
@@ -218,9 +265,6 @@ Proof
   \\ fs [Seq_App]
 QED
 
-val _ = set_fixity "fun_demands" (Infixl 479);
-
-
 Theorem demands_If:
   e demands d ⇒ (If e e' e'') demands d
 Proof
@@ -233,6 +277,37 @@ Proof
   \\ fs [subst_def, eval_wh_Seq, eval_wh_If]
   \\ rw [] \\ fs []
 QED
+
+Theorem Projs_subst:
+  ∀ps f e. subst f (Projs ps e) = Projs ps (subst f e)
+Proof
+  Induct THEN1 rw [Projs_def]
+  \\ gen_tac
+  \\ rename1 ‘Projs (hd::_) _’
+  \\ PairCases_on ‘hd’
+  \\ rw [Projs_def, subst_def]
+QED
+(*
+Theorem demands_Seq2:
+  eval_wh e ≠ wh_Error ∧ eval_wh e ≠ wh_Diverge
+  ∧ eval_wh (Projs ps (Var v)) ≠ wh_Error ∧ eval_wh (Projs ps (Var v)) ≠ wh_Diverge
+  ∧ e' demands (ps, v)
+   ⇒ (Seq e e') demands (ps, v)
+Proof
+  rw [demands_def, Projs_def, eval_wh_def]
+  \\ irule exp_eq_trans \\ qexists_tac ‘Seq e (Seq (Projs ps (Var v)) e')’
+  \\ conj_tac
+  THEN1 (irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
+  \\ irule eval_wh_IMP_exp_eq
+  \\ rw []
+  \\ fs [subst_def]
+  \\ fs [Projs_subst]
+  \\ fs [eval_wh_Seq]
+  \\ fs [subst_def]
+  \\ rw []
+
+  \\ rw [subst_def, eval_wh_Seq]
+*)
 
 (*
 Theorem demands_If2:
@@ -251,27 +326,35 @@ Proof
 QED
 *)
 
-Definition fun_demands_def:
-  f fun_demands ps = ∀n. App f (Var n) demands (ps, n)
+Definition fun_demands_pre_def:
+  fun_demands_pre (k:num) f ps = if k = 0
+                        then ∀n. (App f (Var n)) demands (ps, n)
+                        else ∀e. fun_demands_pre (k - 1) (App f e) ps
 End
 
-Theorem fun_demands_lambda:
-  e demands (ps, v) ⇒ (Lam v e) fun_demands ps
+val _ = set_fixity "fun_demands" (Infixl 478);
+
+Definition fun_demands_def:
+  f fun_demands (ps, k) = fun_demands_pre k f ps
+End
+
+Theorem fun_demands_Lam:
+  e demands (ps, v) ⇒ (Lam v e) fun_demands (ps, 0)
 Proof
-  rw [demands_def, fun_demands_def]
-  \\ rename1 ‘Let v (Var w) e’
-  \\ irule exp_eq_trans \\ qexists_tac ‘Let v (Var w) (Seq (Projs ps (Var v)) e)’
-  \\ conj_tac THEN1
-   (irule exp_eq_App_cong \\ fs [exp_eq_refl, exp_eq_Lam_cong])
-  \\ irule exp_eq_trans \\ qexists_tac ‘Seq (Let v (Var w) (Projs ps (Var v))) (Let v (Var w) e)’
+  rw [fun_demands_def, fun_demands_pre_def, demands_def]
+  \\ irule exp_eq_trans \\ qexists_tac ‘Let v (Var n) (Seq (Projs ps (Var v)) e)’
+  \\ conj_tac
+  THEN1 (irule exp_eq_App_cong \\ fs [exp_eq_refl]
+  \\ irule exp_eq_Lam_cong \\ fs [])
+  \\ irule exp_eq_trans \\ qexists_tac ‘Seq (Let v (Var n) (Projs ps (Var v))) (Let v (Var n) e)’
   \\ conj_tac
   THEN1 fs [Let_Seq]
-  \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
-  \\ irule exp_eq_trans \\ qexists_tac ‘Projs ps (Let v (Var w) (Var v))’
+  \\ irule exp_eq_Prim_cong
+  \\ fs [exp_eq_refl]
+  \\ irule exp_eq_trans \\ qexists_tac ‘Projs ps (Let v (Var n) (Var v))’
   \\ conj_tac
   THEN1 fs [Let_Projs]
-  \\ irule exp_eq_Projs_cong
-  \\ fs [Let_Var]
+  \\ irule exp_eq_Projs_cong \\ fs [Let_Var]
 QED
 
 Datatype:
