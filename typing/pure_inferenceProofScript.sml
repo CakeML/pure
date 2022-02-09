@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
      listTheory rich_listTheory alistTheory finite_mapTheory sptreeTheory;
 open mlmapTheory;
-open pure_miscTheory pure_typingTheory pure_typingPropsTheory
+open pure_miscTheory pure_typingTheory pure_typingPropsTheory pure_typingProofTheory
      pure_tcexpTheory pure_inference_commonTheory pure_unificationTheory
      pure_inferenceTheory pure_inferencePropsTheory pure_inference_modelTheory;
 
@@ -910,7 +910,7 @@ Proof
   first_x_assum drule >> rw[] >> simp[] >> rw[] >> gvs[SUBSET_DEF]
 QED
 
-Theorem inference_constraints_sound:
+Theorem inference_constraints_sound_lemma:
   ∀ns sub.
     namespace_ok ns ∧
     pure_wfs sub ∧
@@ -2293,6 +2293,90 @@ Proof
       rpt $ goal_assum drule >> simp[FLOOKUP_FDIFF]
       )
     )
+QED
+
+Theorem inference_constraints_sound:
+  namespace_ok ns ∧ infer ns LN e 0 = SOME ((ty,as,cs), n) ∧
+  null as ∧
+  pure_wfs sub ∧
+  (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
+  (∀c. c ∈ set (MAP to_mconstraint cs) ⇒ satisfies (SND ns) sub c)
+  ⇒ ∃t. type_tcexp ns 0 [] [] (tcexp_of e) t
+Proof
+  rw[] >> irule_at Any inference_constraints_sound_lemma >> simp[] >>
+  goal_assum drule >> simp[] >>
+  drule infer_minfer >> rw[] >> goal_assum drule >> simp[] >>
+  `mas = FEMPTY` by (
+    gvs[assumptions_rel_def] >>
+    Cases_on `as` >> gvs[null_def] >>
+    Cases_on `b` >> gvs[balanced_mapTheory.null_def] >>
+    gvs[lookup_def, balanced_mapTheory.lookup_def] >> rw[fmap_eq_flookup]) >>
+  gvs[] >> simp[ctxt_rel_def, ctxt_vars_def, msubst_vars_def] >>
+  qabbrev_tac `vs = BIGUNION $ IMAGE (pure_vars o pure_walkstar sub o CVar) $
+    pure_vars ty ∪
+      BIGUNION (IMAGE new_vars_constraint (set (MAP to_mconstraint cs)))` >>
+  qabbrev_tac `close = FUN_FMAP (K Unit) vs` >>
+  `FINITE vs` by (
+    unabbrev_all_tac >> simp[PULL_EXISTS, MEM_MAP] >>
+    irule IMAGE_FINITE >> simp[PULL_EXISTS, MEM_MAP] >>
+    Cases >> simp[] >> Cases_on `p` >> simp[]) >>
+  `pure_vars (csubst close (pure_walkstar sub ty)) = {}` by (
+    simp[pure_vars_pure_apply_subst] >> simp[DISJ_EQ_IMP, IMAGE_EQ_SING] >> rw[] >>
+    unabbrev_all_tac >> simp[pure_apply_subst, FLOOKUP_FUN_FMAP] >>
+    simp[MEM_MAP, PULL_EXISTS] >> CASE_TAC >> simp[pure_vars] >>
+    ntac 2 $ pop_assum mp_tac >> simp[] >>
+    simp[Once pure_vars_pure_walkstar_alt] >> rw[] >> goal_assum drule >> simp[]) >>
+  gvs[pure_vars_empty_eq_type_of] >> goal_assum $ drule_at Any >> reverse conj_tac
+  >- (
+    unabbrev_all_tac >> simp[PULL_EXISTS, MEM_MAP] >>
+    rw[] >> simp[type_of_def, itype_ok]
+    ) >>
+  rw[new_vars_def] >> unabbrev_all_tac >> simp[SUBSET_DEF, PULL_EXISTS, SF SFY_ss]
+QED
+
+Theorem inference_constraints_safe_itree:
+  namespace_ok ns ∧ infer ns LN e 0 = SOME ((ty,as,cs), n) ∧
+  null as ∧
+  pure_wfs sub ∧
+  (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
+  (∀c. c ∈ set (MAP to_mconstraint cs) ∨ c = mUnify ty (M any)
+    ⇒ satisfies (SND ns) sub c)
+  ⇒ safe_itree (itree_of (exp_of e))
+Proof
+  rw[] >> irule type_soundness_cexp >> goal_assum drule >> qexists_tac `0` >>
+  irule_at Any inference_constraints_sound_lemma >> simp[] >>
+  goal_assum drule >> simp[] >>
+  drule infer_minfer >> rw[] >> goal_assum drule >> simp[] >>
+  `mas = FEMPTY` by (
+    gvs[assumptions_rel_def] >>
+    Cases_on `as` >> gvs[null_def] >>
+    Cases_on `b` >> gvs[balanced_mapTheory.null_def] >>
+    gvs[lookup_def, balanced_mapTheory.lookup_def] >> rw[fmap_eq_flookup]) >>
+  gvs[] >> simp[ctxt_rel_def, ctxt_vars_def, msubst_vars_def] >>
+  qabbrev_tac `vs = BIGUNION $ IMAGE (pure_vars o pure_walkstar sub o CVar) $
+    pure_vars ty ∪
+      BIGUNION (IMAGE new_vars_constraint (set (MAP to_mconstraint cs)))` >>
+  qabbrev_tac `close = FUN_FMAP (K Unit) vs` >>
+  `FINITE vs` by (
+    unabbrev_all_tac >> simp[PULL_EXISTS, MEM_MAP] >>
+    irule IMAGE_FINITE >> simp[PULL_EXISTS, MEM_MAP] >>
+    Cases >> simp[] >> Cases_on `p` >> simp[]) >>
+  `pure_vars (csubst close (pure_walkstar sub ty)) = {}` by (
+    simp[pure_vars_pure_apply_subst] >> simp[DISJ_EQ_IMP, IMAGE_EQ_SING] >> rw[] >>
+    unabbrev_all_tac >> simp[pure_apply_subst, FLOOKUP_FUN_FMAP] >>
+    simp[MEM_MAP, PULL_EXISTS] >> CASE_TAC >> simp[pure_vars] >>
+    ntac 2 $ pop_assum mp_tac >> simp[] >>
+    simp[Once pure_vars_pure_walkstar_alt] >> rw[] >> goal_assum drule >> simp[]) >>
+  gvs[pure_vars_empty_eq_type_of] >>
+  `∃t'. t = M t'` by (
+    gvs[DISJ_IMP_THM, FORALL_AND_THM, satisfies_def] >>
+    gvs[pure_walkstar_alt, pure_apply_subst, type_of_def]) >> gvs[] >>
+  goal_assum $ drule_at Any >> reverse conj_tac
+  >- (
+    unabbrev_all_tac >> simp[PULL_EXISTS, MEM_MAP] >>
+    rw[] >> simp[type_of_def, itype_ok]
+    ) >>
+  rw[new_vars_def] >> unabbrev_all_tac >> simp[SUBSET_DEF, PULL_EXISTS, SF SFY_ss]
 QED
 
 
