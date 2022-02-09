@@ -8,92 +8,35 @@ open pure_miscTheory pure_typingTheory pure_typingPropsTheory
 
 val _ = new_theory "pure_inferenceProof";
 
-
-(******************** Trivial results ********************)
-
-Triviality isubst_pure_apply_subst_MAP_itype_of:
-  ∀sub its it.
-    isubst (MAP itype_of its) (pure_apply_subst sub it) =
-    pure_apply_subst ((isubst (MAP itype_of its)) o_f sub) (isubst (MAP itype_of its) it)
-Proof
-  rw[] >> DEP_REWRITE_TAC[isubst_pure_apply_subst] >> simp[MEM_MAP, PULL_EXISTS]
-QED
-
-Triviality pure_apply_subst_isubst_MAP_lemma:
-  ∀it ts sub. (∀v. v ∈ FRANGE sub ⇒ DISJOINT (pure_vars v) (FDOM sub)) ⇒
-    pure_apply_subst sub (isubst (MAP (pure_apply_subst sub) ts) it) =
-    pure_apply_subst sub (isubst ts it)
-Proof
-  recInduct itype_ind >> rw[isubst_def, pure_apply_subst, EL_MAP] >>
-  gvs[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
-  irule pure_apply_subst_unchanged >>
-  qspecl_then [`EL n ts`,`sub`] mp_tac pure_vars_pure_apply_subst_SUBSET >>
-  simp[SUBSET_DEF, PULL_EXISTS, DISJOINT_ALT] >> rw[] >>
-  first_x_assum drule >> rw[] >> gvs[] >>
-  first_x_assum drule >> simp[DISJOINT_ALT]
-QED
-
-Triviality pure_vars_pure_walkstar_SUBSET_lemma:
-  ∀sub it s. pure_wfs sub ⇒
-  ((∀n. n ∈ pure_vars it ⇒ pure_vars (pure_walkstar sub (CVar n)) ⊆ s) ⇔
-   pure_vars (pure_walkstar sub it) ⊆ s)
-Proof
-  simp[GSYM PULL_FORALL] >> gen_tac >> strip_tac >>
-  qspec_then `sub` mp_tac pure_walkstar_alt_ind >> simp[] >>
-  disch_then ho_match_mp_tac >> rw[pure_walkstar_alt, pure_vars] >>
-  gvs[BIGUNION_SUBSET, LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF,
-      MEM_MAP, PULL_EXISTS, EQ_IMP_THM, IMP_CONJ_THM, FORALL_AND_THM] >>
-  rw[] >> gvs[]
-  >- (first_x_assum irule >> simp[] >> rw[] >> res_tac)
-  >- (first_x_assum irule >> goal_assum drule >> simp[])
-  >- (first_x_assum irule >> simp[] >> rw[] >> res_tac)
-  >- (first_x_assum irule >> goal_assum drule >> simp[])
-QED
-
-Triviality pure_vars_pure_apply_subst_SUBSET_lemma:
-  ∀sub it s.
-  ((∀n. n ∈ pure_vars it ⇒ pure_vars (pure_apply_subst sub (CVar n)) ⊆ s) ⇔
-   pure_vars (pure_apply_subst sub it) ⊆ s)
-Proof
-  gen_tac >> recInduct itype_ind >> rw[pure_apply_subst, pure_vars] >>
-  gvs[BIGUNION_SUBSET, LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF,
-      MEM_MAP, PULL_EXISTS, EQ_IMP_THM, IMP_CONJ_THM, FORALL_AND_THM] >>
-  rw[] >> gvs[]
-  >- (first_x_assum irule >> simp[] >> rw[] >> res_tac)
-  >- (first_x_assum irule >> goal_assum drule >> simp[])
-  >- (first_x_assum irule >> simp[] >> rw[] >> res_tac)
-  >- (first_x_assum irule >> goal_assum drule >> simp[])
-QED
-
+Overload csubst = ``pure_apply_subst``;
 
 (******************** Lemmas ********************)
 
-Theorem minfer_freedbvars:
+Theorem minfer_itype_ok:
   ∀ns mset cexp as cs it.
     minfer ns mset cexp as cs it ∧
     namespace_ok ns
-  ⇒ freedbvars it = {}
+  ⇒ itype_ok (SND ns) 0 it
 Proof
-  ntac 6 gen_tac >> Induct_on `minfer` >> rw[freedbvars_def] >>
-  simp[LIST_TO_SET_EQ_SING, DISJ_EQ_IMP] >> rw[]
+  ntac 6 gen_tac >> Induct_on `minfer` >> rw[] >>
+  gvs[itype_ok_iFunctions, itype_ok] >>
+  gvs[LIST_REL_EL_EQN, EVERY_MAP, EVERY_MEM, itype_ok]
+  >- (rw[MEM_EL] >> first_x_assum drule >> simp[EL_ZIP])
+  >- gvs[oEL_THM]
   >- (
-    gvs[LIST_REL_EL_EQN, EVERY_MAP, EVERY_MEM] >> rw[MEM_EL] >>
-    first_x_assum drule >> simp[EL_ZIP]
-    )
-  >- simp[EVERY_MAP, freedbvars_def]
-  >- (
-    simp[freedbvars_iFunctions, MAP_MAP_o, combinTheory.o_DEF, freedbvars_def] >>
-    simp[LIST_TO_SET_EQ_SING, DISJ_EQ_IMP, EVERY_MAP]
-    )
-  >- (
-    Cases_on `tys` >> gvs[] >> Cases_on `cases` >> gvs[] >>
-    rpt (pairarg_tac >> gvs[])
+    Cases_on `tys` >> gvs[] >> Cases_on `final_cs` >> gvs[] >>
+    gvs[EL_ZIP] >> last_x_assum $ qspec_then `0` mp_tac >> simp[] >>
+    rpt (pairarg_tac >> simp[])
     )
   >- (
-    reverse $ Cases_on `tys` >> gvs[]
-    >- (Cases_on `cases` >> gvs[] >> rpt (pairarg_tac >> gvs[])) >>
-    PairCases_on `ns` >> gvs[namespace_ok_def, oEL_THM, EVERY_EL] >>
-    last_x_assum drule >> simp[]
+    Cases_on `tys` >> gvs[]
+    >- (
+      PairCases_on `ns` >> gvs[namespace_ok_def, oEL_THM, EVERY_EL] >>
+      last_x_assum drule >> simp[]
+      ) >>
+    Cases_on `final_cs` >> gvs[] >>
+    gvs[EL_ZIP] >> last_x_assum $ qspec_then `0` mp_tac >> simp[] >>
+    rpt (pairarg_tac >> simp[])
     )
 QED
 
@@ -183,7 +126,208 @@ Proof
     )
 QED
 
-Theorem minfer_pure_vars:
+Theorem minfer_msets_disjoint:
+  ∀ns mset cexp as cs it.
+    minfer ns mset cexp as cs it ∧
+    namespace_ok ns
+  ⇒ DISJOINT mset (new_vars as cs it)
+Proof
+  ntac 6 gen_tac >> Induct_on `minfer` >> rw[] >>
+  gvs[new_vars_def, pure_vars, pure_vars_iFunctions, PULL_EXISTS, MEM_MAP,
+      LIST_REL_EL_EQN, EL_ZIP, MEM_EL, MAP2_MAP, EL_MAP, EVERY_EL] >>
+  gvs[IN_FRANGE_FLOOKUP, FLOOKUP_maunion, FLOOKUP_FOLDR_maunion, FLOOKUP_FDIFF,
+      DOMSUB_FLOOKUP_THM, MEM_EL, PULL_EXISTS, PULL_FORALL] >>
+  gvs[FORALL_AND_THM, IMP_CONJ_THM]
+  >- (rw[] >> gvs[DISJOINT_BIGUNION, PULL_EXISTS] >> rw[] >> res_tac)
+  >- (rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[])
+  >- (rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[])
+  >- (rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[])
+  >- (rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[])
+  >- (rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[])
+  >- (rw[] >> gvs[DISJOINT_BIGUNION, PULL_EXISTS] >> rw[] >> res_tac)
+  >- (
+    rw[] >> gvs[DISJOINT_BIGUNION, PULL_EXISTS] >> rw[] >> res_tac >>
+    irule SUBSET_DISJOINT >> irule_at Any pure_vars_isubst_SUBSET >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, pure_vars, MEM_MAP, PULL_EXISTS] >>
+    irule_at Any SUBSET_REFL >> rw[MEM_EL] >> gvs[]
+    )
+  >- (
+    rw[] >> gvs[DISJOINT_BIGUNION, PULL_EXISTS] >> rw[] >> res_tac >>
+    imp_res_tac infer_atom_op_LENGTH >> simp[MAP2_MAP, EL_MAP, EL_ZIP, pure_vars]
+    )
+  >- (rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[])
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[] >>
+    gvs[PULL_EXISTS] >> rw[MEM_EL] >> res_tac
+    )
+  >- (
+    rw[] >> gvs[EL_ZIP, pure_vars] >- (res_tac >> simp[]) >>
+    gvs[get_massumptions_def] >> every_case_tac >> gvs[] >> metis_tac[DISJOINT_ALT]
+    )
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[] >>
+    gvs[get_massumptions_def] >> every_case_tac >> gvs[] >> metis_tac[DISJOINT_ALT]
+    )
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> rw[]
+    >- res_tac
+    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
+    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
+    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
+    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
+    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
+    >- (
+      gvs[EL_ZIP] >> pairarg_tac >> gvs[pure_vars] >>
+      gvs[get_massumptions_def, FLOOKUP_maunion, FLOOKUP_FOLDR_maunion] >>
+      every_case_tac >> gvs[]
+      >- (last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT])
+      >- (
+        reverse $ rw[] >- (last_x_assum drule >> simp[]) >>
+        gvs[MEM_EL] >> last_x_assum drule >> pairarg_tac >> rw[] >>
+        metis_tac[DISJOINT_ALT]
+        )
+      >- (last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT])
+      >- (
+        reverse $ rw[] >- (last_x_assum drule >> simp[]) >>
+        gvs[MEM_EL] >> last_x_assum drule >> pairarg_tac >> rw[] >>
+        metis_tac[DISJOINT_ALT]
+        )
+      )
+    )
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[] >>
+    gvs[get_massumptions_def] >> every_case_tac >> gvs[] >> metis_tac[DISJOINT_ALT]
+    )
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[] >>
+    gvs[EL_ZIP, EL_MAP, pure_vars] >>
+    gvs[get_massumptions_def] >> every_case_tac >> gvs[] >> metis_tac[DISJOINT_ALT]
+    )
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> rw[]
+    >- res_tac
+    >- (
+      first_x_assum drule >> pairarg_tac >> rw[] >>
+      gvs[FLOOKUP_FDIFF] >> last_x_assum drule >> rw[] >> res_tac
+      )
+    >- res_tac
+    >- (
+      first_x_assum drule >> pairarg_tac >> rw[] >>
+      gvs[FLOOKUP_FDIFF] >> last_x_assum drule >> rw[] >> res_tac
+      )
+    >- (
+      last_x_assum assume_tac >>
+      last_x_assum $ qspec_then `0` mp_tac >>
+      Cases_on `final_cs` >> gvs[] >> pairarg_tac >> simp[]
+      )
+    >- (
+      last_x_assum assume_tac >>
+      last_x_assum $ qspec_then `SUC n` mp_tac >>
+      Cases_on `final_cs` >> gvs[] >> pairarg_tac >> simp[] >>
+      Cases_on `tys` >> gvs[]
+      )
+    >- (
+      first_x_assum drule >> pairarg_tac >> rw[] >> gvs[pure_vars]
+      >- (
+        gvs[get_massumptions_def] >> every_case_tac >> gvs[] >>
+        last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT]
+        )
+      >- (
+        qpat_x_assum `MEM _ (MAP2 _ _ _)` mp_tac >>
+        DEP_REWRITE_TAC[MAP2_MAP] >> simp[] >>
+        reverse conj_asm1_tac
+        >- (
+          simp[MEM_MAP, MEM_ZIP] >> rw[] >> gvs[pure_vars, EL_MAP] >>
+          qpat_x_assum `_ ∈ get_massumptions _ _` mp_tac >>
+          gvs[get_massumptions_def] >> CASE_TAC >> rw[] >>
+          last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT]
+          ) >>
+        simp[] >> PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        `cn ≠ "Subscript"` by (
+          imp_res_tac ALOOKUP_MEM >> gvs[pure_configTheory.reserved_cns_def] >>
+          gvs[MEM_MAP, FORALL_PROD] >> metis_tac[]) >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+        simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+        simp[Once MEM_EL, PULL_EXISTS] >>
+        disch_then drule >> rw[] >> gvs[] >>
+        drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> simp[]
+        )
+      >- (last_x_assum drule >> simp[])
+      )
+    >- (
+      last_x_assum assume_tac >>
+      last_x_assum $ qspec_then `0` mp_tac >>
+      Cases_on `final_cs` >> gvs[] >> pairarg_tac >> simp[]
+      )
+    )
+  >- (
+    rw[] >> every_case_tac >> gvs[] >> rw[]
+    >- res_tac
+    >- (
+      first_x_assum drule >> pairarg_tac >> rw[] >>
+      gvs[FLOOKUP_FDIFF] >> last_x_assum drule >> rw[] >> res_tac
+      )
+    >- res_tac
+    >- (
+      first_x_assum drule >> pairarg_tac >> rw[] >>
+      gvs[FLOOKUP_FDIFF] >> last_x_assum drule >> rw[] >> res_tac
+      )
+    >- (
+      last_x_assum assume_tac >>
+      last_x_assum $ qspec_then `0` mp_tac >>
+      Cases_on `final_cs` >> gvs[] >> pairarg_tac >> simp[]
+      )
+    >- (
+      last_x_assum assume_tac >>
+      last_x_assum $ qspec_then `SUC n` mp_tac >>
+      Cases_on `final_cs` >> gvs[] >> pairarg_tac >> simp[] >>
+      Cases_on `tys` >> gvs[]
+      )
+    >- (
+      first_x_assum drule >> pairarg_tac >> rw[] >> gvs[pure_vars]
+      >- (
+        gvs[get_massumptions_def] >> every_case_tac >> gvs[] >>
+        last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT]
+        )
+      >- (
+        qpat_x_assum `MEM _ (MAP2 _ _ _)` mp_tac >>
+        DEP_REWRITE_TAC[MAP2_MAP] >> simp[] >>
+        reverse conj_asm1_tac
+        >- (
+          simp[MEM_MAP, MEM_ZIP] >> rw[] >> gvs[pure_vars, EL_MAP] >>
+          qpat_x_assum `_ ∈ get_massumptions _ _` mp_tac >>
+          gvs[get_massumptions_def] >> CASE_TAC >> simp[] >> strip_tac >>
+          last_x_assum drule >> simp[] >> strip_tac >>
+          conj_tac >- metis_tac[DISJOINT_ALT] >>
+          irule SUBSET_DISJOINT >> irule_at Any pure_vars_isubst_SUBSET >>
+          simp[MAP_MAP_o, combinTheory.o_DEF, pure_vars, MEM_MAP, PULL_EXISTS] >>
+          irule_at Any SUBSET_REFL >> rw[MEM_EL] >> gvs[]
+          ) >>
+        simp[] >> PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        `MEM (cn, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
+          drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+          simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+          disch_then irule >> simp[MEM_EL] >> goal_assum drule >> simp[]) >>
+        gvs[MEM_MAP, EXISTS_PROD] >>
+        drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
+        gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+        irule ALL_DISTINCT_FLAT_IMP >> goal_assum drule >>
+        simp[MEM_MAP, EXISTS_PROD] >> irule_at Any EQ_REFL >> simp[MEM_EL] >>
+        gvs[oEL_THM] >> goal_assum drule >> simp[]
+        )
+      >- (last_x_assum drule >> simp[])
+      )
+    >- (
+      last_x_assum assume_tac >> last_x_assum $ qspec_then `0` mp_tac >>
+      reverse $ Cases_on `final_cs` >> gvs[]
+      >- (pairarg_tac >> simp[]) >>
+      PairCases_on `ns` >> gvs[namespace_ok_def] >>
+      gvs[EVERY_EL, oEL_THM] >> last_x_assum drule >> simp[]
+      )
+    )
+QED
+
+Theorem minfer_pure_vars[local]:
   ∀ns mset cexp as cs it v.
     minfer ns mset cexp as cs it ∧
     namespace_ok ns ∧
@@ -250,9 +394,9 @@ Proof
       goal_assum $ drule_at Any >> simp[]
       )
     )
+
   >- (
-    first_x_assum drule >> reverse strip_tac >> gvs[]
-    >- (disj2_tac >> rpt disj1_tac >> goal_assum drule >> simp[]) >>
+    first_x_assum drule >> strip_tac >> gvs[SF SFY_ss] >>
     simp[FDIFF_maunion] >>
     Cases_on `s ∈ FRANGE (FDIFF as' (set (MAP FST fns)))`
     >- (
@@ -408,22 +552,17 @@ Proof
     )
 QED
 
-Theorem CARD_fmap_injection:
-  ∀fm. CARD (FDOM fm) = CARD (FRANGE fm) ⇔
-    (∀k1 k2 v. FLOOKUP fm k1 = SOME v ∧ FLOOKUP fm k2 = SOME v ⇒ k1 = k2)
+Theorem minfer_pure_vars:
+  ∀ns mset cexp as cs it v.
+    minfer ns mset cexp as cs it ∧
+    namespace_ok ns
+  ⇒ pure_vars it ⊆ new_vars as cs Exception
 Proof
-  rw[] >> eq_tac >> rw[]
-  >- (
-    qspecl_then [`$' fm`,`FDOM fm`]
-      mp_tac $ GEN_ALL miscTheory.CARD_IMAGE_EQ_BIJ >>
-    simp[FRANGE_ALT_DEF] >> gvs[BIJ_DEF, INJ_DEF, FLOOKUP_DEF]
-    )
-  >- (
-    simp[FRANGE_ALT_DEF] >> irule $ GSYM INJ_CARD_IMAGE_EQ >> simp[] >>
-    qexists_tac `FRANGE fm` >> simp[FRANGE_ALT_DEF] >>
-    gvs[INJ_DEF, FLOOKUP_DEF]
-    )
+  rw[SUBSET_DEF] >> imp_res_tac minfer_pure_vars
 QED
+
+
+(******************** Simple lemmas ********************)
 
 Theorem CARD_has_fmap_linv:
   ∀f. (∃g. fmap_linv f g) ⇔ CARD (FDOM f) = CARD (FRANGE f)
@@ -465,12 +604,11 @@ Theorem pure_apply_subst_split_isubst:
   ⇒ ∃gm.
       fmap_linv fm gm ∧
       isubst
-        (GENLIST (λn. if gm ' n ∈ FDOM sub then sub ' (gm ' n) else CVar (gm ' n))
+        (GENLIST (λn. csubst sub (CVar $ gm ' n))
           (CARD (FDOM fm)))
-        (pure_apply_subst (DBVar o_f fm) it) =
-      pure_apply_subst sub it
+        (csubst (DBVar o_f fm) it) = csubst sub it
 Proof
-  rw[] >> drule $ iffRL CARD_has_fmap_linv >> rw[] >>
+  rw[pure_apply_subst, FLOOKUP_DEF] >> drule $ iffRL CARD_has_fmap_linv >> rw[] >>
   goal_assum drule >> qpat_x_assum `_ = {}` mp_tac >>
   qid_spec_tac `it` >> recInduct itype_ind >>
   rw[pure_apply_subst, isubst_def] >> gvs[freedbvars_def] >>
