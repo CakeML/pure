@@ -25,6 +25,12 @@ Proof
   rpt $ pop_assum mp_tac >> qid_spec_tac `z` >> Induct_on `ts` >> rw[] >> gvs[]
 QED
 
+Theorem type_of_SOME_MAP:
+  ∀its ts.  MAP type_of its = MAP SOME ts ⇒ MAP itype_of ts = its
+Proof
+  Induct >> rw[] >> Cases_on `ts` >> gvs[] >> imp_res_tac type_of_SOME
+QED
+
 Theorem type_of_SOME_lemma:
   (∀its t. type_of (Tuple its) = SOME t ⇒
     ∃ts. t = Tuple ts ∧ MAP type_of its = MAP SOME ts) ∧
@@ -49,6 +55,57 @@ Theorem type_of_lemma:
 Proof
   rpt conj_tac >> Induct >> rw[] >> gvs[type_of_def, iFunctions_def, Functions_def] >>
   Cases_on `ts` >> gvs[Functions_def]
+QED
+
+Theorem itype_of_11:
+  ∀t1 t2. itype_of t1 = itype_of t2 ⇔ t1 = t2
+Proof
+  Induct using type_ind >> rw[] >>
+  Cases_on `t2` >> rw[itype_of_def] >>
+  eq_tac >> rw[] >>
+  drule_at Any miscTheory.INJ_MAP_EQ_2 >> disch_then irule >> rw[] >> gvs[]
+QED
+
+Theorem type_of_ishift:
+  ∀t vs. type_of (ishift vs t) = OPTION_MAP (tshift vs) (type_of t)
+Proof
+  Induct using itype_ind >> rw[ishift_def, type_of_def, shift_db_def]
+  >- (
+    simp[OPTION_MAP_COMPOSE, combinTheory.o_DEF, shift_db_def, SF ETA_ss] >>
+    simp[FOLDR_MAP] >>
+    simp[GSYM combinTheory.o_DEF, GSYM OPTION_MAP_COMPOSE] >> AP_TERM_TAC >>
+    simp[combinTheory.o_DEF] >>
+    qsuff_tac `∀l.
+      FOLDR (λx y. OPTION_MAP2 CONS (type_of (ishift vs x)) y)
+        (SOME (MAP (tshift vs) l)) ts =
+      OPTION_MAP (MAP (tshift vs))
+        (FOLDR (λx. OPTION_MAP2 CONS (type_of x)) (SOME l) ts)`
+    >- (rw[] >> pop_assum $ qspec_then `[]` mp_tac >> simp[SF ETA_ss]) >>
+    Induct_on `ts` >> rw[shift_db_def] >> gvs[SF ETA_ss] >>
+    Cases_on `type_of h` >- simp[OPTION_MAP2_DEF] >>
+    simp[OPTION_MAP2_OPTION_MAP, OPTION_MAP_COMPOSE, combinTheory.o_DEF]
+    )
+  >- (
+    simp[OPTION_MAP_COMPOSE, combinTheory.o_DEF, shift_db_def, SF ETA_ss] >>
+    simp[FOLDR_MAP] >>
+    simp[GSYM combinTheory.o_DEF, GSYM OPTION_MAP_COMPOSE] >> AP_TERM_TAC >>
+    simp[combinTheory.o_DEF] >>
+    qsuff_tac `∀l.
+      FOLDR (λx y. OPTION_MAP2 CONS (type_of (ishift vs x)) y)
+        (SOME (MAP (tshift vs) l)) ts =
+      OPTION_MAP (MAP (tshift vs))
+        (FOLDR (λx. OPTION_MAP2 CONS (type_of x)) (SOME l) ts)`
+    >- (rw[] >> pop_assum $ qspec_then `[]` mp_tac >> simp[SF ETA_ss]) >>
+    Induct_on `ts` >> rw[shift_db_def] >> gvs[SF ETA_ss] >>
+    Cases_on `type_of h` >- simp[OPTION_MAP2_DEF] >>
+    simp[OPTION_MAP2_OPTION_MAP, OPTION_MAP_COMPOSE, combinTheory.o_DEF]
+    )
+  >- (
+    Cases_on `type_of t` >> gvs[] >>
+    Cases_on `type_of t'` >> gvs[shift_db_def]
+    )
+  >- (Cases_on `type_of t` >> gvs[shift_db_def])
+  >- (Cases_on `type_of t` >> gvs[shift_db_def])
 QED
 
 
@@ -214,6 +271,12 @@ Theorem freetyvars_ok_freedbvars:
 Proof
   recInduct type_ind >> rw[freetyvars_ok_def, itype_of_def, freedbvars_def] >>
   rw[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> eq_tac >> rw[] >> gvs[] >> metis_tac[]
+QED
+
+Theorem freetyvars_ok_freedbvars_alt:
+  ∀t db. freetyvars_ok db t ⇔ freedbvars (itype_of t) ⊆ count db
+Proof
+  rw[freetyvars_ok_freedbvars, SUBSET_DEF]
 QED
 
 Theorem type_wf_itype_wf:
@@ -467,9 +530,9 @@ QED
 (********** isubst/ishift **********)
 
 Theorem ishift_0[simp]:
-  ∀it. ishift 0 it = it
+  ∀it. ishift 0 =  (λx. x)
 Proof
-  recInduct itype_ind >> rw[ishift_def] >> simp[MAP_ID_ON]
+  simp[FUN_EQ_THM] >> recInduct itype_ind >> rw[ishift_def] >> gvs[MAP_ID_ON]
 QED
 
 Theorem isubst_NIL[simp]:
@@ -528,6 +591,19 @@ Proof
   recInduct ishift_ind >> rw[ishift_def, freedbvars_def] >> gvs[] >>
   rw[miscTheory.MAP_EQ_ID] >> first_x_assum irule >> simp[] >>
   gvs[LIST_TO_SET_EQ_SING, EVERY_MAP, EVERY_MEM]
+QED
+
+Theorem ishift_ishift:
+  ∀t n m. ishift n (ishift m t) = ishift (n + m) t
+Proof
+  Induct using itype_ind >> rw[ishift_def] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+QED
+
+Theorem ishift_ishift_comm:
+  ∀t n m. ishift n (ishift m t) = ishift m (ishift n t)
+Proof
+  simp[ishift_ishift]
 QED
 
 
@@ -625,6 +701,67 @@ Proof
   drule type_of_SOME >> disch_then $ assume_tac o GSYM >> gvs[]
 QED
 
+Theorem isubst_pure_apply_subst_alt:
+  ∀t s subs.  freedbvars t = {} ⇒
+    isubst subs (pure_apply_subst s t) = pure_apply_subst (isubst subs o_f s) t
+Proof
+  Induct using itype_ind >>
+  rw[freedbvars_def, pure_apply_subst, isubst_def] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+  gvs[LIST_TO_SET_MAP, IMAGE_EQ_SING] >>
+  simp[FLOOKUP_o_f] >> CASE_TAC >> gvs[isubst_def]
+QED
+
+Theorem pure_apply_subst_FEMPTY[simp]:
+  ∀t. pure_apply_subst FEMPTY t = t
+Proof
+  Induct using itype_ind >> rw[pure_apply_subst] >> gvs[MAP_ID_ON]
+QED
+
+Theorem pure_apply_subst_FUNION_alt:
+  ∀it m1 m2. (∀v. v ∈ FRANGE m2 ⇒ DISJOINT (pure_vars v) (FDOM m1)) ⇒
+    pure_apply_subst m1 (pure_apply_subst m2 it) = pure_apply_subst (FUNION m2 m1) it
+Proof
+  Induct using itype_ind >> rw[pure_apply_subst] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+  simp[FLOOKUP_FUNION] >> CASE_TAC >> simp[pure_apply_subst] >>
+  irule pure_apply_subst_unchanged >>
+  first_x_assum irule >> simp[IN_FRANGE_FLOOKUP] >> goal_assum drule
+QED
+
+Theorem pure_apply_subst_idempotent:
+  ∀it m. (∀v. v ∈ FRANGE m ⇒ DISJOINT (pure_vars v) (FDOM m)) ⇒
+    pure_apply_subst m (pure_apply_subst m it) = pure_apply_subst m it
+Proof
+  rw[pure_apply_subst_FUNION_alt]
+QED
+
+Theorem pure_vars_pure_apply_subst:
+  ∀t s.
+    pure_vars (pure_apply_subst s t) =
+    BIGUNION $ IMAGE (pure_vars o pure_apply_subst s o CVar) (pure_vars t)
+Proof
+  Induct using itype_ind >> rw[pure_apply_subst, pure_vars] >>
+  simp[LIST_TO_SET_MAP, IMAGE_IMAGE] >> simp[Once EXTENSION, PULL_EXISTS] >>
+  rw[] >> eq_tac >> rw[] >>
+  first_x_assum drule >> rw[] >> gvs[] >>
+  goal_assum $ drule_at $ Pos last >> gvs[PULL_EXISTS] >>
+  rpt $ goal_assum drule
+QED
+
+Theorem pure_apply_subst_isubst_strong:
+  ∀it its sub.
+    pure_apply_subst sub (isubst its it) =
+    isubst (MAP (pure_apply_subst sub) its)
+      (pure_apply_subst (ishift (LENGTH its) o_f sub) it)
+Proof
+  Induct using itype_ind >> rw[pure_apply_subst, isubst_def, ishift_def] >>
+  gvs[EL_MAP, MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+  simp[FLOOKUP_o_f] >> CASE_TAC >> simp[isubst_def] >>
+  DEP_REWRITE_TAC[isubst_ishift_2] >> simp[] >>
+  simp[GSYM MAP_DROP, DROP_LENGTH_NIL]
+QED
+
 
 (********** pure_walkstar etc. **********)
 
@@ -695,6 +832,62 @@ Proof
   first_x_assum drule >> simp[]
 QED
 
+Theorem pure_walkstar_to_pure_apply_subst:
+  ∀w. pure_wfs w ⇒
+    ∃s. pure_walkstar w = pure_apply_subst s ∧
+        FDOM s = FDOM w ∧
+        pure_apply_subst s o pure_apply_subst s = pure_apply_subst s
+Proof
+  rw[] >> qexists_tac `FUN_FMAP (λn. pure_walkstar w (CVar n)) (FDOM w)` >> simp[] >>
+  reverse $ conj_asm1_tac
+  >- (
+    pop_assum $ assume_tac o GSYM >> gvs[] >>
+    simp[FUN_EQ_THM, pure_walkstar_idempotent]
+    ) >>
+  simp[FUN_EQ_THM] >>
+  qspec_then `w` mp_tac pure_walkstar_alt_ind >> impl_tac >- simp[] >>
+  disch_then ho_match_mp_tac >> rw[pure_walkstar_alt, pure_apply_subst, MAP_EQ_f] >>
+  simp[FLOOKUP_FUN_FMAP] >> gvs[FLOOKUP_DEF] >>
+  IF_CASES_TAC >> gvs[]
+QED
+
+Theorem pure_walkstar_unchanged:
+  ∀s. pure_wfs s ⇒
+  ∀t. DISJOINT (FDOM s) (pure_vars t) ⇒
+  pure_walkstar s t = t
+Proof
+  gen_tac >> strip_tac >>
+  qspec_then `s` mp_tac pure_walkstar_alt_ind >> simp[] >>
+  disch_then ho_match_mp_tac >> rw[pure_walkstar_alt] >>
+  gvs[pure_vars, MEM_MAP, PULL_EXISTS]
+  >- (irule MAP_ID_ON >> rw[])
+  >- (irule MAP_ID_ON >> rw[])
+  >- (first_x_assum irule >> once_rewrite_tac[DISJOINT_SYM] >> simp[])
+  >- (first_x_assum irule >> once_rewrite_tac[DISJOINT_SYM] >> simp[])
+  >- simp[FLOOKUP_DEF]
+QED
+
+Theorem pure_vars_pure_walkstar_alt:
+  ∀sub it. pure_wfs sub ⇒
+    pure_vars (pure_walkstar sub it) =
+    BIGUNION $ IMAGE (pure_vars o pure_walkstar sub o CVar) (pure_vars it)
+Proof
+  rw[Once EXTENSION, PULL_EXISTS] >> eq_tac >> rw[]
+  >- (
+    drule_all pure_vars_pure_walkstar >> rw[] >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    drule pure_vars_pure_walkstar_SUPERSET >>
+    disch_then $ qspec_then `it` mp_tac >>
+    rewrite_tac[SUBSET_DEF] >> disch_then irule >> simp[PULL_EXISTS] >>
+    drule pure_vars_pure_walkstar_SUBSET >>
+    disch_then $ qspec_then `CVar x'` mp_tac >>
+    simp[SUBSET_DEF, pure_vars, PULL_EXISTS] >>
+    disch_then drule >> rw[] >> simp[] >>
+    disj2_tac >> goal_assum drule >> simp[]
+    )
+QED
 
 
 (******************* Inference results ********************)

@@ -545,6 +545,15 @@ Proof
   every_case_tac >> gvs[] >> rw[EXTENSION] >> metis_tac[]
 QED
 
+Theorem BIGUNION_FRANGE_FOLDR_maunion:
+  ∀as ass a. MEM as ass ⇒ BIGUNION (FRANGE as) ⊆ BIGUNION (FRANGE (FOLDR maunion a ass))
+Proof
+  rw[BIGUNION_SUBSET] >> rw[SUBSET_DEF] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_FOLDR_maunion, GSYM CONJ_ASSOC] >>
+  goal_assum drule >> qexists_tac `k` >> simp[] >>
+  gvs[FLOOKUP_DEF] >> metis_tac[]
+QED
+
 Triviality infer_bind_alt_def:
   ∀g f.
     infer_bind g f = λs. case g s of NONE => NONE | SOME ((a,b,c),s') => f (a,b,c) s'
