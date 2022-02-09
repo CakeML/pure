@@ -15,6 +15,15 @@ Definition Projs_def:
   Projs ((x,i)::ps) e = Projs ps (Proj x i e)
 End
 
+Theorem demands_proj_end:
+  ∀ ps x i e. Projs (ps++[(x,i)]) e = Proj x i (Projs ps e)
+Proof
+  Induct THEN1 rw [Projs_def]
+  \\ gen_tac \\ rename1 ‘hd::ps’
+  \\ PairCases_on ‘hd’
+  \\ rw [Projs_def]
+QED
+
 val _ = set_fixity "demands" (Infixl 480);
 
 Definition demands_def:
@@ -186,6 +195,83 @@ Proof
   \\ irule_at Any Let_Var
   \\ unabbrev_all_tac
   \\ fs [Proj_Cons]
+QED
+
+
+Theorem Seq_App:
+  App (Seq proj f) e ≅ Seq proj (App f e)
+Proof
+  irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_def, eval_wh_Seq, eval_wh_App]
+  \\ rw [] \\ fs []
+QED
+
+Theorem demands_App:
+  f demands (ps, v) ⇒ (App f e) demands (ps, v)
+Proof
+  rw [demands_def]
+  \\ qabbrev_tac ‘proj = Projs ps (Var v)’
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘App (Seq proj f) e’
+  \\ conj_tac THEN1
+   (irule exp_eq_App_cong \\ rw [exp_eq_refl])
+  \\ fs [Seq_App]
+QED
+
+val _ = set_fixity "fun_demands" (Infixl 479);
+
+
+Theorem demands_If:
+  e demands d ⇒ (If e e' e'') demands d
+Proof
+  PairCases_on ‘d’
+  \\ rw [demands_def]
+  \\ qabbrev_tac ‘p = Projs d0 (Var d1)’
+  \\ irule exp_eq_trans \\ qexists_tac ‘If (Seq p e) e' e''’ \\ conj_tac
+  THEN1 (irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
+  \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_def, eval_wh_Seq, eval_wh_If]
+  \\ rw [] \\ fs []
+QED
+
+(*
+Theorem demands_If2:
+  wh_eval e ≠ wh_Diverge ∧ wh_eval e ≠ wh_Error ∧ e1 demands d ∧ e2 demands d ⇒ (If e e1 e2) demands d
+Proof
+  PairCases_on ‘d’
+  \\ rw [demands_def]
+  \\ rename1 ‘Projs ps (Var v)’
+  \\ qabbrev_tac ‘p = Projs ps (Var v)’
+  \\ irule exp_eq_trans \\ qexists_tac ‘If e (Seq p e1) (Seq p e2)’
+  \\ conj_tac
+  THEN1 (irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
+  \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_def, eval_wh_Seq, eval_wh_If]
+  \\ rw [] \\ fs []
+QED
+*)
+
+Definition fun_demands_def:
+  f fun_demands ps = ∀n. App f (Var n) demands (ps, n)
+End
+
+Theorem fun_demands_lambda:
+  e demands (ps, v) ⇒ (Lam v e) fun_demands ps
+Proof
+  rw [demands_def, fun_demands_def]
+  \\ rename1 ‘Let v (Var w) e’
+  \\ irule exp_eq_trans \\ qexists_tac ‘Let v (Var w) (Seq (Projs ps (Var v)) e)’
+  \\ conj_tac THEN1
+   (irule exp_eq_App_cong \\ fs [exp_eq_refl, exp_eq_Lam_cong])
+  \\ irule exp_eq_trans \\ qexists_tac ‘Seq (Let v (Var w) (Projs ps (Var v))) (Let v (Var w) e)’
+  \\ conj_tac
+  THEN1 fs [Let_Seq]
+  \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+  \\ irule exp_eq_trans \\ qexists_tac ‘Projs ps (Let v (Var w) (Var v))’
+  \\ conj_tac
+  THEN1 fs [Let_Projs]
+  \\ irule exp_eq_Projs_cong
+  \\ fs [Let_Var]
 QED
 
 Datatype:
