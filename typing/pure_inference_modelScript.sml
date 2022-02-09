@@ -251,7 +251,8 @@ Inductive minfer:
         ty2) ∧
 
 [~Letrec:]
-  (LENGTH fns = LENGTH tys ∧
+  (¬NULL fns ∧
+   LENGTH fns = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
    LIST_REL (λ((fn,e),ty) (a,c). minfer ns mset e a c ty)
       (ZIP (fns,tys)) (ZIP (ass,css)) ∧
@@ -261,8 +262,9 @@ Inductive minfer:
    cs = ecs ∪ BIGUNION (set css)
     ⇒ minfer ns mset (Letrec d fns e)
         (FDIFF as (set $ MAP FST fns))
-        (cs ∪ (BIGUNION $ set $ list$MAP2 (λ(x,b) tyfn.
-          IMAGE (λn. mImplicit (CVar n) mset tyfn) (get_massumptions as x)) fns tys))
+        (set (MAP (λt. mUnify t t) tys) ∪ cs ∪
+          (BIGUNION $ set $ list$MAP2 (λ(x,b) tyfn.
+            IMAGE (λn. mImplicit (CVar n) mset tyfn) (get_massumptions as x)) fns tys))
         ety) ∧
 
 [~BoolCase:]
@@ -1599,7 +1601,8 @@ Proof
     >- (rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[])
     >- (rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[])
     )
-  >- ( (* Letrec *)
+  >- gvs[inferM_rws] (* Letrec empty case *)
+  >- ( (* Letrec non-empty case *)
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     rename [
@@ -1692,6 +1695,7 @@ Proof
           rw[SUBSET_DEF] >> first_x_assum drule >> simp[]
           )
         )
+      >- (first_x_assum drule >> rw[SUBSET_DEF] >> first_x_assum drule >> simp[])
       >- (
         gvs[get_assumptions_def, assumptions_rel_def] >> every_case_tac >> gvs[] >>
         gvs[miscTheory.toAList_domain] >>
@@ -1739,7 +1743,7 @@ Proof
       first_x_assum drule_all >> strip_tac >> gvs[] >> rw[] >>
       first_x_assum drule >> simp[]) >>
     pop_assum mp_tac >> ntac 2 $ pop_assum kall_tac >>
-    last_x_assum mp_tac >> last_x_assum kall_tac >>
+    last_x_assum kall_tac >> last_x_assum mp_tac >> last_x_assum kall_tac >>
     rename1 `n ≤ m` >>
     map_every qid_spec_tac [`m`,`l`,`tys`,`as`,`cs`] >>
     Induct_on `fns` >> rw[] >> simp[]

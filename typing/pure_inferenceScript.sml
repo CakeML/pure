@@ -381,7 +381,8 @@ Definition infer_def:
             (MAP (λn. Implicit d (CVar n) mset ty1) $ get_assumptions x as2) ++
               cs1 ++ cs2) od ∧
 
-  infer ns mset (Letrec d fns e) = do
+  infer ns mset (Letrec d fns e) = (
+    if NULL fns then fail else do
     (tye, ase, cse) <- infer ns mset e;
     (tyfns, asfns, csfns) <- FOLDR
           (λ(fn,e) acc. do
@@ -390,11 +391,12 @@ Definition infer_def:
               return (ty::tys, as ⋓ as', cs' ++ cs) od)
           (return ([],empty,[])) fns;
     return (tye, list_delete (ase ⋓ asfns) (MAP FST fns),
+            MAP (λt. Unify d t t) tyfns ++
             (FLAT $ list$MAP2
                 (λ(x,b) tyfn. MAP (λn. Implicit d (CVar n) mset tyfn) $
                                               get_assumptions x (ase ⋓ asfns))
                 fns tyfns) ++
-            csfns ++ cse) od ∧
+            csfns ++ cse) od) ∧
 
   (* TODO check handling of variables *)
   infer ns mset (Case d e v css) = (
