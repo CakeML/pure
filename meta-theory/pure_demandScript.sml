@@ -1,6 +1,7 @@
 (*
    Formalises the notion of "demand" as used in demand/strictness analysis.
 *)
+
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
@@ -38,10 +39,12 @@ Proof
 QED
 
 Theorem demands_Proj:
-  e demands (ps,v) ⇒
-  (Proj n i e) demands (ps,v)
+  e demands d ⇒
+  (Proj n i e) demands d
 Proof
-  rw [demands_def,Projs_def]
+  PairCases_on ‘d’
+  \\ rename1 ‘(ps,v)’
+  \\ rw [demands_def,Projs_def]
   \\ irule exp_eq_trans
   \\ qexists_tac ‘Seq e (Proj n i e)’
   \\ conj_tac THEN1 fs [Proj_Seq]
@@ -435,15 +438,38 @@ QED
 *)
 
 Datatype:
-  ctxt = Nil
-       | Append ctxt ctxt
-       | Bind string exp ctxt
-       | RecBind (string # exp) ctxt
+  ctxt_bind = Bind string exp (ctxt_bind list)
+       | RecBind ((string # exp) list) (ctxt_bind list)
 End
+(*
+Definition ctxt_size_def:
+  ctxt_size [] = 0 ∧
+  ctxt_size (Bind s e ctxt::ctxt') = ctxt_size ctxt + ctxt_size ctxt' ∧
+  ctxt_size (RecBind sel ctxt::ctxt') = ctxt_size ctxt + ctxt_size ctxt'
+End
+
+Definition subst_ctxt_def:
+  (subst_ctxt: ctxt_bind list -> exp -> exp) ctxt (App f e) = App (subst_ctxt ctxt f) (subst_ctxt ctxt e) ∧
+  (subst_ctxt: ctxt_bind list -> exp -> exp)  ctxt (Prim op l) = Prim op (MAP (subst_ctxt ctxt) l) ∧
+  (subst_ctxt: ctxt_bind list -> exp -> exp) ctxt (Lam v e) = Lam v (subst_ctxt ((Bind v (Var v) [])::ctxt) e) ∧
+  (subst_ctxt: ctxt_bind list -> exp -> exp) [] (Var n) = Var n ∧
+  (subst_ctxt: ctxt_bind list -> exp -> exp) ((Bind v exp ctxt)::tl) (Var n) = if n = v
+                                         then subst_ctxt ctxt exp
+                                         else subst_ctxt tl (Var n) ∧
+  (subst_ctxt: ctxt_bind list -> exp -> exp) ((RecBind nel ctxt)::tl) (Var n) = if MEM n (MAP FST nel)
+                                                then Var n
+                                                else subst_ctxt tl (Var n) ∧
+  (subst_ctxt : ctxt_bind list -> exp -> exp) ctxt (Letrec nel e) = Letrec nel (subst_ctxt ((RecBind nel ctxt)::ctxt) e)
+End
+Termination
+  WF_REL_TAC ‘inv_image ($< LEX $<) (λ(c,e). (LENGTH c, exp_size e)) ’
+  \\ rw []
+End
+*)
 
 Inductive find: (* i i o o *)
 [find_Bottom:]
-  (∀e (c:ctxt).
+  (∀e (c:ctxt_bind list).
     find e c {} e) ∧
 [find_Seq:]
   (∀e e' c (p:(string#num) list) ds v.
@@ -465,7 +491,14 @@ Inductive find: (* i i o o *)
   (∀f f' e e' c ds ds2.
      find f c ds f' ∧
      find e c ds2 e' ⇒
-     find (App f e) c ds (App f' e'))
+     find (App f e) c ds (App f' e')) ∧
+[find_Prim:]
+  (∀el c edsel ope.
+     (∀e ds e'. MEM (e, ds, e') edsel ⇒ find e c ds e')
+     ∧ el = MAP FST edsel ⇒ find (Prim ope el) c {} (Prim ope (MAP (SND o SND) edsel))) ∧
+[find_Proj:]
+  (∀e e' n i c ds.
+     find e c ds e' ⇒ find (Proj n i e) c ds (Proj n i e'))
 End
 
 Theorem demands_Projs_empty:
@@ -540,6 +573,24 @@ Proof
      \\ fs [exp_eq_App_cong]
      \\ rw []
      \\ fs [demands_App])
+  >- (strip_tac
+      \\ fs []
+      \\ irule exp_eq_Prim_cong
+      \\ rw [LIST_REL_EL_EQN, EL_MAP]
+      \\ ‘MEM (EL n edsel) edsel’ by (irule EL_MEM \\ fs [])
+      \\ qabbrev_tac ‘triple = EL n edsel’
+      \\ PairCases_on ‘triple’
+      \\ fs []
+      \\ rename1 ‘(e, triple1, e')’
+      \\ qsuff_tac ‘find e c triple1 e' ∧ e ≅ e' ∧ ∀d. d ∈ triple1 ⇒ e demands d’
+      \\ fs []
+      \\ first_x_assum drule
+      \\ fs [])
+  >- (strip_tac
+      \\ fs [exp_eq_Prim_cong]
+      \\ rw []
+      \\ irule demands_Proj
+      \\ fs [])
 QED
 
 Theorem find_soundness:
