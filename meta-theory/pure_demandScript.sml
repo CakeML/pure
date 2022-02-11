@@ -319,6 +319,43 @@ Proof
   \\ PairCases_on ‘hd’
   \\ rw [Projs_def, subst_def]
 QED
+
+Definition well_formed_def:
+  well_formed (Cons s) l = (s ≠ s) ∧
+  well_formed (Proj s i) l = (∃ e. l = [e]) ∧
+  well_formed (IsEq s i) l = (∃e. l = [e]) ∧
+  well_formed If (l: exp list) = (∃e e' e''. l = e::e'::e''::[]) ∧
+  well_formed Seq l = (∃e e'. l = e::e'::[]) ∧
+  well_formed (AtomOp op) l = (op ≠ op)
+End
+
+Theorem exp_eq_l_refl:
+  ∀l. LIST_REL $≅ l l
+Proof
+  Induct \\ fs [exp_eq_refl]
+QED
+
+Theorem demands_Prim:
+  e demands d ∧ well_formed ope (e::l) ⇒ Prim ope (e::l) demands d
+Proof
+  PairCases_on ‘d’
+  \\ rw [demands_def]
+  \\ qabbrev_tac ‘p = Projs d0 (Var d1)’
+  \\ irule exp_eq_trans \\ qexists_tac ‘Prim ope ((Seq p e)::l)’
+  \\ conj_tac
+  >- (irule exp_eq_Prim_cong \\ fs [exp_eq_l_refl])
+  \\ Cases_on ‘ope’ \\ fs [well_formed_def]
+  \\ irule eval_wh_IMP_exp_eq \\ rw []
+  >- (fs [subst_def, eval_wh_Seq, eval_wh_If]
+      \\ rw [] \\ fs [])
+  >- (fs [subst_def, eval_wh_Seq, eval_wh_IsEq]
+      \\ rw [] \\ fs [])
+  >- (fs [subst_def, eval_wh_Seq, eval_wh_Proj]
+      \\ rw [] \\ fs [])
+  >- (fs [subst_def, eval_wh_Seq]
+     \\ rw [] \\ fs [])
+QED
+
 (*
 Theorem demands_Seq2:
   eval_wh e ≠ wh_Error ∧ eval_wh e ≠ wh_Diverge
@@ -496,9 +533,27 @@ Inductive find: (* i i o o *)
   (∀el c edsel ope.
      (∀e ds e'. MEM (e, ds, e') edsel ⇒ find e c ds e')
      ∧ el = MAP FST edsel ⇒ find (Prim ope el) c {} (Prim ope (MAP (SND o SND) edsel))) ∧
+[find_Prim1:]
+  (∀c edsel tl ope e ds e'.
+     (∀ e ds e'. MEM (e, ds, e') edsel ⇒ find e c ds e')
+     ∧ edsel = (e, ds, e')::tl ∧ well_formed ope (MAP FST edsel) ⇒ find (Prim ope (MAP FST edsel)) c ds (Prim ope (MAP (SND o SND) edsel))) ∧
 [find_Proj:]
   (∀e e' n i c ds.
-     find e c ds e' ⇒ find (Proj n i e) c ds (Proj n i e'))
+     find e c ds e' ⇒ find (Proj n i e) c ds (Proj n i e')) ∧
+[find_Subset:]
+  (∀e e' c ds ds'.
+     find e c ds e' ∧ (∀d. d ∈ ds' ⇒ d ∈ ds) ⇒ find e c ds' e') ∧
+[find_Let:]
+  (∀e e' e2 e2' ds ds' v.
+     find e c ds e' ∧ find e2 c ds' e2'
+     ∧ (∀ps. (ps, v) ∉ ds')
+     ⇒ find (Let v e e2) c ds' (Let v e' e2')) ∧
+[find_Let2:]
+  (∀ e e' e2 e2' ds ds' ds'' v ps.
+     find e c ds e' ∧ find e2 c ds' e2'
+     ∧ (ps,v) ∈ ds'
+     ∧ (∀ps' v'. (ps', v') ∈ ds'' ⇒ ((ps', v') ∈ ds' ∧ v' ≠ v) ∨ (ps', v') ∈ ds)
+     ⇒ find (Let v e e2) c ds'' (Let v e' e2'))
 End
 
 Theorem demands_Projs_empty:
@@ -577,19 +632,64 @@ Proof
       \\ fs []
       \\ irule exp_eq_Prim_cong
       \\ rw [LIST_REL_EL_EQN, EL_MAP]
-      \\ ‘MEM (EL n edsel) edsel’ by (irule EL_MEM \\ fs [])
+      \\ ‘MEM (EL n edsel) edsel’ by fs [EL_MEM]
       \\ qabbrev_tac ‘triple = EL n edsel’
       \\ PairCases_on ‘triple’
       \\ fs []
-      \\ rename1 ‘(e, triple1, e')’
-      \\ qsuff_tac ‘find e c triple1 e' ∧ e ≅ e' ∧ ∀d. d ∈ triple1 ⇒ e demands d’
-      \\ fs []
       \\ first_x_assum drule
+      \\ fs [])
+  >- (strip_tac
+     \\ conj_tac
+     >- (irule exp_eq_Prim_cong
+         \\ rw [LIST_REL_EL_EQN, EL_MAP]
+         \\ ‘MEM (EL n ((e,ds,e')::tl)) ((e,ds,e')::tl)’ by fs [EL_MEM]
+         \\ qabbrev_tac ‘t = EL n ((e,ds,e')::tl)’
+         \\ PairCases_on ‘t’
+         \\ rw []
+         \\ first_x_assum drule
+         \\ fs [])
+      \\ rw []
+      \\ ‘e demands d’ by (‘MEM (e,ds,e') ((e,ds,e')::tl)’ by fs [EL_MEM]
+                           \\ first_x_assum drule
+                           \\ fs [])
+      \\ irule demands_Prim
       \\ fs [])
   >- (strip_tac
       \\ fs [exp_eq_Prim_cong]
       \\ rw []
       \\ irule demands_Proj
+      \\ fs [])
+  >- fs []
+  >- (strip_tac
+      \\ conj_tac
+      >- (irule exp_eq_App_cong \\ fs []
+          \\ irule exp_eq_Lam_cong
+          \\ fs [])
+      \\ rw []
+      \\ PairCases_on ‘d’
+      \\ irule demands_Let2
+      \\ conj_tac
+      \\ ‘d1 = v ∨ d1 ≠ v’ by fs []
+      \\ fs []
+      \\ ‘(d0, v) ∉ ds'’ by (first_x_assum $ irule_at Any)
+      \\ first_x_assum drule
+      \\ fs [])
+  >- (strip_tac
+      \\ conj_tac
+      >- (irule exp_eq_App_cong \\ fs []
+          \\ irule exp_eq_Lam_cong
+          \\ fs [])
+      \\ rw []
+      \\ PairCases_on ‘d’
+      \\ first_x_assum drule
+      \\ rw []
+      >- (irule demands_Let2
+          \\ fs [])
+      \\ irule demands_Let1
+      \\ fs []
+      \\ first_x_assum drule
+      \\ rw []
+      \\ drule demands_empty_proj
       \\ fs [])
 QED
 
@@ -612,7 +712,6 @@ QED
     lam x (seq x (foo x))
 
   Letrec [(f,x)] rest
-
 *)
 
 val _ = export_theory();
