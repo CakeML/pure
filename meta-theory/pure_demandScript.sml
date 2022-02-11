@@ -275,7 +275,6 @@ Proof
   \\ fs [Proj_Cons]
 QED
 
-
 Theorem Seq_App:
   App (Seq proj f) e ≅ Seq proj (App f e)
 Proof
@@ -544,16 +543,19 @@ Inductive find: (* i i o o *)
   (∀e e' c ds ds'.
      find e c ds e' ∧ (∀d. d ∈ ds' ⇒ d ∈ ds) ⇒ find e c ds' e') ∧
 [find_Let:]
-  (∀e e' e2 e2' ds ds' v.
+  (∀e e' e2 e2' ds ds' c v.
      find e c ds e' ∧ find e2 c ds' e2'
      ∧ (∀ps. (ps, v) ∉ ds')
      ⇒ find (Let v e e2) c ds' (Let v e' e2')) ∧
 [find_Let2:]
-  (∀ e e' e2 e2' ds ds' ds'' v ps.
+  (∀ e e' e2 e2' ds ds' ds'' c v ps.
      find e c ds e' ∧ find e2 c ds' e2'
      ∧ (ps,v) ∈ ds'
      ∧ (∀ps' v'. (ps', v') ∈ ds'' ⇒ ((ps', v') ∈ ds' ∧ v' ≠ v) ∨ (ps', v') ∈ ds)
-     ⇒ find (Let v e e2) c ds'' (Let v e' e2'))
+     ⇒ find (Let v e e2) c ds'' (Let v e' e2')) ∧
+[find_Lam:]
+  (∀e e' c ds v.
+     find e c ds e' ⇒ find (Lam v e) c {} (Lam v e'))
 End
 
 Theorem demands_Projs_empty:
@@ -599,8 +601,8 @@ Proof
   Induct_on ‘find’
   \\ rpt conj_tac
   \\ rpt gen_tac
-  >- fs [exp_eq_refl]
-  >- (strip_tac
+  >- fs [exp_eq_refl] (* find_Bottom *)
+  >- (strip_tac (* find_Seq *)
       \\ fs []
       \\ first_x_assum $ drule
       \\ rw []
@@ -610,25 +612,25 @@ Proof
       \\ first_assum $ irule_at Any
       \\ irule exp_eq_Prim_cong
       \\ fs [exp_eq_refl])
-  >- (strip_tac
+  >- (strip_tac (* find_Seq2 *)
       \\ conj_tac
       >- fs [exp_eq_Prim_cong]
       \\ rw []
       \\ irule demands_Seq
       \\ fs [])
-  >- (strip_tac
+  >- (strip_tac (* find_If *)
       \\ conj_tac
       >- fs [exp_eq_Prim_cong]
       \\ rw []
       \\ irule demands_If
       \\ fs [])
-  >- (fs [exp_eq_refl]
+  >- (fs [exp_eq_refl] (* find_Var *)
       \\ fs [demands_Var])
-  >- (strip_tac
+  >- (strip_tac (* find_App *)
      \\ fs [exp_eq_App_cong]
      \\ rw []
      \\ fs [demands_App])
-  >- (strip_tac
+  >- (strip_tac (* find_Prim *)
       \\ fs []
       \\ irule exp_eq_Prim_cong
       \\ rw [LIST_REL_EL_EQN, EL_MAP]
@@ -638,7 +640,7 @@ Proof
       \\ fs []
       \\ first_x_assum drule
       \\ fs [])
-  >- (strip_tac
+  >- (strip_tac (* find_Prim1 *)
      \\ conj_tac
      >- (irule exp_eq_Prim_cong
          \\ rw [LIST_REL_EL_EQN, EL_MAP]
@@ -654,13 +656,13 @@ Proof
                            \\ fs [])
       \\ irule demands_Prim
       \\ fs [])
-  >- (strip_tac
+  >- (strip_tac (* find_Proj *)
       \\ fs [exp_eq_Prim_cong]
       \\ rw []
       \\ irule demands_Proj
       \\ fs [])
-  >- fs []
-  >- (strip_tac
+  >- fs [] (* find_Subset *)
+  >- (strip_tac (* find_Let *)
       \\ conj_tac
       >- (irule exp_eq_App_cong \\ fs []
           \\ irule exp_eq_Lam_cong
@@ -674,7 +676,7 @@ Proof
       \\ ‘(d0, v) ∉ ds'’ by (first_x_assum $ irule_at Any)
       \\ first_x_assum drule
       \\ fs [])
-  >- (strip_tac
+  >- (strip_tac (* find_Let2 *)
       \\ conj_tac
       >- (irule exp_eq_App_cong \\ fs []
           \\ irule exp_eq_Lam_cong
@@ -691,6 +693,8 @@ Proof
       \\ rw []
       \\ drule demands_empty_proj
       \\ fs [])
+  >- (strip_tac
+      \\ fs [exp_eq_Lam_cong])
 QED
 
 Theorem find_soundness:
@@ -700,8 +704,8 @@ Proof
   \\ drule find_soundness_lemma
   \\ fs []
 QED
-(*
 
+(*
   let foo = lam (a + 2) in
     lam x (foo x)
 -->
