@@ -934,43 +934,28 @@ QED
 Theorem pure_unify_ind:
   ∀P0 P1.
     (∀s t1 t2.
-      (∀ts1 ts2 c1 c2.
-        pure_walk s t1 = TypeCons c1 ts1 ∧
-        pure_walk s t2 = TypeCons c2 ts2
-       ⇒ P1 s ts1 ts2)
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      (∀ts1 ts2.
-        pure_walk s t1 = Tuple ts1 ∧
-        pure_walk s t2 = Tuple ts2
-       ⇒ P1 s ts1 ts2)
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      (∀t11 t12 t21 t22.
-        pure_walk s t1 = Function t11 t12 ∧
-        pure_walk s t2 = Function t21 t22
-       ⇒ P1 s [t11;t12] [t21;t22])
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
+      (∀ts1 ts2 c.
+        (pure_walk s t1 = TypeCons c ts1 ∧
+         pure_walk s t2 = TypeCons c ts2) ∨
+        (pure_walk s t1 = Tuple ts1 ∧
+         pure_walk s t2 = Tuple ts2) ∨
+        (∃t11 t12 t21 t22.
+         pure_walk s t1 = Function t11 t12 ∧
+         pure_walk s t2 = Function t21 t22 ∧
+         ts1 = [t11;t12] ∧ ts2 = [t21;t22])
+       ⇒ P1 s ts1 ts2) ∧
       (∀ta tb.
-        pure_walk s t1 = Array ta ∧
-        pure_walk s t2 = Array tb
-       ⇒ P0 s ta tb)
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      (∀ta tb.
-        pure_walk s t1 = M ta ∧
-        pure_walk s t2 = M tb
+        (pure_walk s t1 = Array ta ∧
+         pure_walk s t2 = Array tb) ∨
+        (pure_walk s t1 = M ta ∧
+         pure_walk s t2 = M tb)
        ⇒ P0 s ta tb)
      ⇒ P0 s t1 t2) ∧
     (∀s ts1 ts2.
       (∀t1 ts1' t2 ts2' s'.
         ts1 = t1::ts1' ∧ ts2 = t2::ts2' ∧
         pure_unify s t1 t2 = SOME s'
-       ⇒ P1 s' ts1' ts2') ∧
-      (∀t1 ts1' t2 ts2'.
-        ts1 = t1::ts1' ∧ ts2 = t2::ts2'
-       ⇒ P0 s t1 t2)
+       ⇒ P0 s t1 t2 ∧ P1 s' ts1' ts2')
      ⇒ P1 s ts1 ts2)
   ⇒ (∀s t1 t2. pure_wfs s ⇒ P0 s t1 t2) ∧
     (∀s ts1 ts2. pure_wfs s ⇒ P1 s ts1 ts2)
@@ -1028,7 +1013,14 @@ Proof
   qpat_x_assum `P ⇒ Q` kall_tac >> unabbrev_all_tac >>
   CONV_TAC (DEPTH_CONV BETA_CONV) >>
   rpt gen_tac >> strip_tac >> rpt conj_tac
-  >- (rw[] >> fs[encode_walk, pure_wfs_def, encode_itype_def])
+  >- (
+    rw[] >> first_x_assum irule >> rw[] >>
+    fs[encode_walk, encode_itype_def, pure_wfs_def,
+       encode_itype_injective, encode_itype_o_f_injective] >>
+    last_x_assum irule >> rpt gen_tac >> strip_tac >>
+    gvs[encode_itype_def, encode_itype_injective] >>
+    gvs[SRULE [pure_wfs_def] encode_unify]
+    )
   >- (
     rw[] >> first_x_assum irule >> rw[] >>
     fs[encode_itype_def, encode_itype_injective, encode_itype_o_f_injective] >>
@@ -1322,37 +1314,21 @@ Theorem pure_unify_strongind:
   ∀P0 P1.
     (∀s t1 t2.
       pure_wfs s ∧
-      (∀ts1 ts2 c1 c2.
-        pure_walk s t1 = TypeCons c1 ts1 ∧
-        pure_walk s t2 = TypeCons c2 ts2
-       ⇒ P1 s ts1 ts2)
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      pure_wfs s ∧
-      (∀ts1 ts2.
-        pure_walk s t1 = Tuple ts1 ∧
-        pure_walk s t2 = Tuple ts2
-       ⇒ P1 s ts1 ts2)
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      pure_wfs s ∧
-      (∀t11 t12 t21 t22.
-        pure_walk s t1 = Function t11 t12 ∧
-        pure_walk s t2 = Function t21 t22
-       ⇒ P1 s [t11;t12] [t21;t22])
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      pure_wfs s ∧
+      (∀ts1 ts2 c.
+        (pure_walk s t1 = TypeCons c ts1 ∧
+         pure_walk s t2 = TypeCons c ts2) ∨
+        (pure_walk s t1 = Tuple ts1 ∧
+         pure_walk s t2 = Tuple ts2) ∨
+        (∃t11 t12 t21 t22.
+         pure_walk s t1 = Function t11 t12 ∧
+         pure_walk s t2 = Function t21 t22 ∧
+         ts1 = [t11;t12] ∧ ts2 = [t21;t22])
+       ⇒ P1 s ts1 ts2) ∧
       (∀ta tb.
-        pure_walk s t1 = Array ta ∧
-        pure_walk s t2 = Array tb
-       ⇒ P0 s ta tb)
-     ⇒ P0 s t1 t2) ∧
-    (∀s t1 t2.
-      pure_wfs s ∧
-      (∀ta tb.
-        pure_walk s t1 = M ta ∧
-        pure_walk s t2 = M tb
+        (pure_walk s t1 = Array ta ∧
+         pure_walk s t2 = Array tb) ∨
+        (pure_walk s t1 = M ta ∧
+         pure_walk s t2 = M tb)
        ⇒ P0 s ta tb)
      ⇒ P0 s t1 t2) ∧
     (∀s ts1 ts2.
@@ -1360,21 +1336,17 @@ Theorem pure_unify_strongind:
       (∀t1 ts1' t2 ts2' s'.
         ts1 = t1::ts1' ∧ ts2 = t2::ts2' ∧
         pure_unify s t1 t2 = SOME s'
-       ⇒ P1 s' ts1' ts2') ∧
-      (∀t1 ts1' t2 ts2'.
-        ts1 = t1::ts1' ∧ ts2 = t2::ts2'
-       ⇒ P0 s t1 t2)
+       ⇒ P0 s t1 t2 ∧ P1 s' ts1' ts2')
      ⇒ P1 s ts1 ts2)
   ⇒ (∀s t1 t2. pure_wfs s ⇒ P0 s t1 t2) ∧
     (∀s ts1 ts2. pure_wfs s ⇒ P1 s ts1 ts2)
 Proof
-  ntac 3 strip_tac >>
+  rpt gen_tac >> strip_tac >>
   qsuff_tac
     `(∀s t1 t2. pure_wfs s ⇒ pure_wfs s ⇒ P0 s t1 t2) ∧
      (∀s ts1 ts2. pure_wfs s ⇒ pure_wfs s ⇒ P1 s ts1 ts2)`
   >- (rpt $ pop_assum kall_tac >> simp[]) >>
   ho_match_mp_tac pure_unify_ind >> rw[] >>
-  Cases_on `ts1` >> Cases_on `ts2` >> fs[] >>
   last_x_assum irule >> rw[] >>
   metis_tac[pure_unify_unifier]
 QED
