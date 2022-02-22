@@ -655,7 +655,6 @@ Proof
   rw[new_vars_def] >> gvs[SUBSET_DEF, pure_vars] >> metis_tac[]
 QED
 
-
 Triviality pure_vars_csubst_EMPTY_suff:
   (∀it. it ∈ FRANGE s ⇒ pure_vars it = {}) ∧
   pure_vars t ⊆ FDOM s ⇒
@@ -701,43 +700,7 @@ Proof
 QED
 
 
-
 (******************** Definitions/apparatus ********************)
-
-Definition msubst_vars_def:
-  msubst_vars s vars = BIGUNION (IMAGE (pure_vars o pure_walkstar s o CVar) vars)
-End
-
-Theorem subst_vars_msubst_vars:
-  ∀s vs. pure_wfs s ⇒
-    domain (subst_vars s vs) = msubst_vars s (domain vs)
-Proof
-  rw[subst_vars_def, msubst_vars_def] >>
-  qsuff_tac
-    `∀m b.
-      domain (
-        foldi (λn u acc. union acc (freecvars (pure_walkstar s (CVar n)))) m b vs) =
-      BIGUNION (IMAGE
-        (pure_vars o pure_walkstar s o CVar o (λi. m + sptree$lrnext m * i))
-        (domain vs))
-        ∪ domain b`
-  >- rw[Once lrnext_def, combinTheory.o_DEF] >>
-  qid_spec_tac `vs` >> Induct >> rw[foldi_def] >>
-  simp[pure_walkstar_alt, freecvars_def, domain_union]
-  >- (CASE_TAC >> simp[freecvars_pure_vars, domain_union, Once UNION_COMM]) >>
-  simp[IMAGE_IMAGE, combinTheory.o_DEF] >>
-  simp[lrnext_lrnext, lrnext_lrnext_2, LEFT_ADD_DISTRIB]
-  >- simp[AC UNION_ASSOC UNION_COMM] >>
-  qmatch_goalsub_abbrev_tac `BIGUNION A ∪ (BIGUNION B ∪ _ ∪ C) = C' ∪ _ ∪ _ ∪ _` >>
-  qsuff_tac `C = C'` >> rw[] >- simp[AC UNION_ASSOC UNION_COMM] >>
-  unabbrev_all_tac >> CASE_TAC >> simp[freecvars_pure_vars]
-QED
-
-Theorem msubst_vars_UNION:
-  msubst_vars s (a ∪ b) = msubst_vars s a ∪ msubst_vars s b
-Proof
-  simp[msubst_vars_def]
-QED
 
 Definition ctxt_vars_def:
   ctxt_vars ctxt = BIGUNION (set (MAP (λ(x,vs,t). pure_vars t) ctxt))

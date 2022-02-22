@@ -381,6 +381,40 @@ Definition assumptions_rel_def:
     (∀s aset. lookup asms s = SOME aset ⇒ wf aset)
 End
 
+Definition msubst_vars_def:
+  msubst_vars s vars = BIGUNION (IMAGE (pure_vars o pure_walkstar s o CVar) vars)
+End
+
+Definition mactivevars_def:
+  mactivevars (mUnify t1 t2) = pure_vars t1 ∪ pure_vars t2 ∧
+  mactivevars (mInstantiate t1 (vs,sch)) = pure_vars t1 ∪ pure_vars sch ∧
+  mactivevars (mImplicit t1 vs t2) = pure_vars t1 ∪ (vs ∩ pure_vars t2)
+End
+
+Definition mis_solveable_def:
+  mis_solveable (mUnify t1 t2) cs = T ∧
+  mis_solveable (mInstantiate t1 sch) cs = T ∧
+  mis_solveable (mImplicit t1 vs t2) cs = (
+    pure_vars t2 ∩ (BIGUNION $ IMAGE mactivevars ({mImplicit t1 vs t2} ∪ cs)) ⊆ vs)
+End
+
+Definition constraint_vars_def:
+  constraint_vars (mUnify t1 t2) = pure_vars t1 ∪ pure_vars t2 ∧
+  constraint_vars (mInstantiate t (vs,sch)) = pure_vars t ∪ pure_vars sch ∧
+  constraint_vars (mImplicit t1 vs t2) = pure_vars t1 ∪ vs ∪ pure_vars t2
+End
+
+Definition constraints_ok_def:
+  constraints_ok tds cs ⇔
+  ∀c. c ∈ cs ⇒
+    (∀t1 t2. c = mUnify t1 t2 ⇒
+      itype_ok tds 0 t1 ∧ itype_ok tds 0 t2) ∧
+    (∀t1 vs t2. c = mInstantiate t1 (vs,t2) ⇒
+      itype_ok tds 0 t1 ∧ itype_ok tds vs t2) ∧
+    (∀t1 vs t2. c = mImplicit t1 vs t2 ⇒
+      itype_ok tds 0 t1 ∧ itype_ok tds 0 t2 ∧ FINITE vs)
+End
+
 
 (******************** Lemmas ********************)
 
@@ -559,6 +593,68 @@ Triviality infer_bind_alt_def:
     infer_bind g f = λs. case g s of NONE => NONE | SOME ((a,b,c),s') => f (a,b,c) s'
 Proof
   rw[FUN_EQ_THM, infer_bind_def] >> rpt (CASE_TAC >> simp[])
+QED
+
+Theorem subst_vars_msubst_vars:
+  ∀s vs. pure_wfs s ⇒
+    domain (subst_vars s vs) = msubst_vars s (domain vs)
+Proof
+  rw[subst_vars_def, msubst_vars_def] >>
+  qsuff_tac
+    `∀m b.
+      domain (
+        foldi (λn u acc. union acc (freecvars (pure_walkstar s (CVar n)))) m b vs) =
+      BIGUNION (IMAGE
+        (pure_vars o pure_walkstar s o CVar o (λi. m + sptree$lrnext m * i))
+        (domain vs))
+        ∪ domain b`
+  >- rw[Once lrnext_def, combinTheory.o_DEF] >>
+  qid_spec_tac `vs` >> Induct >> rw[foldi_def] >>
+  simp[pure_walkstar_alt, freecvars_def, domain_union]
+  >- (CASE_TAC >> simp[freecvars_pure_vars, domain_union, Once UNION_COMM]) >>
+  simp[IMAGE_IMAGE, combinTheory.o_DEF] >>
+  simp[lrnext_lrnext, lrnext_lrnext_2, LEFT_ADD_DISTRIB]
+  >- simp[AC UNION_ASSOC UNION_COMM] >>
+  qmatch_goalsub_abbrev_tac `BIGUNION A ∪ (BIGUNION B ∪ _ ∪ C) = C' ∪ _ ∪ _ ∪ _` >>
+  qsuff_tac `C = C'` >> rw[] >- simp[AC UNION_ASSOC UNION_COMM] >>
+  unabbrev_all_tac >> CASE_TAC >> simp[freecvars_pure_vars]
+QED
+
+Theorem msubst_vars_UNION:
+  msubst_vars s (a ∪ b) = msubst_vars s a ∪ msubst_vars s b
+Proof
+  simp[msubst_vars_def]
+QED
+
+Theorem domain_activevars:
+  ∀c. domain (activevars c) = mactivevars (to_mconstraint c)
+Proof
+  Cases >> rw[activevars_def, mactivevars_def] >>
+  simp[domain_union, freecvars_pure_vars, domain_inter] >>
+  Cases_on `p` >> rw[activevars_def, mactivevars_def] >>
+  simp[domain_union, freecvars_pure_vars]
+QED
+
+Theorem is_solveable_mis_solveable:
+  ∀c cs.
+    is_solveable c cs ⇔ mis_solveable (to_mconstraint c) (set $ MAP to_mconstraint cs)
+Proof
+  Cases >> rw[is_solveable_def, mis_solveable_def] >>
+  DEP_REWRITE_TAC[domain_empty] >> rw[] >- (irule wf_difference >> simp[]) >>
+  simp[domain_difference, domain_inter, freecvars_pure_vars, SUBSET_DIFF_EMPTY] >>
+  qmatch_goalsub_abbrev_tac `FOLDL _ imp _` >>
+  qmatch_goalsub_abbrev_tac `mimp ∪ _` >>
+  qsuff_tac `domain (FOLDL (λacc c. union (activevars c) acc) imp cs) =
+    mimp ∪ (BIGUNION $ IMAGE mactivevars $ set $ MAP to_mconstraint cs)` >> simp[] >>
+  Induct_on `cs` using SNOC_INDUCT >> rw[FOLDL_SNOC, MAP_SNOC]
+  >- (unabbrev_all_tac >> gvs[domain_activevars]) >>
+  simp[domain_union, domain_activevars, LIST_TO_SET_SNOC, AC UNION_ASSOC UNION_COMM]
+QED
+
+Theorem constraints_ok_UNION:
+  constraints_ok ns (cs1 ∪ cs2) ⇔ constraints_ok ns cs1 ∧ constraints_ok ns cs2
+Proof
+  simp[constraints_ok_def] >> eq_tac >> rw[] >> metis_tac[]
 QED
 
 val inferM_ss = simpLib.named_rewrites "inferM_ss"
@@ -2270,6 +2366,7 @@ Proof
   >- gvs[fail_def] (* Seq singleton case *)
   >- gvs[fail_def] (* Seq too many args case *)
 QED
+
 
 val _ = export_theory();
 
