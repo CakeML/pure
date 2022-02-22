@@ -549,6 +549,13 @@ Proof
   qspecl_then [`2`,`m`] mp_tac LOG >> simp[ADD1]
 QED
 
+Theorem wf_difference:
+  ∀t1 t2. wf t1 ⇒ wf (difference t1 t2)
+Proof
+  Induct >> rw[difference_def] >>
+  CASE_TAC >> gvs[wf_def] >> metis_tac[wf_mk_BN, wf_mk_BS]
+QED
+
 
 (****************************************)
 
