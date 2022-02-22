@@ -216,15 +216,17 @@ Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval
 QED
 
+(*
 val ntimes_str = toMLstring `
   (letrec
     (o (lam (f g x) (app f (app g x))))
 
-    (ntimes (lam (f n)
-      (case n temp
-        (Z (lam (x) x))
-        ((S (m)) (app o f (app ntimes f m))))))
-    (cons 0 o ntimes))`;
+    (letrec
+      (ntimes (lam (f n)
+        (case n temp
+          (Z (lam (x) x))
+          ((S (m)) (app o f (app ntimes f m))))))
+      (cons 0 o ntimes)))`;
 
 Theorem ntimes_str_type:
   parse_and_infer parse_cexp simple_ns ^ntimes_str =
@@ -242,7 +244,9 @@ Theorem ntimes_str_type:
 Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
 QED
+*)
 
+(*
 val curried_mult_str = toMLstring `
   (letrec
     (o (lam (f g x) (app f (app g x))))
@@ -267,6 +271,7 @@ Theorem curried_mult_str_type:
 Proof
   simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
 QED
+*)
 
 (********************)
 

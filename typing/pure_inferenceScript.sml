@@ -541,8 +541,9 @@ Definition is_solveable_def:
   is_solveable (Unify d t1 t2) cs = T ∧
   is_solveable (Instantiate d t sch) cs = T ∧
   is_solveable (Implicit d t1 vars t2) cs =
-    let active = FOLDL (λacc c. union (activevars c) acc) LN cs in
-    (inter (difference (freecvars t2) vars) active = LN)
+    let active = FOLDL (λacc c. union (activevars c) acc) LN
+                  (Implicit d t1 vars t2 :: cs) in
+    difference (inter (freecvars t2) active) vars = LN
 End
 
 (* TODO reverse shouldn't be necessary here *)
