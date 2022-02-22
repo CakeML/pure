@@ -526,6 +526,87 @@ Proof
   gvs[EVERY_MAP, EVERY_MEM]
 QED
 
+Theorem itype_ok_isubst:
+  ∀t ts n tdefs.
+    itype_ok tdefs (n + LENGTH ts) t ∧
+    EVERY (itype_ok tdefs n) ts
+  ⇒ itype_ok tdefs n (isubst ts t)
+Proof
+  Induct using itype_ind >> rw[itype_ok, isubst_def] >>
+  gvs[EVERY_EL, EVERY_MAP, MEM_EL, PULL_EXISTS]
+QED
+
+Theorem pure_vwalk_itype_ok:
+  ∀s. pure_wfs s ⇒
+  ∀n tds db.
+    (∀it. it ∈ FRANGE s ⇒ itype_ok tds db it)
+  ⇒ itype_ok tds db (pure_vwalk s n)
+Proof
+  gen_tac >> strip_tac >>
+  imp_res_tac pure_vwalk_ind >> pop_assum ho_match_mp_tac >> rw[] >>
+  DEP_ONCE_REWRITE_TAC[pure_vwalk] >> simp[] >>
+  CASE_TAC >> gvs[itype_ok] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+  CASE_TAC >> gvs[] >> res_tac
+QED
+
+Theorem pure_walk_itype_ok:
+  ∀s t tds db.
+    pure_wfs s ∧
+    itype_ok tds db t ∧
+    (∀it. it ∈ FRANGE s ⇒ itype_ok tds db it)
+  ⇒ itype_ok tds db (pure_walk s t)
+Proof
+  rw[pure_walk] >> CASE_TAC >> gvs[] >>
+  drule_all pure_vwalk_itype_ok >> simp[]
+QED
+
+Theorem pure_unify_itype_ok_lemma:
+  (∀s t1 t2. pure_wfs s ⇒
+    ∀sub it.
+      itype_ok tds db t1 ∧ itype_ok tds db t2 ∧
+      (∀it. it ∈ FRANGE s ⇒ itype_ok tds db it) ∧
+      pure_unify s t1 t2 = SOME sub ∧
+      it ∈ FRANGE sub
+    ⇒ itype_ok tds db it) ∧
+  (∀s ts1 ts2. pure_wfs s ⇒
+    ∀sub it.
+      EVERY (itype_ok tds db) ts1 ∧ EVERY (itype_ok tds db) ts2 ∧
+      (∀it. it ∈ FRANGE s ⇒ itype_ok tds db it) ∧
+      pure_unifyl s ts1 ts2 = SOME sub ∧
+      it ∈ FRANGE sub
+    ⇒ itype_ok tds db it)
+Proof
+  ho_match_mp_tac pure_unify_strongind >>
+  conj_tac >> rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac
+  >- (
+    qpat_x_assum `pure_unify _ _ _ = _` mp_tac >>
+    DEP_ONCE_REWRITE_TAC[pure_unify] >> conj_tac >- simp[] >>
+    Cases_on `pure_walk s t1` >> fs[] >>
+    Cases_on `pure_walk s t2` >> fs[] >>
+    simp[pure_ext_s_check] >> rw[] >>
+    imp_res_tac pure_walk_itype_ok >>
+    gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_UPDATE] >>
+    every_case_tac >> gvs[] >> res_tac >> gvs[itype_ok, SF ETA_ss]
+    )
+  >- (
+    qpat_x_assum `pure_unifyl _ _ _ = _` mp_tac >>
+    Cases_on `ts1` >> Cases_on `ts2` >>
+    once_rewrite_tac[pure_unifyl_def] >> strip_tac >> fs[] >>
+    FULL_CASE_TAC >> fs[]
+    )
+QED
+
+Theorem pure_unify_itype_ok:
+  ∀s t1 t2 sub tds db.
+    pure_wfs s ∧ (∀it. it ∈ FRANGE s ⇒ itype_ok tds db it) ∧
+    itype_ok tds db t1 ∧ itype_ok tds db t2 ∧
+    pure_unify s t1 t2 = SOME sub
+  ⇒ (∀it. it ∈ FRANGE sub ⇒ itype_ok tds db it)
+Proof
+  rw[] >> irule $ cj 1 pure_unify_itype_ok_lemma >> rpt $ goal_assum drule
+QED
+
 
 (********** isubst/ishift **********)
 
@@ -887,6 +968,44 @@ Proof
     disch_then drule >> rw[] >> simp[] >>
     disj2_tac >> goal_assum drule >> simp[]
     )
+QED
+
+Theorem pure_walkstar_pure_apply_subst:
+  DISJOINT (FDOM s) (pure_substvars w) ∧ pure_wfs w ⇒
+  pure_walkstar w (pure_apply_subst s t) =
+  pure_apply_subst (pure_walkstar w o_f s) (pure_walkstar w t)
+Proof
+  Induct_on `t` using itype_ind >>
+  rw[pure_walkstar_alt, pure_apply_subst] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+  Cases_on `FLOOKUP w n` >> gvs[]
+  >- (simp[pure_apply_subst, FLOOKUP_o_f] >> CASE_TAC >> simp[pure_walkstar_alt]) >>
+  `FLOOKUP s n = NONE` by (
+    CCONTR_TAC >> gvs[FLOOKUP_DEF, DISJOINT_ALT, pure_substvars]) >>
+  simp[pure_walkstar_alt] >> irule $ GSYM pure_apply_subst_unchanged >> simp[] >>
+  simp[pure_vars_pure_walkstar_alt] >> rw[PULL_EXISTS, pure_vars, DISJOINT_ALT] >>
+  drule_all $ SRULE [SUBSET_DEF] pure_vars_pure_walkstar_SUBSET >>
+  simp[pure_vars, GSYM IMAGE_FRANGE, PULL_EXISTS] >> rw[] >>
+  gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, DISJOINT_ALT, pure_substvars, pure_rangevars] >>
+  metis_tac[]
+QED
+
+Theorem pure_walkstar_FUNION:
+  ∀t s.
+    pure_wfs s ∧ pure_wfs t ∧
+    DISJOINT (FDOM t) (pure_substvars s)
+  ⇒ pure_walkstar (FUNION t s) = pure_walkstar s o pure_walkstar t
+Proof
+  rw[] >> drule_all pure_wfs_FUNION >> rw[] >> simp[FUN_EQ_THM] >>
+  qspec_then `FUNION t s` mp_tac pure_walkstar_alt_ind >> simp[] >>
+  disch_then ho_match_mp_tac >> rw[pure_walkstar_alt] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >>
+  gvs[FLOOKUP_FUNION] >> CASE_TAC >> gvs[] >>
+  CASE_TAC >> gvs[pure_walkstar_alt] >>
+  AP_TERM_TAC >> irule pure_walkstar_unchanged >> simp[] >>
+  gvs[DISJOINT_ALT, pure_substvars, pure_rangevars, DISJ_EQ_IMP] >> rw[] >>
+  first_x_assum drule >> strip_tac >>
+  gvs[PULL_FORALL, IN_FRANGE_FLOOKUP] >> CCONTR_TAC >> gvs[]
 QED
 
 

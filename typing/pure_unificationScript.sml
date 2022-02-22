@@ -1403,12 +1403,126 @@ Proof
   simp[FUN_EQ_THM, pure_vR]
 QED
 
+Theorem WF_alt_def:
+  ∀R. WF R ⇔  ∀B. B ≠ {} ⇒ ∃min. B min ∧ ∀b. B b ⇒ ¬R b min
+Proof
+  rw[relationTheory.WF_DEF, PULL_EXISTS] >> eq_tac >> rw[] >>
+  gvs[GSYM MEMBER_NOT_EMPTY, IN_DEF, PULL_EXISTS] >> metis_tac[]
+QED
+
+Theorem pure_wfs_alt:
+  pure_wfs s ⇔
+    ∀B. B ≠ ∅ ⇒
+      ∃min. B min ∧
+        ∀b. B b ⇒
+          ∀t. FLOOKUP s min = SOME t ⇒ b ∉ pure_vars t
+Proof
+  rw[pure_wfs, WF_alt_def, pure_vR] >> eq_tac >> rw[] >> gvs[] >>
+  first_x_assum drule >> rw[] >> goal_assum drule >> rw[] >>
+  first_x_assum drule >> rw[] >> CASE_TAC >> gvs[]
+QED
+
 Theorem pure_wfs_extend:
   pure_wfs s ∧ v ∉ FDOM s ∧ v ∉ pure_vars (pure_walkstar s t) ⇒ pure_wfs (s |+ (v,t))
 Proof
   rw[pure_wfs_def, pure_vars_def, pure_walkstar_def] >>
   irule wfs_extend >> simp[] >>
   gvs[SRULE [pure_wfs_def] encode_walkstar, decode_encode]
+QED
+
+Theorem vR_FUNION:
+  DISJOINT (FDOM t) (substvars s) ∧ x ∉ FDOM t ⇒
+  (vR (FUNION t s) y x ⇔ vR s y x)
+Proof
+  rw[vR_def, FLOOKUP_FUNION] >>
+  `FLOOKUP t x = NONE` by gvs[FLOOKUP_DEF] >> simp[]
+QED
+
+Theorem TC_vR_substvars:
+  ∀s y x. TC (vR s) y x ⇒ x ∈ FDOM s ∧ y ∈ substvars s
+Proof
+  gen_tac >> Induct_on `TC` >> rw[vR_def] >>
+  every_case_tac >> gvs[FLOOKUP_DEF, substvars_def, rangevars_def] >>
+  disj2_tac >> simp[PULL_EXISTS, FRANGE_DEF] >>
+  goal_assum drule >> simp[]
+QED
+
+Theorem RTC_vR_substvars:
+  ∀s y x. RTC (vR s) y x ⇒ (x ∈ FDOM s ∧ y ∈ substvars s) ∨ x = y
+Proof
+  rw[RTC_CASES_TC] >> imp_res_tac TC_vR_substvars >> simp[]
+QED
+
+Theorem TC_vR_FUNION:
+  DISJOINT (FDOM t) (substvars s) ∧ x ∉ FDOM t ⇒
+  (TC (vR (FUNION t s)) y x ⇔ TC (vR s) y x)
+Proof
+  rw[] >> eq_tac >> rw[]
+  >- (
+    ntac 2 $ pop_assum mp_tac >> Induct_on `TC` >> rw[] >> gvs[]
+    >- (gvs[vR_FUNION] >> simp[Once TC_CASES1]) >>
+    irule $ cj 2 TC_RULES >>
+    goal_assum $ drule_at Any >> first_x_assum irule >>
+    imp_res_tac TC_vR_substvars >> gvs[DISJOINT_ALT] >> metis_tac[]
+    )
+  >- (
+    ntac 2 $ pop_assum mp_tac >> Induct_on `TC` >> rw[] >> gvs[]
+    >- (simp[Once TC_CASES1] >> disj1_tac >> simp[vR_FUNION]) >>
+    irule $ cj 2 TC_RULES >>
+    goal_assum $ drule_at Any >> first_x_assum irule >>
+    imp_res_tac TC_vR_substvars >> gvs[DISJOINT_ALT] >> metis_tac[]
+    )
+QED
+
+Theorem TC_vR_FUNION_imp:
+  ∀y x. TC (vR (FUNION t s)) y x ⇒
+    DISJOINT (FDOM t) (substvars s) ⇒
+    TC (vR s) y x ∨
+    ∃v u. RTC (vR t) v x ∧ v ∈ FDOM t ∧ u ∈ vars (t ' v) ∧ RTC (vR s) y u
+Proof
+  Induct_on `TC` using TC_STRONG_INDUCT_RIGHT1 >> rw[] >> gvs[]
+  >- (
+    rw[] >> reverse $ Cases_on `x ∈ FDOM t` >- metis_tac[vR_FUNION, TC_RULES] >>
+    disj2_tac >> gvs[vR_def, FLOOKUP_FUNION] >>
+    every_case_tac >> gvs[] >>
+    qexists_tac `x` >> gvs[FLOOKUP_DEF, SF SFY_ss] >> goal_assum drule >> simp[]
+    ) >>
+  gvs[vR_def, FLOOKUP_FUNION] >> Cases_on `FLOOKUP t x` >> gvs[]
+  >- (
+    every_case_tac >> gvs[] >>
+    disj1_tac >> simp[Once TC_CASES2, vR_def] >> metis_tac[]
+    )
+  >- (
+    disj2_tac >> gvs[FLOOKUP_DEF] >>
+    rpt $ goal_assum $ drule_at Any >> simp[RTC_CASES_TC]
+    )
+  >- (
+    every_case_tac >> gvs[] >>
+    disj1_tac >> simp[Once TC_CASES2] >> simp[vR_def] >>
+    disj2_tac >> goal_assum $ drule_at Any >> simp[] >>
+    irule $ iffLR TC_vR_FUNION >> rpt $ goal_assum $ drule_at Any >>
+    CCONTR_TAC >> gvs[DISJOINT_ALT, FLOOKUP_DEF, substvars_def] >>
+    first_x_assum drule >> simp[rangevars_def, PULL_EXISTS, FRANGE_DEF] >>
+    metis_tac[]
+    )
+  >- (
+    disj2_tac >>
+    rpt $ goal_assum $ drule_at Any >>
+    simp[Once RTC_CASES2, vR_def] >> disj2_tac >> metis_tac[]
+    )
+QED
+
+Theorem wfs_FUNION:
+  wfs s ∧ wfs t ∧ DISJOINT (FDOM t) (substvars s) ⇒
+  wfs (FUNION t s)
+Proof
+  rw[SF CONJ_ss, oc_eq_vars_walkstar, wfs_no_cycles] >> strip_tac >>
+  drule_all TC_vR_FUNION_imp >> strip_tac >> gvs[] >>
+  `v ∈ FDOM t` by (CCONTR_TAC >> gvs[TC_vR_FUNION]) >>
+  drule RTC_vR_substvars >> strip_tac >> gvs[] >- gvs[DISJOINT_ALT] >>
+  qpat_x_assum `∀v. _` mp_tac >> simp[] >>
+  simp[Once EXTEND_RTC_TC_EQN] >>
+  goal_assum $ drule_at Any >> simp[vR_def, FLOOKUP_DEF]
 QED
 
 Definition pure_rangevars_def[nocompute]:
@@ -1437,6 +1551,16 @@ Theorem pure_substvars_FEMPTY[simp]:
   pure_substvars FEMPTY = {}
 Proof
   rw[pure_substvars, pure_rangevars]
+QED
+
+Theorem pure_wfs_FUNION:
+  ∀t s.
+    pure_wfs s ∧ pure_wfs t ∧
+    DISJOINT (FDOM t) (pure_substvars s)
+  ⇒ pure_wfs (FUNION t s)
+Proof
+  rw[pure_wfs_def, pure_substvars_def, o_f_FUNION] >>
+  irule wfs_FUNION >> simp[]
 QED
 
 Definition pure_allvars_def[nocompute]:
