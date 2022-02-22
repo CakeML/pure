@@ -5,6 +5,38 @@ val _ = new_theory "pure_inference_test";
 
 (********************)
 
+Definition solve_def:
+  solve [] = return [] ∧
+
+  solve cs = case get_solveable cs [] of
+    | NONE => fail
+
+    | SOME $ (Unify d t1 t2, cs) => do
+        sub <- oreturn $ pure_unify FEMPTY t1 t2;
+        cs' <<- MAP (subst_constraint sub) cs;
+        solve_rest <- solve cs';
+        return (sub :: solve_rest) od
+
+    | SOME $ (Instantiate d t (vs, scheme), cs) => do
+        freshes <- fresh_vars vs;
+        inst_scheme <<- isubst (MAP CVar freshes) scheme;
+        solve (Unify d t inst_scheme :: cs) od
+
+    | SOME $ (Implicit d t1 vs t2, cs) => do
+        (n, s, scheme) <<- generalise 0 vs FEMPTY t2;
+        solve (Instantiate d t1 (n, scheme) :: cs) od
+Termination
+  WF_REL_TAC `measure $ λl. SUM $ MAP constraint_weight l` >>
+  rw[constraint_weight_def, listTheory.MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+  drule get_solveable_SOME >> strip_tac >> gvs[] >>
+  Cases_on `left` >> gvs[listTheory.SUM_APPEND, constraint_weight_def]
+End
+
+Definition subst_solution_def:
+  subst_solution [] ty = ty ∧
+  subst_solution (s::ss) ty = subst_solution ss (pure_walkstar s ty)
+End
+
 Definition parse_and_infer_def:
   parse_and_infer parse ns str = do
       parsed <<- parse str;
@@ -69,6 +101,8 @@ fun debug_eval tm =
   let val cmp = pure_parse_infer_compset ()
       val _ = computeLib.extend_compset
                 [computeLib.Defs [
+                  fetch "-" "solve_def",
+                  fetch "-" "subst_solution_def",
                   fetch "-" "solve_k_compute",
                   fetch "-" "parse_and_get_constraints_def",
                   fetch "-" "parse_and_solve_k_def"
@@ -113,7 +147,7 @@ Theorem example_2_exp:
         Let () "x" (App () (Var () "y") [Prim () (Cons "True") []]) $
          Var () "x"
 Proof
-  simp[] >> CONV_TAC pure_parse_infer_eval
+  simp[] >> CONV_TAC debug_eval
 QED
 
 Definition example_2_infer_def[simp]:
@@ -132,7 +166,7 @@ Theorem example_2_infer:
         Unify () (CVar 2) (Function (PrimTy Bool) (CVar 3))
       ]), 5)
 Proof
-  simp[] >> CONV_TAC pure_parse_infer_eval
+  simp[] >> CONV_TAC debug_eval
 QED
 
 Definition example_2_solve_def[simp]:
@@ -154,7 +188,7 @@ Theorem example_2_solve:
       5)
   )
 Proof
-  simp[] >> CONV_TAC pure_parse_infer_eval
+  simp[] >> CONV_TAC debug_eval
 QED
 
 Definition example_2_solved_def[simp]:
@@ -167,14 +201,14 @@ End
 Theorem example_2_solved:
   example_2_solved = Function (Function (PrimTy Bool) (CVar 3)) (CVar 3)
 Proof
-  simp[] >> CONV_TAC pure_parse_infer_eval
+  simp[] >> CONV_TAC debug_eval
 QED
 
 Theorem example_2_overall:
   parse_and_infer parse_cexp simple_ns example_2 =
   return (1, Function (Function (PrimTy Bool) (TypeVar 0)) (TypeVar 0)) 5
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval
 QED
 
 (********************)
@@ -191,7 +225,7 @@ Theorem add_str_type:
   parse_and_infer parse_cexp simple_ns ^add_str =
     return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 10
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 
 val even_odd_str = toMLstring `
@@ -213,7 +247,7 @@ Theorem even_odd_str_type:
       Function (TypeCons 1 []) (PrimTy Bool)
       ]) 14
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval
 QED
 
 (*
@@ -242,7 +276,7 @@ Theorem ntimes_str_type:
         (Function (TypeVar 3) (TypeVar 3))
       ]) 32
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 *)
 
@@ -269,7 +303,7 @@ Theorem curried_mult_str_type:
   parse_and_infer parse_cexp simple_ns ^curried_mult_str =
     return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 45
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 *)
 
@@ -307,7 +341,7 @@ Theorem add_str_type:
   parse_and_infer parse_cexp even_odd_ns ^add_even_even_str =
     return (0, Functions [TypeCons 0 []; TypeCons 0 []] (TypeCons 0 [])) 12
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 
 val add_even_odd_nats_str = toMLstring `
@@ -336,7 +370,7 @@ Theorem add_str_type:
       Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 0 []);
       ]) 29
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC pure_parse_infer_eval >> EVAL_TAC
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 
 (********************)

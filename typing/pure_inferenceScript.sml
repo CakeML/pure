@@ -582,7 +582,7 @@ Proof
 QED
 
 Definition solve_def:
-  solve [] = return [] ∧
+  solve [] = return FEMPTY ∧
 
   solve cs = case get_solveable cs [] of
     | NONE => fail
@@ -591,7 +591,7 @@ Definition solve_def:
         sub <- oreturn $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve cs';
-        return (sub :: solve_rest) od
+        return (FUNION sub solve_rest) od
 
     | SOME $ (Instantiate d t (vs, scheme), cs) => do
         freshes <- fresh_vars vs;
@@ -606,11 +606,6 @@ Termination
   rw[constraint_weight_def, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
   drule get_solveable_SOME >> strip_tac >> gvs[] >>
   Cases_on `left` >> gvs[SUM_APPEND, constraint_weight_def]
-End
-
-Definition subst_solution_def:
-  subst_solution [] ty = ty ∧
-  subst_solution (s::ss) ty = subst_solution ss (pure_walkstar s ty)
 End
 
 Definition infer_top_level_def:

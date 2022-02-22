@@ -3196,13 +3196,6 @@ Proof
   simp[AC UNION_ASSOC UNION_COMM]
 QED
 
-Triviality subst_solution_alt:
-  subst_solution [] = (λx.x) ∧
-  subst_solution (s::ss) = subst_solution ss o pure_walkstar s
-Proof
-  rw[FUN_EQ_THM, subst_solution_def]
-QED
-
 Triviality satisfies_FUNION:
   ∀c. DISJOINT (FDOM t) (pure_substvars s) ∧ pure_wfs s ∧ pure_wfs t ∧
     satisfies tds s (to_mconstraint (subst_constraint t c)) ⇒
@@ -3272,24 +3265,20 @@ QED
 
 Theorem solve_sound:
   ∀ns. namespace_ok ns ⇒
-  ∀cs ss n m.
-    solve cs n = SOME (ss,m) ∧
+  ∀cs sub n m.
+    solve cs n = SOME (sub,m) ∧
     constraints_ok (SND ns) (set (MAP to_mconstraint cs)) ∧
     (BIGUNION $ set (MAP (constraint_vars o to_mconstraint) cs) ⊆ count n)
-  ⇒ ∃sub.
-      pure_wfs sub ∧
-      pure_substvars sub ⊆
-        BIGUNION (set (MAP (mactivevars o to_mconstraint) cs)) ∪
-        { v | n ≤ v ∧ v < m } ∧
-      subst_solution ss = pure_walkstar sub ∧
-      (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
-      (∀c. MEM c cs ⇒ satisfies (SND ns) sub (to_mconstraint c))
+  ⇒ pure_wfs sub ∧
+    pure_substvars sub ⊆
+      BIGUNION (set (MAP (mactivevars o to_mconstraint) cs)) ∪
+      { v | n ≤ v ∧ v < m } ∧
+    (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
+    (∀c. MEM c cs ⇒ satisfies (SND ns) sub (to_mconstraint c))
 Proof
-  gen_tac >> strip_tac >> recInduct solve_ind >> rw[]
-  >- (
-    gvs[solve_def, return_def, subst_solution_alt] >>
-    qexists_tac `FEMPTY` >> simp[FUN_EQ_THM, pure_walkstar_FEMPTY]
-    ) >>
+  gen_tac >> strip_tac >> recInduct solve_ind >>
+  conj_tac >> rpt gen_tac >> strip_tac >- gvs[solve_def, return_def] >>
+  rpt gen_tac >> strip_tac >>
   qpat_x_assum `solve _ _ = _` mp_tac >> simp[Once solve_def] >>
   CASE_TAC >> gvs[fail_def] >>
   CASE_TAC >> rename1 `get_solveable _ _ = SOME (c,cs)` >>
@@ -3317,7 +3306,9 @@ Proof
     imp_res_tac pure_unify_FEMPTY >>
     `∀it. it ∈ FRANGE x ⇒ itype_ok (SND ns) 0 it` by (
       ho_match_mp_tac pure_unify_itype_ok >> qexists_tac `FEMPTY` >> simp[] >>
-      goal_assum $ drule_at Any >> gvs[constraints_ok_def]) >>
+      goal_assum $ drule_at Any >> gvs[constraints_ok_UNION] >>
+      qpat_x_assum `constraints_ok _ {_}` mp_tac >>
+      once_rewrite_tac[constraints_ok_def] >> rw[]) >>
     first_x_assum drule >> impl_tac
     >- (
       gvs[constraints_ok_UNION] >>
@@ -3326,7 +3317,7 @@ Proof
       irule constraint_vars_subst_constraint_SUBSET >> simp[] >>
       gvs[constraint_vars_def, SUBSET_DEF] >> metis_tac[]
       ) >>
-    rw[] >> qexists_tac `FUNION x sub'` >>
+    rename1 `FUNION x sub'` >> strip_tac >>
     `DISJOINT (FDOM x) (pure_substvars sub')` by (
       irule DISJOINT_SUBSET >> goal_assum $ drule_at Any >>
       simp[MEM_MAP, PULL_EXISTS] >> once_rewrite_tac[DISJOINT_SYM] >>
@@ -3337,7 +3328,7 @@ Proof
       simp[DISJOINT_ALT] >> gvs[SUBSET_DEF] >>
       rw[] >> gvs[] >> first_x_assum drule >> simp[]) >>
     irule_at Any pure_wfs_FUNION >> simp[] >>
-    DEP_REWRITE_TAC[pure_walkstar_FUNION] >> simp[subst_solution_alt] >>
+    DEP_REWRITE_TAC[pure_walkstar_FUNION] >> simp[] >>
     DEP_REWRITE_TAC[FRANGE_FUNION, pure_substvars_FUNION] >> rpt conj_tac
     >- (gvs[pure_substvars] >> simp[Once DISJOINT_SYM])
     >- (
@@ -3383,7 +3374,7 @@ Proof
         ) >>
       gvs[SUBSET_DEF] >> rw[] >> res_tac >> simp[]
       ) >>
-    rw[] >> goal_assum drule >> simp[] >> rpt conj_tac
+    strip_tac >> simp[] >> rpt conj_tac
     >- (
       irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
       simp[mactivevars_def, GSYM CONJ_ASSOC] >> rw[]
@@ -3418,7 +3409,7 @@ Proof
   >- (
     pairarg_tac >> imp_res_tac generalise_0_FEMPTY >> gvs[] >>
     qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new,gen,sch)` >>
-    rw[] >> rename1 `Implicit _ t1 vs t2` >>
+    strip_tac >> rename1 `Implicit _ t1 vs t2` >>
     `pure_vars sch = pure_vars t2 DIFF FDOM gen` by (
       simp[Abbr `sch`, pure_vars_pure_apply_subst] >>
       rw[Once EXTENSION, PULL_EXISTS, pure_apply_subst, FLOOKUP_o_f, FLOOKUP_FDIFF] >>
@@ -3435,7 +3426,7 @@ Proof
       simp[GSYM IMAGE_FRANGE, PULL_EXISTS, itype_ok] >> gvs[itype_ok_def] >>
       rw[] >> drule $ SRULE [SUBSET_DEF] FRANGE_FDIFF_SUBSET >> simp[]
       ) >>
-    strip_tac >> gvs[SF DNF_ss, GSYM CONJ_ASSOC] >> goal_assum drule >>
+    strip_tac >> gvs[SF DNF_ss, GSYM CONJ_ASSOC] >>
     DEP_REWRITE_TAC[satisfies_implicit_alt] >> simp[] >> rw[]
     >- (
       `itype_ok (SND ns) 0 (pure_walkstar sub t2)` suffices_by rw[itype_ok_def] >>
@@ -3483,8 +3474,7 @@ Proof
     Cases_on `b` >> gvs[balanced_mapTheory.null_def] >>
     gvs[lookup_def, balanced_mapTheory.lookup_def] >> rw[fmap_eq_flookup]) >>
   gvs[] >> drule solve_sound >> PairCases_on `x` >> disch_then drule >>
-  reverse impl_tac
-  >- (rw[] >> goal_assum drule >> qexists_tac `Unit` >> gvs[MEM_MAP, SF DNF_ss]) >>
+  reverse impl_tac >- (rw[] >> goal_assum drule >> gvs[MEM_MAP, SF DNF_ss]) >>
   simp[] >> once_rewrite_tac[INSERT_SING_UNION] >> simp[constraints_ok_UNION] >>
   drule minfer_constraints_ok >> simp[] >> rw[]
   >- (
