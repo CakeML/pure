@@ -835,8 +835,148 @@ Proof
     )
 QED
 
+Definition generalises_to_def:
+  generalises_to mono t sch ⇔
+    let new = pure_vars t DIFF mono in
+    ∃gen.
+      FDOM gen = new ∧ FRANGE gen = count (CARD new) ∧
+      sch = (CARD new, csubst (DBVar o_f gen) t)
+End
 
-(******************** Main results ********************)
+Theorem satisfies_implicit_alt_lemma[local]:
+  pure_wfs s ∧ freedbvars (pure_walkstar s t2) = {} ∧ FINITE vs ⇒
+  satisfies tdefs s (mImplicit t1 vs t2) =
+    ∃gen. let new = pure_vars (pure_walkstar s t2) DIFF msubst_vars s vs in
+      FDOM gen = new ∧ FRANGE gen = count (CARD new) ∧
+      satisfies tdefs s $ mInstantiate t1 $
+        (CARD new, csubst (DBVar o_f gen) (pure_walkstar s t2))
+Proof
+  rw[satisfies_def] >> reverse eq_tac >> rw[]
+  >- (
+    pop_assum mp_tac >>
+    DEP_REWRITE_TAC[pure_walkstar_pure_apply_subst_pure_walkstar] >>
+    simp[GSYM IMAGE_FRANGE, PULL_EXISTS, pure_vars] >> rw[] >>
+    simp[isubst_pure_apply_subst_alt] >>
+    irule_at Any EQ_REFL >> rw[] >> gvs[GSYM IMAGE_FRANGE, isubst_def, EVERY_EL] >>
+    simp[pure_vars_pure_apply_subst] >> rw[SUBSET_DEF, PULL_EXISTS] >>
+    `∃v. FLOOKUP gen v = SOME x` by simp[GSYM IN_FRANGE_FLOOKUP] >>
+    qexists_tac `v` >> simp[pure_apply_subst, FLOOKUP_o_f, isubst_def] >>
+    gvs[FLOOKUP_DEF]
+    )
+  >- (
+    `∃svs :num_set. domain svs = msubst_vars s vs ∧ wf svs` by (
+      qexists_tac `list_to_num_set (SET_TO_LIST (msubst_vars s vs))` >>
+      simp[EXTENSION, domain_list_to_num_set, wf_list_to_num_set] >>
+      DEP_REWRITE_TAC[MEM_SET_TO_LIST] >> simp[msubst_vars_def, PULL_EXISTS]) >>
+    qabbrev_tac `gen = generalise 0 svs FEMPTY (pure_walkstar s t2)`  >>
+    PairCases_on `gen` >> gvs[] >> imp_res_tac generalise_0_FEMPTY >> gvs[] >>
+    qmatch_asmsub_abbrev_tac `(new,gen_sub,sch)` >> pop_assum kall_tac >>
+    goal_assum drule >> simp[] >>
+    qspecl_then [`gen_sub`,`sub`,`pure_walkstar s t2`]
+      mp_tac pure_apply_subst_split_isubst >> rw[] >>
+    pop_assum $ assume_tac o GSYM >> simp[] >>
+    DEP_REWRITE_TAC[pure_walkstar_pure_apply_subst_pure_walkstar] >>
+    simp[GSYM IMAGE_FRANGE, PULL_EXISTS, pure_vars] >>
+    irule_at Any EQ_REFL >> rw[EVERY_GENLIST]
+    >- (irule itype_ok_pure_apply_subst >> simp[itype_ok]) >>
+    qpat_x_assum `csubst _ _ = _` $ assume_tac o GSYM >> rw[SUBSET_DEF] >>
+    simp[pure_vars_pure_apply_subst] >> simp[PULL_EXISTS, pure_vars] >>
+    goal_assum drule >> qsuff_tac `gm ' n ∈ FRANGE gm`
+    >- (imp_res_tac fmap_linv_alt_def >> gvs[EXTENSION]) >>
+    simp[FRANGE_DEF] >> gvs[fmap_linv_alt_def] >> goal_assum drule >> simp[]
+    )
+QED
+
+Theorem satisfies_implicit_alt:
+  pure_wfs s ∧ freedbvars (pure_walkstar s t2) = {} ∧ FINITE vs ⇒ (
+  satisfies tdefs s (mImplicit t1 vs t2) ⇔
+  ∃sch.
+    generalises_to (msubst_vars s vs) (pure_walkstar s t2) sch ∧
+    satisfies tdefs s (mInstantiate t1 sch))
+Proof
+  rw[satisfies_implicit_alt_lemma] >> simp[generalises_to_def, PULL_EXISTS]
+QED
+
+Theorem satisfies_sub:
+  satisfies tds sub' (to_mconstraint (subst_constraint sub c)) ∧
+  pure_compat sub sub'
+  ⇒ satisfies tds sub' (to_mconstraint c)
+Proof
+  Cases_on `c` >> simp[subst_constraint_def]
+  >- (
+    rename1 `_ ⇒ _ $ mUnify t1 t2` >> rw[satisfies_def] >>
+    gvs[pure_compat_def]
+    )
+  >- (
+    Cases_on `p` >> rename1 `mInstantiate t (vs,sch)` >>
+    rw[satisfies_def, subst_constraint_def] >>
+    gvs[pure_compat_def] >>
+    irule_at Any EQ_REFL >> simp[]
+    )
+  >- (
+    rename1 `_ ⇒ _ $ mImplicit t1 (domain vs) t2` >> rw[satisfies_def] >>
+    gvs[pure_compat_def] >>
+    qsuff_tac
+      `msubst_vars sub' (domain (subst_vars sub vs)) = msubst_vars sub' (domain vs)`
+    >- (rw[] >> gvs[pure_compat_def] >> goal_assum drule >> simp[]) >>
+    DEP_REWRITE_TAC[subst_vars_msubst_vars] >> gvs[pure_compat_def] >>
+    simp[msubst_vars_def, Once EXTENSION, PULL_EXISTS] >> rw[] >> eq_tac >> rw[]
+    >- (
+      goal_assum $ drule_at Any >>
+      qpat_x_assum `∀t. _ = _` $ once_rewrite_tac o single o GSYM >>
+      simp[Once pure_vars_pure_walkstar_alt, PULL_EXISTS] >>
+      goal_assum drule >> simp[]
+      )
+    >- (
+      qpat_x_assum `_ ∈ pure_vars _` mp_tac >>
+      qpat_x_assum `∀t. _ = _` $ rewrite_tac o single o Once o GSYM >>
+      rw[Once pure_vars_pure_walkstar_alt, PULL_EXISTS] >> rpt $ goal_assum drule
+      )
+    )
+QED
+
+Theorem generalise_solve_implicit:
+  pure_wfs s ∧
+  pure_vars t ∩ pure_substvars s ⊆ monos ∧
+  generalises_to monos t (gen, sch) ⇒
+  generalises_to (msubst_vars s monos) (pure_walkstar s t) (gen, pure_walkstar s sch)
+Proof
+  rw[generalises_to_def] >>
+  DEP_REWRITE_TAC[pure_walkstar_pure_apply_subst] >> conj_tac >> rw[]
+  >- (gvs[EXTENSION, SUBSET_DEF, DISJOINT_ALT, pure_substvars] >> metis_tac[]) >>
+  qsuff_tac
+    `pure_vars (pure_walkstar s t) DIFF msubst_vars s monos =
+      pure_vars t DIFF monos`
+  >- (
+    rw[] >> goal_assum drule >> simp[] >>
+    simp[combinTheory.o_DEF, pure_walkstar_alt, SF ETA_ss]
+    ) >>
+  rw[EXTENSION] >> simp[pure_vars_pure_walkstar_alt] >>
+  simp[PULL_EXISTS, pure_vars] >> eq_tac >> rw[] >> gvs[SUBSET_DEF]
+  >- (
+    rename1 `CVar k` >> Cases_on `k ∈ monos`
+    >- gvs[msubst_vars_def, DISJ_EQ_IMP, PULL_FORALL] >>
+    `k ∉ FDOM s` by (CCONTR_TAC >> gvs[pure_substvars]) >>
+    gvs[pure_walkstar_alt, FLOOKUP_DEF, pure_vars, DISJOINT_ALT]
+    )
+  >- (
+    rename1 `CVar k` >> Cases_on `k ∈ monos`
+    >- gvs[msubst_vars_def, DISJ_EQ_IMP, PULL_FORALL] >>
+    `k ∉ FDOM s` by (CCONTR_TAC >> gvs[pure_substvars]) >>
+    gvs[pure_walkstar_alt, FLOOKUP_DEF, pure_vars, DISJOINT_ALT]
+    )
+  >- (
+    `x ∉ FDOM s ∧ x ∉ pure_rangevars s` by (CCONTR_TAC >> gvs[pure_substvars]) >>
+    goal_assum $ drule_at Any >> rw[]
+    >- simp[pure_walkstar_alt, FLOOKUP_DEF, pure_vars] >>
+    gvs[msubst_vars_def, pure_rangevars, DISJ_EQ_IMP, PULL_FORALL, PULL_EXISTS] >>
+    rw[] >> drule_all $ SRULE [SUBSET_DEF] pure_vars_pure_walkstar_SUBSET >>
+    rw[pure_vars, GSYM IMAGE_FRANGE, PULL_EXISTS] >> gvs[]
+    )
+QED
+
+
+(******************** Constraint generation ********************)
 
 Definition ctxt_rel_def:
   ctxt_rel tdefs sub as ctxt ⇔
@@ -2340,6 +2480,385 @@ Proof
     rw[] >> simp[type_of_def, itype_ok]
     ) >>
   rw[new_vars_def] >> unabbrev_all_tac >> simp[SUBSET_DEF, PULL_EXISTS, SF SFY_ss]
+QED
+
+
+(******************** Constraint solving ********************)
+
+Triviality constraints_ok_subst_constraint:
+  constraints_ok ns (set (MAP to_mconstraint cs)) ∧
+  pure_wfs sub ∧ (∀it. it ∈ FRANGE sub ⇒ itype_ok ns 0 it) ⇒
+  constraints_ok ns (set (MAP to_mconstraint (MAP (subst_constraint sub) cs)))
+Proof
+  simp[constraints_ok_def] >> strip_tac >>
+  gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >>
+  first_x_assum drule >> strip_tac >>
+  Cases_on `y'` >> simp[subst_constraint_def] >>
+  rpt $ irule_at Any itype_ok_pure_walkstar >> simp[] >>
+  Cases_on `p` >> simp[subst_constraint_def] >>
+  rpt $ irule_at Any itype_ok_pure_walkstar >> gvs[itype_ok_def]
+QED
+
+Triviality isubst_irrelevance:
+  pure_vars (isubst its it) ⊆ s ⇒
+  isubst (MAP
+    (λt. if pure_vars t ⊆ s then t else any) its) it =
+  isubst its it
+Proof
+  Induct_on `it` using itype_ind >> rw[isubst_def, EL_MAP] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f, pure_vars] >> rw[] >>
+  first_x_assum drule >> disch_then irule >>
+  gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
+QED
+
+Triviality pure_unify_FEMPTY:
+  pure_unify FEMPTY t1 t2 = SOME s ⇒
+    pure_wfs s ∧
+    pure_walkstar s t1 = pure_walkstar s t2 ∧
+    pure_substvars s ⊆ pure_vars t1 ∪ pure_vars t2
+Proof
+  strip_tac >>
+  drule_at Any pure_unify_uP >> drule_at Any pure_unify_unifier >> rw[] >>
+  gvs[pure_uP, pure_allvars]
+QED
+
+Triviality subst_constraint_DISJOINT_FDOM:
+  ∀s c. pure_wfs s ⇒
+    DISJOINT (FDOM s) (mactivevars (to_mconstraint (subst_constraint s c)))
+Proof
+  rw[] >> Cases_on `c` >> simp[subst_constraint_def, mactivevars_def]
+  >- metis_tac[DISJOINT_ALT, pure_walkstar_vars_notin]
+  >- (
+    Cases_on `p` >> simp[subst_constraint_def, mactivevars_def] >>
+    metis_tac[DISJOINT_ALT, pure_walkstar_vars_notin]
+    ) >>
+  conj_tac >- metis_tac[DISJOINT_ALT, pure_walkstar_vars_notin] >>
+  map_every (irule_at Any) [SUBSET_DISJOINT, cj 2 INTER_SUBSET, SUBSET_REFL] >>
+  metis_tac[DISJOINT_ALT, pure_walkstar_vars_notin]
+QED
+
+Triviality mactivevars_subst_constraint:
+  pure_wfs s ⇒
+  mactivevars (to_mconstraint (subst_constraint s c)) ⊆
+  mactivevars (to_mconstraint c) ∪ pure_substvars s
+Proof
+  Cases_on `c` >> rw[subst_constraint_def, mactivevars_def]
+  >- (
+    irule SUBSET_TRANS >> irule_at Any pure_walkstar_vars_in >>
+    simp[pure_substvars, pure_rangevars, IMAGE_FRANGE] >> rw[SUBSET_DEF]
+    )
+  >- (
+    irule SUBSET_TRANS >> irule_at Any pure_walkstar_vars_in >>
+    simp[pure_substvars, pure_rangevars, IMAGE_FRANGE] >> rw[SUBSET_DEF]
+    )
+  >- (
+    Cases_on `p` >> rw[subst_constraint_def, mactivevars_def] >>
+    irule SUBSET_TRANS >> irule_at Any pure_walkstar_vars_in >>
+    simp[pure_substvars, pure_rangevars, IMAGE_FRANGE] >> rw[SUBSET_DEF]
+    )
+  >- (
+    irule SUBSET_TRANS >> irule_at Any pure_walkstar_vars_in >>
+    simp[pure_substvars, pure_rangevars, IMAGE_FRANGE] >> rw[SUBSET_DEF]
+    )
+  >- (
+    rw[subst_vars_msubst_vars, msubst_vars_def, SUBSET_DEF] >>
+    imp_res_tac $ SRULE [SUBSET_DEF] pure_walkstar_vars_in >> gvs[pure_vars] >>
+    gvs[pure_substvars, pure_rangevars, GSYM IMAGE_FRANGE] >> metis_tac[]
+    )
+QED
+
+Triviality msubst_vars_FUNION:
+  ∀t s.
+    pure_wfs s ∧ pure_wfs t ∧
+    DISJOINT (FDOM t) (pure_substvars s)
+  ⇒ msubst_vars (FUNION t s) = msubst_vars s o msubst_vars t
+Proof
+  rw[Once FUN_EQ_THM] >> rw[msubst_vars_def] >>
+  rw[Once EXTENSION, PULL_EXISTS] >> eq_tac >> rw[] >>
+  gvs[pure_walkstar_FUNION]
+  >- (
+    qpat_x_assum `_ ∈ pure_vars _` mp_tac >>
+    simp[Once pure_vars_pure_walkstar_alt] >> rw[] >> rpt $ goal_assum drule
+    )
+  >- (
+    simp[Once pure_vars_pure_walkstar_alt] >>
+    simp[PULL_EXISTS] >> rpt $ goal_assum drule
+    )
+QED
+
+Triviality pure_substvars_FUNION:
+  DISJOINT (FDOM s1) (FDOM s2) ⇒
+  pure_substvars (FUNION s1 s2) = pure_substvars s1 ∪ pure_substvars s2
+Proof
+  rw[pure_substvars, pure_rangevars, FRANGE_FUNION] >>
+  simp[AC UNION_ASSOC UNION_COMM]
+QED
+
+Triviality subst_solution_alt:
+  subst_solution [] = (λx.x) ∧
+  subst_solution (s::ss) = subst_solution ss o pure_walkstar s
+Proof
+  rw[FUN_EQ_THM, subst_solution_def]
+QED
+
+Triviality satisfies_FUNION:
+  ∀c. DISJOINT (FDOM t) (pure_substvars s) ∧ pure_wfs s ∧ pure_wfs t ∧
+    satisfies tds s (to_mconstraint (subst_constraint t c)) ⇒
+    satisfies tds (FUNION t s) (to_mconstraint c)
+Proof
+  Cases >> rw[satisfies_def, subst_constraint_def] >> gvs[pure_walkstar_FUNION]
+  >- (
+    Cases_on `p` >> gvs[satisfies_def, subst_constraint_def, pure_walkstar_FUNION] >>
+    irule_at Any EQ_REFL >> simp[]
+    )
+  >- (
+    irule_at Any EQ_REFL >> simp[] >>
+    gvs[msubst_vars_FUNION, subst_vars_msubst_vars]
+    )
+QED
+
+Triviality constraint_vars_subst_constraint_SUBSET:
+  pure_substvars s ⊆ X ∧ pure_wfs s ∧
+  constraint_vars (to_mconstraint c) ⊆ X
+  ⇒ constraint_vars (to_mconstraint (subst_constraint s c)) ⊆ X
+Proof
+  Cases_on `c` >> rw[] >> gvs[subst_constraint_def, constraint_vars_def] >>
+  gvs[pure_substvars, pure_rangevars, IMAGE_FRANGE]
+  >- (
+    rw[] >> irule SUBSET_TRANS >> irule_at Any pure_vars_pure_walkstar_SUBSET >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    )
+  >- (
+    Cases_on `p` >> gvs[subst_constraint_def, constraint_vars_def] >>
+    rw[] >> irule SUBSET_TRANS >> irule_at Any pure_vars_pure_walkstar_SUBSET >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    ) >>
+  rw[]
+  >- (
+    irule SUBSET_TRANS >> irule_at Any pure_vars_pure_walkstar_SUBSET >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    )
+  >- (
+    simp[subst_vars_msubst_vars, msubst_vars_def, BIGUNION_SUBSET, PULL_EXISTS] >>
+    rw[] >> irule SUBSET_TRANS >> irule_at Any pure_vars_pure_walkstar_SUBSET >>
+    gvs[pure_vars, SUBSET_DEF] >> metis_tac[]
+    )
+  >- (
+    irule SUBSET_TRANS >> irule_at Any pure_vars_pure_walkstar_SUBSET >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    )
+QED
+
+Theorem solve_monad_mono:
+  ∀cs n ss m. solve cs n = SOME (ss, m) ⇒ n ≤ m
+Proof
+  Induct using solve_ind >> simp[Once solve_def] >- gvs[return_def] >>
+  rpt gen_tac >> TOP_CASE_TAC >> gvs[fail_def] >>
+  TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[]
+  >- (
+    rename1 `pure_unify _ t1 t2` >> Cases_on `pure_unify FEMPTY t1 t2` >>
+    gvs[oreturn_def, infer_bind_def, fail_def, return_def] >>
+    CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >> rw[] >>
+    first_x_assum drule >> simp[]
+    )
+  >- (
+    CASE_TAC >> simp[fresh_vars_def, infer_bind_def] >>
+    rw[] >> gvs[] >> first_x_assum drule >> rw[]
+    )
+  >- (pairarg_tac >> gvs[])
+QED
+
+Theorem solve_sound:
+  ∀ns. namespace_ok ns ⇒
+  ∀cs ss n m.
+    solve cs n = SOME (ss,m) ∧
+    constraints_ok (SND ns) (set (MAP to_mconstraint cs)) ∧
+    (BIGUNION $ set (MAP (constraint_vars o to_mconstraint) cs) ⊆ count n)
+  ⇒ ∃sub.
+      pure_wfs sub ∧
+      pure_substvars sub ⊆
+        BIGUNION (set (MAP (mactivevars o to_mconstraint) cs)) ∪
+        { v | n ≤ v ∧ v < m } ∧
+      subst_solution ss = pure_walkstar sub ∧
+      (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
+      (∀c. MEM c cs ⇒ satisfies (SND ns) sub (to_mconstraint c))
+Proof
+  gen_tac >> strip_tac >> recInduct solve_ind >> rw[]
+  >- (
+    gvs[solve_def, return_def, subst_solution_alt] >>
+    qexists_tac `FEMPTY` >> simp[FUN_EQ_THM, pure_walkstar_FEMPTY]
+    ) >>
+  qpat_x_assum `solve _ _ = _` mp_tac >> simp[Once solve_def] >>
+  CASE_TAC >> gvs[fail_def] >>
+  CASE_TAC >> rename1 `get_solveable _ _ = SOME (c,cs)` >>
+  imp_res_tac get_solveable_SOME >> gvs[] >>
+  `constraints_ok (SND ns) (set (MAP to_mconstraint (left ++ [c] ++ right)))` by  (
+    qpat_x_assum `_::_ = _` $ rewrite_tac o single o GSYM >> simp[]) >>
+  qpat_x_assum `constraints_ok _ (_ INSERT _)` kall_tac >>
+  `BIGUNION (set (MAP (constraint_vars o to_mconstraint)
+    (left ++ [c] ++ right))) ⊆ count n` by  (
+    qpat_x_assum `_::_ = _` $ rewrite_tac o single o GSYM >> simp[]) >>
+  qpat_x_assum `constraint_vars _ ⊆ _` kall_tac >>
+  qpat_x_assum `BIGUNION (set (_ v3)) ⊆ _` kall_tac >>
+  `∀c'. MEM c' (v2::v3) ⇔ MEM c' (left ++ [c] ++ right)` by (
+    rpt AP_TERM_TAC >> asm_rewrite_tac[]) >>
+  pop_assum mp_tac >> simp[] >> disch_then kall_tac >>
+  `BIGUNION (set (MAP (mactivevars ∘ to_mconstraint) (v2::v3))) =
+    BIGUNION (set (MAP (mactivevars ∘ to_mconstraint) (left ++ [c] ++ right)))` by (
+    rpt AP_TERM_TAC >> simp[]) >>
+  pop_assum mp_tac >> simp[] >> disch_then kall_tac >>
+  qpat_x_assum `_::_ = _` kall_tac >> CASE_TAC >> gvs[]
+  >- (
+    rename1 `Unify _ t1 t2` >> simp[infer_bind_def] >>
+    Cases_on `pure_unify FEMPTY t1 t2` >> gvs[oreturn_def, fail_def, return_def] >>
+    CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >> strip_tac >> gvs[] >>
+    imp_res_tac pure_unify_FEMPTY >>
+    `∀it. it ∈ FRANGE x ⇒ itype_ok (SND ns) 0 it` by (
+      ho_match_mp_tac pure_unify_itype_ok >> qexists_tac `FEMPTY` >> simp[] >>
+      goal_assum $ drule_at Any >> gvs[constraints_ok_def]) >>
+    first_x_assum drule >> impl_tac
+    >- (
+      gvs[constraints_ok_UNION] >>
+      rpt $ irule_at Any constraints_ok_subst_constraint >> simp[] >>
+      gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
+      irule constraint_vars_subst_constraint_SUBSET >> simp[] >>
+      gvs[constraint_vars_def, SUBSET_DEF] >> metis_tac[]
+      ) >>
+    rw[] >> qexists_tac `FUNION x sub'` >>
+    `DISJOINT (FDOM x) (pure_substvars sub')` by (
+      irule DISJOINT_SUBSET >> goal_assum $ drule_at Any >>
+      simp[MEM_MAP, PULL_EXISTS] >> once_rewrite_tac[DISJOINT_SYM] >>
+      rw[] >> rpt $ irule_at Any subst_constraint_DISJOINT_FDOM >> simp[] >>
+      gvs[constraint_vars_def, pure_substvars] >>
+      irule SUBSET_DISJOINT >> goal_assum $ drule_at Any >>
+      irule_at Any SUBSET_REFL >>
+      simp[DISJOINT_ALT] >> gvs[SUBSET_DEF] >>
+      rw[] >> gvs[] >> first_x_assum drule >> simp[]) >>
+    irule_at Any pure_wfs_FUNION >> simp[] >>
+    DEP_REWRITE_TAC[pure_walkstar_FUNION] >> simp[subst_solution_alt] >>
+    DEP_REWRITE_TAC[FRANGE_FUNION, pure_substvars_FUNION] >> rpt conj_tac
+    >- (gvs[pure_substvars] >> simp[Once DISJOINT_SYM])
+    >- (
+      rw[mactivevars_def] >- gvs[SUBSET_DEF] >>
+      irule SUBSET_TRANS >> goal_assum $ drule_at Any >> rw[] >>
+      simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
+      irule SUBSET_TRANS >> irule_at Any mactivevars_subst_constraint >> simp[] >>
+      gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> rw[SF SFY_ss]
+      )
+    >- simp[DISJ_IMP_THM]
+    >- (
+      rw[]
+      >- (
+        irule satisfies_FUNION >>
+        gvs[MEM_MAP, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]
+        )
+      >- (irule satisfies_FUNION >> simp[subst_constraint_def, satisfies_def])
+      >- (
+        irule satisfies_FUNION >>
+        gvs[MEM_MAP, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]
+        )
+      )
+    )
+  >- (
+    CASE_TAC >> rename1 `Instantiate _ t1 (vs,sch)` >>
+    simp[fresh_vars_def, infer_bind_def] >>
+    qmatch_goalsub_abbrev_tac `MAP CVar freshes` >> strip_tac >> gvs[] >>
+    first_x_assum drule >> impl_tac
+    >- (
+      once_rewrite_tac[INSERT_SING_UNION] >> gvs[constraints_ok_UNION] >>
+      qpat_x_assum `constraints_ok _ {_}` mp_tac >> simp[constraints_ok_def] >> rw[]
+      >- (
+        irule itype_ok_isubst >> simp[EVERY_MAP, itype_ok] >>
+        unabbrev_all_tac >> gvs[]
+        )
+      >- (
+        gvs[constraint_vars_def] >>
+        conj_tac >- (gvs[SUBSET_DEF] >> rw[] >> res_tac >> simp[]) >>
+        irule SUBSET_TRANS >> irule_at Any pure_vars_isubst_SUBSET >> simp[] >>
+        conj_tac >- (gvs[SUBSET_DEF] >> rw[] >> res_tac >> simp[]) >>
+        unabbrev_all_tac >>
+        simp[BIGUNION_SUBSET, MEM_MAP, MEM_GENLIST, PULL_EXISTS, pure_vars]
+        ) >>
+      gvs[SUBSET_DEF] >> rw[] >> res_tac >> simp[]
+      ) >>
+    rw[] >> goal_assum drule >> simp[] >> rpt conj_tac
+    >- (
+      irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
+      simp[mactivevars_def, GSYM CONJ_ASSOC] >> rw[]
+      >- gvs[SUBSET_DEF]
+      >- (
+        irule SUBSET_TRANS >> irule_at Any pure_vars_isubst_SUBSET >> rw[]
+        >- (gvs[constraint_vars_def, SUBSET_DEF]) >>
+        unabbrev_all_tac >>
+        rw[BIGUNION_SUBSET, MEM_MAP, MEM_GENLIST, PULL_EXISTS, pure_vars] >>
+        imp_res_tac solve_monad_mono >> gvs[]
+        ) >>
+      simp[SUBSET_DEF]
+      ) >>
+    gvs[satisfies_def, SF DNF_ss] >>
+    qpat_x_assum `pure_walkstar _ _ = _` $ assume_tac o GSYM >> gvs[] >>
+    pop_assum mp_tac >> DEP_REWRITE_TAC[pure_walkstar_isubst] >>
+    conj_tac >- gvs[itype_ok_def] >> strip_tac >>
+    qexists_tac `MAP (λn.
+      if pure_vars (pure_walkstar sub (CVar n)) ⊆ pure_vars (pure_walkstar sub t1)
+      then pure_walkstar sub (CVar n)
+      else Unit) freshes` >>
+    unabbrev_all_tac >>
+    rw[EVERY_MAP, EVERY_GENLIST,
+       itype_ok, pure_vars, COND_RAND, COND_RATOR, DISJ_EQ_IMP]
+    >- (irule itype_ok_pure_walkstar >> simp[itype_ok]) >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, MAP_GENLIST] >>
+    pop_assum $ assume_tac o GSYM >> simp[] >>
+    irule_at Any EQ_TRANS >> irule_at Any $ GSYM isubst_irrelevance >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, MAP_GENLIST] >>
+    irule_at Any SUBSET_REFL >> qexists_tac `Unit` >> simp[]
+    )
+  >- (
+    pairarg_tac >> imp_res_tac generalise_0_FEMPTY >> gvs[] >>
+    qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new,gen,sch)` >>
+    rw[] >> rename1 `Implicit _ t1 vs t2` >>
+    `pure_vars sch = pure_vars t2 DIFF FDOM gen` by (
+      simp[Abbr `sch`, pure_vars_pure_apply_subst] >>
+      rw[Once EXTENSION, PULL_EXISTS, pure_apply_subst, FLOOKUP_o_f, FLOOKUP_FDIFF] >>
+      eq_tac >> rw[]
+      >- (every_case_tac >> gvs[pure_vars])
+      >- (every_case_tac >> gvs[pure_vars, FLOOKUP_DEF])
+      >- (goal_assum $ drule_at Any >> simp[pure_vars])) >>
+    first_x_assum drule >> impl_tac
+    >- (
+      once_rewrite_tac[INSERT_SING_UNION] >> gvs[constraints_ok_UNION] >>
+      qpat_x_assum `constraints_ok _ {_}` mp_tac >> reverse $ rw[constraints_ok_def]
+      >- (gvs[constraint_vars_def, DIFF_SUBSET] >> gvs[SUBSET_DEF]) >>
+      unabbrev_all_tac >> irule itype_ok_pure_apply_subst >>
+      simp[GSYM IMAGE_FRANGE, PULL_EXISTS, itype_ok] >> gvs[itype_ok_def] >>
+      rw[] >> drule $ SRULE [SUBSET_DEF] FRANGE_FDIFF_SUBSET >> simp[]
+      ) >>
+    strip_tac >> gvs[SF DNF_ss, GSYM CONJ_ASSOC] >> goal_assum drule >>
+    DEP_REWRITE_TAC[satisfies_implicit_alt] >> simp[] >> rw[]
+    >- (
+      `itype_ok (SND ns) 0 (pure_walkstar sub t2)` suffices_by rw[itype_ok_def] >>
+      irule itype_ok_pure_walkstar >> gvs[constraints_ok_def]
+      )
+    >- (
+      irule SUBSET_TRANS >> goal_assum $ drule_at Any >> rw[]
+      >- (gvs[mactivevars_def, DIFF_SUBSET] >> simp[SUBSET_DEF] >> metis_tac[]) >>
+      simp[SUBSET_DEF]
+      ) >>
+    `generalises_to (domain vs) t2 (new,sch)` by (
+      simp[generalises_to_def] >> goal_assum drule >> unabbrev_all_tac >> gvs[] >>
+      AP_THM_TAC >> rpt AP_TERM_TAC >>
+      rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_DEF] >> rw[] >> gvs[]) >>
+    irule_at Any generalise_solve_implicit >> simp[] >>
+    goal_assum $ drule_at Any >> reverse $ rw[]
+    >- (gvs[satisfies_def] >> irule_at Any EQ_REFL >> simp[pure_walkstar_idempotent]) >>
+    qpat_x_assum `is_solveable _ _` mp_tac >>
+    qpat_x_assum `pure_substvars _ ⊆ _` mp_tac >>
+    rw[is_solveable_mis_solveable, mis_solveable_def, SUBSET_DEF] >>
+    first_x_assum irule >> simp[PULL_EXISTS, SF DNF_ss, mactivevars_def] >>
+    first_x_assum drule >> rw[mactivevars_def] >>
+    gvs[MEM_MAP, PULL_EXISTS, SF SFY_ss] >>
+    irule FALSITY >> gvs[constraint_vars_def, SUBSET_DEF, SF DNF_ss] >> res_tac >> gvs[]
+    )
 QED
 
 
