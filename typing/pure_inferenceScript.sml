@@ -613,6 +613,14 @@ Definition subst_solution_def:
   subst_solution (s::ss) ty = subst_solution ss (pure_walkstar s ty)
 End
 
+Definition infer_top_level_def:
+  infer_top_level ns d cexp = do
+    (ty, as, cs) <- infer ns LN cexp;
+    if ¬ null as then fail else return ();
+    solve (Unify d ty (M Unit) :: cs)
+  od 0
+End
+
 
 (********************)
 
