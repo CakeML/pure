@@ -1394,6 +1394,23 @@ Proof
   goal_assum drule >> simp[] >> CASE_TAC >> gvs[]
 QED
 
+Theorem pure_wfs_FEMPTY[simp]:
+  pure_wfs FEMPTY
+Proof
+  rw[pure_wfs] >>
+  qsuff_tac `pure_vR FEMPTY = EMPTY_REL`
+  >- metis_tac[relationTheory.WF_EMPTY_REL] >>
+  simp[FUN_EQ_THM, pure_vR]
+QED
+
+Theorem pure_wfs_extend:
+  pure_wfs s ∧ v ∉ FDOM s ∧ v ∉ pure_vars (pure_walkstar s t) ⇒ pure_wfs (s |+ (v,t))
+Proof
+  rw[pure_wfs_def, pure_vars_def, pure_walkstar_def] >>
+  irule wfs_extend >> simp[] >>
+  gvs[SRULE [pure_wfs_def] encode_walkstar, decode_encode]
+QED
+
 Definition pure_rangevars_def[nocompute]:
   pure_rangevars s = rangevars (encode_itype o_f s)
 End
@@ -1404,6 +1421,64 @@ Proof
   rw[pure_rangevars_def, rangevars_def, EXTENSION] >>
   eq_tac >> rw[pure_vars_def, FRANGE_DEF, o_f_FAPPLY] >>
   metis_tac[o_f_FAPPLY]
+QED
+
+Definition pure_substvars_def[nocompute]:
+  pure_substvars s = substvars (encode_itype o_f s)
+End
+
+Theorem pure_substvars:
+  pure_substvars s = FDOM s ∪ pure_rangevars s
+Proof
+  rw[pure_substvars_def, substvars_def, pure_rangevars_def]
+QED
+
+Theorem pure_substvars_FEMPTY[simp]:
+  pure_substvars FEMPTY = {}
+Proof
+  rw[pure_substvars, pure_rangevars]
+QED
+
+Definition pure_allvars_def[nocompute]:
+  pure_allvars s t1 t2 =
+    allvars (encode_itype o_f s) (encode_itype t1) (encode_itype t2)
+End
+
+Theorem pure_allvars:
+  pure_allvars s t1 t2 = pure_vars t1 ∪ pure_vars t2 ∪ pure_substvars s
+Proof
+  rw[pure_allvars_def, pure_vars_def, pure_substvars_def, allvars_def]
+QED
+
+Definition pure_uP_def[nocompute]:
+  pure_uP sx s t1 t2 ⇔
+    uP (encode_itype o_f sx) (encode_itype o_f s)
+      (encode_itype t1) (encode_itype t2)
+End
+
+Theorem pure_uP:
+  pure_uP sx s t1 t2 ⇔
+    pure_wfs sx ∧ s ⊑ sx ∧ pure_substvars sx ⊆ pure_allvars s t1 t2
+Proof
+  rw[pure_uP_def, uP_def] >>
+  rw[pure_wfs_def, pure_substvars_def, pure_allvars_def] >>
+  eq_tac >> rw[] >> gvs[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f] >> rw[]
+  >- (
+    first_x_assum $ qspec_then `x` mp_tac >> simp[] >>
+    CASE_TAC >> rw[encode_itype_injective]
+    )
+  >- (
+    pop_assum mp_tac >> CASE_TAC >> rw[] >> first_x_assum drule >> simp[]
+    )
+QED
+
+Theorem pure_unify_uP:
+  pure_wfs s ∧ pure_unify s t1 t2 = SOME sx ⇒ pure_uP sx s t1 t2
+Proof
+  rw[pure_wfs_def, pure_unify_def, pure_uP_def] >>
+  drule_all unify_uP >> simp[] >>
+  gvs[GSYM pure_wfs_def, encode_unify_alt] >>
+  simp[combinTheory.o_DEF, decode_encode, SF ETA_ss]
 QED
 
 Theorem pure_vars:
