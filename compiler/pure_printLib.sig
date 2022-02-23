@@ -3,6 +3,8 @@ sig
 
     include Abbrev
 
+    val dest_QUOTE : term frag list -> string
+
     (* parsing *)
 
     val parse_cexp : string -> term

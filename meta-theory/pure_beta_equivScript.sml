@@ -311,7 +311,7 @@ QED
 
 Theorem App_Lam_bisim:
   closed (Lam x body) ∧ closed arg ⇒
-  App (Lam x body) arg ≃ subst1 x arg body
+  (App (Lam x body) arg ≃ subst1 x arg body) b
 Proof
   rw [] \\ match_mp_tac eval_IMP_app_bisimilarity
   \\ fs [eval_Let,bind1_def]
@@ -520,7 +520,7 @@ QED
 
 Theorem beta_bisimilarity:
   closed (Let x arg body) ⇒
-  Let x arg body ≃ ca_subst x arg body
+  (Let x arg body ≃ ca_subst x arg body) T
 Proof
   rw[app_bisimilarity_eq, beta_equivalence] >>
   simp[closed_def, ca_subst_def] >>

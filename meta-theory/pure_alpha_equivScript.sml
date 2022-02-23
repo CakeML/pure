@@ -712,7 +712,7 @@ Proof
 QED
 
 Theorem compatible_perm:
-  compatible (λR. {(e1,e2) | ∃v1 v2 e3 e4. e1 = perm_exp v1 v2 e3  ∧
+  compatible b (λR. {(e1,e2) | ∃v1 v2 e3 e4. e1 = perm_exp v1 v2 e3  ∧
                                            e2 = perm_exp v1 v2 e4 ∧ R(e3,e4)})
 Proof
   rw[compatible_def] >> simp[SUBSET_DEF] >>
@@ -737,7 +737,7 @@ Proof
 QED
 
 Theorem app_similarity_eqvt:
-  e1 ≲ e2 ⇒ perm_exp x y e1 ≲ perm_exp x y e2
+  (e1 ≲ e2) b ⇒ (perm_exp x y e1 ≲ perm_exp x y e2) b
 Proof
   strip_tac >>
   match_mp_tac companion_app_similarity >>
@@ -3554,7 +3554,7 @@ Proof
 QED
 
 Theorem compatible_exp_alpha:
-  compatible (λR (x,y). exp_alpha x y ∧ closed x ∧ closed y)
+  compatible b (λR (x,y). exp_alpha x y ∧ closed x ∧ closed y)
 Proof
   simp[compatible_def,SUBSET_DEF] >>
   PairCases >>
@@ -3613,7 +3613,7 @@ Proof
 QED
 
 Theorem companion_exp_alpha:
-  exp_alpha x y ∧ closed x ∧ closed y ⇒ (x,y) ∈ companion R
+  exp_alpha x y ∧ closed x ∧ closed y ⇒ (x,y) ∈ companion b R
 Proof
   rw[IN_DEF,companion_def] >>
   irule_at Any compatible_exp_alpha >>
@@ -3623,7 +3623,7 @@ QED
 
 Theorem app_similarity_Lam_Alpha:
   closed(Lam x e1) ⇒
-  Lam x e1 ≲ Lam y (perm_exp x y e1)
+  (Lam x e1 ≲ Lam y (perm_exp x y e1)) b
 Proof
   Cases_on ‘x = y’ >- (simp[perm_exp_id,reflexive_app_similarity']) >>
   strip_tac >>
@@ -3641,7 +3641,7 @@ QED
 
 Theorem app_similarity_Lam_Alpha_alt:
   closed(Lam y e1) ⇒
-  Lam x (perm_exp x y e1) ≲ Lam y e1
+  (Lam x (perm_exp x y e1) ≲ Lam y e1) b
 Proof
   Cases_on ‘x = y’ >- (simp[perm_exp_id,reflexive_app_similarity']) >>
   strip_tac >>
@@ -3659,7 +3659,7 @@ Proof
 QED
 
 Theorem app_similarity_perm_exp:
-  ∀e x y.  closed e ⇒ perm_exp x y e ≲ e
+  ∀e x y.  closed e ⇒ (perm_exp x y e ≲ e) b
 Proof
   rw[] >>
   irule companion_app_similarity  >>
@@ -3670,7 +3670,7 @@ Proof
 QED
 
 Theorem app_similarity_perm_exp_left:
-  ∀e1 e2 x y.  e1 ≲ e2 ⇒ perm_exp x y e1 ≲ e2
+  ∀e1 e2 x y.  (e1 ≲ e2) b ⇒ (perm_exp x y e1 ≲ e2) b
 Proof
   rw[] >>
   assume_tac transitive_app_similarity >> gvs[transitive_def] >>
@@ -3680,7 +3680,7 @@ Proof
 QED
 
 Theorem app_similarity_perm_exp_alt:
-  ∀e x y.  closed e ⇒ e ≲ perm_exp x y e
+  ∀e x y.  closed e ⇒ (e ≲ perm_exp x y e) b
 Proof
   rw[] >>
   irule companion_app_similarity  >>
@@ -3691,7 +3691,7 @@ Proof
 QED
 
 Theorem app_similarity_perm_exp_right:
-  ∀e1 e2 x y.  e1 ≲ e2 ⇒ e1 ≲ perm_exp x y e2
+  ∀e1 e2 x y.  (e1 ≲ e2) b ⇒ (e1 ≲ perm_exp x y e2) b
 Proof
   rw[] >>
   assume_tac transitive_app_similarity >> gvs[transitive_def] >>
@@ -3701,7 +3701,7 @@ Proof
 QED
 
 Theorem exp_eq_perm:
-  x ∉ (freevars e) ∧ y ∉  (freevars e) ⇒ e ≅ perm_exp x y e
+  x ∉ (freevars e) ∧ y ∉  (freevars e) ⇒ (e ≅? perm_exp x y e) b
 Proof
   rw[exp_eq_open_bisimilarity] >>
   qexists_tac ‘freevars e’ >>
@@ -3722,14 +3722,14 @@ Proof
 QED
 
 Theorem exp_alpha_app_similarity:
-  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ x ≲ y
+  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ (x ≲ y) b
 Proof
   rw [] \\ match_mp_tac companion_app_similarity
   \\ match_mp_tac(no_IN companion_exp_alpha) \\ fs []
 QED
 
 Theorem exp_alpha_app_bisimilarity:
-  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ x ≃ y
+  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ (x ≃ y) b
 Proof
   rw [app_bisimilarity_similarity]
   \\ match_mp_tac exp_alpha_app_similarity \\ fs []
@@ -3737,7 +3737,7 @@ Proof
 QED
 
 Theorem exp_alpha_exp_eq:
-  ∀x y. exp_alpha x y ⇒ x ≅ y
+  ∀x y. exp_alpha x y ⇒ (x ≅? y) b
 Proof
   fs [exp_eq_def] \\ rw []
   \\ match_mp_tac exp_alpha_app_bisimilarity

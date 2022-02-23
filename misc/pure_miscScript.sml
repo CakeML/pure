@@ -1,35 +1,13 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
 open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
      finite_mapTheory pred_setTheory arithmeticTheory rich_listTheory
-     ltreeTheory fixedPointTheory
+     sptreeTheory ltreeTheory fixedPointTheory sortingTheory logrootTheory
 
 val _ = new_theory "pure_misc";
 
 
 (******************** Finite maps ********************)
-
-Theorem FDIFF_FUNION:
-  ∀fm1 fm2 s. FDIFF (fm1 ⊌ fm2) s = (FDIFF fm1 s) ⊌ (FDIFF fm2 s)
-Proof
-  rw[FDIFF_def, DRESTRICTED_FUNION] >>
-  rw[fmap_eq_flookup] >>
-  rw[FLOOKUP_DRESTRICT, FLOOKUP_FUNION] >> fs[] >>
-  rw[FLOOKUP_DEF]
-QED
-
-Theorem BIGUNION_DIFF:
-  ∀as b. (BIGUNION as) DIFF b = BIGUNION {a DIFF b | a ∈ as}
-Proof
-  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
-  >- (
-    qexists_tac `s DIFF b` >> fs[] >>
-    goal_assum (drule_at Any) >> fs[]
-    )
-  >- (
-    goal_assum (drule_at Any) >> fs[]
-    )
-QED
 
 Theorem FDIFF_MAP_KEYS_BIJ:
   BIJ f 𝕌(:α) 𝕌(:β) ⇒
@@ -45,44 +23,6 @@ Proof
   simp[DRESTRICT_MAP_KEYS_IMAGE]
 QED
 
-Theorem DISJOINT_DRESTRICT_FEMPTY:
-  ∀m s. DISJOINT s (FDOM m) ⇒ DRESTRICT m s = FEMPTY
-Proof
-  Induct >> rw[]
-QED
-
-Theorem fdiff_fdomsub_commute:
-  FDIFF (f \\ x) p = FDIFF f p \\ x
-Proof
-  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[]
-QED
-
-Theorem fdiff_fdomsub_INSERT:
-  FDIFF (f \\ x) p = FDIFF f (x INSERT p)
-Proof
-  rw[fmap_eq_flookup,FDIFF_def,FLOOKUP_DRESTRICT,DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[]
-QED
-
-Theorem fdiff_bound:
-  FDIFF f p = FDIFF f (p ∩ FDOM f)
-Proof
-  rw[FDIFF_def,fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
-  rw[] >> gvs[flookup_thm]
-QED
-
-Theorem FLOOKUP_FMAP_MAP2:
-  ∀f m k. FLOOKUP (FMAP_MAP2 f m) k = OPTION_MAP (λv. f (k,v)) (FLOOKUP m k)
-Proof
-  rw[FLOOKUP_DEF, FMAP_MAP2_def, FUN_FMAP_DEF]
-QED
-
-Theorem DOMSUB_FMAP_MAP2:
-  ∀f m s. (FMAP_MAP2 f m) \\ s = FMAP_MAP2 f (m \\ s)
-Proof
-  rw[fmap_eq_flookup, DOMSUB_FLOOKUP_THM, FLOOKUP_FMAP_MAP2] >>
-  IF_CASES_TAC >> simp[]
-QED
-
 Theorem fmap_rel_fupdate_list_MAP_FST:
   ∀R f1 f2 l1 l2.
     fmap_rel R (f1 |++ l1) (f2 |++ l2)
@@ -92,105 +32,66 @@ Proof
   gvs[EXTENSION] >> metis_tac[]
 QED
 
-(* This exists in finite_mapTheory, but with types unnecessarily specialised *)
-Theorem fmap_rel_FEMPTY2:
-  (fmap_rel (R : 'a -> 'b -> bool) FEMPTY (f1 : 'c |-> 'b) ⇔ f1 = FEMPTY) ∧
-  (fmap_rel R (f2 : 'c |-> 'a) FEMPTY ⇔ f2 = FEMPTY)
+Theorem FRANGE_FDIFF_SUBSET:
+  FRANGE (FDIFF m s) ⊆ FRANGE m
 Proof
-  rw[fmap_rel_def] >> simp[FDOM_EQ_EMPTY] >> eq_tac >> rw[]
+  rw[FRANGE_DEF, SUBSET_DEF, FDIFF_def, DRESTRICT_DEF] >>
+  goal_assum drule >> simp[]
 QED
 
-Theorem fmap_rel_FUPDATE_I_rewrite:
-  fmap_rel R (f1 \\ k) (f2 \\ k) ∧ R v1 v2 ⇔
-  fmap_rel R (f1 |+ (k,v1)) (f2 |+ (k,v2))
+Theorem FDOM_FDIFF_alt:
+  FDOM (FDIFF m s) = FDOM m DIFF s
 Proof
-  gvs[fmap_rel_OPTREL_FLOOKUP, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM] >>
-  reverse (eq_tac >> rw[])
-  >- (pop_assum (qspec_then `k` mp_tac) >> simp[]) >>
-  first_x_assum (qspec_then `k'` mp_tac) >> simp[] >>
-  EVERY_CASE_TAC >> gvs[]
+  rw[EXTENSION, FDOM_FDIFF]
 QED
 
-Theorem fmap_rel_ind:
-  ∀R FR.
-    FR FEMPTY FEMPTY ∧
-    (∀k v1 v2 f1 f2.
-      R v1 v2 ∧ FR (f1 \\ k) (f2 \\ k) ⇒ FR (f1 |+ (k,v1)) (f2 |+ (k,v2)))
-  ⇒ ∀f1 f2. fmap_rel R f1 f2 ⇒ FR f1 f2
+Theorem FDIFF_FMERGE:
+  ∀f a b s. FDIFF (FMERGE f a b) s = FMERGE f (FDIFF a s) (FDIFF b s)
 Proof
-  rpt gen_tac >> strip_tac >>
-  Induct >> rw[] >>
-  `x ∈ FDOM f2` by gvs[fmap_rel_def] >>
-  imp_res_tac FM_PULL_APART >> gvs[] >>
-  last_x_assum irule >> gvs[DOMSUB_NOT_IN_DOM] >>
-  gvs[GSYM fmap_rel_FUPDATE_I_rewrite] >>
-  first_x_assum irule >>
-  gvs[DOMSUB_NOT_IN_DOM]
+  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_FMERGE] >>
+  TOP_CASE_TAC >> gvs[]
 QED
 
-Theorem FDIFF_FDIFF:
-  ∀fm s1 s2. FDIFF (FDIFF fm s1) s2 = FDIFF fm (s1 ∪ s2)
+Theorem FRANGE_ALT_DEF:
+  ∀fm. FRANGE fm = IMAGE ($' fm) (FDOM fm)
 Proof
-  rw[FDIFF_def, DRESTRICT_DRESTRICT, fmap_eq_flookup, FLOOKUP_DRESTRICT]
+  rw[FRANGE_DEF, EXTENSION] >> eq_tac >> rw[] >>
+  goal_assum $ drule_at Any >> simp[]
 QED
 
-Theorem DOMSUB_FUPDATE_LIST:
-  ∀l m x. (m |++ l) \\ x = (m \\ x) |++ (FILTER ($<> x o FST) l)
+Theorem CARD_fmap_injection:
+  ∀fm. CARD (FDOM fm) = CARD (FRANGE fm) ⇔
+    (∀k1 k2 v. FLOOKUP fm k1 = SOME v ∧ FLOOKUP fm k2 = SOME v ⇒ k1 = k2)
 Proof
-  Induct >> rw[FUPDATE_LIST_THM, fmap_eq_flookup] >>
-  PairCases_on `h` >> gvs[] >>
-  gvs[flookup_fupdate_list, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE] >>
-  CASE_TAC >> gvs[]
+  rw[] >> eq_tac >> rw[]
+  >- (
+    qspecl_then [`FRANGE fm`,`FDOM fm`,`$' fm`] mp_tac $ GEN_ALL FINITE_SURJ_BIJ >>
+    simp[] >> impl_tac >> rw[]
+    >- (rw[SURJ_DEF, FRANGE_DEF] >> goal_assum drule >> simp[]) >>
+    simp[FRANGE_ALT_DEF] >> gvs[BIJ_DEF, INJ_DEF, FLOOKUP_DEF]
+    )
+  >- (
+    simp[FRANGE_ALT_DEF] >> irule $ GSYM INJ_CARD_IMAGE_EQ >> simp[] >>
+    qexists_tac `FRANGE fm` >> simp[FRANGE_ALT_DEF] >>
+    gvs[INJ_DEF, FLOOKUP_DEF]
+    )
 QED
 
-Theorem FLOOKUP_FDIFF:
-  FLOOKUP (FDIFF fm s) k = if k ∈ s then NONE else FLOOKUP fm k
+Theorem SUBMAP_FDIFF[simp]:
+  ∀m s. FDIFF m s ⊑ m
 Proof
-  rw[FDIFF_def, FLOOKUP_DRESTRICT] >> gvs[]
+  rw[SUBMAP_FLOOKUP_EQN, FLOOKUP_FDIFF]
 QED
 
-Theorem FDIFF_FUPDATE:
-  FDIFF (fm |+ (k,v)) s =
-  if k ∈ s then FDIFF fm s else (FDIFF fm s) |+ (k,v)
+Theorem FUNION_FDIFF:
+  FUNION m1 m2 = FUNION m1 (FDIFF m2 (FDOM m1))
 Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_UPDATE] >>
-  EVERY_CASE_TAC >> gvs[]
-QED
-
-Theorem FDIFF_FEMPTY[simp]:
-  FDIFF FEMPTY s = FEMPTY
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF]
-QED
-
-Theorem FDIFF_EMPTY[simp]:
-  ∀f. FDIFF f {} = f
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF]
-QED
-
-Theorem FDIFF_FMAP_MAP2:
-  ∀f m s. FDIFF (FMAP_MAP2 f m) s = FMAP_MAP2 f (FDIFF m s)
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_FMAP_MAP2] >> rw[]
-QED
-
-Theorem FMAP_MAP2_FEMPTY[simp]:
-  ∀f. FMAP_MAP2 f FEMPTY = FEMPTY
-Proof
-  rw[fmap_eq_flookup, FLOOKUP_FMAP_MAP2]
-QED
-
-Theorem FMAP_MAP2_FUPDATE_LIST:
-  ∀l m f.
-    FMAP_MAP2 f (m |++ l) = FMAP_MAP2 f m |++ MAP (λ(k,v). (k, f (k,v))) l
-Proof
-  Induct >> rw[FUPDATE_LIST_THM] >>
-  PairCases_on `h` >> simp[FMAP_MAP2_FUPDATE]
+  rw[fmap_eq_flookup, FLOOKUP_FUNION, FLOOKUP_FDIFF] >>
+  CASE_TAC >> simp[] >> IF_CASES_TAC >> gvs[FLOOKUP_DEF]
 QED
 
 
-(******************** Functions/Pairs ********************)
+(******************** Functions/Pairs/Options ********************)
 
 Theorem PAIR_MAP_ALT:
   ∀f g. (f ## g) = λ(x,y). f x, g y
@@ -222,6 +123,12 @@ Theorem I_def:
   I = \x. x
 Proof
   rw [combinTheory.I_DEF, combinTheory.S_DEF]
+QED
+
+Theorem OPTION_MAP2_OPTION_MAP:
+  OPTION_MAP2 f (SOME x) y = OPTION_MAP (f x) y
+Proof
+  Cases_on `y` >> simp[]
 QED
 
 
@@ -411,6 +318,53 @@ Proof
   rw[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
 QED
 
+Theorem PERM_FLAT:
+  ∀l1 l2. PERM l1 l2 ⇒ PERM (FLAT l1) (FLAT l2)
+Proof
+  Induct_on `PERM` >> rw[]
+  >- (irule PERM_CONG >> simp[])
+  >- (irule PERM_CONG >> simp[] >> simp[Once PERM_FUN_APPEND])
+  >- (irule PERM_TRANS >> goal_assum drule >> simp[])
+QED
+
+Theorem ALL_DISTINCT_LENGTH_EQ_MEM:
+  ∀l1 l2.
+    ALL_DISTINCT l1 ∧ LENGTH l2 ≤ LENGTH l1 ∧
+    (∀x. MEM x l1 ⇒ MEM x l2)
+  ⇒ (∀x. MEM x l2 ⇒ MEM x l1)
+Proof
+  Induct >> rw[DISJ_EQ_IMP] >>
+  first_x_assum irule >> simp[] >>
+  qexists_tac `FILTER ($<> h) l2` >> rw[] >> gvs[MEM_FILTER]
+  >- (CCONTR_TAC >> gvs[]) >>
+  first_x_assum $ qspec_then `h` assume_tac >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `FILTER P` >>
+  qspecl_then [`P`,`l2`] mp_tac rich_listTheory.LENGTH_FILTER_LESS >>
+  impl_tac >> gvs[EXISTS_MEM] >>
+  goal_assum drule >> unabbrev_all_tac >> gvs[]
+QED
+
+Theorem PERM_ALL_DISTINCT_LENGTH:
+  ∀l1 l2.
+    ALL_DISTINCT l1 ∧ LENGTH l2 ≤ LENGTH l1 ∧
+    (∀x. MEM x l1 ⇒ MEM x l2)
+  ⇒ PERM l1 l2
+Proof
+  Induct >> rw[] >>
+  first_assum $ qspec_then `h` mp_tac >> rewrite_tac[] >>
+  strip_tac >> imp_res_tac MEM_SPLIT >> gvs[] >>
+  gvs[sortingTheory.PERM_CONS_EQ_APPEND] >>
+  irule_at Any EQ_REFL >> last_x_assum irule >> gvs[DISJ_IMP_THM] >> rw[] >>
+  first_x_assum drule >> rw[] >> gvs[]
+QED
+
+Theorem ALOOKUP_MAP_3:
+  ∀f l. ALOOKUP (MAP (λ(x,y,z). (x,y,f z)) l) = OPTION_MAP (I ## f) o ALOOKUP l
+Proof
+  gen_tac >> Induct >> rw[FUN_EQ_THM] >>
+  pairarg_tac >> gvs[] >> rw[]
+QED
+
 
 (******************** Lazy lists ********************)
 
@@ -510,6 +464,98 @@ Theorem monotone_compose:
 Proof
   rw[monotone_def,pred_setTheory.SUBSET_DEF,IN_DEF] >> res_tac >> metis_tac[]
 QED
+
+Theorem BIGUNION_DIFF:
+  ∀as b. (BIGUNION as) DIFF b = BIGUNION (IMAGE (λa. a DIFF b) as)
+Proof
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+  >- (qexists_tac `s DIFF b` >> fs[] >> goal_assum (drule_at Any) >> fs[])
+  >- (goal_assum (drule_at Any) >> fs[])
+QED
+
+Theorem BIGUNION_DIFF_LIST_TO_SET:
+  BIGUNION (set l) DIFF s = BIGUNION (set (MAP (λx. x DIFF s) l))
+Proof
+  rw[Once EXTENSION, MEM_MAP] >> eq_tac >> rw[PULL_EXISTS] >>
+  goal_assum drule >> simp[]
+QED
+
+Theorem IMAGE_K_EMPTY:
+  IMAGE (λx. {}) s = if s = {} then {} else {{}}
+Proof
+  rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[MEMBER_NOT_EMPTY]
+QED
+
+
+(******************** sptrees ********************)
+
+Theorem wf_list_to_num_set:
+  ∀l. wf (list_to_num_set l)
+Proof
+  Induct >> rw[list_to_num_set_def] >>
+  irule wf_insert >> simp[]
+QED
+
+Theorem lrnext_alt_thm:
+  ∀n. sptree$lrnext n = 2 ** (LOG 2 (n + 1))
+Proof
+  strip_tac >> completeInduct_on `n` >> rw[] >>
+  rw[Once lrnext_def] >- simp[LOG_RWT] >>
+  first_x_assum $ qspec_then `(n - 1) DIV 2` mp_tac >>
+  impl_tac >> rw[] >- simp[DIV_LT_X] >>
+  simp[GSYM EXP] >> Cases_on `EVEN n` >>
+  gvs[GSYM ODD_EVEN] >> imp_res_tac EVEN_ODD_EXISTS >> gvs[]
+  >- (
+    `(2 * m - 1) DIV 2 = m - 1` by intLib.ARITH_TAC >> simp[] >>
+    simp[LOG_add_digit]
+    )
+  >- (
+    once_rewrite_tac[Once MULT_COMM] >> simp[MULT_DIV] >>
+    simp[ADD1] >> simp[Once LOG_RWT, SimpRHS] >>
+    once_rewrite_tac[MULT_COMM] >> simp[ADD_DIV_ADD_DIV]
+    )
+QED
+
+Theorem lrnext_lrnext:
+  ∀n. sptree$lrnext (n + sptree$lrnext n) = 2 * sptree$lrnext n
+Proof
+  rw[lrnext_alt_thm] >>
+  qpat_abbrev_tac `m = n + 1` >>
+  `n + (2 ** LOG 2 m + 1) = m + 2 ** LOG 2 m` by (unabbrev_all_tac >> simp[]) >>
+  pop_assum SUBST_ALL_TAC >>
+  Cases_on `m = 0` >> gvs[] >>
+  `m + 2 ** LOG 2 m = 2 ** (LOG 2 m + 1) + m MOD 2 ** LOG 2 m` by (
+    qspec_then `m` mp_tac $ GSYM LOG_MOD >> impl_tac >- simp[] >>
+    simp[GSYM ADD1, EXP]) >>
+  pop_assum SUBST_ALL_TAC >>
+  once_rewrite_tac[ADD_COMM] >>
+  DEP_REWRITE_TAC[LOG_ADD] >> simp[GSYM ADD1, EXP] >>
+  qmatch_goalsub_abbrev_tac `_ MOD a` >>
+  `a ≠ 0` by (unabbrev_all_tac >> simp[]) >>
+  qspecl_then [`m`,`a`] mp_tac MOD_LESS >>
+  impl_tac >- simp[] >> intLib.ARITH_TAC
+QED
+
+Theorem lrnext_lrnext_2:
+  ∀n k. sptree$lrnext (n + 2 * sptree$lrnext n) = 2 * sptree$lrnext n
+Proof
+  rw[lrnext_alt_thm] >>
+  qpat_abbrev_tac `m = n + 1` >>
+  `n + (2 * 2 ** LOG 2 m + 1) = m + 2 * 2 ** LOG 2 m` by (unabbrev_all_tac >> simp[]) >>
+  `n + 2 = m + 1` by (unabbrev_all_tac >> simp[]) >>
+  ntac 2 $ pop_assum SUBST_ALL_TAC >>
+  Cases_on `m = 0` >> gvs[] >>
+  simp[GSYM EXP] >> DEP_REWRITE_TAC[LOG_ADD] >> simp[] >>
+  qspecl_then [`2`,`m`] mp_tac LOG >> simp[ADD1]
+QED
+
+Theorem wf_difference:
+  ∀t1 t2. wf t1 ⇒ wf (difference t1 t2)
+Proof
+  Induct >> rw[difference_def] >>
+  CASE_TAC >> gvs[wf_def] >> metis_tac[wf_mk_BN, wf_mk_BS]
+QED
+
 
 (****************************************)
 

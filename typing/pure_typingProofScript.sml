@@ -61,6 +61,15 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
+Triviality type_wh_PrimTy_Bool_eq_wh_Constructor:
+  type_wh ns db st env wh (PrimTy Bool) ⇒
+    wh = wh_Diverge ∨ wh = wh_Constructor "True" [] ∨ wh = wh_Constructor "False" []
+Proof
+  rw[type_wh_cases] >> gvs[Once type_tcexp_cases]
+  >- (Cases_on `arg_tys` >> gvs[Functions_def])
+  >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
+QED
+
 Triviality type_wh_Function_eq_wh_Closure:
   type_wh ns db st env wh (Function ft rt) ⇒
     wh = wh_Diverge ∨ ∃x body. wh = wh_Closure x body
@@ -87,6 +96,14 @@ QED
 Triviality type_wh_Tuple_eq_wh_Constructor:
   type_wh ns db st env wh (Tuple ts) ⇒
     wh = wh_Diverge ∨ ∃es. wh = wh_Constructor "" es
+Proof
+  rw[type_wh_cases] >> gvs[Once type_tcexp_cases, exp_of_def] >>
+  Cases_on `arg_tys` >> gvs[Functions_def]
+QED
+
+Triviality type_wh_Exception_eq_wh_Constructor:
+  type_wh ns db st env wh Exception ⇒
+    wh = wh_Diverge ∨ ∃cn es. wh = wh_Constructor cn es
 Proof
   rw[type_wh_cases] >> gvs[Once type_tcexp_cases, exp_of_def] >>
   Cases_on `arg_tys` >> gvs[Functions_def]
@@ -209,7 +226,9 @@ Theorem type_soundness_up_to:
 Proof
   strip_tac >> completeInduct_on `k` >>
   recInduct exp_of_ind >> rw[exp_of_def]
-  >- gvs[Once type_tcexp_cases]
+  >- ( (* Var *)
+    last_x_assum kall_tac >> gvs[Once type_tcexp_cases]
+    )
   >- ( (* Prim *)
     Cases_on `p` >> gvs[pure_cexpTheory.op_of_def]
     >- (
@@ -217,11 +236,8 @@ Proof
       goal_assum $ drule_at Any >> simp[]
       )
     >- (
-      gvs[Once type_tcexp_cases]
-      >- (
-        simp[eval_wh_to_def, get_atoms_def] >>
-        simp[Once type_wh_cases] >> simp[Once type_tcexp_cases]
-        ) >>
+      rgs[Once type_tcexp_cases] >> gvs[]
+      >- (simp[Once type_wh_cases] >> simp[Once type_tcexp_cases]) >>
       imp_res_tac get_PrimTys_SOME >>
       gvs[eval_wh_to_def, MAP_MAP_o, combinTheory.o_DEF] >>
       IF_CASES_TAC >> gvs[]
@@ -294,7 +310,7 @@ Proof
     disch_then $ qspecl_then [`subst_tc1 v x y`,`t`] mp_tac >>
     simp[subst_exp_of, FMAP_MAP2_FUPDATE] >> impl_tac
     >- (irule type_tcexp_closing_subst1 >> simp[] >> goal_assum drule >> simp[]) >>
-    simp[bind1_def] >> IF_CASES_TAC >> gvs[] >>
+    simp[bind1_def, FMAP_MAP2_FEMPTY] >> IF_CASES_TAC >> gvs[] >>
     imp_res_tac type_tcexp_freevars_tcexp >> gvs[closed_def, freevars_exp_of]
     )
   >- ( (* Apps *)
@@ -321,7 +337,8 @@ Proof
     rename1 `ats ≠ []` >> Cases_on `ats` >> gvs[Functions_def] >>
     last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
     disch_then $ qspec_then `subst_tc1 x h1 ce` mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE] >> disch_then irule >> simp[] >>
+    simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY] >>
+    disch_then irule >> simp[] >>
     irule type_tcexp_closing_subst1 >> simp[] >>
     goal_assum drule >> simp[]
     )
@@ -350,7 +367,7 @@ Proof
     ntac 2 $ disch_then drule >>
     disch_then $ qspecl_then
       [`subst_tc (FEMPTY |++ MAP (λ(g,x). (g, Letrec rs x)) rs) x`,`t`] mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST] >> impl_tac
+    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, FMAP_MAP2_FEMPTY] >> impl_tac
     >- (
       irule type_tcexp_closing_subst >> simp[] >> goal_assum $ drule_at Any >>
       imp_res_tac LIST_REL_LENGTH >> simp[MAP_REVERSE, MAP_ZIP] >>
@@ -409,6 +426,37 @@ Proof
     drule_at (Pos last) type_tcexp_type_ok >> rw[] >>
     qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
     rw[Once type_tcexp_cases] >> gvs[]
+    >- ( (* BoolCase *)
+      Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
+      >- (
+        drule_at Any eval_wh_to_Case_wh_Diverge >>
+        gvs[closed_def, freevars_exp_of] >>
+        disch_then $ qspecl_then [`v`,`rs`] mp_tac >>
+        impl_tac >- (Cases_on `rs` >> gvs[]) >>
+        rw[exp_of_def, type_wh_cases]
+        ) >>
+      first_x_assum $ drule_all >> strip_tac >>
+      `∃cn. eval_wh_to k (exp_of x) = wh_Constructor cn []` by (
+        drule type_wh_PrimTy_Bool_eq_wh_Constructor >> rw[] >> gvs[]) >>
+      drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of, FUPDATE_LIST_THM] >>
+      disch_then $ qspec_then `rs` mp_tac >>
+      `∃ce. ALOOKUP rs cn = SOME ([],ce)` by (
+        gvs[pred_setTheory.EXTENSION] >>
+        first_x_assum $ qspec_then `cn` assume_tac >>
+        Cases_on `ALOOKUP rs cn` >> gvs[ALOOKUP_NONE] >>
+        drule type_wh_PrimTy_Bool_eq_wh_Constructor >> strip_tac >> gvs[] >>
+        Cases_on `x'` >> gvs[] >>
+        imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, FORALL_PROD] >> metis_tac[]) >>
+      simp[exp_of_def] >> disch_then $ qspec_then `v` assume_tac >> gvs[]
+      >- simp[type_wh_cases] >>
+      last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+      ntac 2 $ disch_then drule >>
+      imp_res_tac ALOOKUP_MEM >> gvs[FORALL_PROD, EVERY_MEM] >>
+      first_x_assum drule >> strip_tac >>
+      drule type_tcexp_closing_subst1 >> simp[] >>
+      disch_then drule >> strip_tac >>
+      disch_then drule >> simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY]
+      )
     >- ( (* TupleCase *)
       Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
       >- (
@@ -434,7 +482,7 @@ Proof
       disch_then $ qspec_then
         `subst_tc (FEMPTY |++ ((v,x)::
           (MAPi (λi v. (v, SafeProj "" (LENGTH tyargs) i x)) pvars))) cexp` mp_tac >>
-      simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC] >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC, FMAP_MAP2_FEMPTY] >>
       simp[exp_of_def, combinTheory.o_DEF] >>
       disch_then irule >> simp[] >>
       irule type_tcexp_closing_subst >>
@@ -444,53 +492,133 @@ Proof
       first_x_assum drule >> strip_tac >>
       simp[Once type_tcexp_cases] >>
       disj1_tac >> rpt $ goal_assum $ drule_at Any >> simp[oEL_THM]
-      ) >>
-    Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
-    >- (
-      drule_at Any eval_wh_to_Case_wh_Diverge >>
-      gvs[closed_def, freevars_exp_of] >>
-      disch_then $ qspecl_then [`v`,`rs`] mp_tac >> reverse $ impl_tac
-      >- rw[exp_of_def, type_wh_cases] >>
-      gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
-      qpat_x_assum `∀n. n < LENGTH typedefs ⇒ _` drule >> simp[] >>
-      Cases_on `rs` >> gvs[]
-      ) >>
-    first_x_assum drule >> simp[] >> disch_then drule_all >> rw[] >>
-    drule type_wh_TypeCons_eq_wh_Constructor >> rw[] >> gvs[] >>
-    qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
-    rw[] >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases, type_cons_def] >>
-    drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
-    disch_then $ qspec_then `rs` mp_tac >>
-    Cases_on `ALOOKUP rs cname` >> gvs[]
-    >- (
-      gvs[ALOOKUP_NONE, pred_setTheory.EXTENSION] >>
-      imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >>
-      metis_tac[]
-      ) >>
-    rename1 `SOME y` >> namedCases_on `y` ["vs ce"] >> simp[] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
-    first_x_assum drule >> simp[] >> strip_tac >>
-    disch_then drule >>
-    imp_res_tac LIST_REL_LENGTH >> simp[exp_of_def] >> rw[] >> simp[]
-    >- rw[type_wh_cases] >>
-    last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
-    disch_then drule >> simp[] >>
-    DEP_REWRITE_TAC[GSYM subst_subst1_UPDATE] >> simp[closed_def, freevars_exp_of] >>
-    DEP_ONCE_REWRITE_TAC[GSYM FUPDATE_FUPDATE_LIST_COMMUTES] >>
-    simp[combinTheory.o_DEF, GSYM FUPDATE_LIST_THM] >>
-    disch_then $ qspec_then
-      `subst_tc (FEMPTY |++ ((v,x)::
-        (MAPi (λi v. (v, SafeProj cname (LENGTH schemes) i x)) vs))) ce` mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC] >>
-    simp[exp_of_def, combinTheory.o_DEF] >>
-    disch_then irule >> simp[] >>
-    irule type_tcexp_closing_subst >>
-    rpt $ goal_assum $ drule_at Any >>
-    simp[MAP_REVERSE, MAP_ZIP, combinTheory.o_DEF, MAP_MAP_o] >>
-    gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-    first_x_assum drule >> strip_tac >>
-    simp[Once type_tcexp_cases] >>
-    disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[oEL_THM]
+      )
+    >- ( (* ExceptionCase *)
+      Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
+      >- (
+        drule_at Any eval_wh_to_Case_wh_Diverge >>
+        gvs[closed_def, freevars_exp_of] >>
+        disch_then $ qspecl_then [`v`,`rs`] mp_tac >>
+        impl_tac >- (CCONTR_TAC >> gvs[]) >>
+        rw[exp_of_def, type_wh_cases]
+        ) >>
+      first_x_assum drule >> simp[] >> disch_then drule_all >> rw[] >>
+      drule type_wh_Exception_eq_wh_Constructor >> rw[] >> gvs[] >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+      rw[] >> gvs[] >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases, type_exception_def] >> gvs[]
+      >- (
+        `cn ≠ "Subscript"` by (
+          imp_res_tac ALOOKUP_MEM >>
+          gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+          qpat_x_assum `∀e. _ ∈ _ ⇒ ¬ _` $ qspec_then `"Subscript"` mp_tac >>
+          rw[reserved_cns_def, MEM_MAP, FORALL_PROD] >> metis_tac[]
+          ) >>
+        drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
+        disch_then $ qspec_then `rs` mp_tac >>
+        Cases_on `ALOOKUP rs cn` >> gvs[]
+        >- (
+          gvs[ALOOKUP_NONE, pred_setTheory.EXTENSION] >>
+          imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >>
+          metis_tac[]
+          ) >>
+        rename1 `SOME y` >> namedCases_on `y` ["vs ce"] >> simp[] >>
+        imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+        first_x_assum drule >> simp[] >> strip_tac >>
+        disch_then drule >>
+        imp_res_tac LIST_REL_LENGTH >> simp[exp_of_def] >> rw[] >> simp[]
+        >- rw[type_wh_cases] >>
+        last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+        disch_then drule >> simp[] >>
+        DEP_REWRITE_TAC[GSYM subst_subst1_UPDATE] >> simp[closed_def, freevars_exp_of] >>
+        DEP_ONCE_REWRITE_TAC[GSYM FUPDATE_FUPDATE_LIST_COMMUTES] >>
+        simp[combinTheory.o_DEF, GSYM FUPDATE_LIST_THM] >>
+        disch_then $ qspec_then
+          `subst_tc (FEMPTY |++ ((v,x)::
+            (MAPi (λi v. (v, SafeProj cn (LENGTH vs) i x)) vs))) ce` mp_tac >>
+        simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC, FMAP_MAP2_FEMPTY] >>
+        simp[exp_of_def, combinTheory.o_DEF] >>
+        disch_then irule >> simp[] >>
+        irule type_tcexp_closing_subst >>
+        rpt $ goal_assum $ drule_at Any >>
+        simp[MAP_REVERSE, MAP_ZIP, combinTheory.o_DEF, MAP_MAP_o] >>
+        gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+        first_x_assum drule >> strip_tac >>
+        simp[Once type_tcexp_cases, oEL_THM]
+        )
+      >- (
+        drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
+        disch_then $ qspec_then `rs` mp_tac >>
+        Cases_on `ALOOKUP rs "Subscript"` >> gvs[]
+        >- (gvs[ALOOKUP_NONE, pred_setTheory.EXTENSION] >> metis_tac[]) >>
+        rename1 `SOME y` >> namedCases_on `y` ["vs ce"] >> simp[] >>
+        imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+        `ALOOKUP exndef "Subscript" = NONE` by (
+          simp[ALOOKUP_NONE] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+          first_x_assum irule >> simp[reserved_cns_def]) >>
+        first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+        disch_then $ qspec_then `v` mp_tac >> simp[exp_of_def] >> rw[] >> gvs[]
+        >- rw[type_wh_cases] >>
+        last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+        disch_then drule >> simp[] >>
+        DEP_REWRITE_TAC[GSYM subst_subst1_UPDATE] >> simp[closed_def, freevars_exp_of] >>
+        DEP_ONCE_REWRITE_TAC[GSYM FUPDATE_FUPDATE_LIST_COMMUTES] >> simp[] >>
+        simp[combinTheory.o_DEF, GSYM FUPDATE_LIST_THM] >>
+        disch_then $ qspec_then `subst_tc (FEMPTY |++ [(v,x)]) ce` mp_tac >>
+        simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC, FMAP_MAP2_FEMPTY] >>
+        simp[exp_of_def, combinTheory.o_DEF] >>
+        disch_then irule >> simp[] >>
+        irule type_tcexp_closing_subst >> simp[PULL_EXISTS, EXISTS_PROD] >>
+        qexists_tac `0` >> simp[] >> goal_assum drule >> simp[]
+        )
+      )
+    >- ( (* Case *)
+      Cases_on `eval_wh_to k (exp_of x) = wh_Diverge`
+      >- (
+        drule_at Any eval_wh_to_Case_wh_Diverge >>
+        gvs[closed_def, freevars_exp_of] >>
+        disch_then $ qspecl_then [`v`,`rs`] mp_tac >> reverse $ impl_tac
+        >- rw[exp_of_def, type_wh_cases] >>
+        gvs[oEL_THM, namespace_ok_def, EVERY_EL] >>
+        last_x_assum drule >> simp[] >> Cases_on `rs` >> gvs[]
+        ) >>
+      first_x_assum drule >> simp[] >> disch_then drule_all >> rw[] >>
+      drule type_wh_TypeCons_eq_wh_Constructor >> rw[] >> gvs[] >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
+      rw[] >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases, type_cons_def] >>
+      drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
+      disch_then $ qspec_then `rs` mp_tac >>
+      Cases_on `ALOOKUP rs cname` >> gvs[]
+      >- (
+        gvs[ALOOKUP_NONE, pred_setTheory.EXTENSION] >>
+        imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >>
+        metis_tac[]
+        ) >>
+      rename1 `SOME y` >> namedCases_on `y` ["vs ce"] >> simp[] >>
+      imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+      first_x_assum drule >> simp[] >> strip_tac >>
+      disch_then drule >>
+      imp_res_tac LIST_REL_LENGTH >> simp[exp_of_def] >> rw[] >> simp[]
+      >- rw[type_wh_cases] >>
+      last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+      disch_then drule >> simp[] >>
+      DEP_REWRITE_TAC[GSYM subst_subst1_UPDATE] >> simp[closed_def, freevars_exp_of] >>
+      DEP_ONCE_REWRITE_TAC[GSYM FUPDATE_FUPDATE_LIST_COMMUTES] >>
+      simp[combinTheory.o_DEF, GSYM FUPDATE_LIST_THM] >>
+      disch_then $ qspec_then
+        `subst_tc (FEMPTY |++ ((v,x)::
+          (MAPi (λi v. (v, SafeProj cname (LENGTH schemes) i x)) vs))) ce` mp_tac >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, MAP_SNOC, FMAP_MAP2_FEMPTY] >>
+      simp[exp_of_def, combinTheory.o_DEF] >>
+      disch_then irule >> simp[] >>
+      irule type_tcexp_closing_subst >>
+      rpt $ goal_assum $ drule_at Any >>
+      simp[MAP_REVERSE, MAP_ZIP, combinTheory.o_DEF, MAP_MAP_o] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      first_x_assum drule >> strip_tac >>
+      simp[Once type_tcexp_cases] >>
+      disj2_tac >> disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[oEL_THM]
+      )
     )
   >- ( (* SafeProj *)
     drule type_tcexp_freevars_tcexp >> rw[] >>
@@ -513,28 +641,60 @@ Proof
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >>
       gvs[LIST_REL_EL_EQN, oEL_THM, EL_MAP]
-      ) >>
-    first_x_assum $ drule_all >> strip_tac >>
-    drule type_wh_TypeCons_eq_wh_Constructor >> rw[] >> gvs[]
-    >- (
-      qsuff_tac `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> reverse $ rw[]
+      )
+    >- ( (* ExceptionSafeProj *)
+      first_x_assum $ drule_all >> strip_tac >>
+      drule type_wh_Exception_eq_wh_Constructor >> rw[] >> gvs[]
+      >- (
+        qsuff_tac `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> reverse $ rw[]
+        >- simp[type_wh_cases] >>
+        CCONTR_TAC >> drule eval_wh_inc >> simp[] >> qexists_tac `k` >> simp[]
+        ) >>
+      Cases_on `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> gvs[]
       >- simp[type_wh_cases] >>
-      CCONTR_TAC >> drule eval_wh_inc >> simp[] >> qexists_tac `k` >> simp[]
-      ) >>
-    Cases_on `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> gvs[]
-    >- simp[type_wh_cases] >>
-    drule eval_wh_inc >> disch_then $ qspec_then `k` $ assume_tac o GSYM >>
-    gvs[] >>
-    qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
-    simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >> gvs[] >>
-    IF_CASES_TAC >> gvs[]
-    >- (
-      assume_tac eval_wh_Bottom >> gvs[eval_wh_eq_Diverge] >>
-      simp[type_wh_cases]
-      ) >>
-    gvs[type_cons_def] >> imp_res_tac LIST_REL_LENGTH >> gvs[oEL_THM, EL_MAP] >>
-    last_x_assum irule >> simp[] >>
-    gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_MAP]
+      drule eval_wh_inc >> disch_then $ qspec_then `k` $ assume_tac o GSYM >>
+      gvs[] >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
+      simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> reverse strip_tac
+      >- (
+        gvs[] >>
+        `cn ≠ "Subscript"` by (
+          imp_res_tac ALOOKUP_MEM >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+          last_x_assum $ qspec_then `"Subscript"` mp_tac >>
+          rw[reserved_cns_def, MEM_MAP, FORALL_PROD] >> metis_tac[]) >>
+        gvs[] >> mp_tac eval_wh_Bottom >> simp[eval_wh_def] >>
+        DEEP_INTRO_TAC some_intro >> rw[type_wh_cases]
+        ) >>
+      gvs[type_exception_def] >> IF_CASES_TAC >> gvs[]
+      >- (
+        assume_tac eval_wh_Bottom >> gvs[eval_wh_eq_Diverge] >>
+        simp[type_wh_cases]
+        ) >>
+      gvs[LIST_REL_EL_EQN, oEL_THM, EL_MAP]
+      )
+    >- ( (* SafeProj *)
+      first_x_assum $ drule_all >> strip_tac >>
+      drule type_wh_TypeCons_eq_wh_Constructor >> rw[] >> gvs[]
+      >- (
+        qsuff_tac `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> reverse $ rw[]
+        >- simp[type_wh_cases] >>
+        CCONTR_TAC >> drule eval_wh_inc >> simp[] >> qexists_tac `k` >> simp[]
+        ) >>
+      Cases_on `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> gvs[]
+      >- simp[type_wh_cases] >>
+      drule eval_wh_inc >> disch_then $ qspec_then `k` $ assume_tac o GSYM >>
+      gvs[] >>
+      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
+      simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >> gvs[] >>
+      IF_CASES_TAC >> gvs[]
+      >- (
+        assume_tac eval_wh_Bottom >> gvs[eval_wh_eq_Diverge] >>
+        simp[type_wh_cases]
+        ) >>
+      gvs[type_cons_def] >> imp_res_tac LIST_REL_LENGTH >> gvs[oEL_THM, EL_MAP] >>
+      last_x_assum irule >> simp[] >>
+      gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_MAP]
+      )
     )
 QED
 
@@ -689,7 +849,7 @@ Proof
       drule type_tcexp_closing_subst1 >> simp[] >>
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
-      simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY]
       )
     >- (
       IF_CASES_TAC >> gvs[] >- (simp[type_next_res_cases] >> goal_assum drule) >>
@@ -748,7 +908,7 @@ Proof
       drule type_tcexp_closing_subst1 >> simp[] >>
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
-      simp[subst_exp_of, FMAP_MAP2_FUPDATE]
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY]
       )
     )
   >- (

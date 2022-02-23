@@ -1,10 +1,12 @@
 (* An itree-based semantics for CakeML *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open lem_pervasives_extraTheory libTheory namespaceTheory astTheory
-     ffiTheory semanticPrimitivesTheory;
+     ffiTheory semanticPrimitivesTheory smallStepTheory;
 open io_treeTheory;
 
 val _ = new_theory "cakeml_semantics"
+
+(******************** do_app ********************)
 
 Datatype:
   app_result = Rval v | Rraise v
@@ -326,6 +328,9 @@ Definition do_app_def:
     | _ => NONE
 End
 
+
+(******************** expressions ********************)
+
 Datatype:
   ctxt_frame = Craise
              | Chandle ((pat # exp) list)
@@ -528,6 +533,162 @@ Definition interp_def:
             Vis' (s, ws1, ws2)
               (λr:word8 list.
                 Estep (env, LUPDATE (W8array r) n st, Val $ Conv NONE [], cs)))
+      e
+End
+
+(******************** Declarations ********************)
+
+(* State omits FFI and clock *)
+Datatype:
+  dstate =
+  <| refs  : v store
+   ; next_type_stamp : num
+   ; next_exn_stamp : num
+   ; eval_state : eval_state option
+   |>
+End
+
+Datatype:
+  deval =
+  | Decl dec
+  | ExpVal (v sem_env) (exp_or_val) (ctxt list) locs pat
+  | Env (v sem_env)
+End
+
+Datatype:
+  dstep_result =
+  | Dstep dstate deval decl_ctxt
+  | Dtype_error
+  | Ddone
+  | Draise v
+  | Dffi dstate
+      (string # word8 list # word8 list # num # v sem_env # ctxt list)
+      locs pat decl_ctxt
+End
+
+Definition dreturn_def[simp]:
+  dreturn st cs dev = Dstep st dev cs
+End
+
+Definition dpush_def[simp]:
+  dpush st cs dev c = Dstep st dev (c::cs)
+End
+
+Definition dcontinue_def:
+  dcontinue env' st [] = Ddone ∧
+  dcontinue env' st (Cdmod mn env [] :: cs) =
+    dreturn st cs (Env $ lift_dec_env mn (extend_dec_env env' env)) ∧
+  dcontinue env' st (Cdmod mn env (d::ds) :: cs) =
+    dpush st cs (Decl d) (Cdmod mn (extend_dec_env env' env) ds) ∧
+  dcontinue env' st (CdlocalL lenv [] gds :: cs) =
+    dpush st cs (Env empty_dec_env)
+      (CdlocalG (extend_dec_env env' lenv) empty_dec_env gds) ∧
+  dcontinue env' st (CdlocalL lenv (ld::lds) gds :: cs) =
+    dpush st cs (Decl ld) (CdlocalL (extend_dec_env env' lenv) lds gds) ∧
+  dcontinue env' st (CdlocalG lenv genv [] :: cs) =
+    dreturn st cs (Env $ extend_dec_env env' genv) ∧
+  dcontinue env' st (CdlocalG lenv genv (gd::gds) :: cs) =
+    dpush st cs (Decl gd) (CdlocalG lenv (extend_dec_env env' genv) gds)
+End
+
+Definition dstep_def:
+  dstep benv st (Decl $ Dlet locs p e) c = (
+    if ALL_DISTINCT (pat_bindings p []) then
+      dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
+    else Dtype_error) ∧
+  dstep benv st (Decl $ Dletrec locs funs) c = (
+    if ALL_DISTINCT (MAP FST funs) then
+      dreturn st c (Env $
+        <| v := build_rec_env funs (collapse_env benv c) nsEmpty; c := nsEmpty |>)
+    else Dtype_error) ∧
+  dstep benv st (Decl $ Dtype locs tds) c = (
+    if EVERY check_dup_ctors tds then
+      dreturn (st with next_type_stamp := st.next_type_stamp + LENGTH tds) c
+        (Env <| v := nsEmpty; c := build_tdefs st.next_type_stamp tds |>)
+    else Dtype_error) ∧
+  dstep benv st (Decl $ Dtabbrev locs tvs n t) c = dreturn st c (Env empty_dec_env) ∧
+  dstep benv st (Decl $ Dexn locs cn ts) c =
+    dreturn (st with next_exn_stamp := st.next_exn_stamp + 1) c
+      (Env <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>) ∧
+  dstep benv st (Decl $ Dmod mn ds) c =
+    dpush st c (Env empty_dec_env) (Cdmod mn empty_dec_env ds) ∧
+  dstep benv st (Decl $ Dlocal lds gds) c =
+    dpush st c (Env empty_dec_env) (CdlocalL empty_dec_env lds gds) ∧
+  dstep benv st (Decl $ Denv n) c = (
+    case declare_env st.eval_state (collapse_env benv c) of
+    | SOME (x, es') =>
+      dreturn (st with eval_state := es') c (Env <| v := nsSing n x; c := nsEmpty|>)
+    | NONE => Dtype_error) ∧
+
+  dstep benv st (Env env) c = dcontinue env st c ∧
+
+  dstep benv st (ExpVal env (Val v) [] locs p) c = (
+    if ALL_DISTINCT (pat_bindings p []) then
+      case pmatch (collapse_env benv c).c st.refs p v [] of
+      | Match new_vals =>
+          dreturn st c (Env <| v := alist_to_ns new_vals; c := nsEmpty |>)
+      | No_match => Draise bind_exn_v
+      | Match_type_error => Dtype_error
+    else Dtype_error) ∧
+  dstep benv st (ExpVal env (Val v) [(Craise,env')] locs p) c = Draise v ∧
+  dstep benv st (ExpVal env ev ec locs p) c =
+    case estep (env, st.refs, ev, ec) of
+    | Estep (env', refs', ev', ec') =>
+        dreturn (st with refs := refs') c (ExpVal env' ev' ec' locs p)
+    | Etype_error => Dtype_error
+    | Edone => Ddone (* cannot happen *)
+    | Effi s ws1 ws2 n env' refs' ec' =>
+        Dffi (st with refs := refs') (s, ws1, ws2, n, env', ec') locs p c
+End
+
+Definition dis_halt_def:
+  dis_halt (Dffi _ _ _ _ _) = T ∧
+  dis_halt Ddone = T ∧
+  dis_halt (Draise _) = T ∧
+  dis_halt Dtype_error = T ∧
+  dis_halt _ = F
+End
+
+Definition dstep_n_def:
+  dstep_n benv 0 e = e ∧
+  dstep_n benv (SUC n) (Dstep st dev c) = dstep_n benv n (dstep benv st dev c) ∧
+  dstep_n benv _ e = e
+End
+
+Datatype:
+  dnext_res =
+  | DRet
+  | DDiv
+  | DErr
+  | DAct dstate
+      (string # word8 list # word8 list # num # v sem_env # ctxt list)
+      locs pat decl_ctxt
+End
+
+Definition dstep_until_halt_def:
+  dstep_until_halt benv d =
+    case some n. dis_halt (dstep_n benv n d) of
+      NONE => DDiv
+    | SOME n =>
+        case dstep_n benv n d of
+        | Dtype_error => DErr
+        | Dffi st ev locs pat c => DAct st ev locs pat c
+        | _ => DRet
+End
+
+Definition dinterp_def:
+  dinterp benv e =
+    cml_io_unfold_err
+      (λe.
+        case dstep_until_halt benv e of
+        | DRet => Ret' Termination
+        | DErr => Ret' Error
+        | DDiv => Div'
+        | DAct st (s, ws1, ws2, n, env, cs) locs p c =>
+            Vis' (s, ws1, ws2)
+              (λr:word8 list.
+                dreturn (st with refs := LUPDATE (W8array r) n st.refs) c
+                  (ExpVal env (Val $ Conv NONE []) cs locs p)))
       e
 End
 

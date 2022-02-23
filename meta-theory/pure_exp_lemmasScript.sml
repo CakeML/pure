@@ -619,10 +619,10 @@ Proof
     gvs[MEM_MAP, PULL_EXISTS] >> metis_tac[]
     )
   >- (
-    simp[GSYM fdiff_fdomsub_commute] >>
+    simp[GSYM FDIFF_FDOMSUB] >>
     first_x_assum $ qspec_then `p DELETE s` mp_tac >> gvs[] >> impl_tac
     >- (rw[] >> gvs[] >> res_tac) >>
-    simp[fdiff_fdomsub_INSERT] >> strip_tac >>
+    simp[FDIFF_FDOMSUB_INSERT] >> strip_tac >>
     AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> rw[EXTENSION] >> metis_tac[]
     )
   >- (
@@ -727,11 +727,11 @@ Proof
       rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
       gvs[FDIFF_FUPDATE] >> IF_CASES_TAC >> gvs[]
       >- (
-        gvs[fdiff_fdomsub_INSERT] >>
+        gvs[FDIFF_FDOMSUB_INSERT] >>
         AP_THM_TAC >> rpt (AP_TERM_TAC) >>
         rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
         ) >>
-      simp[fdiff_fdomsub_commute] >>
+      simp[FDIFF_FDOMSUB] >>
       `subst f arg = subst (FDIFF f (set (MAP FST lcs))) arg` by (
         irule subst_FDIFF' >> rw[] >>
         gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP]) >>
@@ -744,10 +744,10 @@ Proof
       ) >>
     simp[FDIFF_FUPDATE] >> rw[]
     >- (
-      simp[fdiff_fdomsub_INSERT] >> AP_THM_TAC >> rpt (AP_TERM_TAC) >>
+      simp[FDIFF_FDOMSUB_INSERT] >> AP_THM_TAC >> rpt (AP_TERM_TAC) >>
       rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
       ) >>
-    simp[fdiff_fdomsub_commute] >>
+    simp[FDIFF_FDOMSUB] >>
     `subst f arg = subst (FDIFF f (set (MAP FST lcs))) arg` by (
       irule subst_FDIFF' >> rw[] >>
       gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP]) >>
@@ -793,7 +793,7 @@ QED
 Theorem subst_Lams:
   ∀l x f. subst f (Lams l x) = Lams l (subst (FDIFF f (set l)) x)
 Proof
-  Induct >> rw[Lams_def] >> simp[subst_def, fdiff_fdomsub_INSERT]
+  Induct >> rw[Lams_def] >> simp[subst_def, FDIFF_FDOMSUB_INSERT]
 QED
 
 Theorem Lams_SNOC:
