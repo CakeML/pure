@@ -9,7 +9,9 @@ Definition solve_def:
   solve [] = return [] ∧
 
   solve cs = case get_solveable cs [] of
-    | NONE => solve (MAP implicit_to_unify cs)
+    | NONE =>
+        let active = FOLDL (λacc c. union (activevars c) acc) LN cs in
+        solve (MAP (monomorphise_implicit active) cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
         sub <- oreturn $ pure_unify FEMPTY t1 t2;
@@ -32,9 +34,11 @@ Termination
     rename1 `c::cs` >> drule get_solveable_NONE >> rw[] >> gvs[SF DNF_ss] >>
     gvs[get_solveable_def] >> FULL_CASE_TAC >> gvs[] >>
     irule $  DECIDE ``a ≤ c:num ∧ b < d ⇒ a + b < c + d`` >>
-    simp[constraint_weight_def] >>
-    last_x_assum kall_tac >> pop_assum kall_tac >>
-    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss, constraint_weight_def]
+    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def] >>
+    rename1 `monomorphise_implicit active` >>
+    last_x_assum kall_tac >> ntac 2 $ pop_assum kall_tac >>
+    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss] >>
+    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def]
     ) >>
   drule get_solveable_SOME >> strip_tac >> gvs[] >>
   Cases_on `left` >> gvs[listTheory.SUM_APPEND, constraint_weight_def]
@@ -64,7 +68,9 @@ Definition solve_k_def:
   solve_k _ [] = return [] ∧
 
   solve_k (SUC n) cs = case get_solveable cs [] of
-    | NONE => solve_k n (MAP implicit_to_unify cs)
+    | NONE =>
+        let active = FOLDL (λacc c. union (activevars c) acc) LN cs in
+        solve_k n (MAP (monomorphise_implicit active) cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
         sub <- oreturn $ pure_unify FEMPTY t1 t2;

@@ -536,7 +536,6 @@ End
 
 
 (* TODO this approach is naive *)
-
 Definition is_solveable_def:
   is_solveable (Unify d t1 t2) cs = T ∧
   is_solveable (Instantiate d t sch) cs = T ∧
@@ -591,17 +590,20 @@ Proof
   PairCases_on `p` >> rw[subst_constraint_def, constraint_weight_def]
 QED
 
-Definition implicit_to_unify_def[simp]:
-  implicit_to_unify (Implicit d t1 vs t2) = Unify d t1 t2 ∧
-  implicit_to_unify d = d (* should not be encountered *)
+Definition monomorphise_implicit_def:
+  monomorphise_implicit new (Implicit d t1 vs t2) = (
+    let (n,s,scheme) = generalise 0 (union vs new) FEMPTY t2 in
+    Instantiate d t1 (n,scheme)) ∧
+  monomorphise_implicit new d = d (* should not be encountered *)
 End
 
 Definition solve_def:
   solve [] = return FEMPTY ∧
 
   solve cs = case get_solveable cs [] of
-    | NONE => solve (MAP implicit_to_unify cs)
-
+    | NONE =>
+        let active = FOLDL (λacc c. union (activevars c) acc) LN cs in
+        solve (MAP (monomorphise_implicit active) cs)
     | SOME $ (Unify d t1 t2, cs) => do
         sub <- oreturn $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
@@ -623,9 +625,11 @@ Termination
     rename1 `c::cs` >> drule get_solveable_NONE >> rw[] >> gvs[SF DNF_ss] >>
     gvs[get_solveable_def] >> FULL_CASE_TAC >> gvs[] >>
     irule $  DECIDE ``a ≤ c:num ∧ b < d ⇒ a + b < c + d`` >>
-    simp[constraint_weight_def] >>
-    last_x_assum kall_tac >> pop_assum kall_tac >>
-    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss, constraint_weight_def]
+    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def] >>
+    rename1 `monomorphise_implicit active` >>
+    last_x_assum kall_tac >> ntac 2 $ pop_assum kall_tac >>
+    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss] >>
+    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def]
     ) >>
   drule get_solveable_SOME >> strip_tac >> gvs[] >>
   Cases_on `left` >> gvs[SUM_APPEND, constraint_weight_def]
