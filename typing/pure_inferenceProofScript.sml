@@ -1597,6 +1597,15 @@ Proof
     )
 QED
 
+Theorem satisfies_implicit_to_unify:
+  pure_wfs s ∧
+  satisfies ns s (to_mconstraint $ implicit_to_unify c)
+  ⇒ satisfies ns s (to_mconstraint c)
+Proof
+  Cases_on `c` >> rw[satisfies_def] >>
+  qexists_tac `FEMPTY` >> simp[]
+QED
+
 
 (******************** Constraint generation ********************)
 
@@ -3280,7 +3289,26 @@ Proof
   conj_tac >> rpt gen_tac >> strip_tac >- gvs[solve_def, return_def] >>
   rpt gen_tac >> strip_tac >>
   qpat_x_assum `solve _ _ = _` mp_tac >> simp[Once solve_def] >>
-  CASE_TAC >> gvs[fail_def] >>
+  CASE_TAC >> gvs[]
+  >- (
+    rename1 `get_solveable (h::t)` >>
+    strip_tac >> gvs[] >> first_x_assum drule >> impl_tac >> simp[]
+    >- (
+      Cases_on `h` >> gvs[get_solveable_def, is_solveable_def] >>
+      qpat_x_assum `constraints_ok _ _` mp_tac >>
+      once_rewrite_tac[INSERT_SING_UNION] >> simp[constraints_ok_UNION] >>
+      strip_tac >> simp[GSYM CONJ_ASSOC] >> conj_tac >- gvs[constraints_ok_def] >>
+      gvs[constraint_vars_def] >>
+      qpat_x_assum `BIGUNION _ ⊆ _` mp_tac >>
+      qpat_x_assum `constraints_ok _ _` mp_tac >> rpt $ pop_assum kall_tac >>
+      Induct_on `t` >> simp[] >> gen_tac >>
+      once_rewrite_tac[INSERT_SING_UNION] >> simp[constraints_ok_UNION] >>
+      rw[] >> gvs[] >> Cases_on `h` >> gvs[constraints_ok_def, constraint_vars_def]
+      ) >>
+    strip_tac >> conj_tac
+    >- cheat
+    >- cheat
+    ) >>
   CASE_TAC >> rename1 `get_solveable _ _ = SOME (c,cs)` >>
   imp_res_tac get_solveable_SOME >> gvs[] >>
   `constraints_ok (SND ns) (set (MAP to_mconstraint (left ++ [c] ++ right)))` by  (
