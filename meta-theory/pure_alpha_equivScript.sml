@@ -3691,7 +3691,7 @@ Proof
 QED
 
 Theorem app_similarity_perm_exp_right:
-  ∀e1 e2 x y.  (e1 ≲ e2) b ⇒ (e1 ≲ perm_exp x y e2) b
+  ∀e1 e2 x y b.  (e1 ≲ e2) b ⇒ (e1 ≲ perm_exp x y e2) b
 Proof
   rw[] >>
   assume_tac transitive_app_similarity >> gvs[transitive_def] >>
@@ -3722,14 +3722,14 @@ Proof
 QED
 
 Theorem exp_alpha_app_similarity:
-  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ (x ≲ y) b
+  ∀x y b. exp_alpha x y ∧ closed x ∧ closed y ⇒ (x ≲ y) b
 Proof
   rw [] \\ match_mp_tac companion_app_similarity
   \\ match_mp_tac(no_IN companion_exp_alpha) \\ fs []
 QED
 
 Theorem exp_alpha_app_bisimilarity:
-  ∀x y. exp_alpha x y ∧ closed x ∧ closed y ⇒ (x ≃ y) b
+  ∀x y b. exp_alpha x y ∧ closed x ∧ closed y ⇒ (x ≃ y) b
 Proof
   rw [app_bisimilarity_similarity]
   \\ match_mp_tac exp_alpha_app_similarity \\ fs []
@@ -3737,7 +3737,7 @@ Proof
 QED
 
 Theorem exp_alpha_exp_eq:
-  ∀x y. exp_alpha x y ⇒ (x ≅? y) b
+  ∀x y b. exp_alpha x y ⇒ (x ≅? y) b
 Proof
   fs [exp_eq_def] \\ rw []
   \\ match_mp_tac exp_alpha_app_bisimilarity

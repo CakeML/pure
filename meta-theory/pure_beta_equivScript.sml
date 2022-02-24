@@ -310,7 +310,7 @@ QED
 (********Capture avoiding substitution**********)
 
 Theorem App_Lam_bisim:
-  closed (Lam x body) ∧ closed arg ⇒
+  ∀b. closed (Lam x body) ∧ closed arg ⇒
   (App (Lam x body) arg ≃ subst1 x arg body) b
 Proof
   rw [] \\ match_mp_tac eval_IMP_app_bisimilarity

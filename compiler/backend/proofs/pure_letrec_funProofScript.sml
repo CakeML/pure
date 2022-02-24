@@ -257,7 +257,7 @@ QED
 (******************** Theorems ********************)
 
 Theorem letrec_fun_correct:
-  letrec_fun a b ∧ closed a ∧ closed b ⇒ a ≃ b
+  letrec_fun a b ∧ closed a ∧ closed b ⇒ (a ≃ b) T
 Proof
   rw[] >> irule eval_to_sim_thm >> gvs[] >>
   qexists_tac `letrec_fun` >> gvs[] >>
@@ -610,9 +610,10 @@ Proof
     `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2. ys = [y1;y2]` by gvs[LENGTH_EQ_NUM_compute] >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-    first_assum (drule_all_then strip_assume_tac) >>
+    qpat_x_assum ‘letrec_fun x1 _’ assume_tac >>
+    first_assum (dxrule_all_then strip_assume_tac) >>
     qpat_x_assum ‘letrec_fun x2 _’ assume_tac >>
-    first_x_assum (drule_all_then strip_assume_tac) >>
+    first_x_assum (dxrule_all_then strip_assume_tac) >>
     Cases_on `eval_wh_to (k - 1) x1 = wh_Diverge` >> gvs[]
     >- (qexists_tac `ck` >> gvs[]) >>
     IF_CASES_TAC >> gvs[]

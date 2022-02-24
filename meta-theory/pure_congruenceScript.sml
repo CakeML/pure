@@ -1176,7 +1176,7 @@ Proof
       qpat_x_assum `open_similarity _ _ _ _` mp_tac >>
       simp[open_similarity_def, bind_def] >> strip_tac >>
       pop_assum (qspec_then `FEMPTY` mp_tac) >> gvs[] >>
-      simp[app_similarity_iff, Once unfold_rel_def, no_err_eval_wh_def] >> strip_tac >>
+      simp[app_similarity_iff, Once unfold_rel_def] >> strip_tac >>
       first_x_assum irule >>
       simp[Once eval_wh_thm] >>
       qsuff_tac `
@@ -1252,16 +1252,16 @@ Proof
     imp_res_tac fmap_rel_fupdate_list_MAP_FST >> gvs[] >>
     `Howe (open_similarity b) {} (subst_funs fa ea) (subst_funs fb eb)` by (
       irule Sub_subst_funs >>
-      ‘term_rel (open_similarity b)’ by fs [term_rel_open_similarity] >>
+      qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
       simp[term_rel_Howe, Sub_Howe_open_similarity] >>
-      ‘Ref (open_similarity b)’ by fs [Ref_open_similarity] >> drule Howe_Ref >>
+      qspecl_then [‘b’] assume_tac Ref_open_similarity >> drule Howe_Ref >>
       rw[Compatible_def] >>
       irule Howe_open_similarity_min_freevars >>
       goal_assum drule) >>
     first_x_assum drule >>
     impl_tac
     >- (
-      ‘term_rel (open_similarity b)’ by fs [term_rel_open_similarity] >>
+      qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
       drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
       gvs[closed_def, Exps_def]
       ) >>
@@ -1269,8 +1269,7 @@ Proof
     Cases_on `eval_wh (subst_funs fa ea)` >> gvs[]
     >- (
       gvs[LIST_REL_EL_EQN] >> rw[] >>
-      irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-      pop_assum $ qspecl_then [‘b’] assume_tac >>
+      irule Howe_Tra >> qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
       simp[Tra_open_similarity] >>
       first_x_assum drule >> strip_tac >>
       drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
@@ -1284,8 +1283,7 @@ Proof
     rename1 `wh_Closure xa cea` >>
     rename1 `eval_wh (subst_funs fb _) = wh_Closure xb ceb` >>
     rename1 `eval_wh e2 = wh_Closure xc cec` >>
-    irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-    pop_assum $ qspecl_then [‘b’] assume_tac >>
+    irule Howe_Tra >> qspecl_then [‘b’] assume_tac  term_rel_open_similarity >>
     simp[Tra_open_similarity] >>
     drule term_rel_Howe >> simp[term_rel_def] >> disch_then imp_res_tac >>
     simp[] >> gvs[Exps_def] >>
@@ -1361,8 +1359,7 @@ Proof
     Cases_on `k = 0` >> simp[] >>
     qpat_x_assum `∀e. _` mp_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
     strip_tac >>
-    assume_tac term_rel_open_similarity >>
-    pop_assum $ qspecl_then [‘b’] assume_tac >>
+    qspecl_then [‘b’] assume_tac  term_rel_open_similarity >>
     drule term_rel_Howe >> simp[term_rel_def] >>
     disch_then imp_res_tac >>
     FULL_SIMP_TAC std_ss [Exps_EMPTY_closed] >>
@@ -1383,8 +1380,7 @@ Proof
       Cases_on `eval_wh x2` >> gvs[] >> strip_tac >> rgs[] >~[‘LIST_REL _ _ _’]
       >- (
         gvs[LIST_REL_EL_EQN] >> rw[] >>
-        irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-        pop_assum $ qspecl_then [‘b’] assume_tac >>
+        irule Howe_Tra >> qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
         simp[Tra_open_similarity, PULL_EXISTS] >>
         first_x_assum drule >> strip_tac >>
         goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY] >>
@@ -1393,8 +1389,7 @@ Proof
         first_x_assum drule >> strip_tac >>
         imp_res_tac app_similarity_closed
         ) >>
-      irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-      pop_assum $ qspecl_then [‘b’] assume_tac >>
+      irule Howe_Tra >> qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
       simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
       goal_assum (drule_at (Pos last)) >>
       imp_res_tac eval_wh_Closure_closed >> simp[freevars_eqvt] >>
@@ -1463,8 +1458,7 @@ Proof
       Cases_on `eval_wh x3` >> gvs[] >~[‘LIST_REL _ _ _’]
       >- (
         gvs[LIST_REL_EL_EQN] >> rw[] >>
-        irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-        pop_assum $ qspecl_then [‘b’] assume_tac >>
+        irule Howe_Tra >> qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
         simp[Tra_open_similarity, PULL_EXISTS] >>
         first_x_assum drule >> strip_tac >>
         goal_assum (drule_at (Pos last)) >> simp[open_similarity_EMPTY] >>
@@ -1473,8 +1467,7 @@ Proof
         first_x_assum drule >> strip_tac >>
         imp_res_tac app_similarity_closed
         ) >>
-      irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-      pop_assum $ qspecl_then [‘b’] assume_tac >>
+      irule Howe_Tra >> qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
       simp[Tra_open_similarity, Exps_def, PULL_EXISTS] >>
       goal_assum (drule_at (Pos last)) >>
       imp_res_tac eval_wh_Closure_closed >> simp[freevars_eqvt] >>
@@ -1491,7 +1484,7 @@ Proof
       fs[GSYM freevars_eqvt] >>
       rw[open_similarity_alt_def, bind_def] >>
       IF_CASES_TAC >> simp[] >>
-      rename1 `(_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)) b` >>
+      rename1 `(_ (perm_exp xa xc cec) ≲ _ (perm_exp xa xb ceb)) _` >>
       Cases_on `f` >> gvs[]
       >- (
         irule app_similarity_perm_exp_left >>
@@ -1572,7 +1565,7 @@ Proof
     IF_CASES_TAC >> fs[] >> Cases_on `xs` >> fs[] >>
     gvs[] >>
     rename1 ‘open_similarity boolean’ >>
-    rename1 `Howe (open_similarity boolean) _ a b` >>
+    rename1 `Howe _ _ a b` >>
     Cases_on `k = 0` >> gvs[] >>
     `eval_wh_to (k − 1) a ≠ wh_Diverge` by (CCONTR_TAC >> fs[]) >>
     `eval_wh a ≠ wh_Diverge` by (
@@ -1586,8 +1579,7 @@ Proof
       gvs[eval_wh_eq] >> irule_at Any EQ_REFL) >> gvs[] >>
     gvs[LIST_REL_EL_EQN] >>
     first_x_assum drule >> strip_tac >>
-    assume_tac term_rel_open_similarity >>
-    pop_assum $ qspecl_then [‘boolean’] assume_tac >>
+    qspecl_then [‘boolean’] assume_tac term_rel_open_similarity >>
     drule term_rel_Howe >>
     simp[term_rel_def] >> disch_then imp_res_tac >> rfs[Exps_def] >>
     last_x_assum drule >> simp[] >> strip_tac >>
@@ -1595,8 +1587,7 @@ Proof
     >- (
       rw[] >> first_x_assum drule >> strip_tac >>
       last_x_assum drule >> strip_tac >>
-      assume_tac term_rel_open_similarity >>
-      pop_assum $ qspecl_then [‘boolean’] assume_tac >>
+      qspecl_then [‘boolean’] assume_tac term_rel_open_similarity >>
       drule term_rel_Howe >>
       simp[term_rel_def] >> disch_then imp_res_tac >> rfs[Exps_def] >>
       irule Howe_Tra >>
@@ -1721,7 +1712,7 @@ Proof
       `eval_wh x1 = wh_Error` by (
         simp[eval_wh_eq] >> goal_assum drule) >>
       simp[] >> gvs[]
-       ) >>
+      ) >>
     Cases_on `eval_wh_to (k − 1) x1 = wh_Diverge` >> simp[] >>
     Cases_on `eval_wh_to (k − 1) x2 = wh_Diverge` >> simp[] >>
     `eval_wh x1 ≠ wh_Error ∧ eval_wh x1 ≠ wh_Diverge ∧
@@ -1738,8 +1729,7 @@ Proof
     ntac 2 $ first_x_assum $ drule_all_then assume_tac >>
     Cases_on `eval_wh x1` >> gvs[] >> Cases_on `eval_wh x2` >> rgs[] >>
     rw[] >> simp[] >> gvs[LIST_REL_EL_EQN] >> rw[] >>
-    irule Howe_Tra >> assume_tac term_rel_open_similarity >>
-    pop_assum $ qspecl_then [‘b’] assume_tac >>
+    irule Howe_Tra >> qspecl_then [‘b’] assume_tac term_rel_open_similarity >>
     simp[Tra_open_similarity, PULL_EXISTS]
     THEN_LT Q.SELECT_GOALS_LT_THEN [`closed _`]
       (
@@ -2315,7 +2305,7 @@ Proof
 QED
 
 Theorem exp_eq_perm_IMP:
-  ∀x y e e'.
+  ∀x y e e' b.
     x ∉ freevars e' ∧ y NOTIN freevars e' ∧ (e ≅? perm_exp x y e') b ⇒ (e ≅? e') b
 Proof
   metis_tac [exp_eq_perm,exp_eq_sym,exp_eq_trans]

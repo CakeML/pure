@@ -125,7 +125,7 @@ Proof
 QED
 
 Triviality app_bisimilarity_plug:
-  ∀c x y b. (x ≃ y) T ∧ closed (plug c x) ⇒ (plug c x ≃ plug c y) T
+  ∀c x y. (x ≃ y) T ∧ closed (plug c x) ⇒ (plug c x ≃ plug c y) T
 Proof
   rw[app_bisimilarity_eq]
   >- (irule exp_equiv_plug >> simp[])

@@ -241,10 +241,11 @@ Proof
 QED
 
 Theorem eval_eq_imp_app_similarity:
-  ∀x y.
+  ∀b x y.
     eval x = eval y ∧ closed x ∧ closed y
   ⇒ (x ≲ y) b
 Proof
+  gen_tac >>
   ho_match_mp_tac app_similarity_coinduct >>
   rw[FF_def] >>
   Q.REFINE_EXISTS_TAC `(x1,x2)`  >> fs[] >>
@@ -447,7 +448,7 @@ Proof
 QED
 
 Theorem app_similarity_companion_coind:
-  ∀R. (∀v1 v2. R v1 v2 ⇒ FF b (companion b R) (v1,v2)) ⇒
+  ∀R b. (∀v1 v2. R v1 v2 ⇒ FF b (companion b R) (v1,v2)) ⇒
       ∀v1 v2. R v1 v2 ⇒ (v1 ≲ v2) b
 Proof
   ntac 2 strip_tac >>
@@ -1098,7 +1099,7 @@ Proof
 QED
 
 Theorem approx_eq_app_similarity:
-  ∀e1 e2 b.
+  ∀e1 e2.
     closed e1 ∧ closed e2 ∧ (∀k. approx k e1 e2) ⇔ (e1 ≲ e2) T
 Proof
   rw[] >> reverse $ eq_tac
@@ -1135,7 +1136,7 @@ Proof
 QED
 
 Theorem approx_eq_app_bisimilarity:
-  ∀e1 e2 b.
+  ∀e1 e2.
     closed e1 ∧ closed e2 ∧ (∀k. approx_eq k e1 e2) ⇔ (e1 ≃ e2) T
 Proof
   rw[app_bisimilarity_similarity, approx_eq_def, GSYM approx_eq_app_similarity] >>
