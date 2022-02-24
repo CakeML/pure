@@ -58,7 +58,7 @@ Definition apply_closure_def:
     if eval_wh f = wh_Diverge then Div else
       case dest_wh_Closure (eval_wh f) of
       | NONE => Err
-      | SOME (n,e) => cont (eval_wh (bind1 n (Tick arg) e))
+      | SOME (n,e) => cont (eval_wh (bind1 n arg e))
 End
 
 Definition next_def:
@@ -338,7 +338,7 @@ Proof
 QED
 
 Theorem semantics_Ret_BC:
-  semantics (Ret x) (BC f fs) s = semantics (App f (Tick x)) fs s
+  semantics (Ret x) (BC f fs) s = semantics (App f x) fs s
 Proof
   fs [semantics_def,eval_wh_Cons]
   \\ once_rewrite_tac [interp_def]
