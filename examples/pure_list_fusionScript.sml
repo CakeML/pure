@@ -52,7 +52,7 @@ End
 
 
 Triviality app_bisimilarity_trans:
-  ∀x y z. x ≃ y ∧ y ≃ z ⇒ x ≃ z
+  ∀x y z b. (x ≃ y) b ∧ (y ≃ z) b ⇒ (x ≃ z) b
 Proof
   rw[]
   \\ assume_tac transitive_app_bisimilarity
@@ -61,7 +61,7 @@ Proof
 QED
 
 Triviality app_bisimilarity_sym:
-  ∀x y. x ≃ y ⇒ y ≃ x
+  ∀x y b. (x ≃ y) b ⇒ (y ≃ x) b
 Proof
   rw[]
   \\ assume_tac symmetric_app_bisimilarity
@@ -116,18 +116,18 @@ Definition progress_def:
   progress exp next =
     ∀input.
         closed input ⇒
-        (App exp input) ≃
+        ((App exp input) ≃
                  (case next input of
                   | INL final => final
                   | INR (n,x,rec_input) =>
-                      Cons n [x; App exp rec_input])
+                      Cons n [x; App exp rec_input])) T
 End
 
 Theorem progress_lemma:
-  ∀ exp1 exp2 next.
+  ∀ exp1 exp2 next b.
   progress exp1 next ∧ progress exp2 next ∧
   isClos (eval exp1) ∧ isClos (eval exp2) ⇒
-  exp1 ≃ exp2
+  (exp1 ≃ exp2) b
 Proof
   cheat
 QED
@@ -135,7 +135,7 @@ QED
 
 Theorem progress_equivalence:
   ∀ exp1 exp2 model.
-  exp1 ≃ exp2 ∧
+  (exp1 ≃ exp2) T ∧
   progress exp1 model
    ⇒ progress exp2 model
 Proof
