@@ -3,4 +3,5 @@ INCLUDES = ../misc \
            $(CAKEMLDIR)/semantics \
            $(CAKEMLDIR)/semantics/proofs \
            $(CAKEMLDIR)/semantics/alt_semantics \
+           $(CAKEMLDIR)/semantics/alt_semantics/proofs \
            $(CAKEMLDIR)/compiler/backend/semantics \

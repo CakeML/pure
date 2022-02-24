@@ -45,6 +45,8 @@ val _ = app fptest [
    “expAbs (patVar "x") (expAbs (patVar "y") (‹y› ⬝ ‹x›))”),
   (“nExp”, " if p x \nthen 1 else 2", “astExp nExp”,
    “expIf (expApp (expVar "p") (expVar "x")) (𝕀 1) (𝕀 2)”),
+  (“nExp”, "z + if p x \nthen 1 else 2", “astExp nExp”,
+   “‹+› ⬝ ‹z› ⬝ expIf (expApp (expVar "p") (expVar "x")) (𝕀 1) (𝕀 2)”),
   (“nExp”, "3 * 4 + 6", “astExp nExp”, “‹+› ⬝ (‹*› ⬝ 𝕀 3 ⬝ 𝕀 4) ⬝ 𝕀 6”),
   (“nExp”, "6 + 3 * 4", “astExp nExp”, “‹+› ⬝ 𝕀 6 ⬝ (‹*› ⬝ 𝕀 3 ⬝ 𝕀 4)”),
   (“nExp”, "(6 + 3) * 4", “astExp nExp”, “‹*› ⬝ (‹+› ⬝ 𝕀 6 ⬝ 𝕀 3) ⬝ 𝕀 4”),

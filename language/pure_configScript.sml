@@ -15,14 +15,12 @@ Datatype:
   atom_op =
     (* literal Int or Str *)
       Lit lit
-    (* equality *)
-    | Eq
     (* integer operations *)
     | Add | Sub | Mul | Div | Mod
-    | Lt | Leq | Gt | Geq
+    | Eq | Lt | Leq | Gt | Geq
     (* string operations *)
     | Len | Elem | Concat | Implode | Substring
-    | StrLt | StrLeq | StrGt | StrGeq
+    | StrEq | StrLt | StrLeq | StrGt | StrGeq
     (* creation of a communication message for use with FFI *)
     | Message string
 End
@@ -49,12 +47,12 @@ End
 
 Definition eval_op_def[simp]:
   eval_op (Lit l) [] = Atom l ∧
-  eval_op Eq  [x; y] = Bool (x = y) ∧
   eval_op Add [Int i; Int j] = Atom (Int (i + j)) ∧
   eval_op Sub [Int i; Int j] = Atom (Int (i - j)) ∧
   eval_op Mul [Int i; Int j] = Atom (Int (i * j)) ∧
   eval_op Div [Int i; Int j] = Atom (Int (if j = 0 then 0 else i / j)) ∧
   eval_op Mod [Int i; Int j] = Atom (Int (if j = 0 then 0 else i % j)) ∧
+  eval_op Eq  [Int i; Int j] = Bool (i = j) ∧
   eval_op Lt  [Int i; Int j] = Bool (i < j) ∧
   eval_op Leq [Int i; Int j] = Bool (i ≤ j) ∧
   eval_op Gt  [Int i; Int j] = Bool (i > j) ∧
@@ -68,6 +66,7 @@ Definition eval_op_def[simp]:
   eval_op Substring [Str s; Int i; Int l] =
     (if l < 0 then Atom (Str "") else
       Atom (Str (TAKE (Num l) (DROP (Num (i % (& LENGTH s))) s)))) ∧
+  eval_op StrEq  [Str s; Str t] = Bool (s = t) ∧
   eval_op StrLt  [Str s; Str t] = Bool (s < t) ∧
   eval_op StrLeq [Str s; Str t] = Bool (s ≤ t) ∧
   eval_op StrGt  [Str s; Str t] = Bool (s > t) ∧

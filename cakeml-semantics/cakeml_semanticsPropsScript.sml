@@ -32,8 +32,28 @@ Definition step_to_halt_cml_def:
     | SOME n => SOME $ step_n_cml n e
 End
 
+Definition dstep_n_cml_def:
+  dstep_n_cml env 0 d = d ∧
+  dstep_n_cml env (SUC n) (Dstep st) = dstep_n_cml env n (decl_step env st) ∧
+  dstep_n_cml env _ d = d
+End
 
-(***** Relating smallStep and itree-based semantics *****)
+Definition dis_halt_cml_def:
+  dis_halt_cml (Dstep step) = F ∧
+  dis_halt_cml (Dabort err) = T ∧
+  dis_halt_cml Ddone = T ∧
+  dis_halt_cml (Draise v) = T
+End
+
+Definition dstep_to_halt_cml_def:
+  dstep_to_halt_cml env e =
+    case some n. dis_halt_cml (dstep_n_cml env n e) of
+    | NONE => NONE
+    | SOME n => SOME $ dstep_n_cml env n e
+End
+
+
+(***** Relating smallStep and itree-based semantics for expressions *****)
 
 Inductive result_rel:
   result_rel (Rval v) (Rval v) ∧
@@ -66,8 +86,34 @@ Inductive step_result_rel:
   step_result_rel Etype_error (Eabort $ Rtype_error)
 End
 
-(* Play out a particular trace prefix from a given itree, modelling the
-   environment as an FFI oracle with associated FFI state (as in CakeML) *)
+(***** Relating smallStep and itree-based semantics for declarations *****)
+
+Definition dstate_rel_def:
+  dstate_rel (dst : dstate) (st : 'a state) ⇔
+    dst.refs = st.refs ∧
+    dst.next_type_stamp = st.next_type_stamp ∧
+    dst.next_exn_stamp = st.next_exn_stamp ∧
+    dst.eval_state = st.eval_state
+End
+
+Inductive deval_rel:
+  deval_rel (cakeml_semantics$Decl d) (smallStep$Decl d) ∧
+  deval_rel (Env e) (Env e) ∧
+  (ctxt_rel cs scs ⇒
+    deval_rel (ExpVal env ev cs l p) (ExpVal env ev scs l p))
+End
+
+Inductive dstep_result_rel:
+  (dstate_rel dst st ∧ deval_rel dev1 dev2 ⇒
+    dstep_result_rel
+      (cakeml_semantics$Dstep dst dev1 dcs) (smallStep$Dstep (st, dev2, dcs))) ∧
+  dstep_result_rel Ddone Ddone ∧
+  dstep_result_rel (Draise v) (Draise v) ∧
+  dstep_result_rel Dtype_error (Dabort $ Rtype_error)
+End
+
+(***** Play out a particular trace prefix from a given itree, modelling the
+       environment as an FFI oracle with associated FFI state (as in CakeML) *****)
 Definition trace_prefix_def:
   trace_prefix 0 (oracle, ffi_st) itree = ([], NONE) ∧
   trace_prefix (SUC n) (oracle, ffi_st) (Ret r) = ([], SOME r) ∧
@@ -89,9 +135,19 @@ Definition is_Effi_def:
   is_Effi _ = F
 End
 
+Definition is_Dffi_def:
+  is_Dffi (Dffi _ _ _ _ _) = T ∧
+  is_Dffi _ = F
+End
+
 Definition get_ffi_def:
   get_ffi (Estep (env, (st, ffi), ev, cs)) = SOME ffi ∧
   get_ffi _ = NONE
+End
+
+Definition dget_ffi_def:
+  dget_ffi (Dstep (st, dev, dcs)) = SOME st.ffi ∧
+  dget_ffi _ = NONE
 End
 
 
@@ -105,12 +161,26 @@ val smallstep_ss = simpLib.named_rewrites "smallstep_ss" [
     smallStepTheory.e_step_def
     ];
 
+val dsmallstep_ss = simpLib.named_rewrites "dsmallstep_ss" [
+    smallStepTheory.collapse_env_def,
+    smallStepTheory.decl_continue_def,
+    smallStepTheory.decl_step_def
+    ];
+
 val itree_ss = simpLib.named_rewrites "itree_ss" [
     cakeml_semanticsTheory.continue_def,
     cakeml_semanticsTheory.return_def,
     cakeml_semanticsTheory.push_def,
     cakeml_semanticsTheory.estep_def,
     get_ffi_def
+    ];
+
+val ditree_ss = simpLib.named_rewrites "ditree_ss" [
+    cakeml_semanticsTheory.dcontinue_def,
+    cakeml_semanticsTheory.dreturn_def,
+    cakeml_semanticsTheory.dpush_def,
+    cakeml_semanticsTheory.dstep_def,
+    dget_ffi_def
     ];
 
 Theorem step_n_same[simp]:
@@ -125,16 +195,41 @@ Proof
   Cases >> rw[step_n_def, step_n_cml_def]
 QED
 
+Theorem dstep_n_same[simp]:
+  (∀env n. dstep_n env n Ddone = Ddone) ∧
+  (∀env n. dstep_n env n Dtype_error = Dtype_error) ∧
+  (∀env n st ev l p dcs.  dstep_n env n (Dffi st ev l p dcs) = Dffi st ev l p dcs) ∧
+  (∀env n v. dstep_n env n (Draise v) = Draise v) ∧
+  (∀env n. dstep_n_cml env n Ddone = Ddone) ∧
+  (∀env n err. dstep_n_cml env n (Dabort err) = (Dabort err)) ∧
+  (∀env n v. dstep_n_cml env n (Draise v) = Draise v)
+Proof
+  rpt conj_tac >> strip_tac >>
+  Cases >> rw[dstep_n_def, dstep_n_cml_def]
+QED
+
 Theorem is_Effi_def:
   is_Effi e ⇔ ∃ s ws1 ws2 n env st cs. e = Effi s ws1 ws2 n env st cs
 Proof
   Cases_on `e` >> simp[is_Effi_def]
 QED
 
+Theorem is_Dffi_def:
+  is_Dffi d ⇔ ∃st ev l p dcs. d = Dffi st ev l p dcs
+Proof
+  Cases_on `d` >> simp[is_Dffi_def]
+QED
+
 Theorem step_result_rel_not_Effi:
   ∀e1 e2. step_result_rel e1 e2 ⇒ ¬ is_Effi e1
 Proof
   rw[step_result_rel_cases, is_Effi_def]
+QED
+
+Theorem dstep_result_rel_not_Dffi:
+  ∀a b. dstep_result_rel a b ⇒ ¬ is_Dffi a
+Proof
+  rw[dstep_result_rel_cases, is_Dffi_def]
 QED
 
 
@@ -188,6 +283,16 @@ Proof
   Induct >> rw[step_n_cml_def] >>
   Cases_on `e` >> gvs[step_n_cml_def] >>
   Cases_on `m` >> gvs[step_n_cml_def]
+QED
+
+Theorem dstep_n_cml_eq_Dstep:
+  ∀env n e st.
+    dstep_n_cml env n e = Dstep st
+  ⇒ ∀m. m < n ⇒ ∃st'. dstep_n_cml env m e = Dstep st'
+Proof
+  strip_tac >> Induct >> rw[dstep_n_cml_def] >>
+  Cases_on `e` >> gvs[dstep_n_cml_def] >>
+  Cases_on `m` >> gvs[dstep_n_cml_def]
 QED
 
 Theorem step_n_cml_alt_def:
@@ -246,6 +351,38 @@ Proof
   gvs[step_n_cml_add |> ONCE_REWRITE_RULE[ADD_COMM]] >>
   Cases_on `step_n_cml n e` >> gvs[] >>
   imp_res_tac is_halt_cml_Estep_imp_steps_not_halt
+QED
+
+Theorem dstep_n_cml_alt_def:
+  dstep_n_cml env 0 e = e ∧
+  dstep_n_cml env (SUC n) e = (
+    case dstep_n_cml env n e of
+    | Dstep st => decl_step env st
+    | e => e)
+Proof
+  rw[dstep_n_cml_def] >>
+  qid_spec_tac `e` >> qid_spec_tac `n` >>
+  Induct >> Cases >> rewrite_tac[dstep_n_cml_def] >> simp[]
+QED
+
+Theorem dstep_n_cml_add:
+  ∀env a b e. dstep_n_cml env (a + b) e = dstep_n_cml env a (dstep_n_cml env b e)
+Proof
+  strip_tac >> Induct >> rw[dstep_n_cml_def] >>
+  simp[ADD_CLAUSES, dstep_n_cml_alt_def]
+QED
+
+Theorem dis_halt_cml_dstep_n_cml_eq:
+  ∀n m e env.
+    dis_halt_cml (dstep_n_cml env n e) ∧
+    dis_halt_cml (dstep_n_cml env m e)
+  ⇒ dstep_n_cml env n e = dstep_n_cml env m e
+Proof
+  rw[] >> wlog_tac `n < m` [`n`,`m`]
+  >- (Cases_on `n = m` >> gvs[]) >>
+  imp_res_tac LESS_STRONG_ADD >> gvs[] >>
+  gvs[dstep_n_cml_add |> ONCE_REWRITE_RULE[ADD_COMM]] >>
+  Cases_on `dstep_n_cml env n e` >> gvs[dis_halt_cml_def]
 QED
 
 
@@ -359,6 +496,61 @@ Proof
     )
 QED
 
+Theorem decl_step_reln_eq_dstep_n_cml:
+  (decl_step_reln env)^* st1 st2 ⇔
+  ∃n. dstep_n_cml env n (Dstep st1) = Dstep st2
+Proof
+  reverse $ eq_tac >> rw[] >> pop_assum mp_tac
+  >- (
+    map_every qid_spec_tac [`st2`,`st1`,`n`] >>
+    Induct >> rw[dstep_n_cml_alt_def] >>
+    every_case_tac >> gvs[] >>
+    rw[Once relationTheory.RTC_CASES2] >> disj2_tac >>
+    last_x_assum $ irule_at Any >> gvs[decl_step_reln_def]
+    )
+  >- (
+    Induct_on `(decl_step_reln env)^*` >> rw[]
+    >- (qexists_tac `0` >> gvs[dstep_n_cml_def])
+    >- (qexists_tac `SUC n` >> gvs[dstep_n_cml_def, decl_step_reln_def])
+    )
+QED
+
+Theorem small_eval_dec_eq_dstep_n_cml:
+  (small_eval_dec env dst (st, Rval e) ⇔
+    ∃n. dstep_n_cml env n (Dstep dst) = Dstep (st, Env e, [])) ∧
+  (small_eval_dec env dst (st, Rerr (Rraise v)) ⇔
+    ∃n dev dcs.
+      dstep_n_cml env n (Dstep dst) = Dstep (st, dev, dcs) ∧
+      decl_step env (st, dev, dcs) = Draise v) ∧
+  (small_eval_dec env dst (st, Rerr (Rabort err)) ⇔
+    ∃n dev dcs.
+      dstep_n_cml env n (Dstep dst) = Dstep (st, dev, dcs) ∧
+      decl_step env (st, dev, dcs) = Dabort err)
+Proof
+  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
+  eq_tac >> rw[PULL_EXISTS] >> rpt $ goal_assum drule
+QED
+
+Theorem dec_diverges_eq_step_to_halt_cml:
+  small_decl_diverges env dst ⇔ dstep_to_halt_cml env (Dstep dst) = NONE
+Proof
+  rw[dstep_to_halt_cml_def, small_decl_diverges_def,
+     decl_step_reln_eq_dstep_n_cml, PULL_EXISTS] >>
+  eq_tac >> rw[] >> gvs[e_step_reln_def]
+  >- (
+    DEEP_INTRO_TAC some_intro >> rw[] >>
+    Induct_on `x` >> rw[] >> gvs[dstep_n_cml_alt_def, dis_halt_cml_def] >>
+    CASE_TAC >> gvs[is_halt_def] >>
+    last_x_assum drule >> strip_tac >> gvs[decl_step_reln_def, dis_halt_cml_def]
+    )
+  >- (
+    last_x_assum mp_tac >> DEEP_INTRO_TAC some_intro >> rw[] >>
+    first_x_assum $ qspec_then `SUC n` assume_tac >>
+    gvs[dstep_n_cml_alt_def] >>
+    Cases_on `decl_step env b` >> gvs[dis_halt_cml_def, decl_step_reln_def]
+    )
+QED
+
 
 (******************** Lemmas ********************)
 
@@ -451,6 +643,51 @@ Proof
   )
 QED
 
+Triviality e_step_ffi_changed_forall =
+  e_step_ffi_changed |>
+  Q.GENL [`env`,`st`,`ffi`,`ev`,`cs`,`ffi'`,`env'`,`st'`,`ev'`,`cs'`];
+
+Theorem decl_step_ffi_changed:
+  decl_step benv (st, dev, dcs) = Dstep (st', dev', dcs') ∧ st.ffi ≠ st'.ffi ⇒
+  ∃env conf s lnum env' ccs locs pat ws ffi_st ws'.
+    dev = ExpVal env (Val (Litv (StrLit conf)))
+            ((Capp (FFI s) [Loc lnum] () [], env')::ccs) locs pat ∧
+    store_lookup lnum st.refs = SOME (W8array ws) ∧
+    s ≠ "" ∧
+    st.ffi.oracle s st.ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      Oracle_return ffi_st ws' ∧
+    LENGTH ws = LENGTH ws' ∧
+    dev' = ExpVal env' (Val (Conv NONE [])) ccs locs pat ∧
+    st' = st with <|
+            refs := LUPDATE (W8array ws') lnum st.refs;
+            ffi := st.ffi with <|
+              ffi_state := ffi_st;
+              io_events := st.ffi.io_events ++
+                 [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))] |>
+            |> ∧
+    dcs = dcs'
+Proof
+  simp[decl_step_def] >>
+  Cases_on `∃d. dev = Decl d` >> gvs[]
+  >- (every_case_tac >> gvs[state_component_equality]) >>
+  Cases_on `∃e. dev = Env e` >> gvs[]
+  >- (simp[decl_continue_def] >> every_case_tac >> gvs[state_component_equality]) >>
+  TOP_CASE_TAC >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `e_step_result_CASE stepe` >>
+  qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >> strip_tac >>
+  qspecl_then [`s`,`st.refs`,`st.ffi`,`e`,`l`,`st'.ffi`]
+    assume_tac e_step_ffi_changed_forall >>
+  gvs[Abbr `stepe`] >> last_x_assum assume_tac >> last_x_assum mp_tac >>
+  TOP_CASE_TAC >> gvs[]
+  >- (unabbrev_all_tac >> gvs[] >> every_case_tac >> gvs[state_component_equality]) >>
+  TOP_CASE_TAC >> gvs[]
+  >- (every_case_tac >> gvs[state_component_equality]) >>
+  every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
+  gvs[SF smallstep_ss, cml_application_thm,
+      semanticPrimitivesTheory.do_app_def, call_FFI_def,
+      store_assign_def, store_lookup_def, store_v_same_type_def]
+QED
+
 Theorem io_events_mono_e_step:
   e_step e1 = Estep e2 ⇒
   io_events_mono (SND $ FST $ SND e1) (SND $ FST $ SND e2)
@@ -494,6 +731,47 @@ Proof
   imp_res_tac io_events_mono_antisym >> gvs[]
 QED
 
+Theorem io_events_mono_decl_step:
+  decl_step env dst1 = Dstep dst2 ⇒
+  io_events_mono (FST dst1).ffi (FST dst2).ffi
+Proof
+  PairCases_on `dst1` >> PairCases_on `dst2` >> gvs[] >> rw[] >>
+  Cases_on `dst10.ffi = dst20.ffi` >- simp[io_events_mono_refl] >>
+  drule_all decl_step_ffi_changed >> rw[] >> gvs[] >>
+  rw[io_events_mono_def]
+QED
+
+Theorem io_events_mono_dstep_n_cml:
+  ∀env n dst1 dst2.
+    dstep_n_cml env n (Dstep dst1) = Dstep dst2
+  ⇒ io_events_mono (FST dst1).ffi (FST dst2).ffi
+Proof
+  strip_tac >> Induct >> rw[dstep_n_cml_alt_def] >>
+  irule io_events_mono_trans >>
+  last_x_assum $ irule_at Any >>
+  qspecl_then [`env`,`SUC n`,`Dstep dst1`,`dst2`] mp_tac dstep_n_cml_eq_Dstep >>
+  gvs[dstep_n_cml_alt_def] >>
+  disch_then $ qspec_then `n` mp_tac >> gvs[] >> strip_tac >> gvs[] >>
+  irule io_events_mono_decl_step >> simp[] >> goal_assum drule
+QED
+
+Theorem dstep_n_cml_preserved_FFI:
+  ∀n e e' env.
+    dstep_n_cml env n e = Dstep e' ∧ dget_ffi (Dstep e') = dget_ffi e
+  ⇒ ∀m. m < n ⇒ dget_ffi (dstep_n_cml env m e) = dget_ffi (Dstep e')
+Proof
+  rw[] >> imp_res_tac LESS_STRONG_ADD >>
+  gvs[dstep_n_cml_add |> ONCE_REWRITE_RULE[ADD_COMM]] >> rename1 `SUC n` >>
+  Cases_on `dstep_n_cml env m e` >> gvs[] >>
+  PairCases_on `p` >> rename1 `(dst1,dev1,dcs1)` >>
+  Cases_on `e` >> gvs[] >>
+  PairCases_on `p` >> rename1 `_ = dget_ffi $ _ (dst,dev,dcs)` >>
+  PairCases_on `e'` >>
+  rename1 `dstep_n_cml _ (SUC _) _ = Dstep (dst2,dev2,dcs2)` >>
+  imp_res_tac io_events_mono_dstep_n_cml >> gvs[dget_ffi_def] >>
+  imp_res_tac io_events_mono_antisym >> gvs[]
+QED
+
 
 (***** itree-based lemmas *****)
 
@@ -527,6 +805,38 @@ Proof
   imp_res_tac LESS_STRONG_ADD >> gvs[] >>
   gvs[step_n_add |> ONCE_REWRITE_RULE[ADD_COMM]] >>
   Cases_on `step_n n e` >> gvs[is_halt_def, step_n_def]
+QED
+
+Theorem dstep_n_alt_def:
+  dstep_n env 0 e = e ∧
+  dstep_n env (SUC n) e = (
+    case dstep_n env n e of
+    | Dstep dst dev dcs => dstep env dst dev dcs
+    | e => e)
+Proof
+  rw[dstep_n_def] >>
+  qid_spec_tac `e` >> qid_spec_tac `n` >>
+  Induct >> Cases >> rewrite_tac[dstep_n_def] >> simp[]
+QED
+
+Theorem dstep_n_add:
+  ∀a b. dstep_n env (a + b) e = dstep_n env a (dstep_n env b e)
+Proof
+  Induct >> rw[dstep_n_def] >>
+  simp[ADD_CLAUSES, dstep_n_alt_def]
+QED
+
+Theorem dis_halt_dstep_n_eq:
+  ∀n m env e.
+    dis_halt (dstep_n env n e) ∧
+    dis_halt (dstep_n env m e)
+  ⇒ dstep_n env n e = dstep_n env m e
+Proof
+  rw[] >> wlog_tac `n < m` [`n`,`m`]
+  >- (Cases_on `n = m` >> gvs[]) >>
+  imp_res_tac LESS_STRONG_ADD >> gvs[] >>
+  gvs[dstep_n_add |> ONCE_REWRITE_RULE[ADD_COMM]] >>
+  Cases_on `dstep_n env n e` >> gvs[dis_halt_def, dstep_n_def]
 QED
 
 Theorem application_thm:
@@ -655,6 +965,73 @@ Proof
   >- (first_x_assum $ qspec_then `SUC x` assume_tac >> gvs[step_n_def])
 QED
 
+Theorem dstep_to_Ddone:
+  dstep env dst dev dcs = Ddone ⇔
+    ∃e. dev = Env e ∧ dcs = []
+Proof
+  Cases_on `∃d. dev = Decl d` >> gvs[]
+  >- (Cases_on `d` >> gvs[dstep_def] >> every_case_tac >> gvs[]) >>
+  Cases_on `∃e. dev = Env e` >> gvs[]
+  >- (
+    Cases_on `dcs` >> gvs[SF ditree_ss] >>
+    Cases_on `h` >> Cases_on `l` >> gvs[SF ditree_ss]
+    ) >>
+  Cases_on `dev` >> gvs[] >>
+  Cases_on `e` >> gvs[dstep_def]
+  >- (every_case_tac >> gvs[estep_to_Edone]) >>
+  Cases_on `l` >> gvs[dstep_def]
+  >- (every_case_tac >> gvs[]) >>
+  PairCases_on `h` >>
+  Cases_on `h0` >> Cases_on `t` >> gvs[dstep_def] >>
+  every_case_tac >> gvs[estep_to_Edone]
+QED
+
+Theorem dis_halt_dstep_n_const:
+  ∀n env e. dis_halt (dstep_n env n e) ⇒
+    ∀m. n < m ⇒ dstep_n env n e = dstep_n env m e
+Proof
+  Induct >> rw[dstep_n_def]
+  >- (Cases_on `e` >> gvs[dis_halt_def]) >>
+  Cases_on `e` >> gvs[dstep_n_def, dis_halt_def] >>
+  Cases_on `m` >> gvs[dstep_n_def]
+QED
+
+Theorem dis_halt_dstep_n_min:
+  ∀n env e. dis_halt (dstep_n env n e) ⇒
+  ∃m. m ≤ n ∧ dstep_n env m e = dstep_n env n e ∧
+      ∀l. l < m ⇒ ¬dis_halt (dstep_n env l e)
+Proof
+  Induct >> rw[dstep_n_alt_def] >>
+  every_case_tac >> gvs[dis_halt_def]
+  >- (
+    last_x_assum kall_tac >>
+    qexists_tac `SUC n` >> simp[dstep_n_alt_def] >> rw[] >>
+    CCONTR_TAC >> gvs[] >>
+    Cases_on `l' = n` >> gvs[dis_halt_def] >>
+    drule dis_halt_dstep_n_const >>
+    disch_then $ qspec_then `n` assume_tac >> gvs[dis_halt_def]
+    ) >>
+  last_x_assum $ qspecl_then [`env`,`e`] assume_tac >> gvs[dis_halt_def] >>
+  qexists_tac `m` >> simp[]
+QED
+
+Theorem dstep_until_halt_take_step:
+  ∀dst dev dcs env. ¬ dis_halt (Dstep dst dev dcs)
+  ⇒ dstep_until_halt env (Dstep dst dev dcs) =
+    dstep_until_halt env (dstep env dst dev dcs)
+Proof
+  rw[dstep_until_halt_def] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  DEEP_INTRO_TAC some_intro >> rw[]
+  >- (
+    qspecl_then [`x`,`SUC x'`,`env`,`Dstep dst dev dcs`]
+      assume_tac dis_halt_dstep_n_eq >>
+    gvs[dstep_n_def]
+    )
+  >- (Cases_on `x` >> gvs[dstep_n_def])
+  >- (first_x_assum $ qspec_then `SUC x` assume_tac >> gvs[dstep_n_def])
+QED
+
 Theorem cml_io_unfold_err:
   cml_io_unfold_err f seed =
     case f seed of
@@ -694,6 +1071,27 @@ Proof
   CASE_TAC >> gvs[] >> rw[FUN_EQ_THM]
 QED
 
+Theorem dinterp:
+  dinterp env e =
+    case dstep_until_halt env e of
+    | DRet => Ret Termination
+    | DErr => Ret Error
+    | DDiv => Div
+    | DAct dst (s,ws1,ws2,n,env',cs) locs p dcs =>
+        Vis (s, ws1, ws2)
+          (λa. case a of
+                | INL x => Ret $ FinalFFI (s, ws1, ws2) x
+                | INR y =>
+                    if LENGTH ws2 = LENGTH y then
+                      dinterp env $
+                        Dstep (dst with refs := LUPDATE (W8array y) n dst.refs)
+                          (ExpVal env' (Val $ Conv NONE []) cs locs p) dcs
+                    else Ret $ FinalFFI (s, ws1, ws2) FFI_failed)
+Proof
+  rw[dinterp_def] >> rw[Once cml_io_unfold_err] >> simp[] >>
+  CASE_TAC >> gvs[] >> rw[FUN_EQ_THM] >> PairCases_on `p` >> gvs[]
+QED
+
 Theorem trace_prefix_interp:
   trace_prefix 0 (oracle, ffi_st) (interp e) = ([], NONE) ∧
   trace_prefix (SUC n) (oracle, ffi_st) (interp e) =
@@ -719,6 +1117,39 @@ Theorem trace_prefix_interp:
 Proof
   rw[trace_prefix_def] >> rw[Once interp] >>
   CASE_TAC >> gvs[trace_prefix_def] >>
+  reverse $ CASE_TAC >> gvs[]
+  >- (Cases_on `n` >> gvs[trace_prefix_def]) >>
+  IF_CASES_TAC >> gvs[] >>
+  Cases_on `n` >> gvs[trace_prefix_def]
+QED
+
+Theorem trace_prefix_dinterp:
+  trace_prefix 0 (oracle, ffi_st) (dinterp env e) = ([], NONE) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (dinterp env e) =
+    case dstep_until_halt env e of
+    | DRet => ([], SOME Termination)
+    | DErr => ([], SOME Error)
+    | DDiv => ([], NONE)
+    | DAct dst (s,conf,ws,lnum,env',cs) locs pat dcs =>
+        case oracle s ffi_st conf ws of
+        | Oracle_return ffi_st' ws' =>
+            if LENGTH ws ≠ LENGTH ws' ∧ n = 0 then
+              ([], NONE)
+            else if LENGTH ws ≠ LENGTH ws' then
+              ([], SOME $ FinalFFI (s, conf, ws) FFI_failed)
+            else let (io, res) =
+              trace_prefix n (oracle, ffi_st')
+                (dinterp env $
+                  Dstep (dst with refs := LUPDATE (W8array ws') lnum dst.refs)
+                    (ExpVal env' (Val $ Conv NONE []) cs locs pat) dcs)
+            in ((IO_event s conf (ZIP (ws,ws')))::io, res)
+        | Oracle_final outcome =>
+            if n = 0 then ([], NONE) else
+            ([], SOME $ FinalFFI (s, conf, ws) outcome)
+Proof
+  rw[trace_prefix_def] >> rw[Once dinterp] >>
+  CASE_TAC >> gvs[trace_prefix_def] >>
+  PairCases_on `p` >> gvs[trace_prefix_def] >>
   reverse $ CASE_TAC >> gvs[]
   >- (Cases_on `n` >> gvs[trace_prefix_def]) >>
   IF_CASES_TAC >> gvs[] >>

@@ -82,8 +82,10 @@ End
 
 Overload tokGE = “λp. tok p mktokLf lrGE”
 Overload tokGT = “λp. tok p mktokLf lrGT”
+Overload tokEQ = “λp. tok p mktokLf lrEQ”
 Overload NTGE = “λn. NT n I lrGE”
 Overload NTGT = “λn. NT n I lrGT”
+Overload NTEQ = “λn. NT n I lrEQ”
 
 Definition purePEG_def[nocompute]:
   purePEG = <|
@@ -103,7 +105,7 @@ Definition purePEG_def[nocompute]:
                    tokGT ((=) $ SymbolT "::");
                    NT nTy I lrGT] (mkNT nDecl);
              (* declare new data type and its constructors *)
-             seql [tok ((=) $ AlphaT "data") mktokLf lrEQ;
+             seql [tokEQ ((=) $ AlphaT "data") ;
                    tokGT capname_tok;
                    rpt (tokGT lcname_tok) FLAT;
                    tokGT ((=) EqualsT) ;
@@ -111,9 +113,9 @@ Definition purePEG_def[nocompute]:
                           (tokGT ((=) BarT))]
                   (mkNT nDecl);
              (* define value *)
-             seql [tok lcname_tok mktokLf lrEQ;
-                   RPT1 (NT nAPat I lrGT);
-                   NT nFunRHS I lrGT] (mkNT nDecl)]);
+             pegf (NT nValBinding I lrEQ) (mkNT nDecl)]);
+        (INL nValBinding,
+         seql [NT nExp I lrEQ; NT nFunRHS I lrGT] (mkNT nValBinding));
         (INL nTyConDecl,
          seql [tokGE capname_tok; rpt (NT nTyBase I lrGE) FLAT]
               (mkNT nTyConDecl));
@@ -146,7 +148,26 @@ Definition purePEG_def[nocompute]:
         (INL nFunRHS,
          seql [tok ((=) EqualsT) mktokLf lrGE; NT nExp I lrGE] (mkNT nFunRHS));
 
-        (INL nExp,
+        (INL nEqBindSeq, pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
+        (INL nEqBind, seql [NT nPat I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
+                           (mkNT nEqBind));
+        (INL nOp,
+         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT)
+             mktokLf
+             lrEQ);
+
+        (INL nIExp,
+         seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp2] I) FLAT]
+              (mkNT nIExp));
+        (INL nIExpEQ,
+         seql [NTEQ nFExpEQ; rpt (seql [NTGE nOp; NTGE nFExp2] I) FLAT]
+              (mkNT nIExp));
+        (INL nFExp2, pegf (choicel [NTGE nLSafeExp; NTGE nFExp]) (mkNT nFExp2));
+        (INL nFExp,
+         seql [NTGE nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+        (INL nFExpEQ,
+         seql [NTEQ nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+        (INL nLSafeExp,
          choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
                         tokGE ((=) ArrowT);
                         NTGE nExp] (mkNT nExp);
@@ -154,31 +175,30 @@ Definition purePEG_def[nocompute]:
                         tokGE ((=) ThenT); NTGE nExp;
                         tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
                   seql [tokGE ((=) LetT) ; NTGE nEqBindSeq ;
-                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
-                  pegf (NTGE nIExp) (mkNT nExp)]);
-        (INL nEqBindSeq, rpt (NT nEqBind I lrEQ) FLAT);
-        (INL nEqBind, seql [NT nPat I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
-                           (mkNT nEqBind));
-        (INL nIExp,
-         seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp] I) FLAT]
-              (mkNT nIExp));
-        (INL nOp,
-         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT)
-             mktokLf
-             lrEQ);
-
-        (INL nFExp,
-         seql [NTGE nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp)]);
+        (INL nLSafeExpEQ,
+         choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
+                        tokGE ((=) ArrowT);
+                        NTGE nExp] (mkNT nExp);
+                  seql [tokEQ ((=) IfT); NTGE nExp;
+                        tokGE ((=) ThenT); NTGE nExp;
+                        tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
+                  seql [tokEQ ((=) LetT) ; NTGE nEqBindSeq ;
+                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp)]);
+        (INL nExp,
+         choicel [NTGE nLSafeExp; pegf (NTGE nIExp) (mkNT nExp)]);
+        (INL nExpEQ,
+         choicel [NTEQ nLSafeExpEQ; pegf (NTEQ nIExpEQ) (mkNT nExp)]);
 
         (INL nAExp,
-         choicel [pegf (NT nLit I lrEQ) (mkNT nAExp);
-                  seql [tok ((=) LparT) mktokLf lrEQ;
+         choicel [pegf (NTGE nLit) (mkNT nAExp);
+                  seql [tokGE ((=) LparT) ;
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RparT)] (mkNT nAExp);
-                  seql [tok ((=) LbrackT) mktokLf lrEQ;
+                  seql [tokGE ((=) LbrackT) ;
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RbrackT)] (mkNT nAExp);
-                  tok isAlphaT (mkNT nAExp o mktokLf) lrEQ]);
+                  pegf (tokGE isAlphaT) (mkNT nAExp)]);
 
         (INL nLit,
          choicel [tok isInt (mkNT nLit o mktokLf) lrEQ]);
@@ -337,6 +357,22 @@ Theorem faildata1 =
 val data1 = test “nDecls”
   "data Foo a = C1 a Int (E (D Bool)Int) | C2 (D Bool) Int"
 
+val letexp1 = test “nExp”
+  "let x = 3\n\
+  \    y = 4 in x + y"
+val letexp2 = test “nExp”
+  "let\n\
+  \ x = 3\n\
+  \ y = 4\n\
+  \ in x + y"
+val letexp3 = test “nExp”
+  "   let\n\
+  \x = 3\n\
+  \y = 4 in x + y"
+val letexp3 = test “nExp”
+  "z * let\n\
+  \x = 3\n\
+  \y = 4 in x + y"
 
 
 val _ = export_theory();

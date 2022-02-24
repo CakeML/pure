@@ -358,9 +358,14 @@ Definition astExp_def:
      | [] => NONE
      | pt :: rest => do
                       v <- astExp nFExp pt ;
-                      preclist <- grabPairs (astExp nFExp) astOp [INR v] rest ;
+                      preclist <- grabPairs (astExp nFExp2) astOp [INR v] rest ;
                       handlePrecs preclist
                     od
+   else if nt1 = nFExp2 then
+     case args of
+     | [] => NONE
+     | [pt] => astExp nExp pt ++ astExp nFExp pt
+     | _ => NONE
    else if nt1 = nFExp then
      case args of
        [] => NONE

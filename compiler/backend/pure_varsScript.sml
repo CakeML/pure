@@ -31,6 +31,12 @@ Definition list_delete_def:
   list_delete s l = FOLDL (λs v. delete s v) s l
 End
 
+(* TODO move to mlmapTheory *)
+val unionWith_def = Define `
+  unionWith f (Map cmp t1) (Map _ t2) =
+    Map cmp (balanced_map$unionWith cmp f t1 t2)`
+
+
 (* lemmas *)
 
 Theorem map_ok_empty[simp]:
@@ -56,6 +62,7 @@ Proof
   rw[empty_def]
 QED
 
+(* TODO move to mlmapTheory *)
 Theorem lookup_union:
   ∀s1 s2 k.
     map_ok s1 ∧ map_ok s2 ∧ cmp_of s1 = cmp_of s2
@@ -108,5 +115,67 @@ Proof
   gvs[GSYM list_delete_def] >>
   DEP_REWRITE_TAC[lookup_delete] >> drule map_ok_list_delete >> simp[]
 QED
+
+(* TODO move to mlmapTheory *)
+Theorem MAP_KEYS_sing_set_FMERGE_WITH_KEY:
+  FMERGE_WITH_KEY (λk a b. f k a b)
+    (MAP_KEYS (λx. {x}) t1) (MAP_KEYS (λx. {x}) t2) =
+  MAP_KEYS (λx. {x}) (FMERGE_WITH_KEY (λk a b. f {k} a b) t1 t2)
+Proof
+  rw[fmap_eq_flookup, FLOOKUP_FMERGE_WITH_KEY] >>
+  `∀u. INJ (λx. {x}) u UNIV` by simp[INJ_IFF] >>
+  simp[FLOOKUP_MAP_KEYS] >>
+  Cases_on `x` >> gvs[] >> reverse $ Cases_on `t` >> gvs[]
+  >- (
+    rename1 `a INSERT b INSERT s` >>
+    qsuff_tac `∀y. a INSERT b INSERT s <> {y}` >> gvs[] >>
+    rw[EXTENSION] >> metis_tac[]
+    ) >>
+  `∀P v. x' = v ∧ P v ⇔ x' = v /\ P x'` by metis_tac [] >> gvs[] >>
+  rename1 `a ∈ _` >>
+  Cases_on `a ∈ FDOM t1` >> Cases_on `a ∈ FDOM t2` >> gvs[] >>
+  gvs[FLOOKUP_DEF, FMERGE_WITH_KEY_DEF]
+QED
+
+(* TODO move to mlmapTheory *)
+Theorem unionWith_thm:
+   map_ok t1 /\ map_ok t2 /\ cmp_of t1 = cmp_of t2 ==>
+   map_ok (unionWith f t1 t2) /\
+   cmp_of (unionWith f t1 t2) = cmp_of t1 /\
+   to_fmap (unionWith f t1 t2) = FMERGE f (to_fmap t1) (to_fmap t2)
+Proof
+  Cases_on `t1` >> Cases_on `t2` >> gvs[cmp_of_def] >> strip_tac >> gvs[] >>
+  simp[unionWith_def, cmp_of_def] >> conj_asm1_tac
+  >- (
+    gvs[map_ok_def] >>
+    imp_res_tac comparisonTheory.TotOrder_imp_good_cmp >>
+    gvs[balanced_mapTheory.unionWith_thm]
+    ) >>
+  rename1 `unionWith k f t1 t2` >>
+  gvs[map_ok_def] >> imp_res_tac comparisonTheory.TotOrder_imp_good_cmp >>
+  drule balanced_mapTheory.unionWith_thm >>
+  disch_then $ qspecl_then [`f`,`t1`,`t2`] assume_tac >> gvs[] >>
+  gvs[to_fmap_thm, MAP_KEYS_sing_set_FMERGE_WITH_KEY, MAP_KEYS_sing_set] >>
+  simp[FMERGE_WITH_KEY_FMERGE]
+QED
+
+(* TODO move to mlmapTheory *)
+Theorem lookup_unionWith:
+  ∀s1 s2 k.
+    map_ok s1 ∧ map_ok s2 ∧ cmp_of s1 = cmp_of s2
+  ⇒ lookup (unionWith f s1 s2) k =
+      case lookup s1 k of
+      | NONE => lookup s2 k
+      | SOME v1 =>
+          case lookup s2 k of
+          | NONE => SOME v1
+          | SOME v2 => SOME $ f v1 v2
+Proof
+  rw[] >>
+  DEP_REWRITE_TAC[lookup_thm] >>
+  qspecl_then [`s2`,`s1`] assume_tac $ GEN_ALL unionWith_thm >> gvs[] >>
+  simp[FLOOKUP_FMERGE]
+QED
+
 
 val _ = export_theory();

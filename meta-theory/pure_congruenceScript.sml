@@ -962,7 +962,7 @@ Proof
         pop_assum mp_tac >> qid_spec_tac `f2` >> qid_spec_tac `f1` >>
         ho_match_mp_tac fmap_rel_ind >> rw[]
         >- (qexists_tac `{}` >> simp[]) >>
-        simp[GSYM fmap_rel_FUPDATE_I_rewrite] >>
+        simp[GSYM fmap_rel_FUPDATE_EQN] >>
         rename1 `Howe _ ws2 _ _` >> qexists_tac `ws1 ∪ ws2` >> simp[] >>
         irule_at Any Howe_larger >> goal_assum drule >> simp[SUBSET_DEF] >>
         irule fmap_rel_mono >> goal_assum (drule_at Any) >> rw[] >>

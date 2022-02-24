@@ -92,7 +92,7 @@ Theorem subst_lets_for:
     lets_for cn v l (subst (FDIFF f (set (MAP SND l))) e)
 Proof
   recInduct lets_for_ind >> rw[lets_for_def, subst_def] >>
-  simp[FLOOKUP_DEF, fdiff_fdomsub_INSERT]
+  simp[FLOOKUP_DEF, FDIFF_FDOMSUB_INSERT]
 QED
 
 Theorem subst_rows_of:
@@ -124,11 +124,13 @@ Proof
     rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
     first_x_assum drule >> rw[FDIFF_FMAP_MAP2]
     )
-  >- simp[FDIFF_FMAP_MAP2] >>
-  simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
-  first_x_assum drule >> rw[] >>
-  simp[fdiff_fdomsub_INSERT, FDIFF_FMAP_MAP2]
+  >- simp[FDIFF_FMAP_MAP2]
+  >- (
+    simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
+    first_x_assum drule >> rw[] >>
+    simp[FDIFF_FDOMSUB_INSERT, FDIFF_FMAP_MAP2]
+    )
 QED
 
 Theorem lets_for_APPEND:
