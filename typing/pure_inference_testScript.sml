@@ -9,7 +9,7 @@ Definition solve_def:
   solve [] = return [] ∧
 
   solve cs = case get_solveable cs [] of
-    | NONE => fail
+    | NONE => solve (MAP implicit_to_unify cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
         sub <- oreturn $ pure_unify FEMPTY t1 t2;
@@ -27,7 +27,15 @@ Definition solve_def:
         solve (Instantiate d t1 (n, scheme) :: cs) od
 Termination
   WF_REL_TAC `measure $ λl. SUM $ MAP constraint_weight l` >>
-  rw[constraint_weight_def, listTheory.MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+  reverse $ rw[constraint_weight_def, listTheory.MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
+  >- (
+    rename1 `c::cs` >> drule get_solveable_NONE >> rw[] >> gvs[SF DNF_ss] >>
+    gvs[get_solveable_def] >> FULL_CASE_TAC >> gvs[] >>
+    irule $  DECIDE ``a ≤ c:num ∧ b < d ⇒ a + b < c + d`` >>
+    simp[constraint_weight_def] >>
+    last_x_assum kall_tac >> pop_assum kall_tac >>
+    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss, constraint_weight_def]
+    ) >>
   drule get_solveable_SOME >> strip_tac >> gvs[] >>
   Cases_on `left` >> gvs[listTheory.SUM_APPEND, constraint_weight_def]
 End
@@ -56,7 +64,7 @@ Definition solve_k_def:
   solve_k _ [] = return [] ∧
 
   solve_k (SUC n) cs = case get_solveable cs [] of
-    | NONE => fail
+    | NONE => solve_k n (MAP implicit_to_unify cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
         sub <- oreturn $ pure_unify FEMPTY t1 t2;
@@ -250,17 +258,15 @@ Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval
 QED
 
-(*
 val ntimes_str = toMLstring `
   (letrec
     (o (lam (f g x) (app f (app g x))))
 
-    (letrec
-      (ntimes (lam (f n)
-        (case n temp
-          (Z (lam (x) x))
-          ((S (m)) (app o f (app ntimes f m))))))
-      (cons 0 o ntimes)))`;
+    (ntimes (lam (f n)
+      (case n temp
+        (Z (lam (x) x))
+        ((S (m)) (app o f (app ntimes f m))))))
+    (cons 0 o ntimes))`;
 
 Theorem ntimes_str_type:
   parse_and_infer parse_cexp simple_ns ^ntimes_str =
@@ -274,13 +280,11 @@ Theorem ntimes_str_type:
 
       Functions [Function (TypeVar 3) (TypeVar 3); TypeCons 1 []]
         (Function (TypeVar 3) (TypeVar 3))
-      ]) 32
+      ]) 29
 Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
-*)
 
-(*
 val curried_mult_str = toMLstring `
   (letrec
     (o (lam (f g x) (app f (app g x))))
@@ -301,11 +305,10 @@ val curried_mult_str = toMLstring `
 
 Theorem curried_mult_str_type:
   parse_and_infer parse_cexp simple_ns ^curried_mult_str =
-    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 45
+    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 42
 Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
-*)
 
 (********************)
 
