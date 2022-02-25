@@ -145,7 +145,7 @@ Proof
 QED
 
 Theorem distinct_correct:
-  closed x ⇒ x ≃ distinct x
+  closed x ⇒ (x ≃ distinct x) T
 Proof
   rw[app_bisimilarity_eq, distinct_exp_eq] >>
   irule closed_distinct >> simp[]
@@ -439,7 +439,7 @@ Proof
 QED
 
 Theorem letrec_split_correct:
-  letrec_rel letrec_split x y ∧ closed x ∧ closed y ⇒ x ≃ y
+  letrec_rel letrec_split x y ∧ closed x ∧ closed y ⇒ (x ≃ y) T
 Proof
   rw [] \\ irule eval_to_sim_thm \\ fs []
   \\ qexists_tac ‘letrec_rel letrec_split’ \\ fs []
@@ -1007,7 +1007,7 @@ QED
 
 Theorem valid_split_thm:
   valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ⇒
-  Letrec xs x ≃ Lets (MAP (λ(a,A). (a, Letrec xs A)) xs1) (Letrec xs2 x)
+  (Letrec xs x ≃ Lets (MAP (λ(a,A). (a, Letrec xs A)) xs1) (Letrec xs2 x)) T
 Proof
   rw [] \\ match_mp_tac app_bisimilarity_trans
   \\ qexists_tac ‘subst (FEMPTY |++ (MAP (λ(a,A). (a, Letrec xs A)) xs1)) (Letrec xs2 x)’
@@ -1079,8 +1079,8 @@ QED
 
 Theorem valid_split_thm_alt:
   valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ⇒
-  Letrec xs x ≃
-  subst (FEMPTY |++ MAP (λ(a,A). (a, Letrec xs A)) xs1) (Letrec xs2 x)
+  (Letrec xs x ≃
+  subst (FEMPTY |++ MAP (λ(a,A). (a, Letrec xs A)) xs1) (Letrec xs2 x)) T
 Proof
   rw[] >> irule app_bisimilarity_trans >>
   irule_at Any valid_split_thm >> goal_assum drule >> simp[] >>
@@ -1119,7 +1119,7 @@ QED
 Theorem valid_split_shrink:
   valid_split xs xs1 xs2 ∧ closed (Letrec xs x) ∧
   freevars x ⊆ set (MAP FST xs1) ⇒
-  Letrec xs x ≃ Letrec xs1 x
+  (Letrec xs x ≃ Letrec xs1 x) T
 Proof
   rw []
   \\ match_mp_tac letrec_split_correct \\ fs []
@@ -1143,9 +1143,9 @@ QED
 
 Triviality app_bisimilarity_subst:
   ∀fm1 e fm2.
-    fmap_rel ($≃) fm1 fm2 ∧
+    fmap_rel (λx y. (x ≃ y) T) fm1 fm2 ∧
     freevars e ⊆ FDOM fm1
-  ⇒ subst fm1 e ≃ subst fm2 e
+  ⇒ (subst fm1 e ≃ subst fm2 e) T
 Proof
   rw[app_bisimilarity_eq]
   >- (
@@ -1169,7 +1169,7 @@ Proof
 QED
 
 Triviality beta_equality_Letrec_app_bisimilarity:
-  closed (Letrec fns e) ⇒ Letrec fns e ≃ subst_funs fns e
+  closed (Letrec fns e) ⇒ (Letrec fns e ≃ subst_funs fns e) T
 Proof
   rw[app_bisimilarity_eq]
   >- (irule beta_equality_Letrec >> simp[]) >>
@@ -1513,7 +1513,7 @@ QED
 
 
 Triviality beta_equality_app_bisimilarity:
-  closed (Let v x e) ⇒ Let v x e ≃ subst1 v x e
+  closed (Let v x e) ⇒ (Let v x e ≃ subst1 v x e) T
 Proof
   rw[app_bisimilarity_eq]
   >- (irule beta_equality >> simp[]) >>

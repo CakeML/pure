@@ -124,6 +124,13 @@ Definition eval_wh_def:
     | NONE => wh_Diverge
 End
 
+
+Definition no_err_eval_wh_def:
+  no_err_eval_wh e = case eval_wh e of
+                     | wh_Error => wh_Diverge
+                     | wh => wh
+End
+
 Theorem eval_wh_to_Fail[simp]:
   eval_wh_to k Fail = wh_Error
 Proof
@@ -890,6 +897,12 @@ QED
 
 Definition eval_def:
   eval x = v_unfold eval_wh x
+End
+
+Definition no_err_eval_def:
+  no_err_eval x = case v_unfold eval_wh x of
+			| Error => Diverge
+			| rest  => rest
 End
 
 Definition dest_Closure_def:

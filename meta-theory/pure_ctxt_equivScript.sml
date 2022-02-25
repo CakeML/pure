@@ -125,7 +125,7 @@ Proof
 QED
 
 Triviality app_bisimilarity_plug:
-  ∀c x y. x ≃ y ∧ closed (plug c x) ⇒ plug c x ≃ plug c y
+  ∀c x y. (x ≃ y) T ∧ closed (plug c x) ⇒ (plug c x ≃ plug c y) T
 Proof
   rw[app_bisimilarity_eq]
   >- (irule exp_equiv_plug >> simp[])
@@ -202,7 +202,7 @@ Definition wh_to_cons_def:
 End
 
 Triviality app_bisimilarity_wh_to_cons:
-  ∀x y. x ≃ y ⇒ wh_to_cons (eval_wh x) = wh_to_cons (eval_wh y)
+  ∀x y. (x ≃ y) T ⇒ wh_to_cons (eval_wh x) = wh_to_cons (eval_wh y)
 Proof
   rw[Once app_bisimilarity_iff_alt2] >>
   Cases_on `eval_wh x` >> gvs[wh_to_cons_def]
@@ -284,7 +284,7 @@ QED
 Theorem step_eval_wh_IMP_app_similarity[local]:
   ∀e1 e2.
     (closed e1 ∧ closed e2 ∧ ∀l. step_eval_wh l e1 = step_eval_wh l e2)
-  ⇒ e1 ≲ e2
+  ⇒ (e1 ≲ e2) T
 Proof
   ho_match_mp_tac app_similarity_companion_coind >>
   rw[FF_def, EXISTS_PROD, unfold_rel_def] >>
@@ -317,7 +317,7 @@ QED
 Theorem step_eval_wh_eq_app_bisimilarity:
   ∀e1 e2.
     closed e1 ∧ closed e2 ∧ (∀l. step_eval_wh l e1 = step_eval_wh l e2) ⇔
-    e1 ≃ e2
+    (e1 ≃ e2) T
 Proof
   rw[] >> eq_tac
   >- (
@@ -346,7 +346,7 @@ QED
 
 Triviality not_app_bisimilarity_IMP_not_step_eval_wh:
   ∀e1 e2.
-    ¬ (e1 ≃ e2) ∧ closed e1 ∧ closed e2
+    ¬ (e1 ≃ e2) T ∧ closed e1 ∧ closed e2
   ⇒ ∃l. step_eval_wh l e1 ≠ step_eval_wh l e2
 Proof
   rw[] >> CCONTR_TAC >> gvs[] >>
@@ -480,8 +480,8 @@ Proof
       qspecl_then [`ctxt`,`App e2 y`,`subst1 v2 y ce2`]
         assume_tac freevars_plug_eq >> gvs[]
       ) >>
-    `plug ctxt (subst1 v1 y ce1) ≃ plug ctxt (App e1 y) ∧
-     plug ctxt (subst1 v2 y ce2) ≃ plug ctxt (App e2 y)` by (
+    `(plug ctxt (subst1 v1 y ce1) ≃ plug ctxt (App e1 y)) T ∧
+     (plug ctxt (subst1 v2 y ce2) ≃ plug ctxt (App e2 y)) T` by (
       rw[] >> irule app_bisimilarity_plug >> simp[] >> rw[app_bisimilarity_eq] >>
       irule eval_wh_IMP_exp_eq >> rw[eval_wh_thm, bind1_def]) >>
     imp_res_tac app_bisimilarity_wh_to_cons >> gvs[]
@@ -516,8 +516,8 @@ Proof
       qspecl_then [`ctxt`,`Proj s x1 e2`,`EL x1 e2s`]
         assume_tac freevars_plug_eq >> gvs[]
       ) >>
-    `plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj s x1 e1) ∧
-     plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj s x1 e2)` by (
+    `(plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj s x1 e1)) T ∧
+     (plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj s x1 e2)) T` by (
       rw[] >> irule app_bisimilarity_plug >> simp[] >> rw[app_bisimilarity_eq] >>
       irule eval_wh_IMP_exp_eq >> rw[eval_wh_thm]) >>
     imp_res_tac app_bisimilarity_wh_to_cons >> gvs[]
@@ -549,8 +549,8 @@ Proof
     qspecl_then [`ctxt`,`Proj s x1 e2`,`EL x1 e2s`]
       assume_tac freevars_plug_eq >> gvs[]
     ) >>
-  `plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj s x1 e1) ∧
-   plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj s x1 e2)` by (
+  `(plug ctxt (EL x1 e1s) ≃ plug ctxt (Proj s x1 e1)) T ∧
+   (plug ctxt (EL x1 e2s) ≃ plug ctxt (Proj s x1 e2)) T` by (
     rw[] >> irule app_bisimilarity_plug >> simp[] >> rw[app_bisimilarity_eq] >>
     irule eval_wh_IMP_exp_eq >> rw[eval_wh_thm]) >>
   imp_res_tac app_bisimilarity_wh_to_cons >> gvs[]

@@ -323,7 +323,7 @@ Proof
 QED
 
 Theorem letrec_lam_correct:
-  letrec_rel letrec_lam x y ∧ closed x ∧ closed y ⇒ x ≃ y
+  letrec_rel letrec_lam x y ∧ closed x ∧ closed y ⇒ (x ≃ y) T
 Proof
   rw [] \\ irule eval_to_sim_thm \\ fs []
   \\ qexists_tac ‘letrec_rel letrec_lam’ \\ fs []

@@ -17,8 +17,8 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 val _ = new_theory "pure_obs_sem_equal";
 
 Triviality eval_wh_Cons:
-  wh_Constructor n es = eval_wh x ∧ x ≃ y ⇒
-  ∃es1. eval_wh y = wh_Constructor n es1 ∧ LIST_REL (≃) es es1
+  wh_Constructor n es = eval_wh x ∧ (x ≃ y) b ⇒
+  ∃es1. eval_wh y = wh_Constructor n es1 ∧ LIST_REL (λx y. (x ≃ y) b) es es1
 Proof
   fs [Once app_bisimilarity_iff]
   \\ Cases_on ‘eval_wh x’ \\ fs []
@@ -28,8 +28,8 @@ QED
 
 Definition cont_rel_def[simp]:
   cont_rel Done Done = T ∧
-  cont_rel (BC f fs) (BC g gs) = (f ≃ g ∧ cont_rel fs gs) ∧
-  cont_rel (HC f fs) (HC g gs) = (f ≃ g ∧ cont_rel fs gs) ∧
+  cont_rel (BC f fs) (BC g gs) = ((f ≃ g) T ∧ cont_rel fs gs) ∧
+  cont_rel (HC f fs) (HC g gs) = ((f ≃ g) T ∧ cont_rel fs gs) ∧
   cont_rel _ _ = F
 End
 
@@ -38,20 +38,20 @@ Definition res_rel_def:
   res_rel Div Div = T ∧
   res_rel Err Err = T ∧
   res_rel (Act a xs st) (Act b ys st') =
-    (a = b ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (≃)) st st') ∧
+    (a = b ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (λx y. (x ≃ y) T)) st st') ∧
   res_rel _ _ = F
 End
 
 Theorem next_lemma[local]:
   ∀k x xs y ys st st'.
-    x ≃ y ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (≃)) st st' ⇒
+    (x ≃ y) T ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (λx y. (x ≃ y) T)) st st' ⇒
     res_rel (next k (eval_wh x) xs st) (next k (eval_wh y) ys st')
 Proof
   gen_tac \\ completeInduct_on ‘k’ \\ rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ once_rewrite_tac [next_def] \\ fs []
   \\ Cases_on ‘eval_wh x = wh_Diverge’
   THEN1 (imp_res_tac app_bisimilarity_diverge \\ fs [res_rel_def])
-  \\ qpat_x_assum ‘x ≃ y’ mp_tac
+  \\ qpat_x_assum ‘(x ≃ y) T’ mp_tac
   \\ simp [Once app_bisimilarity_iff] \\ strip_tac
   \\ Cases_on ‘eval_wh x’ \\ fs [res_rel_def]
   \\ Cases_on ‘s = "Act"’
@@ -60,7 +60,7 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ rw [] \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute,res_rel_def]
     \\ fs [with_atom_def,with_atoms_def]
-    \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ qpat_x_assum ‘(_ ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
     \\ fs [with_atom_def,with_atoms_def]
     \\ Cases_on ‘eval_wh h’
@@ -95,11 +95,11 @@ Proof
      (Cases_on ‘ys’ \\ gvs []
       \\ rw [] \\ fs [res_rel_def]
       \\ first_x_assum (qspecl_then [‘k-1’,‘x’] mp_tac)
-      \\ gvs [] \\ ‘x ≃ y’ by simp [Once app_bisimilarity_iff]
+      \\ gvs [] \\ ‘(x ≃ y) T’ by simp [Once app_bisimilarity_iff]
       \\ disch_then drule_all \\ fs [])
     \\ Cases_on ‘ys’ \\ gvs [res_rel_def]
     \\ fs [apply_closure_def]
-    \\ assume_tac symmetric_app_bisimilarity
+    \\ qspecl_then [‘T’] assume_tac symmetric_app_bisimilarity
     \\ fs [symmetric_def]
     \\ ‘eval_wh e = wh_Diverge ⇔ eval_wh e' = wh_Diverge’
       by metis_tac [app_bisimilarity_diverge]
@@ -108,7 +108,7 @@ Proof
     THEN1
      (qsuff_tac ‘dest_wh_Closure (eval_wh e') = NONE’
       THEN1 (fs[res_rel_def])
-      \\ qpat_x_assum ‘e ≃ _’ mp_tac
+      \\ qpat_x_assum ‘(e ≃ _) T’ mp_tac
       \\ simp [Once app_bisimilarity_iff] \\ rw []
       \\ Cases_on ‘eval_wh e’ \\ fs [])
     \\ rename [‘_ = SOME yy’] \\ PairCases_on ‘yy’ \\ gvs []
@@ -116,7 +116,7 @@ Proof
     \\ rename [‘eval_wh h1 = wh_Closure s1 e1’]
     \\ rename [‘dest_wh_Closure (eval_wh h2)’]
     \\ ‘∃s2 e2. eval_wh h2 = wh_Closure s2 e2’ by
-      (qpat_x_assum ‘h1 ≃ _’ mp_tac
+      (qpat_x_assum ‘(h1 ≃ _) T’ mp_tac
        \\ simp [Once app_bisimilarity_iff] \\ rw [] \\ fs [])
     \\ fs [] \\ rw [res_rel_def]
     \\ first_x_assum irule \\ fs []
@@ -127,8 +127,8 @@ Proof
     \\ rpt (disch_then assume_tac)
     \\ reverse conj_tac
     THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [FLOOKUP_UPDATE])
-    \\ ‘Lam s1 e1 ≃ Lam s2 e2’ by
-      (‘h1 ≃ h2’ by fs [app_bisimilarity_eq]
+    \\ ‘(Lam s1 e1 ≃ Lam s2 e2) T’ by
+      (‘(h1 ≃ h2) T’ by fs [app_bisimilarity_eq]
        \\ pop_assum mp_tac
        \\ once_rewrite_tac [app_bisimilarity_iff]
        \\ fs [eval_wh_Lam])
@@ -150,7 +150,7 @@ Proof
      (Cases_on ‘ys’ \\ gvs []
       \\ rw [] \\ fs [res_rel_def]
       \\ first_x_assum (qspecl_then [‘k-1’,‘x’] mp_tac)
-      \\ gvs [] \\ ‘x ≃ y’ by simp [Once app_bisimilarity_iff]
+      \\ gvs [] \\ ‘(x ≃ y) T’ by simp [Once app_bisimilarity_iff]
       \\ disch_then drule_all \\ fs [])
     \\ Cases_on ‘ys’ \\ gvs [res_rel_def]
     \\ fs [apply_closure_def]
@@ -163,7 +163,7 @@ Proof
     THEN1
      (qsuff_tac ‘dest_wh_Closure (eval_wh e') = NONE’
       THEN1 (fs[res_rel_def])
-      \\ qpat_x_assum ‘e ≃ _’ mp_tac
+      \\ qpat_x_assum ‘(e ≃ _) T’ mp_tac
       \\ simp [Once app_bisimilarity_iff] \\ rw []
       \\ Cases_on ‘eval_wh e’ \\ fs [])
     \\ rename [‘_ = SOME yy’] \\ PairCases_on ‘yy’ \\ gvs []
@@ -171,7 +171,7 @@ Proof
     \\ rename [‘eval_wh h1 = wh_Closure s1 e1’]
     \\ rename [‘dest_wh_Closure (eval_wh h2)’]
     \\ ‘∃s2 e2. eval_wh h2 = wh_Closure s2 e2’ by
-      (qpat_x_assum ‘h1 ≃ _’ mp_tac
+      (qpat_x_assum ‘(h1 ≃ _) T’ mp_tac
        \\ simp [Once app_bisimilarity_iff] \\ rw [] \\ fs [])
     \\ fs [] \\ rw [res_rel_def]
     \\ first_x_assum irule \\ fs []
@@ -182,8 +182,8 @@ Proof
     \\ rpt (disch_then assume_tac)
     \\ reverse conj_tac
     THEN1 (rw [bind_def] \\ irule IMP_closed_subst \\ fs [FLOOKUP_UPDATE])
-    \\ ‘Lam s1 e1 ≃ Lam s2 e2’ by
-      (‘h1 ≃ h2’ by fs [app_bisimilarity_eq]
+    \\ ‘(Lam s1 e1 ≃ Lam s2 e2) T’ by
+      (‘(h1 ≃ h2) T’ by fs [app_bisimilarity_eq]
        \\ pop_assum mp_tac
        \\ once_rewrite_tac [app_bisimilarity_iff]
        \\ fs [eval_wh_Lam])
@@ -198,9 +198,9 @@ Proof
     \\ IF_CASES_TAC \\ pop_assum mp_tac
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
     \\ rpt strip_tac \\ gvs [res_rel_def]
-    \\ rename [‘e ≃ e'’]
+    \\ rename [‘(e ≃ e') T’]
     \\ gvs [res_rel_def,with_atom_def,with_atoms_def]
-    \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ qpat_x_assum ‘(_ ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
     \\ Cases_on ‘eval_wh e’
     \\ Cases_on ‘eval_wh e'’ \\ fs [res_rel_def,get_atoms_def]
@@ -224,9 +224,9 @@ Proof
     \\ rpt strip_tac \\ gvs [res_rel_def]
     \\ gvs [res_rel_def,with_atom2_def,with_atoms_def]
     \\ qmatch_goalsub_rename_tac ‘[eval_wh e1; eval_wh e2]’
-    \\ rename1 ‘e1 ≃ e1'’ \\ qpat_x_assum ‘e1 ≃ _’ mp_tac
+    \\ rename1 ‘(e1 ≃ e1') T’ \\ qpat_x_assum ‘(e1 ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
-    \\ rename1 ‘e2 ≃ e2'’ \\ qpat_x_assum ‘e2 ≃ _’ mp_tac
+    \\ rename1 ‘(e2 ≃ e2') T’ \\ qpat_x_assum ‘(e2 ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
     \\ Cases_on ‘eval_wh e1’ \\ Cases_on ‘eval_wh e1'’ \\ fs [res_rel_def,get_atoms_def]
     \\ Cases_on ‘eval_wh e2’ \\ Cases_on ‘eval_wh e2'’ \\ fs [res_rel_def,get_atoms_def]
@@ -261,9 +261,9 @@ Proof
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
     \\ rpt strip_tac \\ gvs [res_rel_def]
     \\ gvs [res_rel_def,with_atom2_def,with_atoms_def]
-    \\ rename [‘e1 ≃ e1'’] \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ rename [‘(e1 ≃ e1') T’] \\ qpat_x_assum ‘(_ ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
-    \\ rename [‘e2 ≃ e2'’] \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ rename [‘(e2 ≃ e2') T’] \\ qpat_x_assum ‘(_ ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
     \\ Cases_on ‘eval_wh e1’ \\ Cases_on ‘eval_wh e1'’ \\ fs [res_rel_def,get_atoms_def]
     \\ Cases_on ‘eval_wh e2’ \\ Cases_on ‘eval_wh e2'’ \\ fs [res_rel_def,get_atoms_def]
@@ -294,9 +294,9 @@ Proof
     \\ IF_CASES_TAC \\ pop_assum mp_tac
     \\ simp_tac (srw_ss()) [LENGTH_EQ_NUM_compute]
     \\ rpt strip_tac \\ rgs [res_rel_def] \\ rw []
-    \\ rename [‘e ≃ e'’]
+    \\ rename [‘(e ≃ e') T’]
     \\ gvs [res_rel_def,with_atom_def,with_atoms_def]
-    \\ qpat_x_assum ‘_ ≃ _’ mp_tac
+    \\ qpat_x_assum ‘(_ ≃ _) T’ mp_tac
     \\ simp [Once app_bisimilarity_iff] \\ strip_tac
     \\ Cases_on ‘eval_wh e’
     \\ Cases_on ‘eval_wh e'’ \\ fs [res_rel_def,get_atoms_def]
@@ -320,7 +320,7 @@ QED
 
 Theorem bisimilarity_IMP_all_semantics_eq:
   ∀x y xs ys st st'.
-    x ≃ y ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (≃)) st st'
+    (x ≃ y) T ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (λx y. (x ≃ y) T)) st st'
   ⇒ semantics x xs st = semantics y ys st'
 Proof
   fs [io_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
@@ -333,7 +333,7 @@ Proof
     ∃a new1 new2 s1 s2.
       next_action (eval_wh x) xs st = Act a new1 s1 ∧
       next_action (eval_wh y) ys st' = Act a new2 s2 ∧
-      cont_rel new1 new2 ∧ LIST_REL (LIST_REL (≃)) s1 s2’
+      cont_rel new1 new2 ∧ LIST_REL (LIST_REL (λx y. (x ≃ y) T)) s1 s2’
   THEN1
    (strip_tac \\ fs []
     \\ Cases_on ‘path’ \\ fs [io_el_def]
@@ -360,7 +360,7 @@ Proof
 QED
 
 Theorem bisimilarity_IMP_semantics_eq:
-  ∀x y. x ≃ y ⇒ semantics x Done [] = semantics y Done []
+  ∀x y. (x ≃ y) T ⇒ semantics x Done [] = semantics y Done []
 Proof
   rw[] >> irule bisimilarity_IMP_all_semantics_eq >> simp[]
 QED

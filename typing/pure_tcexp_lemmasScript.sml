@@ -222,7 +222,7 @@ Proof
   IF_CASES_TAC >> gvs[] >>
   Cases_on `s ≠ cn` >> gvs[]
   >- (
-    qsuff_tac `subst f rest ≃ subst f rest`
+    qsuff_tac `(subst f rest ≃ subst f rest) T`
     >- simp[Once app_bisimilarity_iff] >>
     irule reflexive_app_bisimilarity >> irule IMP_closed_subst >>
     simp[IN_FRANGE_FLOOKUP]
@@ -254,8 +254,8 @@ Proof
   gvs[] >> ntac 2 $ pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac `lets_for _ _ _ _ e'` >>
   qsuff_tac
-    `subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs) e') ≃
-     subst1 v x (lets_for cn (LENGTH l) v (MAPi (λi v. (i,v)) vs) e')`
+    `(subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs) e') ≃
+     subst1 v x (lets_for cn (LENGTH l) v (MAPi (λi v. (i,v)) vs) e')) T`
   >- (
     simp[Once app_bisimilarity_iff] >> strip_tac >> gvs[] >> rw[] >>
     first_x_assum drule >> strip_tac >> goal_assum drule

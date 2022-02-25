@@ -52,7 +52,7 @@ End
 
 
 Triviality app_bisimilarity_trans:
-  ∀x y z. x ≃ y ∧ y ≃ z ⇒ x ≃ z
+  ∀x y z b. (x ≃ y) b ∧ (y ≃ z) b ⇒ (x ≃ z) b
 Proof
   rw[]
   \\ assume_tac transitive_app_bisimilarity
@@ -61,7 +61,7 @@ Proof
 QED
 
 Triviality app_bisimilarity_sym:
-  ∀x y. x ≃ y ⇒ y ≃ x
+  ∀x y b. (x ≃ y) b ⇒ (y ≃ x) b
 Proof
   rw[]
   \\ assume_tac symmetric_app_bisimilarity
@@ -116,18 +116,18 @@ Definition progress_def:
   progress exp next =
     ∀input.
         closed input ⇒
-        (App exp input) ≃
+        ((App exp input) ≃
                  (case next input of
                   | INL final => final
                   | INR (n,x,rec_input) =>
-                      Cons n [x; App exp rec_input])
+                      Cons n [x; App exp rec_input])) T
 End
 
 Theorem progress_lemma:
-  ∀ exp1 exp2 next.
+  ∀ exp1 exp2 next b.
   progress exp1 next ∧ progress exp2 next ∧
   isClos (eval exp1) ∧ isClos (eval exp2) ⇒
-  exp1 ≃ exp2
+  (exp1 ≃ exp2) b
 Proof
   cheat
 QED
@@ -135,7 +135,7 @@ QED
 
 Theorem progress_equivalence:
   ∀ exp1 exp2 model.
-  exp1 ≃ exp2 ∧
+  (exp1 ≃ exp2) T ∧
   progress exp1 model
    ⇒ progress exp2 model
 Proof
@@ -281,9 +281,9 @@ Theorem progress_compose_fg:
   ⇒ progress (dot (App map f) (App map g)) (next_list (dot f g))
 Proof
   rw[]
-  \\ ‘∀ h. closed h ⇒ (App map h) ≃ (map_f h)’ by (
+  \\ ‘∀ h. closed h ⇒ ((App map h) ≃ (map_f h)) T’ by (
     rpt strip_tac
-    \\ qspecl_then [‘App map h’,‘map_f h’,‘next_list h’]
+    \\ qspecl_then [‘App map h’,‘map_f h’,‘next_list h’, ‘T’]
              assume_tac progress_lemma
     \\ assume_tac progress_map_f
     \\ assume_tac progress_map_f_f
@@ -299,7 +299,7 @@ Proof
   \\ first_assum (qspec_then ‘f’ assume_tac)
   \\ first_assum (qspec_then ‘g’ assume_tac)
   \\ res_tac
-  \\ ‘dot (App map f) (App map g) ≃ dot (map_f f) (map_f g)’ by (
+  \\ ‘(dot (App map f) (App map g) ≃ dot (map_f f) (map_f g)) T’ by (
     simp[dot_def]
     \\ simp[app_bisimilarity_eq]
     \\ rw[]
@@ -391,13 +391,14 @@ QED
 
 Theorem map_fusion:
  ∀ f g. closed f ∧ closed g ⇒
-     (dot (App map f) (App map g)) ≃ (App map (dot f g))
+     ((dot (App map f) (App map g)) ≃ (App map (dot f g))) T
 Proof
   rw[]
   \\ ‘closed (dot f g)’ by (fs[dot_def,closed_def])
   \\ qspecl_then [‘App map (dot f g)’,
                   ‘dot (App map f) (App map g)’,
-                  ‘next_list (dot f g)’]
+                  ‘next_list (dot f g)’,
+                  ‘T’]
           assume_tac progress_lemma
   \\ qspec_then ‘dot f g’ assume_tac progress_map_f
   \\ qspecl_then [‘f’,‘g’] assume_tac progress_compose_fg
