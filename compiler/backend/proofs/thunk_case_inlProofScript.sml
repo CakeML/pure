@@ -1,10 +1,10 @@
 (*
   The third in a series of transformations to simplify case-compilation from
   pureLang to thunkLang. See:
-  - [thunk_liftProofScript.sml]
-  - [thunk_d2bProofScript.sml]
-  - [thunk_unboxProofScript.sml]
-  - [thunk_caseProofScript.sml]
+  - [thunk_case_liftProofScript.sml]
+  - [thunk_case_d2bProofScript.sml]
+  - [thunk_case_unboxProofScript.sml]
+  - [thunk_case_projProofScript.sml]
   for the others.
  *)
 
@@ -14,7 +14,11 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory;
 open pure_miscTheory thunkLangPropsTheory;
 
-val _ = new_theory "thunk_inlProof";
+val _ = new_theory "thunk_case_inlProof";
+
+val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
+                              "thunkLang", "wellorder", "quotient_sum",
+                              "quotient_pair"];
 
 val _ = numLib.prefer_num ();
 
@@ -497,23 +501,23 @@ Proof
       by (irule LIST_REL_OPTREL \\ gs []
           \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
     \\ gs [OPTREL_def]
-    \\ gvs [Once exp_rel_cases]
-    \\ IF_CASES_TAC \\ gs []
+    \\ rgs [Once exp_rel_cases] \\ rw []
     \\ first_x_assum irule
-    \\ irule_at Any exp_rel_subst
+    \\ irule_at Any exp_rel_subst \\ gs []
     \\ first_assum (irule_at Any)
     \\ simp [EVERY2_MAP, LAMBDA_PROD]
     \\ irule_at Any LIST_REL_mono
     \\ first_assum (irule_at Any)
     \\ csimp [FORALL_PROD]
-    \\ simp [closed_subst, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM
-             FST_THM]
+    \\ simp [closed_subst, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+             GSYM FST_THM]
     \\ irule_at Any LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    \\ rgs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY] \\ rw []
+    \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
     \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
     \\ first_x_assum (drule_then strip_assume_tac)
-    \\ gvs [freevars_def, SUBSET_DEF, SF ETA_ss, SF DNF_ss, DISJ_SYM,
-            DISJ_EQ_IMP])
+    \\ gs [freevars_def, SUBSET_DEF, SF ETA_ss, SF DNF_ss, DISJ_SYM,
+           DISJ_EQ_IMP])
   >~ [‘Lam s x’] >- (
     rw [Once exp_rel_cases]
     \\ gs [eval_to_def, v_rel_def]
@@ -617,7 +621,7 @@ Proof
           by (irule LIST_REL_OPTREL \\ gs []
               \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
-        \\ gvs [Once exp_rel_cases]
+        \\ rgs [Once exp_rel_cases] \\ rw []
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
         \\ irule_at Any exp_rel_subst
@@ -636,6 +640,7 @@ Proof
         \\ simp [closed_subst]
         \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
                LIST_REL_EL_EQN]
+        \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
         \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
         \\ first_x_assum (drule_then assume_tac)
         \\ gs [ELIM_UNCURRY, freevars_def])
@@ -686,7 +691,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gvs []
         \\ rw [] \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         IF_CASES_TAC \\ gs []
@@ -697,16 +702,16 @@ Proof
           \\ first_x_assum (drule_then assume_tac)
           \\ first_x_assum (drule_all_then assume_tac)
           \\ Cases_on ‘eval_to k (EL j xs)’ \\ gs [])
-        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ rw [] \\ gs []
-        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         first_x_assum (drule_then assume_tac)
@@ -715,7 +720,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []
       >- (
         first_x_assum (drule_then assume_tac)
@@ -725,7 +730,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-      \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ rw [EVERY2_MAP, LIST_REL_EL_EQN]
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_then assume_tac)

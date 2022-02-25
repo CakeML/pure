@@ -1,7 +1,7 @@
 (* Properties about the itree- and FFI state-based CakeML semantics *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory;
-open lem_pervasives_extraTheory libTheory namespaceTheory astTheory
+open namespaceTheory astTheory
      ffiTheory semanticPrimitivesTheory smallStepTheory evaluatePropsTheory;
 open io_treeTheory cakeml_semanticsTheory pure_miscTheory;
 

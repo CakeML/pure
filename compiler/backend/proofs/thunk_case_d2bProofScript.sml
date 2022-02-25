@@ -1,10 +1,10 @@
 (*
   The second in a series of transformations to simplify case-compilation from
   pureLang to thunkLang. See:
-  - [thunk_liftProofScript.sml]
-  - [thunk_inlProofScript.sml]
-  - [thunk_unboxProofScript.sml]
-  - [thunk_caseProofScript.sml]
+  - [thunk_case_liftProofScript.sml]
+  - [thunk_case_inlProofScript.sml]
+  - [thunk_case_unboxProofScript.sml]
+  - [thunk_case_projProofScript.sml]
   for the others.
  *)
 
@@ -14,7 +14,11 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory;
 open pure_miscTheory thunkLangPropsTheory;
 
-val _ = new_theory "thunk_d2bProof";
+val _ = new_theory "thunk_case_d2bProof";
+
+val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
+                              "thunkLang", "wellorder", "quotient_sum",
+                              "quotient_pair", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
@@ -644,7 +648,7 @@ Proof
                              (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL \\ gs [])
       \\ gs [OPTREL_def]
-      \\ gs [Once exp_rel_cases])
+      \\ rgs [Once exp_rel_cases])
     \\ pairarg_tac \\ gvs []
     \\ Cases_on ‘w’ \\ gvs [dest_anyThunk_def]
     >- (
@@ -653,7 +657,7 @@ Proof
                              (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL \\ gs [])
       \\ gs [OPTREL_def]
-      \\ gvs [Once exp_rel_cases]
+      \\ rgs [Once exp_rel_cases] \\ rw []
       \\ rename1 ‘exp_rel x1 y1’
       THEN (
         Cases_on ‘eval_to (k - 1) (subst_funs binds y1) = INL Diverge’
@@ -769,7 +773,7 @@ Proof
     \\ ‘∀j1. eval_to (j1 + j + k) x = eval_to (j + k) x’
       by (gen_tac \\ irule eval_to_mono \\ gs [])
     \\ Q.REFINE_EXISTS_TAC ‘j + j1’ \\ gs []
-    \\ gvs [Once (CONJUNCT2 exp_rel_cases)]
+    \\ rgs [Once (CONJUNCT2 exp_rel_cases)] \\ rw []
     \\ rename1 ‘eval_to k1 x1 = INR v1’
     \\ qexists_tac ‘j1 + k1’
     \\ ‘eval_to (k + k1 + j + j1 - 1) x1 = eval_to k1 x1’
@@ -1078,7 +1082,7 @@ Proof
         \\ asm_simp_tac std_ss []
         \\ qpat_assum ‘_ = INL Diverge’ (SUBST1_TAC o SYM)
         \\ first_x_assum irule
-        \\ gs [eval_to_wo_def]
+        \\ rgs [eval_to_wo_def]
         \\ irule exp_rel_subst \\ gs [])
       \\ Q.REFINE_EXISTS_TAC ‘j1 + j’ \\ gs []
       \\ Cases_on ‘eval_to (j + k - 1) x1’ \\ gs []
@@ -1278,7 +1282,7 @@ Proof
           >- (
             first_x_assum (drule_then assume_tac) \\ gs []
             \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
-          \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+          \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
           \\ rw [EVERY2_MAP, LIST_REL_EL_EQN]
           \\ first_x_assum (drule_then assume_tac)
           \\ first_x_assum (drule_then assume_tac)
@@ -1405,8 +1409,8 @@ Proof
       \\ Cases_on ‘result_map g ys = INL Diverge’ \\ gs []
       >- (
         unabbrev_all_tac \\ gs []
-        \\ gs [result_map_def, CaseEq "bool", MEM_MAP]
-        \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+        \\ rgs [result_map_def, CaseEq "bool", MEM_MAP]
+        \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ gvs [MEM_EL, PULL_EXISTS]
         \\ first_x_assum drule
         \\ pop_assum mp_tac
@@ -1418,8 +1422,8 @@ Proof
         \\ qexists_tac ‘j’
         \\ qexists_tac ‘n’
         \\ CASE_TAC \\ gs [])
-      \\ gs [result_map_def, MEM_EL, EL_MAP, SF CONJ_ss, Once (CaseEq "bool"),
-             DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+      \\ rgs [result_map_def, MEM_EL, EL_MAP, SF CONJ_ss, Once (CaseEq "bool"),
+              DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
       >- (
         ‘F’ suffices_by rw []
         \\ unabbrev_all_tac
@@ -1430,7 +1434,7 @@ Proof
         \\ first_x_assum (drule_then (qspec_then ‘m’ assume_tac))
         \\ rename1 ‘v_rel v w’
         \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [])
-      \\ gs [Once (CaseEq "bool"), DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+      \\ rgs [Once (CaseEq "bool"), DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
       \\ ‘∃j. ∀n. n < LENGTH ys ⇒
                 ($= +++ v_rel) (eval_to (j + k - 1) (EL n xs))
                                    (eval_to (k - 1) (EL n ys))’
@@ -1480,8 +1484,8 @@ Proof
       \\ qexists_tac ‘j’
       \\ unabbrev_all_tac
       \\ gs [result_map_def, MEM_MAP, MAP_MAP_o, combinTheory.o_DEF]
-      \\ IF_CASES_TAC \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
-      \\ IF_CASES_TAC \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+      \\ IF_CASES_TAC \\ rgs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
+      \\ IF_CASES_TAC \\ rgs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
       >- (
         first_x_assum (drule_then assume_tac)
         \\ gvs [CaseEqs ["sum", "v", "err"]]

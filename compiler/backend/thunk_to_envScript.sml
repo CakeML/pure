@@ -5,9 +5,11 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     thunkLang_primitivesTheory envLangTheory thunkLangTheory;
+     envLangTheory thunkLangTheory;
 
 val _ = new_theory "thunk_to_env";
+
+val _ = set_grammar_ancestry ["envLang", "thunkLang"];
 
 Definition compile_exp_def:
   compile_exp (Var n: thunkLang$exp) = Var n : envLang$exp ∧

@@ -2592,6 +2592,16 @@ Proof
   \\ simp_tac std_ss [EL_LENGTH_APPEND,NULL,HD]
 QED
 
+Theorem exp_eq_Tick_cong:
+  x ≅ y ⇒ Tick x ≅ y
+Proof
+  strip_tac
+  \\ irule exp_eq_trans
+  \\ first_assum (irule_at Any)
+  \\ irule eval_wh_IMP_exp_eq
+  \\ simp [subst_def, eval_wh_thm, subst_funs_def, FUPDATE_LIST_THM]
+QED
+
 Theorem eval_wh_to_Lit[simp]:
   eval_wh_to k (Lit l) = wh_Atom l
 Proof

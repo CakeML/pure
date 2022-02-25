@@ -1,6 +1,6 @@
 (* An itree-based semantics for CakeML *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open lem_pervasives_extraTheory libTheory namespaceTheory astTheory
+open namespaceTheory astTheory
      ffiTheory semanticPrimitivesTheory smallStepTheory;
 open io_treeTheory;
 

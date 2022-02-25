@@ -35,6 +35,7 @@ Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
 Overload Seq  = “λx y. Prim Seq [x; y]”        (* Seq  at exp level *)
 Overload Fail = “Prim If []”                   (* causes Error      *)
 Overload Lit  = “λl. Prim (AtomOp (Lit l)) []” (* Lit at exp level  *)
+Overload Tick = “λx. Letrec [] x”
 
 Definition Apps_def:
   Apps x [] = x ∧

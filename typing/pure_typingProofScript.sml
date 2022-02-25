@@ -299,7 +299,7 @@ Proof
       )
     )
   >- ( (* Let *)
-    gvs[eval_wh_to_def] >> rw[]
+    rgs[eval_wh_to_def] >> rw[]
     >- (
       simp[type_wh_cases] >> irule type_tcexp_type_ok >> simp[] >>
       rpt $ goal_assum $ drule_at Any >> simp[]
@@ -820,13 +820,13 @@ Proof
   strip_tac >> completeInduct_on `k` >> rw[] >>
   last_x_assum $ qspec_then `k - 1` assume_tac >> gvs[] >>
   qpat_x_assum `type_config _ _ _ _ _` mp_tac >> rw[Once type_config_def] >>
-  imp_res_tac type_wh_monad >> gvs[]
+  imp_res_tac type_wh_monad >> rgs[]
   >- (simp[next_def, type_next_res_cases] >> goal_assum drule) >>
   qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[type_wh_cases] >>
-  simp[Once type_tcexp_cases] >> strip_tac >> gvs[monad_cns_def] >>
+  simp[Once type_tcexp_cases] >> strip_tac >> rgs[monad_cns_def] >>
   once_rewrite_tac[next_def] >> simp[]
   >- (
-    TOP_CASE_TAC >> gvs[]
+    TOP_CASE_TAC >> rgs [] \\ gvs []
     >- (simp[type_next_res_cases] >> goal_assum drule)
     >- (
       gvs[Once type_cont_cases, apply_closure_def, type_exp_def] >>
@@ -1075,14 +1075,6 @@ Proof
   >- (simp[type_next_res_cases] >> goal_assum drule) >>
   drule_all type_soundness_next >> simp[]
 QED
-
-CoInductive safe_itree:
-  (safe_itree (Ret Termination)) ∧
-  (safe_itree (Ret $ FinalFFI e f)) ∧
-  (safe_itree Div) ∧
-  ((∀s:final_ffi + string. safe_itree (rest s))
-      ⇒ safe_itree (Vis (e:string # string) rest))
-End
 
 Theorem type_soundness_interp:
   ∀ns db st wh stack state t.

@@ -495,4 +495,12 @@ Proof
   \\ qexists_tac ‘x'+1’ \\ fs []
 QED
 
+CoInductive safe_itree:
+  (safe_itree (Ret Termination)) ∧
+  (safe_itree (Ret $ FinalFFI e f)) ∧
+  (safe_itree Div) ∧
+  ((∀s:final_ffi + string. safe_itree (rest s))
+      ⇒ safe_itree (Vis (e:string # string) rest))
+End
+
 val _ = export_theory();

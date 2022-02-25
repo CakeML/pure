@@ -1,7 +1,7 @@
 (* Relating the itree- and FFI state-based CakeML semantics *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory;
-open lem_pervasives_extraTheory libTheory namespaceTheory astTheory
+open namespaceTheory astTheory
      ffiTheory semanticPrimitivesTheory smallStepTheory
      bigSmallEquivTheory evaluatePropsTheory;
 open io_treeTheory pure_miscTheory
@@ -253,7 +253,7 @@ Proof
     drule_at Any step_result_rel_single >>
     simp[Once step_result_rel_cases, PULL_EXISTS] >>
     disch_then drule >> disch_then $ qspec_then `db0.ffi` assume_tac >>
-    gvs[dstate_rel_def, get_ffi_def] >>
+    rgs[dstate_rel_def, get_ffi_def] >>
     pop_assum mp_tac >> rw[step_result_rel_cases] >> gvs[dget_ffi_def, get_ffi_def] >>
     simp[dstep_result_rel_cases, deval_rel_cases, dstate_rel_def]
     ) >>
@@ -520,13 +520,13 @@ Proof
     gvs[semanticPrimitivesTheory.do_app_def]
     ) >>
   FULL_CASE_TAC >> gvs[] >>
-  every_case_tac >> gvs[cml_application_thm] >>
-  every_case_tac >> gvs[SF smallstep_ss] >>
-  gvs[semanticPrimitivesPropsTheory.do_app_cases] >>
-  gvs[step_result_rel_cases, ctxt_rel_def] >>
-  pairarg_tac >> gvs[ctxt_frame_rel_cases] >>
-  gvs[SF itree_ss, application_def, call_FFI_def] >>
-  every_case_tac >> gvs[store_lookup_def]
+  every_case_tac >> rgs[cml_application_thm] >>
+  every_case_tac >> rgs[SF smallstep_ss] >> gvs[] >>
+  rgs[semanticPrimitivesPropsTheory.do_app_cases] >> gvs[] >>
+  rgs[step_result_rel_cases, ctxt_rel_def] >> gvs[] >>
+  pairarg_tac >> rgs[ctxt_frame_rel_cases] >> gvs[] >>
+  rgs[SF itree_ss, application_def, call_FFI_def] >> gvs[] >>
+  every_case_tac >> rgs[store_lookup_def] >> gvs[]
 QED
 
 Theorem step_result_rel_single':
@@ -555,7 +555,7 @@ Proof
     Cases_on `step_n_cml (SUC n) (Estep e2)` >> gvs[get_ffi_def] >>
     PairCases_on `e2` >> gvs[get_ffi_def]) >>
   simp[step_n_alt_def, step_n_cml_alt_def] >>
-  gvs[step_result_rel_cases] >>
+  rgs[step_result_rel_cases] >> gvs[] >>
   gvs[GSYM step_result_rel_cases] >>
   qspecl_then [`SUC n`,`Estep (env',(st',ffi'),ev',cs2')`]
     mp_tac step_n_cml_preserved_FFI >>
@@ -668,7 +668,7 @@ Proof
     Cases_on `dstep_n_cml env (SUC n) (Dstep db)` >> gvs[dget_ffi_def] >>
     PairCases_on `db` >> gvs[dget_ffi_def]) >>
   simp[dstep_n_alt_def, dstep_n_cml_alt_def] >>
-  gvs[dstep_result_rel_cases] >>
+  rgs[dstep_result_rel_cases] >> gvs[] >>
   gvs[GSYM dstep_result_rel_cases, PULL_EXISTS, dget_ffi_def] >>
   qspecl_then [`SUC n`,`Dstep (st',dev2',dcsa)`]
     mp_tac dstep_n_cml_preserved_FFI >>
@@ -1903,7 +1903,7 @@ Proof
       strip_tac >> simp[decl_step_reln_eq_dstep_n_cml, PULL_EXISTS] >>
       goal_assum drule >> gvs[dget_ffi_def] >>
       unabbrev_all_tac >> gvs[ffi_state_component_equality] >>
-      disj1_tac >> gvs[dstep_to_Ddone, Once deval_rel_cases, SF dsmallstep_ss]
+      disj1_tac >> rgs[dstep_to_Ddone, Once deval_rel_cases, SF dsmallstep_ss]
       )
     >- (
       qpat_x_assum `(some n. _ ) = _` mp_tac >>
@@ -1954,7 +1954,7 @@ Proof
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
       gvs[dget_ffi_def, ffi_state_component_equality] >>
-      gvs[Once deval_rel_cases, ctxt_rel_def] >>
+      rgs[Once deval_rel_cases, ctxt_rel_def] >> gvs[] >>
       gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >>
       first_x_assum $ drule_at Any >>
       disch_then $ qspec_then
@@ -2202,7 +2202,7 @@ Proof
       simp[dstep_result_rel_cases] >> disch_then drule_all >>
       strip_tac >> gvs[Abbr `st'`] >>
       gvs[dget_ffi_def, ffi_state_component_equality] >>
-      gvs[Once deval_rel_cases, ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
+      rgs[Once deval_rel_cases, ctxt_rel_def] >> gvs[GSYM ctxt_rel_def] >>
       simp[Once RTC_CASES1] >> irule_at Any OR_INTRO_THM2 >> simp[PULL_EXISTS] >>
       simp[decl_step_reln_def] >>
       first_x_assum $ drule_at Any >> gvs[dstep_to_Dffi] >>
@@ -2266,7 +2266,7 @@ Proof
       disch_then $ qspec_then `st1` mp_tac >>
       impl_tac >- (unabbrev_all_tac >> gvs[dstate_rel_def]) >>
       strip_tac >> gvs[] >> unabbrev_all_tac >> gvs[dget_ffi_def] >>
-      every_case_tac >> gvs[]
+      every_case_tac >> rgs[]
       ) >>
     gvs[dstep_n_cml_def] >>
     qmatch_asmsub_abbrev_tac `(st2,_)` >>
@@ -2364,7 +2364,7 @@ Proof
   drule decl_step_ffi_changed >> simp[] >>
   drule decl_step_ffi_changed_dstep_to_Dffi >> simp[] >> disch_then $ drule_all >>
   strip_tac >> strip_tac >> gvs[] >>
-  gvs[Once deval_rel_cases, ctxt_rel_def] >>
+  rgs[Once deval_rel_cases, ctxt_rel_def] >> gvs[] >>
   gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >>
   Q.REFINE_EXISTS_TAC `SUC m` >> once_rewrite_tac[trace_prefix_dinterp] >>
   simp[dstep_until_halt_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
@@ -2374,11 +2374,12 @@ Proof
     ) >>
   drule_at Any dis_halt_dstep_n_eq >>
   disch_then $ qspec_then `SUC 0` mp_tac >> simp[dstep_n_def, dis_halt_def] >>
-  strip_tac >> gvs[dstep_to_Dffi, Once dstate_rel_def] >>
+  strip_tac >> rgs[dstep_to_Dffi, Once dstate_rel_def] >>
   qmatch_asmsub_abbrev_tac `dstep_n_cml _ _ (Dstep (st1,ev,dcs))` >>
   last_x_assum $ qspecl_then [
     `dst`,`TL io`,`env`,`ev`,`st1`,`dcs`] mp_tac >>
-  simp[Abbr `ev`, deval_rel_cases, PULL_EXISTS] >> disch_then $ drule_at Any >>
+  simp[Abbr `ev`, deval_rel_cases, PULL_EXISTS] >>
+  disch_then $ drule_at Any >>
   disch_then $ qspec_then
     `dsta with refs := LUPDATE (W8array ws'') lnum st.refs` mp_tac >>
   unabbrev_all_tac >> simp[dstate_rel_def] >> reverse impl_keep_tac >> gvs[] >> rw[]
