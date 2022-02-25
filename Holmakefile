@@ -1,1 +1,1 @@
-INCLUDES = misc language meta-theory examples typing
+INCLUDES = misc language meta-theory examples

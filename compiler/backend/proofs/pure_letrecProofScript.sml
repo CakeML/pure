@@ -1145,7 +1145,7 @@ Triviality app_bisimilarity_subst:
   ∀fm1 e fm2.
     fmap_rel (λx y. (x ≃ y) T) fm1 fm2 ∧
     freevars e ⊆ FDOM fm1
-  ⇒ subst fm1 e ≃ subst fm2 e
+  ⇒ (subst fm1 e ≃ subst fm2 e) T
 Proof
   rw[app_bisimilarity_eq]
   >- (
