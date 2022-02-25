@@ -124,13 +124,11 @@ Proof
     rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
     first_x_assum drule >> rw[FDIFF_FMAP_MAP2]
     )
-  >- simp[FDIFF_FMAP_MAP2]
-  >- (
-    simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
-    first_x_assum drule >> rw[] >>
-    simp[FDIFF_FDOMSUB_INSERT, FDIFF_FMAP_MAP2]
-    )
+  >- simp[FDIFF_FMAP_MAP2] >>
+  simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
+  first_x_assum drule >> rw[] >>
+  simp[FDIFF_FDOMSUB_INSERT, FDIFF_FMAP_MAP2]
 QED
 
 Theorem lets_for_APPEND:

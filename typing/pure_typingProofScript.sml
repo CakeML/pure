@@ -842,7 +842,7 @@ Proof
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
       strip_tac >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
       Cases_on `arg_tys` >> gvs[Functions_def] >>
-      `closed (Tick (exp_of e))` by (
+      `closed (exp_of e)` by (
         imp_res_tac type_tcexp_freevars_tcexp >>
         gvs[closed_def, freevars_exp_of]) >>
       simp[bind1_def] >>
@@ -901,7 +901,7 @@ Proof
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
       strip_tac >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
       Cases_on `arg_tys` >> gvs[Functions_def] >>
-      `closed (Tick (exp_of e))` by (
+      `closed (exp_of e)` by (
         imp_res_tac type_tcexp_freevars_tcexp >>
         gvs[closed_def, freevars_exp_of]) >>
       simp[bind1_def] >>
