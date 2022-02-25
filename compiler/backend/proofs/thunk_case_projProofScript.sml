@@ -1,10 +1,10 @@
 (*
   The fifth in a series of transformations to simplify case-compilation from
   pureLang to thunkLang. See:
-  - [thunk_liftProofScript.sml]
-  - [thunk_d2bProofScript.sml]
-  - [thunk_inlProofScript.sml]
-  - [thunk_unboxProofScript.sml]
+  - [thunk_case_liftProofScript.sml]
+  - [thunk_case_d2bProofScript.sml]
+  - [thunk_case_inlProofScript.sml]
+  - [thunk_case_unboxProofScript.sml]
   for the others.
  *)
 
@@ -14,19 +14,17 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory;
 open pure_miscTheory thunkLangPropsTheory;
 
-val _ = new_theory "thunk_caseProof";
+val _ = new_theory "thunk_case_projProof";
+
+val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
+                              "thunkLang", "wellorder", "quotient_sum",
+                              "quotient_pair", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
 Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
 
 Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
-
-Overload Tick = “λx: exp. Letrec [] x”;
-
-Overload Proj = “λs i (x: exp). Prim (Proj s i) [x]”;
-
-Overload Seq = “λx: exp. λy. Let NONE x y”;
 
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧
@@ -38,19 +36,21 @@ End
 Inductive exp_rel:
 (* Proj *)
 [exp_rel_Proj:]
-  (∀x y s i v w.
+  (∀x y s i j v w.
+     i < j ∧
      exp_rel x y ⇒
-       exp_rel (Seq (Proj s i (Var v))
+       exp_rel (Seq (If (IsEq s j (Var v)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x))
-               (Seq (Proj s i (Var v))
+               (Seq (If (IsEq s j (Var v)) Unit Fail)
                     (Let (SOME w) (MkTick (Proj s i (Var v))) y))) ∧
 [exp_rel_Proj_Value:]
-  (∀x y s i u v w.
+  (∀x y s i j u v w.
+     i < j ∧
      exp_rel x y ∧
      v_rel u v ⇒
-       exp_rel (Seq (Proj s i (Value u))
+       exp_rel (Seq (If (IsEq s j (Value u)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Value u))))) x))
-               (Seq (Proj s i (Value v))
+               (Seq (If (IsEq s j (Value v)) Unit Fail)
                     (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
 [v_rel_Proj:]
   (∀xs s i.
@@ -377,6 +377,7 @@ Proof
              EVERY2_MAP]
     \\ irule_at Any LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
     \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ gvs [freevars_def, SUBSET_DEF]
@@ -396,14 +397,12 @@ Proof
         \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
         \\ IF_CASES_TAC \\ gs []
         \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
-        \\ Cases_on ‘u’ \\ Cases_on ‘v’ \\ gs []
-        \\ rename1 ‘LIST_REL _ xs ys’
-        \\ gvs [LIST_REL_EL_EQN]
-        \\ IF_CASES_TAC \\ gvs []
-        \\ first_x_assum (drule_then strip_assume_tac)
-        \\ simp [eval_to_def]
-        \\ IF_CASES_TAC \\ simp []
-        \\ simp [subst_funs_def, eval_to_def]
+        \\ IF_CASES_TAC \\ gs []
+        \\ CONV_TAC (BINOP_CONV (SIMP_CONV (srw_ss()) [Once eval_to_def]))
+        \\ Cases_on ‘u’ \\ Cases_on ‘v’ \\ gvs []
+        \\ rename1 ‘s1 = s2 ⇒ _’ \\ Cases_on ‘s1 = s2’ \\ simp [eval_to_def]
+        \\ gvs [LIST_REL_EL_EQN, eval_to_def, result_map_def, subst_funs_def]
+        \\ IF_CASES_TAC \\ gs [subst_funs_def]
         \\ first_x_assum irule
         \\ simp [closed_subst, eval_to_wo_def]
         \\ irule exp_rel_subst \\ gs [])
@@ -584,6 +583,7 @@ Proof
       \\ simp [closed_subst, eval_to_wo_def, MAP_MAP_o, combinTheory.o_DEF,
                LAMBDA_PROD, GSYM FST_THM, EVERY2_MAP]
       \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
+      \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
       \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
       \\ first_x_assum (drule_then assume_tac)
       \\ gs [freevars_def])

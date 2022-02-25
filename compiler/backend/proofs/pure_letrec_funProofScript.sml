@@ -411,7 +411,7 @@ Proof
     IF_CASES_TAC >> gvs[LIST_REL_EL_EQN] >>
     `∃x1 x2 x3. xs = [x1;x2;x3]` by fs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2 y3. ys = [y1;y2;y3]` by fs[LENGTH_EQ_NUM_compute] >>
-    gvs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
+    rgs[wordsTheory.NUMERAL_LESS_THM, DISJ_IMP_THM, FORALL_AND_THM] >>
     qpat_x_assum ‘letrec_fun x1 _’ assume_tac >>
     first_assum (drule_all_then strip_assume_tac) >> gvs[] >>
     reverse (Cases_on `eval_wh_to (k - 1) x1`) >> gvs[]
@@ -609,7 +609,7 @@ Proof
     IF_CASES_TAC >> gvs[] >>
     `∃x1 x2. xs = [x1;x2]` by gvs[LENGTH_EQ_NUM_compute] >>
     `∃y1 y2. ys = [y1;y2]` by gvs[LENGTH_EQ_NUM_compute] >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    rgs[DISJ_IMP_THM, FORALL_AND_THM] >>
     first_assum (drule_all_then strip_assume_tac) >>
     qpat_x_assum ‘letrec_fun x2 _’ assume_tac >>
     first_x_assum (drule_all_then strip_assume_tac) >>
@@ -654,3 +654,4 @@ QED
 (**********)
 
 val _ = export_theory();
+

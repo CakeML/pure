@@ -55,13 +55,12 @@ Proof
   >- (
     rw[letrec_recurse_Apps] >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
     first_x_assum drule >> rw[] >> AP_TERM_TAC >> rw[MAP_EQ_f]
-    )
-  >- (
-    rw[letrec_recurse_rows_of] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    last_x_assum irule >> simp[] >> goal_assum drule
-    )
+    ) >>
+  gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
+  rw[letrec_recurse_rows_of] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  last_x_assum irule >> simp[] >> goal_assum drule
 QED
 
 (********************)
@@ -209,7 +208,7 @@ Proof
     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
     first_x_assum drule >> strip_tac >> simp[] >> rw[] >>
     last_x_assum $ drule_at Any >> strip_tac >>
-    gvs[IMP_CONJ_THM, FORALL_AND_THM] >>
+    rgs[IMP_CONJ_THM, FORALL_AND_THM] >>
     last_x_assum $ DEP_REWRITE_TAC o single >> rw[]
     >- (
       simp[fvs_ok_def, EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
@@ -230,13 +229,12 @@ Proof
   >- (
     rw[letrec_recurse_Apps] >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
     first_x_assum drule >> rw[] >> AP_TERM_TAC >> rw[MAP_EQ_f]
-    )
-  >- (
-    rw[letrec_recurse_rows_of] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    last_x_assum irule >> simp[] >> goal_assum drule
-    )
+    ) >>
+  gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
+  rw[letrec_recurse_rows_of] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  last_x_assum irule >> simp[] >> goal_assum drule
 QED
 
 
@@ -454,9 +452,9 @@ Proof
     ) >>
   Cases_on `fns` >- gvs[] >>
   simp[] >> PairCases_on `h` >> simp[] >> ntac 2 $ pop_assum kall_tac >>
-  reverse $ Cases_on `t` >> gvs[exp_of_def, fvs_ok_def] >>
+  reverse $ Cases_on `t` >> rgs[exp_of_def, fvs_ok_def] >>
   imp_res_tac fvs_ok_imp >> pop_assum mp_tac >> simp[fv_set_ok_def] >> strip_tac >>
-  Cases_on `lookup (get_info h1) h0` >> gvs[freevars_exp_of, exp_of_def] >>
+  Cases_on `lookup (get_info h1) h0` >> rgs[freevars_exp_of, exp_of_def] >>
   IF_CASES_TAC >> gvs[] >>
   first_x_assum $ qspec_then `h0` assume_tac >> gvs[]
 QED
