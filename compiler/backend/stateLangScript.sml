@@ -16,6 +16,14 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 
 val _ = new_theory "stateLang";
 
+val _ = set_grammar_ancestry ["pure_semantics"];
+
+(*
+
+TODO: introduce Delay, Box, Force
+
+*)
+
 val _ = numLib.prefer_num();
 
 
@@ -26,6 +34,8 @@ Datatype:
       | AppOp              (* function application                     *)
       | Cons string        (* datatype constructor                     *)
       | AtomOp atom_op     (* primitive parametric operator over Atoms *)
+      | Proj string num    (* projection                               *)
+      | IsEq string num    (* check whether same data constructor      *)
       | Alloc              (* allocate an array                        *)
       | Length             (* query the length of an array             *)
       | Sub                (* de-reference a value in an array         *)
@@ -41,7 +51,6 @@ Datatype:
       | Letrec ((vname # vname # exp) list) exp   (* mutually recursive exps *)
       | Let (vname option) exp exp                (* non-recursive let       *)
       | If exp exp exp                            (* if-then-else            *)
-      | Case exp vname ((vname # vname list # exp) list)
       | Raise exp
       | Handle exp vname exp
       | Force         (* abbreviates a Lam that implements forcing of thunks *)
@@ -65,7 +74,6 @@ Datatype:
          (* values in call-order, exps in reverse order *)
        | LetK env (vname option) exp
        | IfK env exp exp
-       | CaseK env vname ((vname # vname list # exp) list)
        | RaiseK
        | HandleK env vname exp
 End
@@ -99,15 +107,11 @@ Definition freevars_def[simp]:
   freevars (Let NONE e1 e2) = freevars e1 ∪ freevars e2 ∧
   freevars (Let (SOME x) e1 e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
   freevars (If e e1 e2) = freevars e ∪ freevars e1 ∪ freevars e2 ∧
-  freevars (Case e v css) =
-    freevars e ∪
-    (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v) ∧
   freevars Force = {} ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x)
 Termination
-  WF_REL_TAC `measure (λe. exp_size e)` >> rw[fetch "-" "exp_size_def"] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
+  WF_REL_TAC ‘measure exp_size’
 End
 
 Definition get_atoms_def:
@@ -118,7 +122,7 @@ End
 
 Definition mk_rec_env_def:
   mk_rec_env fns env =
-  (MAP (λ(fn, _). (fn, Recclosure fns env fn)) fns) ++ env
+    (MAP (λ(fn, _). (fn, Recclosure fns env fn)) fns) ++ env
 End
 
 (* Check correct number of arguments for App *)
@@ -126,6 +130,8 @@ Definition num_args_ok_def[simp]:
   num_args_ok AppOp n = (n = 2) ∧
   num_args_ok (Cons s) n = T ∧
   num_args_ok (AtomOp aop) n = T ∧
+  num_args_ok (Proj _ _) n = (n = 1) ∧
+  num_args_ok (IsEq _ _) n = (n = 1) ∧
   num_args_ok Ref n = (n = 1) ∧
   num_args_ok Set n = (n = 2) ∧
   num_args_ok Deref n = (n = 1) ∧
@@ -194,6 +200,20 @@ Definition application_def:
           SOME l => value (Atom $ Int $ & LENGTH l) st k
         | _ => error st k)
     | _ => error st k) ∧
+  application (Proj s i) env vs st k = (
+    case HD vs of
+      Constructor t ys => (
+        if t = s ∧ i < LENGTH ys then
+          value (EL i ys) st k
+        else error st k)
+    | _ => error st k) ∧
+  application (IsEq s i) env vs st k = (
+    case HD vs of
+      Constructor t ys => (
+        if t = s ⇒ i = LENGTH ys then
+          value (Constructor (if t = s then "True" else "False") []) st k
+        else error st k)
+    | _ => error st k) ∧
   application Sub env vs st k = (
     case (EL 0 vs, EL 1 vs) of
       (Atom $ Loc n, Atom $ Int i) => (
@@ -235,14 +255,6 @@ Definition return_def:
       Constructor "True" [] => continue env e1 st k
     | Constructor "False" [] => continue env e2 st k
     | _ => error st k) ∧
-  return v st (CaseK env n [] :: k) = error st k ∧
-  return v st (CaseK env n ((c,ns,e)::css) :: k) = (
-    case v of
-      Constructor c' vs =>
-        if c = c' ∧ LENGTH vs = LENGTH ns then
-          continue (ZIP (ns, vs) ++ (n,v)::env) e st k
-        else value v st (CaseK env n css :: k)
-    | _ => error st k) ∧
   return v st (RaiseK :: k) = (Exn v, st, k) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
   return v st (AppK env sop vs' [] :: k) = (let vs = v::vs' in
@@ -276,7 +288,6 @@ Definition step_def:
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e2 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
-  step st k (Exp env $ Case e v css) = push env e st (CaseK env v css) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ App sop es) = (
