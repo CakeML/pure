@@ -1452,7 +1452,7 @@ Theorem next'_next':
   next' k1 x fs st ≠ Div ∧ next' k2 x fs st ≠ Div ⇒
   next' k1 x fs st = next' k2 x fs st
 Proof
-  metis_tac [LESS_EQ_CASES, next'_less_eq]
+  metis_tac [arithmeticTheory.LESS_EQ_CASES, next'_less_eq]
 QED
 
 Theorem next_action'_thm:
