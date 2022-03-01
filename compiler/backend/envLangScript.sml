@@ -126,8 +126,8 @@ Definition eval_to_def:
      | NONE => fail Type_error) ∧
   eval_to k env (App f x) =
     (do
-       fv <- eval_to k env f;
        xv <- eval_to k env x;
+       fv <- eval_to k env f;
        (s, env, body) <- dest_anyClosure fv;
        if k = 0 then fail Diverge else eval_to (k - 1) (env ++ [(s,xv)]) body
      od) ∧
@@ -367,4 +367,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

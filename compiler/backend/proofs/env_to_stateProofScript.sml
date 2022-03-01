@@ -7,7 +7,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
 open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
      envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
-     stateLangTheory;
+     stateLangTheory (* env_semanticsTheory *);
 
 val _ = new_theory "env_to_stateProof";
 
@@ -108,6 +108,7 @@ Inductive compile_rel:
   (compile_rel te se ⇒
    compile_rel (Lam x te) (Lam x se)) ∧
 
+(*
 [~Letrec:]
   (ALL_DISTINCT (MAP FST tfns) ∧
    letrec_funs_rel (freevars (Letrec fns te) ∪ set (MAP FST fns)) tfns sfns sets ∧
@@ -117,6 +118,7 @@ Inductive compile_rel:
       (Lets
         (MAP (λ(fn,_). (SOME fn, ref (inl (Lam u (Raise $ cons0 TODO))))) fns) $
         stateLang$Letrec sfns $ Sets sets se)) ∧
+*)
 
 [~Let:]
   (compile_rel te1 se1 ∧
@@ -136,8 +138,9 @@ Inductive compile_rel:
 
 [~Box:]
   (compile_rel te se ⇒
-  compile_rel (Box te) (App Ref [inr se])) ∧
+  compile_rel (Box te) (App Ref [inr se]))
 
+(*
 [~Force:]
   (compile_rel te se ⇒
   compile_rel (Force te) (App AppOp [force; se])) ∧
@@ -155,8 +158,10 @@ Inductive compile_rel:
 
   (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
   letrec_funs_rel fvs ((f, Box te)::tfns) sfns ((Var f, inr se)::sets))
+*)
 
 End
+
 (* TODO HOL gives "index too large" error if below comment is
    within Inductive ... End and does not name all rules *)
 
@@ -196,6 +201,14 @@ Inductive v_rel:
      env_rel st tenv senv ∧
      compile_rel te se ⇒
      v_rel st (Closure x tenv te) (Closure x senv se)) ∧
+
+(*
+[~Recclosure:]
+  (∀st tenv senv tfns sfns n.
+     env_rel st tenv senv ∧
+     LIST_REL ((=) ### compile_rel) tfns sfns ⇒
+     v_rel st (envLang$Recclosure tfns tenv n) (stateLang$Recclosure sfns senv n)) ∧
+*)
 
 [~ThunkL:]
   (∀st tv sv.
@@ -246,6 +259,13 @@ Proof
   \\ fs [step_n_def]
 QED
 
+Theorem step_n_add:
+  step_n (m+n) x = step_n m (step_n n x)
+Proof
+  PairCases_on ‘x’ \\ fs [step_n_def,FUNPOW_ADD]
+  \\ AP_THM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,step_n_def]
+QED
+
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
     eval_to n tenv te = tres ∧ compile_rel te se ∧
@@ -266,23 +286,70 @@ Proof
     \\ fs [env_rel_def] \\ first_x_assum drule \\ rw []
     \\ gvs [value_def])
   >~ [‘App tf tx’]
-  >- (simp [Once compile_rel_cases] \\ rw []
+  >- (
+    simp [Once compile_rel_cases] \\ rw []
     \\ fs [eval_to_def,AllCaseEqs()] \\ rw []
-    \\ Cases_on ‘eval_to n tenv tf’ \\ fs []
-    \\ cheat (*
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
     \\ Cases_on ‘eval_to n tenv tx’ \\ fs []
-    \\ Cases_on ‘dest_anyClosure y’ \\ fs []
-    \\ rename [‘_ = INR r’] \\ PairCases_on ‘r’ \\ fs []
-    \\ IF_CASES_TAC \\ gvs []
-    \\ CASE_TAC \\ gvs []
-    \\ irule_at Any step_n_unfold \\ fs []
-    \\ fs [step_def,push_def]
-    \\ cheat *))
+    >- (first_x_assum drule_all
+      \\ disch_then (qspec_then ‘AppK senv AppOp [] [se1]::k’ mp_tac)
+      \\ strip_tac \\ qexists_tac ‘ck’ \\ fs [])
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘AppK senv AppOp [] [se1]::k’ mp_tac)
+    \\ strip_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’
+    \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
+    \\ Cases_on ‘eval_to n tenv tf’ \\ fs []
+    >- (first_x_assum drule_all
+      \\ disch_then (qspec_then ‘AppK senv AppOp [sv] []::k’ mp_tac)
+      \\ rw [] \\ qexists_tac ‘ck'’ \\ fs [])
+    \\ first_x_assum drule_all
+    \\ disch_then (qspec_then ‘AppK senv AppOp [sv] []::k’ mp_tac)
+    \\ rw []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
+    \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
+    \\ Cases_on ‘dest_anyClosure y'’ \\ fs []
+    >- (fs [dest_anyClosure_def]
+        \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()])
+    \\ rename [‘_ = INR yy’] \\ PairCases_on ‘yy’ \\ fs []
+    \\ fs [application_def]
+    \\ Cases_on ‘n=0’ \\ gvs []
+    >-
+     (qexists_tac ‘0’ \\ fs []
+      \\ fs [dest_anyClosure_def]
+      \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()]
+      \\ qpat_x_assum ‘v_rel _ _ _’ mp_tac
+      \\ simp [Once v_rel_cases]
+      \\ rw [] \\ fs [continue_def,is_halt_def])
+    \\ fs [dest_anyClosure_def]
+    \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()]
+    \\ qpat_x_assum ‘v_rel _ _ _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ rw []
+    \\ first_x_assum drule
+    \\ disch_then $ drule_at Any \\ fs []
+    \\ ‘env_rel st (l ++ [(s,y)]) ((s,sv)::senv')’ by
+         (fs [env_rel_def,REVERSE_APPEND] \\ rw [] \\ fs [])
+    \\ disch_then $ drule_at Any \\ fs []
+    \\ fs [continue_def]
+    \\ disch_then (qspec_then ‘k’ mp_tac)
+    \\ strip_tac \\ fs []
+    \\ qexists_tac ‘ck''’ \\ fs []
+    \\ CASE_TAC \\ fs [])
   \\ cheat
 QED
 
+(*
 
+  sinterp sr st k
 
+  interp'_def
+
+*)
 
 
 (*
