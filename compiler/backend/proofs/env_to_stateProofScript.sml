@@ -410,7 +410,7 @@ fun force t =
 CoInductive compiles_to:
   compiles_to Div Div ∧
   (∀x. compiles_to (Ret x) (Ret x)) ∧
-  (∀x. compiles_to (Ret pure_semantics$Error) (Ret x)) ∧
+  (∀t. compiles_to (Ret pure_semantics$Error) t) ∧
   (∀a f g.
      (∀x. compiles_to (f x) (g x)) ⇒
      compiles_to (Vis a f) (Vis a g))
