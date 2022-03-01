@@ -346,7 +346,7 @@ End
 
 Definition sinterp_def:
   sinterp sr st k =
-    io_unfold
+    io_unfold_err
       (λ(sr, st, k).
         case step_until_halt (sr, st, k) of
         | Ret => Ret' Termination
@@ -354,9 +354,19 @@ Definition sinterp_def:
         | Div => Div'
         | Act a k' st' =>
             Vis' a (λy. value (Atom $ Str y) st' k' ))
+      ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
+       pure_semantics$FinalFFI,
+       λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
       (sr, st, k)
 End
 
+Definition semantics_def:
+  semantics e env state k = sinterp (Exp env e) state k
+End
+
+Definition itree_of_def:
+  itree_of e = semantics e [] [] []
+End
 
 (******************** Lemmas ********************)
 
