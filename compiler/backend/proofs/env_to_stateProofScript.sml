@@ -7,9 +7,11 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
 open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
      envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
-     stateLangTheory (* env_semanticsTheory *);
+     stateLangTheory env_semanticsTheory;
 
 val _ = new_theory "env_to_stateProof";
+
+val _ = set_grammar_ancestry ["stateLang", "envLang"];
 
 Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
 Overload "cons0" = ``λs. App (Cons s) []``;
@@ -343,23 +345,6 @@ Proof
   \\ cheat
 QED
 
-(*
-
-  sinterp sr st k
-
-  interp'_def
-
-*)
-
-
-(*
-
-TODO:
- - eval x before f in App f x in envLang
-
-*)
-
-
 
 (******************** Notes ********************)
 
@@ -420,5 +405,33 @@ fun force t =
 *)
 
 (****************************************)
+
+
+CoInductive compiles_to:
+  compiles_to Div Div ∧
+  (∀x. compiles_to (Ret x) (Ret x)) ∧
+  (∀x. compiles_to (Ret pure_semantics$Error) (Ret x)) ∧
+  (∀a f g.
+     (∀x. compiles_to (f x) (g x)) ⇒
+     compiles_to (Vis a f) (Vis a g))
+End
+
+val _ = set_fixity "--->" (Infixl 480);
+Overload "--->" = “compiles_to”;
+
+Theorem compile_rel_itree_of:
+  compile_rel e1 e2 ⇒
+  env_semantics$itree_of e1 ---> stateLang$itree_of e2
+Proof
+  cheat
+QED
+
+Theorem safe_itree_compiles_to_IMP_eq:
+  safe_itree x ∧ x ---> y ⇒
+  x = y
+Proof
+  cheat
+QED
+
 
 val _ = export_theory ();
