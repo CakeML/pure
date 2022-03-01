@@ -11,7 +11,7 @@ open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
 
 val _ = new_theory "env_to_stateProof";
 
-val _ = set_grammar_ancestry ["stateLang", "envLang"];
+val _ = set_grammar_ancestry ["stateLang", "envLang", "env_semantics"];
 
 Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
 Overload "cons0" = ``λs. App (Cons s) []``;
@@ -194,7 +194,7 @@ End
 Inductive v_rel:
 
 [~Constructor:]
-  (∀st:state tvs svs.
+  (∀st:stateLang$state tvs svs.
      LIST_REL (v_rel st) tvs svs ⇒
      v_rel st (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
 
@@ -232,7 +232,7 @@ Inductive v_rel:
      (∀n tv.
        ALOOKUP (REVERSE tenv) n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel st tv sv) ⇒
-     env_rel (st:state) tenv senv)
+     env_rel st tenv senv)
 
 End
 
@@ -406,32 +406,113 @@ fun force t =
 
 (****************************************)
 
-
 CoInductive compiles_to:
   compiles_to Div Div ∧
   (∀x. compiles_to (Ret x) (Ret x)) ∧
   (∀t. compiles_to (Ret pure_semantics$Error) t) ∧
   (∀a f g.
-     (∀x. compiles_to (f x) (g x)) ⇒
+     (∀x. f x ≠ g x ⇒ compiles_to (f x) (g x)) ⇒
      compiles_to (Vis a f) (Vis a g))
 End
 
 val _ = set_fixity "--->" (Infixl 480);
 Overload "--->" = “compiles_to”;
 
-Theorem compile_rel_itree_of:
-  compile_rel e1 e2 ⇒
-  env_semantics$itree_of e1 ---> stateLang$itree_of e2
-Proof
-  cheat
-QED
-
 Theorem safe_itree_compiles_to_IMP_eq:
   safe_itree x ∧ x ---> y ⇒
   x = y
 Proof
+  once_rewrite_tac [io_treeTheory.io_bisimulation] \\ rw []
+  \\ qexists_tac ‘λx y. x = y ∨ safe_itree x ∧ x ---> y’ \\ fs []
+  \\ rpt (pop_assum kall_tac) \\ rw []
+  \\ gvs [Once compiles_to_cases]
+  \\ fs [Once pure_semanticsTheory.safe_itree_cases]
+  \\ metis_tac []
+QED
+
+Inductive cont_rel:
+  (∀tk. tk = env_semantics$Done ⇒
+    cont_rel tk [])
+End
+
+Theorem next_action_Div:
+  compile_rel e1 e2 ∧
+  LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
+  cont_rel tk sk ∧
+  env_rel ss tenv senv ∧
+  next_action (eval tenv e1) tk ts = Div ⇒
+  sinterp (Exp senv e2) ss sk = Div
+Proof
   cheat
 QED
 
+Theorem next_action_thm:
+  compile_rel e1 e2 ∧
+  LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
+  cont_rel tk sk ∧
+  env_rel ss tenv senv ∧
+  next_action (eval tenv e1) tk ts = tres ∧ tres ≠ Err ∧
+  step_until_halt (Exp senv e2,ss,sk) = sres ⇒
+  (tres = Div ⇒ sres = Div) ∧
+  (tres = Ret ⇒ sres = Ret) ∧
+  (∀a tk ts.
+     tres = Act a tk ts ⇒
+     ∃sk ss.
+       sres = Act a sk ss ∧
+       cont_rel tk sk ∧
+       LIST_REL (LIST_REL (v_rel ss)) ts ss)
+Proof
+  cheat
+QED
+
+Theorem semantics_thm:
+  compile_rel e1 e2 ∧ LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
+  cont_rel tk sk ∧ env_rel ss tenv senv ⇒
+  env_semantics$semantics e1 tenv tk ts --->
+  semantics e2 senv ss sk
+Proof
+  qsuff_tac ‘
+    ∀t1 t2.
+      (∃e1 e2 ts sss tenv senv tk sk.
+        compile_rel e1 e2 ∧ LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
+        cont_rel tk sk ∧ env_rel ss tenv senv ∧
+        t1 = env_semantics$semantics e1 tenv tk ts ∧
+        t2 = semantics e2 senv ss sk) ⇒
+      t1 ---> t2’
+  >- fs [PULL_EXISTS]
+  \\ ho_match_mp_tac compiles_to_coind
+  \\ rpt gen_tac \\ strip_tac
+  \\ ntac 2 (pop_assum $ mp_tac o GSYM)
+  \\ simp [env_semanticsTheory.semantics_def]
+  \\ simp [stateLangTheory.semantics_def]
+  \\ simp [Once env_semanticsTheory.interp_def]
+  \\ Cases_on ‘next_action (eval tenv e1) tk ts = Err’ >- fs []
+  \\ simp [sinterp_def]
+  \\ simp [Once io_treeTheory.io_unfold_err]
+  \\ rename [‘io_unfold_err fs’]
+  \\ ‘∃r1 r2. next_action (eval tenv e1) tk ts = r1 ∧
+              step_until_halt (Exp senv e2,ss,sk) = r2’ by fs []
+  \\ fs []
+  \\ drule_all next_action_thm
+  \\ Cases_on ‘r1’ \\ gvs []
+  \\ strip_tac \\ fs []
+  \\ rw [] \\ fs []
+  \\ Cases \\ fs []
+  \\ reverse IF_CASES_TAC >- fs []
+  \\ fs [] \\ fs [value_def]
+  \\ rw []
+  \\ cheat
+QED
+
+Theorem compile_rel_itree_of:
+  compile_rel e1 e2 ⇒
+  env_semantics$itree_of e1 ---> stateLang$itree_of e2
+Proof
+  fs [env_semanticsTheory.itree_of_def,
+      stateLangTheory.itree_of_def] \\ rw []
+  \\ irule semantics_thm
+  \\ simp [cont_rel_cases]
+  \\ fs [env_rel_def]
+QED
 
 val _ = export_theory ();
