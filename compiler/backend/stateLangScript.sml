@@ -6,7 +6,7 @@
    last language before CakeML.
    - Has a continuation-passing style, call-by-value, small-step semantics.
    - Removes primitives for delaying/forcing computations.
-   - Introduces state/exception primitives and case statements.
+   - Introduces state/exception primitives.
    - Makes function application a primitive operation, as in CakeML.
 *)
 
@@ -61,6 +61,7 @@ Datatype:
     | Constructor string (v list)
     | Closure vname ((vname # v) list) exp
     | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
+    | Thunk (v + (vname # v) list # exp)
     | Atom lit
 End
 

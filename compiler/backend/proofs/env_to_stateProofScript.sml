@@ -4,7 +4,7 @@
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory
+     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
 open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
      envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
      stateLangTheory;
@@ -20,16 +20,6 @@ Definition Lets_def:
 End
 
 (****************************************)
-
-(*
-  We don't seem to be able to remain error-preserving in both directions here,
-  as `envLang$Cons "bind" _` etc. become lambdas in stateLang.
-  As a result, `App (thinkLang$Cons "bind" _) _` gives an error, whereas
-  `App (Lam _ _) _` succeeds.
-
-  Note that we expect the arguments to `envLang$Cons _` to be `Delay`-wrapped
-  things, allowing us to "force" them by removing the `Delay`.
-*)
 
 Inductive compile_rel:
 
@@ -97,13 +87,6 @@ Inductive compile_rel:
   (LIST_REL compile_rel tes ses ∧
    s ∉ monad_cns ⇒
   compile_rel (Prim (Cons s) tes) (App (Cons s) ses)) ∧
-
-[~Case:]
-  (compile_rel te se ∧
-   MAP FST tcss = MAP FST scss ∧
-   MAP (FST o SND) tcss = MAP (FST o SND) scss ∧
-   LIST_REL (λ(_,_,te) (_,_,se). compile_rel te se) tcss scss ⇒
-  compile_rel (Let (SOME v) te (rows_of v tcss)) (Case se v scss)) ∧
 
 [~Message:]
   (compile_rel te se ∧ u ≠ x ⇒
@@ -201,33 +184,114 @@ End
 
 
 (* TODO *)
-Inductive value_rel:
+Inductive v_rel:
+
 [~Constructor:]
-  (LIST_REL (value_rel st) tvs svs ⇒
-  value_rel st (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
+  (∀st:state tvs svs.
+     LIST_REL (v_rel st) tvs svs ⇒
+     v_rel st (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
 
 [~Closure:]
-  (MAP FST tenv = MAP FST senv ∧
-   LIST_REL (value_rel st) (MAP SND tenv) (MAP SND senv) ∧
-   compile_rel te se ⇒
-  value_rel st (Closure x tenv te) (Closure x senv se)) ∧
+  (∀st tenv senv te se.
+     env_rel st tenv senv ∧
+     compile_rel te se ⇒
+     v_rel st (Closure x tenv te) (Closure x senv se)) ∧
 
 [~ThunkL:]
-  (value_rel st tv sv ∧
-   oEL n st = SOME $ Constructor "INL" [sv] ⇒
-  value_rel st (Thunk $ INL tv) (Atom $ Loc n)) ∧
+  (∀st tv sv.
+     v_rel st tv sv ⇒
+     v_rel st (Thunk $ INL tv) (Thunk $ IL sv)) ∧
 
 [~ThunkR:]
-  (MAP FST tenv = MAP FST senv ∧
-   LIST_REL (value_rel st) (MAP SND tenv) (MAP SND senv) ∧
-   compile_rel te se ∧
-   x ∉ freevars se ∧
-   oEL n st = SOME $ Constructor "INL" [Closure x senv se] ⇒
-  value_rel st (Thunk $ INR (tenv, te)) (Atom $ Loc n)) ∧
+  (∀st tenv senv te se.
+     env_rel st tenv senv ∧
+     compile_rel te se ⇒
+     v_rel st (Thunk $ INR (tenv, te)) (Thunk $ INR (senv, se))) ∧
 
 [~Atom:]
-  value_rel st (Atom a) (Atom a)
+  (∀st a.
+     v_rel st (Atom a) (Atom a)) ∧
+
+[env_rel:]
+  (∀st tenv senv.
+     (∀n tv.
+       ALOOKUP (REVERSE tenv) n = SOME tv ⇒
+       ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel st tv sv) ⇒
+     env_rel (st:state) tenv senv)
+
 End
+
+Theorem env_rel_def = v_rel_cases |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL;
+
+Theorem step_n_0[simp]:
+  step_n 0 x = x
+Proof
+  PairCases_on ‘x’ \\ fs [step_n_def]
+QED
+
+Theorem step_n_1[simp]:
+  step_n 1 x = step (FST (SND x)) (SND (SND x)) (FST x)
+Proof
+  PairCases_on ‘x’ \\ fs [step_n_def]
+QED
+
+Theorem step_n_unfold:
+  (∃n. k = n + 1 ∧ step_n n (step st c sr) = res) ⇒
+  step_n k (sr,st,c) = res
+Proof
+  Cases_on ‘k’ >- fs []
+  \\ rewrite_tac [step_n_def,FUNPOW]
+  \\ fs [ADD1]
+  \\ Cases_on ‘step st c sr’ \\ Cases_on ‘r’
+  \\ fs [step_n_def]
+QED
+
+Theorem eval_to_thm:
+  ∀n tenv te tres se senv st k.
+    eval_to n tenv te = tres ∧ compile_rel te se ∧
+    env_rel st tenv senv ∧ tres ≠ INL Type_error ⇒
+    ∃ck sres.
+      step_n ck (Exp senv se, st, k) = sres ∧
+      case tres of
+      | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel st tv sv
+      | INL err => n ≤ ck ∧ ~is_halt sres
+Proof
+  ho_match_mp_tac eval_to_ind \\ rpt conj_tac \\ rpt gen_tac
+  \\ strip_tac
+  >~ [‘Var v’]
+  >- (fs [eval_to_def,AllCaseEqs()] \\ rw []
+    \\ gvs [Once compile_rel_cases]
+    \\ qexists_tac ‘1’ \\ fs []
+    \\ fs [step_def]
+    \\ fs [env_rel_def] \\ first_x_assum drule \\ rw []
+    \\ gvs [value_def])
+  >~ [‘App tf tx’]
+  >- (simp [Once compile_rel_cases] \\ rw []
+    \\ fs [eval_to_def,AllCaseEqs()] \\ rw []
+    \\ Cases_on ‘eval_to n tenv tf’ \\ fs []
+    \\ cheat (*
+    \\ Cases_on ‘eval_to n tenv tx’ \\ fs []
+    \\ Cases_on ‘dest_anyClosure y’ \\ fs []
+    \\ rename [‘_ = INR r’] \\ PairCases_on ‘r’ \\ fs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ CASE_TAC \\ gvs []
+    \\ irule_at Any step_n_unfold \\ fs []
+    \\ fs [step_def,push_def]
+    \\ cheat *))
+  \\ cheat
+QED
+
+
+
+
+
+(*
+
+TODO:
+ - eval x before f in App f x in envLang
+
+*)
+
 
 
 (******************** Notes ********************)
