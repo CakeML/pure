@@ -1042,7 +1042,7 @@ End
 
 Inductive tick_rel:
 [~Var:]
-  (∀n. tick_rel (pure_exp$Var n) (Var n)) ∧
+  (∀n. tick_rel (pure_exp$Var n) (pure_exp$Var n)) ∧
 [~Prim:]
   (∀op xs ys.
      LIST_REL tick_rel xs ys ⇒
@@ -1051,7 +1051,7 @@ Inductive tick_rel:
   (∀f g x y.
      tick_rel f g ∧
      tick_rel x y ⇒
-       tick_rel (App f x) (App g y)) ∧
+       tick_rel (App f x) (App g (Tick y))) ∧
 [~Lam:]
   (∀s x y.
      tick_rel x y ⇒
@@ -1060,10 +1060,23 @@ Inductive tick_rel:
   (∀f g x y.
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ tick_rel x y) f g ∧
      tick_rel x y ⇒
-       tick_rel (Letrec f x) (Letrec g y)) ∧
+       tick_rel (Letrec f x) (Letrec g y))
+(* TODO:
 [~Tick:]
-  (∀x. tick_rel x (Tick x))
+  (∀x y.
+     tick_rel x y ⇒
+       tick_rel x (Tick y))
+ *)
 End
+
+Theorem tick_rel_def =
+  [“tick_rel (Var v) x”,
+   “tick_rel (Prim op xs) x”,
+   “tick_rel (App f x) y”,
+   “tick_rel (Lam s x) y”,
+   “tick_rel (Letrec f x) y”]
+  |> map (SIMP_CONV (srw_ss()) [Once tick_rel_cases])
+  |> LIST_CONJ;
 
 Definition tcont_rel_def[simp]:
   tcont_rel Done Done = T ∧
@@ -1110,62 +1123,100 @@ Proof
  rpt conj_tac \\ Cases_on ‘z’ \\ rw [tick_wh_rel_def, EQ_IMP_THM]
 QED
 
-Theorem tick_rel_refl:
-  ∀x. tick_rel x x
-Proof
-  ho_match_mp_tac exp_ind_alt \\ rw []
-  \\ rw [Once tick_rel_cases]
-  \\ gs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
-  \\ disj1_tac \\ rw []
-  \\ first_x_assum drule
-  \\ Cases_on ‘EL n lcs’ \\ gs []
-QED
-
-Theorem tick_wh_rel_refl:
-  ∀x. tick_wh_rel x x
-Proof
-  Cases \\ rw [tick_rel_refl, LIST_REL_EL_EQN]
-QED
-
-Theorem tstate_rel_refl:
-  tstate_rel s s
-Proof
-  rw [tstate_rel_def, LIST_REL_EL_EQN, tick_rel_refl]
-QED
-
-Theorem tcont_rel_refl:
-  ∀x. tcont_rel x x
-Proof
-  Induct \\ rw [tick_rel_refl]
-QED
-
-Theorem tnext_rel_refl:
-  ∀x. tnext_rel x x
-Proof
-  Cases \\ rw [tnext_rel_def, tcont_rel_refl, tstate_rel_refl]
-QED
-
-Theorem tick_rel_eval_wh_to:
+Theorem tick_rel_subst:
   ∀x y.
     tick_rel x y ⇒
-      ∀k. ∃j. tick_wh_rel (eval_wh_to k x) (eval_wh_to (k + j) y)
+      ∀vs ws.
+        fmap_rel tick_rel vs ws ⇒
+          tick_rel (subst vs x) (subst ws y)
 Proof
   ho_match_mp_tac tick_rel_strongind \\ rw []
   >~ [‘Var n’] >- (
-    rw [eval_wh_to_def])
+    gs [pure_expTheory.subst_def, fmap_rel_OPTREL_FLOOKUP, OPTREL_def]
+    \\ first_x_assum (qspec_then ‘n’ assume_tac)
+    \\ gs [tick_rel_Var])
+  >~ [‘Prim op xs’] >- (
+    simp [pure_expTheory.subst_def]
+    \\ irule tick_rel_Prim
+    \\ gvs [EVERY2_MAP, LIST_REL_EL_EQN])
+  >~ [‘App f x’] >- (
+    simp [pure_expTheory.subst_def]
+    \\ irule tick_rel_App \\ gs [])
   >~ [‘Lam s x’] >- (
-    rw [eval_wh_to_def])
-  >~ [‘Tick x’] >- (
-    qexists_tac ‘1’
-    \\ rw [eval_wh_to_def, pure_expTheory.subst_funs_def,
-           pure_expTheory.bind_def, FUPDATE_LIST_THM]
-    \\ irule tick_wh_rel_refl)
-  >~ [‘_ _ (App f x)’, ‘_ (_ + _) (App g y)’] >- (
-    last_x_assum (qspec_then ‘k’ (qx_choose_then ‘j’ assume_tac)) \\ gs []
-    \\ rw [eval_wh_to_def]
+    simp [pure_expTheory.subst_def]
+    \\ irule tick_rel_Lam
+    \\ first_x_assum (irule_at Any)
+    \\ gs [fmap_rel_def, DOMSUB_FAPPLY_THM])
+  >~ [‘Letrec f x’] >- (
+    simp [pure_expTheory.subst_def]
+    \\ irule tick_rel_Letrec
+    \\ first_x_assum (irule_at Any)
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    \\ ‘MAP FST f = MAP FST g’
+      by (irule LIST_EQ \\ gs [EL_MAP])
+    \\ qmatch_goalsub_abbrev_tac ‘A ∧ _’
+    \\ ‘A’ suffices_by rw []
+    \\ unabbrev_all_tac
+    \\ gs [fmap_rel_OPTREL_FLOOKUP, FDOM_FDIFF_alt]
+    \\ qx_gen_tac ‘xx’
+    \\ first_x_assum (qspec_then ‘xx’ assume_tac)
+    \\ rw [FLOOKUP_FDIFF] \\ gs [OPTREL_def])
+QED
+
+Theorem tick_rel_freevars:
+  ∀x y. tick_rel x y ⇒ freevars x = freevars y
+Proof
+  ho_match_mp_tac tick_rel_strongind \\ rw []
+  \\ gvs [BIGUNION, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
+  \\ ‘MAP FST f = MAP FST g’
+    by (irule LIST_EQ \\ gs [EL_MAP, ELIM_UNCURRY])
+  \\ rw [EQ_IMP_THM, EXTENSION, DISJ_EQ_IMP]
+  \\ gs [MEM_EL, EL_MAP, ELIM_UNCURRY, SF SFY_ss]
+  \\ first_assum (irule_at Any) \\ gs []
+QED
+
+Theorem subst_empty[local,simp]:
+  pure_exp$subst_funs [] x = x
+Proof
+  rw [pure_expTheory.subst_funs_def, FUPDATE_LIST_THM]
+QED
+
+Theorem eval_wh_to_Tick[local,simp]:
+  eval_wh_to (1 + k) (Tick x) = eval_wh_to k x
+Proof
+  rw [eval_wh_to_def]
+QED
+
+Theorem tick_rel_Fail[simp]:
+  tick_rel Fail Fail
+Proof
+  rw [tick_rel_def]
+QED
+
+Theorem tick_rel_Tick:
+  tick_rel x y ⇒ tick_rel (Tick x) (Tick y)
+Proof
+  rw [tick_rel_def]
+QED
+
+Theorem tick_rel_eval_wh_to:
+  ∀k x y.
+    tick_rel x y ⇒
+      ∃j. tick_wh_rel (eval_wh_to k x) (eval_wh_to (k + j) y)
+Proof
+  ho_match_mp_tac eval_wh_to_ind \\ rw []
+  >~ [‘Var n’] >- (
+    gs [tick_rel_def, eval_wh_to_def])
+  >~ [‘Lam s x’] >- (
+    gs [tick_rel_def, eval_wh_to_def])
+  >~ [‘App f x’] >- (
+    gvs [tick_rel_def, eval_wh_to_def]
+    \\ rename1 ‘tick_rel x y’
+    \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac)) \\ gs []
+    \\ IF_CASES_TAC \\ gs []
     >- (
       qexists_tac ‘j’
-      \\ Cases_on ‘eval_wh_to (j + k ) g’ \\ gs [])
+      \\ simp [])
     \\ Cases_on ‘dest_wh_Closure (eval_wh_to k f)’ \\ gs []
     >- (
       qexists_tac ‘j’
@@ -1183,26 +1234,308 @@ Proof
       \\ Cases_on ‘eval_wh_to 0 f’ \\ Cases_on ‘eval_wh_to 0 g’ \\ gs [])
     \\ ‘eval_wh_to (j + k) g ≠ wh_Diverge’
       by (strip_tac \\ Cases_on ‘eval_wh_to k f’ \\ gs [])
-    \\ last_x_assum (qspec_then ‘k’ (qx_choose_then ‘j1’ assume_tac)) \\ gs []
-    \\ cheat)
+    \\ ‘∀j1. eval_wh_to (j + j1 + k) g = eval_wh_to (j + k) g’
+      by (strip_tac \\ irule eval_wh_inc \\ gs [])
+    \\ Cases_on ‘eval_wh_to k f’ \\ Cases_on ‘eval_wh_to (j + k) g’ \\ gvs []
+    \\ rename1 ‘tick_rel e1 e2’
+    \\ ‘tick_rel (bind1 q x e1) (bind1 q (Tick y) e2)’
+      by cheat
+      (*
+      by (simp [bind1_def]
+          \\ imp_res_tac tick_rel_freevars
+          \\ rw [pure_expTheory.closed_def]
+          \\ irule tick_rel_subst
+          \\ gs [fmap_rel_def]
+          \\ irule tick_rel_Tick \\ gs []) *)
+    \\ first_x_assum (drule_all_then (qx_choose_then ‘j1’ assume_tac))
+    \\ Cases_on ‘eval_wh_to (k - 1) (bind1 q x e1) = wh_Diverge’ \\ gs []
+    >- (
+      Cases_on ‘j1 ≤ j’
+      >- (
+        qexists_tac ‘j1’
+        \\ IF_CASES_TAC \\ gs []
+        \\ drule_then (qspec_then ‘j + k’ (assume_tac o GSYM)) eval_wh_inc
+        \\ gs [])
+      \\ gs [arithmeticTheory.NOT_LESS, arithmeticTheory.LESS_OR_EQ]
+      \\ qexists_tac ‘j’
+      \\ IF_CASES_TAC \\ gs []
+      \\ CCONTR_TAC
+      \\ drule_then (qspec_then ‘j1 + k - 1’ (assume_tac o GSYM)) eval_wh_inc
+      \\ gs [])
+    \\ qexists_tac ‘j + j1’ \\ gs []
+    \\ ‘eval_wh_to (j + (j1 + k) - 1) (bind1 q (Tick y) e2) =
+        eval_wh_to (j1 + k - 1) (bind1 q (Tick y) e2)’
+      by (irule eval_wh_inc \\ gs []
+          \\ strip_tac
+          \\ Cases_on ‘eval_wh_to (k - 1) (bind1 q x e1)’ \\ gs [])
+    \\ gs [])
   >~ [‘Letrec f x’] >- (
-    first_x_assum (qspec_then ‘k’ (qx_choose_then ‘j’ assume_tac)) \\ gs []
-    \\ rw [eval_wh_to_def]
+    gvs [tick_rel_def, eval_wh_to_def]
+    \\ IF_CASES_TAC \\ gs []
     >- (
       qexists_tac ‘0’
       \\ simp [])
-    \\ rw [pure_expTheory.subst_funs_def]
-    \\ qexists_tac ‘0’
-    \\ cheat)
+    \\ first_x_assum (irule_at Any)
+    \\ simp [pure_expTheory.subst_funs_def, pure_expTheory.bind_def]
+    \\ ‘fmap_rel tick_rel
+                 (FEMPTY |++ MAP (λ(n,x). (n, Letrec f x)) f)
+                 (FEMPTY |++ MAP (λ(n,x). (n, Letrec g x)) g)’
+      suffices_by (
+        gs [fmap_rel_OPTREL_FLOOKUP, OPTREL_def]
+        \\ rw [] \\ gs []
+        >- (
+          irule tick_rel_subst
+          \\ rw [fmap_rel_OPTREL_FLOOKUP, OPTREL_def]
+          \\ first_x_assum irule)
+        \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+        \\ first_x_assum (drule_then assume_tac)
+        \\ drule_then assume_tac tick_rel_freevars
+        \\ gs [pure_expTheory.closed_def])
+    \\ rw [fmap_rel_OPTREL_FLOOKUP, flookup_fupdate_list]
+    \\ rw [OPTREL_def, CaseEq "option"] \\ rw [GSYM OPTREL_def]
+    \\ irule LIST_REL_OPTREL
+    \\ rw [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, Once tick_rel_cases]
+    \\ gs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP])
+  >~ [‘_ 0 (Prim op xs)’] >- (
+    gvs [tick_rel_def, eval_wh_to_def]
+    \\ Cases_on ‘op’ \\ gs []
+    >- ((* If *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute]
+      \\ qexists_tac ‘0’ \\ gs [])
+    >- ((* IsEq *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ qexists_tac ‘0’ \\ gs [])
+    >- ((* Proj *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ qexists_tac ‘0’ \\ gs [])
+    >- ((* AtomOp *)
+      gvs [LIST_REL_EL_EQN]
+      \\ Cases_on ‘xs = []’ \\ gs []
+      >- (
+        CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs []
+        \\ CASE_TAC \\ gs []
+        \\ rw [tick_rel_def])
+      \\ ‘ys ≠ []’ by (strip_tac \\ gs [])
+      \\ qexists_tac ‘0’
+      \\ simp [get_atoms_MAP_Diverge])
+    >- ((* Seq *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ qexists_tac ‘0’ \\ gs []))
   >~ [‘Prim op xs’] >- (
-    cheat)
+    gvs [tick_rel_def, eval_wh_to_def]
+    \\ Cases_on ‘op’ \\ gs []
+    >- ((* If *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 3 ⇔ n = 0 ∨ n = 1 ∨ n = 2”,
+              SF DNF_ss]
+      \\ rename [‘eval_wh_to (k - 1) x1’, ‘tick_rel x1 x2’]
+      \\ qpat_x_assum ‘tick_rel x1 _’ assume_tac
+      \\ first_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
+      \\ reverse (Cases_on ‘∃s xs. eval_wh_to (k - 1) x1 = wh_Constructor s xs’)
+      >- (
+        qexists_tac ‘j’
+        \\ CASE_TAC \\ gs [])
+      \\ gs []
+      \\ Cases_on ‘xs ≠ []’ \\ gs []
+      >- (
+        qexists_tac ‘j’
+        \\ gvs [LIST_REL_EL_EQN]
+        \\ IF_CASES_TAC \\ gs []
+        \\ IF_CASES_TAC \\ gs [])
+      \\ reverse (Cases_on ‘s = "True" ∨ s = "False"’)
+      >- (
+        qexists_tac ‘j’
+        \\ gvs [LIST_REL_EL_EQN]
+        \\ IF_CASES_TAC \\ gs []
+        \\ IF_CASES_TAC \\ gs [])
+      \\ gs [Once DISJ_EQ_IMP]
+      \\ rename [‘if s = "True" then _ (k - 1) y1 else _’, ‘tick_rel y1 y2’]
+      \\ qpat_x_assum ‘tick_rel y1 _’ assume_tac
+      \\ first_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
+      \\ rename [‘if _ then _ else _ (k - 1) z1’, ‘tick_rel z1 z2’]
+      \\ qpat_x_assum ‘tick_rel z1 _’ assume_tac
+      \\ first_x_assum (drule_then (qx_choose_then ‘j2’ assume_tac))
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        Cases_on ‘eval_wh_to (k - 1) y1 = wh_Diverge’ \\ gs []
+        >- (
+          qexists_tac ‘j1’
+          \\ Cases_on ‘eval_wh_to (j1 + k - 1) x2 = wh_Diverge’ \\ gs []
+          \\ drule_then (qspec_then ‘j + k - 1’ assume_tac) eval_wh_to_agree
+          \\ gs [])
+        \\ ‘eval_wh_to (j1 + k - 1) y2 ≠ wh_Diverge’
+          by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) y1’ \\ gs [])
+        \\ drule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_wh_inc
+        \\ ‘eval_wh_to (j + k - 1) x2 ≠ wh_Diverge’
+          by gs []
+        \\ drule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_wh_inc
+        \\ qexists_tac ‘j + j1’ \\ gs [])
+      \\ Cases_on ‘eval_wh_to (k - 1) z1 = wh_Diverge’ \\ gs []
+      >- (
+        qexists_tac ‘j2’
+        \\ Cases_on ‘eval_wh_to (j2 + k - 1) x2 = wh_Diverge’ \\ gs []
+        \\ drule_then (qspec_then ‘j + k - 1’ assume_tac) eval_wh_to_agree
+        \\ gs [])
+      \\ ‘eval_wh_to (j2 + k - 1) z2 ≠ wh_Diverge’
+        by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) z1’ \\ gs [])
+      \\ drule_then (qspec_then ‘j + j2 + k - 1’ assume_tac) eval_wh_inc
+      \\ ‘eval_wh_to (j + k - 1) x2 ≠ wh_Diverge’
+        by gs []
+      \\ drule_then (qspec_then ‘j + j2 + k - 1’ assume_tac) eval_wh_inc
+      \\ qexists_tac ‘j + j2’ \\ gs [])
+    >- ((* IsEq *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ first_x_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
+      \\ qexists_tac ‘j’
+      \\ CASE_TAC \\ gs [LIST_REL_EL_EQN]
+      \\ rw [] \\ gs [tick_rel_def])
+    >- ((* Proj *)
+      gvs [LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
+      \\ rename1 ‘tick_rel x y’
+      \\ first_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
+      \\ reverse (Cases_on ‘∃s xs. eval_wh_to (k - 1) x = wh_Constructor s xs’)
+      >- (
+        qexists_tac ‘j’
+        \\ CASE_TAC \\ gs [])
+      \\ gs [] \\ reverse IF_CASES_TAC \\ gvs []
+      >- (
+        qexists_tac ‘j’
+        \\ rw [] \\ gs [LIST_REL_EL_EQN])
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ first_x_assum (drule_then assume_tac)
+      \\ first_x_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
+      \\ rename1 ‘_ (EL n xs) (EL n ys)’
+      \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs) = wh_Diverge’ \\ gs []
+      >- (
+        Cases_on ‘eval_wh_to (k - 1) (EL n ys) = wh_Diverge’ \\ gs []
+        >- (
+          qexists_tac ‘j1’
+          \\ Cases_on ‘eval_wh_to (j1 + k - 1) y = wh_Diverge’ \\ gs []
+          \\ drule_then (qspec_then ‘j + k - 1’ (assume_tac o GSYM))
+                        eval_wh_to_agree
+          \\ gs [])
+        \\ drule_then (qspec_then ‘j1 + k - 1’ assume_tac) eval_wh_inc \\ gs [])
+      \\ ‘eval_wh_to (j1 + k - 1) (EL n ys) ≠ wh_Diverge’
+        by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs)’ \\ gs [])
+      \\ drule_then (qspec_then ‘j1 + j + k - 1’ assume_tac) eval_wh_inc
+      \\ ‘eval_wh_to (j + k - 1) y ≠ wh_Diverge’
+        by gs []
+      \\ drule_then (qspec_then ‘j1 + j + k - 1’ assume_tac) eval_wh_inc
+      \\ qexists_tac ‘j + j1’ \\ gs [])
+    >- ((* AtomOp *)
+      gvs [LIST_REL_EL_EQN]
+      \\ ‘∃j. pure_eval$get_atoms (MAP (λx. eval_wh_to (k - 1) x) xs) =
+              get_atoms (MAP (λx. eval_wh_to (j + k - 1) x) ys)’
+        suffices_by (
+          disch_then (qx_choose_then ‘j’ assume_tac)
+          \\ qexists_tac ‘j’ \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs []
+          \\ rw [tick_rel_def])
+      \\ gs [MEM_EL, PULL_EXISTS]
+      \\ gs [get_atoms_def]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        gs [EXISTS_MEM, MEM_EL, PULL_EXISTS, EL_MAP]
+        \\ first_x_assum (drule_all_then assume_tac)
+        \\ first_x_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
+        \\ qexists_tac ‘j’
+        \\ ‘error_Atom (eval_wh_to (j + k - 1) (EL n ys))’
+          suffices_by simp [EL_MAP, SF CONJ_ss, SF SFY_ss]
+        \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs)’
+        \\ Cases_on ‘eval_wh_to (j + k - 1) (EL n ys)’ \\ gs [])
+      \\ cheat (* urk *))
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gs []
+    \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 2 ⇔ n = 0 ∨ n = 1”,
+            SF DNF_ss]
+    \\ rename [‘eval_wh_to (k - 1) x1 = _’, ‘tick_rel x1 y1’]
+    \\ Cases_on ‘eval_wh_to (k - 1) x1 = wh_Diverge ∨
+                 eval_wh_to (k - 1) x1 = wh_Error’
+    >- (
+      qpat_x_assum ‘tick_rel x1 _’ assume_tac
+      \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
+      \\ qexists_tac ‘j’ \\ gs [])
+    \\ rename1 ‘tick_rel x2 y2’ \\ gs []
+    \\ Cases_on ‘eval_wh_to (k - 1) x2 = wh_Diverge’ \\ gs []
+    >- (
+      Cases_on ‘eval_wh_to (k - 1) y1 = wh_Diverge’ \\ gs []
+      >- (qexists_tac ‘0’ \\ simp [])
+      \\ ‘∀j. eval_wh_to (j + k - 1) y1 = eval_wh_to (k - 1) y1’
+        by (strip_tac \\ irule eval_wh_inc \\ gs [])
+      \\ gs []
+      \\ qpat_x_assum ‘tick_rel x1 _’ assume_tac
+      \\ first_assum (drule_then (qx_choose_then ‘j’ assume_tac))
+      \\ ‘eval_wh_to (j + k - 1) y1 ≠ wh_Error’
+        by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) x1’ \\ gs [])
+      \\ gs []
+      \\ qpat_x_assum ‘tick_rel x2 _’ assume_tac
+      \\ first_assum (drule_then (qx_choose_then ‘j2’ assume_tac))
+      \\ qexists_tac ‘j2’
+      \\ Cases_on ‘eval_wh_to (k - 1) x2’ \\ gs [])
+    \\ first_assum (drule_then (qx_choose_then ‘j2’ assume_tac))
+    \\ qpat_x_assum ‘tick_rel x1 _’ assume_tac
+    \\ first_x_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
+    \\ ‘eval_wh_to (j2 + k - 1) y2 ≠ wh_Diverge’
+      by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) x2’ \\ gs [])
+    \\ ‘eval_wh_to (j1 + k - 1) y1 ≠ wh_Diverge’
+      by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) x1’ \\ gs [])
+    \\ ‘eval_wh_to (j2 + j1 + k - 1) y1 = eval_wh_to (j1 + k - 1) y1’
+      by (irule eval_wh_inc \\ gs [])
+    \\ ‘eval_wh_to (j1 + j2 + k - 1) y2 = eval_wh_to (j2 + k - 1) y2’
+      by (irule eval_wh_inc \\ gs [])
+    \\ qexists_tac ‘j1 + j2’ \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ Cases_on ‘eval_wh_to (k - 1) x1’ \\ gs [])
 QED
 
 Theorem tick_rel_eval_wh:
   tick_rel x y ⇒ tick_wh_rel (eval_wh x) (eval_wh y)
 Proof
   rw [eval_wh_def]
-  \\ cheat
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ simp [PULL_FORALL]
+  \\ qx_gen_tac ‘i’
+  \\ qx_gen_tac ‘j’
+  \\ qx_gen_tac ‘k’
+  \\ rw []
+  >- (
+    drule_then (qspec_then ‘j’ (qx_choose_then ‘k’ assume_tac))
+               tick_rel_eval_wh_to
+    \\ ‘eval_wh_to (j + k) y = eval_wh_to (i + j + k) y’
+      by (once_rewrite_tac [EQ_SYM_EQ] \\ irule eval_wh_inc \\ gs []
+          \\ strip_tac \\ Cases_on ‘eval_wh_to j x’ \\ gs [])
+    \\ gs []
+    \\ ‘eval_wh_to i y = eval_wh_to (i + j + k) y’
+      by (once_rewrite_tac [EQ_SYM_EQ] \\ irule eval_wh_inc \\ gs [])
+    \\ gs [])
+  >- (
+    CCONTR_TAC \\ gs []
+    \\ drule_then (qspec_then ‘i’ (qx_choose_then ‘k’ assume_tac))
+                  tick_rel_eval_wh_to
+    \\ gs []
+    \\ drule_then (qspec_then ‘i + k’ assume_tac) eval_wh_inc \\ gs [])
+  \\ drule_then (qspec_then ‘k’ (qx_choose_then ‘j’ assume_tac))
+                tick_rel_eval_wh_to
+  \\ gs []
 QED
 
 Theorem next'_thm:
@@ -1210,24 +1543,24 @@ Theorem next'_thm:
     tick_wh_rel v w ∧
     tstate_rel s t ∧
     tcont_rel c d ⇒
-      tnext_rel (next' k v c s) (next k w d t)
+      tnext_rel (next k v c s) (next' k w d t)
 Proof
-  ho_match_mp_tac next'_ind \\ rw []
-  \\ simp [Once next'_def]
+  ho_match_mp_tac pure_semanticsTheory.next_ind \\ rw []
+  \\ simp [Once pure_semanticsTheory.next_def]
   \\ Cases_on ‘v = wh_Error ∨
                v = wh_Diverge ∨
                (∃x. v = wh_Atom x) ∨
                (∃s x. v = wh_Closure s x)’
   >- ((* Error *)
-    rgs [Once pure_semanticsTheory.next_def]
-    \\ simp [Once pure_semanticsTheory.next_def])
+    rgs [Once next'_def]
+    \\ simp [next'_def])
   \\ ‘∃n xs. v = wh_Constructor n xs’
     by (Cases_on ‘v’ \\ gs [])
   \\ gvs []
   \\ drule_then assume_tac LIST_REL_LENGTH
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘c’ \\ Cases_on ‘d’
     \\ gvs [apply_closure'_def, pure_semanticsTheory.apply_closure_def]
@@ -1238,11 +1571,18 @@ Proof
       \\ IF_CASES_TAC \\ gs []
       \\ first_x_assum irule \\ gs []
       \\ irule tick_rel_eval_wh
-      \\ cheat (* subst theorem *))
+      \\ simp [pure_expTheory.bind_def, FLOOKUP_UPDATE]
+      \\ rename1 ‘freevars z’
+      \\ qpat_x_assum ‘tick_rel _ z’ assume_tac
+      \\ drule_then assume_tac tick_rel_freevars
+      \\ gs [pure_expTheory.closed_def]
+      \\ IF_CASES_TAC \\ gs []
+      \\ cheat (* subst theorem *)
+      )
     \\ IF_CASES_TAC \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ Cases_on ‘c’ \\ Cases_on ‘d’
     \\ gvs [apply_closure'_def, pure_semanticsTheory.apply_closure_def]
@@ -1257,21 +1597,21 @@ Proof
     \\ cheat (* subst theorem *))
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule \\ gs []
     \\ irule tick_rel_eval_wh \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule \\ gs []
     \\ irule tick_rel_eval_wh \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ simp [with_atom_def, pure_semanticsTheory.with_atoms_def]
     \\ rename1 ‘tick_rel x y’
@@ -1281,7 +1621,7 @@ Proof
     \\ CASE_TAC \\ gvs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ rename1 ‘with_atom [x1]’
     \\ rename1 ‘tick_rel x1 y1’
@@ -1301,7 +1641,7 @@ Proof
     \\ gs [EL_REPLICATE])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ rename1 ‘tick_rel x y’
     \\ simp [with_atom_def, pure_semanticsTheory.with_atoms_def]
@@ -1318,7 +1658,7 @@ Proof
     \\ gs [tstate_rel_def, LIST_REL_EL_EQN] \\ rw [])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ rename1 ‘with_atom2 [x1; x2]’
     \\ rename1 ‘tick_rel x1 y1’
@@ -1354,7 +1694,7 @@ Proof
     \\ qexists_tac ‘n’ \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
-    simp [Once pure_semanticsTheory.next_def]
+    simp [Once next'_def]
     \\ gvs [LENGTH_EQ_NUM_compute]
     \\ rename1 ‘with_atom2 [x1; x2]’
     \\ rename1 ‘tick_rel x1 y1’
@@ -1385,7 +1725,7 @@ Proof
     \\ simp [Once tick_rel_cases]
     \\ first_assum (irule_at Any)
     \\ qexists_tac ‘i’ \\ gs [])
-  \\ rw [Once pure_semanticsTheory.next_def]
+  \\ rw [Once next'_def]
 QED
 
 Theorem next'_less_eq:
@@ -1459,7 +1799,7 @@ Theorem next_action'_thm:
   tick_wh_rel v w ∧
   tstate_rel s t ∧
   tcont_rel c d ⇒
-    tnext_rel (next_action' v c s) (next_action w d t)
+    tnext_rel (next_action v c s) (next_action' w d t)
 Proof
   rw [next_action'_def, pure_semanticsTheory.next_action_def]
   \\ DEEP_INTRO_TAC some_intro \\ simp []
@@ -1525,7 +1865,7 @@ Theorem interp_alt_thm:
   tick_wh_rel v w ∧
   tcont_rel c d ∧
   tstate_rel s t ⇒
-    interp_alt v c s = interp w d t
+    interp v c s = interp_alt w d t
 Proof
   strip_tac
   \\ rw [Once io_treeTheory.io_bisimulation]
@@ -1533,8 +1873,8 @@ Proof
     λt1 t2.
       (t1 = t2 ∨
        ∃v c s w d t.
-         t1 = interp_alt v c s ∧
-         t2 = interp w d t ∧
+         t1 = interp v c s ∧
+         t2 = interp_alt w d t ∧
          tick_wh_rel v w ∧
          tcont_rel c d ∧
          tstate_rel s t)’
@@ -1547,19 +1887,19 @@ Proof
     drule_all_then assume_tac next_action'_thm \\ gs []
     \\ qpat_x_assum ‘Ret _ = _’ mp_tac
     \\ once_rewrite_tac [pure_semanticsTheory.interp_def, interp_alt_def]
-    \\ Cases_on ‘next_action' v' c' s'’
-    \\ Cases_on ‘next_action w' d' t''’ \\ gvs [])
+    \\ Cases_on ‘next_action v' c' s'’
+    \\ Cases_on ‘next_action' w' d' t''’ \\ gvs [])
   >- (
     drule_all_then assume_tac next_action'_thm \\ gs []
     \\ qpat_x_assum ‘_ = Div’ mp_tac
     \\ once_rewrite_tac [pure_semanticsTheory.interp_def, interp_alt_def]
-    \\ Cases_on ‘next_action' v' c' s'’
-    \\ Cases_on ‘next_action w' d' t''’ \\ gvs [])
+    \\ Cases_on ‘next_action v' c' s'’
+    \\ Cases_on ‘next_action' w' d' t''’ \\ gvs [])
   \\ drule_all_then assume_tac next_action'_thm \\ gs []
   \\ qpat_x_assum ‘Vis _ _ = _’ mp_tac
   \\ rw [Once pure_semanticsTheory.interp_def, Once interp_alt_def]
-  \\ Cases_on ‘next_action' v' c' s'’
-  \\ Cases_on ‘next_action w' d' t''’ \\ gvs []
+  \\ Cases_on ‘next_action v' c' s'’
+  \\ Cases_on ‘next_action' w' d' t''’ \\ gvs []
   \\ rw [] \\ CASE_TAC \\ gs [] \\ rw []
   \\ disj2_tac
   \\ irule_at Any EQ_REFL
@@ -1935,7 +2275,7 @@ Proof
   \\ rw [Once thunk_semanticsTheory.next_def]
 QED
 
-Theorem pure_to_thunk_next_action:
+Theorem pure_to_thunk_next_action':
   v_rel v w ∧
   cont_rel c d ∧
   state_rel s t ⇒
@@ -1965,20 +2305,10 @@ Proof
   >- (
     ‘next' j v c s ≠ Err’
       by gs []
-    \\ ‘∀k. tnext_rel (next' k v c s) (next k v c s)’
-      by (irule next'_thm
-          \\ gs [tcont_rel_refl, tstate_rel_refl, tick_wh_rel_refl])
     \\ drule_all_then assume_tac pure_to_thunk_next
-    \\ drule_then (qspec_then ‘j’ mp_tac) next_next
-    \\ impl_tac \\ rw []
-    \\ strip_tac \\ gs []
-    \\ Cases_on ‘next' j v c s’ \\ gs [])
-  \\ ‘next' i v c s ≠ Err’
-    by gs []
-  \\ ‘∀k. tnext_rel (next' k v c s) (next k v c s)’
-    by (irule next'_thm
-        \\ gs [tcont_rel_refl, tstate_rel_refl, tick_wh_rel_refl])
-  \\ gs []
+    \\ ‘next j w d t ≠ Div’
+      by (strip_tac \\ Cases_on ‘next' j v c s’ \\ gs [])
+    \\ drule_then (qspec_then ‘i’ assume_tac) next_next \\ gs [])
   \\ ‘next' i v c s ≠ Err’
     by gs []
   \\ drule_all_then assume_tac pure_to_thunk_next \\ gs []
@@ -1987,20 +2317,14 @@ Proof
   \\ drule_all_then assume_tac pure_to_thunk_next \\ gs []
 QED
 
-Theorem pure_to_thunk_interp[local]:
+Theorem pure_to_thunk_interp_alt[local]:
   v_rel v w ∧
   cont_rel c d ∧
   state_rel s t ∧
-  safe_itree (interp v c s) ⇒
-    interp v c s = interp w d t
+  safe_itree (interp_alt v c s) ⇒
+    interp_alt v c s = interp w d t
 Proof
-  strip_tac
-  \\ ‘interp v c s = interp_alt v c s’
-    by (rw [Once EQ_SYM_EQ]
-        \\ irule_at Any interp_alt_thm
-        \\ simp [tick_wh_rel_refl, tcont_rel_refl, tstate_rel_refl])
-  \\ pop_assum SUBST_ALL_TAC
-  \\ rw [Once io_treeTheory.io_bisimulation]
+  rw [Once io_treeTheory.io_bisimulation]
   \\ qexists_tac ‘
     λt1 t2.
       safe_itree t1 ∧
@@ -2023,7 +2347,7 @@ Proof
       by (strip_tac
           \\ qpat_x_assum ‘interp_alt v' _ _ ≠ _’ mp_tac
           \\ rw [Once interp_alt_def])
-    \\ drule_all_then assume_tac pure_to_thunk_next_action
+    \\ drule_all_then assume_tac pure_to_thunk_next_action'
     \\ qpat_x_assum ‘Ret _ = _’ mp_tac
     \\ once_rewrite_tac [thunk_semanticsTheory.interp_def, interp_alt_def]
     \\ Cases_on ‘next_action' v' c' s'’
@@ -2033,7 +2357,7 @@ Proof
       by (strip_tac
           \\ qpat_x_assum ‘interp_alt v' _ _ = _’ mp_tac
           \\ rw [Once interp_alt_def])
-    \\ drule_all_then assume_tac pure_to_thunk_next_action
+    \\ drule_all_then assume_tac pure_to_thunk_next_action'
     \\ qpat_x_assum ‘_ = Div’ mp_tac
     \\ once_rewrite_tac [thunk_semanticsTheory.interp_def, interp_alt_def]
     \\ Cases_on ‘next_action' v' c' s'’
@@ -2044,7 +2368,7 @@ Proof
     by (strip_tac
         \\ qpat_x_assum ‘interp_alt v' _ _ ≠ _’ mp_tac
         \\ rw [Once interp_alt_def])
-  \\ drule_all_then assume_tac pure_to_thunk_next_action
+  \\ drule_all_then assume_tac pure_to_thunk_next_action'
   \\ qpat_x_assum ‘Vis _ _ = _’ mp_tac
   \\ rw [Once interp_alt_def, Once thunk_semanticsTheory.interp_def]
   \\ Cases_on ‘next_action' v' c' s'’
@@ -2058,6 +2382,18 @@ Proof
   \\ strip_tac
   \\ first_x_assum (qspec_then ‘INR y’ assume_tac)
   \\ rgs [Once safe_itree_cases]
+QED
+
+Theorem pure_to_thunk_interp[local]:
+  tick_wh_rel v0 v ∧ v_rel v w ∧
+  tcont_rel c0 c ∧ cont_rel c d ∧
+  tstate_rel s0 s ∧ state_rel s t ∧
+  safe_itree (interp v0 c0 s0) ⇒
+    interp v0 c0 s0 = interp w d t
+Proof
+  rw []
+  \\ drule_all_then assume_tac interp_alt_thm \\ gs []
+  \\ irule pure_to_thunk_interp_alt \\ gs []
 QED
 
 Theorem semantics_fail[local]:
@@ -2074,18 +2410,25 @@ Proof
 QED
 
 Theorem pure_to_thunk_semantics:
-  exp_rel x y ∧
-  closed x ∧
-  safe_itree (semantics x Done []) ⇒
-    semantics x Done [] = semantics y Done []
+  tick_rel x0 x ∧ exp_rel x y ∧
+  closed x0 ∧
+  safe_itree (semantics x0 Done []) ⇒
+    semantics x0 Done [] = semantics y Done []
 Proof
   strip_tac
   \\ drule_then assume_tac semantics_fail
   \\ gs [pure_semanticsTheory.semantics_def,
          thunk_semanticsTheory.semantics_def]
   \\ irule pure_to_thunk_interp \\ gs []
-  \\ simp [state_rel_def]
-  \\ irule exp_rel_eval \\ gs []
+  \\ simp [state_rel_def, tstate_rel_def]
+  \\ irule_at Any tick_rel_eval_wh
+  \\ last_assum (irule_at Any) \\ qexists_tac ‘Done’
+  \\ irule_at Any exp_rel_eval \\ gs []
+  \\ drule_then assume_tac tick_rel_freevars
+  \\ gs [pure_expTheory.closed_def]
+  \\ drule_then assume_tac tick_rel_eval_wh
+  \\ strip_tac
+  \\ Cases_on ‘eval_wh x0’ \\ gs []
 QED
 
 val _ = export_theory ();
