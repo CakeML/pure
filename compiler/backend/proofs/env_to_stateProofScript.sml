@@ -418,6 +418,27 @@ Definition exp_or_v_rel_def:
 End
 *)
 
+Theorem next_thm:
+  ∀k e1 e2 tk sk senv tenv tres ts ss.
+    compile_rel e1 e2 ∧
+    LIST_REL (LIST_REL v_rel) ts ss ∧
+    cont_rel tk sk ∧
+    env_rel tenv senv ∧
+    next k (eval tenv e1) tk ts = tres ∧ tres ≠ Err ⇒
+    ∃n sres ss1 sk1.
+      step_n n (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk) = (sres,ss1,sk1) ∧
+      (tres = Div ⇒ k ≤ n ∧ ~is_halt (sres,ss1,sk1)) ∧
+      (tres = Ret ⇒ is_halt (sres,ss1,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
+      (∀a b tk ts1.
+         tres = Act (a,b) tk ts1 ⇒
+         ∃sk nenv.
+           sres = Action a b ∧
+           cont_rel tk sk ∧ sk1 = AppK nenv AppOp [Constructor "" []] []::sk ∧
+           LIST_REL (LIST_REL v_rel) ts1 ss1)
+Proof
+  cheat
+QED
+
 Theorem next_action_thm:
   compile_rel e1 e2 ∧
   LIST_REL (LIST_REL v_rel) ts ss ∧
@@ -434,7 +455,63 @@ Theorem next_action_thm:
        cont_rel tk sk ∧
        LIST_REL (LIST_REL v_rel) ts ss)
 Proof
-  cheat
+  fs [next_action_def]
+  \\ CASE_TAC
+  >-
+   (pop_assum mp_tac
+    \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+    \\ fs [step_until_halt_def,AllCaseEqs()]
+    \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+    \\ ‘∃s. next x (eval tenv e1) tk ts = s’ by fs []
+    \\ ‘s = Div’ by metis_tac []
+    \\ ‘s ≠ Err ∧ x ≤ x’ by gvs []
+    \\ drule_all next_thm \\ fs []
+    \\ strip_tac \\ gvs []
+    \\ ‘x = n ∨ x < n’ by fs [] \\ gvs []
+    \\ strip_tac
+    \\ drule_all step_n_mono
+    \\ strip_tac \\ gvs [])
+  \\ pop_assum mp_tac
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ rpt (disch_then strip_assume_tac)
+  \\ ‘tres ≠ Div’ by fs [] \\ fs []
+  \\ qpat_x_assum ‘_ = _’ mp_tac
+  \\ fs [step_until_halt_def]
+  \\ CASE_TAC
+  \\ pop_assum mp_tac
+  \\ DEEP_INTRO_TAC some_intro \\ fs []
+  \\ rpt (disch_then strip_assume_tac)
+  >-
+   (CCONTR_TAC
+    \\ drule_all next_thm
+    \\ fs []
+    >- metis_tac  []
+    \\ PairCases_on ‘a’ \\ fs []
+    \\ gvs [] \\ rw []
+    \\ first_x_assum (qspec_then ‘n’ mp_tac)
+    \\ gvs [is_halt_def])
+  \\ ‘∃t. (step_n x'
+             (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk)) = t’ by fs []
+  \\ PairCases_on ‘t’ \\ fs []
+  \\ drule_all next_thm \\ fs []
+  \\ strip_tac
+  \\ ‘(sres',ss1,sk1) = (t0,t1,t2)’ by
+   (qpat_x_assum ‘is_halt (t0,t1,t2)’ mp_tac
+    \\ ‘is_halt (sres',ss1,sk1)’ by
+      (Cases_on ‘tres’ \\ fs [] \\ Cases_on ‘e’ \\ fs [is_halt_def])
+    \\ pop_assum mp_tac
+    \\ rpt (qpat_x_assum ‘_ = _’ (rewrite_tac o single o SYM))
+    \\ rename [‘step_n _ abc’]
+    \\ rename [‘step_n n1 _ = step_n n2 _’]
+    \\ ‘n1 < n2 ∨ n1 = n2 ∨ n2 < n1’ by fs [] \\ gvs []
+    \\ rw []
+    \\ drule_all step_n_mono
+    \\ strip_tac \\ gvs [])
+  \\ rw []
+  >-
+   (res_tac \\ fs []
+    \\ Cases_on ‘sres'’ \\ fs [])
+  \\ PairCases_on ‘a’ \\ fs []
 QED
 
 Theorem semantics_app_Unit:
