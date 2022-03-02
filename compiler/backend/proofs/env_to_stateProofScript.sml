@@ -194,45 +194,45 @@ End
 Inductive v_rel:
 
 [~Constructor:]
-  (∀st:stateLang$state tvs svs.
-     LIST_REL (v_rel st) tvs svs ⇒
-     v_rel st (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
+  (∀tvs svs.
+     LIST_REL v_rel tvs svs ⇒
+     v_rel (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
 
 [~Closure:]
-  (∀st tenv senv te se.
-     env_rel st tenv senv ∧
+  (∀tenv senv te se.
+     env_rel tenv senv ∧
      compile_rel te se ⇒
-     v_rel st (Closure x tenv te) (Closure x senv se)) ∧
+     v_rel (Closure x tenv te) (Closure x senv se)) ∧
 
 (*
 [~Recclosure:]
-  (∀st tenv senv tfns sfns n.
-     env_rel st tenv senv ∧
+  (∀tenv senv tfns sfns n.
+     env_rel tenv senv ∧
      LIST_REL ((=) ### compile_rel) tfns sfns ⇒
-     v_rel st (envLang$Recclosure tfns tenv n) (stateLang$Recclosure sfns senv n)) ∧
+     v_rel (envLang$Recclosure tfns tenv n) (stateLang$Recclosure sfns senv n)) ∧
 *)
 
 [~ThunkL:]
-  (∀st tv sv.
-     v_rel st tv sv ⇒
-     v_rel st (Thunk $ INL tv) (Thunk $ IL sv)) ∧
+  (∀tv sv.
+     v_rel tv sv ⇒
+     v_rel (Thunk $ INL tv) (Thunk $ IL sv)) ∧
 
 [~ThunkR:]
-  (∀st tenv senv te se.
-     env_rel st tenv senv ∧
+  (∀tenv senv te se.
+     env_rel tenv senv ∧
      compile_rel te se ⇒
-     v_rel st (Thunk $ INR (tenv, te)) (Thunk $ INR (senv, se))) ∧
+     v_rel (Thunk $ INR (tenv, te)) (Thunk $ INR (senv, se))) ∧
 
 [~Atom:]
-  (∀st a.
-     v_rel st (Atom a) (Atom a)) ∧
+  (∀a.
+     v_rel (Atom a) (Atom a)) ∧
 
 [env_rel:]
-  (∀st tenv senv.
+  (∀tenv senv.
      (∀n tv.
        ALOOKUP (REVERSE tenv) n = SOME tv ⇒
-       ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel st tv sv) ⇒
-     env_rel st tenv senv)
+       ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv) ⇒
+     env_rel tenv senv)
 
 End
 
@@ -271,11 +271,11 @@ QED
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
     eval_to n tenv te = tres ∧ compile_rel te se ∧
-    env_rel st tenv senv ∧ tres ≠ INL Type_error ⇒
+    env_rel tenv senv ∧ tres ≠ INL Type_error ⇒
     ∃ck sres.
       step_n ck (Exp senv se, st, k) = sres ∧
       case tres of
-      | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel st tv sv
+      | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel tv sv
       | INL err => n ≤ ck ∧ ~is_halt sres
 Proof
   ho_match_mp_tac eval_to_ind \\ rpt conj_tac \\ rpt gen_tac
@@ -295,10 +295,10 @@ Proof
     \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
     \\ Cases_on ‘eval_to n tenv tx’ \\ fs []
     >- (first_x_assum drule_all
-      \\ disch_then (qspec_then ‘AppK senv AppOp [] [se1]::k’ mp_tac)
+      \\ disch_then (qspecl_then [‘st’,‘AppK senv AppOp [] [se1]::k’] mp_tac)
       \\ strip_tac \\ qexists_tac ‘ck’ \\ fs [])
     \\ first_x_assum drule_all
-    \\ disch_then (qspec_then ‘AppK senv AppOp [] [se1]::k’ mp_tac)
+    \\ disch_then (qspecl_then [‘st’,‘AppK senv AppOp [] [se1]::k’] mp_tac)
     \\ strip_tac
     \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’
     \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
@@ -306,10 +306,10 @@ Proof
     \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
     \\ Cases_on ‘eval_to n tenv tf’ \\ fs []
     >- (first_x_assum drule_all
-      \\ disch_then (qspec_then ‘AppK senv AppOp [sv] []::k’ mp_tac)
+      \\ disch_then (qspecl_then [‘st’,‘AppK senv AppOp [sv] []::k’] mp_tac)
       \\ rw [] \\ qexists_tac ‘ck'’ \\ fs [])
     \\ first_x_assum drule_all
-    \\ disch_then (qspec_then ‘AppK senv AppOp [sv] []::k’ mp_tac)
+    \\ disch_then (qspecl_then [‘st’,‘AppK senv AppOp [sv] []::k’] mp_tac)
     \\ rw []
     \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
     \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
@@ -325,20 +325,20 @@ Proof
      (qexists_tac ‘0’ \\ fs []
       \\ fs [dest_anyClosure_def]
       \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()]
-      \\ qpat_x_assum ‘v_rel _ _ _’ mp_tac
+      \\ qpat_x_assum ‘v_rel _ _’ mp_tac
       \\ simp [Once v_rel_cases]
       \\ rw [] \\ fs [continue_def,is_halt_def])
     \\ fs [dest_anyClosure_def]
     \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()]
-    \\ qpat_x_assum ‘v_rel _ _ _’ mp_tac
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
     \\ first_x_assum drule
     \\ disch_then $ drule_at Any \\ fs []
-    \\ ‘env_rel st (l ++ [(s,y)]) ((s,sv)::senv')’ by
+    \\ ‘env_rel (l ++ [(s,y)]) ((s,sv)::senv')’ by
          (fs [env_rel_def,REVERSE_APPEND] \\ rw [] \\ fs [])
     \\ disch_then $ drule_at Any \\ fs []
     \\ fs [continue_def]
-    \\ disch_then (qspec_then ‘k’ mp_tac)
+    \\ disch_then (qspecl_then [‘st’,‘k’] mp_tac)
     \\ strip_tac \\ fs []
     \\ qexists_tac ‘ck''’ \\ fs []
     \\ CASE_TAC \\ fs [])
@@ -435,22 +435,20 @@ Inductive cont_rel:
     cont_rel tk [])
 End
 
-Theorem next_action_Div:
-  compile_rel e1 e2 ∧
-  LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
-  cont_rel tk sk ∧
-  env_rel ss tenv senv ∧
-  next_action (eval tenv e1) tk ts = Div ⇒
-  sinterp (Exp senv e2) ss sk = Div
-Proof
-  cheat
-QED
+(*
+Definition exp_or_v_rel_def:
+  (exp_or_v_rel t (Exp senv se) ⇔
+     ∃tenv te ss. t = eval tenv te ∧ env_rel ss tenv senv ∧ compile_rel e1 e2) ∧
+  (exp_or_v_rel t (Val sv) ⇔
+     ∃tv ss. t = INL sv ∧ v_rel ss tv sv)
+End
+*)
 
 Theorem next_action_thm:
   compile_rel e1 e2 ∧
-  LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
+  LIST_REL (LIST_REL v_rel) ts ss ∧
   cont_rel tk sk ∧
-  env_rel ss tenv senv ∧
+  env_rel tenv senv ∧
   next_action (eval tenv e1) tk ts = tres ∧ tres ≠ Err ∧
   step_until_halt (Exp senv e2,ss,sk) = sres ⇒
   (tres = Div ⇒ sres = Div) ∧
@@ -460,22 +458,22 @@ Theorem next_action_thm:
      ∃sk ss.
        sres = Act a sk ss ∧
        cont_rel tk sk ∧
-       LIST_REL (LIST_REL (v_rel ss)) ts ss)
+       LIST_REL (LIST_REL v_rel) ts ss)
 Proof
   cheat
 QED
 
 Theorem semantics_thm:
-  compile_rel e1 e2 ∧ LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
-  cont_rel tk sk ∧ env_rel ss tenv senv ⇒
+  compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
+  cont_rel tk sk ∧ env_rel tenv senv ⇒
   env_semantics$semantics e1 tenv tk ts --->
   semantics e2 senv ss sk
 Proof
   qsuff_tac ‘
     ∀t1 t2.
       (∃e1 e2 ts sss tenv senv tk sk.
-        compile_rel e1 e2 ∧ LIST_REL (LIST_REL (v_rel ss)) ts ss ∧
-        cont_rel tk sk ∧ env_rel ss tenv senv ∧
+        compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
+        cont_rel tk sk ∧ env_rel tenv senv ∧
         t1 = env_semantics$semantics e1 tenv tk ts ∧
         t2 = semantics e2 senv ss sk) ⇒
       t1 ---> t2’
