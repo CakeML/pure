@@ -273,6 +273,21 @@ Proof
     )
 QED
 
+Theorem LIST_REL_OPTREL:
+  ∀xs ys.
+    LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
+      OPTREL R (ALOOKUP (REVERSE xs) k) (ALOOKUP (REVERSE ys) k)
+Proof
+  qsuff_tac ‘
+    ∀xs ys.
+      LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
+        OPTREL R (ALOOKUP xs k) (ALOOKUP ys k)’
+  >- rw []
+  \\ ho_match_mp_tac LIST_REL_ind
+  \\ simp [OPTREL_def]
+  \\ Cases \\ Cases \\ rw []
+QED
+
 Theorem ALL_DISTINCT_FLAT_IMP:
   ∀l m. ALL_DISTINCT (FLAT l) ∧ MEM m l ⇒ ALL_DISTINCT m
 Proof
