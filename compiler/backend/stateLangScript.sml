@@ -56,6 +56,8 @@ Datatype:
       | Force         (* abbreviates a Lam that implements forcing of thunks *)
 End
 
+Overload Lit = “λl. App (AtomOp (Lit l)) []”
+
 Datatype:
   v = (* stateLang values *)
     | Constructor string (v list)
@@ -353,7 +355,7 @@ Definition sinterp_def:
         | Err => Ret' Error
         | Div => Div'
         | Act a k' st' =>
-            Vis' a (λy. value (Atom $ Str y) st' k' ))
+            Vis' a (λy. value (Closure "" [] $ Lit $ Str y) st' k' ))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)

@@ -471,7 +471,7 @@ Theorem semantics_thm:
 Proof
   qsuff_tac ‘
     ∀t1 t2.
-      (∃e1 e2 ts sss tenv senv tk sk.
+      (∃e1 e2 ts ss tenv senv tk sk.
         compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
         cont_rel tk sk ∧ env_rel tenv senv ∧
         t1 = env_semantics$semantics e1 tenv tk ts ∧
@@ -499,6 +499,15 @@ Proof
   \\ reverse IF_CASES_TAC >- fs []
   \\ fs [] \\ fs [value_def]
   \\ rw []
+  \\ ‘interp (INR (Constructor "Ret" [Thunk (INR ([],Lit (Str y)))])) c l =
+      interp (eval [] (Prim (Cons "Ret") [Delay (Lit (Str y))])) c l’ by
+   (fs [eval_def,eval_to_def,result_map_def]
+    \\ DEEP_INTRO_TAC some_intro \\ fs [])
+  \\ pop_assum $ irule_at Any
+  \\ rpt (first_assum $ irule_at Any)
+  \\ simp [env_rel_def]
+  \\ qexists_tac ‘[]’
+  \\ qexists_tac ‘Lam "" (Lit (Str y))’
   \\ cheat
 QED
 
