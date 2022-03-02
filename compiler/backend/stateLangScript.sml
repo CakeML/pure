@@ -12,7 +12,7 @@
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory pure_semanticsTheory;
+     pure_expTheory pure_semanticsTheory arithmeticTheory;
 
 val _ = new_theory "stateLang";
 
@@ -57,6 +57,7 @@ Datatype:
 End
 
 Overload Lit = “λl. App (AtomOp (Lit l)) []”
+Overload Unit = “App (Cons "") []”
 
 Datatype:
   v = (* stateLang values *)
@@ -407,6 +408,58 @@ Proof
   pairarg_tac >> gvs[is_halt_step_same]
 QED
 
+Theorem step_n_0[simp]:
+  step_n 0 x = x
+Proof
+  PairCases_on ‘x’ \\ fs [step_n_def]
+QED
+
+Theorem step_n_1[simp]:
+  step_n 1 x = step (FST (SND x)) (SND (SND x)) (FST x)
+Proof
+  PairCases_on ‘x’ \\ fs [step_n_def]
+QED
+
+Theorem step_n_unfold:
+  (∃n. k = n + 1 ∧ step_n n (step st c sr) = res) ⇒
+  step_n k (sr,st,c) = res
+Proof
+  Cases_on ‘k’ >- fs []
+  \\ rewrite_tac [step_n_def,FUNPOW]
+  \\ fs [ADD1]
+  \\ Cases_on ‘step st c sr’ \\ Cases_on ‘r’
+  \\ fs [step_n_def]
+QED
+
+Theorem step_n_add:
+  step_n (m+n) x = step_n m (step_n n x)
+Proof
+  PairCases_on ‘x’ \\ fs [step_n_def,FUNPOW_ADD]
+  \\ AP_THM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,step_n_def]
+QED
+
+Theorem step_unitl_halt_unwind:
+  step ss1 sk1 r1 = (r1',ss1',sk1') ⇒
+  step_until_halt (r1,ss1,sk1) =
+  step_until_halt (r1',ss1',sk1')
+Proof
+  fs [step_until_halt_def]
+  \\ reverse (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
+  >-
+   (qsuff_tac ‘∀x. ¬is_halt (step_n x (r1',ss1',sk1'))’ >- fs []
+    \\ rw [] \\ first_x_assum (qspec_then ‘x+1’ mp_tac)
+    \\ rewrite_tac [step_n_add] \\ fs [])
+  \\ Cases_on ‘x’ \\ fs []
+  >-
+   (imp_res_tac is_halt_step_same \\ gvs []
+    \\ ‘∀n. step_n n (r1,ss1,sk1) = (r1,ss1,sk1)’ by
+      (Induct \\ fs [ADD1,step_n_add])
+    \\ fs [] \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
+  \\ fs [ADD1,step_n_add]
+  \\ fs [] \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ ‘n < x ∨ x < n ∨ x = n’ by decide_tac \\ gvs[]
+  \\ imp_res_tac step_n_mono \\ fs []
+QED
 
 (****************************************)
 

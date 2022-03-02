@@ -140,7 +140,11 @@ Inductive compile_rel:
 
 [~Box:]
   (compile_rel te se ⇒
-  compile_rel (Box te) (App Ref [inr se]))
+  compile_rel (Box te) (App Ref [inr se])) ∧
+
+[~RetStr:]
+  (∀str. compile_rel (Prim (Cons "Ret") [Delay (Lit (Str str))])
+            (Lam "" (Lit (Str str))))
 
 (*
 [~Force:]
@@ -237,36 +241,6 @@ Inductive v_rel:
 End
 
 Theorem env_rel_def = v_rel_cases |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL;
-
-Theorem step_n_0[simp]:
-  step_n 0 x = x
-Proof
-  PairCases_on ‘x’ \\ fs [step_n_def]
-QED
-
-Theorem step_n_1[simp]:
-  step_n 1 x = step (FST (SND x)) (SND (SND x)) (FST x)
-Proof
-  PairCases_on ‘x’ \\ fs [step_n_def]
-QED
-
-Theorem step_n_unfold:
-  (∃n. k = n + 1 ∧ step_n n (step st c sr) = res) ⇒
-  step_n k (sr,st,c) = res
-Proof
-  Cases_on ‘k’ >- fs []
-  \\ rewrite_tac [step_n_def,FUNPOW]
-  \\ fs [ADD1]
-  \\ Cases_on ‘step st c sr’ \\ Cases_on ‘r’
-  \\ fs [step_n_def]
-QED
-
-Theorem step_n_add:
-  step_n (m+n) x = step_n m (step_n n x)
-Proof
-  PairCases_on ‘x’ \\ fs [step_n_def,FUNPOW_ADD]
-  \\ AP_THM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,step_n_def]
-QED
 
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
@@ -450,32 +424,54 @@ Theorem next_action_thm:
   cont_rel tk sk ∧
   env_rel tenv senv ∧
   next_action (eval tenv e1) tk ts = tres ∧ tres ≠ Err ∧
-  step_until_halt (Exp senv e2,ss,sk) = sres ⇒
+  step_until_halt (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk) = sres ⇒
   (tres = Div ⇒ sres = Div) ∧
   (tres = Ret ⇒ sres = Ret) ∧
   (∀a tk ts.
      tres = Act a tk ts ⇒
-     ∃sk ss.
-       sres = Act a sk ss ∧
+     ∃sk ss nenv.
+       sres = Act a (AppK nenv AppOp [Constructor "" []] []::sk) ss ∧
        cont_rel tk sk ∧
        LIST_REL (LIST_REL v_rel) ts ss)
 Proof
   cheat
 QED
 
+Theorem semantics_app_Unit:
+  semantics (app e2 Unit) senv ss sk =
+  semantics e2 senv ss (AppK senv AppOp [Constructor "" []] []::sk)
+Proof
+  fs [stateLangTheory.semantics_def,sinterp_def]
+  \\ once_rewrite_tac [io_treeTheory.io_unfold_err] \\ fs []
+  \\ qsuff_tac
+    ‘step_until_halt (Exp senv (app e2 Unit),ss,sk) =
+     step_until_halt (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk)’
+  >- fs []
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,push_def]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,push_def,application_def,value_def]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,push_def,application_def,value_def,return_def,continue_def]
+QED
+
 Theorem semantics_thm:
   compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
   cont_rel tk sk ∧ env_rel tenv senv ⇒
   env_semantics$semantics e1 tenv tk ts --->
-  semantics e2 senv ss sk
+  semantics (app e2 Unit) senv ss sk
 Proof
-  qsuff_tac ‘
+  fs [semantics_app_Unit]
+  \\ qsuff_tac ‘
     ∀t1 t2.
       (∃e1 e2 ts ss tenv senv tk sk.
         compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
         cont_rel tk sk ∧ env_rel tenv senv ∧
         t1 = env_semantics$semantics e1 tenv tk ts ∧
-        t2 = semantics e2 senv ss sk) ⇒
+        t2 = semantics e2 senv ss (AppK senv AppOp [Constructor "" []] []::sk)) ⇒
       t1 ---> t2’
   >- fs [PULL_EXISTS]
   \\ ho_match_mp_tac compiles_to_coind
@@ -487,9 +483,10 @@ Proof
   \\ Cases_on ‘next_action (eval tenv e1) tk ts = Err’ >- fs []
   \\ simp [sinterp_def]
   \\ simp [Once io_treeTheory.io_unfold_err]
-  \\ rename [‘io_unfold_err fs’]
+  \\ qmatch_goalsub_abbrev_tac ‘io_unfold_err fs’
   \\ ‘∃r1 r2. next_action (eval tenv e1) tk ts = r1 ∧
-              step_until_halt (Exp senv e2,ss,sk) = r2’ by fs []
+              step_until_halt (Exp senv e2,ss,
+                AppK senv AppOp [Constructor "" []] []::sk) = r2’ by fs []
   \\ fs []
   \\ drule_all next_action_thm
   \\ Cases_on ‘r1’ \\ gvs []
@@ -508,12 +505,36 @@ Proof
   \\ simp [env_rel_def]
   \\ qexists_tac ‘[]’
   \\ qexists_tac ‘Lam "" (Lit (Str y))’
-  \\ cheat
+  \\ conj_tac >- simp [Once compile_rel_cases]
+  \\ once_rewrite_tac [io_treeTheory.io_unfold_err]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ unabbrev_all_tac \\ fs []
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,value_def]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,value_def,return_def,application_def,continue_def]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,value_def,return_def,application_def,continue_def,
+         stateLangTheory.get_atoms_def]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,value_def,return_def,application_def,continue_def,
+         stateLangTheory.get_atoms_def]
+  \\ irule EQ_TRANS
+  \\ irule_at Any step_unitl_halt_unwind
+  \\ fs [step_def,value_def,return_def,application_def,continue_def,
+         stateLangTheory.get_atoms_def]
 QED
 
 Theorem compile_rel_itree_of:
   compile_rel e1 e2 ⇒
-  env_semantics$itree_of e1 ---> stateLang$itree_of e2
+  env_semantics$itree_of e1 ---> stateLang$itree_of (app e2 Unit)
 Proof
   fs [env_semanticsTheory.itree_of_def,
       stateLangTheory.itree_of_def] \\ rw []
