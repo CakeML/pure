@@ -74,22 +74,6 @@ Proof
   ho_match_mp_tac LIST_REL_ind \\ rw [] \\ fs [ELIM_UNCURRY]
 QED
 
-(* TODO move to pure_misc? *)
-Theorem LIST_REL_OPTREL:
-  ∀xs ys.
-    LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
-      OPTREL R (ALOOKUP (REVERSE xs) k) (ALOOKUP (REVERSE ys) k)
-Proof
-  qsuff_tac ‘
-    ∀xs ys.
-      LIST_REL (λ(f,x) (g,y). f = g ∧ R x y) xs ys ⇒
-        OPTREL R (ALOOKUP xs k) (ALOOKUP ys k)’
-  >- rw []
-  \\ ho_match_mp_tac LIST_REL_ind
-  \\ simp [OPTREL_def]
-  \\ Cases \\ Cases \\ rw []
-QED
-
 (* TODO pure_misc? *)
 Theorem MAP_FST_FILTER:
   MAP FST (FILTER (λ(a,b). P a) xs) = FILTER P (MAP FST xs)
