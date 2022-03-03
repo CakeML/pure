@@ -39,17 +39,17 @@ End
 
 Datatype:
   exp = (* stateLang expressions *)
-      | Var vname                                 (* variable                *)
-      | App sop (exp list)                        (* application - prim/fun  *)
-      | Lam (vname option) exp                    (* lambda                  *)
-      | Letrec ((vname # vname # exp) list) exp   (* mutually recursive exps *)
-      | Let (vname option) exp exp                (* non-recursive let       *)
-      | If exp exp exp                            (* if-then-else            *)
-      | Delay exp                                 (* suspend in a Thunk      *)
-      | Box exp                                   (* wrap result in a Thunk  *)
-      | Force exp                                 (* evaluates a Thunk       *)
-      | Raise exp                                 (* raise an exception      *)
-      | Handle exp vname exp                      (* handle an exception     *)
+      | Var vname                           (* variable                *)
+      | App sop (exp list)                  (* application - prim/fun  *)
+      | Lam (vname option) exp              (* lambda                  *)
+      | Letrec ((vname # exp) list) exp     (* mutually recursive exps *)
+      | Let (vname option) exp exp          (* non-recursive let       *)
+      | If exp exp exp                      (* if-then-else            *)
+      | Delay exp                           (* suspend in a Thunk      *)
+      | Box exp                             (* wrap result in a Thunk  *)
+      | Force exp                           (* evaluates a Thunk       *)
+      | Raise exp                           (* raise an exception      *)
+      | Handle exp vname exp                (* handle an exception     *)
 End
 
 Overload Lit = “λl. App (AtomOp (Lit l)) []”
@@ -59,7 +59,7 @@ Datatype:
   v = (* stateLang values *)
     | Constructor string (v list)
     | Closure (vname option) ((vname # v) list) exp
-    | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
+    | Recclosure ((vname # exp) list) ((vname # v) list) vname
     | Thunk (v + (vname # v) list # exp)
     | Atom lit
 End
@@ -75,7 +75,8 @@ Datatype:
        | LetK env (vname option) exp
        | IfK env exp exp
        | BoxK (state option)
-       | ForceK (state option)
+       | ForceK1
+       | ForceK2 (state option)
        | RaiseK
        | HandleK env vname exp
 End
@@ -105,7 +106,7 @@ Definition freevars_def[simp]:
   freevars (Lam NONE e) = freevars e ∧
   freevars (Lam (SOME x) e) = freevars e DELETE x ∧
   freevars (Letrec fns e) =
-    (freevars e ∪ (BIGUNION $ set $ MAP (λ(f,x,e). freevars e DELETE x) fns)) DIFF
+    (freevars e ∪ (BIGUNION $ set $ MAP (λ(f,e). freevars e) fns)) DIFF
     set (MAP FST fns) ∧
   freevars (Let NONE e1 e2) = freevars e1 ∪ freevars e2 ∧
   freevars (Let (SOME x) e1 e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
@@ -125,9 +126,9 @@ Definition get_atoms_def:
   get_atoms _ = NONE
 End
 
-Definition mk_rec_env_def:
-  mk_rec_env fns env =
-    (MAP (λ(fn, _). (fn, Recclosure fns env fn)) fns) ++ env
+Definition subst_funs_def[simp]:
+  subst_funs funs env =
+    env ++ MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs
 End
 
 (* Check correct number of arguments for App *)
@@ -167,6 +168,52 @@ Definition error_def:
   error (st:state option) k = (Error, st, k)
 End
 
+Definition dest_Closure_def[simp]:
+  dest_Closure (Closure s env x) = SOME (s, env, x) ∧
+  dest_Closure _ = NONE
+End
+
+Definition dest_Recclosure_def[simp]:
+  dest_Recclosure (Recclosure funs env fn) = SOME (funs, env, fn) ∧
+  dest_Recclosure _ = NONE
+End
+
+Definition dest_anyClosure_def:
+  dest_anyClosure v =
+    case dest_Closure v of
+    | SOME x => SOME x
+    | NONE =>
+      case dest_Recclosure v of
+      | NONE => NONE
+      | SOME (f, env, n) =>
+          case ALOOKUP (REVERSE f) n of
+          | SOME (Lam s x) => SOME (s, subst_funs f env, x)
+          | _ => NONE
+End
+
+Definition opt_bind_def:
+  opt_bind NONE v env = env ∧
+  opt_bind (SOME n) v env = (n,v)::env
+End
+
+Definition dest_Thunk_def[simp]:
+  dest_Thunk (Thunk x) = SOME x ∧
+  dest_Thunk _ = NONE
+End
+
+Definition dest_anyThunk_def:
+  dest_anyThunk v =
+    case dest_Thunk v of
+    | SOME w => SOME (w, [])
+    | NONE =>
+      case dest_Recclosure v of
+      | NONE => NONE
+      | SOME (f, env, n) =>
+        case ALOOKUP (REVERSE f) n of
+          SOME (Delay x) => SOME (INR (env, x), f)
+        | SOME (Box x) => SOME (INR (env, x), f)
+        | _ => NONE
+End
 
 (******************** Semantics functions ********************)
 
@@ -175,14 +222,10 @@ End
     - enough arguments are passed *)
 Definition application_def:
   application AppOp env vs (st:state option) k = (
-    case HD vs of
-      Closure NONE cenv e => continue cenv e st k
-    | Closure (SOME x) cenv e => continue ((x, EL 1 vs)::cenv) e st k
-    | Recclosure fns cenv f => (
-        case ALOOKUP fns f of
-          SOME (x,e) => continue ((x, EL 1 vs)::mk_rec_env fns env) e st k
-        | _ => error st k)
-    | _ => error st k) ∧
+    case dest_anyClosure (HD vs) of
+    | NONE => error st k
+    | SOME (arg, env', e) =>
+        continue (opt_bind arg (EL 1 vs) env') e st k) ∧
   application (Cons s) env vs st k = value (Constructor s vs) st k ∧
   application (AtomOp aop) env vs st k = (
     case get_atoms vs of
@@ -270,7 +313,12 @@ Definition return_def:
   return v st (AppK env sop vs (e::es) :: k) =
     continue env e st (AppK env sop (v::vs) es :: k) ∧
   return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k ∧
-  return v temp_st (ForceK st :: k) = value v st k
+  return v st (ForceK1 :: k) =
+    (case dest_anyThunk v of
+     | NONE => error st k
+     | SOME (INL v, _) => value v st k
+     | SOME (INR (env, x), fns) => continue (subst_funs fns env) x st (ForceK2 st :: k)) ∧
+  return v temp_st (ForceK2 st :: k) = value v st k
 End
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
@@ -284,7 +332,7 @@ Definition step_def:
     | NONE => error st k) ∧
   step st k (Exp env $ Lam x body) = value (Closure x env body) st k ∧
   step st k (Exp env $ Delay body) = value (Thunk $ INR (env, body)) st k ∧
-  step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
+  step st k (Exp env $ Letrec fns e) = continue (subst_funs fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e2 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
@@ -295,10 +343,8 @@ Definition step_def:
       [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
         application sop env [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
-  step st k (Exp env $ Box e) = (
-    push env e NONE (BoxK st) k) ∧
-  step st k (Exp env $ Force e) = (
-    push env e NONE (ForceK st) k) ∧
+  step st k (Exp env $ Box e) = push env e NONE (BoxK st) k ∧
+  step st k (Exp env $ Force e) = push env e NONE ForceK1 k ∧
 
   (***** Errors *****)
   step st k Error = error st k ∧
