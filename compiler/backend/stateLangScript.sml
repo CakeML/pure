@@ -18,12 +18,6 @@ val _ = new_theory "stateLang";
 
 val _ = set_grammar_ancestry ["pure_semantics"];
 
-(*
-
-TODO: introduce Delay, Box, Force
-
-*)
-
 val _ = numLib.prefer_num();
 
 
@@ -51,9 +45,11 @@ Datatype:
       | Letrec ((vname # vname # exp) list) exp   (* mutually recursive exps *)
       | Let (vname option) exp exp                (* non-recursive let       *)
       | If exp exp exp                            (* if-then-else            *)
-      | Raise exp
-      | Handle exp vname exp
-      | Force         (* abbreviates a Lam that implements forcing of thunks *)
+      | Delay exp                                 (* suspend in a Thunk      *)
+      | Box exp                                   (* wrap result in a Thunk  *)
+      | Force exp                                 (* evaluates a Thunk       *)
+      | Raise exp                                 (* raise an exception      *)
+      | Handle exp vname exp                      (* handle an exception     *)
 End
 
 Overload Lit = “λl. App (AtomOp (Lit l)) []”
@@ -78,6 +74,8 @@ Datatype:
          (* values in call-order, exps in reverse order *)
        | LetK env (vname option) exp
        | IfK env exp exp
+       | BoxK (state option)
+       | ForceK (state option)
        | RaiseK
        | HandleK env vname exp
 End
@@ -112,7 +110,9 @@ Definition freevars_def[simp]:
   freevars (Let NONE e1 e2) = freevars e1 ∪ freevars e2 ∧
   freevars (Let (SOME x) e1 e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
   freevars (If e e1 e2) = freevars e ∪ freevars e1 ∪ freevars e2 ∧
-  freevars Force = {} ∧
+  freevars (Delay e) = freevars e ∧
+  freevars (Box e) = freevars e ∧
+  freevars (Force e) = freevars e ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x)
 Termination
@@ -268,22 +268,13 @@ Definition return_def:
     if ¬ num_args_ok sop (LENGTH vs) then error st k else
     application sop env vs st k) ∧
   return v st (AppK env sop vs (e::es) :: k) =
-    continue env e st (AppK env sop (v::vs) es :: k)
+    continue env e st (AppK env sop (v::vs) es :: k) ∧
+  return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k ∧
+  return v temp_st (ForceK st :: k) = value v st k
 End
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
 Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
-
-Overload force_exp =
-  “Lam (SOME "thunk") $
-     Let (SOME "fst") (App Sub [Var "thunk"; IntLit 0]) $
-     Let (SOME "snd") (App Sub [Var "thunk"; IntLit 1]) $
-       If (Eq (Var "fst") (IntLit 0))
-         (Let (SOME "v") (App AppOp [Var "snd"; IntLit 0]) $
-          Let NONE (App Update [Var "thunk"; IntLit 0; IntLit 1]) $
-          Let NONE (App Update [Var "thunk"; IntLit 1; Var "v"]) $
-            Var "v")
-         (Var "snd")”
 
 (* Perform a single step of evaluation *)
 Definition step_def:
@@ -292,6 +283,7 @@ Definition step_def:
       SOME v => value v st k
     | NONE => error st k) ∧
   step st k (Exp env $ Lam x body) = value (Closure x env body) st k ∧
+  step st k (Exp env $ Delay body) = value (Thunk $ INR (env, body)) st k ∧
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e2 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
@@ -303,7 +295,10 @@ Definition step_def:
       [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
         application sop env [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
-  step st k (Exp env $ Force) = continue env force_exp st k ∧
+  step st k (Exp env $ Box e) = (
+    push env e NONE (BoxK st) k) ∧
+  step st k (Exp env $ Force e) = (
+    push env e NONE (ForceK st) k) ∧
 
   (***** Errors *****)
   step st k Error = error st k ∧
@@ -376,22 +371,12 @@ End
 
 (******************** Lemmas ********************)
 
-val step_ss = simpLib.named_rewrites "step_ss" [
-    continue_def,
-    push_def,
-    value_def,
-    error_def,
-    return_def,
-    application_def,
-    step_def
-    ];
-
 Theorem is_halt_step_same:
   ∀sr st k. is_halt (sr, st, k) ⇒ step st k sr = (sr, st, k)
 Proof
-  Cases_on `sr` >> gvs[is_halt_def, SF step_ss] >> rw[]
-  >- (Cases_on `k` >> gvs[is_halt_def, SF step_ss])
-  >- (Cases_on `k` >> gvs[is_halt_def, SF step_ss])
+  Cases_on ‘st’ >> Cases_on ‘k’
+  >> Cases_on ‘sr’ >> gvs[is_halt_def] >> rw[]
+  >> fs [step_def,return_def,value_def,error_def,is_halt_def]
 QED
 
 Theorem step_n_alt:
