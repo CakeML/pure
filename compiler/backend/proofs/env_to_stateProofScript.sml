@@ -30,15 +30,15 @@ Inductive compile_rel:
 
 [~Ret:]
   (compile_rel te se ∧ u ∉ freevars se ⇒
-  compile_rel (Prim (Cons "Ret") [Delay te]) (Lam u se)) ∧
+  compile_rel (Prim (Cons "Ret") [Delay te]) (Lam NONE se)) ∧
 
 [~Bind:]
   (compile_rel te1 se1 ∧ compile_rel te2 se2 ∧
    u ∉ freevars se1 ∪ freevars se2 ∧ x ∉ freevars se2 ∧ u ≠ x ⇒
   compile_rel
     (Prim (Cons "Bind") [Delay te1; Delay te2])
-    (Lam u $ App AppOp
-      [Lam x (app (app se2 (Var x)) (Var u)); app se1 (Var u)])) ∧
+    (Lam (SOME u) $ App AppOp
+      [Lam (SOME x) (app (app se2 (Var x)) (Var u)); app se1 (Var u)])) ∧
 (*
   e.g.
     Ret (Delay a)   -->   Lam "u". a'
@@ -51,39 +51,40 @@ Inductive compile_rel:
 [~Raise:]
   (compile_rel te se ∧
    u ∉ freevars se ⇒
-  compile_rel (Prim (Cons "Raise") [Delay te]) (Lam u $ Raise se)) ∧
+  compile_rel (Prim (Cons "Raise") [Delay te]) (Lam NONE $ Raise se)) ∧
 
 [~Handle:]
   (compile_rel te1 se1 ∧ compile_rel te2 se2 ∧
    u ∉ freevars se1 ∪ freevars se2 ∧ x ∉ freevars se2 ∧ u ≠ x ⇒
   compile_rel
     (Prim (Cons "Handle") [Delay te1; Delay te2])
-    (Lam u $ Handle (app se1 (Var u)) x (app (app se2 (Var x)) (Var u)))) ∧
+    (Lam (SOME u) $ Handle (app se1 (Var u)) x (app (app se2 (Var x)) (Var u)))) ∧
 
+(*
 [~Alloc:]
   (LIST_REL compile_rel tes ses ∧
    EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Alloc") (MAP Delay tes)) (Lam u $ App Alloc ses)) ∧
+  compile_rel (Prim (Cons "Alloc") (MAP Delay tes)) (Lam NONE $ App Alloc ses)) ∧
 
 [~Length:]
   (LIST_REL compile_rel tes ses ∧
    EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Length") (MAP Delay tes)) (Lam u $ App Length ses)) ∧
+  compile_rel (Prim (Cons "Length") (MAP Delay tes)) (Lam NONE $ App Length ses)) ∧
 
 [~Deref:]
   (LIST_REL compile_rel tes ses ∧
    EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Deref") (MAP Delay tes)) (Lam u $ App Sub ses)) ∧
+  compile_rel (Prim (Cons "Deref") (MAP Delay tes)) (Lam NONE $ App Sub ses)) ∧
 
 [~Update:]
   (LIST_REL compile_rel tes ses ∧
    EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Update") (MAP Delay tes)) (Lam u $ App Update ses)) ∧
+  compile_rel (Prim (Cons "Update") (MAP Delay tes)) (Lam NONE $ App Update ses)) ∧
 
 [~Act:]
   (compile_rel te se ∧
    u ∉ freevars se ⇒
-  compile_rel (Prim (Cons "Act") [Delay te]) (Lam u $ app se (Var u))) ∧
+  compile_rel (Prim (Cons "Act") [Delay te]) (Lam (SOME u) $ app se (Var u))) ∧
 
 [~Cons:]
   (LIST_REL compile_rel tes ses ∧
@@ -101,16 +102,19 @@ Inductive compile_rel:
    (∀s. aop ≠ Message s) ⇒
   compile_rel (Prim (AtomOp aop) tes) (App (AtomOp aop) ses)) ∧
 
+*)
+
 [~App:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
   compile_rel (App te1 te2) (App AppOp [se1;se2])) ∧
 
+(*
+
 [~Lam:]
   (compile_rel te se ⇒
-   compile_rel (Lam x te) (Lam x se)) ∧
+   compile_rel (Lam x te) (Lam (SOME x) se)) ∧
 
-(*
 [~Letrec:]
   (ALL_DISTINCT (MAP FST tfns) ∧
    letrec_funs_rel (freevars (Letrec fns te) ∪ set (MAP FST fns)) tfns sfns sets ∧
@@ -136,7 +140,7 @@ Inductive compile_rel:
 [~Delay:]
   (compile_rel te se ∧
    u ∉ freevars se ⇒
-  compile_rel (Delay te) (App Ref [inl $ Lam u se])) ∧
+  compile_rel (Delay te) (App Ref [inl $ Lam NONE se])) ∧
 
 [~Box:]
   (compile_rel te se ⇒
@@ -144,7 +148,7 @@ Inductive compile_rel:
 
 [~RetStr:]
   (∀str. compile_rel (Prim (Cons "Ret") [Delay (Lit (Str str))])
-            (Lam "" (Lit (Str str))))
+            (Lam NONE (Lit (Str str))))
 
 (*
 [~Force:]
@@ -206,7 +210,7 @@ Inductive v_rel:
   (∀tenv senv te se.
      env_rel tenv senv ∧
      compile_rel te se ⇒
-     v_rel (Closure x tenv te) (Closure x senv se)) ∧
+     v_rel (Closure x tenv te) (Closure (SOME x) senv se)) ∧
 
 (*
 [~Recclosure:]
@@ -581,7 +585,7 @@ Proof
   \\ rpt (first_assum $ irule_at Any)
   \\ simp [env_rel_def]
   \\ qexists_tac ‘[]’
-  \\ qexists_tac ‘Lam "" (Lit (Str y))’
+  \\ qexists_tac ‘Lam NONE (Lit (Str y))’
   \\ conj_tac >- simp [Once compile_rel_cases]
   \\ once_rewrite_tac [io_treeTheory.io_unfold_err]
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC

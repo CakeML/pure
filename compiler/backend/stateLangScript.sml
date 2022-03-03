@@ -47,7 +47,7 @@ Datatype:
   exp = (* stateLang expressions *)
       | Var vname                                 (* variable                *)
       | App sop (exp list)                        (* application - prim/fun  *)
-      | Lam vname exp                             (* lambda                  *)
+      | Lam (vname option) exp                    (* lambda                  *)
       | Letrec ((vname # vname # exp) list) exp   (* mutually recursive exps *)
       | Let (vname option) exp exp                (* non-recursive let       *)
       | If exp exp exp                            (* if-then-else            *)
@@ -62,7 +62,7 @@ Overload Unit = “App (Cons "") []”
 Datatype:
   v = (* stateLang values *)
     | Constructor string (v list)
-    | Closure vname ((vname # v) list) exp
+    | Closure (vname option) ((vname # v) list) exp
     | Recclosure ((vname # vname # exp) list) ((vname # v) list) vname
     | Thunk (v + (vname # v) list # exp)
     | Atom lit
@@ -104,7 +104,8 @@ End
 Definition freevars_def[simp]:
   freevars (Var v) = {v} ∧
   freevars (App sop es) = BIGUNION (set (MAP freevars es)) ∧
-  freevars (Lam x e) = freevars e DELETE x ∧
+  freevars (Lam NONE e) = freevars e ∧
+  freevars (Lam (SOME x) e) = freevars e DELETE x ∧
   freevars (Letrec fns e) =
     (freevars e ∪ (BIGUNION $ set $ MAP (λ(f,x,e). freevars e DELETE x) fns)) DIFF
     set (MAP FST fns) ∧
@@ -175,7 +176,8 @@ End
 Definition application_def:
   application AppOp env vs st k = (
     case HD vs of
-      Closure x cenv e => continue ((x, EL 1 vs)::cenv) e st k
+      Closure NONE cenv e => continue cenv e st k
+    | Closure (SOME x) cenv e => continue ((x, EL 1 vs)::cenv) e st k
     | Recclosure fns cenv f => (
         case ALOOKUP fns f of
           SOME (x,e) => continue ((x, EL 1 vs)::mk_rec_env fns env) e st k
@@ -272,7 +274,7 @@ Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
 Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
 
 Overload force_exp =
-  “Lam "thunk" $
+  “Lam (SOME "thunk") $
      Let (SOME "fst") (App Sub [Var "thunk"; IntLit 0]) $
      Let (SOME "snd") (App Sub [Var "thunk"; IntLit 1]) $
        If (Eq (Var "fst") (IntLit 0))
@@ -356,7 +358,7 @@ Definition sinterp_def:
         | Err => Ret' Error
         | Div => Div'
         | Act a k' st' =>
-            Vis' a (λy. value (Closure "" [] $ Lit $ Str y) st' k' ))
+            Vis' a (λy. value (Closure NONE [] $ Lit $ Str y) st' k' ))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
