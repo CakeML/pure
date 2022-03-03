@@ -109,22 +109,17 @@ Inductive compile_rel:
    compile_rel te2 se2 ⇒
   compile_rel (App te1 te2) (App AppOp [se1;se2])) ∧
 
-(*
-
 [~Lam:]
-  (compile_rel te se ⇒
-   compile_rel (Lam x te) (Lam (SOME x) se)) ∧
+  (∀x te se.
+    compile_rel te se ⇒
+    compile_rel (Lam x te) (Lam (SOME x) se)) ∧
 
 [~Letrec:]
-  (ALL_DISTINCT (MAP FST tfns) ∧
-   letrec_funs_rel (freevars (Letrec fns te) ∪ set (MAP FST fns)) tfns sfns sets ∧
-   compile_rel te se
-  ⇒ compile_rel
-      (Letrec fns te)
-      (Lets
-        (MAP (λ(fn,_). (SOME fn, ref (inl (Lam u (Raise $ cons0 TODO))))) fns) $
-        stateLang$Letrec sfns $ Sets sets se)) ∧
-*)
+  (∀tfns sfns te se.
+    MAP FST tfns = MAP FST sfns ∧
+    LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+    compile_rel te se ⇒
+    compile_rel (Letrec tfns te) (Letrec sfns se)) ∧
 
 [~Let:]
   (compile_rel te1 se1 ∧
@@ -137,68 +132,27 @@ Inductive compile_rel:
    compile_rel te2 se2 ⇒
   compile_rel (If te te1 te2) (If se se1 se2)) ∧
 
-[~Delay:]
-  (compile_rel te se ∧
-   u ∉ freevars se ⇒
-  compile_rel (Delay te) (App Ref [inl $ Lam NONE se])) ∧
-
 [~Box:]
-  (compile_rel te se ⇒
-  compile_rel (Box te) (App Ref [inr se])) ∧
+  (∀te se.
+    compile_rel te se ⇒
+    compile_rel (Box te) (Box se)) ∧
+
+[~Delay:]
+  (∀te se.
+    compile_rel te se ⇒
+    compile_rel (Delay te) (Delay se)) ∧
+
+[~Force:]
+  (∀te se.
+    compile_rel te se ⇒
+    compile_rel (Force te) (Force se)) ∧
 
 [~RetStr:]
   (∀str. compile_rel (Prim (Cons "Ret") [Delay (Lit (Str str))])
             (Lam NONE (Lit (Str str))))
 
-(*
-[~Force:]
-  (compile_rel te se ⇒
-  compile_rel (Force te) (App AppOp [force; se])) ∧
-
-  letrec_funs_rel fvs [] [] [] ∧
-
-  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ∧
-   f_fn ∉ fvs ∧ u ∉ freevars se ⇒
-  letrec_funs_rel fvs
-    ((f, Delay te)::tfns) ((f_fn, u, se)::sfns) ((Var f, inl (Var f_fn))::sets)) ∧
-
-  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
-   letrec_funs_rel fvs
-    ((f, Lam x te)::tfns) ((f, x, se)::sfns) ((Var f, inl (Var f))::sets)) ∧
-
-  (letrec_funs_rel fvs tfns sfns sets ∧ compile_rel te se ⇒
-  letrec_funs_rel fvs ((f, Box te)::tfns) sfns ((Var f, inr se)::sets))
-*)
-
 End
 
-(* TODO HOL gives "index too large" error if below comment is
-   within Inductive ... End and does not name all rules *)
-
-  (*
-    In general, we have:
-      envLang$Letrec [(x, y); ...] e
-    -->
-      Let x (Ref (INL (fn u => Raise Bind))) ... (* declare all references *)
-      Letrec [...] (* use the bindings *)
-        (x := INL (fn u => y); ...) (* update the references *)
-
-  As `y` can only be `Box`, `Delay`, or `Lam`:
-      envLang$Letrec [(x, Lam a b); ...] e
-    -->
-      Let x (Ref _) ... (Letrec [(x, a, b'); ...] (x := INL x; ...; e'))
-
-      envLang$Letrec [(x, Delay d); ...] e
-    -->
-      Let x (Ref _) ... (Letrec [(fresh1, fresh2, d'); ...] (x := INL fresh1; ...; e'))
-
-      envLang$Letrec [(x, Box b); ...] e
-    -->
-      Let x (Ref _) ... (Letrec [...] (x := INR b'; ...; e'))
-  *)
-
-
-(* TODO *)
 Inductive v_rel:
 
 [~Constructor:]
@@ -212,13 +166,11 @@ Inductive v_rel:
      compile_rel te se ⇒
      v_rel (Closure x tenv te) (Closure (SOME x) senv se)) ∧
 
-(*
 [~Recclosure:]
   (∀tenv senv tfns sfns n.
      env_rel tenv senv ∧
      LIST_REL ((=) ### compile_rel) tfns sfns ⇒
      v_rel (envLang$Recclosure tfns tenv n) (stateLang$Recclosure sfns senv n)) ∧
-*)
 
 [~ThunkL:]
   (∀tv sv.
@@ -238,13 +190,45 @@ Inductive v_rel:
 [env_rel:]
   (∀tenv senv.
      (∀n tv.
-       ALOOKUP (REVERSE tenv) n = SOME tv ⇒
+       ALOOKUP tenv n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv) ⇒
      env_rel tenv senv)
 
 End
 
 Theorem env_rel_def = v_rel_cases |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL;
+
+Theorem ALOOKUP_LIST_REL:
+  ∀tfns sfns s n tx.
+    ALOOKUP tfns s = SOME (Lam n tx) ∧
+    LIST_REL ($= ### compile_rel) tfns sfns ⇒
+    ∃sx. ALOOKUP sfns s = SOME (Lam (SOME n) sx) ∧ compile_rel tx sx
+Proof
+  Induct \\ Cases_on ‘sfns’ \\ fs [FORALL_PROD]
+  \\ PairCases_on ‘h’ \\ fs [] \\ rw []
+  \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
+  \\ simp [Once compile_rel_cases]
+QED
+
+Theorem env_rel_cons:
+  v_rel tv sv ∧ env_rel tenv senv ⇒
+  env_rel ((n,tv)::tenv) ((n,sv)::senv)
+Proof
+  rw [env_rel_def] \\ rw [] \\ fs []
+QED
+
+Theorem env_rel_rec:
+  ∀xs ys.
+    env_rel tenv' senv' ∧ LIST_REL ($= ### compile_rel) xs ys ∧
+    env_rel tenv senv ∧ LIST_REL ($= ### compile_rel) tfns sfns ⇒
+    env_rel (MAP (λ(fn,_). (fn,Recclosure tfns tenv fn)) xs ++ tenv')
+            (MAP (λ(fn,_). (fn,Recclosure sfns senv fn)) ys ++ senv')
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs []
+  \\ PairCases_on ‘h’ \\ Cases \\ fs [] \\ rw []
+  \\ irule env_rel_cons \\ fs []
+  \\ simp [Once v_rel_cases]
+QED
 
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
@@ -295,31 +279,49 @@ Proof
     \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
     \\ Cases_on ‘dest_anyClosure y'’ \\ fs []
     >- (fs [dest_anyClosure_def]
-        \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()])
+        \\ Cases_on ‘y'’ \\ gvs [envLangTheory.dest_anyClosure_def,
+             envLangTheory.dest_Closure_def,AllCaseEqs()])
     \\ rename [‘_ = INR yy’] \\ PairCases_on ‘yy’ \\ fs []
     \\ fs [application_def]
     \\ Cases_on ‘n=0’ \\ gvs []
     >-
      (qexists_tac ‘0’ \\ fs []
-      \\ fs [dest_anyClosure_def]
-      \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()]
+      \\ fs [envLangTheory.dest_anyClosure_def]
+      \\ Cases_on ‘y'’ \\ gvs [envLangTheory.dest_Closure_def,AllCaseEqs()]
       \\ qpat_x_assum ‘v_rel _ _’ mp_tac
       \\ simp [Once v_rel_cases]
-      \\ rw [] \\ fs [continue_def,is_halt_def])
-    \\ fs [dest_anyClosure_def]
-    \\ Cases_on ‘y'’ \\ gvs [dest_Closure_def,AllCaseEqs()]
+      \\ rw [] \\ fs [continue_def,is_halt_def,stateLangTheory.dest_anyClosure_def]
+      \\ drule_all ALOOKUP_LIST_REL \\ rw [] \\ fs [is_halt_def])
+    \\ fs [envLangTheory.dest_anyClosure_def]
+    \\ Cases_on ‘y'’ \\ gvs [envLangTheory.dest_Closure_def,AllCaseEqs()]
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
-    \\ first_x_assum drule
-    \\ disch_then $ drule_at Any \\ fs []
-    \\ ‘env_rel (l ++ [(s,y)]) ((s,sv)::senv')’ by
-         (fs [env_rel_def,REVERSE_APPEND] \\ rw [] \\ fs [])
-    \\ disch_then $ drule_at Any \\ fs []
-    \\ fs [continue_def]
-    \\ disch_then (qspecl_then [‘st’,‘k’] mp_tac)
-    \\ strip_tac \\ fs []
-    \\ qexists_tac ‘ck''’ \\ fs []
-    \\ CASE_TAC \\ fs [])
+    >-
+     (first_x_assum drule
+      \\ disch_then $ drule_at Any \\ fs []
+      \\ ‘env_rel ((s,y)::l) ((s,sv)::senv')’ by
+        (fs [env_rel_def,REVERSE_APPEND] \\ rw [] \\ fs [])
+      \\ disch_then $ drule_at Any \\ fs []
+      \\ fs [continue_def,stateLangTheory.dest_anyClosure_def,
+             stateLangTheory.dest_Closure_def]
+      \\ disch_then (qspecl_then [‘st’,‘k’] mp_tac)
+      \\ strip_tac \\ fs []
+      \\ qexists_tac ‘ck''’ \\ fs []
+      \\ CASE_TAC \\ fs [opt_bind_def])
+    \\ fs [stateLangTheory.dest_anyClosure_def,
+           stateLangTheory.dest_Closure_def]
+    \\ drule_all ALOOKUP_LIST_REL \\ rw [] \\ fs []
+    \\ fs [opt_bind_def,continue_def]
+    \\ qmatch_goalsub_abbrev_tac ‘Exp senv1’
+    \\ first_x_assum $ drule_then $ drule_at Any
+    \\ disch_then (qspecl_then [‘senv1’,‘st’,‘k’] mp_tac)
+    \\ impl_tac
+    >-
+     (unabbrev_all_tac \\ fs []
+      \\ irule env_rel_cons \\ fs []
+      \\ irule env_rel_rec \\ fs [])
+    \\ strip_tac
+    \\ qexists_tac ‘ck''’ \\ CASE_TAC \\ fs [])
   \\ cheat
 QED
 
@@ -599,6 +601,7 @@ Proof
   \\ irule EQ_TRANS
   \\ irule_at Any step_unitl_halt_unwind
   \\ fs [step_def,value_def,return_def,application_def,continue_def]
+  \\ fs [EVAL “dest_anyClosure (Closure NONE [] (Lit (Str y)))”,opt_bind_def]
   \\ irule EQ_TRANS
   \\ irule_at Any step_unitl_halt_unwind
   \\ fs [step_def,value_def,return_def,application_def,continue_def,
@@ -608,6 +611,7 @@ Proof
   \\ irule_at Any step_unitl_halt_unwind
   \\ fs [step_def,value_def,return_def,application_def,continue_def,
          stateLangTheory.get_atoms_def]
+  \\ fs [EVAL “dest_anyClosure (Closure NONE [] (Lit (Str y)))”,opt_bind_def]
   \\ irule EQ_TRANS
   \\ irule_at Any step_unitl_halt_unwind
   \\ fs [step_def,value_def,return_def,application_def,continue_def,
