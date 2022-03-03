@@ -40,7 +40,7 @@ End
 
 Definition subst_funs_def[simp]:
   subst_funs funs env =
-    env ++ MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs
+    MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env
 End
 
 Definition dest_Closure_def[simp]:
@@ -58,7 +58,7 @@ Definition dest_anyClosure_def:
     dest_Closure v ++
     do
       (f, env, n) <- dest_Recclosure v;
-      case ALOOKUP (REVERSE f) n of
+      case ALOOKUP f n of
         SOME (Lam s x) => return (s, subst_funs f env, x)
       | _ => fail Type_error
     od
@@ -77,7 +77,7 @@ Definition dest_anyThunk_def:
     od ++
     do
       (f, env, n) <- dest_Recclosure v;
-      case ALOOKUP (REVERSE f) n of
+      case ALOOKUP f n of
         SOME (Delay x) => return (INR (env, x), f)
       | SOME (Box x) => return (INR (env, x), f)
       | _ => fail Type_error
@@ -121,7 +121,7 @@ End
 
 Definition eval_to_def:
   eval_to k env (Var n) =
-    (case ALOOKUP (REVERSE env) n of
+    (case ALOOKUP env n of
        SOME v => return v
      | NONE => fail Type_error) ∧
   eval_to k env (App f x) =
@@ -129,7 +129,7 @@ Definition eval_to_def:
        xv <- eval_to k env x;
        fv <- eval_to k env f;
        (s, env, body) <- dest_anyClosure fv;
-       if k = 0 then fail Diverge else eval_to (k - 1) (env ++ [(s,xv)]) body
+       if k = 0 then fail Diverge else eval_to (k - 1) ((s,xv)::env) body
      od) ∧
   eval_to k env (Lam s x) = return (Closure s env x) ∧
   eval_to k env (Let NONE x y) =
@@ -142,7 +142,7 @@ Definition eval_to_def:
     (if k = 0 then fail Diverge else
        do
          v <- eval_to (k - 1) env x;
-         eval_to (k - 1) (env ++ [(n,v)]) y
+         eval_to (k - 1) ((n,v)::env) y
        od) ∧
   eval_to k env (If x y z) =
     (if k = 0 then fail Diverge else

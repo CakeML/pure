@@ -64,7 +64,7 @@ End
 Definition apply_closure_def:
   apply_closure f arg cont =
     case dest_anyClosure f of
-    | INR (x, env, body) => cont (eval (env ++ [(x,arg)]) body)
+    | INR (x, env, body) => cont (eval ((x,arg)::env) body)
     | _ => Err
 End
 
