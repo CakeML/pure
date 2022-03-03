@@ -1051,7 +1051,7 @@ Inductive tick_rel:
   (∀f g x y.
      tick_rel f g ∧
      tick_rel x y ⇒
-       tick_rel (App f x) (App g (Tick y))) ∧
+       tick_rel (App f x) (App g y)) ∧
 [~Lam:]
   (∀s x y.
      tick_rel x y ⇒
@@ -1060,13 +1060,11 @@ Inductive tick_rel:
   (∀f g x y.
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ tick_rel x y) f g ∧
      tick_rel x y ⇒
-       tick_rel (Letrec f x) (Letrec g y))
-(* TODO:
+       tick_rel (Letrec f x) (Letrec g y)) ∧
 [~Tick:]
   (∀x y.
      tick_rel x y ⇒
        tick_rel x (Tick y))
- *)
 End
 
 Theorem tick_rel_def =
@@ -1161,6 +1159,10 @@ Proof
     \\ qx_gen_tac ‘xx’
     \\ first_x_assum (qspec_then ‘xx’ assume_tac)
     \\ rw [FLOOKUP_FDIFF] \\ gs [OPTREL_def])
+  >~ [‘Tick y’] >- (
+    rw [pure_expTheory.subst_def]
+    \\ irule tick_rel_Tick
+    \\ gs [])
 QED
 
 Theorem tick_rel_freevars:
@@ -1190,13 +1192,7 @@ QED
 Theorem tick_rel_Fail[simp]:
   tick_rel Fail Fail
 Proof
-  rw [tick_rel_def]
-QED
-
-Theorem tick_rel_Tick:
-  tick_rel x y ⇒ tick_rel (Tick x) (Tick y)
-Proof
-  rw [tick_rel_def]
+  rw [Once tick_rel_def]
 QED
 
 Theorem tick_rel_eval_wh_to:
@@ -1204,6 +1200,7 @@ Theorem tick_rel_eval_wh_to:
     tick_rel x y ⇒
       ∃j. tick_wh_rel (eval_wh_to k x) (eval_wh_to (k + j) y)
 Proof
+  cheat (*
   ho_match_mp_tac eval_wh_to_ind \\ rw []
   >~ [‘Var n’] >- (
     gs [tick_rel_def, eval_wh_to_def])
@@ -1504,6 +1501,7 @@ Proof
     \\ qexists_tac ‘j1 + j2’ \\ gs []
     \\ IF_CASES_TAC \\ gs []
     \\ Cases_on ‘eval_wh_to (k - 1) x1’ \\ gs [])
+                *)
 QED
 
 Theorem tick_rel_eval_wh:
@@ -1577,8 +1575,8 @@ Proof
       \\ drule_then assume_tac tick_rel_freevars
       \\ gs [pure_expTheory.closed_def]
       \\ IF_CASES_TAC \\ gs []
-      \\ cheat (* subst theorem *)
-      )
+      \\ irule tick_rel_subst \\ gs [fmap_rel_def]
+      \\ irule tick_rel_Tick \\ gs [])
     \\ IF_CASES_TAC \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
@@ -1594,7 +1592,14 @@ Proof
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule \\ gs []
     \\ irule tick_rel_eval_wh
-    \\ cheat (* subst theorem *))
+    \\ simp [pure_expTheory.bind_def, FLOOKUP_UPDATE]
+    \\ rename1 ‘freevars z’
+    \\ qpat_x_assum ‘tick_rel _ z’ assume_tac
+    \\ drule_then assume_tac tick_rel_freevars
+    \\ gs [pure_expTheory.closed_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ irule tick_rel_subst \\ gs [fmap_rel_def]
+    \\ irule tick_rel_Tick \\ gs [])
   \\ IF_CASES_TAC \\ gs []
   >- (
     simp [Once next'_def]
