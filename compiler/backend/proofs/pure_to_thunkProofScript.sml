@@ -1321,7 +1321,36 @@ Proof
         gvs [Once tick_rel_def]
         \\ qexists_tac ‘0’
         \\ simp [eval_wh_to_def])
-      \\ cheat (* induction? annoying to be without the FUNPOW thm *))
+      \\ ‘∃n z. 0 < n ∧ y = FUNPOW Tick n z ∧ tick_rel x z’
+        by (‘∀z y.
+               tick_rel z y ⇒
+               ∀x. z = Tick x ⇒
+                 ∃n u. 0 < n ∧ y = FUNPOW Tick n u ∧ tick_rel x u’
+              suffices_by rw []
+            \\ rpt (pop_assum kall_tac)
+            \\ ho_match_mp_tac tick_rel_strongind \\ rw []
+            >- (
+             Cases_on ‘∃x. z = Tick x’ \\ gvs []
+             >- (
+               first_assum (irule_at (Pos last))
+               \\ qexists_tac ‘SUC 0’ \\ gs [])
+             \\ drule_all_then strip_assume_tac tick_rel_FUNPOW
+             \\ gvs []
+             \\ first_assum (irule_at Any)
+             \\ qexists_tac ‘SUC n’
+             \\ simp [arithmeticTheory.FUNPOW_SUC])
+           \\ qexists_tac ‘SUC n’
+           \\ qexists_tac ‘u’
+           \\ simp [arithmeticTheory.FUNPOW_SUC])
+      \\ ‘∃m. n = SUC m’ by (Cases_on ‘n’ \\ gs []) \\ gvs []
+      \\ qpat_x_assum ‘tick_rel (Tick x) _’ kall_tac
+      \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
+      \\ simp [eval_wh_to_def, arithmeticTheory.FUNPOW_SUC]
+      \\ Q.REFINE_EXISTS_TAC ‘j + m’
+      \\ ‘j + m + k - 1 = j + k - 1 + m’
+        by gs []
+      \\ pop_assum SUBST1_TAC
+      \\ simp [eval_wh_to_Tick])
     \\ dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
     \\ gvs [Once tick_rel_def, eval_wh_to_def]
     \\ Q.REFINE_EXISTS_TAC ‘j + n’
