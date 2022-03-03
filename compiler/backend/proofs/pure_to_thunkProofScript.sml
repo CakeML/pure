@@ -1241,42 +1241,43 @@ Proof
   ho_match_mp_tac eval_wh_to_ind \\ rw []
   >~ [‘Var m’] >- (
     dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
-    \\ qexists_tac ‘n’
-    \\ gvs [eval_wh_to_Tick, eval_wh_to_def, Once tick_rel_def])
+    \\ gvs [Once tick_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘j + n’
+    \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
+    \\ simp [eval_wh_to_Tick, eval_wh_to_def])
   >~ [‘Lam s x’] >- (
     dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
-    \\ qexists_tac ‘n’
-    \\ gvs [eval_wh_to_Tick, eval_wh_to_def, Once tick_rel_def])
+    \\ gvs [Once tick_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘j + n’
+    \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
+    \\ simp [eval_wh_to_Tick, eval_wh_to_def])
   >~ [‘App f x’] >- (
     dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
     \\ gvs [Once tick_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘j + n’
+    \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
+    \\ simp [eval_wh_to_Tick, eval_wh_to_def]
     \\ rename1 ‘tick_rel x y’
     \\ simp [eval_wh_to_def]
     \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac)) \\ gs []
     \\ IF_CASES_TAC \\ gs []
     >- (
-      qexists_tac ‘j + n’
-      \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
-      \\ simp [eval_wh_to_Tick, eval_wh_to_def])
+      qexists_tac ‘j’
+      \\ simp [])
     \\ Cases_on ‘dest_wh_Closure (eval_wh_to k f)’ \\ gs []
     >- (
-      qexists_tac ‘j + n’
-      \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
-      \\ simp [eval_wh_to_Tick, eval_wh_to_def]
+      qexists_tac ‘j’
       \\ Cases_on ‘eval_wh_to k f’ \\ Cases_on ‘eval_wh_to (j + k) g’ \\ gs [])
     \\ BasicProvers.TOP_CASE_TAC
     \\ IF_CASES_TAC \\ gs []
     >- (
       Cases_on ‘eval_wh_to 0 g = wh_Diverge’ \\ gs []
       >- (
-        qexists_tac ‘n’
-        \\ simp [SIMP_RULE std_ss [] (Q.SPECL [‘n’,‘0’] eval_wh_to_Tick),
-                 eval_wh_to_def])
+        qexists_tac ‘0’
+        \\ simp [])
       \\ ‘eval_wh_to j g = eval_wh_to 0 g’
         by (irule eval_wh_inc \\ gs [])
-      \\ qexists_tac ‘n’ \\ simp []
-      \\ simp [SIMP_RULE std_ss [] (Q.SPECL [‘n’,‘0’] eval_wh_to_Tick),
-               eval_wh_to_def]
+      \\ qexists_tac ‘0’ \\ simp []
       \\ Cases_on ‘eval_wh_to 0 f’ \\ Cases_on ‘eval_wh_to 0 g’ \\ gs [])
     \\ ‘eval_wh_to (j + k) g ≠ wh_Diverge’
       by (strip_tac \\ Cases_on ‘eval_wh_to k f’ \\ gs [])
@@ -1295,31 +1296,37 @@ Proof
     >- (
       Cases_on ‘j1 ≤ j’
       >- (
-        qexists_tac ‘j1 + n’
-        \\ once_rewrite_tac [DECIDE “j1 + n + k = (j1 + k) + n”]
-        \\ simp [eval_wh_to_Tick, eval_wh_to_def]
+        qexists_tac ‘j1’
         \\ IF_CASES_TAC \\ gs []
         \\ drule_then (qspec_then ‘j + k’ (assume_tac o GSYM)) eval_wh_inc
         \\ gs [])
       \\ gs [arithmeticTheory.NOT_LESS, arithmeticTheory.LESS_OR_EQ]
-      \\ qexists_tac ‘j + n’
-      \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
-      \\ simp [eval_wh_to_Tick, eval_wh_to_def]
+      \\ qexists_tac ‘j’
+      \\ IF_CASES_TAC \\ gs []
       \\ CCONTR_TAC
       \\ drule_then (qspec_then ‘j1 + k - 1’ (assume_tac o GSYM)) eval_wh_inc
       \\ gs [])
-    \\ qexists_tac ‘j + j1 + n’ \\ gs []
-    \\ once_rewrite_tac [DECIDE “j + (j1 + (k + n)) = (j + j1 + k) + n”]
-    \\ simp [eval_wh_to_Tick, eval_wh_to_def]
+    \\ qexists_tac ‘j + j1’ \\ gs []
     \\ ‘eval_wh_to (j + (j1 + k) - 1) (bind1 q y e2) =
         eval_wh_to (j1 + k - 1) (bind1 q y e2)’
       suffices_by rw []
     \\ irule eval_wh_inc \\ gs []
     \\ strip_tac
     \\ Cases_on ‘eval_wh_to (k - 1) (bind1 q x e1)’ \\ gs [])
-  \\ cheat (*
   >~ [‘Letrec f x’] >- (
-    gvs [tick_rel_def, eval_wh_to_def]
+    Cases_on ‘f = []’ \\ gvs []
+    >~ [‘tick_rel (Tick x) y’] >- (
+      Cases_on ‘k = 0’ \\ gs []
+      >- (
+        gvs [Once tick_rel_def]
+        \\ qexists_tac ‘0’
+        \\ simp [eval_wh_to_def])
+      \\ cheat (* induction? annoying to be without the FUNPOW thm *))
+    \\ dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
+    \\ gvs [Once tick_rel_def, eval_wh_to_def]
+    \\ Q.REFINE_EXISTS_TAC ‘j + n’
+    \\ once_rewrite_tac [DECIDE “j + n + k = j + k + n”]
+    \\ simp [eval_wh_to_Tick, eval_wh_to_def]
     \\ IF_CASES_TAC \\ gs []
     >- (
       qexists_tac ‘0’
@@ -1346,23 +1353,24 @@ Proof
     \\ rw [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, Once tick_rel_cases]
     \\ gs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP])
   >~ [‘_ 0 (Prim op xs)’] >- (
-    gvs [tick_rel_def, eval_wh_to_def]
+    dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
+    \\ gvs [Once tick_rel_def]
+    \\ qexists_tac ‘n’
+    \\ simp [SIMP_RULE std_ss [] (Q.SPECL [‘n’,‘0’] eval_wh_to_Tick),
+             eval_wh_to_def]
     \\ Cases_on ‘op’ \\ gs []
     >- ((* If *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
-      \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ qexists_tac ‘0’ \\ gs [])
+      \\ gvs [LENGTH_EQ_NUM_compute])
     >- ((* IsEq *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
-      \\ qexists_tac ‘0’ \\ gs [])
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”])
     >- ((* Proj *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
-      \\ qexists_tac ‘0’ \\ gs [])
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”])
     >- ((* AtomOp *)
       gvs [LIST_REL_EL_EQN]
       \\ Cases_on ‘xs = []’ \\ gs []
@@ -1373,15 +1381,17 @@ Proof
         \\ CASE_TAC \\ gs []
         \\ rw [tick_rel_def])
       \\ ‘ys ≠ []’ by (strip_tac \\ gs [])
-      \\ qexists_tac ‘0’
       \\ simp [get_atoms_MAP_Diverge])
     >- ((* Seq *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
-      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]
-      \\ qexists_tac ‘0’ \\ gs []))
+      \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1n ⇔ n = 0”]))
   >~ [‘Prim op xs’] >- (
-    gvs [tick_rel_def, eval_wh_to_def]
+    dxrule_then assume_tac tick_rel_FUNPOW \\ gvs []
+    \\ gvs [Once tick_rel_def]
+    \\ Q.REFINE_EXISTS_TAC ‘j + n’
+    \\ once_rewrite_tac [DECIDE “j + n + k = j + k + n”]
+    \\ simp [eval_wh_to_Tick, eval_wh_to_def]
     \\ Cases_on ‘op’ \\ gs []
     >- ((* If *)
       gvs [LIST_REL_EL_EQN]
@@ -1553,7 +1563,6 @@ Proof
     \\ qexists_tac ‘j1 + j2’ \\ gs []
     \\ IF_CASES_TAC \\ gs []
     \\ Cases_on ‘eval_wh_to (k - 1) x1’ \\ gs [])
-                *)
 QED
 
 Theorem tick_rel_eval_wh:
