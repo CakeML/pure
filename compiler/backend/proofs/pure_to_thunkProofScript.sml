@@ -1537,19 +1537,193 @@ Proof
           \\ CASE_TAC \\ gs []
           \\ CASE_TAC \\ gs []
           \\ rw [tick_rel_def])
+      \\ Cases_on ‘xs = []’ \\ gs []
+      \\ ‘ys ≠ []’
+        by (strip_tac \\ gs [])
       \\ gs [MEM_EL, PULL_EXISTS]
+      \\ ‘∀x y. tick_rel x y ⇒
+            ∃j. tick_wh_rel (eval_wh_to (k - 1) x)
+                            (eval_wh_to (j + k - 1) y)’
+        by (rw []
+            \\ first_x_assum (irule_at Any) \\ gs []
+            \\ qexists_tac ‘0’ \\ gs []
+            \\ Cases_on ‘ys’ \\ gs [])
+      \\ qpat_x_assum ‘∀x n. _ < _ ⇒ _’  kall_tac
+      \\ ‘∀n. n < LENGTH ys ⇒
+            ∃j. tick_wh_rel (eval_wh_to (k - 1) (EL n xs))
+                            (eval_wh_to (j + k - 1) (EL n ys))’
+        by rw []
+      \\ qpat_x_assum ‘∀n. _ < _ ⇒ tick_rel _ _’ kall_tac
+      \\ qpat_x_assum ‘∀x y. _’ kall_tac
       \\ gs [get_atoms_def]
       \\ IF_CASES_TAC \\ gs []
       >- (
-        gs [EXISTS_MEM, MEM_EL, PULL_EXISTS, EL_MAP]
-        \\ first_x_assum (drule_all_then assume_tac)
+        gs [EXISTS_MEM, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
         \\ first_x_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
         \\ qexists_tac ‘j’
         \\ ‘error_Atom (eval_wh_to (j + k - 1) (EL n ys))’
-          suffices_by simp [EL_MAP, SF CONJ_ss, SF SFY_ss]
+          suffices_by rw [SF SFY_ss]
         \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs)’
         \\ Cases_on ‘eval_wh_to (j + k - 1) (EL n ys)’ \\ gs [])
-      \\ cheat (* urk *))
+      \\ gs [Once EVERY_MEM, Once MEM_EL, PULL_EXISTS, EL_MAP]
+      \\ ‘∃j. ∀n. n < LENGTH ys ⇒
+            ¬error_Atom (eval_wh_to (j + k - 1) (EL n ys))’
+        by (qpat_x_assum ‘LENGTH _ = _’ mp_tac
+            \\ rpt (qpat_x_assum ‘∀n. _’ mp_tac)
+            \\ Cases_on ‘k’ \\ gs [arithmeticTheory.ADD1]
+            \\ rename1 ‘eval_wh_to k’
+            \\ rpt (pop_assum kall_tac)
+            \\ qid_spec_tac ‘xs’
+            \\ qid_spec_tac ‘ys’
+            \\ Induct \\ simp [] \\ Cases_on ‘xs’ \\ simp []
+            \\ qx_gen_tac ‘y’
+            \\ rename1 ‘EL _ (x::xs)’
+            \\ rw []
+            \\ first_x_assum (qspec_then ‘xs’ mp_tac)
+            \\ impl_tac
+            >- (
+              qx_gen_tac ‘n’ \\ rw []
+              \\ first_x_assum (qspec_then ‘SUC n’ assume_tac)
+              \\ first_x_assum (qspec_then ‘SUC n’ strip_assume_tac)
+              \\ gs [SF SFY_ss])
+            \\ impl_tac
+            >- (
+              qx_gen_tac ‘n’ \\ rw []
+              \\ first_x_assum (qspec_then ‘SUC n’ assume_tac)
+              \\ first_x_assum (qspec_then ‘SUC n’ strip_assume_tac)
+              \\ gs [SF SFY_ss])
+            \\ rw []
+            \\ last_assum (qspec_then ‘0’ mp_tac) \\ simp_tac std_ss []
+            \\ disch_then (qx_choose_then ‘j1’ assume_tac)
+            \\ qpat_assum ‘∀n. _ ⇒ ¬error_Atom (_ _ (EL _ (_::_)))’
+              (qspec_then ‘0’ mp_tac)
+            \\ simp_tac list_ss []
+            \\ strip_tac
+            \\ ‘¬error_Atom (eval_wh_to (j1 + k) y)’
+              by (strip_tac
+                  \\ Cases_on ‘eval_wh_to k x’
+                  \\ Cases_on ‘eval_wh_to (j1 + k) y’ \\ gs [])
+            \\ qexists_tac ‘MIN j1 j’
+            \\ Cases \\ gs []
+            >- (
+              rw [arithmeticTheory.MIN_DEF]
+              \\ gs [arithmeticTheory.NOT_LESS, arithmeticTheory.LESS_OR_EQ]
+              \\ strip_tac
+              \\ ‘eval_wh_to (j + k) y ≠ wh_Diverge’
+                by (strip_tac \\ gs [])
+              \\ drule_then (qspec_then ‘j1 + k’ assume_tac) eval_wh_inc
+              \\ gs [])
+            \\ rw [arithmeticTheory.MIN_DEF]
+            \\ strip_tac
+            \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+            \\ ‘eval_wh_to (j1 + k) (EL n ys) ≠ wh_Diverge’
+              by (strip_tac \\ gs [])
+            \\ drule_then (qspec_then ‘j + k’ assume_tac) eval_wh_inc \\ gs [])
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        gs [EXISTS_MEM, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
+        \\ first_x_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
+        \\ qexists_tac ‘MIN j j1’
+        \\ rw [arithmeticTheory.MIN_DEF] \\ gs [DISJ_EQ_IMP]
+        >- (
+          rename1 ‘m < LENGTH ys’
+          \\ Cases_on ‘j < j1’ \\ gs []
+          \\ gs [arithmeticTheory.NOT_LESS, arithmeticTheory.LESS_OR_EQ]
+          \\ ‘eval_wh_to (j1 + k - 1) (EL m ys) ≠ wh_Diverge’
+            by (strip_tac \\ gs [])
+          \\ drule_then (qspec_then ‘j + k - 1’ assume_tac) eval_wh_inc \\ gs []
+          \\ first_x_assum (drule_then assume_tac)
+          \\ first_x_assum (drule_then assume_tac)
+          \\ Cases_on ‘eval_wh_to (j1 + k - 1) (EL m ys)’
+          \\ Cases_on ‘eval_wh_to (k - 1) (EL m xs)’ \\ gs [])
+        \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+        \\ drule_then (qspec_then ‘j1 + k - 1’ assume_tac) eval_wh_inc
+        \\ gs [])
+      \\ gs [MEM_EL, EL_MAP, SF CONJ_ss]
+      \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ ‘∃i. ∀n. n < LENGTH ys ⇒
+                tick_wh_rel (eval_wh_to (k - 1) (EL n xs))
+                            (eval_wh_to (i + k - 1) (EL n ys))’
+        by (Cases_on ‘k’ \\ gs [arithmeticTheory.ADD1]
+            \\ rename1 ‘eval_wh_to k’
+            \\ rpt (qpat_x_assum ‘_ ≠ []’ kall_tac)
+            \\ rpt (pop_assum mp_tac)
+            \\ qid_spec_tac ‘ys’
+            \\ qid_spec_tac ‘xs’
+            \\ Induct \\ simp []
+            \\ Cases_on ‘ys’ \\ simp []
+            \\ rename1 ‘LENGTH xs = LENGTH ys’
+            \\ qx_gen_tac ‘x’ \\ rename1 ‘y::ys’ \\ rw []
+            \\ first_x_assum drule
+            \\ impl_tac
+            >- (
+              rw [] \\ gs []
+              \\ rename1 ‘n < LENGTH ys’
+              \\ rpt (first_x_assum (qspec_then ‘SUC n’ assume_tac)) \\ gs []
+              \\ gs [SF SFY_ss])
+            \\ disch_then (qx_choose_then ‘j1’ assume_tac)
+            \\ last_x_assum (qspec_then ‘0’ mp_tac) \\ simp []
+            \\ disch_then (qx_choose_then ‘j2’ assume_tac)
+            \\ qexists_tac ‘j + j1 + j2’
+            \\ Cases \\ gs []
+            >- (
+              ‘0 < SUC (LENGTH ys)’
+                by gs []
+              \\ first_x_assum (drule_then assume_tac)
+              \\ first_x_assum (drule_then assume_tac)
+              \\ first_x_assum (drule_then assume_tac) \\ gs []
+              \\ ‘eval_wh_to (j2 + k) y ≠ wh_Diverge’
+                by (strip_tac \\ Cases_on ‘eval_wh_to k x’ \\ gs [])
+              \\ drule_then (qspec_then ‘j1 + j2 + j + k’ assume_tac)
+                            eval_wh_inc
+              \\ gs [])
+            \\ strip_tac
+            \\ ‘SUC n < SUC (LENGTH ys)’
+              by gs []
+            \\ first_x_assum (drule_then assume_tac)
+            \\ first_x_assum (drule_then assume_tac)
+            \\ first_x_assum (drule_then assume_tac) \\ gs []
+            \\ ‘eval_wh_to (j1 + k) (EL n ys) ≠ wh_Diverge’
+              by (strip_tac \\ Cases_on ‘eval_wh_to k (EL n xs)’ \\ gs [])
+            \\ drule_then (qspec_then ‘j1 + j2 + j + k’ assume_tac)
+                          eval_wh_inc
+            \\ gs [])
+      \\ qexists_tac ‘i’
+      \\ gs [EXISTS_MEM, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        ‘eval_wh_to (k - 1) (EL n xs) ≠ wh_Diverge’
+          by (strip_tac \\ gs [])
+        \\ last_x_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
+        \\ ‘eval_wh_to (j1 + k - 1) (EL n ys) ≠ wh_Diverge’
+          by (strip_tac \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs)’ \\ gs [])
+        \\ drule_then (qspec_then ‘i + k - 1’ assume_tac) eval_wh_to_agree
+        \\ ‘eval_wh_to (i + k - 1) (EL n ys) ≠ wh_Diverge’
+          by (strip_tac \\ gs [])
+        \\ gs []
+        \\ ‘error_Atom (eval_wh_to (i + k - 1) (EL n ys))’
+          by (Cases_on ‘eval_wh_to (j1 + k - 1) (EL n ys)’ \\ gs [])
+        \\ ‘error_Atom (eval_wh_to (k - 1) (EL n xs))’
+          by (Cases_on ‘eval_wh_to (k - 1) (EL n xs)’
+              \\ Cases_on ‘eval_wh_to (i + k - 1) (EL n ys)’ \\ gs [])
+        \\ gs [])
+      \\ simp [DISJ_EQ_IMP, Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ gs [DISJ_EQ_IMP, Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
+      \\ conj_tac
+      >- (
+        rw []
+        \\ first_x_assum drule
+        \\ first_x_assum drule
+        \\ rw [] \\ strip_tac
+        \\ Cases_on ‘eval_wh_to (k - 1) (EL n xs)’ \\ gs [])
+      \\ ‘∀x y. tick_wh_rel x y ∧ ¬error_Atom x ⇒ dest_Atom x = dest_Atom y’
+        by (Cases \\ rw [dest_Atom_def])
+      \\ simp [MAP_MAP_o, combinTheory.o_DEF]
+      \\ once_rewrite_tac [EQ_SYM_EQ]
+      \\ irule LIST_EQ \\ gvs [EL_MAP] \\ rw []
+      \\ first_x_assum irule
+      \\ gs [SF SFY_ss]
+      \\ strip_tac \\ gs [SF SFY_ss])
     \\ gvs [LIST_REL_EL_EQN]
     \\ IF_CASES_TAC \\ gs []
     \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 2 ⇔ n = 0 ∨ n = 1”,
