@@ -430,9 +430,10 @@ Theorem next_thm:
     env_rel tenv senv ∧
     next k (eval tenv e1) tk ts = tres ∧ tres ≠ Err ⇒
     ∃n sres ss1 sk1.
-      step_n n (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk) = (sres,ss1,sk1) ∧
-      (tres = Div ⇒ k ≤ n ∧ ~is_halt (sres,ss1,sk1)) ∧
-      (tres = Ret ⇒ is_halt (sres,ss1,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
+      step_n n (Exp senv e2,SOME ss,AppK senv AppOp [Constructor "" []] []::sk) =
+          (sres,SOME ss1,sk1) ∧
+      (tres = Div ⇒ k ≤ n ∧ ~is_halt (sres,SOME ss1,sk1)) ∧
+      (tres = Ret ⇒ is_halt (sres,SOME ss1,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
       (∀a b tk ts1.
          tres = Act (a,b) tk ts1 ⇒
          ∃sk nenv.
@@ -449,13 +450,13 @@ Theorem next_action_thm:
   cont_rel tk sk ∧
   env_rel tenv senv ∧
   next_action (eval tenv e1) tk ts = tres ∧ tres ≠ Err ∧
-  step_until_halt (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk) = sres ⇒
+  step_until_halt (Exp senv e2,SOME ss,AppK senv AppOp [Constructor "" []] []::sk) = sres ⇒
   (tres = Div ⇒ sres = Div) ∧
   (tres = Ret ⇒ sres = Ret) ∧
   (∀a tk ts.
      tres = Act a tk ts ⇒
      ∃sk ss nenv.
-       sres = Act a (AppK nenv AppOp [Constructor "" []] []::sk) ss ∧
+       sres = Act a (AppK nenv AppOp [Constructor "" []] []::sk) (SOME ss) ∧
        cont_rel tk sk ∧
        LIST_REL (LIST_REL v_rel) ts ss)
 Proof
@@ -495,13 +496,13 @@ Proof
     \\ first_x_assum (qspec_then ‘n’ mp_tac)
     \\ gvs [is_halt_def])
   \\ ‘∃t. (step_n x'
-             (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk)) = t’ by fs []
+             (Exp senv e2,SOME ss,AppK senv AppOp [Constructor "" []] []::sk)) = t’ by fs []
   \\ PairCases_on ‘t’ \\ fs []
   \\ drule_all next_thm \\ fs []
   \\ strip_tac
-  \\ ‘(sres',ss1,sk1) = (t0,t1,t2)’ by
+  \\ ‘(sres',SOME ss1,sk1) = (t0,t1,t2)’ by
    (qpat_x_assum ‘is_halt (t0,t1,t2)’ mp_tac
-    \\ ‘is_halt (sres',ss1,sk1)’ by
+    \\ ‘is_halt (sres',SOME ss1,sk1)’ by
       (Cases_on ‘tres’ \\ fs [] \\ Cases_on ‘e’ \\ fs [is_halt_def])
     \\ pop_assum mp_tac
     \\ rpt (qpat_x_assum ‘_ = _’ (rewrite_tac o single o SYM))
@@ -543,7 +544,7 @@ Theorem semantics_thm:
   compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
   cont_rel tk sk ∧ env_rel tenv senv ⇒
   env_semantics$semantics e1 tenv tk ts --->
-  semantics (app e2 Unit) senv ss sk
+  semantics (app e2 Unit) senv (SOME ss) sk
 Proof
   fs [semantics_app_Unit]
   \\ qsuff_tac ‘
@@ -552,7 +553,7 @@ Proof
         compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
         cont_rel tk sk ∧ env_rel tenv senv ∧
         t1 = env_semantics$semantics e1 tenv tk ts ∧
-        t2 = semantics e2 senv ss (AppK senv AppOp [Constructor "" []] []::sk)) ⇒
+        t2 = semantics e2 senv (SOME ss) (AppK senv AppOp [Constructor "" []] []::sk)) ⇒
       t1 ---> t2’
   >- fs [PULL_EXISTS]
   \\ ho_match_mp_tac compiles_to_coind
@@ -566,7 +567,7 @@ Proof
   \\ simp [Once io_treeTheory.io_unfold_err]
   \\ qmatch_goalsub_abbrev_tac ‘io_unfold_err fs’
   \\ ‘∃r1 r2. next_action (eval tenv e1) tk ts = r1 ∧
-              step_until_halt (Exp senv e2,ss,
+              step_until_halt (Exp senv e2,SOME ss,
                 AppK senv AppOp [Constructor "" []] []::sk) = r2’ by fs []
   \\ fs []
   \\ drule_all next_action_thm

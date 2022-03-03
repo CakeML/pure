@@ -93,7 +93,7 @@ End
 
 Datatype:
   snext_res = (* top-level observable results *)
-            | Act (string # string) (cont list) state
+            | Act (string # string) (cont list) (state option)
             | Ret
             | Div
             | Err
@@ -149,22 +149,22 @@ End
 
 (* Continue with an expression *)
 Definition continue_def:
-  continue env exp st k = (Exp env exp, st, k)
+  continue env exp (st:state option) k = (Exp env exp, st, k)
 End
 
 (* Push continuation onto the stack and continue with an expression *)
 Definition push_def:
-  push env exp st k ks = (Exp env exp, st, k::ks)
+  push env exp (st:state option) k ks = (Exp env exp, st, k::ks)
 End
 
 (* Produce a value *)
 Definition value_def:
-  value v st k = (Val v, st, k)
+  value v (st:state option) k = (Val v, st, k)
 End
 
 (* Produce an error *)
 Definition error_def:
-  error st k = (Error, st, k)
+  error (st:state option) k = (Error, st, k)
 End
 
 
@@ -174,7 +174,7 @@ End
     - arguments are in call-order
     - enough arguments are passed *)
 Definition application_def:
-  application AppOp env vs st k = (
+  application AppOp env vs (st:state option) k = (
     case HD vs of
       Closure NONE cenv e => continue cenv e st k
     | Closure (SOME x) cenv e => continue ((x, EL 1 vs)::cenv) e st k
@@ -194,15 +194,16 @@ Definition application_def:
       | SOME $ INR F => value (Constructor "False" []) st k
       | _            => error st k) ∧
   application Alloc env vs st k = (
-    case HD vs of
-      Atom $ Int i =>
+    case HD vs, st of
+      Atom (Int i), SOME arrays =>
         let n = if i < 0 then 0 else Num i in
-        value (Atom $ Loc $ LENGTH st) (SNOC (REPLICATE n (EL 1 vs)) st) k
+        value (Atom $ Loc $ LENGTH arrays)
+          (SOME (SNOC (REPLICATE n (EL 1 vs)) arrays)) k
     | _ => error st k) ∧
   application Length env vs st k = (
-    case HD vs of
-      Atom $ Loc n => (
-        case oEL n st of
+    case HD vs, st of
+      Atom (Loc n), SOME arrays => (
+        case oEL n arrays of
           SOME l => value (Atom $ Int $ & LENGTH l) st k
         | _ => error st k)
     | _ => error st k) ∧
@@ -221,9 +222,9 @@ Definition application_def:
         else error st k)
     | _ => error st k) ∧
   application Sub env vs st k = (
-    case (EL 0 vs, EL 1 vs) of
-      (Atom $ Loc n, Atom $ Int i) => (
-        case oEL n st of
+    case (EL 0 vs, EL 1 vs, st) of
+      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
+        case oEL n arrays of
           SOME l =>
             if 0 ≤ i ∧ i > & LENGTH l then
               value (EL (Num i) l) st k
@@ -232,22 +233,22 @@ Definition application_def:
         | _ => error st k)
     | _ => error st k) ∧
   application Update env vs st k = (
-    case (EL 0 vs, EL 1 vs) of
-      (Atom $ Loc n, Atom $ Int i) => (
-        case oEL n st of
+    case (EL 0 vs, EL 1 vs, st) of
+      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
+        case oEL n arrays of
           SOME l =>
             if 0 ≤ i ∧ i > & LENGTH l then
               value
                 (Constructor "" [])
-                (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n st)
+                (SOME (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n arrays))
                 k
             else
               continue env (Raise $ App (Cons "Subscript") []) st k
         | _ => error st k)
     | _ => error st k) ∧
   application (FFI channel) env vs st k = (
-    case HD vs of
-      Atom $ Str content => (Action channel content, st, k)
+    case HD vs, st of
+      (Atom $ Str content, SOME _) => (Action channel content, st, k)
     | _ => error st k)
 End
 
@@ -327,7 +328,7 @@ End
 (* Values and exceptions are only halting points once we have consumed the
    continuation. Errors and actions are always halting points. *)
 Definition is_halt_def:
-  is_halt (Val v, st, []) = T ∧
+  is_halt (Val v, st:state option, []) = T ∧
   is_halt (Exn v, st, []) = T ∧
   is_halt (Error, st, k) = T ∧
   is_halt (Action ch c, st, k) = T ∧
@@ -370,7 +371,7 @@ Definition semantics_def:
 End
 
 Definition itree_of_def:
-  itree_of e = semantics e [] [] []
+  itree_of e = semantics e [] (SOME []) []
 End
 
 (******************** Lemmas ********************)
