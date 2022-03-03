@@ -31,7 +31,7 @@ Definition force_def:
       (wx, binds) <- dest_anyThunk v;
       case wx of
         INL v => return v
-      | INR (env, y) => eval (subst_funs binds env) y
+      | INR (env, y) => eval (mk_rec_env binds env) y
     od
 End
 

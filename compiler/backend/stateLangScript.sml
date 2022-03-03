@@ -126,9 +126,9 @@ Definition get_atoms_def:
   get_atoms _ = NONE
 End
 
-Definition subst_funs_def[simp]:
-  subst_funs funs env =
-    env ++ MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs
+Definition mk_rec_env_def[simp]:
+  mk_rec_env funs env =
+    MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env
 End
 
 (* Check correct number of arguments for App *)
@@ -186,8 +186,8 @@ Definition dest_anyClosure_def:
       case dest_Recclosure v of
       | NONE => NONE
       | SOME (f, env, n) =>
-          case ALOOKUP (REVERSE f) n of
-          | SOME (Lam s x) => SOME (s, subst_funs f env, x)
+          case ALOOKUP f n of
+          | SOME (Lam s x) => SOME (s, mk_rec_env f env, x)
           | _ => NONE
 End
 
@@ -209,7 +209,7 @@ Definition dest_anyThunk_def:
       case dest_Recclosure v of
       | NONE => NONE
       | SOME (f, env, n) =>
-        case ALOOKUP (REVERSE f) n of
+        case ALOOKUP f n of
           SOME (Delay x) => SOME (INR (env, x), f)
         | SOME (Box x) => SOME (INR (env, x), f)
         | _ => NONE
@@ -312,13 +312,13 @@ Definition return_def:
     application sop env vs st k) ∧
   return v st (AppK env sop vs (e::es) :: k) =
     continue env e st (AppK env sop (v::vs) es :: k) ∧
-  return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k ∧
   return v st (ForceK1 :: k) =
     (case dest_anyThunk v of
      | NONE => error st k
      | SOME (INL v, _) => value v st k
-     | SOME (INR (env, x), fns) => continue (subst_funs fns env) x st (ForceK2 st :: k)) ∧
-  return v temp_st (ForceK2 st :: k) = value v st k
+     | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x st (ForceK2 st :: k)) ∧
+  return v temp_st (ForceK2 st :: k) = value v st k ∧
+  return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k
 End
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
@@ -332,7 +332,7 @@ Definition step_def:
     | NONE => error st k) ∧
   step st k (Exp env $ Lam x body) = value (Closure x env body) st k ∧
   step st k (Exp env $ Delay body) = value (Thunk $ INR (env, body)) st k ∧
-  step st k (Exp env $ Letrec fns e) = continue (subst_funs fns env) e st k ∧
+  step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e2 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
