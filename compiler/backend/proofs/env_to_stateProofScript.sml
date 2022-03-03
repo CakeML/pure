@@ -240,18 +240,18 @@ Theorem eval_to_thm:
       | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel tv sv
       | INL err => n ≤ ck ∧ ~is_halt sres
 Proof
+
   ho_match_mp_tac eval_to_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ strip_tac
-  >~ [‘Var v’]
-  >- (fs [eval_to_def,AllCaseEqs()] \\ rw []
+  >~ [‘Var v’] >-
+   (fs [eval_to_def,AllCaseEqs()] \\ rw []
     \\ gvs [Once compile_rel_cases]
     \\ qexists_tac ‘1’ \\ fs []
     \\ fs [step_def]
     \\ fs [env_rel_def] \\ first_x_assum drule \\ rw []
     \\ gvs [value_def])
-  >~ [‘App tf tx’]
-  >- (
-    simp [Once compile_rel_cases] \\ rw []
+  >~ [‘App tf tx’] >-
+   (simp [Once compile_rel_cases] \\ rw []
     \\ fs [eval_to_def,AllCaseEqs()] \\ rw []
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
     \\ asm_rewrite_tac [step_n_add] \\ fs [step_def,push_def]
@@ -322,6 +322,36 @@ Proof
       \\ irule env_rel_rec \\ fs [])
     \\ strip_tac
     \\ qexists_tac ‘ck''’ \\ CASE_TAC \\ fs [])
+  >~ [‘Lam nm tx’] >-
+   (fs [Once compile_rel_cases] \\ gvs []
+    \\ fs [eval_to_def]
+    \\ qexists_tac ‘1’ \\ fs [step_def,value_def]
+    \\ simp [Once v_rel_cases])
+  >~ [‘Letrec tfns tx’] >-
+   (simp [Once compile_rel_cases] \\ gvs []
+    \\ rpt strip_tac \\ gvs []
+    \\ fs [eval_to_def] \\ rw [] \\ fs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add]
+    \\ fs [step_def,continue_def]
+    \\ qmatch_goalsub_abbrev_tac ‘Exp senv1’
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [‘senv1’,‘st’,‘k’] mp_tac)
+    \\ impl_tac
+    >-
+     (unabbrev_all_tac
+      \\ irule env_rel_rec \\ fs []
+      \\ last_x_assum mp_tac
+      \\ last_x_assum mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ qid_spec_tac ‘tfns’
+      \\ qid_spec_tac ‘sfns’
+      \\ Induct \\ Cases_on ‘tfns’ \\ fs [FORALL_PROD]
+      \\ PairCases_on ‘h’ \\ fs [])
+    \\ strip_tac
+    \\ qexists_tac ‘ck’ \\ fs [])
+
   \\ cheat
 QED
 
