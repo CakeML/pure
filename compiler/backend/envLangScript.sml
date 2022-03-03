@@ -18,16 +18,16 @@ val _ = new_theory "envLang";
 val _ = numLib.prefer_num();
 
 Datatype:
-  exp = Var vname                                (* variable                *)
-      | Prim op (exp list)                       (* primitive operations    *)
-      | App exp exp                              (* function application    *)
-      | Lam vname exp                            (* lambda                  *)
-      | Letrec ((vname #  exp) list) exp         (* mutually recursive exps *)
-      | Let (vname option) exp exp               (* non-recursive let       *)
-      | If exp exp exp                           (* if-then-else            *)
-      | Delay exp                                (* suspend in a Thunk      *)
-      | Box exp                                  (* wrap result in a Thunk  *)
-      | Force exp                                (* evaluates a Thunk       *)
+  exp = Var vname                            (* variable                *)
+      | Prim op (exp list)                   (* primitive operations    *)
+      | App exp exp                          (* function application    *)
+      | Lam vname exp                        (* lambda                  *)
+      | Letrec ((vname # exp) list) exp      (* mutually recursive exps *)
+      | Let (vname option) exp exp           (* non-recursive let       *)
+      | If exp exp exp                       (* if-then-else            *)
+      | Delay exp                            (* suspend in a Thunk      *)
+      | Box exp                              (* wrap result in a Thunk  *)
+      | Force exp                            (* evaluates a Thunk       *)
 End
 
 Datatype:
