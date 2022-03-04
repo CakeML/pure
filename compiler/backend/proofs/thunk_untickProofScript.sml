@@ -1365,36 +1365,74 @@ QED
  * Top-level semantics
  * ------------------------------------------------------------------------- *)
 
+Theorem eval_to_eval:
+  eval_to k x ≠ INL Diverge ⇒ eval_to k x = eval x
+Proof
+  rw [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ rename1 ‘_ = eval_to j x’
+  \\ imp_res_tac eval_to_mono
+  \\ Cases_on ‘k ≤ j’ \\ gs []
+QED
+
+Theorem eval_Force:
+  eval (Force (Value v)) =
+    case dest_Tick v of
+      NONE =>
+        do
+          (wx,binds) <- dest_anyThunk v;
+          case wx of
+            INL v => return v
+          | INR y => eval (subst_funs binds y)
+        od
+    | SOME w => eval (Force (Value w))
+Proof
+  simp [Once eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ rw []
+  >- (
+    fs [Once eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ fs [Once eval_to_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    >- (
+      Cases_on ‘dest_anyThunk v’ \\ gs []
+      \\ pairarg_tac \\ gvs []
+      \\ CASE_TAC \\ gs []
+      \\ irule eval_to_eval \\ gs [])
+    \\ irule eval_to_eval \\ gs [])
+  \\ Cases_on ‘dest_Tick v’ \\ gs []
+  >- (
+    gs [Once eval_to_def]
+    \\ gs [Once eval_to_def]
+    \\ Cases_on ‘dest_anyThunk v’ \\ gs []
+    >- (
+      first_x_assum (qspec_then ‘1’ assume_tac)
+      \\ Cases_on ‘v’ \\ gs [])
+    \\ pairarg_tac \\ gvs []
+    \\ CASE_TAC \\ gs []
+    \\ simp [eval_def]
+    \\ DEEP_INTRO_TAC some_intro \\ rw []
+    \\ first_x_assum (qspec_then ‘x + 1’ assume_tac) \\ gs [])
+  \\ simp [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ gs [Once eval_to_def]
+  \\ gs [Once eval_to_def]
+  \\ rename1 ‘eval_to k’
+  \\ first_x_assum (qspec_then ‘k + 1’ assume_tac) \\ gs []
+QED
+
 Theorem untick_apply_force[local]:
   v_rel v w ∧
   force v ≠ INL Type_error ⇒
     ($= +++ v_rel) (force v) (force w)
 Proof
-  rw [force_def]
-  \\ drule_then assume_tac v_rel_dest_Tick
-  \\ drule_then assume_tac v_rel_dest_anyThunk \\ gs []
-  \\ Cases_on ‘dest_Tick v’ \\ gs []
-  >- (
-    Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [dest_anyThunk_def]
-    >- (
-      rename1 ‘LIST_REL _ xs ys’
-      \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
-                 (ALOOKUP (REVERSE xs) s)
-                 (ALOOKUP (REVERSE ys) s)’
-        by (irule LIST_REL_OPTREL
-            \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
-      \\ gs [OPTREL_def]
-      \\ qpat_x_assum ‘exp_rel x y’ mp_tac
-      \\ rw [Once exp_rel_cases] \\ gs []
-      \\ irule exp_rel_eval \\ gs []
-      \\ rw [subst_funs_def]
-      \\ irule_at Any exp_rel_subst
-      \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-      \\ irule_at Any LIST_EQ
-      \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY])
-    \\ CASE_TAC \\ gs [subst_funs_def]
-    \\ irule exp_rel_eval \\ gs [])
-  \\ cheat (* nasty ticks. ind? *)
+  ‘∀v. force v = eval (Force (Value v))’
+    by (rw [Once eval_Force] \\ rw [force_def])
+  \\ gs [] \\ pop_assum kall_tac \\ rw []
+  \\ irule exp_rel_eval \\ simp []
+  \\ irule exp_rel_Force
+  \\ irule exp_rel_Value \\ gs []
 QED
 
 Theorem untick_apply_closure[local]:
