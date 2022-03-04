@@ -1440,7 +1440,7 @@ Theorem untick_apply_closure[local]:
   v_rel v2 w2 ∧
   apply_closure v1 v2 f ≠ Err ∧
   (∀x y.
-     ($= +++ v_rel) x y ⇒
+     ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
        next_rel v_rel (f x) (g y)) ⇒
     next_rel v_rel
              (apply_closure v1 v2 f)
@@ -1449,12 +1449,11 @@ Proof
   rw [apply_closure_def]
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
   >- (
-    first_x_assum irule
+    first_x_assum irule \\ gs []
     \\ irule exp_rel_eval
     \\ gs [closed_subst]
     \\ irule_at Any exp_rel_subst \\ gs []
-    \\ cheat (* does f need to be something special or can it be id?
-                or at least f Err = Err *))
+    \\ cheat (* f (INL Type_error) = Err solves this *))
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
              (ALOOKUP (REVERSE xs) s)
@@ -1470,7 +1469,7 @@ Proof
   \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
   \\ irule_at Any LIST_EQ
   \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-  \\ cheat (* same about f *)
+  \\ cheat (* f (INL Type_error) = Err solves this *)
 QED
 
 Theorem untick_rel_ok[local]:
@@ -1479,12 +1478,12 @@ Proof
   rw [rel_ok_def]
   >- ((* force preserves rel *)
     simp [untick_apply_force])
-  >- ((* apply_closure preserves rel *)
-    simp [untick_apply_closure]
-    \\ cheat)
+  >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
+    simp [untick_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
     Cases_on ‘s’ \\ gs [])
-  >- ((* Something false: right side is never a DoTick here *)
+  >- ((* This case forces DoTick on both sides, but the v_rel in this script
+         allows us to remove the DoTick on the right. *)
     cheat)
   >- ((* Equal literals are related *)
     simp [exp_rel_Prim])
