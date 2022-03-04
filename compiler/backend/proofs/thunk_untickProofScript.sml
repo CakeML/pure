@@ -1439,6 +1439,7 @@ Theorem untick_apply_closure[local]:
   v_rel v1 w1 ∧
   v_rel v2 w2 ∧
   apply_closure v1 v2 f ≠ Err ∧
+  f (INL Type_error) = Err ∧
   (∀x y.
      ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
        next_rel v_rel (f x) (g y)) ⇒
@@ -1453,7 +1454,7 @@ Proof
     \\ irule exp_rel_eval
     \\ gs [closed_subst]
     \\ irule_at Any exp_rel_subst \\ gs []
-    \\ cheat (* f (INL Type_error) = Err solves this *))
+    \\ strip_tac \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
   \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
              (ALOOKUP (REVERSE xs) s)
@@ -1469,7 +1470,7 @@ Proof
   \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
   \\ irule_at Any LIST_EQ
   \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-  \\ cheat (* f (INL Type_error) = Err solves this *)
+  \\ strip_tac \\ gs []
 QED
 
 Theorem untick_rel_ok[local]:
