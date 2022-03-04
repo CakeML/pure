@@ -264,6 +264,13 @@ Proof
   \\ simp [Once compile_rel_cases] \\ rw [] \\ fs []
 QED
 
+Theorem v_rel_bool:
+  (v_rel (Constructor "True" []) sv  ⇔ sv = Constructor "True" []) ∧
+  (v_rel (Constructor "False" []) sv ⇔ sv = Constructor "False" [])
+Proof
+  once_rewrite_tac [v_rel_cases] \\ fs []
+QED
+
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
     eval_to n tenv te = tres ∧ compile_rel te se ∧
@@ -274,7 +281,6 @@ Theorem eval_to_thm:
       | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel tv sv
       | INL err => n ≤ ck ∧ ~is_halt sres
 Proof
-
   ho_match_mp_tac eval_to_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ strip_tac
   >~ [‘Var v’] >-
@@ -447,7 +453,81 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
     \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
     \\ qexists_tac ‘1’ \\ fs [step_def,return_def,value_def])
-
+  >~ [‘Let NONE x1 x2’] >-
+   (simp [Once compile_rel_cases] \\ rw []
+    \\ fs [eval_to_def]
+    \\ IF_CASES_TAC \\ gvs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Cases_on ‘eval_to (n-1) tenv x1 = INL Type_error’ >- fs [] \\ fs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ qpat_x_assum ‘compile_rel x1 se1’ assume_tac
+    \\ last_x_assum assume_tac
+    \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘LetK senv NONE se2::k’] mp_tac)
+    \\ strip_tac
+    \\ Cases_on ‘eval_to (n-1) tenv x1’ \\ fs []
+    >- (qexists_tac ‘ck’ \\ fs [is_halt_def])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘k’] mp_tac)
+    \\ strip_tac
+    \\ qexists_tac ‘ck'’ \\ fs []
+    \\ CASE_TAC \\ fs [])
+  >~ [‘Let (SOME ss) x1 x2’] >-
+   (simp [Once compile_rel_cases] \\ rw []
+    \\ fs [eval_to_def]
+    \\ IF_CASES_TAC \\ gvs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Cases_on ‘eval_to (n-1) tenv x1 = INL Type_error’ >- fs [] \\ fs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ qpat_x_assum ‘compile_rel x1 se1’ assume_tac
+    \\ last_x_assum assume_tac
+    \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘LetK senv (SOME ss) se2::k’] mp_tac)
+    \\ strip_tac
+    \\ Cases_on ‘eval_to (n-1) tenv x1’ \\ fs []
+    >- (qexists_tac ‘ck’ \\ fs [is_halt_def])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
+    \\ ‘env_rel ((ss,y)::tenv) ((ss,sv)::senv)’ by (irule env_rel_cons \\ fs [])
+    \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘k’] mp_tac)
+    \\ strip_tac
+    \\ qexists_tac ‘ck'’ \\ fs []
+    \\ CASE_TAC \\ fs [])
+  >~ [‘If x1 x2 x3’] >-
+   (simp [Once compile_rel_cases] \\ rw []
+    \\ fs [eval_to_def]
+    \\ IF_CASES_TAC \\ gvs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Cases_on ‘eval_to (n-1) tenv x1 = INL Type_error’ >- fs [] \\ fs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ qpat_x_assum ‘compile_rel x1 _’ assume_tac
+    \\ last_x_assum assume_tac
+    \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘IfK senv se1 se2::k’] mp_tac)
+    \\ strip_tac
+    \\ Cases_on ‘eval_to (n-1) tenv x1’ \\ fs []
+    >- (qexists_tac ‘ck’ \\ fs [is_halt_def])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ gvs [AllCaseEqs(),v_rel_bool]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
+    \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘k’] mp_tac)
+    \\ strip_tac
+    \\ qexists_tac ‘ck'’ \\ fs []
+    \\ CASE_TAC \\ fs [])
+  \\ rename [‘Prim op xs’]
   \\ cheat
 QED
 

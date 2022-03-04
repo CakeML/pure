@@ -333,7 +333,7 @@ Definition step_def:
   step st k (Exp env $ Lam x body) = value (Closure x env body) st k ∧
   step st k (Exp env $ Delay body) = value (Thunk $ INR (env, body)) st k ∧
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
-  step st k (Exp env $ Let xopt e1 e2) = push env e2 st (LetK env xopt e2) k ∧
+  step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
