@@ -366,6 +366,24 @@ Proof
       \\ gs [Abbr ‘f’, Abbr ‘g’, CaseEq "sum"]))
 QED
 
+Theorem eval_eq_Diverge:
+  eval env x = INL Diverge ⇔
+  ∀k. eval_to k env x = INL Diverge
+Proof
+  fs [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ first_x_assum $ irule_at Any
+QED
+
+Theorem eval_neq_Diverge:
+  eval env x = res ∧ res ≠ INL Diverge ⇒
+  ∃k. eval_to k env x = res
+Proof
+  rw [] \\ fs [eval_eq_Diverge] \\ fs [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ metis_tac []
+QED
+
 Theorem dest_anyThunk_INL:
   dest_anyThunk th1 = INL x ⇒ x = Type_error
 Proof

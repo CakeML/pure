@@ -637,19 +637,54 @@ Theorem next_thm:
     cont_rel tk sk ∧
     env_rel tenv senv ∧
     next k (eval tenv e1) tk ts = tres ∧ tres ≠ Err ⇒
-    ∃n sres ss1 sk1.
+    ∃n sres ss0 ss1 sk1.
       step_n n (Exp senv e2,SOME ss,AppK senv AppOp [Constructor "" []] []::sk) =
-          (sres,SOME ss1,sk1) ∧
-      (tres = Div ⇒ k ≤ n ∧ ~is_halt (sres,SOME ss1,sk1)) ∧
-      (tres = Ret ⇒ is_halt (sres,SOME ss1,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
+          (sres,ss0,sk1) ∧
+      (tres = Div ⇒ k ≤ n ∧ ~is_halt (sres,ss0,sk1)) ∧
+      (tres = Ret ⇒ ss0 = SOME ss1 ∧
+                    is_halt (sres,ss0,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
       (∀a b tk ts1.
          tres = Act (a,b) tk ts1 ⇒
          ∃sk nenv.
+           ss0 = SOME ss1 ∧
            sres = Action a b ∧
            cont_rel tk sk ∧ sk1 = AppK nenv AppOp [Constructor "" []] []::sk ∧
            LIST_REL (LIST_REL v_rel) ts1 ss1)
 Proof
-  cheat
+  gen_tac \\ completeInduct_on ‘k’
+  \\ gvs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘eval tenv e1 = INL Type_error’ \\ fs []
+  >- simp [Once next_def]
+  \\ Cases_on ‘eval tenv e1 = INL Diverge’ \\ fs []
+  >-
+   (ntac 5 (simp [Once next_def])
+    \\ fs [eval_eq_Diverge]
+    \\ first_x_assum $ qspec_then ‘k’ assume_tac
+    \\ drule eval_to_thm \\ fs []
+    \\ disch_then drule_all
+    \\ rename [‘SOME _,kk’]
+    \\ disch_then (qspecl_then [‘SOME ss’,‘kk’] mp_tac) \\ rw []
+    \\ ‘∃a. step_n ck (Exp senv e2,SOME ss,kk) = a’ by fs []
+    \\ PairCases_on ‘a’ \\ fs []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ reverse (Cases_on ‘∃s vs. eval tenv e1 = INR (Constructor s vs)’)
+  >-
+   (Cases_on ‘eval tenv e1’ \\ fs []
+    >- (Cases_on ‘x’ \\ fs [])
+    \\ Cases_on ‘y’ \\ once_rewrite_tac [next_def] \\ fs [])
+  \\ gvs []
+  \\ drule eval_neq_Diverge \\ fs []
+  \\ strip_tac
+  \\ rename [‘eval_to ck’]
+  \\ drule eval_to_thm \\ fs []
+  \\ disch_then drule_all
+  \\ disch_then (qspecl_then [‘SOME ss’,‘AppK senv AppOp [Constructor "" []] []::sk’] mp_tac)
+  \\ rpt strip_tac
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
+  \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+  \\ ntac 2 $ pop_assum mp_tac
+  \\ cheat
 QED
 
 Theorem next_action_thm:
@@ -708,9 +743,9 @@ Proof
   \\ PairCases_on ‘t’ \\ fs []
   \\ drule_all next_thm \\ fs []
   \\ strip_tac
-  \\ ‘(sres',SOME ss1,sk1) = (t0,t1,t2)’ by
+  \\ ‘(sres',ss0,sk1) = (t0,t1,t2)’ by
    (qpat_x_assum ‘is_halt (t0,t1,t2)’ mp_tac
-    \\ ‘is_halt (sres',SOME ss1,sk1)’ by
+    \\ ‘is_halt (sres',ss0,sk1)’ by
       (Cases_on ‘tres’ \\ fs [] \\ Cases_on ‘e’ \\ fs [is_halt_def])
     \\ pop_assum mp_tac
     \\ rpt (qpat_x_assum ‘_ = _’ (rewrite_tac o single o SYM))
