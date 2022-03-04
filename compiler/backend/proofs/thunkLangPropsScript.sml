@@ -349,7 +349,9 @@ Definition rel_ok_def:
     (∀v1 w1 v2 w2 f g.
        Rv v1 w1 ∧
        Rv v2 w2 ∧
-       (¬allow_error ⇒ apply_closure v1 v2 f ≠ Err ∧ f (INL Type_error) = Err) ∧
+       (¬allow_error ⇒
+          apply_closure v1 v2 f ≠ Err ∧
+          f (INL Type_error) = Err) ∧
        (∀x y.
               ($= +++ Rv) x y ∧
               (¬allow_error ⇒ f x ≠ Err) ⇒
@@ -366,7 +368,9 @@ Definition rel_ok_def:
     (∀x w.
        Rv (Atom x) w ⇒ w = Atom x) ∧
     (∀v w.
-       Rv (DoTick v) w ⇒ (∃u. w = DoTick u) ) ∧
+       Rv (DoTick v) w ⇒
+         ¬allow_error ∨
+         (∃u. w = DoTick u)) ∧
     (∀s vs w.
        Rv (Constructor s vs) w ⇒ ∃ws. w = Constructor s ws ∧
                                       LIST_REL Rv vs ws) ∧
@@ -407,8 +411,7 @@ Proof
   \\ Cases_on ‘(∃s x. v = Closure s x) ∨
                (∃f n. v = Recclosure f n) ∨
                (∃x. v = Thunk x) ∨
-               (∃x. v = Atom x) ∨
-               (∃x. v = DoTick x)’
+               (∃x. v = Atom x)’
   >- (
     gvs [rel_ok_def]
     \\ res_tac \\ rgs []
@@ -416,6 +419,13 @@ Proof
       Cases_on ‘w’ \\ res_tac \\ gs []
       \\ simp [next_def])
     \\ simp [next_def])
+  \\ Cases_on ‘∃x. v = DoTick x’
+  >- (
+    gvs [rel_ok_def]
+    \\ gs [Once next_def]
+    \\ res_tac \\ gvs []
+    \\ simp [Once next_def]
+    \\ simp [Once next_def])
   \\  fs []
   \\ ‘∃nm vs. v = Constructor nm vs’
     by (Cases_on ‘v’ \\ gs [])
@@ -550,7 +560,8 @@ Proof
     \\ gvs []
     \\ rename1 ‘Rv a b’
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
-    \\ CASE_TAC \\ gs [])
+    \\ CASE_TAC \\ gs []
+    \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
   \\ print_tac "[6/9] Alloc"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Alloc *)
@@ -573,6 +584,7 @@ Proof
       CASE_TAC \\ gs [])
     \\ gvs []
     \\ rename1 ‘Rv a b’
+    \\ rgs [Once next_def, with_atoms_def, force_list_def]
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs []
@@ -605,6 +617,7 @@ Proof
       CASE_TAC \\ gs [])
     \\ gvs []
     \\ rename1 ‘Rv a b’
+    \\ rgs [Once next_def, with_atoms_def, force_list_def]
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
     \\ gvs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
@@ -643,6 +656,7 @@ Proof
     \\ gvs []
     \\ qmatch_goalsub_rename_tac ‘force a’
     \\ rename1 ‘Rv a b’
+    \\ rgs [Once next_def, with_atoms_def, force_list_def]
     \\ ‘¬allow_error ⇒ force a ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
           \\ rgs [Once next_def, with_atoms_def, force_list_def])
@@ -684,9 +698,7 @@ Proof
       \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
     \\ last_x_assum irule \\ gs []
     \\ simp [PULL_EXISTS]
-    \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-    \\ strip_tac \\ gvs []
-    \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+    \\ qexists_tac ‘[Loc n; Int i]’ \\ simp [])
   \\ print_tac "[9/9] Update"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Update *)
@@ -710,6 +722,7 @@ Proof
     \\ gvs []
     \\ qmatch_goalsub_rename_tac ‘force a’
     \\ rename1 ‘Rv a b’
+    \\ rgs [Once next_def, with_atoms_def, force_list_def]
     \\ ‘¬allow_error ⇒ force a ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
           \\ rgs [Once next_def, with_atoms_def, force_list_def])
@@ -749,8 +762,7 @@ Proof
       \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
     \\ last_x_assum irule \\ gs []
     \\ simp [PULL_EXISTS]
-    \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-    \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+    \\ qexists_tac ‘[Loc n; Int i]’ \\ simp [])
   \\ gs [rel_ok_def]
   \\ res_tac \\ gvs [] \\ imp_res_tac LIST_REL_LENGTH
   \\ rw [Once next_def] \\ gs []

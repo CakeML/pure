@@ -1483,9 +1483,6 @@ Proof
     simp [untick_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
     Cases_on ‘s’ \\ gs [])
-  >- ((* This case forces DoTick on both sides, but the v_rel in this script
-         allows us to remove the DoTick on the right. *)
-    cheat)
   >- ((* Equal literals are related *)
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)
