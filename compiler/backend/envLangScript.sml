@@ -366,4 +366,15 @@ Proof
       \\ gs [Abbr ‘f’, Abbr ‘g’, CaseEq "sum"]))
 QED
 
+Theorem dest_anyThunk_INL:
+  dest_anyThunk th1 = INL x ⇒ x = Type_error
+Proof
+  fs [dest_anyThunk_def]
+  \\ Cases_on ‘dest_Thunk th1’ \\ fs []
+  \\ Cases_on ‘dest_Recclosure th1’ \\ fs []
+  \\ rw [] \\ gvs []
+  \\ gvs [UNCURRY,AllCaseEqs()]
+  \\ Cases_on ‘th1’ \\ fs [dest_Thunk_def]
+QED
+
 val _ = export_theory ();

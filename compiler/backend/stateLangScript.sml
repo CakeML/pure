@@ -316,7 +316,7 @@ Definition return_def:
     (case dest_anyThunk v of
      | NONE => error st k
      | SOME (INL v, _) => value v st k
-     | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x st (ForceK2 st :: k)) ∧
+     | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
   return v temp_st (ForceK2 st :: k) = value v st k ∧
   return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k
 End
@@ -344,7 +344,7 @@ Definition step_def:
         application sop env [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
   step st k (Exp env $ Box e) = push env e NONE (BoxK st) k ∧
-  step st k (Exp env $ Force e) = push env e NONE ForceK1 k ∧
+  step st k (Exp env $ Force e) = push env e st ForceK1 k ∧
 
   (***** Errors *****)
   step st k Error = error st k ∧

@@ -175,7 +175,7 @@ Inductive v_rel:
 [~ThunkL:]
   (∀tv sv.
      v_rel tv sv ⇒
-     v_rel (Thunk $ INL tv) (Thunk $ IL sv)) ∧
+     v_rel (Thunk $ INL tv) (Thunk $ INL sv)) ∧
 
 [~ThunkR:]
   (∀tenv senv te se.
@@ -199,15 +199,27 @@ End
 Theorem env_rel_def = v_rel_cases |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL;
 
 Theorem ALOOKUP_LIST_REL:
-  ∀tfns sfns s n tx.
-    ALOOKUP tfns s = SOME (Lam n tx) ∧
+  ∀tfns sfns s tx.
+    ALOOKUP tfns s = SOME tx ∧
     LIST_REL ($= ### compile_rel) tfns sfns ⇒
-    ∃sx. ALOOKUP sfns s = SOME (Lam (SOME n) sx) ∧ compile_rel tx sx
+    ∃sx. ALOOKUP sfns s = SOME sx ∧ compile_rel tx sx
 Proof
   Induct \\ Cases_on ‘sfns’ \\ fs [FORALL_PROD]
   \\ PairCases_on ‘h’ \\ fs [] \\ rw []
   \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
   \\ simp [Once compile_rel_cases]
+QED
+
+Theorem ALOOKUP_LIST_REL_Lam:
+  ∀tfns sfns s n tx.
+    ALOOKUP tfns s = SOME (Lam n tx) ∧
+    LIST_REL ($= ### compile_rel) tfns sfns ⇒
+    ∃sx. ALOOKUP sfns s = SOME (Lam (SOME n) sx) ∧ compile_rel tx sx
+Proof
+  rw []
+  \\ drule_all ALOOKUP_LIST_REL
+  \\ rw [] \\ fs []
+  \\ gvs [Once compile_rel_cases]
 QED
 
 Theorem env_rel_cons:
@@ -228,6 +240,28 @@ Proof
   \\ PairCases_on ‘h’ \\ Cases \\ fs [] \\ rw []
   \\ irule env_rel_cons \\ fs []
   \\ simp [Once v_rel_cases]
+QED
+
+Theorem v_rel_dest_anyThunk:
+  v_rel th1 th2 ∧
+  envLang$dest_anyThunk th1 = INR (xx0,xx1) ⇒
+  ∃yy0 yy1.
+    stateLang$dest_anyThunk th2 = SOME (yy0,yy1) ∧
+    LIST_REL ($= ### compile_rel) xx1 yy1 ∧
+    (∀xv. xx0 = INL xv ⇒ ∃yv. yy0 = INL yv ∧ v_rel xv yv) ∧
+    (∀xenv x. xx0 = INR (xenv,x) ⇒
+        ∃yenv y. yy0 = INR (yenv,y) ∧ compile_rel x y ∧
+                 env_rel xenv yenv)
+Proof
+  reverse (Cases_on ‘th1’)
+  \\ fs [envLangTheory.dest_anyThunk_def,envLangTheory.dest_Thunk_def]
+  >- (simp [Once v_rel_cases] \\ rw []
+      \\ fs [stateLangTheory.dest_anyThunk_def])
+  \\ fs [AllCaseEqs()]
+  \\ simp [Once v_rel_cases] \\ rw []
+  \\ fs [stateLangTheory.dest_anyThunk_def]
+  \\ drule_all ALOOKUP_LIST_REL
+  \\ simp [Once compile_rel_cases] \\ rw [] \\ fs []
 QED
 
 Theorem eval_to_thm:
@@ -291,7 +325,7 @@ Proof
       \\ qpat_x_assum ‘v_rel _ _’ mp_tac
       \\ simp [Once v_rel_cases]
       \\ rw [] \\ fs [continue_def,is_halt_def,stateLangTheory.dest_anyClosure_def]
-      \\ drule_all ALOOKUP_LIST_REL \\ rw [] \\ fs [is_halt_def])
+      \\ drule_all ALOOKUP_LIST_REL_Lam \\ rw [] \\ fs [is_halt_def])
     \\ fs [envLangTheory.dest_anyClosure_def]
     \\ Cases_on ‘y'’ \\ gvs [envLangTheory.dest_Closure_def,AllCaseEqs()]
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
@@ -310,7 +344,7 @@ Proof
       \\ CASE_TAC \\ fs [opt_bind_def])
     \\ fs [stateLangTheory.dest_anyClosure_def,
            stateLangTheory.dest_Closure_def]
-    \\ drule_all ALOOKUP_LIST_REL \\ rw [] \\ fs []
+    \\ drule_all ALOOKUP_LIST_REL_Lam \\ rw [] \\ fs []
     \\ fs [opt_bind_def,continue_def]
     \\ qmatch_goalsub_abbrev_tac ‘Exp senv1’
     \\ first_x_assum $ drule_then $ drule_at Any
@@ -351,6 +385,68 @@ Proof
       \\ PairCases_on ‘h’ \\ fs [])
     \\ strip_tac
     \\ qexists_tac ‘ck’ \\ fs [])
+  >~ [‘Delay x’] >-
+   (fs [eval_to_def,AllCaseEqs()] \\ rw []
+    \\ gvs [Once compile_rel_cases]
+    \\ qexists_tac ‘1’ \\ fs []
+    \\ fs [step_def,value_def]
+    \\ simp [Once v_rel_cases])
+  >~ [‘Box x’] >-
+   (simp [Once compile_rel_cases] \\ rw []
+    \\ fs [eval_to_def]
+    \\ Cases_on ‘eval_to n tenv x = INL Type_error’ >- fs [] \\ fs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ rename [‘compile_rel x y’] \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘NONE’,‘BoxK st::k’] mp_tac)
+    \\ strip_tac
+    \\ Cases_on ‘eval_to n tenv x’ \\ fs []
+    >- (first_x_assum $ irule_at (Pos last) \\ fs [])
+    \\ gvs []
+    \\ qexists_tac ‘1+ck’
+    \\ rewrite_tac [step_n_add]
+    \\ fs [step_def,push_def,return_def,value_def]
+    \\ simp [Once v_rel_cases])
+  >~ [‘Force x’] >-
+   (simp [Once compile_rel_cases] \\ rw []
+    \\ fs [eval_to_def]
+    \\ IF_CASES_TAC \\ gvs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Cases_on ‘eval_to n tenv x = INL Type_error’ >- fs [] \\ fs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ rename [‘compile_rel x y’] \\ first_x_assum drule_all
+    \\ disch_then (qspecl_then [‘st’,‘ForceK1::k’] mp_tac)
+    \\ strip_tac
+    \\ Cases_on ‘eval_to n tenv x’ \\ fs []
+    >- (qexists_tac ‘ck’ \\ fs [is_halt_def])
+    \\ rename [‘dest_anyThunk th1’]
+    \\ rename [‘v_rel th1 th2’]
+    \\ Cases_on ‘dest_anyThunk th1’ \\ fs []
+    \\ imp_res_tac dest_anyThunk_INL \\ fs []
+    \\ rename [‘INR xx’] \\ PairCases_on ‘xx’ \\ fs []
+    \\ drule_all v_rel_dest_anyThunk
+    \\ strip_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ Cases_on ‘xx0’ \\ fs []
+    >- (qexists_tac ‘1’ \\ fs [step_def,return_def,value_def])
+    \\ rename [‘INR (INR aa,xx1)’] \\ PairCases_on ‘aa’ \\ fs []
+    \\ gvs []
+    \\ rename [‘compile_rel a1 a2’]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
+    \\ qmatch_goalsub_abbrev_tac ‘Exp env3’
+    \\ last_x_assum $ drule_at $ Pos last
+    \\ disch_then $ drule_then $ qspecl_then [‘env3’,‘NONE’,‘ForceK2 st::k’] mp_tac
+    \\ unabbrev_all_tac
+    \\ impl_tac >- (irule env_rel_rec \\ fs [])
+    \\ strip_tac
+    \\ CASE_TAC \\ fs []
+    >- (first_x_assum $ irule_at $ Pos last \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
+    \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
+    \\ qexists_tac ‘1’ \\ fs [step_def,return_def,value_def])
 
   \\ cheat
 QED
