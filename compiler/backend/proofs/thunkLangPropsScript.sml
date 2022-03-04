@@ -349,7 +349,7 @@ Definition rel_ok_def:
     (∀v1 w1 v2 w2 f g.
        Rv v1 w1 ∧
        Rv v2 w2 ∧
-       (¬allow_error ⇒ apply_closure v1 v2 f ≠ Err) ∧
+       (¬allow_error ⇒ apply_closure v1 v2 f ≠ Err ∧ f (INL Type_error) = Err) ∧
        (∀x y.
               ($= +++ Rv) x y ∧
               (¬allow_error ⇒ f x ≠ Err) ⇒
@@ -430,43 +430,30 @@ Proof
     \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
-      Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
-      \\ simp [Once next_def, force_apply_closure_def]
-      \\ rename1 ‘Rv v w’
-      \\ ‘($= +++ Rv) (force v) (force w)’
-        by (first_x_assum irule \\ gs [] \\ rw []
-            \\ strip_tac \\ gs []
-            \\ gs [Once next_def, force_apply_closure_def])
-      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-      >- (
-        CASE_TAC \\ gs [])
-      \\ first_x_assum irule \\ gs [] \\ rw []
-      \\ strip_tac
-      \\ gs [Once next_def, force_apply_closure_def])
+      simp [Once next_def]
+      \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs [])
+    \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
+    \\ simp [Once next_def] \\ simp [Abbr ‘X’]
     \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
     >- (
-      simp [Once next_def])
-    >- (
-      qmatch_goalsub_abbrev_tac ‘next_rel _ X’
-      \\ simp [Once next_def]
-      \\ simp [Abbr ‘X’, force_apply_closure_def]
+      simp [force_apply_closure_def]
       \\ rename1 ‘Rv v w’
       \\ ‘($= +++ Rv) (force v) (force w)’
         by (first_x_assum irule \\ gs [] \\ rw []
             \\ strip_tac \\ gs []
-            \\ rgs [Once next_def, force_apply_closure_def])
+            \\ qpat_x_assum ‘next k (INR _) _ _ ≠ _’ mp_tac
+            \\ simp [Once next_def, force_apply_closure_def])
       \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
       >- (
         CASE_TAC \\ gs [])
-      \\ first_x_assum irule \\ gs []
-      \\ rgs [Once next_def, force_apply_closure_def] \\ rw [])
-    \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
-    \\ simp [Once next_def]
-    \\ qunabbrev_tac ‘X’
-    \\ first_x_assum irule \\ gs [] \\ rw []
+      \\ first_x_assum irule \\ gs [] \\ strip_tac
+      \\ rgs [Once next_def, force_apply_closure_def]
+      \\ simp [Once next_def])
+    \\ first_x_assum irule \\ gs []
+    \\ rpt strip_tac
     \\ gs [Once next_def])
   \\ print_tac "[2/9] Raise"
-  \\ IF_CASES_TAC
+  \\ IF_CASES_TAC \\ gs []
   >- ((* Raise *)
     qpat_assum ‘rel_ok _ _’ mp_tac
     \\ simp_tac std_ss [rel_ok_def] \\ rw []
@@ -474,43 +461,27 @@ Proof
     \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
-      Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
-      \\ simp [Once next_def, force_apply_closure_def]
-      \\ rename1 ‘Rv v w’
-      \\ ‘($= +++ Rv) (force v) (force w)’
-        by (first_x_assum irule \\ gs [] \\ rw []
-            \\ strip_tac \\ gs []
-            \\ gs [Once next_def, force_apply_closure_def])
-      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-      >- (
-        CASE_TAC \\ gs [])
-      \\ first_x_assum irule \\ gs [] \\ rw []
-      \\ strip_tac
-      \\ gs [Once next_def, force_apply_closure_def])
+     simp [Once next_def]
+     \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs [])
+    \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
+    \\ simp [Once next_def] \\ simp [Abbr ‘X’]
     \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
     >- (
-      simp [Once next_def])
-    >- (
-      qmatch_goalsub_abbrev_tac ‘next_rel _ X’
-      \\ simp [Once next_def]
-      \\ qunabbrev_tac ‘X’
-      \\ first_x_assum irule \\ gs [] \\ rw []
+      first_x_assum irule \\ gs []
+      \\ rpt strip_tac
       \\ gs [Once next_def])
-    \\ qmatch_goalsub_abbrev_tac ‘next_rel _ X’
-    \\ simp [Once next_def]
-    \\ simp [Abbr ‘X’, force_apply_closure_def]
+    \\ simp [force_apply_closure_def]
     \\ rename1 ‘Rv v w’
     \\ ‘($= +++ Rv) (force v) (force w)’
       by (first_x_assum irule \\ gs [] \\ rw []
           \\ strip_tac \\ gs []
-          \\ qpat_x_assum ‘next _ _ _ _ ≠ _’ mp_tac
-          \\ simp [Once next_def, force_apply_closure_def])
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (
-      CASE_TAC \\ gs [])
-    \\ first_x_assum irule \\ gs []
-    \\ qpat_x_assum ‘¬_ ⇒ _’ mp_tac
-    \\ simp [Once next_def, force_apply_closure_def] \\ rw [])
+          \\ rgs [Once next_def, force_apply_closure_def])
+      \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
+      >- (
+        CASE_TAC \\ gs [])
+      \\ first_x_assum irule \\ gs [] \\ strip_tac
+      \\ rgs [Once next_def, force_apply_closure_def]
+      \\ simp [Once next_def])
   \\ print_tac "[3/9] Bind"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Bind *)
