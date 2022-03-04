@@ -90,16 +90,16 @@ Definition next_def:
             (case stack of
              | Done => Ret
              | BC f fs =>
-                force_apply_closure f (HD vs)
-                  (λw. if k = 0 then Div else next (k-1) w fs state)
+                if k = 0 then Div else
+                  force_apply_closure f (HD vs) (λw. next (k-1) w fs state)
              | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
           else if s = "Raise" ∧ LENGTH vs = 1 then
             (case stack of
              | Done => Ret
              | BC f fs => if k = 0 then Div else next (k-1) sv fs state
              | HC f fs =>
-                force_apply_closure f (HD vs)
-                  (λw. if k = 0 then Div else next (k-1) w fs state))
+                if k = 0 then Div else
+                  force_apply_closure f (HD vs) (λw. next (k-1) w fs state))
           else if s = "Bind" ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
