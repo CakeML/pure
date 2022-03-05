@@ -50,6 +50,7 @@ Datatype:
       | Force exp                           (* evaluates a Thunk       *)
       | Raise exp                           (* raise an exception      *)
       | Handle exp vname exp                (* handle an exception     *)
+      | HandleApp exp exp                   (* handle that takes fun   *)
 End
 
 Overload Lit = “λl. App (AtomOp (Lit l)) []”
@@ -79,6 +80,7 @@ Datatype:
        | ForceK2 (state option)
        | RaiseK
        | HandleK env vname exp
+       | HandleAppK env exp
 End
 
 Datatype:
@@ -115,7 +117,8 @@ Definition freevars_def[simp]:
   freevars (Box e) = freevars e ∧
   freevars (Force e) = freevars e ∧
   freevars (Raise e) = freevars e ∧
-  freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x)
+  freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
+  freevars (HandleApp e1 e2) = freevars e1 ∪ freevars e2
 Termination
   WF_REL_TAC ‘measure exp_size’
 End
@@ -307,6 +310,7 @@ Definition return_def:
     | _ => error st k) ∧
   return v st (RaiseK :: k) = (Exn v, st, k) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
+  return v st (HandleAppK env e :: k) = value v st k ∧
   return v st (AppK env sop vs' [] :: k) = (let vs = v::vs' in
     if ¬ num_args_ok sop (LENGTH vs) then error st k else
     application sop env vs st k) ∧
@@ -337,6 +341,7 @@ Definition step_def:
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
+  step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
   step st k (Exp env $ App sop es) = (
     if ¬ num_args_ok sop (LENGTH es) then error st k else
     case REVERSE es of (* right-to-left evaluation *)
@@ -354,6 +359,7 @@ Definition step_def:
   step st (k::ks) (Exn v) = (
     case k of
       HandleK env x e => continue ((x,v)::env) e st ks
+    | HandleAppK env e => push env e st (AppK env AppOp [v] []) ks
     | _ => (Exn v, st, ks)) ∧
 
   (***** Values *****)
