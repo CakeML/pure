@@ -285,6 +285,19 @@ Proof
   once_rewrite_tac [v_rel_cases] \\ fs [] \\ EVAL_TAC
 QED
 
+Theorem v_rel_dest_anyClosure:
+  v_rel tv sv ∧ dest_anyClosure tv = INR (a,tenv,te) ⇒
+  ∃senv se.
+    dest_anyClosure sv = SOME (SOME a,senv,se) ∧
+    compile_rel te se ∧ env_rel tenv senv
+Proof
+  Cases_on ‘tv’ \\ fs [envLangTheory.dest_anyClosure_def,AllCaseEqs()]
+  \\ simp [Once v_rel_cases] \\ rw [] \\ gvs []
+  \\ fs [stateLangTheory.dest_anyClosure_def]
+  \\ drule_all ALOOKUP_LIST_REL_Lam \\ rw [] \\ gvs []
+  \\ irule env_rel_rec \\ fs []
+QED
+
 val step =
   LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
              application_def,dest_anyClosure_def,dest_Closure_def];
@@ -769,6 +782,7 @@ Proof
   \\ pop_assum mp_tac
   \\ qpat_x_assum ‘v_rel _ _’ mp_tac
   \\ Cases_on ‘s = "Ret"’ >-
+
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
     \\ once_rewrite_tac [next_def] \\ gvs []
     \\ simp [Once v_rel_cases,monad_cns_def]
@@ -795,35 +809,109 @@ Proof
       \\ rename [‘env_rel tenv1 senv1’]
       \\ rename [‘compile_rel te1 se1’]
       \\ rename [‘cont_rel tk1 sk1’]
-      \\ Cases_on ‘eval tenv1 te1’
+      \\ drule_all eval_thm
+      \\ qmatch_goalsub_abbrev_tac ‘(Exp senv1 se1,SOME ss,kk)’
+      \\ disch_then (qspecl_then [‘SOME ss’,‘kk’] strip_assume_tac)
+      \\ gvs []
       >-
-       (Cases_on ‘x’ \\ gvs []
-        \\ fs [eval_eq_Diverge]
-        \\ pop_assum (qspec_then ‘k’ assume_tac)
-        \\ drule eval_to_thm
-        \\ disch_then drule
-        \\ disch_then drule \\ fs []
-        \\ rename [‘(Exp senv1 se1,SOME ss,kk)’]
-        \\ disch_then (qspecl_then [‘SOME ss’,‘kk’] strip_assume_tac)
-        \\ ‘∃l. step_n ck (Exp senv1 se1,SOME ss,kk) = l’ by fs [] \\ PairCases_on ‘l’ \\ fs []
-        \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
-      \\ fs []
-      \\ drule eval_neq_Diverge \\ fs [] \\ strip_tac
-      \\ rename [‘eval_to ck’]
-      \\ drule eval_to_thm
-      \\ disch_then drule
-      \\ disch_then drule \\ fs []
-      \\ qmatch_goalsub_abbrev_tac ‘step_n _ (_,SOME _,k1)’
-      \\ disch_then (qspecl_then [‘SOME ss’,‘k1’] strip_assume_tac)
-      \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’ \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ simp [Abbr‘k1’]
+       (pop_assum (qspec_then ‘k’ strip_assume_tac)
+        \\ pop_assum $ irule_at Any \\ fs [])
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ simp [Abbr‘kk’]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add]
       \\ fs [step_def,return_def]
-      \\ cheat)
+      \\ gvs [apply_closure_def,AllCaseEqs(),PULL_EXISTS,PULL_FORALL]
+      \\ Cases_on ‘dest_anyClosure tv’ \\ fs []
+      \\ PairCases_on ‘y’ \\ gvs []
+      \\ gvs [application_def]
+      \\ drule_all v_rel_dest_anyClosure
+      \\ strip_tac \\ gvs [opt_bind_def,continue_def]
+      \\ qmatch_asmsub_abbrev_tac ‘next _ (eval tenv2 _)’
+      \\ qmatch_goalsub_abbrev_tac ‘step_n _  (Exp senv2 _,_)’
+      \\ ‘env_rel tenv2 senv2’ by
+         (unabbrev_all_tac \\ irule env_rel_cons
+          \\ fs [] \\ simp [Once v_rel_cases])
+      \\ drule_all eval_thm
+      \\ disch_then (qspecl_then [‘SOME ss’,
+           ‘AppK senv1 AppOp [Constructor "" []] []::sk1’] strip_assume_tac) \\ gvs []
+      >- (gvs [EVAL “next k (INL Type_error) tk1 ts”])
+      \\ gvs [GSYM PULL_FORALL]
+      >-
+       (once_rewrite_tac [next_def] \\ fs []
+        \\ first_x_assum $ qspec_then ‘k’ strip_assume_tac
+        \\ qexists_tac ‘ck'’ \\ fs [])
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ last_x_assum $ drule_at $ Pos last \\ fs []
+      \\ disch_then drule_all
+      \\ disch_then $ qspec_then ‘senv1’ strip_assume_tac
+      \\ qexists_tac ‘n’ \\ fs []
+      \\ Cases_on ‘next (k − 1) (INR tv') tk1 ts’ \\ fs [] \\ gvs []
+      \\ Cases_on ‘e’ \\ gvs [])
     \\ cheat)
   \\ Cases_on ‘s = "Raise"’ >-
+
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
     \\ once_rewrite_tac [next_def] \\ fs []
+    \\ simp [Once v_rel_cases,monad_cns_def]
+    \\ strip_tac \\ gvs []
+    \\ Cases_on ‘tk’ \\ gvs []
+    >-
+     (fs [Once cont_rel_cases] \\ gvs []
+      \\ ntac 5 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+      \\ qexists_tac ‘0’ \\ fs [GSYM PULL_FORALL,is_halt_def])
+    >-
+     (IF_CASES_TAC \\ gvs []
+      >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+      \\ rpt strip_tac
+      \\ qpat_x_assum ‘cont_rel (BC v c) sk’ mp_tac
+      \\ simp [Once cont_rel_cases] \\ strip_tac \\ gvs []
+      \\ last_x_assum $ drule_at $ Pos last \\ fs []
+      \\ rpt (disch_then $ drule_at $ Pos last)
+      \\ simp [Once v_rel_cases,monad_cns_def]
+      \\ simp [PULL_EXISTS]
+      \\ rpt (disch_then $ drule_at $ Pos last)
+      \\ disch_then $ qspec_then ‘senv''’ strip_assume_tac
+      \\ gvs [GSYM PULL_FORALL]
+      \\ qpat_x_assum ‘step_n n _ = _’ mp_tac
+      \\ Cases_on ‘n’ \\ fs []
+      >-
+       (strip_tac \\ gvs [is_halt_def]
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
+        \\ qexists_tac ‘1’ \\ fs [step,is_halt_def])
+      \\ rewrite_tac [ADD1,step_n_add] \\ fs [step]
+      \\ Cases_on ‘n'’ \\ fs []
+      >-
+       (strip_tac \\ gvs [is_halt_def]
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
+        \\ qexists_tac ‘1+1’
+        \\ fs [step_n_add] \\ fs [step,is_halt_def])
+      \\ rewrite_tac [ADD1,step_n_add] \\ fs [step]
+      \\ Cases_on ‘n’ \\ fs []
+      >-
+       (strip_tac \\ gvs [is_halt_def]
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
+        \\ qexists_tac ‘1+1+1’
+        \\ fs [step_n_add] \\ fs [step,is_halt_def])
+      \\ rewrite_tac [ADD1,step_n_add] \\ fs [step]
+      \\ Cases_on ‘n'’ \\ fs []
+      >-
+       (strip_tac \\ gvs [is_halt_def]
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
+        \\ qexists_tac ‘1+1+1+1’
+        \\ fs [step_n_add] \\ fs [step,is_halt_def])
+      \\ rewrite_tac [ADD1,step_n_add] \\ fs [step]
+      \\ strip_tac
+      \\ ntac 6 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+      \\ gvs [ADD1]
+      \\ pop_assum $ irule_at Any
+      \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+      \\ fs [] \\ PairCases_on ‘e’ \\ fs [is_halt_def])
+
+
     \\ cheat)
   \\ Cases_on ‘s = "Bind"’ >-
    (reverse (Cases_on ‘LENGTH vs = 2’) >- fs [Once next_def]
