@@ -79,6 +79,7 @@ End
 (******************** Intermediate definitions ********************)
 
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
+Overload RetVal = “λv. Constructor "Ret" [Thunk (INR ([("v",v)],Var "v"))]”;
 
 Definition next_def:
   next (k:num) sv stack (state:state) =
@@ -123,8 +124,7 @@ Definition next_def:
                     let new_state = state ++ [REPLICATE n (EL 1 vs)] in
                       if k = 0 then Div else
                         next (k-1)
-                          (INR $ Constructor "Ret" [
-                             Thunk (INR ([],Lit (Loc (LENGTH state))))])
+                          (INR $ RetVal $ Atom $ Loc (LENGTH state))
                           stack new_state)
                | _ => Err))
           else if s = "Length" ∧ LENGTH vs = 1 then
@@ -134,8 +134,7 @@ Definition next_def:
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                       next (k-1)
-                        (INR $ Constructor "Ret" [
-                           Thunk (INR ([],Lit (Int (& (LENGTH (EL n state))))))])
+                        (INR $ RetVal $ Atom $ Int (& (LENGTH (EL n state))))
                         stack state)
                | _ => Err))
           else if s = "Deref" ∧ LENGTH vs = 2 then
@@ -146,7 +145,7 @@ Definition next_def:
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                       next (k-1)
-                        (INR $ Constructor "Ret" [EL (Num i) (EL n state)])
+                        (INR $ RetVal $ EL (Num i) (EL n state))
                         stack state
                     else
                       next (k-1)
@@ -161,7 +160,7 @@ Definition next_def:
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                       next (k-1)
-                        (INR $ Constructor "Ret" [Constructor "" []])
+                        (INR $ RetVal $ Constructor "" [])
                         stack
                         (LUPDATE (LUPDATE (EL 2 vs) (Num i) (EL n state)) n state)
                     else
