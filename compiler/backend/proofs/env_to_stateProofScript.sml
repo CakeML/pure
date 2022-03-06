@@ -14,12 +14,7 @@ val _ = new_theory "env_to_stateProof";
 val _ = set_grammar_ancestry ["stateLang", "envLang", "env_semantics"];
 
 Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
-Overload "cons0" = ``λs. App (Cons s) []``;
-
-Definition Lets_def:
-  Lets [] e = e ∧
-  Lets ((x,a)::rest) e = stateLang$Let x a (Lets rest e)
-End
+Overload "ret" = “λx. app (Let (SOME "v") x $ Lam NONE (Delay (Var "v"))) Unit”
 
 (****************************************)
 
@@ -49,28 +44,25 @@ Inductive compile_rel:
     (Lam NONE $ app (HandleApp se2
       (Let (SOME "v") (app se1 Unit) (Lam NONE (Var "v")))) Unit)) ∧
 
-(*
 [~Alloc:]
-  (LIST_REL compile_rel tes ses ∧
-   EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Alloc") (MAP Delay tes)) (Lam NONE $ App Alloc ses)) ∧
+  (compile_rel tl sl ∧ compile_rel tx sx ⇒
+  compile_rel (Prim (Cons "Alloc") [Delay tl; Delay tx])
+              (Lam NONE $ ret (App Alloc [sl; Delay sx]))) ∧
 
 [~Length:]
-  (LIST_REL compile_rel tes ses ∧
-   EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Length") (MAP Delay tes)) (Lam NONE $ App Length ses)) ∧
+  (compile_rel tl sl ⇒
+  compile_rel (Prim (Cons "Length") [Delay tl])
+              (Lam NONE $ ret (App Length [sl]))) ∧
 
 [~Deref:]
-  (LIST_REL compile_rel tes ses ∧
-   EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Deref") (MAP Delay tes)) (Lam NONE $ App Sub ses)) ∧
+  (compile_rel tl sl ∧ compile_rel ti si ⇒
+  compile_rel (Prim (Cons "Deref") [Delay tl; Delay ti])
+              (Lam NONE $ ret (App Sub [sl; si]))) ∧
 
 [~Update:]
-  (LIST_REL compile_rel tes ses ∧
-   EVERY (λse. u ∉ freevars se) ses ⇒
-  compile_rel (Prim (Cons "Update") (MAP Delay tes)) (Lam NONE $ App Update ses)) ∧
-
-*)
+  (compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ⇒
+  compile_rel (Prim (Cons "Update") [Delay tl; Delay ti; Delay tx])
+              (Lam NONE $ ret (App Update [sl; si; Delay sx]))) ∧
 
 [~Message:]
   (compile_rel te se ⇒
@@ -80,7 +72,7 @@ Inductive compile_rel:
 
 [~Act:]
   (compile_rel te se ⇒
-  compile_rel (Prim (Cons "Act") [Delay te]) (Lam NONE (app (app se Unit) Unit))) ∧
+  compile_rel (Prim (Cons "Act") [Delay te]) (Lam NONE (ret (app se Unit)))) ∧
 
 [~AtomOp:]
   (LIST_REL compile_rel tes ses ∧
@@ -133,13 +125,7 @@ Inductive compile_rel:
 [~Force:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Force te) (Force se)) (*∧
-
-[~Message:]
-  (∀te se.
-    compile_rel te se ⇒
-    compile_rel (Prim (AtomOp (Message ch)) [te])
-                (Let (SOME a) se (Lam NONE (App (FFI ch) [Var a]))))*)
+    compile_rel (Force te) (Force se))
 
 End
 
@@ -187,7 +173,7 @@ Inductive v_rel:
   (∀te se tenv senv.
      compile_rel te se ∧ env_rel tenv senv ⇒
      v_rel (Constructor "Act" [Thunk (INR (tenv,te))])
-           (Closure NONE senv (app (app se Unit) Unit))) ∧
+           (Closure NONE senv (ret (app se Unit)))) ∧
 
 [~Ret:]
   (∀te se tenv senv.
@@ -221,6 +207,34 @@ Inductive v_rel:
      compile_rel te se ∧ env_rel tenv senv ⇒
      v_rel (Constructor "Raise" [Thunk (INR (tenv,te))])
            (Closure NONE senv (Raise (Delay se)))) ∧
+
+[~Length:]
+  (∀tl sl tenv senv.
+     compile_rel tl sl ∧ env_rel tenv senv ⇒
+     v_rel (Constructor "Length" [Thunk (INR (tenv,tl))])
+          (Closure NONE senv (ret (App Length [sl])))) ∧
+
+[~Alloc:]
+  (∀tl sl tenv senv.
+     compile_rel tl sl ∧ compile_rel tx sx ∧ env_rel tenv senv ⇒
+     v_rel
+       (Constructor "Alloc" [Thunk (INR (tenv,tl)); Thunk (INR (tenv,tx))])
+       (Closure NONE senv (ret (App Alloc [sl; Delay sx])))) ∧
+
+[~Deref:]
+  (∀tl sl ti si tenv senv.
+     compile_rel tl sl ∧ compile_rel ti si ∧ env_rel tenv senv ⇒
+     v_rel
+       (Constructor "Deref" [Thunk (INR (tenv,tl)); Thunk (INR (tenv,ti))])
+       (Closure NONE senv (ret (App Sub [sl; si])))) ∧
+
+[~Update:]
+  (∀tl sl ti si tx sx tenv senv.
+     compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ∧ env_rel tenv senv ⇒
+     v_rel
+       (Constructor "Update"
+         [Thunk (INR (tenv,tl)); Thunk (INR (tenv,ti)); Thunk (INR (tenv,tx))])
+       (Closure NONE senv (ret (App Update [sl; si; Delay sx])))) ∧
 
 [env_rel:]
   (∀tenv senv.
@@ -583,6 +597,7 @@ Proof
   \\ Cases_on ‘op’ \\ gvs []
   \\ TRY (fs [eval_to_def] \\ NO_TAC)
   >~ [‘Cons s’] >-
+
    (Cases_on ‘s = "Ret"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
       \\ fs [eval_to_def,result_map_def]
@@ -591,32 +606,52 @@ Proof
       \\ simp [Once v_rel_cases])
     \\ Cases_on ‘s = "Act"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
-      \\ fs [eval_to_def,result_map_def]
-      \\ simp [Once v_rel_cases,PULL_EXISTS,monad_cns_def]
-      \\ rpt (first_x_assum $ irule_at Any)
-      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ qexists_tac ‘0’ \\ fs [])
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’ \\ fs [step]
+      \\ simp [Once v_rel_cases])
     \\ Cases_on ‘s = "Bind"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
-      \\ fs [eval_to_def,result_map_def]
-      \\ qexists_tac ‘1’
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’
       \\ fs [step_def,push_def,return_def,continue_def,value_def]
       \\ simp [Once v_rel_cases])
     \\ Cases_on ‘s = "Handle"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
-      \\ fs [eval_to_def,result_map_def]
-      \\ qexists_tac ‘1’
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’
       \\ fs [step_def,push_def,return_def,continue_def,value_def]
       \\ simp [Once v_rel_cases])
     \\ Cases_on ‘s = "Raise"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
-      \\ fs [eval_to_def,result_map_def]
-      \\ qexists_tac ‘1’
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’
       \\ fs [step_def,push_def,return_def,continue_def,value_def]
       \\ simp [Once v_rel_cases])
-    \\ cheat)
-  >~ [‘Proj s i’] >- cheat
-  >~ [‘IsEq s i’] >- cheat
+    \\ Cases_on ‘s = "Length"’ \\ gvs [] >-
+     (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’ \\ fs [step]
+      \\ simp [Once v_rel_cases])
+    \\ Cases_on ‘s = "Alloc"’ \\ gvs [] >-
+     (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’ \\ fs [step]
+      \\ simp [Once v_rel_cases])
+    \\ Cases_on ‘s = "Deref"’ \\ gvs [] >-
+     (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’ \\ fs [step]
+      \\ simp [Once v_rel_cases])
+    \\ Cases_on ‘s = "Update"’ \\ gvs [] >-
+     (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’ \\ fs [step]
+      \\ simp [Once v_rel_cases])
+    \\ simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [eval_to_def] \\ fs [SF ETA_ss]
+    \\ fs [result_map_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs []
+
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ simp [Once v_rel_cases,PULL_EXISTS,monad_cns_def]
+
+    \\ cheat (* general cons case *))
+  >~ [‘Proj s i’] >- cheat (* easy *)
+  >~ [‘IsEq s i’] >- cheat (* easy *)
   \\ rename [‘AtomOp a’]
   \\ Cases_on ‘∃msg. a = Message msg’
   >-
@@ -644,7 +679,7 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
     \\ simp [Once v_rel_cases] \\ rw [])
-  \\ cheat
+  \\ cheat (* primitives *)
 QED
 
 Theorem eval_thm:
@@ -803,13 +838,13 @@ Theorem next_thm:
                     is_halt (sres,ss0,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
       (∀a b tk ts1.
          tres = Act (a,b) tk ts1 ⇒
-         ∃sk nenv.
+         ∃sk nenv1 nenv2.
            ss0 = SOME ss1 ∧
            sres = Action a b ∧
-           cont_rel tk sk ∧ sk1 = AppK nenv AppOp [Constructor "" []] []::sk ∧
+           cont_rel tk sk ∧ sk1 = LetK nenv1 (SOME "v") (Lam NONE (Delay (Var "v")))::
+                                    AppK nenv2 AppOp [Constructor "" []] []::sk ∧
            LIST_REL (LIST_REL v_rel) ts1 ss1)
 Proof
-
   gen_tac \\ completeInduct_on ‘k’
   \\ gvs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ reverse (Cases_on ‘∃s vs. tv = Constructor s vs’)
@@ -1110,11 +1145,13 @@ Proof
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
     \\ once_rewrite_tac [next_def] \\ fs []
     \\ simp [Once v_rel_cases,monad_cns_def] \\ rw []
-    \\ ntac 7 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ ntac 8 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
     \\ gvs [with_atoms_def,force_list_def]
     \\ rename [‘env_rel tenv senv’]
-    \\ drule_all_then (qspecl_then [‘SOME ss’,‘AppK senv AppOp [Constructor "" []] []::
-             AppK senv AppOp [Constructor "" []] []::sk’]
+    \\ drule_all_then (qspecl_then [‘SOME ss’,‘
+         AppK senv AppOp [Constructor "" []] []::
+               LetK senv (SOME "v") (Lam NONE (Delay (Var "v")))::
+               AppK senv AppOp [Constructor "" []] []::sk’]
          strip_assume_tac) eval_thm \\ gvs []
     >-
      (pop_assum $ qspec_then ‘k’ strip_assume_tac \\ gvs []
@@ -1126,17 +1163,51 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [Once v_rel_cases]
     \\ strip_tac \\ gvs []
-    \\ rpt (first_assum $ irule_at Any)
-    \\ qexists_tac ‘senv’
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
     \\ qexists_tac ‘0’ \\ fs [])
-  \\ Cases_on ‘s = "Alloc"’ >-
+  \\ Cases_on ‘s = "Alloc"’ >- cheat (*
    (reverse (Cases_on ‘LENGTH vs = 2’) >- fs [Once next_def]
-    \\ once_rewrite_tac [next_def] \\ fs []
-    \\ cheat)
+    \\ simp [Once v_rel_cases,monad_cns_def]
+    \\ strip_tac \\ gvs [with_atoms_def,force_list_def] \\ strip_tac
+    \\ ntac 9 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ rename [‘env_rel tenv senv’]
+    \\ pop_assum mp_tac
+    \\ qpat_x_assum ‘compile_rel tl sl’ assume_tac
+    \\ once_rewrite_tac [next_def]
+    \\ fs [with_atoms_def,force_list_def]
+    \\ drule_all eval_thm
+    \\ disch_then $ qspecl_then [‘SOME ss’,
+         ‘AppK senv Alloc [Thunk (INR (senv,sx))] []::sk’] strip_assume_tac
+    \\ gvs []
+    >-
+     (first_x_assum $ qspec_then ‘k’ strip_assume_tac \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs [])
+    \\ Cases_on ‘tv’ \\ fs [get_atoms_def]
+    \\ Cases_on ‘l’ \\ fs [get_atoms_def]
+    \\ pop_assum mp_tac \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ IF_CASES_TAC \\ fs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ strip_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ first_x_assum $ drule_at $ Pos last
+    \\ fs [LIST_REL_SPLIT1,PULL_EXISTS]
+    \\ cheat (*
+    \\ rpt (disch_then $ drule_at Any)
+    \\ qabbrev_tac ‘l = if i < 0 then 0 else Num i’
+    \\ disch_then (qspecl_then [‘Closure NONE senv (Delay (Lit (Loc (LENGTH ts))))’,
+          ‘senv’,‘REPLICATE l (Thunk (INR (senv,sx)))’] mp_tac)
+    \\ impl_tac >-
+     (fs [LIST_REL_REPLICATE_same]
+      \\ once_rewrite_tac [v_rel_cases]
+      \\ fs [] \\ simp [Once compile_rel_cases,env_rel_def])
+    \\ strip_tac \\ gvs [GSYM PULL_FORALL]
+    \\ qpat_x_assum ‘step_n n _ = _’ mp_tac
+    \\ Cases_on ‘n’ \\ fs []
+    \\ cheat *)) *)
   \\ Cases_on ‘s = "Length"’ >-
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
     \\ once_rewrite_tac [next_def] \\ fs []
@@ -1167,10 +1238,11 @@ Theorem next_eval_thm:
                     is_halt (sres,ss0,sk1) ∧ ∀ch c. sres ≠ Action ch c ∧ sres ≠ Error) ∧
       (∀a b tk ts1.
          tres = Act (a,b) tk ts1 ⇒
-         ∃sk nenv.
+         ∃sk nenv1 nenv2.
            ss0 = SOME ss1 ∧
            sres = Action a b ∧
-           cont_rel tk sk ∧ sk1 = AppK nenv AppOp [Constructor "" []] []::sk ∧
+           cont_rel tk sk ∧ sk1 = LetK nenv1 (SOME "v") (Lam NONE (Delay (Var "v")))::
+                                    AppK nenv2 AppOp [Constructor "" []] []::sk ∧
            LIST_REL (LIST_REL v_rel) ts1 ss1)
 Proof
   rw [] \\ pop_assum mp_tac
@@ -1223,8 +1295,9 @@ Theorem next_action_thm:
   (tres = Ret ⇒ sres = Ret) ∧
   (∀a tk ts.
      tres = Act a tk ts ⇒
-     ∃sk ss nenv.
-       sres = Act a (AppK nenv AppOp [Constructor "" []] []::sk) (SOME ss) ∧
+     ∃sk ss nenv1 nenv2.
+       sres = Act a (LetK nenv1 (SOME "v") (Lam NONE (Delay (Var "v")))::
+                         AppK nenv2 AppOp [Constructor "" []] []::sk) (SOME ss) ∧
        cont_rel tk sk ∧
        LIST_REL (LIST_REL v_rel) ts ss)
 Proof
@@ -1346,42 +1419,29 @@ Proof
   \\ reverse IF_CASES_TAC >- fs []
   \\ fs [] \\ fs [value_def]
   \\ rw []
-  \\ ‘interp (INR (Constructor "Ret" [Thunk (INR ([],Lit (Str y)))])) c l =
-      interp (eval [] (Prim (Cons "Ret") [Delay (Lit (Str y))])) c l’ by
+  \\ ‘interp (INR (Constructor "Ret" [Thunk (INR ([("v",Atom (Str y))],Var "v"))])) c l =
+      interp (eval [("v",Atom (Str y))] (Prim (Cons "Ret") [Delay (Var "v")])) c l’ by
    (fs [eval_def,eval_to_def,result_map_def]
     \\ DEEP_INTRO_TAC some_intro \\ fs [])
   \\ pop_assum $ irule_at Any
-  \\ rpt (first_assum $ irule_at Any)
-  \\ simp [env_rel_def]
-  \\ qexists_tac ‘[]’
-  \\ qexists_tac ‘Lam NONE (Delay (Lit (Str y)))’
-  \\ conj_tac >- (ntac 2 (simp [Once compile_rel_cases]))
+  \\ ‘compile_rel (Prim (Cons "Ret") [Delay (Var "v")])
+        (Lam NONE (Delay (Var "v")))’ by
+   (simp [Once compile_rel_cases]
+    \\ simp [Once compile_rel_cases])
+  \\ pop_assum $ irule_at Any
+  \\ rpt (first_assum $ irule_at $ Pos hd)
+  \\ qexists_tac ‘[("v",Atom (Str y))] ++ nenv1’
+  \\ conj_tac
+  >- fs [env_rel_def,Once v_rel_cases]
   \\ once_rewrite_tac [io_treeTheory.io_unfold_err]
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
   \\ unabbrev_all_tac \\ fs []
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ ntac 3 (irule EQ_TRANS
+             \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
   \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ irule EQ_TRANS
-  \\ irule_at Any step_unitl_halt_unwind
-  \\ fs [step_def,value_def]
-  \\ irule EQ_TRANS
-  \\ irule_at Any step_unitl_halt_unwind
-  \\ fs [step_def,value_def,return_def,application_def,continue_def]
-  \\ fs [EVAL “dest_anyClosure (Closure NONE [] x)”,opt_bind_def]
-  \\ irule EQ_TRANS
-  \\ irule_at Any step_unitl_halt_unwind
-  \\ fs [step_def,value_def,return_def,application_def,continue_def,
-         stateLangTheory.get_atoms_def]
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ irule EQ_TRANS
-  \\ irule_at Any step_unitl_halt_unwind
-  \\ fs [step_def,value_def,return_def,application_def,continue_def,
-         stateLangTheory.get_atoms_def]
-  \\ fs [EVAL “dest_anyClosure (Closure NONE [] x)”,opt_bind_def]
-  \\ irule EQ_TRANS
-  \\ irule_at Any step_unitl_halt_unwind
-  \\ fs [step_def,value_def,return_def,application_def,continue_def,
-         stateLangTheory.get_atoms_def]
+  \\ ntac 2 (irule EQ_TRANS
+             \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
 QED
 
 Theorem compile_rel_itree_of:
