@@ -141,12 +141,9 @@ Definition num_args_ok_def[simp]:
   num_args_ok (AtomOp aop) n = T ∧
   num_args_ok (Proj _ _) n = (n = 1) ∧
   num_args_ok (IsEq _ _) n = (n = 1) ∧
-  num_args_ok Ref n = (n = 1) ∧
-  num_args_ok Set n = (n = 2) ∧
-  num_args_ok Deref n = (n = 1) ∧
+  num_args_ok Sub n = (n = 1) ∧
   num_args_ok Alloc n = (n = 2) ∧
   num_args_ok Length n = (n = 1) ∧
-  num_args_ok Sub n = (n = 2) ∧
   num_args_ok Update n = (n = 3) ∧
   num_args_ok (FFI channel) n = (n = 1)
 End
@@ -405,8 +402,7 @@ Definition sinterp_def:
         | Ret => Ret' Termination
         | Err => Ret' Error
         | Div => Div'
-        | Act a k' st' =>
-            Vis' a (λy. value (Closure NONE [] $ Delay $ Lit $ Str y) st' k' ))
+        | Act a k' st' => Vis' a (λy. value (Atom (Str y)) st' k' ))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
        λs. pure_semantics$FinalFFI s pure_semantics$FFI_failure)
