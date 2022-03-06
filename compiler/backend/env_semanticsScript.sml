@@ -78,6 +78,8 @@ End
 
 (******************** Intermediate definitions ********************)
 
+Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
+
 Definition next_def:
   next (k:num) sv stack (state:state) =
     case sv of
@@ -121,7 +123,8 @@ Definition next_def:
                     let new_state = state ++ [REPLICATE n (EL 1 vs)] in
                       if k = 0 then Div else
                         next (k-1)
-                          (INR $ Constructor "Ret" [Atom (Loc (LENGTH state))])
+                          (INR $ Constructor "Ret" [
+                             Thunk (INR ([],Lit (Loc (LENGTH state))))])
                           stack new_state)
                | _ => Err))
           else if s = "Length" ∧ LENGTH vs = 1 then
@@ -131,7 +134,8 @@ Definition next_def:
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                       next (k-1)
-                        (INR $ Constructor "Ret" [Atom (Int (& (LENGTH (EL n state))))])
+                        (INR $ Constructor "Ret" [
+                           Thunk (INR ([],Lit (Int (& (LENGTH (EL n state))))))])
                         stack state)
                | _ => Err))
           else if s = "Deref" ∧ LENGTH vs = 2 then
@@ -176,8 +180,6 @@ Definition next_action_def:
     | SOME k => next k sv stack state
 End
 
-Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
-
 Definition interp'_def:
   interp' =
     io_unfold_err
@@ -188,7 +190,7 @@ Definition interp'_def:
         | Div => Div'
         | Act a new_stack new_state =>
             Vis' a
-              (λy. (INR $ Constructor "Ret" [Thunk (INR ([], Lit (Str y)))],
+              (λy. (INR $ Constructor "Ret" [Thunk (INR ([("v",Atom (Str y))], Var "v"))],
                     new_stack, new_state)))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
@@ -213,7 +215,7 @@ Theorem interp_def:
               Ret $ pure_semantics$FinalFFI a x
           | INR y =>
               if STRLEN y ≤ max_FFI_return_size then
-                interp (INR $ Constructor "Ret" [Thunk (INR ([], Lit (Str y)))])
+                interp (INR $ Constructor "Ret" [Thunk (INR ([("v",Atom (Str y))], Var "v"))])
                   new_stack new_state
               else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
 Proof
