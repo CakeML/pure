@@ -339,6 +339,83 @@ val step =
   LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
              application_def,dest_anyClosure_def,dest_Closure_def];
 
+Theorem eval_to_list_div:
+  ∀xs t n k aux sv.
+    env_rel tenv senv ∧ LIST_REL compile_rel xs t ∧
+    ¬MEM (INL Type_error) (MAP (eval_to n tenv) (REVERSE xs)) ∧
+    (∀te se senv' st' k'.
+       compile_rel te se ∧ env_rel tenv senv' ∧ MEM te xs ∧
+       eval_to n tenv te ≠ INL Type_error ⇒
+       ∃ck.
+         case eval_to n tenv te of
+           INL err => n ≤ ck ∧ ¬is_halt (step_n ck (Exp senv' se,st',k'))
+         | INR tv =>
+           ∃sv.
+             step_n ck (Exp senv' se,st',k') = (Val sv,st',k') ∧
+             v_rel tv sv) ⇒
+    MEM (INL Diverge) (MAP (eval_to n tenv) xs) ⇒
+    ∃ck1.
+      n ≤ ck1 + 1 ∧
+      ¬is_halt (step_n ck1 (Val sv,st,AppK senv (Cons s) aux t::k))
+Proof
+  Induct >- fs [] \\ rw []
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ gvs [SF DNF_ss]
+  \\ qpat_x_assum ‘∀x. _’ mp_tac
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then drule
+  \\ disch_then $ qspecl_then [‘st’,‘AppK senv (Cons s) (sv::aux) ys::k’] strip_assume_tac
+  \\ rw []
+  >- (first_x_assum $ irule_at Any \\ fs [])
+  \\ Cases_on ‘eval_to n tenv h’ \\ fs []
+  >- (first_x_assum $ irule_at Any \\ fs [])
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ last_x_assum drule_all
+  \\ disch_then $ qspecl_then [‘k’,‘sv::aux’,‘sv'’] strip_assume_tac
+  \\ first_x_assum $ irule_at Any \\ fs []
+QED
+
+Theorem eval_to_list_val:
+  ∀xs t k aux sv vs ts y.
+    env_rel tenv senv ∧ LIST_REL compile_rel xs t ∧
+    ¬MEM (INL Type_error) (MAP (eval_to n tenv) (REVERSE xs)) ∧
+    ¬MEM (INL Diverge) (MAP (eval_to n tenv) (REVERSE xs)) ∧
+    (∀te se senv' st' k'.
+       compile_rel te se ∧ env_rel tenv senv' ∧ MEM te xs ∧
+       eval_to n tenv te ≠ INL Type_error ⇒
+       ∃ck.
+         case eval_to n tenv te of
+           INL err => n ≤ ck ∧ ¬is_halt (step_n ck (Exp senv' se,st',k'))
+         | INR tv =>
+           ∃sv.
+             step_n ck (Exp senv' se,st',k') = (Val sv,st',k') ∧
+             v_rel tv sv) ⇒
+    LIST_REL v_rel ts vs ∧ v_rel y sv ⇒
+    ∃ck1 svs.
+      step_n ck1 (Val sv,st,AppK senv (Cons s) vs t::k) =
+        (Val (Constructor s svs),st,k) ∧
+      LIST_REL v_rel
+         (REVERSE (MAP OUTR (MAP (eval_to n tenv) xs)) ++ [y] ++ ts) svs
+Proof
+  Induct \\ fs [] \\ rw[]
+  >-
+   (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ qexists_tac ‘0’ \\ fs [])
+  \\ gvs [SF DNF_ss]
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ qpat_x_assum ‘∀x. _’ mp_tac
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then drule
+  \\ disch_then $ qspecl_then [‘st’,‘AppK senv (Cons s) (sv::vs) ys::k’] strip_assume_tac
+  \\ rw []
+  \\ Cases_on ‘eval_to n tenv h’ \\ gvs []
+  >- (Cases_on ‘x’ \\ fs [])
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ last_x_assum irule
+  \\ fs []
+QED
+
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
     eval_to n tenv te = tres ∧ compile_rel te se ∧
@@ -671,12 +748,53 @@ Proof
     \\ once_rewrite_tac [eval_to_def] \\ fs [SF ETA_ss]
     \\ fs [result_map_def]
     \\ IF_CASES_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs []
-
+    \\ strip_tac
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
-    \\ simp [Once v_rel_cases,PULL_EXISTS,monad_cns_def]
-
-    \\ cheat (* general cons case *))
+    \\ gvs [PULL_FORALL]
+    \\ Cases_on ‘REVERSE ses’ \\ fs []
+    >-
+     (qexists_tac ‘0’ \\ fs [] \\ simp [Once v_rel_cases]
+      \\ fs [monad_cns_def])
+    \\ gvs [SWAP_REVERSE_SYM]
+    \\ drule listTheory.EVERY2_REVERSE
+    \\ strip_tac
+    \\ full_simp_tac std_ss [REVERSE_APPEND]
+    \\ fs []
+    \\ ‘∀n. MEM n (REVERSE xs) = MEM n (x::xs')’ by metis_tac []
+    \\ full_simp_tac std_ss [MEM_REVERSE]
+    \\ fs [AND_IMP_INTRO]
+    \\ first_assum $ drule_at Any
+    \\ simp_tac std_ss []
+    \\ disch_then $ drule_then $ qspecl_then [‘st’,‘AppK senv (Cons s) [] t::k’] mp_tac
+    \\ impl_keep_tac
+    >- (every_case_tac \\ gvs [] \\ gvs [MEM_MAP] \\ metis_tac [])
+    \\ strip_tac
+    \\ Cases_on ‘eval_to n tenv x’ \\ gvs []
+    >-
+     (rename [‘eval_to _ _ _ = INL yy’] \\ Cases_on ‘yy’ \\ gvs []
+      \\ ‘MEM (INL Diverge) (MAP (eval_to n tenv) xs)’ by (fs [MEM_MAP] \\ metis_tac [])
+      \\ fs [] \\ first_x_assum $ irule_at Any \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ gvs [SWAP_REVERSE_SYM,SF DNF_ss]
+    \\ last_x_assum kall_tac
+    \\ rewrite_tac [MEM_REVERSE,MAP_REVERSE]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (drule eval_to_list_div
+      \\ rpt (disch_then $ drule_at Any)
+      \\ gvs [GSYM PULL_FORALL] \\ rw []
+      \\ irule_at Any (DECIDE “n ≤ k:num ⇒ n ≤ m + k”)
+      \\ metis_tac [])
+    \\ full_simp_tac bool_ss [MEM_REVERSE,MAP_REVERSE] \\ gvs []
+    \\ simp [Once v_rel_cases,PULL_EXISTS]
+    \\ fs [monad_cns_def]
+    \\ drule_then drule eval_to_list_val
+    \\ full_simp_tac bool_ss [MEM_REVERSE,MAP_REVERSE] \\ gvs []
+    \\ rpt (disch_then drule)
+    \\ disch_then $ drule_at $ Pos last
+    \\ ‘LIST_REL v_rel [] []’ by fs []
+    \\ disch_then $ drule_at $ Pos last
+    \\ fs [GSYM PULL_FORALL])
   >~ [‘Proj s i’] >- cheat (* easy *)
   >~ [‘IsEq s i’] >- cheat (* easy *)
   \\ rename [‘AtomOp a’]
