@@ -67,7 +67,7 @@ Inductive compile_rel:
 [~Update:]
   (compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ⇒
   compile_rel (Prim (Cons "Update") [Delay tl; Delay ti; Delay tx])
-              (Lam NONE $ ret (Handle (App Update [sl; si; Delay sx]) "v"
+              (Lam NONE $ ret (Handle (App Update [si; sl; Delay sx]) "v"
                                       (Raise (Delay (Var "v")))))) ∧
 
 [~Message:]
@@ -235,7 +235,7 @@ Inductive v_rel:
      v_rel
        (Constructor "Update"
          [Thunk (INR (tenv,tl)); Thunk (INR (tenv,ti)); Thunk (INR (tenv,tx))])
-       (Closure NONE senv (ret (Handle (App Update [sl; si; Delay sx]) "v"
+       (Closure NONE senv (ret (Handle (App Update [si; sl; Delay sx]) "v"
                                        (Raise (Delay (Var "v"))))))) ∧
 
 [env_rel:]
@@ -867,7 +867,6 @@ Theorem next_thm:
                AppK nenv2 AppOp [Constructor "" []] []::sk ∧
            LIST_REL (LIST_REL v_rel) ts1 ss1)
 Proof
-
   gen_tac \\ completeInduct_on ‘k’
   \\ gvs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ reverse (Cases_on ‘∃s vs. tv = Constructor s vs’)
@@ -1412,11 +1411,123 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd
     \\ Cases_on ‘aa’ \\ gvs []
     \\ PairCases_on ‘e’ \\ gvs [])
-
   \\ Cases_on ‘s = "Update"’ >-
    (reverse (Cases_on ‘LENGTH vs = 3’) >- fs [Once next_def]
+    \\ simp [Once v_rel_cases,monad_cns_def]
+    \\ strip_tac \\ gvs [with_atoms_def,force_list_def] \\ strip_tac
+    \\ ntac 9 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ rename [‘env_rel tenv senv’]
+    \\ pop_assum mp_tac
     \\ once_rewrite_tac [next_def] \\ fs []
-    \\ cheat (* similar to Alloc *))
+    \\ fs [with_atoms_def,force_list_def]
+    \\ strip_tac
+    \\ qabbrev_tac ‘k5 = HandleK senv "v" (Raise (Delay (Var "v")))::
+               LetK senv (SOME "v")
+                 (Let (SOME "v") (Delay (Var "v")) (Lam NONE (Var "v")))::
+               AppK senv AppOp [Constructor "" []] []::sk’
+    \\ qpat_x_assum ‘compile_rel tl sl’ assume_tac
+    \\ drule_all eval_thm
+    \\ disch_then $ qspecl_then [‘SOME ss’,
+         ‘AppK senv Update [Thunk (INR (senv,sx))] [si]::k5’] strip_assume_tac
+    \\ gvs []
+    >-
+     (first_x_assum $ qspec_then ‘k’ strip_assume_tac \\ fs []
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ qpat_x_assum ‘compile_rel ti si’ assume_tac
+    \\ drule_all eval_thm
+    \\ disch_then $ qspecl_then [‘SOME ss’,
+        ‘AppK senv Update [sv; Thunk (INR (senv,sx))] []::k5’] strip_assume_tac
+    \\ gvs []
+    >-
+     (first_x_assum $ qspec_then ‘k’ strip_assume_tac \\ fs []
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ rename [‘get_atoms [tv1; tv2]’]
+    \\ Cases_on ‘get_atoms [tv1; tv2]’ \\ fs []
+    \\ ‘∃a1 a2. get_atoms [tv1; tv2] = SOME [a1; a2] ∧
+                tv1 = Atom a1 ∧ tv2 = Atom a2’ by
+     (Cases_on ‘tv1’ \\ fs [env_semanticsTheory.get_atoms_def]
+      \\ Cases_on ‘tv2’ \\ fs [env_semanticsTheory.get_atoms_def])
+    \\ gvs []
+    \\ Cases_on ‘a1’ \\ gvs []
+    \\ Cases_on ‘a2’ \\ gvs []
+    \\ IF_CASES_TAC >- fs []
+    \\ IF_CASES_TAC \\ fs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ rpt (qpat_x_assum ‘v_rel (Atom _) _’ mp_tac \\ simp [Once v_rel_cases])
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [GSYM NOT_LESS]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ gvs [oEL_THM]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+    \\ ‘LENGTH (EL n ss) = LENGTH (EL n ts)’ by gvs [listTheory.LIST_REL_EL_EQN]
+    \\ gvs []
+    \\ qpat_x_assum ‘_ ≠ Err’ mp_tac
+    \\ IF_CASES_TAC \\ strip_tac
+    >- (* within bounds case *)
+     (gvs [Abbr‘k5’]
+      \\ ntac 6 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+      \\ qmatch_goalsub_abbrev_tac ‘(Val vvv, SOME sss, _)’
+      \\ first_x_assum $ drule_at $ Pos last
+      \\ fs [LIST_REL_SPLIT1,PULL_EXISTS]
+      \\ rpt (disch_then $ drule_at Any)
+      \\ disch_then (qspecl_then [‘vvv’,‘senv’,‘sss’] mp_tac)
+      \\ impl_tac >-
+       (fs [LIST_REL_REPLICATE_same,Abbr‘vvv’]
+        \\ once_rewrite_tac [v_rel_cases] \\ fs []
+        \\ once_rewrite_tac [v_rel_cases] \\ fs []
+        \\ simp [Once compile_rel_cases,env_rel_def]
+        \\ once_rewrite_tac [v_rel_cases] \\ fs []
+        \\ fs [monad_cns_def,Abbr‘sss’]
+        \\ rpt (irule_at Any EVERY2_LUPDATE_same)
+        \\ fs []
+        \\ once_rewrite_tac [v_rel_cases] \\ fs []
+        \\ gvs [listTheory.LIST_REL_EL_EQN])
+      \\ strip_tac \\ gvs [GSYM PULL_FORALL]
+      \\ qexists_tac ‘n'’ \\ fs [SNOC_APPEND]
+      \\ rename [‘next _ nnn _ mmm’]
+      \\ Cases_on ‘next (k − 1) nnn tk mmm’ \\ gvs [is_halt_def]
+      \\ PairCases_on ‘e’ \\ fs [])
+    (* out of bounds case *)
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac \\ gvs [] \\ strip_tac
+    \\ first_x_assum $ drule_at $ Pos last \\ fs []
+    \\ rpt (disch_then $ drule_at $ Pos last)
+    \\ simp [Once v_rel_cases,monad_cns_def]
+    \\ gvs [PULL_EXISTS]
+    \\ simp [Once v_rel_cases,monad_cns_def,PULL_EXISTS]
+    \\ qabbrev_tac ‘aa = next (k − 1) (INR (RaiseVal (Constructor "Subscript" []))) tk ts’
+    \\ simp [Once compile_rel_cases,GSYM PULL_FORALL]
+    \\ rpt (disch_then (qspec_then ‘[("v",Constructor "Subscript" [])] ++ senv’ mp_tac))
+    \\ impl_tac
+    >- (fs [env_rel_def] \\ simp [Once v_rel_cases] \\ fs [monad_cns_def])
+    \\ strip_tac \\ gvs [NOT_LESS,Abbr‘k5’]
+    \\ rename [‘step_n nn’] \\ Cases_on ‘nn’ >-
+     (gvs [is_halt_def]
+      \\ Cases_on ‘aa’ \\ fs [] \\ TRY (Cases_on ‘e’ \\ fs []) \\ gvs []
+      \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ fs [ADD1,step_n_add,step]
+    \\ rename [‘step_n nn’] \\ Cases_on ‘nn’ >-
+     (gvs [is_halt_def]
+      \\ Cases_on ‘aa’ \\ fs [] \\ TRY (Cases_on ‘e’ \\ fs []) \\ gvs []
+      \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ fs [ADD1,step_n_add,step]
+    \\ rename [‘step_n nn’] \\ Cases_on ‘nn’ >-
+     (gvs [is_halt_def]
+      \\ Cases_on ‘aa’ \\ fs [] \\ TRY (Cases_on ‘e’ \\ fs []) \\ gvs []
+      \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ fs [ADD1,step_n_add,step]
+    \\ rename [‘step_n nn’] \\ Cases_on ‘nn’ >-
+     (gvs [is_halt_def]
+      \\ Cases_on ‘aa’ \\ fs [] \\ TRY (Cases_on ‘e’ \\ fs []) \\ gvs []
+      \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ fs [ADD1,step_n_add,step]
+    \\ ntac 9 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ Cases_on ‘aa’ \\ gvs []
+    \\ PairCases_on ‘e’ \\ gvs [])
   \\ once_rewrite_tac [next_def] \\ fs []
 QED
 

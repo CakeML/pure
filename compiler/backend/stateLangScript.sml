@@ -277,7 +277,7 @@ Definition application_def:
     | _ => error st k) ∧
   application Update env vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
+      (Atom $ Int i, Atom $ Loc n, SOME arrays) => (
         case oEL n arrays of
           SOME l =>
             if 0 ≤ i ∧ i < & LENGTH l then
