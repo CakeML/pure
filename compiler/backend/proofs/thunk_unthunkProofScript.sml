@@ -899,42 +899,11 @@ Theorem unthunk_apply_force[local]:
   v_rel v w ∧ v_inv v ⇒
     ($= +++ (λv w. v_rel v w ∧ v_inv v)) (force v) (force w)
 Proof
-  rw [force_def]
-  \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [dest_anyThunk_def]
-  >- (
-    rename1 ‘LIST_REL _ xs ys’
-    \\ ‘OPTREL (λx y. is_delay x ∧ is_delay y ∧ exp_rel x y)
-               (ALOOKUP (REVERSE xs) s)
-               (ALOOKUP (REVERSE ys) s)’
-      by (irule LIST_REL_OPTREL
-          \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ rgs [OPTREL_def]
-    \\ CASE_TAC \\ gs []
-    \\ CASE_TAC \\ gs []
-    \\ rw [subst_funs_def]
-    \\ irule exp_rel_eval
-    \\ simp [closed_subst]
-    \\ irule_at Any exp_inv_subst
-    \\ irule_at Any exp_rel_subst
-    \\ rgs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-            GSYM FST_THM, EVERY_MAP]
-    \\ irule_at Any LIST_EQ
-    \\ rgs [EL_MAP, SF CONJ_ss, EVERY_EL, ELIM_UNCURRY]
-    \\ rgs [LIST_REL_EL_EQN]
-    \\ dxrule_then kall_tac ALOOKUP_SOME_REVERSE_EL
-    \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
-    \\ first_x_assum (drule_then strip_assume_tac)
-    \\ rgs [Once exp_rel_cases]
-    \\ first_x_assum (drule_then strip_assume_tac)
-    \\ gs [freevars_def])
-  >- (
-    rw [subst_funs_def]
-    \\ irule exp_rel_eval
-    \\ gs [])
-  \\ rw [subst_funs_def]
-  \\ irule exp_rel_eval \\ gs []
-  \\ irule exp_rel_Force
-  \\ irule exp_rel_Value_Unchanged \\ gs []
+  rw [] \\ irule apply_force_rel \\ gs []
+  \\ qexists_tac ‘λx y. closed x ∧ exp_inv x ∧ exp_rel x y’
+  \\ qexists_tac ‘T’
+  \\ simp [exp_rel_eval]
+  \\ rw [exp_inv_def, exp_rel_Force, exp_rel_Value_Unchanged]
 QED
 
 Theorem unthunk_apply_closure[local]:

@@ -1511,5 +1511,119 @@ QED
 
 Theorem exp_rel_eval_to = REWRITE_RULE [d2b_goal_def] exp_rel_eval_to;
 
+Theorem exp_rel_eval:
+  exp_rel x y ∧
+  eval x ≠ INL Type_error ⇒
+    ($= +++ v_rel) (eval x) (eval y)
+Proof
+  strip_tac
+  \\ dxrule_then assume_tac eval_not_error
+  \\ simp [eval_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  >- (
+    rename1 ‘_ (eval_to k x) (eval_to j y)’
+    \\ drule_all_then
+      (qspec_then ‘MAX k j’ (qx_choose_then ‘m’ assume_tac)) exp_rel_eval_to
+    \\ ‘eval_to (m + MAX k j) x = eval_to k x’
+      by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
+    \\ ‘eval_to (MAX k j) y = eval_to j y’
+      by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
+    \\ gs [])
+  >- (
+    rename1 ‘_ _ (eval_to j y)’
+    \\ drule_all_then
+      (qspec_then ‘j’ (qx_choose_then ‘m’ assume_tac)) exp_rel_eval_to \\ gs [])
+  \\ rename1 ‘_ _ (eval_to k x)’
+  \\ drule_all_then
+    (qspec_then ‘k’ (qx_choose_then ‘m’ assume_tac)) exp_rel_eval_to
+  \\ Cases_on ‘eval_to (k + m) x’ \\ gvs []
+  \\ drule_then (qspec_then ‘k + m’ assume_tac) eval_to_mono \\ gs []
+QED
+
+Theorem d2b_apply_force[local]:
+  v_rel v w ∧
+  force v ≠ INL Type_error ⇒
+    ($= +++ v_rel) (force v) (force w)
+Proof
+  rw [] \\ irule apply_force_rel \\ simp []
+  \\ qexists_tac ‘exp_rel’
+  \\ qexists_tac ‘F’
+  \\ simp [exp_rel_Force, exp_rel_Value, exp_rel_eval]
+QED
+
+Theorem d2b_apply_closure[local]:
+  v_rel v1 w1 ∧
+  v_rel v2 w2 ∧
+  apply_closure v1 v2 f ≠ Err ∧
+  f (INL Type_error) = Err ∧
+  (∀x y.
+     ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
+       next_rel v_rel (f x) (g y)) ⇒
+    next_rel v_rel
+             (apply_closure v1 v2 f)
+             (apply_closure w1 w2 g)
+Proof
+  rw [thunk_semanticsTheory.apply_closure_def]
+  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
+  >- (
+    first_x_assum irule \\ gs []
+    \\ irule exp_rel_eval
+    \\ gs [closed_subst]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ strip_tac \\ gs [])
+  \\ rename1 ‘LIST_REL _ xs ys’
+  \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+    by (irule LIST_REL_OPTREL
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+  \\ gs [OPTREL_def]
+  \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+  \\ rw [Once exp_rel_cases] \\ gs []
+  \\ first_x_assum irule \\ gs []
+  \\ irule exp_rel_eval
+  \\ irule_at Any exp_rel_subst
+  \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+  \\ irule_at Any LIST_EQ
+  \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+  \\ strip_tac \\ gs []
+QED
+
+Theorem d2b_rel_ok[local]:
+  rel_ok F v_rel
+Proof
+  rw [rel_ok_def]
+  >- ((* force preserves rel *)
+    simp [d2b_apply_force])
+  >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
+    simp [d2b_apply_closure])
+  >- ((* Thunks go to Thunks or DoTicks *)
+    Cases_on ‘s’ \\ gs []
+    \\ gs [Once v_rel_cases])
+  >- ((* Equal literals are related *)
+    simp [exp_rel_Prim])
+  >- ((* Equal 0-arity conses are related *)
+    simp [exp_rel_Prim])
+QED
+
+Theorem d2b_sim_ok[local]:
+  sim_ok F v_rel exp_rel
+Proof
+  rw [sim_ok_def]
+  \\ simp [exp_rel_eval]
+  \\ irule exp_rel_subst \\ gs []
+QED
+
+Theorem case_d2b_semantics:
+  exp_rel x y ∧
+  closed x ∧
+  pure_semantics$safe_itree (semantics x Done []) ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ irule sim_ok_semantics
+  \\ irule_at Any d2b_sim_ok
+  \\ irule_at Any d2b_rel_ok \\ gs []
+QED
+
 val _ = export_theory ();
 

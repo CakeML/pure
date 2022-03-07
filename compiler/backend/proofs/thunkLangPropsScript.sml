@@ -894,5 +894,131 @@ Proof
   \\ gs [semantics_def]
 QED
 
+(* -------------------------------------------------------------------------
+ * eval/eval_to props
+ * ------------------------------------------------------------------------- *)
+
+Theorem eval_to_equals_eval:
+  eval_to k x ≠ INL Diverge ⇒ eval_to k x = eval x
+Proof
+  rw [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ rename1 ‘_ = eval_to j x’
+  \\ imp_res_tac eval_to_mono
+  \\ Cases_on ‘k ≤ j’ \\ gs []
+QED
+
+Theorem eval_Force:
+  eval (Force (Value v)) =
+    case dest_Tick v of
+      NONE =>
+        do
+          (wx,binds) <- dest_anyThunk v;
+          case wx of
+            INL v => return v
+          | INR y => eval (subst_funs binds y)
+        od
+    | SOME w => eval (Force (Value w))
+Proof
+  simp [Once eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ rw []
+  >- (
+    fs [Once eval_to_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ fs [Once eval_to_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    >- (
+      Cases_on ‘dest_anyThunk v’ \\ gs []
+      \\ pairarg_tac \\ gvs []
+      \\ CASE_TAC \\ gs []
+      \\ irule eval_to_equals_eval \\ gs [])
+    \\ irule eval_to_equals_eval \\ gs [])
+  \\ Cases_on ‘dest_Tick v’ \\ gs []
+  >- (
+    gs [Once eval_to_def]
+    \\ gs [Once eval_to_def]
+    \\ Cases_on ‘dest_anyThunk v’ \\ gs []
+    >- (
+      first_x_assum (qspec_then ‘1’ assume_tac)
+      \\ Cases_on ‘v’ \\ gs [])
+    \\ pairarg_tac \\ gvs []
+    \\ CASE_TAC \\ gs []
+    \\ simp [eval_def]
+    \\ DEEP_INTRO_TAC some_intro \\ rw []
+    \\ first_x_assum (qspec_then ‘x + 1’ assume_tac) \\ gs [])
+  \\ simp [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw []
+  \\ gs [Once eval_to_def]
+  \\ gs [Once eval_to_def]
+  \\ rename1 ‘eval_to k’
+  \\ first_x_assum (qspec_then ‘k + 1’ assume_tac) \\ gs []
+QED
+
+Theorem force_eval:
+  force v = eval (Force (Value v))
+Proof
+  rw [Once eval_Force] \\ rw [force_def]
+QED
+
+Theorem apply_force_rel:
+  Rv v w ∧
+  (∀x y.
+     Re x y ∧
+     (allow_error ∨ eval x ≠ INL Type_error) ⇒
+       ($= +++ Rv) (eval x) (eval y)) ∧
+  (∀v w. Rv v w ⇒ Re (Force (Value v)) (Force (Value w))) ∧
+  (allow_error ∨ force v ≠ INL Type_error) ⇒
+    ($= +++ Rv) (force v) (force w)
+Proof
+  rw [force_eval]
+QED
+
+Theorem eval_not_error:
+  eval x ≠ INL Type_error ⇒
+    ∀k. eval_to k x ≠ INL Type_error
+Proof
+  simp [eval_def]
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ qx_gen_tac ‘j’ \\ rw []
+  \\ drule_then (qspec_then ‘k’ assume_tac) eval_to_mono
+  \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
+  \\ drule_then (qspec_then ‘j’ assume_tac) eval_to_mono
+  \\ Cases_on ‘j < k’ \\ gs []
+QED
+
+Theorem eval_to_eval_lift:
+  (∀k x y.
+     Re x y ∧
+     (allow_error ∨ (∀k. eval_to k x ≠ INL Type_error)) ⇒
+       ($= +++ Rv) (eval_to k x) (eval_to k y)) ⇒
+    ∀x y.
+      Re x y ∧
+      (allow_error ∨ eval x ≠ INL Type_error) ⇒
+        ($= +++ Rv) (eval x) (eval y)
+Proof
+  rw [DISJ_EQ_IMP]
+  \\ ‘¬allow_error ⇒ ∀k. eval_to k x ≠ INL Type_error’
+    by (rw [DISJ_EQ_IMP] \\ gs []
+        \\ drule eval_not_error \\ gs [])
+  \\ qpat_x_assum ‘eval x = _ ⇒ _’ kall_tac
+  \\ simp [eval_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ simp [PULL_FORALL]
+  \\ qx_gen_tac ‘i’
+  \\ qx_gen_tac ‘j’
+  \\ qx_gen_tac ‘k’
+  \\ rw [] \\ gs []
+  >- (
+    first_x_assum (drule_all_then assume_tac)
+    \\ first_x_assum (qspec_then ‘i + j’ assume_tac)
+    \\ dxrule_then (qspec_then ‘i + j’ assume_tac) eval_to_mono
+    \\ dxrule_then (qspec_then ‘i + j’ assume_tac) eval_to_mono \\ gs [])
+  >- (
+    first_x_assum (drule_then assume_tac) \\ gs [])
+  \\ first_x_assum (drule_then assume_tac) \\ gs []
+QED
+
 val _ = export_theory ();
 
