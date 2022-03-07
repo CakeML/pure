@@ -453,9 +453,7 @@ Proof
   \\ qid_spec_tac ‘as’
   \\ Induct \\ fs []
   \\ Cases \\ fs [concat_def,implode_def]
-  \\ rw []
-  \\ res_tac
-  \\ cheat
+  \\ rw [] \\ res_tac
 QED
 
 Theorem get_atoms_MAP_Atom:

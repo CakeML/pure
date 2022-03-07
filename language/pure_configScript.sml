@@ -31,13 +31,13 @@ Overload Bool[local] = “λb. SOME (INR b) : (lit + bool) option”;
 Definition concat_def:
   concat [] = SOME "" ∧
   concat (Str s :: t) = OPTION_MAP (λr. s ++ r) (concat t) ∧
-  concat (Int _ :: _) = NONE
+  concat (    _ :: _) = NONE
 End
 
 Definition implode_def:
   implode [] = SOME "" ∧
   implode (Int i :: t) = OPTION_MAP (λr. CHR (Num (i % 256)) :: r) (implode t) ∧
-  implode (Str _ :: _) = NONE
+  implode (    _ :: _) = NONE
 End
 
 Definition str_el_def:
