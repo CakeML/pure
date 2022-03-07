@@ -141,7 +141,7 @@ Definition num_args_ok_def[simp]:
   num_args_ok (AtomOp aop) n = T ∧
   num_args_ok (Proj _ _) n = (n = 1) ∧
   num_args_ok (IsEq _ _) n = (n = 1) ∧
-  num_args_ok Sub n = (n = 1) ∧
+  num_args_ok Sub n = (n = 2) ∧
   num_args_ok Alloc n = (n = 2) ∧
   num_args_ok Length n = (n = 1) ∧
   num_args_ok Update n = (n = 3) ∧

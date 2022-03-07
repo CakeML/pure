@@ -80,6 +80,7 @@ End
 
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
 Overload RetVal = “λv. Constructor "Ret" [Thunk (INR ([("v",v)],Var "v"))]”;
+Overload RaiseVal = “λv. Constructor "Raise" [Thunk (INR ([("v",v)],Var "v"))]”;
 
 Definition next_def:
   next (k:num) sv stack (state:state) =
@@ -149,7 +150,7 @@ Definition next_def:
                         stack state
                     else
                       next (k-1)
-                        (INR $ Constructor "Raise" [Constructor "Subscript" []])
+                        (INR $ RaiseVal $ Constructor "Subscript" [])
                         stack state)
                | _ => Err))
           else if s = "Update" ∧ LENGTH vs = 3 then
@@ -165,7 +166,7 @@ Definition next_def:
                         (LUPDATE (LUPDATE (EL 2 vs) (Num i) (EL n state)) n state)
                     else
                       next (k-1)
-                        (INR $ Constructor "Raise" [Constructor "Subscript" []])
+                        (INR $ RaiseVal $ Constructor "Subscript" [])
                         stack state)
                | _ => Err))
           else Err)
