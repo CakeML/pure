@@ -256,7 +256,7 @@ Proof
 QED
 
 Theorem exp_rel_eval_to:
-  ∀k x y m.
+  ∀k x y.
     exp_rel x y ⇒
       ($= +++ v_rel)
         (eval_to k x)
@@ -533,6 +533,87 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
       \\ rpt CASE_TAC \\ gs []))
+QED
+
+Theorem exp_rel_eval[local] =
+  Q.INST [‘allow_error’|->‘T’] eval_to_eval_lift
+  |>  SIMP_RULE (srw_ss ()) []
+  |> Lib.C MATCH_MP exp_rel_eval_to;
+
+Theorem unbox_apply_force[local]:
+  v_rel v w ⇒
+    ($= +++ v_rel) (force v) (force w)
+Proof
+  rw [] \\ irule apply_force_rel \\ simp []
+  \\ qexists_tac ‘exp_rel’
+  \\ qexists_tac ‘T’
+  \\ simp [exp_rel_Force, exp_rel_Value, exp_rel_eval]
+QED
+
+Theorem unbox_apply_closure[local]:
+  v_rel v1 w1 ∧
+  v_rel v2 w2 ∧
+  (∀x y.
+     ($= +++ v_rel) x y ⇒
+       next_rel v_rel (f x) (g y)) ⇒
+    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+Proof
+  rw [thunk_semanticsTheory.apply_closure_def]
+  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
+  >- (
+    first_x_assum irule \\ gs []
+    \\ irule exp_rel_eval
+    \\ irule exp_rel_subst \\ gs [])
+  \\ rename1 ‘LIST_REL _ xs ys’
+  \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+    by (irule LIST_REL_OPTREL
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+  \\ gs [OPTREL_def]
+  \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+  \\ rw [Once exp_rel_cases] \\ gs []
+  \\ first_x_assum irule \\ gs []
+  \\ irule exp_rel_eval
+  \\ irule exp_rel_subst
+  \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+  \\ irule_at Any LIST_EQ
+  \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+QED
+
+Theorem unbox_rel_ok[local]:
+  rel_ok T v_rel
+Proof
+  rw [rel_ok_def]
+  >- ((* force preserves rel *)
+    simp [unbox_apply_force])
+  >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
+    simp [unbox_apply_closure])
+  >- ((* Thunks go to Thunks or DoTicks *)
+    Cases_on ‘s’ \\ gs [])
+  >- (
+    gs [Once v_rel_cases])
+  >- ((* Equal literals are related *)
+    simp [exp_rel_Prim])
+  >- ((* Equal 0-arity conses are related *)
+    simp [exp_rel_Prim])
+QED
+
+Theorem unbox_sim_ok[local]:
+  sim_ok T v_rel exp_rel
+Proof
+  rw [sim_ok_def]
+  \\ simp [exp_rel_eval]
+  \\ irule exp_rel_subst \\ gs []
+QED
+
+Theorem case_unbox_semantics:
+  exp_rel x y ∧
+  closed x ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ irule sim_ok_semantics
+  \\ irule_at Any unbox_sim_ok
+  \\ irule_at Any unbox_rel_ok \\ gs []
 QED
 
 val _ = export_theory ();
