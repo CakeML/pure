@@ -260,7 +260,37 @@ Proof
     \\ rename1 ‘exp_rel env x y’
     \\ first_x_assum (drule_all_then assume_tac)
     \\ first_x_assum (drule_all_then assume_tac)
-    \\ cheat (* order of evaluation *))
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k env y’ \\ gs []
+    \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k env g’ \\ gs []
+    \\ rename1 ‘v_rel v w’
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def, v_rel_def,
+                                            envLangTheory.dest_anyClosure_def]
+    >- (
+      IF_CASES_TAC \\ gs []
+      \\ rename1 ‘v_rel v w’
+      \\ ‘[s,v] = [] ++ [s,v]’ by gs []
+      \\ pop_assum SUBST1_TAC
+      \\ first_x_assum (irule_at Any) \\ gs []
+      \\ ‘(s,w)::l = [s,w] ++ l’ by gs []
+      \\ pop_assum SUBST1_TAC
+      \\ irule exp_rel_subst
+      \\ gs [exp_rel_def, env_rel_def]
+      \\ cheat (* TODO See remark below *))
+    \\ qmatch_asmsub_abbrev_tac ‘LIST_REL (λ(a,x) (b,y). a = b ∧ R x y) xs ys’
+    \\ ‘OPTREL R (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      by (irule LIST_REL_OPTREL
+          \\ gvs [LIST_REL_EL_EQN])
+    \\ gs [OPTREL_def, Abbr ‘ys’, Abbr ‘R’]
+    \\ qpat_x_assum ‘exp_rel _ x0 y0’ mp_tac
+    \\ rw [Once exp_rel_cases] \\ gs []
+    \\ IF_CASES_TAC \\ gs []
+    \\ first_x_assum (irule_at Any)
+    \\ qmatch_goalsub_abbrev_tac ‘exp_rel (A::(B ++ C))’
+    \\ ‘A::(B ++ C) = A::B ++ C’ by gs []
+    \\ pop_assum SUBST1_TAC
+    \\ irule exp_rel_subst
+    \\ unabbrev_all_tac
+    \\ cheat (* TODO See remark below *))
   >~ [‘Lam s x’] >- (
     gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def, v_rel_def])
   >~ [‘Seq x1 y1’] >- (
