@@ -27,11 +27,13 @@ Inductive compile_rel:
 
 [~Ret:]
   (compile_rel te se ⇒
-  compile_rel (Prim (Cons "Ret") [Delay te]) (Lam NONE (Delay se))) ∧
+  compile_rel (Prim (Cons "Ret") [te])
+              (Let (SOME "v") se $ Lam NONE (Var "v"))) ∧
 
 [~Raise:]
   (compile_rel te se ⇒
-  compile_rel (Prim (Cons "Raise") [Delay te]) (Lam NONE (Raise (Delay se)))) ∧
+  compile_rel (Prim (Cons "Raise") [te])
+              (Let (SOME "v") se $ Lam NONE (Raise (Var "v")))) ∧
 
 [~Bind:]
   (compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
@@ -178,16 +180,10 @@ Inductive v_rel:
            (Closure NONE senv (ret (app se Unit)))) ∧
 
 [~Ret:]
-  (∀te se tenv senv.
-     compile_rel te se ∧ env_rel tenv senv ⇒
-     v_rel (Constructor "Ret" [Thunk (INR (tenv,te))])
-           (Closure NONE senv (Delay se))) ∧
-
-[~Ret_Var:]
-  (∀te se tenv senv senv0.
-     compile_rel te se ∧ env_rel tenv senv ⇒
-     v_rel (Constructor "Ret" [Thunk (INR (tenv,te))])
-           (Closure NONE (("v",Thunk(INR (senv,se)))::senv0) (Var "v"))) ∧
+  (∀tv sv senv.
+     v_rel tv sv ⇒
+     v_rel (Constructor "Ret" [tv])
+           (Closure NONE (("v",sv)::senv) (Var "v"))) ∧
 
 [~Bind:]
   (∀te1 se1 te2 se2 tenv senv.
@@ -205,10 +201,10 @@ Inductive v_rel:
          (app (HandleApp se2 (Let (SOME "v") (app se1 Unit) (Lam NONE (Var "v")))) Unit))) ∧
 
 [~Raise:]
-  (∀te se tenv senv.
-     compile_rel te se ∧ env_rel tenv senv ⇒
-     v_rel (Constructor "Raise" [Thunk (INR (tenv,te))])
-           (Closure NONE senv (Raise (Delay se)))) ∧
+  (∀tv sv senv.
+     v_rel tv sv ⇒
+     v_rel (Constructor "Raise" [tv])
+           (Closure NONE (("v",sv)::senv) (Raise (Var "v")))) ∧
 
 [~Length:]
   (∀tl sl tenv senv.
@@ -349,6 +345,7 @@ Theorem eval_to_thm:
       | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel tv sv
       | INL err => n ≤ ck ∧ ~is_halt sres
 Proof
+
   ho_match_mp_tac eval_to_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ strip_tac
   >~ [‘Var v’] >-
@@ -599,12 +596,41 @@ Proof
   \\ Cases_on ‘op’ \\ gvs []
   \\ TRY (fs [eval_to_def] \\ NO_TAC)
   >~ [‘Cons s’] >-
-
    (Cases_on ‘s = "Ret"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ fs [eval_to_def,result_map_def]
-      \\ qexists_tac ‘1’
-      \\ fs [step_def,push_def,return_def,continue_def,value_def]
+      \\ IF_CASES_TAC \\ gvs []
+      \\ first_x_assum drule_all
+      \\ disch_then $ qspecl_then [‘st’,‘LetK senv (SOME "v") (Lam NONE (Var "v"))::k’]
+            strip_assume_tac
+      \\ IF_CASES_TAC \\ gvs []
+      >- (qexists_tac ‘ck’ \\ fs [])
+      \\ ‘∃tv. eval_to n tenv te = INR tv’ by
+        (Cases_on ‘eval_to n tenv te’ \\ fs [] \\ Cases_on ‘x’ \\ fs [])
+      \\ gvs []
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ qexists_tac ‘0’ \\ fs []
+      \\ simp [Once v_rel_cases])
+    \\ Cases_on ‘s = "Raise"’ \\ gvs [] >-
+     (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ fs [eval_to_def,result_map_def]
+      \\ IF_CASES_TAC \\ gvs []
+      \\ first_x_assum drule_all
+      \\ disch_then $ qspecl_then [‘st’,‘LetK senv (SOME "v") (Lam NONE (Raise (Var "v")))::k’]
+            strip_assume_tac
+      \\ IF_CASES_TAC \\ gvs []
+      >- (qexists_tac ‘ck’ \\ fs [])
+      \\ ‘∃tv. eval_to n tenv te = INR tv’ by
+        (Cases_on ‘eval_to n tenv te’ \\ fs [] \\ Cases_on ‘x’ \\ fs [])
+      \\ gvs []
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ qexists_tac ‘0’ \\ fs []
       \\ simp [Once v_rel_cases])
     \\ Cases_on ‘s = "Act"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
@@ -616,11 +642,6 @@ Proof
       \\ fs [step_def,push_def,return_def,continue_def,value_def]
       \\ simp [Once v_rel_cases])
     \\ Cases_on ‘s = "Handle"’ \\ gvs [] >-
-     (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
-      \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’
-      \\ fs [step_def,push_def,return_def,continue_def,value_def]
-      \\ simp [Once v_rel_cases])
-    \\ Cases_on ‘s = "Raise"’ \\ gvs [] >-
      (simp [Once compile_rel_cases] \\ fs [monad_cns_def] \\ rw []
       \\ fs [eval_to_def,result_map_def] \\ qexists_tac ‘1’
       \\ fs [step_def,push_def,return_def,continue_def,value_def]
@@ -820,12 +841,6 @@ Proof
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
 QED
 
-Theorem force_Thunk[simp]:
-  force (Thunk (INR (env,e))) = eval env e
-Proof
-  fs [force_def,envLangTheory.dest_anyThunk_def,dest_Thunk_def]
-QED
-
 Theorem next_thm:
   ∀k tv sv tk sk senv tres ts ss.
     v_rel tv sv ∧
@@ -848,7 +863,6 @@ Theorem next_thm:
                AppK nenv2 AppOp [Constructor "" []] []::sk ∧
            LIST_REL (LIST_REL v_rel) ts1 ss1)
 Proof
-
   gen_tac \\ completeInduct_on ‘k’
   \\ gvs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ reverse (Cases_on ‘∃s vs. tv = Constructor s vs’)
@@ -858,45 +872,31 @@ Proof
   \\ qpat_x_assum ‘v_rel _ _’ mp_tac
   \\ Cases_on ‘s = "Ret"’ >-
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
+    \\ simp [Once v_rel_cases,monad_cns_def]
     \\ once_rewrite_tac [next_def] \\ gvs []
-    \\ strip_tac
-    \\ ‘∃te se tenv senv senv6 e6 senv7.
-           vs = [Thunk (INR (tenv,te))] ∧
-           (if e6 = Var "v" then
-              senv6 = ("v",Thunk (INR (senv,se)))::senv7
-            else
-              senv6 = senv ∧ e6 = Delay se) ∧
-           sv = Closure NONE senv6 e6 ∧
-           compile_rel te se ∧ env_rel tenv senv’ by
-     (pop_assum mp_tac \\ simp [Once v_rel_cases,monad_cns_def] \\ rw [] \\ gvs [])
-    \\ gvs []
+    \\ strip_tac \\ gvs []
     \\ Cases_on ‘tk’ \\ fs []
     >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ qexists_tac ‘1’
-      \\ Cases_on ‘e6 = Var "v"’ \\ gvs []
-      \\ fs [step_def,value_def,GSYM PULL_FORALL]
+     (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ qexists_tac ‘0’ \\ fs [GSYM PULL_FORALL]
       \\ fs [Once cont_rel_cases,is_halt_def])
     >-
      (IF_CASES_TAC \\ gvs []
       >- (qexists_tac ‘0’ \\ fs [is_halt_def])
       \\ strip_tac
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ ‘step_n 1 (Exp senv6 e6,SOME ss,sk) =
-           (Val (Thunk (INR (senv',se))),SOME ss,sk)’ by
-              (Cases_on ‘e6 = Var "v"’ \\ gvs [step])
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ fs [force_apply_closure_def]
       \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
       \\ simp [Once cont_rel_cases]
       \\ strip_tac \\ gvs []
-      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ fs [force_apply_closure_def]
       \\ rename [‘env_rel tenv1 senv1’]
       \\ rename [‘compile_rel te1 se1’]
       \\ rename [‘cont_rel tk1 sk1’]
-      \\ drule_all eval_thm
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ qmatch_goalsub_abbrev_tac ‘(Exp senv1 se1,SOME ss,kk)’
+      \\ drule_all eval_thm
       \\ disch_then (qspecl_then [‘SOME ss’,‘kk’] strip_assume_tac)
       \\ gvs []
       >-
@@ -907,7 +907,8 @@ Proof
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add]
       \\ fs [step_def,return_def]
       \\ gvs [apply_closure_def,AllCaseEqs(),PULL_EXISTS,PULL_FORALL]
-      \\ Cases_on ‘dest_anyClosure tv’ \\ fs []
+      \\ rename [‘dest_anyClosure tv1’]
+      \\ Cases_on ‘dest_anyClosure tv1’ \\ fs []
       \\ PairCases_on ‘y’ \\ gvs []
       \\ gvs [application_def]
       \\ drule_all v_rel_dest_anyClosure
@@ -941,7 +942,6 @@ Proof
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ qpat_x_assum ‘cont_rel _ _’ mp_tac \\ simp [Once cont_rel_cases]
       \\ rpt strip_tac \\ gvs []
-      \\ Cases_on ‘e6 = Var "v"’ \\ gvs [step,GSYM PULL_FORALL]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
@@ -950,9 +950,9 @@ Proof
       \\ qmatch_goalsub_abbrev_tac ‘Val vvv’
       \\ disch_then $ qspecl_then [‘vvv’,‘senv’] mp_tac
       \\ (impl_tac >- (unabbrev_all_tac \\ simp [Once v_rel_cases]))
-      \\ strip_tac
+      \\ strip_tac \\ gvs [GSYM PULL_FORALL]
       \\ qexists_tac ‘n’ \\ fs []
-      \\ Cases_on ‘next (k − 1) (INR (Constructor "Ret" [Thunk (INR (tenv,te))])) c ts’
+      \\ Cases_on ‘next (k − 1) (INR (Constructor "Ret" [tv])) c ts’
       \\ gvs [] \\ PairCases_on ‘e’ \\ fs []))
   \\ Cases_on ‘s = "Raise"’ >-
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
@@ -975,20 +975,20 @@ Proof
       \\ simp [Once v_rel_cases,monad_cns_def]
       \\ simp [PULL_EXISTS]
       \\ rpt (disch_then $ drule_at $ Pos last)
-      \\ disch_then $ qspec_then ‘senv''’ strip_assume_tac
+      \\ disch_then $ qspecl_then [‘senv’,‘senv'’] strip_assume_tac
       \\ gvs [GSYM PULL_FORALL]
       \\ qpat_x_assum ‘step_n n _ = _’ mp_tac
       \\ Cases_on ‘n’ \\ fs []
       >-
        (strip_tac \\ gvs [is_halt_def]
-        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [tv])) c ts’
         \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
         \\ qexists_tac ‘1’ \\ fs [step,is_halt_def])
       \\ rewrite_tac [ADD1,step_n_add] \\ fs [step]
       \\ Cases_on ‘n'’ \\ fs []
       >-
        (strip_tac \\ gvs [is_halt_def]
-        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [tv])) c ts’
         \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
         \\ qexists_tac ‘1+1’
         \\ fs [step_n_add] \\ fs [step,is_halt_def])
@@ -996,7 +996,7 @@ Proof
       \\ Cases_on ‘n’ \\ fs []
       >-
        (strip_tac \\ gvs [is_halt_def]
-        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [tv])) c ts’
         \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
         \\ qexists_tac ‘1+1+1’
         \\ fs [step_n_add] \\ fs [step,is_halt_def])
@@ -1004,7 +1004,7 @@ Proof
       \\ Cases_on ‘n'’ \\ fs []
       >-
        (strip_tac \\ gvs [is_halt_def]
-        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+        \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [tv])) c ts’
         \\ fs [] >- (qexists_tac ‘0’ \\ fs [])
         \\ qexists_tac ‘1+1+1+1’
         \\ fs [step_n_add] \\ fs [step,is_halt_def])
@@ -1013,12 +1013,14 @@ Proof
       \\ ntac 6 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
       \\ gvs [ADD1]
       \\ pop_assum $ irule_at Any
-      \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [Thunk (INR (tenv,te))])) c ts’
+      \\ Cases_on ‘next (k − 1) (INR (Constructor "Raise" [tv])) c ts’
       \\ fs [] \\ PairCases_on ‘e’ \\ fs [is_halt_def])
     >-
      (IF_CASES_TAC \\ gvs []
       >- (qexists_tac ‘0’ \\ fs [is_halt_def])
       \\ strip_tac
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ fs [force_apply_closure_def]
@@ -1030,8 +1032,6 @@ Proof
       \\ rename [‘env_rel tenv1 senv1’]
       \\ rename [‘compile_rel te1 se1’]
       \\ rename [‘cont_rel tk1 sk1’]
-      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
       \\ drule_all eval_thm
       \\ qmatch_goalsub_abbrev_tac ‘(Exp senv1 se1,SOME ss,kk)’
       \\ disch_then (qspecl_then [‘SOME ss’,‘kk’] strip_assume_tac)
@@ -1044,7 +1044,8 @@ Proof
       \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add]
       \\ fs [step_def,return_def]
       \\ gvs [apply_closure_def,AllCaseEqs(),PULL_EXISTS,PULL_FORALL]
-      \\ Cases_on ‘dest_anyClosure tv’ \\ fs []
+      \\ rename [‘dest_anyClosure tv1’]
+      \\ Cases_on ‘dest_anyClosure tv1’ \\ fs []
       \\ PairCases_on ‘y’ \\ gvs []
       \\ gvs [application_def]
       \\ drule_all v_rel_dest_anyClosure
@@ -1215,8 +1216,9 @@ Proof
     \\ impl_tac >-
      (fs [LIST_REL_REPLICATE_same,Abbr‘vvv’]
       \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ simp [Once v_rel_cases]
       \\ simp [Once compile_rel_cases,env_rel_def]
-      \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ simp [Once v_rel_cases]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
     \\ strip_tac \\ gvs [GSYM PULL_FORALL]
     \\ qexists_tac ‘n’ \\ fs [SNOC_APPEND]
@@ -1263,6 +1265,7 @@ Proof
     \\ impl_tac >-
      (fs [LIST_REL_REPLICATE_same,Abbr‘vvv’]
       \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ once_rewrite_tac [v_rel_cases] \\ fs []
       \\ simp [Once compile_rel_cases,env_rel_def]
       \\ once_rewrite_tac [v_rel_cases] \\ fs []
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -1273,7 +1276,6 @@ Proof
     \\ Cases_on ‘next (k − 1) nnn tk mmm’ \\ gvs [is_halt_def]
     \\ PairCases_on ‘e’ \\ fs [])
   \\ Cases_on ‘s = "Deref"’ >-
-
    (reverse (Cases_on ‘LENGTH vs = 2’) >- fs [Once next_def]
     \\ simp [Once v_rel_cases,monad_cns_def]
     \\ strip_tac \\ gvs [with_atoms_def,force_list_def] \\ strip_tac
@@ -1326,7 +1328,6 @@ Proof
     \\ gvs [GSYM NOT_LESS]
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
     \\ cheat *))
-
   \\ Cases_on ‘s = "Update"’ >-
    (reverse (Cases_on ‘LENGTH vs = 3’) >- fs [Once next_def]
     \\ once_rewrite_tac [next_def] \\ fs []
@@ -1538,9 +1539,8 @@ Proof
     \\ DEEP_INTRO_TAC some_intro \\ fs [])
   \\ pop_assum $ irule_at Any
   \\ ‘compile_rel (Prim (Cons "Ret") [Delay (Var "v")])
-        (Lam NONE (Delay (Var "v")))’ by
-   (simp [Once compile_rel_cases]
-    \\ simp [Once compile_rel_cases])
+        (Let (SOME "v") (Delay (Var "v")) $ Lam NONE (Var "v"))’ by
+            (rpt (simp [Once compile_rel_cases]))
   \\ pop_assum $ irule_at Any
   \\ rpt (first_assum $ irule_at $ Pos hd)
   \\ qexists_tac ‘[("v",Atom (Str y))] ++ nenv1’
@@ -1553,8 +1553,8 @@ Proof
   \\ ntac 7 (irule EQ_TRANS
              \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
   \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ ntac 3 (irule EQ_TRANS
-             \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
+  \\ ntac 10 (irule EQ_TRANS
+              \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
 QED
 
 Theorem compile_rel_itree_of:

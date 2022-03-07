@@ -294,6 +294,11 @@ Proof
   metis_tac [arithmeticTheory.LESS_EQ_CASES, next_less_eq]
 QED
 
+Theorem force_Thunk[simp]:
+  force (Thunk (INR (env,e))) = eval env e
+Proof
+  fs [force_def,dest_anyThunk_def,dest_Thunk_def]
+QED
 
 (****************************************)
 
