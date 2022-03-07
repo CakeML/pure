@@ -80,9 +80,17 @@ Inductive compile_rel:
   (compile_rel te se ⇒
   compile_rel (Prim (Cons "Act") [Delay te]) (Lam NONE (ret (app se Unit)))) ∧
 
+[~Proj:]
+  (compile_rel te se ∧ s ∉ monad_cns ⇒
+  compile_rel (Prim (Proj s n) [te]) (App (Proj s n) [se])) ∧
+
+[~IsEq:]
+  (compile_rel te se ∧ s ∉ monad_cns ⇒
+  compile_rel (Prim (IsEq s n) [te]) (App (IsEq s n) [se])) ∧
+
 [~AtomOp:]
   (LIST_REL compile_rel tes ses ∧
-   (∀s. aop ≠ Message s) ⇒
+   (∀s. aop ≠ Message s) ∧ (∀s1 s2. aop ≠ Lit (Msg s1 s2)) ⇒
   compile_rel (Prim (AtomOp aop) tes) (App (AtomOp aop) ses)) ∧
 
 [~Cons:]
@@ -356,7 +364,7 @@ Theorem eval_to_list_div:
     MEM (INL Diverge) (MAP (eval_to n tenv) xs) ⇒
     ∃ck1.
       n ≤ ck1 + 1 ∧
-      ¬is_halt (step_n ck1 (Val sv,st,AppK senv (Cons s) aux t::k))
+      ¬is_halt (step_n ck1 (Val sv,st,AppK senv op aux t::k))
 Proof
   Induct >- fs [] \\ rw []
   \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
@@ -364,7 +372,7 @@ Proof
   \\ qpat_x_assum ‘∀x. _’ mp_tac
   \\ first_x_assum drule \\ fs []
   \\ disch_then drule
-  \\ disch_then $ qspecl_then [‘st’,‘AppK senv (Cons s) (sv::aux) ys::k’] strip_assume_tac
+  \\ disch_then $ qspecl_then [‘st’,‘AppK senv op (sv::aux) ys::k’] strip_assume_tac
   \\ rw []
   >- (first_x_assum $ irule_at Any \\ fs [])
   \\ Cases_on ‘eval_to n tenv h’ \\ fs []
@@ -416,6 +424,46 @@ Proof
   \\ fs []
 QED
 
+Theorem step_n_AtomOp:
+  ∀t ys a' vs.
+    LIST_REL (λes a. ∀k. ∃ck. step_n ck (Exp senv es,st,k) = (Val (Atom a),st,k)) t ys ⇒
+    ∃ck1. step_n ck1 (Val (Atom a'),st,AppK senv (AtomOp a) vs t::k) =
+            application (AtomOp a) [] (MAP Atom (REVERSE ys) ++ Atom a' :: vs) st k
+Proof
+  Induct \\ fs [] \\ rw []
+  >- (qexists_tac ‘1’ \\ fs [step])
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ first_x_assum $ qspec_then ‘AppK senv (AtomOp a) (Atom a'::vs) t::k’ strip_assume_tac
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ last_x_assum drule
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ rename [‘Atom a1::Atom a2::vs’]
+  \\ disch_then $ qspecl_then [‘a1’,‘Atom a2 :: vs’] strip_assume_tac
+  \\ qexists_tac ‘ck1’ \\ fs []
+QED
+
+Theorem eval_op_not_Msg:
+  eval_op a as = SOME x ∧ (∀msg. a ≠ Message msg) ⇒
+  EVERY (λa. ∀a1 a2. a ≠ Msg a1 a2) as
+Proof
+  strip_tac
+  \\ gvs [DefnBase.one_line_ify NONE eval_op_def,AllCaseEqs()]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘z’
+  \\ qid_spec_tac ‘as’
+  \\ Induct \\ fs []
+  \\ Cases \\ fs [concat_def,implode_def]
+  \\ rw []
+  \\ res_tac
+  \\ cheat
+QED
+
+Theorem get_atoms_MAP_Atom:
+  ∀as. stateLang$get_atoms (MAP Atom as) = SOME as
+Proof
+  Induct \\ fs [stateLangTheory.get_atoms_def]
+QED
+
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
     eval_to n tenv te = tres ∧ compile_rel te se ∧
@@ -426,7 +474,6 @@ Theorem eval_to_thm:
       | INR tv => ∃sv. sres = (Val sv,st,k) ∧ v_rel tv sv
       | INL err => n ≤ ck ∧ ~is_halt sres
 Proof
-
   ho_match_mp_tac eval_to_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ strip_tac
   >~ [‘Var v’] >-
@@ -795,8 +842,56 @@ Proof
     \\ ‘LIST_REL v_rel [] []’ by fs []
     \\ disch_then $ drule_at $ Pos last
     \\ fs [GSYM PULL_FORALL])
-  >~ [‘Proj s i’] >- cheat (* easy *)
-  >~ [‘IsEq s i’] >- cheat (* easy *)
+  >~ [‘Proj s i’] >-
+   (simp [Once compile_rel_cases,PULL_EXISTS] \\ rw []
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [eval_to_def] \\ fs []
+    \\ Cases_on ‘n’ \\ fs [ADD1]
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Cases_on ‘eval_to n' tenv te’ \\ fs [] \\ rw []
+    >-
+     (Cases_on ‘x’ \\ gvs []
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ Cases_on ‘y’ \\ fs [dest_Constructor_def]
+    \\ pop_assum mp_tac
+    \\ IF_CASES_TAC \\ fs [] \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ last_x_assum drule_all
+    \\ disch_then $ qspecl_then [‘st’,‘AppK senv (Proj s i) [] []::k’] strip_assume_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ pop_assum mp_tac
+    \\ simp [Once v_rel_cases]
+    \\ fs [monad_cns_def]
+    \\ strip_tac \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ qexists_tac ‘0’ \\ fs []
+    \\ gvs [listTheory.LIST_REL_EL_EQN])
+  >~ [‘IsEq s i’] >-
+   (simp [Once compile_rel_cases,PULL_EXISTS] \\ rw []
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [eval_to_def] \\ fs []
+    \\ Cases_on ‘n’ \\ fs [ADD1]
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ Cases_on ‘eval_to n' tenv te’ \\ fs [] \\ rw []
+    >-
+     (Cases_on ‘x’ \\ gvs []
+      \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ Cases_on ‘y’ \\ fs [dest_Constructor_def]
+    \\ pop_assum mp_tac
+    \\ IF_CASES_TAC \\ fs [] \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ last_x_assum drule_all
+    \\ disch_then $ qspecl_then [‘st’,‘AppK senv (IsEq s i) [] []::k’] strip_assume_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ pop_assum mp_tac
+    \\ simp [Once v_rel_cases]
+    \\ fs [monad_cns_def] \\ cheat (*
+    \\ strip_tac \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ qexists_tac ‘0’ \\ fs []
+    \\ gvs [listTheory.LIST_REL_EL_EQN] *))
   \\ rename [‘AtomOp a’]
   \\ Cases_on ‘∃msg. a = Message msg’
   >-
@@ -824,7 +919,134 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
     \\ simp [Once v_rel_cases] \\ rw [])
-  \\ cheat (* primitives *)
+  \\ simp [Once compile_rel_cases]
+  \\ fs [PULL_EXISTS] \\ rw []
+  \\ Cases_on ‘eval_to n tenv (Prim (AtomOp a) xs)’ \\ gvs []
+  >-
+   (Cases_on ‘x’ \\ gvs [] \\ pop_assum mp_tac
+    \\ Cases_on ‘n’ \\ fs []
+    >- (fs [eval_to_def,result_map_def]
+        \\ rw [] \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ simp [Once eval_to_def,ADD1]
+    \\ fs [result_map_def]
+    \\ every_case_tac \\ fs [] \\ fs [AllCaseEqs()]
+    \\ fs [MEM_MAP,AllCaseEqs()]
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ Cases_on ‘REVERSE ses’
+    >- (fs [] \\ gvs [])
+    \\ fs []
+    \\ gvs [SWAP_REVERSE_SYM]
+    \\ drule listTheory.EVERY2_REVERSE
+    \\ rewrite_tac [REVERSE_APPEND] \\ fs []
+    \\ gvs [SWAP_REVERSE_SYM]
+    \\ strip_tac
+    \\ Cases_on ‘x = x'’ \\ fs [] \\ gvs []
+    >- (last_x_assum $ qspec_then ‘x’ mp_tac \\ fs [ADD1])
+    \\ rename [‘compile_rel h1 h2’]
+    \\ first_assum $ qspec_then ‘h1’ mp_tac
+    \\ rewrite_tac [] \\ strip_tac
+    \\ last_assum $ qspec_then ‘h1’ mp_tac \\ rewrite_tac []
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ asm_rewrite_tac []
+    \\ disch_then $ qspecl_then [‘st’,‘AppK senv (AtomOp a) [] t::k’] strip_assume_tac
+    \\ Cases_on ‘eval_to n' tenv h1’ \\ gvs [ADD1]
+    >- (metis_tac [])
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ drule_then drule eval_to_list_div
+    \\ Cases_on ‘ck’ \\ fs []
+    \\ strip_tac
+    \\ irule_at Any (DECIDE “n ≤ m+1 ⇒ n ≤ m + SUC k:num”)
+    \\ pop_assum irule
+    \\ gvs [SF DNF_ss]
+    \\ fs [MEM_MAP,MEM_REVERSE]
+    \\ metis_tac [])
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘xs = []’ \\ gvs []
+  >-
+   (simp [Once eval_to_def,result_map_def]
+    \\ CASE_TAC \\ strip_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ fs [stateLangTheory.get_atoms_def]
+    \\ every_case_tac \\ gvs []
+    \\ qexists_tac ‘0’ \\ fs []
+    \\ simp [Once v_rel_cases, monad_cns_def]
+    \\ Cases_on ‘a’ \\ gvs [eval_op_def])
+  \\ Cases_on ‘n’ \\ fs []
+  >-
+   (fs [eval_to_def,result_map_def] \\ Cases_on ‘xs’ \\ fs []
+    \\ gvs [MEM_MAP])
+  \\ fs [eval_to_def,result_map_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [MEM_MAP,AllCaseEqs()]
+  \\ IF_CASES_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ qmatch_asmsub_abbrev_tac ‘eval_op _ as’
+  \\ ‘LIST_REL (λx a. eval_to n' tenv x = INR (Atom a)) xs as’ by
+    (unabbrev_all_tac
+     \\ qpat_x_assum ‘∀x. _’ mp_tac
+     \\ qpat_x_assum ‘∀x. _’ mp_tac
+     \\ qid_spec_tac ‘xs’ \\ Induct
+     \\ fs []
+     \\ simp []
+     \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
+     \\ first_x_assum $ irule_at Any
+     \\ conj_tac >- (metis_tac [])
+     \\ conj_tac >- (metis_tac [])
+     \\ first_x_assum $ qspec_then ‘h’ mp_tac
+     \\ first_x_assum $ qspec_then ‘h’ mp_tac
+     \\ Cases_on ‘eval_to n' tenv h’ \\ fs []
+     >- (Cases_on ‘x'’ \\ fs [])
+     \\ Cases_on ‘y’ \\ fs [])
+  \\ pop_assum mp_tac \\ pop_assum kall_tac
+  \\ rw []
+  \\ drule_all eval_op_not_Msg
+  \\ strip_tac
+  \\ ‘LIST_REL (λes a.
+        ∀k. ∃ck. step_n ck (Exp senv es,st,k) = (Val (Atom a),st,k)) ses as’ by
+   (pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ last_x_assum mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qid_spec_tac ‘ses’
+    \\ qid_spec_tac ‘as’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS]
+    \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
+    \\ gvs [PULL_EXISTS]
+    \\ first_x_assum $ qspec_then ‘h’ mp_tac
+    \\ rewrite_tac []
+    \\ rpt (disch_then drule) \\ fs []
+    \\ disch_then $ qspecl_then [‘st’,‘k’] strip_assume_tac \\ fs []
+    \\ qexists_tac ‘ck’ \\ fs []
+    \\ pop_assum mp_tac
+    \\ Cases_on ‘a’
+    \\ simp [Once v_rel_cases])
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ Cases_on ‘REVERSE ses’ \\ fs []
+  \\ gvs [SWAP_REVERSE_SYM]
+  \\ full_simp_tac std_ss [GSYM SNOC_APPEND,LIST_REL_SNOC]
+  \\ rpt var_eq_tac
+  \\ full_simp_tac std_ss [GSYM SNOC_APPEND,LIST_REL_SNOC,SNOC_11]
+  \\ gvs []
+  \\ first_x_assum $ qspec_then ‘AppK senv (AtomOp a) [] t::k’ strip_assume_tac
+  \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+  \\ fs [SNOC_APPEND]
+  \\ drule listTheory.EVERY2_REVERSE
+  \\ rewrite_tac [REVERSE_REVERSE]
+  \\ strip_tac
+  \\ drule_all step_n_AtomOp
+  \\ disch_then $ qspecl_then [‘k’,‘a’,‘a'’,‘[]’] strip_assume_tac
+  \\ qexists_tac ‘ck1’
+  \\ fs []
+  \\ simp [application_def]
+  \\ rewrite_tac [GSYM SNOC_APPEND,GSYM MAP_SNOC,get_atoms_MAP_Atom]
+  \\ simp [SNOC_APPEND]
+  \\ fs [value_def]
+  \\ every_case_tac \\ gvs []
+  \\ simp [Once v_rel_cases,monad_cns_def]
+  \\ gvs [DefnBase.one_line_ify NONE eval_op_def,AllCaseEqs()]
 QED
 
 Theorem eval_thm:
