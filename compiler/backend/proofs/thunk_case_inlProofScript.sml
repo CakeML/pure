@@ -16,9 +16,9 @@ open pure_miscTheory thunkLangPropsTheory;
 
 val _ = new_theory "thunk_case_inlProof";
 
-val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "wellorder", "quotient_sum",
-                              "quotient_pair"];
+val _ = set_grammar_ancestry [
+  "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
+   "quotient_sum", "quotient_pair", "thunk_semantics", "thunkLangProps" ];
 
 val _ = numLib.prefer_num ();
 
@@ -783,6 +783,102 @@ Proof
       \\ first_x_assum (drule_all_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
       \\ rpt CASE_TAC \\ gs []))
+QED
+
+Theorem exp_rel_eval[local]:
+  closed x ∧
+  exp_rel m x y ⇒
+    ($= +++ v_rel) (eval x) (eval y)
+Proof
+  rw [] \\ irule eval_to_eval_lift
+  \\ qexists_tac ‘λx y. closed x ∧ exp_rel m x y’
+  \\ qexists_tac ‘T’
+  \\ rw [exp_rel_eval_to, SF SFY_ss]
+QED
+
+Theorem inl_apply_force[local]:
+  v_rel v w ⇒
+    ($= +++ v_rel) (force v) (force w)
+Proof
+  rw [] \\ irule apply_force_rel \\ simp []
+  \\ qexists_tac ‘λx y. closed x ∧ exp_rel m x y’
+  \\ qexists_tac ‘T’
+  \\ simp [exp_rel_Force, exp_rel_Value, exp_rel_eval, SF SFY_ss]
+QED
+
+Theorem inl_apply_closure[local]:
+  v_rel v1 w1 ∧
+  v_rel v2 w2 ∧
+  (∀x y.
+     ($= +++ v_rel) x y ⇒
+       next_rel v_rel (f x) (g y)) ⇒
+    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+Proof
+  rw [thunk_semanticsTheory.apply_closure_def]
+  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
+  >- (
+    first_x_assum irule \\ gs []
+    \\ irule exp_rel_eval
+    \\ gs [closed_subst]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
+  \\ rename1 ‘LIST_REL _ xs ys’
+  \\ ‘OPTREL (λx y. freevars x ⊆ set (MAP FST xs) ∧
+                    ok_binder x ∧
+                    exp_rel EMPTY x y)
+             (ALOOKUP (REVERSE xs) s)
+             (ALOOKUP (REVERSE ys) s)’
+    by (irule LIST_REL_OPTREL
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, closed_def])
+  \\ gs [OPTREL_def]
+  \\ qpat_x_assum ‘exp_rel m x y’ mp_tac
+  \\ rw [Once exp_rel_cases] \\ gs []
+  \\ first_x_assum irule \\ gs []
+  \\ irule exp_rel_eval
+  \\ irule_at Any exp_rel_subst
+  \\ gs [closed_subst, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
+         EVERY2_MAP, freevars_def, SUBSET_DEF]
+  \\ irule_at Any LIST_EQ
+  \\ gvs [LIST_REL_EL_EQN, EL_MAP, SF CONJ_ss, ELIM_UNCURRY]
+  \\ first_assum (irule_at Any) \\ rw [] \\ gs []
+  \\ rw [DISJ_COMM, DISJ_EQ_IMP]
+QED
+
+Theorem inl_rel_ok[local]:
+  rel_ok T v_rel
+Proof
+  rw [rel_ok_def]
+  >- ((* force preserves rel *)
+    simp [inl_apply_force])
+  >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
+    simp [inl_apply_closure])
+  >- ((* Thunks go to Thunks or DoTicks *)
+    Cases_on ‘s’ \\ gs [])
+  >- (
+    gs [Once v_rel_cases])
+  >- ((* Equal literals are related *)
+    simp [exp_rel_Prim])
+  >- ((* Equal 0-arity conses are related *)
+    simp [exp_rel_Prim])
+QED
+
+Theorem inl_sim_ok[local]:
+  sim_ok T v_rel (exp_rel EMPTY)
+Proof
+  rw [sim_ok_def]
+  \\ simp [exp_rel_eval, SF SFY_ss]
+  \\ irule exp_rel_subst \\ gs [EVERY2_MAP, LAMBDA_PROD]
+QED
+
+Theorem case_lift_semantics:
+  exp_rel EMPTY x y ∧
+  closed x ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ irule sim_ok_semantics
+  \\ irule_at Any inl_sim_ok
+  \\ irule_at Any inl_rel_ok \\ gs []
 QED
 
 val _ = export_theory ();
