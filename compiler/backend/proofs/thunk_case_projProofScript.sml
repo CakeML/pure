@@ -347,13 +347,13 @@ Proof
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def]
     \\ rename1 ‘exp_rel x y’
+    \\ ‘($= +++ v_rel) (eval_to k x) (eval_to k y)’
+      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ ‘($= +++ v_rel) (eval_to k f) (eval_to k g)’
       by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
     \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k g’ \\ gs []
     \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (eval_to k x) (eval_to k y)’
-      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def]
     >- ((* Closure *)
       IF_CASES_TAC \\ gs []

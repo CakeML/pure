@@ -215,8 +215,8 @@ Definition eval_to_def:
   eval_to k (Var n) = fail Type_error ∧
   eval_to k (App f x) =
     (do
-       fv <- eval_to k f;
        xv <- eval_to k x;
+       fv <- eval_to k f;
        (s, body, binds) <- dest_anyClosure fv;
        y <<- subst (binds ++ [(s, xv)]) body;
        if k = 0 then fail Diverge else eval_to (k - 1) y
@@ -416,8 +416,8 @@ Proof
   >- ((* App *)
     rename1 ‘App x y’
     \\ rw [eval_to_def]
-    \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ Cases_on ‘eval_to k y’ \\ fs []
+    \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ rename1 ‘dest_anyClosure z’
     \\ Cases_on ‘dest_anyClosure z’ \\ fs []
     \\ pairarg_tac \\ gvs []

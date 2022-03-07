@@ -277,9 +277,9 @@ Proof
     \\ gs [eval_to_def]
     \\ first_x_assum (drule_all_then assume_tac)
     \\ first_x_assum (drule_all_then assume_tac)
+    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ Cases_on ‘eval_to k f’ \\ Cases_on ‘eval_to k g’ \\ gvs []
     \\ rename1 ‘v_rel v w’
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs []
     \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [dest_anyClosure_def]
     >- ((* Closure *)
       IF_CASES_TAC \\ gs []
