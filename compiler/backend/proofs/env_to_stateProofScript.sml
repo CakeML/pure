@@ -848,6 +848,7 @@ Theorem next_thm:
                AppK nenv2 AppOp [Constructor "" []] []::sk ∧
            LIST_REL (LIST_REL v_rel) ts1 ss1)
 Proof
+
   gen_tac \\ completeInduct_on ‘k’
   \\ gvs [PULL_FORALL,AND_IMP_INTRO] \\ rw []
   \\ reverse (Cases_on ‘∃s vs. tv = Constructor s vs’)
@@ -1224,8 +1225,54 @@ Proof
     \\ PairCases_on ‘e’ \\ fs [])
   \\ Cases_on ‘s = "Length"’ >-
    (reverse (Cases_on ‘LENGTH vs = 1’) >- fs [Once next_def]
+    \\ simp [Once v_rel_cases,monad_cns_def]
+    \\ strip_tac \\ gvs [with_atoms_def,force_list_def] \\ strip_tac
+    \\ ntac 6 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ rename [‘env_rel tenv senv’]
+    \\ pop_assum mp_tac
     \\ once_rewrite_tac [next_def] \\ fs []
-    \\ cheat (* similar to Alloc *))
+    \\ fs [with_atoms_def,force_list_def]
+    \\ drule_all eval_thm
+    \\ disch_then $ qspecl_then [‘SOME ss’,
+         ‘AppK senv Length [] []::
+               LetK senv (SOME "v")
+                 (Let (SOME "v") (Delay (Var "v")) (Lam NONE (Var "v")))::
+               AppK senv AppOp [Constructor "" []] []::sk’] strip_assume_tac
+    \\ gvs []
+    >-
+     (first_x_assum $ qspec_then ‘k’ strip_assume_tac \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs [])
+    \\ Cases_on ‘tv’ \\ fs [get_atoms_def]
+    \\ Cases_on ‘l’ \\ fs [get_atoms_def]
+    \\ IF_CASES_TAC >- fs [] \\ fs [GSYM NOT_LESS]
+    \\ IF_CASES_TAC \\ fs []
+    >- (qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ strip_tac
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+ck’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ qpat_x_assum ‘v_rel _ sv’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ fs [listTheory.oEL_THM]
+    \\ ntac 5 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ qmatch_goalsub_abbrev_tac ‘Val vvv’
+    \\ first_x_assum $ drule_at $ Pos last
+    \\ fs [LIST_REL_SPLIT1,PULL_EXISTS]
+    \\ rpt (disch_then $ drule_at Any)
+    \\ disch_then (qspecl_then [‘vvv’,‘senv’] mp_tac)
+    \\ impl_tac >-
+     (fs [LIST_REL_REPLICATE_same,Abbr‘vvv’]
+      \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ simp [Once compile_rel_cases,env_rel_def]
+      \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ gvs [listTheory.LIST_REL_EL_EQN])
+    \\ strip_tac \\ gvs [GSYM PULL_FORALL]
+    \\ qexists_tac ‘n'’ \\ fs [SNOC_APPEND]
+    \\ rename [‘next _ nnn _ mmm’]
+    \\ Cases_on ‘next (k − 1) nnn tk mmm’ \\ gvs [is_halt_def]
+    \\ PairCases_on ‘e’ \\ fs [])
+
   \\ Cases_on ‘s = "Deref"’ >-
    (reverse (Cases_on ‘LENGTH vs = 2’) >- fs [Once next_def]
     \\ once_rewrite_tac [next_def] \\ fs []
