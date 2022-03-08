@@ -115,7 +115,8 @@ Definition purePEG_def[nocompute]:
              (* define value *)
              pegf (NT nValBinding I lrEQ) (mkNT nDecl)]);
         (INL nValBinding,
-         seql [NT nExp I lrEQ; NT nFunRHS I lrGT] (mkNT nValBinding));
+         seql [NT nExp I lrEQ; tokGT ((=) $ EqualsT); NT nExp I lrGT]
+              (mkNT nValBinding));
         (INL nTyConDecl,
          seql [tokGE capname_tok; rpt (NT nTyBase I lrGE) FLAT]
               (mkNT nTyConDecl));
@@ -145,11 +146,8 @@ Definition purePEG_def[nocompute]:
                   pegf (NT nLit I lrEQ) (mkNT nAPat)]);
         (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
 
-        (INL nFunRHS,
-         seql [tok ((=) EqualsT) mktokLf lrGE; NT nExp I lrGE] (mkNT nFunRHS));
-
         (INL nEqBindSeq, pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
-        (INL nEqBind, seql [NT nPat I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
+        (INL nEqBind, seql [NT nExp I lrEQ; tokGT ((=) EqualsT) ; NTGT nExpEQ]
                            (mkNT nEqBind));
         (INL nOp,
          tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT)
@@ -166,7 +164,7 @@ Definition purePEG_def[nocompute]:
         (INL nFExp,
          seql [NTGE nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
         (INL nFExpEQ,
-         seql [NTEQ nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+         seql [NTEQ nAExpEQ; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
         (INL nLSafeExp,
          choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
                         tokGE ((=) ArrowT);
@@ -199,6 +197,16 @@ Definition purePEG_def[nocompute]:
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RbrackT)] (mkNT nAExp);
                   pegf (tokGE isAlphaT) (mkNT nAExp)]);
+
+        (INL nAExpEQ,
+         choicel [pegf (NTEQ nLit) (mkNT nAExp);
+                  seql [tokEQ ((=) LparT) ;
+                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
+                        tokGE ((=) RparT)] (mkNT nAExp);
+                  seql [tokEQ ((=) LbrackT) ;
+                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
+                        tokGE ((=) RbrackT)] (mkNT nAExp);
+                  pegf (tokEQ isAlphaT) (mkNT nAExp)]);
 
         (INL nLit,
          choicel [tok isInt (mkNT nLit o mktokLf) lrEQ]);
