@@ -9,6 +9,7 @@ Datatype:
          | nFExp | nFExpEQ | nFExp2 | nAExp | nAExpEQ
          | nLit | nOp
          | nEqBindSeq | nEqBind | nValBinding
+         | nDoStmt | nDoBlock
 End
 
 val distinct_ths = let
