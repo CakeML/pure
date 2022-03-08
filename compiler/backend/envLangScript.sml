@@ -195,7 +195,7 @@ Definition eval_to_def:
              assert (LENGTH xs = 1);
              v <- if k = 0 then fail Diverge else eval_to (k - 1) env (HD xs);
              (t, ys) <- dest_Constructor v;
-             assert (t = s ⇒ i = LENGTH ys);
+             assert ((t = s ⇒ i = LENGTH ys) ∧ ~(t IN monad_cns));
              return (Constructor (if t ≠ s then "False" else "True") [])
            od
        | AtomOp aop =>

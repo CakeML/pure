@@ -885,11 +885,12 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
     \\ pop_assum mp_tac
     \\ simp [Once v_rel_cases]
-    \\ fs [monad_cns_def] \\ cheat (*
+    \\ fs [monad_cns_def]
     \\ strip_tac \\ gvs []
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ qexists_tac ‘0’ \\ fs []
-    \\ gvs [listTheory.LIST_REL_EL_EQN] *))
+    \\ IF_CASES_TAC \\ gvs []
+    \\ simp [Once v_rel_cases, monad_cns_def])
   \\ rename [‘AtomOp a’]
   \\ Cases_on ‘∃msg. a = Message msg’
   >-
