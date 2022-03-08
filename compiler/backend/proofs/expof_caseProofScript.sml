@@ -18,7 +18,7 @@ Overload Unit = “Prim (Cons "") []”;
 Definition lets_for'_def:
   lets_for' m cn v [] b = b ∧
   lets_for' m cn v ((n,w)::ws) b =
-    Seq (If (IsEq cn m (Var v)) Unit Fail)
+    Seq (If (IsEq cn m T (Var v)) Unit Fail)
         (Let w (Proj cn n (Var v))
                (lets_for' m cn v ws b))
 End
@@ -26,7 +26,7 @@ End
 Definition rows_of'_def:
   rows_of' v [] = Fail ∧
   rows_of' v ((cn,vs,b)::rest) =
-    Tick (If (IsEq cn (LENGTH vs) (Var v))
+    Tick (If (IsEq cn (LENGTH vs) T (Var v))
              (lets_for' (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
              (rows_of' v rest))
 End
@@ -103,11 +103,11 @@ QED
 
 Theorem exp_eq_IsEq_Proj[local]:
   w ≠ v ⇒
-    If (IsEq cn m (Var v))
+    If (IsEq cn m T (Var v))
        (Let w (Proj cn n (Var v)) a) b ≅
-    If (IsEq cn m (Var v))
+    If (IsEq cn m T (Var v))
        (Let w (Proj cn n (Var v))
-              (If (IsEq cn m (Var v)) a Fail)) b
+              (If (IsEq cn m T (Var v)) a Fail)) b
 Proof
   strip_tac
   \\ irule eval_wh_IMP_exp_eq
@@ -121,13 +121,13 @@ QED
 
 Theorem exp_eq_IsEq_Seq_Proj[local]:
   w ≠ v ⇒
-    If (IsEq cn n (Var v))
-       (Seq (If (IsEq cn n (Var v)) Unit Fail)
+    If (IsEq cn n T (Var v))
+       (Seq (If (IsEq cn n T (Var v)) Unit Fail)
             (Let w (Proj cn m (Var v)) x)) a ≅
-    If (IsEq cn n (Var v))
-       (Seq (If (IsEq cn n (Var v)) Unit Fail)
+    If (IsEq cn n T (Var v))
+       (Seq (If (IsEq cn n T (Var v)) Unit Fail)
             (Let w (Proj cn m (Var v))
-                   (If (IsEq cn n (Var v)) x Fail))) a
+                   (If (IsEq cn n T (Var v)) x Fail))) a
 Proof
   strip_tac
   \\ irule eval_wh_IMP_exp_eq \\ rw []
@@ -144,8 +144,8 @@ Theorem exp_eq_lets_of_cong:
    a ≅ b ∧
    ¬MEM v (MAP SND ws) ∧
    (∀m. MEM m (MAP FST ws) ⇒ m ≤ n) ⇒
-     If (IsEq cn n (Var v)) (lets_for' n cn v ws x) a ≅
-     If (IsEq cn n (Var v)) (lets_for cn v ws y) b
+     If (IsEq cn n T (Var v)) (lets_for' n cn v ws x) a ≅
+     If (IsEq cn n T (Var v)) (lets_for cn v ws y) b
 Proof
   ho_match_mp_tac lets_for'_ind
   \\ rw [] \\ gs [lets_for'_def, lets_for_def]
@@ -250,4 +250,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

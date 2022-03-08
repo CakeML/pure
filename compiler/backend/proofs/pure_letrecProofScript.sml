@@ -823,8 +823,7 @@ Proof
     \\ first_x_assum (drule_all_then strip_assume_tac)
     \\ qexists_tac ‘ck’
     \\ CASE_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs [])
+    \\ rpt (IF_CASES_TAC \\ fs []))
   >- (
     IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN]
     \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0n”]

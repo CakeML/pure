@@ -58,6 +58,11 @@ Definition get_atoms_def:
     else SOME (SOME (MAP dest_Atom vs))
 End
 
+Definition is_eq_fail_def[simp]:
+  is_eq_fail F t = F ∧
+  is_eq_fail T t = (t ∈ monad_cns)
+End
+
 Definition eval_wh_to_def:
   eval_wh_to n (Var s) = wh_Error ∧
   eval_wh_to k (Lam s x) = wh_Closure s x ∧
@@ -82,12 +87,13 @@ Definition eval_wh_to_def:
                                      else wh_Error
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
-      | IsEq s i =>
+      | IsEq s i a =>
         (if LENGTH xs ≠ 1 then wh_Error else
            case HD vs of
-           | wh_Constructor t ys => if t ≠ s then wh_False else
-                                    if i = LENGTH ys then wh_True
-                                                     else wh_Error
+           | wh_Constructor t ys => if is_eq_fail a t then wh_Error else
+                                    if t ≠ s          then wh_False else
+                                    if i = LENGTH ys  then wh_True
+                                                      else wh_Error
            | wh_Diverge => wh_Diverge
            | _ => wh_Error)
       | If =>
@@ -222,7 +228,7 @@ Proof
     \\ Cases_on ‘eval_wh_to (n − 1) h = wh_Diverge’ \\ fs []
     \\ Cases_on ‘eval_wh_to (n − 1) h’ \\ fs []
     \\ rw [] \\ fs [] \\ fs [AllCaseEqs()] \\ gvs [])
-  \\ Cases_on ‘∃s i. p = IsEq s i’
+  \\ Cases_on ‘∃s i a. p = IsEq s i a’
   THEN1
    (Cases_on ‘n = 0’ \\ gvs []
     \\ Cases_on ‘LENGTH xs = 1’ \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute]
@@ -386,11 +392,11 @@ Proof
 QED
 
 Theorem eval_wh_IsEq:
-  eval_wh (IsEq s i x) =
+  eval_wh (IsEq s i a x) =
     case eval_wh x of
-    | wh_Constructor t ys => if t ≠ s then wh_False
-                             else if i = LENGTH ys then wh_True
-                             else wh_Error
+    | wh_Constructor t ys => if is_eq_fail a t then wh_Error else
+                             if t ≠ s          then wh_False else
+                             if i = LENGTH ys  then wh_True  else wh_Error
     | wh_Diverge => wh_Diverge
     | _ => wh_Error
 Proof
@@ -637,12 +643,13 @@ Theorem eval_wh_Prim:
           else if eval_wh a = wh_False   then eval_wh c else wh_Error
       | _ => wh_Error) ∧
   eval_wh (Prim (Cons c) xs) = wh_Constructor c xs ∧
-  eval_wh (Prim (IsEq c n) xs) =
+  eval_wh (Prim (IsEq c n a) xs) =
     (case xs of
         [x] =>
           (case eval_wh x of
               wh_Constructor t ys =>
-                if t ≠ c then wh_False
+                if is_eq_fail a t then wh_Error
+                else if t ≠ c then wh_False
                 else if n = LENGTH ys then wh_True
                 else wh_Error
             | wh_Diverge => wh_Diverge
@@ -769,11 +776,12 @@ Theorem eval_wh_Prim_alt:
     if      HD vs = wh_True    then EL 1 vs
     else if HD vs = wh_False   then EL 2 vs else wh_Error) ∧
   eval_wh (Prim (Cons c) xs) = wh_Constructor c xs ∧
-  (eval_wh (Prim (IsEq c n) xs) =
+  (eval_wh (Prim (IsEq c n a) xs) =
     if LENGTH xs ≠ 1 then wh_Error else
     case eval_wh (HD xs) of
         wh_Constructor t ys =>
-          if t ≠ c then wh_False
+          if is_eq_fail a t then wh_Error
+          else if t ≠ c then wh_False
           else if n = LENGTH ys then wh_True
           else wh_Error
       | wh_Diverge => wh_Diverge
@@ -828,9 +836,10 @@ Theorem eval_wh_thm:
     (if eval_wh x = wh_Diverge then wh_Diverge else
      if eval_wh x = wh_True    then eval_wh y  else
      if eval_wh x = wh_False then eval_wh z  else wh_Error) ∧
-  eval_wh (IsEq s i x) =
+  eval_wh (IsEq s i a x) =
     (case eval_wh x of
-     | wh_Constructor t ys => if t ≠ s then wh_False
+     | wh_Constructor t ys => if is_eq_fail a t then wh_Error
+                              else if t ≠ s then wh_False
                               else if i = LENGTH ys then wh_True
                               else wh_Error
      | wh_Diverge => wh_Diverge
@@ -936,10 +945,11 @@ Definition el_def:
 End
 
 Definition is_eq_def:
-  is_eq s n x =
+  is_eq s n a x =
     if x = Diverge then Diverge else
       case x of
         Constructor t xs =>
+          if is_eq_fail a t then Error else
           if s = t then
             (if n = LENGTH xs then True else Error)
           else False
@@ -999,7 +1009,7 @@ Proof
 QED
 
 Theorem eval_IsEq:
-  eval (IsEq s n x) = is_eq s n (eval x)
+  eval (IsEq s n a x) = is_eq s n a (eval x)
 Proof
   simp [eval_def,is_eq_def]
   \\ once_rewrite_tac [v_unfold]
@@ -1043,7 +1053,7 @@ Theorem eval_thm:
   eval Bottom = Diverge ∧
   eval (Var s) = Error (* free variables are not allowed *) ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
-  eval (IsEq s n x) = is_eq s n (eval x) ∧
+  eval (IsEq s n a x) = is_eq s n a (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
   eval (Let s x y) = eval (bind1 s x y) ∧
   eval (If x y z) =

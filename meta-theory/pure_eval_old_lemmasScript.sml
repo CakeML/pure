@@ -26,9 +26,9 @@ Theorem eval_op_cases:
     (∃x. op = If ∧ xs = [x]) ∨
     (∃x1 x2. op = If ∧ xs = [x1;x2]) ∨
     (∃x1 x2 x3 x4 xs'. op = If ∧ xs = x1::x2::x3::x4::xs') ∨
-    (∃s n. op = IsEq s n ∧ xs = []) ∨
-    (∃s n x. op = IsEq s n ∧ xs = [x]) ∨
-    (∃s n x1 x2 xs'. op = IsEq s n ∧ xs = x1::x2::xs') ∨
+    (∃s n a. op = IsEq s n a ∧ xs = []) ∨
+    (∃s n a x. op = IsEq s n a ∧ xs = [x]) ∨
+    (∃s n a x1 x2 xs'. op = IsEq s n a ∧ xs = x1::x2::xs') ∨
     (∃s i. op = Proj s i ∧ xs = []) ∨
     (∃s i x1 x2 xs'. op = Proj s i ∧ xs = x1::x2::xs') ∨
     (op = Seq)

@@ -72,7 +72,7 @@ Definition eval_op_def:
     if x1 = Diverge then Diverge else
     if x1 = True  then x2 else
     if x1 = False then x3 else Error ) ∧
-  (eval_op (IsEq s n) [x] = is_eq s n x) ∧
+  (eval_op (IsEq s n _) [x] = is_eq s n x) ∧
   (eval_op (Proj s i) [x] = el s i x) ∧
   (eval_op (AtomOp a) xs =
      if MEM Diverge xs then Diverge else
@@ -788,7 +788,7 @@ Proof
 QED
 
 Theorem eval_IsEq:
-  eval (IsEq s n x) = is_eq s n (eval x)
+  eval (IsEq s n a x) = is_eq s n (eval x)
 Proof
   fs [eval_def,eval_to_def,eval_op_def,is_eq_def] >>
   IF_CASES_TAC
@@ -1134,7 +1134,7 @@ Theorem eval_thm:
   eval (Fail)  = Error ∧
   eval (Var s) = Error (* free variables are not allowed *) ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
-  eval (IsEq s n x) = is_eq s n (eval x) ∧
+  eval (IsEq s n a x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
   eval (Let s x y) = eval (bind1 s x y) ∧
   eval (If x y z) = (
@@ -1497,4 +1497,3 @@ Proof
 QED
 
 val _ = export_theory();
-

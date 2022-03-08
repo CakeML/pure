@@ -34,9 +34,9 @@ Inductive exp_rel:
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ∧
      exp_rel z1 z2 ⇒
-       exp_rel (Tick (If (IsEq s i x1) y1 z1))
+       exp_rel (Tick (If (IsEq s i T x1) y1 z1))
                (Let (SOME w) (Tick (Tick x2))
-                             (If (IsEq s i (Var w)) y2 z2))) ∧
+                             (If (IsEq s i T (Var w)) y2 z2))) ∧
 (* Boilerplate: *)
 [exp_rel_App:]
   (∀f g x y.
@@ -234,7 +234,7 @@ Proof
       \\ ‘DISJOINT {w} (freevars y2) ∧ DISJOINT {w} (freevars z2)’
         by gs [IN_DISJOINT]
       \\ imp_res_tac subst_remove \\ gs []
-      \\ first_x_assum (drule_then (qspec_then ‘If (IsEq s i x2) y2 z2’ mp_tac))
+      \\ first_x_assum (drule_then (qspec_then ‘If (IsEq s i T x2) y2 z2’ mp_tac))
       \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def]
       \\ simp [Once exp_rel_cases, PULL_EXISTS]
       \\ simp [Once exp_rel_cases, PULL_EXISTS]
@@ -379,7 +379,7 @@ Proof
       \\ IF_CASES_TAC \\ gs []
       \\ IF_CASES_TAC \\ gs []
       \\ first_x_assum
-        (qspec_then ‘If (IsEq s i x2) y2 z2’ mp_tac)
+        (qspec_then ‘If (IsEq s i T x2) y2 z2’ mp_tac)
       \\ simp [Once exp_rel_cases, eval_to_def]
       \\ simp [Once exp_rel_cases]
       \\ qmatch_goalsub_abbrev_tac ‘(_ +++ _) LHS RHS’
@@ -530,7 +530,7 @@ Proof
       \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
       \\ rename1 ‘v_rel v w’
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN]
-      \\ IF_CASES_TAC \\ gs [])
+      \\ ntac 3 (IF_CASES_TAC \\ gs []))
     >- ((* Proj *)
       gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gs []
@@ -644,4 +644,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

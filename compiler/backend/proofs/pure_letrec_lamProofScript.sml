@@ -546,8 +546,7 @@ Proof
     first_x_assum drule_all >> rw[] >>
     Cases_on `eval_wh_to (k - 1) x` >> gvs[] >>
     qexists_tac `ck` >> gvs[] >>
-    IF_CASES_TAC >> gvs[] >>
-    IF_CASES_TAC >> gvs[]
+    rpt (IF_CASES_TAC >> gvs[])
     )
   >- (
     IF_CASES_TAC >> gvs[] >> gvs[LIST_REL_EL_EQN] >>
@@ -950,4 +949,3 @@ Proof
 QED
 
 val _ = export_theory();
-

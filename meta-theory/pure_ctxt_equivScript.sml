@@ -498,7 +498,7 @@ Proof
       ) >>
     reverse $ Cases_on `x1 < LENGTH e2s` >> gvs[]
     >- (
-      rw[] >> qexists_tac `Prim (IsEq s (LENGTH e1s)) [] Hole []` >>
+      rw[] >> qexists_tac `Prim (IsEq s (LENGTH e1s) F) [] Hole []` >>
       simp[plug_def, closed_simps, eval_wh_thm, wh_to_cons_def]
       ) >>
     last_x_assum $ qspecl_then [`EL x1 e1s`,`EL x1 e2s`] mp_tac >> gvs[] >>
@@ -525,12 +525,12 @@ Proof
   Cases_on `eval_wh e2` >> gvs[oEL_THM] >> rename1 `eval_wh _ = _ e2s` >>
   reverse $ Cases_on `∃e1s. eval_wh e1 = wh_Constructor s e1s` >> gvs[]
   >- (
-    qexists_tac `Prim (IsEq s (LENGTH e2s)) [] Hole []` >>
+    qexists_tac `Prim (IsEq s (LENGTH e2s) F) [] Hole []` >>
     simp[plug_def, eval_wh_thm] >>
     Cases_on `eval_wh e1` >> gvs[wh_to_cons_def]
     )
   >- (
-    qexists_tac `Prim (IsEq s (LENGTH e2s)) [] Hole []` >>
+    qexists_tac `Prim (IsEq s (LENGTH e2s) F) [] Hole []` >>
     simp[plug_def, eval_wh_thm] >>
     Cases_on `eval_wh e1` >> gvs[wh_to_cons_def]
     ) >>
@@ -622,14 +622,14 @@ Proof
   Cases_on `∃s e1s. eval_wh e1' = wh_Constructor s e1s` >> gvs[wh_to_cons_def]
   >- (
     qexists_tac
-      `Prim If [] (Prim (IsEq s (LENGTH e1s)) [] Hole []) [Ret Fail; Fail]` >>
+      `Prim If [] (Prim (IsEq s (LENGTH e1s) F) [] Hole []) [Ret Fail; Fail]` >>
     simp[plug_def, itree_of_def, semantics_def, eval_wh_thm] >>
     Cases_on `eval_wh e2'` >> gvs[wh_to_cons_def]
     ) >>
   Cases_on `∃s e2s. eval_wh e2' = wh_Constructor s e2s` >> gvs[wh_to_cons_def]
   >- (
     qexists_tac
-      `Prim If [] (Prim (IsEq s (LENGTH e2s)) [] Hole []) [Ret Fail; Fail]` >>
+      `Prim If [] (Prim (IsEq s (LENGTH e2s) F) [] Hole []) [Ret Fail; Fail]` >>
     simp[plug_def, itree_of_def, semantics_def, eval_wh_thm] >>
     Cases_on `eval_wh e1'` >> gvs[wh_to_cons_def]
     ) >>

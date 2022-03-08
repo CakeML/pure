@@ -86,7 +86,7 @@ Inductive compile_rel:
 
 [~IsEq:]
   (compile_rel te se ∧ s ∉ monad_cns ⇒
-  compile_rel (Prim (IsEq s n) [te]) (App (IsEq s n) [se])) ∧
+  compile_rel (Prim (IsEq s n q) [te]) (App (IsEq s n) [se])) ∧
 
 [~AtomOp:]
   (LIST_REL compile_rel tes ses ∧
@@ -865,7 +865,7 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ qexists_tac ‘0’ \\ fs []
     \\ gvs [listTheory.LIST_REL_EL_EQN])
-  >~ [‘IsEq s i’] >-
+  >~ [‘IsEq s i a’] >-
    (simp [Once compile_rel_cases,PULL_EXISTS] \\ rw []
     \\ pop_assum mp_tac
     \\ once_rewrite_tac [eval_to_def] \\ fs []

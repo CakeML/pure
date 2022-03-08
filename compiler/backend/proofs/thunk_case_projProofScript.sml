@@ -36,21 +36,21 @@ End
 Inductive exp_rel:
 (* Proj *)
 [exp_rel_Proj:]
-  (∀x y s i j v w.
+  (∀x y s i j v w b.
      i < j ∧
      exp_rel x y ⇒
-       exp_rel (Seq (If (IsEq s j (Var v)) Unit Fail)
+       exp_rel (Seq (If (IsEq s j b (Var v)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x))
-               (Seq (If (IsEq s j (Var v)) Unit Fail)
+               (Seq (If (IsEq s j b (Var v)) Unit Fail)
                     (Let (SOME w) (MkTick (Proj s i (Var v))) y))) ∧
 [exp_rel_Proj_Value:]
-  (∀x y s i j u v w.
+  (∀x y s i j u v w b.
      i < j ∧
      exp_rel x y ∧
      v_rel u v ⇒
-       exp_rel (Seq (If (IsEq s j (Value u)) Unit Fail)
+       exp_rel (Seq (If (IsEq s j b (Value u)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Value u))))) x))
-               (Seq (If (IsEq s j (Value v)) Unit Fail)
+               (Seq (If (IsEq s j b (Value v)) Unit Fail)
                     (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
 [v_rel_Proj:]
   (∀xs s i.
@@ -498,7 +498,7 @@ Proof
       \\ Cases_on ‘eval_to (k - 1) x’ \\ Cases_on ‘eval_to (k - 1) y’ \\ gs []
       \\ rename1 ‘v_rel v1 v2’ \\ Cases_on ‘v1’ \\ Cases_on ‘v2’ \\ gs []
       \\ gvs [LIST_REL_EL_EQN]
-      \\ IF_CASES_TAC \\ gs [])
+      \\ ntac 3 (IF_CASES_TAC \\ gs []))
     >- ((* Proj *)
       first_x_assum (qspec_then ‘k - 1’ assume_tac) \\ gs []
       \\ IF_CASES_TAC \\ gs []
@@ -643,4 +643,3 @@ Theorem exp_rel_eval_to =
   REWRITE_RULE [case_goal_def] exp_rel_eval_to;
 
 val _ = export_theory ();
-

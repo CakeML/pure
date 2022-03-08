@@ -108,6 +108,7 @@ Inductive exp_rel:
      op ≠ Seq ∧
      (∀n. op ≠ Cons n) ∧
      (∀s i. op ≠ Proj s i) ∧
+     (∀s i a. op = IsEq s i a ⇒ a) ∧
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
 [exp_rel_Letrec:]
@@ -280,7 +281,7 @@ Proof
       simp [subst_single_def, subst1_def]
       \\ rw [Once exp_rel_cases, EVERY2_MAP]
       \\ gvs [LIST_REL_EL_EQN] \\ rw []
-      \\ first_x_assum irule \\ fs [MEM_EL]
+      \\ last_x_assum irule \\ fs [MEM_EL]
       \\ irule_at Any EQ_REFL \\ fs []))
   >- ((* App *)
     qpat_x_assum ‘exp_rel (App _ _) _’ mp_tac
@@ -401,6 +402,7 @@ Proof
       \\ first_x_assum irule \\ fs []
       \\ first_assum (irule_at Any))
     \\ irule exp_rel_Prim \\ fs [EVERY2_MAP]
+    \\ conj_tac >- fs []
     \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any) \\ rw [])
   >- ((* App *)
@@ -802,6 +804,7 @@ Proof
           \\ Cases_on ‘v’ \\ gvs [])
         \\ pairarg_tac \\ gvs []
         \\ Cases_on ‘v’ \\ gvs []
+        \\ IF_CASES_TAC \\ gvs []
         \\ drule_then assume_tac LIST_REL_LENGTH
         \\ IF_CASES_TAC \\ gvs []
         \\ IF_CASES_TAC \\ gvs [])
@@ -2701,4 +2704,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

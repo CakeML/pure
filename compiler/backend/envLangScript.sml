@@ -190,12 +190,12 @@ Definition eval_to_def:
              assert (t = s ∧ i < LENGTH ys);
              return (EL i ys)
            od
-       | IsEq s i =>
+       | IsEq s i a =>
            do
              assert (LENGTH xs = 1);
              v <- if k = 0 then fail Diverge else eval_to (k - 1) env (HD xs);
              (t, ys) <- dest_Constructor v;
-             assert ((t = s ⇒ i = LENGTH ys) ∧ ~(t IN monad_cns));
+             assert ((t = s ⇒ i = LENGTH ys) ∧ t ∉ monad_cns);
              return (Constructor (if t ≠ s then "False" else "True") [])
            od
        | AtomOp aop =>

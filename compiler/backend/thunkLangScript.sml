@@ -51,7 +51,7 @@ End
 Overload Tick = “λx. Letrec [] x”;
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
 Overload Cons = “λs xs. Prim (Cons s) xs”;
-Overload IsEq = “λs i x. Prim (IsEq s i) [x]”;
+Overload IsEq = “λs i t x. Prim (IsEq s i t) [x]”;
 Overload Proj = “λs i x. Prim (Proj s i) [x]”;
 Overload Seq = “λx. λy. Let NONE x y”;
 Overload Unit = “Prim (Cons "") []”;
@@ -289,12 +289,12 @@ Definition eval_to_def:
              assert (t = s ∧ i < LENGTH ys);
              return (EL i ys)
            od
-       | IsEq s i =>
+       | IsEq s i a =>
            do
              assert (LENGTH xs = 1);
              v <- if k = 0 then fail Diverge else eval_to (k - 1) (HD xs);
              (t, ys) <- dest_Constructor v;
-             assert (t = s ⇒ i = LENGTH ys);
+             assert ((t = s ⇒ i = LENGTH ys) ∧ t ∉ monad_cns);
              return (Constructor (if t ≠ s then "False" else "True") [])
            od
        | AtomOp aop =>
@@ -364,8 +364,8 @@ Theorem eval_to_ind:
          op = Cons s ∧
          MEM x xs ⇒
            P k x) ∧
-      (∀s'' i'.
-         op = IsEq s'' i' ∧
+      (∀s'' i' a.
+         op = IsEq s'' i' a ∧
          k ≠ 0 ⇒
            P (k − 1) (HD xs)) ∧
       (∀s' i.
@@ -540,4 +540,3 @@ Proof
 QED
 
 val _ = export_theory ();
-
