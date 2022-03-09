@@ -31,9 +31,12 @@ Datatype:
       | Proj string num    (* projection                               *)
       | IsEq string num    (* check whether same data constructor      *)
       | Alloc              (* allocate an array                        *)
+      | Ref                (* allocates an array in a different way    *)
       | Length             (* query the length of an array             *)
       | Sub                (* de-reference a value in an array         *)
+      | UnsafeSub          (* de-reference but without a bounds check  *)
       | Update             (* update a value in an array               *)
+      | UnsafeUpdate       (* update without a bounds check            *)
       | FFI string         (* make an FFI call                         *)
 End
 
@@ -142,9 +145,12 @@ Definition num_args_ok_def[simp]:
   num_args_ok (Proj _ _) n = (n = 1) ∧
   num_args_ok (IsEq _ _) n = (n = 1) ∧
   num_args_ok Sub n = (n = 2) ∧
+  num_args_ok UnsafeSub n = (n = 2) ∧
   num_args_ok Alloc n = (n = 2) ∧
+  num_args_ok Ref n = T ∧
   num_args_ok Length n = (n = 1) ∧
   num_args_ok Update n = (n = 3) ∧
+  num_args_ok UnsafeUpdate n = (n = 3) ∧
   num_args_ok (FFI channel) n = (n = 1)
 End
 
@@ -243,6 +249,12 @@ Definition application_def:
         value (Atom $ Loc $ LENGTH arrays)
           (SOME (SNOC (REPLICATE n (EL 1 vs)) arrays)) k
     | _ => error st k) ∧
+  application Ref env vs st k = (
+    case st of
+      SOME arrays =>
+        value (Atom $ Loc $ LENGTH arrays)
+          (SOME (SNOC vs arrays)) k
+    | _ => error st k) ∧
   application Length env vs st k = (
     case HD vs, st of
       Atom (Loc n), SOME arrays => (
@@ -275,6 +287,17 @@ Definition application_def:
               continue env (Raise $ App (Cons "Subscript") []) st k
         | _ => error st k)
     | _ => error st k) ∧
+  application UnsafeSub env vs st k = (
+    case (EL 0 vs, EL 1 vs, st) of
+      (Atom $ Int i, Atom $ Loc n, SOME arrays) => (
+        case oEL n arrays of
+          SOME l =>
+            if 0 ≤ i ∧ i < & LENGTH l then
+              value (EL (Num i) l) st k
+            else
+              error st k
+        | _ => error st k)
+    | _ => error st k) ∧
   application Update env vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
       (Atom $ Int i, Atom $ Loc n, SOME arrays) => (
@@ -287,6 +310,20 @@ Definition application_def:
                 k
             else
               continue env (Raise $ App (Cons "Subscript") []) st k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application UnsafeUpdate env vs st k = (
+    case (EL 0 vs, EL 1 vs, st) of
+      (Atom $ Int i, Atom $ Loc n, SOME arrays) => (
+        case oEL n arrays of
+          SOME l =>
+            if 0 ≤ i ∧ i < & LENGTH l then
+              value
+                (Constructor "" [])
+                (SOME (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n arrays))
+                k
+            else
+              error st k
         | _ => error st k)
     | _ => error st k) ∧
   application (FFI channel) env vs st k = (
