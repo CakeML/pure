@@ -481,6 +481,14 @@ Proof
   pairarg_tac >> gvs[is_halt_step_same]
 QED
 
+Theorem is_halt_imp_eq:
+  is_halt (step_n n res) ∧ is_halt (step_n m res) ⇒
+  step_n n res = step_n m res
+Proof
+  ‘n < m ∨ m = n ∨ m < n’ by decide_tac
+  \\ metis_tac [step_n_mono]
+QED
+
 Theorem step_n_0[simp]:
   step_n 0 x = x
 Proof
