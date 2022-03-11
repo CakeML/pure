@@ -165,6 +165,15 @@ Definition purePEG_def[nocompute]:
          seql [NTGE nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
         (INL nFExpEQ,
          seql [NTEQ nAExpEQ; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+        (INL nDoBlock, pegf (rpt (NTEQ nDoStmt) FLAT) (mkNT nDoBlock));
+        (INL nDoStmt,
+         choicel [
+             seql [NTEQ nExpEQ;
+                   choicel [seql [tokGT ((=) $ SymbolT "<-"); NTGT nExp] I;
+                            empty []]
+                  ] (mkNT nDoStmt);
+             seql [tokEQ ((=) LetT); NTGE nEqBindSeq] (mkNT nDoStmt)
+           ]);
         (INL nLSafeExp,
          choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
                         tokGE ((=) ArrowT);
@@ -173,7 +182,9 @@ Definition purePEG_def[nocompute]:
                         tokGE ((=) ThenT); NTGE nExp;
                         tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
                   seql [tokGE ((=) LetT) ; NTGE nEqBindSeq ;
-                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp)]);
+                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
+                  seql [tokEQ ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp)
+                 ]);
         (INL nLSafeExpEQ,
          choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
                         tokGE ((=) ArrowT);
@@ -182,7 +193,9 @@ Definition purePEG_def[nocompute]:
                         tokGE ((=) ThenT); NTGE nExp;
                         tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
                   seql [tokEQ ((=) LetT) ; NTGE nEqBindSeq ;
-                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp)]);
+                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
+                  seql [tokEQ ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp)
+                 ]);
         (INL nExp,
          choicel [NTGE nLSafeExp; pegf (NTGE nIExp) (mkNT nExp)]);
         (INL nExpEQ,

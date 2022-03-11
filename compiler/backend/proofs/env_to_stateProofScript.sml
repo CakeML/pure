@@ -8,6 +8,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
      envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
      stateLangTheory env_semanticsTheory;
+local open pure_semanticsTheory in end
 
 val _ = new_theory "env_to_stateProof";
 
@@ -1077,30 +1078,6 @@ QED
 
 (****************************************)
 
-CoInductive compiles_to:
-  compiles_to Div Div ∧
-  (∀x. compiles_to (Ret x) (Ret x)) ∧
-  (∀t. compiles_to (Ret pure_semantics$Error) t) ∧
-  (∀a f g.
-     (∀x. f x ≠ g x ⇒ compiles_to (f x) (g x)) ⇒
-     compiles_to (Vis a f) (Vis a g))
-End
-
-val _ = set_fixity "--->" (Infixl 480);
-Overload "--->" = “compiles_to”;
-
-Theorem safe_itree_compiles_to_IMP_eq:
-  safe_itree x ∧ x ---> y ⇒
-  x = y
-Proof
-  once_rewrite_tac [io_treeTheory.io_bisimulation] \\ rw []
-  \\ qexists_tac ‘λx y. x = y ∨ safe_itree x ∧ x ---> y’ \\ fs []
-  \\ rpt (pop_assum kall_tac) \\ rw []
-  \\ gvs [Once compiles_to_cases]
-  \\ fs [Once pure_semanticsTheory.safe_itree_cases]
-  \\ metis_tac []
-QED
-
 Inductive cont_rel:
   (cont_rel Done [])
   ∧
@@ -1987,7 +1964,7 @@ Proof
         t2 = semantics e2 senv (SOME ss) (AppK senv AppOp [Constructor "" []] []::sk)) ⇒
       t1 ---> t2’
   >- fs [PULL_EXISTS]
-  \\ ho_match_mp_tac compiles_to_coind
+  \\ ho_match_mp_tac pure_semanticsTheory.compiles_to_coind
   \\ rpt gen_tac \\ strip_tac
   \\ ntac 2 (pop_assum $ mp_tac o GSYM)
   \\ simp [env_semanticsTheory.semantics_def]

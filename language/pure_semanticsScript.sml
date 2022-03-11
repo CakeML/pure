@@ -503,4 +503,60 @@ CoInductive safe_itree:
       ⇒ safe_itree (Vis (e:string # string) rest))
 End
 
+(* definition of compiles_to *)
+
+CoInductive compiles_to:
+  compiles_to Div Div ∧
+  (∀x. compiles_to (Ret x) (Ret x)) ∧
+  (∀t. compiles_to (Ret pure_semantics$Error) t) ∧
+  (∀a f g.
+     (∀x. f x ≠ g x ⇒ compiles_to (f x) (g x)) ⇒
+     compiles_to (Vis a f) (Vis a g))
+End
+
+val _ = set_fixity "--->" (Infixl 480);
+Overload "--->" = “compiles_to”;
+
+(* properties *)
+
+Theorem safe_itree_compiles_to_IMP_eq:
+  safe_itree x ∧ x ---> y ⇒
+  x = y
+Proof
+  once_rewrite_tac [io_treeTheory.io_bisimulation] \\ rw []
+  \\ qexists_tac ‘λx y. x = y ∨ safe_itree x ∧ x ---> y’ \\ fs []
+  \\ rpt (pop_assum kall_tac) \\ rw []
+  \\ gvs [Once compiles_to_cases]
+  \\ fs [Once safe_itree_cases]
+  \\ metis_tac []
+QED
+
+Theorem eq_imp_compiles_to:
+  ∀x y. x = y ⇒ x ---> y
+Proof
+  ho_match_mp_tac compiles_to_coind
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘y’ \\ fs []
+QED
+
+Theorem compiles_to_trans:
+  ∀x y z. x ---> y ∧ y ---> z ⇒ x ---> z
+Proof
+  rpt gen_tac
+  \\ qid_spec_tac ‘y’
+  \\ simp [GSYM PULL_EXISTS]
+  \\ qid_spec_tac ‘z’
+  \\ qid_spec_tac ‘x’
+  \\ ho_match_mp_tac compiles_to_coind
+  \\ rpt gen_tac \\ strip_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ simp [Once compiles_to_cases]
+  \\ strip_tac
+  \\ simp [Once compiles_to_cases]
+  \\ Cases_on ‘z’ \\ fs [] \\ rw []
+  \\ metis_tac [eq_imp_compiles_to]
+QED
+
 val _ = export_theory();
