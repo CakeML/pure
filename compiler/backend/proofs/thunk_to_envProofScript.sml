@@ -57,7 +57,7 @@ Inductive exp_rel:
   (∀env f g x y.
      LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
                  exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c)
-              f (REVERSE g) ∧
+              (REVERSE f) g ∧
      exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) x y ⇒
        exp_rel env (Letrec f x) (Letrec g y)) ∧
 [exp_rel_Delay:]
@@ -84,7 +84,7 @@ Inductive exp_rel:
   (∀env f g n.
      LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
                  exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c)
-              f (REVERSE g) ⇒
+              (REVERSE f) g ⇒
        v_rel (Recclosure f n) (Recclosure g env n)) ∧
 [v_rel_Thunk_v:]
   (∀v w.
@@ -159,55 +159,61 @@ Proof
 QED
 
 Theorem exp_rel_subst:
-  exp_rel env x y ∧
-  env_rel binds extra ∧
-  (∀k. MEM k (MAP FST extra) ⇒ ¬MEM k (MAP FST env)) ⇒
+  exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST binds)) env) x y ∧
+  env_rel binds extra ⇒
     exp_rel (extra ++ env) (subst binds x) y
 Proof
-  ‘(∀env x y.
-     exp_rel env x y ⇒
-       ∀binds extra.
-         env_rel binds extra ∧
-         (∀k. MEM k (MAP FST extra) ⇒ ¬MEM k (MAP FST env)) ⇒
+  ‘(∀env' x y.
+     exp_rel env' x y ⇒
+       ∀env binds extra.
+         env' = FILTER (λ(n,x). ¬MEM n (MAP FST binds)) env ∧
+         env_rel binds extra ⇒
            exp_rel (extra ++ env) (subst binds x) y) ∧
    (∀v w. v_rel v w ⇒ T)’
-   suffices_by rw []
+    suffices_by rw []
   \\ ho_match_mp_tac exp_rel_strongind \\ rw []
   >~ [‘Value v’] >- (
     dxrule_then assume_tac env_rel_OPTREL
     \\ first_x_assum (qspec_then ‘n’ assume_tac)
-    \\ first_x_assum (qspec_then ‘n’ assume_tac)
+    \\ gvs [ALOOKUP_FILTER, OPTREL_def, ALOOKUP_NONE, MAP_REVERSE]
     \\ simp [subst_def, exp_rel_def, ALOOKUP_APPEND]
-    \\ CASE_TAC \\ gs []
-    \\ gvs [OPTREL_def, ALOOKUP_SOME, SF SFY_ss])
+    \\ imp_res_tac ALOOKUP_SOME \\ gs [MAP_REVERSE]
+    \\ CASE_TAC \\ gs [ALOOKUP_SOME])
   >~ [‘Var n’] >- (
     dxrule_then assume_tac env_rel_OPTREL
     \\ first_x_assum (qspec_then ‘n’ assume_tac)
-    \\ first_x_assum (qspec_then ‘n’ assume_tac)
     \\ simp [subst_def]
-    \\ CASE_TAC \\ gs [exp_rel_def, OPTREL_def, ALOOKUP_NONE, ALOOKUP_APPEND])
+    \\ gvs [ALOOKUP_FILTER, OPTREL_def]
+    \\ (irule exp_rel_Var ORELSE irule exp_rel_Value)
+    \\ gs [ALOOKUP_APPEND, ALOOKUP_NONE, MAP_REVERSE])
   >~ [‘App f x’] >- (
     simp [subst_def, exp_rel_def])
   >~ [‘Lam s x’] >- (
     simp [subst_def, exp_rel_def, FILTER_APPEND_DISTRIB]
     \\ first_x_assum irule
-    \\ gs [MEM_MAP, MAP_FILTER, MEM_FILTER, PULL_EXISTS, FORALL_PROD, SF SFY_ss]
-    \\ gs [env_rel_def, GSYM FILTER_REVERSE]
+    \\ gs [FILTER_FILTER, LAMBDA_PROD, MAP_FST_FILTER, env_rel_def,
+           GSYM FILTER_REVERSE]
     \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ gs []
-    \\ irule LIST_REL_FILTER
+    \\ irule_at Any LIST_REL_FILTER
     \\ irule_at Any env_rel_MAP_FST \\ gs [env_rel_def, Abbr ‘P’]
-    \\ gvs [ELIM_UNCURRY, LIST_REL_EL_EQN] )
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ irule_at Any LIST_EQ
+    \\ gvs [EL_MAP, ELIM_UNCURRY, MEM_FILTER]
+    \\ rw [DISJ_EQ_IMP, SF CONJ_ss, AC CONJ_COMM CONJ_ASSOC])
   >~ [‘Seq x y’] >- (
     simp [subst_def, exp_rel_def])
   >~ [‘Let (SOME n) x y’] >- (
     simp [subst_def, exp_rel_def, FILTER_APPEND_DISTRIB]
     \\ first_x_assum irule
-    \\ gs [MEM_MAP, MAP_FILTER, MEM_FILTER, PULL_EXISTS, FORALL_PROD, SF SFY_ss]
-    \\ gs [env_rel_def, GSYM FILTER_REVERSE]
+    \\ gvs [FILTER_FILTER, LAMBDA_PROD, GSYM FST_THM, MAP_FST_FILTER,
+            MEM_FILTER]
     \\ qabbrev_tac ‘P = λx. x ≠ n’ \\ gs []
+    \\ rw [DISJ_EQ_IMP, SF CONJ_ss, AC CONJ_COMM CONJ_ASSOC]
+    \\ gs [env_rel_def, GSYM FILTER_REVERSE]
     \\ irule LIST_REL_FILTER
-    \\ irule_at Any env_rel_MAP_FST \\ gs [env_rel_def, Abbr ‘P’]
-    \\ gvs [ELIM_UNCURRY, LIST_REL_EL_EQN])
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ irule LIST_EQ
+    \\ gvs [EL_MAP, ELIM_UNCURRY])
   >~ [‘If x1 y1 z1’] >- (
     simp [subst_def, exp_rel_def])
   >~ [‘Prim op xs’] >- (
@@ -218,20 +224,24 @@ Proof
         MAP_MAP_o, combinTheory.o_DEF, GSYM FST_THM, FILTER_APPEND_DISTRIB]
     \\ first_x_assum (irule_at Any)
     \\ qabbrev_tac ‘P = λn. ¬MEM n (MAP FST f)’ \\ gs []
-    \\ gs [MAP_FST_FILTER, MEM_FILTER]
-    \\ gs [env_rel_def, GSYM FILTER_REVERSE]
+    \\ gs [MAP_FST_FILTER, MEM_FILTER, FILTER_FILTER, DISJ_EQ_IMP, LAMBDA_PROD]
+    \\ gs [SF CONJ_ss, AC CONJ_COMM CONJ_ASSOC, env_rel_def,
+           GSYM FILTER_REVERSE]
     \\ irule_at Any LIST_REL_FILTER
-    \\ irule_at Any env_rel_MAP_FST
-    \\ gs [env_rel_def]
     \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ irule_at Any LIST_REL_mono
-    \\ last_x_assum (irule_at Any)
-    \\ simp [FORALL_PROD] \\ rw []
-    \\ first_x_assum irule
-    \\ gs [MAP_FST_FILTER, GSYM FILTER_REVERSE, MEM_FILTER]
+    \\ first_assum (irule_at Any)
+    \\ simp [LAMBDA_PROD, FORALL_PROD]
+    \\ irule_at Any env_rel_MAP_FST \\ gvs [env_rel_def]
+    \\ simp [GSYM MAP_REVERSE, LIST_REL_MAP1, combinTheory.o_DEF, LAMBDA_PROD]
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any)
+    \\ rw [FORALL_PROD] \\ gvs [ELIM_UNCURRY]
+    \\ first_x_assum (irule_at Any)
+    \\ simp [MAP_FST_FILTER, LAMBDA_PROD, MEM_FILTER, DISJ_EQ_IMP, SF CONJ_ss,
+             FILTER_FILTER, AC CONJ_COMM CONJ_ASSOC, GSYM FILTER_REVERSE]
     \\ irule LIST_REL_FILTER
-    \\ irule_at Any env_rel_MAP_FST \\ gvs [env_rel_def, LIST_REL_EL_EQN])
+    \\ irule_at Any env_rel_MAP_FST
+    \\ gvs [ELIM_UNCURRY, env_rel_def, LIST_REL_EL_EQN])
   >~ [‘Delay x’] >- (
     rw [subst_def, exp_rel_def])
   >~ [‘Box x’] >- (
@@ -274,11 +284,12 @@ Proof
       \\ ‘(s,w)::l = [s,w] ++ l’ by gs []
       \\ pop_assum SUBST1_TAC
       \\ irule exp_rel_subst
-      \\ gs [exp_rel_def, env_rel_def]
-      \\ cheat (* TODO See remark below *))
+      \\ gs [exp_rel_def, env_rel_def])
     \\ qmatch_asmsub_abbrev_tac ‘LIST_REL (λ(a,x) (b,y). a = b ∧ R x y) xs ys’
-    \\ ‘OPTREL R (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
-      by (irule LIST_REL_OPTREL
+    \\ ‘OPTREL R (ALOOKUP xs s) (ALOOKUP ys s)’
+      by (‘xs = REVERSE (REVERSE xs)’ by gs [] \\ pop_assum SUBST1_TAC
+          \\ ‘ys = REVERSE (REVERSE ys)’ by gs [] \\ pop_assum SUBST1_TAC
+          \\ irule LIST_REL_OPTREL
           \\ gvs [LIST_REL_EL_EQN])
     \\ gs [OPTREL_def, Abbr ‘ys’, Abbr ‘R’]
     \\ qpat_x_assum ‘exp_rel _ x0 y0’ mp_tac
@@ -290,7 +301,10 @@ Proof
     \\ pop_assum SUBST1_TAC
     \\ irule exp_rel_subst
     \\ unabbrev_all_tac
-    \\ cheat (* TODO See remark below *))
+    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
+           FILTER_FILTER, AC CONJ_COMM CONJ_ASSOC]
+    \\ gs [env_rel_def, LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, EL_REVERSE,
+           v_rel_def])
   >~ [‘Lam s x’] >- (
     gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def, v_rel_def])
   >~ [‘Seq x1 y1’] >- (
@@ -310,10 +324,7 @@ Proof
     \\ ‘(n,w)::env = [n,w] ++ env’ by gs []
     \\ pop_assum SUBST_ALL_TAC
     \\ irule exp_rel_subst
-    (* TODO: It's OK to just filter anything we bind from env;
-             doesn't matter if its in there. The exp_rel_subst
-             theorem statement looks wrong. *)
-    \\ cheat)
+    \\ gs [env_rel_def])
   >~ [‘If x1 y1 z1’] >- (
     gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def, v_rel_def]
     \\ IF_CASES_TAC \\ gs []
@@ -332,8 +343,9 @@ Proof
     \\ first_x_assum irule
     \\ simp [subst_funs_def]
     \\ irule exp_rel_subst
-    (* TODO: Same remark as above about exp_rel_subst. *)
-    \\ cheat)
+    \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ gvs [env_rel_def, LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, EL_REVERSE,
+            v_rel_def])
   >~ [‘Delay x’] >- (
     gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def, v_rel_def])
   >~ [‘Box x’] >- (
@@ -358,11 +370,10 @@ Proof
                                            envLangTheory.dest_anyThunk_def]
     >- (
       qmatch_asmsub_abbrev_tac
-        ‘LIST_REL (λ(a,x) (b,y). a = b ∧ R x y) xs (REVERSE ys)’
-      \\ ‘OPTREL R (ALOOKUP (REVERSE xs) s) (ALOOKUP ys s)’
-        by (‘ys = REVERSE (REVERSE ys)’
-              by gs []
-            \\ pop_assum SUBST1_TAC
+        ‘LIST_REL (λ(a,x) (b,y). a = b ∧ R x y) xs ys’
+      \\ ‘OPTREL R (ALOOKUP xs s) (ALOOKUP ys s)’
+        by (‘xs = REVERSE (REVERSE xs)’ by gs [] \\ pop_assum SUBST1_TAC
+            \\ ‘ys = REVERSE (REVERSE ys)’ by gs [] \\ pop_assum SUBST1_TAC
             \\ irule LIST_REL_OPTREL \\ gs [])
       \\ gvs [OPTREL_def, Abbr ‘R’]
       \\ pop_assum mp_tac
@@ -370,7 +381,9 @@ Proof
       \\ first_x_assum irule
       \\ gs [subst_funs_def]
       \\ irule exp_rel_subst
-      \\ cheat (* exp_rel_subst *))
+      \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+      \\ gvs [env_rel_def, LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, EL_REVERSE,
+              Abbr ‘xs’, v_rel_def])
     \\ CASE_TAC \\ gvs [v_rel_def]
     \\ first_x_assum irule
     \\ simp [subst_funs_def])
