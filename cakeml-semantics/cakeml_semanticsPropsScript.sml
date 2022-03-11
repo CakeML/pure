@@ -1,8 +1,8 @@
 (* Properties about the itree- and FFI state-based CakeML semantics *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory;
-open namespaceTheory astTheory
-     ffiTheory semanticPrimitivesTheory smallStepTheory evaluatePropsTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
+     evaluatePropsTheory smallStepTheory smallStepPropsTheory;
 open io_treeTheory cakeml_semanticsTheory pure_miscTheory;
 
 val _ = new_theory "cakeml_semanticsProps";
@@ -237,23 +237,7 @@ QED
 
 (***** Lemmas *****)
 
-(* Copied from CakeML *)
-Theorem cml_application_thm:
-  ∀op env s vs c.
-    application op env s vs c =
-    if op = Opapp then
-      case do_opapp vs of
-      | NONE => Eabort Rtype_error
-      | SOME (env,e) => Estep (env,s,Exp e,c)
-    else
-      case do_app s op vs of
-      | NONE => Eabort Rtype_error
-      | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rerr (Rraise v)) => Estep (env,v1,Val v,(Craise (),env)::c)
-      | SOME (v1,Rerr (Rabort a)) => Eabort a
-Proof
-  rw[smallStepTheory.application_def] >> every_case_tac >> gvs[]
-QED
+Theorem cml_application_thm = smallStepPropsTheory.application_thm;
 
 Theorem application_not_Estuck:
   application op env st_ffi vs cs ≠ Estuck
@@ -556,149 +540,6 @@ QED
 
 (***** smallStep FFI-state lemmas *****)
 
-Theorem do_app_ffi_changed:
-  do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
-  ffi ≠ ffi' ⇒
-  ∃s conf lnum ws ffi_st ws'.
-    op = FFI s ∧
-    vs = [Litv (StrLit conf); Loc lnum] ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
-    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
-    LENGTH ws = LENGTH ws' ∧
-    st' = LUPDATE (W8array ws') lnum st ∧
-    ffi'.oracle = ffi.oracle ∧
-    ffi'.ffi_state = ffi_st ∧
-    ffi'.io_events =
-      ffi.io_events ++
-        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
-Proof
-  simp[semanticPrimitivesTheory.do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
-  strip_tac >> gvs[call_FFI_def] >>
-  every_case_tac >> gvs[]
-QED
-
-Theorem do_app_ffi_unchanged:
-  ∀st ffi op vs st' ffi' res.
-    (∀s. op ≠ FFI s) ∧
-    do_app (st, ffi) op vs = SOME ((st', ffi'), res)
-  ⇒ ffi = ffi'
-Proof
-  rpt gen_tac >>
-  simp[semanticPrimitivesTheory.do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def]
-QED
-
-Theorem application_ffi_unchanged:
-  ∀op env st ffi vs cs env' st' ffi' ev cs'.
-    (∀s. op ≠ FFI s) ∧
-    application op env (st, ffi) vs cs = Estep (env', (st', ffi'), ev, cs')
-  ⇒ ffi = ffi'
-Proof
-  rpt gen_tac >>
-  rw[cml_application_thm, SF smallstep_ss]
-  >- (every_case_tac >> gvs[]) >>
-  qspecl_then [`st`,`ffi`,`op`,`vs`] assume_tac do_app_ffi_unchanged >>
-  every_case_tac >> gvs[]
-QED
-
-Theorem e_step_ffi_changed:
-  e_step (env, (st, ffi), ev, cs) = Estep (env', (st', ffi'), ev', cs') ∧
-  ffi ≠ ffi' ⇒
-  ∃ s conf lnum ccs ws ffi_st ws'.
-    ev = Val (Litv (StrLit conf)) ∧
-    cs = (Capp (FFI s) [Loc lnum] () [], env') :: ccs ∧
-    store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
-    ffi.oracle s ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
-    LENGTH ws = LENGTH ws' ∧
-    ev' = Val (Conv NONE []) ∧
-    cs' = ccs ∧
-    st' = LUPDATE (W8array ws') lnum st ∧
-    ffi'.oracle = ffi.oracle ∧
-    ffi'.ffi_state = ffi_st ∧
-    ffi'.io_events =
-      ffi.io_events ++
-        [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))]
-Proof
-  simp[e_step_def] >>
-  every_case_tac >> gvs[SF smallstep_ss]
-  >- (
-    strip_tac >> rename1 `application op _ _ _ _` >>
-    Cases_on `∀s. op ≠ FFI s` >> gvs[]
-    >- (irule application_ffi_unchanged >> rpt $ goal_assum drule) >>
-    gvs[smallStepTheory.application_def, semanticPrimitivesTheory.do_app_def]
-    ) >>
-  every_case_tac >> gvs[] >>
-  rename1 `application op _ _ _ _` >>
-  (
-    strip_tac >> Cases_on `∀s. op ≠ FFI s` >> gvs[]
-    >- (drule_all application_ffi_unchanged >> gvs[]) >>
-    gvs[smallStepTheory.application_def,
-        semanticPrimitivesTheory.do_app_def, call_FFI_def] >>
-    every_case_tac >> gvs[SF smallstep_ss, store_lookup_def, store_assign_def]
-  )
-QED
-
-Triviality e_step_ffi_changed_forall =
-  e_step_ffi_changed |>
-  Q.GENL [`env`,`st`,`ffi`,`ev`,`cs`,`ffi'`,`env'`,`st'`,`ev'`,`cs'`];
-
-Theorem decl_step_ffi_changed:
-  decl_step benv (st, dev, dcs) = Dstep (st', dev', dcs') ∧ st.ffi ≠ st'.ffi ⇒
-  ∃env conf s lnum env' ccs locs pat ws ffi_st ws'.
-    dev = ExpVal env (Val (Litv (StrLit conf)))
-            ((Capp (FFI s) [Loc lnum] () [], env')::ccs) locs pat ∧
-    store_lookup lnum st.refs = SOME (W8array ws) ∧
-    s ≠ "" ∧
-    st.ffi.oracle s st.ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
-      Oracle_return ffi_st ws' ∧
-    LENGTH ws = LENGTH ws' ∧
-    dev' = ExpVal env' (Val (Conv NONE [])) ccs locs pat ∧
-    st' = st with <|
-            refs := LUPDATE (W8array ws') lnum st.refs;
-            ffi := st.ffi with <|
-              ffi_state := ffi_st;
-              io_events := st.ffi.io_events ++
-                 [IO_event s (MAP (λc. n2w $ ORD c) (EXPLODE conf)) (ZIP (ws,ws'))] |>
-            |> ∧
-    dcs = dcs'
-Proof
-  simp[decl_step_def] >>
-  Cases_on `∃d. dev = Decl d` >> gvs[]
-  >- (every_case_tac >> gvs[state_component_equality]) >>
-  Cases_on `∃e. dev = Env e` >> gvs[]
-  >- (simp[decl_continue_def] >> every_case_tac >> gvs[state_component_equality]) >>
-  TOP_CASE_TAC >> gvs[] >>
-  qmatch_goalsub_abbrev_tac `e_step_result_CASE stepe` >>
-  qpat_abbrev_tac `foo = e_step_result_CASE _ _ _ _` >> strip_tac >>
-  qspecl_then [`s`,`st.refs`,`st.ffi`,`e`,`l`,`st'.ffi`]
-    assume_tac e_step_ffi_changed_forall >>
-  gvs[Abbr `stepe`] >> last_x_assum assume_tac >> last_x_assum mp_tac >>
-  TOP_CASE_TAC >> gvs[]
-  >- (unabbrev_all_tac >> gvs[] >> every_case_tac >> gvs[state_component_equality]) >>
-  TOP_CASE_TAC >> gvs[]
-  >- (every_case_tac >> gvs[state_component_equality]) >>
-  every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
-  gvs[SF smallstep_ss, cml_application_thm,
-      semanticPrimitivesTheory.do_app_def, call_FFI_def,
-      store_assign_def, store_lookup_def, store_v_same_type_def]
-QED
-
-Theorem io_events_mono_e_step:
-  e_step e1 = Estep e2 ⇒
-  io_events_mono (SND $ FST $ SND e1) (SND $ FST $ SND e2)
-Proof
-  PairCases_on `e1` >> PairCases_on `e2` >> gvs[] >> rw[] >>
-  rename1 `e_step (env1,(st1,ffi1),ev1,cs1) = _ (env2,(st2,ffi2),ev2,cs2)` >>
-  Cases_on `ffi1 = ffi2` >- simp[io_events_mono_refl] >>
-  drule_all e_step_ffi_changed >> rw[] >> gvs[] >>
-  rw[io_events_mono_def]
-QED
-
 Theorem io_events_mono_step_n_cml:
   ∀n e1 e2.
     step_n_cml n (Estep e1) = Estep e2
@@ -729,16 +570,6 @@ Proof
   rename1 `step_n_cml (SUC _) _ = Estep (env2,(st2,ffi2),ev2,cs2)` >>
   imp_res_tac io_events_mono_step_n_cml >> gvs[get_ffi_def] >>
   imp_res_tac io_events_mono_antisym >> gvs[]
-QED
-
-Theorem io_events_mono_decl_step:
-  decl_step env dst1 = Dstep dst2 ⇒
-  io_events_mono (FST dst1).ffi (FST dst2).ffi
-Proof
-  PairCases_on `dst1` >> PairCases_on `dst2` >> gvs[] >> rw[] >>
-  Cases_on `dst10.ffi = dst20.ffi` >- simp[io_events_mono_refl] >>
-  drule_all decl_step_ffi_changed >> rw[] >> gvs[] >>
-  rw[io_events_mono_def]
 QED
 
 Theorem io_events_mono_dstep_n_cml:

@@ -1,9 +1,8 @@
 (* Relating the itree- and FFI state-based CakeML semantics *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory;
-open namespaceTheory astTheory
-     ffiTheory semanticPrimitivesTheory smallStepTheory
-     bigSmallEquivTheory evaluatePropsTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
+     evaluatePropsTheory smallStepTheory smallStepPropsTheory;
 open io_treeTheory pure_miscTheory
      cakeml_semanticsTheory cakeml_semanticsPropsTheory;
 
@@ -21,7 +20,7 @@ val smallstep_ss = simpLib.named_rewrites "smallstep_ss" [
     ];
 
 val dsmallstep_ss = simpLib.named_rewrites "dsmallstep_ss" [
-    bigSmallEquivTheory.collapse_env_def,
+    smallStepPropsTheory.collapse_env_def,
     smallStepTheory.decl_continue_def,
     smallStepTheory.decl_step_def
     ];
@@ -2627,7 +2626,7 @@ Theorem small_eval_dec_trace_prefix_type_error:
         (dinterp env (Dstep dst (Decl d) [])) = (io, SOME Error) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >> PairCases_on `dst'` >>
+  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
   imp_res_tac io_events_mono_dstep_n_cml >>
   gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
   qpat_x_assum `_ ⇒ _` kall_tac >> rename1 `_ ++ io` >>
@@ -2670,7 +2669,7 @@ Theorem small_eval_trace_prefix_ffi_error:
           (io, SOME $ FinalFFI (s,conf,ws) outcome) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >> PairCases_on `dst'` >>
+  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
   imp_res_tac io_events_mono_dstep_n_cml >>
   gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
   qpat_x_assum `_ ⇒ _` kall_tac >> rename1 `_ ++ io` >>
@@ -2706,7 +2705,7 @@ Proof
   PairCases_on `dst'` >> goal_assum drule >> gvs[dget_ffi_def]
 QED
 
-Theorem e_diverges_trace_prefix:
+Theorem decl_diverges_trace_prefix:
   small_decl_diverges env (st,Decl d,[]) ∧
   (decl_step_reln env)^* (st,Decl d,[]) (st',dev,dcs) ∧
   dstate_rel dst st
