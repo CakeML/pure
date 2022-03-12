@@ -596,7 +596,7 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
     \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
     \\ rename [‘compile_rel x y’] \\ first_x_assum drule_all
-    \\ disch_then (qspecl_then [‘NONE’,‘BoxK st::k’] mp_tac)
+    \\ disch_then (qspecl_then [‘st’,‘BoxK::k’] mp_tac)
     \\ strip_tac
     \\ Cases_on ‘eval_to n tenv x’ \\ fs []
     >- (first_x_assum $ irule_at (Pos last) \\ fs [])

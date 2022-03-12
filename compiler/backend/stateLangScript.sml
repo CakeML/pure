@@ -78,7 +78,7 @@ Datatype:
          (* values in call-order, exps in reverse order *)
        | LetK env (vname option) exp
        | IfK env exp exp
-       | BoxK (state option)
+       | BoxK
        | ForceK1
        | ForceK2 (state option)
        | RaiseK
@@ -356,7 +356,7 @@ Definition return_def:
      | SOME (INL v, _) => value v st k
      | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
   return v temp_st (ForceK2 st :: k) = value v st k ∧
-  return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k
+  return v st (BoxK :: k) = value (Thunk $ INL v) st k
 End
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
@@ -382,7 +382,7 @@ Definition step_def:
       [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
         application sop env [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
-  step st k (Exp env $ Box e) = push env e NONE (BoxK st) k ∧
+  step st k (Exp env $ Box e) = push env e st BoxK k ∧
   step st k (Exp env $ Force e) = push env e st ForceK1 k ∧
 
   (***** Errors *****)
