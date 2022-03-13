@@ -544,4 +544,8 @@ QED
 
 (****************************************)
 
+Theorem step =
+  LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
+             application_def,dest_anyClosure_def,dest_Closure_def];
+
 val _ = export_theory ();

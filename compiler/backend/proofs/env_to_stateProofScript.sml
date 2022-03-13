@@ -344,10 +344,6 @@ Proof
   \\ irule env_rel_rec \\ fs []
 QED
 
-val step =
-  LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
-             application_def,dest_anyClosure_def,dest_Closure_def];
-
 Theorem eval_to_list_div:
   ∀xs t n k aux sv.
     env_rel tenv senv ∧ LIST_REL compile_rel xs t ∧

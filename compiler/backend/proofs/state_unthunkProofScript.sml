@@ -28,8 +28,7 @@ Overload "box" = “λx. App Ref [True; x]”
 
 Overload "delay" = “λx. App Ref [False; Lam NONE x]”
 
-Overload "force" = “λx.
-  Let (SOME "v") x $
+Overload "force_lets" = “
   Let (SOME "v1") (App UnsafeSub [Var "v"; IntLit 0]) $
   Let (SOME "v2") (App UnsafeSub [Var "v"; IntLit 1]) $
     If (Var "v1") (Var "v2") $
@@ -37,6 +36,8 @@ Overload "force" = “λx.
       Let NONE (App UnsafeUpdate [Var "v"; IntLit 0; True]) $
       Let NONE (App UnsafeUpdate [Var "v"; IntLit 1; Var "a"]) $
         Var "a"”
+
+Overload "force" = “λx. Let (SOME "v") x force_lets”
 
 Inductive compile_rel:
 
@@ -60,7 +61,7 @@ Inductive compile_rel:
   compile_rel (HandleApp x1 x2) (HandleApp y1 y2)) ∧
 
 [~App:]
-  (LIST_REL compile_rel xs ys ⇒
+  (LIST_REL compile_rel xs ys ∧ (∀l. op ≠ AtomOp (Lit (Loc l))) ⇒
   compile_rel (App op xs) (App op ys)) ∧
 
 [~Letrec:]
@@ -158,17 +159,72 @@ Inductive step_res_rel:
    step_res_rel p (Val v1) (Val v2)) ∧
   (v_rel p v1 v2 ⇒
    step_res_rel p (Exn v1) (Exn v2)) ∧
+  (step_res_rel p Error Error) ∧
   (compile_rel e1 e2 ∧ env_rel p env1 env2 ⇒
    step_res_rel p (Exp env1 e1) (Exp env2 e2)) ∧
   (step_res_rel p (Action a b) (Action a b))
 End
 
 Inductive cont_rel:
-  ∀xs. xs = [] ⇒ cont_rel p xs []
+  (∀p. cont_rel p [] []) ∧
+  (∀p tenv senv op tvs svs tes ses sk tk.
+    cont_rel p tk sk ∧ env_rel p tenv senv ∧
+    LIST_REL (v_rel p) tvs svs ∧ LIST_REL compile_rel tes ses ⇒
+    cont_rel p (AppK tenv op tvs tes :: tk)
+               (AppK senv op svs ses :: sk)) ∧
+  (∀p tenv senv n te se sk tk.
+    cont_rel p tk sk ∧ env_rel p tenv senv ∧
+    compile_rel te se ⇒
+    cont_rel p (LetK tenv n te :: tk)
+               (LetK senv n se :: sk)) ∧
+  (∀p tenv senv te1 se1 te2 se2 sk tk.
+    cont_rel p tk sk ∧ env_rel p tenv senv ∧
+    compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
+    cont_rel p (IfK tenv te1 te2 :: tk)
+               (IfK senv se1 se2 :: sk)) ∧
+  (∀p tenv senv n te se sk tk.
+    cont_rel p tk sk ∧ env_rel p tenv senv ∧
+    compile_rel te se ⇒
+    cont_rel p (HandleK tenv n te :: tk)
+               (HandleK senv n se :: sk)) ∧
+  (∀p tenv senv te se sk tk.
+    cont_rel p tk sk ∧ env_rel p tenv senv ∧
+    compile_rel te se ⇒
+    cont_rel p (HandleAppK tenv te :: tk)
+               (HandleAppK senv se :: sk)) ∧
+  (∀p sk tk senv.
+    cont_rel p tk sk ⇒
+    cont_rel p (BoxK :: tk)
+               (AppK senv Ref [] [True] :: sk)) ∧
+  (∀p sk tk.
+    cont_rel p tk sk ⇒
+    cont_rel p (RaiseK :: tk)
+               (RaiseK :: sk)) ∧
+  (∀p sk tk senv.
+    cont_rel p tk sk ⇒
+    cont_rel p (ForceK1 :: tk)
+               (LetK senv (SOME "v") force_lets :: sk))
+End
+
+Definition thunk_rel_def:
+  thunk_rel p NONE _ = T ∧
+  thunk_rel p (SOME x) vs =
+    case x of
+    | INL tv => (∃sv. v_rel p tv sv ∧ vs = [True_v; sv])
+    | INR (tenv,te) =>
+        ∃senv se.
+          env_rel p tenv senv ∧ compile_rel te se ∧
+          (vs = [False_v; Closure NONE senv se] ∨
+           ∃tv ck. (∀k1. step_n ck (Exp tenv te,NONE,k1) = (Val tv,NONE,k1)) ∧
+                   vs = [True_v; tv])
 End
 
 Definition state_rel_def:
-  state_rel (p:(v + env # exp) option list) (ts:state option) (ss:state option) = T
+  state_rel (p:(v + env # exp) option list) (ts:state option) (ss:state option) =
+    ∃t1 s1.
+      ts = SOME t1 ∧ ss = SOME s1 ∧
+      LIST_REL (thunk_rel p) p s1 ∧
+      LIST_REL (LIST_REL (v_rel p)) t1 (MAP SND (FILTER (λx. FST x = NONE) (ZIP (p,s1))))
 End
 
 Inductive snext_res_rel:
@@ -186,34 +242,250 @@ Proof
   cheat
 QED
 
+Definition pick_opt_def[simp]:
+  pick_opt zs NONE = SOME zs ∧
+  pick_opt zs (SOME xs) = SOME xs
+End
+
+Triviality cont_rel_nil_cons:
+  ~(cont_rel p [] (y::ys)) ∧
+  ~(cont_rel p (x::xs) [])
+Proof
+  once_rewrite_tac [cont_rel_cases] \\ fs []
+QED
+
+Theorem v_rel_new_Thunk:
+  loc = LENGTH p ⇒
+  v_rel (p ++ [SOME r]) (Thunk r) (Atom (Loc loc))
+Proof
+  cheat
+QED
+
+Theorem cont_rel_ext:
+  ∀q p k1 k2.
+    cont_rel p k1 k2 ⇒
+    cont_rel (p ++ q) k1 k2
+Proof
+  cheat
+QED
+
+Theorem state_rel_INR:
+  state_rel p ts (SOME ss) ∧
+  env_rel p env1 env2 ∧
+  compile_rel te se ⇒
+  state_rel (p ++ [SOME (INR (env1,te))]) ts
+     (SOME (SNOC [False_v; Closure NONE env2 se] ss))
+Proof
+  cheat
+QED
+
+Theorem v_rel_Ref:
+  state_rel p (SOME x) (SOME ss) ⇒
+  v_rel (p ++ [NONE]) (Atom (Loc (LENGTH x))) (Atom (Loc (LENGTH ss)))
+Proof
+  cheat
+QED
+
+Theorem state_rel_Ref:
+  LIST_REL (v_rel p) xs ys ∧ state_rel p (SOME ts) (SOME ss) ⇒
+  state_rel (p ++ [NONE]) (SOME (SNOC xs ts)) (SOME (SNOC ys ss))
+Proof
+  cheat
+QED
+
 Theorem step_forward:
-  ∀n p tr ts tk tr1 ts1 tk1 ss sr sk.
+  ∀n zs p tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n n (tr,ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧
     cont_rel p tk sk ∧
-    state_rel p ts (SOME ss) ∧
+    state_rel p (pick_opt zs ts) (SOME ss) ∧
     step_res_rel p tr sr ∧ tr1 ≠ Error ⇒
     ∃m q sr1 ss1 sk1.
       step_n m (sr,SOME ss,sk) = (sr1,SOME ss1,sk1) ∧
       is_halt (sr1,SOME ss1,sk1) ∧
       cont_rel q tk1 sk1 ∧
-      state_rel q ts1 (SOME ss1) ∧
+      state_rel q (pick_opt zs ts1) (SOME ss1) ∧
       step_res_rel q tr1 sr1
 Proof
-  cheat
+  gen_tac \\ completeInduct_on ‘n’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ Cases_on ‘n = 0’
+  >-
+   (gvs [] \\ qexists_tac ‘0’ \\ gvs []
+    \\ TRY (first_assum $ irule_at Any) \\ fs []
+    \\ Cases_on ‘sr’ \\ fs [is_halt_def]
+    \\ gvs [step_res_rel_cases,is_halt_def]
+    \\ Cases_on ‘tk’ \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons])
+  \\ cheat
+  (*
+  \\ Cases_on ‘∃tenv te. tr = Exp tenv te’ \\ rw []
+    qpat_x_assum ‘step_res_rel _ _ _’ mp_tac
+    \\ simp [Once step_res_rel_cases] \\ rw []
+    \\ Cases_on ‘∃te1. te = Force te1’ \\ rw []
+      fs [Once compile_rel_cases] \\ rw []
+  \\ Cases_on ‘tr’
+  *)
 QED
 
 Theorem step_backward:
-  ∀m p sr ss sk sr1 ss1 sk1 tr ts tk.
+  ∀m zs p sr ss sk sr1 ss1 sk1 tr ts tk.
     step_n m (sr,SOME ss,sk) = (sr1,ss1,sk1) ∧
     is_halt (sr1,ss1,sk1) ∧
     cont_rel p tk sk ∧
-    state_rel p ts (SOME ss) ∧
+    state_rel p (pick_opt zs ts) (SOME ss) ∧
     step_res_rel p tr sr ⇒
     ∃n q tr1 ts1 tk1.
       step_n n (tr,ts,tk) = (tr1,ts1,tk1) ∧
       is_halt (tr1,ts1,tk1)
 Proof
-  cheat
+  gen_tac \\ completeInduct_on ‘m’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
+  \\ Cases_on ‘m = 0’
+  >-
+   (gvs [] \\ qexists_tac ‘0’ \\ gvs []
+    \\ Cases_on ‘sr’ \\ fs [is_halt_def]
+    \\ gvs [step_res_rel_cases,is_halt_def]
+    \\ Cases_on ‘tk’ \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons])
+  \\ Cases_on ‘is_halt (tr,ts,tk)’
+  >- (qexists_tac ‘0’ \\ fs [])
+  \\ qpat_x_assum ‘step_res_rel p tr sr’ mp_tac
+  \\ once_rewrite_tac [step_res_rel_cases]
+  \\ strip_tac \\ gvs [is_halt_def]
+  >-
+   (Cases_on ‘tk’ \\ gvs [is_halt_def]
+    \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons]
+    \\ cheat)
+  >-
+   (Cases_on ‘tk’ \\ gvs [is_halt_def]
+    \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons]
+    \\ rename [‘cont_rel p (tk'::tk) (sk'::sk)’]
+    \\ qpat_x_assum ‘cont_rel _ _ _’ mp_tac
+    \\ once_rewrite_tac [cont_rel_cases]
+    \\ strip_tac \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘ck+1:num’
+    \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
+    \\ (Cases_on ‘m’ >- fs [])
+    \\ rewrite_tac [step_n_add,ADD1]
+    \\ fs [] \\ simp [step_def,continue_def,push_def]
+    \\ strip_tac
+    \\ last_x_assum irule
+    \\ pop_assum $ irule_at Any \\ fs []
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+    \\ rpt (first_assum $ irule_at $ Any \\ fs [])
+    \\ once_rewrite_tac [cont_rel_cases] \\ fs []
+    \\ fs [env_rel_def] \\ rw [] \\ fs [])
+  \\ qpat_x_assum ‘compile_rel e1 e2’ mp_tac
+  \\ simp [Once compile_rel_cases] \\ rw []
+  \\ Q.REFINE_EXISTS_TAC ‘ck+1:num’
+  \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
+  \\ (Cases_on ‘m’ >- fs [])
+  \\ rewrite_tac [step_n_add,ADD1]
+  \\ TRY
+     (simp [step]
+      \\ strip_tac
+      \\ last_x_assum irule
+      \\ pop_assum $ irule_at Any \\ fs []
+      \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+      \\ rpt (first_assum $ irule_at $ Any \\ fs [])
+      \\ once_rewrite_tac [cont_rel_cases] \\ fs []
+      \\ once_rewrite_tac [v_rel_cases] \\ fs [] \\ NO_TAC)
+  >~ [‘Var vname’] >-
+   (fs [step,error_def]
+    \\ Cases_on ‘ALOOKUP env1 vname’ \\ fs [is_halt_def]
+    >- (rw [] \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ fs [env_rel_def] \\ fs []
+    \\ first_x_assum drule \\ fs [] \\ rw [] \\ gvs []
+    \\ last_x_assum irule
+    \\ pop_assum $ irule_at Any \\ fs []
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+    \\ rpt (first_assum $ irule_at $ Any \\ fs []))
+  >~ [‘Delay te’] >-
+   (simp [step]
+    \\ Cases_on ‘n’ \\ fs []
+    >- (rw [] \\ fs [is_halt_def])
+    \\ rewrite_tac [step_n_add,ADD1]
+    \\ simp [step]
+    \\ rename [‘step_n n’]
+    \\ Cases_on ‘n’ \\ fs []
+    >- (rw [] \\ fs [is_halt_def])
+    \\ rewrite_tac [step_n_add,ADD1]
+    \\ simp [step]
+    \\ rename [‘step_n n’]
+    \\ Cases_on ‘n’ \\ fs []
+    >- (rw [] \\ fs [is_halt_def])
+    \\ rewrite_tac [step_n_add,ADD1]
+    \\ simp [step]
+    \\ rename [‘step_n n’]
+    \\ Cases_on ‘n’ \\ fs []
+    >- (rw [] \\ fs [is_halt_def])
+    \\ rewrite_tac [step_n_add,ADD1]
+    \\ simp [step]
+    \\ rename [‘step_n n’]
+    \\ strip_tac
+    \\ last_x_assum irule
+    \\ pop_assum $ irule_at Any \\ fs []
+    \\ qexists_tac ‘zs’ \\ fs []
+    \\ qexists_tac ‘p ++ [SOME (INR (env1,te))]’ \\ fs []
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+    \\ irule_at Any v_rel_new_Thunk
+    \\ irule_at Any cont_rel_ext \\ simp []
+    \\ irule_at Any state_rel_INR \\ fs []
+    \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  >~ [‘App op ys’] >-
+   (fs [step,error_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ IF_CASES_TAC
+    >- (rw [] \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ fs []
+    \\ reverse CASE_TAC \\ gvs []
+    >-
+     (Cases_on ‘REVERSE xs’ >- gvs []
+      \\ gvs [SWAP_REVERSE_SYM]
+      \\ strip_tac
+      \\ last_x_assum irule
+      \\ pop_assum $ irule_at Any \\ fs []
+      \\ qexists_tac ‘zs’ \\ fs []
+      \\ rpt (first_assum $ irule_at $ Any \\ fs [])
+      \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+      \\ once_rewrite_tac [cont_rel_cases] \\ fs [])
+    \\ Cases_on ‘∃aop. op = AtomOp aop’
+    >-
+     (gvs [application_def,get_atoms_def]
+      \\ fs [value_def,error_def]
+      \\ every_case_tac
+      \\ TRY (strip_tac \\ qexists_tac ‘0’ \\ fs [is_halt_def] \\ NO_TAC)
+      \\ strip_tac
+      \\ last_x_assum irule
+      \\ pop_assum $ irule_at Any \\ fs []
+      \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+      \\ rpt (first_assum $ irule_at $ Any \\ fs [])
+      \\ once_rewrite_tac [cont_rel_cases] \\ fs []
+      \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ Cases_on ‘aop’ \\ fs [])
+    \\ Cases_on ‘∃k. op = Cons k’
+    >-
+     (gvs [application_def,get_atoms_def]
+      \\ fs [value_def,error_def]
+      \\ strip_tac
+      \\ last_x_assum irule
+      \\ pop_assum $ irule_at Any \\ fs []
+      \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+      \\ rpt (first_assum $ irule_at $ Any \\ fs [])
+      \\ once_rewrite_tac [v_rel_cases] \\ fs [])
+    \\ Cases_on ‘op’ \\ fs []
+    \\ rename [‘application Ref’]
+    \\ gvs [application_def,get_atoms_def]
+    \\ fs [value_def,error_def]
+    \\ Cases_on ‘ts’ \\ fs []
+    >- (strip_tac \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+    \\ strip_tac
+    \\ last_x_assum irule
+    \\ pop_assum $ irule_at Any \\ fs []
+    \\ qexists_tac ‘p ++ [NONE]’
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+    \\ irule_at Any cont_rel_ext \\ simp []
+    \\ irule_at Any v_rel_Ref \\ simp []
+    \\ irule_at Any state_rel_Ref \\ simp [])
+  >~ [‘Letrec _ _’] >- cheat
 QED
 
 (* step_until_halt *)
@@ -232,6 +504,7 @@ Proof
    (‘∃a. step_n x (tr,SOME ts,tk) = a’ by fs []
     \\ PairCases_on ‘a’ \\ gvs []
     \\ ‘a0 ≠ Error’ by (strip_tac \\ gvs [])
+    \\ ‘state_rel p (pick_opt zs (SOME ts)) (SOME ss)’ by fs []
     \\ drule_all step_forward \\ rw []
     \\ reverse (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
     >- metis_tac []
@@ -249,6 +522,7 @@ Proof
   >- simp [Once snext_res_rel_cases]
   \\ ‘∃a. step_n x (sr,SOME ss,sk) = a’ by fs []
   \\ PairCases_on ‘a’ \\ gvs []
+  \\ ‘state_rel p (pick_opt zs (SOME ts)) (SOME ss)’ by fs []
   \\ drule_all step_backward
   \\ metis_tac []
 QED
