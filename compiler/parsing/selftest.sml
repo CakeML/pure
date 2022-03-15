@@ -72,5 +72,20 @@ val _ = app fptest [
            \  z = 10 in y + z",
    “astExp nExp”,
    “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3);
-            expdecFunbind "z" [] (𝕀 10)] (‹+› ⬝ ‹y› ⬝ ‹z›)”)
+            expdecFunbind "z" [] (𝕀 10)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+  (“nExp”, "do x <- f y 3\n\
+           \   foo x",
+   “astExp nExp”,
+   “expDo [expdostmtBind (patVar "x") (‹f› ⬝ ‹y› ⬝ 𝕀 3)] (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "do let y = 10\n\
+           \       f :: Int -> Int\n\
+           \       f z = z + 1\n\
+           \   x <- g (f y) 3\n\
+           \   foo x",
+   “astExp nExp”,
+   “expDo [expdostmtLet [expdecFunbind "y" [] (𝕀 10);
+                         expdecTysig "f" (funTy intTy intTy);
+                         expdecFunbind "f" [patVar "z"] (‹+› ⬝ ‹z› ⬝ 𝕀 1)];
+           expdostmtBind (patVar "x") (‹g› ⬝ (‹f› ⬝ ‹y›) ⬝ 𝕀 3)]
+          (‹foo› ⬝ ‹x›)”)
 ]

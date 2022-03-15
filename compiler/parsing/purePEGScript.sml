@@ -147,8 +147,13 @@ Definition purePEG_def[nocompute]:
         (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
 
         (INL nEqBindSeq, pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
-        (INL nEqBind, seql [NT nExp I lrEQ; tokGT ((=) EqualsT) ; NTGT nExpEQ]
-                           (mkNT nEqBind));
+        (INL nEqBind,
+         choicel [seql [NT nExpEQ I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
+                       (mkNT nEqBind);
+                  seql [tok lcname_tok mktokLf lrEQ;
+                        tokGT ((=) $ SymbolT "::");
+                        NT nTy I lrGT]
+                       (mkNT nEqBind)]);
         (INL nOp,
          tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT)
              mktokLf

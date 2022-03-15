@@ -327,6 +327,17 @@ Definition resolve_decl_def:
              | _ => NONE)
 End
 
+Definition optLAST_def:
+  optLAST k f [] = NONE ∧
+  optLAST k f [e] = OPTION_MAP (k []) (f e) ∧
+  optLAST k f (h::t) = optLAST (λxs y. k (h::xs) y) f t
+End
+
+Definition dostmt_to_exp_def:
+  dostmt_to_exp (expdostmtExp e) = SOME e ∧
+  dostmt_to_exp _ = NONE
+End
+
 Definition astExp_def:
   (astExp _ (Lf _) = NONE) ∧
   (astExp nt1 (Nd nt2 args) =
@@ -389,6 +400,12 @@ Definition astExp_def:
                                     else NONE);
            body <- astExp nExp ' (oEL 2 rest) ;
            SOME $ expLet eqs body
+         od ++
+         do
+           assert (tokcheck pt1 (AlphaT "do") ∧ LENGTH rest = 1) ;
+           doblock_pt <- oEL 0 rest ;
+           doblock <- astDoBlock doblock_pt ;
+           optLAST expDo dostmt_to_exp doblock ;
          od
      | _ => NONE
    else if nt1 = nIExp then
@@ -439,13 +456,49 @@ Definition astExp_def:
            case rdecl of
            | resolve_declPattern p => SOME $ expdecPatbind p re
            | resolve_declFun id ps => SOME $ expdecFunbind id ps re
+         od ++
+         do
+           assert (tokcheck eq_t (SymbolT "::")) ;
+           vnm <- destAlphaT ' (destTOK ' (destLf e1_pt)) ;
+           ty <- astType nTy e2_pt;
+           SOME (expdecTysig vnm ty)
          od
-     | _ => NONE)
+     | _ => NONE) ∧
+  (astDoStmt (Lf _) = NONE) ∧
+  (astDoStmt (Nd nt args) =
+   if FST nt ≠ INL nDoStmt then NONE
+   else
+     case args of
+     | [e] => OPTION_MAP expdostmtExp (astExp nExp e)
+     | [let_pt; seq_pt] =>
+         do
+           assert (tokcheck let_pt LetT);
+           case seq_pt of
+             Lf _ => NONE
+           | Nd snt args => if FST snt = INL nEqBindSeq then
+                              OPTION_MAP expdostmtLet $ OPT_MMAP astExpDec args
+                            else NONE
+         od
+     | [pat_pt; arrow_pt; exp_pt] =>
+         do
+           assert (tokcheck arrow_pt (SymbolT "<-"));
+           patexp <- astExp nExp pat_pt  ;
+           pat <- exp_to_pat patexp ;
+           exp <- astExp nExp exp_pt;
+           SOME (expdostmtBind pat exp)
+         od
+     | _ => NONE) ∧
+  (astDoBlock (Lf _) = NONE) ∧
+  (astDoBlock (Nd nt args) =
+   if FST nt ≠ INL nDoBlock then NONE
+   else OPT_MMAP astDoStmt args)
 Termination
   WF_REL_TAC ‘measure (λs. case s of
      (* astExp *)          | INL (_, pt) => ptsize pt
      (* astSepExp *)       | INR (INL (_, pts)) => 1 + SUM (MAP ptsize pts)
-     (* astExpDec *)       | INR (INR pt) => ptsize pt)’ >>
+     (* astExpDec *)       | INR (INR (INL pt)) => ptsize pt
+     (* astDoStmt *)       | INR (INR (INR (INL pt))) => ptsize pt
+     (* astDoBlock *)      | INR (INR (INR (INR pt))) => ptsize pt)’ >>
   simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM] >>
   rpt strip_tac >> simp[arithmeticTheory.ZERO_LESS_ADD] >>
   TRY (drule_then strip_assume_tac grab_EQ_SOME_APPEND >>

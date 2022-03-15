@@ -38,10 +38,14 @@ Datatype:
          | expAbs patAST expAST
          | expIf expAST expAST expAST
          | expLit litAST
-         | expLet (expdecAST list) expAST ;
+         | expLet (expdecAST list) expAST
+         | expDo (expdostmtAST list) expAST ;
   expdecAST = expdecTysig string tyAST
             | expdecPatbind patAST expAST
-            | expdecFunbind string (patAST list) expAST
+            | expdecFunbind string (patAST list) expAST ;
+  expdostmtAST = expdostmtExp expAST
+               | expdostmtBind patAST expAST
+               | expdostmtLet (expdecAST list)
 End
 
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
