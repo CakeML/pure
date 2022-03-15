@@ -172,7 +172,6 @@ Definition dest_anyThunk_def:
       (f, n) <- dest_Recclosure v;
       case ALOOKUP (REVERSE f) n of
         SOME (Delay x) => return (INR x, f)
-      | SOME (Box x) => return (INR x, f)
       | _ => fail Type_error
     od
 End

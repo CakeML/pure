@@ -79,7 +79,6 @@ Definition dest_anyThunk_def:
       (f, env, n) <- dest_Recclosure v;
       case ALOOKUP f n of
         SOME (Delay x) => return (INR (env, x), f)
-      | SOME (Box x) => return (INR (env, x), f)
       | _ => fail Type_error
     od
 End

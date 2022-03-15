@@ -217,7 +217,6 @@ Definition dest_anyThunk_def:
       | SOME (f, env, n) =>
         case ALOOKUP f n of
           SOME (Delay x) => SOME (INR (env, x), f)
-        | SOME (Box x) => SOME (INR (env, x), f)
         | _ => NONE
 End
 
