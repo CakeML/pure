@@ -2703,4 +2703,182 @@ Proof
   \\ Cases_on ‘eval_wh x0’ \\ gs []
 QED
 
+(* This relation is the composition of tick_rel with exp_rel, and thus takes
+ * the full pure_to_thunk step.
+ *)
+
+Inductive compile_rel:
+[~_Value_Rec:]
+  (∀f g x y n.
+     LIST_REL (\(fn, x) (gn, y). fn = gn ∧ closed x ∧ compile_rel x y) f g ∧
+     ALOOKUP (REVERSE f) n = SOME x ∧
+     ALOOKUP (REVERSE g) n = SOME y ⇒
+       compile_rel (Letrec f x) (Rec (MAP (λ(gn, y). (gn, Delay y)) g) n)) ∧
+[~_Value_Suspend:]
+  (∀x y.
+     compile_rel x y ∧
+     closed x ⇒
+       compile_rel x (Suspend y)) ∧
+[~_Var:]
+  (∀n.
+     compile_rel (pure_exp$Var n) (Force (Var n))) ∧
+[~_Lam:]
+  (∀s x y.
+     compile_rel x y ⇒
+       compile_rel (Lam s x) (Lam s y)) ∧
+[~_App:]
+  (∀f g x y.
+     compile_rel f g ∧
+     compile_rel x y ⇒
+       compile_rel (App f x) (App g (Delay y))) ∧
+[~_If:]
+  (∀x1 y1 z1 x2 y2 z2.
+     LIST_REL compile_rel [x1; y1; z1] [x2; y2; z2] ⇒
+       compile_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+[~_Cons:]
+  (∀n xs ys.
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Cons n xs) (Prim (Cons n) (MAP Delay ys))) ∧
+[~_Proj:]
+  (∀s i xs ys.
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
+[~_Seq:]
+  (∀x1 x2 y1 y2.
+     LIST_REL compile_rel [x1; y1] [x2; y2] ∧
+     closed x1 ⇒
+       compile_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
+[~_Prim:]
+  (∀op xs ys.
+     op ≠ If ∧
+     op ≠ Seq ∧
+     (∀n. op ≠ Cons n) ∧
+     (∀s i. op ≠ Proj s i) ∧
+     (∀s i a. op = IsEq s i a ⇒ a) ∧
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Prim op xs) (Prim op ys)) ∧
+[~_Letrec:]
+  (∀f g x y.
+     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ closed x ∧ compile_rel x y) f g ∧
+     compile_rel x y ⇒
+       compile_rel (Letrec f x) (Letrec (MAP (λ(gn, x). (gn, Delay x)) g) y))
+End
+
+Theorem LIST_REL_lemma[local]:
+  ∀xs ys.
+    LIST_REL (λx y. ∃x'. R1 x x' ∧ R2 x' y) xs ys ⇒
+      ∃xs'. LIST_REL R1 xs xs' ∧ LIST_REL R2 xs' ys
+Proof
+  Induct \\ simp []
+  \\ Cases_on ‘ys’ \\ simp []
+  \\ rw [PULL_EXISTS]
+  \\ first_assum (irule_at Any) \\ gs []
+QED
+
+Theorem compile_rel_thm:
+  ∀x y. compile_rel x y ⇒ ∃x'. tick_rel x x' ∧ exp_rel x' y
+Proof
+  ho_match_mp_tac compile_rel_ind \\ rw []
+  >- ((* Value Rec *)
+    irule_at Any exp_rel_Value_Rec
+    \\ irule_at Any tick_rel_Letrec
+    \\ ‘OPTREL (λx y. closed x ∧ ∃x'. tick_rel x x' ∧ exp_rel x' y)
+               (ALOOKUP (REVERSE f) n) (ALOOKUP (REVERSE g) n)’
+      by (irule LIST_REL_OPTREL \\ gs [])
+    \\ gs [OPTREL_def]
+    \\ first_assum (irule_at Any)
+    \\ ‘∃g0.
+          ALOOKUP (REVERSE g0) n = SOME x' ∧
+          MAP FST g0 = MAP FST g ∧
+          ∀n. n < LENGTH g0 ⇒
+              ∃x. tick_rel (EL n (MAP SND f)) (EL n (MAP SND g0)) ∧
+                  closed (EL n (MAP SND g0)) ∧
+                  exp_rel (EL n (MAP SND g0)) (EL n (MAP SND g))’
+      suffices_by (
+        rw [] \\ qexists_tac ‘g0’ \\ gs []
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
+    \\ qspecl_then [‘exp_rel’,‘tick_rel’] assume_tac (GEN_ALL LIST_REL_lemma)
+    \\ first_x_assum (qspecl_then [‘MAP SND f’, ‘MAP SND g’] mp_tac)
+    \\ impl_tac
+    >- (
+      gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP])
+    \\ disch_then (qx_choose_then ‘g0’ assume_tac) \\ gs []
+    \\ drule_then strip_assume_tac ALOOKUP_SOME_EL
+    \\ gvs [EL_REVERSE]
+    \\ qmatch_asmsub_abbrev_tac ‘EL m _’
+    \\ ‘m < LENGTH g’ by gs [Abbr ‘m’]
+    \\ cheat (* meh *)
+    )
+  >- ((* Value Suspend *)
+    irule_at Any exp_rel_Value_Suspend
+    \\ irule_at Any tick_rel_Tick
+    \\ first_assum (irule_at (Pos hd)) \\ gs []
+    \\ drule_then assume_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def])
+  >- ((* Var *)
+    irule_at Any exp_rel_Var
+    \\ simp [tick_rel_Var])
+  >- ((* Lam *)
+    irule_at Any exp_rel_Lam
+    \\ irule_at Any tick_rel_Lam
+    \\ first_assum (irule_at Any)
+    \\ gs [])
+  >- ((* App *)
+    irule_at Any exp_rel_App
+    \\ irule_at Any tick_rel_App
+    \\ irule_at (Pos (el 2)) tick_rel_Tick
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
+  >- ((* If *)
+    irule_at Any exp_rel_If
+    \\ irule_at Any tick_rel_Prim
+    \\ gs [SF SFY_ss])
+  >- ((* Cons *)
+    irule_at Any exp_rel_Cons
+    \\ irule_at Any tick_rel_Prim
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Proj *)
+    irule_at Any exp_rel_Proj
+    \\ irule_at Any tick_rel_Prim
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Seq *)
+    irule_at Any exp_rel_Seq
+    \\ irule_at Any tick_rel_Prim \\ gs []
+    \\ first_assum (irule_at (Pos hd))
+    \\ first_assum (irule_at (Pos hd)) \\ gs []
+    \\ imp_res_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def])
+  >- ((* Prim *)
+    irule_at Any exp_rel_Prim
+    \\ irule_at Any tick_rel_Prim \\ gs []
+    \\ simp [AC CONJ_COMM CONJ_ASSOC]
+    \\ once_rewrite_tac [CONJ_ASSOC]
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ rw [RIGHT_EXISTS_AND_THM]
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Letrec *)
+    irule_at Any exp_rel_Letrec
+    \\ irule_at Any tick_rel_Letrec
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ irule LIST_REL_lemma
+    \\ irule EVERY2_mono
+    \\ first_assum (irule_at Any)
+    \\ gs [LAMBDA_PROD, EXISTS_PROD, FORALL_PROD] \\ rw []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ imp_res_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def])
+QED
+
+Theorem compile_semantics:
+  compile_rel x y ∧
+  closed x ∧
+  safe_itree (semantics x Done []) ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ drule_then strip_assume_tac compile_rel_thm
+  \\ drule_all pure_to_thunk_semantics \\ rw []
+QED
+
 val _ = export_theory ();
+
