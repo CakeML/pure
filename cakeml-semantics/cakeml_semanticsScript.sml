@@ -475,18 +475,6 @@ Definition estep_def:
   estep (env, s, Exp $ Lannot e l, c) = push env s e (Clannot l) c
 End
 
-Datatype:
-  result = Termination
-         | Error
-         | FinalFFI (string # word8 list # word8 list) ffi_outcome
-End
-
-Definition cml_io_unfold_err_def:
-  cml_io_unfold_err f =
-    io_unfold_err f
-      ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
-      FinalFFI, (λe. FinalFFI e FFI_failed))
-End
 
 (******************** Declarations ********************)
 
@@ -593,50 +581,63 @@ Definition dstep_def:
         Dffi (st with refs := refs') (s, ws1, ws2, n, env', ec') locs p c
 End
 
-Definition dis_halt_def:
-  dis_halt (Dffi _ _ _ _ _) = T ∧
-  dis_halt Ddone = T ∧
-  dis_halt (Draise _) = T ∧
-  dis_halt Dtype_error = T ∧
-  dis_halt _ = F
+Definition is_halt_def:
+  is_halt (Dffi _ _ _ _ _) = T ∧
+  is_halt Ddone = T ∧
+  is_halt (Draise _) = T ∧
+  is_halt Dtype_error = T ∧
+  is_halt _ = F
 End
 
-Definition dstep_n_def:
-  dstep_n benv 0 e = e ∧
-  dstep_n benv (SUC n) (Dstep st dev c) = dstep_n benv n (dstep benv st dev c) ∧
-  dstep_n benv _ e = e
+Definition step_n_def:
+  step_n benv 0 e = e ∧
+  step_n benv (SUC n) (Dstep st dev c) = step_n benv n (dstep benv st dev c) ∧
+  step_n benv _ e = e
 End
 
 Datatype:
-  dnext_res =
-  | DRet
-  | DDiv
-  | DErr
-  | DAct dstate
+  next_res =
+  | Ret
+  | Div
+  | Err
+  | Act dstate
       (string # word8 list # word8 list # num # v sem_env # ctxt list)
       locs pat decl_ctxt
 End
 
-Definition dstep_until_halt_def:
-  dstep_until_halt benv d =
-    case some n. dis_halt (dstep_n benv n d) of
-      NONE => DDiv
+Definition step_until_halt_def:
+  step_until_halt benv d =
+    case some n. is_halt (step_n benv n d) of
+      NONE => Div
     | SOME n =>
-        case dstep_n benv n d of
-        | Dtype_error => DErr
-        | Dffi st ev locs pat c => DAct st ev locs pat c
-        | _ => DRet
+        case step_n benv n d of
+        | Dtype_error => Err
+        | Dffi st ev locs pat c => Act st ev locs pat c
+        | _ => Ret
 End
 
-Definition dinterp_def:
-  dinterp benv e =
+Datatype:
+  result = Termination
+         | Error
+         | FinalFFI (string # word8 list # word8 list) ffi_outcome
+End
+
+Definition cml_io_unfold_err_def:
+  cml_io_unfold_err f =
+    io_unfold_err f
+      ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
+      FinalFFI, (λe. FinalFFI e FFI_failed))
+End
+
+Definition interp_def:
+  interp benv e =
     cml_io_unfold_err
       (λe.
-        case dstep_until_halt benv e of
-        | DRet => Ret' Termination
-        | DErr => Ret' Error
-        | DDiv => Div'
-        | DAct st (s, ws1, ws2, n, env, cs) locs p c =>
+        case step_until_halt benv e of
+        | Ret => Ret' Termination
+        | Err => Ret' Error
+        | Div => Div'
+        | Act st (s, ws1, ws2, n, env, cs) locs p c =>
             Vis' (s, ws1, ws2)
               (λr:word8 list.
                 dreturn (st with refs := LUPDATE (W8array r) n st.refs) c
