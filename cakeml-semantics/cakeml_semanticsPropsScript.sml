@@ -1,8 +1,8 @@
 (* Properties about the itree- and FFI state-based CakeML semantics *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open optionTheory relationTheory pairTheory listTheory arithmeticTheory;
+open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistTheory;
 open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
-     evaluatePropsTheory smallStepTheory smallStepPropsTheory;
+     evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
 open io_treeTheory cakeml_semanticsTheory pure_miscTheory;
 
 val _ = new_theory "cakeml_semanticsProps";
@@ -537,6 +537,31 @@ QED
 
 
 (******************** Lemmas ********************)
+
+(***** trace_prefix *****)
+
+Theorem trace_prefix_prefix:
+  ∀n m oracle ffi t io res io' res'. n ≤ m ∧
+    trace_prefix n (oracle,ffi) t = (io,res) ∧
+    trace_prefix m (oracle,ffi) t = (io',res')
+  ⇒ io ≼ io'
+Proof
+  Induct >> rw[] >> gvs[trace_prefix_def] >>
+  Cases_on `m` >> gvs[] >> rename1 `_ ≤ m` >>
+  first_x_assum drule >> rw[] >>
+  Cases_on `t` >> gvs[trace_prefix_def] >>
+  PairCases_on `a` >> gvs[trace_prefix_def] >>
+  every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> res_tac
+QED
+
+Theorem lprefix_chain_trace_prefix:
+  lprefix_chain
+    { fromList (a ++ io) | ∃n res. trace_prefix n (oracle,ffi) t = (io,res) }
+Proof
+  rw[lprefix_chain_def] >> simp[LPREFIX_fromList, from_toList] >>
+  Cases_on `n ≤ n'` >> imp_res_tac trace_prefix_prefix >> gvs[]
+QED
+
 
 (***** smallStep FFI-state lemmas *****)
 
