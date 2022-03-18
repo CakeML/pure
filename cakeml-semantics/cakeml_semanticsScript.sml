@@ -475,39 +475,6 @@ Definition estep_def:
   estep (env, s, Exp $ Lannot e l, c) = push env s e (Clannot l) c
 End
 
-Definition is_halt_def:
-  is_halt (Effi s ws1 ws2 n env st cs) = T ∧
-  is_halt Edone = T ∧
-  is_halt Etype_error = T ∧
-  is_halt _ = F
-End
-
-Definition step_n_def:
-  step_n 0 e = e ∧
-  step_n (SUC n) (Estep st) = step_n n (estep st) ∧
-  step_n _ e = e
-End
-
-Datatype:
-  next_res = (* top-level observable results *)
-           | Act string (word8 list) (word8 list)
-                num (v sem_env) (v store) (ctxt list)
-           | Ret
-           | Div
-           | Err
-End
-
-Definition step_until_halt_def:
-  step_until_halt e =
-    case some n. is_halt (step_n n e) of
-      NONE => Div
-    | SOME n =>
-        case step_n n e of
-          Effi s ws1 ws2 n env st cs => Act s ws1 ws2 n env st cs
-        | Etype_error => Err
-        | _ => Ret
-End
-
 Datatype:
   result = Termination
          | Error
@@ -519,21 +486,6 @@ Definition cml_io_unfold_err_def:
     io_unfold_err f
       ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
       FinalFFI, (λe. FinalFFI e FFI_failed))
-End
-
-Definition interp_def:
-  interp e =
-    cml_io_unfold_err
-      (λe.
-        case step_until_halt e of
-        | Ret => Ret' Termination
-        | Err => Ret' Error
-        | Div => Div'
-        | Act s ws1 ws2 n env st cs =>
-            Vis' (s, ws1, ws2)
-              (λr:word8 list.
-                Estep (env, LUPDATE (W8array r) n st, Val $ Conv NONE [], cs)))
-      e
 End
 
 (******************** Declarations ********************)
