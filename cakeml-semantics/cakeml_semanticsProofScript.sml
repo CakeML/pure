@@ -2394,9 +2394,8 @@ Proof
     )
 QED
 
-Theorem trace_prefix_dec_divergence_RL:
+Theorem decl_step_trace_prefix_io_events_lemma:
   dstate_rel dsta st ∧ deval_rel deva devb ∧
-  small_decl_diverges env (st, devb, dcs) ∧
   (decl_step_reln env)^* (st, devb, dcs) dst ∧
   (FST dst).ffi.io_events = st.ffi.io_events ++ io ⇒
   ∃n.
@@ -2415,12 +2414,7 @@ Proof
       mp_tac dstep_result_rel_single' >>
     simp[dget_ffi_def, dstep_result_rel_cases] >> strip_tac >> gvs[] >>
     last_x_assum drule >> disch_then drule >>
-    disch_then $ drule_at Any >> gvs[dget_ffi_def] >>
-    impl_tac >> rw[] >> gvs[]
-    >- (
-      gvs[small_decl_diverges_def] >> rw[] >>
-      first_x_assum irule >> simp[Once RTC_CASES1, decl_step_reln_def]
-      ) >>
+    disch_then $ drule_at Any >> gvs[dget_ffi_def] >> rw[] >> gvs[] >>
     rename1 `trace_prefix m _` >> qexists_tac `m` >> pop_assum mp_tac >>
     Cases_on `m` >> once_rewrite_tac[trace_prefix_dinterp] >> rw[] >>
     DEP_ONCE_REWRITE_TAC[dstep_until_halt_take_step] >> simp[dis_halt_def]
@@ -2451,17 +2445,13 @@ Proof
   unabbrev_all_tac >> simp[dstate_rel_def] >> reverse impl_keep_tac >> gvs[] >> rw[]
   >- (qexists_tac `n'` >> simp[])
   >- (
-    gvs[small_decl_diverges_def] >> rw[] >>
-    last_x_assum irule >> simp[Once RTC_CASES1, decl_step_reln_def]
-    )
-  >- (
     imp_res_tac io_events_mono_decl_step >>
     imp_res_tac io_events_mono_dstep_n_cml >> gvs[io_events_mono_def] >>
     Cases_on `io` >> gvs[]
     )
 QED
 
-Theorem trace_prefix_decl_step_io_events:
+Theorem trace_prefix_decl_step_io_events_lemma:
   ∀env n io oracle ffi_st dsta st deva devb dcs.
   dstate_rel dsta st ∧ deval_rel deva devb ∧
   trace_prefix n (oracle, ffi_st) (dinterp env (Dstep dsta deva dcs)) = (io, NONE)
@@ -2512,8 +2502,6 @@ Proof
     pairarg_tac >> gvs[] >>
     `dstep_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[dstep_n_cml_alt_def] >>
-
-
     qpat_x_assum `deval_rel _ _` mp_tac >>
     simp[deval_rel_cases, ctxt_rel_def] >> simp[GSYM ctxt_rel_def] >>
     simp[ctxt_frame_rel_cases, EXISTS_PROD] >> rw[] >> gvs[] >>
@@ -2533,7 +2521,8 @@ Proof
     simp[dstep_n_cml_add] >>
     qmatch_asmsub_abbrev_tac `_ (Dstep (st1',_,_)) = _` >>
     `st1' = st1` by (unabbrev_all_tac >>
-      simp[state_component_equality, ffi_state_component_equality]) >>
+      simp[semanticPrimitivesTheory.state_component_equality,
+           ffi_state_component_equality]) >>
     gvs[] >> unabbrev_all_tac >> gvs[]
     )
 QED
@@ -2711,50 +2700,86 @@ QED
 
 (******************** Collected results for declarations ********************)
 
-Theorem small_eval_dec_trace_prefix_termination:
-  dstate_rel dst st ∧
-  (small_eval_dec env (st,Decl d,[]) (st',Rval e) ∨
-   small_eval_dec env (st,Decl d,[]) (st',Rerr (Rraise v)))
+Definition dstate_of_def:
+  dstate_of (st :α semanticPrimitives$state) :dstate = <|
+    refs := st.refs;
+    next_type_stamp := st.next_type_stamp;
+    next_exn_stamp := st.next_exn_stamp;
+    eval_state := st.eval_state |>
+End
+
+Theorem dstate_rel_dstate_of:
+  dstate_rel dst st ⇔ dstate_of st = dst
+Proof
+  rw[dstate_of_def, dstate_rel_def] >>
+  eq_tac >> rw[] >> gvs[state_component_equality, dstate_component_equality]
+QED
+
+Definition itree_of_def:
+  itree_of st env prog =
+  dinterp env (Dstep (dstate_of st) (Decl (Dlocal [] prog)) [])
+End
+
+Overload itree_ffi = `` λst. (st.ffi.oracle,st.ffi.ffi_state)``;
+
+Triviality evaluate_decs_NIL[simp]:
+  evaluate_decs ck env st [] res ⇔ res = (st, Rval empty_dec_env)
+Proof
+  simp[Once bigStepTheory.evaluate_dec_cases, empty_dec_env_def]
+QED
+
+Triviality small_eval_decs_eq_Dlocal:
+  small_eval_dec env (st,Decl (Dlocal [] prog),[]) = small_eval_decs env st prog
+Proof
+  rw[FUN_EQ_THM] >> rename1 `_ prog res` >>
+  rw[GSYM bigSmallEquivTheory.small_big_dec_equiv,
+     GSYM bigSmallEquivTheory.small_big_decs_equiv] >>
+  map_every qid_spec_tac [`env`,`st`,`res`,`prog`] >>
+  Induct >> rw[] >> simp[Once bigStepTheory.evaluate_dec_cases]
+QED
+
+Theorem small_eval_decs_trace_prefix_termination:
+  (small_eval_decs env st ds (st',Rval e) ∨
+   small_eval_decs env st ds (st',Rerr (Rraise v)))
   ⇒ ∃n io.
-      trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-        (dinterp env (Dstep dst (Decl d) [])) = (io, SOME Termination) ∧
+      trace_prefix n (itree_ffi st) (itree_of st env ds) = (io, SOME Termination) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
+  rw[GSYM small_eval_decs_eq_Dlocal, itree_of_def] >>
+  gvs[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
   imp_res_tac io_events_mono_dstep_n_cml >>
   gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
   qpat_x_assum `_ ⇒ _` kall_tac >> rename1 `_ ++ io` >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >>
   drule $ iffRL trace_prefix_dec_Termination >>
-  disch_then $ qspecl_then [
-    `st.ffi.oracle`,`io`,`st.ffi.ffi_state`,`env`,`Decl d`,`Decl d`,`[]`] mp_tac >>
+  disch_then $ qspecl_then [`st.ffi.oracle`,`io`,`st.ffi.ffi_state`,
+    `env`,`Decl (Dlocal [] ds)`,`Decl (Dlocal [] ds)`,`[]`] mp_tac >>
   simp[deval_rel_cases, decl_step_reln_eq_dstep_n_cml, PULL_EXISTS] >>
   qmatch_goalsub_abbrev_tac `(st1,_)` >>
-  `st1 = st` by (
-    unabbrev_all_tac >>
-    rw[state_component_equality, ffi_state_component_equality]) >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
-  disch_then drule >> simp[dget_ffi_def, SF dsmallstep_ss] >>
-  PairCases_on `dst'` >> simp[dget_ffi_def]
+  disch_then drule >> simp[dget_ffi_def, SF dsmallstep_ss]
 QED
 
-Theorem trace_prefix_small_eval_dec_termination:
-  trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-    (dinterp env (Dstep dst (Decl d) [])) = (io, SOME Termination) ∧
-  dstate_rel dst st
+Theorem trace_prefix_small_eval_decs_termination:
+  trace_prefix n (itree_ffi st) (itree_of st env ds) = (io, SOME Termination)
   ⇒ ∃st' e v.
-      (small_eval_dec env (st,Decl d,[]) (st', Rval e) ∨
-       small_eval_dec env (st,Decl d,[]) (st', Rerr (Rraise v))) ∧
+      (small_eval_decs env st ds (st', Rval e) ∨
+       small_eval_decs env st ds (st', Rerr (Rraise v))) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[small_eval_dec_def] >>
+  rw[GSYM small_eval_decs_eq_Dlocal, itree_of_def, small_eval_dec_def] >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >>
   drule $ iffLR trace_prefix_dec_Termination >> simp[PULL_EXISTS] >>
   disch_then $ drule_at Any >> simp[deval_rel_cases, PULL_EXISTS] >>
   qmatch_goalsub_abbrev_tac `(st1,_)` >>
-  `st1 = st` by (
-    unabbrev_all_tac >>
-    rw[state_component_equality, ffi_state_component_equality]) >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >> rw[] >> gvs[] >>
-  PairCases_on `dst'` >> gvs[decl_step_to_Ddone]
+  PairCases_on `dst` >> gvs[decl_step_to_Ddone]
   >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> gvs[dget_ffi_def])
   >- (
     irule_at Any OR_INTRO_THM2 >> simp[PULL_EXISTS, GSYM CONJ_ASSOC, EXISTS_PROD] >>
@@ -2762,111 +2787,123 @@ Proof
     )
 QED
 
-Theorem small_eval_dec_trace_prefix_type_error:
-  dstate_rel dst st ∧
-  small_eval_dec env (st,Decl d,[]) (st', Rerr (Rabort Rtype_error))
+Theorem small_eval_decs_trace_prefix_type_error:
+  small_eval_decs env st ds (st', Rerr (Rabort Rtype_error))
   ⇒ ∃n io.
-      trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-        (dinterp env (Dstep dst (Decl d) [])) = (io, SOME Error) ∧
+      trace_prefix n (itree_ffi st) (itree_of st env ds) = (io, SOME Error) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
+  rw[GSYM small_eval_decs_eq_Dlocal, itree_of_def] >>
+  gvs[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
   imp_res_tac io_events_mono_dstep_n_cml >>
   gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
   qpat_x_assum `_ ⇒ _` kall_tac >> rename1 `_ ++ io` >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >>
   drule $ iffRL trace_prefix_dec_Error >>
-  disch_then $ qspecl_then [
-    `st.ffi.oracle`,`io`,`st.ffi.ffi_state`,`env`,`Decl d`,`Decl d`,`[]`] mp_tac >>
+  disch_then $ qspecl_then [`st.ffi.oracle`,`io`,`st.ffi.ffi_state`,
+    `env`,`Decl (Dlocal [] ds)`,`Decl (Dlocal [] ds)`,`[]`] mp_tac >>
   simp[deval_rel_cases, PULL_EXISTS, decl_step_reln_eq_dstep_n_cml] >>
   qmatch_goalsub_abbrev_tac `(st1,_)` >>
-  `st1 = st` by (
-    unabbrev_all_tac >>
-    rw[state_component_equality, ffi_state_component_equality]) >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
   disch_then drule >> simp[dget_ffi_def]
 QED
 
-Theorem trace_prefix_small_eval_dec_type_error:
-  trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-    (dinterp env (Dstep dst (Decl d) [])) = (io, SOME Error) ∧
-  dstate_rel dst st
-  ⇒ ∃st'.  small_eval_dec env (st,Decl d,[]) (st', Rerr (Rabort Rtype_error))
+Theorem trace_prefix_small_eval_decs_type_error:
+  trace_prefix n (itree_ffi st) (itree_of st env ds) = (io, SOME Error)
+  ⇒ ∃st'. small_eval_decs env st ds (st', Rerr (Rabort Rtype_error))
 Proof
-  rw[] >> drule $ iffLR trace_prefix_dec_Error >> simp[PULL_EXISTS] >>
+  rw[GSYM small_eval_decs_eq_Dlocal, itree_of_def] >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >>
+  drule $ iffLR trace_prefix_dec_Error >> simp[PULL_EXISTS] >>
   disch_then $ drule_at Any >> simp[deval_rel_cases] >>
   qmatch_goalsub_abbrev_tac `(st1,_)` >>
-  `st1 = st` by (
-    unabbrev_all_tac >>
-    rw[state_component_equality, ffi_state_component_equality]) >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
   simp[small_eval_dec_def, PULL_EXISTS, EXISTS_PROD] >> rw[] >> gvs[] >>
-  PairCases_on `dst'` >> goal_assum drule >> simp[]
+  PairCases_on `dst` >> goal_assum drule >> simp[]
 QED
 
-Theorem small_eval_trace_prefix_ffi_error:
-  small_eval_dec env (st,Decl d,[])
-    (st', Rerr (Rabort $ Rffi_error $ Final_event s conf ws outcome)) ∧
-  dstate_rel dst st
+Theorem small_eval_decs_trace_prefix_ffi_error:
+  small_eval_decs env st ds
+    (st', Rerr (Rabort $ Rffi_error $ Final_event s conf ws outcome))
   ⇒ ∃n io.
-      trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-        (dinterp env (Dstep dst (Decl d) [])) =
-          (io, SOME $ FinalFFI (s,conf,ws) outcome) ∧
+      trace_prefix n (itree_ffi st) (itree_of st env ds) =
+        (io, SOME $ FinalFFI (s,conf,ws) outcome) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
+  rw[GSYM small_eval_decs_eq_Dlocal, itree_of_def] >>
+  gvs[small_eval_dec_def, decl_step_reln_eq_dstep_n_cml] >>
   imp_res_tac io_events_mono_dstep_n_cml >>
   gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
   qpat_x_assum `_ ⇒ _` kall_tac >> rename1 `_ ++ io` >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >>
   drule $ iffRL trace_prefix_dec_FinalFFI >>
-  disch_then $ qspecl_then [`ws`,`s`,`outcome`,`st.ffi.oracle`,`io`,
-    `st.ffi.ffi_state`,`env`,`Decl d`,`Decl d`,`[]`,`conf`] mp_tac >>
+  disch_then $ qspecl_then [`ws`,`s`,`outcome`,`st.ffi.oracle`,`io`,`st.ffi.ffi_state`,
+    `env`,`Decl (Dlocal [] ds)`,`Decl (Dlocal [] ds)`,`[]`,`conf`] mp_tac >>
   simp[deval_rel_cases, PULL_EXISTS, decl_step_reln_eq_dstep_n_cml] >>
   qmatch_goalsub_abbrev_tac `(st1,_)` >>
-  `st1 = st` by (
-    unabbrev_all_tac >>
-    rw[state_component_equality, ffi_state_component_equality]) >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
   disch_then drule >> simp[dget_ffi_def]
 QED
 
-Theorem trace_prefix_small_eval_dec_ffi_error:
-  trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-    (dinterp env (Dstep dst (Decl d) [])) =
-      (io, SOME $ FinalFFI (s,conf,ws) outcome) ∧
-  dstate_rel dst st
-  ⇒ ∃st'. small_eval_dec env (st,Decl d,[])
+Theorem trace_prefix_small_eval_decs_ffi_error:
+  trace_prefix n (itree_ffi st) (itree_of st env ds) =
+    (io, SOME $ FinalFFI (s,conf,ws) outcome)
+  ⇒ ∃st'. small_eval_decs env st ds
             (st', Rerr (Rabort $ Rffi_error $ Final_event s conf ws outcome)) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[] >> drule $ iffLR trace_prefix_dec_FinalFFI >> simp[PULL_EXISTS] >>
+  rw[GSYM small_eval_decs_eq_Dlocal, itree_of_def] >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >>
+  drule $ iffLR trace_prefix_dec_FinalFFI >> simp[PULL_EXISTS] >>
   disch_then $ drule_at Any >> simp[deval_rel_cases] >>
   qmatch_goalsub_abbrev_tac `(st1,_)` >>
-  `st1 = st` by (
-    unabbrev_all_tac >>
-    rw[state_component_equality, ffi_state_component_equality]) >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
   simp[small_eval_dec_def, PULL_EXISTS, EXISTS_PROD] >> rw[] >> gvs[] >>
-  PairCases_on `dst'` >> goal_assum drule >> gvs[dget_ffi_def]
+  PairCases_on `dst` >> goal_assum drule >> gvs[dget_ffi_def]
 QED
 
-Theorem decl_diverges_trace_prefix:
-  small_decl_diverges env (st,Decl d,[]) ∧
-  (decl_step_reln env)^* (st,Decl d,[]) (st',dev,dcs) ∧
-  dstate_rel dst st
+Theorem decl_step_trace_prefix_io_events:
+  (decl_step_reln env)^* (st,Decl (Dlocal [] ds),[]) (st',dev,dcs)
   ⇒ ∃n io.
-      trace_prefix n (st.ffi.oracle, st.ffi.ffi_state)
-        (dinterp env (Dstep dst (Decl d) [])) = (io, NONE) ∧
+      trace_prefix n (itree_ffi st) (itree_of st env ds) = (io, NONE) ∧
       st'.ffi.io_events = st.ffi.io_events ++ io
 Proof
-  rw[] >> drule trace_prefix_dec_divergence_RL >>
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >> rw[] >>
+  drule decl_step_trace_prefix_io_events_lemma >>
   disch_then $ drule_at Any >> simp[deval_rel_cases] >> strip_tac >>
   gvs[decl_step_reln_eq_dstep_n_cml] >>
   imp_res_tac io_events_mono_dstep_n_cml >>
-  gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND] >>
+  gvs[io_events_mono_def, rich_listTheory.IS_PREFIX_APPEND, itree_of_def] >>
   goal_assum drule
 QED
 
-(* TODO lift infinite behaviour relation to lprefix_lub *)
+Theorem trace_prefix_decl_step_io_events_lemma:
+  trace_prefix n (itree_ffi st) (itree_of st env ds) = (io, NONE)
+  ⇒ ∃st' dev dcs.
+      (decl_step_reln env)^* (st,Decl (Dlocal [] ds),[]) (st',dev,dcs) ∧
+      st'.ffi.io_events = st.ffi.io_events ++ io
+Proof
+  `dstate_rel (dstate_of st) st` by gvs[dstate_rel_dstate_of] >> rw[] >>
+  drule trace_prefix_decl_step_io_events_lemma >> gvs[itree_of_def] >>
+  disch_then $ drule_at Any >> simp[deval_rel_cases] >> strip_tac >>
+  qmatch_asmsub_abbrev_tac `(st1,_)` >>
+  `st1 = st` by (unabbrev_all_tac >>
+    rw[semanticPrimitivesTheory.state_component_equality,
+       ffi_state_component_equality]) >>
+  unabbrev_all_tac >> gvs[] >> goal_assum drule >> simp[]
+QED
 
 
 (****************************************)
