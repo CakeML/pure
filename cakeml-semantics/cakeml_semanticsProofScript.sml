@@ -1654,10 +1654,14 @@ QED
 
 Theorem itree_semantics:
   st.eval_state = NONE ⇒ (
-  (semantics_prog st env prog (Terminate Success io_list) ⇔
-    ∃n io.
-      trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, SOME Termination) ∧
-      io_list = st.ffi.io_events ++ io) ∧
+  (semantics_prog st env prog (Terminate outcome io_list) ⇔
+    ∃n io res.
+      trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, SOME res) ∧
+      io_list = st.ffi.io_events ++ io ∧
+      if outcome = Success then res = Termination
+      else ∃s conf ws f.
+              outcome = FFI_outcome (Final_event s conf ws f) ∧
+              res = FinalFFI (s,conf,ws) f) ∧
   (semantics_prog st env prog (Diverge io_trace) ⇔
     (∀n. ∃io. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, NONE)) ∧
     lprefix_lub
@@ -1670,10 +1674,15 @@ Theorem itree_semantics:
 Proof
   rw[small_step_semantics]
   >- ( (* termination *)
-    eq_tac >> rw[]
+    eq_tac >> rw[] >> Cases_on `outcome` >> gvs[]
     >- (imp_res_tac small_eval_decs_trace_prefix_termination >> simp[SF SFY_ss])
     >- (imp_res_tac small_eval_decs_trace_prefix_termination >> simp[SF SFY_ss])
+    >- (
+      Cases_on `f` >>
+      imp_res_tac small_eval_decs_trace_prefix_ffi_error >> simp[SF SFY_ss]
+      )
     >- (drule trace_prefix_small_eval_decs_termination >> rw[SF SFY_ss, SF DNF_ss])
+    >- (imp_res_tac trace_prefix_small_eval_decs_ffi_error >> simp[SF SFY_ss])
     )
   >- ( (* divergence *)
     `small_decl_diverges env (st,Decl (Dlocal [] prog),[]) =
