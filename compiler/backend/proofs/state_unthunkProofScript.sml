@@ -168,21 +168,16 @@ Inductive v_rel:
      v_rel p (Atom a) (Atom a)) ∧
 
 [~Constructor:]
-  (∀p tvs svs.
+  (∀p s tvs svs.
      LIST_REL (v_rel p) tvs svs ⇒
      v_rel p (Constructor s tvs) (Constructor s svs)) ∧
 
 [~Closure:]
-  (∀p tenv senv te se x.
-     env_rel p tenv senv ∧
-     compile_rel te se ⇒
-     v_rel p (Closure x tenv te) (Closure x senv se)) ∧
-
-[~Recclosure:]
-  (∀p tenv senv tfns sfns n v x.
-     env_rel p tenv senv ∧ ALOOKUP tfns n = SOME (Lam v x) ∧
-     LIST_REL ((=) ### compile_rel) tfns sfns ⇒
-     v_rel p (Recclosure tfns tenv n) (Recclosure sfns senv n)) ∧
+  (∀p tv sv tenv senv te se n.
+     env_rel p tenv senv ∧ compile_rel te se ∧
+     dest_anyClosure tv = SOME (n,tenv,te) ∧
+     dest_anyClosure sv = SOME (n,senv,se) ⇒
+     v_rel p tv sv) ∧
 
 [~Thunk:]
   (∀p v n r.
@@ -192,7 +187,7 @@ Inductive v_rel:
 
 [env_rel:]
   (∀p tenv senv.
-     (∀n tv.
+     (∀(n:string) tv.
        ALOOKUP tenv n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel p tv sv) ⇒
      env_rel p tenv senv)
@@ -205,6 +200,14 @@ Theorem dest_anyThunk_simp[simp]:
   dest_anyThunk (Closure x env e) = NONE
 Proof
   fs [AllCaseEqs(),dest_Thunk_def,dest_anyThunk_def]
+QED
+
+Theorem dest_anyClosure_simp[simp]:
+  dest_anyClosure (Atom a) = NONE ∧
+  dest_anyClosure (Constructor s vs) = NONE ∧
+  dest_anyClosure (Thunk d) = NONE
+Proof
+  fs [AllCaseEqs(),dest_Closure_def,dest_anyClosure_def]
 QED
 
 Theorem env_rel_def = “env_rel p tenv senv”
@@ -409,7 +412,8 @@ Theorem dest_anyThunk_INR:
 Proof
   Cases_on ‘v1’ \\ fs [dest_anyThunk_def,dest_Thunk_def,AllCaseEqs()]
   \\ simp [Once v_rel_cases]
-  \\ fs [dest_anyThunk_def,dest_Thunk_def,AllCaseEqs()]
+  \\ fs [dest_anyThunk_def,dest_Thunk_def,
+         dest_anyClosure_def,dest_Closure_def,AllCaseEqs()]
   \\ rw [] \\ gvs []
   \\ gvs [state_rel_def]
   \\ gvs [oEL_THM]
@@ -553,7 +557,6 @@ Theorem step_backward:
       step_n n (tr,ts,tk) = (tr1,ts1,tk1) ∧
       is_halt (tr1,ts1,tk1)
 Proof
-
   gen_tac \\ completeInduct_on ‘m’
   \\ rpt strip_tac \\ gvs [PULL_FORALL,AND_IMP_INTRO]
   \\ Cases_on ‘m = 0’
@@ -743,7 +746,7 @@ Proof
       \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
       \\ rpt (first_assum $ irule_at $ Any \\ fs [])
       \\ once_rewrite_tac [cont_rel_cases] \\ fs []
-      \\ once_rewrite_tac [v_rel_cases] \\ fs [] \\ NO_TAC)
+      \\ once_rewrite_tac [v_rel_cases] \\ fs [dest_anyClosure_def] \\ NO_TAC)
   >~ [‘Var vname’] >-
    (fs [step,error_def]
     \\ Cases_on ‘ALOOKUP env1 vname’ \\ fs [is_halt_def]
