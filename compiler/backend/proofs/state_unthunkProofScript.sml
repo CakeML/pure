@@ -39,6 +39,52 @@ Overload "force_lets" = “
 
 Overload "force" = “λx. Let (SOME "v") x force_lets”
 
+Definition dest_Delay_def:
+  dest_Delay (Delay x) = SOME x ∧
+  dest_Delay _ = NONE
+End
+
+Definition dest_Lam_def:
+  dest_Lam (Lam v x) = SOME (v,x) ∧
+  dest_Lam _ = NONE
+End
+
+Overload is_Delay = “λx. IS_SOME (dest_Delay x)”
+Overload is_Lam = “λx. IS_SOME (dest_Lam x)”
+
+Definition Lets_def:
+  Lets [] x = x ∧
+  Lets ((v,y)::ys) x = Let v y (Lets ys x)
+End
+
+Definition Letrec_imm_def:
+  (Letrec_imm vs (Var v) ⇔ MEM v vs) ∧
+  (Letrec_imm vs (Lam _ _) ⇔ T) ∧
+  (Letrec_imm vs (Lit _) ⇔ T) ∧
+  (Letrec_imm vs _ ⇔ F)
+End
+
+Definition Letrec_split_def:
+  Letrec_split vs [] = ([],[],[]) ∧
+  Letrec_split vs ((v:string,x)::fns) =
+    let (xs,ys,zs) = Letrec_split vs fns in
+      case dest_Delay x of
+      | NONE => (xs,(v,x)::ys,zs)
+      | SOME y =>
+        if Letrec_imm vs y then
+          ((SOME v,App Ref [True; True])::xs,ys,
+           (NONE,App UnsafeUpdate [IntLit 1; Var v; y])::zs)
+        else
+          ((SOME v,App Ref [False; False])::xs,ys,
+           (NONE,App UnsafeUpdate [IntLit 1; Var v; Lam NONE y])::zs)
+End
+
+Definition comp_Letrec_def:
+  comp_Letrec fns y =
+    let (xs,ys,zs) = Letrec_split (MAP FST fns) fns in
+      Lets xs $ Letrec ys $ Lets zs y
+End
+
 Inductive compile_rel:
 
 [~Var:]
@@ -66,10 +112,11 @@ Inductive compile_rel:
 
 [~Letrec:]
   (∀tfns sfns te se.
-    MAP FST tfns = MAP FST sfns ∧
+    EVERY (λ(_,x). is_Lam x ∨ is_Delay x) tfns ∧
+    MAP FST tfns = MAP FST sfns ∧ ALL_DISTINCT (MAP FST tfns) ∧
     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
     compile_rel te se ⇒
-    compile_rel (Letrec tfns te) (Letrec sfns se)) ∧
+    compile_rel (Letrec tfns te) (comp_Letrec sfns se)) ∧
 
 [~Let:]
   (compile_rel te1 se1 ∧
