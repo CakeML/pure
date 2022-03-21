@@ -337,10 +337,9 @@ Definition return_def:
   return v st (LetK env NONE e :: k) = continue env e st k ∧
   return v st (LetK env (SOME x) e :: k) = continue ((x,v)::env) e st k ∧
   return v st (IfK env e1 e2 :: k) = (
-    case v of
-      Constructor "True" [] => continue env e1 st k
-    | Constructor "False" [] => continue env e2 st k
-    | _ => error st k) ∧
+    if v = Constructor "True"  [] then continue env e1 st k else
+    if v = Constructor "False" [] then continue env e2 st k else
+      error st k) ∧
   return v st (RaiseK :: k) = (Exn v, st, k) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
   return v st (HandleAppK env e :: k) = value v st k ∧
