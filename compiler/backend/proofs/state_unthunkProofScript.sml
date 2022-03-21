@@ -331,7 +331,29 @@ Theorem v_rel_new_Thunk:
   loc = LENGTH p ⇒
   v_rel (p ++ [SOME (r,[])]) (Thunk r) (Atom (Loc loc))
 Proof
-  cheat
+  simp [Once v_rel_cases,oEL_THM,rich_listTheory.EL_LENGTH_APPEND]
+  \\ EVAL_TAC
+QED
+
+Theorem v_rel_env_rel_ext:
+  (∀p k1 k2.
+     v_rel p k1 k2 ⇒
+     v_rel (p ++ q) k1 k2) ∧
+  (∀p k1 k2.
+     env_rel p k1 k2 ⇒
+     env_rel (p ++ q) k1 k2)
+Proof
+  ho_match_mp_tac v_rel_ind \\ rw []
+  \\ simp [Once v_rel_cases]
+  \\ gvs [SF ETA_ss]
+  \\ gvs [oEL_THM,EL_APPEND1]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘n2’
+  \\ qid_spec_tac ‘n1’
+  \\ qid_spec_tac ‘p’
+  \\ Induct \\ fs [find_loc_def]
+  \\ Cases \\ fs []
+  \\ rw [] \\ res_tac \\ gvs []
 QED
 
 Theorem v_rel_ext:
@@ -339,7 +361,15 @@ Theorem v_rel_ext:
     v_rel p k1 k2 ⇒
     v_rel (p ++ q) k1 k2
 Proof
-  cheat
+  metis_tac [v_rel_env_rel_ext]
+QED
+
+Theorem env_rel_ext:
+  ∀q p k1 k2.
+    env_rel p k1 k2 ⇒
+    env_rel (p ++ q) k1 k2
+Proof
+  metis_tac [v_rel_env_rel_ext]
 QED
 
 Theorem cont_rel_ext:
@@ -347,38 +377,88 @@ Theorem cont_rel_ext:
     cont_rel p k1 k2 ⇒
     cont_rel (p ++ q) k1 k2
 Proof
-  cheat
+  gen_tac \\ Induct_on ‘cont_rel’ \\ rw []
+  \\ simp [Once cont_rel_cases]
+  \\ rpt (irule_at Any env_rel_ext \\ fs [])
+  \\ gvs [LIST_REL_EL_EQN]
+  \\ rw [] \\ res_tac
+  \\ rpt (irule_at Any v_rel_ext \\ fs [])
+QED
+
+Theorem thunk_rel_ext:
+  ∀q p k1 k2.
+    thunk_rel p k1 k2 ⇒
+    thunk_rel (p ++ q) k1 k2
+Proof
+  rw [] \\ Cases_on ‘k1’ \\ fs [thunk_rel_def]
+  \\ PairCases_on ‘x’ \\ fs [thunk_rel_def]
+  \\ Cases_on ‘x0’ \\ fs []
+  \\ TRY (Cases_on ‘y’ \\ fs [])
+  \\ TRY (irule_at Any v_rel_ext \\ fs [])
+  \\ TRY (irule_at Any env_rel_ext \\ fs [])
+  \\ first_x_assum $ irule_at Any
+  \\ first_x_assum $ irule_at Any
 QED
 
 Theorem state_rel_INR:
   state_rel p ts (SOME ss) ∧
-  env_rel p env1 env2 ∧
+  env_rel p (rec_env f env1) env2 ∧
   compile_rel te se ⇒
   state_rel (p ++ [SOME (INR (env1,te),f)]) ts
      (SOME (SNOC [False_v; Closure NONE env2 se] ss))
 Proof
-  cheat
+  fs [state_rel_def] \\ rw [] \\ gvs []
+  \\ gvs [thunk_rel_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
+  \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ TRY (irule_at Any thunk_rel_ext \\ fs [])
+  \\ TRY (irule_at Any env_rel_ext \\ fs [])
+  \\ irule_at Any v_rel_ext \\ fs []
 QED
 
 Theorem state_rel_INL:
   state_rel p ts (SOME ss) ∧ v_rel p v1 v2 ⇒
   state_rel (p ++ [SOME (INL v1,f)]) ts (SOME (SNOC [True_v; v2] ss))
 Proof
-  cheat
+  fs [state_rel_def] \\ rw [] \\ gvs []
+  \\ gvs [thunk_rel_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
+  \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ TRY (irule_at Any thunk_rel_ext \\ fs [])
+  \\ irule_at Any v_rel_ext \\ fs []
 QED
 
 Theorem v_rel_Ref:
   state_rel p (SOME x) (SOME ss) ⇒
   v_rel (p ++ [NONE]) (Atom (Loc (LENGTH x))) (Atom (Loc (LENGTH ss)))
 Proof
-  cheat
+  fs [Once v_rel_cases,state_rel_def]
+  \\ rename [‘LIST_REL r p ss’]
+  \\ rename [‘LIST_REL (LIST_REL qq) x’]
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘ss’
+  \\ qid_spec_tac ‘p’
+  \\ Induct \\ fs [find_loc_def,PULL_EXISTS]
+  \\ Cases \\ fs [PULL_EXISTS] \\ rw []
+  \\ res_tac \\ fs []
 QED
 
 Theorem state_rel_Ref:
   LIST_REL (v_rel p) xs ys ∧ state_rel p (SOME ts) (SOME ss) ⇒
   state_rel (p ++ [NONE]) (SOME (SNOC xs ts)) (SOME (SNOC ys ss))
 Proof
-  cheat
+  gvs [state_rel_def,thunk_rel_def] \\ rpt strip_tac
+  >-
+   (gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ irule_at Any thunk_rel_ext \\ fs [])
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ ‘ZIP (p ++ [NONE],ss ++ [ys]) = ZIP (p,ss) ++ ZIP ([NONE],[ys])’ by
+       (irule $ GSYM ZIP_APPEND \\ fs [])
+  \\ fs [FILTER_APPEND]
+  \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ irule_at Any v_rel_ext \\ fs []
 QED
 
 Theorem dest_anyThunk_INL:
@@ -529,7 +609,8 @@ Proof
 QED
 
 Theorem state_rel_array:
-  state_rel p (SOME ts) (SOME ss) ∧ find_loc n p = SOME n1 ∧ oEL n ts = SOME ta ⇒
+  state_rel p (SOME ts) (SOME ss) ∧
+  find_loc n p = SOME n1 ∧ oEL n ts = SOME ta ⇒
   ∃sa.
     oEL n1 ss = SOME sa ∧ LIST_REL (v_rel p) ta sa ∧
     ∀i x y.
@@ -537,7 +618,34 @@ Theorem state_rel_array:
       state_rel p (SOME (LUPDATE (LUPDATE x i ta) n ts))
                   (SOME (LUPDATE (LUPDATE y i sa) n1 ss))
 Proof
-  cheat
+  fs [state_rel_def,GSYM CONJ_ASSOC]
+  \\ qsuff_tac ‘∀q p ss ts n n1 ta.
+   LIST_REL (thunk_rel q) p ss ∧
+   LIST_REL (LIST_REL (v_rel q)) ts
+     (MAP SND (FILTER (λx. FST x = NONE) (ZIP (p,ss)))) ∧
+   find_loc n p = SOME n1 ∧ oEL n ts = SOME ta ⇒
+   ∃sa.
+     oEL n1 ss = SOME sa ∧ LIST_REL (v_rel q) ta sa ∧
+     ∀i x y.
+       i < LENGTH ta ∧ v_rel q x y ⇒
+       LIST_REL (thunk_rel q) p (LUPDATE (LUPDATE y i sa) n1 ss) ∧
+       LIST_REL (LIST_REL (v_rel q)) (LUPDATE (LUPDATE x i ta) n ts)
+         (MAP SND
+            (FILTER (λx. FST x = NONE)
+               (ZIP (p,LUPDATE (LUPDATE y i sa) n1 ss))))’
+  THEN1 (metis_tac [])
+  \\ gen_tac
+  \\ Induct \\ Cases_on ‘ss’ \\ fs [find_loc_def]
+  \\ reverse Cases \\ fs [] \\ rpt gen_tac \\ strip_tac \\ gvs []
+  THEN1
+   (last_x_assum drule_all \\ strip_tac
+    \\ fs [GSYM ADD1,oEL_def,LUPDATE_DEF]
+    \\ metis_tac [])
+  \\ reverse (Cases_on ‘n’) \\ gvs [oEL_def]
+  >- fs [GSYM ADD1,oEL_def,LUPDATE_DEF]
+  \\ fs [thunk_rel_def,LUPDATE_DEF]
+  \\ rw []
+  \\ irule_at Any listTheory.EVERY2_LUPDATE_same \\ fs []
 QED
 
 Theorem get_atoms_imp:
@@ -1022,7 +1130,7 @@ Proof
     \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
     \\ irule_at Any v_rel_new_Thunk
     \\ irule_at Any cont_rel_ext \\ simp []
-    \\ irule_at Any state_rel_INR \\ fs []
+    \\ irule_at Any state_rel_INR \\ fs [rec_env_def]
     \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
   >~ [‘App op ys’] >-
    (fs [step,error_def]
