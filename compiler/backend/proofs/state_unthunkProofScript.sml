@@ -60,29 +60,43 @@ End
 Definition Letrec_imm_def:
   (Letrec_imm vs (Var v) ⇔ MEM v vs) ∧
   (Letrec_imm vs (Lam _ _) ⇔ T) ∧
-  (Letrec_imm vs (Lit _) ⇔ T) ∧
   (Letrec_imm vs _ ⇔ F)
 End
 
 Definition Letrec_split_def:
-  Letrec_split vs [] = ([],[],[]) ∧
+  Letrec_split vs [] = ([],[]) ∧
   Letrec_split vs ((v:string,x)::fns) =
-    let (xs,ys,zs) = Letrec_split vs fns in
+    let (xs,ys) = Letrec_split vs fns in
       case dest_Delay x of
-      | NONE => (xs,(v,x)::ys,zs)
-      | SOME y =>
-        if Letrec_imm vs y then
-          ((SOME v,App Ref [True; True])::xs,ys,
-           (NONE,App UnsafeUpdate [IntLit 1; Var v; y])::zs)
-        else
-          ((SOME v,App Ref [False; False])::xs,ys,
-           (NONE,App UnsafeUpdate [IntLit 1; Var v; Lam NONE y])::zs)
+      | NONE => (xs,(v,x)::ys)
+      | SOME y => ((v,Letrec_imm vs y,y)::xs,ys)
+End
+
+Definition Bool_def[simp]:
+  Bool T = True ∧
+  Bool F = False
+End
+
+Definition Bool_v_def[simp]:
+  Bool_v T = True_v ∧
+  Bool_v F = False_v
+End
+
+Definition some_ref_bool_def:
+  some_ref_bool (v:string,b,y:exp) = (SOME v, App Ref [Bool b; Bool b])
+End
+
+Definition unsafe_update_def:
+  unsafe_update (v,b,y) =
+    (NONE:string option, App UnsafeUpdate [IntLit 1; Var v; if b then y else Lam NONE y])
 End
 
 Definition comp_Letrec_def:
-  comp_Letrec fns y =
-    let (xs,ys,zs) = Letrec_split (MAP FST fns) fns in
-      Lets xs $ Letrec ys $ Lets zs y
+  comp_Letrec xs y =
+    let (delays,funs) = Letrec_split (MAP FST xs) xs in
+      Lets (MAP some_ref_bool delays) $
+      Letrec funs $
+      Lets (MAP unsafe_update delays) y
 End
 
 Inductive compile_rel:
@@ -769,6 +783,91 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
+Definition make_let_env_def:
+  make_let_env [] n env = env ∧
+  make_let_env (x::xs) n env = make_let_env xs (n+1) ((FST x,Atom (Loc n))::env)
+End
+
+Theorem step_n_Lets_some_ref_bool:
+  ∀delays env n ss.
+    step_n n (Exp env (Lets (MAP some_ref_bool delays) x),SOME ss,sk) = (sr1,ss1,sk1) ∧
+    is_halt (sr1,ss1,sk1) ⇒
+    ∃m. m ≤ n ∧
+      step_n m (Exp (make_let_env delays (LENGTH ss) env) x,
+        SOME (ss ++ MAP (λ(v,b,y). [Bool_v b; Bool_v b]) delays),sk) =
+          (sr1,ss1,sk1)
+Proof
+  Induct \\ fs [Lets_def,make_let_env_def] \\ rw []
+  >- (first_x_assum $ irule_at Any \\ fs [])
+  \\ PairCases_on ‘h’ \\ gvs [some_ref_bool_def,Lets_def]
+  \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
+  \\ Cases_on ‘h1’ \\ fs []
+  \\ ntac 7 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
+             >- (rw [] \\ fs [is_halt_def])
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step])
+  \\ strip_tac \\ last_x_assum drule
+  \\ strip_tac \\ qexists_tac ‘m’ \\ fs []
+  \\ gvs [SNOC_APPEND,ADD1]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+QED
+
+Theorem Letrec_split_EVERY:
+  ∀xs delays funs.
+    Letrec_split vs xs = (delays, funs) ⇒
+    EVERY (λ(v,b,x). b = Letrec_imm vs x) delays
+Proof
+  Induct \\ fs [Letrec_split_def]
+  \\ Cases \\ fs [Letrec_split_def]
+  \\ pairarg_tac \\ fs []
+  \\ CASE_TAC \\ fs []
+QED
+
+Theorem Letrec_split_ALL_DISTINCT:
+  ∀xs delays funs.
+    Letrec_split vs xs = (delays, funs) ∧ ALL_DISTINCT (MAP FST xs) ⇒
+    (set (MAP FST delays)) UNION (set (MAP FST funs)) = set (MAP FST xs) ∧
+    ALL_DISTINCT (MAP FST delays) ∧
+    ALL_DISTINCT (MAP FST funs) ∧
+    DISJOINT (set (MAP FST delays)) (set (MAP FST funs))
+Proof
+  Induct \\ fs [Letrec_split_def]
+  \\ Cases \\ fs [Letrec_split_def]
+  \\ pairarg_tac \\ fs []
+  \\ CASE_TAC \\ fs [ALL_DISTINCT_APPEND]
+  \\ rw [] \\ fs [EXTENSION,IN_DISJOINT]
+  \\ metis_tac []
+QED
+
+Definition Letrec_store_def:
+  Letrec_store env (v,b,y) =
+    case y of
+    | Var w   => [True_v; THE (ALOOKUP env w)]
+    | Lam w e => [True_v; Closure w env e]
+    | _       => [False_v; Closure NONE env y]
+End
+
+Theorem Letrec_store_thm:
+  ∀delays ss.
+    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST sfns) x) delays ∧
+    ALL_DISTINCT (MAP FST delays) ∧
+    DISJOINT (set (MAP FST delays)) (set (MAP FST funs)) ∧
+    step_n n (Exp (env1 ++ make_let_env delays (LENGTH ss) env2)
+                (Lets (MAP unsafe_update delays) se),
+              SOME (ss ++ MAP (λ(v,b,y). [Bool_v b; Bool_v b]) delays),sk) =
+          (sr1,ss1,sk1) ⇒
+    ∃k. k ≤ n ∧
+      let env3 = env1 ++ make_let_env delays (LENGTH ss) env2 in
+        step_n k (Exp env3 se, SOME (ss ++ MAP (Letrec_store env3) delays),sk) =
+              (sr1,ss1,sk1)
+Proof
+  Induct \\ fs [Lets_def]
+  >- (rw [] \\ qexists_tac ‘n’ \\ fs [])
+  \\ gen_tac \\ PairCases_on ‘h’ \\ fs []
+  \\ gvs [unsafe_update_def,Lets_def,make_let_env_def]
+  \\ gen_tac \\ strip_tac
+  \\ cheat
+QED
+
 Theorem step_forward:
   ∀n zs p tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n n (tr,ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧
@@ -1161,8 +1260,23 @@ Proof
     \\ last_x_assum irule
     \\ rpt (last_x_assum $ irule_at Any \\ fs []))
   \\ rename [‘Letrec tfns te’]
+  \\ rewrite_tac [GSYM step_n_add,ADD1] \\ gvs []
+  \\ simp [comp_Letrec_def] \\ pairarg_tac \\ gvs []
+  \\ strip_tac
+  \\ simp [step_n_add,step,GSYM rec_env_def]
+  \\ drule_all step_n_Lets_some_ref_bool \\ strip_tac
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘m’
+  >- (gvs [] \\ rw [] \\ gvs [is_halt_def])
+  \\ simp [step_n_add,step,GSYM rec_env_def,ADD1]
+  \\ gvs [ADD1]
+  \\ imp_res_tac Letrec_split_EVERY
+  \\ drule_all Letrec_split_ALL_DISTINCT \\ strip_tac
+  \\ fs [rec_env_def] \\ strip_tac
+
   \\ cheat
 QED
+
 
 (* step_until_halt *)
 
