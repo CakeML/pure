@@ -188,7 +188,9 @@ Definition purePEG_def[nocompute]:
                         tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
                   seql [tokGE ((=) LetT) ; NTGE nEqBindSeq ;
                         tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
-                  seql [tokEQ ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp)
+                  seql [tokGE ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp);
+                  seql [tokGE ((=) CaseT); NTGE nExp; tokGE ((=) OfT);
+                        NTGE nPatAlts] (mkNT nExp);
                  ]);
         (INL nLSafeExpEQ,
          choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
@@ -199,8 +201,13 @@ Definition purePEG_def[nocompute]:
                         tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
                   seql [tokEQ ((=) LetT) ; NTGE nEqBindSeq ;
                         tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
-                  seql [tokEQ ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp)
+                  seql [tokEQ ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp);
+                  seql [tokEQ ((=) CaseT); NTGE nExp; tokGE ((=) OfT);
+                        NTGE nPatAlts] (mkNT nExp);
                  ]);
+        (INL nPatAlts, rpt (NTEQ nPatAlt) FLAT);
+        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) ArrowT); NTGT nExp]
+                           (mkNT nPatAlt));
         (INL nExp,
          choicel [NTGE nLSafeExp; pegf (NTGE nIExp) (mkNT nExp)]);
         (INL nExpEQ,
@@ -399,6 +406,14 @@ val letexp3 = test “nExp”
   "z * let\n\
   \x = 3\n\
   \y = 4 in x + y"
-
+val caseexp1 =
+  test “nExp” "case h:t of\n\
+                  \  y -> 3\n\
+                  \   + 6\n\
+                  \  z -> y"
+val caseexp2 =
+  test “nExp” "case h\n\
+              \of y->4\n\
+              \   z-> 5"
 
 val _ = export_theory();
