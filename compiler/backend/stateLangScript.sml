@@ -48,6 +48,7 @@ Datatype:
       | Letrec ((vname # exp) list) exp     (* mutually recursive exps *)
       | Let (vname option) exp exp          (* non-recursive let       *)
       | If exp exp exp                      (* if-then-else            *)
+      | Case exp vname ((vname # vname list # exp) list)    (* case of *)
       | Delay exp                           (* suspend in a Thunk      *)
       | Box exp                             (* wrap result in a Thunk  *)
       | Force exp                           (* evaluates a Thunk       *)
@@ -81,6 +82,7 @@ Datatype:
        | BoxK
        | ForceK1
        | ForceK2 (state option)
+       | CaseK env vname ((vname # vname list # exp) list)
        | RaiseK
        | HandleK env vname exp
        | HandleAppK env exp
@@ -119,11 +121,14 @@ Definition freevars_def[simp]:
   freevars (Delay e) = freevars e ∧
   freevars (Box e) = freevars e ∧
   freevars (Force e) = freevars e ∧
+  freevars (Case e v css) =
+    (freevars e ∪
+     BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v) ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
   freevars (HandleApp e1 e2) = freevars e1 ∪ freevars e2
 Termination
-  WF_REL_TAC ‘measure exp_size’
+  WF_REL_TAC `measure exp_size` >> rw[fetch "-" "exp_size_def"]
 End
 
 Definition get_atoms_def:
@@ -340,6 +345,14 @@ Definition return_def:
     if v = Constructor "True"  [] then continue env e1 st k else
     if v = Constructor "False" [] then continue env e2 st k else
       error st k) ∧
+  return v st (CaseK env n [] :: k) = error st k ∧
+  return v st (CaseK env n ((c,ns,e)::css) :: k) = (
+    case v of
+      Constructor c' vs =>
+        if c = c' ∧ LENGTH vs = LENGTH ns then
+          continue (ZIP (ns, vs) ++ (n,v)::env) e st k
+        else value v st (CaseK env n css :: k)
+    | _ => error st k) ∧
   return v st (RaiseK :: k) = (Exn v, st, k) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
   return v st (HandleAppK env e :: k) = value v st k ∧
@@ -371,6 +384,7 @@ Definition step_def:
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
+  step st k (Exp env $ Case e v css) = push env e st (CaseK env v css) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
