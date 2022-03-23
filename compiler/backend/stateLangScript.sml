@@ -420,7 +420,7 @@ End
 
 (* Values and exceptions are only halting points once we have consumed the
    continuation. Errors and actions are always halting points. *)
-Definition is_halt_def:
+Definition is_halt_def[simp]:
   is_halt (Val v, st:state option, []) = T ∧
   is_halt (Exn v, st, []) = T ∧
   is_halt (Error, st, k) = T ∧
