@@ -554,10 +554,47 @@ Proof
   \\ imp_res_tac step_n_mono \\ fs []
 QED
 
-(****************************************)
-
 Theorem step =
   LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
              application_def,dest_anyClosure_def,dest_Closure_def];
+
+(****************************************)
+
+Theorem step_n_is_halt_SOME:
+  step_n n (tr,SOME ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧ tr1 ≠ Error ⇒
+  ∃ts2. ts1 = SOME ts2
+Proof
+  cheat
+QED
+
+Theorem step_n_cut_cont:
+  step_n n (x,s,k) = y ∧ is_halt y ⇒
+  ∃m z. m ≤ n ∧ step_n m (x,s,[]) = z ∧ is_halt z
+Proof
+  cheat
+QED
+
+Theorem step_n_NONE:
+  step_n n (Exp tenv1 te,ts,[]) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ⇒
+  step_n n (Exp tenv1 te,NONE,[]) = (tr1,NONE,tk1) ∧ (∃res. tr1 = Val res) ∨
+  ∀k. ∃ts2 tk2. step_n n (Exp tenv1 te,NONE,k) = (Error,ts2,tk2)
+Proof
+  cheat
+QED
+
+Theorem step_n_set_cont:
+  step_n n (Exp tenv1 te,NONE,[]) = (Val res,ts1,[]) ⇒
+  ∀k. step_n n (Exp tenv1 te,NONE,k) = (Val res,ts1,k)
+Proof
+  cheat
+QED
+
+Theorem step_n_fast_forward:
+  step_n n (sr,ss,k::ks) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
+  step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
+  ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
+Proof
+  cheat
+QED
 
 val _ = export_theory ();
