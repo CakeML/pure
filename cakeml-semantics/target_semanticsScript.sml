@@ -1,7 +1,7 @@
 (* An itree-based semantics for the target machine code *)
 open preamble;
 open targetSemTheory;
-open io_treeTheory cakeml_semanticsTheory;
+open io_treeTheory cakeml_semanticsTheory cakeml_semanticsPropsTheory;
 
 val _ = new_theory "target_semantics"
 
@@ -50,8 +50,10 @@ Definition eval_to_def:
           case read_ffi_bytearrays mc ms of
           | SOME bytes, SOME bytes2 =>
              let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-               Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
-                 (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
+             if EL ffi_index mc.ffi_names = "" then
+              eval_to (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
+             else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
+                    (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
           | _ => Ret' Error
 End
 
@@ -62,15 +64,13 @@ Definition eval_def:
     | SOME k => eval_to k mc (ms:'a)
 End
 
-Definition cml_io_unfold_err_def:
-  cml_io_unfold_err f =
-    io_unfold_err f
+Definition machine_sem_itree_def:
+  machine_sem_itree (mc, ms) =
+    io_unfold_err eval
       ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
-      FinalFFI, (λe. FinalFFI e FFI_failed))
+      FinalFFI, (λe. FinalFFI e FFI_failed)) (mc, ms)
 End
 
-Definition machine_sem_itree_def:
-  machine_sem_itree mc ms = cml_io_unfold_err eval (mc, ms)
-End
+(**********)
 
 val _ = export_theory();
