@@ -1,6 +1,7 @@
 (* Properties about the itree- and FFI state-based CakeML semantics *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistTheory;
+open optionTheory relationTheory pairTheory listTheory
+     arithmeticTheory llistTheory pred_setTheory;
 open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
      evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
 open io_treeTheory cakeml_semanticsTheory pure_miscTheory;
@@ -405,6 +406,45 @@ Proof
   PairCases_on `a` >> gvs[trace_prefix_def] >> CASE_TAC >> gvs[] >>
   CASE_TAC >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
   first_x_assum drule_all >> rw[]
+QED
+
+
+(***** lprefix_lub *****)
+
+Theorem lprefix_lub_SING[simp]:
+  lprefix_lub { a } l ⇔ l = a
+Proof
+  eq_tac >> rw[lprefix_lub_def] >>
+  first_x_assum $ qspec_then `a` assume_tac >> gvs[LPREFIX_ANTISYM]
+QED
+
+Theorem lprefix_lub_LNIL[simp]:
+  lprefix_lub {fromList io | io = [] : io_event list} l = (l = [| |]) ∧
+  lprefix_lub ll [| |] = (∀l. l ∈ ll ⇒ l = [| |])
+Proof
+  rw[EXTENSION, lprefix_lub_def] >> eq_tac >> rw[] >>
+  pop_assum $ qspec_then `[||]` mp_tac >> simp[]
+QED
+
+Theorem lprefix_lub_LCONS:
+  lprefix_lub ls (h:::t) ⇒
+  ∀l. l ∈ ls ⇒ LHD l = NONE ∨ LHD l = SOME h
+Proof
+  rw[lprefix_lub_def] >> Cases_on `l` >> gvs[] >>
+  last_x_assum drule >> gvs[LPREFIX_LCONS]
+QED
+
+Theorem lprefix_lub_LTL:
+  lprefix_lub ls (h:::t) ∧
+  ltls = { ltl | ∃l. l ∈ ls ∧ LTL l = SOME ltl }
+  ⇒ lprefix_lub ltls t
+Proof
+  rw[lprefix_lub_def] >> gvs[LPREFIX_LCONS, PULL_EXISTS]
+  >- (first_x_assum drule >> rw[] >> gvs[]) >>
+  qpat_x_assum `∀ub. (∀ll. _) ⇒ _` $ qspec_then `h:::ub` mp_tac >>
+  simp[] >> disch_then irule >> rw[] >>
+  last_x_assum drule >> rw[] >> gvs[LPREFIX_LCONS] >>
+  last_x_assum irule >> goal_assum $ drule_at Any >> simp[]
 QED
 
 
