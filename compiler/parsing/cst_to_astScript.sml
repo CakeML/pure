@@ -5,6 +5,8 @@ local open precparserTheory in end
 
 val _ = new_theory "cst_to_ast";
 
+val _ = set_grammar_ancestry ["pureNT", "tokenUtils", "pureAST", "precparser"]
+
 Overload lift[local] = “option$OPTION_MAP”
 Overload "'"[local] = “λf a. OPTION_BIND a f”
 

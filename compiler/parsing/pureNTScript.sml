@@ -2,6 +2,8 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "pureNT";
 
+val _ = set_grammar_ancestry ["list"]
+
 Datatype:
   ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
          | nPat | nAPat | nFunRHS

@@ -3,6 +3,8 @@ open HolKernel Parse boolLib bossLib;
 local open stringTheory integerTheory in end
 val _ = new_theory "pureAST";
 
+val _ = set_grammar_ancestry ["string", "integer"]
+
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
 
