@@ -374,6 +374,39 @@ Proof
   Cases_on `n ≤ n'` >> imp_res_tac trace_prefix_prefix >> gvs[]
 QED
 
+Theorem trace_prefix_Div[simp]:
+  ∀n. trace_prefix n (oracle,ffi_st) Div = ([],NONE)
+Proof
+  Cases >> rw[trace_prefix_def]
+QED
+
+Theorem trace_prefix_SOME_mono:
+  ∀m n oracle ffi_st t io res.
+    trace_prefix n (oracle,ffi_st) t = (io, SOME res) ∧ n ≤ m
+  ⇒ trace_prefix m (oracle,ffi_st) t = (io, SOME res)
+Proof
+  Induct >> rw[] >> gvs[trace_prefix_def] >>
+  Cases_on `n` >> gvs[trace_prefix_def] >>
+  Cases_on `t` >> gvs[trace_prefix_def] >>
+  PairCases_on `a` >> gvs[trace_prefix_def] >> reverse CASE_TAC >> gvs[]
+  >- (first_x_assum drule_all >> simp[]) >>
+  CASE_TAC >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+  first_x_assum drule_all >> simp[]
+QED
+
+Theorem trace_prefix_NONE_mono:
+  ∀m n oracle ffi_st t io res.
+    trace_prefix m (oracle,ffi_st) t = (io, NONE) ∧ n ≤ m
+  ⇒ ∃io'. isPREFIX io' io ∧ trace_prefix n (oracle,ffi_st) t = (io', NONE)
+Proof
+  Induct >> rw[] >> gvs[trace_prefix_def] >>
+  Cases_on `n` >> gvs[trace_prefix_def] >>
+  Cases_on `t` >> gvs[trace_prefix_def] >>
+  PairCases_on `a` >> gvs[trace_prefix_def] >> CASE_TAC >> gvs[] >>
+  CASE_TAC >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+  first_x_assum drule_all >> rw[]
+QED
+
 
 (***** smallStep FFI-state lemmas *****)
 
