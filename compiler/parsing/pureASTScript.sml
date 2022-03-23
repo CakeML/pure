@@ -41,7 +41,8 @@ Datatype:
          | expIf expAST expAST expAST
          | expLit litAST
          | expLet (expdecAST list) expAST
-         | expDo (expdostmtAST list) expAST ;
+         | expDo (expdostmtAST list) expAST
+         | expCase expAST ((patAST # expAST) list);
   expdecAST = expdecTysig string tyAST
             | expdecPatbind patAST expAST
             | expdecFunbind string (patAST list) expAST ;
