@@ -221,6 +221,12 @@ Proof
   rw[prim_sem_env_eq, start_env_def]
 QED
 
+Triviality prim_sem_env_change_ffi[simp]:
+  (FST $ THE $ prim_sem_env f) with ffi := f' = (FST $ THE $ prim_sem_env f')
+Proof
+  rw[prim_sem_env_eq, semanticPrimitivesTheory.state_component_equality]
+QED
+
 Theorem itree_semantics_itree_of:
   ∀(ffi:'ffi ffi_state) prog.
     itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
@@ -588,21 +594,6 @@ Proof
     )
 QED
 
-Triviality oracle_IMP_itree_lemma:
-  (∀f:((ffi_outcome + word8 list) list) ffi_state.
-    Fail ∉ semantics_prog (FST $ THE $ prim_sem_env f) start_env prog ∧
-    machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
-      extend_with_resource_limit
-        (semantics_prog (FST $ THE $ prim_sem_env f) start_env prog))
-  ⇒ prune F (itree_semantics prog) (machine_sem_itree (mc,ms))
-Proof
-  rw[] >>
-  simp[Q.ISPEC `ARB:((ffi_outcome + word8 list) list) ffi_state` $
-        GSYM itree_semantics_itree_of] >>
-  irule oracle_IMP_itree_preservation >>
-  gvs[prim_sem_env_eq, extend_with_resource_limit'_def]
-QED
-
 Theorem itree_compile_correct:
   safe_itree (itree_semantics prog) ∧
   compile c prog = SOME (bytes,bitmaps,c') ∧
@@ -611,13 +602,17 @@ Theorem itree_compile_correct:
     (heap_regs c.stack_conf.reg_names) mc ms
   ⇒ prune F (itree_semantics prog) (machine_sem_itree (mc,ms))
 Proof
-  rw[] >> irule oracle_IMP_itree_lemma >>
+  rw[] >>
+  simp[Q.ISPEC `ARB:((ffi_outcome + word8 list) list) ffi_state` $
+        GSYM itree_semantics_itree_of] >>
+  irule oracle_IMP_itree_preservation >> simp[extend_with_resource_limit'_def] >>
+  reverse conj_tac >- simp[prim_sem_env_eq] >>
   gen_tac >>
-  `(FST $ THE $ prim_sem_env f).eval_state = NONE` by gvs[prim_sem_env_eq] >>
+  `(FST $ THE $ prim_sem_env f).eval_state = NONE` by simp[prim_sem_env_eq] >>
   conj_asm1_tac >> gvs[IN_DEF]
   >- (
     simp[itree_semantics, itree_semantics_itree_of] >>
-    irule safe_itree_trace_prefix_Error >> gvs[itree_of_def, dstate_of_def]
+    irule safe_itree_trace_prefix_Error >> simp[]
     ) >>
   irule $ SRULE [LET_THM, UNCURRY, start_env] compile_correct >> simp[SF SFY_ss]
 QED
