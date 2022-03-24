@@ -45,21 +45,26 @@ val ditree_ss = simpLib.named_rewrites "ditree_ss" [
 
 (******************** Simpler lemmas ********************)
 
-(* Takes 30s *)
+Theorem do_app_cases =
+  ``do_app st op vs = SOME (st',v)`` |> SIMP_CONV (srw_ss()) [
+    do_app_def, AllCaseEqs(), SF DNF_ss, LET_THM, GSYM DISJ_ASSOC];
+
 Theorem do_app_rel:
   (∀s. op ≠ FFI s) ⇒
   OPTREL (λ(a,b) (c,d). a = c ∧ result_rel b d)
     (do_app st op vs)
     (OPTION_MAP (λ(a,b). (FST a, b)) (do_app (st, ffi) op vs))
 Proof
-  rw[semanticPrimitivesTheory.do_app_def] >>
-  rpt (
-    TOP_CASE_TAC >>
-    gvs[do_app_def, result_rel_cases, store_alloc_def]
-    )
+  rw[] >> reverse $ Cases_on `do_app (st,ffi) op vs` >> gvs[]
+  >- (
+    PairCases_on `x` >> gvs[semanticPrimitivesPropsTheory.do_app_cases] >>
+    simp[do_app_def, result_rel_cases] >> every_case_tac >> gvs[]
+    ) >>
+  Cases_on `do_app st op vs` >> gvs[] >> PairCases_on `x` >>
+  gvs[do_app_cases, semanticPrimitivesTheory.do_app_def, store_alloc_def] >>
+  every_case_tac >> gvs[]
 QED
 
-(* Takes 20s *)
 Theorem application_rel:
   (∀s. op ≠ FFI s) ∧
   ctxt_rel cs1 cs2 ⇒
@@ -70,16 +75,20 @@ Proof
   rw[] >>
   drule do_app_rel >> disch_then $ qspecl_then [`vs`,`st`,`ffi`] assume_tac >>
   rw[application_def, cml_application_thm]
-  >- (CASE_TAC >> gvs[step_result_rel_cases] >> CASE_TAC >> gvs[]) >>
+  >- (
+    simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
+    Cases_on `do_opapp vs` >> simp[] >> PairCases_on `x` >> simp[]
+    ) >>
   Cases_on `do_app (st,ffi) op vs` >> gvs[] >>
   Cases_on `do_app st op vs` >> gvs[]
-  >- (rpt (TOP_CASE_TAC >> gvs[step_result_rel_cases])) >>
-  gvs[FST_THM] >>
-  rpt (pairarg_tac >> gvs[]) >> gvs[result_rel_cases] >>
-  rpt (
-    TOP_CASE_TAC >>
-    gvs[step_result_rel_cases, SF smallstep_ss, SF itree_ss,
-        ctxt_rel_def, ctxt_frame_rel_cases]
+  >- (simp[step_result_rel_cases, AllCaseEqs()] >> Cases_on `op` >> gvs[]) >>
+  PairCases_on `x` >> PairCases_on `x'` >> gvs[] >>
+  gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
+  simp[step_result_rel_cases, AllCaseEqs()]
+  >- (qexists_tac `cs1` >> simp[] >> Cases_on `op` >> gvs[])
+  >- (
+    qexists_tac `(Craise,env)::cs1` >> simp[] >> Cases_on `op` >> gvs[] >>
+    gvs[ctxt_rel_def] >> simp[ctxt_frame_rel_cases]
     )
 QED
 
@@ -378,21 +387,12 @@ Theorem step_result_rel_single_FFI_error:
   ⇒ ∃lnum env. estep ea =
     Effi s conf ws lnum env (FST $ SND ea) (TL $ SND $ SND $ SND ea)
 Proof
-  rpt $ PairCases >> rw[e_step_def] >>
-  every_case_tac >> gvs[SF smallstep_ss]
-  >- (
-    gvs[cml_application_thm] >>
-    every_case_tac >> gvs[SF smallstep_ss] >>
-    gvs[semanticPrimitivesTheory.do_app_def]
-    ) >>
-  FULL_CASE_TAC >> gvs[] >>
-  every_case_tac >> rgs[cml_application_thm] >>
-  every_case_tac >> rgs[SF smallstep_ss] >> gvs[] >>
-  rgs[semanticPrimitivesPropsTheory.do_app_cases] >> gvs[] >>
-  rgs[step_result_rel_cases, ctxt_rel_def] >> gvs[] >>
-  pairarg_tac >> rgs[ctxt_frame_rel_cases] >> gvs[] >>
-  rgs[SF itree_ss, application_def, call_FFI_def] >> gvs[] >>
-  every_case_tac >> rgs[store_lookup_def] >> gvs[]
+  rpt $ PairCases >> rw[e_step_def] >> gvs[AllCaseEqs(), SF smallstep_ss] >>
+  gvs[cml_application_thm, AllCaseEqs(), SF smallstep_ss] >>
+  gvs[semanticPrimitivesPropsTheory.do_app_cases, AllCaseEqs()] >>
+  gvs[step_result_rel_cases, ctxt_rel_def] >>
+  gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >> pairarg_tac >> gvs[] >>
+  simp[SF itree_ss, application_def] >> gvs[call_FFI_def, AllCaseEqs()]
 QED
 
 Theorem dstep_result_rel_single_FFI_strong:
