@@ -801,19 +801,30 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem ALOOKUP_make_let_env:
+  ALOOKUP delays h = NONE ⇒
+  ALOOKUP (make_let_env delays n env) h = ALOOKUP env h
+Proof
+  cheat
+QED
+
 Definition Letrec_store_def:
   Letrec_store env (v,b,y) =
-    case y of
-    | Var w   => [True_v; THE (ALOOKUP env w)]
-    | Lam w e => [True_v; Closure w env e]
-    | _       => [False_v; Closure NONE env y]
+    if ~b then [False_v; Closure NONE env y] else
+      case y of
+      | Var w   => [True_v; THE (ALOOKUP env w)]
+      | Lam w e => [True_v; Closure w env e]
+      | _       => [False_v; Closure NONE env y]
 End
 
 Theorem Letrec_store_thm:
-  ∀delays ss.
-    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST sfns) x) delays ∧
-    ALL_DISTINCT (MAP FST delays) ∧
-    DISJOINT (set (MAP FST delays)) (set (MAP FST funs)) ∧
+  ∀delays ss env2 n.
+    EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST (sfns: (string # exp) list)) x) delays ∧
+    ALL_DISTINCT (MAP FST delays) ∧ is_halt (sr1,ss1,sk1) ∧
+    DISJOINT (set (MAP FST delays)) (set (MAP FST (funs: (string # exp) list))) ∧
+    EVERY (λ(n,x). ~MEM n (MAP FST env1)) delays ∧
+    EVERY (λn. ALOOKUP (env1 ++ make_let_env delays (LENGTH ss) env2) n ≠ NONE)
+      (MAP FST sfns) ∧
     step_n n (Exp (env1 ++ make_let_env delays (LENGTH ss) env2)
                 (Lets (MAP unsafe_update delays) se),
               SOME (ss ++ MAP (λ(v,b,y). [Bool_v b; Bool_v b]) delays),sk) =
@@ -827,8 +838,98 @@ Proof
   >- (rw [] \\ qexists_tac ‘n’ \\ fs [])
   \\ gen_tac \\ PairCases_on ‘h’ \\ fs []
   \\ gvs [unsafe_update_def,Lets_def,make_let_env_def]
-  \\ gen_tac \\ strip_tac
-  \\ cheat
+  \\ rpt gen_tac \\ strip_tac
+  \\ pop_assum mp_tac
+  \\ ntac 2 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+  \\ reverse IF_CASES_TAC
+  >-
+    (ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
+     \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     \\ gvs [oEL_THM,EL_APPEND2]
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     \\ gvs [ADD1,LUPDATE_DEF]
+     \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
+     \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
+     \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+     \\ disch_then $ drule_at $ Pos last
+     \\ impl_tac >- fs []
+     \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def])
+  \\ Cases_on ‘∃v3 e3. h2 = Lam v3 e3’ \\ gvs []
+  >-
+    (ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
+     \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     \\ gvs [oEL_THM,EL_APPEND2]
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+                >- (rw [] \\ fs [is_halt_def]) \\ fs []
+                \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     \\ gvs [ADD1,LUPDATE_DEF]
+     \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
+     \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
+     \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+     \\ disch_then $ drule_at $ Pos last
+     \\ impl_tac >- fs []
+     \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def])
+  \\ Cases_on ‘h2’ \\ gvs [Letrec_imm_def]
+  \\ rename [‘Var vv’]
+  \\ qpat_assum ‘EVERY _ _’ (fn th => drule (REWRITE_RULE [EVERY_MEM] th))
+  \\ simp []
+  \\ Cases_on ‘ALOOKUP (env1 ++
+           make_let_env delays (LENGTH ss + 1)
+             ((h0,Atom (Loc (LENGTH ss)))::env2)) vv’ \\ fs []
+  \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+  \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
+  \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+  \\ gvs [oEL_THM,EL_APPEND2]
+  \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+             >- (rw [] \\ fs [is_halt_def]) \\ fs []
+             \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+  \\ gvs [ADD1,LUPDATE_DEF]
+  \\ qmatch_goalsub_abbrev_tac ‘ss ++ s1::_’
+  \\ strip_tac \\ last_x_assum $ qspec_then ‘ss ++ [s1]’ mp_tac
+  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ disch_then $ drule_at $ Pos last
+  \\ impl_tac >- fs []
+  \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def]
+  \\ gvs [ALOOKUP_APPEND]
+QED
+
+Theorem MEM_make_let_env:
+  ∀delays k env x.
+    MEM x (MAP FST (make_let_env delays k env)) ⇔
+    MEM x (MAP FST delays) ∨ MEM x (MAP FST env)
+Proof
+  Induct \\ fs [make_let_env_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Triviality EVERY_LAM:
+  ∀xs. EVERY (λ(n,x). f n) xs = EVERY f (MAP FST xs)
+Proof
+  Induct \\ fs [FORALL_PROD]
+QED
+
+Triviality FST_INTRO:
+  (λ(p1,p2). p1) = FST
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
 Theorem step_forward:
@@ -1236,8 +1337,31 @@ Proof
   \\ imp_res_tac Letrec_split_EVERY
   \\ drule_all Letrec_split_ALL_DISTINCT \\ strip_tac
   \\ fs [rec_env_def] \\ strip_tac
-
-  \\ cheat
+  \\ drule_at (Pos last) Letrec_store_thm
+  \\ simp []
+  \\ rpt (disch_then drule)
+  \\ impl_tac
+  >-
+   (simp [EVERY_LAM]
+    \\ fs [ALOOKUP_NONE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,MEM_make_let_env]
+    \\ qpat_x_assum ‘_ = set (MAP _ _)’ (assume_tac o GSYM)
+    \\ simp [FST_INTRO]
+    \\ gvs [IN_DISJOINT,MEM_MAP,FORALL_PROD,EXTENSION,EVERY_MEM]
+    \\ gvs [FORALL_PROD,EXISTS_PROD]
+    \\ metis_tac [])
+  \\ strip_tac
+  \\ ‘k < n + 1’ by fs []
+  \\ last_x_assum drule
+  \\ disch_then drule
+  \\ disch_then irule \\ simp []
+  \\ cheat (*
+  \\ qexists_tac ‘p ++
+       MAP (λ(fn,_). SOME (Recclosure tfns env1 fn)) (FILTER (λ(_,x). is_Delay x) tfns)’
+  \\ rpt (disch_then drule)
+  \\ simp [PULL_EXISTS]
+  \\ qexists_tac ‘zs’ \\ fs []
+  \\ simp [step_res_rel_cases]
+  \\ cheat *)
 QED
 
 
