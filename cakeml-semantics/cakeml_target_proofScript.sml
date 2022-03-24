@@ -1,7 +1,8 @@
 (* Theorem showing oracle-based semantic preservation implies
    io_tree-based semantic preservation *)
 open preamble;
-open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory;
+open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory
+     backendProofTheory primSemEnvTheory;
 open target_semanticsTheory target_semanticsPropsTheory target_semanticsProofTheory
      cakeml_semanticsTheory cakeml_semanticsPropsTheory cakeml_semanticsProofTheory;
 
@@ -68,6 +69,31 @@ CoInductive ffi_invariant:
    (∀input. LENGTH input ≠ LENGTH (SND $ SND e) ⇒ g (INR input) = Ret $ f e FFI_failed) ∧
    (∀input. LENGTH input = LENGTH (SND $ SND e) ⇒ ffi_invariant f (g (INR input)))
       ⇒ ffi_invariant f (Vis e g))
+End
+
+CoInductive safe_itree:
+  (safe_itree (Ret cakeml_semantics$Termination)) ∧
+  (safe_itree (Ret $ FinalFFI e f)) ∧
+  (safe_itree Div) ∧
+  ((∀s. safe_itree (rest s)) ⇒ safe_itree (Vis e rest))
+End
+
+val (_,start_env) =
+    prim_sem_env_eq |> Q.INST [`ffi` |-> `ARB`] |>
+      concl |> rhs |> optionSyntax.dest_some |> pairSyntax.dest_pair;
+
+Definition start_dstate_def:
+  start_dstate : dstate =
+    <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE |>
+End
+
+Definition start_env_def:
+  start_env = ^start_env
+End
+
+Definition itree_semantics_def:
+  itree_semantics prog =
+  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
 End
 
 
@@ -169,6 +195,38 @@ Theorem extend_no_oom:
 Proof
   rw[extend_with_resource_limit'_def, extend_with_resource_limit_def] >>
   gvs[IN_DEF]
+QED
+
+Theorem safe_itree_trace_prefix_Error:
+  ∀n ffi io t.
+    safe_itree t ⇒ trace_prefix n ffi t ≠ (io, SOME Error)
+Proof
+  Induct >> rw[] >> PairCases_on `ffi` >> gvs[] >>
+  simp[trace_prefix_def] >> Cases_on `t` >> gvs[trace_prefix_def] >>
+  pop_assum mp_tac >> rw[Once safe_itree_cases] >>
+  PairCases_on `a` >> simp[trace_prefix_def] >> CASE_TAC >> gvs[] >>
+  pairarg_tac >> gvs[] >> qsuff_tac `res ≠ SOME Error` >> rw[] >> gvs[] >>
+  first_x_assum $ qspecl_then [`ffi0,f`,`io'`,`g (INR l)`] assume_tac >> gvs[]
+QED
+
+Theorem start_dstate:
+  ∀ffi:'ffi ffi_state. dstate_of (FST $ THE $ prim_sem_env ffi) = start_dstate
+Proof
+  rw[prim_sem_env_eq, dstate_of_def, start_dstate_def]
+QED
+
+Theorem start_env:
+  ∀ffi:'ffi ffi_state. SND $ THE $ prim_sem_env ffi = start_env
+Proof
+  rw[prim_sem_env_eq, start_env_def]
+QED
+
+Theorem itree_semantics_itree_of:
+  ∀(ffi:'ffi ffi_state) prog.
+    itree_of (FST $ THE $ prim_sem_env ffi) start_env prog =
+    itree_semantics prog
+Proof
+  rw[itree_semantics_def, itree_of_def, start_dstate]
 QED
 
 
@@ -528,6 +586,40 @@ Proof
       pairarg_tac >> gvs[SF SFY_ss]
       )
     )
+QED
+
+Triviality oracle_IMP_itree_lemma:
+  (∀f:((ffi_outcome + word8 list) list) ffi_state.
+    Fail ∉ semantics_prog (FST $ THE $ prim_sem_env f) start_env prog ∧
+    machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
+      extend_with_resource_limit
+        (semantics_prog (FST $ THE $ prim_sem_env f) start_env prog))
+  ⇒ prune F (itree_semantics prog) (machine_sem_itree (mc,ms))
+Proof
+  rw[] >>
+  simp[Q.ISPEC `ARB:((ffi_outcome + word8 list) list) ffi_state` $
+        GSYM itree_semantics_itree_of] >>
+  irule oracle_IMP_itree_preservation >>
+  gvs[prim_sem_env_eq, extend_with_resource_limit'_def]
+QED
+
+Theorem itree_compile_correct:
+  safe_itree (itree_semantics prog) ∧
+  compile c prog = SOME (bytes,bitmaps,c') ∧
+  backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+    (heap_regs c.stack_conf.reg_names) mc ms
+  ⇒ prune F (itree_semantics prog) (machine_sem_itree (mc,ms))
+Proof
+  rw[] >> irule oracle_IMP_itree_lemma >>
+  gen_tac >>
+  `(FST $ THE $ prim_sem_env f).eval_state = NONE` by gvs[prim_sem_env_eq] >>
+  conj_asm1_tac >> gvs[IN_DEF]
+  >- (
+    simp[itree_semantics, itree_semantics_itree_of] >>
+    irule safe_itree_trace_prefix_Error >> gvs[itree_of_def, dstate_of_def]
+    ) >>
+  irule $ SRULE [LET_THM, UNCURRY, start_env] compile_correct >> simp[SF SFY_ss]
 QED
 
 
