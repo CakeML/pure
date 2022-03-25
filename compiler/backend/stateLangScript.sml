@@ -433,7 +433,7 @@ End
 
 Definition sinterp_def:
   sinterp sr st k =
-    io_unfold_err
+    itree_unfold_err
       (λ(sr, st, k).
         case step_until_halt (sr, st, k) of
         | Ret => Ret' Termination

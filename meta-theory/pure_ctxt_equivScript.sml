@@ -5,7 +5,7 @@ open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
 open pure_miscTheory pure_expTheory pure_exp_lemmasTheory
      pure_evalTheory pure_eval_lemmasTheory pure_semanticsTheory
      pure_exp_relTheory pure_congruenceTheory
-     io_treeTheory pure_obs_sem_equalTheory;
+     itreeTheory pure_obs_sem_equalTheory;
 
 val _ = new_theory "pure_ctxt_equiv";
 
@@ -700,10 +700,10 @@ Proof
       Cases_on `eval_wh e2'` >> gvs[get_atoms_def]
       >- (
         DEEP_INTRO_TAC some_intro >> rw[Once next_def] >>
-        simp[with_atom_def, with_atoms_def, get_atoms_def, GSYM io_distinct]
+        simp[with_atom_def, with_atoms_def, get_atoms_def, GSYM itree_distinct]
         )
       >- (
-        simp[AllCaseEqs(), GSYM io_distinct] >> rw[Once next_def] >>
+        simp[AllCaseEqs(), GSYM itree_distinct] >> rw[Once next_def] >>
         simp[with_atom_def, with_atoms_def, get_atoms_def] >>
         Cases_on `l` >> gvs[wh_to_cons_def]
         )
@@ -748,7 +748,7 @@ Proof
       simp[with_atom_def, with_atoms_def] >>
       Cases_on `eval_wh e1'` >> gvs[get_atoms_def] >>
       DEEP_INTRO_TAC some_intro >> rw[Once next_def] >>
-      simp[with_atom_def, with_atoms_def, get_atoms_def, GSYM io_distinct]
+      simp[with_atom_def, with_atoms_def, get_atoms_def, GSYM itree_distinct]
       )
     ) >>
   Cases_on `eval_wh e1'` >> gvs[] >>

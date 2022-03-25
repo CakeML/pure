@@ -283,7 +283,7 @@ Proof
   \\ simp [Once sinterp_def] \\ strip_tac
   \\ simp [Once sinterp_def] \\ strip_tac
   \\ ntac 2 $ pop_assum mp_tac
-  \\ once_rewrite_tac [io_treeTheory.io_unfold_err]
+  \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ fs []
   \\ simp [GSYM sinterp_def]
   \\ Cases_on ‘step_until_halt (Exp tenv e1,SOME ts,tk) = Err’ >- fs []
@@ -307,7 +307,7 @@ Proof
   \\ pop_assum $ irule_at Any
   \\ qpat_x_assum ‘state_rel q _ _’ $ irule_at Any
   \\ simp [value_def]
-  \\ once_rewrite_tac [io_treeTheory.io_unfold_err]
+  \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ rpt conj_tac
   \\ rpt AP_THM_TAC
   \\ fs []

@@ -22,7 +22,7 @@ open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory llistTheory alistTheory optionTheory;
 open mp_then pred_setTheory relationTheory pairTheory combinTheory;
 
-val _ = new_theory "itree";
+val _ = new_theory "itreeTau";
 
 
 (* make type definition *)

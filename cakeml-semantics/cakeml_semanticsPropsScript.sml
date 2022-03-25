@@ -4,7 +4,7 @@ open optionTheory relationTheory pairTheory listTheory
      arithmeticTheory llistTheory pred_setTheory;
 open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
      evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
-open io_treeTheory cakeml_semanticsTheory pure_miscTheory;
+open itreeTheory cakeml_semanticsTheory pure_miscTheory;
 
 val _ = new_theory "cakeml_semanticsProps";
 
@@ -667,8 +667,8 @@ Proof
   >- (first_x_assum $ qspec_then `SUC x` assume_tac >> gvs[step_n_def])
 QED
 
-Theorem cml_io_unfold_err:
-  cml_io_unfold_err f seed =
+Theorem cml_itree_unfold_err:
+  cml_itree_unfold_err f seed =
     case f seed of
     | Ret' r => Ret r
     | Div' => Div
@@ -677,11 +677,11 @@ Theorem cml_io_unfold_err:
           (λa. case a of
                   INL x => Ret $ FinalFFI (s, ws1, ws2) x
                 | INR y =>
-                    if LENGTH ws2 = LENGTH y then cml_io_unfold_err f (g y)
+                    if LENGTH ws2 = LENGTH y then cml_itree_unfold_err f (g y)
                     else Ret $ FinalFFI (s, ws1, ws2) FFI_failed)
 Proof
-  CASE_TAC >> gvs[cml_io_unfold_err_def] >>
-  simp[Once io_unfold_err] >>
+  CASE_TAC >> gvs[cml_itree_unfold_err_def] >>
+  simp[Once itree_unfold_err] >>
   PairCases_on `e` >> gvs[]
 QED
 
@@ -702,7 +702,7 @@ Theorem interp:
                           (ExpVal env' (Val $ Conv NONE []) cs locs p) dcs
                     else Ret $ FinalFFI (s, ws1, ws2) FFI_failed)
 Proof
-  rw[interp_def] >> rw[Once cml_io_unfold_err] >> simp[] >>
+  rw[interp_def] >> rw[Once cml_itree_unfold_err] >> simp[] >>
   CASE_TAC >> gvs[] >> rw[FUN_EQ_THM] >> PairCases_on `p` >> gvs[]
 QED
 

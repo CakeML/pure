@@ -4,11 +4,11 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pure_semanticsTheory pure_configTheory
-     thunkLang_primitivesTheory envLangTheory io_treeTheory;
+     thunkLang_primitivesTheory envLangTheory itreeTheory;
 
 val _ = new_theory "env_semantics";
 
-val _ = set_grammar_ancestry ["envLang", "io_tree"];
+val _ = set_grammar_ancestry ["envLang", "itree"];
 
 
 (******************** Datatypes and helpers ********************)
@@ -182,7 +182,7 @@ End
 
 Definition interp'_def:
   interp' =
-    io_unfold_err
+    itree_unfold_err
       (λ(sv,stack,state).
         case next_action sv stack state of
         | Ret => Ret' pure_semantics$Termination
@@ -220,7 +220,7 @@ Theorem interp_def:
               else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
 Proof
   rw[Once interp, interp'_def] >>
-  once_rewrite_tac[io_unfold_err] >> gvs[] >>
+  once_rewrite_tac[itree_unfold_err] >> gvs[] >>
   CASE_TAC >> gvs[combinTheory.o_DEF, FUN_EQ_THM] >> rw[] >>
   CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >>
   rw[Once interp, interp'_def]

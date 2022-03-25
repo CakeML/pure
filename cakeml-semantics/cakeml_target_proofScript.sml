@@ -1,5 +1,5 @@
 (* Theorem showing oracle-based semantic preservation implies
-   io_tree-based semantic preservation *)
+   itree-based semantic preservation *)
 open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory
      backendProofTheory primSemEnvTheory;

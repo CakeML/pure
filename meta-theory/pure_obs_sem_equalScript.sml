@@ -9,7 +9,7 @@ open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite io_treeTheory intLib;
+     dep_rewrite itreeTheory intLib;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_exp_relTheory pure_semanticsTheory
      pure_congruenceTheory;
@@ -329,7 +329,7 @@ Theorem bisimilarity_IMP_all_semantics_eq:
     (x ≃ y) T ∧ cont_rel xs ys ∧ LIST_REL (LIST_REL (λx y. (x ≃ y) T)) st st'
   ⇒ semantics x xs st = semantics y ys st'
 Proof
-  fs [io_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
+  fs [itree_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
   \\ EVERY (map qid_spec_tac [‘st'’,‘st’,‘ys’,‘xs’,‘y’,‘x’])
   \\ completeInduct_on ‘LENGTH path’ \\ rw [] \\ fs [PULL_FORALL]
   \\ fs [semantics_def]
@@ -342,7 +342,7 @@ Proof
       cont_rel new1 new2 ∧ LIST_REL (LIST_REL (λx y. (x ≃ y) T)) s1 s2’
   THEN1
    (strip_tac \\ fs []
-    \\ Cases_on ‘path’ \\ fs [io_el_def]
+    \\ Cases_on ‘path’ \\ fs [itree_el_def]
     \\ CASE_TAC \\ gvs[] \\ CASE_TAC \\ gvs[] \\ rename1 `Str h`
     \\ ‘wh_Constructor "Ret" [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]
     \\ fs [] \\ first_x_assum irule \\ fs []
@@ -1151,7 +1151,7 @@ Theorem no_err_exp_eq_IMP_sem_eq:
     ⇒
     semantics e1 c1 s1 = semantics e2 c2 s2
 Proof
-  fs [io_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
+  fs [itree_el_eqv] \\ fs [PULL_FORALL] \\ rpt gen_tac
   \\ EVERY (map qid_spec_tac [‘s1’,‘s2’,‘c2’,‘c1’,‘e2’,‘e1’])
   \\ completeInduct_on ‘LENGTH path’ \\ rw [] \\ fs [PULL_FORALL]
   \\ fs [semantics_def]
@@ -1167,7 +1167,7 @@ Proof
       LIST_REL (LIST_REL (λx y. (x ≃ y) F)) s1' s2'’
   THEN1
    (strip_tac \\ fs []
-    \\ Cases_on ‘path’ \\ fs [io_el_def]
+    \\ Cases_on ‘path’ \\ fs [itree_el_def]
     \\ CASE_TAC \\ gvs[] \\ CASE_TAC \\ gvs[]
     \\ rename1 `Str h`
     \\ ‘wh_Constructor "Ret" [Lit (Str h)] = eval_wh (Ret (Lit (Str h)))’ by fs [eval_wh_thm]

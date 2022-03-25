@@ -2,7 +2,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open namespaceTheory astTheory
      ffiTheory semanticPrimitivesTheory smallStepTheory;
-open io_treeTheory;
+open itreeTheory;
 
 val _ = new_theory "cakeml_semantics"
 
@@ -627,16 +627,16 @@ Datatype:
          | FinalFFI (string # word8 list # word8 list) ffi_outcome
 End
 
-Definition cml_io_unfold_err_def:
-  cml_io_unfold_err f =
-    io_unfold_err f
+Definition cml_itree_unfold_err_def:
+  cml_itree_unfold_err f =
+    itree_unfold_err f
       ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
       FinalFFI, (λe. FinalFFI e FFI_failed))
 End
 
 Definition interp_def:
   interp benv e =
-    cml_io_unfold_err
+    cml_itree_unfold_err
       (λe.
         case step_until_halt benv e of
         | Ret => Ret' Termination

@@ -822,7 +822,7 @@ Theorem sim_ok_interp:
     interp v c s = interp w d t
 Proof
   strip_tac \\
-  rw [Once io_treeTheory.io_bisimulation] >>
+  rw [Once itreeTheory.itree_bisimulation] >>
   qexists_tac `λt1 t2.
     (¬allow_error ⇒ pure_semantics$safe_itree t1) ∧
     (t1 = t2 ∨

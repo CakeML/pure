@@ -1,6 +1,6 @@
 (* Properties about the itree target semantics *)
 open preamble targetSemTheory targetPropsTheory;
-open io_treeTheory target_semanticsTheory
+open itreeTheory target_semanticsTheory
      cakeml_semanticsTheory cakeml_semanticsPropsTheory;
 
 
@@ -22,7 +22,7 @@ Theorem machine_sem_itree:
             if LENGTH ws2 = LENGTH y then machine_sem_itree (f y)
             else Ret $ FinalFFI (s, ws1, ws2) FFI_failed)
 Proof
-  rw[machine_sem_itree_def, Once io_unfold_err] >>
+  rw[machine_sem_itree_def, Once itree_unfold_err] >>
   CASE_TAC >> gvs[] >> PairCases_on `e` >> gvs[] >>
   rw[FUN_EQ_THM] >> CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >>
   Cases_on `f y` >> simp[machine_sem_itree_def]

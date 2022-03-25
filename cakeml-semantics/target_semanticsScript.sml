@@ -1,7 +1,7 @@
 (* An itree-based semantics for the target machine code *)
 open preamble;
 open targetSemTheory;
-open io_treeTheory cakeml_semanticsTheory cakeml_semanticsPropsTheory;
+open itreeTheory cakeml_semanticsTheory cakeml_semanticsPropsTheory;
 
 val _ = new_theory "target_semantics"
 
@@ -66,7 +66,7 @@ End
 
 Definition machine_sem_itree_def:
   machine_sem_itree (mc, ms) =
-    io_unfold_err eval
+    itree_unfold_err eval
       ((λ(_,_,ws) r. LENGTH ws = LENGTH r),
       FinalFFI, (λe. FinalFFI e FFI_failed)) (mc, ms)
 End

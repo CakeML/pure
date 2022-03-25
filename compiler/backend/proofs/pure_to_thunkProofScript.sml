@@ -2092,7 +2092,7 @@ QED
 
 Definition interp'_alt_def:
   interp'_alt =
-    io_unfold_err
+    itree_unfold_err
       (λ(v,stack,state).
         case next_action' v stack state of
         | Ret => Ret' Termination
@@ -2126,7 +2126,7 @@ Theorem interp_alt_def:
               else Ret $ FinalFFI a FFI_failure)
 Proof
   fs [Once interp_alt,interp'_alt_def]
-  \\ once_rewrite_tac [io_treeTheory.io_unfold_err] \\ fs []
+  \\ once_rewrite_tac [itreeTheory.itree_unfold_err] \\ fs []
   \\ Cases_on ‘next_action' wh stack state’ \\ fs []
   \\ fs [combinTheory.o_DEF,FUN_EQ_THM] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -2140,7 +2140,7 @@ Theorem interp_alt_thm:
     interp v c s = interp_alt w d t
 Proof
   strip_tac
-  \\ rw [Once io_treeTheory.io_bisimulation]
+  \\ rw [Once itreeTheory.itree_bisimulation]
   \\ qexists_tac ‘
     λt1 t2.
       (t1 = t2 ∨
@@ -2596,7 +2596,7 @@ Theorem pure_to_thunk_interp_alt[local]:
   safe_itree (interp_alt v c s) ⇒
     interp_alt v c s = interp w d t
 Proof
-  rw [Once io_treeTheory.io_bisimulation]
+  rw [Once itreeTheory.itree_bisimulation]
   \\ qexists_tac ‘
     λt1 t2.
       safe_itree t1 ∧

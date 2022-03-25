@@ -4,7 +4,7 @@ open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistThe
 open namespaceTheory astTheory ffiTheory lprefix_lubTheory semanticPrimitivesTheory
      semanticsTheory alt_semanticsTheory evaluatePropsTheory
      smallStepTheory smallStepPropsTheory;
-open io_treeTheory pure_miscTheory
+open itreeTheory pure_miscTheory
      cakeml_semanticsTheory cakeml_semanticsPropsTheory;
 
 val _ = new_theory "cakeml_semanticsProof";

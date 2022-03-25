@@ -1932,7 +1932,7 @@ Theorem semantics_app_Unit:
   semantics e2 senv ss (AppK senv AppOp [Constructor "" []] []::sk)
 Proof
   fs [stateLangTheory.semantics_def,sinterp_def]
-  \\ once_rewrite_tac [io_treeTheory.io_unfold_err] \\ fs []
+  \\ once_rewrite_tac [itreeTheory.itree_unfold_err] \\ fs []
   \\ qsuff_tac
     ‘step_until_halt (Exp senv (app e2 Unit),ss,sk) =
      step_until_halt (Exp senv e2,ss,AppK senv AppOp [Constructor "" []] []::sk)’
@@ -1972,8 +1972,8 @@ Proof
   \\ simp [Once env_semanticsTheory.interp_def]
   \\ Cases_on ‘next_action (eval tenv e1) tk ts = Err’ >- fs []
   \\ simp [sinterp_def]
-  \\ simp [Once io_treeTheory.io_unfold_err]
-  \\ qmatch_goalsub_abbrev_tac ‘io_unfold_err fs’
+  \\ simp [Once itreeTheory.itree_unfold_err]
+  \\ qmatch_goalsub_abbrev_tac ‘itree_unfold_err fs’
   \\ ‘∃r1 r2. next_action (eval tenv e1) tk ts = r1 ∧
               step_until_halt (Exp senv e2,SOME ss,
                 AppK senv AppOp [Constructor "" []] []::sk) = r2’ by fs []
@@ -1999,7 +1999,7 @@ Proof
   \\ qexists_tac ‘[("v",Atom (Str y))] ++ nenv1’
   \\ conj_tac
   >- fs [env_rel_def,Once v_rel_cases]
-  \\ once_rewrite_tac [io_treeTheory.io_unfold_err]
+  \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
   \\ unabbrev_all_tac \\ fs []
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC

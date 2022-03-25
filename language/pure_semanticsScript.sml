@@ -1,7 +1,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     pure_evalTheory io_treeTheory pure_configTheory;
+     pure_evalTheory itreeTheory pure_configTheory;
 
 val _ = new_theory "pure_semantics";
 
@@ -154,7 +154,7 @@ End
 
 Definition interp'_def:
   interp' =
-    io_unfold_err
+    itree_unfold_err
       (λ(v,stack,state).
         case next_action v stack state of
         | Ret => Ret' Termination
@@ -187,7 +187,7 @@ Theorem interp_def:
               else Ret $ FinalFFI a FFI_failure)
 Proof
   fs [Once interp,interp'_def]
-  \\ once_rewrite_tac [io_unfold_err] \\ fs []
+  \\ once_rewrite_tac [itree_unfold_err] \\ fs []
   \\ Cases_on ‘next_action wh stack state’ \\ fs []
   \\ fs [combinTheory.o_DEF,FUN_EQ_THM] \\ rw []
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -523,7 +523,7 @@ Theorem safe_itree_compiles_to_IMP_eq:
   safe_itree x ∧ x ---> y ⇒
   x = y
 Proof
-  once_rewrite_tac [io_treeTheory.io_bisimulation] \\ rw []
+  once_rewrite_tac [itree_bisimulation] \\ rw []
   \\ qexists_tac ‘λx y. x = y ∨ safe_itree x ∧ x ---> y’ \\ fs []
   \\ rpt (pop_assum kall_tac) \\ rw []
   \\ gvs [Once compiles_to_cases]
