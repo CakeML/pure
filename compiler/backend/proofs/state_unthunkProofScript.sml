@@ -169,6 +169,15 @@ Definition find_loc_def:
     | SOME _ => OPTION_MAP (λn. n + 1:num) (find_loc n xs)
 End
 
+Definition loc_rel_def[simp]:
+  loc_rel p tenv tfns (tn,te:exp) (sn,sv) ⇔
+  ∃r n.
+    tn = sn ∧
+    dest_anyThunk (Recclosure tfns tenv tn) = SOME r ∧
+    sv = Atom (Loc n) ∧
+    oEL n p = SOME (SOME r)
+End
+
 Inductive v_rel:
 
 [~Loc:]
@@ -187,17 +196,41 @@ Inductive v_rel:
      v_rel p (Constructor s tvs) (Constructor s svs)) ∧
 
 [~Closure:]
-  (∀p tv sv tenv senv te se n.
+  (∀p tenv senv te se n.
+     env_rel p tenv senv ∧ compile_rel te se ⇒
+     v_rel p (Closure n tenv te) (Closure n senv se)) ∧
+
+[~Recclosure:]
+  (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n v e.
      env_rel p tenv senv ∧ compile_rel te se ∧
-     dest_anyClosure tv = SOME (n,tenv,te) ∧
-     dest_anyClosure sv = SOME (n,senv,se) ⇒
-     v_rel p tv sv) ∧
+     ALL_DISTINCT (MAP FST tfns) ∧
+     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+     MAP FST tfns = MAP FST sfns ∧
+     tfns1 = FILTER (is_Lam o SND) tfns ∧
+     tfns2 = FILTER (is_Delay o SND) tfns ∧
+     sfns1 = FILTER (is_Lam o SND) sfns ∧
+     LIST_REL (loc_rel p tenv tfns) tfns2 locs ∧
+     MEM (n,Lam v e) tfns ⇒
+     v_rel p (Recclosure tfns tenv n)
+             (Recclosure sfns1 (REVERSE locs ++ senv) n)) ∧
+
+[~Recthunk:]
+  (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n loc.
+     env_rel p tenv senv ∧ compile_rel te se ∧
+     ALL_DISTINCT (MAP FST tfns) ∧
+     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+     MAP FST tfns = MAP FST sfns ∧
+     tfns1 = FILTER (is_Lam o SND) tfns ∧
+     tfns2 = FILTER (is_Delay o SND) tfns ∧
+     sfns1 = FILTER (is_Lam o SND) sfns ∧
+     LIST_REL (loc_rel p tenv tfns) tfns2 locs ∧
+     ALOOKUP locs n = SOME loc ⇒
+     v_rel p (Recclosure tfns tenv n) loc) ∧
 
 [~Thunk:]
-  (∀p v n r.
-     oEL n p = SOME (SOME r) ∧
-     dest_anyThunk v = SOME r ⇒
-     v_rel p v (Atom (Loc n))) ∧
+  (∀p n r.
+     oEL n p = SOME (SOME (r,[])) ⇒
+     v_rel p (Thunk r) (Atom (Loc n))) ∧
 
 [env_rel:]
   (∀p tenv senv.
@@ -350,6 +383,7 @@ Theorem v_rel_env_rel_ext:
      env_rel p k1 k2 ⇒
      env_rel (p ++ q) k1 k2)
 Proof
+  cheat (*
   ho_match_mp_tac v_rel_ind \\ rw []
   \\ simp [Once v_rel_cases]
   \\ gvs [SF ETA_ss]
@@ -360,7 +394,7 @@ Proof
   \\ qid_spec_tac ‘p’
   \\ Induct \\ fs [find_loc_def]
   \\ Cases \\ fs []
-  \\ rw [] \\ res_tac \\ gvs []
+  \\ rw [] \\ res_tac \\ gvs [] *)
 QED
 
 Theorem v_rel_ext:
@@ -497,6 +531,7 @@ Theorem dest_anyThunk_INR:
      ∃tv sv ck. step_n ck (Exp (rec_env f x1) x2,NONE,[]) = (Val tv,NONE,[]) ∧
                 oEL loc ss = SOME [True_v; sv] ∧ v_rel p tv sv)
 Proof
+  cheat (*
   Cases_on ‘v1’ \\ fs [dest_anyThunk_def,dest_Thunk_def,AllCaseEqs()]
   \\ simp [Once v_rel_cases]
   \\ fs [dest_anyThunk_def,dest_Thunk_def,
@@ -508,7 +543,7 @@ Proof
   \\ last_x_assum drule
   \\ fs [thunk_rel_def]
   \\ strip_tac \\ fs []
-  \\ rpt (first_x_assum $ irule_at Any)
+  \\ rpt (first_x_assum $ irule_at Any) *)
 QED
 
 Theorem dest_anyThunk_INR_abs:
@@ -540,6 +575,7 @@ Theorem state_rel_LUPDATE_anyThunk:
   step_n n (Exp (rec_env f tenv1) te,NONE,[]) = (Val res,NONE,[]) ⇒
   state_rel p ts (SOME (LUPDATE [True_v; v2] loc ss2))
 Proof
+  cheat (*
   fs [state_rel_def] \\ rw [] \\ fs []
   \\ qpat_x_assum ‘v_rel p v1 (Atom (Loc loc))’ mp_tac
   \\ simp [Once v_rel_cases]
@@ -567,7 +603,7 @@ Proof
   \\ gvs [EL_LUPDATE]
   \\ rw [] \\ gvs []
   \\ fs [thunk_rel_def]
-  \\ rpt (first_x_assum $ irule_at Any)
+  \\ rpt (first_x_assum $ irule_at Any) *)
 QED
 
 Theorem imp_env_rel_cons:
@@ -802,10 +838,12 @@ Proof
 QED
 
 Theorem ALOOKUP_make_let_env:
-  ALOOKUP delays h = NONE ⇒
-  ALOOKUP (make_let_env delays n env) h = ALOOKUP env h
+  ∀delays h env n.
+    ALOOKUP delays h = NONE ⇒
+    ALOOKUP (make_let_env delays n env) h = ALOOKUP env h
 Proof
-  cheat
+  Induct
+  \\ fs [make_let_env_def,FORALL_PROD] \\ rw [] \\ gs []
 QED
 
 Definition Letrec_store_def:
@@ -930,6 +968,26 @@ Triviality FST_INTRO:
   (λ(p1,p2). p1) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem dest_anyClosure_v_rel:
+  dest_anyClosure v1 = SOME (x0,x1,x2) ∧
+  v_rel p v1 v2 ∧ state_rel p (pick_opt zs ts) (SOME ss) ⇒
+  ∃y1 y2.
+    dest_anyClosure v2 = SOME (x0,y1,y2) ∧
+    compile_rel x2 y2 ∧ env_rel p x1 y1
+Proof
+  cheat (*
+  strip_tac
+  \\ ‘∃y. dest_anyClosure v2 = SOME y’ by
+    (qpat_x_assum ‘v_rel p v1 v2’ mp_tac
+     \\ Cases_on ‘v1’ \\ gvs []
+     \\ simp [Once v_rel_cases] \\ rw [] \\ gvs []
+     \\ gvs [dest_anyThunk_def,dest_anyClosure_def,AllCaseEqs()])
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ qpat_x_assum ‘v_rel p v1 v2’ mp_tac
+  \\ simp [Once v_rel_cases]
+  \\ strip_tac \\ gvs [] *)
 QED
 
 Theorem step_forward:
@@ -1193,23 +1251,15 @@ Proof
      (gvs [application_def]
       \\ Cases_on ‘dest_anyClosure v1’ \\ fs []
       >- (qexists_tac ‘0’ \\ gvs [error_def,is_halt_def])
-      \\ ‘∃y. dest_anyClosure v2 = SOME y’ by
-       (qpat_x_assum ‘v_rel p v1 v2’ mp_tac
-        \\ Cases_on ‘v1’ \\ gvs []
-        \\ simp [Once v_rel_cases] \\ rw [] \\ gvs []
-        \\ gvs [dest_anyThunk_def,dest_anyClosure_def,AllCaseEqs()])
-      \\ PairCases_on ‘x’ \\ PairCases_on ‘y’ \\ gvs []
+      \\ PairCases_on ‘x’
+      \\ drule_all dest_anyClosure_v_rel
+      \\ strip_tac \\ gvs []
       \\ Cases_on ‘svs’ \\ fs [] \\ Cases_on ‘t’ \\ gvs []
       \\ gvs [continue_def]
       \\ last_x_assum $ drule_at_then (Pos $ el 2) irule
       \\ gvs [] \\ rpt (first_x_assum $ irule_at Any)
       \\ simp [Once step_res_rel_cases]
-      \\ irule_at Any imp_env_rel_opt_bind \\ simp []
-      \\ ntac 2 (pop_assum mp_tac)
-      \\ qpat_x_assum ‘v_rel p v1 v2’ mp_tac
-      \\ simp [Once v_rel_cases]
-      \\ strip_tac \\ gvs []
-      \\ rpt strip_tac \\ gvs [])
+      \\ irule_at Any imp_env_rel_opt_bind \\ simp [])
     \\ ‘∃s_. application op senv (v2::svs) (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
     \\ ‘∃t_. application op tenv (v1::tvs) ts tk = t_’ by fs []
@@ -1363,7 +1413,6 @@ Proof
   \\ simp [step_res_rel_cases]
   \\ cheat *)
 QED
-
 
 (* step_until_halt *)
 
