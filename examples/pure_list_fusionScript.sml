@@ -219,6 +219,7 @@ Proof
   \\ simp[eval_thm]
   \\ simp[subst_funs_def]
   \\ simp eval_rewrites
+  \\ gvs[pure_configTheory.monad_cns_def]
 QED
 
 Theorem progress_map_f_f:
@@ -262,8 +263,8 @@ Proof
   simp[next_list_def, closed_def, freevars_equiv] >>
   FULL_CASE_TAC >> gvs (eval_thm :: is_eq_def :: eval_rewrites) >>
   Cases_on `s = "nil"` >> gvs[nil_def, eval_thm]
-  >- (Cases_on `t = []` >> gvs[nil_def, eval_thm]) >>
-  Cases_on `s = "cons"` >> gvs[nil_def, eval_thm] >>
+  >- (Cases_on `t = []` >> gvs[nil_def, eval_thm, pure_configTheory.monad_cns_def]) >>
+  Cases_on `s = "cons"` >> gvs[nil_def, eval_thm, pure_configTheory.monad_cns_def] >>
   Cases_on `LENGTH t = 2` >> gvs[nil_def, eval_thm] >> rw[]
   >- simp eval_rewrites
   >- (
@@ -274,6 +275,7 @@ Proof
   \\ simp eval_rewrites
   \\ simp[eval_thm,subst_funs_def]
   \\ simp eval_rewrites
+  \\ gvs[AllCaseEqs()]
 QED
 
 Theorem progress_compose_fg:
