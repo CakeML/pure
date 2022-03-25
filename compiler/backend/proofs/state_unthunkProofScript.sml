@@ -126,9 +126,8 @@ Inductive compile_rel:
 
 [~Letrec:]
   (∀tfns sfns te se.
-    EVERY (λ(_,x). is_Lam x ∨ is_Delay x) tfns ∧
     MAP FST tfns = MAP FST sfns ∧ ALL_DISTINCT (MAP FST tfns) ∧
-    LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+    LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
     compile_rel te se ⇒
     compile_rel (Letrec tfns te) (comp_Letrec sfns se)) ∧
 
@@ -156,7 +155,17 @@ Inductive compile_rel:
 [~Force:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Force te) (force se))
+    compile_rel (Force te) (force se)) ∧
+
+[letrec_rel_Delay:]
+  (∀te se.
+    compile_rel te se ⇒
+    letrec_rel (Delay te) (Delay se)) ∧
+
+[letrec_rel_Lam:]
+  (∀te se n.
+    compile_rel te se ⇒
+    letrec_rel (Lam n te) (Lam n se))
 
 End
 
@@ -204,7 +213,7 @@ Inductive v_rel:
   (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n v e.
      env_rel p tenv senv ∧ compile_rel te se ∧
      ALL_DISTINCT (MAP FST tfns) ∧
-     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
      MAP FST tfns = MAP FST sfns ∧
      tfns1 = FILTER (is_Lam o SND) tfns ∧
      tfns2 = FILTER (is_Delay o SND) tfns ∧
@@ -218,7 +227,7 @@ Inductive v_rel:
   (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n loc.
      env_rel p tenv senv ∧ compile_rel te se ∧
      ALL_DISTINCT (MAP FST tfns) ∧
-     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
      MAP FST tfns = MAP FST sfns ∧
      tfns1 = FILTER (is_Lam o SND) tfns ∧
      tfns2 = FILTER (is_Delay o SND) tfns ∧
@@ -383,18 +392,26 @@ Theorem v_rel_env_rel_ext:
      env_rel p k1 k2 ⇒
      env_rel (p ++ q) k1 k2)
 Proof
-  cheat (*
   ho_match_mp_tac v_rel_ind \\ rw []
   \\ simp [Once v_rel_cases]
   \\ gvs [SF ETA_ss]
   \\ gvs [oEL_THM,EL_APPEND1]
+  >-
+   (pop_assum mp_tac
+    \\ qid_spec_tac ‘n2’
+    \\ qid_spec_tac ‘n1’
+    \\ qid_spec_tac ‘p’
+    \\ Induct \\ fs [find_loc_def]
+    \\ Cases \\ fs []
+    \\ rw [] \\ res_tac \\ gvs [])
+  THENL [disj1_tac,disj2_tac]
+  \\ last_x_assum $ irule_at $ Pos last
+  \\ rpt (first_x_assum $ irule_at Any) \\ fs []
   \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘n2’
-  \\ qid_spec_tac ‘n1’
-  \\ qid_spec_tac ‘p’
-  \\ Induct \\ fs [find_loc_def]
-  \\ Cases \\ fs []
-  \\ rw [] \\ res_tac \\ gvs [] *)
+  \\ match_mp_tac LIST_REL_mono
+  \\ fs [FORALL_PROD]
+  \\ rw [loc_rel_def]
+  \\ gvs [oEL_THM,EL_APPEND1]
 QED
 
 Theorem v_rel_ext:
@@ -520,6 +537,64 @@ Proof
   \\ fs [thunk_rel_def]
 QED
 
+Triviality ALOOKUP_LIST_REL_loc_rel:
+  ∀tfns locs x1 x2 x3 n y.
+    LIST_REL (loc_rel x1 x2 x3) tfns locs ∧
+    ALOOKUP locs n = SOME y ⇒
+    MEM n (MAP FST tfns)
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw [] \\ gvs []
+  \\ PairCases_on ‘y'’ \\ gvs []
+  \\ CCONTR_TAC \\ gvs []
+  \\ first_x_assum drule_all \\ fs []
+QED
+
+Triviality LIST_REL_loc_rel_alt_lemma:
+  ∀f locs f1.
+    ALL_DISTINCT (MAP FST f) ∧
+    LIST_REL (loc_rel p l (f1 ++ f)) (FILTER ((λx. is_Delay x) ∘ SND) f) locs ∧
+    ALOOKUP locs s = SOME v2 ⇒
+    ∃x2. ALOOKUP f s = SOME (Delay x2) ∧
+         loc_rel p l (f1 ++ f) (s,x2) (s,v2)
+Proof
+  Induct \\ fs [FORALL_PROD]
+  \\ rpt strip_tac
+  \\ Cases_on ‘p_1 = s’ \\ gvs []
+  >-
+   (drule_all ALOOKUP_LIST_REL_loc_rel
+    \\ fs [MEM_MAP] \\ reverse (rw [])
+    \\ fs [MEM_FILTER] >- metis_tac []
+    \\ Cases_on ‘p_2’ \\ fs [dest_Delay_def]
+    \\ PairCases_on ‘y’
+    \\ gvs [dest_anyThunk_def])
+  \\ Cases_on ‘~is_Delay p_2’ \\ gvs []
+  >-
+   (‘f1 ++ (p_1,p_2)::f = (f1 ++ [(p_1,p_2)]) ++ f’ by fs [APPEND_ASSOC]
+    \\ full_simp_tac std_ss []
+    \\ last_x_assum irule
+    \\ last_x_assum $ irule_at Any \\ fs [])
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ ‘f1 ++ (p_1,p_2)::f = (f1 ++ [(p_1,p_2)]) ++ f’ by fs [APPEND_ASSOC]
+  \\ full_simp_tac std_ss []
+  \\ last_x_assum irule
+  \\ last_x_assum $ irule_at Any \\ fs []
+QED
+
+Triviality LIST_REL_loc_rel_alt =
+  Q.SPECL [‘f’,‘locs’,‘[]’] LIST_REL_loc_rel_alt_lemma |> REWRITE_RULE [APPEND];
+
+Triviality LIST_REL_loc_rel:
+  ALL_DISTINCT (MAP FST f) ∧
+  LIST_REL (loc_rel p l f) (FILTER ((λx. is_Delay x) ∘ SND) f) locs ∧
+  ALOOKUP locs s = SOME v2 ∧
+  ALOOKUP f s = SOME (Delay x2) ⇒
+  loc_rel p l f (s,x2) (s,v2)
+Proof
+  strip_tac
+  \\ drule_all LIST_REL_loc_rel_alt
+  \\ fs []
+QED
+
 Theorem dest_anyThunk_INR:
   v_rel p v1 v2 ∧ state_rel p zs (SOME ss) ∧
   dest_anyThunk v1 = SOME (INR (x1,x2), f) ⇒
@@ -531,19 +606,33 @@ Theorem dest_anyThunk_INR:
      ∃tv sv ck. step_n ck (Exp (rec_env f x1) x2,NONE,[]) = (Val tv,NONE,[]) ∧
                 oEL loc ss = SOME [True_v; sv] ∧ v_rel p tv sv)
 Proof
-  cheat (*
-  Cases_on ‘v1’ \\ fs [dest_anyThunk_def,dest_Thunk_def,AllCaseEqs()]
-  \\ simp [Once v_rel_cases]
-  \\ fs [dest_anyThunk_def,dest_Thunk_def,
-         dest_anyClosure_def,dest_Closure_def,AllCaseEqs()]
-  \\ rw [] \\ gvs []
+  reverse (Cases_on ‘v1’
+           \\ fs [dest_anyThunk_def,dest_Thunk_def,AllCaseEqs()])
+  >-
+   (simp [Once v_rel_cases]
+    \\ fs [dest_anyThunk_def,dest_Thunk_def,
+           dest_anyClosure_def,dest_Closure_def,AllCaseEqs()]
+    \\ rw [] \\ gvs []
+    \\ gvs [state_rel_def]
+    \\ gvs [oEL_THM]
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ last_x_assum drule
+    \\ fs [thunk_rel_def]
+    \\ strip_tac \\ fs []
+    \\ rpt (first_x_assum $ irule_at Any))
+  \\ simp [Once v_rel_cases] \\ rw []
+  >- (drule_all alistTheory.ALOOKUP_ALL_DISTINCT_MEM \\ fs [])
+  \\ drule_all LIST_REL_loc_rel
+  \\ strip_tac \\ gvs []
   \\ gvs [state_rel_def]
   \\ gvs [oEL_THM]
-  \\ gvs [LIST_REL_EL_EQN]
-  \\ last_x_assum drule
+  \\ qpat_x_assum ‘LIST_REL (thunk_rel p) p ss’ mp_tac
+  \\ simp [LIST_REL_EL_EQN]
+  \\ strip_tac
+  \\ first_x_assum drule \\ fs []
+  \\ PairCases_on ‘r’
   \\ fs [thunk_rel_def]
-  \\ strip_tac \\ fs []
-  \\ rpt (first_x_assum $ irule_at Any) *)
+  \\ gvs [dest_anyThunk_def]
 QED
 
 Theorem dest_anyThunk_INR_abs:
@@ -568,6 +657,39 @@ Proof
   Induct \\ fs [LUPDATE_DEF] \\ rw [] \\ fs [LUPDATE_DEF]
 QED
 
+Triviality IMP_ALOOKUP_FILTER:
+  ∀xs x y P.
+    ALOOKUP xs x = SOME y ∧ P (x,y) ⇒
+    ALOOKUP (FILTER P xs) x = SOME y
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw [] \\ gvs []
+QED
+
+Triviality ALOOKUP_LIST_REL:
+  ∀tfns n x r sfns.
+    ALOOKUP tfns n = SOME x ∧ ALL_DISTINCT (MAP FST sfns) ∧
+    MAP FST tfns = MAP FST sfns ∧
+    LIST_REL r (MAP SND tfns) (MAP SND sfns) ⇒
+    ∃y. r x y ∧ ALOOKUP sfns n = SOME y
+Proof
+  Induct \\ fs [FORALL_PROD]
+  \\ rw [] \\ gvs []
+  \\ Cases_on ‘sfns’ \\ gvs [] \\ PairCases_on ‘h’ \\ gvs []
+QED
+
+Triviality ALOOKUP_LIST_REL_loc_rel:
+  ∀tfns locs x1 x2 x3 n x y.
+    LIST_REL (loc_rel x1 x2 x3) tfns locs ∧
+    ALOOKUP tfns n = SOME x ∧
+    ALOOKUP locs n = SOME y ⇒
+    loc_rel x1 x2 x3 (n,x) (n,y)
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw [] \\ gvs []
+  \\ PairCases_on ‘y'’ \\ gvs []
+  \\ first_x_assum drule_all
+  \\ strip_tac \\ fs []
+QED
+
 Theorem state_rel_LUPDATE_anyThunk:
   v_rel p res v2 ∧ state_rel p ts (SOME ss2) ∧
   v_rel p v1 (Atom (Loc loc)) ∧
@@ -575,35 +697,75 @@ Theorem state_rel_LUPDATE_anyThunk:
   step_n n (Exp (rec_env f tenv1) te,NONE,[]) = (Val res,NONE,[]) ⇒
   state_rel p ts (SOME (LUPDATE [True_v; v2] loc ss2))
 Proof
-  cheat (*
   fs [state_rel_def] \\ rw [] \\ fs []
   \\ qpat_x_assum ‘v_rel p v1 (Atom (Loc loc))’ mp_tac
   \\ simp [Once v_rel_cases]
   \\ strip_tac \\ gvs []
   \\ gvs [state_rel_def]
   \\ gvs [oEL_THM]
-  \\ reverse conj_tac
-  >-
-   (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ match_mp_tac (METIS_PROVE [] “p = q ⇒ x p ⇒ x q”)
-    \\ AP_TERM_TAC
-    \\ pop_assum mp_tac
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ pop_assum mp_tac
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘loc’
-    \\ qid_spec_tac ‘ss2’
-    \\ qid_spec_tac ‘p’
-    \\ rpt (pop_assum kall_tac)
-    \\ Induct \\ fs [] \\ Cases_on ‘ss2’ \\ fs []
-    \\ Cases_on ‘loc’ \\ fs [LUPDATE_DEF]
-    \\ rw [] \\ fs [])
-  \\ qpat_x_assum ‘LIST_REL _ _ _’ kall_tac
-  \\ fs [LIST_REL_EL_EQN]
-  \\ gvs [EL_LUPDATE]
+  \\ rpt conj_tac
+  >~ [‘LIST_REL (thunk_rel p) p (LUPDATE [True_v; v2] loc ss2)’,‘Thunk’]
+  >- (qpat_x_assum ‘LIST_REL _ _ _’ kall_tac
+      \\ fs [LIST_REL_EL_EQN]
+      \\ gvs [EL_LUPDATE,dest_anyThunk_def]
+      \\ rw [] \\ gvs []
+      \\ fs [thunk_rel_def]
+      \\ rpt (first_x_assum $ irule_at Any))
+  >~ [‘Thunk’]
+  >- (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ match_mp_tac (METIS_PROVE [] “p = q ⇒ x p ⇒ x q”)
+      \\ AP_TERM_TAC
+      \\ pop_assum mp_tac
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ pop_assum mp_tac
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘loc’
+      \\ qid_spec_tac ‘ss2’
+      \\ qid_spec_tac ‘p’
+      \\ rpt (pop_assum kall_tac)
+      \\ Induct \\ fs [LUPDATE_DEF] \\ Cases_on ‘ss2’ \\ fs []
+      \\ Cases_on ‘loc’ \\ fs [LUPDATE_DEF]
+      \\ rw [] \\ fs [])
+  >~ [‘LIST_REL (thunk_rel p) p (LUPDATE [True_v; v2] loc ss2)’]
+  >- (qpat_x_assum ‘LIST_REL (thunk_rel p) p ss2’ mp_tac
+      \\ simp [LIST_REL_EL_EQN] \\ rw []
+      \\ gvs [EL_LUPDATE,dest_anyThunk_def,AllCaseEqs()]
+      \\ rw [] \\ gvs []
+      \\ first_x_assum drule
+      \\ Cases_on ‘EL loc p’ \\ fs [thunk_rel_def]
+      \\ PairCases_on ‘x’ \\ fs [thunk_rel_def]
+      \\ qpat_x_assum ‘ALOOKUP f n' = SOME (Delay te)’ assume_tac
+      \\ drule IMP_ALOOKUP_FILTER
+      \\ disch_then $ qspec_then ‘((λx. is_Delay x) ∘ SND)’ mp_tac
+      \\ impl_tac >- fs [dest_Delay_def]
+      \\ strip_tac
+      \\ drule_all ALOOKUP_LIST_REL_loc_rel
+      \\ simp [dest_anyThunk_def,oEL_THM]
+      \\ reverse (rpt strip_tac) \\ gvs []
+      \\ last_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ qpat_x_assum ‘LIST_REL (thunk_rel p) p ss2’ mp_tac
+  \\ simp [Once LIST_REL_EL_EQN] \\ rw []
+  \\ gvs [EL_LUPDATE,dest_anyThunk_def,AllCaseEqs()]
   \\ rw [] \\ gvs []
-  \\ fs [thunk_rel_def]
-  \\ rpt (first_x_assum $ irule_at Any) *)
+  \\ qpat_x_assum ‘ALOOKUP f n' = SOME (Delay te)’ assume_tac
+  \\ drule IMP_ALOOKUP_FILTER
+  \\ disch_then $ qspec_then ‘((λx. is_Delay x) ∘ SND)’ mp_tac
+  \\ impl_tac >- fs [dest_Delay_def]
+  \\ strip_tac
+  \\ drule_all ALOOKUP_LIST_REL_loc_rel
+  \\ gvs [oEL_THM] \\ strip_tac
+  \\ qpat_x_assum ‘LIST_REL (LIST_REL _) _ _’ mp_tac
+  \\ match_mp_tac (METIS_PROVE [] “p = q ⇒ x p ⇒ x q”)
+  \\ AP_TERM_TAC
+  \\ pop_assum mp_tac
+  \\ qpat_x_assum ‘LENGTH p = LENGTH ss2’ mp_tac
+  \\ qid_spec_tac ‘loc’
+  \\ qid_spec_tac ‘ss2’
+  \\ qid_spec_tac ‘p’
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct \\ fs [LUPDATE_DEF] \\ Cases_on ‘ss2’ \\ fs []
+  \\ Cases_on ‘loc’ \\ fs [LUPDATE_DEF]
+  \\ rw [] \\ fs []
 QED
 
 Theorem imp_env_rel_cons:
@@ -977,17 +1139,165 @@ Theorem dest_anyClosure_v_rel:
     dest_anyClosure v2 = SOME (x0,y1,y2) ∧
     compile_rel x2 y2 ∧ env_rel p x1 y1
 Proof
-  cheat (*
-  strip_tac
-  \\ ‘∃y. dest_anyClosure v2 = SOME y’ by
-    (qpat_x_assum ‘v_rel p v1 v2’ mp_tac
-     \\ Cases_on ‘v1’ \\ gvs []
-     \\ simp [Once v_rel_cases] \\ rw [] \\ gvs []
-     \\ gvs [dest_anyThunk_def,dest_anyClosure_def,AllCaseEqs()])
-  \\ PairCases_on ‘y’ \\ gvs []
-  \\ qpat_x_assum ‘v_rel p v1 v2’ mp_tac
-  \\ simp [Once v_rel_cases]
-  \\ strip_tac \\ gvs [] *)
+  simp [Once v_rel_cases] \\ reverse (rw []) \\ gvs []
+  >~ [‘Closure’] >- gvs [dest_anyClosure_def]
+  \\ gvs [dest_anyClosure_def,AllCaseEqs()]
+  >-
+   (drule_at (Pos last) LIST_REL_loc_rel_alt
+    \\ disch_then $ drule_at $ Pos last \\ fs [])
+  \\ drule_all ALOOKUP_LIST_REL
+  \\ strip_tac
+  \\ qpat_x_assum ‘letrec_rel _ _’ mp_tac
+  \\ simp [Once compile_rel_cases] \\ strip_tac \\ gvs []
+  \\ last_x_assum $ irule_at Any
+  \\ irule_at Any IMP_ALOOKUP_FILTER
+  \\ fs [dest_Lam_def,GSYM rec_env_def]
+  \\ cheat (* env_rel looks provable *)
+QED
+
+Triviality LIST_REL_LIST_REL_lemma:
+  (∀x y. r1 x y ⇒ r2 x y) ∧ ys1 = ys2 ⇒
+  LIST_REL r1 xs ys1 ⇒ LIST_REL r2 xs ys2
+Proof
+  metis_tac [LIST_REL_mono]
+QED
+
+Triviality FILTER_ZIP_EQ:
+  ∀p ss xs ys.
+    LENGTH p = LENGTH ss ∧ EVERY (λx. x ≠ NONE) xs ⇒
+    FILTER (λx. FST x = NONE) (ZIP (p,ss)) =
+    FILTER (λx. FST x = NONE) (ZIP (p ++ xs,ss ++ ys))
+Proof
+  reverse Induct \\ Cases_on ‘ss’ \\ fs []
+  >- rw []
+  \\ Induct \\ fs [ZIP_def]
+  \\ Cases_on ‘ys’ \\ fs [ZIP_def]
+QED
+
+Theorem MEM_IMP_ALOOKUP:
+  ∀xs x y.
+    MEM (x,y) xs ∧ ALL_DISTINCT (MAP FST xs) ⇒
+    ALOOKUP xs x = SOME y
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw []
+  \\ res_tac \\ fs [MEM_MAP]
+QED
+
+Theorem Letrec_split_compile_rel:
+  ∀sfns tfns vs delays funs.
+    Letrec_split vs sfns = (delays,funs) ∧ MAP FST tfns = MAP FST sfns ∧
+    LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
+    LIST_REL (λ(n,x) (m,b,y). n = m ∧  Letrec_imm vs y = b ∧
+         ∃x'. x = Delay x' ∧ compile_rel x' y)
+      (FILTER ((λx. is_Delay x) ∘ SND) tfns) delays
+Proof
+  Induct \\ fs [Letrec_split_def,FORALL_PROD]
+  \\ rw [] \\ Cases_on ‘tfns’ \\ fs []
+  \\ PairCases_on ‘h’ \\ gvs []
+  \\ qpat_x_assum ‘letrec_rel _ _’ mp_tac
+  \\ simp [Once compile_rel_cases] \\ rw [] \\ fs [dest_Delay_def]
+  \\ pairarg_tac \\ gvs []
+QED
+
+Theorem comp_Letrec_not:
+  Lam n x ≠ comp_Letrec sfns se ∧
+  Var v ≠ comp_Letrec sfns se
+Proof
+  fs [comp_Letrec_def]
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on ‘delays’ \\ fs [Lets_def]
+  \\ PairCases_on ‘h’
+  \\ fs [some_ref_bool_def,Lets_def]
+QED
+
+Theorem state_rel_Letrec:
+  state_rel p (pick_opt zs ts) (SOME ss) ∧
+  env_rel p env1 env2 ∧
+  MAP FST tfns = MAP FST sfns ∧
+  ALL_DISTINCT (MAP FST sfns) ∧
+  LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
+  Letrec_split (MAP FST sfns) sfns = (delays,funs) ∧
+  EVERY (λ(v,b,x). b ⇔ Letrec_imm (MAP FST sfns) x) delays ∧
+  set (MAP FST delays) ∪ set (MAP FST funs) = set (MAP FST sfns) ∧
+  ALL_DISTINCT (MAP FST delays) ∧
+  ALL_DISTINCT (MAP FST funs) ∧
+  DISJOINT (set (MAP FST delays)) (set (MAP FST funs)) ⇒
+  state_rel
+    (p ++ MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+             (FILTER ((λx. is_Delay x) ∘ SND) tfns)) (pick_opt zs ts)
+    (SOME (ss ++ MAP
+             (Letrec_store (rec_env funs (make_let_env delays (LENGTH ss) env2)))
+                delays)) ∧
+  env_rel (p ++ MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+                 (FILTER ((λx. is_Delay x) ∘ SND) tfns)) (rec_env tfns env1)
+          (rec_env funs (make_let_env delays (LENGTH ss) env2))
+Proof
+  fs [state_rel_def]
+  \\ strip_tac
+  \\ reverse conj_asm2_tac
+  >- cheat (* env_rel *)
+  \\ fs []
+  \\ rpt conj_tac
+  >~ [‘LIST_REL (LIST_REL _) _ (MAP SND (FILTER _ (ZIP (_ ++ _,_))))’]
+  >-
+   (qpat_x_assum ‘LIST_REL (LIST_REL _) _ _’ mp_tac
+    \\ match_mp_tac LIST_REL_LIST_REL_lemma
+    \\ conj_tac >-
+     (rpt gen_tac \\ match_mp_tac LIST_REL_mono
+      \\ rw [] \\ irule_at Any v_rel_ext \\ fs [])
+    \\ AP_TERM_TAC
+    \\ ‘LENGTH p = LENGTH ss’ by (imp_res_tac LIST_REL_LENGTH)
+    \\ irule FILTER_ZIP_EQ \\ simp []
+    \\ fs [EVERY_MEM,MEM_FILTER,MEM_MAP,FORALL_PROD]
+    \\ CCONTR_TAC \\ gvs []
+    \\ Cases_on ‘p_2’ \\ gvs [dest_Delay_def]
+    \\ drule MEM_IMP_ALOOKUP \\ fs []
+    \\ CCONTR_TAC \\ fs []
+    \\ gvs [AllCaseEqs(),dest_anyThunk_def])
+  \\ irule EVERY2_APPEND_suff
+  \\ conj_tac
+  >-
+   (qpat_x_assum ‘LIST_REL (thunk_rel p) p ss’ mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ rw []
+    \\ irule_at Any thunk_rel_ext \\ fs [])
+  \\ qmatch_goalsub_abbrev_tac ‘thunk_rel p1’
+  \\ drule_all Letrec_split_compile_rel
+  \\ simp [listTheory.EVERY2_MAP]
+  \\ match_mp_tac LIST_REL_mono
+  \\ simp [FORALL_PROD,MEM_FILTER]
+  \\ rw []
+  \\ pop_assum mp_tac
+  \\ drule_at (Pos last) alistTheory.ALOOKUP_ALL_DISTINCT_MEM
+  \\ fs [] \\ rw [] \\ gvs [dest_Delay_def]
+  \\ rename [‘compile_rel e1 e2’]
+  \\ simp [dest_anyThunk_def]
+  \\ simp [thunk_rel_def]
+  \\ reverse (Cases_on ‘Letrec_imm (MAP FST sfns) e2’) \\ gvs []
+  >- fs [Letrec_store_def]
+  \\ Cases_on ‘∃x1 x2. e2 = Lam x1 x2’
+  >-
+   (gvs [Letrec_store_def]
+    \\ qpat_x_assum ‘compile_rel e1 _’ mp_tac
+    \\ simp [Once compile_rel_cases,comp_Letrec_not]
+    \\ strip_tac \\ gvs []
+    \\ simp [Once SWAP_EXISTS_THM]
+    \\ qexists_tac ‘1’ \\ fs [step]
+    \\ irule v_rel_Closure \\ fs [])
+  \\ ‘∃v. e2 = Var v’ by (Cases_on ‘e2’ \\ fs [Letrec_imm_def])
+  \\ gvs [Letrec_imm_def,Letrec_store_def]
+  \\ qpat_x_assum ‘compile_rel e1 _’ mp_tac
+  \\ simp [Once compile_rel_cases,comp_Letrec_not]
+  \\ strip_tac \\ gvs []
+  \\ simp [Once SWAP_EXISTS_THM]
+  \\ qexists_tac ‘1’ \\ fs [step]
+  \\ CASE_TAC
+  >-
+   (qpat_x_assum ‘MAP FST tfns = MAP FST sfns’ (assume_tac o GSYM) \\ gvs []
+    \\ gvs [ALOOKUP_NONE,rec_env_def,MEM_MAP,FORALL_PROD]
+    \\ PairCases_on ‘y’ \\ fs [])
+  \\ fs [env_rel_def]
+  \\ first_x_assum drule
+  \\ strip_tac \\ fs []
 QED
 
 Theorem step_forward:
@@ -1404,14 +1714,15 @@ Proof
   \\ last_x_assum drule
   \\ disch_then drule
   \\ disch_then irule \\ simp []
-  \\ cheat (*
+  \\ fs [GSYM rec_env_def]
   \\ qexists_tac ‘p ++
-       MAP (λ(fn,_). SOME (Recclosure tfns env1 fn)) (FILTER (λ(_,x). is_Delay x) tfns)’
-  \\ rpt (disch_then drule)
-  \\ simp [PULL_EXISTS]
+       MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+          (FILTER (is_Delay o SND) tfns)’
+  \\ irule_at Any cont_rel_ext
   \\ qexists_tac ‘zs’ \\ fs []
   \\ simp [step_res_rel_cases]
-  \\ cheat *)
+  \\ irule state_rel_Letrec \\ fs []
+  \\ first_x_assum $ irule_at $ Pos last \\ fs []
 QED
 
 (* step_until_halt *)
