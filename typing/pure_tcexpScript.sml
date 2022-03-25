@@ -23,13 +23,13 @@ End
 Definition lets_for_def:
   lets_for cn a v [] b = b ∧
   lets_for cn a v ((n,w)::ws) b =
-    Let w (If (IsEq cn a (Var v)) (Proj cn n (Var v)) Bottom) (lets_for cn a v ws b)
+    Let w (If (IsEq cn a T (Var v)) (Proj cn n (Var v)) Bottom) (lets_for cn a v ws b)
 End
 
 Definition rows_of_def:
   rows_of v [] = Fail ∧
   rows_of v ((cn,vs,b)::rest) =
-    If (IsEq cn (LENGTH vs) (Var v))
+    If (IsEq cn (LENGTH vs) T (Var v))
       (lets_for cn (LENGTH vs) v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest)
 End
 
@@ -43,7 +43,7 @@ Definition exp_of_def:
   exp_of (Case x v rs) = Let v (exp_of x)
                           (rows_of v (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs)) ∧
   exp_of (SafeProj cn ar i e) =
-    If (IsEq cn ar (exp_of e)) (Proj cn i (exp_of e)) Bottom
+    If (IsEq cn ar T (exp_of e)) (Proj cn i (exp_of e)) Bottom
 Termination
   WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
