@@ -1,12 +1,14 @@
-(* Theorem expressing `machine_sem` in terms of target itree semantics *)
+(*
+  Theorem expressing `machine_sem` in terms of target itree semantics
+*)
 open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory
      targetSemTheory targetPropsTheory;
-open target_semanticsTheory target_semanticsPropsTheory
-     cakeml_semanticsTheory cakeml_semanticsPropsTheory cakeml_semanticsProofTheory;
+open target_itreeSemTheory target_itreePropsTheory
+     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
 
 
-val _ = new_theory "target_semanticsProof"
+val _ = new_theory "target_itreeEquiv"
 
 
 (*********** evaluate' **********)

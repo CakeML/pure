@@ -1,10 +1,12 @@
-(* An itree-based semantics for CakeML *)
+(*
+  An itree-based semantics for CakeML
+*)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open namespaceTheory astTheory
      ffiTheory semanticPrimitivesTheory smallStepTheory;
 open itreeTheory;
 
-val _ = new_theory "cakeml_semantics"
+val _ = new_theory "itree_semantics"
 
 (******************** do_app ********************)
 

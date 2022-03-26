@@ -1,13 +1,14 @@
-(* Relating the itree- and FFI state-based CakeML semantics *)
+(*
+  Relating the itree- and FFI state-based CakeML semantics
+*)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistTheory;
 open namespaceTheory astTheory ffiTheory lprefix_lubTheory semanticPrimitivesTheory
      semanticsTheory alt_semanticsTheory evaluatePropsTheory
      smallStepTheory smallStepPropsTheory;
-open itreeTheory pure_miscTheory
-     cakeml_semanticsTheory cakeml_semanticsPropsTheory;
+open itreeTheory itree_semanticsTheory itree_semanticsPropsTheory;
 
-val _ = new_theory "cakeml_semanticsProof";
+val _ = new_theory "itree_semanticsEquiv";
 
 
 (******************** Useful simplifications ********************)
@@ -27,18 +28,18 @@ val dsmallstep_ss = simpLib.named_rewrites "dsmallstep_ss" [
     ];
 
 val itree_ss = simpLib.named_rewrites "itree_ss" [
-    cakeml_semanticsTheory.continue_def,
-    cakeml_semanticsTheory.return_def,
-    cakeml_semanticsTheory.push_def,
-    cakeml_semanticsTheory.estep_def,
+    itree_semanticsTheory.continue_def,
+    itree_semanticsTheory.return_def,
+    itree_semanticsTheory.push_def,
+    itree_semanticsTheory.estep_def,
     get_ffi_def
     ];
 
 val ditree_ss = simpLib.named_rewrites "ditree_ss" [
-    cakeml_semanticsTheory.dcontinue_def,
-    cakeml_semanticsTheory.dreturn_def,
-    cakeml_semanticsTheory.dpush_def,
-    cakeml_semanticsTheory.dstep_def,
+    itree_semanticsTheory.dcontinue_def,
+    itree_semanticsTheory.dreturn_def,
+    itree_semanticsTheory.dpush_def,
+    itree_semanticsTheory.dstep_def,
     dget_ffi_def
     ];
 
@@ -116,6 +117,12 @@ QED
 
 
 (******************** Relating non-FFI steps ********************)
+
+Triviality FST_THM:
+  FST = λ(x,y). x
+Proof
+  rw[FUN_EQ_THM, UNCURRY]
+QED
 
 Theorem step_result_rel_single:
   ∀ea eb.

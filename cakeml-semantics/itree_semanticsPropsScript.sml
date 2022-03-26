@@ -1,12 +1,14 @@
-(* Properties about the itree- and FFI state-based CakeML semantics *)
+(*
+  Properties about the itree- and FFI state-based CakeML semantics
+*)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open optionTheory relationTheory pairTheory listTheory
      arithmeticTheory llistTheory pred_setTheory;
 open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
      evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
-open itreeTheory cakeml_semanticsTheory pure_miscTheory;
+open itreeTheory itree_semanticsTheory;
 
-val _ = new_theory "cakeml_semanticsProps";
+val _ = new_theory "itree_semanticsProps";
 
 (******************** Definitions ********************)
 
@@ -98,7 +100,7 @@ Definition dstate_rel_def:
 End
 
 Inductive deval_rel:
-  deval_rel (cakeml_semantics$Decl d) (smallStep$Decl d) ∧
+  deval_rel (itree_semantics$Decl d) (smallStep$Decl d) ∧
   deval_rel (Env e) (Env e) ∧
   (ctxt_rel cs scs ⇒
     deval_rel (ExpVal env ev cs l p) (ExpVal env ev scs l p))
@@ -107,7 +109,7 @@ End
 Inductive dstep_result_rel:
   (dstate_rel dst st ∧ deval_rel dev1 dev2 ⇒
     dstep_result_rel
-      (cakeml_semantics$Dstep dst dev1 dcs) (smallStep$Dstep (st, dev2, dcs))) ∧
+      (itree_semantics$Dstep dst dev1 dcs) (smallStep$Dstep (st, dev2, dcs))) ∧
   dstep_result_rel Ddone Ddone ∧
   dstep_result_rel (Draise v) (Draise v) ∧
   dstep_result_rel Dtype_error (Dabort $ Rtype_error)
@@ -169,18 +171,18 @@ val dsmallstep_ss = simpLib.named_rewrites "dsmallstep_ss" [
     ];
 
 val itree_ss = simpLib.named_rewrites "itree_ss" [
-    cakeml_semanticsTheory.continue_def,
-    cakeml_semanticsTheory.return_def,
-    cakeml_semanticsTheory.push_def,
-    cakeml_semanticsTheory.estep_def,
+    itree_semanticsTheory.continue_def,
+    itree_semanticsTheory.return_def,
+    itree_semanticsTheory.push_def,
+    itree_semanticsTheory.estep_def,
     get_ffi_def
     ];
 
 val ditree_ss = simpLib.named_rewrites "ditree_ss" [
-    cakeml_semanticsTheory.dcontinue_def,
-    cakeml_semanticsTheory.dreturn_def,
-    cakeml_semanticsTheory.dpush_def,
-    cakeml_semanticsTheory.dstep_def,
+    itree_semanticsTheory.dcontinue_def,
+    itree_semanticsTheory.dreturn_def,
+    itree_semanticsTheory.dpush_def,
+    itree_semanticsTheory.dstep_def,
     dget_ffi_def
     ];
 

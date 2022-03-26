@@ -1,9 +1,11 @@
-(* An itree-based semantics for the target machine code *)
+(*
+  An itree-based semantics for the target machine code
+*)
 open preamble;
 open targetSemTheory;
-open itreeTheory cakeml_semanticsTheory cakeml_semanticsPropsTheory;
+open itreeTheory;
 
-val _ = new_theory "target_semantics"
+val _ = new_theory "target_itreeSem"
 
 Datatype:
   result = Termination

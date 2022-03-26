@@ -1,13 +1,14 @@
-(* Theorem showing oracle-based semantic preservation implies
-   itree-based semantic preservation *)
+(*
+  Compiler correctness for the itree CakeML semantics
+*)
 open preamble;
 open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory
      backendProofTheory primSemEnvTheory;
-open target_semanticsTheory target_semanticsPropsTheory target_semanticsProofTheory
-     cakeml_semanticsTheory cakeml_semanticsPropsTheory cakeml_semanticsProofTheory;
+open target_itreeSemTheory target_itreePropsTheory target_itreeEquivTheory
+     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
 
 
-val _ = new_theory "cakeml_target_proof"
+val _ = new_theory "backend_itreeProof"
 
 
 (*********** Definitions **********)
@@ -15,7 +16,7 @@ val _ = new_theory "cakeml_target_proof"
 CoInductive prune:
   prune exact Div                          Div                  ∧
   prune exact (Ret Termination)            (Ret Termination)    ∧
-  prune exact (Ret cakeml_semantics$Error) (Ret Error)          ∧
+  prune exact (Ret itree_semantics$Error) (Ret Error)          ∧
   prune F     t                            (Ret OutOfMemory)    ∧
   prune exact (Ret (FinalFFI x y))         (Ret (FinalFFI x y)) ∧
   ((∀x. prune exact (f x) (g x)) ⇒ prune exact (Vis d f) (Vis d g))
@@ -26,7 +27,7 @@ Definition same_up_to_oom_def:
   (same_up_to_oom exact a b (x::xs) ⇔
      (a = Div ∧ b = Div) ∨
      (a = Ret Termination ∧ b = Ret Termination) ∨
-     (a = Ret (cakeml_semantics$Error) ∧ b = Ret Error) ∨
+     (a = Ret (itree_semantics$Error) ∧ b = Ret Error) ∨
      (¬exact ∧ b = Ret OutOfMemory) ∨
      (∃x y. a = Ret (FinalFFI x y) ∧ b = Ret (FinalFFI x y)) ∨
      ∃d f g.
@@ -55,7 +56,7 @@ End
 Inductive trace_rel:
   trace_rel exact (io, NONE) (io, NONE) ∧
 
-  trace_rel exact (io, SOME cakeml_semantics$Termination) (io, SOME Termination) ∧
+  trace_rel exact (io, SOME itree_semantics$Termination) (io, SOME Termination) ∧
   trace_rel exact (io, SOME $ FinalFFI e r) (io, SOME $ FinalFFI e r) ∧
 
   (isPREFIX io' io ⇒
@@ -72,7 +73,7 @@ CoInductive ffi_invariant:
 End
 
 CoInductive safe_itree:
-  (safe_itree (Ret cakeml_semantics$Termination)) ∧
+  (safe_itree (Ret itree_semantics$Termination)) ∧
   (safe_itree (Ret $ FinalFFI e f)) ∧
   (safe_itree Div) ∧
   ((∀s. safe_itree (rest s)) ⇒ safe_itree (Vis e rest))

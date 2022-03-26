@@ -1,10 +1,12 @@
-(* Properties about the itree target semantics *)
+(*
+  Properties about the itree target semantics
+*)
 open preamble targetSemTheory targetPropsTheory;
-open itreeTheory target_semanticsTheory
-     cakeml_semanticsTheory cakeml_semanticsPropsTheory;
+open itreeTheory target_itreeSemTheory
+     itree_semanticsTheory itree_semanticsPropsTheory;
 
 
-val _ = new_theory "target_semanticsProps"
+val _ = new_theory "target_itreeProps"
 
 
 (********** machine_sem_itree **********)
