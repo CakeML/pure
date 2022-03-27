@@ -211,7 +211,7 @@ Inductive v_rel:
 
 [~Recclosure:]
   (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n v e.
-     env_rel p tenv senv ∧ compile_rel te se ∧
+     env_rel p tenv senv ∧
      ALL_DISTINCT (MAP FST tfns) ∧
      LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
      MAP FST tfns = MAP FST sfns ∧
@@ -225,7 +225,7 @@ Inductive v_rel:
 
 [~Recthunk:]
   (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n loc.
-     env_rel p tenv senv ∧ compile_rel te se ∧
+     env_rel p tenv senv ∧
      ALL_DISTINCT (MAP FST tfns) ∧
      LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
      MAP FST tfns = MAP FST sfns ∧
@@ -1339,6 +1339,113 @@ Proof
   \\ fs [some_ref_bool_def,Lets_def]
 QED
 
+Theorem make_let_env_lemma:
+  ∀xs n env.
+    make_let_env xs n env = make_let_env xs n [] ++ env
+Proof
+  Induct
+  \\ rewrite_tac [make_let_env_def,APPEND]
+  \\ pop_assum $ once_rewrite_tac o single
+  \\ fs []
+QED
+
+Triviality MAP_FST_make_let_env:
+  ∀delays n env.
+    MAP FST (make_let_env delays n env) =
+    REVERSE (MAP FST delays) ++ MAP FST env
+Proof
+  Induct \\ fs [make_let_env_def]
+QED
+
+Theorem Letrec_split_MAP_FST:
+  ∀sfns delays funs.
+    Letrec_split vs sfns = (delays,funs) ⇒
+    set (MAP FST sfns) = set (MAP FST funs) ∪ set (MAP FST delays)
+Proof
+  Induct \\ fs [Letrec_split_def,FORALL_PROD]
+  \\ rw [] \\ pairarg_tac \\ fs []
+  \\ gvs [AllCaseEqs(),EXTENSION,AC DISJ_COMM DISJ_ASSOC]
+QED
+
+Theorem Letrec_split_IMP_FILTER:
+  ∀sfns delays funs tfns.
+    Letrec_split vs sfns = (delays,funs) ∧
+    LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
+    funs = FILTER ((λx. is_Lam x) ∘ SND) sfns
+Proof
+  Induct
+  \\ fs [Letrec_split_def,FORALL_PROD] \\ rw []
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on ‘tfns’ \\ fs []
+  \\ fs [Once compile_rel_cases,dest_Lam_def,dest_Delay_def]
+  \\ gvs [dest_Lam_def,dest_Delay_def]
+  \\ res_tac \\ fs []
+QED
+
+Theorem REVERSE_make_let_env:
+  ∀delays n.
+    REVERSE (make_let_env delays n []) =
+    MAPi (λi x. (FST x, Atom (Loc (n+i)))) delays
+Proof
+  Induct \\ fs [make_let_env_def,FORALL_PROD]
+  \\ simp [Once make_let_env_lemma]
+  \\ fs [combinTheory.o_DEF,ADD1]
+  \\ rw [] \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [FUN_EQ_THM]
+QED
+
+Triviality IMP_Lam:
+  ∀tfns sfns.
+    MAP FST tfns = MAP FST sfns ∧ MEM (y,Lam v e) sfns ∧
+    LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
+    ∃v e. MEM (y,Lam v e) tfns
+Proof
+  Induct \\ fs [FORALL_PROD]
+  \\ Cases_on ‘sfns’ \\ fs []
+  \\ PairCases_on ‘h’ \\ fs []
+  \\ rw [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ fs [Once compile_rel_cases]
+  \\ metis_tac []
+QED
+
+Triviality EXISTS_ALOOKUP_ALOOKUP:
+  ∀n xs ys.
+    MEM n (MAP FST xs) ∧ ALL_DISTINCT (MAP FST ys) ∧ xs = REVERSE ys ⇒
+    ∃v. ALOOKUP xs n = SOME v ∧ ALOOKUP ys n = SOME v
+Proof
+  gen_tac \\ simp [MAP_REVERSE]
+  \\ Induct \\ fs [FORALL_PROD]
+  \\ rpt gen_tac \\ IF_CASES_TAC \\ gvs []
+  \\ fs [ALOOKUP_APPEND] \\ rw []
+  \\ TRY (last_x_assum drule_all)
+  \\ rw [] \\ fs [AllCaseEqs()]
+  \\ fs [ALOOKUP_NONE,MAP_REVERSE]
+QED
+
+Theorem MAPi_MAP:
+  ∀f xs. MAPi (λi x. f x) xs = MAP f xs
+Proof
+  Induct_on ‘xs’ \\ fs [combinTheory.o_DEF]
+QED
+
+Theorem Letrec_split_FILTER:
+  ∀sfns tfns delays funs vs f.
+    Letrec_split vs sfns = (delays,funs) ∧
+    MAP FST tfns = MAP FST sfns ∧
+    LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
+    MAPi (λi x. (FST x,Atom (Loc (f i)))) delays =
+    MAPi (λi x. (FST x,Atom (Loc (f i)))) (FILTER (λ(p1,p2). is_Delay p2) tfns)
+Proof
+  Induct \\ Cases_on ‘tfns’ \\ fs [Letrec_split_def]
+  \\ Cases \\ PairCases_on ‘h’ \\ fs [Letrec_split_def]
+  \\ simp [Once compile_rel_cases]
+  \\ rpt strip_tac
+  \\ gvs [dest_Lam_def, dest_Delay_def, combinTheory.o_DEF, ADD1]
+  \\ pairarg_tac \\ gvs [combinTheory.o_DEF, ADD1]
+  \\ res_tac \\ fs []
+QED
+
 Theorem state_rel_Letrec:
   state_rel p (pick_opt zs ts) (SOME ss) ∧
   env_rel p env1 env2 ∧
@@ -1364,7 +1471,65 @@ Proof
   fs [state_rel_def]
   \\ strip_tac
   \\ reverse conj_asm2_tac
-  >- cheat (* env_rel *)
+  >-
+   (fs [rec_env_def]
+    \\ once_rewrite_tac [make_let_env_lemma] \\ simp []
+    \\ irule env_rel_append
+    \\ irule_at (Pos last) env_rel_ext \\ fs []
+    \\ conj_tac
+    >-
+     (gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,MAP_FST_make_let_env]
+      \\ drule Letrec_split_MAP_FST \\ fs [])
+    \\ simp [env_rel_def,ALOOKUP_APPEND,ALOOUKP_MAP_Rec,AllCaseEqs()]
+    \\ fs [ALOOKUP_NONE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
+    \\ rpt strip_tac
+    \\ ‘LIST_REL
+            (loc_rel
+               (p ++
+                MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+                  (FILTER (λ(p1,p2). is_Delay p2) tfns)) env1 tfns)
+            (FILTER ((λx. is_Delay x) ∘ SND) tfns)
+            (MAPi (λi x. (FST x,Atom (Loc (i + LENGTH ss)))) delays)’ by
+     (drule_all Letrec_split_FILTER
+      \\ disch_then $ simp o single
+      \\ simp [LIST_REL_EL_EQN,combinTheory.o_DEF,LAMBDA_PROD]
+      \\ fs [indexedListsTheory.EL_MAPi]
+      \\ rw [] \\ rename [‘k < LENGTH _’]
+      \\ Cases_on ‘EL k (FILTER (λ(p1,p2). is_Delay p2) tfns)’ \\ fs []
+      \\ drule EL_MEM \\ asm_rewrite_tac [MEM_FILTER]
+      \\ rw [] \\ fs [oEL_THM]
+      \\ ‘LENGTH ss = LENGTH p’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
+      \\ simp [EL_APPEND2,EL_MAP]
+      \\ drule MEM_IMP_ALOOKUP
+      \\ simp [dest_anyThunk_def,AllCaseEqs()]
+      \\ Cases_on ‘r’ \\ gvs [dest_Delay_def])
+    \\ Cases_on ‘MEM n (MAP FST funs)’ \\ fs []
+    >-
+     (simp [Once v_rel_cases] \\ disj1_tac
+      \\ ‘make_let_env delays (LENGTH ss) [] ++ env2 =
+          REVERSE (REVERSE (make_let_env delays (LENGTH ss) [])) ++ env2’ by fs []
+      \\ pop_assum $ irule_at Any
+      \\ irule_at Any env_rel_ext \\ fs []
+      \\ qpat_assum ‘LIST_REL letrec_rel _ _’ $ irule_at Any \\ fs []
+      \\ simp [REVERSE_make_let_env]
+      \\ drule_all Letrec_split_IMP_FILTER \\ fs []
+      \\ strip_tac \\ gvs []
+      \\ gvs [MEM_MAP,MEM_FILTER]
+      \\ rename [‘MEM yy _’] \\ PairCases_on ‘yy’ \\ fs []
+      \\ Cases_on ‘yy1’ \\ gvs [dest_Lam_def]
+      \\ drule_at (Pos last) IMP_Lam \\ fs []
+      \\ disch_then irule
+      \\ pop_assum $ irule_at Any)
+    \\ simp [Once v_rel_cases]
+    \\ irule_at Any (METIS_PROVE [] “c ⇒ b ∨ c”) \\ simp [PULL_EXISTS]
+    \\ qpat_assum ‘LIST_REL letrec_rel _ _’ $ irule_at Any \\ fs []
+    \\ irule_at Any env_rel_ext \\ fs []
+    \\ qpat_assum ‘env_rel _ _ _’ $ irule_at Any \\ fs []
+    \\ first_assum $ irule_at $ Pos hd
+    \\ irule EXISTS_ALOOKUP_ALOOKUP
+    \\ simp [REVERSE_make_let_env]
+    \\ fs [combinTheory.o_DEF,MAPi_MAP,MAP_FST_make_let_env]
+    \\ fs [EXTENSION] \\ metis_tac [])
   \\ fs []
   \\ rpt conj_tac
   >~ [‘LIST_REL (LIST_REL _) _ (MAP SND (FILTER _ (ZIP (_ ++ _,_))))’]
