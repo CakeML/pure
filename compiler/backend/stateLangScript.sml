@@ -590,8 +590,8 @@ Proof
 QED
 
 Theorem step_n_set_cont:
-  step_n n (Exp tenv1 te,NONE,[]) = (Val res,ts1,[]) ⇒
-  ∀k. step_n n (Exp tenv1 te,NONE,k) = (Val res,ts1,k)
+  step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
+  ∀k. step_n n (Exp tenv1 te,ts,k) = (Val res,ts1,k)
 Proof
   cheat
 QED
@@ -600,6 +600,15 @@ Theorem step_n_fast_forward:
   step_n n (sr,ss,k::ks) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
   step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
   ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
+Proof
+  cheat
+QED
+
+Theorem step_n_NONE_split:
+  step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
+  ∃m1 m2 v.
+    step_n m1 (Exp env x,NONE,[]) = (Val v,NONE,[]) ∧ m1 < n ∧
+    step_n m2 (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n
 Proof
   cheat
 QED

@@ -1750,118 +1750,87 @@ Proof
     \\ qpat_x_assum ‘cont_rel _ _ _’ mp_tac
     \\ simp [Once cont_rel_cases]
     \\ strip_tac \\ gvs []
-    >~ [‘ForceK1’] >- cheat
-  (* (Q.REFINE_EXISTS_TAC ‘ck+1:num’
-      \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
-      \\ (Cases_on ‘m’ >- fs [])
-      \\ rewrite_tac [step_n_add,ADD1]
-      \\ fs [] \\ simp [step,error_def]
+    >~ [‘ForceK1’] >-
+     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
       \\ rename [‘v_rel p v1 v2’]
-      \\ Cases_on ‘dest_anyThunk v1’ \\ simp []
-      >- (rw [] \\ qexists_tac ‘0’ \\ fs [is_halt_def])
+      \\ Cases_on ‘dest_anyThunk v1’ \\ gvs []
       \\ PairCases_on ‘x’ \\ gvs []
-      \\ rename [‘_ = SOME (yy,_)’] \\ Cases_on ‘yy’ \\ simp []
+      \\ rename [‘_ = SOME (yy,_)’] \\ Cases_on ‘yy’ \\ gvs []
+      \\ ntac 4 (irule_at Any step_n_unwind \\ fs [step_n_add,step])
       >-
-       (rename [‘step_n n’] \\ Cases_on ‘n’ \\ fs []
-        >- (rw [] \\ fs [is_halt_def])
-        \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
-        \\ rename [‘step_n n’] \\ Cases_on ‘n’ \\ fs []
-        >- (rw [] \\ fs [is_halt_def])
-        \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def]
-        \\ drule_all dest_anyThunk_INL
+       (drule_all dest_anyThunk_INL
         \\ strip_tac \\ gvs []
-        \\ ntac 16 (rename [‘step_n n’] \\ Cases_on ‘n’ \\ fs []
-                    >- (rw [] \\ fs [is_halt_def])
-                    \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-        \\ gvs [ADD1]
-        \\ strip_tac \\ last_x_assum irule
-        \\ pop_assum $ irule_at Any \\ fs []
-        \\ simp [Once step_res_rel_cases]
-        \\ rpt (first_x_assum $ irule_at Any))
-      \\ PairCases_on ‘y’
+        \\ ntac 15 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
+        \\ last_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+        \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+        \\ disch_then drule_all \\ strip_tac \\ gvs []
+        \\ rpt $ first_assum $ irule_at Any)
+      \\ PairCases_on ‘y’ \\ fs []
       \\ drule_all dest_anyThunk_INR \\ reverse strip_tac \\ gvs []
       >-
-       (ntac 18 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
-                 >- (rw [] \\ fs [is_halt_def])
-                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-        \\ gvs [ADD1,GSYM rec_env_def] \\ strip_tac
+       (ntac 15 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
+        \\ gvs [GSYM rec_env_def]
         \\ drule step_n_set_cont
-        \\ disch_then $ qspec_then ‘ForceK2 ts::tk’ assume_tac
-        \\ Q.REFINE_EXISTS_TAC ‘ck1+(1+ck)’
-        \\ rewrite_tac [step_n_add,ADD1]
-        \\ fs [] \\ simp [step]
-        \\ pop_assum kall_tac
-        \\ last_x_assum $ irule
-        \\ pop_assum $ irule_at Any \\ fs []
-        \\ rpt (first_assum $ irule_at Any)
-        \\ simp [step_res_rel_cases])
-      \\ ntac 23 (rename [‘step_n n’] \\ Cases_on ‘n’ \\ fs []
-                  >- (rw [] \\ fs [is_halt_def])
-                  \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-      \\ gvs [ADD1]
+        \\ disch_then (qspec_then ‘ForceK2 ts::tk’ assume_tac)
+        \\ drule_all step_n_fast_forward
+        \\ strip_tac
+        \\ pop_assum mp_tac
+        \\ Cases_on ‘m3’ \\ fs [] \\ strip_tac \\ gvs []
+        \\ gvs [step_n_add,step,ADD1]
+        \\ last_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+        \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+        \\ disch_then drule_all \\ strip_tac \\ gvs []
+        \\ rpt $ first_assum $ irule_at Any)
+      \\ gvs [GSYM rec_env_def]
+      \\ drule_all step_n_NONE_split
       \\ strip_tac
-      \\ drule_all step_n_cut_cont
-      \\ strip_tac \\ PairCases_on ‘z’ \\ fs []
-      \\ last_assum $ qspec_then ‘m’ mp_tac \\ simp []
-      \\ disch_then drule \\ simp []
-      \\ simp [Once cont_rel_cases,GSYM rec_env_def]
-      \\ rpt (disch_then drule \\ simp [])
-      \\ rename [‘env_rel p (rec_env f tenv1) senv1’,‘compile_rel te se’]
-      \\ disch_then $ qspec_then ‘Exp (rec_env f tenv1) te’ mp_tac
-      \\ impl_tac >- simp [Once step_res_rel_cases]
-      \\ strip_tac
-      \\ drule_all step_n_NONE
-      \\ reverse strip_tac
-      >-
-       (pop_assum $ qspec_then ‘ForceK2 ts::tk’ strip_assume_tac
-        \\ pop_assum $ irule_at Any \\ fs [is_halt_def])
-      \\ gvs []
-      \\ Cases_on ‘tk1’ \\ fs [is_halt_def]
-      \\ drule step_n_set_cont
-      \\ disch_then $ qspec_then ‘ForceK2 ts::tk’ assume_tac
-      \\ Q.REFINE_EXISTS_TAC ‘ck+(1+n)’
-      \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
-      \\ rewrite_tac [step_n_add,ADD1] \\ simp []
-      \\ simp [step] \\ gvs []
-      \\ pop_assum mp_tac
-      \\ drule step_forward
-      \\ simp [cont_rel_nil,is_halt_def]
+      \\ ntac 2 $ pop_assum mp_tac
+      \\ last_assum $ drule_at $ Pos $ el 2
+      \\ fs [cont_rel_nil]
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
-      \\ ‘state_rel p (SOME (THE (pick_opt zs ts))) (SOME ss)’
-        by (Cases_on ‘ts’ \\ fs [])
-      \\ rpt (disch_then $ drule_at Any)
-      \\ fs [is_halt_def]
-      \\ simp [Once step_res_rel_cases]
-      \\ strip_tac \\ gvs [is_halt_def]
-      \\ rename [‘step_n m2 (Exp senv1 se,SOME ss,[]) = (Val v2,SOME ss2,[])’]
-      \\ drule_all step_n_fast_forward \\ strip_tac
-      \\ pop_assum mp_tac
-      \\ ntac 9 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
-                 >- (rw [] \\ fs [is_halt_def])
-                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
-      \\ gvs [ADD1,SOME_THE_pick_opt]
-      \\ qpat_x_assum ‘_ = (sr1,ss1,sk1)’ kall_tac
-      \\ ‘v_rel (p++q) v1 (Atom (Loc loc))’ by (irule v_rel_ext \\ fs [])
-      \\ drule dest_anyThunk_INR_abs
-      \\ disch_then drule_all
+      \\ disch_then $ qspec_then ‘THE $ pick_opt zs ts’ mp_tac
+      \\ fs [SOME_THE_pick_opt]
+      \\ disch_then drule_all \\ strip_tac
+      \\ rpt strip_tac
+      \\ ntac 20 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
+      \\ qmatch_goalsub_abbrev_tac ‘step_n _ (_,_,kk3)’
+      \\ qpat_x_assum ‘step_res_rel (p ++ q) (Val v) _’ mp_tac
+      \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
+      \\ drule_then (qspec_then ‘kk3’ strip_assume_tac) step_n_set_cont
+      \\ qsuff_tac ‘∃m' ss1' sr1' sk1 q'.
+          step_n m' (Exp senv' se,SOME ss,kk3) = (sr1',SOME ss1',sk1) ∧
+          is_halt (sr1',SOME ss1',sk1) ∧ cont_rel (p ++ q') tk1 sk1 ∧
+          state_rel (p ++ q') (pick_opt zs ts1) (SOME ss1') ∧
+          step_res_rel (p ++ q') tr1 sr1'’ >- metis_tac []
+      \\ Q.REFINE_EXISTS_TAC ‘ck+1+m’
+      \\ rewrite_tac [step_n_add] \\ fs []
+      \\ fs [step,Abbr‘kk3’]
+      \\ ntac 8 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
+      \\ drule_at (Pos $ el 2) dest_anyThunk_INR_abs \\ fs []
+      \\ disch_then $ drule_at $ Pos last
+      \\ disch_then $ qspec_then ‘loc’ mp_tac
+      \\ impl_keep_tac >- (irule v_rel_ext \\ fs [])
       \\ strip_tac \\ fs []
-      \\ ntac 9 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
-                 >- (rw [] \\ fs [is_halt_def])
-                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+      \\ ntac 9 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
       \\ fs [oEL_THM,EL_LUPDATE]
-      \\ ntac 2 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
-                 >- (rw [] \\ fs [is_halt_def])
-                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+      \\ ntac 2 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
       \\ qmatch_goalsub_abbrev_tac ‘SOME ss3’
-      \\ rename [‘step_n nn’] \\ gvs [ADD1]
+      \\ gvs [LUPDATE_DEF,LUPDATE_DEF,LUPDATE_LUPDATE]
+      \\ drule_at (Pos $ el 4) state_rel_LUPDATE_anyThunk
+      \\ disch_then $ drule_at (Pos $ el 3)
+      \\ disch_then drule_all \\ strip_tac \\ gvs []
+      \\ Cases_on ‘m2’ \\ gvs []
+      \\ gvs [ADD1,step_n_add,step]
+      \\ qpat_x_assum ‘step_n n (Val v,ts,tk) = (tr1,ts1,tk1)’ assume_tac
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ simp []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt $ disch_then $ drule_at $ Pos last
+      \\ disch_then $ qspec_then ‘sk’ mp_tac
+      \\ impl_tac
+      >- (irule_at Any cont_rel_ext \\ fs [])
       \\ strip_tac
-      \\ rpt (disch_then kall_tac)
-      \\ last_x_assum irule
-      \\ pop_assum $ irule_at Any \\ fs []
-      \\ qexists_tac ‘zs’ \\ qexists_tac ‘p++q’ \\ fs [step_res_rel_cases]
-      \\ irule_at Any cont_rel_ext \\ fs [LUPDATE_DEF,LUPDATE_LUPDATE]
-      \\ simp [Abbr‘ss3’]
-      \\ drule_all state_rel_LUPDATE_anyThunk \\ fs []) *)
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ rpt $ first_assum $ irule_at $ Pos hd)
     >~ [‘BoxK’] >-
      (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
       \\ ntac 3 (irule_at Any step_n_unwind \\ fs [step_n_add,step])
