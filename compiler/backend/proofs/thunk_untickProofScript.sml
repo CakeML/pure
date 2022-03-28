@@ -1363,67 +1363,12 @@ Proof
   \\ Cases_on ‘k ≤ j’ \\ gs []
 QED
 
-Theorem eval_Force:
-  eval (Force (Value v)) =
-    case dest_Tick v of
-      NONE =>
-        do
-          (wx,binds) <- dest_anyThunk v;
-          case wx of
-            INL v => return v
-          | INR y => eval (subst_funs binds y)
-        od
-    | SOME w => eval (Force (Value w))
-Proof
-  simp [Once eval_def]
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ rw []
-  >- (
-    fs [Once eval_to_def]
-    \\ IF_CASES_TAC \\ gs []
-    \\ fs [Once eval_to_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    >- (
-      Cases_on ‘dest_anyThunk v’ \\ gs []
-      \\ pairarg_tac \\ gvs []
-      \\ CASE_TAC \\ gs []
-      \\ irule eval_to_eval \\ gs [])
-    \\ irule eval_to_eval \\ gs [])
-  \\ Cases_on ‘dest_Tick v’ \\ gs []
-  >- (
-    gs [Once eval_to_def]
-    \\ gs [Once eval_to_def]
-    \\ Cases_on ‘dest_anyThunk v’ \\ gs []
-    >- (
-      first_x_assum (qspec_then ‘1’ assume_tac)
-      \\ Cases_on ‘v’ \\ gs [])
-    \\ pairarg_tac \\ gvs []
-    \\ CASE_TAC \\ gs []
-    \\ simp [eval_def]
-    \\ DEEP_INTRO_TAC some_intro \\ rw []
-    \\ first_x_assum (qspec_then ‘x + 1’ assume_tac) \\ gs [])
-  \\ simp [eval_def]
-  \\ DEEP_INTRO_TAC some_intro \\ rw []
-  \\ gs [Once eval_to_def]
-  \\ gs [Once eval_to_def]
-  \\ rename1 ‘eval_to k’
-  \\ first_x_assum (qspec_then ‘k + 1’ assume_tac) \\ gs []
-QED
-
 Theorem untick_apply_force[local]:
   v_rel v w ∧
   force v ≠ INL Type_error ⇒
     ($= +++ v_rel) (force v) (force w)
 Proof
-(*
-  strip_tac \\ irule apply_force_rel \\ gs []
-  \\ qexists_tac ‘exp_rel’
-  \\ qexists_tac ‘F’
-  \\ simp [exp_rel_eval, exp_rel_Force, exp_rel_Value]
-*)
-  ‘∀v. force v = eval (Force (Value v))’
-    by (rw [Once eval_Force] \\ rw [force_def])
-  \\ gs [] \\ pop_assum kall_tac \\ rw []
+  rw [force_eval]
   \\ irule exp_rel_eval \\ simp []
   \\ irule exp_rel_Force
   \\ irule exp_rel_Value \\ gs []

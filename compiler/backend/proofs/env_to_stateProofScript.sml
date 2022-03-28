@@ -344,10 +344,6 @@ Proof
   \\ irule env_rel_rec \\ fs []
 QED
 
-val step =
-  LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
-             application_def,dest_anyClosure_def,dest_Closure_def];
-
 Theorem eval_to_list_div:
   ∀xs t n k aux sv.
     env_rel tenv senv ∧ LIST_REL compile_rel xs t ∧
@@ -596,7 +592,7 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
     \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
     \\ rename [‘compile_rel x y’] \\ first_x_assum drule_all
-    \\ disch_then (qspecl_then [‘NONE’,‘BoxK st::k’] mp_tac)
+    \\ disch_then (qspecl_then [‘st’,‘BoxK::k’] mp_tac)
     \\ strip_tac
     \\ Cases_on ‘eval_to n tenv x’ \\ fs []
     >- (first_x_assum $ irule_at (Pos last) \\ fs [])

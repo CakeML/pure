@@ -48,6 +48,7 @@ Datatype:
       | Letrec ((vname # exp) list) exp     (* mutually recursive exps *)
       | Let (vname option) exp exp          (* non-recursive let       *)
       | If exp exp exp                      (* if-then-else            *)
+      | Case exp vname ((vname # vname list # exp) list)    (* case of *)
       | Delay exp                           (* suspend in a Thunk      *)
       | Box exp                             (* wrap result in a Thunk  *)
       | Force exp                           (* evaluates a Thunk       *)
@@ -78,9 +79,10 @@ Datatype:
          (* values in call-order, exps in reverse order *)
        | LetK env (vname option) exp
        | IfK env exp exp
-       | BoxK (state option)
+       | BoxK
        | ForceK1
        | ForceK2 (state option)
+       | CaseK env vname ((vname # vname list # exp) list)
        | RaiseK
        | HandleK env vname exp
        | HandleAppK env exp
@@ -119,11 +121,14 @@ Definition freevars_def[simp]:
   freevars (Delay e) = freevars e ∧
   freevars (Box e) = freevars e ∧
   freevars (Force e) = freevars e ∧
+  freevars (Case e v css) =
+    (freevars e ∪
+     BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v) ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
   freevars (HandleApp e1 e2) = freevars e1 ∪ freevars e2
 Termination
-  WF_REL_TAC ‘measure exp_size’
+  WF_REL_TAC `measure exp_size` >> rw[fetch "-" "exp_size_def"]
 End
 
 Definition get_atoms_def:
@@ -217,7 +222,6 @@ Definition dest_anyThunk_def:
       | SOME (f, env, n) =>
         case ALOOKUP f n of
           SOME (Delay x) => SOME (INR (env, x), f)
-        | SOME (Box x) => SOME (INR (env, x), f)
         | _ => NONE
 End
 
@@ -338,9 +342,16 @@ Definition return_def:
   return v st (LetK env NONE e :: k) = continue env e st k ∧
   return v st (LetK env (SOME x) e :: k) = continue ((x,v)::env) e st k ∧
   return v st (IfK env e1 e2 :: k) = (
+    if v = Constructor "True"  [] then continue env e1 st k else
+    if v = Constructor "False" [] then continue env e2 st k else
+      error st k) ∧
+  return v st (CaseK env n [] :: k) = error st k ∧
+  return v st (CaseK env n ((c,ns,e)::css) :: k) = (
     case v of
-      Constructor "True" [] => continue env e1 st k
-    | Constructor "False" [] => continue env e2 st k
+      Constructor c' vs =>
+        if c = c' ∧ LENGTH vs = LENGTH ns then
+          continue (ZIP (ns, vs) ++ (n,v)::env) e st k
+        else value v st (CaseK env n css :: k)
     | _ => error st k) ∧
   return v st (RaiseK :: k) = (Exn v, st, k) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
@@ -356,7 +367,7 @@ Definition return_def:
      | SOME (INL v, _) => value v st k
      | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
   return v temp_st (ForceK2 st :: k) = value v st k ∧
-  return v temp_st (BoxK st :: k) = value (Thunk $ INL v) st k
+  return v st (BoxK :: k) = value (Thunk $ INL v) st k
 End
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
@@ -373,6 +384,7 @@ Definition step_def:
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
+  step st k (Exp env $ Case e v css) = push env e st (CaseK env v css) k ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
@@ -382,7 +394,7 @@ Definition step_def:
       [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
         application sop env [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
-  step st k (Exp env $ Box e) = push env e NONE (BoxK st) k ∧
+  step st k (Exp env $ Box e) = push env e st BoxK k ∧
   step st k (Exp env $ Force e) = push env e st ForceK1 k ∧
 
   (***** Errors *****)
@@ -408,7 +420,7 @@ End
 
 (* Values and exceptions are only halting points once we have consumed the
    continuation. Errors and actions are always halting points. *)
-Definition is_halt_def:
+Definition is_halt_def[simp]:
   is_halt (Val v, st:state option, []) = T ∧
   is_halt (Exn v, st, []) = T ∧
   is_halt (Error, st, k) = T ∧
@@ -542,6 +554,63 @@ Proof
   \\ imp_res_tac step_n_mono \\ fs []
 QED
 
+Theorem step =
+  LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
+             application_def,dest_anyClosure_def,dest_Closure_def,error_def];
+
 (****************************************)
+
+Theorem step_Error[simp]:
+  ∀n ts tk tr1 ts1 tk1.
+    tr1 ≠ Error ⇒ step_n n (Error,ts,tk) ≠ (tr1,ts1,tk1)
+Proof
+  Induct \\ fs [ADD1,step_n_add,step,error_def]
+QED
+
+Theorem step_n_is_halt_SOME:
+  step_n n (tr,SOME ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧ tr1 ≠ Error ⇒
+  ∃ts2. ts1 = SOME ts2
+Proof
+  cheat
+QED
+
+Theorem step_n_cut_cont:
+  step_n n (x,s,k) = y ∧ is_halt y ⇒
+  ∃m z. m ≤ n ∧ step_n m (x,s,[]) = z ∧ is_halt z
+Proof
+  cheat
+QED
+
+Theorem step_n_NONE:
+  step_n n (Exp tenv1 te,ts,[]) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ⇒
+  step_n n (Exp tenv1 te,NONE,[]) = (tr1,NONE,tk1) ∧ (∃res. tr1 = Val res) ∨
+  ∀k. ∃ts2 tk2. step_n n (Exp tenv1 te,NONE,k) = (Error,ts2,tk2)
+Proof
+  cheat
+QED
+
+Theorem step_n_set_cont:
+  step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
+  ∀k. step_n n (Exp tenv1 te,ts,k) = (Val res,ts1,k)
+Proof
+  cheat
+QED
+
+Theorem step_n_fast_forward:
+  step_n n (sr,ss,k::ks) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
+  step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
+  ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
+Proof
+  cheat
+QED
+
+Theorem step_n_NONE_split:
+  step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
+  ∃m1 m2 v.
+    step_n m1 (Exp env x,NONE,[]) = (Val v,NONE,[]) ∧ m1 < n ∧
+    step_n m2 (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n
+Proof
+  cheat
+QED
 
 val _ = export_theory ();
