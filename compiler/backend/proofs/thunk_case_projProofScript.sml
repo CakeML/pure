@@ -1043,7 +1043,7 @@ Theorem case_proj_interp:
     interp v c s = interp w d t
 Proof
   strip_tac \\
-  rw [Once io_treeTheory.io_bisimulation] >>
+  rw [Once itreeTheory.itree_bisimulation] >>
   qexists_tac `λt1 t2.
     (t1 = t2 ∨
      ∃v c s w d t.
