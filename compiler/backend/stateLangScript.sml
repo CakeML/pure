@@ -556,9 +556,16 @@ QED
 
 Theorem step =
   LIST_CONJ [step_def,push_def,return_def,value_def,opt_bind_def,continue_def,
-             application_def,dest_anyClosure_def,dest_Closure_def];
+             application_def,dest_anyClosure_def,dest_Closure_def,error_def];
 
 (****************************************)
+
+Theorem step_Error[simp]:
+  ∀n ts tk tr1 ts1 tk1.
+    tr1 ≠ Error ⇒ step_n n (Error,ts,tk) ≠ (tr1,ts1,tk1)
+Proof
+  Induct \\ fs [ADD1,step_n_add,step,error_def]
+QED
 
 Theorem step_n_is_halt_SOME:
   step_n n (tr,SOME ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧ tr1 ≠ Error ⇒

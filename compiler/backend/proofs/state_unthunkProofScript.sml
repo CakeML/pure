@@ -1685,18 +1685,6 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Theorem step_Error[simp]:
-  tr1 ≠ Error ⇒ step_n n (Error,ts,tk) ≠ (tr1,ts1,tk1)
-Proof
-  qid_spec_tac ‘ts’
-  \\ qid_spec_tac ‘tk’
-  \\ qid_spec_tac ‘tr1’
-  \\ qid_spec_tac ‘ts1’
-  \\ qid_spec_tac ‘tk1’
-  \\ Induct_on ‘n’
-  \\ fs [ADD1,step_n_add,step,error_def]
-QED
-
 Theorem step_Bool:
   step ss k (Exp env (Bool b)) = (Val (Bool_v b),ss,k)
 Proof
@@ -1755,17 +1743,15 @@ Proof
   \\ qpat_x_assum ‘step_res_rel p tr sr’ mp_tac
   \\ simp [Once step_res_rel_cases]
   \\ strip_tac \\ gvs [is_halt_def]
-  >- cheat
-(*
   >-
    (Cases_on ‘tk’ \\ gvs [is_halt_def]
     \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons]
     \\ rename [‘cont_rel p (tk'::tk) (sk'::sk)’]
     \\ qpat_x_assum ‘cont_rel _ _ _’ mp_tac
-    \\ once_rewrite_tac [cont_rel_cases]
+    \\ simp [Once cont_rel_cases]
     \\ strip_tac \\ gvs []
-    >~ [‘ForceK1’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck+1:num’
+    >~ [‘ForceK1’] >- cheat
+  (* (Q.REFINE_EXISTS_TAC ‘ck+1:num’
       \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
       \\ (Cases_on ‘m’ >- fs [])
       \\ rewrite_tac [step_n_add,ADD1]
@@ -1875,111 +1861,110 @@ Proof
       \\ qexists_tac ‘zs’ \\ qexists_tac ‘p++q’ \\ fs [step_res_rel_cases]
       \\ irule_at Any cont_rel_ext \\ fs [LUPDATE_DEF,LUPDATE_LUPDATE]
       \\ simp [Abbr‘ss3’]
-      \\ drule_all state_rel_LUPDATE_anyThunk \\ fs [])
+      \\ drule_all state_rel_LUPDATE_anyThunk \\ fs []) *)
     >~ [‘BoxK’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
-      \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
-      \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
-                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
-                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+      \\ ntac 3 (irule_at Any step_n_unwind \\ fs [step_n_add,step])
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ drule_all state_rel_INL
+      \\ disch_then $ qspec_then ‘[]’ assume_tac
+      \\ disch_then $ drule_at Any
+      \\ simp [Once step_res_rel_cases, PULL_EXISTS]
+      \\ disch_then $ qspecl_then [‘sk’,‘Atom (Loc (LENGTH ss))’] mp_tac
+      \\ impl_tac >-
+       (irule_at Any v_rel_new_Thunk
+        \\ irule_at Any cont_rel_ext
+        \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
       \\ strip_tac
-      \\ first_x_assum irule
-      \\ pop_assum $ irule_at Any \\ fs [ADD1]
-      \\ qexists_tac ‘zs’
-      \\ simp [step_res_rel_cases]
-      \\ irule_at Any v_rel_new_Thunk
-      \\ irule_at Any cont_rel_ext
-      \\ pop_assum $ irule_at Any
-      \\ irule_at Any state_rel_INL \\ gvs []
-      \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
     >~ [‘LetK tenv n te’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
-      \\ Cases_on ‘n’ \\ simp [step]
-      \\ Cases_on ‘m’ \\ gvs [step,ADD1]
-      \\ gvs [step_n_add,ADD1,step]
-      \\ last_x_assum irule
-      \\ gvs [step_res_rel_cases,PULL_EXISTS]
+     (Cases_on ‘n'’ \\ fs [ADD1,step_n_add,step]
+      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ Cases_on ‘n’ \\ gvs [step]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt (disch_then drule)
+      \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs [])
-      \\ irule_at Any imp_env_rel_cons \\ gs [])
+      \\ drule_all imp_env_rel_cons
+      \\ metis_tac [])
     >~ [‘IfK tenv te1 te2’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1]
+     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ qpat_x_assum ‘v_rel p v1 v2’ mp_tac
       \\ Cases_on ‘v1 = True_v ∨ v1 = False_v’ \\ gvs [step]
       \\ simp [Once v_rel_cases] \\ rpt strip_tac \\ gvs []
-      \\ TRY (qexists_tac ‘0’ \\ fs [is_halt_def,error_def] \\ NO_TAC)
-      \\ Cases_on ‘m’ \\ gvs [step,ADD1]
-      \\ gvs [step_n_add,ADD1,step]
-      \\ last_x_assum irule
-      \\ gvs [step_res_rel_cases,PULL_EXISTS]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘RaiseK’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1] \\ gvs [step]
-      \\ Cases_on ‘m’ \\ gvs [step_n_add,step,ADD1]
-      \\ last_x_assum irule
-      \\ gvs [step_res_rel_cases,PULL_EXISTS]
+     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
-    >~ [‘HandleK tenv n te’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1] \\ gvs [step]
-      \\ Cases_on ‘m’ \\ gvs [step,ADD1]
-      \\ gvs [step_n_add,ADD1,step]
-      \\ last_x_assum irule
-      \\ gvs [step_res_rel_cases,PULL_EXISTS]
+    >~ [‘HandleK tenv _ te’] >-
+     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘HandleAppK tenv te’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
-      \\ rewrite_tac [step_n_add,ADD1] \\ gvs [step]
-      \\ Cases_on ‘m’ \\ gvs [step,ADD1]
-      \\ gvs [step_n_add,ADD1,step]
-      \\ last_x_assum irule
-      \\ gvs [step_res_rel_cases,PULL_EXISTS]
+     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+      \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     \\ rename [‘AppK tenv op tvs tes’]
-    \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
-    \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
-    \\ reverse (Cases_on ‘tes’) \\ fs []
+    \\ Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+    \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+    \\ reverse (Cases_on ‘tes’) \\ gvs []
     >- (* more args to evaluate *)
      (fs [return_def,continue_def]
-      \\ first_x_assum irule \\ gvs []
-      \\ last_x_assum mp_tac
-      \\ Cases_on ‘m’ \\ fs [ADD1,step,step_n_add]
-      \\ disch_then $ irule_at Any \\ fs []
-      \\ last_x_assum $ irule_at Any
-      \\ simp [Once step_res_rel_cases]
-      \\ simp [Once cont_rel_cases])
-    \\ simp [return_def]
-    \\ Cases_on ‘m’ \\ fs [ADD1,step,step_n_add]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ simp [Once cont_rel_cases,PULL_EXISTS]
+      \\ rpt (disch_then drule) \\ strip_tac
+      \\ rpt (first_assum $ irule_at Any \\ gvs []))
+    \\ gvs [return_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-    \\ IF_CASES_TAC >- (qexists_tac ‘0’ \\ gvs [error_def,is_halt_def])
+    \\ IF_CASES_TAC >- (gvs [error_def,is_halt_def])
     \\ gvs []
     \\ Cases_on ‘op = AppOp’ \\ gvs []
     >-
      (gvs [application_def]
-      \\ Cases_on ‘dest_anyClosure v1’ \\ fs []
-      >- (qexists_tac ‘0’ \\ gvs [error_def,is_halt_def])
+      \\ Cases_on ‘dest_anyClosure v1’ \\ gvs [error_def]
       \\ PairCases_on ‘x’
       \\ drule_all dest_anyClosure_v_rel
-      \\ strip_tac \\ gvs []
-      \\ Cases_on ‘svs’ \\ fs [] \\ Cases_on ‘t’ \\ gvs []
+      \\ strip_tac \\ gvs [LENGTH_EQ_NUM_compute]
       \\ gvs [continue_def]
-      \\ last_x_assum $ drule_at_then (Pos $ el 2) irule
-      \\ gvs [] \\ rpt (first_x_assum $ irule_at Any)
-      \\ simp [Once step_res_rel_cases]
-      \\ irule_at Any imp_env_rel_opt_bind \\ simp [])
-    \\ ‘∃s_. application op senv (v2::svs) (SOME ss) sk = s_’ by fs []
+      \\ last_x_assum $ drule_at_then (Pos $ el 2) mp_tac
+      \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+      \\ rpt $ disch_then $ drule_at Any
+      \\ rename [‘opt_bind z1 z2 x1’]
+      \\ drule imp_env_rel_opt_bind \\ simp []
+      \\ disch_then drule
+      \\ disch_then $ qspec_then ‘z1’ assume_tac
+      \\ disch_then drule
+      \\ strip_tac
+      \\ rpt (first_x_assum $ irule_at Any))
+    \\ ‘∃s_. application op tenv (v2::tvs) (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
-    \\ ‘∃t_. application op tenv (v1::tvs) ts tk = t_’ by fs []
+    \\ ‘∃t_. application op tenv' (v1::tvs') ts tk = t_’ by fs []
     \\ PairCases_on ‘t_’ \\ gvs []
     \\ drule_then drule application_thm
-    \\ disch_then drule \\ simp [ADD1] \\ rw []
-    >- (qexists_tac ‘0’ \\ gvs [is_halt_def])
-    \\ last_x_assum irule
-    \\ rpt (last_x_assum $ irule_at Any \\ fs []))
-*)
+    \\ disch_then drule \\ simp [ADD1] \\ rw [] \\ gvs [ADD1]
+    \\ last_x_assum $ drule_at $ Pos $ el 2
+    \\ rpt $ disch_then $ drule_at $ Pos $ last \\ fs []
+    \\ strip_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt (first_x_assum $ irule_at Any))
   >-
    (Cases_on ‘tk’ \\ gvs [is_halt_def]
     \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons]
