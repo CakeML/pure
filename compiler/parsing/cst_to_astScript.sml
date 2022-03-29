@@ -303,6 +303,14 @@ Proof
   Cases_on ‘a’ >> simp[parsetree_size_def]
 QED
 
+Theorem NUMS_LT_SUC[local,simp]:
+  (2 < SUC x ⇔ 1 < x) ∧
+  (1 < SUC x ⇔ 0 < x)
+Proof
+  simp[]
+QED
+
+
 Datatype:
   resolve_decl = resolve_declPattern patAST
                | resolve_declFun string (patAST list)
@@ -373,6 +381,12 @@ Definition astExp_def:
    else if nt1 = nExp then
      case args of
        [pt] => astExp nIExp pt
+     | [do_pt; doblock_pt] =>
+         do
+           assert (tokcheck do_pt (AlphaT "do")) ;
+           doblock <- astDoBlock doblock_pt ;
+           optLAST expDo dostmt_to_exp doblock ;
+         od
      | pt1::rest =>
          do
            assert (tokcheck pt1 IfT ∧ LENGTH rest = 5 ∧
@@ -404,10 +418,13 @@ Definition astExp_def:
            SOME $ expLet eqs body
          od ++
          do
-           assert (tokcheck pt1 (AlphaT "do") ∧ LENGTH rest = 1) ;
-           doblock_pt <- oEL 0 rest ;
-           doblock <- astDoBlock doblock_pt ;
-           optLAST expDo dostmt_to_exp doblock ;
+           assert (tokcheck pt1 CaseT ∧
+                   LIST_REL (λP pt. P pt) [K T; flip tokcheck OfT; K T] rest);
+           gdexp_pt <- oEL 0 rest;
+           gdexp <- astExp nExp gdexp_pt ;
+           patasts_pt <- oEL 2 rest;
+           patasts <- astPatAlts patasts_pt ;
+           SOME $ expCase gdexp patasts
          od
      | _ => NONE
    else if nt1 = nIExp then
@@ -493,16 +510,37 @@ Definition astExp_def:
   (astDoBlock (Lf _) = NONE) ∧
   (astDoBlock (Nd nt args) =
    if FST nt ≠ INL nDoBlock then NONE
-   else OPT_MMAP astDoStmt args)
+   else OPT_MMAP astDoStmt args) ∧
+  (astPatAlts (Lf _) = NONE) ∧
+  (astPatAlts (Nd nt args) =
+   if FST nt ≠ INL nPatAlts then NONE
+   else OPT_MMAP astPatAlt args) ∧
+  (astPatAlt (Lf _) = NONE) ∧
+  (astPatAlt (Nd nt args) =
+   if FST nt ≠ INL nPatAlt then NONE
+   else
+     case args of
+       [pat_pt; arrow; exp_pt] =>
+         do
+           assert (tokcheck arrow ArrowT);
+           ep <- astExp nExp pat_pt ;
+           p <- exp_to_pat ep ;
+           e <- astExp nExp exp_pt ;
+           SOME (p,e)
+         od
+     | _ => NONE)
 Termination
   WF_REL_TAC ‘measure (λs. case s of
-     (* astExp *)          | INL (_, pt) => ptsize pt
-     (* astSepExp *)       | INR (INL (_, pts)) => 1 + SUM (MAP ptsize pts)
-     (* astExpDec *)       | INR (INR (INL pt)) => ptsize pt
-     (* astDoStmt *)       | INR (INR (INR (INL pt))) => ptsize pt
-     (* astDoBlock *)      | INR (INR (INR (INR pt))) => ptsize pt)’ >>
-  simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM] >>
-  rpt strip_tac >> simp[arithmeticTheory.ZERO_LESS_ADD] >>
+     (* astExp *)        | INL (_, pt) => ptsize pt
+     (* astSepExp *)     | INR (INL (_, pts)) => 1 + SUM (MAP ptsize pts)
+     (* astExpDec *)     | INR (INR (INL pt)) => ptsize pt
+     (* astDoStmt *)     | INR (INR (INR (INL pt))) => ptsize pt
+     (* astDoBlock *)    | INR (INR (INR (INR (INL pt)))) => ptsize pt
+     (* astPatAsts *)    | INR $ INR $ INR $ INR $ INR $ INL pt => ptsize pt
+     (* astPatAst *)     | INR $ INR $ INR $ INR $ INR $ INR pt => ptsize pt)’>>
+  simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM,
+       quantHeuristicsTheory.LIST_LENGTH_1] >>
+  rpt strip_tac >> simp[arithmeticTheory.ZERO_LESS_ADD] >> gvs[] >>
   TRY (drule_then strip_assume_tac grab_EQ_SOME_APPEND >>
        pop_assum (assume_tac o Q.AP_TERM ‘SUM o MAP ptsize’) >>
        gs[listTheory.SUM_APPEND]) >~

@@ -87,5 +87,10 @@ val _ = app fptest [
                          expdecTysig "f" (funTy intTy intTy);
                          expdecFunbind "f" [patVar "z"] (‹+› ⬝ ‹z› ⬝ 𝕀 1)];
            expdostmtBind (patVar "x") (‹g› ⬝ (‹f› ⬝ ‹y›) ⬝ 𝕀 3)]
-          (‹foo› ⬝ ‹x›)”)
+          (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "case e of [] -> 3\n\
+           \          h:t -> 4",
+   “astExp nExp”,
+   “expCase ‹e› [(patApp "[]" [], 𝕀 3);
+                 (patApp ":" [patVar "h"; patVar "t"], 𝕀 4)]”)
 ]

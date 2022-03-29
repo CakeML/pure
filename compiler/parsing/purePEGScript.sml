@@ -205,7 +205,7 @@ Definition purePEG_def[nocompute]:
                   seql [tokEQ ((=) CaseT); NTGE nExp; tokGE ((=) OfT);
                         NTGE nPatAlts] (mkNT nExp);
                  ]);
-        (INL nPatAlts, rpt (NTEQ nPatAlt) FLAT);
+        (INL nPatAlts, pegf (rpt (NTEQ nPatAlt) FLAT) (mkNT nPatAlts));
         (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) ArrowT); NTGT nExp]
                            (mkNT nPatAlt));
         (INL nExp,
@@ -415,5 +415,9 @@ val caseexp2 =
   test “nExp” "case h\n\
               \of y->4\n\
               \   z-> 5"
+
+val caseexp3 =
+  test “nExp” "case e of [] -> 3\n\
+              \          h:t -> 4"
 
 val _ = export_theory();
