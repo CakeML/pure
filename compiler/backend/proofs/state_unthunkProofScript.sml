@@ -29,12 +29,12 @@ Overload "box" = “λx. App Ref [True; x]”
 Overload "delay" = “λx. App Ref [False; Lam NONE x]”
 
 Overload "force_lets" = “
-  Let (SOME "v1") (App UnsafeSub [IntLit 0; Var "v"]) $
-  Let (SOME "v2") (App UnsafeSub [IntLit 1; Var "v"]) $
+  Let (SOME "v1") (App UnsafeSub [Var "v"; IntLit 0]) $
+  Let (SOME "v2") (App UnsafeSub [Var "v"; IntLit 1]) $
     If (Var "v1") (Var "v2") $
       Let (SOME "wh") (app (Var "v2") Unit) $
-      Let NONE (App UnsafeUpdate [IntLit 0; Var "v"; True]) $
-      Let NONE (App UnsafeUpdate [IntLit 1; Var "v"; Var "wh"]) $
+      Let NONE (App UnsafeUpdate [Var "v"; IntLit 0; True]) $
+      Let NONE (App UnsafeUpdate [Var "v"; IntLit 1; Var "wh"]) $
         Var "wh"”
 
 Overload "force" = “λx. Let (SOME "v") x force_lets”
@@ -88,7 +88,7 @@ End
 
 Definition unsafe_update_def:
   unsafe_update (v,b,y) =
-    (NONE:string option, App UnsafeUpdate [IntLit 1; Var v; if b then y else Lam NONE y])
+    (NONE:string option, App UnsafeUpdate [Var v; IntLit 1; if b then y else Lam NONE y])
 End
 
 Definition comp_Letrec_def:
@@ -1045,11 +1045,11 @@ Proof
              \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
   \\ reverse IF_CASES_TAC
   >-
-    (ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+    (ntac 5 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
              \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
      \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-     \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
      \\ gvs [oEL_THM,EL_APPEND2]
@@ -1065,11 +1065,11 @@ Proof
      \\ strip_tac \\ qexists_tac ‘k’ \\ fs [Letrec_store_def])
   \\ Cases_on ‘∃v3 e3. h2 = Lam v3 e3’ \\ gvs []
   >-
-    (ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+    (ntac 5 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
              \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
      \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-     \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+     \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
                 >- (rw [] \\ fs [is_halt_def]) \\ fs []
                 \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
      \\ gvs [oEL_THM,EL_APPEND2]
@@ -1090,11 +1090,11 @@ Proof
   \\ Cases_on ‘ALOOKUP (env1 ++
            make_let_env delays (LENGTH ss + 1)
              ((h0,Atom (Loc (LENGTH ss)))::env2)) vv’ \\ fs []
-  \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+  \\ ntac 5 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
              \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
   \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-  \\ ntac 3 (rename [‘step_n nn’] \\ Cases_on ‘nn’
+  \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’
              >- (rw [] \\ fs [is_halt_def]) \\ fs []
              \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
   \\ gvs [oEL_THM,EL_APPEND2]
@@ -1142,11 +1142,11 @@ Proof
   \\ irule_at Any step_n_unwind
   \\ once_rewrite_tac [step_n_add] \\ fs [step]
   \\ reverse IF_CASES_TAC
-  >-
-   (ntac 3 (irule_at Any step_n_unwind
-            \\ once_rewrite_tac [step_n_add] \\ fs [step])
+  >- (
+    ntac 5 (irule_at Any step_n_unwind
+            \\ once_rewrite_tac [step_n_add] \\ fs [step, get_atoms_def])
     \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-    \\ ntac 3 (irule_at Any step_n_unwind
+    \\ ntac 1 (irule_at Any step_n_unwind
                \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
     \\ gvs [oEL_THM,EL_APPEND2]
     \\ ntac 1 (irule_at Any step_n_unwind
@@ -1160,11 +1160,11 @@ Proof
     \\ impl_tac >- fs [Letrec_store_def]
     \\ strip_tac \\ fs [])
   \\ Cases_on ‘∃v3 e3. h2 = Lam v3 e3’ \\ gvs []
-  >-
-   (ntac 3 (irule_at Any step_n_unwind
-            \\ once_rewrite_tac [step_n_add] \\ fs [step])
+  >- (
+    ntac 5 (irule_at Any step_n_unwind
+            \\ once_rewrite_tac [step_n_add] \\ fs [step, get_atoms_def])
     \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-    \\ ntac 3 (irule_at Any step_n_unwind
+    \\ ntac 1 (irule_at Any step_n_unwind
                \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
     \\ gvs [oEL_THM,EL_APPEND2]
     \\ ntac 1 (irule_at Any step_n_unwind
@@ -1184,10 +1184,10 @@ Proof
   \\ Cases_on ‘ALOOKUP (env1 ++
            make_let_env delays (LENGTH ss + 1)
              ((h0,Atom (Loc (LENGTH ss)))::env2)) vv’ \\ fs []
-  \\ ntac 3 (irule_at Any step_n_unwind
-             \\ once_rewrite_tac [step_n_add] \\ fs [step])
+  \\ ntac 5 (irule_at Any step_n_unwind
+             \\ once_rewrite_tac [step_n_add] \\ fs [step, get_atoms_def])
   \\ fs [ALOOKUP_APPEND,GSYM ALOOKUP_NONE,ALOOKUP_make_let_env]
-  \\ ntac 3 (irule_at Any step_n_unwind
+  \\ ntac 1 (irule_at Any step_n_unwind
              \\ once_rewrite_tac [step_n_add] \\ fs [step,get_atoms_def])
   \\ gvs [oEL_THM,EL_APPEND2]
   \\ ntac 1 (irule_at Any step_n_unwind

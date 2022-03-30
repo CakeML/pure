@@ -547,21 +547,22 @@ Proof
     \\ simp_tac std_ss [rel_ok_def] \\ strip_tac \\ gs [] \\ res_tac \\ gvs []
     \\ simp [Once next_def]
     \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
-    \\ simp [with_atoms_def, force_list_def]
+    \\ simp [with_atoms_def, result_map_def] \\ gvs[]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, force_list_def])
+          \\ gs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
     >- (
-      CASE_TAC \\ gs [])
+      Cases_on `x'` \\ gs []
+      )
     \\ gvs []
     \\ rename1 ‘Rv a b’
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
     \\ CASE_TAC \\ gs []
-    \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+    \\ gs [Once next_def, with_atoms_def, get_atoms_def, result_map_def])
   \\ print_tac "[6/9] Alloc"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Alloc *)
@@ -572,29 +573,26 @@ Proof
     \\ simp [Abbr ‘X’]
     \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
             DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
-    \\ rgs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, result_map_def] \\ gvs[]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ rgs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
     >- (
-      CASE_TAC \\ gs [])
+      Cases_on `x'` \\ gs [])
     \\ gvs []
     \\ rename1 ‘Rv a b’
-    \\ rgs [Once next_def, with_atoms_def, force_list_def]
+    \\ rgs [Once next_def, with_atoms_def, result_map_def]
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum irule \\ gs []
     \\ simp [PULL_EXISTS]
     \\ qexists_tac ‘[Int i]’ \\ simp []
-    \\ gs [state_rel_def, LIST_REL_REPLICATE_same]
-    \\ ‘LENGTH s = LENGTH t’ by gs [LIST_REL_EL_EQN] \\ gs []
-    \\ strip_tac \\ gvs []
-    \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+    \\ gs [state_rel_def, LIST_REL_REPLICATE_same, LIST_REL_EL_EQN])
   \\ print_tac "[7/9] Length"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Length *)
@@ -605,19 +603,19 @@ Proof
     \\ simp [Abbr ‘X’]
     \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
            DECIDE “∀x. x < 1n ⇔ x = 0”, SF DNF_ss]
-    \\ rgs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, result_map_def]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ rgs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
     >- (
-      CASE_TAC \\ gs [])
+      Cases_on `x'` \\ gs [])
     \\ gvs []
     \\ rename1 ‘Rv a b’
-    \\ rgs [Once next_def, with_atoms_def, force_list_def]
+    \\ rgs [Once next_def, with_atoms_def, result_map_def]
     \\ Cases_on ‘a’ \\ Cases_on ‘b’ \\ res_tac \\ gvs [get_atoms_def]
     \\ gvs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
@@ -632,7 +630,8 @@ Proof
       by gvs [state_rel_def, LIST_REL_EL_EQN]
     \\ gs []
     \\ strip_tac \\ gvs []
-    \\ gs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
+    \\ simp[Once next_def]
+    )
   \\ print_tac "[8/9] Deref"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Deref *)
@@ -643,62 +642,74 @@ Proof
     \\ simp [Abbr ‘X’]
     \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
            DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
-    \\ rgs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, result_map_def] \\ gvs[]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ rgs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (
-      CASE_TAC \\ gs [])
-    \\ gvs []
-    \\ qmatch_goalsub_rename_tac ‘force a’
+    \\ qmatch_goalsub_rename_tac `_ ∨ force a = _`
     \\ rename1 ‘Rv a b’
-    \\ rgs [Once next_def, with_atoms_def, force_list_def]
     \\ ‘¬allow_error ⇒ force a ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ rgs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force a) (force b)’
       by gs []
-    \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ gvs [get_atoms_def]
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ fs[]
     >- (
-      CASE_TAC \\ gs [])
+      Cases_on `x'` \\ fs[]
+      \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ fs[]
+      \\ Cases_on `x''` \\ gvs[]
+      )
+    \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ fs[]
+    >- (
+      Cases_on `x'` \\ fs[]
+      )
+    \\ gvs []
     \\ rename1 ‘force v = INR v1’
     \\ rename1 ‘force a = INR v2’
     \\ rename1 ‘force w = INR w1’
     \\ rename1 ‘force b = INR w2’
     \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ res_tac \\ gvs [get_atoms_def]
     \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ res_tac \\ gvs [get_atoms_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ ‘LENGTH s = LENGTH t’
-      by gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    \\ ‘LENGTH (EL n s) = LENGTH (EL n t)’
-      by gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ IF_CASES_TAC \\ gs []
     >- (
-      first_x_assum irule \\ gs []
+      BasicProvers.TOP_CASE_TAC \\ gs []
+      \\ BasicProvers.TOP_CASE_TAC \\ gs []
+      \\ ‘LENGTH s = LENGTH t’
+        by gs [state_rel_def, LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      \\ ‘LENGTH (EL n s) = LENGTH (EL n t)’
+        by gs [state_rel_def, LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        first_x_assum irule \\ gs []
+        \\ simp [PULL_EXISTS]
+        \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
+        \\ gs [state_rel_def, LIST_REL_EL_EQN, arithmeticTheory.NOT_LESS_EQUAL]
+        \\ first_x_assum (irule_at Any)
+        \\ last_x_assum (drule_then strip_assume_tac)
+        \\ first_x_assum (irule_at Any)
+        \\ rw [] >- intLib.ARITH_TAC
+        \\ rgs [Once next_def, with_atoms_def, get_atoms_def, result_map_def])
+      >- (
+        first_x_assum irule \\ gs []
+        \\ simp [PULL_EXISTS]
+        \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
+        \\ strip_tac \\ gvs []
+        \\ rgs [Once next_def, with_atoms_def, get_atoms_def, result_map_def])
+      \\ last_x_assum irule \\ gs []
       \\ simp [PULL_EXISTS]
       \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-      \\ gs [state_rel_def, LIST_REL_EL_EQN, arithmeticTheory.NOT_LESS_EQUAL]
-      \\ first_x_assum (irule_at Any)
-      \\ last_x_assum (drule_then strip_assume_tac)
-      \\ first_x_assum (irule_at Any)
-      \\ rw [] >- intLib.ARITH_TAC
-      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-    >- (
-      first_x_assum irule \\ gs []
-      \\ simp [PULL_EXISTS]
-      \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-      \\ strip_tac \\ gvs []
-      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-    \\ last_x_assum irule \\ gs []
-    \\ simp [PULL_EXISTS]
-    \\ qexists_tac ‘[Loc n; Int i]’ \\ simp [])
+      \\ rw[] \\ gvs[]
+      \\ qpat_x_assum `_ ≠ Err` mp_tac
+      \\ simp[Once next_def, with_atoms_def, result_map_def, get_atoms_def]
+      )
+    \\ irule FALSITY
+    \\ qpat_x_assum `_ ≠ Err` mp_tac
+    \\ simp[Once next_def, with_atoms_def, result_map_def, get_atoms_def]
+    )
   \\ print_tac "[9/9] Update"
   \\ IF_CASES_TAC \\ gs []
   >- ((* Update *)
@@ -709,60 +720,71 @@ Proof
     \\ simp [Abbr ‘X’]
     \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
            DECIDE “∀x. x < 3n ⇔ x = 0 ∨ x = 1 ∨ x = 2”, SF DNF_ss]
-    \\ rgs [with_atoms_def, force_list_def]
+    \\ rgs [with_atoms_def, result_map_def] \\ gvs[]
     \\ rename1 ‘Rv v w’
     \\ ‘¬allow_error ⇒ force v ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ rgs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force v) (force w)’
       by gs []
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (
-      CASE_TAC \\ gs [])
-    \\ gvs []
-    \\ qmatch_goalsub_rename_tac ‘force a’
+    \\ qmatch_goalsub_rename_tac `_ ∨ force a = _`
     \\ rename1 ‘Rv a b’
-    \\ rgs [Once next_def, with_atoms_def, force_list_def]
     \\ ‘¬allow_error ⇒ force a ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
-          \\ rgs [Once next_def, with_atoms_def, force_list_def])
+          \\ rgs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (force a) (force b)’
       by gs []
-    \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ gvs [get_atoms_def]
+    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ fs[]
     >- (
-      CASE_TAC \\ gs [])
+      Cases_on `x'` \\ fs[]
+      \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ fs[]
+      \\ Cases_on `x''` \\ gvs[]
+      )
+    \\ Cases_on ‘force a’ \\ Cases_on ‘force b’ \\ fs[]
+    >- (
+      Cases_on `x'` \\ fs[]
+      )
     \\ rename1 ‘force v = INR v1’
     \\ rename1 ‘force a = INR v2’
     \\ rename1 ‘force w = INR w1’
     \\ rename1 ‘force b = INR w2’
     \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ res_tac \\ gvs [get_atoms_def]
     \\ Cases_on ‘v2’ \\ Cases_on ‘w2’ \\ res_tac \\ gvs [get_atoms_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ ‘LENGTH s = LENGTH t’
-      by gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    \\ ‘LENGTH (EL n s) = LENGTH (EL n t)’
-      by gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ IF_CASES_TAC \\ gs []
     >- (
-      last_x_assum irule \\ gs []
+      BasicProvers.TOP_CASE_TAC \\ gs []
+      \\ BasicProvers.TOP_CASE_TAC \\ gs []
+      \\ ‘LENGTH s = LENGTH t’
+        by gs [state_rel_def, LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      \\ IF_CASES_TAC \\ gs []
+      \\ ‘LENGTH (EL n s) = LENGTH (EL n t)’
+        by gs [state_rel_def, LIST_REL_EL_EQN]
+      \\ IF_CASES_TAC \\ gs []
+      >- (
+        last_x_assum irule \\ gs []
+        \\ simp [PULL_EXISTS]
+        \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
+        \\ rw [] \\ rw [LENGTH_LUPDATE]
+        \\ rw [EL_LUPDATE]
+        \\ rgs [Once next_def, with_atoms_def, get_atoms_def, result_map_def])
+      >- (
+        first_x_assum irule \\ gs []
+        \\ simp [PULL_EXISTS]
+        \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
+        \\ strip_tac \\ gvs []
+        \\ rgs [Once next_def, with_atoms_def, get_atoms_def, result_map_def])
+      \\ last_x_assum irule \\ gs []
       \\ simp [PULL_EXISTS]
       \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-      \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
-      \\ rw [] \\ rw [LENGTH_LUPDATE]
-      \\ rw [EL_LUPDATE]
-      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-    >- (
-      first_x_assum irule \\ gs []
-      \\ simp [PULL_EXISTS]
-      \\ qexists_tac ‘[Loc n; Int i]’ \\ simp []
-      \\ strip_tac \\ gvs []
-      \\ rgs [Once next_def, with_atoms_def, force_list_def, get_atoms_def])
-    \\ last_x_assum irule \\ gs []
-    \\ simp [PULL_EXISTS]
-    \\ qexists_tac ‘[Loc n; Int i]’ \\ simp [])
+      \\ rw[] \\ gvs[]
+      \\ qpat_x_assum `_ ≠ Err` mp_tac
+      \\ simp[Once next_def, with_atoms_def, result_map_def, get_atoms_def]
+      )
+    \\ irule FALSITY
+    \\ qpat_x_assum `_ ≠ Err` mp_tac
+    \\ simp[Once next_def, with_atoms_def, result_map_def, get_atoms_def]
+    )
   \\ gs [rel_ok_def]
   \\ res_tac \\ gvs [] \\ imp_res_tac LIST_REL_LENGTH
   \\ rw [Once next_def] \\ gs []

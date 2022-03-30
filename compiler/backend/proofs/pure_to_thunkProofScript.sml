@@ -2318,7 +2318,7 @@ Proof
             pure_semanticsTheory.with_atoms_def,
             thunk_semanticsTheory.with_atoms_def]
     \\ IF_CASES_TAC \\ gs []
-    \\ gvs [force_list_def, force_def, thunk_rel_def, dest_anyThunk_def,
+    \\ gvs [result_map_def, force_def, thunk_rel_def, dest_anyThunk_def,
             subst_funs_def]
     \\ drule_all_then assume_tac exp_rel_eval
     \\ rename1 ‘v_rel (eval_wh x) (eval y)’
@@ -2341,7 +2341,7 @@ Proof
     \\ rename1 ‘thunk_rel x2 y2’
     \\ ‘eval_wh x2 ≠ wh_Error’
       by (strip_tac \\ gs [])
-    \\ rgs [thunk_rel_def, force_list_def, force_def, dest_anyThunk_def,
+    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
             subst_funs_def] \\ gvs []
     \\ drule_all_then assume_tac exp_rel_eval
     \\ rename1 ‘v_rel (eval_wh x2) (eval y2)’
@@ -2371,7 +2371,7 @@ Proof
     \\ rename1 ‘thunk_rel x y’
     \\ ‘eval_wh x ≠ wh_Error’
       by (strip_tac \\ gs [])
-    \\ rgs [thunk_rel_def, force_list_def, force_def, dest_anyThunk_def,
+    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
             subst_funs_def] \\ gvs []
     \\ drule_all_then assume_tac exp_rel_eval
     \\ rename1 ‘v_rel (eval_wh x) (eval y)’
@@ -2405,7 +2405,7 @@ Proof
             pure_semanticsTheory.with_atoms_def,
             thunk_semanticsTheory.with_atoms_def,
             pure_semanticsTheory.with_atom2_def]
-    \\ rgs [thunk_rel_def, force_list_def, force_def, dest_anyThunk_def,
+    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
             subst_funs_def] \\ gvs []
     \\ ‘eval_wh x1 ≠ wh_Error’
       by (strip_tac \\ gs [])
@@ -2416,12 +2416,13 @@ Proof
     \\ rename1 ‘v_rel (eval_wh x1) (eval y1)’
     \\ rename1 ‘v_rel (eval_wh x2) (eval y2)’
     \\ gs []
+    \\ Cases_on `eval y1 = INL Type_error` \\ gs []
+    \\ Cases_on `eval y2 = INL Type_error` \\ gs []
     \\ IF_CASES_TAC \\ gs []
     >- (
       Cases_on ‘eval y1’ \\ gs [])
     >- (
-      Cases_on ‘eval y2’ \\ gs []
-      \\ Cases_on ‘eval y1’ \\ gs [])
+      Cases_on ‘eval y2’ \\ gs [])
     \\ Cases_on ‘eval_wh x1’ \\ Cases_on ‘eval_wh x2’
     \\ gs [pure_semanticsTheory.get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
@@ -2463,11 +2464,9 @@ Proof
     \\ first_assum (irule_at Any)
     \\ first_assum (irule_at Any) \\ gs []
     \\ gs [thunk_rel_def]
-    \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
-      by gs []
-    \\ pop_assum SUBST1_TAC
-    \\ simp [exp_rel_Cons]
-    \\ intLib.ARITH_TAC)
+    \\ simp[Once exp_rel_cases]
+    \\ intLib.ARITH_TAC
+    )
   \\ IF_CASES_TAC \\ gs []
   >- ((* Update *)
     simp [Once thunk_semanticsTheory.next_def]
@@ -2480,7 +2479,7 @@ Proof
             pure_semanticsTheory.with_atoms_def,
             thunk_semanticsTheory.with_atoms_def,
             pure_semanticsTheory.with_atom2_def]
-    \\ rgs [thunk_rel_def, force_list_def, force_def, dest_anyThunk_def,
+    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
             subst_funs_def] \\ gvs []
     \\ ‘eval_wh x1 ≠ wh_Error’
       by (strip_tac \\ gs [])
@@ -2491,12 +2490,13 @@ Proof
     \\ rename1 ‘v_rel (eval_wh x1) (eval y1)’
     \\ rename1 ‘v_rel (eval_wh x2) (eval y2)’
     \\ rgs []
+    \\ Cases_on `eval y1 = INL Type_error` \\ gs []
+    \\ Cases_on `eval y2 = INL Type_error` \\ gs []
     \\ IF_CASES_TAC \\ gs []
     >- (
       Cases_on ‘eval y1’ \\ gs [])
     >- (
-      Cases_on ‘eval y2’ \\ gs []
-      \\ Cases_on ‘eval y1’ \\ gs [])
+      Cases_on ‘eval y2’ \\ gs [])
     \\ Cases_on ‘eval_wh x1’ \\ Cases_on ‘eval_wh x2’
     \\ gs [pure_semanticsTheory.get_atoms_def]
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
@@ -2538,11 +2538,7 @@ Proof
     \\ IF_CASES_TAC \\ gs [arithmeticTheory.NOT_LESS_EQUAL, state_rel_def,
                            LIST_REL_EL_EQN]
     \\ first_x_assum irule \\ gs []
-    \\ simp [thunk_rel_def]
-    \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
-      by gs []
-    \\ pop_assum SUBST1_TAC
-    \\ simp [exp_rel_Cons]
+    \\ simp [thunk_rel_def, Once exp_rel_cases]
     \\ intLib.ARITH_TAC)
   \\ rw [Once thunk_semanticsTheory.next_def]
 QED

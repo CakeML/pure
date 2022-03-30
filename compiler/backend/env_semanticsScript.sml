@@ -35,15 +35,6 @@ Definition force_def:
     od
 End
 
-Definition force_list_def:
-  force_list [] = INR [] ∧
-  force_list (v::vs) =
-    case (force v, force_list vs) of
-    | (INL err, _)    => INL err
-    | (_, INL err)    => INL err
-    | (INR w, INR ws) => INR (w::ws)
-End
-
 Definition get_atoms_def:
   get_atoms [] = SOME [] ∧
   get_atoms (Atom a :: xs) = OPTION_MAP (λas. a::as) (get_atoms xs) ∧
@@ -52,7 +43,7 @@ End
 
 Definition with_atoms_def:
   with_atoms vs f =
-    case force_list vs of
+    case result_map force vs of
     | INL Diverge => Div
     | INL Type_error => Err
     | INR ws =>
@@ -263,25 +254,25 @@ Proof
     ) >>
   Cases_on `s = "Alloc"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 4 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Int i]` >> simp[]
     ) >>
   Cases_on `s = "Length"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 5 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n]` >> simp[]
     ) >>
   Cases_on `s = "Deref"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     ) >>
   Cases_on `s = "Update"` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def,force_list_def] >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     )
