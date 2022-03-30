@@ -835,14 +835,15 @@ Proof
       by gs [DECIDE “∀n. n < 1n ⇔ n = 0”]
     \\ qmatch_goalsub_abbrev_tac ‘next_rel X’
     \\ simp [Once next_def] \\ simp [Abbr ‘X’]
-    \\ simp [with_atoms_def, force_list_def]
+    \\ simp [with_atoms_def, result_map_def]
     \\ ‘($= +++ v_rel) (force v) (force w)’
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs[])
+    >- (
+      Cases_on `x'` \\ gs[]
+      )
     \\ rename1 ‘v_rel v1 w1’
     \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [get_atoms_def, v_rel_def]
     \\ CASE_TAC \\ gs [])
@@ -859,10 +860,10 @@ Proof
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
-    \\ simp [with_atoms_def, force_list_def]
+    \\ simp [with_atoms_def, result_map_def]
     \\ Cases_on ‘force v1’ \\ Cases_on ‘force w1’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs [])
+    >- (
+      Cases_on ‘x'’ \\ gs [])
     \\ rename1 ‘v_rel v3 w3’
     \\ Cases_on ‘v3’ \\ Cases_on ‘w3’ \\ gvs [get_atoms_def, v_rel_def]
     \\ CASE_TAC \\ gs []
@@ -881,14 +882,14 @@ Proof
       by gs [DECIDE “∀n. n < 1n ⇔ n = 0”]
     \\ qmatch_goalsub_abbrev_tac ‘next_rel X’
     \\ simp [Once next_def] \\ simp [Abbr ‘X’]
-    \\ simp [with_atoms_def, force_list_def]
+    \\ simp [with_atoms_def, result_map_def]
     \\ ‘($= +++ v_rel) (force v) (force w)’
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
     \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs[])
+    >- (
+      Cases_on ‘x'’ \\ gs[])
     \\ rename1 ‘v_rel v1 w1’
     \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [get_atoms_def, v_rel_def]
     \\ ‘LENGTH s = LENGTH t’
@@ -913,18 +914,25 @@ Proof
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
-    \\ simp [with_atoms_def, force_list_def]
+    \\ ‘($= +++ v_rel) (force v2) (force w2)’
+      by (simp [force_eval]
+          \\ irule exp_rel_eval
+          \\ gs [exp_rel_Force, exp_rel_Value])
+    \\ simp [with_atoms_def, result_map_def]
     \\ Cases_on ‘force v1’ \\ Cases_on ‘force w1’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs [])
+    >- (
+      Cases_on `x'` \\ gs []
+      \\ Cases_on ‘force v2’ \\ Cases_on ‘force w2’ \\ gs []
+      \\ Cases_on `x''` \\ gs []
+      )
     \\ rename1 ‘v_rel v3 w3’
     \\ ‘($= +++ v_rel) (force v2) (force w2)’
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
     \\ Cases_on ‘force v2’ \\ Cases_on ‘force w2’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs [])
+    >- (
+      Cases_on ‘x'’ \\ gs [])
     \\ rename1 ‘v_rel v4 w4’
     \\ Cases_on ‘v3’ \\ Cases_on ‘w3’ \\ gvs [get_atoms_def, v_rel_def]
     \\ Cases_on ‘v4’ \\ Cases_on ‘w4’ \\ gvs [get_atoms_def, v_rel_def]
@@ -967,18 +975,21 @@ Proof
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
-    \\ simp [with_atoms_def, force_list_def]
-    \\ Cases_on ‘force v1’ \\ Cases_on ‘force w1’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs [])
-    \\ rename1 ‘v_rel v4 w4’
     \\ ‘($= +++ v_rel) (force v2) (force w2)’
       by (simp [force_eval]
           \\ irule exp_rel_eval
           \\ gs [exp_rel_Force, exp_rel_Value])
+    \\ simp [with_atoms_def, result_map_def]
+    \\ Cases_on ‘force v1’ \\ Cases_on ‘force w1’ \\ gs []
+    >- (
+      Cases_on `x'` \\ gs []
+      \\ Cases_on ‘force v2’ \\ Cases_on ‘force w2’ \\ gs []
+      \\ Cases_on `x''` \\ gs []
+      )
+    \\ rename1 ‘v_rel v4 w4’
     \\ Cases_on ‘force v2’ \\ Cases_on ‘force w2’ \\ gs []
-    >~ [‘INL err’] >- (
-      Cases_on ‘err’ \\ gs [])
+    >- (
+      Cases_on ‘x'’ \\ gs [])
     \\ rename1 ‘v_rel v5 w5’
     \\ Cases_on ‘v4’ \\ Cases_on ‘w4’ \\ gvs [get_atoms_def, v_rel_def]
     \\ Cases_on ‘v5’ \\ Cases_on ‘w5’ \\ gvs [get_atoms_def, v_rel_def]
