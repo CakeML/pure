@@ -347,7 +347,8 @@ Definition return_def:
       error st k) ∧
   return v st (CaseK env n [] :: k) = error st k ∧
   return v st (CaseK env n ((c,ns,e)::css) :: k) = (
-    case v of
+    if MEM n ns ∨ MEM n (FLAT (MAP (FST o SND) css)) then error st k
+    else case v of
       Constructor c' vs =>
         if c = c' ∧ LENGTH vs = LENGTH ns then
           continue (ZIP (ns, vs) ++ (n,v)::env) e st k
@@ -384,7 +385,9 @@ Definition step_def:
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
-  step st k (Exp env $ Case e v css) = push env e st (CaseK env v css) k ∧
+  step st k (Exp env $ Case e v css) = (
+    if MEM v (FLAT (MAP (FST o SND) css)) then error st k
+    else push env e st (CaseK env v css) k) ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
