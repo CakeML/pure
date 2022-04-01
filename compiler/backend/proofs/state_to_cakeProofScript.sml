@@ -4,8 +4,9 @@
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     rich_listTheory arithmeticTheory
-open pure_miscTheory pure_configTheory stateLangTheory itree_semanticsTheory;
+     rich_listTheory arithmeticTheory;
+open semanticPrimitivesTheory itree_semanticsTheory;
+open pure_miscTheory pure_configTheory stateLangTheory;
 
 val _ = new_theory "state_to_cakeProof";
 
@@ -291,6 +292,155 @@ End
 Definition state_ok_def:
   state_ok st ⇔
     ∃ws. store_lookup 0 st = SOME $ W8array ws ∧ LENGTH ws = max_FFI_return_size
+End
+
+Definition list_to_cont_def:
+  list_to_cont env [] = [] ∧
+  list_to_cont env (e::es) =
+    (Ccon (SOME $ Short "::") [] [e], env) :: (list_to_cont env es)
+End
+
+Inductive cont_rel:
+[~TupleK:]
+  (LIST_REL (v_rel cnenv) svs cvs ∧
+   LIST_REL (compile_rel cnenv) ses ces ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (Cons "") svs ses :: sk)
+                     ((Ccon NONE cvs ces, cenv) :: ck)) ∧
+
+[~ConsK:]
+  (LIST_REL (v_rel cnenv) svs cvs ∧
+   LIST_REL (compile_rel cnenv) ses ces ∧
+   ALOOKUP cnenv cn = SOME (tyid,ar) ∧
+   ar = LENGTH ses ∧ cn ≠ "" ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (Cons cn) svs ses :: sk)
+                     ((Ccon (SOME $ Short cn) cvs ces, cenv) :: ck)) ∧
+
+[~AppK:]
+  (op_rel sop cop ∧
+   LIST_REL (v_rel cnenv) svs cvs ∧
+   LIST_REL (compile_rel cnenv) ses ces ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv sop svs ses :: sk)
+                     ((Capp cop cvs ces, cenv) :: ck)) ∧
+
+[~Divide1:]
+  (compile_rel cnenv se1 ce1 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Div) [] [se1] :: sk)
+                     ((Clet (SOME "v2") (clet "v1" ce1 div), cenv) :: ck)) ∧
+
+[~Divide2:]
+  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Div) [sv2] [] :: sk)
+                     ((Clet (SOME "v1") div, cenv) :: ck)) ∧
+
+[~Modulo1:]
+  (compile_rel cnenv se1 ce1 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Mod) [] [se1] :: sk)
+                     ((Clet (SOME "v2") (clet "v1" ce1 mod), cenv) :: ck)) ∧
+
+[~Modulo2:]
+  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Mod) [sv2] [] :: sk)
+                     ((Clet (SOME "v1") mod, cenv) :: ck)) ∧
+
+[~Concat:]
+  (LIST_REL (compile_rel cnenv) ses ces ∧
+   LIST_REL (v_rel cnenv) svs cvs ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+  ⇒ cont_rel cnenv
+    (AppK senv (AtomOp Concat) svs ses :: sk)
+    ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
+        :: list_to_cont cenv ces ++ ck)) ∧
+
+[~Implode:]
+  (LIST_REL (compile_rel cnenv) ses ces ∧
+   LIST_REL (v_rel cnenv) svs cvs ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+  ⇒ cont_rel cnenv
+    (AppK senv (AtomOp Implode) svs ses :: sk)
+    ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
+        :: list_to_cont cenv ces ++ ck)) ∧
+
+[~Substring2_1:]
+  (compile_rel cnenv se1 ce1 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [] [se1] :: sk)
+                     ((Clet (SOME "i") (clet "s" ce1 substring2), cenv) :: ck)) ∧
+
+[~Substring2_2:]
+  (nsLookup cenv.v (Short "i") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv2] [] :: sk)
+                     ((Clet (SOME "s") substring2, cenv) :: ck)) ∧
+
+[~Substring3_1:]
+  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [] [se2;se1] :: sk)
+        ((Clet (SOME "l") (clet "i" ce2 $ clet "s" ce1 substring3), cenv) :: ck)) ∧
+
+[~Substring3_2:]
+  (nsLookup cenv.v (Short "l") = SOME cv3 ∧
+   v_rel cnenv sv3 cv3 ∧ compile_rel cnenv se1 ce1 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv3] [se1] :: sk)
+                     ((Clet (SOME "i") (clet "s" ce1 substring3), cenv) :: ck)) ∧
+
+[~Substring3_3:]
+  (nsLookup cenv.v (Short "l") = SOME cv3 ∧ nsLookup cenv.v (Short "i") = SOME cv2 ∧
+   v_rel cnenv sv3 cv3 ∧ v_rel cnenv sv2 cv2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv2;sv3] [] :: sk)
+                      ((Clet (SOME "s") substring3, cenv) :: ck)) ∧
+
+(* TODO
+[~StrLt:]
+[~StrLeq:]
+[~StrGt:]
+[~StrGeq:]
+*)
+
+[~FFI:]
+  (cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv (FFI ch) [] [] :: sk)
+                     ((Clet (SOME "s") (ffi ch), cenv) :: ck)) ∧
+
+[~LetK:]
+  (compile_rel cnenv se ce ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (LetK senv (SOME x) se :: sk)
+                     ((Clet (SOME $ var_prefix x) ce, cenv) :: ck)) ∧
+
+[~IfK:]
+  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (IfK senv se1 se2 :: sk)
+                     ((Cif ce1 ce2, cenv) :: ck)) ∧
+
+[~CaseK:]
+  (EVERY (λ(cn,vs,_). ALOOKUP cnenv cn = SOME (tyid, LENGTH vs)) scss ∧
+   LIST_REL (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧
+      pat = Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
+                  (MAP (Pvar o var_prefix) vs)) (var_prefix sv)) scss ccss ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (CaseK senv sv scss :: sk)
+                     ((Cmat ccss bind_exn_v, cenv) :: ck)) ∧
+
+[~RaiseK:]
+  (cont_rel cnenv sk ck
+    ⇒ cont_rel cnenv (RaiseK :: sk) ((Craise, cenv) :: ck)) ∧
+
+[~HandleK:]
+  (compile_rel cnenv se ce ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (HandleK senv x se :: sk)
+                     ((Chandle [(Pvar $ var_prefix x, ce)], cenv) :: ck))
 End
 
 
