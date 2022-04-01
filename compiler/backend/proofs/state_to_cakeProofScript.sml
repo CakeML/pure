@@ -51,42 +51,38 @@ Inductive op_rel:
 End
 
 
-Overload capp = ``λce1 ce2. App Opapp [ce1; ce2]``;
-Overload int  = ``λi. Lit $ IntLit i``;
-Overload clet = ``λs e1 e2. Let (SOME s) e1 e2``;
-Overload ifeq = ``λ(a,b) e1 e2. If (App Equality [a;b]) e1 e2``;
-Overload iflt = ``λ(a,b) e1 e2. If (App (Opb Lt) [a;b]) e1 e2``
-Overload var  = ``λs. Var $ Short s``;
+Overload capp = ``λce1 ce2. ast$App Opapp [ce1; ce2]``;
+Overload int  = ``λi. ast$Lit $ IntLit i``;
+Overload clet = ``λs e1 e2. ast$Let (SOME s) e1 e2``;
+Overload ifeq = ``λ(a,b) e1 e2. ast$If (App Equality [a;b]) e1 e2``;
+Overload iflt = ``λ(a,b) e1 e2. ast$If (App (Opb Lt) [a;b]) e1 e2``
+Overload var  = ``λs. ast$Var $ Short s``;
 
 (*
-  λv2 v1. if v2 = 0 then 0 else Divide v1 v2
+  if v2 = 0 then 0 else Divide v1 v2
 *)
 Overload div =
-  ``λce1 ce2. clet "v2" ce2 $ clet "v1" ce1 $
-      ifeq (var "v2", int 0) (int 0) (App (Opn Divide) [var "v1"; var "v2"])``;
+  ``ifeq (var "v2", int 0) (int 0) (App (Opn Divide) [var "v1"; var "v2"])``;
 
 (*
-  λv2 v1. if v2 = 0 then 0 else Modulo v1 v2
+  if v2 = 0 then 0 else Modulo v1 v2
 *)
 Overload mod =
-  ``λce1 ce2. clet "v2" ce2 $ clet "v1" ce1 $
-      ifeq (var "v2", int 0) (int 0) (App (Opn Modulo) [var "v1"; var "v2"])``;
+  ``ifeq (var "v2", int 0) (int 0) (App (Opn Modulo) [var "v1"; var "v2"])``;
 
 (*
-  λs i.
-    let strlen = LENGTH s in
-    let off = if i < 0 then 0 else i in
-    if off < strlen then
-      CopyStrStr s off (strlen - off)
-      else ""
+  let strlen = LENGTH s in
+  let off = if i < 0 then 0 else i in
+  if off < strlen then
+    CopyStrStr s off (strlen - off)
+    else ""
 *)
 Overload substring2 =
-  ``λce_str ce_int. clet "i" ce_int $ clet "s" ce_str $
-      clet "strlen" (App Strlen [var "s"]) $
-      clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
-      iflt (var "off", var "strlen")
-        (App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "strlen"; var "off"]])
-        (Lit $ StrLit "")``;
+  ``clet "strlen" (App Strlen [var "s"]) $
+    clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
+    iflt (var "off", var "strlen")
+      (App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "strlen"; var "off"]])
+      (Lit $ StrLit "")``;
 
 (*
   λs i l.
@@ -100,15 +96,14 @@ Overload substring2 =
       else ""
 *)
 Overload substring3 =
-  ``λce_str ce_int ce_len. clet "l" ce_len $ clet "i" ce_int $ clet "s" ce_str $
-      iflt (var "l", int 0) (Lit $ StrLit "") $
-      clet "strlen" (App Strlen [var "s"]) $
-      clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
-      iflt (var "off", var "strlen") (
-        clet "off_l" (App (Opn Plus) [var "off"; var "l"]) $
-        clet "end" (ifflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
-        App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
-        (Lit $ StrLit "")``;
+  ``iflt (var "l", int 0) (Lit $ StrLit "") $
+    clet "strlen" (App Strlen [var "s"]) $
+    clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
+    iflt (var "off", var "strlen") (
+      clet "off_l" (App (Opn Plus) [var "off"; var "l"]) $
+      clet "end" (ifflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
+      App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
+      (Lit $ StrLit "")``;
 
 (*
   λch ce.
@@ -120,8 +115,7 @@ Overload substring3 =
     CopyAw8Str ffi_array 2 len
 *)
 Overload ffi =
-  ``λch ce. clet "s" ce $
-      Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $
+  ``λch. Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $
       clet "len0" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
       clet "len1" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
       clet "len" (App (Opn Plus) [App (Opn Times) [var "len1"; int 256]; var "len0"]) $
@@ -161,28 +155,31 @@ Inductive compile_rel:
 
 [~Divide:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (App (AtomOp Div) [se1;se2]) (div ce1 ce2)) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Div) [se1;se2])
+                        (clet "v2" ce2 $ clet "v1" ce1 div)) ∧
 
 [~Mod:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (App (AtomOp Mod) [se1;se2]) (mod ce1 ce2)) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Mod) [se1;se2])
+                        (clet "v2" ce2 $ clet "v1" ce1 mod)) ∧
 
 [~Concat:]
   (LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat (list_to_exp ces))) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces])) ∧
 
 [~Implode:]
   (LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App (AtomOp Implode) ses) (App Implode (list_to_exp ces))) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Implode) ses) (App Implode [list_to_exp ces])) ∧
 
 [~Substring2:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (App (AtomOp Substring) [se1; se2]) (substring2 ce1 ce2)) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Substring) [se1; se2])
+                        (clet "i" ce2 $ clet "s" ce1 $ substring2)) ∧
 
 [~Substring3:]
   (LIST_REL (compile_rel cnenv) [se1;se2;se3] [ce1;ce2;ce3]
-    ⇒ compile_rel cnenv
-        (App (AtomOp Substring) [se1; se2; se3]) (substring3 ce1 ce2 ce3)) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Substring) [se1; se2; se3])
+                        (clet "l" ce3 $ clet "i" ce2 $ clet "s" ce1 substring3)) ∧
 
 (* TODO
 [~StrLt:]
@@ -193,7 +190,7 @@ Inductive compile_rel:
 
 [~FFI:]
   (compile_rel cnenv se ce
-    ⇒ compile_rel cnenv (App (FFI ch) [se]) (ffi ch ce)) ∧
+    ⇒ compile_rel cnenv (App (FFI ch) [se]) (clet "s" ce (ffi ch))) ∧
 
 [~Lam:]
   (compile_rel cnenv se ce
@@ -282,8 +279,13 @@ Inductive v_rel:
     ⇒ env_rel cnenv senv cenv)
 End
 
-Definition venv_ok_def:
-  venv_ok env ⇔ nsLookup env.v (Short "ffi_array") = SOME (Loc 0)
+Theorem env_rel_def = cj 2 v_rel_cases;
+
+Definition env_ok_def:
+  env_ok env ⇔
+    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc 0) ∧
+    nsLookup env.c (Short "::") = SOME (2, TypeStamp "::" 1) ∧
+    nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" 1)
 End
 
 Definition state_ok_def:
