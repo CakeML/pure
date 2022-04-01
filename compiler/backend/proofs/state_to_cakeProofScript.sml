@@ -149,7 +149,7 @@ Inductive compile_rel:
 [~Constructor:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
-   ar = LENGTH ses
+   ar = LENGTH ses ∧ cn ≠ ""
     ⇒ compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short cn) ces)) ∧
 
 [~Var:]
@@ -160,6 +160,10 @@ Inductive compile_rel:
     ⇒ compile_rel cnenv (App sop ses) (App cop ces)) ∧
 
 [~Divide:]
+  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
+    ⇒ compile_rel cnenv (App (AtomOp Div) [se1;se2]) (div ce1 ce2)) ∧
+
+[~Mod:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
     ⇒ compile_rel cnenv (App (AtomOp Mod) [se1;se2]) (mod ce1 ce2)) ∧
 
@@ -213,15 +217,12 @@ Inductive compile_rel:
     ⇒ compile_rel cnenv (If se se1 se2) (If ce ce1 ce2)) ∧
 
 [~Case:]
-  (var_prefix sv = cv ∧
-   compile_rel cnenv se ce ∧
+  (compile_rel cnenv se ce ∧
    EVERY (λ(cn,vs,_). ALOOKUP cnenv cn = SOME (tyid, LENGTH vs)) scss ∧
    LIST_REL (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧
-      pat = (if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
-              (MAP (Pvar o var_prefix) vs))
-      (scss : (string # string list # stateLang$exp) list)ccss
-    ⇒ compile_rel cnenv (Case se sv scss)
-      (Let (SOME cv) ce (Mat (Var $ Short cv) ccss))) ∧
+      pat = Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
+                  (MAP (Pvar o var_prefix) vs)) (var_prefix sv)) scss ccss
+    ⇒ compile_rel cnenv (Case se sv scss) (Mat (Var $ Short cv) ccss)) ∧
 
 [~Raise:]
   (compile_rel cnenv se ce
@@ -246,24 +247,23 @@ Inductive v_rel:
 [~Constructor:]
   (LIST_REL (v_rel cnenv) svs cvs ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
-   ar = LENGTH svs
+   ar = LENGTH svs ∧ cn ≠ ""
     ⇒ v_rel cnenv (Constructor cn svs) (Conv (SOME tyid) cvs)) ∧
 
 [~Closure:]
   (compile_rel cnenv se ce ∧
-   var_prefix sx = cx ∧
    env_rel cnenv senv cenv
-   ⇒ v_rel cnenv (Closure (SOME sx) senv se) (Closure cenv cv ce)) ∧
+   ⇒ v_rel cnenv (Closure (SOME sx) senv se) (Closure cenv (var_prefix sx) ce)) ∧
 
 [~Recclosure:]
   (compile_rel cnenv se ce ∧
-   var_prefix sx = cx ∧
    env_rel cnenv senv cenv ∧
    LIST_REL (λ(sv,se) (cv,cx,ce).
         var_prefix sv = cv ∧
         ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧ compile_rel cnenv se' ce)
       sfuns cfuns
-   ⇒ v_rel cnenv (stateLang$Recclosure sfuns senv sx) (Recclosure cenv cfuns cv)) ∧
+   ⇒ v_rel cnenv (stateLang$Recclosure sfuns senv sx)
+                 (Recclosure cenv cfuns (var_prefix sx))) ∧
 
 [~IntLit:]
   v_rel cnenv (Atom $ Int i) (Litv $ IntLit i) ∧
