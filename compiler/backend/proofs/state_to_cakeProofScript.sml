@@ -11,7 +11,50 @@ open pure_miscTheory pure_configTheory stateLangTheory;
 val _ = new_theory "state_to_cakeProof";
 
 
-(****************************************)
+
+(******************** Helper functions for itree semantics ********************)
+
+Definition get_ffi_array_def[simp]:
+  get_ffi_array (Estep (cenv, cst, ev, ck)) = (
+    case store_lookup 0 cst of
+    | SOME (W8array ws) => SOME ws
+    | _ => NONE) ∧
+  get_ffi_array (Effi s conf ws n cenv cst ck) = SOME ws ∧
+  get_ffi_array _ = NONE
+End
+
+Definition cstep_n_def:
+  cstep_n 0 e = e ∧
+  cstep_n (SUC n) (Estep st) = cstep_n n (estep st) ∧
+  cstep_n _ e = e
+End
+
+Theorem cstep_n_alt:
+  cstep_n 0 e = e ∧
+  cstep_n (SUC n) e = (
+    case cstep_n n e of
+    | Estep st => estep st
+    | e => e)
+Proof
+  rw[cstep_n_def] >>
+  qid_spec_tac `e` >> qid_spec_tac `n` >>
+  Induct >> Cases >> rewrite_tac[cstep_n_def] >> simp[]
+QED
+
+Theorem cstep_n_0[simp] = cj 1 cstep_n_def;
+
+Theorem cstep_n_add:
+  ∀a b. cstep_n (a + b) e = cstep_n a (cstep_n b e)
+Proof
+  Induct >> rw[cstep_n_def] >>
+  simp[ADD_CLAUSES, cstep_n_alt]
+QED
+
+val creturn_def = itree_semanticsTheory.return_def;
+val cpush_def = itree_semanticsTheory.push_def;
+
+
+(******************** Compilation relation ********************)
 
 Definition var_prefix_def:
   var_prefix v = "pure_" ++ v
@@ -456,6 +499,35 @@ Theorem state_rel:
 Proof
   rw[DefnBase.one_line_ify NONE state_rel_def] >>
   TOP_CASE_TAC >> simp[] >> TOP_CASE_TAC >> simp[]
+QED
+
+Inductive step_rel:
+  (compile_rel cnenv se ce ∧ cont_rel cnenv sk ck ∧
+   env_rel cnenv senv cenv ∧ state_rel cnenv sst cst ∧ env_ok cenv
+    ⇒ step_rel (Exp senv se, SOME sst, sk) (Estep (cenv, cst, Exp ce, ck))) ∧
+
+  (v_rel cnenv sv cv ∧ cont_rel cnenv sk ck ∧ state_rel cnenv sst cst
+    ⇒ step_rel (Val sv, SOME sst, sk) (Estep (cenv, cst, Val cv, ck))) ∧
+
+  (v_rel cnenv sv cv ∧ cont_rel cnenv sk ck ∧ state_rel cnenv sst cst
+    ⇒ step_rel (Exn sv, SOME sst, sk)
+               (Estep (cenv, cst, Val cv, (Craise, cenv') :: ck))) ∧
+
+  (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧
+   ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
+   store_lookup 0 cst = SOME $ W8array ws2
+    ⇒ step_rel (Action s conf, SOME sst, sk) (Effi s ws1 ws2 0 cenv cst ck))
+End
+
+
+(******************** Proofs ********************)
+
+Theorem step1_rel:
+  step_rel s c ∧ ¬is_halt s ∧ (∀st k. step_n 1 s ≠ error st k)
+  ⇒ ∃n. step_rel (step_n 1 s) (cstep_n (SUC n) c) ∧
+        ∀ws. get_ffi_array (cstep_n (SUC n) c) = SOME ws ⇒
+             get_ffi_array c = SOME ws
+Proof
 QED
 
 
