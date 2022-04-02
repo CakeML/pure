@@ -39,11 +39,12 @@ Inductive atom_op_rel:
   atom_op_rel StrEq Equality
 End
 
+(* TODO most things need to handle negative arguments properly *)
 Inductive op_rel:
   op_rel AppOp Opapp ∧
   (atom_op_rel aop op ⇒ op_rel (AtomOp aop) op) ∧
   op_rel Alloc Aalloc ∧
-  op_rel Ref Opref ∧
+  op_rel Ref AallocFixed ∧
   op_rel Length Alength ∧
   op_rel Sub Asub ∧
   op_rel UnsafeSub Asub_unsafe ∧
@@ -220,7 +221,7 @@ Inductive compile_rel:
    LIST_REL (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧
       pat = Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
                   (MAP (Pvar o var_prefix) vs)) (var_prefix sv)) scss ccss
-    ⇒ compile_rel cnenv (Case se sv scss) (Mat (Var $ Short cv) ccss)) ∧
+    ⇒ compile_rel cnenv (Case se sv scss) (Mat ce ccss)) ∧
 
 [~Raise:]
   (compile_rel cnenv se ce
@@ -289,11 +290,6 @@ Definition env_ok_def:
     nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" 1)
 End
 
-Definition state_ok_def:
-  state_ok st ⇔
-    ∃ws. store_lookup 0 st = SOME $ W8array ws ∧ LENGTH ws = max_FFI_return_size
-End
-
 Definition list_to_cont_def:
   list_to_cont env [] = [] ∧
   list_to_cont env (e::es) =
@@ -301,6 +297,8 @@ Definition list_to_cont_def:
 End
 
 Inductive cont_rel:
+  cont_rel cnenv [] [] ∧
+
 [~TupleK:]
   (LIST_REL (v_rel cnenv) svs cvs ∧
    LIST_REL (compile_rel cnenv) ses ces ∧
@@ -428,9 +426,10 @@ Inductive cont_rel:
    LIST_REL (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧
       pat = Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
                   (MAP (Pvar o var_prefix) vs)) (var_prefix sv)) scss ccss ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+   (ccont ≠ Cmat ⇒ ccont = Cmat_check)
     ⇒ cont_rel cnenv (CaseK senv sv scss :: sk)
-                     ((Cmat ccss bind_exn_v, cenv) :: ck)) ∧
+                     ((ccont ccss bind_exn_v, cenv) :: ck)) ∧
 
 [~RaiseK:]
   (cont_rel cnenv sk ck
@@ -442,6 +441,22 @@ Inductive cont_rel:
     ⇒ cont_rel cnenv (HandleK senv x se :: sk)
                      ((Chandle [(Pvar $ var_prefix x, ce)], cenv) :: ck))
 End
+
+Definition state_rel_def:
+  state_rel cnenv sst (W8array ws :: cst) = (
+    (LENGTH ws = max_FFI_return_size) ∧
+    LIST_REL (λs c.  ∃cs. c = Varray cs ∧ LIST_REL (v_rel cnenv) s cs) sst cst) ∧
+  state_rel cnenv sst _ = F
+End
+
+Theorem state_rel:
+  state_rel cnenv sst cst ⇔
+    ∃ws cst'. cst = W8array ws :: cst' ∧ LENGTH ws = max_FFI_return_size ∧
+      LIST_REL (λs c. ∃cs. c = Varray cs ∧ LIST_REL (v_rel cnenv) s cs) sst cst'
+Proof
+  rw[DefnBase.one_line_ify NONE state_rel_def] >>
+  TOP_CASE_TAC >> simp[] >> TOP_CASE_TAC >> simp[]
+QED
 
 
 (**********)
