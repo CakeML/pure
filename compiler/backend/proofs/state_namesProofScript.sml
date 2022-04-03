@@ -1,6 +1,6 @@
 (*
-  Correctness for compilation that replaces Delay, Box, Force
-  with stateful operations
+  Correctness for compilation that inserts names for Lam NONE and
+  replaces HandleApp by a Handle and an App.
  *)
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
