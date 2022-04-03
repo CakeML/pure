@@ -173,21 +173,6 @@ Proof
   \\ simp [Once cont_rel_cases]
 QED
 
-Theorem is_halt_step:
-  ∀n x. is_halt x ⇒ step_n n x = x
-Proof
-  Induct \\ simp [ADD1,step_n_add,FORALL_PROD] \\ Cases \\ fs []
-  >- (rw [] \\ rename [‘(Val _,x,y)’] \\ Cases_on ‘y’ \\ fs [step])
-  >- (rw [] \\ rename [‘(Exn _,x,y)’] \\ Cases_on ‘y’ \\ fs [step])
-  \\ rw [] \\ fs [step]
-QED
-
-Theorem step_n_SUC:
-  step_n (SUC n) x = step_n n (step_n 1 x)
-Proof
-  fs [ADD1,step_n_add]
-QED
-
 Theorem env_rel_cons:
   env_rel s1 xs ys ∧ v_rel x y ∧ s2 DELETE n SUBSET s1 ⇒
   env_rel s2 ((n,x)::xs) ((n,y)::ys)
@@ -377,13 +362,6 @@ Proof
   \\ rpt $ first_assum $ irule_at Any
   \\ once_rewrite_tac [DECIDE “m + m' + n = (m' + n) + m:num”]
   \\ full_simp_tac std_ss [step_n_add]
-QED
-
-Theorem is_halt_simp[simp]:
-  (is_halt (Exn v,s,k) ⇔ k = []) ∧
-  (is_halt (Val v,s,k) ⇔ k = [])
-Proof
-  Cases_on ‘k’ \\ fs []
 QED
 
 Theorem step_until_halt_thm:

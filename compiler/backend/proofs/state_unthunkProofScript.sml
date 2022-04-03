@@ -1728,18 +1728,16 @@ Proof
   \\ Cases_on ‘n = 0’
   >-
    (gvs [] \\ qexists_tac ‘0’ \\ qexists_tac ‘[]’ \\ gvs []
-    \\ TRY (first_assum $ irule_at Any) \\ fs []
     \\ Cases_on ‘sr’ \\ fs [is_halt_def]
     \\ gvs [step_res_rel_cases,is_halt_def]
-    \\ Cases_on ‘tk’ \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons])
+    \\ gvs [is_halt_def,cont_rel_nil])
   \\ Cases_on ‘is_halt (tr,ts,tk)’
   >- (‘is_halt (step_n n (tr,ts,tk)) ∧ is_halt (step_n 0 (tr,ts,tk))’ by fs []
       \\ dxrule is_halt_imp_eq
       \\ disch_then dxrule
       \\ fs [] \\ strip_tac \\ gvs []
       \\ qexists_tac ‘0’ \\ qexists_tac ‘[]’ \\ fs []
-      \\ Cases_on ‘sr’ \\ gvs [step_res_rel_cases]
-      \\ Cases_on ‘tk’ \\ gvs [cont_rel_nil])
+      \\ Cases_on ‘sr’ \\ gvs [step_res_rel_cases,cont_rel_nil])
   \\ qpat_x_assum ‘step_res_rel p tr sr’ mp_tac
   \\ simp [Once step_res_rel_cases]
   \\ strip_tac \\ gvs [is_halt_def]
@@ -2107,8 +2105,7 @@ Proof
   >-
    (gvs [] \\ qexists_tac ‘0’ \\ gvs []
     \\ Cases_on ‘sr’ \\ fs [is_halt_def]
-    \\ gvs [step_res_rel_cases,is_halt_def]
-    \\ Cases_on ‘tk’ \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons])
+    \\ gvs [step_res_rel_cases,is_halt_def,cont_rel_nil])
   \\ Cases_on ‘is_halt (tr,ts,tk)’
   >- (qexists_tac ‘0’ \\ fs [])
   \\ qpat_x_assum ‘step_res_rel p tr sr’ mp_tac
@@ -2187,7 +2184,6 @@ Proof
        (pop_assum $ qspec_then ‘ForceK2 ts::tk’ strip_assume_tac
         \\ pop_assum $ irule_at Any \\ fs [is_halt_def])
       \\ gvs []
-      \\ Cases_on ‘tk1’ \\ fs [is_halt_def]
       \\ drule step_n_set_cont
       \\ disch_then $ qspec_then ‘ForceK2 ts::tk’ assume_tac
       \\ Q.REFINE_EXISTS_TAC ‘ck+(1+n)’

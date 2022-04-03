@@ -563,6 +563,28 @@ Theorem step =
 
 (****************************************)
 
+Theorem is_halt_step:
+  ∀n x. is_halt x ⇒ step_n n x = x
+Proof
+  Induct \\ simp [ADD1,step_n_add,FORALL_PROD] \\ Cases \\ fs []
+  >- (rw [] \\ rename [‘(Val _,x,y)’] \\ Cases_on ‘y’ \\ fs [step])
+  >- (rw [] \\ rename [‘(Exn _,x,y)’] \\ Cases_on ‘y’ \\ fs [step])
+  \\ rw [] \\ fs [step]
+QED
+
+Theorem step_n_SUC:
+  step_n (SUC n) x = step_n n (step_n 1 x)
+Proof
+  fs [ADD1,step_n_add]
+QED
+
+Theorem is_halt_simp[simp]:
+  (is_halt (Exn v,s,k) ⇔ k = []) ∧
+  (is_halt (Val v,s,k) ⇔ k = [])
+Proof
+  Cases_on ‘k’ \\ fs []
+QED
+
 Theorem step_Error[simp]:
   ∀n ts tk tr1 ts1 tk1.
     tr1 ≠ Error ⇒ step_n n (Error,ts,tk) ≠ (tr1,ts1,tk1)
