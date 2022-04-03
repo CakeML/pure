@@ -123,7 +123,7 @@ Definition freevars_def[simp]:
   freevars (Force e) = freevars e ∧
   freevars (Case e v css) =
     (freevars e ∪
-     BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v) ∧
+     (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v)) ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
   freevars (HandleApp e1 e2) = freevars e1 ∪ freevars e2

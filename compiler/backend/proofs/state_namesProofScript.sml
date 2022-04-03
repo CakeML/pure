@@ -60,7 +60,15 @@ Inductive compile_rel:
   (compile_rel te se ∧
    compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (If te te1 te2) (If se se1 se2))
+  compile_rel (If te te1 te2) (If se se1 se2)) ∧
+
+[~Case:]
+  (∀v te se tes ses.
+     compile_rel te se ∧
+     MAP FST tes = MAP FST ses ∧
+     MAP (FST o SND) tes = MAP (FST o SND) ses ∧
+     LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
+  compile_rel (Case te v tes) (Case se v ses))
 
 End
 
@@ -148,7 +156,15 @@ Inductive cont_rel:
   (∀sk tk.
     cont_rel tk sk ⇒
     cont_rel (RaiseK :: tk)
-             (RaiseK :: sk))
+             (RaiseK :: sk)) ∧
+  (∀sk tk v tenv senv s.
+    cont_rel tk sk ∧ env_rel s tenv senv ∧
+    freevars (Case (Lit ARB) v tes) SUBSET s ∧
+    MAP FST tes = MAP FST ses ∧
+    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
+    LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
+    cont_rel (CaseK tenv v tes :: tk)
+             (CaseK senv v ses :: sk))
 End
 
 Definition rec_env_def:
@@ -178,6 +194,23 @@ Theorem env_rel_cons:
   env_rel s2 ((n,x)::xs) ((n,y)::ys)
 Proof
   rw [env_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
+QED
+
+Theorem env_rel_zip:
+  ∀n x y xs ys s1 s2.
+    env_rel s1 xs ys ∧ LIST_REL v_rel x y ∧ s2 DIFF set n SUBSET s1 ∧
+    LENGTH n = LENGTH x ⇒
+    env_rel s2 (ZIP(n,x)++xs) (ZIP(n,y)++ys)
+Proof
+  Induct \\ fs []
+  >- fs [env_rel_def,SUBSET_DEF]
+  \\ Cases_on ‘x’ \\ fs [PULL_EXISTS] \\ rw []
+  \\ irule env_rel_cons \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ rename [‘_ DELETE h5’]
+  \\ qexists_tac ‘s2 DELETE h5’ \\ fs []
+  \\ fs [SUBSET_DEF]
 QED
 
 Triviality FST_INTRO:
@@ -288,6 +321,12 @@ Proof
       \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
       \\ strip_tac \\ Cases_on ‘MEM n (MAP FST sfns)’ \\ fs []
       \\ rw [Once v_rel_cases] \\ fs [env_rel_def])
+    >~ [‘Case’] >-
+     (gvs [step,AllCaseEqs(),step_res_rel_cases]
+      \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
+      \\ first_assum $ irule_at Any
+      \\ conj_tac >- fs [SUBSET_DEF]
+      \\ fs [env_rel_def] \\ metis_tac [])
     \\ fs [step]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ rw [] \\ fs []
@@ -325,6 +364,31 @@ Proof
     >- gvs [env_rel_def,SUBSET_DEF]
     \\ irule env_rel_cons \\ simp []
     \\ first_assum $ irule_at Any \\ fs [])
+  >~ [‘CaseK _ v’] >-
+   (Cases_on ‘tes’ \\ gvs [step,return_def]
+    \\ PairCases_on ‘h’ \\ fs [step]
+    \\ Cases_on ‘ses’ \\ gvs []
+    \\ PairCases_on ‘h’ \\ fs [step]
+    \\ IF_CASES_TAC \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ qpat_x_assum ‘v_rel (Constructor _ _) _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    >-
+     (fs [step_res_rel_cases,PULL_EXISTS]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+      \\ irule env_rel_zip \\ fs []
+      \\ irule_at Any env_rel_cons
+      \\ first_assum $ irule_at $ Pos hd
+      \\ simp [Once v_rel_cases]
+      \\ qexists_tac ‘freevars h2 DIFF set h1’ \\ fs []
+      \\ fs [SUBSET_DEF])
+    \\ fs [step_res_rel_cases,PULL_EXISTS]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ simp [Once v_rel_cases]
+    \\ simp [Once cont_rel_cases]
+    \\ first_assum $ irule_at $ Pos hd
+    \\ fs [SUBSET_DEF])
   \\ rename [‘AppK’]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
   >-
