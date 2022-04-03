@@ -246,6 +246,15 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem get_atoms_thm:
+  ∀tvs svs. LIST_REL v_rel tvs svs ⇒ get_atoms tvs = get_atoms svs
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ simp [Once v_rel_cases]
+  \\ rw [] \\ fs [get_atoms_def]
+  \\ res_tac \\ fs []
+QED
+
 Theorem application_thm:
   application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
@@ -327,7 +336,104 @@ Proof
       \\ drule ALOOKUP_MEM
       \\ disch_then $ irule_at Any
       \\ fs []))
-  \\ cheat
+  >~ [‘Alloc’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ simp [Once v_rel_cases]
+    \\ fs [LIST_REL_SNOC]
+    \\ simp [LIST_REL_EL_EQN,EL_REPLICATE])
+  >~ [‘Ref’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ simp [Once v_rel_cases]
+    \\ fs [LIST_REL_SNOC])
+  >~ [‘Length’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ simp [Once v_rel_cases]
+    \\ gvs [LIST_REL_EL_EQN])
+  >~ [‘Sub’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
+    \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs [])
+  >~ [‘UnsafeSub’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
+    \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs [])
+  >~ [‘Update’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ h'’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
+    \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
+    \\ gvs [EL_LUPDATE] \\ rw []
+    \\ gvs [EL_LUPDATE] \\ rw []
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs [])
+  >~ [‘UnsafeUpdate’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ h'’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
+    \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
+    \\ gvs [EL_LUPDATE] \\ rw []
+    \\ gvs [EL_LUPDATE] \\ rw []
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs [])
+  >~ [‘FFI’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘a’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [])
+  \\ rename [‘AtomOp’]
+  \\ gvs [application_def,step,step_res_rel_cases]
+  \\ imp_res_tac get_atoms_thm \\ gvs [AllCaseEqs()]
+  \\ simp [Once v_rel_cases]
 QED
 
 Theorem step_1_forward:
