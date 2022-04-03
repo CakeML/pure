@@ -227,6 +227,25 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
 QED
 
+Theorem ALOOKUP_list_rel:
+  ∀tfns sfns n x.
+    ALOOKUP tfns n = SOME x ∧
+    LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+    MAP FST tfns = MAP FST sfns ⇒
+    ∃y. ALOOKUP sfns n = SOME y ∧ compile_rel x y
+Proof
+  Induct \\ fs [FORALL_PROD,PULL_EXISTS] \\ rw []
+  \\ Cases_on‘sfns’ \\ gvs [] \\ PairCases_on ‘h’ \\ fs []
+QED
+
+Theorem env_rel_cons1:
+  env_rel s xs ys ∧ ~(n IN s) ⇒
+  env_rel s xs ((n,y)::ys)
+Proof
+  rw [env_rel_def] \\ rw []
+  \\ res_tac \\ fs []
+QED
+
 Theorem application_thm:
   application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
@@ -237,7 +256,78 @@ Theorem application_thm:
     cont_rel tk1 sk1 ∧ OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
     step_res_rel tr1 sr1
 Proof
-  cheat
+  Cases_on ‘op’ \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
+  \\ rw [] \\ gvs []
+  >~ [‘Cons’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ simp [Once v_rel_cases])
+  >~ [‘Proj’] >-
+   (gvs [application_def,step,AllCaseEqs()]
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs [step_res_rel_cases]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN])
+  >~ [‘IsEq’] >-
+   (gvs [application_def,step,AllCaseEqs()]
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs [step_res_rel_cases]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [] \\ rw []
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs [step_res_rel_cases])
+  >~ [‘AppOp’] >-
+   (gvs [application_def]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases]
+    \\ strip_tac \\ gvs [dest_anyClosure_def,dest_Closure_def,step,step_res_rel_cases]
+    >- (fs [env_rel_def] \\ rw [] \\ fs [])
+    >-
+     (Cases_on ‘n’ \\ gvs [opt_bind_def]
+      \\ irule env_rel_cons \\ fs []
+      \\ first_assum $ irule_at Any \\ fs [])
+    \\ gvs [AllCaseEqs(),ALOOKUP_NONE]
+    \\ drule ALOOKUP_MEM \\ strip_tac
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ first_assum drule \\ simp_tac (srw_ss()) []
+    \\ drule_all ALOOKUP_list_rel
+    \\ strip_tac \\ fs []
+    \\ pop_assum mp_tac
+    \\ simp [Once compile_rel_cases]
+    \\ strip_tac \\ fs []
+    \\ ‘MEM n (MAP FST sfns)’ by
+     (imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,EXISTS_PROD]
+      \\ first_assum $ irule_at Any) \\ fs []
+    \\ gvs [opt_bind_def]
+    \\ TRY (irule env_rel_cons)
+    \\ TRY (irule env_rel_cons1)
+    \\ rw []
+    >-
+     (gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+      \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
+      \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
+      >- (rw [Once v_rel_cases] \\ fs [env_rel_def]
+          \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
+          \\ rw [] \\ res_tac \\ fs [])
+      \\ rw [] \\ first_x_assum irule \\ fs []
+      \\ first_x_assum $ irule_at Any
+      \\ fs [MEM_MAP,EXISTS_PROD]
+      \\ last_x_assum assume_tac
+      \\ drule ALOOKUP_MEM
+      \\ disch_then $ irule_at Any
+      \\ fs [])
+    \\ qexists_tac ‘freevars e DELETE v’ \\ simp []
+    >-
+     (gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+      \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
+      \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
+      >- (rw [Once v_rel_cases] \\ fs [env_rel_def]
+          \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
+          \\ rw [] \\ res_tac \\ fs [])
+      \\ rw [] \\ first_x_assum irule \\ fs []
+      \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+      \\ last_x_assum assume_tac
+      \\ drule ALOOKUP_MEM
+      \\ disch_then $ irule_at Any
+      \\ fs []))
+  \\ cheat
 QED
 
 Theorem step_1_forward:
