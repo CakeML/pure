@@ -123,10 +123,10 @@ Overload mod =
     else ""
 *)
 Overload substring2 =
-  ``clet "strlen" (App Strlen [var "s"]) $
-    clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
+  ``clet "strlen" (App Strlen [var "v1"]) $
+    clet "off" (iflt (var "v2", int 0) (int 0) (var "v2")) $
     iflt (var "off", var "strlen")
-      (App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "strlen"; var "off"]])
+      (App CopyStrStr [var "v1"; var "off"; App (Opn Minus) [var "strlen"; var "off"]])
       (Lit $ StrLit "")``;
 
 (*
@@ -146,7 +146,7 @@ Overload substring3 =
     clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
     iflt (var "off", var "strlen") (
       clet "off_l" (App (Opn Plus) [var "off"; var "l"]) $
-      clet "end" (ifflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
+      clet "end" (iflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
       App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
       (Lit $ StrLit "")``;
 
@@ -198,28 +198,18 @@ Inductive compile_rel:
   (op_rel sop cop ∧ LIST_REL (compile_rel cnenv) ses ces
     ⇒ compile_rel cnenv (App sop ses) (App cop ces)) ∧
 
-[~Divide:]
-  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (App (AtomOp Div) [se1;se2])
-                        (clet "v2" ce2 $ clet "v1" ce1 div)) ∧
+[~DivModSubstring2:]
+  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
+   (if aop = Div then rest = div
+    else if aop = Substring then rest = substring2
+    else aop = Mod ∧ rest = mod)
+    ⇒ compile_rel cnenv (App (AtomOp aop) [se1;se2])
+                        (clet "v2" ce2 $ clet "v1" ce1 rest)) ∧
 
-[~Mod:]
-  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (App (AtomOp Mod) [se1;se2])
-                        (clet "v2" ce2 $ clet "v1" ce1 mod)) ∧
-
-[~Concat:]
-  (LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces])) ∧
-
-[~Implode:]
-  (LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App (AtomOp Implode) ses) (App Implode [list_to_exp ces])) ∧
-
-[~Substring2:]
-  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (App (AtomOp Substring) [se1; se2])
-                        (clet "i" ce2 $ clet "s" ce1 $ substring2)) ∧
+[~ConcatImplode:]
+  (LIST_REL (compile_rel cnenv) ses ces ∧
+   (if aop = Concat then cop = Strcat else aop = Implode ∧ cop = Implode)
+    ⇒ compile_rel cnenv (App (AtomOp aop) ses) (App cop [list_to_exp ces])) ∧
 
 [~Substring3:]
   (LIST_REL (compile_rel cnenv) [se1;se2;se3] [ce1;ce2;ce3]
@@ -247,7 +237,8 @@ Inductive compile_rel:
         var_prefix sv = cv ∧
         ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧ compile_rel cnenv se' ce)
       sfuns cfuns ∧
-    compile_rel cnenv se ce
+   ALL_DISTINCT (MAP FST cfuns) ∧
+   compile_rel cnenv se ce
     ⇒ compile_rel cnenv (stateLang$Letrec sfuns se) (ast$Letrec cfuns ce)) ∧
 
 [~Let:]
@@ -353,7 +344,7 @@ Inductive cont_rel:
   (LIST_REL (v_rel cnenv) svs cvs ∧
    LIST_REL (compile_rel cnenv) ses ces ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
-   ar = LENGTH ses ∧ cn ≠ "" ∧
+   ar = LENGTH ses + LENGTH svs + 1 ∧ cn ≠ "" ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (Cons cn) svs ses :: sk)
                      ((Ccon (SOME $ Short cn) cvs ces, cenv) :: ck)) ∧
@@ -366,59 +357,34 @@ Inductive cont_rel:
     ⇒ cont_rel cnenv (AppK senv sop svs ses :: sk)
                      ((Capp cop cvs ces, cenv) :: ck)) ∧
 
-[~Divide1:]
+
+[~TwoArgs1:]
   (compile_rel cnenv se1 ce1 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Div) [] [se1] :: sk)
-                     ((Clet (SOME "v2") (clet "v1" ce1 div), cenv) :: ck)) ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+   (if aop = Div then rest = div
+    else if aop = Substring then rest = substring2
+    else aop = Mod ∧ rest = mod)
+    ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [] [se1] :: sk)
+                     ((Clet (SOME "v2") (clet "v1" ce1 rest), cenv) :: ck)) ∧
 
-[~Divide2:]
+[~TwoArgs2:]
   (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Div) [sv2] [] :: sk)
-                     ((Clet (SOME "v1") div, cenv) :: ck)) ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+   (if aop = Div then rest = div
+    else if aop = Substring then rest = substring2
+    else aop = Mod ∧ rest = mod)
+    ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [sv2] [] :: sk)
+                     ((Clet (SOME "v1") rest, cenv) :: ck)) ∧
 
-[~Modulo1:]
-  (compile_rel cnenv se1 ce1 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Mod) [] [se1] :: sk)
-                     ((Clet (SOME "v2") (clet "v1" ce1 mod), cenv) :: ck)) ∧
-
-[~Modulo2:]
-  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Mod) [sv2] [] :: sk)
-                     ((Clet (SOME "v1") mod, cenv) :: ck)) ∧
-
-[~Concat:]
+[~ConcatImplode:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
    LIST_REL (v_rel cnenv) svs cvs ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+   (if aop = Concat then cop = Strcat else aop = Implode ∧ cop = Implode)
   ⇒ cont_rel cnenv
-    (AppK senv (AtomOp Concat) svs ses :: sk)
+    (AppK senv (AtomOp aop) svs ses :: sk)
     ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
-        :: list_to_cont cenv ces ++ ck)) ∧
-
-[~Implode:]
-  (LIST_REL (compile_rel cnenv) ses ces ∧
-   LIST_REL (v_rel cnenv) svs cvs ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-  ⇒ cont_rel cnenv
-    (AppK senv (AtomOp Implode) svs ses :: sk)
-    ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
-        :: list_to_cont cenv ces ++ ck)) ∧
-
-[~Substring2_1:]
-  (compile_rel cnenv se1 ce1 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [] [se1] :: sk)
-                     ((Clet (SOME "i") (clet "s" ce1 substring2), cenv) :: ck)) ∧
-
-[~Substring2_2:]
-  (nsLookup cenv.v (Short "i") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv2] [] :: sk)
-                     ((Clet (SOME "s") substring2, cenv) :: ck)) ∧
+        :: list_to_cont cenv ces ++ [Capp cop [] [], cenv] ++ ck)) ∧
 
 [~Substring3_1:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
