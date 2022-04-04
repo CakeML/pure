@@ -471,12 +471,17 @@ End
 
 (******************** Lemmas ********************)
 
-Theorem is_halt_step_same:
-  ∀sr st k. is_halt (sr, st, k) ⇒ step st k sr = (sr, st, k)
+Theorem step_n_add:
+  step_n (m+n) x = step_n m (step_n n x)
 Proof
-  Cases_on ‘st’ >> Cases_on ‘k’
-  >> Cases_on ‘sr’ >> gvs[is_halt_def] >> rw[]
-  >> fs [step_def,return_def,value_def,error_def,is_halt_def]
+  PairCases_on ‘x’ \\ fs [step_n_def,FUNPOW_ADD]
+  \\ AP_THM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,step_n_def]
+QED
+
+Theorem step_n_SUC:
+  step_n (SUC n) x = step_n n (step_n 1 x)
+Proof
+  fs [ADD1,step_n_add]
 QED
 
 Theorem step_n_alt:
@@ -485,6 +490,14 @@ Theorem step_n_alt:
 Proof
   PairCases_on `res` >>
   rw[step_n_def, arithmeticTheory.FUNPOW_0, arithmeticTheory.FUNPOW_SUC]
+QED
+
+Theorem is_halt_step_same:
+  ∀sr st k. is_halt (sr, st, k) ⇒ step st k sr = (sr, st, k)
+Proof
+  Cases_on ‘st’ >> Cases_on ‘k’
+  >> Cases_on ‘sr’ >> gvs[is_halt_def] >> rw[]
+  >> fs [step_def,return_def,value_def,error_def,is_halt_def]
 QED
 
 Theorem step_n_mono:
@@ -516,6 +529,12 @@ Proof
   PairCases_on ‘x’ \\ fs [step_n_def]
 QED
 
+Theorem is_halt_step_n_same:
+  ∀n x. is_halt x ⇒ step_n n x = x
+Proof
+  Induct \\ fs [FORALL_PROD,step_n_SUC,is_halt_step_same]
+QED
+
 Theorem step_n_unfold:
   (∃n. k = n + 1 ∧ step_n n (step st c sr) = res) ⇒
   step_n k (sr,st,c) = res
@@ -525,13 +544,6 @@ Proof
   \\ fs [ADD1]
   \\ Cases_on ‘step st c sr’ \\ Cases_on ‘r’
   \\ fs [step_n_def]
-QED
-
-Theorem step_n_add:
-  step_n (m+n) x = step_n m (step_n n x)
-Proof
-  PairCases_on ‘x’ \\ fs [step_n_def,FUNPOW_ADD]
-  \\ AP_THM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,step_n_def]
 QED
 
 Theorem step_unitl_halt_unwind:
@@ -570,12 +582,6 @@ Proof
   >- (rw [] \\ rename [‘(Val _,x,y)’] \\ Cases_on ‘y’ \\ fs [step])
   >- (rw [] \\ rename [‘(Exn _,x,y)’] \\ Cases_on ‘y’ \\ fs [step])
   \\ rw [] \\ fs [step]
-QED
-
-Theorem step_n_SUC:
-  step_n (SUC n) x = step_n n (step_n 1 x)
-Proof
-  fs [ADD1,step_n_add]
 QED
 
 Theorem is_halt_simp[simp]:
