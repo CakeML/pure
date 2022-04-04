@@ -350,8 +350,10 @@ Definition return_def:
     if MEM n ns ∨ MEM n (FLAT (MAP (FST o SND) css)) then error st k
     else case v of
       Constructor c' vs =>
-        if c = c' ∧ LENGTH vs = LENGTH ns then
-          continue (ZIP (ns, vs) ++ (n,v)::env) e st k
+        if c = c' then
+          if LENGTH vs = LENGTH ns then
+            continue (REVERSE (ZIP (ns, vs)) ++ (n,v)::env) e st k
+          else error st k
         else value v st (CaseK env n css :: k)
     | _ => error st k) ∧
   return v st (RaiseK :: k) = (Exn v, st, k) ∧

@@ -200,17 +200,17 @@ Theorem env_rel_zip:
   ∀n x y xs ys s1 s2.
     env_rel s1 xs ys ∧ LIST_REL v_rel x y ∧ s2 DIFF set n SUBSET s1 ∧
     LENGTH n = LENGTH x ⇒
-    env_rel s2 (ZIP(n,x)++xs) (ZIP(n,y)++ys)
+    env_rel s2 (REVERSE(ZIP(n,x))++xs) (REVERSE(ZIP(n,y))++ys)
 Proof
   Induct \\ fs []
   >- fs [env_rel_def,SUBSET_DEF]
   \\ Cases_on ‘x’ \\ fs [PULL_EXISTS] \\ rw []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ last_x_assum irule \\ fs []
+  \\ qexists_tac ‘s2 DIFF set n’ \\ fs []
   \\ irule env_rel_cons \\ fs []
-  \\ last_x_assum $ irule_at Any \\ fs []
-  \\ last_x_assum $ irule_at Any \\ fs []
-  \\ rename [‘_ DELETE h5’]
-  \\ qexists_tac ‘s2 DELETE h5’ \\ fs []
-  \\ fs [SUBSET_DEF]
+  \\ qexists_tac ‘s2 DIFF set n DELETE h'’ \\ fs []
+  \\ fs [env_rel_def,SUBSET_DEF]
 QED
 
 Triviality FST_INTRO:
