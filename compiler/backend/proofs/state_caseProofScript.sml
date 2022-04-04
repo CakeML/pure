@@ -549,16 +549,12 @@ Proof
       \\ simp [Once cont_rel_cases]
       \\ first_x_assum $ irule_at $ Pos last \\ fs []
       \\ fs [env_rel_ignore_def])
-    \\ IF_CASES_TAC \\ gvs []
+    \\ reverse IF_CASES_TAC \\ gvs []
+    >- (qexists_tac ‘0’ \\ fs [step_res_rel_cases])
+    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
+    \\ rpt $ first_assum $ irule_at Any
 
-    >-
-     (simp [Once step_res_rel_cases,PULL_EXISTS]
-      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-      \\ rpt $ first_assum $ irule_at Any
-
-
-
-      \\ cheat)
     \\ cheat)
   \\ qexists_tac ‘0’ \\ fs []
   >~ [‘HandleK’] >-
@@ -624,13 +620,9 @@ Proof
   \\ fs []
 QED
 
-(*
-
 Theorem step_until_halt_thm:
-  step_res_rel tr sr ∧
-  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
-  cont_rel tk sk ∧
-  step_until_halt (tr,ts,tk) ≠ Err ⇒
+  step_res_rel tr sr ∧ cont_rel tk sk ∧
+  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ⇒
   snext_res_rel (step_until_halt (tr,ts,tk))
                 (step_until_halt (sr,ss,sk))
 Proof
@@ -639,7 +631,6 @@ Proof
   >-
    (‘∃a. step_n x (tr,ts,tk) = a’ by fs []
     \\ PairCases_on ‘a’ \\ gvs []
-    \\ ‘a0 ≠ Error’ by (strip_tac \\ gvs [])
     \\ drule_all step_n_forward \\ rw []
     \\ ‘is_halt (sr1,ss1,sk1)’ by gvs [step_res_rel_cases]
     \\ reverse (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
@@ -657,19 +648,39 @@ Proof
   \\ ‘∃b. step_n x (tr,ts,tk) = b’ by fs []
   \\ PairCases_on ‘b’ \\ gvs []
   \\ last_x_assum $ qspec_then ‘x’ assume_tac
-  \\ Cases_on ‘b0 = Error’ \\ gvs []
   \\ drule_all step_n_forward \\ rw []
   \\ ‘step_n (m + x) (sr,ss,sk) = (a0,a1,a2)’ by
     (rewrite_tac [step_n_add] \\ fs [is_halt_step])
   \\ gvs [] \\ gvs [step_res_rel_cases]
 QED
 
+Theorem itree_eq:
+  ∀P.
+     (∀x y.
+        P x y ⇒
+        (x = Div ∧ y = Div) ∨ (∃v. x = Ret v ∧ y = Ret v) ∨
+        ∃a f g. x = Vis a f ∧ y = Vis a g ∧ ∀v. f v ≠ g v ⇒ P (f v) (g v)) ⇒
+     ∀x y. P x y ⇒ x = y
+Proof
+  rw []
+  \\ simp [Once itreeTheory.itree_bisimulation]
+  \\ qexists_tac ‘λx y. x ≠ y ⇒ P x y’ \\ fs [] \\ rw []
+  >~ [‘Ret v’] >-
+   (Cases_on ‘t = Ret v’ \\ fs []
+    \\ first_x_assum drule \\ fs [])
+  >~ [‘Div’] >-
+   (Cases_on ‘t = Div’ \\ fs []
+    \\ first_x_assum drule \\ fs [])
+  \\ Cases_on ‘t = Vis a f’ \\ fs []
+  \\ first_x_assum drule \\ fs []
+QED
+
 Theorem semantics_thm:
   compile_rel e1 e2 ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
-  env_rel (freevars e1) tenv senv ∧
+  env_rel tenv senv ∧
   cont_rel tk sk ⇒
-  semantics e1 tenv ts tk --->
+  semantics e1 tenv ts tk =
   semantics e2 senv ss sk
 Proof
   qsuff_tac ‘
@@ -677,15 +688,13 @@ Proof
       (∃e1 e2 ts ss tenv senv tk sk.
         compile_rel e1 e2 ∧
         OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
-        env_rel (freevars e1) tenv senv ∧
+        env_rel tenv senv ∧
         cont_rel tk sk ∧
         t1 = semantics e1 tenv ts tk ∧
         t2 = semantics e2 senv ss sk) ⇒
-      t1 ---> t2’
-  >- (rw [PULL_EXISTS]
-      \\ last_x_assum drule
-      \\ rpt (disch_then drule) \\ fs [])
-  \\ ho_match_mp_tac pure_semanticsTheory.compiles_to_coind
+      t1 = t2’
+  >- (rw [PULL_EXISTS])
+  \\ ho_match_mp_tac itree_eq
   \\ rpt gen_tac \\ strip_tac
   \\ ntac 2 (pop_assum $ mp_tac o GSYM)
   \\ simp [stateLangTheory.semantics_def]
@@ -695,12 +704,11 @@ Proof
   \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ fs []
   \\ simp [GSYM sinterp_def]
-  \\ Cases_on ‘step_until_halt (Exp tenv e1,ts,tk) = Err’ >- fs []
   \\ drule_at (Pos last) step_until_halt_thm
   \\ rpt (disch_then $ drule_at $ Pos last)
+  \\ disch_then $ qspec_then ‘Exp tenv e1’ mp_tac
   \\ disch_then $ qspec_then ‘Exp senv e2’ mp_tac
-  \\ impl_tac
-  >- simp [Once step_res_rel_cases]
+  \\ impl_tac >- simp [Once step_res_rel_cases]
   \\ rename [‘snext_res_rel xx yy’]
   \\ simp [snext_res_rel_cases]
   \\ strip_tac \\ fs []
@@ -711,10 +719,10 @@ Proof
   \\ simp [sinterp_def]
   \\ ‘compile_rel (Lit (Str y)) (Lit (Str y))’ by simp [Once compile_rel_cases]
   \\ pop_assum $ irule_at Any
-  \\ qpat_x_assum ‘cont_rel _ _’ $ irule_at Any \\ fs []
-  \\ ‘env_rel {} [] []’ by fs [env_rel_def]
+  \\ qpat_x_assum ‘cont_rel _ _’ $ irule_at Any
+  \\ ‘env_rel [] []’ by fs [env_rel_def]
   \\ pop_assum $ irule_at Any
-  \\ first_x_assum $ irule_at Any
+  \\ first_assum $ irule_at Any
   \\ simp [value_def]
   \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ rpt conj_tac
@@ -730,14 +738,12 @@ QED
 
 Theorem compile_rel_itree_of:
   compile_rel e1 e2 ⇒
-  itree_of e1 ---> itree_of e2
+  itree_of e1 = itree_of e2
 Proof
   fs [stateLangTheory.itree_of_def] \\ rw []
   \\ irule semantics_thm
   \\ simp [Once cont_rel_cases]
   \\ fs [env_rel_def]
 QED
-
-*)
 
 val _ = export_theory ();
