@@ -422,12 +422,50 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
-(*
-  ∃ck1.
-    step_n ck1 (Exp ((v,Constructor s svs)::senv)
-                 (lets_for s v (MAPi (λi v. (i,v)) h1) h2'),ss,sk) =
-      (Exp (REVERSE (ZIP (h1,svs)) ++ senv) h2',ss,sk)
-*)
+Theorem step_n_lets_for:
+  ∀svs1 svs0 n senv h1 h2.
+    ALOOKUP senv v = SOME (Constructor h0 (svs0 ++ svs1)) ∧
+    LENGTH svs0 = n ∧ ~MEM v h1 ∧ LENGTH h1 = LENGTH svs1 ⇒
+    ∃ck.
+      step_n ck
+        (Exp senv (lets_for h0 v (MAPi (λi v. (i+n,v)) h1) h2),ss,sk) =
+          (Exp (REVERSE (ZIP (h1,svs1)) ++ senv) h2,ss,sk)
+Proof
+  Induct \\ fs [lets_for_def]
+  >- (rw [] \\ qexists_tac ‘0’ \\ fs [])
+  \\ Cases_on ‘h1’ \\ fs [] \\ rw []
+  \\ fs [lets_for_def]
+  \\ ntac 4 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+  \\ fs [EL_APPEND2]
+  \\ ntac 1 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+  \\ last_x_assum $ drule_at $ Pos last \\ fs [combinTheory.o_DEF]
+  \\ rename [‘Exp ((a1,a2)::_)’]
+  \\ disch_then $ qspecl_then [‘svs0 ++ [a2]’,‘((a1,a2)::senv)’] mp_tac
+  \\ impl_tac >- fs [ALOOKUP_def]
+  \\ fs [ADD_CLAUSES,LENGTH_APPEND,GSYM ADD1]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+QED
+
+Theorem env_rel_zip:
+  ∀n x y xs ys.
+    env_rel xs ys ∧ LIST_REL v_rel x y ∧
+    LENGTH n = LENGTH x ⇒
+    env_rel (REVERSE(ZIP(n,x))++xs) (REVERSE(ZIP(n,y))++ys)
+Proof
+  Induct \\ fs []
+  \\ Cases_on ‘x’ \\ fs [PULL_EXISTS] \\ rw []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ last_x_assum irule \\ fs []
+  \\ irule env_rel_cons \\ fs []
+QED
+
+Theorem env_rel_ignore_cons:
+  env_rel_ignore tenv senv v ∧ v_rel x y ⇒
+  env_rel ((v,x)::tenv) ((v,y)::senv)
+Proof
+  fs [env_rel_def,env_rel_ignore_def]
+  \\ rw [] \\ rw [] \\ fs []
+QED
 
 Theorem step_1_forward:
   ∀tr ts tk tr1 ts1 tk1 ss sr sk.
@@ -440,7 +478,6 @@ Theorem step_1_forward:
       OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
       step_res_rel tr1 sr1
 Proof
-
   rpt strip_tac
   \\ Cases_on ‘is_halt (tr,ts,tk)’
   >-
@@ -517,7 +554,6 @@ Proof
   \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
   \\ simp [Once cont_rel_cases] \\ rw []
   >~ [‘CaseK _ v’] >-
-
    (Cases_on ‘tes’ \\ gvs [step,return_def]
     >-
      (fs [GSYM ADD1,step_n_SUC,step,rows_of_def]
@@ -554,8 +590,15 @@ Proof
     \\ simp [Once step_res_rel_cases,PULL_EXISTS]
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
     \\ rpt $ first_assum $ irule_at Any
-
-    \\ cheat)
+    \\ qmatch_goalsub_abbrev_tac ‘Exp envvv’
+    \\ qspecl_then [‘svs’,‘[]’,‘0’,‘envvv’,‘h1’,‘h2'’] mp_tac step_n_lets_for
+    \\ impl_tac >- fs [Abbr‘envvv’]
+    \\ strip_tac \\ fs [Abbr‘envvv’]
+    \\ pop_assum $ irule_at Any
+    \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ irule env_rel_zip \\ fs []
+    \\ irule env_rel_ignore_cons \\ fs []
+    \\ simp [Once v_rel_cases])
   \\ qexists_tac ‘0’ \\ fs []
   >~ [‘HandleK’] >-
    (gvs [step] \\ fs [step_res_rel_cases])
