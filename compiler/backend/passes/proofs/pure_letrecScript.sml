@@ -2,7 +2,7 @@
   Simplification of Letrec
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
-open pure_expTheory pure_miscTheory topological_sortTheory;
+open pure_expTheory pure_miscTheory topological_sortTheory pure_letrec_cexpTheory;
 
 val _ = new_theory "pure_letrec";
 
@@ -31,14 +31,6 @@ End
 (*
   1. a pass that ensures, for every Letrec xs y, that ALL_DISTINCT (MAP FST xs)
 *)
-
-Definition make_distinct_def:
-  (* this could be written in a more efficient way, but perhaps this is good
-     for the proofs, i.e. the implementation version might be different *)
-  make_distinct [] = [] ∧
-  make_distinct ((n:string,x)::xs) =
-    if MEM n (MAP FST xs) then make_distinct xs else (n,x)::make_distinct xs
-End
 
 Definition distinct_def:
   distinct e = letrec_recurse (λfns e. Letrec (make_distinct fns) e) e

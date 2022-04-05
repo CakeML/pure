@@ -18,7 +18,7 @@ End
 
 Definition make_apps_def:
   make_apps [] = FEMPTY ∧
-  make_apps ((_,Lam _ _)::fs) = make_apps fs ∧
+  make_apps ((_,pure_exp$Lam _ _)::fs) = make_apps fs ∧
   make_apps ((v,e)::fs) = make_apps fs |+ (v, App (Var v) cl_tm)
 End
 

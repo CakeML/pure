@@ -2,8 +2,8 @@
   Simplification of Letrec for cexp
 *)
 open HolKernel Parse boolLib bossLib BasicProvers;
-open listTheory pairTheory;
-open pure_cexpTheory pure_letrecTheory pure_varsTheory balanced_mapTheory;
+open listTheory pairTheory topological_sortTheory;
+open pure_cexpTheory pure_varsTheory balanced_mapTheory;
 
 val _ = new_theory "pure_letrec_cexp";
 
@@ -71,6 +71,13 @@ End
   A pass that ensures, for every Letrec xs y, that ALL_DISTINCT (MAP FST xs).
   No need to patch up freevars here as the pass doesn't rely on them.
 *)
+
+Definition make_distinct_def:
+  (* this could be more efficient, but perhaps this is good for the proofs *)
+  make_distinct [] = [] ∧
+  make_distinct ((n:string,x)::xs) =
+    if MEM n (MAP FST xs) then make_distinct xs else (n,x)::make_distinct xs
+End
 
 Definition distinct_cexp_def:
   distinct_cexp ce =

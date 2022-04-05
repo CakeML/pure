@@ -494,6 +494,7 @@ Theorem step1_rel:
         ∀ws. get_ffi_array (cstep_n (SUC n) c) = SOME ws ⇒
              get_ffi_array c = SOME ws
 Proof
+  cheat
 QED
 
 

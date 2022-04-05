@@ -38,7 +38,7 @@ Inductive args_rel:
   ∧
   (∀v w args xs ys.
      args_rel args xs ys ⇒
-     args_rel (SOME (v,w)::args) (Var v::xs) ys)
+     args_rel (SOME (v,w)::args) (pure_exp$Var v::xs) ys)
 End
 
 Inductive body_rel:
