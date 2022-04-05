@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory rich_listTheory finite_mapTheory;
-open envLangTheory;
+open pure_expTheory;
 
 val _ = new_theory "envLang_cexp";
 
@@ -25,53 +25,6 @@ Datatype:
        | Box 'a cexp
        | Force 'a cexp
        | Case 'a cexp vname ((vname # (vname list) # cexp) list)
-End
-
-Definition op_of_def:
-  op_of (Cons s) : op = Cons s ∧
-  op_of (AtomOp aop) = AtomOp aop
-End
-
-Definition Lams_def:
-  Lams [] e = e ∧
-  Lams (x::xs) e = Lam x (Lams xs e)
-End
-
-Definition Apps_def:
-  Apps e [] = e ∧
-  Apps e (x::xs) = Apps (App e x) xs
-End
-
-Definition lets_for_def:
-  lets_for cn v [] b = b ∧
-  lets_for cn v ((n,w)::ws) b =
-    Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for cn v ws b)
-End
-
-Definition rows_of_def:
-  rows_of v [] = Prim If [] ∧
-  rows_of v ((cn,vs,b)::rest) =
-    If (Prim (IsEq cn (LENGTH vs) T) [Var v])
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest)
-End
-
-Definition exp_of_def:
-  exp_of (Var c n) : exp  = envLang$Var n ∧
-  exp_of (Prim c cop es)  = Prim (op_of cop) (MAP exp_of es) ∧
-  exp_of (App c e es)     = Apps (exp_of e) (MAP exp_of es) ∧
-  exp_of (Lam c xs e)     = Lams xs (exp_of e) ∧
-  exp_of (Letrec c fns e) = Letrec (MAP (λ(f,x). (f, exp_of x)) fns) (exp_of e) ∧
-  exp_of (Let c x e1 e2)  = Let x (exp_of e1) (exp_of e2) ∧
-  exp_of (If c e e1 e2)   = If (exp_of e) (exp_of e1) (exp_of e2) ∧
-  exp_of (Delay c e)      = Delay (exp_of e) ∧
-  exp_of (Box c e)        = Box (exp_of e) ∧
-  exp_of (Force c e)      = Force (exp_of e) ∧
-  exp_of (Case c e v css) = Let (SOME v) (exp_of e)
-                              (rows_of v (MAP (λ(cn,vs,e). (cn, vs, exp_of e)) css))
-Termination
-  WF_REL_TAC `measure $ cexp_size $ K 0` >>
-  rw[fetch "-" "cexp_size_def"] >> gvs[] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
 End
 
 Definition freevars_cexp_def[simp]:

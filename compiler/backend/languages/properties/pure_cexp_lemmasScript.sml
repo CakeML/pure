@@ -2,7 +2,8 @@
 open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_cexpTheory pure_expTheory pure_exp_lemmasTheory;
+open pure_miscTheory pure_cexpTheory pureLangTheory
+     pure_expTheory pure_exp_lemmasTheory;
 
 val _ = new_theory "pure_cexp_lemmas";
 

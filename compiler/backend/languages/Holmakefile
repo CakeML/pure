@@ -1,1 +1,1 @@
-INCLUDES = semantics $(PUREDIR)/misc $(PUREDIR)/language
+INCLUDES = $(PUREDIR)/misc $(PUREDIR)/language

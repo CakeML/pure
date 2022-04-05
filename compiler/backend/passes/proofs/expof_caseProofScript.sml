@@ -8,7 +8,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory dep_rewrite
      relationTheory;
 open pure_miscTheory pure_evalTheory pure_expTheory pure_exp_relTheory
-     pure_congruenceTheory pure_cexpTheory pure_exp_lemmasTheory;
+     pure_congruenceTheory pure_cexpTheory pureLangTheory pure_exp_lemmasTheory;
 
 val _ = new_theory "expof_caseProof";
 

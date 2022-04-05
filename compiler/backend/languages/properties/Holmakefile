@@ -1,1 +1,1 @@
-INCLUDES = ../ $(PUREDIR)/language $(PUREDIR)/misc $(PUREDIR)/meta-theory
+INCLUDES = ../semantics $(PUREDIR)/language $(PUREDIR)/misc $(PUREDIR)/meta-theory
