@@ -1,5 +1,1 @@
-INCLUDES = ../../misc \
-           ../../language \
-           ../../meta-theory \
-           $(CAKEMLDIR)/basis/pure \
-           $(HOLDIR)/examples/algorithms
+INCLUDES = $(CAKEMLDIR)/basis/pure

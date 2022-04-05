@@ -1,6 +1,4 @@
-INCLUDES = .. \
-           ../../../language \
-           ../../../meta-theory \
+INCLUDES = .. $(PUREDIR)/language $(PUREDIR)/meta-theory \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/semantics/alt_semantics \
            $(CAKEMLDIR)/semantics/alt_semantics/proofs \
