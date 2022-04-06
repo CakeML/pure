@@ -174,6 +174,12 @@ Definition list_to_exp_def:
   list_to_exp (e::es) = Con (SOME $ Short "::") [e; list_to_exp es]
 End
 
+Definition pat_row_def:
+  pat_row sv cn vs =
+    Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
+          (MAP (Pvar o var_prefix) vs)) (var_prefix sv)
+End
+
 Inductive compile_rel:
 [~IntLit:]
   compile_rel cnenv (App (AtomOp (Lit $ Int i)) []) (Lit $ IntLit i) ∧
@@ -251,11 +257,16 @@ Inductive compile_rel:
 
 [~Case:]
   (compile_rel cnenv se ce ∧
-   EVERY (λ(cn,vs,_). ALOOKUP cnenv cn = SOME (tyid, LENGTH vs)) scss ∧
-   LIST_REL (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧
-      pat = Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
-                  (MAP (Pvar o var_prefix) vs)) (var_prefix sv)) scss ccss
+   EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
+   LIST_REL
+    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row sv cn vs)
+    scss ccss
     ⇒ compile_rel cnenv (Case se sv scss) (Mat ce ccss)) ∧
+
+[~TupleCase:]
+  (compile_rel cnenv se ce ∧ compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
+    ⇒ compile_rel cnenv (Case se sv ["",vs,sce]) (Mat ce [(pat_row sv cn vs, cce)])) ∧
 
 [~Raise:]
   (compile_rel cnenv se ce
@@ -267,9 +278,15 @@ Inductive compile_rel:
 End
 
 Definition cnenv_rel_def:
-  cnenv_rel senv cenv =
+  cnenv_rel senv cenv ⇔
+    (* unique stamp for each cn *)
+    (∀stamp cn1 cn2 ar1 ar2.
+      ALOOKUP senv cn1 = SOME (stamp, ar1) ∧ ALOOKUP senv cn2 = SOME (stamp, ar2)
+     ⇒ cn1 = cn2) ∧
     ∀cn tyid ar. ALOOKUP senv cn = SOME (tyid,ar) ⇒
-      nsLookup cenv (Short cn) = SOME (ar,tyid)
+      cn ≠ "" ∧ (* no tuples *)
+      nsLookup cenv (Short cn) = SOME (ar,tyid) ∧ (* matching type/arity *)
+      (∀cn' id. tyid = TypeStamp cn' id ⇒ cn' = cn) (* type stamp matches cn *)
 End
 
 Inductive v_rel:
@@ -431,14 +448,22 @@ Inductive cont_rel:
                      ((Cif ce1 ce2, cenv) :: ck)) ∧
 
 [~CaseK:]
-  (EVERY (λ(cn,vs,_). ALOOKUP cnenv cn = SOME (tyid, LENGTH vs)) scss ∧
-   LIST_REL (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧
-      pat = Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
-                  (MAP (Pvar o var_prefix) vs)) (var_prefix sv)) scss ccss ∧
+  (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
+   LIST_REL
+    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row sv cn vs)
+    scss ccss ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
    (ccont ≠ Cmat ⇒ ccont = Cmat_check)
     ⇒ cont_rel cnenv (CaseK senv sv scss :: sk)
                      ((ccont ccss bind_exn_v, cenv) :: ck)) ∧
+
+[~TupleCaseK:]
+  (compile_rel cnenv se ce ∧ compile_rel cnenv sce cce ∧ ALL_DISTINCT vs ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+   (ccont ≠ Cmat ⇒ ccont = Cmat_check)
+    ⇒ cont_rel cnenv (CaseK senv sv ["",vs,sce] :: sk)
+                     ((ccont [(pat_row sv "" vs, cce)] bind_exn_v, cenv) :: ck)) ∧
 
 [~RaiseK:]
   (cont_rel cnenv sk ck
