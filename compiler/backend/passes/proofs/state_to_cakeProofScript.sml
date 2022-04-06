@@ -78,15 +78,12 @@ Inductive atom_op_rel:
   (opb_rel sopb opb ⇒ atom_op_rel sopb (Opb opb)) ∧
   atom_op_rel Eq Equality ∧
   atom_op_rel Len Strlen ∧
-  atom_op_rel Elem Strsub ∧
   atom_op_rel StrEq Equality
 End
 
-(* TODO most things need to handle negative arguments properly *)
 Inductive op_rel:
   op_rel AppOp Opapp ∧
   (atom_op_rel aop op ⇒ op_rel (AtomOp aop) op) ∧
-  op_rel Alloc Aalloc ∧
   op_rel Ref AallocFixed ∧
   op_rel Length Alength ∧
   op_rel Sub Asub ∧
@@ -116,10 +113,22 @@ Overload mod =
   ``ifeq (var "v2", int 0) (int 0) (App (Opn Modulo) [var "v1"; var "v2"])``;
 
 (*
-  let strlen = LENGTH s in
-  let off = if i < 0 then 0 else i in
+  if v2 < 0 then -1 else
+  let strlen = LENGTH v1 in
+    if v2 < strlen then Ord (Strsub v1 v2) else -1
+*)
+Overload elem_str =
+  ``iflt (var "v2", int 0) (int (-1)) $
+    clet "strlen" (App Strlen [var "v1"]) $
+    iflt (var "v2", var "strlen")
+      (App Ord [App Strsub [var "v1"; var "v2"]])
+      (int (-1))``
+
+(*
+  let strlen = LENGTH v1 in
+  let off = if v2 < 0 then 0 else v2 in
   if off < strlen then
-    CopyStrStr s off (strlen - off)
+    CopyStrStr v1 off (strlen - off)
     else ""
 *)
 Overload substring2 =
@@ -151,8 +160,13 @@ Overload substring3 =
       (Lit $ StrLit "")``;
 
 (*
-  λch ce.
-    App (FFI ch) [ce; var "ffi_array"];
+  let len = (if v1 < 0 then 0 else v1) in Aalloc v1 v2
+*)
+Overload alloc =
+  ``clet "len" (iflt (var "v1", int 0) (int 0) (var "v1")) $
+    App Aalloc [var "len"; var "v2"]``;
+
+(*
     let len0 = Int (ffi_array[0]) in
     let len1 = Int (ffi_array[1]) in
     let len = (len1 * 256) + len0 in
@@ -160,12 +174,11 @@ Overload substring3 =
     CopyAw8Str ffi_array 2 len
 *)
 Overload ffi =
-  ``λch. Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $
-      clet "len0" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
-      clet "len1" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
-      clet "len" (App (Opn Plus) [App (Opn Times) [var "len1"; int 256]; var "len0"]) $
-      clet "len" (iflt (int 4094, var "len") (int 4094) (var "len")) $
-      App CopyAw8Str [var "ffi_array"; int 2; var "len"]``;
+  ``clet "len0" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
+    clet "len1" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
+    clet "len" (App (Opn Plus) [App (Opn Times) [var "len1"; int 256]; var "len0"]) $
+    clet "len" (iflt (int 4094, var "len") (int 4094) (var "len")) $
+    App CopyAw8Str [var "ffi_array"; int 2; var "len"]``;
 
 (* TODO list_to_v exists in CakeML - is there a list_to_exp already? *)
 (* right to left evaluation should hold for this too *)
@@ -204,18 +217,22 @@ Inductive compile_rel:
   (op_rel sop cop ∧ LIST_REL (compile_rel cnenv) ses ces
     ⇒ compile_rel cnenv (App sop ses) (App cop ces)) ∧
 
-[~DivModSubstring2:]
+[~DivModElemSubstring2:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
    (if aop = Div then rest = div
-    else if aop = Substring then rest = substring2
-    else aop = Mod ∧ rest = mod)
+    else if aop = Mod then rest = mod
+    else if aop = Elem then rest = elem_str
+    else aop = Substring ∧ rest = substring2)
     ⇒ compile_rel cnenv (App (AtomOp aop) [se1;se2])
                         (clet "v2" ce2 $ clet "v1" ce1 rest)) ∧
 
-[~ConcatImplode:]
-  (LIST_REL (compile_rel cnenv) ses ces ∧
-   (if aop = Concat then cop = Strcat else aop = Implode ∧ cop = Implode)
-    ⇒ compile_rel cnenv (App (AtomOp aop) ses) (App cop [list_to_exp ces])) ∧
+[~Concat:]
+  (LIST_REL (compile_rel cnenv) ses ces
+    ⇒ compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces])) ∧
+
+(*TODO
+[~Implode:]
+*)
 
 [~Substring3:]
   (LIST_REL (compile_rel cnenv) [se1;se2;se3] [ce1;ce2;ce3]
@@ -229,9 +246,16 @@ Inductive compile_rel:
 [~StrGeq:]
 *)
 
+[~Alloc:]
+  (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
+    ⇒ compile_rel cnenv (App Alloc [se1;se2])
+                        (clet "v2" ce2 $ clet "v1" ce1 alloc)) ∧
+
 [~FFI:]
   (compile_rel cnenv se ce
-    ⇒ compile_rel cnenv (App (FFI ch) [se]) (clet "s" ce (ffi ch))) ∧
+    ⇒ compile_rel cnenv (App (FFI ch) [se])
+                        (clet "s" ce $
+                          Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi)) ∧
 
 [~Lam:]
   (compile_rel cnenv se ce
@@ -389,8 +413,9 @@ Inductive cont_rel:
   (compile_rel cnenv se1 ce1 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
    (if aop = Div then rest = div
-    else if aop = Substring then rest = substring2
-    else aop = Mod ∧ rest = mod)
+    else if aop = Mod then rest = mod
+    else if aop = Elem then rest = elem_str
+    else aop = Substring ∧ rest = substring2)
     ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [] [se1] :: sk)
                      ((Clet (SOME "v2") (clet "v1" ce1 rest), cenv) :: ck)) ∧
 
@@ -398,20 +423,36 @@ Inductive cont_rel:
   (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
    (if aop = Div then rest = div
-    else if aop = Substring then rest = substring2
-    else aop = Mod ∧ rest = mod)
+    else if aop = Mod then rest = mod
+    else if aop = Elem then rest = elem_str
+    else aop = Substring ∧ rest = substring2)
     ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [sv2] [] :: sk)
                      ((Clet (SOME "v1") rest, cenv) :: ck)) ∧
 
-[~ConcatImplode:]
+[~Alloc1:]
+  (compile_rel cnenv se1 ce1 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv Alloc [] [se1] :: sk)
+                     ((Clet (SOME "v2") (clet "v1" ce1 alloc), cenv) :: ck)) ∧
+
+[~Alloc2:]
+  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv (AppK senv Alloc [sv2] [] :: sk)
+                     ((Clet (SOME "v1") alloc, cenv) :: ck)) ∧
+
+[~Concat:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
    LIST_REL (v_rel cnenv) svs cvs ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
-   (if aop = Concat then cop = Strcat else aop = Implode ∧ cop = Implode)
+   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
   ⇒ cont_rel cnenv
-    (AppK senv (AtomOp aop) svs ses :: sk)
+    (AppK senv (AtomOp Concat) svs ses :: sk)
     ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
-        :: list_to_cont cenv ces ++ [Capp cop [] [], cenv] ++ ck)) ∧
+        :: list_to_cont cenv ces ++ [Capp Strcat [] [], cenv] ++ ck)) ∧
+
+(*TODO
+[~Implode:]
+*)
 
 [~Substring3_1:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
@@ -443,7 +484,9 @@ Inductive cont_rel:
 [~FFI:]
   (cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (FFI ch) [] [] :: sk)
-                     ((Clet (SOME "s") (ffi ch), cenv) :: ck)) ∧
+                     ((Clet (SOME "s") $
+                        Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi
+                       , cenv) :: ck)) ∧
 
 [~LetK:]
   (compile_rel cnenv se ce ∧
@@ -517,7 +560,8 @@ Inductive step_rel:
   (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧
    ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
    store_lookup 0 cst = SOME $ W8array ws2
-    ⇒ step_rel (Action s conf, SOME sst, sk) (Effi s ws1 ws2 0 cenv cst ck))
+    ⇒ step_rel (Action s conf, SOME sst, sk)
+               (Effi s ws1 ws2 0 cenv' cst ((Clet NONE ffi, cenv) :: ck)))
 End
 
 
