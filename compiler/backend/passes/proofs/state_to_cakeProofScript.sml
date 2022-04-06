@@ -1,12 +1,14 @@
 (*
   Correctness for compilation from stateLang to CakeML
- *)
+*)
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     rich_listTheory arithmeticTheory;
-open semanticPrimitivesTheory itree_semanticsTheory;
+     rich_listTheory arithmeticTheory intLib;
+open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory;
 open pure_miscTheory pure_configTheory stateLangTheory;
+
+val _ = intLib.deprecate_int();
 
 val _ = new_theory "state_to_cakeProof";
 
@@ -594,7 +596,7 @@ Inductive step_rel:
 End
 
 
-(******************** Proofs ********************)
+(******************** Main results ********************)
 
 (********** Useful shorthands **********)
 
@@ -1102,12 +1104,698 @@ QED
 (********** Main results **********)
 
 Theorem step1_rel:
-  step_rel s c ∧ ¬is_halt s ∧ (∀st k. step_n 1 s ≠ error st k)
+  step_rel s c ∧ ¬is_halt s ∧ (∀n st k. step_n n s ≠ error st k)
   ⇒ ∃n. step_rel (step_n 1 s) (cstep_n (SUC n) c) ∧
         ∀ws. get_ffi_array (cstep_n (SUC n) c) = SOME ws ⇒
              get_ffi_array c = SOME ws
 Proof
-  cheat
+  rw[Once step_rel_cases] >> gvs[]
+  >- ( (* Exp *)
+    pop_assum $ qspec_then `1` assume_tac >> gvs[] >>
+    gvs[Once compile_rel_cases, sstep, cstep] >~ [`Concat`]
+    >- ( (* Concat *)
+      TOP_CASE_TAC >> gvs[]
+      >- (
+        gvs[eval_op_def, concat_def, list_to_exp_def] >>
+        qrefine `SUC n` >> simp[cstep] >>
+        gvs[env_ok_def, do_con_check_def, build_conv_def] >>
+        qrefine `SUC n` >> simp[cstep] >>
+        simp[do_app_def, v_to_list_def, v_to_char_list_def,
+             list_type_num_def, vs_to_string_def] >>
+        qexists0 >> simp[step_rel_cases, SF SFY_ss]
+        ) >>
+      gvs[SWAP_REVERSE_SYM, LIST_REL_SPLIT1, REVERSE_APPEND] >>
+      qspecl_then [`ys1 ++ [y]`,`cenv`,`cst`,`(Capp Strcat [] [],cenv)::ck`]
+        assume_tac cstep_list_to_exp >> gvs[] >>
+      qrefine `m + n` >> simp[cstep_n_add, REVERSE_APPEND] >>
+      qrefine `SUC m` >> simp[cstep, list_to_cont_def] >>
+      gvs[env_ok_def, do_con_check_def] >> qexists0 >> simp[] >>
+      simp[step_rel_cases, env_ok_def] >> goal_assum drule >>
+      simp[Once cont_rel_cases, list_to_v_def, list_type_num_def, env_ok_def] >>
+      irule_at Any EQ_REFL >> simp[EVERY2_REVERSE1]
+      ) >>
+    qexists0 >> simp[]
+    >- simp[step_rel_cases, SF SFY_ss] (* IntLit *)
+    >- simp[step_rel_cases, SF SFY_ss] (* StrLit *)
+    >- ( (* Tuple *)
+      simp[do_con_check_def] >> TOP_CASE_TAC >> gvs[]
+      >- (simp[build_conv_def] >> simp[step_rel_cases, SF SFY_ss]) >>
+      gvs[SWAP_REVERSE_SYM, LIST_REL_SPLIT1, REVERSE_APPEND] >>
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases, EVERY2_REVERSE1]
+      )
+    >- ( (* Constructor *)
+      drule_all env_rel_check >> strip_tac >> simp[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      TOP_CASE_TAC >> gvs[]
+      >- (
+        qspec_then `[]` mp_tac env_rel_build >> simp[] >>
+        disch_then drule_all >> strip_tac >> simp[step_rel_cases, SF SFY_ss]
+        ) >>
+      gvs[SWAP_REVERSE_SYM, LIST_REL_SPLIT1, REVERSE_APPEND] >>
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases, EVERY2_REVERSE1]
+      )
+    >- ( (* Var *)
+      CASE_TAC >> gvs[] >> drule_all env_rel_lookup >> strip_tac >> gvs[] >>
+      simp[step_rel_cases, SF SFY_ss]
+      )
+    >- ( (* App *)
+      IF_CASES_TAC >> gvs[] >> reverse $ TOP_CASE_TAC >> gvs[]
+      >- (
+        gvs[SWAP_REVERSE_SYM, LIST_REL_SPLIT1, REVERSE_APPEND] >>
+        simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        simp[Once cont_rel_cases, EVERY2_REVERSE1]
+        ) >>
+      gvs[num_args_ok_0, op_rel_cases]
+      >- (
+        Cases_on `aop` >> gvs[sstep, eval_op_def] >>
+        gvs[atom_op_rel_cases, opn_rel_cases, opb_rel_cases]
+        ) >>
+      (* Ref *)
+      gvs[sstep, do_app_def, store_alloc_def, SNOC_APPEND] >>
+      simp[step_rel_cases, SF DNF_ss, GSYM CONJ_ASSOC] >>
+      gvs[state_rel, ADD1] >> rpt $ goal_assum $ drule_at Any >>
+      imp_res_tac LIST_REL_LENGTH >> simp[store_lookup_def]
+      )
+    >- ( (* Div/Mod/Elem/Substring2 *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- ( (* Substring3 *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- ( (* Alloc *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- ( (* FFI *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- simp[step_rel_cases, SF SFY_ss] (* Lam *)
+    >- ( (* Letrec *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_Recclosure >> irule_at Any env_ok_Recclosure >> simp[] >>
+      rw[EVERY_EL] >> gvs[LIST_REL_EL_EQN] >>
+      first_x_assum drule >> ntac 2 (pairarg_tac >> simp[]) >>
+      rw[] >> irule_at Any EQ_REFL
+      )
+    >- ( (* Let *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- ( (* If *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- ( (* Case *)
+      IF_CASES_TAC >> gvs[] >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases] >> disj1_tac >>
+      irule_at Any EQ_REFL >> simp[SF SFY_ss]
+      )
+    >- ( (* TupleCase *)
+      IF_CASES_TAC >> gvs[] >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases] >> disj2_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss]
+      )
+    >- ( (* Raise *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    >- ( (* Handle *)
+      simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      )
+    )
+  >~ [`Exn`]
+  >- ( (* Raise *)
+    pop_assum $ qspec_then `1` assume_tac >> gvs[] >>
+    Cases_on `sk` >> gvs[sstep] >>
+    Cases_on `h` >> gvs[Once cont_rel_cases] >> simp[cstep]
+    >~ [`list_to_cont`]
+    >- ( (* AppK (Cons _) *)
+      qrefine `n + LENGTH ces` >>
+      simp[cstep_n_add] >> once_rewrite_tac[GSYM APPEND_ASSOC] >>
+      simp[cstep_Craise_over_list_to_cont] >>
+      qrefine `SUC n` >> simp[cstep] >> qexists0 >> simp[] >>
+      simp[step_rel_cases, SF SFY_ss]
+      )
+    >>~ [`Cmat_check`]
+    >- ( (* CaseK *)
+      Cases_on `ccont = Cmat_check` >> gvs[] >>
+      qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
+      )
+    >- ( (* TupleCaseK *)
+      Cases_on `ccont = Cmat_check` >> gvs[] >>
+      qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
+      )
+    >~ [`Exp`,`Pvar`]
+    >- ( (* HandleK *)
+      qrefine `SUC n` >> simp[cstep] >>
+      simp[can_pmatch_all_def, pmatch_def] >>
+      qrefine `SUC n` >> simp[cstep] >>
+      simp[astTheory.pat_bindings_def, pmatch_def] >>
+      qexists0 >> simp[step_rel_cases] >>
+      rpt $ goal_assum $ drule_at Any >> simp[] >>
+      irule env_rel_nsBind >> simp[]
+      ) >>
+    qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
+    ) >>
+  (* Val *)
+  Cases_on `sk` >> gvs[sstep] >>
+  gvs[DefnBase.one_line_ify NONE return_def] >>
+  reverse TOP_CASE_TAC >> gvs[Once cont_rel_cases, sstep, cstep]
+  >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* HandleK *)
+  >- cheat (* stateLang takes an extra step here *) (* RaiseK *)
+  >- ( (* CaseK *)
+    rename1 `CaseK senv v scss :: sk` >>
+    drule step_Case_no_error >> strip_tac >> gvs[]
+    >- (
+      irule FALSITY >> imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+      first_x_assum drule >> strip_tac >> gvs[] >>
+      gvs[env_rel_def, cnenv_rel_def] >> metis_tac[]
+      ) >>
+    rename1 `_ = LENGTH svs` >> rename1 `ALOOKUP _ _ = SOME (_,sce)` >>
+    `same_type tyid stamp` by (
+      gvs[EVERY_MEM] >> drule ALOOKUP_MEM >> strip_tac >>
+      first_x_assum drule >> simp[]) >>
+    `EVERY (λ(cn,vs,se). ALL_DISTINCT vs ∧
+       ∃stamp'. ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧
+          same_type stamp' tyid) scss` by (
+        gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+        first_x_assum drule >> rw[] >> simp[] >>
+        metis_tac[evaluatePropsTheory.same_type_trans,
+                  evaluatePropsTheory.same_type_sym]) >>
+    pop_assum mp_tac >> pop_assum kall_tac >>
+    qpat_x_assum `EVERY _ _` kall_tac >> strip_tac >>
+    drule compile_rel_can_pmatch_all >> disch_then drule >> simp[] >>
+    rpt $ disch_then $ drule_at Any >>
+    disch_then $ qspecl_then [`cenv'`,`cst`] mp_tac >>
+    impl_keep_tac >- gvs[env_rel_def] >> strip_tac >>
+    last_x_assum $ qspec_then `SUC n` $ assume_tac o GEN_ALL >>
+    TOP_CASE_TAC >> gvs[] >>
+    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+    IF_CASES_TAC >> gvs[step_n_SUC, sstep]
+    >- (first_x_assum $ qspec_then `0` assume_tac >> gvs[])
+    >- (first_x_assum $ qspec_then `0` assume_tac >> gvs[]) >>
+    reverse $ IF_CASES_TAC
+    >- ( (* No match *)
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      drule_all pmatch_no_match >> strip_tac >>
+      Cases_on `ccont = Cmat_check` >> gvs[] >> simp[cstep]
+      >- (
+        qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+        simp[] >> qexists0 >> simp[Once step_rel_cases] >>
+        rpt $ goal_assum $ drule_at Any >> simp[Once cont_rel_cases] >>
+        disj1_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss]
+        )
+      >- (
+        simp[] >> qexists0 >> simp[Once step_rel_cases] >>
+        rpt $ goal_assum $ drule_at Any >> simp[Once cont_rel_cases] >>
+        disj1_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss]
+        )
+      ) >>
+    pop_assum SUBST_ALL_TAC >> gvs[] >>
+    drule pmatch_match >>
+    disch_then $ qspecl_then [`v`,`stamp'`,`pvs`,`cvs`,`cst`,`cn`] mp_tac >>
+    simp[] >> imp_res_tac LIST_REL_LENGTH >> simp[] >> strip_tac >>
+    Cases_on `ccont = Cmat_check` >> gvs[] >> simp[cstep]
+    >- (
+      qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+      simp[] >> qexists0 >> simp[Once step_rel_cases] >>
+      rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
+      )
+    >- (
+      simp[] >> qexists0 >> simp[Once step_rel_cases] >>
+      rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
+      )
+    )
+  >- ( (* TupleCaseK *)
+    IF_CASES_TAC >> gvs[]
+    >- (last_x_assum $ qspec_then `1` assume_tac >> gvs[sstep]) >>
+    drule step_Case_no_error >> strip_tac >> gvs[] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    Cases_on `ccont = Cmat_check` >> gvs[cstep]
+    >- (
+      simp[can_pmatch_all_tuple] >>
+      qrefine `SUC n` >> simp[cstep_n_def, cstep, pmatch_tuple] >>
+      qexists0 >> simp[Once step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
+      )
+    >- (
+      qexists0 >> simp[pmatch_tuple] >> simp[Once step_rel_cases] >>
+      rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
+      )
+    )
+  >- ( (* IfK *)
+    first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep, AllCaseEqs()]
+    >- (
+      `Conv (SOME tyid) [] = Boolv T` by
+        gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def, Boolv_def] >>
+      simp[do_if_def] >>
+      qexists0 >> simp[step_rel_cases, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+      rpt $ goal_assum $ drule_at Any >> simp[AllCaseEqs()]
+      )
+    >- (
+      `Conv (SOME tyid) [] = Boolv F` by
+        gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def, Boolv_def] >>
+      simp[do_if_def] >>
+      qexists0 >> simp[step_rel_cases, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+      rpt $ goal_assum $ drule_at Any >> simp[AllCaseEqs()]
+      )
+    )
+  >- ( (* LetK *)
+    qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+    irule env_rel_nsBind >> simp[]
+    )
+  >- ( (* TupleK *)
+    TOP_CASE_TAC >> gvs[cstep, do_con_check_def, build_conv_def] >>
+    qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
+    rpt $ goal_assum $ drule_at Any >> simp[Once cont_rel_cases]
+    )
+  >- ( (* AppK (Cons cn) *)
+    drule_all env_rel_check >> strip_tac >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+    reverse TOP_CASE_TAC >> gvs[cstep, ADD1]
+    >- ( (* more arguments to evaluate *)
+      qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      ) >>
+    qspec_then `cv::cvs` mp_tac env_rel_build >> simp[ADD1] >>
+    disch_then drule_all >> strip_tac >> simp[] >>
+    qexists0 >> simp[step_rel_cases, ADD1, SF SFY_ss]
+    )
+  >- ( (* AppK *)
+    reverse TOP_CASE_TAC >> gvs[cstep]
+    >- ( (* more arguments to evaluate *)
+      qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases]
+      ) >>
+    Cases_on `s = AppOp` >> gvs[]
+    >- (
+      gvs[op_rel_cases] >>
+      pop_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+      TOP_CASE_TAC >> gvs[dest_anyClosure_def, LENGTH_EQ_NUM_compute] >>
+      TOP_CASE_TAC >> gvs[] >> PairCases_on `x` >> gvs[] >>
+      reverse $ Cases_on `dest_Closure sv` >> gvs[]
+      >- ( (* Closure *)
+        Cases_on `sv` >> gvs[opt_bind_def, do_opapp_def] >>
+        qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        irule env_rel_nsBind >> simp[]
+        ) >>
+      (* Recclosure *)
+      Cases_on `dest_Recclosure sv` >> gvs[] >>
+      PairCases_on `x` >> rename1 `SOME (f,env,n)` >> gvs[] >>
+      Cases_on `ALOOKUP f n` >> gvs[] >> Cases_on `x` >> gvs[] >>
+      Cases_on `sv` >> gvs[] >>
+      simp[do_opapp_def, semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] >>
+      qpat_x_assum `ALL_DISTINCT _` mp_tac >> rw[FST_THM, Once LAMBDA_PROD] >>
+      imp_res_tac ALOOKUP_SOME_EL >>
+      drule $ iffLR LIST_REL_EL_EQN >> strip_tac >>
+      pop_assum drule >> simp[] >> pairarg_tac >> simp[] >> strip_tac >> gvs[] >>
+      simp[opt_bind_def] >>
+      drule ALOOKUP_ALL_DISTINCT_EL >> rw[FST_THM, Once LAMBDA_PROD] >>
+      qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_ok_nsBind_Recclosure >>
+      irule_at Any env_rel_nsBind_Recclosure >> simp[FST_THM, LAMBDA_PROD] >>
+      rw[EVERY_EL] >> gvs[LIST_REL_EL_EQN] >>
+      last_x_assum drule >> simp[] >> ntac 2 (pairarg_tac >> gvs[]) >>
+      strip_tac >> simp[] >> qexists_tac `sv` >> simp[]
+      ) >>
+    `cop ≠ Opapp` by (CCONTR_TAC >> gvs[op_rel_cases, atom_op_rel_cases]) >>
+    `get_ffi_ch cop = NONE` by (
+      CCONTR_TAC >> Cases_on `cop` >> gvs[op_rel_cases, atom_op_rel_cases]) >>
+    simp[] >> first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+    IF_CASES_TAC >> gvs[] >> reverse $ gvs[op_rel_cases, ADD1]
+    >- ( (* Unsafe update *)
+      `LENGTH l0 = 2` by gvs[] >> gvs[LENGTH_EQ_NUM_compute] >>
+      rename1 `[lnum;idx;elem]` >> gvs[application_def, sstep] >>
+      Cases_on `lnum` >> gvs[] >> Cases_on `idx` >> gvs[] >>
+      TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+      simp[do_app_def] >> drule state_rel_store_lookup >>
+      disch_then $ qspec_then `n` assume_tac >> gvs[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      `¬(i < 0)` by ARITH_TAC >> simp[] >>
+      `¬(Num (ABS i) ≥ LENGTH cs)` by ARITH_TAC >> simp[] >>
+      drule store_lookup_assign_Varray >> rw[] >>
+      `ABS i = i` by ARITH_TAC >> simp[] >>
+      qexists0 >> reverse $ rw[step_rel_cases]
+      >- gvs[state_rel, LUPDATE_DEF, store_lookup_def] >>
+      goal_assum drule >> gvs[state_rel] >> simp[LUPDATE_DEF, GSYM ADD1] >>
+      ntac 2 (irule EVERY2_LUPDATE_same >> simp[])
+      )
+    >- ( (* Update *)
+      `LENGTH l0 = 2` by gvs[] >> gvs[LENGTH_EQ_NUM_compute] >>
+      rename1 `[lnum;idx;elem]` >> gvs[application_def, sstep] >>
+      Cases_on `lnum` >> gvs[] >> Cases_on `idx` >> gvs[] >>
+      TOP_CASE_TAC >> gvs[] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP] >>
+      simp[do_app_def] >> drule state_rel_store_lookup >>
+      disch_then $ qspec_then `n` assume_tac >> gvs[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[]
+      >- ( (* in bounds *)
+        `¬(i < 0)` by ARITH_TAC >> simp[] >>
+        `¬(Num (ABS i) ≥ LENGTH cs)` by ARITH_TAC >> simp[] >>
+        drule store_lookup_assign_Varray >> rw[] >>
+        `ABS i = i` by ARITH_TAC >> simp[] >>
+        qexists0 >> reverse $ rw[step_rel_cases]
+        >- gvs[state_rel, LUPDATE_DEF, store_lookup_def] >>
+        goal_assum drule >> gvs[state_rel] >> simp[LUPDATE_DEF, GSYM ADD1] >>
+        ntac 2 (irule EVERY2_LUPDATE_same >> simp[])
+        )
+      >- ( (* out of bounds *)
+        qmatch_goalsub_abbrev_tac `cstep_n _ foo` >>
+        `foo = Estep (cenv',cst,Val sub_exn_v, (Craise,cenv')::ck')` by (
+          unabbrev_all_tac >> simp[AllCaseEqs()] >> ARITH_TAC) >>
+        simp[] >> ntac 2 $ pop_assum kall_tac >>
+        qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        simp[sub_exn_v_def] >> gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def]
+        )
+      )
+    >- ( (* Unsafe sub *)
+      `LENGTH l0 = 1` by gvs[] >> gvs[LENGTH_EQ_NUM_compute] >>
+      rename1 `[lnum;idx]` >> gvs[application_def, sstep] >>
+      Cases_on `lnum` >> gvs[] >> Cases_on `idx` >> gvs[] >>
+      TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+      simp[do_app_def] >> drule state_rel_store_lookup >>
+      disch_then $ qspec_then `n` assume_tac >> gvs[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      `¬(i < 0)` by ARITH_TAC >> simp[] >>
+      `¬(Num (ABS i) ≥ LENGTH cs)` by ARITH_TAC >> simp[] >>
+      `ABS i = i` by ARITH_TAC >> simp[] >>
+      qexists0 >> rw[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      gvs[LIST_REL_EL_EQN]
+      )
+    >- ( (* Sub *)
+      `LENGTH l0 = 1` by gvs[] >> gvs[LENGTH_EQ_NUM_compute] >>
+      rename1 `[lnum;idx]` >> gvs[application_def, sstep] >>
+      Cases_on `lnum` >> gvs[] >> Cases_on `idx` >> gvs[] >>
+      TOP_CASE_TAC >> gvs[] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP] >>
+      simp[do_app_def] >> drule state_rel_store_lookup >>
+      disch_then $ qspec_then `n` assume_tac >> gvs[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[]
+      >- ( (* in bounds *)
+        `¬(i < 0)` by ARITH_TAC >> simp[] >>
+        `¬(Num (ABS i) ≥ LENGTH cs)` by ARITH_TAC >> simp[] >>
+        `ABS i = i` by ARITH_TAC >> simp[] >>
+        qexists0 >> rw[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        gvs[LIST_REL_EL_EQN]
+        )
+      >- ( (* out of bounds *)
+        qmatch_goalsub_abbrev_tac `cstep_n _ foo` >>
+        `foo = Estep (cenv',cst,Val sub_exn_v, (Craise,cenv')::ck')` by (
+          unabbrev_all_tac >> simp[AllCaseEqs()] >> ARITH_TAC) >>
+        simp[] >> ntac 2 $ pop_assum kall_tac >>
+        qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        simp[sub_exn_v_def] >> gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def]
+        )
+      )
+    >- ( (* Length *)
+      gvs[application_def, sstep] >> Cases_on `sv` >> gvs[] >>
+      TOP_CASE_TAC >> gvs[] >> simp[do_app_def] >>
+      drule state_rel_store_lookup >>
+      disch_then $ qspec_then `n` assume_tac >> gvs[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      qexists0 >> rw[step_rel_cases, SF SFY_ss]
+      )
+    >- ( (* Ref *)
+      gvs[application_def, sstep] >> simp[do_app_def, store_alloc_def] >>
+      qexists0 >> reverse $ rw[step_rel_cases]
+      >- (gvs[store_lookup_def] >> Cases_on `cst` >> gvs[]) >>
+      gvs[state_rel, ADD1] >> rpt $ goal_assum $ drule_at Any >>
+      imp_res_tac LIST_REL_LENGTH >> simp[]
+      ) >>
+    (* AtomOp *)
+    gvs[application_def, sstep] >>
+    TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+    reverse $ gvs[atom_op_rel_cases]
+    >- ( (* StrEq *)
+      gvs[eval_op_SOME] >> simp[do_app_def, do_eq_def, lit_same_type_def] >>
+      qexists0 >> rw[step_rel_cases, Boolv_def] >> rpt $ goal_assum $ drule_at Any >>
+      gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def]
+      )
+    >- ( (* Len str *)
+      gvs[eval_op_SOME] >> simp[do_app_def] >>
+      qexists0 >> rw[step_rel_cases, SF SFY_ss]
+      )
+    >- ( (* Eq int *)
+      gvs[eval_op_SOME] >> simp[do_app_def, do_eq_def, lit_same_type_def] >>
+      qexists0 >> rw[step_rel_cases, Boolv_def] >> rpt $ goal_assum $ drule_at Any >>
+      gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def]
+      )
+    >- ( (* opb *)
+      gvs[opb_rel_cases] >> gvs[eval_op_SOME] >> simp[do_app_def, opb_lookup_def] >>
+      qexists0 >> rw[step_rel_cases, Boolv_def] >> rpt $ goal_assum $ drule_at Any >>
+      gvs[env_rel_def, cnenv_rel_def, prim_types_ok_def]
+      )
+    >- ( (* opn *)
+      gvs[opn_rel_cases] >> gvs[eval_op_SOME] >> simp[do_app_def, opn_lookup_def] >>
+      qexists0 >> rw[step_rel_cases, SF SFY_ss]
+      )
+    )
+  >- ( (* Div/Mod/Elem/Substring2 - second argument to evaluate *)
+    qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+    qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+    simp[Once cont_rel_cases] >>
+    irule_at Any env_rel_nsBind_alt >> simp[var_prefix_def] >>
+    irule_at Any env_ok_nsBind_alt >> simp[]
+    )
+  >- ( (* Div/Mod/Elem/Substring2 - ready to evaluate *)
+    last_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+    TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+    `aop = Div ∨ aop = Mod ∨ aop = Elem ∨ aop = Substring` by (CCONTR_TAC >> gvs[]) >>
+    gvs[]
+    >- ( (* Div *)
+      gvs[eval_op_SOME] >>
+      ntac 6 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, do_eq_def, lit_same_type_def] >>
+      IF_CASES_TAC >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* div by 0 *) >>
+      ntac 4 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opn_lookup_def] >>
+      qexists0 >> simp[step_rel_cases, SF SFY_ss]
+      )
+    >- ( (* Mod *)
+      gvs[eval_op_SOME] >>
+      ntac 6 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, do_eq_def, lit_same_type_def] >>
+      IF_CASES_TAC >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* mod by 0 *) >>
+      ntac 4 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opn_lookup_def] >>
+      qexists0 >> simp[step_rel_cases, SF SFY_ss]
+      )
+    >- ( (* Elem str *)
+      gvs[eval_op_SOME] >>
+      ntac 6 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def, str_el_def] >>
+      rename1 `_ ≤ idx` >> reverse $ Cases_on `0 ≤ idx` >> gvs[]
+      >- (
+        `idx < 0` by ARITH_TAC >> simp[] >>
+        ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+        qexists0 >> simp[step_rel_cases, SF SFY_ss]
+        ) >>
+      `¬ (idx < 0)` by ARITH_TAC >> simp[] >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+      simp[do_app_def] >>
+      ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+      simp[do_app_def, opb_lookup_def] >> reverse $ IF_CASES_TAC >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def] >>
+      `¬ (Num (ABS idx) ≥ STRLEN s')` by ARITH_TAC >> simp[] >>
+      qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+      simp[do_app_def] >>
+      qexists0 >> simp[step_rel_cases] >>
+      rpt $ goal_assum $ drule_at Any >> simp[IMPLODE_EXPLODE_I] >>
+      `ABS idx = idx` by ARITH_TAC >> simp[]
+      )
+    >- ( (* Substring2 *)
+      gvs[eval_op_SOME] >> rename1 `idx < _` >>
+      ntac 4 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def] >>
+      ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def] >> IF_CASES_TAC >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (
+        ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+        simp[do_app_def, opb_lookup_def] >>
+        reverse $ Cases_on `0 < STRLEN s''` >> gvs[] >>
+        ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+        >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) >>
+        ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+        simp[do_app_def, opn_lookup_def] >>
+        ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+        simp[do_app_def, copy_array_def, IMPLODE_EXPLODE_I] >>
+        qexists0 >> simp[step_rel_cases, SF SFY_ss]
+        ) >>
+      ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def] >>
+      reverse $ Cases_on `idx < &STRLEN s''` >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (
+        `DROP (Num idx) s'' = []` by (simp[] >> ARITH_TAC) >> simp[] >>
+        qexists0 >> simp[step_rel_cases, SF SFY_ss]
+        ) >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opn_lookup_def] >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, copy_array_def, IMPLODE_EXPLODE_I] >>
+      `¬ (&STRLEN s'' − idx < 0)` by ARITH_TAC >> simp[] >>
+      qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      `ABS idx = idx` by ARITH_TAC >> simp[] >> ARITH_TAC
+      )
+    )
+  >- ( (* Alloc - second argument to evaluate *)
+    qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+    qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+    simp[Once cont_rel_cases] >>
+    irule_at Any env_rel_nsBind_alt >> simp[var_prefix_def] >>
+    irule_at Any env_ok_nsBind_alt >> simp[]
+    )
+  >- ( (* Alloc - ready to evaluate *)
+    last_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+    TOP_CASE_TAC >> gvs[] >>
+    ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+    simp[do_app_def, opb_lookup_def] >>
+    IF_CASES_TAC >> gvs[] >>
+    ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+    simp[do_app_def, store_alloc_def] >>
+    qexists0 >> simp[step_rel_cases] >> gvs[state_rel, ADD1, store_lookup_def] >>
+    rpt $ goal_assum $ drule_at Any >> imp_res_tac LIST_REL_LENGTH >> simp[] >>
+    `ABS i = i` by ARITH_TAC >> simp[LIST_REL_REPLICATE_same]
+    )
+  >- ( (* Concat *)
+    drule env_ok_check_build_list >> strip_tac >> simp[] >>
+    reverse TOP_CASE_TAC >> gvs[]
+    >- ( (* arguments left to evaluate *)
+      qrefine `SUC n` >> simp[cstep_n_def, cstep, list_to_cont_def] >>
+      qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      simp[Once cont_rel_cases] >> irule_at Any EQ_REFL >> simp[] >>
+      rpt $ goal_assum $ drule_at Any >> simp[list_to_v_def, list_type_num_def]
+      ) >>
+    pop_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+    TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+    qrefine `SUC n` >> simp[cstep_n_def, cstep, list_to_cont_def] >>
+    simp[do_app_def, v_to_list_def, list_type_num_def] >>
+    Cases_on `x` >> gvs[concat_def] >>
+    drule_all concat_vs_to_string >> rw[] >> simp[vs_to_string_def] >>
+    qexists0 >> simp[step_rel_cases, SF SFY_ss]
+    )
+  >- ( (* Substring3 - two args left to evaluate *)
+    qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+    qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+    simp[Once cont_rel_cases] >>
+    irule_at Any env_rel_nsBind_alt >> simp[var_prefix_def] >>
+    irule_at Any env_ok_nsBind_alt >> simp[]
+    )
+  >- ( (* Substring3 - one arg left to evaluate *)
+    qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
+    qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+    simp[Once cont_rel_cases] >>
+    irule_at Any env_rel_nsBind_alt >> simp[var_prefix_def] >>
+    irule_at Any env_ok_nsBind_alt >> simp[]
+    )
+  >- ( (* Substring3 - ready to evaluate *)
+    qmatch_goalsub_abbrev_tac `clet "off" rest1 rest2` >>
+    first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+    TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+    `∃s i len. sv = Atom $ Str s ∧ sv2 = Atom $ Int i ∧ sv3 = Atom $ Int len` by
+      gvs[eval_op_SOME] >>
+    gvs[MAP_EQ_CONS] >> reverse $ TOP_CASE_TAC >> gvs[] >- gvs[AllCaseEqs()] >>
+    ntac 6 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+    simp[do_app_def, opb_lookup_def] >>
+    Cases_on `len < 0` >> gvs[] >>
+    ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+    >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) >>
+    simp[Abbr `rest1`] >>
+    ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+    simp[do_app_def] >>
+    ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+    simp[do_app_def, opb_lookup_def] >>
+    IF_CASES_TAC >> gvs[] >>
+    ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+    >- (
+      unabbrev_all_tac >>
+      ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def] >>
+      reverse $ Cases_on `0 < STRLEN s` >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opn_lookup_def] >>
+      ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def] >>
+      Cases_on `len < &STRLEN s` >> gvs[] >>
+      ntac 9 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+      simp[do_app_def, opn_lookup_def] >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+      simp[do_app_def, copy_array_def, IMPLODE_EXPLODE_I]
+      >- (
+        `¬ (STRLEN s < Num (ABS len))` by ARITH_TAC >> simp[] >>
+        `ABS len = len` by ARITH_TAC >> simp[] >>
+        qexists0 >> simp[step_rel_cases, SF SFY_ss]
+        )
+      >- (
+        qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        ARITH_TAC
+        )
+      )
+    >- (
+      unabbrev_all_tac >>
+      ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def] >>
+      reverse $ Cases_on `i < &STRLEN s` >> gvs[] >>
+      ntac 2 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def])
+      >- (
+        qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        ARITH_TAC
+        ) >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opn_lookup_def] >>
+      ntac 8 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+      simp[do_app_def, opb_lookup_def] >>
+      Cases_on `i + len < &STRLEN s` >> gvs[] >>
+      ntac 9 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+
+      simp[do_app_def, opn_lookup_def] >>
+      ntac 5 (qrefine `SUC n` >> simp[cstep_n_def, cstep, do_if_def]) >>
+      simp[do_app_def, copy_array_def, IMPLODE_EXPLODE_I]
+      >- (
+        `¬ (STRLEN s < Num (ABS (i + len)))` by ARITH_TAC >> simp[] >>
+        `ABS len = len ∧ ABS i = i` by ARITH_TAC >> simp[] >>
+        qexists0 >> simp[step_rel_cases, SF SFY_ss]
+        )
+      >- (
+        `¬ (&STRLEN s − i < 0)` by ARITH_TAC >> simp[] >>
+        `ABS (&STRLEN s - i) = (&STRLEN s - i) ∧ ABS i = i` by ARITH_TAC >> simp[] >>
+        qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        simp[TAKE_DROP_SWAP] >>
+        `Num i + (Num (&STRLEN s - i)) = STRLEN s` by ARITH_TAC >> simp[] >>
+        DEP_REWRITE_TAC[TAKE_LENGTH_TOO_LONG] >> ARITH_TAC
+        )
+      )
+    )
+  >- (
+    qmatch_goalsub_abbrev_tac `Let _ _ ffi_rest` >>
+    first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
+    TOP_CASE_TAC >> gvs[] >>
+    ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+    `nsLookup cenv'.v (Short "ffi_array") = SOME (Loc 0)` by gvs[env_ok_def] >>
+    simp[] >>
+    ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
+    `∃ws. store_lookup 0 cst = SOME $ W8array ws ∧
+          LENGTH ws = max_FFI_return_size` by gvs[state_rel, store_lookup_def] >>
+    simp[] >> IF_CASES_TAC >> gvs[]
+    >- cheat (* TODO FFI mismatch on empty channel name *) >>
+    qexists0 >> simp[step_rel_cases, SF SFY_ss]
+    )
 QED
 
 
