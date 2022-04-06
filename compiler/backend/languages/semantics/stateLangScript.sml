@@ -288,7 +288,7 @@ Definition application_def:
             if 0 ≤ i ∧ i < & LENGTH l then
               value (EL (Num i) l) st k
             else
-              continue env (Raise $ App (Cons "Subscript") []) st k
+              (Exn (Constructor "Subscript" []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
   application UnsafeSub env vs st k = (
@@ -313,7 +313,7 @@ Definition application_def:
                 (SOME (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n arrays))
                 k
             else
-              continue env (Raise $ App (Cons "Subscript") []) st k
+              (Exn (Constructor "Subscript" []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
   application UnsafeUpdate env vs st k = (

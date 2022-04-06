@@ -375,7 +375,8 @@ Proof
     \\ rpt (IF_CASES_TAC \\ gvs [])
     \\ gvs [LIST_REL_EL_EQN]
     \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
-    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs [])
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
+    \\ simp[Once v_rel_cases])
   >~ [‘UnsafeSub’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac

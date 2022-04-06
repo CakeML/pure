@@ -1664,7 +1664,7 @@ Proof
       \\ Cases_on ‘aa’ \\ fs [] \\ TRY (Cases_on ‘e’ \\ fs []) \\ gvs []
       \\ qexists_tac ‘0’ \\ fs [is_halt_def])
     \\ fs [ADD1,step_n_add,step]
-    \\ ntac 9 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ ntac 6 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
     \\ first_x_assum $ irule_at $ Pos hd
     \\ Cases_on ‘aa’ \\ gvs []
     \\ PairCases_on ‘e’ \\ gvs [])
@@ -1782,7 +1782,7 @@ Proof
       \\ Cases_on ‘aa’ \\ fs [] \\ TRY (Cases_on ‘e’ \\ fs []) \\ gvs []
       \\ qexists_tac ‘0’ \\ fs [is_halt_def])
     \\ fs [ADD1,step_n_add,step]
-    \\ ntac 9 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
+    \\ ntac 6 (Q.REFINE_EXISTS_TAC ‘ck1+1’ \\ rewrite_tac [step_n_add] \\ fs [step])
     \\ first_x_assum $ irule_at $ Pos hd
     \\ Cases_on ‘aa’ \\ gvs []
     \\ PairCases_on ‘e’ \\ gvs [])
