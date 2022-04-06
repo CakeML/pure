@@ -266,7 +266,7 @@ Inductive compile_rel:
 
 [~TupleCase:]
   (compile_rel cnenv se ce ∧ compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
-    ⇒ compile_rel cnenv (Case se sv ["",vs,sce]) (Mat ce [(pat_row sv cn vs, cce)])) ∧
+    ⇒ compile_rel cnenv (Case se sv ["",vs,sce]) (Mat ce [(pat_row sv "" vs, cce)])) ∧
 
 [~Raise:]
   (compile_rel cnenv se ce
@@ -277,8 +277,18 @@ Inductive compile_rel:
     ⇒ compile_rel cnenv (Handle se1 x se2) (Handle ce1 [(Pvar $ var_prefix x, ce2)]))
 End
 
+Definition prim_types_ok_def:
+  prim_types_ok senv ⇔
+    (* booleans *)
+      ALOOKUP senv "True" = SOME (TypeStamp "True" bool_type_num, 0n) ∧
+      ALOOKUP senv "False" = SOME (TypeStamp "False" bool_type_num, 0n) ∧
+    (* subscript exception *)
+      ALOOKUP senv "Subscript" = SOME (subscript_stamp, 0n)
+End
+
 Definition cnenv_rel_def:
   cnenv_rel senv cenv ⇔
+    prim_types_ok senv ∧
     (* unique stamp for each cn *)
     (∀stamp cn1 cn2 ar1 ar2.
       ALOOKUP senv cn1 = SOME (stamp, ar1) ∧ ALOOKUP senv cn2 = SOME (stamp, ar2)
@@ -287,6 +297,13 @@ Definition cnenv_rel_def:
       cn ≠ "" ∧ (* no tuples *)
       nsLookup cenv (Short cn) = SOME (ar,tyid) ∧ (* matching type/arity *)
       (∀cn' id. tyid = TypeStamp cn' id ⇒ cn' = cn) (* type stamp matches cn *)
+End
+
+Definition env_ok_def:
+  env_ok env ⇔
+    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc 0) ∧
+    nsLookup env.c (Short "::") = SOME (2, TypeStamp "::" 1) ∧
+    nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" 1)
 End
 
 Inductive v_rel:
@@ -301,17 +318,16 @@ Inductive v_rel:
     ⇒ v_rel cnenv (Constructor cn svs) (Conv (SOME tyid) cvs)) ∧
 
 [~Closure:]
-  (compile_rel cnenv se ce ∧
-   env_rel cnenv senv cenv
+  (compile_rel cnenv se ce ∧ env_rel cnenv senv cenv ∧ env_ok cenv
    ⇒ v_rel cnenv (Closure (SOME sx) senv se) (Closure cenv (var_prefix sx) ce)) ∧
 
 [~Recclosure:]
-  (compile_rel cnenv se ce ∧
-   env_rel cnenv senv cenv ∧
+  (compile_rel cnenv se ce ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
    LIST_REL (λ(sv,se) (cv,cx,ce).
         var_prefix sv = cv ∧
         ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧ compile_rel cnenv se' ce)
-      sfuns cfuns
+      sfuns cfuns ∧
+   ALL_DISTINCT (MAP FST cfuns)
    ⇒ v_rel cnenv (stateLang$Recclosure sfuns senv sx)
                  (Recclosure cenv cfuns (var_prefix sx))) ∧
 
@@ -334,12 +350,6 @@ End
 
 Theorem env_rel_def = cj 2 v_rel_cases;
 
-Definition env_ok_def:
-  env_ok env ⇔
-    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc 0) ∧
-    nsLookup env.c (Short "::") = SOME (2, TypeStamp "::" 1) ∧
-    nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" 1)
-End
 
 Definition list_to_cont_def:
   list_to_cont env [] = [] ∧
