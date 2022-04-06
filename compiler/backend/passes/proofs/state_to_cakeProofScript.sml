@@ -50,8 +50,6 @@ Proof
   simp[ADD_CLAUSES, cstep_n_alt]
 QED
 
-val creturn_def = itree_semanticsTheory.return_def;
-val cpush_def = itree_semanticsTheory.push_def;
 
 
 (******************** Compilation relation ********************)
@@ -566,6 +564,72 @@ End
 
 
 (******************** Proofs ********************)
+
+(********** Useful shorthands **********)
+
+Definition get_ffi_ch_def[simp]:
+  get_ffi_ch (ast$FFI ch) = SOME ch ∧
+  get_ffi_ch _ = NONE
+End
+
+Definition get_ffi_args_def[simp]:
+  get_ffi_args [Litv (StrLit conf); Loc lnum] = SOME (conf, lnum) ∧
+  get_ffi_args _ = NONE
+End
+
+Theorem capplication_thm:
+  ∀op env s vs c.
+    application op env s vs c =
+    if op = Opapp then
+      case do_opapp vs of
+      | NONE => Etype_error
+      | SOME (env,e) => Estep (env,s,Exp e,c)
+    else case get_ffi_ch op of
+    | SOME n => (
+      case get_ffi_args vs of
+      | SOME (conf, lnum) => (
+          case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if n = "" then Estep (env, s, Val $ Conv NONE [], c)
+              else Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
+          | _ => Etype_error)
+      | NONE => Etype_error)
+    | NONE => (
+      case do_app s op vs of
+      | NONE => Etype_error
+      | SOME (v1,Rval v') => return env v1 v' c
+      | SOME (v1,Rraise v) => Estep (env,v1,Val v,(Craise,env)::c))
+Proof
+  rw[application_thm] >> simp[]
+  >- rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `op` >> gvs[]
+QED
+
+val creturn_def      = itree_semanticsTheory.return_def;
+val cpush_def        = itree_semanticsTheory.push_def;
+val ccontinue_def    = itree_semanticsTheory.continue_def;
+val cstep_ss         = simpLib.named_rewrites "cstep_ss" [
+                        creturn_def, cpush_def, ccontinue_def,
+                        capplication_thm, estep_def, cstep_n_def];
+val cstep            = SF cstep_ss;
+
+val scontinue_def    = stateLangTheory.continue_def;
+val spush_def        = stateLangTheory.push_def;
+val svalue_def       = stateLangTheory.value_def;
+val serror_def       = stateLangTheory.error_def;
+val sapplication_def = stateLangTheory.application_def;
+val sreturn_def      = stateLangTheory.return_def;
+val sstep_ss         = simpLib.named_rewrites "sstep_ss" [
+                        scontinue_def, spush_def, svalue_def, serror_def,
+                        sapplication_def, sreturn_def, step_def,
+                        stateLangTheory.get_atoms_def];
+val sstep            = SF sstep_ss;
+
+val qrefine = Q.REFINE_EXISTS_TAC;
+
+val qexists0 = qexists_tac `0`;
+
+
 
 Theorem step1_rel:
   step_rel s c ∧ ¬is_halt s ∧ (∀st k. step_n 1 s ≠ error st k)
