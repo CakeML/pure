@@ -585,8 +585,7 @@ Inductive step_rel:
     ⇒ step_rel (Val sv, SOME sst, sk) (Estep (cenv, cst, Val cv, ck))) ∧
 
   (v_rel cnenv sv cv ∧ cont_rel cnenv sk ck ∧ state_rel cnenv sst cst
-    ⇒ step_rel (Exn sv, SOME sst, sk)
-               (Estep (cenv, cst, Val cv, (Craise, cenv') :: ck))) ∧
+    ⇒ step_rel (Exn sv, SOME sst, sk) (Estep (cenv, cst, Exn cv, ck))) ∧
 
   (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧
    ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
@@ -631,32 +630,33 @@ Theorem capplication_thm:
       case do_app s op vs of
       | NONE => Etype_error
       | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rraise v) => Estep (env,v1,Val v,(Craise,env)::c))
+      | SOME (v1,Rraise v) => Estep (env,v1,Exn v,c))
 Proof
   rw[application_thm] >> simp[]
   >- rpt (TOP_CASE_TAC >> gvs[]) >>
   Cases_on `op` >> gvs[]
 QED
 
-val creturn_def      = itree_semanticsTheory.return_def;
-val cpush_def        = itree_semanticsTheory.push_def;
-val ccontinue_def    = itree_semanticsTheory.continue_def;
-val cstep_ss         = simpLib.named_rewrites "cstep_ss" [
-                        creturn_def, cpush_def, ccontinue_def,
-                        capplication_thm, estep_def, cstep_n_def];
-val cstep            = SF cstep_ss;
+val creturn_def       = itree_semanticsTheory.return_def;
+val cpush_def         = itree_semanticsTheory.push_def;
+val ccontinue_def     = itree_semanticsTheory.continue_def;
+val cexn_continue_def = itree_semanticsTheory.exn_continue_def;
+val cstep_ss          = simpLib.named_rewrites "cstep_ss" [
+                         creturn_def, cpush_def, ccontinue_def, cexn_continue_def,
+                         capplication_thm, estep_def, cstep_n_def];
+val cstep             = SF cstep_ss;
 
-val scontinue_def    = stateLangTheory.continue_def;
-val spush_def        = stateLangTheory.push_def;
-val svalue_def       = stateLangTheory.value_def;
-val serror_def       = stateLangTheory.error_def;
-val sapplication_def = stateLangTheory.application_def;
-val sreturn_def      = stateLangTheory.return_def;
-val sstep_ss         = simpLib.named_rewrites "sstep_ss" [
-                        scontinue_def, spush_def, svalue_def, serror_def,
-                        sapplication_def, sreturn_def, step_def,
-                        stateLangTheory.get_atoms_def];
-val sstep            = SF sstep_ss;
+val scontinue_def     = stateLangTheory.continue_def;
+val spush_def         = stateLangTheory.push_def;
+val svalue_def        = stateLangTheory.value_def;
+val serror_def        = stateLangTheory.error_def;
+val sapplication_def  = stateLangTheory.application_def;
+val sreturn_def       = stateLangTheory.return_def;
+val sstep_ss          = simpLib.named_rewrites "sstep_ss" [
+                         scontinue_def, spush_def, svalue_def, serror_def,
+                         sapplication_def, sreturn_def, step_def,
+                         stateLangTheory.get_atoms_def];
+val sstep             = SF sstep_ss;
 
 val qrefine = Q.REFINE_EXISTS_TAC;
 
@@ -698,11 +698,10 @@ Proof
   rw[FUN_EQ_THM, namespaceTheory.nsOptBind_def]
 QED
 
-Triviality cstep_Craise_over_list_to_cont:
+Triviality cstep_Exn_over_list_to_cont:
   ∀es cenv cst cv cenv' env ck'.
-  cstep_n (LENGTH es) (Estep (cenv,cst,Val cv,
-                              (Craise,cenv')::(list_to_cont env es ++ ck'))) =
-        (Estep (if es = [] then cenv else cenv',cst,Val cv,(Craise,cenv')::ck'))
+  cstep_n (LENGTH es) (Estep (cenv,cst,Exn cv, (list_to_cont env es ++ ck'))) =
+        (Estep (cenv,cst,Exn cv,ck'))
 Proof
   Induct >> rw[list_to_cont_def] >> simp[cstep] >> CASE_TAC >> gvs[]
 QED
@@ -1237,17 +1236,17 @@ Proof
     >- ( (* AppK (Cons _) *)
       qrefine `n + LENGTH ces` >>
       simp[cstep_n_add] >> once_rewrite_tac[GSYM APPEND_ASSOC] >>
-      simp[cstep_Craise_over_list_to_cont] >>
+      simp[cstep_Exn_over_list_to_cont] >>
       qrefine `SUC n` >> simp[cstep] >> qexists0 >> simp[] >>
       simp[step_rel_cases, SF SFY_ss]
       )
     >>~ [`Cmat_check`]
     >- ( (* CaseK *)
-      Cases_on `ccont = Cmat_check` >> gvs[] >>
+      Cases_on `ccont = Cmat_check` >> gvs[cstep] >>
       qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
       )
     >- ( (* TupleCaseK *)
-      Cases_on `ccont = Cmat_check` >> gvs[] >>
+      Cases_on `ccont = Cmat_check` >> gvs[cstep] >>
       qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
       )
     >~ [`Exp`,`Pvar`]
@@ -1267,7 +1266,7 @@ Proof
   gvs[DefnBase.one_line_ify NONE return_def] >>
   reverse TOP_CASE_TAC >> gvs[Once cont_rel_cases, sstep, cstep]
   >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* HandleK *)
-  >- cheat (* stateLang takes an extra step here *) (* RaiseK *)
+  >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* RaiseK *)
   >- ( (* CaseK *)
     rename1 `CaseK senv v scss :: sk` >>
     drule step_Case_no_error >> strip_tac >> gvs[]
@@ -1468,7 +1467,7 @@ Proof
         )
       >- ( (* out of bounds *)
         qmatch_goalsub_abbrev_tac `cstep_n _ foo` >>
-        `foo = Estep (cenv',cst,Val sub_exn_v, (Craise,cenv')::ck')` by (
+        `foo = Estep (cenv',cst,Exn sub_exn_v,ck')` by (
           unabbrev_all_tac >> simp[AllCaseEqs()] >> ARITH_TAC) >>
         simp[] >> ntac 2 $ pop_assum kall_tac >>
         qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
@@ -1506,7 +1505,7 @@ Proof
         )
       >- ( (* out of bounds *)
         qmatch_goalsub_abbrev_tac `cstep_n _ foo` >>
-        `foo = Estep (cenv',cst,Val sub_exn_v, (Craise,cenv')::ck')` by (
+        `foo = Estep (cenv',cst,Exn sub_exn_v,ck')` by (
           unabbrev_all_tac >> simp[AllCaseEqs()] >> ARITH_TAC) >>
         simp[] >> ntac 2 $ pop_assum kall_tac >>
         qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
