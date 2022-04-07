@@ -163,6 +163,25 @@ Overload elem_str =
       (int (-1))``
 
 (*
+  letrec char_list l =
+  case l of
+  | []   => []
+  | h::t => CHR (h % 256) :: char_list t
+*)
+Definition char_list_v_def:
+  char_list_v env =
+    Recclosure env ["char_list", "l",
+      Mat (var "l") [
+        (Pcon (SOME (Short "[]")) [], Con (SOME (Short "[]")) []);
+        (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
+          Con (SOME (Short "::")) [
+            App Chr [App (Opn Modulo) [var "h"; int 256]];
+            (capp (var "char_list") (var "t")) ])
+        ]
+    ] "char_list"
+End
+
+(*
   let strlen = LENGTH v1 in
   let off = if v2 < 0 then 0 else v2 in
   if off < strlen then
@@ -1224,6 +1243,54 @@ Proof
   rw[] >> drule_all strle_lemma >> disch_then $ qspec_then `0` mp_tac >> simp[]
 QED
 
+Theorem char_list:
+  ∀l env env' st c.
+    nsLookup env.v (Short "char_list") = SOME $ char_list_v env' ∧
+    nsLookup env'.c (Short $ "[]") = SOME (0n, TypeStamp "[]" list_type_num) ∧
+    nsLookup env'.c (Short $ "::") = SOME (2n, TypeStamp "::" list_type_num)
+  ⇒ ∃k env'. cstep_n k (Estep (env,st, Exp (var "char_list"),
+        (Capp Opapp [list_to_v (MAP (Litv o IntLit) l)] [], env)::c)) =
+      Estep (env',st,Val (list_to_v (MAP (λi. Litv $ Char $ CHR $ Num $ i % 256) l)),c)
+Proof
+  Induct >> rw[list_to_v_def]
+  >- (
+    qrefine `SUC k` >> simp[cstep, char_list_v_def] >>
+    qrefine `SUC k` >> simp[cstep, do_opapp_def, find_recfun_def, build_rec_env_def] >>
+    ntac 3 (qrefine `SUC k` >> simp[cstep]) >>
+    simp[can_pmatch_all_def, pmatch_def, same_ctor_def, same_type_def] >>
+    qrefine `SUC k` >> simp[cstep] >>
+    simp[astTheory.pat_bindings_def, pmatch_def, same_ctor_def, same_type_def] >>
+    qrefine `SUC k` >> simp[cstep] >>
+    simp[do_con_check_def, build_conv_def] >>
+    qexists_tac `0` >> simp[]
+    ) >>
+  ntac 2 (qrefine `SUC k` >> simp[cstep, char_list_v_def]) >>
+  simp[do_opapp_def, find_recfun_def, build_rec_env_def] >>
+  ntac 3 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[can_pmatch_all_def, pmatch_def, same_ctor_def, same_type_def] >>
+  ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[astTheory.pat_bindings_def, pmatch_def, same_ctor_def, same_type_def] >>
+  ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[astTheory.pat_bindings_def, pmatch_def, same_ctor_def, same_type_def] >>
+  ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[do_con_check_def, build_conv_def] >>
+  ntac 3 (qrefine `SUC k` >> simp[cstep]) >>
+  qmatch_goalsub_abbrev_tac `(env' with v := new_env, _, _, _::c')` >>
+  last_x_assum $ qspecl_then [`env' with v := new_env`,`env'`,`st`,`c'`] mp_tac >>
+  simp[] >> impl_tac >- (unabbrev_all_tac >> simp[char_list_v_def]) >>
+  strip_tac >> gvs[] >> qrefine `n + k` >> simp[cstep_n_add] >>
+  pop_assum kall_tac >> unabbrev_all_tac >>
+  ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[do_con_check_def] >>
+  ntac 6 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[do_app_def, opn_lookup_def] >>
+  ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[do_app_def] >> `¬ (h % 256 < 0 ∨ h % 256 > 255)` by ARITH_TAC >> simp[] >>
+  ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[do_con_check_def, build_conv_def] >>
+  qexists_tac `0` >> simp[] >>
+  `ABS (h % 256) = h % 256` by ARITH_TAC >> simp[]
+QED
 
 
 (********** Main results **********)
