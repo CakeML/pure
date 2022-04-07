@@ -275,7 +275,7 @@ Inductive compile_rel:
                         (clet "v2" ce2 $ clet "v1" ce1 alloc)) ∧
 
 [~FFI:]
-  (compile_rel cnenv se ce
+  (compile_rel cnenv se ce ∧ ch ≠ ""
     ⇒ compile_rel cnenv (App (FFI ch) [se])
                         (clet "s" ce $
                           Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi)) ∧
@@ -513,7 +513,7 @@ Inductive cont_rel:
 *)
 
 [~FFI:]
-  (cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
+  (cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧ ch ≠ ""
     ⇒ cont_rel cnenv (AppK senv (FFI ch) [] [] :: sk)
                      ((Clet (SOME "s") $
                         Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi
@@ -589,7 +589,7 @@ Inductive step_rel:
 
   (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧
    ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
-   store_lookup 0 cst = SOME $ W8array ws2
+   store_lookup 0 cst = SOME $ W8array ws2 ∧ s ≠ ""
     ⇒ step_rel (Action s conf, SOME sst, sk)
                (Effi s ws1 ws2 0 cenv' cst ((Clet NONE ffi, cenv) :: ck)))
 End
@@ -1781,7 +1781,7 @@ Proof
         )
       )
     )
-  >- (
+  >- ( (* FFI *)
     qmatch_goalsub_abbrev_tac `Let _ _ ffi_rest` >>
     first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
     TOP_CASE_TAC >> gvs[] >>
@@ -1791,9 +1791,7 @@ Proof
     ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
     `∃ws. store_lookup 0 cst = SOME $ W8array ws ∧
           LENGTH ws = max_FFI_return_size` by gvs[state_rel, store_lookup_def] >>
-    simp[] >> IF_CASES_TAC >> gvs[]
-    >- cheat (* TODO FFI mismatch on empty channel name *) >>
-    qexists0 >> simp[step_rel_cases, SF SFY_ss]
+    simp[] >> qexists0 >> simp[step_rel_cases, SF SFY_ss]
     )
 QED
 
