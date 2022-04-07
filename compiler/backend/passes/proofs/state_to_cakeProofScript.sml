@@ -329,6 +329,9 @@ Definition prim_types_ok_def:
     (* booleans *)
       ALOOKUP senv "True" = SOME (TypeStamp "True" bool_type_num, 0n) ∧
       ALOOKUP senv "False" = SOME (TypeStamp "False" bool_type_num, 0n) ∧
+    (* lists *)
+      ALOOKUP senv "::" = SOME (TypeStamp "::" list_type_num, 2n) ∧
+      ALOOKUP senv "[]" = SOME (TypeStamp "[]" list_type_num, 0n) ∧
     (* subscript exception *)
       ALOOKUP senv "Subscript" = SOME (subscript_stamp, 0n)
 End
@@ -348,9 +351,8 @@ End
 
 Definition env_ok_def:
   env_ok env ⇔
-    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc 0) ∧
-    nsLookup env.c (Short "::") = SOME (2, TypeStamp "::" 1) ∧
-    nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" 1)
+    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc 0)
+    (* TODO add in string operations and implode *)
 End
 
 Inductive v_rel:
@@ -713,7 +715,7 @@ Proof
 QED
 
 Theorem cstep_list_to_exp:
-  ∀ces cenv cst ck. env_ok cenv ⇒
+  ∀ces cnenv cenv cst ck. cnenv_rel cnenv cenv.c ⇒
     ∃n. cstep_n n (Estep (cenv,cst,Exp (list_to_exp ces), ck)) =
           Estep (cenv,cst,Val (Conv (SOME (TypeStamp "[]" 1)) []),
                  list_to_cont cenv (REVERSE ces) ++ ck)
@@ -721,9 +723,14 @@ Proof
   Induct >> rw[] >> gvs[env_ok_def] >> simp[list_to_exp_def, list_to_cont_def]
   >- (
     qrefine `SUC n` >> simp[cstep, do_con_check_def, build_conv_def] >>
-    qexists0 >> simp[]
+    `nsLookup cenv.c (Short "[]") = SOME (0, TypeStamp "[]" 1)` by
+      gvs[cnenv_rel_def, prim_types_ok_def, list_type_num_def] >>
+    simp[] >> qexists0 >> simp[]
     ) >>
   qrefine `SUC n` >> simp[cstep, do_con_check_def, build_conv_def] >>
+  `nsLookup cenv.c (Short "::") = SOME (2, TypeStamp "::" 1)` by
+    gvs[cnenv_rel_def, prim_types_ok_def, list_type_num_def] >>
+  simp[] >>
   last_x_assum $ drule_all_then assume_tac >>
   pop_assum $ qspecl_then
     [`cst`,`(Ccon (SOME (Short "::")) [] [h],cenv)::ck`] assume_tac >> gvs[] >>
@@ -796,7 +803,7 @@ Proof
 QED
 
 
-(***** env_rel / env_ok *****)
+(***** cnenv_rel / env_rel / env_ok *****)
 
 Theorem env_rel_lookup:
   ∀v sx cnenv senv cenv.
@@ -817,8 +824,10 @@ Proof
   first_x_assum drule >> strip_tac >> simp[]
 QED
 
-Theorem env_ok_check_build_list:
-  env_ok cenv ⇒
+Theorem cnenv_rel_list_type:
+  cnenv_rel cnenv cenv.c ⇒
+    nsLookup cenv.c (Short "[]") = SOME (0,TypeStamp "[]" 1) ∧
+    nsLookup cenv.c (Short "::") = SOME (2,TypeStamp "::" 1) ∧
     do_con_check cenv.c (SOME (Short "[]")) 0 ∧
     do_con_check cenv.c (SOME (Short "::")) 2 ∧
     build_conv cenv.c (SOME (Short "[]")) [] =
@@ -826,7 +835,9 @@ Theorem env_ok_check_build_list:
     ∀a b. build_conv cenv.c (SOME (Short "::")) [a;b] =
             SOME (Conv (SOME (TypeStamp "::" 1)) [a;b])
 Proof
-  rw[env_ok_def, do_con_check_def, build_conv_def]
+  rw[cnenv_rel_def, prim_types_ok_def] >>
+  rw[do_con_check_def, build_conv_def] >> gvs[list_type_num_def] >>
+  res_tac >> simp[]
 QED
 
 Theorem env_rel_build:
@@ -1113,18 +1124,18 @@ Proof
     pop_assum $ qspec_then `1` assume_tac >> gvs[] >>
     gvs[Once compile_rel_cases, sstep, cstep] >~ [`Concat`]
     >- ( (* Concat *)
+      `cnenv_rel cnenv cenv.c` by gvs[env_rel_def] >>
+      drule cnenv_rel_list_type >> strip_tac >>
       TOP_CASE_TAC >> gvs[]
       >- (
         gvs[eval_op_def, concat_def, list_to_exp_def] >>
-        qrefine `SUC n` >> simp[cstep] >>
-        gvs[env_ok_def, do_con_check_def, build_conv_def] >>
-        qrefine `SUC n` >> simp[cstep] >>
+        ntac 2 (qrefine `SUC n` >> simp[cstep]) >>
         simp[do_app_def, v_to_list_def, v_to_char_list_def,
              list_type_num_def, vs_to_string_def] >>
         qexists0 >> simp[step_rel_cases, SF SFY_ss]
         ) >>
       gvs[SWAP_REVERSE_SYM, LIST_REL_SPLIT1, REVERSE_APPEND] >>
-      qspecl_then [`ys1 ++ [y]`,`cenv`,`cst`,`(Capp Strcat [] [],cenv)::ck`]
+      qspecl_then [`ys1 ++ [y]`,`cnenv`,`cenv`,`cst`,`(Capp Strcat [] [],cenv)::ck`]
         assume_tac cstep_list_to_exp >> gvs[] >>
       qrefine `m + n` >> simp[cstep_n_add, REVERSE_APPEND] >>
       qrefine `SUC m` >> simp[cstep, list_to_cont_def] >>
@@ -1671,7 +1682,8 @@ Proof
     `ABS i = i` by ARITH_TAC >> simp[LIST_REL_REPLICATE_same]
     )
   >- ( (* Concat *)
-    drule env_ok_check_build_list >> strip_tac >> simp[] >>
+    `cnenv_rel cnenv cenv'.c` by gvs[env_rel_def] >>
+    drule cnenv_rel_list_type >> strip_tac >> simp[] >>
     reverse TOP_CASE_TAC >> gvs[]
     >- ( (* arguments left to evaluate *)
       qrefine `SUC n` >> simp[cstep_n_def, cstep, list_to_cont_def] >>
