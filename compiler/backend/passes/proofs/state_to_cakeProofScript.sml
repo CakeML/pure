@@ -31,6 +31,19 @@ Proof
   simp[OPTREL_SOME] >> rw[OPTREL_def]
 QED
 
+Theorem string_le_def[simp]:
+  string_le [] s2 = T ∧
+  string_le (c1::s1) [] = F ∧
+  string_le (c1::s1) (c2::s2) =
+    if c1 < c2 then T else
+    if c1 = c2 then string_le s1 s2
+    else F
+Proof
+  rw[] >> simp[string_le_def, string_lt_def, char_lt_def]
+  >- (Cases_on `s2` >> rw[string_lt_def])
+  >- (eq_tac >> rw[] >> simp[])
+QED
+
 
 (******************** Helper functions for itree semantics ********************)
 
@@ -122,6 +135,8 @@ Overload clet = ``λs e1 e2. ast$Let (SOME s) e1 e2``;
 Overload ifeq = ``λ(a,b) e1 e2. ast$If (App Equality [a;b]) e1 e2``;
 Overload iflt = ``λ(a,b) e1 e2. ast$If (App (Opb Lt) [a;b]) e1 e2``
 Overload var  = ``λs. ast$Var $ Short s``;
+Overload tt = ``Con (SOME $ Short $ "True") []``;
+Overload ff = ``Con (SOME $ Short $ "False") []``;
 
 (*
   if v2 = 0 then 0 else Divide v1 v2
@@ -181,6 +196,36 @@ Overload substring3 =
       clet "end" (iflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
       App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
       (Lit $ StrLit "")``;
+
+Definition strle_def:
+  strle (n : num) s1 s2 =
+    let len1 = LENGTH s1; len2 = LENGTH s2 in
+    if len1 ≤ n then T else if len2 ≤ n then F else
+    let o1 = ORD (EL n s1); o2 = ORD (EL n s2) in
+    if o1 < o2 then T
+    else if o1 = o2 then strle (n + 1) s1 s2
+    else F
+Termination
+  WF_REL_TAC `measure (λ(n,s1,_). LENGTH s1 - n)`
+End
+
+Definition strle_v_def:
+  strle_v env =
+    Recclosure env ["strle", "n",
+      Fun "s1" $ Fun "s2" $
+      clet "len1" (App Strlen [var "s1"]) $
+      clet "len2" (App Strlen [var "s2"]) $
+      If (App (Opb Leq) [var "len1"; var "n"]) tt $
+      If (App (Opb Leq) [var "len2"; var "n"]) ff $
+      clet "o1" (App Ord [App Strsub [var "s1"; var "n"]]) $
+      clet "o2" (ast$App Ord [App Strsub [var "s2"; var "n"]]) $
+      iflt (var "o1", var "o2") tt $
+      ifeq (var "o1", var "o2")
+        (capp (capp (capp (var "strle") (App (Opn Plus) [var "n"; int 1]))
+                            (var "s1")) (var "s2"))
+        ff]
+      "strle"
+End
 
 (*
   let len = (if v1 < 0 then 0 else v1) in Aalloc v1 v2
@@ -597,7 +642,7 @@ Inductive step_rel:
 End
 
 
-(******************** Main results ********************)
+(******************** Results ********************)
 
 (********** Useful shorthands **********)
 
@@ -1109,6 +1154,76 @@ Proof
   Induct >> rw[] >> gvs[vs_to_string_def, concat_def] >>
   first_x_assum drule >> rw[]
 QED
+
+
+(***** primitive operations *****)
+
+Theorem strle_lemma:
+  ∀n s1 s2 env env' st c.
+    nsLookup env.v (Short "strle") = SOME $ strle_v env' ∧
+    nsLookup env'.c (Short $ "True") = SOME (0n, TypeStamp "True" bool_type_num) ∧
+    nsLookup env'.c (Short $ "False") = SOME (0n, TypeStamp "False" bool_type_num)
+  ⇒ ∃k env'. cstep_n k (Estep (env,st, Exp (var "strle"),
+        (Capp Opapp [Litv (IntLit &n)] [], env)::
+        (Capp Opapp [Litv (StrLit s1)] [], env)::
+        (Capp Opapp [Litv (StrLit s2)] [], env)::c)) =
+      Estep (env',st,Val (Boolv (DROP n s1 ≤ DROP n s2)),c)
+Proof
+  recInduct strle_ind >> rw[] >>
+  ntac 2 (qrefine `SUC k` >> simp[cstep]) >>
+  simp[do_opapp_def, strle_v_def] >> simp[find_recfun_def, build_rec_env_def] >>
+  qmatch_goalsub_abbrev_tac `If _ _ rest` >>
+  ntac 20 (qrefine `SUC k` >> simp[cstep, do_opapp_def, do_app_def]) >>
+  simp[opb_lookup_def] >> Cases_on `STRLEN s1 ≤ n` >>
+  ntac 2 (qrefine `SUC k` >> simp[cstep, do_if_def])
+  >- (
+    simp[do_con_check_def, build_conv_def] >>
+    qexists_tac `0` >> simp[Boolv_def] >> IF_CASES_TAC >> simp[] >>
+    pop_assum mp_tac >> simp[] >> `DROP n s1 = ""` by rw[DROP_EQ_NIL] >> simp[]
+    ) >>
+  unabbrev_all_tac >>
+  ntac 5 (qrefine `SUC k` >> simp[cstep, do_app_def]) >>
+  simp[do_app_def, opb_lookup_def] >> Cases_on `STRLEN s2 ≤ n` >>
+  ntac 2 (qrefine `SUC k` >> simp[cstep, do_if_def])
+  >- (
+    simp[do_con_check_def, build_conv_def] >> qexists_tac `0` >> simp[Boolv_def] >>
+    `DROP n s2 = ""` by rw[DROP_EQ_NIL] >> simp[] >> Cases_on `DROP n s1` >> gvs[]
+    ) >>
+  ntac 24 (qrefine `SUC k` >> simp[cstep, do_app_def, IMPLODE_EXPLODE_I]) >>
+  gvs[NOT_LESS_EQUAL] >> imp_res_tac DROP_CONS_EL >> gvs[] >>
+  simp[opb_lookup_def, do_if_def] >> IF_CASES_TAC >> gvs[]
+  >- (
+    ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+    simp[do_con_check_def, build_conv_def] >>
+    qexists_tac `0` >> simp[Boolv_def, char_lt_def]
+    ) >>
+  ntac 7 (qrefine `SUC k` >> simp[cstep, do_app_def, do_eq_def, lit_same_type_def]) >>
+  simp[do_if_def] >> reverse $ IF_CASES_TAC >> gvs[ORD_11]
+  >- (
+    ntac 1 (qrefine `SUC k` >> simp[cstep]) >>
+    simp[do_con_check_def, build_conv_def] >>
+    qexists_tac `0` >> simp[Boolv_def, char_lt_def]
+    ) >>
+  ntac 13 (qrefine `SUC k` >> simp[cstep, do_app_def, opn_lookup_def]) >>
+  gvs[integerTheory.INT_ADD_CALCULATE, char_lt_def, ADD1] >>
+  last_x_assum $ irule_at Any >>
+  goal_assum drule >> simp[strle_v_def]
+QED
+
+Theorem strle:
+  ∀s1 s2 env env' st c.
+    nsLookup env.v (Short "strle") = SOME $ strle_v env' ∧
+    nsLookup env'.c (Short $ "True") = SOME (0n, TypeStamp "True" bool_type_num) ∧
+    nsLookup env'.c (Short $ "False") = SOME (0n, TypeStamp "False" bool_type_num)
+  ⇒ ∃k env'. cstep_n k (Estep (env,st, Exp (var "strle"),
+        (Capp Opapp [Litv (IntLit 0)] [], env)::
+        (Capp Opapp [Litv (StrLit s1)] [], env)::
+        (Capp Opapp [Litv (StrLit s2)] [], env)::c)) =
+      Estep (env',st,Val (Boolv (s1 ≤ s2)),c)
+Proof
+  rw[] >> drule_all strle_lemma >> disch_then $ qspec_then `0` mp_tac >> simp[]
+QED
+
 
 
 (********** Main results **********)
