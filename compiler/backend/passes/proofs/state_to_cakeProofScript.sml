@@ -65,7 +65,7 @@ Proof
 QED
 
 
-(******************** Helper functions for itree semantics ********************)
+(******************** Itree semantics functions/lemmas ********************)
 
 Definition get_ffi_array_def[simp]:
   get_ffi_array (Estep (cenv, cst, ev, ck)) = (
@@ -74,6 +74,15 @@ Definition get_ffi_array_def[simp]:
     | _ => NONE) ∧
   get_ffi_array (Effi s conf ws n cenv cst ck) = SOME ws ∧
   get_ffi_array _ = NONE
+End
+
+Definition dget_ffi_array_def[simp]:
+  dget_ffi_array (Dstep dst _ _) = (
+    case store_lookup 0 dst.refs of
+    | SOME (W8array ws) => SOME ws
+    | _ => NONE) ∧
+  dget_ffi_array (Dffi dst (s,conf,ws,n,cenv,cs) locs pat dcs) = SOME ws ∧
+  dget_ffi_array _ = NONE
 End
 
 Definition cstep_n_def:
@@ -107,6 +116,29 @@ Theorem same_type_refl[simp]:
   same_type stamp stamp
 Proof
   Cases_on `stamp` >> rw[same_type_def]
+QED
+
+Theorem cstep_n_to_dstep_n:
+  ∀n env dst eve k benv locs p dk cres.
+    cstep_n n (Estep (env,dst.refs,eve,k)) = cres ∧ cres ≠ Edone ⇒
+  step_n benv n (Dstep dst (ExpVal env eve k locs p) dk) =
+  case cres of
+  | Estep (env',refs',eve',k') =>
+    Dstep (dst with refs := refs') (ExpVal env' eve' k' locs p) dk
+  | Etype_error => Dtype_error
+  | Effi ch ws1 ws2 n env' refs' k' =>
+    Dffi (dst with refs := refs') (ch,ws1,ws2,n,env',k') locs p dk
+Proof
+  Induct >> rw[]
+  >- simp[itree_semanticsTheory.step_n_def, dstate_component_equality] >>
+  gvs[cstep_n_alt] >>
+  `cstep_n n (Estep (env,dst.refs,eve,k)) ≠ Edone` by gvs[AllCaseEqs()] >>
+  last_x_assum drule >> strip_tac >>
+  simp[itree_semanticsPropsTheory.step_n_alt_def] >>
+  Cases_on `cstep_n n (Estep (env,dst.refs,eve,k))` >> gvs[] >>
+  rename1 `estep st` >> PairCases_on `st` >> gvs[] >> gvs[estep_to_Edone] >>
+  Cases_on `st2` >> gvs[] >> Cases_on `st3` >> gvs[] >>
+  simp[dstep_def] >> TOP_CASE_TAC >> gvs[estep_to_Edone]
 QED
 
 
@@ -705,6 +737,24 @@ Inductive step_rel:
                (Effi s ws1 ws2 0 cenv' cst ((Clet NONE ffi, cenv) :: ck)))
 End
 
+Inductive dstep_rel:
+  (step_rel (seve, SOME sst, sk) (Estep (cenv,dst.refs,ceve,ck)) ∧
+   ¬is_halt (seve, SOME sst, sk)
+    ⇒ dstep_rel (seve, SOME sst, sk)
+        (Dstep dst (ExpVal cenv ceve ck locs (Pvar "prog")) [CdlocalG lenv genv []])) ∧
+
+  dstep_rel (Val sv, SOME sst, []) Ddone ∧
+
+  (v_rel cnenv sv cv ⇒
+    dstep_rel (Exn sv, SOME sst, []) (Draise cv)) ∧
+
+  (step_rel (Action ch conf, SOME sst, sk)
+             (Effi ch ws1 ws2 0 cenv' dst.refs ck)
+    ⇒ dstep_rel (Action ch conf, SOME sst, sk)
+                (Dffi dst (ch,ws1,ws2,0,cenv',ck)
+                 locs (Pvar "prog") [CdlocalG lenv genv []]))
+End
+
 
 (******************** Results ********************)
 
@@ -768,6 +818,11 @@ val sstep_ss          = simpLib.named_rewrites "sstep_ss" [
                          sapplication_def, sreturn_def, step_def,
                          stateLangTheory.get_atoms_def];
 val sstep             = SF sstep_ss;
+
+val dstep_ss          = simpLib.named_rewrites "dstep_ss" [
+                         dreturn_def, dpush_def, dcontinue_def,
+                         dstep_def, itree_semanticsTheory.step_n_def];
+val dstep             = SF dstep_ss;
 
 val qrefine = Q.REFINE_EXISTS_TAC;
 
@@ -1233,6 +1288,12 @@ Theorem concat_vs_to_string:
 Proof
   Induct >> rw[] >> gvs[vs_to_string_def, concat_def] >>
   first_x_assum drule >> rw[]
+QED
+
+Theorem dstep_rel_is_halt:
+  dstep_rel s c ⇒ (is_halt s ⇔ is_halt c)
+Proof
+  reverse $ rw[dstep_rel_cases] >> simp[itree_semanticsTheory.is_halt_def]
 QED
 
 
@@ -2200,6 +2261,66 @@ Proof
           LENGTH ws = max_FFI_return_size` by gvs[state_rel, store_lookup_def] >>
     simp[] >> qexists0 >> simp[step_rel_cases, SF SFY_ss]
     )
+QED
+
+Theorem dstep1_rel:
+  ∀s d benv.
+    dstep_rel s d ∧ (∀n st k. step_n n s ≠ error st k)
+  ⇒ ∃n. dstep_rel (step_n 1 s) (step_n benv (SUC n) d) ∧
+        ∀ws. dget_ffi_array (step_n benv (SUC n) d) = SOME ws
+          ⇒ dget_ffi_array d = SOME ws
+Proof
+  reverse $ rw[Once dstep_rel_cases] >> gvs[]
+  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
+  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
+  >- simp[dstep_rel_cases, sstep, SF SFY_ss] >>
+  drule step1_rel >> simp[] >> strip_tac >> gvs[] >>
+  `cstep_n (SUC n) (Estep (cenv,dst.refs,ceve,ck)) ≠ Edone` by (
+    CCONTR_TAC >> gvs[step_rel_cases]) >>
+  qrefine `m + n` >> simp[SUC_ADD_SYM, itree_semanticsPropsTheory.step_n_add] >>
+  drule $ SRULE [] cstep_n_to_dstep_n >> simp[] >> disch_then kall_tac >>
+  reverse $ Cases_on `cstep_n (SUC n) (Estep (cenv,dst.refs,ceve,ck))` >> gvs[]
+  >- fs[Once step_rel_cases]
+  >- (
+    qpat_x_assum `step_rel _ _` mp_tac >>
+    simp[step_rel_cases, dstep_rel_cases] >> strip_tac >> gvs[SF SFY_ss]
+    ) >>
+  PairCases_on `p` >> gvs[] >>
+  drule $ iffLR step_rel_cases >> simp[] >> strip_tac >> gvs[]
+  >- (qexists0 >> simp[dstep, dstep_rel_cases])
+  >- (
+    reverse $ Cases_on `sk'` >> gvs[]
+    >- (qexists0 >> simp[dstep, dstep_rel_cases]) >>
+    gvs[Once cont_rel_cases] >> qrefine `SUC m` >> simp[dstep] >>
+    simp[astTheory.pat_bindings_def, pmatch_def] >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep]) >> simp[dstep_rel_cases]
+    )
+  >- (
+    reverse $ Cases_on `sk'` >> gvs[]
+    >- (qexists0 >> simp[dstep, dstep_rel_cases]) >>
+    gvs[Once cont_rel_cases] >>
+    qrefine `SUC m` >> simp[dstep, dstep_rel_cases, SF SFY_ss]
+    )
+QED
+
+Theorem dstep_n_rel:
+  ∀n s d benv.
+    dstep_rel s d ∧ (∀n st k. step_n n s ≠ error st k)
+  ⇒ ∃m. n ≤ m ∧ dstep_rel (step_n n s) (step_n benv m d) ∧
+        ∀ws. dget_ffi_array (step_n benv m d) = SOME ws ⇒ dget_ffi_array d = SOME ws
+Proof
+  Induct >> rw[] >- (qexists_tac `0` >> simp[dstep]) >>
+  last_x_assum drule >> simp[] >>
+  disch_then $ qspec_then `benv` assume_tac >> gvs[] >>
+  qrefine `SUC (m + k)` >> simp[SUC_ADD_SYM] >>
+  once_rewrite_tac[ADD_COMM] >> simp[itree_semanticsPropsTheory.step_n_add] >>
+  drule $ iffLR dstep_rel_cases >> reverse strip_tac >> gvs[step_n_alt]
+  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
+  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
+  >- simp[dstep_rel_cases, sstep, SF SFY_ss] >>
+  drule dstep1_rel >> disch_then $ qspec_then `benv` mp_tac >> impl_tac
+  >- (rw[] >> last_x_assum $ qspec_then `n' + n` mp_tac >> simp[step_n_add]) >>
+  strip_tac >> gvs[] >> goal_assum drule >> simp[]
 QED
 
 
