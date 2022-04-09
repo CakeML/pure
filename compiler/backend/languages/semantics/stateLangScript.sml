@@ -473,6 +473,24 @@ End
 
 (******************** Lemmas ********************)
 
+Theorem sinterp:
+  sinterp sr st k =
+    case step_until_halt (sr,st,k) of
+    | Ret => Ret Termination
+    | Err => Ret Error
+    | Div => Div
+    | Act e k' st' =>
+        Vis e (λa. case a of
+                   | INL x => Ret $ FinalFFI e x
+                   | INR y =>
+                      if LENGTH y ≤ max_FFI_return_size then
+                        sinterp (Val $ Atom $ Str y) st' k'
+                      else Ret $ FinalFFI e FFI_failure)
+Proof
+  rw[sinterp_def] >> rw[Once itreeTheory.itree_unfold_err] >> simp[] >>
+  CASE_TAC >> gvs[] >> rw[FUN_EQ_THM, value_def]
+QED
+
 Theorem step_n_add:
   step_n (m+n) x = step_n m (step_n n x)
 Proof

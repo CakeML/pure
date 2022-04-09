@@ -141,6 +141,33 @@ Proof
   simp[dstep_def] >> TOP_CASE_TAC >> gvs[estep_to_Edone]
 QED
 
+Triviality dstep_ExpVal_Exp:
+  dstep benv st (ExpVal env (Exp e) k locs p) dk =
+  case estep (env,st.refs,Exp e,k) of
+  | Estep (env',refs',ev',ec') =>
+      dreturn (st with refs := refs') dk (ExpVal env' ev' ec' locs p)
+  | Effi s ws1 ws2 n env'' refs'' ec'' =>
+      Dffi (st with refs := refs'') (s,ws1,ws2,n,env'',ec'') locs p dk
+  | Edone => Ddone
+  | Etype_error => Dtype_error
+Proof
+  Cases_on `k` >> simp[dstep_def]
+QED
+
+Theorem interp_take_steps:
+  interp benv (step_n benv n dr) = interp benv dr
+Proof
+  once_rewrite_tac[interp] >>
+  qsuff_tac
+    `∀n dr. step_until_halt benv (step_n benv n dr) = step_until_halt benv dr`
+  >- rw[] >>
+  Induct >> rw[] >- rw[step_n_alt_def] >>
+  Cases_on `dr` >> gvs[] >>
+  rw[itree_semanticsTheory.step_n_def] >>
+  irule EQ_SYM >> irule step_until_halt_take_step >>
+  simp[itree_semanticsTheory.is_halt_def]
+QED
+
 
 (******************** Compilation relation ********************)
 
@@ -323,14 +350,16 @@ Overload alloc =
     let len0 = Int (ffi_array[0]) in
     let len1 = Int (ffi_array[1]) in
     let len = (len1 * 256) + len0 in
-    let len = (if 4094 < len then 4094 else len) in
+    let len = (if max_FFI_return_size < len then max_FFI_return_size else len) in
     CopyAw8Str ffi_array 2 len
 *)
 Overload ffi =
   ``clet "len0" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
     clet "len1" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
     clet "len" (App (Opn Plus) [App (Opn Times) [var "len1"; int 256]; var "len0"]) $
-    clet "len" (iflt (int 4094, var "len") (int 4094) (var "len")) $
+    clet "len" (
+      iflt (int &max_FFI_return_size, var "len")
+      (int &max_FFI_return_size) (var "len")) $
     App CopyAw8Str [var "ffi_array"; int 2; var "len"]``;
 
 (* right to left evaluation holds for this too *)
@@ -705,14 +734,14 @@ End
 
 Definition state_rel_def:
   state_rel cnenv sst (W8array ws :: cst) = (
-    (LENGTH ws = max_FFI_return_size) ∧
+    (LENGTH ws = max_FFI_return_size + 2) ∧
     LIST_REL (λs c.  ∃cs. c = Varray cs ∧ LIST_REL (v_rel cnenv) s cs) sst cst) ∧
   state_rel cnenv sst _ = F
 End
 
 Theorem state_rel:
   state_rel cnenv sst cst ⇔
-    ∃ws cst'. cst = W8array ws :: cst' ∧ LENGTH ws = max_FFI_return_size ∧
+    ∃ws cst'. cst = W8array ws :: cst' ∧ LENGTH ws = max_FFI_return_size + 2 ∧
       LIST_REL (λs c. ∃cs. c = Varray cs ∧ LIST_REL (v_rel cnenv) s cs) sst cst'
 Proof
   rw[DefnBase.one_line_ify NONE state_rel_def] >>
@@ -730,7 +759,7 @@ Inductive step_rel:
   (v_rel cnenv sv cv ∧ cont_rel cnenv sk ck ∧ state_rel cnenv sst cst
     ⇒ step_rel (Exn sv, SOME sst, sk) (Estep (cenv, cst, Exn cv, ck))) ∧
 
-  (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧
+  (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧ env_ok cenv ∧
    ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
    store_lookup 0 cst = SOME $ W8array ws2 ∧ s ≠ ""
     ⇒ step_rel (Action s conf, SOME sst, sk)
@@ -753,6 +782,51 @@ Inductive dstep_rel:
     ⇒ dstep_rel (Action ch conf, SOME sst, sk)
                 (Dffi dst (ch,ws1,ws2,0,cenv',ck)
                  locs (Pvar "prog") [CdlocalG lenv genv []]))
+End
+
+Inductive next_res_rel:
+  next_res_rel (stateLang$Div) (itree_semantics$Div) ∧
+  next_res_rel Ret Ret ∧
+  (dstep_rel (Action ch conf, st, sk) (Dffi dst out locs p dk)
+      ⇒ next_res_rel (Act (ch, conf) sk st) (Act dst out locs p dk))
+End
+
+Definition compile_ffi_def:
+  compile_ffi (ws :word8 list) (ch:string, conf) =
+    (ch, MAP (λc. n2w (ORD c)) (EXPLODE conf) :word8 list, ws)
+End
+
+Definition compile_final_ffi_def:
+  compile_final_ffi FFI_divergence = FFI_diverged ∧
+  compile_final_ffi FFI_failure = FFI_failed
+End
+
+Definition compile_input_rel_def:
+  compile_input_rel (s :string) (ws :word8 list) ⇔
+    ∃junk.
+      LENGTH junk = max_FFI_return_size - LENGTH s ∧
+      ws = [n2w (LENGTH s); n2w (LENGTH s DIV 256)] ++
+              MAP (λc. n2w (ORD c)) (s ++ junk)
+End
+
+CoInductive itree_rel:
+  itree_rel ws (Ret Termination) (Ret Termination) ∧
+
+  itree_rel ws Div Div ∧
+
+  itree_rel ws (Ret $ FinalFFI (ch,conf) f)
+               (Ret $ FinalFFI (compile_ffi ws (ch,conf)) (compile_final_ffi f)) ∧
+
+[~Vis:]
+  ((∀s. max_FFI_return_size < LENGTH s
+      ⇒ ∃ws'. compile_input_rel s ws' ∧ itree_rel ws (srest $ INR s) (crest $ INR ws')) ∧
+
+   (∀s ws'. compile_input_rel s ws' ∧ LENGTH s ≤ max_FFI_return_size
+      ⇒ itree_rel ws' (srest $ INR s) (crest $ INR ws')) ∧
+
+   (∀f. itree_rel ws (srest $ INL f) (crest $ INL $ compile_final_ffi f))
+
+    ⇒ itree_rel ws (Vis (ch,conf) srest) (Vis (compile_ffi ws (ch,conf)) crest))
 End
 
 
@@ -820,8 +894,8 @@ val sstep_ss          = simpLib.named_rewrites "sstep_ss" [
 val sstep             = SF sstep_ss;
 
 val dstep_ss          = simpLib.named_rewrites "dstep_ss" [
-                         dreturn_def, dpush_def, dcontinue_def,
-                         dstep_def, itree_semanticsTheory.step_n_def];
+                         dreturn_def, dpush_def, dcontinue_def, dstep_def,
+                         dstep_ExpVal_Exp, itree_semanticsTheory.step_n_def];
 val dstep             = SF dstep_ss;
 
 val qrefine = Q.REFINE_EXISTS_TAC;
@@ -964,6 +1038,16 @@ Theorem store_lookup_assign_Varray:
   SOME $ LUPDATE (Varray (LUPDATE e i vs)) n st
 Proof
   rw[store_lookup_def, store_assign_def, store_v_same_type_def]
+QED
+
+Triviality step_until_halt_no_err_step_n:
+  step_until_halt s ≠ Err ⇒ ∀n st k. step_n n s ≠ error st k
+Proof
+  PairCases_on `s` >> simp[step_until_halt_def] >>
+  DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+  >- (CCONTR_TAC >> gvs[error_def] >> last_x_assum $ qspec_then `n` mp_tac >> simp[]) >>
+  CCONTR_TAC >> gvs[] >>
+  drule is_halt_imp_eq >> disch_then $ qspec_then `n` assume_tac >> gvs[error_def]
 QED
 
 
@@ -2258,8 +2342,9 @@ Proof
     simp[] >>
     ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
     `∃ws. store_lookup 0 cst = SOME $ W8array ws ∧
-          LENGTH ws = max_FFI_return_size` by gvs[state_rel, store_lookup_def] >>
-    simp[] >> qexists0 >> simp[step_rel_cases, SF SFY_ss]
+          LENGTH ws = max_FFI_return_size + 2` by gvs[state_rel, store_lookup_def] >>
+    simp[] >> qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+    irule env_ok_nsBind_alt >> simp[]
     )
 QED
 
@@ -2321,6 +2406,119 @@ Proof
   drule dstep1_rel >> disch_then $ qspec_then `benv` mp_tac >> impl_tac
   >- (rw[] >> last_x_assum $ qspec_then `n' + n` mp_tac >> simp[step_n_add]) >>
   strip_tac >> gvs[] >> goal_assum drule >> simp[]
+QED
+
+Theorem step_until_halt_rel:
+  ∀s d benv.
+    dstep_rel s d ∧ step_until_halt s ≠ Err
+  ⇒ next_res_rel (step_until_halt s) (step_until_halt benv d) ∧
+    (∀dst out locs p dk. step_until_halt benv d = Act dst out locs p dk
+      ⇒ ∃ws. store_lookup 0 dst.refs = SOME (W8array ws) ∧ dget_ffi_array d = SOME ws)
+Proof
+  PairCases >> rpt gen_tac >> strip_tac >>
+  drule step_until_halt_no_err_step_n >> strip_tac >>
+  simp[step_until_halt_def, itree_semanticsTheory.step_until_halt_def] >>
+  DEEP_INTRO_TAC some_intro >> reverse strip_tac >> rpt gen_tac >> strip_tac >> gvs[]
+  >- (
+    qsuff_tac `∀n. ¬is_halt (step_n benv n d)` >> rw[next_res_rel_cases] >>
+    rw[] >> pop_assum $ qspec_then `n` assume_tac >>
+    drule_all dstep_n_rel >> disch_then $ qspecl_then [`n`,`benv`] assume_tac >> gvs[] >>
+    `¬is_halt (step_n benv m d)` by metis_tac[dstep_rel_is_halt] >>
+    CCONTR_TAC >> gvs[] >> drule is_halt_step_n_const >> simp[] >>
+    Cases_on `n = m` >> gvs[] >> qexists_tac `m` >> simp[] >> CCONTR_TAC >> gvs[]
+    ) >>
+  drule_all dstep_n_rel >> disch_then $ qspecl_then [`x`,`benv`] assume_tac >> gvs[] >>
+  `is_halt (step_n benv m d)` by metis_tac[dstep_rel_is_halt] >>
+  DEEP_INTRO_TAC some_intro >> strip_tac >> rpt gen_tac >> strip_tac >> gvs[] >>
+  drule_then rev_drule is_halt_step_n_eq >> strip_tac >> gvs[] >>
+  drule $ iffLR dstep_rel_cases >> strip_tac >> gvs[] >>
+  simp[next_res_rel_cases] >> gvs[Once step_rel_cases]
+QED
+
+Theorem compile_itree_rel:
+    safe_itree (sinterp sr st sk) ∧
+    dstep_rel (sr,st,sk) (step_n benv n dr) ∧
+    (∀ws'. dget_ffi_array (step_n benv n dr) = SOME ws' ⇒ ws = ws')
+  ⇒ itree_rel ws (sinterp sr st sk) (interp benv dr)
+Proof
+  qsuff_tac
+    `∀ws s d.
+      (∃sr st sk benv n dr.
+        s = sinterp sr st sk ∧ d = interp benv dr ∧
+        safe_itree (sinterp sr st sk) ∧
+        dstep_rel (sr,st,sk) (step_n benv n dr) ∧
+        (∀ws'. dget_ffi_array (step_n benv n dr) = SOME ws' ⇒ ws = ws')
+        ) ∨
+      (∃ch conf f.
+        s = Ret (FinalFFI (ch,conf) f) ∧
+        d = Ret (FinalFFI (compile_ffi ws (ch,conf)) (compile_final_ffi f)))
+    ⇒ itree_rel ws s d`
+  >- (
+    rw[] >> first_x_assum irule >> disj1_tac >>
+    rpt $ goal_assum $ drule_at Any >> simp[]
+    ) >>
+  ho_match_mp_tac itree_rel_coind >> rw[] >>
+  `interp benv dr = interp benv (step_n benv n dr)` by simp[interp_take_steps] >>
+  pop_assum SUBST_ALL_TAC >> qmatch_goalsub_abbrev_tac `interp benv d'` >>
+  `step_until_halt (sr,st,sk) ≠ Err` by (
+    gvs[Once sinterp] >> FULL_CASE_TAC >> gvs[] >>
+    gvs[Once pure_semanticsTheory.safe_itree_cases]) >>
+  drule_all step_until_halt_rel >> disch_then $ qspec_then `benv` assume_tac >>
+  gvs[next_res_rel_cases]
+  >- (once_rewrite_tac[sinterp, interp] >> simp[])
+  >- (once_rewrite_tac[sinterp, interp] >> simp[]) >>
+  ntac 3 disj2_tac >> simp[Once sinterp, Once interp] >>
+  drule $ iffLR dstep_rel_cases >> rw[] >> gvs[] >>
+  drule $ iffLR step_rel_cases >> strip_tac >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `ExpVal _ _ ffi_exp` >>
+  `LENGTH ws = max_FFI_return_size + 2` by gvs[state_rel, store_lookup_def] >>
+  simp[] >> conj_tac >- simp[compile_ffi_def] >>
+  conj_tac
+  >- (
+    gen_tac >> strip_tac >> simp[compile_input_rel_def, PULL_EXISTS] >>
+    qexists_tac `[]` >> simp[compile_ffi_def, compile_final_ffi_def]
+    ) >>
+  reverse conj_tac >- simp[compile_ffi_def] >>
+  rpt gen_tac >> strip_tac >> disj1_tac >> irule_at Any EQ_REFL >>
+  gvs[compile_input_rel_def] >> irule_at Any EQ_REFL >>
+  simp[GSYM PULL_EXISTS] >> conj_tac
+  >- (
+    last_x_assum mp_tac >> simp[Once sinterp] >>
+    simp[Once pure_semanticsTheory.safe_itree_cases] >>
+    disch_then $ qspec_then `INR s` mp_tac >> simp[]
+    ) >>
+  unabbrev_all_tac >>
+  ntac 7 (qrefine `SUC m` >> simp[dstep, cstep]) >>
+  simp[namespaceTheory.nsOptBind_def] >>
+  `nsLookup cenv.v (Short "ffi_array") = SOME (Loc 0)` by gvs[env_ok_def] >>
+  simp[] >> qrefine `SUC m` >> simp[dstep, cstep, do_app_def] >>
+  Cases_on `dst.refs` >> gvs[store_lookup_def, LUPDATE_DEF] >>
+  ntac 9 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
+  simp[store_lookup_def] >>
+  ntac 21 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
+  simp[opb_lookup_def, opn_lookup_def, do_if_def] >>
+  `&(256 * (STRLEN s DIV 256) MOD dimword (:8)) + &(STRLEN s MOD dimword (:8)) =
+    &(STRLEN s) : int` by (
+      simp[wordsTheory.dimword_def, wordsTheory.dimindex_8] >>
+      gvs[max_FFI_return_size_def] >> ARITH_TAC) >>
+  pop_assum SUBST_ALL_TAC >> simp[] >>
+  ntac 9 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
+  simp[store_lookup_def, copy_array_def, integerTheory.INT_ADD_CALCULATE] >>
+  qmatch_goalsub_abbrev_tac `StrLit str` >>
+  `str = s` by (
+    unabbrev_all_tac >> simp[TAKE_APPEND, GSYM MAP_TAKE] >>
+    simp[ws_to_chars_def, MAP_MAP_o, combinTheory.o_DEF, IMPLODE_EXPLODE_I]) >>
+  pop_assum SUBST_ALL_TAC >>
+  Cases_on `ck'` >> gvs[]
+  >- (
+    qrefine `SUC m` >> simp[dstep] >>
+    simp[astTheory.pat_bindings_def, pmatch_def] >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
+    simp[dstep_rel_cases] >> gvs[Once cont_rel_cases]
+    ) >>
+  qexists0 >> simp[dstep, store_lookup_def] >>
+  simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
+  goal_assum drule >> gvs[state_rel] >> gvs[Once cont_rel_cases]
 QED
 
 
