@@ -791,9 +791,8 @@ Inductive next_res_rel:
       ⇒ next_res_rel (Act (ch, conf) sk st) (Act dst out locs p dk))
 End
 
-Definition compile_ffi_def:
-  compile_ffi (ws :word8 list) (ch:string, conf) =
-    (ch, MAP (λc. n2w (ORD c)) (EXPLODE conf) :word8 list, ws)
+Definition compile_conf_def:
+  compile_conf conf = MAP (λc. n2w (ORD c)) (EXPLODE conf) :word8 list
 End
 
 Definition compile_final_ffi_def:
@@ -810,23 +809,20 @@ Definition compile_input_rel_def:
 End
 
 CoInductive itree_rel:
-  itree_rel ws (Ret Termination) (Ret Termination) ∧
+  itree_rel (Ret Termination) (Ret Termination) ∧
 
-  itree_rel ws Div Div ∧
+  itree_rel Div Div ∧
 
-  itree_rel ws (Ret $ FinalFFI (ch,conf) f)
-               (Ret $ FinalFFI (compile_ffi ws (ch,conf)) (compile_final_ffi f)) ∧
+  itree_rel (Ret $ FinalFFI (ch,conf) f)
+            (Ret $ FinalFFI (ch, compile_conf conf, ws) (compile_final_ffi f)) ∧
 
 [~Vis:]
-  ((∀s. max_FFI_return_size < LENGTH s
-      ⇒ ∃ws'. compile_input_rel s ws' ∧ itree_rel ws (srest $ INR s) (crest $ INR ws')) ∧
+   ((∀s ws'. compile_input_rel s ws'
+      ⇒ itree_rel (srest $ INR s) (crest $ INR ws')) ∧
 
-   (∀s ws'. compile_input_rel s ws' ∧ LENGTH s ≤ max_FFI_return_size
-      ⇒ itree_rel ws' (srest $ INR s) (crest $ INR ws')) ∧
+   (∀f. itree_rel (srest $ INL f) (crest $ INL $ compile_final_ffi f))
 
-   (∀f. itree_rel ws (srest $ INL f) (crest $ INL $ compile_final_ffi f))
-
-    ⇒ itree_rel ws (Vis (ch,conf) srest) (Vis (compile_ffi ws (ch,conf)) crest))
+    ⇒ itree_rel (Vis (ch,conf) srest) (Vis (ch, compile_conf conf, ws) crest))
 End
 
 
@@ -2437,22 +2433,20 @@ QED
 
 Theorem compile_itree_rel:
     safe_itree (sinterp sr st sk) ∧
-    dstep_rel (sr,st,sk) (step_n benv n dr) ∧
-    (∀ws'. dget_ffi_array (step_n benv n dr) = SOME ws' ⇒ ws = ws')
-  ⇒ itree_rel ws (sinterp sr st sk) (interp benv dr)
+    dstep_rel (sr,st,sk) (step_n benv n dr)
+  ⇒ itree_rel (sinterp sr st sk) (interp benv dr)
 Proof
   qsuff_tac
-    `∀ws s d.
+    `∀s d.
       (∃sr st sk benv n dr.
         s = sinterp sr st sk ∧ d = interp benv dr ∧
         safe_itree (sinterp sr st sk) ∧
-        dstep_rel (sr,st,sk) (step_n benv n dr) ∧
-        (∀ws'. dget_ffi_array (step_n benv n dr) = SOME ws' ⇒ ws = ws')
+        dstep_rel (sr,st,sk) (step_n benv n dr)
         ) ∨
-      (∃ch conf f.
+      (∃ch conf ws f.
         s = Ret (FinalFFI (ch,conf) f) ∧
-        d = Ret (FinalFFI (compile_ffi ws (ch,conf)) (compile_final_ffi f)))
-    ⇒ itree_rel ws s d`
+        d = Ret (FinalFFI (ch, compile_conf conf, ws) (compile_final_ffi f)))
+    ⇒ itree_rel s d`
   >- (
     rw[] >> first_x_assum irule >> disj1_tac >>
     rpt $ goal_assum $ drule_at Any >> simp[]
@@ -2472,14 +2466,11 @@ Proof
   drule $ iffLR step_rel_cases >> strip_tac >> gvs[] >>
   qmatch_goalsub_abbrev_tac `ExpVal _ _ ffi_exp` >>
   `LENGTH ws = max_FFI_return_size + 2` by gvs[state_rel, store_lookup_def] >>
-  simp[] >> conj_tac >- simp[compile_ffi_def] >>
-  conj_tac
-  >- (
-    gen_tac >> strip_tac >> simp[compile_input_rel_def, PULL_EXISTS] >>
-    qexists_tac `[]` >> simp[compile_ffi_def, compile_final_ffi_def]
-    ) >>
-  reverse conj_tac >- simp[compile_ffi_def] >>
-  rpt gen_tac >> strip_tac >> disj1_tac >> irule_at Any EQ_REFL >>
+  simp[] >> conj_tac >- simp[compile_conf_def] >>
+  reverse conj_tac >- simp[compile_conf_def] >>
+  rpt gen_tac >> strip_tac >> reverse IF_CASES_TAC >> gvs[]
+  >- gvs[compile_input_rel_def, compile_conf_def, compile_final_ffi_def] >>
+  disj1_tac >> irule_at Any EQ_REFL >>
   gvs[compile_input_rel_def] >> irule_at Any EQ_REFL >>
   simp[GSYM PULL_EXISTS] >> conj_tac
   >- (
