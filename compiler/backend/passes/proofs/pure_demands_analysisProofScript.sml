@@ -9,7 +9,7 @@ open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
      finite_mapTheory mlstringTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_cexpTheory pure_demandTheory pure_demands_analysisTheory;
+     pure_cexpTheory pure_demandTheory pure_demands_analysisTheory pureLangTheory;
 
 val _ = new_theory "pure_demands_analysisProof";
 
