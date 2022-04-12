@@ -116,7 +116,7 @@ Theorem op_countable:
 Proof
   rpt strip_tac >>
   ‘𝕌(:op) = {If} ∪ IMAGE pure_exp$Cons 𝕌(:string)
-                 ∪ IMAGE (UNCURRY pure_exp$IsEq) 𝕌(:string # num)
+                 ∪ IMAGE (UNCURRY (UNCURRY pure_exp$IsEq)) 𝕌(:(string # num) # bool)
                  ∪ IMAGE (UNCURRY pure_exp$Proj) 𝕌(:string # num)
                  ∪ IMAGE pure_exp$AtomOp 𝕌(:atom_op)
                  ∪ {pure_exp$Seq}’

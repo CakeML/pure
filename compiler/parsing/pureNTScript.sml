@@ -2,13 +2,16 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "pureNT";
 
+val _ = set_grammar_ancestry ["list"]
+
 Datatype:
   ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
          | nPat | nAPat | nFunRHS
          | nExp | nExpEQ | nLSafeExp | nLSafeExpEQ | nIExp | nIExpEQ
-         | nFExp | nFExpEQ | nFExp2 | nAExp | nAxpEQ
+         | nFExp | nFExpEQ | nFExp2 | nAExp | nAExpEQ
          | nLit | nOp
          | nEqBindSeq | nEqBind | nValBinding
+         | nDoStmt | nDoBlock | nPatAlt | nPatAlts
 End
 
 val distinct_ths = let

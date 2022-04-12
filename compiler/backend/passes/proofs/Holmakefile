@@ -1,0 +1,6 @@
+INCLUDES = .. ../../languages/properties \
+           $(PUREDIR)/language $(PUREDIR)/meta-theory \
+           $(CAKEMLDIR)/basis/pure \
+           $(CAKEMLDIR)/semantics/alt_semantics \
+           $(CAKEMLDIR)/semantics/alt_semantics/proofs \
+           $(HOLDIR)/examples/algorithms

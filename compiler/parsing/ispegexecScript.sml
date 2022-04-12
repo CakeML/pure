@@ -8,6 +8,8 @@ open rich_listTheory;
 
 val _ = new_theory "ispegexec"
 
+val _ = set_grammar_ancestry ["ispeg"]
+
 Datatype:
   kont =
     ksym (('atok,'bnt,'cvalue,'err) ispegsym) kont kont

@@ -181,7 +181,7 @@ QED
 Theorem lets_for_exp_eq_lemma:
   ∀vs e.
     closed x ∧ eval_wh x = wh_Constructor cn es ∧
-    ¬ MEM v vs ⇒
+    ¬ MEM v vs ∧ cn ∉ monad_cns ⇒
   subst1 v x (lets_for cn (LENGTH es) v (MAPi (λi v. (i,v)) vs) e) ≅
   subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs) e)
 Proof
@@ -206,9 +206,9 @@ QED
 
 Theorem lets_for_exp_eq:
   ¬ MEM v vs ⇒
-  If (IsEq cn (LENGTH vs) (Var v))
+  If (IsEq cn (LENGTH vs) T (Var v))
     (lets_for cn (LENGTH vs) v (MAPi (λi v. (i,v)) vs) e) rest ≅
-  If (IsEq cn (LENGTH vs) (Var v))
+  If (IsEq cn (LENGTH vs) T (Var v))
     (lets_for cn v (MAPi (λi v. (i,v)) vs) e) rest
 Proof
   rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[subst_def] >>
@@ -220,6 +220,7 @@ Proof
   simp[eval_wh_thm] >>
   Cases_on `eval_wh x` >> gvs[] >>
   IF_CASES_TAC >> gvs[] >>
+  Cases_on `s ∈ monad_cns` >> gvs[] >>
   Cases_on `s ≠ cn` >> gvs[]
   >- (
     qsuff_tac `(subst f rest ≃ subst f rest) T`

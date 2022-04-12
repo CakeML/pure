@@ -132,7 +132,7 @@ Theorem eval_wh_to_lets_for:
      res =
       eval_wh_to (k - 1)
       (subst
-        (FEMPTY |++ MAPi (λi v. (v, If (IsEq cn ar e) (Proj cn i e) Bottom)) vs)
+        (FEMPTY |++ MAPi (λi v. (v, If (IsEq cn ar T e) (Proj cn i e) Bottom)) vs)
         (subst1 v e b)))
 Proof
   Induct using SNOC_INDUCT >> rw[SNOC_APPEND, lets_for_def, lets_for_APPEND] >>
@@ -146,7 +146,7 @@ Proof
   simp[lets_for_APPEND, indexedListsTheory.MAPi_APPEND, lets_for_def] >>
   pop_assum $ qspecl_then
     [`k`,`cn`,
-     `Let x (If (IsEq cn ar (Var v)) (Proj cn (LENGTH vs) (Var v)) Bottom) b`]
+     `Let x (If (IsEq cn ar T (Var v)) (Proj cn (LENGTH vs) (Var v)) Bottom) b`]
     assume_tac >>
   gvs[] >>
   simp[subst_def, FLOOKUP_UPDATE, DOMSUB_FUPDATE_NEQ] >>
@@ -174,6 +174,7 @@ Theorem eval_wh_to_Case:
   closed (exp_of e) ∧
   ALOOKUP css cname = SOME (vs, ce) ∧
   ¬ MEM v vs ∧
+  cname ∉ monad_cns ∧
   LENGTH vs = LENGTH es
   ⇒ ∃res.
       eval_wh_to k (exp_of (Case e v css)) = res ∧
@@ -447,7 +448,12 @@ Proof
         drule type_wh_PrimTy_Bool_eq_wh_Constructor >> strip_tac >> gvs[] >>
         Cases_on `x'` >> gvs[] >>
         imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM, FORALL_PROD] >> metis_tac[]) >>
-      simp[exp_of_def] >> disch_then $ qspec_then `v` assume_tac >> gvs[]
+      simp[exp_of_def] >> disch_then $ qspec_then `v` mp_tac >> gvs[] >>
+      impl_tac >> rw[] >> gvs[]
+      >- (
+        qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
+        rw[type_wh_cases, Once type_tcexp_cases, monad_cns_def]
+        )
       >- simp[type_wh_cases] >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       ntac 2 $ disch_then drule >>
@@ -473,7 +479,9 @@ Proof
       drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
       disch_then $ qspec_then `["",pvars,cexp]` mp_tac >> simp[] >>
       disch_then drule >> imp_res_tac LIST_REL_LENGTH >> gvs[exp_of_def] >>
-      rw[] >> gvs[] >- simp[type_wh_cases] >>
+      impl_tac >> rw[] >> gvs[]
+      >- simp[monad_cns_def]
+      >- simp[type_wh_cases] >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then drule >> simp[] >>
       DEP_REWRITE_TAC[GSYM subst_subst1_UPDATE] >> simp[closed_def, freevars_exp_of] >>
@@ -508,11 +516,11 @@ Proof
       rw[] >> gvs[] >>
       pop_assum mp_tac >> rw[Once type_tcexp_cases, type_exception_def] >> gvs[]
       >- (
-        `cn ≠ "Subscript"` by (
+        `cn ≠ "Subscript" ∧ cn ∉ monad_cns` by (
           imp_res_tac ALOOKUP_MEM >>
           gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-          qpat_x_assum `∀e. _ ∈ _ ⇒ ¬ _` $ qspec_then `"Subscript"` mp_tac >>
-          rw[reserved_cns_def, MEM_MAP, FORALL_PROD] >> metis_tac[]
+          qpat_x_assum `∀e. _ ∈ _ ⇒ ¬ _` $ qspec_then `cn` mp_tac >>
+          rw[reserved_cns_def, MEM_MAP, FORALL_PROD, monad_cns_def] >> metis_tac[]
           ) >>
         drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
         disch_then $ qspec_then `rs` mp_tac >>
@@ -556,7 +564,7 @@ Proof
         `ALOOKUP exndef "Subscript" = NONE` by (
           simp[ALOOKUP_NONE] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
           first_x_assum irule >> simp[reserved_cns_def]) >>
-        first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+        first_x_assum drule >> simp[] >> strip_tac >> gvs[] >> simp[monad_cns_def] >>
         disch_then $ qspec_then `v` mp_tac >> simp[exp_of_def] >> rw[] >> gvs[]
         >- rw[type_wh_cases] >>
         last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
@@ -598,7 +606,16 @@ Proof
       imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
       first_x_assum drule >> simp[] >> strip_tac >>
       disch_then drule >>
-      imp_res_tac LIST_REL_LENGTH >> simp[exp_of_def] >> rw[] >> simp[]
+      imp_res_tac LIST_REL_LENGTH >> simp[exp_of_def] >> impl_tac >> rw[] >> simp[]
+      >- (
+        CCONTR_TAC >> gvs[] >>
+        gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        qpat_x_assum `∀e. _ ⇒ ¬ _` $ qspec_then `cname` mp_tac >>
+        simp[MEM_MAP, MEM_FLAT, EXISTS_PROD, SF DNF_ss] >>
+        disj1_tac >> goal_assum $ drule_at Any >> simp[MEM_EL, SF DNF_ss] >>
+        gvs[oEL_THM] >> rpt $ goal_assum $ drule_at Any >> simp[] >>
+        pop_assum mp_tac >> rw[monad_cns_def, reserved_cns_def]
+        )
       >- rw[type_wh_cases] >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then drule >> simp[] >>
@@ -637,7 +654,7 @@ Proof
       Cases_on `eval_wh_to (k - 2) (exp_of e) = wh_Diverge` >> gvs[]
       >- simp[type_wh_cases] >>
       drule eval_wh_inc >> disch_then $ qspec_then `k` $ assume_tac o GSYM >>
-      gvs[] >>
+      gvs[] >> simp[monad_cns_def] >>
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >>
       gvs[LIST_REL_EL_EQN, oEL_THM, EL_MAP]
@@ -654,7 +671,15 @@ Proof
       >- simp[type_wh_cases] >>
       drule eval_wh_inc >> disch_then $ qspec_then `k` $ assume_tac o GSYM >>
       gvs[] >>
-      qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
+      `cn' ∉ monad_cns` by (
+        qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
+        simp[Once type_wh_cases, Once type_tcexp_cases] >>
+        reverse $ rw[] >> gvs[type_exception_def] >- simp[monad_cns_def] >>
+        drule ALOOKUP_MEM >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        qpat_x_assum `∀e. _ ∈ _ ⇒ ¬_` $ qspec_then `cn'` mp_tac >>
+        simp[MEM_MAP, FORALL_PROD] >> disch_then $ drule_at Concl >>
+        rw[reserved_cns_def, monad_cns_def]) >>
+      simp[] >> qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> reverse strip_tac
       >- (
         gvs[] >>
@@ -684,6 +709,15 @@ Proof
       >- simp[type_wh_cases] >>
       drule eval_wh_inc >> disch_then $ qspec_then `k` $ assume_tac o GSYM >>
       gvs[] >>
+      `cname ∉ monad_cns` by (
+        qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
+        rw[Once type_wh_cases, Once type_tcexp_cases] >> gvs[type_cons_def] >>
+        drule ALOOKUP_MEM >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        gvs[SF DNF_ss] >>
+        qpat_x_assum `∀e. _ ∈ reserved_cns ⇒ _` $ qspec_then `cname` mp_tac >>
+        simp[MEM_MAP, MEM_FLAT, FORALL_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
+        disch_then $ drule_at Concl >> simp[MEM_EL, DISJ_EQ_IMP] >> gvs[oEL_THM] >>
+        disch_then $ drule_at Concl >> rw[reserved_cns_def, monad_cns_def]) >>
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >> gvs[] >>
       IF_CASES_TAC >> gvs[]

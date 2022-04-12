@@ -1554,6 +1554,7 @@ Proof
     last_x_assum drule >> disch_then drule >> simp[] >> strip_tac >>
     Cases_on `eval_wh a` >> gvs[] >>
     IF_CASES_TAC >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >>
     drule LIST_REL_LENGTH >> gvs[] >>
     IF_CASES_TAC >> gvs[]
     )
@@ -2636,4 +2637,3 @@ Proof
 QED
 
 val _ = export_theory();
-

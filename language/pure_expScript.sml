@@ -10,12 +10,12 @@ val _ = new_theory "pure_exp";
 Type vname = “:string”  (* variable name *)
 
 Datatype:
-  op = If                 (* if-expression                            *)
-     | Cons string        (* datatype constructor                     *)
-     | IsEq string num    (* compare cons tag and num of args         *)
-     | Proj string num    (* reading a field of a constructor         *)
-     | AtomOp atom_op     (* primitive parametric operator over Atoms *)
-     | Seq                (* diverges if arg1 does, else same as arg2 *)
+  op = If                    (* if-expression                             *)
+     | Cons string           (* datatype constructor                      *)
+     | IsEq string num bool  (* compare cons tag and num of args (strict) *)
+     | Proj string num       (* reading a field of a constructor          *)
+     | AtomOp atom_op        (* primitive parametric operator over Atoms  *)
+     | Seq                   (* diverges if arg1 does, else same as arg2  *)
 End
 
 Datatype:
@@ -27,14 +27,14 @@ Datatype:
 End
 
 (* some abbreviations *)
-Overload Let  = “λs x y. App (Lam s y) x”      (* let-expression    *)
-Overload If   = “λx y z. Prim If [x; y; z]”    (* If   at exp level *)
-Overload Cons = “λs. Prim (Cons s)”            (* Cons at exp level *)
-Overload IsEq = “λs n x. Prim (IsEq s n) [x]”  (* IsEq at exp level *)
-Overload Proj = “λs i x. Prim (Proj s i) [x]”  (* Proj at exp level *)
-Overload Seq  = “λx y. Prim Seq [x; y]”        (* Seq  at exp level *)
-Overload Fail = “Prim If []”                   (* causes Error      *)
-Overload Lit  = “λl. Prim (AtomOp (Lit l)) []” (* Lit at exp level  *)
+Overload Let  = “λs x y. App (Lam s y) x”         (* let-expression    *)
+Overload If   = “λx y z. Prim If [x; y; z]”       (* If   at exp level *)
+Overload Cons = “λs. Prim (Cons s)”               (* Cons at exp level *)
+Overload IsEq = “λs n t x. Prim (IsEq s n t) [x]” (* IsEq at exp level *)
+Overload Proj = “λs i x. Prim (Proj s i) [x]”     (* Proj at exp level *)
+Overload Seq  = “λx y. Prim Seq [x; y]”           (* Seq  at exp level *)
+Overload Fail = “Prim If []”                      (* causes Error      *)
+Overload Lit  = “λl. Prim (AtomOp (Lit l)) []”    (* Lit at exp level  *)
 Overload Tick = “λx. Letrec [] x”
 
 Definition Apps_def:
@@ -154,7 +154,7 @@ End
 
 Definition expandRows_def:
    expandRows nm [] = Fail ∧
-   expandRows nm ((cn,vs,cs)::css) = If (IsEq cn (LENGTH vs) (Var nm))
+   expandRows nm ((cn,vs,cs)::css) = If (IsEq cn (LENGTH vs) T (Var nm))
                                         (expandLets 0 cn nm vs cs)
                                         (expandRows nm css)
 End

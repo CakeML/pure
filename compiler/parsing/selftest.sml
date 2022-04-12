@@ -23,6 +23,9 @@ fun KNL s = String.translate (fn #"\n" => "\\n" | c => str c) s
 fun checkrand t =
     rand t handle HOL_ERR _ =>
     raise mk_HOL_ERR "" "" "Got NONE"
+
+val ptree_ty = ty_antiq “: (token,ppegnt, locs) parsetree”
+val ptSOME = “SOME : ^ptree_ty -> ^ptree_ty option”
 fun fptest (nt, s, cf, exp) =
     (tprint ("Parsing (" ^ term_to_string nt ^ ") \"" ^ KNL s ^ "\"");
      require_msg (check_result (aconv exp)) term_to_string
@@ -30,6 +33,9 @@ fun fptest (nt, s, cf, exp) =
                  (list_mk_icomb(fullparse,
                                 [nt,stringSyntax.fromMLstring s,
                                  inst [alpha |-> “:locs”] cf])))
+fun sp (* simple parse *) nt s =
+    EVAL (list_mk_icomb(fullparse, [hd (decls nt), stringSyntax.fromMLstring s,
+                                    ptSOME]))
 
 val threetimesfour = “expApp (expApp (expVar "*") (expLit (litInt 3)))
                              (expLit (litInt 4))”
@@ -57,5 +63,34 @@ val _ = app fptest [
   (“nExp”, "C (x,y) 3", “astExp nExp”, “expCon "C" [expTup [‹x›; ‹y›]; 𝕀 3]”),
   (“nExp”, "D [] 3", “astExp nExp”, “expCon "D" [pNIL; 𝕀 3]”),
   (“nExp”, "f [x,y] 3", “astExp nExp”,
-   “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”)
+   “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”),
+  (“nExp”, "let y = x + 3 in y + z",
+   “astExp nExp”,
+   “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+  (“nExp”, "let\n\
+           \  y = x + 3\n\
+           \  z = 10 in y + z",
+   “astExp nExp”,
+   “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3);
+            expdecFunbind "z" [] (𝕀 10)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+  (“nExp”, "do x <- f y 3\n\
+           \   foo x",
+   “astExp nExp”,
+   “expDo [expdostmtBind (patVar "x") (‹f› ⬝ ‹y› ⬝ 𝕀 3)] (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "do let y = 10\n\
+           \       f :: Int -> Int\n\
+           \       f z = z + 1\n\
+           \   x <- g (f y) 3\n\
+           \   foo x",
+   “astExp nExp”,
+   “expDo [expdostmtLet [expdecFunbind "y" [] (𝕀 10);
+                         expdecTysig "f" (funTy intTy intTy);
+                         expdecFunbind "f" [patVar "z"] (‹+› ⬝ ‹z› ⬝ 𝕀 1)];
+           expdostmtBind (patVar "x") (‹g› ⬝ (‹f› ⬝ ‹y›) ⬝ 𝕀 3)]
+          (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "case e of [] -> 3\n\
+           \          h:t -> 4",
+   “astExp nExp”,
+   “expCase ‹e› [(patApp "[]" [], 𝕀 3);
+                 (patApp ":" [patVar "h"; patVar "t"], 𝕀 4)]”)
 ]

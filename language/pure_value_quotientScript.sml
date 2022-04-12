@@ -29,7 +29,7 @@ Theorem eval_lift:
   eval Fail = Error ∧
   eval (Var s) = Error ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
-  eval (IsEq s n x) = is_eq s n (eval x) ∧
+  eval (IsEq s n a x) = is_eq s n (eval x) ∧
   eval (Proj s i x) = el s i (eval x) ∧
   eval (Let s x y) = eval (bind1 s x y) ∧
   eval (If x y z) =

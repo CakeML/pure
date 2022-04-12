@@ -31,13 +31,13 @@ Overload Bool[local] = “λb. SOME (INR b) : (lit + bool) option”;
 Definition concat_def:
   concat [] = SOME "" ∧
   concat (Str s :: t) = OPTION_MAP (λr. s ++ r) (concat t) ∧
-  concat (Int _ :: _) = NONE
+  concat (    _ :: _) = NONE
 End
 
 Definition implode_def:
   implode [] = SOME "" ∧
   implode (Int i :: t) = OPTION_MAP (λr. CHR (Num (i % 256)) :: r) (implode t) ∧
-  implode (Str _ :: _) = NONE
+  implode (    _ :: _) = NONE
 End
 
 Definition str_el_def:
@@ -62,10 +62,10 @@ Definition eval_op_def[simp]:
   eval_op Concat strs = OPTION_MAP (INL o Str) (concat strs) ∧
   eval_op Implode ords = OPTION_MAP (INL o Str) (implode ords) ∧
   eval_op Substring [Str s; Int i] =
-    Atom (Str (DROP (Num (i % (& LENGTH s))) s)) ∧
+    Atom $ Str $ DROP (if i < 0 then 0 else Num i) s ∧
   eval_op Substring [Str s; Int i; Int l] =
     (if l < 0 then Atom (Str "") else
-      Atom (Str (TAKE (Num l) (DROP (Num (i % (& LENGTH s))) s)))) ∧
+      Atom $ Str $ TAKE (Num l) (DROP (if i < 0 then 0 else Num i) s)) ∧
   eval_op StrEq  [Str s; Str t] = Bool (s = t) ∧
   eval_op StrLt  [Str s; Str t] = Bool (s < t) ∧
   eval_op StrLeq [Str s; Str t] = Bool (s ≤ t) ∧

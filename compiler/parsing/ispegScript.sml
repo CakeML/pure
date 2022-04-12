@@ -6,6 +6,8 @@ open listTheory rich_listTheory
 
 val _ = new_theory "ispeg"
 
+val _ = set_grammar_ancestry ["location", "rich_list", "finite_map", "grammar"]
+
 (* Based on HOL's core PEG theory, which is based on
      Koprowski and Binzstok, "TRX: A Formally Verified Parser Interpreter".
      LMCS vol 7, no. 2. 2011.

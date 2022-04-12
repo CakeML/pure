@@ -1,0 +1,52 @@
+
+  thunks are ((unit -> 'a) + 'a) ref
+
+  envLang                       stateLang
+
+  Prim (Cons "Ret") [x]       --> (fn u => App "force" (compile x ()))
+  Prim (Cons "Bind") [x; y]   --> (fn u => Let v (compile x ()) (compile y () v))
+  Prim (Cons "Handle") [x; y] --> (fn u => Handle (compile x ()) v (compile y () v))
+  Prim (Msg ffi) [x]          --> (fn u => App (FFI ffi) [compile x])
+  Prim (Cons "Act" [msg])     --> (fn u => compile msg ())
+
+  Box x                       --> (Ref (Cons "INR" [(compile x)]))
+  Delay x                     --> (Ref (Cons "INL" [fn u => (compile x) ()]))
+  Force x                     --> force (compile x)
+
+fun force t =
+  case !t of
+  | INL f => let val v = f () in (t := INR v; v) end
+  | INR v => v
+
+
+  env$Letrec [(x, y + 1); ...] rest
+
+-->
+
+  (* declare all references *)
+  Let x (Ref (INL (fn u => Raise Bind)))
+  (* use the bindings *)
+  Letrec [...]
+  (* update the references *)
+    (x := INL (fn u => y + 1); compiler rest))
+
+
+
+  step (Exp (LitInt i)) s c = (Val (Lit i), s, c)
+  step (Exp (Raise x)) s c = (Exp x, s, RaiseC c)
+
+  step (Val v) s (RaiseC (LetC ... c)) = (Val v, s, RaiseC c)
+
+  eval exp s c = Act ffi msg s' c'
+
+
+
+  env$semantics (Bind (Bind (Ret ...) (Bind ... (Act ...))))
+~
+  state$eval (fn _ => ...) ()
+
+  eval : exp -> v
+
+  itree_of : exp -> itree
+
+  cakeml_semantics : exp -> io_oracle -> io_trace
