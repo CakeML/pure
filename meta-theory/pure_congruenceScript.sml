@@ -2298,6 +2298,22 @@ Proof
   \\ fs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
+Theorem exp_eq_Lam_removed:
+  ∀s e1 e2 b. (Lam s e1 ≅? Lam s e2) b ⇔ (e1 ≅? e2) b
+Proof
+  rw []
+  \\ eq_tac
+  \\ strip_tac
+  \\ gvs [exp_eq_Lam_cong]
+  \\ irule $ iffRL exp_eq_forall_subst
+  \\ rename1 ‘Lam s _’
+  \\ qexists_tac ‘s’
+  \\ rw []
+  \\ fs [exp_eq_Lam_lemma]
+  \\ first_x_assum irule
+  \\ fs [exp_eq_refl]
+QED
+
 Theorem exp_eq_free:
   v ∉ freevars y ⇒
   ((x ≅? y) b ⇔ ∀z. closed z ⇒ (subst1 v z x ≅? y) b)
@@ -2534,6 +2550,102 @@ Proof
   \\ res_tac \\ fs [closed_subst]
 QED
 
+Theorem Let_App:
+  ∀w e e1 e2 b. (Let w e (App e1 e2) ≅? App (Let w e e1) (Let w e e2)) b
+Proof
+  rw[exp_eq_def, bind_def] >> rw[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, subst_def] >>
+  gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
+  simp[app_bisimilarity_eq] >> reverse conj_asm2_tac
+  >- (
+    rename1 ‘subst (f \\ w)’ >>
+    ‘∀v. v ∈ FRANGE (f \\ w) ⇒ closed v’
+     by (rw [] \\ first_x_assum irule
+         \\ gvs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM] \\ pop_assum $ irule_at Any) >>
+    gvs [IMP_closed_subst, freevars_subst, FRANGE_FLOOKUP] >>
+    gvs [SUBSET_DEF, IN_DIFF] >> rw [] >> metis_tac []) >>
+  gvs[] >> irule exp_eq_trans >> irule_at Any beta_equality >> simp[] >>
+  simp[subst_def] >> irule exp_eq_App_cong >>
+  conj_tac >>
+  irule eval_IMP_exp_eq >>
+  rw[eval_Let, bind1_def] >>
+  AP_TERM_TAC >>
+  irule closed_subst >>
+  irule closed_freevars_subst1 >>
+  gvs [freevars_subst]
+QED
+
+Theorem Letrec_App:
+  ∀l e1 e2 b. (Letrec l (App e1 e2) ≅? App (Letrec l e1) (Letrec l e2)) b
+Proof
+  rw[exp_eq_def, bind_def] >> rw[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, subst_def] >>
+  gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
+  simp[app_bisimilarity_eq] >> reverse conj_asm2_tac
+  >- (rw [MAP_MAP_o, combinTheory.o_DEF, EVERY_EL, EL_MAP] >>
+      ‘∀v. v ∈ FRANGE (FDIFF f (set (MAP FST l))) ⇒ closed v’
+        by (rw [] >> first_x_assum irule >>
+            gvs [FRANGE_FLOOKUP, FDIFF_def, FLOOKUP_DRESTRICT] >>
+            pop_assum $ irule_at Any) >>
+      gvs [LAMBDA_PROD] >>~[‘EL n l’]
+      >- (qabbrev_tac ‘p = EL n l’ >> PairCases_on ‘p’ >>
+          gvs [freevars_subst, SUBSET_DEF] >> rpt strip_tac >>
+          last_x_assum kall_tac >>
+          last_x_assum $ qspecl_then [‘x’] assume_tac >> gvs [MEM_MAP]
+          >- (pop_assum $ qspecl_then [‘freevars p1’] assume_tac >> gvs [] >>
+              pop_assum $ qspecl_then [‘EL n l’] assume_tac >> gvs [EL_MEM]) >>
+          first_x_assum $ irule_at Any >>
+          PairCases_on ‘y’ >> fs [])
+      >- (qabbrev_tac ‘p = EL n l’ >> PairCases_on ‘p’ >>
+          gvs [freevars_subst, SUBSET_DEF] >> rpt strip_tac >>
+          last_x_assum kall_tac >>
+          last_x_assum $ qspecl_then [‘x’] assume_tac >> gvs [MEM_MAP]
+          >- (pop_assum $ qspecl_then [‘freevars p1’] assume_tac >> gvs [] >>
+              pop_assum $ qspecl_then [‘EL n l’] assume_tac >> gvs [EL_MEM]) >>
+          first_x_assum $ irule_at Any >>
+          PairCases_on ‘y’ >> fs [])
+      >- (qabbrev_tac ‘p = EL n l’ >> PairCases_on ‘p’ >>
+          gvs [freevars_subst, SUBSET_DEF] >> rpt strip_tac >>
+          last_x_assum kall_tac >>
+          last_x_assum $ qspecl_then [‘x’] assume_tac >> gvs [MEM_MAP]
+          >- (pop_assum $ qspecl_then [‘freevars p1’] assume_tac >> gvs [] >>
+              pop_assum $ qspecl_then [‘EL n l’] assume_tac >> gvs [EL_MEM]) >>
+          first_x_assum $ irule_at Any >>
+          PairCases_on ‘y’ >> fs []) >>
+      gvs [freevars_subst, SUBSET_DEF, IN_DIFF] >> rw [] >>
+      gvs [MEM_MAP, EXISTS_PROD] >>
+      rename1 ‘MEM (x, _) _’ >>
+      rpt $ first_x_assum $ qspecl_then [‘x’] assume_tac >> gvs [] >>
+      first_x_assum $ irule_at Any) >>
+  gvs[] >> irule exp_eq_trans >> irule_at Any beta_equality_Letrec >> simp[] >>
+  simp[subst_funs_def, bind_def, subst_def] >> IF_CASES_TAC
+  >- (irule exp_eq_App_cong >>
+      conj_tac >>
+      irule exp_eq_trans >>
+      irule_at (Pos last) $ iffLR exp_eq_sym >>
+      irule_at Any beta_equality_Letrec >>
+      gvs [exp_eq_refl, subst_funs_def, bind_def] >>
+      rw [exp_eq_refl] >> gvs []) >>
+  qsuff_tac ‘F’ >> fs [] >>
+  pop_assum irule >>
+  ‘∀f. FLOOKUP f n = SOME v ⇒ v ∈ FRANGE f’ by (rw [FRANGE_FLOOKUP] >> pop_assum $ irule_at Any) >>
+  pop_assum $ dxrule_then assume_tac >>
+  ‘∀(f : string |-> exp) l v. v ∈ FRANGE (f |++ l) ⇒ v ∈ FRANGE f ∪ set (MAP SND l)’
+    by (rpt strip_tac >> irule $ iffLR SUBSET_DEF >> irule_at Any FRANGE_FUPDATE_LIST_SUBSET >> fs []) >>
+  pop_assum $ dxrule_then assume_tac >>
+  gvs [FRANGE_FEMPTY, MEM_EL, EL_MAP, closed_def] >>
+  rename1 ‘EL n l’ >> qabbrev_tac ‘p = EL n l’ >> PairCases_on ‘p’ >>
+  gvs [SUBSET_DIFF_EMPTY, BIGUNION_SUBSET, SUBSET_DEF, MEM_EL] >> rw [] >>
+  gvs [EVERY_MEM, EL_MAP] >>
+  first_x_assum irule
+  >- (pop_assum $ irule_at Any >>
+      gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MEM_EL] >>
+      first_assum $ irule_at Any >> fs [EL_MAP]) >>
+  rename1 ‘EL n2 l’ >> qabbrev_tac ‘p = EL n2 l’ >> PairCases_on ‘p’ >> fs [MEM_EL] >>
+  first_x_assum $ irule_at Any >>
+  first_assum $ irule_at Any >> fs [EL_MAP]
+QED
+
 Theorem Let_Prim:
   ∀xs b. (Let w e (Prim p xs) ≅? Prim p (MAP (Let w e) xs)) b
 Proof
@@ -2578,9 +2690,10 @@ Proof
 QED
 
 Theorem Seq_id:
-  (Seq x x ≅? x) b
+  ∀b x. (Seq x x ≅? x) b
 Proof
-  irule eval_wh_IMP_exp_eq
+  rpt gen_tac
+  \\ irule eval_wh_IMP_exp_eq
   \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
 QED
 
