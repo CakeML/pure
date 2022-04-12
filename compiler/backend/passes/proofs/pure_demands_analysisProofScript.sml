@@ -1083,10 +1083,10 @@ Proof
       \\ last_x_assum $ irule_at Any)
 QED
 
-Theorem demands_analysis_fun_soundness:
-  ∀(e : α cexp). exp_of e ≈ exp_of (FST (SND (demands_analysis_fun Nil e (empty compare))))
+Theorem demands_analysis_soundness:
+  ∀(e : α cexp). exp_of e ≈ exp_of (demands_analysis e)
 Proof
-  rpt gen_tac
+  rpt gen_tac \\ gvs [demands_analysis_def]
   \\ qspecl_then [‘(K 0) : α -> num’, ‘e’, ‘Nil’, ‘empty compare’]
                  assume_tac demands_analysis_soundness_lemma
   \\ qabbrev_tac ‘e' = demands_analysis_fun Nil e (empty compare)’
@@ -1094,6 +1094,5 @@ Proof
   \\ gvs [fdemands_map_to_set_def, empty_thm, ctxt_trans_def, TotOrd_compare]
   \\ drule find_soundness \\ fs []
 QED
-
 
 val _ = export_theory();

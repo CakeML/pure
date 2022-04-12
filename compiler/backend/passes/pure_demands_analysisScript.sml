@@ -3,13 +3,7 @@
 *)
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory mlmapTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory
-     finite_mapTheory mlstringTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_cexpTheory;
+open pure_cexpTheory mlmapTheory mlstringTheory;
 
 
 val _ = new_theory "pure_demands_analysis";
@@ -174,6 +168,10 @@ Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
   \\ fs []
+End
+
+Definition demands_analysis_def:
+    demands_analysis e = FST (SND (demands_analysis_fun Nil e (empty compare)))
 End
 
 val _ = export_theory();

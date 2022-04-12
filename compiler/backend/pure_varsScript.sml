@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory pure_exp_lemmasTheory mlmapTheory mlstringTheory;
+open mlmapTheory mlstringTheory;
 
 val _ = new_theory "pure_vars";
 
