@@ -5,7 +5,6 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open pure_cexpTheory mlmapTheory mlstringTheory;
 
-
 val _ = new_theory "pure_demands_analysis";
 
 Datatype:
@@ -101,7 +100,8 @@ Definition demands_analysis_fun_def:
   (demands_analysis_fun c (Lam a0 vl e) fds =
    let (m, e', fd) = demands_analysis_fun (IsFree vl c) e
                                   (FOLDL (λf k. mlmap$delete f (mlstring$implode k)) fds vl) in
-       (empty compare, Lam a0 vl e', SOME (FST (boolList_of_fdemands m vl), empty compare))) ∧
+     (empty compare, Lam a0 vl (add_all_demands a0 (m, e', fd)),
+                                SOME (FST (boolList_of_fdemands m vl), empty compare))) ∧
 
   (demands_analysis_fun c (Let a0 name e1 e2) fds =
      let (m1, e1', fd1) = demands_analysis_fun c e1 fds in
@@ -163,7 +163,7 @@ Definition demands_analysis_fun_def:
                                           (Unfold name n args (Bind n e c))
                                           ce
                                           (empty compare)) args)) cases in
-             (empty compare, Case a0 e' n cases', NONE))
+             (m, Case a0 e' n cases', NONE))
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
@@ -171,7 +171,22 @@ Termination
 End
 
 Definition demands_analysis_def:
-    demands_analysis e = FST (SND (demands_analysis_fun Nil e (empty compare)))
+    demands_analysis a0 e = add_all_demands a0 (demands_analysis_fun Nil e (empty compare))
 End
+
+(*
+let foo = Lam a (a + 2) in
+    Lam x (foo x)
+
+ -->
+
+let foo = Lam a (Seq a (a + 2)) in
+    Lam x (foo x)
+
+ -->
+
+let foo = Lam a (Seq a (a + 2)) in
+    Lam x (Seq x (Seq foo (foo x)))
+*)
 
 val _ = export_theory();

@@ -402,10 +402,10 @@ Theorem find_rows_of:
     LIST_REL (λ(a1, b1, e1) (a2, b2, e2).
                 a1 = a2 ∧ b1 = b2
                 ∧ find e1 (update_ctxt a1 s c (MAPi (λi v. (i, v)) b1)) {} {} e2 fd) l l'
-         ⇒ find (rows_of s l) c fds {} (rows_of s l') NONE
+         ⇒ find (rows_of s l) c fds {([], s)} (rows_of s l') NONE
 Proof
   Induct
-  \\ fs [rows_of_def, find_Bottom]
+  \\ fs [rows_of_def, find_Fail]
   \\ PairCases
   \\ rw []
   \\ rename1 ‘find _ _ _ _ (rows_of _ (y::ys))’
@@ -414,7 +414,8 @@ Proof
   \\ irule find_Subset
   \\ irule_at Any find_If \\ rw []
   \\ rpt $ last_x_assum $ irule_at Any
-  \\ irule_at Any find_Bottom
+  \\ irule_at Any find_IsEq
+  \\ irule_at Any find_Var
   \\ irule_at Any update_ctxt_soundness
   \\ pop_assum $ irule_at Any \\ fs []
 QED
@@ -820,10 +821,11 @@ Proof
               FOLDL_delete_ok, boolList_of_fdemands_soundness]
       \\ irule find_Subset
       \\ irule_at Any find_Lams_fd
+      \\ irule_at Any add_all_demands_soundness
       \\ irule_at Any find_Drop_fd
       \\ first_x_assum $ irule_at $ Pos hd
       \\ gvs [fdemands_map_FOLDL_delete_subset, boolList_of_fdemands_def, EVERY_MEM,
-              fdemands_map_FOLDL_delete])
+              fdemands_map_FOLDL_delete, TotOrd_compare])
   >~ [‘Let a vname e2 e1’]
   >- (rpt gen_tac \\ strip_tac
       \\ rename1 ‘find _ (ctxt_trans c) (fdemands_map_to_set fds)’
@@ -1058,9 +1060,10 @@ Proof
              exp_of_def, MAP_MAP_o, fd_to_set_def]
       \\ gvs [exp_of_def, find_Bottom, combinTheory.o_DEF, LAMBDA_PROD, MAP_MAP_o]
       \\ rename1 ‘Let s _ _’
-      \\ irule find_Let
+      \\ irule find_Let2
       \\ first_x_assum $ irule_at Any
       \\ irule_at Any find_rows_of
+      \\ gvs [dest_fd_SND_def]
       \\ qexists_tac ‘{}’ \\ qexists_tac ‘NONE’
       \\ rw [LIST_REL_EL_EQN, EL_MAP, dest_fd_SND_def]
       \\ rename1 ‘EL n l’
@@ -1084,15 +1087,17 @@ Proof
 QED
 
 Theorem demands_analysis_soundness:
-  ∀(e : α cexp). exp_of e ≈ exp_of (demands_analysis e)
+  ∀(e : α cexp) a. exp_of e ≈ exp_of (demands_analysis a e)
 Proof
   rpt gen_tac \\ gvs [demands_analysis_def]
+  \\ irule find_soundness
+  \\ qabbrev_tac ‘e_pair = demands_analysis_fun Nil e (empty compare)’
+  \\ PairCases_on ‘e_pair’
+  \\ irule_at Any add_all_demands_soundness
   \\ qspecl_then [‘(K 0) : α -> num’, ‘e’, ‘Nil’, ‘empty compare’]
                  assume_tac demands_analysis_soundness_lemma
-  \\ qabbrev_tac ‘e' = demands_analysis_fun Nil e (empty compare)’
-  \\ PairCases_on ‘e'’
   \\ gvs [fdemands_map_to_set_def, empty_thm, ctxt_trans_def, TotOrd_compare]
-  \\ drule find_soundness \\ fs []
+  \\ last_x_assum $ irule_at Any
 QED
 
 val _ = export_theory();

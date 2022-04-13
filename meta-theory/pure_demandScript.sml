@@ -3212,6 +3212,8 @@ Inductive find: (* i i i o o o *)
      exp_eq_in_ctxt c e1 e2
      ∧ find e2 c fdc ds e3 fd
      ⇒ find e1 c fdc ds e3 fd) ∧
+[find_Fail:]
+  (∀c fds ds fd. find Fail c fds ds Fail fd) ∧
 [find_Letrec:]
   (∀e e' ds ds' c b b' fdc fdc' fd dsL fdL.
      LENGTH b = LENGTH dsL ∧ LENGTH b = LENGTH b' ∧ LENGTH b = LENGTH fdL
@@ -3273,6 +3275,44 @@ Proof
       gvs [])
   >- gvs []
   >- (irule fdemands_Lam >> gvs [])
+QED
+
+Theorem demands_Fail:
+  ∀p. Fail demands p
+Proof
+  gvs [FORALL_PROD, demands_def] >> rpt $ gen_tac >>
+  irule exp_eq_IMP_exp_eq_in_ctxt >>
+  irule no_err_eval_IMP_exp_eq >>
+  rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm]
+QED
+
+Theorem needs_Fail:
+  ∀p. Fail needs p
+Proof
+  gvs [FORALL_PROD, needs_def] >> rpt $ gen_tac >>
+  irule exp_eq_IMP_exp_eq_in_ctxt >>
+  irule no_err_eval_IMP_exp_eq >>
+  rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm]
+QED
+
+Theorem Fail_Apps:
+  ∀l b. (Fail ≅? Apps Fail l) b
+Proof
+  Induct >> gvs [Apps_def, exp_eq_refl] >>
+  rw [] >> irule exp_eq_trans >> first_x_assum $ irule_at Any >>
+  irule exp_eq_Apps_cong >> irule_at Any eval_IMP_exp_eq >>
+  rw [exp_eq_l_refl, subst_def, eval_thm, dest_Closure_def]
+QED
+
+Theorem fdemands_Fail:
+  ∀c ps i len. i < len ⇒ Fail fdemands ((ps, i), len, c)
+Proof
+  Induct >> gvs [fdemands_def] >> rw []
+  >- (irule needs_exp_eq >> irule_at Any needs_Fail >>
+      gvs [exp_eq_in_ctxt_def, Fail_Apps]) >>
+  irule fdemands_exp_eq >> last_x_assum $ irule_at Any >> fs [] >>
+  irule exp_eq_IMP_exp_eq_in_ctxt >> irule $ iffLR exp_eq_sym >>
+  gvs [Let_not_in_freevars, Letrec_not_in_freevars]
 QED
 
 Theorem find_soundness_lemma:
@@ -3518,6 +3558,11 @@ Proof
       \\ irule_at Any demands_exp_eq
       \\ last_x_assum $ irule_at Any
       \\ last_x_assum $ dxrule_then $ irule_at Any)
+  >~[‘Fail demands _’]
+  >- (gvs [demands_when_applied_def, FORALL_PROD, demands_Fail, fdemands_Fail] >> rw [] >>
+      irule exp_eq_IMP_eq_when_applied >>
+      irule no_err_eval_IMP_exp_eq >>
+      rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm])
   >- (rename1 ‘exp_eq_in_ctxt c (Letrec b1 e1) (Letrec b2 e2)’
       \\ strip_tac \\ strip_tac \\ gvs [EVERY_CONJ]
       \\ dxrule_then (dxrule_then assume_tac) fdemands_set_RecBind
