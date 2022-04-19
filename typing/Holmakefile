@@ -1,4 +1,5 @@
-INCLUDES = ../misc ../language ../compiler/backend ../compiler/backend/proofs\
-           ../meta-theory ../compiler\
-           $(CAKEMLDIR)/basis/pure\
+INCLUDES = $(PUREDIR)/misc $(PUREDIR)/language $(PUREDIR)/meta-theory \
+           $(PUREDIR)/compiler/backend $(PUREDIR)/compiler/backend/languages/properties \
+           $(PUREDIR)/compiler/backend/languages/semantics \
+           $(CAKEMLDIR)/basis/pure \
            $(HOLDIR)/examples/algorithms/unification/triangular/first-order

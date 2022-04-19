@@ -173,9 +173,9 @@ Triviality subst1_lets_for_cexp_closed:
   ⇒ subst1 var x (lets_for cn v vs e) =
     subst1 var x (lets_for cn v vs (subst1 var x e))
 Proof
-  Induct_on `vs` >> rw[pure_cexpTheory.lets_for_def]
+  Induct_on `vs` >> rw[pureLangTheory.lets_for_def]
   >- simp[subst1_subst1_eq] >>
-  PairCases_on `h` >> gvs[pure_cexpTheory.lets_for_def, subst1_def]
+  PairCases_on `h` >> gvs[pureLangTheory.lets_for_def, subst1_def]
 QED
 
 Theorem lets_for_exp_eq_lemma:
@@ -186,10 +186,10 @@ Theorem lets_for_exp_eq_lemma:
   subst1 v x (lets_for cn v (MAPi (λi v. (i,v)) vs) e)
 Proof
   Induct using SNOC_INDUCT
-  >- rw[lets_for_def, pure_cexpTheory.lets_for_def, exp_eq_refl] >>
+  >- rw[lets_for_def, pureLangTheory.lets_for_def, exp_eq_refl] >>
   rw[SNOC_APPEND, lets_for_APPEND, pure_cexp_lemmasTheory.lets_for_APPEND,
      indexedListsTheory.MAPi_APPEND] >>
-  simp[lets_for_def, pure_cexpTheory.lets_for_def] >>
+  simp[lets_for_def, pureLangTheory.lets_for_def] >>
   DEP_ONCE_REWRITE_TAC[subst1_lets_for_closed, subst1_lets_for_cexp_closed] >>
   simp[combinTheory.o_DEF, subst1_def] >>
   qmatch_goalsub_abbrev_tac `_ (lets_for _ _ _ _ a) ≅ _ (lets_for _ _ _ b)` >>
@@ -299,10 +299,10 @@ Proof
 QED
 
 Theorem exp_of_tcexp_of_exp_eq:
-  ∀e. cexp_wf e ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pure_cexp$exp_of e
+  ∀e. cexp_wf e ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pureLang$exp_of e
 Proof
   recInduct tcexp_of_ind >>
-  rw[cexp_wf_def, tcexp_of_def, exp_of_def, pure_cexpTheory.exp_of_def]
+  rw[cexp_wf_def, tcexp_of_def, exp_of_def, pureLangTheory.exp_of_def]
   >- simp[exp_eq_Var_cong]
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF] >>
@@ -337,9 +337,9 @@ Proof
   irule exp_eq_App_cong >> simp[] >>
   irule exp_eq_Lam_cong >> simp[] >>
   qpat_x_assum `_ ≠ _` kall_tac >>
-  Induct_on `rs` >> rw[rows_of_def, pure_cexpTheory.rows_of_def]
+  Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def]
   >- simp[exp_eq_refl] >>
-  pairarg_tac >> gvs[rows_of_def, pure_cexpTheory.rows_of_def] >>
+  pairarg_tac >> gvs[rows_of_def, pureLangTheory.rows_of_def] >>
   qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>
   irule exp_eq_trans >> irule_at Any exp_eq_Prim_cong >>
   qmatch_goalsub_abbrev_tac `[a;b c;_]` >>

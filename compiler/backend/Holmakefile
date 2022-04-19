@@ -1,1 +1,1 @@
-INCLUDES = $(CAKEMLDIR)/basis/pure
+INCLUDES = $(PUREDIR)/language $(CAKEMLDIR)/basis/pure
