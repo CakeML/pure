@@ -64,6 +64,10 @@ Definition strip_comb_def:
   strip_comb e = (e, [])
 End
 
+Definition dest_expVar_def:
+  dest_expVar (expVar s) = SOME s ∧
+  dest_expVar _ = NONE
+End
 
 val _ = add_rule {term_name = "expAbs", fixity = Prefix 1,
                   block_style = (AroundEachPhrase, (PP.CONSISTENT, 0)),

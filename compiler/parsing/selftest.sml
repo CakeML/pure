@@ -92,5 +92,14 @@ val _ = app fptest [
            \          h:t -> 4",
    “astExp nExp”,
    “expCase ‹e› [(patApp "[]" [], 𝕀 3);
-                 (patApp ":" [patVar "h"; patVar "t"], 𝕀 4)]”)
+                 (patApp ":" [patVar "h"; patVar "t"], 𝕀 4)]”),
+  (“nDecl”, "f :: a -> Int", “astDecl”,
+   “declTysig "f" (funTy (tyVar "a") (tyOp "Int" []))”),
+  (“nDecl”, "f x y = x + y", “astDecl”,
+   “declFunbind "f" [patVar "x"; patVar "y"] (‹+› ⬝ ‹x› ⬝ ‹y›)”),
+  (“nDecl”, "h:t = f e", “astDecl”,
+   “declPatbind (patApp ":" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
+  (“nDecl”, "data Foo a = C a Int | D [Int]", “astDecl”,
+   “declData "Foo" ["a"] [("C", [tyVar "a"; tyOp "Int" []]);
+                          ("D", [tyOp "List" [tyOp "Int"[]]])]”)
 ]
