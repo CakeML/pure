@@ -1,11 +1,13 @@
 open HolKernel Parse boolLib bossLib;
 
-open pureNTTheory pureASTTheory tokenUtilsTheory grammarTheory
+open pureNTTheory pureASTTheory tokenUtilsTheory pureTokenUtilsTheory
+     grammarTheory
 local open precparserTheory in end
 
 val _ = new_theory "cst_to_ast";
 
-val _ = set_grammar_ancestry ["pureNT", "tokenUtils", "pureAST", "precparser"]
+val _ = set_grammar_ancestry ["pureNT", "pureTokenUtils", "pureAST",
+                              "precparser"]
 
 Overload lift[local] = “option$OPTION_MAP”
 Overload "'"[local] = “λf a. OPTION_BIND a f”
@@ -14,8 +16,6 @@ Definition tokcheck_def:
   tokcheck pt tok <=> destTOK ' (destLf pt) = SOME tok
 End
 
-val _ = monadsyntax.enable_monadsyntax()
-val _ = monadsyntax.enable_monad "option"
 Overload monad_bind = “λa f. OPTION_BIND a f”
 
 Overload ptsize = “parsetree_size (K 0) (K 0) (K 0)”;
@@ -191,6 +191,30 @@ Proof
   first_x_assum drule >> simp[]
 QED
 
+Definition astalpha_def:
+  astalpha pt = destAlphaT ' (destTOK ' (destLf pt))
+End
+
+
+Definition astlcname_def:
+  astlcname pt =
+  do
+    nm <- astalpha pt;
+    assert (lcname nm);
+    return nm;
+  od
+End
+
+Definition astcapname_def:
+  astcapname pt =
+  do
+    nm <- astalpha pt;
+    assert (capname nm);
+    return nm
+  od
+End
+
+
 Definition astPat_def:
   astPat _ (Lf _) = NONE ∧
   (astPat nt1 (Nd nt2 args) =
@@ -198,7 +222,7 @@ Definition astPat_def:
    else if nt1 = nAPat then
      case args of
        [pt] => do
-                vnm <- destAlphaT ' (destTOK ' (destLf pt));
+                vnm <- astalpha pt;
                 SOME $ patVar vnm
               od ++ (lift patLit $ astLit pt)
      | _ => NONE
@@ -555,5 +579,94 @@ Termination
     suffices_by simp[Abbr‘i’] >>
   simp[Abbr‘i’, Abbr‘ptl’, SUM_MAP_EL_lemma]
 End
+
+Definition astFunPatBindf_def:
+  astFunPatBindf e =
+  do
+    p <- exp_to_pat e;
+    return (declPatbind p)
+  od ++
+  do
+    (f, args) <<- strip_comb e ;
+    fnm <- dest_expVar f;
+    arg_pats <- OPT_MMAP exp_to_pat args;
+    return (declFunbind fnm arg_pats)
+  od
+End
+
+Definition astValBinding_def:
+  astValBinding (Lf _) = NONE ∧
+  astValBinding (Nd nt args) =
+  if FST nt ≠ INL nValBinding then NONE
+  else
+    case args of
+      [expl_pt; eq; expr_pt] =>
+        do
+          assert (tokcheck eq EqualsT);
+          exp_or_pat <- astExp nExp expl_pt;
+          fpbindf <- astFunPatBindf exp_or_pat;
+          exp <- astExp nExp expr_pt;
+          return (fpbindf exp)
+        od
+    | _ => NONE
+End
+
+Definition astTyConDecl_def:
+  astTyConDecl (Lf _) = NONE ∧
+  astTyConDecl (Nd nt args) =
+  if FST nt ≠ INL nTyConDecl then NONE
+  else
+    case args of
+      [] => NONE
+    | connm_pt :: rest0 =>
+        do
+          connm <- astcapname connm_pt ;
+          (args, rest) <- grab (astType nTyBase) rest0;
+          assert (rest = []) ;
+          return (connm, args)
+        od
+End
+
+Definition astTycons_def:
+  astTycons [] = NONE ∧
+  astTycons [pt] = do con <- astTyConDecl pt; return [con] od ∧
+  astTycons (pt::bar::rest) =
+  do
+    con1 <- astTyConDecl pt;
+    assert (tokcheck bar BarT) ;
+    cons <- astTycons rest;
+    return (con1 :: cons)
+  od
+End
+
+
+Definition astDecl_def:
+  (astDecl (Lf _) = NONE) ∧
+  (astDecl (Nd nt args) =
+   if FST nt ≠ INL nDecl then NONE
+   else
+     case args of
+       [vb_pt] => astValBinding vb_pt
+     | [idtok; coloncolontok; ty_pt] =>
+         do
+           assert (tokcheck coloncolontok (SymbolT "::"));
+           vnm <- destAlphaT ' (destTOK ' (destLf idtok)) ;
+           ty <- astType nTy ty_pt;
+           return (declTysig vnm ty)
+         od
+     | (datatok :: dname_tok :: arg1_or_eq :: rest) =>
+         do
+           assert (tokcheck datatok (AlphaT "data"));
+           dnm <- destAlphaT ' (destTOK ' (destLf dname_tok));
+           (args, rhs) <- grab astlcname (arg1_or_eq :: rest);
+           assert (2 ≤ LENGTH rhs) ;
+           eqpt <- oEL 0 rhs;
+           assert (tokcheck eqpt EqualsT);
+           cons <- astTycons (TL rhs);
+           return (declData dnm args cons)
+         od
+     | _ => NONE)
+End
+
 
 val _ = export_theory();

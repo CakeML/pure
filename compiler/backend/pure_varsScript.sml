@@ -3,9 +3,8 @@
    of free variables and maps from variable names to things.
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
+open listTheory stringTheory alistTheory optionTheory pairTheory
+     pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory;
 
 val _ = new_theory "pure_vars";

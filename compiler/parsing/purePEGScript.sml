@@ -2,13 +2,13 @@ open HolKernel Parse boolLib bossLib;
 
 
 open stringTheory grammarTheory ispegexecTheory ispegTheory tokenUtilsTheory
-     pureNTTheory
+     pureNTTheory pureTokenUtilsTheory
 local open lexer_funTheory stringLib in end
 
 val _ = new_theory "purePEG";
 
 val _ = set_grammar_ancestry
-        ["tokenUtils", "grammar", "lexer_fun", "ispegexec", "pureNT"]
+        ["pureTokenUtils", "grammar", "lexer_fun", "ispegexec", "pureNT"]
 
 
 Definition sumID_def[simp]:
@@ -56,29 +56,6 @@ End
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
-
-Definition capname_tok_def:
-  capname_tok tk <=>
-  do
-    s <- destAlphaT tk;
-    c1 <- oHD s;
-    assert $ isUpper c1
-  od = SOME ()
-End
-
-Definition keywords_def:
-  keywords = ["data"; "where"; "let"; "in"; "if"; "then"; "else"; "do";]
-End
-
-Definition lcname_tok_def:
-  lcname_tok tk <=>
-  do
-    s <- destAlphaT tk;
-    assert (¬MEM s keywords);
-    c1 <- oHD s;
-    assert $ isLower c1
-  od = SOME ()
-End
 
 Overload tokGE = “λp. tok p mktokLf lrGE”
 Overload tokGT = “λp. tok p mktokLf lrGT”
