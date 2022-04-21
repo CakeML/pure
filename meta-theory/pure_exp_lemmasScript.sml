@@ -689,72 +689,106 @@ Proof
   gvs[DELETE_DEF, closed_def] >> rw[] >> gvs[SUBSET_DIFF_EMPTY]
 QED
 
-(* TODO prove more general version *)
+Triviality FDOMSUB_EQ_FDIFF:
+  M \\ x = FDIFF M {x}
+Proof
+  rw [REWRITE_RULE [pred_setTheory.EXTENSION] fmap_EXT, FDIFF_def, DRESTRICT_DEF, DOMSUB_FAPPLY_NEQ]
+QED
+
+Triviality FDOM_FLOOKUP:
+  x IN FDOM m <=> FLOOKUP m x <> NONE
+Proof
+  Cases_on `FLOOKUP m x` \\ fs [FLOOKUP_DEF]
+QED
+
+val subst_triv_cong = Q.prove (`m = m' /\ x = y ==> subst m x = subst m' y`, simp [])
+
+Theorem subst_distrib:
+  ∀ body f f2.
+    (∀n v. FLOOKUP f2 n = SOME v ⇒ closed v) ∧
+    DISJOINT (BIGUNION (IMAGE freevars (FRANGE f))) (boundvars body)
+  ⇒ subst f2 (subst f body) = subst (subst f2 o_f f) (subst (FDIFF f2 (FDOM f)) body)
+Proof
+  ho_match_mp_tac freevars_ind
+  \\ rw []
+  \\ simp [subst_def]
+  >- (
+    simp [FDIFF_def, FLOOKUP_DRESTRICT, FDOM_FLOOKUP]
+    \\ every_case_tac
+    \\ simp [subst_def, FLOOKUP_o_f]
+    \\ srw_tac [SatisfySimps.SATISFY_ss] [closed_subst]
+  )
+  >- (
+    rw [listTheory.MAP_MAP_o, listTheory.MAP_EQ_f]
+    \\ fs [PULL_EXISTS]
+    \\ first_x_assum irule
+    \\ fs [listTheory.MEM_MAP, PULL_EXISTS]
+    \\ srw_tac [SatisfySimps.SATISFY_ss] []
+  )
+  >- (
+    rw []
+    \\ fs [PULL_EXISTS]
+    \\ fs [pred_setTheory.DISJOINT_SYM]
+    \\ srw_tac [SatisfySimps.SATISFY_ss] []
+  )
+  >- (
+    irule EQ_TRANS \\ first_x_assum (irule_at Any)
+    \\ fs [PULL_EXISTS]
+    \\ srw_tac [SatisfySimps.SATISFY_ss] [DOMSUB_FLOOKUP_THM,
+        REWRITE_RULE [SUBSET_DEF] FRANGE_DOMSUB_SUBSET]
+    \\ rpt (irule_at Any subst_triv_cong)
+    \\ simp [FDOMSUB_EQ_FDIFF, FDIFF_FDIFF, UNION_COMM]
+    \\ irule_at Any o_f_cong
+    \\ fs [FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_FDIFF]
+    \\ srw_tac [SatisfySimps.SATISFY_ss] [GSYM subst_FDIFF']
+    \\ AP_TERM_TAC
+    \\ simp [EXTENSION]
+    \\ metis_tac []
+  )
+  >- (
+    simp [pairTheory.UNCURRY, MAP_MAP_o, combinTheory.o_DEF, Q.ISPEC `FST` ETA_THM]
+    \\ fs [MEM_MAP, pairTheory.EXISTS_PROD, PULL_EXISTS]
+    \\ simp [MAP_EQ_f, pairTheory.FORALL_PROD]
+    \\ conj_tac
+    >- (
+      rw []
+      \\ irule EQ_TRANS \\ first_x_assum (irule_at Any)
+      \\ first_assum (irule_at Any)
+      \\ fs [FLOOKUP_FDIFF, FRANGE_FLOOKUP, PULL_EXISTS, DISJOINT_SYM]
+      \\ rpt (irule_at Any subst_triv_cong)
+      \\ simp [fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_o_f]
+      \\ rw [] \\ fs [] \\ fs [] \\ srw_tac [SatisfySimps.SATISFY_ss] []
+      \\ every_case_tac
+      \\ irule (GSYM subst_FDIFF')
+      \\ fs [IN_DISJOINT]
+      \\ metis_tac []
+    )
+    \\ irule EQ_TRANS \\ first_x_assum (irule_at Any)
+    \\ fs [FLOOKUP_FDIFF, FRANGE_FLOOKUP, PULL_EXISTS, DISJOINT_SYM]
+    \\ srw_tac [SatisfySimps.SATISFY_ss] [GSYM subst_FDIFF']
+    \\ rpt (irule_at Any subst_triv_cong)
+    \\ simp [FDIFF_FDIFF, UNION_COMM]
+    \\ simp [fmap_eq_flookup, FLOOKUP_FDIFF, FLOOKUP_o_f]
+    \\ rw [] \\ fs [] \\ fs []
+    \\ every_case_tac
+    \\ irule (GSYM subst_FDIFF')
+    \\ fs [IN_DISJOINT]
+    \\ metis_tac []
+  )
+QED
+
 Theorem subst1_distrib:
   ∀ body f v arg.
     (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
     DISJOINT (freevars arg) (boundvars body)
   ⇒ subst f (subst1 v arg body) = subst1 v (subst f arg) (subst (f \\ v) body)
 Proof
-  ho_match_mp_tac freevars_ind >> rw[]
-  >- (
-    gvs[subst_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM] >>
-    EVERY_CASE_TAC >> gvs[subst_def, FLOOKUP_UPDATE] >>
-    last_x_assum drule >> simp[]
-    )
-  >- (
-    gvs[subst_def, MAP_MAP_o, combinTheory.o_DEF] >>
-    rw[MAP_EQ_f] >> last_x_assum irule >> simp[] >>
-    conj_tac >- metis_tac[] >>
-    gvs[MEM_MAP, PULL_EXISTS]
-    )
-  >- (
-    gvs[subst_def] >> rw[] >> first_x_assum irule >>
-    metis_tac[DISJOINT_SYM]
-    )
-  >- (
-    gvs[subst1_def] >>
-    IF_CASES_TAC >> gvs[subst_def, DOMSUB_NOT_IN_DOM] >>
-    once_rewrite_tac[DOMSUB_COMMUTES] >>
-    `subst f arg = subst (f \\ n) arg` by (irule subst_fdomsub >> simp[]) >>
-    simp[] >>
-    last_x_assum irule >> simp[DOMSUB_FLOOKUP_THM] >> metis_tac[]
-    )
-  >- (
-    gvs[subst_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    gvs[GSYM FST_THM] >> rw[]
-    >- (
-      rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-      gvs[FDIFF_FUPDATE] >> IF_CASES_TAC >> gvs[]
-      >- (
-        gvs[FDIFF_FDOMSUB_INSERT] >>
-        AP_THM_TAC >> rpt (AP_TERM_TAC) >>
-        rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
-        ) >>
-      simp[FDIFF_FDOMSUB] >>
-      `subst f arg = subst (FDIFF f (set (MAP FST lcs))) arg` by (
-        irule subst_FDIFF' >> rw[] >>
-        gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP]) >>
-      simp[] >>
-      last_x_assum irule >> simp[FLOOKUP_FDIFF] >> conj_tac >- metis_tac[] >>
-      simp[PULL_EXISTS] >> goal_assum (drule_at Any) >>
-      rw[Once DISJOINT_SYM] >>
-      first_x_assum irule >> gvs[MEM_MAP, EXISTS_PROD, FORALL_PROD] >>
-      goal_assum (drule_at Any) >> simp[]
-      ) >>
-    simp[FDIFF_FUPDATE] >> rw[]
-    >- (
-      simp[FDIFF_FDOMSUB_INSERT] >> AP_THM_TAC >> rpt (AP_TERM_TAC) >>
-      rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
-      ) >>
-    simp[FDIFF_FDOMSUB] >>
-    `subst f arg = subst (FDIFF f (set (MAP FST lcs))) arg` by (
-      irule subst_FDIFF' >> rw[] >>
-      gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP]) >>
-    simp[] >>
-    first_x_assum irule >> simp[FLOOKUP_FDIFF] >> conj_tac >- metis_tac[] >>
-    simp[Once DISJOINT_SYM]
-    )
+  rw []
+  \\ irule EQ_TRANS \\ irule_at Any subst_distrib
+  \\ srw_tac [SatisfySimps.SATISFY_ss] []
+  \\ rpt (irule_at Any subst_triv_cong)
+  \\ simp [fmap_eq_flookup, FLOOKUP_FDIFF, DOMSUB_FLOOKUP_THM]
+  \\ rw []
 QED
 
 
