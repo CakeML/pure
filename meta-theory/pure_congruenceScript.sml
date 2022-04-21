@@ -2449,21 +2449,24 @@ Proof
   irule exp_eq_subst >> simp[]
 QED
 
+Theorem beta_equality_frees:
+  ∀x e1 e2. DISJOINT (freevars e2) (boundvars e1) ==>
+  (App (Lam x e1) e2 ≅? subst1 x e2 e1) b
+Proof
+  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
+  irule eval_IMP_app_bisimilarity >> rw[] >>
+  simp [IMP_closed_subst, IN_FRANGE_FLOOKUP] >>
+  simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
+  simp [IMP_closed_subst, IN_FRANGE_FLOOKUP] >>
+  srw_tac [SatisfySimps.SATISFY_ss] [subst1_distrib]
+QED
+
 Theorem beta_equality:
   ∀x e1 e2. closed e2 ⇒ (App (Lam x e1) e2 ≅? subst1 x e2 e1) b
 Proof
-  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
-  irule eval_IMP_app_bisimilarity >> rw[]
-  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
-  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP]) >>
-  simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
-  AP_TERM_TAC >>
-  drule (GSYM subst_subst1_UPDATE) >> strip_tac >> simp[] >>
-  dep_rewrite.DEP_REWRITE_TAC[subst_subst_FUNION] >>
-  simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
-  rw[] >- res_tac >>
-  dep_rewrite.DEP_ONCE_REWRITE_TAC[FUNION_COMM] >> simp[] >>
-  simp[GSYM FUPDATE_EQ_FUNION]
+  rw []
+  \\ irule beta_equality_frees
+  \\ fs [closed_def]
 QED
 
 Theorem beta_equality_Letrec:
@@ -2679,6 +2682,50 @@ Proof
   \\ qspec_then ‘[a]’ mp_tac Let_Prim \\ rw []
   \\ qspec_then ‘[a;b]’ mp_tac Let_Prim \\ rw []
   \\ qspec_then ‘[a;b;c]’ mp_tac Let_Prim \\ rw []
+QED
+
+Triviality Letrec_Prim_closed:
+  ∀l p xs b. EVERY (λfb. freevars (SND fb) ⊆ set (MAP FST l)) l
+         /\ EVERY (\e. freevars e ⊆ set (MAP FST l)) xs ==>
+    (Letrec l (Prim p xs) ≅? Prim p (MAP (Letrec l) xs)) b
+Proof
+  rw []
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ simp [EVERY_MAP, subst_funs_eq_subst]
+  \\ simp [subst_def]
+  \\ irule exp_eq_Prim_cong
+  \\ rw [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, EVERY2_refl_EQ]
+  \\ ONCE_REWRITE_TAC [exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ simp [EVERY_MAP, subst_funs_eq_subst]
+  \\ irule exp_eq_refl
+QED
+
+Theorem Letrec_Prim:
+  ∀l ope eL b. (Letrec l (Prim ope eL) ≅? Prim ope (MAP (Letrec l) eL)) b
+Proof
+  rw[exp_eq_def, bind_def]
+  \\ rw []
+  \\ simp [subst_def]
+  \\ fs [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, DIFF_SUBSET, FORALL_PROD]
+  \\ simp [app_bisimilarity_eq]
+  \\ irule_at Any exp_eq_trans \\ irule_at Any Letrec_Prim_closed
+  \\ csimp [EVERY_MAP]
+  \\ irule_at Any exp_eq_Prim_cong
+  \\ conj_tac
+  >- (
+    simp [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, EVERY2_refl_EQ]
+    \\ simp [subst_def, exp_eq_refl]
+  )
+  \\ simp [subst_def]
+  \\ fs [EVERY_MEM, FORALL_PROD, MEM_MAP, PULL_EXISTS, EXISTS_PROD, BIGUNION_SUBSET]
+  \\ rw [] \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ simp [FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_FDIFF]
+  \\ srw_tac [SatisfySimps.SATISFY_ss] []
+  \\ fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+  \\ metis_tac []
 QED
 
 Theorem Proj_Seq:
