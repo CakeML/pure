@@ -90,6 +90,12 @@ Proof
   CASE_TAC >> simp[] >> IF_CASES_TAC >> gvs[FLOOKUP_DEF]
 QED
 
+Theorem o_f_FUPDATE_LIST:
+  ∀l m f. f o_f (m |++ l) = (f o_f m) |++ MAP (λ(k,v). (k, f v)) l
+Proof
+  Induct >> rw[FUPDATE_LIST_THM] >> PairCases_on `h` >> gvs[]
+QED
+
 
 (******************** Functions/Pairs/Options ********************)
 

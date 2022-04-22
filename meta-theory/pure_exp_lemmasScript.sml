@@ -554,6 +554,35 @@ Proof
   qspec_then `FEMPTY |+ (n,v)` assume_tac freevars_subst >> fs[DELETE_DEF]
 QED
 
+Theorem freevars_subst_SUBSET:
+  ∀e f. freevars (subst f e) ⊆ freevars e DIFF FDOM f ∪
+                                (BIGUNION $ IMAGE freevars (FRANGE f))
+Proof
+  Induct using freevars_ind >> rw[subst_def, freevars_def] >>
+  gvs[LIST_TO_SET_MAP, IMAGE_IMAGE, combinTheory.o_DEF] >>
+  gvs[BIGUNION_SUBSET, PULL_EXISTS, SUBSET_DEF] >> rw[]
+  >- (gvs[FLOOKUP_DEF, FRANGE_DEF] >> metis_tac[])
+  >- (gvs[FLOOKUP_DEF, FRANGE_DEF] >> metis_tac[])
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    first_x_assum drule >> strip_tac >> gvs[] >> disj2_tac >>
+    gvs[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM] >> rpt $ goal_assum drule
+    )
+  >- (
+    gvs[FORALL_PROD] >> first_x_assum drule >> strip_tac >> gvs[]
+    >- (Cases_on `x'` >> gvs[]) >>
+    disj2_tac >> gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF] >> rpt $ goal_assum drule
+    )
+  >- (
+    pairarg_tac >> gvs[FORALL_PROD] >> pairarg_tac >> gvs[] >>
+    first_x_assum drule_all >> strip_tac >> gvs[EXISTS_PROD]
+    >- metis_tac[] >>
+    disj2_tac >> gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF] >> rpt $ goal_assum drule
+    )
+QED
+
 Theorem subst1_subst1_eq:
   closed y ⇒ subst1 v x (subst1 v y e) = subst1 v y e
 Proof

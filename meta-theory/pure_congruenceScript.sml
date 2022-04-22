@@ -2509,6 +2509,78 @@ Proof
     )
 QED
 
+Theorem beta_equality_Letrec_alt:
+  DISJOINT (boundvars e)
+    (BIGUNION (set (MAP (λ(fn,e'). freevars e') fns)) DIFF set (MAP FST fns))
+  ⇒ (Letrec fns e ≅? subst (FEMPTY |++ (MAP (λ(g,x). (g,Letrec fns x)) fns)) e) b
+Proof
+  rw[exp_eq_open_bisimilarity] >>
+  irule_at Any SUBSET_REFL >>
+  irule_at Any FINITE_DIFF >> simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+  reverse $ conj_asm2_tac
+  >- (
+    irule SUBSET_TRANS >> irule_at Any freevars_subst_SUBSET >>
+    simp[DIFF_SUBSET, FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[FST_THM] >- simp[SUBSET_DEF] >>
+    simp[BIGUNION_SUBSET] >> rw[] >>
+    gvs[IN_FRANGE_FLOOKUP, flookup_fupdate_list] >> FULL_CASE_TAC >> gvs[] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP] >> pairarg_tac >> gvs[] >>
+    qmatch_goalsub_abbrev_tac `freevars x' ∪ foo DIFF _` >>
+    qsuff_tac `freevars x' ∪ foo = foo` >- (rw[] >> simp[FST_THM, SUBSET_DEF]) >>
+    simp[GSYM SUBSET_UNION_ABSORPTION] >>
+    unabbrev_all_tac >> rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, SF SFY_ss]
+    ) >>
+  irule open_bisimilarity_suff' >> reverse $ rw[bind_def]
+  >- (irule_at Any FINITE_DIFF >> simp[MEM_MAP, PULL_EXISTS, FORALL_PROD]) >>
+  qmatch_goalsub_abbrev_tac `subst _ (subst fns_map _)` >> simp[subst_def] >>
+  `FDIFF f (set (MAP FST fns)) = f` by (
+    rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+  simp[app_bisimilarity_eq] >> reverse $ rpt $ conj_asm2_tac
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
+  >- (
+    simp[EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[EVERY_MEM] >> pairarg_tac >> gvs[] >>
+    irule SUBSET_TRANS >> irule_at Any freevars_subst_SUBSET >> rw[DIFF_SUBSET]
+    >- (simp[FST_THM] >> rw[SUBSET_DEF, SF DNF_ss, MEM_MAP, EXISTS_PROD, SF SFY_ss])
+    >- (
+      rw[BIGUNION_SUBSET, PULL_EXISTS, IN_FRANGE_FLOOKUP] >>
+      first_x_assum drule >> rw[closed_def]
+      )
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    irule SUBSET_TRANS >> irule_at Any freevars_subst_SUBSET >> rw[DIFF_SUBSET]
+    >- (simp[FST_THM] >> rw[SUBSET_DEF, SF DNF_ss, MEM_MAP, EXISTS_PROD, SF SFY_ss])
+    >- (
+      rw[BIGUNION_SUBSET, PULL_EXISTS, IN_FRANGE_FLOOKUP] >>
+      first_x_assum drule >> rw[closed_def]
+      )
+    ) >>
+  irule exp_eq_trans >> irule_at Any beta_equality_Letrec >> gvs[] >>
+  DEP_REWRITE_TAC[subst_funs_eq_subst] >> simp[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  qspecl_then [`e`,`fns_map`,`f`] mp_tac subst_distrib >> simp[] >>
+  simp[PULL_EXISTS] >> impl_tac
+  >- (
+    rw[] >> gvs[] >- res_tac >>
+    unabbrev_all_tac >> drule $ SRULE [SUBSET_DEF] FRANGE_FUPDATE_LIST_SUBSET >>
+    rw[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    qmatch_goalsub_abbrev_tac `_ ∪ foo DIFF _` >>
+    `freevars p_2' ∪ foo = foo` by (
+      rw[GSYM SUBSET_UNION_ABSORPTION] >>
+      unabbrev_all_tac >> simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+      rw[] >> simp[SF SFY_ss]) >>
+    simp[Once DISJOINT_SYM]
+    ) >>
+  rw[] >> unabbrev_all_tac >> simp[o_f_FUPDATE_LIST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, subst_def] >>
+  qmatch_goalsub_abbrev_tac `FDIFF f foo` >>
+  qsuff_tac `FDIFF f foo = f` >> rw[exp_eq_refl] >>
+  unabbrev_all_tac >> rw[fmap_eq_flookup, FLOOKUP_FDIFF, FDOM_FUPDATE_LIST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[FST_THM, FLOOKUP_DEF] >>
+  IF_CASES_TAC >> gvs[]
+QED
+
 Theorem Let_Seq:
   (Let w e (Seq x y) ≅? Seq (Let w e x) (Let w e y)) b
 Proof

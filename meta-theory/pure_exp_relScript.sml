@@ -850,6 +850,27 @@ Proof
   \\ imp_res_tac SUBSET_TRANS \\ fs []
 QED
 
+Theorem open_bisimilarity_suff':
+  (∀f. FDOM f = names ⇒ (bind f e1 ≃ bind f e2) b) ∧
+  freevars e1 ∪ freevars e2 ⊆ names ∧
+  FINITE names ⇒
+  open_bisimilarity b names e1 e2
+Proof
+  rw[] >> irule open_bisimilarity_SUBSET >>
+  qexists_tac `freevars e1 ∪ freevars e2` >> simp[] >>
+  irule open_bisimilarity_suff >> rw[] >>
+  last_x_assum $ qspec_then
+    `FUN_FMAP (λk. if k ∈ FDOM f then f ' k else Fail) names` mp_tac >>
+  simp[] >> reverse $ rw[bind_def] >> gvs[]
+  >- (gvs[FLOOKUP_FUN_FMAP] >> every_case_tac >> gvs[FLOOKUP_DEF]) >>
+  qmatch_asmsub_abbrev_tac `subst f' _` >>
+  qsuff_tac `subst f' e1 = subst f e1 ∧ subst f' e2 = subst f e2` >>
+  rw[] >> gvs[] >> once_rewrite_tac[subst_FDIFF] >> AP_THM_TAC >> AP_TERM_TAC >>
+  unabbrev_all_tac >> rw[fmap_eq_flookup] >>
+  simp[FLOOKUP_DRESTRICT, FLOOKUP_FUN_FMAP, FLOOKUP_DEF] >>
+  IF_CASES_TAC >> gvs[SUBSET_DEF]
+QED
+
 Theorem exp_eq_open_bisimilarity_freevars:
   (x ≅? y) b ⇔ open_bisimilarity b (freevars x ∪ freevars y) x y
 Proof
