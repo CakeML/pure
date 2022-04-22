@@ -295,6 +295,7 @@ Overload substring3 =
       App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
       (Lit $ StrLit "")``;
 
+(* TODO lift out list length computations *)
 Definition strle_def:
   strle (n : num) s1 s2 =
     let len1 = LENGTH s1; len2 = LENGTH s2 in
@@ -491,6 +492,18 @@ Definition prim_types_ok_def:
     (* subscript exception *)
       ALOOKUP senv "Subscript" = SOME (subscript_stamp, 0n)
 End
+
+(*
+  A compiled program will look like:
+  Dlocal
+    Dlet "ffi_array" = _
+    Dlet "strle" = _
+    Dlet "char_list" = _
+  in
+    <declare types>
+    <compiled program>
+  end
+*)
 
 Definition cnenv_rel_def:
   cnenv_rel senv cenv ⇔
