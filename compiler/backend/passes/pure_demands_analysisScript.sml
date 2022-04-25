@@ -138,10 +138,11 @@ Definition demands_analysis_fun_def:
    let vL = MAP FST binds in
      if compute_ALL_DISTINCT vL (empty compare)
      then
-       let outL = MAP (λ(v, e). demands_analysis_fun Nil e (empty compare)) binds in
+       let outL = MAP (λ(v, e). demands_analysis_fun (RecBind binds c) e
+                                                     (FOLDL (λf k. delete f (implode k)) fds vL)) binds in
          let (mL, eL', fdL) = UNZIP3 outL in
-           let (m, e2, fd) = demands_analysis_fun (RecBind binds c) e
-                                                  (handle_Letrec_fdemands fds vL fdL) in
+           let reduced_fds = handle_Letrec_fdemands fds vL fdL in
+             let (m, e2, fd) = demands_analysis_fun (RecBind binds c) e reduced_fds in
                let e3 = adds_demands a0 (m, e2, fd) vL in
                  (FOLDL (λf k. delete f (implode k)) (handle_multi_bind m mL vL) vL,
                   Letrec a0 (ZIP (vL, eL')) e3,
