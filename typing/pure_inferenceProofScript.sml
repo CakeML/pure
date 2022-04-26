@@ -1071,20 +1071,20 @@ Proof
     imp_res_tac minfer_pure_vars >> gvs[SUBSET_DEF]
     )
   >- (
-    gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[] >> gvs[] >> disj2_tac >>
+    gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
     gvs[new_vars_def, PULL_EXISTS, pure_vars, SF SFY_ss, GSYM DISJ_ASSOC] >>
     gvs[IN_FRANGE_FLOOKUP, FLOOKUP_maunion, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
     Cases_on `k = v` >> gvs[] >- gvs[get_massumptions_def, SF DNF_ss] >>
-    rpt disj1_tac >> simp[Once SWAP_EXISTS_THM] >> qexists_tac `k` >> simp[] >>
-    CASE_TAC >> simp[] >> CASE_TAC >> simp[]
+    disj2_tac >> rpt disj1_tac >> simp[Once SWAP_EXISTS_THM] >>
+    qexists_tac `k` >> simp[] >> CASE_TAC >> simp[] >> CASE_TAC >> simp[]
     )
   >- (
-    gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[] >> gvs[] >> disj2_tac >>
+    gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
     gvs[new_vars_def, PULL_EXISTS, pure_vars, SF SFY_ss, GSYM DISJ_ASSOC] >>
     gvs[IN_FRANGE_FLOOKUP, FLOOKUP_maunion, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
     Cases_on `k = v` >> gvs[] >- gvs[get_massumptions_def, SF DNF_ss] >>
-    rpt disj1_tac >> simp[Once SWAP_EXISTS_THM] >> qexists_tac `k` >> simp[] >>
-    CASE_TAC >> simp[] >> CASE_TAC >> simp[]
+    disj2_tac >> rpt disj1_tac >> simp[Once SWAP_EXISTS_THM] >>
+    qexists_tac `k` >> simp[] >> CASE_TAC >> simp[] >> CASE_TAC >> simp[]
     )
   >- (
     gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[] >> gvs[] >> disj2_tac >>
@@ -2589,6 +2589,12 @@ Proof
       every_case_tac >> rw[] >> gvs[]
       )
     >- (
+      once_rewrite_tac[INSERT_SING_UNION] >>
+      once_rewrite_tac[msubst_vars_UNION] >>
+      irule EQ_SYM >> simp[GSYM SUBSET_UNION_ABSORPTION] >>
+      simp[Once msubst_vars_def, pure_vars]
+      )
+    >- (
       first_x_assum irule >> pop_assum mp_tac >>
       simp[new_vars_def, PULL_EXISTS, pure_vars, IN_FRANGE_FLOOKUP, FLOOKUP_maunion,
            DOMSUB_FLOOKUP_THM, GSYM DISJ_ASSOC, get_massumptions_def] >>
@@ -2603,6 +2609,12 @@ Proof
       first_x_assum $ qspec_then `k` mp_tac >>
       simp[FLOOKUP_maunion, DOMSUB_FLOOKUP_THM] >>
       every_case_tac >> rw[] >> gvs[]
+      )
+    >- (
+      once_rewrite_tac[INSERT_SING_UNION] >>
+      once_rewrite_tac[msubst_vars_UNION] >>
+      irule EQ_SYM >> simp[GSYM SUBSET_UNION_ABSORPTION] >>
+      simp[Once msubst_vars_def, pure_vars]
       )
     >- (
       first_x_assum irule >> pop_assum mp_tac >>
