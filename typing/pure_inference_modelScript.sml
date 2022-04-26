@@ -156,8 +156,6 @@ Inductive minfer:
   (minfer ns mset (Prim d (Cons "True") []) FEMPTY {} BoolTy) ∧
 [~False:]
   (minfer ns mset (Prim d (Cons "False") []) FEMPTY {} BoolTy) ∧
-[~Subscript:]
-  (minfer ns mset (Prim d (Cons "Subscript") []) FEMPTY {} Exception) ∧
 
 [~Exception:]
   (LENGTH es = LENGTH tys ∧
@@ -167,7 +165,7 @@ Inductive minfer:
    cvars_disjoint (ZIP (ass, ZIP (css, tys))) ∧
    ALOOKUP (FST ns) s = SOME arg_tys ∧
    LENGTH arg_tys = LENGTH tys ∧
-   s ∉ reserved_cns
+   s ∉ monad_cns
     ⇒ minfer ns mset (Prim d (Cons s) es)
         (FOLDR maunion FEMPTY ass)
         (set (list$MAP2 (λt a. mUnify t (itype_of a)) tys arg_tys) ∪ BIGUNION (set css))
@@ -186,7 +184,7 @@ Inductive minfer:
    LENGTH freshes = ar ∧
    EVERY (λf. f ∉ mset ∧
     EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty) (ZIP (ass,ZIP(css,tys)))) freshes ∧
-   cname ∉ reserved_cns
+   cname ∉ monad_cns
     ⇒ minfer ns mset (Prim d (Cons cname) es)
         (FOLDR maunion FEMPTY ass)
         (set (MAP (λf. mUnify (CVar f) (CVar f)) freshes) ∪
@@ -303,7 +301,7 @@ Inductive minfer:
 
 [~ExceptionCase:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
-   PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) (("Subscript",[])::FST ns))
+   PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) (FST ns))
     (MAP (λ(cn,pvars,rest). (cn, LENGTH pvars)) cases) ∧
    LENGTH cases = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
@@ -317,7 +315,6 @@ Inductive minfer:
     (ZIP (eas::ass,ZIP(ecs::css,ety::tys))) ∧
    LENGTH final_as = LENGTH final_cs ∧
    LIST_REL (λ((cn,pvars,rest),as,cs) (as',cs').
-    ((cn = "Subscript" ∧ pvars = []) ∨ cn ≠ "Subscript") ∧
     ∃schemes.
       ALOOKUP (FST ns) cn = SOME schemes ∧
       let pvar_cs = list$MAP2
@@ -972,11 +969,6 @@ Proof
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     simp[Once minfer_cases, new_vars_def, pure_vars, assumptions_rel_def]
     )
-  >- ( (* Subscript *)
-    gvs[inferM_rws] >> every_case_tac >> gvs[] >>
-    simp[Once minfer_cases] >> irule_at Any OR_INTRO_THM1 >>
-    simp[new_vars_def, pure_vars, assumptions_rel_def]
-    )
   >- ( (* Cons and Exception *)
     gvs[inferM_rws] >> every_case_tac >> gvs[] >> pairarg_tac >> gvs[] >>
     every_case_tac >> gvs[]
@@ -998,7 +990,7 @@ Proof
         simp[Once minfer_cases, PULL_EXISTS] >>
         rpt $ goal_assum $ drule_at Any >>
         simp[MAP2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-        simp[reserved_cns_def] >>
+        simp[monad_cns_def] >>
         gvs[new_vars_def, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, LAMBDA_PROD, pure_vars] >>
         simp[BIGUNION_SUBSET, PULL_EXISTS] >>
@@ -1008,7 +1000,7 @@ Proof
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
       ntac 3 $ pop_assum kall_tac >> pop_assum mp_tac >>
-      ntac 13 $ last_x_assum kall_tac >>
+      ntac 12 $ last_x_assum kall_tac >>
       map_every qid_spec_tac [`m`,`n`,`tys`,`as`,`cs`] >>
       Induct_on `es` >> rw[] >> simp[]
       >- (
@@ -1090,7 +1082,7 @@ Proof
         rpt $ goal_assum $ drule_at Any >> simp[] >> irule_at Any EQ_REFL >>
         DEP_REWRITE_TAC[MAP2_MAP] >> gvs[oEL_THM] >>
         simp[MAP2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-        simp[reserved_cns_def] >> conj_tac
+        simp[monad_cns_def] >> conj_tac
         >- (
           drule LIST_REL_LENGTH >>
           DEP_REWRITE_TAC[cj 1 LENGTH_ZIP] >> simp[] >> rw[] >> gvs[] >>
@@ -1147,7 +1139,7 @@ Proof
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
       ntac 3 $ pop_assum kall_tac >> pop_assum mp_tac >>
-      ntac 13 $ last_x_assum kall_tac >>
+      ntac 12 $ last_x_assum kall_tac >>
       map_every qid_spec_tac [`m`,`n`,`tys`,`as`,`cs`] >>
       Induct_on `es` >> rw[] >> simp[]
       >- (
@@ -1229,7 +1221,7 @@ Proof
         rpt $ goal_assum $ drule_at Any >> simp[] >>
         DEP_REWRITE_TAC[MAP2_MAP] >> gvs[oEL_THM] >>
         simp[MAP2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-        simp[reserved_cns_def] >>
+        simp[monad_cns_def] >>
         gvs[new_vars_def, pure_vars, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, BIGUNION_SUBSET, PULL_EXISTS, FORALL_PROD,
             MEM_ZIP, pure_vars_iFunctions] >>
@@ -1237,7 +1229,7 @@ Proof
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
       ntac 3 $ pop_assum kall_tac >> pop_assum mp_tac >>
-      ntac 13 $ last_x_assum kall_tac >>
+      ntac 12 $ last_x_assum kall_tac >>
       rename1 `FOLDR _ _ _ _ = SOME (_,m)` >>
       map_every qid_spec_tac [`m`,`n`,`tys`,`as`,`cs`] >>
       Induct_on `es` >> rw[] >> simp[]

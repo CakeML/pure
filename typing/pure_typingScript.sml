@@ -184,7 +184,9 @@ Definition namespace_ok_def:
       EVERY (λ(ar,td).
         EVERY (λ(cn,argtys). EVERY (type_ok typedefs ar) argtys) td) typedefs ∧
     (* Every exception constructor type is closed and uses only defined types: *)
-      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef
+      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef ∧
+    (* Subscript is a valid exception *)
+      MEM ("Subscript",[]) exndef
 End
 
 
@@ -334,9 +336,6 @@ Inductive type_tcexp:
 [~False:]
   (type_tcexp ns db st env (Prim (Cons "False") []) (PrimTy Bool)) ∧
 
-[~Subscript:]
-  (type_tcexp ns db st env (Prim (Cons "Subscript") []) Exception) ∧
-
 [~Cons:]
   (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
    EVERY (type_ok typedefs db) tyargs ∧
@@ -405,12 +404,12 @@ Inductive type_tcexp:
 [~ExceptionCase:]
   (type_tcexp (exndef,typedefs) db st env e Exception ∧
    (* Pattern match is exhaustive: *)
-      "Subscript" INSERT set (MAP FST exndef) = set (MAP FST css) ∧
-      LENGTH exndef + 1 = LENGTH css ∧
+      set (MAP FST exndef) = set (MAP FST css) ∧
+      LENGTH exndef = LENGTH css ∧
       (* TODO this forbids duplicated patterns - perhaps overkill? *)
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃tys.
-        (ALOOKUP exndef cname = SOME tys ∨ (cname = "Subscript" ∧ pvars = [])) ∧
+        ALOOKUP exndef cname = SOME tys ∧
         (* Pattern variables do not shadow case split: *)
           ¬ MEM v pvars ∧
         (* Constructor arities match *)

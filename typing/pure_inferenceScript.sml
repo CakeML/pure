@@ -302,11 +302,6 @@ Definition infer_def:
       | [] => return (PrimTy Bool, empty, [])
       | _ => fail)
 
-    else if s = "Subscript" then (
-      case es of
-      | [] => return (Exception, empty, [])
-      | _ => fail)
-
     else do
       (tys,as,cs) <- FOLDR
             (λe acc. do
