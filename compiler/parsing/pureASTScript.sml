@@ -51,6 +51,21 @@ Datatype:
                | expdostmtLet (expdecAST list)
 End
 
+Theorem better_expAST_induction =
+        TypeBase.induction_of “:expAST”
+          |> Q.SPECL [‘eP’, ‘dP’, ‘doP’,
+                      ‘λpes. ∀p e. MEM (p,e) pes ⇒ eP e’,
+                      ‘λpe. eP (SND pe)’,
+                      ‘λdds. ∀ds. MEM ds dds ⇒ doP ds’,
+                      ‘λes. ∀e. MEM e es ⇒ eP e’,
+                      ‘λds. ∀d. MEM d ds ⇒ dP d’]
+          |> SRULE [DISJ_IMP_THM, FORALL_AND_THM, pairTheory.FORALL_PROD,
+                    DECIDE “p ∧ q ⇒ q ⇔ T”]
+          |> UNDISCH
+          |> SRULE [Cong (DECIDE “p = p' ∧ (p' ⇒ q = q') ⇒ (p ∧ q ⇔ p' ∧ q')”)]
+          |> DISCH_ALL
+          |> Q.GENL [‘eP’, ‘dP’, ‘doP’]
+
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
 Overload pNIL = “expCon "[]" []”
 Overload pCONS = “λe1 e2. expCon ":" [e1;e2]”
