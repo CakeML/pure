@@ -176,6 +176,77 @@ Definition demands_analysis_def:
 End
 
 (*
+Let foo = Lam a (Prim op [a]) in Lam x (App foo x)
+ -->
+
+Let foo = Lam a (a; Prim op [a]) in Lam x (foo; x; App foo x)
+*)
+
+Theorem demands_analysis_test_0:
+  demands_analysis 0
+  (Let 0 "foo" (Lam 0 ["a"] (Prim 0 (AtomOp op) [Var 0 "a"]))
+   (Lam 0 ["x"] (App 0 (Var 0 "foo") [Var 0 "x"]))) =
+  Let 0 "foo"
+      (Lam 0 ["a"] (Prim 0 Seq [Var 0 "a"; Prim 0 (AtomOp op) [Var 0 "a"]]))
+      (Lam 0 ["x"]
+       (Prim 0 Seq
+        [Var 0 "foo";
+         Prim 0 Seq [Var 0 "x"; App 0 (Var 0 "foo") [Var 0 "x"]]]))
+Proof
+  EVAL_TAC
+QED
+
+(*
+  Letrec fact = Lam n c -> if n = 0 then c else n * c
+  in fact n0 c1
+
+  -->
+
+  n0;
+  Letrec fact = Lam n c -> n; if n = 0 then c else n * c
+  in fact; fact n0 c1
+
+
+*)
+    Seq e1 e2 --> Let = (Force (Var v)) in e2
+
+Theorem demands_analysis_test_1:
+  demands_analysis 0
+  (Letrec 0
+   [("fact",
+     Lam 0 ["n"; "c"]
+         (Case 0
+          (Prim 0 (AtomOp Eq)
+           [Var 0 "n"; Prim 0 (AtomOp (Lit (Int 0))) []]) "n2"
+          [("True",[],Var 0 "c");
+           ("False",[],Prim 0 (AtomOp Mul) [Var 0 "n"; Var 0 "c"])]))]
+   (App 0 (Var 0 "fact") [Var 0 "n0"; Var 0 "c1"])) =
+  Prim 0 Seq
+       [Var 0 "n0";
+        Letrec 0
+               [("fact",
+                 Lam 0 ["n"; "c"]
+                     (Prim 0 Seq
+                      [Var 0 "n";
+                       Case 0
+                            (Prim 0 (AtomOp Eq)
+                             [Var 0 "n"; Prim 0 (AtomOp (Lit (Int 0))) []]) "n2"
+                            [("True",[],Var 0 "c");
+                             ("False",[],Prim 0 (AtomOp Mul) [Var 0 "n"; Var 0 "c"])]]))]
+               (Prim 0 Seq
+                [Var 0 "fact";
+                 App 0 (Var 0 "fact")
+                     [Var 0 "n0"; Prim 0 Seq [Var 0 "c1"; Var 0 "c1"]]])]
+Proof
+  EVAL_TAC
+QED
+
+(*
+EVAL ``demands_analysis 0 (Let 0 "foo" (Lam 0 ["a"] (Prim 0 (AtomOp "op") [Var 0 "a"]))
+(Lam 0 ["x"] (App 0 (Var 0 "foo") [Var 0 "x"]) ))``;
+*)
+
+(*
 let foo = Lam a (a + 2) in
     Lam x (foo x)
 
