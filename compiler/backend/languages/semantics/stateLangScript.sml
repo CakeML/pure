@@ -704,6 +704,12 @@ Proof
   metis_tac[rich_listTheory.IS_PREFIX_NIL,step_n_cut_cont_gen]
 QED
 
+(* This lemma is false as stated. Counterexample:
+
+    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
+
+   ^^ That halts, but not with a value or error.
+ *)
 Theorem step_n_NONE:
   step_n n (Exp tenv1 te,ts,[]) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ⇒
   step_n n (Exp tenv1 te,NONE,[]) = (tr1,NONE,tk1) ∧ (∃res. tr1 = Val res) ∨
