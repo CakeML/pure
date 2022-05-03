@@ -618,6 +618,10 @@ Proof
   Induct \\ fs [ADD1,step_n_add,step,error_def]
 QED
 
+(* This lemma is false as stated!
+   Counterexample:
+     EVAL “step_n 5 (Val v,SOME ts,[ForceK2 NONE]) = (Val v,NONE,[])”
+ *)
 Theorem step_n_is_halt_SOME:
   step_n n (tr,SOME ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧ tr1 ≠ Error ⇒
   ∃ts2. ts1 = SOME ts2
@@ -625,11 +629,73 @@ Proof
   cheat
 QED
 
+Theorem application_cut_cont[local]:
+  ∀sop env vs st k x y z k'.
+  application sop env vs st k = (x,y,z) ∧ num_args_ok sop (LENGTH vs) ∧ k' ≼ k ⇒
+  ∃x' y' z'. application sop env vs st k' = (x',y',z') ∧
+       ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
+Proof
+  Cases >> rw[step] >>
+  gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
+        rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >>
+  metis_tac[]
+QED
+
+Theorem return_cut_cont[local]:
+  ∀v st k x y z k'.
+  return v st k = (x,y,z) ∧ k' ≼ k ⇒
+  ∃x' y' z'. return v st k' = (x',y',z') ∧
+       ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
+Proof
+  ho_match_mp_tac return_ind >>
+  rw[] >>
+  gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
+        rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step] >>
+  rename [‘k' ++ _’] >>
+  drule_then (qspec_then ‘k'’ mp_tac) application_cut_cont >>
+  gvs[rich_listTheory.DROP_APPEND2]
+QED
+
+Theorem step_cut_cont[local]:
+  ∀st k sr k' x y z.
+  step st k sr = (x,y,z) ∧ k' ≼ k ⇒
+  ∃x' y' z'. step st k' sr = (x',y',z') ∧
+       ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
+Proof
+  ho_match_mp_tac step_ind >>
+  rw[step,AllCaseEqs()] >> rw[] >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+      APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step,AllCaseEqs()]
+  >- (drule_then (qspec_then ‘k'’ mp_tac) application_cut_cont >>
+      gvs[rich_listTheory.DROP_APPEND2])
+  >- metis_tac[]
+  >- (drule_then (qspec_then ‘k'’ mp_tac) return_cut_cont >>
+      gvs[rich_listTheory.DROP_APPEND2])
+QED
+
+Theorem step_n_cut_cont_gen:
+  ∀n x s k y k'.
+  step_n n (x,s,k) = y ∧ is_halt y ∧ k' ≼ k ⇒
+  ∃m z. m ≤ n ∧ step_n m (x,s,k') = z ∧ is_halt z
+Proof
+  Induct >> rw [ADD1,step_n_add,step,error_def]
+  >- (Cases_on ‘x’ >> gvs[]) >>
+  ‘∃xx y z. step s k x = (xx,y,z)’ by metis_tac[PAIR] >>
+  drule_then (drule_then strip_assume_tac) step_cut_cont >> gvs[]
+  >- (Q.REFINE_EXISTS_TAC ‘SUC m’ >> gvs[ADD1,step_n_add] >>
+      first_x_assum match_mp_tac >>
+      first_x_assum(irule_at (Pos hd)) >>
+      simp[]) >>
+  qexists_tac ‘1’ >> simp[]
+QED
+
 Theorem step_n_cut_cont:
   step_n n (x,s,k) = y ∧ is_halt y ⇒
   ∃m z. m ≤ n ∧ step_n m (x,s,[]) = z ∧ is_halt z
 Proof
-  cheat
+  metis_tac[rich_listTheory.IS_PREFIX_NIL,step_n_cut_cont_gen]
 QED
 
 Theorem step_n_NONE:
