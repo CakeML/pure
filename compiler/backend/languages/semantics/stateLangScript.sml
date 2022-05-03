@@ -741,18 +741,102 @@ Proof
   cheat
 QED
 
+Theorem return_fast_forward_lemma[local]:
+  ∀v st k' sr k x y z.
+  return v st k' = (x,y,z) ∧ (is_halt (x,y,z) ⇒ ∃v. x = Val v) ∧ k' ≼ k ⇒
+  return v st k = (x,y,z ++ DROP (LENGTH k') k) ∨
+  ((st,k',Val v) = (y,z,x))
+Proof
+  ho_match_mp_tac return_ind >>
+  rw[step,AllCaseEqs()] >> rw[] >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+      APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step,AllCaseEqs()] >>
+  TRY(rename1 ‘list_CASE k'’ >> Cases_on ‘k'’ >>
+      gvs[step,rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2]) >>
+  drule application_set_cont >>
+  simp[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2] >>
+  disch_then (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+  gvs[rich_listTheory.DROP_APPEND2] >>
+  Cases_on ‘x’ >> gvs[]
+QED
+
+Theorem step_fast_forward_lemma[local]:
+  ∀s k' sr k x y z.
+  step s k' sr = (x,y,z) ∧ (is_halt (x,y,z) ⇒ ∃v. x = Val v) ∧ k' ≼ k ⇒
+  step s k sr = (x,y,z ++ DROP (LENGTH k') k) ∨
+  ((s,k',sr) = (y,z,x))
+Proof
+  ho_match_mp_tac step_ind >>
+  rw[step,AllCaseEqs()] >> rw[] >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+      APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step,AllCaseEqs()] >>
+  TRY(rename1 ‘list_CASE k'’ >> Cases_on ‘k'’ >>
+      gvs[step,rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2])
+  >- (drule application_set_cont >>
+      simp[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2] >>
+      disch_then (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+      gvs[rich_listTheory.DROP_APPEND2] >>
+      Cases_on ‘x’ >> gvs[]) >>
+  drule return_fast_forward_lemma >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,PULL_EXISTS]
+QED
+
+Theorem is_halt_prefix:
+  ∀sr k s k'. is_halt (sr,s,k) ∧ k' ≼ k ⇒ is_halt (sr,s,k')
+Proof
+  Cases >> Cases >> rw[] >> gvs[]
+QED
+
+Theorem step_n_fast_forward_gen:
+  ∀m2 sr ss k' ss2 sk2 k sr1 ss1 sk1 n v2.
+  step_n m2 (sr,ss,k') = (Val v2,ss2,sk2) ∧
+  step_n n (sr,ss,k) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
+  k' ≼ k
+  ⇒
+  ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,sk2 ++ DROP (LENGTH k') k) = (sr1,ss1,sk1)
+Proof
+  Induct >> rpt strip_tac
+  >- (irule_at (Pos hd) LESS_EQ_REFL >>
+      gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2]) >>
+  gvs[ADD1,step_n_add] >>
+  rename [‘step s k' sr’] >>
+  ‘∃x y z. step s k' sr = (x,y,z)’ by metis_tac[PAIR] >>
+  drule step_fast_forward_lemma >>
+  disch_then(drule_at (Pos last)) >>
+  impl_tac >- (rw[] >> gvs[is_halt_step_n_same]) >>
+  reverse strip_tac
+  >- (gvs[] >> metis_tac[]) >>
+  Cases_on ‘n’
+  >- (drule_then assume_tac is_halt_step_same >>
+      gvs[] >>
+      drule_all_then assume_tac is_halt_prefix >>
+      gvs[is_halt_step_n_same,is_halt_step_same]) >>
+  gvs[ADD1,step_n_add] >>
+  first_x_assum drule >>
+  disch_then drule >>
+  simp[] >>
+  gvs[] >>
+  gvs[rich_listTheory.DROP_APPEND2] >>
+  strip_tac >>
+  first_x_assum(irule_at (Pos last)) >>
+  simp[]
+QED
+
 Theorem step_n_fast_forward:
   step_n n (sr,ss,k::ks) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
   step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
   ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
 Proof
-  cheat
+  rpt strip_tac >>
+  drule_at (Pat ‘is_halt’) step_n_fast_forward_gen >>
+  rpt $ disch_then dxrule >>
+  rw[]
 QED
 
 (* This lemma is false as stated. Counterexample:
 
-    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[HandleK [(x,v)] (c::x) (Var x)])”   
-   
+    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[HandleK [(x,v)] (c::x) (Var x)])”
+
     EVAL “step_n 4 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
 
     ^^ it's possible that the expression needs the stack to halt with a value
