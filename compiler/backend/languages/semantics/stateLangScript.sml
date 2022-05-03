@@ -618,6 +618,12 @@ Proof
   Induct \\ fs [ADD1,step_n_add,step,error_def]
 QED
 
+Theorem step_n_Exn_NIL:
+  step_n n (Exn v,s,[]) = (Exn v,s,[])
+Proof
+  Induct_on ‘n’ >> rw[step,ADD1,step_n_add]
+QED
+
 (* This lemma is false as stated!
    Counterexample:
      EVAL “step_n 5 (Val v,SOME ts,[ForceK2 NONE]) = (Val v,NONE,[])”
@@ -706,6 +712,22 @@ Proof
   cheat
 QED
 
+Theorem application_set_cont[local]:
+  ∀sop env vs st k' sr k x y z.
+  application sop env vs st k' = (x,y,z) ∧ x ≠ Error ∧ (∀v. x = Exn v ⇒ z ≠ []) ⇒ k' ≼ k ⇒
+  application sop env vs st k = (x,y,z ++ DROP (LENGTH k') k)
+Proof
+  Cases >> rw[step] >>
+  gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
+        rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+QED
+
+(* This lemma is false as stated. Counterexample:
+    EVAL “step_n 2 (Exp [(x,Constructor v [])] (Var x),st,[])”
+
+    EVAL “step_n 2 (Exp [(x,Constructor v [])] (Var x),st,[ForceK1])”
+ *)
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
   ∀k. step_n n (Exp tenv1 te,ts,k) = (Val res,ts1,k)
@@ -718,6 +740,7 @@ Theorem step_n_fast_forward:
   step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
   ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
 Proof
+  rpt strip_tac >>
   cheat
 QED
 
