@@ -740,10 +740,17 @@ Theorem step_n_fast_forward:
   step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
   ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
 Proof
-  rpt strip_tac >>
   cheat
 QED
 
+(* This lemma is false as stated. Counterexample:
+
+    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[HandleK [(x,v)] (c::x) (Var x)])”   
+   
+    EVAL “step_n 4 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
+
+    ^^ it's possible that the expression needs the stack to halt with a value
+ *)
 Theorem step_n_NONE_split:
   step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
   ∃m1 m2 v.
