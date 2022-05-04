@@ -615,7 +615,7 @@ Proof
     \\ first_assum $ irule_at Any \\ fs [])
   >~ [‘RaiseK’] >-
    (gvs [step] \\ fs [step_res_rel_cases]
-    \\ first_assum $ irule_at Any \\ fs [])
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [])
   >~ [‘HandleK’] >-
    (gvs [step] \\ fs [step_res_rel_cases])
   >~ [‘HandleAppK’] >-

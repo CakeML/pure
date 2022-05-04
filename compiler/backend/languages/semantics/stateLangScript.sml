@@ -356,7 +356,8 @@ Definition return_def:
           else error st k
         else value v st (CaseK env n css :: k)
     | _ => error st k) ∧
-  return v st (RaiseK :: k) = (Exn v, st, k) ∧
+  return v st (RaiseK :: k) =
+    (if st = NONE then error st k else (Exn v, st, k)) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
   return v st (HandleAppK env e :: k) = value v st k ∧
   return v st (AppK env sop vs' [] :: k) = (let vs = v::vs' in
@@ -624,13 +625,9 @@ Proof
   Induct_on ‘n’ >> rw[step,ADD1,step_n_add]
 QED
 
-(* This lemma is false as stated!
-   Counterexample:
-     EVAL “step_n 5 (Val v,SOME ts,[ForceK2 NONE]) = (Val v,NONE,[])”
- *)
 Theorem step_n_is_halt_SOME:
-  step_n n (tr,SOME ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧ tr1 ≠ Error ⇒
-  ∃ts2. ts1 = SOME ts2
+  step_n x (tr,SOME ts,tk) = (Action a b,a1,a2) ⇒
+  ∃ts2. a1 = SOME ts2
 Proof
   cheat
 QED
@@ -709,6 +706,8 @@ QED
     EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
 
    ^^ That halts, but not with a value or error.
+
+   Update: has the change to the semantics of RaiseK changed this?
  *)
 Theorem step_n_NONE:
   step_n n (Exp tenv1 te,ts,[]) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ⇒
@@ -729,14 +728,9 @@ Proof
         APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
 QED
 
-(* This lemma is false as stated. Counterexample:
-    EVAL “step_n 2 (Exp [(x,Constructor v [])] (Var x),st,[])”
-
-    EVAL “step_n 2 (Exp [(x,Constructor v [])] (Var x),st,[ForceK1])”
- *)
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
-  ∀k. step_n n (Exp tenv1 te,ts,k) = (Val res,ts1,k)
+  ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
 Proof
   cheat
 QED
@@ -840,6 +834,8 @@ QED
     EVAL “step_n 4 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
 
     ^^ it's possible that the expression needs the stack to halt with a value
+
+    Update: has the change to RaiseK semantics changed this?
  *)
 Theorem step_n_NONE_split:
   step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒

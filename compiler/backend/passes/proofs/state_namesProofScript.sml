@@ -548,7 +548,7 @@ Proof
   >~ [‘HandleAppK’] >-
    (gvs [step] \\ fs [step_res_rel_cases])
   >~ [‘RaiseK’] >-
-   (gvs [step] \\ fs [step_res_rel_cases])
+   (Cases_on ‘ss’ \\ Cases_on ‘ts’ \\ gvs [step,step_res_rel_cases])
   >~ [‘IfK’] >-
    (gvs [step]
     \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
