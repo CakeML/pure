@@ -15,13 +15,18 @@ val _ = new_theory "state_app_unit_2Proof";
 val _ = set_grammar_ancestry ["stateLang"];
 
 Overload "app" = “λe1 e2. App AppOp [e1;e2]”;
+Overload "wrap" = “λe. app (Lam NONE e) Unit”;
 
 Inductive compile_rel:
+
+[~trans:]
+  (compile_rel x y ∧ compile_rel y z ⇒
+   compile_rel x z) ∧
 
 [~App_Let:]
   (compile_rel x x1 ∧ compile_rel y y1 ⇒
    compile_rel (app (Let x_opt x y) Unit)
-               (Let x_opt x1 (app y1 Unit))) ∧
+               (Let x_opt (wrap x1) (app y1 Unit))) ∧
 
 [~Var:]
   compile_rel (stateLang$Var v) (stateLang$Var v) ∧
@@ -231,6 +236,12 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem compile_rel_Lam:
+  compile_rel (Lam n e) t ⇒ ∃u. t = Lam n u ∧ compile_rel e u
+Proof
+  cheat
+QED
+
 Theorem application_thm:
   application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
@@ -273,9 +284,7 @@ Proof
     \\ first_assum drule \\ simp_tac (srw_ss()) []
     \\ drule_all ALOOKUP_list_rel
     \\ strip_tac \\ fs []
-    \\ pop_assum mp_tac
-    \\ simp [Once compile_rel_cases]
-    \\ strip_tac \\ fs []
+    \\ drule compile_rel_Lam \\ strip_tac \\ fs []
     \\ ‘MEM n (MAP FST sfns)’ by
      (imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,EXISTS_PROD]
       \\ first_assum $ irule_at Any) \\ fs []
@@ -392,46 +401,68 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
-Theorem step_n_nil_IMP:
-  step_n m (Exp env1 e1,ts,[]) = (a0,a1,a2) ∧
-  step_n m (Exp env1 e1,ts,k) = (tr1,ts1,tk1) ∧
-  ~is_halt (a0,a1,a2) ⇒
-  ~is_halt (tr1,ts1,tk1)
-Proof
-  cheat
-QED
-
 Theorem step_1_Exp_forward:
   ∀e1 e2.
     compile_rel e1 e2 ⇒
-    ∀k ts tk sr1 ss1 sk1 ss sk env1 env2.
-    (∀m tr' ts' tk' sr1' ss1' sk1' ss' sr' sk'.
-       m < k ∧ step_n m (sr',ss',sk') = (sr1',ss1',sk1') ∧
+    ∀k ts tk tr1 ts1 tk1 ss sk env1 env2. (*
+    (∀m tr' ts' tk' tr1' ts1' tk1' ss' sr' sk'.
+       m < k ∧ step_n m (tr',ts',tk') = (tr1',ts1',tk1') ∧
        OPTREL (LIST_REL (LIST_REL v_rel)) ts' ss' ∧
        step_res_rel tr' tk' sr' sk' ⇒
-       ∃m' tr1 ts1 tk1.
-         step_n m' (tr',ts',tk') = (tr1,ts1,tk1) ∧ m ≤ m' ∧
-         ((is_halt (tr1,ts1,tk1) ⇔ is_halt (sr1',ss1',sk1')) ∧
-          (is_halt (tr1,ts1,tk1) ⇒
-           OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1' ∧
-           step_res_rel tr1 tk1 sr1' sk1'))) ∧
-    step_n k (Exp env2 e2,ss,sk) = (sr1,ss1,sk1) ∧
+       ∃m' sr1 ss1 sk1.
+         step_n m' (sr',ss',sk') = (sr1,ss1,sk1) ∧ m ≤ m' ∧
+         ((is_halt (sr1,ss1,sk1) ⇔ is_halt (tr1',ts1',tk1')) ∧
+          (is_halt (sr1,ss1,sk1) ⇒
+           OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+           step_res_rel tr1 tk1 sr1 sk1))) ∧ *)
+    step_n k (Exp env1 e1,ts,tk) = (tr1,ts1,tk1) ∧
     cont_rel tk sk ∧ compile_rel e1 e2 ∧
     OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
     env_rel env1 env2 ⇒
-    ∃m tr1 ts1 tk1.
-      step_n m (Exp env1 e1,ts,tk) = (tr1,ts1,tk1) ∧ k ≤ m ∧
-      ((is_halt (tr1,ts1,tk1) ⇔ is_halt (sr1,ss1,sk1)) ∧
-       (is_halt (tr1,ts1,tk1) ⇒
+    ∃m sr1 ss1 sk1.
+      step_n m (Exp env2 e2,ss,sk) = (sr1,ss1,sk1) ∧ k ≤ m ∧
+      ((is_halt (sr1,ss1,sk1) ⇔ is_halt (tr1,ts1,tk1)) ∧
+       (is_halt (sr1,ss1,sk1) ⇒
         OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
         step_res_rel tr1 tk1 sr1 sk1))
 Proof
+
   ho_match_mp_tac compile_rel_strongind \\ rpt strip_tac
+
   >-
-   (Cases_on ‘k’ \\ gvs [step_n_SUC,step]
+   (
+
+    Cases_on ‘k’ \\ gvs [step_n_SUC,step]
     >- (qexists_tac ‘0’ \\ fs [])
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n'’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ last_x_assum drule
+    \\ cheat)
+
+
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+    \\ rpt $ disch_then $ drule_at $ Pos hd
+
+
+
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ ‘∃a. step_n n (Exp env2 e2,ss,[]) = a’ by fs [] \\ PairCases_on ‘a’ \\ fs []
+
+    \\ first_x_assum irule
+
+
+
     \\ reverse (Cases_on ‘is_halt (a0,a1,a2)’)
     >-
      (last_x_assum $ drule_at $ Pos $ el 2
@@ -465,7 +496,36 @@ Proof
       \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
     \\ fs [] \\ strip_tac \\ gvs []
     \\ ntac 3 (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step])
+
+
+
+
+
+
+    \\ Cases_on ‘tr1 = Error’ >- cheat
+    \\ ‘a0 ≠ Error’ by fs [Once step_res_rel_cases]
+
+
+
+      gvs [] \\ pop_assum mp_tac
+      \\ simp [Once step_res_rel_cases]
+      \\ strip_tac \\ gvs []
+      \\ drule step_n_Error_nil
+
+
+
     \\ qexists_tac ‘m’ \\ fs []
+    \\ drule replace_cont
+    \\ disch_then drule
+    \\ ‘∃b. step_n m
+              (Exp env1 e1,ts,
+               LetK env1 x_opt e1'::AppK env1 AppOp [Constructor "" []] []::tk) = b’
+                  by fs [] \\ PairCases_on ‘b’ \\ fs []
+    \\ disch_then drule
+
+
+
+
     \\ cheat)
   \\ (Cases_on ‘k’ \\ gvs [step_n_SUC,step] >- (qexists_tac ‘0’ \\ fs []))
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
