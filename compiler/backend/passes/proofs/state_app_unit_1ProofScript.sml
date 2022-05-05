@@ -541,8 +541,8 @@ Proof
     \\ simp [Once v_rel_cases] \\ rw []
     \\ fs [step_res_rel_cases])
   >~ [‘RaiseK’] >-
-   (gvs [step] \\ fs [step_res_rel_cases]
-    \\ first_assum $ irule_at Any \\ fs [])
+   (Cases_on ‘ts’ \\ Cases_on ‘ss’
+    \\ gvs [step] \\ fs [step_res_rel_cases])
   >~ [‘HandleK’] >-
    (gvs [step] \\ fs [step_res_rel_cases])
   >~ [‘HandleAppK’] >-

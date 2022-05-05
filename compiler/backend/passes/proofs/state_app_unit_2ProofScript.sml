@@ -237,9 +237,10 @@ Proof
 QED
 
 Theorem compile_rel_Lam:
-  compile_rel (Lam n e) t ⇒ ∃u. t = Lam n u ∧ compile_rel e u
+  ∀n e t. compile_rel (Lam n e) t ⇒ ∃u. t = Lam n u ∧ compile_rel e u
 Proof
-  cheat
+  Induct_on ‘compile_rel’ \\ fs [] \\ rw []
+  \\ metis_tac [compile_rel_trans]
 QED
 
 Theorem application_thm:
@@ -401,38 +402,48 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
+Definition step_1_ind_hyp_def:
+  step_1_ind_hyp k =
+  (∀m tr' ts' tk' tr1' ts1' tk1' ss' sr' sk'.
+     m < k ∧ step_n m (tr',ts',tk') = (tr1',ts1',tk1') ∧
+     OPTREL (LIST_REL (LIST_REL v_rel)) ts' ss' ∧
+     step_res_rel tr' tk' sr' sk' ⇒
+     ∃m' sr1 ss1 sk1.
+       step_n m' (sr',ss',sk') = (sr1,ss1,sk1) ∧ m ≤ m' ∧
+       (is_halt (tr1',ts1',tk1') ⇔ is_halt (sr1,ss1,sk1)) ∧
+       (is_halt (tr1',ts1',tk1') ⇒
+        OPTREL (LIST_REL (LIST_REL v_rel)) ts1' ss1 ∧
+        step_res_rel tr1' tk1' sr1 sk1))
+End
+
 Theorem step_1_Exp_forward:
   ∀e1 e2.
     compile_rel e1 e2 ⇒
-    ∀k ts tk tr1 ts1 tk1 ss sk env1 env2. (*
-    (∀m tr' ts' tk' tr1' ts1' tk1' ss' sr' sk'.
-       m < k ∧ step_n m (tr',ts',tk') = (tr1',ts1',tk1') ∧
-       OPTREL (LIST_REL (LIST_REL v_rel)) ts' ss' ∧
-       step_res_rel tr' tk' sr' sk' ⇒
-       ∃m' sr1 ss1 sk1.
-         step_n m' (sr',ss',sk') = (sr1,ss1,sk1) ∧ m ≤ m' ∧
-         ((is_halt (sr1,ss1,sk1) ⇔ is_halt (tr1',ts1',tk1')) ∧
-          (is_halt (sr1,ss1,sk1) ⇒
-           OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
-           step_res_rel tr1 tk1 sr1 sk1))) ∧ *)
-    step_n k (Exp env1 e1,ts,tk) = (tr1,ts1,tk1) ∧
-    cont_rel tk sk ∧ compile_rel e1 e2 ∧
-    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
-    env_rel env1 env2 ⇒
-    ∃m sr1 ss1 sk1.
-      step_n m (Exp env2 e2,ss,sk) = (sr1,ss1,sk1) ∧ k ≤ m ∧
-      ((is_halt (sr1,ss1,sk1) ⇔ is_halt (tr1,ts1,tk1)) ∧
-       (is_halt (sr1,ss1,sk1) ⇒
-        OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
-        step_res_rel tr1 tk1 sr1 sk1))
+    ∀k ts tk tr1 ts1 tk1 ss sk env1 env2.
+      step_n k (Exp env1 e1,ts,tk) = (tr1,ts1,tk1) ∧
+      step_1_ind_hyp k ∧
+      cont_rel tk sk ∧ compile_rel e1 e2 ∧
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+      env_rel env1 env2 ⇒
+      ∃m sr1 ss1 sk1.
+        step_n m (Exp env2 e2,ss,sk) = (sr1,ss1,sk1) ∧ k ≤ m ∧
+        ((is_halt (sr1,ss1,sk1) ⇔ is_halt (tr1,ts1,tk1)) ∧
+         (is_halt (sr1,ss1,sk1) ⇒
+          OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+          step_res_rel tr1 tk1 sr1 sk1))
 Proof
-
   ho_match_mp_tac compile_rel_strongind \\ rpt strip_tac
-
   >-
-   (
-
-    Cases_on ‘k’ \\ gvs [step_n_SUC,step]
+   (last_x_assum drule_all \\ strip_tac
+    \\ last_x_assum drule \\ simp []
+    \\ disch_then (qspecl_then [‘ss’,‘sk’,‘env2’] mp_tac)
+    \\ impl_tac
+    >- cheat
+    \\ rw [] \\ first_x_assum $ irule_at $ Pos hd
+    \\ fs [] \\ strip_tac \\ gvs []
+    \\ cheat)
+  >-
+   (Cases_on ‘k’ \\ gvs [step_n_SUC,step]
     >- (qexists_tac ‘0’ \\ fs [])
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
@@ -447,88 +458,15 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ last_x_assum drule
-    \\ cheat)
-
-
-    \\ first_x_assum $ drule_at $ Pos $ el 2
-    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
-    \\ rpt $ disch_then $ drule_at $ Pos hd
-
-
-
-    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
-    \\ ‘∃a. step_n n (Exp env2 e2,ss,[]) = a’ by fs [] \\ PairCases_on ‘a’ \\ fs []
-
-    \\ first_x_assum irule
-
-
-
-    \\ reverse (Cases_on ‘is_halt (a0,a1,a2)’)
-    >-
-     (last_x_assum $ drule_at $ Pos $ el 2
-      \\ rpt $ disch_then $ drule_at Any
-      \\ disch_then $ qspec_then ‘[]’ mp_tac
-      \\ impl_tac
-      >-
-       (simp [Once cont_rel_cases] \\ rw []
-        \\ first_x_assum $ qspec_then ‘m’ mp_tac \\ fs []
-        \\ disch_then drule_all
-        \\ strip_tac
-        \\ first_x_assum $ irule_at Any \\ fs []
-        \\ first_x_assum $ irule_at Any \\ fs [])
-      \\ strip_tac
-      \\ ntac 3 (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step])
-      \\ gvs [] \\ qexists_tac ‘m’ \\ fs []
-      \\ ‘∃b. step_n m
-               (Exp env1 e1,ts,
-               LetK env1 x_opt e1'::AppK env1 AppOp [Constructor "" []] []::tk) = b’
-                  by fs [] \\ PairCases_on ‘b’ \\ fs []
-      \\ ‘~ is_halt (sr1,ss1,sk1)’ by (imp_res_tac step_n_nil_IMP \\ fs [])
-      \\ fs []
-      \\ ‘¬is_halt (b0,b1,b2)’ by (imp_res_tac step_n_nil_IMP \\ fs [])
-      \\ fs [])
-    \\ last_assum $ drule_at $ Pos $ el 2
-    \\ ‘cont_rel [] []’ by simp [Once cont_rel_cases]
-    \\ rpt $ disch_then $ drule_at Any
-    \\ impl_tac
-    >-
-     (rw [] \\ first_x_assum irule \\ fs []
-      \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
-    \\ fs [] \\ strip_tac \\ gvs []
-    \\ ntac 3 (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step])
-
-
-
-
-
-
-    \\ Cases_on ‘tr1 = Error’ >- cheat
-    \\ ‘a0 ≠ Error’ by fs [Once step_res_rel_cases]
-
-
-
-      gvs [] \\ pop_assum mp_tac
-      \\ simp [Once step_res_rel_cases]
-      \\ strip_tac \\ gvs []
-      \\ drule step_n_Error_nil
-
-
-
-    \\ qexists_tac ‘m’ \\ fs []
-    \\ drule replace_cont
-    \\ disch_then drule
-    \\ ‘∃b. step_n m
-              (Exp env1 e1,ts,
-               LetK env1 x_opt e1'::AppK env1 AppOp [Constructor "" []] []::tk) = b’
-                  by fs [] \\ PairCases_on ‘b’ \\ fs []
-    \\ disch_then drule
-
-
-
-
-    \\ cheat)
+    \\ disch_then $ drule_at Any
+    \\ disch_then $ drule_at Any
+    \\ disch_then $ qspec_then ‘LetK env2 x_opt (app e2' Unit)::sk’ mp_tac
+    \\ impl_tac >- cheat
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ (Cases_on ‘k’ \\ gvs [step_n_SUC,step] >- (qexists_tac ‘0’ \\ fs []))
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+  \\ cheat (*
   >~ [‘Var v’] >-
    (Cases_on ‘ALOOKUP env1 v’ \\ fs [] \\ fs [env_rel_def]
     \\ gvs [] \\ first_x_assum irule \\ fs [] \\ res_tac
@@ -641,15 +579,16 @@ Proof
     \\ rpt $ disch_then drule
     \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+              *)
 QED
 
 Theorem step_1_forward:
-  ∀k tr ts tk sr1 ss1 sk1 ss sr sk.
-    step_n k (sr,ss,sk) = (sr1,ss1,sk1) ∧
+  ∀k tr ts tk tr1 ts1 tk1 ss sr sk.
+    step_n k (tr,ts,tk) = (tr1,ts1,tk1) ∧
     OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
     step_res_rel tr tk sr sk ⇒
-    ∃m tr1 ts1 tk1.
-      step_n m (tr,ts,tk) = (tr1,ts1,tk1) ∧ k ≤ m ∧
+    ∃m sr1 ss1 sk1.
+      step_n m (sr,ss,sk) = (sr1,ss1,sk1) ∧ k ≤ m ∧
       (is_halt (tr1,ts1,tk1) = is_halt (sr1,ss1,sk1) ∧
        (is_halt (tr1,ts1,tk1) ⇒
         OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
@@ -673,6 +612,7 @@ Proof
   >~ [‘Exp’] >-
    (drule step_1_Exp_forward
     \\ rpt $ disch_then $ drule_at Any
+    \\ fs [GSYM step_1_ind_hyp_def]
     \\ strip_tac \\ fs []
     \\ first_assum $ irule_at $ Pos hd \\ fs [])
   >~ [‘Exn’] >-
@@ -698,6 +638,7 @@ Proof
   \\ rename [‘cont_rel (tk1::tk) (sk1::sk)’]
   \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
   \\ simp [Once cont_rel_cases] \\ rw []
+  \\ cheat (*
   >~ [‘IfK’] >-
    (gvs [step,step_n_SUC]
     \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
@@ -786,7 +727,7 @@ Proof
   \\ disch_then drule_all \\ strip_tac \\ gvs []
   \\ first_assum $ irule_at Any \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-  \\ simp [Once step_res_rel_cases]
+  \\ simp [Once step_res_rel_cases] *)
 QED
 
 Theorem cont_rel_nil:
@@ -807,13 +748,19 @@ Proof
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
   \\ TRY (simp [Once snext_res_rel_cases] \\ NO_TAC)
   >-
-   (‘∃a. step_n x (tr,ts,tk) = a’ by fs []
-    \\ PairCases_on ‘a’ \\ gvs []
-    \\ ‘∃b. step_n x' (sr,ss,sk) = b’ by fs []
+   (‘∃b. step_n x' (sr,ss,sk) = b’ by fs []
     \\ PairCases_on ‘b’ \\ gvs []
-    \\ drule_all step_1_forward \\ rw [] \\ gvs []
-    \\ ‘step_n x (tr,ts,tk) = step_n m (tr,ts,tk)’
-      by metis_tac [is_halt_imp_eq]
+    \\ ‘∃a. step_n x (tr,ts,tk) = a’ by fs []
+    \\ PairCases_on ‘a’ \\ gvs []
+    \\ ‘step_n (x+x') (sr,ss,sk) = (b0,b1,b2)’ by
+          metis_tac [is_halt_step,ADD_COMM,step_n_add,PAIR]
+    \\ ‘step_n (x+x') (tr,ts,tk) = (a0,a1,a2)’ by
+          metis_tac [is_halt_step,ADD_COMM,step_n_add,PAIR]
+    \\ drule step_1_forward
+    \\ disch_then drule_all \\ rw [] \\ gvs []
+    \\ gvs [LESS_EQ_EXISTS]
+    \\ ‘step_n x' (sr,ss,sk) = step_n (p+(x+x')) (sr,ss,sk)’ by
+          metis_tac [is_halt_step,ADD_COMM,step_n_add,PAIR]
     \\ gvs []
     \\ qpat_x_assum ‘step_res_rel _ _ _ _’ mp_tac
     \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
@@ -821,19 +768,17 @@ Proof
   >-
    (‘∃a. step_n x (tr,ts,tk) = a’ by fs []
     \\ PairCases_on ‘a’ \\ gvs []
-    \\ first_x_assum $ qspec_then ‘x’ mp_tac
-    \\ ‘∃b. step_n x (sr,ss,sk) = b’ by fs []
-    \\ PairCases_on ‘b’ \\ gvs [] \\ rw []
-    \\ drule_all step_1_forward
-    \\ strip_tac \\ rfs []
-    \\ gvs [LESS_EQ_EXISTS]
-    \\ full_simp_tac std_ss [step_n_add]
-    \\ gvs [] \\ gvs [is_halt_step])
-  >-
-   (‘∃a. step_n x (sr,ss,sk) = a’ by fs []
-    \\ PairCases_on ‘a’ \\ gvs []
     \\ drule_all step_1_forward \\ strip_tac
     \\ first_x_assum $ qspec_then ‘m’ mp_tac \\ gvs [])
+  >-
+   (‘∃a. step_n x (tr,ts,tk) = a’ by fs []
+    \\ PairCases_on ‘a’ \\ gvs []
+    \\ first_x_assum $ qspec_then ‘x’ mp_tac
+    \\ drule_all step_1_forward
+    \\ strip_tac \\ rfs []
+    \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
+    \\ gvs [LESS_EQ_EXISTS,step_n_add]
+    \\ gvs [is_halt_step])
 QED
 
 Theorem itree_eq:
