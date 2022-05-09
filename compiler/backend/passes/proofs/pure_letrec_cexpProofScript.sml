@@ -37,30 +37,106 @@ Proof
   recInduct lets_for_ind >> rw[lets_for_def, letrec_recurse_def]
 QED
 
+Theorem patguards_letrec_recurse_gd[local]:
+  ∀eps gd binds.
+    patguards eps = (gd, binds) ∧
+    (∀e p. MEM (e,p) eps ⇒ letrec_recurse f e = e) ⇒
+    letrec_recurse f gd = gd
+Proof
+  recInduct patguards_ind >> REWRITE_TAC [patguards_def] >>
+  rpt strip_tac
+  >- gvs[letrec_recurse_def] >>
+  rename [‘MEM _ (ep::eps)’] >>
+  Cases_on ‘ep’ >> gvs[] >> rename [‘p = cepatUScore’]  >>
+  Cases_on ‘p’ >> gvs[] >~
+  [‘cepatUScore’] >- metis_tac[] >~
+  [‘(_ ## _) (patguards eps)’]
+  >- (Cases_on ‘patguards eps’ >> gvs[] >> metis_tac[]) >>
+  pairarg_tac >>
+  gvs[letrec_recurse_def, indexedListsTheory.MEM_MAPi, PULL_EXISTS,
+      DISJ_IMP_THM, FORALL_AND_THM] >> metis_tac[]
+QED
+
+Triviality letrec_recurse_FOLDR_Let:
+  (∀vnm e. MEM (vnm,e) binds ⇒ letrec_recurse f e = e) ⇒
+  letrec_recurse f (FOLDR (λ(u,e) A. Let u e A) body binds) =
+  FOLDR (λ(u,e) A. Let u e A) (letrec_recurse f body) binds
+Proof
+  Induct_on ‘binds’ >>
+  simp[letrec_recurse_def, DISJ_IMP_THM, FORALL_AND_THM, FORALL_PROD] >>
+  metis_tac[]
+QED
+
+Triviality patguards_binds_letrec_recurse_fixpoints:
+  ∀eps gd binds vnm e.
+    patguards eps = (gd, binds) ∧
+    (∀e p. MEM (e,p) eps ⇒ letrec_recurse f e = e) ∧
+    MEM (vnm, e) binds ⇒
+    letrec_recurse f e = e
+Proof
+  recInduct patguards_ind >> simp[patguards_def, FORALL_PROD] >>
+  rpt strip_tac >>
+  rename [‘p = cepatUScore’] >>
+  Cases_on ‘p’ >> gvs[] >~
+  [‘(_ ## _) (patguards eps)’]
+  >- (Cases_on ‘patguards eps’ >> gvs[] >> metis_tac[]) >~
+  [‘cepatUScore’] >- metis_tac[] >>
+  pairarg_tac >>
+  gvs[indexedListsTheory.MEM_MAPi, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS,
+      letrec_recurse_def] >> metis_tac[]
+QED
+
+Triviality letrec_recurse_nested_rows:
+  letrec_recurse f (nested_rows (Var v) pes) =
+  nested_rows (Var v) (MAP (λ(p,e). (p, letrec_recurse f e)) pes)
+Proof
+  Induct_on ‘pes’ >> simp[letrec_recurse_def, nested_rows_def, FORALL_PROD] >>
+  qx_genl_tac [‘e0’, ‘body’] >> pairarg_tac >>
+  simp[letrec_recurse_def] >> conj_tac >~
+  [‘letrec_recurse f gd = gd’]
+  >- (irule patguards_letrec_recurse_gd >> first_assum $ irule_at Any >>
+      simp[letrec_recurse_def]) >>
+  irule letrec_recurse_FOLDR_Let >> rpt strip_tac >>
+  irule patguards_binds_letrec_recurse_fixpoints >>
+  rpt $ first_assum $ irule_at Any >> simp[letrec_recurse_def]
+QED
+
 Theorem letrec_recurse_exp_of:
   ∀f ce g.
   (∀c fns e. exp_of (f c fns e) = g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
   ⇒ exp_of (letrec_recurse_cexp f ce) = letrec_recurse g (exp_of ce)
 Proof
   recInduct letrec_recurse_cexp_ind >>
-  rw[exp_of_def, letrec_recurse_cexp_def, letrec_recurse_def]
+  rw[exp_of_def, letrec_recurse_cexp_def, letrec_recurse_def,
+     letrec_recurse_Lams, letrec_recurse_Apps]
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
     first_x_assum drule >> rw[] >> AP_THM_TAC >> AP_TERM_TAC >>
     rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
     last_x_assum irule >> simp[] >> goal_assum drule
     )
-  >- (rw[letrec_recurse_Lams] >> AP_TERM_TAC >> first_x_assum irule >> simp[])
-  >- (simp[MAP_MAP_o, combinTheory.o_DEF] >> rw[MAP_EQ_f])
-  >- (
-    rw[letrec_recurse_Apps] >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    first_x_assum drule >> rw[] >> AP_TERM_TAC >> rw[MAP_EQ_f]
-    ) >>
-  gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
-  rw[letrec_recurse_rows_of] >>
-  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
-  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-  last_x_assum irule >> simp[] >> goal_assum drule
+  >- (first_x_assum drule >> simp[])
+  >- (first_x_assum $ drule_at Any >> simp[MAP_MAP_o, Cong MAP_CONG])
+  >- (pop_assum
+      (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th))>>
+      simp[MAP_MAP_o, combinTheory.o_DEF] >> simp[Cong MAP_CONG]) >>~-
+  ([‘rows_of’],
+   pop_assum
+     (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th)) >>
+   simp[letrec_recurse_rows_of, MAP_MAP_o, pairTheory.o_UNCURRY_R,
+        combinTheory.o_ABS_R] >> AP_TERM_TAC >>
+   rw[MAP_EQ_f] >> pairarg_tac >> gvs[]>> metis_tac[]) >>~-
+  ([‘nested_rows’],
+   simp[letrec_recurse_nested_rows, MAP_MAP_o, o_UNCURRY_R,
+        combinTheory.o_ABS_R] >>
+   pop_assum
+     (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th)) >>
+   AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >> metis_tac[]) >>
+  gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >> TRY pairarg_tac >> gvs[] >~
+  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >~
+  [‘MEM x $ cepat_vars_l (FST y)’] >- (PairCases_on ‘y’ >> gvs[] >>
+                                       metis_tac[]) >>
+  metis_tac[]
 QED
 
 (********************)
@@ -80,16 +156,25 @@ Definition fvs_ok_def:
   fvs_ok (Letrec c fns e) =
     (fv_set_ok (Letrec c fns e) ∧ fvs_ok e ∧ EVERY (λ(f,e). fvs_ok e) fns) ∧
   fvs_ok (Case c e v css) =
-    (fv_set_ok (Case c e v css) ∧ fvs_ok e ∧ EVERY (λ(cn,vs,e). fvs_ok e) css)
+    (fv_set_ok (Case c e v css) ∧ fvs_ok e ∧ EVERY (λ(cn,vs,e). fvs_ok e) css) ∧
+  fvs_ok (NestedCase c e v pes) =
+    (fv_set_ok (NestedCase c e v pes) ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes)
 Termination
-  WF_REL_TAC `measure $ cexp_size (K 0)` >> rw[] >> gvs[] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]
+  WF_REL_TAC `measure $ cexp_size (K 0)` >>
+  simp[cexp_size_eq, DISJ_IMP_THM, FORALL_AND_THM] >> rpt strip_tac >>
+  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[list_size_def]
 End
 
 Theorem fvs_ok_imp:
   ∀e. fvs_ok e ⇒ fv_set_ok e
 Proof
   Cases >> rw[fvs_ok_def]
+QED
+
+Theorem neq_some_unit[local,simp]:
+  x ≠ SOME () ⇔ x = NONE
+Proof
+  Cases_on ‘x’ >> simp[]
 QED
 
 val drwts = [
@@ -192,15 +277,56 @@ Proof
       metis_tac[fvs_ok_imp, fv_set_ok_def]
       )
     )
+  >- (simp[fvs_ok_def, fv_set_ok_def, get_info_def, EVERY_MAP, LAMBDA_PROD,
+           MEM_MAP, GSYM PEXISTS_THM, PULL_EXISTS, EVERY_MEM,
+           GSYM PFORALL_THM] >>
+      reverse conj_tac >- first_assum ACCEPT_TAC >>
+      rw[] >> DEP_REWRITE_TAC drwts
+      >- (drule_then strip_assume_tac fvs_ok_imp >>
+          last_x_assum (C (resolve_then Any strip_assume_tac) fvs_ok_imp) >>
+          gvs[fv_set_ok_def, EVERY_MEM, PULL_EXISTS, MEM_MAP, FORALL_PROD] >>
+          rw[] >> DEP_REWRITE_TAC drwts
+          >- metis_tac[]
+          >- metis_tac[] >>
+          simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+          rw[] >> DEP_REWRITE_TAC drwts >> metis_tac[])
+      >- (drule_then strip_assume_tac fvs_ok_imp >>
+          last_x_assum (C (resolve_then Any strip_assume_tac) fvs_ok_imp) >>
+          gvs[fv_set_ok_def, EVERY_MEM, PULL_EXISTS, MEM_MAP, FORALL_PROD] >>
+          rw[] >> DEP_REWRITE_TAC drwts
+          >- metis_tac[]
+          >- metis_tac[] >>
+          simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+          rw[] >> DEP_REWRITE_TAC drwts >> metis_tac[]) >>
+      drule_then strip_assume_tac fvs_ok_imp >>
+      last_x_assum (C (resolve_then Any strip_assume_tac) fvs_ok_imp) >>
+      rw[AllCaseEqs()] >>
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD, fv_set_ok_def,
+          EXISTS_PROD] >>
+      rw[] >> DEP_REWRITE_TAC drwts >>
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD, fv_set_ok_def] >>
+      rw[] >> DEP_REWRITE_TAC drwts >>
+      TRY (first_x_assum $ drule_then strip_assume_tac >> simp[] >> NO_TAC) >>
+      eq_tac >> rpt strip_tac >> gvs[] >>
+      first_x_assum $ drule_then strip_assume_tac >> simp[] >>
+      gvs[lookup_list_delete]
+      >- metis_tac[cepat_vars_l_correct] >>
+      qmatch_abbrev_tac ‘_ ∨ k ∈ freevars_cexp (letrec_recurse_fvs f e)’ >>
+      qmatch_abbrev_tac ‘_ ∨ P’ >> Cases_on ‘P’ >> simp[] >>
+      gvs[markerTheory.Abbrev_def] >>
+      first_x_assum (pop_assum o mp_then Concl mp_tac o iffLR) >> simp[] >>
+      strip_tac >> first_assum $ irule_at Any >>
+      simp[lookup_list_delete, cepat_vars_l_correct] )
 QED
 
 Theorem letrec_recurse_fvs_exp_of:
   ∀f ce g.
-  (∀c fns e.
-    fvs_ok (Letrec c fns e)
-   ⇒ fvs_ok (f c fns e) ∧
-     exp_of (f c fns e) = g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
-  ⇒ exp_of (letrec_recurse_fvs f ce) = letrec_recurse g (exp_of ce)
+    (∀c fns e.
+       fvs_ok (Letrec c fns e) ⇒
+       fvs_ok (f c fns e) ∧
+       exp_of (f c fns e) = g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
+    ⇒
+    exp_of (letrec_recurse_fvs f ce) = letrec_recurse g (exp_of ce)
 Proof
   recInduct letrec_recurse_cexp_ind >>
   rw[exp_of_def, letrec_recurse_fvs_def, letrec_recurse_def]
@@ -231,7 +357,7 @@ Proof
     first_x_assum drule >> rw[] >> AP_TERM_TAC >> rw[MAP_EQ_f]
     ) >>
   gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
-  rw[letrec_recurse_rows_of] >>
+  rw[letrec_recurse_rows_of, letrec_recurse_nested_rows] >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> AP_TERM_TAC >>
   rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
   last_x_assum irule >> simp[] >> goal_assum drule
