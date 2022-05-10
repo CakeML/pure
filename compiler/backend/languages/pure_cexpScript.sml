@@ -178,11 +178,34 @@ Definition cexp_wf_def:
   cexp_wf (Case _ e v css) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css)) ∧
-  cexp_wf (NestedCase _ _ _ _) = F
+  cexp_wf (NestedCase _ e v pes) =
+    (cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧ pes ≠ [] ∧
+    ¬ MEM v (FLAT $ MAP (cepat_vars_l o FST) pes))
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> rw[fetch "-" "cexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[fetch "-" "cexp_size_def"]
+End
+
+Definition NestedCase_free_def[simp]:
+  NestedCase_free (Var _ _) = T ∧
+  NestedCase_free (Prim _ _ es) = EVERY NestedCase_free es ∧
+  NestedCase_free (App _ e es) = (NestedCase_free e ∧ EVERY NestedCase_free es)∧
+  NestedCase_free (Lam _ vs e) = NestedCase_free e ∧
+  NestedCase_free (Let _ _ e1 e2) = (NestedCase_free e1 ∧ NestedCase_free e2) ∧
+  NestedCase_free (Letrec _ fns e) = (
+    NestedCase_free e ∧ EVERY NestedCase_free $ MAP SND fns
+  ) ∧
+  NestedCase_free (Case _ e _ css) = (
+    NestedCase_free e ∧ EVERY NestedCase_free $ MAP (SND o SND) css
+  ) ∧
+  NestedCase_free (NestedCase _ _ _ _) = F
+Termination
+  WF_REL_TAC ‘measure $ cexp_size (K 0)’ >>
+  simp[fetch "-" "cexp_size_eq", MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+  rename [‘MEM _ list’] >> Induct_on ‘list’ >>
+  simp[FORALL_PROD, listTheory.list_size_def, basicSizeTheory.pair_size_def] >>
+  rw[] >> gs[]
 End
 
 Definition cexp_eq_def:
