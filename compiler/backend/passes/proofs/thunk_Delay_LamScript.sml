@@ -622,6 +622,7 @@ Proof
   \\ ho_match_mp_tac exp_rel_strongind \\ rw []
   >~ [‘Var v’] >- (
     rw [subst_def]
+    \\ rename1 ‘LIST_REL v_rel (MAP SND vs) (MAP SND ws)’
     \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
       by (irule LIST_REL_OPTREL
           \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
@@ -725,6 +726,7 @@ Proof
             GSYM FST_THM]
     \\ first_x_assum (irule_at Any)
     \\ gvs [MAP_FST_FILTER]
+    \\ rename1 ‘MAP FST f = MAP FST g’
     \\ qabbrev_tac ‘P = λn. ¬MEM n (MAP FST g)’ \\ gs []
     \\ irule_at Any LIST_REL_FILTER
     \\ ‘∀f x. ok_bind x ⇒ ok_bind (subst f x)’
@@ -740,11 +742,11 @@ Proof
     \\ irule LIST_REL_FILTER
     \\ gvs [LIST_REL_EL_EQN])
   >~ [‘Let (SOME v) x2 (Let s _ y2)’] >- (
-    Cases_on ‘s’ \\ rw [subst_def, FILTERED]
+    rename1 ‘LIST_REL v_rel (MAP SND vs) (MAP SND ws)’
+    \\ Cases_on ‘s’ \\ rw [subst_def, FILTERED]
     \\ irule exp_rel_Let_Delay_Lam
     \\ gvs [is_Lam_subst, freevars_subst]
-    >- (rename1 ‘subst (FILTER (λ(n, x). n ≠ v) ws) y2’ >>
-        qspecl_then [‘ws’, ‘y2’, ‘{v}’] assume_tac subst_remove >>
+    >- (qspecl_then [‘ws’, ‘y2’, ‘{v}’] assume_tac subst_remove >>
         drule_then assume_tac exp_rel_freevars >>
         gvs []) >>
     gvs [FILTER_COMM] >>
@@ -797,7 +799,8 @@ Proof
   >- (strip_tac >>
       dxrule_then (dxrule_then assume_tac) Letrec_Delay_SUBSET >>
       gvs [SUBSET_DEF] >> first_x_assum $ dxrule_then assume_tac >>
-      Cases_on ‘p_2’ >> gvs [EVERY_CONJ, EVERY_MEM] >>
+      rename1 ‘[(p_1, p_2)]’ >> Cases_on ‘p_2’ >>
+      gvs [EVERY_CONJ, EVERY_MEM] >>
       rename1 ‘is_Lam e2 ∧ b’ >> Cases_on ‘is_Lam e2 ∧ b’ >> gvs [])
 QED
 
@@ -837,6 +840,29 @@ Proof
   rename1 ‘LENGTH _ = LENGTH vL’ >>
   last_x_assum $ qspecl_then [‘vL’] assume_tac >> gs [] >>
   first_x_assum $ drule_all_then assume_tac >> gvs []
+QED
+
+Theorem ALOOKUP_Letrec_Delay2:
+  ∀g vL bL n name e handler.
+    LENGTH g = LENGTH vL ∧ LENGTH bL = LENGTH vL ∧ n < LENGTH vL ∧
+    ALL_DISTINCT vL ∧ ALL_DISTINCT (MAP FST g) ∧ EVERY (λv. ¬MEM v (MAP FST g)) vL ∧
+    EL n bL ∧ is_Lam e ∧ EL n g = (name, Delay e) ∧
+    handler = FLAT (MAP2 (λ(v1, e) (v2, b). case e of
+                                            | Delay e2 => if is_Lam e2 ∧ b
+                                                          then [(v2, e2); (v1, Delay (Var v2))]
+                                                          else [(v1, e)]
+                                            | _ => [(v1, e)]) g (ZIP (vL, bL))) ⇒
+    ALOOKUP (REVERSE (MAP (λ(g, x). (g, Recclosure handler g)) handler)) (EL n vL)
+    = SOME (Recclosure handler (EL n vL))
+Proof
+  rw [] >> irule ALOOKUP_ALL_DISTINCT_MEM >>
+  gvs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+  irule_at Any ALL_DISTINCT_Letrec_Delay >> gvs [] >>
+  gvs [MEM_MAP, EXISTS_PROD] >>
+  gvs [MEM_FLAT] >>
+  irule_at (Pos hd) $ iffRL MEM_EL >> gvs [] >>
+  first_assum $ irule_at Any >> gvs [EL_MAP2, EL_ZIP] >>
+  metis_tac []
 QED
 
 Theorem ALOOKUP_Letrec_Delay3:
@@ -917,16 +943,15 @@ Proof
           rename1 ‘MEM (FST y) _’ >> PairCases_on ‘y’ >> gvs [MEM_MAP]
           >- (gvs [FORALL_PROD, MEM_EL] >>
               rename1 ‘n < _’ >>
-              first_x_assum $ qspecl_then [‘SND (EL n f)’, ‘n’] assume_tac >>
-              rename1 ‘MAP FST g = MAP FST f’ >>
-              ‘LENGTH f = LENGTH g’ by metis_tac [LENGTH_MAP] >>
-              ‘EL n (MAP FST g) = EL n (MAP FST f)’ by gvs [] >> gs [EL_MAP]) >>
+              first_x_assum $ resolve_then (Pos hd) mp_tac PAIR >>
+              gvs []) >>
           gvs [EVERY_MEM, freevars_def, boundvars_def])
       >- (dxrule_then assume_tac ALOOKUP_MEM >>
-          gvs [MEM_MAP, MEM_FILTER] >> rename1 ‘MEM y _’ >> PairCases_on ‘y’ >> gvs [] >>
+          gvs [MEM_MAP, MEM_FILTER] >>
+          pairarg_tac >> gvs [] >>
           drule_then (drule_then assume_tac) Letrec_Delay_SUBSET2 >> gvs [SUBSET_DEF] >>
-          rename1 ‘MEM (n, _) f’ >> pop_assum $ qspecl_then [‘n’] assume_tac >>
-          gvs [Once MEM_MAP, PULL_EXISTS, FORALL_PROD] >> first_x_assum $ drule_then assume_tac >>
+          gvs [Once MEM_MAP, PULL_EXISTS] >> pop_assum $ drule_then assume_tac >> fs [] >>
+          rename1 ‘MAP2 _ g (ZIP (vL, bL))’ >>
           drule_then (qspecl_then
                       [‘Recclosure (FLAT (MAP2 (λ(v1, e) (v2, b).
                              case e of
@@ -973,8 +998,11 @@ Proof
   >~[‘Seq x1 y1’]
   >-(gvs [exp_rel_def, subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, is_Lam_subst,
           freevars_subst]
-     >- (last_x_assum $ qspecl_then [‘filter’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
+     >- (rename1 ‘freevars (Delay x1)’ >> rename1 ‘exp_rel x1 x2’ >>
+         last_x_assum $ qspecl_then [‘filter’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
          first_x_assum $ irule_at Any >> gvs [EVERY_CONJ, freevars_def, boundvars_def] >>
+         rename1 ‘subst (FILTER (λ(k,x). filter k) (MAP _ f)) y1’ >>
+         rename1 ‘v ∉ _ ’ >>
          qspecl_then [‘FILTER (λ(k,x). filter k) (MAP (λ(g,x). (g,Recclosure f g)) f)’,
                       ‘y1’, ‘{v}’] assume_tac
                      $ GSYM subst_remove >>
@@ -983,8 +1011,11 @@ Proof
   >~[‘Let (SOME s) x1 y1’]
   >- (gvs [exp_rel_def, subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER,
            is_Lam_subst, freevars_subst]
-      >- (last_x_assum $ qspecl_then [‘filter’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
+      >- (rename1 ‘freevars (Delay x1)’ >> rename1 ‘exp_rel x1 x2’ >>
+          last_x_assum $ qspecl_then [‘filter’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
           first_x_assum $ irule_at Any >> gvs [EVERY_CONJ, freevars_def, boundvars_def] >>
+          rename1 ‘subst (FILTER _ (FILTER (λ(k,x). filter k) (MAP _ f))) y1’ >>
+          rename1 ‘v ∉ _ ’ >>
           qspecl_then [‘FILTER (λ(k, x). k ≠ s) (FILTER (λ(k,x). filter k)
                                                  (MAP (λ(g,x). (g,Recclosure f g)) f))’,
                        ‘y1’, ‘{v}’] assume_tac $ GSYM subst_remove >>
@@ -1083,28 +1114,31 @@ Proof
               first_x_assum $ dxrule_then assume_tac >> gvs [freevars_subst]) >>
           pairarg_tac >> gvs [boundvars_subst] >>
           first_x_assum $ drule_then assume_tac >> gvs [])
-      >- (qabbrev_tac ‘handler = (λ(v1, e) (v2, b). case e of
+      >- (rename1 ‘exp_rel _ (subst (FILTER (λ(n,v). ¬MEM n (MAP FST (FLAT (MAP2 _ g2 (ZIP (vL2, bL2))))))
+                                     (FILTER (λ(k,x). filter k)
+                                     (MAP _ (FLAT (MAP2 _ g1 (ZIP (vL1, bL1))))))) y2)’ >>
+          qabbrev_tac ‘handler = (λ(v1, e) (v2, b). case e of
                     | Delay e2 => if is_Lam e2 ∧ b
                                   then [(v2, e2); (v1, Delay (Var v2))]
                                   else [(v1, e)]
                     | _ => [(v1, e)])’ >>
-          qspecl_then [‘y'’, ‘set (MAP FST (FLAT (MAP2 handler g' (ZIP (vL', bL')))))’,
-                       ‘set (MAP FST g')’,
+          qspecl_then [‘y2’, ‘set (MAP FST (FLAT (MAP2 handler g2 (ZIP (vL2, bL2)))))’,
+                       ‘set (MAP FST g2)’,
                        ‘FILTER (λ(k, x). filter k) (MAP
-                      (λ(g', x). (g', Recclosure (FLAT (MAP2 handler g (ZIP (vL, bL)))) g'))
-                      (FLAT (MAP2 handler g (ZIP (vL, bL)))))’]
+                      (λ(g', x). (g', Recclosure (FLAT (MAP2 handler g1 (ZIP (vL1, bL1)))) g'))
+                      (FLAT (MAP2 handler g1 (ZIP (vL1, bL1)))))’]
                       mp_tac change_Filter >>
           impl_tac
           >- (rw []
-              >- (qspecl_then [‘g'’, ‘vL'’, ‘bL'’] assume_tac Letrec_Delay_SUBSET >>
+              >- (qspecl_then [‘g2’, ‘vL2’, ‘bL2’] assume_tac Letrec_Delay_SUBSET >>
                   gvs [SUBSET_DEF] >>
                   first_x_assum $ dxrule_then assume_tac >> gvs [EVERY_MEM] >>
                   dxrule_then assume_tac exp_rel_freevars >>
                   gvs []) >>
-              qspecl_then [‘g'’, ‘vL'’, ‘bL'’] assume_tac Letrec_Delay_SUBSET2 >>
+              qspecl_then [‘g2’, ‘vL2’, ‘bL2’] assume_tac Letrec_Delay_SUBSET2 >>
               gvs [SUBSET_DEF]) >>
           rw [FILTER_FILTER, LAMBDA_PROD] >>
-          first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g') ∧ filter x’] assume_tac >>
+          first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter x’] assume_tac >>
           gvs [] >> first_x_assum $ irule >>
           gvs [EVERY_CONJ, freevars_def, boundvars_def, EVERY_MEM]))
   >~[‘Delay x’]
@@ -1125,29 +1159,6 @@ Proof
   >- (gvs [exp_rel_def, subst_def] >>
       last_x_assum $ irule >>
       gvs [freevars_def, boundvars_def])
-QED
-
-Theorem ALOOKUP_Letrec_Delay2:
-  ∀g vL bL n name e handler.
-    LENGTH g = LENGTH vL ∧ LENGTH bL = LENGTH vL ∧ n < LENGTH vL ∧
-    ALL_DISTINCT vL ∧ ALL_DISTINCT (MAP FST g) ∧ EVERY (λv. ¬MEM v (MAP FST g)) vL ∧
-    EL n bL ∧ is_Lam e ∧ EL n g = (name, Delay e) ∧
-    handler = FLAT (MAP2 (λ(v1, e) (v2, b). case e of
-                                            | Delay e2 => if is_Lam e2 ∧ b
-                                                          then [(v2, e2); (v1, Delay (Var v2))]
-                                                          else [(v1, e)]
-                                            | _ => [(v1, e)]) g (ZIP (vL, bL))) ⇒
-    ALOOKUP (REVERSE (MAP (λ(g, x). (g, Recclosure handler g)) handler)) (EL n vL)
-    = SOME (Recclosure handler (EL n vL))
-Proof
-  rw [] >> irule ALOOKUP_ALL_DISTINCT_MEM >>
-  gvs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
-  irule_at Any ALL_DISTINCT_Letrec_Delay >> gvs [] >>
-  gvs [MEM_MAP, EXISTS_PROD] >>
-  gvs [MEM_FLAT] >>
-  irule_at (Pos hd) $ iffRL MEM_EL >> gvs [] >>
-  first_assum $ irule_at Any >> gvs [EL_MAP2, EL_ZIP] >>
-  qexists_tac ‘e’ >> gvs []
 QED
 
 Theorem eval_to_Letrec:
