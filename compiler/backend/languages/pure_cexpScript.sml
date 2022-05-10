@@ -167,7 +167,6 @@ Definition get_info_def:
   get_info (NestedCase c _ _ _) = c
 End
 
-(* exclude NestedCases *)
 Definition cexp_wf_def:
   cexp_wf (Var _ v) = T ∧
   cexp_wf (Prim _ op es) = EVERY cexp_wf es ∧
