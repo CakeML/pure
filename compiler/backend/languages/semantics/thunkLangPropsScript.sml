@@ -402,7 +402,7 @@ Definition rel_ok_def:
          next_rel Rv (apply_closure v1 v2 f)
                      (apply_closure w1 w2 g)) ∧
     (∀s x w.
-       Rv (Closure s x) w ⇒ ∃t y. w = Closure t y) ∧
+       Rv (Closure s x) w ⇒ (∃t y. w = Closure t y) ∨ (∃g m. w = Recclosure g m)) ∧
     (∀f n w.
        Rv (Recclosure f n) w ⇒ ∃g m. w = Recclosure g m) ∧
     (∀s w.

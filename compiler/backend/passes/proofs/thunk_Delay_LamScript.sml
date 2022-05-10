@@ -49,7 +49,20 @@ End
 Theorem boundvars_subst:
   ∀e l. boundvars (subst l e) = boundvars e
 Proof
-  cheat
+  Induct using freevars_ind >> rw [boundvars_def, subst_def]
+  >- (CASE_TAC >> gvs [boundvars_def])
+  >- (AP_TERM_TAC >> AP_TERM_TAC >>
+      irule LIST_EQ >> rw [EL_MAP] >>
+      last_x_assum irule >>
+      gvs [EL_MEM])
+  >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
+      AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
+      AP_TERM_TAC >> AP_TERM_TAC >>
+      irule LIST_EQ >> rw [EL_MAP] >>
+      pairarg_tac >> gvs [] >>
+      last_x_assum irule >>
+      gvs [MEM_EL] >>
+      first_x_assum $ irule_at Any >> gvs [])
 QED
 
 Inductive exp_rel:
@@ -901,7 +914,19 @@ QED
 Theorem subst_APPEND:
   ∀e l1 l2. subst (l1 ++ l2) e = subst l1 (subst l2 e)
 Proof
-  cheat
+  Induct using freevars_ind >> gvs [subst_def, FILTER_APPEND]
+  >- (gvs [REVERSE_APPEND, ALOOKUP_APPEND] >>
+      rw [] >> CASE_TAC >> gvs [subst_def])
+  >- (rw [] >> irule LIST_EQ >>
+      rw [EL_MAP] >>
+      last_x_assum irule >> gvs [EL_MEM]) >>
+  rw []
+  >- (irule LIST_EQ >>
+      rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, EL_MAP] >>
+      pairarg_tac >> gvs [MEM_EL, PULL_EXISTS] >>
+      last_x_assum irule >>
+      first_x_assum $ irule_at Any >> gvs [])
+  >- rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
 QED
 
 Theorem exp_rel_subst_Letrec:
