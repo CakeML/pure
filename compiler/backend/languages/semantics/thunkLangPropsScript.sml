@@ -132,6 +132,25 @@ Proof
     \\ gvs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD])
 QED
 
+Theorem boundvars_subst:
+  ∀e l. boundvars (subst l e) = boundvars e
+Proof
+  Induct using freevars_ind >> rw [boundvars_def, subst_def]
+  >- (CASE_TAC >> gvs [boundvars_def])
+  >- (AP_TERM_TAC >> AP_TERM_TAC >>
+      irule LIST_EQ >> rw [EL_MAP] >>
+      last_x_assum irule >>
+      gvs [EL_MEM])
+  >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
+      AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
+      AP_TERM_TAC >> AP_TERM_TAC >>
+      irule LIST_EQ >> rw [EL_MAP] >>
+      pairarg_tac >> gvs [] >>
+      last_x_assum irule >>
+      gvs [MEM_EL] >>
+      first_x_assum $ irule_at Any >> gvs [])
+QED
+
 Theorem closed_subst:
   closed (subst m x) ⇔ freevars x ⊆ set (MAP FST m)
 Proof
@@ -404,7 +423,7 @@ Definition rel_ok_def:
     (∀s x w.
        Rv (Closure s x) w ⇒ (∃t y. w = Closure t y) ∨ (∃g m. w = Recclosure g m)) ∧
     (∀f n w.
-       Rv (Recclosure f n) w ⇒ ∃g m. w = Recclosure g m) ∧
+       Rv (Recclosure f n) w ⇒ (∃g m. w = Recclosure g m) ∨ (∃t y. w = Closure t y)) ∧
     (∀s w.
        Rv (Thunk s) w ⇒ (∃t. w = Thunk t) ∨ (∃v. w = DoTick v)) ∧
     (∀x w.

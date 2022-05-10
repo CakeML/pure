@@ -205,6 +205,30 @@ Termination
   \\ fs [exp_size_def]
 End
 
+Definition boundvars_def:
+  boundvars (Var n) = {} ∧
+  boundvars (Prim op xs) = (BIGUNION (set (MAP boundvars xs))) ∧
+  boundvars (If x y z) = boundvars x ∪ boundvars y ∪ boundvars z ∧
+  boundvars (App x y) = boundvars x ∪ boundvars y ∧
+  boundvars (Lam s b) = boundvars b ∪ {s} ∧
+  boundvars (Let NONE x y) = boundvars x ∪ boundvars y ∧
+  boundvars (Let (SOME s) x y) = boundvars x ∪ boundvars y ∪ {s} ∧
+  boundvars (Letrec f x) =
+    ((boundvars x ∪ BIGUNION (set (MAP (λ(n, x). boundvars x) f))) ∪
+     set (MAP FST f)) ∧
+  boundvars (Delay x) = boundvars x ∧
+  boundvars (Box x) = boundvars x ∧
+  boundvars (Force x) = boundvars x ∧
+  boundvars (Value v) = ∅ ∧
+  boundvars (MkTick x) = boundvars x
+Termination
+  WF_REL_TAC ‘measure exp_size’
+  \\ rw []
+  \\ rename1 ‘MEM _ xs’
+  \\ Induct_on ‘xs’ \\ rw []
+  \\ fs [exp_size_def]
+End
+
 Definition closed_def:
   closed e ⇔ freevars e = ∅
 End

@@ -22,49 +22,6 @@ Definition is_Lam_def[simp]:
   is_Lam _ = F
 End
 
-Definition boundvars_def:
-  boundvars (Var n) = {} ∧
-  boundvars (Prim op xs) = (BIGUNION (set (MAP boundvars xs))) ∧
-  boundvars (If x y z) = boundvars x ∪ boundvars y ∪ boundvars z ∧
-  boundvars (App x y) = boundvars x ∪ boundvars y ∧
-  boundvars (Lam s b) = boundvars b ∪ {s} ∧
-  boundvars (Let NONE x y) = boundvars x ∪ boundvars y ∧
-  boundvars (Let (SOME s) x y) = boundvars x ∪ boundvars y ∪ {s} ∧
-  boundvars (Letrec f x) =
-    ((boundvars x ∪ BIGUNION (set (MAP (λ(n, x). boundvars x) f))) ∪
-     set (MAP FST f)) ∧
-  boundvars (Delay x) = boundvars x ∧
-  boundvars (Box x) = boundvars x ∧
-  boundvars (Force x) = boundvars x ∧
-  boundvars (Value v) = ∅ ∧
-  boundvars (MkTick x) = boundvars x
-Termination
-  WF_REL_TAC ‘measure exp_size’
-  \\ rw []
-  \\ rename1 ‘MEM _ xs’
-  \\ Induct_on ‘xs’ \\ rw []
-  \\ fs [exp_size_def]
-End
-
-Theorem boundvars_subst:
-  ∀e l. boundvars (subst l e) = boundvars e
-Proof
-  Induct using freevars_ind >> rw [boundvars_def, subst_def]
-  >- (CASE_TAC >> gvs [boundvars_def])
-  >- (AP_TERM_TAC >> AP_TERM_TAC >>
-      irule LIST_EQ >> rw [EL_MAP] >>
-      last_x_assum irule >>
-      gvs [EL_MEM])
-  >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
-      AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
-      AP_TERM_TAC >> AP_TERM_TAC >>
-      irule LIST_EQ >> rw [EL_MAP] >>
-      pairarg_tac >> gvs [] >>
-      last_x_assum irule >>
-      gvs [MEM_EL] >>
-      first_x_assum $ irule_at Any >> gvs [])
-QED
-
 Inductive exp_rel:
 [~Var:]
   (∀n. exp_rel (Var n) (Var n)) ∧
