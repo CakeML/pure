@@ -237,38 +237,80 @@ Theorem subst1_notin_frees =
   |> SIMP_RULE (srw_ss()) [IN_DISJOINT]
   |> GSYM;
 
-Theorem subst1_commutes:
-  ∀x v n m w.
-    n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
+Theorem MEM_FST:
+  ∀l p. MEM p l ⇒ MEM (FST p) (MAP FST l)
+Proof
+  Induct >> gvs [FORALL_PROD] >>
+  rw [] >>
+  last_x_assum $ drule_then assume_tac >> gvs []
+QED
+
+Theorem subst_commutes:
+  ∀x vs ws.
+    DISJOINT (set (MAP FST vs)) (set (MAP FST ws)) ⇒ subst vs (subst ws x) = subst ws (subst vs x)
 Proof
   ho_match_mp_tac exp_ind
   \\ rpt conj_tac
-  \\ simp [subst1_def] \\ rw []
-  \\ simp [subst1_def]
+  \\ simp [subst_def] \\ rw []
+  \\ simp [subst_def]
+  >- (CASE_TAC
+      >- (CASE_TAC \\ gvs [subst_def])
+      \\ CASE_TAC \\ gvs [subst_def]
+      \\ rpt $ dxrule_then assume_tac ALOOKUP_MEM
+      \\ rpt $ dxrule_then assume_tac MEM_FST
+      \\ gvs [MAP_REVERSE, DISJOINT_ALT])
   >- (
     simp [MAP_MAP_o, combinTheory.o_DEF]
     \\ irule LIST_EQ
-    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS])
-  >- (
-    IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def])
+    \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
+    \\ rw [] \\ last_x_assum irule \\ gvs [])
+  >- first_x_assum $ drule_then irule
+  >- first_x_assum $ drule_then irule
+  >- first_x_assum $ drule_then irule
+  >- first_x_assum $ drule_then irule
+  >- (first_x_assum irule \\ gvs [])
+  >- (first_x_assum irule
+      \\ gvs [DISJOINT_ALT] \\ rpt $ strip_tac
+      \\ gvs [MEM_MAP, MEM_FILTER, PULL_EXISTS]
+      \\ last_x_assum $ dxrule_then $ dxrule_then assume_tac
+      \\ gvs [])
   >- (
     rename1 ‘Let x’
-    \\ Cases_on ‘x’ \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def])
+    \\ Cases_on ‘x’ \\ simp [subst_def]
+    >- (conj_tac \\ last_x_assum $ dxrule_then irule)
+    \\ last_x_assum $ drule_then $ irule_at Any
+    \\ last_x_assum irule
+    \\ gvs [DISJOINT_ALT] \\ rpt $ strip_tac
+    \\ gvs [MEM_MAP, MEM_FILTER, PULL_EXISTS]
+    \\ last_x_assum $ dxrule_then $ dxrule_then assume_tac
+    \\ gvs [])
   >- (
-    IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def]
-    \\ IF_CASES_TAC \\ simp [subst1_def]
-    \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
     \\ irule LIST_EQ
     \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS, ELIM_UNCURRY,
             DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
     \\ rw []
-    \\ first_x_assum (irule_at Any) \\ gs []
-    \\ first_x_assum (irule_at Any) \\ gs []
-    \\ irule_at Any PAIR)
+    \\ first_x_assum irule \\ gs []
+    \\ conj_tac
+    >- (irule_at Any PAIR \\ gs [])
+    \\ gvs [DISJOINT_ALT] \\ rpt $ strip_tac
+    \\ gvs [MEM_MAP, MEM_FILTER, PULL_EXISTS]
+    \\ last_x_assum $ dxrule_then $ dxrule_then assume_tac
+    \\ gvs [])
+  >- (
+    gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+    \\ first_x_assum $ irule
+    \\ gvs [DISJOINT_ALT] \\ rpt $ strip_tac
+    \\ gvs [MEM_MAP, MEM_FILTER, PULL_EXISTS]
+    \\ last_x_assum $ dxrule_then $ dxrule_then assume_tac
+    \\ gvs [])
+QED
+
+Theorem subst1_commutes:
+  ∀x v n m w.
+    n ≠ m ⇒ subst1 n v (subst1 m w x) = subst1 m w (subst1 n v x)
+Proof
+  gvs [subst_commutes]
 QED
 
 (* TODO pure_misc? *)
@@ -1043,4 +1085,3 @@ Proof
 QED
 
 val _ = export_theory ();
-
