@@ -168,6 +168,55 @@ Definition decls_to_letrec_def:
   od
 End
 
+Definition uniq_prefix_def:
+  uniq_prefix pfx slist =
+  case FILTER (λs. pfx ≼ s) slist of
+    [] => pfx
+  | bads => uniq_prefix (pfx ++ "%") bads
+Termination
+  WF_REL_TAC ‘measure (λ(p,l). 1 + SUM (MAP LENGTH l) - LENGTH p)’ >> rw[] >>
+  gvs[listTheory.FILTER_EQ_CONS] >> rename [‘pfx ≼ s’] >>
+  ‘∃sfx. s = pfx ++ sfx’ by metis_tac[rich_listTheory.IS_PREFIX_APPEND] >>
+  gvs[listTheory.SUM_APPEND] >>
+  qmatch_abbrev_tac ‘SUM (MAP LENGTH (FILTER P ll)) + 1 < _’ >>
+  ‘SUM (MAP LENGTH (FILTER P ll)) ≤ SUM (MAP LENGTH ll)’
+    suffices_by simp[] >>
+  rpt (pop_assum kall_tac) >> qid_spec_tac ‘ll’ >> Induct >> rw[]
+End
+
+Theorem uniq_prefix_prefix:
+  ∀p ss. p ≼ uniq_prefix p ss
+Proof
+  recInduct uniq_prefix_ind >> rw[] >> simp[Once uniq_prefix_def] >>
+  BasicProvers.TOP_CASE_TAC >> gs[] >>
+  irule rich_listTheory.IS_PREFIX_TRANS >>
+  first_assum $ irule_at Any >> simp[]
+QED
+
+Theorem uniq_prefix_correct:
+  ∀p ss sfx. ¬MEM (uniq_prefix p ss ++ sfx) ss
+Proof
+  recInduct uniq_prefix_ind >> rw[] >>
+  simp[Once uniq_prefix_def] >> rename [‘FILTER _ strings’] >>
+  Cases_on ‘FILTER (λs. pfx ≼ s) strings’ >> simp[]
+  >- (gvs[listTheory.FILTER_EQ_NIL, listTheory.EVERY_MEM] >>
+      strip_tac >> first_x_assum drule >> simp[]) >>
+  gvs[listTheory.FILTER_EQ_CONS] >>
+  qmatch_abbrev_tac ‘¬MEM (UP ++ sfx) l1 ∧ ¬MEM (UP ++ sfx) l2’ >>
+  ‘∀sfx. pfx ≼ UP ++ sfx’
+    by (strip_tac >> irule rich_listTheory.IS_PREFIX_TRANS >>
+        irule_at Any rich_listTheory.IS_PREFIX_APPEND3 >>
+        irule rich_listTheory.IS_PREFIX_TRANS >> simp[Abbr‘UP’] >>
+        irule_at Any rich_listTheory.IS_PREFIX_APPEND3 >>
+        irule_at Any uniq_prefix_prefix) >>
+  rpt strip_tac
+  >- (gvs[listTheory.EVERY_MEM, listTheory.FILTER_EQ_NIL] >>
+      first_x_assum drule >> simp[]) >>
+  gvs[FORALL_AND_THM, listTheory.MEM_FILTER]
+QED
+
+
+
 
 
 val _ = export_theory();
