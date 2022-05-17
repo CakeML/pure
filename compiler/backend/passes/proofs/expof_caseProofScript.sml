@@ -193,46 +193,47 @@ Proof
 QED
 
 Theorem exp_of_exp_eq:
-  ∀x. exp_of' x ≅ exp_of x
+  ∀x. NestedCase_free x ⇒ exp_of' x ≅ exp_of x
 Proof
   ho_match_mp_tac exp_of'_ind
+  \\ simp[]
   \\ rpt conj_tac
   \\ rpt gen_tac
   >- ((* Var *)
     simp [exp_of_def, exp_of'_def, exp_eq_refl])
   >- ((* Prim *)
-    strip_tac
+    rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Prim_cong
-    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS])
+    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM])
   >- ((* Let *)
-    strip_tac
+    rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_App_cong
     \\ irule_at Any exp_eq_Lam_cong
     \\ gs [])
   >- ((* App *)
-    strip_tac
+    rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Apps_cong
-    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] \\ rw []
+    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM] \\ rw []
     \\ irule exp_eq_Tick_cong \\ gs [])
   >- ((* Lam *)
-    strip_tac
+    rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Lams_cong \\ gs [])
   >- ((* Letrec *)
-    strip_tac
+    rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Letrec_cong
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
-           LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
+           LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM, EL_MAP]
     \\ rw [ELIM_UNCURRY]
-    \\ first_x_assum irule
+    \\ first_x_assum irule \\ simp[]
     \\ first_assum (irule_at Any)
     \\ irule_at Any PAIR)
   >- ((* Case *)
-    strip_tac
+    rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
     \\ IF_CASES_TAC \\ gs [exp_eq_refl]
     >- (
@@ -241,9 +242,9 @@ Proof
     \\ irule exp_eq_Let_cong \\ gs []
     \\ irule exp_eq_rows_of_cong
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
-           LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
-    \\ rw [ELIM_UNCURRY]
-    \\ first_x_assum irule
+           LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM, EL_MAP]
+    \\ gvs [ELIM_UNCURRY] \\ rpt strip_tac
+    \\ first_x_assum irule \\ simp[]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘EL n rs’ \\ gs []
     \\ irule_at Any PAIR)

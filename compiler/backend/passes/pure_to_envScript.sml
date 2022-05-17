@@ -39,7 +39,8 @@ Definition compile_exp_def:
   compile_exp (Case a x bv rows) =
     Case a (compile_exp x)
            bv
-           (MAP (λ(v,vs,x). (v,vs,compile_exp x)) rows)
+           (MAP (λ(v,vs,x). (v,vs,compile_exp x)) rows) ∧
+  compile_exp (NestedCase info _ _ _) = envLang_cexp$Var info "Fail: NestedCase"
 Termination
   WF_REL_TAC ‘measure (pure_cexp$cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma \\ gs []

@@ -83,39 +83,48 @@ Definition demands_analysis_fun_def:
             | SOME l => SOME (l, mlmap$empty mlstring$compare)
             | NONE => NONE
      in
-       (mlmap$insert (mlmap$empty mlstring$compare) (implode a1) (), (Var a0 a1 : 'a cexp), fd)) ∧
+       (mlmap$insert (mlmap$empty mlstring$compare) (implode a1) (),
+        Var a0 a1 : 'a cexp,
+        fd)) ∧
 
   (demands_analysis_fun c (App a0 (f: 'a cexp) (argl: 'a cexp list)) fds =
-     let (m1, f', fd) = demands_analysis_fun c f fds in
-       let eL' = MAP (λe. demands_analysis_fun c e fds) argl in
-         (case fd of
-           | NONE =>
-                  (let e' = MAP (λe. add_all_demands a0 e) eL' in
-                    (m1, (App (a0: 'a) (f': 'a cexp) (e': 'a cexp list) : 'a cexp), NONE))
-           | SOME (fdL, m2) =>
-               (case handle_Apps_demands a0 fdL eL' of
-                  | ([], eL'', m3) => (union m1 (union m2 m3), App a0 f' eL'', NONE)
-                  | (fdL', eL'', m3) => (m1, App a0 f' eL'', SOME (fdL', union m2 m3))))) ∧
+     let (m1, f', fd) = demands_analysis_fun c f fds ;
+         eL' = MAP (λe. demands_analysis_fun c e fds) argl
+     in
+       case fd of
+       | NONE =>
+           (let e' = MAP (λe. add_all_demands a0 e) eL' in
+              (m1, (App (a0: 'a) (f': 'a cexp) (e': 'a cexp list) : 'a cexp),
+               NONE))
+       | SOME (fdL, m2) =>
+           (case handle_Apps_demands a0 fdL eL' of
+            | ([], eL'', m3) => (union m1 (union m2 m3), App a0 f' eL'', NONE)
+            | (fdL', eL'', m3) =>
+                (m1, App a0 f' eL'', SOME (fdL', union m2 m3)))) ∧
 
   (demands_analysis_fun c (Lam a0 vl e) fds =
-   let (m, e', fd) = demands_analysis_fun (IsFree vl c) e
-                                  (FOLDL (λf k. mlmap$delete f (mlstring$implode k)) fds vl) in
-     (empty compare, Lam a0 vl (add_all_demands a0 (m, e', fd)),
-                                SOME (FST (boolList_of_fdemands m vl), empty compare))) ∧
+   let (m, e', fd) =
+       demands_analysis_fun (IsFree vl c) e
+          (FOLDL (λf k. mlmap$delete f (mlstring$implode k)) fds vl)
+   in
+     (empty compare,
+      Lam a0 vl (add_all_demands a0 (m, e', fd)),
+      SOME (FST (boolList_of_fdemands m vl), empty compare))) ∧
 
   (demands_analysis_fun c (Let a0 name e1 e2) fds =
-     let (m1, e1', fd1) = demands_analysis_fun c e1 fds in
-       let fds2 = case fd1 of
-                  | NONE => delete fds (implode name)
-                  | SOME (bL, _) => insert fds (implode name) bL in
-       let (m2, e2', fd2) = demands_analysis_fun (Bind name e1 c) e2 fds2 in
-         (delete m2 (implode name),
-          (case lookup m2 (implode name) of
-             | NONE => Let a0 name e1' e2'
-             | SOME () => Let a0 name e1' (Prim a0 Seq [Var a0 name; e2'])),
-          case fd2 of
-             | NONE => NONE
-             | SOME (fdL, fd_map) => SOME (fdL, delete fd_map (implode name)))) ∧
+     let (m1, e1', fd1) = demands_analysis_fun c e1 fds ;
+         fds2 = case fd1 of
+                | NONE => delete fds (implode name)
+                | SOME (bL, _) => insert fds (implode name) bL ;
+         (m2, e2', fd2) = demands_analysis_fun (Bind name e1 c) e2 fds2
+     in
+       (delete m2 (implode name),
+        (case lookup m2 (implode name) of
+         | NONE => Let a0 name e1' e2'
+         | SOME () => Let a0 name e1' (Prim a0 Seq [Var a0 name; e2'])),
+        case fd2 of
+        | NONE => NONE
+        | SOME (fdL, fd_map) => SOME (fdL, delete fd_map (implode name)))) ∧
 
   (demands_analysis_fun c (Prim a0 Seq [e1; e2]) fds =
      let (m1, e1', fd1) = demands_analysis_fun c e1 fds in
@@ -163,7 +172,9 @@ Definition demands_analysis_fun_def:
                                           (Unfold name n args (Bind n e c))
                                           ce
                                           (empty compare)) args)) cases in
-             (m, Case a0 e' n cases', NONE))
+             (m, Case a0 e' n cases', NONE)) ∧
+  (demands_analysis_fun c (NestedCase i _ _ _) fds =
+   (empty compare, Var i "Fail: demands analysis on NestedCase", NONE))
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
