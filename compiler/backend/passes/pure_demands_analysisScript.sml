@@ -208,7 +208,6 @@ QED
 
 
 *)
-    Seq e1 e2 --> Let = (Force (Var v)) in e2
 
 Theorem demands_analysis_test_1:
   demands_analysis 0
