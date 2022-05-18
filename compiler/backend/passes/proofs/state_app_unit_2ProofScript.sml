@@ -14,9 +14,9 @@ val _ = new_theory "state_app_unit_2Proof";
 
 val _ = set_grammar_ancestry ["stateLang"];
 
-Overload "app" = “λe1 e2. App AppOp [e1;e2]”;
-Overload "wrap" = “λe. app (Lam NONE e) Unit”;
-Overload "cont" = “λe. Let (SOME "a") e (Var "a")”;
+Overload "app" = “λe1 e2. App AppOp [e1;(e2:exp)]”;
+Overload "wrap" = “λe. app (Lam NONE e) (Unit:exp)”;
+Overload "cont" = “λe. Let (SOME "a") (e:exp) (Var "a")”;
 
 Inductive compile_rel:
 
@@ -24,6 +24,20 @@ Inductive compile_rel:
   (compile_rel x x1 ∧ compile_rel y y1 ⇒
    compile_rel (app (Let x_opt x y) Unit)
                (Let x_opt (cont (wrap x1)) (app y1 Unit))) ∧
+
+[~App_If:]
+  (compile_rel x x1 ∧ compile_rel y y1 ∧ compile_rel z z1 ⇒
+   compile_rel (app (If x y z) Unit)
+               (If (cont (wrap x1)) (app y1 Unit) (app z1 Unit))) ∧
+
+[~App_Letrec:]
+  (compile_rel y y1 ∧
+    MAP FST tfns = MAP FST sfns ∧
+    LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
+    EVERY (λ(n,x). ∃v y. x = Lam v y) tfns ⇒
+   compile_rel (app (Letrec tfns y) Unit)
+               (Letrec sfns (app y1 Unit))) ∧
+
 [~Var:]
   compile_rel (stateLang$Var v) (stateLang$Var v) ∧
 
@@ -120,6 +134,11 @@ Inductive cont_rel:
     compile_rel e1 e2 ∧ cont_rel tk sk ∧ env_rel env1 env2 ⇒
     cont_rel (LetK env1 x_opt e1::AppK env1 AppOp [Constructor "" []] []::tk)
              (LetK env2 (SOME "a") (Var "a")::LetK env2 x_opt (app e2 Unit)::sk)) ∧
+  (∀tk sk e1 e2 e1' e2'.
+    compile_rel e1 e2 ∧ compile_rel e1' e2' ∧ cont_rel tk sk ∧ env_rel env1 env2 ⇒
+    cont_rel (IfK env1 e1 e1'::AppK env1 AppOp [Constructor "" []] []::tk)
+             (LetK env2 (SOME "a") (Var "a")::
+               IfK env2 (app e2 Unit) (app e2' Unit)::sk)) ∧
   (∀tk sk.
     cont_rel tk sk ∧ env_rel tenv senv ∧
     compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
@@ -475,6 +494,60 @@ Proof
       \\ simp [Once cont_rel_cases])
     \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  >-
+   (Cases_on ‘k’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n'’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ last_x_assum drule
+    \\ disch_then $ drule_at Any
+    \\ disch_then $ drule_at Any
+    \\ disch_then $ qspec_then
+         ‘LetK env2 (SOME "a") (Var "a")::
+               IfK env2 (app e2' Unit) (app e2'' Unit)::sk’ mp_tac
+    \\ impl_tac
+    >-
+     (fs [ADD1] \\ imp_res_tac step_1_ind_hyp_add \\ fs []
+      \\ simp [Once cont_rel_cases])
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  >-
+   (Cases_on ‘k’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n'’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Cases_on ‘n’ \\ gvs [step_n_SUC,step]
+    >- (qexists_tac ‘0’ \\ fs [])
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ last_x_assum drule
+    \\ disch_then $ drule_at Any
+    \\ disch_then irule
+    \\ fs [ADD1]
+    \\ imp_res_tac step_1_ind_hyp_add \\ fs []
+    \\ conj_tac
+    >- (simp [Once cont_rel_cases] \\ simp [Once v_rel_cases])
+    \\ gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+    \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
+    \\ rpt strip_tac \\ Cases_on ‘MEM n'' (MAP FST sfns)’ \\ fs []
+    \\ rw [Once v_rel_cases] \\ fs [env_rel_def,ALOOKUP_NONE]
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [])
   \\ (Cases_on ‘k’ \\ gvs [step_n_SUC,step] >- (qexists_tac ‘0’ \\ fs []))
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
   >~ [‘Var v’] >-
@@ -612,15 +685,14 @@ Proof
     \\ simp [Once cont_rel_cases]
     \\ rw [] \\ fs [step] \\ gvs []
     \\ (Cases_on ‘k’ >- (qexists_tac ‘0’ \\ gvs []))
-    >-
-     (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ TRY (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
       \\ Cases_on ‘n’ \\ gvs [ADD_CLAUSES,step_n_SUC,step]
       >- (qexists_tac ‘0’ \\ fs [])
       \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
       \\ last_x_assum $ qspec_then ‘n'’ mp_tac \\ simp []
       \\ disch_then drule \\ fs []
       \\ disch_then drule \\ fs []
-      \\ simp [Once step_res_rel_cases])
+      \\ simp [Once step_res_rel_cases] \\ NO_TAC)
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ first_x_assum irule \\ fs []
     \\ fs [ADD_CLAUSES,step_n_SUC,step]
@@ -652,6 +724,36 @@ Proof
     \\ disch_then drule
     \\ qmatch_goalsub_abbrev_tac ‘(Exp _ _,ss,sk1::_)’
     \\ disch_then $ qspec_then ‘sk1::sk'’ mp_tac
+    \\ (impl_tac >-
+          (fs [Abbr‘sk1’] \\ simp [Once cont_rel_cases]
+           \\ simp [Once v_rel_cases]))
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  >-
+   (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ last_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ rw []
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ simp [Once v_rel_cases] \\ fs []
+    \\ strip_tac \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ gvs [is_halt_step]
+    \\ TRY (simp [Once step_res_rel_cases,ADD1] \\ qexists_tac ‘n’ \\ fs [] \\ NO_TAC)
+    \\ TRY
+     (every_case_tac \\ gvs [is_halt_step]
+      \\ simp [Once step_res_rel_cases,ADD1] \\ qexists_tac ‘n’ \\ fs [] \\ NO_TAC)
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ strip_tac
+    \\ qmatch_goalsub_abbrev_tac ‘(Exp _ _,ss,sk1::_)’
+    \\ first_x_assum $ qspec_then ‘sk1::sk'’ mp_tac
     \\ (impl_tac >-
           (fs [Abbr‘sk1’] \\ simp [Once cont_rel_cases]
            \\ simp [Once v_rel_cases]))
@@ -886,5 +988,15 @@ Proof
   \\ simp [Once cont_rel_cases]
   \\ fs [env_rel_def]
 QED
+
+(*
+
+(* -- cexp version -- *)
+
+Overload "app" = “λe1 e2. App AppOp [e1;(e2:cexp)]”;
+Overload "wrap" = “λe. app (Lam NONE (e:cexp) Unit”;
+Overload "cont" = “λe. Let (SOME "a") (e:cexp) (Var "a")”;
+
+*)
 
 val _ = export_theory ();
