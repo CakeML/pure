@@ -16,18 +16,14 @@ val _ = set_grammar_ancestry ["stateLang"];
 
 Overload "app" = “λe1 e2. App AppOp [e1;e2]”;
 Overload "wrap" = “λe. app (Lam NONE e) Unit”;
+Overload "cont" = “λe. Let (SOME "a") e (Var "a")”;
 
 Inductive compile_rel:
-
-[~trans:]
-  (compile_rel x y ∧ compile_rel y z ⇒
-   compile_rel x z) ∧
 
 [~App_Let:]
   (compile_rel x x1 ∧ compile_rel y y1 ⇒
    compile_rel (app (Let x_opt x y) Unit)
-               (Let x_opt (wrap x1) (app y1 Unit))) ∧
-
+               (Let x_opt (cont (wrap x1)) (app y1 Unit))) ∧
 [~Var:]
   compile_rel (stateLang$Var v) (stateLang$Var v) ∧
 
@@ -120,13 +116,17 @@ Theorem env_rel_def = “env_rel tenv senv”
 
 Inductive cont_rel:
   (cont_rel [] []) ∧
+  (∀tk sk e1 e2 x_opt.
+    compile_rel e1 e2 ∧ cont_rel tk sk ∧ env_rel env1 env2 ⇒
+    cont_rel (LetK env1 x_opt e1::AppK env1 AppOp [Constructor "" []] []::tk)
+             (LetK env2 (SOME "a") (Var "a")::LetK env2 x_opt (app e2 Unit)::sk)) ∧
   (∀tk sk.
     cont_rel tk sk ∧ env_rel tenv senv ∧
     compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
     cont_rel (IfK tenv te1 te2 :: tk)
              (IfK senv se1 se2 :: sk)) ∧
   (∀tenv senv op tvs svs tes ses sk tk.
-    cont_rel tk sk ∧ env_rel tenv senv ∧
+    cont_rel tk sk ∧ (tes ≠ [] ⇒ env_rel tenv senv) ∧
     LIST_REL v_rel tvs svs ∧ LIST_REL compile_rel tes ses ⇒
     cont_rel (AppK tenv op tvs tes :: tk)
              (AppK senv op svs ses :: sk)) ∧
@@ -239,17 +239,16 @@ QED
 Theorem compile_rel_Lam:
   ∀n e t. compile_rel (Lam n e) t ⇒ ∃u. t = Lam n u ∧ compile_rel e u
 Proof
-  Induct_on ‘compile_rel’ \\ fs [] \\ rw []
-  \\ metis_tac [compile_rel_trans]
+  rw [Once compile_rel_cases]
 QED
 
 Theorem application_thm:
-  application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
+  application op (tenv:env) tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
-  LIST_REL v_rel tvs svs ∧ env_rel tenv senv ∧
+  LIST_REL v_rel tvs svs ∧
   num_args_ok op (LENGTH svs) ⇒
   ∃sr1 ss1 sk1.
-    application op senv svs ss sk = (sr1,ss1,sk1) ∧
+    application op (senv:env) svs ss sk = (sr1,ss1,sk1) ∧
     OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
     step_res_rel tr1 tk1 sr1 sk1
 Proof
@@ -416,6 +415,22 @@ Definition step_1_ind_hyp_def:
         step_res_rel tr1' tk1' sr1 sk1))
 End
 
+Theorem step_1_ind_hyp_add:
+  step_1_ind_hyp (n + k) ⇒ step_1_ind_hyp n
+Proof
+  fs [step_1_ind_hyp_def] \\ rw []
+  \\ first_x_assum irule \\ fs []
+  \\ rpt $ first_x_assum $ irule_at Any
+QED
+
+Theorem step_1_ind_hyp_SUC:
+  step_1_ind_hyp (SUC n) ⇒ step_1_ind_hyp n
+Proof
+  fs [step_1_ind_hyp_def] \\ rw []
+  \\ first_x_assum irule \\ fs []
+  \\ rpt $ first_x_assum $ irule_at Any
+QED
+
 Theorem step_1_Exp_forward:
   ∀e1 e2.
     compile_rel e1 e2 ⇒
@@ -434,15 +449,6 @@ Theorem step_1_Exp_forward:
 Proof
   ho_match_mp_tac compile_rel_strongind \\ rpt strip_tac
   >-
-   (last_x_assum drule_all \\ strip_tac
-    \\ last_x_assum drule \\ simp []
-    \\ disch_then (qspecl_then [‘ss’,‘sk’,‘env2’] mp_tac)
-    \\ impl_tac
-    >- cheat
-    \\ rw [] \\ first_x_assum $ irule_at $ Pos hd
-    \\ fs [] \\ strip_tac \\ gvs []
-    \\ cheat)
-  >-
    (Cases_on ‘k’ \\ gvs [step_n_SUC,step]
     >- (qexists_tac ‘0’ \\ fs [])
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
@@ -457,114 +463,96 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ last_x_assum drule
     \\ disch_then $ drule_at Any
     \\ disch_then $ drule_at Any
-    \\ disch_then $ qspec_then ‘LetK env2 x_opt (app e2' Unit)::sk’ mp_tac
-    \\ impl_tac >- cheat
+    \\ disch_then $ qspec_then
+         ‘LetK env2 (SOME "a") (Var "a")::LetK env2 x_opt (app e2' Unit)::sk’ mp_tac
+    \\ impl_tac
+    >-
+     (fs [ADD1] \\ imp_res_tac step_1_ind_hyp_add \\ fs []
+      \\ simp [Once cont_rel_cases])
     \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ (Cases_on ‘k’ \\ gvs [step_n_SUC,step] >- (qexists_tac ‘0’ \\ fs []))
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
-  \\ cheat (*
   >~ [‘Var v’] >-
    (Cases_on ‘ALOOKUP env1 v’ \\ fs [] \\ fs [env_rel_def]
-    \\ gvs [] \\ first_x_assum irule \\ fs [] \\ res_tac
-    \\ last_x_assum $ irule_at Any \\ fs []
-    \\ simp [Once step_res_rel_cases]
-    \\ last_x_assum $ irule_at Any \\ fs [])
+    \\ gvs [is_halt_step]
+    >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
+    \\ res_tac \\ fs [step_1_ind_hyp_def]
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ rpt $ disch_then $ drule_at $ Pos $ el 2
+    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+    \\ rpt $ disch_then $ drule_at $ Any
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   >~ [‘Lam’] >-
-   (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
+   (fs [step_1_ind_hyp_def]
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ rpt $ disch_then $ drule_at $ Pos $ el 2 \\ simp []
+    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+    \\ simp [Once v_rel_cases,PULL_EXISTS]
+    \\ disch_then drule_all \\ strip_tac
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ simp [Once step_res_rel_cases]
-    \\ simp [Once v_rel_cases]
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases])
+    \\ simp [])
   >~ [‘RaiseK’] >-
    (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ simp [Once step_res_rel_cases]
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
+    \\ rpt $ first_x_assum $ irule_at $ Any
+    \\ imp_res_tac step_1_ind_hyp_SUC
     \\ simp [Once cont_rel_cases])
   >~ [‘HandleK’] >-
-   (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ simp [Once step_res_rel_cases]
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
+   (first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ first_assum $ irule_at $ Any
     \\ simp [Once cont_rel_cases])
   >~ [‘HandleApp’] >-
-   (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ simp [Once step_res_rel_cases]
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
+   (first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ first_assum $ irule_at $ Any
     \\ simp [Once cont_rel_cases])
   >~ [‘Recclosure’] >-
-   (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
-    \\ simp [Once step_res_rel_cases]
+   (first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ first_assum $ irule_at $ Any
+    \\ simp [Once cont_rel_cases]
     \\ gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
     \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
     \\ rpt strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
-    \\ rw [Once v_rel_cases] \\ fs [env_rel_def,ALOOKUP_NONE])
+    \\ rw [Once v_rel_cases] \\ fs [env_rel_def,ALOOKUP_NONE]
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [])
   >~ [‘Let’] >-
-   (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
-    \\ simp [Once step_res_rel_cases]
+   (first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ first_assum $ irule_at $ Any
     \\ simp [Once cont_rel_cases])
   >~ [‘If’] >-
-   (first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
-    \\ simp [Once step_res_rel_cases]
+   (first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ first_assum $ irule_at $ Any
     \\ simp [Once cont_rel_cases])
   >~ [‘Case’] >-
    (IF_CASES_TAC \\ fs []
-    \\ first_x_assum irule \\ fs []
-    \\ last_x_assum kall_tac
-    \\ last_x_assum kall_tac
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases]
-    \\ simp [Once step_res_rel_cases]
-    \\ simp [Once cont_rel_cases])
+    \\ gvs [is_halt_step]
+    >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
+    \\ first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ first_assum $ irule_at $ Any
+    \\ simp [Once cont_rel_cases]
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [])
   >~ [‘App’] >-
-   (qpat_x_assum ‘compile_rel _ _’ mp_tac
-    \\ simp [Once compile_rel_cases] \\ strip_tac
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+   (imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ IF_CASES_TAC \\ fs []
-    >-
-     (first_x_assum irule \\ fs []
-      \\ rpt $ first_x_assum $ irule_at $ Pos hd
-      \\ simp [Once step_res_rel_cases])
+    \\ gvs [is_halt_step]
+    >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
     \\ Cases_on ‘REVERSE xs’ \\ gvs []
     >-
      (‘∃a. application op env1 [] ts tk = a’ by fs [] \\ PairCases_on ‘a’
       \\ drule application_thm \\ fs []
-      \\ disch_then drule_all \\ strip_tac \\ gvs []
-      \\ first_x_assum irule \\ fs []
-      \\ rpt $ first_x_assum $ irule_at $ Pos hd)
+      \\ disch_then drule_all
+      \\ disch_then $ qspec_then ‘env2’ strip_assume_tac \\ gvs []
+      \\ fs [step_1_ind_hyp_def]
+      \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
+      \\ rpt $ disch_then $ drule_at $ Pos $ last
+      \\ strip_tac \\ fs []
+      \\ rpt $ first_x_assum $ irule_at $ Pos hd \\ fs [])
     \\ gvs [SWAP_REVERSE_SYM]
     \\ Cases_on ‘ys’ using SNOC_CASES \\ fs [PULL_EXISTS]
     \\ gvs [GSYM SWAP_REVERSE_SYM]
@@ -574,12 +562,12 @@ Proof
     \\ drule EVERY2_REVERSE \\ simp_tac std_ss [REVERSE_REVERSE] \\ strip_tac
     \\ first_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
     \\ rpt $ disch_then drule
-    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
     \\ simp [Once cont_rel_cases,PULL_EXISTS]
-    \\ rpt $ disch_then drule
-    \\ strip_tac
-    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
-              *)
+    \\ rpt $ disch_then drule \\ fs [step_1_ind_hyp_SUC]
+    \\ rpt $ disch_then $ drule_at Any
+    \\ disch_then irule \\ fs []
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [])
 QED
 
 Theorem step_1_forward:
@@ -624,6 +612,15 @@ Proof
     \\ simp [Once cont_rel_cases]
     \\ rw [] \\ fs [step] \\ gvs []
     \\ (Cases_on ‘k’ >- (qexists_tac ‘0’ \\ gvs []))
+    >-
+     (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+      \\ Cases_on ‘n’ \\ gvs [ADD_CLAUSES,step_n_SUC,step]
+      >- (qexists_tac ‘0’ \\ fs [])
+      \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+      \\ last_x_assum $ qspec_then ‘n'’ mp_tac \\ simp []
+      \\ disch_then drule \\ fs []
+      \\ disch_then drule \\ fs []
+      \\ simp [Once step_res_rel_cases])
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ first_x_assum irule \\ fs []
     \\ fs [ADD_CLAUSES,step_n_SUC,step]
@@ -638,7 +635,28 @@ Proof
   \\ rename [‘cont_rel (tk1::tk) (sk1::sk)’]
   \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
   \\ simp [Once cont_rel_cases] \\ rw []
-  \\ cheat (*
+  >-
+   (Cases_on ‘x_opt’
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ last_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
+    \\ disch_then drule
+    \\ ‘env_rel ((x,v1)::env1) ((x,v2)::env2)’ by (irule env_rel_cons \\ fs [])
+    \\ disch_then drule
+    \\ qmatch_goalsub_abbrev_tac ‘(Exp _ _,ss,sk1::_)’
+    \\ disch_then $ qspec_then ‘sk1::sk'’ mp_tac
+    \\ (impl_tac >-
+          (fs [Abbr‘sk1’] \\ simp [Once cont_rel_cases]
+           \\ simp [Once v_rel_cases]))
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   >~ [‘IfK’] >-
    (gvs [step,step_n_SUC]
     \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
@@ -647,15 +665,12 @@ Proof
     \\ simp [Once v_rel_cases] \\ rw []
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
     \\ TRY (first_x_assum $ irule \\ fs []
-            \\ first_assum $ irule_at Any \\ fs []
+            \\ rpt $ first_assum $ irule_at Any \\ fs []
             \\ simp [Once step_res_rel_cases] \\ NO_TAC)
     \\ IF_CASES_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs []
-    \\ first_x_assum $ irule \\ fs []
-    \\ simp [Once step_res_rel_cases]
-    \\ first_x_assum $ irule_at Any
-    \\ EVERY_CASE_TAC \\ fs []
-    \\ first_x_assum $ irule_at Any)
+    \\ gvs [is_halt_step]
+    \\ qexists_tac ‘n’ \\ fs [step_res_rel_cases])
   >~ [‘LetK _ nn’] >-
    (Cases_on ‘nn’ \\ gvs [step_n_SUC,step]
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
@@ -675,6 +690,10 @@ Proof
     \\ simp [Once step_res_rel_cases])
   >~ [‘RaiseK’] >-
    (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
+    \\ ‘ts = NONE ⇔ ss = NONE’ by (Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ fs [])
+    \\ fs [] \\ IF_CASES_TAC
+    \\ gvs [is_halt_step]
+    >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
     \\ first_assum $ irule_at Any \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ simp [Once step_res_rel_cases])
@@ -694,6 +713,8 @@ Proof
     \\ Cases_on ‘v1’ \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH
     \\ rw [] \\ gvs []
+    \\ gvs [is_halt_step]
+    \\ TRY (qexists_tac ‘n’ \\ fs [step_res_rel_cases] \\ NO_TAC)
     \\ TRY (first_assum $ irule_at Any \\ fs []
             \\ first_x_assum $ irule_at $ Pos hd \\ fs []
             \\ simp [Once step_res_rel_cases]
@@ -724,17 +745,10 @@ Proof
   \\ ‘∃x. application op tenv (v1::tvs) ts tk = x’ by fs []
   \\ PairCases_on ‘x’
   \\ drule application_thm \\ fs [PULL_EXISTS]
-  \\ disch_then drule_all \\ strip_tac \\ gvs []
+  \\ rpt $ disch_then drule \\ simp []
+  \\ disch_then $ qspec_then ‘senv’ strip_assume_tac \\ gvs []
   \\ first_assum $ irule_at Any \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-  \\ simp [Once step_res_rel_cases] *)
-QED
-
-Theorem cont_rel_nil:
-  (cont_rel [] y ⇔ y = []) ∧
-  (cont_rel x [] ⇔ x = [])
-Proof
-  ntac 2 $ fs [Once cont_rel_cases]
 QED
 
 Theorem step_until_halt_thm:

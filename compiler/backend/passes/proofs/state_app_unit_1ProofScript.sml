@@ -21,6 +21,10 @@ Inductive compile_rel:
   (compile_rel x y ⇒
   compile_rel (app (Lam NONE x) Unit) y) ∧
 
+[~Let_Var:]
+  (compile_rel x y ⇒
+  compile_rel (Let (SOME a) x (Var a)) y) ∧
+
 [~Var:]
   compile_rel (stateLang$Var v) (stateLang$Var v) ∧
 
@@ -100,6 +104,7 @@ Inductive v_rel:
 
 [env_rel:]
   (∀tenv senv.
+     (∀n. ALOOKUP tenv n = NONE ⇔ ALOOKUP senv n = NONE) ∧
      (∀(n:string) tv.
        ALOOKUP tenv n = SOME tv ⇒
        ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv) ⇒
@@ -112,6 +117,9 @@ Theorem env_rel_def = “env_rel tenv senv”
 
 Inductive cont_rel:
   (cont_rel [] []) ∧
+  (∀a tk sk.
+    cont_rel tk sk ⇒
+    cont_rel (LetK env (SOME a) (Var a)::tk) sk) ∧
   (∀tk sk.
     cont_rel tk sk ∧ env_rel tenv senv ∧
     compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
@@ -228,6 +236,12 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem compile_rel_Lam:
+  ∀n e t. compile_rel (Lam n e) t ⇒ ∃u. t = Lam n u ∧ compile_rel e u
+Proof
+  rw [Once compile_rel_cases]
+QED
+
 Theorem application_thm:
   application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
@@ -270,9 +284,7 @@ Proof
     \\ first_assum drule \\ simp_tac (srw_ss()) []
     \\ drule_all ALOOKUP_list_rel
     \\ strip_tac \\ fs []
-    \\ pop_assum mp_tac
-    \\ simp [Once compile_rel_cases]
-    \\ strip_tac \\ fs []
+    \\ drule compile_rel_Lam \\ strip_tac \\ fs []
     \\ ‘MEM n (MAP FST sfns)’ by
      (imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,EXISTS_PROD]
       \\ first_assum $ irule_at Any) \\ fs []
@@ -285,7 +297,7 @@ Proof
     \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
     \\ rw [Once v_rel_cases] \\ fs [env_rel_def]
     \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
-    \\ rw [] \\ res_tac \\ fs [])
+    \\ rw [] \\ res_tac \\ fs [ALOOKUP_NONE])
   >~ [‘Alloc’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -398,9 +410,8 @@ Theorem step_1_Exp_forward:
     env_rel env1 env2 ⇒
     ∃m tr1 ts1 tk1.
       step_n (m + 1) (Exp env1 e1,ts,tk) = (tr1,ts1,tk1) ∧
-      (tr1 ≠ Error ⇒
-       OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
-       step_res_rel tr1 tk1 sr1 sk1)
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+      step_res_rel tr1 tk1 sr1 sk1
 Proof
   Induct_on ‘compile_rel’ \\ rpt strip_tac
   >-
@@ -409,6 +420,12 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck’
     \\ first_x_assum irule
     \\ rpt (first_assum $ irule_at $ Pos hd \\ fs []))
+  >-
+   (fs [GSYM ADD1] \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’
+    \\ first_x_assum irule
+    \\ rpt (first_assum $ irule_at $ Pos hd \\ fs [])
+    \\ simp [Once cont_rel_cases])
   \\ gvs []
   \\ rpt (qpat_x_assum ‘∀x. _’ kall_tac)
   >~ [‘Var v’] >-
@@ -416,7 +433,8 @@ Proof
     \\ Cases_on ‘ALOOKUP env1 v’ \\ gvs []
     \\ gvs [env_rel_def]
     \\ res_tac \\ gvs []
-    \\ gvs [step_res_rel_cases,env_rel_def])
+    \\ gvs [step_res_rel_cases,env_rel_def]
+    \\ rw [] \\ fs [])
   >~ [‘If’] >-
    (qexists_tac ‘0’ \\ gvs [step]
     \\ fs [step_res_rel_cases]
@@ -424,7 +442,7 @@ Proof
   >~ [‘Lam’] >-
    (qexists_tac ‘0’ \\ fs []
     \\ gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
-    \\ once_rewrite_tac [Once v_rel_cases] \\ fs [env_rel_def])
+    \\ once_rewrite_tac [Once v_rel_cases] \\ fs [env_rel_def] \\ rw [] \\ fs [])
   >~ [‘Raise’] >-
    (qexists_tac ‘0’ \\ fs []
     \\ gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
@@ -438,8 +456,8 @@ Proof
     \\ rpt gen_tac
     \\ gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
     \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
-    \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
-    \\ rw [Once v_rel_cases] \\ fs [env_rel_def]
+    \\ strip_tac \\ Cases_on ‘MEM n (MAP FST sfns)’ \\ fs []
+    \\ rw [Once v_rel_cases] \\ fs [env_rel_def,ALOOKUP_NONE]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
     \\ fs [])
   >~ [‘Let’] >-
@@ -472,6 +490,7 @@ Proof
     \\ IF_CASES_TAC \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [AllCaseEqs()]
+    >- fs [step_res_rel_cases]
     >-
      (‘∃a. application op env1 [] ts tk = a’ by fs [] \\ PairCases_on ‘a’
       \\ drule application_thm \\ fs []
@@ -488,77 +507,83 @@ Proof
     \\ match_mp_tac LIST_REL_mono \\ fs [])
 QED
 
-Theorem step_1_forward:
-  ∀tr ts tk sr1 ss1 sk1 ss sr sk.
-    step_n 1 (sr,ss,sk) = (sr1,ss1,sk1) ∧
-    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
-    step_res_rel tr tk sr sk ⇒
+Theorem step_1_Exn_forward:
+  ∀ts sk tk sr1 ss1 sk1 ss v1 v2.
+    step ss sk (Exn v2) = (sr1,ss1,sk1) ∧
+    cont_rel tk sk ∧ v_rel v1 v2 ∧
+    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ⇒
     ∃m tr1 ts1 tk1.
-      step_n (m+1) (tr,ts,tk) = (tr1,ts1,tk1) ∧
-      (tr1 ≠ Error ⇒
-       OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
-       step_res_rel tr1 tk1 sr1 sk1)
+      step_n (m + 1) (Exn v1,ts,tk) = (tr1,ts1,tk1) ∧
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+      step_res_rel tr1 tk1 sr1 sk1
 Proof
-  rpt strip_tac
-  \\ Cases_on ‘is_halt (tr,ts,tk)’
+  Induct_on ‘cont_rel’ \\ rpt strip_tac
   >-
-   (‘is_halt (sr,ss,sk)’ by
-        (gvs [step_res_rel_cases] \\ gvs [Once cont_rel_cases])
-    \\ full_simp_tac std_ss [is_halt_step] \\ gvs [])
-  \\ qpat_x_assum ‘step_res_rel tr tk sr sk’ mp_tac
-  \\ simp [Once step_res_rel_cases]
-  \\ strip_tac \\ gvs []
-  >~ [‘Exp’] >-
-   (irule step_1_Exp_forward
-    \\ rpt $ first_assum $ irule_at Any \\ fs [])
-  >~ [‘Exn’] >-
-   (Cases_on ‘tk’ \\ gvs []
-    \\ Cases_on ‘sk’ \\ gvs []
-    >- fs [Once cont_rel_cases]
-    \\ rename [‘cont_rel (tk1::tk) (sk1::sk)’]
-    \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
-    \\ simp [Once cont_rel_cases]
-    \\ rw [] \\ fs [step] \\ gvs []
-    \\ TRY (qexists_tac ‘0’ \\ fs [step,step_res_rel_cases]
-            \\ irule env_rel_cons \\ fs []
-            \\ first_assum $ irule_at $ Pos last \\ fs [] \\ NO_TAC)
-    \\ rename [‘HandleAppK’]
-    \\ qexists_tac ‘0’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
-    \\ fs [step_res_rel_cases]
+   (qexists_tac ‘0’ \\ gvs [step]
+    \\ simp [Once step_res_rel_cases]
     \\ simp [Once cont_rel_cases])
+  >-
+   (first_x_assum drule_all \\ strip_tac
+    \\ simp [GSYM ADD1,step_n_SUC,step]
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ rw [] \\ fs [step] \\ gvs []
+  \\ qexists_tac ‘0’ \\ fs [step,step_res_rel_cases]
+  \\ rw [] \\ fs []
+  \\ TRY (irule env_rel_cons \\ fs []
+          \\ first_assum $ irule_at $ Pos last \\ fs [] \\ NO_TAC)
+  \\ simp [Once cont_rel_cases]
+QED
+
+Theorem step_1_Val_forward:
+  ∀ts sk tk sr1 ss1 sk1 ss v1 v2.
+    step ss sk (Val v2) = (sr1,ss1,sk1) ∧
+    cont_rel tk sk ∧ v_rel v1 v2 ∧
+    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ⇒
+    ∃m tr1 ts1 tk1.
+      step_n (m + 1) (Val v1,ts,tk) = (tr1,ts1,tk1) ∧
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+      step_res_rel tr1 tk1 sr1 sk1
+Proof
+  Induct_on ‘cont_rel’ \\ rpt strip_tac
+  >-
+   (qexists_tac ‘0’ \\ gvs [step]
+    \\ simp [Once step_res_rel_cases]
+    \\ simp [Once cont_rel_cases])
+  >-
+   (first_x_assum drule_all \\ strip_tac
+    \\ simp [GSYM ADD1,step_n_SUC,step]
+    \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ simp [ADD_CLAUSES,step_n_SUC,step]
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ qexists_tac ‘0’
-  \\ Cases_on ‘tk’ \\ fs []
-  \\ Cases_on ‘sk’ \\ fs []
-  >- fs [Once cont_rel_cases]
-  \\ rename [‘cont_rel (tk1::tk) (sk1::sk)’]
-  \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
-  \\ simp [Once cont_rel_cases] \\ rw []
   >~ [‘IfK’] >-
    (gvs [step]
     \\ Cases_on ‘v1 = Constructor "True" [] ∨ v1 = Constructor "False" []’ \\ gvs []
     \\ gvs [step]
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
-    \\ fs [step_res_rel_cases])
+    \\ fs [step_res_rel_cases]
+    \\ every_case_tac \\ fs [])
   >~ [‘RaiseK’] >-
    (Cases_on ‘ts’ \\ Cases_on ‘ss’
-    \\ gvs [step] \\ fs [step_res_rel_cases])
+    \\ gvs [step] \\ fs [step_res_rel_cases] \\ rw [] \\ fs [])
   >~ [‘HandleK’] >-
-   (gvs [step] \\ fs [step_res_rel_cases])
+   (gvs [step] \\ fs [step_res_rel_cases] \\ rw [] \\ fs [])
   >~ [‘HandleAppK’] >-
-   (gvs [step] \\ fs [step_res_rel_cases])
+   (gvs [step] \\ fs [step_res_rel_cases] \\ rw [] \\ fs [])
   >~ [‘LetK _ n’] >-
    (Cases_on ‘n’ \\ gvs [step,step_res_rel_cases]
     \\ irule env_rel_cons \\ simp [])
   >~ [‘CaseK _ v’] >-
    (Cases_on ‘tes’ \\ gvs [step,return_def]
+    >- fs [step_res_rel_cases]
     \\ PairCases_on ‘h’ \\ fs [step]
     \\ Cases_on ‘ses’ \\ gvs []
     \\ PairCases_on ‘h’ \\ fs [step]
-    \\ IF_CASES_TAC >- fs []
+    \\ IF_CASES_TAC >- gvs [step_res_rel_cases]
     \\ CASE_TAC \\ fs []
-    \\ qpat_x_assum ‘v_rel (Constructor _ _) _’ mp_tac
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ TRY (simp [step_res_rel_cases] \\ NO_TAC)
     \\ gvs [AllCaseEqs()]
     >-
      (fs [step_res_rel_cases,PULL_EXISTS]
@@ -577,13 +602,44 @@ Proof
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
   >-
    (simp [Once cont_rel_cases, step_res_rel_cases] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ simp [Once cont_rel_cases])
   \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-  \\ IF_CASES_TAC \\ gs[]
+  \\ IF_CASES_TAC >- gvs [step_res_rel_cases]
   \\ ‘∃x. application op tenv (v1::tvs) ts tk = x’ by fs []
   \\ PairCases_on ‘x’
   \\ drule application_thm \\ fs [PULL_EXISTS]
   \\ disch_then drule_all \\ strip_tac \\ gvs []
+QED
+
+Theorem step_1_forward:
+  ∀tr ts tk sr1 ss1 sk1 ss sr sk.
+    step_n 1 (sr,ss,sk) = (sr1,ss1,sk1) ∧
+    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+    step_res_rel tr tk sr sk ⇒
+    ∃m tr1 ts1 tk1.
+      step_n (m+1) (tr,ts,tk) = (tr1,ts1,tk1) ∧
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+      step_res_rel tr1 tk1 sr1 sk1
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘is_halt (tr,ts,tk)’
+  >-
+   (‘is_halt (sr,ss,sk)’ by
+        (gvs [step_res_rel_cases] \\ gvs [Once cont_rel_cases])
+    \\ full_simp_tac std_ss [is_halt_step] \\ gvs [])
+  \\ qpat_x_assum ‘step_res_rel tr tk sr sk’ mp_tac
+  \\ simp [Once step_res_rel_cases]
+  \\ strip_tac \\ gvs []
+  >~ [‘Exp’] >-
+   (irule step_1_Exp_forward
+    \\ rpt $ first_assum $ irule_at Any \\ fs [])
+  >~ [‘Exn’] >-
+   (irule step_1_Exn_forward
+    \\ rpt $ first_assum $ irule_at Any \\ fs [])
+  >~ [‘Val’] >-
+   (irule step_1_Val_forward
+    \\ rpt $ first_assum $ irule_at Any \\ fs [])
 QED
 
 Theorem step_n_forward:
@@ -593,8 +649,8 @@ Theorem step_n_forward:
     step_res_rel tr tk sr sk ⇒
     ∃m tr1 ts1 tk1.
       step_n (m+n) (tr,ts,tk) = (tr1,ts1,tk1) ∧
-      (tr1 ≠ Error ⇒ OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
-                     step_res_rel tr1 tk1 sr1 sk1)
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+      step_res_rel tr1 tk1 sr1 sk1
 Proof
   Induct \\ fs [] \\ rw []
   >- (qexists_tac ‘0’ \\ fs [])
@@ -603,14 +659,6 @@ Proof
   \\ PairCases_on ‘a’
   \\ drule_all step_1_forward
   \\ strip_tac \\ fs []
-  \\ Cases_on ‘tr1 = Error’
-  >-
-   (rewrite_tac [Once ADD_COMM]
-    \\ rewrite_tac [ADD1]
-    \\ rewrite_tac [GSYM ADD_ASSOC]
-    \\ qexists_tac ‘m’
-    \\ once_rewrite_tac [step_n_add]
-    \\ fs [] \\ gvs [is_halt_step,is_halt_def])
   \\ gvs [step_n_SUC,GSYM ADD1]
   \\ first_x_assum drule_all
   \\ strip_tac
@@ -620,64 +668,123 @@ Proof
   \\ once_rewrite_tac [step_n_add] \\ fs []
 QED
 
-Theorem cont_rel_nil:
-  (cont_rel [] y ⇔ y = []) ∧
-  (cont_rel x [] ⇔ x = [])
+Theorem cont_rel_not_nil:
+  ∀tk1 sk1. cont_rel tk1 sk1 ∧ sk1 ≠ [] ⇒ tk1 ≠ []
 Proof
-  ntac 2 $ fs [Once cont_rel_cases]
+  Induct_on ‘cont_rel’ \\ fs []
+QED
+
+Theorem cont_rel_is_halt_Exn:
+  ∀tk1. cont_rel tk1 [] ⇒
+        step_n (LENGTH tk1) (Exn v1,ts1,tk1) = (Exn v1,ts1,[])
+Proof
+  Induct \\ simp [Once cont_rel_cases] \\ rw [] \\ fs [step_n_SUC,step]
+QED
+
+Theorem cont_rel_is_halt_Val:
+  ∀tk1. cont_rel tk1 [] ⇒
+        step_n (2 * LENGTH tk1) (Val v1,ts1,tk1) = (Val v1,ts1,[])
+Proof
+  Induct \\ simp [Once cont_rel_cases] \\ rw []
+  \\ fs [MULT_CLAUSES,DECIDE “n+2 = SUC (SUC n)”,step_n_SUC,step]
+QED
+
+Theorem step_n_forward_thm:
+  ∀n tr ts tk sr1 ss1 sk1 ss sr sk.
+    step_n n (sr,ss,sk) = (sr1,ss1,sk1) ∧
+    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+    step_res_rel tr tk sr sk ⇒
+    ∃m tr1 ts1 tk1.
+      step_n (m+n) (tr,ts,tk) = (tr1,ts1,tk1) ∧
+      step_res_rel tr1 tk1 sr1 sk1 ∧
+      OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+      is_halt (tr1,ts1,tk1) = is_halt (sr1,ss1,sk1)
+Proof
+  rw [] \\ drule_all step_n_forward
+  \\ rw [] \\ Cases_on ‘~is_halt (sr1,ss1,sk1)’ \\ fs []
+  >-
+   (first_assum $ irule_at $ Pos hd \\ fs []
+    \\ gvs [step_res_rel_cases]
+    \\ imp_res_tac cont_rel_not_nil \\ gvs [])
+  \\ Cases_on ‘is_halt (tr1,ts1,tk1)’
+  >-
+   (pop_assum $ irule_at Any \\ fs []
+    \\ first_assum $ irule_at Any)
+  \\ Q.REFINE_EXISTS_TAC ‘ck+m’
+  \\ rewrite_tac [GSYM ADD_ASSOC]
+  \\ simp [Once step_n_add]
+  \\ qpat_x_assum ‘step_res_rel tr1 tk1 sr1 sk1’ mp_tac
+  \\ simp [Once step_res_rel_cases]
+  \\ rw [] \\ gvs []
+  \\ TRY (irule_at Any cont_rel_is_halt_Val)
+  \\ TRY (irule_at Any cont_rel_is_halt_Exn)
+  \\ fs [Once step_res_rel_cases]
+  \\ simp [Once cont_rel_cases]
 QED
 
 Theorem step_until_halt_thm:
   step_res_rel tr tk sr sk ∧
-  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
-  step_until_halt (tr,ts,tk) ≠ Err ⇒
+  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ⇒
   snext_res_rel (step_until_halt (tr,ts,tk))
                 (step_until_halt (sr,ss,sk))
 Proof
   fs [step_until_halt_def]
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ TRY (simp [Once snext_res_rel_cases] \\ NO_TAC)
   >-
-   (‘∃a. step_n x (tr,ts,tk) = a’ by fs []
-    \\ PairCases_on ‘a’ \\ gvs []
-    \\ ‘a0 ≠ Error’ by (strip_tac \\ gvs [])
-    \\ reverse (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
-    >-
-     (‘∃b. step_n x (sr,ss,sk) = b’ by fs []
-      \\ PairCases_on ‘b’ \\ gvs []
-      \\ drule_all step_n_forward \\ rw []
-      \\ gvs [step_n_add,is_halt_step]
-      \\ first_x_assum $ qspec_then ‘x’ mp_tac
-      \\ fs []
-      \\ Cases_on ‘a0’ \\ gvs [step_res_rel_cases,cont_rel_nil])
-    \\ ‘∃b. step_n x' (sr,ss,sk) = b’ by fs []
+   (‘∃b. step_n x' (sr,ss,sk) = b’ by fs []
     \\ PairCases_on ‘b’ \\ gvs []
-    \\ drule_all step_n_forward \\ rw []
-    \\ Cases_on ‘tr1 = Error’
-    >-
-     (‘step_n x (tr,ts,tk) = step_n (m+x') (tr,ts,tk)’
-        by metis_tac [is_halt_imp_eq,is_halt_def] \\ fs [])
-    \\ gs []
-    \\ ‘is_halt (tr1,ts1,tk1)’ by
-     (ntac 5 $ pop_assum mp_tac
-      \\ simp [step_res_rel_cases]
-      \\ rw [] \\ gvs [cont_rel_nil])
-    \\ ‘step_n x (tr,ts,tk) = step_n (m+x') (tr,ts,tk)’
-        by metis_tac [is_halt_imp_eq,is_halt_def] \\ fs []
-    \\ gvs []
-    \\ gvs [step_res_rel_cases]
-    \\ fs [snext_res_rel_cases])
-  \\ reverse (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
-  >- simp [Once snext_res_rel_cases]
-  \\ ‘∃a. step_n x (sr,ss,sk) = a’ by fs []
-  \\ PairCases_on ‘a’ \\ gvs []
-  \\ ‘∃b. step_n x (tr,ts,tk) = b’ by fs []
-  \\ PairCases_on ‘b’ \\ gvs []
-  \\ drule_all step_n_forward \\ rw []
-  \\ last_assum $ qspec_then ‘m+x’ assume_tac
-  \\ last_x_assum $ qspec_then ‘x’ assume_tac
-  \\ gvs []
-  \\ Cases_on ‘tr1 = Error’ \\ gs []
-  \\ gvs [step_res_rel_cases,cont_rel_nil]
+    \\ ‘∃a. step_n x (tr,ts,tk) = a’ by fs []
+    \\ PairCases_on ‘a’ \\ gvs []
+    \\ ‘step_n (x+x') (tr,ts,tk) = (a0,a1,a2)’ by
+          metis_tac [is_halt_step,ADD_COMM,step_n_add,PAIR]
+    \\ ‘step_n (x+x') (sr,ss,sk) = (b0,b1,b2)’ by
+          metis_tac [is_halt_step,ADD_COMM,step_n_add,PAIR]
+    \\ drule step_n_forward_thm
+    \\ disch_then drule_all \\ rw [] \\ gvs []
+    \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
+    \\ simp [Once step_n_add,is_halt_step]
+    \\ strip_tac \\ gvs []
+    \\ qpat_x_assum ‘step_res_rel _ _ _ _’ mp_tac
+    \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
+    \\ simp [Once snext_res_rel_cases] \\ gvs [])
+  >-
+   (‘∃a. step_n x (sr,ss,sk) = a’ by fs []
+    \\ PairCases_on ‘a’ \\ gvs []
+    \\ drule step_n_forward_thm
+    \\ disch_then drule_all \\ rw [] \\ gvs []
+    \\ gvs [step_n_add]
+    \\ gvs [is_halt_step]
+    \\ metis_tac [])
+  >-
+   (‘∃a. step_n x (sr,ss,sk) = a’ by fs []
+    \\ PairCases_on ‘a’ \\ gvs []
+    \\ drule step_n_forward_thm
+    \\ disch_then drule_all \\ rw [] \\ gvs []
+    \\ first_x_assum $ qspec_then ‘m+x’ mp_tac
+    \\ gvs [is_halt_step])
+QED
+
+Theorem itree_eq:
+  ∀P.
+     (∀x y.
+        P x y ⇒
+        (x = Div ∧ y = Div) ∨ (∃v. x = Ret v ∧ y = Ret v) ∨
+        ∃a f g. x = Vis a f ∧ y = Vis a g ∧ ∀v. f v ≠ g v ⇒ P (f v) (g v)) ⇒
+     ∀x y. P x y ⇒ x = y
+Proof
+  rw []
+  \\ simp [Once itreeTheory.itree_bisimulation]
+  \\ qexists_tac ‘λx y. x ≠ y ⇒ P x y’ \\ fs [] \\ rw []
+  >~ [‘Ret v’] >-
+   (Cases_on ‘t = Ret v’ \\ fs []
+    \\ first_x_assum drule \\ fs [])
+  >~ [‘Div’] >-
+   (Cases_on ‘t = Div’ \\ fs []
+    \\ first_x_assum drule \\ fs [])
+  \\ Cases_on ‘t = Vis a f’ \\ fs []
+  \\ first_x_assum drule \\ fs []
 QED
 
 Theorem semantics_thm:
@@ -685,7 +792,7 @@ Theorem semantics_thm:
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
   env_rel tenv senv ∧
   cont_rel tk sk ⇒
-  semantics e1 tenv ts tk --->
+  semantics e1 tenv ts tk =
   semantics e2 senv ss sk
 Proof
   qsuff_tac ‘
@@ -697,11 +804,9 @@ Proof
         cont_rel tk sk ∧
         t1 = semantics e1 tenv ts tk ∧
         t2 = semantics e2 senv ss sk) ⇒
-      t1 ---> t2’
-  >- (rw [PULL_EXISTS]
-      \\ last_x_assum drule
-      \\ rpt (disch_then drule) \\ fs [])
-  \\ ho_match_mp_tac pure_semanticsTheory.compiles_to_coind
+      t1 = t2’
+  >- (rw [PULL_EXISTS])
+  \\ ho_match_mp_tac itree_eq
   \\ rpt gen_tac \\ strip_tac
   \\ ntac 2 (pop_assum $ mp_tac o GSYM)
   \\ simp [stateLangTheory.semantics_def]
@@ -711,14 +816,11 @@ Proof
   \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ fs []
   \\ simp [GSYM sinterp_def]
-  \\ Cases_on ‘step_until_halt (Exp tenv e1,ts,tk) = Err’ >- fs []
   \\ drule_at (Pos last) step_until_halt_thm
   \\ rpt (disch_then $ drule_at $ Pos last)
-  \\ disch_then $ qspec_then ‘Exp senv e2’ mp_tac
-  \\ disch_then (qspec_then ‘sk’ mp_tac)
-  \\ impl_tac
-  >- (simp [Once step_res_rel_cases]
-      \\ qexists_tac ‘0’ \\ fs [])
+  \\ disch_then $ qspecl_then [‘Exp tenv e1’,‘tk’] mp_tac
+  \\ disch_then $ qspecl_then [‘Exp senv e2’,‘sk’] mp_tac
+  \\ impl_tac >- simp [Once step_res_rel_cases]
   \\ rename [‘snext_res_rel xx yy’]
   \\ simp [snext_res_rel_cases]
   \\ strip_tac \\ fs []
@@ -729,10 +831,10 @@ Proof
   \\ simp [sinterp_def]
   \\ ‘compile_rel (Lit (Str y)) (Lit (Str y))’ by simp [Once compile_rel_cases]
   \\ pop_assum $ irule_at Any
-  \\ qpat_x_assum ‘cont_rel _ _’ $ irule_at Any \\ fs []
+  \\ qpat_x_assum ‘cont_rel _ _’ $ irule_at Any
   \\ ‘env_rel [] []’ by fs [env_rel_def]
   \\ pop_assum $ irule_at Any
-  \\ first_x_assum $ irule_at Any
+  \\ first_assum $ irule_at Any
   \\ simp [value_def]
   \\ once_rewrite_tac [itreeTheory.itree_unfold_err]
   \\ rpt conj_tac
@@ -748,7 +850,7 @@ QED
 
 Theorem compile_rel_itree_of:
   compile_rel e1 e2 ⇒
-  itree_of e1 ---> itree_of e2
+  itree_of e1 = itree_of e2
 Proof
   fs [stateLangTheory.itree_of_def] \\ rw []
   \\ irule semantics_thm
