@@ -81,6 +81,53 @@ Proof
   \\ Induct \\ rw [] \\ fs [fetch "-" "cexp_size_def"] \\ res_tac \\ fs []
 QED
 
+Theorem better_cexp_induction =
+        TypeBase.induction_of “:α cexp”
+          |> Q.SPECL [‘P’, ‘λrows. ∀c arg e. MEM (c,arg,e) rows ⇒ P e’,
+                      ‘λ(c,arg,e). P e’, ‘λ(nm,e). P e’,
+                      ‘λlbs. ∀nm e. MEM (nm, e) lbs ⇒ P e’,
+                      ‘λ(s,e). P e’,
+                      ‘λpes. ∀p e. MEM (p,e) pes ⇒ P e’,
+                      ‘λ(p,e). P e’, ‘λes. ∀e. MEM e es ⇒ P e’
+                     ]
+          |> CONV_RULE (LAND_CONV (SCONV [DISJ_IMP_THM, FORALL_AND_THM,
+                                          pairTheory.FORALL_PROD,
+                                          DECIDE “(p ∧ q ⇒ q) ⇔ T”]))
+          |> UNDISCH |> CONJUNCTS |> hd |> DISCH_ALL
+
+val _ = TypeBase.update_induction better_cexp_induction
+
+Definition dest_var_def[simp]:
+  dest_var (Var _ vnm) = SOME vnm ∧
+  dest_var _ = NONE
+End
+
+Definition dest_nestedcase_def[simp]:
+  dest_nestedcase (NestedCase _ teste testv pes) = SOME (teste, testv, pes) ∧
+  dest_nestedcase _ = NONE
+End
+
+Definition gencexp_recurse_def:
+  gencexp_recurse f (pure_cexp$Letrec c xs y) =
+    f (pure_cexp$Letrec c (MAP (λ(n,x). (n, gencexp_recurse f x)) xs)
+       (gencexp_recurse f y)) ∧
+  gencexp_recurse f (Lam c ns x) = f (Lam c ns (gencexp_recurse f x))  ∧
+  gencexp_recurse f (Prim c p xs) = f (Prim c p (MAP (gencexp_recurse f) xs)) ∧
+  gencexp_recurse f (App c x ys) =
+    f (App c (gencexp_recurse f x) (MAP (gencexp_recurse f) ys))  ∧
+  gencexp_recurse f (Var c v) = f (Var c v) ∧
+  gencexp_recurse f (Let c n x y) =
+    f (Let c n (gencexp_recurse f x) (gencexp_recurse f y)) ∧
+  gencexp_recurse f (Case c x n ys) =
+    f (Case c (gencexp_recurse f x) n
+       (MAP (λ(n,ns,e). (n,ns,gencexp_recurse f e)) ys)) ∧
+  gencexp_recurse f (NestedCase c e v pes) =
+    f (NestedCase c (gencexp_recurse f e) v
+       (MAP (λ(p,e). (p, gencexp_recurse f e)) pes))
+Termination
+  WF_REL_TAC ‘measure (cexp_size (K 0) o SND)’
+End
+
 Definition op_of_def:
   op_of (Cons s) = Cons s ∧
   op_of (AtomOp p) = AtomOp p ∧

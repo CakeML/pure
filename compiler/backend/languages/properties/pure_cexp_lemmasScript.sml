@@ -176,13 +176,6 @@ Proof
       >- (disj1_tac >>
           irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
           simp[MEM_MAP, PULL_EXISTS, SF CONJ_ss] >> metis_tac[]))
-  >- (qx_gen_tac ‘vnm’ >> eq_tac >> strip_tac >> simp[]
-      >- (Cases_on ‘pes = []’ >> gs[] >>
-          drule (SRULE [SUBSET_DEF] freevars_nested_rows_UB) >>
-          simp[MEM_MAP, PULL_EXISTS, SF CONJ_ss] >> metis_tac[])
-      >- (disj1_tac >>
-          irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
-          simp[MEM_MAP, PULL_EXISTS, SF CONJ_ss] >> metis_tac[]))
 QED
 
 Theorem subst_lets_for:
