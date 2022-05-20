@@ -26,7 +26,7 @@ Datatype:
        | UnsafeSub          (* de-reference but without a bounds check  *)
        | Update             (* update a value in an array               *)
        | UnsafeUpdate       (* update without a bounds check            *)
-       | FFI string         (* make an FFI call                         *)
+       | FFI mlstring       (* make an FFI call                         *)
 End
 
 Datatype:
@@ -43,11 +43,28 @@ Datatype:
        | HandleApp cexp cexp                       (* handle that takes fun   *)
 End
 
+Overload True  = “App (Cons (strlit "True"))  []”;
+Overload False = “App (Cons (strlit "False")) []”;
+
+Overload "app" = “λe1 e2. App AppOp [e1;(e2:cexp)]”;
+Overload "Unit" = “App (Cons (strlit "")) [] :cexp”;
+
+Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
+Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
+
 Definition sop_of_def[simp]:
   sop_of (AppOp:csop) = (AppOp:sop) ∧
   sop_of (Cons n) = Cons (explode n) ∧
   sop_of (AtomOp m) = AtomOp m ∧
-  sop_of Alloc = Alloc
+  sop_of Alloc = Alloc ∧
+  sop_of Ref = Ref ∧
+  sop_of Length = Length ∧
+  sop_of Sub = Sub ∧
+  sop_of UnsafeSub = UnsafeSub ∧
+  sop_of Length = Length ∧
+  sop_of Update = Update ∧
+  sop_of UnsafeUpdate = UnsafeUpdate ∧
+  sop_of (FFI s) = FFI (explode s)
 End
 
 Definition exp_of_def:

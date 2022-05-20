@@ -15,9 +15,6 @@ val _ = new_theory "state_app_unitProof";
 val _ = set_grammar_ancestry
   ["stateLang","state_cexp","state_app_unit_1Proof","state_app_unit_2Proof"];
 
-Overload "app" = “λe1 e2. App AppOp [e1;(e2:cexp)]”;
-Overload "Unit" = “App (Cons (strlit "")) [] :cexp”;
-
 Inductive cexp1_rel:
 
 [~App_Lam:]

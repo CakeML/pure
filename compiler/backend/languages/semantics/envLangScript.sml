@@ -45,7 +45,6 @@ Definition Apps_def:
   Apps e (x::xs) = Apps (App e x) xs
 End
 
-
 Definition lets_for_def:
   lets_for cn v [] b = b ∧
   lets_for cn v ((n,w)::ws) b =
