@@ -16,7 +16,7 @@ val _ = set_grammar_ancestry
   ["stateLang","state_cexp","state_app_unit_1Proof","state_app_unit_2Proof"];
 
 Overload "app" = “λe1 e2. App AppOp [e1;(e2:cexp)]”;
-Overload "Unit" = “App (Cons "") [] :cexp”;
+Overload "Unit" = “App (Cons (strlit "")) [] :cexp”;
 
 Inductive cexp1_rel:
 
@@ -139,7 +139,7 @@ Proof
     \\ rpt (irule_at Any state_app_unit_1ProofTheory.compile_rel_App \\ fs [])
     \\ drule_all LIST_REL_rel2_rel1
     \\ strip_tac
-    \\ qexists_tac ‘MAP2 (λ(n,v,_) y. (n,Lam (SOME v) y)) sfns ys’
+    \\ qexists_tac ‘MAP2 (λ(n,v,_) y. (explode n,Lam (SOME (explode v)) y)) sfns ys’
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ rpt (pop_assum mp_tac)
     \\ qid_spec_tac ‘tfns’
@@ -155,7 +155,7 @@ Proof
    (irule_at Any state_app_unit_1ProofTheory.compile_rel_Var \\ fs []
     \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Var \\ fs [])
   >-
-   (qexists_tac ‘(Lam ov y)’
+   (qexists_tac ‘Lam (OPTION_MAP explode ov) y’
     \\ once_rewrite_tac [state_app_unit_2ProofTheory.compile_rel_cases] \\ simp []
     \\ once_rewrite_tac [state_app_unit_1ProofTheory.compile_rel_cases] \\ simp [])
   >-
@@ -181,7 +181,7 @@ Proof
     \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Letrec \\ fs []
     \\ rpt $ first_x_assum $ irule_at $ Any
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-    \\ qexists_tac ‘MAP (λ((x,y,_),z). (x,Lam (SOME y) z)) (ZIP (tfns,ys))’
+    \\ qexists_tac ‘MAP (λ((x,y,_),z). (explode x,Lam (SOME (explode y)) z)) (ZIP (tfns,ys))’
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ rpt (pop_assum mp_tac)
     \\ qid_spec_tac ‘ys’
@@ -207,7 +207,7 @@ Proof
   \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Case \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd
   \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-  \\ qexists_tac ‘MAP (λ((x,y,_),z). (x,y,z)) (ZIP (tes,ys))’
+  \\ qexists_tac ‘MAP (λ((x,y,_),z). (explode x,MAP explode y,z)) (ZIP (tes,ys))’
   \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
   \\ rpt (pop_assum mp_tac)
   \\ qid_spec_tac ‘ys’
@@ -215,6 +215,14 @@ Proof
   \\ qid_spec_tac ‘ses’
   \\ Induct \\ Cases_on ‘tes’ \\ Cases_on ‘ys’ \\ gvs []
   \\ CONV_TAC $ DEPTH_CONV ETA_CONV \\ fs []
+  \\ rw []
+  \\ qpat_x_assum ‘MAP FST t = MAP FST ses’ mp_tac
+  \\ qpat_x_assum ‘MAP _ t = MAP _ ses’ mp_tac
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘ses’
+  \\ Induct \\ Cases_on ‘t’ \\ gvs [FORALL_PROD]
+  \\ TRY (gen_tac \\ Cases \\ gvs [] \\ NO_TAC)
+  \\ TRY (gen_tac \\ gen_tac \\ Cases \\ gvs [] \\ NO_TAC)
 QED
 
 Theorem cexp1_rel_correct:
