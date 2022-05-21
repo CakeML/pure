@@ -13,7 +13,7 @@ val _ = new_theory "state_caseProof";
 
 val _ = set_grammar_ancestry ["stateLang"];
 
-Overload Fail = “App AppOp [] :stateLang$exp”
+Overload Fail = “App (AtomOp Add) [] :stateLang$exp”
 Overload Proj = “λn i x. App (Proj n i) [x:stateLang$exp]”
 Overload IsEq = “λn i x. App (IsEq n i) [x:stateLang$exp]”
 
@@ -505,7 +505,7 @@ Proof
     \\ simp [Once compile_rel_cases] \\ rw []
     >~ [‘Case’] >-
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
-      \\ fs [expand_Case_def] \\ fs [step]
+      \\ fs [expand_Case_def] \\ fs [step,get_atoms_def]
       \\ simp [Once cont_rel_cases]
       \\ pop_assum $ irule_at Any \\ fs []
       \\ fs [env_rel_def,env_rel_ignore_def])
@@ -558,7 +558,7 @@ Proof
    (Cases_on ‘tes’ \\ gvs [step,return_def]
     >-
      (fs [GSYM ADD1,step_n_SUC,step,rows_of_def]
-      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
+      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step,get_atoms_def]
       \\ qexists_tac ‘0’ \\ gvs [step_res_rel_cases])
     \\ PairCases_on ‘h’ \\ fs [step]
     \\ Cases_on ‘ses’ \\ gvs []

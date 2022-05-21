@@ -31,6 +31,11 @@ Definition combined_def:
       clean y1 y
 End
 
+Definition dest_Message_def:
+  dest_Message (Message s) = SOME s ∧
+  dest_Message _ = NONE
+End
+
 Definition to_state_def:
   to_state ((Var n):env_cexp$cexp) = (Var n):state_cexp$cexp ∧
   to_state (App x y) =
@@ -63,7 +68,11 @@ Definition to_state_def:
   to_state (Prim (Cons m) xs) =
     App (Cons m) (MAP to_state xs) ∧
   to_state (Prim (AtomOp b) xs) =
-    App (AtomOp b) (MAP to_state xs)
+    (let ys = MAP to_state xs in
+       case dest_Message b of
+       | SOME m => Let (SOME «v») (case ys of [] => Var «v» | (y::_) => y)
+                     (Lam NONE $ App (FFI (implode m)) [Var «v»])
+       | _ => App (AtomOp b) ys)
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
@@ -82,14 +91,117 @@ Definition cexp_wf_def[simp]:
   cexp_wf (Let _ x y) = (cexp_wf x ∧ cexp_wf y) ∧
   cexp_wf (Bind x y) = (cexp_wf x ∧ cexp_wf y) ∧
   cexp_wf (App x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Letrec fs x) =
+    (EVERY I (MAP (λ(_,x). cexp_wf x) fs) ∧ cexp_wf x ∧
+     EVERY (λ(_,x). ∃n m. x = Lam n m ∨ x = Delay m) fs) ∧
   cexp_wf (Case x v rs) =
     (EVERY I (MAP (λ(_,_,x). cexp_wf x) rs) ∧ cexp_wf x ∧
+     DISJOINT (set (MAP (explode o FST) rs)) monad_cns ∧
+     ALL_DISTINCT (MAP FST rs) ∧
      ~MEM v (FLAT (MAP (FST o SND) rs))) ∧
   cexp_wf (Prim p xs) =
-    (EVERY cexp_wf xs ∧ (∀m. p = Cons m ⇒ explode m ∉ monad_cns))
+    (EVERY cexp_wf xs ∧
+     (case p of
+      | Cons m => explode m ∉ monad_cns
+      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1) ∧
+                    (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l))))
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
+
+Theorem MEM_combined:
+  ∀xs.
+    (∀x. MEM x xs ⇒
+         ∃x1 x2 y1.
+           to_state (exp_of x) x1 ∧ unthunk x1 x2 ∧
+           case_rel (exp_of y1) x2 ∧ clean y1 (to_state x)) ⇒
+    ∃ys xs1 xs0.
+      LIST_REL unthunk xs0 ys ∧ LIST_REL case_rel (MAP exp_of xs1) ys ∧
+      LIST_REL to_state (MAP exp_of xs) xs0 ∧
+      LIST_REL clean xs1 (MAP to_state xs)
+Proof
+  Induct \\ fs [PULL_EXISTS] \\ rw []
+  \\ fs [SF DNF_ss]
+  \\ rpt $ first_x_assum $ irule_at Any
+  \\ last_x_assum dxrule \\ rw []
+  \\ rpt $ first_x_assum $ irule_at Any
+QED
+
+Triviality MEM_explode[simp]:
+  ∀xs x. MEM (explode x) (MAP explode xs) = MEM x xs
+Proof
+  Induct \\ fs []
+QED
+
+Theorem unthunk_lets_for:
+  ∀xs v h1 h2.
+    unthunk h1 h2 ⇒
+    unthunk (state_caseProof$lets_for v s xs h1)
+            (state_caseProof$lets_for v s xs h2)
+Proof
+  Induct \\ fs [state_caseProofTheory.lets_for_def]
+  \\ PairCases \\ fs [state_caseProofTheory.lets_for_def] \\ rw []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+QED
+
+Theorem unthunk_rows_of:
+  ∀xs ys s.
+    MAP FST xs = MAP FST ys ∧
+    MAP (FST o SND) xs = MAP (FST o SND) ys ∧
+    LIST_REL unthunk (MAP (SND o SND) xs) (MAP (SND o SND) ys) ⇒
+    unthunk (state_caseProof$rows_of s xs) (state_caseProof$rows_of s ys)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [state_caseProofTheory.rows_of_def]
+  >- (irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [])
+  \\ PairCases \\ PairCases_on ‘h’ \\ fs [] \\ rw []
+  \\ fs [state_caseProofTheory.rows_of_def]
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_If \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+  \\ irule unthunk_lets_for
+  \\ fs []
+QED
+
+Theorem to_state_lets_for:
+  ∀xs v h1 h2.
+    to_state h1 h2 ∧ v ∉ monad_cns ⇒
+    to_state (lets_for v s xs h1)
+             (state_caseProof$lets_for v s xs h2)
+Proof
+  Induct
+  \\ fs [state_caseProofTheory.lets_for_def,envLangTheory.lets_for_def]
+  \\ PairCases
+  \\ fs [state_caseProofTheory.lets_for_def,envLangTheory.lets_for_def] \\ rw []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Proj \\ fs []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Var \\ fs []
+QED
+
+Theorem to_state_rows_of:
+  ∀xs ys s.
+    MAP FST xs = MAP FST ys ∧
+    MAP (FST o SND) xs = MAP (FST o SND) ys ∧
+    DISJOINT (set (MAP FST xs)) monad_cns ∧
+    LIST_REL to_state (MAP (SND o SND) xs) (MAP (SND o SND) ys) ⇒
+    to_state (rows_of s xs) (state_caseProof$rows_of s ys)
+Proof
+  Induct \\ Cases_on ‘ys’
+  \\ fs [state_caseProofTheory.rows_of_def,
+         envLangTheory.rows_of_def]
+  >- (irule_at Any env_to_state_1ProofTheory.compile_rel_AtomOp \\ fs [])
+  \\ PairCases \\ PairCases_on ‘h’ \\ fs [] \\ rw []
+  \\ fs [state_caseProofTheory.rows_of_def,
+         envLangTheory.rows_of_def]
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_If \\ fs []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_IsEq \\ fs []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Var \\ fs []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Var \\ fs []
+  \\ irule to_state_lets_for \\ fs []
+QED
 
 Theorem to_state_rel:
   ∀x. cexp_wf x ⇒ combined x (to_state x)
@@ -229,12 +341,67 @@ Proof
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ fs [state_caseProofTheory.expand_Case_def]
-    \\ cheat)
+    \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,SF SFY_ss]
+    \\ qspec_then ‘MAP (SND o SND) rs’ mp_tac MEM_combined
+    \\ impl_tac >- gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,SF SFY_ss]
+    \\ strip_tac
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (m,n,r)) (ZIP (rs,xs1))’
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,ys))’
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+    \\ last_x_assum kall_tac
+    \\ qpat_x_assum ‘∀x. _’ kall_tac
+    \\ IF_CASES_TAC
+    >-
+     (qsuff_tac ‘F’ \\ fs []
+      \\ pop_assum mp_tac
+      \\ qpat_x_assum ‘~(MEM _ _)’ mp_tac
+      \\ ‘LENGTH rs = LENGTH ys’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘ys’
+      \\ qid_spec_tac ‘rs’
+      \\ Induct \\ fs [PULL_EXISTS]
+      \\ strip_tac \\ Cases \\ fs [])
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs [PULL_EXISTS]
+    \\ qexists_tac ‘(state_caseProof$rows_of (explode x')
+               (MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,xs0))))’
+    \\ rpt $ qpat_x_assum ‘~(MEM _ _)’ kall_tac
+    \\ irule_at Any unthunk_rows_of
+    \\ irule_at Any to_state_rows_of
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+    \\ ‘ALL_DISTINCT (MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1)))’ by
+     (qsuff_tac ‘(MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1))) =
+                 MAP explode (MAP FST rs)’ >- simp []
+      \\ drule LIST_REL_LENGTH \\ fs []
+      \\ qid_spec_tac ‘rs’
+      \\ qid_spec_tac ‘xs1’
+      \\ Induct \\ fs [] \\ Cases_on ‘rs'’ \\ fs [])
+    \\ fs []
+    \\ pop_assum kall_tac
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ ntac 8 $ pop_assum mp_tac
+    \\ qid_spec_tac ‘xs0’
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘rs’
+    \\ qid_spec_tac ‘xs1’
+    \\ fs [UNCURRY,MAP_MAP_o,combinTheory.o_DEF]
+    \\ Induct
+    \\ fs [PULL_EXISTS,PULL_FORALL]
+    \\ Cases_on ‘rs'’ \\ fs [] \\ metis_tac [])
   >~ [‘Letrec’] >-
-    cheat
-  \\ rename [‘Prim pp xs’]
-  \\ Cases_on ‘pp’ \\ fs [SF ETA_ss]
-  \\ rw [to_state_def] \\ fs [combined_def]
+
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ rpt $ irule_at Any env_to_state_1ProofTheory.compile_rel_Letrec
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+
+
+
+
+
+    \\ cheat)
+
+  >~ [‘Prim (Cons m) xs’] >-
+   (rw [to_state_def] \\ fs [combined_def]
     \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ rpt $ irule_at Any env_to_state_1ProofTheory.compile_rel_Cons
@@ -242,6 +409,34 @@ Proof
     \\ gvs [EVERY_MEM,SF ETA_ss]
     \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
     \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule MEM_combined \\ metis_tac [])
+  >~ [‘Prim (AtomOp b) xs’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ Cases_on ‘dest_Message b’ \\ fs []
+    >-
+     (rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+      \\ rpt $ irule_at Any env_to_state_1ProofTheory.compile_rel_AtomOp
+      \\ ‘(∀s. b ≠ Message s)’ by (Cases_on ‘b’ \\ fs [dest_Message_def])
+      \\ gvs [EVERY_MEM,SF ETA_ss]
+      \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+      \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+      \\ irule MEM_combined \\ metis_tac [])
+    \\ Cases_on ‘b’ \\ gvs [dest_Message_def,LENGTH_EQ_NUM_compute]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Message
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs [PULL_EXISTS]
+    \\ rpt $ first_x_assum $ irule_at $ Any
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Var \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt $ first_x_assum $ irule_at $ Any
+    \\ simp [Once state_caseProofTheory.compile_rel_cases,PULL_EXISTS]
+    \\ simp [Once state_unthunkProofTheory.compile_rel_cases,PULL_EXISTS]
+    \\ rpt (irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]))
   \\ cheat
 QED
 

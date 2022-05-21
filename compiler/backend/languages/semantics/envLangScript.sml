@@ -52,10 +52,11 @@ Definition lets_for_def:
 End
 
 Definition rows_of_def:
-  rows_of v [] = Prim If [] ∧
+  rows_of v [] = Prim (AtomOp Add) [] ∧
   rows_of v ((cn,vs,b)::rest) =
     If (Prim (IsEq cn (LENGTH vs) T) [Var v])
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest)
+      (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
+      (Let (SOME v) (Var v) $ rows_of v rest)
 End
 
 Definition exp_of_def:
