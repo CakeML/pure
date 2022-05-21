@@ -357,6 +357,88 @@ Proof
   \\ fs []
 QED
 
+Triviality Letrec_imm_0:
+  Letrec_imm ts m ⇒
+  (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam x y
+Proof
+  Cases_on ‘m’ \\ fs [Letrec_imm_def]
+QED
+
+Triviality Letrec_imm_1:
+  state_unthunkProof$Letrec_imm ts m ⇒
+  (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam (SOME x) y
+Proof
+  Cases_on ‘m’ \\ fs [state_unthunkProofTheory.Letrec_imm_def]
+  \\ rename [‘Lam oo’] \\ Cases_on ‘oo’
+  \\ fs [state_unthunkProofTheory.Letrec_imm_def]
+QED
+
+Triviality comp_Letrec_neq:
+  comp_Letrec sfns se ≠ Var v ∧
+  comp_Letrec sfns se ≠ Lam m n
+Proof
+  fs [comp_Letrec_def]
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on ‘MAP some_ref_bool delays’ \\ fs []
+  \\ fs [state_unthunkProofTheory.Lets_def]
+  \\ PairCases_on ‘h’
+  \\ fs [state_unthunkProofTheory.Lets_def]
+QED
+
+Theorem Letrec_split_names:
+  ∀xs delays delays' funs funs' xs0 ys.
+    Letrec_split ts1 xs = (delays,funs) ∧
+    Letrec_split (MAP explode ts1) (ZIP (MAP (λx. explode (FST x)) xs,MAP inv_thunk ys)) =
+    (delays',funs') ∧
+    LIST_REL unthunk xs0 ys ∧
+    LIST_REL to_state (MAP (λx. exp_of (SND x)) xs) xs0 ∧
+    (∀p_1 p_2. MEM (p_1,p_2) xs ⇒ ∃n m. p_2 = Lam n m ∨ p_2 = Delay m) ⇒
+    MAP (explode ∘ FST) delays = MAP FST delays' ∧
+    MAP (FST ∘ SND) delays = MAP (FST ∘ SND) delays' ∧
+    MAP (explode ∘ FST) funs = MAP FST funs'
+Proof
+  Induct
+  \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
+  \\ PairCases \\ fs []
+  \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
+  \\ rpt gen_tac
+  \\ rpt $ disch_then assume_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac >- (fs [] \\ metis_tac [])
+  \\ strip_tac
+  \\ first_x_assum $ qspecl_then [‘h0’,‘h1’] mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘to_state _ _’ mp_tac
+  \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+  \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘unthunk _ _’ mp_tac
+  \\ simp [Once state_unthunkProofTheory.compile_rel_cases]
+  \\ strip_tac \\ gvs [inv_thunk_def]
+  \\ gvs [dest_Delay_def,dest_Lam_def,state_unthunkProofTheory.dest_Delay_def]
+  \\ eq_tac \\ rw []
+  \\ imp_res_tac Letrec_imm_0
+  \\ imp_res_tac Letrec_imm_1
+  \\ gvs []
+  \\ TRY (qpat_x_assum ‘to_state _ _’ mp_tac
+          \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+          \\ strip_tac \\ gvs []
+          \\ qpat_x_assum ‘unthunk _ _’ mp_tac
+          \\ simp [Once state_unthunkProofTheory.compile_rel_cases]
+          \\ strip_tac \\ gvs [inv_thunk_def]
+          \\ fs [Letrec_imm_def,state_unthunkProofTheory.Letrec_imm_def]
+          \\ NO_TAC)
+  \\ qpat_x_assum ‘unthunk _ _’ mp_tac
+  \\ simp [Once state_unthunkProofTheory.compile_rel_cases,comp_Letrec_neq]
+  \\ strip_tac \\ gvs [inv_thunk_def]
+  \\ qpat_x_assum ‘to_state _ _’ mp_tac
+  \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+  \\ strip_tac \\ gvs []
+  \\ Cases_on ‘m’ \\ gvs []
+  \\ fs [Letrec_imm_def,state_unthunkProofTheory.Letrec_imm_def]
+QED
+
 Theorem to_state_rel:
   ∀x. cexp_wf x ⇒ combined x (to_state x)
 Proof
@@ -643,9 +725,12 @@ Proof
       \\ reverse Induct \\ Cases_on ‘fs’ \\ fs []
       \\ PairCases \\ fs [some_ref_bool_def,unsafe_update_def])
     \\ irule_at Any case_rel_Lets \\ fs []
-    \\ ‘MAP (explode o FST) delays = MAP FST delays'’ by cheat
-    \\ ‘MAP (FST o SND) delays = MAP (FST o SND) delays'’ by cheat
-    \\ ‘MAP (explode o FST) funs = MAP FST funs'’ by cheat
+    \\ ‘MAP (explode o FST) delays = MAP FST delays' ∧
+        MAP (FST o SND) delays = MAP (FST o SND) delays' ∧
+        MAP (explode o FST) funs = MAP FST funs'’ by
+     (irule Letrec_split_names \\ fs []
+      \\ rpt $ first_x_assum $ irule_at Any
+      \\ fs [SF SFY_ss, MAP_MAP_o,combinTheory.o_DEF])
     \\ unabbrev_all_tac
     \\ conj_tac
     >-

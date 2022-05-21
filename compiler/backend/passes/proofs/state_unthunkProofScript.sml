@@ -59,7 +59,7 @@ End
 
 Definition Letrec_imm_def:
   (Letrec_imm vs (Var v) ⇔ MEM v vs) ∧
-  (Letrec_imm vs (Lam _ _) ⇔ T) ∧
+  (Letrec_imm vs (Lam (SOME _) _) ⇔ T) ∧
   (Letrec_imm vs _ ⇔ F)
 End
 
