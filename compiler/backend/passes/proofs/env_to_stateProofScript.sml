@@ -9,13 +9,13 @@ open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
      envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
      stateLangTheory env_semanticsTheory env_to_state_1ProofTheory
      state_caseProofTheory state_unthunkProofTheory state_app_unitProofTheory
-     env_cexpTheory state_cexpTheory;
+     env_cexpTheory state_cexpTheory env_to_stateTheory;
 local open pure_semanticsTheory in end
 
 val _ = new_theory "env_to_stateProof";
 
 val _ = set_grammar_ancestry
-  ["env_to_state_1Proof", "env_cexp", "state_cexp", "state_unthunkProof"];
+  ["env_to_state", "env_to_state_1Proof", "env_cexp", "state_cexp", "state_unthunkProof"];
 
 Overload to_state = “env_to_state_1Proof$compile_rel”
 Overload unthunk = “state_unthunkProof$compile_rel”
@@ -29,142 +29,6 @@ Definition combined_def:
       unthunk x1 x2 ∧
       case_rel (exp_of y1) x2 ∧
       clean y1 y
-End
-
-Definition dest_Message_def:
-  dest_Message (Message s) = SOME s ∧
-  dest_Message _ = NONE
-End
-
-Definition Lets_def:
-  Lets [] x = (x:state_cexp$cexp) ∧
-  Lets ((v,y)::ys) x = Let v y (Lets ys x)
-End
-
-Definition Letrec_imm_def:
-  (Letrec_imm vs ((Var v):env_cexp$cexp) ⇔ MEM v vs) ∧
-  (Letrec_imm vs (Lam _ _) ⇔ T) ∧
-  (Letrec_imm vs _ ⇔ F)
-End
-
-Definition dest_Delay_def:
-  dest_Delay (Delay x) = SOME (x:env_cexp$cexp) ∧
-  dest_Delay _ = NONE
-End
-
-Definition dest_Lam_def:
-  dest_Lam (Lam v x) = SOME (v,x:env_cexp$cexp) ∧
-  dest_Lam _ = NONE
-End
-
-Definition Letrec_split_def:
-  Letrec_split vs [] = ([],[]) ∧
-  Letrec_split vs ((v:mlstring,x)::fns) =
-    let (xs,ys) = Letrec_split vs fns in
-      case dest_Delay x of
-      | SOME y => ((v,Letrec_imm vs y,y)::xs,ys)
-      | NONE =>
-        case dest_Lam x of
-        | SOME (n,z) => (xs,(v,n,z)::ys)
-        | NONE => (xs,ys)
-End
-
-Definition Bool_def[simp]:
-  Bool T = (True  :state_cexp$cexp) ∧
-  Bool F = (False :state_cexp$cexp)
-End
-
-Definition some_ref_bool_def:
-  some_ref_bool (v:mlstring,b,y:state_cexp$cexp) =
-    (SOME v, App Ref [Bool b; Bool b])
-End
-
-Definition unsafe_update_def:
-  unsafe_update (v,b,y) =
-    (NONE:mlstring option, App UnsafeUpdate [Var v; IntLit 1; if b then y else Lam NONE y])
-End
-
-Triviality Letrec_split_MEM_funs:
-  ∀xs delays funs m n x.
-    (delays,funs) = Letrec_split ns xs ∧ MEM (m,n,x) funs ⇒
-    cexp_size x ≤ list_size (pair_size mlstring_size cexp_size) xs
-Proof
-  Induct \\ fs [Letrec_split_def]
-  \\ PairCases \\ fs [Letrec_split_def] \\ rw []
-  \\ pairarg_tac \\ fs []
-  \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ fs []
-  \\ fs [list_size_def,basicSizeTheory.pair_size_def]
-  \\ Cases_on ‘h1’ \\ gvs [dest_Lam_def,env_cexpTheory.cexp_size_def]
-QED
-
-Triviality Letrec_split_MEM_delays:
-  ∀xs delays funs m n x.
-    (delays,funs) = Letrec_split ns xs ∧ MEM (m,n,x) delays ⇒
-    cexp_size x ≤ list_size (pair_size mlstring_size cexp_size) xs
-Proof
-  Induct \\ fs [Letrec_split_def]
-  \\ PairCases \\ fs [Letrec_split_def] \\ rw []
-  \\ pairarg_tac \\ fs []
-  \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ fs []
-  \\ fs [list_size_def,basicSizeTheory.pair_size_def]
-  \\ Cases_on ‘h1’ \\ gvs [dest_Delay_def,env_cexpTheory.cexp_size_def]
-QED
-
-Definition to_state_def:
-  to_state ((Var n):env_cexp$cexp) = (Var n):state_cexp$cexp ∧
-  to_state (App x y) =
-    app (to_state x) (to_state y) ∧
-  to_state (Lam v x) =
-    Lam (SOME v) (to_state x) ∧
-  to_state (Ret x) =
-    Let (SOME «v») (to_state x) (Lam NONE (Var «v»)) ∧
-  to_state (Bind x y) =
-    Lam NONE (app (app (to_state y) (app (to_state x) Unit)) Unit) ∧
-  to_state (Box x) =
-    App Ref [True; (to_state x)] ∧
-  to_state (Delay x) =
-    App Ref [False; Lam NONE (to_state x)] ∧
-  to_state (Force x) =
-    (Let (SOME «v») (to_state x) $
-     Let (SOME «v1») (App UnsafeSub [Var «v»; IntLit 0]) $
-     Let (SOME «v2») (App UnsafeSub [Var «v»; IntLit 1]) $
-       If (Var «v1») (Var «v2») $
-         Let (SOME «wh») (app (Var «v2») Unit) $
-         Let NONE (App UnsafeUpdate [Var «v»; IntLit 0; True]) $
-         Let NONE (App UnsafeUpdate [Var «v»; IntLit 1; Var «wh»]) $
-           Var «wh») ∧
-  to_state (Letrec xs y) =
-    (let (delays,funs) = Letrec_split (MAP FST xs) xs in
-     let delays = MAP (λ(m,n,x). (m,n,to_state x)) delays in
-     let funs = MAP (λ(m,n,x). (m,n,to_state x)) funs in
-       Lets (MAP some_ref_bool delays) $
-       Letrec funs $
-       Lets (MAP unsafe_update delays) (to_state y)) ∧
-  to_state (Let vo x y) =
-    Let vo (to_state x) (to_state y) ∧
-  to_state (If x y z) =
-    If (to_state x) (to_state y) (to_state z) ∧
-  to_state (Case x v rs) =
-    Case (to_state x) v (MAP (λ(c,vs,y). (c,vs,to_state y)) rs) ∧
-  to_state (Prim (Cons m) xs) =
-    App (Cons m) (MAP to_state xs) ∧
-  to_state (Prim (AtomOp b) xs) =
-    (let ys = MAP to_state xs in
-       case dest_Message b of
-       | SOME m => Let (SOME «v») (case ys of [] => Var «v» | (y::_) => y)
-                     (Lam NONE $ App (FFI (implode m)) [Var «v»])
-       | _ => App (AtomOp b) ys)
-Termination
-  WF_REL_TAC ‘measure cexp_size’
-  \\ fs [env_cexpTheory.cexp_size_eq] \\ rw []
-  \\ (drule_all Letrec_split_MEM_delays ORELSE drule_all Letrec_split_MEM_funs)
-  \\ fs []
-End
-
-Definition compile_def:
-  compile x = app (to_state x) Unit
 End
 
 Definition cexp_wf_def[simp]:
@@ -358,7 +222,7 @@ Proof
 QED
 
 Triviality Letrec_imm_0:
-  Letrec_imm ts m ⇒
+  env_to_state$Letrec_imm ts m ⇒
   (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam x y
 Proof
   Cases_on ‘m’ \\ fs [Letrec_imm_def]
@@ -383,6 +247,12 @@ Proof
   \\ fs [state_unthunkProofTheory.Lets_def]
   \\ PairCases_on ‘h’
   \\ fs [state_unthunkProofTheory.Lets_def]
+QED
+
+Triviality expand_Case_neq:
+  state_caseProof$expand_Case se v ses ≠ Lam x t
+Proof
+  rw [state_caseProofTheory.expand_Case_def]
 QED
 
 Theorem Letrec_split_names:
@@ -439,10 +309,95 @@ Proof
   \\ fs [Letrec_imm_def,state_unthunkProofTheory.Letrec_imm_def]
 QED
 
+Theorem clean_Ref:
+  ∀x y z. clean (App Ref [x;y]) z ⇒ ∃x1 y1. z = (App Ref [x1;y1]) ∧ clean y y1
+Proof
+  Induct_on ‘clean’ \\ rw []
+  \\ fs [state_app_unitProofTheory.cexp_rel_refl]
+  >- (irule state_app_unitProofTheory.cexp_rel_trans
+      \\ first_x_assum $ irule_at Any \\ fs [])
+  \\ Cases_on ‘ys’ \\ fs []
+QED
+
+Theorem clean_Lam:
+  ∀x y z. clean (Lam x y) z ⇒ ∃y1. z = Lam x y1 ∧ clean y y1
+Proof
+  Induct_on ‘clean’ \\ rw []
+  \\ fs [state_app_unitProofTheory.cexp_rel_refl]
+  \\ irule state_app_unitProofTheory.cexp_rel_trans
+  \\ first_x_assum $ irule_at Any \\ fs []
+QED
+
+Theorem Letrec_split_case_clean:
+  ∀xs delays delays' funs funs' xs0 ys xs1.
+    Letrec_split ts1 xs = (delays,funs) ∧
+    Letrec_split (MAP explode ts1) (ZIP (MAP (λx. explode (FST x)) xs,MAP inv_thunk ys)) =
+    (delays',funs') ∧
+    LIST_REL unthunk xs0 ys ∧
+    LIST_REL case_rel (MAP exp_of xs1) ys ∧
+    LIST_REL clean xs1 (MAP (λx. to_state (SND x)) xs) ∧
+    LIST_REL to_state (MAP (λx. exp_of (SND x)) xs) xs0 ∧
+    (∀p_1 p_2. MEM (p_1,p_2) xs ⇒ ∃n m. p_2 = Lam n m ∨ p_2 = Delay m) ⇒
+    ∃ds fs.
+      EVERY (λf. ∃tt uu. f = Lam (SOME tt) uu) fs ∧
+      LIST_REL case_rel (MAP exp_of ds) (MAP (SND o SND) delays') ∧
+      LIST_REL case_rel (MAP exp_of fs) (MAP SND funs') ∧
+      LIST_REL clean ds (MAP (to_state o SND o SND) delays) ∧
+      LIST_REL clean fs (MAP (λ(f,n,x). Lam (SOME n) (to_state x)) funs)
+Proof
+  Induct
+  \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
+  \\ PairCases \\ fs []
+  \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
+  \\ rpt gen_tac
+  \\ rpt $ disch_then assume_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ first_x_assum drule
+  \\ rpt $ disch_then drule
+  \\ impl_tac >- (fs [] \\ metis_tac [])
+  \\ strip_tac
+  \\ first_x_assum $ qspecl_then [‘h0’,‘h1’] mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘to_state _ _’ mp_tac
+  \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+  \\ strip_tac \\ gvs []
+  \\ qpat_x_assum ‘unthunk _ _’ mp_tac
+  \\ simp [Once state_unthunkProofTheory.compile_rel_cases]
+  \\ strip_tac \\ gvs [inv_thunk_def]
+  \\ gvs [dest_Delay_def,dest_Lam_def,state_unthunkProofTheory.dest_Delay_def]
+  \\ fs [PULL_EXISTS,to_state_def]
+  \\ rpt $ first_x_assum $ irule_at Any
+  \\ qpat_x_assum ‘case_rel _ _’ mp_tac
+  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
+  >-
+   (rw []
+    \\ simp [Once state_caseProofTheory.compile_rel_cases]
+    \\ Cases_on ‘x’ \\ gvs []
+    \\ first_x_assum $ irule_at Any \\ fs [])
+  \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘c’ \\ fs []
+  \\ Cases_on ‘l’ \\ fs []
+  \\ Cases_on ‘t’ \\ fs []
+  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
+  \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
+  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
+  \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
+  \\ Cases_on ‘h'’ \\ fs []
+  \\ strip_tac \\ gvs []
+  \\ pop_assum $ irule_at Any
+  \\ drule clean_Ref \\ fs []
+  \\ rw []
+  \\ drule clean_Lam \\ fs []
+QED
+
+Definition body_of_def[simp]:
+  body_of (Lam _ x) = x:state_cexp$cexp
+End
+
 Theorem to_state_rel:
   ∀x. cexp_wf x ⇒ combined x (to_state x)
 Proof
-
   ho_match_mp_tac to_state_ind \\ rpt strip_tac
   >~ [‘Var’] >-
    (rw [to_state_def,combined_def]
@@ -626,7 +581,6 @@ Proof
     \\ fs [PULL_EXISTS,PULL_FORALL]
     \\ Cases_on ‘rs'’ \\ fs [] \\ metis_tac [])
   >~ [‘Letrec’] >-
-
    (rw [to_state_def] \\ fs [combined_def]
     \\ rpt $ irule_at Any env_to_state_1ProofTheory.compile_rel_Letrec
     \\ pairarg_tac \\ gvs []
@@ -690,22 +644,26 @@ Proof
     \\ gvs [MAP_ZIP]
     \\ pairarg_tac \\ fs []
     \\ ‘∃ds fs.
+          EVERY (λf. ∃tt uu. f = Lam (SOME tt) uu) fs ∧
           LIST_REL case_rel (MAP exp_of ds) (MAP (SND o SND) delays') ∧
           LIST_REL case_rel (MAP exp_of fs) (MAP SND funs') ∧
           LIST_REL clean ds (MAP (to_state o SND o SND) delays) ∧
-          LIST_REL clean fs (MAP (to_state o SND o SND) funs)’ by cheat
+          LIST_REL clean fs (MAP (λ(f,n,x). Lam (SOME n) (to_state x)) funs)’ by
+      (irule Letrec_split_case_clean
+       \\ rpt $ first_x_assum $ irule_at Any \\ fs [SF SFY_ss]
+       \\ fs [MAP_MAP_o,combinTheory.o_DEF])
     \\ qabbrev_tac ‘ds1 = MAP (λ((m,n,_),x). (m,n,x)) (ZIP (delays,ds))’
-    \\ qabbrev_tac ‘fs1 = MAP (λ((m,n,_),x). (m,n,x)) (ZIP (funs,fs))’
+    \\ qabbrev_tac ‘fs1 = MAP (λ((m,n,_),x). (m,n,body_of x)) (ZIP (funs,fs))’
     \\ qexists_tac ‘Lets (MAP some_ref_bool ds1) $
                     Letrec fs1 $ Lets (MAP unsafe_update ds1) y1’
-    \\ reverse conj_tac
-    >-
+    \\ reverse conj_tac >-
      (irule_at Any clean_Lets
       \\ irule_at Any state_app_unitProofTheory.cexp_rel_Letrec \\ fs []
       \\ irule_at Any clean_Lets
       \\ fs []
       \\ fs [Abbr‘fs1’,Abbr‘ds1’]
       \\ ntac 2 $ pop_assum mp_tac
+      \\ qpat_x_assum ‘EVERY _ _’ mp_tac
       \\ qid_spec_tac ‘fs’
       \\ qid_spec_tac ‘funs’
       \\ qid_spec_tac ‘ds’
@@ -723,7 +681,9 @@ Proof
         \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
         \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS]))
       \\ reverse Induct \\ Cases_on ‘fs’ \\ fs []
-      \\ PairCases \\ fs [some_ref_bool_def,unsafe_update_def])
+      \\ PairCases \\ fs [some_ref_bool_def,unsafe_update_def]
+      \\ rpt strip_tac \\ gvs []
+      \\ imp_res_tac clean_Lam \\ gvs [])
     \\ irule_at Any case_rel_Lets \\ fs []
     \\ ‘MAP (explode o FST) delays = MAP FST delays' ∧
         MAP (FST o SND) delays = MAP (FST o SND) delays' ∧
@@ -765,13 +725,15 @@ Proof
       \\ Induct \\ Cases_on ‘fs’ \\ Cases_on ‘funs’ \\ fs []
       \\ PairCases_on ‘h'’ \\ PairCases \\ fs []))
     \\ reverse conj_tac >-
-     (ntac 6 $ pop_assum mp_tac
+     (ntac 8 $ pop_assum mp_tac
       \\ rpt $ pop_assum kall_tac
       \\ qid_spec_tac ‘fs’
       \\ qid_spec_tac ‘funs’
       \\ qid_spec_tac ‘funs'’
       \\ Induct \\ Cases_on ‘fs’ \\ Cases_on ‘funs’ \\ fs []
-      \\ PairCases_on ‘h'’ \\ PairCases \\ fs [] \\ cheat (* problem *))
+      \\ PairCases_on ‘h'’ \\ PairCases \\ fs []
+      \\ rpt strip_tac \\ gvs []
+      \\ imp_res_tac clean_Lam \\ gvs [])
     \\ irule_at Any case_rel_Lets \\ fs []
     \\ ntac 7 $ pop_assum mp_tac
     \\ rpt $ pop_assum kall_tac
@@ -786,7 +748,6 @@ Proof
     \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
     \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_Var
     \\ simp [Once state_caseProofTheory.compile_rel_cases])
-
   >~ [‘Prim (Cons m) xs’] >-
    (rw [to_state_def] \\ fs [combined_def]
     \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
