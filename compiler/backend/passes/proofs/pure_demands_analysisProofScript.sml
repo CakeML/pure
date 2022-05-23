@@ -585,7 +585,7 @@ Proof
       >- (irule LIST_EQ >> rw [EL_MAP] >>
           rename1 ‘n < _’ >>
           last_x_assum $ qspecl_then [‘cexp_size f (EL n l)’] assume_tac >>
-          ‘cexp_size f (EL n l) < cexp6_size f l’
+          ‘cexp_size f (EL n l) < cexp8_size f l’
             by metis_tac [cexp_size_lemma, EL_MEM] >>
           fs [cexp_size_def] >>
           pop_assum kall_tac >>
@@ -595,7 +595,7 @@ Proof
           irule LIST_EQ >> rw [EL_MAP] >>
           rename1 ‘n < _’ >>
           last_x_assum $ qspecl_then [‘cexp_size f (EL n l)’] assume_tac >>
-          ‘cexp_size f (EL n l) < cexp6_size f l’
+          ‘cexp_size f (EL n l) < cexp8_size f l’
             by metis_tac [cexp_size_lemma, EL_MEM] >>
           fs [cexp_size_def] >>
           pop_assum kall_tac >>
@@ -622,7 +622,7 @@ Proof
           last_x_assum $ irule_at Any >>
           irule_at Any EQ_REFL >> qexists_tac ‘f’ >>
           rename1 ‘n < LENGTH _’ >>
-          ‘cexp_size f (EL n l) < cexp6_size f l’ by metis_tac [cexp_size_lemma, EL_MEM] >>
+          ‘cexp_size f (EL n l) < cexp8_size f l’ by metis_tac [cexp_size_lemma, EL_MEM] >>
           gvs []) >>
       FULL_CASE_TAC >> gvs [] >>
       irule AP_THM >> gvs [] >>
@@ -631,7 +631,7 @@ Proof
       last_x_assum $ irule_at Any >>
       irule_at Any EQ_REFL >> qexists_tac ‘f’ >>
       rename1 ‘n < LENGTH _’ >>
-      ‘cexp_size f (EL n l) < cexp6_size f l’ by metis_tac [cexp_size_lemma, EL_MEM] >>
+      ‘cexp_size f (EL n l) < cexp8_size f l’ by metis_tac [cexp_size_lemma, EL_MEM] >>
       gvs [])
   >- (rw [] >> AP_TERM_TAC >>
       last_x_assum irule >> irule_at Any EQ_REFL >>
