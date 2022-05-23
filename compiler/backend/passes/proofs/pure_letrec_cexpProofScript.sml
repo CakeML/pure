@@ -133,9 +133,7 @@ Proof
      (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th)) >>
    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >> metis_tac[]) >>
   gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >> TRY pairarg_tac >> gvs[] >~
-  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >~
-  [‘MEM x $ cepat_vars_l (FST y)’] >- (PairCases_on ‘y’ >> gvs[] >>
-                                       metis_tac[]) >>
+  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >>
   metis_tac[]
 QED
 
