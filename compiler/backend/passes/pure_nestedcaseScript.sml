@@ -42,24 +42,6 @@ Definition lift_uscore1_def:
   (lift_uscore1 e = e)
 End
 
-case x@v of
-  C (p,y) =>
-  D (p2,y) =>
-
-  -->
-
-  case x of
-     C (v, y) => ....
-   | _ => case x of
-             D(p2,_)
-
-
-             --->
-
-             case x of
-               C(v1,..)
-               D(v1,..)
-
 Overload lift_uscore = “gencexp_recurse lift_uscore1”
 
 Theorem lift_uscore_thm =
