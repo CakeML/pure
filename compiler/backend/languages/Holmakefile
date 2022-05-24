@@ -1,1 +1,2 @@
-INCLUDES = $(PUREDIR)/misc $(PUREDIR)/language
+INCLUDES = $(PUREDIR)/misc $(PUREDIR)/language \
+           $(CAKEMLDIR)/basis/pure

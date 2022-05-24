@@ -2516,8 +2516,8 @@ Proof
   pop_assum SUBST_ALL_TAC >> simp[] >>
   ntac 9 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
   simp[store_lookup_def, copy_array_def, integerTheory.INT_ADD_CALCULATE] >>
-  qmatch_goalsub_abbrev_tac `StrLit str` >>
-  `str = s` by (
+  qmatch_goalsub_abbrev_tac `StrLit str1` >>
+  `str1 = s` by (
     unabbrev_all_tac >> simp[TAKE_APPEND, GSYM MAP_TAKE] >>
     simp[ws_to_chars_def, MAP_MAP_o, combinTheory.o_DEF, IMPLODE_EXPLODE_I]) >>
   pop_assum SUBST_ALL_TAC >>
