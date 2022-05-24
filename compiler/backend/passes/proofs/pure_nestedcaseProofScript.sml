@@ -170,8 +170,8 @@ Proof
 QED
 
 Theorem dest_nestedcase_EQ_SOME:
-  dest_nestedcase e = SOME (texp,v,pes) ⇔
-  ∃i. e = NestedCase i texp v pes
+  dest_nestedcase e = SOME (texp,pes) ⇔
+  ∃i. e = NestedCase i texp pes
 Proof
   Cases_on ‘e’ >> simp[]
 QED
@@ -214,7 +214,7 @@ Proof
       irule exp_eq_rows_of_cong >>
       gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
       rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
-  [‘COND (pes = []) (NestedCase i (lift_uscore gde) gdv [])’]
+  [‘COND (pes = []) (NestedCase i (lift_uscore gde) [])’]
   >- (Cases_on ‘pes = []’ >> simp[exp_of_def, exp_eq_Let_cong_noaconv] >>
       qabbrev_tac ‘pes0 = FRONT pes’ >>
       qabbrev_tac ‘pe = LAST pes’ >>

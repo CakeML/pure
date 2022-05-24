@@ -70,7 +70,7 @@ Proof
 QED
 
 Theorem freevars_FOLDR_LetUB:
-  (∀v b. MEM (v,b) binds ⇒ freevars b = B)
+  (∀v b. MEM (v,b) binds ⇒ freevars b ⊆ B)
   ⇒
   freevars (FOLDR (λ(v,e) A. Let v e A) base binds) ⊆
   (freevars base DIFF set (MAP FST binds)) ∪ B
@@ -78,16 +78,15 @@ Proof
   Induct_on ‘binds’ >> simp[FORALL_PROD] >> rw[] >>
   gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
   first_x_assum $ drule_at Any >>
-  simp[SUBSET_DEF]
+  gs[SUBSET_DEF]
 QED
 
 Theorem freevars_FOLDR_LetLB:
-  (∀v b. MEM (v,b) binds ⇒ freevars b = B) ⇒
   freevars base DIFF set (MAP FST binds) ⊆
   freevars (FOLDR (λ(v,e) A. Let v e A) base binds)
 Proof
   Induct_on ‘binds’ >> simp[FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
-  rpt strip_tac >> first_x_assum drule >> simp[SUBSET_DEF]
+  rpt strip_tac >> gs[SUBSET_DEF]
 QED
 
 Theorem patguards_binds_pvars:
@@ -133,9 +132,12 @@ Proof
   >- (drule $ cj 1 freevars_patguards >> simp[] >>
       simp[SUBSET_DEF])
   >- (drule patguards_onebound_preserved >> simp[] >> strip_tac >>
-      drule_then (qspec_then ‘e0’ mp_tac) freevars_FOLDR_LetUB >>
       simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD] >>
-      rpt strip_tac >> first_x_assum drule >> strip_tac >> simp[] >>
+      qx_gen_tac ‘fv’ >> strip_tac >>
+      drule_at Any $ SRULE [SUBSET_DEF] freevars_FOLDR_LetUB >>
+      disch_then (qspec_then ‘freevars e’ mp_tac) >>
+      simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> impl_tac
+      >- metis_tac[] >> rw[] >> simp[] >>
       drule patguards_binds_pvars >> simp[] >>
       simp[EXTENSION, MEM_MAP, EXISTS_PROD] >> metis_tac[]) >>
   Cases_on ‘pes = []’ >> gs[] >>
@@ -147,35 +149,41 @@ Theorem freevars_nested_rows_LB:
   freevars (nested_rows e pes)
 Proof
   Induct_on ‘pes’ >> simp[FORALL_PROD] >> rpt strip_tac >>
-  pairarg_tac >> simp[]
+  pairarg_tac >> simp[] >~
+  [‘freevars base DIFF cepat_vars pat ⊆ _’]
   >- (drule patguards_onebound_preserved >> simp[] >> strip_tac >>
-      rename [‘freevars base DIFF cepat_vars pat ⊆ _’] >>
-      drule_then (qspec_then ‘base’ mp_tac) freevars_FOLDR_LetLB >>
-      drule_then assume_tac patguards_binds_pvars >> simp[] >>
+      drule_then (mp_tac o SYM) patguards_binds_pvars >>
+      simp[] >> strip_tac >>
+      irule SUBSET_TRANS >> irule_at Any freevars_FOLDR_LetLB >>
       simp[SUBSET_DEF]) >>
   gs[SUBSET_DEF]
 QED
 
+val _ = temp_delsimps ["nested_rows_def"]
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = freevars_cexp ce
 Proof
   recInduct freevars_cexp_ind >> rw[exp_of_def] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG, UNCURRY,
       silly_cong_lemma, freevars_rows_of]>>
-  simp[SF ETA_ss] >>
-  simp[Once EXTENSION, PULL_EXISTS, MEM_MAP]
-  >- metis_tac[]
-  >- (Cases_on ‘css’ >> simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
-      PairCases_on ‘h’ >> simp[]>> metis_tac[])
-  >- (Cases_on ‘css’ >> simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
-      PairCases_on ‘h’ >> simp[]>> metis_tac[])
-  >- (qx_gen_tac ‘vnm’ >> eq_tac >> strip_tac >> simp[]
-      >- (Cases_on ‘pes = []’ >> gs[] >>
-          drule (SRULE [SUBSET_DEF] freevars_nested_rows_UB) >>
-          simp[MEM_MAP, PULL_EXISTS, SF CONJ_ss] >> metis_tac[])
-      >- (disj1_tac >>
-          irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
-          simp[MEM_MAP, PULL_EXISTS, SF CONJ_ss] >> metis_tac[]))
+  simp[SF ETA_ss] >>~-
+  ([‘nested_rows (Var gv) ((pat1, exp_of e1) :: MAP _ pes)’],
+   irule SUBSET_ANTISYM >> conj_tac
+   >- (simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+       rpt strip_tac >>
+       drule (SRULE [SUBSET_DEF] freevars_nested_rows_UB) >>
+       simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+       gs[FORALL_PROD] >> metis_tac[]) >>
+   simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> rpt strip_tac >>
+   rename [‘vv ∈ freevars (nested_rows _ _) ∨ _’] >> disj1_tac >>
+   irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
+   simp[MAP_MAP_o, MEM_MAP, EXISTS_PROD, combinTheory.o_ABS_R, PULL_EXISTS]>>
+   gs[FORALL_PROD] >> metis_tac[]) >>~-
+  ([‘MEM v (FLAT (MAP _ css))’],
+   Cases_on ‘css’ >> gs[] >> PairCases_on ‘h’ >>
+   gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]) >>
+  simp[EXTENSION] >> metis_tac[]
 QED
 
 Theorem subst_lets_for:
@@ -214,12 +222,24 @@ Proof
   metis_tac[DISJOINT_DEF, INTER_COMM]
 QED
 
+Theorem patguards_subst:
+  ∀eps gd binds f.
+    patguards eps = (gd,binds) ⇒
+    patguards (MAP (subst f ## I) eps) = (subst f gd, MAP (I ## subst f) binds)
+Proof
+  recInduct patguards_ind >> simp[patguards_def, FORALL_PROD] >> rw[] >>
+  rename [‘cepat_CASE pat’] >>
+  Cases_on ‘pat’ >> gvs[] >~
+  [‘patguards (MAP _ eps)’] >- (Cases_on ‘patguards eps’ >> gvs[]) >>
+  pairarg_tac >> gs[] >> pairarg_tac >> gvs[subst_def, combinTheory.o_ABS_R]
+QED
+
 Theorem subst_nested_rows:
   FDOM f ∩ freevars e = ∅ ⇒
   subst f (nested_rows e pes) =
   nested_rows e (MAP (λ(p,e). (p, subst (FDIFF f (cepat_vars p)) e)) pes)
 Proof
-  strip_tac >> Induct_on ‘pes’ >> simp[FORALL_PROD] >>
+  strip_tac >> Induct_on ‘pes’ >> simp[FORALL_PROD, nested_rows_def] >>
   qx_genl_tac [‘p’, ‘e0’] >> pairarg_tac >> simp[subst_def] >> conj_tac
   >- (irule subst_ignore >> simp[DISJOINT_DEF] >>
       drule freevars_patguards >> simp[] >> rpt strip_tac >>
@@ -256,11 +276,14 @@ Proof
    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
    first_x_assum drule >> rw[] >>
    simp[FDIFF_FDOMSUB_INSERT, FDIFF_FMAP_MAP2]) >>
-  gs[silly_cong_lemma, UNCURRY, Cong MAP_CONG] >>
-  ‘∀f. (FDOM (f : string |-> exp) DELETE v) ∩ {v} = ∅’
+  rename [‘subst (FMAP_MAP2 _ f \\ gv)’] >>
+  ‘FDOM (FMAP_MAP2 (λ(k,v). exp_of v) f \\ gv) ∩ freevars (Var gv) = ∅’
     by simp[EXTENSION] >>
-  simp[subst_nested_rows, MAP_MAP_o, FDIFF_FMAP_MAP2, combinTheory.o_DEF,
-       FDIFF_FDOMSUB_INSERT]
+  drule_then assume_tac subst_nested_rows >>
+  simp[MAP_MAP_o, FDIFF_FMAP_MAP2, combinTheory.o_ABS_R,
+       pairTheory.o_UNCURRY_R] >>
+  gs[silly_cong_lemma, UNCURRY, Cong MAP_CONG] >>
+  simp[FDIFF_FDOMSUB_INSERT, FDIFF_FMAP_MAP2]
 QED
 
 Theorem lets_for_APPEND:

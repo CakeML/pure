@@ -13,7 +13,7 @@ open mlmapTheory;
 val _ = new_theory "pure_letrec_cexpProof";
 
 (********************)
-
+val _ = temp_delsimps ["nested_rows_def"]
 Triviality letrec_recurse_Lams:
   ∀l f e. letrec_recurse f (Lams l e) = Lams l (letrec_recurse f e)
 Proof
@@ -108,7 +108,7 @@ Theorem letrec_recurse_exp_of:
 Proof
   recInduct letrec_recurse_cexp_ind >>
   rw[exp_of_def, letrec_recurse_cexp_def, letrec_recurse_def,
-     letrec_recurse_Lams, letrec_recurse_Apps]
+     letrec_recurse_Lams, letrec_recurse_Apps, Excl "nested_rows_def"]
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
     first_x_assum drule >> rw[] >> AP_THM_TAC >> AP_TERM_TAC >>
@@ -127,13 +127,15 @@ Proof
         combinTheory.o_ABS_R] >> AP_TERM_TAC >>
    rw[MAP_EQ_f] >> pairarg_tac >> gvs[]>> metis_tac[]) >>~-
   ([‘nested_rows’],
-   simp[letrec_recurse_nested_rows, MAP_MAP_o, o_UNCURRY_R,
-        combinTheory.o_ABS_R] >>
-   pop_assum
+   qpat_x_assum ‘∀c fns e. exp_of (f c fns e) = _’
      (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th)) >>
+   simp[letrec_recurse_nested_rows, MAP_MAP_o, o_UNCURRY_R,
+        combinTheory.o_ABS_R, letrec_recurse_def] >>
    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >> metis_tac[]) >>
   gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >> TRY pairarg_tac >> gvs[] >~
-  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >>
+  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >~
+  [‘¬MEM gv (cepat_vars_l pat)’, ‘MEM gv (cepat_vars_l (FST pe))’]
+  >- (Cases_on ‘pe’ >> gvs[] >> metis_tac[]) >>
   metis_tac[]
 QED
 
@@ -155,8 +157,9 @@ Definition fvs_ok_def:
     (fv_set_ok (Letrec c fns e) ∧ fvs_ok e ∧ EVERY (λ(f,e). fvs_ok e) fns) ∧
   fvs_ok (Case c e v css) =
     (fv_set_ok (Case c e v css) ∧ fvs_ok e ∧ EVERY (λ(cn,vs,e). fvs_ok e) css) ∧
-  fvs_ok (NestedCase c e v pes) =
-    (fv_set_ok (NestedCase c e v pes) ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes)
+  fvs_ok (NestedCase c g gv p e pes) =
+    (fv_set_ok (NestedCase c g gv p e pes) ∧
+     fvs_ok g ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >>
   simp[cexp_size_eq, DISJ_IMP_THM, FORALL_AND_THM] >> rpt strip_tac >>
@@ -284,37 +287,45 @@ Proof
           last_x_assum (C (resolve_then Any strip_assume_tac) fvs_ok_imp) >>
           gvs[fv_set_ok_def, EVERY_MEM, PULL_EXISTS, MEM_MAP, FORALL_PROD] >>
           rw[] >> DEP_REWRITE_TAC drwts
+          >- metis_tac[fv_set_ok_def, fvs_ok_imp]
+          >- metis_tac[fv_set_ok_def, fvs_ok_imp]
           >- metis_tac[]
           >- metis_tac[] >>
           simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-          rw[] >> DEP_REWRITE_TAC drwts >> metis_tac[])
+          rw[] >> DEP_REWRITE_TAC drwts >> metis_tac[fv_set_ok_def, fvs_ok_imp])
       >- (drule_then strip_assume_tac fvs_ok_imp >>
           last_x_assum (C (resolve_then Any strip_assume_tac) fvs_ok_imp) >>
           gvs[fv_set_ok_def, EVERY_MEM, PULL_EXISTS, MEM_MAP, FORALL_PROD] >>
-          rw[] >> DEP_REWRITE_TAC drwts
-          >- metis_tac[]
-          >- metis_tac[] >>
-          simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-          rw[] >> DEP_REWRITE_TAC drwts >> metis_tac[]) >>
+          rw[] >> DEP_REWRITE_TAC drwts >~
+          [‘EVERY’]
+          >- (simp[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+              rw[] >> DEP_REWRITE_TAC drwts >>
+              metis_tac[fv_set_ok_def, fvs_ok_imp]) >>
+          metis_tac[fv_set_ok_def, fvs_ok_imp]) >>
       drule_then strip_assume_tac fvs_ok_imp >>
+      rev_drule_then strip_assume_tac fvs_ok_imp >>
       last_x_assum (C (resolve_then Any strip_assume_tac) fvs_ok_imp) >>
       rw[AllCaseEqs()] >>
       gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD, fv_set_ok_def,
           EXISTS_PROD] >>
       rw[] >> DEP_REWRITE_TAC drwts >>
       gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD, fv_set_ok_def] >>
-      rw[] >> DEP_REWRITE_TAC drwts >>
+      rw[] >> DEP_REWRITE_TAC drwts >> simp[] >>
       TRY (first_x_assum $ drule_then strip_assume_tac >> simp[] >> NO_TAC) >>
-      eq_tac >> rpt strip_tac >> gvs[] >>
-      first_x_assum $ drule_then strip_assume_tac >> simp[] >>
+      eq_tac >> rpt strip_tac >>
+      TRY (rename [‘MEM (pat, exp) pes’] >>
+           first_x_assum $ drule_then strip_assume_tac >> simp[]) >>
       gvs[lookup_list_delete]
+      >- metis_tac[cepat_vars_l_correct]
       >- metis_tac[cepat_vars_l_correct] >>
-      qmatch_abbrev_tac ‘_ ∨ k ∈ freevars_cexp (letrec_recurse_fvs f e)’ >>
+      dsimp[lookup_list_delete] >>
+      qmatch_abbrev_tac ‘_ ∨ k ∈ freevars_cexp (letrec_recurse_fvs f ee)’ >>
       qmatch_abbrev_tac ‘_ ∨ P’ >> Cases_on ‘P’ >> simp[] >>
       gvs[markerTheory.Abbrev_def] >>
-      first_x_assum (pop_assum o mp_then Concl mp_tac o iffLR) >> simp[] >>
-      strip_tac >> first_assum $ irule_at Any >>
-      simp[lookup_list_delete, cepat_vars_l_correct] )
+      first_x_assum (pop_assum o mp_then Concl mp_tac o iffLR) >>
+      simp[cepat_vars_l_correct] >>
+      strip_tac >> disj2_tac >> first_assum $ irule_at Any >>
+      simp[lookup_list_delete, cepat_vars_l_correct])
 QED
 
 Theorem letrec_recurse_fvs_exp_of:
@@ -603,4 +614,3 @@ QED
 (********************)
 
 val _ = export_theory();
-
