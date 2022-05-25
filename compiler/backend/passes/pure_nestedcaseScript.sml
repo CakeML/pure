@@ -25,8 +25,8 @@ QED
 Definition lift_uscore1_def:
   (lift_uscore1 (NestedCase c t tv p e pes) =
      case LAST ((p,e)::pes) of
-       (p,e) => if p = cepatUScore then
-                  case dest_nestedcase e of
+       (lp,le) => if lp = cepatUScore then
+                  case dest_nestedcase le of
                     SOME (v, vnm, pes') =>
                       if tv = vnm ∧ dest_var v = SOME vnm then
                         case updlast ((p,e)::pes) pes' of

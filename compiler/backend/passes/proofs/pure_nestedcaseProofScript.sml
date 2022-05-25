@@ -170,10 +170,11 @@ Proof
 QED
 
 Theorem dest_nestedcase_EQ_SOME:
-  dest_nestedcase e = SOME (texp,pes) ⇔
-  ∃i. e = NestedCase i texp pes
+  dest_nestedcase e = SOME (texp,tv,pes) ⇔
+  ∃i p0 e0 perest. e = NestedCase i texp tv p0 e0 perest ∧
+                   pes = (p0,e0) :: perest
 Proof
-  Cases_on ‘e’ >> simp[]
+  Cases_on ‘e’ >> simp[] >> metis_tac[]
 QED
 
 Theorem dest_var_EQ_SOME:
@@ -213,9 +214,14 @@ Proof
       irule exp_eq_Let_cong_noaconv >> simp[] >>
       irule exp_eq_rows_of_cong >>
       gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-      rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
-  [‘COND (pes = []) (NestedCase i (lift_uscore gde) [])’]
-  >- (Cases_on ‘pes = []’ >> simp[exp_of_def, exp_eq_Let_cong_noaconv] >>
+      rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >~
+  [‘LAST ((pat1, lift_uscore exp1) :: MAP _ pes)’]
+  >- (qmatch_goalsub_abbrev_tac ‘LAST allpes’ >>
+      ‘∃lpat lexp. LAST allpes = (lpat, lexp)’ by metis_tac[pair_CASES] >>
+      simp[] >> reverse $ Cases_on ‘lpat = cepatUScore’ >> simp[]
+      >- (simp[exp_of_def] >> cheat) >>
+      cheat (* >>
+      Cases_on ‘pes = []’ >> simp[exp_of_def, exp_eq_Let_cong_noaconv] >>
       qabbrev_tac ‘pes0 = FRONT pes’ >>
       qabbrev_tac ‘pe = LAST pes’ >>
       ‘pes = pes0 ++ [pe]’ by metis_tac[APPEND_FRONT_LAST] >>
@@ -269,7 +275,7 @@ Proof
       first_assum $ irule_at (Pat ‘(_ ≅? exp_of _) b’) >>
       gs[dest_nestedcase_EQ_SOME, dest_var_EQ_SOME] >>
       simp[exp_of_def, nested_rows_to_termform] >>
-      cheat)
+      cheat *))
 QED
 
 
