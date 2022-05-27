@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 
-open listTheory pairTheory
+open listTheory pairTheory finite_mapTheory pred_setTheory
 
 open pure_nestedcaseTheory pureLangTheory pure_cexpTheory pure_congruenceTheory
      pure_exp_lemmasTheory
@@ -183,13 +183,57 @@ Proof
   Cases_on ‘e’ >> simp[]
 QED
 
+Theorem exp_eq_COND_cong:
+  e1 ≅ d1 ∧ e2 ≅ d2 ⇒ (if P then e1 else e2) ≅ (if P then d1 else d2)
+Proof
+  rw[]
+QED
+
+Theorem Let_Fail:
+  (Let w e Fail ≅? Fail) b
+Proof
+  simp[Let_Prim_alt]
+QED
+
+Theorem Seq_Fail:
+  (Seq Fail e ≅? Fail) b
+Proof
+  simp[pure_exp_relTheory.exp_eq_def, pure_expTheory.bind_def] >> rw[] >>
+  irule pure_exp_relTheory.eval_IMP_app_bisimilarity >>
+  simp[pure_expTheory.subst_def] >> conj_tac
+  >- (irule IMP_closed_subst >> gs[FRANGE_DEF, PULL_EXISTS, FLOOKUP_DEF]) >>
+  simp[pure_evalTheory.eval_thm]
+QED
+
+Theorem Let_Var':
+  (Let v (Var v) M ≅? M) b
+Proof
+  simp[pure_exp_relTheory.exp_eq_def, pure_expTheory.bind_def] >> rw[] >>
+  simp[pure_expTheory.subst_def] >>
+  irule pure_exp_relTheory.eval_IMP_app_bisimilarity >>
+  ‘(∀v. v ∈ FRANGE f ⇒ closed v) ∧ (∀w. w ∈ FRANGE (f \\ v) ⇒ closed w)’
+    by gs[FRANGE_DEF, PULL_EXISTS, FLOOKUP_DEF, DOMSUB_FAPPLY_THM] >>
+  rw[]
+  >- (simp[freevars_subst] >> gs[SUBSET_DEF, SF CONJ_ss])
+  >- gs[FLOOKUP_DEF]
+  >- (irule IMP_closed_subst >> simp[]) >>
+  gs[pure_evalTheory.eval_Let, pure_expTheory.bind_def, FLOOKUP_DEF] >>
+  simp[subst_subst_FUNION] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[fmap_EXT] >> rw[]
+  >- (simp[EXTENSION] >> metis_tac[])
+  >- simp[FUNION_DEF, DOMSUB_FAPPLY_THM]
+  >- simp[FUNION_DEF, DOMSUB_FAPPLY_THM]
+QED
+
+val _ = temp_delsimps ["nested_rows_def"]
 Theorem lift_uscore_correct:
   ∀e. exp_of (lift_uscore e) ≅ exp_of e
 Proof
   ho_match_mp_tac better_cexp_induction >>
   rpt conj_tac >>
   simp[lift_uscore_thm, exp_of_def, MAP_MAP_o, Cong MAP_CONG,
-       combinTheory.o_ABS_L] >> simp[SF ETA_ss] >> rpt strip_tac >~
+       combinTheory.o_ABS_L] >> simp[SF ETA_ss] >>
+  rpt strip_tac >~
   [‘Prim _ _ ≅ Prim _ _’]
   >- (irule exp_eq_Prim_cong >>
       gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS]) >~
@@ -218,48 +262,109 @@ Proof
   [‘LAST ((pat1, lift_uscore exp1) :: MAP _ pes)’]
   >- (qmatch_goalsub_abbrev_tac ‘LAST allpes’ >>
       ‘∃lpat lexp. LAST allpes = (lpat, lexp)’ by metis_tac[pair_CASES] >>
-      simp[] >> reverse $ Cases_on ‘lpat = cepatUScore’ >> simp[]
-      >- (simp[exp_of_def] >> cheat) >>
-      cheat (* >>
-      Cases_on ‘pes = []’ >> simp[exp_of_def, exp_eq_Let_cong_noaconv] >>
-      qabbrev_tac ‘pes0 = FRONT pes’ >>
-      qabbrev_tac ‘pe = LAST pes’ >>
-      ‘pes = pes0 ++ [pe]’ by metis_tac[APPEND_FRONT_LAST] >>
-      map_every Q.RM_ABBREV_TAC [‘pes0’, ‘pe’] >>
-      ‘∃p e. pe = (p,e)’ by metis_tac[pair_CASES] >>
-      gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-      reverse $ Cases_on ‘p = cepatUScore’ >> simp[]
-      >- (simp[exp_of_def] >> irule exp_eq_Let_cong_noaconv >> simp[] >>
-          simp[nested_rows_to_termform, nested_rows_term_APPEND,
-               MAP_MAP_o, combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R] >>
-          irule exp_eq_nested_row_terms_cong >>
-          simp[exp_eq_nested_row_terms_cong]>>
-          gs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-          rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
-      Cases_on ‘dest_nestedcase (lift_uscore e)’ >> simp[exp_of_def]
-      >- (irule exp_eq_Let_cong_noaconv >> simp[] >>
-          simp[nested_rows_to_termform] >>
-          irule exp_eq_nested_row_terms_cong >> simp[] >>
-          gs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-          rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
+      simp[] >>
+      qmatch_abbrev_tac ‘exp_of (if _ then _ else BASE) ≅ ORIG’ >>
+      ‘exp_of BASE ≅ ORIG’
+        by (simp[Abbr‘BASE’, Abbr‘ORIG’, exp_of_def,
+                 MAP_MAP_o, pairTheory.o_UNCURRY_R, combinTheory.o_ABS_R] >>
+            simp[ELIM_UNCURRY] >>
+            qmatch_abbrev_tac ‘(if P then _ else e2) ≅ (if P then _ else d2)’>>
+            ‘e2 ≅ d2’ suffices_by
+              (Cases_on ‘P’  >> simp[] >>
+               strip_tac >> irule exp_eq_Prim_cong >> simp[]) >>
+            UNABBREV_ALL_TAC >> irule exp_eq_Let_cong_noaconv >>
+            simp[] >> simp[nested_rows_to_termform] >>
+            irule exp_eq_nested_row_terms_cong >> simp[] >>
+            gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] >>
+            rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
+      reverse $ Cases_on ‘lpat = cepatUScore’ >> simp[] >>
+      Cases_on ‘dest_nestedcase lexp’ >> simp[] >>
       rename [‘dest_nestedcase _ = SOME blob’] >>
-      ‘∃texp v nested_pes. blob = (texp, v, nested_pes)’
+      ‘∃texp tv nested_pes. blob = (texp, tv, nested_pes)’
         by metis_tac[pair_CASES] >>
-      gvs[] >> Cases_on ‘dest_var texp’ >> simp[]
-      >- (simp[exp_of_def] >>
-          irule exp_eq_Let_cong_noaconv >> simp[] >>
-          simp[nested_rows_to_termform] >>
-          irule exp_eq_nested_row_terms_cong >> simp[] >>
-          gs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-          rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
+      gvs[] >> Cases_on ‘dest_var texp’ >> simp[] >>
       rename [‘dest_var texp = SOME vnm’] >>
-      reverse $ Cases_on ‘gdv = vnm’ >> simp[]
-      >- (simp[exp_of_def] >>
+      reverse $ Cases_on ‘s = tv ∧ vnm = tv’ >> simp[] >> gvs[] >>
+      ‘allpes ≠ []’ by simp[Abbr‘allpes’] >>
+      qabbrev_tac ‘pespfx = FRONT allpes’ >>
+      ‘allpes = pespfx ++ [(cepatUScore, lexp)]’
+        by metis_tac[APPEND_FRONT_LAST] >>
+      Q.RM_ABBREV_TAC ‘pespfx’>> simp[updlast_SNOC] >>
+      gs[dest_nestedcase_EQ_SOME] >>
+      ‘pespfx = [] ∨ ∃p00 e00 pfxtl. pespfx = (p00,e00) :: pfxtl’
+        by metis_tac[list_CASES, pair_CASES]
+      >- (simp[] >> gvs[Abbr‘allpes’, dest_var_EQ_SOME, exp_of_def] >>
+          qmatch_abbrev_tac ‘(if GD then Seq Fail E1 else E1) ≅ _’ >>
+          irule exp_eq_trans >>
+          first_assum $ irule_at Any >>
+          simp[Abbr‘BASE’, exp_of_def] >>
+          qmatch_goalsub_abbrev_tac
+            ‘Let s (Var s) (nested_rows (Var s) allpes)’ >>
+          simp[nested_rows_def, patguards_def] >>
+          irule exp_eq_trans >>
+          irule_at Any exp_eq_Let_cong_noaconv >>
+          irule_at Any $ MATCH_MP (iffLR exp_eq_sym) exp_eq_IfT >>
+          irule_at Any exp_eq_refl >>
+          simp[COND_RAND, SimpR “exp_eq”] >>
+          simp[Once COND_RATOR] >> irule exp_eq_COND_cong >>
+          irule_at (Pat ‘Seq _ _ ≅ _’) exp_eq_trans >>
+          irule_at Any (MATCH_MP (iffLR exp_eq_sym) Let_Seq) >>
+          irule_at Any exp_eq_Prim_cong >> simp[SF CONJ_ss] >>
+          irule_at Any (MATCH_MP (iffLR exp_eq_sym) Let_Fail) >>
+          simp[Abbr‘E1’] >> irule exp_eq_Let_cong_noaconv >> simp[] >>
+          simp[MATCH_MP (iffLR exp_eq_sym) Let_Var']) >>
+      pop_assum SUBST_ALL_TAC >> simp[] >>
+      ‘p00 = pat1 ∧ e00 = lift_uscore exp1’ by (simp[Abbr‘allpes’] >> gs[]) >>
+      ntac 2 (pop_assum SUBST_ALL_TAC) >>
+      simp[exp_of_def] >> simp[combinTheory.o_DEF] >>
+      qmatch_abbrev_tac ‘(if GD then Seq Fail EE else EE) ≅ _’ >>
+      simp[Abbr‘ORIG’] >>
+      Cases_on ‘MEM s (cepat_vars_l pat1)’ >> simp[]
+      >- (‘GD’ by simp[Abbr‘GD’] >> simp[] >>
+          irule exp_eq_trans >> qexists_tac ‘Fail’ >>
+          metis_tac[Seq_Fail, exp_eq_sym]) >>
+      qpat_x_assum ‘allpes = _’ mp_tac >>
+      simp[Abbr‘allpes’] >>
+      simp[MAP_EQ_APPEND, EXISTS_PROD, PULL_EXISTS] >> rpt strip_tac >>
+      gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+      rename [‘MAP _ pesfront ++ [(cepatUScore, _)]’] >>
+      Cases_on ‘MEM s (FLAT (MAP (λx. cepat_vars_l (FST x)) pesfront))’ >>
+      simp[Abbr‘GD’]
+      >- (irule exp_eq_trans >> qexists_tac ‘Fail’ >>
+          metis_tac[Seq_Fail, exp_eq_sym]) >>
+      Cases_on ‘MEM s (cepat_vars_l p0)’ >> simp[]
+      >- (gs[] >> cheat) >>
+      cheat ) (*
+      Cases_on ‘MEM s (FLAT (MAP (λx. cepat_vars_l (FST x)) pfxtl)’
+          irule exp_eq_Prim_cong >> simp[] >>
+          simp[Abbr‘EE’]>>
           irule exp_eq_Let_cong_noaconv >> simp[] >>
-          simp[nested_rows_to_termform] >>
-          irule exp_eq_nested_row_terms_cong >> simp[] >>
-          gs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-          rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
+          simp[nested_rows_to_termform, nested_rows_term_APPEND,
+               Excl "APPEND", GSYM APPEND] >>
+          simp[MAP_MAP_o, combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R] >>
+          rpt strip_tac >> irule exp_eq_nested_row_terms_cong >> simp[] >>
+          conj_tac
+          >- (simp[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY] >>
+              rpt strip_tac >> first_x_assum irule >> simp[MEM_EL] >>
+              metis_tac[PAIR]) >>
+          gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+          simp[nested_rows_term_def, SimpR “exp_eq”, patguards_def] >>
+          irule exp_eq_trans >>
+          irule_at (Pat ‘_ ≅ If _ _ _’)
+                   (MATCH_MP (iffLR exp_eq_sym) exp_eq_IfT) >>
+          rename [‘exp_of (lift_uscore pp) ≅ exp_of pp’,
+                  ‘NestedCase _ _ _ _ _ _ = lift_uscore pp’] >>
+          irule exp_eq_trans >> first_assum $ irule_at Any >>
+          qpat_x_assum ‘_ = lift_uscore pp’ (assume_tac o SYM) >>
+          simp[exp_of_def]
+
+
+
+          Cases_on ‘GD’ >> simp[nested_rows_def, patguards_def] >>
+          simp[exp_of_def, Abbr‘ORIG’] >> simp[
+          gs[nested_rows_def, patguards_def]
+
+      cheat
       gvs[] >> simp[exp_of_def] >>
       irule exp_eq_Let_cong_noaconv >> simp[] >>
       simp[nested_rows_to_termform, nested_rows_term_APPEND,
@@ -275,7 +380,7 @@ Proof
       first_assum $ irule_at (Pat ‘(_ ≅? exp_of _) b’) >>
       gs[dest_nestedcase_EQ_SOME, dest_var_EQ_SOME] >>
       simp[exp_of_def, nested_rows_to_termform] >>
-      cheat *))
+      cheat ) *)
 QED
 
 
