@@ -408,7 +408,7 @@ Proof
   rw [EL_MAP, fmap_rel_FEMPTY, LIST_REL_EL_EQN]
   >~[‘FST (_ (_ p)) = FST (_ (_ p))’]
   >- (PairCases_on ‘p’ >> fs [])
-  >~[‘SND (_ (_ p)) ≅? SND (_ (_ p))’]
+  >~[‘(SND (_ (_ p)) ≅? SND (_ (_ p))) _’]
   >- (PairCases_on ‘p’ >> gvs [subst_def] >>
       gvs [EVERY_MEM] >> drule_then assume_tac $ GSYM subst_FDIFF' >>
       ‘MAP (FST o (λ(v, e). (v, Let s e1 e))) l = MAP FST l’
@@ -540,7 +540,7 @@ Proof
   \\ Cases_on ‘ope’
   \\ fs [well_written_def]
   \\ Cases_on ‘l’
-  >>~[‘Prim _ [] ≅? Fail’]
+  >>~[‘(Prim _ [] ≅? Fail) _’]
   >- (fs [exp_eq_refl])
   >- (irule eval_wh_IMP_exp_eq
      \\ fs [subst_def, eval_wh_def, eval_wh_to_def])

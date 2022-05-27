@@ -2414,7 +2414,7 @@ Proof
     \\ fs [freevars_subst,subst1_eqvt,perm1_def]
     \\ drule_at (Pos last) subst1_subst1
     \\ fs [closed_perm] \\ disch_then kall_tac
-    \\ rename [‘subst1 _ _ e ≅? _’]
+    \\ rename [‘(subst1 _ _ e ≅? _) _’]
     \\ once_rewrite_tac [perm_exp_sym]
     \\ fs [exp_eq_subst_perm_exp])
   THEN1

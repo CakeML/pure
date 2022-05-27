@@ -818,13 +818,15 @@ QED
 
 (* expression relation without freevars argument *)
 
-Definition exp_eq_def:
-  exp_eq x y b ⇔
+Definition exp_eq0_def:
+  exp_eq0 b x y ⇔
     ∀f. freevars x ∪ freevars y ⊆ FDOM f ⇒ (bind f x ≃ bind f y) b
 End
+Theorem exp_eq_def = exp_eq0_def
+Overload exp_eq = “λe1 e2 b. exp_eq0 b e1 e2”
 
 val _ = set_fixity "≅?" (Infixl 480);
-Overload "≅?" = “exp_eq”;
+Overload "≅?" = “λx y b. exp_eq0 b x y”;
 
 val _ = set_fixity "≅" (Infixl 480);
 Overload "≅" = “(λx y. (x ≅? y) T)”;

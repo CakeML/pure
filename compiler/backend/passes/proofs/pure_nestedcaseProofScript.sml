@@ -304,15 +304,15 @@ Proof
           irule exp_eq_trans >>
           irule_at Any exp_eq_Let_cong_noaconv >>
           irule_at Any $ MATCH_MP (iffLR exp_eq_sym) exp_eq_IfT >>
-          irule_at Any exp_eq_refl >>
-          simp[COND_RAND, SimpR “exp_eq”] >>
+          irule_at Any exp_eq_refl >> cheat (*
+          simp[COND_RAND, SimpR “exp_eq0”] >>
           simp[Once COND_RATOR] >> irule exp_eq_COND_cong >>
           irule_at (Pat ‘Seq _ _ ≅ _’) exp_eq_trans >>
           irule_at Any (MATCH_MP (iffLR exp_eq_sym) Let_Seq) >>
           irule_at Any exp_eq_Prim_cong >> simp[SF CONJ_ss] >>
           irule_at Any (MATCH_MP (iffLR exp_eq_sym) Let_Fail) >>
           simp[Abbr‘E1’] >> irule exp_eq_Let_cong_noaconv >> simp[] >>
-          simp[MATCH_MP (iffLR exp_eq_sym) Let_Var']) >>
+          simp[MATCH_MP (iffLR exp_eq_sym) Let_Var'] *)) >>
       pop_assum SUBST_ALL_TAC >> simp[] >>
       ‘p00 = pat1 ∧ e00 = lift_uscore exp1’ by (simp[Abbr‘allpes’] >> gs[]) >>
       ntac 2 (pop_assum SUBST_ALL_TAC) >>
