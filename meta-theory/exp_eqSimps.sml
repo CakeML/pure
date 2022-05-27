@@ -2,8 +2,9 @@ structure exp_eqSimps :> exp_eqSimps =
 struct
 
 
-open HolKernel simpLib boolSimps boolLib pure_congruenceTheory
-     pure_congruence_lemmasTheory
+open HolKernel simpLib boolSimps boolLib bossLib
+
+open pure_congruenceTheory pure_congruence_lemmasTheory
 structure Parse =
 struct
   open Parse
