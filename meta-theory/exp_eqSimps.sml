@@ -1,4 +1,4 @@
-structure exp_eqSimps =
+structure exp_eqSimps :> exp_eqSimps =
 struct
 
 
@@ -53,7 +53,7 @@ val EXPEQ_ss = let
   val rsd = {refl = exp_eq_refl, trans = exp_eq_trans,
              weakenings = [intro_cong],
              subsets = [],
-             rewrs = [beta_equality, exp_eq_Add]}
+             rewrs = [beta_equality, exp_eq_Add, Let_Var]}
   val frag1 = relsimp_ss rsd
   val congs = SSFRAG {dprocs = [], ac = [], rewrs = [], name = NONE,
                       congs = [exp_eq_Lam_cong, impi exp_eq_App_cong,
@@ -64,7 +64,7 @@ in
   merge_ss [frag1, congs] |> name_ss "EXPEQ_ss"
 end
 
-
+(*
 val lreq_refl = Q.prove(
   ‘lrt xs xs’,
   simp[listTheory.EVERY2_refl,PAIR_REL_REFL',exp_eq_refl]);
@@ -115,5 +115,5 @@ SIMP_CONV (srw_ss() ++ EXPEQ_ss ++ LREXPEQ_ss)
   “Y ≅ Letrec [(f, Prim (AtomOp Add) [Lit (Int 4); Lit(Int 7)])] (Var x)”
 *)
 
-
+*)
 end (* struct *)
