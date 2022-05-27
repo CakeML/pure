@@ -50,7 +50,7 @@ val EXPEQ_ss = let
         convs = [],
         filter = NONE}
 in
-  merge_ss [frag1, congs] |> name_ss "EXPEQ_ss"
+  merge_ss [frag1, congs] |> name_ss "EXPEQ_ss" |> register_frag
 end
 
 (*

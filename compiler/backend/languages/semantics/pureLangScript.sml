@@ -58,14 +58,8 @@ Definition exp_of_def:
      else
        caseexp) ∧
   exp_of (NestedCase d g gv p e pes) =
-    (let casexp =
-         Let gv (exp_of g)
-             (nested_rows (Var gv) (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
-     in
-       if MEM gv (FLAT (MAP (cepat_vars_l o FST) ((p,e)::pes))) then
-         Seq Fail casexp
-       else
-         casexp)
+  Let gv (exp_of g)
+      (nested_rows (Var gv) (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ >> rw [cexp_size_eq] >>
   simp[] >>

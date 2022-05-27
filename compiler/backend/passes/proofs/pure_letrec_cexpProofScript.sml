@@ -133,9 +133,7 @@ Proof
         combinTheory.o_ABS_R, letrec_recurse_def] >>
    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >> metis_tac[]) >>
   gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >> TRY pairarg_tac >> gvs[] >~
-  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >~
-  [‘¬MEM gv (cepat_vars_l pat)’, ‘MEM gv (cepat_vars_l (FST pe))’]
-  >- (Cases_on ‘pe’ >> gvs[] >> metis_tac[]) >>
+  [‘MEM x (FST (SND y))’] >- (PairCases_on ‘y’ >> gvs[] >> metis_tac[]) >>
   metis_tac[]
 QED
 
