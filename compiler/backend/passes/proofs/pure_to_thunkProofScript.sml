@@ -7,13 +7,14 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      pure_semanticsTheory thunk_semanticsTheory pure_evalTheory
      thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory
-     pure_to_thunk_1ProofTheory pure_cexpTheory
+     pure_to_thunk_1ProofTheory pure_cexpTheory pureLangTheory
      thunk_case_liftProofTheory
      thunk_case_d2bProofTheory;
 
 val _ = new_theory "pure_to_thunkProof";
 
-val _ = set_grammar_ancestry ["pure_to_thunk_1Proof","pure_cexp","thunkLang"];
+val _ = set_grammar_ancestry ["pure_to_thunk_1Proof", "pure_cexp",
+                              "thunkLang", "pureLang"];
 
 (*
   cexp = Var 'a vname                         (* variable                 *)
@@ -81,30 +82,26 @@ Inductive exp_rel:
             rows_of fresh ys))
 End
 
-Overload to_thunk = “pure_to_thunk_1Proof$exp_rel”
+Overload to_thunk = “pure_to_thunk_1Proof$compile_rel”
 Overload lift_rel = “thunk_case_liftProof$exp_rel”
+Overload d2b_rel = “thunk_case_d2bProof$exp_rel”
 
-(*
 Theorem exp_rel_imp_combined:
   ∀x y.
     exp_rel x y ⇒
-    ∃x1 y1 y2.
-      tick_rel (exp_of x) x1 ∧
-      to_thunk x1 y1 ∧
-      thunk_tick_rel y1 y2 ∧
-      lift_rel y2 y3
-      thunk_tick_rel y3 y4 ∧
-      ARB
+    ∃y1 y2 y3.
+      to_thunk (exp_of x) y1 ∧
+      lift_rel y2 y3 ∧
+      d2b_rel y3 y
 Proof
   cheat
 QED
-*)
 
 (*
 
 TODO:
- - remove ticks from pure_to_thunk_1Proof
- - remove closed from Letrec in pure_to_thunk_1Proof
+ - remove closed from Letrec and Seq in pure_to_thunk_1Proof
+ - add Let case to pure_to_thunk_1Proof
  - remove ticks from thunk_case_liftProof
 
 *)

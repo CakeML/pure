@@ -85,6 +85,10 @@ Inductive exp_rel:
      exp_rel f g ∧
      exp_rel x y ⇒
        exp_rel (App f (Tick x)) (App g (Delay y))) ∧
+[exp_rel_Let:]
+  (∀s x y x1 y1.
+     exp_rel x y ∧ exp_rel x1 y1 ⇒
+       exp_rel (Let s (Tick x) x1) (Let (SOME s) (Delay y) y1)) ∧
 [exp_rel_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1; y1; z1] [x2; y2; z2] ⇒
@@ -286,12 +290,23 @@ Proof
   >- ((* App *)
     qpat_x_assum ‘exp_rel (App _ _) _’ mp_tac
     \\ rw [Once exp_rel_cases]
-    \\ qmatch_asmsub_rename_tac ‘exp_rel f g’
-    \\ qmatch_asmsub_rename_tac ‘exp_rel x y’
-    \\ simp [subst_single_def, subst1_def]
-    \\ irule exp_rel_App \\ fs []
-    \\ first_x_assum irule
-    \\ fs [pure_expTheory.exp_size_def])
+    >- (qmatch_asmsub_rename_tac ‘exp_rel f g’
+        \\ qmatch_asmsub_rename_tac ‘exp_rel x y’
+        \\ simp [subst_single_def, subst1_def]
+        \\ irule exp_rel_App \\ fs []
+        \\ first_x_assum irule
+        \\ fs [pure_expTheory.exp_size_def])
+    \\ fs [subst_single_def, subst1_def]
+    \\ irule exp_rel_Let
+    \\ last_x_assum $ irule_at Any \\ fs []
+    \\ rw [pure_expTheory.exp_size_def]
+    \\ first_x_assum $ drule_at $ Pos last
+    \\ disch_then $ drule_at $ Pos last
+    \\ simp [Once exp_rel_cases,PULL_EXISTS]
+    \\ disch_then $ qspec_then ‘n’ drule \\ fs []
+    \\ disch_then $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ fs [subst_single_def, subst1_def]
+    \\ simp [Once exp_rel_cases,PULL_EXISTS])
   >- ((* Lam *)
     qpat_x_assum ‘exp_rel (Lam n x) _’ mp_tac
     \\ rw [Once exp_rel_cases]
@@ -408,10 +423,17 @@ Proof
   >- ((* App *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
-    \\ rw [subst_def, pure_expTheory.subst_def]
-    \\ irule exp_rel_App \\ fs []
-    \\ first_x_assum irule
-    \\ fs [pure_expTheory.exp_size_def])
+    >- (rw [subst_def, pure_expTheory.subst_def]
+        \\ irule exp_rel_App \\ fs []
+        \\ first_x_assum irule
+        \\ fs [pure_expTheory.exp_size_def])
+    \\ fs [subst_def, pure_expTheory.subst_def]
+    \\ irule exp_rel_Let \\ fs []
+    \\ first_x_assum drule
+    \\ simp [Once exp_rel_cases,PULL_EXISTS]
+    \\ disch_then drule
+    \\ simp [Once exp_rel_cases,PULL_EXISTS]
+    \\ fs [subst_def, pure_expTheory.subst_def,pure_expTheory.exp_size_def])
   >- ((* Lam *)
     pop_assum mp_tac
     \\ rw [Once exp_rel_cases]
@@ -629,18 +651,28 @@ Proof
       \\ Cases_on ‘eval_to k g’ \\ fs [])
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def]
-    \\ Cases_on ‘eval_wh_to k x = wh_Error’ \\ fs []
-    \\ first_x_assum (drule_then assume_tac)
-    \\ ‘∃res. eval_to k g = INR res’
-      by (Cases_on ‘eval_to k g’ \\ gs [])
-    \\ simp []
-    \\ Cases_on ‘dest_wh_Closure (eval_wh_to k x)’ \\ fs []
-    \\ BasicProvers.TOP_CASE_TAC \\ fs []
-    \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
-    \\ Cases_on ‘res’ \\ gvs [dest_anyClosure_def]
+    >-
+     (Cases_on ‘eval_wh_to k x = wh_Error’ \\ fs []
+      \\ first_x_assum (drule_then assume_tac)
+      \\ ‘∃res. eval_to k g = INR res’
+        by (Cases_on ‘eval_to k g’ \\ gs []
+            \\ Cases_on ‘eval_wh_to k x’ \\ fs [])
+      \\ simp []
+      \\ Cases_on ‘dest_wh_Closure (eval_wh_to k x)’ \\ fs []
+      \\ BasicProvers.TOP_CASE_TAC \\ fs []
+      \\ Cases_on ‘eval_wh_to k x’ \\ gvs [dest_wh_Closure_def]
+      \\ Cases_on ‘res’ \\ gvs [dest_anyClosure_def]
+      \\ IF_CASES_TAC \\ fs []
+      \\ imp_res_tac exp_rel_closed \\ gvs []
+      \\ first_x_assum irule
+      \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE]
+      \\ irule_at Any exp_rel_subst \\ fs []
+      \\ irule_at Any closed_freevars_subst1
+      \\ fs [pure_expTheory.closed_def])
+    \\ fs [eval_wh_to_def,eval_to_def]
     \\ IF_CASES_TAC \\ fs []
-    \\ imp_res_tac exp_rel_closed \\ gvs []
     \\ first_x_assum irule
+    \\ imp_res_tac exp_rel_closed \\ gvs []
     \\ fs [pure_expTheory.bind_def, FLOOKUP_UPDATE]
     \\ irule_at Any exp_rel_subst \\ fs []
     \\ irule_at Any closed_freevars_subst1
@@ -2727,6 +2759,11 @@ Inductive compile_rel:
      compile_rel f g ∧
      compile_rel x y ⇒
        compile_rel (App f x) (App g (Delay y))) ∧
+[~_Let:]
+  (∀f g x y.
+     compile_rel f g ∧
+     compile_rel x y ⇒
+       compile_rel (Let s x f) (Let (SOME s) (Delay y) g)) ∧
 [~_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL compile_rel [x1; y1; z1] [x2; y2; z2] ⇒
@@ -2822,6 +2859,13 @@ Proof
   >- ((* App *)
     irule_at Any exp_rel_App
     \\ irule_at Any tick_rel_App
+    \\ irule_at (Pos (el 2)) tick_rel_Tick
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
+  >- ((* Let *)
+    irule_at Any exp_rel_Let
+    \\ irule_at Any tick_rel_App
+    \\ irule_at Any tick_rel_Lam
     \\ irule_at (Pos (el 2)) tick_rel_Tick
     \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
