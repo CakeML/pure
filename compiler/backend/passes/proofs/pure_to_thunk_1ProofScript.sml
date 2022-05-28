@@ -103,8 +103,7 @@ Inductive exp_rel:
        exp_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
 [exp_rel_Seq:]
   (∀x1 x2 y1 y2.
-     LIST_REL exp_rel [x1; y1] [x2; y2] ∧
-     closed x1 ⇒
+     LIST_REL exp_rel [x1; y1] [x2; y2] ⇒
        exp_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
 [exp_rel_Prim:]
   (∀op xs ys.
@@ -2778,8 +2777,7 @@ Inductive compile_rel:
        compile_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
 [~_Seq:]
   (∀x1 x2 y1 y2.
-     LIST_REL compile_rel [x1; y1] [x2; y2] ∧
-     closed x1 ⇒
+     LIST_REL compile_rel [x1; y1] [x2; y2] ⇒
        compile_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
 [~_Prim:]
   (∀op xs ys.
