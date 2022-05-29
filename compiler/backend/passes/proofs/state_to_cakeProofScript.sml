@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      rich_listTheory arithmeticTheory intLib;
 open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory;
-open pure_miscTheory pure_configTheory stateLangTheory;
+open pure_miscTheory pure_configTheory stateLangTheory state_cexpTheory;
 
 val _ = intLib.deprecate_int();
 
@@ -2534,6 +2534,222 @@ Proof
 QED
 
 
+(********** Lifting to cexp **********)
+
+Inductive csop_rel:
+  csop_rel (AppOp : csop) Opapp ∧
+  (atom_op_rel aop op ⇒ csop_rel (AtomOp aop) op) ∧
+  csop_rel Ref AallocFixed ∧
+  csop_rel Length Alength ∧
+  csop_rel Sub Asub ∧
+  csop_rel UnsafeSub Asub_unsafe ∧
+  csop_rel Update Aupdate ∧
+  csop_rel UnsafeUpdate Aupdate_unsafe
+End
+
+Definition cexp_var_prefix_def:
+  cexp_var_prefix cv = explode $ strcat (strlit "pure_") cv
+End
+
+Definition cexp_pat_row_def:
+  cexp_pat_row sv cn vs =
+    Pas ((if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
+          (MAP (Pvar o cexp_var_prefix) vs)) (cexp_var_prefix sv)
+End
+
+Inductive cexp_compile_rel:
+[~IntLit:]
+  cexp_compile_rel cnenv (IntLit i : cexp) (ast$Lit $ IntLit i) ∧
+
+[~StrLit:]
+  cexp_compile_rel cnenv (StrLit s) (Lit $ StrLit s) ∧
+
+[~Tuple:]
+  (LIST_REL (cexp_compile_rel cnenv) ses ces
+    ⇒ cexp_compile_rel cnenv (App (Cons $ strlit "") ses) (Con NONE ces)) ∧
+
+[~Constructor:]
+  (LIST_REL (cexp_compile_rel cnenv) ses ces ∧
+   ALOOKUP cnenv $ explode cn = SOME (tyid,ar) ∧
+   ar = LENGTH ses ∧ cn ≠ strlit ""
+    ⇒ cexp_compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short $ explode cn) ces)) ∧
+
+[~Var:]
+  cexp_compile_rel cnenv (Var v) (Var (Short (cexp_var_prefix v))) ∧
+
+[~App:]
+  (csop_rel sop cop ∧ LIST_REL (cexp_compile_rel cnenv) ses ces
+    ⇒ cexp_compile_rel cnenv (App sop ses) (App cop ces)) ∧
+
+[~TwoArgs:]
+  (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2 ∧
+   (if aop = Div then rest = div
+    else if aop = Mod then rest = mod
+    else if aop = Elem then rest = elem_str
+    else if aop = Substring then rest = substring2
+    else if aop = StrLeq then rest = strleq
+    else if aop = StrLt then rest = strlt
+    else if aop = StrGeq then rest = strgeq
+    else aop = StrGt ∧ rest = strgt)
+    ⇒ cexp_compile_rel cnenv (App (AtomOp aop) [se1;se2])
+                        (clet "v2" ce2 $ clet "v1" ce1 rest)) ∧
+
+[~Concat:]
+  (LIST_REL (cexp_compile_rel cnenv) ses ces
+    ⇒ cexp_compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces])) ∧
+
+[~Implode:]
+  (LIST_REL (cexp_compile_rel cnenv) ses ces
+    ⇒ cexp_compile_rel cnenv (App (AtomOp Implode) ses)
+                        (App Implode [capp (var "char_list") (list_to_exp ces)])) ∧
+
+[~Substring3:]
+  (LIST_REL (cexp_compile_rel cnenv) [se1;se2;se3] [ce1;ce2;ce3]
+    ⇒ cexp_compile_rel cnenv (App (AtomOp Substring) [se1; se2; se3])
+                        (clet "l" ce3 $ clet "i" ce2 $ clet "s" ce1 substring3)) ∧
+
+[~Alloc:]
+  (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2
+    ⇒ cexp_compile_rel cnenv (App Alloc [se1;se2])
+                        (clet "v2" ce2 $ clet "v1" ce1 alloc)) ∧
+
+[~FFI:]
+  (cexp_compile_rel cnenv se ce ∧ ch ≠ strlit ""
+    ⇒ cexp_compile_rel cnenv (App (FFI ch) [se])
+                        (clet "s" ce $
+                          Let NONE (App (FFI $ explode ch)
+                            [var "s"; var "ffi_array"]) $ ffi)) ∧
+
+[~Lam:]
+  (cexp_compile_rel cnenv se ce
+    ⇒ cexp_compile_rel cnenv (Lam (SOME x) se) (Fun (cexp_var_prefix x) ce)) ∧
+
+[~Letrec:]
+  (LIST_REL
+      (λ(sv,sx,se) (cv,cx,ce).
+        cexp_var_prefix sv = cv ∧ cexp_var_prefix sx = cx ∧
+        cexp_compile_rel cnenv se ce)
+      sfuns cfuns ∧
+   ALL_DISTINCT (MAP FST cfuns) ∧
+   cexp_compile_rel cnenv se ce
+    ⇒ cexp_compile_rel cnenv (Letrec sfuns se) (ast$Letrec cfuns ce)) ∧
+
+[~Let:]
+  (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2
+    ⇒ cexp_compile_rel cnenv (Let (SOME x) se1 se2)
+                             (Let (SOME $ cexp_var_prefix x) ce1 ce2)) ∧
+
+[~If:]
+  (LIST_REL (cexp_compile_rel cnenv) [se;se1;se2] [ce;ce1;ce2]
+    ⇒ cexp_compile_rel cnenv (If se se1 se2) (If ce ce1 ce2)) ∧
+
+[~Case:]
+  (cexp_compile_rel cnenv se ce ∧
+   EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv $ explode cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
+   LIST_REL
+    (λ(cn,vs,se) (pat,ce). cexp_compile_rel cnenv se ce ∧ pat = cexp_pat_row sv cn vs)
+    scss ccss
+    ⇒ cexp_compile_rel cnenv (Case se sv scss) (Mat ce ccss)) ∧
+
+[~TupleCase:]
+  (cexp_compile_rel cnenv se ce ∧ cexp_compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
+    ⇒ cexp_compile_rel cnenv (Case se sv [strlit "",vs,sce])
+                             (Mat ce [(cexp_pat_row sv (strlit "") vs, cce)])) ∧
+
+[~Raise:]
+  (cexp_compile_rel cnenv se ce
+    ⇒ cexp_compile_rel cnenv (Raise se) (Raise ce)) ∧
+
+[~Handle:]
+  (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2
+    ⇒ cexp_compile_rel cnenv (Handle se1 x se2)
+                        (Handle ce1 [(Pvar $ cexp_var_prefix x, ce2)]))
+End
+
+
+(***** Lemmas *****)
+
+Theorem csop_rel_sop_rel:
+  csop_rel scop op ⇒ op_rel (sop_of scop) op
+Proof
+  rw[csop_rel_cases] >> rw[op_rel_cases]
+QED
+
+Theorem cexp_var_prefix[simp]:
+  cexp_var_prefix cv = var_prefix (explode cv)
+Proof
+  rw[cexp_var_prefix_def, var_prefix_def]
+QED
+
+
+Theorem cexp_pat_row[simp]:
+  cexp_pat_row sv cn vs = pat_row (explode sv) (explode cn) (MAP explode vs)
+Proof
+  rw[cexp_pat_row_def, pat_row_def] >> gvs[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF] >>
+  Cases_on `cn` >> gvs[]
+QED
+
+
+(***** Results *****)
+
+Theorem compile_rel_cexp_compile_rel:
+  ∀cnenv se ce. cexp_compile_rel cnenv se ce ⇒ compile_rel cnenv (exp_of se) ce
+Proof
+  gen_tac >> ho_match_mp_tac cexp_compile_rel_ind >>
+  rw[] >> simp[Once compile_rel_cases] >>
+  gvs[LIST_REL_MAP1, combinTheory.o_DEF, SF ETA_ss]
+  >- (Cases_on `cn` >> gvs[])
+  >- metis_tac[csop_rel_sop_rel]
+  >- (
+    simp[op_rel_cases, atom_op_rel_cases] >>
+    irule_at Any EQ_REFL >> simp[]
+    )
+  >- (
+    simp[op_rel_cases, atom_op_rel_cases] >>
+    irule_at Any EQ_REFL >> simp[]
+    )
+  >- (Cases_on `ch` >> gvs[])
+  >- (
+    gvs[LIST_REL_EL_EQN] >> rw[] >> rpt (pairarg_tac >> gvs[]) >>
+    last_x_assum drule >> strip_tac >> gvs[]
+    )
+  >- (
+    disj1_tac >> qexists_tac `stamp` >> gvs[EVERY_MAP, LAMBDA_PROD]
+    )
+QED
+
+(*
+  In CakeML:
+    itree_of st env prog =
+    interp env (Dstep (dstate_of st) (Decl (Dlocal [] prog)) [])
+*)
+Overload cml_itree_of =
+  ``λst env e. interp env (Dstep st (Decl (Dlocal [] [e])) [])``
+
+Theorem cexp_compile_rel_ok:
+  safe_itree (itree_of (exp_of se)) ∧
+  cexp_compile_rel cnenv se ce ∧
+  cnenv_rel cnenv benv.c ∧ env_ok benv
+  ⇒ itree_rel (itree_of (exp_of se))
+              (cml_itree_of
+                (st with refs := [W8array $ REPLICATE (max_FFI_return_size + 2) 0w])
+                benv
+                (Dlet locs (Pvar "prog") ce))
+Proof
+  rw[itree_of_def, semantics_def] >> irule compile_itree_rel >>
+  simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
+  simp[Once cont_rel_cases, env_rel_def, state_rel] >>
+  rpt $ goal_assum $ drule_at Any >>
+  ntac 4 (qrefine `SUC n` >> simp[dstep]) >>
+  simp[smallStepPropsTheory.collapse_env_def, astTheory.pat_bindings_def] >>
+  qexists_tac `0` >> simp[dstep] >> irule compile_rel_cexp_compile_rel >> simp[]
+QED
+
+
 (**********)
+
+
 
 val _ = export_theory ();

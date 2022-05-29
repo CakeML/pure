@@ -49,6 +49,7 @@ Overload "app" = “λe1 e2. App AppOp [e1;(e2:cexp)]”;
 Overload "Unit" = “App (Cons (strlit "")) [] :cexp”;
 
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
+Overload StrLit = “λs. App (AtomOp (Lit (Str s))) []”
 Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
 
 val _ = export_theory();
