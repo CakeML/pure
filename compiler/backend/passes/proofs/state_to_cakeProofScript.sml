@@ -2667,6 +2667,33 @@ Inductive cexp_compile_rel:
                         (Handle ce1 [(Pvar $ cexp_var_prefix x, ce2)]))
 End
 
+Definition preamble_ok_def:
+  preamble_ok preamble ⇔ ∃locs1 locs2 locs3. preamble =
+  [
+    Dlet locs1 (Pvar "ffi_array")
+      (App Aw8alloc [Lit (IntLit (&max_FFI_return_size + 2)); Lit (Word8 0w)]);
+    Dletrec locs2 ["strle", "n",
+      Fun "s1" $ Fun "s2" $ Fun "len1" $ Fun "len2" $
+      If (App (Opb Leq) [var "len1"; var "n"]) tt $
+      If (App (Opb Leq) [var "len2"; var "n"]) ff $
+      clet "o1" (App Ord [App Strsub [var "s1"; var "n"]]) $
+      clet "o2" (ast$App Ord [App Strsub [var "s2"; var "n"]]) $
+      iflt (var "o1", var "o2") tt $
+      ifeq (var "o1", var "o2")
+        (capp (capp (capp (capp (capp (var "strle") (App (Opn Plus) [var "n"; int 1]))
+          (var "s1")) (var "s2")) (var "len1")) (var "len2"))
+        ff];
+    Dletrec locs3 ["char_list", "l",
+      Mat (var "l") [
+        (Pcon (SOME (Short "[]")) [], Con (SOME (Short "[]")) []);
+        (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
+          Con (SOME (Short "::")) [
+            App Chr [App (Opn Modulo) [var "h"; int 256]];
+            (capp (var "char_list") (var "t")) ])
+        ]];
+  ]
+End
+
 
 (***** Lemmas *****)
 
