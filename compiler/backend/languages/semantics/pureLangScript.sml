@@ -57,10 +57,15 @@ Definition exp_of_def:
        Seq Fail caseexp
      else
        caseexp) ∧
-  exp_of (NestedCase d e v pes) =
-  Let v (exp_of e) (nested_rows (Var v) (MAP (λ(p,e). (p, exp_of e)) pes))
+  exp_of (NestedCase d g gv p e pes) =
+  Let gv (exp_of g)
+      (nested_rows (Var gv) (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
 Termination
-  WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
+  WF_REL_TAC ‘measure (cexp_size (K 0))’ >> rw [cexp_size_eq] >>
+  simp[] >>
+  FIRST (map (drule_then $ qspec_then ‘K 0’ assume_tac) $
+         CONJUNCTS cexp_size_lemma) >>
+  gs[cexp_size_eq]
 End
 
 val _ = export_theory();

@@ -575,6 +575,7 @@ QED
 
 Theorem demands_analysis_eq_with_diff_ctxt:
   ∀(f : α -> num) (e: α cexp) c c2 fds.
+    NestedCase_free e ⇒
     demands_analysis_fun c e fds = demands_analysis_fun c2 e fds
 Proof
   completeInduct_on ‘cexp_size f e’ >> gen_tac >> Cases >>
@@ -590,7 +591,8 @@ Proof
           fs [cexp_size_def] >>
           pop_assum kall_tac >>
           pop_assum $ qspecl_then [‘f’, ‘EL n l’] assume_tac >>
-          AP_TERM_TAC >> gvs [])
+          AP_TERM_TAC >> first_assum irule >>
+          gvs [EVERY_MEM, MEM_EL, PULL_EXISTS])
       >- (AP_TERM_TAC >> AP_TERM_TAC >>
           irule LIST_EQ >> rw [EL_MAP] >>
           rename1 ‘n < _’ >>
@@ -599,7 +601,8 @@ Proof
             by metis_tac [cexp_size_lemma, EL_MEM] >>
           fs [cexp_size_def] >>
           pop_assum kall_tac >>
-          pop_assum $ qspecl_then [‘f’, ‘EL n l’] assume_tac >> gvs []) >>
+          pop_assum $ qspecl_then [‘f’, ‘EL n l’] assume_tac >>
+          first_assum irule >> gvs [EVERY_MEM, MEM_EL, PULL_EXISTS]) >>
       Cases_on ‘l’ >> gvs [demands_analysis_fun_def] >>
       rename1 ‘h::l’ >> Cases_on ‘l’ >> gvs [demands_analysis_fun_def] >>
       rename1 ‘h1::h2::l’ >> Cases_on ‘l’ >> gvs [demands_analysis_fun_def] >>
@@ -623,7 +626,7 @@ Proof
           irule_at Any EQ_REFL >> qexists_tac ‘f’ >>
           rename1 ‘n < LENGTH _’ >>
           ‘cexp_size f (EL n l) < cexp8_size f l’ by metis_tac [cexp_size_lemma, EL_MEM] >>
-          gvs []) >>
+          gvs [EVERY_MEM, MEM_EL, PULL_EXISTS]) >>
       FULL_CASE_TAC >> gvs [] >>
       irule AP_THM >> gvs [] >>
       rpt $ AP_TERM_TAC >>
@@ -632,7 +635,7 @@ Proof
       irule_at Any EQ_REFL >> qexists_tac ‘f’ >>
       rename1 ‘n < LENGTH _’ >>
       ‘cexp_size f (EL n l) < cexp8_size f l’ by metis_tac [cexp_size_lemma, EL_MEM] >>
-      gvs [])
+      gvs [EVERY_MEM, MEM_EL, PULL_EXISTS])
   >- (rw [] >> AP_TERM_TAC >>
       last_x_assum irule >> irule_at Any EQ_REFL >>
       qexists_tac ‘f’ >> gvs [cexp_size_def])
@@ -658,7 +661,9 @@ Proof
                 irule_at Any PAIR) >>
           qabbrev_tac ‘p = EL n binds’ >> PairCases_on ‘p’ >>
           gvs [] >> last_x_assum irule >>
-          irule_at Any EQ_REFL >> qexists_tac ‘f’ >> gvs [cexp_size_def]) >>
+          irule_at Any EQ_REFL >> qexists_tac ‘f’ >>
+          gvs [cexp_size_def, EVERY_MEM, PULL_EXISTS, MEM_EL, EL_MAP] >>
+          metis_tac[SND]) >>
       rename1 ‘_ = _ p1’ >> PairCases_on ‘p1’ >> gvs [] >>
       AP_TERM_TAC >>
       last_x_assum $ irule_at Any >>
@@ -676,7 +681,8 @@ Proof
       irule_at Any EQ_REFL >> qexists_tac ‘f’ >>
       assume_tac cexp_size_lemma >> gvs [] >>
       ‘MEM (EL n l) l’ by gvs [EL_MEM] >>
-      gvs [cexp_size_def] >> first_x_assum $ dxrule_then assume_tac >> gvs [])
+      gvs [cexp_size_def] >> first_x_assum $ dxrule_then assume_tac >>
+      gvs [EVERY_MEM, MEM_EL, PULL_EXISTS, EL_MAP] >> metis_tac[SND])
 QED
 
 Theorem demands_analysis_soundness_lemma:
@@ -1190,6 +1196,7 @@ Proof
               \\ first_x_assum $ drule_then assume_tac
               \\ qspecl_then [‘f’, ‘SND (EL i binds)’, ‘c2’, ‘RecBind binds c’, ‘fds2’]
                              assume_tac demands_analysis_eq_with_diff_ctxt
+              \\ pop_assum mp_tac \\ impl_tac >- simp[] \\ strip_tac
               \\ qabbrev_tac ‘pair = EL i binds’ \\ PairCases_on ‘pair’ \\ gvs []
               \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok])
           >- (last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
@@ -1208,6 +1215,7 @@ Proof
               \\ first_x_assum $ drule_then assume_tac
               \\ qspecl_then [‘f’, ‘SND (EL i binds)’, ‘c2’, ‘RecBind binds c’, ‘fds2’]
                              assume_tac demands_analysis_eq_with_diff_ctxt
+              \\ pop_assum mp_tac \\ impl_tac >- simp[] \\ strip_tac
               \\ qabbrev_tac ‘pair = EL i binds’ \\ PairCases_on ‘pair’ \\ gvs []
               \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok])
           \\ rename1 ‘find (SND (_ (EL i binds))) _ (fdemands_map_to_set (FOLDL _ fds _))’

@@ -24,8 +24,9 @@ Definition letrec_recurse_cexp_def:
   letrec_recurse_cexp f (Case c x n ys) =
     Case c (letrec_recurse_cexp f x) n
       (MAP (λ(n,ns,e). (n,ns,letrec_recurse_cexp f e)) ys) ∧
-  letrec_recurse_cexp f (NestedCase c e v pes) =
-    NestedCase c (letrec_recurse_cexp f e) v
+  letrec_recurse_cexp f (NestedCase c g gv p e pes) =
+    NestedCase c (letrec_recurse_cexp f g) gv p
+               (letrec_recurse_cexp f e)
                (MAP (λ(p,e). (p, letrec_recurse_cexp f e)) pes)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND`
@@ -60,19 +61,22 @@ Definition letrec_recurse_fvs_def:
      let ys' = MAP (λ(cn,vs,e). (cn,vs,letrec_recurse_fvs f e)) ys in
      let c' =
         union (get_info x')
-          (delete (list_union (MAP (λ(cn,vs,e). list_delete (get_info e) vs) ys')) n)
+          (delete (list_union
+                   (MAP (λ(cn,vs,e). list_delete (get_info e) vs) ys')) n)
     in Case c' x' n ys') ∧
-  letrec_recurse_fvs f (NestedCase c e v pes) =
-    let e' = letrec_recurse_fvs f e ;
+  letrec_recurse_fvs f (NestedCase c g gv p e pes) =
+    let g' = letrec_recurse_fvs f g ;
+        e' = letrec_recurse_fvs f e ;
         pes' = MAP (λ(p,e). (p, letrec_recurse_fvs f e)) pes ;
-        c' = union (get_info e')
+        c' = union (get_info g')
                    (delete
                     (list_union
                      (MAP (λ(p,e).
-                             list_delete (get_info e) (cepat_vars_l p)) pes'))
-                    v)
+                             list_delete (get_info e) (cepat_vars_l p))
+                          ((p,e')::pes')))
+                    gv)
     in
-      NestedCase c' e' v pes'
+      NestedCase c' g' gv p e' pes'
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND`
 End

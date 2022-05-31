@@ -1,8 +1,10 @@
-structure exp_eqSimps =
+structure exp_eqSimps :> exp_eqSimps =
 struct
 
 
-open simpLib boolSimps boolLib pure_congruenceTheory
+open HolKernel simpLib boolSimps boolLib bossLib
+
+open pure_congruenceTheory pure_congruence_lemmasTheory
 structure Parse =
 struct
   open Parse
@@ -32,39 +34,26 @@ val PAIR_REL_SYM' = Q.prove(
   gs[quotient_pairTheory.PAIR_REL]);
 
 
-Overload lrt = “LIST_REL ($= ### $≅) : (string # exp) list -> (string # exp) list -> bool”
-
-Theorem LIST_REL_PAIR_REL_E:
-  LIST_REL (R1 ### R2) l1 l2 ⇒
-  LIST_REL R1 (MAP FST l1) (MAP FST l2) ∧
-  LIST_REL R2 (MAP SND l1) (MAP SND l2)
-Proof
-  Induct_on ‘LIST_REL’ >>
-  simp[pairTheory.FORALL_PROD, quotient_pairTheory.PAIR_REL]
-QED
-
-Theorem letrec_cong':
-  e1 ≅ e2 ⇒ lrt bs1 bs2 ⇒ Letrec bs1 e1 ≅ Letrec bs2 e2
-Proof
-  rpt strip_tac >> drule LIST_REL_PAIR_REL_E >> simp[exp_eq_Letrec_cong]
-QED
-
 val EXPEQ_ss = let
   val rsd = {refl = exp_eq_refl, trans = exp_eq_trans,
              weakenings = [intro_cong],
              subsets = [],
-             rewrs = [beta_equality, exp_eq_Add]}
+             rewrs = [beta_equality, exp_eq_Add, Let_Var, exp_eq_IfT, Let_Var',
+                      Seq_Fail, Let_Fail]}
   val frag1 = relsimp_ss rsd
-  val congs = SSFRAG {dprocs = [], ac = [], rewrs = [], name = NONE,
-                      congs = [exp_eq_Lam_cong, impi exp_eq_App_cong,
-                               letrec_cong'],
-                      convs = [],
-                      filter = NONE}
+  val congs = SSFRAG {
+        dprocs = [], ac = [], rewrs = [], name = NONE,
+        congs = [exp_eq_Lam_cong, exp_eq_App_cong, exp_eq_Let_cong_noaconv,
+                 exp_eq_If_cong, exp_eq_COND_cong, exp_eq_Seq_cong
+                 (* ,
+                    letrec_cong'*) ],
+        convs = [],
+        filter = NONE}
 in
-  merge_ss [frag1, congs] |> name_ss "EXPEQ_ss"
+  merge_ss [frag1, congs] |> name_ss "EXPEQ_ss" |> register_frag
 end
 
-
+(*
 val lreq_refl = Q.prove(
   ‘lrt xs xs’,
   simp[listTheory.EVERY2_refl,PAIR_REL_REFL',exp_eq_refl]);
@@ -115,5 +104,5 @@ SIMP_CONV (srw_ss() ++ EXPEQ_ss ++ LREXPEQ_ss)
   “Y ≅ Letrec [(f, Prim (AtomOp Add) [Lit (Int 4); Lit(Int 7)])] (Var x)”
 *)
 
-
+*)
 end (* struct *)

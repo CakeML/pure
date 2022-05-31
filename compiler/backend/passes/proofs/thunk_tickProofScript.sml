@@ -139,6 +139,12 @@ Theorem v_rel_def =
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
   |> LIST_CONJ;
 
+Theorem exp_rel_freevars:
+  ∀x y. exp_rel x y ⇒ freevars x = freevars y
+Proof
+  cheat
+QED
+
 Theorem exp_rel_FUNPOW:
   ∀x y.
     exp_rel x y ∧
@@ -1168,4 +1174,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

@@ -23,22 +23,20 @@ Proof
 QED
 
 Definition lift_uscore1_def:
-  (lift_uscore1 (NestedCase c texp tv pes) =
-   if pes = [] then NestedCase c texp tv pes
-   else
-     case LAST pes of
-       (p,e) => if p = cepatUScore then
-                  case dest_nestedcase e of
-                    SOME (texp', _, pes') =>
-                      (case dest_var texp' of
-                         SOME vnm =>
-                           if tv = vnm then
-                             NestedCase c texp tv (updlast pes pes')
-                           else NestedCase c texp tv pes
-                       | NONE => NestedCase c texp tv pes)
-                  | NONE => NestedCase c texp tv pes
+  (lift_uscore1 (NestedCase c t tv p e pes) =
+     case LAST ((p,e)::pes) of
+       (lp,le) => if lp = cepatUScore then
+                  case dest_nestedcase le of
+                    SOME (v, vnm, pes') =>
+                      if tv = vnm ∧ dest_var v = SOME vnm then
+                        case updlast ((p,e)::pes) pes' of
+                          [] => Var c "Fail/can't happen"
+                        | (p',e')::rest =>
+                            NestedCase c t tv p' e' rest
+                      else NestedCase c t tv p e pes
+                  | NONE => NestedCase c t tv p e pes
                 else
-                  NestedCase c texp tv pes) ∧
+                  NestedCase c t tv p e pes) ∧
   (lift_uscore1 e = e)
 End
 

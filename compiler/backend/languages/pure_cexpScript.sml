@@ -68,7 +68,8 @@ Datatype:
        | Let 'a vname cexp cexp               (* let                      *)
        | Letrec 'a ((vname # cexp) list) cexp (* mutually recursive exps  *)
        | Case 'a cexp vname ((vname # vname list # cexp) list) (* case of *)
-       | NestedCase 'a cexp vname ((cepat # cexp) list)(* case w/patterns *)
+       | NestedCase 'a cexp vname cepat cexp ((cepat # cexp) list)
+                                     (* case w/non-empty pattern-exp list *)
 End
 
 Theorem cexp_size_lemma:
@@ -103,7 +104,7 @@ Definition dest_var_def[simp]:
 End
 
 Definition dest_nestedcase_def[simp]:
-  dest_nestedcase (NestedCase _ teste testv pes) = SOME (teste, testv, pes) ∧
+  dest_nestedcase (NestedCase _ g gv p e pes) = SOME (g, gv, (p,e)::pes) ∧
   dest_nestedcase _ = NONE
 End
 
@@ -121,8 +122,8 @@ Definition gencexp_recurse_def:
   gencexp_recurse f (Case c x n ys) =
     f (Case c (gencexp_recurse f x) n
        (MAP (λ(n,ns,e). (n,ns,gencexp_recurse f e)) ys)) ∧
-  gencexp_recurse f (NestedCase c e v pes) =
-    f (NestedCase c (gencexp_recurse f e) v
+  gencexp_recurse f (NestedCase c g gv p e pes) =
+    f (NestedCase c (gencexp_recurse f g) gv p (gencexp_recurse f e)
        (MAP (λ(p,e). (p, gencexp_recurse f e)) pes))
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0) o SND)’
@@ -147,10 +148,11 @@ Definition freevars_cexp_def[simp]:
   freevars_cexp (Case c e v css) = freevars_cexp e ∪
     (BIGUNION (set (MAP (λ(_,vs,ec). freevars_cexp ec DIFF set vs) css))
      DELETE v) ∧
-  freevars_cexp (NestedCase c e v pes) =
-    freevars_cexp e ∪
-    (BIGUNION (set (MAP (λ(p,e). freevars_cexp e DIFF cepat_vars p) pes)) DELETE
-     v)
+  freevars_cexp (NestedCase c g gv p e pes) =
+    freevars_cexp g ∪
+    (((freevars_cexp e DIFF cepat_vars p) ∪
+      BIGUNION (set (MAP (λ(p,e). freevars_cexp e DIFF cepat_vars p) pes)))
+    DELETE gv)
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))` >> rw []
 End
@@ -170,12 +172,13 @@ Definition freevars_cexp_l_def[simp]:
     FILTER ($≠ v)
       (FLAT
         (MAP (λ(_,vs,ec). FILTER (λv. ¬MEM v vs) (freevars_cexp_l ec)) css)) ∧
-  freevars_cexp_l (NestedCase c e v pes) =
-    freevars_cexp_l e ++
-    FILTER ($≠ v)
-      (FLAT
-        (MAP (λ(p, e). FILTER (λv. ¬MEM v (cepat_vars_l p)) (freevars_cexp_l e))
-             pes))
+  freevars_cexp_l (NestedCase c g gv p e pes) =
+    freevars_cexp_l g ++
+    FLAT
+      (FILTER (λv. v ≠ gv ∧ ¬MEM v (cepat_vars_l p)) (freevars_cexp_l e) ::
+       MAP (λ(p, e). FILTER (λv. v ≠ gv ∧ ¬MEM v (cepat_vars_l p))
+                            (freevars_cexp_l e))
+       pes)
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))` >> rw []
 End
@@ -193,10 +196,14 @@ Definition substc_def:
   substc f (Case c e v css) =
     Case c (substc f e) v
       (MAP (λ(cn,vs,e). (cn,vs, substc (FDIFF f (v INSERT set vs)) e)) css) ∧
-  substc f (NestedCase c e v pes) =
-  NestedCase c (substc f e) v
-             (MAP (λ(p,e). (p, substc (FDIFF f (v INSERT cepat_vars p)) e))
-                  pes)
+  substc f (NestedCase c g gv p e pes) =
+  NestedCase
+    c
+    (substc f g)
+    gv
+    p
+    (substc (FDIFF f (gv INSERT cepat_vars p)) e)
+    (MAP (λ(p,e). (p, substc (FDIFF f (gv INSERT cepat_vars p)) e)) pes)
 Termination
   WF_REL_TAC `measure (cexp_size (K 0) o  SND)` >> rw []
 End
@@ -211,7 +218,7 @@ Definition get_info_def:
   get_info (Let c _ _ _) = c ∧
   get_info (Letrec c _ _) = c ∧
   get_info (Case c _ _ _) = c ∧
-  get_info (NestedCase c _ _ _) = c
+  get_info (NestedCase c _ _ _ _ _) = c
 End
 
 Definition cexp_wf_def:
@@ -224,9 +231,10 @@ Definition cexp_wf_def:
   cexp_wf (Case _ e v css) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css)) ∧
-  cexp_wf (NestedCase _ e v pes) =
-    (cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧ pes ≠ [] ∧
-    ¬ MEM v (FLAT $ MAP (cepat_vars_l o FST) pes))
+  cexp_wf (NestedCase _ g gv p e pes) = (
+    cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
+    ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))
+  )
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> rw[fetch "-" "cexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>
@@ -245,7 +253,7 @@ Definition NestedCase_free_def[simp]:
   NestedCase_free (Case _ e _ css) = (
     NestedCase_free e ∧ EVERY NestedCase_free $ MAP (SND o SND) css
   ) ∧
-  NestedCase_free (NestedCase _ _ _ _) = F
+  NestedCase_free (NestedCase _ _ _ _ _ _) = F
 Termination
   WF_REL_TAC ‘measure $ cexp_size (K 0)’ >>
   simp[fetch "-" "cexp_size_eq", MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
@@ -269,8 +277,8 @@ Definition cexp_eq_def:
     cexp_eq e1 e2 ∧ v1 = v2 ∧
     LIST_REL (λ(cn1,vs1,e1) (cn2,vs2,e2). cn1 = cn2 ∧ vs1 = vs2 ∧ cexp_eq e1 e2)
       css1 css2) ∧
-  (cexp_eq (NestedCase _ e1 v1 pes1) (NestedCase _ e2 v2 pes2) ⇔
-     cexp_eq e1 e2 ∧ v1 = v2 ∧
+  (cexp_eq (NestedCase _ g1 gv1 p1 e1 pes1) (NestedCase _ g2 gv2 p2 e2 pes2) ⇔
+     cexp_eq g1 g2 ∧ gv1 = gv2 ∧ p1 = p2 ∧ cexp_eq e1 e2 ∧
      LIST_REL (λ(p1,e1) (p2,e2). p1 = p2 ∧ cexp_eq e1 e2) pes1 pes2) ∧
   (cexp_eq _ _ ⇔ F)
 Termination

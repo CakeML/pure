@@ -12,11 +12,12 @@
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory pure_semanticsTheory arithmeticTheory;
+     pure_expTheory pure_semanticsTheory arithmeticTheory
+     state_cexpTheory mlstringTheory;
 
 val _ = new_theory "stateLang";
 
-val _ = set_grammar_ancestry ["pure_semantics"];
+val _ = set_grammar_ancestry ["pure_semantics","state_cexp"];
 
 val _ = numLib.prefer_num();
 
@@ -39,6 +40,8 @@ Datatype:
       | UnsafeUpdate       (* update without a bounds check            *)
       | FFI string         (* make an FFI call                         *)
 End
+
+Type vname = “:string”
 
 Datatype:
   exp = (* stateLang expressions *)
@@ -845,5 +848,41 @@ Theorem step_n_NONE_split:
 Proof
   cheat
 QED
+
+(* meaning of cexp *)
+
+Definition sop_of_def[simp]:
+  sop_of (AppOp:csop) = (AppOp:sop) ∧
+  sop_of (Cons n) = Cons (explode n) ∧
+  sop_of (AtomOp m) = AtomOp m ∧
+  sop_of Alloc = Alloc ∧
+  sop_of Ref = Ref ∧
+  sop_of Length = Length ∧
+  sop_of Sub = Sub ∧
+  sop_of UnsafeSub = UnsafeSub ∧
+  sop_of Length = Length ∧
+  sop_of Update = Update ∧
+  sop_of UnsafeUpdate = UnsafeUpdate ∧
+  sop_of (FFI s) = FFI (explode s)
+End
+
+Definition exp_of_def:
+  exp_of ((Var n):cexp) = (Var (explode n)):exp ∧
+  exp_of (App op xs) = App (sop_of op) (MAP exp_of xs) ∧
+  exp_of (Lam vn x) = Lam (OPTION_MAP explode vn) (exp_of x) ∧
+  exp_of (Letrec funs x) =
+    Letrec (MAP (λ(f,v,y). (explode f,Lam (SOME (explode v)) (exp_of y))) funs) (exp_of x) ∧
+  exp_of (Let vn x y) = Let (OPTION_MAP explode vn) (exp_of x) (exp_of y) ∧
+  exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
+  exp_of (Case x v rows) =
+    Case (exp_of x) (explode v) (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows) ∧
+  exp_of (Raise x) = Raise (exp_of x) ∧
+  exp_of (Handle x v y) = Handle (exp_of x) (explode v) (exp_of y) ∧
+  exp_of (HandleApp x y) = HandleApp (exp_of x) (exp_of y)
+Termination
+  WF_REL_TAC ‘measure cexp_size’
+End
+
+Theorem exp_of_def[simp] = exp_of_def |> CONV_RULE (DEPTH_CONV ETA_CONV);
 
 val _ = export_theory ();

@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
 open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     envLangTheory thunkLang_primitivesTheory envLang_cexpTheory
+     envLangTheory thunkLang_primitivesTheory
      stateLangTheory env_semanticsTheory env_to_state_1ProofTheory
      state_caseProofTheory state_unthunkProofTheory state_app_unitProofTheory
      env_cexpTheory state_cexpTheory env_to_stateTheory;
