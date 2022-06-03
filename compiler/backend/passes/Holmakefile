@@ -1,1 +1,2 @@
-INCLUDES = $(PUREDIR)/misc ../ ../languages $(HOLDIR)/examples/algorithms
+INCLUDES = $(PUREDIR)/misc ../ ../languages $(PUREDIR)/typing \
+           $(HOLDIR)/examples/algorithms

@@ -6,11 +6,14 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      rich_listTheory arithmeticTheory intLib;
 open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory;
-open pure_miscTheory pure_configTheory stateLangTheory state_cexpTheory;
+open pure_miscTheory pure_configTheory
+     stateLangTheory state_cexpTheory state_to_cakeTheory;
 
 val _ = intLib.deprecate_int();
 
 val _ = new_theory "state_to_cakeProof";
+
+val _ = set_grammar_ancestry ["state_to_cake", "stateLang", "itree_semanticsProps"]
 
 
 (* TODO move *)
@@ -207,169 +210,6 @@ Inductive op_rel:
   op_rel UnsafeUpdate Aupdate_unsafe
 End
 
-
-Overload capp = ``λce1 ce2. ast$App Opapp [ce1; ce2]``;
-Overload int  = ``λi. ast$Lit $ IntLit i``;
-Overload clet = ``λs e1 e2. ast$Let (SOME s) e1 e2``;
-Overload ifeq = ``λ(a,b) e1 e2. ast$If (App Equality [a;b]) e1 e2``;
-Overload iflt = ``λ(a,b) e1 e2. ast$If (App (Opb Lt) [a;b]) e1 e2``
-Overload var  = ``λs. ast$Var $ Short s``;
-Overload tt = ``Con (SOME $ Short $ "True") []``;
-Overload ff = ``Con (SOME $ Short $ "False") []``;
-
-(*
-  if v2 = 0 then 0 else Divide v1 v2
-*)
-Overload div =
-  ``ifeq (var "v2", int 0) (int 0) (App (Opn Divide) [var "v1"; var "v2"])``;
-
-(*
-  if v2 = 0 then 0 else Modulo v1 v2
-*)
-Overload mod =
-  ``ifeq (var "v2", int 0) (int 0) (App (Opn Modulo) [var "v1"; var "v2"])``;
-
-(*
-  if v2 < 0 then -1 else
-  let strlen = LENGTH v1 in
-    if v2 < strlen then Ord (Strsub v1 v2) else -1
-*)
-Overload elem_str =
-  ``iflt (var "v2", int 0) (int (-1)) $
-    clet "strlen" (App Strlen [var "v1"]) $
-    iflt (var "v2", var "strlen")
-      (App Ord [App Strsub [var "v1"; var "v2"]])
-      (int (-1))``
-
-(*
-  letrec char_list l =
-  case l of
-  | []   => []
-  | h::t => CHR (h % 256) :: char_list t
-*)
-Definition char_list_v_def:
-  char_list_v env =
-    Recclosure env ["char_list", "l",
-      Mat (var "l") [
-        (Pcon (SOME (Short "[]")) [], Con (SOME (Short "[]")) []);
-        (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
-          Con (SOME (Short "::")) [
-            App Chr [App (Opn Modulo) [var "h"; int 256]];
-            (capp (var "char_list") (var "t")) ])
-        ]
-    ] "char_list"
-End
-
-(*
-  let strlen = LENGTH v1 in
-  let off = if v2 < 0 then 0 else v2 in
-  if off < strlen then
-    CopyStrStr v1 off (strlen - off)
-    else ""
-*)
-Overload substring2 =
-  ``clet "strlen" (App Strlen [var "v1"]) $
-    clet "off" (iflt (var "v2", int 0) (int 0) (var "v2")) $
-    iflt (var "off", var "strlen")
-      (App CopyStrStr [var "v1"; var "off"; App (Opn Minus) [var "strlen"; var "off"]])
-      (Lit $ StrLit "")``;
-
-(*
-  λs i l.
-    if l < 0 then "" else
-      let strlen = LENGTH s in
-      let off = if i < 0 then 0 else i in
-      if off < strlen then
-        let off_l = off + l in
-        let end = (if off_l < strlen then off_l else strlen) in
-        CopyStrStr s off (end - off)
-      else ""
-*)
-Overload substring3 =
-  ``iflt (var "l", int 0) (Lit $ StrLit "") $
-    clet "strlen" (App Strlen [var "s"]) $
-    clet "off" (iflt (var "i", int 0) (int 0) (var "i")) $
-    iflt (var "off", var "strlen") (
-      clet "off_l" (App (Opn Plus) [var "off"; var "l"]) $
-      clet "end" (iflt (var "off_l", var "strlen") (var "off_l") (var "strlen")) $
-      App CopyStrStr [var "s"; var "off"; App (Opn Minus) [var "end"; var "off"]])
-      (Lit $ StrLit "")``;
-
-Definition strle_def:
-  strle (n : num) s1 s2 len1 len2 =
-    if len1 ≤ n then T else if len2 ≤ n then F else
-    let o1 = ORD (EL n s1); o2 = ORD (EL n s2) in
-    if o1 < o2 then T
-    else if o1 = o2 then strle (n + 1) s1 s2 len1 len2
-    else F
-Termination
-  WF_REL_TAC `measure (λ(n,_,_,len1,_). len1 - n)`
-End
-
-Definition strle_v_def:
-  strle_v env =
-    Recclosure env ["strle", "n",
-      Fun "s1" $ Fun "s2" $ Fun "len1" $ Fun "len2" $
-      If (App (Opb Leq) [var "len1"; var "n"]) tt $
-      If (App (Opb Leq) [var "len2"; var "n"]) ff $
-      clet "o1" (App Ord [App Strsub [var "s1"; var "n"]]) $
-      clet "o2" (ast$App Ord [App Strsub [var "s2"; var "n"]]) $
-      iflt (var "o1", var "o2") tt $
-      ifeq (var "o1", var "o2")
-        (capp (capp (capp (capp (capp (var "strle") (App (Opn Plus) [var "n"; int 1]))
-          (var "s1")) (var "s2")) (var "len1")) (var "len2"))
-
-        ff]
-      "strle"
-End
-
-(* strle 0 v1 v2 *)
-Overload strleq =
-  ``clet "len1" (App Strlen [var "v1"]) $ clet "len2" (App Strlen [var "v2"]) $
-    capp (capp (capp (capp (capp (var "strle") (int 0))
-      (var "v1")) (var "v2")) (var "len1")) (var "len2")``;
-
-(* if v1 = v2 then F else strleq v1 v2 *)
-Overload strlt = ``ifeq (var "v1", var "v2") ff strleq``;
-
-(* if strleq v1 v2 then F else T *)
-Overload strgt = ``If strleq ff tt``;
-
-(* strle 0 v2 v1 *)
-Overload strgeq =
-  ``clet "len1" (App Strlen [var "v1"]) $ clet "len2" (App Strlen [var "v2"]) $
-    capp (capp (capp (capp (capp (var "strle") (int 0))
-      (var "v2")) (var "v1")) (var "len2")) (var "len1")``;
-
-(*
-  let len = (if v1 < 0 then 0 else v1) in Aalloc v1 v2
-*)
-Overload alloc =
-  ``clet "len" (iflt (var "v1", int 0) (int 0) (var "v1")) $
-    App Aalloc [var "len"; var "v2"]``;
-
-(*
-    let len0 = Int (ffi_array[0]) in
-    let len1 = Int (ffi_array[1]) in
-    let len = (len1 * 256) + len0 in
-    let len = (if max_FFI_return_size < len then max_FFI_return_size else len) in
-    CopyAw8Str ffi_array 2 len
-*)
-Overload ffi =
-  ``clet "len0" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 0])]) $
-    clet "len1" (App (WordToInt W8) [(App Aw8sub_unsafe [var "ffi_array"; int 1])]) $
-    clet "len" (App (Opn Plus) [App (Opn Times) [var "len1"; int 256]; var "len0"]) $
-    clet "len" (
-      iflt (int &max_FFI_return_size, var "len")
-      (int &max_FFI_return_size) (var "len")) $
-    App CopyAw8Str [var "ffi_array"; int 2; var "len"]``;
-
-(* right to left evaluation holds for this too *)
-Definition list_to_exp_def:
-  list_to_exp [] = Con (SOME $ Short "[]") [] ∧
-  list_to_exp (e::es) = Con (SOME $ Short "::") [e; list_to_exp es]
-End
-
 Definition pat_row_def:
   pat_row sv cn vs =
     Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
@@ -518,6 +358,17 @@ Definition cnenv_rel_def:
       nsLookup cenv (Short cn) = SOME (ar,tyid) ∧ (* matching type/arity *)
       (∀cn' id. tyid = TypeStamp cn' id ⇒ cn' = cn) (* type stamp matches cn *)
 End
+
+Definition char_list_v_def:
+  char_list_v env = Recclosure env char_list_exp "char_list"
+End
+
+Definition strle_v_def:
+  strle_v env = Recclosure env strle_exp "strle"
+End
+
+Theorem char_list_v_def[local] = SRULE [char_list_exp_def] char_list_v_def;
+Theorem strle_v_def[local] = SRULE [strle_exp_def] strle_v_def;
 
 Definition env_ok_def:
   env_ok env ⇔
@@ -2547,16 +2398,6 @@ Inductive csop_rel:
   csop_rel UnsafeUpdate Aupdate_unsafe
 End
 
-Definition cexp_var_prefix_def:
-  cexp_var_prefix cv = explode $ strcat (strlit "pure_") cv
-End
-
-Definition cexp_pat_row_def:
-  cexp_pat_row sv cn vs =
-    Pas ((if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
-          (MAP (Pvar o cexp_var_prefix) vs)) (cexp_var_prefix sv)
-End
-
 Inductive cexp_compile_rel:
 [~IntLit:]
   cexp_compile_rel cnenv (IntLit i : cexp) (ast$Lit $ IntLit i) ∧
@@ -2665,33 +2506,6 @@ Inductive cexp_compile_rel:
   (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2
     ⇒ cexp_compile_rel cnenv (Handle se1 x se2)
                         (Handle ce1 [(Pvar $ cexp_var_prefix x, ce2)]))
-End
-
-Definition preamble_ok_def:
-  preamble_ok preamble ⇔ ∃locs1 locs2 locs3. preamble =
-  [
-    Dlet locs1 (Pvar "ffi_array")
-      (App Aw8alloc [Lit (IntLit (&max_FFI_return_size + 2)); Lit (Word8 0w)]);
-    Dletrec locs2 ["strle", "n",
-      Fun "s1" $ Fun "s2" $ Fun "len1" $ Fun "len2" $
-      If (App (Opb Leq) [var "len1"; var "n"]) tt $
-      If (App (Opb Leq) [var "len2"; var "n"]) ff $
-      clet "o1" (App Ord [App Strsub [var "s1"; var "n"]]) $
-      clet "o2" (ast$App Ord [App Strsub [var "s2"; var "n"]]) $
-      iflt (var "o1", var "o2") tt $
-      ifeq (var "o1", var "o2")
-        (capp (capp (capp (capp (capp (var "strle") (App (Opn Plus) [var "n"; int 1]))
-          (var "s1")) (var "s2")) (var "len1")) (var "len2"))
-        ff];
-    Dletrec locs3 ["char_list", "l",
-      Mat (var "l") [
-        (Pcon (SOME (Short "[]")) [], Con (SOME (Short "[]")) []);
-        (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
-          Con (SOME (Short "::")) [
-            App Chr [App (Opn Modulo) [var "h"; int 256]];
-            (capp (var "char_list") (var "t")) ])
-        ]];
-  ]
 End
 
 
