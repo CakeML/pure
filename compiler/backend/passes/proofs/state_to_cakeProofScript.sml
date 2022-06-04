@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      rich_listTheory arithmeticTheory pred_setTheory intLib;
 open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory;
-open pure_miscTheory pure_configTheory
+open pure_miscTheory pure_configTheory pure_typingTheory
      stateLangTheory state_cexpTheory state_to_cakeTheory;
 
 val _ = intLib.deprecate_int();
@@ -2566,44 +2566,16 @@ Termination
   WF_REL_TAC `measure cexp_size`
 End
 
-(* TODO move to typing *)
-Definition ns_cns_arities_def:
-  ns_cns_arities (exndef : exndef, tdefs : typedefs) =
-    set (MAP (λ(cn,ts). cn, LENGTH ts) exndef) INSERT
-    {("True", 0); ("False", 0)} INSERT
-    set (MAP (λ(ar,cndefs). set (MAP (λ(cn,ts). cn, LENGTH ts) cndefs)) tdefs)
-End
-
-(* TODO move to typing *)
-Definition cns_arities_ok_def:
-  cns_arities_ok ns cns_arities ⇔
-  ∀cn_ars. cn_ars ∈ cns_arities ⇒
-    (∃ar. cn_ars = {"",ar}) ∨
-    (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
-End
-
 (* We have to be careful here with lining up type definitions in Pure and CakeML.
-   In particular, CakeML assumes the following initial namespace:
+   CakeML assumes the following initial namespace:
       Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
       Types: 0 -> Bool, 1 -> List
-
-   In Pure, we need only Subscript and List - Bool is built in and none of the
-   others are used. Therefore, the Pure initial namespace should be:
+   Pure has the following initial namespace:
       Exception: 0 -> Subscript
       Types: 0 -> List
 
    In compilation, we have to take care that the type stamps line up.
 *)
-
-(* TODO move to typing *)
-Definition initial_namespace_def:
-  initial_namespace : exndef # typedefs = (
-    ["Subscript",[]],
-    [1, [ ("[]",[]) ; ("::",[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
-  )
-End
-
-(* This definition ensures that type stamps line up *)
 Definition ns_rel_def:
   ns_rel (ns :exndef # typedefs) senv ⇔
     prim_types_ok senv ∧
