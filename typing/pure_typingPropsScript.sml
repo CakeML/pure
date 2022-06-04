@@ -739,6 +739,26 @@ Proof
   >- (disj2_tac >> disj2_tac >> rpt $ first_x_assum $ irule_at Any >> gvs[])
 QED
 
+Theorem type_tcexp_NestedCase_free:
+  ∀ ns db st env e t ce.
+    type_tcexp ns db st env e t ∧
+    namespace_ok ns ∧
+    e = tcexp_of ce
+  ⇒ NestedCase_free ce
+Proof
+  Induct_on `type_tcexp` >> rw[pure_cexpTheory.NestedCase_free_def] >>
+  pop_assum mp_tac >> simp[Once $ DefnBase.one_line_ify NONE tcexp_of_def] >>
+  strip_tac >> gvs[AllCaseEqs()] >>
+  rgs[EVERY_EL, LIST_REL_EL_EQN, EL_ZIP, EL_MAP] >>
+  gvs[MAP_EQ_CONS, numeral_less_thm] >> rw[] >> gvs[] >> res_tac >> gvs[]
+  >- (last_x_assum drule >> rpt (pairarg_tac >> gvs[]))
+  >- (gvs[DISJ_IMP_THM, FORALL_AND_THM] >> rpt (pairarg_tac >> gvs[]))
+  >- (gvs[DISJ_IMP_THM, FORALL_AND_THM] >> rpt (pairarg_tac >> gvs[]))
+  >- rpt (pairarg_tac >> gvs[])
+  >- (last_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[])
+  >- (last_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[])
+QED
+
 
 (******************** Substitutions ********************)
 

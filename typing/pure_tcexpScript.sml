@@ -57,7 +57,8 @@ Definition tcexp_of_def:
   tcexp_of (Lam d vs x)    = Lam vs (tcexp_of x) ∧
   tcexp_of (Letrec d rs x) = Letrec (MAP (λ(n,x). (n,tcexp_of x)) rs) (tcexp_of x) ∧
   tcexp_of (Case d x v rs) = Case (tcexp_of x) v
-                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
+                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs) ∧
+  tcexp_of _               = Lam [] ARB
 Termination
   WF_REL_TAC `measure $ cexp_size $ K 0` \\ rw [cexp_size_def] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]

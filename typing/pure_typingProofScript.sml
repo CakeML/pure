@@ -1128,17 +1128,17 @@ Proof
     simp[pure_exp_relTheory.app_bisimilarity_eq] >>
     irule_at Any $ iffLR pure_congruenceTheory.exp_eq_sym >>
     irule_at Any exp_of_tcexp_of_exp_eq >>
+    drule_all $ SRULE [] type_tcexp_NestedCase_free >> strip_tac >>
     drule type_tcexp_freevars_tcexp >> strip_tac >>
     drule_at (Pos last) type_tcexp_tcexp_wf >> strip_tac >> gvs[] >>
     simp[cexp_wf_tcexp_wf, closed_def, freevars_exp_of] >>
-    gvs[freevars_tcexp_of, pure_cexp_lemmasTheory.freevars_exp_of]) >>
+    gvs[freevars_tcexp_of, pure_cexp_lemmasTheory.freevars_exp_of]
+    ) >>
   rw[itree_of_def, semantics_def] >>
   irule type_soundness_interp >>
   simp[type_config_def, PULL_EXISTS] >>
-  simp[Once type_cont_cases, Once config_type_ok_cases] >>
-  goal_assum drule >>
-  irule_at Any type_soundness_eval_wh >> simp[] >>
-  goal_assum drule
+  simp[Once type_cont_cases, Once config_type_ok_cases] >> goal_assum drule >>
+  irule_at Any type_soundness_eval_wh >> simp[] >> goal_assum drule
 QED
 
 

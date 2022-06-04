@@ -114,7 +114,7 @@ Proof
 QED
 
 Theorem cexp_wf_tcexp_wf:
-  ∀e. cexp_wf e ⇔ tcexp_wf (tcexp_of e)
+  ∀e. NestedCase_free e ⇒ (cexp_wf e ⇔ tcexp_wf (tcexp_of e))
 Proof
   recInduct cexp_wf_ind >> rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
@@ -123,25 +123,27 @@ Proof
 QED
 
 Theorem freevars_tcexp_of:
-  ∀ce. freevars_tcexp (tcexp_of ce) = freevars_cexp ce
+  ∀ce. NestedCase_free ce ⇒ (freevars_tcexp (tcexp_of ce) = freevars_cexp ce)
 Proof
   recInduct freevars_cexp_ind >>
   rw[freevars_cexp_def, tcexp_of_def, freevars_tcexp_def] >>
-  gvs[MAP_MAP_o, combinTheory.o_DEF]
+  gvs[MAP_MAP_o, combinTheory.o_DEF, EVERY_MEM]
   >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f])
   >- (ntac 3 AP_TERM_TAC >> rw[MAP_EQ_f])
   >- (
     simp[LAMBDA_PROD, GSYM FST_THM] >>
     AP_THM_TAC >> ntac 4 AP_TERM_TAC >>
     rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    first_x_assum irule >> goal_assum drule
+    first_x_assum irule >> gvs[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
+    goal_assum $ drule_at Any >> res_tac
     )
   >- (
     simp[LAMBDA_PROD, GSYM FST_THM] >>
     AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
     rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
     AP_THM_TAC >> AP_TERM_TAC >>
-    first_x_assum irule >> goal_assum drule
+    first_x_assum irule >> gvs[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
+    goal_assum $ drule_at Any >> res_tac
     )
 QED
 
@@ -299,7 +301,8 @@ Proof
 QED
 
 Theorem exp_of_tcexp_of_exp_eq:
-  ∀e. cexp_wf e ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pureLang$exp_of e
+  ∀e. cexp_wf e ∧ NestedCase_free e
+    ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pureLang$exp_of e
 Proof
   recInduct tcexp_of_ind >>
   rw[cexp_wf_def, tcexp_of_def, exp_of_def, pureLangTheory.exp_of_def]
@@ -314,13 +317,14 @@ Proof
     irule exp_eq_Lam_cong >> simp[]
     )
   >- (
-    simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    pop_assum kall_tac >> gvs[EVERY_MEM] >> pop_assum kall_tac >>
+    simp[MAP_MAP_o, combinTheory.o_DEF] >> gvs[] >>
+    qpat_x_assum `_ ≠ []` kall_tac >> gvs[EVERY_MEM] >>
+    ntac 4 $ pop_assum kall_tac >>
     Induct_on `xs` using SNOC_INDUCT >> rw[MAP_SNOC, Apps_SNOC] >>
     irule exp_eq_App_cong >> simp[]
     )
   >- (
-    pop_assum kall_tac >> gvs[] >>
+    qpat_x_assum `_ ≠ _` kall_tac >> gvs[] >>
     Induct_on `vs` >> rw[Lams_def] >>
     irule exp_eq_Lam_cong >> simp[]
     )
@@ -331,7 +335,7 @@ Proof
     gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
     first_x_assum irule >> gvs[MEM_EL, PULL_EXISTS, FORALL_PROD] >>
     goal_assum $ drule_at Any >> gvs[] >>
-    first_x_assum irule >> goal_assum drule >> gvs[]
+    ntac 2 (first_x_assum $ irule_at Any >> goal_assum drule) >> gvs[]
     ) >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
   irule exp_eq_App_cong >> simp[] >>
