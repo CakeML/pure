@@ -2508,64 +2508,6 @@ Inductive cexp_compile_rel:
                         (Handle ce1 [(Pvar $ cexp_var_prefix x, ce2)]))
 End
 
-(* We require the correct number of arguments to be passed to the following.
-   We could specify this for all operations, but it isn't necessary *)
-Definition op_args_ok_def:
-  op_args_ok (AtomOp $ Lit (Int i)) n = (n = 0n) ∧
-  op_args_ok (AtomOp $ Lit (Str s)) n = (n = 0) ∧
-  op_args_ok (AtomOp $ Lit _)       _ = F ∧
-  op_args_ok (AtomOp $ Div)         n = (n = 2) ∧
-  op_args_ok (AtomOp $ Mod)         n = (n = 2) ∧
-  op_args_ok (AtomOp $ Elem)        n = (n = 2) ∧
-  op_args_ok (AtomOp $ Substring)   n = (n = 2 ∨ n = 3) ∧
-  op_args_ok (AtomOp $ StrLeq)      n = (n = 2) ∧
-  op_args_ok (AtomOp $ StrLt)       n = (n = 2) ∧
-  op_args_ok (AtomOp $ StrGeq)      n = (n = 2) ∧
-  op_args_ok (AtomOp $ StrGt)       n = (n = 2) ∧
-  op_args_ok (AtomOp $ Message s)   n = F ∧
-  op_args_ok  Alloc                 n = (n = 2) ∧
-  op_args_ok (FFI ch)               n = (n = 1) ∧
-  op_args_ok (_ :csop)              n = T
-End
-
-Definition cexp_wf_def:
-  cexp_wf (Var v :cexp) = T ∧
-  cexp_wf (App op es) = (EVERY cexp_wf es ∧ op_args_ok op (LENGTH es) ∧
-    ∀ch. op = FFI ch ⇒ ch ≠ «») ∧
-  cexp_wf (Lam (SOME x) e) = cexp_wf e ∧
-  cexp_wf (Letrec funs e) = (
-    cexp_wf e ∧ EVERY (λ(v,x,e). cexp_wf e) funs ∧ ALL_DISTINCT (MAP FST funs)) ∧
-  cexp_wf (Let (SOME x) e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
-  cexp_wf (If e e1 e2) = (cexp_wf e ∧ cexp_wf e1 ∧ cexp_wf e2) ∧
-  cexp_wf (Case e v css) = (
-    cexp_wf e ∧ ALL_DISTINCT (MAP FST css) ∧
-    EVERY (λ(cn,vs,ce). ALL_DISTINCT vs ∧ cexp_wf ce) css) ∧
-  cexp_wf (Raise e) = cexp_wf e ∧
-  cexp_wf (Handle e1 x e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
-  cexp_wf _ = F
-Termination
-  WF_REL_TAC `measure cexp_size`
-End
-
-Definition cns_arities_def:
-  cns_arities (Var v :cexp) = {} ∧
-  cns_arities (App op es) = (
-    (case op of | Cons cn => {{explode cn, LENGTH es}} | _ => {}) ∪
-      BIGUNION (set (MAP cns_arities es))) ∧
-  cns_arities (Lam x e) = cns_arities e ∧
-  cns_arities (Letrec funs e) =
-    BIGUNION (set (MAP (λ(v,x,e). cns_arities e) funs)) ∪ cns_arities e ∧
-  cns_arities (Let x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
-  cns_arities (If e e1 e2) = cns_arities e ∪ cns_arities e1 ∪ cns_arities e2 ∧
-  cns_arities (Case e v css) = set (MAP (λ(cn,vs,e). explode cn, LENGTH vs) css) INSERT
-    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∧
-  cns_arities (Raise e) = cns_arities e ∧
-  cns_arities (Handle e1 x e2) = cns_arities e1 ∪ cns_arities e2 ∧
-  cns_arities (HandleApp e1 e2) = cns_arities e1 ∪ cns_arities e2
-Termination
-  WF_REL_TAC `measure cexp_size`
-End
-
 (* We have to be careful here with lining up type definitions in Pure and CakeML.
    CakeML assumes the following initial namespace:
       Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
