@@ -2538,7 +2538,8 @@ Definition cexp_wf_def:
   cexp_wf (Let (SOME x) e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (If e e1 e2) = (cexp_wf e ∧ cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Case e v css) = (
-    cexp_wf e ∧ EVERY (λ(cn,vs,ce). ALL_DISTINCT vs ∧ cexp_wf ce) css) ∧
+    cexp_wf e ∧ ALL_DISTINCT (MAP FST css) ∧
+    EVERY (λ(cn,vs,ce). ALL_DISTINCT vs ∧ cexp_wf ce) css) ∧
   cexp_wf (Raise e) = cexp_wf e ∧
   cexp_wf (Handle e1 x e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf _ = F
@@ -2549,7 +2550,7 @@ End
 Definition cns_arities_def:
   cns_arities (Var v :cexp) = {} ∧
   cns_arities (App op es) = (
-    (case op of | Cons «» => {} | Cons cn => {{explode cn, LENGTH es}} | _ => {}) ∪
+    (case op of | Cons cn => {{explode cn, LENGTH es}} | _ => {}) ∪
       BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (Lam x e) = cns_arities e ∧
   cns_arities (Letrec funs e) =
@@ -2569,6 +2570,7 @@ End
 Definition ns_cns_arities_def:
   ns_cns_arities (exndef : exndef, tdefs : typedefs) =
     set (MAP (λ(cn,ts). cn, LENGTH ts) exndef) INSERT
+    {("True", 0); ("False", 0)} INSERT
     set (MAP (λ(ar,cndefs). set (MAP (λ(cn,ts). cn, LENGTH ts) cndefs)) tdefs)
 End
 
@@ -2576,15 +2578,40 @@ End
 Definition cns_arities_ok_def:
   cns_arities_ok ns cns_arities ⇔
   ∀cn_ars. cn_ars ∈ cns_arities ⇒
-    ∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars'
+    (∃ar. cn_ars = {"",ar}) ∨
+    (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
 End
 
+(* We have to be careful here with lining up type definitions in Pure and CakeML.
+   In particular, CakeML assumes the following initial namespace:
+      Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
+      Types: 0 -> Bool, 1 -> List
+
+   In Pure, we need only Subscript and List - Bool is built in and none of the
+   others are used. Therefore, the Pure initial namespace should be:
+      Exception: 0 -> Subscript
+      Types: 0 -> List
+
+   In compilation, we have to take care that the type stamps line up.
+*)
+
+(* TODO move to typing *)
+Definition initial_namespace_def:
+  initial_namespace : exndef # typedefs = (
+    ["Subscript",[]],
+    [1, [ ("[]",[]) ; ("::",[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
+  )
+End
+
+(* This definition ensures that type stamps line up *)
 Definition ns_rel_def:
   ns_rel (ns :exndef # typedefs) senv ⇔
+    prim_types_ok senv ∧
     (∀n cn ts. oEL n (FST ns) = SOME (cn, ts)
-      ⇒ ALOOKUP senv cn = SOME (ExnStamp n, LENGTH ts)) ∧
+      ⇒ ALOOKUP senv cn = SOME (ExnStamp (n +   3  ), LENGTH ts)) ∧
     (∀n ar cndefs. oEL n (SND ns) = SOME (ar, cndefs) ⇒
-      ∀cn ts. MEM (cn, ts) cndefs ⇒ ALOOKUP senv cn = SOME (TypeStamp cn n, LENGTH ts))
+      ∀cn ts. MEM (cn, ts) cndefs ⇒
+        ALOOKUP senv cn = SOME (TypeStamp cn (n +   1  ), LENGTH ts))
 End
 
 
@@ -2656,15 +2683,19 @@ Proof
     last_x_assum $ drule_all >> gvs[same_type_def]
     )
   >- (
+    gvs[prim_types_ok_def] >> qexists_tac `TypeStamp any bool_type_num` >>
+    rw[] >> gvs[same_type_def]
+    )
+  >- (
     last_x_assum mp_tac >> simp[MEM_MAP, EXISTS_PROD, MEM_EL] >> strip_tac >> gvs[] >>
     pop_assum $ assume_tac o GSYM >> gvs[oEL_THM] >> first_x_assum drule >> rw[] >>
-    qexists_tac `TypeStamp any n` >> rw[MEM_MAP, EXISTS_PROD] >>
+    qexists_tac `TypeStamp any (n + 1)` >> rw[MEM_MAP, EXISTS_PROD] >>
     first_x_assum drule >> rw[same_type_def]
     )
 QED
 
 Theorem compile_cexp_compile_rel:
-  cexp_wf e ∧ ns_rel ns cnenv ∧ namespace_ok ns ∧ cns_arities_ok ns (cns_arities e)
+  cexp_wf e ∧ ns_rel ns cnenv ∧ cns_arities_ok ns (cns_arities e)
   ⇒ cexp_compile_rel cnenv e (compile e)
 Proof
   qid_spec_tac `e` >> recInduct compile_ind >> rw[compile_def] >>
@@ -2770,7 +2801,12 @@ Proof
       simp[MEM_MAP, EXISTS_PROD, MEM_EL, PULL_EXISTS] >>
       rpt $ goal_assum $ drule_at Any >> simp[]
       ) >>
-    gvs[EVERY_MEM, DISJ_IMP_THM, FORALL_AND_THM] >>
+    gvs[EVERY_MEM, DISJ_IMP_THM, FORALL_AND_THM]
+    >- (
+      gvs[LIST_TO_SET_EQ_SING] >> Cases_on `css` >> gvs[] >>
+      PairCases_on `h` >> gvs[] >> Cases_on `h0` >> gvs[] >>
+      Cases_on `t` >> gvs[] >> PairCases_on `h` >> gvs[] >> Cases_on `h0` >> gvs[]
+      ) >>
     drule_all ns_cns_arities_ns_rel >> strip_tac >> gvs[] >>
     qexists_tac `tyid` >> rw[] >> pairarg_tac >> gvs[] >>
     first_x_assum drule >> strip_tac >> gvs[] >>
