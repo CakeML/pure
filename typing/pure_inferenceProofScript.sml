@@ -240,9 +240,6 @@ Proof
           last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT]
           ) >>
         simp[] >> PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-        `cn ≠ "Subscript"` by (
-          imp_res_tac ALOOKUP_MEM >> gvs[pure_configTheory.reserved_cns_def] >>
-          gvs[MEM_MAP, FORALL_PROD] >> metis_tac[]) >>
         drule $ iffRL sortingTheory.PERM_MEM_EQ >>
         simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
         simp[Once MEM_EL, PULL_EXISTS] >>

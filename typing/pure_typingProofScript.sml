@@ -518,8 +518,8 @@ Proof
       `cn ∉ monad_cns` by (
         imp_res_tac ALOOKUP_MEM >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         `MEM cn (MAP FST exndef)` by simp[MEM_MAP, EXISTS_PROD, SF SFY_ss] >>
-        qpat_x_assum `∀e. _ ∈ _ ⇒ ¬ _` $ qspec_then `cn` mp_tac >> gvs[] >>
-        rw[reserved_cns_def, monad_cns_def]) >>
+        qpat_x_assum `∀e. _ ∈ _ ∧ _ ⇒ ¬ _` $ qspec_then `cn` mp_tac >> gvs[] >>
+        rw[reserved_cns_def, monad_cns_def] >> gvs[]) >>
       drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
       disch_then $ qspec_then `rs` mp_tac >>
       Cases_on `ALOOKUP rs cn` >> gvs[]
@@ -648,9 +648,9 @@ Proof
         simp[Once type_wh_cases, Once type_tcexp_cases] >>
         rw[] >> gvs[type_exception_def] >>
         drule ALOOKUP_MEM >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-        qpat_x_assum `∀e. _ ∈ _ ⇒ ¬_` $ qspec_then `cn'` mp_tac >>
+        qpat_x_assum `∀e. _ ∈ _ ∧ _ ⇒ ¬_` $ qspec_then `cn'` mp_tac >>
         simp[MEM_MAP, FORALL_PROD] >> disch_then $ drule_at Concl >>
-        rw[reserved_cns_def, monad_cns_def]) >>
+        rw[reserved_cns_def, monad_cns_def] >> gvs[]) >>
       simp[] >> qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >>
       gvs[type_exception_def] >> IF_CASES_TAC >> gvs[]
@@ -677,10 +677,10 @@ Proof
         rw[Once type_wh_cases, Once type_tcexp_cases] >> gvs[type_cons_def] >>
         drule ALOOKUP_MEM >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         gvs[SF DNF_ss] >>
-        qpat_x_assum `∀e. _ ∈ reserved_cns ⇒ _` $ qspec_then `cname` mp_tac >>
+        qpat_x_assum `∀e. _ ∈ reserved_cns ∧ _ ⇒ _` $ qspec_then `cname` mp_tac >>
         simp[MEM_MAP, MEM_FLAT, FORALL_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
         disch_then $ drule_at Concl >> simp[MEM_EL, DISJ_EQ_IMP] >> gvs[oEL_THM] >>
-        disch_then $ drule_at Concl >> rw[reserved_cns_def, monad_cns_def]) >>
+        disch_then $ drule_at Concl >> rw[reserved_cns_def, monad_cns_def] >> gvs[]) >>
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >> gvs[] >>
       IF_CASES_TAC >> gvs[]

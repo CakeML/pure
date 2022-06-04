@@ -178,7 +178,7 @@ Definition namespace_ok_def:
     (* No empty type definitions: *)
       EVERY (λ(ar,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
-      ALL_DISTINCT (SET_TO_LIST reserved_cns ++
+      ALL_DISTINCT (SET_TO_LIST (reserved_cns DELETE "Subscript") ++
         MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
     (* Every constructor type is closed wrt type arity and uses only defined types: *)
       EVERY (λ(ar,td).
