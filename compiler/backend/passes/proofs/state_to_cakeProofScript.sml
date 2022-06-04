@@ -4,7 +4,7 @@
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     rich_listTheory arithmeticTheory intLib;
+     rich_listTheory arithmeticTheory pred_setTheory intLib;
 open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory;
 open pure_miscTheory pure_configTheory
      stateLangTheory state_cexpTheory state_to_cakeTheory;
@@ -2385,7 +2385,7 @@ Proof
 QED
 
 
-(********** Lifting to cexp **********)
+(****************************** Lifting to cexp ******************************)
 
 Inductive csop_rel:
   csop_rel (AppOp : csop) Opapp ∧
@@ -2508,6 +2508,85 @@ Inductive cexp_compile_rel:
                         (Handle ce1 [(Pvar $ cexp_var_prefix x, ce2)]))
 End
 
+(* We require the correct number of arguments to be passed to the following.
+   We could specify this for all operations, but it isn't necessary *)
+Definition op_args_ok_def:
+  op_args_ok (AtomOp $ Lit (Int i)) n = (n = 0n) ∧
+  op_args_ok (AtomOp $ Lit (Str s)) n = (n = 0) ∧
+  op_args_ok (AtomOp $ Lit _)       _ = F ∧
+  op_args_ok (AtomOp $ Div)         n = (n = 2) ∧
+  op_args_ok (AtomOp $ Mod)         n = (n = 2) ∧
+  op_args_ok (AtomOp $ Elem)        n = (n = 2) ∧
+  op_args_ok (AtomOp $ Substring)   n = (n = 2 ∨ n = 3) ∧
+  op_args_ok (AtomOp $ StrLeq)      n = (n = 2) ∧
+  op_args_ok (AtomOp $ StrLt)       n = (n = 2) ∧
+  op_args_ok (AtomOp $ StrGeq)      n = (n = 2) ∧
+  op_args_ok (AtomOp $ StrGt)       n = (n = 2) ∧
+  op_args_ok (AtomOp $ Message s)   n = F ∧
+  op_args_ok  Alloc                 n = (n = 2) ∧
+  op_args_ok (FFI ch)               n = (n = 1) ∧
+  op_args_ok (_ :csop)              n = T
+End
+
+Definition cexp_wf_def:
+  cexp_wf (Var v :cexp) = T ∧
+  cexp_wf (App op es) = (EVERY cexp_wf es ∧ op_args_ok op (LENGTH es) ∧
+    ∀ch. op = FFI ch ⇒ ch ≠ «») ∧
+  cexp_wf (Lam (SOME x) e) = cexp_wf e ∧
+  cexp_wf (Letrec funs e) = (
+    cexp_wf e ∧ EVERY (λ(v,x,e). cexp_wf e) funs ∧ ALL_DISTINCT (MAP FST funs)) ∧
+  cexp_wf (Let (SOME x) e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
+  cexp_wf (If e e1 e2) = (cexp_wf e ∧ cexp_wf e1 ∧ cexp_wf e2) ∧
+  cexp_wf (Case e v css) = (
+    cexp_wf e ∧ EVERY (λ(cn,vs,ce). ALL_DISTINCT vs ∧ cexp_wf ce) css) ∧
+  cexp_wf (Raise e) = cexp_wf e ∧
+  cexp_wf (Handle e1 x e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
+  cexp_wf _ = F
+Termination
+  WF_REL_TAC `measure cexp_size`
+End
+
+Definition cns_arities_def:
+  cns_arities (Var v :cexp) = {} ∧
+  cns_arities (App op es) = (
+    (case op of | Cons «» => {} | Cons cn => {{explode cn, LENGTH es}} | _ => {}) ∪
+      BIGUNION (set (MAP cns_arities es))) ∧
+  cns_arities (Lam x e) = cns_arities e ∧
+  cns_arities (Letrec funs e) =
+    BIGUNION (set (MAP (λ(v,x,e). cns_arities e) funs)) ∪ cns_arities e ∧
+  cns_arities (Let x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
+  cns_arities (If e e1 e2) = cns_arities e ∪ cns_arities e1 ∪ cns_arities e2 ∧
+  cns_arities (Case e v css) = set (MAP (λ(cn,vs,e). explode cn, LENGTH vs) css) INSERT
+    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∧
+  cns_arities (Raise e) = cns_arities e ∧
+  cns_arities (Handle e1 x e2) = cns_arities e1 ∪ cns_arities e2 ∧
+  cns_arities (HandleApp e1 e2) = cns_arities e1 ∪ cns_arities e2
+Termination
+  WF_REL_TAC `measure cexp_size`
+End
+
+(* TODO move to typing *)
+Definition ns_cns_arities_def:
+  ns_cns_arities (exndef : exndef, tdefs : typedefs) =
+    set (MAP (λ(cn,ts). cn, LENGTH ts) exndef) INSERT
+    set (MAP (λ(ar,cndefs). set (MAP (λ(cn,ts). cn, LENGTH ts) cndefs)) tdefs)
+End
+
+(* TODO move to typing *)
+Definition cns_arities_ok_def:
+  cns_arities_ok ns cns_arities ⇔
+  ∀cn_ars. cn_ars ∈ cns_arities ⇒
+    ∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars'
+End
+
+Definition ns_rel_def:
+  ns_rel (ns :exndef # typedefs) senv ⇔
+    (∀n cn ts. oEL n (FST ns) = SOME (cn, ts)
+      ⇒ ALOOKUP senv cn = SOME (ExnStamp n, LENGTH ts)) ∧
+    (∀n ar cndefs. oEL n (SND ns) = SOME (ar, cndefs) ⇒
+      ∀cn ts. MEM (cn, ts) cndefs ⇒ ALOOKUP senv cn = SOME (TypeStamp cn n, LENGTH ts))
+End
+
 
 (***** Lemmas *****)
 
@@ -2523,7 +2602,6 @@ Proof
   rw[cexp_var_prefix_def, var_prefix_def]
 QED
 
-
 Theorem cexp_pat_row[simp]:
   cexp_pat_row sv cn vs = pat_row (explode sv) (explode cn) (MAP explode vs)
 Proof
@@ -2531,9 +2609,6 @@ Proof
   simp[MAP_MAP_o, combinTheory.o_DEF] >>
   Cases_on `cn` >> gvs[]
 QED
-
-
-(***** Results *****)
 
 Theorem compile_rel_cexp_compile_rel:
   ∀cnenv se ce. cexp_compile_rel cnenv se ce ⇒ compile_rel cnenv (exp_of se) ce
@@ -2560,6 +2635,159 @@ Proof
     disj1_tac >> qexists_tac `stamp` >> gvs[EVERY_MAP, LAMBDA_PROD]
     )
 QED
+
+Theorem compile_op_CakeOp:
+  compile_op op = CakeOp cop ⇒ csop_rel op cop
+Proof
+  Cases_on `op` >> gvs[compile_op_def, csop_rel_cases] >>
+  Cases_on `a` >> rw[] >> gvs[compile_atomop_def, atom_op_rel_cases] >>
+  gvs[opn_rel_cases, opb_rel_cases]
+QED
+
+Theorem ns_cns_arities_ns_rel:
+  it ∈ ns_cns_arities ns ∧ ns_rel ns cnenv ⇒
+  ∃tyid. ∀cn ar. (cn, ar) ∈ it ⇒
+    ∃tyid'. ALOOKUP cnenv cn = SOME (tyid', ar) ∧ same_type tyid' tyid
+Proof
+  PairCases_on `ns` >> rw[ns_cns_arities_def, ns_rel_def]
+  >- (
+    qexists_tac `ExnStamp any` >> rw[MEM_MAP, EXISTS_PROD, MEM_EL, PULL_EXISTS] >>
+    pop_assum $ assume_tac o GSYM >> gvs[oEL_THM] >>
+    last_x_assum $ drule_all >> gvs[same_type_def]
+    )
+  >- (
+    last_x_assum mp_tac >> simp[MEM_MAP, EXISTS_PROD, MEM_EL] >> strip_tac >> gvs[] >>
+    pop_assum $ assume_tac o GSYM >> gvs[oEL_THM] >> first_x_assum drule >> rw[] >>
+    qexists_tac `TypeStamp any n` >> rw[MEM_MAP, EXISTS_PROD] >>
+    first_x_assum drule >> rw[same_type_def]
+    )
+QED
+
+Theorem compile_cexp_compile_rel:
+  cexp_wf e ∧ ns_rel ns cnenv ∧ namespace_ok ns ∧ cns_arities_ok ns (cns_arities e)
+  ⇒ cexp_compile_rel cnenv e (compile e)
+Proof
+  qid_spec_tac `e` >> recInduct compile_ind >> rw[compile_def] >>
+  gvs[cns_arities_ok_def, cns_arities_def, cexp_wf_def]
+  >- ( (* Var *)
+    simp[Once cexp_compile_rel_cases]
+    )
+  >- ( (* App *)
+    TOP_CASE_TAC >> gvs[]
+    >- ( (* normal App *)
+      simp[Once cexp_compile_rel_cases] >> disj1_tac >>
+      drule compile_op_CakeOp >> rw[] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      last_x_assum irule >> simp[EL_MEM] >>
+      gvs[EVERY_EL, MEM_MAP, PULL_EXISTS, MEM_EL] >> metis_tac[]
+      )
+    >- ( (* TwoArgs *)
+      reverse $ Cases_on `op` >> gvs[compile_op_def, op_args_ok_def]
+      >- (gvs[LENGTH_EQ_NUM_compute, oEL_THM] >> simp[Once cexp_compile_rel_cases]) >>
+      Cases_on `a` >> gvs[compile_atomop_def, op_args_ok_def] >>
+      gvs[LENGTH_EQ_NUM_compute, oEL_THM] >> simp[Once cexp_compile_rel_cases]
+      ) >>
+    Cases_on `op` >> gvs[compile_op_def]
+    >- ( (* Cons / Tuple *)
+      TOP_CASE_TAC >> gvs[] >> reverse TOP_CASE_TAC >> gvs[] >>
+      simp[Once cexp_compile_rel_cases] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP, GSYM PULL_EXISTS] >> reverse $ rw[]
+      >- (
+        gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+        drule_all ns_cns_arities_ns_rel >> rw[] >>
+        pop_assum drule >> strip_tac >> simp[]
+        ) >>
+      last_x_assum irule >> simp[EL_MEM] >>
+      gvs[EVERY_EL, MEM_MAP, PULL_EXISTS, MEM_EL] >> metis_tac[]
+      )
+    >~ [`FFI`]
+    >- ( (* FFI *)
+      gvs[op_args_ok_def, LENGTH_EQ_NUM_compute, oEL_THM] >>
+      simp[Once cexp_compile_rel_cases]
+      ) >>
+    Cases_on `a` >> gvs[compile_atomop_def, op_args_ok_def]
+    >- ( (* Lit *)
+      Cases_on `l` >> gvs[op_args_ok_def] >> simp[Once cexp_compile_rel_cases]
+      )
+    >- ( (* Concat *)
+      simp[Once cexp_compile_rel_cases] >> disj2_tac >>
+      irule_at Any EQ_REFL >> gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      last_x_assum irule >> simp[EL_MEM] >>
+      gvs[EVERY_EL, MEM_MAP, MEM_EL, PULL_EXISTS] >> metis_tac[]
+      )
+    >- ( (* Implode *)
+      simp[Once cexp_compile_rel_cases] >> disj2_tac >>
+      irule_at Any EQ_REFL >> gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      last_x_assum irule >> simp[EL_MEM] >>
+      gvs[EVERY_EL, MEM_MAP, MEM_EL, PULL_EXISTS] >> metis_tac[]
+      )
+    >- ( (* Substring2 *)
+      gvs[LENGTH_EQ_NUM_compute, oEL_THM] >>
+      simp[Once cexp_compile_rel_cases]
+      )
+    >- ( (* Substring3 *)
+      gvs[LENGTH_EQ_NUM_compute, oEL_THM] >>
+      simp[Once cexp_compile_rel_cases]
+      )
+    )
+  >- ( (* Lam *)
+    simp[Once cexp_compile_rel_cases]
+    )
+  >- ( (* Letrec *)
+    simp[Once cexp_compile_rel_cases] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, LIST_REL_EL_EQN, EL_MAP] >> rw[]
+    >- (
+      pairarg_tac >> gvs[] >> last_x_assum irule >> gvs[EVERY_EL] >>
+      last_x_assum drule >> simp[] >> strip_tac >>
+      simp[MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
+      rw[] >> first_x_assum irule >> disj1_tac >>
+      goal_assum drule >> simp[MEM_MAP, MEM_EL, PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> simp[]
+      )
+    >- (
+      `MAP (λ(a,b,c). var_prefix (explode a)) funs =
+        MAP (var_prefix o explode) (MAP FST funs)` by
+          simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      simp[] >> irule ALL_DISTINCT_MAP_INJ >> simp[var_prefix_def]
+      )
+    )
+  >- ( (* Let *)
+    simp[Once cexp_compile_rel_cases]
+    )
+  >- ( (* If *)
+    simp[Once cexp_compile_rel_cases]
+    )
+  >- ( (* Case *)
+    simp[Once cexp_compile_rel_cases, PULL_EXISTS, SF CONJ_ss] >>
+    Cases_on `∃vs rest. css = [(«»,vs,rest)]` >> gvs[] >>
+    simp[Once CONJ_SYM] >> rw[GSYM PULL_EXISTS]
+    >- (
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      pairarg_tac >> gvs[] >> last_x_assum irule >>
+      gvs[EVERY_EL] >> last_x_assum drule >> strip_tac >> gvs[] >>
+      simp[MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
+      rw[] >> first_x_assum irule >> rpt $ disj2_tac >>
+      simp[MEM_MAP, EXISTS_PROD, MEM_EL, PULL_EXISTS] >>
+      rpt $ goal_assum $ drule_at Any >> simp[]
+      ) >>
+    gvs[EVERY_MEM, DISJ_IMP_THM, FORALL_AND_THM] >>
+    drule_all ns_cns_arities_ns_rel >> strip_tac >> gvs[] >>
+    qexists_tac `tyid` >> rw[] >> pairarg_tac >> gvs[] >>
+    first_x_assum drule >> strip_tac >> gvs[] >>
+    first_x_assum irule >> gvs[SUBSET_DEF] >>
+    first_x_assum irule >> simp[MEM_MAP, EXISTS_PROD]  >>
+    goal_assum $ drule_at Any >> simp[]
+    )
+  >- ( (* Raise *)
+    simp[Once cexp_compile_rel_cases]
+    )
+  >- ( (* Handle *)
+    simp[Once cexp_compile_rel_cases]
+    )
+QED
+
+
+(***** Results *****)
 
 (*
   In CakeML:
@@ -2590,7 +2818,5 @@ QED
 
 
 (**********)
-
-
 
 val _ = export_theory ();
