@@ -174,22 +174,30 @@ Overload ffi =
 
 Overload cunit = ``Attup []``;
 
+Overload compile_exn =
+  ``λcn tys:type list. Dexn unknown_loc cn (REPLICATE (LENGTH tys) cunit)``;
+
+Overload compile_tdef =
+  ``λcndefs. Dtype unknown_loc (* TODO type names? *)
+      [([],"",MAP (λ(cn,tys:type list). (cn, MAP (K cunit) tys)) cndefs)]``;
+
+
 Definition compile_exndef_def:
   compile_exndef ([] :exndef) = [] ∧
-  compile_exndef ((cn, tys) :: exns) =
-    Dexn unknown_loc cn (REPLICATE (LENGTH tys) cunit) :: compile_exndef exns
+  compile_exndef ((cn, tys) :: exns) = compile_exn cn tys :: compile_exndef exns
 End
 
 Definition compile_typedefs_def:
   compile_typedefs ([] :typedefs) = [] ∧
   compile_typedefs ((ar, cndefs) :: tdefs) =
-    (* TODO type names? *)
-    Dtype unknown_loc [[], "", MAP (λ(cn,tys). cn, MAP (K cunit) tys) cndefs] ::
-      compile_typedefs tdefs
+    compile_tdef cndefs :: compile_typedefs tdefs
 End
 
 Definition compile_namespace_def:
-  compile_namespace ns = compile_exndef (FST ns) ++ compile_typedefs (SND ns)
+  compile_namespace ns =
+    compile_exndef (FST ns) ++
+    [Dlet unknown_loc Pany $ Con NONE []] ++ (* simplifies a proof considerably *)
+    compile_typedefs (SND ns)
 End
 
 Definition preamble_def:
@@ -330,9 +338,10 @@ Termination
   WF_REL_TAC `measure cexp_size`
 End
 
+(* Remove initial built-in datatypes from ns *)
 Definition compile_with_preamble_def:
   compile_with_preamble ns e =
-    preamble ns ++ [Dlet unknown_loc (Pvar "prog") $ compile e]
+    preamble ((TL ## TL) ns) ++ [Dlet unknown_loc (Pvar "prog") $ compile e]
 End
 
 

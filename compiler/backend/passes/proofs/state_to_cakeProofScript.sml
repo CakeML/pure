@@ -5,7 +5,8 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      rich_listTheory arithmeticTheory pred_setTheory intLib;
-open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory;
+open semanticPrimitivesTheory itree_semanticsTheory itree_semanticsPropsTheory
+     primSemEnvTheory namespaceTheory namespacePropsTheory;
 open pure_miscTheory pure_configTheory pure_typingTheory
      stateLangTheory state_cexpTheory state_to_cakeTheory;
 
@@ -2518,14 +2519,20 @@ End
 
    In compilation, we have to take care that the type stamps line up.
 *)
+
+Overload t_offset = ``1n``;
+Overload e_offset = ``3n``;
+Overload t_init = ``2n``;
+Overload e_init = ``4n``;
+
 Definition ns_rel_def:
   ns_rel (ns :exndef # typedefs) senv ⇔
     prim_types_ok senv ∧
     (∀n cn ts. oEL n (FST ns) = SOME (cn, ts)
-      ⇒ ALOOKUP senv cn = SOME (ExnStamp (n +   3  ), LENGTH ts)) ∧
+      ⇒ ALOOKUP senv cn = SOME (ExnStamp (n +   e_offset  ), LENGTH ts)) ∧
     (∀n ar cndefs. oEL n (SND ns) = SOME (ar, cndefs) ⇒
       ∀cn ts. MEM (cn, ts) cndefs ⇒
-        ALOOKUP senv cn = SOME (TypeStamp cn (n +   1  ), LENGTH ts))
+        ALOOKUP senv cn = SOME (TypeStamp cn (n +   t_offset  ), LENGTH ts))
 End
 
 
@@ -2603,7 +2610,7 @@ Proof
   >- (
     last_x_assum mp_tac >> simp[MEM_MAP, EXISTS_PROD, MEM_EL] >> strip_tac >> gvs[] >>
     pop_assum $ assume_tac o GSYM >> gvs[oEL_THM] >> first_x_assum drule >> rw[] >>
-    qexists_tac `TypeStamp any (n + 1)` >> rw[MEM_MAP, EXISTS_PROD] >>
+    qexists_tac `TypeStamp any (n + t_offset)` >> rw[MEM_MAP, EXISTS_PROD] >>
     first_x_assum drule >> rw[same_type_def]
     )
 QED
@@ -2737,33 +2744,590 @@ Proof
 QED
 
 
-(***** Results *****)
+(****************************** CakeML semantics ******************************)
 
-(*
-  In CakeML:
-    itree_of st env prog =
-    interp env (Dstep (dstate_of st) (Decl (Dlocal [] prog)) [])
-*)
-Overload cml_itree_of =
-  ``λst env e. interp env (Dstep st (Decl (Dlocal [] [e])) [])``
+(* Copied from CakeML backend_itreeProofTheory *)
+val (_,start_env) =
+    prim_sem_env_eq |> Q.INST [`ffi` |-> `ARB`] |>
+      concl |> rhs |> optionSyntax.dest_some |> pairSyntax.dest_pair;
 
-Theorem cexp_compile_rel_ok:
-  safe_itree (itree_of (exp_of se)) ∧
-  cexp_compile_rel cnenv se ce ∧
-  cnenv_rel cnenv benv.c ∧ env_ok benv
-  ⇒ itree_rel (itree_of (exp_of se))
-              (cml_itree_of
-                (st with refs := [W8array $ REPLICATE (max_FFI_return_size + 2) 0w])
-                benv
-                (Dlet locs (Pvar "prog") ce))
+Definition start_dstate_def:
+  start_dstate : dstate =
+    <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE |>
+End
+
+Definition start_env_def:
+  start_env = ^start_env
+End
+
+Definition itree_semantics_def:
+  itree_semantics prog =
+  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
+End
+(* End copy *)
+
+Theorem check_dup_ctors_ALL_DISTINCT[simp]:
+  check_dup_ctors (tvs,tn,condefs) ⇔ ALL_DISTINCT (MAP FST condefs)
 Proof
-  rw[itree_of_def, semantics_def] >> irule compile_itree_rel >>
+  rw[check_dup_ctors_def] >> AP_TERM_TAC >>
+  Induct_on `condefs` >> rw[] >> pairarg_tac >> gvs[]
+QED
+
+Triviality build_constrs_MAP[simp]:
+  build_constrs stamp (MAP (λ(cn,tys). cn, MAP f tys) cndefs) =
+  build_constrs stamp cndefs
+Proof
+  Induct_on `cndefs` >> rw[build_constrs_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+QED
+
+
+(****************************** Relating namespaces ******************************)
+
+(********** Building a `cnenv` **********)
+
+Definition initial_cnenv_def:
+  initial_cnenv = [
+    ("True", TypeStamp "True" bool_type_num, 0n);
+    ("False", TypeStamp "False" bool_type_num, 0n);
+    ("[]", TypeStamp "[]" list_type_num, 0n);
+    ("::", TypeStamp "::" list_type_num, 2n);
+    ("Subscript", subscript_stamp, 0n)
+    ]
+End
+
+Overload append_ns = ``λns ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
+
+Definition state_namespace_ok_def:
+  state_namespace_ok ns ⇔
+    namespace_ok ns ∧
+    ∃ns'. ns = append_ns initial_namespace ns'
+End
+
+Overload cnenv_of_tdefs = ``λtdefs.
+  FLAT (MAPi (λn (ar,cndefs).
+      MAP (λ(cn,ts). cn, TypeStamp cn (n + t_init), LENGTH ts) cndefs) tdefs)``
+
+Overload cnenv_of_exns = ``λexns.
+    MAPi (λn (cn,ts). (cn, ExnStamp (n + e_init), LENGTH ts)) exns``
+
+
+(***** Lemmas *****)
+
+Theorem ALOOKUP_cnenv_of_tdefs_NONE:
+  ALOOKUP (cnenv_of_tdefs tdefs) k = NONE ⇔ ¬ MEM k (MAP FST $ FLAT $ MAP SND tdefs)
+Proof
+  rw[ALOOKUP_NONE, MEM_MAP, EXISTS_PROD] >>
+  rw[MEM_FLAT, indexedListsTheory.MEM_MAPi, PULL_FORALL] >> eq_tac >> rw[]
+  >- (
+    CCONTR_TAC >> gvs[] >> last_x_assum mp_tac >> simp[PULL_EXISTS] >>
+    last_x_assum $ assume_tac o SRULE [MEM_EL] >> gvs[EL_MAP] >>
+    goal_assum drule >> pairarg_tac >> gvs[] >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss]
+    )
+  >- (
+    CCONTR_TAC >> gvs[] >> last_x_assum mp_tac >> simp[] >>
+    pairarg_tac >> gvs[MEM_MAP, EXISTS_PROD] >>
+    goal_assum $ drule_at Any >> simp[MEM_EL] >> goal_assum drule >> simp[]
+    )
+QED
+
+Theorem ALOOKUP_cnenv_of_tdefs_SOME_lemma[local]:
+  ∀tdefs n ar cndefs k ts m.
+  ALL_DISTINCT (MAP FST $ FLAT $ MAP SND tdefs) ∧
+  oEL n tdefs = SOME (ar,cndefs) ∧ MEM (k,ts) cndefs
+  ⇒
+  ALOOKUP (FLAT (MAPi (λn (ar,cndefs).
+      MAP (λ(cn,ts). cn, TypeStamp cn (n + m + t_init), LENGTH ts) cndefs) tdefs)) k =
+      SOME (TypeStamp k (n + m + t_init), LENGTH ts)
+Proof
+  Induct >> rw[] >> gvs[oEL_THM] >> Cases_on `n` >> gvs[]
+  >- (
+    simp[ALOOKUP_APPEND, ALOOKUP_MAP_2] >>
+    drule_at Any ALOOKUP_ALL_DISTINCT_MEM >> gvs[ALL_DISTINCT_APPEND]
+    ) >>
+  pairarg_tac >> gvs[] >> simp[ALOOKUP_APPEND, ALOOKUP_MAP_2] >>
+  `ALOOKUP cndefs' k = NONE` by (
+    simp[ALOOKUP_NONE] >> gvs[ALL_DISTINCT_APPEND] >>
+    CCONTR_TAC >> gvs[] >>
+    first_x_assum drule >> gvs[MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS] >>
+    pop_assum kall_tac >> goal_assum $ drule_at Any >> simp[MEM_EL] >>
+    goal_assum drule >> simp[]) >>
+  simp[] >> gvs[ALL_DISTINCT_APPEND] >>
+  last_x_assum drule_all >> simp[combinTheory.o_DEF, ADD1] >>
+  disch_then $ qspec_then `m + 1` mp_tac >> simp[]
+QED
+
+Theorem ALOOKUP_cnenv_of_tdefs_SOME =
+ ALOOKUP_cnenv_of_tdefs_SOME_lemma |> SPEC_ALL |>
+ Q.INST [`m` |-> `0`] |> SRULE [];
+
+Theorem ALOOKUP_cnenv_of_tdefs_SOME_imp_lemma[local]:
+  ∀tdefs m cn res.
+  ALOOKUP (FLAT (MAPi (λn (ar,cndefs).
+      MAP (λ(cn,ts). cn, TypeStamp cn (n + m + t_init), LENGTH ts) cndefs) tdefs)) cn =
+      SOME res
+  ⇒ ∃n ar cndefs ts.
+      oEL n tdefs = SOME (ar,cndefs) ∧ MEM (cn,ts) cndefs ∧
+      res = (TypeStamp cn (n + m + t_init), LENGTH ts)
+Proof
+  Induct >> rw[] >> pairarg_tac >> gvs[ALOOKUP_APPEND] >>
+  reverse FULL_CASE_TAC >> gvs[]
+  >- (
+    gvs[ALOOKUP_MAP_2, oEL_THM] >> imp_res_tac ALOOKUP_MEM >>
+    goal_assum drule >> simp[]
+    ) >>
+  gvs[combinTheory.o_DEF, ADD1] >>
+  last_x_assum $ qspec_then `m + 1` assume_tac >> gvs[] >>
+  last_x_assum drule >> strip_tac >> gvs[] >>
+  qexists `SUC n` >> gvs[oEL_THM] >> goal_assum drule >> simp[]
+QED
+
+Theorem ALOOKUP_cnenv_of_tdefs_SOME_imp =
+ ALOOKUP_cnenv_of_tdefs_SOME_imp_lemma |> SPEC_ALL |>
+ Q.INST [`m` |-> `0`] |> SRULE [];
+
+Theorem ALOOKUP_cnenv_of_exns_NONE:
+  ALOOKUP (cnenv_of_exns exns) k = NONE ⇔ ¬ MEM k (MAP FST exns)
+Proof
+  rw[ALOOKUP_NONE, MEM_MAP, EXISTS_PROD] >>
+  rw[indexedListsTheory.MEM_MAPi, PULL_FORALL] >> eq_tac >> rw[]
+  >- (
+    CCONTR_TAC >> gvs[] >> last_x_assum mp_tac >> simp[PULL_EXISTS] >>
+    last_x_assum $ assume_tac o SRULE [MEM_EL] >> gvs[] >>
+    goal_assum $ drule_at Any >> pairarg_tac >> gvs[]
+    )
+  >- (
+    CCONTR_TAC >> gvs[] >> last_x_assum mp_tac >> simp[] >>
+    pairarg_tac >> gvs[] >> simp[MEM_EL] >> goal_assum drule >> simp[]
+    )
+QED
+
+Theorem ALOOKUP_cnenv_of_exns_SOME_lemma[local]:
+  ∀exns n cn ts m.
+  ALL_DISTINCT (MAP FST exns) ∧ oEL n exns = SOME (cn,ts)
+  ⇒ ALOOKUP (MAPi (λn (cn,ts). (cn, ExnStamp (n + m + e_init), LENGTH ts)) exns) cn =
+      SOME (ExnStamp (n + m + e_init), LENGTH ts)
+Proof
+  Induct >> rw[] >> gvs[oEL_THM] >> pairarg_tac >> gvs[] >> Cases_on `n` >> gvs[] >>
+  rw[] >-  gvs[MEM_MAP, EXISTS_PROD, MEM_EL] >>
+  simp[combinTheory.o_DEF, ADD1] >> last_x_assum drule_all >>
+  disch_then $ qspec_then `m + 1` mp_tac >> simp[]
+QED
+
+Theorem ALOOKUP_cnenv_of_exns_SOME =
+ ALOOKUP_cnenv_of_exns_SOME_lemma |> SPEC_ALL |>
+ Q.INST [`m` |-> `0`] |> SRULE [];
+
+Theorem ALOOKUP_cnenv_of_exns_SOME_imp_lemma[local]:
+  ∀exns m cn res.
+    ALOOKUP (MAPi (λn (cn,ts). (cn, ExnStamp (n + m + e_init), LENGTH ts)) exns) cn =
+      SOME res
+  ⇒ ∃n ts. oEL n exns = SOME (cn, ts) ∧ res = (ExnStamp (n + m + e_init), LENGTH ts)
+Proof
+  Induct >> rw[] >> pairarg_tac >> gvs[ALOOKUP_APPEND] >>
+  FULL_CASE_TAC >> gvs[] >- simp[oEL_THM] >>
+  gvs[combinTheory.o_DEF, ADD1] >>
+  last_x_assum $ qspec_then `m + 1` assume_tac >> gvs[] >>
+  last_x_assum drule >> strip_tac >> gvs[] >>
+  qexists `SUC n` >> gvs[oEL_THM]
+QED
+
+Theorem ALOOKUP_cnenv_of_exns_SOME_imp =
+ ALOOKUP_cnenv_of_exns_SOME_imp_lemma |> SPEC_ALL |>
+ Q.INST [`m` |-> `0`] |> SRULE [];
+
+
+(********** Building a CakeML namespace **********)
+
+Definition build_exns_def:
+  build_exns next_stamp [] = alist_to_ns [] ∧
+  build_exns next_stamp ((cn,ts)::rest) =
+    nsAppend (build_exns (next_stamp + 1n) rest)
+             (nsSing cn (LENGTH ts, ExnStamp next_stamp))
+End
+
+Definition build_typedefs_def:
+  build_typedefs next_stamp [] = alist_to_ns [] ∧
+  build_typedefs next_stamp ((ar,cndefs)::rest) =
+    nsAppend (build_typedefs (next_stamp + 1) rest)
+             (alist_to_ns $ REVERSE $ build_constrs next_stamp cndefs)
+End
+
+
+(***** Lemmas *****)
+
+Theorem nsLookup_build_exns_NONE:
+  ¬ MEM cn (MAP FST exns) ⇒
+  nsLookup (build_exns n exns) (Short cn :(string,string) id) = NONE
+Proof
+  qid_spec_tac `n` >> Induct_on `exns` >> rw[build_exns_def] >>
+  PairCases_on `h` >> rw[build_exns_def] >>
+  simp[nsLookup_nsAppend_none] >> gvs[]
+QED
+
+Theorem nsLookup_build_typedefs_NONE:
+  ¬ MEM cn (MAP FST $ FLAT $ MAP SND tdefs) ⇒
+  nsLookup (build_typedefs n tdefs) (Short cn :(string,string) id) = NONE
+Proof
+  qid_spec_tac `n` >> Induct_on `tdefs` >> rw[build_typedefs_def] >>
+  PairCases_on `h` >> rw[build_typedefs_def] >>
+  simp[nsLookup_nsAppend_none, id_to_mods_def] >> gvs[] >>
+  simp[nsLookup_alist_to_ns_none, ALOOKUP_NONE] >>
+  simp[build_constrs_def, MAP_REVERSE] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+QED
+
+Theorem nsLookup_build_exns_SOME:
+  ∀exns n cn ts m.
+  ALL_DISTINCT (MAP FST exns) ∧
+  oEL n exns = SOME (cn, ts) ⇒
+  nsLookup (build_exns m exns) (Short cn :(string,string) id) =
+    SOME (LENGTH ts, ExnStamp (n + m))
+Proof
+  Induct >> rw[build_exns_def, oEL_THM] >>
+  PairCases_on `h` >> gvs[] >> Cases_on `n` >> gvs[build_exns_def] >>
+  simp[nsLookup_nsAppend_some, nsLookup_build_exns_NONE, id_to_mods_def] >>
+  `m + SUC n' = (m + 1) + n'` by simp[] >> pop_assum SUBST_ALL_TAC >>
+  first_x_assum irule >> simp[oEL_THM]
+QED
+
+Theorem nsLookup_build_typedefs_SOME:
+  ∀tdefs n ar cndefs cn ts m.
+  ALL_DISTINCT (MAP FST $ FLAT $ MAP SND (tdefs : typedefs)) ∧
+  oEL n tdefs = SOME (ar, cndefs) ∧
+  MEM (cn, ts) cndefs ⇒
+  nsLookup (build_typedefs m tdefs) (Short cn :(string,string) id) =
+    SOME (LENGTH ts, TypeStamp cn (n + m))
+Proof
+  Induct >> rw[build_typedefs_def, oEL_THM] >> gvs[ALL_DISTINCT_APPEND] >>
+  PairCases_on `h` >> gvs[] >> reverse $ Cases_on `n` >> gvs[build_typedefs_def] >>
+  simp[nsLookup_nsAppend_some, id_to_mods_def]
+  >- (disj1_tac >> gvs[oEL_THM] >> last_x_assum drule_all >> simp[]) >>
+  DEP_REWRITE_TAC[nsLookup_build_typedefs_NONE] >> simp[] >>
+  first_x_assum $ irule_at Any >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss] >>
+  simp[nsLookup_alist_to_ns_some, build_constrs_def] >>
+  DEP_REWRITE_TAC[alookup_distinct_reverse] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+  simp[ALOOKUP_MAP_2] >> drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]
+QED
+
+Theorem step_over_exndef:
+  ∀exns benv dst env envl envg k p prog. ∃n.
+    step_n benv n
+     (Dstep dst (Env env) (CdlocalG envl envg (compile_exndef exns ++ p::prog) :: k)) =
+    Dstep
+     (dst with next_exn_stamp := dst.next_exn_stamp + LENGTH exns)
+     (Decl p)
+     (CdlocalG envl
+      (<| v := nsEmpty; c := build_exns dst.next_exn_stamp exns |>
+        +++ env +++ envg)
+      prog :: k)
+Proof
+  Induct >> rw[]
+  >- (
+    simp[build_exns_def, compile_exndef_def] >>
+    qrefine `SUC n` >> simp[dstep] >> qexists0 >> simp[dstep] >>
+    simp[dstate_component_equality, extend_dec_env_def]
+    ) >>
+  PairCases_on `h` >> rename1 `(cn,ts)` >>
+  simp[compile_exndef_def, build_exns_def] >>
+  ntac 2 (qrefine `SUC n` >> simp[dstep]) >>
+  qmatch_goalsub_abbrev_tac `Dstep dst' (Env sing_env)` >>
+  qmatch_goalsub_abbrev_tac `CdlocalG _ (comp_env +++ _ +++ _)` >>
+  `comp_env =
+    <| v := nsEmpty; c := build_exns (dst.next_exn_stamp + 1) exns |>
+      +++ sing_env` by (
+    unabbrev_all_tac >> simp[extend_dec_env_def]) >>
+  pop_assum $ SUBST_ALL_TAC >>
+  last_x_assum $ qspecl_then
+    [`benv`,`dst'`,`sing_env`,`envl`,`env +++ envg`,`k`,`p`,`prog`] assume_tac >>
+  gvs[] >> qrefine `m + n` >> simp[itree_semanticsPropsTheory.step_n_add] >>
+  qexists0 >> simp[dstep] >>
+  unabbrev_all_tac >> gvs[ADD1]
+QED
+
+Theorem step_over_typedefs:
+  ∀tdefs benv dst env envl envg k p prog.
+    EVERY (λtdef. ALL_DISTINCT (MAP FST (SND tdef))) tdefs ⇒
+  ∃n.
+    step_n benv n
+     (Dstep dst (Env env) (CdlocalG envl envg (compile_typedefs tdefs ++ p::prog) :: k)) =
+    Dstep
+     (dst with next_type_stamp := dst.next_type_stamp + LENGTH tdefs)
+     (Decl p)
+     (CdlocalG envl
+      (<| v := nsEmpty; c := build_typedefs dst.next_type_stamp tdefs |> +++ env +++ envg)
+      prog :: k)
+Proof
+  Induct >> rw[]
+  >- (
+    simp[build_typedefs_def, compile_typedefs_def] >>
+    qrefine `SUC n` >> simp[dstep] >> qexists0 >> simp[dstep] >>
+    simp[dstate_component_equality, extend_dec_env_def]
+    ) >>
+  PairCases_on `h` >> rename1 `(ar,cndefs)` >>
+  simp[compile_typedefs_def, build_typedefs_def] >>
+  ntac 2 (qrefine `SUC n` >> simp[dstep]) >> simp[build_tdefs_def] >>
+  qpat_abbrev_tac `cndefs_ns = alist_to_ns _` >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >> gvs[] >>
+
+  qmatch_goalsub_abbrev_tac `Dstep dst' (Env sing_env)` >>
+  qmatch_goalsub_abbrev_tac `CdlocalG _ (comp_env +++ _ +++ _)` >>
+  `comp_env =
+    <| v := nsEmpty; c := build_typedefs (dst.next_type_stamp + 1) tdefs |> +++ sing_env` by (
+    unabbrev_all_tac >> simp[extend_dec_env_def]) >>
+  pop_assum $ SUBST_ALL_TAC >>
+  last_x_assum $ qspecl_then
+    [`benv`,`dst'`,`sing_env`,`envl`,`env +++ envg`,`k`,`p`,`prog`] assume_tac >>
+  gvs[] >> qrefine `m + n` >> simp[itree_semanticsPropsTheory.step_n_add] >>
+  qexists0 >> simp[dstep] >>
+  unabbrev_all_tac >> gvs[ADD1]
+QED
+
+Theorem step_over_compile_namespace:
+  ∀ns benv dst k p prog.
+    EVERY (λtdef. ALL_DISTINCT (MAP FST (SND tdef))) (SND ns) ⇒
+  ∃n.
+    step_n benv n (Dstep dst (Decl (Dlocal [] (compile_namespace ns ++ p::prog))) k) =
+    Dstep
+      (dst with <| next_type_stamp := dst.next_type_stamp + LENGTH (SND ns);
+                   next_exn_stamp := dst.next_exn_stamp + LENGTH (FST ns) |>)
+      (Decl p)
+      (CdlocalG empty_dec_env
+        <| v := nsEmpty;
+           c := nsAppend (build_typedefs dst.next_type_stamp (SND ns))
+                         (build_exns dst.next_exn_stamp (FST ns)) |>
+        prog :: k)
+Proof
+  rw[] >> ntac 2 (qrefine `SUC n` >> simp[dstep]) >>
+  PairCases_on `ns` >> rename1 `(exndef,tdefs)` >> gvs[compile_namespace_def] >>
+  qspecl_then [`exndef`,`benv`,`dst`,`empty_dec_env`,`empty_dec_env`, `empty_dec_env`,
+    `k`, `Dlet unknown_loc Pany (Con NONE [])`,`compile_typedefs tdefs ++ p::prog`]
+  assume_tac step_over_exndef >> gvs[] >>
+  qrefine `m + n` >> simp[itree_semanticsPropsTheory.step_n_add, APPEND_ASSOC_CONS] >>
+  qrefine `SUC m` >> simp[dstep, astTheory.pat_bindings_def] >>
+  qrefine `SUC m` >> simp[dstep, cstep, do_con_check_def, build_conv_def] >>
+  qrefine `SUC m` >> simp[dstep, pmatch_def, astTheory.pat_bindings_def] >>
+  simp[GSYM smallStepTheory.empty_dec_env_def] >>
+  qmatch_goalsub_abbrev_tac `Dstep dst'` >>
+  qmatch_goalsub_abbrev_tac `CdlocalG _ exn_env` >>
+  drule step_over_typedefs >>
+  disch_then $ qspecl_then [`benv`,`dst'`,`empty_dec_env`,`empty_dec_env`,`exn_env`,
+    `k`,`p`,`prog`] assume_tac >> gvs[] >>
+  qrefine `m + n'` >> simp[itree_semanticsPropsTheory.step_n_add] >>
+  qexists0 >> simp[dstep] >> unabbrev_all_tac >>
+  gvs[dstate_component_equality, extend_dec_env_def]
+QED
+
+
+
+(********** Key namespace result **********)
+
+Triviality namespace_ok_append_cn_imps:
+  ∀ns ns'. namespace_ok (append_ns (ns0,ns1) (ns'0,ns'1)) ⇒
+  (∀cn. MEM cn (MAP FST ns0) ∨ MEM cn (MAP FST $ FLAT $ MAP SND ns1) ⇒
+    ¬ MEM cn (MAP FST ns'0) ∧
+    ¬ MEM cn (MAP FST $ FLAT $ MAP SND ns'1)) ∧
+  (∀cn. MEM cn (MAP FST ns'0) ∨ MEM cn (MAP FST $ FLAT $ MAP SND ns'1) ⇒
+    ¬ MEM cn (MAP FST ns0) ∧
+    ¬ MEM cn (MAP FST $ FLAT $ MAP SND ns1)) ∧
+  (∀cn.  cn ∈ reserved_cns ∧ cn ≠ "Subscript" ⇒
+    ¬ MEM cn (MAP FST ns'0) ∧
+    ¬ MEM cn (MAP FST $ FLAT $ MAP SND ns'1) ∧
+    ¬ MEM cn (MAP FST ns0) ∧
+    ¬ MEM cn (MAP FST $ FLAT $ MAP SND ns1)) ∧
+  (∀cn. MEM cn (MAP FST ns'0) ⇒ ¬ MEM cn (MAP FST $ FLAT $ MAP SND ns'1))
+Proof
+  rw[namespace_ok_def] >> gvs[ALL_DISTINCT_APPEND] >>
+  `FINITE reserved_cns` by simp[reserved_cns_def] >> gvs[MEM_SET_TO_LIST] >>
+  metis_tac[]
+QED
+
+
+Theorem ns_to_cml_ns:
+  namespace_ok (append_ns initial_namespace (exndef,tdefs)) ∧
+  cml_ns = nsAppend (build_typedefs t_init tdefs) $
+           nsAppend (build_exns e_init exndef) $
+           start_env.c
+  ⇒ ∃cnenv.
+      ns_rel (append_ns initial_namespace (exndef,tdefs)) cnenv ∧
+      cnenv_rel cnenv cml_ns
+Proof
+  rw[] >>
+  qexists_tac `initial_cnenv ++ cnenv_of_tdefs tdefs ++ cnenv_of_exns exndef` >>
+  rw[]
+  >- ( (* ns_rel *)
+    rw[ns_rel_def]
+    >- simp[prim_types_ok_def, ALOOKUP_APPEND, initial_cnenv_def]
+    >- ( (* exception *)
+      gvs[oEL_THM, EL_APPEND_EQN, AllCaseEqs()]
+      >- ( (* Subscript *)
+        gvs[initial_namespace_def] >>
+        simp[ALOOKUP_APPEND, initial_cnenv_def, subscript_stamp_def]
+        ) >>
+      gvs[EVAL ``LENGTH (FST initial_namespace)``] >>
+      Cases_on `n` >> gvs[ADD1] >> rename1 `EL n` >>
+      simp[ALOOKUP_APPEND] >>
+      `MEM cn (MAP FST exndef)` by (
+        simp[MEM_EL, EL_MAP, SF CONJ_ss] >> goal_assum drule >> simp[]) >>
+      `ALOOKUP initial_cnenv cn = NONE` by (
+        simp[ALOOKUP_NONE, initial_cnenv_def] >>
+        drule $ SRULE [] namespace_ok_append_cn_imps >>
+        gvs[initial_namespace_def, reserved_cns_def] >> metis_tac[]) >>
+      simp[] >>
+      `ALOOKUP (cnenv_of_tdefs tdefs) cn = NONE` by (
+        simp[ALOOKUP_cnenv_of_tdefs_NONE] >>
+        drule $ SRULE [] namespace_ok_append_cn_imps >> metis_tac[]) >>
+      simp[] >> irule ALOOKUP_cnenv_of_exns_SOME >> simp[oEL_THM] >>
+      gvs[namespace_ok_def, ALL_DISTINCT_APPEND]
+      )
+    >- ( (* type *)
+      gvs[oEL_THM, EL_APPEND_EQN, AllCaseEqs()]
+      >- ( (* List *)
+        gvs[initial_namespace_def] >>
+        gvs[ALOOKUP_APPEND, initial_cnenv_def, list_type_num_def]
+        ) >>
+      gvs[EVAL ``LENGTH (SND initial_namespace)``] >>
+      Cases_on `n` >> gvs[ADD1] >> rename1 `EL n` >>
+      simp[ALOOKUP_APPEND] >>
+      `MEM cn (MAP FST $ FLAT $ MAP SND tdefs)` by (
+        simp[MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS] >>
+        goal_assum $ drule_at Any >> simp[MEM_EL] >>
+        goal_assum drule >> simp[]) >>
+      `ALOOKUP initial_cnenv cn = NONE` by (
+        simp[ALOOKUP_NONE, initial_cnenv_def] >>
+        drule $ SRULE [] namespace_ok_append_cn_imps >>
+        gvs[initial_namespace_def, reserved_cns_def] >> metis_tac[]) >>
+      simp[AllCaseEqs()] >> disj2_tac >>
+      simp[] >> irule ALOOKUP_cnenv_of_tdefs_SOME >>
+      simp[oEL_THM] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND]
+      )
+    )
+  >- ( (* cnenv_rel *)
+    rw[cnenv_rel_def]
+    >- ( (* prim_types_ok *)
+      simp[prim_types_ok_def, ALOOKUP_APPEND, initial_cnenv_def]
+      )
+    >- ( (* uniqueness *)
+      gvs[ALOOKUP_APPEND, AllCaseEqs()] >>
+      imp_res_tac ALOOKUP_cnenv_of_tdefs_SOME_imp >>
+      imp_res_tac ALOOKUP_cnenv_of_exns_SOME_imp >> gvs[] >>
+      gvs[initial_cnenv_def, AllCaseEqs(), subscript_stamp_def]
+      )
+    >- (
+      gvs[ALOOKUP_APPEND, AllCaseEqs()] >>
+      imp_res_tac ALOOKUP_cnenv_of_tdefs_SOME_imp >>
+      imp_res_tac ALOOKUP_cnenv_of_exns_SOME_imp >> gvs[]
+      >- (
+        `MEM cn (MAP FST exndef)` by (
+          gvs[oEL_THM, MEM_EL, EL_MAP, SF CONJ_ss] >> goal_assum drule >> simp[]) >>
+        qsuff_tac `cn ∉ reserved_cns ∨ cn = "Subscript"` >- rw[reserved_cns_def] >>
+        drule $ SRULE [] namespace_ok_append_cn_imps >> metis_tac[]
+        )
+      >- (
+        `MEM cn (MAP FST $ FLAT $ MAP SND tdefs)` by (
+          simp[MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS] >>
+          goal_assum $ drule_at Any >> simp[MEM_EL] >> gvs[oEL_THM] >>
+          goal_assum drule >> simp[]) >>
+        qsuff_tac `cn ∉ reserved_cns ∨ cn = "Subscript"` >- rw[reserved_cns_def] >>
+        drule $ SRULE [] namespace_ok_append_cn_imps >> metis_tac[]
+        )
+      >- gvs[initial_cnenv_def, AllCaseEqs()]
+      )
+    >- ( (* Constructors match *)
+      gvs[ALOOKUP_APPEND, AllCaseEqs()] >>
+      imp_res_tac ALOOKUP_cnenv_of_tdefs_SOME_imp >>
+      imp_res_tac ALOOKUP_cnenv_of_exns_SOME_imp >> gvs[] >>
+      gvs[ALOOKUP_cnenv_of_tdefs_NONE, ALOOKUP_cnenv_of_exns_NONE] >>
+      simp[nsLookup_nsAppend_some, nsLookup_nsAppend_none, id_to_mods_def] >>
+      simp[nsLookup_build_typedefs_NONE, nsLookup_build_exns_NONE]
+      >- (
+        drule_at Any nsLookup_build_exns_SOME >>
+        disch_then $ qspec_then `e_init` mp_tac >> impl_tac >> rw[] >>
+        gvs[namespace_ok_def, ALL_DISTINCT_APPEND]
+        )
+      >- (
+        drule_at Any nsLookup_build_typedefs_SOME >> disch_then $ drule_at Any >>
+        impl_tac >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND]
+        )
+      >- (
+        disj2_tac >>
+        DEP_REWRITE_TAC[nsLookup_build_typedefs_NONE, nsLookup_build_exns_NONE] >>
+        reverse $ conj_tac
+        >- (
+          gvs[initial_cnenv_def, AllCaseEqs(), start_env_def, nsLookup_def] >>
+          simp[bool_type_num_def, list_type_num_def, subscript_stamp_def]
+          ) >>
+        drule $ SRULE [] $ cj 1 namespace_ok_append_cn_imps >>
+        simp[initial_namespace_def, DISJ_IMP_THM, FORALL_AND_THM] >>
+        strip_tac >> drule ALOOKUP_MEM >> simp[initial_cnenv_def] >>
+        strip_tac >> gvs[] >>
+        `"True" ∈ reserved_cns ∧ "False" ∈ reserved_cns` by simp[reserved_cns_def] >>
+        drule $ SRULE [] $ cj 3 namespace_ok_append_cn_imps >>
+        disch_then $ imp_res_tac >> gvs[]
+        )
+      )
+    >- ( (* TypeStamp well-formed *)
+      gvs[ALOOKUP_APPEND, AllCaseEqs()] >>
+      imp_res_tac ALOOKUP_cnenv_of_tdefs_SOME_imp >>
+      imp_res_tac ALOOKUP_cnenv_of_exns_SOME_imp >> gvs[] >>
+      gvs[initial_cnenv_def, AllCaseEqs(), subscript_stamp_def]
+      )
+    )
+QED
+
+
+
+(****************************** compile_correct ******************************)
+
+Theorem compile_correct:
+  cexp_wf e ∧ cns_arities_ok ns (cns_arities e) ∧ state_namespace_ok ns ∧
+  safe_itree (itree_of (exp_of e))
+  ⇒ itree_rel (itree_of (exp_of e))
+              (itree_semantics (compile_with_preamble ns e))
+Proof
+  rw[itree_of_def, semantics_def, itree_semantics_def] >> irule compile_itree_rel >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
   simp[Once cont_rel_cases, env_rel_def, state_rel] >>
-  rpt $ goal_assum $ drule_at Any >>
-  ntac 4 (qrefine `SUC n` >> simp[dstep]) >>
-  simp[smallStepPropsTheory.collapse_env_def, astTheory.pat_bindings_def] >>
-  qexists_tac `0` >> simp[dstep] >> irule compile_rel_cexp_compile_rel >> simp[]
+  gvs[state_namespace_ok_def] >>
+  simp[compile_with_preamble_def, initial_namespace_def, preamble_def] >>
+  qmatch_goalsub_abbrev_tac `[ffi_array;strle_dec;char_list_dec]` >>
+  once_rewrite_tac[GSYM APPEND_ASSOC] >> qmatch_goalsub_abbrev_tac `_ ++ prog` >>
+  qspecl_then [`ns'`,`start_env`,`start_dstate`,`[]`,`HD prog`,`TL prog`]
+    mp_tac step_over_compile_namespace >>
+  impl_tac
+  >- (
+    `ALL_DISTINCT (MAP FST (FLAT (MAP SND (SND ns'))))` by (
+      gvs[namespace_ok_def, ALL_DISTINCT_APPEND]) >>
+    gvs[MAP_FLAT] >> drule ALL_DISTINCT_FLAT_IMP >> rw[EVERY_MEM] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
+    PairCases_on `tdef` >> first_x_assum drule >> gvs[]
+    ) >>
+  strip_tac >> gvs[Abbr `prog`] >>
+  once_rewrite_tac[GSYM APPEND_ASSOC] >> rewrite_tac[APPEND] >> simp[] >>
+  qrefine `m + n` >> simp[itree_semanticsPropsTheory.step_n_add] >>
+  pop_assum kall_tac >>
+  qmatch_goalsub_abbrev_tac `Dstep dst'` >> qpat_abbrev_tac `cml_ns = nsAppend _ _` >>
+  simp[Abbr `ffi_array`] >>
+    ntac 6 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+    simp[do_app_def, integerTheory.INT_ADD_CALCULATE, store_alloc_def] >>
+    qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def, pmatch_def] >>
+  simp[Abbr `strle_dec`, strle_exp_def] >>
+    ntac 3 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+  simp[Abbr `char_list_dec`, char_list_exp_def] >>
+    ntac 3 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+  qexists0 >> simp[dstep, Abbr `dst'`] >>
+  simp[start_dstate_def, smallStepTheory.collapse_env_def] >>
+  simp[extend_dec_env_def, build_rec_env_def] (* slow step *) >>
+  simp[env_ok_def, nsLookup_nsAppend_some] >>
+  simp[strle_v_def, char_list_v_def, strle_exp_def, char_list_exp_def] >>
+  irule_at Any compile_rel_cexp_compile_rel >>
+  irule_at Any compile_cexp_compile_rel >> simp[] >> goal_assum $ drule_at Any >>
+  PairCases_on `ns'` >> rename1 `append_ns _ (exns,tdefs)` >>
+  drule ns_to_cml_ns >> gvs[start_dstate_def] >> strip_tac >> gvs[] >>
+  goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def]
 QED
 
 
