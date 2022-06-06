@@ -1,0 +1,17 @@
+# This file defines the build-order for the pure project. Each line corresponds
+# to a Holmake call. Lines starting with # and blank lines are removed.
+misc
+language
+meta-theory
+compiler/backend
+compiler/backend/languages/semantics
+compiler/backend/languages/properties
+compiler/backend/languages
+compiler/backend/passes
+compiler/backend/passes/proofs
+compiler/parsing
+typing
+compiler
+# compiler/binary
+examples
+# cakeml-semantics
