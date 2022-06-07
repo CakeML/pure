@@ -24,6 +24,7 @@ jobs:
     env:
       HOLDIR: ${{ github.workspace }}/HOL
       CAKEMLDIR: ${{ github.workspace }}/cakeml
+      CAKEDIR: ${{ github.workspace }}/cakeml # Remove this once issue #20 is resolved
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Checkout HOL4
@@ -45,6 +46,30 @@ jobs:
         cd $HOLDIR
         poly < tools/smart-configure.sml
         bin/build
+    - name: Build CakeML misc
+      run: |
+        cd $CAKEMLDIR/misc
+        Holmake
+    - name: Build CakeML semantics
+      run: |
+        cd $CAKEMLDIR/semantics
+        Holmake
+    - name: Build CakeML semantics/proofs
+      run: |
+        cd $CAKEMLDIR/semantics/proofs
+        Holmake
+    - name: Build CakeML semantics/alt_semantics
+      run: |
+        cd $CAKEMLDIR/semantics/alt_semantics
+        Holmake
+    - name: Build CakeML semantics/alt_semantics/proofs
+      run: |
+        cd $CAKEMLDIR/semantics/alt_semantics/proofs
+        Holmake
+    - name: Build CakeML basis/pure
+      run: |
+        cd $CAKEMLDIR/basis/pure
+        Holmake
     - name: Build misc
       run: |
         cd pure/misc
