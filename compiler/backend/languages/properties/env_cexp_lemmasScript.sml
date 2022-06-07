@@ -66,6 +66,9 @@ Proof
   Cases_on `vs` >> gvs[] >> metis_tac[]
 QED
 
+(* TODO There's nothing called freevars_cexp for envLang? *)
+
+(*
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = freevars_cexp ce
 Proof
@@ -85,5 +88,7 @@ Proof
     simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
     )
 QED
+ *)
 
 val _ = export_theory();
+
