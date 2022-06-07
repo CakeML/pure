@@ -2,9 +2,9 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory
      envLangTheory;
-open pure_miscTheory envLang_cexpTheory ;
+open pure_miscTheory env_cexpTheory ;
 
-val _ = new_theory "envLang_cexp_lemmas";
+val _ = new_theory "env_cexp_lemmas";
 
 val freevars_def = envLangTheory.freevars_def;
 
