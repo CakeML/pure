@@ -4,10 +4,11 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open listTheory rich_listTheory;
-open pure_cexpTheory envLang_cexpTheory;
+open pure_cexpTheory env_cexpTheory;
 
 val _ = new_theory "pure_to_env";
 
+(*
 Definition compile_exp_def:
   compile_exp (pure_cexp$Var a n) =
     Force a (envLang_cexp$Var a n) ∧
@@ -47,6 +48,7 @@ Termination
   \\ first_x_assum (qspec_then ‘K 0 ’ mp_tac) \\ gs []
   \\ simp [pure_cexpTheory.cexp_size_def]
 End
+*)
 
 val _ = export_theory ();
 
