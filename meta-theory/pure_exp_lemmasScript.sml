@@ -867,6 +867,12 @@ Proof
   Induct >> rw[Lams_def]
 QED
 
+Theorem Lams_11[simp]:
+  Lams vs bod1 = Lams vs bod2 ⇔ bod1 = bod2
+Proof
+  Induct_on ‘vs’ >> simp[exp_11, Lams_def]
+QED
+
 Theorem freevars_Apps[simp]:
   ∀es e. freevars (Apps e es) = freevars e ∪ BIGUNION (set (MAP freevars es))
 Proof
