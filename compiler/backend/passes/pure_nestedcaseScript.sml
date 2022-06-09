@@ -30,7 +30,7 @@ Definition lift_uscore1_def:
                     SOME (v, vnm, pes') =>
                       if tv = vnm ∧ dest_var v = SOME vnm then
                         case updlast ((p,e)::pes) pes' of
-                          [] => Var c "Fail/can't happen"
+                          [] => Var c (implode "Fail/can't happen")
                         | (p',e')::rest =>
                             NestedCase c t tv p' e' rest
                       else NestedCase c t tv p e pes

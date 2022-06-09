@@ -7,19 +7,21 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory;
 
+local open mlstringTheory in end
+
 val _ = new_theory "pure_cexp";
 
 Datatype:
-  cop = Cons string        (* datatype constructor                     *)
+  cop = Cons mlstring      (* datatype constructor                     *)
       | AtomOp atom_op     (* primitive parametric operator over Atoms *)
       | Seq                (* diverges if arg1 does, else same as arg2 *)
 End
 
 (* no 'a (info) fields *)
 Datatype:
-  cepat = cepatVar string
+  cepat = cepatVar mlstring
         | cepatUScore
-        | cepatCons string (cepat list)
+        | cepatCons mlstring (cepat list)
 End
 
 Theorem cepat_ind_alt:
@@ -60,21 +62,23 @@ Proof
   simp[SF ETA_ss]
 QED
 
+Type cvname = “:mlstring”
+
 Datatype:
-  cexp = Var 'a vname                         (* variable                 *)
-       | Prim 'a cop (cexp list)              (* primitive operations     *)
-       | App 'a cexp (cexp list)              (* function application     *)
-       | Lam 'a (vname list) cexp             (* lambda                   *)
-       | Let 'a vname cexp cexp               (* let                      *)
-       | Letrec 'a ((vname # cexp) list) cexp (* mutually recursive exps  *)
-       | Case 'a cexp vname ((vname # vname list # cexp) list) (* case of *)
-       | NestedCase 'a cexp vname cepat cexp ((cepat # cexp) list)
-                                     (* case w/non-empty pattern-exp list *)
+  cexp = Var 'a cvname                           (* variable                 *)
+       | Prim 'a cop (cexp list)                 (* primitive operations     *)
+       | App 'a cexp (cexp list)                 (* function application     *)
+       | Lam 'a (cvname list) cexp               (* lambda                   *)
+       | Let 'a cvname cexp cexp                 (* let                      *)
+       | Letrec 'a ((cvname # cexp) list) cexp   (* mutually recursive exps  *)
+       | Case 'a cexp cvname ((cvname # cvname list # cexp) list) (* case of *)
+       | NestedCase 'a cexp cvname cepat cexp ((cepat # cexp) list)
+                                        (* case w/non-empty pattern-exp list *)
 End
 
 Theorem cexp_size_lemma:
   (∀xs a. MEM a xs ⇒ cexp_size f a < cexp8_size f xs) ∧
-  (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp6_size f xs) ∧
+  (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp5_size f xs) ∧
   (∀xs a1 a. MEM (a1,a) xs ⇒ cexp_size f a < cexp4_size f xs) ∧
   (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒ cexp_size f a < cexp1_size f xs)
 Proof
@@ -86,9 +90,9 @@ Theorem better_cexp_induction =
         TypeBase.induction_of “:α cexp”
           |> Q.SPECL [‘P’, ‘λrows. ∀c arg e. MEM (c,arg,e) rows ⇒ P e’,
                       ‘λ(c,arg,e). P e’, ‘λ(nm,e). P e’,
-                      ‘λlbs. ∀nm e. MEM (nm, e) lbs ⇒ P e’,
+                      ‘λlbs. ∀pat e. MEM (pat, e) lbs ⇒ P e’,
+                      ‘λpes. ∀lb e. MEM (lb,e) pes ⇒ P e’,
                       ‘λ(s,e). P e’,
-                      ‘λpes. ∀p e. MEM (p,e) pes ⇒ P e’,
                       ‘λ(p,e). P e’, ‘λes. ∀e. MEM e es ⇒ P e’
                      ]
           |> CONV_RULE (LAND_CONV (SCONV [DISJ_IMP_THM, FORALL_AND_THM,
@@ -130,7 +134,7 @@ Termination
 End
 
 Definition op_of_def:
-  op_of (Cons s) = Cons s ∧
+  op_of (Cons s) = Cons (explode s) ∧
   op_of (AtomOp p) = AtomOp p ∧
   op_of (Seq:cop) = (Seq:op)
 End
@@ -223,7 +227,7 @@ End
 
 Definition num_args_ok_def:
   num_args_ok (Cons cn) n = (
-    case num_monad_args cn of
+    case num_monad_args (explode cn) of
     | SOME ar => n = ar
     | NONE => T) ∧
   num_args_ok (AtomOp aop) n = num_atomop_args_ok aop n ∧
@@ -240,7 +244,7 @@ Definition cexp_wf_def:
   cexp_wf (Case _ e v css) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    (∀cn. MEM cn (MAP FST css) ⇒ cn ∉ monad_cns)) ∧
+    (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns)) ∧
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
     ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))
@@ -299,7 +303,7 @@ Definition cns_arities_def:
   cns_arities (Var d v) = {} ∧
   cns_arities (Prim d cop es) = (
     (case cop of
-     | Cons cn => if cn ∈ monad_cns then {} else {{cn, LENGTH es}}
+     | Cons cn => if explode cn ∈ monad_cns then {} else {{cn, LENGTH es}}
      | _ => {}) ∪
       BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (App d e es) = cns_arities e ∪ BIGUNION (set (MAP cns_arities es)) ∧
