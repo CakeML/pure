@@ -55,6 +55,38 @@ Type typedef[pp] = ``:num # ((string # type list) list)``;
 Type typedefs[pp] = ``:typedef list``;
 Type exndef[pp] = ``:(string # type list) list``;
 
+(* CakeML assumes the following initial namespace:
+      Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
+      Types: 0 -> Bool, 1 -> List
+
+   In Pure, we need only Subscript and List - Bool is built in and none of the
+   others are used. Therefore, the Pure initial namespace should be:
+      Exception: 0 -> Subscript
+      Types: 0 -> List
+*)
+Definition initial_namespace_def:
+  initial_namespace : exndef # typedefs = (
+    ["Subscript",[]],
+    [1, [ ("[]",[]) ; ("::",[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
+  )
+End
+
+(* Constructor names and their arities defined by a namespace *)
+Definition ns_cns_arities_def:
+  ns_cns_arities (exndef : exndef, tdefs : typedefs) =
+    set (MAP (λ(cn,ts). cn, LENGTH ts) exndef) INSERT
+    {("True", 0); ("False", 0)} (* Booleans considered built-in *) INSERT
+    set (MAP (λ(ar,cndefs). set (MAP (λ(cn,ts). cn, LENGTH ts) cndefs)) tdefs)
+End
+
+(* Check a set of constructor names/arities fits a namespace *)
+Definition cns_arities_ok_def:
+  cns_arities_ok ns cns_arities ⇔
+  ∀cn_ars. cn_ars ∈ cns_arities ⇒
+    (∃ar. cn_ars = {"",ar}) (* all tuples allowed *) ∨
+    (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
+End
+
 
 (********** Substitutions and shifts **********)
 
@@ -178,7 +210,7 @@ Definition namespace_ok_def:
     (* No empty type definitions: *)
       EVERY (λ(ar,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
-      ALL_DISTINCT (SET_TO_LIST reserved_cns ++
+      ALL_DISTINCT (SET_TO_LIST (reserved_cns DELETE "Subscript") ++
         MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
     (* Every constructor type is closed wrt type arity and uses only defined types: *)
       EVERY (λ(ar,td).

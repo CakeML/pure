@@ -2757,6 +2757,7 @@ Proof
   >- gvs[fail_def] (* Seq empty case *)
   >- gvs[fail_def] (* Seq singleton case *)
   >- gvs[fail_def] (* Seq too many args case *)
+  >- gvs[fail_def] (* NestedCase *)
 QED
 
 

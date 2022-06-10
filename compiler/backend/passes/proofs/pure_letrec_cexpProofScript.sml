@@ -115,7 +115,7 @@ Proof
     rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
     last_x_assum irule >> simp[] >> goal_assum drule
     )
-  >- (first_x_assum drule >> simp[])
+  (* >- (first_x_assum drule >> simp[]) *)
   >- (first_x_assum $ drule_at Any >> simp[MAP_MAP_o, Cong MAP_CONG])
   >- (pop_assum
       (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th))>>

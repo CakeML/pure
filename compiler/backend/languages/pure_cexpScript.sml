@@ -221,16 +221,26 @@ Definition get_info_def:
   get_info (NestedCase c _ _ _ _ _) = c
 End
 
+Definition num_args_ok_def:
+  num_args_ok (Cons cn) n = (
+    case num_monad_args cn of
+    | SOME ar => n = ar
+    | NONE => T) ∧
+  num_args_ok (AtomOp aop) n = num_atomop_args_ok aop n ∧
+  num_args_ok Seq n = (n = 2)
+End
+
 Definition cexp_wf_def:
   cexp_wf (Var _ v) = T ∧
-  cexp_wf (Prim _ op es) = EVERY cexp_wf es ∧
+  cexp_wf (Prim _ op es) = (num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es) ∧
   cexp_wf (App _ e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
   cexp_wf (Lam _ vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec _ fns e) = (EVERY cexp_wf $ MAP SND fns ∧ cexp_wf e ∧ fns ≠ []) ∧
   cexp_wf (Case _ e v css) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
-    ¬ MEM v (FLAT $ MAP (FST o SND) css)) ∧
+    ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    (∀cn. MEM cn (MAP FST css) ⇒ cn ∉ monad_cns)) ∧
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
     ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))
@@ -284,5 +294,25 @@ Definition cexp_eq_def:
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND` >> rw[]
 End
+
+Definition cns_arities_def:
+  cns_arities (Var d v) = {} ∧
+  cns_arities (Prim d cop es) = (
+    (case cop of
+     | Cons cn => if cn ∈ monad_cns then {} else {{cn, LENGTH es}}
+     | _ => {}) ∪
+      BIGUNION (set (MAP cns_arities es))) ∧
+  cns_arities (App d e es) = cns_arities e ∪ BIGUNION (set (MAP cns_arities es)) ∧
+  cns_arities (Lam d xs e) = cns_arities e ∧
+  cns_arities (Let d x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
+  cns_arities (Letrec d funs e) =
+    BIGUNION (set (MAP (λ(v,e). cns_arities e) funs)) ∪ cns_arities e ∧
+  cns_arities (Case d e v css) = set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) INSERT
+    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∧
+  cns_arities _ = {}
+Termination
+  WF_REL_TAC `measure (cexp_size (K 0))`
+End
+
 
 val _ = export_theory();

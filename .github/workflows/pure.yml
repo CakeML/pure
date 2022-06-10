@@ -22,10 +22,17 @@ jobs:
     container: cakeml/hol4:pure
     # Set environment variables
     env:
-      HOLDIR: /opt/HOL
+      HOLDIR: ${{ github.workspace }}/HOL
       CAKEMLDIR: ${{ github.workspace }}/cakeml
+      CAKEDIR: ${{ github.workspace }}/cakeml # Remove this once issue #20 is resolved
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+    - name: Checkout HOL4
+      uses: actions/checkout@v2
+      with:
+        repository: HOL-Theorem-Prover/HOL
+        ref: master
+        path: HOL
     - name: Checkout pure
       uses: actions/checkout@v2
       with:
@@ -35,6 +42,35 @@ jobs:
       with:
         repository: CakeML/CakeML
         path: cakeml
+    - name: Build HOL4
+      run: |
+        cd $HOLDIR
+        poly < tools/smart-configure.sml
+        bin/build
+    - name: Build CakeML misc
+      run: |
+        cd $CAKEMLDIR/misc
+        Holmake
+    - name: Build CakeML semantics
+      run: |
+        cd $CAKEMLDIR/semantics
+        Holmake
+    - name: Build CakeML semantics/proofs
+      run: |
+        cd $CAKEMLDIR/semantics/proofs
+        Holmake
+    - name: Build CakeML semantics/alt_semantics
+      run: |
+        cd $CAKEMLDIR/semantics/alt_semantics
+        Holmake
+    - name: Build CakeML semantics/alt_semantics/proofs
+      run: |
+        cd $CAKEMLDIR/semantics/alt_semantics/proofs
+        Holmake
+    - name: Build CakeML basis/pure
+      run: |
+        cd $CAKEMLDIR/basis/pure
+        Holmake
     - name: Build misc
       run: |
         cd pure/misc
@@ -51,33 +87,43 @@ jobs:
       run: |
         cd pure/compiler/backend
         Holmake
-    - name: Build compiler/backend/proofs
+    - name: Build compiler/backend/languages
       run: |
-        cd pure/compiler/backend/proofs
+        cd pure/compiler/backend/languages
         Holmake
+    - name: Build compiler/backend/languages/semantics
+      run: |
+        cd pure/compiler/backend/languages/semantics
+        Holmake
+    - name: Build compiler/backend/languages/properties
+      run: |
+        cd pure/compiler/backend/languages/properties
+        Holmake        
     - name: Build typing
       run: |
         cd pure/typing
+        Holmake
+    - name: Build compiler/backend/passes
+      run: |
+        cd pure/compiler/backend/passes
+        Holmake
+    - name: Build compiler/backend/passes/proofs
+      run: |
+        cd pure/compiler/backend/passes/proofs
+        Holmake
+    - name: Build compiler/parsing
+      run: |
+        cd pure/compiler/parsing
         Holmake
     - name: Build compiler
       run: |
         cd pure/compiler
         Holmake
-    - name: Build CakeML dependencies for compiler/binary
-      run: |
-        cd cakeml/compiler
-        Holmake
-        cd ../basis
-        Holmake
-    - name: Build compiler/binary
-      run: |
-        cd pure/compiler/binary
-        Holmake
     - name: Build examples
       run: |
         cd pure/examples
         Holmake
-    - name: Build cakeml-semantics
+    - name: Build examples
       run: |
-        cd pure/cakeml-semantics
+        cd pure/examples
         Holmake

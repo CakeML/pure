@@ -57,7 +57,8 @@ Definition tcexp_of_def:
   tcexp_of (Lam d vs x)    = Lam vs (tcexp_of x) ∧
   tcexp_of (Letrec d rs x) = Letrec (MAP (λ(n,x). (n,tcexp_of x)) rs) (tcexp_of x) ∧
   tcexp_of (Case d x v rs) = Case (tcexp_of x) v
-                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
+                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs) ∧
+  tcexp_of _               = Lam [] ARB
 Termination
   WF_REL_TAC `measure $ cexp_size $ K 0` \\ rw [cexp_size_def] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]
@@ -104,14 +105,15 @@ Overload subst_tc1 = ``λname v e. subst_tc (FEMPTY |+ (name,v)) e``;
 
 Definition tcexp_wf_def:
   tcexp_wf (Var v) = T ∧
-  tcexp_wf (Prim op es) = EVERY tcexp_wf es ∧
+  tcexp_wf (Prim op es) = (num_args_ok op (LENGTH es) ∧ EVERY tcexp_wf es) ∧
   tcexp_wf (App e es) = (tcexp_wf e ∧ EVERY tcexp_wf es ∧ es ≠ []) ∧
   tcexp_wf (Lam vs e) = (tcexp_wf e ∧ vs ≠ []) ∧
   tcexp_wf (Let v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
   tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP SND fns ∧ tcexp_wf e ∧ fns ≠ []) ∧
   tcexp_wf (Case e v css) = (
     tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧
-    css ≠ [] ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css)) ∧
+    css ≠ [] ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    ∀cn. MEM cn (MAP FST css) ⇒ cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>

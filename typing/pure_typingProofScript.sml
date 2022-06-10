@@ -518,8 +518,8 @@ Proof
       `cn ∉ monad_cns` by (
         imp_res_tac ALOOKUP_MEM >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         `MEM cn (MAP FST exndef)` by simp[MEM_MAP, EXISTS_PROD, SF SFY_ss] >>
-        qpat_x_assum `∀e. _ ∈ _ ⇒ ¬ _` $ qspec_then `cn` mp_tac >> gvs[] >>
-        rw[reserved_cns_def, monad_cns_def]) >>
+        qpat_x_assum `∀e. _ ∈ _ ∧ _ ⇒ ¬ _` $ qspec_then `cn` mp_tac >> gvs[] >>
+        rw[reserved_cns_def, monad_cns_def] >> gvs[]) >>
       drule eval_wh_to_Case >> simp[closed_def, freevars_exp_of] >>
       disch_then $ qspec_then `rs` mp_tac >>
       Cases_on `ALOOKUP rs cn` >> gvs[]
@@ -648,9 +648,9 @@ Proof
         simp[Once type_wh_cases, Once type_tcexp_cases] >>
         rw[] >> gvs[type_exception_def] >>
         drule ALOOKUP_MEM >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
-        qpat_x_assum `∀e. _ ∈ _ ⇒ ¬_` $ qspec_then `cn'` mp_tac >>
+        qpat_x_assum `∀e. _ ∈ _ ∧ _ ⇒ ¬_` $ qspec_then `cn'` mp_tac >>
         simp[MEM_MAP, FORALL_PROD] >> disch_then $ drule_at Concl >>
-        rw[reserved_cns_def, monad_cns_def]) >>
+        rw[reserved_cns_def, monad_cns_def] >> gvs[]) >>
       simp[] >> qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >>
       gvs[type_exception_def] >> IF_CASES_TAC >> gvs[]
@@ -677,10 +677,10 @@ Proof
         rw[Once type_wh_cases, Once type_tcexp_cases] >> gvs[type_cons_def] >>
         drule ALOOKUP_MEM >> rw[] >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         gvs[SF DNF_ss] >>
-        qpat_x_assum `∀e. _ ∈ reserved_cns ⇒ _` $ qspec_then `cname` mp_tac >>
+        qpat_x_assum `∀e. _ ∈ reserved_cns ∧ _ ⇒ _` $ qspec_then `cname` mp_tac >>
         simp[MEM_MAP, MEM_FLAT, FORALL_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
         disch_then $ drule_at Concl >> simp[MEM_EL, DISJ_EQ_IMP] >> gvs[oEL_THM] >>
-        disch_then $ drule_at Concl >> rw[reserved_cns_def, monad_cns_def]) >>
+        disch_then $ drule_at Concl >> rw[reserved_cns_def, monad_cns_def] >> gvs[]) >>
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
       simp[Once type_wh_cases] >> simp[Once type_tcexp_cases] >> strip_tac >> gvs[] >>
       IF_CASES_TAC >> gvs[]
@@ -1128,17 +1128,17 @@ Proof
     simp[pure_exp_relTheory.app_bisimilarity_eq] >>
     irule_at Any $ iffLR pure_congruenceTheory.exp_eq_sym >>
     irule_at Any exp_of_tcexp_of_exp_eq >>
+    drule_all $ SRULE [] type_tcexp_NestedCase_free >> strip_tac >>
     drule type_tcexp_freevars_tcexp >> strip_tac >>
     drule_at (Pos last) type_tcexp_tcexp_wf >> strip_tac >> gvs[] >>
     simp[cexp_wf_tcexp_wf, closed_def, freevars_exp_of] >>
-    gvs[freevars_tcexp_of, pure_cexp_lemmasTheory.freevars_exp_of]) >>
+    gvs[freevars_tcexp_of, pure_cexp_lemmasTheory.freevars_exp_of]
+    ) >>
   rw[itree_of_def, semantics_def] >>
   irule type_soundness_interp >>
   simp[type_config_def, PULL_EXISTS] >>
-  simp[Once type_cont_cases, Once config_type_ok_cases] >>
-  goal_assum drule >>
-  irule_at Any type_soundness_eval_wh >> simp[] >>
-  goal_assum drule
+  simp[Once type_cont_cases, Once config_type_ok_cases] >> goal_assum drule >>
+  irule_at Any type_soundness_eval_wh >> simp[] >> goal_assum drule
 QED
 
 

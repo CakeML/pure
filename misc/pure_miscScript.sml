@@ -7,6 +7,13 @@ open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
 val _ = new_theory "pure_misc";
 
 
+(******************** Numbers ********************)
+
+(* From wordsTheory *)
+Theorem numeral_less_thm =
+  CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV prim_recTheory.LESS_THM
+
+
 (******************** Finite maps ********************)
 
 Theorem FDIFF_MAP_KEYS_BIJ:
