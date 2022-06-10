@@ -59,8 +59,8 @@ QED
 
 Triviality letrec_recurse_FOLDR_Let:
   (∀vnm e. MEM (vnm,e) binds ⇒ letrec_recurse f e = e) ⇒
-  letrec_recurse f (FOLDR (λ(u,e) A. Let u e A) body binds) =
-  FOLDR (λ(u,e) A. Let u e A) (letrec_recurse f body) binds
+  letrec_recurse f (FOLDR (λ(u,e) A. Let (explode u) e A) body binds) =
+  FOLDR (λ(u,e) A. Let (explode u) e A) (letrec_recurse f body) binds
 Proof
   Induct_on ‘binds’ >>
   simp[letrec_recurse_def, DISJ_IMP_THM, FORALL_AND_THM, FORALL_PROD] >>
@@ -103,7 +103,8 @@ QED
 
 Theorem letrec_recurse_exp_of:
   ∀f ce g.
-  (∀c fns e. exp_of (f c fns e) = g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
+  (∀c fns e. exp_of (f c fns e) =
+             g (MAP (λ(v,e). (explode v,exp_of e)) fns) (exp_of e))
   ⇒ exp_of (letrec_recurse_cexp f ce) = letrec_recurse g (exp_of ce)
 Proof
   recInduct letrec_recurse_cexp_ind >>
@@ -331,7 +332,8 @@ Theorem letrec_recurse_fvs_exp_of:
     (∀c fns e.
        fvs_ok (Letrec c fns e) ⇒
        fvs_ok (f c fns e) ∧
-       exp_of (f c fns e) = g (MAP (λ(v,e). (v,exp_of e)) fns) (exp_of e))
+       exp_of (f c fns e) =
+       g (MAP (λ(v,e). (explode v,exp_of e)) fns) (exp_of e))
     ⇒
     exp_of (letrec_recurse_fvs f ce) = letrec_recurse g (exp_of ce)
 Proof
@@ -378,8 +380,8 @@ Theorem distinct_cexp_correct:
 Proof
   rw[distinct_cexp_def, distinct_def] >>
   irule letrec_recurse_exp_of >> simp[exp_of_def] >>
-  recInduct make_distinct_ind >> rw[make_distinct_def] >>
-  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+  Induct >> simp[make_distinct_def, FORALL_PROD, MEM_MAP, EXISTS_PROD] >>
+  rw[]
 QED
 
 Theorem distinct_cexp_exp_eq:
@@ -394,7 +396,7 @@ QED
 Triviality exp_of_make_Letrecs_cexp:
   ∀fns.
     exp_of (make_Letrecs_cexp fns e) =
-      make_Letrecs (MAP (MAP (λ(fn,e). (fn,exp_of e))) fns) (exp_of e)
+      make_Letrecs (MAP (MAP (λ(fn,e). (explode fn,exp_of e))) fns) (exp_of e)
 Proof
   Induct >> rw[make_Letrecs_def, make_Letrecs_cexp_def, exp_of_def]
 QED
@@ -496,6 +498,76 @@ Proof
   simp[MEM_MAP, MEM_EL, PULL_EXISTS]
 QED
 
+Theorem MAPi_MAP:
+  ∀f g. MAPi f (MAP g l) = MAPi (flip ($o $o f) g) l
+Proof
+  Induct_on ‘l’ >> simp[combinTheory.o_DEF, combinTheory.C_DEF]
+QED
+
+Theorem ALOOKUP_MAPi_inj0[local]:
+  (∀x y. f x = f y ⇔ x = y) ⇒
+  ALOOKUP (MAPi (λi (x,y). (f x, i + c)) l) (f e) =
+  ALOOKUP (MAPi (λi (x,y). (x, i + c)) l) e
+Proof
+  strip_tac >> qid_spec_tac ‘c’ >>
+  Induct_on ‘l’ >>
+  simp[FORALL_PROD, combinTheory.o_DEF, arithmeticTheory.ADD1] >>
+  rw[] >> ONCE_REWRITE_TAC [DECIDE “x + (y + 1) = y + (x + 1n)”] >>
+  first_assum MATCH_ACCEPT_TAC
+QED
+
+Theorem ALOOKUP_MAPi_inj = ALOOKUP_MAPi_inj0 |> Q.INST [‘c’ |-> ‘0’] |> SRULE[]
+
+Theorem to_nums_MAP2:
+  (∀x y. f x = f y ⇔ x = y) ⇒
+  to_nums (MAPi (λi (x,y). (f x, i)) l) (MAP f v) =
+  to_nums (MAPi (λi (x,y). (x, i)) l) v
+Proof
+  strip_tac >> Induct_on ‘v’ >> simp[to_nums_def] >> qx_gen_tac ‘h’ >>
+  irule combeq3 >> simp[ALOOKUP_MAPi_inj]
+QED
+
+Theorem MAPi_SNOC:
+  MAPi f (SNOC h t) = SNOC (f (LENGTH t) h) (MAPi f t)
+Proof
+  simp[indexedListsTheory.MAPi_APPEND, SNOC_APPEND]
+QED
+
+Theorem ALOOKUP_MAPi:
+  ∀n. ALOOKUP (MAPi (λi (x,y). (i, f i x y)) l) n =
+      if n < LENGTH l then SOME (f n (FST (EL n l)) (SND (EL n l)))
+      else NONE
+Proof
+  Induct_on ‘l’ using SNOC_INDUCT >>
+  simp[arithmeticTheory.LT_SUC, FORALL_PROD, MAPi_SNOC] >>
+  simp[SNOC_APPEND, ALOOKUP_APPEND] >> rw[] >>
+  gvs[EL_APPEND_EQN] >>
+  Cases_on ‘l’ >> gvs[] >> Cases_on ‘n’ >> gvs[]
+QED
+
+Theorem top_sort_through_inj:
+  (∀x y. f x = f y ⇔ x = y) ⇒
+  top_sort_any (MAP (f ## MAP f) l) = MAP (MAP f) (top_sort_any l)
+Proof
+  strip_tac >>
+  simp[top_sort_any_def] >> Cases_on ‘l = []’ >> simp[] >>
+  simp[NULL_EQ, MAP_MAP_o, MAPi_MAP, combinTheory.o_ABS_R] >>
+  simp[combinTheory.o_DEF, combinTheory.C_DEF] >>
+  simp[ELIM_UNCURRY, MAP_MAP_o, combinTheory.o_ABS_R] >>
+  simp[LAMBDA_PROD] >> simp[to_nums_MAP2] >>
+  rw[MAP_EQ_f] >>
+  simp[lookup_fromAList, ALOOKUP_MAPi] >> rw[] >>
+  Cases_on ‘l’ >> gvs[] >> Cases_on ‘h’ >> simp[]
+QED
+
+Theorem ALOOKUP_MAP_injected_keys:
+  (∀x y. f x = f y ⇔ x = y) ⇒
+  ALOOKUP (MAP (λ(k,v). (f k, g v)) inputs) (f x) =
+  OPTION_MAP g (ALOOKUP inputs x)
+Proof
+  strip_tac >> Induct_on ‘inputs’ >> simp[FORALL_PROD] >> rw[]
+QED
+
 Theorem split_all_cexp_correct:
   ∀ce. exp_of (split_all_cexp ce) = split_all (exp_of ce)
 Proof
@@ -518,25 +590,36 @@ Proof
   rw[] >> AP_THM_TAC >> AP_TERM_TAC >>
   rw[split_one_def, split_one_cexp_def] >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  qmatch_goalsub_abbrev_tac `_ (top_sort_any a) = _ (top_sort_any b)` >>
-  `top_sort_any a = top_sort_any b` by (
-    irule top_sort_set_eq >> unabbrev_all_tac >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    rw[LIST_REL_EL_EQN, EL_MAP] >> Cases_on `EL n fns` >> simp[GSYM freevars_equiv] >>
-    DEP_REWRITE_TAC[GSYM MAP_FST_toAscList |> REWRITE_RULE[IMP_CONJ_THM]] >>
-    gvs[fvs_ok_def, EVERY_EL] >> last_x_assum drule >> strip_tac >> gvs[] >>
-    imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def] >>
-    rw[EXTENSION, miscTheory.FDOM_FLOOKUP] >>
-    DEP_REWRITE_TAC[GSYM lookup_thm] >> simp[freevars_exp_of]
-    ) >>
-  simp[] >> rw[MAP_EQ_f, ALOOKUP_MAP] >>
-  qsuff_tac `∃res. ALOOKUP fns s = SOME res` >> rw[] >> simp[] >>
-  simp[miscTheory.ALOOKUP_EXISTS_IFF] >>
-  qspec_then `b` assume_tac top_sort_any_sets >>
-  gvs[EXTENSION, MEM_FLAT, MEM_MAP, EXISTS_PROD] >>
-  pop_assum $ qspec_then `s` $ assume_tac o iffLR >> gvs[PULL_EXISTS] >>
-  pop_assum drule_all >> strip_tac >> unabbrev_all_tac >>
-  gvs[MEM_MAP] >> pairarg_tac >> gvs[] >> goal_assum drule
+  ‘top_sort_any (MAP (λ(p1,p2). (explode p1, freevars_l (exp_of p2))) fns) =
+   top_sort_any (MAP (explode ## MAP explode) (MAP (I ## freevars_cexp_l) fns))’
+    by (irule top_sort_set_eq >>
+        simp[MAP_MAP_o, pairTheory.o_UNCURRY_R, combinTheory.o_ABS_R] >>
+        simp[combinTheory.o_DEF, ELIM_UNCURRY] >>
+        simp[LIST_REL_EL_EQN, GSYM freevars_cexp_equiv, EL_MAP, LIST_TO_SET_MAP,
+             GSYM freevars_equiv, freevars_exp_of]) >>
+  simp[top_sort_through_inj] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, ALOOKUP_MAP_injected_keys] >>
+  ‘top_sort_any (MAP (λ(fn,e). (fn, MAP FST (toAscList (get_info e)))) fns) =
+   top_sort_any (MAP (I ## freevars_cexp_l) fns)’
+    by (irule top_sort_set_eq >>
+        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+        simp[ELIM_UNCURRY, SF ETA_ss] >>
+        simp[LIST_REL_EL_EQN, EL_MAP, LIST_TO_SET_MAP] >>
+        gvs[fvs_ok_def, EVERY_MEM, MEM_EL, PULL_EXISTS, ELIM_UNCURRY] >>
+        rpt strip_tac >> rename [‘n < LENGTH fns’] >>
+        ‘fvs_ok (SND (EL n fns))’ by simp[] >>
+        drule fvs_ok_imp >> simp[fv_set_ok_def, GSYM freevars_cexp_equiv] >>
+        simp[GSYM LIST_TO_SET_MAP, GSYM MAP_FST_toAscList] >>
+        strip_tac >> simp[EXTENSION] >>
+        simp[miscTheory.FDOM_FLOOKUP, GSYM lookup_thm]) >>
+  simp[] >>
+  rw[MAP_EQ_f] >>
+  rename [‘MEM component (top_sort_any _)’, ‘MEM e component’] >>
+  ‘∃res. ALOOKUP fns e = SOME res’ suffices_by simp[PULL_EXISTS]>>
+  ‘MEM e (FLAT (top_sort_any (MAP (I ## freevars_cexp_l) fns)))’
+    by (simp[MEM_FLAT] >> metis_tac[]) >>
+  gs[top_sort_any_sets, MEM_MAP, EXISTS_PROD, miscTheory.ALOOKUP_EXISTS_IFF,
+     SF SFY_ss]
 QED
 
 Theorem split_all_cexp_exp_eq:
@@ -564,32 +647,31 @@ Proof
     qpat_x_assum `∀k. _ ⇔ k ∈ _ r` $ qspec_then `k` assume_tac >> gvs[]
     ) >>
   rw[clean_one_def, clean_one_cexp_def, exp_of_def] >> gvs[]
-  >- (
-    irule FALSITY >>
-    gvs[DISJOINT_ALT, MAP_MAP_o, combinTheory.o_DEF,
-        LAMBDA_PROD, GSYM FST_THM, fvs_ok_def] >>
-    imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def] >>
-    gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD, get_info_def] >>
-    gvs[EVERY_MAP, EVERY_MEM] >>
-    first_x_assum drule >> simp[] >>
-    first_x_assum $ qspec_then `x` assume_tac >> gvs[freevars_exp_of]
-    )
-  >- (
-    irule FALSITY >>
-    gvs[DISJOINT_ALT, MAP_MAP_o, combinTheory.o_DEF,
-        LAMBDA_PROD, GSYM FST_THM, fvs_ok_def, EXISTS_MEM] >>
-    pop_assum drule >> simp[] >>
-    imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def, GSYM freevars_exp_of] >>
-    first_x_assum $ irule o iffLR >>
-    Cases_on `lookup (get_info e) e'` >> gvs[]
-    ) >>
+  >- (irule FALSITY >>
+      gvs[DISJOINT_ALT, MAP_MAP_o, combinTheory.o_DEF,
+          LAMBDA_PROD, GSYM FST_THM, fvs_ok_def] >>
+      imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def] >>
+      gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD, get_info_def] >>
+      gvs[EVERY_MAP, EVERY_MEM] >>
+      first_x_assum drule >> simp[] >>
+      rename [‘lookup (get_info e) x ≠ NONE’] >>
+      first_x_assum $ qspec_then `x` assume_tac >> gvs[freevars_exp_of])
+  >- (irule FALSITY >>
+      gvs[DISJOINT_ALT, MAP_MAP_o, combinTheory.o_DEF, MEM_MAP, PULL_EXISTS,
+          fvs_ok_def, EXISTS_MEM, FORALL_PROD, EXISTS_PROD] >>
+      pop_assum drule >> simp[] >>
+      imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def, freevars_exp_of] >>
+      first_x_assum $ irule o iffLR >>
+      rename [‘lookup (get_info e1) e2 = SOME ()’] >>
+      Cases_on `lookup (get_info e1) e2` >> gvs[]) >>
   Cases_on `fns` >- gvs[] >>
   simp[] >> PairCases_on `h` >> simp[] >> ntac 2 $ pop_assum kall_tac >>
   reverse $ Cases_on `t` >> rgs[exp_of_def, fvs_ok_def] >>
-  imp_res_tac fvs_ok_imp >> pop_assum mp_tac >> simp[fv_set_ok_def] >> strip_tac >>
+  imp_res_tac fvs_ok_imp >> pop_assum mp_tac >> simp[fv_set_ok_def] >>
+  strip_tac >>
   Cases_on `lookup (get_info h1) h0` >> rgs[freevars_exp_of, exp_of_def] >>
-  IF_CASES_TAC >> gvs[] >>
-  first_x_assum $ qspec_then `h0` assume_tac >> gvs[]
+  simp[AllCaseEqs()] >> strip_tac >>
+  first_x_assum (drule o iffRL) >> simp[]
 QED
 
 Theorem clean_all_cexp_exp_eq:

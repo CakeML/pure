@@ -91,7 +91,7 @@ End
 Definition make_distinct_def:
   (* this could be more efficient, but perhaps this is good for the proofs *)
   make_distinct [] = [] ∧
-  make_distinct ((n:string,x)::xs) =
+  make_distinct ((n,x)::xs) =
     if MEM n (MAP FST xs) then make_distinct xs else (n,x)::make_distinct xs
 End
 
