@@ -29,6 +29,7 @@ jobs:
     steps:
     - name: Get build-essentials
       run: |
+        apt update
         apt install -y build-essential gcc-10 libffi-dev
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
