@@ -28,8 +28,8 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Get build-essentials
-      run:
-        apt install -y build-essential gcc libffi
+      run: |
+        apt install -y build-essential gcc-10 libffi-dev
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
