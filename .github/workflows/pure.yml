@@ -26,6 +26,7 @@ jobs:
       CAKEMLDIR: ${{ github.workspace }}/cakeml
       CAKEDIR: ${{ github.workspace }}/cakeml # Remove this once issue #20 is resolved
       LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
+      PATH: $${{ github.workspace }}/HOL/bin:$PATH
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Get build-essentials
