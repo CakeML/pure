@@ -31,6 +31,9 @@ jobs:
       run: |
         apt update
         apt install -y build-essential gcc-10 libffi-dev
+    - name: Add /usr/local/lib to /etc/ld.so.conf
+      run: |
+        echo '/usr/local/lib' >> /etc/ld.so.conf
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
