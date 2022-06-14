@@ -28,9 +28,8 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Get build-essentials
-      uses: ConorMacBride/install-package@v1.0.0
-      with:
-        apt: build-essential gcc libffi
+      run:
+        apt install -y build-essential gcc libffi
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
