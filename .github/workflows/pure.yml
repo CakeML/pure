@@ -25,16 +25,13 @@ jobs:
       HOLDIR: ${{ github.workspace }}/HOL
       CAKEMLDIR: ${{ github.workspace }}/cakeml
       CAKEDIR: ${{ github.workspace }}/cakeml # Remove this once issue #20 is resolved
+      LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: Get build-essentials
       run: |
         apt update
         apt install -y build-essential gcc-10 libffi-dev
-    - name: Add /usr/local/lib to /etc/ld.so.conf
-      run: |
-        echo '/usr/local/lib' >> /etc/ld.so.conf
-        ldconfig -v
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
