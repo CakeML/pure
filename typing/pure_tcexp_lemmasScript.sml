@@ -89,7 +89,7 @@ Proof
     simp[subst_Apps] >> AP_TERM_TAC >>
     gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >> rw[MAP_EQ_f]
     )
-  >- (simp[subst_Lams] >> AP_TERM_TAC >> simp[FDIFF_FMAP_MAP2])
+  >- (simp[subst_Lams] >> simp[FDIFF_FMAP_MAP2])
   >- simp[DOMSUB_FMAP_MAP2]
   >- (
     rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
