@@ -84,6 +84,21 @@ Inductive exp_rel:
               (Lams (vL1 ++ s2::vL2) x2)
               (Let (SOME v1)
                   (Lams (vL1 ++ s::vL2) (Apps (Var v2) (MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2))) y2))) ∧
+(*[~Let_Lams_Force_Var2:]
+  (∀v1 v2 vL1 vL2 s s2 x1 x2 y1 y2.
+     v2 ∉ freevars y1 ∧ v2 ∉ boundvars y2 ∧
+     ALL_DISTINCT (vL1 ++ s::vL2) ∧
+     ¬MEM v2 (vL1 ++ s::vL2) ∧ ¬MEM s2 (vL1 ++ s::vL2) ∧
+     v2 ≠ v1 ∧ v2 ≠ s2 ∧ s ≠ s2 ∧
+     exp_rel x1 x2 ∧ exp_rel y1 y2 ⇒
+     exp_rel (Let (SOME v1)
+              (Lams (vL1 ++ s::vL2) (Let (SOME s2) (Force (Var s)) x1))
+              y1)
+             (Let (SOME v2)
+              (Lams (vL1 ++ s::s2::vL2) x2)
+              (Let (SOME v1)
+               (Lams (vL1 ++ s::vL2) (Apps (Var v2) (MAP Var vL1 ++ Var s::Tick (Force (Var s))::MAP Var vL2)))
+                 y2))) ∧*)
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      exp_rel x1 x2 ∧
@@ -125,6 +140,19 @@ Inductive exp_rel:
                                        (Apps (Value (Closure (HD (vL1++vL2++s2::vL3))
                                                               (Lams (TL (vL1++vL2++s2::vL3)) y)))
                                         (MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3))))) ∧
+(*[v_rel_Closure_Force_TL2:]
+  (∀eL1 eL2 vL1 vL2 vL3 s s2 x y.
+     ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
+     LENGTH vL1 = LENGTH eL1 ∧
+     LIST_REL v_rel eL1 eL2 ∧
+     exp_rel x y ⇒
+     v_rel (Closure (HD (SNOC s vL2))
+            (Lams (TL (vL2++s::vL3)) (subst (ZIP (vL1, eL1)) (Let (SOME s2) (Force (Var s)) x))))
+           (Closure (HD (SNOC s vL2)) (Lams (TL (vL2 ++ s::vL3))
+                                       (Apps (Value (Closure (HD (vL1++vL2++s::s2::vL3))
+                                                              (Lams (TL (vL1++vL2++s::s2::vL3)) y)))
+                                        (MAP Value eL2 ++ MAP Var vL2 ++
+                                           Var s::(Tick (Force (Var s)))::MAP Var vL3))))) ∧*)
 [v_rel_Closure_Force_HD:]
   (∀eL1 eL1' eL2 eL2' e e' vL1 vL2 vL3 s s2 x y.
      ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
@@ -140,6 +168,20 @@ Inductive exp_rel:
                                                               (Lams (TL (vL1++s2::vL2++vL3)) y)))
                                         (MAP Value eL1' ++ (Tick (Force (Value e')))::MAP Value eL2'
                                          ++ MAP Var vL3))))) ∧
+(*[v_rel_Closure_Force_HD2:]
+  (∀eL1 eL1' eL2 eL2' e e' vL1 vL2 vL3 s s2 x y.
+     ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
+     LENGTH vL1 = LENGTH eL1 ∧ LENGTH vL2 = LENGTH eL2 ∧
+     LIST_REL v_rel eL1 eL1' ∧ LIST_REL v_rel eL2 eL2' ∧ v_rel e e' ∧
+     vL3 ≠ [] ∧
+     exp_rel x y ⇒
+     v_rel (Closure (HD vL3)
+            (Lams (TL vL3) (subst (ZIP (vL1 ++ vL2, eL1 ++ eL2)) (Let (SOME s2) (Force (Value e)) x))))
+           (Closure (HD vL3) (Lams (TL vL3)
+                                       (Apps (Value (Closure (HD (vL1++s2::vL2++vL3))
+                                                              (Lams (TL (vL1++s::s2::vL2++vL3)) y)))
+                                        (MAP Value eL1' ++ Value e'::(Tick (Force (Value e')))::MAP Value eL2'
+                                         ++ MAP Var vL3))))) ∧*)
 [v_rel_Closure_Force_TL_Rec:]
   (∀eL1 eL2 vL1 vL2 vL3 s s2 x y xs ys v1 v2 i.
      ALL_DISTINCT (MAP FST xs) ∧
@@ -261,46 +303,6 @@ Theorem v_rel_def =
    “v_rel (DoTick x) v”]
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
   |> LIST_CONJ
-
-Theorem freevars_Lams:
-  ∀l e. freevars (Lams l e) = freevars e DIFF (set l)
-Proof
-  Induct >> gvs [freevars_def, DIFF_INTER_COMPL] >>
-  gvs [SET_EQ_SUBSET, SUBSET_DEF]
-QED
-
-Theorem subst_Lams:
-  ∀l e b. subst b (Lams l e) = Lams l (subst (FILTER (λ(v,e). ¬MEM v l) b) e)
-Proof
-  Induct >> gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T, FILTER_FILTER] >>
-  gvs [LAMBDA_PROD, CONJ_COMM]
-QED
-
-Theorem subst_Apps:
-  ∀l e b. subst b (Apps e l) = Apps (subst b e) (MAP (subst b) l)
-Proof
-  Induct >> gvs [subst_def]
-QED
-
-Theorem freevars_Apps:
-  ∀l e. freevars (Apps e l) = freevars e ∪ BIGUNION (set (MAP freevars l))
-Proof
-  Induct >> gvs [freevars_def, UNION_ASSOC]
-QED
-
-Theorem boundvars_Lams:
-  ∀l e. boundvars (Lams l e) = boundvars e ∪ (set l)
-Proof
-  Induct >> gvs [boundvars_def] >>
-  once_rewrite_tac [INSERT_SING_UNION] >>
-  rw [SET_EQ_SUBSET, SUBSET_DEF]
-QED
-
-Theorem boundvars_Apps:
-  ∀l e. boundvars (Apps e l) = boundvars e ∪ BIGUNION (set (MAP boundvars l))
-Proof
-  Induct >> gvs [boundvars_def, UNION_ASSOC]
-QED
 
 Theorem exp_rel_freevars:
   ∀x y. exp_rel x y ⇒ freevars x = freevars y
@@ -672,30 +674,6 @@ Proof
     \\ gs [exp_rel_MkTick])
 QED
 
-Theorem eval_to_Lams:
-  ∀(l : string list) k e. l ≠ [] ⇒ eval_to k (Lams l e) = INR (Closure (HD l) (Lams (TL l) e))
-Proof
-  Cases >> gvs [eval_to_def]
-QED
-
-Theorem subst_APPEND:
-  ∀e l1 l2. subst (l1 ++ l2) e = subst l1 (subst l2 e)
-Proof
-  Induct using freevars_ind >> gvs [subst_def, FILTER_APPEND]
-  >- (gvs [REVERSE_APPEND, ALOOKUP_APPEND] >>
-      rw [] >> CASE_TAC >> gvs [subst_def])
-  >- (rw [] >> irule LIST_EQ >>
-      rw [EL_MAP] >>
-      last_x_assum irule >> gvs [EL_MEM]) >>
-  rw []
-  >- (irule LIST_EQ >>
-      rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, EL_MAP] >>
-      pairarg_tac >> gvs [MEM_EL, PULL_EXISTS] >>
-      last_x_assum irule >>
-      first_x_assum $ irule_at Any >> gvs [])
-  >- rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-QED
-
 Theorem eval_to_Apps_Lams_not_0:
   ∀vL eL e k. vL ≠ [] ∧ LENGTH vL = LENGTH eL ∧ k ≠ 0 ⇒
               eval_to k (Apps (Value (Closure (HD vL) (Lams (TL vL) e)))
@@ -819,36 +797,6 @@ Proof
   \\ rw []
   \\ first_x_assum $ dxrule_then assume_tac
   \\ gvs []
-QED
-
-Theorem Lams_split:
-  ∀l e. l ≠ [] ⇒ Lams l e = Lam (HD l) (Lams (TL l) e)
-Proof
-  Cases >> gvs []
-QED
-
-Theorem subst_App:
-  ∀vs f e. subst vs (App f e) = App (subst vs f) (subst vs e)
-Proof
-  gvs [subst_def]
-QED
-
-Theorem subst_Force:
-  ∀vs e. subst vs (Force e) = Force (subst vs e)
-Proof
-  gvs [subst_def]
-QED
-
-Theorem subst_Tick:
-  ∀vs e. subst vs (Tick e) = Tick (subst vs e)
-Proof
-  gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
-QED
-
-Theorem subst_Var:
-  ∀vs s. subst vs (Var s) = case ALOOKUP (REVERSE vs) s of NONE => Var s | SOME x2 => Value x2
-Proof
-  gvs [subst_def]
 QED
 
 Theorem exp_rel_eval_to:

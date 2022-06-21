@@ -29,6 +29,50 @@ Proof
 QED
 
 (* -------------------------------------------------------------------------
+ * Lemmas about Lams and Apps
+ * ------------------------------------------------------------------------- *)
+
+Theorem freevars_Lams:
+  ∀l e. freevars (Lams l e) = freevars e DIFF (set l)
+Proof
+  Induct >> gvs [freevars_def, DIFF_INTER_COMPL] >>
+  gvs [SET_EQ_SUBSET, SUBSET_DEF]
+QED
+
+Theorem freevars_Apps:
+  ∀l e. freevars (Apps e l) = freevars e ∪ BIGUNION (set (MAP freevars l))
+Proof
+  Induct >> gvs [freevars_def, UNION_ASSOC]
+QED
+
+Theorem boundvars_Lams:
+  ∀l e. boundvars (Lams l e) = boundvars e ∪ (set l)
+Proof
+  Induct >> gvs [boundvars_def] >>
+  once_rewrite_tac [INSERT_SING_UNION] >>
+  rw [SET_EQ_SUBSET, SUBSET_DEF]
+QED
+
+Theorem boundvars_Apps:
+  ∀l e. boundvars (Apps e l) = boundvars e ∪ BIGUNION (set (MAP boundvars l))
+Proof
+  Induct >> gvs [boundvars_def, UNION_ASSOC]
+QED
+
+Theorem eval_to_Lams:
+  ∀(l : string list) k e. l ≠ [] ⇒ eval_to k (Lams l e) = INR (Closure (HD l) (Lams (TL l) e))
+Proof
+  Cases >> gvs [eval_to_def]
+QED
+
+Theorem Lams_split:
+  ∀l e. l ≠ [] ⇒ Lams l e = Lam (HD l) (Lams (TL l) e)
+Proof
+  Cases >> gvs []
+QED
+
+
+(* -------------------------------------------------------------------------
  * Alternative induction theorem for :exp
  * ------------------------------------------------------------------------- *)
 
@@ -181,6 +225,24 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
+Theorem subst_APPEND:
+  ∀e l1 l2. subst (l1 ++ l2) e = subst l1 (subst l2 e)
+Proof
+  Induct using freevars_ind >> gvs [subst_def, FILTER_APPEND]
+  >- (gvs [REVERSE_APPEND, ALOOKUP_APPEND] >>
+      rw [] >> CASE_TAC >> gvs [subst_def])
+  >- (rw [] >> irule LIST_EQ >>
+      rw [EL_MAP] >>
+      last_x_assum irule >> gvs [EL_MEM]) >>
+  rw []
+  >- (irule LIST_EQ >>
+      rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, EL_MAP] >>
+      pairarg_tac >> gvs [MEM_EL, PULL_EXISTS] >>
+      last_x_assum irule >>
+      first_x_assum $ irule_at Any >> gvs [])
+  >- rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+QED
+
 Theorem subst_remove:
   ∀vs x bvs.
     DISJOINT bvs (freevars x) ⇒
@@ -255,6 +317,14 @@ Theorem subst1_notin_frees =
   |> Q.SPECL [‘[n,v]’,‘x’,‘{n}’]
   |> SIMP_RULE (srw_ss()) [IN_DISJOINT]
   |> GSYM;
+
+Theorem subst_notin_frees:
+  ∀vs e. DISJOINT (set (MAP FST vs)) (freevars e) ⇒ subst vs e = e
+Proof
+  Induct >> gvs [subst_empty] >> Cases >>
+  once_rewrite_tac [CONS_APPEND] >> rw [subst_APPEND] >>
+  gvs [subst1_notin_frees]
+QED
 
 Theorem MEM_FST:
   ∀l p. MEM p l ⇒ MEM (FST p) (MAP FST l)
@@ -342,6 +412,43 @@ Proof
   \\ qmatch_asmsub_abbrev_tac ‘EL m l’
   \\ first_assum (irule_at (Pos (el 2)))
   \\ gs [Abbr ‘m’]
+QED
+
+Theorem subst_App:
+  ∀vs f e. subst vs (App f e) = App (subst vs f) (subst vs e)
+Proof
+  gvs [subst_def]
+QED
+
+Theorem subst_Force:
+  ∀vs e. subst vs (Force e) = Force (subst vs e)
+Proof
+  gvs [subst_def]
+QED
+
+Theorem subst_Tick:
+  ∀vs e. subst vs (Tick e) = Tick (subst vs e)
+Proof
+  gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
+QED
+
+Theorem subst_Var:
+  ∀vs s. subst vs (Var s) = case ALOOKUP (REVERSE vs) s of NONE => Var s | SOME x2 => Value x2
+Proof
+  gvs [subst_def]
+QED
+
+Theorem subst_Lams:
+  ∀l e b. subst b (Lams l e) = Lams l (subst (FILTER (λ(v,e). ¬MEM v l) b) e)
+Proof
+  Induct >> gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T, FILTER_FILTER] >>
+  gvs [LAMBDA_PROD, CONJ_COMM]
+QED
+
+Theorem subst_Apps:
+  ∀l e b. subst b (Apps e l) = Apps (subst b e) (MAP (subst b) l)
+Proof
+  Induct >> gvs [subst_def]
 QED
 
 (* -------------------------------------------------------------------------
