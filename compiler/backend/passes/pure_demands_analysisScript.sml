@@ -172,11 +172,11 @@ Definition demands_analysis_fun_def:
      let (m, e', fd) = demands_analysis_fun c e fds in
        let cases' = MAP (λ(name,args,ce).
                            (name, args,
-                            adds_demands a0
+                            add_all_demands a0
                                          (demands_analysis_fun
                                           (Unfold name n args (Bind n e c))
                                           ce
-                                          (empty compare)) args)) cases in
+                                          (empty compare)))) cases in
              (m, Case a0 e' n cases', NONE)) ∧
   (demands_analysis_fun c (NestedCase i _ _ _ _ _) fds =
    (empty compare,
@@ -247,8 +247,10 @@ Theorem demands_analysis_test_1:
                        Case 0
                             (Prim 0 (AtomOp Eq)
                              [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
-                            [(«True»,[],Var 0 «c»);
-                             («False»,[],Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»])]]))]
+                            [(«True»,[],Prim 0 Seq [Var 0 «c»; Var 0 «c»]);
+                             («False»,[],Prim 0 Seq [Var 0 «c»;
+                                         Prim 0 Seq [Var 0 «n»;
+                                                     Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]]])]]))]
                (Prim 0 Seq
                 [Var 0 «fact»;
                  App 0 (Var 0 «fact»)
