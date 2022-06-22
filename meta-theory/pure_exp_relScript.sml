@@ -1001,6 +1001,226 @@ Proof
     )
 QED
 
+Theorem eval_wh_Constructor_bisim:
+  eval_wh x = wh_Constructor n xs ∧ (x ≃ x1) b ⇒
+  ∃xs1. eval_wh x1 = wh_Constructor n xs1 ∧ LIST_REL (CURRY (app_bisimilarity b)) xs xs1
+Proof
+  simp [Once app_bisimilarity_iff] \\ rw []
+QED
+
+Theorem eval_wh_Closure_bisim:
+  eval_wh x = wh_Closure n y ∧ (x ≃ x1) b ⇒
+  ∃m y1. eval_wh x1 = wh_Closure m y1 ∧
+         ∀e. closed e ⇒ (subst1 n e y ≃ subst1 m e y1) b
+Proof
+  simp [Once app_bisimilarity_iff] \\ rw []
+QED
+
+Theorem eval_wh_Atom_bisim:
+  eval_wh x = wh_Atom a ∧ (x ≃ x1) b ⇒
+  eval_wh x1 = wh_Atom a
+Proof
+  simp [Once app_bisimilarity_iff] \\ rw []
+QED
+
+Theorem eval_wh_Error_bisim:
+  eval_wh x = wh_Error ∧ (x ≃ x1) T ⇒
+  eval_wh x1 = wh_Error
+Proof
+  simp [Once app_bisimilarity_iff] \\ rw []
+QED
+
+Theorem app_bisimilarity_sym:
+  ∀x y b. (x ≃ y) b ⇒ (y ≃ x) b
+Proof
+  assume_tac symmetric_app_bisimilarity
+  \\ fs [symmetric_def]
+QED
+
+Theorem app_bisimilarity_trans:
+  ∀x y z b. (x ≃ y) b ∧ (y ≃ z) b ⇒ (x ≃ z) b
+Proof
+  assume_tac transitive_app_bisimilarity
+  \\ fs [transitive_def,SF SFY_ss]
+QED
+
+Definition eval_forward_def:
+  eval_forward b rel ⇔
+    ∀k e1 e2.
+      rel e1 e2 ∧ closed e1 ∧ closed e2 ⇒
+      case eval_wh_to k e1 of
+        | wh_Constructor a xs =>
+            (∃ys. eval_wh e2 = wh_Constructor a ys ∧
+                  LIST_REL (λx y. ∃x1 y1. (x ≃ x1) b ∧ rel x1 y1 ∧ (y1 ≃ y) b) xs ys)
+        | wh_Closure v x =>
+           (∃w y. eval_wh e2 = wh_Closure w y ∧
+                  ∀e. closed e ⇒ ∃x1 y1. ((subst1 v e x) ≃ x1) b ∧
+                                         rel x1 y1 ∧
+                                         (y1 ≃ (subst1 w e y)) b)
+        | wh_Atom a => eval_wh e2 = wh_Atom a
+        | wh_Error => (b ⇒ eval_wh e2 = wh_Error)
+        | wh_Diverge => T
+End
+
+Theorem eval_forward_imp_bisim:
+  ∀rel x y b.
+    eval_forward b rel ∧
+    eval_forward b (λx y. rel y x) ∧
+    rel x y ∧ closed x ∧ closed y ⇒
+    (x ≃ y) b
+Proof
+  rw []
+  \\ qsuff_tac ‘∀x y.
+        (∃x1 y1. eval_forward b rel ∧
+                 eval_forward b (λx y. rel y x) ∧
+                 (x ≃ x1) b ∧ rel x1 y1 ∧ (y1 ≃ y) b ∧ closed x ∧ closed y) ⇒ (x ≃ y) b’
+  >-
+   (disch_then irule \\ fs []
+    \\ rpt $ irule_at Any reflexive_app_bisimilarity
+    \\ fs [])
+  \\ ho_match_mp_tac app_bisimilarity_coinduct
+  \\ Cases_on ‘eval_forward b rel’ \\ fs []
+  \\ fs [FF_def,EXISTS_PROD]
+  \\ fs [unfold_rel_def,opp_def,IN_DEF]
+  \\ rw [] \\ rw []
+  >-
+   (last_x_assum kall_tac
+    \\ drule_all eval_wh_Closure_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh x1 = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ drule_all eval_wh_Closure_bisim \\ strip_tac
+    \\ fs []
+    \\ rpt strip_tac
+    \\ rpt $ first_x_assum $ drule
+    \\ rw []
+    \\ first_x_assum $ irule_at $ Pos $ el 2
+    \\ imp_res_tac pure_eval_lemmasTheory.eval_wh_Closure_closed
+    \\ rpt $ irule_at Any pure_exp_lemmasTheory.closed_freevars_subst1
+    \\ fs []
+    \\ metis_tac [app_bisimilarity_trans])
+  >-
+   (last_x_assum kall_tac
+    \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
+    \\ fs []
+    \\ rename [‘LIST_REL _ zs1 zs2’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rename [‘LIST_REL _ zs3 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rename [‘LIST_REL _ zs4 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘zs3’
+    \\ qid_spec_tac ‘zs2’
+    \\ qid_spec_tac ‘zs4’
+    \\ Induct \\ fs [PULL_EXISTS,PULL_FORALL]
+    \\ rw []
+    \\ first_x_assum $ irule_at $ Pos $ el 2
+    \\ fs [app_bisimilarity_trans,SF SFY_ss]
+    \\ fs [app_bisimilarity_eq])
+  >-
+   (last_x_assum kall_tac
+    \\ drule_all eval_wh_Atom_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ drule_all eval_wh_Atom_bisim \\ strip_tac)
+  >-
+   (last_x_assum kall_tac
+    \\ drule_all eval_wh_Error_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ drule_all eval_wh_Error_bisim \\ strip_tac)
+  \\ qpat_x_assum ‘eval_forward _ _’ kall_tac
+  >-
+   (drule app_bisimilarity_sym \\ strip_tac
+    \\ drule_all eval_wh_Closure_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh y1 = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ ‘(x1 ≃ x') b’ by fs [app_bisimilarity_sym]
+    \\ drule_all eval_wh_Closure_bisim \\ strip_tac
+    \\ fs []
+    \\ rpt strip_tac
+    \\ rpt $ first_x_assum $ drule
+    \\ rw []
+    \\ first_x_assum $ irule_at $ Pos $ el 2
+    \\ imp_res_tac pure_eval_lemmasTheory.eval_wh_Closure_closed
+    \\ rpt $ irule_at Any pure_exp_lemmasTheory.closed_freevars_subst1
+    \\ fs []
+    \\ metis_tac [app_bisimilarity_sym,app_bisimilarity_trans])
+  >-
+   (drule app_bisimilarity_sym \\ strip_tac
+    \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ ‘(x1 ≃ x') b’ by fs [app_bisimilarity_sym]
+    \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
+    \\ fs []
+    \\ rename [‘LIST_REL _ zs1 zs2’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rename [‘LIST_REL _ zs3 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rename [‘LIST_REL _ zs4 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘zs3’
+    \\ qid_spec_tac ‘zs2’
+    \\ qid_spec_tac ‘zs4’
+    \\ Induct \\ fs [PULL_EXISTS,PULL_FORALL]
+    \\ rw [opp_def] \\ fs [opp_def]
+    >- metis_tac [app_bisimilarity_eq,app_bisimilarity_trans,app_bisimilarity_sym]
+    \\ first_x_assum irule \\ metis_tac [])
+  >-
+   (drule app_bisimilarity_sym \\ strip_tac
+    \\ drule_all eval_wh_Atom_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh y1 = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ ‘(x1 ≃ x') b’ by fs [app_bisimilarity_sym]
+    \\ drule_all eval_wh_Atom_bisim \\ strip_tac)
+  >-
+   (drule app_bisimilarity_sym \\ strip_tac
+    \\ drule_all eval_wh_Error_bisim \\ strip_tac
+    \\ fs [eval_forward_def]
+    \\ qpat_x_assum ‘eval_wh y1 = _’ mp_tac
+    \\ simp [Once eval_wh_eq] \\ strip_tac
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
+    \\ impl_tac >- fs [app_bisimilarity_eq]
+    \\ strip_tac
+    \\ ‘(x1 ≃ x') T’ by fs [app_bisimilarity_sym]
+    \\ drule_all eval_wh_Error_bisim \\ strip_tac)
+QED
+
 Theorem eval_IMP_exp_eq:
   (∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
        freevars x ⊆ FDOM f ∧ freevars y ⊆ FDOM f ⇒
@@ -1146,4 +1366,3 @@ QED
 (********************)
 
 val _ = export_theory();
-
