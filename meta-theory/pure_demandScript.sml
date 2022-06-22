@@ -8,19 +8,9 @@ open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_alpha_equivTheory pure_alpha_equivTheory;
+     pure_alpha_equivTheory pure_alpha_equivTheory pure_letrecTheory;
 
 val _ = new_theory "pure_demand";
-
-Theorem exp_eq_Letrec_cong3:
-  ∀binds1 binds2 e b.
-  ALL_DISTINCT (MAP FST binds1)
-  ∧ LIST_REL (λ(v1, e1) (v2, e2). v1 = v2 ∧ (Letrec binds1 e1 ≅? Letrec binds1 e2) b) binds1 binds2
-  ∧ LIST_REL (λ(v1, e1) (v2, e2). v1 = v2 ∧ (Letrec binds2 e1 ≅? Letrec binds2 e2) b) binds1 binds2
-  ⇒ (Letrec binds1 e ≅? Letrec binds2 e) b
-Proof
-  cheat
-QED
 
 (** begin ctxt **)
 
@@ -1731,7 +1721,7 @@ Proof
   Induct >> rw []
   >- (gvs [exp_eq_in_ctxt_def] >>
       irule exp_eq_trans >> first_x_assum $ irule_at Any >>
-      irule exp_eq_Letrec_cong3 >>
+      irule exp_eq_Letrec_change >>
       gvs [LIST_REL_EL_EQN] >> rw [] >>
       rename1 ‘n < _’ >>
       qabbrev_tac ‘p1 = EL n binds1’ >> PairCases_on ‘p1’ >>
@@ -2060,7 +2050,7 @@ Proof
   gvs [GSYM subst_subst1_UPDATE, exp_eq_refl]
 QED
 
-(*Theorem exp_eq_Letrec_cong3_lemma:
+(*Theorem exp_eq_Letrec_change_lemma:
   ∀bL bL' e e' b.
     LIST_REL (λ(v1, e1) (v2, e2). ((Letrec bL e1) ≅? (Letrec bL e2)) b) bL bL'
     ∧ MAP FST bL = MAP FST bL'
@@ -2145,7 +2135,7 @@ QED*)
     ⇒ exp_eq_in_ctxt c (Letrec b e) (Letrec b' e')
 Proof
   Induct >> gvs [exp_eq_in_ctxt_def]
-  >- gvs [exp_eq_Letrec_cong3]
+  >- gvs [exp_eq_Letrec_change]
 
   cheat
 QED*)
