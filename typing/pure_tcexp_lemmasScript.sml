@@ -57,9 +57,8 @@ Theorem freevars_exp_of:
 Proof
   recInduct freevars_tcexp_ind >> rw[exp_of_def] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Bottom_def, IMAGE_BIGUNION,
-      GSYM LIST_TO_SET_MAP, Cong MAP_CONG, IMAGE_DIFFDELETE,
-      freevars_rows_of]
-  >- simp[UNION_COMM]
+      GSYM LIST_TO_SET_MAP, IMAGE_DIFFDELETE, Cong MAP_CONG,
+      freevars_rows_of, AC UNION_COMM UNION_ASSOC]
   >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG]
   >- (
     Cases_on `css` >> gvs[] >>
