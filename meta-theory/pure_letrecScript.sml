@@ -12,7 +12,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 val _ = new_theory "pure_letrec";
 
 Inductive letrec_binds:
-  (* swap *)
+[~swap:]
   (∀b1 b2 x y.
     letrec_binds b1 b2 x y ⇒
     letrec_binds b1 b2 (Letrec b1 x) (Letrec b2 y)) ∧
@@ -38,10 +38,51 @@ Inductive letrec_binds:
     letrec_binds b1 b2 (Letrec xs x) (Letrec ys y))
 End
 
+Theorem letrec_binds_refl:
+  ∀x. letrec_binds b1 b2 x x
+Proof
+  ho_match_mp_tac freevars_ind
+  \\ rw [] \\ simp [Once letrec_binds_cases]
+  >- (Induct_on ‘es’ \\ fs [])
+  \\ disj2_tac
+  \\ Induct_on ‘lcs’ \\ fs [FORALL_PROD,SF DNF_ss]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
+Triviality LIST_REL_opp:
+  ∀xs ys. LIST_REL R xs ys ⇒ LIST_REL (λx y. R y x) ys xs
+Proof
+  Induct \\ fs [PULL_EXISTS]
+QED
+
+Theorem letrec_binds_opp:
+  letrec_binds binds2 binds1 = (λx y. letrec_binds binds1 binds2 y x)
+Proof
+  qsuff_tac ‘∀b2 b1 x y. letrec_binds b2 b1 x y ⇒ letrec_binds b1 b2 y x’
+  >- (rw [FUN_EQ_THM] \\ eq_tac \\ fs [])
+  \\ ho_match_mp_tac letrec_binds_ind \\ rw []
+  \\ simp [Once letrec_binds_cases]
+  \\ imp_res_tac LIST_REL_opp \\ fs [SF ETA_ss]
+QED
+
+Theorem eval_forward_letrec_binds:
+  ALL_DISTINCT (MAP FST binds2) ∧
+  MAP FST binds1 = MAP FST binds2 ∧
+  EVERY (λe. freevars e ⊆ set (MAP FST binds1)) (MAP SND binds1) ∧
+  EVERY (λe. freevars e ⊆ set (MAP FST binds2)) (MAP SND binds2) ∧
+  LIST_REL
+     (λ(v1,e1) (v2,e2). v1 = v2 ∧ (Letrec binds1 e1 ≃ Letrec binds1 e2) b)
+     binds1 binds2 ⇒
+  eval_forward b (letrec_binds binds1 binds2)
+Proof
+  cheat
+QED
+
 Theorem exp_eq_Letrec_change_lemma[local]:
   ∀binds1 binds2 e b.
     ALL_DISTINCT (MAP FST binds1) ∧
     MAP FST binds1 = MAP FST binds2 ∧
+    closed (Letrec binds1 e) ∧ closed (Letrec binds2 e) ∧
     LIST_REL (λ(v1, e1) (v2, e2).
       v1 = v2 ∧ (Letrec binds1 e1 ≃ Letrec binds1 e2) b) binds1 binds2 ∧
     LIST_REL (λ(v1, e1) (v2, e2).
@@ -49,7 +90,19 @@ Theorem exp_eq_Letrec_change_lemma[local]:
     ⇒
     (Letrec binds1 e ≃ Letrec binds2 e) b
 Proof
-  cheat
+  rw [] \\ irule eval_forward_imp_bisim \\ fs []
+  \\ qexists_tac ‘letrec_binds binds1 binds2’
+  \\ conj_tac
+  >- (irule letrec_binds_swap \\ fs [letrec_binds_refl])
+  \\ fs [GSYM letrec_binds_opp]
+  \\ irule_at Any eval_forward_letrec_binds
+  \\ irule_at Any eval_forward_letrec_binds
+  \\ fs []
+  \\ drule LIST_REL_opp \\ fs []
+  \\ fs [UNCURRY,LAMBDA_PROD]
+  \\ match_mp_tac LIST_REL_mono
+  \\ fs [FORALL_PROD]
+  \\ metis_tac [app_bisimilarity_sym]
 QED
 
 Triviality FST_LAM:
@@ -77,9 +130,13 @@ Theorem exp_eq_Letrec_change:
     ⇒
     (Letrec binds1 e ≅? Letrec binds2 e) b
 Proof
-  rw [exp_eq_def,bind_def] \\ rw [] \\ fs [subst_def]
+  rw [exp_eq_def]
+  \\ ‘closed (bind f (Letrec binds1 e)) ∧
+      closed (bind f (Letrec binds2 e))’ by
+   (rw [] \\ irule pure_exp_lemmasTheory.IMP_closed_bind \\ fs [])
+  \\ rw [bind_def] \\ fs [subst_def,bind_def] \\ fs [SF SFY_ss]
   \\ irule exp_eq_Letrec_change_lemma
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,GSYM FST_LAM]
+  \\ gs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,GSYM FST_LAM]
   \\ conj_tac
   >-
    (irule LIST_REL_MAP_CONG \\ fs []
