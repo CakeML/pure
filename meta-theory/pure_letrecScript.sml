@@ -71,11 +71,47 @@ Theorem eval_forward_letrec_binds:
   EVERY (λe. freevars e ⊆ set (MAP FST binds1)) (MAP SND binds1) ∧
   EVERY (λe. freevars e ⊆ set (MAP FST binds2)) (MAP SND binds2) ∧
   LIST_REL
-     (λ(v1,e1) (v2,e2). v1 = v2 ∧ (Letrec binds1 e1 ≃ Letrec binds1 e2) b)
+     (λ(v1,e1) (v2,e2). v1 = v2 ∧ (Letrec binds2 e1 ≃ Letrec binds2 e2) b)
      binds1 binds2 ⇒
   eval_forward b (letrec_binds binds1 binds2)
 Proof
-  cheat
+  rpt strip_tac
+  \\ fs [eval_forward_def]
+  \\ ho_match_mp_tac eval_wh_to_ind
+  \\ rpt strip_tac
+  >~ [‘letrec_binds _ _ (Var v)’] >- fs [eval_wh_to_def]
+  >~ [‘letrec_binds _ _ (Lam v x)’] >-
+   (fs [eval_wh_to_def]
+    \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
+    \\ simp [Once letrec_binds_cases] \\ strip_tac \\ gvs []
+    \\ fs [eval_wh_Lam] \\ rw []
+    \\ cheat)
+  >~ [‘letrec_binds _ _ (App e1 e2y)’] >- cheat
+  >~ [‘letrec_binds _ _ (Prim p xs)’] >- cheat
+  >~ [‘letrec_binds _ _ (Letrec bs x)’]
+  \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
+  \\ simp [Once letrec_binds_cases]
+  \\ reverse strip_tac \\ gvs []
+  >- cheat (* boring case *)
+  \\ rw [eval_wh_to_def] \\ gvs []
+  \\ rename [‘letrec_binds b1 b2’]
+  \\ fs [eval_wh_Letrec]
+  \\ last_x_assum irule \\ fs []
+  \\ conj_tac >-
+   (fs [subst_funs_def] \\ irule IMP_closed_bind
+    \\ fs [SUBSET_DEF,FDOM_FUPDATE_LIST,MAP_MAP_o,
+           combinTheory.o_DEF,UNCURRY,SF ETA_ss])
+  \\ ‘(Letrec b2 y ≃ subst_funs b2 y) b’ by
+   (irule eval_IMP_app_bisimilarity
+    \\ fs [eval_Letrec] \\ cheat)
+  \\ ‘∀e. (e ≃ e2) b ⇔ (e ≃ subst_funs b2 y) b’ by
+    metis_tac [app_bisimilarity_trans,app_bisimilarity_sym]
+  \\ fs []
+  \\ simp [subst_funs_def,bind_def]
+  \\ reverse IF_CASES_TAC >- cheat
+  \\ reverse IF_CASES_TAC >- cheat
+  \\ qexists_tac ‘subst (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) y’
+  \\ cheat
 QED
 
 Theorem exp_eq_Letrec_change_lemma[local]:
@@ -98,6 +134,7 @@ Proof
   \\ irule_at Any eval_forward_letrec_binds
   \\ irule_at Any eval_forward_letrec_binds
   \\ fs []
+  \\ pop_assum kall_tac
   \\ drule LIST_REL_opp \\ fs []
   \\ fs [UNCURRY,LAMBDA_PROD]
   \\ match_mp_tac LIST_REL_mono

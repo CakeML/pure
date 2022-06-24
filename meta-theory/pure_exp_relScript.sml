@@ -1046,8 +1046,8 @@ QED
 
 Definition eval_forward_def:
   eval_forward b rel ⇔
-    ∀k e1 e2.
-      rel e1 e2 ∧ closed e1 ∧ closed e2 ⇒
+    ∀k e1 e2' e2.
+      rel e1 e2' ∧ (e2' ≃ e2) b ∧ closed e1 ∧ closed e2 ⇒
       case eval_wh_to k e1 of
         | wh_Constructor a xs =>
             (∃ys. eval_wh e2 = wh_Constructor a ys ∧
@@ -1090,6 +1090,7 @@ Proof
     \\ qpat_x_assum ‘eval_wh x1 = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
@@ -1110,23 +1111,27 @@ Proof
     \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
     \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
     \\ fs []
-    \\ rename [‘LIST_REL _ zs1 zs2’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ rename [‘LIST_REL _ zs3 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ rename [‘LIST_REL _ zs4 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rename [‘LIST_REL _ xs ys ⇒
+                LIST_REL _ ys zs ⇒
+                LIST_REL _ xs ts ⇒ _’]
+    \\ qid_spec_tac ‘xs’
     \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘zs3’
-    \\ qid_spec_tac ‘zs2’
-    \\ qid_spec_tac ‘zs4’
+    \\ qid_spec_tac ‘zs’
+    \\ qid_spec_tac ‘ts’
     \\ Induct \\ fs [PULL_EXISTS,PULL_FORALL]
     \\ rw []
     \\ first_x_assum $ irule_at $ Pos $ el 2
     \\ fs [app_bisimilarity_trans,SF SFY_ss]
-    \\ fs [app_bisimilarity_eq])
+    \\ fs [app_bisimilarity_eq,PULL_EXISTS])
   >-
    (last_x_assum kall_tac
     \\ drule_all eval_wh_Atom_bisim \\ strip_tac
@@ -1134,6 +1139,7 @@ Proof
     \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
@@ -1145,6 +1151,7 @@ Proof
     \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
@@ -1157,6 +1164,8 @@ Proof
     \\ qpat_x_assum ‘eval_wh y1 = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ ‘(x1 ≃ x') b’ by imp_res_tac app_bisimilarity_sym
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
@@ -1178,19 +1187,24 @@ Proof
     \\ qpat_x_assum ‘eval_wh _ = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ ‘(x1 ≃ x') b’ by imp_res_tac app_bisimilarity_sym
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
     \\ ‘(x1 ≃ x') b’ by fs [app_bisimilarity_sym]
     \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
     \\ fs []
-    \\ rename [‘LIST_REL _ zs1 zs2’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ rename [‘LIST_REL _ zs3 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ rename [‘LIST_REL _ zs4 _’] \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rename [‘LIST_REL _ xs ys ⇒
+                LIST_REL _ ys zs ⇒
+                LIST_REL _ zs ts ⇒ _’]
+    \\ qid_spec_tac ‘xs’
     \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘zs3’
-    \\ qid_spec_tac ‘zs2’
-    \\ qid_spec_tac ‘zs4’
+    \\ qid_spec_tac ‘zs’
+    \\ qid_spec_tac ‘ts’
     \\ Induct \\ fs [PULL_EXISTS,PULL_FORALL]
     \\ rw [opp_def] \\ fs [opp_def]
     >- metis_tac [app_bisimilarity_eq,app_bisimilarity_trans,app_bisimilarity_sym]
@@ -1202,6 +1216,8 @@ Proof
     \\ qpat_x_assum ‘eval_wh y1 = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ ‘(x1 ≃ x') b’ by imp_res_tac app_bisimilarity_sym
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
@@ -1214,6 +1230,8 @@ Proof
     \\ qpat_x_assum ‘eval_wh y1 = _’ mp_tac
     \\ simp [Once eval_wh_eq] \\ strip_tac
     \\ last_x_assum drule \\ fs []
+    \\ ‘(x1 ≃ x') T’ by imp_res_tac app_bisimilarity_sym
+    \\ disch_then drule \\ fs []
     \\ disch_then (qspec_then ‘k’ mp_tac) \\ fs []
     \\ impl_tac >- fs [app_bisimilarity_eq]
     \\ strip_tac
