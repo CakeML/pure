@@ -11,7 +11,6 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 
 val _ = new_theory "pure_letrec";
 
-
 Inductive letrec_binds:
   (* swap *)
   (∀b1 b2 x y.
@@ -39,9 +38,38 @@ Inductive letrec_binds:
     letrec_binds b1 b2 (Letrec xs x) (Letrec ys y))
 End
 
+Theorem exp_eq_Letrec_change_lemma[local]:
+  ∀binds1 binds2 e b.
+    ALL_DISTINCT (MAP FST binds1) ∧
+    MAP FST binds1 = MAP FST binds2 ∧
+    LIST_REL (λ(v1, e1) (v2, e2).
+      v1 = v2 ∧ (Letrec binds1 e1 ≃ Letrec binds1 e2) b) binds1 binds2 ∧
+    LIST_REL (λ(v1, e1) (v2, e2).
+      v1 = v2 ∧ (Letrec binds2 e1 ≃ Letrec binds2 e2) b) binds1 binds2
+    ⇒
+    (Letrec binds1 e ≃ Letrec binds2 e) b
+Proof
+  cheat
+QED
+
+Triviality FST_LAM:
+  FST = λ(p1,p2). p1
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Triviality LIST_REL_MAP_CONG:
+  ∀xs ys R Q f.
+    (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ Q (f x) (f y)) ∧ LIST_REL R xs ys ⇒
+    LIST_REL Q (MAP f xs) (MAP f ys)
+Proof
+  Induct \\ fs [PULL_EXISTS] \\ metis_tac []
+QED
+
 Theorem exp_eq_Letrec_change:
   ∀binds1 binds2 e b.
     ALL_DISTINCT (MAP FST binds1) ∧
+    MAP FST binds1 = MAP FST binds2 ∧
     LIST_REL (λ(v1, e1) (v2, e2).
       v1 = v2 ∧ (Letrec binds1 e1 ≅? Letrec binds1 e2) b) binds1 binds2 ∧
     LIST_REL (λ(v1, e1) (v2, e2).
@@ -49,7 +77,34 @@ Theorem exp_eq_Letrec_change:
     ⇒
     (Letrec binds1 e ≅? Letrec binds2 e) b
 Proof
-  cheat
+  rw [exp_eq_def,bind_def] \\ rw [] \\ fs [subst_def]
+  \\ irule exp_eq_Letrec_change_lemma
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,GSYM FST_LAM]
+  \\ conj_tac
+  >-
+   (irule LIST_REL_MAP_CONG \\ fs []
+    \\ last_x_assum $ irule_at Any \\ fs [FORALL_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum $ qspec_then ‘f’ mp_tac
+    \\ asm_rewrite_tac []
+    \\ disch_then irule
+    \\ fs [SUBSET_DEF] \\ rw [] \\ fs [SF DNF_ss]
+    \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD,UNCURRY]
+    \\ res_tac
+    \\ PairCases_on ‘y’ \\ fs []
+    \\ res_tac)
+  >-
+   (irule LIST_REL_MAP_CONG \\ fs []
+    \\ first_x_assum $ irule_at Any \\ fs [FORALL_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum $ qspec_then ‘f’ mp_tac
+    \\ asm_rewrite_tac []
+    \\ disch_then irule
+    \\ fs [SUBSET_DEF] \\ rw [] \\ fs [SF DNF_ss]
+    \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD,UNCURRY]
+    \\ res_tac
+    \\ PairCases_on ‘y’ \\ fs []
+    \\ res_tac)
 QED
 
 val _ = export_theory();
