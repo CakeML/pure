@@ -155,8 +155,6 @@ Theorem subst_letrec_binds:
   ∀b1 b2 x y m1 m2.
     letrec_binds b1 b2 x y ∧
     FDOM m1 = FDOM m2 ∧
-    FDOM m1 SUBSET set (MAP FST b1) ∧
-    MAP FST b1 = MAP FST b2 ∧
     (∀k v1 v2.
       FLOOKUP m1 k = SOME v1 ∧ FLOOKUP m2 k = SOME v2 ⇒
       letrec_binds b1 b2 v1 v2) ⇒
@@ -175,7 +173,8 @@ Proof
       \\ rw [] \\ res_tac \\ fs []
       \\ metis_tac [])
     \\ irule pure_exp_lemmasTheory.subst_ignore
-    \\ CCONTR_TAC \\ gvs [IN_DISJOINT,EVERY_MEM,SUBSET_DEF])
+    \\ CCONTR_TAC \\ gvs [IN_DISJOINT,EVERY_MEM,SUBSET_DEF]
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ metis_tac [])
   >-
    (fs [subst_def] \\ rpt CASE_TAC \\ fs [letrec_binds_refl]
     \\ res_tac \\ fs [] \\ gvs [FLOOKUP_DEF])
@@ -270,9 +269,20 @@ Proof
    (fs [eval_wh_to_def]
     \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
     \\ simp [Once letrec_binds_cases] \\ strip_tac \\ gvs []
-    \\ fs [eval_wh_Lam] \\ rw []
+    \\ ‘eval_wh (Lam v y) = wh_Closure v y’ by fs [eval_wh_Lam]
+    \\ drule_all eval_wh_Closure_bisim
+    \\ strip_tac \\ fs []
+    \\ rw [] \\ first_x_assum drule
+    \\ disch_then $ irule_at Any
+    \\ irule_at Any reflexive_app_bisimilarity
+    \\ irule_at Any subst_letrec_binds
+    \\ fs [FLOOKUP_UPDATE,letrec_binds_refl]
+    \\ irule IMP_closed_subst \\ fs [])
+  >~ [‘letrec_binds _ _ (App e1 e2y)’] >-
+   (fs [eval_wh_to_def]
+    \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
+    \\ simp [Once letrec_binds_cases] \\ strip_tac \\ gvs []
     \\ cheat)
-  >~ [‘letrec_binds _ _ (App e1 e2y)’] >- cheat
   >~ [‘letrec_binds _ _ (Prim p xs)’] >- cheat
   >~ [‘letrec_binds _ _ (Letrec bs x)’]
   \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
