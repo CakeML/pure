@@ -250,6 +250,49 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Triviality EVERY_FLOOKUP_closed_lemma:
+  EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
+  (∀n v.
+     FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
+     closed v)
+Proof
+  fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ rw [] \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [MEM_MAP,EXISTS_PROD,EVERY_MEM,PULL_EXISTS]
+  \\ res_tac \\ fs []
+QED
+
+Triviality FORALL_FRANGE:
+  (∀x. x IN FRANGE v ⇒ p x) ⇔ ∀k x. FLOOKUP v k = SOME x ⇒ p x
+Proof
+  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+QED
+
+Theorem ALOOKUP_REVERSE_LIST_REL[local]:
+  ∀bs ys.
+    LIST_REL p (MAP SND bs) (MAP SND ys) ∧
+    MAP FST ys = MAP FST bs ∧
+    ALOOKUP (REVERSE (MAP (λ(g,x). (g,f x)) bs)) k' = SOME v1 ∧
+    ALOOKUP (REVERSE (MAP (λ(g,x). (g,h x)) ys)) k' = SOME v2 ⇒
+    ∃x y. p x y ∧ v1 = f x ∧ v2 = h y ∧ MEM x (MAP SND bs) ∧ MEM y (MAP SND ys)
+Proof
+  Induct using SNOC_INDUCT \\ fs [PULL_EXISTS]
+  \\ Cases \\ Cases using SNOC_CASES
+  \\ gvs [GSYM REVERSE_APPEND,MAP_SNOC,LIST_REL_SNOC,REVERSE_SNOC]
+  \\ rename [‘SND hh’] \\ PairCases_on ‘hh’ \\ fs []
+  \\ fs [AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem MEM_LIST_REL:
+  ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ metis_tac []
+QED
+
 Theorem eval_forward_letrec_binds:
   ALL_DISTINCT (MAP FST binds2) ∧
   MAP FST binds1 = MAP FST binds2 ∧
@@ -274,21 +317,92 @@ Proof
     \\ strip_tac \\ fs []
     \\ rw [] \\ first_x_assum drule
     \\ disch_then $ irule_at Any
-    \\ irule_at Any reflexive_app_bisimilarity
     \\ irule_at Any subst_letrec_binds
-    \\ fs [FLOOKUP_UPDATE,letrec_binds_refl]
-    \\ irule IMP_closed_subst \\ fs [])
+    \\ fs [FLOOKUP_UPDATE])
   >~ [‘letrec_binds _ _ (App e1 e2y)’] >-
    (fs [eval_wh_to_def]
     \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
     \\ simp [Once letrec_binds_cases] \\ strip_tac \\ gvs []
-    \\ cheat)
+    \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on ‘dest_wh_Closure (eval_wh_to k e1)’ \\ fs []
+    >-
+     (first_x_assum drule
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(g ≃ g) b ∧ closed g’ by
+       (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+        \\ fs [closed_def])
+      \\ disch_then drule_all
+      \\ rw [] \\ fs []
+      \\ ‘eval_wh g ≠ wh_Diverge ∧ dest_wh_Closure (eval_wh g) = NONE’ by
+        (every_case_tac \\ fs [])
+      \\ irule eval_wh_Error_bisim
+      \\ first_x_assum $ irule_at Any
+      \\ fs [eval_wh_App])
+    \\ PairCases_on ‘x’ \\ fs []
+    \\ rw [] \\ gvs []
+    \\ Cases_on ‘eval_wh_to k e1’ \\ gvs [dest_wh_Closure_def]
+    \\ first_x_assum drule \\ fs []
+    \\ imp_res_tac letrec_binds_freevars
+    \\ ‘(g ≃ g) b ∧ closed g’ by
+      (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+       \\ fs [closed_def])
+    \\ disch_then drule_all
+    \\ strip_tac \\ fs []
+    \\ rename [‘eval_wh g = wh_Closure v1 e1’]
+    \\ first_x_assum $ qspec_then ‘e2y’ mp_tac
+    \\ imp_res_tac letrec_binds_freevars
+    \\ ‘closed y’ by fs [closed_def]
+    \\ disch_then drule_all \\ strip_tac \\ gvs []
+    \\ fs [bind_def,FLOOKUP_DEF]
+    \\ first_x_assum drule
+    \\ disch_then irule
+    \\ irule_at Any IMP_closed_subst
+    \\ fs [FRANGE_DEF]
+    \\ irule_at Any pure_eval_lemmasTheory.eval_wh_Closure_closed
+    \\ drule eval_wh_to_IMP_eval_wh \\ fs [] \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ irule app_bisimilarity_trans
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ irule app_bisimilarity_trans
+    \\ first_x_assum $ irule_at $ Pos last \\ fs []
+    \\ irule eval_wh_IMP_app_bisimilarity
+    \\ irule_at Any IMP_closed_subst
+    \\ fs [FRANGE_DEF]
+    \\ irule_at Any pure_eval_lemmasTheory.eval_wh_Closure_closed
+    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ fs [eval_wh_App,bind_def,FLOOKUP_DEF])
   >~ [‘letrec_binds _ _ (Prim p xs)’] >- cheat
   >~ [‘letrec_binds _ _ (Letrec bs x)’]
   \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
   \\ simp [Once letrec_binds_cases]
   \\ reverse strip_tac \\ gvs []
-  >- cheat (* boring case *)
+  >-
+   (rw [eval_wh_to_def] \\ gvs [] \\ first_x_assum irule
+    \\ rename [‘(Letrec ys y ≃ e2) b’]
+    \\ irule_at Any app_bisimilarity_trans
+    \\ first_x_assum $ irule_at $ Pos $ el 2
+    \\ qexists_tac ‘subst_funs ys y’
+    \\ irule_at Any eval_wh_IMP_app_bisimilarity
+    \\ simp [eval_wh_Letrec] \\ gvs []
+    \\ fs [subst_funs_def,bind_def]
+    \\ ‘MAP FST ys = MAP FST bs’ by fs [] \\ fs []
+    \\ drule EVERY_FLOOKUP_closed_lemma \\ strip_tac
+    \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys)’ by
+     (fs [EVERY_MEM] \\ rw []
+      \\ drule_all MEM_LIST_REL \\ rw []
+      \\ imp_res_tac letrec_binds_freevars \\ fs []
+      \\ res_tac  \\ gvs [] \\ metis_tac [])
+    \\ imp_res_tac letrec_binds_freevars \\ fs []
+    \\ drule EVERY_FLOOKUP_closed_lemma  \\ strip_tac
+    \\ asm_rewrite_tac []
+    \\ rpt $ irule_at Any IMP_closed_subst
+    \\ gvs [] \\ irule_at Any subst_letrec_binds \\ gs [FORALL_FRANGE]
+    \\ asm_rewrite_tac []
+    \\ fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+    \\ fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ drule_all ALOOKUP_REVERSE_LIST_REL \\ strip_tac \\ gvs []
+    \\ simp [Once letrec_binds_cases] \\ disj2_tac \\ fs [])
   \\ rw [eval_wh_to_def] \\ gvs []
   \\ rename [‘letrec_binds b1 b2’]
   \\ fs [eval_wh_Letrec]
@@ -380,6 +494,7 @@ Theorem exp_eq_Letrec_change_lemma[local]:
 Proof
   rw [] \\ irule eval_forward_imp_bisim \\ fs []
   \\ qexists_tac ‘letrec_binds binds1 binds2’
+  \\ simp [letrec_binds_refl]
   \\ conj_tac
   >- (irule letrec_binds_swap \\ fs [letrec_binds_refl])
   \\ fs [GSYM letrec_binds_opp]

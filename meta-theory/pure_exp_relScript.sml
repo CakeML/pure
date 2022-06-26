@@ -891,6 +891,14 @@ Proof
   metis_tac[eval_eq_imp_app_similarity]
 QED
 
+Theorem eval_wh_IMP_app_bisimilarity:
+  eval_wh x = eval_wh y ∧ closed x ∧ closed y ⇒ (x ≃ y) b
+Proof
+  rw [] \\ irule eval_IMP_app_bisimilarity \\ fs []
+  \\ fs [eval_def]
+  \\ once_rewrite_tac [v_unfold] \\ fs []
+QED
+
 Theorem no_err_eval_IMP_app_bisimilarity:
   no_err_eval x = no_err_eval y ∧ closed x ∧ closed y ⇒ (x ≃ y) F
 Proof
@@ -1051,12 +1059,12 @@ Definition eval_forward_def:
       case eval_wh_to k e1 of
         | wh_Constructor a xs =>
             (∃ys. eval_wh e2 = wh_Constructor a ys ∧
-                  LIST_REL (λx y. ∃x1 y1. (x ≃ x1) b ∧ rel x1 y1 ∧ (y1 ≃ y) b) xs ys)
+                  LIST_REL (λx y. ∃y1. rel x y1 ∧ (y1 ≃ y) b) xs ys)
         | wh_Closure v x =>
            (∃w y. eval_wh e2 = wh_Closure w y ∧
-                  ∀e. closed e ⇒ ∃x1 y1. ((subst1 v e x) ≃ x1) b ∧
-                                         rel x1 y1 ∧
-                                         (y1 ≃ (subst1 w e y)) b)
+                  ∀a1 a2.
+                    closed a1 ∧ closed a2 ∧ rel a1 a2 ⇒
+                    ∃y1. rel (subst1 v a1 x) y1 ∧ (y1 ≃ (subst1 w a2 y)) b)
         | wh_Atom a => eval_wh e2 = wh_Atom a
         | wh_Error => (b ⇒ eval_wh e2 = wh_Error)
         | wh_Diverge => T
@@ -1066,7 +1074,7 @@ Theorem eval_forward_imp_bisim:
   ∀rel x y b.
     eval_forward b rel ∧
     eval_forward b (λx y. rel y x) ∧
-    rel x y ∧ closed x ∧ closed y ⇒
+    rel x y ∧ closed x ∧ closed y ∧ (∀x. rel x x) ⇒
     (x ≃ y) b
 Proof
   rw []
@@ -1099,11 +1107,12 @@ Proof
     \\ rpt strip_tac
     \\ rpt $ first_x_assum $ drule
     \\ rw []
+    \\ rpt $ first_x_assum $ drule
+    \\ impl_tac >- simp [] \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos $ el 2
     \\ imp_res_tac pure_eval_lemmasTheory.eval_wh_Closure_closed
     \\ rpt $ irule_at Any pure_exp_lemmasTheory.closed_freevars_subst1
-    \\ fs []
-    \\ metis_tac [app_bisimilarity_trans])
+    \\ fs [])
   >-
    (last_x_assum kall_tac
     \\ drule_all eval_wh_Constructor_bisim \\ strip_tac
@@ -1175,6 +1184,8 @@ Proof
     \\ rpt strip_tac
     \\ rpt $ first_x_assum $ drule
     \\ rw []
+    \\ rpt $ first_x_assum $ drule
+    \\ impl_tac >- simp [] \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos $ el 2
     \\ imp_res_tac pure_eval_lemmasTheory.eval_wh_Closure_closed
     \\ rpt $ irule_at Any pure_exp_lemmasTheory.closed_freevars_subst1

@@ -267,6 +267,13 @@ Proof
     \\ match_mp_tac eval_wh_to_agree \\ fs [])
 QED
 
+Theorem eval_wh_to_IMP_eval_wh:
+  eval_wh_to k e = v ∧ v ≠ wh_Diverge ⇒ eval_wh e = v
+Proof
+  strip_tac \\ gvs [eval_wh_eq]
+  \\ qexists_tac ‘k’ \\ fs []
+QED
+
 Theorem eval_wh_Bottom:
   eval_wh Bottom = wh_Diverge
 Proof
