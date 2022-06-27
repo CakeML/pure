@@ -293,6 +293,34 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem MEM_LIST_REL1:
+  ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem LIST_REL_COMP:
+  ∀xs ys zs.
+    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
+    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Triviality eval_wh_Constructor_NIL_bisim =
+  eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
+
+Triviality LIST_REL_IMP_MAP_EQ:
+  ∀xs ys P f g.
+    (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
+    LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
+Proof
+  Induct \\ fs [PULL_EXISTS,SF DNF_ss] \\ metis_tac []
+QED
+
 Theorem eval_forward_letrec_binds:
   ALL_DISTINCT (MAP FST binds2) ∧
   MAP FST binds1 = MAP FST binds2 ∧
@@ -371,113 +399,394 @@ Proof
     \\ irule_at Any pure_eval_lemmasTheory.eval_wh_Closure_closed
     \\ first_assum $ irule_at $ Pos hd \\ fs []
     \\ fs [eval_wh_App,bind_def,FLOOKUP_DEF])
-  >~ [‘letrec_binds _ _ (Prim p xs)’] >- cheat
-  >~ [‘letrec_binds _ _ (Letrec bs x)’]
-  \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
-  \\ simp [Once letrec_binds_cases]
-  \\ reverse strip_tac \\ gvs []
-  >-
-   (rw [eval_wh_to_def] \\ gvs [] \\ first_x_assum irule
-    \\ rename [‘(Letrec ys y ≃ e2) b’]
-    \\ irule_at Any app_bisimilarity_trans
-    \\ first_x_assum $ irule_at $ Pos $ el 2
-    \\ qexists_tac ‘subst_funs ys y’
-    \\ irule_at Any eval_wh_IMP_app_bisimilarity
-    \\ simp [eval_wh_Letrec] \\ gvs []
-    \\ fs [subst_funs_def,bind_def]
-    \\ ‘MAP FST ys = MAP FST bs’ by fs [] \\ fs []
-    \\ drule EVERY_FLOOKUP_closed_lemma \\ strip_tac
-    \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys)’ by
-     (fs [EVERY_MEM] \\ rw []
-      \\ drule_all MEM_LIST_REL \\ rw []
+  >~ [‘letrec_binds _ _ (Letrec bs x)’] >-
+   (qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
+    \\ simp [Once letrec_binds_cases]
+    \\ reverse strip_tac \\ gvs []
+    >-
+     (rw [eval_wh_to_def] \\ gvs [] \\ first_x_assum irule
+      \\ rename [‘(Letrec ys y ≃ e2) b’]
+      \\ irule_at Any app_bisimilarity_trans
+      \\ first_x_assum $ irule_at $ Pos $ el 2
+      \\ qexists_tac ‘subst_funs ys y’
+      \\ irule_at Any eval_wh_IMP_app_bisimilarity
+      \\ simp [eval_wh_Letrec] \\ gvs []
+      \\ fs [subst_funs_def,bind_def]
+      \\ ‘MAP FST ys = MAP FST bs’ by fs [] \\ fs []
+      \\ drule EVERY_FLOOKUP_closed_lemma \\ strip_tac
+      \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys)’ by
+        (fs [EVERY_MEM] \\ rw []
+         \\ drule_all MEM_LIST_REL \\ rw []
+         \\ imp_res_tac letrec_binds_freevars \\ fs []
+         \\ res_tac  \\ gvs [] \\ metis_tac [])
       \\ imp_res_tac letrec_binds_freevars \\ fs []
-      \\ res_tac  \\ gvs [] \\ metis_tac [])
-    \\ imp_res_tac letrec_binds_freevars \\ fs []
-    \\ drule EVERY_FLOOKUP_closed_lemma  \\ strip_tac
-    \\ asm_rewrite_tac []
+      \\ drule EVERY_FLOOKUP_closed_lemma  \\ strip_tac
+      \\ asm_rewrite_tac []
+      \\ rpt $ irule_at Any IMP_closed_subst
+      \\ gvs [] \\ irule_at Any subst_letrec_binds \\ gs [FORALL_FRANGE]
+      \\ asm_rewrite_tac []
+      \\ fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+      \\ fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
+      \\ rpt strip_tac
+      \\ drule_all ALOOKUP_REVERSE_LIST_REL \\ strip_tac \\ gvs []
+      \\ simp [Once letrec_binds_cases] \\ disj2_tac \\ fs [])
+    \\ rw [eval_wh_to_def] \\ gvs []
+    \\ rename [‘letrec_binds b1 b2’]
+    \\ fs [eval_wh_Letrec]
+    \\ last_x_assum irule \\ fs []
+    \\ conj_tac >-
+     (fs [subst_funs_def] \\ irule IMP_closed_bind
+      \\ fs [SUBSET_DEF,FDOM_FUPDATE_LIST,MAP_MAP_o,
+             combinTheory.o_DEF,UNCURRY,SF ETA_ss])
+    \\ ‘(Letrec b2 y ≃ subst_funs b2 y) b’ by
+      (irule eval_IMP_app_bisimilarity
+       \\ imp_res_tac letrec_binds_freevars
+       \\ fs [eval_Letrec]
+       \\ rw [subst_funs_def,bind_def]
+       \\ rpt $ irule_at Any IMP_closed_subst
+       \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+       \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+       \\ rw []
+       \\ imp_res_tac ALOOKUP_MEM
+       \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
+       \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM])
+    \\ ‘∀e. (e ≃ e2) b ⇔ (e ≃ subst_funs b2 y) b’ by
+      metis_tac [app_bisimilarity_trans,app_bisimilarity_sym]
+    \\ fs []
+    \\ simp [subst_funs_def,bind_def]
+    \\ reverse IF_CASES_TAC >-
+     (fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+      \\ gvs [AllCaseEqs()]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
+      \\ gvs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]
+      \\ res_tac \\ fs [])
+    \\ reverse IF_CASES_TAC >-
+     (fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+      \\ gvs [AllCaseEqs()]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
+      \\ gvs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]
+      \\ res_tac \\ fs [])
+    \\ qexists_tac ‘subst (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) y’
+    \\ simp [app_bisimilarity_eq]
     \\ rpt $ irule_at Any IMP_closed_subst
-    \\ gvs [] \\ irule_at Any subst_letrec_binds \\ gs [FORALL_FRANGE]
-    \\ asm_rewrite_tac []
-    \\ fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
-    \\ fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
-    \\ rpt strip_tac
-    \\ drule_all ALOOKUP_REVERSE_LIST_REL \\ strip_tac \\ gvs []
-    \\ simp [Once letrec_binds_cases] \\ disj2_tac \\ fs [])
-  \\ rw [eval_wh_to_def] \\ gvs []
-  \\ rename [‘letrec_binds b1 b2’]
-  \\ fs [eval_wh_Letrec]
-  \\ last_x_assum irule \\ fs []
-  \\ conj_tac >-
-   (fs [subst_funs_def] \\ irule IMP_closed_bind
-    \\ fs [SUBSET_DEF,FDOM_FUPDATE_LIST,MAP_MAP_o,
-           combinTheory.o_DEF,UNCURRY,SF ETA_ss])
-  \\ ‘(Letrec b2 y ≃ subst_funs b2 y) b’ by
-   (irule eval_IMP_app_bisimilarity
+    \\ irule_at Any subst_letrec_binds
+    \\ irule_at Any subst_exp_eq
     \\ imp_res_tac letrec_binds_freevars
-    \\ fs [eval_Letrec]
-    \\ rw [subst_funs_def,bind_def]
-    \\ rpt $ irule_at Any IMP_closed_subst
     \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
     \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
     \\ rw []
     \\ imp_res_tac ALOOKUP_MEM
     \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
-    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM])
-  \\ ‘∀e. (e ≃ e2) b ⇔ (e ≃ subst_funs b2 y) b’ by
-    metis_tac [app_bisimilarity_trans,app_bisimilarity_sym]
-  \\ fs []
-  \\ simp [subst_funs_def,bind_def]
-  \\ reverse IF_CASES_TAC >-
-   (fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
-    \\ gvs [AllCaseEqs()]
-    \\ imp_res_tac ALOOKUP_MEM
-    \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
-    \\ gvs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]
-    \\ res_tac \\ fs [])
-  \\ reverse IF_CASES_TAC >-
-   (fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
-    \\ gvs [AllCaseEqs()]
-    \\ imp_res_tac ALOOKUP_MEM
-    \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
-    \\ gvs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]
-    \\ res_tac \\ fs [])
-  \\ qexists_tac ‘subst (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) y’
-  \\ simp [app_bisimilarity_eq]
-  \\ rpt $ irule_at Any IMP_closed_subst
-  \\ irule_at Any subst_letrec_binds
-  \\ irule_at Any subst_exp_eq
-  \\ imp_res_tac letrec_binds_freevars
-  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
-  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
-  \\ rw []
-  \\ imp_res_tac ALOOKUP_MEM
-  \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
-  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]
-  \\ res_tac \\ gvs []
-  >-
-   (rename [‘(ll _ ≃ _) _’]
-    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ qpat_x_assum ‘MEM _ b2’ mp_tac
-    \\ qpat_x_assum ‘MEM _ b1’ mp_tac
-    \\ last_x_assum mp_tac
-    \\ last_x_assum mp_tac
-    \\ rename [‘MEM (kk,p_2) b2 ⇒ MEM (kk,p_1) b1 ⇒ _’]
-    \\ qid_spec_tac ‘p_1’
-    \\ qid_spec_tac ‘p_2’
-    \\ qid_spec_tac ‘b1’
-    \\ qid_spec_tac ‘b2’
-    \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,SF DNF_ss]
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]
+    \\ res_tac \\ gvs []
+    >-
+     (rename [‘(ll _ ≃ _) _’]
+      \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ qpat_x_assum ‘MEM _ b2’ mp_tac
+      \\ qpat_x_assum ‘MEM _ b1’ mp_tac
+      \\ last_x_assum mp_tac
+      \\ last_x_assum mp_tac
+      \\ rename [‘MEM (kk,p_2) b2 ⇒ MEM (kk,p_1) b1 ⇒ _’]
+      \\ qid_spec_tac ‘p_1’
+      \\ qid_spec_tac ‘p_2’
+      \\ qid_spec_tac ‘b1’
+      \\ qid_spec_tac ‘b2’
+      \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,SF DNF_ss]
+      \\ rw []
+      >- (fs [MEM_MAP,EXISTS_PROD] \\ gvs [])
+      \\ first_x_assum irule \\ fs []
+      \\ ‘MEM kk (MAP FST b2')’ by (simp_tac std_ss [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+      \\ gvs [] \\ metis_tac [])
+    \\ ‘p_2 = p_2'’ by metis_tac [MEM_IMP_EQ]
     \\ rw []
-    >- (fs [MEM_MAP,EXISTS_PROD] \\ gvs [])
-    \\ first_x_assum irule \\ fs []
-    \\ ‘MEM kk (MAP FST b2')’ by (simp_tac std_ss [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
-    \\ gvs [] \\ metis_tac [])
-  \\ ‘p_2 = p_2'’ by metis_tac [MEM_IMP_EQ]
-  \\ rw []
-  \\ irule letrec_binds_swap
-  \\ fs []
-  \\ res_tac \\ fs [letrec_binds_refl]
-  \\ fs [EVERY_MEM,EXISTS_PROD,MEM_MAP]
+    \\ irule letrec_binds_swap
+    \\ fs []
+    \\ res_tac \\ fs [letrec_binds_refl]
+    \\ fs [EVERY_MEM,EXISTS_PROD,MEM_MAP])
+  >~ [‘letrec_binds _ _ (Prim p xs)’]
+  \\ qpat_x_assum ‘letrec_binds _ _ _ _’ mp_tac
+  \\ simp [Once letrec_binds_cases]
+  \\ reverse strip_tac \\ gvs []
+  \\ Cases_on ‘p’ \\ fs []
+  >~ [‘Cons s xs’] >-
+   (rw [eval_wh_to_def]
+    \\ ‘eval_wh (Cons s ys) = wh_Constructor s ys’ by fs [eval_wh_Cons]
+    \\ drule_all eval_wh_Constructor_bisim \\ strip_tac \\ fs []
+    \\ drule_then drule LIST_REL_COMP
+    \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >~ [‘If’] >-
+   (fs [eval_wh_to_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (rw []
+      \\ drule_at Any eval_wh_Error_bisim
+      \\ fs [eval_wh_Prim,AllCaseEqs()]
+      \\ disch_then irule
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ Cases_on ‘ys’ \\ fs []
+      \\ rpt (Cases_on ‘t’ \\ fs [] \\ Cases_on ‘t'’ \\ fs []))
+    \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ IF_CASES_TAC \\ fs [SF DNF_ss]
+    \\ reverse (Cases_on ‘∃s. eval_wh_to (k − 1) h = wh_Constructor s []’ \\ fs [])
+    >-
+     (Cases_on ‘eval_wh_to (k − 1) h’ \\ gvs [] \\ rw []
+      \\ irule eval_wh_Error_bisim
+      \\ last_x_assum $ irule_at Any
+      \\ qpat_x_assum ‘letrec_binds binds1 binds2 h y’ assume_tac
+      \\ first_x_assum drule
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) T ∧ closed y’ by
+       (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+        \\ fs [closed_def])
+      \\ disch_then drule \\ fs [] \\ strip_tac
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ fs [eval_wh_If]
+      \\ rw [] \\ gvs [])
+    \\ qpat_x_assum ‘letrec_binds binds1 binds2 h y’ assume_tac
+    \\ first_assum drule
+    \\ imp_res_tac letrec_binds_freevars
+    \\ ‘(y ≃ y) b ∧ closed y’ by
+      (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+       \\ fs [closed_def])
+    \\ disch_then drule \\ fs [] \\ strip_tac
+    \\ reverse (rw []) \\ fs []
+    >-
+     (irule eval_wh_Error_bisim
+      \\ last_x_assum $ irule_at Any
+      \\ fs [eval_wh_If])
+    \\ rename [‘eval_wh_to (k − 1) h2’]
+    \\ qpat_x_assum ‘letrec_binds binds1 binds2 h2 _’ assume_tac
+    \\ first_x_assum drule
+    \\ disch_then irule \\ fs []
+    \\ irule app_bisimilarity_trans
+    \\ first_x_assum $ irule_at Any \\ fs []
+    \\ irule eval_wh_IMP_app_bisimilarity
+    \\ fs [closed_def,eval_wh_If])
+  >~ [‘Seq’] >-
+   (fs [eval_wh_to_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (rw []
+      \\ drule_at Any eval_wh_Error_bisim
+      \\ fs [eval_wh_Prim,AllCaseEqs()]
+      \\ disch_then irule
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ Cases_on ‘ys’ \\ fs []
+      \\ rpt (Cases_on ‘t’ \\ fs [] \\ Cases_on ‘t'’ \\ fs []))
+    \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘k=0’ \\ fs [SF DNF_ss]
+    \\ Cases_on ‘eval_wh_to (k − 1) h = wh_Diverge’ \\ fs []
+    \\ Cases_on ‘eval_wh_to (k − 1) h = wh_Error’ \\ gvs []
+    >-
+     (rw [] \\ qpat_x_assum ‘letrec_binds binds1 binds2 h y’ assume_tac
+      \\ first_x_assum drule
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) T ∧ closed y’ by
+       (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+        \\ fs [closed_def])
+      \\ disch_then drule \\ fs [] \\ strip_tac
+      \\ irule eval_wh_Error_bisim
+      \\ first_x_assum $ irule_at $ Pos $ last
+      \\ fs [eval_wh_Seq])
+    \\ imp_res_tac letrec_binds_freevars
+    \\ first_assum irule \\ fs []
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ irule app_bisimilarity_trans
+    \\ first_x_assum $ irule_at $ Pos last \\ fs []
+    \\ irule eval_wh_IMP_app_bisimilarity
+    \\ fs [closed_def,eval_wh_Seq,AllCaseEqs()]
+    \\ qsuff_tac ‘eval_wh y ≠ wh_Error ∧ eval_wh y ≠ wh_Diverge’
+    \\ fs []
+    \\ first_x_assum drule
+    \\ ‘(y ≃ y) b ∧ closed y’ by
+      (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+       \\ fs [closed_def])
+    \\ disch_then drule \\ fs [] \\ strip_tac
+    \\ Cases_on ‘eval_wh_to (k − 1) h’ \\ fs [])
+  >~ [‘IsEq cname arity onoff’] >-
+   (fs [eval_wh_to_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (rw []
+      \\ drule_at Any eval_wh_Error_bisim
+      \\ fs [eval_wh_Prim,AllCaseEqs()]
+      \\ disch_then irule
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ Cases_on ‘ys’ \\ fs []
+      \\ rpt (Cases_on ‘t’ \\ fs [] \\ Cases_on ‘t'’ \\ fs []))
+    \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘k=0’ \\ fs [SF DNF_ss]
+    \\ reverse (Cases_on ‘∃s xs. eval_wh_to (k − 1) h = wh_Constructor s xs ∧
+                   ~is_eq_fail onoff s ∧ (s = cname ⇒ arity = LENGTH xs)’ \\ fs [])
+    >-
+     (Cases_on ‘eval_wh_to (k − 1) h’ \\ gvs [] \\ rw []
+      \\ irule eval_wh_Error_bisim
+      \\ last_x_assum $ irule_at Any
+      \\ qpat_x_assum ‘letrec_binds binds1 binds2 h y’ assume_tac
+      \\ first_x_assum drule
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) T ∧ closed y’ by
+       (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+        \\ fs [closed_def])
+      \\ disch_then drule \\ fs [] \\ strip_tac
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ fs [eval_wh_Prim])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ first_assum drule
+    \\ imp_res_tac letrec_binds_freevars
+    \\ ‘(y ≃ y) b ∧ closed y’ by
+      (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+       \\ fs [closed_def])
+    \\ disch_then drule \\ fs [] \\ strip_tac
+    \\ irule eval_wh_Constructor_NIL_bisim
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ fs [eval_wh_IsEq])
+  >~ [‘Proj cname i’] >-
+   (fs [eval_wh_to_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (rw []
+      \\ drule_at Any eval_wh_Error_bisim
+      \\ fs [eval_wh_Prim,AllCaseEqs()]
+      \\ disch_then irule
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ Cases_on ‘ys’ \\ fs []
+      \\ Cases_on ‘t’ \\ fs [])
+    \\ fs [] \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ Cases_on ‘k=0’ \\ fs [SF DNF_ss]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ reverse (Cases_on ‘∃s xs. eval_wh_to (k − 1) h = wh_Constructor s xs ∧
+                                 s = cname ∧ i < LENGTH xs’ \\ fs [])
+    >-
+     (Cases_on ‘eval_wh_to (k − 1) h’ \\ gvs [] \\ rw []
+      \\ irule eval_wh_Error_bisim
+      \\ last_x_assum $ irule_at Any
+      \\ qpat_x_assum ‘letrec_binds binds1 binds2 h y’ assume_tac
+      \\ first_x_assum drule
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) T ∧ closed y’ by
+       (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+        \\ fs [closed_def])
+      \\ disch_then drule \\ fs [] \\ strip_tac
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ fs [eval_wh_Prim] \\ rw [] \\ fs [])
+    \\ first_assum irule \\ fs []
+    \\ last_x_assum drule \\ fs []
+    \\ imp_res_tac letrec_binds_freevars
+    \\ ‘(y ≃ y) b ∧ closed y’ by
+      (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+       \\ fs [closed_def])
+    \\ disch_then drule \\ fs [] \\ strip_tac
+    \\ fs [LIST_REL_EL_EQN]
+    \\ gvs []
+    \\ pop_assum drule \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ irule_at Any app_bisimilarity_trans
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ irule_at Any app_bisimilarity_trans
+    \\ first_x_assum $ irule_at $ Pos $ el 2 \\ fs []
+    \\ irule_at Any eval_wh_IMP_app_bisimilarity
+    \\ fs [eval_wh_Proj]
+    \\ dxrule eval_wh_freevars_SUBSET
+    \\ dxrule eval_wh_to_freevars_SUBSET
+    \\ fs [PULL_EXISTS,MEM_MAP,closed_def,EXTENSION]
+    \\ fs [MEM_EL]
+    \\ metis_tac [])
+  >~ [‘AtomOp a’] >-
+   (fs [eval_wh_to_def]
+    \\ Cases_on ‘get_atoms (MAP (if k = 0 then K wh_Diverge else
+                                   (λa. eval_wh_to (k − 1) a)) xs)’ \\ fs []
+    \\ Cases_on ‘x’ \\ fs []
+    >-
+     (rw []
+      \\ fs [get_atoms_def,AllCaseEqs(),EXISTS_MEM]
+      \\ gvs [MEM_MAP]
+      \\ Cases_on ‘k=0’ \\ gvs [error_Atom_def]
+      \\ first_x_assum drule
+      \\ drule_all MEM_LIST_REL1 \\ strip_tac
+      \\ disch_then drule
+      \\ rename [‘letrec_binds binds1 binds2 x y’]
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) T ∧ closed y ∧ closed x’ by
+        (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+         \\ fs [closed_def,EVERY_MEM] \\ res_tac \\ fs [])
+      \\ disch_then drule \\ fs [] \\ strip_tac
+      \\ Cases_on ‘eval_wh_to (k − 1) x’ \\ gvs [error_Atom_def]
+      \\ irule eval_wh_Error_bisim
+      \\ last_x_assum $ irule_at Any
+      \\ fs [eval_wh_Prim,get_atoms_def]
+      \\ qsuff_tac ‘EXISTS error_Atom (MAP eval_wh ys)’ >- fs []
+      \\ fs [EXISTS_MEM,MEM_MAP,PULL_EXISTS]
+      \\ first_x_assum $ irule_at Any
+      \\ fs [])
+    \\ rename [‘eval_op a atoms’]
+    \\ qsuff_tac ‘get_atoms (MAP eval_wh ys) = SOME (SOME atoms)’
+    >-
+     (rw []
+      \\ Cases_on ‘eval_op a atoms’ \\ fs []
+      >-
+       (rw [] \\ irule eval_wh_Error_bisim
+        \\ last_x_assum $ irule_at Any
+        \\ gvs [eval_wh_Prim])
+      \\ Cases_on ‘x’ \\ fs []
+      >-
+       (rw [] \\ irule eval_wh_Atom_bisim
+        \\ last_x_assum $ irule_at Any
+        \\ gvs [eval_wh_Prim])
+      \\ Cases_on ‘y’ \\ fs []
+      \\ rw [] \\ irule eval_wh_Constructor_NIL_bisim
+      \\ last_x_assum $ irule_at Any
+      \\ gvs [eval_wh_Prim])
+    \\ fs [get_atoms_def,AllCaseEqs()]
+    \\ gvs []
+    \\ Cases_on ‘xs = []’ >- gvs []
+    \\ Cases_on ‘k = 0’ >- (Cases_on ‘xs’ \\ fs [])
+    \\ gvs [MEM_MAP]
+    \\ rw []
+    >-
+     (fs [EVERY_MEM,MEM_MAP] \\ rw []
+      \\ drule_all MEM_LIST_REL \\ rw []
+      \\ first_x_assum $ drule_then drule
+      \\ res_tac
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) b ∧ closed y’ by
+        (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+         \\ fs [closed_def])
+      \\ disch_then drule_all
+      \\ rw [] \\ fs [PULL_EXISTS]
+      \\ first_x_assum drule \\ strip_tac
+      \\ Cases_on ‘eval_wh_to (k − 1) x’ \\ fs []
+      \\ res_tac \\ fs [])
+    >-
+     (CCONTR_TAC \\ fs []
+      \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+      \\ drule_all MEM_LIST_REL \\ strip_tac
+      \\ ‘closed x ∧ ¬error_Atom (eval_wh_to (k − 1) x)’ by (res_tac \\ fs [])
+      \\ ‘eval_wh_to (k − 1) x ≠ wh_Diverge’ by (CCONTR_TAC \\ fs [] \\ res_tac \\ fs [])
+      \\ first_x_assum $ drule_then drule
+      \\ imp_res_tac letrec_binds_freevars
+      \\ ‘(y ≃ y) b ∧ closed y ∧ closed x’ by
+        (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+         \\ fs [closed_def,EVERY_MEM] \\ res_tac \\ fs [])
+      \\ disch_then drule \\ fs []
+      \\ Cases_on ‘eval_wh_to (k − 1) x’ \\ fs [])
+    \\ AP_TERM_TAC
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ match_mp_tac LIST_REL_IMP_MAP_EQ
+    \\ rw []
+    \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+    \\ ‘closed x ∧ ¬error_Atom (eval_wh_to (k − 1) x)’ by (res_tac \\ fs [])
+    \\ ‘eval_wh_to (k − 1) x ≠ wh_Diverge’ by (CCONTR_TAC \\ fs [] \\ res_tac \\ fs [])
+    \\ first_x_assum $ drule_then drule
+    \\ imp_res_tac letrec_binds_freevars
+    \\ ‘(y ≃ y) b ∧ closed y ∧ closed x’ by
+      (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
+       \\ fs [closed_def,EVERY_MEM] \\ res_tac \\ fs [])
+    \\ disch_then drule \\ fs []
+    \\ Cases_on ‘eval_wh_to (k − 1) x’ \\ fs [])
 QED
 
 Theorem exp_eq_Letrec_change_lemma[local]:
