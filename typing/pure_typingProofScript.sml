@@ -250,7 +250,7 @@ Theorem FUN_FMAP_IMAGE:
   FUN_FMAP f (IMAGE explode A) = FUN_FMAP (f o explode) A f_o implode
 Proof
   strip_tac >>
-  ‘∀h. FINITE { x | implode x ∈ FDOM h }’
+  ‘∀h. FINITE { x | mlstring$implode x ∈ FDOM h }’
     by (‘∀h. { x | implode x ∈ FDOM h } = IMAGE explode (FDOM h)’
           by simp[EXTENSION, GSYM implodeEQ] >>
         simp[]) >>
