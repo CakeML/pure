@@ -19,7 +19,7 @@ Datatype:
              | mImplicit itype (num set) itype
 End
 
-Type massumptions[pp] = ``:string |-> num set``;
+Type massumptions[pp] = ``:mlstring |-> num set``;
 
 Definition get_massumptions_def:
   get_massumptions (as : massumptions) x =
@@ -72,12 +72,12 @@ Inductive minfer:
    LIST_REL (λ(e,ty) (a,c). minfer ns mset e a c ty)
       (ZIP (es,tys)) (ZIP (ass,css)) ∧
    cvars_disjoint (ZIP (ass, ZIP (css, tys)))
-    ⇒ minfer ns mset (Prim d (Cons "") es)
+    ⇒ minfer ns mset (Prim d (Cons «») es)
         (FOLDR maunion FEMPTY ass) (BIGUNION (set css)) (Tuple tys)) ∧
 
 [~Ret:]
   (minfer ns mset e as cs ty
-    ⇒ minfer ns mset (Prim d (Cons "Ret") [e])
+    ⇒ minfer ns mset (Prim d (Cons «Ret») [e])
         as cs (M ty)) ∧
 
 [~Bind:]
@@ -86,7 +86,7 @@ Inductive minfer:
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2)] ∧
    f1 ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
    f2 ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2
-    ⇒ minfer ns mset (Prim d (Cons "Bind") [e1;e2])
+    ⇒ minfer ns mset (Prim d (Cons «Bind») [e1;e2])
         (maunion as1 as2)
         ({mUnify ty1 (M $ CVar f1); mUnify ty2 (Function (CVar f1) (M $ CVar f2))}
           ∪ cs1 ∪ cs2)
@@ -95,7 +95,7 @@ Inductive minfer:
 [~Raise:]
   (minfer ns mset e as cs ty ∧
    f ∉ mset ∪ new_vars as cs ty
-    ⇒ minfer ns mset (Prim d (Cons "Raise") [e])
+    ⇒ minfer ns mset (Prim d (Cons «Raise») [e])
         as (mUnify (CVar f) (CVar f) INSERT mUnify ty Exception INSERT cs)
         (M $ CVar f)) ∧
 
@@ -104,7 +104,7 @@ Inductive minfer:
    minfer ns mset e2 as2 cs2 ty2 ∧
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2)] ∧
    f ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2
-    ⇒ minfer ns mset (Prim d (Cons "Handle") [e1;e2])
+    ⇒ minfer ns mset (Prim d (Cons «Handle») [e1;e2])
         (maunion as1 as2)
         ({mUnify ty1 (M $ CVar f); mUnify ty2 (Function Exception (M $ CVar f))}
           ∪ cs1 ∪ cs2)
@@ -112,14 +112,14 @@ Inductive minfer:
 
 [~Act:]
   (minfer ns mset e as cs ty
-    ⇒ minfer ns mset (Prim d (Cons "Act") [e])
+    ⇒ minfer ns mset (Prim d (Cons «Act») [e])
         as (mUnify ty (PrimTy Message) INSERT cs) (M StrTy)) ∧
 
 [~Alloc:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
    minfer ns mset e2 as2 cs2 ty2 ∧
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2)]
-    ⇒ minfer ns mset (Prim d (Cons "Alloc") [e1;e2])
+    ⇒ minfer ns mset (Prim d (Cons «Alloc») [e1;e2])
         (maunion as1 as2)
         (mUnify ty1 IntTy INSERT cs1 ∪ cs2)
         (M $ Array ty2)) ∧
@@ -127,7 +127,7 @@ Inductive minfer:
 [~Length:]
   (minfer ns mset e as cs ty ∧
    fresh ∉ mset ∪ new_vars as cs ty
-    ⇒ minfer ns mset (Prim d (Cons "Length") [e])
+    ⇒ minfer ns mset (Prim d (Cons «Length») [e])
         as (mUnify ty (Array $ CVar fresh) INSERT cs) (M IntTy)) ∧
 
 [~Deref:]
@@ -135,7 +135,7 @@ Inductive minfer:
    minfer ns mset e2 as2 cs2 ty2 ∧
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2)] ∧
    f ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2
-    ⇒ minfer ns mset (Prim d (Cons "Deref") [e1;e2])
+    ⇒ minfer ns mset (Prim d (Cons «Deref») [e1;e2])
         (maunion as1 as2)
         ({mUnify ty2 IntTy; mUnify ty1 (Array $ CVar f)} ∪ cs1 ∪ cs2)
         (M $ CVar f)) ∧
@@ -146,16 +146,16 @@ Inductive minfer:
    minfer ns mset e3 as3 cs3 ty3 ∧
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2);(as3,cs3,ty3)] ∧
    f ∉ mset ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∪ new_vars as3 cs3 ty3
-    ⇒ minfer ns mset (Prim d (Cons "Update") [e1;e2;e3])
+    ⇒ minfer ns mset (Prim d (Cons «Update») [e1;e2;e3])
         (maunion as1 (maunion as2 as3))
         ({mUnify ty3 (CVar f); mUnify ty2 IntTy; mUnify ty1 (Array $ CVar f)}
           ∪ cs1 ∪ cs2 ∪ cs3)
         (M Unit)) ∧
 
 [~True:]
-  (minfer ns mset (Prim d (Cons "True") []) FEMPTY {} BoolTy) ∧
+  (minfer ns mset (Prim d (Cons «True») []) FEMPTY {} BoolTy) ∧
 [~False:]
-  (minfer ns mset (Prim d (Cons "False") []) FEMPTY {} BoolTy) ∧
+  (minfer ns mset (Prim d (Cons «False») []) FEMPTY {} BoolTy) ∧
 
 [~Exception:]
   (LENGTH es = LENGTH tys ∧
@@ -165,7 +165,7 @@ Inductive minfer:
    cvars_disjoint (ZIP (ass, ZIP (css, tys))) ∧
    ALOOKUP (FST ns) s = SOME arg_tys ∧
    LENGTH arg_tys = LENGTH tys ∧
-   s ∉ monad_cns
+   explode s ∉ monad_cns
     ⇒ minfer ns mset (Prim d (Cons s) es)
         (FOLDR maunion FEMPTY ass)
         (set (list$MAP2 (λt a. mUnify t (itype_of a)) tys arg_tys) ∪ BIGUNION (set css))
@@ -184,7 +184,7 @@ Inductive minfer:
    LENGTH freshes = ar ∧
    EVERY (λf. f ∉ mset ∧
     EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty) (ZIP (ass,ZIP(css,tys)))) freshes ∧
-   cname ∉ monad_cns
+   explode cname ∉ monad_cns
     ⇒ minfer ns mset (Prim d (Cons cname) es)
         (FOLDR maunion FEMPTY ass)
         (set (MAP (λf. mUnify (CVar f) (CVar f)) freshes) ∪
@@ -271,7 +271,7 @@ Inductive minfer:
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint [(eas,ecs,ety);(as1,cs1,ty1);(as2,cs2,ty2)] ∧
    f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
-   {cn1; cn2} = {"True";"False"}
+   {cn1; cn2} = {«True»;«False»}
     ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)])
         (maunion eas (maunion as1 as2 \\ v))
         (mUnify (CVar f) ety INSERT mUnify ety BoolTy INSERT mUnify ty1 ty2 INSERT
@@ -293,7 +293,7 @@ Inductive minfer:
     list$MAP2
       (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions asrest v))
       (v::pvars) (MAP CVar $ f::freshes)
-    ⇒ minfer ns mset (Case d e v [("",pvars,rest)])
+    ⇒ minfer ns mset (Case d e v [(«»,pvars,rest)])
         (maunion eas (FDIFF asrest (set (v::pvars))))
         (mUnify (CVar f) ety INSERT mUnify ety (Tuple $ MAP CVar freshes) INSERT
           BIGUNION (set pvar_cs) ∪ ecs ∪ csrest)
@@ -993,7 +993,8 @@ Proof
         simp[monad_cns_def] >>
         gvs[new_vars_def, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, LAMBDA_PROD, pure_vars] >>
-        simp[BIGUNION_SUBSET, PULL_EXISTS] >>
+        simp[BIGUNION_SUBSET, PULL_EXISTS, GSYM implodeEQ,
+             mlstringTheory.implode_def] >>
         gen_tac >> DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >> strip_tac >> gvs[] >>
         gvs[pure_vars_iFunctions, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
         first_x_assum irule >> simp[EL_MEM]
@@ -1118,7 +1119,8 @@ Proof
         >- (
           gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, pure_vars_iFunctions,
               PULL_EXISTS, IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, GSYM CONJ_ASSOC,
-              MEM_MAP, EXISTS_PROD, MEM_GENLIST, FLOOKUP_DEF, MEM_ZIP] >> rw[]
+              MEM_MAP, EXISTS_PROD, MEM_GENLIST, FLOOKUP_DEF, MEM_ZIP] >>
+          rw[GSYM implodeEQ, mlstringTheory.implode_def]
           >- (
             first_x_assum drule_all >> rw[SUBSET_DEF] >>
             first_x_assum drule >> simp[]
@@ -1225,6 +1227,7 @@ Proof
         gvs[new_vars_def, pure_vars, LIST_TO_SET_MAP, IMAGE_IMAGE,
             combinTheory.o_DEF, BIGUNION_SUBSET, PULL_EXISTS, FORALL_PROD,
             MEM_ZIP, pure_vars_iFunctions] >>
+        simp[GSYM implodeEQ, mlstringTheory.implode_def] >>
         rw[] >> first_x_assum irule >> simp[EL_MEM]
         ) >>
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
@@ -1902,7 +1905,7 @@ Proof
   >- gvs[fail_def] (* Case empty case *)
   >- ( (* Case non-empty case *)
     Cases_on `css` >- gvs[inferM_rws] >>
-    Cases_on `∃pvars rest. h::t = [("",pvars,rest)]`
+    Cases_on `∃pvars rest. h::t = [(«»,pvars,rest)]`
     >- ( (* TupleCase *)
       gvs[] >> gvs[inferM_rws, get_case_type_def] >> every_case_tac >> gvs[] >>
       rename1 `infer _ _ _ _ = SOME ((ety,eas,ecs),m)` >>
