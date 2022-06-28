@@ -1,3 +1,5 @@
+CLINE_OPTIONS = -r
+
 INCLUDES = misc\
 	   language\
 	   meta-theory\
