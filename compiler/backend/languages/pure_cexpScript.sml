@@ -72,12 +72,13 @@ Datatype:
        | Let 'a cvname cexp cexp                 (* let                      *)
        | Letrec 'a ((cvname # cexp) list) cexp   (* mutually recursive exps  *)
        | Case 'a cexp cvname ((cvname # cvname list # cexp) list) (* case of *)
+              (cexp option)
        | NestedCase 'a cexp cvname cepat cexp ((cepat # cexp) list)
                                         (* case w/non-empty pattern-exp list *)
 End
 
 Theorem cexp_size_lemma:
-  (∀xs a. MEM a xs ⇒ cexp_size f a < cexp8_size f xs) ∧
+  (∀xs a. MEM a xs ⇒ cexp_size f a < cexp9_size f xs) ∧
   (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp5_size f xs) ∧
   (∀xs a1 a. MEM (a1,a) xs ⇒ cexp_size f a < cexp4_size f xs) ∧
   (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒ cexp_size f a < cexp1_size f xs)
@@ -93,7 +94,9 @@ Theorem better_cexp_induction =
                       ‘λlbs. ∀pat e. MEM (pat, e) lbs ⇒ P e’,
                       ‘λpes. ∀lb e. MEM (lb,e) pes ⇒ P e’,
                       ‘λ(s,e). P e’,
-                      ‘λ(p,e). P e’, ‘λes. ∀e. MEM e es ⇒ P e’
+                      ‘λ(p,e). P e’,
+                      ‘λeopt. ∀e. eopt = SOME e ⇒ P e’,
+                      ‘λes. ∀e. MEM e es ⇒ P e’
                      ]
           |> CONV_RULE (LAND_CONV (SCONV [DISJ_IMP_THM, FORALL_AND_THM,
                                           pairTheory.FORALL_PROD,
@@ -123,9 +126,10 @@ Definition gencexp_recurse_def:
   gencexp_recurse f (Var c v) = f (Var c v) ∧
   gencexp_recurse f (Let c n x y) =
     f (Let c n (gencexp_recurse f x) (gencexp_recurse f y)) ∧
-  gencexp_recurse f (Case c x n ys) =
+  gencexp_recurse f (Case c x n ys eopt) =
     f (Case c (gencexp_recurse f x) n
-       (MAP (λ(n,ns,e). (n,ns,gencexp_recurse f e)) ys)) ∧
+            (MAP (λ(n,ns,e). (n,ns,gencexp_recurse f e)) ys)
+            (OPTION_MAP (gencexp_recurse f) eopt)) ∧
   gencexp_recurse f (NestedCase c g gv p e pes) =
     f (NestedCase c (gencexp_recurse f g) gv p (gencexp_recurse f e)
        (MAP (λ(p,e). (p, gencexp_recurse f e)) pes))
@@ -149,8 +153,9 @@ Definition freevars_cexp_def[simp]:
   freevars_cexp (Letrec c fns e) =
     freevars_cexp e ∪ BIGUNION (set (MAP (λ(fn,e). freevars_cexp e) fns))
       DIFF set (MAP FST fns) ∧
-  freevars_cexp (Case c e v css) = freevars_cexp e ∪
-    (BIGUNION (set (MAP (λ(_,vs,ec). freevars_cexp ec DIFF set vs) css))
+  freevars_cexp (Case c e v css eopt) = freevars_cexp e ∪
+    ((BIGUNION (set (MAP (λ(_,vs,ec). freevars_cexp ec DIFF set vs) css)) ∪
+      (case eopt of NONE => ∅ | SOME e => freevars_cexp e))
      DELETE v) ∧
   freevars_cexp (NestedCase c g gv p e pes) =
     freevars_cexp g ∪
@@ -172,10 +177,11 @@ Definition freevars_cexp_l_def[simp]:
   freevars_cexp_l (Letrec c fns e) =
     FILTER (λv. ¬MEM v (MAP FST fns))
       (freevars_cexp_l e ++ FLAT (MAP (λ(fn,e). freevars_cexp_l e) fns)) ∧
-  freevars_cexp_l (Case c e v css) = freevars_cexp_l e ++
+  freevars_cexp_l (Case c e v css eopt) = freevars_cexp_l e ++
     FILTER ($≠ v)
       (FLAT
-        (MAP (λ(_,vs,ec). FILTER (λv. ¬MEM v vs) (freevars_cexp_l ec)) css)) ∧
+        ((case eopt of NONE => [] | SOME e => freevars_cexp_l e) ::
+         MAP (λ(_,vs,ec). FILTER (λv. ¬MEM v vs) (freevars_cexp_l ec)) css)) ∧
   freevars_cexp_l (NestedCase c g gv p e pes) =
     freevars_cexp_l g ++
     FLAT
@@ -197,9 +203,10 @@ Definition substc_def:
     Letrec c
       (MAP (λ(fn,e). (fn, substc (FDIFF f (set (MAP FST fns))) e)) fns)
       (substc (FDIFF f (set (MAP FST fns))) e) ∧
-  substc f (Case c e v css) =
+  substc f (Case c e v css eopt) =
     Case c (substc f e) v
-      (MAP (λ(cn,vs,e). (cn,vs, substc (FDIFF f (v INSERT set vs)) e)) css) ∧
+         (MAP (λ(cn,vs,e). (cn,vs, substc (FDIFF f (v INSERT set vs)) e)) css)
+         (OPTION_MAP (substc f) eopt) ∧
   substc f (NestedCase c g gv p e pes) =
   NestedCase
     c
@@ -221,7 +228,7 @@ Definition get_info_def:
   get_info (Lam c _ _) = c ∧
   get_info (Let c _ _ _) = c ∧
   get_info (Letrec c _ _) = c ∧
-  get_info (Case c _ _ _) = c ∧
+  get_info (Case c _ _ _ _) = c ∧
   get_info (NestedCase c _ _ _ _ _) = c
 End
 
@@ -241,9 +248,10 @@ Definition cexp_wf_def:
   cexp_wf (Lam _ vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec _ fns e) = (EVERY cexp_wf $ MAP SND fns ∧ cexp_wf e ∧ fns ≠ []) ∧
-  cexp_wf (Case _ e v css) = (
+  cexp_wf (Case _ e v css eopt) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    OPTION_ALL cexp_wf eopt ∧
     (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns)) ∧
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
@@ -264,8 +272,9 @@ Definition NestedCase_free_def[simp]:
   NestedCase_free (Letrec _ fns e) = (
     NestedCase_free e ∧ EVERY NestedCase_free $ MAP SND fns
   ) ∧
-  NestedCase_free (Case _ e _ css) = (
-    NestedCase_free e ∧ EVERY NestedCase_free $ MAP (SND o SND) css
+  NestedCase_free (Case _ e _ css eopt) = (
+    NestedCase_free e ∧ EVERY NestedCase_free $ MAP (SND o SND) css ∧
+    OPTION_ALL NestedCase_free eopt
   ) ∧
   NestedCase_free (NestedCase _ _ _ _ _ _) = F
 Termination
@@ -287,10 +296,11 @@ Definition cexp_eq_def:
     v1 = v2 ∧ cexp_eq e11 e21 ∧ cexp_eq e12 e22) ∧
   cexp_eq (Letrec _ fns1 e1) (Letrec _ fns2 e2) = (cexp_eq e1 e2 ∧
     LIST_REL (λ(fn1,e1) (fn2,e2). fn1 = fn2 ∧ cexp_eq e1 e2) fns1 fns2) ∧
-  cexp_eq (Case _ e1 v1 css1) (Case _ e2 v2 css2) = (
+  cexp_eq (Case _ e1 v1 css1 eopt1) (Case _ e2 v2 css2 eopt2) = (
     cexp_eq e1 e2 ∧ v1 = v2 ∧
     LIST_REL (λ(cn1,vs1,e1) (cn2,vs2,e2). cn1 = cn2 ∧ vs1 = vs2 ∧ cexp_eq e1 e2)
-      css1 css2) ∧
+             css1 css2 ∧
+    OPTREL (λe1 e2. cexp_eq e1 e2) eopt1 eopt2) ∧
   (cexp_eq (NestedCase _ g1 gv1 p1 e1 pes1) (NestedCase _ g2 gv2 p2 e2 pes2) ⇔
      cexp_eq g1 g2 ∧ gv1 = gv2 ∧ p1 = p2 ∧ cexp_eq e1 e2 ∧
      LIST_REL (λ(p1,e1) (p2,e2). p1 = p2 ∧ cexp_eq e1 e2) pes1 pes2) ∧
