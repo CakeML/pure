@@ -14,7 +14,7 @@ Definition build_conmap_def:
   build_conmap A (d :: ds) =
   case d of
     declData _ _ cons =>
-      build_conmap (FOLDL (λA (cnm,_). insert A cnm cons) A cons) ds
+      build_conmap (FOLDL (λA (cnm,_). insert A (implode cnm) cons) A cons) ds
   | _ => build_conmap A ds
 End
 
@@ -38,37 +38,44 @@ Proof
   first_x_assum drule >> simp[]
 QED
 
-Overload If = “λl g t e. Case l g ""
-                            [("True", ["True"; "False"], t);
-                             ("False", ["True"; "False"], e)]”
+Overload If = “λl g t e. Case l g «»
+                            [(«True», [], t);
+                             («False», [], e)]”
 
 Definition dest_pvar_def[simp]:
-  dest_pvar (patVar s) = SOME s ∧
+  dest_pvar (patVar s) = SOME (implode s) ∧
   dest_pvar _ = NONE
 End
 
 Definition translate_headop_def:
   (translate_headop (Var l s) =
-   case s of
-   | "+" => Prim l (AtomOp Add)
-   | "-" => Prim l (AtomOp Sub)
-   | "*" => Prim l (AtomOp Mul)
-   | "==" => Prim l (AtomOp Eq)
-   | _ => App l (Var l s)) ∧
+   let opopt =
+       if strlen s = 1 then
+         case strsub s 0 of
+         | #"+" => SOME Add
+         | #"-" => SOME Sub
+         | #"*" => SOME Mul
+         | _ => NONE
+       else if s = «==» then SOME Eq
+       else NONE
+   in
+     case opopt of
+       NONE => App l (Var l s)
+     | SOME op => Prim l (AtomOp op)) ∧
   translate_headop e = App () e (* forces unit *)
 End
 
 Definition translate_exp_def:
-  translate_exp conmap (expVar s) = SOME (Var () s) ∧
+  translate_exp conmap (expVar s) = SOME (Var () (implode s)) ∧
   translate_exp conmap (expCon s es) =
   do
     rs <- OPT_MMAP (translate_exp conmap) es;
-    SOME (Prim () (Cons s) rs)
+    SOME (Prim () (Cons (implode s)) rs)
   od ∧
   translate_exp conmap (expTup es) =
   do
     rs <- OPT_MMAP (translate_exp conmap) es;
-    SOME (Prim () (Cons "") rs)
+    SOME (Prim () (Cons «») rs)
   od ∧
   translate_exp conmap (expApp fe xe) =
   do
@@ -82,11 +89,11 @@ Definition translate_exp_def:
    case p of
      patVar n => do
                   body <- translate_exp conmap e ;
-                  SOME (Lam () [n] body)
+                  SOME (Lam () [implode n] body)
                 od
    | _ => do
-           ce <- translate_patcase conmap "" p e;
-           SOME (Lam () [""] ce)
+           ce <- translate_patcase conmap «» p e;
+           SOME (Lam () [«»] ce)
          od) ∧
   (translate_exp conmap (expIf g t e) =
    do
@@ -112,14 +119,14 @@ Definition translate_exp_def:
      | expdecPatbind (patVar s) e =>
          do
            ce <- translate_exp conmap e ;
-           SOME ((s, ce) :: rest)
+           SOME ((implode s, ce) :: rest)
          od
      | expdecPatbind _ _ => NONE
      | expdecFunbind s args body =>
          do
            vs <- OPT_MMAP dest_pvar args ;
            bce <- translate_exp conmap body ;
-           SOME ((s, Lam () vs bce) :: rest)
+           SOME ((implode s, Lam () vs bce) :: rest)
          od
    od)
 Termination
@@ -146,7 +153,7 @@ Definition translate_decs_def:
     rest <- translate_decs conmap ds ;
     vs <- OPT_MMAP dest_pvar args ;
     bce <- translate_exp conmap body ;
-    SOME ((s, Lam () vs bce) :: rest)
+    SOME ((implode s, Lam () vs bce) :: rest)
   od ∧
   translate_decs conmap (declPatbind p e :: ds) =
   do
@@ -157,14 +164,14 @@ Definition translate_decs_def:
   od
 End
 
-Overload str_compare = “ternaryComparisons$list_compare string$char_compare”
+Overload str_compare = “mlstring$compare”
 
 Definition decls_to_letrec_def:
   decls_to_letrec ds =
   do
     conmap <<- build_conmap (mlmap$empty str_compare) ds ;
     binds <- translate_decs conmap ds ;
-    SOME (Letrec () binds (App () (Var () "main") [Prim () (Cons "") []]))
+    SOME (Letrec () binds (App () (Var () «main») [Prim () (Cons «») []]))
   od
 End
 
