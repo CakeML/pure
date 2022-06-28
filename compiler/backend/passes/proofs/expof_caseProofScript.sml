@@ -33,20 +33,22 @@ End
 
 Definition exp_of'_def:
   exp_of' (Var d n) =
-    ((Var n):exp) ∧
+    Var (explode n) :exp ∧
   exp_of' (Prim d p xs) =
     Prim (op_of p) (MAP exp_of' xs) ∧
   exp_of' (Let d v x y) =
-    Let v (exp_of' x) (exp_of' y) ∧
+    Let (explode v) (exp_of' x) (exp_of' y) ∧
   exp_of' (App _ f xs) =
     Apps (exp_of' f) (MAP Tick (MAP exp_of' xs)) ∧
   exp_of' (Lam d vs x) =
-    Lams vs (exp_of' x) ∧
+    Lams (MAP explode vs) (exp_of' x) ∧
   exp_of' (Letrec d rs x) =
-    Letrec (MAP (λ(n,x). (n,exp_of' x)) rs) (exp_of' x) ∧
+    Letrec (MAP (λ(n,x). (explode n,exp_of' x)) rs) (exp_of' x) ∧
   exp_of' (Case d x v rs) =
     (let caseexp =
-       Let v (exp_of' x) (rows_of' v (MAP (λ(c,vs,x). (c,vs,exp_of' x)) rs))
+       Let (explode v) (exp_of' x)
+           (rows_of' (explode v)
+            (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
      else
@@ -192,6 +194,21 @@ Proof
   \\ gs [MEM_EL]
 QED
 
+Theorem implodeEQ:
+  ((x = implode y) ⇔ (y = explode x)) /\
+  ((implode y = x) ⇔ (explode x = y))
+Proof
+  rw[EQ_IMP_THM] >> simp[]
+QED
+
+Theorem MAP_implodeEQ:
+  ∀x y.
+    ((x = MAP implode y) ⇔ (y = MAP explode x)) ∧
+    ((MAP implode y = x) ⇔ (MAP explode x = y))
+Proof
+  simp[EQ_IMP_THM, MAP_MAP_o, combinTheory.o_DEF, FORALL_AND_THM]
+QED
+
 Theorem exp_of_exp_eq:
   ∀x. NestedCase_free x ⇒ exp_of' x ≅ exp_of x
 Proof
@@ -241,6 +258,12 @@ Proof
       \\ simp [eval_wh_thm, subst_def])
     \\ irule exp_eq_Let_cong \\ gs []
     \\ irule exp_eq_rows_of_cong
+    \\ conj_tac
+    >- (gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+        qx_gen_tac ‘l’ >> rename [‘MEM (explode y) l’] >>
+        Cases_on ‘MEM (explode y) l’ >> gvs[] >>
+        first_x_assum $ qspec_then ‘MAP implode l’ mp_tac >>
+        simp[MEM_MAP, implodeEQ, GSYM MAP_implodeEQ])
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
            LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM, EL_MAP]
     \\ gvs [ELIM_UNCURRY] \\ rpt strip_tac
