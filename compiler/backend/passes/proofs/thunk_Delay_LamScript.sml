@@ -894,24 +894,6 @@ Proof
   rw []
 QED
 
-Theorem subst_APPEND:
-  ∀e l1 l2. subst (l1 ++ l2) e = subst l1 (subst l2 e)
-Proof
-  Induct using freevars_ind >> gvs [subst_def, FILTER_APPEND]
-  >- (gvs [REVERSE_APPEND, ALOOKUP_APPEND] >>
-      rw [] >> CASE_TAC >> gvs [subst_def])
-  >- (rw [] >> irule LIST_EQ >>
-      rw [EL_MAP] >>
-      last_x_assum irule >> gvs [EL_MEM]) >>
-  rw []
-  >- (irule LIST_EQ >>
-      rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, EL_MAP] >>
-      pairarg_tac >> gvs [MEM_EL, PULL_EXISTS] >>
-      last_x_assum irule >>
-      first_x_assum $ irule_at Any >> gvs [])
-  >- rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-QED
-
 Theorem exp_rel_subst_Letrec:
   ∀x filter y f g vL bL s.
     LENGTH g = LENGTH vL ∧ LENGTH bL = LENGTH vL ∧

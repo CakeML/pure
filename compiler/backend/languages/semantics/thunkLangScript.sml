@@ -56,6 +56,8 @@ Overload Proj = “λs i x. Prim (Proj s i) [x]”;
 Overload Seq = “λx. λy. Let NONE x y”;
 Overload Unit = “Prim (Cons "") []”;
 Overload Fail = “Prim If []”;
+Overload Lams = “λvL e. FOLDR Lam e vL”;
+Overload Apps = “FOLDL App”;
 
 val exp_size_def = fetch "-" "exp_size_def";
 
