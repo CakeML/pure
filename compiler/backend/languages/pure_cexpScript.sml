@@ -316,13 +316,16 @@ Definition cns_arities_def:
      | Cons cn => if explode cn ∈ monad_cns then {} else {{cn, LENGTH es}}
      | _ => {}) ∪
       BIGUNION (set (MAP cns_arities es))) ∧
-  cns_arities (App d e es) = cns_arities e ∪ BIGUNION (set (MAP cns_arities es)) ∧
+  cns_arities (App d e es) =
+    cns_arities e ∪ BIGUNION (set (MAP cns_arities es)) ∧
   cns_arities (Lam d xs e) = cns_arities e ∧
   cns_arities (Let d x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Letrec d funs e) =
     BIGUNION (set (MAP (λ(v,e). cns_arities e) funs)) ∪ cns_arities e ∧
-  cns_arities (Case d e v css) = set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) INSERT
-    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∧
+  cns_arities (Case d e v css eopt) =
+    set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) INSERT
+    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∪
+    (case OPTION_MAP (λce. cns_arities ce) eopt of NONE => ∅ | SOME s => s) ∧
   cns_arities _ = {}
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
