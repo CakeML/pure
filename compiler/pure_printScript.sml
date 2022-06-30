@@ -51,8 +51,13 @@ Definition sexp_of_def:
   sexp_of (Letrec d rs x) = list ([Name "letrec"] ++
                                   MAP (λ(n,x). list [Name' n; sexp_of x]) rs ++
                                   [sexp_of x]) ∧
-  sexp_of (Case d x v rs) = list ([Name "case"; sexp_of x; Name' v] ++
-             MAP (λ(c,vs,x). list [list (MAP Name' (c::vs)); sexp_of x]) rs)
+  sexp_of (Case d x v rs eopt) =
+    list ([Name "case"; sexp_of x; Name' v] ++
+          [Pair (list $
+                 MAP (λ(c,vs,x). list [list (MAP Name' (c::vs)); sexp_of x])
+                     rs)
+           (case eopt of NONE => Name "NONE"
+                      | SOME x => list [Name "SOME"; sexp_of x])])
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
@@ -80,8 +85,8 @@ QED
 Triviality str_of_test3:
   str_of (Case () (App () (Var () «f») [Prim () (AtomOp (Lit (Int 7))) []]) «xs»
             [(«nil»,[],Var () «xs»);
-             («cons»,[«y»;«ys»],Var () «ys»)]) =
-    "\n(case (app f (int 7)) xs ((nil) xs) ((cons y ys) ys))\n\n"
+             («cons»,[«y»;«ys»],Var () «ys»)] NONE) =
+  "\n(case (app f (int 7)) xs ((((nil) xs) ((cons y ys) ys))  .  NONE))\n\n"
 Proof
   EVAL_TAC
 QED
@@ -163,7 +168,10 @@ Definition cexp_of_def:
        let (fs,x) = letrec_of t in
          Letrec () fs x
      else if h = Name "case" then
-       Case () (cexp_of (el0 t)) (name_of (el1 t)) (rows_of (tail (tail t)))
+       Case () (cexp_of (el0 t)) (name_of (el1 t))
+            (rows_of (head (el2 t)))
+            (if tail $ el2 t = Name "NONE" then NONE
+             else SOME (cexp_of $ tail $ tail $ el2 t))
      else (* must be a Prim case *)
        cop_of h (el0 t) (el1 t) (cexps_of t)) ∧
   cexps_of (Num n) = [] ∧
@@ -223,5 +231,9 @@ Triviality parse_cexp_test2:
 Proof
   EVAL_TAC
 QED
+
+(* wrong *)
+Theorem parse_cexp_test3 =
+        EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons y ys) ys))  .  NONE))"”
 
 val _ = export_theory();
