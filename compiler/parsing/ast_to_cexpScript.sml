@@ -38,9 +38,7 @@ Proof
   first_x_assum drule >> simp[]
 QED
 
-Overload If = “λl g t e. Case l g «»
-                            [(«True», [], t);
-                             («False», [], e)]”
+Overload If = “λl g t e. Case l g «» [(«True», [], t); («False», [], e)] NONE”
 
 Definition dest_pvar_def[simp]:
   dest_pvar (patVar s) = SOME (implode s) ∧
