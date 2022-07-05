@@ -206,7 +206,7 @@ Definition substc_def:
   substc f (Case c e v css eopt) =
     Case c (substc f e) v
          (MAP (λ(cn,vs,e). (cn,vs, substc (FDIFF f (v INSERT set vs)) e)) css)
-         (OPTION_MAP (substc f) eopt) ∧
+         (OPTION_MAP (substc (f \\ v)) eopt) ∧
   substc f (NestedCase c g gv p e pes) =
   NestedCase
     c
