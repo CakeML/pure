@@ -12,10 +12,10 @@ Definition lets_for_def:
 End
 
 Definition rows_of_def:
-  rows_of v [] = Fail ∧
-  rows_of v ((cn,vs,b)::rest) =
+  rows_of v k [] = k ∧
+  rows_of v k ((cn,vs,b)::rest) =
     If (IsEq cn (LENGTH vs) T (Var v))
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest)
+      (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v k rest)
 End
 
 Definition patguards_def:
@@ -55,10 +55,12 @@ Definition exp_of_def:
   exp_of (Lam d vs x)    = Lams (MAP explode vs) (exp_of x) ∧
   exp_of (Letrec d rs x) =
     Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs) (exp_of x) ∧
-  exp_of (Case d x v rs) =
-    (let caseexp =
+  exp_of (Case d x v rs eopt) =
+    (let
+       k = (case eopt of NONE => Fail | SOME e => exp_of e) ;
+       caseexp =
        Let (explode v) (exp_of x)
-           (rows_of (explode v)
+           (rows_of (explode v) k
             (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
