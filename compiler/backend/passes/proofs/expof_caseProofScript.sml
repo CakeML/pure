@@ -24,11 +24,11 @@ Definition lets_for'_def:
 End
 
 Definition rows_of'_def:
-  rows_of' v [] = Fail ∧
-  rows_of' v ((cn,vs,b)::rest) =
+  rows_of' v k [] = k ∧
+  rows_of' v k ((cn,vs,b)::rest) =
     Tick (If (IsEq cn (LENGTH vs) T (Var v))
              (lets_for' (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
-             (rows_of' v rest))
+             (rows_of' v k rest))
 End
 
 Definition exp_of'_def:
@@ -44,10 +44,11 @@ Definition exp_of'_def:
     Lams (MAP explode vs) (exp_of' x) ∧
   exp_of' (Letrec d rs x) =
     Letrec (MAP (λ(n,x). (explode n,exp_of' x)) rs) (exp_of' x) ∧
-  exp_of' (Case d x v rs) =
+  exp_of' (Case d x v rs eopt) =
     (let caseexp =
        Let (explode v) (exp_of' x)
            (rows_of' (explode v)
+            (case eopt of NONE => Fail | SOME e => exp_of' e)
             (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
@@ -109,7 +110,7 @@ Theorem exp_eq_IsEq_Proj[local]:
        (Let w (Proj cn n (Var v)) a) b ≅
     If (IsEq cn m T (Var v))
        (Let w (Proj cn n (Var v))
-              (If (IsEq cn m T (Var v)) a Fail)) b
+              (If (IsEq cn m T (Var v)) a kk)) b
 Proof
   strip_tac
   \\ irule eval_wh_IMP_exp_eq
@@ -151,19 +152,17 @@ Theorem exp_eq_lets_of_cong:
 Proof
   ho_match_mp_tac lets_for'_ind
   \\ rw [] \\ gs [lets_for'_def, lets_for_def]
-  >- (
-    irule exp_eq_Prim_cong
-    \\ simp [exp_eq_refl])
+  >- (irule exp_eq_Prim_cong \\ simp [exp_eq_refl])
   \\ irule exp_eq_trans
   \\ irule_at (Pos last) (iffLR exp_eq_sym)
   \\ irule_at (Pos hd) exp_eq_IsEq_Proj \\ simp []
-  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) exp_eq_trans
   \\ irule_at Any exp_eq_IsEq_Seq_Proj \\ simp []
   \\ ‘Fail ≅ Fail’ by gs [exp_eq_refl]
   \\ gs [SF DNF_ss]
   \\ first_x_assum (drule_all_then assume_tac)
   \\ once_rewrite_tac [exp_eq_sym]
-  \\ irule exp_eq_trans
+  \\ irule_at Any exp_eq_trans
   \\ irule_at Any exp_eq_If_cong
   \\ irule_at Any exp_eq_refl
   \\ irule_at Any exp_eq_Let_cong
@@ -179,10 +178,10 @@ Proof
 QED
 
 Theorem exp_eq_rows_of_cong:
-  ∀v xs ys.
-    ¬MEM v (FLAT (MAP (FST o SND) xs)) ∧
+  ∀v k1 xs k2 ys.
+    ¬MEM v (FLAT (MAP (FST o SND) xs)) ∧ k1 ≅ k2 ∧
     LIST_REL (λ(a,vs,x) (b,ws,y). a = b ∧ vs = ws ∧ x ≅ y) xs ys ⇒
-      rows_of' v xs ≅ rows_of v ys
+      rows_of' v k1 xs ≅ rows_of v k2 ys
 Proof
   ho_match_mp_tac rows_of'_ind
   \\ simp [rows_of'_def, rows_of_def, exp_eq_refl]
@@ -264,6 +263,7 @@ Proof
         Cases_on ‘MEM (explode y) l’ >> gvs[] >>
         first_x_assum $ qspec_then ‘MAP implode l’ mp_tac >>
         simp[MEM_MAP, implodeEQ, GSYM MAP_implodeEQ])
+    \\ reverse conj_tac >- (Cases_on ‘eopt’ >> gs[exp_eq_refl])
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
            LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM, EL_MAP]
     \\ gvs [ELIM_UNCURRY] \\ rpt strip_tac
