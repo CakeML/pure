@@ -11,11 +11,11 @@ val _ = new_theory "pure_vars";
 
 (* definitions *)
 
-Type var_map = “:(string, 'a) mlmap$map”
+Type var_map = “:(mlstring, 'a) mlmap$map”
 Type var_set = “:unit var_map”
 
 Definition var_cmp_def:
-  var_cmp s1 s2 = mlstring$compare (implode s1) (implode s2)
+  var_cmp s1 s2 = mlstring$compare s1 s2
 End
 
 Definition empty_def:
@@ -31,9 +31,10 @@ Definition list_delete_def:
 End
 
 (* TODO move to mlmapTheory *)
-val unionWith_def = Define `
+Definition unionWith_def:
   unionWith f (Map cmp t1) (Map _ t2) =
-    Map cmp (balanced_map$unionWith cmp f t1 t2)`
+    Map cmp (balanced_map$unionWith cmp f t1 t2)
+End
 
 
 (* lemmas *)
@@ -44,7 +45,7 @@ Proof
   fs [map_ok_def,empty_def,empty_thm]
   \\ assume_tac TotOrd_compare
   \\ fs [totoTheory.TotOrd]
-  \\ fs [var_cmp_def,mlstringTheory.implode_def]
+  \\ fs [var_cmp_def]
   \\ metis_tac []
 QED
 

@@ -125,16 +125,16 @@ fun debug_eval tm =
         THENC computeLib.CBV_CONV cmp) tm end;
 
 Definition option_datatype_def[simp]:
-  option_datatype : typedef = (1n, [("Nothing", []); ("Just", [TypeVar 0])])
+  option_datatype : typedef = (1n, [(«Nothing», []); («Just», [TypeVar 0])])
 End
 
 Definition nat_datatype_def[simp]:
-  nat_datatype nat_id : typedef = (0n, [("Z", []) ;("S", [TypeCons nat_id []])])
+  nat_datatype nat_id : typedef = (0n, [(«Z», []) ;(«S», [TypeCons nat_id []])])
 End
 
 Definition list_datatype_def[simp]:
   list_datatype list_id : typedef =
-    (1n, [("Nil", []); ("Cons", [TypeVar 0; TypeCons list_id [TypeVar 0]])])
+    (1n, [(«Nil», []); («Cons», [TypeVar 0; TypeCons list_id [TypeVar 0]])])
 End
 
 Definition simple_ns_def[simp]:
@@ -156,10 +156,10 @@ End
 
 Theorem example_2_exp:
   example_2_exp =
-    pure_cexp$Lam () ["m"] $
-      Let () "y" (Var () "m") $
-        Let () "x" (App () (Var () "y") [Prim () (Cons "True") []]) $
-         Var () "x"
+    pure_cexp$Lam () [«m»] $
+      Let () «y» (Var () «m») $
+        Let () «x» (App () (Var () «y») [Prim () (Cons «True») []]) $
+         Var () «x»
 Proof
   simp[] >> CONV_TAC debug_eval
 QED
@@ -320,12 +320,12 @@ QED
 
 Definition even_nat_datatype_def[simp]:
   even_nat_datatype odd_nat_id : typedef =
-    (0n, [("Z", []) ;("S", [TypeCons odd_nat_id []])])
+    (0n, [(«Z», []) ;(«S», [TypeCons odd_nat_id []])])
 End
 
 Definition odd_nat_datatype_def[simp]:
   odd_nat_datatype even_nat_id : typedef =
-    (0n, [("O", [TypeCons even_nat_id []])])
+    (0n, [(«O», [TypeCons even_nat_id []])])
 End
 
 Definition even_odd_ns_def[simp]:

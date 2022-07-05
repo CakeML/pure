@@ -175,11 +175,13 @@ Overload ffi =
 Overload cunit = ``Attup []``;
 
 Overload compile_exn =
-  ``λcn tys:type list. Dexn unknown_loc cn (REPLICATE (LENGTH tys) cunit)``;
+  ``λcn tys:type list.
+      Dexn unknown_loc (explode cn) (REPLICATE (LENGTH tys) cunit)``;
 
 Overload compile_tdef =
   ``λcndefs. Dtype unknown_loc (* TODO type names? *)
-      [([],"",MAP (λ(cn,tys:type list). (cn, MAP (K cunit) tys)) cndefs)]``;
+      [([],"",
+        MAP (λ(cn,tys:type list). (explode cn, MAP (K cunit) tys)) cndefs)]``;
 
 
 Definition compile_exndef_def:

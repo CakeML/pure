@@ -55,17 +55,17 @@ End
 
 Inductive exp_rel:
 [~Var:]
-  (∀(n:string).
+  (∀(n:mlstring).
      exp_rel (pure_cexp$Var i n)
-             (thunkLang$Force (Var n))) ∧
+             (thunkLang$Force (Var (explode n)))) ∧
 [~Lam:]
-  (∀(s:string list) x y.
+  (∀(s:mlstring list) x y.
      exp_rel x y ⇒
-       exp_rel (pure_cexp$Lam i s x) (Lams s y)) ∧
+       exp_rel (pure_cexp$Lam i s x) (Lams (MAP explode s) y)) ∧
 [~Let:]
   (∀s x y.
      exp_rel x x1 ∧ exp_rel y y1 ⇒
-       exp_rel (Let i s x y) (Let (SOME s) (Delay x1) y1)) ∧
+       exp_rel (Let i s x y) (Let (SOME (explode s)) (Delay x1) y1)) ∧
 [~App:]
   (∀f g xs ys.
      exp_rel f g ∧
@@ -74,12 +74,12 @@ Inductive exp_rel:
 [~Case:]
   (∀i x v xs ys.
      ~MEM v (FLAT (MAP (FST ∘ SND) xs)) ∧ xs ≠ [] ∧
-     MAP FST xs = MAP FST ys ∧
-     MAP (FST o SND) xs = MAP (FST o SND) ys ∧
+     MAP (explode o FST) xs = MAP FST ys ∧
+     MAP (MAP explode o FST o SND) xs = MAP (FST o SND) ys ∧
      LIST_REL exp_rel (MAP (SND o SND) xs) (MAP (SND o SND) ys) ⇒
        exp_rel (Case i x v xs)
          (Let (SOME fresh) a_exp $
-          Let (SOME v) (Box (Var fresh)) $
+          Let (SOME (explode v)) (Box (Var fresh)) $
             rows_of fresh ys))
 End
 

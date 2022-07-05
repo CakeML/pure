@@ -186,13 +186,13 @@ End
 Definition get_case_type_def:
   get_case_type ns cnames_arities =
     let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
-    if len = 1 ∧ cnames = [""] then do (* tuple case *)
+    if len = 1 ∧ cnames = [«»] then do (* tuple case *)
       h <- oreturn (oHD cnames_arities);
       freshes <- fresh_vars (SND h);
-      return (Tuple (MAP CVar freshes), freshes, [("",MAP CVar freshes)]);
+      return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
     od else if len = 2 ∧ (* bool case *)
-      MEM ("True",0) cnames_arities ∧ MEM ("False",0) cnames_arities
-      then return (PrimTy Bool, [], [("True",[]); ("False",[])])
+      MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
+      then return (PrimTy Bool, [], [(«True»,[]); («False»,[])])
     else if (* exception case *)
       LENGTH (FST ns) = LENGTH cnames_arities ∧
       EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
@@ -217,7 +217,7 @@ Definition infer_def:
     return (CVar fresh, singleton x (insert fresh () LN), []) od ∧
 
   infer ns mset (Prim d (Cons s) es) = (
-    if s = "" then do
+    if s = «» then do
       (tys,as,cs) <- FOLDR
             (λe acc. do
                 (tys, as, cs) <- acc;
@@ -226,12 +226,12 @@ Definition infer_def:
             (return ([],empty,[])) es;
       return (Tuple tys, as, cs) od
 
-    else if s = "Ret" then (
+    else if s = «Ret» then (
       case es of
       | [e] => do (ty, as, cs) <- infer ns mset e; return (M ty, as, cs) od
       | _ => fail)
 
-    else if s = "Bind" then (
+    else if s = «Bind» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -244,7 +244,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Raise" then (
+    else if s = «Raise» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
@@ -253,7 +253,7 @@ Definition infer_def:
             (Unify d (CVar fresh) (CVar fresh))::(Unify d ty Exception)::cs) od
       | _ => fail)
 
-    else if s = "Handle" then (
+    else if s = «Handle» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -266,14 +266,14 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Act" then (
+    else if s = «Act» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
           return (M $ PrimTy String, as, (Unify d ty $ PrimTy Message)::cs) od
       | _ => fail)
 
-    else if s = "Alloc" then (
+    else if s = «Alloc» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -283,7 +283,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Length" then (
+    else if s = «Length» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
@@ -293,7 +293,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Deref" then (
+    else if s = «Deref» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -306,7 +306,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Update" then (
+    else if s = «Update» then (
       case es of
       | [e1; e2; e3] => do
           (ty3, as3, cs3) <- infer ns mset e3;
@@ -320,7 +320,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "True" ∨ s = "False" then (
+    else if s = «True» ∨ s = «False» then (
       case es of
       | [] => return (PrimTy Bool, empty, [])
       | _ => fail)

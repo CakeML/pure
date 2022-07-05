@@ -10,9 +10,9 @@ open pure_cexpTheory printingTheory parsingTheory intLib source_valuesTheory;
 val _ = new_theory "pure_print";
 
 (* --- pretty printing --- *)
-
+Overload Name' = “λs. Name $ explode s”
 Definition sexp_of_op_def:
-  sexp_of_op (Cons s) = [Name "cons"; Name s] ∧
+  sexp_of_op (pure_cexp$Cons s) = [Name "cons"; Name' s] ∧
   sexp_of_op Seq = [Name "seq"] ∧
   sexp_of_op (AtomOp (Lit (Int i))) =
     (if i < 0 then [Name "int-"; Num (integer$Num (0-i))] else
@@ -43,16 +43,16 @@ Definition sexp_of_op_def:
 End
 
 Definition sexp_of_def:
-  sexp_of (Var d n)       = Name n ∧
+  sexp_of (Var d n)       = Name' n ∧
   sexp_of (Prim d p xs)   = list (sexp_of_op p ++ MAP sexp_of xs) ∧
   sexp_of (Let d v x y)   = list [Name "let"; sexp_of x; sexp_of y] ∧
   sexp_of (App _ f xs)    = list ([Name "app"; sexp_of f] ++ MAP sexp_of xs) ∧
-  sexp_of (Lam d vs x)    = list ([Name "lam"; list (MAP Name vs); sexp_of x]) ∧
+  sexp_of (Lam d vs x)    = list ([Name "lam"; list (MAP Name' vs); sexp_of x])∧
   sexp_of (Letrec d rs x) = list ([Name "letrec"] ++
-                                  MAP (λ(n,x). list [Name n; sexp_of x]) rs ++
+                                  MAP (λ(n,x). list [Name' n; sexp_of x]) rs ++
                                   [sexp_of x]) ∧
-  sexp_of (Case d x v rs) = list ([Name "case"; sexp_of x; Name v] ++
-             MAP (λ(c,vs,x). list [list (MAP Name (c::vs)); sexp_of x]) rs)
+  sexp_of (Case d x v rs) = list ([Name "case"; sexp_of x; Name' v] ++
+             MAP (λ(c,vs,x). list [list (MAP Name' (c::vs)); sexp_of x]) rs)
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
@@ -64,23 +64,23 @@ Definition str_of_def:
 End
 
 Triviality str_of_test1:
-  str_of (Lam () ["x";"y"] (Prim () (AtomOp Add) [Var () "x"; Var () "y"])) =
+  str_of (Lam () [«x»;«y»] (Prim () (AtomOp Add) [Var () «x»; Var () «y»])) =
     "\n(lam (x y) (+ x y))\n\n"
 Proof
   EVAL_TAC
 QED
 
-Triviality str_of_test1:
-  str_of (Letrec () [("x",(Prim () (AtomOp Add) [Var () "x"; Var () "y"]))]
-           (Var () "y")) = "\n(letrec (x (+ x y)) y)\n\n"
+Triviality str_of_test2:
+  str_of (Letrec () [(«x»,(Prim () (AtomOp Add) [Var () «x»; Var () «y»]))]
+           (Var () «y»)) = "\n(letrec (x (+ x y)) y)\n\n"
 Proof
   EVAL_TAC
 QED
 
-Triviality str_of_test1:
-  str_of (Case () (App () (Var () "f") [Prim () (AtomOp (Lit (Int 7))) []]) "xs"
-            [("nil",[],Var () "xs");
-             ("cons",["y";"ys"],Var () "ys")]) =
+Triviality str_of_test3:
+  str_of (Case () (App () (Var () «f») [Prim () (AtomOp (Lit (Int 7))) []]) «xs»
+            [(«nil»,[],Var () «xs»);
+             («cons»,[«y»;«ys»],Var () «ys»)]) =
     "\n(case (app f (int 7)) xs ((nil) xs) ((cons y ys) ys))\n\n"
 Proof
   EVAL_TAC
@@ -98,8 +98,8 @@ Definition num_to_str_def:
 End
 
 Definition name_of_def:
-  name_of (Num n) = num_to_str n ∧
-  name_of _ = "[malformed]"
+  name_of (Num n) = implode $ num_to_str n ∧
+  name_of _ = «[malformed]»
 End
 
 Definition names_of_def:
@@ -136,17 +136,22 @@ Definition cop_of_def:
     if h = Name "seq" then Prim () Seq xs else
     if h = Name "cons" then Prim () (Cons (name_of h')) (TL xs) else
     if h = Name "message" then
-      Prim () (AtomOp (Message (name_of h'))) (TL xs) else
+      Prim () (AtomOp (Message (explode $ name_of h'))) (TL xs) else
     if h = Name "msg" then
-      Prim () (AtomOp (Lit (Msg (name_of h') (name_of h'')))) (TL (TL xs)) else
+      Prim ()
+           (AtomOp (Lit (Msg (explode $ name_of h') (explode $ name_of h''))))
+           (TL (TL xs)) else
     if h = Name "loc" then Prim () (AtomOp (Lit (Loc (num_of h')))) (TL xs) else
-    if h = Name "str" then Prim () (AtomOp (Lit (Str (name_of h')))) (TL xs) else
-    if h = Name "int" then Prim () (AtomOp (Lit (Int (& num_of h')))) (TL xs) else
-                           Prim () (AtomOp (Lit (Int (- & num_of h')))) (TL xs)
+    if h = Name "str" then
+      Prim () (AtomOp (Lit (Str (explode $ name_of h')))) (TL xs) else
+    if h = Name "int" then
+      Prim () (AtomOp (Lit (Int (& num_of h')))) (TL xs)
+    else
+      Prim () (AtomOp (Lit (Int (- & num_of h')))) (TL xs)
 End
 
 Definition cexp_of_def:
-  cexp_of (Num n) = Var () (num_to_str n) ∧
+  cexp_of (Num n) = pure_cexp$Var () (implode $ num_to_str n) ∧
   cexp_of (Pair h t) =
     (if h = Name "let" then
        Let () (name_of (el0 t)) (cexp_of (el1 t)) (cexp_of (el2 t))
@@ -163,7 +168,7 @@ Definition cexp_of_def:
        cop_of h (el0 t) (el1 t) (cexps_of t)) ∧
   cexps_of (Num n) = [] ∧
   cexps_of (Pair h t) = cexp_of h :: cexps_of t ∧
-  letrec_of (Num n) = ([],Var () "[malformed]") ∧
+  letrec_of (Num n) = ([],Var () «[malformed]») ∧
   letrec_of (Pair h t) =
     (if isNum t then ([],cexp_of h) else
        let (fs,x) = letrec_of t in
@@ -185,7 +190,7 @@ Definition parse_cexp_def:
 End
 
 Definition bindings_of_def:
-  bindings_of (Num _) = ([], [], Var () "[malformed]") ∧
+  bindings_of (Num _) = ([], [], Var () «[malformed]») ∧
   bindings_of (Pair h t) =
     if isNum t then
       ([],[],cexp_of h)
@@ -206,15 +211,15 @@ End
 
 Triviality parse_cexp_test1:
   parse_cexp "(+ a b)" =
-    Prim () (AtomOp Add) [Var () "a"; Var () "b"]
+    Prim () (AtomOp Add) [Var () «a»; Var () «b»]
 Proof
   EVAL_TAC
 QED
 
 Triviality parse_cexp_test2:
   parse_cexp "(let a (int 6) (+ a b))" =
-     Let () "a" (Prim () (AtomOp (Lit (Int 6))) [])
-       (Prim () (AtomOp Add) [Var () "a"; Var () "b"])
+     Let () «a» (Prim () (AtomOp (Lit (Int 6))) [])
+       (Prim () (AtomOp Add) [Var () «a»; Var () «b»])
 Proof
   EVAL_TAC
 QED
