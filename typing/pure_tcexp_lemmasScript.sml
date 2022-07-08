@@ -375,7 +375,7 @@ Proof
   rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
   irule exp_eq_App_cong >> simp[] >>
   irule exp_eq_Lam_cong >> simp[] >>
-  qpat_x_assum `_ ≠ _` kall_tac >>
+  TRY (qpat_x_assum `rs ≠ _` kall_tac) >>
   Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def, exp_eq_refl] >>
   pairarg_tac >> gvs[rows_of_def, pureLangTheory.rows_of_def] >>
   qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>

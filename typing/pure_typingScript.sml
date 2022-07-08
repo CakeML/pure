@@ -421,26 +421,29 @@ Inductive type_tcexp:
 
 [~BoolCase:]
   (type_tcexp ns db st env e (PrimTy Bool) ∧
-   LENGTH css = 2 ∧ set (MAP FST css) = {«True»;«False»} ∧
+   LENGTH css = 2 ∧ set (MAP FST css) = {«True»;«False»} ∧ eopt = NONE ∧
    EVERY (λ(cn,pvars,cexp). pvars = [] ∧
     type_tcexp ns db st ((v,0,PrimTy Bool)::env) cexp t) css ⇒
-      type_tcexp ns db st env (Case e v css) t) ∧
+      type_tcexp ns db st env (Case e v css eopt) t) ∧
 
 [~TupleCase:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
    css = [(«»,pvars,cexp)] ∧ ¬ MEM v pvars ∧
-   LENGTH pvars = LENGTH tyargs ∧
+   LENGTH pvars = LENGTH tyargs ∧ eopt = NONE ∧
    type_tcexp ns db st
       (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
         cexp t ⇒
-      type_tcexp ns db st env (Case e v css) t) ∧
+      type_tcexp ns db st env (Case e v css eopt) t) ∧
 
 [~ExceptionCase:]
   (type_tcexp (exndef,typedefs) db st env e Exception ∧
+
    (* Pattern match is exhaustive: *)
-      set (MAP FST exndef) = set (MAP FST css) ∧
-      LENGTH exndef = LENGTH css ∧
-      (* TODO this forbids duplicated patterns - perhaps overkill? *)
+   set (MAP FST exndef) = set (MAP FST css) ∧ eopt = NONE ∧
+
+   (* forbid duplicated patterns *)
+   LENGTH exndef = LENGTH css ∧
+
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃tys.
         ALOOKUP exndef cname = SOME tys ∧
@@ -452,17 +455,23 @@ Inductive type_tcexp:
           type_tcexp (exndef,typedefs) db st
             (REVERSE (ZIP (pvars, MAP ($, 0) tys)) ++ (v,0,Exception)::env) cexp t
       ) css ⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css) t) ∧
+      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t) ∧
 
 [~Case:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
+
    (* The type exists with correct arity: *)
-     oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
+   oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
+
    (* Pattern match is exhaustive: *)
-      set (MAP FST constructors) = set (MAP FST css) ∧
-      LENGTH constructors = LENGTH css ∧
-      (* TODO this forbids duplicated patterns - perhaps overkill? *)
-   EVERY (λ(cname,pvars,cexp). (* For each case: *)
+   set (MAP FST css) ⊆ set (MAP FST constructors) ∧
+   (set (MAP FST css) = set (MAP FST constructors) ∨ ∃ce. eopt = SOME ce) ∧
+
+   (* forbid duplicated patterns *)
+   ALL_DISTINCT (MAP FST css) ∧
+
+   (* For each case: *)
+   EVERY (λ(cname,pvars,cexp).
       ∃schemes ptys.
         ALOOKUP constructors cname = SOME schemes ∧
         (* Constructor arities match: *)
@@ -473,10 +482,19 @@ Inductive type_tcexp:
           MAP (tsubst tyargs) schemes = ptys ∧
         (* Continuation is well-typed: *)
           type_tcexp (exndef,typedefs) db st
-            (REVERSE (ZIP (pvars, MAP ($, 0) ptys)) ++ (v,0,TypeCons tyid tyargs)::env)
+            (REVERSE (ZIP (pvars, MAP ($, 0) ptys)) ++
+             (v,0,TypeCons tyid tyargs)::env)
             cexp t
-      ) css ⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css) t) ∧
+      ) css ∧
+
+   (* catch-all case: *)
+   (∀ce. eopt = SOME ce ⇒
+         type_tcexp (exndef, typedefs) db st ((v,0,TypeCons tyid tyargs)::env)
+                    ce
+                    t)
+
+⇒
+      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t) ∧
 
 [~TupleSafeProj:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
