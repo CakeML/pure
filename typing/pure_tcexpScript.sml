@@ -16,7 +16,8 @@ Datatype:
         | Lam (cvname list) tcexp              (* lambda                   *)
         | Let cvname tcexp tcexp               (* let                      *)
         | Letrec ((cvname # tcexp) list) tcexp (* mutually recursive exps  *)
-        | Case tcexp cvname ((cvname # cvname list # tcexp) list) (* case of *)
+        | Case tcexp cvname ((cvname # cvname list # tcexp) list)
+               (tcexp option)                                   (* case of *)
         | SafeProj cvname num num tcexp        (* typesafe projection      *)
 End
 
@@ -27,10 +28,10 @@ Definition lets_for_def:
 End
 
 Definition rows_of_def:
-  rows_of v [] = Fail ∧
-  rows_of v ((cn,vs,b)::rest) =
+  rows_of v [] k = k ∧
+  rows_of v ((cn,vs,b)::rest) k =
     If (IsEq cn (LENGTH vs) T (Var v))
-      (lets_for cn (LENGTH vs) v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest)
+      (lets_for cn (LENGTH vs) v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest k)
 End
 
 Definition exp_of_def:
@@ -41,10 +42,11 @@ Definition exp_of_def:
   exp_of (Lam vs x)    = Lams (MAP explode vs) (exp_of x) ∧
   exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs)
                                 (exp_of x) ∧
-  exp_of (Case x v rs) =
+  exp_of (Case x v rs eopt) =
     Let (explode v) (exp_of x)
         (rows_of (explode v)
-         (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)) ∧
+         (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)
+         (case eopt of NONE => Fail | SOME e => exp_of e)) ∧
   exp_of (SafeProj cn ar i e) =
     If (IsEq (explode cn) ar T (exp_of e))
        (Proj (explode cn) i (exp_of e))
@@ -61,8 +63,9 @@ Definition tcexp_of_def:
   tcexp_of (App d f xs)    = App (tcexp_of f) (MAP tcexp_of xs) ∧
   tcexp_of (Lam d vs x)    = Lam vs (tcexp_of x) ∧
   tcexp_of (Letrec d rs x) = Letrec (MAP (λ(n,x). (n,tcexp_of x)) rs) (tcexp_of x) ∧
-  tcexp_of (Case d x v rs) = Case (tcexp_of x) v
-                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs) ∧
+  tcexp_of (Case d x v rs eopt) =
+    Case (tcexp_of x) v (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
+         (OPTION_MAP tcexp_of eopt) ∧
   tcexp_of _               = Lam [] ARB
 Termination
   WF_REL_TAC `measure $ cexp_size $ K 0` \\ rw [cexp_size_def] >>
@@ -79,8 +82,11 @@ Definition freevars_tcexp_def[simp]:
   freevars_tcexp (Letrec fns e) =
     freevars_tcexp e ∪ BIGUNION (set (MAP (λ(fn,e). freevars_tcexp e) fns))
       DIFF set (MAP FST fns) ∧
-  freevars_tcexp (Case e v css) = freevars_tcexp e ∪
-    (BIGUNION (set (MAP (λ(_,vs,ec). freevars_tcexp ec DIFF set vs) css)) DELETE v) ∧
+  freevars_tcexp (Case e v css eopt) =
+    freevars_tcexp e ∪
+    (BIGUNION
+     (set ((case eopt of NONE => ∅ | SOME e => freevars_tcexp e) ::
+           MAP (λ(_,vs,ec). freevars_tcexp ec DIFF set vs) css)) DELETE v) ∧
   freevars_tcexp (SafeProj cn ar i e) = freevars_tcexp e
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw [] >>
@@ -97,9 +103,10 @@ Definition subst_tc_def:
     Letrec
       (MAP (λ(fn,e). (fn, subst_tc (FDIFF f (set (MAP FST fns))) e)) fns)
       (subst_tc (FDIFF f (set (MAP FST fns))) e) ∧
-  subst_tc f (Case e v css) =
+  subst_tc f (Case e v css eopt) =
     Case (subst_tc f e) v
-      (MAP (λ(cn,vs,e). (cn,vs, subst_tc (FDIFF f (v INSERT set vs)) e)) css) ∧
+      (MAP (λ(cn,vs,e). (cn,vs, subst_tc (FDIFF f (v INSERT set vs)) e)) css)
+      (OPTION_MAP (subst_tc (f \\ v)) eopt) ∧
   subst_tc f (SafeProj cn ar i e) = SafeProj cn ar i (subst_tc f e)
 Termination
   WF_REL_TAC `measure (tcexp_size o SND)` >> rw [] >>
@@ -115,9 +122,10 @@ Definition tcexp_wf_def:
   tcexp_wf (Lam vs e) = (tcexp_wf e ∧ vs ≠ []) ∧
   tcexp_wf (Let v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
   tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP SND fns ∧ tcexp_wf e ∧ fns ≠ []) ∧
-  tcexp_wf (Case e v css) = (
+  tcexp_wf (Case e v css eopt) = (
     tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧
     css ≠ [] ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    OPTION_ALL tcexp_wf eopt ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
