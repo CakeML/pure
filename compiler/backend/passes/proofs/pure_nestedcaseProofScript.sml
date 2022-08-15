@@ -61,10 +61,11 @@ Proof
 QED
 
 Theorem exp_eq_rows_of_cong:
+  (k1 ≅? k2) b ∧
   LIST_REL
     (λ(cnm1,vs1,e1) (cnm2,vs2,e2). cnm1 = cnm2 ∧ vs1 = vs2 ∧ (e1 ≅? e2) b)
     l1 l2 ⇒
-  (rows_of s l1 ≅? rows_of s l2) b
+  (rows_of s k1 l1 ≅? rows_of s k2 l2) b
 Proof
   Induct_on ‘LIST_REL’ >> simp[rows_of_def, FORALL_PROD] >> rpt strip_tac >>
   irule exp_eq_If_cong >> simp[exp_eq_lets_for_cong]
@@ -171,13 +172,17 @@ Proof
       [‘Seq Fail _’]
       >- (irule exp_eq_Prim_cong >> simp[] >>
           irule exp_eq_Let_cong_noaconv >> simp[] >>
-          irule exp_eq_rows_of_cong >>
+          irule exp_eq_rows_of_cong >> conj_tac >~
+          [‘option_CASE _ _ _ ≅ option_CASE opt _ _’]
+          >- (Cases_on ‘opt’ >> simp[]) >>
           gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-          rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >>
+          metis_tac[PAIR]) >>
       irule exp_eq_Let_cong_noaconv >> simp[] >>
-      irule exp_eq_rows_of_cong >>
+      irule exp_eq_rows_of_cong >> conj_tac >~
+      [‘option_CASE _ _ _ ≅ option_CASE opt _ _’]
+      >- (Cases_on ‘opt’ >> simp[]) >>
       gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
-      rpt strip_tac >> first_x_assum irule >> metis_tac[PAIR]) >~
+      metis_tac[PAIR]) >~
   [‘LAST ((pat1, lift_uscore exp1) :: MAP _ pes)’]
   >- (qmatch_goalsub_abbrev_tac ‘LAST allpes’ >>
       ‘∃lpat lexp. LAST allpes = (lpat, lexp)’ by metis_tac[pair_CASES] >>
