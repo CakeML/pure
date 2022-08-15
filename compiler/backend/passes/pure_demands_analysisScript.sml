@@ -164,20 +164,26 @@ Definition demands_analysis_fun_def:
           | SOME (bL, fd_map) => SOME (bL, FOLDL (λf k. delete f k) fd_map vL))
      else (empty compare, Letrec a0 binds e, NONE)) ∧
 
-  (demands_analysis_fun c (Case a0 e n cases) fds =
+  (demands_analysis_fun c (Case a0 e n cases eopt) fds =
    if MEM n (FLAT (MAP (FST o SND) cases))
    then
-     (empty compare, Case a0 e n cases, NONE)
+     (empty compare, Case a0 e n cases eopt, NONE)
    else
-     let (m, e', fd) = demands_analysis_fun c e fds in
-       let cases' = MAP (λ(name,args,ce).
-                           (name, args,
-                            add_all_demands a0
-                                         (demands_analysis_fun
-                                          (Unfold name n args (Bind n e c))
-                                          ce
-                                          (empty compare)))) cases in
-             (m, Case a0 e' n cases', NONE)) ∧
+     let (m, e', fd) = demands_analysis_fun c e fds ;
+         cases' = MAP (λ(name,args,ce).
+                         (name, args,
+                          add_all_demands a0
+                                          (demands_analysis_fun
+                                           (Unfold name n args (Bind n e c))
+                                           ce
+                                           (empty compare)))) cases ;
+         eopt' = OPTION_MAP
+                 (λe0. add_all_demands
+                       a0
+                       (demands_analysis_fun (Bind n e c) e0 (empty compare)))
+                 eopt;
+     in
+       (m, Case a0 e' n cases' eopt', NONE)) ∧
   (demands_analysis_fun c (NestedCase i _ _ _ _ _) fds =
    (empty compare,
     Var i (implode "Fail: demands analysis on NestedCase"),
@@ -235,7 +241,7 @@ Theorem demands_analysis_test_1:
           (Prim 0 (AtomOp Eq)
            [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
           [(«True»,[],Var 0 «c»);
-           («False»,[],Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»])]))]
+           («False»,[],Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»])] NONE))]
    (App 0 (Var 0 «fact») [Var 0 «n0»; Var 0 «c1»])) =
   Prim 0 Seq
        [Var 0 «n0»;
@@ -250,7 +256,7 @@ Theorem demands_analysis_test_1:
                             [(«True»,[],Prim 0 Seq [Var 0 «c»; Var 0 «c»]);
                              («False»,[],Prim 0 Seq [Var 0 «c»;
                                          Prim 0 Seq [Var 0 «n»;
-                                                     Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]]])]]))]
+                                                     Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]]])] NONE]))]
                (Prim 0 Seq
                 [Var 0 «fact»;
                  App 0 (Var 0 «fact»)
