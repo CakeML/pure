@@ -15,3 +15,5 @@ all: $(DEFAULT_TARGETS) selftest.exe
 
 selftest.exe: selftest.uo
 	$(HOLMOSMLC) -o $@ $<
+
+EXTRA_CLEANS = selftest.exe
