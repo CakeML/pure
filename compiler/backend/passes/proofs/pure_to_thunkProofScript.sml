@@ -46,11 +46,14 @@ Definition lets_for_def:
 End
 
 Definition rows_of_def:
-  rows_of v [] = Prim (AtomOp Add) [] ∧
-  rows_of v ((cn,vs,b)::rest) =
-    If (Prim (IsEq cn (LENGTH vs) T) [Force (Var v)])
+  (rows_of v k [] =
+    case k of
+      NONE => Prim (AtomOp Add) []
+    | SOME e => e) ∧
+  rows_of v k ((cn,vs,b)::rest) =
+   If (Prim (IsEq cn (LENGTH vs) T) [Force (Var v)])
       (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
-      (rows_of v rest)
+      (rows_of v k rest)
 End
 
 Inductive exp_rel:
@@ -76,11 +79,12 @@ Inductive exp_rel:
      ~MEM v (FLAT (MAP (FST ∘ SND) xs)) ∧ xs ≠ [] ∧
      MAP (explode o FST) xs = MAP FST ys ∧
      MAP (MAP explode o FST o SND) xs = MAP (FST o SND) ys ∧
-     LIST_REL exp_rel (MAP (SND o SND) xs) (MAP (SND o SND) ys) ⇒
-       exp_rel (Case i x v xs)
+     LIST_REL exp_rel (MAP (SND o SND) xs) (MAP (SND o SND) ys) ∧
+     OPTREL exp_rel eopt yopt ⇒
+       exp_rel (Case i x v xs eopt)
          (Let (SOME fresh) a_exp $
           Let (SOME (explode v)) (Box (Var fresh)) $
-            rows_of fresh ys))
+            rows_of fresh yopt ys))
 End
 
 Overload to_thunk = “pure_to_thunk_1Proof$compile_rel”
