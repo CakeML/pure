@@ -1366,21 +1366,21 @@ Proof
       \\ rename [‘OPTION_ALL _ opt’]
       \\ Cases_on ‘opt’ \\ gvs[find_Fail]
       \\ rename [‘NestedCase_free e’]
-      \\ irule find_Subset \\ simp[]
+      \\ irule find_Subset \\ simp[] (* include ? *)
       \\ qabbrev_tac
            ‘p = demands_analysis_fun (Bind s case_exp c) e (empty compare)’
       \\ PairCases_on ‘p’
       \\ irule_at Any add_all_demands_soundness'
+
       \\ first_x_assum $ qspec_then ‘cexp_size f e’ assume_tac
       \\ gvs[cexp_size_def]
+      \\ pop_assum (drule_at_then (Pat ‘demands_analysis_fun _ _ _ = _’)
+                    strip_assume_tac)
       \\ pop_assum (resolve_then (Pos hd) assume_tac EQ_REFL)
-      \\ pop_assum $ drule_then assume_tac
-      \\ gvs[ctxt_trans_def, TotOrd_compare, fdemands_map_to_set_def,
-             empty_thm]
+      \\ gvs[ctxt_trans_def, fdemands_map_to_set_def, empty_thm, TotOrd_compare]
       \\ irule_at Any find_Drop_fd
-      \\ gvs[FORALL_AND_THM]
       \\ first_assum $ irule_at Any
-      \\ irule_at Any demands_map_in_FDOM (* ????? *)
+      \\ irule_at Any demands_map_in_FDOM
       \\ cheat)
 QED
 
