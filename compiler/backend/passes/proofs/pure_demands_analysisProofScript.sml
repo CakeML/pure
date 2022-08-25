@@ -718,6 +718,44 @@ Proof
   simp[]
 QED
 
+Theorem demands_analysis_ignores_ctxt:
+  ∀c1 e2 m c2 m' ce fd.
+    demands_analysis_fun c2 e2 m = demands_analysis_fun c1 e2 m
+Proof
+  recInduct demands_analysis_fun_ind >> simp[demands_analysis_fun_def] >>
+  rw[]
+  >- (pairarg_tac >>
+      gvs[AllCaseEqs(), PULL_EXISTS, Cong MAP_CONG] >>
+      simp[SF ETA_ss, SF CONJ_ss] >>
+      metis_tac$ map TypeBase.nchotomy_of [“:'a list”, “:α # β”, “:α option”])
+  >- (pairarg_tac >> gvs[])
+  >- (pairarg_tac >> gvs[])
+  >- (pairarg_tac >> gvs[] >> pairarg_tac >> gvs[Cong MAP_CONG])
+  >- (simp[Cong MAP_CONG])
+  >- (simp[Cong MAP_CONG] >> pairarg_tac >> simp[] >>
+      pairarg_tac >> simp[] >> gvs[] >>
+      pairarg_tac >> gvs[SF ETA_ss] >>
+      pairarg_tac >> gvs[] >>
+      qpat_x_assum ‘UNZIP3 _ = _’ mp_tac >>
+      qpat_x_assum ‘UNZIP3 _ = _’ mp_tac >>
+      rename [‘UNZIP3 _ = (ml1,el1,fdl1) ⇒
+               UNZIP3 _ = (ml2,el2,fdl2) ⇒ _’] >>
+      qmatch_abbrev_tac ‘X1 = _ ⇒ X2 = _ ⇒ _’ >>
+      ‘X1 = X2’
+        by (simp[Abbr‘X1’, Abbr‘X2’] >> AP_TERM_TAC >>
+            simp[MAP_EQ_f, FORALL_PROD] >> metis_tac[]) >>
+      simp[] >> rw[Abbr‘X1’, Abbr‘X2’] >> gvs[])
+  >- (pairarg_tac >> gvs[] >>
+      rename [‘OPTION_MAP _ eopt’] >> Cases_on ‘eopt’ >> simp[] >>
+      simp[MAP_EQ_f, FORALL_PROD] >> metis_tac[])
+QED
+
+Theorem demands_analysis_nilctxt:
+  demands_analysis_fun c e m = demands_analysis_fun Nil e m
+Proof
+  simp[demands_analysis_ignores_ctxt]
+QED
+
 Theorem add_all_demands_soundness' =
         add_all_demands_soundness
           |> SPEC_ALL
