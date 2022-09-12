@@ -397,7 +397,7 @@ Proof
   Induct using SNOC_INDUCT \\ gvs [MAP_SNOC, indexedListsTheory.MAPi_APPEND]
 QED
 
-Theorem find_rows_of:
+Theorem find_rows_of_inner:
   ∀l l' ke ke' c s fds fd.
     LIST_REL (λ(a1, b1, e1) (a2, b2, e2).
                 a1 = a2 ∧ b1 = b2 ∧
@@ -405,11 +405,11 @@ Theorem find_rows_of:
                      (update_ctxt a1 s c (MAPi (λi v. (i, v)) b1)) {}
                      {} (exp_of e2) fd)
              l l' ∧
-    find ke c {} {([], explode s)} ke' NONE
+    find ke c {} {} ke' NONE
     ⇒
     find (rows_of (explode s) ke
           (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) l))
-         c fds {([], (explode s))}
+         c fds {}
          (rows_of (explode s) ke'
           (MAP (λ(c,vs,x'). (explode c,MAP explode vs, exp_of x')) l'))
          NONE
@@ -428,6 +428,41 @@ Proof
       \\ gvs [combinTheory.o_DEF, LAMBDA_PROD, MAPi_implode_MAP_explode]
       \\ pop_assum $ irule_at Any \\ fs []) >>
   simp[] >> first_assum $ irule_at Any >> simp[]
+QED
+
+Theorem find_rows_of:
+  ∀l l' ke ke' c s fds fd.
+    l ≠ [] ∧
+    LIST_REL (λ(a1, b1, e1) (a2, b2, e2).
+                a1 = a2 ∧ b1 = b2 ∧
+                find (exp_of e1)
+                     (update_ctxt a1 s c (MAPi (λi v. (i, v)) b1)) {}
+                     {} (exp_of e2) fd)
+             l l' ∧
+    find ke c {} {} ke' NONE
+    ⇒
+    find (rows_of (explode s) ke
+          (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) l))
+         c fds {([], (explode s))}
+         (rows_of (explode s) ke'
+          (MAP (λ(c,vs,x'). (explode c,MAP explode vs, exp_of x')) l'))
+         NONE
+Proof
+  Cases >> rw [] >>
+  pairarg_tac >> simp [] >>
+  pairarg_tac >> gvs [rows_of_def] >>
+  dxrule_then (dxrule_then assume_tac) find_rows_of_inner >>
+  ‘∀e1 c fdc e2 ds fd. find e1 c fdc (ds ∪ ({} ∩ {})) e2 fd ⇒ find e1 c fdc ds e2 fd’ by simp [] >>
+  pop_assum irule >>
+  irule find_If >>
+  pop_assum $ irule_at Any >>
+  irule_at Any find_IsEq >>
+  irule_at Any find_Var >>
+  irule_at Any find_Subset >>
+  irule_at Any update_ctxt_soundness >>
+  gvs [combinTheory.o_DEF, LAMBDA_PROD, MAPi_implode_MAP_explode] >>
+  pop_assum $ irule_at Any >>
+  simp []
 QED
 
 Theorem find_subset_aid:
@@ -679,7 +714,17 @@ Proof
       rename1 ‘_ = _ p1’ >> PairCases_on ‘p1’ >> gvs [] >>
       AP_TERM_TAC >> last_x_assum $ irule_at Any >>
       simp[cexp_size_def] >> qexists_tac ‘f’ >> simp[])
-  >- (rw [] >>
+  >- (rw []
+      >- (CASE_TAC >> gvs [])
+      >- (CASE_TAC >> gvs [cexp_size_def, PULL_FORALL] >>
+          irule AP_THM2 >> conj_asm1_tac
+          >- (last_x_assum $ irule_at Any >> simp [] >>
+              qexists_tac ‘f’ >> gvs [cexp_size_def]) >>
+          simp [] >>
+          pairarg_tac >> simp [] >>
+          AP_TERM_TAC >>
+          last_x_assum irule >>
+          simp [] >> qexists_tac ‘f’ >> simp []) >>
       irule AP_THM2 >> conj_asm1_tac
       >- (last_x_assum $ irule_at Any >>
           irule_at Any EQ_REFL >> qexists_tac ‘f’ >> gvs [cexp_size_def]) >>
@@ -745,6 +790,7 @@ Proof
         by (simp[Abbr‘X1’, Abbr‘X2’] >> AP_TERM_TAC >>
             simp[MAP_EQ_f, FORALL_PROD] >> metis_tac[]) >>
       simp[] >> rw[Abbr‘X1’, Abbr‘X2’] >> gvs[])
+  >- (CASE_TAC >> gvs [])
   >- (pairarg_tac >> gvs[] >>
       rename [‘OPTION_MAP _ eopt’] >> Cases_on ‘eopt’ >> simp[] >>
       simp[MAP_EQ_f, FORALL_PROD] >> metis_tac[])
@@ -1308,9 +1354,19 @@ Proof
           \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok])
       \\ rw [empty_thm, TotOrd_compare, fd_to_set_def, demands_map_empty]
       \\ gvs [exp_of_def, find_Bottom])
-  >~ [‘Case a case_exp s l opt’]
+  >~ [‘Case a case_exp s [] opt’]
+
   >- (gen_tac \\ gen_tac
       \\ rename1 ‘Bind _ _ c’
+      \\ rpt $ gen_tac
+      \\ IF_CASES_TAC \\ simp []
+      >- (CASE_TAC \\ strip_tac
+          \\ gvs [empty_thm, TotOrd_compare, exp_of_def, rows_of_def, demands_map_empty, fd_to_set_def]
+          >- irule find_Bottom
+          \\ gvs [PULL_FORALL]
+          \\ last_x_assum $ qspecl_then [‘f’, ‘Let a s case_exp x’] assume_tac
+          \\ gvs [cexp_size_def, demands_analysis_fun_def]
+          \\ pop_assum $ dxrule_then assume_tac \\ gvs [exp_of_def])
       \\ first_assum $ qspecl_then [‘cexp_size f case_exp’] assume_tac
       \\ gvs [cexp_size_def]
       \\ pop_assum $ qspecl_then [‘f’, ‘case_exp’] assume_tac
@@ -1371,7 +1427,6 @@ Proof
            ‘p = demands_analysis_fun (Bind s case_exp c) e (empty compare)’
       \\ PairCases_on ‘p’
       \\ irule_at Any add_all_demands_soundness'
-
       \\ first_x_assum $ qspec_then ‘cexp_size f e’ assume_tac
       \\ gvs[cexp_size_def]
       \\ pop_assum (drule_at_then (Pat ‘demands_analysis_fun _ _ _ = _’)
@@ -1379,9 +1434,7 @@ Proof
       \\ pop_assum (resolve_then (Pos hd) assume_tac EQ_REFL)
       \\ gvs[ctxt_trans_def, fdemands_map_to_set_def, empty_thm, TotOrd_compare]
       \\ irule_at Any find_Drop_fd
-      \\ first_assum $ irule_at Any
-      \\ irule_at Any demands_map_in_FDOM
-      \\ cheat)
+      \\ first_assum $ irule_at Any)
 QED
 
 Theorem demands_analysis_soundness:

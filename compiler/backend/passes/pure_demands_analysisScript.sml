@@ -165,25 +165,31 @@ Definition demands_analysis_fun_def:
      else (empty compare, Letrec a0 binds e, NONE)) ∧
 
   (demands_analysis_fun c (Case a0 e n cases eopt) fds =
-   if MEM n (FLAT (MAP (FST o SND) cases))
+   if cases = []
    then
-     (empty compare, Case a0 e n cases eopt, NONE)
+     case eopt of
+       | NONE => (empty compare, Case a0 e n cases eopt, NONE)
+       | SOME e2 => demands_analysis_fun c (Let a0 n e e2) fds
    else
-     let (m, e', fd) = demands_analysis_fun c e fds ;
-         cases' = MAP (λ(name,args,ce).
-                         (name, args,
-                          add_all_demands a0
-                                          (demands_analysis_fun
-                                           (Unfold name n args (Bind n e c))
-                                           ce
-                                           (empty compare)))) cases ;
-         eopt' = OPTION_MAP
-                 (λe0. add_all_demands
-                       a0
-                       (demands_analysis_fun (Bind n e c) e0 (empty compare)))
-                 eopt;
-     in
-       (m, Case a0 e' n cases' eopt', NONE)) ∧
+     if MEM n (FLAT (MAP (FST o SND) cases))
+     then
+       (empty compare, Case a0 e n cases eopt, NONE)
+     else
+       let (m, e', fd) = demands_analysis_fun c e fds ;
+           cases' = MAP (λ(name,args,ce).
+                           (name, args,
+                            add_all_demands a0
+                                            (demands_analysis_fun
+                                             (Unfold name n args (Bind n e c))
+                                             ce
+                                             (empty compare)))) cases ;
+           eopt' = OPTION_MAP
+                   (λe0. add_all_demands
+                         a0
+                         (demands_analysis_fun (Bind n e c) e0 (empty compare)))
+                   eopt;
+       in
+         (m, Case a0 e' n cases' eopt', NONE)) ∧
   (demands_analysis_fun c (NestedCase i _ _ _ _ _) fds =
    (empty compare,
     Var i (implode "Fail: demands analysis on NestedCase"),
