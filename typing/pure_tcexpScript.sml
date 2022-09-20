@@ -10,14 +10,14 @@ open pure_cexpTheory pure_cexp_lemmasTheory pure_expTheory pure_evalTheory
 val _ = new_theory "pure_tcexp";
 
 Datatype:
-  tcexp = Var vname                           (* variable                 *)
+  tcexp = Var cvname                           (* variable                 *)
         | Prim cop (tcexp list)               (* primitive operations     *)
         | App tcexp (tcexp list)              (* function application     *)
-        | Lam (vname list) tcexp              (* lambda                   *)
-        | Let vname tcexp tcexp               (* let                      *)
-        | Letrec ((vname # tcexp) list) tcexp (* mutually recursive exps  *)
-        | Case tcexp vname ((vname # vname list # tcexp) list) (* case of *)
-        | SafeProj vname num num tcexp        (* typesafe projection      *)
+        | Lam (cvname list) tcexp              (* lambda                   *)
+        | Let cvname tcexp tcexp               (* let                      *)
+        | Letrec ((cvname # tcexp) list) tcexp (* mutually recursive exps  *)
+        | Case tcexp cvname ((cvname # cvname list # tcexp) list) (* case of *)
+        | SafeProj cvname num num tcexp        (* typesafe projection      *)
 End
 
 Definition lets_for_def:
@@ -34,16 +34,21 @@ Definition rows_of_def:
 End
 
 Definition exp_of_def:
-  exp_of (Var n)       = ((Var n):exp) ∧
+  exp_of (Var n)       = pure_exp$Var (explode n) ∧
   exp_of (Prim p xs)   = Prim (op_of p) (MAP exp_of xs) ∧
-  exp_of (Let v x y)   = Let v (exp_of x) (exp_of y) ∧
+  exp_of (Let v x y)   = Let (explode v) (exp_of x) (exp_of y) ∧
   exp_of (App f xs)    = Apps (exp_of f) (MAP exp_of xs) ∧
-  exp_of (Lam vs x)    = Lams vs (exp_of x) ∧
-  exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (n,exp_of x)) rs) (exp_of x) ∧
-  exp_of (Case x v rs) = Let v (exp_of x)
-                          (rows_of v (MAP (λ(c,vs,x). (c,vs,exp_of x)) rs)) ∧
+  exp_of (Lam vs x)    = Lams (MAP explode vs) (exp_of x) ∧
+  exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs)
+                                (exp_of x) ∧
+  exp_of (Case x v rs) =
+    Let (explode v) (exp_of x)
+        (rows_of (explode v)
+         (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)) ∧
   exp_of (SafeProj cn ar i e) =
-    If (IsEq cn ar T (exp_of e)) (Proj cn i (exp_of e)) Bottom
+    If (IsEq (explode cn) ar T (exp_of e))
+       (Proj (explode cn) i (exp_of e))
+       Bottom
 Termination
   WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
@@ -57,7 +62,8 @@ Definition tcexp_of_def:
   tcexp_of (Lam d vs x)    = Lam vs (tcexp_of x) ∧
   tcexp_of (Letrec d rs x) = Letrec (MAP (λ(n,x). (n,tcexp_of x)) rs) (tcexp_of x) ∧
   tcexp_of (Case d x v rs) = Case (tcexp_of x) v
-                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
+                                (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs) ∧
+  tcexp_of _               = Lam [] ARB
 Termination
   WF_REL_TAC `measure $ cexp_size $ K 0` \\ rw [cexp_size_def] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]
@@ -104,14 +110,15 @@ Overload subst_tc1 = ``λname v e. subst_tc (FEMPTY |+ (name,v)) e``;
 
 Definition tcexp_wf_def:
   tcexp_wf (Var v) = T ∧
-  tcexp_wf (Prim op es) = EVERY tcexp_wf es ∧
+  tcexp_wf (Prim op es) = (num_args_ok op (LENGTH es) ∧ EVERY tcexp_wf es) ∧
   tcexp_wf (App e es) = (tcexp_wf e ∧ EVERY tcexp_wf es ∧ es ≠ []) ∧
   tcexp_wf (Lam vs e) = (tcexp_wf e ∧ vs ≠ []) ∧
   tcexp_wf (Let v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
   tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP SND fns ∧ tcexp_wf e ∧ fns ≠ []) ∧
   tcexp_wf (Case e v css) = (
     tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧
-    css ≠ [] ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css)) ∧
+    css ≠ [] ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>

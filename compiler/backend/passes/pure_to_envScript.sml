@@ -4,10 +4,11 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open listTheory rich_listTheory;
-open pure_cexpTheory envLang_cexpTheory;
+open pure_cexpTheory env_cexpTheory;
 
 val _ = new_theory "pure_to_env";
 
+(*
 Definition compile_exp_def:
   compile_exp (pure_cexp$Var a n) =
     Force a (envLang_cexp$Var a n) ∧
@@ -39,13 +40,15 @@ Definition compile_exp_def:
   compile_exp (Case a x bv rows) =
     Case a (compile_exp x)
            bv
-           (MAP (λ(v,vs,x). (v,vs,compile_exp x)) rows)
+           (MAP (λ(v,vs,x). (v,vs,compile_exp x)) rows) ∧
+  compile_exp (NestedCase info _ _ _) = envLang_cexp$Var info "Fail: NestedCase"
 Termination
   WF_REL_TAC ‘measure (pure_cexp$cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma \\ gs []
   \\ first_x_assum (qspec_then ‘K 0 ’ mp_tac) \\ gs []
   \\ simp [pure_cexpTheory.cexp_size_def]
 End
+*)
 
 val _ = export_theory ();
 

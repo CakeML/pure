@@ -183,6 +183,29 @@ Definition get_typedef_def:
     else get_typedef (SUC n) tds cnames_arities
 End
 
+Definition get_case_type_def:
+  get_case_type ns cnames_arities =
+    let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
+    if len = 1 ∧ cnames = [«»] then do (* tuple case *)
+      h <- oreturn (oHD cnames_arities);
+      freshes <- fresh_vars (SND h);
+      return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
+    od else if len = 2 ∧ (* bool case *)
+      MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
+      then return (PrimTy Bool, [], [(«True»,[]); («False»,[])])
+    else if (* exception case *)
+      LENGTH (FST ns) = LENGTH cnames_arities ∧
+      EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
+      then return (Exception, [], MAP (λ(cn,ts). (cn, MAP itype_of ts)) $ FST ns)
+    else do (* data case *)
+      (n, ar, cs) <- oreturn (get_typedef 0 (SND ns) cnames_arities);
+      freshes <- fresh_vars ar;
+      cfreshes <<- MAP CVar freshes;
+      return (TypeCons n cfreshes, freshes,
+              MAP (λ(cn,ts). (cn, MAP (isubst cfreshes o itype_of) ts)) cs);
+    od
+End
+
 (**********
   infer :
        exndef # typedefs -- type definitions for exceptions and datatypes
@@ -194,7 +217,7 @@ Definition infer_def:
     return (CVar fresh, singleton x (insert fresh () LN), []) od ∧
 
   infer ns mset (Prim d (Cons s) es) = (
-    if s = "" then do
+    if s = «» then do
       (tys,as,cs) <- FOLDR
             (λe acc. do
                 (tys, as, cs) <- acc;
@@ -203,12 +226,12 @@ Definition infer_def:
             (return ([],empty,[])) es;
       return (Tuple tys, as, cs) od
 
-    else if s = "Ret" then (
+    else if s = «Ret» then (
       case es of
       | [e] => do (ty, as, cs) <- infer ns mset e; return (M ty, as, cs) od
       | _ => fail)
 
-    else if s = "Bind" then (
+    else if s = «Bind» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -221,7 +244,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Raise" then (
+    else if s = «Raise» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
@@ -230,7 +253,7 @@ Definition infer_def:
             (Unify d (CVar fresh) (CVar fresh))::(Unify d ty Exception)::cs) od
       | _ => fail)
 
-    else if s = "Handle" then (
+    else if s = «Handle» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -243,14 +266,14 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Act" then (
+    else if s = «Act» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
           return (M $ PrimTy String, as, (Unify d ty $ PrimTy Message)::cs) od
       | _ => fail)
 
-    else if s = "Alloc" then (
+    else if s = «Alloc» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -260,7 +283,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Length" then (
+    else if s = «Length» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
@@ -270,7 +293,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Deref" then (
+    else if s = «Deref» then (
       case es of
       | [e1; e2] => do
           (ty2, as2, cs2) <- infer ns mset e2;
@@ -283,7 +306,7 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "Update" then (
+    else if s = «Update» then (
       case es of
       | [e1; e2; e3] => do
           (ty3, as3, cs3) <- infer ns mset e3;
@@ -297,14 +320,9 @@ Definition infer_def:
           od
       | _ => fail)
 
-    else if s = "True" ∨ s = "False" then (
+    else if s = «True» ∨ s = «False» then (
       case es of
       | [] => return (PrimTy Bool, empty, [])
-      | _ => fail)
-
-    else if s = "Subscript" then (
-      case es of
-      | [] => return (Exception, empty, [])
       | _ => fail)
 
     else do
@@ -398,41 +416,22 @@ Definition infer_def:
                 fns tyfns) ++
             csfns ++ cse) od) ∧
 
-  (* TODO check handling of variables *)
   infer ns mset (Case d e v css) = (
     if MEM v (FLAT (MAP (FST o SND) css)) then fail else
     case css of
     | [] => fail (* no empty case statements *)
-    | [("", pvars, rest)] => do (* tuple pattern match *)
-      fresh_v <- fresh_var;
-      cfresh_v <<- CVar fresh_v;
-      fresh_tyargs <- fresh_vars (LENGTH pvars);
-      cfresh_tyargs <<- MAP CVar fresh_tyargs;
-      (tyrest, asrest, csrest) <-
-        infer ns (list_insert (fresh_v::fresh_tyargs) mset) rest;
-      (tye, ase, cse) <- infer ns mset e;
-      pvar_constraints <<- list$MAP2
-        (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v asrest)
-          (v::pvars) (cfresh_v::cfresh_tyargs);
-      return (tyrest, ase ⋓ (list_delete asrest (v :: pvars)),
-                (Unify d cfresh_v tye)::(Unify d tye (Tuple cfresh_tyargs))::
-                (FLAT pvar_constraints) ++ cse ++ csrest) od
-
     | _::_ => do
-      (id, ar, cdefs) <- oreturn (get_typedef 0 (SND ns)
-                                    (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css));
       fresh_v <- fresh_var;
       cfresh_v <<- CVar fresh_v;
-      fresh_tyargs <- fresh_vars ar;
+      (expected_ty, fresh_tyargs, cdefs) <-
+        get_case_type ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css);
       cfresh_tyargs <<- MAP CVar fresh_tyargs;
       mono_vars <<- fresh_v::fresh_tyargs;
-      expected_arg_tys <<-
-        MAP (λ(cn,ts). (cn, MAP (isubst cfresh_tyargs o itype_of) ts)) cdefs;
       (tys, as, cs) <- FOLDR
             (λ(cname,pvars,rest) acc. do
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- infer ns (list_insert mono_vars mset) rest;
-                expected_cname_arg_tys <- oreturn (ALOOKUP expected_arg_tys cname);
+                expected_cname_arg_tys <- oreturn (ALOOKUP cdefs cname);
                 pvar_constraints <<- list$MAP2
                   (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v as')
                     (v::pvars) (cfresh_v::expected_cname_arg_tys);
@@ -442,7 +441,7 @@ Definition infer_def:
       (tye, ase, cse) <- infer ns mset e;
 
       return (HD tys, ase ⋓ as,
-              (Unify d cfresh_v tye)::(Unify d tye (TypeCons id cfresh_tyargs))::
+              (Unify d cfresh_v tye)::(Unify d tye expected_ty)::
               (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs) od) ∧
 
   infer _ _ _ = fail

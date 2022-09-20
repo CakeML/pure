@@ -1,5 +1,5 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
+open HolKernel Parse boolLib bossLib BasicProvers;
 open arithmeticTheory integerTheory stringTheory optionTheory intLib pred_setTheory;
 
 val _ = new_theory "pure_config";
@@ -113,5 +113,70 @@ QED
 Definition max_FFI_return_size_def:
   max_FFI_return_size = 4096n (* bytes *)
 End
+
+Definition num_atomop_args_ok_def:
+  num_atomop_args_ok (Lit l) n      = (n = 0n) ∧
+  num_atomop_args_ok Add n          = (n = 2) ∧
+  num_atomop_args_ok Sub n          = (n = 2) ∧
+  num_atomop_args_ok Mul n          = (n = 2) ∧
+  num_atomop_args_ok Div n          = (n = 2) ∧
+  num_atomop_args_ok Mod n          = (n = 2) ∧
+  num_atomop_args_ok Eq n           = (n = 2) ∧
+  num_atomop_args_ok Lt n           = (n = 2) ∧
+  num_atomop_args_ok Leq n          = (n = 2) ∧
+  num_atomop_args_ok Gt n           = (n = 2) ∧
+  num_atomop_args_ok Geq n          = (n = 2) ∧
+  num_atomop_args_ok Len n          = (n = 1) ∧
+  num_atomop_args_ok Elem n         = (n = 2) ∧
+  num_atomop_args_ok Concat n       = T ∧
+  num_atomop_args_ok Implode n      = T ∧
+  num_atomop_args_ok Substring n    = (n = 2 ∨ n = 3) ∧
+  num_atomop_args_ok StrEq n        = (n = 2) ∧
+  num_atomop_args_ok StrLt n        = (n = 2) ∧
+  num_atomop_args_ok StrLeq n       = (n = 2) ∧
+  num_atomop_args_ok StrGt n        = (n = 2) ∧
+  num_atomop_args_ok StrGeq n       = (n = 2) ∧
+  num_atomop_args_ok (Message ch) n = (n = 1)
+End
+
+Theorem num_atomop_args_ok_check:
+  num_atomop_args_ok op n ⇔ ∃l res. n = LENGTH l ∧ eval_op op l = SOME res
+Proof
+  simp[DefnBase.one_line_ify NONE num_atomop_args_ok_def] >>
+  TOP_CASE_TAC >> rw[EQ_IMP_THM] >>
+  gvs[DefnBase.one_line_ify NONE eval_op_def, AllCaseEqs(), PULL_EXISTS]
+  >- (
+    qexists_tac `REPLICATE n (Str "")` >> simp[] >>
+    Induct_on `n` >> rw[concat_def]
+    )
+  >- (
+    qexists_tac `REPLICATE n (Int 0)` >> simp[] >>
+    Induct_on `n` >> rw[implode_def]
+    )
+  >- (
+    simp[SF DNF_ss] >> metis_tac[]
+    )
+QED
+
+Definition num_monad_args_def:
+  num_monad_args cn =
+         if cn = "Ret"    then SOME 1n
+    else if cn = "Bind"   then SOME 2
+    else if cn = "Raise"  then SOME 1
+    else if cn = "Handle" then SOME 2
+    else if cn = "Alloc"  then SOME 2
+    else if cn = "Length" then SOME 1
+    else if cn = "Deref"  then SOME 2
+    else if cn = "Update" then SOME 3
+    else if cn = "Act"    then SOME 1
+    else NONE
+End
+
+Theorem num_monad_args_ok_monad_cns:
+  IS_SOME (num_monad_args cn) ⇔ cn ∈ monad_cns
+Proof
+  rw[DefnBase.one_line_ify NONE num_monad_args_def] >>
+  simp[monad_cns_def]
+QED
 
 val _ = export_theory ();

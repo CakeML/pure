@@ -2414,7 +2414,7 @@ Proof
     \\ fs [freevars_subst,subst1_eqvt,perm1_def]
     \\ drule_at (Pos last) subst1_subst1
     \\ fs [closed_perm] \\ disch_then kall_tac
-    \\ rename [‘subst1 _ _ e ≅? _’]
+    \\ rename [‘(subst1 _ _ e ≅? _) _’]
     \\ once_rewrite_tac [perm_exp_sym]
     \\ fs [exp_eq_subst_perm_exp])
   THEN1
@@ -2449,21 +2449,24 @@ Proof
   irule exp_eq_subst >> simp[]
 QED
 
+Theorem beta_equality_frees:
+  ∀x e1 e2. DISJOINT (freevars e2) (boundvars e1) ==>
+  (App (Lam x e1) e2 ≅? subst1 x e2 e1) b
+Proof
+  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
+  irule eval_IMP_app_bisimilarity >> rw[] >>
+  simp [IMP_closed_subst, IN_FRANGE_FLOOKUP] >>
+  simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
+  simp [IMP_closed_subst, IN_FRANGE_FLOOKUP] >>
+  srw_tac [SatisfySimps.SATISFY_ss] [subst1_distrib]
+QED
+
 Theorem beta_equality:
   ∀x e1 e2. closed e2 ⇒ (App (Lam x e1) e2 ≅? subst1 x e2 e1) b
 Proof
-  rw[exp_eq_def, bind_def] >> IF_CASES_TAC >> simp[] >>
-  irule eval_IMP_app_bisimilarity >> rw[]
-  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
-  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP]) >>
-  simp[subst_def, eval_thm, bind_def, FLOOKUP_UPDATE] >>
-  AP_TERM_TAC >>
-  drule (GSYM subst_subst1_UPDATE) >> strip_tac >> simp[] >>
-  dep_rewrite.DEP_REWRITE_TAC[subst_subst_FUNION] >>
-  simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
-  rw[] >- res_tac >>
-  dep_rewrite.DEP_ONCE_REWRITE_TAC[FUNION_COMM] >> simp[] >>
-  simp[GSYM FUPDATE_EQ_FUNION]
+  rw []
+  \\ irule beta_equality_frees
+  \\ fs [closed_def]
 QED
 
 Theorem beta_equality_Letrec:
@@ -2504,6 +2507,78 @@ Proof
     simp[MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF,
          LAMBDA_PROD, GSYM FST_THM]
     )
+QED
+
+Theorem beta_equality_Letrec_alt:
+  DISJOINT (boundvars e)
+    (BIGUNION (set (MAP (λ(fn,e'). freevars e') fns)) DIFF set (MAP FST fns))
+  ⇒ (Letrec fns e ≅? subst (FEMPTY |++ (MAP (λ(g,x). (g,Letrec fns x)) fns)) e) b
+Proof
+  rw[exp_eq_open_bisimilarity] >>
+  irule_at Any SUBSET_REFL >>
+  irule_at Any FINITE_DIFF >> simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+  reverse $ conj_asm2_tac
+  >- (
+    irule SUBSET_TRANS >> irule_at Any freevars_subst_SUBSET >>
+    simp[DIFF_SUBSET, FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[FST_THM] >- simp[SUBSET_DEF] >>
+    simp[BIGUNION_SUBSET] >> rw[] >>
+    gvs[IN_FRANGE_FLOOKUP, flookup_fupdate_list] >> FULL_CASE_TAC >> gvs[] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP] >> pairarg_tac >> gvs[] >>
+    qmatch_goalsub_abbrev_tac `freevars x' ∪ foo DIFF _` >>
+    qsuff_tac `freevars x' ∪ foo = foo` >- (rw[] >> simp[FST_THM, SUBSET_DEF]) >>
+    simp[GSYM SUBSET_UNION_ABSORPTION] >>
+    unabbrev_all_tac >> rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, SF SFY_ss]
+    ) >>
+  irule open_bisimilarity_suff' >> reverse $ rw[bind_def]
+  >- (irule_at Any FINITE_DIFF >> simp[MEM_MAP, PULL_EXISTS, FORALL_PROD]) >>
+  qmatch_goalsub_abbrev_tac `subst _ (subst fns_map _)` >> simp[subst_def] >>
+  `FDIFF f (set (MAP FST fns)) = f` by (
+    rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+  simp[app_bisimilarity_eq] >> reverse $ rpt $ conj_asm2_tac
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
+  >- (
+    simp[EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rw[EVERY_MEM] >> pairarg_tac >> gvs[] >>
+    irule SUBSET_TRANS >> irule_at Any freevars_subst_SUBSET >> rw[DIFF_SUBSET]
+    >- (simp[FST_THM] >> rw[SUBSET_DEF, SF DNF_ss, MEM_MAP, EXISTS_PROD, SF SFY_ss])
+    >- (
+      rw[BIGUNION_SUBSET, PULL_EXISTS, IN_FRANGE_FLOOKUP] >>
+      first_x_assum drule >> rw[closed_def]
+      )
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    irule SUBSET_TRANS >> irule_at Any freevars_subst_SUBSET >> rw[DIFF_SUBSET]
+    >- (simp[FST_THM] >> rw[SUBSET_DEF, SF DNF_ss, MEM_MAP, EXISTS_PROD, SF SFY_ss])
+    >- (
+      rw[BIGUNION_SUBSET, PULL_EXISTS, IN_FRANGE_FLOOKUP] >>
+      first_x_assum drule >> rw[closed_def]
+      )
+    ) >>
+  irule exp_eq_trans >> irule_at Any beta_equality_Letrec >> gvs[] >>
+  DEP_REWRITE_TAC[subst_funs_eq_subst] >> simp[] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  qspecl_then [`e`,`fns_map`,`f`] mp_tac subst_distrib >> simp[] >>
+  simp[PULL_EXISTS] >> impl_tac
+  >- (
+    rw[] >> gvs[] >- res_tac >>
+    unabbrev_all_tac >> drule $ SRULE [SUBSET_DEF] FRANGE_FUPDATE_LIST_SUBSET >>
+    rw[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    qmatch_goalsub_abbrev_tac `_ ∪ foo DIFF _` >>
+    `freevars p_2' ∪ foo = foo` by (
+      rw[GSYM SUBSET_UNION_ABSORPTION] >>
+      unabbrev_all_tac >> simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+      rw[] >> simp[SF SFY_ss]) >>
+    simp[Once DISJOINT_SYM]
+    ) >>
+  rw[] >> unabbrev_all_tac >> simp[o_f_FUPDATE_LIST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, subst_def] >>
+  qmatch_goalsub_abbrev_tac `FDIFF f foo` >>
+  qsuff_tac `FDIFF f foo = f` >> rw[exp_eq_refl] >>
+  unabbrev_all_tac >> rw[fmap_eq_flookup, FLOOKUP_FDIFF, FDOM_FUPDATE_LIST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[FST_THM, FLOOKUP_DEF] >>
+  IF_CASES_TAC >> gvs[]
 QED
 
 Theorem Let_Seq:
@@ -2679,6 +2754,50 @@ Proof
   \\ qspec_then ‘[a]’ mp_tac Let_Prim \\ rw []
   \\ qspec_then ‘[a;b]’ mp_tac Let_Prim \\ rw []
   \\ qspec_then ‘[a;b;c]’ mp_tac Let_Prim \\ rw []
+QED
+
+Triviality Letrec_Prim_closed:
+  ∀l p xs b. EVERY (λfb. freevars (SND fb) ⊆ set (MAP FST l)) l
+         /\ EVERY (\e. freevars e ⊆ set (MAP FST l)) xs ==>
+    (Letrec l (Prim p xs) ≅? Prim p (MAP (Letrec l) xs)) b
+Proof
+  rw []
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ simp [EVERY_MAP, subst_funs_eq_subst]
+  \\ simp [subst_def]
+  \\ irule exp_eq_Prim_cong
+  \\ rw [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, EVERY2_refl_EQ]
+  \\ ONCE_REWRITE_TAC [exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ simp [EVERY_MAP, subst_funs_eq_subst]
+  \\ irule exp_eq_refl
+QED
+
+Theorem Letrec_Prim:
+  ∀l ope eL b. (Letrec l (Prim ope eL) ≅? Prim ope (MAP (Letrec l) eL)) b
+Proof
+  rw[exp_eq_def, bind_def]
+  \\ rw []
+  \\ simp [subst_def]
+  \\ fs [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, DIFF_SUBSET, FORALL_PROD]
+  \\ simp [app_bisimilarity_eq]
+  \\ irule_at Any exp_eq_trans \\ irule_at Any Letrec_Prim_closed
+  \\ csimp [EVERY_MAP]
+  \\ irule_at Any exp_eq_Prim_cong
+  \\ conj_tac
+  >- (
+    simp [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, EVERY2_refl_EQ]
+    \\ simp [subst_def, exp_eq_refl]
+  )
+  \\ simp [subst_def]
+  \\ fs [EVERY_MEM, FORALL_PROD, MEM_MAP, PULL_EXISTS, EXISTS_PROD, BIGUNION_SUBSET]
+  \\ rw [] \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ simp [FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_FDIFF]
+  \\ srw_tac [SatisfySimps.SATISFY_ss] []
+  \\ fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+  \\ metis_tac []
 QED
 
 Theorem Proj_Seq:

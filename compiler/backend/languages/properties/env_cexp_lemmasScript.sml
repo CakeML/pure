@@ -2,9 +2,9 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory
      envLangTheory;
-open pure_miscTheory envLang_cexpTheory ;
+open pure_miscTheory env_cexpTheory ;
 
-val _ = new_theory "envLang_cexp_lemmas";
+val _ = new_theory "env_cexp_lemmas";
 
 val freevars_def = envLangTheory.freevars_def;
 
@@ -66,6 +66,9 @@ Proof
   Cases_on `vs` >> gvs[] >> metis_tac[]
 QED
 
+(* TODO There's nothing called freevars_cexp for envLang? *)
+
+(*
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = freevars_cexp ce
 Proof
@@ -85,5 +88,7 @@ Proof
     simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
     )
 QED
+ *)
 
 val _ = export_theory();
+

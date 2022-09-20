@@ -208,71 +208,6 @@ Proof
   \\ FULL_CASE_TAC \\ fs []
 QED
 
-Theorem Letrec_Prim:
-  ∀l ope eL b. (Letrec l (Prim ope eL) ≅? Prim ope (MAP (Letrec l) eL)) b
-Proof
-  rw []
-  \\ irule eval_IMP_exp_eq
-  \\ rw [subst_def, eval_thm, subst_funs_def, bind_def]
-  >- (irule eval_Prim
-      \\ rw [LIST_REL_EL_EQN, EL_MAP, subst_def, eval_thm, subst_funs_def]
-      \\ gvs [bind_def]
-      \\ IF_CASES_TAC \\ fs []
-      \\ first_x_assum dxrule
-      \\ strip_tac
-      \\ fs [])
-  \\ fs [MAP_MAP_o]
-  \\ dxrule_then assume_tac FLOOKUP_LUPDATE
-  \\ gvs [FLOOKUP_EMPTY, MEM_EL, EL_MAP]
-  \\ qsuff_tac ‘F’ \\ fs []
-  \\ first_x_assum irule
-  \\ rename1 ‘EL k l’
-  \\ qabbrev_tac ‘p = EL k l’
-  \\ PairCases_on ‘p’
-  \\ gvs [EVERY_EL, EL_MAP]
-  \\ rw []
-  \\ rename1 ‘EL k2 l’
-  \\ qabbrev_tac ‘p' = EL k2 l’
-  \\ PairCases_on ‘p'’
-  \\ gvs []
-  \\ ‘∀v. v ∈ FRANGE (FDIFF f (set (MAP FST l))) ⇒ closed v’
-    by (rw []
-        \\ first_x_assum irule
-        \\ gvs [FRANGE_FLOOKUP, FLOOKUP_FDIFF]
-        \\ pop_assum $ irule_at Any)
-  \\ gvs [freevars_subst, SUBSET_DEF, IN_DIFF, FDOM_FDIFF]
-  \\ rw [MEM_EL]
-  >>~[‘EL _ (MAP FST _) = EL _ (MAP FST _)’]
-  >- (first_assum $ irule_at Any
-      \\ gvs [EL_MAP]
-      \\ rename1 ‘FST p = FST _’
-      \\ PairCases_on ‘p’
-      \\ fs [])
-  >- (first_assum $ irule_at Any
-      \\ gvs [EL_MAP]
-      \\ rename1 ‘FST p = FST _’
-      \\ PairCases_on ‘p’
-      \\ fs [])
-  \\ first_x_assum $ qspecl_then [‘x’] assume_tac
-  \\ pop_assum kall_tac
-  \\ first_x_assum $ qspecl_then [‘x’] assume_tac
-  \\ gvs [] >>~[‘MEM x (MAP FST l)’]
-  >- (gvs [MEM_EL]
-      \\ first_assum $ irule_at Any
-      \\ fs [EL_MAP]
-      \\ rename1 ‘FST p = FST _’
-      \\ PairCases_on ‘p’ \\ fs [])
-  >- (gvs [MEM_EL]
-      \\ first_assum $ irule_at Any
-      \\ fs [EL_MAP]
-      \\ rename1 ‘FST p = FST _’
-      \\ PairCases_on ‘p’ \\ fs [])
-  \\ first_x_assum $ qspecl_then [‘freevars p'1’] assume_tac
-  \\ gvs [MEM_MAP]
-  \\ pop_assum $ qspecl_then [‘EL k2 l’] assume_tac
-  \\ gvs [EL_MEM]
-QED
-
 Theorem Let_Lam:
   ∀v w e1 e2 b. closed e1 ∧ v ≠ w ⇒ (Let v e1 (Lam w e2) ≅? Lam w (Let v e1 e2)) b
 Proof
@@ -463,7 +398,7 @@ Proof
   rw [EL_MAP, fmap_rel_FEMPTY, LIST_REL_EL_EQN]
   >~[‘FST (_ (_ p)) = FST (_ (_ p))’]
   >- (PairCases_on ‘p’ >> fs [])
-  >~[‘SND (_ (_ p)) ≅? SND (_ (_ p))’]
+  >~[‘(SND (_ (_ p)) ≅? SND (_ (_ p))) _’]
   >- (PairCases_on ‘p’ >> gvs [subst_def] >>
       gvs [EVERY_MEM] >> drule_then assume_tac $ GSYM subst_FDIFF' >>
       ‘MAP (FST o (λ(v, e). (v, Let s e1 e))) l = MAP FST l’
@@ -595,7 +530,7 @@ Proof
   \\ Cases_on ‘ope’
   \\ fs [well_written_def]
   \\ Cases_on ‘l’
-  >>~[‘Prim _ [] ≅? Fail’]
+  >>~[‘(Prim _ [] ≅? Fail) _’]
   >- (fs [exp_eq_refl])
   >- (irule eval_wh_IMP_exp_eq
      \\ fs [subst_def, eval_wh_def, eval_wh_to_def])

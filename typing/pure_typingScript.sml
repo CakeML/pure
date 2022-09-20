@@ -51,9 +51,41 @@ Type type_scheme[pp] = ``:num # type``;
   our typing namespace.
 *)
 (* TODO make finite maps *)
-Type typedef[pp] = ``:num # ((string # type list) list)``;
+Type typedef[pp] = ``:num # ((mlstring # type list) list)``;
 Type typedefs[pp] = ``:typedef list``;
-Type exndef[pp] = ``:(string # type list) list``;
+Type exndef[pp] = ``:(mlstring # type list) list``;
+
+(* CakeML assumes the following initial namespace:
+      Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
+      Types: 0 -> Bool, 1 -> List
+
+   In Pure, we need only Subscript and List - Bool is built in and none of the
+   others are used. Therefore, the Pure initial namespace should be:
+      Exception: 0 -> Subscript
+      Types: 0 -> List
+*)
+Definition initial_namespace_def:
+  initial_namespace : exndef # typedefs = (
+    [«Subscript»,[]],
+    [1, [ («[]»,[]) ; («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
+  )
+End
+
+(* Constructor names and their arities defined by a namespace *)
+Definition ns_cns_arities_def:
+  ns_cns_arities (exndef : exndef, tdefs : typedefs) =
+    set (MAP (λ(cn,ts). cn, LENGTH ts) exndef) INSERT
+    {(«True», 0); («False», 0)} (* Booleans considered built-in *) INSERT
+    set (MAP (λ(ar,cndefs). set (MAP (λ(cn,ts). cn, LENGTH ts) cndefs)) tdefs)
+End
+
+(* Check a set of constructor names/arities fits a namespace *)
+Definition cns_arities_ok_def:
+  cns_arities_ok ns cns_arities ⇔
+  ∀cn_ars. cn_ars ∈ cns_arities ⇒
+    (∃ar. cn_ars = {«»,ar}) (* all tuples allowed *) ∨
+    (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
+End
 
 
 (********** Substitutions and shifts **********)
@@ -178,13 +210,17 @@ Definition namespace_ok_def:
     (* No empty type definitions: *)
       EVERY (λ(ar,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
-      ALL_DISTINCT (SET_TO_LIST reserved_cns ++
-        MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
-    (* Every constructor type is closed wrt type arity and uses only defined types: *)
+      ALL_DISTINCT
+        (MAP implode (SET_TO_LIST (reserved_cns DELETE "Subscript")) ++
+         MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
+    (* Every constructor type is closed wrt type arity and uses only defined
+       types: *)
       EVERY (λ(ar,td).
         EVERY (λ(cn,argtys). EVERY (type_ok typedefs ar) argtys) td) typedefs ∧
     (* Every exception constructor type is closed and uses only defined types: *)
-      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef
+      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef ∧
+    (* Subscript is a valid exception *)
+      MEM («Subscript»,[]) exndef
 End
 
 
@@ -278,50 +314,50 @@ Inductive type_tcexp:
 
 [~Tuple:]
   (LIST_REL (type_tcexp ns db st env) es ts ⇒
-      type_tcexp ns db st env (Prim (Cons "") es) (Tuple ts)) ∧
+      type_tcexp ns db st env (Prim (Cons «») es) (Tuple ts)) ∧
 
 [~Ret:]
   (type_tcexp ns db st env e t ⇒
-      type_tcexp ns db st env (Prim (Cons "Ret") [e]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Ret») [e]) (M t)) ∧
 
 [~Bind:]
   (type_tcexp ns db st env e1 (M t1) ∧
    type_tcexp ns db st env e2 (Function t1 (M t2)) ⇒
-      type_tcexp ns db st env (Prim (Cons "Bind") [e1;e2]) (M t2)) ∧
+      type_tcexp ns db st env (Prim (Cons «Bind») [e1;e2]) (M t2)) ∧
 
 [~Raise:]
   (type_tcexp ns db st env e Exception ∧
    type_ok (SND ns) db t ⇒
-      type_tcexp ns db st env (Prim (Cons "Raise") [e]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (M t)) ∧
 
 [~Handle:]
   (type_tcexp ns db st env e1 (M t) ∧
    type_tcexp ns db st env e2 (Function Exception (M t)) ⇒
-      type_tcexp ns db st env (Prim (Cons "Handle") [e1;e2]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (M t)) ∧
 
 [~Act:]
   (type_tcexp ns db st env e (PrimTy Message) ⇒
-      type_tcexp ns db st env (Prim (Cons "Act") [e]) (M $ PrimTy String)) ∧
+      type_tcexp ns db st env (Prim (Cons «Act») [e]) (M $ PrimTy String)) ∧
 
 [~Alloc:]
   (type_tcexp ns db st env e1 (PrimTy Integer) ∧
    type_tcexp ns db st env e2 t ⇒
-      type_tcexp ns db st env (Prim (Cons "Alloc") [e1;e2]) (M $ Array t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2]) (M $ Array t)) ∧
 
 [~Length:]
   (type_tcexp ns db st env e (Array t) ⇒
-      type_tcexp ns db st env (Prim (Cons "Length") [e]) (M $ PrimTy Integer)) ∧
+      type_tcexp ns db st env (Prim (Cons «Length») [e]) (M $ PrimTy Integer)) ∧
 
 [~Deref:]
   (type_tcexp ns db st env e1 (Array t) ∧
    type_tcexp ns db st env e2 (PrimTy Integer) ⇒
-      type_tcexp ns db st env (Prim (Cons "Deref") [e1;e2]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Deref») [e1;e2]) (M t)) ∧
 
 [~Update:]
   (type_tcexp ns db st env e1 (Array t) ∧
    type_tcexp ns db st env e2 (PrimTy Integer) ∧
    type_tcexp ns db st env e3 t ⇒
-      type_tcexp ns db st env (Prim (Cons "Update") [e1;e2;e3]) (M Unit)) ∧
+      type_tcexp ns db st env (Prim (Cons «Update») [e1;e2;e3]) (M Unit)) ∧
 
 [~Exception:]
   (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
@@ -329,13 +365,10 @@ Inductive type_tcexp:
       type_tcexp (exndef,typedefs) db st env (Prim (Cons cname) es) Exception) ∧
 
 [~True:]
-  (type_tcexp ns db st env (Prim (Cons "True") []) (PrimTy Bool)) ∧
+  (type_tcexp ns db st env (Prim (Cons «True») []) (PrimTy Bool)) ∧
 
 [~False:]
-  (type_tcexp ns db st env (Prim (Cons "False") []) (PrimTy Bool)) ∧
-
-[~Subscript:]
-  (type_tcexp ns db st env (Prim (Cons "Subscript") []) Exception) ∧
+  (type_tcexp ns db st env (Prim (Cons «False») []) (PrimTy Bool)) ∧
 
 [~Cons:]
   (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
@@ -388,14 +421,14 @@ Inductive type_tcexp:
 
 [~BoolCase:]
   (type_tcexp ns db st env e (PrimTy Bool) ∧
-   LENGTH css = 2 ∧ set (MAP FST css) = {"True";"False"} ∧
+   LENGTH css = 2 ∧ set (MAP FST css) = {«True»;«False»} ∧
    EVERY (λ(cn,pvars,cexp). pvars = [] ∧
     type_tcexp ns db st ((v,0,PrimTy Bool)::env) cexp t) css ⇒
       type_tcexp ns db st env (Case e v css) t) ∧
 
 [~TupleCase:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
-   css = [("",pvars,cexp)] ∧ ¬ MEM v pvars ∧
+   css = [(«»,pvars,cexp)] ∧ ¬ MEM v pvars ∧
    LENGTH pvars = LENGTH tyargs ∧
    type_tcexp ns db st
       (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
@@ -405,12 +438,12 @@ Inductive type_tcexp:
 [~ExceptionCase:]
   (type_tcexp (exndef,typedefs) db st env e Exception ∧
    (* Pattern match is exhaustive: *)
-      "Subscript" INSERT set (MAP FST exndef) = set (MAP FST css) ∧
-      LENGTH exndef + 1 = LENGTH css ∧
+      set (MAP FST exndef) = set (MAP FST css) ∧
+      LENGTH exndef = LENGTH css ∧
       (* TODO this forbids duplicated patterns - perhaps overkill? *)
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃tys.
-        (ALOOKUP exndef cname = SOME tys ∨ (cname = "Subscript" ∧ pvars = [])) ∧
+        ALOOKUP exndef cname = SOME tys ∧
         (* Pattern variables do not shadow case split: *)
           ¬ MEM v pvars ∧
         (* Constructor arities match *)
@@ -448,7 +481,7 @@ Inductive type_tcexp:
 [~TupleSafeProj:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
    LENGTH tyargs = arity ∧ oEL i tyargs = SOME t ⇒
-    type_tcexp ns db st env (SafeProj "" arity i e) t) ∧
+    type_tcexp ns db st env (SafeProj «» arity i e) t) ∧
 
 [~ExceptionSafeProj:]
   (type_tcexp (exndef,typedefs) db st env e Exception ∧

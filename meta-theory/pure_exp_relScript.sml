@@ -818,13 +818,15 @@ QED
 
 (* expression relation without freevars argument *)
 
-Definition exp_eq_def:
-  exp_eq x y b ⇔
+Definition exp_eq0_def:
+  exp_eq0 b x y ⇔
     ∀f. freevars x ∪ freevars y ⊆ FDOM f ⇒ (bind f x ≃ bind f y) b
 End
+Theorem exp_eq_def = exp_eq0_def
+Overload exp_eq = “λe1 e2 b. exp_eq0 b e1 e2”
 
 val _ = set_fixity "≅?" (Infixl 480);
-Overload "≅?" = “exp_eq”;
+Overload "≅?" = “λx y b. exp_eq0 b x y”;
 
 val _ = set_fixity "≅" (Infixl 480);
 Overload "≅" = “(λx y. (x ≅? y) T)”;
@@ -848,6 +850,27 @@ Theorem open_bisimilarity_SUBSET:
 Proof
   fs [open_bisimilarity_def] \\ rw []
   \\ imp_res_tac SUBSET_TRANS \\ fs []
+QED
+
+Theorem open_bisimilarity_suff':
+  (∀f. FDOM f = names ⇒ (bind f e1 ≃ bind f e2) b) ∧
+  freevars e1 ∪ freevars e2 ⊆ names ∧
+  FINITE names ⇒
+  open_bisimilarity b names e1 e2
+Proof
+  rw[] >> irule open_bisimilarity_SUBSET >>
+  qexists_tac `freevars e1 ∪ freevars e2` >> simp[] >>
+  irule open_bisimilarity_suff >> rw[] >>
+  last_x_assum $ qspec_then
+    `FUN_FMAP (λk. if k ∈ FDOM f then f ' k else Fail) names` mp_tac >>
+  simp[] >> reverse $ rw[bind_def] >> gvs[]
+  >- (gvs[FLOOKUP_FUN_FMAP] >> every_case_tac >> gvs[FLOOKUP_DEF]) >>
+  qmatch_asmsub_abbrev_tac `subst f' _` >>
+  qsuff_tac `subst f' e1 = subst f e1 ∧ subst f' e2 = subst f e2` >>
+  rw[] >> gvs[] >> once_rewrite_tac[subst_FDIFF] >> AP_THM_TAC >> AP_TERM_TAC >>
+  unabbrev_all_tac >> rw[fmap_eq_flookup] >>
+  simp[FLOOKUP_DRESTRICT, FLOOKUP_FUN_FMAP, FLOOKUP_DEF] >>
+  IF_CASES_TAC >> gvs[SUBSET_DEF]
 QED
 
 Theorem exp_eq_open_bisimilarity_freevars:

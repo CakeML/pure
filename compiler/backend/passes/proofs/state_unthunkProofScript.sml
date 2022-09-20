@@ -59,7 +59,7 @@ End
 
 Definition Letrec_imm_def:
   (Letrec_imm vs (Var v) ⇔ MEM v vs) ∧
-  (Letrec_imm vs (Lam _ _) ⇔ T) ∧
+  (Letrec_imm vs (Lam (SOME _) _) ⇔ T) ∧
   (Letrec_imm vs _ ⇔ F)
 End
 
@@ -1768,8 +1768,8 @@ Proof
       >-
        (ntac 15 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
         \\ gvs [GSYM rec_env_def]
-        \\ drule step_n_set_cont
-        \\ disch_then (qspec_then ‘ForceK2 ts::tk’ assume_tac)
+        \\ drule step_n_set_cont \\ strip_tac
+        \\ pop_assum (qspec_then ‘ForceK2 ts::tk’ assume_tac)
         \\ drule_all step_n_fast_forward
         \\ strip_tac
         \\ pop_assum mp_tac
@@ -1779,7 +1779,7 @@ Proof
         \\ simp [Once step_res_rel_cases,PULL_EXISTS]
         \\ disch_then drule_all \\ strip_tac \\ gvs []
         \\ rpt $ first_assum $ irule_at Any)
-      \\ gvs [GSYM rec_env_def]
+      \\ gvs [GSYM rec_env_def,get_atoms_def]
       \\ drule_all step_n_NONE_split
       \\ strip_tac
       \\ ntac 2 $ pop_assum mp_tac
@@ -1794,13 +1794,14 @@ Proof
       \\ qmatch_goalsub_abbrev_tac ‘step_n _ (_,_,kk3)’
       \\ qpat_x_assum ‘step_res_rel (p ++ q) (Val v) _’ mp_tac
       \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
-      \\ drule_then (qspec_then ‘kk3’ strip_assume_tac) step_n_set_cont
+      \\ drule step_n_set_cont \\ strip_tac
+      \\ pop_assum (qspec_then ‘kk3’ assume_tac)
       \\ qsuff_tac ‘∃m' ss1' sr1' sk1 q'.
           step_n m' (Exp senv' se,SOME ss,kk3) = (sr1',SOME ss1',sk1) ∧
           is_halt (sr1',SOME ss1',sk1) ∧ cont_rel (p ++ q') tk1 sk1 ∧
           state_rel (p ++ q') (pick_opt zs ts1) (SOME ss1') ∧
           step_res_rel (p ++ q') tr1 sr1'’ >- metis_tac []
-      \\ Q.REFINE_EXISTS_TAC ‘ck+1+m’
+      \\ Q.REFINE_EXISTS_TAC ‘ck+1+n5’
       \\ rewrite_tac [step_n_add] \\ fs []
       \\ fs [step,Abbr‘kk3’]
       \\ ntac 8 (irule_at Any step_n_unwind \\ fs [step_n_add,step,get_atoms_def])
@@ -1869,6 +1870,7 @@ Proof
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘RaiseK’] >-
      (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+      \\ Cases_on ‘ts = NONE’ \\ gvs []
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
@@ -2153,13 +2155,14 @@ Proof
                  >- (rw [] \\ fs [is_halt_def])
                  \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
         \\ gvs [ADD1,GSYM rec_env_def] \\ strip_tac
-        \\ drule step_n_set_cont
-        \\ disch_then $ qspec_then ‘ForceK2 ts::tk’ assume_tac
-        \\ Q.REFINE_EXISTS_TAC ‘ck1+(1+ck)’
+        \\ drule step_n_set_cont \\ strip_tac
+        \\ pop_assum $ qspec_then ‘ForceK2 ts::tk’ assume_tac
+        \\ Q.REFINE_EXISTS_TAC ‘ck1+(1+n5)’
         \\ rewrite_tac [step_n_add,ADD1]
         \\ fs [] \\ simp [step]
-        \\ pop_assum kall_tac
         \\ last_x_assum $ irule
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
         \\ pop_assum $ irule_at Any \\ fs []
         \\ rpt (first_assum $ irule_at Any)
         \\ simp [step_res_rel_cases])
@@ -2184,9 +2187,9 @@ Proof
        (pop_assum $ qspec_then ‘ForceK2 ts::tk’ strip_assume_tac
         \\ pop_assum $ irule_at Any \\ fs [is_halt_def])
       \\ gvs []
-      \\ drule step_n_set_cont
-      \\ disch_then $ qspec_then ‘ForceK2 ts::tk’ assume_tac
-      \\ Q.REFINE_EXISTS_TAC ‘ck+(1+n)’
+      \\ drule step_n_set_cont \\ strip_tac
+      \\ pop_assum $ qspec_then ‘ForceK2 ts::tk’ assume_tac
+      \\ Q.REFINE_EXISTS_TAC ‘ck+(1+n5)’
       \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
       \\ rewrite_tac [step_n_add,ADD1] \\ simp []
       \\ simp [step] \\ gvs []
@@ -2271,6 +2274,7 @@ Proof
     >~ [‘RaiseK’] >-
      (Q.REFINE_EXISTS_TAC ‘ck1+1’
       \\ rewrite_tac [step_n_add,ADD1] \\ gvs [step]
+      \\ rw [] >- (qexists_tac ‘0’ \\ fs [])
       \\ Cases_on ‘m’ \\ gvs [step_n_add,step,ADD1]
       \\ last_x_assum irule
       \\ gvs [step_res_rel_cases,PULL_EXISTS]

@@ -3,7 +3,9 @@ CAKEDIR = $(HOME)/cakeml/master
 endif
 
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
-           $(CAKEDIR)/semantics
+           $(CAKEDIR)/semantics \
+           $(CAKEDIR)/basis/pure \
+           ../backend/languages/
 
 HOLHEAP = $(CAKEDIR)/misc/cakeml-heap
 

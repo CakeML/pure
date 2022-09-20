@@ -132,7 +132,8 @@ Definition purePEG_def[nocompute]:
                         NT nTy I lrGT]
                        (mkNT nEqBind)]);
         (INL nOp,
-         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT)
+         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT ∨
+                  t = SymbolT "-" ∨ t = SymbolT "==")
              mktokLf
              lrEQ);
 

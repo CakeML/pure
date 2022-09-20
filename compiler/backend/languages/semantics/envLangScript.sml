@@ -11,11 +11,14 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory thunkLang_primitivesTheory envLang_cexpTheory pure_miscTheory;
+     pure_expTheory thunkLang_primitivesTheory
+     pure_miscTheory mlstringTheory env_cexpTheory;
 
 val _ = new_theory "envLang";
 
 val _ = numLib.prefer_num();
+
+Type vname = “:string”
 
 Datatype:
   exp = Var vname                            (* variable                *)
@@ -30,10 +33,48 @@ Datatype:
       | Force exp                            (* evaluates a Thunk       *)
 End
 
-Definition op_of_def:
-  op_of (Cons s) : op = Cons s ∧
-  op_of (AtomOp aop) = AtomOp aop
+Definition op_of_def[simp]:
+  op_of ((Cons n):cop) = (Cons (explode n)):op ∧
+  op_of (AtomOp m) = AtomOp m
 End
+
+Definition lets_for_def:
+  lets_for cn v [] b = b ∧
+  lets_for cn v ((n,w)::ws) b =
+    Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for cn v ws b)
+End
+
+Definition rows_of_def:
+  rows_of v [] = Prim (AtomOp Add) [] ∧
+  rows_of v ((cn,vs,b)::rest) =
+    If (Prim (IsEq cn (LENGTH vs) T) [Var v])
+      (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
+      (Let (SOME v) (Var v) $ rows_of v rest)
+End
+
+Definition exp_of_def:
+  exp_of ((Var n):cexp) = (Var (explode n)):envLang$exp ∧
+  exp_of (Prim p xs) = Prim (op_of p) (MAP exp_of xs) ∧
+  exp_of (App x y) = App (exp_of x) (exp_of y) ∧
+  exp_of (Lam v x) = Lam (explode v) (exp_of x) ∧
+  exp_of (Letrec fs x) = Letrec (MAP (λ(n,y). (explode n,exp_of y)) fs) (exp_of x) ∧
+  exp_of (Let v x y) = Let (OPTION_MAP explode v) (exp_of x) (exp_of y) ∧
+  exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
+  exp_of (Delay x) = Delay (exp_of x) ∧
+  exp_of (Box x) = Box (exp_of x) ∧
+  exp_of (Force x) = Force (exp_of x) ∧
+  exp_of (Delay x) = Delay (exp_of x) ∧
+  exp_of (Case e v rs) = Let (SOME (explode v)) (exp_of e)
+                           (rows_of (explode v) (MAP (λ(cn,vs,e).
+                              (explode cn, MAP explode vs, exp_of e)) rs)) ∧
+  (* monads *)
+  exp_of (Ret x) = Prim (Cons "Ret") [exp_of x] ∧
+  exp_of (Bind x y) = Prim (Cons "Bind") [Delay (exp_of x); Delay (exp_of y)]
+Termination
+  WF_REL_TAC ‘measure cexp_size’
+End
+
+Theorem exp_of_def[simp] = exp_of_def |> CONV_RULE (DEPTH_CONV ETA_CONV);
 
 Definition Lams_def:
   Lams [] e = e ∧
@@ -43,39 +84,6 @@ End
 Definition Apps_def:
   Apps e [] = e ∧
   Apps e (x::xs) = Apps (App e x) xs
-End
-
-
-Definition lets_for_def:
-  lets_for cn v [] b = b ∧
-  lets_for cn v ((n,w)::ws) b =
-    Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for cn v ws b)
-End
-
-Definition rows_of_def:
-  rows_of v [] = Prim If [] ∧
-  rows_of v ((cn,vs,b)::rest) =
-    If (Prim (IsEq cn (LENGTH vs) T) [Var v])
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest)
-End
-
-Definition exp_of_def:
-  exp_of (envLang_cexp$Var c n) = envLang$Var n ∧
-  exp_of (Prim c cop es)  = Prim (op_of cop) (MAP exp_of es) ∧
-  exp_of (App c e es)     = Apps (exp_of e) (MAP exp_of es) ∧
-  exp_of (Lam c xs e)     = Lams xs (exp_of e) ∧
-  exp_of (Letrec c fns e) = Letrec (MAP (λ(f,x). (f, exp_of x)) fns) (exp_of e) ∧
-  exp_of (Let c x e1 e2)  = Let x (exp_of e1) (exp_of e2) ∧
-  exp_of (If c e e1 e2)   = If (exp_of e) (exp_of e1) (exp_of e2) ∧
-  exp_of (Delay c e)      = Delay (exp_of e) ∧
-  exp_of (Box c e)        = Box (exp_of e) ∧
-  exp_of (Force c e)      = Force (exp_of e) ∧
-  exp_of (Case c e v css) = Let (SOME v) (exp_of e)
-                              (rows_of v (MAP (λ(cn,vs,e). (cn, vs, exp_of e)) css))
-Termination
-  WF_REL_TAC `measure $ cexp_size $ K 0` >>
-  rw[cexp_size_def] >> gvs[] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]
 End
 
 Datatype:

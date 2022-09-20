@@ -12,11 +12,12 @@
 
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory pure_semanticsTheory arithmeticTheory;
+     pure_expTheory pure_semanticsTheory arithmeticTheory
+     state_cexpTheory mlstringTheory;
 
 val _ = new_theory "stateLang";
 
-val _ = set_grammar_ancestry ["pure_semantics"];
+val _ = set_grammar_ancestry ["pure_semantics","state_cexp"];
 
 val _ = numLib.prefer_num();
 
@@ -39,6 +40,8 @@ Datatype:
       | UnsafeUpdate       (* update without a bounds check            *)
       | FFI string         (* make an FFI call                         *)
 End
+
+Type vname = “:string”
 
 Datatype:
   exp = (* stateLang expressions *)
@@ -356,7 +359,8 @@ Definition return_def:
           else error st k
         else value v st (CaseK env n css :: k)
     | _ => error st k) ∧
-  return v st (RaiseK :: k) = (Exn v, st, k) ∧
+  return v st (RaiseK :: k) =
+    (if st = NONE then error st k else (Exn v, st, k)) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
   return v st (HandleAppK env e :: k) = value v st k ∧
   return v st (AppK env sop vs' [] :: k) = (let vs = v::vs' in
@@ -618,20 +622,96 @@ Proof
   Induct \\ fs [ADD1,step_n_add,step,error_def]
 QED
 
+Theorem step_n_Exn_NIL:
+  step_n n (Exn v,s,[]) = (Exn v,s,[])
+Proof
+  Induct_on ‘n’ >> rw[step,ADD1,step_n_add]
+QED
+
 Theorem step_n_is_halt_SOME:
-  step_n n (tr,SOME ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧ tr1 ≠ Error ⇒
-  ∃ts2. ts1 = SOME ts2
+  step_n x (tr,SOME ts,tk) = (Action a b,a1,a2) ⇒
+  ∃ts2. a1 = SOME ts2
 Proof
   cheat
+QED
+
+Theorem application_cut_cont[local]:
+  ∀sop env vs st k x y z k'.
+  application sop env vs st k = (x,y,z) ∧ num_args_ok sop (LENGTH vs) ∧ k' ≼ k ⇒
+  ∃x' y' z'. application sop env vs st k' = (x',y',z') ∧
+       ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
+Proof
+  Cases >> rw[step] >>
+  gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
+        rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)] >>
+  metis_tac[]
+QED
+
+Theorem return_cut_cont[local]:
+  ∀v st k x y z k'.
+  return v st k = (x,y,z) ∧ k' ≼ k ⇒
+  ∃x' y' z'. return v st k' = (x',y',z') ∧
+       ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
+Proof
+  ho_match_mp_tac return_ind >>
+  rw[] >>
+  gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
+        rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step] >>
+  rename [‘k' ++ _’] >>
+  drule_then (qspec_then ‘k'’ mp_tac) application_cut_cont >>
+  gvs[rich_listTheory.DROP_APPEND2]
+QED
+
+Theorem step_cut_cont[local]:
+  ∀st k sr k' x y z.
+  step st k sr = (x,y,z) ∧ k' ≼ k ⇒
+  ∃x' y' z'. step st k' sr = (x',y',z') ∧
+       ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
+Proof
+  ho_match_mp_tac step_ind >>
+  rw[step,AllCaseEqs()] >> rw[] >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+      APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step,AllCaseEqs()]
+  >- (drule_then (qspec_then ‘k'’ mp_tac) application_cut_cont >>
+      gvs[rich_listTheory.DROP_APPEND2])
+  >- metis_tac[]
+  >- (drule_then (qspec_then ‘k'’ mp_tac) return_cut_cont >>
+      gvs[rich_listTheory.DROP_APPEND2])
+QED
+
+Theorem step_n_cut_cont_gen:
+  ∀n x s k y k'.
+  step_n n (x,s,k) = y ∧ is_halt y ∧ k' ≼ k ⇒
+  ∃m z. m ≤ n ∧ step_n m (x,s,k') = z ∧ is_halt z
+Proof
+  Induct >> rw [ADD1,step_n_add,step,error_def]
+  >- (Cases_on ‘x’ >> gvs[]) >>
+  ‘∃xx y z. step s k x = (xx,y,z)’ by metis_tac[PAIR] >>
+  drule_then (drule_then strip_assume_tac) step_cut_cont >> gvs[]
+  >- (Q.REFINE_EXISTS_TAC ‘SUC m’ >> gvs[ADD1,step_n_add] >>
+      first_x_assum match_mp_tac >>
+      first_x_assum(irule_at (Pos hd)) >>
+      simp[]) >>
+  qexists_tac ‘1’ >> simp[]
 QED
 
 Theorem step_n_cut_cont:
   step_n n (x,s,k) = y ∧ is_halt y ⇒
   ∃m z. m ≤ n ∧ step_n m (x,s,[]) = z ∧ is_halt z
 Proof
-  cheat
+  metis_tac[rich_listTheory.IS_PREFIX_NIL,step_n_cut_cont_gen]
 QED
 
+(* This lemma is false as stated. Counterexample:
+
+    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
+
+   ^^ That halts, but not with a value or error.
+
+   Update: has the change to the semantics of RaiseK changed this?
+ *)
 Theorem step_n_NONE:
   step_n n (Exp tenv1 te,ts,[]) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ⇒
   step_n n (Exp tenv1 te,NONE,[]) = (tr1,NONE,tk1) ∧ (∃res. tr1 = Val res) ∨
@@ -640,11 +720,103 @@ Proof
   cheat
 QED
 
+Theorem application_set_cont[local]:
+  ∀sop env vs st k' sr k x y z.
+  application sop env vs st k' = (x,y,z) ∧ x ≠ Error ∧ (∀v. x = Exn v ⇒ z ≠ []) ⇒ k' ≼ k ⇒
+  application sop env vs st k = (x,y,z ++ DROP (LENGTH k') k)
+Proof
+  Cases >> rw[step] >>
+  gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,
+        rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+        APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+QED
+
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
-  ∀k. step_n n (Exp tenv1 te,ts,k) = (Val res,ts1,k)
+  ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
 Proof
   cheat
+QED
+
+Theorem return_fast_forward_lemma[local]:
+  ∀v st k' sr k x y z.
+  return v st k' = (x,y,z) ∧ (is_halt (x,y,z) ⇒ ∃v. x = Val v) ∧ k' ≼ k ⇒
+  return v st k = (x,y,z ++ DROP (LENGTH k') k) ∨
+  ((st,k',Val v) = (y,z,x))
+Proof
+  ho_match_mp_tac return_ind >>
+  rw[step,AllCaseEqs()] >> rw[] >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+      APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step,AllCaseEqs()] >>
+  TRY(rename1 ‘list_CASE k'’ >> Cases_on ‘k'’ >>
+      gvs[step,rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2]) >>
+  drule application_set_cont >>
+  simp[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2] >>
+  disch_then (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+  gvs[rich_listTheory.DROP_APPEND2] >>
+  Cases_on ‘x’ >> gvs[]
+QED
+
+Theorem step_fast_forward_lemma[local]:
+  ∀s k' sr k x y z.
+  step s k' sr = (x,y,z) ∧ (is_halt (x,y,z) ⇒ ∃v. x = Val v) ∧ k' ≼ k ⇒
+  step s k sr = (x,y,z ++ DROP (LENGTH k') k) ∨
+  ((s,k',sr) = (y,z,x))
+Proof
+  ho_match_mp_tac step_ind >>
+  rw[step,AllCaseEqs()] >> rw[] >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,
+      APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV),step,AllCaseEqs()] >>
+  TRY(rename1 ‘list_CASE k'’ >> Cases_on ‘k'’ >>
+      gvs[step,rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2])
+  >- (drule application_set_cont >>
+      simp[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2] >>
+      disch_then (dep_rewrite.DEP_ONCE_REWRITE_TAC o single) >>
+      gvs[rich_listTheory.DROP_APPEND2] >>
+      Cases_on ‘x’ >> gvs[]) >>
+  drule return_fast_forward_lemma >>
+  gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2,PULL_EXISTS]
+QED
+
+Theorem is_halt_prefix:
+  ∀sr k s k'. is_halt (sr,s,k) ∧ k' ≼ k ⇒ is_halt (sr,s,k')
+Proof
+  Cases >> Cases >> rw[] >> gvs[]
+QED
+
+Theorem step_n_fast_forward_gen:
+  ∀m2 sr ss k' ss2 sk2 k sr1 ss1 sk1 n v2.
+  step_n m2 (sr,ss,k') = (Val v2,ss2,sk2) ∧
+  step_n n (sr,ss,k) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
+  k' ≼ k
+  ⇒
+  ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,sk2 ++ DROP (LENGTH k') k) = (sr1,ss1,sk1)
+Proof
+  Induct >> rpt strip_tac
+  >- (irule_at (Pos hd) LESS_EQ_REFL >>
+      gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2]) >>
+  gvs[ADD1,step_n_add] >>
+  rename [‘step s k' sr’] >>
+  ‘∃x y z. step s k' sr = (x,y,z)’ by metis_tac[PAIR] >>
+  drule step_fast_forward_lemma >>
+  disch_then(drule_at (Pos last)) >>
+  impl_tac >- (rw[] >> gvs[is_halt_step_n_same]) >>
+  reverse strip_tac
+  >- (gvs[] >> metis_tac[]) >>
+  Cases_on ‘n’
+  >- (drule_then assume_tac is_halt_step_same >>
+      gvs[] >>
+      drule_all_then assume_tac is_halt_prefix >>
+      gvs[is_halt_step_n_same,is_halt_step_same]) >>
+  gvs[ADD1,step_n_add] >>
+  first_x_assum drule >>
+  disch_then drule >>
+  simp[] >>
+  gvs[] >>
+  gvs[rich_listTheory.DROP_APPEND2] >>
+  strip_tac >>
+  first_x_assum(irule_at (Pos last)) >>
+  simp[]
 QED
 
 Theorem step_n_fast_forward:
@@ -652,9 +824,22 @@ Theorem step_n_fast_forward:
   step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ⇒
   ∃m3. m3 ≤ n ∧ step_n m3 (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
 Proof
-  cheat
+  rpt strip_tac >>
+  drule_at (Pat ‘is_halt’) step_n_fast_forward_gen >>
+  rpt $ disch_then dxrule >>
+  rw[]
 QED
 
+(* This lemma is false as stated. Counterexample:
+
+    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[HandleK [(x,v)] (c::x) (Var x)])”
+
+    EVAL “step_n 4 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
+
+    ^^ it's possible that the expression needs the stack to halt with a value
+
+    Update: has the change to RaiseK semantics changed this?
+ *)
 Theorem step_n_NONE_split:
   step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
   ∃m1 m2 v.
@@ -663,5 +848,41 @@ Theorem step_n_NONE_split:
 Proof
   cheat
 QED
+
+(* meaning of cexp *)
+
+Definition sop_of_def[simp]:
+  sop_of (AppOp:csop) = (AppOp:sop) ∧
+  sop_of (Cons n) = Cons (explode n) ∧
+  sop_of (AtomOp m) = AtomOp m ∧
+  sop_of Alloc = Alloc ∧
+  sop_of Ref = Ref ∧
+  sop_of Length = Length ∧
+  sop_of Sub = Sub ∧
+  sop_of UnsafeSub = UnsafeSub ∧
+  sop_of Length = Length ∧
+  sop_of Update = Update ∧
+  sop_of UnsafeUpdate = UnsafeUpdate ∧
+  sop_of (FFI s) = FFI (explode s)
+End
+
+Definition exp_of_def:
+  exp_of ((Var n):cexp) = (Var (explode n)):exp ∧
+  exp_of (App op xs) = App (sop_of op) (MAP exp_of xs) ∧
+  exp_of (Lam vn x) = Lam (OPTION_MAP explode vn) (exp_of x) ∧
+  exp_of (Letrec funs x) =
+    Letrec (MAP (λ(f,v,y). (explode f,Lam (SOME (explode v)) (exp_of y))) funs) (exp_of x) ∧
+  exp_of (Let vn x y) = Let (OPTION_MAP explode vn) (exp_of x) (exp_of y) ∧
+  exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
+  exp_of (Case x v rows) =
+    Case (exp_of x) (explode v) (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows) ∧
+  exp_of (Raise x) = Raise (exp_of x) ∧
+  exp_of (Handle x v y) = Handle (exp_of x) (explode v) (exp_of y) ∧
+  exp_of (HandleApp x y) = HandleApp (exp_of x) (exp_of y)
+Termination
+  WF_REL_TAC ‘measure cexp_size’
+End
+
+Theorem exp_of_def[simp] = exp_of_def |> CONV_RULE (DEPTH_CONV ETA_CONV);
 
 val _ = export_theory ();

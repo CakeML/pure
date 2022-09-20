@@ -7,6 +7,13 @@ open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
 val _ = new_theory "pure_misc";
 
 
+(******************** Numbers ********************)
+
+(* From wordsTheory *)
+Theorem numeral_less_thm =
+  CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV prim_recTheory.LESS_THM
+
+
 (******************** Finite maps ********************)
 
 Theorem FDIFF_MAP_KEYS_BIJ:
@@ -88,6 +95,12 @@ Theorem FUNION_FDIFF:
 Proof
   rw[fmap_eq_flookup, FLOOKUP_FUNION, FLOOKUP_FDIFF] >>
   CASE_TAC >> simp[] >> IF_CASES_TAC >> gvs[FLOOKUP_DEF]
+QED
+
+Theorem o_f_FUPDATE_LIST:
+  ∀l m f. f o_f (m |++ l) = (f o_f m) |++ MAP (λ(k,v). (k, f v)) l
+Proof
+  Induct >> rw[FUPDATE_LIST_THM] >> PairCases_on `h` >> gvs[]
 QED
 
 
