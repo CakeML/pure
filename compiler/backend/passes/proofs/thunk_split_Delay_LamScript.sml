@@ -139,7 +139,7 @@ Definition split_Delayed_Lam_def:
         let (e', vc) = split_Delayed_Lam e var_creator maps in
         let maps2 = delete maps vname in
         let (list', vc) = FOLDR (λ(v, vL, expr) (l, vc).
-                        let (expr', vc) = split_Delayed_Lam expr vc (FOLDL delete (delete maps2 v) vL) in
+                        let (expr', vc) = split_Delayed_Lam expr vc (FOLDL delete maps2 vL) in
                         ((v, vL, expr')::l, vc)) ([], vc) list in
         (Case e' vname list', vc))
 Termination
