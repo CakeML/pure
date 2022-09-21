@@ -11,12 +11,12 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 
 val _ = new_theory "pure_letrec_seq";
 
-Type bind = “:string # string # (string # bool) list # exp”;
+Type bind = “:string # (string # bool) list # exp”;
 
 Overload Zero = “Lit (Int 0):exp”;
 
 Definition mk_bind_def:
-  mk_bind ((n,_,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero e))
+  mk_bind ((n,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero e))
 End
 
 Definition mk_seqs_def:
@@ -26,7 +26,7 @@ Definition mk_seqs_def:
 End
 
 Definition mk_seq_bind_def:
-  mk_seq_bind ((n,_,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero (mk_seqs vs e)))
+  mk_seq_bind ((n,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero (mk_seqs vs e)))
 End
 
 (*
@@ -95,8 +95,8 @@ Inductive letrec_seq:
     letrec_seq binds (Letrec (MAP mk_bind binds) (SND (mk_bind b)))
                      (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind b)))) ∧
 [~seq:]
-  (∀binds n f vs e m1 m2.
-    MEM (n,f,vs,e) binds ∧
+  (∀binds n vs e m1 m2.
+    MEM (n,vs,e) binds ∧
     FEVERY (λ(k,v). closed v) m1 ∧ FEVERY (λ(k,v). closed v) m2 ∧
     FDOM m1 = FDOM m2 ∧
     (∀k v1 v2.
@@ -357,7 +357,7 @@ QED
 
 Definition obligation_def:
   obligation (binds : bind list) ⇔
-    EVERY (λ(vname,fresh,args,body).
+    EVERY (λ(vname,args,body).
       DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
       freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
       (let
@@ -473,7 +473,7 @@ Proof
 QED
 
 Theorem obligation_imp_freevars:
-  obligation binds ∧ MEM (n,f,vs,e) binds ⇒
+  obligation binds ∧ MEM (n,vs,e) binds ⇒
   freevars (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)) ⊆
   freevars (subst_funs (MAP mk_bind binds) e)
 Proof
