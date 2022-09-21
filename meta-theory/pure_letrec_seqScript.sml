@@ -29,6 +29,7 @@ Definition mk_seq_bind_def:
   mk_seq_bind ((n,_,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero (mk_seqs vs e)))
 End
 
+(*
 Definition fresh_vars_def:
   fresh_vars (binds:bind list) = { f | ∃x y. MEM (x,f,y) binds }
 End
@@ -85,6 +86,7 @@ Definition seq_maintained_def:
     let e1 = insert_seqs binds e in
       e1 ≈ mk_seqs vs e1
 End
+*)
 
 Inductive letrec_seq:
 [~change:]
