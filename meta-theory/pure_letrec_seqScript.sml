@@ -29,65 +29,6 @@ Definition mk_seq_bind_def:
   mk_seq_bind ((n,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero (mk_seqs vs e)))
 End
 
-(*
-Definition fresh_vars_def:
-  fresh_vars (binds:bind list) = { f | ∃x y. MEM (x,f,y) binds }
-End
-
-Definition dest_App_def:
-  dest_Apps (Var v) = SOME (v,[]) ∧
-  dest_Apps (App x y) =
-    (case dest_Apps x of
-     | NONE => NONE
-     | SOME (f,ys) => SOME (f,ys ++ [y])) ∧
-  dest_Apps _ = NONE
-End
-
-Definition dest_Apps_to_binds_def:
-  dest_Apps_to_binds e binds =
-  case dest_Apps e of
-  | NONE => NONE
-  | SOME (f,args) =>
-     case ALOOKUP binds f of
-     | NONE => NONE
-     | SOME (fresh_name,vs,_) =>
-         if LENGTH vs <> LENGTH args then NONE else
-           SOME (fresh_name,ZIP(args,MAP SND vs))
-End
-
-Definition Seqs_def[simp]:
-  Seqs [] x = x ∧
-  Seqs (y::ys) x = Seq y (Seqs ys x)
-End
-
-Definition mk_seq_app_def:
-  mk_seq_app f ws =
-    Seqs (MAP FST (FILTER SND ws)) (Apps (Var f) (MAP FST ws))
-End
-
-Definition insert_seqs_def:
-  insert_seqs binds e =
-    case dest_Apps_to_binds e binds of
-    | SOME (f,ws) => mk_seq_app f ws
-    | NONE =>
-      case e of
-      | Var v => Var v
-      | App e1 e2 => App (insert_seqs binds e1) (insert_seqs binds e2)
-      | Lam v e1 => Lam v (insert_seqs binds e1)
-      | Prim p es => Prim p (MAP (insert_seqs binds) es)
-      | Letrec fs e1 => Letrec (MAP (λ(n,e). (n,insert_seqs binds e)) fs)
-                               (insert_seqs binds e1)
-Termination
-  cheat
-End
-
-Definition seq_maintained_def:
-  seq_maintained binds (n,_,vs,e) ⇔
-    let e1 = insert_seqs binds e in
-      e1 ≈ mk_seqs vs e1
-End
-*)
-
 Inductive letrec_seq:
 [~change:]
   (∀binds b.
@@ -141,10 +82,15 @@ QED
 Theorem letrec_seq_freevars:
   ∀binds x y. letrec_seq binds x y ⇒ freevars x = freevars y
 Proof
-  cheat (*
-  Induct_on ‘letrec_binds’ \\ rw [] \\ gvs []
+  Induct_on ‘letrec_seq’ \\ rw [] \\ gvs []
+  >- cheat
+  >- cheat
+  (*
+    fs [EXTENSION,MEM_MAP,EXISTS_PROD,FORALL_PROD,mk_bind_def,mk_seq_bind_def]
+    \\ fs [PULL_EXISTS]
   >- (fs [EXTENSION,EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD,FORALL_PROD,SUBSET_DEF]
       \\ metis_tac [])
+  *)
   >- (pop_assum mp_tac
       \\ qid_spec_tac ‘xs’
       \\ qid_spec_tac ‘ys’
@@ -157,88 +103,6 @@ Proof
   \\ strip_tac \\ Cases \\ fs []
   \\ strip_tac \\ res_tac \\ fs [UNCURRY]
   \\ gvs [EXTENSION]
-  \\ metis_tac [] *)
-QED
-
-Theorem letrec_seq_subst1:
-  letrec_seq binds a1 a2 ∧ letrec_seq binds z y ⇒
-  letrec_seq binds (subst1 v a1 z) (subst1 v a2 y)
-Proof
-  cheat
-QED
-
-Triviality FDOM_UPDATES_EQ:
-  ∀b1. FDOM (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) = set (MAP FST b1)
-Proof
-  fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
-QED
-
-Triviality FORALL_FRANGE:
-  (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
-Proof
-  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
-QED
-
-Theorem ALOOKUP_REVERSE_LIST_REL[local]:
-  ∀bs ys.
-    LIST_REL p (MAP SND bs) (MAP SND ys) ∧
-    MAP FST ys = MAP FST bs ∧
-    ALOOKUP (REVERSE (MAP (λ(g,x). (g,f x)) bs)) k' = SOME v1 ∧
-    ALOOKUP (REVERSE (MAP (λ(g,x). (g,h x)) ys)) k' = SOME v2 ⇒
-    ∃x y. p x y ∧ v1 = f x ∧ v2 = h y ∧ MEM x (MAP SND bs) ∧ MEM y (MAP SND ys)
-Proof
-  Induct using SNOC_INDUCT \\ fs [PULL_EXISTS]
-  \\ Cases \\ Cases using SNOC_CASES
-  \\ gvs [GSYM REVERSE_APPEND,MAP_SNOC,LIST_REL_SNOC,REVERSE_SNOC]
-  \\ rename [‘SND hh’] \\ PairCases_on ‘hh’ \\ fs []
-  \\ fs [AllCaseEqs()]
-  \\ rpt strip_tac \\ gvs []
-  \\ metis_tac []
-QED
-
-Triviality MEM_IMP_EQ:
-  ∀b1 k p1 p2.
-    MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
-Proof
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ fs [MEM_MAP,EXISTS_PROD]
-  \\ res_tac \\ fs []
-QED
-
-Triviality EVERY_FLOOKUP_closed_lemma:
-  EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
-  (∀n v.
-     FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
-     closed v)
-Proof
-  fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
-  \\ rw [] \\ imp_res_tac ALOOKUP_MEM
-  \\ gvs [MEM_MAP,EXISTS_PROD,EVERY_MEM,PULL_EXISTS]
-  \\ res_tac \\ fs []
-QED
-
-Theorem MEM_LIST_REL:
-  ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem MEM_LIST_REL1:
-  ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem LIST_REL_COMP:
-  ∀xs ys zs.
-    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
-    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
-Proof
-  Induct \\ fs [PULL_EXISTS]
   \\ metis_tac []
 QED
 
@@ -321,6 +185,90 @@ Proof
     \\ rw [] \\ res_tac \\ fs []) *)
 QED
 
+Theorem letrec_seq_subst1:
+  letrec_seq binds a1 a2 ∧ letrec_seq binds z y ⇒
+  letrec_seq binds (subst1 v a1 z) (subst1 v a2 y)
+Proof
+  strip_tac
+  \\ irule subst_letrec_seq
+  \\ fs [FLOOKUP_DEF]
+QED
+
+Triviality FDOM_UPDATES_EQ:
+  ∀b1. FDOM (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) = set (MAP FST b1)
+Proof
+  fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+QED
+
+Triviality FORALL_FRANGE:
+  (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
+Proof
+  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+QED
+
+Theorem ALOOKUP_REVERSE_LIST_REL[local]:
+  ∀bs ys.
+    LIST_REL p (MAP SND bs) (MAP SND ys) ∧
+    MAP FST ys = MAP FST bs ∧
+    ALOOKUP (REVERSE (MAP (λ(g,x). (g,f x)) bs)) k' = SOME v1 ∧
+    ALOOKUP (REVERSE (MAP (λ(g,x). (g,h x)) ys)) k' = SOME v2 ⇒
+    ∃x y. p x y ∧ v1 = f x ∧ v2 = h y ∧ MEM x (MAP SND bs) ∧ MEM y (MAP SND ys)
+Proof
+  Induct using SNOC_INDUCT \\ fs [PULL_EXISTS]
+  \\ Cases \\ Cases using SNOC_CASES
+  \\ gvs [GSYM REVERSE_APPEND,MAP_SNOC,LIST_REL_SNOC,REVERSE_SNOC]
+  \\ rename [‘SND hh’] \\ PairCases_on ‘hh’ \\ fs []
+  \\ fs [AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ metis_tac []
+QED
+
+Triviality MEM_IMP_EQ:
+  ∀b1 k p1 p2.
+    MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ res_tac \\ fs []
+QED
+
+Triviality EVERY_FLOOKUP_closed_lemma:
+  EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
+  (∀n v.
+     FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
+     closed v)
+Proof
+  fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ rw [] \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [MEM_MAP,EXISTS_PROD,EVERY_MEM,PULL_EXISTS]
+  \\ res_tac \\ fs []
+QED
+
+Theorem MEM_LIST_REL:
+  ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem MEM_LIST_REL1:
+  ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem LIST_REL_COMP:
+  ∀xs ys zs.
+    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
+    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ metis_tac []
+QED
+
 Theorem freevars_mk_seqs_lemma:
   ∀vs x.
     freevars (mk_seqs vs x) DIFF set (MAP FST vs) =
@@ -349,10 +297,20 @@ QED
 
 Theorem subst_funs_Lams:
   ∀vs xs.
-    DISJOINT (set vs) (set (MAP FST xs)) ⇒
+    DISJOINT (set vs) (set (MAP FST xs)) ∧
+    (∀n v. FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec xs x)) xs) n = SOME v ⇒
+           closed v) ⇒
     subst_funs xs (Lams vs y) = Lams vs (subst_funs xs y)
 Proof
-  cheat
+  Induct \\ fs [Lams_def] \\ rw []
+  \\ fs [subst_funs_def,bind_def,SF SFY_ss,subst_def]
+  \\ irule EQ_TRANS
+  \\ last_x_assum $ irule_at Any \\ fs [SF SFY_ss]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ pop_assum kall_tac
+  \\ rename [‘(_,f _)’]
+  \\ Induct_on ‘xs’
+  \\ cheat
 QED
 
 Definition obligation_def:
@@ -411,7 +369,8 @@ Proof
   \\ DEP_REWRITE_TAC [subst_funs_Lams] \\ fs [MAP_FST_mk_bind]
   \\ fs [obligation_def]
   \\ fs [EVERY_MEM] \\ res_tac \\ fs []
-  \\ irule letrec_seq_Lams
+  \\ irule_at Any letrec_seq_Lams
+  \\ once_rewrite_tac [CONJ_COMM]
   \\ DEP_REWRITE_TAC [subst_funs_Seq_Zero]
   \\ DEP_REWRITE_TAC [subst_funs_mk_seq]
   \\ fs [MAP_FST_mk_bind]
