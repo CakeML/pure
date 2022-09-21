@@ -309,15 +309,23 @@ Proof
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ pop_assum kall_tac
   \\ rename [‘(_,f _)’]
-  \\ Induct_on ‘xs’
-  \\ cheat
+  \\ fs [finite_mapTheory.DOMSUB_FUPDATE_LIST]
+  \\ AP_TERM_TAC
+  \\ last_x_assum kall_tac
+  \\ Induct_on ‘xs’ \\ fs [FORALL_PROD]
 QED
 
 Definition obligation_def:
   obligation (binds : bind list) ⇔
     EVERY (λ(vname,args,body).
+      (* args are disjoint *)
       DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+      (* body of bound exp only mentions args and other bound names *)
       freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
+      (* every forced var is free body *)
+      set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
+      (* if all function rec. calls force args,
+         then we can add forcing to the top-level *)
       (let
          x = subst_funs (MAP mk_seq_bind binds) body
        in
@@ -436,7 +444,7 @@ Theorem obligation_imp_freevars:
   freevars (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)) ⊆
   freevars (subst_funs (MAP mk_bind binds) e)
 Proof
-  cheat
+  cheat (* local proof *)
 QED
 
 Theorem eval_forward_letrec_seq:
