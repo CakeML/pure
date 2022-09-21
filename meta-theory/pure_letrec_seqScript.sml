@@ -13,7 +13,7 @@ val _ = new_theory "pure_letrec_seq";
 
 Type bind = “:string # (string # bool) list # exp”;
 
-Overload Zero = “Lit (Int 0):exp”;
+Overload Zero[local] = “Lit (Int 0):exp”;
 
 Definition mk_bind_def:
   mk_bind ((n,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero e))
@@ -29,10 +29,27 @@ Definition mk_seq_bind_def:
   mk_seq_bind ((n,vs,e):bind) = (n, Lams (MAP FST vs) (Seq Zero (mk_seqs vs e)))
 End
 
+Definition obligation_def:
+  obligation (binds : bind list) ⇔
+    EVERY (λ(vname,args,body).
+      (* args are disjoint *)
+      DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+      (* body of bound exp only mentions args and other bound names *)
+      freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
+      (* every forced var is free body *)
+      set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
+      (* if all function rec. calls force args,
+         then we can add forcing to the top-level *)
+      (let
+         x = subst_funs (MAP mk_seq_bind binds) body
+       in
+         x ≈ mk_seqs args x)) binds
+End
+
 Inductive letrec_seq:
 [~change:]
   (∀binds b.
-    MEM b binds ⇒
+    MEM b binds ∧ obligation binds ⇒
     letrec_seq binds (Letrec (MAP mk_bind binds) (SND (mk_bind b)))
                      (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind b)))) ∧
 [~seq:]
@@ -79,18 +96,37 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
+Triviality MAP_FST_mk_bind:
+  MAP FST (MAP mk_bind binds) = MAP FST binds
+Proof
+  Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_bind_def]
+QED
+
+Theorem freevars_mk_seqs:
+  MEM (n,args,body) binds ∧ obligation binds ⇒
+  freevars (mk_seqs args body) = freevars body
+Proof
+  rw [obligation_def,EVERY_MEM]
+  \\ first_x_assum dxrule
+  \\ fs [] \\ rw []
+  \\ qpat_x_assum ‘_ ⊆ freevars body’ mp_tac
+  \\ qid_spec_tac ‘args’
+  \\ Induct \\ fs [mk_seqs_def,FORALL_PROD]
+  \\ rw [] \\ fs [mk_seqs_def]
+  \\ fs [EXTENSION] \\ metis_tac []
+QED
+
 Theorem letrec_seq_freevars:
   ∀binds x y. letrec_seq binds x y ⇒ freevars x = freevars y
 Proof
   Induct_on ‘letrec_seq’ \\ rw [] \\ gvs []
-  >- cheat
-  >- cheat
-  (*
-    fs [EXTENSION,MEM_MAP,EXISTS_PROD,FORALL_PROD,mk_bind_def,mk_seq_bind_def]
-    \\ fs [PULL_EXISTS]
-  >- (fs [EXTENSION,EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD,FORALL_PROD,SUBSET_DEF]
-      \\ metis_tac [])
-  *)
+  >-
+   (PairCases_on ‘b’ \\ fs [mk_bind_def,MAP_FST_mk_bind]
+    \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ fs [mk_seq_bind_def,MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD,mk_bind_def]
+    \\ gvs [freevars_mk_seqs]
+    \\ metis_tac [freevars_mk_seqs])
+  >- cheat (* long and boring case *)
   >- (pop_assum mp_tac
       \\ qid_spec_tac ‘xs’
       \\ qid_spec_tac ‘ys’
@@ -112,11 +148,32 @@ Theorem subst_letrec_seq:
     FDOM m1 = FDOM m2 ∧
     (∀k v1 v2.
       FLOOKUP m1 k = SOME v1 ∧ FLOOKUP m2 k = SOME v2 ⇒
-      letrec_seq binds v1 v2) ⇒
+      letrec_seq binds v1 v2 ∧ closed v1 ∧ closed v2) ⇒
     letrec_seq binds (subst m1 x) (subst m2 y)
 Proof
-  cheat (*
   Induct_on ‘letrec_seq’ \\ rw []
+  \\ cheat (*
+  >-
+   (DEP_REWRITE_TAC [closed_subst]
+    \\ irule_at Any letrec_seq_change \\ fs [MAP_FST_mk_bind]
+    \\ drule_at Any freevars_mk_seqs
+    \\ PairCases_on ‘b’ \\ fs [mk_bind_def,EVERY_MEM]
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,mk_seq_bind_def,mk_bind_def]
+    \\ gvs [SF SFY_ss]
+    \\ fs [obligation_def,EVERY_MEM,FORALL_PROD]
+    \\ rw [] \\ res_tac
+    \\ gvs [SUBSET_DEF]
+    \\ metis_tac [])
+  \\ cheat (*
+  >-
+   (simp [subst_def]
+    \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.subst_subst_FUNION]
+    \\ conj_tac >- fs [FRANGE_DEF,FEVERY_DEF,PULL_EXISTS]
+    \\ irule letrec_seq_seq
+    \\ last_x_assum $ irule_at Any
+    \\ fs [FEVERY_DEF,FUNION_DEF,FLOOKUP_DEF]
+    \\ rw [])
+  \\ cheat
   >-
    (fs [subst_def]
     \\ simp [Once letrec_seq_cases]
@@ -182,11 +239,11 @@ Proof
     \\ first_x_assum irule
     \\ fs [FDOM_FDIFF,EXTENSION,FLOOKUP_FDIFF]
     \\ fs [DOMSUB_FLOOKUP_THM,AllCaseEqs(),SUBSET_DEF]
-    \\ rw [] \\ res_tac \\ fs []) *)
+    \\ rw [] \\ res_tac \\ fs []) *) *)
 QED
 
 Theorem letrec_seq_subst1:
-  letrec_seq binds a1 a2 ∧ letrec_seq binds z y ⇒
+  letrec_seq binds a1 a2 ∧ letrec_seq binds z y ∧ closed a1 ∧ closed a2 ⇒
   letrec_seq binds (subst1 v a1 z) (subst1 v a2 y)
 Proof
   strip_tac
@@ -315,35 +372,12 @@ Proof
   \\ Induct_on ‘xs’ \\ fs [FORALL_PROD]
 QED
 
-Definition obligation_def:
-  obligation (binds : bind list) ⇔
-    EVERY (λ(vname,args,body).
-      (* args are disjoint *)
-      DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
-      (* body of bound exp only mentions args and other bound names *)
-      freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
-      (* every forced var is free body *)
-      set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
-      (* if all function rec. calls force args,
-         then we can add forcing to the top-level *)
-      (let
-         x = subst_funs (MAP mk_seq_bind binds) body
-       in
-         x ≈ mk_seqs args x)) binds
-End
-
 Triviality subst_funs_Seq_Zero:
   (∀n v. FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec xs x)) xs) n = SOME v ⇒
          closed v) ⇒
   subst_funs xs (Seq Zero x) = Seq Zero (subst_funs xs x)
 Proof
   fs [subst_funs_def, bind_def, SF SFY_ss, subst_def]
-QED
-
-Triviality MAP_FST_mk_bind:
-  MAP FST (MAP mk_bind binds) = MAP FST binds
-Proof
-  Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_bind_def]
 QED
 
 Theorem letrec_seq_Lams[local]:
@@ -439,12 +473,46 @@ Proof
   cheat
 QED
 
+Triviality freevars_mk_seqs':
+  freevars (mk_seqs vs e) =
+  set (MAP FST (FILTER SND vs)) UNION freevars e
+Proof
+  Induct_on ‘vs’ \\ fs [mk_seqs_def,FORALL_PROD]
+  \\ strip_tac \\ Cases \\ fs [mk_seqs_def]
+  \\ fs [EXTENSION] \\ metis_tac []
+QED
+
 Theorem obligation_imp_freevars:
   obligation binds ∧ MEM (n,vs,e) binds ⇒
   freevars (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)) ⊆
   freevars (subst_funs (MAP mk_bind binds) e)
 Proof
-  cheat (* local proof *)
+  rw [obligation_def,EVERY_MEM]
+  \\ first_assum drule
+  \\ simp_tac std_ss [] \\ rw []
+  \\ fs [freevars_mk_seqs']
+  \\ simp [subst_funs_def,bind_def]
+  \\ reverse IF_CASES_TAC
+  >-
+   (qsuff_tac ‘F’ \\ fs []
+    \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+    \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+    \\ rw []
+    \\ dxrule ALOOKUP_MEM
+    \\ gvs [EVERY_MEM]
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
+    \\ CCONTR_TAC \\ fs []
+    \\ qpat_x_assum ‘~(closed _)’ mp_tac
+    \\ gvs []
+    \\ gvs [mk_bind_def,MAP_FST_mk_bind]
+    \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_bind_def,PULL_EXISTS]
+    \\ metis_tac [])
+  \\ conj_tac
+  >-
+   (DEP_REWRITE_TAC [freevars_subst]
+    \\ fs [SUBSET_DEF,FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,MEM_MAP,MEM_FILTER]
+    \\ cheat)
+  \\ cheat (* local proof *)
 QED
 
 Theorem eval_forward_letrec_seq:
@@ -538,7 +606,9 @@ Proof
       \\ fs [alistTheory.flookup_fupdate_list,AllCaseEqs()]
       \\ rpt strip_tac
       \\ drule_all ALOOKUP_REVERSE_LIST_REL \\ strip_tac \\ gvs []
-      \\ simp [Once letrec_seq_cases] \\ disj2_tac \\ fs [])
+      >- (simp [Once letrec_seq_cases] \\ disj2_tac \\ fs [])
+      \\ res_tac \\ fs []
+      \\ imp_res_tac letrec_seq_freevars \\ fs [])
     \\ rw [eval_wh_to_def] \\ gvs []
     \\ first_x_assum irule \\ fs []
     \\ conj_tac >-
