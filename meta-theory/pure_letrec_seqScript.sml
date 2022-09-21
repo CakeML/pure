@@ -96,10 +96,36 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
+Theorem freevars_mk_seqs_lemma:
+  ∀vs x.
+    freevars (mk_seqs vs x) DIFF set (MAP FST vs) =
+    freevars x DIFF set (MAP FST vs)
+Proof
+  Induct \\ fs [mk_seqs_def,FORALL_PROD]
+  \\ gen_tac \\ Cases
+  \\ fs [mk_seqs_def]
+  \\ fs [EXTENSION]
+  \\ metis_tac []
+QED
+
 Triviality MAP_FST_mk_bind:
   MAP FST (MAP mk_bind binds) = MAP FST binds
 Proof
   Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_bind_def]
+QED
+
+Theorem freevars_mk_seq_bind[local,simp]:
+  freevars (SND (mk_seq_bind b)) = freevars (SND (mk_bind b))
+Proof
+  PairCases_on ‘b’
+  \\ rewrite_tac [mk_seq_bind_def,mk_bind_def]
+  \\ fs [freevars_mk_seqs_lemma]
+QED
+
+Theorem MAP_FST_mk_seq_bind[local,simp]:
+  MAP FST (MAP mk_seq_bind binds) = MAP FST (MAP mk_bind binds)
+Proof
+  Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_seq_bind_def,mk_bind_def]
 QED
 
 Theorem freevars_mk_seqs:
@@ -152,7 +178,6 @@ Theorem subst_letrec_seq:
     letrec_seq binds (subst m1 x) (subst m2 y)
 Proof
   Induct_on ‘letrec_seq’ \\ rw []
-  \\ cheat (*
   >-
    (DEP_REWRITE_TAC [closed_subst]
     \\ irule_at Any letrec_seq_change \\ fs [MAP_FST_mk_bind]
@@ -164,7 +189,6 @@ Proof
     \\ rw [] \\ res_tac
     \\ gvs [SUBSET_DEF]
     \\ metis_tac [])
-  \\ cheat (*
   >-
    (simp [subst_def]
     \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.subst_subst_FUNION]
@@ -174,6 +198,7 @@ Proof
     \\ fs [FEVERY_DEF,FUNION_DEF,FLOOKUP_DEF]
     \\ rw [])
   \\ cheat
+  (*
   >-
    (fs [subst_def]
     \\ simp [Once letrec_seq_cases]
@@ -239,7 +264,7 @@ Proof
     \\ first_x_assum irule
     \\ fs [FDOM_FDIFF,EXTENSION,FLOOKUP_FDIFF]
     \\ fs [DOMSUB_FLOOKUP_THM,AllCaseEqs(),SUBSET_DEF]
-    \\ rw [] \\ res_tac \\ fs []) *) *)
+    \\ rw [] \\ res_tac \\ fs []) *)
 QED
 
 Theorem letrec_seq_subst1:
@@ -324,32 +349,6 @@ Theorem LIST_REL_COMP:
 Proof
   Induct \\ fs [PULL_EXISTS]
   \\ metis_tac []
-QED
-
-Theorem freevars_mk_seqs_lemma:
-  ∀vs x.
-    freevars (mk_seqs vs x) DIFF set (MAP FST vs) =
-    freevars x DIFF set (MAP FST vs)
-Proof
-  Induct \\ fs [mk_seqs_def,FORALL_PROD]
-  \\ gen_tac \\ Cases
-  \\ fs [mk_seqs_def]
-  \\ fs [EXTENSION]
-  \\ metis_tac []
-QED
-
-Theorem freevars_mk_seq_bind[local,simp]:
-  freevars (SND (mk_seq_bind b)) = freevars (SND (mk_bind b))
-Proof
-  PairCases_on ‘b’
-  \\ rewrite_tac [mk_seq_bind_def,mk_bind_def]
-  \\ fs [freevars_mk_seqs_lemma]
-QED
-
-Theorem MAP_FST_mk_seq_bind[local,simp]:
-  MAP FST (MAP mk_seq_bind binds) = MAP FST (MAP mk_bind binds)
-Proof
-  Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_seq_bind_def,mk_bind_def]
 QED
 
 Theorem subst_funs_Lams:
