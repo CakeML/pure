@@ -95,11 +95,16 @@ Inductive letrec_seq:
     letrec_seq binds (Letrec (MAP mk_bind binds) (SND (mk_bind b)))
                      (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind b)))) ∧
 [~seq:]
-  (∀binds n f vs e m.
-    MEM (n,f,vs,e) binds ∧ FEVERY (λ(k,v). closed v) m ⇒
+  (∀binds n f vs e m1 m2.
+    MEM (n,f,vs,e) binds ∧
+    FEVERY (λ(k,v). closed v) m1 ∧ FEVERY (λ(k,v). closed v) m2 ∧
+    FDOM m1 = FDOM m2 ∧
+    (∀k v1 v2.
+      FLOOKUP m1 k = SOME v1 ∧ FLOOKUP m2 k = SOME v2 ⇒
+      letrec_seq binds v1 v2) ⇒
     letrec_seq binds
-      (Seq Zero (subst m (subst_funs (MAP mk_bind binds) e)))
-      (Seq Zero (subst m (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e))))) ∧
+      (Seq Zero (subst m1 (subst_funs (MAP mk_bind binds) e)))
+      (Seq Zero (subst m2 (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e))))) ∧
   (* cases below are just recursion *)
   (∀binds n.
     letrec_seq binds (Var n) (Var n))
@@ -417,6 +422,7 @@ Proof
     \\ disj1_tac
     \\ last_x_assum $ irule_at Any
     \\ qexists_tac ‘FEMPTY’
+    \\ qexists_tac ‘FEMPTY’
     \\ fs [FEVERY_DEF])
   \\ rw []
   \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
@@ -453,9 +459,23 @@ Proof
 QED
 
 Theorem letrec_seq_subst_funs_mk_bind:
-  obligation binds ∧ FEVERY (λ(k,v). closed v) m ⇒
-  letrec_seq binds (subst m (subst_funs (MAP mk_bind binds) e))
-                   (subst m (subst_funs (MAP mk_seq_bind binds) e))
+  obligation binds ∧
+  FEVERY (λ(k,v). closed v) m1 ∧
+  FEVERY (λ(k,v). closed v) m2 ∧
+  FDOM m1 = FDOM m2 ∧
+  (∀k v1 v2.
+     FLOOKUP m1 k = SOME v1 ∧ FLOOKUP m2 k = SOME v2 ⇒
+     letrec_seq binds v1 v2) ⇒
+  letrec_seq binds (subst m1 (subst_funs (MAP mk_bind binds) e))
+                   (subst m2 (subst_funs (MAP mk_seq_bind binds) e))
+Proof
+  cheat
+QED
+
+Theorem obligation_imp_freevars:
+  obligation binds ∧ MEM (n,f,vs,e) binds ⇒
+  freevars (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)) ⊆
+  freevars (subst_funs (MAP mk_bind binds) e)
 Proof
   cheat
 QED
@@ -578,7 +598,6 @@ Proof
   \\ rpt strip_tac
   \\ qpat_x_assum ‘letrec_seq _ _ _’ mp_tac
   \\ Cases_on ‘p = Seq’
-
   >-
    (simp [Once letrec_seq_cases]
     \\ reverse (rpt strip_tac) \\ gvs []
@@ -612,17 +631,22 @@ Proof
     \\ first_x_assum $ irule_at $ Pos $ el 2
     \\ irule_at Any IMP_Seq_Zero
     \\ irule_at Any letrec_seq_subst_funs_mk_bind \\ fs []
-    \\ ‘∀n v. FLOOKUP m n = SOME v ⇒ closed v’ by fs [FEVERY_DEF,FLOOKUP_DEF]
-    \\ ‘∀v. v ∈ FRANGE m ⇒ closed v’ by fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+    \\ qexists_tac ‘m2’ \\ fs []
+    \\ conj_tac >- fs [SF SFY_ss]
+    \\ ‘∀n v. FLOOKUP m2 n = SOME v ⇒ closed v’ by fs [FEVERY_DEF,FLOOKUP_DEF]
+    \\ ‘∀v. v ∈ FRANGE m2 ⇒ closed v’ by fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
     \\ conj_asm1_tac
     >-
-     (drule_all pure_exp_lemmasTheory.closed_subst_freevars \\ strip_tac
-      \\ irule IMP_closed_subst \\ fs []
-      \\ cheat (* freevars *))
+     (‘∀n v. FLOOKUP m1 n = SOME v ⇒ closed v’ by fs [FEVERY_DEF,FLOOKUP_DEF]
+      \\ ‘∀v. v ∈ FRANGE m1 ⇒ closed v’ by fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+      \\ drule_all pure_exp_lemmasTheory.closed_subst_freevars \\ strip_tac
+      \\ irule IMP_closed_subst \\ fs [] \\ gvs []
+      \\ irule SUBSET_TRANS \\ pop_assum $ irule_at Any
+      \\ irule obligation_imp_freevars \\ fs [] \\ first_x_assum $ irule_at Any)
     \\ fs [obligation_def,EVERY_MEM]
     \\ first_x_assum drule \\ fs [exp_eq_def]
     \\ rpt strip_tac
-    \\ pop_assum $ qspec_then ‘m’ mp_tac
+    \\ pop_assum $ qspec_then ‘m2’ mp_tac
     \\ fs [bind_def,SF SFY_ss]
     \\ disch_then irule
     \\ qabbrev_tac ‘aa = subst_funs (MAP mk_seq_bind binds) e’
@@ -633,7 +657,6 @@ Proof
     \\ qid_spec_tac ‘vs’ \\ Induct \\ fs [mk_seqs_def]
     \\ Cases \\ Cases_on ‘r’ \\ fs [mk_seqs_def]
     \\ fs [SUBSET_DEF])
-
   \\ simp [Once letrec_seq_cases] \\ rw []
   \\ Cases_on ‘p’ \\ fs []
   >~ [‘Cons s xs’] >-
