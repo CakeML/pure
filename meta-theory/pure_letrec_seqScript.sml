@@ -54,7 +54,7 @@ Inductive letrec_seq:
                      (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind b)))) ∧
 [~seq:]
   (∀binds n vs e m1 m2.
-    MEM (n,vs,e) binds ∧
+    MEM (n,vs,e) binds ∧ obligation binds ∧
     FEVERY (λ(k,v). closed v) m1 ∧ FEVERY (λ(k,v). closed v) m2 ∧
     FDOM m1 = FDOM m2 ∧
     (∀k v1 v2.
@@ -230,6 +230,17 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem mk_seqs_subst:
+  ∀vs m e.
+    DISJOINT (set (MAP FST vs)) (FDOM m) ⇒
+    mk_seqs vs (subst m e) = subst m (mk_seqs vs e)
+Proof
+  Induct \\ fs [mk_seqs_def]
+  \\ PairCases \\ fs [mk_seqs_def]
+  \\ Cases_on ‘h1’ \\ fs [mk_seqs_def]
+  \\ fs [subst_def,FLOOKUP_DEF]
+QED
+
 Theorem letrec_seq_freevars:
   ∀binds x y. letrec_seq binds x y ⇒ freevars x = freevars y
 Proof
@@ -240,7 +251,25 @@ Proof
     \\ fs [mk_seq_bind_def,MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD,mk_bind_def]
     \\ gvs [freevars_mk_seqs]
     \\ metis_tac [freevars_mk_seqs])
-  >- cheat (* long and boring case *)
+  >-
+   (simp [subset_funs_mk_bind,subset_funs_mk_seq_bind]
+    \\ DEP_REWRITE_TAC [mk_seqs_subst]
+    \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.subst_subst_FUNION]
+    \\ DEP_REWRITE_TAC [freevars_subst]
+    \\ fs [FDOM_FUPDATE_LIST]
+    \\ drule_at Any freevars_mk_seqs \\ strip_tac
+    \\ drule mk_bind_closed
+    \\ drule mk_seq_bind_closed
+    \\ fs [SF SFY_ss]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,mk_bind_def,mk_seq_bind_def]
+    \\ fs [FRANGE_FLOOKUP,PULL_EXISTS,FLOOKUP_FUNION,AllCaseEqs()]
+    \\ fs [SF SFY_ss, SF DNF_ss]
+    \\ rw []
+    \\ imp_res_tac FEVERY_FLOOKUP
+    \\ fs []
+    \\ fs [obligation_def,IN_DISJOINT,EVERY_MEM]
+    \\ res_tac \\ fs []
+    \\ fs [SUBSET_DEF,EXTENSION,MEM_MAP,EXISTS_PROD,FORALL_PROD,MEM_FILTER])
   >- (pop_assum mp_tac
       \\ qid_spec_tac ‘xs’
       \\ qid_spec_tac ‘ys’
@@ -484,7 +513,8 @@ Proof
   \\ PairCases_on ‘b’
   \\ fs [mk_bind_def,mk_seq_bind_def]
   \\ DEP_REWRITE_TAC [subst_funs_Lams] \\ fs [MAP_FST_mk_bind]
-  \\ fs [obligation_def]
+  \\ first_assum mp_tac
+  \\ simp_tac std_ss [obligation_def] \\ strip_tac
   \\ fs [EVERY_MEM] \\ res_tac \\ fs []
   \\ irule_at Any letrec_seq_Lams
   \\ once_rewrite_tac [CONJ_COMM]
