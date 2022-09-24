@@ -142,6 +142,94 @@ Proof
   \\ fs [EXTENSION] \\ metis_tac []
 QED
 
+Triviality FDOM_UPDATES_EQ:
+  ∀b1. FDOM (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) = set (MAP FST b1)
+Proof
+  fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+QED
+
+Triviality FORALL_FRANGE:
+  (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
+Proof
+  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+QED
+
+Theorem mk_bind_closed:
+  obligation binds ⇒
+  (∀v. v ∈ FRANGE
+             (FEMPTY |++
+                MAP (λ(g,x). (g,Letrec (MAP mk_bind binds) x))
+                  (MAP mk_bind binds)) ⇒
+       closed v)
+Proof
+  rw [obligation_def,FRANGE_FLOOKUP]
+  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ rw []
+  \\ dxrule ALOOKUP_MEM
+  \\ gvs [EVERY_MEM]
+  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
+  \\ CCONTR_TAC \\ fs [] \\ gvs []
+  \\ gvs [mk_bind_def,MAP_FST_mk_bind]
+  \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_bind_def,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem mk_seq_bind_closed:
+  obligation binds ⇒
+  (∀v. v ∈ FRANGE
+             (FEMPTY |++
+                MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+                  (MAP mk_seq_bind binds)) ⇒
+       closed v)
+Proof
+  rw []
+  \\ drule_at Any freevars_mk_seqs \\ strip_tac
+  \\ fs [obligation_def,FRANGE_FLOOKUP]
+  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ rw []
+  \\ dxrule ALOOKUP_MEM
+  \\ gvs [EVERY_MEM]
+  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ gvs []
+  \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
+  \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_seq_bind_def,PULL_EXISTS]
+  \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
+  \\ metis_tac []
+QED
+
+Theorem subset_funs_mk_bind:
+  obligation binds ⇒
+  subst_funs (MAP mk_bind binds) e =
+  subst
+    (FEMPTY |++
+       MAP (λ(g,x). (g,Letrec (MAP mk_bind binds) x))
+         (MAP mk_bind binds)) e
+Proof
+  rw [subst_funs_def,bind_def]
+  \\ qsuff_tac ‘F’ \\ fs []
+  \\ drule mk_bind_closed
+  \\ fs [FLOOKUP_DEF,FRANGE_DEF]
+  \\ metis_tac []
+QED
+
+Theorem subset_funs_mk_seq_bind:
+  obligation binds ⇒
+  subst_funs (MAP mk_seq_bind binds) e =
+  subst
+    (FEMPTY |++
+       MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+         (MAP mk_seq_bind binds)) e
+Proof
+  rw [subst_funs_def,bind_def]
+  \\ qsuff_tac ‘F’ \\ fs []
+  \\ drule mk_seq_bind_closed
+  \\ fs [FLOOKUP_DEF,FRANGE_DEF]
+  \\ metis_tac []
+QED
+
 Theorem letrec_seq_freevars:
   ∀binds x y. letrec_seq binds x y ⇒ freevars x = freevars y
 Proof
@@ -274,18 +362,6 @@ Proof
   strip_tac
   \\ irule subst_letrec_seq
   \\ fs [FLOOKUP_DEF]
-QED
-
-Triviality FDOM_UPDATES_EQ:
-  ∀b1. FDOM (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) = set (MAP FST b1)
-Proof
-  fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
-QED
-
-Triviality FORALL_FRANGE:
-  (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
-Proof
-  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
 QED
 
 Theorem ALOOKUP_REVERSE_LIST_REL[local]:
@@ -481,95 +557,23 @@ Proof
   \\ fs [EXTENSION] \\ metis_tac []
 QED
 
-Theorem subset_funs_mk_bind:
-  obligation binds ⇒
-  subst_funs (MAP mk_bind binds) e =
-  subst
-    (FEMPTY |++
-       MAP (λ(g,x). (g,Letrec (MAP mk_bind binds) x))
-         (MAP mk_bind binds)) e
-Proof
-  rw [obligation_def]
-  \\ simp [subst_funs_def,bind_def]
-  \\ IF_CASES_TAC \\ fs []
-  \\ qsuff_tac ‘F’ \\ fs []
-  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
-  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
-  \\ rw []
-  \\ dxrule ALOOKUP_MEM
-  \\ gvs [EVERY_MEM]
-  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
-  \\ CCONTR_TAC \\ fs []
-  \\ qpat_x_assum ‘~(closed _)’ mp_tac
-  \\ gvs []
-  \\ gvs [mk_bind_def,MAP_FST_mk_bind]
-  \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_bind_def,PULL_EXISTS]
-  \\ metis_tac []
-QED
-
-Theorem subset_funs_mk_seq_bind:
-  obligation binds ⇒
-  subst_funs (MAP mk_seq_bind binds) e =
-  subst
-    (FEMPTY |++
-       MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
-         (MAP mk_seq_bind binds)) e
-Proof
-  rw []
-  \\ drule_at Any freevars_mk_seqs \\ strip_tac
-  \\ fs [obligation_def]
-  \\ simp [subst_funs_def,bind_def]
-  \\ IF_CASES_TAC \\ fs []
-  \\ qsuff_tac ‘F’ \\ fs []
-  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
-  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
-  \\ rw []
-  \\ dxrule ALOOKUP_MEM
-  \\ gvs [EVERY_MEM]
-  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_seq_bind_def]
-  \\ CCONTR_TAC \\ fs []
-  \\ qpat_x_assum ‘~(closed _)’ mp_tac
-  \\ gvs []
-  \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
-  \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_seq_bind_def,PULL_EXISTS]
-  \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
-  \\ metis_tac []
-QED
-
 Theorem obligation_imp_freevars:
   obligation binds ∧ MEM (n,vs,e) binds ⇒
   freevars (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)) ⊆
   freevars (subst_funs (MAP mk_bind binds) e)
 Proof
-(*
   rw [subset_funs_mk_bind,subset_funs_mk_seq_bind]
-*)
-  rw [obligation_def,EVERY_MEM]
-  \\ first_assum drule
-  \\ simp_tac std_ss [] \\ rw []
   \\ fs [freevars_mk_seqs']
-  \\ simp [subst_funs_def,bind_def]
-  \\ reverse IF_CASES_TAC
-  >-
-   (qsuff_tac ‘F’ \\ fs []
-    \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
-    \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
-    \\ rw []
-    \\ dxrule ALOOKUP_MEM
-    \\ gvs [EVERY_MEM]
-    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
-    \\ CCONTR_TAC \\ fs []
-    \\ qpat_x_assum ‘~(closed _)’ mp_tac
-    \\ gvs []
-    \\ gvs [mk_bind_def,MAP_FST_mk_bind]
-    \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_bind_def,PULL_EXISTS]
-    \\ metis_tac [])
-  \\ conj_tac
-  >-
-   (DEP_REWRITE_TAC [freevars_subst]
-    \\ fs [SUBSET_DEF,FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,MEM_MAP,MEM_FILTER]
-    \\ cheat)
-  \\ cheat (* local proof *)
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [FDOM_FUPDATE_LIST]
+  \\ drule mk_bind_closed
+  \\ drule mk_seq_bind_closed
+  \\ simp [SF SFY_ss] \\ strip_tac \\ strip_tac
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,mk_bind_def,mk_seq_bind_def]
+  \\ fs [obligation_def,EVERY_MEM]
+  \\ res_tac
+  \\ fs [SUBSET_DEF,MEM_FILTER,MEM_MAP,EXISTS_PROD,FORALL_PROD,IN_DISJOINT]
+  \\ metis_tac []
 QED
 
 Theorem eval_forward_letrec_seq:
