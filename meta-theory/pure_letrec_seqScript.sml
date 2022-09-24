@@ -481,11 +481,69 @@ Proof
   \\ fs [EXTENSION] \\ metis_tac []
 QED
 
+Theorem subset_funs_mk_bind:
+  obligation binds ⇒
+  subst_funs (MAP mk_bind binds) e =
+  subst
+    (FEMPTY |++
+       MAP (λ(g,x). (g,Letrec (MAP mk_bind binds) x))
+         (MAP mk_bind binds)) e
+Proof
+  rw [obligation_def]
+  \\ simp [subst_funs_def,bind_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ qsuff_tac ‘F’ \\ fs []
+  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ rw []
+  \\ dxrule ALOOKUP_MEM
+  \\ gvs [EVERY_MEM]
+  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ qpat_x_assum ‘~(closed _)’ mp_tac
+  \\ gvs []
+  \\ gvs [mk_bind_def,MAP_FST_mk_bind]
+  \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_bind_def,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem subset_funs_mk_seq_bind:
+  obligation binds ⇒
+  subst_funs (MAP mk_seq_bind binds) e =
+  subst
+    (FEMPTY |++
+       MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+         (MAP mk_seq_bind binds)) e
+Proof
+  rw []
+  \\ drule_at Any freevars_mk_seqs \\ strip_tac
+  \\ fs [obligation_def]
+  \\ simp [subst_funs_def,bind_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ qsuff_tac ‘F’ \\ fs []
+  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ rw []
+  \\ dxrule ALOOKUP_MEM
+  \\ gvs [EVERY_MEM]
+  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_seq_bind_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ qpat_x_assum ‘~(closed _)’ mp_tac
+  \\ gvs []
+  \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
+  \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_seq_bind_def,PULL_EXISTS]
+  \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
+  \\ metis_tac []
+QED
+
 Theorem obligation_imp_freevars:
   obligation binds ∧ MEM (n,vs,e) binds ⇒
   freevars (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)) ⊆
   freevars (subst_funs (MAP mk_bind binds) e)
 Proof
+(*
+  rw [subset_funs_mk_bind,subset_funs_mk_seq_bind]
+*)
   rw [obligation_def,EVERY_MEM]
   \\ first_assum drule
   \\ simp_tac std_ss [] \\ rw []
@@ -860,5 +918,23 @@ Proof
   \\ irule_at Any letrec_seq_change
   \\ fs [letrec_seq_refl,eval_forward_letrec_seq,eval_forward_letrec_seq_rev]
 QED
+
+Theorem Letrec_mk_seq_bind:
+  obligation binds ∧ x ≈ y ⇒
+  (Letrec (MAP mk_bind binds) x ≈
+   Letrec (MAP mk_seq_bind binds) y)
+Proof
+  cheat
+QED
+
+(*
+
+  fac n i = if n = 0 then i else fac (i-1) (n * i)
+
+  if n = 0 then i else seq (i-1) (seq (n*i) (fac (i-1) (n * i)))
+  ~
+  seq n (seq i (if n = 0 then i else seq (i-1) (seq (n*i) (fac (i-1) (n * i))))
+
+*)
 
 val _ = export_theory();
