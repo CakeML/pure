@@ -962,6 +962,26 @@ Proof
   Induct \\ fs [PULL_EXISTS]
 QED
 
+Theorem eval_wh_mk_seqs_skip:
+  ∀vs ee k.
+    eval_wh_to k (subst m2 (mk_seqs vs ee)) ≠ wh_Error ∧
+    eval_wh_to k (subst m2 (mk_seqs vs ee)) ≠ wh_Diverge ⇒
+    ∃k1. eval_wh_to k (subst m2 (mk_seqs vs ee)) =
+         eval_wh_to k1 (subst m2 ee) ∧ k1 ≤ k
+Proof
+  Induct \\ fs [mk_seqs_def]
+  >- (rw [] \\ qexists_tac ‘k’ \\ fs [])
+  \\ fs [FORALL_PROD] \\ gen_tac \\ Cases \\ rw []
+  \\ fs [mk_seqs_def,subst_def]
+  \\ fs [eval_wh_to_def]
+  \\ Cases_on ‘k = 0’ \\ fs []
+  \\ IF_CASES_TAC \\ fs [] \\ gvs []
+  \\ FULL_CASE_TAC \\ fs [eval_wh_to_def]
+  \\ rpt strip_tac
+  \\ first_x_assum drule_all \\ rw [] \\ fs []
+  \\ qexists_tac ‘k1’ \\ fs []
+QED
+
 Theorem eval_forward_letrec_seq_rev:
   obligation binds ⇒
   eval_forward F (λx y. letrec_seq binds y x)
@@ -1092,7 +1112,7 @@ Proof
   \\ qpat_x_assum ‘letrec_seq _ _ _’ mp_tac
   \\ Cases_on ‘p = Seq’
 
-  >- cheat (*
+  >-
    (simp [Once letrec_seq_cases]
     \\ reverse (rpt strip_tac) \\ gvs []
     >-
@@ -1109,10 +1129,10 @@ Proof
       \\ first_x_assum $ irule_at $ Pos last \\ fs []
       \\ irule eval_wh_IMP_app_bisimilarity
       \\ fs [closed_def,eval_wh_Seq,AllCaseEqs()]
-      \\ qsuff_tac ‘eval_wh y ≠ wh_Error ∧ eval_wh y ≠ wh_Diverge’
+      \\ qsuff_tac ‘eval_wh x ≠ wh_Error ∧ eval_wh x ≠ wh_Diverge’
       \\ fs []
       \\ first_x_assum drule
-      \\ ‘(y ≃ y) F ∧ closed y’ by
+      \\ ‘(x ≃ x) F ∧ closed x’ by
         (irule_at Any pure_exp_relTheory.reflexive_app_bisimilarity
          \\ fs [closed_def])
       \\ disch_then drule \\ fs [] \\ strip_tac
@@ -1120,6 +1140,15 @@ Proof
     \\ fs [SF DNF_ss]
     \\ simp [eval_wh_to_def]
     \\ Cases_on ‘k = 0’ \\ gvs []
+    \\ qabbrev_tac ‘ee = (subst_funs (MAP mk_seq_bind binds) e)’
+    \\ Cases_on ‘eval_wh_to (k − 1) (subst m2 (mk_seqs vs ee)) = wh_Error ∨
+                 eval_wh_to (k − 1) (subst m2 (mk_seqs vs ee)) = wh_Diverge’
+    >- fs [] \\ fs []
+    \\ drule_all eval_wh_mk_seqs_skip
+    \\ strip_tac \\ fs []
+    \\ fs [Abbr‘ee’]
+    \\ cheat (*
+
     \\ first_x_assum irule \\ fs []
     \\ irule_at Any app_bisimilarity_trans
     \\ first_x_assum $ irule_at $ Pos $ el 2
@@ -1150,7 +1179,7 @@ Proof
     \\ pop_assum $ irule_at Any
     \\ qid_spec_tac ‘vs’ \\ Induct \\ fs [mk_seqs_def]
     \\ Cases \\ Cases_on ‘r’ \\ fs [mk_seqs_def]
-    \\ fs [SUBSET_DEF]) *)
+    \\ fs [SUBSET_DEF] *))
   \\ simp [Once letrec_seq_cases] \\ rw []
   \\ Cases_on ‘p’ \\ fs []
   >~ [‘Cons s xs’] >-
