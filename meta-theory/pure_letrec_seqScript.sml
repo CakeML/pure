@@ -314,6 +314,7 @@ Proof
     \\ last_x_assum $ irule_at Any
     \\ fs [FEVERY_DEF,FUNION_DEF,FLOOKUP_DEF]
     \\ rw [])
+
   \\ cheat
   (*
   >-
@@ -575,7 +576,44 @@ Theorem letrec_seq_subst_funs_mk_bind:
   letrec_seq binds (subst m1 (subst_funs (MAP mk_bind binds) e))
                    (subst m2 (subst_funs (MAP mk_seq_bind binds) e))
 Proof
-  cheat
+  simp [subset_funs_mk_bind,subset_funs_mk_seq_bind]
+  \\ strip_tac
+  \\ irule subst_letrec_seq \\ fs []
+  \\ conj_tac >- (rw [] \\ imp_res_tac FEVERY_FLOOKUP \\ fs [] \\ res_tac)
+  \\ irule subst_letrec_seq \\ fs []
+  \\ fs [letrec_seq_refl]
+  \\ reverse conj_tac
+  >- fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss,
+         LAMBDA_PROD,mk_bind_def,mk_seq_bind_def]
+  \\ reverse (rpt strip_tac)
+  >- (drule mk_seq_bind_closed \\ disch_then irule
+      \\ fs [FRANGE_FLOOKUP] \\ first_x_assum $ irule_at Any)
+  >- (drule mk_bind_closed \\ disch_then irule
+      \\ fs [FRANGE_FLOOKUP] \\ first_x_assum $ irule_at Any)
+  \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
+  \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ simp [Once letrec_seq_cases]
+  \\ disj1_tac
+  \\ fs [EXISTS_PROD]
+  \\ fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss,
+         LAMBDA_PROD,mk_bind_def,mk_seq_bind_def]
+  \\ qabbrev_tac ‘xs = MAP mk_bind binds’ \\ pop_assum kall_tac
+  \\ qabbrev_tac ‘ys = MAP mk_seq_bind binds’ \\ pop_assum kall_tac
+  \\ pop_assum mp_tac \\ pop_assum mp_tac
+  \\ rpt $ pop_assum kall_tac
+  \\ qid_spec_tac ‘k’
+  \\ qid_spec_tac ‘v1’
+  \\ qid_spec_tac ‘v2’
+  \\ qid_spec_tac ‘binds’
+  \\ Induct \\ fs [FORALL_PROD]
+  \\ fs [ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE,MAP_REVERSE]
+  \\ fs [MEM_MAP,FORALL_PROD]
+  \\ rw []
+  >- metis_tac []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [MEM_MAP,EXISTS_PROD] \\ gvs []
+  \\ res_tac \\ fs []
+  \\ metis_tac []
 QED
 
 Triviality freevars_mk_seqs':
