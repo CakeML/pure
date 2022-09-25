@@ -314,23 +314,6 @@ Proof
     \\ last_x_assum $ irule_at Any
     \\ fs [FEVERY_DEF,FUNION_DEF,FLOOKUP_DEF]
     \\ rw [])
-
-  \\ cheat
-  (*
-  >-
-   (fs [subst_def]
-    \\ simp [Once letrec_seq_cases]
-    \\ disj1_tac
-    \\ fs [MAP_ID,FORALL_PROD]
-    \\ reverse (rw [])
-    >-
-     (last_x_assum irule \\ fs [FDOM_FDIFF,EXTENSION,SUBSET_DEF]
-      \\ fs [FDOM_FDIFF,EXTENSION,FLOOKUP_FDIFF]
-      \\ rw [] \\ res_tac \\ fs []
-      \\ metis_tac [])
-    \\ irule pure_exp_lemmasTheory.subst_ignore
-    \\ CCONTR_TAC \\ gvs [IN_DISJOINT,EVERY_MEM,SUBSET_DEF]
-    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS] \\ metis_tac [])
   >-
    (fs [subst_def] \\ rpt CASE_TAC \\ fs [letrec_seq_refl]
     \\ res_tac \\ fs [] \\ gvs [FLOOKUP_DEF])
@@ -347,6 +330,7 @@ Proof
   >-
    (fs [subst_def]
     \\ simp [Once letrec_seq_cases,SF ETA_ss]
+    \\ disj2_tac
     \\ last_x_assum mp_tac \\ fs []
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
@@ -382,7 +366,7 @@ Proof
     \\ first_x_assum irule
     \\ fs [FDOM_FDIFF,EXTENSION,FLOOKUP_FDIFF]
     \\ fs [DOMSUB_FLOOKUP_THM,AllCaseEqs(),SUBSET_DEF]
-    \\ rw [] \\ res_tac \\ fs []) *)
+    \\ rw [] \\ res_tac \\ fs [])
 QED
 
 Theorem letrec_seq_subst1:
