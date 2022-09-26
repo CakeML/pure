@@ -2160,32 +2160,42 @@ Proof
   rw[] >> gvs[MEM_MAP, EXISTS_PROD, FORALL_PROD, PULL_EXISTS] >> metis_tac[]
 QED
 
+Theorem exp_eq_subst_all:
+  ∀e m1 m2.
+    FDOM m1 = FDOM m2 ∧
+    (∀k v1 v2.
+      FLOOKUP m1 k = SOME v1 ∧ FLOOKUP m2 k = SOME v2 ⇒
+      (v1 ≅? v2) b ∧ closed v1 ∧ closed v2) ⇒
+    (subst m1 e ≅? subst m2 e) b
+Proof
+  ho_match_mp_tac freevars_ind \\ rw []
+  >- (fs [subst_def] \\ CASE_TAC \\ fs [FLOOKUP_DEF] \\ gvs [exp_eq_refl])
+  >- (fs [subst_def] \\ match_mp_tac exp_eq_Prim_cong \\ fs []
+      \\ Induct_on ‘es’ \\ fs [] \\ rw []
+      \\ first_x_assum irule \\ fs [SF SFY_ss])
+  >- (fs [subst_def] \\ match_mp_tac exp_eq_App_cong \\ fs [] \\ rw []
+      \\ first_x_assum irule \\ fs [SF SFY_ss])
+  >- (fs [subst_def]
+      \\ match_mp_tac exp_eq_Lam_cong
+      \\ first_x_assum irule \\ fs [SF SFY_ss,DOMSUB_FLOOKUP_THM])
+  \\ fs [subst_def]
+  \\ match_mp_tac exp_eq_Letrec_cong
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+  \\ reverse conj_tac
+  >- (first_x_assum irule
+      \\ fs [FLOOKUP_FDIFF,SF SFY_ss,FDOM_FDIFF,EXTENSION])
+  \\ fs [LIST_REL_MAP_MAP]
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ rw [] \\ last_x_assum $ drule_then irule
+  \\ fs [FLOOKUP_FDIFF,SF SFY_ss,FDOM_FDIFF,EXTENSION]
+QED
+
 Theorem exp_eq_subst:
   (y1 ≅? y2) b ∧ closed y1 ∧ closed y2 ⇒
   (subst1 x y1 e1 ≅? subst1 x y2 e1) b
 Proof
-  rw [] \\ qid_spec_tac ‘e1’
-  \\ ho_match_mp_tac freevars_ind \\ rw []
-  THEN1 (fs [subst_def,FLOOKUP_UPDATE] \\ rw [exp_eq_refl])
-  THEN1 (fs [subst_def] \\ match_mp_tac exp_eq_Prim_cong \\ fs []
-         \\ Induct_on ‘es’ \\ fs [])
-  THEN1 (fs [subst_def] \\ match_mp_tac exp_eq_App_cong \\ fs [])
-  THEN1 (fs [subst_def,DOMSUB_FUPDATE_THM] \\ rw [exp_eq_refl]
-         \\ match_mp_tac exp_eq_Lam_cong \\ fs [])
-  \\ fs [subst_def]
-  \\ match_mp_tac exp_eq_Letrec_cong
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
-  \\ ‘∀y s. FDIFF (FEMPTY |+ (x,y:exp)) s =
-            if x IN s then FEMPTY else FEMPTY |+ (x,y)’ by
-   (fs [fmap_EXT] \\ rw [FDOM_FDIFF,EXTENSION]
-    THEN1 (rw [] \\ eq_tac \\ rw [])
-    \\ fs [FDIFF_def])
-  \\ fs [] \\ IF_CASES_TAC \\ fs [exp_eq_refl]
-  THEN1 (qid_spec_tac ‘lcs’ \\ Induct \\ fs [exp_eq_refl,FORALL_PROD])
-  \\ Induct_on ‘lcs’ \\ fs [FORALL_PROD] \\ rw []
-  \\ fs [PULL_FORALL]
-  \\ first_x_assum match_mp_tac
-  \\ metis_tac []
+  rw [] \\ irule exp_eq_subst_all
+  \\ fs [FLOOKUP_UPDATE]
 QED
 
 Theorem exp_eq_Lam_basic_lemma[local]:

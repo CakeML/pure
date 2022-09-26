@@ -584,8 +584,12 @@ Proof
   CASE_TAC >> gvs[wf_def] >> metis_tac[wf_mk_BN, wf_mk_BS]
 QED
 
+Theorem LIST_REL_MAP_MAP:
+  LIST_REL P (MAP f xs) (MAP g xs) = EVERY (λx. P (f x) (g x)) xs
+Proof
+  Induct_on ‘xs’ \\ fs []
+QED
 
 (****************************************)
 
 val _ = export_theory();
-
