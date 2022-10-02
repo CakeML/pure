@@ -39,7 +39,10 @@ End
 
 Definition obligation_def:
   obligation (binds : bind list) ⇔
+    ALL_DISTINCT (MAP FST binds) ∧
     EVERY (λ(vname,args,body).
+      (* args are disjoint *)
+      ALL_DISTINCT (MAP FST args) ∧
       (* args are disjoint *)
       DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
       (* body of bound exp only mentions args and other bound names *)
@@ -136,11 +139,27 @@ Proof
   Induct_on ‘binds’ \\ fs [FORALL_PROD,mk_seq_bind_def,mk_bind_def]
 QED
 
-Theorem freevars_mk_seqs:
-  MEM (n,args,body) binds ∧ obligation binds ⇒
+Definition obl_syntax_def:
+  obl_syntax binds ⇔
+    ALL_DISTINCT (MAP FST binds) ∧
+    EVERY (λ(vname,args,body).
+      ALL_DISTINCT (MAP FST args) ∧
+      DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+      freevars body ⊆ set (MAP FST binds) ∪ set (MAP FST args) ∧
+      set (MAP FST (FILTER SND args)) ⊆ freevars body) binds
+End
+
+Triviality IMP_obl_syntax[simp]:
+  obligation binds ⇒ obl_syntax binds
+Proof
+  fs [obligation_def,obl_syntax_def,EVERY_MEM,FORALL_PROD,SF SFY_ss]
+QED
+
+Theorem freevars_mk_seqs_syntax:
+  MEM (n,args,body) binds ∧ obl_syntax binds ⇒
   freevars (mk_seqs args body) = freevars body
 Proof
-  rw [obligation_def,EVERY_MEM]
+  rw [obl_syntax_def,EVERY_MEM]
   \\ first_x_assum dxrule
   \\ fs [] \\ rw []
   \\ qpat_x_assum ‘_ ⊆ freevars body’ mp_tac
@@ -148,6 +167,13 @@ Proof
   \\ Induct \\ fs [mk_seqs_def,FORALL_PROD]
   \\ rw [] \\ fs [mk_seqs_def]
   \\ fs [EXTENSION] \\ metis_tac []
+QED
+
+Theorem freevars_mk_seqs:
+  MEM (n,args,body) binds ∧ obligation binds ⇒
+  freevars (mk_seqs args body) = freevars body
+Proof
+  metis_tac [freevars_mk_seqs_syntax,IMP_obl_syntax]
 QED
 
 Triviality FDOM_UPDATES_EQ:
@@ -183,8 +209,8 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem mk_seq_bind_closed:
-  obligation binds ⇒
+Theorem mk_seq_bind_closed_syntax:
+  obl_syntax binds ⇒
   (∀v. v ∈ FRANGE
              (FEMPTY |++
                 MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
@@ -192,8 +218,8 @@ Theorem mk_seq_bind_closed:
        closed v)
 Proof
   rw []
-  \\ drule_at Any freevars_mk_seqs \\ strip_tac
-  \\ fs [obligation_def,FRANGE_FLOOKUP]
+  \\ drule_at Any freevars_mk_seqs_syntax \\ strip_tac
+  \\ fs [obl_syntax_def,FRANGE_FLOOKUP]
   \\ fs [FDOM_UPDATES_EQ,PULL_EXISTS,alistTheory.flookup_fupdate_list]
   \\ fs [FORALL_FRANGE,alistTheory.flookup_fupdate_list,AllCaseEqs()]
   \\ rw []
@@ -208,6 +234,17 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem mk_seq_bind_closed:
+  obligation binds ⇒
+  (∀v. v ∈ FRANGE
+             (FEMPTY |++
+                MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+                  (MAP mk_seq_bind binds)) ⇒
+       closed v)
+Proof
+  strip_tac \\ match_mp_tac mk_seq_bind_closed_syntax \\ fs []
+QED
+
 Theorem subset_funs_mk_bind:
   obligation binds ⇒
   subst_funs (MAP mk_bind binds) e =
@@ -219,6 +256,21 @@ Proof
   rw [subst_funs_def,bind_def]
   \\ qsuff_tac ‘F’ \\ fs []
   \\ drule mk_bind_closed
+  \\ fs [FLOOKUP_DEF,FRANGE_DEF]
+  \\ metis_tac []
+QED
+
+Theorem subset_funs_mk_seq_bind_syntax:
+  obl_syntax binds ⇒
+  subst_funs (MAP mk_seq_bind binds) e =
+  subst
+    (FEMPTY |++
+       MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+         (MAP mk_seq_bind binds)) e
+Proof
+  rw [subst_funs_def,bind_def]
+  \\ qsuff_tac ‘F’ \\ fs []
+  \\ drule mk_seq_bind_closed_syntax
   \\ fs [FLOOKUP_DEF,FRANGE_DEF]
   \\ metis_tac []
 QED
@@ -1443,6 +1495,318 @@ Proof
   \\ irule eval_wh_IMP_exp_eq
   \\ fs [subst_def,eval_wh_Seq] \\ rw [] \\ fs []
   \\ fs [eval_wh_Prim,get_atoms_def]
+QED
+
+Definition Seqs_def[simp]:
+  Seqs [] x = x /\
+  Seqs (y::ys) x = Seq y (Seqs ys x)
+End
+
+Inductive reformulate:
+[~full:]
+  (∀(binds:bind list) f es seqs bs.
+    ALOOKUP binds f = SOME (bs,body) ∧ LENGTH bs = LENGTH es ∧
+    seqs = MAP SND (FILTER (SND o FST) (ZIP (bs,es))) ⇒
+    reformulate binds
+      (Apps (Var f) es)
+      (Seqs seqs (Apps (Var f) es)))
+  ∧
+[~partial:]
+  (∀binds f bs body.
+    ALOOKUP binds f = SOME (bs,body) ⇒
+    reformulate binds
+      (Var f)
+      (SND (mk_seq_lams (f,bs,Apps (Var f) (MAP (Var o FST) bs)))))
+  ∧
+  (* cases below are just recursion *)
+  (∀binds n.
+    reformulate binds (Var n) (Var n))
+  ∧
+  (∀binds n x y.
+    reformulate (FILTER (λ(m,x). m ≠ n) binds) x y ⇒
+    reformulate binds (Lam n x) (Lam n y))
+  ∧
+  (∀binds f g x y.
+    reformulate binds f g ∧ reformulate binds x y ⇒
+    reformulate binds (App f x) (App g y))
+  ∧
+  (∀binds n xs ys.
+    LIST_REL (reformulate binds) xs ys ⇒
+    reformulate binds (Prim n xs) (Prim n ys))
+  ∧
+  (∀binds bs xs ys x y.
+    bs = FILTER (λ(m,x). ~MEM m (MAP FST xs)) binds ∧
+    LIST_REL (reformulate bs) (MAP SND xs) (MAP SND ys) ∧
+    MAP FST xs = MAP FST ys ∧ reformulate bs x y ⇒
+    reformulate binds (Letrec xs x) (Letrec ys y))
+End
+
+Triviality FST_INTRO:
+  (λ(x,y). x) = FST
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem LIST_REL_MAP:
+  ∀xs ys.
+    LIST_REL P (MAP f xs) (MAP g ys) ⇔
+    LIST_REL (λx y. P (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ gen_tac \\ gen_tac
+  \\ Cases_on ‘ys’ \\ fs []
+QED
+
+Triviality FDIFF_LIST_FUPDATE:
+  FDIFF (FEMPTY |++ ys) P = FEMPTY |++ (FILTER (λ(x,y). ~P x) ys)
+Proof
+  fs [fmap_eq_flookup,FLOOKUP_FDIFF,GSYM FILTER_REVERSE,
+      alistTheory.flookup_fupdate_list,ALOOKUP_FILTER]
+  \\ rw [] \\ fs [IN_DEF]
+QED
+
+Theorem subst_Lams_mk_seqs_lemma[local]:
+  ~MEM f (MAP FST args) ⇒
+  subst m (Lams (MAP FST args) (mk_seqs args (Apps (Var f) (MAP (Var ∘ FST) args)))) =
+  Lams (MAP FST args) (mk_seqs args (Apps (subst m (Var f)) (MAP (Var ∘ FST) args)))
+Proof
+  cheat
+QED
+
+Theorem ETA_lemma[local]:
+  obl_syntax binds ∧ MEM (f,args,body) binds ⇒
+  Letrec (MAP mk_seq_bind binds)
+    (Lams (MAP FST args) (Seq Zero (mk_seqs args body))) ≈
+  Lams (MAP FST args)
+    (mk_seqs args
+      (Apps
+        (Letrec (MAP mk_seq_bind binds)
+           (Lams (MAP FST args) (Seq Zero (mk_seqs args body))))
+        (MAP (Var ∘ FST) args)))
+Proof
+  cheat
+QED
+
+Theorem subst_Seqs:
+  ∀xs y. subst m (Seqs xs y) = Seqs (MAP (subst m) xs) (subst m y)
+Proof
+  Induct \\ fs [subst_def]
+QED
+
+Theorem subst_Apps:
+  ∀xs m f. subst m (Apps f xs) = Apps (subst m f) (MAP (subst m) xs)
+Proof
+  Induct \\ fs [Apps_def,subst_def]
+QED
+
+Triviality ALOOKUP_IMP_FLOOKUP:
+  ALOOKUP bs f = SOME (args,body) ∧ obl_syntax binds ∧
+  set bs ⊆ set binds ⇒
+  FLOOKUP  (FEMPTY |++
+            MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+            (MAP mk_seq_bind bs)) f =
+  SOME (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind (f,args,body))))
+Proof
+  cheat
+QED
+
+Triviality Apps_cong1:
+  ∀xs f g. f ≈ g ⇒ Apps f xs ≈ Apps g xs
+Proof
+  Induct \\ fs [Apps_def]
+  \\ rw [] \\ gvs []
+  \\ first_x_assum irule
+  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
+QED
+
+Theorem Apps_Lams_eq_Seqs[local]:
+  closed ll ⇒
+  Apps
+    (Lams (MAP FST args)
+       (mk_seqs args (Apps ll (MAP (Var ∘ FST) args)))) vals ≈
+  Seqs (MAP SND (FILTER (SND ∘ FST) (ZIP (args,vals)))) (Apps ll vals)
+Proof
+  cheat
+QED
+
+Theorem SUBMAP_lemma[local]:
+   ∀bs binds.
+     ALL_DISTINCT (MAP FST binds) ∧ set bs ⊆ set binds ⇒
+     FEMPTY |++ MAP (λ(g,x). (g,f x)) (MAP mk_seq_bind bs) ⊑
+     FEMPTY |++ MAP (λ(g,x). (g,f x)) (MAP mk_seq_bind binds)
+Proof
+  fs [SUBMAP_FLOOKUP_EQN,alistTheory.flookup_fupdate_list]
+  \\ Induct using SNOC_INDUCT
+  \\ fs [FORALL_PROD,REVERSE_SNOC,MAP_SNOC,mk_seq_bind_def,AllCaseEqs()]
+  \\ cheat
+QED
+
+Theorem reformulate_thm:
+  reformulate binds body e ∧ obl_syntax binds ⇒
+  subst_funs (MAP mk_seq_bind binds) body ≈
+  subst_funs (MAP mk_seq_bind binds) e
+Proof
+  simp [subset_funs_mk_seq_bind_syntax]
+  \\ qsuff_tac ‘
+    ∀bs e1 e2.
+      reformulate bs e1 e2 ∧ obl_syntax binds ∧
+      set bs SUBSET set binds ⇒
+      subst
+       (FEMPTY |++
+        MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+          (MAP mk_seq_bind bs)) e1 ≈
+      subst
+       (FEMPTY |++
+        MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+          (MAP mk_seq_bind bs)) e2’
+  >- (disch_then (fn th => rw [] \\ drule th) \\ fs [])
+  \\ Induct_on ‘reformulate’ \\ rpt strip_tac
+  >-
+   (gvs [subst_Seqs,subst_Apps]
+    \\ rename [‘_ = SOME (args,body)’]
+    \\ qpat_abbrev_tac ‘ss = subst _’
+    \\ ‘(MAP ss (MAP SND (FILTER (SND ∘ FST) (ZIP (args,es))))) =
+        MAP SND (FILTER (SND ∘ FST) (ZIP (args,MAP ss es)))’ by
+      (qpat_x_assum ‘LENGTH _ = LENGTH _’ mp_tac
+       \\ qid_spec_tac ‘args’
+       \\ qid_spec_tac ‘es’
+       \\ Induct \\ fs []
+       \\ gen_tac \\ Cases \\ fs []  \\ rw [])
+    \\ simp []
+    \\ qabbrev_tac ‘vals = MAP ss es’
+    \\ simp [Abbr‘ss’]
+    \\ drule_all ALOOKUP_IMP_FLOOKUP \\ strip_tac
+    \\ fs [subst_def] \\ fs [mk_seq_bind_def]
+    \\ irule_at Any exp_eq_trans
+    \\ irule_at Any Apps_cong1
+    \\ irule_at Any ETA_lemma \\ fs []
+    \\ qexists_tac ‘f’ \\ conj_tac
+    >- (imp_res_tac ALOOKUP_MEM \\ fs [SUBSET_DEF])
+    \\ qpat_abbrev_tac ‘ll = Letrec _ _’
+    \\ irule Apps_Lams_eq_Seqs
+    \\ drule mk_seq_bind_closed_syntax
+    \\ disch_then irule \\ fs []
+    \\ ‘FLOOKUP
+          (FEMPTY |++
+           MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+             (MAP mk_seq_bind binds)) f =
+        SOME ll’ by
+     (irule FLOOKUP_SUBMAP
+      \\ first_x_assum $ irule_at Any
+      \\ ho_match_mp_tac SUBMAP_lemma \\ fs [obl_syntax_def])
+    \\ pop_assum mp_tac
+    \\ rpt $ pop_assum kall_tac
+    \\ gvs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
+    \\ metis_tac [])
+  >-
+   (fs [subst_def,mk_seq_lams_def]
+    \\ rename [‘_ = SOME (args,body)’]
+    \\ drule_all ALOOKUP_IMP_FLOOKUP \\ strip_tac
+    \\ fs [] \\ DEP_REWRITE_TAC [subst_Lams_mk_seqs_lemma]
+    \\ fs [subst_def,mk_seq_lams_def]
+    \\ conj_tac
+    >-
+     (fs [FDOM_FUPDATE_LIST,MEM_MAP,EXISTS_PROD,mk_seq_bind_def,obl_syntax_def]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs [EVERY_MEM,SUBSET_DEF]
+      \\ fs [IN_DISJOINT,MEM_MAP,EXISTS_PROD]
+      \\ res_tac \\ fs []
+      \\ res_tac \\ fs []
+      \\ metis_tac [])
+    \\ fs [mk_seq_bind_def]
+    \\ irule ETA_lemma \\ fs []
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ fs [SUBSET_DEF] \\ res_tac
+    \\ first_x_assum $ irule_at Any)
+  >~ [‘Var’] >- simp [exp_eq_refl]
+  >~ [‘App’] >- (gvs [subst_def] \\ irule_at Any exp_eq_App_cong \\ fs [])
+  >~ [‘Prim’] >-
+   (gvs [subst_def] \\ irule_at Any exp_eq_Prim_cong \\ fs []
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS])
+  >~ [‘Lam’] >-
+   (gvs [subst_def] \\ irule_at Any exp_eq_Lam_cong
+    \\ gs [SUBSET_DEF,MEM_FILTER]
+    \\ qpat_x_assum ‘_ ≈ _’ mp_tac
+    \\ fs [DOMSUB_FUPDATE_LIST]
+    \\ qpat_abbrev_tac ‘xs1 = MAP _ (MAP _ (FILTER _ _))’
+    \\ qpat_abbrev_tac ‘xs2 = FILTER _ (MAP _ (MAP _ _))’
+    \\ qsuff_tac ‘xs1 = xs2’ >- fs []
+    \\ unabbrev_all_tac
+    \\ qid_spec_tac ‘bs’ \\ Induct \\ fs [FORALL_PROD,mk_seq_bind_def]
+    \\ rw [mk_seq_bind_def])
+  \\ rename [‘Letrec’]
+  \\ gvs [subst_def] \\ irule_at Any exp_eq_Letrec_cong
+  \\ gs [SUBSET_DEF,MEM_FILTER]
+  \\ conj_tac
+  >- (fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO])
+  \\ fs [LIST_REL_MAP,LAMBDA_PROD,FDIFF_LIST_FUPDATE]
+  \\ rpt $ pop_assum mp_tac
+  \\ qpat_abbrev_tac ‘xs1 = MAP _ (MAP _ (FILTER _ _))’
+  \\ qpat_abbrev_tac ‘xs2 = FILTER _ (MAP _ (MAP _ _))’
+  \\ rpt $ disch_then assume_tac
+  \\ qsuff_tac ‘xs1 = xs2’
+  >-
+   (strip_tac \\ gvs []
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ gvs [FORALL_PROD])
+  \\ unabbrev_all_tac
+  \\ qid_spec_tac ‘bs’
+  \\ Induct \\ fs [FORALL_PROD,mk_seq_bind_def]
+  \\ fs [IN_DEF] \\ rw [mk_seq_bind_def]
+QED
+
+Triviality mk_seqs_cong:
+  ∀args x y. x ≈ y ⇒ mk_seqs args x ≈ mk_seqs args y
+Proof
+  Induct
+  \\ fs [mk_seqs_def,FORALL_PROD]
+  \\ gen_tac \\ Cases \\ fs [mk_seqs_def] \\ rw []
+  \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+QED
+
+Theorem IMP_obligation:
+  ALL_DISTINCT (MAP FST binds) ∧
+  (∀vname args body.
+     MEM (vname,args,body) binds
+     ⇒
+     (* args are disjoint *)
+     ALL_DISTINCT (MAP FST args) ∧
+     (* args are disjoint *)
+     DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+     (* body of bound exp only mentions args and other bound names *)
+     freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
+     (* every forced var is free body *)
+     set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
+     (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
+     ∃e.
+       reformulate binds body e ∧
+       e ≈ mk_seqs args e)
+  ⇒
+  obligation binds
+Proof
+  rw [EVERY_MEM,obligation_def,FORALL_PROD]
+  \\ rename [‘MEM (vname,args,body) binds’]
+  \\ first_assum $ drule_then strip_assume_tac
+  \\ ‘obl_syntax binds’ by
+    (fs [obl_syntax_def,EVERY_MEM,FORALL_PROD] \\ rw [] \\ res_tac)
+  \\ drule_all reformulate_thm \\ strip_tac
+  \\ irule_at Any exp_eq_trans
+  \\ first_assum $ irule_at Any
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any mk_seqs_cong
+  \\ simp [Once exp_eq_sym]
+  \\ first_x_assum $ irule_at Any
+  \\ fs [subset_funs_mk_seq_bind_syntax]
+  \\ DEP_REWRITE_TAC [mk_seqs_subst]
+  \\ conj_tac >-
+   (fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,mk_seq_bind_def]
+    \\ fs [IN_DISJOINT,MEM_MAP,FORALL_PROD])
+  \\ irule exp_eq_forall_subst_all \\ fs []
+  \\ drule mk_seq_bind_closed_syntax
+  \\ fs [FEVERY_DEF,FRANGE_DEF,PULL_EXISTS]
 QED
 
 Theorem Letrec_mk_seq_lams:

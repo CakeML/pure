@@ -2274,6 +2274,31 @@ Proof
   \\ match_mp_tac exp_eq_subst \\ fs []
 QED
 
+Triviality subst_eq_bind:
+  (∀n v. FLOOKUP m n = SOME v ⇒ closed v) ⇒
+  subst m e = bind m e
+Proof
+  fs [bind_def,SF SFY_ss]
+QED
+
+Theorem exp_eq_forall_subst_all:
+  (x ≅? y) b ∧ FEVERY (λ(k,v). closed v) m ⇒ (subst m x ≅? subst m y) b
+Proof
+  fs [exp_eq_def] \\ rw []
+  \\ rw [bind_def]
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- fs [FEVERY_DEF,FRANGE_DEF,PULL_EXISTS]
+  \\ DEP_REWRITE_TAC [subst_eq_bind]
+  \\ last_x_assum $ irule_at Any
+  \\ fs [FLOOKUP_FUNION,AllCaseEqs(),SF DNF_ss,SF SFY_ss]
+  \\ fs [FEVERY_DEF,FLOOKUP_DEF,PULL_EXISTS]
+  \\ rpt $ qpat_x_assum ‘_ SUBSET _’ mp_tac
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [SUBSET_DEF,SF SFY_ss,FRANGE_DEF,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
 Theorem exp_eq_forall_subst:
   ∀v. (x ≅? y) b ⇔ ∀z. closed z ⇒ (subst1 v z x ≅? subst1 v z y) b
 Proof
