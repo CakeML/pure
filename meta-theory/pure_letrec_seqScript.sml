@@ -209,12 +209,12 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem mk_seq_bind_closed_syntax:
-  obl_syntax binds ⇒
+Theorem mk_seq_bind_closed_syntax':
+  obl_syntax binds ∧ set bs SUBSET set binds ⇒
   (∀v. v ∈ FRANGE
              (FEMPTY |++
                 MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
-                  (MAP mk_seq_bind binds)) ⇒
+                  (MAP mk_seq_bind bs)) ⇒
        closed v)
 Proof
   rw []
@@ -227,11 +227,24 @@ Proof
   \\ gvs [EVERY_MEM]
   \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,EVERY_MEM,mk_bind_def]
   \\ CCONTR_TAC \\ fs []
+  \\ gvs [SUBSET_DEF]
+  \\ res_tac
   \\ gvs []
   \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
   \\ fs [SUBSET_DEF,EVERY_MEM,FORALL_PROD,EXISTS_PROD,MEM_MAP,mk_seq_bind_def,PULL_EXISTS]
   \\ gvs [mk_seq_bind_def,MAP_FST_mk_seq_bind,mk_bind_def]
   \\ metis_tac []
+QED
+
+Theorem mk_seq_bind_closed_syntax:
+  obl_syntax binds ⇒
+  (∀v. v ∈ FRANGE
+             (FEMPTY |++
+                MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+                  (MAP mk_seq_bind binds)) ⇒
+       closed v)
+Proof
+  strip_tac \\ match_mp_tac mk_seq_bind_closed_syntax' \\ fs []
 QED
 
 Theorem mk_seq_bind_closed:
@@ -1738,6 +1751,16 @@ Proof
   Induct \\ fs [Apps_def,subst_def]
 QED
 
+Triviality ALL_DISTINCT_MEM_MEM:
+  ALL_DISTINCT (MAP FST xs) ∧ MEM (x,y) xs ∧ MEM (x,y1) xs ⇒ y = y1
+Proof
+  rw [] \\ pop_assum mp_tac
+  \\ rewrite_tac [MEM_SPLIT]
+  \\ strip_tac \\ gvs []
+  \\ gvs [MEM_SPLIT]
+  \\ gvs [ALL_DISTINCT_APPEND,SF DNF_ss]
+QED
+
 Triviality ALOOKUP_IMP_FLOOKUP:
   ALOOKUP bs f = SOME (args,body) ∧ obl_syntax binds ∧
   set bs ⊆ set binds ⇒
@@ -1746,7 +1769,31 @@ Triviality ALOOKUP_IMP_FLOOKUP:
             (MAP mk_seq_bind bs)) f =
   SOME (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind (f,args,body))))
 Proof
-  cheat
+  fs [subst_def,alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ Induct_on ‘bs’ \\ fs []
+  \\ PairCases \\ fs []
+  \\ fs [ALOOKUP_APPEND]
+  \\ fs [AllCaseEqs(),mk_seq_bind_def]
+  \\ reverse (Cases_on ‘h0 = f’) >- fs []
+  \\ fs []
+  \\ rw [] \\ fs []
+  \\ fs [ALOOKUP_NONE,MAP_REVERSE,MEM_MAP,FORALL_PROD,mk_seq_bind_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ fs [SUBSET_DEF]
+  \\ Cases_on ‘ALOOKUP
+          (REVERSE
+             (MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
+                (MAP mk_seq_bind bs))) f’
+  >- fs [ALOOKUP_NONE,MEM_MAP,EXISTS_PROD,mk_seq_bind_def]
+  \\ fs [] \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+  \\ gvs [mk_seq_bind_def]
+  \\ rename [‘MEM (f,args1,body1) bs’]
+  \\ fs [obl_syntax_def]
+  \\ qsuff_tac ‘(args,body) = (args1,body1)’
+  >- (strip_tac \\ fs [])
+  \\ drule_then irule ALL_DISTINCT_MEM_MEM
+  \\ qexists_tac ‘f’ \\ fs []
 QED
 
 Triviality mk_seqs_eq_Seqs:
@@ -1812,18 +1859,6 @@ Proof
   \\ fs []
 QED
 
-Theorem SUBMAP_lemma[local]:
-   ∀bs binds.
-     ALL_DISTINCT (MAP FST binds) ∧ set bs ⊆ set binds ⇒
-     FEMPTY |++ MAP (λ(g,x). (g,f x)) (MAP mk_seq_bind bs) ⊑
-     FEMPTY |++ MAP (λ(g,x). (g,f x)) (MAP mk_seq_bind binds)
-Proof
-  fs [SUBMAP_FLOOKUP_EQN,alistTheory.flookup_fupdate_list]
-  \\ Induct using SNOC_INDUCT
-  \\ fs [FORALL_PROD,REVERSE_SNOC,MAP_SNOC,mk_seq_bind_def,AllCaseEqs()]
-  \\ cheat (* avoid *)
-QED
-
 Theorem reformulate_thm:
   reformulate binds body e ∧ obl_syntax binds ⇒
   subst_funs (MAP mk_seq_bind binds) body ≈
@@ -1873,18 +1908,9 @@ Proof
       \\ imp_res_tac ALOOKUP_MEM \\ fs [obl_syntax_def,EVERY_MEM]
       \\ fs [SUBSET_DEF] \\ res_tac \\ fs []
       \\ fs [SUBSET_DEF] \\ res_tac \\ fs [])
-    \\ drule mk_seq_bind_closed_syntax
+    \\ drule mk_seq_bind_closed_syntax'
+    \\ disch_then drule
     \\ disch_then irule \\ fs []
-    \\ ‘FLOOKUP
-          (FEMPTY |++
-           MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
-             (MAP mk_seq_bind binds)) f =
-        SOME ll’ by
-     (irule FLOOKUP_SUBMAP
-      \\ first_x_assum $ irule_at Any
-      \\ ho_match_mp_tac SUBMAP_lemma \\ fs [obl_syntax_def])
-    \\ pop_assum mp_tac
-    \\ rpt $ pop_assum kall_tac
     \\ gvs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS]
     \\ metis_tac [])
   >-
