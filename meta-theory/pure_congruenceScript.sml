@@ -2903,21 +2903,30 @@ Proof
   DEEP_INTRO_TAC optionTheory.some_intro >> simp[AllCaseEqs()]
 QED
 
+Theorem eval_wh_Apps_Lams:
+  LENGTH es = LENGTH vs ∧ EVERY closed es ⇒
+  eval_wh (Apps (Lams vs e) es) =
+  eval_wh (subst (FEMPTY |++ (ZIP(vs,es))) e)
+Proof
+  rw []
+  \\ DEP_REWRITE_TAC [GSYM pure_eval_lemmasTheory.eval_Apps_Lams]
+  \\ fs [MAP_ZIP]
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘es’
+  \\ qid_spec_tac ‘vs’
+  \\ Induct \\ Cases_on ‘es’ \\ fs []
+QED
+
 Triviality Apps_Lams_lemma:
   EVERY (λv. closed (f v)) vs ⇒
   eval_wh (Apps (Lams vs e) (MAP f vs)) =
   eval_wh (subst (FEMPTY |++ MAP (λv. (v, f v)) vs) e)
 Proof
   rw []
-  \\ irule EQ_TRANS
-  \\ qabbrev_tac ‘ws = MAP (λv. (v, f v)) vs’
-  \\ ‘Lams vs = Lams (MAP FST ws)’ by
-   (AP_TERM_TAC \\ fs [Abbr‘ws’]
-    \\ qid_spec_tac ‘vs’ \\ Induct \\ fs [])
-  \\ ‘MAP f vs = MAP SND ws’ by fs [Abbr‘ws’,MAP_MAP_o,combinTheory.o_DEF,SF ETA_ss]
-  \\ fs []
-  \\ DEP_REWRITE_TAC [pure_eval_lemmasTheory.eval_Apps_Lams]
-  \\ fs [EVERY_MEM,Abbr‘ws’,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ DEP_REWRITE_TAC [eval_wh_Apps_Lams]
+  \\ fs [EVERY_MAP]
+  \\ rpt $ (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ qid_spec_tac ‘vs’ \\ Induct \\ fs []
 QED
 
 Theorem exp_eq_Apps_Lams:

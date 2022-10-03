@@ -1741,7 +1741,7 @@ QED
 Triviality ALOOKUP_IMP_FLOOKUP:
   ALOOKUP bs f = SOME (args,body) ∧ obl_syntax binds ∧
   set bs ⊆ set binds ⇒
-  FLOOKUP  (FEMPTY |++
+  FLOOKUP (FEMPTY |++
             MAP (λ(g,x). (g,Letrec (MAP mk_seq_bind binds) x))
             (MAP mk_seq_bind bs)) f =
   SOME (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind (f,args,body))))
@@ -1749,14 +1749,67 @@ Proof
   cheat
 QED
 
+Triviality mk_seqs_eq_Seqs:
+  ∀args e. mk_seqs args e = Seqs (MAP (Var o FST) (FILTER SND args)) e
+Proof
+  Induct \\ fs [mk_seqs_def]
+  \\ PairCases \\ Cases_on ‘h1’ \\ fs [mk_seqs_def]
+QED
+
 Theorem Apps_Lams_eq_Seqs[local]:
-  closed ll ⇒
+  closed ll ∧ LENGTH vals = LENGTH args ∧ ALL_DISTINCT (MAP FST args) ⇒
   Apps
     (Lams (MAP FST args)
        (mk_seqs args (Apps ll (MAP (Var ∘ FST) args)))) vals ≈
   Seqs (MAP SND (FILTER (SND ∘ FST) (ZIP (args,vals)))) (Apps ll vals)
 Proof
-  cheat
+  rw [] \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_Apps,subst_Seqs]
+  \\ DEP_REWRITE_TAC [closed_subst]
+  \\ conj_tac >-
+   (fs [closed_Lams,freevars_mk_seqs',closed_def]
+    \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD,EXISTS_PROD]
+    \\ metis_tac [])
+  \\ DEP_REWRITE_TAC [eval_wh_Apps_Lams]
+  \\ fs []
+  \\ conj_tac >-
+   (fs [EVERY_MAP,SUBSET_DEF,EVERY_MEM,PULL_EXISTS,MEM_MAP,closed_def]
+    \\ gen_tac \\ DEP_REWRITE_TAC [freevars_subst]
+    \\ fs [EXTENSION,closed_def,FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+    \\ metis_tac [])
+  \\ AP_TERM_TAC
+  \\ fs [mk_seqs_eq_Seqs,subst_Seqs,subst_Apps]
+  \\ match_mp_tac (METIS_PROVE [] “x1 = x2 ∧ y1 = y2 ⇒ Seqs x1 (f y1) = Seqs x2 (f y2)”)
+  \\ fs [GSYM MAP_MAP_o]
+  \\ conj_asm2_tac
+  >-
+   (pop_assum mp_tac
+    \\ rename [‘subst m’]
+    \\ qpat_x_assum ‘LENGTH _ = LENGTH _’ mp_tac
+    \\ qid_spec_tac ‘vals’
+    \\ qid_spec_tac ‘args’
+    \\ Induct \\ fs [] \\ strip_tac \\ Cases \\ fs []
+    \\ rw [])
+  \\ rename [‘subst (m |++ _)’]
+  \\ qpat_x_assum ‘LENGTH _ = LENGTH _’ mp_tac
+  \\ qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+  \\ qid_spec_tac ‘m’
+  \\ qid_spec_tac ‘vals’
+  \\ qid_spec_tac ‘args’
+  \\ Induct \\ fs [] \\ gen_tac \\ Cases \\ fs []
+  \\ rw [] \\ TRY (fs [FUPDATE_LIST] \\ NO_TAC)
+  \\ fs [subst_def,alistTheory.flookup_fupdate_list]
+  \\ fs [ALOOKUP_APPEND]
+  \\ fs [AllCaseEqs()]
+  \\ fs [ALOOKUP_NONE]
+  \\ disj1_tac
+  \\ fs [MEM_MAP,MEM_ZIP,FORALL_PROD]
+  \\ fs [MEM_EL]
+  \\ CCONTR_TAC \\ gvs []
+  \\ gvs [EL_MAP]
+  \\ rename [‘k < LENGTH aa’]
+  \\ first_x_assum $ qspecl_then [‘SND (EL k aa)’,‘k’] mp_tac
+  \\ fs []
 QED
 
 Theorem SUBMAP_lemma[local]:
@@ -1814,6 +1867,12 @@ Proof
     >- (imp_res_tac ALOOKUP_MEM \\ fs [SUBSET_DEF])
     \\ qpat_abbrev_tac ‘ll = Letrec _ _’
     \\ irule Apps_Lams_eq_Seqs
+    \\ qsuff_tac ‘closed ll’
+    >-
+     (fs [Abbr‘vals’]
+      \\ imp_res_tac ALOOKUP_MEM \\ fs [obl_syntax_def,EVERY_MEM]
+      \\ fs [SUBSET_DEF] \\ res_tac \\ fs []
+      \\ fs [SUBSET_DEF] \\ res_tac \\ fs [])
     \\ drule mk_seq_bind_closed_syntax
     \\ disch_then irule \\ fs []
     \\ ‘FLOOKUP
