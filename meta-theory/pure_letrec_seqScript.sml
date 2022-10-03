@@ -1978,13 +1978,13 @@ Theorem IMP_obligation:
   (∀vname args body.
      MEM (vname,args,body) binds
      ⇒
-     (* args are disjoint *)
+     (* args are distinct *)
      ALL_DISTINCT (MAP FST args) ∧
      (* args are disjoint *)
      DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
      (* body of bound exp only mentions args and other bound names *)
      freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
-     (* every forced var is free body *)
+     (* every forced var is free in body *)
      set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
      (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
      ∃e.
