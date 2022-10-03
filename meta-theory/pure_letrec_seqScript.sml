@@ -1480,13 +1480,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem Lams_cong:
-  ∀vs x y. (x ≅? y) b ⇒ (Lams vs x ≅? Lams vs y) b
-Proof
-  Induct \\ fs [Lams_def] \\ rw []
-  \\ irule exp_eq_Lam_cong \\ fs []
-QED
-
 Triviality Seq_Zero:
   ∀x y. x ≈ y ⇒ Seq Zero x ≈ y
 Proof
@@ -1565,12 +1558,118 @@ Proof
   \\ rw [] \\ fs [IN_DEF]
 QED
 
+Triviality subst_mk_seqs:
+  ∀args m.
+    DISJOINT (FDOM m) (set (MAP FST args)) ⇒
+    subst m (mk_seqs args e) = mk_seqs args (subst m e)
+Proof
+  Induct \\ fs [mk_seqs_def]
+  \\ PairCases \\ Cases_on ‘h1’ \\ fs [mk_seqs_def,subst_def]
+  \\ fs [FLOOKUP_DEF]
+QED
+
 Theorem subst_Lams_mk_seqs_lemma[local]:
   ~MEM f (MAP FST args) ⇒
   subst m (Lams (MAP FST args) (mk_seqs args (Apps (Var f) (MAP (Var ∘ FST) args)))) =
   Lams (MAP FST args) (mk_seqs args (Apps (subst m (Var f)) (MAP (Var ∘ FST) args)))
 Proof
-  cheat
+  strip_tac
+  \\ fs [subst_Lams]
+  \\ DEP_REWRITE_TAC [subst_mk_seqs]
+  \\ fs [subst_Apps]
+  \\ fs [subst_def,FLOOKUP_FDIFF]
+  \\ fs [IN_DISJOINT]
+  \\ conj_tac >- metis_tac []
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ fs [MAP_MAP_o,MAP_EQ_f]
+  \\ fs [FORALL_PROD]
+  \\ fs [subst_def,FLOOKUP_FDIFF,MEM_MAP,EXISTS_PROD,AllCaseEqs()]
+  \\ metis_tac []
+QED
+
+Triviality Apps_cong1:
+  ∀xs f g. f ≈ g ⇒ Apps f xs ≈ Apps g xs
+Proof
+  Induct \\ fs [Apps_def]
+  \\ rw [] \\ gvs []
+  \\ first_x_assum irule
+  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
+QED
+
+Theorem Letrec_mk_seqs_swap:
+  DISJOINT (set (MAP FST vs)) (set (MAP FST xs)) ∧
+  EVERY (λ(v,x). freevars x SUBSET set (MAP FST xs)) xs ⇒
+  Letrec xs (mk_seqs vs x) ≈ mk_seqs vs (Letrec xs x)
+Proof
+  Induct_on ‘vs’ \\ fs [mk_seqs_def,exp_eq_refl]
+  \\ PairCases \\ Cases_on ‘h1’ \\ fs [mk_seqs_def]
+  \\ rw [] \\ fs []
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any Letrec_Prim \\ fs []
+  \\ irule exp_eq_Prim_cong \\ fs []
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec_alt
+  \\ fs [boundvars_def,subst_def]
+  \\ CASE_TAC \\ fs [exp_eq_refl]
+  \\ fs [FLOOKUP_DEF,FDOM_FUPDATE_LIST]
+  \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+QED
+
+Theorem mk_seqs_APPEND:
+  ∀xs ys e. mk_seqs (xs ++ ys) e = mk_seqs xs (mk_seqs ys e)
+Proof
+  Induct \\ fs [mk_seqs_def]
+  \\ PairCases \\ Cases_on ‘h1’ \\ fs [mk_seqs_def]
+QED
+
+Triviality mk_seqs_cong:
+  ∀args x y. x ≈ y ⇒ mk_seqs args x ≈ mk_seqs args y
+Proof
+  Induct
+  \\ fs [mk_seqs_def,FORALL_PROD]
+  \\ gen_tac \\ Cases \\ fs [mk_seqs_def] \\ rw []
+  \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+QED
+
+Theorem Seq_commute[local]:
+  Seq x (Seq y z) ≈ Seq y (Seq x z)
+Proof
+  irule no_err_eval_wh_IMP_exp_eq
+  \\ rw [subst_def, no_err_eval_wh_def, eval_wh_Seq]
+  \\ fs []
+  \\ Cases_on ‘eval_wh (subst f x)’
+  \\ Cases_on ‘eval_wh (subst f y)’
+  \\ fs []
+QED
+
+Theorem Seq_idem[local]:
+  Seq x (Seq x y) ≈ Seq x y
+Proof
+  irule no_err_eval_wh_IMP_exp_eq
+  \\ rw [subst_def, no_err_eval_wh_def, eval_wh_Seq]
+QED
+
+Theorem mk_seqs_mk_seqs:
+  ∀xs ys.
+    set xs SUBSET set ys ⇒
+    mk_seqs xs (mk_seqs ys body) ≈ mk_seqs ys body
+Proof
+  Induct using SNOC_INDUCT \\ fs [mk_seqs_def,exp_eq_refl]
+  \\ PairCases \\ Cases_on ‘x1’ \\ fs [mk_seqs_def,exp_eq_refl]
+  \\ fs [mk_seqs_APPEND,SNOC_APPEND,mk_seqs_def]
+  \\ rw [] \\ res_tac
+  \\ irule_at Any exp_eq_trans
+  \\ pop_assum $ irule_at Any
+  \\ irule_at Any mk_seqs_cong
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘ys’ \\ Induct \\ fs []
+  \\ rw [] \\ fs [mk_seqs_def]
+  >- irule_at Any Seq_idem
+  \\ PairCases_on ‘h’ \\ Cases_on ‘h1’ \\ fs [mk_seqs_def]
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any Seq_commute
+  \\ irule_at Any exp_eq_Prim_cong \\ fs [exp_eq_refl]
 QED
 
 Theorem ETA_lemma[local]:
@@ -1584,7 +1683,47 @@ Theorem ETA_lemma[local]:
            (Lams (MAP FST args) (Seq Zero (mk_seqs args body))))
         (MAP (Var ∘ FST) args)))
 Proof
-  cheat
+  rpt strip_tac
+  \\ simp [Once exp_eq_sym]
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any Lams_cong
+  \\ irule_at Any mk_seqs_cong
+  \\ irule_at Any Apps_cong1
+  \\ irule_at Any Letrec_Lams_swap
+  \\ conj_asm1_tac
+  >-
+   (fs [obl_syntax_def,EVERY_MEM] \\ res_tac \\ fs [MAP_FST_mk_bind])
+  \\ conj_asm1_tac
+  >-
+   (fs [obl_syntax_def,EVERY_MEM] \\ res_tac \\ fs [MAP_FST_mk_bind]
+    \\ fs [MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ rw [] \\ res_tac \\ fs [mk_seq_bind_def,freevars_mk_seqs_lemma]
+    \\ fs [SUBSET_DEF] \\ metis_tac [])
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any Lams_cong
+  \\ irule_at Any mk_seqs_cong
+  \\ fs [GSYM MAP_MAP_o]
+  \\ irule_at Any exp_eq_Apps_Lams
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any Lams_cong
+  \\ simp [Once exp_eq_sym]
+  \\ irule_at Any Letrec_mk_seqs_swap
+  \\ simp []
+  \\ irule_at Any exp_eq_trans
+  \\ simp [Once exp_eq_sym]
+  \\ irule_at Any Letrec_Lams_swap
+  \\ simp []
+  \\ irule_at Any exp_eq_Letrec_cong1
+  \\ irule_at Any Lams_cong
+  \\ simp [Once exp_eq_sym]
+  \\ irule Seq_Zero
+  \\ simp [Once exp_eq_sym]
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any mk_seqs_cong
+  \\ irule_at Any Seq_Zero
+  \\ irule_at Any exp_eq_refl
+  \\ irule mk_seqs_mk_seqs
+  \\ fs []
 QED
 
 Theorem subst_Seqs:
@@ -1610,15 +1749,6 @@ Proof
   cheat
 QED
 
-Triviality Apps_cong1:
-  ∀xs f g. f ≈ g ⇒ Apps f xs ≈ Apps g xs
-Proof
-  Induct \\ fs [Apps_def]
-  \\ rw [] \\ gvs []
-  \\ first_x_assum irule
-  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
-QED
-
 Theorem Apps_Lams_eq_Seqs[local]:
   closed ll ⇒
   Apps
@@ -1638,7 +1768,7 @@ Proof
   fs [SUBMAP_FLOOKUP_EQN,alistTheory.flookup_fupdate_list]
   \\ Induct using SNOC_INDUCT
   \\ fs [FORALL_PROD,REVERSE_SNOC,MAP_SNOC,mk_seq_bind_def,AllCaseEqs()]
-  \\ cheat
+  \\ cheat (* avoid *)
 QED
 
 Theorem reformulate_thm:
@@ -1756,15 +1886,6 @@ Proof
   \\ qid_spec_tac ‘bs’
   \\ Induct \\ fs [FORALL_PROD,mk_seq_bind_def]
   \\ fs [IN_DEF] \\ rw [mk_seq_bind_def]
-QED
-
-Triviality mk_seqs_cong:
-  ∀args x y. x ≈ y ⇒ mk_seqs args x ≈ mk_seqs args y
-Proof
-  Induct
-  \\ fs [mk_seqs_def,FORALL_PROD]
-  \\ gen_tac \\ Cases \\ fs [mk_seqs_def] \\ rw []
-  \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
 QED
 
 Theorem IMP_obligation:
