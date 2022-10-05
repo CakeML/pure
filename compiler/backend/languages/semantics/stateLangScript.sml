@@ -628,11 +628,38 @@ Proof
   Induct_on ‘n’ >> rw[step,ADD1,step_n_add]
 QED
 
+Triviality application_Action:
+  application p env vs st k = (Action channel content,st1,k1) ⇒
+  p = FFI channel ∧ ∃st1. st = SOME st1
+Proof
+  fs [application_def |> DefnBase.one_line_ify NONE, AllCaseEqs(), error_def, value_def]
+  \\ rw [] \\ fs []
+  \\ fs [continue_def]
+QED
+
 Theorem step_n_is_halt_SOME:
   step_n x (tr,SOME ts,tk) = (Action a b,a1,a2) ⇒
   ∃ts2. a1 = SOME ts2
 Proof
-  cheat
+  qsuff_tac
+    ‘∀x input a b a1 a2.
+       step_n x input = (Action a b,a1,a2) ⇒
+       ∀ts1. FST (SND input) = SOME ts1 ⇒ ∃ts2. a1 = SOME ts2’
+  >- (rw [] \\ first_x_assum drule \\ fs [])
+  \\ Induct
+  \\ fs [FUNPOW_SUC,step_n_def,FORALL_PROD] \\ rw []
+  \\ pairarg_tac \\ fs []
+  \\ qpat_x_assum ‘_ = (Action a b,a1,a2)’ mp_tac
+  \\ simp [step_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),error_def,push_def]
+  \\ fs [value_def,continue_def]
+  \\ rw []
+  \\ imp_res_tac application_Action \\ gvs []
+  \\ fs [return_def,value_def]
+  \\ res_tac \\ fs []
+  \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),error_def]
+  \\ imp_res_tac application_Action \\ gvs []
+  \\ fs [application_def,AllCaseEqs(),error_def]
+  \\ gvs [value_def,continue_def]
 QED
 
 Theorem application_cut_cont[local]:
