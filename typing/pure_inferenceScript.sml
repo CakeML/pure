@@ -416,7 +416,7 @@ Definition infer_def:
                 fns tyfns) ++
             csfns ++ cse) od) ∧
 
-  infer ns mset (Case d e v css) = (
+  infer ns mset (Case d e v css eopt) = (
     if MEM v (FLAT (MAP (FST o SND) css)) then fail else
     case css of
     | [] => fail (* no empty case statements *)
@@ -438,11 +438,29 @@ Definition infer_def:
                 return (ty::tys, ((list_delete as' (v :: pvars)) ⋓ as),
                         (FLAT pvar_constraints) ++ cs' ++ cs) od)
             (return ([],empty,[])) css;
-      (tye, ase, cse) <- infer ns mset e;
+      (tye, ase0, cse0) <- infer ns mset e;
+      (ustye, ase, cse) <-
+        (case eopt of
+           NONE => return (tye,ase0,cse0)
+         | SOME ue => do
+                       (uety, ueas, uecs) <- infer ns (list_insert mono_vars mset) ue ;
+                       pvar_constraints <<-
+                         MAP (λn. Unify d (CVar n) cfresh_v) (get_assumptions v ueas) ;
+                       return (
+                         uety,
+                         delete ueas v ⋓ ase0,
+                         Unify d (HD tys) uety :: pvar_constraints ++ uecs ++ cse0
+                       );
+                     od) ;
 
       return (HD tys, ase ⋓ as,
-              (Unify d cfresh_v tye)::(Unify d tye expected_ty)::
-              (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs) od) ∧
+              (* type of guard expression unifies with tye (result of infer) *)
+              (Unify d cfresh_v tye)::
+              (* type of tye unifies with types of patterns *)
+              (Unify d tye expected_ty)::
+              (* type of first case's result unifies with rest of them *)
+              (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs)
+    od) ∧
 
   infer _ _ _ = fail
 Termination
