@@ -1029,11 +1029,271 @@ Proof
         APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
 QED
 
+Theorem step_pres_cons_NIL:
+  step ts [] (Exp l e) = (res,ts1,[]) ⇒
+  step ts k (Exp l e) = (res,ts1,k)
+Proof
+  Cases_on ‘e’
+  \\ fs [step_def,error_def,value_def,continue_def,AllCaseEqs(),push_def]
+  \\ rw [] \\ fs []
+  \\ Cases_on ‘s’ \\ fs [num_args_ok_def]
+  \\ fs [application_def,value_def]
+  \\ every_case_tac \\ fs [error_def,return_def]
+QED
+
+Theorem step_inc_cont:
+  step ts (k0::k1) te = (x0,x1,k2) ∧ LENGTH k1 + 1 < LENGTH k2 ⇒
+  ∃k. k2 = k::k0::k1 ∧ ∀k3. step ts (k0::k3) te = (x0,x1,k::k0::k3)
+Proof
+  Cases_on ‘te’ \\ fs [step_def] \\ fs [error_def]
+  >~ [‘Exp l e’] >-
+   (Cases_on ‘e’
+    \\ fs [step_def] \\ fs [error_def,value_def,continue_def,push_def]
+    \\ rw [] \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def])
+  >~ [‘Exn’] >-
+   (Cases_on ‘k0’ \\ fs [continue_def,push_def] \\ rw[] \\ gvs[])
+  \\ rw [] \\ fs []
+  \\ Cases_on ‘k0’ \\ fs [return_def]
+  \\ gvs [AllCaseEqs(),continue_def,error_def,value_def]
+  \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [AllCaseEqs(),continue_def,error_def,value_def]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def]
+QED
+
+Theorem step_dec_cont:
+  step ts k1 te = (x0,x1,k2) ∧ LENGTH k2 < LENGTH k1 ⇒
+  ∃k. k1 = k::k2 ∧ ∀k3. step ts (k::k3) te = (x0,x1,k3)
+Proof
+  Cases_on ‘te’ \\ fs [step_def,error_def]
+  >~ [‘Exp l e’] >-
+   (Cases_on ‘e’
+    >~ [‘Var’] >-
+     (fs [step_def] \\ CASE_TAC \\ fs [error_def,value_def])
+    \\ fs [step_def] \\ fs [error_def,value_def,continue_def,push_def]
+    \\ rw [] \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def])
+  >~ [‘Exn’] >-
+   (Cases_on ‘k1’ \\ fs [step_def,error_def]
+    \\ Cases_on ‘h’ \\ fs [continue_def,push_def] \\ rw[] \\ gvs[])
+  \\ Cases_on ‘k1’ \\ fs []
+  \\ Cases_on ‘h’
+  \\ fs [return_def]
+  \\ rw []
+  \\ fs [continue_def,error_def,value_def]
+  \\ rw [] \\ gvs [AllCaseEqs(),value_def]
+  \\ gvs [return_def|>DefnBase.one_line_ify NONE, AllCaseEqs(),error_def,
+          continue_def,value_def]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def]
+  \\ gvs [continue_def,value_def]
+QED
+
+Theorem step_eq_cont:
+  step ts (k::k1) te = (x0,x1,x2) ∧ LENGTH x2 = LENGTH (k::k1) ⇒
+  ∃d. x2 = d::k1 ∧ ∀k3. step ts (k::k3) te = (x0,x1,d::k3)
+Proof
+  Cases_on ‘te’ \\ fs [step_def,error_def]
+  >~ [‘Exp l e’] >-
+   (Cases_on ‘e’
+    \\ fs [step_def] \\ fs [error_def,value_def,continue_def,push_def]
+    \\ rw [] \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ CCONTR_TAC \\ gvs []
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def])
+  >~ [‘Exn’] >-
+   (rw [] \\ fs []
+    \\ gvs [AllCaseEqs(),continue_def,push_def])
+  \\ gvs [return_def|>DefnBase.one_line_ify NONE, AllCaseEqs(),error_def,
+          continue_def,value_def] \\ rw []
+  \\ fs [continue_def,error_def,value_def]
+  \\ Cases_on ‘sop’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def]
+  \\ gvs [continue_def,value_def]
+QED
+
+Triviality step_n_cont_swap_lemma:
+  ∀n x0 x1 k k1 res ts1 k2.
+    FUNPOW (λ(sr,st,k). step st k sr) n (x0,x1,k::k1) = (res,ts1,k2) ∧
+    LENGTH k2 ≤ LENGTH k1 ⇒
+    ∃m res7 ts7 k7.
+      m ≤ n ∧
+      FUNPOW (λ(sr,st,k). step st k sr) m (x0,x1,k::k1) = (res7,ts7,k7) ∧
+      LENGTH k1 = LENGTH k7 ∧
+      (∀i. i < m ⇒
+        ∃res7 ts7 k7.
+           FUNPOW (λ(sr,st,k). step st k sr) i (x0,x1,k::k1) = (res7,ts7,k7) ∧
+           LENGTH k1 < LENGTH k7)
+Proof
+  completeInduct_on ‘n’
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘n’ \\ fs [] \\ gvs []
+  \\ fs [step_n_def,FUNPOW]
+  \\ ‘∃y. step x1 (k::k1) x0 = y’ by fs [] \\ PairCases_on ‘y’ \\ fs []
+  \\ Cases_on ‘LENGTH y2 < LENGTH (k::k1)’
+  >-
+   (drule_all step_dec_cont \\ fs [] \\ strip_tac \\ gvs []
+    \\ qexists_tac ‘SUC 0’ \\ fs [])
+  \\ reverse (Cases_on ‘LENGTH (k::k1) < LENGTH y2’)
+  >-
+   (‘LENGTH y2 = LENGTH (k::k1)’ by fs []
+    \\ drule_all step_eq_cont \\ strip_tac \\ gvs []
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ impl_tac >- fs []
+    \\ strip_tac \\ fs []
+    \\ qexists_tac ‘SUC m’ \\ fs [FUNPOW]
+    \\ Cases \\ fs [FUNPOW]
+    \\ rw [] \\ res_tac \\ fs [])
+  \\ fs [ADD1]
+  \\ drule_all step_inc_cont
+  \\ strip_tac \\ gvs []
+  \\ rename [‘FUNPOW _ n’]
+  \\ last_assum $ qspec_then ‘n’ mp_tac
+  \\ impl_tac >- fs []
+  \\ disch_then drule
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ ‘FUNPOW (λ(sr,st,k). step st k sr) n =
+      FUNPOW (λ(sr,st,k). step st k sr) ((n - m) + m)’ by fs []
+  \\ full_simp_tac std_ss [FUNPOW_ADD]
+  \\ pop_assum kall_tac
+  \\ Cases_on ‘k7’ \\ fs []
+  \\ qpat_x_assum ‘_ = (res,ts1,k2)’ assume_tac
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ qexists_tac ‘SUC (m' + m)’
+  \\ rewrite_tac [FUNPOW_ADD,FUNPOW]
+  \\ fs []
+  \\ Cases \\ fs [FUNPOW]
+  \\ rw []
+  \\ Cases_on ‘n' < m’ \\ res_tac \\ fs []
+  \\ ‘FUNPOW (λ(sr,st,k). step st k sr) n' =
+      FUNPOW (λ(sr,st,k). step st k sr) ((n' - m) + m)’ by fs []
+  \\ asm_rewrite_tac [FUNPOW_ADD]
+  \\ pop_assum kall_tac
+  \\ gvs []
+QED
+
+Theorem step_n_cont_swap:
+  ∀n te ts k k1 res ts1 k2.
+    step_n n (te,ts,k::k1) = (res,ts1,k2) ∧ LENGTH k1 = LENGTH k2 ∧
+    (∀m res ts1 k0.
+       m < n ∧ step_n m (te,ts,k::k1) = (res,ts1,k0) ⇒ LENGTH k1 < LENGTH k0) ⇒
+    ∀k3. k2 = k1 ∧ step_n n (te,ts,k::k3) = (res,ts1,k3)
+Proof
+  completeInduct_on ‘n’
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘n’ \\ fs [] \\ gvs []
+  \\ fs [step_n_def,FUNPOW]
+  \\ ‘∃x. step ts (k::k1) te = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
+  \\ Cases_on ‘LENGTH x2 < LENGTH (k::k1)’
+  >-
+   (drule_all step_dec_cont \\ fs [] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘n'’ \\ fs []
+    \\ first_x_assum $ qspec_then ‘SUC 0’ mp_tac
+    \\ fs [])
+  \\ reverse (Cases_on ‘LENGTH (k::k1) < LENGTH x2’)
+  >-
+   (‘LENGTH x2 = LENGTH (k::k1)’ by fs []
+    \\ drule_all step_eq_cont \\ strip_tac
+    \\ gvs []
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ ntac 2 strip_tac
+    \\ first_x_assum irule
+    \\ rw []
+    \\ first_x_assum $ qspec_then ‘SUC m'’ mp_tac
+    \\ fs [FUNPOW])
+  \\ fs [ADD1]
+  \\ drule_all step_inc_cont
+  \\ strip_tac \\ gvs []
+  \\ rename [‘FUNPOW _ n’]
+  \\ drule step_n_cont_swap_lemma
+  \\ fs [] \\ strip_tac
+  \\ Cases_on ‘k7’ \\ fs [ADD1]
+  \\ last_assum $ qspec_then ‘m’ mp_tac
+  \\ impl_tac >- fs []
+  \\ disch_then $ qspecl_then [‘x0’,‘x1’,‘k'’,‘k::k1’] mp_tac
+  \\ fs [FUNPOW]
+  \\ impl_tac >- (rw [] \\ res_tac \\ fs [] \\ gvs [])
+  \\ strip_tac
+  \\ gvs [GSYM PULL_FORALL]
+  \\ last_x_assum $ qspec_then ‘n - m’ mp_tac
+  \\ impl_tac >- fs []
+  \\ disch_then $ qspecl_then [‘res7’,‘ts7’,‘h’,‘k1’] mp_tac
+  \\ ‘FUNPOW (λ(sr,st,k). step st k sr) n =
+      FUNPOW (λ(sr,st,k). step st k sr) (m + (n - m))’ by fs []
+  \\ full_simp_tac std_ss []
+  \\ pop_assum kall_tac
+  \\ last_x_assum mp_tac
+  \\ rewrite_tac [FUNPOW_ADD |> ONCE_REWRITE_RULE [ADD_COMM],PULL_FORALL]
+  \\ simp [] \\ strip_tac
+  \\ disch_then irule
+  \\ rw []
+  \\ last_x_assum irule
+  \\ qexists_tac ‘SUC (m' + m)’
+  \\ rewrite_tac [FUNPOW_ADD,FUNPOW]
+  \\ fs []
+QED
+
+Theorem step_n_set_cont_gen:
+  ∀n te ts res ts1.
+    step_n n (te,ts,[]) = (res,ts1,[]) ⇒
+    ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (te,ts,k) = (res,ts1,k)
+Proof
+  completeInduct_on ‘n’
+  \\ Cases_on ‘n = 0’ \\ rw []
+  \\ Cases_on ‘∃n1 n2. n = n1 + n2 ∧ n1 ≠ 0 ∧ n2 ≠ 0 ∧
+               ∃res1 ts2. step_n n1 (te,ts,[]) = (res1,ts2,[])’
+  >-
+   (gvs [] \\ fs [step_n_def]
+    \\ fs [FUNPOW_ADD |> ONCE_REWRITE_RULE [ADD_COMM],PULL_FORALL]
+    \\ last_assum $ qspec_then ‘n1’ mp_tac
+    \\ last_x_assum $ qspec_then ‘n2’ mp_tac
+    \\ fs [] \\ rw [] \\ res_tac
+    \\ qexists_tac ‘n5 + n5'’
+    \\ fs [FUNPOW_ADD |> ONCE_REWRITE_RULE [ADD_COMM],PULL_FORALL]
+    \\ fs [GSYM PULL_FORALL])
+  \\ fs [METIS_PROVE [] “b ∨ c ⇔ ~b ⇒ c”,AND_IMP_INTRO]
+  \\ Cases_on ‘is_halt (te,ts,[]:cont list)’
+  >- (fs [is_halt_step_n_same] \\ qexists_tac ‘0’ \\ fs [])
+  \\ Cases_on ‘n < 2’
+  >-
+   (Cases_on ‘n’ \\ fs []
+    \\ Cases_on ‘n'’ \\ fs []
+    \\ Cases_on ‘te’ \\ fs []
+    \\ qexists_tac ‘1’ \\ fs []
+    \\ metis_tac [step_pres_cons_NIL])
+  \\ qexists_tac ‘n’ \\ fs [NOT_LESS] \\ rw []
+  \\ Cases_on ‘n’ \\ fs [step_n_SUC]
+  \\ ‘∃x. step ts [] te = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
+  \\ ‘LENGTH ([]:cont list) < LENGTH x2’ by
+    (first_x_assum $ qspecl_then [‘1’,‘n'’] mp_tac
+     \\ fs [] \\ Cases_on ‘x2’ \\ fs [])
+  \\ cheat (*
+  \\ drule_all step_inc_cont
+  \\ rw []
+  \\ drule step_n_cont_swap
+  \\ fs []
+  \\ disch_then irule
+  \\ rw []
+  \\ Cases_on ‘k0’ \\ fs []
+  \\ first_x_assum $ qspecl_then [‘SUC m’,‘n' - m’] mp_tac
+  \\ impl_tac >- fs []
+  \\ fs [step_n_def,FUNPOW] *)
+QED
+
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
   ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
 Proof
-  cheat
+  rw [] \\ irule step_n_set_cont_gen \\ fs []
 QED
 
 Theorem return_fast_forward_lemma[local]:
