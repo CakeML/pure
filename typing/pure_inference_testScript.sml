@@ -231,8 +231,9 @@ val add_str = toMLstring `
   (letrec
     (add (lam (x y)
       (case x temp
-        (Z y)
-        ((S (xx)) (app add xx (cons S y))))))
+        ((((Z) y)
+          ((S (xx)) (app add xx (cons S y)))) .
+         NONE))))
     add)`;
 
 Theorem add_str_type:
@@ -246,12 +247,12 @@ val even_odd_str = toMLstring `
   (letrec
     (even (lam (x)
       (case x temp
-        (Z (cons True))
-        ((S (xx)) (app odd xx)))))
+        ((((Z) (cons True))
+          ((S (xx)) (app odd xx))) . NONE))))
     (odd (lam (x)
       (case x temp
-        (Z (cons False))
-        ((S (xx)) (app even xx)))))
+        ((((Z) (cons False))
+           ((S (xx)) (app even xx))) . NONE))))
     (cons 0 even odd))`;
 
 Theorem even_odd_str_type:
@@ -270,8 +271,8 @@ val ntimes_str = toMLstring `
 
     (ntimes (lam (f n)
       (case n temp
-        (Z (lam (x) x))
-        ((S (m)) (app o f (app ntimes f m))))))
+        ((((Z) (lam (x) x))
+          ((S (m)) (app o f (app ntimes f m)))) . NONE))))
     (cons 0 o ntimes))`;
 
 Theorem ntimes_str_type:
@@ -297,13 +298,13 @@ val curried_mult_str = toMLstring `
 
     (ntimes (lam (f n)
       (case n temp
-        (Z (lam (x) x))
-        ((S (m)) (app o f (app ntimes f m))))))
+        ((((Z) (lam (x) x))
+          ((S (m)) (app o f (app ntimes f m)))) . NONE))))
 
     (add (lam (x y)
       (case x temp
-        (Z y)
-        ((S (xx)) (app add xx (cons S y))))))
+        ((((Z) y)
+          ((S (xx)) (app add xx (cons S y)))) . NONE))))
 
     (mult (lam (x y) (app ntimes (app add x) y (cons Z))))
 
@@ -339,12 +340,12 @@ val add_even_even_str = toMLstring `
   (letrec
     (add_ee (lam (e1 e2)
       (case e1 temp1
-        (Z e2)
-        ((S (o1))
-          (case o1 temp1
-            ((O (e)) (cons S (cons O (app add_ee e e2))))
-          )))))
-   add_ee)`;
+        ((((Z) e2)
+          ((S (o1))
+           (case o1 temp1
+                    ((((O (e)) (cons S (cons O (app add_ee e e2))))) . NONE))))
+         . NONE))))
+    add_ee)`;
 
 Theorem add_str_type:
   parse_and_infer parse_cexp even_odd_ns ^add_even_even_str =
@@ -357,17 +358,18 @@ val add_even_odd_nats_str = toMLstring `
   (letrec
     (add_ee (lam (e1 e2)
       (case e1 temp
-        (Z e2)
-        ((S (o1)) (cons S (app add_eo e2 o1))))))
+        ((((Z) e2)
+          ((S (o1)) (cons S (app add_eo e2 o1)))) . NONE))))
 
     (add_eo (lam (e o)
       (case e temp
-        (Z o)
-        ((S (o1)) (cons O (app add_oo o1 o))))))
+        ((((Z) o)
+          ((S (o1)) (cons O (app add_oo o1 o)))) . NONE))))
 
     (add_oo (lam (o1 o2)
-      (case o1 temp
-        ((O (e)) (cons S (app add_eo e o2))))))
+      (case o1
+            temp
+            ((((O (e)) (cons S (app add_eo e o2)))) . NONE))))
 
   (cons 0 add_ee add_eo add_oo))`;
 
