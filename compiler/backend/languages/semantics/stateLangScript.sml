@@ -1064,6 +1064,17 @@ Proof
   \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def]
 QED
 
+Theorem step_inc_nil:
+  step ts [] te = (x0,x1,h::t) ∧ ¬is_halt (te,ts,[]:cont list) ⇒
+  t = [] ∧ ∀k. step ts k te = (x0,x1,h::k)
+Proof
+  Cases_on ‘te’ \\ strip_tac
+  \\ gvs [step_def,error_def]
+  \\ Cases_on ‘e’ \\ gvs [step_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,value_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+QED
+
 Theorem step_dec_cont:
   step ts k1 te = (x0,x1,k2) ∧ LENGTH k2 < LENGTH k1 ⇒
   ∃k. k1 = k::k2 ∧ ∀k3. step ts (k::k3) te = (x0,x1,k3)
@@ -1242,58 +1253,57 @@ Proof
   \\ fs []
 QED
 
-Theorem step_n_set_cont_gen:
-  ∀n te ts res ts1.
-    step_n n (te,ts,[]) = (res,ts1,[]) ⇒
-    ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (te,ts,k) = (res,ts1,k)
-Proof
-  completeInduct_on ‘n’
-  \\ Cases_on ‘n = 0’ \\ rw []
-  \\ Cases_on ‘∃n1 n2. n = n1 + n2 ∧ n1 ≠ 0 ∧ n2 ≠ 0 ∧
-               ∃res1 ts2. step_n n1 (te,ts,[]) = (res1,ts2,[])’
-  >-
-   (gvs [] \\ fs [step_n_def]
-    \\ fs [FUNPOW_ADD |> ONCE_REWRITE_RULE [ADD_COMM],PULL_FORALL]
-    \\ last_assum $ qspec_then ‘n1’ mp_tac
-    \\ last_x_assum $ qspec_then ‘n2’ mp_tac
-    \\ fs [] \\ rw [] \\ res_tac
-    \\ qexists_tac ‘n5 + n5'’
-    \\ fs [FUNPOW_ADD |> ONCE_REWRITE_RULE [ADD_COMM],PULL_FORALL]
-    \\ fs [GSYM PULL_FORALL])
-  \\ fs [METIS_PROVE [] “b ∨ c ⇔ ~b ⇒ c”,AND_IMP_INTRO]
-  \\ Cases_on ‘is_halt (te,ts,[]:cont list)’
-  >- (fs [is_halt_step_n_same] \\ qexists_tac ‘0’ \\ fs [])
-  \\ Cases_on ‘n < 2’
-  >-
-   (Cases_on ‘n’ \\ fs []
-    \\ Cases_on ‘n'’ \\ fs []
-    \\ Cases_on ‘te’ \\ fs []
-    \\ qexists_tac ‘1’ \\ fs []
-    \\ metis_tac [step_pres_cons_NIL])
-  \\ qexists_tac ‘n’ \\ fs [NOT_LESS] \\ rw []
-  \\ Cases_on ‘n’ \\ fs [step_n_SUC]
-  \\ ‘∃x. step ts [] te = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
-  \\ ‘LENGTH ([]:cont list) < LENGTH x2’ by
-    (first_x_assum $ qspecl_then [‘1’,‘n'’] mp_tac
-     \\ fs [] \\ Cases_on ‘x2’ \\ fs [])
-  \\ cheat (*
-  \\ drule_all step_inc_cont
-  \\ rw []
-  \\ drule step_n_cont_swap
-  \\ fs []
-  \\ disch_then irule
-  \\ rw []
-  \\ Cases_on ‘k0’ \\ fs []
-  \\ first_x_assum $ qspecl_then [‘SUC m’,‘n' - m’] mp_tac
-  \\ impl_tac >- fs []
-  \\ fs [step_n_def,FUNPOW] *)
-QED
-
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
   ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
 Proof
-  rw [] \\ irule step_n_set_cont_gen \\ fs []
+  qsuff_tac ‘
+    ∀n te ts res ts1.
+      step_n n (te,ts,[]) = (Val res,ts1,[]) ∧ ~is_halt (te,ts,[]:cont list) ⇒
+      ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (te,ts,k) = (Val res,ts1,k)’
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ completeInduct_on ‘n’ \\ rw []
+  \\ Cases_on ‘n’ \\ fs [step_n_def,FUNPOW] \\ rw []
+  \\ ‘∃x. step ts [] te = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
+  \\ Cases_on ‘is_halt (x0,x1,x2)’ >-
+   (gvs [GSYM step_n_def,is_halt_step_n_same]
+    \\ qexists_tac ‘SUC 0’ \\ fs [] \\ rw []
+    \\ last_x_assum kall_tac
+    \\ Cases_on ‘te’ \\ fs []
+    \\ Cases_on ‘e’
+    \\ gvs [step_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,get_atoms_def])
+  \\ Cases_on ‘x2’ \\ fs []
+  >-
+   (rename [‘FUNPOW _ n’]
+    \\ last_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ disch_then drule \\ fs [] \\ strip_tac
+    \\ qexists_tac ‘SUC n5’ \\ fs [] \\ fs [FUNPOW]
+    \\ qsuff_tac ‘∀k. step ts k te = (x0,x1,k)’ >- fs []
+    \\ Cases_on ‘te’ \\ gvs []
+    \\ Cases_on ‘e’ \\ gvs [step_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,error_def,AllCaseEqs(),push_def])
+  \\ drule_all step_inc_nil
+  \\ strip_tac \\ gvs []
+  \\ drule step_n_cont_swap_lemma \\ fs [] \\ strip_tac
+  \\ rename [‘m ≤ n’]
+  \\ fs [GSYM step_n_def]
+  \\ drule step_n_cont_swap \\ fs [GSYM PULL_FORALL]
+  \\ impl_tac >- (rw [] \\ res_tac \\ fs [] \\ gvs [])
+  \\ strip_tac \\ fs []
+  \\ ‘step_n n = step_n ((n - m) + m)’ by fs []
+  \\ full_simp_tac std_ss [step_n_add] \\ gvs []
+  \\ Cases_on ‘is_halt (res7,ts7,[]:cont list)’
+  >-
+   (qexists_tac ‘SUC m’ \\ fs [step_n_SUC]
+    \\ gvs [GSYM step_n_def,is_halt_step_n_same])
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ impl_tac >- fs []
+  \\ rw []
+  \\ qexists_tac ‘SUC (n5 + m)’
+  \\ full_simp_tac std_ss [step_n_add,step_n_SUC] \\ gvs []
 QED
 
 Theorem return_fast_forward_lemma[local]:
