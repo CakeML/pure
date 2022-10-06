@@ -232,8 +232,7 @@ Proof
   EVAL_TAC
 QED
 
-(* wrong *)
 Theorem parse_cexp_test3 =
-        EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons y ys) ys))  .  NONE))"”
+        EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons (y ys)) ys))  .  NONE))"”
 
 val _ = export_theory();
