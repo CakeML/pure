@@ -1398,23 +1398,123 @@ Proof
   rw[]
 QED
 
-(* This lemma is false as stated. Counterexample:
+Theorem step_NONE_Val:
+  step NONE (forceK2_none h::xs) (Val v) = (x0,x1,x2) ∧ x0 ≠ Error ⇒
+  ∃xs1. x2 = MAP forceK2_none xs1 ++ xs ∧ x1 = NONE ∧
+        (∀e. x0 ≠ Exn e) ∧ (∀e a. x0 ≠ Action e a) ∧
+        ∀ys. step NONE (forceK2_none h::ys) (Val v) =
+               (x0,x1,MAP forceK2_none xs1 ++ ys)
+Proof
+  Cases_on ‘h’ \\ fs [] \\ fs [step_def] \\ strip_tac
+  \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),
+          forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),
+          continue_def,error_def,value_def,push_def]
+  \\ rename [‘num_args_ok s’]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def]
+QED
 
-    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[HandleK [(x,v)] (c::x) (Var x)])”
+Theorem step_NONE_Exp:
+  step NONE xs (Exp l e) = (x0,x1,x2) ∧ x0 ≠ Error ⇒
+  ∃xs1. x2 = MAP forceK2_none xs1 ++ xs ∧ x1 = NONE ∧
+        (∀e. x0 ≠ Exn e) ∧ (∀e a. x0 ≠ Action e a) ∧
+        ∀ys. step NONE ys (Exp l e) = (x0,x1,MAP forceK2_none xs1 ++ ys)
+Proof
+  Cases_on ‘e’
+  >~ [‘Let opt’] >-
+   (Cases_on ‘opt’
+    \\ fs [step_def,AllCaseEqs()] \\ rw []
+    \\ gvs [error_def,value_def,continue_def,push_def]
+    \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()])
+  >~ [‘Case _ _ rows’] >-
+   (Cases_on ‘rows’
+    \\ fs [step_def,AllCaseEqs()] \\ rw []
+    \\ gvs [error_def,value_def,continue_def,push_def]
+    \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()])
+  >~ [‘App’] >-
+   (fs [step_def,AllCaseEqs()] \\ rw [] \\ gvs [error_def,push_def]
+    \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,get_atoms_def])
+  \\ fs [step_def,AllCaseEqs()] \\ rw []
+  \\ gvs [error_def,value_def,continue_def,push_def]
+  \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+QED
 
-    EVAL “step_n 4 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
-
-    ^^ it's possible that the expression needs the stack to halt with a value
-
-    Update: has the change to RaiseK semantics changed this?
- *)
 Theorem step_n_NONE_split:
   step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
   ∃m1 m2 v.
     step_n m1 (Exp env x,NONE,[]) = (Val v,NONE,[]) ∧ m1 < n ∧
     step_n m2 (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n
 Proof
-  cheat
+  qsuff_tac ‘
+    ∀n xs te k tk r z.
+      step_n n (te,NONE,MAP forceK2_none xs ++ k::tk) = (r,z) ∧ te ≠ Error ∧
+      ~is_halt (te,NONE,MAP forceK2_none xs) ∧
+      (∀e. te ≠ Exn e) ∧ (∀e a. te ≠ Action e a) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
+      ∃m1 m2 v.
+        step_n m1 (te,NONE,MAP forceK2_none xs) = (Val v,NONE,[]) ∧ m1 < n ∧
+        step_n m2 (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n’
+  >-
+   (rw []
+    \\ last_x_assum $ qspecl_then [‘n’,‘[]’] mp_tac \\ fs []
+    \\ disch_then drule \\ fs []
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos $ hd \\ fs []
+    \\ first_x_assum $ irule_at $ Pos $ hd \\ fs [])
+  \\ strip_tac
+  \\ completeInduct_on ‘n’ \\ rw []
+  \\ reverse (Cases_on ‘te’) \\ fs []
+  >-
+   (Cases_on ‘xs’
+    \\ gvs [] \\ Cases_on ‘n’ \\ gvs [step_n_SUC]
+    \\ ‘∃x. step NONE (forceK2_none h::(MAP forceK2_none t ++ k::tk))
+              (Val v) = x’ by fs []
+    \\ PairCases_on ‘x’ \\ fs []
+    \\ Cases_on ‘x0 = Error’
+    >-
+     (‘is_halt (Error,x1,x2)’ by fs []
+      \\ qpat_x_assum ‘_ = (r,_)’ mp_tac
+      \\ DEP_REWRITE_TAC [is_halt_step_n_same] \\ fs [])
+    \\ drule_all step_NONE_Val \\ strip_tac \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘SUC m3’ \\ fs [step_n_SUC]
+    \\ rename [‘step_n n’]
+    \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
+    \\ Cases_on ‘is_halt (x0,NONE,MAP forceK2_none xs1 ++ MAP forceK2_none t)’
+    >-
+     (Cases_on ‘x0’ \\ gvs []
+      \\ qexists_tac ‘0’ \\ fs []
+      \\ qexists_tac ‘n’ \\ fs []
+      \\ Cases_on ‘n’ \\ gvs [])
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ impl_tac >- fs []
+    \\ rw []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ gvs []
+  \\ Cases_on ‘n’ \\ gvs [step_n_SUC]
+  \\ rename [‘step_n n’]
+  \\ ‘∃x. step NONE (MAP forceK2_none xs ++ k::tk) (Exp l e) = x’ by fs []
+  \\ PairCases_on ‘x’ \\ fs []
+  \\ Cases_on ‘x0 = Error’
+  >-
+   (‘is_halt (Error,x1,x2)’ by fs []
+    \\ qpat_x_assum ‘_ = (r,_)’ mp_tac
+    \\ DEP_REWRITE_TAC [is_halt_step_n_same] \\ fs [])
+  \\ drule_all step_NONE_Exp \\ strip_tac \\ gvs []
+  \\ Q.REFINE_EXISTS_TAC ‘SUC m3’ \\ fs [step_n_SUC]
+  \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
+  \\ Cases_on ‘is_halt (x0,NONE,MAP forceK2_none xs1 ++ MAP forceK2_none xs)’
+  >-
+   (Cases_on ‘x0’ \\ gvs []
+    \\ qexists_tac ‘0’ \\ fs []
+    \\ qexists_tac ‘n’ \\ fs []
+    \\ Cases_on ‘n’ \\ gvs [])
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ impl_tac >- fs []
+  \\ rw []
+  \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+  \\ first_x_assum $ irule_at $ Pos $ hd \\ fs []
 QED
 
 (* meaning of cexp *)
