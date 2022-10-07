@@ -2835,7 +2835,7 @@ Inductive compile_rel:
        compile_rel (Prim op xs) (Prim op ys)) ∧
 [~_Letrec:]
   (∀f g x y.
-     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ closed x ∧ compile_rel x y) f g ∧
+     LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ compile_rel x y) f g ∧
      compile_rel x y ⇒
        compile_rel (Letrec f x) (Letrec (MAP (λ(gn, x). (gn, Delay x)) g) y))
 End

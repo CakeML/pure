@@ -74,6 +74,11 @@ Inductive exp_rel:
   (∀s x y.
      exp_rel x x1 ∧ exp_rel y y1 ⇒
        exp_rel (Let i s x y) (Let (SOME (explode s)) (Delay x1) y1)) ∧
+[~Letrec:]
+  (∀i xs xs1 y y1.
+     LIST_REL (λ(n,x) (m,x1). explode n = m ∧
+                              ∃y. exp_rel x y ∧ x1 = Delay y) xs xs1 ∧ exp_rel y y1 ⇒
+       exp_rel (Letrec i xs y) (Letrec xs1 y1)) ∧
 [~App:]
   (∀f g xs ys.
      exp_rel f g ∧
@@ -179,6 +184,20 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd
     \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Let
     \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Delay \\ fs [])
+  >~ [‘Letrec’] >-
+   (irule_at Any thunk_case_d2bProofTheory.exp_rel_Letrec
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Letrec
+    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel__Letrec
+    \\ rpt $ first_assum $ irule_at Any
+    \\ last_x_assum mp_tac
+    \\ rename [‘LIST_REL _ xs ys’]
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
+    \\ rw [] \\ res_tac
+    \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Delay \\ fs []
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
+    \\ rpt $ first_assum $ irule_at Any)
   >~ [‘Apps’] >-
    (drule LIST_REL_combined_IMP \\ strip_tac
     \\ qexists_tac ‘Apps y1 (MAP Delay ts1)’
@@ -195,7 +214,6 @@ QED
 (*
 
 TODO:
- - remove closed from Letrec in pure_to_thunk_1Proof
  - make thunk_case_inl usable
 
 thunk_case_lift:    If IsEq --> Let If IsEq       -- has cheat
