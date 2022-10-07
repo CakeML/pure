@@ -56,6 +56,11 @@ Definition rows_of_def:
       (rows_of v k rest)
 End
 
+(*
+       | Prim 'a cop (cexp list)                 (* primitive operations     *)
+       | Letrec 'a ((cvname # cexp) list) cexp   (* mutually recursive exps  *)
+*)
+
 Inductive exp_rel:
 [~Var:]
   (∀(n:mlstring).
@@ -192,6 +197,12 @@ QED
 TODO:
  - remove closed from Letrec in pure_to_thunk_1Proof
  - make thunk_case_inl usable
+
+thunk_case_lift:    If IsEq --> Let If IsEq       -- has cheat
+thunk_case_d2b:     Let Delay Force --> Let Box
+thunk_case_inl:     (Var v) --> (Box (Var v))     -- needs to be able to stop rec
+thunk_case_unbox:   (Force (Box (Var v))) --> (Tick (Var v)))   -- needs removal of Tick
+thunk_case_proj:    Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x --> Let (SOME w) (MkTick (Proj s i (Var v))) y -- remove Tick, MkTick
 
 *)
 
