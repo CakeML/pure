@@ -90,6 +90,8 @@ Inductive exp_rel:
   (∀s x y x1 y1.
      exp_rel x y ∧ exp_rel x1 y1 ⇒
        exp_rel (Let s (Tick x) x1) (Let (SOME s) (Delay y) y1)) ∧
+[exp_rel_Fail:]
+  (exp_rel Fail Fail) ∧
 [exp_rel_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1; y1; z1] [x2; y2; z2] ⇒
@@ -295,6 +297,9 @@ Proof
     rename1 ‘exp_rel (Prim op xs)’
     \\ qpat_x_assum ‘exp_rel (Prim op xs) _’ mp_tac
     \\ rw [Once exp_rel_cases]
+    >- ((* Fail *)
+      simp [subst_single_def, subst1_def]
+      \\ rw [Once exp_rel_cases])
     >- ((* If *)
       simp [subst_single_def, subst1_def]
       \\ rw [Once exp_rel_cases])
@@ -440,6 +445,7 @@ Proof
   pop_assum mp_tac
   \\ rw [Once exp_rel_cases]
   \\ rw [subst_def, pure_expTheory.subst_def]
+  >- simp [exp_rel_Fail]
   >- simp [exp_rel_If]
   >- ((* Cons *)
     qmatch_goalsub_abbrev_tac ‘MAP f1 (MAP f2 ys)’
@@ -814,6 +820,7 @@ Proof
       \\ gs [NIL_iff_NOT_MEM]
       \\ rw [] \\ gs [])
     \\ rw [Once exp_rel_cases]
+    >- fs [eval_wh_to_def]
     >- ((* If *)
       simp [eval_to_def, eval_wh_to_def]
       \\ gvs [LENGTH_EQ_NUM_compute, SF DNF_ss]
@@ -2791,40 +2798,42 @@ QED
  *)
 
 Inductive compile_rel:
-[~_Var:]
+[~Var:]
   (∀n.
      compile_rel (pure_exp$Var n) (Force (Var n))) ∧
-[~_Lam:]
+[~Lam:]
   (∀s x y.
      compile_rel x y ⇒
        compile_rel (Lam s x) (Lam s y)) ∧
-[~_App:]
+[~App:]
   (∀f g x y.
      compile_rel f g ∧
      compile_rel x y ⇒
        compile_rel (App f x) (App g (Delay y))) ∧
-[~_Let:]
+[~Let:]
   (∀f g x y.
      compile_rel f g ∧
      compile_rel x y ⇒
        compile_rel (Let s x f) (Let (SOME s) (Delay y) g)) ∧
-[~_If:]
+[~Fail:]
+  (compile_rel Fail Fail) ∧
+[~If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL compile_rel [x1; y1; z1] [x2; y2; z2] ⇒
        compile_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
-[~_Cons:]
+[~Cons:]
   (∀n xs ys.
      LIST_REL compile_rel xs ys ⇒
        compile_rel (Cons n xs) (Prim (Cons n) (MAP Delay ys))) ∧
-[~_Proj:]
+[~Proj:]
   (∀s i xs ys.
      LIST_REL compile_rel xs ys ⇒
        compile_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
-[~_Seq:]
+[~Seq:]
   (∀x1 x2 y1 y2.
      LIST_REL compile_rel [x1; y1] [x2; y2] ⇒
        compile_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
-[~_Prim:]
+[~Prim:]
   (∀op xs ys.
      op ≠ If ∧
      op ≠ Seq ∧
@@ -2833,7 +2842,7 @@ Inductive compile_rel:
      (∀s i a. op = IsEq s i a ⇒ a) ∧
      LIST_REL compile_rel xs ys ⇒
        compile_rel (Prim op xs) (Prim op ys)) ∧
-[~_Letrec:]
+[~Letrec:]
   (∀f g x y.
      LIST_REL (λ(fn, x) (gn, y). fn = gn ∧ compile_rel x y) f g ∧
      compile_rel x y ⇒
@@ -2876,6 +2885,10 @@ Proof
     \\ irule_at (Pos (el 2)) tick_rel_Tick
     \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
+  >- ((* Fail *)
+    irule_at Any exp_rel_Fail
+    \\ irule_at Any tick_rel_Prim
+    \\ gs [SF SFY_ss])
   >- ((* If *)
     irule_at Any exp_rel_If
     \\ irule_at Any tick_rel_Prim
@@ -2914,6 +2927,16 @@ Proof
     \\ first_assum (irule_at Any) \\ gs []
     \\ imp_res_tac tick_rel_freevars
     \\ gvs [pure_expTheory.closed_def])
+QED
+
+Theorem compile_rel_freevars:
+  compile_rel x y ⇒ freevars x = freevars y
+Proof
+  rw []
+  \\ imp_res_tac compile_rel_thm
+  \\ imp_res_tac exp_rel_freevars
+  \\ imp_res_tac tick_rel_freevars
+  \\ gvs []
 QED
 
 Theorem compile_semantics:

@@ -26,9 +26,9 @@ End
 Definition rows_of'_def:
   rows_of' v k [] = k ∧
   rows_of' v k ((cn,vs,b)::rest) =
-    Tick (If (IsEq cn (LENGTH vs) T (Var v))
+          If (IsEq cn (LENGTH vs) T (Var v))
              (lets_for' (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
-             (rows_of' v k rest))
+             (rows_of' v k rest)
 End
 
 Definition exp_of'_def:
@@ -39,7 +39,7 @@ Definition exp_of'_def:
   exp_of' (Let d v x y) =
     Let (explode v) (exp_of' x) (exp_of' y) ∧
   exp_of' (App _ f xs) =
-    Apps (exp_of' f) (MAP Tick (MAP exp_of' xs)) ∧
+    Apps (exp_of' f) (MAP exp_of' xs) ∧
   exp_of' (Lam d vs x) =
     Lams (MAP explode vs) (exp_of' x) ∧
   exp_of' (Letrec d rs x) =
@@ -48,8 +48,8 @@ Definition exp_of'_def:
     (let caseexp =
        Let (explode v) (exp_of' x)
            (rows_of' (explode v)
-            (case eopt of NONE => Fail | SOME e => exp_of' e)
-            (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
+              (case eopt of NONE => Fail | SOME e => exp_of' e)
+              (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
      else
@@ -187,7 +187,6 @@ Proof
   \\ simp [rows_of'_def, rows_of_def, exp_eq_refl]
   \\ rw [] \\ pairarg_tac \\ gvs []
   \\ simp [rows_of_def]
-  \\ irule exp_eq_Tick_cong
   \\ irule exp_eq_lets_of_cong
   \\ rw [indexedListsTheory.MEM_MAPi]
   \\ gs [MEM_EL]
@@ -233,7 +232,7 @@ Proof
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Apps_cong
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM] \\ rw []
-    \\ irule exp_eq_Tick_cong \\ gs [])
+    \\ gs [])
   >- ((* Lam *)
     rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
