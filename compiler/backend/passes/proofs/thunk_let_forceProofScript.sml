@@ -185,154 +185,128 @@ Proof
     \\ gvs [LIST_REL_EL_EQN, EL_MAP]) *)
 QED
 
-Theorem exp_rel_subst: (* statement needs fixing *)
+Definition subst_acc_def:
+  subst_acc vs ws NONE = NONE ∧
+  subst_acc vs ws (SOME (x,y)) =
+    case x of
+    | Val v => (SOME (x,y))
+    | Var s => case ALOOKUP (REVERSE vs) s of
+               | NONE => (SOME (x,y))
+               | SOME w => (SOME (Val w,y))
+End
+
+Triviality MAP_FST_FILTER_NEQ:
+  ∀vs. MAP FST (FILTER (λ(n,x). n ≠ w) vs) = FILTER (λx. x ≠ w) (MAP FST vs)
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw []
+QED
+
+Triviality LIST_REL_MAP_SND_FILTER:
+  ∀vs ws.
+    LIST_REL P (MAP SND vs) (MAP SND ws) ∧ MAP FST vs = MAP FST ws ⇒
+    LIST_REL P (MAP SND (FILTER (λ(n,x). n ≠ w) vs))
+               (MAP SND (FILTER (λ(n,x). n ≠ w) ws))
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ rw [] \\ Cases_on ‘ws’ \\ fs []
+  \\ gvs [] \\ res_tac
+  \\ rpt $ first_x_assum $ irule_at $ Pos last
+  \\ rw [] \\ gvs [UNCURRY]
+QED
+
+Triviality ALOOKUP_MEM_MAP_FST:
+  ∀xs v x. ALOOKUP xs v = SOME x ⇒ MEM v (MAP FST xs)
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw []
+QED
+
+Theorem ALOOKUP_REVERSE_REVERSE:
+  ∀vs ws v x1 x2.
+    LIST_REL P (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ∧
+    ALOOKUP (REVERSE vs) v = SOME x1 ∧
+    ALOOKUP (REVERSE ws) v = SOME x2 ⇒
+    P x1 x2
+Proof
+  Induct using SNOC_INDUCT \\ rw []
+  \\ Cases_on ‘ws’ using SNOC_CASES
+  \\ fs [REVERSE_SNOC]
+  \\ rename [‘FST z = FST t’]
+  \\ PairCases_on ‘z’
+  \\ PairCases_on ‘t’
+  \\ gvs [AllCaseEqs(),MAP_SNOC,LIST_REL_SNOC]
+  \\ res_tac \\ fs []
+QED
+
+Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ∧
     exp_rel NONE x y ⇒
       exp_rel NONE (subst vs x) (subst ws y)
 Proof
-  cheat (*
-  ho_match_mp_tac subst_ind \\ rw []
-  \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
-  >- ((* Var *)
-    rw [Once exp_rel_cases, subst_def] \\ gs []
-    \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
-      by (irule LIST_REL_OPTREL
-          \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
-          \\ pop_assum mp_tac
-          \\ qid_spec_tac ‘ws’
-          \\ qid_spec_tac ‘vs’
-          \\ Induct \\ simp []
-          \\ gen_tac \\ Cases \\ simp [])
-    \\ gs [OPTREL_def]
-    \\ rw [Once exp_rel_cases])
-  >- ((* Prim *)
-    rw [Once exp_rel_cases] \\ gs []
-    \\ simp [subst_def]
-    \\ irule exp_rel_Prim
-    \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ rw [])
-  >- ((* If *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ irule exp_rel_If \\ fs [])
-  >- ((* App *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ irule exp_rel_App \\ fs [])
-  >- ((* Lam *)
-    rw [Once exp_rel_cases]
-    \\ gvs [subst_def]
-    \\ irule exp_rel_Lam
-    \\ first_x_assum irule
-    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs []
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ gs [])
-  >- ((* Let NONE *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ irule exp_rel_Let \\ fs [])
-  >- ((* Let SOME *)
-    rw [Once exp_rel_cases] \\ gs []
-    >- (
-      last_x_assum (drule_then (qspec_then ‘Delay x2’ mp_tac))
-      \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def]
-      \\ simp [Once exp_rel_cases, PULL_EXISTS]
-      \\ strip_tac
-      \\ gs [subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER]
-      \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ gs []
-      \\ ‘LIST_REL v_rel (MAP SND (FILTER (λ(n,x). P n) vs))
-                             (MAP SND (FILTER (λ(n,x). P n) ws))’
-        by (gs [EVERY2_MAP]
-            \\ irule LIST_REL_FILTER \\ gs []
-            \\ gs [LIST_REL_EL_EQN])
-      \\ first_x_assum drule
-      \\ simp [MAP_FST_FILTER, ELIM_UNCURRY]
-      \\ disch_then (qspec_then ‘Let (SOME w) (Force (Var s)) y2’ mp_tac)
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases, PULL_EXISTS, subst_def,
-               GSYM FILTER_REVERSE, ALOOKUP_FILTER, LAMBDA_PROD]
-      \\ simp [Once exp_rel_cases]
-      \\ simp [Once exp_rel_cases]
-      \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) s) (ALOOKUP (REVERSE ws) s)’
-        by (irule LIST_REL_OPTREL
-            \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ]
-            \\ qpat_x_assum ‘MAP _ _ = _’ mp_tac
-            \\ qid_spec_tac ‘ws’
-            \\ qid_spec_tac ‘vs’
-            \\ Induct \\ simp []
-            \\ gen_tac \\ Cases \\ simp [])
-      \\ gs [OPTREL_def, FILTER_FILTER, LAMBDA_PROD]
-      \\ rw [] \\ gs []
-      \\ irule exp_rel_FORCE
-      \\ gs [AC CONJ_COMM CONJ_ASSOC])
-    \\ simp [subst_def]
-    \\ irule exp_rel_Let \\ gs []
-    \\ first_x_assum irule
-    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs []
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ gs [])
-  >- ((* Letrec *)
-    rw [Once exp_rel_cases] \\ gs []
-    \\ simp [subst_def]
-    \\ irule exp_rel_Letrec
-    \\ gvs [EVERY2_MAP, LAMBDA_PROD]
-    \\ first_assum (irule_at Any)
-    \\ gvs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ `MAP FST f = MAP FST g`
-      by (irule LIST_EQ
-          \\ gvs [EL_MAP, LIST_REL_EL_EQN, ELIM_UNCURRY])
-    \\ qabbrev_tac ‘P = λx. ¬MEM x (MAP FST g)’ \\ fs []
-    \\ irule_at Any LIST_REL_FILTER \\ fs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [MAP_FST_FILTER, SF ETA_ss]
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD] \\ rw []
-    \\ first_x_assum irule
-    \\ simp [MAP_FST_FILTER, SF ETA_ss, SF SFY_ss]
-    \\ irule_at Any LIST_REL_FILTER \\ gs []
-    \\ irule_at Any LIST_REL_mono
-    \\ first_assum (irule_at Any)
-    \\ simp [FORALL_PROD])
-  >- ((* Delay *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def, exp_rel_Value, exp_rel_Delay, SF SFY_ss]
-    \\ qmatch_asmsub_abbrev_tac ‘LIST_REL R _ _’
-    \\ ‘OPTREL R (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
-      by (irule LIST_REL_OPTREL
-          \\ gvs [EVERY2_MAP, ELIM_UNCURRY, LIST_REL_CONJ, Abbr ‘R’]
-          \\ pop_assum mp_tac
-          \\ rpt (pop_assum kall_tac)
-          \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
-    \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_Var, exp_rel_Value])
-  >- ((* Box *)
-    rw [Once exp_rel_cases] \\ gs []
-    \\ simp [subst_def]
-    \\ irule exp_rel_Box
-    \\ first_x_assum irule \\ gs [])
-  >- ((* Force *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ irule exp_rel_Force \\ fs [])
-  >- ((* Value *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ rw [Once exp_rel_cases])
-  >- ((* MkTick *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ irule exp_rel_MkTick
-    \\ first_x_assum irule \\ gs []) *)
+  qsuff_tac ‘
+    (∀m x y. exp_rel m x y ⇒
+       ∀vs ws.
+         LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
+         MAP FST vs = MAP FST ws ∧
+         (∀a w z. m = SOME (a,w) ⇒ ALOOKUP (REVERSE ws) w = NONE) ⇒
+         exp_rel (subst_acc vs ws m) (subst vs x) (subst ws y)) ∧
+    (∀v1 v2. v_rel v1 v2 ⇒ v_rel v1 v2)’
+  >- (fs [] \\ disch_then $ qspec_then ‘NONE’ mp_tac \\ fs [subst_acc_def])
+  \\ ho_match_mp_tac exp_rel_strongind
+  \\ rpt strip_tac
+  >- (* exp_rel_Let_Force_Var *)
+   (fs [subst_def]
+    \\ CASE_TAC \\ fs [] \\ fs [ALOOKUP_NONE]
+    \\ CASE_TAC \\ fs [] \\ fs [ALOOKUP_NONE]
+    \\ fs [MAP_REVERSE] \\ gvs []
+    >-
+     (irule exp_rel_Let_Force_Var \\ fs []
+      \\ first_x_assum $ qspecl_then [‘FILTER (λ(n,x). n ≠ w) vs’,
+                                      ‘FILTER (λ(n,x). n ≠ w) ws’] mp_tac
+      \\ fs [subst_acc_def]
+      \\ fs [MAP_FST_FILTER_NEQ,ALOOKUP_NONE,MEM_FILTER,MAP_REVERSE]
+      \\ CASE_TAC
+      >- (disch_then irule
+          \\ irule LIST_REL_MAP_SND_FILTER \\ fs [])
+      \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_FILTER]
+      \\ qpat_x_assum ‘MAP FST _ = _’ (assume_tac o GSYM)
+      \\ fs [] \\ fs [MEM_MAP,EXISTS_PROD] \\ gvs [])
+    \\ imp_res_tac ALOOKUP_MEM_MAP_FST
+    \\ fs [MAP_REVERSE] \\ gvs []
+    \\ irule exp_rel_Let_Force_Value \\ fs []
+    \\ first_x_assum $ qspecl_then [‘FILTER (λ(n,x). n ≠ w) vs’,
+                                    ‘FILTER (λ(n,x). n ≠ w) ws’] mp_tac
+    \\ fs [subst_acc_def]
+    \\ fs [MAP_FST_FILTER_NEQ,ALOOKUP_NONE,MEM_FILTER,MAP_REVERSE]
+    \\ impl_tac
+    >- (irule LIST_REL_MAP_SND_FILTER \\ fs [])
+    \\ fs [GSYM FILTER_REVERSE,ALOOKUP_FILTER]
+    \\ drule_all ALOOKUP_REVERSE_REVERSE \\ fs [])
+  >- (* exp_rel_Let_Force_Value *)
+   (fs [subst_def]
+    \\ irule exp_rel_Let_Force_Value \\ fs []
+    \\ first_x_assum $ qspecl_then [‘FILTER (λ(n,x). n ≠ w) vs’,
+                                    ‘FILTER (λ(n,x). n ≠ w) ws’] mp_tac
+    \\ fs [subst_acc_def]
+    \\ disch_then irule
+    \\ fs [MAP_FST_FILTER_NEQ,ALOOKUP_NONE,MEM_FILTER,MAP_REVERSE]
+    \\ irule LIST_REL_MAP_SND_FILTER \\ fs [])
+  >- (* exp_rel_Force_Var *)
+   (fs [subst_def,subst_acc_def]
+    \\ CASE_TAC \\ fs []
+    >- irule exp_rel_Force_Var
+    >- irule exp_rel_Force_Value)
+  >- (* exp_rel_Force_Value *)
+   (fs [subst_def,subst_acc_def]
+    \\ irule exp_rel_Force_Value)
+  >- (* exp_rel_Force_Value_Value *)
+   (fs [subst_def,subst_acc_def]
+    \\ imp_res_tac exp_rel_Force_Value_Value
+    \\ fs [])
+  (* easy cases follow *)
+  \\ cheat
 QED
 
 Definition force_goal_def: (* needs special attention to m *)
@@ -359,7 +333,19 @@ Theorem exp_rel_SOME_Val_IMP:
   (∀j. eval_to (i + j) (Force (Value v1)) = INR u) ⇒
   exp_rel NONE (subst1 s u y1) (subst1 s v y2)
 Proof
-  cheat
+  qsuff_tac ‘
+    (∀m y1 y2. exp_rel m y1 y2 ⇒
+      ∀s i u v v1.
+        (m ≠ NONE ⇒ m = SOME (Val v1,s)) ∧ v_rel u v ∧
+        (∀j. eval_to (i + j) (Force (Value v1)) = INR u) ⇒
+        exp_rel NONE (subst1 s u y1) (subst1 s v y2)) ∧
+    (∀v1 v2. v_rel v1 v2 ⇒ v_rel v1 v2)’
+  >- metis_tac []
+  \\ ho_match_mp_tac exp_rel_strongind
+  \\ rpt strip_tac
+  \\ gvs [subst_def]
+
+  \\ cheat
 QED
 
 Triviality IMP_closed_subst_Rec:
