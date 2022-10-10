@@ -220,13 +220,6 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Triviality LIST_REL_MEM:
-  ∀xs ys. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
-Proof
-  Induct \\ Cases_on ‘ys’ \\ fs [] \\ rw []
-  \\ res_tac \\ fs [] \\ metis_tac []
-QED
-
 Theorem exp_rel_freevars:
   ∀x y. exp_rel x y ⇒ freevars x = freevars y
 Proof
