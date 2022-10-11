@@ -158,31 +158,54 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;
 
-Theorem exp_rel_NONE_freevars: (* statement needs to generalisation before proof *)
+Triviality LIST_REL_IMP_MAP_FST_EQ:
+  ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
+        MAP FST f = MAP FST g
+Proof
+  Induct \\ fs [PULL_EXISTS]
+QED
+
+Definition acc_vars_def:
+  acc_vars x =
+    case x of
+    | NONE => {}
+    | SOME (Var v, t) => {v; t}
+    | SOME (Val i, t) => {t}
+End
+
+Theorem exp_rel_NONE_freevars:
   exp_rel NONE x y ⇒ freevars x = freevars y
 Proof
-  cheat (*
   qsuff_tac ‘
-    (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
-    (∀v w. v_rel v w ⇒ T)’
-  >- rw []
-  \\ ho_match_mp_tac exp_rel_strongind
-  \\ simp [freevars_def]
-  \\ rw []
-  >- (
-    rw [EXTENSION, EQ_IMP_THM] \\ gs [])
-  >- (
-    rw [EXTENSION, EQ_IMP_THM] \\ gs []
-    \\ fs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN,
-           Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
-    \\ rw [] \\ gs [EL_MAP, ELIM_UNCURRY, SF CONJ_ss, SF SFY_ss])
-  >- (
-    Cases_on ‘bv’ \\ gs [freevars_def])
-  >- (
-    ‘MAP freevars xs = MAP freevars ys’
-      suffices_by rw [SF ETA_ss]
-    \\ irule LIST_EQ
-    \\ gvs [LIST_REL_EL_EQN, EL_MAP]) *)
+    (∀m x y. exp_rel m x y ⇒
+      ∀n. ~(n IN acc_vars m) ⇒ (n IN freevars x) = (n IN freevars y)) ∧
+    (∀v1 v2. v_rel v1 v2 ⇒ T)’
+  >- (rw [] \\ res_tac \\ fs [EXTENSION,acc_vars_def])
+  \\ ho_match_mp_tac exp_rel_ind
+  \\ simp [freevars_def] \\ rw []
+  \\ fs [acc_vars_def]
+  >~ [‘Let bv’] >- (Cases_on ‘bv’ \\ fs [freevars_def])
+  >~ [‘Let bv’] >- (Cases_on ‘bv’ \\ fs [freevars_def])
+  >- (eq_tac \\ rw [] \\ fs [acc_vars_def] \\ metis_tac [])
+  >- (eq_tac \\ rw [] \\ fs [acc_vars_def] \\ metis_tac [])
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  >-
+   (eq_tac \\ rw [] \\ fs []
+    \\ TRY $ drule_all LIST_REL_MEM
+    \\ TRY $ drule_all LIST_REL_MEM_ALT
+    \\ fs [EXISTS_PROD]
+    \\ rpt strip_tac \\ gvs [PULL_EXISTS]
+    \\ drule LIST_REL_IMP_MAP_FST_EQ \\ fs [FORALL_PROD]
+    \\ strip_tac
+    \\ ‘set (MAP FST f) = set (MAP FST g)’ by fs []
+    \\ fs [EXTENSION,MEM_MAP,EXISTS_PROD]
+    \\ metis_tac [])
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ TRY $ drule_all LIST_REL_MEM
+  \\ TRY $ drule_all LIST_REL_MEM_ALT
+  \\ fs [EXISTS_PROD]
+  \\ rpt strip_tac \\ gvs [PULL_EXISTS]
+  \\ metis_tac []
 QED
 
 Definition subst_acc_def:
@@ -299,13 +322,6 @@ Proof
   \\ first_x_assum irule
   \\ fs [MEM_MAP,EXISTS_PROD]
   \\ metis_tac []
-QED
-
-Triviality LIST_REL_IMP_MAP_FST_EQ:
-  ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
-        MAP FST f = MAP FST g
-Proof
-  Induct \\ fs [PULL_EXISTS]
 QED
 
 Theorem exp_rel_subst_general[local]:
