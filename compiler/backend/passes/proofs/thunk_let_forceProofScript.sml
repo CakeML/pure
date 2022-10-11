@@ -214,6 +214,20 @@ Proof
   \\ rw [] \\ gvs [UNCURRY]
 QED
 
+Triviality LIST_REL_FILTER_ALT:
+  ∀vs ws g.
+    LIST_REL P vs ws ∧ MAP FST vs = MAP FST ws ∧
+    (∀x y z. g (x,y) = g (x,z)) ⇒
+    LIST_REL P (FILTER g vs)
+               (FILTER g ws)
+Proof
+  Induct \\ fs [PULL_EXISTS] \\ rw []
+  \\ PairCases_on ‘h’
+  \\ PairCases_on ‘y’
+  \\ fs []
+  \\ metis_tac []
+QED
+
 Triviality ALOOKUP_MEM_MAP_FST:
   ∀xs v x. ALOOKUP xs v = SOME x ⇒ MEM v (MAP FST xs)
 Proof
@@ -238,23 +252,77 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem exp_rel_subst:
-  ∀vs x ws y.
-    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
-    MAP FST vs = MAP FST ws ∧
-    exp_rel NONE x y ⇒
-      exp_rel NONE (subst vs x) (subst ws y)
+Theorem LIST_REL_MAP_MAP:
+  ∀xs ys. LIST_REL P (MAP f xs) (MAP g ys) ⇔
+          LIST_REL (λx y. P (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs []
+QED
+
+Theorem exp_rel_NONE_IMP_SOME:
+  exp_rel NONE x y ⇒ exp_rel (SOME z) x y
 Proof
   qsuff_tac ‘
-    (∀m x y. exp_rel m x y ⇒
-       ∀vs ws.
-         LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
-         MAP FST vs = MAP FST ws ∧
-         (∀a w z. m = SOME (a,w) ⇒ ALOOKUP (REVERSE ws) w = NONE) ⇒
-         exp_rel (subst_acc vs ws m) (subst vs x) (subst ws y)) ∧
+    (∀m x y. exp_rel m x y ⇒ ∀z. m = NONE ⇒ exp_rel z x y) ∧
     (∀v1 v2. v_rel v1 v2 ⇒ v_rel v1 v2)’
-  >- (fs [] \\ disch_then $ qspec_then ‘NONE’ mp_tac \\ fs [subst_acc_def])
+  >- metis_tac []
   \\ ho_match_mp_tac exp_rel_strongind
+  \\ fs [] \\ rpt strip_tac \\ gvs [SF ETA_ss]
+  \\ simp [Once exp_rel_cases]
+  >- metis_tac []
+  \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ simp [FORALL_PROD]
+  \\ simp [Once exp_rel_cases]
+QED
+
+Theorem exp_rel_SOME_IMP_NONE:
+  exp_rel (SOME (v,s)) x y ∧ s ∉ freevars y ⇒ exp_rel NONE x y
+Proof
+  qsuff_tac ‘
+    (∀m x y. exp_rel m x y ⇒ ∀v s. m = SOME (v,s) ∧ s ∉ freevars y ⇒
+             exp_rel NONE x y) ∧ (∀v1 v2. v_rel v1 v2 ⇒ v_rel v1 v2)’
+  >- metis_tac []
+  \\ ho_match_mp_tac exp_rel_strongind
+  \\ fs [] \\ rpt strip_tac
+  \\ gvs [freevars_def]
+  \\ fs [] \\ rpt strip_tac \\ gvs [SF ETA_ss]
+  \\ simp [Once exp_rel_cases]
+  >- metis_tac []
+  >- (fs [name_clash_def,freevars_def]
+      \\ Cases_on ‘bv’ \\ fs [] \\ fs [name_clash_def,freevars_def]
+      \\ Cases_on ‘v’ \\ fs [] \\ fs [name_clash_def,freevars_def]
+      \\ metis_tac [])
+  \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ simp [FORALL_PROD] \\ rw []
+  \\ first_x_assum irule
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ metis_tac []
+QED
+
+Triviality LIST_REL_IMP_MAP_FST_EQ:
+  ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
+        MAP FST f = MAP FST g
+Proof
+  Induct \\ fs [PULL_EXISTS]
+QED
+
+Theorem exp_rel_subst_general[local]:
+  (∀m x y.
+     exp_rel m x y ⇒
+     ∀vs ws.
+       LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
+       MAP FST vs = MAP FST ws ∧
+       (∀a w z. m = SOME (a,w) ⇒
+                ALOOKUP (REVERSE ws) w = NONE ∨
+                ∃v u v1 i.
+                  ALOOKUP (REVERSE ws) w = SOME v ∧ v_rel u v ∧ a = Val v1 ∧
+                  (∀j. eval_to (i + j) (Force (Value v1)) = INR u)) ⇒
+       exp_rel (subst_acc vs ws m) (subst vs x) (subst ws y)) ∧
+  (∀v1 v2. v_rel v1 v2 ⇒ v_rel v1 v2)
+Proof
+  ho_match_mp_tac exp_rel_strongind
   \\ rpt strip_tac
   >- (* exp_rel_Let_Force_Var *)
    (fs [subst_def]
@@ -300,16 +368,146 @@ Proof
     >- irule exp_rel_Force_Value)
   >- (* exp_rel_Force_Value *)
    (fs [subst_def,subst_acc_def]
-    \\ irule exp_rel_Force_Value)
+    >- irule exp_rel_Force_Value
+    \\ imp_res_tac exp_rel_Force_Value_Value
+    \\ fs [])
   >- (* exp_rel_Force_Value_Value *)
    (fs [subst_def,subst_acc_def]
     \\ imp_res_tac exp_rel_Force_Value_Value
     \\ fs [])
   (* easy cases follow *)
-  \\ cheat
+  >~ [‘App’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_App \\ strip_tac
+    \\ first_x_assum irule \\ fs [])
+  >~ [‘Delay’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Delay
+    \\ first_x_assum irule \\ fs [])
+  >~ [‘Box’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Box
+    \\ first_x_assum irule \\ fs [])
+  >~ [‘Lam’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Lam \\ fs [subst_acc_def]
+    \\ first_x_assum irule \\ fs [MAP_FST_FILTER_NEQ]
+    \\ irule LIST_REL_MAP_SND_FILTER \\ fs [])
+  >~ [‘subst _ (Force _)’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Force
+    \\ first_x_assum irule \\ fs [])
+  >~ [‘subst _ (Value _)’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Value \\ fs [])
+  >~ [‘MkTick’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_MkTick
+    \\ first_x_assum irule \\ fs [])
+  >~ [‘If’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_If \\ fs [] \\ rpt strip_tac
+    \\ first_x_assum irule \\ fs [])
+  >~ [‘Prim’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Prim \\ fs [] \\ rpt strip_tac
+    \\ fs [LIST_REL_MAP_MAP]
+    \\ last_x_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >~ [‘Letrec’] >-
+   (fs [subst_def]
+    \\ irule exp_rel_Letrec \\ fs [subst_acc_def]
+    \\ last_x_assum assume_tac
+    \\ drule LIST_REL_IMP_MAP_FST_EQ
+    \\ impl_tac >- fs [FORALL_PROD]
+    \\ strip_tac \\ gvs []
+    \\ fs [LIST_REL_MAP_MAP] \\ simp [LAMBDA_PROD]
+    \\ reverse conj_tac >-
+     (first_x_assum irule
+      \\ irule_at Any LIST_REL_FILTER_ALT \\ fs []
+      \\ qpat_x_assum ‘MAP FST vs = MAP FST ws’ mp_tac
+      \\ qid_spec_tac ‘vs’\\ qid_spec_tac ‘ws’
+      \\ Induct \\ fs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS]
+      \\ rw [])
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [FORALL_PROD] \\ rw []
+    \\ first_x_assum irule
+    \\ irule_at Any LIST_REL_FILTER_ALT \\ fs []
+    \\ qpat_x_assum ‘MAP FST vs = MAP FST ws’ mp_tac
+    \\ qid_spec_tac ‘vs’\\ qid_spec_tac ‘ws’
+    \\ Induct \\ fs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS]
+    \\ rw [])
+  >~ [‘Let bv’] >-
+   (Cases_on ‘bv’ \\ fs [subst_def]
+    \\ irule exp_rel_Let \\ fs [subst_acc_def,name_clash_def]
+    \\ Cases_on ‘m’ \\ fs [subst_acc_def,name_clash_def]
+    >- (first_x_assum irule \\ fs [MAP_FST_FILTER_NEQ]
+        \\ irule LIST_REL_MAP_SND_FILTER \\ fs [])
+    \\ rename [‘subst_acc _ _ (SOME t)’] \\ PairCases_on ‘t’
+    \\ fs [subst_acc_def,name_clash_def]
+    \\ reverse (Cases_on ‘t0’) \\ gvs []
+    >-
+     (fs [name_clash_def] \\ rw [] \\ fs [subst_acc_def]
+      \\ first_x_assum irule \\ fs [MAP_FST_FILTER_NEQ]
+      \\ irule_at Any LIST_REL_MAP_SND_FILTER \\ fs []
+      \\ fs [ALOOKUP_NONE,MAP_REVERSE,MEM_MAP,MEM_FILTER])
+    >-
+     (CASE_TAC \\ fs [name_clash_def]
+      \\ rw [] \\ gvs [subst_acc_def]
+      \\ TRY (first_x_assum irule \\ fs [MAP_FST_FILTER_NEQ]
+              \\ irule_at Any LIST_REL_MAP_SND_FILTER \\ fs [] \\ NO_TAC)
+      >- (first_x_assum $ qspecl_then [‘FILTER (λ(n,x). n ≠ x'') vs’,
+                                       ‘FILTER (λ(n,x). n ≠ x'') ws’] mp_tac
+          \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
+          \\ disch_then irule
+          \\ fs [MAP_FST_FILTER_NEQ]
+          \\ irule_at Any LIST_REL_MAP_SND_FILTER \\ fs [])
+      >- (qpat_x_assum ‘∀x. _’ mp_tac \\ rw [] \\ gs [subst_acc_def]
+          >-
+           (irule exp_rel_NONE_IMP_SOME
+            \\ first_x_assum irule
+            \\ fs [MAP_FST_FILTER_NEQ]
+            \\ irule_at Any LIST_REL_MAP_SND_FILTER \\ fs [])
+          \\ first_x_assum $ qspecl_then [‘FILTER (λ(n,x). n ≠ x'') vs’,
+                                          ‘FILTER (λ(n,x). n ≠ x'') ws’] mp_tac
+          \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
+          \\ disch_then irule
+          \\ fs [MAP_FST_FILTER_NEQ]
+          \\ irule_at Any LIST_REL_MAP_SND_FILTER \\ fs []))
+    >-
+     (fs [name_clash_def] \\ rw [] \\ fs [subst_acc_def]
+      \\ first_x_assum irule \\ fs [MAP_FST_FILTER_NEQ]
+      \\ irule_at Any LIST_REL_MAP_SND_FILTER \\ fs []
+      \\ fs [ALOOKUP_NONE,MAP_REVERSE,MEM_MAP,MEM_FILTER]
+      \\ disj2_tac
+      \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
+      \\ metis_tac []))
+  >~ [‘subst _ (Var _)’] >-
+   (fs [subst_def] \\ CASE_TAC \\ CASE_TAC \\ gvs []
+    >- (irule exp_rel_Var \\ fs [])
+    \\ imp_res_tac ALOOKUP_MEM_MAP_FST
+    \\ fs [ALOOKUP_NONE,MAP_REVERSE] \\ gvs []
+    \\ irule exp_rel_Value
+    \\ drule_all ALOOKUP_REVERSE_REVERSE \\ fs [])
+  >~ [‘v_rel (Thunk (INL v))’] >-
+   (irule v_rel_Thunk_INL \\ fs [])
+  \\ simp [Once v_rel_cases] \\ fs [SF ETA_ss]
+  \\ last_x_assum mp_tac
+  \\ match_mp_tac LIST_REL_mono \\ fs [FORALL_PROD]
 QED
 
-Definition force_goal_def: (* needs special attention to m *)
+Theorem exp_rel_subst:
+  ∀vs x ws y.
+    LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ∧
+    exp_rel NONE x y ⇒
+      exp_rel NONE (subst vs x) (subst ws y)
+Proof
+  rw [] \\ drule (exp_rel_subst_general |> CONJUNCT1)
+  \\ fs [] \\ fs [subst_acc_def]
+QED
+
+Definition force_goal_def:
   force_goal k x =
     ∀y.
       exp_rel NONE x y ∧ closed x ∧
@@ -320,32 +518,21 @@ Definition force_goal_def: (* needs special attention to m *)
           (eval_to k y)
 End
 
-Theorem eval_to_WF_IND[local] =
-  WF_IND
-  |> GEN_ALL
-  |> Q.ISPEC ‘eval_to_wo’
-  |> REWRITE_RULE [eval_to_wo_WF]
-  |> Q.SPEC ‘UNCURRY force_goal’
-  |> SIMP_RULE std_ss [FORALL_PROD]
-
 Theorem exp_rel_SOME_Val_IMP:
   exp_rel (SOME (Val v1,s)) y1 y2 ∧ v_rel u v ∧
   (∀j. eval_to (i + j) (Force (Value v1)) = INR u) ⇒
   exp_rel NONE (subst1 s u y1) (subst1 s v y2)
 Proof
-  qsuff_tac ‘
-    (∀m y1 y2. exp_rel m y1 y2 ⇒
-      ∀s i u v v1.
-        (m ≠ NONE ⇒ m = SOME (Val v1,s)) ∧ v_rel u v ∧
-        (∀j. eval_to (i + j) (Force (Value v1)) = INR u) ⇒
-        exp_rel NONE (subst1 s u y1) (subst1 s v y2)) ∧
-    (∀v1 v2. v_rel v1 v2 ⇒ v_rel v1 v2)’
-  >- metis_tac []
-  \\ ho_match_mp_tac exp_rel_strongind
-  \\ rpt strip_tac
-  \\ gvs [subst_def]
-
-  \\ cheat
+  rw [] \\ drule (exp_rel_subst_general |> CONJUNCT1)
+  \\ fs [] \\ fs [subst_acc_def]
+  \\ disch_then $ qspecl_then [‘[(s,u)]’,‘[(s,v)]’] mp_tac
+  \\ fs [PULL_EXISTS]
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ strip_tac
+  \\ drule exp_rel_SOME_IMP_NONE
+  \\ disch_then irule
+  \\ fs [freevars_subst]
 QED
 
 Triviality IMP_closed_subst_Rec:
@@ -364,6 +551,14 @@ Proof
   \\ pop_assum $ irule_at Any
   \\ fs [SUBSET_DEF,MEM_MAP,EXISTS_PROD]
 QED
+
+Theorem eval_to_WF_IND[local] =
+  WF_IND
+  |> GEN_ALL
+  |> Q.ISPEC ‘eval_to_wo’
+  |> REWRITE_RULE [eval_to_wo_WF]
+  |> Q.SPEC ‘UNCURRY force_goal’
+  |> SIMP_RULE std_ss [FORALL_PROD]
 
 Theorem exp_rel_eval_to:
   ∀k x. force_goal k x
