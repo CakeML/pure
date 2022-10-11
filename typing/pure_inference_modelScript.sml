@@ -272,7 +272,7 @@ Inductive minfer:
    cvars_disjoint [(eas,ecs,ety);(as1,cs1,ty1);(as2,cs2,ty2)] ∧
    f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
    {cn1; cn2} = {«True»;«False»}
-    ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)])
+    ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)] NONE)
         (maunion eas (maunion as1 as2 \\ v))
         (mUnify (CVar f) ety INSERT mUnify ety BoolTy INSERT mUnify ty1 ty2 INSERT
           IMAGE (λn. mUnify (CVar n) (CVar f))
@@ -293,7 +293,7 @@ Inductive minfer:
     list$MAP2
       (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions asrest v))
       (v::pvars) (MAP CVar $ f::freshes)
-    ⇒ minfer ns mset (Case d e v [(«»,pvars,rest)])
+    ⇒ minfer ns mset (Case d e v [(«»,pvars,rest)] NONE)
         (maunion eas (FDIFF asrest (set (v::pvars))))
         (mUnify (CVar f) ety INSERT mUnify ety (Tuple $ MAP CVar freshes) INSERT
           BIGUNION (set pvar_cs) ∪ ecs ∪ csrest)
@@ -343,22 +343,29 @@ Inductive minfer:
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
    EVERY (λf. f ∉ mset ∧
-    EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty)
-      (ZIP (eas::ass,ZIP(ecs::css,ety::tys)))) (f::freshes) ∧
+              EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty)
+                    (ZIP (eas::ass,ZIP(ecs::css,ety::tys))))
+         (f::freshes) ∧
    LENGTH final_as = LENGTH final_cs ∧
    LIST_REL (λ((cn,pvars,rest),as,cs) (as',cs').
-    ∃schemes.
-      ALOOKUP cdefs cn = SOME schemes ∧
-      let pvar_cs = list$MAP2
-        (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
-        (v::pvars) (CVar f :: MAP (isubst (MAP CVar freshes) o itype_of) schemes) in
-      as' = FDIFF as (v INSERT set pvars) ∧
-      cs' = BIGUNION (set pvar_cs) ∪ cs)
-    (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs))
+               ∃schemes.
+              ALOOKUP cdefs cn = SOME schemes ∧
+              let pvar_cs =
+                  list$MAP2
+                  (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
+                  (v::pvars)
+                  (CVar f :: MAP (isubst (MAP CVar freshes) o itype_of) schemes)
+              in
+                as' = FDIFF as (v INSERT set pvars) ∧
+                cs' = BIGUNION (set pvar_cs) ∪ cs)
+            (ZIP (cases,ZIP (ass,css)))
+            (ZIP (final_as,final_cs))
     ⇒ minfer ns mset (Case d e v cases)
         (FOLDR maunion FEMPTY (eas::final_as))
-        (mUnify (CVar f) ety INSERT mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
-          set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪ BIGUNION (set final_cs))
+        (mUnify (CVar f) ety INSERT
+         mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
+         set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪
+         BIGUNION (set final_cs))
         (HD tys))
 End
 
