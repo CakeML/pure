@@ -323,7 +323,7 @@ Inductive minfer:
       as' = FDIFF as (v INSERT set pvars) ∧
       cs' = BIGUNION (set pvar_cs) ∪ cs)
     (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs))
-    ⇒ minfer ns mset (Case d e v cases)
+    ⇒ minfer ns mset (Case d e v cases usopt)
         (FOLDR maunion FEMPTY (eas::final_as))
         (mUnify (CVar f) ety INSERT mUnify ety Exception INSERT
           set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪ BIGUNION (set final_cs))
@@ -338,8 +338,9 @@ Inductive minfer:
    LENGTH ass = LENGTH css ∧
    ar = LENGTH freshes ∧
    LIST_REL (λ((cname,pvars,rest),ty) (a,c).
-      minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
-      (ZIP (cases,tys)) (ZIP (ass,css)) ∧
+               minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
+            (ZIP (cases,tys))
+            (ZIP (ass,css)) ∧
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
    EVERY (λf. f ∉ mset ∧
@@ -360,7 +361,7 @@ Inductive minfer:
                 cs' = BIGUNION (set pvar_cs) ∪ cs)
             (ZIP (cases,ZIP (ass,css)))
             (ZIP (final_as,final_cs))
-    ⇒ minfer ns mset (Case d e v cases)
+    ⇒ minfer ns mset (Case d e v cases usopt)
         (FOLDR maunion FEMPTY (eas::final_as))
         (mUnify (CVar f) ety INSERT
          mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
