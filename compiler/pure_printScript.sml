@@ -171,7 +171,7 @@ Definition cexp_of_def:
        Case () (cexp_of (el0 t)) (name_of (el1 t))
             (rows_of (head (el2 t)))
             (if tail $ el2 t = Name "NONE" then NONE
-             else SOME (cexp_of $ tail $ tail $ el2 t))
+             else SOME (cexp_of $ el1 $ tail $ el2 t))
      else (* must be a Prim case *)
        cop_of h (el0 t) (el1 t) (cexps_of t)) ∧
   cexps_of (Num n) = [] ∧
@@ -234,5 +234,11 @@ QED
 
 Theorem parse_cexp_test3 =
         EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons (y ys)) ys))  .  NONE))"”
+
+Theorem parse_cexp_test4 =
+        EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons (y ys)) ys))  .  (SOME (int 3))))"”
+
+Theorem parse_cexp_test5 =
+        EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons (y ys)) ys))  .  (SOME x)))"”
 
 val _ = export_theory();
