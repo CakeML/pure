@@ -243,6 +243,23 @@ Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 
+val add_str' = toMLstring ‘
+  (letrec
+    (add (lam (x y)
+      (case x temp
+        ((((S (xx)) (app add xx (cons S y)))) .
+         (SOME y)))))
+    add)
+’;
+
+Theorem add_str'_type:
+  parse_and_infer parse_cexp simple_ns ^add_str' =
+    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 10
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC >>
+  cheat
+QED
+
 val even_odd_str = toMLstring `
   (letrec
     (even (lam (x)
