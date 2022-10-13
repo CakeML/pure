@@ -668,5 +668,12 @@ Definition astDecl_def:
      | _ => NONE)
 End
 
+Definition astDecls_def:
+  (astDecls (Lf _) = NONE) ∧
+  (astDecls (Nd nt args) =
+   if FST nt ≠ INL nDecls then NONE
+   else OPT_MMAP astDecl args)
+End
+
 
 val _ = export_theory();

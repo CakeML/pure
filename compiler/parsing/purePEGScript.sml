@@ -74,7 +74,7 @@ Definition purePEG_def[nocompute]:
     start := NT nDecls I lrOK;
     rules :=
     FEMPTY |++ [
-        (INL nDecls, rpt (NT nDecl I lrEQ) FLAT);
+        (INL nDecls, pegf (rpt (NT nDecl I lrEQ) FLAT) (mkNT nDecls));
         (INL nDecl,
          choicel [
              (* declare id and its type *)
