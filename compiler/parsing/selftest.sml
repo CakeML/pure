@@ -4,7 +4,7 @@ open cst_to_astTheory purePEGTheory testutils
 val errcount = ref 0
 val _ = diemode := Remember errcount
 
-val _ = computeLib.add_funs [lexer_funTheory.get_token_def,
+val _ = computeLib.add_funs [pure_lexer_implTheory.get_token_def,
                              listTheory.LIST_REL_def,
                              ASCIInumbersTheory.s2n_compute,
                              numposrepTheory.l2n_def]
@@ -101,5 +101,8 @@ val _ = app fptest [
    “declPatbind (patApp ":" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
   (“nDecl”, "data Foo a = C a Int | D [Int]", “astDecl”,
    “declData "Foo" ["a"] [("C", [tyVar "a"; tyOp "Int" []]);
-                          ("D", [tyOp "List" [tyOp "Int"[]]])]”)
+                          ("D", [tyOp "List" [tyOp "Int"[]]])]”),
+  (“nDecls”, "data Bar = C | D Int Bar\nf:: Bar -> Int", “astDecls”,
+   “[declData "Bar" [] [("C", []); ("D", [tyOp "Int" []; tyOp "Bar" []])];
+     declTysig "f" (funTy (tyOp "Bar" []) (tyOp "Int" []))]”)
 ]
