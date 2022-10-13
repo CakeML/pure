@@ -174,31 +174,39 @@ Definition infer_atom_op_def:
 End
 
 Definition get_typedef_def:
-  get_typedef n ([] : typedefs) cnames_arities = NONE ∧
-  get_typedef n ((ar,cs)::tds) cnames_arities =
+  get_typedef exhaustive n ([] : typedefs) cnames_arities = NONE ∧
+  get_typedef exhaustive n ((ar,cs)::tds) cnames_arities =
+    let cs' = MAP (λ(cn,ts). (cn, LENGTH ts)) cs in
     if
-      LENGTH cs = LENGTH cnames_arities ∧
-      EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) cs
+      EVERY (λcn_ar. MEM cn_ar cs') cnames_arities ∧
+      (if exhaustive then LENGTH cs = LENGTH cnames_arities else T)
     then SOME (n, ar, cs)
-    else get_typedef (SUC n) tds cnames_arities
+    else get_typedef exhaustive (SUC n) tds cnames_arities
 End
 
 Definition get_case_type_def:
-  get_case_type ns cnames_arities =
+  get_case_type exhaustive ns cnames_arities =
     let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
     if len = 1 ∧ cnames = [«»] then do (* tuple case *)
       h <- oreturn (oHD cnames_arities);
       freshes <- fresh_vars (SND h);
       return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
-    od else if len = 2 ∧ (* bool case *)
-      MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
+    od else
+    if (* bool case *)
+      (if len = 2 then
+        MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
+       else
+        ¬exhaustive ∧ len = 1 ∧
+        (MEM («True»,0) cnames_arities ∨ MEM («False»,0) cnames_arities))
       then return (PrimTy Bool, [], [(«True»,[]); («False»,[])])
-    else if (* exception case *)
-      LENGTH (FST ns) = LENGTH cnames_arities ∧
-      EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
+    else (* exception case *)
+      if
+        let exns = MAP (λ(cn,ts). (cn, LENGTH ts)) (FST ns) in
+        EVERY (λcn_ar. MEM cn_ar exns) cnames_arities ∧
+        (if exhaustive then LENGTH exns = LENGTH cnames_arities else T)
       then return (Exception, [], MAP (λ(cn,ts). (cn, MAP itype_of ts)) $ FST ns)
     else do (* data case *)
-      (n, ar, cs) <- oreturn (get_typedef 0 (SND ns) cnames_arities);
+      (n, ar, cs) <- oreturn (get_typedef exhaustive 0 (SND ns) cnames_arities);
       freshes <- fresh_vars ar;
       cfreshes <<- MAP CVar freshes;
       return (TypeCons n cfreshes, freshes,
@@ -417,14 +425,15 @@ Definition infer_def:
             csfns ++ cse) od) ∧
 
   infer ns mset (Case d e v css eopt) = (
-    if MEM v (FLAT (MAP (FST o SND) css)) then fail else
+    if MEM v (FLAT (MAP (FST o SND) css)) ∨ ¬ALL_DISTINCT (MAP FST css)
+    then fail else
     case css of
     | [] => fail (* no empty case statements *)
     | _::_ => do
       fresh_v <- fresh_var;
       cfresh_v <<- CVar fresh_v;
       (expected_ty, fresh_tyargs, cdefs) <-
-        get_case_type ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css);
+        get_case_type (IS_NONE eopt) ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css);
       cfresh_tyargs <<- MAP CVar fresh_tyargs;
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
@@ -438,20 +447,20 @@ Definition infer_def:
                 return (ty::tys, ((list_delete as' (v :: pvars)) ⋓ as),
                         (FLAT pvar_constraints) ++ cs' ++ cs) od)
             (return ([],empty,[])) css;
-      (tye, ase0, cse0) <- infer ns mset e;
-      (ustye, ase, cse) <-
+      (tys, as, cs) <-
         (case eopt of
-           NONE => return (tye,ase0,cse0)
+           NONE => return (tys,as,cs)
          | SOME ue => do
-                       (uety, ueas, uecs) <- infer ns (list_insert mono_vars mset) ue ;
-                       pvar_constraints <<-
-                         MAP (λn. Unify d (CVar n) cfresh_v) (get_assumptions v ueas) ;
-                       return (
-                         uety,
-                         delete ueas v ⋓ ase0,
-                         Unify d (HD tys) uety :: pvar_constraints ++ uecs ++ cse0
-                       );
-                     od) ;
+               (uty, uas, ucs) <- infer ns (list_insert mono_vars mset) ue ;
+               pvar_constraints <<-
+                 MAP (λn. Unify d (CVar n) cfresh_v) (get_assumptions v uas) ;
+               return (
+                 uty :: tys,
+                 delete uas v ⋓ as,
+                 pvar_constraints ++ ucs ++ cs
+               );
+             od) ;
+      (tye, ase, cse) <- infer ns mset e;
 
       return (HD tys, ase ⋓ as,
               (* type of guard expression unifies with tye (result of infer) *)

@@ -256,8 +256,7 @@ Theorem add_str'_type:
   parse_and_infer parse_cexp simple_ns ^add_str' =
     return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 10
 Proof
-  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC >>
-  cheat
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
 
 val even_odd_str = toMLstring `
