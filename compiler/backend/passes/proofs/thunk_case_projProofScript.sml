@@ -1103,5 +1103,84 @@ Proof
   \\ irule exp_rel_eval \\ gs []
 QED
 
-val _ = export_theory ();
+Inductive compile_rel:
+(* Proj *)
+[compile_rel_Proj:]
+  (∀x y s i j v w b.
+     i < j ∧
+     compile_rel x y ⇒
+       compile_rel (Seq (If (IsEq s j b (Var v)) Unit Fail)
+                    (Let (SOME w) (Delay (Force (Proj s i (Var v)))) x))
+               (Seq (If (IsEq s j b (Var v)) Unit Fail)
+                    (Let (SOME w) (Proj s i (Var v)) y))) ∧
+(* Boilerplate: *)
+[compile_rel_App:]
+  (∀f g x y.
+     compile_rel f g ∧
+     compile_rel x y ⇒
+       compile_rel (App f x) (App g y)) ∧
+[compile_rel_Lam:]
+  (∀s x y.
+     compile_rel x y ⇒
+       compile_rel (Lam s x) (Lam s y)) ∧
+[compile_rel_Letrec:]
+  (∀f g x y.
+     LIST_REL (λ(fn,x) (gn,y).
+                 fn = gn ∧
+                 compile_rel x y ∧
+                 ok_binder x) f g ∧
+     compile_rel x y ⇒
+       compile_rel (Letrec f x) (Letrec g y)) ∧
+[compile_rel_Let_SOME:]
+  (∀bv x1 y1 x2 y2.
+     compile_rel x1 x2 ∧
+     compile_rel y1 y2 ⇒
+       compile_rel (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2)) ∧
+[compile_rel_Let_NONE:]
+  (∀x1 y1 x2 y2.
+     compile_rel x1 x2 ∧
+     compile_rel y1 y2 ⇒
+       compile_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+[compile_rel_If:]
+  (∀x1 x2 y1 y2 z1 z2.
+     LIST_REL compile_rel [x1;y1;z1] [x2;y2;z2] ⇒
+       compile_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+[compile_rel_Cons:]
+  (∀s xs ys.
+     LIST_REL (λx y. compile_rel x y ∧ ∃z. x = Delay z) xs ys ⇒
+       compile_rel (Prim (Cons s) xs) (Prim (Cons s) ys)) ∧
+[compile_rel_Prim:]
+  (∀op xs ys.
+     (∀s. op ≠ Cons s) ∧
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Prim op xs) (Prim op ys)) ∧
+[compile_rel_Delay:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (Delay x) (Delay y)) ∧
+[compile_rel_Box:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (Box x) (Box y)) ∧
+[compile_rel_Force:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (Force x) (Force y)) ∧
+[compile_rel_MkTick:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (MkTick x) (MkTick y)) ∧
+[compile_rel_Var:]
+  (∀v.
+     compile_rel (Var v) (Var v))
+End
 
+Theorem compile_case_proj_semantics:
+  closed x ∧
+  compile_rel x y ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  cheat
+QED
+
+val _ = export_theory ();
