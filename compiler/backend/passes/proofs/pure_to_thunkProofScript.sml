@@ -42,29 +42,6 @@ Definition Apps_def:
   Apps x (y::ys) = Apps (thunkLang$App x y) ys
 End
 
-Definition lets_for_def:
-  lets_for l cn v [] b = b ∧
-  lets_for l cn v ((n,w)::ws) b =
-    Let NONE (If (Prim (IsEq cn l T) [Force (Var v)]) Unit Fail) $
-      Let (SOME w) (Delay $ Force $ Prim (Proj cn n) [Force $ Var v]) $
-        lets_for l cn v ws b
-End
-
-Definition rows_of_def:
-  (rows_of v k [] =
-    case k of
-      NONE => Fail
-    | SOME e => e) ∧
-  rows_of v k ((cn,vs,b)::rest) =
-   If (Prim (IsEq cn (LENGTH vs) T) [Force (Var v)])
-      (lets_for (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
-      (rows_of v k rest)
-End
-
-(*
-  TODO: Prim 'a cop (cexp list)                 (* primitive operations     *)
-*)
-
 Inductive exp_rel:
 [~Var:]
   (∀(n:mlstring).
@@ -88,6 +65,18 @@ Inductive exp_rel:
      exp_rel f g ∧
      LIST_REL exp_rel xs ys ⇒
        exp_rel (App i f xs) (App g (MAP Delay ys))) ∧
+[~Cons:]
+  (∀xs ys n.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim i (Cons n) xs) (Prim (Cons n) (MAP Delay ys))) ∧
+[~Prim:]
+  (∀xs ys a.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim i (AtomOp a) xs) (Prim (AtomOp a) ys)) ∧
+[~Seq:]
+  (∀x1 x2 y1 y2.
+     exp_rel x1 y1 ∧ exp_rel x2 y2 ⇒
+       exp_rel (Prim i Seq [x1; x2]) (Let NONE y1 y2)) ∧
 [~Case:]
   (∀i x v xs ys fresh.
      ~MEM v (FLAT (MAP (FST ∘ SND) xs)) ∧ xs ≠ [] ∧
@@ -107,184 +96,6 @@ Overload to_thunk = “pure_to_thunk_1Proof$compile_rel”
 Overload lift_rel = “thunk_case_liftProof$compile_rel”
 Overload force_rel = “thunk_let_forceProof$exp_rel”
 Overload proj_rel = “thunk_case_projProof$compile_rel”
-
-(*
-Theorem LIST_REL_combined_IMP:
-  ∀xs ys.
-    LIST_REL (λx y.
-      exp_rel x y ∧
-      (cexp_wf x ⇒
-       ∃y1 y2. to_thunk (exp_of x) y1 ∧ lift_rel y1 y2 ∧ d2b_rel y2 y)) xs ys ∧
-    EVERY (λa. cexp_wf a) xs ⇒
-    ∃ts1 ts2.
-      LIST_REL (λx y. to_thunk (exp_of x) y) xs ts1 ∧
-      LIST_REL lift_rel ts1 ts2 ∧
-      LIST_REL d2b_rel ts2 ys
-Proof
-  Induct \\ Cases_on ‘ys’ \\ fs [] \\ rw []
-  \\ first_x_assum drule \\ fs [] \\ rw [PULL_EXISTS]
-  \\ metis_tac []
-QED
-
-Theorem to_thunk_Apps:
-  ∀xs ys x y.
-    to_thunk x y ∧ LIST_REL to_thunk xs ys ⇒
-    to_thunk (Apps x xs) (Apps y (MAP Delay ys))
-Proof
-  Induct \\ Cases_on ‘ys’ \\ fs [pure_expTheory.Apps_def,Apps_def]
-  \\ rw [] \\ first_x_assum $ irule
-  \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
-QED
-
-Theorem lift_rel_Apps:
-  ∀xs ys x y.
-    lift_rel x y ∧ LIST_REL lift_rel xs ys ⇒
-    lift_rel (Apps x (MAP Delay xs)) (Apps y (MAP Delay ys))
-Proof
-  Induct \\ Cases_on ‘ys’ \\ fs [pure_expTheory.Apps_def,Apps_def]
-  \\ rw [] \\ first_x_assum $ irule \\ fs []
-  \\ irule_at Any thunk_case_liftProofTheory.compile_rel_App \\ fs []
-  \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay \\ fs []
-QED
-
-Theorem d2b_rel_Apps:
-  ∀xs ys x y.
-    d2b_rel x y ∧ LIST_REL d2b_rel xs ys ⇒
-    d2b_rel (Apps x (MAP Delay xs)) (Apps y (MAP Delay ys))
-Proof
-  Induct \\ Cases_on ‘ys’ \\ fs [pure_expTheory.Apps_def,Apps_def]
-  \\ rw [] \\ first_x_assum $ irule \\ fs []
-  \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_App \\ fs []
-  \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Delay \\ fs []
-QED
-
-Theorem to_thunk_lets_for:
-  ∀ws. to_thunk rhs rhs' ⇒
-       to_thunk (lets_for' n r0 v ws rhs)
-                (lets_for n r0 v ws rhs')
-Proof
-  Induct \\ fs [lets_for_def,lets_for'_def]
-  \\ PairCases \\ fs [lets_for_def,lets_for'_def] \\ rw [] \\ fs []
-  \\ rpt $ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
-QED
-
-Theorem d2b_lets_for:
-  ∀ws. d2b_rel rhs rhs' ⇒
-       d2b_rel (lets_for n r0 v ws rhs)
-               (lets_for n r0 v ws rhs')
-Proof
-  Induct \\ fs [lets_for_def,lets_for'_def]
-  \\ PairCases \\ fs [lets_for_def,lets_for'_def] \\ rw [] \\ fs []
-  \\ rpt $ simp [Once thunk_case_d2bProofTheory.exp_rel_cases]
-QED
-
-Theorem lift_lets_for:
-  ∀ws. lift_rel rhs rhs' ⇒
-       lift_rel (lets_for n r0 v ws rhs)
-                (lets_for n r0 v ws rhs')
-Proof
-  Induct \\ fs [lets_for_def,lets_for'_def]
-  \\ PairCases \\ fs [lets_for_def,lets_for'_def] \\ rw [] \\ fs []
-  \\ rpt $ simp [Once thunk_case_liftProofTheory.compile_rel_cases]
-QED
-
-Triviality not_freevars_lets_for:
-  fresh ∉ freevars rhs ∧ fresh ≠ y ⇒
-  fresh ∉ freevars (lets_for n x y ws rhs)
-Proof
-  Induct_on ‘ws’ \\ fs [lets_for_def,FORALL_PROD]
-  \\ fs [thunkLangTheory.freevars_def]
-QED
-
-Triviality not_treevars_rows_of:
-  fresh ≠ v ∧
-  EVERY (λ(n,vs,b). fresh ∉ freevars b) rows ∧
-  (∀x. opt = SOME x ⇒ fresh ∉ freevars x) ⇒
-  fresh ∉ freevars (rows_of v opt rows)
-Proof
-  Induct_on ‘rows’ \\ fs [rows_of_def,FORALL_PROD]
-  >- (CASE_TAC \\ fs [freevars_def])
-  \\ rw [freevars_def]
-  \\ irule not_freevars_lets_for \\ fs []
-QED
-
-Theorem d2b_rows_of:
-  ∀rows rows1.
-    LIST_REL (λ(x1,x2,x3) (y1,y2,y3). x1 = y1 ∧ x2 = y2 ∧ d2b_rel x3 y3)
-       rows rows1 ∧ OPTREL d2b_rel opt opt1 ⇒
-    d2b_rel (rows_of v opt rows) (rows_of v opt1 rows1)
-Proof
-  Induct \\ fs [rows_of_def]
-  >-
-   (Cases_on ‘opt’ \\ Cases_on ‘opt1’ \\ fs []
-    \\ rpt $ simp [Once thunk_case_d2bProofTheory.exp_rel_cases])
-  \\ fs [PULL_EXISTS]
-  \\ PairCases
-  \\ PairCases
-  \\ fs [] \\ rw []
-  \\ fs [rows_of_def]
-  \\ simp [Once thunk_case_d2bProofTheory.exp_rel_cases]
-  \\ irule_at Any d2b_lets_for \\ fs []
-  \\ rpt $ simp [Once thunk_case_d2bProofTheory.exp_rel_cases]
-QED
-
-Theorem lift_rows_of:
-  ∀rows rows1.
-    LIST_REL (λ(x1,x2,x3) (y1,y2,y3). x1 = y1 ∧ x2 = y2 ∧ lift_rel x3 y3)
-       rows rows1 ∧ OPTREL lift_rel opt opt1 ⇒
-    lift_rel (rows_of v opt rows) (rows_of v opt1 rows1)
-Proof
-  Induct \\ fs [rows_of_def]
-  >-
-   (Cases_on ‘opt’ \\ Cases_on ‘opt1’ \\ fs []
-    \\ rpt $ simp [Once thunk_case_liftProofTheory.compile_rel_cases])
-  \\ fs [PULL_EXISTS]
-  \\ PairCases
-  \\ PairCases
-  \\ fs [] \\ rw []
-  \\ fs [rows_of_def]
-  \\ simp [Once thunk_case_liftProofTheory.compile_rel_cases]
-  \\ irule_at Any lift_lets_for \\ fs []
-  \\ rpt $ simp [Once thunk_case_liftProofTheory.compile_rel_cases]
-QED
-
-Theorem OPTREL_SIMP:
-  (OPTREL P (SOME x) m ⇔ ∃y. m = SOME y ∧ P x y) ∧
-  (OPTREL P n (SOME y) ⇔ ∃x. n = SOME x ∧ P x y) ∧
-  (OPTREL P NONE m ⇔ m = NONE) ∧
-  (OPTREL P n NONE ⇔ n = NONE)
-Proof
-  Cases_on ‘n’ \\ Cases_on ‘m’ \\ fs []
-QED
-
-Theorem to_thunk_rows_of:
-  ∀xs ys.
-    LIST_REL (λ(x1,x2,x3) (y1,y2,y3).
-        explode x1 = y1 ∧ MAP explode x2 = y2 ∧
-        to_thunk (exp_of' x3) y3)
-      xs ys ∧
-    OPTREL (λe1 e2. to_thunk (exp_of' e1) e2) eopt opt ⇒
-    to_thunk (rows_of' v
-               (case eopt of NONE => Fail | SOME e => exp_of' e)
-               (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of' x')) xs))
-             (rows_of v opt ys)
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  >-
-   (rw [rows_of'_def,rows_of_def]
-    \\ CASE_TAC \\ gvs [OPTREL_SIMP]
-    \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases])
-  \\ fs [UNCURRY] \\ rw [] \\ res_tac
-  \\ rename [‘explode (FST xx) = FST yy’]
-  \\ PairCases_on ‘xx’ \\ PairCases_on ‘yy’ \\ gvs []
-  \\ rw [rows_of'_def,rows_of_def]
-  \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
-  \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
-  \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
-  \\ irule to_thunk_lets_for \\ fs []
-QED
-
-*)
 
 
 (* TODO: move to thunkLang *)
@@ -409,8 +220,8 @@ Theorem exp_rel_imp_combined:
       force_rel NONE y2 y3 ∧
       proj_rel y3 (exp_of y)
 Proof
-
-  Induct_on ‘exp_rel’ \\ rw [exp_of'_def,cexp_wf_def] \\ fs []
+  Induct_on ‘exp_rel’
+  \\ rw [exp_of'_def,cexp_wf_def] \\ fs [pure_cexpTheory.op_of_def]
   >~ [‘Var n’] >-
    (simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Force
@@ -515,120 +326,132 @@ Proof
     \\ rpt $ pop_assum $ irule_at Any
     \\ first_assum $ irule_at Any
     \\ first_assum $ irule_at Any)
-
-  \\ cheat
-(*
-  >~ [‘Lams s’] >-
-   (qid_spec_tac ‘s’ \\ Induct
-    \\ fs [Lams_def,pure_expTheory.Lams_def]
-    >- metis_tac []
-    \\ rw []
-    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Lam
-    \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Lam
-    \\ first_x_assum $ irule_at Any
-    \\ first_x_assum $ irule_at Any
-    \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases])
+  >~ [‘Seq’] >-
+   (fs [pure_cexpTheory.op_of_def]
+    \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases,PULL_EXISTS]
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Let
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Let
+    \\ fs [name_clash_def]
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Let_NONE
+    \\ metis_tac [])
   >~ [‘Let’] >-
    (irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Let
-    \\ first_x_assum $ irule_at $ Pos hd
-    \\ first_x_assum $ irule_at $ Pos hd
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Let
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
-    \\ first_x_assum $ irule_at $ Pos hd
-    \\ first_x_assum $ irule_at $ Pos hd
-    \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Let
-    \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Delay \\ fs [])
-  >~ [‘Letrec’] >-
-   (irule_at Any thunk_case_d2bProofTheory.exp_rel_Letrec
-    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Letrec
-    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Letrec
-    \\ rpt $ first_assum $ irule_at Any
-    \\ last_x_assum mp_tac
-    \\ rename [‘LIST_REL _ xs ys’]
-    \\ qpat_x_assum ‘EVERY _ _’ mp_tac
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Let
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Delay
+    \\ fs [name_clash_def]
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Let_SOME
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
+    \\ metis_tac [])
+  >~ [‘Cons _ _’] >-
+   (irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Cons
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Prim
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Prim
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Cons
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
-    \\ Induct \\ fs [PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
-    \\ rw [] \\ res_tac
-    \\ irule_at Any thunk_case_d2bProofTheory.exp_rel_Delay \\ fs []
+    \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ gvs []
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Delay
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
+    \\ rpt $ first_assum $ irule_at Any
+    \\ last_x_assum drule \\ strip_tac
     \\ rpt $ first_assum $ irule_at Any)
   >~ [‘Apps’] >-
-   (irule_at Any lift_rel_Apps \\ fs []
-    \\ irule_at Any d2b_rel_Apps \\ fs []
-    \\ irule_at Any to_thunk_Apps \\ simp [listTheory.LIST_REL_MAP1]
+   (pop_assum kall_tac
+    \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘y1’
+    \\ qid_spec_tac ‘y2’
+    \\ qid_spec_tac ‘y3’
+    \\ qid_spec_tac ‘y’
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS]
+    >- (fs [Apps_def,pure_expTheory.Apps_def] \\ metis_tac [])
+    \\ rw [] \\ gvs []
+    \\ fs [Apps_def,pure_expTheory.Apps_def]
+    \\ rename [‘App (exp_of x5) (Delay (exp_of h5))’]
+    \\ ‘LIST_REL exp_rel [h] [h5]’ by fs []
+    \\ qpat_x_assum ‘exp_rel x x5’ assume_tac
+    \\ drule_at (Pos last) exp_rel_App
+    \\ disch_then drule
+    \\ disch_then $ qspec_then ‘ARB’ assume_tac
+    \\ first_x_assum $ drule
+    \\ fs [GSYM PULL_EXISTS]
+    \\ rename [‘LIST_REL _ xs ys’]
+    \\ disch_then $ qspec_then ‘ys’ mp_tac
+    \\ fs [Apps_def,pure_expTheory.Apps_def,exp_of'_def]
+    \\ disch_then irule
+    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_App
+    \\ qpat_x_assum ‘to_thunk (exp_of' _) _’ $ irule_at Any
+    \\ qpat_x_assum ‘to_thunk (exp_of' _) _’ $ irule_at Any
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_App
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
+    \\ qpat_x_assum ‘lift_rel _ _’ $ irule_at Any
+    \\ qpat_x_assum ‘lift_rel _ _’ $ irule_at Any
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_App
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Delay
+    \\ qpat_x_assum ‘force_rel _ _ _’ $ irule_at Any
+    \\ qpat_x_assum ‘force_rel _ _ _’ $ irule_at Any
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_App
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
+    \\ fs [cexp_wf_def])
+  >~ [‘AtomOp’] >-
+   (irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Prim \\ fs []
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Prim
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Prim
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Prim \\ fs []
+    \\ pop_assum mp_tac
+    \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ gvs []
+    \\ last_x_assum drule \\ strip_tac
+    \\ rpt $ first_assum $ irule_at Any)
+  >~ [‘Lams’] >-
+   (qpat_x_assum ‘_ ≠ []’ kall_tac
+    \\ qid_spec_tac ‘s’ \\ Induct \\ fs [Lams_def,pure_expTheory.Lams_def]
+    >- (rpt $ first_assum $ irule_at Any)
+    \\ rw []
+    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Lam
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Lam
+    \\ rpt $ first_assum $ irule_at Any)
+  >~ [‘Letrec’] >-
+   (qpat_x_assum ‘_ ≠ []’ kall_tac
+    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Letrec \\ fs []
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Letrec \\ fs []
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Letrec
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Letrec
     \\ rpt $ first_assum $ irule_at Any
-    \\ qpat_x_assum ‘LIST_REL _ xs ys’ mp_tac
+    \\ rename [‘LIST_REL _ xs ys’]
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
     \\ qpat_x_assum ‘EVERY _ _’ mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
-    \\ Induct \\ fs [PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
-    \\ rw [] \\ gvs []
-    \\ res_tac
-    \\ rpt $ first_assum $ irule_at Any)
-  >~ [‘rows_of’] (* i.e. Case *)
-  \\ Cases_on ‘xs’ >- fs [] \\ gvs []
-  \\ rename [‘MEM v (FST (SND r))’] \\ PairCases_on ‘r’ \\ gvs []
-  \\ rename [‘LIST_REL _ xs ys’]
-  \\ gvs [UNCURRY]
-  \\ rename [‘exp_rel r2 (SND (SND q))’] \\ PairCases_on ‘q’ \\ gvs []
-  \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Let
-  \\ gvs [rows_of'_def]
-  \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_If \\ fs []
-  \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Prim \\ fs [PULL_EXISTS]
-  \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Var \\ fs []
-  \\ qpat_x_assum ‘to_thunk (exp_of' x) _’ $ irule_at Any
-  \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Let
-  \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
-  \\ qpat_x_assum ‘lift_rel y1 y2’ $ irule_at Any
-  \\ irule_at (Pos $ hd) thunk_case_liftProofTheory.compile_rel_Lift
-  \\ gvs [thunkLangTheory.freevars_def]
-  \\ irule_at (Pos $ last) thunk_case_d2bProofTheory.exp_rel_D2B \\ fs [rows_of_def]
-  \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Force
-  \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Var
-  \\ irule_at (Pos $ hd) thunk_case_d2bProofTheory.exp_rel_If \\ fs []
-  \\ irule_at (Pos $ hd) thunk_case_d2bProofTheory.exp_rel_Prim \\ fs []
-  \\ irule_at (Pos $ hd) thunk_case_d2bProofTheory.exp_rel_Force \\ fs []
-  \\ irule_at (Pos $ hd) thunk_case_d2bProofTheory.exp_rel_Var \\ fs []
-  \\ irule_at Any to_thunk_lets_for
-  \\ first_assum $ irule_at $ Pos hd
-  \\ irule_at Any d2b_lets_for
-  \\ irule_at Any lift_lets_for
-  \\ first_assum $ irule_at $ Pos hd
-  \\ first_assum $ irule_at $ Pos hd
-  \\ irule_at Any not_freevars_lets_for
-  \\ irule_at Any d2b_rows_of \\ fs []
-  \\ irule_at Any lift_rows_of \\ fs []
-  \\ irule_at Any not_treevars_rows_of \\ fs []
-  \\ irule_at Any to_thunk_rows_of
-  \\ ‘∃ys1 ys2.
-         EVERY (λ(n,vs,b). fresh ∉ freevars b) ys1 ∧
-         LIST_REL
-            (λ(x1,x2,x3) (y1,y2,y3).
-                 explode x1 = y1 ∧ MAP explode x2 = y2 ∧
-                 to_thunk (exp_of' x3) y3) xs ys1 ∧
-         LIST_REL
-            (λ(x1,x2,x3) (y1,y2,y3).
-                 x1 = y1 ∧ x2 = y2 ∧ lift_rel x3 y3) ys1 ys2 ∧
-         LIST_REL
-            (λ(x1,x2,x3) (y1,y2,y3). x1 = y1 ∧ x2 = y2 ∧ d2b_rel x3 y3) ys2 ys’ by
-   (qpat_x_assum ‘LIST_REL _ xs ys’ mp_tac
-    \\ qpat_x_assum ‘EVERY _ (MAP _ xs)’ mp_tac
-    \\ qid_spec_tac ‘ys’ \\ qid_spec_tac ‘xs’
-    \\ rpt $ pop_assum kall_tac
-    \\ Induct \\ fs [PULL_EXISTS,UNCURRY,PULL_FORALL,EXISTS_PROD]
-    \\ rw [] \\ last_x_assum drule_all \\ rw []
+    \\ Induct \\ gvs [PULL_EXISTS] \\ rw []
+    \\ last_x_assum drule_all \\ strip_tac
+    \\ gvs [EXISTS_PROD]
+    \\ rpt $ pop_assum $ irule_at Any
+    \\ pop_assum kall_tac
+    \\ rename [‘_ x1 x2’]
+    \\ PairCases_on ‘x1’
+    \\ PairCases_on ‘x2’
+    \\ gvs []
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Delay
     \\ rpt $ first_assum $ irule_at Any
-    \\ imp_res_tac to_thunk_freevars \\ fs [])
-  \\ pop_assum $ irule_at Any
-  \\ pop_assum $ irule_at Any
-  \\ pop_assum $ irule_at Any
-  \\ pop_assum $ irule_at Any
-  \\ imp_res_tac to_thunk_freevars \\ fs []
-  \\ Cases_on ‘eopt’ \\ gvs [OPTREL_SIMP,PULL_EXISTS]
-  \\ rpt $ first_assum $ irule_at Any
-  \\ imp_res_tac to_thunk_freevars \\ fs []
-  *)
+    \\ EVAL_TAC \\ fs [])
 QED
 
 (*
