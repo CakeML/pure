@@ -20,28 +20,6 @@ val _ = set_grammar_ancestry
           ["pure_to_thunk_1Proof", "pure_cexp",
            "thunkLang", "thunk_cexp", "pureLang", "expof_caseProof"];
 
-(*
-  cexp = Var 'a vname                         (* variable                 *)
-       | Prim 'a cop (cexp list)              (* primitive operations     *)
-       | App 'a cexp (cexp list)              (* function application     *)
-       | Lam 'a (vname list) cexp             (* lambda                   *)
-       | Let 'a vname cexp cexp               (* let                      *)
-       | Letrec 'a ((vname # cexp) list) cexp (* mutually recursive exps  *)
-       | Case 'a cexp vname ((vname # vname list # cexp) list) (* case of *)
-       | NestedCase 'a cexp vname cepat cexp ((cepat # cexp) list)
-                                     (* case w/non-empty pattern-exp list *)
-*)
-
-Definition Lams_def:
-  Lams [] x = x ∧
-  Lams (v::vs) x = thunkLang$Lam v (Lams vs x)
-End
-
-Definition Apps_def:
-  Apps x [] = x ∧
-  Apps x (y::ys) = Apps (thunkLang$App x y) ys
-End
-
 Inductive exp_rel:
 [~Var:]
   (∀(n:mlstring).
@@ -96,7 +74,6 @@ Overload to_thunk = “pure_to_thunk_1Proof$compile_rel”
 Overload lift_rel = “thunk_case_liftProof$compile_rel”
 Overload force_rel = “thunk_let_forceProof$exp_rel”
 Overload proj_rel = “thunk_case_projProof$compile_rel”
-
 
 (* TODO: move to thunkLang *)
 
@@ -373,9 +350,9 @@ Proof
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ fs [PULL_EXISTS]
-    >- (fs [Apps_def,pure_expTheory.Apps_def] \\ metis_tac [])
+    >- (fs [pure_expTheory.Apps_def] \\ metis_tac [])
     \\ rw [] \\ gvs []
-    \\ fs [Apps_def,pure_expTheory.Apps_def]
+    \\ fs [pure_expTheory.Apps_def]
     \\ rename [‘App (exp_of x5) (Delay (exp_of h5))’]
     \\ ‘LIST_REL exp_rel [h] [h5]’ by fs []
     \\ qpat_x_assum ‘exp_rel x x5’ assume_tac
@@ -386,7 +363,7 @@ Proof
     \\ fs [GSYM PULL_EXISTS]
     \\ rename [‘LIST_REL _ xs ys’]
     \\ disch_then $ qspec_then ‘ys’ mp_tac
-    \\ fs [Apps_def,pure_expTheory.Apps_def,exp_of'_def]
+    \\ fs [pure_expTheory.Apps_def,exp_of'_def]
     \\ disch_then irule
     \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_App
     \\ qpat_x_assum ‘to_thunk (exp_of' _) _’ $ irule_at Any
@@ -418,7 +395,7 @@ Proof
     \\ rpt $ first_assum $ irule_at Any)
   >~ [‘Lams’] >-
    (qpat_x_assum ‘_ ≠ []’ kall_tac
-    \\ qid_spec_tac ‘s’ \\ Induct \\ fs [Lams_def,pure_expTheory.Lams_def]
+    \\ qid_spec_tac ‘s’ \\ Induct \\ fs [pure_expTheory.Lams_def]
     >- (rpt $ first_assum $ irule_at Any)
     \\ rw []
     \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Lam \\ fs []
@@ -461,14 +438,6 @@ new order:
 thunk_case_lift:    If IsEq --> Let If IsEq       -- has cheat
 thunk_let_force:    Let (SOME w) (Force (Var v)) enables rewrite Force (Var v) --> Var w
 thunk_case_proj:    Let (SOME w) (Delay (Force (Proj s i (Var v)))) x --> Let (SOME w) (Proj s i (Var v)) y -- has cheat
-
-old order:
-
-thunk_case_lift:    If IsEq --> Let If IsEq       -- has cheat
-thunk_case_d2b:     Let Delay Force --> Let Box
-thunk_case_inl:     (Var v) --> (Box (Var v))     -- needs to be able to stop rec
-thunk_case_unbox:   (Force (Box (Var v))) --> (Tick (Var v)))   -- needs removal of Tick
-thunk_case_proj:    Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x --> Let (SOME w) (MkTick (Proj s i (Var v))) y -- remove Tick, MkTick
 
 *)
 
