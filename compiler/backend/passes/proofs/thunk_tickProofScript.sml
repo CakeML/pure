@@ -142,7 +142,30 @@ Theorem v_rel_def =
 Theorem exp_rel_freevars:
   ∀x y. exp_rel x y ⇒ freevars x = freevars y
 Proof
-  cheat
+  qsuff_tac ‘
+    (∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
+    ∀x y. v_rel x y ⇒ T’
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ ho_match_mp_tac exp_rel_ind
+  \\ fs [freevars_def] \\ rw []
+  >~ [‘Let opt’]
+  >- (Cases_on ‘opt’ \\ fs [freevars_def])
+  >-
+   (pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ first_x_assum drule
+    \\ fs [EXTENSION] \\ metis_tac [])
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+  \\ qid_spec_tac ‘f’
+  \\ qid_spec_tac ‘g’ \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD]
+  \\ rw []
+  \\ rename [‘MAP SND ts = _ :: _’]
+  \\ Cases_on ‘ts’ \\ gvs [UNCURRY]
 QED
 
 Theorem exp_rel_FUNPOW:
