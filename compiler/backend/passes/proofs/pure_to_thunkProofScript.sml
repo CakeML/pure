@@ -388,14 +388,4 @@ Proof
     \\ EVAL_TAC \\ fs [])
 QED
 
-(*
-
-new order:
-
-thunk_case_lift:    If IsEq --> Let If IsEq       -- has cheat
-thunk_let_force:    Let (SOME w) (Force (Var v)) enables rewrite Force (Var v) --> Var w
-thunk_case_proj:    Let (SOME w) (Delay (Force (Proj s i (Var v)))) x --> Let (SOME w) (Proj s i (Var v)) y -- has cheat
-
-*)
-
 val _ = export_theory ();
