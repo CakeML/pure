@@ -187,23 +187,16 @@ End
 Definition get_case_type_def:
   get_case_type exhaustive ns cnames_arities =
     let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
-    if len = 1 ∧ cnames = [«»] then do (* tuple case *)
+    if len = 1 ∧ cnames = [«»] ∧ exhaustive then do (* tuple case *)
       h <- oreturn (oHD cnames_arities);
       freshes <- fresh_vars (SND h);
       return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
-    od else
-    if (* bool case *)
-      (if len = 2 then
-        MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
-       else
-        ¬exhaustive ∧ len = 1 ∧
-        (MEM («True»,0) cnames_arities ∨ MEM («False»,0) cnames_arities))
+    od else if len = 2 ∧ exhaustive ∧ (* bool case *)
+      MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
       then return (PrimTy Bool, [], [(«True»,[]); («False»,[])])
-    else (* exception case *)
-      if
-        let exns = MAP (λ(cn,ts). (cn, LENGTH ts)) (FST ns) in
-        EVERY (λcn_ar. MEM cn_ar exns) cnames_arities ∧
-        (if exhaustive then LENGTH exns = LENGTH cnames_arities else T)
+    else if (* exception case *)
+      LENGTH (FST ns) = LENGTH cnames_arities ∧ exhaustive ∧
+      EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
       then return (Exception, [], MAP (λ(cn,ts). (cn, MAP itype_of ts)) $ FST ns)
     else do (* data case *)
       (n, ar, cs) <- oreturn (get_typedef exhaustive 0 (SND ns) cnames_arities);
