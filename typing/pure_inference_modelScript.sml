@@ -374,6 +374,8 @@ Inductive minfer:
    oEL id (SND ns) = SOME (ar, cdefs) ∧
    ALL_DISTINCT (MAP FST cases) ∧
    EVERY (λ(cn,pvars,rest). ∃ts. MEM (cn,ts) cdefs ∧ LENGTH pvars = LENGTH ts) cases ∧
+   cases ≠ [] ∧
+   LENGTH cases = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
    ar = LENGTH freshes ∧
    LIST_REL (λ((cname,pvars,rest),ty) (a,c).
@@ -3017,6 +3019,7 @@ Proof
         imp_res_tac LIST_TO_SET_get_assumptions >> simp[]
         )
       >- (qpat_x_assum `EVERY _ _` mp_tac >> simp[EVERY_MAP, LAMBDA_PROD])
+      >- (unabbrev_all_tac >> gvs[])
       >- (
         gvs[cvars_disjoint_def] >>
         once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
