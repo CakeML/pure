@@ -440,6 +440,7 @@ Definition infer_def:
                 return (ty::tys, ((list_delete as' (v :: pvars)) ⋓ as),
                         (FLAT pvar_constraints) ++ cs' ++ cs) od)
             (return ([],empty,[])) css;
+      (tye, ase, cse) <- infer ns mset e;
       (tys, as, cs) <-
         (case eopt of
            NONE => return (tys,as,cs)
@@ -453,7 +454,6 @@ Definition infer_def:
                  pvar_constraints ++ ucs ++ cs
                );
              od) ;
-      (tye, ase, cse) <- infer ns mset e;
 
       return (HD tys, ase ⋓ as,
               (* type of guard expression unifies with tye (result of infer) *)

@@ -1132,7 +1132,8 @@ Proof
   gvs[ADD1] >> gvs[GSYM ADD1]
 QED
 
-Theorem get_typedef_exhaustive:
+Theorem get_typedef_exhaustive_lemma[local]:
+  ∀exndefs tdefs cnames_arities n m ar cs.
   namespace_ok (exndefs, tdefs) ∧ ALL_DISTINCT (MAP FST cnames_arities) ⇒
   (get_typedef T n tdefs cnames_arities = SOME (n + m, ar, cs)) =
   (oEL m tdefs = SOME (ar, cs) ∧
@@ -1179,6 +1180,18 @@ Proof
   CCONTR_TAC >> gvs[] >> qpat_x_assum `_ ⇒ _` mp_tac >> simp[] >>
   imp_res_tac sortingTheory.PERM_LENGTH >> gvs[combinTheory.o_DEF] >>
   imp_res_tac $ iffRL sortingTheory.PERM_MEM_EQ >> gvs[EVERY_MEM]
+QED
+
+Theorem get_typedef_exhaustive:
+  ∀n tdefs cnames_arities m arity cs exndefs.
+    get_typedef T n tdefs cnames_arities = SOME (m, arity, cs) ∧
+    namespace_ok (exndefs, tdefs) ∧ ALL_DISTINCT (MAP FST cnames_arities)
+  ⇒ oEL (m - n) tdefs = SOME (arity, cs) ∧
+    PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) cs) cnames_arities
+Proof
+  rpt gen_tac >> strip_tac >>
+  imp_res_tac get_typedef_mono >> imp_res_tac LESS_EQUAL_ADD >> gvs[] >>
+  drule_all $ iffLR get_typedef_exhaustive_lemma >> simp[]
 QED
 
 Theorem generalise_avoid_all:
