@@ -12,7 +12,7 @@
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory;
+     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
 open pure_miscTheory thunkLangPropsTheory;
 
 val _ = new_theory "thunk_let_forceProof";
@@ -1853,5 +1853,120 @@ Proof
   \\ irule_at Any force_sim_ok
   \\ irule_at Any force_rel_ok \\ gs []
 QED
+
+(* -------------------- *)
+
+Definition filter_clash_def:
+  filter_clash bv m =
+    if name_clash bv m then NONE else m
+End
+
+Inductive e_rel:
+[e_rel_Let_Force_Var:]
+  (∀m v w y1 y2.
+     e_rel (SOME (Var v,w) :: MAP (filter_clash (SOME w)) m) y1 y2 ∧
+     v ≠ w ⇒
+       e_rel m (Let (SOME w) (Force (Var v)) y1)
+               (Let (SOME w) (Force (Var v)) y2)) ∧
+[e_rel_Force_Var:]
+  (∀m v w.
+     MEM (SOME (Var v,w)) m ⇒
+     e_rel m (Force (Var v)) (Var w)) ∧
+(* Boilerplate: *)
+[e_rel_App:]
+  (∀m f g x y.
+     e_rel m f g ∧
+     e_rel m x y ⇒
+       e_rel m (App f x) (App g y)) ∧
+[e_rel_Lam:]
+  (∀m s x y.
+     e_rel (MAP (K NONE) m) x y ⇒
+       e_rel m (Lam s x) (Lam s y)) ∧
+[e_rel_Letrec:]
+  (∀m f g x y.
+     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ e_rel (MAP (K NONE) m) x y) f g ∧
+     e_rel (MAP (K NONE) m) x y ⇒
+       e_rel m (Letrec f x) (Letrec g y)) ∧
+[e_rel_Let:]
+  (∀m bv x1 y1 x2 y2.
+     e_rel m x1 x2 ∧
+     e_rel (MAP (filter_clash bv) m) y1 y2 ⇒
+       e_rel m (Let bv x1 y1) (Let bv x2 y2)) ∧
+[e_rel_If:]
+  (∀m x1 x2 y1 y2 z1 z2.
+     LIST_REL (e_rel m) [x1;y1;z1] [x2;y2;z2] ⇒
+       e_rel m (If x1 y1 z1) (If x2 y2 z2)) ∧
+[e_rel_Prim:]
+  (∀m op xs ys.
+     LIST_REL (e_rel m) xs ys ⇒
+       e_rel m (Prim op xs) (Prim op ys)) ∧
+[e_rel_Delay:]
+  (∀m x y.
+     e_rel m x y ⇒
+       e_rel m (Delay x) (Delay y)) ∧
+[e_rel_Box:]
+  (∀m x y.
+     e_rel m x y ⇒
+       e_rel m (Box x) (Box y)) ∧
+[e_rel_Force:]
+  (∀m x y.
+     e_rel m x y ⇒
+       e_rel m (Force x) (Force y)) ∧
+[e_rel_Var:]
+  (∀m v.
+     e_rel m (Var v) (Var v))
+End
+
+Definition rel_list_def[simp]:
+  rel_list [] x y = (x = y) ∧
+  rel_list (m::ms) x y = ∃z. exp_rel m x z ∧ rel_list ms z y
+End
+
+Triviality rel_list_append:
+  ∀xs ys x y.
+    rel_list (xs ++ ys) x y ⇔ ∃q. rel_list xs x q ∧ rel_list ys q y
+Proof
+  Induct \\ fs [PULL_EXISTS] \\ metis_tac []
+QED
+
+(*
+Theorem e_rel_exp_rel:
+  ∀m x y. e_rel m x y ⇒ ∃k. ∀k1. k ≤ k1 ⇒ rel_list (REPLICATE k1 NONE ++ m) x y
+Proof
+  ho_match_mp_tac e_rel_ind \\ rw []
+  >-
+   (gvs [rel_list_append]
+    \\ qexists_tac ‘k+1’
+    \\ Cases >- fs []
+    \\ rewrite_tac [ADD1,GSYM REPLICATE_APPEND]
+    \\ fs [ADD1,PULL_EXISTS] \\ rw []
+    \\ fs [rel_list_append,EVAL “REPLICATE 1 x”,PULL_EXISTS]
+    \\ first_x_assum $ drule_then strip_assume_tac
+    \\ ‘rel_list m (Let (SOME w) (Force (Var v)) z)
+                   (Let (SOME w) (Force (Var v)) y)’ by cheat
+    \\ pop_assum $ irule_at Any
+    \\ ‘rel_list (REPLICATE n NONE) (Let (SOME w) (Force (Var v)) x)
+                                    (Let (SOME w) (Force (Var v)) q)’ by cheat
+    \\ pop_assum $ irule_at Any
+    \\ irule exp_rel_Let_Force_Var \\ fs [])
+  >-
+   (qexists_tac ‘0’
+    \\ gvs [MEM_SPLIT]
+    \\ cheat)
+  >-
+   (qexists_tac ‘k+k'’ \\ rw []
+    \\ rpt $ first_x_assum $ qspec_then ‘k1’ mp_tac
+    \\ fs [] \\ rename [‘rel_list xs’]
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘x'’
+    \\ qid_spec_tac ‘y’
+    \\ qid_spec_tac ‘y'’
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ gvs []
+    \\ irule_at Any exp_rel_App
+    \\ metis_tac [])
+  \\ cheat
+QED
+*)
 
 val _ = export_theory ();

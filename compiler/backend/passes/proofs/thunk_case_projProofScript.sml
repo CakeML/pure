@@ -1166,10 +1166,6 @@ Inductive compile_rel:
   (∀x y.
      compile_rel x y ⇒
        compile_rel (Force x) (Force y)) ∧
-[compile_rel_MkTick:]
-  (∀x y.
-     compile_rel x y ⇒
-       compile_rel (MkTick x) (MkTick y)) ∧
 [compile_rel_Var:]
   (∀v.
      compile_rel (Var v) (Var v))
