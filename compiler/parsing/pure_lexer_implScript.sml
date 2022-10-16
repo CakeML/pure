@@ -134,6 +134,21 @@ Proof
   rw[] >> gvs[]
 QED
 
+Definition skip_eol_comment_def:
+  skip_eol_comment "" l = SOME ("", l) ∧
+  skip_eol_comment (c::cs) l =
+  if c = #"\n" then SOME (cs, next_line l)
+  else skip_eol_comment cs (next_loc 1 l)
+End
+
+Theorem skip_eol_comment_thm:
+  ∀cs l cs' l'. skip_eol_comment cs l = SOME (cs', l') ⇒ LENGTH cs' ≤ LENGTH cs
+Proof
+  Induct >>
+  simp[skip_eol_comment_def, AllCaseEqs(), DISJ_IMP_THM, FORALL_AND_THM] >>
+  rw[] >> first_x_assum drule >> simp[]
+QED
+
 
 Definition get_token_def:
   get_token s =
@@ -343,6 +358,11 @@ Definition next_sym_alt_def:
        case skip_nested_comment (TL str) (0:num) (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
+     else if isPREFIX "--" (c::str) ∧ (2 ≤ LENGTH str ⇒ ¬isPunct (EL 1 str))
+     then
+       case skip_eol_comment (TL str) (next_loc 2 loc) of
+         NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
+       | SOME (rest, loc') => next_sym_alt rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
        SOME (OtherS [c], Locs loc loc, str)
      else if isSymbol c then
@@ -382,9 +402,13 @@ Definition next_sym_alt_def:
      else (* input not recognised *)
        SOME (ErrorS, Locs loc loc, str))
 Termination
-  WF_REL_TAC ‘measure (LENGTH o FST)’ >> rpt strip_tac >> simp[] >>
-  drule skip_nested_comment_thm >>
-  rename [‘TL str’] >> Cases_on ‘str’ >> gs[]
+  WF_REL_TAC ‘measure (LENGTH o FST)’ >> rpt strip_tac >> simp[] >~
+  [‘skip_nested_comment’]
+  >- (drule skip_nested_comment_thm >> rename [‘TL str’] >> Cases_on ‘str’ >>
+      gs[]) >~
+  [‘skip_eol_comment’]
+  >- (drule skip_eol_comment_thm >> rename [‘TL str’] >> Cases_on ‘str’ >>
+      gs[])
 End
 
 Triviality EVERY_isDigit_imp:
@@ -462,7 +486,9 @@ Proof
   [‘read_string’]
   >- (drule read_string_thm >> simp[]) >~
   [‘read_FFIcall (TL str)’]
-  >- (Cases_on ‘str’ >> gs[] >> drule read_FFIcall_reduces_input >> simp[]) >>
+  >- (Cases_on ‘str’ >> gs[] >> drule read_FFIcall_reduces_input >> simp[]) >~
+  [‘skip_eol_comment’]
+  >- (drule skip_eol_comment_thm >> Cases_on ‘str’ >> gvs[]) >>
   rename [‘TL str’] >> Cases_on ‘str’ >> gs[]
 QED
 
