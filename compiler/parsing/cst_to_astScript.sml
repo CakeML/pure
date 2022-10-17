@@ -126,7 +126,7 @@ Definition astType_def:
      | pt::rest =>
          do
            ty1 <- astType nTyApp pt ;
-           (tys, rest') <- astSepType ArrowT nTyApp rest;
+           (tys, rest') <- astSepType (SymbolT "->") nTyApp rest;
            SOME $ mkFunTy (ty1::tys)
          od
    else if nt1 = nTyApp then
@@ -237,6 +237,7 @@ End
    omitting alpha-ids in backquotes
 *)
 val tabinfo = [
+  ("!!", (10, “Left”)),
   (".", (9, “Right”)),
   ("^", (8, “Right”)),
   ("^^", (8, “Right”)),
@@ -267,7 +268,7 @@ val def = List.foldr (fn ((t,(i,tm)), A) =>
                          (pairSyntax.mk_pair(
                            numSyntax.mk_numeral (Arbnum.fromInt i), tm)),
                       A))
-            “NONE : (num # associativity) option”
+            “SOME(9, Left) : (num # associativity) option”
             tabinfo
 Definition tokprec_def:
 tokprec s = ^def
@@ -425,7 +426,8 @@ Definition astExp_def:
          do
            assert (tokcheck pt1 (SymbolT "\\"));
            (pats,tail) <- grab (astPat nAPat) rest;
-           assert (LIST_REL (λP pt. P pt) [flip tokcheck ArrowT; K T] tail);
+           assert (LIST_REL (λP pt. P pt)
+                   [flip tokcheck (SymbolT "->"); K T] tail);
            body_e <- astExp nExp ' (oEL 1 tail);
            SOME $ FOLDR expAbs body_e pats
          od ++
@@ -546,7 +548,7 @@ Definition astExp_def:
      case args of
        [pat_pt; arrow; exp_pt] =>
          do
-           assert (tokcheck arrow ArrowT);
+           assert (tokcheck arrow (SymbolT "->"));
            ep <- astExp nExp pat_pt ;
            p <- exp_to_pat ep ;
            e <- astExp nExp exp_pt ;

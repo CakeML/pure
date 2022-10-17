@@ -116,7 +116,8 @@ Definition purePEG_def[nocompute]:
                   pegf (NT nTyBase I lrGE) (mkNT nTyApp)]);
 
         (INL nTy,
-         pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=)ArrowT))) (mkNT nTy));
+         pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=) $ SymbolT "->")))
+              (mkNT nTy));
 
         (INL nAPat,
          choicel [pegf (tok lcname_tok mktokLf lrEQ) (mkNT nAPat);
@@ -131,11 +132,7 @@ Definition purePEG_def[nocompute]:
                         tokGT ((=) $ SymbolT "::");
                         NT nTy I lrGT]
                        (mkNT nEqBind)]);
-        (INL nOp,
-         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT ∨
-                  t = SymbolT "-" ∨ t = SymbolT "==")
-             mktokLf
-             lrEQ);
+        (INL nOp, tok isSymbolOpT mktokLf lrEQ);
 
         (INL nIExp,
          seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp2] I) FLAT]
@@ -159,7 +156,7 @@ Definition purePEG_def[nocompute]:
            ]);
         (INL nLSafeExp,
          choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
-                        tokGE ((=) ArrowT);
+                        tokGE ((=) $ SymbolT "->");
                         NTGE nExp] (mkNT nExp);
                   seql [tokGE ((=) IfT); NTGE nExp;
                         tokGE ((=) ThenT); NTGE nExp;
@@ -172,7 +169,7 @@ Definition purePEG_def[nocompute]:
                  ]);
         (INL nLSafeExpEQ,
          choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
-                        tokGE ((=) ArrowT);
+                        tokGE ((=) $ SymbolT "->");
                         NTGE nExp] (mkNT nExp);
                   seql [tokEQ ((=) IfT); NTGE nExp;
                         tokGE ((=) ThenT); NTGE nExp;
@@ -184,7 +181,7 @@ Definition purePEG_def[nocompute]:
                         NTGE nPatAlts] (mkNT nExp);
                  ]);
         (INL nPatAlts, pegf (rpt (NTEQ nPatAlt) FLAT) (mkNT nPatAlts));
-        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) ArrowT); NTGT nExp]
+        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) $ SymbolT "->"); NTGT nExp]
                            (mkNT nPatAlt));
         (INL nExp,
          choicel [NTGE nLSafeExp; pegf (NTGE nIExp) (mkNT nExp)]);

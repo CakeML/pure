@@ -46,4 +46,12 @@ Definition lcname_tok_def:
   od = SOME ()
 End
 
+Definition isSymbolOpT_def:
+  isSymbolOpT t ⇔
+  do
+    s <- destSymbolT t ;
+    assert (s ≠ "<-" ∧ s ≠ "::" ∧ s ≠ "->");
+  od = SOME ()
+End
+
 val _ = export_theory();

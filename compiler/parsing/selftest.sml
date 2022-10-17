@@ -12,27 +12,74 @@ val _ = computeLib.add_funs [pure_lexer_implTheory.get_token_def,
 val gencst = “λn s. ispeg_exec purePEG (nt (INL n) I lrOK) (lexer_fun s)
                              lpTOP [] NONE [] done failed”
 
+fun lex s =
+    EVAL (mk_comb(“MAP FST o pure_lexer_impl$lexer_fun”,
+                  stringSyntax.fromMLstring s))
+
 val fullparse =
     “λn s f. case ispeg_exec purePEG (nt (INL n) I lrOK) (lexer_fun s)
                              lpTOP [] NONE [] done failed
             of
                Result (Success [] [pt] _ _) => f pt
              | _ => (NONE : α option)”;
+val fullparse0 =
+    “λn s. case ispeg_exec purePEG (nt (INL n) I lrOK) (lexer_fun s)
+                             lpTOP [] NONE [] done failed
+            of
+               Result (Success [] [pt] _ _) => SOME pt
+             | _ => NONE”;
+
+fun filetake n f =
+    let val is = TextIO.openIn f
+        fun getlines c A =
+            if c < n then
+              case TextIO.inputLine is of
+                  NONE => String.concat (List.rev A)
+                | SOME line => getlines (c + 1) (line::A)
+            else String.concat (List.rev A)
+    in
+      getlines 0 [] before TextIO.closeIn is
+    end
 
 fun KNL s = String.translate (fn #"\n" => "\\n" | c => str c) s
 fun checkrand t =
     rand t handle HOL_ERR _ =>
     raise mk_HOL_ERR "" "" "Got NONE"
 
+fun maybe_aconv t1 t2 =
+    same_const “option$NONE” t1 orelse aconv t1 t2
+
 val ptree_ty = ty_antiq “: (token,ppegnt, locs) parsetree”
 val ptSOME = “SOME : ^ptree_ty -> ^ptree_ty option”
-fun fptest (nt, s, cf, exp) =
-    (tprint ("Parsing (" ^ term_to_string nt ^ ") \"" ^ KNL s ^ "\"");
-     require_msg (check_result (aconv exp)) term_to_string
+fun fptest0 (nt, s, cf, exp) =
+     require_msg (check_result (maybe_aconv exp)) term_to_string
                  (checkrand o rhs o concl o EVAL)
                  (list_mk_icomb(fullparse,
                                 [nt,stringSyntax.fromMLstring s,
-                                 inst [alpha |-> “:locs”] cf])))
+                                 inst [alpha |-> “:locs”] cf]))
+
+fun lextest (s, t) =
+    (tprint ("Lexing " ^ s);
+     require_msg (check_result (aconv t o rhs o concl)) thm_to_string lex s)
+
+fun fptest (x as (nt, s, cf, exp)) =
+    (tprint ("Parsing (" ^ term_to_string nt ^ ") \"" ^ KNL s ^ "\"");
+     fptest0 x)
+
+fun filetest (fname, NONE) =
+    let val is = TextIO.openIn fname
+        val str = TextIO.inputAll is
+        val _ = TextIO.closeIn is
+    in
+      tprint ("Parsing contents of "^fname);
+      fptest0 (“nDecls”, str, “astDecls”, “NONE”)
+    end
+  | filetest (fname, SOME c) =
+    let val s = filetake c fname
+        val _ = tprint ("Parsing " ^ Int.toString c ^ " lines of " ^ fname)
+    in
+      fptest0 (“nDecls”, s, “astDecls”, “NONE”)
+    end
 fun sp (* simple parse *) nt s =
     EVAL (list_mk_icomb(fullparse, [hd (decls nt), stringSyntax.fromMLstring s,
                                     ptSOME]))
@@ -40,6 +87,11 @@ fun sp (* simple parse *) nt s =
 val threetimesfour = “expApp (expApp (expVar "*") (expLit (litInt 3)))
                              (expLit (litInt 4))”
 val _ = temp_overload_on("𝕀", “λi. expLit (litInt i)”);
+
+val _ = app lextest [("->", “[SymbolT "->"]”),
+                     (": :: <-", “[SymbolT ":"; SymbolT "::"; SymbolT "<-"]”),
+                     ("do x", “[AlphaT "do"; AlphaT "x"]”)]
+
 val _ = app fptest [
   (“nTy”, "[Int]", “astType nTy”, “listTy intTy”),
   (“nTy”, "a -> B", “astType nTy”, “funTy (tyVar "a") (tyOp "B" [])”),
@@ -106,3 +158,5 @@ val _ = app fptest [
    “[declData "Bar" [] [("C", []); ("D", [tyOp "Int" []; tyOp "Bar" []])];
      declTysig "f" (funTy (tyOp "Bar" []) (tyOp "Int" []))]”)
 ]
+
+val _ = app filetest [("test1.hs", NONE)]

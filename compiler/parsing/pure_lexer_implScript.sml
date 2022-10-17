@@ -167,11 +167,9 @@ Definition get_token_def:
                  SymbolT s
              else
                if c ≤ #"," then
-                 if c = #"*" then StarT else
                  if c = #"," then CommaT else
                  SymbolT s
                else
-                 if c = #":" then ColonT else
                  if c = #";" then SemicolonT else
                  SymbolT s
            else
@@ -202,24 +200,16 @@ Definition get_token_def:
                if s = "..." then DotsT else
                SymbolT s
              else
-               if s = ":>" then SealT else
-               if s = "=>" then DarrowT else
                if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
                SymbolT s
            else if c ≤ #"z" then
              if c ≤ #"i" then
                if c ≤ #"e" then
                  if c < #"e" then
-                   if s = "and" then AndT else
-                   if s = "andalso" then AndalsoT else
-                   if s = "as" then AsT else
                    if s = "case" then CaseT else
-                   if s = "datatype" then DatatypeT else
                    AlphaT s
                  else
                    if s = "else" then ElseT else
-                   if s = "end" then EndT else
-                   if s = "eqtype" then EqtypeT else
                    if s = "exception" then ExceptionT else
                    AlphaT s
                else
@@ -237,7 +227,6 @@ Definition get_token_def:
                if c ≤ #"r" then
                  if c = #"l" then
                    if s = "let" then LetT else
-                   if s = "local" then LocalT else
                    AlphaT s
                  else if c = #"o" then
                    if s = "of" then OfT else
@@ -251,11 +240,6 @@ Definition get_token_def:
                    AlphaT s
                else
                  if c = #"s" then
-                   if s = "sharing" then SharingT else
-                   if s = "sig" then SigT else
-                   if s = "signature" then SignatureT else
-                   if s = "struct" then StructT else
-                   if s = "structure" then StructureT else
                    AlphaT s
                  else if c < #"w" then
                    if s = "then" then ThenT else
@@ -506,32 +490,18 @@ End
 
 Definition get_token_def[nocompute]:
   get_token s =
-    if s = "#" then HashT else
     if s = "(" then LparT else
     if s = ")" then RparT else
-    if s = "*" then StarT else
     if s = "," then CommaT else
-    if s = "->" then ArrowT else
-    if s = "..." then DotsT else
-    if s = ":" then ColonT else
-    if s = ":>" then SealT else
     if s = ";" then SemicolonT else
     if s = "=" then EqualsT else
-    if s = "=>" then DarrowT else
     if s = "[" then LbrackT else
     if s = "]" then RbrackT else
-    if s = "_" then UnderbarT else
     if s = "{" then LbraceT else
     if s = "}" then RbraceT else
     if s = "|" then BarT else
-    if s = "and" then AndT else
-    if s = "andalso" then AndalsoT else
-    if s = "as" then AsT else
     if s = "case" then CaseT else
-    if s = "datatype" then DatatypeT else
     if s = "else" then ElseT else
-    if s = "end" then EndT else
-    if s = "eqtype" then EqtypeT else
     if s = "exception" then ExceptionT else
     if s = "fn" then FnT else
     if s = "fun" then FunT else
@@ -546,19 +516,11 @@ Definition get_token_def[nocompute]:
     if s = "open" then OpenT else
     if s = "orelse" then OrelseT else
     if s = "raise" then RaiseT else
-    if s = "rec" then RecT else
-    if s = "sharing" then SharingT else
-    if s = "sig" then SigT else
-    if s = "signature" then SignatureT else
-    if s = "struct" then StructT else
-    if s = "structure" then StructureT else
     if s = "then" then ThenT else
     if s = "type" then TypeT else
-    if s = "val" then ValT else
     if s = "where" then WhereT else
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
-    if s <> "" /\ HD s = #"'" then TyvarT s else
     processIdent s
 End
 
