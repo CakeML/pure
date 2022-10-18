@@ -30,6 +30,7 @@ Datatype:
          | patApp string (patAST list)
          | patTup (patAST list)
          | patLit litAST
+         | patUScore
 End
 
 Datatype:

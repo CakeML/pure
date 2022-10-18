@@ -224,7 +224,11 @@ Definition astPat_def:
        [pt] => do
                 vnm <- astalpha pt;
                 SOME $ patVar vnm
-              od ++ (lift patLit $ astLit pt)
+              od ++ (lift patLit $ astLit pt) ++
+              do
+                assert (tokcheck pt UnderbarT);
+                SOME patUScore
+              od
      | _ => NONE
    else NONE)
 End
@@ -342,7 +346,7 @@ Datatype:
 End
 
 Definition exp_to_pat_def:
-  exp_to_pat (expVar s) = SOME $ patVar s ∧
+  exp_to_pat (expVar s) = (if s = "_" then SOME $ patUScore else SOME $ patVar s) ∧
   exp_to_pat (expCon s es) = OPTION_MAP (patApp s) (OPT_MMAP exp_to_pat es) ∧
   exp_to_pat (expTup es) = OPTION_MAP patTup (OPT_MMAP exp_to_pat es) ∧
   exp_to_pat (expLit l) = SOME $ patLit l ∧
@@ -384,7 +388,11 @@ Definition astExp_def:
          do
            vnm <- destAlphaT ' (destTOK ' (destLf pt)) ;
            SOME $ mkSym vnm
-         od ++ (lift expLit $ astLit pt)
+         od ++ (lift expLit $ astLit pt) ++
+         do
+           assert (tokcheck pt UnderbarT) ;
+           SOME $ expVar "_"
+         od
      | [lp;rp] =>
          do
            assert (tokcheck lp LparT ∧ tokcheck rp RparT);

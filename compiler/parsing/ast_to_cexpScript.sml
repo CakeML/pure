@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 
 open pureASTTheory mlmapTheory pure_cexpTheory mlstringTheory
+open pairTheory optionTheory
 
 val _ = new_theory "ast_to_cexp";
 
@@ -63,6 +64,26 @@ Definition translate_headop_def:
   translate_headop e = App () e (* forces unit *)
 End
 
+Definition dest_patVar_def:
+  dest_patVar (patVar s) = SOME (implode s) ∧
+  dest_patVar _ = NONE
+End
+
+Definition translate_pat_def:
+  translate_pat (patTup pvs) =
+  do
+    vs <- OPT_MMAP dest_patVar pvs ;
+    SOME («», vs)
+  od ∧
+  translate_pat (patApp s pvs) =
+  do
+    vs <- OPT_MMAP dest_patVar pvs ;
+    SOME (implode s, vs)
+  od ∧
+  translate_pat _ = NONE
+End
+
+
 Definition translate_exp_def:
   translate_exp conmap (expVar s) = SOME (Var () (implode s)) ∧
   translate_exp conmap (expCon s es) =
@@ -108,6 +129,24 @@ Definition translate_exp_def:
      bodyce <- translate_exp conmap body;
      SOME (Letrec () recbinds bodyce)
    od) ∧
+  (translate_exp conmap (expCase ge pats) =
+   do
+     assert (pats ≠ []);
+     g <- translate_exp conmap ge;
+     (pats',usopt) <<-
+        case LAST pats of
+          (patUScore, ue) => (FRONT pats, SOME ue)
+        | _ => (pats, NONE) ;
+     pes <- OPT_MMAP (λ(p_e,rhs_e). do
+                                      (conname, conargs) <- translate_pat p_e ;
+                                      rhs <- translate_exp conmap rhs_e ;
+                                      return (conname, conargs, rhs)
+                                    od)
+                     pats' ;
+     (ceopt : unit cexp option) <- OPTION_MAP (translate_exp conmap) usopt ;
+     return (pure_cexp$Case () g «» pes ceopt)
+   od) ∧
+
   (translate_edecs conmap [] = SOME []) ∧
   (translate_edecs conmap (d :: ds) =
    do
@@ -133,9 +172,26 @@ Termination
                   INL (_, e) => pureAST$expAST_size e
                 | INR (_, ds) => list_size expdecAST_size ds)’ >>
   rw[] >> simp[] >>
-  rpt (qpat_x_assum ‘_ = strip_comb _’ (assume_tac o SYM)) >>
-  drule_then strip_assume_tac strip_comb_reduces_size >> simp[] >>
-  first_x_assum drule >> simp[]
+  rpt (qpat_x_assum ‘_ = strip_comb _’ (assume_tac o SYM)) >>~-
+  ([‘strip_comb’],
+   drule_then strip_assume_tac strip_comb_reduces_size >> simp[] >>
+   first_x_assum drule >> simp[]) >~
+  [‘OPT_MMAP’]
+  >- (gvs[AllCaseEqs()] >> rename [‘LAST pats’] >> Cases_on ‘pats’ >> gvs[] >>
+      rename [‘LAST (pe::pes) = (patUScore, e)’] >>
+      ‘MEM (patUScore, e) (pe::pes)’ by metis_tac[rich_listTheory.MEM_LAST] >>
+      pop_assum mp_tac >> rpt (pop_assum kall_tac) >>
+      qspec_tac (‘pe::pes’, ‘pes’) >> Induct_on ‘pes’ >>
+      simp[expAST_size_def, FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
+      rpt strip_tac >> gs[]) >>
+  rename [‘MEM (p_e, rhs_e) pats'’, ‘LAST pats’] >>
+  ‘MEM (p_e, rhs_e) pats’
+    by (gvs[AllCaseEqs()] >> Cases_on ‘pats’ >> gvs[] >>
+        drule rich_listTheory.MEM_FRONT >> simp[]) >>
+  pop_assum mp_tac >> rpt (pop_assum kall_tac) >>
+  Induct_on ‘pats’ >>
+  simp[expAST_size_def, FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
+  rpt strip_tac >> gs[]
 End
 
 (* passes over declarations; ignoring type annotations because they're

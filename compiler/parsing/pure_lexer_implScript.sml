@@ -398,6 +398,7 @@ Definition get_token_def[nocompute]:
     if s = "{" then LbraceT else
     if s = "}" then RbraceT else
     if s = "|" then BarT else
+    if s = "_" then UnderbarT else
     if s = "case" then CaseT else
     if s = "else" then ElseT else
     if s = "exception" then ExceptionT else
