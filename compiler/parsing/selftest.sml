@@ -93,7 +93,8 @@ val _ = temp_overload_on("𝕁", “λi. Prim () (AtomOp (Lit (Int i))) []”);
 val _ = temp_overload_on("𝕍", “pure_cexp$Var ()”)
 val _ = temp_overload_on("ASTEXP", “astExp nExp”)
 val _ = temp_overload_on("CEXP",
-  “λcst : (token,ppegnt,locs)parsetree. OPTION_BIND (ASTEXP cst) (translate_exp LN)”)
+  “flip (OPTION_BIND o ASTEXP) (translate_exp LN)
+    : (token, ppegnt, locs) parsetree -> unit cexp option”)
 
 val _ = temp_overload_on("::ₑ", “λh t. Prim () (Cons «:») [h; t]”)
 val _ = temp_set_fixity "::ₑ" (Infixr 490)
@@ -177,14 +178,24 @@ val _ = app fptest [
    “astExp nExp”,
    “expCase ‹e› [(patApp "[]" [], 𝕀 3);
                  (patApp ":" [patVar "h"; patVar "t"], 𝕀 4)]”),
+  (“nExp”, "case e of [] -> 3\n\
+           \          h:t -> 4",
+   “CEXP”,
+   “Case () (𝕍 «e») «» [(«[]», [], 𝕁 3); («:», [«h»; «t»], 𝕁 4)] NONE”),
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
    “astExp nExp”,
     “expCase ‹e› [(patApp ":" [patVar "h"; patVar "t"], 𝕀 3); (patUScore, 𝕀 10)]”),
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
-   “λcst. OPTION_BIND (astExp nExp cst) (translate_exp LN)”,
+   “CEXP”,
    “Case () (𝕍 «e») «» [(«:», [«h»; «t»], 𝕁 3)] (SOME (𝕁 10))”),
+  (“nExp”, "case e of h : t -> 3",
+   “astExp nExp”,
+   “expCase ‹e› [(patApp ":" [patVar "h"; patVar "t"], 𝕀 3)]”),
+  (“nExp”, "case e of h : t -> 3",
+   “CEXP”,
+   “Case () (𝕍 «e») «» [(«:», [«h»; «t»], 𝕁 3)] NONE”),
   (“nDecl”, "f :: a -> Int", “astDecl”,
    “declTysig "f" (funTy (tyVar "a") (tyOp "Int" []))”),
   (“nDecl”, "f x y = x + y", “astDecl”,

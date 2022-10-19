@@ -143,7 +143,10 @@ Definition translate_exp_def:
                                       return (conname, conargs, rhs)
                                     od)
                      pats' ;
-     (ceopt : unit cexp option) <- OPTION_MAP (translate_exp conmap) usopt ;
+     (ceopt : unit cexp option) <-
+       case usopt of
+         NONE => SOME NONE
+       | SOME us_e => do e <- translate_exp conmap us_e ; return (SOME e) od ;
      return (pure_cexp$Case () g «» pes ceopt)
    od) ∧
 
