@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib;
 
 open pureASTTheory mlmapTheory pure_cexpTheory mlstringTheory
-open pairTheory optionTheory
+open pairTheory optionTheory pure_typingTheory
 
 val _ = new_theory "ast_to_cexp";
 
-val _ = set_grammar_ancestry ["pureAST", "mlmap", "pure_cexp"]
+val _ = set_grammar_ancestry ["pureAST", "mlmap", "pure_cexp", "pure_typing"]
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
@@ -14,8 +14,8 @@ Definition build_conmap_def:
   build_conmap A [] = A ∧
   build_conmap A (d :: ds) =
   case d of
-    declData _ _ cons =>
-      build_conmap (FOLDL (λA (cnm,_). insert A (implode cnm) cons) A cons) ds
+    declData opnm args cons =>
+      build_conmap (insert A (implode opnm) (args, cons)) ds
   | _ => build_conmap A ds
 End
 
@@ -199,7 +199,7 @@ End
 
 (* passes over declarations; ignoring type annotations because they're
    not handled; and ignoring datatype declarations because they've already
-   been extracted into the conmap
+   been extracted
  *)
 Definition translate_decs_def:
   translate_decs conmap [] = SOME [] ∧
@@ -218,17 +218,6 @@ Definition translate_decs_def:
     v <- dest_pvar p ;
     ce <- translate_exp conmap e ;
     SOME ((v,ce) :: rest)
-  od
-End
-
-Overload str_compare = “mlstring$compare”
-
-Definition decls_to_letrec_def:
-  decls_to_letrec ds =
-  do
-    conmap <<- build_conmap (mlmap$empty str_compare) ds ;
-    binds <- translate_decs conmap ds ;
-    SOME (Letrec () binds (App () (Var () «main») [Prim () (Cons «») []]))
   od
 End
 
@@ -279,8 +268,108 @@ Proof
   gvs[FORALL_AND_THM, listTheory.MEM_FILTER]
 QED
 
+(* nm_map maps type-operator names to their indices in the typing
+   signature/map; the arg_map maps type variables (the vector vs after
+   something like data Op vs = ...) into integers
+ *)
+
+Definition translate_type_def:
+  translate_type nm_map arg_map (tyOp s tys) =
+  (if s = "Fun" then
+     do
+       assert (LENGTH tys = 2);
+       d <- translate_type nm_map arg_map (EL 0 tys);
+       r <- translate_type nm_map arg_map (EL 1 tys);
+       return (pure_typing$Function d r)
+     od
+   else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
+   else if s = "Integer" then do assert (tys = []); return $ PrimTy Integer od
+   else if s = "String" then do assert (tys = []); return $ PrimTy String od
+   else if s = "M" then do assert (LENGTH tys = 1);
+                           t <- translate_type nm_map arg_map (HD tys);
+                           return $ M t;
+                        od
+   else if s = "Array" then do assert (LENGTH tys = 1);
+                               t <- translate_type nm_map arg_map (HD tys);
+                               return $ Array t;
+                            od
+   else
+     do
+       opidx <- lookup nm_map (implode s) ;
+       args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
+       return $ TypeCons opidx args
+     od) ∧
+
+  translate_type nm_map arg_map (tyVar s) =
+  do
+    varidx <- lookup arg_map (implode s);
+    return $ TypeVar varidx
+  od ∧
+
+  translate_type nm_map arg_map (tyTup tys) =
+  do
+    args <- OPT_MMAP (translate_type nm_map arg_map) tys;
+    return $ Tuple args;
+  od
+Termination
+  WF_REL_TAC ‘measure (λ(_,_,ty). tyAST_size ty)’ >> rw[] >>
+  rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >> gvs[tyAST_size_def] >>
+  rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >> gvs[tyAST_size_def]
+End
 
 
+Overload str_compare = “mlstring$compare”
+
+(*  (n (* idx *),
+     [(mlstring (* con-name *),
+       [pure_typing$type] (* con arg-types *))])
+ *)
+
+Definition MFOLDL_def:
+  MFOLDL f [] A = SOME A ∧
+  MFOLDL f (h::t) A =
+  do
+    A' <- f h A ;
+    MFOLDL f t A'
+  od
+End
+
+Definition build_tysig1_def:
+  build_tysig1 (opname, (vs, cons)) (numops :num, nm_map, sig) =
+  do
+    nm_map' <<- mlmap$insert nm_map opname numops ;
+    (arg_map, numvs) <<-
+      FOLDL (λ(m,i) v. (mlmap$insert m (implode v) i, i + 1))
+            (empty str_compare, 0n)
+            vs;
+    coninfo <-
+       let
+         mapthis (c, tys) =
+         do
+           tys' <- OPT_MMAP (translate_type nm_map' arg_map) tys;
+           return (implode c, tys') ;
+         od
+       in
+         OPT_MMAP mapthis cons;
+    return (numops + 1, nm_map', (numops, coninfo) :: sig)
+  od
+End
+
+
+Definition decls_to_letrec_def:
+  decls_to_letrec ds =
+  do
+    conmap <<- build_conmap (mlmap$empty str_compare) ds ;
+    (nops, nm_map, sig0) <-
+      MFOLDL
+        build_tysig1
+        (toAscList conmap)
+        (1n, insert (empty str_compare) «[]» 0n, SND initial_namespace) ;
+    binds <- translate_decs conmap ds ;
+    SOME (Letrec () binds (App () (Var () «main») [Prim () (Cons «») []]),
+          REVERSE sig0)
+  od
+End
 
 
 val _ = export_theory();
