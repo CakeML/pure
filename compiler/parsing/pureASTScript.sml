@@ -18,7 +18,7 @@ End
 
 Overload boolTy = “tyOp "Bool" []”;
 Overload intTy = “tyOp "Int" []”
-Overload listTy = “λty. tyOp "List" [ty]”
+Overload listTy = “λty. tyOp "[]" [ty]”
 Overload funTy = “λd r. tyOp "Fun" [d; r]”
 
 Datatype:

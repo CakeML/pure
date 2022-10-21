@@ -335,9 +335,8 @@ Definition MFOLDL_def:
 End
 
 Definition build_tysig1_def:
-  build_tysig1 (opname, (vs, cons)) (numops :num, nm_map, sig) =
+  build_tysig1 nm_map (opname, (vs, cons)) sig =
   do
-    nm_map' <<- mlmap$insert nm_map opname numops ;
     (arg_map, numvs) <<-
       FOLDL (λ(m,i) v. (mlmap$insert m (implode v) i, i + 1))
             (empty str_compare, 0n)
@@ -346,12 +345,12 @@ Definition build_tysig1_def:
        let
          mapthis (c, tys) =
          do
-           tys' <- OPT_MMAP (translate_type nm_map' arg_map) tys;
+           tys' <- OPT_MMAP (translate_type nm_map arg_map) tys;
            return (implode c, tys') ;
          od
        in
          OPT_MMAP mapthis cons;
-    return (numops + 1, nm_map', (numops, coninfo) :: sig)
+    return ((numvs, coninfo) :: sig)
   od
 End
 
@@ -360,11 +359,11 @@ Definition decls_to_letrec_def:
   decls_to_letrec ds =
   do
     conmap <<- build_conmap (mlmap$empty str_compare) ds ;
-    (nops, nm_map, sig0) <-
-      MFOLDL
-        build_tysig1
-        (toAscList conmap)
-        (1n, insert (empty str_compare) «[]» 0n, SND initial_namespace) ;
+    conmap_l <<- toAscList conmap ;
+    (nm_map, nops) <<- FOLDL (λ(m,i) (opn, info). (insert m opn i, i + 1))
+                             (insert (empty str_compare) «[]» 0n, 1)
+                             conmap_l ;
+    sig0 <- MFOLDL (build_tysig1 nm_map) conmap_l (SND initial_namespace) ;
     binds <- translate_decs conmap ds ;
     SOME (Letrec () binds (App () (Var () «main») [Prim () (Cons «») []]),
           REVERSE sig0)

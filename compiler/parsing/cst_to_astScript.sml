@@ -108,7 +108,7 @@ Definition astType_def:
            else if t = LbrackT then
              do
                assert(tokcheck rd RbrackT);
-               SOME $ tyOp "List" [ty]
+               SOME $ tyOp "[]" [ty]
              od
            else NONE
          od

@@ -95,6 +95,12 @@ val _ = temp_overload_on("ASTEXP", “astExp nExp”)
 val _ = temp_overload_on("CEXP",
   “flip (OPTION_BIND o ASTEXP) (translate_exp LN)
     : (token, ppegnt, locs) parsetree -> unit cexp option”)
+val _ = temp_overload_on ("CMAIN",
+                          “(App () (𝕍«main») [Prim () (Cons «») []])”);
+
+val _ = temp_overload_on ("CDECLS",
+                          inst [alpha |-> “:locs”]
+                               “flip (OPTION_BIND o astDecls) decls_to_letrec”);
 
 val _ = temp_overload_on("::ₑ", “λh t. Prim () (Cons «:») [h; t]”)
 val _ = temp_set_fixity "::ₑ" (Infixr 490)
@@ -204,10 +210,31 @@ val _ = app fptest [
    “declPatbind (patApp ":" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
   (“nDecl”, "data Foo a = C a Int | D [Int]", “astDecl”,
    “declData "Foo" ["a"] [("C", [tyVar "a"; tyOp "Int" []]);
-                          ("D", [tyOp "List" [tyOp "Int"[]]])]”),
+                          ("D", [tyOp "[]" [tyOp "Int"[]]])]”),
   (“nDecls”, "data Bar = C | D Int Bar\nf:: Bar -> Int", “astDecls”,
    “[declData "Bar" [] [("C", []); ("D", [tyOp "Int" []; tyOp "Bar" []])];
-     declTysig "f" (funTy (tyOp "Bar" []) (tyOp "Int" []))]”)
+     declTysig "f" (funTy (tyOp "Bar" []) (tyOp "Int" []))]”),
+  (“nDecls”, "data Bar = C | D Integer Bar\nf:: Bar -> Integer", “CDECLS”,
+   “(Letrec () [] CMAIN,
+     [(1n, [(«[]»,[]); («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
+      (0n, [(«C»,[]); («D»,[PrimTy Integer; TypeCons 1 []])])])”),
+  (“nDecls”, "f x = x + 1\ndata Foo a b = C Bool a Integer | D b [Foo a b]",
+   “CDECLS”,
+   “(Letrec () [(«f», Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1))] CMAIN,
+     [(1n,[(«[]»,[]); («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
+      (2n,
+       [(«C»,[PrimTy Bool; TypeVar 0; PrimTy Integer]);
+        («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0; TypeVar 1]]])])])”),
+  (“nDecls”, "data Foo a b = C Bool a Integer | D b [Bar a]\n\
+             \data Bar d = E d | F (Foo d Integer)\n\
+             \f x = x + 1\n", “CDECLS”,
+   “(Letrec () [(«f»,Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1))] CMAIN,
+     [(1n,[(«[]»,[]); («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
+      (1n,
+       [(«E»,[TypeVar 0]); («F»,[TypeCons 2 [TypeVar 0; PrimTy Integer]])]);
+      (2n,
+       [(«C»,[PrimTy Bool; TypeVar 0; PrimTy Integer]);
+        («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0]]])])])”)
 ]
 
 val _ = app filetest [("test1.hs", NONE)]
