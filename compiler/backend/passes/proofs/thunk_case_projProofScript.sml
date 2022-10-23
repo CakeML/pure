@@ -1179,34 +1179,12 @@ End
 Overload tick_rel = “thunk_tickProof$exp_rel”
 Overload mktick_rel = “thunk_untickProof$exp_rel”
 
-Theorem compile_case_proj_semantics:
-  closed x ∧
-  compile_rel x y ∧
-  pure_semantics$safe_itree (semantics x Done []) ⇒
-    closed y ∧
-    semantics x Done [] = semantics y Done []
+Theorem compile_rel_thm:
+  ∀x y.
+    compile_rel x y ⇒
+    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ mktick_rel y1 y
 Proof
-  qsuff_tac ‘compile_rel x y ⇒
-    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ mktick_rel y1 y’
-  >- (rw [] \\ gvs []
-      >-
-       (imp_res_tac exp_rel_freevars \\ gvs [closed_def]
-        \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
-        \\ imp_res_tac thunk_untickProofTheory.exp_rel_freevars \\ gvs [])
-      \\ imp_res_tac tick_semantics
-      \\ fs []
-      \\ drule case_proj_semantics
-      \\ impl_tac >-
-       (imp_res_tac thunk_tickProofTheory.exp_rel_freevars
-        \\ fs [closed_def])
-      \\ strip_tac \\ gvs []
-      \\ irule untick_semantics
-      \\ fs []
-      \\ imp_res_tac exp_rel_freevars \\ gvs [closed_def]
-      \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs [])
-  \\ qid_spec_tac ‘y’
-  \\ qid_spec_tac ‘x’
-  \\ Induct_on ‘compile_rel’ \\ rw []
+  Induct_on ‘compile_rel’ \\ rw []
   >-
    (irule_at Any exp_rel_Proj
     \\ first_x_assum $ irule_at $ Pos hd
@@ -1342,6 +1320,38 @@ Proof
   \\ ntac 3 strip_tac
   \\ gvs [thunk_untickProofTheory.ok_bind_def]
   \\ fs [Once exp_rel_cases]
+QED
+
+Theorem compile_rel_closed:
+  compile_rel x y ∧
+  closed x ⇒
+  closed y
+Proof
+  rw [] \\ drule_all compile_rel_thm \\ rw []
+  \\ imp_res_tac exp_rel_freevars \\ gvs [closed_def]
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
+  \\ imp_res_tac thunk_untickProofTheory.exp_rel_freevars \\ gvs []
+QED
+
+Theorem compile_case_proj_semantics:
+  closed x ∧
+  compile_rel x y ∧
+  pure_semantics$safe_itree (semantics x Done []) ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  rw [] \\ gvs []
+  \\ drule_all compile_rel_thm \\ strip_tac
+  \\ imp_res_tac tick_semantics
+  \\ fs []
+  \\ drule case_proj_semantics
+  \\ impl_tac >-
+   (imp_res_tac thunk_tickProofTheory.exp_rel_freevars
+    \\ fs [closed_def])
+  \\ strip_tac \\ gvs []
+  \\ irule untick_semantics
+  \\ fs []
+  \\ imp_res_tac exp_rel_freevars \\ gvs [closed_def]
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
 QED
 
 val _ = export_theory ();
