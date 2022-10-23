@@ -173,6 +173,12 @@ Proof
   Cases \\ rw [ok_bind_def] \\ gs [subst_def]
 QED
 
+Theorem exp_rel_freevars:
+  exp_rel x y ⇒ freevars x = freevars y
+Proof
+  cheat
+QED
+
 Theorem exp_rel_subst:
   ∀vs x ws y.
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
