@@ -703,20 +703,14 @@ End
 
 Overload tick_rel = “thunk_tickProof$exp_rel”
 
-Theorem compile_rel_semantics:
-  compile_rel x y ∧
-  closed x ⇒
-    semantics x Done [] = semantics y Done []
+Theorem compile_rel_compose:
+  compile_rel x y ⇒
+    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ tick_rel y y1
 Proof
   qsuff_tac ‘compile_rel x y ⇒
     ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ tick_rel y y1 ∧
             (ok_bind x ⇒ ok_bind x1 ∧ ok_bind y1)’
-  >- (rw [] \\ gvs []
-      \\ drule case_lift_semantics
-      \\ imp_res_tac tick_semantics
-      \\ gvs [thunkLangTheory.closed_def]
-      \\ imp_res_tac exp_rel_freevars \\ gvs []
-      \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs [])
+  >- metis_tac []
   \\ qid_spec_tac ‘y’
   \\ qid_spec_tac ‘x’
   \\ Induct_on ‘compile_rel’ \\ rw []
@@ -784,6 +778,28 @@ Proof
   \\ last_x_assum mp_tac
   \\ simp [Once compile_rel_cases]
   \\ rw [] \\ fs []
+QED
+
+Theorem compile_rel_freevars:
+  compile_rel x y ⇒ freevars x = freevars y
+Proof
+  rw [] \\ drule_then strip_assume_tac compile_rel_compose
+  \\ imp_res_tac exp_rel_freevars \\ gvs []
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
+QED
+
+Theorem compile_rel_semantics:
+  compile_rel x y ∧
+  closed x ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  rw []
+  \\ drule_then strip_assume_tac compile_rel_compose
+  \\ drule case_lift_semantics
+  \\ imp_res_tac tick_semantics
+  \\ gvs [thunkLangTheory.closed_def]
+  \\ imp_res_tac exp_rel_freevars \\ gvs []
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
 QED
 
 val _ = export_theory ();

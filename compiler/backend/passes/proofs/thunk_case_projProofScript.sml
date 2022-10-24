@@ -177,10 +177,33 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
 
+Triviality LIST_REL_IMP_MAP_FST_EQ:
+  ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
+        MAP FST f = MAP FST g
+Proof
+  Induct \\ fs [PULL_EXISTS]
+QED
+
 Theorem exp_rel_freevars:
   exp_rel x y ⇒ freevars x = freevars y
 Proof
-  cheat
+  qsuff_tac ‘(∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧ (∀v1 v2. v_rel v1 v2 ⇒ T)’
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ ho_match_mp_tac exp_rel_ind
+  \\ rw [] \\ fs [freevars_def]
+  >~ [‘ok_binder’] >-
+   (drule LIST_REL_IMP_MAP_FST_EQ \\ fs [FORALL_PROD]
+    \\ rw [] \\ AP_THM_TAC
+    \\ ntac 4  AP_TERM_TAC
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac ‘g’
+    \\ qid_spec_tac ‘f’
+    \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD])
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘ys’
+  \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs []
 QED
 
 Theorem ok_binder_subst[local,simp]:

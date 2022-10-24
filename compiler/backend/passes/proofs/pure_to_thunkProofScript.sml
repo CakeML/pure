@@ -388,4 +388,40 @@ Proof
     \\ EVAL_TAC \\ fs [])
 QED
 
+Theorem exp_rel_semantics:
+  ∀x y.
+    exp_rel x y ∧ cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
+    pure_semantics$safe_itree (semantics (exp_of x) Done [])
+    ⇒
+    closed (exp_of y) ∧
+    semantics (exp_of x) Done [] = semantics (exp_of y) Done []
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ drule_all_then strip_assume_tac exp_rel_imp_combined
+  \\ drule_then assume_tac exp_of_exp_eq
+  \\ ‘closed (exp_of' x)’ by
+    fs [pure_expTheory.closed_def,expof_caseProofTheory.freevars_exp_of']
+  \\ ‘semantics (exp_of x) Done [] = semantics (exp_of' x) Done []’ by
+    (simp_tac pure_ss [Once EQ_SYM_EQ]
+     \\ irule_at Any pure_obs_sem_equalTheory.bisimilarity_IMP_semantics_eq
+     \\ fs [pure_exp_relTheory.app_bisimilarity_eq])
+  \\ fs []
+  \\ drule_all compile_semantics
+  \\ strip_tac \\ fs []
+  \\ drule compile_rel_semantics
+  \\ impl_keep_tac >-
+   (imp_res_tac pure_to_thunk_1ProofTheory.compile_rel_freevars
+    \\ fs [closed_def,pure_expTheory.closed_def])
+  \\ strip_tac \\ fs []
+  \\ drule case_force_semantics \\ fs []
+  \\ impl_keep_tac >-
+   (imp_res_tac thunk_case_liftProofTheory.compile_rel_freevars \\ fs [closed_def])
+  \\ strip_tac \\ fs []
+  \\ irule_at Any compile_rel_closed \\ fs []
+  \\ first_assum $ irule_at $ Pos hd
+  \\ irule_at Any compile_case_proj_semantics \\ fs []
+  \\ drule exp_rel_NONE_freevars
+  \\ fs [closed_def]
+QED
+
 val _ = export_theory ();

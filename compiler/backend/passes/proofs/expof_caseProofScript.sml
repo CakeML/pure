@@ -272,4 +272,44 @@ Proof
     \\ irule_at Any PAIR)
 QED
 
+Triviality freevars_lets_for':
+  ∀xs n x y.
+    freevars (exp_of' p_2) = freevars (exp_of p_2) ⇒
+    freevars (lets_for' n x y xs (exp_of' p_2)) =
+    freevars (lets_for x y xs (exp_of p_2))
+Proof
+  simp [] \\ Induct
+  \\ fs [lets_for_def,lets_for'_def,FORALL_PROD]
+  \\ rw [] \\ fs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem freevars_exp_of':
+  ∀x. NestedCase_free x ⇒ freevars (exp_of' x) = freevars (exp_of x)
+Proof
+  ho_match_mp_tac exp_of_ind \\ rw []
+  \\ fs [exp_of_def,exp_of'_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+  >-
+   (rpt AP_TERM_TAC \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ gvs [])
+  >-
+   (rpt AP_TERM_TAC \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ gvs [])
+  >-
+   (AP_THM_TAC \\ rpt AP_TERM_TAC \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘rs’ \\ Induct \\ gvs [SF DNF_ss,FORALL_PROD]
+    \\ metis_tac [])
+  \\ IF_CASES_TAC \\ fs []
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ pop_assum kall_tac
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘rs’ \\ Induct \\ fs [rows_of_def,rows_of'_def,FORALL_PROD]
+  \\ TRY (Cases_on ‘eopt’ \\ fs [] \\ NO_TAC)
+  \\ fs [SF DNF_ss] \\ rw [] \\ gvs []
+  \\ DEP_REWRITE_TAC [freevars_lets_for']
+  \\ fs [] \\ metis_tac []
+QED
+
 val _ = export_theory ();
