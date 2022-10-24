@@ -924,8 +924,8 @@ Proof
       \\ qexists_tac ‘[Loc n; Int i]’ \\ fs []
       \\ gvs [GSYM arithmeticTheory.NOT_LESS]
       \\ simp [Once v_rel_cases]
-      \\ simp [Once v_rel_cases]
-      \\ cheat (* needs tweak to stateLang *))
+      \\ ‘Num i < LENGTH (EL n t)’ by (Cases_on ‘i’ \\ fs [])
+      \\ metis_tac [])
     \\ ‘LENGTH (EL n t) = LENGTH (EL n s)’ by gvs [LIST_REL_EL_EQN]
     \\ simp [] \\ gvs []
     \\ first_x_assum $ qspec_then ‘[Loc n; Int i]’ mp_tac

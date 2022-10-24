@@ -18,6 +18,9 @@ Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
 Overload "ret" = “λx. app (Let (SOME "v") x $
                              Let (SOME "v") (Delay (Var "v")) $
                                Lam NONE (Var "v")) Unit”
+Overload "raw_ret" = “λx. app (Let (SOME "v") x $
+                             Let (SOME "v") (Var "v") $
+                               Lam NONE (Var "v")) Unit”
 
 (****************************************)
 
@@ -62,8 +65,8 @@ Inductive compile_rel:
 [~Deref:]
   (compile_rel tl sl ∧ compile_rel ti si ⇒
   compile_rel (Prim (Cons "Deref") [Delay tl; Delay ti])
-              (Lam NONE $ ret (Handle (App Sub [sl; si]) "v"
-                                      (Raise (Delay (Var "v")))))) ∧
+              (Lam NONE $ raw_ret (Handle (App Sub [sl; si]) "v"
+                                          (Raise (Delay (Var "v")))))) ∧
 
 [~Update:]
   (compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ⇒
@@ -235,7 +238,7 @@ Inductive v_rel:
      compile_rel tl sl ∧ compile_rel ti si ∧ env_rel tenv senv ⇒
      v_rel
        (Constructor "Deref" [Thunk (INR (tenv,tl)); Thunk (INR (tenv,ti))])
-       (Closure NONE senv (ret (Handle (App Sub [sl; si]) "v"
+       (Closure NONE senv (raw_ret (Handle (App Sub [sl; si]) "v"
                                        (Raise (Delay (Var "v"))))))) ∧
 
 [~Update:]
@@ -1552,7 +1555,7 @@ Proof
                                  ‘AppK senv Sub [] [sl]::
                HandleK senv "v" (Raise (Delay (Var "v")))::
                LetK senv (SOME "v")
-                 (Let (SOME "v") (Delay (Var "v")) (Lam NONE (Var "v")))::
+                 (Let (SOME "v") (Var "v") (Lam NONE (Var "v")))::
                AppK senv AppOp [Constructor "" []] []::sk’] strip_assume_tac
     \\ gvs []
     >-
@@ -1566,7 +1569,7 @@ Proof
                                  ‘AppK senv Sub [sv] []::
                HandleK senv "v" (Raise (Delay (Var "v")))::
                LetK senv (SOME "v")
-                 (Let (SOME "v") (Delay (Var "v")) (Lam NONE (Var "v")))::
+                 (Let (SOME "v") (Var "v") (Lam NONE (Var "v")))::
                AppK senv AppOp [Constructor "" []] []::sk’] strip_assume_tac
     \\ gvs []
     >-
