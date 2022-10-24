@@ -612,6 +612,29 @@ Definition next_rel_def[simp]:
   next_rel (_: (string # string) thunk_semantics$next_res) _ = F
 End
 
+Triviality LIST_REL_ALOOKUP_lemma:
+  ∀f g s.
+    LIST_REL (λ(fn,b) (gn,c). fn = gn ∧ exp_rel xs b c) f g ⇒
+    ALOOKUP f s = NONE ∧ ALOOKUP g s = NONE ∨
+    ∃b c.
+      ALOOKUP f s = SOME b ∧
+      ALOOKUP g s = SOME c ∧ exp_rel xs b c
+Proof
+  Induct \\ fs [PULL_EXISTS,FORALL_PROD]
+  \\ rpt gen_tac \\ strip_tac
+  \\ IF_CASES_TAC \\ fs []
+QED
+
+Theorem LIST_REL_MAP_MAP:
+  ∀xs ys f g.
+    LIST_REL P (MAP f xs) (MAP g ys) ⇔
+    LIST_REL (λx y. P (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on ‘ys’ \\ gvs []
+QED
+
 Theorem force_thm:
   ∀v w. v_rel v w ⇒ ($= +++ v_rel) (force v) (force w)
 Proof
@@ -622,7 +645,31 @@ Proof
   \\ rw [] \\ gvs []
   >~ [‘subst_funs []’]
   >- (fs [subst_funs_def] \\ imp_res_tac eval_exp_rel \\ fs [])
-  \\ cheat
+  \\ drule LIST_REL_ALOOKUP_lemma
+  \\ disch_then $ qspec_then ‘s’ strip_assume_tac
+  \\ fs []
+  \\ pop_assum mp_tac
+  \\ simp [Once exp_rel_cases]
+  \\ strip_tac \\ gvs []
+  \\ fs [subst_funs_def]
+  \\ irule eval_exp_rel
+  \\ irule exp_rel_subst
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+  \\ fs [MEM_MAP,FORALL_PROD]
+  \\ fs [env_rel_def]
+  \\ fs [GSYM MAP_REVERSE]
+  \\ simp [LIST_REL_MAP_MAP,LAMBDA_PROD]
+  \\ fs [LIST_REL_EL_EQN]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs []
+  \\ rw [LAMBDA_PROD]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs []
+  \\ first_assum drule
+  \\ asm_rewrite_tac []
+  \\ fs [] \\ rw []
+  \\ simp [Once v_rel_cases]
+  \\ fs [LIST_REL_EL_EQN,MEM_MAP,FORALL_PROD]
 QED
 
 Theorem apply_closure_thm:
@@ -636,7 +683,48 @@ Proof
   fs [apply_closure_def,env_semanticsTheory.apply_closure_def]
   \\ fs [dest_anyClosure_def,envLangTheory.dest_anyClosure_def]
   \\ simp [Once v_rel_cases] \\ rw [] \\ gvs []
-  \\ cheat
+  >-
+   (first_x_assum irule
+    \\ irule eval_exp_rel
+    \\ once_rewrite_tac [GSYM (EVAL “[x:'a] ++ xs”)]
+    \\ irule exp_rel_subst \\ fs []
+    \\ fs [env_rel_def]
+    \\ last_x_assum mp_tac
+    \\ simp [Once exp_rel_cases])
+  \\ drule LIST_REL_ALOOKUP_lemma
+  \\ disch_then $ qspec_then ‘n’ strip_assume_tac
+  \\ fs []
+  \\ pop_assum mp_tac
+  \\ simp [Once exp_rel_cases]
+  \\ strip_tac \\ gvs []
+  \\ first_assum irule
+  \\ irule eval_exp_rel
+  \\ rewrite_tac [APPEND |> CONJUNCT2 |> GSYM]
+  \\ irule exp_rel_subst
+  \\ simp [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FILTER_FILTER]
+  \\ fs [MEM_MAP,FORALL_PROD,FILTER_FILTER]
+  \\ reverse conj_tac
+  >-
+   (pop_assum mp_tac
+    \\ match_mp_tac (METIS_PROVE [] “x = y ⇒ (x ⇒ y)”)
+    \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ fs [FUN_EQ_THM,FORALL_PROD]
+    \\ rw [] \\ eq_tac \\ rw [])
+  \\ fs [env_rel_def]
+  \\ fs [GSYM MAP_REVERSE]
+  \\ simp [LIST_REL_MAP_MAP,LAMBDA_PROD]
+  \\ fs [LIST_REL_EL_EQN]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs []
+  \\ rw [LAMBDA_PROD]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs []
+  \\ first_assum drule
+  \\ asm_rewrite_tac []
+  \\ simp_tac std_ss []
+  \\ fs [] \\ rw []
+  \\ simp [Once v_rel_cases]
+  \\ fs [LIST_REL_EL_EQN,MEM_MAP,FORALL_PROD]
 QED
 
 Triviality v_rel_RetVal[simp]:
