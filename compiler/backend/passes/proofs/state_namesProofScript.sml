@@ -51,10 +51,15 @@ Inductive compile_rel:
     compile_rel te se ⇒
     compile_rel (Letrec tfns te) (Letrec sfns se)) ∧
 
-[~Let:]
+[~Let_SOME:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  compile_rel (Let (SOME v) te1 te2) (Let (SOME v) se1 se2)) ∧
+
+[~Let_NONE:]
+  (compile_rel te1 se1 ∧
+   compile_rel te2 se2 ∧ ~(v IN freevars te2) ⇒
+  compile_rel (Let NONE te1 te2) (Let (SOME v) se1 se2)) ∧
 
 [~If:]
   (compile_rel te se ∧
@@ -138,6 +143,11 @@ Inductive cont_rel:
     compile_rel te se ⇒
     cont_rel (LetK tenv n te :: tk)
              (LetK senv n se :: sk)) ∧
+  (∀tenv senv v te se sk tk s.
+    cont_rel tk sk ∧ env_rel s tenv senv ∧ freevars te SUBSET s ∧
+    compile_rel te se ∧ v ∉ freevars te ⇒
+    cont_rel (LetK tenv NONE te :: tk)
+             (LetK senv (SOME v) se :: sk)) ∧
   (∀tenv senv te1 se1 te2 se2 sk tk s.
     cont_rel tk sk ∧ env_rel s tenv senv ∧ freevars (App ARB [te1;te2]) SUBSET s ∧
     compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
@@ -323,19 +333,18 @@ Proof
       \\ disch_then $ irule_at Any
       \\ fs [])
     \\ qexists_tac ‘freevars e DELETE v’ \\ simp []
-    >-
-     (gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
-      \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
-      \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
-      >- (rw [Once v_rel_cases] \\ fs [env_rel_def]
-          \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
-          \\ rw [] \\ res_tac \\ fs [])
-      \\ rw [] \\ first_x_assum irule \\ fs []
-      \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
-      \\ last_x_assum assume_tac
-      \\ drule ALOOKUP_MEM
-      \\ disch_then $ irule_at Any
-      \\ fs []))
+    \\ gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+    \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
+    \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
+    >- (rw [Once v_rel_cases] \\ fs [env_rel_def]
+        \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
+        \\ rw [] \\ res_tac \\ fs [])
+    \\ rw [] \\ first_x_assum irule \\ fs []
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ last_x_assum assume_tac
+    \\ drule ALOOKUP_MEM
+    \\ disch_then $ irule_at Any
+    \\ fs [])
   >~ [‘Alloc’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -488,7 +497,7 @@ Proof
     >~ [‘Lam NONE’] >-
      (gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
       \\ once_rewrite_tac [Once v_rel_cases] \\ fs [env_rel_def])
-    >~ [‘Lam’] >-
+    >~ [‘Lam (SOME _)’] >-
      (gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
       \\ once_rewrite_tac [Once v_rel_cases] \\ fs [env_rel_def])
     >~ [‘Raise’] >-
@@ -502,11 +511,14 @@ Proof
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
       \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
       \\ first_assum $ irule_at Any \\ fs [env_rel_def])
-    >~ [‘Let’] >-
+    >~ [‘Let NONE’] >-
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
       \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
-      \\ first_assum $ irule_at Any \\ fs [env_rel_def,freevars_def]
-      \\ Cases_on ‘x_opt’ \\ fs [freevars_def])
+      \\ first_assum $ irule_at Any \\ fs [env_rel_def,freevars_def])
+    >~ [‘Let (SOME v)’] >-
+     (gvs [step,AllCaseEqs(),step_res_rel_cases]
+      \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
+      \\ first_assum $ irule_at Any \\ fs [env_rel_def,freevars_def])
     >~ [‘If’] >-
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
       \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
@@ -555,6 +567,10 @@ Proof
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ simp [Once v_rel_cases] \\ rw []
     \\ fs [step_res_rel_cases]
+    \\ gvs [env_rel_def,SUBSET_DEF])
+  >~ [‘LetK _ NONE’] >-
+   (gvs [step,step_res_rel_cases]
+    \\ irule env_rel_cons1 \\ simp []
     \\ gvs [env_rel_def,SUBSET_DEF])
   >~ [‘LetK _ n’] >-
    (Cases_on ‘n’ \\ gvs [step,step_res_rel_cases]
