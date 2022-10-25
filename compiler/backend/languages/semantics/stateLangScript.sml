@@ -51,7 +51,7 @@ Datatype:
       | Letrec ((vname # exp) list) exp     (* mutually recursive exps *)
       | Let (vname option) exp exp          (* non-recursive let       *)
       | If exp exp exp                      (* if-then-else            *)
-      | Case exp vname ((vname # vname list # exp) list)    (* case of *)
+      | Case vname ((vname # vname list # exp) list) (exp option)
       | Delay exp                           (* suspend in a Thunk      *)
       | Box exp                             (* wrap result in a Thunk  *)
       | Force exp                           (* evaluates a Thunk       *)
@@ -85,7 +85,7 @@ Datatype:
        | BoxK
        | ForceK1
        | ForceK2 (state option)
-       | CaseK env vname ((vname # vname list # exp) list)
+       | CaseK env vname ((vname # vname list # exp) list) (exp option)
        | RaiseK
        | HandleK env vname exp
        | HandleAppK env exp
@@ -124,8 +124,8 @@ Definition freevars_def[simp]:
   freevars (Delay e) = freevars e ∧
   freevars (Box e) = freevars e ∧
   freevars (Force e) = freevars e ∧
-  freevars (Case e v css) =
-    (freevars e ∪
+  freevars (Case v css d) =
+    ((case d of SOME e => freevars e | _ => {}) ∪
      (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v)) ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
@@ -348,8 +348,11 @@ Definition return_def:
     if v = Constructor "True"  [] then continue env e1 st k else
     if v = Constructor "False" [] then continue env e2 st k else
       error st k) ∧
-  return v st (CaseK env n [] :: k) = error st k ∧
-  return v st (CaseK env n ((c,ns,e)::css) :: k) = (
+  return v st (CaseK env n [] d :: k) = (
+    case d of
+      NONE => error st k
+    | SOME e => continue env e st k) ∧
+  return v st (CaseK env n ((c,ns,e)::css) d :: k) = (
     if MEM n ns ∨ MEM n (FLAT (MAP (FST o SND) css)) then error st k
     else case v of
       Constructor c' vs =>
@@ -357,7 +360,7 @@ Definition return_def:
           if LENGTH vs = LENGTH ns then
             continue (REVERSE (ZIP (ns, vs)) ++ (n,v)::env) e st k
           else error st k
-        else value v st (CaseK env n css :: k)
+        else value v st (CaseK env n css d :: k)
     | _ => error st k) ∧
   return v st (RaiseK :: k) =
     (if st = NONE then error st k else (Exn v, st, k)) ∧
@@ -391,9 +394,9 @@ Definition step_def:
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
-  step st k (Exp env $ Case e v css) = (
+  step st k (Exp env $ Case v css d) = (
     if MEM v (FLAT (MAP (FST o SND) css)) then error st k
-    else push env e st (CaseK env v css) k) ∧
+    else push env (Var v) st (CaseK env v css d) k) ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
@@ -912,8 +915,15 @@ Proof
     \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
     \\ strip_tac \\ fs [])
-  >~ [‘CaseK _ _ rows’] >-
+  >~ [‘CaseK _ _ rows _’] >-
    (Cases_on ‘rows’ \\ fs [return_def,error_def]
+    >-
+     (CASE_TAC
+      \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ gvs [continue_def]
+      \\ fs [step_n_def]
+      \\ last_x_assum irule \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs [])
     \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
     \\ PairCases_on ‘h’ \\ fs [return_def]
     \\ pop_assum mp_tac
@@ -1542,8 +1552,10 @@ Definition exp_of_def:
     Letrec (MAP (λ(f,v,y). (explode f,Lam (SOME (explode v)) (exp_of y))) funs) (exp_of x) ∧
   exp_of (Let vn x y) = Let (OPTION_MAP explode vn) (exp_of x) (exp_of y) ∧
   exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
-  exp_of (Case x v rows) =
-    Case (exp_of x) (explode v) (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows) ∧
+  exp_of (Case v rows d) =
+    Case (explode v)
+         (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows)
+         (OPTION_MAP exp_of d) ∧
   exp_of (Raise x) = Raise (exp_of x) ∧
   exp_of (Handle x v y) = Handle (exp_of x) (explode v) (exp_of y) ∧
   exp_of (HandleApp x y) = HandleApp (exp_of x) (exp_of y)

@@ -38,18 +38,26 @@ Definition op_of_def[simp]:
   op_of (AtomOp m) = AtomOp m
 End
 
+Overload Unit[local] = “Prim (Cons "") []”;
+Overload Fail[local] = “Prim If []”;
+
 Definition lets_for_def:
-  lets_for cn v [] b = b ∧
-  lets_for cn v ((n,w)::ws) b =
-    Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for cn v ws b)
+  lets_for l cn v [] b = b ∧
+  lets_for l cn v ((n,w)::ws) b =
+    Let NONE (If (Prim (IsEq cn l T) [Var v]) Unit Fail) $
+      Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for l cn v ws b)
 End
 
 Definition rows_of_def:
-  rows_of v [] = Prim (AtomOp Add) [] ∧
-  rows_of v ((cn,vs,b)::rest) =
-    If (Prim (IsEq cn (LENGTH vs) T) [Var v])
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
-      (Let (SOME v) (Var v) $ rows_of v rest)
+  rows_of v [] d =
+    (case d of
+     | NONE => Prim (AtomOp Add) []
+     | SOME e => e) ∧
+  rows_of v ((cn,vs,b)::rest) d =
+    Let (SOME v) (Var v) $
+      If (Prim (IsEq cn (LENGTH vs) T) [Var v])
+        (lets_for (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
+        (rows_of v rest d)
 End
 
 Definition exp_of_def:
@@ -64,9 +72,9 @@ Definition exp_of_def:
   exp_of (Box x) = Box (exp_of x) ∧
   exp_of (Force x) = Force (exp_of x) ∧
   exp_of (Delay x) = Delay (exp_of x) ∧
-  exp_of (Case e v rs) = Let (SOME (explode v)) (exp_of e)
-                           (rows_of (explode v) (MAP (λ(cn,vs,e).
-                              (explode cn, MAP explode vs, exp_of e)) rs)) ∧
+  exp_of (Case v rs d) = rows_of (explode v)
+                           (MAP (λ(cn,vs,e). (explode cn, MAP explode vs, exp_of e)) rs)
+                           (OPTION_MAP exp_of d) ∧
   (* monads *)
   exp_of (Ret x)        = Prim (Cons "Ret")    [exp_of x] ∧
   exp_of (Raise x)      = Prim (Cons "Raise")  [exp_of x] ∧
