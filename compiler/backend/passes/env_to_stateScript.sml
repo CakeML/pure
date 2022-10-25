@@ -94,6 +94,16 @@ Proof
   \\ Cases_on ‘h1’ \\ gvs [dest_Delay_def,env_cexpTheory.cexp_size_def]
 QED
 
+Overload ret[local] =
+  “λx. Let (SOME «v») x
+         (Let (SOME «v») (App Ref [False; Lam NONE (Var «v»)]) (Var «v»))”
+
+Overload raw_ret[local] =
+  “λx. Let (SOME «v») x (Let (SOME «v») (Var «v») (Var «v»))”
+
+Overload box[local] = “λx. App Ref [True]”
+Overload delay[local] = “λx. App Ref [False; Lam NONE x]”
+
 Definition to_state_def:
   to_state ((Var n):env_cexp$cexp) = (Var n):state_cexp$cexp ∧
   to_state (App x y) =
@@ -102,8 +112,27 @@ Definition to_state_def:
     Lam (SOME v) (to_state x) ∧
   to_state (Ret x) =
     Let (SOME «v») (to_state x) (Lam NONE (Var «v»)) ∧
+  to_state (Raise x) =
+    Let (SOME «v») (to_state x) (Lam NONE (Raise (Var «v»))) ∧
   to_state (Bind x y) =
     Lam NONE (app (app (to_state y) (app (to_state x) Unit)) Unit) ∧
+  to_state (Handle x y) =
+    Lam NONE (app (HandleApp (to_state y)
+      (Let (SOME «v») (app (to_state x) Unit) (Lam NONE (Var «v»)))) Unit) ∧
+  to_state (Act x) =
+    Lam NONE (ret (app (to_state x) Unit)) ∧
+  to_state (Length x) =
+    Lam NONE (ret (App Length [to_state x])) ∧
+  to_state (Alloc x y) =
+    Lam NONE (ret (App Alloc [to_state x; delay (to_state y)])) ∧
+  to_state (Update x y z) =
+    Lam NONE (ret (Handle (App Update [to_state x;
+                                       to_state y;
+                                       delay (to_state z)])
+                     «v» (Raise (delay (Var «v»))))) ∧
+  to_state (Deref x y) =
+    Lam NONE (raw_ret (Handle (App Sub [to_state x; to_state y])
+                        «v» (Raise (delay (Var «v»))))) ∧
   to_state (Box x) =
     App Ref [True; (to_state x)] ∧
   to_state (Delay x) =

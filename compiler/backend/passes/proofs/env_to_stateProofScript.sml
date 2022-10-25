@@ -36,10 +36,17 @@ Definition cexp_wf_def[simp]:
   cexp_wf (Force x) = cexp_wf x ∧
   cexp_wf (Box x) = cexp_wf x ∧
   cexp_wf (Delay x) = cexp_wf x ∧
+  cexp_wf (Length x) = cexp_wf x ∧
+  cexp_wf (Act x) = cexp_wf x ∧
   cexp_wf (Ret x) = cexp_wf x ∧
+  cexp_wf (Raise x) = cexp_wf x ∧
   cexp_wf (If x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
   cexp_wf (Let _ x y) = (cexp_wf x ∧ cexp_wf y) ∧
   cexp_wf (Bind x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Handle x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Alloc x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Deref x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Update x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
   cexp_wf (App x y) = (cexp_wf x ∧ cexp_wf y) ∧
   cexp_wf (Letrec fs x) =
     (EVERY I (MAP (λ(_,x). cexp_wf x) fs) ∧ cexp_wf x ∧
@@ -55,7 +62,8 @@ Definition cexp_wf_def[simp]:
      (case p of
       | Cons m => explode m ∉ monad_cns
       | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1) ∧
-                    (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l))))
+                    (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
+  cexp_wf _ = T
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
@@ -395,6 +403,90 @@ Definition body_of_def[simp]:
   body_of (Lam _ x) = x:state_cexp$cexp
 End
 
+Theorem unthunk_ret:
+  unthunk x1 y1 ⇒
+  unthunk (ret x1)
+          (app
+           (Let (SOME "v") y1
+            (Let (SOME "v") (delay (Var "v")) (Lam NONE (Var "v")))) Unit)
+Proof
+  rw []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Delay \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+QED
+
+Theorem unthunk_raw_ret:
+  unthunk x1 y1 ⇒
+  unthunk (raw_ret x1)
+          (app
+           (Let (SOME "v") y1
+            (Let (SOME "v") (Var "v") (Lam NONE (Var "v")))) Unit)
+Proof
+  rw []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+  \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+QED
+
+Theorem clean_ret:
+  clean x y ⇒
+  clean
+    (app (Let (SOME «v») x
+       (Let (SOME «v») (App Ref [False; Lam NONE (Var «v»)])
+          (Lam NONE (Var «v»)))) Unit)
+    (Let (SOME «v») y
+       (Let (SOME «v») (App Ref [False; Lam NONE (Var «v»)])
+          (Var «v»)))
+Proof
+  rw []
+  \\ irule_at Any state_app_unitProofTheory.cexp_rel_trans \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_App_Let \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Let \\ fs []
+  \\ irule_at Any state_app_unitProofTheory.cexp_rel_trans \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_App_Let \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Let \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_App_Lam \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Var \\ fs []
+QED
+
+Theorem clean_raw_ret:
+  clean x y ⇒
+  clean
+    (app (Let (SOME «v») x (Let (SOME «v») (Var «v») (Lam NONE (Var «v»)))) Unit)
+    (Let (SOME «v») y (Let (SOME «v») (Var «v») (Var «v»)))
+Proof
+  rw []
+  \\ irule_at Any state_app_unitProofTheory.cexp_rel_trans \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_App_Let \\ fs []
+  \\ first_x_assum $ irule_at Any
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Let \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at Any state_app_unitProofTheory.cexp_rel_trans \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_App_Let \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_refl \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Let \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Var \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_App_Lam \\ fs []
+  \\ irule_at (Pos hd) state_app_unitProofTheory.cexp_rel_Var \\ fs []
+QED
+
 Theorem to_state_rel:
   ∀x. cexp_wf x ⇒ combined x (to_state x)
 Proof
@@ -429,6 +521,23 @@ Proof
     \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
     \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
     \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs [])
+  >~ [‘Raise’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Raise
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs []
+    \\ first_x_assum $ irule_at Any
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Raise \\ fs []
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs []
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Let \\ fs []
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Raise \\ fs []
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Var \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Let \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Raise \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [])
   >~ [‘Bind’] >-
    (rw [to_state_def] \\ fs [combined_def]
     \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
@@ -455,6 +564,180 @@ Proof
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ rpt $ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
     \\ irule_at Any compile_rel_Bind \\ fs [])
+  >~ [‘Handle’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Handle
+    \\ rpt $ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_HandleApp \\ fs [PULL_EXISTS]
+    \\ rpt $ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ rpt $ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_HandleApp \\ fs [PULL_EXISTS]
+    \\ rpt $ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Let \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS]
+    \\ rpt $ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Var \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_HandleApp \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Let \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Var \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [])
+  >~ [‘Act’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Act
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any unthunk_ret
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any clean_ret
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]))
+  >~ [‘Length’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Length
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any unthunk_ret
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any clean_ret
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]))
+  >~ [‘Alloc’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Alloc
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any unthunk_ret
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Delay \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any clean_ret
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]))
+  >~ [‘Update’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Update
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any unthunk_ret
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Handle \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Delay \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Raise \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Delay \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any clean_ret
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Handle \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Raise \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Var \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Handle \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Raise \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]))
+  >~ [‘Deref’] >-
+   (rw [to_state_def] \\ fs [combined_def]
+    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Deref
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any unthunk_raw_ret
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Handle \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Raise \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Delay \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_unthunkProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]
+    \\ irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs []
+    \\ irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs []
+    \\ irule_at Any clean_raw_ret
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Handle \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Raise \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Var \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Let \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Handle \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Raise \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Lam \\ fs [PULL_EXISTS])
+    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Var \\ fs [PULL_EXISTS]))
   >~ [‘Box’] >-
    (rw [to_state_def] \\ fs [combined_def]
     \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Box

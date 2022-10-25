@@ -32,7 +32,14 @@ Datatype:
        | Case cexp vname ((vname # (vname list) # cexp) list)
        (* monads *)
        | Ret cexp
+       | Raise cexp
        | Bind cexp cexp
+       | Handle cexp cexp
+       | Act cexp
+       | Length cexp
+       | Alloc cexp cexp
+       | Deref cexp cexp
+       | Update cexp cexp cexp
 End
 
 val _ = export_theory();

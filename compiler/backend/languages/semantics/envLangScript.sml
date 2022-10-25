@@ -68,8 +68,15 @@ Definition exp_of_def:
                            (rows_of (explode v) (MAP (λ(cn,vs,e).
                               (explode cn, MAP explode vs, exp_of e)) rs)) ∧
   (* monads *)
-  exp_of (Ret x) = Prim (Cons "Ret") [exp_of x] ∧
-  exp_of (Bind x y) = Prim (Cons "Bind") [Delay (exp_of x); Delay (exp_of y)]
+  exp_of (Ret x)        = Prim (Cons "Ret")    [exp_of x] ∧
+  exp_of (Raise x)      = Prim (Cons "Raise")  [exp_of x] ∧
+  exp_of (Bind x y)     = Prim (Cons "Bind")   [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Handle x y)   = Prim (Cons "Handle") [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Act x)        = Prim (Cons "Act")    [Delay (exp_of x)] ∧
+  exp_of (Length x)     = Prim (Cons "Length") [Delay (exp_of x)] ∧
+  exp_of (Alloc x y)    = Prim (Cons "Alloc")  [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Deref x y)    = Prim (Cons "Deref")  [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Update x y z) = Prim (Cons "Update") [Delay (exp_of x); Delay (exp_of y); Delay (exp_of z)]
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
