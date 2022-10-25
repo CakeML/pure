@@ -54,10 +54,9 @@ Definition rows_of_def:
      | NONE => Prim (AtomOp Add) []
      | SOME e => e) ∧
   rows_of v ((cn,vs,b)::rest) d =
-    Let (SOME v) (Var v) $
-      If (Prim (IsEq cn (LENGTH vs) T) [Var v])
-        (lets_for (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
-        (rows_of v rest d)
+    If (Prim (IsEq cn (LENGTH vs) T) [Var v])
+       (lets_for (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
+       (rows_of v rest d)
 End
 
 Definition exp_of_def:

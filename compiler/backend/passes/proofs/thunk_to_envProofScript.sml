@@ -42,7 +42,8 @@ Definition to_env_def:
   to_env (Force x) = Force (to_env x) ∧
   to_env (Box x) = Box (to_env x) ∧
   to_env (Letrec fs x) = Letrec (REVERSE (MAP (λ(n,x). (n,to_env x)) fs)) (to_env x) ∧
-  to_env (Case v rows d) = Case (Var v) v (MAP (λ(n,p,x). (n,p,to_env x)) rows) ∧
+  to_env (Case v rows d) = Case v (MAP (λ(n,p,x). (n,p,to_env x)) rows)
+                                  (case d of NONE => NONE | SOME e => SOME (to_env e)) ∧
   to_env (Prim p xs) =
     let ys = MAP to_env xs in
       case p of
@@ -110,7 +111,38 @@ Proof
     \\ fs [GSYM MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF]
     \\ fs [LIST_REL_MAP_MAP,LAMBDA_PROD]
     \\ irule EVERY2_refl \\ fs [FORALL_PROD,SF SFY_ss,EVERY_MEM])
-  >~ [‘Case’] >- cheat (* envLang and stateLang need updating *)
+  >~ [‘Case’] >-
+   (fs [to_env_def]
+    \\ qpat_x_assum ‘d = NONE ⇒ _’ kall_tac
+    \\ qpat_x_assum ‘~(MEM _ _)’ kall_tac
+    \\ Induct_on ‘rows’ \\ fs []
+    >-
+     (fs [rows_of_def,envLangTheory.rows_of_def]
+      \\ Cases_on ‘d’ \\ fs []
+      \\ simp [Once exp_rel_cases])
+    \\ PairCases \\ simp [SF DNF_ss, SF CONJ_ss, AND_IMP_INTRO]
+    \\ rw [] \\ fs []
+    \\ fs [rows_of_def,envLangTheory.rows_of_def]
+    \\ irule exp_rel_If \\ fs []
+    \\ conj_tac
+    >-
+     (irule_at Any exp_rel_Prim \\ fs []
+      \\ irule_at Any exp_rel_Var \\ fs [])
+    \\ reverse conj_tac
+    >- (first_x_assum irule \\ fs [SF SFY_ss])
+    \\ qspec_tac (‘LENGTH h1’,‘l’)
+    \\ qspec_tac (‘(MAPi (λi v. (i,v)) (MAP explode h1))’,‘xs’)
+    \\ Induct \\ fs [FORALL_PROD]
+    \\ fs [lets_for_def,envLangTheory.lets_for_def]
+    \\ rw []
+    \\ irule exp_rel_Let_NONE
+    \\ irule_at Any exp_rel_Let_SOME \\ fs []
+    \\ irule_at Any exp_rel_Prim \\ fs []
+    \\ irule_at Any exp_rel_Var \\ fs []
+    \\ irule_at Any exp_rel_If \\ fs []
+    \\ irule_at Any exp_rel_Prim \\ fs []
+    \\ irule_at Any exp_rel_Var \\ fs []
+    \\ rpt (irule_at Any exp_rel_Prim \\ fs []))
   \\ rename [‘Prim’]
   \\ reverse (Cases_on ‘p’)
   >-

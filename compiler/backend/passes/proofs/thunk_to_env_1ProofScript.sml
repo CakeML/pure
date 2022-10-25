@@ -30,6 +30,9 @@ Inductive exp_rel:
   (∀env n s.
      ALOOKUP env n = SOME (Constructor s []) ⇒
        exp_rel env (Cons s []) (Var n)) ∧
+[exp_rel_Fail:] (* proof of Case in exp_of *)
+  (∀env.
+     exp_rel env Fail (Prim (AtomOp Add) [])) ∧
 [exp_rel_Var:]
   (∀env n.
      ALOOKUP env n = NONE ⇒
@@ -201,6 +204,8 @@ Proof
     \\ simp [subst_def, exp_rel_def, ALOOKUP_APPEND]
     \\ imp_res_tac ALOOKUP_SOME \\ gs [MAP_REVERSE]
     \\ CASE_TAC \\ gs [ALOOKUP_SOME])
+  >~ [‘Fail’] >-
+   (simp [subst_def, exp_rel_def])
   >~ [‘Var n’] >- (
     dxrule_then assume_tac env_rel_OPTREL
     \\ first_x_assum (qspec_then ‘n’ assume_tac)
@@ -413,6 +418,7 @@ Proof
     rgs [Once exp_rel_cases])
   >~ [‘Prim op xs’] >- (
     gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def]
+    >- (fs [result_map_def] \\ simp [Once v_rel_cases])
     >- (fs [result_map_def] \\ simp [Once v_rel_cases])
     >- (fs [result_map_def] \\ simp [Once v_rel_cases])
     \\ Cases_on ‘op’ \\ gs []
