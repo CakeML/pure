@@ -395,8 +395,10 @@ Definition step_def:
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
   step st k (Exp env $ Case v css d) = (
-    if MEM v (FLAT (MAP (FST o SND) css)) then error st k
-    else push env (Var v) st (CaseK env v css d) k) ∧
+    if MEM v (FLAT (MAP (FST o SND) css)) then error st k else
+      case ALOOKUP env v of
+        NONE => error st k
+      | SOME w => value w st (CaseK env v css d::k)) ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
@@ -817,8 +819,17 @@ Proof
     >~ [‘Case’] >-
      (fs [step_def,value_def,continue_def,push_def]
       \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
-      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
-      \\ strip_tac \\ fs [])
+      \\ CASE_TAC \\ fs []
+      \\ fs [GSYM step_n_def,step_n_Error]
+      \\ rename [‘CaseK x1 x2 x3 x4’]
+      \\ ‘∀k. CaseK x1 x2 x3 x4::(MAP forceK2_none rest ++ k) =
+              (MAP forceK2_none (CaseK x1 x2 x3 x4::rest) ++ k)’ by fs []
+      \\ pop_assum $ asm_rewrite_tac o single
+      \\ ‘CaseK x1 x2 x3 x4::(MAP forceK2_none rest) =
+          (MAP forceK2_none (CaseK x1 x2 x3 x4::rest))’ by fs []
+      \\ pop_assum $ asm_rewrite_tac o single
+      \\ first_x_assum irule \\ fs []
+      \\ first_x_assum $ irule_at $ Pos last \\ fs [])
     >~ [‘Delay’] >-
      (fs [step_def,value_def,continue_def,push_def]
       \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
