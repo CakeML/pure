@@ -157,8 +157,9 @@ Definition to_state_def:
     Let vo (to_state x) (to_state y) ∧
   to_state (If x y z) =
     If (to_state x) (to_state y) (to_state z) ∧
-  to_state (Case x v rs) =
-    Case (to_state x) v (MAP (λ(c,vs,y). (c,vs,to_state y)) rs) ∧
+  to_state (Case v rs d) =
+    Case v (MAP (λ(c,vs,y). (c,vs,to_state y)) rs)
+           (case d of NONE => NONE | SOME e => SOME (to_state e)) ∧
   to_state (Prim (Cons m) xs) =
     App (Cons m) (MAP to_state xs) ∧
   to_state (Prim (AtomOp b) xs) =
