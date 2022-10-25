@@ -349,9 +349,9 @@ Definition return_def:
     if v = Constructor "False" [] then continue env e2 st k else
       error st k) ∧
   return v st (CaseK env n [] d :: k) = (
-    case d of
-      NONE => error st k
-    | SOME e => continue env e st k) ∧
+    case v, d of
+      Constructor c vs, SOME e => continue ((n,v)::env) e st k
+    | _ => error st k) ∧
   return v st (CaseK env n ((c,ns,e)::css) d :: k) = (
     if MEM n ns ∨ MEM n (FLAT (MAP (FST o SND) css)) then error st k
     else case v of
@@ -929,7 +929,7 @@ Proof
   >~ [‘CaseK _ _ rows _’] >-
    (Cases_on ‘rows’ \\ fs [return_def,error_def]
     >-
-     (CASE_TAC
+     (CASE_TAC \\ CASE_TAC
       \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
       \\ gvs [continue_def]
       \\ fs [step_n_def]
