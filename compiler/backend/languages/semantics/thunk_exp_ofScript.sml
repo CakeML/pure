@@ -50,4 +50,38 @@ Termination
   WF_REL_TAC ‘measure cexp_size’ >> rw [cexp_size_eq]
 End
 
+Definition args_ok_def:
+  args_ok (thunk_cexp$AtomOp aop) es = num_atomop_args_ok aop (LENGTH es) ∧
+  args_ok (Cons cn) es =
+    if cn = «Ret» ∨ cn = «Raise» then
+      (∃e0. es = [e0])
+    else if cn = «Length» ∨ cn = «Act» then
+      (∃e0. es = [Delay e0])
+    else if cn = «Bind» ∨ cn = «Handle» ∨ cn = «Alloc» ∨ cn = «Deref» then
+      (∃e0 e1. es = [Delay e0; Delay e1])
+    else if cn = «Update» then
+      (∃e0 e1 e2. es = [Delay e0; Delay e1; Delay e2])
+    else T
+End
+
+Definition cexp_wf_def:
+  cexp_wf (Var v) = T ∧
+  cexp_wf (Prim op es) = (args_ok op es ∧ EVERY cexp_wf es) ∧
+  cexp_wf (App e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
+  cexp_wf (Force e) = cexp_wf e ∧
+  cexp_wf (Delay e) = cexp_wf e ∧
+  cexp_wf (Box e) = cexp_wf e ∧
+  cexp_wf (Lam vs e) = (cexp_wf e ∧ vs ≠ []) ∧
+  cexp_wf (Let v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
+  cexp_wf (Letrec fns e) = (EVERY (λ(_,x). cexp_wf x) fns ∧ cexp_wf e ∧ fns ≠ []) ∧
+  cexp_wf (Case v css eopt) = (
+    EVERY (λ(_,_,x). cexp_wf x) css ∧
+    (eopt = NONE ⇒ css ≠ []) ∧
+    ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    OPTION_ALL cexp_wf eopt ∧
+    (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns))
+Termination
+  WF_REL_TAC ‘measure cexp_size’
+End
+
 val _ = export_theory ();
