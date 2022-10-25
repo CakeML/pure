@@ -19,23 +19,24 @@ Overload IsEq = “λn i x. App (IsEq n i) [x:stateLang$exp]”
 
 Definition lets_for_def:
   lets_for cn v [] b = b:stateLang$exp ∧
-  lets_for cn v ((n,w)::ws) b = Let (SOME w) (Proj cn n (Var v)) (lets_for cn v ws b)
+  lets_for cn v ((n,w)::ws) b =
+    Let (SOME w) (Proj cn n (Var v)) (lets_for cn v ws b)
 End
 
 Definition rows_of_def:
-  rows_of v [] = Fail ∧
-  rows_of v ((cn,vs,b)::rest) =
+  rows_of v [] d = (case d of NONE => Fail | SOME e => e) ∧
+  rows_of v ((cn,vs,b)::rest) d =
     If (IsEq cn (LENGTH vs) (Var v))
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
-      (Let (SOME v) (Var v) (rows_of v rest))
+       (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
+       (Let (SOME v) (Var v) $ rows_of v rest d)
 End
 
 Definition expand_Case_def:
-  expand_Case x v rs =
+  expand_Case v rs d =
     if MEM v (FLAT (MAP (FST o SND) rs)) then
       Fail
     else
-      Let (SOME v) x (rows_of v rs)
+      Let (SOME v) (Var v) $ rows_of v rs d
 End
 
 Inductive compile_rel:
@@ -83,12 +84,13 @@ Inductive compile_rel:
   compile_rel (If te te1 te2) (If se se1 se2)) ∧
 
 [~Case:]
-  (∀v te se tes ses.
+  (∀v te se tes ses td sd.
      compile_rel te se ∧
+     OPTREL compile_rel td sd ∧
      MAP FST tes = MAP FST ses ∧ ALL_DISTINCT (MAP FST tes) ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧
      LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-  compile_rel (Case te v tes) (expand_Case se v ses))
+  compile_rel (Case v tes td) (expand_Case v ses sd))
 
 End
 
@@ -181,13 +183,14 @@ Inductive cont_rel:
     cont_rel (RaiseK :: tk)
              (RaiseK :: sk)) ∧
   (∀sk tk v tenv senv.
-    cont_rel tk sk ∧ env_rel_ignore tenv senv v ∧
+    cont_rel tk sk ∧ env_rel tenv senv ∧
+    OPTREL compile_rel td sd ∧ ALOOKUP tenv v ≠ NONE ∧
     MAP FST tes = MAP FST ses ∧ ALL_DISTINCT (MAP FST tes) ∧
     ~MEM v (FLAT (MAP (FST o SND) tes)) ∧
     MAP (FST o SND) tes = MAP (FST o SND) ses ∧
     LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-    cont_rel (CaseK tenv v tes :: tk)
-             (LetK senv (SOME v) (rows_of v ses) :: sk))
+    cont_rel (CaseK tenv v tes td :: tk)
+             (LetK senv (SOME v) (rows_of v ses sd) :: sk))
 End
 
 Definition rec_env_def:
@@ -500,15 +503,24 @@ Proof
         \\ first_assum $ irule_at $ Pos last \\ fs [])
     \\ simp [Once cont_rel_cases])
   >~ [‘Exp’] >-
-   (qexists_tac ‘0’
-    \\ qpat_x_assum ‘compile_rel e1 e2’ mp_tac
+   (qpat_x_assum ‘compile_rel e1 e2’ mp_tac
     \\ simp [Once compile_rel_cases] \\ rw []
     >~ [‘Case’] >-
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
-      \\ fs [expand_Case_def] \\ fs [step,get_atoms_def]
+      >- (qexists_tac ‘0’ \\ fs [step,get_atoms_def,expand_Case_def])
+      >-
+       (fs [step,get_atoms_def,expand_Case_def,step_n_add]
+        \\ qexists_tac ‘1’ \\ fs [step,get_atoms_def,expand_Case_def]
+        \\ fs [env_rel_def])
+      \\ fs [step,get_atoms_def,expand_Case_def,step_n_add]
+      \\ qexists_tac ‘1’ \\ fs [step,get_atoms_def,expand_Case_def]
+      \\ ‘∃w1. ALOOKUP env2 v = SOME w1 ∧ v_rel w w1’ by
+          (fs [env_rel_def] \\ res_tac \\ fs [])
+      \\ fs [] \\ gvs []
       \\ simp [Once cont_rel_cases]
-      \\ pop_assum $ irule_at Any \\ fs []
-      \\ fs [env_rel_def,env_rel_ignore_def])
+      \\ first_x_assum $ irule_at $ Pos last \\ fs []
+      \\ first_x_assum $ irule_at $ Pos last \\ fs [])
+    \\ qexists_tac ‘0’
     >~ [‘Var v’] >-
      (gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
       \\ Cases_on ‘ALOOKUP env2 v’ \\ fs []
@@ -555,11 +567,18 @@ Proof
   \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
   \\ simp [Once cont_rel_cases] \\ rw []
   >~ [‘CaseK _ v’] >-
+
    (Cases_on ‘tes’ \\ gvs [step,return_def]
     >-
-     (fs [GSYM ADD1,step_n_SUC,step,rows_of_def]
-      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step,get_atoms_def]
-      \\ qexists_tac ‘0’ \\ gvs [step_res_rel_cases])
+     (Cases_on ‘td’ \\ gvs []
+      \\ Cases_on ‘sd’ \\ gvs []
+      >- (fs [GSYM ADD1,step_n_SUC,step,rows_of_def]
+          \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step,get_atoms_def]
+          \\ qexists_tac ‘0’ \\ gvs [step_res_rel_cases])
+      \\ fs [GSYM ADD1,step_n_SUC,step,rows_of_def]
+      \\ qexists_tac ‘0’ \\ fs []
+      \\ gvs [step_res_rel_cases]
+      \\ irule env_rel_cons \\ fs [])
     \\ PairCases_on ‘h’ \\ fs [step]
     \\ Cases_on ‘ses’ \\ gvs []
     \\ PairCases_on ‘h’ \\ fs [step]
@@ -577,6 +596,8 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ reverse (Cases_on ‘s = h0’) \\ gvs []
+
+    \\ cheat (*
     >-
      (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
       \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
@@ -585,6 +606,8 @@ Proof
       \\ simp [Once step_res_rel_cases,Once v_rel_cases]
       \\ simp [Once cont_rel_cases]
       \\ first_x_assum $ irule_at $ Pos last \\ fs []
+      \\ first_x_assum $ irule_at $ Pos last \\ fs []
+
       \\ fs [env_rel_ignore_def])
     \\ reverse IF_CASES_TAC \\ gvs []
     >- (qexists_tac ‘0’ \\ fs [step_res_rel_cases])
@@ -599,7 +622,7 @@ Proof
     \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ irule env_rel_zip \\ fs []
     \\ irule env_rel_ignore_cons \\ fs []
-    \\ simp [Once v_rel_cases])
+    \\ simp [Once v_rel_cases] *))
   \\ qexists_tac ‘0’ \\ fs []
   >~ [‘HandleK’] >-
    (gvs [step] \\ fs [step_res_rel_cases])
