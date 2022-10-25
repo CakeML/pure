@@ -326,9 +326,10 @@ Definition compile_def:
 
   compile (If e e1 e2) = If (compile e) (compile e1) (compile e2) ∧
 
-  compile (Case e v css) = (
+  compile (Case v css d) = (
     let ccss = MAP (λ(cn,vs,e). cexp_pat_row v cn vs, compile e) css in
-    Mat (compile e) ccss) ∧
+    let d_case = (case d of NONE => [] | SOME e => [(Pany, compile e)]) in
+    Mat (Var (Short (cexp_var_prefix v))) (ccss ++ d_case)) ∧
 
   compile (Raise e) = Raise (compile e) ∧
 
