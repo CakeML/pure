@@ -90,6 +90,8 @@ val threetimesfour = “expApp (expApp (expVar "*") (expLit (litInt 3)))
                              (expLit (litInt 4))”
 val _ = temp_overload_on("𝕀", “λi. expLit (litInt i)”);
 val _ = temp_overload_on("𝕁", “λi. Prim () (AtomOp (Lit (Int i))) []”);
+val _ = temp_overload_on("𝕊", “λs. expLit (litString s)”);
+val _ = temp_overload_on("𝕋", “λs. Prim () (AtomOp (Lit (Str s))) []”);
 val _ = temp_overload_on("𝕍", “pure_cexp$Var ()”)
 val _ = temp_overload_on("ASTEXP", “astExp nExp”)
 val _ = temp_overload_on("CEXP",
@@ -110,10 +112,13 @@ val _ = temp_overload_on ("+ₑ", “λe1 e2. Prim () (AtomOp Add) [e1; e2]”)
 val _ = temp_set_fixity "+ₑ" (Infixl 500)
 
 
-val _ = app lextest [("->", “[SymbolT "->"]”),
-                     (": :: <-", “[SymbolT ":"; SymbolT "::"; SymbolT "<-"]”),
-                     ("do x", “[AlphaT "do"; AlphaT "x"]”),
-                     ("foo_bar _", “[AlphaT "foo_bar"; UnderbarT]”)]
+val _ = app lextest [
+  ("->", “[SymbolT "->"]”),
+  (": :: <-", “[SymbolT ":"; SymbolT "::"; SymbolT "<-"]”),
+  ("do x", “[AlphaT "do"; AlphaT "x"]”),
+  ("foo_bar _", “[AlphaT "foo_bar"; UnderbarT]”),
+  ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”)
+];
 
 val _ = app fptest [
   (“nTy”, "[Int]", “astType nTy”, “listTy intTy”),
@@ -148,6 +153,8 @@ val _ = app fptest [
    “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”),
   (“nExp”, "f [x,y] 3", “CEXP”,
    “App () (𝕍 «f») [𝕍 «x» ::ₑ 𝕍 «y» ::ₑ []ₑ; 𝕁 3]”),
+  (“nExp”, "f \"foo\"", “astExp nExp”, “‹f› ⬝ 𝕊 "foo"”),
+  (“nExp”, "f \"foo\"", “CEXP”, “App () (𝕍 «f») [𝕋 "foo"]”),
   (“nExp”, "let y = x + 3 in y + z",
    “astExp nExp”,
    “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),

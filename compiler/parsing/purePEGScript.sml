@@ -213,7 +213,8 @@ Definition purePEG_def[nocompute]:
                   pegf (tokEQ ((=) UnderbarT)) (mkNT nAExp)]);
 
         (INL nLit,
-         choicel [tok isInt (mkNT nLit o mktokLf) lrEQ]);
+         choicel [tok isInt (mkNT nLit o mktokLf) lrEQ;
+                  tok isString (mkNT nLit o mktokLf) lrEQ]);
       ]
   |>
 End

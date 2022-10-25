@@ -123,6 +123,8 @@ Definition translate_exp_def:
    od) ∧
   (translate_exp conmap (expLit (litInt i)) =
    SOME (Prim () (AtomOp (Lit (Int i))) [])) ∧
+  (translate_exp conmap (expLit (litString s)) =
+   SOME (Prim () (AtomOp (Lit (Str s))) [])) ∧
   (translate_exp conmap (expLet decs body) =
    do
      recbinds <- translate_edecs conmap decs ;

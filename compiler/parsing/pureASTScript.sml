@@ -22,7 +22,7 @@ Overload listTy = “λty. tyOp "[]" [ty]”
 Overload funTy = “λd r. tyOp "Fun" [d; r]”
 
 Datatype:
-  litAST = litInt int
+  litAST = litInt int | litString string
 End
 
 Datatype:

@@ -171,7 +171,8 @@ Definition astLit_def:
   else
     case args of
       [] => NONE
-    | [pt] => lift litInt $ destIntT ' (destTOK ' (destLf pt))
+    | [pt] => (lift litInt $ destIntT ' (destTOK ' (destLf pt))) ++
+              (lift litString $ destStringT ' (destTOK ' (destLf pt)))
     | _ => NONE
 End
 
