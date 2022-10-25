@@ -85,6 +85,7 @@ Definition cexp_wf_def:
   cexp_wf (Lam vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec fns e) = (EVERY cexp_wf $ MAP SND fns ∧ cexp_wf e ∧ fns ≠ [] ∧
+                            EVERY ok_bind $ MAP SND fns ∧
                             ALL_DISTINCT $ MAP FST fns) ∧
   cexp_wf (Case e v css) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧

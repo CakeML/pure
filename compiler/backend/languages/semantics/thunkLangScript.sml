@@ -612,4 +612,15 @@ Termination
   first_x_assum $ dxrule_then assume_tac >> gvs [cexp_size_eq]
 End
 
+Definition ok_bind_def[simp]:
+  (ok_bind (Delay _) = T) ∧
+  (ok_bind (Lam _ _) = T) ∧
+  (ok_bind _ = F)
+End
+
+Definition is_Lam_def[simp]:
+  (is_Lam (Lam _ _) = T) ∧
+  (is_Lam _ = F)
+End
+
 val _ = export_theory ();

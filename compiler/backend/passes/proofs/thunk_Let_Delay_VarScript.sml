@@ -15,17 +15,6 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory thunk_NRC_relThe
 
 val _ = new_theory "thunk_Let_Delay_Var";
 
-Definition ok_bind_def[simp]:
-  ok_bind (Delay x) = T ∧
-  ok_bind (Lam s x) = T ∧
-  ok_bind _ = F
-End
-
-Definition is_Lam_def[simp]:
-  is_Lam (Lam s x) = T ∧
-  is_Lam _ = F
-End
-
 Definition replace_Force_def:
   (replace_Force expr v1 (Force (Var v2)) = if v1 = v2
                                           then expr
@@ -3274,6 +3263,19 @@ Proof
   >- (irule_at Any NRC_rel_MkTick >>
       gvs [exp_rel_MkTick, exp_rel_refl] >>
       first_x_assum $ irule_at Any)
+QED
+
+Theorem full_exp_rel_freevars:
+  ∀x y. full_exp_rel x y ⇒ freevars x = freevars y
+Proof
+  rw []
+  \\ ‘∀n x y. NRC exp_rel n x y ⇒ freevars x = freevars y’
+    suffices_by metis_tac [full_exp_rel_NRC_exp_rel]
+  \\ Induct \\ gvs [NRC]
+  \\ rw []
+  \\ last_x_assum $ dxrule_then assume_tac
+  \\ dxrule_then assume_tac exp_rel_freevars
+  \\ gvs []
 QED
 
 Theorem full_delay_lam_semantics:

@@ -10,18 +10,6 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 
 val _ = new_theory "thunk_Delay_Lam";
 
-
-Definition ok_bind_def[simp]:
-  ok_bind (Delay x) = T ∧
-  ok_bind (Lam s x) = T ∧
-  ok_bind _ = F
-End
-
-Definition is_Lam_def[simp]:
-  is_Lam (Lam s x) = T ∧
-  is_Lam _ = F
-End
-
 Inductive exp_rel:
 [~Var:]
   (∀n. exp_rel (Var n) (Var n)) ∧
