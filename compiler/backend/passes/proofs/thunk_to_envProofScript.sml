@@ -43,7 +43,7 @@ Definition to_env_def:
   to_env (Box x) = Box (to_env x) ∧
   to_env (Letrec fs x) = Letrec (REVERSE (MAP (λ(n,x). (n,to_env x)) fs)) (to_env x) ∧
   to_env (Case v rows d) = Case v (MAP (λ(n,p,x). (n,p,to_env x)) rows)
-                                  (case d of NONE => NONE | SOME e => SOME (to_env e)) ∧
+                            (case d of NONE => NONE | SOME (a,e) => SOME (a,to_env e)) ∧
   to_env (Prim p xs) =
     let ys = MAP to_env xs in
       case p of
@@ -66,6 +66,15 @@ Definition to_env_def:
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
+
+Triviality exp_rel_Disj:
+  ∀xs x. exp_rel [] (Disj x xs) (Disj x xs)
+Proof
+  Induct \\ fs [Disj_def,FORALL_PROD,envLangTheory.Disj_def] \\ rw []
+  \\ rpt (irule_at Any exp_rel_If \\ fs [])
+  \\ rpt (irule_at Any exp_rel_Prim \\ fs [])
+  \\ rpt (irule_at Any exp_rel_Var \\ fs [])
+QED
 
 Theorem to_env_exp_of:
   ∀x. cexp_wf x ⇒ exp_rel [] (exp_of x) (exp_of (to_env x))
@@ -119,7 +128,11 @@ Proof
     >-
      (fs [rows_of_def,envLangTheory.rows_of_def]
       \\ Cases_on ‘d’ \\ fs []
-      \\ simp [Once exp_rel_cases])
+      >- simp [Once exp_rel_cases]
+      \\ rename [‘x = (_,_)’]
+      \\ PairCases_on ‘x’ \\ fs []
+      \\ irule_at Any exp_rel_If \\ gvs [exp_rel_Disj]
+      \\ cheat (* fail fail *))
     \\ PairCases \\ simp [SF DNF_ss, SF CONJ_ss, AND_IMP_INTRO]
     \\ rw [] \\ fs []
     \\ fs [rows_of_def,envLangTheory.rows_of_def]
