@@ -107,6 +107,8 @@ val _ = temp_overload_on ("CDECLS",
 val _ = temp_overload_on("::ₑ", “λh t. Prim () (Cons «:») [h; t]”)
 val _ = temp_set_fixity "::ₑ" (Infixr 490)
 val _ = temp_overload_on("[]ₑ", “Prim () (Cons «[]») []”)
+val _ = temp_overload_on(">>=", “λe1 e2. Prim () (Cons «Bind») [e1;e2]”)
+val _ = set_fixity ">>=" $ Infix(NONASSOC, 100)
 
 val _ = temp_overload_on ("+ₑ", “λe1 e2. Prim () (AtomOp Add) [e1; e2]”)
 val _ = temp_set_fixity "+ₑ" (Infixl 500)
@@ -174,6 +176,10 @@ val _ = app fptest [
            \   foo x",
    “astExp nExp”,
    “expDo [expdostmtBind (patVar "x") (‹f› ⬝ ‹y› ⬝ 𝕀 3)] (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "do x <- f y 3\n\
+           \   foo x",
+   “CEXP”,
+   “App () (𝕍 «f») [𝕍 «y»; 𝕁 3] >>= Lam () [«x»] (App () (𝕍 «foo») [𝕍 «x»])”),
   (“nExp”, "do let y = 10\n\
            \       f :: Int -> Int\n\
            \       f z = z + 1\n\

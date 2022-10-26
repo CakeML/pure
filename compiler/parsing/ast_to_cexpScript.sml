@@ -83,7 +83,7 @@ Definition translate_pat_def:
   translate_pat _ = NONE
 End
 
-
+Overload Bind = “λa1 a2. pure_cexp$Prim () (Cons «Bind») [a1;a2]”
 Definition translate_exp_def:
   translate_exp conmap (expVar s) = SOME (Var () (implode s)) ∧
   translate_exp conmap (expCon s es) =
@@ -151,6 +151,52 @@ Definition translate_exp_def:
        | SOME us_e => do e <- translate_exp conmap us_e ; return (SOME e) od ;
      return (pure_cexp$Case () g «» pes ceopt)
    od) ∧
+  (translate_exp conmap (expDo dostmts finalexp) =
+   (* see https://www.haskell.org/onlinereport/haskell2010/haskellch3.html
+      section 3.14 *)
+   case dostmts of
+   | [] => translate_exp conmap finalexp
+   | expdostmtExp ee :: reste =>
+       do
+         e <- translate_exp conmap ee;
+         rest <- translate_exp conmap (expDo reste finalexp) ;
+         return (Bind e $ Lam () [«»] rest)
+       od
+   | expdostmtBind pe ee :: reste =>
+       do
+         case pe of
+         | patVar n =>
+             do
+               e <- translate_exp conmap ee ;
+               rest <- translate_exp conmap (expDo reste finalexp) ;
+               return (Bind e $ Lam () [implode n] rest)
+             od
+         | patUScore =>
+             do
+               e <- translate_exp conmap ee ;
+               rest <- translate_exp conmap (expDo reste finalexp) ;
+               return (Bind e $ Lam () [«»] rest)
+             od
+         | _ => NONE (*
+             do
+               e <- translate_exp conmap ee ;
+               rest <- translate_exp conmap (expDo reste finalexp) ;
+               Let () «» (Lam () « 1»
+                          (NestedCase
+                            ()
+                            (Var () « 1»)
+                            « 2»
+
+
+               ce <- translate_patcase conmap «» p rest;
+           SOME (Lam () [«»] ce) *)
+         od
+   | expdostmtLet decs :: reste =>
+       do
+         recbinds <- translate_edecs conmap decs ;
+         rest <- translate_exp conmap (expDo reste finalexp);
+         SOME (Letrec () recbinds rest)
+       od) ∧
 
   (translate_edecs conmap [] = SOME []) ∧
   (translate_edecs conmap (d :: ds) =
