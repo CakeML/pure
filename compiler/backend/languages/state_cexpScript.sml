@@ -82,8 +82,9 @@ Definition cexp_wf_def:
     cexp_wf e ∧ EVERY (λ(v,x,e). cexp_wf e) funs ∧ ALL_DISTINCT (MAP FST funs)) ∧
   cexp_wf (Let (SOME x) e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (If e e1 e2) = (cexp_wf e ∧ cexp_wf e1 ∧ cexp_wf e2) ∧
-  cexp_wf (Case v css d) = (
-    OPTION_ALL (cexp_wf o SND) d ∧ ALL_DISTINCT (MAP FST css) ∧
+  cexp_wf (Case v css d) = (css ≠ [] ∧
+    OPTION_ALL (λ(a,e). a ≠ [] ∧ cexp_wf e) d ∧
+    ALL_DISTINCT (MAP FST css ++ case d of NONE => [] | SOME (a,_) => MAP FST a) ∧
     EVERY (λ(cn,vs,ce). ALL_DISTINCT vs ∧ cexp_wf ce) css) ∧
   cexp_wf (Raise e) = cexp_wf e ∧
   cexp_wf (Handle e1 x e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
@@ -102,9 +103,13 @@ Definition cns_arities_def:
     BIGUNION (set (MAP (λ(v,x,e). cns_arities e) funs)) ∪ cns_arities e ∧
   cns_arities (Let x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (If e e1 e2) = cns_arities e ∪ cns_arities e1 ∪ cns_arities e2 ∧
-  cns_arities (Case v css d) = set (MAP (λ(cn,vs,e). explode cn, LENGTH vs) css) INSERT
-    (case d of NONE => {} | SOME (_,e) => cns_arities e) ∪
-    BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∧
+  cns_arities (Case v css d) = (
+    let css_cn_ars = set (MAP (λ(cn,vs,e). explode cn, LENGTH vs) css) in
+    (case d of
+      | NONE => {css_cn_ars}
+      | SOME (a,e) =>
+        (set (MAP (λ(cn,ar). explode cn, ar) a) ∪ css_cn_ars) INSERT cns_arities e) ∪
+    BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
   cns_arities (Raise e) = cns_arities e ∧
   cns_arities (Handle e1 x e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (HandleApp e1 e2) = cns_arities e1 ∪ cns_arities e2

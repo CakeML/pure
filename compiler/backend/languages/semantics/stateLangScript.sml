@@ -1524,6 +1524,30 @@ Proof
   \\ first_x_assum $ irule_at $ Pos $ hd \\ fs []
 QED
 
+Theorem find_match_list_SOME:
+  find_match_list cn ws env css d = SOME (env', e) ⇔
+  (∃vs.
+    ALOOKUP css cn = SOME (vs, e) ∧ LENGTH ws = LENGTH vs ∧
+    env' = REVERSE (ZIP (vs,ws)) ++ env) ∨
+  (ALOOKUP css cn = NONE ∧
+   ∃alts. d = SOME (alts, e) ∧ ALOOKUP alts cn = SOME (LENGTH ws) ∧ env' = env)
+Proof
+  Induct_on `css` >> rw[find_match_list_def]
+  >- (gvs[AllCaseEqs(), PULL_EXISTS] >> eq_tac >> rw[]) >>
+  PairCases_on `h` >> gvs[find_match_list_def] >>
+  IF_CASES_TAC >> gvs[] >> eq_tac >> rw[]
+QED
+
+Theorem find_match_SOME:
+  find_match v env x css usopt = SOME (env', e) ⇔
+  ¬ MEM x (FLAT (MAP (FST o SND) css)) ∧ css ≠ [] ∧
+  ∃cn vs. v = Constructor cn vs ∧
+          find_match_list cn vs env css usopt = SOME (env', e)
+Proof
+  simp[find_match_def, AllCaseEqs()] >> eq_tac >> rw[]
+QED
+
+
 (* meaning of cexp *)
 
 Definition sop_of_def[simp]:
