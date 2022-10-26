@@ -67,7 +67,7 @@ Type exndef[pp] = ``:(mlstring # type list) list``;
 Definition initial_namespace_def:
   initial_namespace : exndef # typedefs = (
     [«Subscript»,[]],
-    [1, [ («[]»,[]) ; («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
+    [1, [ («[]»,[]) ; («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
   )
 End
 
