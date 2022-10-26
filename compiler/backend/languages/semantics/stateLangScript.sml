@@ -371,7 +371,7 @@ Definition find_match_list_def:
     (case d of
      | NONE => NONE
      | SOME (alts:((vname # num) list),e:exp) =>
-         if MEM (c,LENGTH ws) alts then SOME ([],e) else NONE) ∧
+         if ALOOKUP alts c = SOME (LENGTH ws) then SOME (env,e) else NONE) ∧
   find_match_list c ws env ((c',ns,e)::rows) d =
     if c = c' then
       if LENGTH ns = LENGTH ws then
