@@ -29,7 +29,8 @@ Datatype:
        | Delay cexp
        | Box cexp
        | Force cexp
-       | Case vname ((vname # (vname list) # cexp) list) (cexp option)
+       | Case vname ((vname # (vname list) # cexp) list)
+                    (((vname # num) list # cexp) option)
        (* monads *)
        | Ret cexp
        | Raise cexp
