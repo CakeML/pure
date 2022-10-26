@@ -48,7 +48,7 @@ Definition exp_of'_def:
     (let caseexp =
        Let (explode v) (exp_of' x)
            (rows_of' (explode v)
-              (case eopt of NONE => Fail | SOME e => exp_of' e)
+              (case eopt of NONE => Fail | SOME (a,e) => IfDisj v a (exp_of' e))
               (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
@@ -262,11 +262,13 @@ Proof
         Cases_on ‘MEM (explode y) l’ >> gvs[] >>
         first_x_assum $ qspec_then ‘MAP implode l’ mp_tac >>
         simp[MEM_MAP, implodeEQ, GSYM MAP_implodeEQ])
-    \\ reverse conj_tac >- (Cases_on ‘eopt’ >> gs[exp_eq_refl])
+    \\ reverse conj_tac
+    >- (Cases_on ‘eopt’ >> gs[exp_eq_refl] \\ CASE_TAC \\ fs []
+        \\ fs [IfDisj_def] \\ irule exp_eq_If_cong \\ fs [exp_eq_refl])
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
            LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM, EL_MAP]
     \\ gvs [ELIM_UNCURRY] \\ rpt strip_tac
-    \\ first_x_assum irule \\ simp[]
+    \\ last_x_assum irule \\ simp[]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘EL n rs’ \\ gs []
     \\ irule_at Any PAIR)
@@ -306,6 +308,11 @@ Proof
   \\ pop_assum kall_tac
   \\ rpt $ pop_assum mp_tac
   \\ qid_spec_tac ‘rs’ \\ Induct \\ fs [rows_of_def,rows_of'_def,FORALL_PROD]
+  \\ TRY (Cases_on ‘∃x y. eopt = SOME (x,y)’
+          \\ gvs [IfDisj_def]
+          \\ Cases_on ‘eopt’ \\ fs []
+          \\ rename [‘z = (_,_)’]
+          \\ PairCases_on ‘z’ \\ fs [] \\ NO_TAC)
   \\ TRY (Cases_on ‘eopt’ \\ fs [] \\ NO_TAC)
   \\ fs [SF DNF_ss] \\ rw [] \\ gvs []
   \\ DEP_REWRITE_TAC [freevars_lets_for']
