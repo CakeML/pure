@@ -145,6 +145,8 @@ Proof
   Induct \\ fs []
 QED
 
+val cexp_wf_def = pure_cexpTheory.cexp_wf_def;
+
 Theorem exp_rel_imp_combined:
   ∀x y.
     exp_rel x y ∧ cexp_wf x ⇒
@@ -155,7 +157,7 @@ Theorem exp_rel_imp_combined:
       proj_rel y3 (exp_of y)
 Proof
   Induct_on ‘exp_rel’
-  \\ rw [exp_of'_def,cexp_wf_def] \\ fs [pure_cexpTheory.op_of_def]
+  \\ rw [exp_of'_def,pure_cexpTheory.cexp_wf_def] \\ fs [pure_cexpTheory.op_of_def]
   >~ [‘Var n’] >-
    (simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases]
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Force

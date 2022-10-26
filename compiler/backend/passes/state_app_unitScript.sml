@@ -37,7 +37,7 @@ Definition push_app_unit_def:
   push_app_unit l (Case v rows d) =
     unit_apps l
       (Case v (MAP (λ(v,vs,y). (v,vs,push_app_unit 0 y)) rows)
-              (case d of NONE => NONE | SOME e => SOME (push_app_unit 0 e))) ∧
+              (case d of NONE => NONE | SOME (a,e) => SOME (a,push_app_unit 0 e))) ∧
   push_app_unit l (Raise x) =
     unit_apps l (Raise (push_app_unit 0 x)) ∧
   push_app_unit l (Handle x v y) =

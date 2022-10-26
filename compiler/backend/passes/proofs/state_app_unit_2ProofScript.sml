@@ -82,11 +82,11 @@ Inductive compile_rel:
 
 [~Case:]
   (∀v te se tes ses.
-     compile_rel te se ∧
+     OPTREL (λ(a,x) (b,y). a = b ∧ compile_rel x y) te se ∧
      MAP FST tes = MAP FST ses ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧
      LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-  compile_rel (Case te v tes) (Case se v ses))
+  compile_rel (Case v tes te) (Case v ses se))
 
 End
 
@@ -167,14 +167,7 @@ Inductive cont_rel:
   (∀sk tk.
     cont_rel tk sk ⇒
     cont_rel (RaiseK :: tk)
-             (RaiseK :: sk)) ∧
-  (∀sk tk v tenv senv.
-    cont_rel tk sk ∧ env_rel tenv senv ∧
-    MAP FST tes = MAP FST ses ∧
-    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
-    LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-    cont_rel (CaseK tenv v tes :: tk)
-             (CaseK senv v ses :: sk))
+             (RaiseK :: sk))
 End
 
 Inductive step_res_rel:
@@ -601,7 +594,7 @@ Proof
    (first_x_assum irule \\ fs [step_1_ind_hyp_SUC]
     \\ rpt $ first_assum $ irule_at $ Any
     \\ simp [Once cont_rel_cases])
-  >~ [‘Case’] >-
+  >~ [‘Case’] >- cheat (*
    (IF_CASES_TAC \\ fs []
     \\ gvs [is_halt_step]
     >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
@@ -609,7 +602,7 @@ Proof
     \\ rpt $ first_assum $ irule_at $ Any
     \\ simp [Once cont_rel_cases]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
-    \\ fs [])
+    \\ fs []) *)
   >~ [‘App’] >-
    (imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ IF_CASES_TAC \\ fs []
@@ -799,37 +792,6 @@ Proof
     \\ first_assum $ irule_at Any \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ simp [Once step_res_rel_cases])
-  >~ [‘CaseK’] >-
-   (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
-    \\ Cases_on ‘tes’ \\ fs [return_def,step]
-    \\ TRY (PairCases_on ‘h’) \\ fs [step]
-    \\ TRY (first_assum $ irule_at Any \\ fs []
-            \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-            \\ simp [Once step_res_rel_cases])
-    \\ Cases_on ‘ses’ \\ fs [] \\ PairCases_on ‘h’ \\ gvs [step]
-    \\ IF_CASES_TAC \\ gvs []
-    \\ TRY (first_assum $ irule_at Any \\ fs []
-            \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-            \\ simp [Once step_res_rel_cases])
-    \\ qpat_x_assum ‘v_rel v1 v2’ mp_tac
-    \\ Cases_on ‘v1’ \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ rw [] \\ gvs []
-    \\ gvs [is_halt_step]
-    \\ TRY (qexists_tac ‘n’ \\ fs [step_res_rel_cases] \\ NO_TAC)
-    \\ TRY (first_assum $ irule_at Any \\ fs []
-            \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-            \\ simp [Once step_res_rel_cases]
-            \\ simp [Once v_rel_cases]
-            \\ simp [Once cont_rel_cases] \\ NO_TAC)
-    \\ first_assum $ irule_at Any \\ fs []
-    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-    \\ simp [Once step_res_rel_cases]
-    \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
-    \\ irule env_rel_zip \\ fs []
-    \\ irule_at Any env_rel_cons
-    \\ first_assum $ irule_at $ Pos hd
-    \\ simp [Once v_rel_cases])
   \\ rename [‘AppK’]
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
