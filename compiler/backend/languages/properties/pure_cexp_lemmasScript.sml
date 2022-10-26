@@ -1,5 +1,5 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
 open pure_miscTheory pure_cexpTheory pureLangTheory
@@ -23,7 +23,7 @@ Proof
   gvs[LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG,
       LIST_TO_SET_FILTER, UNCURRY, silly_cong_lemma] >>
   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, cepat_vars_l_correct] >>
-  metis_tac[]
+  every_case_tac >> gvs[] >> metis_tac[]
 QED
 
 Theorem freevars_lets_for:
@@ -169,6 +169,17 @@ Proof
   simp[EXTENSION, PULL_EXISTS] >> metis_tac[mlstringTheory.explode_11]
 QED
 
+Theorem freevars_IfDisj:
+  ∀a v e. freevars (IfDisj v a e) =
+    case a of
+    | [] => freevars e
+    | _ => explode v INSERT freevars e
+Proof
+  Induct >> rw[IfDisj_def, Disj_def] >>
+  PairCases_on `h` >> gvs[IfDisj_def, Disj_def] >>
+  simp[GSYM INSERT_SING_UNION, INSERT_UNION_EQ] >> CASE_TAC >> gvs[]
+QED
+
 val _ = temp_delsimps ["nested_rows_def"]
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_cexp ce
@@ -190,13 +201,33 @@ Proof
    rename [‘explode vv ∈ freevars (nested_rows _ _) ∨ _’] >> disj1_tac >>
    irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
    simp[MAP_MAP_o, MEM_MAP, EXISTS_PROD, combinTheory.o_ABS_R, PULL_EXISTS]>>
-   gs[FORALL_PROD] >> metis_tac[IN_IMAGE]) >>~-
-  ([‘MEM v (FLAT (MAP _ css))’],
-   Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
-   PairCases_on ‘h’ >>
-   gs[DISJ_IMP_THM, FORALL_AND_THM] >>
-   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-   metis_tac[mlstringTheory.explode_11]) >>
+   gs[FORALL_PROD] >> metis_tac[IN_IMAGE])
+  >~ [‘MEM v (FLAT (MAP _ css))’]
+  >- (
+    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
+    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+    PairCases_on ‘h’ >> gvs[] >>
+    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[mlstringTheory.explode_11]
+    )
+  >~ [‘MEM v (FLAT (MAP _ css))’]
+  >- (
+    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
+    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+    PairCases_on ‘h’ >> gvs[] >>
+    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[mlstringTheory.explode_11]
+    )
+  >>~- (
+    [‘MEM v (FLAT (MAP _ css))’],
+    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
+    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[mlstringTheory.explode_11]
+    ) >>
   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
   metis_tac[mlstringTheory.explode_11]
 QED
@@ -218,6 +249,22 @@ Proof
   recInduct rows_of_ind >> rw[rows_of_def, subst_def]
   >- simp[FLOOKUP_DEF] >>
   simp[subst_lets_for, combinTheory.o_DEF]
+QED
+
+Theorem subst_Disj:
+  ∀cn_ars v. v ∉ FDOM f ⇒ subst f (Disj v cn_ars) = Disj v cn_ars
+Proof
+  Induct >> rw[Disj_def, subst_def] >>
+  PairCases_on `h` >> rw[Disj_def, subst_def] >> gvs[FLOOKUP_DEF]
+QED
+
+Theorem subst_IfDisj:
+  ∀a v e f. explode v ∉ FDOM f ⇒ subst f (IfDisj v a e) = IfDisj v a (subst f e)
+Proof
+  Induct >> rw[IfDisj_def, Disj_def, subst_def] >>
+  PairCases_on `h` >> rw[Disj_def, subst_def]
+  >- gvs[FLOOKUP_DEF]
+  >- simp[subst_Disj]
 QED
 
 Theorem subst_FOLDR_Let:
@@ -385,10 +432,11 @@ Proof
            CONJ_ASSOC]) >>~-
   ([‘rows_of’],
    simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-   Cases_on ‘eopt’ >>
+   Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
    gs[FUN_FMAP_IMAGE, FDOM_f_o_implode, combinTheory.o_DEF, FAPPLY_f_o,
       FUN_FMAP_DELETE, f_o_implode_DOMSUB_explode, FUN_FMAP_DOMSUB,
       IMAGE_explode_DELETE] >>
+   DEP_REWRITE_TAC[subst_IfDisj] >> simp[FDOM_f_o_implode] >>
    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
    first_x_assum drule >> rw[] >> irule combeq3 >> simp[] >>
    simp[FDIFF_FUN_FMAP, fmap_EXT, PULL_EXISTS, FDOM_FDIFF_alt,
