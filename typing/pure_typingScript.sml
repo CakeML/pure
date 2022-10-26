@@ -303,7 +303,7 @@ End
   type_tcexp :
       exndef # typedefs           -- type definitions for exceptions and datatypes
    -> num                         -- number of deBruijn indices in scope
-   -> type list                   -- store typing TODO think about this more
+   -> type list                   -- store typing
    -> (string # type_scheme) list -- term variables associated to type schemes
    -> tcexp -> type                -- expression and its type
 *)
@@ -403,7 +403,6 @@ Inductive type_tcexp:
       ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty)) ∧
 
 [~Let:]
-  (* TODO this just desugars to normal application - do we want polymorphism? *)
   (type_tcexp ns (db + new) (MAP (tshift new) st) (tshift_env new env) e1 t1 ∧
    type_tcexp ns db st ((x,new,t1)::env) e2 t2 ⇒
       type_tcexp ns db st env (Let x e1 e2) t2) ∧
@@ -464,8 +463,9 @@ Inductive type_tcexp:
    oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
 
    (* Pattern match is exhaustive: *)
-   set (MAP FST css) ⊆ set (MAP FST constructors) ∧
-   (set (MAP FST css) = set (MAP FST constructors) ∨ ∃ce. eopt = SOME ce) ∧
+   set (MAP FST css) ∪
+    (case eopt of NONE => {} | SOME (a,_) => set (MAP FST a)) =
+      set (MAP FST constructors) ∧
 
    (* forbid duplicated patterns *)
    ALL_DISTINCT (MAP FST css) ∧
@@ -488,7 +488,7 @@ Inductive type_tcexp:
       ) css ∧
 
    (* catch-all case: *)
-   (∀ce. eopt = SOME ce ⇒
+   (∀a ce. eopt = SOME (a, ce) ⇒
          type_tcexp (exndef, typedefs) db st ((v,0,TypeCons tyid tyargs)::env)
                     ce
                     t)
