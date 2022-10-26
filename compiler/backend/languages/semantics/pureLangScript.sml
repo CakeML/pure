@@ -6,6 +6,14 @@ open pairTheory listTheory pure_expTheory pure_cexpTheory;
 
 val _ = new_theory "pureLang";
 
+Overload True[local] = “Prim (Cons "True") []”;
+Overload False[local] = “Prim (Cons "False") []”;
+
+Definition Disj_def:
+  Disj v [] = False ∧
+  Disj v ((cn,l)::xs) = If (IsEq cn l T (Var v)) True (Disj v xs)
+End
+
 Definition lets_for_def:
   lets_for cn v [] b = b ∧
   lets_for cn v ((n,w)::ws) b = Let w (Proj cn n (Var v)) (lets_for cn v ws b)
@@ -47,6 +55,11 @@ Definition nested_rows_def[simp]:
        (nested_rows v pes)
 End
 
+Definition IfDisj_def:
+  IfDisj v a e =
+    If (Disj (explode v) (MAP (explode ## I) a)) e Fail
+End
+
 Definition exp_of_def:
   exp_of (Var d n)       = Var (explode n):exp ∧
   exp_of (Prim d p xs)   = Prim (op_of p) (MAP exp_of xs) ∧
@@ -57,7 +70,9 @@ Definition exp_of_def:
     Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs) (exp_of x) ∧
   exp_of (Case d x v rs eopt) =
     (let
-       k = (case eopt of NONE => Fail | SOME e => exp_of e) ;
+       k = (case eopt of
+            | NONE => Fail
+            | SOME (a,e) => IfDisj v a (exp_of e)) ;
        caseexp =
        Let (explode v) (exp_of x)
            (rows_of (explode v) k

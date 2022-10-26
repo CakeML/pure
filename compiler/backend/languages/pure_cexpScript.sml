@@ -72,16 +72,16 @@ Datatype:
        | Let 'a cvname cexp cexp                 (* let                      *)
        | Letrec 'a ((cvname # cexp) list) cexp   (* mutually recursive exps  *)
        | Case 'a cexp cvname ((cvname # cvname list # cexp) list) (* case of *)
-              (cexp option)
+                    (((cvname # num) list # cexp) option)     (* fallthrough *)
        | NestedCase 'a cexp cvname cepat cexp ((cepat # cexp) list)
                                         (* case w/non-empty pattern-exp list *)
 End
 
 Theorem cexp_size_lemma:
-  (∀xs a. MEM a xs ⇒ cexp_size f a < cexp9_size f xs) ∧
-  (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp5_size f xs) ∧
-  (∀xs a1 a. MEM (a1,a) xs ⇒ cexp_size f a < cexp4_size f xs) ∧
-  (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒ cexp_size f a < cexp1_size f xs)
+  (∀xs a. MEM a xs ⇒ cexp_size f a < cexp10_size f xs) ∧
+  (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp6_size f xs) ∧
+  (∀xs a1 a. MEM (a1,a) xs ⇒ cexp_size f a < cexp7_size f xs) ∧
+  (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒ cexp_size f a < cexp2_size f xs)
 Proof
   rpt conj_tac
   \\ Induct \\ rw [] \\ fs [fetch "-" "cexp_size_def"] \\ res_tac \\ fs []
@@ -89,13 +89,13 @@ QED
 
 Theorem better_cexp_induction =
         TypeBase.induction_of “:α cexp”
-          |> Q.SPECL [‘P’, ‘λrows. ∀c arg e. MEM (c,arg,e) rows ⇒ P e’,
-                      ‘λ(c,arg,e). P e’, ‘λ(nm,e). P e’,
+          |> Q.SPECL [‘P’,‘λd. ∀x e. d = SOME (x,e) ⇒ P e’,
+                      ‘λrows. ∀c arg e. MEM (c,arg,e) rows ⇒ P e’,
+                      ‘λ(nm,e). P e’,‘λ(c,arg,e). P e’,‘λ(nm,e). P e’,
                       ‘λlbs. ∀pat e. MEM (pat, e) lbs ⇒ P e’,
-                      ‘λpes. ∀lb e. MEM (lb,e) pes ⇒ P e’,
+                      ‘λlbs. ∀pat e. MEM (pat, e) lbs ⇒ P e’,
                       ‘λ(s,e). P e’,
                       ‘λ(p,e). P e’,
-                      ‘λeopt. ∀e. eopt = SOME e ⇒ P e’,
                       ‘λes. ∀e. MEM e es ⇒ P e’
                      ]
           |> CONV_RULE (LAND_CONV (SCONV [DISJ_IMP_THM, FORALL_AND_THM,
@@ -129,7 +129,7 @@ Definition gencexp_recurse_def:
   gencexp_recurse f (Case c x n ys eopt) =
     f (Case c (gencexp_recurse f x) n
             (MAP (λ(n,ns,e). (n,ns,gencexp_recurse f e)) ys)
-            (OPTION_MAP (gencexp_recurse f) eopt)) ∧
+            (OPTION_MAP (λ(a,x). (a,gencexp_recurse f x)) eopt)) ∧
   gencexp_recurse f (NestedCase c g gv p e pes) =
     f (NestedCase c (gencexp_recurse f g) gv p (gencexp_recurse f e)
        (MAP (λ(p,e). (p, gencexp_recurse f e)) pes))
@@ -155,7 +155,7 @@ Definition freevars_cexp_def[simp]:
       DIFF set (MAP FST fns) ∧
   freevars_cexp (Case c e v css eopt) = freevars_cexp e ∪
     ((BIGUNION (set (MAP (λ(_,vs,ec). freevars_cexp ec DIFF set vs) css)) ∪
-      (case eopt of NONE => ∅ | SOME e => freevars_cexp e))
+      (case eopt of NONE => ∅ | SOME (a,e) => freevars_cexp e))
      DELETE v) ∧
   freevars_cexp (NestedCase c g gv p e pes) =
     freevars_cexp g ∪
@@ -180,7 +180,7 @@ Definition freevars_cexp_l_def[simp]:
   freevars_cexp_l (Case c e v css eopt) = freevars_cexp_l e ++
     FILTER ($≠ v)
       (FLAT
-        ((case eopt of NONE => [] | SOME e => freevars_cexp_l e) ::
+        ((case eopt of NONE => [] | SOME (a,e) => freevars_cexp_l e) ::
          MAP (λ(_,vs,ec). FILTER (λv. ¬MEM v vs) (freevars_cexp_l ec)) css)) ∧
   freevars_cexp_l (NestedCase c g gv p e pes) =
     freevars_cexp_l g ++
@@ -206,7 +206,7 @@ Definition substc_def:
   substc f (Case c e v css eopt) =
     Case c (substc f e) v
          (MAP (λ(cn,vs,e). (cn,vs, substc (FDIFF f (v INSERT set vs)) e)) css)
-         (OPTION_MAP (substc (f \\ v)) eopt) ∧
+         (OPTION_MAP (λ(a,x). (a,substc (f \\ v) x)) eopt) ∧
   substc f (NestedCase c g gv p e pes) =
   NestedCase
     c
@@ -252,7 +252,7 @@ Definition cexp_wf_def:
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧
     (eopt = NONE ⇒ css ≠ []) ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    OPTION_ALL cexp_wf eopt ∧
+    OPTION_ALL (cexp_wf o SND) eopt ∧
     (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns)) ∧
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
@@ -275,7 +275,7 @@ Definition NestedCase_free_def[simp]:
   ) ∧
   NestedCase_free (Case _ e _ css eopt) = (
     NestedCase_free e ∧ EVERY NestedCase_free $ MAP (SND o SND) css ∧
-    OPTION_ALL NestedCase_free eopt
+    OPTION_ALL (NestedCase_free o SND) eopt
   ) ∧
   NestedCase_free (NestedCase _ _ _ _ _ _) = F
 Termination
@@ -301,7 +301,7 @@ Definition cexp_eq_def:
     cexp_eq e1 e2 ∧ v1 = v2 ∧
     LIST_REL (λ(cn1,vs1,e1) (cn2,vs2,e2). cn1 = cn2 ∧ vs1 = vs2 ∧ cexp_eq e1 e2)
              css1 css2 ∧
-    OPTREL (λe1 e2. cexp_eq e1 e2) eopt1 eopt2) ∧
+    OPTREL (λ(a,e1) (b,e2). a = b ∧ cexp_eq e1 e2) eopt1 eopt2) ∧
   (cexp_eq (NestedCase _ g1 gv1 p1 e1 pes1) (NestedCase _ g2 gv2 p2 e2 pes2) ⇔
      cexp_eq g1 g2 ∧ gv1 = gv2 ∧ p1 = p2 ∧ cexp_eq e1 e2 ∧
      LIST_REL (λ(p1,e1) (p2,e2). p1 = p2 ∧ cexp_eq e1 e2) pes1 pes2) ∧
@@ -326,11 +326,10 @@ Definition cns_arities_def:
   cns_arities (Case d e v css eopt) =
     set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) INSERT
     cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∪
-    (case OPTION_MAP (λce. cns_arities ce) eopt of NONE => ∅ | SOME s => s) ∧
+    (case OPTION_MAP (λ(a,ce). cns_arities ce) eopt of NONE => ∅ | SOME s => s) ∧
   cns_arities _ = {}
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
 End
-
 
 val _ = export_theory();
