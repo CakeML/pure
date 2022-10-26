@@ -807,7 +807,6 @@ Proof
       \\ gs [NIL_iff_NOT_MEM]
       \\ rw [] \\ gs [])
     \\ rw [Once exp_rel_cases]
-    >- fs [eval_wh_to_def]
     >- ((* If *)
       simp [eval_to_def, eval_wh_to_def]
       \\ gvs [LENGTH_EQ_NUM_compute, SF DNF_ss]
@@ -2873,7 +2872,7 @@ Proof
     \\ first_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
   >- ((* Fail *)
-    irule_at Any exp_rel_Fail
+    irule_at Any exp_rel_Prim
     \\ irule_at Any tick_rel_Prim
     \\ gs [SF SFY_ss])
   >- ((* If *)

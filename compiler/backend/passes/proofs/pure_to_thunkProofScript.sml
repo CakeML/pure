@@ -147,6 +147,49 @@ QED
 
 val cexp_wf_def = pure_cexpTheory.cexp_wf_def;
 
+Definition Disj'_def:
+  Disj' v [] = Cons "False" [] ∧
+  Disj' v ((cn,l)::xs) = If (IsEq cn l T v) (Cons "True" []) (Disj' v xs)
+End
+
+Theorem to_thunk_Disj:
+  ∀xs v. to_thunk (Disj v xs) (Disj' (Force (Var v)) xs)
+Proof
+  Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []
+  \\ rpt (simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases])
+QED
+
+Theorem lift_rel_Disj:
+  ∀xs v. lift_rel (Disj' (Force (Var v)) xs) (Disj' (Force (Var v)) xs)
+Proof
+  Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []
+  \\ rpt (simp [Once thunk_case_liftProofTheory.compile_rel_cases])
+QED
+
+Theorem force_rel_Disj:
+  ∀xs v. force_rel (SOME (VV v,f)) (Disj' (Force (Var v)) xs) (Disj f xs)
+Proof
+  Induct \\ fs [Disj'_def,FORALL_PROD,Disj_def] \\ rw []
+  \\ rpt (simp [Once thunk_let_forceProofTheory.exp_rel_cases])
+QED
+
+Theorem proj_rel_Disj:
+  ∀xs v. proj_rel (Disj v xs) (Disj v xs)
+Proof
+  Induct \\ fs [Disj_def,FORALL_PROD] \\ rw []
+  \\ rpt (irule_at Any thunk_case_projProofTheory.compile_rel_If \\ fs [])
+  \\ rpt (irule_at Any thunk_case_projProofTheory.compile_rel_Cons \\ fs [])
+  \\ rpt (irule_at Any thunk_case_projProofTheory.compile_rel_Prim \\ fs [])
+  \\ rpt (irule_at Any thunk_case_projProofTheory.compile_rel_Var \\ fs [])
+QED
+
+Triviality freevars_Disj':
+  ∀xs. f ≠ v ⇒ f ∉ freevars (Disj' (Force (Var v)) xs)
+Proof
+  Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []
+  \\ fs [freevars_def]
+QED
+
 Theorem exp_rel_imp_combined:
   ∀x y.
     exp_rel x y ∧ cexp_wf x ⇒
@@ -167,7 +210,6 @@ Proof
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Force
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Var)
   >~ [‘rows_of'’] >-
-
    (irule_at Any thunk_case_projProofTheory.compile_rel_Let_SOME
     \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Let
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Let
@@ -219,20 +261,36 @@ Proof
     \\ qid_spec_tac ‘ys2’
     \\ qid_spec_tac ‘ys1’
     \\ Induct \\ fs [PULL_EXISTS]
-
-    >- cheat (*
+    >-
      (fs [rows_of_def,rows_of'_def]
       \\ Cases_on ‘yopt’ \\ fs []
+      \\ Cases_on ‘eopt’ \\ gvs []
       >-
        (irule_at Any thunk_case_projProofTheory.compile_rel_Prim \\ fs []
         \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Prim \\ fs []
         \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Prim \\ fs []
-        \\ Cases_on ‘eopt’ \\ fs []
         \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, freevars_def])
-      \\ Cases_on ‘eopt’ \\ fs []
-      \\ rpt $ first_assum $ irule_at Any
+      \\ PairCases_on ‘x'’ \\ PairCases_on ‘x''’ \\ gvs []
+      \\ fs [IfDisj_def]
+      \\ irule_at Any thunk_case_projProofTheory.compile_rel_If \\ fs []
+      \\ irule_at Any thunk_let_forceProofTheory.exp_rel_If \\ fs []
+      \\ irule_at Any thunk_case_liftProofTheory.compile_rel_If \\ fs []
+      \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_If \\ fs []
+      \\ irule_at Any to_thunk_Disj
+      \\ first_assum $ irule_at $ Pos hd
+      \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Prim \\ fs []
+      \\ irule_at Any lift_rel_Disj
+      \\ first_assum $ irule_at $ Pos hd
+      \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Prim \\ fs []
+      \\ irule_at Any force_rel_Disj
       \\ irule_at Any thunk_let_forceProofTheory.exp_rel_NONE_IMP_SOME
-      \\ fs [] \\ imp_res_tac to_thunk_freevars \\ fs []) *)
+      \\ first_assum $ irule_at $ Pos hd
+      \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Prim \\ fs []
+      \\ irule_at Any proj_rel_Disj
+      \\ fs [freevars_def,SF DNF_ss]
+      \\ fs [] \\ imp_res_tac to_thunk_freevars \\ fs []
+      \\ irule_at Any thunk_case_projProofTheory.compile_rel_Prim \\ fs []
+      \\ irule freevars_Disj' \\ fs [])
     \\ fs [FORALL_PROD]
     \\ rw [] \\ gvs []
     \\ first_x_assum dxrule
