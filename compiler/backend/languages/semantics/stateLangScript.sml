@@ -384,7 +384,7 @@ Definition find_match_def:
   find_match w env n css d =
     if MEM n (FLAT (MAP (FST o SND) css)) ∨ css = [] then NONE else
       case w of
-      | Constructor c ws => find_match_list c ws ((n,w)::env) css d
+      | Constructor c ws => find_match_list c ws env css d
       | _ => NONE
 End
 
