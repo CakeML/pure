@@ -11,13 +11,13 @@ val _ = new_theory "pure_tcexp";
 
 Datatype:
   tcexp = Var cvname                           (* variable                 *)
-        | Prim cop (tcexp list)               (* primitive operations     *)
-        | App tcexp (tcexp list)              (* function application     *)
+        | Prim cop (tcexp list)                (* primitive operations     *)
+        | App tcexp (tcexp list)               (* function application     *)
         | Lam (cvname list) tcexp              (* lambda                   *)
         | Let cvname tcexp tcexp               (* let                      *)
         | Letrec ((cvname # tcexp) list) tcexp (* mutually recursive exps  *)
         | Case tcexp cvname ((cvname # cvname list # tcexp) list)
-               (tcexp option)                                   (* case of *)
+               (((cvname # num) list # tcexp) option)           (* case of *)
         | SafeProj cvname num num tcexp        (* typesafe projection      *)
 End
 
@@ -46,7 +46,7 @@ Definition exp_of_def:
     Let (explode v) (exp_of x)
         (rows_of (explode v)
          (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)
-         (case eopt of NONE => Fail | SOME e => exp_of e)) ∧
+         (case eopt of NONE => Fail | SOME (a,e) => IfDisj v a (exp_of e))) ∧
   exp_of (SafeProj cn ar i e) =
     If (IsEq (explode cn) ar T (exp_of e))
        (Proj (explode cn) i (exp_of e))
@@ -65,11 +65,10 @@ Definition tcexp_of_def:
   tcexp_of (Letrec d rs x) = Letrec (MAP (λ(n,x). (n,tcexp_of x)) rs) (tcexp_of x) ∧
   tcexp_of (Case d x v rs eopt) =
     Case (tcexp_of x) v (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
-         (OPTION_MAP tcexp_of eopt) ∧
+         (OPTION_MAP (λ(a,e). (a,tcexp_of e)) eopt) ∧
   tcexp_of _               = Lam [] ARB
 Termination
-  WF_REL_TAC `measure $ cexp_size $ K 0` \\ rw [cexp_size_def] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[cexp_size_def]
+  WF_REL_TAC `measure $ cexp_size $ K 0`
 End
 
 Definition freevars_tcexp_def[simp]:
@@ -85,12 +84,11 @@ Definition freevars_tcexp_def[simp]:
   freevars_tcexp (Case e v css eopt) =
     freevars_tcexp e ∪
     (BIGUNION
-     (set ((case eopt of NONE => ∅ | SOME e => freevars_tcexp e) ::
+     (set ((case eopt of NONE => ∅ | SOME (_, e) => freevars_tcexp e) ::
            MAP (λ(_,vs,ec). freevars_tcexp ec DIFF set vs) css)) DELETE v) ∧
   freevars_tcexp (SafeProj cn ar i e) = freevars_tcexp e
 Termination
-  WF_REL_TAC `measure tcexp_size` >> rw [] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
+  WF_REL_TAC `measure tcexp_size`
 End
 
 Definition subst_tc_def:
@@ -106,11 +104,10 @@ Definition subst_tc_def:
   subst_tc f (Case e v css eopt) =
     Case (subst_tc f e) v
       (MAP (λ(cn,vs,e). (cn,vs, subst_tc (FDIFF f (v INSERT set vs)) e)) css)
-      (OPTION_MAP (subst_tc (f \\ v)) eopt) ∧
+      (OPTION_MAP (λ(a, e). (a, subst_tc (f \\ v) e)) eopt) ∧
   subst_tc f (SafeProj cn ar i e) = SafeProj cn ar i (subst_tc f e)
 Termination
-  WF_REL_TAC `measure (tcexp_size o SND)` >> rw [] >>
-  rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
+  WF_REL_TAC `measure (tcexp_size o SND)`
 End
 
 Overload subst_tc1 = ``λname v e. subst_tc (FEMPTY |+ (name,v)) e``;
@@ -125,7 +122,7 @@ Definition tcexp_wf_def:
   tcexp_wf (Case e v css eopt) = (
     tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧
     (eopt = NONE ⇒ css ≠ []) ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    OPTION_ALL tcexp_wf eopt ∧
+    OPTION_ALL (λ(_, e). tcexp_wf e) eopt ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
