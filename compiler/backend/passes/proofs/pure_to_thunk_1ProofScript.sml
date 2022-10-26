@@ -90,8 +90,6 @@ Inductive exp_rel:
   (∀s x y x1 y1.
      exp_rel x y ∧ exp_rel x1 y1 ⇒
        exp_rel (Let s (Tick x) x1) (Let (SOME s) (Delay y) y1)) ∧
-[exp_rel_Fail:]
-  (exp_rel Fail Fail) ∧
 [exp_rel_If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1; y1; z1] [x2; y2; z2] ⇒
@@ -290,9 +288,6 @@ Proof
     rename1 ‘exp_rel (Prim op xs)’
     \\ qpat_x_assum ‘exp_rel (Prim op xs) _’ mp_tac
     \\ rw [Once exp_rel_cases]
-    >- ((* Fail *)
-      simp [subst_single_def, subst1_def]
-      \\ rw [Once exp_rel_cases])
     >- ((* If *)
       simp [subst_single_def, subst1_def]
       \\ rw [Once exp_rel_cases])
@@ -438,7 +433,6 @@ Proof
   pop_assum mp_tac
   \\ rw [Once exp_rel_cases]
   \\ rw [subst_def, pure_expTheory.subst_def]
-  >- simp [exp_rel_Fail]
   >- simp [exp_rel_If]
   >- ((* Cons *)
     qmatch_goalsub_abbrev_tac ‘MAP f1 (MAP f2 ys)’

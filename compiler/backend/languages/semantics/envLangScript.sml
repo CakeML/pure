@@ -41,7 +41,7 @@ End
 Overload True[local] = “Prim (Cons "True") []”;
 Overload False[local] = “Prim (Cons "False") []”;
 Overload Unit[local] = “Prim (Cons "") []”;
-Overload Fail[local] = “Prim If []”;
+Overload Fail = “Prim (AtomOp Add) []”;
 
 Definition lets_for_def:
   lets_for l cn v [] b = b ∧

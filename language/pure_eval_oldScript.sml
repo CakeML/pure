@@ -1070,14 +1070,6 @@ Proof
   imp_res_tac getAtoms_eval_to_SOME >> fs[]
 QED
 
-Theorem eval_Fail:
-  eval Fail = Error
-Proof
-  fs[eval_def, eval_to_def, eval_op_def] >>
-  once_rewrite_tac[gen_v] >> fs[] >>
-  fs[v_limit_def, v_lookup]
-QED
-
 Theorem eval_Prim:
   eval (Prim op xs) = eval_op op (MAP eval xs)
 Proof
@@ -1131,7 +1123,6 @@ QED
 
 (*like eval_core, but extended with exp Overloads*)
 Theorem eval_thm:
-  eval (Fail)  = Error ∧
   eval (Var s) = Error (* free variables are not allowed *) ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n a x) = is_eq s n (eval x) ∧
@@ -1150,7 +1141,7 @@ Theorem eval_thm:
          | NONE => Error
          | SOME (s,body) => eval (bind1 s y body))
 Proof
-  fs [eval_Fail,eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
+  fs [eval_Var,eval_Cons,eval_App,eval_Lam,eval_If,eval_Proj,
       eval_IsEq,bind_def,eval_Letrec,eval_Case]
 QED
 

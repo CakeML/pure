@@ -140,7 +140,7 @@ End
 Theorem eval_wh_to_Fail[simp]:
   eval_wh_to k Fail = wh_Error
 Proof
-  fs [eval_wh_to_def]
+  fs [eval_wh_to_def,get_atoms_def]
 QED
 
 Theorem eval_wh_eq_Diverge:

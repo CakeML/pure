@@ -132,7 +132,7 @@ Proof
       \\ rename [‘x = (_,_)’]
       \\ PairCases_on ‘x’ \\ fs []
       \\ irule_at Any exp_rel_If \\ gvs [exp_rel_Disj]
-      \\ cheat (* fail fail *))
+      \\ simp [Once exp_rel_cases])
     \\ PairCases \\ simp [SF DNF_ss, SF CONJ_ss, AND_IMP_INTRO]
     \\ rw [] \\ fs []
     \\ fs [rows_of_def,envLangTheory.rows_of_def]

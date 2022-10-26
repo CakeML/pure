@@ -26,7 +26,6 @@ QED
  *)
 
 Theorem eval_lift:
-  eval Fail = Error ∧
   eval (Var s) = Error ∧
   eval (Cons s xs) = Constructor s (MAP eval xs) ∧
   eval (IsEq s n a x) = is_eq s n (eval x) ∧

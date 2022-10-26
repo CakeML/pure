@@ -55,7 +55,7 @@ Overload IsEq = “λs i t x. Prim (IsEq s i t) [x]”;
 Overload Proj = “λs i x. Prim (Proj s i) [x]”;
 Overload Seq = “λx. λy. Let NONE x y”;
 Overload Unit = “Prim (Cons "") []”;
-Overload Fail = “Prim If []”;
+Overload Fail = “Prim (AtomOp Add) []”;
 Overload Lams = “λvL e. FOLDR Lam e vL”;
 Overload Apps = “FOLDL App”;
 

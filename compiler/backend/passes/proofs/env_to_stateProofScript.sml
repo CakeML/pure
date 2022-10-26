@@ -165,7 +165,7 @@ Proof
   \\ irule_at Any env_to_state_1ProofTheory.compile_rel_IsEq \\ fs []
   \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Var \\ fs []
   \\ fs [EVAL “monad_cns”]
-  \\ cheat (* fail and fail *)
+  \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
 QED
 
 Theorem to_state_rows_of:

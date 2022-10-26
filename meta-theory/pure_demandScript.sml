@@ -541,7 +541,8 @@ Proof
   \\ fs [well_written_def]
   \\ Cases_on ‘l’
   >>~[‘(Prim _ [] ≅? Fail) _’]
-  >- (fs [exp_eq_refl])
+  >- (irule eval_wh_IMP_exp_eq
+     \\ fs [subst_def, eval_wh_def, eval_wh_to_def])
   >- (irule eval_wh_IMP_exp_eq
      \\ fs [subst_def, eval_wh_def, eval_wh_to_def])
   >- (irule eval_wh_IMP_exp_eq
