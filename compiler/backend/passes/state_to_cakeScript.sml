@@ -233,8 +233,8 @@ End
 
 Definition cexp_pat_row_def:
   cexp_pat_row sv cn vs =
-    Pas ((if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
-          (MAP (Pvar o cexp_var_prefix) vs)) (cexp_var_prefix sv)
+    (if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
+      (MAP (Pvar o cexp_var_prefix) vs)
 End
 
 
@@ -328,7 +328,7 @@ Definition compile_def:
 
   compile (Case v css d) = (
     let ccss = MAP (λ(cn,vs,e). cexp_pat_row v cn vs, compile e) css in
-    let d_case = (case d of NONE => [] | SOME e => [(Pany, compile e)]) in
+    let d_case = (case d of NONE => [] | SOME (_,e) => [(Pany, compile e)]) in
     Mat (Var (Short (cexp_var_prefix v))) (ccss ++ d_case)) ∧
 
   compile (Raise e) = Raise (compile e) ∧

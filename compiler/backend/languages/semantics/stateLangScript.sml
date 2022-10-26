@@ -366,25 +366,25 @@ Definition return_def:
   return v st (BoxK :: k) = value (Thunk $ INL v) st k
 End
 
-Definition pmatch_list_def:
-  pmatch_list c ws env [] d =
+Definition find_match_list_def:
+  find_match_list c ws env [] d =
     (case d of
      | NONE => NONE
      | SOME (alts:((vname # num) list),e:exp) =>
          if MEM (c,LENGTH ws) alts then SOME ([],e) else NONE) ∧
-  pmatch_list c ws env ((c',ns,e)::rows) d =
+  find_match_list c ws env ((c',ns,e)::rows) d =
     if c = c' then
       if LENGTH ns = LENGTH ws then
         SOME (REVERSE (ZIP (ns, ws)) ++ env, e)
       else NONE
-    else pmatch_list c ws env rows d
+    else find_match_list c ws env rows d
 End
 
-Definition pmatch_def:
-  pmatch w env n css d =
-    if MEM n (FLAT (MAP (FST o SND) css)) then NONE else
+Definition find_match_def:
+  find_match w env n css d =
+    if MEM n (FLAT (MAP (FST o SND) css)) ∨ css = [] then NONE else
       case w of
-      | Constructor c ws => pmatch_list c ws ((n,w)::env) css d
+      | Constructor c ws => find_match_list c ws ((n,w)::env) css d
       | _ => NONE
 End
 
@@ -403,13 +403,12 @@ Definition step_def:
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
   step st k (Exp env $ Case v css d) = (
-    if MEM v (FLAT (MAP (FST o SND) css)) ∨ css = [] then error st k else
-      case ALOOKUP env v of
-        NONE => error st k
-      | SOME w =>
-        case pmatch w env v css d of
-        | NONE => error st k
-        | SOME (env1,e1) => continue env1 e1 st k) ∧
+    case ALOOKUP env v of
+      NONE => error st k
+    | SOME w =>
+      case find_match w env v css d of
+      | NONE => error st k
+      | SOME (env1,e1) => continue env1 e1 st k) ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
@@ -829,7 +828,6 @@ Proof
       \\ strip_tac \\ fs [])
     >~ [‘Case’] >-
      (fs [step_def,value_def,continue_def,push_def]
-      \\ IF_CASES_TAC \\ gvs []
       \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
       \\ CASE_TAC \\ fs []
       \\ fs [GSYM step_n_def,step_n_Error]

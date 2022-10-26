@@ -52,4 +52,3 @@ Termination
 End
 
 val _ = export_theory ();
-
