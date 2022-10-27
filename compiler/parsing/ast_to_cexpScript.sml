@@ -10,19 +10,34 @@ val _ = set_grammar_ancestry ["pureAST", "mlmap", "pure_cexp", "pure_typing"]
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
 
-Definition build_conmap_def:
-  build_conmap A [] = A ∧
-  build_conmap A (d :: ds) =
+Definition build_tyinfo_def:
+  build_tyinfo A [] = A ∧
+  build_tyinfo A (d :: ds) =
   case d of
     declData opnm args cons =>
-      build_conmap (insert A (implode opnm) (args, cons)) ds
-  | _ => build_conmap A ds
+      build_tyinfo (insert A (implode opnm) (args, MAP (implode ## I) cons)) ds
+  | _ => build_tyinfo A ds
 End
 
 Definition translate_patcase_def:
-  translate_patcase conmap pnm pat rhs = ARB
-
+  translate_patcase tyinfo pnm pat rhs = ARB
 End
+
+Definition find_unused_siblings_def:
+  find_unused_siblings tyi [] = NONE ∧
+  find_unused_siblings tyi (cnm :: rest) =
+  let foldthis tynm (opargs, cons) Aopt =
+      case Aopt of
+      | SOME _ => Aopt
+      | NONE => if MEM cnm (MAP FST cons) then
+                  SOME (MAP
+                        (λ(cnm',args). (cnm', LENGTH args))
+                        (FILTER (λ(cnm', args). ¬MEM cnm' (cnm :: rest)) cons))
+                else NONE
+  in
+    mlmap$foldrWithKey foldthis NONE tyi
+End
+
 
 Theorem strip_comb_reduces_size:
   (∀e f es. strip_comb e = (f, es) ⇒
@@ -85,81 +100,84 @@ End
 
 Overload Bind = “λa1 a2. pure_cexp$Prim () (Cons «Bind») [a1;a2]”
 Definition translate_exp_def:
-  translate_exp conmap (expVar s) = SOME (Var () (implode s)) ∧
-  translate_exp conmap (expCon s es) =
+  translate_exp tyinfo (expVar s) = SOME (Var () (implode s)) ∧
+  translate_exp tyinfo (expCon s es) =
   do
-    rs <- OPT_MMAP (translate_exp conmap) es;
+    rs <- OPT_MMAP (translate_exp tyinfo) es;
     SOME (Prim () (Cons (implode s)) rs)
   od ∧
-  translate_exp conmap (expTup es) =
+  translate_exp tyinfo (expTup es) =
   do
-    rs <- OPT_MMAP (translate_exp conmap) es;
+    rs <- OPT_MMAP (translate_exp tyinfo) es;
     SOME (Prim () (Cons «») rs)
   od ∧
-  translate_exp conmap (expApp fe xe) =
+  translate_exp tyinfo (expApp fe xe) =
   do
     (fe0, es) <<- strip_comb fe ;
-    f <- translate_exp conmap fe0 ;
+    f <- translate_exp tyinfo fe0 ;
     lhs <<- translate_headop f;
-    args <- OPT_MMAP (translate_exp conmap) (es ++ [xe]) ;
+    args <- OPT_MMAP (translate_exp tyinfo) (es ++ [xe]) ;
     SOME (lhs args)
   od ∧
-  (translate_exp conmap (expAbs p e) =
+  (translate_exp tyinfo (expAbs p e) =
    case p of
      patVar n => do
-                  body <- translate_exp conmap e ;
+                  body <- translate_exp tyinfo e ;
                   SOME (Lam () [implode n] body)
                 od
    | _ => do
-           ce <- translate_patcase conmap «» p e;
+           ce <- translate_patcase tyinfo «» p e;
            SOME (Lam () [«»] ce)
          od) ∧
-  (translate_exp conmap (expIf g t e) =
+  (translate_exp tyinfo (expIf g t e) =
    do
-     gc <- translate_exp conmap g ;
-     tc <- translate_exp conmap t ;
-     ec <- translate_exp conmap e ;
+     gc <- translate_exp tyinfo g ;
+     tc <- translate_exp tyinfo t ;
+     ec <- translate_exp tyinfo e ;
      SOME (If () gc tc ec)
    od) ∧
-  (translate_exp conmap (expLit (litInt i)) =
+  (translate_exp tyinfo (expLit (litInt i)) =
    SOME (Prim () (AtomOp (Lit (Int i))) [])) ∧
-  (translate_exp conmap (expLit (litString s)) =
+  (translate_exp tyinfo (expLit (litString s)) =
    SOME (Prim () (AtomOp (Lit (Str s))) [])) ∧
-  (translate_exp conmap (expLet decs body) =
+  (translate_exp tyinfo (expLet decs body) =
    do
-     recbinds <- translate_edecs conmap decs ;
-     bodyce <- translate_exp conmap body;
+     recbinds <- translate_edecs tyinfo decs ;
+     bodyce <- translate_exp tyinfo body;
      SOME (Letrec () recbinds bodyce)
    od) ∧
-  (translate_exp conmap (expCase ge pats) =
+  (translate_exp tyinfo (expCase ge pats) =
    do
      assert (pats ≠ []);
-     g <- translate_exp conmap ge;
+     g <- translate_exp tyinfo ge;
      (pats',usopt) <<-
         case LAST pats of
           (patUScore, ue) => (FRONT pats, SOME ue)
         | _ => (pats, NONE) ;
      pes <- OPT_MMAP (λ(p_e,rhs_e). do
                                       (conname, conargs) <- translate_pat p_e ;
-                                      rhs <- translate_exp conmap rhs_e ;
+                                      rhs <- translate_exp tyinfo rhs_e ;
                                       return (conname, conargs, rhs)
                                     od)
                      pats' ;
-     (ceopt : unit cexp option) <-
+     (ceopt : ((mlstring # num) list # unit cexp) option) <-
        case usopt of
-         NONE => SOME NONE
-       | SOME us_e => do e <- translate_exp conmap us_e ; return (SOME e) od ;
+         NONE => return NONE
+       | SOME us_e => do e <- translate_exp tyinfo us_e ;
+                         unused <- find_unused_siblings tyinfo (MAP FST pes) ;
+                         return (SOME (unused, e))
+                      od ;
      return (pure_cexp$Case () g «» pes ceopt)
    od) ∧
-  (translate_exp conmap (expDo dostmts finalexp) =
+  (translate_exp tyinfo (expDo dostmts finalexp) =
    (* see https://www.haskell.org/onlinereport/haskell2010/haskellch3.html
       section 3.14 *)
    case dostmts of
-   | [] => translate_exp conmap finalexp
+   | [] => translate_exp tyinfo finalexp
    | expdostmtExp ee :: reste =>
        do
-         e <- translate_exp conmap ee;
-         rest <- translate_exp conmap (expDo reste finalexp) ;
+         e <- translate_exp tyinfo ee;
+         rest <- translate_exp tyinfo (expDo reste finalexp) ;
          return (Bind e $ Lam () [«»] rest)
        od
    | expdostmtBind pe ee :: reste =>
@@ -167,20 +185,20 @@ Definition translate_exp_def:
          case pe of
          | patVar n =>
              do
-               e <- translate_exp conmap ee ;
-               rest <- translate_exp conmap (expDo reste finalexp) ;
+               e <- translate_exp tyinfo ee ;
+               rest <- translate_exp tyinfo (expDo reste finalexp) ;
                return (Bind e $ Lam () [implode n] rest)
              od
          | patUScore =>
              do
-               e <- translate_exp conmap ee ;
-               rest <- translate_exp conmap (expDo reste finalexp) ;
+               e <- translate_exp tyinfo ee ;
+               rest <- translate_exp tyinfo (expDo reste finalexp) ;
                return (Bind e $ Lam () [«»] rest)
              od
          | _ => NONE (*
              do
-               e <- translate_exp conmap ee ;
-               rest <- translate_exp conmap (expDo reste finalexp) ;
+               e <- translate_exp tyinfo ee ;
+               rest <- translate_exp tyinfo (expDo reste finalexp) ;
                Let () «» (Lam () « 1»
                           (NestedCase
                             ()
@@ -188,32 +206,32 @@ Definition translate_exp_def:
                             « 2»
 
 
-               ce <- translate_patcase conmap «» p rest;
+               ce <- translate_patcase tyinfo «» p rest;
            SOME (Lam () [«»] ce) *)
          od
    | expdostmtLet decs :: reste =>
        do
-         recbinds <- translate_edecs conmap decs ;
-         rest <- translate_exp conmap (expDo reste finalexp);
+         recbinds <- translate_edecs tyinfo decs ;
+         rest <- translate_exp tyinfo (expDo reste finalexp);
          SOME (Letrec () recbinds rest)
        od) ∧
 
-  (translate_edecs conmap [] = SOME []) ∧
-  (translate_edecs conmap (d :: ds) =
+  (translate_edecs tyinfo [] = SOME []) ∧
+  (translate_edecs tyinfo (d :: ds) =
    do
-     rest <- translate_edecs conmap ds ;
+     rest <- translate_edecs tyinfo ds ;
      case d of
        expdecTysig _ _ => SOME rest
      | expdecPatbind (patVar s) e =>
          do
-           ce <- translate_exp conmap e ;
+           ce <- translate_exp tyinfo e ;
            SOME ((implode s, ce) :: rest)
          od
      | expdecPatbind _ _ => NONE
      | expdecFunbind s args body =>
          do
            vs <- OPT_MMAP dest_pvar args ;
-           bce <- translate_exp conmap body ;
+           bce <- translate_exp tyinfo body ;
            SOME ((implode s, Lam () vs bce) :: rest)
          od
    od)
@@ -250,21 +268,21 @@ End
    been extracted
  *)
 Definition translate_decs_def:
-  translate_decs conmap [] = SOME [] ∧
-  translate_decs conmap (declTysig _ _ :: ds) = translate_decs conmap ds ∧
-  translate_decs conmap (declData _ _ _  :: ds) = translate_decs conmap ds ∧
-  translate_decs conmap (declFunbind s args body :: ds) =
+  translate_decs tyinfo [] = SOME [] ∧
+  translate_decs tyinfo (declTysig _ _ :: ds) = translate_decs tyinfo ds ∧
+  translate_decs tyinfo (declData _ _ _  :: ds) = translate_decs tyinfo ds ∧
+  translate_decs tyinfo (declFunbind s args body :: ds) =
   do
-    rest <- translate_decs conmap ds ;
+    rest <- translate_decs tyinfo ds ;
     vs <- OPT_MMAP dest_pvar args ;
-    bce <- translate_exp conmap body ;
+    bce <- translate_exp tyinfo body ;
     SOME ((implode s, Lam () vs bce) :: rest)
   od ∧
-  translate_decs conmap (declPatbind p e :: ds) =
+  translate_decs tyinfo (declPatbind p e :: ds) =
   do
-    rest <- translate_decs conmap ds ;
+    rest <- translate_decs tyinfo ds ;
     v <- dest_pvar p ;
-    ce <- translate_exp conmap e ;
+    ce <- translate_exp tyinfo e ;
     SOME ((v,ce) :: rest)
   od
 End
@@ -394,7 +412,7 @@ Definition build_tysig1_def:
          mapthis (c, tys) =
          do
            tys' <- OPT_MMAP (translate_type nm_map arg_map) tys;
-           return (implode c, tys') ;
+           return (c, tys') ;
          od
        in
          OPT_MMAP mapthis cons;
@@ -402,17 +420,20 @@ Definition build_tysig1_def:
   od
 End
 
+Definition listinfo_def:
+  listinfo = (["a"], [(«[]», []); («:», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
+End
 
 Definition decls_to_letrec_def:
   decls_to_letrec ds =
   do
-    conmap <<- build_conmap (mlmap$empty str_compare) ds ;
-    conmap_l <<- toAscList conmap ;
+    tyinfo <<- build_tyinfo (empty str_compare) ds ;
+    tyinfo_l <<- toAscList tyinfo ;
     (nm_map, nops) <<- FOLDL (λ(m,i) (opn, info). (insert m opn i, i + 1))
                              (insert (empty str_compare) «[]» 0n, 1)
-                             conmap_l ;
-    sig0 <- MFOLDL (build_tysig1 nm_map) conmap_l (SND initial_namespace) ;
-    binds <- translate_decs conmap ds ;
+                             tyinfo_l ;
+    sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND initial_namespace) ;
+    binds <- translate_decs (insert tyinfo «[]» listinfo) ds ;
     SOME (Letrec () binds (App () (Var () «main») [Prim () (Cons «») []]),
           REVERSE sig0)
   od

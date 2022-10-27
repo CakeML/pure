@@ -95,7 +95,8 @@ val _ = temp_overload_on("𝕋", “λs. Prim () (AtomOp (Lit (Str s))) []”);
 val _ = temp_overload_on("𝕍", “pure_cexp$Var ()”)
 val _ = temp_overload_on("ASTEXP", “astExp nExp”)
 val _ = temp_overload_on("CEXP",
-  “flip (OPTION_BIND o ASTEXP) (translate_exp LN)
+  “flip (OPTION_BIND o ASTEXP)
+     (translate_exp (insert (empty str_compare) «[]» listinfo))
     : (token, ppegnt, locs) parsetree -> unit cexp option”)
 val _ = temp_overload_on ("CMAIN",
                           “(App () (𝕍«main») [Prim () (Cons «») []])”);
@@ -208,7 +209,7 @@ val _ = app fptest [
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
    “CEXP”,
-   “Case () (𝕍 «e») «» [(«:», [«h»; «t»], 𝕁 3)] (SOME (𝕁 10))”),
+   “Case () (𝕍 «e») «» [(«:», [«h»; «t»], 𝕁 3)] (SOME ([(«[]», 0)], 𝕁 10))”),
   (“nExp”, "case e of h : t -> 3",
    “astExp nExp”,
    “expCase ‹e› [(patApp ":" [patVar "h"; patVar "t"], 𝕀 3)]”),
