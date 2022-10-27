@@ -394,6 +394,59 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
+Triviality LIST_REL_MAP_MAP:
+  ∀xs ys.
+    LIST_REL R (MAP f xs) (MAP g ys) =
+    LIST_REL (λx y. R (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS,MAP_EQ_CONS]
+QED
+
+Theorem find_match_list_NONE:
+  ∀ses tes.
+    find_match_list s tvs env1 tes te = NONE ∧
+    MAP FST tes = MAP FST ses ∧
+    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
+    OPTREL (λ(a,x) (b,y). a = b) te se ∧
+    LIST_REL v_rel tvs svs ⇒
+    find_match_list s svs env2 ses se = NONE
+Proof
+  Induct
+  \\ fs [PULL_EXISTS,find_match_list_def,FORALL_PROD,MAP_EQ_CONS]
+  >-
+   (rpt CASE_TAC \\ gvs []
+    \\ CCONTR_TAC \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ rw [] \\ fs [] \\ metis_tac []
+QED
+
+Theorem find_match_list_SOME:
+  ∀ses tes.
+    find_match_list s tvs env1 tes te = SOME (env1',e1) ∧
+    MAP FST tes = MAP FST ses ∧
+    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
+    LIST_REL v_rel tvs svs ∧ env_rel env1 env2 ∧
+    OPTREL (λ(a,x) (b,y). a = b ∧ compile_rel x y) te se ∧
+    LIST_REL (λa b. compile_rel (SND (SND a)) (SND (SND b))) tes ses ⇒
+    ∃env2' e2.
+      find_match_list s svs env2 ses se = SOME (env2',e2) ∧
+      env_rel env1' env2' ∧ compile_rel e1 e2
+Proof
+  Induct
+  \\ fs [PULL_EXISTS,find_match_list_def,FORALL_PROD,MAP_EQ_CONS]
+  >-
+   (rpt CASE_TAC \\ gvs [] \\ rw [] \\ fs []
+    \\ CCONTR_TAC \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ rw [] \\ fs []
+  >- (irule env_rel_zip \\ fs [])
+  \\ first_x_assum irule \\ metis_tac []
+QED
+
 Theorem step_1_Exp_forward:
   ∀e1 e2 ts tk sr1 ss1 sk1 ss sk env1 env2.
     step ss sk (Exp env2 e2) = (sr1,ss1,sk1) ∧
@@ -406,7 +459,6 @@ Theorem step_1_Exp_forward:
       OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
       step_res_rel tr1 tk1 sr1 sk1
 Proof
-
   Induct_on ‘compile_rel’ \\ rpt strip_tac
   >-
    (fs [GSYM ADD1]
@@ -471,15 +523,46 @@ Proof
     \\ rpt $ first_x_assum $ irule_at Any \\ gvs []
     \\ simp [Once cont_rel_cases])
   >~ [‘Case’] >-
-
-   (qexists_tac ‘0’ \\ gvs [step] \\ cheat (*
-    \\ IF_CASES_TAC \\ gvs []
-    \\ simp [step,AllCaseEqs(),step_res_rel_cases]
-    \\ rpt $ first_x_assum $ irule_at Any \\ gvs []
-    \\ simp [Once cont_rel_cases]
-    \\ rpt $ first_x_assum $ irule_at Any \\ gvs []
+   (qexists_tac ‘0’ \\ gvs [step]
+    \\ Cases_on ‘ALOOKUP env1 v’ \\ fs []
+    >-
+     (fs [env_rel_def,AllCaseEqs()]
+      \\ simp [Once step_res_rel_cases]
+      \\ res_tac \\ gvs [])
+    \\ rename [‘ALOOKUP env1 v = SOME v1’]
+    \\ ‘∃v2. ALOOKUP env2 v = SOME v2 ∧ v_rel v1 v2’ by
+      (fs [env_rel_def] \\ res_tac \\ fs [])
+    \\ gvs []
+    \\ gvs [find_match_def]
+    \\ ‘ses = [] ⇔ tes = []’ by (Cases_on ‘ses’ \\ Cases_on ‘tes’ \\ gvs [])
+    \\ gvs [] \\ IF_CASES_TAC
+    >- (gvs [] \\ simp [Once step_res_rel_cases])
+    \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+    \\ simp [Once v_rel_cases]
+    \\ strip_tac \\ gvs []
+    \\ TRY (simp [Once step_res_rel_cases] \\ NO_TAC)
+    \\ ‘ss1 = ss ∧ sk = sk1’ by gvs [AllCaseEqs()] \\ gvs []
+    \\ qpat_assum ‘OPTREL _ _ _’ $ irule_at Any
+    \\ CASE_TAC
+    >-
+     (qsuff_tac ‘find_match_list s svs env2 ses se = NONE’
+      >- (rw [] \\ gvs [] \\ simp [Once step_res_rel_cases])
+      \\ drule_then irule find_match_list_NONE
+      \\ gvs []
+      \\ Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs []
+      \\ fs [UNCURRY])
+    \\ PairCases_on ‘x’ \\ fs []
+    \\ drule_then drule find_match_list_SOME \\ fs []
+    \\ disch_then $ drule_then drule
+    \\ disch_then $ qspec_then ‘se’ mp_tac
+    \\ reverse impl_tac
+    >- (rw [] \\ gvs [] \\ simp [Once step_res_rel_cases])
+    \\ conj_tac
+    >- (Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs [] \\ gvs [UNCURRY])
+    \\ fs [LIST_REL_MAP_MAP]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
-    \\ fs [] *))
+    \\ fs [])
   >~ [‘App’] >-
    (qexists_tac ‘0’ \\ gvs [step]
     \\ IF_CASES_TAC \\ gvs []

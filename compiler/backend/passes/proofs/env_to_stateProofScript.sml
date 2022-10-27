@@ -15,7 +15,8 @@ local open pure_semanticsTheory in end
 val _ = new_theory "env_to_stateProof";
 
 val _ = set_grammar_ancestry
-  ["env_to_state", "env_to_state_1Proof", "env_cexp", "state_cexp", "state_unthunkProof"];
+  ["env_to_state", "env_to_state_1Proof", "env_cexp",
+   "state_cexp", "state_unthunkProof"];
 
 Overload to_state = “env_to_state_1Proof$compile_rel”
 Overload unthunk = “state_unthunkProof$compile_rel”
@@ -285,11 +286,20 @@ Proof
 QED
 
 Triviality expand_Case_neq:
-  state_caseProof$expand_Case v ses se ≠ Lam x t
+  state_caseProof$expand_Case v ses se ≠ Lam x t ∧
+  state_caseProof$expand_Case v ses se ≠ False
 Proof
   rw [state_caseProofTheory.expand_Case_def]
   \\ Cases_on ‘ses’ \\ fs [state_caseProofTheory.rows_of_def]
   \\ PairCases_on ‘h’ \\ fs [state_caseProofTheory.rows_of_def]
+QED
+
+Triviality rows_of_neq:
+  rows_of x y z ≠ Lam a b ∧
+  rows_of x y z ≠ Var c
+Proof
+  Cases_on ‘y’ \\ rw [envLangTheory.rows_of_def,AllCaseEqs()]
+  \\ PairCases_on ‘h’ \\ fs [envLangTheory.rows_of_def]
 QED
 
 Theorem Letrec_split_names:
@@ -304,7 +314,6 @@ Theorem Letrec_split_names:
     MAP (FST ∘ SND) delays = MAP (FST ∘ SND) delays' ∧
     MAP (explode ∘ FST) funs = MAP FST funs'
 Proof
-  cheat (*
   Induct
   \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
   \\ PairCases \\ fs []
@@ -344,7 +353,7 @@ Proof
   \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
   \\ strip_tac \\ gvs []
   \\ Cases_on ‘m’ \\ gvs []
-  \\ fs [Letrec_imm_def,state_unthunkProofTheory.Letrec_imm_def] *)
+  \\ fs [Letrec_imm_def,state_unthunkProofTheory.Letrec_imm_def,rows_of_neq]
 QED
 
 Theorem clean_Ref:
@@ -383,7 +392,6 @@ Theorem Letrec_split_case_clean:
       LIST_REL clean ds (MAP (to_state o SND o SND) delays) ∧
       LIST_REL clean fs (MAP (λ(f,n,x). Lam (SOME n) (to_state x)) funs)
 Proof
-  cheat (*
   Induct
   \\ fs [Letrec_split_def,state_unthunkProofTheory.Letrec_split_def,PULL_EXISTS]
   \\ PairCases \\ fs []
@@ -407,27 +415,32 @@ Proof
   \\ fs [PULL_EXISTS,to_state_def]
   \\ rpt $ first_x_assum $ irule_at Any
   \\ qpat_x_assum ‘case_rel _ _’ mp_tac
-  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
+  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq,rows_of_neq]
   >-
    (rw []
     \\ simp [Once state_caseProofTheory.compile_rel_cases]
     \\ Cases_on ‘x’ \\ gvs []
     \\ first_x_assum $ irule_at Any \\ fs [])
   \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
+  \\ gvs [PULL_EXISTS]
   \\ Cases_on ‘x’ \\ fs []
-  \\ Cases_on ‘c’ \\ fs []
-  \\ Cases_on ‘l’ \\ fs []
-  \\ Cases_on ‘t’ \\ fs []
-  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
-  \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
-  \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
-  \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
-  \\ Cases_on ‘h'’ \\ fs []
-  \\ strip_tac \\ gvs []
-  \\ pop_assum $ irule_at Any
-  \\ drule clean_Ref \\ fs []
+  >-
+   (Cases_on ‘c’ \\ fs []
+    \\ Cases_on ‘l’ \\ fs []
+    \\ Cases_on ‘t’ \\ fs []
+    \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
+    \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
+    \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
+    \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
+    \\ Cases_on ‘h'’ \\ fs []
+    \\ strip_tac \\ gvs []
+    \\ pop_assum $ irule_at Any
+    \\ drule clean_Ref \\ fs []
+    \\ rw []
+    \\ drule clean_Lam \\ fs [])
   \\ rw []
-  \\ drule clean_Lam \\ fs [] *)
+  \\ Cases_on ‘ses’ \\ gvs [state_caseProofTheory.rows_of_def]
+  \\ PairCases_on ‘h’ \\ gvs [state_caseProofTheory.rows_of_def]
 QED
 
 Definition body_of_def[simp]:
@@ -521,6 +534,7 @@ QED
 Theorem to_state_rel:
   ∀x. cexp_wf x ⇒ combined x (to_state x)
 Proof
+
   ho_match_mp_tac to_state_ind \\ rpt strip_tac
   >~ [‘Var’] >-
    (rw [to_state_def,combined_def]
@@ -838,13 +852,12 @@ Proof
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ rpt (irule_at Any state_caseProofTheory.compile_rel_If \\ fs [PULL_EXISTS]))
   >~ [‘Case’] >-
+
    cheat (*
    (rw [to_state_def] \\ fs [combined_def]
     \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Case \\ fs [PULL_EXISTS])
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ rpt (irule_at Any state_caseProofTheory.compile_rel_Case \\ fs [PULL_EXISTS])
-    \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ irule_at Any env_to_state_1ProofTheory.compile_rel_Let
+    \\ irule_at Any state_caseProofTheory.compile_rel_Case \\ fs [PULL_EXISTS]
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ fs [state_caseProofTheory.expand_Case_def]
@@ -852,10 +865,13 @@ Proof
     \\ qspec_then ‘MAP (SND o SND) rs’ mp_tac MEM_combined
     \\ impl_tac >- gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,SF SFY_ss]
     \\ strip_tac
+    \\ simp [Once SWAP_EXISTS_THM]
     \\ qexists_tac ‘MAP (λ((m,n,_),r). (m,n,r)) (ZIP (rs,xs1))’
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
-    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,ys))’
+    \\ simp [Once SWAP_EXISTS_THM]
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
+
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,ys))’
     \\ last_x_assum kall_tac
     \\ qpat_x_assum ‘∀x. _’ kall_tac
     \\ IF_CASES_TAC
