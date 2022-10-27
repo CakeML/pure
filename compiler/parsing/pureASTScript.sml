@@ -69,7 +69,7 @@ Theorem better_expAST_induction =
 
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
 Overload pNIL = “expCon "[]" []”
-Overload pCONS = “λe1 e2. expCon ":" [e1;e2]”
+Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)

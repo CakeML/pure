@@ -105,7 +105,7 @@ val _ = temp_overload_on ("CDECLS",
                           inst [alpha |-> “:locs”]
                                “flip (OPTION_BIND o astDecls) decls_to_letrec”);
 
-val _ = temp_overload_on("::ₑ", “λh t. Prim () (Cons «:») [h; t]”)
+val _ = temp_overload_on("::ₑ", “λh t. Prim () (Cons «::») [h; t]”)
 val _ = temp_set_fixity "::ₑ" (Infixr 490)
 val _ = temp_overload_on("[]ₑ", “Prim () (Cons «[]») []”)
 val _ = temp_overload_on(">>=", “λe1 e2. Prim () (Cons «Bind») [e1;e2]”)
@@ -197,31 +197,32 @@ val _ = app fptest [
            \          h:t -> 4",
    “astExp nExp”,
    “expCase ‹e› [(patApp "[]" [], 𝕀 3);
-                 (patApp ":" [patVar "h"; patVar "t"], 𝕀 4)]”),
+                 (patApp "::" [patVar "h"; patVar "t"], 𝕀 4)]”),
   (“nExp”, "case e of [] -> 3\n\
            \          h:t -> 4",
    “CEXP”,
-   “Case () (𝕍 «e») «» [(«[]», [], 𝕁 3); («:», [«h»; «t»], 𝕁 4)] NONE”),
+   “Case () (𝕍 «e») «» [(«[]», [], 𝕁 3); («::», [«h»; «t»], 𝕁 4)] NONE”),
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
    “astExp nExp”,
-    “expCase ‹e› [(patApp ":" [patVar "h"; patVar "t"], 𝕀 3); (patUScore, 𝕀 10)]”),
+    “expCase ‹e› [(patApp "::" [patVar "h"; patVar "t"], 𝕀 3);
+                  (patUScore, 𝕀 10)]”),
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
    “CEXP”,
-   “Case () (𝕍 «e») «» [(«:», [«h»; «t»], 𝕁 3)] (SOME ([(«[]», 0)], 𝕁 10))”),
+   “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] (SOME ([(«[]», 0)], 𝕁 10))”),
   (“nExp”, "case e of h : t -> 3",
    “astExp nExp”,
-   “expCase ‹e› [(patApp ":" [patVar "h"; patVar "t"], 𝕀 3)]”),
+   “expCase ‹e› [(patApp "::" [patVar "h"; patVar "t"], 𝕀 3)]”),
   (“nExp”, "case e of h : t -> 3",
    “CEXP”,
-   “Case () (𝕍 «e») «» [(«:», [«h»; «t»], 𝕁 3)] NONE”),
+   “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] NONE”),
   (“nDecl”, "f :: a -> Int", “astDecl”,
    “declTysig "f" (funTy (tyVar "a") (tyOp "Int" []))”),
   (“nDecl”, "f x y = x + y", “astDecl”,
    “declFunbind "f" [patVar "x"; patVar "y"] (‹+› ⬝ ‹x› ⬝ ‹y›)”),
   (“nDecl”, "h:t = f e", “astDecl”,
-   “declPatbind (patApp ":" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
+   “declPatbind (patApp "::" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
   (“nDecl”, "data Foo a = C a Int | D [Int]", “astDecl”,
    “declData "Foo" ["a"] [("C", [tyVar "a"; tyOp "Int" []]);
                           ("D", [tyOp "[]" [tyOp "Int"[]]])]”),
@@ -230,20 +231,26 @@ val _ = app fptest [
      declTysig "f" (funTy (tyOp "Bar" []) (tyOp "Int" []))]”),
   (“nDecls”, "data Bar = C | D Integer Bar\nf:: Bar -> Integer", “CDECLS”,
    “(Letrec () [] CMAIN,
-     [(1n, [(«[]»,[]); («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
+     [(1n, [(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
       (0n, [(«C»,[]); («D»,[PrimTy Integer; TypeCons 1 []])])])”),
   (“nDecls”, "f x = x + 1\ndata Foo a b = C Bool a Integer | D b [Foo a b]",
    “CDECLS”,
    “(Letrec () [(«f», Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1))] CMAIN,
-     [(1n,[(«[]»,[]); («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
       (2n,
        [(«C»,[PrimTy Bool; TypeVar 0; PrimTy Integer]);
         («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0; TypeVar 1]]])])])”),
   (“nDecls”, "data Foo a b = C Bool a Integer | D b [Bar a]\n\
              \data Bar d = E d | F (Foo d Integer)\n\
-             \f x = x + 1\n", “CDECLS”,
-   “(Letrec () [(«f»,Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1))] CMAIN,
-     [(1n,[(«[]»,[]); («:»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
+             \f x = case x of\n\
+             \        C b a i -> i + 1\n\
+             \        _ -> 3", “CDECLS”,
+   “(Letrec () [
+      («f»,Lam () [«x»] (Case () (𝕍 «x») «»
+                              [(«C», [«b»; «a»; «i»], 𝕍 «i» +ₑ 𝕁 1)]
+                              (SOME([(«D», 2)], 𝕁 3))))
+      ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
       (1n,
        [(«E»,[TypeVar 0]); («F»,[TypeCons 2 [TypeVar 0; PrimTy Integer]])]);
       (2n,

@@ -421,7 +421,7 @@ Definition build_tysig1_def:
 End
 
 Definition listinfo_def:
-  listinfo = (["a"], [(«[]», []); («:», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
+  listinfo = (["a"], [(«[]», []); («::», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
 End
 
 Definition decls_to_letrec_def:

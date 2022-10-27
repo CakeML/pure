@@ -297,6 +297,7 @@ Definition mkSym_def:
                   c1 <- oHD s ;
                   if isUpper c1 then SOME $ expCon s []
                   else if isAlpha c1 ∨ c1 ≠ #":" then SOME $ expVar s
+                  else if s = ":" then SOME $ expCon "::" []
                   else SOME $ expCon s []
                 od ++ SOME (expVar s))
 End
