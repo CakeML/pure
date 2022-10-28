@@ -55,6 +55,106 @@ Termination
   WF_REL_TAC ‘measure $ exp_size o (SND o SND)’ \\ rw []
 End
 
+Definition unreplace_Force_def:
+  (unreplace_Force w v (Lam s e) = if v = s
+                                   then Lam s e
+                                   else Lam s (unreplace_Force w v e)) ∧
+  (unreplace_Force w v1 (Var v2) = if v1 = v2 then Force (Var w) else Var v2) ∧
+  (unreplace_Force w v (App e1 e2) = App (unreplace_Force w v e1) (unreplace_Force w v e2)) ∧
+  (unreplace_Force w v (Prim op eL) = Prim op (MAP (λe. unreplace_Force w v e) eL)) ∧
+  (unreplace_Force w v (If e1 e2 e3) = If (unreplace_Force w v e1)
+                                          (unreplace_Force w v e2) (unreplace_Force w v e3)) ∧
+  (unreplace_Force w v (Seq e1 e2) = Seq (unreplace_Force w v e1) (unreplace_Force w v e2)) ∧
+  (unreplace_Force w v (Let (SOME s) e1 e2) = if v = s
+                                          then Let (SOME s) (unreplace_Force w v e1) e2
+                                              else Let (SOME s) (unreplace_Force w v e1)
+                                                       (unreplace_Force w v e2)) ∧
+  (unreplace_Force w v (Delay e) = Delay (unreplace_Force w v e)) ∧
+  (unreplace_Force w v (Box e) = Box (unreplace_Force w v e)) ∧
+  (unreplace_Force w v (MkTick e) = MkTick (unreplace_Force w v e)) ∧
+  (unreplace_Force w v (Value val) = Value val) ∧
+  (unreplace_Force w v (Force e) = Force (unreplace_Force w v e)) ∧
+  (unreplace_Force w v (Letrec binds e) = if MEM v (MAP FST binds)
+                                          then Letrec binds e
+                                          else Letrec (MAP (λ(n,e).
+                                                              (n, unreplace_Force w v e)) binds)
+                                                      (unreplace_Force w v e))
+Termination
+  WF_REL_TAC ‘measure $ exp_size o (SND o SND)’ \\ rw []
+End
+
+Theorem unreplace_Force_notin_frees:
+  ∀e v w. w ∉ freevars e
+          ⇒
+          unreplace_Force v w e = e
+Proof
+  Induct using freevars_ind
+  \\ gvs [unreplace_Force_def, freevars_def]
+  >- (rw [] \\ irule LIST_EQ \\ rw [EL_MAP]
+      \\ last_x_assum irule
+      \\ rename1 ‘EL n xs’
+      \\ last_x_assum $ qspec_then ‘freevars (EL n xs)’ assume_tac
+      \\ gvs [MEM_MAP, EL_MEM]
+      \\ first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL \\ simp [EL_MEM])
+  >- rw [unreplace_Force_def]
+  >- rw []
+  >- (rw []
+      \\ irule LIST_EQ \\ rw [EL_MAP]
+      \\ pairarg_tac \\ gs []
+      \\ last_x_assum irule
+      \\ rename1 ‘EL i f = (n, e2)’
+      \\ last_x_assum $ qspec_then ‘freevars e2’ assume_tac
+      \\ gvs [MEM_MAP, MEM_EL]
+      >- metis_tac [])
+QED
+
+Theorem unreplace_replace_Force:
+  ∀e v w. w ∉ freevars e ∧ w ∉ boundvars e
+          ⇒
+          unreplace_Force v w (replace_Force (Var w) v e) = e
+Proof
+  Induct using freevars_ind
+  \\ gvs [replace_Force_def, unreplace_Force_def, freevars_def, boundvars_def]
+  >- (rw [] \\ irule LIST_EQ \\ rw [EL_MAP]
+      \\ last_x_assum irule
+      \\ rename1 ‘EL n xs’
+      \\ last_x_assum $ qspec_then ‘freevars (EL n xs)’ assume_tac
+      \\ last_x_assum $ qspec_then ‘boundvars (EL n xs)’ assume_tac
+      \\ gvs [MEM_MAP, EL_MEM]
+      \\ first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL \\ simp [EL_MEM])
+  >- (rw [unreplace_Force_def] \\ gvs [unreplace_Force_notin_frees])
+  >- (rw [unreplace_Force_def] \\ gvs [unreplace_Force_notin_frees])
+  >- (rw [unreplace_Force_def] \\ gvs [unreplace_Force_notin_frees, MEM_EL, PULL_EXISTS]
+      >- (irule LIST_EQ \\ rw [EL_MAP]
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ gs [EL_MAP]
+          \\ irule unreplace_Force_notin_frees
+          \\ rename1 ‘EL n2 f = (_, _)’
+          \\ last_x_assum $ qspec_then ‘freevars (SND (EL n2 f))’ assume_tac \\ gs []
+          \\ first_x_assum $ qspec_then ‘n2’ assume_tac \\ gvs [EL_MAP])
+      \\ rw []
+      >- (gvs [EL_MAP]
+          \\ pairarg_tac \\ rename1 ‘n < _’
+          \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [EL_MAP])
+      >- (gvs [EL_MAP]
+          \\ pairarg_tac \\ rename1 ‘n < _’
+          \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [EL_MAP])
+      \\ irule LIST_EQ \\ rw [EL_MAP]
+      \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gvs []
+      \\ last_x_assum $ drule_then assume_tac \\ gs []
+      \\ pop_assum irule
+      \\ rename1 ‘EL i f = (_, _)’
+      \\ last_x_assum $ qspec_then ‘freevars (SND (EL i f))’ assume_tac
+      \\ last_x_assum $ qspec_then ‘boundvars (SND (EL i f))’ assume_tac
+      \\ gvs []
+      \\ first_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [EL_MAP])
+  \\ rw []
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ rename1 ‘Force e’
+  \\ Cases_on ‘e’ \\ gvs [replace_Force_def, unreplace_Force_def]
+  \\ rw [unreplace_Force_def]
+QED
+
 Inductive exp_rel:
 [~Var:]
   (∀n. exp_rel (Var n) (Var n)) ∧
@@ -1141,10 +1241,11 @@ Proof
   >- (IF_CASES_TAC >> rw [exp_rel_def, subst_def, FILTER_FILTER, LAMBDA_PROD]
       >- (irule exp_rel_subst >>
           rename1 ‘MAP FST f = MAP FST g’ >>
+          rename1 ‘_ ≠ s ∧ filter2 _’ >>
           qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                        ‘MAP ((λ(v,x).(v, Recclosure (MAP (λ(v,e).(v, replace_Force (Var v2) s e)) g) v)))
                         (MAP (λ(v,e).(v, replace_Force (Var v2) s e)) g)’,
-                       ‘v_rel’, ‘λv. v ≠ s ∧ filter v’] mp_tac LIST_FILTERED >>
+                       ‘v_rel’, ‘λv. v ≠ s ∧ filter2 v’] mp_tac LIST_FILTERED >>
           impl_tac
           >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
               rw [] >>
@@ -1157,8 +1258,8 @@ Proof
       >- (rename1 ‘exp_rel (Lam _ x) _’ >>
           last_x_assum $ qspecl_then [‘exp_size x’] assume_tac >> gs [exp_size_def] >>
           first_x_assum $ qspecl_then [‘x’] assume_tac >> gs [] >>
-          rename1 ‘_ ≠ s ∧ filter _’ >>
-          last_x_assum $ qspecl_then [‘λv. v ≠ s ∧ filter v’] assume_tac >> gvs [] >>
+          rename1 ‘_ ≠ s ∧ filter2 _’ >>
+          last_x_assum $ qspecl_then [‘λv. v ≠ s ∧ filter2 v’] assume_tac >> gvs [] >>
           first_x_assum irule >>
           gvs [EL_MAP, boundvars_def]))
   >~[‘Letrec _ (replace_Force (Var v2) v1 (replace_Force (Var w2) w1 y))’]
@@ -1191,10 +1292,11 @@ Proof
               Cases_on ‘p2’ >> gvs [ok_bind_def, subst_def])
           >- (pairarg_tac >> gs [] >> pairarg_tac >> gs [] >>
               irule exp_rel_subst >>
+              rename1 ‘FILTER _ (FILTER (λ(v,x). filter2 v) _)’ >>
               unabbrev_all_tac >> gs [FILTER_FILTER, LAMBDA_PROD] >>
               qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                            ‘MAP (λ(v,x).(v,Recclosure (MAP (λ(v,e).(v, replace_Force (Var v2) v1 e)) g) v)) g’,
-                           ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter v’
+                           ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’
                           ] mp_tac LIST_FILTERED >> impl_tac
               >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
                   rw [] >>
@@ -1212,10 +1314,11 @@ Proof
               rename1 ‘¬MEM (FST y2, _) g2’ >> first_x_assum $ qspecl_then [‘SND y2’] assume_tac >>
               gvs [])
           >- (irule exp_rel_subst >> fs [] >>
+              rename1 ‘FILTER _ (FILTER (λ(v,x). filter2 v) _)’ >>
               unabbrev_all_tac >> gs [FILTER_FILTER, LAMBDA_PROD] >>
               qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                            ‘MAP (λ(v,x).(v,Recclosure (MAP (λ(v,e).(v, replace_Force (Var v2) v1 e)) g) v)) g’,
-                           ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter v’
+                           ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’
                           ] assume_tac LIST_FILTERED >>
               fs [] >> first_x_assum irule >>
               gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
@@ -1298,7 +1401,8 @@ Proof
                   gvs [MEM_EL, PULL_EXISTS, exp_size_def] >>
                   first_x_assum $ qspecl_then [‘FST (EL n f2)’, ‘SND (EL n f2)’, ‘f2’, ‘n’] assume_tac >> gvs []) >>
               disch_then $ qspecl_then [‘SND (EL n f2)’] assume_tac >> fs [] >>
-              first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter v’] assume_tac >> gs [] >>
+              rename1 ‘¬MEM _ (MAP FST _) ∧ filter2 _’ >>
+              first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’] assume_tac >> gs [] >>
               unabbrev_all_tac >> first_x_assum irule >>
               gvs [EL_MAP, EVERY_EL, boundvars_def] >>
               rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac >> gvs [] >>
@@ -1324,7 +1428,8 @@ Proof
               gvs [])
           >- (last_x_assum $ qspecl_then [‘exp_size x’] assume_tac >> gs [exp_size_def] >>
               first_x_assum $ qspecl_then [‘x’] assume_tac >> fs [FILTER_FILTER, LAMBDA_PROD] >>
-              first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter v’] assume_tac >> fs [] >>
+              rename1 ‘¬MEM _ (MAP FST _) ∧ filter2 _’ >>
+              first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’] assume_tac >> fs [] >>
               unabbrev_all_tac >> first_x_assum irule >>
               assume_tac boundvars_replace_Force2 >>
               gvs [boundvars_def, SUBSET_DEF, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
@@ -1348,9 +1453,10 @@ Proof
           rename1 ‘exp_rel (Letrec f2 _) (Letrec g2 _)’ >>
           rename1 ‘MEM (_, Delay (Var _)) f’ >>
           rename1 ‘MAP FST f = MAP FST g’ >>
+          rename1 ‘¬MEM _ (MAP FST _) ∧ filter2 _’ >>
           qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                        ‘MAP (λ(p1,p2). (p1,Recclosure (MAP (λ(v,e). (v,replace_Force (Var v2) v1 e)) g) p1)) g’,
-                       ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter v’] assume_tac LIST_FILTERED >>
+                       ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’] assume_tac LIST_FILTERED >>
           gvs [] >> first_x_assum irule >>
           gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
           rw [] >> rename1 ‘n < _’ >>
@@ -1362,9 +1468,10 @@ Proof
           pairarg_tac >> gs [] >> pairarg_tac >> gs [] >>
           irule exp_rel_subst >>
           rename1 ‘exp_rel (Letrec f2 _) (Letrec g2 _)’ >>
+          rename1 ‘¬MEM _ (MAP FST _) ∧ filter2 _’ >>
           qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                        ‘MAP ((λ(v,x).(v, Recclosure (MAP (λ(v,e).(v, replace_Force (Var v2) v1 e)) g) v))) g’,
-                       ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter v’] mp_tac LIST_FILTERED >>
+                       ‘v_rel’, ‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’] mp_tac LIST_FILTERED >>
           impl_tac
           >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
               rw [] >>
@@ -1389,7 +1496,8 @@ Proof
       >- (rename1 ‘exp_rel (Letrec f2 x) (Letrec g2 y)’ >>
           last_x_assum $ qspecl_then [‘exp_size x’] assume_tac >> gs [exp_size_def] >>
           first_x_assum $ qspecl_then [‘x’] assume_tac >> gs [] >>
-          first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter v’] assume_tac >> gs [] >>
+          rename1 ‘¬MEM _ (MAP FST _) ∧ filter2 _’ >>
+          first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’] assume_tac >> gs [] >>
           first_x_assum irule >>
           gvs [boundvars_def])
       >- (gvs [LIST_REL_EL_EQN, EL_MAP] >> rw [] >>
@@ -1401,7 +1509,8 @@ Proof
               gvs [MEM_EL, PULL_EXISTS, exp_size_def] >>
               first_x_assum $ qspecl_then [‘ef1’, ‘ef2’, ‘f2’, ‘n’] assume_tac >> gvs []) >>
           disch_then $ qspecl_then [‘ef2’] assume_tac >> fs [] >>
-          first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter v’] assume_tac >> gs [] >>
+          rename1 ‘¬MEM _ (MAP FST _) ∧ filter2 _’ >>
+          first_x_assum $ qspecl_then [‘λv. ¬MEM v (MAP FST g2) ∧ filter2 v’] assume_tac >> gs [] >>
           first_x_assum irule >>
           gvs [EL_MAP, boundvars_def] >>
           last_x_assum $ drule_then assume_tac >> gs [] >>
@@ -1412,11 +1521,12 @@ Proof
           first_assum $ irule_at Any >>
           gvs [EL_MAP]))
   >~[‘Let (SOME _) _ (replace_Force (Var v2) v1 (replace_Force (Var w2) w1 y2))’]
-  >- (gvs [GSYM FILTER_REVERSE, GEN_ALL ALOOKUP_FILTER, freevars_subst] >>
+  >- (rename1 ‘FILTER (λ(v,x). filter2 v) _’ >>
+      gvs [GSYM FILTER_REVERSE, GEN_ALL ALOOKUP_FILTER, freevars_subst] >>
       IF_CASES_TAC >> gvs [subst_def, GSYM FILTER_REVERSE, GEN_ALL ALOOKUP_FILTER]
       >- (gvs [freevars_def, MEM_MAP, MEM_FILTER, FORALL_PROD, subst_def, FILTER_FILTER, GSYM FILTER_REVERSE] >>
           gvs [LAMBDA_PROD, PULL_EXISTS, EXISTS_PROD] >>
-          qspecl_then [‘y2’, ‘Var v1’, ‘w1’, ‘(FILTER (λ(p1,p2). (p1 ≠ w1 ∧ p1 ≠ v1) ∧ filter p1)
+          qspecl_then [‘y2’, ‘Var v1’, ‘w1’, ‘(FILTER (λ(p1,p2). (p1 ≠ w1 ∧ p1 ≠ v1) ∧ filter2 p1)
                 (MAP (λ(v,x). (v, Recclosure (MAP (λ(v,e). (v,replace_Force (Var (FST y)) v1 e)) g) v))
                  (MAP (λ(v,e). (v,replace_Force (Var (FST y)) v1 e)) g)))’] mp_tac subst_replace_Force >>
           impl_tac
@@ -1428,7 +1538,7 @@ Proof
           qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                        ‘MAP ((λ(v,x).(v, Recclosure (MAP (λ(v,e).(v, replace_Force (Var (FST y)) v1 e)) g) v)))
                         (MAP (λ(v,e).(v, replace_Force (Var (FST y)) v1 e)) g)’,
-                       ‘v_rel’, ‘λv. (v ≠ w1 ∧ v ≠ v1) ∧ filter v’] mp_tac LIST_FILTERED >>
+                       ‘v_rel’, ‘λv. (v ≠ w1 ∧ v ≠ v1) ∧ filter2 v’] mp_tac LIST_FILTERED >>
           impl_tac
           >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
               rw [] >>
@@ -1446,7 +1556,7 @@ Proof
       IF_CASES_TAC >> gvs [subst_def, GSYM FILTER_REVERSE, GEN_ALL ALOOKUP_FILTER]
       >- (gvs [freevars_def, MEM_MAP, MEM_FILTER, FORALL_PROD, subst_def, FILTER_FILTER, GSYM FILTER_REVERSE] >>
           gvs [LAMBDA_PROD, PULL_EXISTS, EXISTS_PROD] >>
-          qspecl_then [‘y2’, ‘Var w2’, ‘v1’, ‘FILTER (λ(p1,p2). (p1 ≠ v1 ∧ p1 ≠ w2) ∧ filter p1)
+          qspecl_then [‘y2’, ‘Var w2’, ‘v1’, ‘FILTER (λ(p1,p2). (p1 ≠ v1 ∧ p1 ≠ w2) ∧ filter2 p1)
                 (MAP (λ(v,x). (v, Recclosure (MAP (λ(v,e). (v,replace_Force (Var (FST y)) v1 e)) g) v))
                  (MAP (λ(v,e). (v,replace_Force (Var (FST y)) v1 e)) g))’] mp_tac subst_replace_Force >>
           impl_tac
@@ -1458,7 +1568,7 @@ Proof
           qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                        ‘MAP ((λ(v,x).(v, Recclosure (MAP (λ(v,e).(v, replace_Force (Var (FST y)) v1 e)) g) v)))
                         (MAP (λ(v,e).(v, replace_Force (Var (FST y)) v1 e)) g)’,
-                       ‘v_rel’, ‘λv. (v ≠ v1 ∧ v ≠ w2) ∧ filter v’] mp_tac LIST_FILTERED >>
+                       ‘v_rel’, ‘λv. (v ≠ v1 ∧ v ≠ w2) ∧ filter2 v’] mp_tac LIST_FILTERED >>
           impl_tac
           >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
               rw [] >>
@@ -1479,7 +1589,7 @@ Proof
       >- gvs [freevars_def, boundvars_def] >>
       rw [] >>
       qspecl_then [‘replace_Force (Var (FST y)) v1 y2’, ‘Var w2’, ‘w1’,
-              ‘FILTER (λ(p1,p2). (p1 ≠ w1 ∧ p1 ≠ w2) ∧ filter p1)
+              ‘FILTER (λ(p1,p2). (p1 ≠ w1 ∧ p1 ≠ w2) ∧ filter2 p1)
                (MAP (λ(v,x). (v, Recclosure (MAP (λ(v,e). (v,replace_Force (Var (FST y)) v1 e)) g) v))
                 (MAP (λ(v,e). (v,replace_Force (Var (FST y)) v1 e)) g))’] mp_tac subst_replace_Force >>
       impl_tac
@@ -1501,14 +1611,15 @@ Proof
           gvs [boundvars_def]) >>
       gvs [PULL_FORALL] >>
       rename1 ‘exp_rel y1 y2’ >>
-      last_x_assum $ qspecl_then [‘y1’, ‘λv. (v ≠ w1 ∧ v ≠ w2) ∧ filter v’] assume_tac >> fs [] >>
+      last_x_assum $ qspecl_then [‘y1’, ‘λv. (v ≠ w1 ∧ v ≠ w2) ∧ filter2 v’] assume_tac >> fs [] >>
       first_x_assum irule >>
       gvs [] >> conj_tac
       >- (strip_tac >> assume_tac boundvars_replace_Force2 >>
           gvs [SUBSET_DEF]) >>
       qexists_tac ‘SND y’ >> gs [])
   >~[‘replace_Force (Var v2) v1 (Let opt _ _)’]
-  >- (Cases_on ‘opt’
+  >- (rename1 ‘FILTER (λ(v,x). filter2 v) _’ >>
+      Cases_on ‘opt’
       >~[‘Seq _ _’]
       >- (rw [subst_def, replace_Force_def, exp_rel_def] >>
           last_x_assum irule >> gvs [EL_MAP, boundvars_def, exp_size_def])
@@ -1522,7 +1633,7 @@ Proof
           qspecl_then [‘MAP (λ(v,x).(v, Recclosure f v)) f’,
                        ‘MAP ((λ(v,x).(v, Recclosure (MAP (λ(v,e).(v, replace_Force (Var v2) s e)) g) v)))
                         (MAP (λ(v,e).(v, replace_Force (Var v2) s e)) g)’,
-                       ‘v_rel’, ‘λv. v ≠ s ∧ filter v’] mp_tac LIST_FILTERED >>
+                       ‘v_rel’, ‘λv. v ≠ s ∧ filter2 v’] mp_tac LIST_FILTERED >>
           impl_tac
           >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP] >>
               rw [] >>
@@ -2396,12 +2507,11 @@ Proof
       \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_x_assum $ qspecl_then [‘0’] assume_tac \\ gs []
-      \\ rename1 ‘exp_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
         qexists_tac ‘0’
         \\ gs [])
+      \\ rename1 ‘exp_rel x y’
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
       \\ qexists_tac ‘j’
@@ -2413,12 +2523,11 @@ Proof
       \\ rw [v_rel_def])
     >- ((* Proj *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_x_assum $ qspecl_then [‘0’] assume_tac \\ gvs []
-      \\ rename1 ‘exp_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
         qexists_tac ‘0’
         \\ gs [])
+      \\ rename1 ‘exp_rel x y’
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
       \\ qexists_tac ‘j’
@@ -2426,7 +2535,8 @@ Proof
       \\ Cases_on ‘eval_to (j + k - 1) x’ \\ gs []
       \\ rename1 ‘v_rel v w’
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [LIST_REL_EL_EQN, v_rel_def]
-      \\ IF_CASES_TAC \\ gs [])
+      \\ IF_CASES_TAC \\ gs []
+      \\ rw [v_rel_def])
     >- ((* AtomOp *)
       Cases_on ‘k = 0’ \\ gs []
       >- (
@@ -2885,6 +2995,28 @@ Theorem full_exp_rel_def =
    “full_exp_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once full_exp_rel_cases])
   |> LIST_CONJ;
+
+Theorem full_exp_rel_Apps:
+  ∀ys f e. full_exp_rel (Apps f ys) e ⇔
+             ∃ys' f'. e = Apps f' ys' ∧ full_exp_rel f f' ∧ LIST_REL full_exp_rel ys ys'
+Proof
+  Induct \\ gvs [full_exp_rel_def]
+  \\ rpt $ gen_tac \\ eq_tac \\ rw []
+  >- (Q.REFINE_EXISTS_TAC ‘_::_’ \\ gvs []
+      \\ irule_at (Pos hd) EQ_REFL
+      \\ simp [])
+  \\ simp []
+  \\ irule_at (Pos hd) EQ_REFL \\ gvs []
+QED
+
+Theorem full_exp_rel_Lams:
+  ∀vL x y. full_exp_rel (Lams vL x) y ⇔
+             ∃y'. y = Lams vL y' ∧ full_exp_rel x y'
+Proof
+  Induct \\ gvs [full_exp_rel_def]
+  \\ rpt $ gen_tac \\ eq_tac \\ rw []
+  \\ metis_tac []
+QED
 
 Theorem full_exp_rel_IMP_no_value:
   ∀x y. full_exp_rel x y ⇒ no_value x
