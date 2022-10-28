@@ -69,8 +69,8 @@ Proof
       \\ last_assum $ qspecl_then [‘vc2’, ‘maps2’] assume_tac \\ gvs [])
 QED
 
-Theorem MEM_cexp4_size:
-  ∀binds p. MEM p binds ⇒ cexp_size (SND p) < cexp4_size binds
+Theorem MEM_cexp6_size:
+  ∀binds p. MEM p binds ⇒ cexp_size (SND p) < cexp6_size binds
 Proof
   Induct \\ gvs [cexp_size_def, FORALL_PROD]
   \\ rw []
@@ -89,7 +89,7 @@ Definition split_Delayed_Lam_def:
     (split_Delayed_Lam (Lam v e) var_creator maps =
         let (e', vc) = split_Delayed_Lam e var_creator (FOLDL delete maps v) in
         (Lam v e', vc)) /\
-    (split_Delayed_Lam (thunk_cexp$Letrec (binds : (mlstring # cexp) list) expr) var_creator maps =
+    (split_Delayed_Lam (thunk_cexp$Letrec binds expr) var_creator maps =
         let maps = FOLDL (λm (v, e). delete m v) maps binds in
         let (binds', vc, maps2) = letrec_split binds var_creator maps in
           let (binds', vc) = FOLDR (λ(v, e) (l, vc).
@@ -97,26 +97,30 @@ Definition split_Delayed_Lam_def:
                                       then
                                         let (e', vc) = split_Delayed_Lam e vc maps2 in
                                           ((v, e')::l, vc)
-                                      else ((v, e)::l, vc)) (([] : (cvname # cexp) list), vc) binds' in
+                                      else ((v, e)::l, vc)) ([], vc) binds' in
         let (expr', vc) = split_Delayed_Lam expr vc maps2 in
-        (Letrec (binds' : (cvname # cexp) list) expr', vc)) /\
+        (Letrec binds' expr', vc)) /\
     (split_Delayed_Lam (Prim op xs) var_creator maps =
      let (xs', vc) = FOLDR (λe (l, vc).
                               let (e', vc) = split_Delayed_Lam e vc maps in
                                 (e'::l, vc)) ([], var_creator) xs in
-            (Prim op xs', vc)) /\
-    (split_Delayed_Lam (Let name expr1 expr2) var_creator maps =
+       (Prim op xs', vc)) /\
+    (split_Delayed_Lam (Let NONE expr1 expr2) var_creator maps =
+     let (expr1, vc) = split_Delayed_Lam expr1 var_creator maps in
+       let (expr2, vc) = split_Delayed_Lam expr2 vc maps in
+         (Let NONE expr1 expr2, vc)) ∧
+    (split_Delayed_Lam (Let (SOME name) expr1 expr2) var_creator maps =
         case dest_Delay_Lam expr1 of
             | SOME e =>
                 let (name2, vc) = new_var var_creator name in
                 let (e', vc) = split_Delayed_Lam e vc maps in
                 let (expr2', vc) = split_Delayed_Lam expr2 vc (insert maps name name2) in
-                (Let name2 e'
-                    (Let name (Delay (Var name2)) expr2'), vc)
+                (Let (SOME name2) e'
+                    (Let (SOME name) (Delay (Var name2)) expr2'), vc)
             | NONE =>
                 let (expr1', vc) = split_Delayed_Lam expr1 var_creator maps in
                 let (expr2', vc) = split_Delayed_Lam expr2 vc (delete maps name) in
-                (Let name expr1' expr2', vc)) /\
+                (Let (SOME name) expr1' expr2', vc)) /\
     (split_Delayed_Lam (Delay e) var_creator maps =
         let (e', vc) = split_Delayed_Lam e var_creator maps in
         (Delay e', vc)) /\
@@ -135,13 +139,16 @@ Definition split_Delayed_Lam_def:
             | NONE =>
                 let (e', vc) = split_Delayed_Lam e var_creator maps in
                 (Force e', vc)) /\
-    (split_Delayed_Lam (Case e vname list) var_creator maps =
-        let (e', vc) = split_Delayed_Lam e var_creator maps in
-        let maps2 = delete maps vname in
+    (split_Delayed_Lam (thunk_cexp$Case vname list fallthrough) var_creator maps =
         let (list', vc) = FOLDR (λ(v, vL, expr) (l, vc).
-                        let (expr', vc) = split_Delayed_Lam expr vc (FOLDL delete maps2 vL) in
-                        ((v, vL, expr')::l, vc)) ([], vc) list in
-        (Case e' vname list', vc))
+                        let (expr', vc) = split_Delayed_Lam expr vc (FOLDL delete maps vL) in
+                          ((v, vL, expr')::l, vc)) ([], var_creator) list in
+          let (fallthrough', vc) = case fallthrough of
+                                  | NONE => (NONE, vc)
+                                  | SOME (terms, expr) =>
+                                      let (expr, vc) = split_Delayed_Lam expr vc maps in
+                                        (SOME (terms, expr), vc) in
+        (Case vname list' fallthrough', vc))
 Termination
   WF_REL_TAC ‘measure $ cexp_size o FST’ \\ rw []
   >~[‘MEM _ _’]
@@ -149,7 +156,7 @@ Termination
       \\ rename1 ‘letrec_split binds var_creator maps'’
       \\ pop_assum $ qspecl_then [‘binds’, ‘var_creator’, ‘maps'’] assume_tac
       \\ Cases_on ‘letrec_split binds var_creator maps'’ \\ gvs [MEM_MAP]
-      \\ dxrule_then assume_tac MEM_cexp4_size \\ gvs []
+      \\ dxrule_then assume_tac MEM_cexp6_size \\ gvs []
       \\ rename1 ‘cexp_size (SND y) < _’ \\ PairCases_on ‘y’ \\ gvs [cexp_size_def])
   \\ rename1 ‘dest_Delay_Lam expr1’
   \\ Cases_on ‘expr1’ \\ gs [dest_Delay_Lam_def]
