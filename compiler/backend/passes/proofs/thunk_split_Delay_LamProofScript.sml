@@ -57,13 +57,12 @@ Proof
   Induct \\ gvs [replace_Force_def]
 QED
 
-Theorem FOLDL_replace_Force_Prim:
-  ∀map_l map op l.
-    FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) (Prim op l) map_l
-    = Prim op (MAP (λe. FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e map_l) l)
-Proof
-  Induct \\ gvs [replace_Force_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-QED
+Theorem FOLDL_replace_Force_Prim: ∀map_l map op l.  FOLDL (λe
+  v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e)
+  (Prim op l) map_l = Prim op (MAP (λe. FOLDL (λe v. replace_Force
+  (Var (explode (to_fmap map ' v))) (explode v) e) e map_l) l) Proof
+  Induct \\ gvs [replace_Force_def, MAP_MAP_o, combinTheory.o_DEF,
+  LAMBDA_PROD] QED
 
 Theorem FOLDL_replace_Force_Seq:
   ∀map_l map x y.

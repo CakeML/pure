@@ -11,7 +11,7 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 val _ = new_theory "thunk_remove_unuseful_bindings";
 
 Definition ok_bind_def:
-  ok_bind (Lam s e) = T ∧
+  ok_bind (Lam s e : exp) = T ∧
   ok_bind (Delay e) = T ∧
   ok_bind _ = F
 End
@@ -1026,12 +1026,13 @@ Proof
       \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_x_assum $ qspecl_then [‘0’] assume_tac \\ gs []
+      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []
       \\ rename1 ‘exp_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
         qexists_tac ‘0’
         \\ gs [])
+      \\ first_x_assum $ qspec_then ‘0’ assume_tac
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
       \\ qexists_tac ‘j’
@@ -1043,12 +1044,13 @@ Proof
       \\ rw [v_rel_def])
     >- ((* Proj *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_x_assum $ qspecl_then [‘0’] assume_tac \\ gvs []
+      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []
       \\ rename1 ‘exp_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
         qexists_tac ‘0’
         \\ gs [])
+      \\ first_x_assum $ qspec_then ‘0’ assume_tac
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
       \\ qexists_tac ‘j’

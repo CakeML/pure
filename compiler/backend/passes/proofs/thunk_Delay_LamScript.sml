@@ -184,6 +184,12 @@ Theorem v_rel_def =
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
   |> LIST_CONJ;
 
+Triviality less_1_lemma[simp]:
+  n < 1 ⇔ n = 0:num
+Proof
+  fs []
+QED
+
 Theorem FILTERED:
   ∀vs n. ALOOKUP (REVERSE (FILTER (λ(n', x). n' ≠ n) vs)) n = NONE
 Proof

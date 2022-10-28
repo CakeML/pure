@@ -564,4 +564,15 @@ Proof
       \\ gs [Abbr ‘f’, Abbr ‘g’, CaseEq "sum"]))
 QED
 
+Definition is_Lam_def[simp]:
+  (is_Lam (Lam _ _) = T) ∧
+  (is_Lam _ = F)
+End
+
+Definition ok_bind_def[simp]:
+  (ok_bind (Lam _ _) = T) ∧
+  (ok_bind (Delay _) = T) ∧
+  (ok_bind _ = F)
+End
+
 val _ = export_theory ();
