@@ -119,7 +119,7 @@ Proof
    (fs [to_env_def] \\ irule exp_rel_Letrec \\ fs [cexp_wf_def]
     \\ fs [GSYM MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF]
     \\ fs [LIST_REL_MAP_MAP,LAMBDA_PROD]
-    \\ irule EVERY2_refl \\ fs [FORALL_PROD,SF SFY_ss,EVERY_MEM])
+    \\ fs [FORALL_PROD,SF SFY_ss,EVERY_MEM])
   >~ [‘Case’] >-
    (fs [to_env_def]
     \\ qpat_x_assum ‘d = NONE ⇒ _’ kall_tac

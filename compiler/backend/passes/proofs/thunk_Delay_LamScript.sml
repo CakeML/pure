@@ -196,6 +196,12 @@ Theorem v_rel_def =
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
   |> LIST_CONJ;
 
+Triviality less_1_lemma[simp]:
+  n < 1 ⇔ n = 0:num
+Proof
+  fs []
+QED
+
 Theorem FILTERED:
   ∀vs n. ALOOKUP (REVERSE (FILTER (λ(n', x). n' ≠ n) vs)) n = NONE
 Proof
@@ -207,6 +213,28 @@ Theorem is_Lam_subst:
   ∀x vs. is_Lam x ⇒ is_Lam (subst vs x)
 Proof
   Cases >> gvs [is_Lam_def, subst_def]
+QED
+
+Theorem exp_rel_Apps:
+  ∀ys f e. exp_rel (Apps f ys) e ⇔
+             ∃ys' f'. e = Apps f' ys' ∧ exp_rel f f' ∧ LIST_REL exp_rel ys ys'
+Proof
+  Induct \\ gvs [exp_rel_def]
+  \\ rpt $ gen_tac \\ eq_tac \\ rw []
+  >- (Q.REFINE_EXISTS_TAC ‘_::_’ \\ gvs []
+      \\ irule_at (Pos hd) EQ_REFL
+      \\ simp [])
+  \\ simp []
+  \\ irule_at (Pos hd) EQ_REFL \\ gvs []
+QED
+
+Theorem exp_rel_Lams:
+  ∀vL x y. exp_rel (Lams vL x) y ⇔
+             ∃y'. y = Lams vL y' ∧ exp_rel x y'
+Proof
+  Induct \\ gvs [exp_rel_def]
+  \\ rpt $ gen_tac \\ eq_tac \\ rw []
+  \\ metis_tac []
 QED
 
 Theorem exp_rel_is_Lam:
@@ -566,12 +594,8 @@ Proof
           first_x_assum $ dxrule_then $ dxrule_then assume_tac >> gvs [MEM_EL] >>
           last_x_assum $ dxrule_then $ dxrule_then assume_tac >> gvs [freevars_def] >>
           disj2_tac >> rw [] >> strip_tac >> gvs [EL_MAP] >>
-          rename1 ‘EL n2 vL = FST _’ >>
-          qspecl_then [‘λ(n, x). n ≠ EL n2 vL’, ‘FILTER (λ(n, v). filter n) vs’]
-                      assume_tac $ iffLR MEM_FILTER >>
-          gvs [MEM_EL, PULL_EXISTS] >> first_x_assum $ drule_then assume_tac >>
-          gvs [GSYM PAIR] >>
-          rename1 ‘FST p’ >> PairCases_on ‘p’ >> gvs [])
+          dxrule_then assume_tac EL_MEM >>
+          gvs [MEM_FILTER] >> pairarg_tac >> gs [])
       >- (dxrule_then (dxrule_then assume_tac) Letrec_Delay_SUBSET2 >>
           gvs [SUBSET_DEF, MAP_FLAT])) >>
   IF_CASES_TAC >> gvs [is_Lam_subst]
@@ -974,18 +998,19 @@ Proof
       gvs [EL_MAP, freevars_def, boundvars_def, EVERY_MEM, PULL_EXISTS])
   >~[‘Lam s x’]
   >- (gvs [subst_def, exp_rel_def, FILTER_FILTER, LAMBDA_PROD] >>
-      rename1 ‘_ ≠ s ∧ filter _’ >>
-      last_x_assum $ qspecl_then [‘λx. x ≠ s ∧ filter x’] assume_tac >> gvs [] >>
+      rename1 ‘_ ≠ s ∧ filter2 _’ >>
+      last_x_assum $ qspecl_then [‘λx. x ≠ s ∧ filter2 x’] assume_tac >> gvs [] >>
       first_x_assum irule >> gvs [EVERY_CONJ, freevars_def, boundvars_def, EVERY_MEM])
   >~[‘Seq x1 y1’]
   >-(gvs [exp_rel_def, subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, is_Lam_subst,
           freevars_subst]
      >- (rename1 ‘freevars (Delay x1)’ >> rename1 ‘exp_rel x1 x2’ >>
-         last_x_assum $ qspecl_then [‘filter’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
+         rename1 ‘FILTER (λ(k, x). filter2 k) _’ >>
+         last_x_assum $ qspecl_then [‘filter2’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
          first_x_assum $ irule_at Any >> gvs [EVERY_CONJ, freevars_def, boundvars_def] >>
-         rename1 ‘subst (FILTER (λ(k,x). filter k) (MAP _ f)) y1’ >>
+         rename1 ‘subst (FILTER (λ(k,x). filter2 k) (MAP _ f)) y1’ >>
          rename1 ‘v ∉ _ ’ >>
-         qspecl_then [‘FILTER (λ(k,x). filter k) (MAP (λ(g,x). (g,Recclosure f g)) f)’,
+         qspecl_then [‘FILTER (λ(k,x). filter2 k) (MAP (λ(g,x). (g,Recclosure f g)) f)’,
                       ‘y1’, ‘{v}’] assume_tac
                      $ GSYM subst_remove >>
          gvs [FILTER_FILTER, LAMBDA_PROD])
@@ -994,21 +1019,22 @@ Proof
   >- (gvs [exp_rel_def, subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER,
            is_Lam_subst, freevars_subst]
       >- (rename1 ‘freevars (Delay x1)’ >> rename1 ‘exp_rel x1 x2’ >>
-          last_x_assum $ qspecl_then [‘filter’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
+          rename1 ‘FILTER _ (FILTER (λ(k, x). filter2 k) _)’ >>
+          last_x_assum $ qspecl_then [‘filter2’, ‘Delay x2’] assume_tac >> gvs [subst_def] >>
           first_x_assum $ irule_at Any >> gvs [EVERY_CONJ, freevars_def, boundvars_def] >>
-          rename1 ‘subst (FILTER _ (FILTER (λ(k,x). filter k) (MAP _ f))) y1’ >>
+          rename1 ‘subst (FILTER _ (FILTER (λ(k,x). filter2 k) (MAP _ f))) y1’ >>
           rename1 ‘v ∉ _ ’ >>
-          qspecl_then [‘FILTER (λ(k, x). k ≠ s) (FILTER (λ(k,x). filter k)
+          qspecl_then [‘FILTER (λ(k, x). k ≠ s) (FILTER (λ(k,x). filter2 k)
                                                  (MAP (λ(g,x). (g,Recclosure f g)) f))’,
                        ‘y1’, ‘{v}’] assume_tac $ GSYM subst_remove >>
           gvs [FILTER_COMM] >> gvs [FILTER_FILTER, LAMBDA_PROD] >>
-          last_x_assum $ qspecl_then [‘λx. (filter x ∧ x ≠ s) ∧ x ≠ v’] assume_tac >> gvs [] >>
+          last_x_assum $ qspecl_then [‘λx. (filter2 x ∧ x ≠ s) ∧ x ≠ v’] assume_tac >> gvs [] >>
           first_x_assum irule >> gvs [EVERY_CONJ, EVERY_MEM] >> rw [] >>
           rpt $ first_x_assum $ drule_then assume_tac >> gvs [])
       >- (first_x_assum $ irule_at Any >>
           gvs [EVERY_CONJ, freevars_def, boundvars_def, FILTER_FILTER, LAMBDA_PROD] >>
-          rename1 ‘_ ≠ s ∧ filter _’ >>
-          last_x_assum $ qspecl_then [‘λx. x ≠ s ∧ filter x’] assume_tac >> gvs [] >>
+          rename1 ‘_ ≠ s ∧ filter2 _’ >>
+          last_x_assum $ qspecl_then [‘λx. x ≠ s ∧ filter2 x’] assume_tac >> gvs [] >>
           first_x_assum $ irule_at Any >>
           gvs [EVERY_CONJ, EVERY_MEM] >> rw [] >>
           rpt $ first_x_assum $ drule_then assume_tac >> gvs []))
@@ -1032,7 +1058,8 @@ Proof
               qabbrev_tac ‘pair1 = EL n f’ >> PairCases_on ‘pair1’ >>
               qabbrev_tac ‘pair2 = EL n g2’ >> PairCases_on ‘pair2’ >>
               gvs [FILTER_FILTER, LAMBDA_PROD] >>
-              first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter x’] assume_tac >>
+              rename1 ‘ ¬MEM _ (MAP FST g2) ∧ filter2 _’ >>
+              first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter2 x’] assume_tac >>
               gvs [] >>
               first_x_assum $ irule_at Any >>
               first_x_assum $ drule_then assume_tac >>
@@ -1047,8 +1074,8 @@ Proof
               >- (rpt $ first_x_assum $ qspecl_then [‘boundvars (SND (EL n f))’] assume_tac >>
                   gvs [MEM_MAP, MEM_EL]))
           >- (gvs [FILTER_FILTER, LAMBDA_PROD] >>
-              rename1 ‘ ¬MEM _ (MAP FST g2) ∧ filter _’ >>
-              first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter x’] assume_tac >>
+              rename1 ‘ ¬MEM _ (MAP FST g2) ∧ filter2 _’ >>
+              first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter2 x’] assume_tac >>
               gvs [] >>
               first_x_assum $ irule_at Any >>
               gvs [EVERY_CONJ, freevars_def, boundvars_def, EVERY_MEM])) >>
@@ -1061,7 +1088,8 @@ Proof
           rename1 ‘MAP FST f = MAP FST g2’ >>
           rename1 ‘EL n f’ >> Cases_on ‘EL n f’ >> Cases_on ‘EL n g2’ >> gvs [] >>
           rename1 ‘EL _ (MAP FST g2)’ >>
-          first_x_assum $ qspecl_then [‘λx. (¬MEM x (MAP FST g2) ∧ filter x)’] assume_tac >>
+          rename1 ‘FILTER (λx. _ x ∧ (λ(n2, v). filter2 n2) x)’ >>
+          first_x_assum $ qspecl_then [‘λx. (¬MEM x (MAP FST g2) ∧ filter2 x)’] assume_tac >>
           gvs [MEM_EL, LAMBDA_PROD] >>
           first_x_assum $ irule >> gvs [EVERY_CONJ, EVERY_MEM, EL_MAP] >> rw []
           >- (strip_tac >> gvs [EL_MAP] >> rpt $ first_x_assum $ drule_then assume_tac >>
@@ -1097,7 +1125,7 @@ Proof
           pairarg_tac >> gvs [boundvars_subst] >>
           first_x_assum $ drule_then assume_tac >> gvs [])
       >- (rename1 ‘exp_rel _ (subst (FILTER (λ(n,v). ¬MEM n (MAP FST (FLAT (MAP2 _ g2 (ZIP (vL2, bL2))))))
-                                     (FILTER (λ(k,x). filter k)
+                                     (FILTER (λ(k,x). filter2 k)
                                      (MAP _ (FLAT (MAP2 _ g1 (ZIP (vL1, bL1))))))) y2)’ >>
           qabbrev_tac ‘handler = (λ(v1, e) (v2, b). case e of
                     | Delay e2 => if is_Lam e2 ∧ b
@@ -1106,7 +1134,7 @@ Proof
                     | _ => [(v1, e)])’ >>
           qspecl_then [‘y2’, ‘set (MAP FST (FLAT (MAP2 handler g2 (ZIP (vL2, bL2)))))’,
                        ‘set (MAP FST g2)’,
-                       ‘FILTER (λ(k, x). filter k) (MAP
+                       ‘FILTER (λ(k, x). filter2 k) (MAP
                       (λ(g', x). (g', Recclosure (FLAT (MAP2 handler g1 (ZIP (vL1, bL1)))) g'))
                       (FLAT (MAP2 handler g1 (ZIP (vL1, bL1)))))’]
                       mp_tac change_Filter >>
@@ -1120,7 +1148,7 @@ Proof
               qspecl_then [‘g2’, ‘vL2’, ‘bL2’] assume_tac Letrec_Delay_SUBSET2 >>
               gvs [SUBSET_DEF]) >>
           rw [FILTER_FILTER, LAMBDA_PROD] >>
-          first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter x’] assume_tac >>
+          first_x_assum $ qspecl_then [‘λx. ¬MEM x (MAP FST g2) ∧ filter2 x’] assume_tac >>
           gvs [] >> first_x_assum $ irule >>
           gvs [EVERY_CONJ, freevars_def, boundvars_def, EVERY_MEM]))
   >~[‘Delay x’]
@@ -1311,7 +1339,6 @@ Proof
               irule_at Any exp_rel_subst >>
               gvs [EVERY_CONJ, freevars_subst, boundvars_subst, LIST_REL_EL_EQN, EVERY_MEM] >>
               rw []
-              >- (rename1 ‘EL n [_]’ >> Cases_on ‘n’ >> gvs [])
               >- (rpt $ last_x_assum $ drule_then assume_tac >>
                   gvs [MEM_EL, PULL_EXISTS, exp_rel_def] >>
                   rpt $ last_x_assum $ qspecl_then [‘i’] assume_tac >>
@@ -2045,7 +2072,6 @@ Proof
       \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_x_assum $ qspecl_then [‘0’] assume_tac \\ gs []
       \\ rename1 ‘exp_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -2061,7 +2087,6 @@ Proof
       \\ rw [v_rel_def])
     >- ((* Proj *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_x_assum $ qspecl_then [‘0’] assume_tac \\ gvs []
       \\ rename1 ‘exp_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -2302,7 +2327,6 @@ Proof
       \\ first_x_assum irule
       \\ irule_at Any exp_rel_subst
       \\ gvs [LIST_REL_EL_EQN, EVERY_CONJ, EVERY_MEM] \\ rw []
-      >- (rename1 ‘EL n [_]’ \\ Cases_on ‘n’ \\ gvs [])
       >- (rpt $ first_x_assum $ drule_then assume_tac
           \\ gvs [MEM_EL, PULL_EXISTS]
           \\ rpt $ first_x_assum $ qspecl_then [‘i’] assume_tac
@@ -2365,7 +2389,6 @@ Proof
       \\ irule_at Any exp_rel_subst
       \\ gvs [EVERY_CONJ, freevars_subst, boundvars_subst, LIST_REL_EL_EQN, EL_MAP, EVERY_MEM]
       \\ rw []
-      >- (rename1 ‘n2 < 1’ \\ Cases_on ‘n2’ \\ gvs [])
       \\ rpt $ first_x_assum $ drule_then assume_tac
       \\ gvs [MEM_EL, PULL_EXISTS]
       \\ rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac

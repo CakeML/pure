@@ -2160,32 +2160,42 @@ Proof
   rw[] >> gvs[MEM_MAP, EXISTS_PROD, FORALL_PROD, PULL_EXISTS] >> metis_tac[]
 QED
 
+Theorem exp_eq_subst_all:
+  ∀e m1 m2.
+    FDOM m1 = FDOM m2 ∧
+    (∀k v1 v2.
+      FLOOKUP m1 k = SOME v1 ∧ FLOOKUP m2 k = SOME v2 ⇒
+      (v1 ≅? v2) b ∧ closed v1 ∧ closed v2) ⇒
+    (subst m1 e ≅? subst m2 e) b
+Proof
+  ho_match_mp_tac freevars_ind \\ rw []
+  >- (fs [subst_def] \\ CASE_TAC \\ fs [FLOOKUP_DEF] \\ gvs [exp_eq_refl])
+  >- (fs [subst_def] \\ match_mp_tac exp_eq_Prim_cong \\ fs []
+      \\ Induct_on ‘es’ \\ fs [] \\ rw []
+      \\ first_x_assum irule \\ fs [SF SFY_ss])
+  >- (fs [subst_def] \\ match_mp_tac exp_eq_App_cong \\ fs [] \\ rw []
+      \\ first_x_assum irule \\ fs [SF SFY_ss])
+  >- (fs [subst_def]
+      \\ match_mp_tac exp_eq_Lam_cong
+      \\ first_x_assum irule \\ fs [SF SFY_ss,DOMSUB_FLOOKUP_THM])
+  \\ fs [subst_def]
+  \\ match_mp_tac exp_eq_Letrec_cong
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+  \\ reverse conj_tac
+  >- (first_x_assum irule
+      \\ fs [FLOOKUP_FDIFF,SF SFY_ss,FDOM_FDIFF,EXTENSION])
+  \\ fs [LIST_REL_MAP_MAP]
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ rw [] \\ last_x_assum $ drule_then irule
+  \\ fs [FLOOKUP_FDIFF,SF SFY_ss,FDOM_FDIFF,EXTENSION]
+QED
+
 Theorem exp_eq_subst:
   (y1 ≅? y2) b ∧ closed y1 ∧ closed y2 ⇒
   (subst1 x y1 e1 ≅? subst1 x y2 e1) b
 Proof
-  rw [] \\ qid_spec_tac ‘e1’
-  \\ ho_match_mp_tac freevars_ind \\ rw []
-  THEN1 (fs [subst_def,FLOOKUP_UPDATE] \\ rw [exp_eq_refl])
-  THEN1 (fs [subst_def] \\ match_mp_tac exp_eq_Prim_cong \\ fs []
-         \\ Induct_on ‘es’ \\ fs [])
-  THEN1 (fs [subst_def] \\ match_mp_tac exp_eq_App_cong \\ fs [])
-  THEN1 (fs [subst_def,DOMSUB_FUPDATE_THM] \\ rw [exp_eq_refl]
-         \\ match_mp_tac exp_eq_Lam_cong \\ fs [])
-  \\ fs [subst_def]
-  \\ match_mp_tac exp_eq_Letrec_cong
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
-  \\ ‘∀y s. FDIFF (FEMPTY |+ (x,y:exp)) s =
-            if x IN s then FEMPTY else FEMPTY |+ (x,y)’ by
-   (fs [fmap_EXT] \\ rw [FDOM_FDIFF,EXTENSION]
-    THEN1 (rw [] \\ eq_tac \\ rw [])
-    \\ fs [FDIFF_def])
-  \\ fs [] \\ IF_CASES_TAC \\ fs [exp_eq_refl]
-  THEN1 (qid_spec_tac ‘lcs’ \\ Induct \\ fs [exp_eq_refl,FORALL_PROD])
-  \\ Induct_on ‘lcs’ \\ fs [FORALL_PROD] \\ rw []
-  \\ fs [PULL_FORALL]
-  \\ first_x_assum match_mp_tac
-  \\ metis_tac []
+  rw [] \\ irule exp_eq_subst_all
+  \\ fs [FLOOKUP_UPDATE]
 QED
 
 Theorem exp_eq_Lam_basic_lemma[local]:
@@ -2262,6 +2272,31 @@ Proof
   \\ first_x_assum drule \\ rw []
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ match_mp_tac exp_eq_subst \\ fs []
+QED
+
+Triviality subst_eq_bind:
+  (∀n v. FLOOKUP m n = SOME v ⇒ closed v) ⇒
+  subst m e = bind m e
+Proof
+  fs [bind_def,SF SFY_ss]
+QED
+
+Theorem exp_eq_forall_subst_all:
+  (x ≅? y) b ∧ FEVERY (λ(k,v). closed v) m ⇒ (subst m x ≅? subst m y) b
+Proof
+  fs [exp_eq_def] \\ rw []
+  \\ rw [bind_def]
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- fs [FEVERY_DEF,FRANGE_DEF,PULL_EXISTS]
+  \\ DEP_REWRITE_TAC [subst_eq_bind]
+  \\ last_x_assum $ irule_at Any
+  \\ fs [FLOOKUP_FUNION,AllCaseEqs(),SF DNF_ss,SF SFY_ss]
+  \\ fs [FEVERY_DEF,FLOOKUP_DEF,PULL_EXISTS]
+  \\ rpt $ qpat_x_assum ‘_ SUBSET _’ mp_tac
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [SUBSET_DEF,SF SFY_ss,FRANGE_DEF,PULL_EXISTS]
+  \\ metis_tac []
 QED
 
 Theorem exp_eq_forall_subst:
@@ -2866,6 +2901,117 @@ Proof
   simp[freevars_def, subst_def, eval_wh_def, case_someT, eval_wh_to_atom2] >>
   rpt strip_tac >>
   DEEP_INTRO_TAC optionTheory.some_intro >> simp[AllCaseEqs()]
+QED
+
+Theorem eval_wh_Apps_Lams:
+  LENGTH es = LENGTH vs ∧ EVERY closed es ⇒
+  eval_wh (Apps (Lams vs e) es) =
+  eval_wh (subst (FEMPTY |++ (ZIP(vs,es))) e)
+Proof
+  rw []
+  \\ DEP_REWRITE_TAC [GSYM pure_eval_lemmasTheory.eval_Apps_Lams]
+  \\ fs [MAP_ZIP]
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘es’
+  \\ qid_spec_tac ‘vs’
+  \\ Induct \\ Cases_on ‘es’ \\ fs []
+QED
+
+Triviality Apps_Lams_lemma:
+  EVERY (λv. closed (f v)) vs ⇒
+  eval_wh (Apps (Lams vs e) (MAP f vs)) =
+  eval_wh (subst (FEMPTY |++ MAP (λv. (v, f v)) vs) e)
+Proof
+  rw []
+  \\ DEP_REWRITE_TAC [eval_wh_Apps_Lams]
+  \\ fs [EVERY_MAP]
+  \\ rpt $ (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ qid_spec_tac ‘vs’ \\ Induct \\ fs []
+QED
+
+Theorem exp_eq_Apps_Lams:
+  (Apps (Lams vs body) (MAP Var vs) ≅? body) b
+Proof
+  irule eval_wh_IMP_exp_eq \\ rw []
+  \\ fs [subst_Apps,subst_Lams]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+  \\ DEP_REWRITE_TAC [Apps_Lams_lemma]
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ simp [CONJ_ASSOC]
+  \\ conj_tac
+  >- fs [FLOOKUP_DEF,FRANGE_DEF,PULL_EXISTS,EVERY_MEM,subst_def,
+         SUBSET_DEF,MEM_MAP,FDIFF_def,DRESTRICT_DEF]
+  \\ AP_TERM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [fmap_eq_flookup,FLOOKUP_FUNION,FDIFF_def,FLOOKUP_DRESTRICT,
+         alistTheory.flookup_fupdate_list]
+  \\ qsuff_tac ‘∀x. ALOOKUP (REVERSE (MAP (λx. (x,subst f (Var x))) vs)) x =
+                    if MEM x vs then FLOOKUP f x else NONE’
+  >-
+   (fs [] \\ rw [] \\ rw [] \\ fs [AllCaseEqs()]
+    \\ Cases_on ‘FLOOKUP f x’ \\ fs [])
+  \\ ‘set vs SUBSET FDOM f’ by fs [SUBSET_DEF,PULL_EXISTS,MEM_MAP]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘vs’ \\ Induct using SNOC_INDUCT \\ fs []
+  \\ fs [MAP_SNOC,REVERSE_SNOC] \\ rw []
+  \\ fs [SUBSET_DEF,MEM_SNOC]
+  \\ fs [subst_def]
+  \\ fs [SF DNF_ss]
+  \\ fs [FLOOKUP_DEF]
+  \\ rw [] \\ fs [] \\ res_tac \\ gvs []
+QED
+
+Theorem exp_eq_Letrec_cong1:
+  (x ≅? y) b ⇒ (Letrec xs x ≅? Letrec xs y) b
+Proof
+  rw [] \\ irule exp_eq_Letrec_cong \\ fs []
+  \\ fs [LIST_REL_MAP_MAP,exp_eq_refl]
+QED
+
+Theorem bind_eq_subst:
+  (∀n v. FLOOKUP s n = SOME v ⇒ closed v) ⇒ bind s e = subst s e
+Proof
+  simp [bind_def, SF SFY_ss]
+QED
+
+Triviality ignore_FDIFF:
+  DISJOINT f (FDOM m) ⇒ FDIFF m f = m
+Proof
+  fs [fmap_eq_flookup,FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,IN_DISJOINT]
+  \\ metis_tac []
+QED
+
+Theorem Lams_cong:
+  ∀vs x y. (x ≅? y) b ⇒ (Lams vs x ≅? Lams vs y) b
+Proof
+  Induct \\ fs [Lams_def] \\ rw []
+  \\ irule exp_eq_Lam_cong \\ fs []
+QED
+
+Theorem Letrec_Lams_swap:
+  DISJOINT (set vs) (set (MAP FST xs)) ∧
+  EVERY (λ(v,x). freevars x SUBSET set (MAP FST xs)) xs ⇒
+  (Letrec xs (Lams vs x) ≅? Lams vs (Letrec xs x)) b
+Proof
+  rw []
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ simp [Once exp_eq_sym]
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at Any Lams_cong
+  \\ irule_at Any beta_equality_Letrec
+  \\ reverse conj_tac
+  >- fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,SF SFY_ss]
+  \\ fs [subst_funs_def]
+  \\ DEP_REWRITE_TAC [bind_eq_subst]
+  \\ fs [subst_Lams]
+  \\ DEP_REWRITE_TAC [ignore_FDIFF]
+  \\ fs [exp_eq_refl]
+  \\ fs [IN_DISJOINT,MEM_MAP,PULL_EXISTS,FORALL_PROD,FDOM_FUPDATE_LIST]
+  \\ rw [alistTheory.flookup_fupdate_list,AllCaseEqs()]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+  \\ rw [] \\ res_tac \\ fs []
 QED
 
 val _ = export_theory();
