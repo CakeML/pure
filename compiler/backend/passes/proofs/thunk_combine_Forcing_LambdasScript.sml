@@ -11,7 +11,7 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 val _ = new_theory "thunk_combine_Forcing_Lambdas";
 
 Definition ok_bind_def:
-  ok_bind (Lam s e) = T ∧
+  ok_bind (Lam s e : exp) = T ∧
   ok_bind (Delay e) = T ∧
   ok_bind _ = F
 End
@@ -1489,7 +1489,7 @@ Proof
         \\ gvs [])
 
     (* combine closure1 *)
-    >- skip (print_tac "Closure 1/4"
+    >- (print_tac "Closure 1/4"
         \\ IF_CASES_TAC \\ gvs []
         >- (qexists_tac ‘0’ \\ gvs []
             \\ Cases_on ‘eval_to 0 y = INL Diverge’ \\ gs []
