@@ -471,4 +471,43 @@ Proof
   \\ Cases_on ‘th1’ \\ fs [dest_Thunk_def]
 QED
 
+Definition cexp_wf_def[simp]:
+  cexp_wf ((Lam v x):env_cexp$cexp) = cexp_wf x ∧
+  cexp_wf (Force x) = cexp_wf x ∧
+  cexp_wf (Box x) = cexp_wf x ∧
+  cexp_wf (Delay x) = cexp_wf x ∧
+  cexp_wf (Length x) = cexp_wf x ∧
+  cexp_wf (Act x) = cexp_wf x ∧
+  cexp_wf (Ret x) = cexp_wf x ∧
+  cexp_wf (Raise x) = cexp_wf x ∧
+  cexp_wf (If x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
+  cexp_wf (Let _ x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Bind x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Handle x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Alloc x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Deref x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Update x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
+  cexp_wf (App x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Letrec fs x) =
+    (EVERY I (MAP (λ(_,x). cexp_wf x) fs) ∧ cexp_wf x ∧
+     ALL_DISTINCT (MAP (λx. explode (FST x)) fs) ∧
+     EVERY (λ(_,x). ∃n m. x = Lam n m ∨ x = Delay m) fs) ∧
+  cexp_wf (Case v rs x) =
+    (EVERY I (MAP (λ(_,_,x). cexp_wf x) rs) ∧ rs ≠ [] ∧
+     OPTION_ALL (λ(a,x). cexp_wf x ∧
+       DISJOINT (set (MAP (explode o FST) a)) monad_cns) x ∧
+     DISJOINT (set (MAP (explode o FST) rs)) monad_cns ∧
+     ALL_DISTINCT (MAP FST rs) ∧
+     ~MEM v (FLAT (MAP (FST o SND) rs))) ∧
+  cexp_wf (Prim p xs) =
+    (EVERY cexp_wf xs ∧
+     (case p of
+      | Cons m => explode m ∉ monad_cns
+      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1) ∧
+                    (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
+  cexp_wf _ = T
+Termination
+  WF_REL_TAC ‘measure cexp_size’
+End
+
 val _ = export_theory ();

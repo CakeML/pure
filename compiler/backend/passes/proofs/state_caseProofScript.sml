@@ -95,8 +95,7 @@ Inductive compile_rel:
   compile_rel (If te te1 te2) (If se se1 se2)) ∧
 
 [~Case:]
-  (∀v te se tes ses td sd.
-     compile_rel te se ∧
+  (∀v tes ses td sd.
      OPTREL (λ(a,x) (b,y). a = b ∧ compile_rel x y) td sd ∧
      MAP FST tes = MAP FST ses ∧ ALL_DISTINCT (MAP FST tes) ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧

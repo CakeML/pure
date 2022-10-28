@@ -32,44 +32,6 @@ Definition combined_def:
       clean y1 y
 End
 
-Definition cexp_wf_def[simp]:
-  cexp_wf ((Lam v x):env_cexp$cexp) = cexp_wf x ∧
-  cexp_wf (Force x) = cexp_wf x ∧
-  cexp_wf (Box x) = cexp_wf x ∧
-  cexp_wf (Delay x) = cexp_wf x ∧
-  cexp_wf (Length x) = cexp_wf x ∧
-  cexp_wf (Act x) = cexp_wf x ∧
-  cexp_wf (Ret x) = cexp_wf x ∧
-  cexp_wf (Raise x) = cexp_wf x ∧
-  cexp_wf (If x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
-  cexp_wf (Let _ x y) = (cexp_wf x ∧ cexp_wf y) ∧
-  cexp_wf (Bind x y) = (cexp_wf x ∧ cexp_wf y) ∧
-  cexp_wf (Handle x y) = (cexp_wf x ∧ cexp_wf y) ∧
-  cexp_wf (Alloc x y) = (cexp_wf x ∧ cexp_wf y) ∧
-  cexp_wf (Deref x y) = (cexp_wf x ∧ cexp_wf y) ∧
-  cexp_wf (Update x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
-  cexp_wf (App x y) = (cexp_wf x ∧ cexp_wf y) ∧
-  cexp_wf (Letrec fs x) =
-    (EVERY I (MAP (λ(_,x). cexp_wf x) fs) ∧ cexp_wf x ∧
-     ALL_DISTINCT (MAP (λx. explode (FST x)) fs) ∧
-     EVERY (λ(_,x). ∃n m. x = Lam n m ∨ x = Delay m) fs) ∧
-  cexp_wf (Case v rs x) =
-    (EVERY I (MAP (λ(_,_,x). cexp_wf x) rs) ∧
-     OPTION_ALL (λ(_,x). cexp_wf x) x ∧
-     DISJOINT (set (MAP (explode o FST) rs)) monad_cns ∧
-     ALL_DISTINCT (MAP FST rs) ∧
-     ~MEM v (FLAT (MAP (FST o SND) rs))) ∧
-  cexp_wf (Prim p xs) =
-    (EVERY cexp_wf xs ∧
-     (case p of
-      | Cons m => explode m ∉ monad_cns
-      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1) ∧
-                    (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
-  cexp_wf _ = T
-Termination
-  WF_REL_TAC ‘measure cexp_size’
-End
-
 Theorem MEM_combined:
   ∀xs.
     (∀x. MEM x xs ⇒
@@ -173,6 +135,8 @@ Theorem to_state_rows_of:
   ∀xs ys s d1 d2.
     MAP FST xs = MAP FST ys ∧
     MAP (FST o SND) xs = MAP (FST o SND) ys ∧
+    OPTREL (λ(a,x) (b,y). a = b ∧ DISJOINT (set (MAP FST a)) monad_cns ∧
+                          to_state x y) d1 d2 ∧
     DISJOINT (set (MAP FST xs)) monad_cns ∧
     LIST_REL to_state (MAP (SND o SND) xs) (MAP (SND o SND) ys) ⇒
     to_state (rows_of s xs d1) (state_caseProof$rows_of s ys d2)
@@ -180,7 +144,20 @@ Proof
   Induct \\ Cases_on ‘ys’
   \\ fs [state_caseProofTheory.rows_of_def,
          envLangTheory.rows_of_def]
-  >- cheat (* (irule_at Any env_to_state_1ProofTheory.compile_rel_AtomOp \\ fs []) *)
+  >-
+   (rw [] \\ Cases_on ‘d1’ \\ Cases_on ‘d2’ \\ gvs []
+    >- simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+    \\ CASE_TAC \\ CASE_TAC \\ gvs []
+    \\ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+    \\ reverse conj_tac
+    >- simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+    \\ rename [‘Disj v xs’]
+    \\ Induct_on ‘xs’
+    \\ fs [FORALL_PROD,envLangTheory.Disj_def,state_caseProofTheory.Disj_def]
+    >- (simp [Once env_to_state_1ProofTheory.compile_rel_cases] \\ EVAL_TAC)
+    \\ rw []
+    \\ ntac 5 $ simp [Once env_to_state_1ProofTheory.compile_rel_cases]
+    \\ EVAL_TAC)
   \\ PairCases \\ PairCases_on ‘h’ \\ fs [] \\ rw []
   \\ fs [state_caseProofTheory.rows_of_def,
          envLangTheory.rows_of_def]
@@ -534,7 +511,6 @@ QED
 Theorem to_state_rel:
   ∀x. cexp_wf x ⇒ combined x (to_state x)
 Proof
-
   ho_match_mp_tac to_state_ind \\ rpt strip_tac
   >~ [‘Var’] >-
    (rw [to_state_def,combined_def]
@@ -852,8 +828,6 @@ Proof
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ rpt (irule_at Any state_caseProofTheory.compile_rel_If \\ fs [PULL_EXISTS]))
   >~ [‘Case’] >-
-
-   cheat (*
    (rw [to_state_def] \\ fs [combined_def]
     \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Case \\ fs [PULL_EXISTS])
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
@@ -870,27 +844,29 @@ Proof
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
     \\ simp [Once SWAP_EXISTS_THM]
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
-
-    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,ys))’
-    \\ last_x_assum kall_tac
-    \\ qpat_x_assum ‘∀x. _’ kall_tac
-    \\ IF_CASES_TAC
-    >-
-     (qsuff_tac ‘F’ \\ fs []
-      \\ pop_assum mp_tac
-      \\ qpat_x_assum ‘~(MEM _ _)’ mp_tac
-      \\ ‘LENGTH rs = LENGTH ys’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
-      \\ pop_assum mp_tac
-      \\ qid_spec_tac ‘ys’
-      \\ qid_spec_tac ‘rs’
-      \\ Induct \\ fs [PULL_EXISTS]
-      \\ strip_tac \\ Cases \\ fs [])
-    \\ irule_at Any state_unthunkProofTheory.compile_rel_Let \\ fs [PULL_EXISTS]
-    \\ qexists_tac ‘(state_caseProof$rows_of (explode x')
-               (MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,xs0))))’
-    \\ rpt $ qpat_x_assum ‘~(MEM _ _)’ kall_tac
-    \\ irule_at Any unthunk_rows_of
     \\ irule_at Any to_state_rows_of
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,xs0))’
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+    \\ ‘∃d2 te sd.
+          OPTREL (λ(a,x) (b,y). a = b ∧ unthunk x y) d2 sd ∧
+          OPTREL
+            (λ(a,x) (b,y). a = b ∧ DISJOINT (set (MAP FST a)) monad_cns ∧ to_state x y)
+            (OPTION_MAP (λ(a,e). (MAP (explode ## I) a,exp_of e)) d) d2 ∧
+          OPTREL (λ(a,x) (b,y). a = b ∧ case_rel x y)
+            (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) te) sd ∧
+          OPTREL (λ(a,x) (b,y). a = b ∧ clean x y) te
+            (case d of NONE => NONE | SOME (d',e) => SOME (d',to_state e))’ by
+     (Cases_on ‘d’ \\ fs []
+      >- (rpt $ qexists_tac ‘NONE’ \\ fs [])
+      \\ fs [] \\ rename [‘xx = (_,_)’]
+      \\ PairCases_on ‘xx’ \\ fs [OPTREL_SOME,PULL_EXISTS,EXISTS_PROD]
+      \\ rpt $ first_assum $ irule_at Any
+      \\ fs [MAP_MAP_o,combinTheory.o_DEF])
+    \\ pop_assum $ irule_at Any
+    \\ pop_assum $ irule_at Any
+    \\ pop_assum $ irule_at Any
+    \\ qexists_tac ‘MAP (λ((m,n,_),r). (explode m,MAP explode n,r)) (ZIP (rs,ys))’
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ ‘ALL_DISTINCT (MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1)))’ by
      (qsuff_tac ‘(MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1))) =
@@ -900,17 +876,28 @@ Proof
       \\ qid_spec_tac ‘xs1’
       \\ Induct \\ fs [] \\ Cases_on ‘rs'’ \\ fs [])
     \\ fs []
-    \\ pop_assum kall_tac
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ ntac 8 $ pop_assum mp_tac
+    \\ IF_CASES_TAC
+    >-
+     (qsuff_tac ‘F’ \\ fs [] \\ gvs []
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ gvs [MEM_FLAT,MEM_MAP,MEM_ZIP]
+      >- metis_tac [MEM_EL]
+      \\ Cases_on ‘rs’ \\ Cases_on ‘ys’ \\ fs [])
+    \\ irule_at Any unthunk_rows_of
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
+    \\ rpt $ qpat_x_assum ‘LENGTH _ = LENGTH _’ mp_tac
+    \\ rpt $ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
     \\ qid_spec_tac ‘xs0’
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘rs’
     \\ qid_spec_tac ‘xs1’
-    \\ fs [UNCURRY,MAP_MAP_o,combinTheory.o_DEF]
-    \\ Induct
-    \\ fs [PULL_EXISTS,PULL_FORALL]
-    \\ Cases_on ‘rs'’ \\ fs [] \\ metis_tac []) *)
+    \\ rpt $ pop_assum kall_tac
+    \\ Induct >- fs []
+    \\ fs [PULL_EXISTS,PULL_FORALL,MAP_EQ_CONS]
+    \\ rpt gen_tac \\ rewrite_tac [AND_IMP_INTRO] \\ strip_tac
+    \\ fs []
+    \\ last_x_assum drule_all
+    \\ strip_tac \\ fs [])
   >~ [‘Letrec’] >-
    (rw [to_state_def] \\ fs [combined_def]
     \\ rpt $ irule_at Any env_to_state_1ProofTheory.compile_rel_Letrec
