@@ -24,7 +24,7 @@ Definition letrec_recurse_cexp_def:
   letrec_recurse_cexp f (Case c x n ys eopt) =
     Case c (letrec_recurse_cexp f x) n
       (MAP (λ(n,ns,e). (n,ns,letrec_recurse_cexp f e)) ys)
-      (OPTION_MAP (λe. letrec_recurse_cexp f e) eopt) ∧
+      (OPTION_MAP (λ(a,e). (a,letrec_recurse_cexp f e)) eopt) ∧
   letrec_recurse_cexp f (NestedCase c g gv p e pes) =
     NestedCase c (letrec_recurse_cexp f g) gv p
                (letrec_recurse_cexp f e)
@@ -61,14 +61,14 @@ Definition letrec_recurse_fvs_def:
     (let e' = letrec_recurse_fvs f e ;
          eopt' = case eopt of (* using OPTION_MAP confuses TFL here *)
                    NONE => NONE
-                 | SOME eo => SOME (letrec_recurse_fvs f eo) ;
+                 | SOME (a,eo) => SOME (a,letrec_recurse_fvs f eo) ;
          ys' = MAP (λ(cn,vs,e). (cn,vs,letrec_recurse_fvs f e)) ys ;
          c' =
          union (get_info e')
                (delete (list_union
                    ((case eopt' of
                        NONE => empty
-                     | SOME e' => get_info e') ::
+                     | SOME (_,e') => get_info e') ::
                     MAP (λ(cn,vs,e). list_delete (get_info e) vs) ys')) n)
     in Case c' e' n ys' eopt') ∧
   letrec_recurse_fvs f (NestedCase c g gv p e pes) =
@@ -173,4 +173,3 @@ End
 (*******************)
 
 val _ = export_theory();
-

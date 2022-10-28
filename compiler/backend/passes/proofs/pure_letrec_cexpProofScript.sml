@@ -125,10 +125,14 @@ Proof
   ([‘rows_of’],
    pop_assum
      (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th)) >>
-   Cases_on ‘eopt’ >> gs[] >>
    simp[letrec_recurse_rows_of, MAP_MAP_o, pairTheory.o_UNCURRY_R,
-        combinTheory.o_ABS_R, letrec_recurse_def] >> AP_TERM_TAC >>
-   rw[MAP_EQ_f] >> pairarg_tac >> gvs[]>> metis_tac[]) >>~-
+        combinTheory.o_ABS_R, letrec_recurse_def] >>
+   match_mp_tac (METIS_PROVE [] “x = x1 ∧ y = y1 ⇒ f x y = f x1 y1”) >>
+   conj_tac >-
+    (every_case_tac >> fs [letrec_recurse_def,IfDisj_def] >>
+     rename [‘Disj _ xs’] >> Induct_on ‘xs’ >> fs [] >>
+     fs [Disj_def,letrec_recurse_def,FORALL_PROD]) >>
+   rw[MAP_EQ_f] >> pairarg_tac >> gvs [] >> res_tac >> fs []) >>~-
   ([‘nested_rows’],
    qpat_x_assum ‘∀c fns e. exp_of (f c fns e) = _’
      (fn th => rpt $ first_x_assum (fn ith => mp_then Any assume_tac ith th)) >>
@@ -159,7 +163,7 @@ Definition fvs_ok_def:
   fvs_ok (Case c e v css eopt) =
     (fv_set_ok (Case c e v css eopt) ∧ fvs_ok e ∧
      EVERY (λ(cn,vs,e). fvs_ok e) css ∧
-     OPTION_ALL fvs_ok eopt) ∧
+     OPTION_ALL (λ(_,e). fvs_ok e) eopt) ∧
   fvs_ok (NestedCase c g gv p e pes) =
     (fv_set_ok (NestedCase c g gv p e pes) ∧
      fvs_ok g ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes)
@@ -243,9 +247,9 @@ Proof
     imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def] >>
     csimp[fvs_ok_def, fv_set_ok_def, get_info_def, EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
     reverse $ conj_tac
-    >- (Cases_on ‘eopt’ >> gvs[] >> rw[] >> res_tac) >> rw[] >>
+    >- (Cases_on ‘eopt’ >> TRY $ Cases_on ‘x’ >> gvs[] >> rw[] >> res_tac) >> rw[] >>
     DEP_REWRITE_TAC drwts >> csimp[EVERY_MAP, EVERY_MEM, FORALL_PROD]
-    >- (Cases_on ‘eopt’ >> gvs[] >>
+    >- (Cases_on ‘eopt’ >> TRY $ Cases_on ‘x’ >> gvs[] >>
         rw[] >> DEP_REWRITE_TAC drwts >> simp[EVERY_MAP, EVERY_MEM, FORALL_PROD]
         >- metis_tac[fvs_ok_imp, fv_set_ok_def]
         >- metis_tac[fvs_ok_imp, fv_set_ok_def] >>
@@ -254,7 +258,7 @@ Proof
         metis_tac[fvs_ok_imp, fv_set_ok_def]
       )
     >- (
-      Cases_on ‘eopt’ >> gvs[] >>
+      Cases_on ‘eopt’ >> TRY $ Cases_on ‘x’ >> gvs[] >>
       rw[] >> DEP_REWRITE_TAC drwts >> simp[EVERY_MAP, EVERY_MEM, FORALL_PROD]
       >- metis_tac[fvs_ok_imp, fv_set_ok_def]
       >- metis_tac[fvs_ok_imp, fv_set_ok_def] >>
@@ -264,7 +268,7 @@ Proof
       ) >>
     conj_tac
     >- (
-      Cases_on ‘eopt’ >> gvs[] >>
+      Cases_on ‘eopt’ >> TRY $ Cases_on ‘x’ >> gvs[] >>
       reverse $ rw[] >>
       DEP_REWRITE_TAC drwts >> simp[EVERY_MAP, EVERY_MEM, FORALL_PROD]
       >- metis_tac[fvs_ok_imp, fv_set_ok_def]
@@ -272,7 +276,7 @@ Proof
       rw[] >> DEP_REWRITE_TAC drwts >> simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
       metis_tac[fvs_ok_imp, fv_set_ok_def]
       ) >>
-    Cases_on ‘eopt’ >> gvs[] >>
+    Cases_on ‘eopt’ >> TRY $ Cases_on ‘x’ >> gvs[] >>
     simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
     IF_CASES_TAC >> gvs[AllCaseEqs()] >> dsimp[] >>
     first_x_assum $ qspec_then `k` assume_tac >> gvs[] >>
@@ -339,6 +343,15 @@ Proof
       simp[lookup_list_delete, cepat_vars_l_correct])
 QED
 
+Triviality letrec_recurse_IfDisj:
+  letrec_recurse g (IfDisj n p1 x) =
+  IfDisj n p1 (letrec_recurse g x)
+Proof
+  fs [IfDisj_def,letrec_recurse_def]
+  \\ rename [‘Disj _ xs’]
+  \\ Induct_on ‘xs’ \\ fs [FORALL_PROD,Disj_def,letrec_recurse_def]
+QED
+
 Theorem letrec_recurse_fvs_exp_of:
   ∀f ce g.
     (∀c fns e.
@@ -380,11 +393,17 @@ Proof
   pop_assum (fn th => rpt $ first_x_assum $ C (mp_then Any assume_tac) th) >>
   gs [MEM_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, DISJ_EQ_IMP] >>
   rw[letrec_recurse_rows_of, letrec_recurse_nested_rows] >>
-  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  TRY (Cases_on ‘eopt’ >> gvs[letrec_recurse_def]) >>
-  AP_TERM_TAC >>
-  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-  last_x_assum irule >> simp[] >> goal_assum drule
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  >~ [‘nested_rows’] >-
+   (AP_TERM_TAC >> fs [] >>
+    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+    last_x_assum irule >> simp[] >> goal_assum drule) >>
+  match_mp_tac $ METIS_PROVE [] “x = x1 ∧ y = y1 ⇒ f y x = f y1 x1” >>
+  rpt strip_tac >>
+  TRY (rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+       last_x_assum irule >> simp[] >> goal_assum drule \\ NO_TAC) >>
+  Cases_on ‘eopt’ >> fs [letrec_recurse_def] >>
+  pairarg_tac >> gvs [letrec_recurse_IfDisj]
 QED
 
 
