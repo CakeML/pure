@@ -174,13 +174,15 @@ Proof
           irule exp_eq_Let_cong_noaconv >> simp[] >>
           irule exp_eq_rows_of_cong >> conj_tac >~
           [‘option_CASE _ _ _ ≅ option_CASE opt _ _’]
-          >- (Cases_on ‘opt’ >> simp[]) >>
+          >- (Cases_on ‘opt’ >> simp[] \\ pairarg_tac \\ fs [IfDisj_def] >>
+              irule exp_eq_Prim_cong >> simp[]) >>
           gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
           metis_tac[PAIR]) >>
       irule exp_eq_Let_cong_noaconv >> simp[] >>
       irule exp_eq_rows_of_cong >> conj_tac >~
       [‘option_CASE _ _ _ ≅ option_CASE opt _ _’]
-      >- (Cases_on ‘opt’ >> simp[]) >>
+      >- (Cases_on ‘opt’ >> simp[] \\ pairarg_tac \\ fs [IfDisj_def] >>
+          irule exp_eq_Prim_cong >> simp[]) >>
       gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY, MEM_EL, PULL_EXISTS] >>
       metis_tac[PAIR]) >~
   [‘LAST ((pat1, lift_uscore exp1) :: MAP _ pes)’]
