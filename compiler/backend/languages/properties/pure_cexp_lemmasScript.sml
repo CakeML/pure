@@ -1,5 +1,5 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
+open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
 open pure_miscTheory pure_cexpTheory pureLangTheory
@@ -18,12 +18,12 @@ QED
 Theorem freevars_cexp_equiv:
   ∀ce. freevars_cexp ce = set (freevars_cexp_l ce)
 Proof
-  recInduct freevars_cexp_ind >>
+  recInduct freevars_cexp_ind >> simp[FORALL_OPTION] >>
   rw[] >>
   gvs[LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG,
       LIST_TO_SET_FILTER, UNCURRY, silly_cong_lemma] >>
   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, cepat_vars_l_correct] >>
-  metis_tac[]
+  every_case_tac >> gvs[] >> metis_tac[]
 QED
 
 Theorem freevars_lets_for:
@@ -37,10 +37,12 @@ Proof
 QED
 
 Theorem freevars_rows_of:
-  ∀v l. freevars (rows_of v l) =
+  ∀v k l.
+    freevars (rows_of v k l) =
     case l of
-      [] => {}
-    | _ => v INSERT BIGUNION (set (MAP (λ(cn,vs,b). freevars b DIFF set vs) l))
+      [] => freevars k
+    | _ => v INSERT freevars k ∪
+           BIGUNION (set (MAP (λ(cn,vs,b). freevars b DIFF set vs) l))
 Proof
   recInduct rows_of_ind >> rw[rows_of_def] >> simp[freevars_lets_for] >>
   Cases_on `rest` >> gvs[combinTheory.o_DEF] >>
@@ -161,11 +163,28 @@ Proof
   gs[SUBSET_DEF]
 QED
 
+Theorem IMAGE_explode_DELETE[local]:
+  IMAGE explode (s DELETE v) = IMAGE explode s DELETE explode v
+Proof
+  simp[EXTENSION, PULL_EXISTS] >> metis_tac[mlstringTheory.explode_11]
+QED
+
+Theorem freevars_IfDisj:
+  ∀a v e. freevars (IfDisj v a e) =
+    case a of
+    | [] => freevars e
+    | _ => explode v INSERT freevars e
+Proof
+  Induct >> rw[IfDisj_def, Disj_def] >>
+  PairCases_on `h` >> gvs[IfDisj_def, Disj_def] >>
+  simp[GSYM INSERT_SING_UNION, INSERT_UNION_EQ] >> CASE_TAC >> gvs[]
+QED
+
 val _ = temp_delsimps ["nested_rows_def"]
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_cexp ce
 Proof
-  recInduct freevars_cexp_ind >> rw[exp_of_def] >>
+  recInduct freevars_cexp_ind >> simp[FORALL_OPTION] >> rw[exp_of_def] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG, UNCURRY,
       silly_cong_lemma, freevars_rows_of]>>
   simp[SF ETA_ss] >>~-
@@ -182,12 +201,33 @@ Proof
    rename [‘explode vv ∈ freevars (nested_rows _ _) ∨ _’] >> disj1_tac >>
    irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
    simp[MAP_MAP_o, MEM_MAP, EXISTS_PROD, combinTheory.o_ABS_R, PULL_EXISTS]>>
-   gs[FORALL_PROD] >> metis_tac[IN_IMAGE]) >>~-
-  ([‘MEM v (FLAT (MAP _ css))’],
-   Cases_on ‘css’ >> gs[] >> PairCases_on ‘h’ >>
-   gs[DISJ_IMP_THM, FORALL_AND_THM] >>
-   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-   metis_tac[mlstringTheory.explode_11]) >>
+   gs[FORALL_PROD] >> metis_tac[IN_IMAGE])
+  >~ [‘MEM v (FLAT (MAP _ css))’]
+  >- (
+    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
+    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+    PairCases_on ‘h’ >> gvs[] >>
+    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[mlstringTheory.explode_11]
+    )
+  >~ [‘MEM v (FLAT (MAP _ css))’]
+  >- (
+    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
+    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+    PairCases_on ‘h’ >> gvs[] >>
+    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[mlstringTheory.explode_11]
+    )
+  >>~- (
+    [‘MEM v (FLAT (MAP _ css))’],
+    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
+    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[mlstringTheory.explode_11]
+    ) >>
   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
   metis_tac[mlstringTheory.explode_11]
 QED
@@ -202,13 +242,29 @@ Proof
 QED
 
 Theorem subst_rows_of:
-  ∀v l f.  v ∉ FDOM f ⇒
-    subst f (rows_of v l) =
-    rows_of v (MAP (λ(a,b,c). (a,b, subst (FDIFF f (set b)) c)) l)
+  ∀v k l f.  v ∉ FDOM f ⇒
+    subst f (rows_of v k l) =
+    rows_of v (subst f k) (MAP (λ(a,b,c). (a,b, subst (FDIFF f (set b)) c)) l)
 Proof
   recInduct rows_of_ind >> rw[rows_of_def, subst_def]
   >- simp[FLOOKUP_DEF] >>
   simp[subst_lets_for, combinTheory.o_DEF]
+QED
+
+Theorem subst_Disj:
+  ∀cn_ars v. v ∉ FDOM f ⇒ subst f (Disj v cn_ars) = Disj v cn_ars
+Proof
+  Induct >> rw[Disj_def, subst_def] >>
+  PairCases_on `h` >> rw[Disj_def, subst_def] >> gvs[FLOOKUP_DEF]
+QED
+
+Theorem subst_IfDisj:
+  ∀a v e f. explode v ∉ FDOM f ⇒ subst f (IfDisj v a e) = IfDisj v a (subst f e)
+Proof
+  Induct >> rw[IfDisj_def, Disj_def, subst_def] >>
+  PairCases_on `h` >> rw[Disj_def, subst_def]
+  >- gvs[FLOOKUP_DEF]
+  >- simp[subst_Disj]
 QED
 
 Theorem subst_FOLDR_Let:
@@ -271,6 +327,61 @@ Proof
   simp[fmap_EXT, FDOM_FDIFF_alt, FDIFF_def, DRESTRICT_DEF, FUN_FMAP_DEF]
 QED
 
+Theorem FDOM_f_o_implode:
+  { x | implode x ∈ FDOM fm } = IMAGE explode (FDOM fm) ∧
+  FDOM (fm f_o implode) = IMAGE explode (FDOM fm)
+Proof
+  conj_asm1_tac
+  >- (simp[EXTENSION, EQ_IMP_THM, PULL_EXISTS] >>
+      metis_tac[mlstringTheory.explode_implode]) >>
+  simp[FDOM_f_o]
+QED
+
+Theorem FUN_FMAP_IMAGE:
+  FINITE A ⇒
+  FUN_FMAP f (IMAGE explode A) = FUN_FMAP (f o explode) A f_o implode
+Proof
+  strip_tac >>
+  simp[fmap_EXT, PULL_EXISTS, FUN_FMAP_DEF, FAPPLY_f_o, FDOM_f_o_implode]
+QED
+
+Theorem FUN_FMAP_CONG:
+  A1 = A2 ∧ FINITE A2 ∧ (∀x. x ∈ A2 ⇒ f1 x = f2 x) ⇒
+  FUN_FMAP f1 A1 = FUN_FMAP f2 A2
+Proof
+  rw[] >> simp[fmap_EXT, FUN_FMAP_DEF]
+QED
+
+Theorem FUN_FMAP_DELETE:
+  FUN_FMAP (λx. g ((f \\ v) ' x)) (FDOM f DELETE v) =
+  FUN_FMAP (λx. g (f ' x)) (FDOM f DELETE v)
+Proof
+  simp[Cong FUN_FMAP_CONG, DOMSUB_FAPPLY_THM]
+QED
+
+Theorem f_o_implode_DOMSUB_explode:
+  f f_o implode \\ explode v = (f \\ v) f_o implode
+Proof
+  simp[fmap_EXT, FDOM_f_o, FDOM_f_o_implode, PULL_EXISTS, FAPPLY_f_o,
+       DOMSUB_FAPPLY_THM] >>
+  simp[EXTENSION, PULL_EXISTS] >>
+  metis_tac[mlstringTheory.explode_11]
+QED
+
+Theorem FUN_FMAP_DOMSUB:
+  FINITE A ⇒
+  FUN_FMAP f A \\ e = FUN_FMAP f (A DELETE e)
+Proof
+  simp[fmap_EXT, FUN_FMAP_DEF, DOMSUB_FAPPLY_THM]
+QED
+
+Theorem IMAGE_explode_DELETE:
+  IMAGE explode A DELETE explode v = IMAGE explode (A DELETE v)
+Proof
+  simp[EXTENSION] >> metis_tac[mlstringTheory.explode_11]
+QED
+
+
 Theorem combeq3:
   f = g ∧ x1 = y1 ∧ x2 = y2 ⇒ f x1 x2 = g y1 y2
 Proof
@@ -321,11 +432,17 @@ Proof
            CONJ_ASSOC]) >>~-
   ([‘rows_of’],
    simp[subst_rows_of, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+   Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+   gs[FUN_FMAP_IMAGE, FDOM_f_o_implode, combinTheory.o_DEF, FAPPLY_f_o,
+      FUN_FMAP_DELETE, f_o_implode_DOMSUB_explode, FUN_FMAP_DOMSUB,
+      IMAGE_explode_DELETE] >>
+   DEP_REWRITE_TAC[subst_IfDisj] >> simp[FDOM_f_o_implode] >>
    AP_TERM_TAC >> rw[MAP_EQ_f] >> pairarg_tac >> rw[] >>
    first_x_assum drule >> rw[] >> irule combeq3 >> simp[] >>
    simp[FDIFF_FUN_FMAP, fmap_EXT, PULL_EXISTS, FDOM_FDIFF_alt,
         FUN_FMAP_DEF, FDIFF_def, DRESTRICT_DEF, MEM_MAP, EXTENSION,
-        PULL_EXISTS, SF CONJ_ss, CONJ_ASSOC, DOMSUB_FAPPLY_THM]) >>
+        PULL_EXISTS, SF CONJ_ss, CONJ_ASSOC, DOMSUB_FAPPLY_THM,
+        FDOM_f_o_implode, FAPPLY_f_o]) >>
   rename [‘subst (FUN_FMAP _ _ \\ explode gv)’] >>
   ‘FDOM (FUN_FMAP (λk. exp_of (f ' (implode k))) (IMAGE explode (FDOM f)) \\
          explode gv) ∩ freevars (Var (explode gv)) = ∅’

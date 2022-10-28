@@ -584,8 +584,28 @@ Proof
   CASE_TAC >> gvs[wf_def] >> metis_tac[wf_mk_BN, wf_mk_BS]
 QED
 
+(****************************************)
+
+Theorem LIST_REL_MEM:
+  ∀xs ys. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [] \\ rw []
+  \\ res_tac \\ fs [] \\ metis_tac []
+QED
+
+Theorem LIST_REL_MEM_ALT:
+  ∀xs ys. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [] \\ rw []
+  \\ res_tac \\ fs [] \\ metis_tac []
+QED
+
+Theorem LIST_REL_MAP_MAP:
+  LIST_REL P (MAP f xs) (MAP g xs) = EVERY (λx. P (f x) (g x)) xs
+Proof
+  Induct_on ‘xs’ \\ fs []
+QED
 
 (****************************************)
 
 val _ = export_theory();
-

@@ -84,11 +84,11 @@ Inductive cexp1_rel:
 
 [~Case:]
   (∀v te se tes ses.
-     cexp1_rel te se ∧
+     OPTREL (λ(a,x) (b,y). a = b ∧ cexp1_rel x y) te se ∧
      MAP FST tes = MAP FST ses ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧
      LIST_REL cexp1_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-  cexp1_rel (Case te v tes) (Case se v ses))
+  cexp1_rel (Case v tes te) (Case v ses se))
 
 End
 
@@ -203,7 +203,17 @@ Proof
   \\ drule_all LIST_REL_rel2_rel1 \\ rpt strip_tac
   \\ irule_at Any state_app_unit_1ProofTheory.compile_rel_Case \\ fs []
   \\ irule_at Any state_app_unit_2ProofTheory.compile_rel_Case \\ fs []
-  \\ first_x_assum $ irule_at $ Pos hd
+  \\ ‘∃tt. OPTREL (λ(a,x) (b,y). a = b ∧ rel2 x y)
+             (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) te) tt ∧
+           OPTREL (λ(a,x) (b,y). a = b ∧ rel1 x y) tt
+             (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) se)’ by
+   (Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs []
+    >- (qexists_tac ‘NONE’ \\ fs [])
+    \\ gvs [UNCURRY]
+    \\ Q.REFINE_EXISTS_TAC ‘SOME (_,_)’
+    \\ fs [] \\ rpt $ first_x_assum $ irule_at Any)
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
   \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
   \\ qexists_tac ‘MAP (λ((x,y,_),z). (explode x,MAP explode y,z)) (ZIP (tes,ys))’
   \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
@@ -242,7 +252,12 @@ Proof
   \\ qid_spec_tac ‘funs’
   \\ qid_spec_tac ‘rows’
   \\ qid_spec_tac ‘xs’ \\ fs []
-  \\ Induct \\ fs [FORALL_PROD] \\ metis_tac []
+  >- (Induct \\ fs [FORALL_PROD] \\ metis_tac [])
+  >- (Induct \\ fs [FORALL_PROD] \\ metis_tac [])
+  \\ reverse Induct \\ fs [FORALL_PROD]
+  >- metis_tac []
+  \\ Cases_on ‘d’ \\ fs []
+  \\ PairCases_on ‘x’ \\ fs []
 QED
 
 Triviality cexp1_rel_eq: (* TODO: delete *)
@@ -329,11 +344,11 @@ Inductive cexp_rel:
 
 [~Case:]
   (∀v te se tes ses.
-     cexp_rel te se ∧
+     OPTREL (λ(a,x) (b,y). a = b ∧ cexp_rel x y) te se ∧
      MAP FST tes = MAP FST ses ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧
      LIST_REL cexp_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-  cexp_rel (Case te v tes) (Case se v ses))
+  cexp_rel (Case v tes te) (Case v ses se))
 
 End
 
@@ -358,6 +373,13 @@ Proof
   \\ rw [] \\ eq_tac \\ rw []
   \\ fs [PULL_EXISTS,NRC]
   \\ metis_tac []
+QED
+
+Theorem LIST_REL_NRC:
+  ∀n R. LIST_REL (NRC R n) = NRC (LIST_REL R) n
+Proof
+  simp [FUN_EQ_THM] \\ Induct
+  \\ fs [LIST_REL_NRC_0,LIST_REL_NRC_SUC,NRC]
 QED
 
 Triviality NRC_Let:
@@ -463,11 +485,11 @@ QED
 
 Triviality NRC_Case:
   ∀k x x1 xs xs1.
-    NRC cexp1_rel k x x1 ∧
+    OPTREL (λ(a,x) (b,x1). a = b ∧ NRC cexp1_rel k x x1) x x1 ∧
     MAP FST xs = MAP FST xs1 ∧
     MAP (FST o SND) xs = MAP (FST o SND) xs1 ∧
     LIST_REL (NRC cexp1_rel k) (MAP (SND o SND) xs) (MAP (SND o SND) xs1) ⇒
-    NRC cexp1_rel k (Case x v xs) (Case x1 v xs1)
+    NRC cexp1_rel k (Case v xs x) (Case v xs1 x1)
 Proof
   Induct \\ fs [NRC,PULL_EXISTS] \\ rw []
   >-
@@ -475,10 +497,22 @@ Proof
     \\ qid_spec_tac ‘xs’
     \\ qid_spec_tac ‘xs1’
     \\ Induct \\ Cases_on ‘xs’ \\ fs [FORALL_PROD])
+  >-
+   (Cases_on ‘x’ \\ Cases_on ‘x1’ \\ fs []
+    \\ Cases_on ‘x’ \\ Cases_on ‘x'’ \\ fs [])
   \\ last_x_assum $ irule_at Any
-  \\ last_x_assum $ irule_at $ Pos hd
   \\ irule_at Any cexp1_rel_Case
+  \\ ‘∃tt. OPTREL (λ(a,x) (b,y). a = b ∧ cexp1_rel x y) x tt ∧
+           OPTREL (λ(a,x) (b,x1). a = b ∧ NRC cexp1_rel k x x1) tt x1’ by
+   (Cases_on ‘x’ \\ Cases_on ‘x1’ \\ fs []
+    >- (qexists_tac ‘NONE’ \\ fs [])
+    \\ Cases_on ‘x’ \\ Cases_on ‘x'’ \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘SOME (_,_)’ \\ fs []
+    \\ first_x_assum $ irule_at Any \\ fs [])
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
   \\ fs [LIST_REL_NRC_SUC]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
   \\ qexists_tac ‘MAP (λ((n,m,_),z). (n,m,z)) (ZIP (xs,zs))’
   \\ rpt $ pop_assum mp_tac
   \\ qid_spec_tac ‘xs’
@@ -486,7 +520,7 @@ Proof
   \\ qid_spec_tac ‘zs’
   \\ Induct \\ Cases_on ‘xs’ \\ Cases_on ‘xs1’ \\ fs []
   \\ PairCases_on ‘h’ \\ PairCases_on ‘h'’
-  \\ fs [] \\ metis_tac []
+  \\ fs [] \\ rw [] \\ metis_tac []
 QED
 
 Theorem LIST_REL_EXISTS_NRC:
@@ -505,6 +539,12 @@ Proof
   \\ Induct \\ fs [PULL_EXISTS] \\ rw []
   \\ fs [arithmeticTheory.NRC_ADD_EQN]
   \\ first_assum $ irule_at Any \\ fs [NRC_refl]
+QED
+
+Triviality NRC_REFL:
+  ∀n. R x x ⇒ NRC R n x x
+Proof
+  Induct \\ fs [NRC] \\ metis_tac []
 QED
 
 Theorem cexp_rel_imp_nrc:
@@ -611,11 +651,23 @@ Proof
     \\ qexists_tac ‘k’
     \\ irule_at Any NRC_If \\ fs [])
   >-
-   (‘LIST_REL (λx y. cexp_rel x y ∧ ∃n. NRC cexp1_rel n x y)
-          (x::MAP (SND ∘ SND) tes) (y::MAP (SND ∘ SND) ses)’ by (fs [] \\ metis_tac [])
+   (irule_at Any NRC_Case \\ fs []
     \\ dxrule LIST_REL_EXISTS_NRC \\ rw []
-    \\ qexists_tac ‘k’
-    \\ irule_at Any NRC_Case \\ fs [])
+    \\ ‘∃m. k ≤ m ∧ OPTREL (λ(a,x) (b,y). a = b ∧ NRC cexp1_rel m x y) te se’ by
+      (Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs []
+       >- irule_at Any LESS_EQ_REFL
+       \\ fs [UNCURRY]
+       \\ qexists_tac ‘k+n’ \\ fs []
+       \\ fs [NRC_ADD_EQN]
+       \\ last_x_assum $ irule_at Any
+       \\ irule NRC_REFL \\ fs [])
+    \\ pop_assum $ irule_at Any
+    \\ fs [LIST_REL_NRC]
+    \\ gvs [LESS_EQ_EXISTS]
+    \\ fs [NRC_ADD_EQN]
+    \\ first_x_assum $ irule_at Any
+    \\ irule NRC_REFL
+    \\ qid_spec_tac ‘ses’ \\ Induct \\ fs [])
 QED
 
 Theorem cexp_rel_itree:
@@ -739,6 +791,8 @@ Proof
    (fs [push_app_unit_def]
     \\ irule_at Any cexp_rel_unit_apps
     \\ irule cexp_rel_Case \\ fs []
+    \\ Cases_on ‘d’ \\ fs []
+    \\ TRY (PairCases_on ‘x’ \\ fs [])
     \\ rpt $ pop_assum mp_tac \\ qid_spec_tac ‘rows’
     \\ Induct \\ fs [FORALL_PROD] \\ rw []
     \\ metis_tac [])

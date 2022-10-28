@@ -51,7 +51,8 @@ Datatype:
       | Letrec ((vname # exp) list) exp     (* mutually recursive exps *)
       | Let (vname option) exp exp          (* non-recursive let       *)
       | If exp exp exp                      (* if-then-else            *)
-      | Case exp vname ((vname # vname list # exp) list)    (* case of *)
+      | Case vname ((vname # vname list # exp) list)  (* pattern match *)
+          ((((vname # num) list) # exp) option)    (* fallthrough case *)
       | Delay exp                           (* suspend in a Thunk      *)
       | Box exp                             (* wrap result in a Thunk  *)
       | Force exp                           (* evaluates a Thunk       *)
@@ -85,7 +86,6 @@ Datatype:
        | BoxK
        | ForceK1
        | ForceK2 (state option)
-       | CaseK env vname ((vname # vname list # exp) list)
        | RaiseK
        | HandleK env vname exp
        | HandleAppK env exp
@@ -124,8 +124,8 @@ Definition freevars_def[simp]:
   freevars (Delay e) = freevars e ∧
   freevars (Box e) = freevars e ∧
   freevars (Force e) = freevars e ∧
-  freevars (Case e v css) =
-    (freevars e ∪
+  freevars (Case v css d) =
+    ((case d of SOME (_,e) => freevars e | _ => {}) ∪ {v} ∪
      (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) css)) DELETE v)) ∧
   freevars (Raise e) = freevars e ∧
   freevars (Handle e1 x e2) = freevars e1 ∪ (freevars e2 DELETE x) ∧
@@ -348,17 +348,6 @@ Definition return_def:
     if v = Constructor "True"  [] then continue env e1 st k else
     if v = Constructor "False" [] then continue env e2 st k else
       error st k) ∧
-  return v st (CaseK env n [] :: k) = error st k ∧
-  return v st (CaseK env n ((c,ns,e)::css) :: k) = (
-    if MEM n ns ∨ MEM n (FLAT (MAP (FST o SND) css)) then error st k
-    else case v of
-      Constructor c' vs =>
-        if c = c' then
-          if LENGTH vs = LENGTH ns then
-            continue (REVERSE (ZIP (ns, vs)) ++ (n,v)::env) e st k
-          else error st k
-        else value v st (CaseK env n css :: k)
-    | _ => error st k) ∧
   return v st (RaiseK :: k) =
     (if st = NONE then error st k else (Exn v, st, k)) ∧
   return v st (HandleK env x e :: k) = value v st k ∧
@@ -377,6 +366,28 @@ Definition return_def:
   return v st (BoxK :: k) = value (Thunk $ INL v) st k
 End
 
+Definition find_match_list_def:
+  find_match_list c ws env [] d =
+    (case d of
+     | NONE => NONE
+     | SOME (alts:((vname # num) list),e:exp) =>
+         if ALOOKUP alts c = SOME (LENGTH ws) then SOME (env,e) else NONE) ∧
+  find_match_list c ws env ((c',ns,e)::rows) d =
+    if c = c' then
+      if LENGTH ns = LENGTH ws then
+        SOME (REVERSE (ZIP (ns, ws)) ++ env, e)
+      else NONE
+    else find_match_list c ws env rows d
+End
+
+Definition find_match_def:
+  find_match w env n css d =
+    if MEM n (FLAT (MAP (FST o SND) css)) ∨ css = [] then NONE else
+      case w of
+      | Constructor c ws => find_match_list c ws env css d
+      | _ => NONE
+End
+
 Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
 Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
 
@@ -391,9 +402,13 @@ Definition step_def:
   step st k (Exp env $ Letrec fns e) = continue (mk_rec_env fns env) e st k ∧
   step st k (Exp env $ Let xopt e1 e2) = push env e1 st (LetK env xopt e2) k ∧
   step st k (Exp env $ If e e1 e2) = push env e st (IfK env e1 e2) k ∧
-  step st k (Exp env $ Case e v css) = (
-    if MEM v (FLAT (MAP (FST o SND) css)) then error st k
-    else push env e st (CaseK env v css) k) ∧
+  step st k (Exp env $ Case v css d) = (
+    case ALOOKUP env v of
+      NONE => error st k
+    | SOME w =>
+      case find_match w env v css d of
+      | NONE => error st k
+      | SOME (env1,e1) => continue env1 e1 st k) ∧
   step st k (Exp env $ Raise e) = push env e st RaiseK k ∧
   step st k (Exp env $ Handle e1 x e2) = push env e1 st (HandleK env x e2) k ∧
   step st k (Exp env $ HandleApp e1 e2) = push env e2 st (HandleAppK env e1) k ∧
@@ -628,11 +643,38 @@ Proof
   Induct_on ‘n’ >> rw[step,ADD1,step_n_add]
 QED
 
+Triviality application_Action:
+  application p env vs st k = (Action channel content,st1,k1) ⇒
+  p = FFI channel ∧ ∃st1. st = SOME st1
+Proof
+  fs [application_def |> DefnBase.one_line_ify NONE, AllCaseEqs(), error_def, value_def]
+  \\ rw [] \\ fs []
+  \\ fs [continue_def]
+QED
+
 Theorem step_n_is_halt_SOME:
   step_n x (tr,SOME ts,tk) = (Action a b,a1,a2) ⇒
   ∃ts2. a1 = SOME ts2
 Proof
-  cheat
+  qsuff_tac
+    ‘∀x input a b a1 a2.
+       step_n x input = (Action a b,a1,a2) ⇒
+       ∀ts1. FST (SND input) = SOME ts1 ⇒ ∃ts2. a1 = SOME ts2’
+  >- (rw [] \\ first_x_assum drule \\ fs [])
+  \\ Induct
+  \\ fs [FUNPOW_SUC,step_n_def,FORALL_PROD] \\ rw []
+  \\ pairarg_tac \\ fs []
+  \\ qpat_x_assum ‘_ = (Action a b,a1,a2)’ mp_tac
+  \\ simp [step_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),error_def,push_def]
+  \\ fs [value_def,continue_def]
+  \\ rw []
+  \\ imp_res_tac application_Action \\ gvs []
+  \\ fs [return_def,value_def]
+  \\ res_tac \\ fs []
+  \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),error_def]
+  \\ imp_res_tac application_Action \\ gvs []
+  \\ fs [application_def,AllCaseEqs(),error_def]
+  \\ gvs [value_def,continue_def]
 QED
 
 Theorem application_cut_cont[local]:
@@ -704,20 +746,283 @@ Proof
   metis_tac[rich_listTheory.IS_PREFIX_NIL,step_n_cut_cont_gen]
 QED
 
-(* This lemma is false as stated. Counterexample:
+Theorem step_n_Error:
+  step_n n (Error,ts,tk) = (Error,ts,tk)
+Proof
+  Induct_on ‘n’ \\ fs [step_n_def,FUNPOW,step_def,error_def]
+QED
 
-    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
+Theorem step_n_Val:
+  step_n n (Val v,ts,[]) = (Val v,ts,[])
+Proof
+  Induct_on ‘n’ \\ fs [step_n_def,FUNPOW,step_def,return_def,value_def]
+QED
 
-   ^^ That halts, but not with a value or error.
+Definition forceK2_none_def[simp]:
+  forceK2_none (ForceK2 _) = ForceK2 NONE ∧
+  forceK2_none y = y
+End
 
-   Update: has the change to the semantics of RaiseK changed this?
- *)
+Theorem application_NONE:
+  application Alloc env [v1;v2] NONE s = (Error,NONE,s) ∧
+  application Ref env vs NONE s = (Error,NONE,s) ∧
+  application Length env [v1] NONE s = (Error,NONE,s) ∧
+  application Sub env [v1;v2] NONE s = (Error,NONE,s) ∧
+  application UnsafeSub env [v1;v2] NONE s = (Error,NONE,s) ∧
+  application Update env [v1;v2;v3] NONE s = (Error,NONE,s) ∧
+  application UnsafeUpdate env [v1;v2;v3] NONE s = (Error,NONE,s) ∧
+  application (FFI f) env [v1] NONE s = (Error,NONE,s)
+Proof
+  fs [application_def,error_def]
+  \\ EVERY_CASE_TAC \\ fs []
+QED
+
 Theorem step_n_NONE:
   step_n n (Exp tenv1 te,ts,[]) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ⇒
   step_n n (Exp tenv1 te,NONE,[]) = (tr1,NONE,tk1) ∧ (∃res. tr1 = Val res) ∨
   ∀k. ∃ts2 tk2. step_n n (Exp tenv1 te,NONE,k) = (Error,ts2,tk2)
 Proof
-  cheat
+  qsuff_tac ‘
+   ∀n e ts rest tr1 ts1 tk1.
+     step_n n (e,ts,rest) = (tr1,ts1,tk1) ∧ ~is_halt (e,ts,rest) ∧
+     (∀x. e ≠ Exn x) ∧ is_halt (tr1,ts1,tk1) ⇒
+     step_n n (e,NONE,MAP forceK2_none rest) = (tr1,NONE,tk1) ∧ (∃res. tr1 = Val res) ∨
+     ∀k. ∃ts2 tk2. step_n n (e,NONE,MAP forceK2_none rest ++ k) = (Error,ts2,tk2)’
+  >- (rw [] \\ last_x_assum drule \\ fs [])
+  \\ completeInduct_on ‘n’
+  \\ Cases_on ‘n’
+  >- (fs [] \\ rw [] \\ fs [])
+  \\ fs [step_n_def,FUNPOW] \\ rw []
+  \\ qpat_x_assum ‘_ = _’ mp_tac
+  \\ reverse (Cases_on ‘e’) \\ fs []
+  >~ [‘Exp l1 e1’] >-
+   (Cases_on ‘e1’
+    >~ [‘Var’] >-
+     (fs [step_def]
+      \\ CASE_TAC \\ fs [error_def,step_n_Error,GSYM step_n_def,value_def]
+      \\ Cases_on ‘rest’ \\ fs [step_n_Val]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Lam’] >-
+     (fs [step_def,value_def]
+      \\ fs [error_def,step_n_Error,GSYM step_n_def,value_def]
+      \\ Cases_on ‘rest’ \\ fs [step_n_Val]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Letrec’] >-
+     (fs [step_def,value_def,continue_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Let’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘If’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Case’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ CASE_TAC \\ fs []
+      \\ fs [GSYM step_n_def,step_n_Error]
+      \\ CASE_TAC \\ fs []
+      \\ fs [GSYM step_n_def,step_n_Error]
+      \\ CASE_TAC \\ fs []
+      \\ fs [GSYM step_n_def,step_n_Error]
+      \\ first_x_assum irule \\ fs []
+      \\ first_x_assum $ irule_at $ Pos last \\ fs [])
+    >~ [‘Delay’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ Cases_on ‘rest’ \\ fs [step_n_Val]
+      \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Box’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Force’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Raise’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘Handle’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘HandleApp’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    >~ [‘App’] >-
+     (fs [step_def,value_def,continue_def,push_def]
+      \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ reverse CASE_TAC \\ gvs []
+      >-
+       (rw [] \\ gvs [GSYM step_n_def]
+        \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+        \\ strip_tac \\ fs [])
+      \\ Cases_on ‘s’ \\ fs [num_args_ok_def]
+      \\ fs [application_def,value_def]
+      >- (rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+          \\ rw [] \\ gvs [GSYM step_n_def]
+          \\ Cases_on ‘rest’ \\ fs [step_n_Val]
+          \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+          \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+          \\ strip_tac \\ fs [])
+      >- (fs [get_atoms_def] \\ Cases_on ‘eval_op a []’ \\ fs []
+          \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+          \\ Cases_on ‘x’ \\ fs [] \\ rw []
+          \\ Cases_on ‘rest’ \\ fs [step_n_Val]
+          \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+          \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+          \\ strip_tac \\ fs [])
+      \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]))
+  \\ Cases_on ‘rest’ \\ fs [] \\ fs [step_def]
+  \\ Cases_on ‘h’
+  >~ [‘LetK _ opt’] >-
+   (Cases_on ‘opt’ \\ fs [return_def,continue_def]
+    \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘IfK’] >-
+   (fs [return_def,continue_def]
+    \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+    \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘BoxK’] >-
+   (fs [return_def,continue_def,value_def]
+    \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘ForceK1’] >-
+   (fs [return_def,continue_def,value_def]
+    \\ CASE_TAC
+    \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ Cases_on ‘x’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ Cases_on ‘q’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    >-
+     (Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+      \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+    \\ CASE_TAC \\ fs []
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘ForceK2’] >-
+   (fs [return_def,continue_def,value_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘RaiseK’] >-
+   (fs [return_def,error_def] \\ fs [error_def]
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘HandleK’] >-
+   (fs [return_def,error_def] \\ fs [error_def]
+    \\ fs [return_def,continue_def,value_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘HandleAppK’] >-
+   (fs [return_def,error_def,value_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  \\ rename [‘AppK env sop vs es’] \\ gvs []
+  \\ reverse (Cases_on ‘es’)
+  \\ fs [return_def,continue_def]
+  >- (rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+      \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [])
+  \\  IF_CASES_TAC \\ fs []
+  >- (rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  \\ Cases_on ‘sop’
+  >~ [‘AppOp’] >-
+   (gvs [application_def,num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ CASE_TAC \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ PairCases_on ‘x’ \\ fs [continue_def] \\ rw []
+    \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘Cons’] >-
+   (gvs [application_def,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘AtomOp’] >-
+   (gvs [application_def,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ CASE_TAC \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ CASE_TAC \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ Cases_on ‘x'’ \\ fs [] \\ rw []
+    \\ Cases_on ‘t’ \\ fs [step_n_Val]
+    \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘Proj’] >-
+   (gvs [application_def,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ CASE_TAC \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ CASE_TAC \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val]
+    \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘IsEq’] >-
+   (gvs [application_def,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ rpt (CASE_TAC \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+    \\ Cases_on ‘t’ \\ fs [step_n_Val]
+    \\ rw [] \\ gvs [GSYM step_n_def,step_n_Val]
+    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [])
+  >~ [‘Alloc’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘Ref’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘Length’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘Sub’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘UnsafeSub’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘Update’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ Cases_on ‘vs’ \\ fs [] \\ Cases_on ‘t'’ \\ fs [] \\ Cases_on ‘t''’ \\ fs []
+    \\ gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘UnsafeUpdate’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ Cases_on ‘vs’ \\ fs [] \\ Cases_on ‘t'’ \\ fs [] \\ Cases_on ‘t''’ \\ fs []
+    \\ gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘FFI’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
 QED
 
 Theorem application_set_cont[local]:
@@ -731,11 +1036,281 @@ Proof
         APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
 QED
 
+Theorem step_pres_cons_NIL:
+  step ts [] (Exp l e) = (res,ts1,[]) ⇒
+  step ts k (Exp l e) = (res,ts1,k)
+Proof
+  Cases_on ‘e’
+  \\ fs [step_def,error_def,value_def,continue_def,AllCaseEqs(),push_def]
+  \\ rw [] \\ fs []
+  \\ Cases_on ‘s’ \\ fs [num_args_ok_def]
+  \\ fs [application_def,value_def]
+  \\ every_case_tac \\ fs [error_def,return_def]
+QED
+
+Theorem step_inc_cont:
+  step ts (k0::k1) te = (x0,x1,k2) ∧ LENGTH k1 + 1 < LENGTH k2 ⇒
+  ∃k. k2 = k::k0::k1 ∧ ∀k3. step ts (k0::k3) te = (x0,x1,k::k0::k3)
+Proof
+  Cases_on ‘te’ \\ fs [step_def] \\ fs [error_def]
+  >~ [‘Exp l e’] >-
+   (Cases_on ‘e’
+    \\ fs [step_def] \\ fs [error_def,value_def,continue_def,push_def]
+    \\ rw [] \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def])
+  >~ [‘Exn’] >-
+   (Cases_on ‘k0’ \\ fs [continue_def,push_def] \\ rw[] \\ gvs[])
+  \\ rw [] \\ fs []
+  \\ Cases_on ‘k0’ \\ fs [return_def]
+  \\ gvs [AllCaseEqs(),continue_def,error_def,value_def]
+  \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [AllCaseEqs(),continue_def,error_def,value_def]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def]
+QED
+
+Theorem step_inc_nil:
+  step ts [] te = (x0,x1,h::t) ∧ ¬is_halt (te,ts,[]:cont list) ⇒
+  t = [] ∧ ∀k. step ts k te = (x0,x1,h::k)
+Proof
+  Cases_on ‘te’ \\ strip_tac
+  \\ gvs [step_def,error_def]
+  \\ Cases_on ‘e’ \\ gvs [step_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,value_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+QED
+
+Theorem step_dec_cont:
+  step ts k1 te = (x0,x1,k2) ∧ LENGTH k2 < LENGTH k1 ⇒
+  ∃k. k1 = k::k2 ∧ ∀k3. step ts (k::k3) te = (x0,x1,k3)
+Proof
+  Cases_on ‘te’ \\ fs [step_def,error_def]
+  >~ [‘Exp l e’] >-
+   (Cases_on ‘e’
+    >~ [‘Var’] >-
+     (fs [step_def] \\ CASE_TAC \\ fs [error_def,value_def])
+    \\ fs [step_def] \\ fs [error_def,value_def,continue_def,push_def]
+    \\ rw [] \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def])
+  >~ [‘Exn’] >-
+   (Cases_on ‘k1’ \\ fs [step_def,error_def]
+    \\ Cases_on ‘h’ \\ fs [continue_def,push_def] \\ rw[] \\ gvs[])
+  \\ Cases_on ‘k1’ \\ fs []
+  \\ Cases_on ‘h’
+  \\ fs [return_def]
+  \\ rw []
+  \\ fs [continue_def,error_def,value_def]
+  \\ rw [] \\ gvs [AllCaseEqs(),value_def]
+  \\ gvs [return_def|>DefnBase.one_line_ify NONE, AllCaseEqs(),error_def,
+          continue_def,value_def]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def]
+  \\ gvs [continue_def,value_def]
+QED
+
+Theorem step_eq_cont:
+  step ts (k::k1) te = (x0,x1,x2) ∧ LENGTH x2 = LENGTH (k::k1) ⇒
+  ∃d. x2 = d::k1 ∧ ∀k3. step ts (k::k3) te = (x0,x1,d::k3)
+Proof
+  Cases_on ‘te’ \\ fs [step_def,error_def]
+  >~ [‘Exp l e’] >-
+   (Cases_on ‘e’
+    \\ fs [step_def] \\ fs [error_def,value_def,continue_def,push_def]
+    \\ rw [] \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ CCONTR_TAC \\ gvs []
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def])
+  >~ [‘Exn’] >-
+   (rw [] \\ fs []
+    \\ gvs [AllCaseEqs(),continue_def,push_def])
+  \\ gvs [return_def|>DefnBase.one_line_ify NONE, AllCaseEqs(),error_def,
+          continue_def,value_def] \\ rw []
+  \\ fs [continue_def,error_def,value_def]
+  \\ Cases_on ‘sop’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def]
+  \\ gvs [continue_def,value_def]
+QED
+
+Triviality step_n_cont_swap_lemma:
+  ∀n x0 x1 k k1 res ts1 k2.
+    FUNPOW (λ(sr,st,k). step st k sr) n (x0,x1,k::k1) = (res,ts1,k2) ∧
+    LENGTH k2 ≤ LENGTH k1 ⇒
+    ∃m res7 ts7 k7.
+      m ≤ n ∧
+      FUNPOW (λ(sr,st,k). step st k sr) m (x0,x1,k::k1) = (res7,ts7,k7) ∧
+      LENGTH k1 = LENGTH k7 ∧
+      (∀i. i < m ⇒
+        ∃res7 ts7 k7.
+           FUNPOW (λ(sr,st,k). step st k sr) i (x0,x1,k::k1) = (res7,ts7,k7) ∧
+           LENGTH k1 < LENGTH k7)
+Proof
+  completeInduct_on ‘n’
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘n’ \\ fs [] \\ gvs []
+  \\ fs [step_n_def,FUNPOW]
+  \\ ‘∃y. step x1 (k::k1) x0 = y’ by fs [] \\ PairCases_on ‘y’ \\ fs []
+  \\ Cases_on ‘LENGTH y2 < LENGTH (k::k1)’
+  >-
+   (drule_all step_dec_cont \\ fs [] \\ strip_tac \\ gvs []
+    \\ qexists_tac ‘SUC 0’ \\ fs [])
+  \\ reverse (Cases_on ‘LENGTH (k::k1) < LENGTH y2’)
+  >-
+   (‘LENGTH y2 = LENGTH (k::k1)’ by fs []
+    \\ drule_all step_eq_cont \\ strip_tac \\ gvs []
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ impl_tac >- fs []
+    \\ strip_tac \\ fs []
+    \\ qexists_tac ‘SUC m’ \\ fs [FUNPOW]
+    \\ Cases \\ fs [FUNPOW]
+    \\ rw [] \\ res_tac \\ fs [])
+  \\ fs [ADD1]
+  \\ drule_all step_inc_cont
+  \\ strip_tac \\ gvs []
+  \\ rename [‘FUNPOW _ n’]
+  \\ last_assum $ qspec_then ‘n’ mp_tac
+  \\ impl_tac >- fs []
+  \\ disch_then drule
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ ‘FUNPOW (λ(sr,st,k). step st k sr) n =
+      FUNPOW (λ(sr,st,k). step st k sr) ((n - m) + m)’ by fs []
+  \\ full_simp_tac std_ss [FUNPOW_ADD]
+  \\ pop_assum kall_tac
+  \\ Cases_on ‘k7’ \\ fs []
+  \\ qpat_x_assum ‘_ = (res,ts1,k2)’ assume_tac
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ qexists_tac ‘SUC (m' + m)’
+  \\ rewrite_tac [FUNPOW_ADD,FUNPOW]
+  \\ fs []
+  \\ Cases \\ fs [FUNPOW]
+  \\ rw []
+  \\ Cases_on ‘n' < m’ \\ res_tac \\ fs []
+  \\ ‘FUNPOW (λ(sr,st,k). step st k sr) n' =
+      FUNPOW (λ(sr,st,k). step st k sr) ((n' - m) + m)’ by fs []
+  \\ asm_rewrite_tac [FUNPOW_ADD]
+  \\ pop_assum kall_tac
+  \\ gvs []
+QED
+
+Theorem step_n_cont_swap:
+  ∀n te ts k k1 res ts1 k2.
+    step_n n (te,ts,k::k1) = (res,ts1,k2) ∧ LENGTH k1 = LENGTH k2 ∧
+    (∀m res ts1 k0.
+       m < n ∧ step_n m (te,ts,k::k1) = (res,ts1,k0) ⇒ LENGTH k1 < LENGTH k0) ⇒
+    ∀k3. k2 = k1 ∧ step_n n (te,ts,k::k3) = (res,ts1,k3)
+Proof
+  completeInduct_on ‘n’
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘n’ \\ fs [] \\ gvs []
+  \\ fs [step_n_def,FUNPOW]
+  \\ ‘∃x. step ts (k::k1) te = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
+  \\ Cases_on ‘LENGTH x2 < LENGTH (k::k1)’
+  >-
+   (drule_all step_dec_cont \\ fs [] \\ strip_tac \\ gvs []
+    \\ Cases_on ‘n'’ \\ fs []
+    \\ first_x_assum $ qspec_then ‘SUC 0’ mp_tac
+    \\ fs [])
+  \\ reverse (Cases_on ‘LENGTH (k::k1) < LENGTH x2’)
+  >-
+   (‘LENGTH x2 = LENGTH (k::k1)’ by fs []
+    \\ drule_all step_eq_cont \\ strip_tac
+    \\ gvs []
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ ntac 2 strip_tac
+    \\ first_x_assum irule
+    \\ rw []
+    \\ first_x_assum $ qspec_then ‘SUC m'’ mp_tac
+    \\ fs [FUNPOW])
+  \\ fs [ADD1]
+  \\ drule_all step_inc_cont
+  \\ strip_tac \\ gvs []
+  \\ rename [‘FUNPOW _ n’]
+  \\ drule step_n_cont_swap_lemma
+  \\ fs [] \\ strip_tac
+  \\ Cases_on ‘k7’ \\ fs [ADD1]
+  \\ last_assum $ qspec_then ‘m’ mp_tac
+  \\ impl_tac >- fs []
+  \\ disch_then $ qspecl_then [‘x0’,‘x1’,‘k'’,‘k::k1’] mp_tac
+  \\ fs [FUNPOW]
+  \\ impl_tac >- (rw [] \\ res_tac \\ fs [] \\ gvs [])
+  \\ strip_tac
+  \\ gvs [GSYM PULL_FORALL]
+  \\ last_x_assum $ qspec_then ‘n - m’ mp_tac
+  \\ impl_tac >- fs []
+  \\ disch_then $ qspecl_then [‘res7’,‘ts7’,‘h’,‘k1’] mp_tac
+  \\ ‘FUNPOW (λ(sr,st,k). step st k sr) n =
+      FUNPOW (λ(sr,st,k). step st k sr) (m + (n - m))’ by fs []
+  \\ full_simp_tac std_ss []
+  \\ pop_assum kall_tac
+  \\ last_x_assum mp_tac
+  \\ rewrite_tac [FUNPOW_ADD |> ONCE_REWRITE_RULE [ADD_COMM],PULL_FORALL]
+  \\ simp [] \\ strip_tac
+  \\ disch_then irule
+  \\ rw []
+  \\ last_x_assum irule
+  \\ qexists_tac ‘SUC (m' + m)’
+  \\ rewrite_tac [FUNPOW_ADD,FUNPOW]
+  \\ fs []
+QED
+
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
   ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
 Proof
-  cheat
+  qsuff_tac ‘
+    ∀n te ts res ts1.
+      step_n n (te,ts,[]) = (Val res,ts1,[]) ∧ ~is_halt (te,ts,[]:cont list) ⇒
+      ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (te,ts,k) = (Val res,ts1,k)’
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ completeInduct_on ‘n’ \\ rw []
+  \\ Cases_on ‘n’ \\ fs [step_n_def,FUNPOW] \\ rw []
+  \\ ‘∃x. step ts [] te = x’ by fs [] \\ PairCases_on ‘x’ \\ fs []
+  \\ Cases_on ‘is_halt (x0,x1,x2)’ >-
+   (gvs [GSYM step_n_def,is_halt_step_n_same]
+    \\ qexists_tac ‘SUC 0’ \\ fs [] \\ rw []
+    \\ last_x_assum kall_tac
+    \\ Cases_on ‘te’ \\ fs []
+    \\ Cases_on ‘e’
+    \\ gvs [step_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,get_atoms_def])
+  \\ Cases_on ‘x2’ \\ fs []
+  >-
+   (rename [‘FUNPOW _ n’]
+    \\ last_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ disch_then drule \\ fs [] \\ strip_tac
+    \\ qexists_tac ‘SUC n5’ \\ fs [] \\ fs [FUNPOW]
+    \\ qsuff_tac ‘∀k. step ts k te = (x0,x1,k)’ >- fs []
+    \\ Cases_on ‘te’ \\ gvs []
+    \\ Cases_on ‘e’ \\ gvs [step_def,AllCaseEqs(),error_def,value_def,push_def,continue_def]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+    \\ gvs [application_def,value_def,error_def,AllCaseEqs(),push_def])
+  \\ drule_all step_inc_nil
+  \\ strip_tac \\ gvs []
+  \\ drule step_n_cont_swap_lemma \\ fs [] \\ strip_tac
+  \\ rename [‘m ≤ n’]
+  \\ fs [GSYM step_n_def]
+  \\ drule step_n_cont_swap \\ fs [GSYM PULL_FORALL]
+  \\ impl_tac >- (rw [] \\ res_tac \\ fs [] \\ gvs [])
+  \\ strip_tac \\ fs []
+  \\ ‘step_n n = step_n ((n - m) + m)’ by fs []
+  \\ full_simp_tac std_ss [step_n_add] \\ gvs []
+  \\ Cases_on ‘is_halt (res7,ts7,[]:cont list)’
+  >-
+   (qexists_tac ‘SUC m’ \\ fs [step_n_SUC]
+    \\ gvs [GSYM step_n_def,is_halt_step_n_same])
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ impl_tac >- fs []
+  \\ rw []
+  \\ qexists_tac ‘SUC (n5 + m)’
+  \\ full_simp_tac std_ss [step_n_add,step_n_SUC] \\ gvs []
 QED
 
 Theorem return_fast_forward_lemma[local]:
@@ -830,24 +1405,148 @@ Proof
   rw[]
 QED
 
-(* This lemma is false as stated. Counterexample:
+Theorem step_NONE_Val:
+  step NONE (forceK2_none h::xs) (Val v) = (x0,x1,x2) ∧ x0 ≠ Error ⇒
+  ∃xs1. x2 = MAP forceK2_none xs1 ++ xs ∧ x1 = NONE ∧
+        (∀e. x0 ≠ Exn e) ∧ (∀e a. x0 ≠ Action e a) ∧
+        ∀ys. step NONE (forceK2_none h::ys) (Val v) =
+               (x0,x1,MAP forceK2_none xs1 ++ ys)
+Proof
+  Cases_on ‘h’ \\ fs [] \\ fs [step_def] \\ strip_tac
+  \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),
+          forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs(),
+          continue_def,error_def,value_def,push_def]
+  \\ rename [‘num_args_ok s’]
+  \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def]
+QED
 
-    EVAL “step_n 5 (Exp [(x,v)] (Raise (Var x)),NONE,[HandleK [(x,v)] (c::x) (Var x)])”
+Theorem step_NONE_Exp:
+  step NONE xs (Exp l e) = (x0,x1,x2) ∧ x0 ≠ Error ⇒
+  ∃xs1. x2 = MAP forceK2_none xs1 ++ xs ∧ x1 = NONE ∧
+        (∀e. x0 ≠ Exn e) ∧ (∀e a. x0 ≠ Action e a) ∧
+        ∀ys. step NONE ys (Exp l e) = (x0,x1,MAP forceK2_none xs1 ++ ys)
+Proof
+  Cases_on ‘e’
+  >~ [‘Let opt’] >-
+   (Cases_on ‘opt’
+    \\ fs [step_def,AllCaseEqs()] \\ rw []
+    \\ gvs [error_def,value_def,continue_def,push_def]
+    \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()])
+  >~ [‘Case _ _ rows’] >-
+   (Cases_on ‘rows’
+    \\ fs [step_def,AllCaseEqs()] \\ rw []
+    \\ gvs [error_def,value_def,continue_def,push_def]
+    \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()])
+  >~ [‘App’] >-
+   (fs [step_def,AllCaseEqs()] \\ rw [] \\ gvs [error_def,push_def]
+    \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def]
+    \\ gvs [application_def,value_def,AllCaseEqs(),error_def,get_atoms_def])
+  \\ fs [step_def,AllCaseEqs()] \\ rw []
+  \\ gvs [error_def,value_def,continue_def,push_def]
+  \\ gvs [forceK2_none_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+QED
 
-    EVAL “step_n 4 (Exp [(x,v)] (Raise (Var x)),NONE,[])”
-
-    ^^ it's possible that the expression needs the stack to halt with a value
-
-    Update: has the change to RaiseK semantics changed this?
- *)
 Theorem step_n_NONE_split:
   step_n n (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
   ∃m1 m2 v.
     step_n m1 (Exp env x,NONE,[]) = (Val v,NONE,[]) ∧ m1 < n ∧
     step_n m2 (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n
 Proof
-  cheat
+  qsuff_tac ‘
+    ∀n xs te k tk r z.
+      step_n n (te,NONE,MAP forceK2_none xs ++ k::tk) = (r,z) ∧ te ≠ Error ∧
+      ~is_halt (te,NONE,MAP forceK2_none xs) ∧
+      (∀e. te ≠ Exn e) ∧ (∀e a. te ≠ Action e a) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
+      ∃m1 m2 v.
+        step_n m1 (te,NONE,MAP forceK2_none xs) = (Val v,NONE,[]) ∧ m1 < n ∧
+        step_n m2 (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n’
+  >-
+   (rw []
+    \\ last_x_assum $ qspecl_then [‘n’,‘[]’] mp_tac \\ fs []
+    \\ disch_then drule \\ fs []
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos $ hd \\ fs []
+    \\ first_x_assum $ irule_at $ Pos $ hd \\ fs [])
+  \\ strip_tac
+  \\ completeInduct_on ‘n’ \\ rw []
+  \\ reverse (Cases_on ‘te’) \\ fs []
+  >-
+   (Cases_on ‘xs’
+    \\ gvs [] \\ Cases_on ‘n’ \\ gvs [step_n_SUC]
+    \\ ‘∃x. step NONE (forceK2_none h::(MAP forceK2_none t ++ k::tk))
+              (Val v) = x’ by fs []
+    \\ PairCases_on ‘x’ \\ fs []
+    \\ Cases_on ‘x0 = Error’
+    >-
+     (‘is_halt (Error,x1,x2)’ by fs []
+      \\ qpat_x_assum ‘_ = (r,_)’ mp_tac
+      \\ DEP_REWRITE_TAC [is_halt_step_n_same] \\ fs [])
+    \\ drule_all step_NONE_Val \\ strip_tac \\ gvs []
+    \\ Q.REFINE_EXISTS_TAC ‘SUC m3’ \\ fs [step_n_SUC]
+    \\ rename [‘step_n n’]
+    \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
+    \\ Cases_on ‘is_halt (x0,NONE,MAP forceK2_none xs1 ++ MAP forceK2_none t)’
+    >-
+     (Cases_on ‘x0’ \\ gvs []
+      \\ qexists_tac ‘0’ \\ fs []
+      \\ qexists_tac ‘n’ \\ fs []
+      \\ Cases_on ‘n’ \\ gvs [])
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ impl_tac >- fs []
+    \\ rw []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+  \\ gvs []
+  \\ Cases_on ‘n’ \\ gvs [step_n_SUC]
+  \\ rename [‘step_n n’]
+  \\ ‘∃x. step NONE (MAP forceK2_none xs ++ k::tk) (Exp l e) = x’ by fs []
+  \\ PairCases_on ‘x’ \\ fs []
+  \\ Cases_on ‘x0 = Error’
+  >-
+   (‘is_halt (Error,x1,x2)’ by fs []
+    \\ qpat_x_assum ‘_ = (r,_)’ mp_tac
+    \\ DEP_REWRITE_TAC [is_halt_step_n_same] \\ fs [])
+  \\ drule_all step_NONE_Exp \\ strip_tac \\ gvs []
+  \\ Q.REFINE_EXISTS_TAC ‘SUC m3’ \\ fs [step_n_SUC]
+  \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
+  \\ Cases_on ‘is_halt (x0,NONE,MAP forceK2_none xs1 ++ MAP forceK2_none xs)’
+  >-
+   (Cases_on ‘x0’ \\ gvs []
+    \\ qexists_tac ‘0’ \\ fs []
+    \\ qexists_tac ‘n’ \\ fs []
+    \\ Cases_on ‘n’ \\ gvs [])
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ impl_tac >- fs []
+  \\ rw []
+  \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+  \\ first_x_assum $ irule_at $ Pos $ hd \\ fs []
 QED
+
+Theorem find_match_list_SOME:
+  find_match_list cn ws env css d = SOME (env', e) ⇔
+  (∃vs.
+    ALOOKUP css cn = SOME (vs, e) ∧ LENGTH ws = LENGTH vs ∧
+    env' = REVERSE (ZIP (vs,ws)) ++ env) ∨
+  (ALOOKUP css cn = NONE ∧
+   ∃alts. d = SOME (alts, e) ∧ ALOOKUP alts cn = SOME (LENGTH ws) ∧ env' = env)
+Proof
+  Induct_on `css` >> rw[find_match_list_def]
+  >- (gvs[AllCaseEqs(), PULL_EXISTS] >> eq_tac >> rw[]) >>
+  PairCases_on `h` >> gvs[find_match_list_def] >>
+  IF_CASES_TAC >> gvs[] >> eq_tac >> rw[]
+QED
+
+Theorem find_match_SOME:
+  find_match v env x css usopt = SOME (env', e) ⇔
+  ¬ MEM x (FLAT (MAP (FST o SND) css)) ∧ css ≠ [] ∧
+  ∃cn vs. v = Constructor cn vs ∧
+          find_match_list cn vs env css usopt = SOME (env', e)
+Proof
+  simp[find_match_def, AllCaseEqs()] >> eq_tac >> rw[]
+QED
+
 
 (* meaning of cexp *)
 
@@ -874,8 +1573,10 @@ Definition exp_of_def:
     Letrec (MAP (λ(f,v,y). (explode f,Lam (SOME (explode v)) (exp_of y))) funs) (exp_of x) ∧
   exp_of (Let vn x y) = Let (OPTION_MAP explode vn) (exp_of x) (exp_of y) ∧
   exp_of (If x y z) = If (exp_of x) (exp_of y) (exp_of z) ∧
-  exp_of (Case x v rows) =
-    Case (exp_of x) (explode v) (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows) ∧
+  exp_of (Case v rows d) =
+    Case (explode v)
+         (MAP (λ(v,vs,y). (explode v,MAP explode vs,exp_of y)) rows)
+         (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts, exp_of e)) d) ∧
   exp_of (Raise x) = Raise (exp_of x) ∧
   exp_of (Handle x v y) = Handle (exp_of x) (explode v) (exp_of y) ∧
   exp_of (HandleApp x y) = HandleApp (exp_of x) (exp_of y)

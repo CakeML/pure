@@ -26,12 +26,15 @@ Proof
 QED
 
 Theorem freevars_rows_of:
-  ∀v l. freevars (rows_of v l) =
+  ∀v l k.
+    freevars (rows_of v l k) =
     case l of
-      [] => {}
-    | _ => v INSERT BIGUNION (set (MAP (λ(cn,vs,b). freevars b DIFF set vs) l))
+      [] => freevars k
+    | _ => v INSERT freevars k ∪
+           BIGUNION (set (MAP (λ(cn,vs,b). freevars b DIFF set vs) l))
 Proof
-  recInduct rows_of_ind >> rw[rows_of_def] >> simp[freevars_lets_for] >>
+  recInduct rows_of_ind >> rw[rows_of_def] >>
+  simp[freevars_lets_for, combinTheory.o_ABS_R] >>
   Cases_on `rest` >> gvs[combinTheory.o_DEF] >>
   CASE_TAC >> gvs[EXTENSION] >> metis_tac[]
 QED
@@ -55,22 +58,21 @@ QED
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_tcexp ce
 Proof
-  recInduct freevars_tcexp_ind >> rw[exp_of_def] >>
+  recInduct freevars_tcexp_ind >> simp[optionTheory.FORALL_OPTION] >>
+  rw[exp_of_def] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Bottom_def, IMAGE_BIGUNION,
       GSYM LIST_TO_SET_MAP, IMAGE_DIFFDELETE, Cong MAP_CONG,
-      freevars_rows_of, AC UNION_COMM UNION_ASSOC]
-  >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG]
-  >- (
-    Cases_on `css` >> gvs[] >>
-    PairCases_on `h` >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM, IMAGE_DIFFDELETE,
-        GSYM LIST_TO_SET_MAP, MEM_adjustlemma] >>
-    simp[LAMBDA_PROD, IMAGE_DIFFDELETE] >>
-    simp[ELIM_UNCURRY, Cong MAP_CONG, GSYM LIST_TO_SET_MAP,
-         AC UNION_ASSOC UNION_COMM] >>
-    rw[EXTENSION, PULL_EXISTS] >>
-    simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
-    )
+      freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY]
+  >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG] >>
+  Cases_on `css` >> gvs[] >>
+  PairCases_on `h` >>
+  gvs[DISJ_IMP_THM, FORALL_AND_THM, IMAGE_DIFFDELETE,
+      GSYM LIST_TO_SET_MAP, MEM_adjustlemma] >>
+  simp[LAMBDA_PROD, IMAGE_DIFFDELETE] >>
+  simp[ELIM_UNCURRY, Cong MAP_CONG, GSYM LIST_TO_SET_MAP,
+       AC UNION_ASSOC UNION_COMM] >>
+  rw[EXTENSION, PULL_EXISTS] >>
+  simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
 QED
 
 Theorem subst_lets_for:
@@ -83,11 +85,13 @@ Proof
 QED
 
 Theorem subst_rows_of:
-  ∀v l f.  v ∉ FDOM f ⇒
-    subst f (rows_of v l) =
+  ∀v l k f.
+    v ∉ FDOM f ⇒
+    subst f (rows_of v l k) =
     rows_of v (MAP (λ(a,b,c). (a,b, subst (FDIFF f (set b)) c)) l)
+            (subst (f \\ v) k)
 Proof
-  recInduct rows_of_ind >> rw[rows_of_def, subst_def]
+  recInduct rows_of_ind >> rw[rows_of_def, subst_def, DOMSUB_NOT_IN_DOM]
   >- simp[FLOOKUP_DEF] >>
   simp[subst_lets_for, combinTheory.o_DEF]
 QED
@@ -126,10 +130,11 @@ Proof
   >- (simp[LAMBDA_PROD] >> simp[ELIM_UNCURRY] >>
       gvs[MEM_adjustlemma, Cong MAP_CONG, FDIFF_FUN_FMAP,
           FDIFF_FDOMSUB_INSERT] >>
+      rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
       irule app3_eq >> rw[MAP_EQ_f] >>
       irule app3_eq >>
       simp[fmap_EXT, FUN_FMAP_DEF, PULL_EXISTS, MEM_MAP, FDIFF_def,
-           DRESTRICT_DEF])
+           DRESTRICT_DEF, DOMSUB_FAPPLY_THM])
 QED
 
 Theorem lets_for_APPEND:
@@ -147,7 +152,10 @@ Proof
   recInduct cexp_wf_ind >> rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
       EXISTS_PROD, PULL_EXISTS, MEM_FLAT] >>
-  eq_tac >> rw[] >> metis_tac[]
+  eq_tac >> rw[] >>~-
+  ([‘eopt = SOME _ ⇒ _’],
+   Cases_on ‘eopt’ >> gvs[] >> metis_tac[]) >>
+  metis_tac[]
 QED
 
 Theorem freevars_tcexp_of:
@@ -155,9 +163,8 @@ Theorem freevars_tcexp_of:
 Proof
   recInduct freevars_cexp_ind >>
   rw[freevars_cexp_def, tcexp_of_def, freevars_tcexp_def] >>
-  gvs[MAP_MAP_o, combinTheory.o_DEF, EVERY_MEM]
-  >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f])
-  >- (ntac 3 AP_TERM_TAC >> rw[MAP_EQ_f])
+  gvs[MAP_MAP_o, combinTheory.o_DEF, EVERY_MEM, Cong MAP_CONG] >>
+  simp[SF ETA_ss]
   >- (
     simp[LAMBDA_PROD, GSYM FST_THM] >>
     AP_THM_TAC >> ntac 4 AP_TERM_TAC >>
@@ -166,12 +173,11 @@ Proof
     goal_assum $ drule_at Any >> res_tac
     )
   >- (
+    rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
     simp[LAMBDA_PROD, GSYM FST_THM] >>
-    AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    AP_THM_TAC >> AP_TERM_TAC >>
-    first_x_assum irule >> gvs[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >>
-    goal_assum $ drule_at Any >> res_tac
+    gs[ELIM_UNCURRY, MEM_adjustlemma, MEM_MAP, PULL_EXISTS] >>
+    simp[Cong MAP_CONG] >>
+    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >> metis_tac[]
     )
 QED
 
@@ -366,25 +372,24 @@ Proof
     ntac 2 (first_x_assum $ irule_at Any >> goal_assum drule) >> gvs[]
     ) >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
   irule exp_eq_App_cong >> simp[] >>
   irule exp_eq_Lam_cong >> simp[] >>
-  qpat_x_assum `_ ≠ _` kall_tac >>
-  Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def]
-  >- simp[exp_eq_refl] >>
+  TRY (qpat_x_assum `rs ≠ _` kall_tac) >>
+  Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def, exp_eq_refl] >>
   pairarg_tac >> gvs[rows_of_def, pureLangTheory.rows_of_def] >>
   qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>
   irule exp_eq_trans >> irule_at Any exp_eq_Prim_cong >>
   qmatch_goalsub_abbrev_tac `[a;b c;_]` >>
   qexists_tac `[a;b (exp_of p2);rows]` >> unabbrev_all_tac >> simp[exp_eq_refl] >>
-  last_x_assum $ irule_at Any >> rw[]
-  >- (
-    first_x_assum irule >> simp[] >> qexistsl_tac [`c`,`vs`] >> simp[]
-    )
-  >- (irule exp_eq_lets_for_cong >> simp[]) >>
-  rename [‘MAP explode vv’] >>
-  simp[lets_for_exp_eq
-         |> Q.INST [‘vs’ |-> ‘MAP explode vv’]
-         |> SRULE[PULL_EXISTS, MEM_MAP]]
+  last_x_assum $ irule_at Any >>
+  (rw[]
+   >- metis_tac[]
+   >- (irule exp_eq_lets_for_cong >> simp[]) >>
+   rename [‘MAP explode vv’] >>
+   simp[lets_for_exp_eq
+          |> Q.INST [‘vs’ |-> ‘MAP explode vv’]
+          |> SRULE[PULL_EXISTS, MEM_MAP]])
 QED
 
 

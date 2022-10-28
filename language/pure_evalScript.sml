@@ -140,7 +140,7 @@ End
 Theorem eval_wh_to_Fail[simp]:
   eval_wh_to k Fail = wh_Error
 Proof
-  fs [eval_wh_to_def]
+  fs [eval_wh_to_def,get_atoms_def]
 QED
 
 Theorem eval_wh_eq_Diverge:
@@ -265,6 +265,13 @@ Proof
    (fs [eval_wh_def]
     \\ DEEP_INTRO_TAC some_intro \\ rw []
     \\ match_mp_tac eval_wh_to_agree \\ fs [])
+QED
+
+Theorem eval_wh_to_IMP_eval_wh:
+  eval_wh_to k e = v ∧ v ≠ wh_Diverge ⇒ eval_wh e = v
+Proof
+  strip_tac \\ gvs [eval_wh_eq]
+  \\ qexists_tac ‘k’ \\ fs []
 QED
 
 Theorem eval_wh_Bottom:

@@ -29,10 +29,18 @@ Datatype:
        | Delay cexp
        | Box cexp
        | Force cexp
-       | Case cexp vname ((vname # (vname list) # cexp) list)
+       | Case vname ((vname # (vname list) # cexp) list)
+                    (((vname # num) list # cexp) option)
        (* monads *)
        | Ret cexp
+       | Raise cexp
        | Bind cexp cexp
+       | Handle cexp cexp
+       | Act cexp
+       | Length cexp
+       | Alloc cexp cexp
+       | Deref cexp cexp
+       | Update cexp cexp cexp
 End
 
 val _ = export_theory();

@@ -13,29 +13,41 @@ val _ = new_theory "state_caseProof";
 
 val _ = set_grammar_ancestry ["stateLang"];
 
+Overload True[local] = “App (Cons "True") [] :stateLang$exp”
+Overload False[local] = “App (Cons "False") [] :stateLang$exp”
 Overload Fail = “App (AtomOp Add) [] :stateLang$exp”
 Overload Proj = “λn i x. App (Proj n i) [x:stateLang$exp]”
 Overload IsEq = “λn i x. App (IsEq n i) [x:stateLang$exp]”
 
 Definition lets_for_def:
-  lets_for cn v [] b = b:stateLang$exp ∧
-  lets_for cn v ((n,w)::ws) b = Let (SOME w) (Proj cn n (Var v)) (lets_for cn v ws b)
+  lets_for l cn v [] b = b:stateLang$exp ∧
+  lets_for l cn v ((n,w)::ws) b =
+    Let NONE (If (IsEq cn l (Var v)) Unit Fail) $
+      Let (SOME w) (Proj cn n (Var v)) (lets_for l cn v ws b)
+End
+
+Definition Disj_def:
+  Disj v [] = False ∧
+  Disj v ((cn,l)::xs) = If (IsEq cn l (Var v)) True (Disj v xs)
 End
 
 Definition rows_of_def:
-  rows_of v [] = Fail ∧
-  rows_of v ((cn,vs,b)::rest) =
+  rows_of v [] d =
+    (case d of
+     | NONE => Fail
+     | SOME (alts,e) => If (Disj v alts) e Fail) ∧
+  rows_of v ((cn,vs,b)::rest) d =
     If (IsEq cn (LENGTH vs) (Var v))
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
-      (Let (SOME v) (Var v) (rows_of v rest))
+       (lets_for (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
+       (rows_of v rest d)
 End
 
 Definition expand_Case_def:
-  expand_Case x v rs =
-    if MEM v (FLAT (MAP (FST o SND) rs)) then
+  expand_Case v rs d =
+    if MEM v (FLAT (MAP (FST o SND) rs)) ∨ rs = [] then
       Fail
     else
-      Let (SOME v) x (rows_of v rs)
+      rows_of v rs d
 End
 
 Inductive compile_rel:
@@ -83,12 +95,12 @@ Inductive compile_rel:
   compile_rel (If te te1 te2) (If se se1 se2)) ∧
 
 [~Case:]
-  (∀v te se tes ses.
-     compile_rel te se ∧
+  (∀v tes ses td sd.
+     OPTREL (λ(a,x) (b,y). a = b ∧ compile_rel x y) td sd ∧
      MAP FST tes = MAP FST ses ∧ ALL_DISTINCT (MAP FST tes) ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧
      LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-  compile_rel (Case te v tes) (expand_Case se v ses))
+  compile_rel (Case v tes td) (expand_Case v ses sd))
 
 End
 
@@ -129,14 +141,6 @@ End
 
 Theorem env_rel_def = “env_rel tenv senv”
   |> SIMP_CONV (srw_ss()) [Once v_rel_cases];
-
-Definition env_rel_ignore_def:
-  env_rel_ignore tenv senv m ⇔
-     (∀n. n ≠ m ⇒ (ALOOKUP tenv n = NONE ⇔ ALOOKUP senv n = NONE)) ∧
-     (∀(n:string) tv.
-       ALOOKUP tenv n = SOME tv ∧ n ≠ m ⇒
-       ∃sv. ALOOKUP senv n = SOME sv ∧ v_rel tv sv)
-End
 
 Inductive step_res_rel:
   (v_rel v1 v2 ⇒
@@ -179,15 +183,7 @@ Inductive cont_rel:
   (∀sk tk.
     cont_rel tk sk ⇒
     cont_rel (RaiseK :: tk)
-             (RaiseK :: sk)) ∧
-  (∀sk tk v tenv senv.
-    cont_rel tk sk ∧ env_rel_ignore tenv senv v ∧
-    MAP FST tes = MAP FST ses ∧ ALL_DISTINCT (MAP FST tes) ∧
-    ~MEM v (FLAT (MAP (FST o SND) tes)) ∧
-    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
-    LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-    cont_rel (CaseK tenv v tes :: tk)
-             (LetK senv (SOME v) (rows_of v ses) :: sk))
+             (RaiseK :: sk))
 End
 
 Definition rec_env_def:
@@ -429,16 +425,16 @@ Theorem step_n_lets_for:
     LENGTH svs0 = n ∧ ~MEM v h1 ∧ LENGTH h1 = LENGTH svs1 ⇒
     ∃ck.
       step_n ck
-        (Exp senv (lets_for h0 v (MAPi (λi v. (i+n,v)) h1) h2),ss,sk) =
+        (Exp senv (lets_for (LENGTH svs0 + LENGTH svs1) h0 v
+             (MAPi (λi v. (i+n,v)) h1) h2),ss,sk) =
           (Exp (REVERSE (ZIP (h1,svs1)) ++ senv) h2,ss,sk)
 Proof
   Induct \\ fs [lets_for_def]
   >- (rw [] \\ qexists_tac ‘0’ \\ fs [])
   \\ Cases_on ‘h1’ \\ fs [] \\ rw []
   \\ fs [lets_for_def]
-  \\ ntac 4 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+  \\ ntac 13 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
   \\ fs [EL_APPEND2]
-  \\ ntac 1 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
   \\ last_x_assum $ drule_at $ Pos last \\ fs [combinTheory.o_DEF]
   \\ rename [‘Exp ((a1,a2)::_)’]
   \\ disch_then $ qspecl_then [‘svs0 ++ [a2]’,‘((a1,a2)::senv)’] mp_tac
@@ -446,6 +442,9 @@ Proof
   \\ fs [ADD_CLAUSES,LENGTH_APPEND,GSYM ADD1]
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
 QED
+
+Triviality step_n_lets_for_lemma =
+  step_n_lets_for |> Q.SPECL [‘xs’,‘[]’,‘0’] |> SIMP_RULE std_ss [LENGTH,APPEND]
 
 Theorem env_rel_zip:
   ∀n x y xs ys.
@@ -458,14 +457,6 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ last_x_assum irule \\ fs []
   \\ irule env_rel_cons \\ fs []
-QED
-
-Theorem env_rel_ignore_cons:
-  env_rel_ignore tenv senv v ∧ v_rel x y ⇒
-  env_rel ((v,x)::tenv) ((v,y)::senv)
-Proof
-  fs [env_rel_def,env_rel_ignore_def]
-  \\ rw [] \\ rw [] \\ fs []
 QED
 
 Theorem step_1_forward:
@@ -500,15 +491,113 @@ Proof
         \\ first_assum $ irule_at $ Pos last \\ fs [])
     \\ simp [Once cont_rel_cases])
   >~ [‘Exp’] >-
-   (qexists_tac ‘0’
-    \\ qpat_x_assum ‘compile_rel e1 e2’ mp_tac
+   (qpat_x_assum ‘compile_rel e1 e2’ mp_tac
     \\ simp [Once compile_rel_cases] \\ rw []
     >~ [‘Case’] >-
-     (gvs [step,AllCaseEqs(),step_res_rel_cases]
-      \\ fs [expand_Case_def] \\ fs [step,get_atoms_def]
-      \\ simp [Once cont_rel_cases]
+     (gvs [step,CaseEq "bool",step_res_rel_cases]
+      \\ Cases_on ‘ALOOKUP env1 v’ \\ gvs []
+      >-
+       (full_simp_tac std_ss [GSYM ADD1,step_n_SUC]
+        \\ fs [step,expand_Case_def]
+        \\ IF_CASES_TAC \\ fs []
+        >- (qexists_tac ‘0’ \\ fs [step,get_atoms_def,expand_Case_def])
+        >- (qexists_tac ‘0’ \\ fs [step,get_atoms_def,expand_Case_def])
+        \\ Cases_on ‘tes’ \\ Cases_on ‘ses’ \\ gvs []
+        \\ PairCases_on ‘h’ \\ fs []
+        \\ PairCases_on ‘h'’ \\ fs []
+        \\ fs [rows_of_def,step]
+        \\ ntac 2 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+        \\ fs [env_rel_def] \\ res_tac \\ fs []
+        \\ qexists_tac ‘0’ \\ fs [step])
+      \\ gs [find_match_def,expand_Case_def]
+      \\ IF_CASES_TAC
+      >- (gvs [] \\ qexists_tac ‘0’ \\ fs [step,get_atoms_def,expand_Case_def])
+      \\ gvs []
+      \\ Cases_on ‘tes = []’ \\ gvs []
+      \\ ‘∃y. ALOOKUP env2 v = SOME y ∧ v_rel x y’ by
+         (fs [env_rel_def] \\ res_tac \\ fs [])
+      \\ reverse (Cases_on ‘∃c1 ws1. x = Constructor c1 ws1’)
+      >-
+       (full_simp_tac std_ss [GSYM ADD1,step_n_SUC]
+        \\ fs [step,expand_Case_def]
+        \\ Cases_on ‘tes’ \\ Cases_on ‘ses’ \\ gvs []
+        \\ PairCases_on ‘h’ \\ fs []
+        \\ PairCases_on ‘h'’ \\ fs []
+        \\ fs [rows_of_def,step]
+        \\ ntac 3 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+        \\ qpat_x_assum ‘v_rel x y’ mp_tac
+        \\ simp [Once v_rel_cases] \\ rw [] \\ fs []
+        \\ qexists_tac ‘0’ \\ gvs [step])
+      \\ gvs []
+      \\ qpat_x_assum ‘v_rel _ y’ mp_tac
+      \\ simp [Once v_rel_cases] \\ rw [] \\ fs []
+      \\ rename [‘LIST_REL v_rel ws1 ws2’]
+      \\ rpt $ qpat_x_assum ‘_ ≠ []’ kall_tac
+      \\ rpt $ pop_assum mp_tac
+      \\ qid_spec_tac ‘ses’
+      \\ qid_spec_tac ‘tes’
+      \\ Induct \\ fs [PULL_EXISTS]
+      \\ fs [find_match_list_def]
+      >-
+       (Cases_on ‘td’ \\ Cases_on ‘sd’ \\ fs []
+        >- (rw [rows_of_def] \\ qexists_tac ‘0’ \\ fs [step,get_atoms_def])
+        \\ rename [‘rows_of v [] (SOME y)’]
+        \\ PairCases_on ‘x’
+        \\ PairCases_on ‘y’ \\ gvs []
+        \\ fs [rows_of_def]
+        \\ fs [step_n_SUC,step,GSYM ADD1]
+        \\ rpt strip_tac \\ gvs []
+        \\ Induct_on ‘x0’ \\ gvs []
+        >-
+         (fs [Disj_def] \\ rw []
+          \\ ntac 3 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+          \\ qexists_tac ‘0’ \\ fs [get_atoms_def])
+        \\ PairCases \\ fs []
+        \\ Cases_on ‘h0 = c1’ \\ fs []
+        >-
+         (rw [Disj_def] \\ pop_assum kall_tac
+          \\ imp_res_tac LIST_REL_LENGTH
+          \\ ntac 7 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+          \\ qexists_tac ‘0’ \\ fs [get_atoms_def])
+        \\ strip_tac
+        \\ first_x_assum dxrule
+        \\ rewrite_tac [METIS_PROVE [] “b ∨ c ⇔ (~b ⇒ c)”]
+        \\ strip_tac \\ gvs []
+        \\ rw [] \\ fs []
+        \\ fs [Disj_def] \\ rw []
+        \\ ntac 4 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+        \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+        \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
+        \\ first_x_assum $ irule_at $ Pos hd
+        \\ fs [])
+      \\ PairCases
+      \\ fs [find_match_list_def]
+      \\ Cases \\ fs []
+      \\ rename [‘rows_of v (f::t)’] \\ PairCases_on ‘f’ \\ fs []
+      \\ reverse IF_CASES_TAC
+      >-
+       (rpt strip_tac \\ fs []
+        \\ fs [step,GSYM ADD1,step_n_SUC,rows_of_def]
+        \\ ntac 4 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+        \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+      \\ gvs [] \\ pop_assum kall_tac
+      \\ reverse IF_CASES_TAC
+      >-
+       (fs [] \\ rpt strip_tac \\ gvs []
+        \\ fs [step,GSYM ADD1,step_n_SUC,rows_of_def]
+        \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+        \\ ntac 3 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+        \\ qexists_tac ‘0’ \\ fs [get_atoms_def])
+      \\ fs [] \\ strip_tac \\ gvs []
+      \\ fs [] \\ rpt strip_tac \\ gvs []
+      \\ fs [step,GSYM ADD1,step_n_SUC,rows_of_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ ntac 4 (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step])
+      \\ drule_all step_n_lets_for_lemma
+      \\ disch_then $ qspecl_then [‘ss’,‘sk’,‘f2’] strip_assume_tac
       \\ pop_assum $ irule_at Any \\ fs []
-      \\ fs [env_rel_def,env_rel_ignore_def])
+      \\ irule env_rel_zip \\ fs [])
+    \\ qexists_tac ‘0’
     >~ [‘Var v’] >-
      (gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
       \\ Cases_on ‘ALOOKUP env2 v’ \\ fs []
@@ -554,52 +643,6 @@ Proof
   \\ rename [‘cont_rel (tk1::tk) (sk1::sk)’]
   \\ qpat_x_assum ‘cont_rel _ _’ mp_tac
   \\ simp [Once cont_rel_cases] \\ rw []
-  >~ [‘CaseK _ v’] >-
-   (Cases_on ‘tes’ \\ gvs [step,return_def]
-    >-
-     (fs [GSYM ADD1,step_n_SUC,step,rows_of_def]
-      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step,get_atoms_def]
-      \\ qexists_tac ‘0’ \\ gvs [step_res_rel_cases])
-    \\ PairCases_on ‘h’ \\ fs [step]
-    \\ Cases_on ‘ses’ \\ gvs []
-    \\ PairCases_on ‘h’ \\ fs [step]
-    \\ fs [rows_of_def]
-    \\ qpat_x_assum ‘v_rel v1 v2’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac
-    \\ TRY
-     (gvs []
-      \\ qexists_tac ‘1+1+1+1’ \\ rewrite_tac [step_n_add] \\ fs [step]
-      \\ fs [step_res_rel_cases] \\ NO_TAC)
-    \\ fs [GSYM ADD1,step_n_SUC,step]
-    \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-    \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-    \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-    \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-    \\ reverse (Cases_on ‘s = h0’) \\ gvs []
-    >-
-     (Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-      \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-      \\ qexists_tac ‘0’ \\ fs []
-      \\ simp [Once step_res_rel_cases,Once v_rel_cases]
-      \\ simp [Once cont_rel_cases]
-      \\ first_x_assum $ irule_at $ Pos last \\ fs []
-      \\ fs [env_rel_ignore_def])
-    \\ reverse IF_CASES_TAC \\ gvs []
-    >- (qexists_tac ‘0’ \\ fs [step_res_rel_cases])
-    \\ simp [Once step_res_rel_cases,PULL_EXISTS]
-    \\ Q.REFINE_EXISTS_TAC ‘SUC ck1’ \\ fs [step_n_SUC,step]
-    \\ rpt $ first_assum $ irule_at Any
-    \\ qmatch_goalsub_abbrev_tac ‘Exp envvv’
-    \\ qspecl_then [‘svs’,‘[]’,‘0’,‘envvv’,‘h1’,‘h2'’] mp_tac step_n_lets_for
-    \\ impl_tac >- fs [Abbr‘envvv’]
-    \\ strip_tac \\ fs [Abbr‘envvv’]
-    \\ pop_assum $ irule_at Any
-    \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ irule env_rel_zip \\ fs []
-    \\ irule env_rel_ignore_cons \\ fs []
-    \\ simp [Once v_rel_cases])
   \\ qexists_tac ‘0’ \\ fs []
   >~ [‘HandleK’] >-
    (gvs [step] \\ fs [step_res_rel_cases])

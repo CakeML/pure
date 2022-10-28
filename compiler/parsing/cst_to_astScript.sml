@@ -108,7 +108,7 @@ Definition astType_def:
            else if t = LbrackT then
              do
                assert(tokcheck rd RbrackT);
-               SOME $ tyOp "List" [ty]
+               SOME $ tyOp "[]" [ty]
              od
            else NONE
          od
@@ -126,7 +126,7 @@ Definition astType_def:
      | pt::rest =>
          do
            ty1 <- astType nTyApp pt ;
-           (tys, rest') <- astSepType ArrowT nTyApp rest;
+           (tys, rest') <- astSepType (SymbolT "->") nTyApp rest;
            SOME $ mkFunTy (ty1::tys)
          od
    else if nt1 = nTyApp then
@@ -171,7 +171,8 @@ Definition astLit_def:
   else
     case args of
       [] => NONE
-    | [pt] => lift litInt $ destIntT ' (destTOK ' (destLf pt))
+    | [pt] => (lift litInt $ destIntT ' (destTOK ' (destLf pt))) ++
+              (lift litString $ destStringT ' (destTOK ' (destLf pt)))
     | _ => NONE
 End
 
@@ -224,7 +225,11 @@ Definition astPat_def:
        [pt] => do
                 vnm <- astalpha pt;
                 SOME $ patVar vnm
-              od ++ (lift patLit $ astLit pt)
+              od ++ (lift patLit $ astLit pt) ++
+              do
+                assert (tokcheck pt UnderbarT);
+                SOME patUScore
+              od
      | _ => NONE
    else NONE)
 End
@@ -237,6 +242,7 @@ End
    omitting alpha-ids in backquotes
 *)
 val tabinfo = [
+  ("!!", (10, “Left”)),
   (".", (9, “Right”)),
   ("^", (8, “Right”)),
   ("^^", (8, “Right”)),
@@ -267,7 +273,7 @@ val def = List.foldr (fn ((t,(i,tm)), A) =>
                          (pairSyntax.mk_pair(
                            numSyntax.mk_numeral (Arbnum.fromInt i), tm)),
                       A))
-            “NONE : (num # associativity) option”
+            “SOME(9, Left) : (num # associativity) option”
             tabinfo
 Definition tokprec_def:
 tokprec s = ^def
@@ -291,6 +297,7 @@ Definition mkSym_def:
                   c1 <- oHD s ;
                   if isUpper c1 then SOME $ expCon s []
                   else if isAlpha c1 ∨ c1 ≠ #":" then SOME $ expVar s
+                  else if s = ":" then SOME $ expCon "::" []
                   else SOME $ expCon s []
                 od ++ SOME (expVar s))
 End
@@ -341,7 +348,7 @@ Datatype:
 End
 
 Definition exp_to_pat_def:
-  exp_to_pat (expVar s) = SOME $ patVar s ∧
+  exp_to_pat (expVar s) = (if s = "_" then SOME $ patUScore else SOME $ patVar s) ∧
   exp_to_pat (expCon s es) = OPTION_MAP (patApp s) (OPT_MMAP exp_to_pat es) ∧
   exp_to_pat (expTup es) = OPTION_MAP patTup (OPT_MMAP exp_to_pat es) ∧
   exp_to_pat (expLit l) = SOME $ patLit l ∧
@@ -383,7 +390,11 @@ Definition astExp_def:
          do
            vnm <- destAlphaT ' (destTOK ' (destLf pt)) ;
            SOME $ mkSym vnm
-         od ++ (lift expLit $ astLit pt)
+         od ++ (lift expLit $ astLit pt) ++
+         do
+           assert (tokcheck pt UnderbarT) ;
+           SOME $ expVar "_"
+         od
      | [lp;rp] =>
          do
            assert (tokcheck lp LparT ∧ tokcheck rp RparT);
@@ -425,7 +436,8 @@ Definition astExp_def:
          do
            assert (tokcheck pt1 (SymbolT "\\"));
            (pats,tail) <- grab (astPat nAPat) rest;
-           assert (LIST_REL (λP pt. P pt) [flip tokcheck ArrowT; K T] tail);
+           assert (LIST_REL (λP pt. P pt)
+                   [flip tokcheck (SymbolT "->"); K T] tail);
            body_e <- astExp nExp ' (oEL 1 tail);
            SOME $ FOLDR expAbs body_e pats
          od ++
@@ -546,7 +558,7 @@ Definition astExp_def:
      case args of
        [pat_pt; arrow; exp_pt] =>
          do
-           assert (tokcheck arrow ArrowT);
+           assert (tokcheck arrow (SymbolT "->"));
            ep <- astExp nExp pat_pt ;
            p <- exp_to_pat ep ;
            e <- astExp nExp exp_pt ;
@@ -666,6 +678,13 @@ Definition astDecl_def:
            return (declData dnm args cons)
          od
      | _ => NONE)
+End
+
+Definition astDecls_def:
+  (astDecls (Lf _) = NONE) ∧
+  (astDecls (Nd nt args) =
+   if FST nt ≠ INL nDecls then NONE
+   else OPT_MMAP astDecl args)
 End
 
 

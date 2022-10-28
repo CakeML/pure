@@ -12,7 +12,7 @@ val _ = new_theory "pure_letrec_funProof";
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-(******************** Definitions ********************)
+(******************** Definitions ********************
 
 (* the input is a variable specification: recursive calls will be made
    with these arguments in this order:
@@ -234,7 +234,7 @@ QED
 Theorem letrec_fun_freevars:
   ∀x y. letrec_fun x y ⇒ freevars x = freevars y
 Proof
-  cheat (* TODO *)
+   (* TODO *)
 QED
 
 Theorem letrec_fun_subst1:
@@ -242,7 +242,7 @@ Theorem letrec_fun_subst1:
     letrec_fun x y ∧ letrec_fun a b
   ⇒ letrec_fun (subst1 s a x) (subst1 s b y)
 Proof
-  cheat (* TODO *)
+   (* TODO *)
 QED
 
 Theorem letrec_fun_subst:
@@ -250,7 +250,7 @@ Theorem letrec_fun_subst:
     ∀f g. fmap_rel letrec_fun f g
   ⇒ letrec_fun (subst f x) (subst g y)
 Proof
-  cheat (* TODO *)
+   (* TODO *)
 QED
 
 
@@ -312,7 +312,7 @@ Proof
       gvs[] >>
       Cases_on `eval_wh_to (k - 1) (subst1 s b ea)` >> gvs[]
       ) >>
-    cheat (* TODO *)
+     (* TODO *)
     )
   >- (
     rename1 `Letrec fns e` >>
@@ -362,7 +362,7 @@ Proof
       irule letrec_fun_subst >> irule_at Any fmap_rel_FUPDATE_LIST_same >>
       simp[] >> rw[]
       >- (simp[Once letrec_fun_cases] >> disj1_tac >> metis_tac[]) >>
-      cheat (* TODO *)
+       (* TODO *)
       )
     ) >>
   rename1 `Prim p xs` >>
@@ -647,9 +647,9 @@ Theorem Letrec_Lams:
 Proof
   rw[] >> once_rewrite_tac[exp_eq_open_bisimilarity_freevars] >>
   irule open_bisimilarity_suff >> rw[] >>
-  cheat (* TODO *)
+   (* TODO *)
 QED
 
-(**********)
+*********)
 
 val _ = export_theory();

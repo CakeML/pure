@@ -668,7 +668,7 @@ Inductive compile_rel:
        compile_rel (Lam s x) (Lam s y)) ∧
 [~Letrec:]
   (∀f g x y.
-     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ compile_rel x y) f g ∧
+     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ ok_bind x ∧ compile_rel x y) f g ∧
      compile_rel x y ⇒
        compile_rel (Letrec f x) (Letrec g y)) ∧
 [~Let:]
@@ -696,10 +696,6 @@ Inductive compile_rel:
   (∀x y.
      compile_rel x y ⇒
        compile_rel (Force x) (Force y)) ∧
-[~MkTick:]
-  (∀x y.
-     compile_rel x y ⇒
-       compile_rel (MkTick x) (MkTick y)) ∧
 [~Var:]
   (∀v.
      compile_rel (Var v) (Var v))
@@ -707,19 +703,14 @@ End
 
 Overload tick_rel = “thunk_tickProof$exp_rel”
 
-Theorem compile_rel_semantics:
-  compile_rel x y ∧
-  closed x ⇒
-    semantics x Done [] = semantics y Done []
+Theorem compile_rel_compose:
+  compile_rel x y ⇒
+    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ tick_rel y y1
 Proof
   qsuff_tac ‘compile_rel x y ⇒
-    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ tick_rel y y1’
-  >- (rw [] \\ gvs []
-      \\ drule case_lift_semantics
-      \\ imp_res_tac tick_semantics
-      \\ gvs [thunkLangTheory.closed_def]
-      \\ imp_res_tac exp_rel_freevars \\ gvs []
-      \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs [])
+    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ tick_rel y y1 ∧
+            (ok_bind x ⇒ ok_bind x1 ∧ ok_bind y1)’
+  >- metis_tac []
   \\ qid_spec_tac ‘y’
   \\ qid_spec_tac ‘x’
   \\ Induct_on ‘compile_rel’ \\ rw []
@@ -759,9 +750,56 @@ Proof
   >~ [‘Delay’] >- (irule_at Any exp_rel_Delay \\ fs [])
   >~ [‘Box’] >- (irule_at Any exp_rel_Box \\ fs [])
   >~ [‘Var’] >- (irule_at Any exp_rel_Var \\ fs [])
-  \\ cheat
+  >~ [‘Prim’] >-
+   (irule_at Any exp_rel_Prim
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw []
+    \\ first_x_assum drule \\ rw []
+    \\ rpt $ pop_assum $ irule_at Any
+    \\ rpt $ first_assum $ irule_at Any)
+  \\ irule_at Any exp_rel_Letrec
+  \\ pop_assum kall_tac
+  \\ rpt $ pop_assum $ irule_at Any
+  \\ last_x_assum mp_tac
+  \\ rpt $ pop_assum kall_tac
+  \\ qid_spec_tac ‘g’
+  \\ qid_spec_tac ‘f’
+  \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,MAP_EQ_CONS,EXISTS_PROD]
+  \\ gvs [SF CONJ_ss] \\ rw []
+  \\ first_x_assum dxrule \\ rw [] \\ fs []
+  \\ first_assum $ irule_at (Pos $ el 2) \\ gvs []
+  \\ first_assum $ irule_at (Pos $ last) \\ gvs []
+  \\ first_assum $ irule_at Any \\ gvs []
+  \\ Cases_on ‘p_2’ \\ fs [ok_bind_def] \\ gvs []
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ simp [Once compile_rel_cases]
+  \\ rw [] \\ fs []
 QED
 
-(* exp_rel_MkTick *)
+Theorem compile_rel_freevars:
+  compile_rel x y ⇒ freevars x = freevars y
+Proof
+  rw [] \\ drule_then strip_assume_tac compile_rel_compose
+  \\ imp_res_tac exp_rel_freevars \\ gvs []
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
+QED
+
+Theorem compile_rel_semantics:
+  compile_rel x y ∧
+  closed x ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  rw []
+  \\ drule_then strip_assume_tac compile_rel_compose
+  \\ drule case_lift_semantics
+  \\ imp_res_tac tick_semantics
+  \\ gvs [thunkLangTheory.closed_def]
+  \\ imp_res_tac exp_rel_freevars \\ gvs []
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
+QED
 
 val _ = export_theory ();

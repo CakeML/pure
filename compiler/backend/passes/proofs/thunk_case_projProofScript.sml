@@ -12,7 +12,8 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
+     thunk_tickProofTheory thunk_untickProofTheory;
 
 val _ = new_theory "thunk_case_projProof";
 
@@ -28,7 +29,6 @@ Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
 
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧
-  ok_binder (Box x) = T ∧
   ok_binder (Delay x) = T ∧
   ok_binder _ = F
 End
@@ -176,6 +176,35 @@ Theorem v_rel_def[simp] =
     “v_rel z (Thunk (INR s))” ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
+
+Triviality LIST_REL_IMP_MAP_FST_EQ:
+  ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
+        MAP FST f = MAP FST g
+Proof
+  Induct \\ fs [PULL_EXISTS]
+QED
+
+Theorem exp_rel_freevars:
+  exp_rel x y ⇒ freevars x = freevars y
+Proof
+  qsuff_tac ‘(∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧ (∀v1 v2. v_rel v1 v2 ⇒ T)’
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ ho_match_mp_tac exp_rel_ind
+  \\ rw [] \\ fs [freevars_def]
+  >~ [‘ok_binder’] >-
+   (drule LIST_REL_IMP_MAP_FST_EQ \\ fs [FORALL_PROD]
+    \\ rw [] \\ AP_THM_TAC
+    \\ ntac 4  AP_TERM_TAC
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac ‘g’
+    \\ qid_spec_tac ‘f’
+    \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD])
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘ys’
+  \\ qid_spec_tac ‘xs’
+  \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs []
+QED
 
 Theorem ok_binder_subst[local,simp]:
   ∀x. ok_binder x ⇒ ok_binder (subst vs x)
@@ -1092,8 +1121,7 @@ Proof
 QED
 
 Theorem case_proj_semantics:
-  closed x ∧
-  exp_rel x y ⇒
+  exp_rel x y ∧ closed x ⇒
     semantics x Done [] = semantics y Done []
 Proof
   strip_tac
@@ -1103,5 +1131,250 @@ Proof
   \\ irule exp_rel_eval \\ gs []
 QED
 
-val _ = export_theory ();
+Inductive compile_rel:
+(* Proj *)
+[compile_rel_Proj:]
+  (∀x y s i j v w b.
+     i < j ∧
+     compile_rel x y ⇒
+       compile_rel (Seq (If (IsEq s j b (Var v)) Unit Fail)
+                    (Let (SOME w) (Delay (Force (Proj s i (Var v)))) x))
+               (Seq (If (IsEq s j b (Var v)) Unit Fail)
+                    (Let (SOME w) (Proj s i (Var v)) y))) ∧
+(* Boilerplate: *)
+[compile_rel_App:]
+  (∀f g x y.
+     compile_rel f g ∧
+     compile_rel x y ⇒
+       compile_rel (App f x) (App g y)) ∧
+[compile_rel_Lam:]
+  (∀s x y.
+     compile_rel x y ⇒
+       compile_rel (Lam s x) (Lam s y)) ∧
+[compile_rel_Letrec:]
+  (∀f g x y.
+     LIST_REL (λ(fn,x) (gn,y).
+                 fn = gn ∧
+                 compile_rel x y ∧
+                 ok_binder x) f g ∧
+     compile_rel x y ⇒
+       compile_rel (Letrec f x) (Letrec g y)) ∧
+[compile_rel_Let_SOME:]
+  (∀bv x1 y1 x2 y2.
+     compile_rel x1 x2 ∧
+     compile_rel y1 y2 ⇒
+       compile_rel (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2)) ∧
+[compile_rel_Let_NONE:]
+  (∀x1 y1 x2 y2.
+     compile_rel x1 x2 ∧
+     compile_rel y1 y2 ⇒
+       compile_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+[compile_rel_If:]
+  (∀x1 x2 y1 y2 z1 z2.
+     LIST_REL compile_rel [x1;y1;z1] [x2;y2;z2] ⇒
+       compile_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+[compile_rel_Cons:]
+  (∀s xs ys.
+     LIST_REL (λx y. compile_rel x y ∧ ∃z. x = Delay z) xs ys ⇒
+       compile_rel (Prim (Cons s) xs) (Prim (Cons s) ys)) ∧
+[compile_rel_Prim:]
+  (∀op xs ys.
+     (∀s. op ≠ Cons s) ∧
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Prim op xs) (Prim op ys)) ∧
+[compile_rel_Delay:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (Delay x) (Delay y)) ∧
+[compile_rel_Box:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (Box x) (Box y)) ∧
+[compile_rel_Force:]
+  (∀x y.
+     compile_rel x y ⇒
+       compile_rel (Force x) (Force y)) ∧
+[compile_rel_Var:]
+  (∀v.
+     compile_rel (Var v) (Var v))
+End
 
+Overload tick_rel = “thunk_tickProof$exp_rel”
+Overload mktick_rel = “thunk_untickProof$exp_rel”
+
+Theorem compile_rel_thm:
+  ∀x y.
+    compile_rel x y ⇒
+    ∃x1 y1. tick_rel x x1 ∧ exp_rel x1 y1 ∧ mktick_rel y1 y
+Proof
+  Induct_on ‘compile_rel’ \\ rw []
+  >-
+   (irule_at Any exp_rel_Proj
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Let
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_If
+    \\ rpt (irule_at Any thunk_tickProofTheory.exp_rel_Prim \\ fs [PULL_EXISTS])
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Var
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Let \\ fs []
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Tick
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Delay
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Force
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Prim \\ fs [PULL_EXISTS]
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Var
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Let
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_If \\ gvs [PULL_EXISTS]
+    \\ rpt (irule_at Any thunk_untickProofTheory.exp_rel_Prim \\ gvs [PULL_EXISTS])
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Var
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Let \\ fs []
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_MkTick
+    \\ rpt (irule_at Any thunk_untickProofTheory.exp_rel_Prim \\ gvs [PULL_EXISTS])
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Var)
+  >~ [‘App’] >-
+   (irule_at Any exp_rel_App
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_App
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_App
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Lam’] >-
+   (irule_at Any exp_rel_Lam
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Lam
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Lam
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘If’] >-
+   (irule_at Any exp_rel_If
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_If
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_If \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Box’] >-
+   (irule_at Any exp_rel_Box
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Box
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Box \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Force’] >-
+   (irule_at Any exp_rel_Force
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Force
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Force \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Var’] >-
+   (irule_at Any exp_rel_Var
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Var
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Var \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Let (SOME _)’] >-
+   (irule_at Any exp_rel_Let_SOME
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Let
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Let \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Let NONE’] >-
+   (irule_at Any exp_rel_Let_NONE
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Let
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Let \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Cons’] >-
+   (irule_at Any exp_rel_Cons \\ fs []
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Prim
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Prim \\ fs []
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ first_x_assum dxrule \\ rw []
+    \\ last_x_assum mp_tac
+    \\ simp [Once compile_rel_cases] \\ rw []
+    \\ fs [PULL_EXISTS]
+    \\ rpt $ qpat_x_assum ‘LIST_REL _ _ _’ $ irule_at Any
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Delay
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Delay \\ fs []
+    \\ last_x_assum mp_tac
+    \\ last_x_assum mp_tac
+    \\ last_x_assum mp_tac
+    \\ simp [Once thunk_untickProofTheory.exp_rel_cases]
+    \\ rw []
+    >-
+     (rpt $ last_x_assum mp_tac
+      \\ simp [Once exp_rel_cases]
+      \\ fs [PULL_EXISTS,PULL_FORALL] \\ rw []
+      \\ rpt $ last_x_assum mp_tac
+      \\ simp [Once thunk_tickProofTheory.exp_rel_cases]
+      \\ rw [] \\ rpt $ first_assum $ irule_at $ Pos hd
+      \\ simp [Once exp_rel_cases])
+    \\ rpt $ last_x_assum mp_tac
+    \\ simp [Once exp_rel_cases] \\ rw []
+    \\ rpt $ last_x_assum mp_tac
+    \\ simp [Once thunk_tickProofTheory.exp_rel_cases])
+  >~ [‘Delay’] >-
+   (irule_at Any exp_rel_Delay
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Delay
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Delay \\ fs []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  >~ [‘Prim’] >-
+   (irule_at Any exp_rel_Prim \\ fs []
+    \\ irule_at Any thunk_tickProofTheory.exp_rel_Prim
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Prim \\ fs []
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ first_x_assum dxrule \\ rw []
+    \\ rpt $ first_assum $ irule_at $ Pos hd)
+  \\ rename [‘Letrec’]
+  \\ irule_at Any exp_rel_Letrec \\ fs []
+  \\ irule_at Any thunk_tickProofTheory.exp_rel_Letrec
+  \\ irule_at Any thunk_untickProofTheory.exp_rel_Letrec \\ fs []
+  \\ rpt $ first_x_assum $ irule_at Any
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘g’
+  \\ qid_spec_tac ‘f’
+  \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,EXISTS_PROD]
+  \\ rw []
+  \\ last_x_assum $ dxrule \\ rw []
+  \\ rpt $ qpat_x_assum ‘LIST_REL _ _ _’ $ irule_at Any \\ fs []
+  \\ last_assum $ irule_at Any
+  \\ last_assum $ irule_at Any \\ fs []
+  \\ Cases_on ‘p_2’ \\ gvs []
+  \\ last_x_assum mp_tac
+  \\ simp [Once compile_rel_cases] \\ strip_tac \\ gvs []
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ simp [Once thunk_tickProofTheory.exp_rel_cases]
+  \\ simp [Once thunk_untickProofTheory.exp_rel_cases]
+  \\ ntac 3 strip_tac
+  \\ gvs [thunk_untickProofTheory.ok_bind_def]
+  \\ fs [Once exp_rel_cases]
+QED
+
+Theorem compile_rel_closed:
+  compile_rel x y ∧
+  closed x ⇒
+  closed y
+Proof
+  rw [] \\ drule_all compile_rel_thm \\ rw []
+  \\ imp_res_tac exp_rel_freevars \\ gvs [closed_def]
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
+  \\ imp_res_tac thunk_untickProofTheory.exp_rel_freevars \\ gvs []
+QED
+
+Theorem compile_case_proj_semantics:
+  closed x ∧
+  compile_rel x y ∧
+  pure_semantics$safe_itree (semantics x Done []) ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  rw [] \\ gvs []
+  \\ drule_all compile_rel_thm \\ strip_tac
+  \\ imp_res_tac tick_semantics
+  \\ fs []
+  \\ drule case_proj_semantics
+  \\ impl_tac >-
+   (imp_res_tac thunk_tickProofTheory.exp_rel_freevars
+    \\ fs [closed_def])
+  \\ strip_tac \\ gvs []
+  \\ irule untick_semantics
+  \\ fs []
+  \\ imp_res_tac exp_rel_freevars \\ gvs [closed_def]
+  \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
+QED
+
+val _ = export_theory ();

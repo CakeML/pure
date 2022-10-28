@@ -1,5 +1,5 @@
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
+open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite goalStack;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory rich_listTheory finite_mapTheory pred_setTheory
      sptreeTheory;
@@ -272,7 +272,7 @@ Inductive minfer:
    cvars_disjoint [(eas,ecs,ety);(as1,cs1,ty1);(as2,cs2,ty2)] ∧
    f ∉ mset ∪ new_vars eas ecs ety ∪ new_vars as1 cs1 ty1 ∪ new_vars as2 cs2 ty2 ∧
    {cn1; cn2} = {«True»;«False»}
-    ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)])
+    ⇒ minfer ns mset (Case d e v [(cn1,[],e1);(cn2,[],e2)] NONE)
         (maunion eas (maunion as1 as2 \\ v))
         (mUnify (CVar f) ety INSERT mUnify ety BoolTy INSERT mUnify ty1 ty2 INSERT
           IMAGE (λn. mUnify (CVar n) (CVar f))
@@ -293,7 +293,7 @@ Inductive minfer:
     list$MAP2
       (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions asrest v))
       (v::pvars) (MAP CVar $ f::freshes)
-    ⇒ minfer ns mset (Case d e v [(«»,pvars,rest)])
+    ⇒ minfer ns mset (Case d e v [(«»,pvars,rest)] NONE)
         (maunion eas (FDIFF asrest (set (v::pvars))))
         (mUnify (CVar f) ety INSERT mUnify ety (Tuple $ MAP CVar freshes) INSERT
           BIGUNION (set pvar_cs) ∪ ecs ∪ csrest)
@@ -323,13 +323,13 @@ Inductive minfer:
       as' = FDIFF as (v INSERT set pvars) ∧
       cs' = BIGUNION (set pvar_cs) ∪ cs)
     (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs))
-    ⇒ minfer ns mset (Case d e v cases)
+    ⇒ minfer ns mset (Case d e v cases NONE)
         (FOLDR maunion FEMPTY (eas::final_as))
         (mUnify (CVar f) ety INSERT mUnify ety Exception INSERT
           set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪ BIGUNION (set final_cs))
         (HD tys)) ∧
 
-[~Case:]
+[~CaseExhaustive:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
    oEL id (SND ns) = SOME (ar, cdefs) ∧
    PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)
@@ -338,28 +338,80 @@ Inductive minfer:
    LENGTH ass = LENGTH css ∧
    ar = LENGTH freshes ∧
    LIST_REL (λ((cname,pvars,rest),ty) (a,c).
-      minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
-      (ZIP (cases,tys)) (ZIP (ass,css)) ∧
+               minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
+            (ZIP (cases,tys))
+            (ZIP (ass,css)) ∧
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
    EVERY (λf. f ∉ mset ∧
-    EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty)
-      (ZIP (eas::ass,ZIP(ecs::css,ety::tys)))) (f::freshes) ∧
+              EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty)
+                    (ZIP (eas::ass,ZIP(ecs::css,ety::tys))))
+         (f::freshes) ∧
    LENGTH final_as = LENGTH final_cs ∧
    LIST_REL (λ((cn,pvars,rest),as,cs) (as',cs').
-    ∃schemes.
-      ALOOKUP cdefs cn = SOME schemes ∧
-      let pvar_cs = list$MAP2
-        (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
-        (v::pvars) (CVar f :: MAP (isubst (MAP CVar freshes) o itype_of) schemes) in
-      as' = FDIFF as (v INSERT set pvars) ∧
-      cs' = BIGUNION (set pvar_cs) ∪ cs)
-    (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs))
-    ⇒ minfer ns mset (Case d e v cases)
+               ∃schemes.
+              ALOOKUP cdefs cn = SOME schemes ∧
+              let pvar_cs =
+                  list$MAP2
+                  (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
+                  (v::pvars)
+                  (CVar f :: MAP (isubst (MAP CVar freshes) o itype_of) schemes)
+              in
+                as' = FDIFF as (v INSERT set pvars) ∧
+                cs' = BIGUNION (set pvar_cs) ∪ cs)
+            (ZIP (cases,ZIP (ass,css)))
+            (ZIP (final_as,final_cs))
+    ⇒ minfer ns mset (Case d e v cases NONE)
         (FOLDR maunion FEMPTY (eas::final_as))
-        (mUnify (CVar f) ety INSERT mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
-          set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪ BIGUNION (set final_cs))
-        (HD tys))
+        (mUnify (CVar f) ety INSERT
+         mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
+         set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪
+         BIGUNION (set final_cs))
+        (HD tys)) ∧
+
+[~CaseNonexhaustive:]
+  (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
+   oEL id (SND ns) = SOME (ar, cdefs) ∧
+   ALL_DISTINCT (MAP FST cases) ∧
+   EVERY (λ(cn,pvars,rest). ∃ts. MEM (cn,ts) cdefs ∧ LENGTH pvars = LENGTH ts) cases ∧
+   cases ≠ [] ∧
+   LENGTH cases = LENGTH tys ∧
+   LENGTH ass = LENGTH css ∧
+   ar = LENGTH freshes ∧
+   LIST_REL (λ((cname,pvars,rest),ty) (a,c).
+               minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
+            (ZIP (cases,tys))
+            (ZIP (ass,css)) ∧
+   minfer ns mset e eas ecs ety ∧
+   minfer ns (f INSERT set freshes ∪ mset) usrest usas uscs usty ∧
+   cvars_disjoint ((eas,ecs,ety)::(usas,uscs,usty)::ZIP (ass, ZIP (css, tys))) ∧
+   EVERY (λf. f ∉ mset ∧
+              EVERY (λ(as,cs,ty). f ∉ new_vars as cs ty)
+                    (ZIP (eas::usas::ass,ZIP(ecs::uscs::css,ety::usty::tys))))
+         (f::freshes) ∧
+   LENGTH final_as = LENGTH final_cs ∧
+   LIST_REL (λ((cn,pvars,rest),as,cs) (as',cs').
+               ∃schemes.
+              ALOOKUP cdefs cn = SOME schemes ∧
+              let pvar_cs =
+                  list$MAP2
+                  (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
+                  (v::pvars)
+                  (CVar f :: MAP (isubst (MAP CVar freshes) o itype_of) schemes)
+              in
+                as' = FDIFF as (v INSERT set pvars) ∧
+                cs' = BIGUNION (set pvar_cs) ∪ cs)
+            (ZIP (cases,ZIP (ass,css)))
+            (ZIP (final_as,final_cs)) ∧
+    final_usas = usas \\ v ∧
+    final_uscs = IMAGE (λn. mUnify (CVar n) (CVar f)) (get_massumptions usas v) ∪ uscs
+    ⇒ minfer ns mset (Case d e v cases (SOME usrest))
+        (FOLDR maunion FEMPTY (eas::final_usas::final_as))
+        (mUnify (CVar f) ety INSERT
+         mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
+         set (MAP (λt. mUnify usty t) tys) ∪ ecs ∪
+         final_uscs ∪ BIGUNION (set final_cs))
+        usty)
 End
 
 
@@ -662,6 +714,8 @@ val _ = simpLib.register_frag inferM_ss;
 
 val inferM_rws = SF inferM_ss;
 
+fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
+
 Theorem infer_minfer:
   ∀ns mset e n ty as cs m.
     infer ns mset e n = SOME ((ty,as,cs),m) ∧
@@ -675,6 +729,7 @@ Theorem infer_minfer:
 Proof
   recInduct infer_ind >> rw[infer_def]
   >- ( (* Var *)
+    print_tac "Var" >>
     last_x_assum mp_tac >> rw[inferM_rws] >>
     qexists_tac `FEMPTY |+ (x, {n})` >> simp[assumptions_rel_def] >>
     simp[lookup_singleton, FLOOKUP_UPDATE] >> rw[]
@@ -686,6 +741,7 @@ Proof
     >- gvs[new_vars_def, pure_vars]
     )
   >- ( (* Tuple *)
+    print_tac "Tuple" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >> pairarg_tac >> gvs[] >>
     ntac 2 $ pop_assum mp_tac >>
     map_every qid_spec_tac [`m`,`n`,`tys`,`as`,`cs`] >>
@@ -745,6 +801,7 @@ Proof
       )
     )
   >- ( (* Ret *)
+    print_tac "Ret" >>
     gvs[inferM_rws] >> Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[inferM_rws] >>
     every_case_tac >> gvs[] >>
     last_x_assum drule_all >> strip_tac >> simp[] >>
@@ -752,6 +809,7 @@ Proof
     gvs[new_vars_def, pure_vars]
     )
   >- ( (* Bind *)
+    print_tac "Bind" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >>
     Cases_on `t'` >> gvs[inferM_rws] >> every_case_tac >> gvs[] >>
@@ -788,6 +846,7 @@ Proof
       )
     )
   >- ( (* Raise *)
+    print_tac "Raise" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >> every_case_tac >> gvs[] >>
     first_x_assum drule_all >> strip_tac >> gvs[] >>
@@ -800,6 +859,7 @@ Proof
     first_x_assum drule >> rw[]
     )
   >- ( (* Handle *)
+    print_tac "Handle" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >>
     Cases_on `t'` >> gvs[inferM_rws] >> every_case_tac >> gvs[] >>
@@ -833,6 +893,7 @@ Proof
       )
     )
   >- ( (* Act *)
+    print_tac "Act" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >> every_case_tac >> gvs[] >>
     first_x_assum drule_all >> strip_tac >> gvs[] >>
@@ -841,6 +902,7 @@ Proof
     gvs[new_vars_def, new_vars_constraint_def, pure_vars]
     )
   >- ( (* Alloc *)
+    print_tac "Alloc" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >>
     Cases_on `t'` >> gvs[inferM_rws] >> every_case_tac >> gvs[] >>
@@ -870,6 +932,7 @@ Proof
       )
     )
   >- ( (* Length *)
+    print_tac "Length" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >> every_case_tac >> gvs[] >>
     first_x_assum drule_all >> strip_tac >> gvs[] >>
@@ -885,6 +948,7 @@ Proof
       )
     )
   >- ( (* Deref *)
+    print_tac "Deref" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >>
     Cases_on `t'` >> gvs[inferM_rws] >> every_case_tac >> gvs[] >>
@@ -918,6 +982,7 @@ Proof
       )
     )
   >- ( (* Update *)
+    print_tac "Update" >>
     gvs[inferM_rws] >>
     Cases_on `es` >> gvs[] >> Cases_on `t` >> gvs[] >>
     Cases_on `t'` >> gvs[inferM_rws] >> every_case_tac >> gvs[] >>
@@ -962,17 +1027,21 @@ Proof
       )
     )
   >- ( (* True *)
+    print_tac "True" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     simp[Once minfer_cases, new_vars_def, pure_vars, assumptions_rel_def]
     )
   >- ( (* False *)
+    print_tac "False" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     simp[Once minfer_cases, new_vars_def, pure_vars, assumptions_rel_def]
     )
   >- ( (* Cons and Exception *)
+    print_tac "Cons/Exception" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >> pairarg_tac >> gvs[] >>
     every_case_tac >> gvs[]
     >- ( (* Exception *)
+      print_tac "Exception" >>
       rename1 `_ = SOME ((_,_,cs),_)` >>
       qsuff_tac
         `∃ass css.
@@ -1060,7 +1129,8 @@ Proof
             pure_vars, pure_vars_iFunctions] >> rw[] >>
         rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
         )
-      )
+      ) >>
+    print_tac "Cons"
     >- (
       gvs[inferM_rws] >> rename1 `_ = SOME ((_,_,cs),m)` >>
       qsuff_tac
@@ -1295,6 +1365,7 @@ Proof
       )
     )
   >- ( (* AtomOp *)
+    print_tac "AtomOp" >>
     Cases_on `infer_atom_op (LENGTH es) aop` >> gvs[inferM_rws] >>
     pairarg_tac >> gvs[] >>
     every_case_tac >> gvs[] >> rename1 `FOLDR _ _ _ _ = SOME ((tys,as,cs),m)` >>
@@ -1382,6 +1453,7 @@ Proof
       )
     )
   >- ( (* Seq *)
+    print_tac "Seq" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     first_x_assum drule_all >> strip_tac >> gvs[] >>
@@ -1411,6 +1483,7 @@ Proof
     )
   >- gvs[fail_def] (* App empty case *)
   >- ( (* App non-empty case *)
+    print_tac "App" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     rename [
@@ -1593,6 +1666,7 @@ Proof
     )
   >- gvs[fail_def] (* Lam empty case *)
   >- ( (* Lam non-empty case *)
+    print_tac "Lam" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >>
     qpat_abbrev_tac `gens = GENLIST _ _` >>
@@ -1652,6 +1726,7 @@ Proof
     >- (rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[])
     )
   >- ( (* Let *)
+    print_tac "Let" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     first_x_assum drule_all >> strip_tac >> gvs[] >>
@@ -1703,6 +1778,7 @@ Proof
     )
   >- gvs[inferM_rws] (* Letrec empty case *)
   >- ( (* Letrec non-empty case *)
+    print_tac "Letrec" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     rename [
@@ -1903,11 +1979,29 @@ Proof
       )
     )
   >- gvs[fail_def] (* Case empty case *)
+  >- gvs[fail_def] (* Case non-distinct case *)
   >- ( (* Case non-empty case *)
+    print_tac "Case cases" >>
     Cases_on `css` >- gvs[inferM_rws] >>
     Cases_on `∃pvars rest. h::t = [(«»,pvars,rest)]`
     >- ( (* TupleCase *)
-      gvs[] >> gvs[inferM_rws, get_case_type_def] >> every_case_tac >> gvs[] >>
+      print_tac "TupleCase" >>
+      gvs[] >> gvs[inferM_rws, get_case_type_def] >>
+      `eopt = NONE` by (
+        every_case_tac >> gvs[] >> every_case_tac >> gvs[] >>
+        gvs[DefnBase.one_line_ify NONE oreturn_def] >>
+        every_case_tac >> gvs[inferM_rws] >>
+        drule get_typedef_SOME >> strip_tac >> gvs[] >>
+        qpat_x_assum `MEM _ _` mp_tac >> simp[] >>
+        PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        qpat_x_assum `∀e. _ ⇒ ¬MEM _ (MAP _ (FLAT _))` $
+          qspec_then `«»` mp_tac >>
+        simp[Once MEM_MAP] >> simp[reserved_cns_def, implodeEQ] >>
+        simp[MEM_MAP, MEM_FLAT, FORALL_PROD] >> simp[Once MEM_EL, PULL_FORALL] >>
+        simp[DISJ_EQ_IMP] >> disch_then irule >> gvs[oEL_THM] >>
+        goal_assum $ drule_at Any >> simp[]) >>
+      gvs[] >> gvs[inferM_rws, get_case_type_def] >>
+      every_case_tac >> gvs[] >>
       rename1 `infer _ _ _ _ = SOME ((ety,eas,ecs),m)` >>
       rename1 `SOME ((tyrest,asrest,csrest),r)` >>
       last_x_assum drule >> impl_tac
@@ -2023,12 +2117,28 @@ Proof
         unabbrev_all_tac >> PairCases_on `h` >> gvs[] >>
         Cases_on `h0` >> gvs[] >> Cases_on `t` >> gvs[] >>
         rw[] >> first_x_assum irule >> simp[] >> metis_tac[]) >>
-    last_x_assum assume_tac >> ntac 2 $ last_x_assum kall_tac >>
+    `∀rest. eopt = SOME rest ⇒
+      ∀fresh_v fresh_tyargs n' ty' as' cs' m'.
+        infer ns (list_insert (fresh_v::fresh_tyargs) mset) rest n' =
+        SOME ((ty',as',cs'),m') ∧
+        (∀mvar.
+           mvar ∈ domain (list_insert (fresh_v::fresh_tyargs) mset) ⇒
+           mvar < n') ⇒
+        ∃mas.
+          assumptions_rel as' mas ∧
+          minfer ns (domain (list_insert (fresh_v::fresh_tyargs) mset))
+            rest mas (set (MAP to_mconstraint cs')) ty' ∧ n' ≤ m' ∧
+          new_vars mas (set (MAP to_mconstraint cs')) ty' ⊆
+          {v | n' ≤ v ∧ v < m'}` by (
+        Cases_on `eopt` >> gvs[] >>
+        unabbrev_all_tac >> PairCases_on `h` >> gvs[]) >>
+    ntac 2 $ last_x_assum assume_tac >> ntac 3 $ last_x_assum kall_tac >>
     qpat_x_assum `_ = SOME _` assume_tac >> gvs[inferM_rws] >>
     gvs[get_case_type_def] >> pop_assum mp_tac >> IF_CASES_TAC >> gvs[]
     >- (PairCases_on `h` >> gvs[]) >>
     IF_CASES_TAC >> gvs[]
     >- ( (* Bool case *)
+      print_tac "BoolCase" >>
       gvs[inferM_rws] >> strip_tac >>
       `∃c1 e1 c2 e2. cases = [(c1,[],e1);(c2,[],e2)]` by (
         gvs[LENGTH_EQ_NUM_compute] >>
@@ -2127,6 +2237,7 @@ Proof
       ) >>
     IF_CASES_TAC >> gvs[]
     >- ( (* Exception case *)
+      print_tac "ExceptionCase" >>
       gvs[inferM_rws] >> strip_tac >> every_case_tac >> gvs[] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename [
@@ -2424,6 +2535,7 @@ Proof
         rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
         )
       ) >>
+    print_tac "DataCase" >>
     ntac 3 $ pop_assum kall_tac >> strip_tac >>
     qmatch_asmsub_abbrev_tac `oreturn foo` >>
     Cases_on `foo` >> gvs[inferM_rws] >> rename1 `SOME tdef` >>
@@ -2433,51 +2545,136 @@ Proof
     rename [
       `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
       `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`,
-      `get_typedef _ _ _ = SOME (_,_,cdefs)`] >>
-    drule get_typedef_SOME >>
-    disch_then $ qspec_then `FST ns` assume_tac >> gvs[] >>
-    `EVERY (λ(cn,pvs,_).
-      MEM (cn, LENGTH pvs) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)) cases` by (
-      rw[EVERY_MEM] >> pairarg_tac >> simp[] >>
-      drule $ iffRL sortingTheory.PERM_MEM_EQ >>
-      simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> rw[] >>
-      first_x_assum drule >> simp[]) >>
+      `get_typedef _ _ _ _ = SOME (_,_,cdefs)`] >>
+    drule get_typedef_SOME >> strip_tac >> gvs[] >>
     `ALL_DISTINCT (MAP FST cdefs)` by (
       qpat_x_assum `namespace_ok _` assume_tac >> PairCases_on `ns` >>
       gvs[namespace_ok_def] >> gvs[ALL_DISTINCT_APPEND, MAP_FLAT] >>
       drule miscTheory.ALL_DISTINCT_FLAT_EVERY >>
       simp[EVERY_EL, EL_MAP] >> gvs[oEL_THM] >>
-      disch_then drule >> simp[]) >>
-    qsuff_tac
-      `∃ass css final_as final_cs.
-        LIST_REL (λ((cname,pvars,rest),ty) (a,c).
-          minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
-            rest a c ty)
-          (ZIP (cases,tyrest)) (ZIP (ass,css)) ∧
-        LIST_REL
-         (λ((cn,pvars,rest),as,cs) (as',cs').
-              ∃schemes.
-                ALOOKUP cdefs cn = SOME schemes ∧
-                (let pvar_cs =
-                  MAP2 (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
-                    (v::pvars)
-                    (CVar n::
-                      MAP (isubst (MAP CVar (GENLIST (λn'. n' + SUC n) ar)) ∘ itype_of)
-                        schemes)
-                 in
-                   as' = FDIFF as (v INSERT set pvars) ∧
-                   cs' = BIGUNION (set pvar_cs) ∪ cs))
-         (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs)) ∧
-        assumptions_rel asrest (FOLDR maunion FEMPTY final_as) ∧
-        BIGUNION (set final_cs) = set (MAP to_mconstraint csrest) ∧
-        cvars_disjoint (ZIP (ass, ZIP (css, tyrest))) ∧
-        new_vars (FOLDR maunion FEMPTY ass)
-          (BIGUNION (set css)) (iFunctions tyrest Exception) ⊆
-            {v | ar + SUC n ≤ v ∧ v < l} ∧
-        LENGTH cases = LENGTH tyrest ∧ LENGTH ass = LENGTH css ∧
-        LENGTH final_as = LENGTH final_cs ∧ ar + SUC n ≤ l`
+      disch_then drule >> simp[])
     >- (
-      rw[] >> gvs[] >>
+      print_tac "Case case - exhaustive" >>
+      `∃ass css final_as final_cs.
+      LIST_REL (λ((cname,pvars,rest),ty) (a,c).
+        minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
+          rest a c ty)
+        (ZIP (cases,tyrest)) (ZIP (ass,css)) ∧
+      LIST_REL
+       (λ((cn,pvars,rest),as,cs) (as',cs').
+            ∃schemes.
+              ALOOKUP cdefs cn = SOME schemes ∧
+              (let pvar_cs =
+                MAP2 (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
+                  (v::pvars)
+                  (CVar n::
+                    MAP (isubst (MAP CVar (GENLIST (λn'. n' + SUC n) ar)) ∘ itype_of)
+                      schemes)
+               in
+                 as' = FDIFF as (v INSERT set pvars) ∧
+                 cs' = BIGUNION (set pvar_cs) ∪ cs))
+       (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs)) ∧
+      assumptions_rel asrest (FOLDR maunion FEMPTY final_as) ∧
+      BIGUNION (set final_cs) = set (MAP to_mconstraint csrest) ∧
+      cvars_disjoint (ZIP (ass, ZIP (css, tyrest))) ∧
+      new_vars (FOLDR maunion FEMPTY ass)
+        (BIGUNION (set css)) (iFunctions tyrest Exception) ⊆
+          {v | ar + SUC n ≤ v ∧ v < l} ∧
+      LENGTH cases = LENGTH tyrest ∧ LENGTH ass = LENGTH css ∧
+      LENGTH final_as = LENGTH final_cs ∧ ar + SUC n ≤ l` by (
+      qpat_x_assum `get_typedef _ _ _ _ = _` kall_tac >>
+      rpt $ qpat_x_assum `infer _ _ _ _ = _` kall_tac >>
+      qpat_x_assum `ALL_DISTINCT (_ cases)` kall_tac >>
+      `∀mvar. mvar ∈ domain mset ⇒ mvar < ar + SUC n` by (
+        rw[] >> last_x_assum drule >> simp[]) >>
+      last_x_assum assume_tac >>
+      ntac 4 $ last_x_assum kall_tac >>
+      rpt $ pop_assum mp_tac >>
+      map_every qid_spec_tac [`n`,`l`,`tyrest`,`asrest`,`csrest`] >>
+      Induct_on `cases` >> rw[] >> simp[]
+      >- (
+        qexistsl_tac [`[]`,`[]`,`[]`,`[]`] >>
+        simp[assumptions_rel_def, iFunctions_def] >>
+        simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
+        ) >>
+      gvs[Abbr `f`] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+      every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
+      qmatch_asmsub_abbrev_tac `FOLDR f` >>
+      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      last_x_assum drule >> disch_then drule >> simp[] >>
+      strip_tac >> gvs[] >>
+      first_x_assum drule >> impl_tac
+      >- (
+        rw[domain_list_insert, MEM_GENLIST] >> gvs[] >>
+        first_x_assum drule >> simp[]
+        ) >>
+      strip_tac >> gvs[] >>
+      gvs[domain_list_insert_alt, GSYM CONJ_ASSOC, INSERT_UNION_EQ] >>
+      goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
+      goal_assum $ drule_at $ Pat `minfer _ _ _ _ _` >>
+      qexistsl_tac [`mas::ass`,`set (MAP to_mconstraint cs) :: css`] >> simp[] >>
+      simp[PULL_EXISTS, GSYM CONJ_ASSOC, EXISTS_PROD] >>
+      goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
+      Cases_on `ALOOKUP cdefs cn` >> gvs[inferM_rws] >> rw[] >>
+      rewrite_tac[Once $ GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
+      >- (
+        gvs[assumptions_rel_def, aunion_def] >> simp[PULL_FORALL] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[lookup_unionWith, lookup_list_delete] >>
+        DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm] >>
+        DEP_REWRITE_TAC[cj 1 map_ok_list_delete, cj 2 map_ok_list_delete] >> simp[] >>
+        simp[Once maunion_def, FLOOKUP_FMERGE, FLOOKUP_FDIFF] >>
+        rw[] >> every_case_tac >> gvs[] >> metis_tac[wf_union, domain_union]
+        )
+      >- (
+        DEP_REWRITE_TAC[MAP2_MAP] >>
+        simp[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LIST_TO_SET_MAP, IMAGE_IMAGE,
+             LIST_TO_SET_FLAT, LAMBDA_PROD, IMAGE_BIGUNION] >>
+        drule LIST_TO_SET_get_assumptions >> rw[] >>
+        drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]
+        )
+      >- (
+        gvs[cvars_disjoint_def] >>
+        once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
+        simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[MEM_ZIP] >> DEP_REWRITE_TAC[cj 1 LENGTH_ZIP] >> simp[] >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
+        pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
+        irule SUBSET_DISJOINT >> goal_assum $ drule_at Any >>
+        qexists_tac `{v | ar + SUC n ≤ v ∧ v < r}` >>
+        conj_tac >- rw[DISJOINT_ALT] >> gvs[] >> rw[] >>
+        irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
+        gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, PULL_EXISTS] >> rw[]
+        >- (
+          simp[SUBSET_DEF] >> rw[] >> disj1_tac >> disj1_tac >>
+          gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
+              GSYM CONJ_ASSOC, FLOOKUP_DEF, BIGUNION_SUBSET] >>
+          rpt $ goal_assum $ drule_at Any >> simp[EL_MEM]
+          )
+        >- (
+          simp[SUBSET_DEF] >> rw[] >> disj1_tac >> disj2_tac >>
+          simp[PULL_EXISTS] >> ntac 2 $ goal_assum drule >> simp[EL_MEM]
+          )
+        >- (
+          simp[SUBSET_DEF] >> rw[] >> disj2_tac >> simp[MEM_MAP, PULL_EXISTS] >>
+          simp[pure_vars_iFunctions, pure_vars] >>
+          simp[MEM_MAP, PULL_EXISTS] >> goal_assum drule >> simp[EL_MEM]
+          )
+        )
+      >- (
+        gvs[new_vars_def, BIGUNION_FRANGE_maunion, GSYM CONJ_ASSOC,
+            pure_vars, pure_vars_iFunctions] >> rw[] >>
+        rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
+        )
+      ) >>
+      drule get_typedef_exhaustive >>
+      disch_then $ qspec_then `FST ns` mp_tac >> simp[] >>
+      impl_tac
+      >- (
+        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[FST_THM, LAMBDA_PROD]
+        ) >>
+      strip_tac >> rw[] >> gvs[] >>
       last_x_assum drule >> impl_tac >- (rw[] >> first_x_assum drule >> simp[]) >>
       strip_tac >> gvs[] >>
       simp[Once minfer_cases] >> ntac 2 $ irule_at Any $ OR_INTRO_THM2 >>
@@ -2645,7 +2842,7 @@ Proof
         >- (
           qpat_x_assum `MEM _ (MAP2 _ _ _)` mp_tac >>
           DEP_REWRITE_TAC[MAP2_MAP] >> simp[] >>
-          gvs[EVERY_EL] >> last_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+          gvs[EVERY_EL] >> last_x_assum drule >> simp[] >> strip_tac >> gvs[EL_MAP] >>
           drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[] >> strip_tac >> gvs[] >>
           simp[MEM_MAP, EXISTS_PROD, MEM_ZIP, PULL_EXISTS] >> rw[] >>
           gvs[pure_vars, EL_MAP] >> conj_tac
@@ -2673,88 +2870,439 @@ Proof
         Cases_on `tyrest` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
         first_x_assum drule >> simp[]
         )
-      ) >>
-    qpat_x_assum `get_typedef _ _ _ = _` kall_tac >>
-    qpat_x_assum `PERM _ _` kall_tac >>
-    qpat_x_assum `infer _ _ _ _ = _` kall_tac >>
-    `∀mvar. mvar ∈ domain mset ⇒ mvar < ar + SUC n` by (
-      rw[] >> last_x_assum drule >> simp[]) >>
-    last_x_assum assume_tac >>
-    ntac 4 $ last_x_assum kall_tac >>
-    rpt $ pop_assum mp_tac >>
-    map_every qid_spec_tac [`n`,`l`,`tyrest`,`asrest`,`csrest`] >>
-    Induct_on `cases` >> rw[] >> simp[]
-    >- (
-      qexistsl_tac [`[]`,`[]`,`[]`,`[]`] >> simp[assumptions_rel_def, iFunctions_def] >>
-      simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
-      ) >>
-    gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
-    every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
-    qmatch_asmsub_abbrev_tac `FOLDR f` >>
-    rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-    rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
-    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-    last_x_assum drule >> disch_then drule >> simp[] >>
-    strip_tac >> gvs[] >>
-    first_x_assum drule >> impl_tac
-    >- (rw[domain_list_insert, MEM_GENLIST] >> gvs[] >> first_x_assum drule >> simp[]) >>
-    strip_tac >> gvs[] >>
-    gvs[domain_list_insert_alt, GSYM CONJ_ASSOC, INSERT_UNION_EQ] >>
-    goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
-    goal_assum $ drule_at $ Pat `minfer _ _ _ _ _` >>
-    qexistsl_tac [`mas::ass`,`set (MAP to_mconstraint cs) :: css`] >> simp[] >>
-    simp[PULL_EXISTS, GSYM CONJ_ASSOC, EXISTS_PROD] >>
-    goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
-    Cases_on `ALOOKUP cdefs cn` >> gvs[inferM_rws] >> rw[] >>
-    rewrite_tac[Once $ GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
-    >- (
-      gvs[assumptions_rel_def, aunion_def] >> simp[PULL_FORALL] >> rpt gen_tac >>
-      DEP_REWRITE_TAC[lookup_unionWith, lookup_list_delete] >>
-      DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm] >>
-      DEP_REWRITE_TAC[cj 1 map_ok_list_delete, cj 2 map_ok_list_delete] >> simp[] >>
-      simp[Once maunion_def, FLOOKUP_FMERGE, FLOOKUP_FDIFF] >>
-      rw[] >> every_case_tac >> gvs[] >> metis_tac[wf_union, domain_union]
       )
     >- (
-      DEP_REWRITE_TAC[MAP2_MAP] >>
-      simp[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LIST_TO_SET_MAP, IMAGE_IMAGE,
-           LIST_TO_SET_FLAT, LAMBDA_PROD, IMAGE_BIGUNION] >>
-      drule LIST_TO_SET_get_assumptions >> rw[] >>
-      qpat_x_assum `MEM _ (MAP _ _)` mp_tac >> rw[MEM_MAP] >> pairarg_tac >> gvs[] >>
-      drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]
-      )
-    >- (
-      gvs[cvars_disjoint_def] >>
-      once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
-      simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> rpt gen_tac >>
-      DEP_REWRITE_TAC[MEM_ZIP] >> DEP_REWRITE_TAC[cj 1 LENGTH_ZIP] >> simp[] >>
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
-      pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
-      irule SUBSET_DISJOINT >> goal_assum $ drule_at Any >>
-      qexists_tac `{v | ar + SUC n ≤ v ∧ v < r}` >>
-      conj_tac >- rw[DISJOINT_ALT] >> gvs[] >> rw[] >>
-      irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
-      gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, PULL_EXISTS] >> rw[]
+      print_tac "Case case - NON-exhaustive" >>
+      `∃ass css final_as final_cs.
+      LIST_REL (λ((cname,pvars,rest),ty) (a,c).
+        minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
+          rest a c ty)
+        (ZIP (cases,tyrest)) (ZIP (ass,css)) ∧
+      LIST_REL
+       (λ((cn,pvars,rest),as,cs) (as',cs').
+            ∃schemes.
+              ALOOKUP cdefs cn = SOME schemes ∧
+              (let pvar_cs =
+                MAP2 (λv t. IMAGE (λn. mUnify (CVar n) t) (get_massumptions as v))
+                  (v::pvars)
+                  (CVar n::
+                    MAP (isubst (MAP CVar (GENLIST (λn'. n' + SUC n) ar)) ∘ itype_of)
+                      schemes)
+               in
+                 as' = FDIFF as (v INSERT set pvars) ∧
+                 cs' = BIGUNION (set pvar_cs) ∪ cs))
+       (ZIP (cases,ZIP (ass,css))) (ZIP (final_as,final_cs)) ∧
+      assumptions_rel asrest (FOLDR maunion FEMPTY final_as) ∧
+      BIGUNION (set final_cs) = set (MAP to_mconstraint csrest) ∧
+      cvars_disjoint (ZIP (ass, ZIP (css, tyrest))) ∧
+      new_vars (FOLDR maunion FEMPTY ass)
+        (BIGUNION (set css)) (iFunctions tyrest Exception) ⊆
+          {v | ar + SUC n ≤ v ∧ v < l} ∧
+      LENGTH cases = LENGTH tyrest ∧ LENGTH ass = LENGTH css ∧
+      LENGTH final_as = LENGTH final_cs ∧ ar + SUC n ≤ l` by (
+      qpat_x_assum `get_typedef _ _ _ _ = _` kall_tac >>
+      rpt $ qpat_x_assum `infer _ _ _ _ = _` kall_tac >>
+      qpat_x_assum `ALL_DISTINCT (_ cases)` kall_tac >>
+      `∀mvar. mvar ∈ domain mset ⇒ mvar < ar + SUC n` by (
+        rw[] >> last_x_assum drule >> simp[]) >>
+      last_x_assum assume_tac >>
+      ntac 4 $ last_x_assum kall_tac >>
+      rpt $ pop_assum mp_tac >>
+      map_every qid_spec_tac [`n`,`l`,`tyrest`,`asrest`,`csrest`] >>
+      Induct_on `cases` >> rw[] >> simp[]
       >- (
-        simp[SUBSET_DEF] >> rw[] >> disj1_tac >> disj1_tac >>
+        qexistsl_tac [`[]`,`[]`,`[]`,`[]`] >>
+        simp[assumptions_rel_def, iFunctions_def] >>
+        simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
+        ) >>
+      gvs[Abbr `f`] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+      every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
+      qmatch_asmsub_abbrev_tac `FOLDR f` >>
+      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      last_x_assum drule >> disch_then drule >> simp[] >>
+      strip_tac >> gvs[] >>
+      first_x_assum drule >> impl_tac
+      >- (
+        rw[domain_list_insert, MEM_GENLIST] >> gvs[] >>
+        first_x_assum drule >> simp[]
+        ) >>
+      strip_tac >> gvs[] >>
+      gvs[domain_list_insert_alt, GSYM CONJ_ASSOC, INSERT_UNION_EQ] >>
+      goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
+      goal_assum $ drule_at $ Pat `minfer _ _ _ _ _` >>
+      qexistsl_tac [`mas::ass`,`set (MAP to_mconstraint cs) :: css`] >> simp[] >>
+      simp[PULL_EXISTS, GSYM CONJ_ASSOC, EXISTS_PROD] >>
+      goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
+      Cases_on `ALOOKUP cdefs cn` >> gvs[inferM_rws] >> rw[] >>
+      rewrite_tac[Once $ GSYM ZIP] >> irule_at Any EQ_REFL >> simp[] >> rw[]
+      >- (
+        gvs[assumptions_rel_def, aunion_def] >> simp[PULL_FORALL] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[lookup_unionWith, lookup_list_delete] >>
+        DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm] >>
+        DEP_REWRITE_TAC[cj 1 map_ok_list_delete, cj 2 map_ok_list_delete] >> simp[] >>
+        simp[Once maunion_def, FLOOKUP_FMERGE, FLOOKUP_FDIFF] >>
+        rw[] >> every_case_tac >> gvs[] >> metis_tac[wf_union, domain_union]
+        )
+      >- (
+        DEP_REWRITE_TAC[MAP2_MAP] >>
+        simp[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LIST_TO_SET_MAP, IMAGE_IMAGE,
+             LIST_TO_SET_FLAT, LAMBDA_PROD, IMAGE_BIGUNION] >>
+        drule LIST_TO_SET_get_assumptions >> rw[] >>
+        drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]
+        )
+      >- (
+        gvs[cvars_disjoint_def] >>
+        once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
+        simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[MEM_ZIP] >> DEP_REWRITE_TAC[cj 1 LENGTH_ZIP] >> simp[] >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
+        pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
+        irule SUBSET_DISJOINT >> goal_assum $ drule_at Any >>
+        qexists_tac `{v | ar + SUC n ≤ v ∧ v < r}` >>
+        conj_tac >- rw[DISJOINT_ALT] >> gvs[] >> rw[] >>
+        irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
+        gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, PULL_EXISTS] >> rw[]
+        >- (
+          simp[SUBSET_DEF] >> rw[] >> disj1_tac >> disj1_tac >>
+          gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
+              GSYM CONJ_ASSOC, FLOOKUP_DEF, BIGUNION_SUBSET] >>
+          rpt $ goal_assum $ drule_at Any >> simp[EL_MEM]
+          )
+        >- (
+          simp[SUBSET_DEF] >> rw[] >> disj1_tac >> disj2_tac >>
+          simp[PULL_EXISTS] >> ntac 2 $ goal_assum drule >> simp[EL_MEM]
+          )
+        >- (
+          simp[SUBSET_DEF] >> rw[] >> disj2_tac >> simp[MEM_MAP, PULL_EXISTS] >>
+          simp[pure_vars_iFunctions, pure_vars] >>
+          simp[MEM_MAP, PULL_EXISTS] >> goal_assum drule >> simp[EL_MEM]
+          )
+        )
+      >- (
+        gvs[new_vars_def, BIGUNION_FRANGE_maunion, GSYM CONJ_ASSOC,
+            pure_vars, pure_vars_iFunctions] >> rw[] >>
+        rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
+        )
+      ) >>
+      rename1 `infer _ _ usrest m = SOME ((usty,usas,uscs),k)` >>
+      rw[] >> gvs[] >>
+      last_x_assum drule >> impl_tac >- (rw[] >> last_x_assum drule >> simp[]) >>
+      strip_tac >> gvs[] >>
+      last_x_assum drule >> impl_tac
+      >- (
+        simp[domain_list_insert, MEM_GENLIST] >> rw[] >> gvs[] >>
+        last_x_assum drule >> simp[]
+        ) >>
+      strip_tac >> gvs[] >>
+      simp[Once minfer_cases, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+      goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
+      gvs[domain_list_insert_alt, INSERT_UNION_EQ] >>
+      goal_assum $ drule_at $ Pat `LIST_REL _ _ _` >>
+      rpt $ goal_assum $ drule_at Any >> simp[SF ETA_ss, combinTheory.o_DEF] >>
+      gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, new_vars_def,
+          LIST_TO_SET_MAP, IMAGE_IMAGE, pure_vars, pure_vars_iFunctions,
+          BIGUNION_SUBSET, PULL_EXISTS, MEM_GENLIST, EXISTS_PROD] >>
+      rw[]
+      >- (
+        gvs[assumptions_rel_def, aunion_def] >> simp[PULL_FORALL] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[lookup_unionWith, lookup_delete] >>
+        DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm] >> simp[] >>
+        DEP_REWRITE_TAC[cj 1 delete_thm, cj 2 delete_thm] >> simp[] >>
+        simp[maunion_def, FLOOKUP_FMERGE, DOMSUB_FLOOKUP_THM] >>
+        simp[GSYM maunion_def] >>
+        rw[] >> every_case_tac >> gvs[] >> metis_tac[wf_union, domain_union]
+        )
+      >- (
+        simp[AC UNION_ASSOC UNION_COMM] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+        imp_res_tac LIST_TO_SET_get_assumptions >> simp[]
+        )
+      >- (qpat_x_assum `EVERY _ _` mp_tac >> simp[EVERY_MAP, LAMBDA_PROD])
+      >- (unabbrev_all_tac >> gvs[])
+      >- (
+        gvs[cvars_disjoint_def] >>
+        once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
+        once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
+        simp[list_disjoint_def, MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> conj_tac
+        >- (
+          rpt gen_tac >>
+          DEP_REWRITE_TAC[MEM_ZIP] >> DEP_REWRITE_TAC[cj 1 LENGTH_ZIP] >> simp[] >>
+          imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
+          pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
+          irule SUBSET_DISJOINT >>
+          qexistsl_tac [`{v | m ≤ v ∧ v < k}`,`{v | n ≤ v ∧ v < l}`] >>
+          conj_tac >- rw[DISJOINT_ALT] >> gvs[] >>
+          simp[new_vars_def, BIGUNION_SUBSET, IMAGE_IMAGE, PULL_EXISTS] >> rw[]
+          >- (
+            gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
+                FLOOKUP_DEF, BIGUNION_SUBSET] >>
+            first_x_assum $ drule_at Any >> disch_then $ drule_at Any >>
+            simp[EL_MEM, SUBSET_DEF] >> rw[] >>
+            first_x_assum drule >> simp[]
+            )
+          >- (
+            first_x_assum drule >> simp[EL_MEM, SUBSET_DEF] >> rw[] >>
+            first_x_assum drule >> simp[]
+            )
+          >- (
+            gvs[SUBSET_DEF, PULL_FORALL] >> gen_tac >> strip_tac >>
+            qpat_x_assum `∀a b. MEM _ tyrest ⇒ _` $ drule_at Any >> simp[EL_MEM]
+            )
+          ) >>
+        rw[]
+        >- (
+          irule SUBSET_DISJOINT >>
+          qexistsl_tac [`{v | l ≤ v ∧ v < m}`,`{v | m ≤ v ∧ v < k}`] >>
+          conj_tac >- rw[DISJOINT_ALT] >> gvs[] >>
+          simp[new_vars_def, BIGUNION_SUBSET, IMAGE_IMAGE, PULL_EXISTS] >> rw[]
+          )
+        >- (
+          pop_assum mp_tac >>
+          DEP_REWRITE_TAC[MEM_ZIP] >> DEP_REWRITE_TAC[cj 1 LENGTH_ZIP] >> simp[] >>
+          imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
+          pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
+          irule SUBSET_DISJOINT >>
+          qexistsl_tac [`{v | l ≤ v ∧ v < m}`,`{v | n ≤ v ∧ v < l}`] >>
+          conj_tac >- rw[DISJOINT_ALT] >> gvs[] >>
+          simp[new_vars_def, BIGUNION_SUBSET, IMAGE_IMAGE, PULL_EXISTS] >> rw[]
+          >- (
+            gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
+                FLOOKUP_DEF, BIGUNION_SUBSET] >>
+            first_x_assum $ drule_at Any >> disch_then $ drule_at Any >>
+            simp[EL_MEM, SUBSET_DEF] >> rw[] >>
+            first_x_assum drule >> simp[]
+            )
+          >- (
+            first_x_assum drule >> simp[EL_MEM, SUBSET_DEF] >> rw[] >>
+            first_x_assum drule >> simp[]
+            )
+          >- (
+            gvs[SUBSET_DEF, PULL_FORALL] >> gen_tac >> strip_tac >>
+            qpat_x_assum `∀a b. MEM _ tyrest ⇒ _` $ drule_at Any >> simp[EL_MEM]
+            )
+          )
+        )
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum drule_all >> simp[])
+      >- (
+        simp[EVERY_MEM, FORALL_PROD] >> rpt gen_tac >>
+        DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[LENGTH_ZIP] >> simp[PULL_EXISTS] >>
+        gen_tac >> strip_tac >>
+        pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >>
+        strip_tac >> gvs[] >>
         gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
-            GSYM CONJ_ASSOC, FLOOKUP_DEF, BIGUNION_SUBSET] >>
-        rpt $ goal_assum $ drule_at Any >> simp[EL_MEM]
+            BIGUNION_SUBSET, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
+        rw[]
+        >- (
+          CCONTR_TAC >> gvs[] >>
+          first_x_assum $ drule_at Any >> disch_then $ drule_at Any >>
+          simp[EL_MEM, SUBSET_DEF] >> goal_assum drule >> simp[]
+          )
+        >- (
+          CCONTR_TAC >> gvs[] >> first_x_assum $ drule_at Any >>
+          simp[EL_MEM, SUBSET_DEF] >> goal_assum drule >> simp[]
+          )
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ drule_at Any >> simp[EL_MEM]
+          )
         )
       >- (
-        simp[SUBSET_DEF] >> rw[] >> disj1_tac >> disj2_tac >>
-        simp[PULL_EXISTS] >> ntac 2 $ goal_assum drule >> simp[EL_MEM]
+        simp[EVERY_MEM, FORALL_PROD, MEM_GENLIST] >> rpt gen_tac >>
+        gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
+            BIGUNION_SUBSET, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
+        gen_tac >> strip_tac >> gvs[] >> rpt conj_tac
+        >- (CCONTR_TAC >> gvs[] >> first_x_assum drule >> simp[])
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ rev_drule_at Any >> simp[]
+          )
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF, PULL_FORALL] >>
+          first_x_assum drule_all >> simp[]
+          )
+        >- (CCONTR_TAC >> gvs[SUBSET_DEF] >> first_x_assum $ drule_at Any >> simp[])
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ rev_drule_at Any >> simp[]
+          )
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ rev_drule_at Any >> simp[]
+          )
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ rev_drule_at Any >> simp[]
+          ) >>
+        rpt gen_tac >> DEP_REWRITE_TAC[MEM_ZIP] >> simp[] >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[] >> strip_tac >> gvs[] >>
+        pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >>
+        strip_tac >> gvs[SUBSET_DEF, PULL_FORALL, GSYM CONJ_ASSOC, AND_IMP_INTRO] >>
+        rw[]
+        >- (
+          CCONTR_TAC >> gvs[] >>
+          first_x_assum $ rev_drule_at Any >> disch_then $ drule_at Any >> simp[EL_MEM]
+          )
+        >- (
+          CCONTR_TAC >> gvs[] >>
+          first_x_assum $ rev_drule_at Any >> disch_then $ drule_at Any >> simp[EL_MEM]
+          )
+        >- (
+          CCONTR_TAC >> gvs[SUBSET_DEF] >>
+          first_x_assum $ rev_drule_at Any >> simp[EL_MEM]
+          )
         )
       >- (
-        simp[SUBSET_DEF] >> rw[] >> disj2_tac >> simp[MEM_MAP, PULL_EXISTS] >>
-        simp[pure_vars_iFunctions, pure_vars] >>
-        simp[MEM_MAP, PULL_EXISTS] >> goal_assum drule >> simp[EL_MEM]
+        gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, BIGUNION_SUBSET] >>
+        pop_assum mp_tac >> simp[maunion_def] >>
+        simp[FLOOKUP_FMERGE, DOMSUB_FLOOKUP_THM] >> simp[GSYM maunion_def] >>
+        rw[] >> every_case_tac >> gvs[SUBSET_DEF, PULL_FORALL]
+        >- (first_x_assum drule >> rw[] >> first_x_assum drule >> simp[])
+        >- (
+          gen_tac >> strip_tac >> gvs[FLOOKUP_FOLDR_maunion] >>
+          qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >>
+          gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_ZIP] >>
+          pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+          gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC]
+          )
+        >- (
+          rpt gen_tac >> first_x_assum drule >> strip_tac >> conj_tac
+          >- (strip_tac >> first_x_assum drule >> simp[]) >>
+          gvs[FLOOKUP_FOLDR_maunion] >> strip_tac >> gvs[] >>
+          qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >>
+          gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_ZIP] >>
+          pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+          gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC]
+          )
+        >- (first_x_assum drule >> rw[] >> first_x_assum drule >> simp[])
+        >- (first_x_assum drule >> rw[] >> first_x_assum drule >> simp[])
+        >- (
+          first_x_assum drule >> rw[] >> first_x_assum drule >> simp[] >>
+          disch_then drule >> simp[]
+          )
+        >- (
+          gen_tac >> strip_tac >> gvs[FLOOKUP_FOLDR_maunion] >>
+          qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >>
+          gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_ZIP] >>
+          pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+          gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
+          first_x_assum $ drule_at Any >> simp[EL_MEM] >>
+          disch_then $ drule_at Any >> simp[EL_MEM] >>
+          disch_then drule >> simp[]
+          )
+        >- (
+          rpt gen_tac >> first_x_assum drule >> strip_tac >> conj_tac
+          >- (strip_tac >> first_x_assum drule >> simp[]) >>
+          gvs[FLOOKUP_FOLDR_maunion] >> strip_tac >> gvs[] >>
+          qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >>
+          gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_ZIP] >>
+          pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+          gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
+          first_x_assum $ drule_at Any >> simp[EL_MEM] >>
+          disch_then $ drule_at Any >> simp[EL_MEM] >>
+          disch_then drule >> simp[]
+          )
+        >- (
+          rpt gen_tac >> first_x_assum drule >> strip_tac >> conj_tac
+          >- (strip_tac >> first_x_assum drule >> simp[]) >>
+          gvs[FLOOKUP_FOLDR_maunion] >> strip_tac >> gvs[] >>
+          qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >>
+          gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_ZIP] >>
+          pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+          gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
+          first_x_assum $ drule_at Any >> simp[EL_MEM] >>
+          disch_then $ drule_at Any >> simp[EL_MEM] >>
+          disch_then drule >> simp[]
+          )
+        >- (
+          rpt gen_tac >> ntac 2 (first_x_assum drule >> strip_tac) >>
+          conj_tac >- (strip_tac >> first_x_assum drule >> simp[]) >>
+          conj_tac >- (strip_tac >> first_x_assum drule >> simp[]) >>
+          gvs[FLOOKUP_FOLDR_maunion] >> strip_tac >> gvs[] >>
+          qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >>
+          gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_ZIP] >>
+          pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+          gvs[FLOOKUP_FDIFF, PULL_EXISTS, FLOOKUP_DEF, GSYM CONJ_ASSOC] >>
+          first_x_assum $ drule_at Any >> simp[EL_MEM] >>
+          disch_then $ drule_at Any >> simp[EL_MEM] >>
+          disch_then drule >> simp[]
+          )
         )
-      )
-    >- (
-      gvs[new_vars_def, BIGUNION_FRANGE_maunion, GSYM CONJ_ASSOC,
-          pure_vars, pure_vars_iFunctions] >> rw[] >>
-      rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
+      >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> simp[])
+      >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> simp[])
+      >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> simp[])
+      >- (
+        gvs[SUBSET_DEF] >> gen_tac >> strip_tac >>
+        Cases_on `tyrest` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+        last_x_assum drule >> simp[] >>
+        disch_then drule >> strip_tac >> simp[]
+        )
+      >- (
+        gvs[SUBSET_DEF] >> gen_tac >> strip_tac >>
+        Cases_on `tyrest` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+        first_x_assum drule_all >> simp[]
+        )
+      >- (
+        gvs[IN_FRANGE_FLOOKUP, get_assumptions_def, assumptions_rel_def, PULL_EXISTS] >>
+        every_case_tac >> gvs[miscTheory.toAList_domain] >>
+        first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]
+        )
+      >- (
+        gvs[IN_FRANGE_FLOOKUP, get_assumptions_def, assumptions_rel_def, PULL_EXISTS] >>
+        every_case_tac >> gvs[miscTheory.toAList_domain] >>
+        first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]
+        )
+      >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule_all >> simp[])
+      >- (
+        qpat_assum `BIGUNION _ = _` mp_tac >> rewrite_tac[EXTENSION] >> simp[] >>
+        disch_then $ mp_tac o iffRL >> simp[PULL_EXISTS] >>
+        disch_then drule >> strip_tac >> gvs[] >>
+        qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_EL] >> strip_tac >> gvs[] >>
+        qpat_x_assum `LIST_REL _ _ _` assume_tac >> gvs[LIST_REL_EL_EQN] >>
+        first_x_assum drule >> simp[EL_ZIP] >> pairarg_tac >> gvs[] >>
+        strip_tac >> gvs[pure_vars]
+        >- (
+          gvs[get_massumptions_def] >> every_case_tac >> gvs[] >>
+          gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_FOLDR_maunion, FLOOKUP_DEF] >>
+          first_x_assum $ drule_at Any >>
+          simp[EL_MEM, BIGUNION_SUBSET, PULL_EXISTS] >>
+          disch_then $ drule_at Any >> simp[EL_MEM, SUBSET_DEF] >>
+          disch_then drule >> simp[]
+          )
+        >- (
+          qpat_x_assum `MEM _ (MAP2 _ _ _)` mp_tac >>
+          DEP_REWRITE_TAC[MAP2_MAP] >> simp[] >>
+          gvs[EVERY_EL] >> last_x_assum drule >> simp[] >> strip_tac >> gvs[EL_MAP] >>
+          drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[] >> strip_tac >> gvs[] >>
+          simp[MEM_MAP, EXISTS_PROD, MEM_ZIP, PULL_EXISTS] >> rw[] >>
+          gvs[pure_vars, EL_MAP] >> conj_tac
+          >- (
+            qpat_x_assum `_ ∈ get_massumptions _ _` mp_tac >>
+            simp[get_massumptions_def] >> CASE_TAC >> gvs[] >> strip_tac >>
+            gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FOLDR_maunion, PULL_EXISTS,
+                BIGUNION_SUBSET, FLOOKUP_DEF] >>
+            first_x_assum $ drule_at Any >> disch_then $ drule_at Any >>
+            simp[EL_MEM, SUBSET_DEF] >> disch_then drule >> simp[]
+            )
+          >- (
+            irule SUBSET_TRANS >>
+            irule_at Any pure_vars_isubst_SUBSET >> simp[] >>
+            simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, MEM_GENLIST, pure_vars]
+            )
+          )
+        >- (
+          first_x_assum drule >> simp[EL_MEM, SUBSET_DEF] >> rw[] >>
+          first_x_assum drule >> simp[]
+          )
+        )
+      >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule_all >> simp[])
       )
     )
   >- gvs[fail_def] (* Seq empty case *)

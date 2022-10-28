@@ -174,31 +174,32 @@ Definition infer_atom_op_def:
 End
 
 Definition get_typedef_def:
-  get_typedef n ([] : typedefs) cnames_arities = NONE ∧
-  get_typedef n ((ar,cs)::tds) cnames_arities =
+  get_typedef exhaustive n ([] : typedefs) cnames_arities = NONE ∧
+  get_typedef exhaustive n ((ar,cs)::tds) cnames_arities =
+    let cs' = MAP (λ(cn,ts). (cn, LENGTH ts)) cs in
     if
-      LENGTH cs = LENGTH cnames_arities ∧
-      EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) cs
+      EVERY (λcn_ar. MEM cn_ar cs') cnames_arities ∧
+      (if exhaustive then LENGTH cs = LENGTH cnames_arities else T)
     then SOME (n, ar, cs)
-    else get_typedef (SUC n) tds cnames_arities
+    else get_typedef exhaustive (SUC n) tds cnames_arities
 End
 
 Definition get_case_type_def:
-  get_case_type ns cnames_arities =
+  get_case_type exhaustive ns cnames_arities =
     let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
-    if len = 1 ∧ cnames = [«»] then do (* tuple case *)
+    if len = 1 ∧ cnames = [«»] ∧ exhaustive then do (* tuple case *)
       h <- oreturn (oHD cnames_arities);
       freshes <- fresh_vars (SND h);
       return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
-    od else if len = 2 ∧ (* bool case *)
+    od else if len = 2 ∧ exhaustive ∧ (* bool case *)
       MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
       then return (PrimTy Bool, [], [(«True»,[]); («False»,[])])
     else if (* exception case *)
-      LENGTH (FST ns) = LENGTH cnames_arities ∧
+      LENGTH (FST ns) = LENGTH cnames_arities ∧ exhaustive ∧
       EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
       then return (Exception, [], MAP (λ(cn,ts). (cn, MAP itype_of ts)) $ FST ns)
     else do (* data case *)
-      (n, ar, cs) <- oreturn (get_typedef 0 (SND ns) cnames_arities);
+      (n, ar, cs) <- oreturn (get_typedef exhaustive 0 (SND ns) cnames_arities);
       freshes <- fresh_vars ar;
       cfreshes <<- MAP CVar freshes;
       return (TypeCons n cfreshes, freshes,
@@ -416,15 +417,16 @@ Definition infer_def:
                 fns tyfns) ++
             csfns ++ cse) od) ∧
 
-  infer ns mset (Case d e v css) = (
-    if MEM v (FLAT (MAP (FST o SND) css)) then fail else
+  infer ns mset (Case d e v css eopt) = (
+    if MEM v (FLAT (MAP (FST o SND) css)) ∨ ¬ALL_DISTINCT (MAP FST css)
+    then fail else
     case css of
     | [] => fail (* no empty case statements *)
     | _::_ => do
       fresh_v <- fresh_var;
       cfresh_v <<- CVar fresh_v;
       (expected_ty, fresh_tyargs, cdefs) <-
-        get_case_type ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css);
+        get_case_type (IS_NONE eopt) ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css);
       cfresh_tyargs <<- MAP CVar fresh_tyargs;
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
@@ -439,10 +441,28 @@ Definition infer_def:
                         (FLAT pvar_constraints) ++ cs' ++ cs) od)
             (return ([],empty,[])) css;
       (tye, ase, cse) <- infer ns mset e;
+      (tys, as, cs) <-
+        (case eopt of
+           NONE => return (tys,as,cs)
+         | SOME ue => do
+               (uty, uas, ucs) <- infer ns (list_insert mono_vars mset) ue ;
+               pvar_constraints <<-
+                 MAP (λn. Unify d (CVar n) cfresh_v) (get_assumptions v uas) ;
+               return (
+                 uty :: tys,
+                 delete uas v ⋓ as,
+                 pvar_constraints ++ ucs ++ cs
+               );
+             od) ;
 
       return (HD tys, ase ⋓ as,
-              (Unify d cfresh_v tye)::(Unify d tye expected_ty)::
-              (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs) od) ∧
+              (* type of guard expression unifies with tye (result of infer) *)
+              (Unify d cfresh_v tye)::
+              (* type of tye unifies with types of patterns *)
+              (Unify d tye expected_ty)::
+              (* type of first case's result unifies with rest of them *)
+              (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs)
+    od) ∧
 
   infer _ _ _ = fail
 Termination

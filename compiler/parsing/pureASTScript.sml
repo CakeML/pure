@@ -18,11 +18,11 @@ End
 
 Overload boolTy = “tyOp "Bool" []”;
 Overload intTy = “tyOp "Int" []”
-Overload listTy = “λty. tyOp "List" [ty]”
+Overload listTy = “λty. tyOp "[]" [ty]”
 Overload funTy = “λd r. tyOp "Fun" [d; r]”
 
 Datatype:
-  litAST = litInt int
+  litAST = litInt int | litString string
 End
 
 Datatype:
@@ -30,6 +30,7 @@ Datatype:
          | patApp string (patAST list)
          | patTup (patAST list)
          | patLit litAST
+         | patUScore
 End
 
 Datatype:
@@ -68,7 +69,7 @@ Theorem better_expAST_induction =
 
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
 Overload pNIL = “expCon "[]" []”
-Overload pCONS = “λe1 e2. expCon ":" [e1;e2]”
+Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)

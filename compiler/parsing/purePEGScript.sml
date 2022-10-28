@@ -74,7 +74,7 @@ Definition purePEG_def[nocompute]:
     start := NT nDecls I lrOK;
     rules :=
     FEMPTY |++ [
-        (INL nDecls, rpt (NT nDecl I lrEQ) FLAT);
+        (INL nDecls, pegf (rpt (NT nDecl I lrEQ) FLAT) (mkNT nDecls));
         (INL nDecl,
          choicel [
              (* declare id and its type *)
@@ -116,12 +116,8 @@ Definition purePEG_def[nocompute]:
                   pegf (NT nTyBase I lrGE) (mkNT nTyApp)]);
 
         (INL nTy,
-         pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=)ArrowT))) (mkNT nTy));
-
-        (INL nAPat,
-         choicel [pegf (tok lcname_tok mktokLf lrEQ) (mkNT nAPat);
-                  pegf (NT nLit I lrEQ) (mkNT nAPat)]);
-        (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
+         pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=) $ SymbolT "->")))
+              (mkNT nTy));
 
         (INL nEqBindSeq, pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
         (INL nEqBind,
@@ -131,11 +127,7 @@ Definition purePEG_def[nocompute]:
                         tokGT ((=) $ SymbolT "::");
                         NT nTy I lrGT]
                        (mkNT nEqBind)]);
-        (INL nOp,
-         tok (λt. t = SymbolT "$" ∨ t = StarT ∨ t = SymbolT "+" ∨ t = ColonT ∨
-                  t = SymbolT "-" ∨ t = SymbolT "==")
-             mktokLf
-             lrEQ);
+        (INL nOp, tok isSymbolOpT mktokLf lrEQ);
 
         (INL nIExp,
          seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp2] I) FLAT]
@@ -159,7 +151,7 @@ Definition purePEG_def[nocompute]:
            ]);
         (INL nLSafeExp,
          choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
-                        tokGE ((=) ArrowT);
+                        tokGE ((=) $ SymbolT "->");
                         NTGE nExp] (mkNT nExp);
                   seql [tokGE ((=) IfT); NTGE nExp;
                         tokGE ((=) ThenT); NTGE nExp;
@@ -172,7 +164,7 @@ Definition purePEG_def[nocompute]:
                  ]);
         (INL nLSafeExpEQ,
          choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
-                        tokGE ((=) ArrowT);
+                        tokGE ((=) $ SymbolT "->");
                         NTGE nExp] (mkNT nExp);
                   seql [tokEQ ((=) IfT); NTGE nExp;
                         tokGE ((=) ThenT); NTGE nExp;
@@ -183,8 +175,15 @@ Definition purePEG_def[nocompute]:
                   seql [tokEQ ((=) CaseT); NTGE nExp; tokGE ((=) OfT);
                         NTGE nPatAlts] (mkNT nExp);
                  ]);
+
+        (INL nAPat,
+         choicel [pegf (tok lcname_tok mktokLf lrEQ) (mkNT nAPat);
+                  pegf (NT nLit I lrEQ) (mkNT nAPat);
+                  pegf (tok ((=) UnderbarT) mktokLf lrEQ) (mkNT nAPat)]);
+        (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
+
         (INL nPatAlts, pegf (rpt (NTEQ nPatAlt) FLAT) (mkNT nPatAlts));
-        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) ArrowT); NTGT nExp]
+        (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) $ SymbolT "->"); NTGT nExp]
                            (mkNT nPatAlt));
         (INL nExp,
          choicel [NTGE nLSafeExp; pegf (NTGE nIExp) (mkNT nExp)]);
@@ -199,7 +198,8 @@ Definition purePEG_def[nocompute]:
                   seql [tokGE ((=) LbrackT) ;
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RbrackT)] (mkNT nAExp);
-                  pegf (tokGE isAlphaT) (mkNT nAExp)]);
+                  pegf (tokGE isAlphaT) (mkNT nAExp);
+                  pegf (tokGE ((=) UnderbarT)) (mkNT nAExp)]);
 
         (INL nAExpEQ,
          choicel [pegf (NTEQ nLit) (mkNT nAExp);
@@ -209,10 +209,12 @@ Definition purePEG_def[nocompute]:
                   seql [tokEQ ((=) LbrackT) ;
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RbrackT)] (mkNT nAExp);
-                  pegf (tokEQ isAlphaT) (mkNT nAExp)]);
+                  pegf (tokEQ isAlphaT) (mkNT nAExp) ;
+                  pegf (tokEQ ((=) UnderbarT)) (mkNT nAExp)]);
 
         (INL nLit,
-         choicel [tok isInt (mkNT nLit o mktokLf) lrEQ]);
+         choicel [tok isInt (mkNT nLit o mktokLf) lrEQ;
+                  tok isString (mkNT nLit o mktokLf) lrEQ]);
       ]
   |>
 End

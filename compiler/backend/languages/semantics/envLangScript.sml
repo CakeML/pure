@@ -38,18 +38,32 @@ Definition op_of_def[simp]:
   op_of (AtomOp m) = AtomOp m
 End
 
+Overload True[local] = “Prim (Cons "True") []”;
+Overload False[local] = “Prim (Cons "False") []”;
+Overload Unit[local] = “Prim (Cons "") []”;
+Overload Fail = “Prim (AtomOp Add) []”;
+
 Definition lets_for_def:
-  lets_for cn v [] b = b ∧
-  lets_for cn v ((n,w)::ws) b =
-    Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for cn v ws b)
+  lets_for l cn v [] b = b ∧
+  lets_for l cn v ((n,w)::ws) b =
+    Let NONE (If (Prim (IsEq cn l T) [Var v]) Unit Fail) $
+      Let (SOME w) (Prim (Proj cn n) [Var v]) (lets_for l cn v ws b)
+End
+
+Definition Disj_def:
+  Disj v [] = False ∧
+  Disj v ((cn,l)::xs) = If (Prim (IsEq cn l T) [Var v]) True (Disj v xs)
 End
 
 Definition rows_of_def:
-  rows_of v [] = Prim (AtomOp Add) [] ∧
-  rows_of v ((cn,vs,b)::rest) =
+  rows_of v [] d =
+    (case d of
+     | NONE => Prim (AtomOp Add) []
+     | SOME (alts,e) => If (Disj v alts) e Fail) ∧
+  rows_of v ((cn,vs,b)::rest) d =
     If (Prim (IsEq cn (LENGTH vs) T) [Var v])
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b)
-      (Let (SOME v) (Var v) $ rows_of v rest)
+       (lets_for (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
+       (rows_of v rest d)
 End
 
 Definition exp_of_def:
@@ -64,12 +78,19 @@ Definition exp_of_def:
   exp_of (Box x) = Box (exp_of x) ∧
   exp_of (Force x) = Force (exp_of x) ∧
   exp_of (Delay x) = Delay (exp_of x) ∧
-  exp_of (Case e v rs) = Let (SOME (explode v)) (exp_of e)
-                           (rows_of (explode v) (MAP (λ(cn,vs,e).
-                              (explode cn, MAP explode vs, exp_of e)) rs)) ∧
+  exp_of (Case v rs d) = rows_of (explode v)
+                           (MAP (λ(cn,vs,e). (explode cn, MAP explode vs, exp_of e)) rs)
+                           (OPTION_MAP (λ(a,e). (MAP (explode ## I) a, exp_of e)) d) ∧
   (* monads *)
-  exp_of (Ret x) = Prim (Cons "Ret") [exp_of x] ∧
-  exp_of (Bind x y) = Prim (Cons "Bind") [Delay (exp_of x); Delay (exp_of y)]
+  exp_of (Ret x)        = Prim (Cons "Ret")    [exp_of x] ∧
+  exp_of (Raise x)      = Prim (Cons "Raise")  [exp_of x] ∧
+  exp_of (Bind x y)     = Prim (Cons "Bind")   [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Handle x y)   = Prim (Cons "Handle") [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Act x)        = Prim (Cons "Act")    [Delay (exp_of x)] ∧
+  exp_of (Length x)     = Prim (Cons "Length") [Delay (exp_of x)] ∧
+  exp_of (Alloc x y)    = Prim (Cons "Alloc")  [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Deref x y)    = Prim (Cons "Deref")  [Delay (exp_of x); Delay (exp_of y)] ∧
+  exp_of (Update x y z) = Prim (Cons "Update") [Delay (exp_of x); Delay (exp_of y); Delay (exp_of z)]
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
@@ -449,5 +470,44 @@ Proof
   \\ gvs [UNCURRY,AllCaseEqs()]
   \\ Cases_on ‘th1’ \\ fs [dest_Thunk_def]
 QED
+
+Definition cexp_wf_def[simp]:
+  cexp_wf ((Lam v x):env_cexp$cexp) = cexp_wf x ∧
+  cexp_wf (Force x) = cexp_wf x ∧
+  cexp_wf (Box x) = cexp_wf x ∧
+  cexp_wf (Delay x) = cexp_wf x ∧
+  cexp_wf (Length x) = cexp_wf x ∧
+  cexp_wf (Act x) = cexp_wf x ∧
+  cexp_wf (Ret x) = cexp_wf x ∧
+  cexp_wf (Raise x) = cexp_wf x ∧
+  cexp_wf (If x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
+  cexp_wf (Let _ x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Bind x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Handle x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Alloc x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Deref x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Update x y z) = (cexp_wf x ∧ cexp_wf y ∧ cexp_wf z) ∧
+  cexp_wf (App x y) = (cexp_wf x ∧ cexp_wf y) ∧
+  cexp_wf (Letrec fs x) =
+    (EVERY I (MAP (λ(_,x). cexp_wf x) fs) ∧ cexp_wf x ∧
+     ALL_DISTINCT (MAP (λx. explode (FST x)) fs) ∧
+     EVERY (λ(_,x). ∃n m. x = Lam n m ∨ x = Delay m) fs) ∧
+  cexp_wf (Case v rs x) =
+    (EVERY I (MAP (λ(_,_,x). cexp_wf x) rs) ∧ rs ≠ [] ∧
+     OPTION_ALL (λ(a,x). cexp_wf x ∧
+       DISJOINT (set (MAP (explode o FST) a)) monad_cns) x ∧
+     DISJOINT (set (MAP (explode o FST) rs)) monad_cns ∧
+     ALL_DISTINCT (MAP FST rs) ∧
+     ~MEM v (FLAT (MAP (FST o SND) rs))) ∧
+  cexp_wf (Prim p xs) =
+    (EVERY cexp_wf xs ∧
+     (case p of
+      | Cons m => explode m ∉ monad_cns
+      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1) ∧
+                    (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
+  cexp_wf _ = T
+Termination
+  WF_REL_TAC ‘measure cexp_size’
+End
 
 val _ = export_theory ();

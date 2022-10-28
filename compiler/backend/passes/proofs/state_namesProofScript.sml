@@ -51,10 +51,15 @@ Inductive compile_rel:
     compile_rel te se ⇒
     compile_rel (Letrec tfns te) (Letrec sfns se)) ∧
 
-[~Let:]
+[~Let_SOME:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  compile_rel (Let (SOME v) te1 te2) (Let (SOME v) se1 se2)) ∧
+
+[~Let_NONE:]
+  (compile_rel te1 se1 ∧
+   compile_rel te2 se2 ∧ ~(v IN freevars te2) ⇒
+  compile_rel (Let NONE te1 te2) (Let (SOME v) se1 se2)) ∧
 
 [~If:]
   (compile_rel te se ∧
@@ -64,11 +69,11 @@ Inductive compile_rel:
 
 [~Case:]
   (∀v te se tes ses.
-     compile_rel te se ∧
+     OPTREL (λ(a,x) (b,y). a = b ∧ compile_rel x y) te se ∧
      MAP FST tes = MAP FST ses ∧
      MAP (FST o SND) tes = MAP (FST o SND) ses ∧
      LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-  compile_rel (Case te v tes) (Case se v ses))
+  compile_rel (Case v tes te) (Case v ses se))
 
 End
 
@@ -138,6 +143,11 @@ Inductive cont_rel:
     compile_rel te se ⇒
     cont_rel (LetK tenv n te :: tk)
              (LetK senv n se :: sk)) ∧
+  (∀tenv senv v te se sk tk s.
+    cont_rel tk sk ∧ env_rel s tenv senv ∧ freevars te SUBSET s ∧
+    compile_rel te se ∧ v ∉ freevars te ⇒
+    cont_rel (LetK tenv NONE te :: tk)
+             (LetK senv (SOME v) se :: sk)) ∧
   (∀tenv senv te1 se1 te2 se2 sk tk s.
     cont_rel tk sk ∧ env_rel s tenv senv ∧ freevars (App ARB [te1;te2]) SUBSET s ∧
     compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
@@ -156,15 +166,7 @@ Inductive cont_rel:
   (∀sk tk.
     cont_rel tk sk ⇒
     cont_rel (RaiseK :: tk)
-             (RaiseK :: sk)) ∧
-  (∀sk tk v tenv senv s.
-    cont_rel tk sk ∧ env_rel s tenv senv ∧
-    freevars (Case (Lit ARB) v tes) SUBSET s ∧
-    MAP FST tes = MAP FST ses ∧
-    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
-    LIST_REL compile_rel (MAP (SND o SND) tes) (MAP (SND o SND) ses) ⇒
-    cont_rel (CaseK tenv v tes :: tk)
-             (CaseK senv v ses :: sk))
+             (RaiseK :: sk))
 End
 
 Definition rec_env_def:
@@ -246,6 +248,12 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem env_rel_SUBSET:
+  env_rel s env1 env2 ∧ t SUBSET s ⇒ env_rel t env1 env2
+Proof
+  fs [env_rel_def,SUBSET_DEF]
+QED
+
 Theorem get_atoms_thm:
   ∀tvs svs. LIST_REL v_rel tvs svs ⇒ get_atoms tvs = get_atoms svs
 Proof
@@ -323,19 +331,18 @@ Proof
       \\ disch_then $ irule_at Any
       \\ fs [])
     \\ qexists_tac ‘freevars e DELETE v’ \\ simp []
-    >-
-     (gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
-      \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
-      \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
-      >- (rw [Once v_rel_cases] \\ fs [env_rel_def]
-          \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
-          \\ rw [] \\ res_tac \\ fs [])
-      \\ rw [] \\ first_x_assum irule \\ fs []
-      \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
-      \\ last_x_assum assume_tac
-      \\ drule ALOOKUP_MEM
-      \\ disch_then $ irule_at Any
-      \\ fs []))
+    \\ gvs [env_rel_def,ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+    \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO,ALOOKUP_rec]
+    \\ strip_tac \\ Cases_on ‘MEM n' (MAP FST sfns)’ \\ fs []
+    >- (rw [Once v_rel_cases] \\ fs [env_rel_def]
+        \\ fs [EVERY_MEM,FORALL_PROD,LAMBDA_PROD]
+        \\ rw [] \\ res_tac \\ fs [])
+    \\ rw [] \\ first_x_assum irule \\ fs []
+    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ last_x_assum assume_tac
+    \\ drule ALOOKUP_MEM
+    \\ disch_then $ irule_at Any
+    \\ fs [])
   >~ [‘Alloc’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -437,6 +444,48 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
+Triviality LIST_REL_MAP_MAP:
+  ∀xs ys.
+    LIST_REL R (MAP f xs) (MAP g ys) =
+    LIST_REL (λx y. R (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS,MAP_EQ_CONS]
+QED
+
+Theorem find_match_list_SOME:
+  ∀ses tes.
+    find_match_list s tvs env1 tes te = SOME (env1',e1) ∧
+    MAP FST tes = MAP FST ses ∧
+    MAP (FST o SND) tes = MAP (FST o SND) ses ∧
+    LIST_REL v_rel tvs svs ∧
+    env_rel ((case te of NONE => ∅ | SOME (v4,e) => freevars e) ∪ {v} ∪
+           (BIGUNION (set (MAP (λ(s,vs,e). freevars e DIFF set vs) tes)) DELETE
+            v)) env1 env2 ∧
+    OPTREL (λ(a,x) (b,y). a = b ∧ compile_rel x y) te se ∧
+    LIST_REL (λa b. compile_rel (SND (SND a)) (SND (SND b))) tes ses ⇒
+    ∃env2' e2.
+      find_match_list s svs env2 ses se = SOME (env2',e2) ∧
+      env_rel (freevars e1) env1' env2' ∧ compile_rel e1 e2
+Proof
+  Induct
+  \\ fs [PULL_EXISTS,find_match_list_def,FORALL_PROD,MAP_EQ_CONS]
+  >-
+   (rpt CASE_TAC \\ gvs [] \\ rw [] \\ fs []
+    \\ CCONTR_TAC \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [env_rel_def] \\ metis_tac [])
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ rw [] \\ fs []
+  >- (irule env_rel_zip \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs [SUBSET_DEF])
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then irule
+  \\ irule env_rel_SUBSET
+  \\ first_x_assum $ irule_at Any
+  \\ fs [SUBSET_DEF]
+QED
+
 Theorem step_1_forward:
   ∀tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n 1 (tr,ts,tk) = (tr1,ts1,tk1) ∧
@@ -488,7 +537,7 @@ Proof
     >~ [‘Lam NONE’] >-
      (gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
       \\ once_rewrite_tac [Once v_rel_cases] \\ fs [env_rel_def])
-    >~ [‘Lam’] >-
+    >~ [‘Lam (SOME _)’] >-
      (gvs [step,AllCaseEqs(),env_rel_def,step_res_rel_cases]
       \\ once_rewrite_tac [Once v_rel_cases] \\ fs [env_rel_def])
     >~ [‘Raise’] >-
@@ -502,11 +551,14 @@ Proof
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
       \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
       \\ first_assum $ irule_at Any \\ fs [env_rel_def])
-    >~ [‘Let’] >-
+    >~ [‘Let NONE’] >-
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
       \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
-      \\ first_assum $ irule_at Any \\ fs [env_rel_def,freevars_def]
-      \\ Cases_on ‘x_opt’ \\ fs [freevars_def])
+      \\ first_assum $ irule_at Any \\ fs [env_rel_def,freevars_def])
+    >~ [‘Let (SOME v)’] >-
+     (gvs [step,AllCaseEqs(),step_res_rel_cases]
+      \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
+      \\ first_assum $ irule_at Any \\ fs [env_rel_def,freevars_def])
     >~ [‘If’] >-
      (gvs [step,AllCaseEqs(),step_res_rel_cases]
       \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
@@ -519,11 +571,35 @@ Proof
       \\ strip_tac \\ Cases_on ‘MEM n (MAP FST sfns)’ \\ fs []
       \\ rw [Once v_rel_cases] \\ fs [env_rel_def])
     >~ [‘Case’] >-
-     (gvs [step,AllCaseEqs(),step_res_rel_cases]
-      \\ once_rewrite_tac [Once cont_rel_cases] \\ fs []
-      \\ first_assum $ irule_at Any
-      \\ conj_tac >- fs [SUBSET_DEF]
-      \\ fs [env_rel_def] \\ metis_tac [])
+     (gvs [step]
+      \\ Cases_on ‘ALOOKUP env1 v’ \\ fs []
+      \\ rename [‘ALOOKUP env1 v = SOME v1’]
+      \\ ‘∃v2. ALOOKUP env2 v = SOME v2 ∧ v_rel v1 v2’ by
+        (fs [env_rel_def] \\ res_tac \\ fs [])
+      \\ gvs []
+      \\ gvs [find_match_def]
+      \\ ‘ses = [] ⇔ tes = []’ by (Cases_on ‘ses’ \\ Cases_on ‘tes’ \\ gvs [])
+      \\ gvs [] \\ IF_CASES_TAC
+      >- (gvs [] \\ simp [Once step_res_rel_cases])
+      \\ gvs []
+      \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+      \\ simp [Once v_rel_cases]
+      \\ strip_tac \\ gvs []
+      \\ TRY (simp [Once step_res_rel_cases] \\ NO_TAC)
+      \\ ‘ts1 = ts ∧ tk = tk1’ by gvs [AllCaseEqs()] \\ gvs []
+      \\ qpat_assum ‘OPTREL _ _ _’ $ irule_at Any
+      \\ Cases_on ‘find_match_list s tvs env1 tes te’ \\ fs []
+      \\ PairCases_on ‘x’ \\ gvs []
+      \\ drule_then drule find_match_list_SOME \\ fs []
+      \\ disch_then $ drule_then drule
+      \\ disch_then $ qspec_then ‘se’ mp_tac
+      \\ reverse impl_tac
+      >- (rw [] \\ gvs [] \\ simp [Once step_res_rel_cases])
+      \\ conj_tac
+      >- (Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs [] \\ gvs [UNCURRY])
+      \\ fs [LIST_REL_MAP_MAP]
+      \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+      \\ fs [])
     \\ fs [step]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
     \\ rw [] \\ fs []
@@ -556,36 +632,15 @@ Proof
     \\ simp [Once v_rel_cases] \\ rw []
     \\ fs [step_res_rel_cases]
     \\ gvs [env_rel_def,SUBSET_DEF])
+  >~ [‘LetK _ NONE’] >-
+   (gvs [step,step_res_rel_cases]
+    \\ irule env_rel_cons1 \\ simp []
+    \\ gvs [env_rel_def,SUBSET_DEF])
   >~ [‘LetK _ n’] >-
    (Cases_on ‘n’ \\ gvs [step,step_res_rel_cases]
     >- gvs [env_rel_def,SUBSET_DEF]
     \\ irule env_rel_cons \\ simp []
     \\ first_assum $ irule_at Any \\ fs [])
-  >~ [‘CaseK _ v’] >-
-   (Cases_on ‘tes’ \\ gvs [step,return_def]
-    \\ PairCases_on ‘h’ \\ fs [step]
-    \\ Cases_on ‘ses’ \\ gvs []
-    \\ PairCases_on ‘h’ \\ fs [step]
-    \\ IF_CASES_TAC \\ fs []
-    \\ gvs [AllCaseEqs()]
-    \\ qpat_x_assum ‘v_rel (Constructor _ _) _’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    >-
-     (fs [step_res_rel_cases,PULL_EXISTS]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-      \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
-      \\ irule env_rel_zip \\ fs []
-      \\ irule_at Any env_rel_cons
-      \\ first_assum $ irule_at $ Pos hd
-      \\ simp [Once v_rel_cases]
-      \\ qexists_tac ‘freevars h2 DIFF set h1’ \\ fs []
-      \\ fs [SUBSET_DEF])
-    \\ fs [step_res_rel_cases,PULL_EXISTS]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ simp [Once v_rel_cases]
-    \\ simp [Once cont_rel_cases]
-    \\ first_assum $ irule_at $ Pos hd
-    \\ fs [SUBSET_DEF])
   \\ rename [‘AppK’]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
   >-

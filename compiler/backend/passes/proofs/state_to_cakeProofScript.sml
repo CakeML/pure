@@ -218,9 +218,9 @@ Inductive op_rel:
 End
 
 Definition pat_row_def:
-  pat_row sv cn vs =
-    Pas ((if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
-          (MAP (Pvar o var_prefix) vs)) (var_prefix sv)
+  pat_row cn vs =
+    (if cn = "" then Pcon NONE else Pcon (SOME $ Short cn))
+      (MAP (Pvar o var_prefix) vs)
 End
 
 Inductive compile_rel:
@@ -241,7 +241,7 @@ Inductive compile_rel:
     ⇒ compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short cn) ces)) ∧
 
 [~Var:]
-  compile_rel cnenv (stateLang$Var v) (Var (Short (var_prefix v))) ∧
+  compile_rel cnenv (stateLang$Var v) (var (var_prefix v)) ∧
 
 [~App:]
   (op_rel sop cop ∧ LIST_REL (compile_rel cnenv) ses ces
@@ -307,18 +307,31 @@ Inductive compile_rel:
   (LIST_REL (compile_rel cnenv) [se;se1;se2] [ce;ce1;ce2]
     ⇒ compile_rel cnenv (If se se1 se2) (If ce ce1 ce2)) ∧
 
-[~Case:]
-  (compile_rel cnenv se ce ∧
-   EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+[~CaseNone:]
+  (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
     ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
    LIST_REL
-    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row sv cn vs)
+    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
     scss ccss
-    ⇒ compile_rel cnenv (Case se sv scss) (Mat ce ccss)) ∧
+    ⇒ compile_rel cnenv (Case sv scss NONE)
+                        (Mat (var (var_prefix sv)) ccss)) ∧
+
+[~CaseSome:]
+  (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
+   LIST_REL
+    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
+    scss ccss ∧
+   EVERY (λ(cn,ar). ∃stamp'.
+    ALOOKUP cnenv cn = SOME (stamp',ar) ∧ same_type stamp' stamp) scany ∧
+   compile_rel cnenv suse cuse
+    ⇒ compile_rel cnenv (Case sv scss (SOME (scany, suse)))
+                        (Mat (var (var_prefix sv)) (ccss ++ [Pany,cuse]))) ∧
 
 [~TupleCase:]
-  (compile_rel cnenv se ce ∧ compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
-    ⇒ compile_rel cnenv (Case se sv ["",vs,sce]) (Mat ce [(pat_row sv "" vs, cce)])) ∧
+  (compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
+    ⇒ compile_rel cnenv (stateLang$Case sv ["",vs,sce] NONE)
+                        (Mat (var (var_prefix sv)) [(pat_row "" vs, cce)])) ∧
 
 [~Raise:]
   (compile_rel cnenv se ce
@@ -575,24 +588,6 @@ Inductive cont_rel:
     ⇒ cont_rel cnenv (IfK senv se1 se2 :: sk)
                      ((Cif ce1 ce2, cenv) :: ck)) ∧
 
-[~CaseK:]
-  (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
-    ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
-   LIST_REL
-    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row sv cn vs)
-    scss ccss ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
-   (ccont ≠ Cmat ⇒ ccont = Cmat_check)
-    ⇒ cont_rel cnenv (CaseK senv sv scss :: sk)
-                     ((ccont ccss bind_exn_v, cenv) :: ck)) ∧
-
-[~TupleCaseK:]
-  (compile_rel cnenv se ce ∧ compile_rel cnenv sce cce ∧ ALL_DISTINCT vs ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
-   (ccont ≠ Cmat ⇒ ccont = Cmat_check)
-    ⇒ cont_rel cnenv (CaseK senv sv ["",vs,sce] :: sk)
-                     ((ccont [(pat_row sv "" vs, cce)] bind_exn_v, cenv) :: ck)) ∧
-
 [~RaiseK:]
   (cont_rel cnenv sk ck
     ⇒ cont_rel cnenv (RaiseK :: sk) ((Craise, cenv) :: ck)) ∧
@@ -846,22 +841,26 @@ Proof
 QED
 
 Theorem step_Case_no_error:
-  (∀n st k. step_n n (Val sv,sst,CaseK senv v scss::sk) ≠ (Error,st,k))
-  ⇒ ∃cn vs pvs se.
-      sv = Constructor cn vs ∧
-      ALOOKUP scss cn = SOME (pvs, se) ∧
-      LENGTH pvs = LENGTH vs
+  (∀n st k. step_n n (Exp senv $ stateLang$Case sv scss suse, sst, sk) ≠ (Error,st,k))
+  ⇒ ∃cn vs.
+      ALOOKUP senv sv = SOME $ Constructor cn vs ∧
+      (∃pvs se. ALOOKUP scss cn = SOME (pvs, se) ∧ LENGTH pvs = LENGTH vs) ∨
+      (ALOOKUP scss cn = NONE ∧
+       ∃pany se. suse = SOME (pany, se) ∧ ALOOKUP pany cn = SOME (LENGTH vs))
 Proof
-  Induct_on `scss` >> rw[] >- (qexists_tac `1` >> simp[sstep]) >>
-  pop_assum $ qspec_then `SUC n` $ mp_tac o GEN_ALL >> rw[step_n_SUC, sstep] >>
-  `∃cn vs. sv = Constructor cn vs` by (
-    CCONTR_TAC >> gvs[] >> PairCases_on `h` >> Cases_on `sv` >> gvs[sstep] >>
-    pop_assum mp_tac >> simp[] >> qexists0 >> simp[]) >>
-  rw[] >> last_x_assum mp_tac >> PairCases_on `h` >> simp[sstep] >>
-  TOP_CASE_TAC >> gvs[]
-  >- (disch_then $ qspec_then `0` mp_tac >> simp[])
+  Induct_on `scss` >> rw[]
+  >- (
+    Cases_on `suse` >> gvs[] >>
+    pop_assum $ qspec_then `1` mp_tac >> simp[sstep, find_match_def] >>
+    CASE_TAC >> simp[]
+    ) >>
+  pop_assum $ qspec_then `SUC n` $ mp_tac o GEN_ALL >> simp[step_n_SUC, sstep] >>
+  TOP_CASE_TAC >> simp[]
   >- (disch_then $ qspec_then `0` mp_tac >> simp[]) >>
-  TOP_CASE_TAC >> simp[] >>  TOP_CASE_TAC >> gvs[] >> qexists0 >> simp[]
+  simp[find_match_def] >> TOP_CASE_TAC >> simp[]
+  >- (disch_then $ qspec_then `0` mp_tac >> simp[]) >>
+  gvs[AllCaseEqs()] >> namedCases_on `x'` ["env1 e1"] >> gvs[SF DNF_ss] >>
+  gvs[find_match_list_SOME] >> strip_tac >> rpt $ goal_assum drule
 QED
 
 Theorem pats_bindings_MAP_Pvar[simp]:
@@ -872,7 +871,7 @@ QED
 
 Theorem pat_bindings_pat_row[simp]:
   ∀vs cn v l.
-    pat_bindings (pat_row v cn vs) l = REVERSE (MAP var_prefix (v::vs)) ++ l
+    pat_bindings (pat_row cn vs) l = REVERSE (MAP var_prefix vs) ++ l
 Proof
   Induct >> rw[pat_row_def, astTheory.pat_bindings_def] >> simp[MAP_REVERSE]
 QED
@@ -1098,14 +1097,11 @@ Proof
 QED
 
 Theorem env_rel_pmatch:
-  env_rel cnenv senv cenv ∧
-  v_rel cnenv sv cv ∧ LIST_REL (v_rel cnenv) svs cvs ∧
-  LENGTH pvs = LENGTH cvs
+  env_rel cnenv senv cenv ∧ LIST_REL (v_rel cnenv) svs cvs ∧ LENGTH pvs = LENGTH cvs
   ⇒ env_rel cnenv
-      (REVERSE (ZIP (pvs,svs)) ++ [(x,sv)] ++ senv)
+      (REVERSE (ZIP (pvs,svs)) ++ senv)
       (cenv with v :=
-        nsAppend (alist_to_ns (REVERSE (ZIP (MAP var_prefix pvs,cvs))
-          ++ [(var_prefix x,cv)])) cenv.v)
+        nsAppend (alist_to_ns (REVERSE (ZIP (MAP var_prefix pvs,cvs)))) cenv.v)
 Proof
   rw[] >> irule_at Any env_rel_nsAppend >> simp[] >>
   simp[namespacePropsTheory.nsLookup_alist_to_ns_some,
@@ -1115,9 +1111,7 @@ Proof
     simp[GSYM MAP_REVERSE, LAMBDA_PROD] >>
     DEP_REWRITE_TAC[ALOOKUP_MAP_MAP] >> simp[] >>
     DEP_REWRITE_TAC[MAP_ID_ON] >> simp[FORALL_PROD] >>
-    gvs[REVERSE_ZIP] >> every_case_tac >> gvs[]
-    >- (gvs[ALOOKUP_NONE] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, MEM_MAP])
-    >- (gvs[ALOOKUP_NONE] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, MEM_MAP]) >>
+    gvs[REVERSE_ZIP] >> every_case_tac >> gvs[] >>
     drule $ INST_TYPE [beta |-> ``:semanticPrimitives$v``] ALOOKUP_SOME_EL_2 >>
     disch_then $ qspec_then `ZIP (REVERSE pvs,REVERSE cvs)` mp_tac >>
     simp[MAP_ZIP] >> strip_tac >> gvs[EL_ZIP, LIST_REL_EL_EQN, EL_REVERSE]
@@ -1132,20 +1126,12 @@ Proof
     disch_then $ qspec_then `ZIP (REVERSE pvs,REVERSE cvs)` mp_tac >>
     simp[MAP_ZIP] >> strip_tac >> gvs[EL_ZIP, LIST_REL_EL_EQN, EL_REVERSE]
     )
-  >- (every_case_tac >> gvs[])
-  >- (
-    every_case_tac >> gvs[] >> imp_res_tac ALOOKUP_MEM >>
-    gvs[MEM_ZIP, MEM_MAP, EL_MAP] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[ALOOKUP_NONE, MEM_MAP, MEM_ZIP]
-    )
 QED
 
 Theorem env_ok_pmatch:
-  env_ok cenv ∧
-  LENGTH pvs = LENGTH cvs
+  env_ok cenv ∧ LENGTH pvs = LENGTH cvs
   ⇒ env_ok (cenv with v :=
-      nsAppend (alist_to_ns (REVERSE (ZIP (MAP var_prefix pvs,cvs))
-        ++ [(var_prefix v,cv)])) cenv.v)
+      nsAppend (alist_to_ns (REVERSE (ZIP (MAP var_prefix pvs,cvs)))) cenv.v)
 Proof
   rw[] >> irule env_ok_nsAppend_var_prefix >>
   rw[namespacePropsTheory.nsLookup_alist_to_ns_some] >>
@@ -1159,7 +1145,7 @@ Theorem env_ok_imps = iffLR env_ok_def |> Q.ID_SPEC |> SRULE [IMP_CONJ_THM];
 
 Theorem can_pmatch_all_tuple:
   LENGTH pvs = LENGTH cvs ⇒
-  can_pmatch_all cenv.c st [pat_row c "" pvs] (Conv NONE cvs)
+  can_pmatch_all cenv.c st [pat_row "" pvs] (Conv NONE cvs)
 Proof
   rw[can_pmatch_all_def, pat_row_def, pmatch_def] >>
   rename1 `_ binding ≠ _` >> pop_assum mp_tac >>
@@ -1172,7 +1158,7 @@ Theorem pmatch_no_match:
   ALOOKUP cnenv cn = SOME (tyid,LENGTH cvs) ∧
   ALOOKUP cnenv cn' = SOME (tyid',LENGTH vs) ∧
   same_type tyid' tyid ∧ cn' ≠ cn ⇒
-  pmatch cenv.c cst (pat_row v cn' vs) (Conv (SOME tyid) cvs) [] = No_match
+  pmatch cenv.c cst (pat_row cn' vs) (Conv (SOME tyid) cvs) [] = No_match
 Proof
   rw[pat_row_def, pmatch_def] >> gvs[cnenv_rel_def] >- metis_tac[] >>
   qpat_x_assum `∀cn. _` imp_res_tac >> simp[] >>
@@ -1183,26 +1169,85 @@ Theorem pmatch_match:
   cnenv_rel cnenv cenv.c ∧
   ALOOKUP cnenv cn = SOME (tyid, LENGTH cvs) ∧
   LENGTH pvs = LENGTH cvs ⇒
-  pmatch cenv.c cst (pat_row v cn pvs) (Conv (SOME tyid) cvs) [] =
-    Match $ REVERSE (ZIP (MAP var_prefix pvs,cvs)) ++
-      [(var_prefix v, Conv (SOME tyid) cvs)]
+  pmatch cenv.c cst (pat_row cn pvs) (Conv (SOME tyid) cvs) [] =
+    Match $ REVERSE (ZIP (MAP var_prefix pvs,cvs))
 Proof
   rw[pat_row_def, pmatch_def] >> gvs[cnenv_rel_def] >- metis_tac[] >>
   first_x_assum drule >> strip_tac >> simp[same_ctor_def] >>
-  rename1 `pmatch_list _ _ _ _ foo` >> qpat_x_assum `LENGTH _ = _` mp_tac >>
-  map_every qid_spec_tac [`foo`,`pvs`,`cvs`] >> Induct >> rw[pmatch_def] >>
-  Cases_on `pvs` >> gvs[] >> simp[pmatch_def]
+  qsuff_tac `∀cvs pvs foo. LENGTH pvs = LENGTH cvs ⇒
+    pmatch_list cenv.c cst (MAP (Pvar ∘ var_prefix) pvs) cvs foo =
+      Match (REVERSE (ZIP (MAP var_prefix pvs,cvs)) ++ foo)` >- rw[] >>
+  Induct >> rw[pmatch_def] >> Cases_on `pvs'` >> gvs[] >> simp[pmatch_def]
 QED
 
 Theorem pmatch_tuple:
   LENGTH pvs = LENGTH cvs ⇒
-  pmatch cenv cst (pat_row v "" pvs) (Conv NONE cvs) [] =
-    Match $ REVERSE (ZIP (MAP var_prefix pvs,cvs)) ++ [(var_prefix v, Conv NONE cvs)]
+  pmatch cenv cst (pat_row "" pvs) (Conv NONE cvs) [] =
+    Match $ REVERSE (ZIP (MAP var_prefix pvs,cvs))
 Proof
   rw[pat_row_def, pmatch_def] >>
-  rename1 `pmatch_list _ _ _ _ foo` >> qpat_x_assum `LENGTH _ = _` mp_tac >>
-  map_every qid_spec_tac [`foo`,`pvs`,`cvs`] >> Induct >> rw[pmatch_def] >>
-  Cases_on `pvs` >> gvs[] >> simp[pmatch_def]
+  qsuff_tac `∀cvs pvs foo. LENGTH pvs = LENGTH cvs ⇒
+    pmatch_list cenv cst (MAP (Pvar ∘ var_prefix) pvs) cvs foo =
+      Match (REVERSE (ZIP (MAP var_prefix pvs,cvs)) ++ foo)` >- rw[] >>
+  Induct >> rw[pmatch_def] >> Cases_on `pvs'` >> gvs[] >> simp[pmatch_def]
+QED
+
+Theorem step1_rel_Case_match:
+  LIST_REL
+    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
+    scss ccss ⇒
+  EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' tyid) scss ∧
+  ALOOKUP scss cn = SOME (pvs,sce) ∧
+  ALOOKUP cnenv cn = SOME (tyid, LENGTH pvs) ∧
+  LENGTH pvs = LENGTH cvs ∧
+  cnenv_rel cnenv cenv.c
+  ⇒ ∃n cce. cstep_n n (Estep (cenv,cst,fp,Val (Conv (SOME tyid) cvs),
+                                (Cmat (ccss ++ any) bind_exn_v,cenv)::ck)) =
+              Estep (cenv with v := nsAppend
+                      (alist_to_ns (REVERSE (ZIP (MAP var_prefix pvs, cvs)))) cenv.v,
+                     cst,fp,Exp cce,ck) ∧
+          compile_rel cnenv sce cce
+Proof
+  Induct_on `LIST_REL` >> rw[] >> ntac 2 (pairarg_tac >> gvs[]) >>
+  qrefine `SUC n` >> simp[cstep] >>
+  reverse IF_CASES_TAC >> gvs[]
+  >- (
+    irule FALSITY >> pop_assum mp_tac >> simp[] >>
+    irule ALL_DISTINCT_MAP_INJ >> simp[var_prefix_def]
+    ) >>
+  gvs[AllCaseEqs()]
+  >- (drule_all pmatch_match >> strip_tac >> simp[] >> qexists0 >> simp[]) >>
+  drule_all pmatch_no_match >> strip_tac >> simp[] >>
+  goal_assum drule >> simp[]
+QED
+
+Theorem step1_rel_Case_underscore:
+  LIST_REL
+    (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
+    scss ccss ⇒
+  EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' tyid) scss ∧
+  ALOOKUP scss cn = NONE ∧
+  ALOOKUP cnenv cn = SOME (tyid, LENGTH cvs) ∧
+  cnenv_rel cnenv cenv.c
+  ⇒ ∃n. cstep_n n (Estep (cenv,cst,fp,Val (Conv (SOME tyid) cvs),
+                            (Cmat (ccss ++ [Pany,cuse]) bind_exn_v,cenv)::ck)) =
+              Estep (cenv,cst,fp,Exp cuse,ck)
+Proof
+  Induct_on `LIST_REL` >> rw[]
+  >- (
+    qrefine `SUC n` >> simp[cstep, astTheory.pat_bindings_def, pmatch_def] >>
+    qexists0 >> simp[]
+    ) >>
+  ntac 2 (pairarg_tac >> gvs[]) >> gvs[AllCaseEqs()] >>
+  qrefine `SUC n` >> simp[cstep] >>
+  reverse IF_CASES_TAC >> gvs[]
+  >- (
+    irule FALSITY >> pop_assum mp_tac >> simp[] >>
+    irule ALL_DISTINCT_MAP_INJ >> simp[var_prefix_def]
+    ) >>
+  drule_all pmatch_no_match >> strip_tac >> simp[]
 QED
 
 
@@ -1210,17 +1255,20 @@ QED
 
 (* `ALL_DISTINCT vs` not necessary here, but useful for matching against *)
 Theorem compile_rel_can_pmatch_all:
-  ∀scss ccss c cn stamp id vs cnenv (cenv:semanticPrimitives$v sem_env) st.
+  ∀scss ccss c cn stamp id vs cnenv (cenv:semanticPrimitives$v sem_env) st
+    cvs svs cuspat.
     LIST_REL
-      (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row c cn vs)
+      (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
       scss ccss ⇒
     EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
       ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
     cnenv_rel cnenv cenv.c ∧
-    v_rel cnenv (Constructor cn svs) (Conv (SOME stamp) cvs)
-  ⇒ can_pmatch_all cenv.c st (MAP FST ccss) (Conv (SOME stamp) cvs)
+    v_rel cnenv (Constructor cn svs) (Conv (SOME stamp) cvs) ∧
+    (cuspat ≠ [] ⇒ cuspat = [Pany])
+  ⇒ can_pmatch_all cenv.c st (MAP FST ccss ++ cuspat) (Conv (SOME stamp) cvs)
 Proof
-  Induct >> rw[] >> simp[can_pmatch_all_def] >>
+  Induct >> rw[] >> simp[can_pmatch_all_def]
+  >- (Cases_on `cuspat` >> gvs[can_pmatch_all_def, pmatch_def]) >>
   ntac 2 (pairarg_tac >> gvs[]) >> rename1 `compile_rel _ se _` >> gvs[SF DNF_ss] >>
   last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
   simp[pat_row_def] >> gvs[cnenv_rel_def] >>
@@ -1451,6 +1499,110 @@ Proof
       qexists0 >> simp[step_rel_cases] >> goal_assum drule >>
       simp[Once cont_rel_cases, list_to_v_def, list_type_num_def] >>
       irule_at Any EQ_REFL >> simp[EVERY2_REVERSE1]
+      )
+    >>~ [`Cmat_check`]
+    >- ( (* Case - None *)
+      ntac 3 (TOP_CASE_TAC >> gvs[]) >> gvs[find_match_SOME, find_match_list_SOME] >>
+      qrefine `SUC n` >> simp[cstep] >> drule_all env_rel_lookup >> strip_tac >> gvs[]
+      >- (
+        irule FALSITY >> imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+        first_x_assum drule >> strip_tac >> gvs[] >>
+        gvs[env_rel_def, cnenv_rel_def] >> metis_tac[]
+        ) >>
+      rename1 `_ = LENGTH svs` >> rename1 `ALOOKUP scss _ = SOME (_,sce)` >>
+      `same_type tyid stamp` by (
+        gvs[EVERY_MEM] >> imp_res_tac ALOOKUP_MEM >> last_x_assum drule >> simp[]) >>
+      `EVERY (λ(cn,vs,se). ALL_DISTINCT vs ∧
+         ∃stamp'. ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧
+            same_type stamp' tyid) scss` by (
+          gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+          first_x_assum drule >> rw[] >> simp[] >>
+          metis_tac[evaluatePropsTheory.same_type_trans,
+                    evaluatePropsTheory.same_type_sym]) >>
+      pop_assum mp_tac >> pop_assum kall_tac >>
+      qpat_x_assum `EVERY _ _` kall_tac >> strip_tac >>
+      drule compile_rel_can_pmatch_all >> disch_then drule >> simp[] >>
+      rpt $ disch_then $ drule_at Any >> gvs[] >>
+      disch_then $ qspecl_then [`cenv`,`cst`,`[]`] mp_tac >>
+      impl_keep_tac >- gvs[env_rel_def] >> strip_tac >> gvs[] >>
+      qrefine `SUC n` >> simp[cstep] >>
+      drule step1_rel_Case_match >> rpt $ disch_then $ drule_at Any >>
+      disch_then $ qspecl_then [`fp`,`cvs`,`cst`,`ck`,`[]`] mp_tac >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >> strip_tac >> gvs[] >>
+      qexists `n` >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
+      )
+    >- ( (* Case - Some *)
+      ntac 3 (TOP_CASE_TAC >> gvs[]) >>
+      qrefine `SUC n` >> simp[cstep] >> drule_all env_rel_lookup >> strip_tac >> gvs[] >>
+      gvs[find_match_SOME, find_match_list_SOME]
+      >>~- (
+        [`ALOOKUP _ ""`],
+          irule FALSITY >> imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+          first_x_assum drule >> strip_tac >> gvs[] >>
+          gvs[env_rel_def, cnenv_rel_def] >> metis_tac[]
+        )
+      >- (
+        rename1 `_ = LENGTH svs` >> rename1 `ALOOKUP scss _ = SOME (_,sce)` >>
+        `same_type tyid stamp` by (
+          gvs[EVERY_MEM] >> imp_res_tac ALOOKUP_MEM >> last_x_assum drule >> simp[]) >>
+        `EVERY (λ(cn,vs,se). ALL_DISTINCT vs ∧
+           ∃stamp'. ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧
+              same_type stamp' tyid) scss` by (
+            gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+            first_x_assum drule >> rw[] >> simp[] >>
+            metis_tac[evaluatePropsTheory.same_type_trans,
+                      evaluatePropsTheory.same_type_sym]) >>
+        pop_assum mp_tac >> pop_assum kall_tac >>
+        qpat_x_assum `EVERY _ _` kall_tac >> strip_tac >>
+        drule compile_rel_can_pmatch_all >> disch_then drule >> simp[] >>
+        rpt $ disch_then $ drule_at Any >> gvs[] >>
+        disch_then $ qspecl_then [`cenv`,`cst`,`[Pany]`] mp_tac >>
+        impl_keep_tac >- gvs[env_rel_def] >> strip_tac >> gvs[] >>
+        qrefine `SUC n` >> simp[cstep] >>
+        drule step1_rel_Case_match >> rpt $ disch_then $ drule_at Any >>
+        disch_then $ qspecl_then [`fp`,`cvs`,`cst`,`ck`,`[Pany,cuse]`] mp_tac >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[] >> strip_tac >> gvs[] >>
+        qexists `n` >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+        irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
+        )
+      >- (
+        `same_type tyid stamp` by (
+          gvs[EVERY_MEM] >> imp_res_tac ALOOKUP_MEM >> last_x_assum drule >> simp[]) >>
+        `EVERY (λ(cn,vs,se). ALL_DISTINCT vs ∧
+           ∃stamp'. ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧
+              same_type stamp' tyid) scss` by (
+            gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+            first_x_assum drule >> rw[] >> simp[] >>
+            metis_tac[evaluatePropsTheory.same_type_trans,
+                      evaluatePropsTheory.same_type_sym]) >>
+        pop_assum mp_tac >> pop_assum kall_tac >>
+        qpat_x_assum `EVERY _ _` kall_tac >> strip_tac >>
+        drule compile_rel_can_pmatch_all >> disch_then drule >> simp[] >>
+        rpt $ disch_then $ drule_at Any >> gvs[] >>
+        disch_then $ qspecl_then [`cenv`,`cst`,`[Pany]`] mp_tac >>
+        impl_keep_tac >- gvs[env_rel_def] >> strip_tac >> gvs[] >>
+        qrefine `SUC n` >> simp[cstep] >>
+        drule step1_rel_Case_underscore >> rpt $ disch_then $ drule_at Any >>
+        disch_then $ qspecl_then [`fp`,`cvs`,`cuse`,`cst`,`ck`] mp_tac >>
+        imp_res_tac LIST_REL_LENGTH >> gvs[] >> strip_tac >> gvs[] >>
+        qexists `n` >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any
+        )
+      )
+    >- ( (* TupleCase *)
+      ntac 3 (TOP_CASE_TAC >> gvs[]) >> gvs[find_match_SOME, find_match_list_SOME] >>
+      qrefine `SUC n` >> simp[cstep] >>
+      drule_all env_rel_lookup >> strip_tac >> simp[] >>
+      qrefine `SUC n` >> simp[cstep] >> gvs[] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[can_pmatch_all_tuple] >>
+      qrefine `SUC n` >> simp[cstep] >>
+      reverse IF_CASES_TAC >> gvs[pmatch_tuple]
+      >- (
+        irule FALSITY >> pop_assum mp_tac >> simp[] >>
+        irule ALL_DISTINCT_MAP_INJ >> simp[var_prefix_def]
+        ) >>
+      qexists0 >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
+      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
       ) >>
     qexists0 >> simp[]
     >- simp[step_rel_cases, SF SFY_ss] (* IntLit *)
@@ -1528,15 +1680,6 @@ Proof
       simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
       simp[Once cont_rel_cases]
       )
-    >- ( (* Case *)
-      IF_CASES_TAC >> gvs[] >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-      simp[Once cont_rel_cases] >> disj1_tac >>
-      irule_at Any EQ_REFL >> simp[SF SFY_ss]
-      )
-    >- ( (* TupleCase *)
-      IF_CASES_TAC >> gvs[] >> simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-      simp[Once cont_rel_cases] >> disj2_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss]
-      )
     >- ( (* Raise *)
       simp[step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
       simp[Once cont_rel_cases]
@@ -1566,15 +1709,6 @@ Proof
       ntac 2 (qrefine `SUC n` >> simp[cstep]) >>
       qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
       )
-    >>~ [`Cmat_check`]
-    >- ( (* CaseK *)
-      Cases_on `ccont = Cmat_check` >> gvs[cstep] >>
-      qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
-      )
-    >- ( (* TupleCaseK *)
-      Cases_on `ccont = Cmat_check` >> gvs[cstep] >>
-      qexists0 >> simp[] >> simp[step_rel_cases, SF SFY_ss]
-      )
     >~ [`Exp`,`Pvar`]
     >- ( (* HandleK *)
       qrefine `SUC n` >> simp[cstep] >>
@@ -1593,89 +1727,6 @@ Proof
   reverse TOP_CASE_TAC >> gvs[Once cont_rel_cases, sstep, cstep]
   >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* HandleK *)
   >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* RaiseK *)
-  >- ( (* CaseK *)
-    rename1 `CaseK senv v scss :: sk` >>
-    drule step_Case_no_error >> strip_tac >> gvs[]
-    >- (
-      irule FALSITY >> imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
-      first_x_assum drule >> strip_tac >> gvs[] >>
-      gvs[env_rel_def, cnenv_rel_def] >> metis_tac[]
-      ) >>
-    rename1 `_ = LENGTH svs` >> rename1 `ALOOKUP _ _ = SOME (_,sce)` >>
-    `same_type tyid stamp` by (
-      gvs[EVERY_MEM] >> drule ALOOKUP_MEM >> strip_tac >>
-      first_x_assum drule >> simp[]) >>
-    `EVERY (λ(cn,vs,se). ALL_DISTINCT vs ∧
-       ∃stamp'. ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧
-          same_type stamp' tyid) scss` by (
-        gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
-        first_x_assum drule >> rw[] >> simp[] >>
-        metis_tac[evaluatePropsTheory.same_type_trans,
-                  evaluatePropsTheory.same_type_sym]) >>
-    pop_assum mp_tac >> pop_assum kall_tac >>
-    qpat_x_assum `EVERY _ _` kall_tac >> strip_tac >>
-    drule compile_rel_can_pmatch_all >> disch_then drule >> simp[] >>
-    rpt $ disch_then $ drule_at Any >>
-    disch_then $ qspecl_then [`cenv'`,`cst`] mp_tac >>
-    impl_keep_tac >- gvs[env_rel_def] >> strip_tac >>
-    last_x_assum $ qspec_then `SUC n` $ assume_tac o GEN_ALL >>
-    TOP_CASE_TAC >> gvs[] >>
-    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
-    IF_CASES_TAC >> gvs[step_n_SUC, sstep]
-    >- (first_x_assum $ qspec_then `0` assume_tac >> gvs[])
-    >- (first_x_assum $ qspec_then `0` assume_tac >> gvs[]) >>
-    reverse $ IF_CASES_TAC
-    >- ( (* No match *)
-      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-      drule_all pmatch_no_match >> strip_tac >>
-      Cases_on `ccont = Cmat_check` >> gvs[] >> simp[cstep]
-      >- (
-        qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
-        simp[] >> qexists0 >> simp[Once step_rel_cases] >>
-        rpt $ goal_assum $ drule_at Any >> simp[Once cont_rel_cases] >>
-        disj1_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss]
-        )
-      >- (
-        simp[] >> qexists0 >> simp[Once step_rel_cases] >>
-        rpt $ goal_assum $ drule_at Any >> simp[Once cont_rel_cases] >>
-        disj1_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss]
-        )
-      ) >>
-    pop_assum SUBST_ALL_TAC >> gvs[] >>
-    drule pmatch_match >>
-    disch_then $ qspecl_then [`v`,`stamp'`,`pvs`,`cvs`,`cst`,`cn`] mp_tac >>
-    simp[] >> imp_res_tac LIST_REL_LENGTH >> simp[] >> strip_tac >>
-    Cases_on `ccont = Cmat_check` >> gvs[] >> simp[cstep]
-    >- (
-      qrefine `SUC n` >> simp[cstep_n_def, cstep] >>
-      simp[] >> qexists0 >> simp[Once step_rel_cases] >>
-      rpt $ goal_assum $ drule_at Any >>
-      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
-      )
-    >- (
-      simp[] >> qexists0 >> simp[Once step_rel_cases] >>
-      rpt $ goal_assum $ drule_at Any >>
-      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
-      )
-    )
-  >- ( (* TupleCaseK *)
-    IF_CASES_TAC >> gvs[]
-    >- (last_x_assum $ qspec_then `1` assume_tac >> gvs[sstep]) >>
-    drule step_Case_no_error >> strip_tac >> gvs[] >>
-    imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-    Cases_on `ccont = Cmat_check` >> gvs[cstep]
-    >- (
-      simp[can_pmatch_all_tuple] >>
-      qrefine `SUC n` >> simp[cstep_n_def, cstep, pmatch_tuple] >>
-      qexists0 >> simp[Once step_rel_cases] >> rpt $ goal_assum $ drule_at Any >>
-      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
-      )
-    >- (
-      qexists0 >> simp[pmatch_tuple] >> simp[Once step_rel_cases] >>
-      rpt $ goal_assum $ drule_at Any >>
-      irule_at Any env_rel_pmatch >> irule_at Any env_ok_pmatch >> simp[]
-      )
-    )
   >- ( (* IfK *)
     first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep, AllCaseEqs()]
     >- (
@@ -2431,7 +2482,7 @@ Inductive cexp_compile_rel:
     ⇒ cexp_compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short $ explode cn) ces)) ∧
 
 [~Var:]
-  cexp_compile_rel cnenv (Var v) (Var (Short (cexp_var_prefix v))) ∧
+  cexp_compile_rel cnenv (Var v) (var (cexp_var_prefix v)) ∧
 
 [~App:]
   (csop_rel sop cop ∧ LIST_REL (cexp_compile_rel cnenv) ses ces
@@ -2499,19 +2550,32 @@ Inductive cexp_compile_rel:
   (LIST_REL (cexp_compile_rel cnenv) [se;se1;se2] [ce;ce1;ce2]
     ⇒ cexp_compile_rel cnenv (If se se1 se2) (If ce ce1 ce2)) ∧
 
-[~Case:]
-  (cexp_compile_rel cnenv se ce ∧
-   EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+[~CaseNone:]
+  (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
     ALOOKUP cnenv $ explode cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
    LIST_REL
-    (λ(cn,vs,se) (pat,ce). cexp_compile_rel cnenv se ce ∧ pat = cexp_pat_row sv cn vs)
+    (λ(cn,vs,se) (pat,ce). cexp_compile_rel cnenv se ce ∧ pat = cexp_pat_row cn vs)
     scss ccss
-    ⇒ cexp_compile_rel cnenv (Case se sv scss) (Mat ce ccss)) ∧
+    ⇒ cexp_compile_rel cnenv (Case sv scss NONE)
+                             (Mat (var (cexp_var_prefix sv)) ccss)) ∧
+
+[~CaseSome:]
+  (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
+    ALOOKUP cnenv $ explode cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
+   LIST_REL
+    (λ(cn,vs,se) (pat,ce). cexp_compile_rel cnenv se ce ∧ pat = cexp_pat_row cn vs)
+    scss ccss ∧
+   EVERY (λ(cn,ar). ∃stamp'.
+    ALOOKUP cnenv $ explode cn = SOME (stamp',ar) ∧ same_type stamp' stamp) scany ∧
+   cexp_compile_rel cnenv suse cuse
+    ⇒ cexp_compile_rel cnenv (Case sv scss (SOME (scany, suse)))
+                             (Mat (var (cexp_var_prefix sv)) (ccss ++ [Pany,cuse]))) ∧
 
 [~TupleCase:]
-  (cexp_compile_rel cnenv se ce ∧ cexp_compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
-    ⇒ cexp_compile_rel cnenv (Case se sv [strlit "",vs,sce])
-                             (Mat ce [(cexp_pat_row sv (strlit "") vs, cce)])) ∧
+  (cexp_compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
+    ⇒ cexp_compile_rel cnenv (Case sv [strlit "",vs,sce] NONE)
+                             (Mat (var (cexp_var_prefix sv))
+                                [(cexp_pat_row (strlit "") vs, cce)])) ∧
 
 [~Raise:]
   (cexp_compile_rel cnenv se ce
@@ -2567,7 +2631,7 @@ Proof
 QED
 
 Theorem cexp_pat_row[simp]:
-  cexp_pat_row sv cn vs = pat_row (explode sv) (explode cn) (MAP explode vs)
+  cexp_pat_row cn vs = pat_row (explode cn) (MAP explode vs)
 Proof
   rw[cexp_pat_row_def, pat_row_def] >> gvs[] >>
   simp[MAP_MAP_o, combinTheory.o_DEF] >>
@@ -2597,6 +2661,9 @@ Proof
     )
   >- (
     disj1_tac >> qexists_tac `stamp` >> gvs[EVERY_MAP, LAMBDA_PROD]
+    )
+  >- (
+    qexists_tac `stamp` >> gvs[EVERY_MAP, LAMBDA_PROD]
     )
 QED
 
@@ -2741,32 +2808,73 @@ Proof
     )
   >- ( (* Case *)
     simp[Once cexp_compile_rel_cases, PULL_EXISTS, SF CONJ_ss] >>
-    Cases_on `∃vs rest. css = [(«»,vs,rest)]` >> gvs[] >>
-    simp[Once CONJ_SYM] >> rw[GSYM PULL_EXISTS]
+    Cases_on `∃vs rest. css = [(«»,vs,rest)] ∧ d = NONE` >> gvs[] >>
+    Cases_on `d` >> gvs[]
     >- (
-      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-      pairarg_tac >> gvs[] >> last_x_assum irule >>
-      gvs[EVERY_EL, PULL_EXISTS, image_implode_lemma, MEM_MAP] >>
-      last_x_assum drule >> strip_tac >> gvs[] >>
-      simp[MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
-      rw[] >> first_x_assum irule >> rpt $ disj2_tac >>
-      simp[MEM_MAP, EXISTS_PROD, MEM_EL, PULL_EXISTS] >>
-      rpt $ goal_assum $ drule_at Any >> simp[]
-      ) >>
-    gvs[EVERY_MEM, DISJ_IMP_THM, FORALL_AND_THM, MEM_MAP, PULL_EXISTS,
-        image_implode_lemma, FORALL_PROD]
+      simp[Once CONJ_SYM] >> rw[GSYM PULL_EXISTS]
+      >- (
+        gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+        pairarg_tac >> gvs[] >> last_x_assum irule >>
+        gvs[EVERY_EL, PULL_EXISTS, image_implode_lemma, MEM_MAP] >>
+        last_x_assum drule >> strip_tac >> gvs[] >>
+        simp[MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
+        rw[] >> first_x_assum irule >> rpt $ disj2_tac >>
+        simp[MEM_MAP, EXISTS_PROD, MEM_EL, PULL_EXISTS] >>
+        rpt $ goal_assum $ drule_at Any >> simp[]
+        ) >>
+      gvs[EVERY_MEM, DISJ_IMP_THM, FORALL_AND_THM, MEM_MAP, PULL_EXISTS,
+          image_implode_lemma, FORALL_PROD]
+      >- (
+        gvs[LIST_TO_SET_EQ_SING] >> Cases_on `css` >> gvs[] >>
+        PairCases_on `h` >> gvs[] >> Cases_on `h0` >> gvs[] >>
+        Cases_on `t` >> gvs[] >> PairCases_on `h` >> gvs[] >> Cases_on `h0` >>
+        gvs[]
+        ) >>
+      drule_all ns_cns_arities_ns_rel >> strip_tac >> gvs[] >>
+      qexists_tac `tyid` >> rw[] >> gvs[] >>
+      first_x_assum drule >> strip_tac >> gvs[] >>
+      first_x_assum irule >> gvs[SUBSET_DEF] >>
+      first_x_assum irule >> simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS]  >>
+      goal_assum $ drule_at Any >> simp[]
+      )
     >- (
-      gvs[LIST_TO_SET_EQ_SING] >> Cases_on `css` >> gvs[] >>
-      PairCases_on `h` >> gvs[] >> Cases_on `h0` >> gvs[] >>
-      Cases_on `t` >> gvs[] >> PairCases_on `h` >> gvs[] >> Cases_on `h0` >>
-      gvs[]
-      ) >>
-    drule_all ns_cns_arities_ns_rel >> strip_tac >> gvs[] >>
-    qexists_tac `tyid` >> rw[] >> gvs[] >>
-    first_x_assum drule >> strip_tac >> gvs[] >>
-    first_x_assum irule >> gvs[SUBSET_DEF] >>
-    first_x_assum irule >> simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS]  >>
-    goal_assum $ drule_at Any >> simp[]
+      namedCases_on `x` ["scany suse"] >> gvs[] >>
+      simp[Once CONJ_SYM, GSYM CONJ_ASSOC] >> rw[GSYM PULL_EXISTS]
+      >- (
+        gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+        pairarg_tac >> gvs[] >> last_x_assum irule >>
+        gvs[EVERY_EL, PULL_EXISTS, image_implode_lemma, MEM_MAP] >>
+        last_x_assum drule >> strip_tac >> gvs[] >>
+        simp[MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
+        rw[] >> first_x_assum irule >> rpt $ disj2_tac >>
+        simp[MEM_MAP, EXISTS_PROD, MEM_EL, PULL_EXISTS] >>
+        rpt $ goal_assum $ drule_at Any >> simp[]
+        ) >>
+      gvs[EVERY_MEM, DISJ_IMP_THM, FORALL_AND_THM, MEM_MAP, PULL_EXISTS,
+          image_implode_lemma, FORALL_PROD]
+      >- (
+        dxrule $ cj 1 $ iffRL SUBSET_ANTISYM_EQ >> rw[] >>
+        `MEM (implode "") (MAP FST css)` by (
+          Cases_on `css` >> gvs[] >> PairCases_on `h` >> gvs[] >>
+          Cases_on `h0` >> gvs[mlstringTheory.implode_def]) >>
+        `MEM (implode "") (MAP FST scany)` by (
+          Cases_on `scany` >> gvs[] >> PairCases_on `h` >> gvs[] >>
+          Cases_on `h0` >> gvs[mlstringTheory.implode_def]) >>
+        gvs[ALL_DISTINCT_APPEND]
+        ) >>
+      drule_all ns_cns_arities_ns_rel >> strip_tac >> gvs[] >>
+      qexists_tac `tyid` >> rw[] >> gvs[]
+      >- (
+        first_x_assum irule >> gvs[SUBSET_DEF] >>
+        last_x_assum irule >> simp[EXISTS_PROD, MEM_MAP, PULL_EXISTS]
+        )
+      >- (
+        first_x_assum drule >> strip_tac >> gvs[] >>
+        first_x_assum irule >> gvs[SUBSET_DEF] >>
+        first_x_assum irule >> simp[EXISTS_PROD, MEM_MAP, PULL_EXISTS] >>
+        goal_assum $ drule_at Any >> simp[]
+        )
+      )
     )
   >- ( (* Raise *)
     simp[Once cexp_compile_rel_cases]

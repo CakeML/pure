@@ -232,9 +232,9 @@ Definition cexp_var_prefix_def:
 End
 
 Definition cexp_pat_row_def:
-  cexp_pat_row sv cn vs =
-    Pas ((if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
-          (MAP (Pvar o cexp_var_prefix) vs)) (cexp_var_prefix sv)
+  cexp_pat_row cn vs =
+    (if cn = strlit "" then Pcon NONE else Pcon (SOME $ Short $ explode cn))
+      (MAP (Pvar o cexp_var_prefix) vs)
 End
 
 
@@ -326,9 +326,10 @@ Definition compile_def:
 
   compile (If e e1 e2) = If (compile e) (compile e1) (compile e2) ∧
 
-  compile (Case e v css) = (
-    let ccss = MAP (λ(cn,vs,e). cexp_pat_row v cn vs, compile e) css in
-    Mat (compile e) ccss) ∧
+  compile (Case v css d) = (
+    let ccss = MAP (λ(cn,vs,e). cexp_pat_row cn vs, compile e) css in
+    let d_case = (case d of NONE => [] | SOME (_,e) => [(Pany, compile e)]) in
+    Mat (Var (Short (cexp_var_prefix v))) (ccss ++ d_case)) ∧
 
   compile (Raise e) = Raise (compile e) ∧
 

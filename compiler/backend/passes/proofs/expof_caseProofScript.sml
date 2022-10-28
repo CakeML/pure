@@ -24,11 +24,11 @@ Definition lets_for'_def:
 End
 
 Definition rows_of'_def:
-  rows_of' v [] = Fail ∧
-  rows_of' v ((cn,vs,b)::rest) =
-    Tick (If (IsEq cn (LENGTH vs) T (Var v))
+  rows_of' v k [] = k ∧
+  rows_of' v k ((cn,vs,b)::rest) =
+          If (IsEq cn (LENGTH vs) T (Var v))
              (lets_for' (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
-             (rows_of' v rest))
+             (rows_of' v k rest)
 End
 
 Definition exp_of'_def:
@@ -39,16 +39,17 @@ Definition exp_of'_def:
   exp_of' (Let d v x y) =
     Let (explode v) (exp_of' x) (exp_of' y) ∧
   exp_of' (App _ f xs) =
-    Apps (exp_of' f) (MAP Tick (MAP exp_of' xs)) ∧
+    Apps (exp_of' f) (MAP exp_of' xs) ∧
   exp_of' (Lam d vs x) =
     Lams (MAP explode vs) (exp_of' x) ∧
   exp_of' (Letrec d rs x) =
     Letrec (MAP (λ(n,x). (explode n,exp_of' x)) rs) (exp_of' x) ∧
-  exp_of' (Case d x v rs) =
+  exp_of' (Case d x v rs eopt) =
     (let caseexp =
        Let (explode v) (exp_of' x)
            (rows_of' (explode v)
-            (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
+              (case eopt of NONE => Fail | SOME (a,e) => IfDisj v a (exp_of' e))
+              (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of' x)) rs))
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
      else
@@ -109,7 +110,7 @@ Theorem exp_eq_IsEq_Proj[local]:
        (Let w (Proj cn n (Var v)) a) b ≅
     If (IsEq cn m T (Var v))
        (Let w (Proj cn n (Var v))
-              (If (IsEq cn m T (Var v)) a Fail)) b
+              (If (IsEq cn m T (Var v)) a kk)) b
 Proof
   strip_tac
   \\ irule eval_wh_IMP_exp_eq
@@ -151,19 +152,17 @@ Theorem exp_eq_lets_of_cong:
 Proof
   ho_match_mp_tac lets_for'_ind
   \\ rw [] \\ gs [lets_for'_def, lets_for_def]
-  >- (
-    irule exp_eq_Prim_cong
-    \\ simp [exp_eq_refl])
+  >- (irule exp_eq_Prim_cong \\ simp [exp_eq_refl])
   \\ irule exp_eq_trans
   \\ irule_at (Pos last) (iffLR exp_eq_sym)
   \\ irule_at (Pos hd) exp_eq_IsEq_Proj \\ simp []
-  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) exp_eq_trans
   \\ irule_at Any exp_eq_IsEq_Seq_Proj \\ simp []
   \\ ‘Fail ≅ Fail’ by gs [exp_eq_refl]
   \\ gs [SF DNF_ss]
   \\ first_x_assum (drule_all_then assume_tac)
   \\ once_rewrite_tac [exp_eq_sym]
-  \\ irule exp_eq_trans
+  \\ irule_at Any exp_eq_trans
   \\ irule_at Any exp_eq_If_cong
   \\ irule_at Any exp_eq_refl
   \\ irule_at Any exp_eq_Let_cong
@@ -179,16 +178,15 @@ Proof
 QED
 
 Theorem exp_eq_rows_of_cong:
-  ∀v xs ys.
-    ¬MEM v (FLAT (MAP (FST o SND) xs)) ∧
+  ∀v k1 xs k2 ys.
+    ¬MEM v (FLAT (MAP (FST o SND) xs)) ∧ k1 ≅ k2 ∧
     LIST_REL (λ(a,vs,x) (b,ws,y). a = b ∧ vs = ws ∧ x ≅ y) xs ys ⇒
-      rows_of' v xs ≅ rows_of v ys
+      rows_of' v k1 xs ≅ rows_of v k2 ys
 Proof
   ho_match_mp_tac rows_of'_ind
   \\ simp [rows_of'_def, rows_of_def, exp_eq_refl]
   \\ rw [] \\ pairarg_tac \\ gvs []
   \\ simp [rows_of_def]
-  \\ irule exp_eq_Tick_cong
   \\ irule exp_eq_lets_of_cong
   \\ rw [indexedListsTheory.MEM_MAPi]
   \\ gs [MEM_EL]
@@ -234,7 +232,7 @@ Proof
     \\ simp [exp_of_def, exp_of'_def]
     \\ irule exp_eq_Apps_cong
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM] \\ rw []
-    \\ irule exp_eq_Tick_cong \\ gs [])
+    \\ gs [])
   >- ((* Lam *)
     rpt strip_tac
     \\ simp [exp_of_def, exp_of'_def]
@@ -264,13 +262,61 @@ Proof
         Cases_on ‘MEM (explode y) l’ >> gvs[] >>
         first_x_assum $ qspec_then ‘MAP implode l’ mp_tac >>
         simp[MEM_MAP, implodeEQ, GSYM MAP_implodeEQ])
+    \\ reverse conj_tac
+    >- (Cases_on ‘eopt’ >> gs[exp_eq_refl] \\ CASE_TAC \\ fs []
+        \\ fs [IfDisj_def] \\ irule exp_eq_If_cong \\ fs [exp_eq_refl])
     \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, EVERY2_MAP,
            LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_MEM, EL_MAP]
     \\ gvs [ELIM_UNCURRY] \\ rpt strip_tac
-    \\ first_x_assum irule \\ simp[]
+    \\ last_x_assum irule \\ simp[]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘EL n rs’ \\ gs []
     \\ irule_at Any PAIR)
+QED
+
+Triviality freevars_lets_for':
+  ∀xs n x y.
+    freevars (exp_of' p_2) = freevars (exp_of p_2) ⇒
+    freevars (lets_for' n x y xs (exp_of' p_2)) =
+    freevars (lets_for x y xs (exp_of p_2))
+Proof
+  simp [] \\ Induct
+  \\ fs [lets_for_def,lets_for'_def,FORALL_PROD]
+  \\ rw [] \\ fs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem freevars_exp_of':
+  ∀x. NestedCase_free x ⇒ freevars (exp_of' x) = freevars (exp_of x)
+Proof
+  ho_match_mp_tac exp_of_ind \\ rw []
+  \\ fs [exp_of_def,exp_of'_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+  >-
+   (rpt AP_TERM_TAC \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ gvs [])
+  >-
+   (rpt AP_TERM_TAC \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ gvs [])
+  >-
+   (AP_THM_TAC \\ rpt AP_TERM_TAC \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘rs’ \\ Induct \\ gvs [SF DNF_ss,FORALL_PROD]
+    \\ metis_tac [])
+  \\ IF_CASES_TAC \\ fs []
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ pop_assum kall_tac
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘rs’ \\ Induct \\ fs [rows_of_def,rows_of'_def,FORALL_PROD]
+  \\ TRY (Cases_on ‘∃x y. eopt = SOME (x,y)’
+          \\ gvs [IfDisj_def]
+          \\ Cases_on ‘eopt’ \\ fs []
+          \\ rename [‘z = (_,_)’]
+          \\ PairCases_on ‘z’ \\ fs [] \\ NO_TAC)
+  \\ TRY (Cases_on ‘eopt’ \\ fs [] \\ NO_TAC)
+  \\ fs [SF DNF_ss] \\ rw [] \\ gvs []
+  \\ DEP_REWRITE_TAC [freevars_lets_for']
+  \\ fs [] \\ metis_tac []
 QED
 
 val _ = export_theory ();

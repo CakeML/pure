@@ -72,6 +72,7 @@ End
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
 Overload RetVal = “λv. Constructor "Ret" [Thunk (INR ([("v",v)],Var "v"))]”;
 Overload RaiseVal = “λv. Constructor "Raise" [Thunk (INR ([("v",v)],Var "v"))]”;
+Overload RetRawVal = “λv. Constructor "Ret" [v]”;
 
 Definition next_def:
   next (k:num) sv stack (state:state) =
@@ -137,7 +138,7 @@ Definition next_def:
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                       next (k-1)
-                        (INR $ RetVal $ EL (Num i) (EL n state))
+                        (INR $ RetRawVal $ EL (Num i) (EL n state))
                         stack state
                     else
                       next (k-1)

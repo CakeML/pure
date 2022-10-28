@@ -5,7 +5,8 @@ endif
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
            $(CAKEDIR)/semantics \
            $(CAKEDIR)/basis/pure \
-           ../backend/languages/
+           ../backend/languages/ \
+           ../../typing
 
 HOLHEAP = $(CAKEDIR)/misc/cakeml-heap
 
@@ -15,3 +16,5 @@ all: $(DEFAULT_TARGETS) selftest.exe
 
 selftest.exe: selftest.uo
 	$(HOLMOSMLC) -o $@ $<
+
+EXTRA_CLEANS = selftest.exe

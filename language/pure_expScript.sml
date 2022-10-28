@@ -33,7 +33,7 @@ Overload Cons = “λs. Prim (Cons s)”               (* Cons at exp level *)
 Overload IsEq = “λs n t x. Prim (IsEq s n t) [x]” (* IsEq at exp level *)
 Overload Proj = “λs i x. Prim (Proj s i) [x]”     (* Proj at exp level *)
 Overload Seq  = “λx y. Prim Seq [x; y]”           (* Seq  at exp level *)
-Overload Fail = “Prim If []”                      (* causes Error      *)
+Overload Fail = “Prim (AtomOp Add) []”            (* causes Error      *)
 Overload Lit  = “λl. Prim (AtomOp (Lit l)) []”    (* Lit at exp level  *)
 Overload Tick = “λx. Letrec [] x”
 
