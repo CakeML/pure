@@ -606,6 +606,4 @@ Proof
   Induct_on ‘xs’ \\ fs []
 QED
 
-(****************************************)
-
 val _ = export_theory();

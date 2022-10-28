@@ -1112,6 +1112,12 @@ Proof
   \\ gvs []
 QED
 
+Triviality less_1_lemma[simp]:
+  n < 1 ⇔ n = 0:num
+Proof
+  fs []
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ⇒
@@ -2534,7 +2540,7 @@ Proof
                     \\ irule_at Any exp_rel_subst \\ gvs [MAP_ZIP, LIST_REL_EL_EQN]
                     \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, EL_MAP]
                     \\ rw []
-                    >- gvs [exp_rel_subst, exp_rel_def]
+                    >- gvs [exp_rel_subst, exp_rel_def, DECIDE “n < 1 ⇔ n = 0:num”]
                     >- (irule LIST_EQ \\ rw [EL_MAP, EL_LUPDATE]
                         \\ ‘EL i (MAP FST xs) = EL i (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP])
                     \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []

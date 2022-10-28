@@ -16,7 +16,7 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory thunk_NRC_relThe
 val _ = new_theory "thunk_Let_Delay_Var";
 
 Definition ok_bind_def[simp]:
-  ok_bind (Delay x) = T ∧
+  ok_bind (Delay x : exp) = T ∧
   ok_bind (Lam s x) = T ∧
   ok_bind _ = F
 End
@@ -2403,8 +2403,10 @@ Proof
     \\ Cases_on ‘eval_to (j + k) x’
     \\ Cases_on ‘eval_to k y’ \\ gvs [v_rel_def])
   >~ [‘Prim op xs’] >- (
-    rw []
-    \\ gvs [Once exp_rel_def, eval_to_def]
+    pop_assum mp_tac
+    \\ simp [Once exp_rel_def]
+    \\ rw []
+    \\ gvs [eval_to_def]
     \\ gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
     \\ Cases_on ‘op’ \\ gs []
     >- ((* Cons *)
