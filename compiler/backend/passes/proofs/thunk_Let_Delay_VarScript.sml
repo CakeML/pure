@@ -3278,6 +3278,45 @@ Proof
       first_x_assum $ irule_at Any)
 QED
 
+Theorem full_exp_rel_freevars:
+  ∀x y. full_exp_rel x y ⇒ freevars x = freevars y
+Proof
+  rw []
+  \\ ‘∀n x y. NRC exp_rel n x y ⇒ freevars x = freevars y’
+    suffices_by metis_tac [full_exp_rel_NRC_exp_rel]
+  \\ Induct \\ gvs [NRC]
+  \\ rw []
+  \\ last_x_assum $ dxrule_then assume_tac
+  \\ dxrule_then assume_tac exp_rel_freevars
+  \\ gvs []
+QED
+
+Theorem full_exp_rel_freevars:
+  ∀x y. full_exp_rel x y ⇒ freevars x = freevars y
+Proof
+  rw []
+  \\ ‘∀n x y. NRC exp_rel n x y ⇒ freevars x = freevars y’
+    suffices_by metis_tac [full_exp_rel_NRC_exp_rel]
+  \\ Induct \\ gvs [NRC]
+  \\ rw []
+  \\ last_x_assum $ dxrule_then assume_tac
+  \\ dxrule_then assume_tac exp_rel_freevars
+  \\ gvs []
+QED
+
+Theorem full_exp_rel_boundvars:
+  ∀x y. full_exp_rel x y ⇒ boundvars x = boundvars y
+Proof
+  rw []
+  \\ ‘∀n x y. NRC exp_rel n x y ⇒ boundvars x = boundvars y’
+    suffices_by metis_tac [full_exp_rel_NRC_exp_rel]
+  \\ Induct \\ gvs [NRC]
+  \\ rw []
+  \\ last_x_assum $ dxrule_then assume_tac
+  \\ dxrule_then assume_tac exp_rel_boundvars
+  \\ gvs []
+QED
+
 Theorem full_delay_lam_semantics:
   full_exp_rel x y ∧
   closed x ⇒
