@@ -120,9 +120,10 @@ Definition tcexp_wf_def:
   tcexp_wf (Let v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
   tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP SND fns ∧ tcexp_wf e ∧ fns ≠ []) ∧
   tcexp_wf (Case e v css eopt) = (
-    tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧
-    (eopt = NONE ⇒ css ≠ []) ∧ ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    OPTION_ALL (λ(_, e). tcexp_wf e) eopt ∧
+    tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
+    OPTION_ALL
+      (λ(a,e). a ≠ [] ∧ tcexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
+    ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
