@@ -53,11 +53,14 @@ Definition sexp_of_def:
                                   [sexp_of x]) ∧
   sexp_of (Case d x v rs eopt) =
     list ([Name "case"; sexp_of x; Name' v] ++
-          [Pair (list $
-                 MAP (λ(c,vs,x). list [list (MAP Name' (c::vs)); sexp_of x])
-                     rs)
-           (case eopt of NONE => Name "NONE"
-                      | SOME x => list [Name "SOME"; sexp_of x])])
+          [Pair
+            (list $ MAP (λ(c,vs,x). list [list (MAP Name' (c::vs)); sexp_of x]) rs)
+            (case eopt of
+              | NONE => Name "NONE"
+              | SOME (cn_ars, x) => list (
+                [Name "SOME" ;
+                  list $ MAP (λ(cn,ar). list [Name' cn; Num ar]) cn_ars ;
+                    sexp_of x]))])
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
@@ -155,6 +158,13 @@ Definition cop_of_def:
       Prim () (AtomOp (Lit (Int (- & num_of h')))) (TL xs)
 End
 
+Definition cn_ars_of_def:
+  cn_ars_of (Num n) = [] ∧
+  cn_ars_of (Pair (Pair cn (Pair (Num ar) (Num n))) rest) =
+    (name_of cn, ar) :: cn_ars_of rest ∧
+  cn_ars_of _ = []
+End
+
 Definition cexp_of_def:
   cexp_of (Num n) = pure_cexp$Var () (implode $ num_to_str n) ∧
   cexp_of (Pair h t) =
@@ -171,7 +181,7 @@ Definition cexp_of_def:
        Case () (cexp_of (el0 t)) (name_of (el1 t))
             (rows_of (head (el2 t)))
             (if tail $ el2 t = Name "NONE" then NONE
-             else SOME (cexp_of $ el1 $ tail $ el2 t))
+             else SOME (cn_ars_of $ el1 $ tail $ el2 t, cexp_of $ el2 $ tail $ el2 t))
      else (* must be a Prim case *)
        cop_of h (el0 t) (el1 t) (cexps_of t)) ∧
   cexps_of (Num n) = [] ∧
