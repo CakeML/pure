@@ -7,7 +7,7 @@ open listTheory stringTheory alistTheory optionTheory pairTheory
      pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory;
 
-val _ = new_theory "pure_vars";
+val _ = new_theory "var_mlmap";
 
 (* definitions *)
 
