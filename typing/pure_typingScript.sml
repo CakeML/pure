@@ -462,13 +462,26 @@ Inductive type_tcexp:
    (* The type exists with correct arity: *)
    oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
 
-   (* Pattern match is exhaustive: *)
-   set (MAP FST css) ∪
-    (case eopt of NONE => {} | SOME (a,_) => set (MAP FST a)) =
-      set (MAP FST constructors) ∧
+   (* no catch-all case *)
+   (usopt = NONE ⇒
+      (* exhaustive pattern-match *)
+        set (MAP FST css) = set (MAP FST constructors) ∧
+      (* no duplicated patterns *)
+        ALL_DISTINCT (MAP FST css)) ∧
 
-   (* forbid duplicated patterns *)
-   ALL_DISTINCT (MAP FST css) ∧
+   (* catch-all case *)
+   (∀us_cn_ars us_e. usopt = SOME (us_cn_ars, us_e) ⇒
+      (* exhaustive pattern-match *)
+        set (MAP FST css) ∪ set (MAP FST us_cn_ars) = set (MAP FST constructors) ∧
+      (* no duplicated patterns *)
+        ALL_DISTINCT (MAP FST css ++ MAP FST us_cn_ars) ∧
+      (* non-empty cases/underscore patterns *)
+        css ≠ [] ∧ us_cn_ars ≠ [] ∧
+      (* all underscore patterns are valid *)
+        EVERY (λ(cn,ar). ∃schemes.
+          ALOOKUP constructors cn = SOME schemes ∧ ar = LENGTH schemes) us_cn_ars ∧
+      (* continuation is well-typed *)
+        type_tcexp (exndef, typedefs) db st ((v,0,TypeCons tyid tyargs)::env) us_e t) ∧
 
    (* For each case: *)
    EVERY (λ(cname,pvars,cexp).
@@ -485,16 +498,8 @@ Inductive type_tcexp:
             (REVERSE (ZIP (pvars, MAP ($, 0) ptys)) ++
              (v,0,TypeCons tyid tyargs)::env)
             cexp t
-      ) css ∧
-
-   (* catch-all case: *)
-   (∀a ce. eopt = SOME (a, ce) ⇒
-         type_tcexp (exndef, typedefs) db st ((v,0,TypeCons tyid tyargs)::env)
-                    ce
-                    t)
-
-⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t) ∧
+      ) css ⇒
+      type_tcexp (exndef,typedefs) db st env (Case e v css usopt) t) ∧
 
 [~TupleSafeProj:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
