@@ -4,44 +4,18 @@
 
 open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open thunk_cexpTheory mlmapTheory mlstringTheory pure_miscTheory
-     thunkLangPropsTheory thunk_semanticsTheory thunk_split_Delay_LamTheory
-     thunk_Delay_LamTheory thunk_Let_Delay_VarTheory thunk_exp_ofTheory;
+     finite_mapTheory pred_setTheory rich_listTheory
+     dep_rewrite wellorderTheory arithmeticTheory;
+open mlmapTheory mlstringTheory;
+open pure_miscTheory thunkLangPropsTheory thunkLangTheory thunkLang_primitivesTheory
+     thunk_Delay_LamTheory thunk_Let_Delay_VarTheory thunk_cexpTheory
+     thunk_exp_ofTheory thunk_semanticsTheory thunk_split_Delay_LamTheory var_mlmapTheory;
 
 val _ = new_theory "thunk_split_Delay_LamProof";
 
-Definition var_creator_ok_def:
-  var_creator_ok vc = (mlmap$map_ok vc ∧ mlmap$cmp_of vc = mlstring$compare)
-End
-
-Definition vc_to_set_def:
-  vc_to_set vc = IMAGE explode (FDOM (to_fmap vc))
-End
-
-Theorem new_var_soundness:
-  ∀vc' s'. new_var vc s = (s', vc') ∧ var_creator_ok vc ⇒
-           var_creator_ok vc' ∧ explode s' ∉ vc_to_set vc ∧
-           vc_to_set vc' = vc_to_set vc ∪ {explode s'}
-Proof
-  completeInduct_on ‘CARD (FDOM (to_fmap vc) ∩ {s2 | strlen s ≤ strlen s2})’
-  \\ gvs [var_creator_ok_def]
-  \\ gen_tac \\ gen_tac \\ strip_tac
-  \\ gen_tac \\ gen_tac
-  \\ simp [Once new_var_def]
-  \\ gvs [lookup_thm, FLOOKUP_DEF, SF CONJ_ss]
-  \\ IF_CASES_TAC \\ strip_tac
-  \\ gvs [insert_thm, vc_to_set_def]
-  >- (last_x_assum irule \\ simp []
-      \\ last_x_assum $ irule_at (Pos last)
-      \\ irule CARD_PSUBSET
-      \\ irule_at Any FINITE_INTER
-      \\ gvs [finite_mapTheory.FDOM_FINITE, PSUBSET_DEF, SUBSET_DEF, SET_EQ_SUBSET]
-      \\ first_x_assum $ irule_at Any
-      \\ gvs [lookup_thm, finite_mapTheory.FLOOKUP_DEF])
-  \\ simp [Once INSERT_SING_UNION, UNION_COMM]
-QED
+val _ = set_grammar_ancestry ["thunk_cexp", "thunkLang", "thunk_exp_of",
+      "var_mlmap", "thunk_split_Delay_Lam",
+      "thunk_Delay_Lam", "thunk_Let_Delay_Var"];
 
 Theorem lets_for_APPEND:
   lets_for l m n (l1 ++ l2) e = lets_for l m n l1 (lets_for l m n l2 e)
@@ -727,7 +701,7 @@ Proof
       \\ simp [exp_rel1_def, exp_rel2_def, PULL_EXISTS]
       \\ first_x_assum $ dxrule_then $ dxrule_then assume_tac
       \\ gs [freevars_def, boundvars_def]
-      \\ qpat_x_assum ‘exp_rel _ _’ $ irule_at Any
+      \\ qpat_x_assum ‘thunk_Delay_Lam$exp_rel _ _’ $ irule_at Any
       \\ simp [FOLDL_replace_Force_If, freevars_def, boundvars_def]
       \\ irule_at Any EQ_REFL
       \\ simp [FOLDL_replace_Force_Prim]
@@ -749,8 +723,8 @@ Proof
   \\ pop_assum $ qspecl_then [‘m’, ‘vc1’, ‘map_l’, ‘fallthrough'’] mp_tac
   \\ simp []
   \\ strip_tac
-  \\ qpat_x_assum ‘exp_rel (rows_of _ _ _) _’ $ irule_at Any
-  \\ rename1 ‘exp_rel (exp_of x) _’
+  \\ qpat_x_assum ‘thunk_Delay_Lam$exp_rel (rows_of _ _ _) _’ $ irule_at Any
+  \\ rename1 ‘thunk_Delay_Lam$exp_rel (exp_of x) _’
   \\ last_x_assum $ qspec_then ‘x’ assume_tac \\ fs []
   \\ first_x_assum $ dxrule_then $ qspec_then ‘FILTER (λv. ¬MEM v vs) map_l’ mp_tac
   \\ impl_tac
@@ -884,7 +858,7 @@ Theorem letrec_split_soundness:
              boundvars (exp_of e_out') ⊆ vc_to_set vc_out ∧
              boundvars e2 ∩ COMPL (boundvars (exp_of e)) =
              vc_to_set vc_out ∩ COMPL (vc_to_set vc'⁴') ∧
-             exp_rel (exp_of e) e2 ∧ full_exp_rel e2 e3 ∧ cexp_wf e_out' ∧
+             thunk_Delay_Lam$exp_rel (exp_of e) e2 ∧ full_exp_rel e2 e3 ∧ cexp_wf e_out' ∧
              exp_of e_out' =
              FOLDL (λe v.
                       replace_Force (Var (explode (to_fmap map ' v)))
@@ -1316,7 +1290,7 @@ Proof
   \\ gvs [split_Delayed_Lam_def, exp_of_def, freevars_def, boundvars_def, cexp_wf_def]
   >~[‘Var _’]
   >- (rw [] \\ gvs [FOLDL_replace_Force_Var, exp_rel1_def, exp_rel2_def, boundvars_def])
-  >~[‘Let opt e1 e2’]
+  >~[‘thunk_cexp$Let opt e1 e2’]
 
   >- (Cases_on ‘opt’ \\ gs [split_Delayed_Lam_def]
       >~[‘Let NONE _ _’]
@@ -1348,7 +1322,7 @@ Proof
           \\ rw [DISJ_EQ_IMP] \\ gvs [])
       \\ CASE_TAC
       >~[‘dest_Delay_Lam _ = SOME _’]
-      >- skip (rw []
+      >- (rw []
           \\ pairarg_tac \\ gs []
           \\ pairarg_tac \\ gs []
           \\ pairarg_tac \\ gs []
@@ -1736,7 +1710,7 @@ Proof
       \\ qexists_tac ‘GENLIST (K T) (LENGTH vL)’
       \\ simp [MAP_FLAT, MAP_ZIP]
       \\ rpt $ conj_tac
-      >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ kall_tac
+      >- (qpat_x_assum ‘LIST_REL thunk_Delay_Lam$exp_rel _ _’ kall_tac
           \\ AP_TERM_TAC \\ irule LIST_EQ
           \\ gvs [EL_MAP, EL_MAP2, LIST_REL_EL_EQN, EL_ZIP, EL_GENLIST]
           \\ gen_tac \\ rename1 ‘x < _ ∧ x < _ ⇒ _’
@@ -1776,7 +1750,7 @@ Proof
           \\ rename1 ‘EL n2 [_; _]’
           \\ Cases_on ‘n2’ \\ gvs [ok_bind_def]
           \\ rename1 ‘SUC n2 < 2’ \\ Cases_on ‘n2’ \\ gvs [ok_bind_def])
-      >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ kall_tac
+      >- (qpat_x_assum ‘LIST_REL thunk_Delay_Lam$exp_rel _ _’ kall_tac
           \\ irule LIST_REL_FLAT
           \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2, EVERY_EL]
           \\ gen_tac \\ rename1 ‘n < _ ∧ n < _ ⇒ _’
@@ -1856,7 +1830,7 @@ Proof
               \\ last_x_assum $ dxrule_then assume_tac
               \\ strip_tac
               \\ gvs [])
-          >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
+          >- (qpat_x_assum ‘LIST_REL thunk_Delay_Lam$exp_rel _ _’ mp_tac
               \\ pop_assum mp_tac \\ pop_assum mp_tac
               \\ qpat_x_assum ‘(_ ∪ _) DIFF _ ⊆ _’ mp_tac
               \\ qpat_x_assum ‘set (MAP FST _) ⊆ _’ mp_tac
@@ -1885,7 +1859,7 @@ Proof
               \\ gvs [])
           >- (strip_tac \\ gvs [SUBSET_DEF]))
       >- metis_tac [SUBSET_TRANS]
-      >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ kall_tac
+      >- (qpat_x_assum ‘LIST_REL thunk_Delay_Lam$exp_rel _ _’ kall_tac
           \\ gvs [exp_of_def, freevars_def, SUBSET_DEF]
           \\ rw []
           \\ gvs [MEM_EL, LIST_REL_EL_EQN, EVERY_EL]
@@ -1908,7 +1882,7 @@ Proof
               \\ pairarg_tac \\ rw []
               \\ pairarg_tac \\ gs []))
       >- (qpat_x_assum ‘full_exp_rel _ _’ mp_tac
-          \\ qpat_x_assum ‘exp_rel _ _’ mp_tac
+          \\ qpat_x_assum ‘thunk_Delay_Lam$exp_rel _ _’ mp_tac
           \\ qpat_x_assum ‘_ ∩ COMPL _ = _’ mp_tac
           \\ qpat_x_assum ‘_ ∩ COMPL _ = _’ mp_tac
           \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
@@ -2146,7 +2120,7 @@ Proof
           \\ rw []
           \\ first_x_assum $ dxrule_then irule)
       \\ rw [] \\ simp []
-      \\ qpat_x_assum ‘exp_rel _ _’ $ irule_at Any
+      \\ qpat_x_assum ‘thunk_Delay_Lam$exp_rel _ _’ $ irule_at Any
       \\ rpt $ first_x_assum $ irule_at Any
       \\ rw [] \\ gvs []
       >- metis_tac [SUBSET_TRANS]

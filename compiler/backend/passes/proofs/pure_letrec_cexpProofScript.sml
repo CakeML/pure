@@ -6,7 +6,7 @@ open listTheory pairTheory alistTheory pred_setTheory finite_mapTheory
      sptreeTheory topological_sortTheory;
 open pure_miscTheory pure_expTheory pure_cexpTheory pureLangTheory
      pure_letrec_cexpTheory pure_letrecTheory pure_letrecProofTheory
-     pure_letrec_lamTheory pure_letrec_lamProofTheory pure_varsTheory
+     pure_letrec_lamTheory pure_letrec_lamProofTheory var_mlmapTheory
      pure_exp_lemmasTheory pure_cexp_lemmasTheory pure_congruenceTheory;
 open mlmapTheory;
 

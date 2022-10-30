@@ -65,7 +65,8 @@ Proof
       freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY]
   >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG] >>
   Cases_on `css` >> gvs[] >>
-  PairCases_on `h` >>
+  every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
+  gvs[quantHeuristicsTheory.PAIR_EQ_EXPAND] >>
   gvs[DISJ_IMP_THM, FORALL_AND_THM, IMAGE_DIFFDELETE,
       GSYM LIST_TO_SET_MAP, MEM_adjustlemma] >>
   simp[LAMBDA_PROD, IMAGE_DIFFDELETE] >>
@@ -132,9 +133,12 @@ Proof
           FDIFF_FDOMSUB_INSERT] >>
       rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
       irule app3_eq >> rw[MAP_EQ_f] >>
+      gvs[subst_IfDisj, quantHeuristicsTheory.PAIR_EQ_EXPAND] >>
       irule app3_eq >>
       simp[fmap_EXT, FUN_FMAP_DEF, PULL_EXISTS, MEM_MAP, FDIFF_def,
-           DRESTRICT_DEF, DOMSUB_FAPPLY_THM])
+           DRESTRICT_DEF, DOMSUB_FAPPLY_THM] >>
+      AP_THM_TAC >> AP_TERM_TAC >>
+      rw[fmap_eq_flookup, FLOOKUP_FUN_FMAP, DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[])
 QED
 
 Theorem lets_for_APPEND:
@@ -152,9 +156,10 @@ Proof
   recInduct cexp_wf_ind >> rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
       EXISTS_PROD, PULL_EXISTS, MEM_FLAT] >>
-  eq_tac >> rw[] >>~-
+  eq_tac >> rw[]
+  >>~-
   ([‘eopt = SOME _ ⇒ _’],
-   Cases_on ‘eopt’ >> gvs[] >> metis_tac[]) >>
+   Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> metis_tac[]) >>
   metis_tac[]
 QED
 
@@ -174,6 +179,7 @@ Proof
     )
   >- (
     rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
+    rpt (pairarg_tac >> gvs[]) >>
     simp[LAMBDA_PROD, GSYM FST_THM] >>
     gs[ELIM_UNCURRY, MEM_adjustlemma, MEM_MAP, PULL_EXISTS] >>
     simp[Cong MAP_CONG] >>
@@ -372,11 +378,13 @@ Proof
     ntac 2 (first_x_assum $ irule_at Any >> goal_assum drule) >> gvs[]
     ) >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  rename [‘eopt = SOME _ ⇒ _’] >> Cases_on ‘eopt’ >> gvs[] >>
+  rename [‘eopt = SOME _ ⇒ _’] >> reverse $ Cases_on ‘eopt’ >> gvs[] >>
   irule exp_eq_App_cong >> simp[] >>
   irule exp_eq_Lam_cong >> simp[] >>
   TRY (qpat_x_assum `rs ≠ _` kall_tac) >>
-  Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def, exp_eq_refl] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def, exp_eq_refl]
+  >- (rw[pureLangTheory.IfDisj_def] >> irule exp_eq_Prim_cong >> simp[exp_eq_refl]) >>
   pairarg_tac >> gvs[rows_of_def, pureLangTheory.rows_of_def] >>
   qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>
   irule exp_eq_trans >> irule_at Any exp_eq_Prim_cong >>

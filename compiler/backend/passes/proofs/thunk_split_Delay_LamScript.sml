@@ -3,7 +3,7 @@
 *)
 
 open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory;
+open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_mlmapTheory;
 
 val _ = new_theory "thunk_split_Delay_Lam";
 
@@ -20,22 +20,6 @@ End
 Definition dest_Var_def:
     (dest_Var (Var v) = SOME v) /\
     (dest_Var _ = NONE)
-End
-
-Definition new_var_def:
-  new_var ml s =
-  if map_ok ml
-  then
-    case lookup ml s of
-       | NONE => (s, insert ml s ())
-       | SOME _ => new_var ml (s ^ (strlit "'"))
-  else (s, ml)
-Termination
-  WF_REL_TAC ‘measure $ (λ(ml, s). CARD (FDOM (to_fmap ml) ∩ {s2 | strlen s ≤ strlen s2}))’ \\ rw []
-  \\ irule CARD_PSUBSET
-  \\ irule_at Any FINITE_INTER
-  \\ gvs [finite_mapTheory.FDOM_FINITE, PSUBSET_DEF, SUBSET_DEF, SET_EQ_SUBSET]
-  \\ qexists_tac ‘s’ \\ gvs [lookup_thm, finite_mapTheory.FLOOKUP_DEF]
 End
 
 Definition letrec_split_def:

@@ -249,8 +249,9 @@ Definition cexp_wf_def:
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec _ fns e) = (EVERY cexp_wf $ MAP SND fns ∧ cexp_wf e ∧ fns ≠ []) ∧
   cexp_wf (Case _ e v css eopt) = (
-    cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧
-    (eopt = NONE ⇒ css ≠ []) ∧
+    cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
+    OPTION_ALL
+      (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
     OPTION_ALL (cexp_wf o SND) eopt ∧
     (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns)) ∧

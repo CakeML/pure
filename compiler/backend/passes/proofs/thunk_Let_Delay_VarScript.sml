@@ -16,13 +16,13 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory thunk_NRC_relThe
 val _ = new_theory "thunk_Let_Delay_Var";
 
 Definition ok_bind_def[simp]:
-  ok_bind (Delay x : exp) = T ∧
+  ok_bind (Delay x : thunkLang$exp) = T ∧
   ok_bind (Lam s x) = T ∧
   ok_bind _ = F
 End
 
 Definition is_Lam_def[simp]:
-  is_Lam (Lam s x) = T ∧
+  is_Lam (Lam s x : thunkLang$exp) = T ∧
   is_Lam _ = F
 End
 
@@ -1725,6 +1725,12 @@ Proof
       gvs [exp_size_def, boundvars_def])
 QED
 
+Triviality less_1_lemma[simp]:
+  n < 1 ⇔ n = 0:num
+Proof
+  fs []
+QED
+
 Theorem exp_rel_eval_to:
   ∀x y.
     exp_rel x y ⇒
@@ -2513,7 +2519,7 @@ Proof
       >- (
         qexists_tac ‘0’
         \\ gs [])
-      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []
+(*      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []*)
       \\ rename1 ‘exp_rel x y’
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
@@ -2530,7 +2536,7 @@ Proof
       >- (
         qexists_tac ‘0’
         \\ gs [])
-      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []
+(*      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []*)
       \\ rename1 ‘exp_rel x y’
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))

@@ -7,7 +7,7 @@ open listTheory stringTheory alistTheory optionTheory pairTheory
      pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory;
 
-val _ = new_theory "pure_vars";
+val _ = new_theory "var_mlmap";
 
 (* definitions *)
 
@@ -36,6 +36,21 @@ Definition unionWith_def:
     Map cmp (balanced_map$unionWith cmp f t1 t2)
 End
 
+Definition new_var_def:
+  new_var ml s =
+  if map_ok ml
+  then
+    case lookup ml s of
+       | NONE => (s, insert ml s ())
+       | SOME _ => new_var ml (s ^ (strlit "'"))
+  else (s, ml)
+Termination
+  WF_REL_TAC ‘measure $ (λ(ml, s). CARD (FDOM (to_fmap ml) ∩ {s2 | strlen s ≤ strlen s2}))’ \\ rw []
+  \\ irule CARD_PSUBSET
+  \\ irule_at Any FINITE_INTER
+  \\ gvs [finite_mapTheory.FDOM_FINITE, PSUBSET_DEF, SUBSET_DEF, SET_EQ_SUBSET]
+  \\ qexists_tac ‘s’ \\ gvs [lookup_thm, finite_mapTheory.FLOOKUP_DEF]
+End
 
 (* lemmas *)
 
@@ -177,5 +192,35 @@ Proof
   simp[FLOOKUP_FMERGE]
 QED
 
+Definition var_creator_ok_def:
+  var_creator_ok vc = (mlmap$map_ok vc ∧ mlmap$cmp_of vc = mlstring$compare)
+End
+
+Definition vc_to_set_def:
+  vc_to_set vc = IMAGE explode (FDOM (to_fmap vc))
+End
+
+Theorem new_var_soundness:
+  ∀vc' s'. new_var vc s = (s', vc') ∧ var_creator_ok vc ⇒
+           var_creator_ok vc' ∧ explode s' ∉ vc_to_set vc ∧
+           vc_to_set vc' = vc_to_set vc ∪ {explode s'}
+Proof
+  completeInduct_on ‘CARD (FDOM (to_fmap vc) ∩ {s2 | strlen s ≤ strlen s2})’
+  \\ gvs [var_creator_ok_def]
+  \\ gen_tac \\ gen_tac \\ strip_tac
+  \\ gen_tac \\ gen_tac
+  \\ simp [Once new_var_def]
+  \\ gvs [lookup_thm, FLOOKUP_DEF, SF CONJ_ss]
+  \\ IF_CASES_TAC \\ strip_tac
+  \\ gvs [insert_thm, vc_to_set_def]
+  >- (last_x_assum irule \\ simp []
+      \\ last_x_assum $ irule_at (Pos last)
+      \\ irule CARD_PSUBSET
+      \\ irule_at Any FINITE_INTER
+      \\ gvs [finite_mapTheory.FDOM_FINITE, PSUBSET_DEF, SUBSET_DEF, SET_EQ_SUBSET]
+      \\ first_x_assum $ irule_at Any
+      \\ gvs [lookup_thm, finite_mapTheory.FLOOKUP_DEF])
+  \\ simp [Once INSERT_SING_UNION, UNION_COMM]
+QED
 
 val _ = export_theory();
