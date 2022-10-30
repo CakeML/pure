@@ -149,6 +149,11 @@ Definition purePEG_def[nocompute]:
                   ] (mkNT nDoStmt);
              seql [tokEQ ((=) LetT); NTGE nEqBindSeq] (mkNT nDoStmt)
            ]);
+        (* an "l-safe" expression is one that begins with a token that
+           ensures the rest of the text of the expression belongs under
+           that "constructor", regardless of infixes that might appear
+           after the beginning left-token.  These are lambda, if-then-else,
+           do, and let expressions *)
         (INL nLSafeExp,
          choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
                         tokGE ((=) $ SymbolT "->");
@@ -190,7 +195,7 @@ Definition purePEG_def[nocompute]:
         (INL nExpEQ,
          choicel [NTEQ nLSafeExpEQ; pegf (NTEQ nIExpEQ) (mkNT nExp)]);
 
-        (INL nAExp,
+        (INL nAExp, (* "atomic" / bottom-of-grammar expressions *)
          choicel [pegf (NTGE nLit) (mkNT nAExp);
                   seql [tokGE ((=) LparT) ;
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
@@ -199,7 +204,9 @@ Definition purePEG_def[nocompute]:
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RbrackT)] (mkNT nAExp);
                   pegf (tokGE isAlphaT) (mkNT nAExp);
-                  pegf (tokGE ((=) UnderbarT)) (mkNT nAExp)]);
+                  pegf (tokGE ((=) UnderbarT)) (mkNT nAExp);
+                  pegf (tokGE (IS_SOME o destFFIT)) (mkNT nAExp)
+                 ]);
 
         (INL nAExpEQ,
          choicel [pegf (NTEQ nLit) (mkNT nAExp);
@@ -210,7 +217,9 @@ Definition purePEG_def[nocompute]:
                         sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
                         tokGE ((=) RbrackT)] (mkNT nAExp);
                   pegf (tokEQ isAlphaT) (mkNT nAExp) ;
-                  pegf (tokEQ ((=) UnderbarT)) (mkNT nAExp)]);
+                  pegf (tokEQ ((=) UnderbarT)) (mkNT nAExp);
+                  pegf (tokEQ (IS_SOME o destFFIT)) (mkNT nAExp)
+                 ]);
 
         (INL nLit,
          choicel [tok isInt (mkNT nLit o mktokLf) lrEQ;

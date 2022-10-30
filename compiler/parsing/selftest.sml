@@ -120,7 +120,8 @@ val _ = app lextest [
   (": :: <-", “[SymbolT ":"; SymbolT "::"; SymbolT "<-"]”),
   ("do x", “[AlphaT "do"; AlphaT "x"]”),
   ("foo_bar _", “[AlphaT "foo_bar"; UnderbarT]”),
-  ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”)
+  ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”),
+  ("foo #(foo)", “[AlphaT "foo"; FFIT "foo"]”)
 ];
 
 val _ = app fptest [
@@ -152,6 +153,14 @@ val _ = app fptest [
   (“nExp”, "D [] 3", “astExp nExp”, “expCon "D" [pNIL; 𝕀 3]”),
   (“nExp”, "D [] 3", “CEXP”,
    “Prim () (Cons «D») [Prim () (Cons «[]») []; 𝕁 3]”),
+  (“nExp”, "#(stdout) \"Hello, world!\\n\"", “astExp nExp”,
+   “expOp (Message "stdout") [𝕊 "Hello, world!\n"]”),
+  (“nExp”, "#(stdout) \"Hello, world!\\n\"", “CEXP”,
+   “Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]”),
+  (“nExp”, "#(__Len) \"Hello, world!\\n\"", “astExp nExp”,
+   “expOp Len [𝕊 "Hello, world!\n"]”),
+  (“nExp”, "#(__Len) \"Hello, world!\\n\"", “CEXP”,
+   “Prim () (AtomOp Len) [𝕋 "Hello, world!\n"]”),
   (“nExp”, "f [x,y] 3", “astExp nExp”,
    “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”),
   (“nExp”, "f [x,y] 3", “CEXP”,
@@ -255,7 +264,15 @@ val _ = app fptest [
        [(«E»,[TypeVar 0]); («F»,[TypeCons 2 [TypeVar 0; PrimTy Integer]])]);
       (2n,
        [(«C»,[PrimTy Bool; TypeVar 0; PrimTy Integer]);
-        («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0]]])])])”)
+        («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0]]])])])”),
+  (“nDecls”, "main u = do\n\
+             \  #(stdout) \"Hello, world!\\n\"\n",
+   “CDECLS”,
+   “(Letrec () [
+     («main»,
+      Lam () [«u»] (Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]))
+     ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
 
 val _ = app filetest [("test1.hs", NONE)]
