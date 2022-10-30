@@ -140,14 +140,14 @@ Definition split_Delayed_Lam_def:
                 let (e', vc) = split_Delayed_Lam e var_creator maps in
                 (Force e', vc)) /\
     (split_Delayed_Lam (thunk_cexp$Case vname list fallthrough) var_creator maps =
+     let (fallthrough', vc) = case fallthrough of
+                              | NONE => (NONE, var_creator)
+                              | SOME (terms, expr) =>
+                                  let (expr, vc) = split_Delayed_Lam expr var_creator maps in
+                                    (SOME (terms, expr), vc) in
         let (list', vc) = FOLDR (λ(v, vL, expr) (l, vc).
                         let (expr', vc) = split_Delayed_Lam expr vc (FOLDL delete maps vL) in
-                          ((v, vL, expr')::l, vc)) ([], var_creator) list in
-          let (fallthrough', vc) = case fallthrough of
-                                  | NONE => (NONE, vc)
-                                  | SOME (terms, expr) =>
-                                      let (expr, vc) = split_Delayed_Lam expr vc maps in
-                                        (SOME (terms, expr), vc) in
+                          ((v, vL, expr')::l, vc)) ([], vc) list in
         (Case vname list' fallthrough', vc))
 Termination
   WF_REL_TAC ‘measure $ cexp_size o FST’ \\ rw []

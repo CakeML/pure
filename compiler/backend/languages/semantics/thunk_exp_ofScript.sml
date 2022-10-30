@@ -75,6 +75,12 @@ Definition args_ok_def:
     else T
 End
 
+Definition cexp_ok_bind_def:
+  (cexp_ok_bind (Delay _ : cexp) = T) ∧
+  (cexp_ok_bind (Lam _ _) = T) ∧
+  (cexp_ok_bind _ = F)
+End
+
 Definition cexp_wf_def:
   cexp_wf (Var v) = T ∧
   cexp_wf (Prim op es) = (args_ok op es ∧ EVERY cexp_wf es) ∧
@@ -84,7 +90,8 @@ Definition cexp_wf_def:
   cexp_wf (Box e) = cexp_wf e ∧
   cexp_wf (Lam vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
-  cexp_wf (Letrec fns e) = (EVERY (λ(_,x). cexp_wf x) fns ∧ cexp_wf e ∧ fns ≠ []) ∧
+  cexp_wf (Letrec fns e) = (EVERY (λ(_,x). cexp_ok_bind x ∧ cexp_wf x) fns ∧ cexp_wf e
+                            ∧ fns ≠ [] ∧ ALL_DISTINCT (MAP FST fns)) ∧
   cexp_wf (Case v css eopt) = (
     EVERY (λ(_,_,x). cexp_wf x) css ∧
     (eopt = NONE ⇒ css ≠ []) ∧
@@ -94,5 +101,11 @@ Definition cexp_wf_def:
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
+
+Definition is_Delay_def:
+  (is_Delay (Delay _ : cexp) = T) ∧
+  (is_Delay _ = F)
+End
+
 
 val _ = export_theory ();

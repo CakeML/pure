@@ -27,4 +27,16 @@ Datatype:
        | Force cexp                   (* force a thunk                           *)
 End
 
+val cexp_size_def = fetch "-" "cexp_size_def";
+
+Theorem cexp_size_lemma:
+  (∀xs a. MEM a xs ⇒ cexp_size a < cexp8_size xs) ∧
+  (∀xs p e. MEM (p,e) xs ⇒ cexp_size e < cexp6_size xs) ∧
+  (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒ cexp_size a < cexp2_size xs)
+Proof
+  rpt conj_tac
+  \\ Induct \\ rw [] \\ fs [fetch "-" "cexp_size_def"] \\ res_tac \\ fs []
+QED
+
+
 val _ = export_theory();

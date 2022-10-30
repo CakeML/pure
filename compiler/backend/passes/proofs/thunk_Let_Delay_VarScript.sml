@@ -2513,6 +2513,7 @@ Proof
       >- (
         qexists_tac ‘0’
         \\ gs [])
+      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []
       \\ rename1 ‘exp_rel x y’
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
@@ -2529,6 +2530,7 @@ Proof
       >- (
         qexists_tac ‘0’
         \\ gs [])
+      \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gs []
       \\ rename1 ‘exp_rel x y’
       \\ last_x_assum $ qspecl_then [‘k - 1’] assume_tac \\ gvs []
       \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
