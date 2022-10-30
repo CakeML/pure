@@ -891,58 +891,31 @@ Theorem letrec_split_soundness:
             LIST_REL (λ(v1, e1) (v2, e2). explode v1 = v2 ∧ exp_of e1 =
                               FOLDL (λe v. replace_Force (Var (explode (to_fmap map2 ' v)))
                                                          (explode v) e) e2 (mapl2 ++ mapl1))
-                     binds3 (FLAT (MAP2 (λ(v1,e) (v2,b). case e of
-                                               | Delay e2 => if is_Lam e2 ∧ b
-                                                             then [(v2,e2); (v1,Delay (Var v2))]
-                                                             else [(v1,e)]
-                                               | _ => [(v1,e)]) expL2
+                     binds3 (FLAT (MAP2 unfold_Delay_Lam expL2
                                                          (ZIP (vL,GENLIST (K T) (LENGTH vL))))) ∧
 
             EVERY (λv. explode (to_fmap map2 ' v) ∈ vc_to_set vc3 ∧
                        explode (to_fmap map2 ' v) ∉ vc_to_set vc) mapl2 ∧
             mapl1 = FILTER (λv. ¬MEM v (MAP FST binds)) mapl ∧
             EVERY (λv. MEM (explode v, Delay (Var $ explode (to_fmap map2 ' v)))
-                           (FLAT (MAP2 (λ(v1 : string, e : exp) (v2 : string, b : bool). case e of
-                                                          | Delay e2 => if is_Lam e2 ∧ b then
-                                                                          [(v2, e2); (v1, Delay (Var v2))]
-                                                                        else [(v1, e)]
-                                                          | _ => [(v1, e)])
+                           (FLAT (MAP2 unfold_Delay_Lam
                                   expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
                       ∧ MEM (explode (to_fmap map2 ' v)) $ MAP FST
-                             (FLAT (MAP2 (λ(v1, e) (v2, b). case e of
-                                                            | Delay e2 =>
-                                                                if is_Lam e2 ∧ b
-                                                                then [(v2, e2); (v1, Delay (Var v2))]
-                                                                else [(v1, e)]
-                                                            | _ => [(v1, e)])
+                             (FLAT (MAP2 unfold_Delay_Lam
                                     expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))) mapl2 ∧
             ALL_DISTINCT (mapl1 ++ mapl2) ∧
             DISJOINT (FDOM $ to_fmap map2) (FRANGE $ to_fmap map2) ∧
             DISJOINT (IMAGE explode (FRANGE $ to_fmap map2))
                      (BIGUNION $ set (MAP boundvars
-                        (MAP SND (FLAT (MAP2 (λ(v1, e) (v2, b).
-                                                case e of
-                                                | Delay e2 => if is_Lam e2 ∧ b
-                                                         then [(v2, e2); (v1, Delay (Var v2))]
-                                                              else [(v1, e)]
-                                                | _ => [(v1, e)])
+                        (MAP SND (FLAT (MAP2 unfold_Delay_Lam
                                         expL2 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))))) ∧
             IMAGE explode (FDOM $ to_fmap map2) ⊆ vc_to_set vc ∧
             IMAGE explode (FRANGE (to_fmap map2)) ⊆ vc_to_set vc3 ∧
             FDOM (to_fmap map2) = set (mapl1 ++ mapl2) ∧ cmp_of map2 = compare ∧ map_ok map2 ∧
             EVERY cexp_ok_bind (MAP SND binds3) ∧
-            ALL_DISTINCT (MAP FST (FLAT (MAP2 (λ(v1, e) (v2, b). case e of
-                                                                 | Delay e2 =>
-                                                                     if is_Lam e2 ∧ b
-                                                                     then [(v2, e2); (v1, Delay (Var v2))]
-                                                                     else [(v1, e)]
-                                                                 | _ => [(v1, e)])
+            ALL_DISTINCT (MAP FST (FLAT (MAP2 unfold_Delay_Lam
                                          expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))) ∧
-            FILTER (λv. ¬MEM (explode v) (MAP FST (FLAT (MAP2 (λ(v1,e) (v2,b). case e of
-                                               | Delay e2 => if is_Lam e2 ∧ b
-                                                             then [(v2,e2); (v1,Delay (Var v2))]
-                                                             else [(v1,e)]
-                                               | _ => [(v1,e)]) expL2
+            FILTER (λv. ¬MEM (explode v) (MAP FST (FLAT (MAP2 unfold_Delay_Lam expL2
                                                          (ZIP (vL,GENLIST (K T) (LENGTH vL))))))) mapl
             = FILTER (λv. ¬MEM v (MAP FST binds)) mapl ∧
             EVERY (λv. to_fmap map ' v = to_fmap map2 ' v) mapl1 ∧
@@ -1104,18 +1077,8 @@ QED
 Theorem MAP_FST_change_expL:
   ∀l1 l2 vL. LENGTH l1 = LENGTH vL ∧ LIST_REL full_exp_rel (MAP SND l1) (MAP SND l2) ∧
              MAP FST l1 = MAP FST l2 ⇒
-             MAP FST (FLAT (MAP2(λ(v1 : string, e : exp) (v2 : string, b : bool).
-                                    case e of
-                                    | Delay e2 => if is_Lam e2 ∧ b
-                                                  then [(v2, e2); (v1, Delay (Var v2))]
-                                                  else [(v1, e)]
-                                    | _ => [(v1, e)]) l1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
-             = MAP FST (FLAT (MAP2 (λ(v1, e) (v2, b).
-                                      case e of
-                                      | Delay e2 => if is_Lam e2 ∧ b
-                                                    then [(v2, e2); (v1, Delay (Var v2))]
-                                                    else [(v1, e)]
-                                      | _ => [(v1, e)]) l2 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
+             MAP FST (FLAT (MAP2 unfold_Delay_Lam l1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
+             = MAP FST (FLAT (MAP2 unfold_Delay_Lam l2 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
 Proof
   Induct using SNOC_INDUCT \\ gvs [FORALL_PROD]
   \\ gen_tac \\ gen_tac
@@ -1133,9 +1096,10 @@ Proof
   \\ conj_tac
   >- (last_x_assum irule
       \\ gs [LIST_REL_EL_EQN])
+  \\ simp [FST_THM]
   \\ pairarg_tac \\ gs []
   \\ rename1 ‘full_exp_rel exp1 exp2’
-  \\ Cases_on ‘exp1’ \\ gs [full_exp_rel_def]
+  \\ Cases_on ‘exp1’ \\ gs [full_exp_rel_def, unfold_Delay_Lam_def]
   \\ rename1 ‘full_exp_rel exp1b exp2b’
   \\ Cases_on ‘exp1b’ \\ gs [full_exp_rel_def, is_Lam_def]
 QED
@@ -1143,18 +1107,8 @@ QED
 Theorem MEM_FLAT_MAP2_change:
   ∀l1 l2 vL v e1. LIST_REL full_exp_rel (MAP SND l1) (MAP SND l2) ∧
        LENGTH l1 = LENGTH vL ∧ MAP FST l1 = MAP FST l2 ∧
-       MEM (v, e1) (FLAT (MAP2(λ(v1 : string, e : exp) (v2 : string, b : bool).
-                           case e of
-                           | Delay e2 => if is_Lam e2 ∧ b
-                                         then [(v2, e2); (v1, Delay (Var v2))]
-                                         else [(v1, e)]
-                           | _ => [(v1, e)]) l1 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ⇒
-      ∃e2. MEM (v, e2) (FLAT (MAP2 (λ(v1, e) (v2, b).
-                           case e of
-                           | Delay e2 => if is_Lam e2 ∧ b
-                                         then [(v2, e2); (v1, Delay (Var v2))]
-                                         else [(v1, e)]
-                           | _ => [(v1, e)]) l2 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ∧
+       MEM (v, e1) (FLAT (MAP2 unfold_Delay_Lam l1 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ⇒
+      ∃e2. MEM (v, e2) (FLAT (MAP2 unfold_Delay_Lam l2 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ∧
            full_exp_rel e1 e2
 Proof
   Induct using SNOC_INDUCT \\ gvs [FORALL_PROD]
@@ -1175,42 +1129,31 @@ Proof
       \\ metis_tac [])
   \\ rename1 ‘full_exp_rel p_2 (SND x)’
   \\ pop_assum kall_tac
+  \\ gs [SND_THM] \\ pairarg_tac \\ gs []
   \\ Cases_on ‘∃exp1. p_2 = Delay exp1’
-  \\ gs [full_exp_rel_def]
+  \\ gs [full_exp_rel_def, unfold_Delay_Lam_def]
   >- (Cases_on ‘is_Lam exp1’ \\ gs []
       >- (first_assum $ irule_at Any
           \\ disj2_tac
-          \\ pairarg_tac \\ gs []
           \\ Cases_on ‘exp1’ \\ gs [is_Lam_def, full_exp_rel_def])
       >- (gs [full_exp_rel_def]
-          \\ disj2_tac \\ pairarg_tac \\ gs []
+          \\ disj2_tac
           \\ Cases_on ‘exp1’ \\ gs [is_Lam_def, full_exp_rel_def])
       >- (gs [full_exp_rel_def, PULL_EXISTS]
           \\ first_assum $ irule_at Any
           \\ disj2_tac
-          \\ pairarg_tac \\ gs []
           \\ Cases_on ‘exp1’ \\ gs [is_Lam_def, full_exp_rel_def]))
-  \\ qexists_tac ‘(SND x)’
-  \\ pairarg_tac \\ gs []
-  \\ Cases_on ‘p_2’ \\ gs []
-  \\ gs [full_exp_rel_def]
+  \\ rename1 ‘full_exp_rel _ e2’
+  \\ qexists_tac ‘e2’
+  \\ Cases_on ‘p_2’ \\ gs [unfold_Delay_Lam_def]
+  \\ gs [full_exp_rel_def, unfold_Delay_Lam_def]
 QED
 
 Theorem MEM_FLAT_MAP2_change2:
   ∀l1 l2 vL v e2. LIST_REL full_exp_rel (MAP SND l1) (MAP SND l2) ∧
        LENGTH l1 = LENGTH vL ∧ MAP FST l1 = MAP FST l2 ∧
-       MEM (v, e2) (FLAT (MAP2(λ(v1 : string, e : exp) (v2 : string, b : bool).
-                           case e of
-                           | Delay e2 => if is_Lam e2 ∧ b
-                                         then [(v2, e2); (v1, Delay (Var v2))]
-                                         else [(v1, e)]
-                           | _ => [(v1, e)]) l2 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ⇒
-      ∃e1. MEM (v, e1) (FLAT (MAP2 (λ(v1, e) (v2, b).
-                           case e of
-                           | Delay e2 => if is_Lam e2 ∧ b
-                                         then [(v2, e2); (v1, Delay (Var v2))]
-                                         else [(v1, e)]
-                           | _ => [(v1, e)]) l1 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ∧
+       MEM (v, e2) (FLAT (MAP2 unfold_Delay_Lam l2 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ⇒
+      ∃e1. MEM (v, e1) (FLAT (MAP2 unfold_Delay_Lam l1 (ZIP (vL, GENLIST (K T) (LENGTH vL))))) ∧
            full_exp_rel e1 e2
 Proof
   Induct using SNOC_INDUCT \\ gvs [FORALL_PROD]
@@ -1231,30 +1174,67 @@ Proof
       \\ metis_tac [])
   \\ rename1 ‘full_exp_rel p_2 (SND x)’
   \\ pop_assum kall_tac
+  \\ gs [SND_THM] \\ pairarg_tac \\ gs []
   \\ Cases_on ‘∃exp1. p_2 = Delay exp1’
-  \\ gs [full_exp_rel_def]
+  \\ gs [full_exp_rel_def, unfold_Delay_Lam_def]
   >- (Cases_on ‘is_Lam exp1’ \\ gvs []
-      >- (pairarg_tac \\ gs []
-          \\ Cases_on ‘exp1’ \\ gs [is_Lam_def, full_exp_rel_def]
+      >- (Cases_on ‘exp1’ \\ gs [is_Lam_def, full_exp_rel_def]
           >- (rename1 ‘_ ∨ _ = Lam s exp ∨ _’
               \\ qexists_tac ‘Lam s exp’
               \\ gs [full_exp_rel_def])
           \\ irule_at Any full_exp_rel_Delay
           \\ irule_at Any full_exp_rel_Var
           \\ gvs [])
-      >- (pairarg_tac \\ gs []
-          \\ qexists_tac ‘Delay exp1’
+      >- (qexists_tac ‘Delay exp1’
           \\ gs []
           \\ gs [full_exp_rel_def]
           \\ first_assum $ irule_at Any
           \\ Cases_on ‘exp1’ \\ gs [is_Lam_def, full_exp_rel_def]))
   \\ qexists_tac ‘p_2’
-  \\ pairarg_tac \\ gs []
   \\ conj_tac
   >- (Cases_on ‘p_2’ \\ gs []
-      \\ gs [full_exp_rel_def])
-  \\ Cases_on ‘e’ \\ gs []
+      \\ gs [full_exp_rel_def, unfold_Delay_Lam_def])
+  \\ rename1 ‘full_exp_rel _ y’
+  \\ Cases_on ‘y’ \\ gs [unfold_Delay_Lam_def]
   \\ Cases_on ‘p_2’ \\ gs [full_exp_rel_def]
+QED
+
+Theorem LIST_REL_full_exp_rel_MAP_unfold_Delay_Lam:
+  ∀expL1 expL2 vL.
+    EVERY ok_bind (MAP SND expL1) ∧
+    LIST_REL full_exp_rel (MAP SND expL1) (MAP SND expL2) ∧ LENGTH expL1 = LENGTH vL ⇒
+         LIST_REL full_exp_rel
+          (FLAT
+             (MAP (MAP SND)
+                (MAP2 unfold_Delay_Lam expL1
+                   (ZIP (vL,GENLIST (K T) (LENGTH vL))))))
+          (FLAT
+             (MAP (MAP SND)
+                (MAP2 unfold_Delay_Lam expL2
+                   (ZIP (vL,GENLIST (K T) (LENGTH vL))))))
+Proof
+  rw []
+  \\ irule LIST_REL_FLAT
+  \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2, EVERY_EL]
+  \\ gen_tac \\ rename1 ‘n < _’
+  \\ rpt $ last_x_assum $ qspec_then ‘n’ assume_tac
+  \\ gs [SND_THM]
+  \\ pairarg_tac \\ simp [EL_ZIP]
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ strip_tac \\ conj_asm1_tac
+  >- (Cases_on ‘SND (EL n expL1)’
+      \\ gvs [full_exp_rel_def, unfold_Delay_Lam_def]
+      \\ rename1 ‘EL n expL1 = (_, Delay e4)’
+      \\ Cases_on ‘e4’ \\ gvs [is_Lam_def, full_exp_rel_def])
+  \\ rw [EL_MAP] \\ gs []
+  \\ Cases_on ‘SND (EL n expL1)’ \\ gvs [ok_bind_def, full_exp_rel_def, unfold_Delay_Lam_def]
+  \\ rename1 ‘EL n expL1 = (_, Delay e4)’
+  \\ Cases_on ‘e4’ \\ gvs [is_Lam_def, full_exp_rel_def]
+  >- (rename1 ‘EL n2 [_; _]’ \\ Cases_on ‘n2’ \\ gvs [full_exp_rel_def]
+      \\ rename1 ‘SUC n2 < 2’ \\ Cases_on ‘n2’ \\ gvs [full_exp_rel_def])
+  >- (disj2_tac \\ metis_tac [])
+  >- (disj2_tac \\ metis_tac [])
 QED
 
 fun skip x = cheat;
@@ -1612,7 +1592,7 @@ Proof
           \\ simp []))
   >~[‘Letrec _ _’]
 
-  >- skip (gvs [exp_of_def, PULL_EXISTS, PULL_FORALL] \\ rw []
+  >- (gvs [exp_of_def, PULL_EXISTS, PULL_FORALL] \\ rw []
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gvs []
@@ -1702,36 +1682,21 @@ Proof
       \\ irule_at Any full_exp_rel_Letrec_Delay_Var
       \\ qpat_assum ‘full_exp_rel _ _’ $ irule_at Any
       \\ qexists_tac ‘ZIP (MAP explode mapl2, MAP (λv. explode $ to_fmap maps2 ' v) mapl2)’
-      \\ qexists_tac ‘FLAT (MAP2 (λ(v1, e) (v2, b).
-                                    case e of
-                                    | Delay e2 => if is_Lam e2 ∧ b then [(v2, e2); (v1, Delay (Var v2))]
-                                                  else [(v1, e)]
-                                    | _ => [(v1, e)]) expL2 (ZIP (vL, GENLIST (K T) (LENGTH vL))))’
+      \\ qexists_tac ‘FLAT (MAP2 unfold_Delay_Lam expL2 (ZIP (vL, GENLIST (K T) (LENGTH vL))))’
       \\ qexists_tac ‘GENLIST (K T) (LENGTH vL)’
       \\ simp [MAP_FLAT, MAP_ZIP]
       \\ rpt $ conj_tac
-      >- (qpat_x_assum ‘LIST_REL thunk_Delay_Lam$exp_rel _ _’ kall_tac
-          \\ AP_TERM_TAC \\ irule LIST_EQ
-          \\ gvs [EL_MAP, EL_MAP2, LIST_REL_EL_EQN, EL_ZIP, EL_GENLIST]
-          \\ gen_tac \\ rename1 ‘x < _ ∧ x < _ ⇒ _’
-          \\ rw [] \\ pairarg_tac \\ simp []
-          \\ pairarg_tac \\ simp []
-          \\ ‘EL x (MAP FST expL1) = EL x (MAP FST expL2)’ by simp []
-          \\ gvs [EL_MAP, EVERY_EL]
-          \\ rpt $ first_x_assum $ qspec_then ‘x’ assume_tac
-          \\ gvs []
-          \\ CASE_TAC
-          \\ gvs [full_exp_rel_def,ok_bind_def]
-          \\ rename1 ‘_ = (_, Delay e4)’
-          \\ Cases_on ‘e4’
-          \\ gvs [full_exp_rel_def, is_Lam_def])
+      >- (simp [GSYM MAP_FLAT]
+          \\ irule MAP_FST_change_expL
+          \\ simp []
+          \\ gs [LIST_REL_EL_EQN])
       >- (simp [EVERY_FLAT, EVERY_EL]
           \\ rw [EL_MAP, EL_MAP2, EL_ZIP, EL_GENLIST]
-          \\ pairarg_tac \\ simp []
-          \\ rename1 ‘n < LENGTH expL1’
+          \\ rename1 ‘unfold_Delay_Lam (EL n expL1)’
+          \\ Cases_on ‘EL n expL1’
           \\ gvs [EVERY_EL] \\ rpt $ first_x_assum $ qspec_then ‘n’ assume_tac
           \\ gvs [EL_MAP]
-          \\ CASE_TAC \\ gvs [ok_bind_def]
+          \\ Cases_on ‘SND (EL n expL1)’ \\ gvs [ok_bind_def, unfold_Delay_Lam_def]
           \\ CASE_TAC \\ gvs [ok_bind_def]
           \\ rename1 ‘EL n2 [_; _]’
           \\ Cases_on ‘n2’ \\ gvs [ok_bind_def]
@@ -1739,39 +1704,21 @@ Proof
           >- (rename1 ‘SUC n2 < 2’ \\ Cases_on ‘n2’ \\ gvs [ok_bind_def]))
       >- (gvs [LIST_REL_EL_EQN, EVERY_FLAT, EVERY_EL]
           \\ rw [EL_MAP, EL_MAP2, EL_ZIP, EL_GENLIST]
-          \\ pairarg_tac \\ simp []
-          \\ rename1 ‘n < LENGTH expL2’
+          \\ rename1 ‘unfold_Delay_Lam (EL n expL2)’
+          \\ Cases_on ‘EL n expL2’
           \\ rpt $ first_x_assum $ qspec_then ‘n’ assume_tac
           \\ gvs [EL_MAP]
           \\ Cases_on ‘SND (EL n expL1)’
-          \\ gvs [ok_bind_def, full_exp_rel_def]
+          \\ gvs [ok_bind_def, full_exp_rel_def, unfold_Delay_Lam_def]
           \\ rename1 ‘is_Lam e4’
           \\ Cases_on ‘e4’ \\ gvs [ok_bind_def, is_Lam_def]
           \\ rename1 ‘EL n2 [_; _]’
           \\ Cases_on ‘n2’ \\ gvs [ok_bind_def]
           \\ rename1 ‘SUC n2 < 2’ \\ Cases_on ‘n2’ \\ gvs [ok_bind_def])
-      >- (qpat_x_assum ‘LIST_REL thunk_Delay_Lam$exp_rel _ _’ kall_tac
-          \\ irule LIST_REL_FLAT
-          \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2, EVERY_EL]
-          \\ gen_tac \\ rename1 ‘n < _ ∧ n < _ ⇒ _’
-          \\ rpt $ last_x_assum $ qspec_then ‘n’ assume_tac
-          \\ pairarg_tac \\ simp [EL_ZIP]
-          \\ pairarg_tac \\ simp []
-          \\ strip_tac \\ conj_asm1_tac
-          >- (Cases_on ‘SND (EL n expL1)’
-              \\ gvs [full_exp_rel_def]
-              \\ rename1 ‘EL n expL1 = (_, Delay e4)’
-              \\ Cases_on ‘e4’ \\ gvs [is_Lam_def, full_exp_rel_def])
-          \\ rw [EL_MAP]
-          \\ Cases_on ‘SND (EL n expL1)’ \\ gvs [ok_bind_def, full_exp_rel_def]
-          \\ rename1 ‘EL n expL1 = (_, Delay e4)’
-          \\ Cases_on ‘e4’ \\ gvs [is_Lam_def, full_exp_rel_def]
-          >- (rename1 ‘EL n2 [_; _]’ \\ Cases_on ‘n2’ \\ gvs [full_exp_rel_def]
-              \\ rename1 ‘SUC n2 < 2’ \\ Cases_on ‘n2’ \\ gvs [full_exp_rel_def])
-          >- (disj2_tac \\ metis_tac [])
-          >- (disj2_tac \\ metis_tac []))
-      >- gvs [MAP_FLAT]
-      >- gvs [GSYM MAP_FLAT, ALL_DISTINCT_APPEND]
+      >- (irule LIST_REL_full_exp_rel_MAP_unfold_Delay_Lam
+          \\ simp []
+          \\ gs [LIST_REL_EL_EQN])
+      >- gvs [ALL_DISTINCT_APPEND]
       >- (gvs [EVERY_EL, EL_ZIP, EL_MAP, PULL_EXISTS]
           \\ gen_tac \\ strip_tac
           \\ first_x_assum $ drule_then assume_tac
@@ -1818,7 +1765,7 @@ Proof
           \\ pairarg_tac \\ gs []
           \\ rename1 ‘ok_bind (exp_of p2)’
           \\ Cases_on ‘p2’
-          \\ gvs [ok_bind_def, exp_of_def, cexp_wf_def, Lams_split])
+          \\ gvs [cexp_ok_bind_def, ok_bind_def, exp_of_def, cexp_wf_def, Lams_split])
       >- metis_tac [LENGTH_MAP]
       >- (gvs [EVERY_MEM]
           \\ rw [] \\ last_x_assum $ dxrule_then assume_tac
@@ -1866,6 +1813,7 @@ Proof
           \\ rename1 ‘x ∈ EL n _’
           \\ rpt $ first_x_assum $ qspec_then ‘n’ assume_tac
           \\ gvs [EL_MAP]
+          \\ pairarg_tac \\ gvs []
           \\ pairarg_tac \\ gvs [])
       >- (gvs [exp_of_def, boundvars_def, SUBSET_DEF]
           \\ rw []
@@ -2042,7 +1990,8 @@ Proof
       >- (simp [cexp_wf_def]
           \\ gs [EVERY_EL]
           \\ rw [EL_MAP]
-          \\ last_x_assum $ drule_then mp_tac
+          \\ rpt $ last_x_assum $ drule_then mp_tac
+          \\ simp [EL_MAP]
           \\ rpt $ pop_assum kall_tac
           \\ pairarg_tac \\ rw [])
       >- (simp [exp_of_def, FOLDL_replace_Force_Letrec]

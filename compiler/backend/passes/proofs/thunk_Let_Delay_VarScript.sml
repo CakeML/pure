@@ -15,17 +15,6 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory thunk_NRC_relThe
 
 val _ = new_theory "thunk_Let_Delay_Var";
 
-Definition ok_bind_def[simp]:
-  ok_bind (Delay x : thunkLang$exp) = T ∧
-  ok_bind (Lam s x) = T ∧
-  ok_bind _ = F
-End
-
-Definition is_Lam_def[simp]:
-  is_Lam (Lam s x : thunkLang$exp) = T ∧
-  is_Lam _ = F
-End
-
 Definition replace_Force_def:
   (replace_Force expr v1 (Force (Var v2)) = if v1 = v2
                                           then expr
