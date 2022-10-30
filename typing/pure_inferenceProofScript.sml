@@ -132,10 +132,10 @@ Proof
     reverse conj_tac >- (strip_tac >> gvs[]) >>
     PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
     `MEM (cname, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
-      gvs[EVERY_MEM] >> last_x_assum $ qspec_then `cname,pvars,cexp''` mp_tac >>
-      simp[Once MEM_EL, PULL_EXISTS] >> disch_then drule >> simp[] >>
-      strip_tac >> gvs[] >> simp[MEM_EL] >>
-      goal_assum drule >> simp[EL_MAP] >> Cases_on `EL n' cdefs` >> gvs[]) >>
+      drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+      simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+      disch_then irule >> simp[MEM_EL] >>
+      disj1_tac >> simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]) >>
     gvs[MEM_MAP, EXISTS_PROD] >>
     drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
     gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -417,9 +417,10 @@ Proof
           ) >>
         simp[] >> PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         `MEM (cn, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
-          last_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-          simp[MEM_MAP, MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >>
-          qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >> gvs[]) >>
+          drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+          simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+          disch_then irule >> simp[MEM_EL] >>
+          disj1_tac >> simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]) >>
         gvs[MEM_MAP, EXISTS_PROD] >>
         drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
         gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -818,10 +819,10 @@ Proof
       qpat_x_assum `∀n. n < _ ns1 ⇒ _` drule >> simp[] >> disch_then drule >> simp[]
       ) >>
     `MEM (cname, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
-      gvs[EVERY_MEM] >> last_x_assum $ qspec_then `cname,pvars,cexp''` mp_tac >>
-      simp[Once MEM_EL, PULL_EXISTS] >> disch_then drule >> simp[] >>
-      strip_tac >> gvs[] >> simp[MEM_EL] >>
-      goal_assum drule >> simp[EL_MAP] >> Cases_on `EL n' cdefs` >> gvs[]) >>
+      drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+      simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+      disch_then irule >> simp[MEM_EL] >>
+      disj1_tac >> simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]) >>
     gvs[MEM_MAP, EXISTS_PROD] >>
     drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
     gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -1453,10 +1454,10 @@ Proof
       >- (
         PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         `MEM (cname, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
-          gvs[EVERY_MEM] >> last_x_assum $ qspec_then `cname,pvars,cexp''` mp_tac >>
-          simp[Once MEM_EL, PULL_EXISTS] >> disch_then drule >> simp[] >>
-          strip_tac >> gvs[] >> simp[MEM_EL] >>
-          goal_assum drule >> simp[EL_MAP] >> Cases_on `EL n' cdefs` >> gvs[]) >>
+          drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+          simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+          disch_then irule >> simp[MEM_EL] >>
+          disj1_tac >> simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]) >>
         gvs[MEM_MAP, EXISTS_PROD] >>
         drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
         gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -1475,10 +1476,10 @@ Proof
       `LENGTH pvars = LENGTH schemes` by (
         PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         `MEM (cname, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
-          gvs[EVERY_MEM] >> last_x_assum $ qspec_then `cname,pvars,cexp''` mp_tac >>
-          simp[Once MEM_EL, PULL_EXISTS] >> disch_then drule >> simp[] >>
-          strip_tac >> gvs[] >> simp[MEM_EL] >>
-          goal_assum drule >> simp[EL_MAP] >> Cases_on `EL n' cdefs` >> gvs[]) >>
+          drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+          simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+          disch_then irule >> simp[MEM_EL] >>
+          disj1_tac >> simp[PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]) >>
         gvs[MEM_MAP, EXISTS_PROD] >>
         drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
         gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -3135,17 +3136,9 @@ Proof
       )
     >- (
       imp_res_tac sortingTheory.PERM_LIST_TO_SET >> gvs[] >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      pop_assum mp_tac >> simp[SUBSET_DEF, EXTENSION, MEM_MAP, EXISTS_PROD] >>
-      disch_then $ mp_tac o iffRL >> simp[PULL_EXISTS] >> rw[] >>
-      first_x_assum drule >> rw[] >> goal_assum drule
-      )
-    >- (
-      imp_res_tac sortingTheory.PERM_LIST_TO_SET >> gvs[] >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      pop_assum mp_tac >> simp[EXTENSION, MEM_MAP, EXISTS_PROD] >>
-      rw[EQ_IMP_THM] >> gvs[PULL_EXISTS, FORALL_AND_THM] >>
-      first_x_assum drule >> rw[] >> goal_assum drule
+      qspec_then `FST` drule sortingTheory.PERM_MAP >> rw[] >>
+      drule sortingTheory.PERM_LIST_TO_SET >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
       )
     >- (
       simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
@@ -3363,14 +3356,35 @@ Proof
       simp[BIGUNION_FRANGE_maunion] >> imp_res_tac minfer_pure_vars >> simp[SUBSET_DEF]
       )
     >- (
-      qpat_x_assum `EVERY _ cases` mp_tac >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      simp[EVERY_MEM, SUBSET_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> rw[] >>
-      first_x_assum drule >> rw[] >> goal_assum drule
+      imp_res_tac sortingTheory.PERM_LIST_TO_SET >> gvs[] >>
+      qspec_then `FST` drule sortingTheory.PERM_MAP >> rw[] >>
+      drule sortingTheory.PERM_LIST_TO_SET >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
       )
     >- (
       simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      gvs[FST_THM, LAMBDA_PROD]
+      qspec_then `FST` drule sortingTheory.PERM_MAP >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> strip_tac >>
+      drule $ iffLR sortingTheory.ALL_DISTINCT_PERM >> disch_then irule >>
+      qpat_x_assum `namespace_ok _` mp_tac >>
+      qpat_x_assum `_ = SOME (_, cdefs)` mp_tac >> rpt $ pop_assum kall_tac >>
+      rw[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+      gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      irule ALL_DISTINCT_FLAT_IMP >> goal_assum drule >>
+      simp[MEM_MAP, EXISTS_PROD, FST_THM] >> irule_at Any EQ_REFL >>
+      simp[MEM_EL] >> gvs[oEL_THM] >> goal_assum drule >> simp[]
+      )
+    >- (
+      rw[EVERY_MEM] >> pairarg_tac >> gvs[] >>
+      `ALL_DISTINCT (MAP FST cdefs)` by (
+        gvs[namespace_ok_def] >> gvs[ALL_DISTINCT_APPEND, MAP_FLAT] >>
+        drule miscTheory.ALL_DISTINCT_FLAT_EVERY >>
+        simp[EVERY_EL, EL_MAP] >> gvs[oEL_THM] >>
+        disch_then drule >> simp[]) >>
+      irule_at Any ALOOKUP_ALL_DISTINCT_MEM >> simp[] >>
+      drule sortingTheory.PERM_LIST_TO_SET >> simp[EXTENSION] >>
+      disch_then $ qspec_then `(cn,ar)` mp_tac o iffRL >> simp[] >>
+      simp[MEM_MAP, EXISTS_PROD] >> rw[] >> goal_assum drule >> simp[]
       ) >>
     gvs[LIST_REL_EL_EQN, EVERY_EL, EL_ZIP, EL_MAP] >> rw[] >>
     pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
@@ -3378,8 +3392,10 @@ Proof
     >- (
       gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
       `MEM (c, LENGTH pvars) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)` by (
-        last_x_assum drule >> rw[] >> simp[MEM_MAP, EXISTS_PROD] >>
-        goal_assum $ drule_at Any >> simp[]) >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+        simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS, FORALL_PROD] >>
+        disch_then irule >> disj1_tac >>
+        simp[MEM_EL, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[]) >>
       gvs[MEM_MAP, EXISTS_PROD] >>
       drule_at (Pos last) ALOOKUP_ALL_DISTINCT_MEM >> impl_tac >> simp[] >>
       gvs[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>

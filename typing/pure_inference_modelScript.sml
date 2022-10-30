@@ -372,9 +372,9 @@ Inductive minfer:
 [~CaseNonexhaustive:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
    oEL id (SND ns) = SOME (ar, cdefs) ∧
-   ALL_DISTINCT (MAP FST cases) ∧
-   EVERY (λ(cn,pvars,rest). ∃ts. MEM (cn,ts) cdefs ∧ LENGTH pvars = LENGTH ts) cases ∧
-   cases ≠ [] ∧
+   cases ≠ [] ∧ us_cn_ars ≠ [] ∧
+   PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)
+    (MAP (λ(cn,pvars,rest). (cn, LENGTH pvars)) cases ++ us_cn_ars) ∧
    LENGTH cases = LENGTH tys ∧
    LENGTH ass = LENGTH css ∧
    ar = LENGTH freshes ∧
@@ -405,7 +405,7 @@ Inductive minfer:
             (ZIP (final_as,final_cs)) ∧
     final_usas = usas \\ v ∧
     final_uscs = IMAGE (λn. mUnify (CVar n) (CVar f)) (get_massumptions usas v) ∪ uscs
-    ⇒ minfer ns mset (Case d e v cases (SOME usrest))
+    ⇒ minfer ns mset (Case d e v cases (SOME (us_cn_ars, usrest)))
         (FOLDR maunion FEMPTY (eas::final_usas::final_as))
         (mUnify (CVar f) ety INSERT
          mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
@@ -1979,7 +1979,6 @@ Proof
       )
     )
   >- gvs[fail_def] (* Case empty case *)
-  >- gvs[fail_def] (* Case non-distinct case *)
   >- ( (* Case non-empty case *)
     print_tac "Case cases" >>
     Cases_on `css` >- gvs[inferM_rws] >>
@@ -1991,9 +1990,12 @@ Proof
         every_case_tac >> gvs[] >> every_case_tac >> gvs[] >>
         gvs[DefnBase.one_line_ify NONE oreturn_def] >>
         every_case_tac >> gvs[inferM_rws] >>
-        drule get_typedef_SOME >> strip_tac >> gvs[] >>
-        qpat_x_assum `MEM _ _` mp_tac >> simp[] >>
-        PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        PairCases_on `ns` >> gvs[] >>
+        drule_all get_typedef_SOME >> strip_tac >> gvs[] >>
+        rename1 `oEL tyid _ = SOME (ar,cdefs)` >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >> strip_tac >> gvs[SF DNF_ss] >>
+        qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_MAP, FORALL_PROD] >> rw[] >>
+        gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
         qpat_x_assum `∀e. _ ⇒ ¬MEM _ (MAP _ (FLAT _))` $
           qspec_then `«»` mp_tac >>
         simp[Once MEM_MAP] >> simp[reserved_cns_def, implodeEQ] >>
@@ -2117,7 +2119,7 @@ Proof
         unabbrev_all_tac >> PairCases_on `h` >> gvs[] >>
         Cases_on `h0` >> gvs[] >> Cases_on `t` >> gvs[] >>
         rw[] >> first_x_assum irule >> simp[] >> metis_tac[]) >>
-    `∀rest. eopt = SOME rest ⇒
+    `∀us_cn_ars rest. eopt = SOME (us_cn_ars, rest) ⇒
       ∀fresh_v fresh_tyargs n' ty' as' cs' m'.
         infer ns (list_insert (fresh_v::fresh_tyargs) mset) rest n' =
         SOME ((ty',as',cs'),m') ∧
@@ -2132,14 +2134,32 @@ Proof
           {v | n' ≤ v ∧ v < m'}` by (
         Cases_on `eopt` >> gvs[] >>
         unabbrev_all_tac >> PairCases_on `h` >> gvs[]) >>
-    ntac 2 $ last_x_assum assume_tac >> ntac 3 $ last_x_assum kall_tac >>
+    last_x_assum assume_tac >> ntac 3 $ last_x_assum kall_tac >>
     qpat_x_assum `_ = SOME _` assume_tac >> gvs[inferM_rws] >>
     gvs[get_case_type_def] >> pop_assum mp_tac >> IF_CASES_TAC >> gvs[]
     >- (PairCases_on `h` >> gvs[]) >>
     IF_CASES_TAC >> gvs[]
     >- ( (* Bool case *)
-      print_tac "BoolCase" >>
-      gvs[inferM_rws] >> strip_tac >>
+      print_tac "BoolCase" >> strip_tac >>
+      `eopt = NONE` by (
+        Cases_on `eopt` >> gvs[] >> PairCases_on `x` >> gvs[inferM_rws] >>
+        every_case_tac >> gvs[] >> every_case_tac >> gvs[] >> pop_assum kall_tac >>
+        gvs[DefnBase.one_line_ify NONE oreturn_def] >>
+        every_case_tac >> gvs[inferM_rws] >>
+        PairCases_on `ns` >> gvs[] >>
+        drule_all get_typedef_SOME >> strip_tac >> gvs[] >>
+        rename1 `oEL tyid _ = SOME (ar,cdefs)` >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+        disch_then $ qspec_then `«True»,0` assume_tac >> gvs[] >>
+        qpat_x_assum `MEM _ _` mp_tac >> simp[MEM_MAP, FORALL_PROD] >> rw[] >>
+        gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        qpat_x_assum `∀e. _ ⇒ ¬MEM _ (MAP _ (FLAT _))` $
+          qspec_then `«True»` mp_tac >>
+        simp[Once MEM_MAP] >> simp[reserved_cns_def, implodeEQ] >>
+        simp[MEM_MAP, MEM_FLAT, FORALL_PROD] >> simp[Once MEM_EL, PULL_FORALL] >>
+        simp[DISJ_EQ_IMP] >> disch_then irule >> gvs[oEL_THM] >>
+        goal_assum $ drule_at Any >> simp[]) >>
+      gvs[inferM_rws] >>
       `∃c1 e1 c2 e2. cases = [(c1,[],e1);(c2,[],e2)]` by (
         gvs[LENGTH_EQ_NUM_compute] >>
         PairCases_on `h` >> PairCases_on `h''` >> gvs[]) >>
@@ -2237,8 +2257,33 @@ Proof
       ) >>
     IF_CASES_TAC >> gvs[]
     >- ( (* Exception case *)
-      print_tac "ExceptionCase" >>
-      gvs[inferM_rws] >> strip_tac >> every_case_tac >> gvs[] >>
+      print_tac "ExceptionCase" >> strip_tac >>
+      `eopt = NONE` by (
+        Cases_on `eopt` >> gvs[] >> PairCases_on `x` >> gvs[inferM_rws] >>
+        every_case_tac >> gvs[] >> every_case_tac >> gvs[] >> pop_assum kall_tac >>
+        gvs[DefnBase.one_line_ify NONE oreturn_def] >>
+        every_case_tac >> gvs[inferM_rws] >>
+        PairCases_on `ns` >> gvs[] >>
+        drule_all get_typedef_SOME >> strip_tac >> gvs[] >>
+        rename1 `oEL tyid _ = SOME (ar,cdefs)` >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+        disch_then $ qspec_then `«Subscript»,0` mp_tac >> simp[] >> conj_tac
+        >- (
+          disj1_tac >> gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, FORALL_PROD] >>
+          first_x_assum $ qspecl_then [`«Subscript»`,`[]`] mp_tac >>
+          gvs[namespace_ok_def]
+          ) >>
+        simp[MEM_MAP, FORALL_PROD] >> rw[] >>
+        gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+        qpat_x_assum `∀e. _ ⇒ ¬MEM _ (MAP _ (FLAT _))` $
+          qspec_then `«Subscript»` mp_tac >> impl_tac
+        >- (
+          disj2_tac >> simp[MEM_MAP, EXISTS_PROD] >> gvs[namespace_ok_def, SF SFY_ss]
+          ) >>
+        simp[MEM_MAP, MEM_FLAT, FORALL_PROD] >> simp[Once MEM_EL, PULL_FORALL] >>
+        simp[DISJ_EQ_IMP] >> disch_then irule >> gvs[oEL_THM] >>
+        goal_assum $ drule_at Any >> simp[]) >>
+      gvs[inferM_rws] >> every_case_tac >> gvs[] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename [
         `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
@@ -2537,24 +2582,32 @@ Proof
       ) >>
     print_tac "DataCase" >>
     ntac 3 $ pop_assum kall_tac >> strip_tac >>
-    qmatch_asmsub_abbrev_tac `oreturn foo` >>
-    Cases_on `foo` >> gvs[inferM_rws] >> rename1 `SOME tdef` >>
-    pairarg_tac >> gvs[inferM_rws] >> every_case_tac >> gvs[] >>
-    gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
-    qmatch_asmsub_abbrev_tac `FOLDR f` >>
-    rename [
-      `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
-      `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`,
-      `get_typedef _ _ _ _ = SOME (_,_,cdefs)`] >>
-    drule get_typedef_SOME >> strip_tac >> gvs[] >>
-    `ALL_DISTINCT (MAP FST cdefs)` by (
-      qpat_x_assum `namespace_ok _` assume_tac >> PairCases_on `ns` >>
-      gvs[namespace_ok_def] >> gvs[ALL_DISTINCT_APPEND, MAP_FLAT] >>
-      drule miscTheory.ALL_DISTINCT_FLAT_EVERY >>
-      simp[EVERY_EL, EL_MAP] >> gvs[oEL_THM] >>
-      disch_then drule >> simp[])
+    Cases_on `eopt` >> gvs[inferM_rws]
     >- (
       print_tac "Case case - exhaustive" >>
+      every_case_tac >> gvs[] >>
+      qmatch_asmsub_abbrev_tac `oreturn foo` >>
+      Cases_on `foo` >> gvs[inferM_rws] >> rename1 `SOME (tyid,ar,cdefs)` >>
+      gvs[inferM_rws] >> every_case_tac >> gvs[] >>
+      gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+      qmatch_asmsub_abbrev_tac `FOLDR f` >>
+      rename [
+        `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
+        `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`] >>
+      drule get_typedef_SOME >>
+      disch_then $ qspec_then `FST ns` assume_tac >> gvs[] >>
+      `EVERY (λ(cn,pvs,_).
+        MEM (cn, LENGTH pvs) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)) cases` by (
+        rw[EVERY_MEM] >> pairarg_tac >> simp[] >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+        simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> rw[] >>
+        first_x_assum drule >> simp[]) >>
+      `ALL_DISTINCT (MAP FST cdefs)` by (
+        qpat_x_assum `namespace_ok _` assume_tac >> PairCases_on `ns` >>
+        gvs[namespace_ok_def] >> gvs[ALL_DISTINCT_APPEND, MAP_FLAT] >>
+        drule miscTheory.ALL_DISTINCT_FLAT_EVERY >>
+        simp[EVERY_EL, EL_MAP] >> gvs[oEL_THM] >>
+        disch_then drule >> simp[]) >>
       `∃ass css final_as final_cs.
       LIST_REL (λ((cname,pvars,rest),ty) (a,c).
         minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
@@ -2582,9 +2635,9 @@ Proof
           {v | ar + SUC n ≤ v ∧ v < l} ∧
       LENGTH cases = LENGTH tyrest ∧ LENGTH ass = LENGTH css ∧
       LENGTH final_as = LENGTH final_cs ∧ ar + SUC n ≤ l` by (
-      qpat_x_assum `get_typedef _ _ _ _ = _` kall_tac >>
+      qpat_x_assum `get_typedef _ _ _ = _` kall_tac >>
+      qpat_x_assum `PERM _ _` kall_tac >>
       rpt $ qpat_x_assum `infer _ _ _ _ = _` kall_tac >>
-      qpat_x_assum `ALL_DISTINCT (_ cases)` kall_tac >>
       `∀mvar. mvar ∈ domain mset ⇒ mvar < ar + SUC n` by (
         rw[] >> last_x_assum drule >> simp[]) >>
       last_x_assum assume_tac >>
@@ -2597,7 +2650,7 @@ Proof
         simp[assumptions_rel_def, iFunctions_def] >>
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
-      gvs[Abbr `f`] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+      gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
       every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
@@ -2632,6 +2685,7 @@ Proof
         simp[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LIST_TO_SET_MAP, IMAGE_IMAGE,
              LIST_TO_SET_FLAT, LAMBDA_PROD, IMAGE_BIGUNION] >>
         drule LIST_TO_SET_get_assumptions >> rw[] >>
+        qpat_x_assum `MEM _ (MAP _ _)` mp_tac >> rw[MEM_MAP] >> pairarg_tac >> gvs[] >>
         drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]
         )
       >- (
@@ -2668,13 +2722,6 @@ Proof
         rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
         )
       ) >>
-      drule get_typedef_exhaustive >>
-      disch_then $ qspec_then `FST ns` mp_tac >> simp[] >>
-      impl_tac
-      >- (
-        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[FST_THM, LAMBDA_PROD]
-        ) >>
-      strip_tac >> rw[] >> gvs[] >>
       last_x_assum drule >> impl_tac >- (rw[] >> first_x_assum drule >> simp[]) >>
       strip_tac >> gvs[] >>
       simp[Once minfer_cases] >> ntac 2 $ irule_at Any $ OR_INTRO_THM2 >>
@@ -2873,6 +2920,30 @@ Proof
       )
     >- (
       print_tac "Case case - NON-exhaustive" >>
+      PairCases_on `x` >> rename1 `us_cn_ars,usrest` >> gvs[] >>
+      every_case_tac >> gvs[] >>
+      qmatch_asmsub_abbrev_tac `oreturn foo` >>
+      Cases_on `foo` >> gvs[inferM_rws] >> rename1 `SOME (tyid,ar,cdefs)` >>
+      gvs[inferM_rws] >> every_case_tac >> gvs[] >>
+      gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+      qmatch_asmsub_abbrev_tac `FOLDR f` >>
+      rename [
+        `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
+        `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`] >>
+      drule get_typedef_SOME >>
+      disch_then $ qspec_then `FST ns` assume_tac >> gvs[] >>
+      `EVERY (λ(cn,pvs,_).
+        MEM (cn, LENGTH pvs) (MAP (λ(cn,ts). (cn, LENGTH ts)) cdefs)) cases` by (
+        rw[EVERY_MEM] >> pairarg_tac >> simp[] >>
+        drule $ iffRL sortingTheory.PERM_MEM_EQ >>
+        simp[SF DNF_ss, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> rw[] >>
+        pop_assum kall_tac >> first_x_assum drule >> simp[]) >>
+      `ALL_DISTINCT (MAP FST cdefs)` by (
+        qpat_x_assum `namespace_ok _` assume_tac >> PairCases_on `ns` >>
+        gvs[namespace_ok_def] >> gvs[ALL_DISTINCT_APPEND, MAP_FLAT] >>
+        drule miscTheory.ALL_DISTINCT_FLAT_EVERY >>
+        simp[EVERY_EL, EL_MAP] >> gvs[oEL_THM] >>
+        disch_then drule >> simp[]) >>
       `∃ass css final_as final_cs.
       LIST_REL (λ((cname,pvars,rest),ty) (a,c).
         minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
@@ -2900,9 +2971,9 @@ Proof
           {v | ar + SUC n ≤ v ∧ v < l} ∧
       LENGTH cases = LENGTH tyrest ∧ LENGTH ass = LENGTH css ∧
       LENGTH final_as = LENGTH final_cs ∧ ar + SUC n ≤ l` by (
-      qpat_x_assum `get_typedef _ _ _ _ = _` kall_tac >>
+      qpat_x_assum `get_typedef _ _ _ = _` kall_tac >>
+      qpat_x_assum `PERM _ _` kall_tac >>
       rpt $ qpat_x_assum `infer _ _ _ _ = _` kall_tac >>
-      qpat_x_assum `ALL_DISTINCT (_ cases)` kall_tac >>
       `∀mvar. mvar ∈ domain mset ⇒ mvar < ar + SUC n` by (
         rw[] >> last_x_assum drule >> simp[]) >>
       last_x_assum assume_tac >>
@@ -2915,7 +2986,7 @@ Proof
         simp[assumptions_rel_def, iFunctions_def] >>
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
-      gvs[Abbr `f`] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+      gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
       every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
@@ -2950,6 +3021,7 @@ Proof
         simp[MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LIST_TO_SET_MAP, IMAGE_IMAGE,
              LIST_TO_SET_FLAT, LAMBDA_PROD, IMAGE_BIGUNION] >>
         drule LIST_TO_SET_get_assumptions >> rw[] >>
+        qpat_x_assum `MEM _ (MAP _ _)` mp_tac >> rw[MEM_MAP] >> pairarg_tac >> gvs[] >>
         drule_all ALOOKUP_ALL_DISTINCT_MEM >> simp[]
         )
       >- (
@@ -3018,8 +3090,8 @@ Proof
         simp[AC UNION_ASSOC UNION_COMM] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
         imp_res_tac LIST_TO_SET_get_assumptions >> simp[]
         )
-      >- (qpat_x_assum `EVERY _ _` mp_tac >> simp[EVERY_MAP, LAMBDA_PROD])
       >- (unabbrev_all_tac >> gvs[])
+      >- (Cases_on `us_cn_ars` >> gvs[])
       >- (
         gvs[cvars_disjoint_def] >>
         once_rewrite_tac[CONS_APPEND] >> rewrite_tac[list_disjoint_append] >>
