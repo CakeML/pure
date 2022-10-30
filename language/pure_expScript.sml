@@ -105,6 +105,18 @@ Termination
   Induct_on `l` >> rw[] >> gvs[fetch "-" "exp_size_def"]
 End
 
+Definition allvars_def[simp]:
+  allvars (Var n)        = {n} ∧
+  allvars (Prim op es)   = BIGUNION (set (MAP allvars es)) ∧
+  allvars (App e1 e2)    = allvars e1 ∪ allvars e2 ∧
+  allvars (Lam n e)      = n INSERT allvars e ∧
+  allvars (Letrec lcs e) = allvars e ∪ set (MAP FST lcs) ∪
+                           BIGUNION (set (MAP (λ(fn,e). allvars e) lcs))
+Termination
+  WF_REL_TAC ‘measure exp_size’ \\ rw[] \\ gvs[]
+  \\ rename [‘MEM _ l’] \\ Induct_on `l` \\ rw[] \\ gvs[fetch "-" "exp_size_def"]
+End
+
 Definition closed_def:
   closed e = (freevars e = {})
 End

@@ -36,7 +36,7 @@ Definition unionWith_def:
     Map cmp (balanced_map$unionWith cmp f t1 t2)
 End
 
-Definition new_var_def:
+Definition new_var_def:  (* might not be good for EVAL *)
   new_var ml s =
   if map_ok ml
   then
