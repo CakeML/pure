@@ -174,32 +174,31 @@ Definition infer_atom_op_def:
 End
 
 Definition get_typedef_def:
-  get_typedef exhaustive n ([] : typedefs) cnames_arities = NONE ∧
-  get_typedef exhaustive n ((ar,cs)::tds) cnames_arities =
-    let cs' = MAP (λ(cn,ts). (cn, LENGTH ts)) cs in
+  get_typedef n ([] : typedefs) cnames_arities = NONE ∧
+  get_typedef n ((ar,cs)::tds) cnames_arities =
     if
-      EVERY (λcn_ar. MEM cn_ar cs') cnames_arities ∧
-      (if exhaustive then LENGTH cs = LENGTH cnames_arities else T)
+      LENGTH cs = LENGTH cnames_arities ∧
+      EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) cs
     then SOME (n, ar, cs)
-    else get_typedef exhaustive (SUC n) tds cnames_arities
+    else get_typedef (SUC n) tds cnames_arities
 End
 
 Definition get_case_type_def:
-  get_case_type exhaustive ns cnames_arities =
+  get_case_type has_us ns cnames_arities =
     let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
-    if len = 1 ∧ cnames = [«»] ∧ exhaustive then do (* tuple case *)
+    if len = 1 ∧ cnames = [«»] ∧ ¬has_us then do (* tuple case *)
       h <- oreturn (oHD cnames_arities);
       freshes <- fresh_vars (SND h);
       return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
-    od else if len = 2 ∧ exhaustive ∧ (* bool case *)
+    od else if len = 2 ∧ ¬has_us ∧ (* bool case *)
       MEM («True»,0) cnames_arities ∧ MEM («False»,0) cnames_arities
       then return (PrimTy Bool, [], [(«True»,[]); («False»,[])])
     else if (* exception case *)
-      LENGTH (FST ns) = LENGTH cnames_arities ∧ exhaustive ∧
+      LENGTH (FST ns) = LENGTH cnames_arities ∧ ¬has_us ∧
       EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
       then return (Exception, [], MAP (λ(cn,ts). (cn, MAP itype_of ts)) $ FST ns)
     else do (* data case *)
-      (n, ar, cs) <- oreturn (get_typedef exhaustive 0 (SND ns) cnames_arities);
+      (n, ar, cs) <- oreturn (get_typedef 0 (SND ns) cnames_arities);
       freshes <- fresh_vars ar;
       cfreshes <<- MAP CVar freshes;
       return (TypeCons n cfreshes, freshes,
@@ -418,7 +417,7 @@ Definition infer_def:
             csfns ++ cse) od) ∧
 
   infer ns mset (Case d e v css eopt) = (
-    if MEM v (FLAT (MAP (FST o SND) css)) ∨ ¬ALL_DISTINCT (MAP FST css)
+    if MEM v (FLAT (MAP (FST o SND) css))
     then fail else
     case css of
     | [] => fail (* no empty case statements *)
@@ -426,7 +425,11 @@ Definition infer_def:
       fresh_v <- fresh_var;
       cfresh_v <<- CVar fresh_v;
       (expected_ty, fresh_tyargs, cdefs) <-
-        get_case_type (IS_NONE eopt) ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css);
+        (case eopt of
+        | NONE => get_case_type F ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css)
+        | SOME (us_cn_ars, _) =>
+            if NULL us_cn_ars then fail else
+            get_case_type T ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css ++ us_cn_ars));
       cfresh_tyargs <<- MAP CVar fresh_tyargs;
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
@@ -444,7 +447,7 @@ Definition infer_def:
       (tys, as, cs) <-
         (case eopt of
            NONE => return (tys,as,cs)
-         | SOME ue => do
+         | SOME (_, ue) => do
                (uty, uas, ucs) <- infer ns (list_insert mono_vars mset) ue ;
                pvar_constraints <<-
                  MAP (λn. Unify d (CVar n) cfresh_v) (get_assumptions v uas) ;

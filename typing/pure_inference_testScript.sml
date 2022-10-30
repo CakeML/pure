@@ -248,7 +248,7 @@ val add_str' = toMLstring ‘
     (add (lam (x y)
       (case x temp
         ((((S (xx)) (app add xx (cons S y)))) .
-         (SOME y)))))
+         (SOME ((Z 0)) y)))))
     add)
 ’;
 

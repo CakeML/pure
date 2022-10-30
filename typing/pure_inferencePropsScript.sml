@@ -1109,33 +1109,17 @@ Proof
 QED
 
 Theorem get_typedef_mono:
-  ∀exhaustive n tdefs cnames m ar cs.
-    get_typedef exhaustive n tdefs cnames = SOME (m, ar, cs)
+  ∀n tdefs cnames m ar cs.
+    get_typedef n tdefs cnames = SOME (m, ar, cs)
   ⇒ n ≤ m
 Proof
   recInduct get_typedef_ind >> rw[get_typedef_def] >>
   every_case_tac >> gvs[]
 QED
 
-Theorem get_typedef_SOME:
-  ∀exhaustive n tdefs cnames_arities m ar cs.
-  get_typedef exhaustive n tdefs cnames_arities = SOME (m, ar, cs) ⇒
-  oEL (m - n) tdefs = SOME (ar, cs) ∧
-  EVERY (λ(cn,ar). ∃ts. MEM (cn, ts) cs ∧ ar = LENGTH ts) cnames_arities
-Proof
-  recInduct get_typedef_ind >> rw[get_typedef_def] >> gvs[oEL_THM]
-  >- (
-    gvs[MEM_MAP, EXISTS_PROD, EVERY_MEM, FORALL_PROD] >>
-    metis_tac[]
-    ) >>
-  imp_res_tac get_typedef_mono >> imp_res_tac LESS_EQUAL_ADD >>
-  gvs[ADD1] >> gvs[GSYM ADD1]
-QED
-
-Theorem get_typedef_exhaustive_lemma[local]:
-  ∀exndefs tdefs cnames_arities n m ar cs.
-  namespace_ok (exndefs, tdefs) ∧ ALL_DISTINCT (MAP FST cnames_arities) ⇒
-  (get_typedef T n tdefs cnames_arities = SOME (n + m, ar, cs)) =
+Theorem get_typedef:
+  namespace_ok (exndefs, tdefs) ⇒
+  (get_typedef n tdefs cnames_arities = SOME (n + m, ar, cs)) =
   (oEL m tdefs = SOME (ar, cs) ∧
    PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) cs) cnames_arities)
 Proof
@@ -1143,7 +1127,7 @@ Proof
   `ALL_DISTINCT (MAP FST (FLAT (MAP SND tdefs)))` by
     gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
   `EVERY (λ(ar,td). td ≠ []) tdefs` by gvs[namespace_ok_def] >>
-  last_x_assum kall_tac >> ntac 3 $ pop_assum mp_tac >>
+  last_x_assum kall_tac >> ntac 2 $ pop_assum mp_tac >>
   map_every qid_spec_tac [`m`,`n`,`tdefs`] >> Induct >> rw[] >>
   gvs[get_typedef_def, oEL_THM] >>
   PairCases_on `h` >> gvs[get_typedef_def] >>
@@ -1151,47 +1135,48 @@ Proof
   >- (
     eq_tac >> strip_tac >> gvs[]
     >- (
-      Cases_on `m` >> gvs[] >> rw[Once sortingTheory.PERM_SYM] >>
+      Cases_on `m` >> gvs[] >>
       irule PERM_ALL_DISTINCT_LENGTH >> gvs[ALL_DISTINCT_APPEND, EVERY_MEM] >>
-      imp_res_tac ALL_DISTINCT_MAP
+      gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+      irule ALL_DISTINCT_MAP_INJ >> imp_res_tac ALL_DISTINCT_MAP >> gvs[] >>
+      simp[FORALL_PROD] >> rw[] >>
+      qpat_x_assum `ALL_DISTINCT (_ cs)` mp_tac >>
+      simp[EL_ALL_DISTINCT_EL_EQ, MEM_EL, EL_MAP] >> gvs[MEM_EL] >>
+      ntac 2 $ qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+      disch_then $ qspecl_then [`n`,`n'`] assume_tac >> gvs[]
       ) >>
     Cases_on `m` >> gvs[ALL_DISTINCT_APPEND] >> rename1 `EL m` >>
-    `∃cn_ts. MEM cn_ts h1` by (
-      Cases_on `h1` >> gvs[] >> qexists_tac `h` >> simp[]) >>
-    gvs[MEM_MAP, PULL_EXISTS] >> last_x_assum drule >> simp[EXISTS_PROD] >>
-    PairCases_on `cn_ts` >> rename1 `cn,ts` >> simp[] >>
+    gvs[EVERY_MEM] >> Cases_on `h1` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    PairCases_on `h` >> gvs[] >>
+    qpat_x_assum `¬ MEM _ (MAP _ (FLAT _))` mp_tac >> simp[] >>
     simp[MEM_FLAT, MEM_MAP, PULL_EXISTS, EXISTS_PROD, Once MEM_EL] >>
-    goal_assum drule >> simp[] >>
-    `PERM cnames_arities (MAP (λ(cn,ts). (cn, LENGTH ts)) h1)` by (
-      irule PERM_ALL_DISTINCT_LENGTH >> simp[] >>
-      imp_res_tac ALL_DISTINCT_MAP >> simp[] >> gvs[EVERY_MEM, MEM_MAP])  >>
-    dxrule_all sortingTheory.PERM_TRANS >> strip_tac >>
-    dxrule $ iffRL sortingTheory.PERM_MEM_EQ >>
-    simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> disch_then drule >>
-    strip_tac >> gvs[SF SFY_ss]
+    goal_assum drule >> gvs[] >>
+    imp_res_tac sortingTheory.PERM_MEM_EQ >>
+    gvs[MEM_MAP, EXISTS_PROD] >> goal_assum drule
     ) >>
-  reverse $ Cases_on `m` >> gvs[]
+  Cases_on `m` >> gvs[]
   >- (
-    gvs[ALL_DISTINCT_APPEND] >> rename1 `n + SUC m` >>
-    last_x_assum $ qspecl_then [`SUC n`,`m`] assume_tac >> gvs[ADD_CLAUSES]
+    qspecl_then [`SUC n`,`tdefs`,`cnames_arities`,`n`] assume_tac get_typedef_mono >>
+    gvs[] >> rw[] >>
+    CCONTR_TAC >> gvs[] >> qpat_x_assum `_ ⇒ _` mp_tac >> simp[] >>
+    imp_res_tac sortingTheory.PERM_LENGTH >> gvs[combinTheory.o_DEF] >>
+    imp_res_tac $ iffLR sortingTheory.PERM_MEM_EQ >> gvs[EVERY_MEM] >>
+    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD]
     ) >>
-  qspecl_then [`T`,`SUC n`,`tdefs`,`cnames_arities`,`n`] assume_tac get_typedef_mono >>
-  gvs[] >> rw[] >> pop_assum kall_tac >>
-  CCONTR_TAC >> gvs[] >> qpat_x_assum `_ ⇒ _` mp_tac >> simp[] >>
-  imp_res_tac sortingTheory.PERM_LENGTH >> gvs[combinTheory.o_DEF] >>
-  imp_res_tac $ iffRL sortingTheory.PERM_MEM_EQ >> gvs[EVERY_MEM]
+  gvs[ALL_DISTINCT_APPEND] >> rename1 `n + SUC m` >>
+  last_x_assum $ qspecl_then [`SUC n`,`m`] assume_tac >> gvs[ADD_CLAUSES]
 QED
 
-Theorem get_typedef_exhaustive:
+Theorem get_typedef_SOME:
   ∀n tdefs cnames_arities m arity cs exndefs.
-    get_typedef T n tdefs cnames_arities = SOME (m, arity, cs) ∧
-    namespace_ok (exndefs, tdefs) ∧ ALL_DISTINCT (MAP FST cnames_arities)
+    get_typedef n tdefs cnames_arities = SOME (m, arity, cs) ∧
+    namespace_ok (exndefs, tdefs)
   ⇒ oEL (m - n) tdefs = SOME (arity, cs) ∧
     PERM (MAP (λ(cn,ts). (cn, LENGTH ts)) cs) cnames_arities
 Proof
   rpt gen_tac >> strip_tac >>
   imp_res_tac get_typedef_mono >> imp_res_tac LESS_EQUAL_ADD >> gvs[] >>
-  drule_all $ iffLR get_typedef_exhaustive_lemma >> simp[]
+  drule_all $ iffLR get_typedef >> simp[]
 QED
 
 Theorem generalise_avoid_all:
