@@ -37,20 +37,21 @@ Definition letrec_split_def:
 End
 
 Theorem MEM_letrec_split:
-  ∀binds binds' vc m. MEM (v, e) binds' ∧ is_Lam e ∧ binds' = FST (letrec_split binds vc m) ⇒
-               MEM (Delay e) (MAP SND binds) ∨ MEM (v, e) binds
+  ∀binds binds' vc m. MEM (v, e) binds' ∧ binds' = FST (letrec_split binds vc m) ⇒
+               MEM (Delay e) (MAP SND binds) ∨ MEM e (MAP SND binds) ∨ (∃v. e = Delay (Var v))
 Proof
   Induct \\ gvs [letrec_split_def, FORALL_PROD]
   \\ gen_tac \\ Cases \\ gvs [dest_Delay_Lam_def]
   \\ rw [] \\ pairarg_tac \\ gvs [is_Lam_def]
   \\ rename1 ‘letrec_split _ vc maps = _’
   \\ last_assum $ qspecl_then [‘vc’, ‘maps’] assume_tac \\ gvs []
-  >- (pairarg_tac \\ gvs []
-      \\ pairarg_tac \\ gvs []
-      \\ rename1 ‘dest_Delay_Lam (Delay c)’ \\ Cases_on ‘c’
-      \\ gvs [dest_Delay_Lam_def, is_Lam_def]
-      \\ rename1 ‘letrec_split _ vc2 maps2 = _’
-      \\ last_assum $ qspecl_then [‘vc2’, ‘maps2’] assume_tac \\ gvs [])
+  \\ rename1 ‘dest_Delay_Lam (Delay c)’
+  \\ Cases_on ‘dest_Delay_Lam (Delay c)’ \\ gs []
+  \\ pairarg_tac \\ gvs []
+  \\ Cases_on ‘c’ \\ gs [dest_Delay_Lam_def]
+  \\ pairarg_tac \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘var_creator'’, ‘insert m p_1 name2’] assume_tac
+  \\ gvs []
 QED
 
 Theorem MEM_cexp6_size:
@@ -74,14 +75,10 @@ Definition split_Delayed_Lam_def:
         let (e', vc) = split_Delayed_Lam e var_creator (FOLDL delete maps v) in
         (Lam v e', vc)) /\
     (split_Delayed_Lam (thunk_cexp$Letrec binds expr) var_creator maps =
-        let maps = FOLDL (λm (v, e). delete m v) maps binds in
         let (binds', vc, maps2) = letrec_split binds var_creator maps in
           let (binds', vc) = FOLDR (λ(v, e) (l, vc).
-                                      if is_Lam e
-                                      then
-                                        let (e', vc) = split_Delayed_Lam e vc maps2 in
-                                          ((v, e')::l, vc)
-                                      else ((v, e)::l, vc)) ([], vc) binds' in
+                                      let (e', vc) = split_Delayed_Lam e vc maps2 in
+                                          ((v, e')::l, vc)) ([], vc) binds' in
         let (expr', vc) = split_Delayed_Lam expr vc maps2 in
         (Letrec binds' expr', vc)) /\
     (split_Delayed_Lam (Prim op xs) var_creator maps =
@@ -134,18 +131,49 @@ Definition split_Delayed_Lam_def:
                           ((v, vL, expr')::l, vc)) ([], vc) list in
         (Case vname list' fallthrough', vc))
 Termination
-  WF_REL_TAC ‘measure $ cexp_size o FST’ \\ rw []
+  WF_REL_TAC ‘measure $ (λe. case e of
+                             | Var _ => 0
+                             | Delay (thunk_cexp$Var v) => 1
+                             | _ => cexp_size e) o FST’ \\ rw []
   >~[‘MEM _ _’]
   >- (dxrule_then assume_tac MEM_letrec_split \\ gvs []
       \\ rename1 ‘letrec_split binds var_creator maps'’
       \\ pop_assum $ qspecl_then [‘binds’, ‘var_creator’, ‘maps'’] assume_tac
       \\ Cases_on ‘letrec_split binds var_creator maps'’ \\ gvs [MEM_MAP]
-      \\ dxrule_then assume_tac MEM_cexp6_size \\ gvs []
-      \\ rename1 ‘cexp_size (SND y) < _’ \\ PairCases_on ‘y’ \\ gvs [cexp_size_def])
-  \\ rename1 ‘dest_Delay_Lam expr1’
-  \\ Cases_on ‘expr1’ \\ gs [dest_Delay_Lam_def]
-  \\ rename1 ‘dest_Delay_Lam (Delay expr1)’
-  \\ Cases_on ‘expr1’ \\ gvs [dest_Delay_Lam_def, cexp_size_def]
+      >- (dxrule_then assume_tac MEM_cexp6_size \\ gvs []
+          \\ rename1 ‘cexp_size (SND y) < _’ \\ PairCases_on ‘y’ \\ gvs [cexp_size_def]
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs [])
+      >- (dxrule_then assume_tac MEM_cexp6_size \\ gvs []
+          \\ rename1 ‘cexp_size (SND y) < _’ \\ PairCases_on ‘y’ \\ gvs [cexp_size_def]
+          \\ CASE_TAC \\ gs []
+          \\ CASE_TAC \\ gs [])
+      >- (rename1 ‘cexp_size expr’
+          \\ Cases_on ‘expr’ \\ gs [cexp_size_def]))
+  >~[‘dest_Delay_Lam _’]
+  >- (CASE_TAC \\ gs [] \\ CASE_TAC \\ gs [])
+  >~[‘dest_Delay_Lam _’]
+  >- (rename1 ‘dest_Delay_Lam expr1’
+      \\ Cases_on ‘expr1’ \\ gs [dest_Delay_Lam_def]
+      \\ rename1 ‘dest_Delay_Lam (Delay expr1)’
+      \\ Cases_on ‘expr1’ \\ gvs [dest_Delay_Lam_def, cexp_size_def])
+  >~[‘MEM _ _’]
+  >- (assume_tac cexp_size_lemma \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gs [])
+  >~[‘MEM _ _’]
+  >- (assume_tac cexp_size_lemma \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gs [])
+  >~[‘MEM _ _’]
+  >- (assume_tac cexp_size_lemma \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gs [])
+  \\ CASE_TAC \\ gs []
+  \\ CASE_TAC \\ gs [cexp_size_def]
 End
 
 val _ = export_theory ();

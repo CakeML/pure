@@ -575,4 +575,12 @@ Definition ok_bind_def[simp]:
   (ok_bind _ = F)
 End
 
+Theorem FINITE_boundvars:
+  ∀e. FINITE (boundvars e)
+Proof
+  Induct using freevars_ind
+  \\ gs [boundvars_def, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ gs []
+QED
+
 val _ = export_theory ();
