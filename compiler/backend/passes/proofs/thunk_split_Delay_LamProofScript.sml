@@ -898,413 +898,31 @@ Proof
       \\ pairarg_tac \\ gs [rows_of_def, exp_rel1_def, exp_rel2_def, is_Lam_def])
 QED
 
-fun skip x = cheat;
-
-Theorem letrec_split_soundness:
-  ∀binds.
-    (∀e. MEM e (MAP SND binds) ⇒
-         ∀vc'⁴' map map_l' e_out' vc_out.
-           split_Delayed_Lam e vc'⁴' map = (e_out',vc_out) ∧
-           ALL_DISTINCT map_l' ∧ freevars (exp_of e) ⊆ vc_to_set vc'⁴' ∧
-           boundvars (exp_of e) ⊆ vc_to_set vc'⁴' ∧
-           IMAGE explode (set map_l') ⊆ vc_to_set vc'⁴' ∧
-           IMAGE explode (FRANGE (to_fmap map)) ⊆ vc_to_set vc'⁴' ∧
-           cexp_wf e ∧ DISJOINT (set map_l') (FRANGE (to_fmap map)) ∧
-           DISJOINT (freevars (exp_of e))
-                    (IMAGE explode (FRANGE (to_fmap map))) ∧
-           DISJOINT (boundvars (exp_of e))
-                    (IMAGE explode (FRANGE (to_fmap map))) ∧ map_ok map ∧
-           cmp_of map = compare ∧ var_creator_ok vc'⁴' ∧
-           FDOM (to_fmap map) = set map_l' ⇒
-           ∃e2 e3.
-             vc_to_set vc'⁴' ⊆ vc_to_set vc_out ∧ var_creator_ok vc_out ∧
-             freevars (exp_of e_out') ⊆ vc_to_set vc_out ∧
-             boundvars (exp_of e_out') ⊆ vc_to_set vc_out ∧
-             boundvars e2 ∩ COMPL (boundvars (exp_of e)) =
-             vc_to_set vc_out ∩ COMPL (vc_to_set vc'⁴') ∧
-             thunk_Delay_Lam$exp_rel (exp_of e) e2 ∧ full_exp_rel e2 e3 ∧ cexp_wf e_out' ∧
-             exp_of e_out' =
-             FOLDL (λe v.
-                      replace_Force (Var (explode (to_fmap map ' v)))
-                                    (explode v) e) e3 map_l')
-    ⇒ ∀binds2 binds3 vc vc2 vc3 map map2 s mapl.
-        letrec_split binds vc map = (binds2, vc2, map2) ∧ map_ok map ∧
-        FOLDR (λ(v,e) (l, vc).(λ(e2, vc2). ((v, e2)::l, vc2)) (split_Delayed_Lam e vc map2))
-              ([], vc2) binds2 = (binds3, vc3) ∧
-        EVERY (cexp_wf o SND) binds ∧ var_creator_ok vc ∧ FINITE s ∧
-        EVERY cexp_ok_bind (MAP SND binds) ∧
-        EVERY (λ(v, e). explode v ∈ vc_to_set vc ∧
-                        DISJOINT (freevars (exp_of e)) (IMAGE explode (FRANGE (to_fmap map))) ∧
-                        DISJOINT (boundvars (exp_of e)) (IMAGE explode (FRANGE (to_fmap map))) ∧
-                        freevars (exp_of e) ⊆ vc_to_set vc ∧
-                        boundvars (exp_of e) ⊆ vc_to_set vc) binds ∧
-        ALL_DISTINCT (MAP FST binds) ∧ ALL_DISTINCT mapl ∧
-        DISJOINT (vc_to_set vc2) s ∧
-        DISJOINT (FDOM (to_fmap map)) (FRANGE (to_fmap map)) ∧
-        FDOM (to_fmap map) = set mapl ∧ cmp_of map = compare ∧
-        IMAGE explode (FDOM (to_fmap map)) ⊆ vc_to_set vc ∧
-        IMAGE explode (FRANGE (to_fmap map)) ⊆ vc_to_set vc
-        ⇒ ∃vL expL1 expL2 mapl1 mapl2.
-            ALL_DISTINCT (MAP FST expL1) ∧
-            MAP FST binds = MAP FST binds3 ∧
-            MAP (explode o FST) binds = MAP FST expL1 ∧
-            MAP (explode o FST) binds = MAP FST expL2 ∧
-            EVERY ok_bind (MAP SND expL1) ∧
-            LIST_REL thunk_Delay_Lam$exp_rel (MAP (exp_of o SND) binds) (MAP SND expL1) ∧
-            LIST_REL full_exp_rel (MAP SND expL1) (MAP SND expL2) ∧
-
-            LENGTH binds = LENGTH vL ∧ ALL_DISTINCT vL ∧
-            EVERY (λv. v ∉ s ∧ v ∉ vc_to_set vc) vL ∧
-            EVERY (λv. EVERY (λ(v2,e). v ∉ boundvars e) expL1) vL ∧
-            var_creator_ok vc3 ∧ vc_to_set vc2 ⊆ vc_to_set vc3 ∧
-            var_creator_ok vc2 ∧ vc_to_set vc  ⊆ vc_to_set vc2 ∧
-            EVERY (λ(v, e). freevars (exp_of e) ⊆ vc_to_set vc3 ∧ boundvars (exp_of e) ⊆ vc_to_set vc3
-                            ∧ explode v ∈ vc_to_set vc3 ∧ cexp_wf e) binds3 ∧
-            ALL_DISTINCT (MAP FST binds3) ∧ (binds ≠ [] ⇒ binds3 ≠ []) ∧
-            LIST_REL (λ(v1, e1) (v2, e2). explode v1 = v2 ∧ exp_of e1 =
-                              FOLDL (λe v. replace_Force (Var (explode (to_fmap map2 ' v)))
-                                                         (explode v) e) e2 (mapl2 ++ mapl1))
-                     binds3 (FLAT (MAP2 unfold_Delay_Lam expL2
-                                                         (ZIP (vL,GENLIST (K T) (LENGTH vL))))) ∧
-
-            EVERY (λv. explode (to_fmap map2 ' v) ∈ vc_to_set vc3 ∧
-                       explode (to_fmap map2 ' v) ∉ vc_to_set vc) mapl2 ∧
-            mapl1 = FILTER (λv. ¬MEM v (MAP FST binds)) mapl ∧
-            EVERY (λv. MEM (explode v, Delay (Var $ explode (to_fmap map2 ' v)))
-                           (FLAT (MAP2 unfold_Delay_Lam
-                                  expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
-                      ∧ MEM (explode (to_fmap map2 ' v)) $ MAP FST
-                             (FLAT (MAP2 unfold_Delay_Lam
-                                    expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))) mapl2 ∧
-            ALL_DISTINCT (mapl1 ++ mapl2) ∧
-            DISJOINT (FDOM $ to_fmap map2) (FRANGE $ to_fmap map2) ∧
-            DISJOINT (IMAGE explode (FRANGE $ to_fmap map2))
-                     (BIGUNION $ set (MAP boundvars
-                        (MAP SND (FLAT (MAP2 unfold_Delay_Lam
-                                        expL2 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))))) ∧
-            IMAGE explode (FDOM $ to_fmap map2) ⊆ vc_to_set vc ∧
-            IMAGE explode (FRANGE (to_fmap map2)) ⊆ vc_to_set vc3 ∧
-            FDOM (to_fmap map2) = set (mapl1 ++ mapl2) ∧ cmp_of map2 = compare ∧ map_ok map2 ∧
-            EVERY cexp_ok_bind (MAP SND binds3) ∧
-            ALL_DISTINCT (MAP FST (FLAT (MAP2 unfold_Delay_Lam
-                                         expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))) ∧
-            FILTER (λv. ¬MEM (explode v) (MAP FST (FLAT (MAP2 unfold_Delay_Lam expL2
-                                                         (ZIP (vL,GENLIST (K T) (LENGTH vL))))))) mapl
-            = FILTER (λv. ¬MEM v (MAP FST binds)) mapl ∧
-            EVERY (λv. to_fmap map ' v = to_fmap map2 ' v) mapl1 ∧
-            (BIGUNION (set (MAP (boundvars o exp_of o SND) binds3)) ∪ set (MAP (explode o FST) binds3))
-            ∩ COMPL (BIGUNION (set (MAP (boundvars o exp_of o SND) binds)) ∪ set (MAP (explode o FST) binds))
-            = vc_to_set vc3 ∩ COMPL (vc_to_set vc)
+Theorem unfold_Delay_Lam_Eq2:
+  ∀e1 e2 e3 p v.
+    dest_Delay_Lam e1 = NONE ∧
+    cexp_ok_bind e1 ∧
+    cexp_wf e1 ∧
+    thunk_Delay_Lam$exp_rel (exp_of e1) e2 ⇒
+    unfold_Delay_Lam (p, e2) (v, T) = [(p, e2)]
 Proof
-
-  Induct \\ gvs [letrec_split_def, FORALL_PROD, GENLIST_K_T]
-  >- (rw [] \\ gvs [])
-  \\ rpt $ gen_tac \\ CASE_TAC \\ rw []
-  >- (pairarg_tac \\ gs []
-      \\ qpat_x_assum ‘_::_ = _’ assume_tac
-      \\ dxrule_then assume_tac EQ_SYM \\ gvs []
-      \\ pairarg_tac \\ gs []
-      \\ last_x_assum $ drule_then mp_tac
-      \\ simp [delete_thm]
-      \\ disch_then $ drule_then $ qspec_then ‘FILTER (λv. v ≠ p_1) mapl’ mp_tac
-      \\ impl_tac
-      >- (gs [SUBSET_DEF, DISJOINT_ALT, PULL_EXISTS, FILTER_ALL_DISTINCT]
-          \\ rw []
-          >- cheat
-          >- cheat
-          >- simp [SET_EQ_SUBSET, SUBSET_DEF, MEM_FILTER]
-          >- cheat)
-      \\ disch_then $ qx_choose_then ‘vL’ $ qx_choose_then ‘expL1’ $ qx_choose_then ‘expL2’
-                    $ qx_choose_then ‘mapl2’ assume_tac
-      \\ rename1 ‘dest_Delay_Lam p2 = NONE’
-      \\ pairarg_tac \\ gs []
-      \\ last_x_assum $ qspec_then ‘p2’ assume_tac \\ gs []
-      \\ pop_assum $ dxrule_then
-                   $ qspec_then ‘FILTER (λv. ¬MEM v (MAP FST binds) ∧ v ≠ p_1) mapl ++ mapl2’
-                   mp_tac
-      \\ gs [FILTER_FILTER]
-      \\ impl_tac
-      >- (rw []
-          >- metis_tac [SUBSET_TRANS]
-          >- metis_tac [SUBSET_TRANS]
-          >- gvs [SUBSET_DEF, PULL_EXISTS, MEM_FILTER]
-          >- metis_tac [SUBSET_TRANS]
-          >- (gs [DISJOINT_ALT, EVERY_MEM]
-              \\ rw [] \\ strip_tac
-              \\ gs [IN_FRANGE]
-              >- (dxrule_then assume_tac EQ_SYM
-                  \\ last_x_assum $ dxrule_then assume_tac
-                  \\ gs []
-                  \\ rename1 ‘to_fmap _ ' k’
-                  \\ pop_assum $ qspec_then ‘k’ assume_tac
-                  \\ qpat_x_assum ‘∀x. MEM _ (FILTER _ _) ⇒ _’ $ drule_then assume_tac
-                  \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
-              \\ last_x_assum $ drule_then assume_tac
-              \\ pop_assum kall_tac
-              \\ last_x_assum $ drule_then assume_tac
-              \\ gvs [SUBSET_DEF])
-          >- (gs [DISJOINT_ALT, EVERY_MEM]
-              \\ rw [] \\ strip_tac
-              \\ gs [IN_FRANGE]
-              >- (dxrule_then assume_tac EQ_SYM
-                  \\ last_x_assum $ dxrule_then assume_tac
-                  \\ gs []
-                  \\ rename1 ‘to_fmap _ ' k’
-                  \\ pop_assum $ qspec_then ‘k’ assume_tac
-                  \\ qpat_x_assum ‘∀x. MEM _ (FILTER _ _) ⇒ _’ $ drule_then assume_tac
-                  \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
-              \\ last_x_assum $ drule_then assume_tac
-              \\ pop_assum kall_tac
-              \\ last_x_assum $ drule_then assume_tac
-              \\ gvs [SUBSET_DEF]))
-      \\ disch_then $ qx_choose_then ‘expr2’ $ qx_choose_then ‘expr3’ assume_tac \\ gs []
-      \\ Q.REFINE_EXISTS_TAC ‘_::vL’ \\ simp [PULL_EXISTS]
-      \\ rename1 ‘FINITE s’
-      \\ ‘∃v. ¬MEM v vL ∧ v ∉ s ∧ v ∉ vc_to_set vc ∧
-              v ∉ boundvars expr2 ∧ v ∉ BIGUNION (set (MAP (λ(v, e). boundvars e) expL1))’
-        by  (‘INFINITE 𝕌(:string)’ by simp []
-             \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
-             \\ pop_assum $ qspec_then ‘set vL ∪ s ∪ vc_to_set vc ∪
-                      boundvars expr2 ∪ BIGUNION (set (MAP (λ(v,e). boundvars e) expL1))’ assume_tac
-             \\ gvs [GSYM CONJ_ASSOC]
-             \\ pop_assum irule
-             \\ gvs [vc_to_set_def, FINITE_boundvars, MEM_MAP, PULL_EXISTS, FORALL_PROD])
-      \\ first_x_assum $ irule_at Any
-      \\ gs []
-      \\ rename1 ‘LIST_REL thunk_Delay_Lam$exp_rel _ (MAP SND expL1)’
-      \\ qexists_tac ‘MAP SND expL1’ \\ simp []
-      \\ once_rewrite_tac [CONJ_COMM]
-      \\ rename1 ‘_ ≠ p_1 ∧ ¬MEM _ (MAP FST l')’
-      \\ ‘FILTER (λv. ¬MEM v (MAP FST l') ∧ v ≠ p_1) mapl
-          = FILTER (λv. v ≠ p_1 ∧ ¬MEM v (MAP FST l')) mapl’
-        by cheat
-      \\ gs []
-      \\ qpat_assum ‘ALL_DISTINCT (_ ++ _)’ $ irule_at Any
-      \\ qpat_assum ‘exp_rel _ _’ $ irule_at Any
-      \\ Q.REFINE_EXISTS_TAC ‘(_, expr3)::expL2’ \\ simp []
-      \\ Q.REFINE_EXISTS_TAC ‘(_, expr2)::expL1’ \\ simp []
-      \\ qpat_x_assum ‘_::_ = _’ assume_tac
-      \\ dxrule_then assume_tac EQ_SYM \\ gvs []
-      \\ rw [GENLIST_K_T]
-      >- (Cases_on ‘p2’
-          \\ gs [cexp_ok_bind_def, cexp_wf_def, exp_of_def, Lams_split, exp_rel1_def])
-      >- (simp [EVERY_MEM, FORALL_PROD]
-          \\ rw [] \\ rename1 ‘MEM (var, expr) _’
-          \\ first_x_assum $ qspec_then ‘boundvars expr’ assume_tac
-          \\ gs [MEM_MAP, FORALL_PROD]
-          \\ pop_assum $ qspecl_then [‘var’, ‘expr’] assume_tac \\ gs [])
-
-      >- (simp [EVERY_CONJ]
-          \\ cheat)
-      >- metis_tac [SUBSET_TRANS]
-      >- gvs [SUBSET_DEF]
-      >- (gs [EVERY_MEM] \\ gen_tac \\ strip_tac
-          \\ last_x_assum $ dxrule_then assume_tac
-          \\ pairarg_tac \\ gvs [SUBSET_DEF])
-      >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ kall_tac
-          \\ qpat_x_assum ‘LIST_REL full_exp_rel _ _’ kall_tac
-          \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-          \\ simp []
-          \\ disch_then $ irule_at Any
-          \\ simp [EXISTS_PROD]
-          \\ cheat)
-      >- (gvs [EVERY_MEM]
-          \\ gvs [SUBSET_DEF])
-      >- gs [EVERY_MEM]
-
-      >- (drule_all_then assume_tac unfold_Delay_Lam_Eq
-          \\ gs []
-          \\ qpat_x_assum ‘EVERY (λv. _ ∈ _ ∧ _ ∉ _) _’ mp_tac
-          \\ qpat_x_assum ‘EVERY (λv. _ = _) _’ mp_tac
-          \\ qpat_x_assum ‘DISJOINT (boundvars _) (IMAGE explode (FRANGE _))’ mp_tac
-          \\ dxrule thunk_Delay_LamTheory.exp_rel_boundvars
-          \\ dxrule full_exp_rel_boundvars
-          \\ qpat_x_assum ‘boundvars _ ∩ _ = _ ∩ _’ mp_tac
-          \\ qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ kall_tac
-          \\ qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ mp_tac
-          \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
-          \\ qpat_x_assum ‘FDOM _ = _ ∪ _’ mp_tac
-          \\ qpat_x_assum ‘FDOM _ = _ ’ mp_tac
-          \\ qpat_x_assum ‘boundvars (exp_of _) ⊆ _’ mp_tac
-          \\ rpt $ pop_assum kall_tac
-          \\ rw [EVERY_MEM]
-          \\ gs [DISJOINT_ALT, IN_FRANGE, PULL_EXISTS]
-          \\ rw [] \\ strip_tac
-          \\ gs [SUBSET_DEF, SET_EQ_SUBSET]
-          >- (first_x_assum $ drule_then assume_tac
-              \\ dxrule_then assume_tac EQ_SYM
-              \\ gs [MEM_FILTER, DOMSUB_FAPPLY_THM, PULL_EXISTS]
-              \\ rename1 ‘explode (to_fmap map' ' k) ∈ _’
-              \\ rpt $ first_x_assum $ qspec_then ‘explode (to_fmap map' ' k)’ assume_tac
-              \\ last_x_assum $ qspec_then ‘k’ assume_tac
-              \\ last_x_assum $ qspec_then ‘k’ assume_tac
-              \\ last_x_assum kall_tac
-              \\ last_x_assum kall_tac
-              \\ last_x_assum kall_tac
-              \\ rpt $ first_x_assum $ qspec_then ‘to_fmap map' ' k’ assume_tac
-              \\ gs [IN_FRANGE, PULL_EXISTS]
-              \\ pop_assum $ qspec_then ‘k’ assume_tac \\ gs [])
-          >- (first_x_assum $ dxrule_then assume_tac
-              \\ gs []
-              \\ rename1 ‘explode (to_fmap map2 ' k) ∈ _’
-              \\ rpt $ first_x_assum $ qspec_then ‘explode (to_fmap map2 ' k)’ assume_tac
-              \\ gs []))
-      >- gvs []
-      >- metis_tac [SUBSET_TRANS]
-      >- (rename1 ‘exp_rel (exp_of p2)’
-          \\ Cases_on ‘p2’
-          \\ gs [cexp_ok_bind_def, cexp_wf_def, Lams_split, exp_rel1_def, exp_rel2_def]
-          >- (gs [FOLDL_replace_Force_Lam]
-              \\ rename1 ‘cexp_ok_bind e2’
-              \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
-              >- (rename1 ‘Apps _ (MAP _ list)’
-                  \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
-              >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
-                  \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
-                  >- (Cases_on ‘fall’ \\ gs []
-                      \\ pairarg_tac \\ gs [])
-                  \\ pairarg_tac \\ gs [rows_of_def]))
-          >- (gs [FOLDL_replace_Force_Delay]
-              \\ rename1 ‘cexp_ok_bind e2’
-              \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
-              >- (rename1 ‘Apps _ (MAP _ list)’
-                  \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
-              >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
-                  \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
-                  >- (Cases_on ‘fall’ \\ gs []
-                      \\ pairarg_tac \\ gs [])
-                  \\ pairarg_tac \\ gs [rows_of_def])))
-
-      >- (gs [ALL_DISTINCT_APPEND]
-          \\ drule_all_then assume_tac unfold_Delay_Lam_Eq
-          \\ gs []
-          \\ cheat)
-
-      >- (drule_all_then assume_tac unfold_Delay_Lam_Eq
-          \\ qpat_x_assum ‘FILTER _ _ = FILTER _ _’ mp_tac
-          \\ qpat_x_assum ‘FILTER _ _ = FILTER _ _’ mp_tac
-          \\ gs []
-          \\ rpt $ pop_assum kall_tac \\ rw []
-          \\ irule EQ_TRANS
-          \\ last_x_assum $ irule_at Any
-          \\ simp [CONJ_COMM])
-
-      >- (qpat_x_assum ‘EVERY (λv. _ ' _ = _ ' _) _’ mp_tac
-          \\ rpt $ pop_assum kall_tac
-          \\ rw [EVERY_MEM]
-          \\ first_x_assum $ drule_then assume_tac
-          \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
-
-      >- cheat
-
-      >- (qpat_x_assum ‘¬MEM _ (MAP FST _)’ mp_tac
-          \\ rpt $ qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac
-          \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ mp_tac
-          \\ rpt $ pop_assum kall_tac
-          \\ rw []
-          \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ assume_tac
-          \\ dxrule_then assume_tac EQ_SYM
-          \\ gs []
-          \\ pop_assum kall_tac
-          \\ simp [GSYM MAP_MAP_o]
-          \\ once_rewrite_tac [MEM_MAP]
-          \\ gs []))
-  \\ cheat
-QED
-
-Theorem UNION_INTER:
-  ∀A B C. (A ∪ B) ∩ C = (A ∩ C) ∪ (B ∩ C)
-Proof
-  gvs [SET_EQ_SUBSET, SUBSET_DEF]
-QED
-
-Theorem FINITE_boundvars:
-  ∀e. FINITE (boundvars e)
-Proof
-  Induct using freevars_ind \\ gvs [boundvars_def]
-  \\ gvs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
-  \\ rw [] \\ last_x_assum $ dxrule_then irule
-QED
-
-Theorem LIST_REL_FLAT:
-  ∀l1 l2 R. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)
-Proof
-  Induct \\ gvs [LIST_REL_CONS1, PULL_EXISTS]
+  Cases
+  \\ gs [cexp_ok_bind_def, cexp_wf_def, exp_of_def]
   \\ rw []
-  \\ last_x_assum $ dxrule
-  \\ drule_then assume_tac LIST_REL_LENGTH
-  \\ gvs [LIST_REL_APPEND_EQ]
-QED
-
-Theorem FOLDL_replace_Force_freevars:
-  ∀l e v map. v ∈ freevars (FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e l)
-  ⇒  ((∃v2. MEM v2 l ∧ v = explode (to_fmap map ' v2)) ∨ v ∈ freevars e)
-Proof
-  Induct \\ gvs []
-  \\ rw [] \\ last_x_assum $ dxrule_then assume_tac
-  \\ gvs []
-  >- (disj1_tac \\ metis_tac [])
-  \\ assume_tac freevars_replace_Force_SUBSET
-  \\ gvs [SUBSET_DEF]
-  \\ pop_assum $ dxrule_then assume_tac \\ gvs [freevars_def]
-  \\ disj1_tac \\ metis_tac []
-QED
-
-Theorem MAP_FST_FOLDL_MAP_replace_Force:
-  ∀l1 l2. MAP FST (FOLDL (λl (v1, v2). MAP (λ(v, e). (v, replace_Force (Var v2) v1 e)) l) l2 l1) = MAP FST l2
-Proof
-  Induct \\ simp []
-  \\ simp [FORALL_PROD, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
-QED
-
-Theorem FOLDL_replace_Force_ZIP:
-  ∀mapl e map. FOLDL (λe (v1, v2). replace_Force (Var v2) v1 e) e
-                       (ZIP (MAP explode mapl,
-                             MAP (λv. explode (to_fmap map ' v)) mapl))
-                 = FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e mapl
-Proof
-  Induct \\ gvs []
-QED
-
-Theorem FOLDL_replace_Force_comm1:
-  ∀l e map h. ¬MEM h l ∧ DISJOINT ({h} ∪ set l) (FRANGE $ to_fmap map) ∧ {h} ∪ set l ⊆ (FDOM $ to_fmap map) ⇒
-              FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e)
-               (replace_Force (Var (explode (to_fmap map ' h))) (explode h) e) l
-              = replace_Force (Var (explode (to_fmap map ' h))) (explode h)
-                              (FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e l)
-Proof
-  Induct \\ gvs []
-  \\ rw []
-  \\ irule EQ_TRANS \\ last_x_assum $ irule_at $ Pos last
-  \\ simp []
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ irule replace_Force_COMM
-  \\ gvs [freevars_def]
-  \\ conj_tac \\ strip_tac
-  >- (first_x_assum irule
-      \\ simp [IN_FRANGE]
-      \\ metis_tac [])
-  >- (qpat_x_assum ‘_ ∉ FRANGE _’ kall_tac
-      \\ qpat_x_assum ‘_ ∉ FRANGE _’ irule
-      \\ simp [IN_FRANGE]
-      \\ metis_tac [])
-QED
-
-Theorem MAP_FST_FOLDL_no_change:
-  ∀l1 l2. MAP FST (FOLDL (λl (v1, v2). MAP (λ(v, e). (v, replace_Force (Var v2) v1 e)) l) l2 l1) = MAP FST l2
-Proof
-  Induct \\ gvs [FORALL_PROD]
-  \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-QED
-
-Theorem FOLDL_MAP_comm:
-  ∀l1 l2. FOLDL (λl (v1, v2). MAP (λ(v, e). (v, replace_Force (Var v2) v1 e)) l) l2 l1
-          = MAP (λ(v, e).
-                   (v, FOLDL (λe (v1, v2). replace_Force (Var v2) v1 e) e l1)) l2
-Proof
-  Induct \\ gvs [FORALL_PROD]
-  >- (Induct \\ gvs [FORALL_PROD])
-  \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  \\ gvs [Lams_split, exp_rel1_def, unfold_Delay_Lam_def]
+  \\ rename1 ‘dest_Delay_Lam (Delay c)’
+  \\ Cases_on ‘c’
+  \\ gs [cexp_wf_def, exp_of_def, exp_rel1_def,
+         unfold_Delay_Lam_def, is_Lam_def, dest_Delay_Lam_def]
+  >- (rename1 ‘Apps _ (MAP _ l)’
+      \\ qspec_then ‘l’ assume_tac SNOC_CASES
+      \\ gs [exp_rel1_def, is_Lam_def, FOLDL_APPEND])
+  >- (rename1 ‘rows_of _ (MAP _ l) (OPTION_MAP _ fall)’
+      \\ Cases_on ‘l’
+      \\ gs [exp_rel1_def, is_Lam_def, FOLDL_APPEND, rows_of_def]
+      >- (Cases_on ‘fall’ \\ gs []
+          \\ pairarg_tac \\ gs [exp_rel1_def, is_Lam_def])
+      \\ pairarg_tac \\ gs [rows_of_def, exp_rel1_def, is_Lam_def])
 QED
 
 Theorem MAP_FST_change_expL:
@@ -1432,6 +1050,16 @@ Proof
   \\ Cases_on ‘p_2’ \\ gs [full_exp_rel_def]
 QED
 
+Theorem LIST_REL_FLAT:
+  ∀l1 l2 R. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)
+Proof
+  Induct \\ gvs [LIST_REL_CONS1, PULL_EXISTS]
+  \\ rw []
+  \\ last_x_assum $ dxrule
+  \\ drule_then assume_tac LIST_REL_LENGTH
+  \\ gvs [LIST_REL_APPEND_EQ]
+QED
+
 Theorem LIST_REL_full_exp_rel_MAP_unfold_Delay_Lam:
   ∀expL1 expL2 vL.
     EVERY ok_bind (MAP SND expL1) ∧
@@ -1468,6 +1096,934 @@ Proof
       \\ rename1 ‘SUC n2 < 2’ \\ Cases_on ‘n2’ \\ gvs [full_exp_rel_def])
   >- (disj2_tac \\ metis_tac [])
   >- (disj2_tac \\ metis_tac [])
+QED
+
+Theorem FOLDL_replace_Force_comm:
+  ∀l1 l2 map e. ALL_DISTINCT (l1 ++ l2) ⇒
+                FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e (l1 ++ l2)
+                = FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e (l2 ++ l1)
+Proof
+  cheat
+QED
+
+fun skip x = cheat;
+
+Theorem letrec_split_soundness:
+  ∀binds.
+    (∀e. MEM e (MAP SND binds) ⇒
+         ∀vc'⁴' map map_l' e_out' vc_out.
+           split_Delayed_Lam e vc'⁴' map = (e_out',vc_out) ∧
+           ALL_DISTINCT map_l' ∧ freevars (exp_of e) ⊆ vc_to_set vc'⁴' ∧
+           boundvars (exp_of e) ⊆ vc_to_set vc'⁴' ∧
+           IMAGE explode (set map_l') ⊆ vc_to_set vc'⁴' ∧
+           IMAGE explode (FRANGE (to_fmap map)) ⊆ vc_to_set vc'⁴' ∧
+           cexp_wf e ∧ DISJOINT (set map_l') (FRANGE (to_fmap map)) ∧
+           DISJOINT (freevars (exp_of e))
+                    (IMAGE explode (FRANGE (to_fmap map))) ∧
+           DISJOINT (boundvars (exp_of e))
+                    (IMAGE explode (FRANGE (to_fmap map))) ∧ map_ok map ∧
+           cmp_of map = compare ∧ var_creator_ok vc'⁴' ∧
+           FDOM (to_fmap map) = set map_l' ⇒
+           ∃e2 e3.
+             vc_to_set vc'⁴' ⊆ vc_to_set vc_out ∧ var_creator_ok vc_out ∧
+             freevars (exp_of e_out') ⊆ vc_to_set vc_out ∧
+             boundvars (exp_of e_out') ⊆ vc_to_set vc_out ∧
+             boundvars e2 ∩ COMPL (boundvars (exp_of e)) =
+             vc_to_set vc_out ∩ COMPL (vc_to_set vc'⁴') ∧
+             thunk_Delay_Lam$exp_rel (exp_of e) e2 ∧ full_exp_rel e2 e3 ∧ cexp_wf e_out' ∧
+             exp_of e_out' =
+             FOLDL (λe v.
+                      replace_Force (Var (explode (to_fmap map ' v)))
+                                    (explode v) e) e3 map_l')
+    ⇒ ∀binds2 binds3 vc vc2 vc3 map map2 s mapl.
+        letrec_split binds vc map = (binds2, vc2, map2) ∧ map_ok map ∧
+        FOLDR (λ(v,e) (l, vc).(λ(e2, vc2). ((v, e2)::l, vc2)) (split_Delayed_Lam e vc map2))
+              ([], vc2) binds2 = (binds3, vc3) ∧
+        EVERY (cexp_wf o SND) binds ∧ var_creator_ok vc ∧ FINITE s ∧
+        EVERY cexp_ok_bind (MAP SND binds) ∧
+        EVERY (λ(v, e). explode v ∈ vc_to_set vc ∧
+                        DISJOINT (freevars (exp_of e)) (IMAGE explode (FRANGE (to_fmap map))) ∧
+                        DISJOINT (boundvars (exp_of e)) (IMAGE explode (FRANGE (to_fmap map))) ∧
+                        freevars (exp_of e) ⊆ vc_to_set vc ∧
+                        boundvars (exp_of e) ⊆ vc_to_set vc) binds ∧
+        ALL_DISTINCT (MAP FST binds) ∧ ALL_DISTINCT mapl ∧
+        DISJOINT (FDOM (to_fmap map)) (FRANGE (to_fmap map)) ∧
+        FDOM (to_fmap map) = set mapl ∧ cmp_of map = compare ∧
+        IMAGE explode (FDOM (to_fmap map)) ⊆ vc_to_set vc ∧
+        IMAGE explode (FRANGE (to_fmap map)) ⊆ vc_to_set vc
+        ⇒ ∃vL expL1 expL2 mapl1 mapl2.
+            ALL_DISTINCT (MAP FST expL1) ∧
+            MAP (explode o FST) binds = MAP FST expL1 ∧
+            MAP (explode o FST) binds = MAP FST expL2 ∧
+            EVERY ok_bind (MAP SND expL1) ∧
+            LIST_REL thunk_Delay_Lam$exp_rel (MAP (exp_of o SND) binds) (MAP SND expL1) ∧
+            LIST_REL full_exp_rel (MAP SND expL1) (MAP SND expL2) ∧
+
+            LENGTH binds = LENGTH vL ∧ ALL_DISTINCT vL ∧
+            EVERY (λv. v ∉ s ∧ v ∉ vc_to_set vc) vL ∧
+            EVERY (λv. EVERY (λ(v2,e). v ∉ boundvars e) expL1) vL ∧
+            var_creator_ok vc3 ∧ vc_to_set vc2 ⊆ vc_to_set vc3 ∧
+            var_creator_ok vc2 ∧ vc_to_set vc  ⊆ vc_to_set vc2 ∧
+            EVERY (λ(v, e). freevars (exp_of e) ⊆ vc_to_set vc3 ∧ boundvars (exp_of e) ⊆ vc_to_set vc3
+                            ∧ explode v ∈ vc_to_set vc3 ∧ cexp_wf e) binds3 ∧
+            ALL_DISTINCT (MAP FST binds3) ∧ (binds ≠ [] ⇒ binds3 ≠ []) ∧
+            LIST_REL (λ(v1, e1) (v2, e2). explode v1 = v2 ∧ exp_of e1 =
+                              FOLDL (λe v. replace_Force (Var (explode (to_fmap map2 ' v)))
+                                                         (explode v) e) e2 (mapl2 ++ mapl1))
+                     binds3 (FLAT (MAP2 unfold_Delay_Lam expL2
+                                                         (ZIP (vL,GENLIST (K T) (LENGTH vL))))) ∧
+
+            EVERY (λv. explode (to_fmap map2 ' v) ∈ vc_to_set vc3 ∧
+                       explode (to_fmap map2 ' v) ∉ vc_to_set vc) mapl2 ∧
+            mapl1 = FILTER (λv. ¬MEM v (MAP FST binds)) mapl ∧
+            EVERY (λv. MEM (explode v, Delay (Var $ explode (to_fmap map2 ' v)))
+                           (FLAT (MAP2 unfold_Delay_Lam
+                                  expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))
+                      ∧ MEM (explode (to_fmap map2 ' v)) $ MAP FST
+                             (FLAT (MAP2 unfold_Delay_Lam
+                                    expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))) mapl2 ∧
+            ALL_DISTINCT (mapl1 ++ mapl2) ∧
+            DISJOINT (FDOM $ to_fmap map2) (FRANGE $ to_fmap map2) ∧
+            DISJOINT (IMAGE explode (FRANGE $ to_fmap map2))
+                     (BIGUNION $ set (MAP boundvars
+                        (MAP SND (FLAT (MAP2 unfold_Delay_Lam
+                                        expL2 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))))) ∧
+            IMAGE explode (FDOM $ to_fmap map2) ⊆ vc_to_set vc ∧
+            IMAGE explode (FRANGE (to_fmap map2)) ⊆ vc_to_set vc3 ∧
+            FDOM (to_fmap map2) = set (mapl1 ++ mapl2) ∧ cmp_of map2 = compare ∧ map_ok map2 ∧
+            EVERY cexp_ok_bind (MAP SND binds3) ∧
+            ALL_DISTINCT (MAP FST (FLAT (MAP2 unfold_Delay_Lam
+                                         expL1 (ZIP (vL, GENLIST (K T) (LENGTH vL)))))) ∧
+            FILTER (λv. ¬MEM (explode v) (MAP FST (FLAT (MAP2 unfold_Delay_Lam expL2
+                                                         (ZIP (vL,GENLIST (K T) (LENGTH vL))))))) mapl
+            = FILTER (λv. ¬MEM v (MAP FST binds)) mapl ∧
+            EVERY (λv. to_fmap map ' v = to_fmap map2 ' v) mapl1 ∧
+            (BIGUNION (set (MAP (boundvars o exp_of o SND) binds3)) ∪ set (MAP (explode o FST) binds3))
+            ∩ COMPL (BIGUNION (set (MAP (boundvars o exp_of o SND) binds)) ∪ set (MAP (explode o FST) binds))
+            = vc_to_set vc3 ∩ COMPL (vc_to_set vc)
+Proof
+
+  Induct \\ gvs [letrec_split_def, FORALL_PROD, GENLIST_K_T]
+  >- (rw [] \\ gvs [])
+  \\ rpt $ gen_tac \\ CASE_TAC \\ rw []
+  >- (pairarg_tac \\ gs []
+      \\ qpat_x_assum ‘_::_ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM \\ gvs []
+      \\ pairarg_tac \\ gs []
+      \\ last_x_assum $ drule_then mp_tac
+      \\ simp [delete_thm]
+      \\ pairarg_tac \\ gs []
+      \\ rename1 ‘split_Delayed_Lam _ _ _ = (e2, _)’
+      \\ rename1 ‘FINITE s’
+      \\ disch_then $ qspecl_then [‘s ∪ boundvars (exp_of e2)’, ‘FILTER (λv. v ≠ p_1) mapl’] mp_tac
+      \\ impl_tac
+      >- (gs [SUBSET_DEF, DISJOINT_ALT, PULL_EXISTS, FILTER_ALL_DISTINCT, FINITE_boundvars]
+          \\ rw []
+          >- (gs [EVERY_MEM] \\ rw []
+              \\ first_x_assum $ dxrule_then assume_tac \\ gs []
+              \\ pairarg_tac \\ gs []
+              \\ rw [] \\ first_x_assum $ drule_then assume_tac
+              \\ strip_tac
+              \\ gs [IN_FRANGE, DOMSUB_FAPPLY_THM])
+          >- (last_x_assum $ dxrule_then assume_tac
+              \\ gs [IN_FRANGE, DOMSUB_FAPPLY_THM]
+              \\ rw [] \\ gs [])
+          >- simp [SET_EQ_SUBSET, SUBSET_DEF, MEM_FILTER]
+          >- (first_x_assum irule
+              \\ gs [IN_FRANGE, DOMSUB_FAPPLY_THM]
+              \\ metis_tac []))
+      \\ disch_then $ qx_choose_then ‘vL’ $ qx_choose_then ‘expL1’ $ qx_choose_then ‘expL2’
+                    $ qx_choose_then ‘mapl2’ assume_tac
+      \\ rename1 ‘dest_Delay_Lam p2 = NONE’
+      \\ last_x_assum $ qspec_then ‘p2’ assume_tac \\ gs []
+      \\ pop_assum $ dxrule_then
+                   $ qspec_then ‘FILTER (λv. ¬MEM v (MAP FST binds) ∧ v ≠ p_1) mapl ++ mapl2’
+                   mp_tac
+      \\ gs [FILTER_FILTER]
+      \\ impl_tac
+      >- (rw []
+          >- metis_tac [SUBSET_TRANS]
+          >- metis_tac [SUBSET_TRANS]
+          >- gvs [SUBSET_DEF, PULL_EXISTS, MEM_FILTER]
+          >- metis_tac [SUBSET_TRANS]
+          >- (gs [DISJOINT_ALT, EVERY_MEM]
+              \\ rw [] \\ strip_tac
+              \\ gs [IN_FRANGE]
+              >- (dxrule_then assume_tac EQ_SYM
+                  \\ last_x_assum $ dxrule_then assume_tac
+                  \\ gs []
+                  \\ rename1 ‘to_fmap _ ' k’
+                  \\ pop_assum $ qspec_then ‘k’ assume_tac
+                  \\ qpat_x_assum ‘∀x. MEM _ (FILTER _ _) ⇒ _’ $ drule_then assume_tac
+                  \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
+              \\ last_x_assum $ drule_then assume_tac
+              \\ pop_assum kall_tac
+              \\ last_x_assum $ drule_then assume_tac
+              \\ gvs [SUBSET_DEF])
+          >- (gs [DISJOINT_ALT, EVERY_MEM]
+              \\ rw [] \\ strip_tac
+              \\ gs [IN_FRANGE]
+              >- (dxrule_then assume_tac EQ_SYM
+                  \\ last_x_assum $ dxrule_then assume_tac
+                  \\ gs []
+                  \\ rename1 ‘to_fmap _ ' k’
+                  \\ pop_assum $ qspec_then ‘k’ assume_tac
+                  \\ qpat_x_assum ‘∀x. MEM _ (FILTER _ _) ⇒ _’ $ drule_then assume_tac
+                  \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
+              \\ last_x_assum $ drule_then assume_tac
+              \\ pop_assum kall_tac
+              \\ last_x_assum $ drule_then assume_tac
+              \\ gvs [SUBSET_DEF]))
+      \\ disch_then $ qx_choose_then ‘expr2’ $ qx_choose_then ‘expr3’ assume_tac \\ gs []
+      \\ Q.REFINE_EXISTS_TAC ‘_::vL’ \\ simp [PULL_EXISTS]
+      \\ rename1 ‘FINITE s’
+      \\ ‘∃v. ¬MEM v vL ∧ v ∉ s ∧ v ∉ vc_to_set vc ∧
+              v ∉ boundvars expr2 ∧ v ∉ BIGUNION (set (MAP (λ(v, e). boundvars e) expL1))’
+        by  (‘INFINITE 𝕌(:string)’ by simp []
+             \\ dxrule_then assume_tac $ iffLR NOT_IN_FINITE
+             \\ pop_assum $ qspec_then ‘set vL ∪ s ∪ vc_to_set vc ∪
+                      boundvars expr2 ∪ BIGUNION (set (MAP (λ(v,e). boundvars e) expL1))’ assume_tac
+             \\ gvs [GSYM CONJ_ASSOC]
+             \\ pop_assum irule
+             \\ gvs [vc_to_set_def, FINITE_boundvars, MEM_MAP, PULL_EXISTS, FORALL_PROD])
+      \\ first_x_assum $ irule_at Any
+      \\ gs []
+      \\ rename1 ‘LIST_REL thunk_Delay_Lam$exp_rel _ (MAP SND expL1)’
+      \\ qexists_tac ‘MAP SND expL1’ \\ simp []
+      \\ once_rewrite_tac [CONJ_COMM]
+      \\ rename1 ‘_ ≠ p_1 ∧ ¬MEM _ (MAP FST binds)’
+      \\ ‘FILTER (λv. ¬MEM v (MAP FST binds) ∧ v ≠ p_1) mapl
+          = FILTER (λv. v ≠ p_1 ∧ ¬MEM v (MAP FST binds)) mapl’
+        by simp [CONJ_COMM]
+      \\ gs []
+      \\ qpat_assum ‘ALL_DISTINCT (_ ++ _)’ $ irule_at Any
+      \\ qpat_assum ‘exp_rel _ _’ $ irule_at Any
+      \\ Q.REFINE_EXISTS_TAC ‘(_, expr3)::expL2’ \\ simp []
+      \\ Q.REFINE_EXISTS_TAC ‘(_, expr2)::expL1’ \\ simp []
+      \\ qpat_x_assum ‘_::_ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM \\ gvs []
+      \\ rw [GENLIST_K_T]
+      >- (Cases_on ‘p2’
+          \\ gs [cexp_ok_bind_def, cexp_wf_def, exp_of_def, Lams_split, exp_rel1_def])
+      >- gs [EVERY_CONJ]
+      >- (simp [EVERY_MEM, FORALL_PROD]
+          \\ rw [] \\ rename1 ‘MEM (var, expr) _’
+          \\ first_x_assum $ qspec_then ‘boundvars expr’ assume_tac
+          \\ gs [MEM_MAP, FORALL_PROD]
+          \\ pop_assum $ qspecl_then [‘var’, ‘expr’] assume_tac \\ gs [])
+      >- (gs [EVERY_CONJ, boundvars_FOLDL_replace_Force]
+          \\ dxrule_then assume_tac full_exp_rel_boundvars
+          \\ gs [])
+      >- metis_tac [SUBSET_TRANS]
+      >- gvs [SUBSET_DEF]
+      >- (gs [EVERY_MEM] \\ gen_tac \\ strip_tac
+          \\ last_x_assum $ dxrule_then assume_tac
+          \\ pairarg_tac \\ gvs [SUBSET_DEF])
+      >- (gs [LIST_REL_EL_EQN]
+          \\ strip_tac \\ gs [MEM_EL]
+          \\ first_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs [EL_MAP]
+          \\ qspecl_then [‘expL2’, ‘vL’, ‘GENLIST (K T) (LENGTH vL)’] assume_tac Letrec_Delay_SUBSET
+          \\ gs [SUBSET_DEF, MEM_EL, PULL_EXISTS]
+          \\ pop_assum $ drule_then assume_tac
+          \\ gs [EL_MAP]
+          >- (rename1 ‘n2 < LENGTH expL2’
+              \\ last_x_assum $ qspec_then ‘n2’ assume_tac \\ gs [EL_MAP]
+              \\ ‘EL n2 (MAP FST expL1) = EL n2 (MAP (explode o FST) binds)’ by simp []
+              \\ gs [EL_MAP])
+          >- gs [EVERY_EL])
+      >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ kall_tac
+          \\ qpat_x_assum ‘LIST_REL full_exp_rel _ _’ kall_tac
+          \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+          \\ simp []
+          \\ disch_then $ irule_at Any
+          \\ simp [EXISTS_PROD]
+          \\ dxrule_all_then assume_tac unfold_Delay_Lam_Eq
+          \\ gs [FOLDL_replace_Force_comm])
+      >- (gvs [EVERY_MEM]
+          \\ gvs [SUBSET_DEF])
+      >- gs [EVERY_MEM]
+      >- (drule_all_then assume_tac unfold_Delay_Lam_Eq
+          \\ gs []
+          \\ qpat_x_assum ‘EVERY (λv. _ ∈ _ ∧ _ ∉ _) _’ mp_tac
+          \\ qpat_x_assum ‘EVERY (λv. _ = _) _’ mp_tac
+          \\ qpat_x_assum ‘DISJOINT (boundvars _) (IMAGE explode (FRANGE _))’ mp_tac
+          \\ dxrule thunk_Delay_LamTheory.exp_rel_boundvars
+          \\ dxrule full_exp_rel_boundvars
+          \\ qpat_x_assum ‘boundvars _ ∩ _ = _ ∩ _’ mp_tac
+          \\ qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ kall_tac
+          \\ qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ mp_tac
+          \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+          \\ qpat_x_assum ‘FDOM _ = _ ∪ _’ mp_tac
+          \\ qpat_x_assum ‘FDOM _ = _ ’ mp_tac
+          \\ qpat_x_assum ‘boundvars (exp_of _) ⊆ _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ rw [EVERY_MEM]
+          \\ gs [DISJOINT_ALT, IN_FRANGE, PULL_EXISTS]
+          \\ rw [] \\ strip_tac
+          \\ gs [SUBSET_DEF, SET_EQ_SUBSET]
+          >- (first_x_assum $ drule_then assume_tac
+              \\ dxrule_then assume_tac EQ_SYM
+              \\ gs [MEM_FILTER, DOMSUB_FAPPLY_THM, PULL_EXISTS]
+              \\ rename1 ‘explode (to_fmap map' ' k) ∈ _’
+              \\ rpt $ first_x_assum $ qspec_then ‘explode (to_fmap map' ' k)’ assume_tac
+              \\ last_x_assum $ qspec_then ‘k’ assume_tac
+              \\ last_x_assum $ qspec_then ‘k’ assume_tac
+              \\ last_x_assum kall_tac
+              \\ last_x_assum kall_tac
+              \\ last_x_assum kall_tac
+              \\ rpt $ first_x_assum $ qspec_then ‘to_fmap map' ' k’ assume_tac
+              \\ gs [IN_FRANGE, PULL_EXISTS]
+              \\ pop_assum $ qspec_then ‘k’ assume_tac \\ gs [])
+          >- (first_x_assum $ dxrule_then assume_tac
+              \\ gs []
+              \\ rename1 ‘explode (to_fmap map2 ' k) ∈ _’
+              \\ rpt $ first_x_assum $ qspec_then ‘explode (to_fmap map2 ' k)’ assume_tac
+              \\ gs []))
+      >- gvs []
+      >- metis_tac [SUBSET_TRANS]
+      >- (rename1 ‘exp_rel (exp_of p2)’
+          \\ Cases_on ‘p2’
+          \\ gs [cexp_ok_bind_def, cexp_wf_def, Lams_split, exp_rel1_def, exp_rel2_def]
+          >- (gs [FOLDL_replace_Force_Lam]
+              \\ rename1 ‘cexp_ok_bind e2’
+              \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
+              >- (rename1 ‘Apps _ (MAP _ list)’
+                  \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
+              >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
+                  \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
+                  >- (Cases_on ‘fall’ \\ gs []
+                      \\ pairarg_tac \\ gs [])
+                  \\ pairarg_tac \\ gs [rows_of_def]))
+          >- (gs [FOLDL_replace_Force_Delay]
+              \\ rename1 ‘cexp_ok_bind e2’
+              \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
+              >- (rename1 ‘Apps _ (MAP _ list)’
+                  \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
+              >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
+                  \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
+                  >- (Cases_on ‘fall’ \\ gs []
+                      \\ pairarg_tac \\ gs [])
+                  \\ pairarg_tac \\ gs [rows_of_def])))
+      >- (gs [ALL_DISTINCT_APPEND]
+          \\ drule_all_then assume_tac unfold_Delay_Lam_Eq2
+          \\ gs []
+          \\ qspecl_then [‘expL1’, ‘expL2’, ‘vL’] assume_tac MAP_FST_change_expL
+          \\ gs [] \\ gs [LIST_REL_EL_EQN]
+          \\ strip_tac \\ gs [MEM_EL]
+          \\ first_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs [EL_MAP]
+          \\ qspecl_then [‘expL2’, ‘vL’, ‘GENLIST (K T) (LENGTH vL)’] assume_tac Letrec_Delay_SUBSET
+          \\ gs [SUBSET_DEF, MEM_EL, PULL_EXISTS]
+          \\ pop_assum $ drule_then assume_tac
+          \\ gs [EL_MAP]
+          >- (rename1 ‘n2 < LENGTH expL2’
+              \\ last_x_assum $ qspec_then ‘n2’ assume_tac \\ gs [EL_MAP]
+              \\ ‘EL n2 (MAP FST expL1) = EL n2 (MAP (explode o FST) binds)’ by simp []
+              \\ gs [EL_MAP])
+          >- gs [EVERY_EL])
+      >- (drule_all_then assume_tac unfold_Delay_Lam_Eq
+          \\ qpat_x_assum ‘FILTER _ _ = FILTER _ _’ mp_tac
+          \\ qpat_x_assum ‘FILTER _ _ = FILTER _ _’ mp_tac
+          \\ gs []
+          \\ rpt $ pop_assum kall_tac \\ rw []
+          \\ irule EQ_TRANS
+          \\ last_x_assum $ irule_at Any
+          \\ simp [CONJ_COMM])
+      >- (qpat_x_assum ‘EVERY (λv. _ ' _ = _ ' _) _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ rw [EVERY_MEM]
+          \\ first_x_assum $ drule_then assume_tac
+          \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
+      >- (qpat_x_assum ‘_ ∩ COMPL _ = _’ mp_tac
+          \\ qpat_x_assum ‘_ ∩ COMPL _ = _’ mp_tac
+          \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+          \\ qpat_x_assum ‘boundvars (exp_of _) ⊆ vc_to_set _’ mp_tac
+          \\ qpat_x_assum ‘explode _ ∈ vc_to_set _’ mp_tac
+          \\ qpat_x_assum ‘EVERY (λ(v,e). _ ∧ _ ∧ _ ∧ _ ∧ boundvars (exp_of _) ⊆ _) _’ mp_tac
+          \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ mp_tac
+          \\ qpat_x_assum ‘LIST_REL full_exp_rel _ _’ mp_tac
+          \\ dxrule full_exp_rel_boundvars
+          \\ rpt $ pop_assum kall_tac
+          \\ strip_tac \\ gvs [boundvars_FOLDL_replace_Force]
+          \\ pop_assum kall_tac
+          \\ gs [SET_EQ_SUBSET, GSYM DIFF_INTER_COMPL, DIFF_SUBSET]
+          \\ rw []
+          >- (gs [SUBSET_DEF] \\ rw []
+              \\ first_x_assum $ drule_then mp_tac
+              \\ first_x_assum $ drule_then mp_tac
+              \\ strip_tac \\ simp [])
+          >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+              \\ last_x_assum $ drule_then $ drule_then mp_tac
+              \\ strip_tac \\ simp []
+              \\ metis_tac [])
+          >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+              \\ first_x_assum $ drule_then mp_tac
+              \\ strip_tac \\ simp []
+              \\ metis_tac [])
+          >- (gs [SUBSET_DEF] \\ rw []
+              \\ first_x_assum $ drule_then assume_tac
+              \\ gs []
+              \\ disj2_tac
+              \\ strip_tac \\ gvs [])
+          >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+              \\ last_x_assum $ drule_then $ drule_then mp_tac
+              \\ strip_tac \\ simp []
+              \\ metis_tac [])
+          >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+              \\ first_x_assum $ drule_then mp_tac
+              \\ strip_tac \\ simp []
+              \\ metis_tac [])
+          >- (gs [SUBSET_DEF] \\ rw []
+              \\ first_x_assum $ drule_then mp_tac
+              \\ first_x_assum $ drule_then mp_tac
+              \\ strip_tac \\ simp []
+              \\ metis_tac [])
+          >- (gs [SUBSET_DEF, PULL_EXISTS, EVERY_MEM] \\ rw []
+              \\ rename1 ‘var ∈ _’
+              \\ Cases_on ‘var ∈ vc_to_set vc’ \\ gs []
+              \\ rpt $ first_x_assum $ qspec_then ‘var’ assume_tac \\ gs []
+              \\ strip_tac \\ gs []
+              >- (gvs [MEM_MAP, MEM_EL, PULL_EXISTS]
+                  \\ gen_tac
+                  \\ rename1 ‘s = boundvars _’
+                  \\ Cases_on ‘var ∈ s’ \\ gs []
+                  \\ rw [] \\ strip_tac
+                  \\ last_x_assum $ dxrule_then assume_tac
+                  \\ pairarg_tac \\ gvs [])
+              \\ conj_tac
+              >- (strip_tac \\ gs [])
+              >- (dxrule_then assume_tac EQ_SYM
+                  \\ gs []
+                  \\ gs [MEM_MAP, MEM_EL, PULL_EXISTS]
+                  \\ rw [] \\ strip_tac
+                  \\ last_x_assum $ dxrule_then assume_tac
+                  \\ pairarg_tac \\ gs [])))
+      >- (qpat_x_assum ‘¬MEM _ (MAP FST _)’ mp_tac
+          \\ rpt $ qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac
+          \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ rw []
+          \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ assume_tac
+          \\ dxrule_then assume_tac EQ_SYM
+          \\ gs []
+          \\ pop_assum kall_tac
+          \\ simp [GSYM MAP_MAP_o]
+          \\ once_rewrite_tac [MEM_MAP]
+          \\ gs []))
+
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ qpat_x_assum ‘_::_ = _’ assume_tac
+  \\ dxrule_then assume_tac EQ_SYM \\ gvs []
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ last_x_assum $ drule_then mp_tac
+  \\ simp [delete_thm]
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ rename1 ‘split_Delayed_Lam _ _ _ = (e2', _)’
+  \\ rename1 ‘FINITE s’
+  \\ rename1 ‘new_var _ _ = (name2, _)’
+  \\ disch_then $ qspecl_then [‘s ∪ boundvars (exp_of e2') ∪ {explode name2}’,
+                               ‘p_1::FILTER (λv. v ≠ p_1) mapl’] mp_tac
+  \\ impl_tac
+  >- (gs [SUBSET_DEF, DISJOINT_ALT, PULL_EXISTS, FILTER_ALL_DISTINCT, FINITE_boundvars, insert_thm]
+      \\ dxrule_then assume_tac new_var_soundness \\ gs []
+      \\ rw []
+      >- (gs [EVERY_MEM] \\ rw []
+          \\ first_x_assum $ dxrule_then assume_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ rw [] \\ first_x_assum $ drule_then assume_tac
+          \\ strip_tac
+          \\ gs [IN_FRANGE, DOMSUB_FAPPLY_THM])
+      >- simp [MEM_FILTER]
+      >- (strip_tac \\ gs [])
+      >- cheat
+      >- (strip_tac \\ gs [])
+      >- (last_x_assum $ dxrule_then assume_tac
+          \\ strip_tac \\ first_x_assum irule
+          \\ gs [IN_FRANGE, DOMSUB_FAPPLY_THM]
+          \\ metis_tac [])
+      >- (rpt $ pop_assum kall_tac
+          \\ rw [SET_EQ_SUBSET, SUBSET_DEF, MEM_FILTER])
+      >- simp []
+      >- simp []
+      >- (disj1_tac
+          \\ first_x_assum irule
+          \\ gs [IN_FRANGE, DOMSUB_FAPPLY_THM]
+          \\ metis_tac []))
+  \\ disch_then $ qx_choose_then ‘vL’ $ qx_choose_then ‘expL1’ $ qx_choose_then ‘expL2’
+                $ qx_choose_then ‘mapl2’ assume_tac
+  \\ rename1 ‘dest_Delay_Lam p2 = SOME _’
+  \\ last_x_assum $ qspec_then ‘p2’ assume_tac \\ gs []
+  \\ qpat_x_assum ‘split_Delayed_Lam (Delay (Var _)) _ _ = _’ mp_tac
+  \\ simp [split_Delayed_Lam_def]
+  \\ strip_tac \\ gvs []
+  \\ Cases_on ‘p2’ \\ gs [dest_Delay_Lam_def]
+  \\ rename1 ‘dest_Delay_Lam (Delay p2)’
+  \\ Cases_on ‘p2’ \\ gs [dest_Delay_Lam_def]
+  \\ gs [Once split_Delayed_Lam_def]
+  \\ rename1 ‘split_Delayed_Lam p2 vc'' map2 = (e2b, vc3)’
+  \\ first_x_assum $ qspecl_then [‘vc''’, ‘map2’,
+                                  ‘p_1::FILTER (λv. ¬MEM v (MAP FST binds) ∧ v ≠ p_1) mapl ++ mapl2’] mp_tac
+  \\ gs [FILTER_FILTER]
+  \\ impl_tac
+  >- (dxrule_then assume_tac new_var_soundness \\ gs []
+      \\ rw []
+      >- metis_tac [SUBSET_TRANS]
+      >- metis_tac [SUBSET_TRANS]
+      >- gvs [SUBSET_DEF, PULL_EXISTS, MEM_FILTER]
+      >- (irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at $ Pos hd
+          \\ simp []
+          \\ gvs [SUBSET_DEF])
+      >- (irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at $ Pos hd
+          \\ simp []
+          \\ gvs [SUBSET_DEF])
+      >- (qpat_x_assum ‘freevars _ ⊆ vc_to_set _’ mp_tac
+          \\ qpat_x_assum ‘EVERY (λv. _ ∈ _ ∧ _ ∉ _ ∧ _) _’ mp_tac
+          \\ qpat_x_assum ‘FDOM _ = _ ∪ _’ mp_tac
+          \\ qpat_x_assum ‘FDOM _ = _’ mp_tac
+          \\ qpat_x_assum ‘EVERY (λv. _ ' _ = _ ' _) _’ mp_tac
+          \\ qpat_x_assum ‘DISJOINT (freevars _) (IMAGE explode _)’ mp_tac
+          \\ qpat_x_assum ‘_ ' _ = _ ' _’ mp_tac
+          \\ qpat_x_assum ‘map_ok _’ mp_tac
+          \\ qpat_x_assum ‘map_ok _’ mp_tac
+          \\ qpat_x_assum ‘explode _ ∉ vc_to_set _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ gs [DISJOINT_ALT, EVERY_MEM]
+          \\ rw [] \\ strip_tac
+          \\ gs [IN_FRANGE]
+          >- gs [insert_thm, SUBSET_DEF]
+          >- (dxrule_then assume_tac EQ_SYM
+              \\ last_x_assum $ dxrule_then assume_tac
+              \\ gs [insert_thm, FAPPLY_FUPDATE_THM]
+              \\ rename1 ‘to_fmap _ ' k’
+              \\ pop_assum $ qspec_then ‘k’ assume_tac
+              \\ qpat_x_assum ‘∀x. MEM _ (FILTER _ _) ⇒ _’ $ drule_then assume_tac
+              \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pop_assum kall_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ gvs [SUBSET_DEF])
+      >- (qpat_x_assum ‘boundvars _ ⊆ vc_to_set _’ mp_tac
+          \\ qpat_x_assum ‘EVERY (λv. _ ∈ _ ∧ _ ∉ _ ∧ _) _’ mp_tac
+          \\ qpat_x_assum ‘FDOM _ = _ ∪ _’ mp_tac
+          \\ qpat_x_assum ‘FDOM _ = _’ mp_tac
+          \\ qpat_x_assum ‘EVERY (λv. _ ' _ = _ ' _) _’ mp_tac
+          \\ qpat_x_assum ‘DISJOINT (boundvars _) (IMAGE explode _)’ mp_tac
+          \\ qpat_x_assum ‘_ ' _ = _ ' _’ mp_tac
+          \\ qpat_x_assum ‘map_ok _’ mp_tac
+          \\ qpat_x_assum ‘map_ok _’ mp_tac
+          \\ qpat_x_assum ‘explode _ ∉ vc_to_set _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ gs [DISJOINT_ALT, EVERY_MEM]
+          \\ rw [] \\ strip_tac
+          \\ gs [IN_FRANGE]
+          >- gs [insert_thm, SUBSET_DEF]
+          >- (dxrule_then assume_tac EQ_SYM
+              \\ last_x_assum $ dxrule_then assume_tac
+              \\ gs [insert_thm, FAPPLY_FUPDATE_THM]
+              \\ rename1 ‘to_fmap _ ' k’
+              \\ pop_assum $ qspec_then ‘k’ assume_tac
+              \\ qpat_x_assum ‘∀x. MEM _ (FILTER _ _) ⇒ _’ $ drule_then assume_tac
+              \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pop_assum kall_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ gvs [SUBSET_DEF]))
+  \\ disch_then $ qx_choose_then ‘expr2’ $ qx_choose_then ‘expr3’ assume_tac \\ gs []
+  \\ qexists_tac ‘explode name2::vL’ \\ simp [PULL_EXISTS]
+  \\ rename1 ‘LIST_REL thunk_Delay_Lam$exp_rel _ (MAP SND expL1)’
+  \\ Q.REFINE_EXISTS_TAC ‘(_, expr2)::expL1’ \\ simp []
+  \\ Q.REFINE_EXISTS_TAC ‘(_, expr3)::expL2’ \\ simp []
+  \\ qexists_tac ‘p_1::mapl2’ \\ gs []
+  \\ gs [exp_rel1_def, exp_rel2_def, ok_bind_def, unfold_Delay_Lam_def, GENLIST_K_T]
+  \\ rename1 ‘full_exp_rel y1 y2’
+  \\ ‘is_Lam y1 ∧ is_Lam y2’ by gvs [cexp_wf_def, Lams_split, exp_rel1_def, exp_rel2_def]
+  \\ gs [] \\ rw []
+  >- (qpat_x_assum ‘MAP (explode o FST) _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM \\ gs []
+      \\ qpat_x_assum ‘¬MEM _ (MAP FST _)’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ strip_tac \\ strip_tac
+      \\ first_x_assum irule
+      \\ gs [MEM_MAP] \\ metis_tac [])
+  >- (strip_tac \\ gs [GSYM CONJ_ASSOC, EVERY_CONJ, EVERY_MEM])
+  >- cheat
+  >- (dxrule new_var_soundness \\ simp [])
+  >- (dxrule_then assume_tac new_var_soundness
+      \\ gs [GSYM CONJ_ASSOC, EVERY_CONJ])
+  >- (qpat_x_assum ‘boundvars _ ∩ _ = _’ mp_tac
+      \\ dxrule new_var_soundness \\ simp []
+      \\ qpat_x_assum ‘boundvars (Delay _) ⊆ vc_to_set _’ mp_tac
+      \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ rw [SET_EQ_SUBSET, GSYM DIFF_INTER_COMPL, DIFF_SUBSET]
+      \\ gs [SUBSET_DEF]
+      \\ strip_tac \\ gvs []
+      \\ rename1 ‘explode name2’
+      \\ rpt $ first_x_assum $ qspec_then ‘explode name2’ assume_tac
+      \\ gvs [])
+  >- cheat
+  >- (gs [GSYM CONJ_ASSOC, EVERY_CONJ]
+      \\ dxrule_then assume_tac full_exp_rel_boundvars
+      \\ gs [FOLDL_replace_Force_Delay, boundvars_FOLDL_replace_Force,
+             replace_Force_def, boundvars_def, EVERY_MEM]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ strip_tac \\ first_x_assum irule
+      \\ assume_tac boundvars_replace_Force2
+      \\ gs [SUBSET_DEF])
+  >- metis_tac [SUBSET_TRANS]
+  >- (rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+      \\ dxrule new_var_soundness \\ simp [])
+  >- gs [FOLDL_replace_Force_Delay, replace_Force_def, freevars_def]
+  >- gs [FOLDL_replace_Force_Delay, replace_Force_def, boundvars_def]
+  >- (dxrule_then assume_tac new_var_soundness
+      \\ gvs [SUBSET_DEF])
+  >- gs [cexp_wf_def]
+  >- (dxrule_then assume_tac new_var_soundness
+      \\ gvs [SUBSET_DEF, freevars_def])
+  >- simp [boundvars_def]
+  >- (dxrule_then assume_tac new_var_soundness
+      \\ gvs [SUBSET_DEF])
+  >- simp [cexp_wf_def]
+  >- (gs [EVERY_MEM] \\ gen_tac \\ strip_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ pairarg_tac \\ gvs [SUBSET_DEF])
+  >- (strip_tac
+      \\ dxrule_then assume_tac new_var_soundness
+      \\ gvs [SUBSET_DEF])
+  >- cheat
+  >- cheat
+  >- (gs [FOLDL_replace_Force_Delay, replace_Force_def]
+      \\ simp [CONJ_COMM]
+      \\ irule FOLDL_replace_Force_comm
+      \\ qpat_x_assum ‘ALL_DISTINCT (_ ++ _)’ mp_tac
+      \\ simp [CONJ_COMM])
+  >- gs [FOLDL_replace_Force_Delay, FOLDL_replace_Force_Var, replace_Force_def]
+  >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ kall_tac
+      \\ qpat_x_assum ‘LIST_REL full_exp_rel _ _’ kall_tac
+      \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ simp [LIST_REL_EL_EQN]
+      \\ rw [] \\ gs []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ irule EQ_TRANS
+      \\ irule_at (Pos hd) FOLDL_replace_Force_comm
+      \\ simp [CONJ_COMM]
+      \\ irule_at Any FOLDL_replace_Force_comm
+      \\ qpat_x_assum ‘ALL_DISTINCT (_ ++ _)’ mp_tac
+      \\ simp [CONJ_COMM]
+      \\ gs [ALL_DISTINCT_APPEND, MEM_FILTER]
+      \\ cheat)
+  >- (qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ mp_tac
+      \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+      \\ qpat_x_assum ‘FDOM _ = _ ∪ _’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ rw [SUBSET_DEF]
+      \\ gs [PULL_EXISTS, IN_FRANGE])
+  >- (qpat_x_assum ‘_ ' _ = _ ' _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs [insert_thm]
+      \\ dxrule new_var_soundness \\ gs [])
+  >- (gvs [EVERY_MEM]
+      \\ dxrule_then assume_tac new_var_soundness
+      \\ gvs [SUBSET_DEF])
+  >- (qpat_x_assum ‘_ ' _ = _ ' _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs [insert_thm])
+  >- (qpat_x_assum ‘_ ' _ = _ ' _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs [insert_thm])
+  >- gvs [EVERY_MEM]
+  >- (qpat_x_assum ‘ALL_DISTINCT (_ ++ _)’ mp_tac
+      \\ simp [CONJ_COMM]
+      \\ gs [ALL_DISTINCT_APPEND, MEM_FILTER])
+  >- cheat
+  >- simp [boundvars_def]
+  >- gvs []
+  >- gvs [SUBSET_DEF, MEM_FILTER, PULL_EXISTS]
+  >- cheat
+  >- metis_tac [SUBSET_TRANS]
+  >- (rpt $ pop_assum kall_tac
+      \\ rw [SET_EQ_SUBSET, SUBSET_DEF, MEM_FILTER])
+  >- cheat
+  >- simp [cexp_ok_bind_def]
+  >- (strip_tac
+      \\ dxrule_then assume_tac new_var_soundness
+      \\ gvs [])
+  >- cheat
+  >- cheat
+  >- cheat
+  >- (qpat_x_assum ‘EVERY (λv. _ ' _ = _ ' _) _’ mp_tac
+      \\ simp [CONJ_COMM, insert_thm]
+      \\ rpt $ pop_assum kall_tac
+      \\ rw [EVERY_MEM, MEM_FILTER]
+      \\ rename1 ‘v ≠ _’
+      \\ last_x_assum $ qspec_then ‘v’ assume_tac
+      \\ gs [FAPPLY_FUPDATE_THM])
+  >- cheat
+
+
+(*  >- (drule_all_then assume_tac unfold_Delay_Lam_Eq
+      \\ gs []
+      \\ qpat_x_assum ‘EVERY (λv. _ ∈ _ ∧ _ ∉ _) _’ mp_tac
+      \\ qpat_x_assum ‘EVERY (λv. _ = _) _’ mp_tac
+      \\ qpat_x_assum ‘DISJOINT (boundvars _) (IMAGE explode (FRANGE _))’ mp_tac
+      \\ dxrule thunk_Delay_LamTheory.exp_rel_boundvars
+      \\ dxrule full_exp_rel_boundvars
+      \\ qpat_x_assum ‘boundvars _ ∩ _ = _ ∩ _’ mp_tac
+      \\ qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ kall_tac
+      \\ qpat_x_assum ‘IMAGE explode (FRANGE _) ⊆ _’ mp_tac
+      \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+      \\ qpat_x_assum ‘FDOM _ = _ ∪ _’ mp_tac
+      \\ qpat_x_assum ‘FDOM _ = _ ’ mp_tac
+      \\ qpat_x_assum ‘boundvars (exp_of _) ⊆ _’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ rw [EVERY_MEM]
+      \\ gs [DISJOINT_ALT, IN_FRANGE, PULL_EXISTS]
+      \\ rw [] \\ strip_tac
+      \\ gs [SUBSET_DEF, SET_EQ_SUBSET]
+      >- (first_x_assum $ drule_then assume_tac
+          \\ dxrule_then assume_tac EQ_SYM
+          \\ gs [MEM_FILTER, DOMSUB_FAPPLY_THM, PULL_EXISTS]
+          \\ rename1 ‘explode (to_fmap map' ' k) ∈ _’
+          \\ rpt $ first_x_assum $ qspec_then ‘explode (to_fmap map' ' k)’ assume_tac
+          \\ last_x_assum $ qspec_then ‘k’ assume_tac
+          \\ last_x_assum $ qspec_then ‘k’ assume_tac
+          \\ last_x_assum kall_tac
+          \\ last_x_assum kall_tac
+          \\ last_x_assum kall_tac
+          \\ rpt $ first_x_assum $ qspec_then ‘to_fmap map' ' k’ assume_tac
+          \\ gs [IN_FRANGE, PULL_EXISTS]
+          \\ pop_assum $ qspec_then ‘k’ assume_tac \\ gs [])
+      >- (first_x_assum $ dxrule_then assume_tac
+          \\ gs []
+          \\ rename1 ‘explode (to_fmap map2 ' k) ∈ _’
+          \\ rpt $ first_x_assum $ qspec_then ‘explode (to_fmap map2 ' k)’ assume_tac
+          \\ gs []))
+  >- gvs []
+  >- metis_tac [SUBSET_TRANS]
+  >- (rename1 ‘exp_rel (exp_of p2)’
+      \\ Cases_on ‘p2’
+      \\ gs [cexp_ok_bind_def, cexp_wf_def, Lams_split, exp_rel1_def, exp_rel2_def]
+      >- (gs [FOLDL_replace_Force_Lam]
+          \\ rename1 ‘cexp_ok_bind e2’
+          \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
+          >- (rename1 ‘Apps _ (MAP _ list)’
+              \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
+          >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
+              \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
+              >- (Cases_on ‘fall’ \\ gs []
+                  \\ pairarg_tac \\ gs [])
+              \\ pairarg_tac \\ gs [rows_of_def]))
+      >- (gs [FOLDL_replace_Force_Delay]
+          \\ rename1 ‘cexp_ok_bind e2’
+          \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
+          >- (rename1 ‘Apps _ (MAP _ list)’
+              \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
+          >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
+              \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
+              >- (Cases_on ‘fall’ \\ gs []
+                  \\ pairarg_tac \\ gs [])
+              \\ pairarg_tac \\ gs [rows_of_def])))
+  >- (gs [ALL_DISTINCT_APPEND]
+      \\ drule_all_then assume_tac unfold_Delay_Lam_Eq2
+      \\ gs []
+      \\ qspecl_then [‘expL1’, ‘expL2’, ‘vL’] assume_tac MAP_FST_change_expL
+      \\ gs [] \\ gs [LIST_REL_EL_EQN]
+      \\ strip_tac \\ gs [MEM_EL]
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs [EL_MAP]
+      \\ rename1 ‘n < _’
+      \\ last_x_assum $ qspec_then ‘n’ assume_tac
+      \\ gs [EL_MAP]
+      \\ qpat_x_assum ‘explode _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM \\ gs [])
+  >- (drule_all_then assume_tac unfold_Delay_Lam_Eq
+      \\ qpat_x_assum ‘FILTER _ _ = FILTER _ _’ mp_tac
+      \\ qpat_x_assum ‘FILTER _ _ = FILTER _ _’ mp_tac
+      \\ gs []
+      \\ rpt $ pop_assum kall_tac \\ rw []
+      \\ irule EQ_TRANS
+      \\ last_x_assum $ irule_at Any
+      \\ simp [CONJ_COMM])
+  >- (qpat_x_assum ‘EVERY (λv. _ ' _ = _ ' _) _’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ rw [EVERY_MEM]
+      \\ first_x_assum $ drule_then assume_tac
+      \\ gs [DOMSUB_FAPPLY_THM, MEM_FILTER])
+  >- (qpat_x_assum ‘_ ∩ COMPL _ = _’ mp_tac
+      \\ qpat_x_assum ‘_ ∩ COMPL _ = _’ mp_tac
+      \\ rpt $ qpat_x_assum ‘vc_to_set _ ⊆ vc_to_set _’ mp_tac
+      \\ qpat_x_assum ‘boundvars (exp_of _) ⊆ vc_to_set _’ mp_tac
+      \\ qpat_x_assum ‘explode _ ∈ vc_to_set _’ mp_tac
+      \\ qpat_x_assum ‘EVERY (λ(v,e). _ ∧ _ ∧ _ ∧ _ ∧ boundvars (exp_of _) ⊆ _) _’ mp_tac
+      \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ mp_tac
+      \\ qpat_x_assum ‘LIST_REL full_exp_rel _ _’ mp_tac
+      \\ dxrule full_exp_rel_boundvars
+      \\ rpt $ pop_assum kall_tac
+      \\ strip_tac \\ gvs [boundvars_FOLDL_replace_Force]
+      \\ pop_assum kall_tac
+      \\ gs [SET_EQ_SUBSET, GSYM DIFF_INTER_COMPL, DIFF_SUBSET]
+      \\ rw []
+      >- (gs [SUBSET_DEF] \\ rw []
+          \\ first_x_assum $ drule_then mp_tac
+          \\ first_x_assum $ drule_then mp_tac
+          \\ strip_tac \\ simp [])
+      >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+          \\ last_x_assum $ drule_then $ drule_then mp_tac
+          \\ strip_tac \\ simp []
+          \\ metis_tac [])
+      >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+          \\ first_x_assum $ drule_then mp_tac
+          \\ strip_tac \\ simp []
+          \\ metis_tac [])
+      >- (gs [SUBSET_DEF] \\ rw []
+          \\ first_x_assum $ drule_then assume_tac
+          \\ gs []
+          \\ disj2_tac
+          \\ strip_tac \\ gvs [])
+      >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+          \\ last_x_assum $ drule_then $ drule_then mp_tac
+          \\ strip_tac \\ simp []
+          \\ metis_tac [])
+      >- (gs [SUBSET_DEF, PULL_EXISTS] \\ rw []
+          \\ first_x_assum $ drule_then mp_tac
+          \\ strip_tac \\ simp []
+          \\ metis_tac [])
+      >- (gs [SUBSET_DEF] \\ rw []
+          \\ first_x_assum $ drule_then mp_tac
+          \\ first_x_assum $ drule_then mp_tac
+          \\ strip_tac \\ simp []
+          \\ metis_tac [])
+      >- (gs [SUBSET_DEF, PULL_EXISTS, EVERY_MEM] \\ rw []
+          \\ rename1 ‘var ∈ _’
+          \\ Cases_on ‘var ∈ vc_to_set vc’ \\ gs []
+          \\ rpt $ first_x_assum $ qspec_then ‘var’ assume_tac \\ gs []
+          \\ strip_tac \\ gs []
+          >- (gvs [MEM_MAP, MEM_EL, PULL_EXISTS]
+              \\ gen_tac
+              \\ rename1 ‘s = boundvars _’
+              \\ Cases_on ‘var ∈ s’ \\ gs []
+              \\ rw [] \\ strip_tac
+              \\ last_x_assum $ dxrule_then assume_tac
+              \\ pairarg_tac \\ gvs [])
+          \\ conj_tac
+          >- (strip_tac \\ gs [])
+          >- (dxrule_then assume_tac EQ_SYM
+              \\ gs []
+              \\ gs [MEM_MAP, MEM_EL, PULL_EXISTS]
+              \\ rw [] \\ strip_tac
+              \\ last_x_assum $ dxrule_then assume_tac
+              \\ pairarg_tac \\ gs [])))
+  >- (qpat_x_assum ‘¬MEM _ (MAP FST _)’ mp_tac
+      \\ rpt $ qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac
+      \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ rw []
+      \\ qpat_x_assum ‘MAP (explode o FST) _ = MAP FST _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs []
+      \\ pop_assum kall_tac
+      \\ simp [GSYM MAP_MAP_o]
+      \\ once_rewrite_tac [MEM_MAP]
+      \\ gs [])*)
+QED
+
+Theorem UNION_INTER:
+  ∀A B C. (A ∪ B) ∩ C = (A ∩ C) ∪ (B ∩ C)
+Proof
+  gvs [SET_EQ_SUBSET, SUBSET_DEF]
+QED
+
+Theorem FINITE_boundvars:
+  ∀e. FINITE (boundvars e)
+Proof
+  Induct using freevars_ind \\ gvs [boundvars_def]
+  \\ gvs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rw [] \\ last_x_assum $ dxrule_then irule
+QED
+
+Theorem FOLDL_replace_Force_freevars:
+  ∀l e v map. v ∈ freevars (FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e l)
+  ⇒  ((∃v2. MEM v2 l ∧ v = explode (to_fmap map ' v2)) ∨ v ∈ freevars e)
+Proof
+  Induct \\ gvs []
+  \\ rw [] \\ last_x_assum $ dxrule_then assume_tac
+  \\ gvs []
+  >- (disj1_tac \\ metis_tac [])
+  \\ assume_tac freevars_replace_Force_SUBSET
+  \\ gvs [SUBSET_DEF]
+  \\ pop_assum $ dxrule_then assume_tac \\ gvs [freevars_def]
+  \\ disj1_tac \\ metis_tac []
+QED
+
+Theorem MAP_FST_FOLDL_MAP_replace_Force:
+  ∀l1 l2. MAP FST (FOLDL (λl (v1, v2). MAP (λ(v, e). (v, replace_Force (Var v2) v1 e)) l) l2 l1) = MAP FST l2
+Proof
+  Induct \\ simp []
+  \\ simp [FORALL_PROD, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+QED
+
+Theorem FOLDL_replace_Force_ZIP:
+  ∀mapl e map. FOLDL (λe (v1, v2). replace_Force (Var v2) v1 e) e
+                       (ZIP (MAP explode mapl,
+                             MAP (λv. explode (to_fmap map ' v)) mapl))
+                 = FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e mapl
+Proof
+  Induct \\ gvs []
+QED
+
+Theorem FOLDL_replace_Force_comm1:
+  ∀l e map h. ¬MEM h l ∧ DISJOINT ({h} ∪ set l) (FRANGE $ to_fmap map) ∧ {h} ∪ set l ⊆ (FDOM $ to_fmap map) ⇒
+              FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e)
+               (replace_Force (Var (explode (to_fmap map ' h))) (explode h) e) l
+              = replace_Force (Var (explode (to_fmap map ' h))) (explode h)
+                              (FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) e l)
+Proof
+  Induct \\ gvs []
+  \\ rw []
+  \\ irule EQ_TRANS \\ last_x_assum $ irule_at $ Pos last
+  \\ simp []
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ irule replace_Force_COMM
+  \\ gvs [freevars_def]
+  \\ conj_tac \\ strip_tac
+  >- (first_x_assum irule
+      \\ simp [IN_FRANGE]
+      \\ metis_tac [])
+  >- (qpat_x_assum ‘_ ∉ FRANGE _’ kall_tac
+      \\ qpat_x_assum ‘_ ∉ FRANGE _’ irule
+      \\ simp [IN_FRANGE]
+      \\ metis_tac [])
+QED
+
+Theorem MAP_FST_FOLDL_no_change:
+  ∀l1 l2. MAP FST (FOLDL (λl (v1, v2). MAP (λ(v, e). (v, replace_Force (Var v2) v1 e)) l) l2 l1) = MAP FST l2
+Proof
+  Induct \\ gvs [FORALL_PROD]
+  \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+QED
+
+Theorem FOLDL_MAP_comm:
+  ∀l1 l2. FOLDL (λl (v1, v2). MAP (λ(v, e). (v, replace_Force (Var v2) v1 e)) l) l2 l1
+          = MAP (λ(v, e).
+                   (v, FOLDL (λe (v1, v2). replace_Force (Var v2) v1 e) e l1)) l2
+Proof
+  Induct \\ gvs [FORALL_PROD]
+  >- (Induct \\ gvs [FORALL_PROD])
+  \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
 QED
 
 Theorem split_Delay_Lam_soundness_lemma:
@@ -1864,7 +2420,7 @@ Proof
                     $ qx_choose_then ‘expL2’ $ qx_choose_then ‘mapl2’ assume_tac
       \\ last_x_assum $ qspec_then ‘c’ assume_tac \\ gvs [cexp_size_def]
       \\ pop_assum $ dxrule_then $ qspec_then
-                   ‘mapl2 ++ FILTER (λv. ¬MEM v (MAP FST binds'')) map_l’ mp_tac
+                   ‘mapl2 ++ FILTER (λv. ¬MEM v (MAP FST l)) map_l’ mp_tac
       \\ impl_tac
       >- (gvs [ALL_DISTINCT_APPEND] \\ rpt $ conj_tac
           >- (rw [] \\ strip_tac \\ first_x_assum $ dxrule_then irule \\ simp [])
