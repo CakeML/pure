@@ -4,18 +4,19 @@ open HolKernel Parse boolLib bossLib;
 
 open purePEGTheory cst_to_astTheory ast_to_cexpTheory
 
+
 val _ = new_theory "pureParse";
 
 Definition string_to_cst_def:
   string_to_cst s =
-  case ispeg_exec purePEG (nt (INL nDecls) I lrOK) (lexer_fun s)
+  case ispeg_exec purePEG (nt (INL nDecls) I lrOK) (pure_lexer_impl$lexer_fun s)
                   lpTOP [] NONE [] done failed
   of
     Result (Success [] pts _ _ ) => SOME pts
   | _ => NONE
 End
 
-val _ = computeLib.add_funs [lexer_funTheory.get_token_def,
+val _ = computeLib.add_funs [pure_lexer_implTheory.get_token_def,
                              listTheory.LIST_REL_def,
                              ASCIInumbersTheory.s2n_compute,
                              numposrepTheory.l2n_def]
@@ -30,7 +31,8 @@ Definition string_to_asts_def:
   string_to_asts s =
   do
     csts <- string_to_cst s ;
-    OPT_MMAP astDecl csts
+    cst <- oHD csts ;
+    astDecls cst
   od
 End
 

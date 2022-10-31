@@ -3,12 +3,12 @@ open HolKernel Parse boolLib bossLib;
 
 open stringTheory grammarTheory ispegexecTheory ispegTheory tokenUtilsTheory
      pureNTTheory pureTokenUtilsTheory
-local open lexer_funTheory stringLib in end
+local open pure_lexer_implTheory stringLib in end
 
 val _ = new_theory "purePEG";
 
 val _ = set_grammar_ancestry
-        ["pureTokenUtils", "grammar", "lexer_fun", "ispegexec", "pureNT"]
+        ["pureTokenUtils", "grammar", "pure_lexer_impl", "ispegexec", "pureNT"]
 
 
 Definition sumID_def[simp]:
@@ -286,7 +286,7 @@ Theorem purePEG_exec_thm[compute] =
     |> LIST_CONJ;
 
 
-Theorem gettok[local,compute] = lexer_funTheory.get_token_def
+Theorem gettok[local,compute] = pure_lexer_implTheory.get_token_def
 (* val input1 = EVAL “lexer_fun "foo :: A -> B"”
 val input2 = EVAL “lexer_fun "foo ::\n A -> B"”
 val input3 = EVAL “lexer_fun "foo :: A\n     ->\n B"”
