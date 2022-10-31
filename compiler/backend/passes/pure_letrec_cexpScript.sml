@@ -3,7 +3,7 @@
 *)
 open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
-open pure_cexpTheory var_mlmapTheory balanced_mapTheory;
+open pure_cexpTheory pure_varsTheory balanced_mapTheory;
 
 val _ = new_theory "pure_letrec_cexp";
 
