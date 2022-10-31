@@ -183,4 +183,16 @@ Proof
   \\ drule_all exp_rel_semantics \\ fs []
 QED
 
+Theorem IMP_thunk_cexp_wf:
+  cexp_wf x ∧
+  closed (exp_of x) ∧
+  NestedCase_free x ⇒
+  thunk_exp_of$cexp_wf (compile_to_thunk x) ∧
+  thunkLang$closed (thunk_exp_of$exp_of (compile_to_thunk x)) ∧
+  cns_arities (compile_to_thunk x) ⊆
+              IMAGE (IMAGE (explode ## I)) (cns_arities x)
+Proof
+  cheat
+QED
+
 val _ = export_theory ();

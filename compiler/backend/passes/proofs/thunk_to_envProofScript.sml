@@ -128,4 +128,12 @@ Proof
   \\ drule_all exp_rel_semantics \\ fs []
 QED
 
+Theorem IMP_env_cexp_wf:
+  thunk_exp_of$cexp_wf x ⇒
+  envLang$cexp_wf (to_env x) ∧
+  cns_arities (to_env x) ⊆ cns_arities x
+Proof
+  cheat
+QED
+
 val _ = export_theory ();

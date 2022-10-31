@@ -6,7 +6,8 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
 open pure_miscTheory pure_configTheory
-     env_cexpTheory state_cexpTheory;
+     env_cexpTheory state_cexpTheory
+     state_app_unitTheory state_namesTheory;
 local open pure_semanticsTheory in end
 
 val _ = new_theory "env_to_state";
@@ -177,6 +178,14 @@ End
 
 Definition compile_def:
   compile x = app (to_state x) Unit
+End
+
+Definition compile_to_state_def:
+  compile_to_state e =
+    let x = compile e in
+    let y = state_app_unit$push_app_unit 0 x in
+    let z = state_names$give_all_names y in
+      z
 End
 
 val _ = export_theory ();

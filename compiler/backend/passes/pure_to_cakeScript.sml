@@ -18,7 +18,7 @@ End
 
 Definition pure_to_state_def:
   pure_to_state e =
-    to_state (pure_to_env e)
+    compile_to_state (pure_to_env e)
 End
 
 Definition pure_to_cake_def:
