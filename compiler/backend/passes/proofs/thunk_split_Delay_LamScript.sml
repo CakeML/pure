@@ -3,7 +3,7 @@
 *)
 
 open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_mlmapTheory;
+open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory pure_varsTheory;
 
 val _ = new_theory "thunk_split_Delay_Lam";
 

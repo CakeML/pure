@@ -9,12 +9,12 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
 open mlmapTheory mlstringTheory;
 open pure_miscTheory thunkLangPropsTheory thunkLangTheory thunkLang_primitivesTheory
      thunk_Delay_LamTheory thunk_Let_Delay_VarTheory thunk_cexpTheory
-     thunk_exp_ofTheory thunk_semanticsTheory thunk_split_Delay_LamTheory var_mlmapTheory;
+     thunk_exp_ofTheory thunk_semanticsTheory thunk_split_Delay_LamTheory pure_varsTheory;
 
 val _ = new_theory "thunk_split_Delay_LamProof";
 
 val _ = set_grammar_ancestry ["thunk_cexp", "thunkLang", "thunk_exp_of",
-      "var_mlmap", "thunk_split_Delay_Lam",
+      "pure_vars", "thunk_split_Delay_Lam",
       "thunk_Delay_Lam", "thunk_Let_Delay_Var"];
 
 Theorem lets_for_APPEND:
