@@ -8,7 +8,8 @@ open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_alpha_equivTheory pure_alpha_equivTheory pure_letrecTheory;
+     pure_alpha_equivTheory pure_alpha_equivTheory pure_letrecTheory
+     pure_letrec_seqTheory;
 
 val _ = new_theory "pure_demand";
 
@@ -3128,6 +3129,51 @@ Proof
   gvs [EVERY_EL, EL_MAP] >> rw [] >> strip_tac >>
   first_x_assum $ dxrule_then assume_tac >> gvs []
 QED
+
+(* -------------------- *)
+
+Theorem IMP_obligation:
+  ALL_DISTINCT (MAP FST binds) ∧
+  (∀vname args body.
+     MEM (vname,args,body) binds
+     ⇒
+     (* args are distinct *)
+     ALL_DISTINCT (MAP FST args) ∧
+     (* args are disjoint *)
+     DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+     (* body of bound exp only mentions args and other bound names *)
+     freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
+     (* every forced var is free in body *)
+     set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
+     (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
+     ∃e.
+       reformulate binds body e ∧
+       ∀v. MEM (v,T) args ⇒ e demands (([], v), Nil))
+  ⇒
+  pure_letrec_seq$obligation binds
+Proof
+  strip_tac
+  \\ irule pure_letrec_seqTheory.IMP_obligation
+  \\ asm_rewrite_tac []
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum $ drule_then strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any
+  \\ fs [demands_def,Projs_def,exp_eq_in_ctxt_def]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘args’
+  \\ Induct
+  \\ fs [mk_seqs_def,exp_eq_refl,FORALL_PROD]
+  \\ rw []
+  \\ rename [‘(v,p)::_’]
+  \\ Cases_on ‘p’ \\ fs [mk_seqs_def]
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos $ el 2) pure_congruenceTheory.exp_eq_Prim_cong
+  \\ fs [PULL_EXISTS]
+  \\ pop_assum $ irule_at $ Pos last \\ fs []
+  \\ qexists_tac ‘v’ \\ fs [exp_eq_refl]
+QED
+
+(* -------------------- *)
 
 val _ = set_fixity "demands_when_applied" (Infixl 480);
 

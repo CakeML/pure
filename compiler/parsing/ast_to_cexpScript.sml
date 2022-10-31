@@ -106,6 +106,11 @@ Definition translate_exp_def:
     rs <- OPT_MMAP (translate_exp tyinfo) es;
     SOME (Prim () (Cons (implode s)) rs)
   od ∧
+  translate_exp tyinfo (expOp op es) =
+  do
+    rs <- OPT_MMAP (translate_exp tyinfo) es;
+    return (Prim () (AtomOp op) rs)
+  od ∧
   translate_exp tyinfo (expTup es) =
   do
     rs <- OPT_MMAP (translate_exp tyinfo) es;

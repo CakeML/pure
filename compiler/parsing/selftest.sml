@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib
 open cst_to_astTheory purePEGTheory testutils ast_to_cexpTheory
+open pureParseTheory;
 
 val errcount = ref 0
 val _ = diemode := Remember errcount
@@ -68,19 +69,19 @@ fun fptest (x as (nt, s, cf, exp)) =
              KNL s ^ "\"");
      fptest0 x)
 
-fun filetest (fname, NONE) =
+fun filetest (fname, sem, NONE) =
     let val is = TextIO.openIn fname
         val str = TextIO.inputAll is
         val _ = TextIO.closeIn is
     in
       tprint ("Parsing contents of "^fname);
-      fptest0 (“nDecls”, str, “astDecls”, “NONE”)
+      fptest0 (“nDecls”, str, sem, “NONE”)
     end
-  | filetest (fname, SOME c) =
+  | filetest (fname, sem, SOME c) =
     let val s = filetake c fname
         val _ = tprint ("Parsing " ^ Int.toString c ^ " lines of " ^ fname)
     in
-      fptest0 (“nDecls”, s, “astDecls”, “NONE”)
+      fptest0 (“nDecls”, s, sem, “NONE”)
     end
 fun sp (* simple parse *) nt s =
     EVAL (list_mk_icomb(fullparse, [hd (decls nt), stringSyntax.fromMLstring s,
@@ -120,7 +121,8 @@ val _ = app lextest [
   (": :: <-", “[SymbolT ":"; SymbolT "::"; SymbolT "<-"]”),
   ("do x", “[AlphaT "do"; AlphaT "x"]”),
   ("foo_bar _", “[AlphaT "foo_bar"; UnderbarT]”),
-  ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”)
+  ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”),
+  ("foo #(foo)", “[AlphaT "foo"; FFIT "foo"]”)
 ];
 
 val _ = app fptest [
@@ -152,6 +154,14 @@ val _ = app fptest [
   (“nExp”, "D [] 3", “astExp nExp”, “expCon "D" [pNIL; 𝕀 3]”),
   (“nExp”, "D [] 3", “CEXP”,
    “Prim () (Cons «D») [Prim () (Cons «[]») []; 𝕁 3]”),
+  (“nExp”, "#(stdout) \"Hello, world!\\n\"", “astExp nExp”,
+   “expOp (Message "stdout") [𝕊 "Hello, world!\n"]”),
+  (“nExp”, "#(stdout) \"Hello, world!\\n\"", “CEXP”,
+   “Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]”),
+  (“nExp”, "#(__Len) \"Hello, world!\\n\"", “astExp nExp”,
+   “expOp Len [𝕊 "Hello, world!\n"]”),
+  (“nExp”, "#(__Len) \"Hello, world!\\n\"", “CEXP”,
+   “Prim () (AtomOp Len) [𝕋 "Hello, world!\n"]”),
   (“nExp”, "f [x,y] 3", “astExp nExp”,
    “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”),
   (“nExp”, "f [x,y] 3", “CEXP”,
@@ -255,7 +265,25 @@ val _ = app fptest [
        [(«E»,[TypeVar 0]); («F»,[TypeCons 2 [TypeVar 0; PrimTy Integer]])]);
       (2n,
        [(«C»,[PrimTy Bool; TypeVar 0; PrimTy Integer]);
-        («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0]]])])])”)
+        («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0]]])])])”),
+  (“nDecls”, "main u = do\n\
+             \  #(stdout) \"Hello, world!\\n\"\n",
+   “CDECLS”,
+   “(Letrec () [
+     («main»,
+      Lam () [«u»] (Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]))
+     ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
 
-val _ = app filetest [("test1.hs", NONE)]
+val _ = app filetest [("test1.hs", “astDecls”, NONE)]
+
+val _ = app convtest [
+  ("s2cexp hello world",
+   EVAL, “string_to_cexp "main u = do #(stdout) \"Boo!\""”,
+   “SOME (Letrec () [
+     («main»,
+      Lam () [«u»] (Prim () (AtomOp (Message "stdout")) [𝕋 "Boo!"]))
+     ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
+]

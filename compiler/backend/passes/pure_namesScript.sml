@@ -24,6 +24,7 @@ Definition extract_names_def:
     extract_names (extract_names (insert_var s n) x) y ∧
   extract_names s (Case c x n ys eopt) =
     (let s = extract_names (insert_var s n) x in
+     let s = insert_vars s (FLAT (MAP (FST o SND) ys)) in
      let s = extract_names_list s (MAP (SND o SND) ys) in
        case eopt of
        | NONE => s
@@ -48,12 +49,13 @@ Termination
      \\ Induct_on ‘xs’ \\ fs [listTheory.list_size_def,FORALL_PROD]
      \\ rw [] \\ fs [basicSizeTheory.pair_size_def])
   >~ [‘list_size (cexp_size (K 0)) (MAP (λx. SND (SND x)) ys)’] >-
-    (Induct_on ‘ys’ \\ fs [listTheory.list_size_def,FORALL_PROD]
+    (pop_assum kall_tac
+     \\ Induct_on ‘ys’ \\ fs [listTheory.list_size_def,FORALL_PROD]
      \\ rw [] \\ fs [basicSizeTheory.pair_size_def])
 End
 
-Definition all_names_def:
-  all_names e = extract_names empty_vars e
+Definition pure_names_def:
+  pure_names e = extract_names empty_vars e
 End
 
 val _ = export_theory();

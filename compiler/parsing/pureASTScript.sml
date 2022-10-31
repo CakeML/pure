@@ -1,9 +1,9 @@
 open HolKernel Parse boolLib bossLib;
 
-local open stringTheory integerTheory in end
+local open stringTheory integerTheory pure_configTheory in end
 val _ = new_theory "pureAST";
 
-val _ = set_grammar_ancestry ["string", "integer"]
+val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
 
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
@@ -36,6 +36,7 @@ End
 Datatype:
   expAST = expVar string
          | expCon string (expAST list)
+         | expOp pure_config$atom_op (expAST list)
          | expTup (expAST list)
          | expApp expAST expAST
          | expAbs patAST expAST

@@ -302,10 +302,26 @@ Definition mkSym_def:
                 od ++ SOME (expVar s))
 End
 
+Definition mkFFISym_def:
+  mkFFISym s : pure_config$atom_op =
+  if s = "__Len" then Len
+  else if s = "__Elem" then Elem
+  else if s = "__Concat" then Concat
+  else if s = "__Implode" then Implode
+  else if s = "__Substring" then Substring
+  else if s = "__StrEq" then StrEq
+  else if s = "__StrLt" then StrLt
+  else if s = "__StrLeq" then StrLeq
+  else if s = "__StrGt" then StrGt
+  else if s = "__StrGeq" then StrGeq
+  else Message s
+End
+
 Definition mkApp_def:
   mkApp f args =
   case f of
     expCon s args0 => expCon s (args0 ++ args)
+  | expOp op args0 => expOp op (args0 ++ args)
   | _ => FOLDL expApp f args
 End
 
@@ -394,6 +410,10 @@ Definition astExp_def:
          do
            assert (tokcheck pt UnderbarT) ;
            SOME $ expVar "_"
+         od ++
+         do
+           ffi_s <- destFFIT ' (destTOK ' (destLf pt)) ;
+           return $ expOp (mkFFISym ffi_s) []
          od
      | [lp;rp] =>
          do
