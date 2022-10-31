@@ -2810,7 +2810,7 @@ Proof
   rw [sim_ok_def, exp_rel_eval, exp_rel_subst]
 QED
 
-Theorem delay_lam_semantics:
+Theorem let_delay_var_semantics:
   exp_rel x y ∧
   closed x ⇒
     semantics x Done [] = semantics y Done []
@@ -3314,7 +3314,7 @@ Proof
   \\ gvs []
 QED
 
-Theorem full_delay_lam_semantics:
+Theorem full_let_delay_var_semantics:
   full_exp_rel x y ∧
   closed x ⇒
     semantics x Done [] = semantics y Done []
@@ -3323,7 +3323,7 @@ Proof
   irule $ GEN_ALL NRC_semantics_full >> fs [] >>
   first_x_assum $ irule_at Any >>
   qexists_tac ‘exp_rel’ >>
-  gvs [delay_lam_semantics, full_exp_rel_NRC_exp_rel, closed_def] >>
+  gvs [let_delay_var_semantics, full_exp_rel_NRC_exp_rel, closed_def] >>
   rw [] >>
   metis_tac [exp_rel_freevars]
 QED

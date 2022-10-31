@@ -3544,9 +3544,9 @@ Proof
   rpt $ gen_tac \\ strip_tac
   \\ dxrule_then (qspec_then ‘[]’ assume_tac) split_Delayed_Lam_soundness_lemma
   \\ gs [closed_def, empty_thm, TotOrd_compare]
-  \\ drule_then assume_tac thunk_Delay_LamTheory.delay_lam_semantics
+  \\ drule_then assume_tac delay_lam_semantics
   \\ dxrule_then assume_tac thunk_Delay_LamTheory.exp_rel_freevars
-  \\ drule_then assume_tac full_delay_lam_semantics
+  \\ drule_then assume_tac full_let_delay_var_semantics
   \\ dxrule_then assume_tac full_exp_rel_freevars
   \\ gs [closed_def]
 QED
