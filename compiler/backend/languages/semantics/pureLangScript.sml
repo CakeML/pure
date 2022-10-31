@@ -111,6 +111,7 @@ Definition allvars_of_def[simp]:
     {explode n} UNION allvars_of x UNION allvars_of y ∧
   allvars_of (Case c x n ys eopt) =
     {explode n} UNION
+    BIGUNION (set (MAP (set o MAP explode o FST o SND) ys)) UNION
     BIGUNION (set (MAP (allvars_of o SND o SND) ys)) UNION
     allvars_of x UNION
       (case eopt of
@@ -136,7 +137,7 @@ Proof
   Induct \\ fs [Apps_def,EXTENSION] \\ metis_tac []
 QED
 
-Theorem allovars_of:
+Theorem allvars_of:
   ∀x. allvars_of x = allvars (exp_of x)
 Proof
   ho_match_mp_tac allvars_of_ind
