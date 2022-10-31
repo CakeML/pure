@@ -1987,96 +1987,6 @@ Proof
   gvs [GSYM subst_subst1_UPDATE, exp_eq_refl]
 QED
 
-(*Theorem exp_eq_Letrec_change_lemma:
-  ∀bL bL' e e' b.
-    LIST_REL (λ(v1, e1) (v2, e2). ((Letrec bL e1) ≅? (Letrec bL e2)) b) bL bL'
-    ∧ MAP FST bL = MAP FST bL'
-    ∧ EVERY (λe. freevars e ⊆ set (MAP FST bL)) (MAP SND bL)
-    ∧ EVERY (λe. freevars e ⊆ set (MAP FST bL)) (MAP SND bL')
-    ∧ ((Letrec bL e) ≅? (Letrec bL e')) b
-    ∧ ALL_DISTINCT (MAP FST bL)
-    ⇒ ((Letrec bL e) ≅? (Letrec bL' e')) b
-Proof
-  rw [] >>
-  irule exp_eq_trans >> first_x_assum $ irule_at Any >>
-  irule exp_eq_trans >> irule_at Any beta_equality_Letrec >>
-  irule_at Any $ iffLR exp_eq_sym >>
-  irule_at Any exp_eq_trans >> irule_at Any beta_equality_Letrec >>
-  gvs [subst_funs_def, bind_def] >>
-  rename1 ‘MAP FST bL = MAP FST bL2’ >>
-  rpt $ FULL_CASE_TAC >> gvs [exp_eq_refl]
-  >~[‘subst _ _ ≅? subst _ _’]
-  >- (irule subst_exp_eq >>
-      gvs [exp_eq_refl, LIST_REL_EL_EQN, EL_MAP, LIST_REL_eq] >> rw [] >>
-      last_x_assum $ dxrule_then assume_tac >>
-      rename1 ‘EL n _’ >>
-      qabbrev_tac ‘p1 = EL n bL’ >> PairCases_on ‘p1’ >>
-      qabbrev_tac ‘p2 = EL n bL2’ >> PairCases_on ‘p2’ >>
-      ‘∀(l1 : string list) l2. l1 = l2 ⇒ ∀i. i < LENGTH l1 ⇒ EL i l1 = EL i l2’ by gvs [] >>
-      pop_assum $ dxrule_then assume_tac >>
-      gvs [EL_MAP] >> cheat) >>
-  qspecl_then [‘bL’, ‘Letrec bL’] assume_tac ALL_DISTINCT_FST_MAP >>
-  qspecl_then [‘bL2’, ‘Letrec bL2’] assume_tac ALL_DISTINCT_FST_MAP >>
-  gvs [] >>
-  drule_then assume_tac fmap_FOLDL_FOLDR >> dxrule_then assume_tac FLOOKUP_FOLDR_UPDATE >>
-  drule_then assume_tac fmap_FOLDL_FOLDR >> dxrule_then assume_tac FLOOKUP_FOLDR_UPDATE >>
-  rpt $ FULL_CASE_TAC >> gvs [exp_eq_refl, FUPDATE_LIST]
-  >-
-  cheat
-QED*)
-
-(*Theorem exp_eq_test1:
-  ∀vL eL e b.
-    LENGTH vL = LENGTH eL ∧ EVERY (λv. EVERY (λe. v ∉ freevars e) eL) vL ∧ ALL_DISTINCT vL
-    ⇒ (Apps (Lams vL e) eL ≅? Letrec (ZIP (vL, eL)) e) b
-Proof
-  Induct >> gvs [Lams_def, Apps_def]
-  >- (rw [] >> irule eval_wh_IMP_exp_eq >>
-      simp [subst_def, eval_wh_thm, subst_funs_def, FUPDATE_LIST_THM]) >>
-  gen_tac >> Cases >> rw [Apps_def] >>
-  irule $ iffLR exp_eq_sym >> irule exp_eq_trans >> irule_at Any exp_eq_Apps_cong >>
-  gvs [LIST_REL_EL_EQN] >> irule_at Any LENGTH_MAP >> gvs [EL_MAP] >>
-  irule_at (Pos $ el 2) exp_eq_refl >>
-  rename1 ‘(v, e1)::ZIP _’ >> qexists_tac ‘Let v e1’ >>
-  rw [] >> gvs [EL_MAP, EVERY_EL, Let_not_in_freevars] >>
-  first_assum $ irule_at Any >> gvs []
-      irule exp_eq_Tick_cong >>
-      gvs [exp_eq_refl]) >>
-  cheat
-QED
-
-Theorem exp_eq_in_Letrec_test:
-  ∀e e' bL c.
-    exp_eq_in_ctxt c (Lams (MAP FST bL) e) (Lams (MAP FST bL) e')
-    ⇒ exp_eq_in_ctxt c (Letrec bL e) (Letrec bL e')
-Proof
-
-QED*)
-
-(*Theorem exp_eq_in_ctxt_Letrec:
-  ∀e b e1 e2 v c.
-    exp_eq_in_ctxt (RecBind ((v, e1)::b) c) e1 e2
-    ⇒ exp_eq_in_ctxt c (Letrec ((v, e1)::b) e) (Letrec ((v, e2)::b) e)
-Proof
-  Induct using freevars_ind
-  >- (rw [exp_eq_in_ctxt_def] >>
-      irule exp_eq_in_ctxt_trans >> irule_at (Pos hd) exp_eq_IMP_exp_eq_in_ctxt >>
-      rename1 ‘Letrec ((v, _)::_) (Var w)’ >> Cases_on ‘v = w’ >> cheat)
-  >> cheat
-QED*)
-
-(*Theorem exp_eq_in_ctxt_Letrec:
-  ∀c b b' e e'.
-    LIST_REL (λ(v1, e1) (v2, e2). v1 = v2 ∧ exp_eq_in_ctxt c (Letrec b e1) (Letrec b e2)) b b'
-    ∧ exp_eq_in_ctxt c (Letrec b e) (Letrec b e')
-    ⇒ exp_eq_in_ctxt c (Letrec b e) (Letrec b' e')
-Proof
-  Induct >> gvs [exp_eq_in_ctxt_def]
-  >- gvs [exp_eq_Letrec_change]
-
-  cheat
-QED*)
-
 (** end ctxt **)
 
 Definition is_bot_def:
@@ -3130,51 +3040,6 @@ Proof
   first_x_assum $ dxrule_then assume_tac >> gvs []
 QED
 
-(* -------------------- *)
-
-Theorem IMP_obligation:
-  ALL_DISTINCT (MAP FST binds) ∧
-  (∀vname args body.
-     MEM (vname,args,body) binds
-     ⇒
-     (* args are distinct *)
-     ALL_DISTINCT (MAP FST args) ∧
-     (* args are disjoint *)
-     DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
-     (* body of bound exp only mentions args and other bound names *)
-     freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
-     (* every forced var is free in body *)
-     set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
-     (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
-     ∃e.
-       reformulate binds body e ∧
-       ∀v. MEM (v,T) args ⇒ e demands (([], v), Nil))
-  ⇒
-  pure_letrec_seq$obligation binds
-Proof
-  strip_tac
-  \\ irule pure_letrec_seqTheory.IMP_obligation
-  \\ asm_rewrite_tac []
-  \\ rpt gen_tac \\ strip_tac
-  \\ first_x_assum $ drule_then strip_assume_tac \\ fs []
-  \\ first_x_assum $ irule_at Any
-  \\ fs [demands_def,Projs_def,exp_eq_in_ctxt_def]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘args’
-  \\ Induct
-  \\ fs [mk_seqs_def,exp_eq_refl,FORALL_PROD]
-  \\ rw []
-  \\ rename [‘(v,p)::_’]
-  \\ Cases_on ‘p’ \\ fs [mk_seqs_def]
-  \\ irule exp_eq_trans
-  \\ irule_at (Pos $ el 2) pure_congruenceTheory.exp_eq_Prim_cong
-  \\ fs [PULL_EXISTS]
-  \\ pop_assum $ irule_at $ Pos last \\ fs []
-  \\ qexists_tac ‘v’ \\ fs [exp_eq_refl]
-QED
-
-(* -------------------- *)
-
 val _ = set_fixity "demands_when_applied" (Infixl 480);
 
 Definition demands_when_applied_def:
@@ -3721,6 +3586,260 @@ Proof
   gvs []
 QED
 
+
+(* -------------------- *)
+
+Theorem IMP_obligation:
+  ALL_DISTINCT (MAP FST binds) ∧
+  (∀vname args body.
+     MEM (vname,args,body) binds
+     ⇒
+     (* args are distinct *)
+     ALL_DISTINCT (MAP FST args) ∧
+     (* args are disjoint *)
+     DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+     (* body of bound exp only mentions args and other bound names *)
+     freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
+     (* every forced var is free in body *)
+     set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
+     (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
+     ∃e.
+       reformulate binds body e ∧
+       ∀v. MEM (v,T) args ⇒ e demands (([], v), Nil))
+  ⇒
+  pure_letrec_seq$obligation binds
+Proof
+  strip_tac
+  \\ irule pure_letrec_seqTheory.IMP_obligation
+  \\ asm_rewrite_tac []
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum $ drule_then strip_assume_tac \\ fs []
+  \\ first_x_assum $ irule_at Any
+  \\ fs [demands_def,Projs_def,exp_eq_in_ctxt_def]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘args’
+  \\ Induct
+  \\ fs [mk_seqs_def,exp_eq_refl,FORALL_PROD]
+  \\ rw []
+  \\ rename [‘(v,p)::_’]
+  \\ Cases_on ‘p’ \\ fs [mk_seqs_def]
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos $ el 2) pure_congruenceTheory.exp_eq_Prim_cong
+  \\ fs [PULL_EXISTS]
+  \\ pop_assum $ irule_at $ Pos last \\ fs []
+  \\ qexists_tac ‘v’ \\ fs [exp_eq_refl]
+QED
+
+Inductive find_fixpoint_def:
+  (∀v c binds.
+     find_fixpoint binds (Var v) c {v} {} []) ∧
+  (∀v (c : ctxt) binds (args : (string # bool) list) (body : exp).
+     MEM (v, args, body) binds ⇒
+     find_fixpoint binds (Var v) c {} {} (MAP SND args)) ∧
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+     find_fixpoint binds e1 c ds1 ads1 (T::l1) ∧
+     find_fixpoint binds e2 c ds2 ads2 l2 ⇒
+     find_fixpoint binds (App e1 e2) c ds1 (ads1 ∪ ds2) l1) ∧
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+     find_fixpoint binds e1 c ds1 ads1 (F::l1) ∧
+     find_fixpoint binds e2 c ds2 ads2 l2 ⇒
+     find_fixpoint binds (App e1 e2) c ds1 ads1 l1) ∧
+  (∀e c binds ds ads.
+     find_fixpoint binds e c ds ads [] ⇒
+     find_fixpoint binds e c (ds ∪ ads) {}  []) ∧
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+     find_fixpoint binds e1 c ds1 ads1 l1 ∧
+     find_fixpoint binds e2 c ds2 ads2 l2 ⇒
+     find_fixpoint binds (Seq e1 e2) c (ds1 ∪ ds2) ads2 l2) ∧
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+     w ∉ ds2 ∧ w ∉ ads2 ∧
+     find_fixpoint binds e1 c ds1 ads1 l1 ∧
+     find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (Bind w e1 c) ds2 ads2 l2 ⇒
+     find_fixpoint binds (Let w e1 e2) c ds2 ads2 l2) ∧
+  (∀e c binds ds1 ds2 ads1 ads2 l.
+     ds2 ⊆ ds1 ∧ ads2 ⊆ ads1 ∧
+     find_fixpoint binds e c ds1 ads1 l ⇒
+     find_fixpoint binds e c ds2 ads2 l) ∧
+  (∀e c binds.
+     find_fixpoint binds e c {} {}  [])
+End
+
+Theorem mk_seq_args_demands:
+  ∀args i e c. i < LENGTH args ∧ SND (EL i args) ⇒
+               mk_seqs args e demands (([], FST (EL i args)), c)
+Proof
+  Induct \\ gs [FORALL_PROD]
+  \\ gen_tac
+  \\ Cases \\ gs [mk_seqs_def]
+  >- (Cases \\ gs [demands_Var, demands_Seq]
+      \\ rw []
+      \\ irule demands_Seq2
+      \\ last_x_assum irule
+      \\ simp [])
+  \\ Cases \\ gs []
+QED
+
+Theorem find_fixpoint_soundness:
+  ∀e binds c ds ads fds.
+    find_fixpoint binds e c ds ads fds ∧
+    ALL_DISTINCT (MAP FST binds) ∧
+    (∀v args body. MEM (v, args, body) binds ⇒ ALL_DISTINCT (MAP FST args)) ⇒
+    ∃e2.
+      reformulate binds e e2 ∧
+      (∀v. v ∈ ds ⇒ e2 demands (([], v), c)) ∧
+      (∀v. v ∈ ads ⇒ e2 demands_when_applied (([], v), LENGTH fds, c)) ∧
+      (∀i. i < LENGTH fds ∧ EL i fds ⇒ e2 fdemands (([], i), LENGTH fds, c))
+Proof
+  Induct_on ‘find_fixpoint’ \\ rw []
+  >- (irule_at Any reformulate_Var
+      \\ gs [demands_Var])
+  >- (irule_at Any reformulate_partial
+      \\ gs [mk_seq_lams_def]
+      \\ dxrule_then assume_tac ALOOKUP_ALL_DISTINCT_MEM
+      \\ first_x_assum $ qspecl_then [‘(args, body)’, ‘v’] assume_tac
+      \\ gs []
+      \\ rw []
+      \\ qspec_then ‘MAP FST args’ assume_tac Lams_fdemands
+      \\ gs []
+      \\ first_x_assum irule
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ simp [EL_MAP]
+      \\ irule mk_seq_args_demands
+      \\ gs [EL_MAP])
+  >- (irule_at Any reformulate_App
+      \\ gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      >- (irule demands_App \\ gvs [])
+      >- (irule demands_when_applied_App \\ gvs [])
+      >- (simp [demands_w_app_is_needs_w_app]
+          \\ irule fdemands_0_App_needs
+          \\ simp [needs_Var_is_demands])
+      >- (irule fdemands_App \\ gs []))
+  >- (irule_at Any reformulate_App
+      \\ gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      >- (irule demands_App \\ gvs [])
+      >- (irule demands_when_applied_App \\ gvs [])
+      >- (irule fdemands_App \\ gs []))
+  >- (gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      >- gs []
+      >- gs [demands_when_applied_0])
+  >- (irule_at Any reformulate_Prim
+      \\ gs [PULL_EXISTS]
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      >- gs [demands_Seq]
+      >- gs [demands_Seq2]
+      >- gs [demands_when_applied_Seq]
+      >- gs [fdemands_Seq])
+  >- (irule_at Any reformulate_App
+      \\ irule_at Any reformulate_Lam
+      \\ gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ qpat_x_assum ‘_ ⇒ ∃e. _’ mp_tac
+      \\ impl_tac
+      >- (qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+          \\ qpat_x_assum ‘∀v args body. _ ⇒ ALL_DISTINCT _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ Induct_on ‘binds’ \\ gs [FORALL_PROD]
+          \\ rpt $ gen_tac \\ strip_tac
+          \\ strip_tac
+          \\ gs []
+          \\ last_x_assum mp_tac
+          \\ impl_tac
+          >- (rw [] \\ last_x_assum irule
+              \\ metis_tac [])
+          \\ strip_tac
+          \\ rw []
+          >- (strip_tac \\ gvs [MEM_MAP, MEM_FILTER])
+          >- (last_x_assum irule \\ metis_tac [])
+          >- first_x_assum $ dxrule_then irule
+          >- first_x_assum $ dxrule_then irule)
+      \\ strip_tac \\ gs []
+      \\ qpat_x_assum ‘reformulate (FILTER _ _) _ _’ $ irule_at Any
+      \\ irule_at Any reformulate_refl
+      \\ rw []
+      >- (irule demands_Let2
+          \\ gs []
+          \\ strip_tac \\ gs [])
+      >- (gvs [demands_when_applied_def, eq_when_applied_def]
+          \\ first_x_assum  $ drule_then assume_tac
+          \\ irule eq_when_applied_trans
+          \\ first_x_assum $ irule_at Any
+          \\ irule exp_eq_IMP_eq_when_applied
+          \\ irule exp_eq_trans
+          \\ irule_at Any Let_Prim
+          \\ gs []
+          \\ irule exp_eq_Prim_cong
+          \\ gs [Projs_def, exp_eq_refl]
+          \\ irule Let_Var2
+          \\ strip_tac \\ gs [])
+      >- gs [fdemands_def])
+  >- (gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw [] \\ gvs [SUBSET_DEF])
+  >- irule_at Any reformulate_refl
+QED
+
+Theorem IMP_obligation_fixpoint:
+  ALL_DISTINCT (MAP FST binds) ∧
+  (∀vname args body.
+     MEM (vname,args,body) binds
+     ⇒
+     (* args are distinct *)
+     ALL_DISTINCT (MAP FST args) ∧
+     (* args are disjoint *)
+     DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+     (* body of bound exp only mentions args and other bound names *)
+     freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
+     (* every forced var is free in body *)
+     set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
+     (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
+     (∃ds ads fs. find_fixpoint binds body Nil ds ads fs ∧
+                 (∀v. MEM (v, T) args ⇒ v ∈ ds)))
+  ⇒
+  pure_letrec_seq$obligation binds
+Proof
+  strip_tac
+  \\ irule IMP_obligation
+  \\ simp []
+  \\ rpt $ gen_tac \\ strip_tac
+  \\ last_assum $ drule_then assume_tac
+  \\ gs []
+  \\ dxrule_then mp_tac find_fixpoint_soundness
+  \\ simp []
+  \\ impl_tac
+  >- (rw []
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs [])
+  \\ rw []
+  \\ first_x_assum $ irule_at Any
+  \\ gvs []
+QED
+
+(* -------------------- *)
+
+
 Definition dest_fd_SND_def:
   dest_fd_SND NONE = {} ∧
   dest_fd_SND (SOME (bL, s)) = s
@@ -3734,6 +3853,11 @@ Definition demands_boolList_def:
 End
 
 Inductive find: (* i i i o o o *)
+[find_trans:]
+  (∀e e_mid e2 c fds ds_drop fd_drop ds fd.
+     find e c fds ds_drop e_mid fd_drop ∧
+     find e_mid c fds ds e2 fd ⇒
+     find e c fds ds e2 fd) ∧
 [find_Drop_fd:]
   (∀e e' c fds ds fd.
      find e c fds ds e' fd ⇒ find e c fds ds e' NONE) ∧
@@ -3852,7 +3976,7 @@ Inductive find: (* i i i o o o *)
      ∧ EVERY (λv. ∀argDs. (v, argDs) ∉ fdc) vl
      ⇒ find (Lams vl e) c fdc {} (Lams vl e') NONE ) ∧
 [find_Lams_fd:]
-  (∀e e' c ds vl fdc.
+  (∀e e' c ds vl fdc bL.
      find e (FOLDL (λc n. IsFree n c) c vl) fdc ds e' NONE
      ∧ EVERY (λv. ∀argDs. (v, argDs) ∉ fdc) vl
      ∧ bL
@@ -3881,7 +4005,20 @@ Inductive find: (* i i i o o o *)
                  ∧ ((ps, v) ∈ ds
                     ∨ (∃ps' i. i < LENGTH b ∧ (ps', FST (EL i b)) ∈ ds ∧ (ps, v) ∈ EL i dsL)))
      ∧ ALL_DISTINCT (MAP FST b)
-     ⇒ find (Letrec b e) c fdc ds' (Letrec b' e') fd)
+     ⇒ find (Letrec b e) c fdc ds' (Letrec b' e') fd) ∧
+[find_Letrec2:]
+  (∀e e' binds ds_drop fd_drop c.
+     ALL_DISTINCT (MAP FST binds) ∧
+     (∀vname args body. MEM (vname, args, body) binds ⇒
+                        ALL_DISTINCT (MAP FST args) ∧
+                        DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
+                        freevars body ⊆ set (MAP FST binds) ∪ set (MAP FST args) ∧
+                        set (MAP FST (FILTER SND args)) ⊆ freevars body ∧
+                        ∃ds ads fs.
+                          find_fixpoint binds body Nil ds ads fs ∧
+                          (∀v. MEM (v, T) args ⇒ v ∈ ds)) ∧
+     find e Nil {} ds_drop e' fd_drop ⇒
+     find (Letrec (MAP mk_lams binds) e) c {} {} (Letrec (MAP mk_seq_lams binds) e') NONE)
 End
 
 fun apply_to_first_n 0 tac = ALL_TAC
@@ -3980,6 +4117,21 @@ Proof
   \\ rpt conj_tac
   \\ rpt gen_tac
   \\ gvs [exp_eq_in_ctxt_refl, demands_Var]
+  >- (strip_tac \\ strip_tac \\ gs []
+      \\ rw []
+      >- (irule exp_eq_in_ctxt_trans
+          \\ rpt $ first_x_assum $ irule_at Any)
+      >- (irule demands_exp_eq
+          \\ first_x_assum $ irule_at Any
+          \\ gs [exp_eq_in_ctxt_sym])
+      >- (irule fdemands_exp_eq
+          \\ first_x_assum $ irule_at Any
+          \\ gs [exp_eq_in_ctxt_sym]
+          \\ irule exp_eq_concat_still_eq
+          \\ gs [])
+      >- (irule demands_when_applied_exp_eq
+          \\ first_x_assum $ irule_at Any
+          \\ gs [exp_eq_in_ctxt_sym]))
   >~[‘exp_eq_in_ctxt c e (Seq (Var v) e2)’] (* find_Seq *)
   >- (strip_tac
       \\ strip_tac
@@ -4190,6 +4342,16 @@ Proof
       irule exp_eq_IMP_eq_when_applied >>
       irule no_err_eval_IMP_exp_eq >>
       rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm])
+  >~[‘exp_eq_in_ctxt c (Letrec (MAP mk_lams binds) e1) (Letrec _ e2)’]
+  >- (strip_tac
+      \\ irule exp_eq_IMP_exp_eq_in_ctxt
+      \\ irule Letrec_mk_seq_lams
+      \\ gs [exp_eq_in_ctxt_def]
+      \\ irule IMP_obligation_fixpoint
+      \\ gs []
+      \\ rpt gen_tac \\ strip_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ metis_tac [])
   >~[‘exp_eq_in_ctxt c (Letrec b1 e1) (Letrec b2 e2)’]
   >- (strip_tac \\ strip_tac \\ gvs [EVERY_CONJ]
       \\ dxrule_then assume_tac fdemands_set_RecBind

@@ -74,22 +74,23 @@ Inductive letrec_seq:
     letrec_seq binds
       (Seq Zero (subst m1 (subst_funs (MAP mk_bind binds) e)))
       (Seq Zero (subst m2 (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e))))) ∧
-  (* cases below are just recursion *)
+   (* cases below are just recursion *)
+[~Var:]
   (∀binds n.
-    letrec_seq binds (Var n) (Var n))
-  ∧
+    letrec_seq binds (Var n) (Var n)) ∧
+[~Lam:]
   (∀binds n x y.
     letrec_seq binds x y ⇒
-    letrec_seq binds (Lam n x) (Lam n y))
-  ∧
+    letrec_seq binds (Lam n x) (Lam n y)) ∧
+[~App:]
   (∀binds f g x y.
     letrec_seq binds f g ∧ letrec_seq binds x y ⇒
-    letrec_seq binds (App f x) (App g y))
-  ∧
+    letrec_seq binds (App f x) (App g y)) ∧
+[~Prim:]
   (∀binds n xs ys.
     LIST_REL (letrec_seq binds) xs ys ⇒
-    letrec_seq binds (Prim n xs) (Prim n ys))
-  ∧
+    letrec_seq binds (Prim n xs) (Prim n ys)) ∧
+[~Letrec:]
   (∀binds  xs ys x y.
     LIST_REL (letrec_seq binds) (MAP SND xs) (MAP SND ys) ∧
     MAP FST xs = MAP FST ys ∧ letrec_seq binds x y ⇒
@@ -1525,27 +1526,47 @@ Inductive reformulate:
       (SND (mk_seq_lams (f,bs,Apps (Var f) (MAP (Var o FST) bs)))))
   ∧
   (* cases below are just recursion *)
+[~Var:]
   (∀binds n.
-    reformulate binds (Var n) (Var n))
-  ∧
+     reformulate binds (Var n) (Var n)) ∧
+[~Lam:]
   (∀binds n x y.
     reformulate (FILTER (λ(m,x). m ≠ n) binds) x y ⇒
-    reformulate binds (Lam n x) (Lam n y))
-  ∧
+    reformulate binds (Lam n x) (Lam n y)) ∧
+[~App:]
   (∀binds f g x y.
     reformulate binds f g ∧ reformulate binds x y ⇒
-    reformulate binds (App f x) (App g y))
-  ∧
+    reformulate binds (App f x) (App g y)) ∧
+[~Prim:]
   (∀binds n xs ys.
     LIST_REL (reformulate binds) xs ys ⇒
-    reformulate binds (Prim n xs) (Prim n ys))
-  ∧
+    reformulate binds (Prim n xs) (Prim n ys)) ∧
+[~Letrec:]
   (∀binds bs xs ys x y.
     bs = FILTER (λ(m,x). ~MEM m (MAP FST xs)) binds ∧
     LIST_REL (reformulate bs) (MAP SND xs) (MAP SND ys) ∧
     MAP FST xs = MAP FST ys ∧ reformulate bs x y ⇒
     reformulate binds (Letrec xs x) (Letrec ys y))
 End
+
+Theorem reformulate_refl:
+  ∀e binds. reformulate binds e e
+Proof
+  Induct using freevars_ind
+  >- irule reformulate_Var
+  >- (gen_tac \\ irule reformulate_Prim
+      \\ gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN])
+  >- (gen_tac \\ irule reformulate_App
+      \\ gs [])
+  >- (gen_tac \\ irule reformulate_Lam
+      \\ gs [])
+  >- (gen_tac \\ irule reformulate_Letrec
+      \\ gs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN, EL_MAP]
+      \\ rw []
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ first_x_assum irule
+      \\ irule_at Any PAIR)
+QED
 
 Triviality FST_INTRO:
   (λ(x,y). x) = FST
