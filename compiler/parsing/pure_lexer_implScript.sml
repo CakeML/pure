@@ -70,7 +70,7 @@ Definition next_loc_def:
 End
 
 Definition next_line_def:
-  next_line (POSN r c) = POSN (r+1) 0 ∧
+  next_line (POSN r c) = POSN (r+1) 1 ∧
   next_line x = x
 End
 
@@ -468,7 +468,7 @@ Termination
 End
 
 Definition lexer_fun_def:
-  lexer_fun input = lexer_fun_aux input (POSN 0 0)
+  lexer_fun input = lexer_fun_aux input (POSN 1 1)
 End
 
 val _ = export_theory();
