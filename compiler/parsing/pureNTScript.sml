@@ -10,7 +10,7 @@ Datatype:
          | nExp | nExpEQ | nLSafeExp | nLSafeExpEQ | nIExp | nIExpEQ
          | nFExp | nFExpEQ | nFExp2 | nAExp | nAExpEQ
          | nLit | nOp
-         | nEqBindSeq | nEqBind | nValBinding
+         | nEqBindSeq | nEqBindSeq' | nEqBind | nFreeEqBind | nValBinding
          | nDoStmt | nDoBlock | nPatAlt | nPatAlts
 End
 

@@ -62,7 +62,9 @@ Termination
 End
 
 Definition args_ok_def:
-  args_ok (thunk_cexp$AtomOp aop) es = num_atomop_args_ok aop (LENGTH es) ∧
+  args_ok (thunk_cexp$AtomOp aop) es =
+    (num_atomop_args_ok aop (LENGTH es) ∧
+     ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l)) ∧
   args_ok (Cons cn) es =
     if cn = «Ret» ∨ cn = «Raise» then
       (∃e0. es = [e0])
@@ -106,6 +108,5 @@ Definition is_Delay_def:
   (is_Delay (Delay _ : cexp) = T) ∧
   (is_Delay _ = F)
 End
-
 
 val _ = export_theory ();

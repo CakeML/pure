@@ -79,6 +79,31 @@ Proof
   Cases_on ‘t’ >> simp[]
 QED
 
+Definition grabsepby_def:
+  grabsepby pf tok [] = ([],[]) ∧
+  (grabsepby pf tok [pt1] =
+     case pf pt1 of
+       NONE => ([], [pt1])
+     | SOME v => ([v], [])) ∧
+  (grabsepby pf tok (pt1::pt2::rest) =
+     case pf pt1 of
+       NONE => ([], pt1::pt2::rest)
+     | SOME v => if tokcheck pt2 tok then
+                   (CONS v ## I) (grabsepby pf tok rest)
+                 else ([v], pt2::rest))
+End
+
+Theorem grabsepby_cong[defncong]:
+  ∀pf1 pf2 tok1 tok2 l1 l2.
+    tok1 = tok2 ∧ l1 = l2 ∧ (∀e. MEM e l2 ⇒ pf1 e = pf2 e) ⇒
+    grabsepby pf1 tok1 l1 = grabsepby pf2 tok2 l2
+Proof
+  simp[] >> rpt gen_tac >> completeInduct_on ‘LENGTH l2’ >>
+  gs[SF DNF_ss] >> Cases >> simp[grabsepby_def] >>
+  rename [‘grabsepby pf1 tok (pt1::rest)’] >>
+  Cases_on ‘rest’ >> simp[grabsepby_def]
+QED
+
 Definition astType_def:
   astType nt (Lf _) = NONE ∧
   (astType nt1 (Nd nt2 args) =
@@ -465,11 +490,8 @@ Definition astExp_def:
            assert (tokcheck pt1 LetT ∧ LENGTH rest = 3 ∧
                    LIST_REL (λP pt. P pt) [K T; flip tokcheck InT; K T] rest);
            seq_pt <- oEL 0 rest;
-           eqs <- (case seq_pt of
-                     Lf _ => NONE
-                   | Nd snt args => if FST snt = INL nEqBindSeq then
-                                      OPT_MMAP astExpDec args
-                                    else NONE);
+           let_encoded_eqs <- astExp nEqBindSeq seq_pt;
+           (eqs, _) <- dest_expLet let_encoded_eqs ;
            body <- astExp nExp ' (oEL 2 rest) ;
            SOME $ expLet eqs body
          od ++
@@ -506,6 +528,19 @@ Definition astExp_def:
            assert (NULL tail);
            SOME $ mkApp f_e aes
          od
+   else if nt1 = nEqBindSeq then
+     case args of
+       [] => return (expLet [] (expVar ""))
+     | pt1 :: rest =>
+         do
+           assert (tokcheck pt1 LbraceT);
+           (adecs,rest') <<- grabsepby astExpDec SemicolonT rest;
+           rbpt <- oHD rest';
+           assert (tokcheck rbpt RbraceT ∧ LENGTH rest' = 1);
+           return (expLet adecs (expVar ""))
+         od ++
+         OPTION_MAP (λads. expLet ads (expVar ""))
+                    (OPT_MMAP astExpDec (pt1::rest))
    else
      NONE) ∧
   (astSepExp rd [] = NONE) ∧
@@ -548,11 +583,9 @@ Definition astExp_def:
      | [let_pt; seq_pt] =>
          do
            assert (tokcheck let_pt LetT);
-           case seq_pt of
-             Lf _ => NONE
-           | Nd snt args => if FST snt = INL nEqBindSeq then
-                              OPTION_MAP expdostmtLet $ OPT_MMAP astExpDec args
-                            else NONE
+           let_encoded_des <- astExp nEqBindSeq seq_pt ;
+           (des, _) <- dest_expLet let_encoded_des ;
+           return $ expdostmtLet des
          od
      | [pat_pt; arrow_pt; exp_pt] =>
          do

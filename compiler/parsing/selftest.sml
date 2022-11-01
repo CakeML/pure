@@ -183,6 +183,10 @@ val _ = app fptest [
    “Letrec () [(«y», Lam () [] (𝕍 «x» +ₑ 𝕁 3));
                («z», Lam () [] (𝕁 10))]
               (𝕍 «y» +ₑ 𝕍 «z»)”),
+  (“nExp”, "let { y = x + 3; z = 10; } in y + z", “CEXP”,
+   “Letrec () [(«y», Lam () [] (𝕍 «x» +ₑ 𝕁 3));
+               («z», Lam () [] (𝕁 10))]
+              (𝕍 «y» +ₑ 𝕍 «z»)”),
   (“nExp”, "do x <- f y 3\n\
            \   foo x",
    “astExp nExp”,
