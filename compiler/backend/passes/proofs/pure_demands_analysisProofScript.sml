@@ -1109,6 +1109,157 @@ Proof
       \\ irule find_fixpoint_refl)
 QED
 
+Theorem is_lower_soundness:
+  ∀l1 l2. is_lower l1 l2 ⇒
+          LIST_REL (λ(_, a1, _) (_, a2, _).
+                      LIST_REL (λ(_, b1) (_, b2). b2 ⇒ b1) a1 a2) l1 l2
+Proof
+  Induct \\ gs [FORALL_PROD]
+  >- (Cases \\ gs [is_lower_def])
+  \\ gen_tac \\ gen_tac \\ gen_tac
+  \\ Cases \\ gs [is_lower_def]
+  \\ rename1 ‘is_lower _ (h::_)’
+  \\ PairCases_on ‘h’ \\ gs [is_lower_def]
+QED
+
+Theorem FST_handle_fixpoint1:
+  ∀fds e. FST (handle_fixpoint1 fds e) = FST e
+Proof
+  gs [FORALL_PROD, handle_fixpoint1_def]
+  \\ rw []
+  \\ pairarg_tac \\ gs []
+QED
+
+Theorem handle_fixpoint1_soundness:
+  ∀fds arg out binds.
+    handle_fixpoint1 fds arg = out ∧
+    map_ok fds ∧ cmp_of fds = compare ∧
+    (∀v. v ∈ FDOM (to_fmap fds) ⇒
+         ∃args body. LENGTH args = LENGTH (to_fmap fds ' v) ∧
+                     MEM (explode v, ZIP (args, to_fmap fds ' v), body) binds)
+    ⇒
+    SND (SND arg) = SND (SND out) ∧
+    ∃ds ads fs.
+        find_fixpoint binds (exp_of (SND (SND arg))) Nil ds ads fs ∧
+        ∀v. MEM (v, T) (FST (SND out)) ⇒ explode v ∈ ds
+Proof
+  gs [FORALL_PROD, handle_fixpoint1_def]
+  \\ rw []
+  \\ pairarg_tac \\ gs []
+  \\ dxrule_then assume_tac fixpoint1_soundness
+  \\ gs []
+  \\ first_x_assum $ dxrule_then mp_tac
+  \\ CASE_TAC \\ gs [ctxt_trans_def]
+  >- (strip_tac
+      \\ first_x_assum $ irule_at Any
+      \\ gs [MEM_MAP, PULL_EXISTS, MEM_EL]
+      \\ rw []
+      \\ gs [EL_MAP]
+      \\ pairarg_tac \\ gs [lookup_thm, FLOOKUP_DEF])
+  \\ CASE_TAC \\ simp []
+  \\ strip_tac
+  \\ first_x_assum $ irule_at Any
+  \\ gs [MEM_MAP, PULL_EXISTS, MEM_EL]
+  \\ rw []
+  \\ gs [EL_MAP]
+  \\ pairarg_tac \\ gs [lookup_thm, FLOOKUP_DEF]
+QED
+
+Theorem compute_fixpoint_rec_lemma:
+  ∀binds m binds2.
+    ALL_DISTINCT (MAP FST binds) ∧
+    m = FOLDR (λ(v, args, e) m. insert m v (MAP SND args))
+                (mlmap$empty mlstring$compare) binds ∧
+    binds2 = MAP (λ(v, args, e). (explode v, (MAP (explode ## I) args), exp_of e)) binds ⇒
+    map_ok m ∧ cmp_of m = compare ∧
+    FDOM $ to_fmap m = set (MAP FST binds) ∧
+    (∀v. v ∈ FDOM $ to_fmap m ⇒
+         ∃args body. LENGTH args = LENGTH (to_fmap m ' v) ∧
+                     MEM (explode v, ZIP (args, to_fmap m ' v), body) binds2)
+Proof
+  Induct \\ gs [empty_thm, insert_thm, TotOrd_compare]
+  \\ rw [] \\ pairarg_tac
+  \\ gs [insert_thm]
+  >- (rename1 ‘_ = (_, args, e)’
+      \\ qexists_tac ‘MAP (explode o FST) args’
+      \\ qexists_tac ‘exp_of e’
+      \\ gs []
+      \\ disj1_tac
+      \\ irule LIST_EQ
+      \\ rw [EL_MAP, EL_ZIP, SND_THM]
+      \\ pairarg_tac \\ gs [])
+  \\ gs [FAPPLY_FUPDATE_THM]
+  \\ IF_CASES_TAC \\ gs []
+QED
+
+Theorem compute_fixpoint_rec_soundness:
+  ∀i binds binds2 binds2b.
+    compute_fixpoint_rec i binds = binds2 ∧
+    ALL_DISTINCT (MAP FST binds) ∧
+    binds2b = MAP (λ(v, args, e). (explode v, (MAP (explode ## I) args), exp_of e)) binds2
+    ⇒ ∀v args body.
+        MEM (v, args, body) binds2b
+        ⇒ ∃ds ads fs.
+            find_fixpoint binds2b body Nil ds ads fs ∧
+            ∀v. MEM (v, T) args ⇒ v ∈ ds
+Proof
+  Induct \\ gs [compute_fixpoint_rec_def]
+  >- (rw []
+      \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+      \\ irule_at Any find_fixpoint_refl
+      \\ gs [MEM_MAP]
+      \\ pairarg_tac
+      \\ gs [MEM_MAP, FORALL_PROD])
+  \\ rw []
+  >~[‘¬is_lower _ _’]
+  >- (last_x_assum irule
+      \\ first_x_assum $ irule_at Any
+      \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_handle_fixpoint1]
+      \\ gs [GSYM FST_THM, GSYM LAMBDA_PROD])
+  \\ last_x_assum kall_tac
+  \\ dxrule_then assume_tac is_lower_soundness
+  \\ gvs [MEM_MAP]
+  \\ pairarg_tac \\ gs []
+  \\ gs [MEM_EL]
+  \\ dxrule_then assume_tac handle_fixpoint1_soundness
+  \\ dxrule_then assume_tac compute_fixpoint_rec_lemma
+  \\ gvs []
+  \\ last_x_assum $ dxrule_then assume_tac
+  \\ gs []
+  \\ irule_at Any find_lower_bind
+  \\ first_x_assum $ irule_at Any
+  \\ rw []
+  >- (gs [LIST_REL_EL_EQN]
+      \\ rw [] \\ last_x_assum $ drule_then assume_tac
+      \\ gs [EL_MAP]
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ qpat_x_assum ‘MAP (explode ## I) _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ qpat_x_assum ‘MAP (explode ## I) _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs [EL_MAP]
+      \\ rw []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs [])
+  >- (irule LIST_EQ \\ gs [EL_MAP]
+      \\ rw []
+      \\ pairarg_tac \\ gs []
+      \\ qmatch_goalsub_abbrev_tac ‘handle_fixpoint1 m arguments’
+      \\ pairarg_tac \\ gs []
+      \\ qspecl_then [‘m’, ‘arguments’] assume_tac FST_handle_fixpoint1
+      \\ gs [Abbr ‘arguments’])
+  \\ gs [EL_MAP, MEM_EL, PULL_EXISTS]
+  \\ first_x_assum $ dxrule_then assume_tac
+  \\ rename1 ‘(_, _) = (EL n' args') ⇒ _’
+  \\ Cases_on ‘EL n' args'’ \\ gs []
+QED
 
 Theorem update_ctxt_soundness:
   ∀l e e' n1 n2 c fds fd.

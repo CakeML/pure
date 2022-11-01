@@ -176,6 +176,32 @@ Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
 End
 
+Definition is_lower_def:
+  (is_lower [] [] = T) ∧
+  (is_lower [] _ = F) ∧
+  (is_lower _ [] = F) ∧
+  (is_lower ((v1, args1, body1)::tl1) ((v2, args2, body2)::tl2) =
+   (LIST_REL (λ(v1, b1) (v2, b2). b2 ⇒ b1) args1 args2 ∧
+   is_lower tl1 tl2))
+End
+
+Definition handle_fixpoint1_def:
+  handle_fixpoint1 fds (v, args, body) =
+       let (ds, _) = fixpoint1 Nil body fds in
+         (v, MAP (λ(v, b). (v, lookup ds v = SOME ())) args, body)
+End
+
+Definition compute_fixpoint_rec_def:
+  (compute_fixpoint_rec 0 binds =
+   MAP (λ(v, args, e). (v, MAP (λ(v, b). (v, F)) args, e)) binds) ∧
+  (compute_fixpoint_rec (SUC fuel) binds =
+   let fds = FOLDR (λ(v, args, e) m. insert m v (MAP SND args)) (empty compare) binds in
+     let binds2 = MAP (handle_fixpoint1 fds) binds in
+       if is_lower binds2 binds
+       then binds2
+       else compute_fixpoint_rec fuel binds2)
+End
+
 Definition demands_analysis_fun_def:
   (demands_analysis_fun c ((Var a0 a1): 'a cexp) fds =
      let fd = case mlmap$lookup fds a1 of

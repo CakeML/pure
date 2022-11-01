@@ -3630,6 +3630,21 @@ Proof
   \\ qexists_tac ‘v’ \\ fs [exp_eq_refl]
 QED
 
+Theorem mk_seq_args_demands:
+  ∀args i e c. i < LENGTH args ∧ SND (EL i args) ⇒
+               mk_seqs args e demands (([], FST (EL i args)), c)
+Proof
+  Induct \\ gs [FORALL_PROD]
+  \\ gen_tac
+  \\ Cases \\ gs [mk_seqs_def]
+  >- (Cases \\ gs [demands_Var, demands_Seq]
+      \\ rw []
+      \\ irule demands_Seq2
+      \\ last_x_assum irule
+      \\ simp [])
+  \\ Cases \\ gs []
+QED
+
 Inductive find_fixpoint:
 [~Var:]
   (∀v c binds.
@@ -3669,29 +3684,15 @@ Inductive find_fixpoint:
      find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (Bind w e1 c) ds2 ads2 l2 ⇒
      find_fixpoint binds (Let w e1 e2) c ds2 ads2 l2) ∧
 [~Subset:]
-  (∀e c binds ds1 ds2 ads1 ads2 l.
+  (∀e c binds ds1 ds2 ads1 ads2 l1 l2.
      ds2 ⊆ ds1 ∧ ads2 ⊆ ads1 ∧
-     find_fixpoint binds e c ds1 ads1 l ⇒
-     find_fixpoint binds e c ds2 ads2 l) ∧
+     LIST_REL (λb1 b2. b2 ⇒ b1) l1 l2 ∧
+     find_fixpoint binds e c ds1 ads1 l1 ⇒
+     find_fixpoint binds e c ds2 ads2 l2) ∧
 [~refl:]
   (∀e c binds.
      find_fixpoint binds e c {} {}  [])
 End
-
-Theorem mk_seq_args_demands:
-  ∀args i e c. i < LENGTH args ∧ SND (EL i args) ⇒
-               mk_seqs args e demands (([], FST (EL i args)), c)
-Proof
-  Induct \\ gs [FORALL_PROD]
-  \\ gen_tac
-  \\ Cases \\ gs [mk_seqs_def]
-  >- (Cases \\ gs [demands_Var, demands_Seq]
-      \\ rw []
-      \\ irule demands_Seq2
-      \\ last_x_assum irule
-      \\ simp [])
-  \\ Cases \\ gs []
-QED
 
 Theorem find_fixpoint_soundness:
   ∀e binds c ds ads fds.
@@ -3819,8 +3820,63 @@ Proof
       \\ first_x_assum $ dxrule_then assume_tac
       \\ gs []
       \\ first_x_assum $ irule_at Any
-      \\ rw [] \\ gvs [SUBSET_DEF])
+      \\ rw [] \\ gvs [SUBSET_DEF, LIST_REL_EL_EQN])
   >- irule_at Any reformulate_refl
+QED
+
+Theorem find_lower_bind:
+  ∀binds binds2 e c ds ads fs.
+    find_fixpoint binds e c ds ads fs ∧
+    LIST_REL (λ(_, a1, _) (_, a2, _).
+                LIST_REL (λ(_, b1) (_, b2). b2 ⇒ b1) a1 a2) binds2 binds ∧
+    MAP FST binds = MAP FST binds2 ⇒
+    find_fixpoint binds2 e c ds ads fs
+Proof
+  Induct_on ‘find_fixpoint’ \\ rw []
+  >- irule find_fixpoint_Var
+  >- (irule find_fixpoint_Subset
+      \\ gs []
+      \\ irule_at Any find_fixpoint_Var_known
+      \\ gvs [MEM_EL, LIST_REL_EL_EQN, PULL_EXISTS]
+      \\ first_assum $ irule_at Any
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ rename1 ‘MAP FST binds = MAP FST binds2’
+      \\ rename1 ‘EL n _’
+      \\ ‘EL n (MAP FST binds) = EL n (MAP FST binds2)’ by simp []
+      \\ gs [EL_MAP]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs [])
+  >- (irule find_fixpoint_App
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_App_T
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_App_F
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_App_empty
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_Seq
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_Let
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ pop_assum mp_tac
+      \\ pop_assum mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ qid_spec_tac ‘binds2’
+      \\ Induct_on ‘binds’ \\ gs [PULL_EXISTS, FORALL_PROD]
+      \\ rw [])
+  >- (irule find_fixpoint_Subset
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- irule find_fixpoint_refl
 QED
 
 Theorem IMP_obligation_fixpoint:
