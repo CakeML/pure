@@ -70,6 +70,7 @@ Definition cns_arities_def:
   cns_arities (Act e) = cns_arities e ∧
   cns_arities (Length e) = cns_arities e ∧
   cns_arities (Bind e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
+  cns_arities (Handle e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Deref e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Alloc e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Update e1 e2 e3) = cns_arities e1 ∪ cns_arities e2 ∪ cns_arities e3
