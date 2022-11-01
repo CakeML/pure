@@ -10,6 +10,8 @@ open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
      pure_cexpTheory pure_demandTheory pure_demands_analysisTheory pureLangTheory;
+open pure_letrec_seqTheory;
+
 
 val _ = new_theory "pure_demands_analysisProof";
 
@@ -371,6 +373,192 @@ Proof
   dxrule_then (qspecl_then [‘b’, ‘{}’] assume_tac) add_all_demands_soundness_lemma >>
   gvs [demands_map_to_set_def, cmp_of_def]
 QED
+
+Theorem split_body_soundness:
+  ∀e l bL body v. LENGTH l = LENGTH bL ⇒
+                  split_body e = (l, body) ⇒ (v, (exp_of e)) = mk_lams (v, ZIP(MAP explode l, bL), (exp_of body))
+Proof
+  Cases \\ gs [split_body_def, Lams_def, mk_lams_def]
+  \\ gs [MAP_ZIP, exp_of_def]
+QED
+
+Theorem compute_freevars_soundness_lemma:
+  ∀(l : α cexp list). (∀v. v < cexp10_size (K 0) l ⇒
+           ∀(e : α cexp). cexp_size (K 0) e = v ⇒
+               map_ok (compute_freevars e) ∧
+               cmp_of (compute_freevars e) = compare ∧
+               IMAGE explode (FDOM (to_fmap (compute_freevars e))) = freevars (exp_of e))
+            ⇒ ∀m1 m2. FOLDR (λe m. union m (compute_freevars e)) m1 l = m2 ∧
+                      map_ok m1 ∧ cmp_of m1 = compare ⇒
+                      map_ok m2 ∧ cmp_of m2 = compare ∧
+                      IMAGE explode (FDOM (to_fmap m2))
+                      = freevars (Apps Fail (MAP exp_of l)) ∪ IMAGE explode (FDOM (to_fmap m1))
+Proof
+  Induct \\ gs []
+  \\ gen_tac \\ strip_tac
+  \\ last_x_assum mp_tac
+  \\ impl_tac
+  >- (gen_tac \\ strip_tac
+      \\ rename1 ‘v < _’
+      \\ last_x_assum $ qspec_then ‘v’ assume_tac
+      \\ gs [cexp_size_def])
+  \\ strip_tac
+  \\ gen_tac \\ strip_tac
+  \\ first_x_assum $ dxrule_then $ dxrule_then assume_tac \\ gs []
+  \\ rename1 ‘h::_’
+  \\ last_x_assum $ qspec_then ‘cexp_size (K 0) h’ assume_tac
+  \\ gs [cexp_size_def]
+  \\ pop_assum $ qspec_then ‘h’ assume_tac
+  \\ gs [union_thm]
+  \\ rpt $ pop_assum kall_tac
+  \\ simp [SET_EQ_SUBSET, SUBSET_DEF]
+QED
+
+Theorem compute_freevars_soundness_lemma2:
+  ∀l m. map_ok m ∧ cmp_of m = compare ⇒
+        ∀m2. FOLDR (λv m. delete m v) m l = m2 ⇒
+             map_ok m2 ∧ cmp_of m2 = compare ∧
+             IMAGE explode (FDOM (to_fmap m2)) = (IMAGE explode (FDOM (to_fmap m))) DIFF (set (MAP explode l))
+Proof
+  Induct \\ gs []
+  \\ rpt $ gen_tac \\ strip_tac
+  \\ last_x_assum $ dxrule_then assume_tac
+  \\ gs [delete_thm]
+  \\ gvs [SET_EQ_SUBSET, SUBSET_DEF, PULL_EXISTS]
+QED
+
+Theorem compute_freevars_soundness:
+  ∀m. compute_freevars e = m ⇒
+        map_ok m ∧ cmp_of m = compare ∧
+        (IMAGE explode (FDOM (to_fmap m))) = freevars (exp_of e)
+Proof
+  completeInduct_on ‘cexp_size (K 0) e’
+  \\ Cases \\ gs [compute_freevars_def]
+  >- gs [empty_thm, insert_thm, TotOrd_compare, exp_of_def, freevars_def]
+  >~[‘cexp_size _ (Prim _ _ l)’]
+  >- (strip_tac \\ gs []
+      \\ qspec_then ‘l’ mp_tac compute_freevars_soundness_lemma
+      \\ impl_tac
+      >- (gen_tac \\ strip_tac
+          \\ rename1 ‘v2 < _’
+          \\ last_x_assum $ qspec_then ‘v2’ assume_tac
+          \\ gs [cexp_size_def])
+      \\ disch_then $ qspec_then ‘empty compare’ assume_tac
+      \\ gvs [empty_thm, TotOrd_compare, exp_of_def, freevars_def]
+      \\ simp [SF ETA_ss])
+  >~[‘cexp_size _ (App _ f eL)’]
+  >- (strip_tac \\ gs []
+      \\ qspec_then ‘eL’ mp_tac compute_freevars_soundness_lemma
+      \\ impl_tac
+      >- (gen_tac \\ strip_tac
+          \\ rename1 ‘v2 < _’
+          \\ last_x_assum $ qspec_then ‘v2’ assume_tac
+          \\ gs [cexp_size_def])
+      \\ last_x_assum $ qspec_then ‘cexp_size (K 0) f’ assume_tac
+      \\ gs [cexp_size_def]
+      \\ pop_assum $ qspec_then ‘f’ assume_tac
+      \\ gs []
+      \\ strip_tac \\ gs [exp_of_def, freevars_def]
+      \\ simp [SF ETA_ss, UNION_COMM])
+  >~[‘cexp_size _ (Lam _ l e)’]
+  >- (strip_tac \\ gs []
+      \\ last_x_assum $ qspec_then ‘cexp_size (K 0) e’ assume_tac
+      \\ gs [cexp_size_def]
+      \\ pop_assum $ qspec_then ‘e’ assume_tac
+      \\ gs []
+      \\ dxrule_then (qspec_then ‘l’ assume_tac) compute_freevars_soundness_lemma2
+      \\ gs [exp_of_def, freevars_def])
+  >~[‘cexp_size _ (Let _ w e1 e2)’]
+  >- (strip_tac \\ gs []
+      \\ last_assum $ qspec_then ‘cexp_size (K 0) e1’ assume_tac
+      \\ last_x_assum $ qspec_then ‘cexp_size (K 0) e2’ assume_tac
+      \\ gs [cexp_size_def]
+      \\ last_x_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
+      \\ last_x_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
+      \\ gs [union_thm, delete_thm]
+      \\ gs [exp_of_def, freevars_def]
+      \\ gvs [SET_EQ_SUBSET, SUBSET_DEF, PULL_EXISTS]
+      \\ rw []
+      \\ metis_tac [])
+  >~[‘cexp_size _ (Letrec _ l e)’]
+  >- cheat
+  >~[‘cexp_size _ (Case _ exp m rows fall)’]
+  >- cheat
+  >~[‘cexp_size _ (NestedCase _ _ _ _ _ _)’]
+  >- cheat
+QED
+
+Theorem compute_is_subset_soundness:
+  ∀m1 m2. compute_is_subset m1 m2 ⇒ (FDOM $ to_fmap m1) ⊆ (FDOM $ to_fmap m2)
+Proof
+  gs [compute_is_subset_def]
+QED
+
+Theorem compute_is_disjoint_soundness:
+  ∀m1 m2. compute_is_disjoint m1 m2 ⇒ DISJOINT (FDOM $ to_fmap m1) (FDOM $ to_fmap m2)
+Proof
+  gs [compute_is_disjoint_def]
+QED
+
+Theorem are_valid_soundness_lemma:
+  ∀(l : mlstring list) m. m = FOLDR (λv m. insert m v ()) (empty compare) l ⇒
+                     map_ok m ∧ cmp_of m = compare ∧ FDOM (to_fmap m) = set l
+Proof
+  Induct \\ gs [empty_thm, TotOrd_compare]
+  \\ gs [insert_thm]
+QED
+
+Theorem are_valid_soundness:
+  ∀m args body.
+    are_valid m args body ∧ map_ok m ∧ cmp_of m = compare ⇒
+    DISJOINT (set args) (FDOM $ to_fmap m) ∧
+    freevars (exp_of body) ⊆ (IMAGE explode (set args)) ∪ IMAGE explode (FDOM $ to_fmap m)
+Proof
+  gs [are_valid_def]
+  \\ rpt $ gen_tac \\ strip_tac
+  \\ dxrule_then assume_tac compute_is_disjoint_soundness
+  \\ dxrule_then assume_tac compute_is_subset_soundness
+  \\ assume_tac are_valid_soundness_lemma
+  \\ qspec_then ‘body’ assume_tac $ GEN_ALL compute_freevars_soundness
+  \\ gs [DISJOINT_SYM]
+  \\ dxrule_then assume_tac EQ_SYM
+  \\ first_x_assum $ qspec_then ‘args’ assume_tac
+  \\ gs [union_thm]
+  \\ gs [SUBSET_DEF, PULL_EXISTS]
+  \\ rw []
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gs []
+QED
+
+Theorem can_compute_fixpoint_soundness:
+  ∀binds1 binds2.
+    can_compute_fixpoint binds1 = SOME binds2 ∧ ALL_DISTINCT (MAP FST binds1) ⇒
+    ∀binds1b binds2b bLfull.
+      LIST_REL (λbL (_, args, _). LENGTH bL = LENGTH args) bLfull binds2 ∧
+      binds1b = MAP (λ(v, e). (explode v, exp_of e)) binds1 ∧
+      binds2b = MAP2 (λbL (v, args, e). (explode v, ZIP (MAP explode args, bL), exp_of e)) bLfull binds2
+      ⇒ binds1b = MAP mk_lams binds2b ∧
+        ∀v args body.
+          MEM (v, args, body) binds2b ⇒
+          ALL_DISTINCT args ∧
+          DISJOINT (set (MAP FST args)) (set (MAP FST binds2b)) ∧
+          freevars body ⊆ set (MAP FST binds2b) ∪ set (MAP FST args)
+Proof
+  gs [can_compute_fixpoint_def]
+  \\ gen_tac \\ strip_tac
+  \\ gen_tac \\ strip_tac
+  \\ conj_tac
+  >- (irule LIST_EQ
+      \\ gs [EL_MAP, LIST_REL_EL_EQN]
+      \\ rw [] \\ pairarg_tac \\ gs [EL_MAP2, EL_MAP]
+      \\ pairarg_tac \\ gs []
+      \\ rename1 ‘split_body e’
+      \\ qspec_then ‘e’ assume_tac split_body_soundness
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs [])
+  \\ cheat
+QED
+
 
 Theorem update_ctxt_soundness:
   ∀l e e' n1 n2 c fds fd.

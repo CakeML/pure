@@ -80,6 +80,57 @@ Definition handle_Letrec_fdemands_def:
     handle_Letrec_fdemands (insert m h (FST fd)) vL fdL
 End
 
+Definition split_body_def:
+  (split_body (pure_cexp$Lam a l e) = (l, e)) ∧
+  (split_body e = ([], e))
+End
+
+Definition compute_freevars_def:
+  (compute_freevars (Var a v) = (mlmap$insert (empty mlstring$compare) v ())) ∧
+  (compute_freevars (App a f eL) =
+   FOLDR (λe m. union m (compute_freevars e)) (compute_freevars f) eL : (mlstring, unit) map) ∧
+  (compute_freevars (Lam a l e) =
+   FOLDR (λv m. mlmap$delete m v) (compute_freevars e) l : (mlstring, unit) map) ∧
+  (compute_freevars (Prim a op eL) =
+   FOLDR (λe m. union m (compute_freevars e)) (empty compare) eL : (mlstring, unit) map) ∧
+  (compute_freevars (Let a w e1 e2) =
+   union (compute_freevars e1) (mlmap$delete (compute_freevars e2) w) : (mlstring, unit) map) ∧
+  (compute_freevars (Letrec a b e) =
+   let m = FOLDR (λ(v, e) m. mlmap$union m (compute_freevars e)) (compute_freevars e) b in
+     FOLDR (λ(v, e) m. mlmap$delete m v) m b : (mlstring, unit) map) ∧
+  (compute_freevars (Case a0 e n cases eopt) = empty compare : (mlstring, unit) map) ∧
+  (compute_freevars (NestedCase d g gv p e pes) = empty compare : (mlstring, unit) map)
+Termination
+  WF_REL_TAC ‘measure $ (cexp_size (K 0))’ \\ rw []
+End
+
+Definition compute_is_subset_def:
+  (compute_is_subset m1 m2 = F)
+End
+
+Definition compute_is_disjoint_def:
+  (compute_is_disjoint m1 m2 = F)
+End
+
+Definition are_valid_def:
+  are_valid map1 args body =
+  (let map2 = FOLDR (λv m. insert m v ()) (empty compare) args in
+     let free = compute_freevars body in
+     compute_is_disjoint map1 map2 ∧ compute_is_subset free (union map1 map2))
+End
+
+Definition can_compute_fixpoint_def:
+  can_compute_fixpoint binds =
+  let binds2 = MAP (λ(v, body). v, split_body body) binds in
+    if EVERY (λ(v, args, body). compute_ALL_DISTINCT args (empty compare)) binds2 ∧
+       compute_ALL_DISTINCT (MAP FST binds) (empty compare)
+    then (let map1 = FOLDR (λ(v, _) m. insert m v ()) (empty compare) binds2 in
+            if EVERY (λ(v, args, body). are_valid map1 args body) binds2
+            then SOME (binds2)
+            else NONE)
+    else NONE
+End
+
 Definition demands_analysis_fun_def:
   (demands_analysis_fun c ((Var a0 a1): 'a cexp) fds =
      let fd = case mlmap$lookup fds a1 of
