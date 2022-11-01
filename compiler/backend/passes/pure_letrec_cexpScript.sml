@@ -158,12 +158,37 @@ End
 
 (*******************)
 
+Definition init_sets_def:
+  init_sets (Letrec c xs y) =
+    Letrec (pure_vars$empty : var_set)
+      (MAP (λ(n,x). n, init_sets x) xs) (init_sets y) ∧
+  init_sets (Lam c ns x) = Lam empty ns (init_sets x) ∧
+  init_sets (Prim c p xs) = Prim empty p (MAP (init_sets) xs) ∧
+  init_sets (App c x ys) =
+    App empty (init_sets x) (MAP (init_sets) ys) ∧
+  init_sets (Var c v) = Var empty v ∧
+  init_sets (Let c n x y) =
+    Let empty n (init_sets x) (init_sets y) ∧
+  init_sets (Case c x n ys eopt) =
+    Case empty (init_sets x) n
+      (MAP (λ(n,ns,e). (n,ns,init_sets e)) ys)
+      (OPTION_MAP (λ(a,e). (a,init_sets e)) eopt) ∧
+  init_sets (NestedCase c g gv p e pes) =
+    NestedCase empty (init_sets g) gv p
+               (init_sets e)
+               (MAP (λ(p,e). (p, init_sets e)) pes)
+Termination
+  WF_REL_TAC `measure $ cexp_size (K 0)`
+End
+
+
 (*
     Putting it all together:
 *)
 
 Definition transform_cexp_def:
-  transform_cexp cfg e =
+  transform_cexp e =
+    let e = init_sets e in
     let d = distinct_cexp e in
     let s = split_all_cexp d in
     let c = clean_all_cexp s in

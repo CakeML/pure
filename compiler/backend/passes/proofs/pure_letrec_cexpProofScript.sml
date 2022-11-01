@@ -716,13 +716,31 @@ QED
 
 (********************)
 
+Theorem exp_of_init_sets:
+  ∀e. exp_of (init_sets e) = exp_of e
+Proof
+  ho_match_mp_tac init_sets_ind \\ rw [exp_of_def,init_sets_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f,FORALL_PROD, SF SFY_ss]
+  \\ fs [LAMBDA_PROD] \\ every_case_tac
+  \\ TRY AP_TERM_TAC
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f,FORALL_PROD, SF SFY_ss]
+  \\ Cases_on ‘eopt’ \\ fs [LAMBDA_PROD] \\ gvs []
+  \\ TRY (Cases_on ‘x’ \\ fs [])
+  \\ last_x_assum kall_tac
+  \\ Induct_on ‘ys’ \\ fs [SF DNF_ss,FORALL_PROD] \\ rw []
+  \\ last_x_assum $ drule \\ fs [rows_of_def]
+QED
+
+(********************)
+
 Theorem transform_cexp_correct:
-  ∀c ce. exp_of ce ≅ exp_of (transform_cexp c ce)
+  ∀c ce. exp_of ce ≅ exp_of (transform_cexp ce)
 Proof
   rw[transform_cexp_def] >>
   irule exp_eq_trans >> irule_at (Pos last) clean_all_cexp_exp_eq >>
   irule exp_eq_trans >> irule_at (Pos last) split_all_cexp_exp_eq >>
-  simp[distinct_cexp_correct, distinct_letrecs_distinct, distinct_exp_eq]
+  simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
+  irule_at (Pos last) distinct_exp_eq
 QED
 
 (********************)
