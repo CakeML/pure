@@ -98,18 +98,32 @@ Definition compute_freevars_def:
   (compute_freevars (Letrec a b e) =
    let m = FOLDR (λ(v, e) m. mlmap$union m (compute_freevars e)) (compute_freevars e) b in
      FOLDR (λ(v, e) m. mlmap$delete m v) m b : (mlstring, unit) map) ∧
-  (compute_freevars (Case a0 e n cases eopt) = empty compare : (mlstring, unit) map) ∧
+  (compute_freevars (Case a0 e n cases eopt) =
+   let m1 = case eopt of
+            | NONE => empty compare
+            | SOME (a,e) => compute_freevars e in
+     let m2 = FOLDR (λ(_, vL, e) m.
+                       union (FOLDR (λv m. delete m v) (compute_freevars e) vL) m) m1 cases in
+       union (compute_freevars e) (delete m2 n)) ∧
   (compute_freevars (NestedCase d g gv p e pes) = empty compare : (mlstring, unit) map)
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0))’ \\ rw []
 End
 
 Definition compute_is_subset_def:
-  (compute_is_subset m1 m2 = F)
+  (compute_is_subset (m1 : (mlstring, unit) map) m2 =
+   foldrWithKey (λid () b.
+                   case mlmap$lookup m2 id of
+                        | NONE => F
+                        | SOME () => b) T m1)
 End
 
 Definition compute_is_disjoint_def:
-  (compute_is_disjoint m1 m2 = F)
+  (compute_is_disjoint (m1 : (mlstring, unit) map) m2 =
+   foldrWithKey (λid () b.
+                   case mlmap$lookup m2 id of
+                        | NONE => b
+                        | SOME () => F) T m1)
 End
 
 Definition are_valid_def:
