@@ -8,7 +8,7 @@ open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_alpha_equivTheory pure_alpha_equivTheory pure_letrecTheory
+     pure_alpha_equivTheory pure_alpha_equivTheory pure_letrec_congTheory
      pure_letrec_seqTheory;
 
 val _ = new_theory "pure_demand";

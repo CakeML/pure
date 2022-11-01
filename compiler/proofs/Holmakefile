@@ -1,0 +1,10 @@
+INCLUDES = ../../language \
+           ../../meta-theory \
+           ../../typing \
+           ../parsing \
+           ../backend/languages \
+           ../backend/languages/semantics \
+           ../backend/passes \
+           ../backend/passes/proofs \
+           $(CAKEMLDIR)/compiler/parsing \
+           $(HOLDIR)/examples/bootstrap

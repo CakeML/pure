@@ -9,7 +9,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory;
 
-val _ = new_theory "pure_letrec";
+val _ = new_theory "pure_letrec_cong";
 
 Inductive letrec_binds:
 [~swap:]
