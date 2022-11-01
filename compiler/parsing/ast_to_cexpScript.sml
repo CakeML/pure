@@ -98,6 +98,11 @@ Definition translate_pat_def:
   translate_pat _ = NONE
 End
 
+Definition mkLam_def:
+  mkLam d [] e = e ∧
+  mkLam d vs e = Lam d vs e
+End
+
 Overload Bind = “λa1 a2. pure_cexp$Prim () (Cons «Bind») [a1;a2]”
 Definition translate_exp_def:
   translate_exp tyinfo (expVar s) = SOME (Var () (implode s)) ∧
@@ -237,7 +242,7 @@ Definition translate_exp_def:
          do
            vs <- OPT_MMAP dest_pvar args ;
            bce <- translate_exp tyinfo body ;
-           SOME ((implode s, Lam () vs bce) :: rest)
+           SOME ((implode s, mkLam () vs bce) :: rest)
          od
    od)
 Termination
@@ -281,7 +286,7 @@ Definition translate_decs_def:
     rest <- translate_decs tyinfo ds ;
     vs <- OPT_MMAP dest_pvar args ;
     bce <- translate_exp tyinfo body ;
-    SOME ((implode s, Lam () vs bce) :: rest)
+    SOME ((implode s, mkLam () vs bce) :: rest)
   od ∧
   translate_decs tyinfo (declPatbind p e :: ds) =
   do
@@ -439,8 +444,7 @@ Definition decls_to_letrec_def:
                              tyinfo_l ;
     sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND initial_namespace) ;
     binds <- translate_decs (insert tyinfo «[]» listinfo) ds ;
-    SOME (Letrec () binds (App () (Var () «main») [Prim () (Cons «») []]),
-          REVERSE sig0)
+    SOME (Letrec () binds (Var () «main»), REVERSE sig0)
   od
 End
 
