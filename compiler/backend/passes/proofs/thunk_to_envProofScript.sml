@@ -172,7 +172,11 @@ Proof
     \\ fs [] \\ fs [SUBSET_DEF]
     \\ fs [MEM_MAP,FORALL_PROD,EVERY_MEM,EXISTS_PROD]
     \\ gvs [SF SFY_ss,PULL_EXISTS]
-    \\ cheat (* cexp_wf needs ok_bind *))
+    >-
+     (rename [‘cexp_ok_bind pp’] \\ Cases_on ‘pp’ \\ fs [cexp_ok_bind_def]
+      \\ fs [to_env_def]
+      \\ fs [cexp_wf_def] \\ rename [‘Lams l’] \\ Cases_on ‘l’ \\ fs [Lams_def])
+    >- metis_tac [])
   >- cheat
   \\ Cases_on ‘∃m. p = Cons m’
   >-
