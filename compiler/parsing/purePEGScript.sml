@@ -119,7 +119,25 @@ Definition purePEG_def[nocompute]:
          pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=) $ SymbolT "->")))
               (mkNT nTy));
 
-        (INL nEqBindSeq, pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
+        (INL nEqBindSeq,
+         choicel [
+             seql [tok ((=) LbraceT) mktokLf lrOK;
+                   sepby (NT nFreeEqBind I lrOK)
+                         (tok ((=) SemicolonT) mktokLf lrOK);
+                   choicel [tok ((=) SemicolonT) mktokLf lrOK; empty[]];
+                   tok ((=) RbraceT) mktokLf lrOK] (mkNT nEqBindSeq);
+             pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq);
+           ]);
+
+        (INL nFreeEqBind,
+         choicel [seql [NT nExp I lrOK;
+                        tok ((=) EqualsT) mktokLf lrOK;
+                        NT nExp I lrOK] (mkNT nEqBind);
+                  seql [tok lcname_tok mktokLf lrOK;
+                        tok ((=) $ SymbolT "::") mktokLf lrOK;
+                        NT nTy I lrOK]
+                       (mkNT nEqBind)]);
+
         (INL nEqBind,
          choicel [seql [NT nExpEQ I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
                        (mkNT nEqBind);
@@ -408,5 +426,11 @@ val caseexp2 =
 val caseexp3 =
   test “nExp” "case e of [] -> 3\n\
               \          h:t -> 4"
+
+val letbraces1 =
+  test “nDecl” "y = let\n\
+               \{x=\n\
+               \10;y::Int;}\n\
+               \ in x"
 
 val _ = export_theory();

@@ -86,6 +86,11 @@ Definition dest_expVar_def:
   dest_expVar _ = NONE
 End
 
+Definition dest_expLet_def:
+  dest_expLet (expLet ads e) = SOME (ads,e) ∧
+  dest_expLet _ = NONE
+End
+
 val _ = add_rule {term_name = "expAbs", fixity = Prefix 1,
                   block_style = (AroundEachPhrase, (PP.CONSISTENT, 0)),
                   pp_elements = [TOK "𝝺", TM, TOK "．", BreakSpace(1,2)],
