@@ -731,10 +731,17 @@ Proof
   \\ last_x_assum $ drule \\ fs [rows_of_def]
 QED
 
+Theorem close_transform_cexp:
+  closed (exp_of (transform_cexp e1)) ⇒
+  closed (exp_of e1)
+Proof
+  cheat
+QED
+
 (********************)
 
 Theorem transform_cexp_correct:
-  ∀c ce. exp_of ce ≅ exp_of (transform_cexp ce)
+  ∀ce. exp_of ce ≅ exp_of (transform_cexp ce)
 Proof
   rw[transform_cexp_def] >>
   irule exp_eq_trans >> irule_at (Pos last) clean_all_cexp_exp_eq >>

@@ -2950,14 +2950,6 @@ Definition initial_cnenv_def:
     ]
 End
 
-Overload append_ns = ``λns ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
-
-Definition state_namespace_ok_def:
-  state_namespace_ok ns ⇔
-    namespace_ok ns ∧
-    ∃ns'. ns = append_ns initial_namespace ns'
-End
-
 Overload cnenv_of_tdefs = ``λtdefs.
   FLAT (MAPi (λn (ar,cndefs).
       MAP (λ(cn,ts). explode cn, TypeStamp (explode cn) (n + t_init), LENGTH ts) cndefs) tdefs)``
@@ -3484,7 +3476,7 @@ QED
 Theorem compile_correct:
   cexp_wf e ∧
   cns_ok ns (state_cexp$cns_arities e) ∧
-  state_namespace_ok ns ∧
+  namespace_ok' ns ∧
   safe_itree (itree_of (exp_of e))
   ⇒ itree_rel (itree_of (exp_of e))
               (itree_semantics (compile_with_preamble ns e))
@@ -3493,7 +3485,7 @@ Proof
   irule compile_itree_rel >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
   simp[Once cont_rel_cases, env_rel_def, state_rel] >>
-  gvs[state_namespace_ok_def] >>
+  gvs[namespace_ok'_def] >>
   simp[compile_with_preamble_def, initial_namespace_def, preamble_def] >>
   qmatch_goalsub_abbrev_tac `[ffi_array;strle_dec;char_list_dec]` >>
   once_rewrite_tac[GSYM APPEND_ASSOC] >> qmatch_goalsub_abbrev_tac `_ ++ prog` >>

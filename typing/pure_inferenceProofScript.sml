@@ -4156,5 +4156,20 @@ QED
 
 (****************************************)
 
-val _ = export_theory();
+Theorem infer_types_SOME:
+  infer_types tysig e = SOME v
+  ⇒
+  cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
+  namespace_ok' ((I ## K tysig) initial_namespace) ∧
+  safe_exp (exp_of e) ∧
+  cns_arities_ok ((I ## K tysig) initial_namespace)
+    {s | (∃s0.
+           (∃x. s0 = IMAGE (explode ## I) x ∧ x ∈ cns_arities e) ∧
+              s = IMAGE (implode ## I) s0)}
+Proof
+  cheat
+QED
 
+(****************************************)
+
+val _ = export_theory();

@@ -11,30 +11,29 @@ open pure_cexpTheory pure_to_cakeTheory pureParseTheory pure_inferenceTheory
 
 val _ = set_grammar_ancestry
           ["pure_cexp", "pure_to_cake", "pureParse", "pure_inference",
-           "pure_letrec_cexp", "pure_demands_analysis", "fromSexp"];
+           "pure_letrec_cexp", "pure_demands_analysis", "fromSexp",
+           "simpleSexpParse"];
 
 val _ = new_theory "pure_compiler";
 
 Definition ast_to_string_def:
-  ast_to_string full_prog =
-    implode(simpleSexpParse$print_sexp (listsexp (MAP decsexp full_prog)))
+  ast_to_string prog = print_sexp (listsexp (MAP decsexp prog))
 End
 
 Definition compile_def:
   compile s =
-    case string_to_cexp (explode s) of
+    case string_to_cexp s of
     | NONE => NONE
-    | SOME (e1, tysig) =>
+    | SOME (e1,ns) =>
       let e2 = transform_cexp e1 in
-      let ty = (I ## K tysig) initial_namespace in
-        case infer_top_level ty (pure_vars$empty) e2 of
+        case infer_types ns e2 of
         | NONE => NONE
         | SOME _ =>
           let e3 = demands_analysis e2 in
-            case infer_top_level ty (pure_vars$empty) e3 of
+            case infer_types ns e3 of
             | NONE => NONE
             | SOME _ =>
-                SOME (ast_to_string $ pure_to_cake ty e3)
+                SOME (ast_to_string $ pure_to_cake ns e3)
 End
 
 val _ = export_theory();

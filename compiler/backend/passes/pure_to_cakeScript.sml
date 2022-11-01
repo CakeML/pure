@@ -23,7 +23,7 @@ End
 
 Definition pure_to_cake_def:
   pure_to_cake ns e =
-    compile_with_preamble ns (pure_to_state e)
+    compile_with_preamble ((I ## K ns) initial_namespace) (pure_to_state e)
 End
 
 val _ = export_theory ();

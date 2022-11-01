@@ -665,6 +665,11 @@ Definition infer_top_level_def:
   od 0
 End
 
+Definition infer_types_def:
+  infer_types tysig e =
+    (* TODO: this should also check namespace_ok *)
+    infer_top_level ((I ## K tysig) initial_namespace) pure_vars$empty e
+End
 
 (********************)
 
