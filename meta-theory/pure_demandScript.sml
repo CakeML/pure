@@ -3630,36 +3630,50 @@ Proof
   \\ qexists_tac ‘v’ \\ fs [exp_eq_refl]
 QED
 
-Inductive find_fixpoint_def:
+Inductive find_fixpoint:
+[~Var:]
   (∀v c binds.
      find_fixpoint binds (Var v) c {v} {} []) ∧
+[~Var_known:]
   (∀v (c : ctxt) binds (args : (string # bool) list) (body : exp).
      MEM (v, args, body) binds ⇒
      find_fixpoint binds (Var v) c {} {} (MAP SND args)) ∧
+[~App:]
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+     find_fixpoint binds e1 c ds1 ads1 l1 ∧
+     find_fixpoint binds e2 c ds2 ads2 l2 ⇒
+     find_fixpoint binds (App e1 e2) c ds1 {} []) ∧
+[~App_T:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 (T::l1) ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
      find_fixpoint binds (App e1 e2) c ds1 (ads1 ∪ ds2) l1) ∧
+[~App_F:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 (F::l1) ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
      find_fixpoint binds (App e1 e2) c ds1 ads1 l1) ∧
+[~App_empty:]
   (∀e c binds ds ads.
      find_fixpoint binds e c ds ads [] ⇒
      find_fixpoint binds e c (ds ∪ ads) {}  []) ∧
+[~Seq:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
      find_fixpoint binds (Seq e1 e2) c (ds1 ∪ ds2) ads2 l2) ∧
+[~Let:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      w ∉ ds2 ∧ w ∉ ads2 ∧
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (Bind w e1 c) ds2 ads2 l2 ⇒
      find_fixpoint binds (Let w e1 e2) c ds2 ads2 l2) ∧
+[~Subset:]
   (∀e c binds ds1 ds2 ads1 ads2 l.
      ds2 ⊆ ds1 ∧ ads2 ⊆ ads1 ∧
      find_fixpoint binds e c ds1 ads1 l ⇒
      find_fixpoint binds e c ds2 ads2 l) ∧
+[~refl:]
   (∀e c binds.
      find_fixpoint binds e c {} {}  [])
 End
@@ -3686,8 +3700,8 @@ Theorem find_fixpoint_soundness:
     (∀v args body. MEM (v, args, body) binds ⇒ ALL_DISTINCT (MAP FST args)) ⇒
     ∃e2.
       reformulate binds e e2 ∧
-      (∀v. v ∈ ds ⇒ e2 demands (([], v), c)) ∧
-      (∀v. v ∈ ads ⇒ e2 demands_when_applied (([], v), LENGTH fds, c)) ∧
+      (∀v. v ∈ ds ⇒ e2 demands (([], v), c) ∧ v ∈ freevars e) ∧
+      (∀v. v ∈ ads ⇒ e2 demands_when_applied (([], v), LENGTH fds, c) ∧ v ∈ freevars e) ∧
       (∀i. i < LENGTH fds ∧ EL i fds ⇒ e2 fdemands (([], i), LENGTH fds, c))
 Proof
   Induct_on ‘find_fixpoint’ \\ rw []
@@ -3714,11 +3728,22 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ first_x_assum $ irule_at Any
       \\ rw []
+      \\ gvs [demands_App])
+  >- (irule_at Any reformulate_App
+      \\ gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
       >- (irule demands_App \\ gvs [])
       >- (irule demands_when_applied_App \\ gvs [])
+      >- (first_x_assum $ dxrule_then assume_tac \\ gs [])
       >- (simp [demands_w_app_is_needs_w_app]
           \\ irule fdemands_0_App_needs
           \\ simp [needs_Var_is_demands])
+      >- (first_x_assum $ dxrule_then assume_tac \\ gs [])
       >- (irule fdemands_App \\ gs []))
   >- (irule_at Any reformulate_App
       \\ gs []
@@ -3735,8 +3760,7 @@ Proof
       \\ last_x_assum $ drule_then assume_tac
       \\ gs []
       \\ first_x_assum $ irule_at Any
-      \\ rw []
-      >- gs []
+      \\ rw [] \\ gs []
       >- gs [demands_when_applied_0])
   >- (irule_at Any reformulate_Prim
       \\ gs [PULL_EXISTS]
@@ -3746,10 +3770,7 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ first_x_assum $ irule_at Any
       \\ rw []
-      >- gs [demands_Seq]
-      >- gs [demands_Seq2]
-      >- gs [demands_when_applied_Seq]
-      >- gs [fdemands_Seq])
+      \\ gs [demands_Seq, demands_Seq2, demands_when_applied_Seq, fdemands_Seq])
   >- (irule_at Any reformulate_App
       \\ irule_at Any reformulate_Lam
       \\ gs []
@@ -3776,13 +3797,14 @@ Proof
       \\ strip_tac \\ gs []
       \\ qpat_x_assum ‘reformulate (FILTER _ _) _ _’ $ irule_at Any
       \\ irule_at Any reformulate_refl
-      \\ rw []
+      \\ rw [] \\ gs []
       >- (irule demands_Let2
           \\ gs []
           \\ strip_tac \\ gs [])
       >- (gvs [demands_when_applied_def, eq_when_applied_def]
           \\ first_x_assum  $ drule_then assume_tac
           \\ irule eq_when_applied_trans
+          \\ gs []
           \\ first_x_assum $ irule_at Any
           \\ irule exp_eq_IMP_eq_when_applied
           \\ irule exp_eq_trans
@@ -3812,8 +3834,6 @@ Theorem IMP_obligation_fixpoint:
      DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
      (* body of bound exp only mentions args and other bound names *)
      freevars body SUBSET (set (MAP FST binds) UNION set (MAP FST args)) ∧
-     (* every forced var is free in body *)
-     set (MAP FST (FILTER SND args)) SUBSET freevars body ∧
      (* there is a reformulation of body, called e, such that 'e ≈ mk_seqs args e' *)
      (∃ds ads fs. find_fixpoint binds body Nil ds ads fs ∧
                  (∀v. MEM (v, T) args ⇒ v ∈ ds)))
@@ -3833,6 +3853,9 @@ Proof
       \\ last_x_assum $ dxrule_then assume_tac
       \\ gs [])
   \\ rw []
+  >- (rw [SUBSET_DEF]
+      \\ gs [MEM_MAP, MEM_FILTER, SND_THM]
+      \\ pairarg_tac \\ gs [])
   \\ first_x_assum $ irule_at Any
   \\ gvs []
 QED
@@ -4013,7 +4036,6 @@ Inductive find: (* i i i o o o *)
                         ALL_DISTINCT (MAP FST args) ∧
                         DISJOINT (set (MAP FST args)) (set (MAP FST binds)) ∧
                         freevars body ⊆ set (MAP FST binds) ∪ set (MAP FST args) ∧
-                        set (MAP FST (FILTER SND args)) ⊆ freevars body ∧
                         ∃ds ads fs.
                           find_fixpoint binds body Nil ds ads fs ∧
                           (∀v. MEM (v, T) args ⇒ v ∈ ds)) ∧

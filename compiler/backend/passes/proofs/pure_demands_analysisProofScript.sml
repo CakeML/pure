@@ -892,6 +892,224 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem fixpoint1_App_lemma1:
+  ∀l binds e c ds.
+    find_fixpoint binds e c ds {} [] ⇒ find_fixpoint binds (Apps e l) c ds {} []
+Proof
+  Induct \\ gs [Apps_def]
+  \\ rw [] \\ last_x_assum irule
+  \\ irule find_fixpoint_App
+  \\ first_x_assum $ irule_at Any
+  \\ irule_at Any find_fixpoint_refl
+QED
+
+Theorem cexp10_size_SNOC:
+  ∀l x f. cexp10_size f (SNOC x l) = 1 + cexp10_size f l + cexp_size f x
+Proof
+  Induct \\ gs [cexp_size_def]
+QED
+
+Theorem fixpoint1_App_lemma2:
+  ∀(l : α cexp list).
+    (∀m. m < cexp10_size (K 0) l ⇒
+         ∀(e : α cexp). m = cexp_size (K 0) e ⇒
+             ∀fds c ds fd l dwas binds.
+               fixpoint1 c e fds = (ds,fd) ∧ map_ok fds ∧
+               cmp_of fds = compare ∧
+               (∀v. v ∈ FDOM (to_fmap fds) ⇒
+                    ∃args body.
+                      LENGTH args = LENGTH (to_fmap fds ' v) ∧
+                      MEM (explode v,ZIP (args,to_fmap fds ' v),body) binds) ∧
+               (case fd of
+                  NONE => l = [] ∧ dwas = empty compare
+                | SOME (l',dwas') =>
+                    l = l' ∧ dwas = dwas') ⇒
+               find_fixpoint binds (exp_of e) (ctxt_trans c)
+                             (IMAGE explode (FDOM (to_fmap ds)))
+                             (IMAGE explode (FDOM (to_fmap dwas))) l ∧
+               map_ok ds ∧ cmp_of ds = compare ∧
+               map_ok dwas ∧ cmp_of dwas = compare) ⇒
+      ∀bL c fds bL2 ds2 binds.
+        fixpoint_demands_App bL (MAP (λe. fixpoint1 c e fds) l) = (bL2, ds2) ∧
+        (∀v. v ∈ FDOM (to_fmap fds) ⇒
+             ∃args body. LENGTH args = LENGTH (to_fmap fds ' v) ∧
+                         MEM (explode v, ZIP (args, to_fmap fds ' v), body) binds) ∧
+        map_ok fds ∧ cmp_of fds = compare ⇒
+        map_ok ds2 ∧ cmp_of ds2 = compare ∧
+        ∀e ds1 ads ds3 ads2.
+          find_fixpoint binds e (ctxt_trans c) ds1 ads bL ∧
+          (if bL2 = [] then (ads ∪ IMAGE explode (FDOM (to_fmap ds2)), {})
+           else ({}, ads ∪ IMAGE explode (FDOM (to_fmap ds2)))) = (ds3, ads2) ⇒
+          find_fixpoint binds (Apps e (MAP exp_of l)) (ctxt_trans c)
+                               (ds1 ∪ ds3) ads2 bL2
+Proof
+  Induct \\ gs [Apps_def]
+  >- (strip_tac \\ Cases
+      \\ gs [fixpoint_demands_App_def, empty_thm, TotOrd_compare]
+      \\ rw []
+      \\ gs [find_fixpoint_App_empty])
+  \\ gen_tac \\ strip_tac
+  \\ last_x_assum mp_tac
+  \\ impl_tac
+  >- (gen_tac \\ strip_tac
+      \\ rename1 ‘val < _’
+      \\ first_x_assum $ qspec_then ‘val’ assume_tac
+      \\ gs [cexp_size_def])
+  \\ rename1 ‘x::l’
+  \\ last_x_assum $ qspec_then ‘cexp_size (K 0) x’ assume_tac
+  \\ gs [cexp_size_def]
+  \\ first_x_assum $ qspec_then ‘x’ assume_tac
+  \\ gs []
+  \\ strip_tac \\ rpt $ gen_tac \\ strip_tac
+  \\ rename1 ‘fixpoint_demands_App bL’
+  \\ Cases_on ‘bL’ \\ gs [fixpoint_demands_App_def]
+  >- (gs [empty_thm, TotOrd_compare]
+      \\ rw []
+      \\ irule fixpoint1_App_lemma1
+      \\ irule find_fixpoint_App
+      \\ irule_at Any find_fixpoint_refl
+      \\ irule_at Any find_fixpoint_App_empty
+      \\ first_x_assum $ irule_at Any)
+  \\ rename1 ‘fixpoint_demands_App (b::bL) (fixpoint1 c x fds::_)’
+  \\ Cases_on ‘fixpoint1 c x fds’ \\ gs []
+  \\ Cases_on ‘b’
+  \\ gs [fixpoint_demands_App_def]
+  >- (pairarg_tac \\ gs []
+      \\ rename1 ‘fixpoint1 _ _ _ = (map1, opt)’
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ qpat_x_assum ‘union _ _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ Cases_on ‘opt’ \\ gs [union_thm]
+      >- (rw []
+          \\ dxrule_then (dxrule_then assume_tac) find_fixpoint_App_T
+          \\ first_x_assum $ dxrule_then assume_tac
+          \\ gvs [GSYM UNION_ASSOC])
+      \\ qpat_x_assum ‘∀l dwas. _ ⇒ _’ mp_tac
+      \\ CASE_TAC \\ gs []
+      \\ strip_tac
+      \\ gs [union_thm]
+      \\ rw []
+      \\ dxrule_then (dxrule_then assume_tac) find_fixpoint_App_T
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gvs [GSYM UNION_ASSOC])
+  \\ first_x_assum $ dxrule_then assume_tac
+  \\ first_x_assum $ dxrule_then assume_tac
+  \\ gs []
+  \\ rw []
+  >- (first_x_assum irule
+      \\ irule find_fixpoint_App_F
+      \\ simp []
+      \\ irule_at Any find_fixpoint_refl)
+  \\ gs []
+  \\ first_x_assum irule
+  \\ irule find_fixpoint_App_F
+  \\ simp []
+  \\ irule_at Any find_fixpoint_refl
+QED
+
+Theorem fixpoint1_soundness:
+  ∀fds c ds fd l dwas binds.
+    fixpoint1 c e fds = (ds, fd) ∧
+    map_ok fds ∧ cmp_of fds = compare ∧
+    (∀v. v ∈ FDOM (to_fmap fds) ⇒
+         ∃args body. LENGTH args = LENGTH (to_fmap fds ' v) ∧
+                     MEM (explode v, ZIP (args, to_fmap fds ' v), body) binds) ∧
+    (case fd of
+     | NONE => (l = [] ∧ dwas = empty compare)
+     | SOME (l', dwas') => (l = l' ∧ dwas = dwas')) ⇒
+    find_fixpoint binds (exp_of e) (ctxt_trans c)
+                  (IMAGE explode (FDOM $ to_fmap ds))
+                  (IMAGE explode (FDOM $ to_fmap dwas)) l ∧
+    map_ok ds ∧ cmp_of ds = compare ∧ map_ok dwas ∧ cmp_of dwas = compare
+Proof
+  completeInduct_on ‘cexp_size (K 0) e’ \\ gs []
+  \\ Cases \\ gs [fixpoint1_def]
+  >~[‘Var _’]
+  >- (strip_tac \\ rpt $ gen_tac \\ strip_tac
+      \\ rename1 ‘lookup fds m’
+      \\ Cases_on ‘lookup fds m’
+      \\ gs [empty_thm, insert_thm, TotOrd_compare, exp_of_def]
+      >- (qpat_x_assum ‘insert _ _ _ = _’ assume_tac
+          \\ dxrule_then assume_tac EQ_SYM
+          \\ gs [empty_thm, insert_thm, TotOrd_compare, exp_of_def]
+          \\ irule find_fixpoint_Var)
+      \\ qpat_x_assum ‘SOME _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs [empty_thm, TotOrd_compare, lookup_thm, FLOOKUP_DEF]
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ drule_then assume_tac find_fixpoint_Var_known
+      \\ gs [MAP_ZIP])
+  >~[‘App _ c l’]
+  >- (strip_tac \\ rpt $ gen_tac \\ strip_tac
+      \\ pairarg_tac \\ gs []
+      \\ rename1 ‘fixpoint1 _ _ _ = (_, fd1)’
+      \\ Cases_on ‘fd1’ \\ gs []
+      >- (last_x_assum $ qspec_then ‘cexp_size (K 0) c’ assume_tac
+          \\ gs [cexp_size_def]
+          \\ pop_assum $ qspec_then ‘c’ assume_tac \\ gs []
+          \\ pop_assum $ dxrule_then assume_tac \\ gs []
+          \\ pop_assum $ dxrule_then assume_tac \\ gs []
+          \\ gs [exp_of_def, empty_thm, TotOrd_compare]
+          \\ gs [fixpoint1_App_lemma1])
+      \\ rename1 ‘SOME x’ \\ PairCases_on ‘x’ \\ gs []
+      \\ qspec_then ‘l’ mp_tac fixpoint1_App_lemma2
+      \\ impl_tac
+      >- (gen_tac \\ strip_tac
+          \\ rename1 ‘val < _’
+          \\ last_x_assum $ qspec_then ‘val’ assume_tac
+          \\ gs [cexp_size_def])
+      \\ strip_tac
+      \\ rename1 ‘fixpoint1 ctxt c fds = (_, SOME (bL, ads))’
+      \\ Cases_on ‘fixpoint_demands_App bL (MAP (λe. fixpoint1 ctxt e fds) l)’
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ gs []
+      \\ last_x_assum $ qspec_then ‘cexp_size (K 0) c’ assume_tac
+      \\ gs [cexp_size_def]
+      \\ first_x_assum $ qspec_then ‘c’ assume_tac
+      \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ rename1 ‘fixpoint_demands_App _ _ = (q, _)’
+      \\ Cases_on ‘q’ \\ gs []
+      >- (qpat_x_assum ‘union _ _ = _’ assume_tac
+          \\ dxrule_then assume_tac EQ_SYM
+          \\ gs [union_thm, empty_thm, TotOrd_compare, exp_of_def]
+          \\ gs [SF ETA_ss])
+      \\ qpat_x_assum ‘SOME _ = _’ assume_tac
+      \\ dxrule_then assume_tac EQ_SYM
+      \\ gs [exp_of_def, SF ETA_ss, union_thm])
+  >~[‘Prim _ op l’]
+  >- (rw [empty_thm, TotOrd_compare]
+      \\ irule find_fixpoint_refl)
+  >~[‘Lam _ vL e’]
+  >- (rw [empty_thm, TotOrd_compare]
+      \\ irule find_fixpoint_refl)
+  >~[‘Let _ m e1 e2’]
+  >- (strip_tac \\ rpt $ gen_tac \\ strip_tac
+      \\ simp [empty_thm, TotOrd_compare]
+      \\ irule find_fixpoint_refl)
+  >~[‘Letrec _ _ _’]
+  >- (rw [empty_thm, TotOrd_compare]
+      \\ irule find_fixpoint_refl)
+  >~[‘Case _ expr _ rows fall’]
+  >- (rw [empty_thm, TotOrd_compare]
+      \\ irule find_fixpoint_refl)
+  >~[‘NestedCase _ _ _ _ _ _’]
+  >- (rw [empty_thm, TotOrd_compare]
+      \\ irule find_fixpoint_refl)
+QED
+
+
 Theorem update_ctxt_soundness:
   ∀l e e' n1 n2 c fds fd.
     EVERY (λv. ∀d. (v, d) ∉ fds) (MAP SND l)

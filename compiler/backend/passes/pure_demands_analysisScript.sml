@@ -145,6 +145,37 @@ Definition can_compute_fixpoint_def:
     else NONE
 End
 
+Definition fixpoint_demands_App_def:
+  (fixpoint_demands_App [] eL = ([], mlmap$empty mlstring$compare)) ∧
+  (fixpoint_demands_App tl [] = (tl, mlmap$empty mlstring$compare)) ∧
+  (fixpoint_demands_App (F::tl) (e::eL) = fixpoint_demands_App tl eL) ∧
+  (fixpoint_demands_App (T::tl) ((m1, fds)::eL) =
+   let (l, m2) = fixpoint_demands_App tl eL in
+       (l, union m1 m2))
+End
+
+Definition fixpoint1_def:
+  (fixpoint1 (c : α da_ctxt) ((Var a0 a1): 'a cexp) fds =
+     case mlmap$lookup fds a1 of
+            | SOME l => (mlmap$empty mlstring$compare, SOME (l, mlmap$empty mlstring$compare))
+            | NONE => (insert (empty compare) a1 (), NONE)) ∧
+
+  (fixpoint1 c (App a0 (f: 'a cexp) (argl: 'a cexp list)) fds =
+     let (m1, fd) = fixpoint1 c f fds ;
+         eL' = MAP (λe. fixpoint1 c e fds) argl
+     in
+       case fd of
+       | NONE => (m1, NONE)
+       | SOME (fdL, m2) =>
+           (case fixpoint_demands_App fdL eL' of
+            | ([], m3) => (union m1 (union m2 m3), NONE)
+            | (fdL', m3) => (m1, SOME (fdL', union m2 m3)))) ∧
+
+  (fixpoint1 c e fds = (mlmap$empty mlstring$compare, NONE))
+Termination
+  WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
+End
+
 Definition demands_analysis_fun_def:
   (demands_analysis_fun c ((Var a0 a1): 'a cexp) fds =
      let fd = case mlmap$lookup fds a1 of
