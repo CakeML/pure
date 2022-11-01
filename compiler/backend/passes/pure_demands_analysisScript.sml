@@ -198,7 +198,11 @@ Termination
 End
 
 Definition demands_analysis_def:
-    demands_analysis a0 e = add_all_demands a0 (demands_analysis_fun Nil e (empty compare))
+    demands_analysis e = FST (SND (demands_analysis_fun Nil e (empty compare)))
+End
+
+Definition demands_analysis2_def:
+    demands_analysis2 a0 e = add_all_demands a0 (demands_analysis_fun Nil e (empty compare))
 End
 
 (*
@@ -209,7 +213,7 @@ Let foo = Lam a (a; Prim op [a]) in Lam x (foo; x; App foo x)
 *)
 
 Theorem demands_analysis_test_0:
-  demands_analysis 0
+  demands_analysis2 0
   (Let 0 «foo» (Lam 0 [«a»] (Prim 0 (AtomOp op) [Var 0 «a»]))
    (Lam 0 [«x»] (App 0 (Var 0 «foo») [Var 0 «x»]))) =
   Let 0 «foo»
@@ -236,7 +240,7 @@ QED
 *)
 
 Theorem demands_analysis_test_1:
-  demands_analysis 0
+  demands_analysis2 0
   (Letrec 0
    [(«fact»,
      Lam 0 [«n»; «c»]
