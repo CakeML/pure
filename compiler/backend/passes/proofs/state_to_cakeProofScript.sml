@@ -2698,6 +2698,18 @@ Proof
     )
 QED
 
+Definition cns_ok_def:
+  cns_ok ns t ⇔
+  cns_arities_ok ns {s | (∃s0. s0 ∈ t ∧ s = IMAGE (implode ## I) s0)}
+End
+
+Theorem cns_ok_SUBSET:
+  cns_ok ns t1 ∧ t ⊆ t1 ⇒ cns_ok ns t
+Proof
+  fs [cns_ok_def,pure_typingTheory.cns_arities_ok_def,SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem image_implode_lemma:
   IMAGE (implode ## I) s = {(strlit l, x)} ⇔ s = {(l,x)}
 Proof
@@ -3471,14 +3483,14 @@ QED
 
 Theorem compile_correct:
   cexp_wf e ∧
-  cns_arities_ok ns { s | ∃s0. s0 ∈ state_cexp$cns_arities e ∧
-                               s = IMAGE (implode ## I) s0 } ∧
+  cns_ok ns (state_cexp$cns_arities e) ∧
   state_namespace_ok ns ∧
   safe_itree (itree_of (exp_of e))
   ⇒ itree_rel (itree_of (exp_of e))
               (itree_semantics (compile_with_preamble ns e))
 Proof
-  rw[itree_of_def, semantics_def, itree_semantics_def] >> irule compile_itree_rel >>
+  rw[itree_of_def, semantics_def, itree_semantics_def, cns_ok_def] >>
+  irule compile_itree_rel >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
   simp[Once cont_rel_cases, env_rel_def, state_rel] >>
   gvs[state_namespace_ok_def] >>

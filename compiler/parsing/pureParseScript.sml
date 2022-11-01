@@ -3,6 +3,7 @@ open HolKernel Parse boolLib bossLib;
 (* supposed to contain all the things *)
 
 open purePEGTheory cst_to_astTheory ast_to_cexpTheory
+open pure_inferenceTheory
 
 
 val _ = new_theory "pureParse";
@@ -52,5 +53,15 @@ Overload "*" = “λx y. Prim () (AtomOp Mul) [x; y]”
 Overload "-" = “λx y. Prim () (AtomOp Sub) [x; y]”
 
 Theorem fact_cexp = EVAL “string_to_cexp ^fact_s”
+
+(* doesn't EVAL *)
+Definition parse_tcheck_def:
+  parse_tcheck s =
+  do
+    (ce, tysig) <- string_to_cexp s ;
+    tyresult <- infer_top_level ((I ## K tysig) initial_namespace) () ce ;
+    return (ce, tyresult) ;
+  od
+End
 
 val _ = export_theory();

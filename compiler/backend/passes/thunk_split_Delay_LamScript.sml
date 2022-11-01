@@ -3,7 +3,7 @@
 *)
 
 open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory pure_varsTheory;
+open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_setTheory;
 
 val _ = new_theory "thunk_split_Delay_Lam";
 
@@ -27,7 +27,7 @@ Definition letrec_split_def:
     (letrec_split ((name, expr)::list) var_creator maps =
         case dest_Delay_Lam expr of
             | SOME e =>
-                let (name2, var_creator) = new_var var_creator name in
+                let (name2, var_creator) = invent_var name var_creator in
                   let (l, vc, maps) = letrec_split list var_creator
                                                    (mlmap$insert maps name name2) in
                 ((name2, e)::(name, Delay (Var name2))::l, vc, maps)
@@ -43,14 +43,14 @@ Proof
   Induct \\ gvs [letrec_split_def, FORALL_PROD]
   \\ gen_tac \\ Cases \\ gvs [dest_Delay_Lam_def]
   \\ rw [] \\ pairarg_tac \\ gvs [is_Lam_def]
-  \\ rename1 ‘letrec_split _ vc maps = _’
-  \\ last_assum $ qspecl_then [‘vc’, ‘maps’] assume_tac \\ gvs []
+  \\ rename1 ‘letrec_split _ (vc1, vc2) maps = _’
+  \\ last_assum $ qspecl_then [‘vc1’, ‘vc2’, ‘maps’] assume_tac \\ gvs []
   \\ rename1 ‘dest_Delay_Lam (Delay c)’
   \\ Cases_on ‘dest_Delay_Lam (Delay c)’ \\ gs []
   \\ pairarg_tac \\ gvs []
   \\ Cases_on ‘c’ \\ gs [dest_Delay_Lam_def]
   \\ pairarg_tac \\ gvs []
-  \\ last_x_assum $ qspecl_then [‘var_creator'’, ‘insert m p_1 name2’] assume_tac
+  \\ last_x_assum $ qspecl_then [‘FST var_creator'’, ‘SND var_creator'’, ‘insert m p_1 name2’] assume_tac
   \\ gvs []
 QED
 
@@ -93,7 +93,7 @@ Definition split_Delayed_Lam_def:
     (split_Delayed_Lam (Let (SOME name) expr1 expr2) var_creator maps =
         case dest_Delay_Lam expr1 of
             | SOME e =>
-                let (name2, vc) = new_var var_creator name in
+                let (name2, vc) = invent_var name var_creator in
                 let (e', vc) = split_Delayed_Lam e vc maps in
                 let (expr2', vc) = split_Delayed_Lam expr2 vc (insert maps name name2) in
                 (Let (SOME name2) e'

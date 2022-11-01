@@ -1,5 +1,5 @@
 INCLUDES = $(PUREDIR)/misc $(PUREDIR)/language $(PUREDIR)/meta-theory \
-           $(PUREDIR)/compiler $(PUREDIR)/compiler/backend \
+           $(PUREDIR)/compiler/backend \
            $(PUREDIR)/compiler/backend/languages/properties \
            $(PUREDIR)/compiler/backend/languages/semantics \
            $(CAKEMLDIR)/basis/pure \

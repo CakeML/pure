@@ -92,7 +92,7 @@ Definition purePEG_def[nocompute]:
              (* define value *)
              pegf (NT nValBinding I lrEQ) (mkNT nDecl)]);
         (INL nValBinding,
-         seql [NT nExp I lrEQ; tokGT ((=) $ EqualsT); NT nExp I lrGT]
+         seql [NT nExpEQ I lrEQ; tokGT ((=) $ EqualsT); NT nExp I lrEQ]
               (mkNT nValBinding));
         (INL nTyConDecl,
          seql [tokGE capname_tok; rpt (NT nTyBase I lrGE) FLAT]
@@ -119,7 +119,28 @@ Definition purePEG_def[nocompute]:
          pegf (sepby1 (NT nTyApp I lrGE) (tokGE ((=) $ SymbolT "->")))
               (mkNT nTy));
 
-        (INL nEqBindSeq, pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
+        (INL nEqBindSeq,
+         choicel [
+             seql [tokGT ((=) LbraceT);
+                   sepby (NT nFreeEqBind I lrOK)
+                         (tok ((=) SemicolonT) mktokLf lrOK);
+                   choicel [tok ((=) SemicolonT) mktokLf lrOK; empty[]];
+                   tok ((=) RbraceT) mktokLf lrOK] (mkNT nEqBindSeq);
+             NTGT nEqBindSeq';
+           ]);
+
+        (INL nEqBindSeq',
+         pegf (rpt (NT nEqBind I lrEQ) FLAT) (mkNT nEqBindSeq));
+
+        (INL nFreeEqBind,
+         choicel [seql [NT nExp I lrOK;
+                        tok ((=) EqualsT) mktokLf lrOK;
+                        NT nExp I lrOK] (mkNT nEqBind);
+                  seql [tok lcname_tok mktokLf lrOK;
+                        tok ((=) $ SymbolT "::") mktokLf lrOK;
+                        NT nTy I lrOK]
+                       (mkNT nEqBind)]);
+
         (INL nEqBind,
          choicel [seql [NT nExpEQ I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
                        (mkNT nEqBind);
@@ -130,16 +151,16 @@ Definition purePEG_def[nocompute]:
         (INL nOp, tok isSymbolOpT mktokLf lrEQ);
 
         (INL nIExp,
-         seql [NTGE nFExp; rpt (seql [NTGE nOp; NTGE nFExp2] I) FLAT]
+         seql [NTEQ nFExp; rpt (seql [NTGT nOp; NTEQ nFExp2] I) FLAT]
               (mkNT nIExp));
         (INL nIExpEQ,
          seql [NTEQ nFExpEQ; rpt (seql [NTGE nOp; NTGE nFExp2] I) FLAT]
               (mkNT nIExp));
         (INL nFExp2, pegf (choicel [NTGE nLSafeExp; NTGE nFExp]) (mkNT nFExp2));
         (INL nFExp,
-         seql [NTGE nAExp; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+         seql [NTEQ nAExp; rpt (NTEQ nAExp) FLAT] (mkNT nFExp));
         (INL nFExpEQ,
-         seql [NTEQ nAExpEQ; rpt (NTGE nAExp) FLAT] (mkNT nFExp));
+         seql [NTEQ nAExpEQ; rpt (NTEQ nAExp) FLAT] (mkNT nFExp));
         (INL nDoBlock, pegf (rpt (NTEQ nDoStmt) FLAT) (mkNT nDoBlock));
         (INL nDoStmt,
          choicel [
@@ -147,7 +168,7 @@ Definition purePEG_def[nocompute]:
                    choicel [seql [tokGT ((=) $ SymbolT "<-"); NTGT nExp] I;
                             empty []]
                   ] (mkNT nDoStmt);
-             seql [tokEQ ((=) LetT); NTGE nEqBindSeq] (mkNT nDoStmt)
+             seql [tokEQ ((=) LetT); NTGT nEqBindSeq'] (mkNT nDoStmt)
            ]);
         (* an "l-safe" expression is one that begins with a token that
            ensures the rest of the text of the expression belongs under
@@ -155,67 +176,67 @@ Definition purePEG_def[nocompute]:
            after the beginning left-token.  These are lambda, if-then-else,
            do, and let expressions *)
         (INL nLSafeExp,
-         choicel [seql [tokGE ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
-                        tokGE ((=) $ SymbolT "->");
-                        NTGE nExp] (mkNT nExp);
-                  seql [tokGE ((=) IfT); NTGE nExp;
-                        tokGE ((=) ThenT); NTGE nExp;
-                        tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
-                  seql [tokGE ((=) LetT) ; NTGE nEqBindSeq ;
-                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
-                  seql [tokGE ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp);
-                  seql [tokGE ((=) CaseT); NTGE nExp; tokGE ((=) OfT);
-                        NTGE nPatAlts] (mkNT nExp);
+         choicel [seql [tokGT ((=) $ SymbolT "\\") ; RPT1 (NTEQ nAPat);
+                        tokGT ((=) $ SymbolT "->");
+                        NTEQ nExp] (mkNT nExp);
+                  seql [tokGT ((=) IfT); NTEQ nExp;
+                        tokGT ((=) ThenT); NTEQ nExp;
+                        tokGT ((=) ElseT); NTEQ nExp] (mkNT nExp);
+                  seql [tokGT ((=) LetT) ; NTEQ nEqBindSeq ;
+                        tokGT ((=) InT) ; NTEQ nExp] (mkNT nExp);
+                  seql [tokGT ((=) $ AlphaT "do"); NTGT nDoBlock] (mkNT nExp);
+                  seql [tokGT ((=) CaseT); NTEQ nExp; tokGT ((=) OfT);
+                        NTGT nPatAlts] (mkNT nExp);
                  ]);
         (INL nLSafeExpEQ,
-         choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTGE nAPat);
-                        tokGE ((=) $ SymbolT "->");
-                        NTGE nExp] (mkNT nExp);
-                  seql [tokEQ ((=) IfT); NTGE nExp;
-                        tokGE ((=) ThenT); NTGE nExp;
-                        tokGE ((=) ElseT); NTGE nExp] (mkNT nExp);
-                  seql [tokEQ ((=) LetT) ; NTGE nEqBindSeq ;
-                        tokGE ((=) InT) ; NTGE nExp] (mkNT nExp);
-                  seql [tokEQ ((=) $ AlphaT "do"); NTGE nDoBlock] (mkNT nExp);
-                  seql [tokEQ ((=) CaseT); NTGE nExp; tokGE ((=) OfT);
-                        NTGE nPatAlts] (mkNT nExp);
+         choicel [seql [tokEQ ((=) $ SymbolT "\\") ; RPT1 (NTEQ nAPat);
+                        tokGT ((=) $ SymbolT "->");
+                        NTEQ nExp] (mkNT nExp);
+                  seql [tokEQ ((=) IfT); NTEQ nExp;
+                        tokGT ((=) ThenT); NTEQ nExp;
+                        tokGT ((=) ElseT); NTEQ nExp] (mkNT nExp);
+                  seql [tokEQ ((=) LetT) ; NTEQ nEqBindSeq ;
+                        tokGT ((=) InT) ; NTEQ nExp] (mkNT nExp);
+                  seql [tokEQ ((=) $ AlphaT "do"); NTGT nDoBlock] (mkNT nExp);
+                  seql [tokEQ ((=) CaseT); NTEQ nExp; tokGT ((=) OfT);
+                        NTGT nPatAlts] (mkNT nExp);
                  ]);
 
         (INL nAPat,
-         choicel [pegf (tok lcname_tok mktokLf lrEQ) (mkNT nAPat);
-                  pegf (NT nLit I lrEQ) (mkNT nAPat);
-                  pegf (tok ((=) UnderbarT) mktokLf lrEQ) (mkNT nAPat)]);
+         choicel [pegf (tokGT lcname_tok) (mkNT nAPat);
+                  pegf (NTEQ nLit) (mkNT nAPat);
+                  pegf (tokGT ((=) UnderbarT)) (mkNT nAPat)]);
         (INL nPat, pegf (NT nAPat I lrEQ) (mkNT nPat));
 
         (INL nPatAlts, pegf (rpt (NTEQ nPatAlt) FLAT) (mkNT nPatAlts));
         (INL nPatAlt, seql [NTEQ nExpEQ; tokGT ((=) $ SymbolT "->"); NTGT nExp]
                            (mkNT nPatAlt));
         (INL nExp,
-         choicel [NTGE nLSafeExp; pegf (NTGE nIExp) (mkNT nExp)]);
+         choicel [NTEQ nLSafeExp; pegf (NTEQ nIExp) (mkNT nExp)]);
         (INL nExpEQ,
          choicel [NTEQ nLSafeExpEQ; pegf (NTEQ nIExpEQ) (mkNT nExp)]);
 
         (INL nAExp, (* "atomic" / bottom-of-grammar expressions *)
-         choicel [pegf (NTGE nLit) (mkNT nAExp);
-                  seql [tokGE ((=) LparT) ;
-                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
-                        tokGE ((=) RparT)] (mkNT nAExp);
-                  seql [tokGE ((=) LbrackT) ;
-                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
-                        tokGE ((=) RbrackT)] (mkNT nAExp);
-                  pegf (tokGE isAlphaT) (mkNT nAExp);
-                  pegf (tokGE ((=) UnderbarT)) (mkNT nAExp);
-                  pegf (tokGE (IS_SOME o destFFIT)) (mkNT nAExp)
+         choicel [pegf (NTGT nLit) (mkNT nAExp);
+                  seql [tokGT ((=) LparT) ;
+                        sepby (NT nExp I lrEQ) (tokGT ((=) CommaT));
+                        tokGT ((=) RparT)] (mkNT nAExp);
+                  seql [tokGT ((=) LbrackT) ;
+                        sepby (NT nExp I lrEQ) (tokGT ((=) CommaT));
+                        tokGT ((=) RbrackT)] (mkNT nAExp);
+                  pegf (tokGT isAlphaT) (mkNT nAExp);
+                  pegf (tokGT ((=) UnderbarT)) (mkNT nAExp);
+                  pegf (tokGT (IS_SOME o destFFIT)) (mkNT nAExp)
                  ]);
 
         (INL nAExpEQ,
          choicel [pegf (NTEQ nLit) (mkNT nAExp);
                   seql [tokEQ ((=) LparT) ;
-                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
-                        tokGE ((=) RparT)] (mkNT nAExp);
+                        sepby (NT nExp I lrEQ) (tokGT ((=) CommaT));
+                        tokGT ((=) RparT)] (mkNT nAExp);
                   seql [tokEQ ((=) LbrackT) ;
-                        sepby (NT nExp I lrGE) (tokGE ((=) CommaT));
-                        tokGE ((=) RbrackT)] (mkNT nAExp);
+                        sepby (NT nExp I lrEQ) (tokGT ((=) CommaT));
+                        tokGT ((=) RbrackT)] (mkNT nAExp);
                   pegf (tokEQ isAlphaT) (mkNT nAExp) ;
                   pegf (tokEQ ((=) UnderbarT)) (mkNT nAExp);
                   pegf (tokEQ (IS_SOME o destFFIT)) (mkNT nAExp)
@@ -408,5 +429,11 @@ val caseexp2 =
 val caseexp3 =
   test “nExp” "case e of [] -> 3\n\
               \          h:t -> 4"
+
+val letbraces1 =
+  test “nDecl” "y = let\n\
+               \{x=\n\
+               \10;y::Int;}\n\
+               \ in x"
 
 val _ = export_theory();

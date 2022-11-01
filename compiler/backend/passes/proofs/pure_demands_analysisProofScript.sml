@@ -1629,17 +1629,16 @@ Proof
 QED
 
 Theorem demands_analysis_soundness:
-  ∀(e : α cexp) a. NestedCase_free e ⇒ exp_of e ≈ exp_of (demands_analysis a e)
+  ∀(e : α cexp) a. NestedCase_free e ⇒ exp_of e ≈ exp_of (demands_analysis e)
 Proof
-  rpt strip_tac \\ gvs [demands_analysis_def]
-  \\ irule find_soundness
-  \\ qabbrev_tac ‘e_pair = demands_analysis_fun Nil e (empty compare)’
-  \\ PairCases_on ‘e_pair’
-  \\ irule_at Any add_all_demands_soundness
+  rpt strip_tac \\ gvs [demands_analysis_def, SND_THM]
+  \\ pairarg_tac \\ gs [FST_THM]
+  \\ pairarg_tac \\ gs []
   \\ qspecl_then [‘(K 0) : α -> num’, ‘e’, ‘Nil’, ‘empty compare’]
                  assume_tac demands_analysis_soundness_lemma
-  \\ gvs [fdemands_map_to_set_def, empty_thm, ctxt_trans_def, TotOrd_compare]
-  \\ last_x_assum $ irule_at Any
+  \\ gvs [empty_thm, TotOrd_compare, ctxt_trans_def, fdemands_map_to_set_def]
+  \\ dxrule_then assume_tac find_soundness
+  \\ gs []
 QED
 
 val _ = export_theory();

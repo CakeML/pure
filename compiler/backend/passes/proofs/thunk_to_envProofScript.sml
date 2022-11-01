@@ -128,4 +128,78 @@ Proof
   \\ drule_all exp_rel_semantics \\ fs []
 QED
 
+Theorem IMP_env_cexp_wf:
+  thunk_exp_of$cexp_wf x ⇒
+  envLang$cexp_wf (to_env x) ∧
+  cns_arities (to_env x) ⊆ cns_arities x
+Proof
+  qid_spec_tac ‘x’
+  \\ ho_match_mp_tac to_env_ind
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ fs [to_env_def,cexp_wf_def,
+         thunk_cexpTheory.cns_arities_def,
+         env_cexpTheory.cns_arities_def]
+  >- (rw [] \\ gvs [SUBSET_DEF])
+  >~ [‘Lams’] >-
+   (strip_tac
+    \\ strip_tac \\ pop_assum kall_tac
+    \\ Induct_on ‘vs’ \\ fs [Lams_def,cexp_wf_def]
+    \\ fs [to_env_def,cexp_wf_def,
+           thunk_cexpTheory.cns_arities_def,
+           env_cexpTheory.cns_arities_def])
+  >~ [‘Apps’] >-
+   (strip_tac
+    \\ strip_tac \\ pop_assum kall_tac \\ fs [SF ETA_ss]
+    \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’
+    \\ Induct_on ‘xs’ \\ fs [Apps_def,cexp_wf_def]
+    \\ fs [to_env_def,cexp_wf_def,SF DNF_ss,
+           thunk_cexpTheory.cns_arities_def,
+           env_cexpTheory.cns_arities_def]
+    \\ rw [] \\ fs []
+    \\ rpt $ last_x_assum $ qspec_then ‘App x [h]’ mp_tac
+    \\ fs [to_env_def,Apps_def]
+    \\ fs [to_env_def,cexp_wf_def,SF DNF_ss,
+           thunk_cexpTheory.cns_arities_def,
+           env_cexpTheory.cns_arities_def]
+    \\ fs [SUBSET_DEF]
+    \\ metis_tac [])
+  >-
+   (Cases_on ‘fs = []’ \\ fs []
+    \\ pop_assum kall_tac
+    \\ fs [MAP_REVERSE] \\ Induct_on ‘fs’ \\ fs [SF DNF_ss,FORALL_PROD]
+    \\ rw [] \\ rpt $ first_x_assum irule
+    \\ fs [] \\ fs [SUBSET_DEF]
+    \\ fs [MEM_MAP,FORALL_PROD,EVERY_MEM,EXISTS_PROD]
+    \\ gvs [SF SFY_ss,PULL_EXISTS]
+    >-
+     (rename [‘cexp_ok_bind pp’] \\ Cases_on ‘pp’ \\ fs [cexp_ok_bind_def]
+      \\ fs [to_env_def]
+      \\ fs [cexp_wf_def] \\ rename [‘Lams l’] \\ Cases_on ‘l’ \\ fs [Lams_def])
+    >- metis_tac [])
+  >- cheat
+  \\ Cases_on ‘∃m. p = Cons m’
+  >-
+   (rw [] \\ fs [args_ok_def]
+    \\ gvs [get_arg_def,remove_Delay_def,to_env_def,SF DNF_ss]
+    \\ gvs [env_cexpTheory.cns_arities_def,SUBSET_DEF,cns_arities_def]
+    \\ rw [] \\ fs [MEM_MAP,EVERY_MEM,PULL_EXISTS,get_arg_def,to_env_def,remove_Delay_def]
+    \\ gvs [env_cexpTheory.cns_arities_def,SUBSET_DEF,cns_arities_def,SF DNF_ss,to_env_def]
+    \\ gvs [EVAL “monad_cns”,MEM_MAP]
+    \\ Cases_on ‘m’ \\ fs []
+    \\ metis_tac [])
+  \\ Cases_on ‘p’ \\ fs []
+  \\ gvs [env_cexpTheory.cns_arities_def,SUBSET_DEF,cns_arities_def,MEM_MAP,PULL_EXISTS]
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ strip_tac
+  \\ Cases_on ‘∃m. a = Message m’ \\ fs []
+  >- gvs [args_ok_def,pure_configTheory.num_atomop_args_ok_def,LENGTH_EQ_NUM_compute]
+  \\ fs [args_ok_def]
+  \\ qpat_x_assum ‘num_atomop_args_ok _ _’ kall_tac
+  \\ Induct_on ‘xs’ \\ fs [SF DNF_ss]
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ metis_tac []
+QED
+
 val _ = export_theory ();

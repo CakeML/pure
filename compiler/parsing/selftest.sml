@@ -99,8 +99,7 @@ val _ = temp_overload_on("CEXP",
   “flip (OPTION_BIND o ASTEXP)
      (translate_exp (insert (empty str_compare) «[]» listinfo))
     : (token, ppegnt, locs) parsetree -> unit cexp option”)
-val _ = temp_overload_on ("CMAIN",
-                          “(App () (𝕍«main») [Prim () (Cons «») []])”);
+val _ = temp_overload_on ("CMAIN", “𝕍«main»”);
 
 val _ = temp_overload_on ("CDECLS",
                           inst [alpha |-> “:locs”]
@@ -180,8 +179,12 @@ val _ = app fptest [
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z", “CEXP”,
-   “Letrec () [(«y», Lam () [] (𝕍 «x» +ₑ 𝕁 3));
-               («z», Lam () [] (𝕁 10))]
+   “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3);
+               («z», 𝕁 10)]
+              (𝕍 «y» +ₑ 𝕍 «z»)”),
+  (“nExp”, "let { y = x + 3; z = 10; } in y + z", “CEXP”,
+   “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3);
+               («z», 𝕁 10)]
               (𝕍 «y» +ₑ 𝕍 «z»)”),
   (“nExp”, "do x <- f y 3\n\
            \   foo x",
@@ -266,12 +269,11 @@ val _ = app fptest [
       (2n,
        [(«C»,[PrimTy Bool; TypeVar 0; PrimTy Integer]);
         («D»,[TypeVar 1; TypeCons 0 [TypeCons 1 [TypeVar 0]]])])])”),
-  (“nDecls”, "main u = do\n\
+  (“nDecls”, "main = do\n\
              \  #(stdout) \"Hello, world!\\n\"\n",
    “CDECLS”,
    “(Letrec () [
-     («main»,
-      Lam () [«u»] (Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]))
+     («main», (Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]))
      ] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
@@ -280,10 +282,9 @@ val _ = app filetest [("test1.hs", “astDecls”, NONE)]
 
 val _ = app convtest [
   ("s2cexp hello world",
-   EVAL, “string_to_cexp "main u = do #(stdout) \"Boo!\""”,
+   EVAL, “string_to_cexp "main = do Act (#(stdout) \"Boo!\")"”,
    “SOME (Letrec () [
-     («main»,
-      Lam () [«u»] (Prim () (AtomOp (Message "stdout")) [𝕋 "Boo!"]))
+     («main», Prim () (Cons «Act») [Prim () (AtomOp (Message "stdout")) [𝕋 "Boo!"]])
      ] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
