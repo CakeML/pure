@@ -222,9 +222,8 @@ Definition list_to_exp_def:
   list_to_exp (e::es) = Con (SOME $ Short "::") [e; list_to_exp es]
 End
 
-(* TODO make this concrete *)
 Definition failure_def:
-  failure = ARB : ast$exp
+  failure = Mat (Con NONE []) [] : ast$exp
 End
 
 Definition cexp_var_prefix_def:
@@ -304,8 +303,9 @@ Definition compile_def:
             | SOME ce1, SOME ce2, NONE =>
                 clet "v2" ce2 $ clet "v1" ce1 $ substring2
             | _ => failure)
-        | Cons «» => Con NONE ces
-        | Cons cn => Con (SOME $ Short $ explode cn) ces
+        | Cons cn => (if cn = «»
+                      then Con NONE ces
+                      else Con (SOME $ Short $ explode cn) ces)
         | FFI ch  => (
             case oEL 0 ces of
             | SOME ce =>
