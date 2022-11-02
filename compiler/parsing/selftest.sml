@@ -114,6 +114,9 @@ val _ = set_fixity ">>=" $ Infix(NONASSOC, 100)
 val _ = temp_overload_on ("+ₑ", “λe1 e2. Prim () (AtomOp Add) [e1; e2]”)
 val _ = temp_set_fixity "+ₑ" (Infixl 500)
 
+val _ = temp_overload_on ("*ₑ", “λe1 e2. Prim () (AtomOp Mul) [e1; e2]”)
+val _ = temp_set_fixity "*ₑ" (Infixl 600)
+
 
 val _ = app lextest [
   ("->", “[SymbolT "->"]”),
@@ -179,9 +182,7 @@ val _ = app fptest [
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z", “CEXP”,
-   “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3);
-               («z», 𝕁 10)]
-              (𝕍 «y» +ₑ 𝕍 «z»)”),
+   “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3); («z», 𝕁 10)] (𝕍 «y» +ₑ 𝕍 «z»)”),
   (“nExp”, "let { y = x + 3; z = 10; } in y + z", “CEXP”,
    “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3);
                («z», 𝕁 10)]
@@ -276,9 +277,9 @@ val _ = app fptest [
      («main», (Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]))
      ] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
-]
+];
 
-val _ = app filetest [("test1.hs", “astDecls”, NONE)]
+val _ = app filetest [("test1.hs", “astDecls”, NONE)];
 
 val _ = app convtest [
   ("s2cexp hello world",
@@ -286,5 +287,11 @@ val _ = app convtest [
    “SOME (Letrec () [
      («main», Prim () (Cons «Act») [Prim () (AtomOp (Message "stdout")) [𝕋 "Boo!"]])
      ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”),
+  ("s2cexp bracey-let",
+   EVAL, “string_to_cexp "f x = let { y = x + 1; z = y * 2 } in [z,y]"”,
+   “SOME (Letrec () [
+     («f», Lam () [«x»] (Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 1); («z», 𝕍 «y» *ₑ 𝕁 2)]
+                                (𝕍 «z» ::ₑ 𝕍 «y» ::ₑ []ₑ)))] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
