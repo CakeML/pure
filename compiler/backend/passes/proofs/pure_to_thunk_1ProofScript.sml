@@ -106,6 +106,11 @@ Inductive exp_rel:
   (∀x1 x2 y1 y2.
      LIST_REL exp_rel [x1; y1] [x2; y2] ⇒
        exp_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
+[exp_rel_Seq_fresh:]
+  (∀x1 x2 y1 y2 fresh.
+     LIST_REL exp_rel [x1; y1] [x2; y2] ∧
+     fresh ∉ freevars y1 ⇒
+       exp_rel (Seq x1 y1) (Let (SOME fresh) x2 y2)) ∧
 [exp_rel_Prim:]
   (∀op xs ys.
      op ≠ If ∧
@@ -246,6 +251,7 @@ Proof
     AP_TERM_TAC \\ AP_TERM_TAC
     \\ irule LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+  >- (fs [EXTENSION] \\ metis_tac [])
   >- (
     AP_TERM_TAC \\ AP_TERM_TAC
     \\ irule LIST_EQ
@@ -313,6 +319,13 @@ Proof
       \\ fs [SF DNF_ss]
       \\ last_x_assum (irule_at Any) \\ fs []
       \\ last_assum (irule_at Any) \\ fs [])
+    >- ((* Seq fresh *)
+      simp [subst_single_def, subst1_def]
+      \\ irule exp_rel_Seq_fresh \\ fs []
+      \\ fs [SF DNF_ss]
+      \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.freevars_subst]
+      \\ fs [FRANGE_FUPDATE,pure_expTheory.closed_def]
+      \\ rw [] \\ fs [pure_exp_lemmasTheory.subst1_ignore])
     >- ((* Others *)
       simp [subst_single_def, subst1_def]
       \\ rw [Once exp_rel_cases, EVERY2_MAP]
@@ -452,6 +465,32 @@ Proof
     irule exp_rel_Seq \\ fs [SF DNF_ss]
     \\ first_x_assum irule \\ fs []
     \\ first_assum (irule_at Any))
+  >- ((* Seq fresh *)
+    irule exp_rel_Seq_fresh \\ fs [SF DNF_ss]
+    \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.freevars_subst] \\ fs []
+    \\ conj_tac
+    >-
+     (ho_match_mp_tac finite_mapTheory.IN_FRANGE_FUPDATE_LIST_suff
+      \\ fs [MEM_MAP,PULL_EXISTS,MEM_FILTER,EXISTS_PROD,FORALL_PROD,EVERY_MEM]
+      \\ rw [] \\ drule_all LIST_REL_MEM
+      \\ fs [EXISTS_PROD] \\ rw [])
+    \\ first_x_assum drule_all
+    \\ disch_then $ qspec_then ‘fresh INSERT ks’ mp_tac
+    \\ match_mp_tac $ METIS_PROVE []
+          “x = x1 ∧ m = m1 ⇒ exp_rel x (subst m y) ⇒ exp_rel x1 (subst m1 y)”
+    \\ reverse conj_tac
+    >- fs [FILTER_MAP,FILTER_FILTER,LAMBDA_PROD,combinTheory.o_DEF]
+    \\ once_rewrite_tac [pure_exp_lemmasTheory.subst_FDIFF]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ fs [finite_mapTheory.fmap_eq_flookup,FLOOKUP_DRESTRICT]
+    \\ rw [] \\ fs [alistTheory.flookup_fupdate_list]
+    \\ qabbrev_tac ‘ff = Letrec f’ \\ pop_assum kall_tac
+    \\ fs [GSYM MAP_REVERSE,GSYM FILTER_REVERSE]
+    \\ qspec_tac (‘REVERSE f’,‘xs’)
+    \\ Induct \\ fs [FORALL_PROD,AllCaseEqs()]
+    \\ rw [] \\ CCONTR_TAC \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ metis_tac [])
   \\ irule exp_rel_Prim \\ fs [EVERY2_MAP]
   \\ conj_tac >- fs []
   \\ irule LIST_REL_mono
@@ -865,6 +904,16 @@ Proof
       \\ first_assum (drule_all_then assume_tac) \\ fs []
       \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [eval_wh_to_def]
       \\ IF_CASES_TAC \\ gvs [])
+    >- ((* Seq fresh *)
+      simp [eval_wh_to_def, eval_to_def]
+      \\ fs [SF DNF_ss]
+      \\ ‘eval_wh_to (k - 1) x1 ≠ wh_Error’
+        by (strip_tac \\ gs [eval_wh_to_def])
+      \\ first_assum (drule_all_then assume_tac) \\ fs []
+      \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [eval_wh_to_def]
+      \\ IF_CASES_TAC \\ gvs []
+      \\ imp_res_tac exp_rel_freevars
+      \\ fs [subst1_fresh])
     >- ((* {IsEq, AtomOp, Lit} *)
       simp [eval_wh_to_def, eval_to_def]
       \\ gvs [LIST_REL_EL_EQN, eval_to_def]
@@ -2819,6 +2868,11 @@ Inductive compile_rel:
   (∀x1 x2 y1 y2.
      LIST_REL compile_rel [x1; y1] [x2; y2] ⇒
        compile_rel (Seq x1 y1) (Let NONE x2 y2)) ∧
+[~Seq_fresh:]
+  (∀x1 x2 y1 y2.
+     LIST_REL compile_rel [x1; y1] [x2; y2] ∧
+     fresh ∉ freevars y1 ⇒
+       compile_rel (Seq x1 y1) (Let (SOME fresh) x2 y2)) ∧
 [~Prim:]
   (∀op xs ys.
      op ≠ If ∧
@@ -2889,6 +2943,13 @@ Proof
     \\ irule_at Any LIST_REL_lemma \\ gs [])
   >- ((* Seq *)
     irule_at Any exp_rel_Seq
+    \\ irule_at Any tick_rel_Prim \\ gs []
+    \\ first_assum (irule_at (Pos hd))
+    \\ first_assum (irule_at (Pos hd)) \\ gs []
+    \\ imp_res_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def])
+  >- ((* Seq fresh *)
+    irule_at Any exp_rel_Seq_fresh
     \\ irule_at Any tick_rel_Prim \\ gs []
     \\ first_assum (irule_at (Pos hd))
     \\ first_assum (irule_at (Pos hd)) \\ gs []

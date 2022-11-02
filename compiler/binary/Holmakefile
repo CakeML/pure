@@ -1,13 +1,11 @@
 INCLUDES = ../../language \
            .. \
            ../backend \
-           ../backend/proofs \
+           ../backend/passes \
            ../../meta-theory \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/basis \
            $(CAKEMLDIR)/translator \
-           $(CAKEMLDIR)/compiler \
-           $(CAKEMLDIR)/examples \
            $(HOLDIR)/examples/algorithms
 
 ioprog: ioprog.S $(CAKEMLDIR)/basis/basis_ffi.o ioCompileTheory.uo

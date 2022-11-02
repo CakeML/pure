@@ -160,9 +160,17 @@ Proof
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
       \\ strip_tac \\ fs [])
-    >~ [‘Seq’] >-
-     (gvs [num_args_ok_def,LENGTH_EQ_NUM_compute,any_el_def]
-      \\ irule_at Any exp_rel_Seq \\ gvs []))
+    >~ [‘Seq’]
+    \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute,any_el_def]
+    \\ irule_at Any exp_rel_Seq \\ gvs []
+    \\ drule_all invent_var_thm \\ strip_tac \\ gvs []
+    \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
+    \\ CCONTR_TAC \\ fs []
+    \\ drule expof_caseProofTheory.freevars_exp_of'
+    \\ strip_tac \\ fs []
+    \\ drule freevars_IMP_allvars
+    \\ strip_tac
+    \\ metis_tac [])
   \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
   >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
   \\ strip_tac \\ fs [] \\ fs [SUBSET_DEF] \\ metis_tac []

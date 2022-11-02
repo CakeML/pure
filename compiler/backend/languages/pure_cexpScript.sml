@@ -36,8 +36,6 @@ Proof
   Induct >> simp[DISJ_IMP_THM, FORALL_AND_THM]
 QED
 
-val _ = TypeBase.update_induction cepat_ind_alt
-
 Definition cepat_vars_def[simp]:
   cepat_vars cepatUScore = ∅ ∧
   cepat_vars (cepatVar v) = {v} ∧
@@ -57,7 +55,7 @@ End
 Theorem cepat_vars_l_correct:
   set (cepat_vars_l p) = cepat_vars p
 Proof
-  Induct_on ‘p’ >>
+  Induct_on ‘p’ using cepat_ind_alt >>
   simp[LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG] >>
   simp[SF ETA_ss]
 QED
@@ -287,6 +285,7 @@ Termination
   rw[] >> gs[]
 End
 
+(*
 Definition cexp_eq_def:
   cexp_eq (Var _ v1) (Var _ v2) = (v1 = v2) ∧
   cexp_eq (Prim _ op1 es1) (Prim _ op2 es2) = (
@@ -310,6 +309,7 @@ Definition cexp_eq_def:
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND` >> rw[]
 End
+*)
 
 Definition cns_arities_def:
   cns_arities (Var d v) = {} ∧

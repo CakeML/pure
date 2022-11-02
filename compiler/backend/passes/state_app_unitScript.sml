@@ -15,13 +15,18 @@ Definition unit_apps_def:
   unit_apps k x = if k = 0n then (x:cexp) else unit_apps (k-1) (app x Unit)
 End
 
+Definition any_el_def:
+  any_el n [] = Unit:state_cexp$cexp ∧
+  any_el n (x::xs) = if n = 0:num then x else any_el (n-1) xs
+End
+
 Definition push_app_unit_def:
   push_app_unit l ((Var v):cexp) =
     unit_apps l (Var v) ∧
   push_app_unit l (App op xs) =
     (if op = AppOp ∧ LENGTH xs = 2 then
-       if EL 1 xs = Unit then
-         push_app_unit (l+1n) (EL 0 xs)
+       if any_el 1 xs = Unit then
+         push_app_unit (l+1n) (any_el 0 xs)
        else unit_apps l $ App op (MAP (push_app_unit 0) xs)
      else unit_apps l $ App op (MAP (push_app_unit 0) xs)) ∧
   push_app_unit l (Lam vn x) =
@@ -46,7 +51,7 @@ Definition push_app_unit_def:
     unit_apps l (HandleApp (push_app_unit 0 x) (push_app_unit 0 y))
 Termination
   WF_REL_TAC ‘measure (cexp_size o SND)’
-  \\ gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,cexp_size_eq,list_size_def]
+  \\ gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,cexp_size_eq,list_size_def,any_el_def]
 End
 
 Triviality push_app_unit_test:

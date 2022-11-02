@@ -2745,10 +2745,11 @@ Proof
       ) >>
     Cases_on `op` >> gvs[compile_op_def]
     >- ( (* Cons / Tuple *)
-      TOP_CASE_TAC >> gvs[] >> reverse TOP_CASE_TAC >> gvs[] >>
+      IF_CASES_TAC >> gvs[] >>
       simp[Once cexp_compile_rel_cases] >>
       gvs[LIST_REL_EL_EQN, EL_MAP, GSYM PULL_EXISTS] >> reverse $ rw[]
-      >- (
+      >~ [‘ALOOKUP _ (explode m)’] >- (
+        Cases_on ‘m’ >>
         gvs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS, MEM_MAP,
             image_implode_lemma] >>
         gvs[mlstringTheory.implode_def] >>

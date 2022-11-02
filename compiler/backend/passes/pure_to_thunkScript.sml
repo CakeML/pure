@@ -17,6 +17,11 @@ Definition any_el_def:
   any_el n (x::xs) = if n = 0 then x else any_el (n-1) xs
 End
 
+Definition get_var_name_def:
+  get_var_name ((pure_cexp$Var c v)::_) = v ∧
+  get_var_name _ = strlit "forced"
+End
+
 Definition to_thunk_def:
   to_thunk (s:vars) (pure_cexp$Var c v) =
     (thunk_cexp$Force (Var v),s) ∧
@@ -34,12 +39,16 @@ Definition to_thunk_def:
     (let (x,s) = to_thunk s x in
      let (y,s) = to_thunk s y in
        (Let (SOME v) (Delay x) y,s)) ∧
-  to_thunk s (Prim c p xs) =
-    (let (xs,s) = to_thunk_list s xs in
+  to_thunk s (Prim c p ys) =
+    (let (xs,s) = to_thunk_list s ys in
        case p of
-       | Seq => (Let NONE (any_el 0 xs) (any_el 1 xs),s)
+       | Cons t => (Prim (Cons t) (MAP Delay xs),s)
        | AtomOp a => (Prim (AtomOp a) xs,s)
-       | Cons t => (Prim (Cons t) (MAP Delay xs),s)) ∧
+       | Seq =>
+           let x = any_el 0 xs in
+           let y = any_el 1 xs in
+           let (fresh,s) = invent_var (get_var_name ys) s in
+             (Let (SOME fresh) x y,s)) ∧
   to_thunk s (Case c x v ys opt) =
     (let (x,s) = to_thunk s x in
      let (rs,s) = to_thunk_list s (MAP (SND o SND) ys) in
