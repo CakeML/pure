@@ -52,9 +52,10 @@ Inductive exp_rel:
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim i (AtomOp a) xs) (Prim (AtomOp a) ys)) ∧
 [~Seq:]
-  (∀x1 x2 y1 y2.
-     exp_rel x1 y1 ∧ exp_rel x2 y2 ⇒
-       exp_rel (Prim i Seq [x1; x2]) (Let NONE y1 y2)) ∧
+  (∀x1 x2 y1 y2 fresh.
+     exp_rel x1 y1 ∧ exp_rel x2 y2 ∧
+     explode fresh ∉ freevars (exp_of' x2) ⇒
+       exp_rel (Prim i Seq [x1; x2]) (Let (SOME fresh) y1 y2)) ∧
 [~Case:]
   (∀i x v xs ys fresh.
      ~MEM v (FLAT (MAP (FST ∘ SND) xs)) ∧ xs ≠ [] ∧
@@ -104,7 +105,7 @@ Proof
     \\ rpt $ first_x_assum $ irule_at Any \\ fs []
     \\ irule thunk_let_forceProofTheory.exp_rel_NONE_IMP_SOME \\ fs [])
   \\ rw [] \\ gvs []
-  \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
+  \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Seq \\ fs []
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
@@ -324,11 +325,12 @@ Proof
     \\ first_assum $ irule_at Any)
   >~ [‘Seq’] >-
    (fs [pure_cexpTheory.op_of_def]
-    \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases,PULL_EXISTS]
+    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Seq_fresh \\ fs []
+    \\ qpat_x_assum ‘explode fresh ∉ _’ $ irule_at Any
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Let
     \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Let
     \\ fs [name_clash_def]
-    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Let_NONE
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Let_SOME
     \\ metis_tac [])
   >~ [‘Let’] >-
    (irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Let
