@@ -753,13 +753,14 @@ Proof
    (reverse (Cases_on ‘op = AppOp ∧ LENGTH xs = 2 ∧ EL 1 xs = Unit’ \\ gvs [])
     \\ gvs [push_app_unit_def]
     >-
-     (rw [] \\ gvs []
+     (rw [] >- gvs [LENGTH_EQ_NUM_compute,any_el_def]
+      \\ gvs []
       \\ irule cexp_rel_unit_apps
       \\ irule cexp_rel_App
       \\ qpat_x_assum ‘∀x. _’ mp_tac
       \\ qid_spec_tac ‘xs’ \\ Induct \\ fs []
       \\ metis_tac [])
-    \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ gvs [LENGTH_EQ_NUM_compute,any_el_def]
     \\ pop_assum mp_tac
     \\ simp [Once unit_apps_def])
   >-
