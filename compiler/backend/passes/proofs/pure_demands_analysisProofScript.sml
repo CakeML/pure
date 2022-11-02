@@ -375,9 +375,9 @@ Proof
 QED
 
 Theorem split_body_soundness:
-  ∀e l bL body v. LENGTH l = LENGTH bL ⇒
-                  split_body e = (l, body) ⇒
-                  (v, (exp_of e)) = mk_lams (v, ZIP(MAP explode l, bL), (exp_of body)) ∧
+  ∀e l bL body label. LENGTH l = LENGTH bL ⇒
+                  split_body e = (l, body, label) ⇒
+                  (∀v. (v, (exp_of e)) = mk_lams (v, ZIP(MAP explode l, bL), (exp_of body))) ∧
                   (NestedCase_free e ⇒ NestedCase_free body)
 Proof
   Cases \\ gs [split_body_def, Lams_def, mk_lams_def, NestedCase_free_def]
@@ -838,11 +838,11 @@ QED
 
 Theorem can_compute_fixpoint_soundness:
   ∀binds1 binds2.
-    can_compute_fixpoint binds1 = SOME binds2 ∧ EVERY (λ(v, e). NestedCase_free e) binds1 ⇒
+    can_compute_fixpoint binds1 = (T, binds2) ∧ EVERY (λ(v, e). NestedCase_free e) binds1 ⇒
     ∀binds1b binds2b bLfull.
       LIST_REL (λbL (_, args, _). LENGTH bL = LENGTH args) bLfull binds2 ∧
       binds1b = MAP (λ(v, e). (explode v, exp_of e)) binds1 ∧
-      binds2b = MAP2 (λbL (v, args, e). (explode v, ZIP (MAP explode args, bL), exp_of e)) bLfull binds2
+      binds2b = MAP2 (λbL (v, args, e, label). (explode v, ZIP (MAP explode args, bL), exp_of e)) bLfull binds2
       ⇒ binds1b = MAP mk_lams binds2b ∧
         ∀v args body.
           ALL_DISTINCT (MAP FST binds1) ∧
@@ -852,7 +852,9 @@ Theorem can_compute_fixpoint_soundness:
           freevars body ⊆ set (MAP FST binds2b) ∪ set (MAP FST args)
 Proof
   gs [can_compute_fixpoint_def]
-  \\ gen_tac \\ strip_tac
+  \\ gen_tac \\ gen_tac
+  \\ IF_CASES_TAC \\ gs []
+  \\ strip_tac
   \\ gen_tac \\ strip_tac
   \\ conj_tac
   >- (irule LIST_EQ
@@ -879,17 +881,32 @@ Proof
   \\ gs [GSYM MAP_MAP_o, MAP_ZIP]
   \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
   \\ rename1 ‘FOLDR _ (empty compare) (MAP _ binds1)’
+  \\ last_x_assum $ drule_then assume_tac
+  \\ pairarg_tac \\ gvs [EL_MAP]
   \\ qspec_then ‘binds1’ assume_tac can_compute_fixpoint_lemma
-  \\ rename1 ‘split_body body' = (args', body2)’
+  \\ rename1 ‘split_body body = (args', body2, label)’
   \\ rename1 ‘LENGTH (EL n bLfull) = LENGTH _’
-  \\ qspecl_then [‘body'’, ‘args'’, ‘EL n bLfull’] assume_tac split_body_soundness
+  \\ qspecl_then [‘body’, ‘args'’, ‘EL n bLfull’] assume_tac split_body_soundness
   \\ gvs []
   \\ conj_tac
-  >- gs [DISJOINT_ALT, PULL_EXISTS, MEM_MAP, FORALL_PROD]
-  \\ gvs [SUBSET_DEF, PULL_EXISTS, MEM_MAP, EXISTS_PROD]
+  >- (gs [DISJOINT_ALT, PULL_EXISTS, MEM_MAP, FORALL_PROD, GSYM LAMBDA_PROD]
+      \\ rw []
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ strip_tac
+      \\ first_x_assum irule
+      \\ gvs [MEM_EL, EL_MAP, EL_ZIP]
+      \\ first_assum $ irule_at Any
+      \\ pairarg_tac \\ gs [])
+  \\ gvs [SUBSET_DEF, PULL_EXISTS, MEM_MAP, EXISTS_PROD, GSYM LAMBDA_PROD]
   \\ rw [] \\ last_x_assum $ dxrule_then assume_tac
   \\ gs []
-  \\ metis_tac []
+  \\ disj1_tac \\ gs [MEM_EL]
+  \\ first_assum $ irule_at Any
+  \\ rw [EL_ZIP, EL_MAP]
+  \\ pairarg_tac \\ gs []
+  \\ rename1 ‘split_body body'’
+  \\ Cases_on ‘body'’
+  \\ gs [split_body_def]
 QED
 
 Theorem fixpoint1_App_lemma1:
@@ -1111,12 +1128,12 @@ QED
 
 Theorem is_lower_soundness:
   ∀l1 l2. is_lower l1 l2 ⇒
-          LIST_REL (λ(_, a1, _) (_, a2, _).
+          LIST_REL (λ(_, a1, _, _) (_, a2, _, _).
                       LIST_REL (λ(_, b1) (_, b2). b2 ⇒ b1) a1 a2) l1 l2
 Proof
   Induct \\ gs [FORALL_PROD]
   >- (Cases \\ gs [is_lower_def])
-  \\ gen_tac \\ gen_tac \\ gen_tac
+  \\ gen_tac \\ gen_tac \\ gen_tac \\ gen_tac
   \\ Cases \\ gs [is_lower_def]
   \\ rename1 ‘is_lower _ (h::_)’
   \\ PairCases_on ‘h’ \\ gs [is_lower_def]
@@ -1140,7 +1157,7 @@ Theorem handle_fixpoint1_soundness:
     ⇒
     SND (SND arg) = SND (SND out) ∧
     ∃ds ads fs.
-        find_fixpoint binds (exp_of (SND (SND arg))) Nil ds ads fs ∧
+        find_fixpoint binds (exp_of (FST (SND (SND arg)))) Nil ds ads fs ∧
         ∀v. MEM (v, T) (FST (SND out)) ⇒ explode v ∈ ds
 Proof
   gs [FORALL_PROD, handle_fixpoint1_def]
@@ -1170,7 +1187,7 @@ Theorem compute_fixpoint_rec_lemma:
     ALL_DISTINCT (MAP FST binds) ∧
     m = FOLDR (λ(v, args, e) m. insert m v (MAP SND args))
                 (mlmap$empty mlstring$compare) binds ∧
-    binds2 = MAP (λ(v, args, e). (explode v, (MAP (explode ## I) args), exp_of e)) binds ⇒
+    binds2 = MAP (λ(v, args, e, label). (explode v, (MAP (explode ## I) args), exp_of e)) binds ⇒
     map_ok m ∧ cmp_of m = compare ∧
     FDOM $ to_fmap m = set (MAP FST binds) ∧
     (∀v. v ∈ FDOM $ to_fmap m ⇒
@@ -1182,48 +1199,84 @@ Proof
   \\ gs [insert_thm]
   >- (rename1 ‘_ = (_, args, e)’
       \\ qexists_tac ‘MAP (explode o FST) args’
-      \\ qexists_tac ‘exp_of e’
+      \\ qexists_tac ‘exp_of (FST e)’
       \\ gs []
+      \\ pairarg_tac \\ gs []
       \\ disj1_tac
       \\ irule LIST_EQ
       \\ rw [EL_MAP, EL_ZIP, SND_THM]
       \\ pairarg_tac \\ gs [])
   \\ gs [FAPPLY_FUPDATE_THM]
   \\ IF_CASES_TAC \\ gs []
+  \\ first_x_assum $ dxrule_then assume_tac
+  \\ gs []
+  \\ metis_tac []
+QED
+
+Theorem LIST_REL_binds_handle_fixpoint1:
+  ∀binds m.
+    LIST_REL (λ(v1, a1, b1, l1) (v2, a2, b2, l2).
+                v1 = v2 ∧ MAP FST a1 = MAP FST a2 ∧ b1 = b2 ∧ l1 = l2) binds
+             (MAP (handle_fixpoint1 m) binds)
+Proof
+  Induct \\ gs [FORALL_PROD, handle_fixpoint1_def]
+  \\ rw []
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ rw []
+  \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
 QED
 
 Theorem compute_fixpoint_rec_soundness:
   ∀i binds binds2 binds2b.
     compute_fixpoint_rec i binds = binds2 ∧
     ALL_DISTINCT (MAP FST binds) ∧
-    binds2b = MAP (λ(v, args, e). (explode v, (MAP (explode ## I) args), exp_of e)) binds2
-    ⇒ ∀v args body.
+    binds2b = MAP (λ(v, args, e, label). (explode v, (MAP (explode ## I) args), exp_of e)) binds2
+    ⇒ (∀v args body.
         MEM (v, args, body) binds2b
         ⇒ ∃ds ads fs.
             find_fixpoint binds2b body Nil ds ads fs ∧
-            ∀v. MEM (v, T) args ⇒ v ∈ ds
+            ∀v. MEM (v, T) args ⇒ v ∈ ds) ∧
+      LIST_REL (λ(v1, a1, b1, l1) (v2, a2, b2, l2).
+                  v1 = v2 ∧ MAP FST a1 = MAP FST a2 ∧ b1 = b2 ∧ l1 = l2) binds binds2
 Proof
   Induct \\ gs [compute_fixpoint_rec_def]
   >- (rw []
       \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-      \\ irule_at Any find_fixpoint_refl
-      \\ gs [MEM_MAP]
+      >- (irule_at Any find_fixpoint_refl
+          \\ gs [MEM_MAP]
+          \\ pairarg_tac
+          \\ gs [MEM_MAP, FORALL_PROD])
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP]
+      \\ rw []
       \\ pairarg_tac
-      \\ gs [MEM_MAP, FORALL_PROD])
-  \\ rw []
+      \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM])
+  \\ gen_tac \\ strip_tac
+  \\ IF_CASES_TAC \\ gs []
   >~[‘¬is_lower _ _’]
-  >- (last_x_assum irule
+  >- (qmatch_goalsub_abbrev_tac ‘compute_fixpoint_rec _ binds2’
+      \\ last_x_assum $ qspec_then ‘binds2’ mp_tac \\ gs []
+      \\ impl_tac
+      >- (gs [Abbr ‘binds2’]
+          \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_handle_fixpoint1]
+          \\ gs [GSYM FST_THM, GSYM LAMBDA_PROD])
+      \\ strip_tac \\ gs [Abbr ‘binds2’]
+      \\ rw [] \\ gvs []
+      >- (first_x_assum $ dxrule_then $ irule_at Any)
+      \\ irule LIST_REL_TRANS
+      \\ gs [FORALL_PROD]
       \\ first_x_assum $ irule_at Any
-      \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_handle_fixpoint1]
-      \\ gs [GSYM FST_THM, GSYM LAMBDA_PROD])
+      \\ gs [LIST_REL_binds_handle_fixpoint1])
   \\ last_x_assum kall_tac
+  \\ gs [LIST_REL_binds_handle_fixpoint1]
   \\ dxrule_then assume_tac is_lower_soundness
-  \\ gvs [MEM_MAP]
+  \\ gvs [MEM_MAP, PULL_EXISTS]
+  \\ rw []
   \\ pairarg_tac \\ gs []
   \\ gs [MEM_EL]
   \\ dxrule_then assume_tac handle_fixpoint1_soundness
   \\ dxrule_then assume_tac compute_fixpoint_rec_lemma
-  \\ gvs []
+  \\ gvs [GSYM LAMBDA_PROD]
   \\ last_x_assum $ dxrule_then assume_tac
   \\ gs []
   \\ irule_at Any find_lower_bind
@@ -1259,6 +1312,263 @@ Proof
   \\ first_x_assum $ dxrule_then assume_tac
   \\ rename1 ‘(_, _) = (EL n' args') ⇒ _’
   \\ Cases_on ‘EL n' args'’ \\ gs []
+QED
+
+Theorem can_compute_fixpoint_soundness2:
+  ∀binds b binds2.
+    can_compute_fixpoint binds = (b, binds2) ⇒
+    binds2 = MAP (λ(v, body). (v, split_body body)) binds ∧
+    MAP FST binds2 = MAP FST binds
+Proof
+  gs [can_compute_fixpoint_def]
+  \\ rpt $ gen_tac
+  \\ IF_CASES_TAC \\ gs []
+  \\ rw []
+  \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+  \\ irule LIST_EQ
+  \\ rw [EL_MAP]
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+QED
+
+Theorem rev_split_body_inner_MAP_F:
+  ∀l a e. rev_split_body_inner a (MAP (λv. (v, F)) l) e = e
+Proof
+  Induct \\ gs [rev_split_body_inner_def]
+QED
+
+Theorem NestedCase_free_rev_split_body:
+  ∀args a b. NestedCase_free b ⇒
+             NestedCase_free (rev_split_body_inner a args b)
+Proof
+  Induct \\ gs [rev_split_body_inner_def, FORALL_PROD]
+  \\ gen_tac  \\ Cases \\ rw []
+  \\ gs [rev_split_body_inner_def, FORALL_PROD]
+QED
+
+Theorem cexp_wf_rev_split_body:
+  ∀args a b. cexp_wf b ⇒
+             cexp_wf (rev_split_body_inner a args b)
+Proof
+  Induct \\ gs [rev_split_body_inner_def, FORALL_PROD]
+  \\ gen_tac  \\ Cases \\ rw []
+  \\ gs [rev_split_body_inner_def, FORALL_PROD, cexp_wf_def, num_args_ok_def]
+QED
+
+Theorem rev_split_body_inner_soundness:
+  ∀args label e.
+    exp_of (rev_split_body_inner label args e)
+    = mk_seqs (MAP (λ(v, b). (explode v, b)) args) (exp_of e)
+Proof
+  Induct \\ gs [rev_split_body_inner_def, mk_seqs_def, FORALL_PROD]
+  \\ gen_tac \\ Cases \\ gs [rev_split_body_inner_def, mk_seqs_def, exp_of_def, op_of_def]
+QED
+
+Theorem rev_split_body_soundness:
+  ∀args label e.
+    exp_of (rev_split_body label args e)
+    =
+    Lams (MAP (λ(v, b). explode v) args)
+         (mk_seqs (MAP (λ(v, b). (explode v, b)) args) (exp_of e))
+Proof
+  Cases
+  \\ gs [rev_split_body_def, exp_of_def, rev_split_body_inner_soundness, Lams_def, mk_seqs_def]
+  \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  \\ pairarg_tac \\ gs []
+QED
+
+Theorem MAP_mk_seq_lams:
+  ∀l. MAP (λ(n, x). (explode n, exp_of x)) (MAP (λ(v, args, body, label). (v, rev_split_body label args body)) l)
+      = MAP mk_seq_lams
+            (MAP (λ(n, args, body, label). (explode n, MAP (λ(v,b). (explode v, b)) args, exp_of body)) l)
+Proof
+  Induct \\ gs [FORALL_PROD]
+  \\ pop_assum kall_tac
+  \\ rw [mk_seq_lams_def]
+  \\ gs [rev_split_body_soundness, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+QED
+
+Theorem fixpoint_analysis_lemma:
+  ∀binds binds2.
+    LIST_REL (λ(v1,a1,b1,l1) (v2,a2,b2,l2). v1 = v2 ∧ MAP FST a1 = MAP FST a2 ∧ b1 = b2 ∧ l1 = l2)
+             (MAP (λ(p1,p2). (λ(args,body,label). (p1,MAP (λv. (v,T)) args,body,label)) (split_body p2)) binds)
+             binds2 ⇒
+    MAP2 (λbL (v, args, e, label). (explode v, ZIP (MAP explode args, bL), exp_of e))
+         (MAP (λ(_, args, _, _). MAP SND args) binds2)
+         (MAP (λ(v, body). (v, split_body body)) binds)
+    = MAP (λ(n,args,body,label). (explode n,MAP (λ(v,b). (explode v,b)) args, exp_of body)) binds2
+Proof
+  Induct \\ gs [PULL_EXISTS]
+  \\ pop_assum kall_tac
+  \\ gs [FORALL_PROD]
+  \\ rw []
+  \\ pairarg_tac \\ gs []
+  \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  \\ irule LIST_EQ
+  \\ rw [EL_MAP, EL_ZIP]
+  \\ pairarg_tac \\ gs []
+QED
+
+Theorem fixpoint_analysis_lemma2:
+  ∀binds binds2.
+    LIST_REL (λ(v1,a1,b1,l1) (v2,a2,b2,l2). v1 = v2 ∧ MAP FST a1 = MAP FST a2 ∧ b1 = b2 ∧ l1 = l2)
+             (MAP (λ(p1,p2). (λ(args,body,label). (p1,MAP (λv. (v,T)) args,body,label)) (split_body p2)) binds)
+             binds2 ⇒
+    MAP FST binds = MAP FST binds2
+Proof
+  rw [] \\ irule LIST_EQ
+  \\ gs [LIST_REL_EL_EQN]
+  \\ rw [EL_MAP]
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gvs [EL_MAP]
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+QED
+
+Theorem ALL_DISTINCT_MAP_explode:
+  ∀l. ALL_DISTINCT l ⇒ ALL_DISTINCT (MAP explode l)
+Proof
+  Induct \\ gs [MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem fixpoint_analysis_soundness:
+  ∀binds binds2 a e.
+    fixpoint_analysis binds = binds2 ∧ NestedCase_free (Letrec a binds e) ∧ ALL_DISTINCT (MAP FST binds) ∧
+    cexp_wf (Letrec a binds e) ⇒
+    NestedCase_free (Letrec a (MAP (λ(v, args, body, label). (v, rev_split_body label args body)) binds2) e) ∧
+    cexp_wf (Letrec a (MAP (λ(v, args, body, label). (v, rev_split_body label args body)) binds2) e) ∧
+    ∀c. find (exp_of (Letrec a binds e)) c {}
+             {} (exp_of (Letrec a (MAP (λ(v, args, body, label). (v, rev_split_body label args body)) binds2) e))
+             NONE
+Proof
+  gs [fixpoint_analysis_def]
+  \\ rpt $ gen_tac \\ strip_tac
+  \\ pairarg_tac \\ gs []
+  \\ IF_CASES_TAC \\ gs []
+  >- (drule_then assume_tac can_compute_fixpoint_soundness
+      \\ drule_then assume_tac can_compute_fixpoint_soundness2
+      \\ qmatch_goalsub_abbrev_tac ‘compute_fixpoint_rec fuel args’
+      \\ qspecl_then [‘fuel’, ‘args’] assume_tac compute_fixpoint_rec_soundness
+      \\ gvs [Abbr ‘args’, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+      \\ pop_assum mp_tac
+      \\ impl_tac
+      >- (‘∀l1 : mlstring list l2. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+          \\ pop_assum $ dxrule_then irule
+          \\ irule LIST_EQ
+          \\ rw [EL_MAP]
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs [])
+      \\ strip_tac
+      \\ gs [exp_of_def]
+      \\ conj_tac
+      >- (gs [EVERY_EL, EL_MAP, LIST_REL_EL_EQN]
+          \\ gen_tac \\ strip_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ rw []
+          \\ rename1 ‘split_body p2'’
+          \\ Cases_on ‘p2'’
+          \\ gs [NestedCase_free_def, split_body_def, rev_split_body_def]
+          \\ rw [NestedCase_free_def, rev_split_body_def]
+          \\ rename1 ‘rev_split_body _ args2 _’
+          \\ Cases_on ‘args2’
+          \\ gs [rev_split_body_def, NestedCase_free_rev_split_body])
+      \\ conj_tac
+      >- (gs [EVERY_EL, cexp_wf_def, LIST_REL_EL_EQN]
+          \\ conj_tac
+          >- (gen_tac \\ strip_tac
+              \\ first_x_assum $ drule_then assume_tac
+              \\ last_x_assum $ drule_then assume_tac
+              \\ last_x_assum $ drule_then assume_tac
+              \\ gs [EL_MAP]
+              \\ pairarg_tac \\ gs []
+              \\ pairarg_tac \\ gs []
+              \\ pairarg_tac \\ gs []
+              \\ pairarg_tac \\ gs []
+              \\ rw []
+              \\ rename1 ‘split_body p2'’
+              \\ Cases_on ‘p2'’
+              \\ gs [NestedCase_free_def, split_body_def, rev_split_body_def]
+              \\ rw [NestedCase_free_def, rev_split_body_def]
+              \\ rename1 ‘rev_split_body _ args2 _’
+              \\ Cases_on ‘args2’
+              \\ gs [rev_split_body_def, cexp_wf_rev_split_body, cexp_wf_def])
+          >- (strip_tac \\ gs []))
+      \\ irule_at Any find_Letrec2
+      \\ irule_at Any MAP_mk_seq_lams
+      \\ qmatch_goalsub_abbrev_tac ‘ALL_DISTINCT (MAP FST (MAP _ binds2))’
+      \\ last_x_assum $ qspec_then ‘MAP (λ(_, args, _, _). MAP SND args) binds2’ mp_tac
+      \\ gs [EVERY_MAP, LAMBDA_PROD]
+      \\ impl_tac
+      >-  (gvs [Abbr ‘binds2’, LIST_REL_EL_EQN]
+           \\ gen_tac \\ strip_tac
+           \\ first_x_assum $ drule_then assume_tac
+           \\ gs [EL_MAP]
+           \\ pairarg_tac \\ gs []
+           \\ pairarg_tac \\ gs []
+           \\ pairarg_tac \\ gs []
+           \\ gs [MAP_MAP_o, combinTheory.o_DEF])
+      \\ strip_tac \\ gs []
+      \\ gs [fixpoint_analysis_lemma]
+      \\ conj_tac
+      >- (rpt $ gen_tac \\ strip_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ gs []
+          \\ ‘∀l. MAP (λ(v, b : bool). (explode v, b)) l = MAP (explode ## I) l’
+            by (gen_tac
+                \\ irule LIST_EQ
+                \\ rw [EL_MAP]
+                \\ pairarg_tac \\ gs [])
+          \\ gvs []
+          \\ first_x_assum $ irule_at Any
+          \\ first_x_assum $ irule_at Any)
+      \\ dxrule_then assume_tac fixpoint_analysis_lemma2
+      \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+      \\ gs [GSYM LAMBDA_PROD, GSYM FST_THM]
+      \\ dxrule_then mp_tac ALL_DISTINCT_MAP_explode
+      \\ rpt $ pop_assum kall_tac
+      \\ Induct_on ‘binds2’ \\ gvs [FORALL_PROD, MEM_MAP])
+  \\ drule_then assume_tac can_compute_fixpoint_soundness2
+  \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  \\ qmatch_goalsub_abbrev_tac ‘find (exp_of (Letrec _ b1 _)) _ _ _ (exp_of (Letrec _ b2 _)) _’
+  \\ qsuff_tac ‘b1 = b2’
+  >- (gs [find_Bottom]
+      \\ strip_tac
+      \\ gvs []
+      \\ gs [Abbr ‘b1’, EVERY_EL]
+      \\ gen_tac \\ strip_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ gs [EL_MAP]
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ rename1 ‘split_body p2 = (args', body, label)’
+      \\ qspecl_then [‘p2’, ‘args'’, ‘GENLIST (K T) (LENGTH args')’] assume_tac split_body_soundness
+      \\ gs []
+      \\ rw []
+      \\ Cases_on ‘args'’
+      \\ gs [rev_split_body_def, rev_split_body_inner_def, rev_split_body_inner_MAP_F])
+  \\ gs [Abbr ‘b1’, Abbr ‘b2’, cexp_wf_def, EVERY_EL]
+  \\ irule LIST_EQ
+  \\ rw [EL_MAP]
+  \\ first_x_assum $ drule_then assume_tac
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ pairarg_tac \\ gs []
+  \\ rw []
+  \\ rename1 ‘split_body p2 = _’
+  \\ Cases_on ‘p2’
+  \\ gs [split_body_def, rev_split_body_def, EL_MAP]
+  \\ rename1 ‘Lam _ args _ = _’
+  \\ Cases_on ‘args’
+  \\ gs [rev_split_body_def, rev_split_body_inner_def, rev_split_body_inner_MAP_F, cexp_wf_def]
+  \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
 QED
 
 Theorem update_ctxt_soundness:

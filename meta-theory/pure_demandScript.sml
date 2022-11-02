@@ -3586,6 +3586,24 @@ Proof
   gvs []
 QED
 
+Theorem demands_when_applied_exp_eq:
+  ∀d e1 e2 len c. exp_eq_in_ctxt c e1 e2 ∧ e1 demands_when_applied (d, len, c)
+                  ⇒ e2 demands_when_applied (d, len, c)
+Proof
+  PairCases >> rw [demands_when_applied_def] >>
+  irule eq_when_applied_trans_exp_eq >>
+  irule_at Any $ iffLR exp_eq_in_ctxt_sym >> last_assum $ irule_at Any >>
+  irule eq_when_applied_trans >> pop_assum $ irule_at Any >>
+  irule exp_eq_in_ctxt_IMP_eq_when_applied >>
+  irule exp_eq_in_ctxt_Prim >> gvs [exp_eq_in_ctxt_refl]
+QED
+
+Theorem demands_IMP_demands_when_applied:
+  ∀e c l ps. e demands ((ps, v), c) ⇒ e demands_when_applied ((ps, v), l, c)
+Proof
+  rw [demands_def, demands_when_applied_def]
+  \\ gs [exp_eq_in_ctxt_IMP_eq_when_applied]
+QED
 
 (* -------------------- *)
 
@@ -3677,12 +3695,33 @@ Inductive find_fixpoint:
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
      find_fixpoint binds (Seq e1 e2) c (ds1 ∪ ds2) ads2 l2) ∧
+[~If:]
+  (∀e1 e2 e3 c binds ds1 ds2 ds3 ads1 ads2 ads3 l1 l2 l3.
+     find_fixpoint binds e1 c ds1 ads1 l1 ∧
+     find_fixpoint binds e2 c ds2 ads2 l2 ∧
+     find_fixpoint binds e3 c ds3 ads3 l3 ⇒
+     find_fixpoint binds (If e1 e2 e3) c (ds1 ∩ (ds2 ∪ ds3)) {} []) ∧
+[~Lam_F:]
+  (∀e c binds ds ads l s.
+     find_fixpoint (FILTER (λ(v, _). v ≠ s) binds) e (IsFree s c) ds ads l ⇒
+     find_fixpoint binds (Lam s e) c {} (ads DELETE s) (F::l)) ∧
+[~Lam_T:]
+  (∀e c binds ds ads l s.
+     (s ∈ ds ∨ s ∈ ads) ∧
+     find_fixpoint (FILTER (λ(v, _). v ≠ s) binds) e (IsFree s c) ds ads l ⇒
+     find_fixpoint binds (Lam s e) c {} (ads DELETE s) (T::l)) ∧
 [~Let:]
-  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2 w.
      w ∉ ds2 ∧ w ∉ ads2 ∧
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
-     find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (Bind w e1 c) ds2 ads2 l2 ⇒
+     find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (IsFree w c) ds2 ads2 l2 ⇒
      find_fixpoint binds (Let w e1 e2) c ds2 ads2 l2) ∧
+[~Let_demands:]
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2 w.
+     w ∈ ds2 ∧
+     find_fixpoint binds e1 c ds1 ads1 l1 ∧
+     find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (IsFree w c) ds2 ads2 l2 ⇒
+     find_fixpoint binds (Let w e1 e2) c (ds2 DELETE w ∪ ds1) (ads2 DELETE w) l2) ∧
 [~Subset:]
   (∀e c binds ds1 ds2 ads1 ads2 l1 l2.
      ds2 ⊆ ds1 ∧ ads2 ⊆ ads1 ∧
@@ -3772,6 +3811,100 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ rw []
       \\ gs [demands_Seq, demands_Seq2, demands_when_applied_Seq, fdemands_Seq])
+  >- (irule_at Any reformulate_Prim
+      \\ gs [PULL_EXISTS]
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      \\ gs [demands_If, demands_If2])
+  >- (irule_at Any reformulate_Lam
+      \\ qpat_x_assum ‘_ ⇒ ∃e. _’ mp_tac
+      \\ impl_tac
+      >- (qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+          \\ qpat_x_assum ‘∀v args body. _ ⇒ ALL_DISTINCT _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ Induct_on ‘binds’ \\ gs [FORALL_PROD]
+          \\ rpt $ gen_tac \\ strip_tac
+          \\ strip_tac
+          \\ gs []
+          \\ last_x_assum mp_tac
+          \\ impl_tac
+          >- (rw [] \\ last_x_assum irule
+              \\ metis_tac [])
+          \\ strip_tac
+          \\ rw []
+          >- (strip_tac \\ gvs [MEM_MAP, MEM_FILTER])
+          >- (last_x_assum irule \\ metis_tac [])
+          >- first_x_assum $ dxrule_then irule
+          >- first_x_assum $ dxrule_then irule)
+      \\ strip_tac \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      \\ gs [demands_when_applied_Lam]
+      \\ rename1 ‘EL i (_::_)’
+      \\ Cases_on ‘i’ \\ gs [fdemands_Lam])
+  >- (irule_at Any reformulate_Lam
+      \\ qpat_x_assum ‘_ ⇒ ∃e. _’ mp_tac
+      \\ impl_tac
+      >- (qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+          \\ qpat_x_assum ‘∀v args body. _ ⇒ ALL_DISTINCT _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ Induct_on ‘binds’ \\ gs [FORALL_PROD]
+          \\ rpt $ gen_tac \\ strip_tac
+          \\ strip_tac
+          \\ gs []
+          \\ last_x_assum mp_tac
+          \\ impl_tac
+          >- (rw [] \\ last_x_assum irule
+              \\ metis_tac [])
+          \\ strip_tac
+          \\ rw []
+          >- (strip_tac \\ gvs [MEM_MAP, MEM_FILTER])
+          >- (last_x_assum irule \\ metis_tac [])
+          >- first_x_assum $ dxrule_then irule
+          >- first_x_assum $ dxrule_then irule)
+      \\ strip_tac \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      \\ gs [demands_when_applied_Lam]
+      \\ rename1 ‘EL i (_::_)’
+      \\ Cases_on ‘i’ \\ gs [fdemands_Lam]
+      \\ irule Lam_fdemands
+      \\ irule demands_IMP_demands_when_applied
+      \\ gs [])
+  >- (irule_at Any reformulate_Lam
+      \\ qpat_x_assum ‘_ ⇒ ∃e. _’ mp_tac
+      \\ impl_tac
+      >- (qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+          \\ qpat_x_assum ‘∀v args body. _ ⇒ ALL_DISTINCT _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ Induct_on ‘binds’ \\ gs [FORALL_PROD]
+          \\ rpt $ gen_tac \\ strip_tac
+          \\ strip_tac
+          \\ gs []
+          \\ last_x_assum mp_tac
+          \\ impl_tac
+          >- (rw [] \\ last_x_assum irule
+              \\ metis_tac [])
+          \\ strip_tac
+          \\ rw []
+          >- (strip_tac \\ gvs [MEM_MAP, MEM_FILTER])
+          >- (last_x_assum irule \\ metis_tac [])
+          >- first_x_assum $ dxrule_then irule
+          >- first_x_assum $ dxrule_then irule)
+      \\ strip_tac \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      \\ gs [demands_when_applied_Lam]
+      \\ rename1 ‘EL i (_::_)’
+      \\ Cases_on ‘i’ \\ gs [fdemands_Lam]
+      \\ irule Lam_fdemands
+      \\ gs [])
   >- (irule_at Any reformulate_App
       \\ irule_at Any reformulate_Lam
       \\ gs []
@@ -3797,25 +3930,64 @@ Proof
           >- first_x_assum $ dxrule_then irule)
       \\ strip_tac \\ gs []
       \\ qpat_x_assum ‘reformulate (FILTER _ _) _ _’ $ irule_at Any
-      \\ irule_at Any reformulate_refl
+      \\ first_x_assum $ irule_at Any
       \\ rw [] \\ gs []
-      >- (irule demands_Let2
-          \\ gs []
+      >- (simp [GSYM demands_when_applied_0]
+          \\ irule demands_when_applied_App
+          \\ irule demands_when_applied_Lam
+          \\ simp [demands_when_applied_0]
           \\ strip_tac \\ gs [])
-      >- (gvs [demands_when_applied_def, eq_when_applied_def]
-          \\ first_x_assum  $ drule_then assume_tac
-          \\ irule eq_when_applied_trans
-          \\ gs []
-          \\ first_x_assum $ irule_at Any
-          \\ irule exp_eq_IMP_eq_when_applied
-          \\ irule exp_eq_trans
-          \\ irule_at Any Let_Prim
-          \\ gs []
-          \\ irule exp_eq_Prim_cong
-          \\ gs [Projs_def, exp_eq_refl]
-          \\ irule Let_Var2
+      >- (irule demands_when_applied_App
+          \\ irule demands_when_applied_Lam
+          \\ gvs []
           \\ strip_tac \\ gs [])
-      >- gs [fdemands_def])
+      >- (irule fdemands_App
+          \\ irule fdemands_Lam
+          \\ gvs []))
+  >- (irule_at Any reformulate_App
+      \\ irule_at Any reformulate_Lam
+      \\ gs []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ qpat_x_assum ‘_ ⇒ ∃e. _’ mp_tac
+      \\ impl_tac
+      >- (qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+          \\ qpat_x_assum ‘∀v args body. _ ⇒ ALL_DISTINCT _’ mp_tac
+          \\ rpt $ pop_assum kall_tac
+          \\ Induct_on ‘binds’ \\ gs [FORALL_PROD]
+          \\ rpt $ gen_tac \\ strip_tac
+          \\ strip_tac
+          \\ gs []
+          \\ last_x_assum mp_tac
+          \\ impl_tac
+          >- (rw [] \\ last_x_assum irule
+              \\ metis_tac [])
+          \\ strip_tac
+          \\ rw []
+          >- (strip_tac \\ gvs [MEM_MAP, MEM_FILTER])
+          >- (last_x_assum irule \\ metis_tac [])
+          >- first_x_assum $ dxrule_then irule
+          >- first_x_assum $ dxrule_then irule)
+      \\ strip_tac \\ gs []
+      \\ qpat_x_assum ‘reformulate (FILTER _ _) _ _’ $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ rw [] \\ gs []
+      >- (simp [GSYM demands_when_applied_0]
+          \\ irule demands_when_applied_App
+          \\ irule demands_when_applied_Lam
+          \\ simp [demands_when_applied_0])
+      >- (simp [GSYM demands_when_applied_0]
+          \\ irule fdemands_0_App_demands
+          \\ gs []
+          \\ rename1 ‘Lam w e2 fdemands (([], 0), 1, c)’
+          \\ qspecl_then [‘c’, ‘w’, ‘e2’, ‘[]’, ‘0’] assume_tac Lam_fdemands
+          \\ gvs [demands_when_applied_0])
+      >- (irule demands_when_applied_App
+          \\ irule demands_when_applied_Lam
+          \\ gvs []
+          \\ strip_tac \\ gs [])
+      >- (irule fdemands_App
+          \\ irule fdemands_Lam
+          \\ gvs []))
   >- (gs []
       \\ first_x_assum $ dxrule_then assume_tac
       \\ gs []
@@ -3865,7 +4037,44 @@ Proof
   >- (irule find_fixpoint_Seq
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_If
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_Lam_F
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ pop_assum mp_tac
+      \\ pop_assum mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ qid_spec_tac ‘binds2’
+      \\ Induct_on ‘binds’ \\ gs [PULL_EXISTS, FORALL_PROD]
+      \\ rw [])
+  >- (irule find_fixpoint_Lam_T
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ pop_assum mp_tac
+      \\ pop_assum mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ qid_spec_tac ‘binds2’
+      \\ Induct_on ‘binds’ \\ gs [PULL_EXISTS, FORALL_PROD]
+      \\ rw [])
+  >- (irule find_fixpoint_Lam_T
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ pop_assum mp_tac
+      \\ pop_assum mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ qid_spec_tac ‘binds2’
+      \\ Induct_on ‘binds’ \\ gs [PULL_EXISTS, FORALL_PROD]
+      \\ rw [])
   >- (irule find_fixpoint_Let
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ pop_assum mp_tac
+      \\ pop_assum mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ qid_spec_tac ‘binds2’
+      \\ Induct_on ‘binds’ \\ gs [PULL_EXISTS, FORALL_PROD]
+      \\ rw [])
+  >- (irule find_fixpoint_Let_demands
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ pop_assum mp_tac
@@ -4086,7 +4295,7 @@ Inductive find: (* i i i o o o *)
      ∧ ALL_DISTINCT (MAP FST b)
      ⇒ find (Letrec b e) c fdc ds' (Letrec b' e') fd) ∧
 [find_Letrec2:]
-  (∀e e' binds ds_drop fd_drop c.
+  (∀e binds c binds2 binds3.
      ALL_DISTINCT (MAP FST binds) ∧
      (∀vname args body. MEM (vname, args, body) binds ⇒
                         ALL_DISTINCT (MAP FST args) ∧
@@ -4095,8 +4304,9 @@ Inductive find: (* i i i o o o *)
                         ∃ds ads fs.
                           find_fixpoint binds body Nil ds ads fs ∧
                           (∀v. MEM (v, T) args ⇒ v ∈ ds)) ∧
-     find e Nil {} ds_drop e' fd_drop ⇒
-     find (Letrec (MAP mk_lams binds) e) c {} {} (Letrec (MAP mk_seq_lams binds) e') NONE)
+     binds2 = MAP mk_lams binds ∧
+     binds3 = MAP mk_seq_lams binds
+     ⇒ find (Letrec binds2 e) c {} {} (Letrec binds3 e) NONE)
 End
 
 fun apply_to_first_n 0 tac = ALL_TAC
@@ -4106,18 +4316,6 @@ Theorem concat_FOLDL_IsFree:
   ∀vL c1 c2. FOLDL (λc n. IsFree n c) (concat_ctxt c1 c2) vL = concat_ctxt (FOLDL (λc n. IsFree n c) c1 vL) c2
 Proof
   Induct >> gvs [GSYM concat_ctxt_def]
-QED
-
-Theorem demands_when_applied_exp_eq:
-  ∀d e1 e2 len c. exp_eq_in_ctxt c e1 e2 ∧ e1 demands_when_applied (d, len, c)
-                  ⇒ e2 demands_when_applied (d, len, c)
-Proof
-  PairCases >> rw [demands_when_applied_def] >>
-  irule eq_when_applied_trans_exp_eq >>
-  irule_at Any $ iffLR exp_eq_in_ctxt_sym >> last_assum $ irule_at Any >>
-  irule eq_when_applied_trans >> pop_assum $ irule_at Any >>
-  irule exp_eq_in_ctxt_IMP_eq_when_applied >>
-  irule exp_eq_in_ctxt_Prim >> gvs [exp_eq_in_ctxt_refl]
 QED
 
 Theorem demands_boolList_soundness:
@@ -4189,7 +4387,6 @@ Theorem find_soundness_lemma:
            fd = SOME (argDs, ds2)
            ⇒ (∀i c2. i < LENGTH argDs ∧ EL i argDs ⇒ e fdemands (([], i), LENGTH argDs, concat_ctxt c c2))
              ∧ ∀d2. d2 ∈ ds2 ⇒  e demands_when_applied (d2, LENGTH argDs, c))
-(*           ∧ ∀eL d2. (LENGTH eL = LENGTH argDs ∧ d2 ∈ ds2) ⇒ (Apps e' eL) demands (d2, c))*)
 Proof
   Induct_on ‘find’
   \\ rpt conj_tac
@@ -4424,12 +4621,11 @@ Proof
   >- (strip_tac
       \\ irule exp_eq_IMP_exp_eq_in_ctxt
       \\ irule Letrec_mk_seq_lams
-      \\ gs [exp_eq_in_ctxt_def]
+      \\ gs [exp_eq_refl]
       \\ irule IMP_obligation_fixpoint
       \\ gs []
       \\ rpt gen_tac \\ strip_tac
-      \\ last_x_assum $ dxrule_then assume_tac
-      \\ metis_tac [])
+      \\ last_x_assum $ dxrule_then irule)
   >~[‘exp_eq_in_ctxt c (Letrec b1 e1) (Letrec b2 e2)’]
   >- (strip_tac \\ strip_tac \\ gvs [EVERY_CONJ]
       \\ dxrule_then assume_tac fdemands_set_RecBind

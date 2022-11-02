@@ -80,9 +80,20 @@ Definition handle_Letrec_fdemands_def:
     handle_Letrec_fdemands (insert m h (FST fd)) vL fdL
 End
 
+Definition extract_label_def:
+  extract_label (Var a _) = a ∧
+  extract_label (Let a _ _ _) = a ∧
+  extract_label (Lam a _ _) = a ∧
+  extract_label (App a _ _) = a ∧
+  extract_label (Prim a _ _) = a ∧
+  extract_label (Letrec a _ _) = a ∧
+  extract_label (Case a _ _ _ _) = a ∧
+  extract_label (NestedCase a _ _ _ _ _) = a
+End
+
 Definition split_body_def:
-  (split_body (pure_cexp$Lam a l e) = (l, e)) ∧
-  (split_body e = ([], e))
+  (split_body (pure_cexp$Lam a l e) = (l, e, a)) ∧
+  (split_body e = ([], e, extract_label e))
 End
 
 Definition compute_freevars_def:
@@ -136,13 +147,11 @@ End
 Definition can_compute_fixpoint_def:
   can_compute_fixpoint binds =
   let binds2 = MAP (λ(v, body). v, split_body body) binds in
-    if EVERY (λ(v, args, body). compute_ALL_DISTINCT args (empty compare)) binds2 ∧
+    if EVERY (λ(v, args, body, label). compute_ALL_DISTINCT args (empty compare)) binds2 ∧
        compute_ALL_DISTINCT (MAP FST binds) (empty compare)
     then (let map1 = FOLDR (λ(v, _) m. insert m v ()) (empty compare) binds2 in
-            if EVERY (λ(v, args, body). are_valid map1 args body) binds2
-            then SOME (binds2)
-            else NONE)
-    else NONE
+            (EVERY (λ(v, args, body, label). are_valid map1 args body) binds2, binds2))
+    else (F, binds2)
 End
 
 Definition fixpoint_demands_App_def:
@@ -180,26 +189,45 @@ Definition is_lower_def:
   (is_lower [] [] = T) ∧
   (is_lower [] _ = F) ∧
   (is_lower _ [] = F) ∧
-  (is_lower ((v1, args1, body1)::tl1) ((v2, args2, body2)::tl2) =
+  (is_lower ((v1, args1, body1, lab1)::tl1) ((v2, args2, body2, lab2)::tl2) =
    (LIST_REL (λ(v1, b1) (v2, b2). b2 ⇒ b1) args1 args2 ∧
    is_lower tl1 tl2))
 End
 
 Definition handle_fixpoint1_def:
-  handle_fixpoint1 fds (v, args, body) =
+  handle_fixpoint1 fds (v, args, body, label) =
        let (ds, _) = fixpoint1 Nil body fds in
-         (v, MAP (λ(v, b). (v, lookup ds v = SOME ())) args, body)
+         (v, MAP (λ(v, b). (v, lookup ds v = SOME ())) args, body, label)
 End
 
 Definition compute_fixpoint_rec_def:
   (compute_fixpoint_rec 0 binds =
-   MAP (λ(v, args, e). (v, MAP (λ(v, b). (v, F)) args, e)) binds) ∧
+   MAP (λ(v, args, e, label). (v, MAP (λ(v, b). (v, F)) args, e, label)) binds) ∧
   (compute_fixpoint_rec (SUC fuel) binds =
-   let fds = FOLDR (λ(v, args, e) m. insert m v (MAP SND args)) (empty compare) binds in
+   let fds = FOLDR (λ(v, args, e, lab) m. insert m v (MAP SND args)) (empty compare) binds in
      let binds2 = MAP (handle_fixpoint1 fds) binds in
        if is_lower binds2 binds
        then binds2
        else compute_fixpoint_rec fuel binds2)
+End
+
+Definition rev_split_body_inner_def:
+  rev_split_body_inner a [] e = e ∧
+  rev_split_body_inner a ((_,F)::xs) e = rev_split_body_inner a xs e ∧
+  rev_split_body_inner a ((v,T)::xs) e = Prim a Seq [Var a v; rev_split_body_inner a xs e]
+End
+
+Definition rev_split_body_def:
+  rev_split_body a [] e = e ∧
+  rev_split_body a l e = Lam a (MAP FST l) (rev_split_body_inner a l e)
+End
+
+Definition fixpoint_analysis_def:
+  fixpoint_analysis binds =
+  let (b, binds) = can_compute_fixpoint binds in
+    (if b
+    then compute_fixpoint_rec 10 (MAP (λ(v, args, body, label). (v, MAP (λv. (v, T)) args, body, label)) binds)
+    else (MAP (λ(v, args, body, label). (v, MAP (λv. (v, F)) args, body, label)) binds))
 End
 
 Definition demands_analysis_fun_def:
