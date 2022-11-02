@@ -7,7 +7,8 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax intLib;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
+     thunk_untickProofTheory;
 
 val _ = new_theory "thunk_unthunkProof";
 
@@ -362,6 +363,30 @@ Proof
     CASE_TAC \\ fs [])
   \\ rename1 ‘Let s’
   \\ Cases_on ‘s’ \\ rw [subst_def]
+QED
+
+Theorem exp_rel_freevars:
+  ∀x y. exp_rel x y ⇒ freevars x = freevars y
+Proof
+  qsuff_tac ‘(∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧ (∀v w. v_rel v w ⇒ T)’
+  >- rw []
+  \\ ho_match_mp_tac exp_rel_ind
+  \\ rw [] \\ fs [freevars_def]
+  >-
+   (AP_TERM_TAC \\ AP_TERM_TAC
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS])
+  >~ [‘Let opt’] >-
+   (Cases_on ‘opt’ \\ rw [] \\ fs [freevars_def])
+  \\ match_mp_tac $ METIS_PROVE []
+     “s1 = s2 ∧ x1 = x2 ⇒ s UNION (f s1) DIFF x1 = s UNION (f s2) DIFF x2”
+  \\ last_assum mp_tac
+  \\ qid_spec_tac ‘g’
+  \\ qid_spec_tac ‘f’
+  \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD]
+  \\ metis_tac []
 QED
 
 Theorem exp_rel_subst:
@@ -915,6 +940,151 @@ Proof
   \\ irule sim_ok_semantics
   \\ irule_at Any unthunk_sim_ok
   \\ irule_at Any unthunk_rel_ok \\ gs []
+QED
+
+(* -------------------------------------------------------------------------
+ * Removing MkTick
+ * ------------------------------------------------------------------------- *)
+
+Inductive delay_force:
+[delay_force_Var:]
+  (∀v.
+     delay_force (Delay (Force (Var v))) (Var v)) ∧
+[delay_force_Lam:]
+  (∀s x y.
+     delay_force x y ⇒
+       delay_force (Lam s x) (Lam s y)) ∧
+[delay_force_App:]
+  (∀f x g y.
+     delay_force f g ∧
+     delay_force x y ⇒
+       delay_force (App f x) (App g y)) ∧
+[delay_force_If:]
+  (∀x1 y1 z1 x2 y2 z2.
+     LIST_REL delay_force [x1;y1;z1] [x2;y2;z2] ⇒
+       delay_force (If x1 y1 z1) (If x2 y2 z2)) ∧
+[delay_force_Prim:]
+  (∀op xs ys.
+     LIST_REL delay_force xs ys ⇒
+       delay_force (Prim op xs) (Prim op ys)) ∧
+[delay_force_Let:]
+  (∀bv x1 y1 x2 y2.
+     delay_force x1 x2 ∧
+     delay_force y1 y2 ⇒
+       delay_force (Let bv x1 y1) (Let bv x2 y2)) ∧
+[delay_force_Letrec:]
+  (∀f x g y.
+     LIST_REL (λ(f,x) (g,y).
+                 f = g ∧
+                 is_delay x ∧
+                 is_delay y ∧
+                 delay_force x y) f g ∧
+     delay_force x y ⇒
+       delay_force (Letrec f x) (Letrec g y)) ∧
+[delay_force_Delay:]
+  (∀x y.
+     delay_force x y ⇒
+       delay_force (Delay x) (Delay y)) ∧
+[delay_force_Force:]
+  (∀x y.
+     delay_force x y ⇒
+       delay_force (Force x) (Force y))
+End
+
+Overload remove_mktick = “thunk_untickProof$exp_rel”
+
+Theorem delay_force_thm:
+  ∀x y. delay_force x y ⇒ ∃x'. exp_rel x x' ∧ remove_mktick x' y ∧ exp_inv x
+Proof
+  ho_match_mp_tac delay_force_ind \\ rw []
+  >-
+   (irule_at Any exp_rel_Var \\ fs [exp_inv_def]
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_MkTick
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Var)
+  \\ cheat (*
+  >-
+   (irule_at Any exp_rel_Lam
+    \\ irule_at Any tick_rel_Lam
+    \\ first_assum (irule_at Any)
+    \\ gs [])
+  >- (* App *)
+   (irule_at Any exp_rel_App
+    \\ irule_at Any tick_rel_App
+    \\ irule_at (Pos (el 2)) tick_rel_Tick
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
+  >- (* Let *)
+   (irule_at Any exp_rel_Let
+    \\ irule_at Any tick_rel_App
+    \\ irule_at Any tick_rel_Lam
+    \\ irule_at (Pos (el 2)) tick_rel_Tick
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
+  >- ((* Fail *)
+    irule_at Any exp_rel_Prim
+    \\ irule_at Any tick_rel_Prim
+    \\ gs [SF SFY_ss])
+  >- ((* If *)
+    irule_at Any exp_rel_If
+    \\ irule_at Any tick_rel_Prim
+    \\ gs [SF SFY_ss])
+  >- ((* Cons *)
+    irule_at Any exp_rel_Cons
+    \\ irule_at Any tick_rel_Prim
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Proj *)
+    irule_at Any exp_rel_Proj
+    \\ irule_at Any tick_rel_Prim
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Seq *)
+    irule_at Any exp_rel_Seq
+    \\ irule_at Any tick_rel_Prim \\ gs []
+    \\ first_assum (irule_at (Pos hd))
+    \\ first_assum (irule_at (Pos hd)) \\ gs []
+    \\ imp_res_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def])
+  >- ((* Seq fresh *)
+    irule_at Any exp_rel_Seq_fresh
+    \\ irule_at Any tick_rel_Prim \\ gs []
+    \\ first_assum (irule_at (Pos hd))
+    \\ first_assum (irule_at (Pos hd)) \\ gs []
+    \\ imp_res_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def])
+  >- ((* Prim *)
+    irule_at Any exp_rel_Prim
+    \\ irule_at Any tick_rel_Prim \\ gs []
+    \\ simp [AC CONJ_COMM CONJ_ASSOC]
+    \\ once_rewrite_tac [CONJ_ASSOC]
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ rw [RIGHT_EXISTS_AND_THM]
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Letrec *)
+    irule_at Any exp_rel_Letrec
+    \\ irule_at Any tick_rel_Letrec
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ irule LIST_REL_lemma
+    \\ irule EVERY2_mono
+    \\ first_assum (irule_at Any)
+    \\ gs [LAMBDA_PROD, EXISTS_PROD, FORALL_PROD] \\ rw []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ imp_res_tac tick_rel_freevars
+    \\ gvs [pure_expTheory.closed_def]) *)
+QED
+
+Theorem delay_force_semantics:
+  delay_force x y ∧
+  closed x ∧
+  pure_semantics$safe_itree (semantics x Done []) ⇒
+    semantics x Done [] = semantics y Done []
+Proof
+  strip_tac
+  \\ imp_res_tac delay_force_thm
+  \\ drule_all unthunk_semantics
+  \\ strip_tac \\ fs []
+  \\ drule untick_semantics
+  \\ fs [] \\ disch_then irule
+  \\ imp_res_tac exp_rel_freevars
+  \\ fs [closed_def]
 QED
 
 val _ = export_theory ();
