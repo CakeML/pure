@@ -324,10 +324,13 @@ Definition cns_arities_def:
   cns_arities (Let d x e1 e2) = cns_arities e1 ∪ cns_arities e2 ∧
   cns_arities (Letrec d funs e) =
     BIGUNION (set (MAP (λ(v,e). cns_arities e) funs)) ∪ cns_arities e ∧
-  cns_arities (Case d e v css eopt) =
-    set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) INSERT
-    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css)) ∪
-    (case OPTION_MAP (λ(a,ce). cns_arities ce) eopt of NONE => ∅ | SOME s => s) ∧
+  cns_arities (Case d e v css eopt) = (
+    let css_cn_ars = set (MAP (λ(cn,vs,e). cn, LENGTH vs) css) in
+    (case eopt of
+      | NONE => {css_cn_ars}
+      | SOME (a,e) =>
+        (set a ∪ css_cn_ars) INSERT cns_arities e) ∪
+    BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
   cns_arities _ = {}
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
