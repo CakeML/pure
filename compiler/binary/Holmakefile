@@ -6,7 +6,9 @@ INCLUDES = ../../language \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/basis \
            $(CAKEMLDIR)/translator \
-           $(HOLDIR)/examples/algorithms
+           $(HOLDIR)/examples/formal-languages/context-free \
+           $(HOLDIR)/examples/algorithms \
+           $(HOLDIR)/examples/algorithms/unification/triangular/first-order
 
 ioprog: ioprog.S $(CAKEMLDIR)/basis/basis_ffi.o ioCompileTheory.uo
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@

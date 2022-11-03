@@ -206,6 +206,11 @@ Definition get_case_type_def:
     od
 End
 
+Definition itype_HD_def[simp]:
+  itype_HD [] = Exception:itype ∧
+  itype_HD (x::xs) = x
+End
+
 (**********
   infer :
        exndef # typedefs -- type definitions for exceptions and datatypes
@@ -474,6 +479,29 @@ Termination
   Induct_on `es` >> rw[] >> gvs[cexp_size_def]
 End
 
+Definition apply_foldr_def:
+  apply_foldr ns mset =
+    FOLDR (λf acc. do
+                (tys, as, cs) <- acc;
+                (ty, as', cs') <- f ns mset;
+                return (ty::tys, as ⋓ as', cs' ++ cs) od)
+          (return ([],empty,[]))
+End
+
+Definition infer'_def:
+  infer' (pure_cexp$Var d x) = (λ(ns : exndef # typedefs) mset. do
+    fresh <- fresh_var;
+    return (CVar fresh, singleton x (insert fresh () LN), []) od) ∧
+  infer' (Prim d (Cons s) es) = ((λ(ns : exndef # typedefs) mset.
+    let fs = MAP infer' es in
+    if s = «» then do
+      (tys,as,cs) <- apply_foldr ns mset fs;
+      return (Tuple tys, as, cs) od
+     else return (Tuple [],empty,[]))) ∧
+  infer' _ = ((λ(ns : exndef # typedefs) mset. fail))
+Termination
+  WF_REL_TAC `measure ( λe. cexp_size (K 0) e)` >> rw[]
+End
 
 (******************** Constraint solving ********************)
 
