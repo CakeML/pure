@@ -14,7 +14,6 @@ val _ = translation_extends "pure_backendProg";
 
 val _ = (max_print_depth := 1000);
 
-
 (*-----------------------------------------------------------------------*
    code for fetching definitions automatically
  *-----------------------------------------------------------------------*)
@@ -140,8 +139,10 @@ val next_sym_alt_side = Q.prove(`
 
 val r = translate pure_lexer_implTheory.lexer_fun_def;
 
+val _ = (length (hyp r) = 0) orelse fail (); (* no side conditions *)
+
 (*-----------------------------------------------------------------------*
-   parser
+   PEG parser (string_to_cst)
  *-----------------------------------------------------------------------*)
 
 val _ = register_type “:expAST”;
@@ -149,6 +150,63 @@ val _ = register_type “:expAST”;
 val r = translate listTheory.LIST_REL_def;
 val r = translate purePEGTheory.mktoklf_def;
 val r = translate purePEGTheory.purePEG_def;
+
+val r = translate (def_of_const ``validAddSym``);
+
+Triviality validaddsym_side_lemma:
+  ∀x. validaddsym_side x = T
+Proof
+  simp[fetch "-" "validaddsym_side_def"]
+QED
+
+val _ = update_precondition validaddsym_side_lemma;
+
+Theorem locnle:
+  locnle x y =
+    case (x,y) of
+    | (UNKNOWNpt,_) => T
+    | (_,EOFpt) => T
+    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
+    | _ => F
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
+  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
+QED
+
+val r = translate locnle;
+
+Theorem INTRO_FLOOKUP:
+   (if n ∈ FDOM G.rules then
+      ispegexec$EV (G.rules ' n) i x r eo errs y z
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME v => ispegexec$EV v i x r eo errs y z)
+Proof
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
+QED
+
+val r = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
+                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
+
+val r = translate ispegexecTheory.peg_exec_def;
+
+Theorem string_to_cst_side:
+  ∀s. string_to_cst_side s = T
+Proof
+  fs [fetch "-" "string_to_cst_side_def"]
+  \\ fs [fetch "-" "ispeg_exec_side_def"]
+  \\ fs [fetch "-" "coreloop_side_def"]
+  \\ REPEAT STRIP_TAC
+  \\ STRIP_ASSUME_TAC (Q.SPEC `v1` cmlPEGTheory.owhile_TopLevelDecs_total)
+  \\ FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] \\ POP_ASSUM MP_TAC
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss []
+  \\ cheat
+QED
+
+(*-----------------------------------------------------------------------*
+   AST translations
+ *-----------------------------------------------------------------------*)
 
 Theorem monad_unitbind_assert:
   !b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE
@@ -300,53 +358,8 @@ val r = translate (def_of_const “ast_to_cexp$decls_to_letrec”);
 
 (* ------------------------------------------------------------------- *)
 
-val r = translate (def_of_const ``validAddSym``);
-
-Triviality validaddsym_side_lemma:
-  ∀x. validaddsym_side x = T
-Proof
-  simp[fetch "-" "validaddsym_side_def"]
-QED
-
-val _ = update_precondition validaddsym_side_lemma;
-
-Theorem locnle:
-  locnle x y =
-    case (x,y) of
-    | (UNKNOWNpt,_) => T
-    | (_,EOFpt) => T
-    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
-    | _ => F
-Proof
-  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
-  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
-QED
-
-val r = translate locnle;
-
-Theorem INTRO_FLOOKUP:
-   (if n ∈ FDOM G.rules then
-      ispegexec$EV (G.rules ' n) i x r eo errs y z
-    else Looped) =
-   (case FLOOKUP G.rules n of
-      NONE => Looped
-    | SOME v => ispegexec$EV v i x r eo errs y z)
-Proof
-  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
-QED
-
-val r = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
-                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
-
 (*
 
-ispegexecTheory.peg_exec_def
-
-*)
-
-(*
-
-translate string_to_cst_def
 string_to_asts_def
 string_to_cexp_def
 
