@@ -718,8 +718,9 @@ Definition infer'_def:
                  pvar_constraints ++ ucs ++ cs
                );
              od) ;
+      hd_ty <- oreturn (oHD tys);
 
-      return (HD tys, ase ⋓ as,
+      return (hd_ty, ase ⋓ as,
               (* type of guard expression unifies with tye (result of infer) *)
               (Unify d cfresh_v tye)::
               (* type of tye unifies with types of patterns *)
