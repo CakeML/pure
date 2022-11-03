@@ -59,7 +59,7 @@ QED
 Theorem pure_to_cake_correct:
   cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
   safe_itree (itree_of (exp_of x)) ∧
-  namespace_ok' ((I ## K ns) initial_namespace) ∧
+  namespace_init_ok ((I ## K ns) initial_namespace) ∧
   state_to_cakeProof$cns_ok ((I ## K ns) initial_namespace)
     (IMAGE (IMAGE (explode ## I)) (pure_cexp$cns_arities x))
   ⇒

@@ -225,8 +225,8 @@ End
 
 Overload append_ns = ``λns ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
 
-Definition namespace_ok'_def:
-  namespace_ok' ns ⇔
+Definition namespace_init_ok_def:
+  namespace_init_ok ns ⇔
     namespace_ok ns ∧
     ∃ns'. ns = append_ns initial_namespace ns'
 End
