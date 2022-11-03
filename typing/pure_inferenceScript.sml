@@ -206,11 +206,6 @@ Definition get_case_type_def:
     od
 End
 
-Definition itype_HD_def[simp]:
-  itype_HD [] = Exception:itype ∧
-  itype_HD (x::xs) = x
-End
-
 (**********
   infer :
        exndef # typedefs -- type definitions for exceptions and datatypes
