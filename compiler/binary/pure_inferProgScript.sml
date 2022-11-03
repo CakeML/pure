@@ -125,37 +125,19 @@ Proof
   fs [FUN_EQ_THM,infer_bind_def,infer_ignore_bind_def]
 QED
 
-Definition apply_foldr_def:
-  apply_foldr ns mset =
-    FOLDR (λf acc. do
-                (tys, as, cs) <- acc;
-                (ty, as', cs') <- f ns mset;
-                return (ty::tys, as ⋓ as', cs' ++ cs) od)
-          (return ([],empty,[]))
-End
-
 val r = translate
   (apply_foldr_def
    |> SIMP_RULE std_ss [infer_bind_eq,infer_ignore_bind_eq]);
 
-Definition infer'_def:
-  infer' (pure_cexp$Var d x) = (λ(ns : exndef # typedefs) mset. do
-    fresh <- fresh_var;
-    return (CVar fresh, singleton x (insert fresh () LN), []) od) ∧
-  infer' (Prim d (Cons s) es) = ((λ(ns : exndef # typedefs) mset.
-    let fs = MAP infer' es in
-    if s = «» then do
-      (tys,as,cs) <- apply_foldr ns mset fs;
-      return (Tuple tys, as, cs) od
-     else return (Tuple [],empty,[]))) ∧
-  infer' _ = ((λ(ns : exndef # typedefs) mset. fail))
-Termination
-  WF_REL_TAC `measure ( λe. cexp_size (K 0) e)` >> rw[]
-End
+val r = translate
+  (pure_inferenceTheory.infer'_prim_def
+   |> SIMP_RULE std_ss [infer_bind_eq,infer_ignore_bind_eq]);
 
 val r = translate
-  (infer'_def
+  (pure_inferenceTheory.infer'_def
    |> SIMP_RULE std_ss [infer_bind_eq,infer_ignore_bind_eq]);
+
+val _ = (length (hyp r) = 0) orelse fail (); (* no side conditions *)
 
 (*-----------------------------------------------------------------------*
    pure_unify
