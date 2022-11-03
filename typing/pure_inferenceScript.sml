@@ -488,13 +488,8 @@ Definition apply_foldr_def:
           (return ([],empty,[]))
 End
 
-Definition infer'_def:
-  infer' (pure_cexp$Var d x) = (λ(ns : exndef # typedefs) mset. do
-    fresh <- fresh_var;
-    return (CVar fresh, singleton x (insert fresh () LN), []) od) ∧
-
-  infer' (Prim d (Cons s) es) = (λns mset.
-    let fs = MAP infer' es in
+Definition inter'_prim_def:
+  (infer'_prim d (Cons s) fs ns mset =
 
     if s = «» then do
       (tys, as, cs) <- apply_foldr ns mset fs;
@@ -595,7 +590,7 @@ Definition infer'_def:
       | _ => fail)
 
     else if s = «True» ∨ s = «False» then (
-      if NULL es then return (PrimTy Bool, empty, []) else fail)
+      if NULL fs then return (PrimTy Bool, empty, []) else fail)
 
     else do
       (tys, as, cs) <- apply_foldr ns mset fs;
@@ -619,19 +614,32 @@ Definition infer'_def:
           else fail)
       | NONE => fail od) ∧
 
-  infer' (Prim d (AtomOp aop) es) = (λns mset. do
-      fs <<- MAP infer' es;
-      (arg_tys, ret_ty) <- oreturn $ infer_atom_op (LENGTH fs) aop;
-      (tys, as, cs) <- apply_foldr ns mset fs;
-      return (PrimTy ret_ty, as,
-              (list$MAP2 (λt a. Unify d t (PrimTy a)) tys arg_tys) ++ cs) od) ∧
+  (infer'_prim d (AtomOp aop) fs ns mset =
+      do
+        (arg_tys, ret_ty) <- oreturn $ infer_atom_op (LENGTH fs) aop;
+        (tys, as, cs) <- apply_foldr ns mset fs;
+        return (PrimTy ret_ty, as,
+                (list$MAP2 (λt a. Unify d t (PrimTy a)) tys arg_tys) ++ cs) od) ∧
 
-  infer' (Prim d Seq [e1;e2]) = (λns mset. do
-    f1 <<- infer' e1;
-    f2 <<- infer' e2;
-    (ty2, as2, cs2) <- f2 ns mset;
-    (ty1, as1, cs1) <- f1 ns mset;
-    return (ty2, as1 ⋓ as2, cs1++cs2) od) ∧
+  (infer'_prim d Seq fs ns mset =
+
+      case fs of
+      | [f1;f2] =>
+          do
+            (ty2, as2, cs2) <- f2 ns mset;
+            (ty1, as1, cs1) <- f1 ns mset;
+            return (ty2, as1 ⋓ as2, cs1++cs2) od
+      | _ => fail)
+End
+
+Definition infer'_def:
+  infer' (pure_cexp$Var d x) = (λ(ns : exndef # typedefs) mset. do
+    fresh <- fresh_var;
+    return (CVar fresh, singleton x (insert fresh () LN), []) od) ∧
+
+  infer' (Prim d p es) = (λns mset.
+    let fs = MAP infer' es in
+      infer'_prim d p fs ns mset) ∧
 
   infer' (App d e es) = (λns mset.
     if NULL es then fail else do
