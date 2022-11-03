@@ -492,16 +492,247 @@ Definition infer'_def:
   infer' (pure_cexp$Var d x) = (λ(ns : exndef # typedefs) mset. do
     fresh <- fresh_var;
     return (CVar fresh, singleton x (insert fresh () LN), []) od) ∧
-  infer' (Prim d (Cons s) es) = ((λ(ns : exndef # typedefs) mset.
+
+  infer' (Prim d (Cons s) es) = (λns mset.
     let fs = MAP infer' es in
+
     if s = «» then do
-      (tys,as,cs) <- apply_foldr ns mset fs;
+      (tys, as, cs) <- apply_foldr ns mset fs;
       return (Tuple tys, as, cs) od
-     else return (Tuple [],empty,[]))) ∧
-  infer' _ = ((λ(ns : exndef # typedefs) mset. fail))
+
+    else if s = «Ret» then (
+      case fs of
+      | [f] => do (ty, as, cs) <- f ns mset; return (M ty, as, cs) od
+      | _ => fail)
+
+    else if s = «Bind» then (
+      case fs of
+      | [f1; f2] => do
+          (ty2, as2, cs2) <- f2 ns mset;
+          (ty1, as1, cs1) <- f1 ns mset;
+          fresh1 <- fresh_var; fresh2 <- fresh_var;
+          return
+            (M $ CVar fresh2, as1 ⋓ as2,
+             (Unify d ty1 $ M $ CVar fresh1)::
+              (Unify d ty2 $ Function (CVar fresh1) (M $ CVar fresh2))::(cs1++cs2))
+          od
+      | _ => fail)
+
+    else if s = «Raise» then (
+      case fs of
+      | [f] => do
+          (ty, as, cs) <- f ns mset;
+          fresh <- fresh_var;
+          return (M $ CVar fresh, as,
+            (Unify d (CVar fresh) (CVar fresh))::(Unify d ty Exception)::cs) od
+      | _ => fail)
+
+    else if s = «Handle» then (
+      case fs of
+      | [f1; f2] => do
+          (ty2, as2, cs2) <- f2 ns mset;
+          (ty1, as1, cs1) <- f1 ns mset;
+          fresh <- fresh_var;
+          return
+            (M $ CVar fresh, as1 ⋓ as2,
+             (Unify d ty1 $ M $ CVar fresh)::
+              (Unify d ty2 $ Function Exception (M $ CVar fresh))::(cs1++cs2))
+          od
+      | _ => fail)
+
+    else if s = «Act» then (
+      case fs of
+      | [f] => do
+          (ty, as, cs) <- f ns mset;
+          return (M $ PrimTy String, as, (Unify d ty $ PrimTy Message)::cs) od
+      | _ => fail)
+
+    else if s = «Alloc» then (
+      case fs of
+      | [f1; f2] => do
+          (ty2, as2, cs2) <- f2 ns mset;
+          (ty1, as1, cs1) <- f1 ns mset;
+          return
+            (M $ Array ty2, as1 ⋓ as2, (Unify d ty1 $ PrimTy Integer)::(cs1++cs2))
+          od
+      | _ => fail)
+
+    else if s = «Length» then (
+      case fs of
+      | [f] => do
+          (ty, as, cs) <- f ns mset;
+          fresh <- fresh_var;
+          return
+            (M $ PrimTy Integer, as, (Unify d ty $ Array $ CVar fresh)::cs)
+          od
+      | _ => fail)
+
+    else if s = «Deref» then (
+      case fs of
+      | [f1; f2] => do
+          (ty2, as2, cs2) <- f2 ns mset;
+          (ty1, as1, cs1) <- f1 ns mset;
+          fresh <- fresh_var;
+          return
+            (M $ CVar fresh, as1 ⋓ as2,
+              (Unify d ty2 $ PrimTy Integer)::
+              (Unify d ty1 $ Array $ CVar fresh)::(cs1++cs2))
+          od
+      | _ => fail)
+
+    else if s = «Update» then (
+      case fs of
+      | [f1; f2; f3] => do
+          (ty3, as3, cs3) <- f3 ns mset;
+          (ty2, as2, cs2) <- f2 ns mset;
+          (ty1, as1, cs1) <- f1 ns mset;
+          fresh <- fresh_var;
+          return
+            (M $ Tuple [], as1 ⋓ as2 ⋓ as3,
+              (Unify d ty3 $ CVar fresh)::(Unify d ty2 $ PrimTy Integer)::
+                (Unify d ty1 $ Array $ CVar fresh)::(cs1++cs2++cs3))
+          od
+      | _ => fail)
+
+    else if s = «True» ∨ s = «False» then (
+      if NULL es then return (PrimTy Bool, empty, []) else fail)
+
+    else do
+      (tys, as, cs) <- apply_foldr ns mset fs;
+      case ALOOKUP (FST ns) s of
+      (* Exceptions *)
+      | SOME arg_tys => (
+          if LENGTH arg_tys = LENGTH tys then
+            return (Exception, as,
+                    (list$MAP2 (λt a. Unify d t $ itype_of a) tys arg_tys) ++ cs)
+          else fail)
+      | NONE => case infer_cons 0 (SND ns) s of
+      (* Constructors *)
+      | SOME (n, ar, arg_tys) => (
+          if LENGTH arg_tys = LENGTH tys then do
+            freshes <- fresh_vars ar;
+            cfreshes <<- MAP CVar freshes;
+            return (TypeCons n cfreshes, as,
+            (MAP (λcf. Unify d cf cf) cfreshes ++
+             list$MAP2
+              (λt a. Unify d t (isubst cfreshes $ itype_of a)) tys arg_tys) ++ cs) od
+          else fail)
+      | NONE => fail od) ∧
+
+  infer' (Prim d (AtomOp aop) es) = (λns mset. do
+      fs <<- MAP infer' es;
+      (arg_tys, ret_ty) <- oreturn $ infer_atom_op (LENGTH fs) aop;
+      (tys, as, cs) <- apply_foldr ns mset fs;
+      return (PrimTy ret_ty, as,
+              (list$MAP2 (λt a. Unify d t (PrimTy a)) tys arg_tys) ++ cs) od) ∧
+
+  infer' (Prim d Seq [e1;e2]) = (λns mset. do
+    f1 <<- infer' e1;
+    f2 <<- infer' e2;
+    (ty2, as2, cs2) <- f2 ns mset;
+    (ty1, as1, cs1) <- f1 ns mset;
+    return (ty2, as1 ⋓ as2, cs1++cs2) od) ∧
+
+  infer' (App d e es) = (λns mset.
+    if NULL es then fail else do
+    fs <<- MAP infer' es;
+    f <<- infer' e;
+    (tys, as, cs) <- apply_foldr ns mset fs;
+    (tyf, asf, csf) <- f ns mset;
+    fresh <- fresh_var;
+    return (CVar fresh, as ⋓ asf,
+            (Unify d tyf (iFunctions tys $ CVar fresh))::(csf ++ cs)) od) ∧
+
+  infer' (Lam d xs e) = (λns mset.
+    if NULL xs then fail else do
+    f <<- infer' e;
+    freshes <- fresh_vars (LENGTH xs);
+    cfreshes <<- MAP CVar freshes;
+    (ty, as, cs) <- f ns (list_insert freshes mset);
+    return (iFunctions cfreshes ty, list_delete as xs,
+            MAP (λcf. Unify d cf cf) cfreshes ++
+            FLAT (list$MAP2
+              (λf x. MAP (Unify d (CVar f) o CVar) $ get_assumptions x as)
+            freshes xs) ++ cs) od) ∧
+
+  infer' (Let d x e1 e2) = (λns mset. do
+    f2 <<- infer' e2;
+    f1 <<- infer' e1;
+    (ty2, as2, cs2) <- f2 ns mset;
+    (ty1, as1, cs1) <- f1 ns mset;
+    return (ty2, as1 ⋓ (delete as2 x),
+            (MAP (λn. Implicit d (CVar n) mset ty1) $ get_assumptions x as2) ++
+              cs1 ++ cs2) od) ∧
+
+  infer' (Letrec d fns e) = (λns mset.
+    if NULL fns then fail else do
+    f <<- infer' e;
+    fs <<- MAP (λ(_,e). infer' e) fns;
+    (tye, ase, cse) <- f ns mset;
+    (tyfns, asfns, csfns) <- apply_foldr ns mset fs;
+    return (tye, list_delete (ase ⋓ asfns) (MAP FST fns),
+            MAP (λt. Unify d t t) tyfns ++
+            (FLAT $ list$MAP2
+                (λ(x,b) tyfn. MAP (λn. Implicit d (CVar n) mset tyfn) $
+                                              get_assumptions x (ase ⋓ asfns))
+                fns tyfns) ++
+            csfns ++ cse) od) ∧
+
+  infer' (Case d e v css eopt) = (λns mset.
+    if MEM v (FLAT (MAP (FST o SND) css)) ∨ NULL css then fail else do
+      f <<- infer' e;
+      css_fs <<- MAP (λ(cn,pvs,e). (cn,pvs,infer' e)) css;
+      fresh_v <- fresh_var;
+      cfresh_v <<- CVar fresh_v;
+      (expected_ty, fresh_tyargs, cdefs) <-
+        (case eopt of
+        | NONE => get_case_type F ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css)
+        | SOME (us_cn_ars, _) =>
+            if NULL us_cn_ars then fail else
+            get_case_type T ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css ++ us_cn_ars));
+      cfresh_tyargs <<- MAP CVar fresh_tyargs;
+      mono_vars <<- fresh_v::fresh_tyargs;
+      (tys, as, cs) <- FOLDR
+            (λ(cname,pvars,f) acc. do
+                (tys, as, cs) <- acc;
+                (ty, as', cs') <- f ns (list_insert mono_vars mset);
+                expected_cname_arg_tys <- oreturn (ALOOKUP cdefs cname);
+                pvar_constraints <<- list$MAP2
+                  (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v as')
+                    (v::pvars) (cfresh_v::expected_cname_arg_tys);
+                return (ty::tys, ((list_delete as' (v :: pvars)) ⋓ as),
+                        (FLAT pvar_constraints) ++ cs' ++ cs) od)
+            (return ([],empty,[])) css_fs;
+      (tye, ase, cse) <- f ns mset;
+      (tys, as, cs) <-
+        (case eopt of
+           NONE => return (tys,as,cs)
+         | SOME (_, ue) => do
+               fopt <<- infer' ue;
+               (uty, uas, ucs) <- fopt ns (list_insert mono_vars mset) ;
+               pvar_constraints <<-
+                 MAP (λn. Unify d (CVar n) cfresh_v) (get_assumptions v uas) ;
+               return (
+                 uty :: tys,
+                 delete uas v ⋓ as,
+                 pvar_constraints ++ ucs ++ cs
+               );
+             od) ;
+
+      return (HD tys, ase ⋓ as,
+              (* type of guard expression unifies with tye (result of infer) *)
+              (Unify d cfresh_v tye)::
+              (* type of tye unifies with types of patterns *)
+              (Unify d tye expected_ty)::
+              (* type of first case's result unifies with rest of them *)
+              (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs)
+    od) ∧
+
+  infer' _ = (λns mset. fail)
 Termination
-  WF_REL_TAC `measure ( λe. cexp_size (K 0) e)` >> rw[]
+  WF_REL_TAC `measure ( λe. cexp_size (K 0) e)`
 End
+
 
 (******************** Constraint solving ********************)
 
