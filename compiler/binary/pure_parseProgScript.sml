@@ -236,15 +236,117 @@ val r = translate (def_of_const “strip_comb”);
 
 val r = translate_no_ind (def_of_const “cst_to_ast$astExp”);
 
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp r))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ cheat
+(*\\ fs []
+  \\ gvs [] \\ every_case_tac \\ fs []
+  \\ gvs [AllCaseEqs(),SF DNF_ss] *))
+  |> update_precondition;
 
+(*
+    7.  ∀a. MEM a x49 ⇒ P2 a
+    8.  INL nEqBindSeq = FST nt2
+
+    7.  ∀a. MEM a x49 ⇒ P2 a
+    8.  INL nEqBindSeq = FST nt2
+    9.  tokcheck x50 LbraceT
+
+    7.  P0 nAExp x46
+    8.  INL nFExp = FST nt2
+    9.  astExp nAExp x46 = SOME x44
+
+    6.  ∀a. MEM a x39 ⇒ P0 nFExp2 a
+    7.  P0 nFExp x40
+    8.  INL nIExp = FST nt2
+    9.  astExp nFExp x40 = SOME x38
+*)
+
+val r = translate (def_of_const “cst_to_ast$astValBinding”);
+val r = translate (def_of_const “cst_to_ast$astDecl”);
+val r = translate (def_of_const “cst_to_ast$astDecls”);
+
+val r = translate_no_ind (def_of_const “ast_to_cexp$translate_type”);
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp r))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac) \\ cheat (*
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac \\ cheat *))
+  |> update_precondition;
+
+val r = translate_no_ind (def_of_const “ast_to_cexp$translate_exp”);
+
+val ind_lemma = Q.prove(
+  `^(first is_forall (hyp r))`,
+  rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ fs [] \\ cheat)
+  |> update_precondition;
+
+val r = translate (def_of_const “ast_to_cexp$translate_decs”);
+val r = translate (def_of_const “ast_to_cexp$decls_to_letrec”);
+
+(* ------------------------------------------------------------------- *)
+
+val r = translate (def_of_const ``validAddSym``);
+
+Triviality validaddsym_side_lemma:
+  ∀x. validaddsym_side x = T
+Proof
+  simp[fetch "-" "validaddsym_side_def"]
+QED
+
+val _ = update_precondition validaddsym_side_lemma;
+
+Theorem locnle:
+  locnle x y =
+    case (x,y) of
+    | (UNKNOWNpt,_) => T
+    | (_,EOFpt) => T
+    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
+    | _ => F
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
+  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
+QED
+
+val r = translate locnle;
+
+Theorem INTRO_FLOOKUP:
+   (if n ∈ FDOM G.rules then
+      ispegexec$EV (G.rules ' n) i x r eo errs y z
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME v => ispegexec$EV v i x r eo errs y z)
+Proof
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
+QED
+
+val r = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
+                   |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
 
 (*
 
-val r = translate cst_to_astTheory.astValBinding_def
-val r = translate cst_to_astTheory.astDecl_def
-val r = translate cst_to_astTheory.astDecls_def
+ispegexecTheory.peg_exec_def
 
-string_to_cst_def
+*)
+
+(*
+
+translate string_to_cst_def
 string_to_asts_def
 string_to_cexp_def
 
