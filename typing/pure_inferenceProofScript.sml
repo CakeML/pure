@@ -3,7 +3,8 @@ open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
      listTheory rich_listTheory alistTheory finite_mapTheory sptreeTheory;
 open mlmapTheory;
 open pure_miscTheory pure_typingTheory pure_typingPropsTheory pure_typingProofTheory
-     pure_tcexpTheory pure_inference_commonTheory pure_unificationTheory
+     pure_tcexpTheory pure_tcexp_lemmasTheory
+     pure_inference_commonTheory pure_unificationTheory
      pure_inferenceTheory pure_inferencePropsTheory pure_inference_modelTheory;
 
 val _ = new_theory "pure_inferenceProof";
@@ -4121,24 +4122,31 @@ QED
 
 (******************** Putting it all together ********************)
 
-Theorem infer_top_level_sound:
+Theorem infer_top_level_typed:
   namespace_ok ns ∧
   IS_SOME (infer_top_level ns d cexp) ⇒
-  safe_itree (itree_of (exp_of cexp))
+  type_tcexp ns 0 [] [] (tcexp_of cexp) (M Unit)
 Proof
   rw[] >> gvs[infer_top_level_def] >>
   gvs[infer_bind_def, infer_ignore_bind_def, fail_def, return_def] >>
   every_case_tac >> gvs[] >> pairarg_tac >> gvs[infer_bind_def] >>
   every_case_tac >> gvs[] >>
   Cases_on `solve (Unify d ty (M Unit)::cs) r` >> gvs[] >>
-  irule inference_constraints_safe_itree >> rpt $ goal_assum $ drule_at Any >>
+  drule inference_constraints_sound >> rpt $ disch_then drule >>
+  PairCases_on `x` >> rename1 `sub,r'` >>
+  disch_then $ qspecl_then [`sub`,`M Unit`,`0`] mp_tac >>
+  simp[type_of_def] >> disch_then irule >>
   drule infer_minfer >> simp[] >> strip_tac >> gvs[] >>
   `mas = FEMPTY` by (
     gvs[assumptions_rel_def] >> Cases_on `as` >> gvs[null_def] >>
     Cases_on `b` >> gvs[balanced_mapTheory.null_def] >>
     gvs[lookup_def, balanced_mapTheory.lookup_def] >> rw[fmap_eq_flookup]) >>
-  gvs[] >> drule solve_sound >> PairCases_on `x` >> disch_then drule >>
-  reverse impl_tac >- (rw[] >> goal_assum drule >> gvs[MEM_MAP, SF DNF_ss]) >>
+  gvs[] >> drule solve_sound >> disch_then drule >>
+  reverse impl_tac
+  >- (
+    rw[] >> gvs[MEM_MAP, SF DNF_ss, satisfies_def, pure_walkstar_alt] >>
+    simp[generalises_to_def, pure_vars] >> qexists_tac `FEMPTY` >> simp[]
+    ) >>
   simp[] >> once_rewrite_tac[INSERT_SING_UNION] >> simp[constraints_ok_UNION] >>
   drule minfer_constraints_ok >> simp[] >> rw[]
   >- (
@@ -4153,21 +4161,60 @@ Proof
     )
 QED
 
+Theorem infer_top_level_sound:
+  namespace_ok ns ∧
+  IS_SOME (infer_top_level ns d cexp) ⇒
+  safe_itree (itree_of (exp_of cexp))
+Proof
+  rw[] >> drule_all infer_top_level_typed >> strip_tac >>
+  irule type_soundness_cexp >> simp[SF SFY_ss]
+QED
 
 (****************************************)
+
+Theorem typedefs_ok_IMP_namespace_init_ok:
+  typedefs_ok_impl tysig ⇒
+  namespace_init_ok ((I ## K tysig) initial_namespace)
+Proof
+  simp[typedefs_ok_impl_def, namespace_init_ok_def, initial_namespace_def] >>
+  strip_tac >> simp[PULL_EXISTS] >> qexists_tac `([],TL tysig)` >> simp[] >>
+  Cases_on `tysig` >> gvs[] >> simp[namespace_ok_def] >> rw[]
+  >- (gvs[EVERY_MEM] >> rw[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (
+    gvs[ALL_DISTINCT_APPEND] >> gvs[MEM_MAP, implodeEQ] >>
+    strip_tac >> strip_tac >> first_x_assum irule >> simp[] >>
+    simp[pure_configTheory.reserved_cns_def]
+    )
+  >- (gvs[EVERY_MEM] >> rw[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+QED
+
+val inst = INST_TYPE [alpha |-> ``:(mlstring,'a) map``];
 
 Theorem infer_types_SOME:
   infer_types tysig e = SOME v
   ⇒
   cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
-  namespace_ok' ((I ## K tysig) initial_namespace) ∧
+  namespace_init_ok ((I ## K tysig) initial_namespace) ∧
   safe_exp (exp_of e) ∧
   cns_arities_ok ((I ## K tysig) initial_namespace)
     {s | (∃s0.
            (∃x. s0 = IMAGE (explode ## I) x ∧ x ∈ cns_arities e) ∧
               s = IMAGE (implode ## I) s0)}
 Proof
-  cheat
+  strip_tac >> gvs[infer_types_def, AllCaseEqs()] >>
+  drule typedefs_ok_IMP_namespace_init_ok >> strip_tac >> gvs[] >>
+  gvs[namespace_init_ok_def] >>
+  drule $ inst infer_top_level_typed >>
+  disch_then $ qspecl_then [`pure_vars$empty`,`e`] mp_tac >> simp[] >> strip_tac >>
+  drule_at Any $ inst type_tcexp_NestedCase_free >> simp[] >>
+  disch_then $ qspec_then `e` assume_tac >> gvs[] >>
+  drule_at Any type_tcexp_tcexp_wf >> simp[] >>
+  simp[GSYM cexp_wf_tcexp_wf] >> strip_tac >>
+  drule type_tcexp_freevars_tcexp >> simp[freevars_tcexp_of] >>
+  simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of] >>
+  strip_tac >> irule_at Any type_soundness_cexp >> rpt $ goal_assum $ drule_at Any >>
+  simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[ELIM_UNCURRY] >> drule $ inst type_tcexp_cnames_arities >> simp[]
 QED
 
 (****************************************)

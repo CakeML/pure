@@ -1356,6 +1356,13 @@ Proof
   rpt gen_tac >> strip_tac >> drule $ cj 1 generalise >> rw[count_def]
 QED
 
+Theorem MEM_reserved_cn_mlstrings[simp]:
+  MEM e reserved_cn_mlstrings ⇔ explode e ∈ reserved_cns
+Proof
+  rw[reserved_cn_mlstrings_def, pure_configTheory.reserved_cns_def] >>
+  gvs[GSYM implodeEQ] >> simp[mlstringTheory.implode_def]
+QED
+
 (********************)
 
 val _ = export_theory();

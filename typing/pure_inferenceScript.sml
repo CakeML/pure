@@ -693,10 +693,40 @@ Definition infer_top_level_def:
   od 0
 End
 
+Definition reserved_cn_mlstrings_def:
+  reserved_cn_mlstrings =
+    [«»;«True»;«False»;«Subscript»;
+     «Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
+End
+
+Triviality type_wf_TypeCons_impl_lemma:
+  (∃ar cdefs.
+    oEL id tdefs = SOME (ar, cdefs) ∧
+    LENGTH tyargs = ar)
+  ⇔ case oEL id tdefs of
+    | SOME (ar, cdefs) => LENGTH tyargs = ar
+    | NONE => F
+Proof
+  eq_tac >> rw[] >> every_case_tac >> gvs[]
+QED
+
+Theorem type_wf_impl = SRULE [type_wf_TypeCons_impl_lemma] type_wf_def;
+
+Definition typedefs_ok_impl_def:
+  typedefs_ok_impl (typedefs : typedefs) ⇔
+    EVERY (λ(ar,td). td ≠ [] ∧
+      EVERY (λ(cn,argtys). EVERY (type_ok typedefs ar) argtys) td) typedefs ∧
+    oHD typedefs =
+      SOME (1n, [ («[]»,[]) ; («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]) ∧
+    ALL_DISTINCT
+      (reserved_cn_mlstrings ++ MAP FST (FLAT $ MAP SND typedefs))
+End
+
 Definition infer_types_def:
   infer_types tysig e =
-    (* TODO: this should also check namespace_ok *)
-    infer_top_level ((I ## K tysig) initial_namespace) pure_vars$empty e
+    if ¬typedefs_ok_impl tysig then
+      NONE
+    else infer_top_level ((I ## K tysig) initial_namespace) pure_vars$empty e
 End
 
 (********************)
