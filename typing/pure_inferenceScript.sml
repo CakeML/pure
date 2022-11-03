@@ -488,7 +488,7 @@ Definition apply_foldr_def:
           (return ([],empty,[]))
 End
 
-Definition inter'_prim_def:
+Definition infer'_prim_def:
   (infer'_prim d (Cons s) fs ns mset =
 
     if s = «» then do
@@ -734,7 +734,7 @@ Definition infer'_def:
               (* type of tye unifies with types of patterns *)
               (Unify d tye expected_ty)::
               (* type of first case's result unifies with rest of them *)
-              (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs)
+              (MAP (λt. Unify d hd_ty t) (TL tys)) ++ cse ++ cs)
     od) ∧
 
   infer' _ = (λns mset. fail)
