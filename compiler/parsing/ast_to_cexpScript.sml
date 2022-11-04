@@ -273,6 +273,25 @@ Termination
   rpt strip_tac >> gs[]
 End
 
+Definition translate_expl_def[simp]:
+  translate_expl tyi [] = SOME [] ∧
+  translate_expl tyi (h::t) =
+  do
+    e <- translate_exp tyi h ;
+    es <- translate_expl tyi t ;
+    return (e::es)
+  od
+End
+
+Theorem OPT_MMAP_translate_exp[local]:
+  OPT_MMAP (translate_exp tyi) = translate_expl tyi
+Proof
+  simp[FUN_EQ_THM] >> Induct >> simp[]
+QED
+
+Theorem translate_this_translate_exp =
+        SRULE [SF ETA_ss, OPT_MMAP_translate_exp] translate_exp_def
+
 (* passes over declarations; ignoring type annotations because they're
    not handled; and ignoring datatype declarations because they've already
    been extracted
