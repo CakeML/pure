@@ -964,6 +964,32 @@ Theorem ispeg_eval_empty[simp]:
 Proof simp[Once ispeg_eval_cases] >> Cases_on ‘x’ >> simp[] >> metis_tac[]
 QED
 
+val safepeg_constructors =
+[‘seq e1 e2 f’, ‘choice e1 e2 f’, ‘not e c’, ‘rpt p f’, ‘empty f’, ‘any f’,
+ ‘tok p f R’]
+
+Theorem peg0_rwts =
+        peg0_cases |> Q.SPEC ‘G’
+                   |> CONJUNCTS
+                   |> map (fn th => map (fn t => Q.SPEC t th)
+                                        safepeg_constructors)
+                   |> List.concat |> map $ SRULE[] |> LIST_CONJ |> SRULE[]
+
+Theorem wfpeg_rwts =
+        (wfpeg_cases |> Q.SPEC ‘G’
+                     |> (fn th => map (fn t => Q.SPEC t th)
+                                      safepeg_constructors)
+                     |> map $ SRULE[] |> LIST_CONJ |> SRULE[])
+
+Theorem peg0_nt =
+        peg0_cases |> Q.SPEC ‘G’
+                   |> CONJUNCTS
+                   |> map (Q.SPEC ‘nt n f r’) |> LIST_CONJ |> SRULE[]
+
+
+Theorem wfpeg_nt = wfpeg_cases |> Q.SPECL [‘G’, ‘nt n f r’] |> SRULE []
+
+
 (* Theorem ispeg_eval_NT_SOME:
   ispeg_eval G (i0,nt N f) (Success i r eo) ⇔
   ∃r0. r = f r0 ∧ N ∈ FDOM G.rules ∧
