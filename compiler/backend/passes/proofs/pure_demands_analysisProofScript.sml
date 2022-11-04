@@ -1599,7 +1599,54 @@ Proof
           \\ qpat_x_assum ‘union _ _ = _’ assume_tac
           \\ dxrule_then assume_tac EQ_SYM
           \\ gs [empty_thm, TotOrd_compare, union_thm]
-          \\ cheat)
+          \\ first_x_assum $ qspec_then ‘cexp_size (K 0) expr’ assume_tac
+          \\ gs [cexp_size_def]
+          \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
+          \\ gs []
+          \\ pop_assum $ dxrule_then assume_tac
+          \\ simp []
+          \\ rename1 ‘foldrWithKey  _ (empty compare) map1’
+          \\ rename1 ‘FOLDR _ T mL’
+          \\ qspecl_then [‘map1’, ‘empty compare’, ‘mL’] mp_tac fixpoint1_Case_lemma2
+          \\ simp []
+          \\ impl_tac
+          >- (pairarg_tac \\ gs []
+              \\ simp [empty_thm, TotOrd_compare]
+              \\ gs [EVERY_EL, LIST_REL_EL_EQN]
+              \\ gen_tac \\ strip_tac
+              \\ first_x_assum $ drule_then assume_tac
+              \\ gs [EL_MAP]
+              \\ pairarg_tac \\ gs [])
+          \\ strip_tac
+          \\ simp [union_thm, delete_thm]
+
+          \\ irule find_fixpoint_Subset
+          \\ irule_at Any find_fixpoint_Let_demands
+          \\ simp []
+          \\ irule_at Any fixpoint1_Case_rows_of_Fail
+          \\ gs [LIST_REL_MAP1, combinTheory.o_DEF, LAMBDA_PROD, ctxt_trans_def]
+          \\ ‘find_fixpoint binds (exp_of expr) (ctxt_trans c)
+              (IMAGE explode (FDOM (to_fmap $ demands_e))) {} []’
+            by (rename1 ‘option_CASE opt _ _ ⇒ find_fixpoint _ (exp_of expr) _ _ _ _ ∧ _ ∧ _’
+                \\ Cases_on ‘opt’ \\ gs [empty_thm, TotOrd_compare]
+                \\ irule find_fixpoint_drop_fd
+                \\ pairarg_tac \\ gs []
+                \\ first_x_assum $ irule_at Any)
+          \\ pop_assum $ irule_at Any
+          \\ qexists_tac ‘MAP (λm. IMAGE explode (FDOM (to_fmap m))) mL’
+          \\ qexists_tac ‘IMAGE explode (FDOM $ to_fmap map1)’
+          \\ simp []
+          \\ conj_tac
+          >- (pairarg_tac \\ gs []
+              \\ pairarg_tac \\ gs []
+              \\ rw [MAPi_MAP_explode])
+          \\ conj_tac
+          >- (gs [LIST_REL_EL_EQN, EL_MAP]
+              \\ gen_tac \\ strip_tac
+              \\ last_x_assum $ drule_then assume_tac
+              \\ pairarg_tac \\ gs [MAPi_MAP_explode])
+          \\ simp [empty_thm, TotOrd_compare]
+          \\ simp [SUBSET_DEF, PULL_EXISTS, MEM_MAP])
       \\ rename1 ‘cexp_wf (SND x)’
       \\ PairCases_on ‘x’
       \\ gs [empty_thm, TotOrd_compare]

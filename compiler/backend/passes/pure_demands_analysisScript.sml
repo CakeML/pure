@@ -417,6 +417,38 @@ Proof
 QED
 
 (*
+Letrec fact = Lam n c (If n == 0 then c else fac (n - 1) (n * c)) in _
+ -->
+Letrec fact = Lam n c (Seq n (Seq c (If n == 0 then c else fac (n - 1) (n * c))) in _
+*)
+
+Theorem fixpoint_analysis_test_2:
+  fixpoint_analysis
+  [(«fact»,
+    Lam 0 [«n»; «c»]
+    (Case 0
+     (Prim 0 (AtomOp Eq)
+      [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
+     [(«True»,[],Var 0 «c»);
+      («False»,[], App 0 (Var 0 «fact»)
+                       [Prim 0 (AtomOp Sub) [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 1))) []];
+                        Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]])]
+     NONE))]
+  =
+  [(«fact», [(«n», T); («c», T)],
+    (pure_cexp$Case 0
+     (Prim 0 (AtomOp Eq)
+      [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
+     [(«True»,[],Var 0 «c»);
+      («False»,[], App 0 (Var 0 «fact»)
+                       [Prim 0 (AtomOp Sub) [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 1))) []];
+                        Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]])]
+     NONE), 0)]
+Proof
+  EVAL_TAC
+QED
+
+(*
 Let foo = Lam a (Prim op [a]) in Lam x (App foo x)
  -->
 
