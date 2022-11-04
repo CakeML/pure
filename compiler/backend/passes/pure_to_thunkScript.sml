@@ -12,6 +12,13 @@ val _ = new_theory "pure_to_thunk";
 val _ = set_grammar_ancestry
   ["pure_cexp", "thunk_cexp", "pure_names"];
 
+Definition mk_delay_def:
+  mk_delay x =
+    case x of
+    | thunk_cexp$Force (Var n) => Var n
+    | _ => Delay x
+End
+
 Definition any_el_def:
   any_el n [] = thunk_cexp$Prim (AtomOp Add) [] ∧
   any_el n (x::xs) = if n = 0 then x else any_el (n-1) xs

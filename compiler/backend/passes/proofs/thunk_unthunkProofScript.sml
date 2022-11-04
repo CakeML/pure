@@ -1127,6 +1127,15 @@ Proof
     \\ irule_at Any exp_rel_Force \\ fs [SF SFY_ss])
 QED
 
+Theorem delay_force_closed:
+  delay_force x y ∧ closed x ⇒ closed y
+Proof
+  rw [] \\ imp_res_tac delay_force_thm
+  \\ imp_res_tac exp_rel_freevars
+  \\ imp_res_tac thunk_untickProofTheory.exp_rel_freevars
+  \\ fs [closed_def]
+QED
+
 Theorem delay_force_semantics:
   delay_force x y ∧
   closed x ∧
