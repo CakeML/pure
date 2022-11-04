@@ -354,8 +354,10 @@ Definition translate_type_def:
   (if s = "Fun" then
      do
        assert (LENGTH tys = 2);
-       d <- translate_type nm_map arg_map (EL 0 tys);
-       r <- translate_type nm_map arg_map (EL 1 tys);
+       dty <- oHD tys ;
+       rty <- oEL 1 tys ;
+       d <- translate_type nm_map arg_map dty;
+       r <- translate_type nm_map arg_map rty;
        return (pure_typing$Function d r)
      od
    else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
@@ -390,8 +392,30 @@ Definition translate_type_def:
 Termination
   WF_REL_TAC ‘measure (λ(_,_,ty). tyAST_size ty)’ >> rw[] >>
   rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >> gvs[tyAST_size_def] >>
-  rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >> gvs[tyAST_size_def]
+  rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >>
+  gvs[tyAST_size_def, listTheory.oEL_def]
 End
+
+(* for translator's sake *)
+Definition translate_typel_def[simp]:
+  translate_typel nm_map arg_map [] = SOME [] ∧
+  translate_typel nm_map arg_map (h::t) =
+  do
+    ty <- translate_type nm_map arg_map h ;
+    tys <- translate_typel nm_map arg_map t ;
+    return (ty::tys)
+  od
+End
+
+Theorem OPT_MMAP_translate_type:
+  OPT_MMAP (translate_type nm_map arg_map) =
+  translate_typel nm_map arg_map
+Proof
+  simp[FUN_EQ_THM] >> Induct >> simp[]
+QED
+
+Theorem translate_this_translate_type =
+  SRULE [OPT_MMAP_translate_type, SF ETA_ss] translate_type_def
 
 
 Overload str_compare = “mlstring$compare”
