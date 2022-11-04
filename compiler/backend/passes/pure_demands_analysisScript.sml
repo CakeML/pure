@@ -259,9 +259,15 @@ Definition fixpoint_analysis_def:
   fixpoint_analysis binds =
   let (b, binds) = can_compute_fixpoint binds in
     (if b
-    then compute_fixpoint_rec 10 (MAP (λ(v, args, body, label). (v, MAP (λv. (v, T)) args, body, label)) binds)
-    else (MAP (λ(v, args, body, label). (v, MAP (λv. (v, F)) args, body, label)) binds))
+    then (b, compute_fixpoint_rec 10 (MAP (λ(v, args, body, label). (v, MAP (λv. (v, T)) args, body, label)) binds))
+    else (b, (MAP (λ(v, args, body, label). (v, MAP (λv. (v, F)) args, body, label)) binds)))
 End
+
+(*Definition fixpoint_analysis_wrapped_def:
+  fixpoint_analysis_wrapped binds =
+  let (_, binds2) = fixpoint_analysis binds in
+    MAP (λ(v, args, body, label). (v, rev_split_body label args body)) binds2
+End*)
 
 Definition demands_analysis_fun_def:
   (demands_analysis_fun c ((Var a0 a1): 'a cexp) fds =
@@ -330,46 +336,51 @@ Definition demands_analysis_fun_def:
        (empty compare, Prim a0 (Cons s) el, NONE)) ∧
 
   (demands_analysis_fun c (Letrec a0 binds e) fds =
-   let vL : mlstring list = MAP FST binds in
-     if compute_ALL_DISTINCT vL (empty compare)
+   let (b, binds2) = fixpoint_analysis binds in
+     if b
      then
-       let outL = MAP (λ(v, e). demands_analysis_fun (RecBind binds c) e
-                                    (FOLDL (λf k. delete f k) fds vL)) binds ;
-           (mL, eL', fdL) = UNZIP3 outL ;
-           reduced_fds = handle_Letrec_fdemands fds vL fdL ;
-           (m, e2, fd) = demands_analysis_fun (RecBind binds c) e reduced_fds ;
+       let vL = MAP FST binds2 ;
+           fds2 = FOLDL (λf (v, args, body, label). insert f v (MAP SND args)) fds binds2 ;
+           binds3 = MAP (λ(v, args, body, label). (v, rev_split_body label args body)) binds2 ;
+           (m, e2, fd) = demands_analysis_fun (RecBind binds3 c) e (fds2 : (mlstring, bool list) map);
            e3 = adds_demands a0 (m, e2, fd) vL
        in
-         (FOLDL (λf k. delete f k) (handle_multi_bind m mL vL) vL,
-          Letrec a0 (ZIP (vL, eL')) e3,
+         (FOLDL (λf k. delete f k) m vL,
+          Letrec a0 binds3 e3,
           case fd of
           | NONE => NONE
           | SOME (bL, fd_map) => SOME (bL, FOLDL (λf k. delete f k) fd_map vL))
-     else (empty compare, Letrec a0 binds e, NONE)) ∧
+     else
+       let vL : mlstring list = MAP FST binds in
+         let outL = MAP (λ(v, e). demands_analysis_fun (RecBind binds c) e
+                                                                       (FOLDL (λf k. delete f k) fds vL)) binds ;
+             (mL, eL', fdL) = UNZIP3 outL ;
+             reduced_fds = handle_Letrec_fdemands fds vL fdL ;
+             (m, e2, fd) = demands_analysis_fun (RecBind binds c) e reduced_fds ;
+             e3 = adds_demands a0 (m, e2, fd) vL
+         in
+           (FOLDL (λf k. delete f k) (handle_multi_bind m mL vL) vL,
+            Letrec a0 (ZIP (vL, eL')) e3,
+            case fd of
+            | NONE => NONE
+            | SOME (bL, fd_map) => SOME (bL, FOLDL (λf k. delete f k) fd_map vL))) ∧
 
   (demands_analysis_fun c (Case a0 e n cases eopt) fds =
-   if cases = []
-   then (empty compare, Case a0 e n cases eopt, NONE)
-   else
-     if MEM n (FLAT (MAP (FST o SND) cases))
-     then
-       (empty compare, Case a0 e n cases eopt, NONE)
-     else
-       let (m, e', fd) = demands_analysis_fun c e fds ;
-           cases' = MAP (λ(name,args,ce).
-                           (name, args,
-                            add_all_demands a0
-                                            (demands_analysis_fun
-                                             (Unfold name n args (Bind n e c))
-                                             ce
-                                             (empty compare)))) cases ;
-           eopt' = (case eopt of
-                    | NONE => NONE
-                    | SOME (a,e0) =>
-                      SOME (a,add_all_demands a0
-                              (demands_analysis_fun (Bind n e c) e0 (empty compare))))
-       in
-         (m, Case a0 e' n cases' eopt', NONE)) ∧
+   let (m, e', fd) = demands_analysis_fun c e fds ;
+       cases' = MAP (λ(name,args,ce).
+                       (name, args,
+                        add_all_demands a0
+                                        (demands_analysis_fun
+                                         (Unfold name n args (Bind n e c))
+                                         ce
+                                         (empty compare)))) cases ;
+       eopt' = (case eopt of
+                | NONE => NONE
+                | SOME (a,e0) =>
+                    SOME (a,add_all_demands a0
+                                            (demands_analysis_fun (Bind n e c) e0 (empty compare))))
+   in
+     (m, Case a0 e' n cases' eopt', NONE)) ∧
   (demands_analysis_fun c (NestedCase i _ _ _ _ _) fds =
    (empty compare,
     Var i (implode "Fail: demands analysis on NestedCase"),
@@ -397,7 +408,7 @@ Letrec g = Lam x (Seq x (App g x)) in _
 Theorem fixpoint_analysis_test_0:
   fixpoint_analysis [(«g», Lam (0 : num) [«x»] (App 0 (Var 0 «g») [Var 0 «x»]))]
   =
-  [(«g», [(«x», T)], App 0 (Var 0 «g») [Var 0 «x»], 0)]
+  (T, [(«g», [(«x», T)], App 0 (Var 0 «g») [Var 0 «x»], 0)])
 Proof
   EVAL_TAC
 QED
@@ -411,7 +422,7 @@ Letrec g = Lam x y (Seq x (App g x y)) in _
 Theorem fixpoint_analysis_test_1:
   fixpoint_analysis [(«g», Lam (0 : num) [«x»; «y»] (App 0 (Var 0 «g») [Var 0 «x»; Var 0 «x»]))]
   =
-  [(«g», [(«x», T); («y», F)], App 0 (Var 0 «g») [Var 0 «x»; Var 0 «x»], 0)]
+  (T, [(«g», [(«x», T); («y», F)], App 0 (Var 0 «g») [Var 0 «x»; Var 0 «x»], 0)])
 Proof
   EVAL_TAC
 QED
@@ -435,15 +446,16 @@ Theorem fixpoint_analysis_test_2:
                         Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]])]
      NONE))]
   =
-  [(«fact», [(«n», T); («c», T)],
-    (pure_cexp$Case 0
-     (Prim 0 (AtomOp Eq)
-      [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
-     [(«True»,[],Var 0 «c»);
-      («False»,[], App 0 (Var 0 «fact»)
+  (T,
+   [(«fact», [(«n», T); («c», T)],
+     (pure_cexp$Case 0
+      (Prim 0 (AtomOp Eq)
+       [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
+      [(«True»,[],Var 0 «c»);
+       («False»,[], App 0 (Var 0 «fact»)
                        [Prim 0 (AtomOp Sub) [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 1))) []];
                         Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]])]
-     NONE), 0)]
+      NONE), 0)])
 Proof
   EVAL_TAC
 QED
@@ -483,34 +495,38 @@ QED
 *)
 
 Theorem demands_analysis_test_1:
-  demands_analysis2 0
+  demands_analysis
   (Letrec 0
-   [(«fact»,
-     Lam 0 [«n»; «c»]
-         (Case 0
-          (Prim 0 (AtomOp Eq)
-           [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
-          [(«True»,[],Var 0 «c»);
-           («False»,[],Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»])] NONE))]
-   (App 0 (Var 0 «fact») [Var 0 «n0»; Var 0 «c1»])) =
-  Prim 0 Seq
-       [Var 0 «n0»;
-        Letrec 0
-               [(«fact»,
-                 Lam 0 [«n»; «c»]
-                     (Prim 0 Seq
-                      [Var 0 «n»;
-                       Case 0
-                            (Prim 0 (AtomOp Eq)
-                             [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
-                            [(«True»,[],Prim 0 Seq [Var 0 «c»; Var 0 «c»]);
-                             («False»,[],Prim 0 Seq [Var 0 «c»;
-                                         Prim 0 Seq [Var 0 «n»;
-                                                     Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]]])] NONE]))]
-               (Prim 0 Seq
-                [Var 0 «fact»;
-                 App 0 (Var 0 «fact»)
-                     [Var 0 «n0»; Prim 0 Seq [Var 0 «c1»; Var 0 «c1»]]])]
+    [(«fact», Lam 0 [«n»; «c»]
+     (Case 0
+      (Prim 0 (AtomOp Eq)
+       [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
+      [(«True»,[],Var 0 «c»);
+       («False»,[], App 0 (Var 0 «fact»)
+                        [Prim 0 (AtomOp Sub) [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 1))) []];
+                         Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]])]
+      NONE))]
+    (Let 0 «n0» (Prim 0 (AtomOp (Lit (Int 5))) [])
+         (Let 0 «c0» (Prim 0 (AtomOp (Lit (Int 1))) [])
+          (App 0 (Var 0 «fact») [Var 0 «n0»; Var 0 «c0»])))) =
+  (Letrec 0
+   [(«fact», Lam 0 [«n»; «c»]
+     (Prim 0 Seq [Var 0 «n»;
+                  Prim 0 Seq [Var 0 «c»;
+                              (Case 0
+                               (Prim 0 (AtomOp Eq)
+                                [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 0))) []]) «n2»
+                               [(«True»,[],Var 0 «c»);
+                                («False»,[], App 0 (Var 0 «fact»)
+                                                 [Prim 0 (AtomOp Sub) [Var 0 «n»; Prim 0 (AtomOp (Lit (Int 1))) []];
+                                                  Prim 0 (AtomOp Mul) [Var 0 «n»; Var 0 «c»]])]
+                               NONE)]]))]
+   (Prim 0 Seq [Var 0 «fact»;
+                (Let 0 «n0» (Prim 0 (AtomOp (Lit (Int 5))) [])
+                 (Prim 0 Seq [Var 0 «n0»;
+                              (Let 0 «c0» (Prim 0 (AtomOp (Lit (Int 1))) [])
+                               (Prim 0 Seq [Var 0 «c0»;
+                                            (App 0 (Var 0 «fact») [Var 0 «n0»; Var 0 «c0»])]))]))]))
 Proof
   EVAL_TAC
 QED

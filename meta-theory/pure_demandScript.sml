@@ -4355,6 +4355,9 @@ Inductive find: (* i i i o o o *)
 [find_Drop_fd:]
   (∀e e' c fds ds fd.
      find e c fds ds e' fd ⇒ find e c fds ds e' NONE) ∧
+[find_Create_fd:]
+  (∀e e' c fds ds.
+     find e c fds ds e' NONE ⇒ find e c fds ds e' (SOME ([], {}))) ∧
 [find_smaller_fd:]
   (∀e e' c fds ds bL fd fd'.
      find e c fds ds e' (SOME (bL, fd)) ∧ fd' ⊆ fd

@@ -84,7 +84,10 @@ Termination
 End
 
 Definition compile_to_thunk_def:
-  compile_to_thunk e = FST (to_thunk (pure_names e) e)
+  compile_to_thunk e =
+  let (e, vs) = to_thunk (pure_names e) e in
+    let (e2, vs2) = thunk_split_Delayed_Lam e vs (empty compare) in
+        e2
 End
 
 val _ = export_theory ();
