@@ -3607,6 +3607,46 @@ QED
 
 (* -------------------- *)
 
+Theorem demands_Fail:
+  ∀p. Fail demands p
+Proof
+  gvs [FORALL_PROD, demands_def] >> rpt $ gen_tac >>
+  irule exp_eq_IMP_exp_eq_in_ctxt >>
+  irule no_err_eval_IMP_exp_eq >>
+  rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm]
+QED
+
+Theorem needs_Fail:
+  ∀p. Fail needs p
+Proof
+  gvs [FORALL_PROD, needs_def] >> rpt $ gen_tac >>
+  irule exp_eq_IMP_exp_eq_in_ctxt >>
+  irule no_err_eval_IMP_exp_eq >>
+  rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm]
+QED
+
+Theorem Fail_Apps:
+  ∀l b. (Fail ≅? Apps Fail l) b
+Proof
+  Induct >> gvs [Apps_def, exp_eq_refl] >>
+  rw [] >> irule exp_eq_trans >> first_x_assum $ irule_at Any >>
+  irule exp_eq_Apps_cong >> irule_at Any eval_IMP_exp_eq >>
+  rw [exp_eq_l_refl, subst_def, eval_thm, dest_Closure_def]
+QED
+
+Theorem fdemands_Fail:
+  ∀c ps i len. i < len ⇒ Fail fdemands ((ps, i), len, c)
+Proof
+  Induct >> gvs [fdemands_def] >> rw []
+  >- (irule needs_exp_eq >> irule_at Any needs_Fail >>
+      gvs [exp_eq_in_ctxt_def, Fail_Apps]) >>
+  irule fdemands_exp_eq >> last_x_assum $ irule_at Any >> fs [] >>
+  irule exp_eq_IMP_exp_eq_in_ctxt >> irule $ iffLR exp_eq_sym >>
+  gvs [Let_not_in_freevars, Letrec_not_in_freevars]
+QED
+
+(* -------------------- *)
+
 Theorem IMP_obligation:
   ALL_DISTINCT (MAP FST binds) ∧
   (∀vname args body.
@@ -3700,7 +3740,24 @@ Inductive find_fixpoint:
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ∧
      find_fixpoint binds e3 c ds3 ads3 l3 ⇒
-     find_fixpoint binds (If e1 e2 e3) c (ds1 ∩ (ds2 ∪ ds3)) {} []) ∧
+     find_fixpoint binds (If e1 e2 e3) c (ds1 ∪ (ds2 ∩ ds3)) {} []) ∧
+[~If_Fail:]
+  (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
+     find_fixpoint binds e1 c ds1 ads1 l1 ∧
+     find_fixpoint binds e2 c ds2 ads2 l2 ⇒
+     find_fixpoint binds (If e1 e2 Fail) c (ds1 ∪ ds2) {} []) ∧
+[~Proj:]
+  (∀binds e n i c ds ads l.
+     find_fixpoint binds e c ds ads l ⇒
+     find_fixpoint binds (Proj n i e) c ds {} []) ∧
+[~IsEq:]
+  (∀binds e n i b c ds ads l.
+     find_fixpoint binds e c ds ads l ⇒
+     find_fixpoint binds (IsEq n i b e) c ds {} []) ∧
+[~Atom:]
+  (∀binds el dsl c op.
+     LIST_REL (λe ds.∃ads l. find_fixpoint binds e c ds ads l) el dsl ⇒
+     find_fixpoint binds (Prim (AtomOp op) el) c (BIGUNION (set dsl)) {} []) ∧
 [~Lam_F:]
   (∀e c binds ds ads l s.
      find_fixpoint (FILTER (λ(v, _). v ≠ s) binds) e (IsFree s c) ds ads l ⇒
@@ -3728,10 +3785,73 @@ Inductive find_fixpoint:
      LIST_REL (λb1 b2. b2 ⇒ b1) l1 l2 ∧
      find_fixpoint binds e c ds1 ads1 l1 ⇒
      find_fixpoint binds e c ds2 ads2 l2) ∧
+[~drop_fd:]
+  (∀e c binds ds ads l.
+     find_fixpoint binds e c ds ads l ⇒
+     find_fixpoint binds e c ds {} []) ∧
+[~smaller_binds:]
+  (∀e c binds f ds ads l.
+     find_fixpoint (FILTER (λ(v, _). f v) binds) e c ds ads l ⇒
+     find_fixpoint binds e c ds ads l) ∧
 [~refl:]
   (∀e c binds.
      find_fixpoint binds e c {} {}  [])
 End
+
+Theorem find_fixpoint_Prim_Lemma:
+  ∀eL dsL binds c.
+      (∀v args body. MEM (v,args,body) binds ⇒ ALL_DISTINCT (MAP FST args)) ∧
+      LIST_REL
+          (λe ds.
+               ∃ads fds.
+                 find_fixpoint binds e c ds ads fds ∧
+                 ((∀v args body.
+                     MEM (v,args,body) binds ⇒ ALL_DISTINCT (MAP FST args)) ⇒
+                  ∃e2.
+                    reformulate binds e e2 ∧
+                    (∀v. v ∈ ds ⇒ e2 demands (([],v),c) ∧ v ∈ freevars e) ∧
+                    (∀v. v ∈ ads ⇒
+                         e2 demands_when_applied (([],v),LENGTH fds,c) ∧
+                         v ∈ freevars e) ∧
+                    ∀i. i < LENGTH fds ∧ EL i fds ⇒
+                        e2 fdemands (([],i),LENGTH fds,c))) eL dsL
+      ⇒ ∃ys. LIST_REL (reformulate binds) eL ys ∧
+             ∀v i. v ∈ EL i dsL ∧ i < LENGTH dsL
+                   ⇒ v ∈ freevars (EL i eL) ∧
+                     (EL i ys) demands (([], v), c)
+Proof
+  Induct \\ gs [PULL_EXISTS]
+  \\ rw [] \\ gs []
+  \\ last_x_assum $ drule_then assume_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gs []
+  \\ first_x_assum $ irule_at Any
+  \\ first_x_assum $ irule_at Any
+  \\ gen_tac \\ Cases \\ gvs []
+QED
+
+Theorem ALL_DISTINCT_FST_FILTER:
+  ∀binds f. ALL_DISTINCT (MAP FST binds)
+                  ⇒ ALL_DISTINCT (MAP FST (FILTER (λ(v, _). f v) binds))
+Proof
+  Induct \\ gs [FORALL_PROD]
+  \\ rw []
+  \\ gs [MEM_MAP, MEM_FILTER]
+QED
+
+Theorem FILTERED_binds_lemma:
+  ∀binds binds2 f.
+    MAP FST binds = MAP FST binds2 ∧
+    LIST_REL (λ(_,a1,_) (_,a2,_). LIST_REL (λ(_,b1) (_,b2). b2 ⇒ b1) a1 a2) binds2 binds ⇒
+    LIST_REL (λ(_,a1,_) (_,a2,_). LIST_REL (λ(_,b1) (_,b2). b2 ⇒ b1) a1 a2)
+             (FILTER (λ(v,_). f v) binds2) (FILTER (λ(v,_). f v) binds) ∧
+    MAP FST (FILTER (λ(v,_). f v) binds) =
+    MAP FST (FILTER (λ(v,_). f v) binds2)
+Proof
+  Induct \\ gs [PULL_EXISTS, FORALL_PROD]
+  \\ rw [] \\ gvs []
+QED
 
 Theorem find_fixpoint_soundness:
   ∀e binds c ds ads fds.
@@ -3802,6 +3922,7 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ rw [] \\ gs []
       >- gs [demands_when_applied_0])
+  >~[‘Seq _ _’]
   >- (irule_at Any reformulate_Prim
       \\ gs [PULL_EXISTS]
       \\ last_x_assum $ drule_then assume_tac
@@ -3811,6 +3932,18 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ rw []
       \\ gs [demands_Seq, demands_Seq2, demands_when_applied_Seq, fdemands_Seq])
+  >~[‘If _ _ Fail’]
+  >- (irule_at Any reformulate_Prim
+      \\ gs [PULL_EXISTS]
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
+      \\ irule_at Any reformulate_refl
+      \\ rw []
+      \\ gs [demands_If, demands_If2, demands_Fail])
+  >~[‘If _ _ _’]
   >- (irule_at Any reformulate_Prim
       \\ gs [PULL_EXISTS]
       \\ last_x_assum $ drule_then assume_tac
@@ -3822,6 +3955,39 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ rw []
       \\ gs [demands_If, demands_If2])
+  >~[‘Proj _ _ _’]
+  >- (irule_at Any reformulate_Prim
+      \\ gs [PULL_EXISTS]
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      \\ gs [demands_Proj])
+  >~[‘IsEq _ _ _ _’]
+  >- (irule_at Any reformulate_Prim
+      \\ gs [PULL_EXISTS]
+      \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ rw []
+      \\ gs [demands_IsEq])
+  >~[‘Prim (AtomOp _) _’]
+  >- (irule_at Any reformulate_Prim
+      \\ gs [PULL_EXISTS]
+      \\ drule_then assume_tac LIST_REL_LENGTH
+      \\ dxrule_then (dxrule_then assume_tac) find_fixpoint_Prim_Lemma
+      \\ gs []
+      \\ drule_then assume_tac LIST_REL_LENGTH
+      \\ first_x_assum $ irule_at Any
+      \\ rw [MEM_EL]
+      \\ last_x_assum $ drule_all_then assume_tac
+      \\ gs []
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ gs [EL_MAP]
+      \\ irule demands_AtomOp
+      \\ gs [EXISTS_MEM, MEM_EL]
+      \\ metis_tac [])
   >- (irule_at Any reformulate_Lam
       \\ qpat_x_assum ‘_ ⇒ ∃e. _’ mp_tac
       \\ impl_tac
@@ -3993,6 +4159,21 @@ Proof
       \\ gs []
       \\ first_x_assum $ irule_at Any
       \\ rw [] \\ gvs [SUBSET_DEF, LIST_REL_EL_EQN])
+  >- (gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ gs [])
+  >- (gs [ALL_DISTINCT_FST_FILTER]
+      \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
+      \\ impl_tac
+      >- (rw [MEM_FILTER]
+          \\ first_x_assum $ dxrule_then assume_tac
+          \\ gs [])
+      \\ strip_tac \\ gs []
+      \\ dxrule_all_then assume_tac reformulate_filtered_bind
+      \\ first_x_assum $ irule_at Any
+      \\ gs [])
   >- irule_at Any reformulate_refl
 QED
 
@@ -4034,13 +4215,32 @@ Proof
   >- (irule find_fixpoint_App_empty
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ first_x_assum $ irule_at Any \\ gs [])
+  >~[‘Seq _ _’]
   >- (irule find_fixpoint_Seq
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ first_x_assum $ irule_at Any \\ gs [])
+  >~[‘If _ _ Fail’]
+  >- (irule find_fixpoint_If_Fail
+      \\ first_x_assum $ irule_at Any \\ gs []
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >~[‘If _ _ _’]
   >- (irule find_fixpoint_If
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ first_x_assum $ irule_at Any \\ gs [])
+  >~[‘Proj _ _ _’]
+  >- (irule find_fixpoint_Proj
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >~[‘IsEq _ _ _ _’]
+  >- (irule find_fixpoint_IsEq
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >~[‘Prim (AtomOp _) _’]
+  >- (irule find_fixpoint_Atom
+      \\ gvs [LIST_REL_EL_EQN]
+      \\ rw [] \\ last_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ gvs [])
   >- (irule find_fixpoint_Lam_F
       \\ first_x_assum $ irule_at Any \\ gs []
       \\ pop_assum mp_tac
@@ -4085,6 +4285,12 @@ Proof
       \\ rw [])
   >- (irule find_fixpoint_Subset
       \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_drop_fd
+      \\ first_x_assum $ irule_at Any \\ gs [])
+  >- (irule find_fixpoint_smaller_binds
+      \\ first_x_assum $ irule_at Any
+      \\ dxrule_then (dxrule_then assume_tac) FILTERED_binds_lemma
+      \\ metis_tac [])
   >- irule find_fixpoint_refl
 QED
 
@@ -4339,44 +4545,6 @@ Proof
       gvs [])
   >- gvs []
   >- (irule fdemands_Lam >> gvs [])
-QED
-
-Theorem demands_Fail:
-  ∀p. Fail demands p
-Proof
-  gvs [FORALL_PROD, demands_def] >> rpt $ gen_tac >>
-  irule exp_eq_IMP_exp_eq_in_ctxt >>
-  irule no_err_eval_IMP_exp_eq >>
-  rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm]
-QED
-
-Theorem needs_Fail:
-  ∀p. Fail needs p
-Proof
-  gvs [FORALL_PROD, needs_def] >> rpt $ gen_tac >>
-  irule exp_eq_IMP_exp_eq_in_ctxt >>
-  irule no_err_eval_IMP_exp_eq >>
-  rw [subst_def, no_err_eval_def, v_unfold, eval_wh_thm]
-QED
-
-Theorem Fail_Apps:
-  ∀l b. (Fail ≅? Apps Fail l) b
-Proof
-  Induct >> gvs [Apps_def, exp_eq_refl] >>
-  rw [] >> irule exp_eq_trans >> first_x_assum $ irule_at Any >>
-  irule exp_eq_Apps_cong >> irule_at Any eval_IMP_exp_eq >>
-  rw [exp_eq_l_refl, subst_def, eval_thm, dest_Closure_def]
-QED
-
-Theorem fdemands_Fail:
-  ∀c ps i len. i < len ⇒ Fail fdemands ((ps, i), len, c)
-Proof
-  Induct >> gvs [fdemands_def] >> rw []
-  >- (irule needs_exp_eq >> irule_at Any needs_Fail >>
-      gvs [exp_eq_in_ctxt_def, Fail_Apps]) >>
-  irule fdemands_exp_eq >> last_x_assum $ irule_at Any >> fs [] >>
-  irule exp_eq_IMP_exp_eq_in_ctxt >> irule $ iffLR exp_eq_sym >>
-  gvs [Let_not_in_freevars, Letrec_not_in_freevars]
 QED
 
 Theorem find_soundness_lemma:

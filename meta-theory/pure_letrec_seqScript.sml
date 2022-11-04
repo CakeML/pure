@@ -1568,6 +1568,45 @@ Proof
       \\ irule_at Any PAIR)
 QED
 
+Theorem reformulate_filtered_bind:
+  ∀binds f e1 e2.
+    reformulate (FILTER (λ(v, _). f v) binds) e1 e2  ⇒
+    reformulate binds e1 e2
+Proof
+  Induct_on ‘reformulate’ \\ rw []
+  >- (gs [ALOOKUP_FILTER]
+      \\ irule reformulate_full
+      \\ metis_tac [])
+  >- (gs [ALOOKUP_FILTER]
+      \\ irule reformulate_partial
+      \\ metis_tac [])
+  >- simp [reformulate_Var]
+  >- (irule reformulate_Lam
+      \\ first_x_assum irule
+      \\ simp [FILTER_FILTER, CONJ_COMM]
+      \\ irule_at Any EQ_REFL)
+  >- (irule_at Any reformulate_App
+      \\ rpt $ first_x_assum $ irule_at Any
+      \\ rpt $ irule_at Any EQ_REFL)
+  >- (irule_at Any reformulate_Prim
+      \\ gs [LIST_REL_EL_EQN] \\ rw []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ irule_at Any EQ_REFL)
+  >- (irule_at Any reformulate_Letrec
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ simp [FILTER_FILTER, CONJ_COMM]
+      \\ irule_at Any EQ_REFL
+      \\ gs [LIST_REL_EL_EQN] \\ rw []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ gs []
+      \\ first_x_assum $ irule_at Any
+      \\ simp [FILTER_FILTER, CONJ_COMM]
+      \\ irule_at Any EQ_REFL)
+QED
+
 Triviality FST_INTRO:
   (λ(x,y). x) = FST
 Proof

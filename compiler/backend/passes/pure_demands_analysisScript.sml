@@ -147,8 +147,7 @@ End
 Definition can_compute_fixpoint_def:
   can_compute_fixpoint binds =
   let binds2 = MAP (λ(v, body). v, split_body body) binds in
-    if EVERY (λ(v, args, body, label). compute_ALL_DISTINCT args (empty compare)) binds2 ∧
-       compute_ALL_DISTINCT (MAP FST binds) (empty compare)
+    if EVERY (λ(v, args, body, label). compute_ALL_DISTINCT args (empty compare)) binds2
     then (let map1 = FOLDR (λ(v, _) m. insert m v ()) (empty compare) binds2 in
             (EVERY (λ(v, args, body, label). are_valid map1 args body) binds2, binds2))
     else (F, binds2)
@@ -180,9 +179,44 @@ Definition fixpoint1_def:
             | ([], m3) => (union m1 (union m2 m3), NONE)
             | (fdL', m3) => (m1, SOME (fdL', union m2 m3)))) ∧
 
+  (fixpoint1 c (Prim a0 Seq [e1; e2]) fds =
+     let (m1, fd1) = fixpoint1 c e1 fds in
+       let (m2, fd2) = fixpoint1 c e2 fds in
+         (union m1 m2, fd2)) ∧
+
+  (fixpoint1 c (Prim a0 (AtomOp op) eL) fds =
+   let outL = MAP (λe. fixpoint1 c e fds) eL in
+     let m = FOLDR (λ(ds, _) m. union ds m) (empty compare) outL in
+       (m, NONE)) ∧
+
+  (fixpoint1 c (Case (a0 : α) (e : α cexp) (n : cvname) (rows : (cvname # (cvname list) # α cexp) list) fall : α cexp) fds =
+   let (demands_e, _) = fixpoint1 c e fds in
+     let outL =
+         MAP (λ(cons, vL, e). FOLDR (λv m. delete m v) (FST (fixpoint1 (IsFree vL (IsFree [n] c)) e
+                                                          (FOLDR (λv m. delete m v) (delete fds n) vL))) vL) rows in
+       let fallL = case fall of
+                   | NONE => outL
+                   | SOME (a, e) => FST (fixpoint1 (IsFree [n] c) e (delete fds n))::outL in
+         case fallL of
+         | [] => (empty compare, NONE)
+         | hd::tl =>
+             (let m = foldrWithKey (λid _ m. if FOLDR (λm2 b. b ∧ lookup m2 id = SOME ()) T tl
+                                              then mlmap$insert m id ()
+                                              else m) (empty compare) hd in
+                (union demands_e (delete m n), NONE))) ∧
+
   (fixpoint1 c e fds = (mlmap$empty mlstring$compare, NONE))
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
+End
+
+(* LIST_REL (λ(v1, b1) (v2, b2). b2 ⇒ b1) args1 args2 *)
+Definition test_list_rel_def:
+  (test_list_rel [] [] = T) ∧
+  (test_list_rel [] _ = F) ∧
+  (test_list_rel _ [] = F) ∧
+  (test_list_rel ((hd1, b1)::tl1) ((hd2, b2)::tl2) =
+   ((b1 ∨ ¬b2) ∧ test_list_rel tl1 tl2))
 End
 
 Definition is_lower_def:
@@ -190,8 +224,7 @@ Definition is_lower_def:
   (is_lower [] _ = F) ∧
   (is_lower _ [] = F) ∧
   (is_lower ((v1, args1, body1, lab1)::tl1) ((v2, args2, body2, lab2)::tl2) =
-   (LIST_REL (λ(v1, b1) (v2, b2). b2 ⇒ b1) args1 args2 ∧
-   is_lower tl1 tl2))
+   (test_list_rel args1 args2 ∧ is_lower tl1 tl2))
 End
 
 Definition handle_fixpoint1_def:
@@ -354,6 +387,34 @@ End
 Definition demands_analysis2_def:
     demands_analysis2 a0 e = add_all_demands a0 (demands_analysis_fun Nil e (empty compare))
 End
+
+(*
+Letrec g = Lam x (App g x) in _
+ -->
+Letrec g = Lam x (Seq x (App g x)) in _
+*)
+
+Theorem fixpoint_analysis_test_0:
+  fixpoint_analysis [(«g», Lam (0 : num) [«x»] (App 0 (Var 0 «g») [Var 0 «x»]))]
+  =
+  [(«g», [(«x», T)], App 0 (Var 0 «g») [Var 0 «x»], 0)]
+Proof
+  EVAL_TAC
+QED
+
+(*
+Letrec g = Lam x y (App g x y) in _
+ -->
+Letrec g = Lam x y (Seq x (App g x y)) in _
+*)
+
+Theorem fixpoint_analysis_test_1:
+  fixpoint_analysis [(«g», Lam (0 : num) [«x»; «y»] (App 0 (Var 0 «g») [Var 0 «x»; Var 0 «x»]))]
+  =
+  [(«g», [(«x», T); («y», F)], App 0 (Var 0 «g») [Var 0 «x»; Var 0 «x»], 0)]
+Proof
+  EVAL_TAC
+QED
 
 (*
 Let foo = Lam a (Prim op [a]) in Lam x (App foo x)
