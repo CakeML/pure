@@ -1356,6 +1356,90 @@ Proof
   rpt gen_tac >> strip_tac >> drule $ cj 1 generalise >> rw[count_def]
 QED
 
+Theorem MEM_reserved_cn_mlstrings[simp]:
+  MEM e reserved_cn_mlstrings ⇔ explode e ∈ reserved_cns
+Proof
+  rw[reserved_cn_mlstrings_def, pure_configTheory.reserved_cns_def] >>
+  gvs[GSYM implodeEQ] >> simp[mlstringTheory.implode_def]
+QED
+
+(******************* Translator-friendly version ********************)
+
+val foldr_eq_tac = (
+  map_every qpat_abbrev_tac [`left = FOLDR _ _ _`,`right = FOLDR _ _ _`] >>
+  qsuff_tac `left = right` >> simp[] >> unabbrev_all_tac >>
+  irule FOLDR_CONG >> rw[])
+
+Theorem infer'_infer:
+  ∀e ns mset. infer ns mset e = infer' e ns mset
+Proof
+  recInduct infer'_ind >> rw[infer'_def, infer_def] >>
+  rw[infer'_prim_def |> DefnBase.one_line_ify NONE] >>
+  simp[apply_foldr_def, FOLDR_MAP] >> gvs[NULL_EQ]
+  >- ( (* Prim - no arguments *)
+    TOP_CASE_TAC >> rw[infer_def]
+    )
+  >- ( (* Prim *)
+    TOP_CASE_TAC >> rw[infer_def]
+    >- foldr_eq_tac
+    >~ [`infer_cons`]
+    >- (rpt (TOP_CASE_TAC >> gvs[]) >> foldr_eq_tac)
+    >~ [`infer_atom_op`]
+    >- foldr_eq_tac
+    >~ [`Seq`]
+    >- (
+      ntac 3 (reverse TOP_CASE_TAC >> gvs[] >> rw[infer_def]) >>
+      gvs[MAP_EQ_CONS] >> rw[infer_def]
+      ) >>
+    rpt (TOP_CASE_TAC >> gvs[])
+    )
+  >- foldr_eq_tac (* App *)
+  >- ( (* Letrec *)
+    simp[LAMBDA_PROD] >> foldr_eq_tac >>
+    pairarg_tac >> gvs[] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> rw[FUN_EQ_THM] >>
+    last_x_assum drule >> rw[]
+    ) >>
+  qmatch_goalsub_abbrev_tac `case css of [] => _ | _::_ => foo` >>
+  `(case css of [] => fail | _::_ => foo) = foo` by (Cases_on `css` >> gvs[]) >>
+  pop_assum SUBST_ALL_TAC >> unabbrev_all_tac >> rw[LAMBDA_PROD, FUN_EQ_THM] >>
+  ntac 2 (rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> rw[FUN_EQ_THM]) >>
+  map_every qpat_abbrev_tac [`left = FOLDR _ _ _`,`right = FOLDR _ _ _`] >>
+  `left = right` by (
+    unabbrev_all_tac >> irule FOLDR_CONG >> rw[] >> pairarg_tac >> gvs[] >>
+    first_x_assum drule >> simp[]) >>
+  gvs[] >> unabbrev_all_tac >> rw[FUN_EQ_THM] >>
+  once_rewrite_tac[infer_bind_def] >>
+  ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[] >>
+  once_rewrite_tac[infer_bind_def] >>
+  ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[] >>
+  reverse $ Cases_on `eopt` >> gvs[]
+  >- (
+    pairarg_tac >> gvs[] >>
+    once_rewrite_tac[infer_bind_def] >>
+    ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[] >>
+    simp[infer_bind_def] >> rename1 `oreturn _ n` >>
+    qsuff_tac `oreturn (oHD tys') n = SOME (HD tys', n)` >> simp[] >>
+    pop_assum mp_tac >> simp[infer_bind_def] >>
+    ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[] >>
+    simp[return_def] >> rw[] >> simp[oreturn_def, return_def]
+    ) >>
+  simp[return_def, infer_bind_def] >> rename1 `oreturn _ n` >>
+  qsuff_tac `oreturn (oHD tys) n = SOME $ (HD tys, n)` >> simp[] >>
+  qsuff_tac `LENGTH tys = LENGTH css`
+  >- (rw[] >> Cases_on `tys` >> gvs[oreturn_def, return_def]) >>
+  qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >> rpt $ pop_assum kall_tac >>
+  map_every qid_spec_tac [`x`,`r`,`tys`,`as`,`cs`,`css`] >>
+  Induct >> rw[] >- gvs[return_def] >>
+  pairarg_tac >> gvs[] >> pop_assum mp_tac >>
+  ntac 2 (
+    once_rewrite_tac[infer_bind_def] >>
+    ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[]) >>
+  simp[oreturn_def |> DefnBase.one_line_ify NONE] >>
+  TOP_CASE_TAC >> simp[fail_def, infer_bind_def, return_def] >>
+  strip_tac >> gvs[] >> last_x_assum drule >> rw[]
+QED
+
+
 (********************)
 
 val _ = export_theory();

@@ -911,15 +911,33 @@ Proof
     )
   >- (last_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[])
   >- (
-    disj2_tac >> simp[ns_cns_arities_def] >> rpt $ irule_at Any OR_INTRO_THM2 >>
-    simp[SUBSET_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS, Once MEM_EL] >>
-    gvs[oEL_THM] >> goal_assum drule >> simp[] >>
-    rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM >>
-    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-    imp_res_tac ALOOKUP_MEM >> goal_assum $ drule_at Any >> gvs[]
+    Cases_on `eopt` >> gvs[]
+    >- (
+      disj2_tac >> simp[ns_cns_arities_def] >> rpt $ irule_at Any OR_INTRO_THM2 >>
+      simp[SUBSET_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS, Once MEM_EL] >>
+      gvs[oEL_THM] >> goal_assum drule >> simp[] >>
+      rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM >>
+      first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+      imp_res_tac ALOOKUP_MEM >> goal_assum $ drule_at Any >> gvs[]
+      )
+    >- (
+      pairarg_tac >> gvs[] >>
+      disj2_tac >> simp[ns_cns_arities_def] >> rpt $ irule_at Any OR_INTRO_THM2 >>
+      simp[SUBSET_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS, Once MEM_EL] >>
+      gvs[oEL_THM] >> goal_assum drule >> simp[] >>
+      conj_tac >> rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM
+      >- (
+        last_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+        pairarg_tac >> gvs[] >>
+        imp_res_tac ALOOKUP_MEM >> goal_assum $ drule_at Any >> gvs[]
+        )
+      >- (
+        first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+        imp_res_tac ALOOKUP_MEM >> goal_assum $ drule_at Any >> gvs[]
+        )
+      )
     )
   >- (last_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[])
-  >- (Cases_on `eopt` >> gvs[] >> pairarg_tac >> gvs[])
 QED
 
 

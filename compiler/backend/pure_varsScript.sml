@@ -30,11 +30,12 @@ Definition list_delete_def:
   list_delete s l = FOLDL (λs v. delete s v) s l
 End
 
-(* TODO move to mlmapTheory *)
+(* TODO move to mlmapTheory
 Definition unionWith_def:
   unionWith f (Map cmp t1) (Map _ t2) =
     Map cmp (balanced_map$unionWith cmp f t1 t2)
 End
+*)
 
 Definition new_var_def:  (* might not be good for EVAL *)
   new_var ml s =

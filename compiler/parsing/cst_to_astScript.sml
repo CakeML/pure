@@ -350,13 +350,23 @@ Definition mkApp_def:
   | _ => FOLDL expApp f args
 End
 
+Definition ast_OUTR_def:
+  ast_OUTR (INR x) = (x:expAST) ∧
+  ast_OUTR _ = expTup []
+End
+
+Definition str_OUTL_def:
+  str_OUTL (INL x) = (x:string) ∧
+  str_OUTL _ = ""
+End
+
 Definition handlePrecs_def:
   handlePrecs sumlist =
   precparser$precparse
   <| rules := tok_action ;
      reduce :=
-       (λa1 op a2. SOME $ mkApp (mkSym $ OUTL op) [a1; a2]);
-     lift := OUTR ;
+       (λa1 op a2. SOME $ mkApp (mkSym $ str_OUTL op) [a1; a2]);
+     lift := ast_OUTR ;
      isOp := ISL;
      mkApp := (λa b. SOME $ expApp a b) (* won't get called *)
   |> ([], sumlist)
