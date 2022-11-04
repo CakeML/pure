@@ -299,12 +299,101 @@ val spec0 =
 
 val mkNT = ``INL : ppegnt -> ppegnt + num``
 
+Theorem frange_image[local]:
+  FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)
+Proof
+  simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]
+QED
+
+Theorem peg_range[local] =
+    SCONV (FDOM_purePEG :: frange_image :: purepeg_rules_applied)
+          “FRANGE purePEG.rules”
+
+Theorem subexprs_NT[local]:
+  subexprs (NT n f r) = {NT n f r}
+Proof
+  simp[subexprs_def, NT_def]
+QED
+
+val sugar_rwts = [choicel_def, seql_def, pegf_def, NT_def,
+                  sepby1_def, RPT1_def, sepby_def]
+
+Theorem purePEG_exprs =
+  “Gexprs purePEG”
+    |> SIMP_CONV (srw_ss())
+         ([Gexprs_def, subexprs_def, subexprs_NT,
+           pred_setTheory.INSERT_UNION_EQ, purePEG_def, peg_range] @
+          sugar_rwts)
+
+val topo_nts = [“nLit”, “nAExp”, “nAExpEQ”,
+                “nFExpEQ”, “nFExp”,  “nOp”, “nLSafeExp”,
+                “nFExp2”,
+                “nIExpEQ”, “nLSafeExpEQ”, “nIExp”, “nExp”,
+                “nExpEQ”, “nValBinding”, “nDecl”, “nPatAlt”, “nAPat”,
+                “nEqBind”, “nDoStmt”, “nTyBase”]
+
+fun npeg0(t,acc) =
+  let
+   val _ = print ("Proving peg0 result for " ^ term_to_string t ^ "\n")
+   val th = Q.prove(‘peg0 purePEG (nt (INL ^t) f R) = F ∧
+                     pegfail purePEG (nt (INL ^t) f R)’,
+                    simp [peg0_nt] >>
+                    SIMP_TAC (srw_ss()) (purepeg_rules_applied @ sugar_rwts @
+                                         [FDOM_purePEG, peg0_rwts] @ acc))
+  in
+    th::acc
+  end
+
+Theorem npeg_rwts = List.foldl npeg0 [] topo_nts |> LIST_CONJ
+
+fun wfnt(t,acc) = let
+  val _ = print ("Proving wfpeg for " ^ term_to_string t ^ "\n")
+  val th =
+    Q.prove(`wfpeg purePEG (nt (INL ^t) f R)`,
+          SIMP_TAC (srw_ss())
+                   (purepeg_rules_applied @
+                    [wfpeg_nt, FDOM_purePEG, wfpeg_rwts,
+                     peg0_rwts, npeg_rwts] @
+                    sugar_rwts @ acc))
+in
+  th::acc
+end;
+
+val wfpeg_nt_rwts =
+  List.foldl wfnt []
+    (topo_nts @ [“nPatAlts”, “nDecls”, “nEqBindSeq”, “nDoBlock”,
+                 “nEqBindSeq'”, “nTyApp”, “nTy”, “nFreeEqBind”,
+                 “nTyConDecl”])
+  |> LIST_CONJ
+
+Theorem PEG_wellformed[simp]:
+   wfG purePEG
+Proof
+  simp[wfG_def, purePEG_exprs] >> rw[] >>
+  simp(wfpeg_rwts :: FDOM_purePEG :: pegf_def :: peg0_rwts ::
+       npeg_rwts :: wfpeg_nt_rwts ::
+       purepeg_rules_applied)
+QED
+
 Theorem purePEG_exec_thm[compute] =
   TypeBase.constructors_of ``:ppegnt``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
     |> map (SIMP_RULE bool_ss (purepeg_rules_applied @
                                [pureNTs_distinct, sumTheory.INL_11]))
     |> LIST_CONJ;
+
+Theorem peg_start = SCONV [purePEG_def] “purePEG.start”
+Theorem parse_nDecls_total =
+        MATCH_MP (GEN_ALL ispeg_exec_total) PEG_wellformed
+        |> SRULE [peg_start]
+
+Theorem coreloop_nDecls_total =
+  MATCH_MP coreloop_total PEG_wellformed
+    |> REWRITE_RULE [peg_start] |> Q.GEN `i`
+
+Theorem owhile_nDecls_total =
+        SIMP_RULE (srw_ss()) [coreloop_def] coreloop_nDecls_total
+
 
 
 Theorem gettok[local,compute] = pure_lexer_implTheory.get_token_def

@@ -36,6 +36,29 @@ Definition grab_def:
     SOME (v::vs, tail)
   od ++ SOME([], h::t)
 End
+(* OPT_MMAP astExpDec *)
+fun mkgrab_def gtm gdef name tm =
+  let
+    val rhs = mk_icomb(gtm, tm)
+    val def0 = new_definition(name ^ "_def0",
+                              mk_eq(mk_var(name,type_of rhs), rhs))
+    fun myinst th =
+      let val (_, arg1::_) = th |> concl |> strip_forall |> #2 |> lhs
+                                |> strip_comb
+          val tytheta = match_type (type_of arg1) (type_of tm)
+      in
+        th |> SPEC_ALL |> INST_TYPE tytheta |> INST [inst tytheta arg1 |-> tm]
+      end
+    val def =
+      save_thm(name ^ "_def",
+               LIST_CONJ (map myinst $ CONJUNCTS gdef)
+                 |> REWRITE_RULE [GSYM def0])
+  in
+    SIMP_RULE bool_ss [GSYM def0, SF ETA_ss]
+  end
+
+
+
 
 Theorem grab_EQ_SOME_APPEND:
   ∀xs res xs'. grab f xs = SOME (res, xs') ⇒
@@ -654,6 +677,12 @@ Termination
     suffices_by simp[Abbr‘i’] >>
   simp[Abbr‘i’, Abbr‘ptl’, SUM_MAP_EL_lemma]
 End
+
+Theorem translate_this_astExp =
+  astExp_def
+    |> mkgrab_def “grab” grab_def "gAExp" “astExp nAExp”
+    |> mkgrab_def “grabPairs” grabPairs_def "gpFexp2" “astExp nFExp2”
+    |> mkgrab_def “OPT_MMAP” listTheory.OPT_MMAP_def "OMMexpDec" “astExpDec”
 
 Definition astFunPatBindf_def:
   astFunPatBindf e =
