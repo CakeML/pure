@@ -40,6 +40,26 @@ Proof
   \\ res_tac \\ fs [] \\ metis_tac []
 QED
 
+Theorem LIST_REL_MAP_ALT:
+  ∀xs ys. LIST_REL P xs (MAP f ys) ⇔ LIST_REL (λx y. P x (f y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS,MAP_EQ_CONS]
+QED
+
+Theorem IMP_mk_delay_eq_Delay:
+  exp_rel x1 y1 ∧ (∀c v. x1 = Var c v ⇒ mk_delay y1 ≠ Var v) ⇒
+  ∃x2. exp_rel x1 x2 ∧ mk_delay y1 = Delay x2
+Proof
+  Cases_on ‘∃c m. x1 = Var c m’ \\ gvs []
+  >- (simp [Once exp_rel_cases] \\ rw [] \\ fs [mk_delay_def])
+  \\ strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘x1’ \\ fs []
+  \\ simp [Once exp_rel_cases] \\ rw []
+  \\ fs [mk_delay_def]
+QED
+
 Theorem exp_rel_to_thunk:
   (∀s (x:'a pure_cexp$cexp) x1 s1.
     to_thunk s x = (x1,s1) ∧ NestedCase_free x ∧ vars_ok s ∧
@@ -64,7 +84,12 @@ Proof
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
     \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-    \\ fs [] \\ imp_res_tac SUBSET_TRANS \\ fs [])
+    \\ fs [] \\ imp_res_tac SUBSET_TRANS \\ fs []
+    \\ strip_tac \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ simp [LIST_REL_MAP_ALT]
+    \\ match_mp_tac LIST_REL_mono \\ rw []
+    \\ rename [‘exp_rel x1 y1’]
+    \\ irule IMP_mk_delay_eq_Delay \\ fs [])
   >~ [‘exp_rel (Letrec _ _ _)’] >-
    (irule_at Any exp_rel_Letrec \\ fs []
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
@@ -91,6 +116,7 @@ Proof
     \\ ‘v ≠ w’ by (CCONTR_TAC \\ gvs [SUBSET_DEF] \\ metis_tac [])
     >-
      (irule exp_rel_Case \\ fs []
+      \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
       \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
       \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
       \\ qid_spec_tac ‘ys’
@@ -116,6 +142,8 @@ Proof
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ strip_tac \\ fs []
     \\ irule exp_rel_Case \\ fs []
+    \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
+    \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
     \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
     \\ qid_spec_tac ‘ys’
@@ -146,6 +174,8 @@ Proof
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ strip_tac \\ fs []
+    \\ conj_tac
+    >- (rw [] \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     \\ irule_at Any SUBSET_TRANS
     \\ first_assum $ irule_at $ Pos hd \\ fs [])
   >~ [‘Prim c p xs’] >-
@@ -154,7 +184,11 @@ Proof
      (gvs [] \\ irule_at Any exp_rel_Cons \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-      \\ strip_tac \\ fs [])
+      \\ strip_tac \\ fs []
+      \\ IF_CASES_TAC \\ gvs [LIST_REL_MAP_ALT, SF ETA_ss]
+      \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ match_mp_tac LIST_REL_mono \\ fs [] \\ rw []
+      \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     >~ [‘AtomOp a’] >-
      (gvs [] \\ irule_at Any exp_rel_Prim \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
