@@ -750,6 +750,14 @@ Proof
   irule_at (Pos last) distinct_exp_eq
 QED
 
+Theorem transform_cexp_letrecs_distinct:
+  ∀ce. letrecs_distinct (exp_of (transform_cexp ce))
+Proof
+  simp[transform_cexp_def, clean_all_cexp_correct, split_all_cexp_correct,
+       distinct_cexp_correct, exp_of_init_sets] >>
+  assume_tac simplify_letrecs_distinct >> gvs[simplify_def]
+QED
+
 (********************)
 
 val _ = export_theory();
