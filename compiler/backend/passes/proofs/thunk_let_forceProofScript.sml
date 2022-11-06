@@ -21,6 +21,8 @@ val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
                               "thunkLang", "wellorder", "quotient_sum",
                               "quotient_pair", "thunkLangProps"];
 
+Overload safe_itree = “pure_semantics$safe_itree”
+
 val _ = numLib.prefer_num ();
 
 Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
@@ -1929,12 +1931,11 @@ Proof
   Induct \\ fs [PULL_EXISTS] \\ metis_tac []
 QED
 
-(*
 Theorem e_rel_exp_rel:
   ∀m x y. e_rel m x y ⇒ ∃k. ∀k1. k ≤ k1 ⇒ rel_list (REPLICATE k1 NONE ++ m) x y
 Proof
   ho_match_mp_tac e_rel_ind \\ rw []
-  >-
+  >~ [‘Let _ (Force (Var _)) _’] >-
    (gvs [rel_list_append]
     \\ qexists_tac ‘k+1’
     \\ Cases >- fs []
@@ -1943,17 +1944,50 @@ Proof
     \\ fs [rel_list_append,EVAL “REPLICATE 1 x”,PULL_EXISTS]
     \\ first_x_assum $ drule_then strip_assume_tac
     \\ ‘rel_list m (Let (SOME w) (Force (Var v)) z)
-                   (Let (SOME w) (Force (Var v)) y)’ by cheat
+                   (Let (SOME w) (Force (Var v)) y)’ by
+     (pop_assum mp_tac
+      \\ qid_spec_tac ‘z’ \\ qid_spec_tac ‘y’  \\ qid_spec_tac ‘x’
+      \\ qid_spec_tac ‘m’ \\ Induct
+      \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ irule_at Any exp_rel_Let
+      \\ irule_at Any exp_rel_Force
+      \\ irule_at Any exp_rel_Var
+      \\ first_assum $ irule_at $ Pos last
+      \\ fs [filter_clash_def])
     \\ pop_assum $ irule_at Any
     \\ ‘rel_list (REPLICATE n NONE) (Let (SOME w) (Force (Var v)) x)
-                                    (Let (SOME w) (Force (Var v)) q)’ by cheat
+                                    (Let (SOME w) (Force (Var v)) q)’ by
+     (pop_assum kall_tac
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘z’ \\ qid_spec_tac ‘y’  \\ qid_spec_tac ‘x’
+      \\ qid_spec_tac ‘n’ \\ Induct
+      \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_assum $ irule_at $ Pos last
+      \\ irule_at Any exp_rel_Let
+      \\ irule_at Any exp_rel_Force
+      \\ irule_at Any exp_rel_Var
+      \\ fs [name_clash_def])
     \\ pop_assum $ irule_at Any
     \\ irule exp_rel_Let_Force_Var \\ fs [])
-  >-
-   (qexists_tac ‘0’
-    \\ gvs [MEM_SPLIT]
-    \\ cheat)
-  >-
+  >~ [‘MEM (SOME (Var v,w)) m’] >-
+   (qexists_tac ‘0’ \\ fs []
+    \\ reverse Induct
+    >- (fs [] \\ irule_at Any exp_rel_Force
+        \\ irule_at Any exp_rel_Var \\ fs [])
+    \\ fs [] \\ Induct_on ‘m’ \\ fs []
+    \\ simp [SF DNF_ss]
+    \\ irule_at Any exp_rel_Force_Var
+    \\ conj_tac
+    >-
+     (qid_spec_tac ‘m’ \\ Induct
+      \\ fs [] \\ rw [] \\ irule_at Any exp_rel_Var \\ fs [])
+    \\ rw [] \\ fs []
+    \\ irule_at Any exp_rel_Force
+    \\ irule_at Any exp_rel_Var \\ fs [])
+  >~ [‘App _ _’] >-
    (qexists_tac ‘k+k'’ \\ rw []
     \\ rpt $ first_x_assum $ qspec_then ‘k1’ mp_tac
     \\ fs [] \\ rename [‘rel_list xs’]
@@ -1965,8 +1999,191 @@ Proof
     \\ rw [] \\ gvs []
     \\ irule_at Any exp_rel_App
     \\ metis_tac [])
-  \\ cheat
+  >~ [‘Lam’] >-
+   (qexists_tac ‘k’ \\ rw []
+    \\ last_x_assum $ dxrule_then assume_tac \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘y’
+    \\ qid_spec_tac ‘k1’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    >-
+     (rw []
+      \\ irule_at Any exp_rel_Lam
+      \\ first_x_assum $ irule_at $ Pos hd
+      \\ res_tac \\ fs [])
+    \\ Induct_on ‘m’ \\ fs [PULL_EXISTS]
+    \\ rw [] \\ res_tac
+    \\ pop_assum $ irule_at $ Pos last
+   \\ irule_at Any exp_rel_Lam \\ fs [])
+  >~ [‘Var’] >-
+   (qexists_tac ‘0’ \\ fs []
+    \\ reverse Induct \\ fs []
+    >- (irule_at Any exp_rel_Var \\ fs [])
+    \\ Induct_on ‘m’ \\ fs [] \\ rw []
+    \\ irule_at Any exp_rel_Var \\ fs [])
+  >~ [‘Delay’] >-
+   (qexists_tac ‘k’ \\ fs [] \\ rw []
+    \\ last_x_assum $ dxrule_then assume_tac \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘y’ \\ qid_spec_tac ‘k1’
+    \\ reverse Induct \\ fs [PULL_EXISTS] \\ rw []
+    >- (last_x_assum $ drule_then $ irule_at Any
+        \\ irule_at Any exp_rel_Delay \\ fs [])
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘y’ \\ qid_spec_tac ‘m’
+    \\ reverse Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ irule_at Any exp_rel_Delay \\ fs []
+    \\ last_x_assum $ drule_then $ irule_at Any \\ fs [])
+  >~ [‘Box’] >-
+   (qexists_tac ‘k’ \\ fs [] \\ rw []
+    \\ last_x_assum $ dxrule_then assume_tac \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘y’ \\ qid_spec_tac ‘k1’
+    \\ reverse Induct \\ fs [PULL_EXISTS] \\ rw []
+    >- (last_x_assum $ drule_then $ irule_at Any
+        \\ irule_at Any exp_rel_Box \\ fs [])
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘y’ \\ qid_spec_tac ‘m’
+    \\ reverse Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ irule_at Any exp_rel_Box \\ fs []
+    \\ last_x_assum $ drule_then $ irule_at Any \\ fs [])
+  >~ [‘Force’] >-
+   (qexists_tac ‘k’ \\ fs [] \\ rw []
+    \\ last_x_assum $ dxrule_then assume_tac \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘y’ \\ qid_spec_tac ‘k1’
+    \\ reverse Induct \\ fs [PULL_EXISTS] \\ rw []
+    >- (last_x_assum $ drule_then $ irule_at Any
+        \\ irule_at Any exp_rel_Force \\ fs [])
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’ \\ qid_spec_tac ‘y’ \\ qid_spec_tac ‘m’
+    \\ reverse Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ irule_at Any exp_rel_Force \\ fs []
+    \\ last_x_assum $ drule_then $ irule_at Any \\ fs [])
+  >~ [‘Let’] >-
+   (qexists_tac ‘k+k'’ \\ rw []
+    \\ rpt $ first_x_assum $ qspec_then ‘k1’ mp_tac
+    \\ fs [] \\ pop_assum kall_tac
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘x'’
+    \\ qid_spec_tac ‘y’
+    \\ qid_spec_tac ‘y'’
+    \\ qid_spec_tac ‘k1’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    \\ rw []
+    >-
+     (last_x_assum drule_all \\ disch_then $ irule_at Any
+      \\ irule_at Any exp_rel_Let \\ fs [])
+    \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘x'’
+    \\ qid_spec_tac ‘y’
+    \\ qid_spec_tac ‘y'’
+    \\ qid_spec_tac ‘m’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    \\ rw []
+    \\ last_x_assum drule_all \\ disch_then $ irule_at Any
+    \\ irule_at Any exp_rel_Let \\ fs [filter_clash_def])
+  >~ [‘If’] >-
+   (qexists_tac ‘k+k'+k''’ \\ rw []
+    \\ rpt $ first_x_assum $ qspec_then ‘k1’ mp_tac
+    \\ fs [] \\ pop_assum kall_tac
+    \\ EVERY (map qid_spec_tac [‘x1’,‘x2’,‘y1’,‘y2’,‘z1’,‘z2’])
+    \\ qid_spec_tac ‘k1’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    \\ rw []
+    >-
+     (last_x_assum $ irule_at Any
+      \\ irule_at Any exp_rel_If \\ fs [] \\ metis_tac [])
+    \\ rpt $ pop_assum mp_tac
+    \\ EVERY (map qid_spec_tac [‘x1’,‘x2’,‘y1’,‘y2’,‘z1’,‘z2’])
+    \\ qid_spec_tac ‘m’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    \\ rw []
+    \\ last_x_assum $ irule_at Any
+    \\ irule_at Any exp_rel_If \\ fs [] \\ metis_tac [])
+  >~ [‘Prim’] >-
+   (‘∃k. ∀k1. k ≤ k1 ⇒
+              LIST_REL (λx y. rel_list (REPLICATE k1 NONE ++ m) x y) xs ys’ by
+     (last_x_assum mp_tac
+      \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+      \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+      \\ last_x_assum dxrule \\ rw []
+      \\ qexists_tac ‘k+k'’ \\ fs [])
+    \\ last_x_assum kall_tac
+    \\ qexists_tac ‘k’ \\ rw []
+    \\ last_x_assum $ dxrule
+    \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+    \\ qid_spec_tac ‘k1’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    >-
+     (rw [] \\ irule_at Any exp_rel_Prim
+      \\ last_x_assum $ irule_at Any
+      \\ last_x_assum mp_tac
+      \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+      \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+      \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
+    \\ Induct_on ‘m’ \\ fs []
+    >- (Induct \\ fs [PULL_EXISTS])
+    \\ rw []
+    \\ irule_at Any exp_rel_Prim
+    \\ last_x_assum $ irule_at Any
+    \\ last_x_assum mp_tac
+    \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+    \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
+  >~ [‘Letrec’] >-
+   (‘∃k. ∀k1. k ≤ k1 ⇒
+              LIST_REL (λ(fn,x) (gn,y).
+               fn = gn ∧ rel_list (REPLICATE k1 NONE ++ MAP (K NONE) m) x y)
+          f g’ by
+     (last_x_assum mp_tac
+      \\ EVERY (map qid_spec_tac [‘g’,‘f’])
+      \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+      \\ fs [UNCURRY]
+      \\ last_x_assum dxrule \\ rw []
+      \\ qexists_tac ‘k'+k''’ \\ fs [])
+    \\ last_x_assum kall_tac
+    \\ qexists_tac ‘k+k'’ \\ rw []
+    \\ rpt $ first_x_assum $ qspec_then ‘k1’ mp_tac
+    \\ fs [] \\ pop_assum kall_tac
+    \\ EVERY (map qid_spec_tac [‘g’,‘f’,‘x’,‘y’])
+    \\ qid_spec_tac ‘k1’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    >-
+     (rw [] \\ irule_at Any exp_rel_Letrec
+      \\ last_x_assum $ irule_at Any
+      \\ last_x_assum $ irule_at $ Pos hd \\ fs []
+      \\ pop_assum mp_tac
+      \\ EVERY (map qid_spec_tac [‘g’,‘f’])
+      \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+      \\ PairCases_on ‘h’ \\ PairCases_on ‘y’ \\ fs [] \\ gvs [EXISTS_PROD]
+      \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
+    \\ Induct_on ‘m’ \\ fs []
+    >- (Induct \\ fs [PULL_EXISTS,FORALL_PROD])
+    \\ rw []
+    \\ irule_at Any exp_rel_Letrec
+    \\ last_x_assum $ irule_at Any
+    \\ last_x_assum $ irule_at Any
+    \\ last_x_assum $ irule_at Any
+    \\ pop_assum mp_tac
+    \\ EVERY (map qid_spec_tac [‘g’,‘f’])
+    \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ PairCases_on ‘h’ \\ PairCases_on ‘y’ \\ fs [] \\ gvs [EXISTS_PROD]
+    \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
 QED
-*)
+
+Theorem e_rel_semantics:
+  e_rel [] x y ∧
+  closed x ∧
+  safe_itree (itree_of x) ⇒
+    itree_of x = itree_of y ∧ closed y
+Proof
+  strip_tac
+  \\ dxrule e_rel_exp_rel \\ strip_tac
+  \\ pop_assum $ qspec_then ‘k’ assume_tac
+  \\ fs [] \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘y’
+  \\ qid_spec_tac ‘k’
+  \\ Induct \\ fs [] \\ rpt gen_tac
+  \\ rpt $ disch_then assume_tac
+  \\ fs [thunk_semanticsTheory.itree_of_def]
+  \\ drule_all case_force_semantics
+  \\ strip_tac \\ fs []
+  \\ last_x_assum irule \\ fs []
+  \\ fs [closed_def]
+  \\ imp_res_tac exp_rel_NONE_freevars \\ fs []
+QED
 
 val _ = export_theory ();
