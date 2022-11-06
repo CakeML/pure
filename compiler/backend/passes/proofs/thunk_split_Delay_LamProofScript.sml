@@ -8,7 +8,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      dep_rewrite wellorderTheory arithmeticTheory;
 open mlmapTheory mlstringTheory;
 open pure_miscTheory thunkLangPropsTheory thunkLangTheory thunkLang_primitivesTheory
-     thunk_Delay_LamTheory thunk_Let_Delay_VarTheory thunk_cexpTheory
+     thunk_Delay_LamTheory thunk_Let_Delay_VarTheory thunk_cexpTheory pure_varsTheory
      thunk_exp_ofTheory thunk_semanticsTheory thunk_split_Delay_LamTheory var_setTheory;
 
 val _ = new_theory "thunk_split_Delay_LamProof";
