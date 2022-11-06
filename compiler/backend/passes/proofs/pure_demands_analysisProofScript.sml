@@ -2097,18 +2097,6 @@ Proof
   \\ simp [letrecs_distinct_def, exp_of_def]
 QED
 
-Theorem letrecs_distinct_Apps:
-  ∀l e. letrecs_distinct (Apps e l) ⇔ letrecs_distinct e ∧ EVERY letrecs_distinct l
-Proof
-  Induct \\ gs [letrecs_distinct_def, Apps_def, GSYM CONJ_ASSOC]
-QED
-
-Theorem letrecs_distinct_Lams:
-  ∀l e. letrecs_distinct (Lams l e) ⇔ letrecs_distinct e
-Proof
-  Induct \\ gs [letrecs_distinct_def, Lams_def]
-QED
-
 Theorem letrecs_distinct_rev_split_body_inner:
   ∀args a e. letrecs_distinct (exp_of e) ⇒
              letrecs_distinct (exp_of (rev_split_body_inner a args e))
@@ -2882,22 +2870,6 @@ Proof
   Induct \\ gs [adds_demands_def]
   \\ rw []
   \\ CASE_TAC \\ gs [exp_of_def, letrecs_distinct_def]
-QED
-
-Theorem letrecs_distinct_lets_for:
-  ∀l m n e. letrecs_distinct (lets_for m n l e) ⇔ letrecs_distinct e
-Proof
-  Induct \\ gs [FORALL_PROD, lets_for_def, letrecs_distinct_def]
-QED
-
-Theorem letrecs_distinct_rows_of:
-  ∀rows fall n. letrecs_distinct (rows_of n fall rows)
-                ⇔ letrecs_distinct fall ∧
-                  EVERY (λ(cons, vL, e). letrecs_distinct e) rows
-Proof
-  Induct \\ gs [FORALL_PROD, rows_of_def, letrecs_distinct_def]
-  \\ gs [letrecs_distinct_lets_for]
-  \\ rw [] \\ eq_tac \\ simp []
 QED
 
 Theorem demands_analysis_soundness_lemma:

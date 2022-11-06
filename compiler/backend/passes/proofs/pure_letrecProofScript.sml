@@ -66,7 +66,7 @@ Proof
 QED
 
 Definition letrecs_distinct_def:
-  (letrecs_distinct (Letrec xs y) ⇔
+  (letrecs_distinct (pure_exp$Letrec xs y) ⇔
     ALL_DISTINCT (MAP FST xs) ∧
     EVERY letrecs_distinct (MAP SND xs) ∧
     letrecs_distinct y) ∧
@@ -79,6 +79,34 @@ Termination
   Induct_on `xs` >> rw[] >> gvs[exp_size_def] >>
   PairCases_on `h` >> gvs[exp_size_def]
 End
+
+Theorem letrecs_distinct_Apps:
+  ∀l e. letrecs_distinct (Apps e l) ⇔ letrecs_distinct e ∧ EVERY letrecs_distinct l
+Proof
+  Induct \\ gs [letrecs_distinct_def, Apps_def, GSYM CONJ_ASSOC]
+QED
+
+Theorem letrecs_distinct_Lams:
+  ∀l e. letrecs_distinct (Lams l e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ gs [letrecs_distinct_def, Lams_def]
+QED
+
+Theorem letrecs_distinct_lets_for:
+  ∀l m n e. letrecs_distinct (lets_for m n l e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ gs [FORALL_PROD, pureLangTheory.lets_for_def, letrecs_distinct_def]
+QED
+
+Theorem letrecs_distinct_rows_of:
+  ∀rows fall n. letrecs_distinct (rows_of n fall rows)
+                ⇔ letrecs_distinct fall ∧
+                  EVERY (λ(cons, vL, e). letrecs_distinct e) rows
+Proof
+  Induct \\ gs [FORALL_PROD, pureLangTheory.rows_of_def, letrecs_distinct_def]
+  \\ gs [letrecs_distinct_lets_for]
+  \\ rw [] \\ eq_tac \\ simp []
+QED
 
 Theorem distinct_letrecs_distinct:
   ∀e. letrecs_distinct (distinct e)
