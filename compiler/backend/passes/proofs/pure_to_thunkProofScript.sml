@@ -87,6 +87,26 @@ Proof
   \\ simp [SUBSET_DEF]
 QED
 
+Theorem LIST_REL_MAP_ALT:
+  ∀xs ys. LIST_REL P xs (MAP f ys) ⇔ LIST_REL (λx y. P x (f y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS,MAP_EQ_CONS]
+QED
+
+Theorem IMP_mk_delay_eq_Delay:
+  exp_rel x1 y1 ∧ (∀c v. x1 = Var c v ⇒ mk_delay y1 ≠ Var v) ⇒
+  ∃x2. exp_rel x1 x2 ∧ mk_delay y1 = Delay x2
+Proof
+  Cases_on ‘∃c m. x1 = Var c m’ \\ gvs []
+  >- (simp [Once exp_rel_cases] \\ rw [] \\ fs [mk_delay_def])
+  \\ strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ pop_assum mp_tac
+  \\ Cases_on ‘x1’ \\ fs []
+  \\ simp [Once exp_rel_cases] \\ rw []
+  \\ fs [mk_delay_def]
+QED
+
 Theorem exp_rel_to_thunk:
   (∀s (x:'a pure_cexp$cexp) x1 s1.
     to_thunk s x = (x1,s1) ∧ NestedCase_free x ∧ vars_ok s ∧
@@ -118,9 +138,26 @@ Proof
     \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ fs [] \\ imp_res_tac SUBSET_TRANS \\ fs []
-    \\ simp [MAP_MAP_o, combinTheory.o_DEF, exp_of_def, boundvars_def,
-             EVERY_MEM, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS])
-  >~ [‘exp_rel (Letrec _ _ _)’] >-
+    \\ strip_tac
+    \\ conj_tac
+    >- (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+        \\ simp [LIST_REL_MAP_ALT]
+        \\ match_mp_tac LIST_REL_mono \\ rw []
+        \\ rename [‘exp_rel x1 y1’]
+        \\ irule IMP_mk_delay_eq_Delay \\ fs [])
+    \\ gs [EVERY_MEM]
+    \\ simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ rw []
+    \\ first_x_assum $ dxrule_then mp_tac
+    \\ simp [SUBSET_DEF]
+    \\ disch_then irule
+    \\ rename1 ‘mk_delay expr’
+    \\ Cases_on ‘expr’ \\ gs [mk_delay_def, Once boundvars_def]
+    \\ rename1 ‘Force c’
+    \\ Cases_on ‘c’
+    \\ gs [mk_delay_def, boundvars_def]
+    \\ metis_tac [])
+    >~ [‘exp_rel (Letrec _ _ _)’] >-
    (irule_at Any exp_rel_Letrec \\ fs []
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
@@ -165,11 +202,17 @@ Proof
           \\ reverse conj_tac
           >- gs [SUBSET_DEF]
           \\ conj_tac
-          >- (irule SUBSET_TRANS
-              \\ first_x_assum $ irule_at $ Pos hd
-              \\ irule SUBSET_TRANS
-              \\ first_x_assum $ irule_at $ Pos hd
-              \\ simp [])
+          >- (rename1 ‘mk_delay expr’
+              \\ qpat_x_assum ‘boundvars (exp_of expr) ⊆ set_of _’ mp_tac
+              \\ qpat_x_assum ‘set_of _ ⊆ set_of _’ mp_tac
+              \\ rpt $ pop_assum kall_tac
+              \\ rw []
+              \\ Cases_on ‘expr’
+              \\ gs [exp_of_def, mk_delay_def, boundvars_def, SUBSET_DEF]
+              >- metis_tac []
+              \\ CASE_TAC
+              \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
+              \\ metis_tac [])
           \\ irule SUBSET_TRANS
           \\ irule_at Any boundvars_rows_of_NONE
           \\ simp []
@@ -182,6 +225,7 @@ Proof
           >- (first_x_assum $ drule_then assume_tac
               \\ gs []))
       \\ irule exp_rel_Case \\ fs []
+      \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
       \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
       \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
       \\ qid_spec_tac ‘ys’
@@ -210,12 +254,18 @@ Proof
     >- (simp [boundvars_def]
         \\ reverse conj_tac
         >- gs [SUBSET_DEF]
-        \\ conj_tac
-        >- (irule SUBSET_TRANS
-            \\ first_x_assum $ irule_at $ Pos hd
-            \\ irule SUBSET_TRANS
-            \\ first_x_assum $ irule_at $ Pos hd
-            \\ simp [])
+          \\ conj_tac
+          >- (rename1 ‘mk_delay expr’
+              \\ qpat_x_assum ‘boundvars (exp_of expr) ⊆ set_of _’ mp_tac
+              \\ rpt $ qpat_x_assum ‘set_of _ ⊆ set_of _’ mp_tac
+              \\ rpt $ pop_assum kall_tac
+              \\ rw []
+              \\ Cases_on ‘expr’
+              \\ gs [exp_of_def, mk_delay_def, boundvars_def, SUBSET_DEF]
+              >- metis_tac []
+              \\ CASE_TAC
+              \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
+              \\ metis_tac [])
         \\ irule SUBSET_TRANS
         \\ irule_at Any boundvars_rows_of_SOME
         \\ simp []
@@ -228,6 +278,8 @@ Proof
         >- (first_x_assum $ drule_then assume_tac
             \\ gs []))
     \\ irule exp_rel_Case \\ fs []
+    \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
+    \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
     \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
     \\ qid_spec_tac ‘ys’
@@ -258,10 +310,23 @@ Proof
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ strip_tac \\ fs []
+    \\ conj_tac
+    >- (rw [] \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     \\ irule_at Any SUBSET_TRANS
     \\ first_assum $ irule_at $ Pos hd \\ fs []
     \\ irule_at Any SUBSET_TRANS
-    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ qpat_assum ‘set_of _ ⊆ set_of _’ $ irule_at $ Pos $ el 2 \\ fs []
+    \\ conj_tac
+    >- (rename1 ‘mk_delay expr’
+        \\ qpat_x_assum ‘boundvars (exp_of expr) ⊆ set_of _’ mp_tac
+        \\ rpt $ pop_assum kall_tac
+        \\ rw []
+        \\ Cases_on ‘expr’
+        \\ gs [exp_of_def, mk_delay_def, boundvars_def, SUBSET_DEF]
+        >- metis_tac []
+        \\ CASE_TAC
+        \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
+        \\ metis_tac [])
     \\ gs [SUBSET_DEF])
   >~ [‘Prim c p xs’] >-
    (Cases_on ‘p’
@@ -270,7 +335,13 @@ Proof
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
       \\ strip_tac \\ fs [boundvars_def]
-      \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def])
+      \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def]
+      \\ reverse conj_tac
+      >- cheat
+      \\ IF_CASES_TAC \\ gvs [LIST_REL_MAP_ALT, SF ETA_ss]
+      \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ match_mp_tac LIST_REL_mono \\ fs [] \\ rw []
+      \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     >~ [‘AtomOp a’] >-
      (gvs [] \\ irule_at Any exp_rel_Prim \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac

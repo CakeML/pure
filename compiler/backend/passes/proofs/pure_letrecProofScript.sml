@@ -1443,6 +1443,95 @@ Proof
   eq_tac >> rw[] >> drule miscTheory.MEM_ALOOKUP >> rw[] >> gvs[]
 QED
 
+Theorem valid_split_freevars:
+  valid_split xs ys zs ⇒
+  freevars (Letrec xs e) = freevars (Letrec ys (Letrec zs e))
+Proof
+  rw[valid_split_def] >> gvs[LIST_TO_SET_MAP] >> gvs[UNION_ASSOC] >>
+  simp[Once EXTENSION] >> gvs[DISJOINT_ALT] >>
+  gvs[PULL_EXISTS, EXISTS_PROD, FORALL_PROD] >>
+  rw[] >> eq_tac >> rw[] >> gvs[] >> metis_tac[]
+QED
+
+Theorem freevars_Letrec_append:
+  freevars (Letrec (a ++ b) e) =
+    freevars (Letrec b e) DIFF (set (MAP FST a)) ∪
+    BIGUNION (set (MAP (λ(fn,body). freevars body) a)) DIFF set (MAP FST (a ++ b))
+Proof
+  simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD] >>
+  rw[] >> eq_tac >> rw[] >> gvs[] >> metis_tac[]
+QED
+
+Theorem in_freevars_make_Letrecs:
+  ∀l x e. x ∈ freevars (make_Letrecs l e) ⇔
+  (x ∈ freevars e ∧ ¬ MEM x (MAP FST (FLAT l))) ∨
+  (∃left fns right fn body. l = left ++ [fns] ++ right ∧
+    MEM (fn,body) fns ∧ x ∈ freevars body ∧
+    ¬ MEM x (MAP FST fns) ∧ ¬ MEM x (MAP FST (FLAT left)))
+Proof
+  Induct >> rw[make_Letrecs_def] >> eq_tac >> rw[] >> gvs[]
+  >- (disj2_tac >> qexists_tac `h::left` >> simp[SF SFY_ss])
+  >- (
+    qpat_x_assum `MEM _ (MAP _ _)` mp_tac >>
+    simp[Once MEM_MAP, Once PULL_EXISTS, FORALL_PROD] >> rw[] >>
+    disj2_tac >> qexists_tac `[]` >> simp[SF SFY_ss]
+    )
+  >- (
+    Cases_on `left` >> gvs[]
+    >- (disj2_tac >> simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD, SF SFY_ss])
+    >- (disj1_tac >> disj2_tac >> irule_at Any EQ_REFL >> simp[SF SFY_ss])
+    )
+  >- (Cases_on `left` >> gvs[])
+QED
+
+Theorem valid_split_lift_freevars:
+  valid_split_lift l ⇒
+    freevars (Letrec (FLAT l) e) = freevars (make_Letrecs l e)
+Proof
+  Induct_on `l` >> rewrite_tac[make_Letrecs_def] >- simp[] >>
+  gen_tac >> strip_tac >> last_x_assum mp_tac >> impl_tac
+  >- (irule $ cj 2 valid_split_lift_append >> qexists_tac `[h]` >> simp[]) >>
+  strip_tac >> rewrite_tac[FLAT, freevars_Letrec_append] >> pop_assum SUBST_ALL_TAC >>
+  simp[DIFF_UNION, Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD, FORALL_PROD] >>
+  rw[] >> eq_tac >> rw[] >- metis_tac[] >- metis_tac[]
+  >- (
+    drule $ iffLR in_freevars_make_Letrecs >> strip_tac >> gvs[MEM_MAP, FORALL_PROD] >>
+    gvs[valid_split_lift_def] >>
+    last_x_assum $ qspec_then `h::left ++ [fns]` mp_tac >>
+    simp[valid_split_def, Once DISJOINT_SYM, DISJOINT_ALT, MEM_MAP, DISJ_EQ_IMP] >>
+    strip_tac >> pop_assum irule >> simp[EXISTS_PROD, PULL_EXISTS] >> metis_tac[]
+    )
+  >- (
+    gvs[valid_split_lift_def] >>
+    last_x_assum $ qspec_then `[h]` mp_tac >> simp[valid_split_def] >>
+    simp[Once DISJOINT_SYM, DISJOINT_ALT, MEM_MAP, DISJ_EQ_IMP] >>
+    strip_tac >> pop_assum irule >> simp[EXISTS_PROD, PULL_EXISTS, SF SFY_ss]
+    )
+QED
+
+Theorem split_all_freevars:
+  ∀e. letrecs_distinct e ⇒ freevars (split_all e) = freevars e
+Proof
+  simp[split_all_def] >> recInduct freevars_ind >>
+  rw[letrec_recurse_def, exp_eq_refl, letrecs_distinct_def] >>
+  gvs[GSYM split_all_def]
+  >- (
+    gvs[MAP_MAP_o, combinTheory.o_DEF] >> AP_TERM_TAC >> AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> gvs[EVERY_MEM]
+    ) >>
+  qmatch_goalsub_abbrev_tac `make_Letrecs sfns` >>
+  `valid_split_lift sfns` by (
+    unabbrev_all_tac >> irule split_one_correct >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]) >>
+  drule $ GSYM valid_split_lift_freevars >> rw[LIST_TO_SET_MAP] >>
+  `set (FLAT sfns) = set (MAP (λ(n,x). (n, split_all x)) lcs)` by (
+    unabbrev_all_tac >> DEP_REWRITE_TAC[GSYM split_one_FLAT] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]) >>
+  rw[] >> simp[GSYM LIST_TO_SET_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[GSYM FST_THM] >> AP_THM_TAC >> ntac 4 AP_TERM_TAC >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> res_tac
+QED
+
 Theorem make_Letrecs_correct:
   ∀l e. valid_split_lift l ⇒ Letrec (FLAT l) e ≅ make_Letrecs l e
 Proof
@@ -1505,6 +1594,39 @@ Proof
   Cases_on `ALOOKUP bar k` >> rgs[] >>
   Cases_on `ALOOKUP (FLAT (split_one bar)) k` >> rgs[] >>
   first_x_assum (qspec_then `x` assume_tac) >> rgs[exp_eq_refl]
+QED
+
+Theorem split_all_letrecs_distinct:
+  ∀e. letrecs_distinct e ⇒ letrecs_distinct (split_all e)
+Proof
+  simp[split_all_def] >>
+  recInduct freevars_ind >> rw[letrecs_distinct_def, letrec_recurse_def] >>
+  gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> gvs[GSYM split_all_def] >>
+  pop_assum kall_tac >>
+  `∀fn body. MEM (fn,body) lcs ⇒ letrecs_distinct (split_all body)` by (
+    rw[] >> res_tac) >>
+  last_x_assum kall_tac >>
+  qpat_x_assum `∀a b. _ ⇒ letrecs_distinct b` kall_tac >>
+  qspec_then `MAP (λ(n,x). n, split_all x) lcs` mp_tac split_one_correct >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >> strip_tac >>
+  qmatch_goalsub_abbrev_tac `make_Letrecs sfns` >>
+  `EVERY (ALL_DISTINCT o MAP FST) sfns` by (
+    gvs[valid_split_lift_def, valid_split_def] >>
+    first_x_assum $ qspec_then `[]` mp_tac >> rw[MAP_FLAT] >>
+    drule ALL_DISTINCT_FLAT_EVERY >> rw[EVERY_MEM] >> gvs[MEM_MAP, PULL_EXISTS]) >>
+  `EVERY (EVERY (letrecs_distinct o SND)) sfns` by (
+    rw[EVERY_MEM] >> simp[SND_THM] >> pairarg_tac >> gvs[] >>
+    rename[`MEM sfn sfns`,`MEM (fn,body) sfn`] >>
+    qsuff_tac `MEM (fn,body) (MAP (λ(n,x). (n,split_all x)) lcs)`
+    >- (strip_tac >> gvs[MEM_MAP] >> pairarg_tac >> gvs[] >> res_tac) >>
+    qspec_then `MAP (λ(n,x). n, split_all x) lcs` mp_tac split_one_FLAT >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >> strip_tac >>
+    gvs[EXTENSION] >> simp[MEM_FLAT, SF SFY_ss]) >>
+  qpat_x_assum `Abbrev _` kall_tac >>
+  Induct_on `sfns` >> rw[make_Letrecs_def] >>
+  simp[letrecs_distinct_def] >> gvs[EVERY_MAP, combinTheory.o_DEF] >>
+  first_x_assum irule >> irule $ cj 2 valid_split_lift_append >>
+  qexists_tac `[h]` >> simp[]
 QED
 
 
@@ -1607,6 +1729,29 @@ Proof
   simp[] >> gvs[closed_def]
 QED
 
+Theorem freevars_clean_one:
+  ∀fns e. freevars (clean_one fns e) ⊆
+    (freevars e ∪ BIGUNION (set (MAP (λ(fn,b). freevars b) fns)))
+      DIFF set (MAP FST fns)
+Proof
+  rw[clean_one_def]
+  >- (gvs[DISJOINT_ALT, SUBSET_DEF] >> simp[Once MONO_NOT_EQ]) >>
+  pop_assum kall_tac >> rpt (CASE_TAC >> gvs[]) >> gvs[SUBSET_DEF]
+QED
+
+Theorem freevars_clean_all:
+  ∀x. freevars (clean_all x) ⊆ freevars x
+Proof
+  simp[clean_all_def] >>
+  recInduct freevars_ind >> rw[letrec_recurse_def] >> gvs[GSYM clean_all_def] >>
+  gvs[SUBSET_DEF] >> rw[] >> gvs[MEM_MAP, PULL_EXISTS]
+  >- metis_tac[] >>
+  drule $ SRULE [SUBSET_DEF] freevars_clean_one >>
+  simp[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> rw[] >> gvs[]
+  >- metis_tac[] >>
+  PairCases_on `y` >> gvs[] >> rw[DISJ_EQ_IMP] >> gvs[]
+QED
+
 Theorem clean_all_correct:
   ∀e. e ≅ clean_all e
 Proof
@@ -1614,6 +1759,26 @@ Proof
   >- simp[exp_eq_Letrec_irrel] >>
   EVERY_CASE_TAC >> gvs[exp_eq_refl] >>
   irule exp_eq_Letrec_Let >> simp[]
+QED
+
+Theorem clean_all_letrecs_distinct:
+  ∀e. letrecs_distinct e ⇒ letrecs_distinct (clean_all e)
+Proof
+  simp[clean_all_def] >>
+  recInduct freevars_ind >> rw[letrecs_distinct_def, letrec_recurse_def] >>
+  gvs[EVERY_MAP, EVERY_MEM] >>
+  simp[clean_one_def] >> IF_CASES_TAC >> gvs[] >>
+  pop_assum kall_tac >> Cases_on `lcs` >> gvs[] >- simp[letrecs_distinct_def] >>
+  Cases_on `t` >> gvs[]
+  >- (
+    pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[] >> simp[letrecs_distinct_def]
+    ) >>
+  ntac 2 $ once_rewrite_tac[GSYM MAP] >>
+  qpat_abbrev_tac `foo = _ :: _ :: _` >>
+  `ALL_DISTINCT (MAP FST foo)` by (unabbrev_all_tac >> gvs[]) >>
+  simp[letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[GSYM FST_THM, EVERY_MAP, LAMBDA_PROD] >>
+  gvs[EVERY_MEM, FORALL_PROD] >> unabbrev_all_tac >> gvs[] >> metis_tac[]
 QED
 
 
@@ -1628,6 +1793,15 @@ Proof
   irule exp_eq_trans >> irule_at (Pos last) split_all_correct >>
   simp[distinct_letrecs_distinct] >>
   irule distinct_exp_eq
+QED
+
+Theorem simplify_letrecs_distinct:
+  ∀e. letrecs_distinct (simplify e)
+Proof
+  rw[simplify_def] >>
+  irule clean_all_letrecs_distinct >>
+  irule split_all_letrecs_distinct >>
+  simp[distinct_letrecs_distinct]
 QED
 
 

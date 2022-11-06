@@ -22,6 +22,24 @@ Definition get_var_name_def:
   get_var_name _ = strlit "forced"
 End
 
+Definition mk_delay_def:
+  mk_delay (x:thunk_cexp$cexp) =
+    case x of
+    | Force (Var n) => Var n
+    | _             => Delay x
+End
+
+Definition must_delay_def:
+  must_delay s ⇔
+    s = strlit "Bind"   ∨
+    s = strlit "Handle" ∨
+    s = strlit "Act"    ∨
+    s = strlit "Length" ∨
+    s = strlit "Alloc"  ∨
+    s = strlit "Deref"  ∨
+    s = strlit "Update"
+End
+
 Definition to_thunk_def:
   to_thunk (s:vars) (pure_cexp$Var c v) =
     (thunk_cexp$Force (Var v),s) ∧
@@ -30,7 +48,7 @@ Definition to_thunk_def:
   to_thunk s (App c x ys) =
     (let (x,s) = to_thunk s x in
      let (ys,s) = to_thunk_list s ys in
-       (App x (MAP Delay ys), s)) ∧
+       (App x (MAP mk_delay ys), s)) ∧
   to_thunk s (Letrec c xs y) =
     (let (y,s) = to_thunk s y in
      let (ys,s) = to_thunk_list s (MAP SND xs) in
@@ -38,11 +56,13 @@ Definition to_thunk_def:
   to_thunk s (Let c v x y) =
     (let (x,s) = to_thunk s x in
      let (y,s) = to_thunk s y in
-       (Let (SOME v) (Delay x) y,s)) ∧
+       (Let (SOME v) (mk_delay x) y,s)) ∧
   to_thunk s (Prim c p ys) =
     (let (xs,s) = to_thunk_list s ys in
        case p of
-       | Cons t => (Prim (Cons t) (MAP Delay xs),s)
+       | Cons t => (Prim (Cons t) (if must_delay t
+                                   then MAP Delay xs
+                                   else MAP mk_delay xs),s)
        | AtomOp a => (Prim (AtomOp a) xs,s)
        | Seq =>
            let x = any_el 0 xs in
@@ -55,12 +75,12 @@ Definition to_thunk_def:
      let (w,s) = invent_var (v ^ strlit "_forced") s in
        case opt of
        | NONE =>
-           ((Let (SOME v) (Delay x) $
+           ((Let (SOME v) (mk_delay x) $
              Let (SOME w) (Force (Var v)) $
               Case w (MAP2 (λ(c,n,_) y. (c,n,y)) ys rs) NONE,s))
        | SOME (a,y) =>
           let (y,s) = to_thunk s y in
-            ((Let (SOME v) (Delay x) $
+            ((Let (SOME v) (mk_delay x) $
               Let (SOME w) (Force (Var v)) $
                Case w (MAP2 (λ(c,n,_) y. (c,n,y)) ys rs) (SOME (a,y))),s)) ∧
   to_thunk s (NestedCase c g gv p e pes) = to_thunk s e ∧

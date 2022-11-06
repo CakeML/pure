@@ -43,6 +43,8 @@ val ind_lemma = Q.prove(
 
 val r = translate pure_namesTheory.pure_names_def;
 
+val r = translate pure_to_thunkTheory.mk_delay_def;
+val r = translate pure_to_thunkTheory.must_delay_def;
 val r = translate pure_to_thunkTheory.any_el_def;
 val r = translate pure_to_thunkTheory.get_var_name_def;
 val r = translate MAP2_DEF;
