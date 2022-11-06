@@ -337,7 +337,19 @@ Proof
       \\ strip_tac \\ fs [boundvars_def]
       \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def]
       \\ reverse conj_tac
-      >- cheat
+      >- (IF_CASES_TAC
+          \\ simp [MEM_MAP, boundvars_def, PULL_EXISTS]
+          \\ rw []
+          \\ first_x_assum $ dxrule_then mp_tac
+          \\ rename1 ‘mk_delay expr’
+          \\ rpt $ pop_assum kall_tac
+          \\ rw []
+          \\ Cases_on ‘expr’
+          \\ gs [exp_of_def, mk_delay_def, boundvars_def, SUBSET_DEF]
+          >- metis_tac []
+          \\ CASE_TAC
+          \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
+          \\ metis_tac [])
       \\ IF_CASES_TAC \\ gvs [LIST_REL_MAP_ALT, SF ETA_ss]
       \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
       \\ match_mp_tac LIST_REL_mono \\ fs [] \\ rw []
