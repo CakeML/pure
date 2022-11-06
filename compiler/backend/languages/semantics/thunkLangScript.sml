@@ -18,7 +18,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory thunkLang_primitivesTheory pure_miscTheory;
+     pure_expTheory thunkLang_primitivesTheory pure_miscTheory pred_setTheory;
 
 val _ = new_theory "thunkLang";
 
@@ -581,6 +581,20 @@ Proof
   Induct using freevars_ind
   \\ gs [boundvars_def, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ gs []
+QED
+
+Theorem boundvars_Lams:
+  ∀vL e. boundvars (Lams vL e) = set vL ∪ boundvars e
+Proof
+  Induct \\ fs [boundvars_def]
+  \\ simp [SET_EQ_SUBSET, SUBSET_DEF]
+QED
+
+Theorem boundvars_Apps:
+  ∀eL e. boundvars (Apps e eL) = boundvars e ∪ BIGUNION (set $ MAP boundvars eL)
+Proof
+  Induct \\ fs [boundvars_def]
+  \\ simp [SET_EQ_SUBSET, SUBSET_DEF]
 QED
 
 val _ = export_theory ();

@@ -5,12 +5,12 @@
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_namesTheory thunk_cexpTheory pure_cexpTheory;
+open pure_namesTheory thunk_cexpTheory pure_cexpTheory thunk_split_Delay_LamTheory;
 
 val _ = new_theory "pure_to_thunk";
 
 val _ = set_grammar_ancestry
-  ["pure_cexp", "thunk_cexp", "pure_names"];
+  ["pure_cexp", "thunk_cexp", "pure_names", "thunk_split_Delay_Lam"];
 
 Definition any_el_def:
   any_el n [] = thunk_cexp$Prim (AtomOp Add) [] ∧
@@ -86,7 +86,7 @@ End
 Definition compile_to_thunk_def:
   compile_to_thunk e =
   let (e, vs) = to_thunk (pure_names e) e in
-    let (e2, vs2) = thunk_split_Delayed_Lam e vs (empty compare) in
+    let (e2, vs2) = split_Delayed_Lam e vs (empty compare) in
         e2
 End
 

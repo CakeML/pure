@@ -67,7 +67,10 @@ Proof
   \\ qspec_then ‘e3’ mp_tac demands_analysis_soundness \\ fs []
   \\ dxrule_then strip_assume_tac infer_types_SOME
   \\ dxrule_then strip_assume_tac infer_types_SOME
-  \\ fs [] \\ strip_tac
+  \\ fs []
+  \\ impl_tac
+  >- cheat
+  \\ strip_tac
   \\ mp_tac safe_exp_app_bisim_F_IMP_same_itree
   \\ gvs [pure_exp_relTheory.app_bisimilarity_eq]
   \\ disch_then drule_all \\ fs []

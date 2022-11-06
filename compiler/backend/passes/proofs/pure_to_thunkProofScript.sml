@@ -8,13 +8,15 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pure_semanticsTheory thunkLangTheory thunk_semanticsTheory pure_evalTheory
      thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory
      pure_to_thunk_2ProofTheory pure_cexpTheory pureLangTheory thunk_cexpTheory
-     var_setTheory pure_namesTheory pure_namesProofTheory pure_to_thunkTheory;
+     var_setTheory pure_namesTheory pure_namesProofTheory pure_to_thunkTheory
+     thunk_split_Delay_LamTheory thunk_split_Delay_LamProofTheory;
 
 val _ = new_theory "pure_to_thunkProof";
 
 val _ = set_grammar_ancestry
           ["pure_to_thunk", "pure_to_thunk_2Proof", "pure_cexp", "thunk_exp_of",
-           "thunkLang", "thunk_cexp", "pureLang", "var_set", "pure_namesProof"];
+           "thunkLang", "thunk_cexp", "pureLang", "var_set", "pure_namesProof",
+           "thunk_split_Delay_Lam"];
 
 Triviality BIGUNION_set_MAP_SUBSET:
   ∀ys f t. BIGUNION (set (MAP f ys)) ⊆ t ⇔ EVERY (λy. f y ⊆ t) ys
@@ -40,42 +42,110 @@ Proof
   \\ res_tac \\ fs [] \\ metis_tac []
 QED
 
+Theorem boundvars_lets_for:
+  ∀list constr len w e. boundvars (lets_for len constr w list e)
+                                  ⊆ {w} ∪ (set (MAP SND list)) ∪ boundvars e
+Proof
+  Induct \\ gs [thunk_exp_ofTheory.lets_for_def, FORALL_PROD, boundvars_def]
+  \\ rw []
+  \\ irule SUBSET_TRANS
+  \\ last_x_assum $ irule_at Any
+  \\ simp [SUBSET_DEF]
+QED
+
+Theorem boundvars_rows_of_NONE:
+  ∀rows w. boundvars (thunk_exp_of$rows_of w rows NONE) ⊆ {w} ∪ BIGUNION (set (MAP (set o FST o SND) rows))
+                     ∪ BIGUNION (set (MAP (boundvars o SND o SND) rows))
+Proof
+  Induct \\ gs [FORALL_PROD, thunk_exp_ofTheory.rows_of_def, boundvars_def]
+  \\ rw []
+  >- (irule SUBSET_TRANS
+      \\ irule_at Any boundvars_lets_for
+      \\ simp [SUBSET_DEF, MEM_EL, EL_MAP, indexedListsTheory.EL_MAPi, PULL_EXISTS]
+      \\ gen_tac \\ strip_tac
+      \\ metis_tac [])
+  \\ irule SUBSET_TRANS
+  \\ pop_assum $ irule_at Any
+  \\ simp [SUBSET_DEF]
+QED
+
+Theorem boundvars_rows_of_SOME:
+  ∀rows w pats e. boundvars (thunk_exp_of$rows_of w rows (SOME (pats, e)))
+                     ⊆ {w} ∪ BIGUNION (set (MAP (set o FST o SND) rows))
+                     ∪ BIGUNION (set (MAP (boundvars o SND o SND) rows))
+                     ∪ boundvars e
+Proof
+  Induct \\ gs [FORALL_PROD, thunk_exp_ofTheory.rows_of_def, boundvars_def, boundvars_Disj]
+  \\ rw []
+  >- (irule SUBSET_TRANS
+      \\ irule_at Any boundvars_lets_for
+      \\ simp [SUBSET_DEF, MEM_EL, EL_MAP, indexedListsTheory.EL_MAPi, PULL_EXISTS]
+      \\ gen_tac \\ strip_tac
+      \\ metis_tac [])
+  \\ irule SUBSET_TRANS
+  \\ pop_assum $ irule_at Any
+  \\ simp [SUBSET_DEF]
+QED
+
 Theorem exp_rel_to_thunk:
   (∀s (x:'a pure_cexp$cexp) x1 s1.
     to_thunk s x = (x1,s1) ∧ NestedCase_free x ∧ vars_ok s ∧
     allvars_of x ⊆ set_of s ∧ cexp_wf x ⇒
-    exp_rel x x1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1) ∧
+    exp_rel x x1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1 ∧ boundvars (exp_of x1) ⊆ set_of s1) ∧
   (∀s (xs:('a pure_cexp$cexp) list) xs1 s1.
     to_thunk_list s xs = (xs1,s1) ∧ EVERY NestedCase_free xs ∧ vars_ok s ∧
     EVERY (λx.  allvars_of x ⊆ set_of s) xs ∧ EVERY cexp_wf xs ⇒
-    LIST_REL exp_rel xs xs1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1)
+    LIST_REL exp_rel xs xs1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1 ∧
+    EVERY (λx. boundvars (exp_of x) ⊆ set_of s1) xs1)
 Proof
   ho_match_mp_tac to_thunk_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rewrite_tac [to_thunk_def]
   \\ strip_tac \\ gvs [] \\ rpt gen_tac
   \\ rpt (pairarg_tac \\ fs [])
-  \\ TRY strip_tac \\ gvs [cexp_wf_def]
+  \\ TRY strip_tac \\ gvs [cexp_wf_def, boundvars_def]
   >~ [‘exp_rel (Var _ _)’] >-
    (irule exp_rel_Var)
   >~ [‘exp_rel (Lam _ ns x)’] >-
-   (irule exp_rel_Lam \\ fs [])
+   (simp [boundvars_Lams]
+    \\ conj_tac
+    >- (irule exp_rel_Lam \\ fs [])
+    >- (irule SUBSET_TRANS
+        \\ first_x_assum $ irule_at $ Pos hd
+        \\ fs []))
   >~ [‘exp_rel (App _ _ _)’] >-
-   (irule_at Any exp_rel_App \\ fs []
+   (irule_at Any exp_rel_App \\ fs [boundvars_Apps]
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
     \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-    \\ fs [] \\ imp_res_tac SUBSET_TRANS \\ fs [])
+    \\ fs [] \\ imp_res_tac SUBSET_TRANS \\ fs []
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, exp_of_def, boundvars_def,
+             EVERY_MEM, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS])
   >~ [‘exp_rel (Letrec _ _ _)’] >-
    (irule_at Any exp_rel_Letrec \\ fs []
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ strip_tac
-    \\ irule_at Any SUBSET_TRANS
-    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-    \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
-    \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘xs’
-    \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD])
+    \\ conj_tac
+    >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
+        \\ qid_spec_tac ‘ys’
+        \\ qid_spec_tac ‘xs’
+        \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD])
+    \\ drule_then assume_tac LIST_REL_LENGTH
+    \\ fs []
+    \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, MAP2_ZIP]
+    \\ simp [GSYM LAMBDA_PROD, GSYM MAP2_ZIP]
+    \\ irule_at (Pos hd) SUBSET_TRANS
+    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ irule_at (Pos hd) SUBSET_TRANS
+    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ conj_tac
+    \\ simp [SUBSET_DEF, PULL_EXISTS, boundvars_def, MEM_EL]
+    \\ rpt $ gen_tac \\ strip_tac
+    \\ gs [EVERY_EL, EL_MAP2, SUBSET_DEF]
+    >- first_x_assum $ dxrule_all_then irule
+    \\ pairarg_tac \\ gs [MEM_EL, EL_MAP, PULL_EXISTS]
+    \\ qpat_x_assum ‘∀n. _ < _ ⇒ explode _ ∈ _’ $ drule_then assume_tac
+    \\ gs [])
   >~ [‘exp_rel (Case _ _ _ _ _)’] >-
    (qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
@@ -90,7 +160,28 @@ Proof
     \\ fs [BIGUNION_set_MAP_SUBSET]
     \\ ‘v ≠ w’ by (CCONTR_TAC \\ gvs [SUBSET_DEF] \\ metis_tac [])
     >-
-     (irule exp_rel_Case \\ fs []
+     (reverse conj_tac
+      >- (simp [boundvars_def]
+          \\ reverse conj_tac
+          >- gs [SUBSET_DEF]
+          \\ conj_tac
+          >- (irule SUBSET_TRANS
+              \\ first_x_assum $ irule_at $ Pos hd
+              \\ irule SUBSET_TRANS
+              \\ first_x_assum $ irule_at $ Pos hd
+              \\ simp [])
+          \\ irule SUBSET_TRANS
+          \\ irule_at Any boundvars_rows_of_NONE
+          \\ simp []
+          \\ rw [SUBSET_DEF, MEM_EL]
+          \\ gs [MEM_EL, EL_MAP, EL_MAP2, EVERY_EL, SUBSET_DEF, PULL_EXISTS]
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs [EL_MAP]
+          >- (rpt $ qpat_x_assum ‘∀n. _ < LENGTH _ ⇒ _’ $ drule_then assume_tac
+              \\ gs [])
+          >- (first_x_assum $ drule_then assume_tac
+              \\ gs []))
+      \\ irule exp_rel_Case \\ fs []
       \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
       \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
       \\ qid_spec_tac ‘ys’
@@ -115,6 +206,27 @@ Proof
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ strip_tac \\ fs []
+    \\ reverse conj_tac
+    >- (simp [boundvars_def]
+        \\ reverse conj_tac
+        >- gs [SUBSET_DEF]
+        \\ conj_tac
+        >- (irule SUBSET_TRANS
+            \\ first_x_assum $ irule_at $ Pos hd
+            \\ irule SUBSET_TRANS
+            \\ first_x_assum $ irule_at $ Pos hd
+            \\ simp [])
+        \\ irule SUBSET_TRANS
+        \\ irule_at Any boundvars_rows_of_SOME
+        \\ simp []
+        \\ rw [SUBSET_DEF, MEM_EL]
+        \\ gs [MEM_EL, EL_MAP, EL_MAP2, EVERY_EL, SUBSET_DEF, PULL_EXISTS]
+        \\ pairarg_tac \\ gs []
+        \\ pairarg_tac \\ gs [EL_MAP]
+        >- (rpt $ qpat_x_assum ‘∀n. _ < LENGTH _ ⇒ _’ $ drule_then assume_tac
+            \\ gs [])
+        >- (first_x_assum $ drule_then assume_tac
+            \\ gs []))
     \\ irule exp_rel_Case \\ fs []
     \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
     \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
@@ -147,24 +259,32 @@ Proof
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
     \\ strip_tac \\ fs []
     \\ irule_at Any SUBSET_TRANS
-    \\ first_assum $ irule_at $ Pos hd \\ fs [])
+    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ irule_at Any SUBSET_TRANS
+    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ gs [SUBSET_DEF])
   >~ [‘Prim c p xs’] >-
    (Cases_on ‘p’
     >~ [‘Cons m’] >-
      (gvs [] \\ irule_at Any exp_rel_Cons \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-      \\ strip_tac \\ fs [])
+      \\ strip_tac \\ fs [boundvars_def]
+      \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def])
     >~ [‘AtomOp a’] >-
      (gvs [] \\ irule_at Any exp_rel_Prim \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-      \\ strip_tac \\ fs [])
+      \\ strip_tac \\ fs []
+      \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def])
     >~ [‘Seq’]
     \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute,any_el_def]
     \\ irule_at Any exp_rel_Seq \\ gvs []
     \\ drule_all invent_var_thm \\ strip_tac \\ gvs []
     \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
+    \\ reverse conj_tac
+    >- (simp [boundvars_def]
+        \\ rw [] \\ gs [])
     \\ CCONTR_TAC \\ fs []
     \\ drule expof_caseProofTheory.freevars_exp_of'
     \\ strip_tac \\ fs []
@@ -173,7 +293,34 @@ Proof
     \\ metis_tac [])
   \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
   >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-  \\ strip_tac \\ fs [] \\ fs [SUBSET_DEF] \\ metis_tac []
+  \\ strip_tac \\ fs [] \\ fs [SUBSET_DEF]
+QED
+
+Theorem to_thunk_itree_of:
+  cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
+  safe_itree (pure_semantics$itree_of (exp_of x)) ⇒
+  pure_semantics$itree_of (exp_of x) =
+  thunk_semantics$itree_of (exp_of (FST (to_thunk (pure_names x) x)))
+Proof
+  Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
+  \\ drule (exp_rel_to_thunk |> CONJUNCT1) \\ fs []
+  \\ fs [pure_names_ok,pure_names_eq_allvars]
+  \\ fs [pure_semanticsTheory.itree_of_def]
+  \\ rw [thunk_semanticsTheory.itree_of_def]
+  \\ fs []
+  \\ drule_all exp_rel_semantics \\ fs []
+QED
+
+Theorem IMP_to_thunk_cexp_wf:
+  cexp_wf x ∧
+  closed (exp_of x) ∧
+  NestedCase_free x ⇒
+  thunk_exp_of$cexp_wf (FST (to_thunk (pure_names x) x)) ∧
+  thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk (pure_names x) x))) ∧
+  cns_arities (FST (to_thunk (pure_names x) x)) ⊆
+              IMAGE (IMAGE (explode ## I)) (cns_arities x)
+Proof
+  cheat
 QED
 
 Theorem compile_to_thunk_itree_of:
@@ -182,13 +329,18 @@ Theorem compile_to_thunk_itree_of:
   pure_semantics$itree_of (exp_of x) =
   thunk_semantics$itree_of (exp_of (compile_to_thunk x))
 Proof
-  fs [compile_to_thunk_def] \\ rw []
+  rw [compile_to_thunk_def]
   \\ Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
+  \\ irule_at Any EQ_TRANS
+  \\ irule_at Any to_thunk_itree_of
   \\ drule (exp_rel_to_thunk |> CONJUNCT1) \\ fs []
   \\ fs [pure_names_ok,pure_names_eq_allvars]
-  \\ fs [pure_semanticsTheory.itree_of_def]
   \\ rw [thunk_semanticsTheory.itree_of_def]
-  \\ drule_all exp_rel_semantics \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ drule_then mp_tac split_Delayed_Lam_soundness
+  \\ impl_tac \\ simp []
+  \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
+  \\ gs []
 QED
 
 Theorem IMP_thunk_cexp_wf:
@@ -200,7 +352,16 @@ Theorem IMP_thunk_cexp_wf:
   cns_arities (compile_to_thunk x) ⊆
               IMAGE (IMAGE (explode ## I)) (cns_arities x)
 Proof
-  cheat
+  fs [compile_to_thunk_def] \\ strip_tac
+  \\ Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
+  \\ drule_then assume_tac (exp_rel_to_thunk |> CONJUNCT1)
+  \\ gs [pure_names_ok,pure_names_eq_allvars]
+  \\ drule_then assume_tac exp_rel_imp_combined
+  \\ gs []
+  \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
+  \\ pairarg_tac \\ fs []
+  \\ drule_then assume_tac split_Delayed_Lam_soundness
+  \\ gs []
 QED
 
 val _ = export_theory ();
