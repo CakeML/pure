@@ -137,23 +137,65 @@ Proof
   Induct \\ fs [Apps_def,EXTENSION] \\ metis_tac []
 QED
 
-Theorem allvars_of:
-  ∀x. allvars_of x = allvars (exp_of x)
+Theorem allvars_IfDisj:
+  allvars (IfDisj v a e) = if a = [] then allvars e else explode v INSERT allvars e
 Proof
-  ho_match_mp_tac allvars_of_ind
-  \\ rw [exp_of_def,allvars_Lams,allvars_Apps]
-  \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
-  >-
-   (rename [‘MEM _ xs’] \\ Induct_on ‘xs’ \\ gvs [SF DNF_ss]
-    \\ rw [] \\ gvs [] \\ gvs [EXTENSION] \\ metis_tac [])
-  >-
-   (rename [‘MEM _ xs’] \\ Induct_on ‘xs’ \\ gvs [SF DNF_ss]
-    \\ rw [] \\ gvs [] \\ gvs [EXTENSION] \\ metis_tac [])
-  >-
-   (rename [‘MEM _ xs’] \\ Induct_on ‘xs’ \\ gvs [SF DNF_ss]
-    \\ rw [] \\ gvs [] \\ gvs [EXTENSION] \\ metis_tac [])
-  >- (rw [] \\ gvs [] \\ gvs [EXTENSION] \\ metis_tac [])
-  \\ cheat
+  simp[IfDisj_def] >> Induct_on `a` >> rw[Disj_def] >>
+  PairCases_on `h` >> rw[Disj_def] >>
+  rewrite_tac[GSYM UNION_ASSOC] >> pop_assum SUBST_ALL_TAC >>
+  rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
+QED
+
+Theorem allvars_lets_for:
+  allvars (lets_for cn v ws b) =
+    (if ws = [] then {} else {v}) ∪ set (MAP SND ws) ∪ allvars b
+Proof
+  Induct_on `ws` >> rw[lets_for_def, allvars_def] >>
+  PairCases_on `h` >> rw[lets_for_def, EXTENSION] >> eq_tac >> rw[] >> gvs[]
+QED
+
+Theorem allvars_rows_of:
+  allvars (rows_of v k css) =
+    (if css = [] then {} else {v}) ∪
+    allvars k ∪
+    BIGUNION (set (MAP (λ(cn,vs,b). set vs ∪ allvars b) css))
+Proof
+  Induct_on `css` >> rw[rows_of_def] >> PairCases_on `h` >> rw[rows_of_def] >>
+  simp[allvars_lets_for, combinTheory.o_DEF] >>
+  Cases_on `h1` >> gvs[] >> rw[EXTENSION] >> eq_tac >> rw[] >>
+  gvs[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> metis_tac[]
+QED
+
+Theorem allvars_of:
+  ∀x. NestedCase_free x ∧ cexp_wf x ⇒ allvars_of x = allvars (exp_of x)
+Proof
+  recInduct allvars_of_ind >> rw[] >>
+  gvs[exp_of_def, allvars_Lams, allvars_Apps] >>
+  gvs[cexp_wf_def, MAP_MAP_o, o_DEF, UNCURRY, COND_RAND] >>
+  gvs[GSYM INSERT_SING_UNION, AC UNION_ASSOC UNION_COMM]
+  >- (ntac 4 AP_TERM_TAC >> rw[MAP_EQ_f] >> gvs[EVERY_MEM, MEM_MAP] >> metis_tac[])
+  >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_f] >> gvs[EVERY_MEM, MEM_MAP] >> metis_tac[])
+  >- (ntac 3 AP_TERM_TAC >> rw[MAP_EQ_f] >> gvs[EVERY_MEM, MEM_MAP] >> metis_tac[])
+  >- (rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]) >>
+  qmatch_goalsub_abbrev_tac `_ INSERT allvars foo` >>
+  qmatch_goalsub_abbrev_tac `_ INSERT _ ∪ bar` >>
+  qsuff_tac `allvars foo = explode n INSERT bar`
+  >- (rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]) >>
+  unabbrev_all_tac >> simp[allvars_rows_of] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  Cases_on `eopt` >> gvs[GSYM INSERT_SING_UNION]
+  >- (
+    AP_TERM_TAC >> qpat_x_assum `_ ≠ []` kall_tac >>
+    Induct_on `ys` >> rw[] >> gvs[] >> pairarg_tac >> gvs[FORALL_PROD] >>
+    simp[AC UNION_ASSOC UNION_COMM]
+    )
+  >- (
+    pairarg_tac >> gvs[] >> simp[allvars_IfDisj] >>
+    simp[INSERT_UNION_EQ, AC UNION_ASSOC UNION_COMM] >> rpt AP_TERM_TAC >>
+    rpt $ qpat_x_assum `_ ≠ []` kall_tac >>
+    Induct_on `ys` >> rw[] >> gvs[] >> pairarg_tac >> gvs[FORALL_PROD] >>
+    simp[AC UNION_ASSOC UNION_COMM]
+    )
 QED
 
 val _ = export_theory();

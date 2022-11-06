@@ -334,7 +334,8 @@ Proof
         \\ drule_then assume_tac MEM_explode_MAP_explode
         \\ first_x_assum $ drule_then assume_tac
         \\ fs [SUBSET_DEF] \\ metis_tac [])
-      \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
+      \\ drule_all pureLangTheory.allvars_of \\ strip_tac
+      \\ fs [SUBSET_DEF]
       \\ CCONTR_TAC \\ fs []
       \\ drule expof_caseProofTheory.freevars_exp_of'
       \\ strip_tac \\ fs []
@@ -359,7 +360,8 @@ Proof
          (imp_res_tac expof_caseProofTheory.freevars_exp_of' \\ fs []
           \\ rw [] \\ fs [SUBSET_DEF]
           \\ CCONTR_TAC \\ fs []
-          \\ imp_res_tac freevars_IMP_allvars \\ fs [allvars_of]
+          \\ imp_res_tac freevars_IMP_allvars
+          \\ drule_all allvars_of \\ strip_tac \\ fs[]
           \\ res_tac \\ res_tac \\ res_tac \\ metis_tac [])
         \\ rpt gen_tac \\ strip_tac
         \\ rename [‘set (MAP explode p1) ⊆ set_of s’]
@@ -369,7 +371,7 @@ Proof
           \\ drule_then assume_tac MEM_explode_MAP_explode
           \\ first_x_assum $ drule_then assume_tac
           \\ fs [SUBSET_DEF] \\ metis_tac [])
-        \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
+        \\ imp_res_tac allvars_of \\ fs[SUBSET_DEF]
         \\ CCONTR_TAC \\ fs []
         \\ imp_res_tac expof_caseProofTheory.freevars_exp_of' \\ fs []
         \\ imp_res_tac freevars_IMP_allvars \\ fs []
@@ -552,7 +554,7 @@ Proof
     \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute,any_el_def]
     \\ irule_at Any exp_rel_Seq \\ gvs [thunk_exp_ofTheory.cexp_wf_def]
     \\ drule_all invent_var_thm \\ strip_tac \\ gvs []
-    \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
+    \\ imp_res_tac allvars_of \\ fs[SUBSET_DEF]
     \\ reverse conj_tac
     >- (conj_tac
         >- (simp [boundvars_def]
