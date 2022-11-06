@@ -118,7 +118,7 @@ jobs:
     - name: Build compiler/backend/languages/properties
       run: |
         cd pure/compiler/backend/languages/properties
-        Holmake        
+        Holmake
     - name: Build typing
       run: |
         cd pure/typing
@@ -143,7 +143,7 @@ jobs:
       run: |
         cd pure/examples
         Holmake
-    - name: Build examples
+    - name: Translate compiler
       run: |
-        cd pure/examples
+        cd pure/compiler/binary
         Holmake
