@@ -9,14 +9,14 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory
      pure_to_thunk_2ProofTheory pure_cexpTheory pureLangTheory thunk_cexpTheory
      var_setTheory pure_namesTheory pure_namesProofTheory pure_to_thunkTheory
-     thunk_split_Delay_LamTheory thunk_split_Delay_LamProofTheory;
+     thunk_split_Delay_LamTheory thunk_split_Delay_LamProofTheory pure_letrecProofTheory;
 
 val _ = new_theory "pure_to_thunkProof";
 
 val _ = set_grammar_ancestry
           ["pure_to_thunk", "pure_to_thunk_2Proof", "pure_cexp", "thunk_exp_of",
            "thunkLang", "thunk_cexp", "pureLang", "var_set", "pure_namesProof",
-           "thunk_split_Delay_Lam"];
+           "thunk_split_Delay_Lam", "pure_letrecProof"];
 
 Triviality BIGUNION_set_MAP_SUBSET:
   ∀ys f t. BIGUNION (set (MAP f ys)) ⊆ t ⇔ EVERY (λy. f y ⊆ t) ys
@@ -397,6 +397,7 @@ QED
 Theorem IMP_to_thunk_cexp_wf:
   cexp_wf x ∧
   closed (exp_of x) ∧
+  letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
   thunk_exp_of$cexp_wf (FST (to_thunk (pure_names x) x)) ∧
   thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk (pure_names x) x))) ∧
@@ -408,6 +409,7 @@ QED
 
 Theorem compile_to_thunk_itree_of:
   cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
+  letrecs_distinct (exp_of x) ∧
   safe_itree (pure_semantics$itree_of (exp_of x)) ⇒
   pure_semantics$itree_of (exp_of x) =
   thunk_semantics$itree_of (exp_of (compile_to_thunk x))
@@ -429,6 +431,7 @@ QED
 Theorem IMP_thunk_cexp_wf:
   cexp_wf x ∧
   closed (exp_of x) ∧
+  letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
   thunk_exp_of$cexp_wf (compile_to_thunk x) ∧
   thunkLang$closed (thunk_exp_of$exp_of (compile_to_thunk x)) ∧

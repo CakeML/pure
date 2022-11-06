@@ -5,7 +5,7 @@ open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_demandTheory
+open pure_demandTheory pure_letrecProofTheory;
 open pure_cexpTheory pure_to_cakeProofTheory pureParseTheory
      pure_inferenceProofTheory state_to_cakeProofTheory
      pure_letrec_cexpProofTheory pure_demands_analysisProofTheory
@@ -15,7 +15,7 @@ open pure_cexpTheory pure_to_cakeProofTheory pureParseTheory
 val _ = set_grammar_ancestry
           ["pure_cexp", "pure_to_cakeProof", "pureParse", "pure_inferenceProof",
            "pure_letrec_cexpProof", "pure_demands_analysisProof", "fromSexp",
-           "simpleSexpParse", "state_to_cakeProof", "pure_compiler"];
+           "simpleSexpParse", "state_to_cakeProof", "pure_compiler", "pure_letrecProof"];
 
 val _ = new_theory "pure_compilerProof";
 
@@ -56,21 +56,20 @@ Theorem pure_compiler_correct:
 Proof
   strip_tac \\ gvs [compile_def,AllCaseEqs()]
   \\ fs [string_to_ast_ast_to_string]
-  \\ qabbrev_tac ‘e2 = demands_analysis (transform_cexp e1)’
+  \\ qabbrev_tac ‘e3 = transform_cexp e1’
+  \\ qabbrev_tac ‘e2 = demands_analysis e3’
+  \\ ‘letrecs_distinct (exp_of e3)’
+     by simp [Abbr ‘e3’, transform_cexp_letrecs_distinct]
+  \\ qspec_then ‘e3’ assume_tac demands_analysis_soundness \\ fs []
+  \\ dxrule_then strip_assume_tac infer_types_SOME
+  \\ dxrule_then strip_assume_tac infer_types_SOME
+  \\ gs []
   \\ qsuff_tac ‘itree_of (exp_of e1) = itree_of (exp_of e2)’
   >-
    (disch_then $ rewrite_tac o single
     \\ irule_at Any pure_to_cakeProofTheory.pure_to_cake_correct
     \\ fs [cns_ok_def]
     \\ imp_res_tac infer_types_SOME \\ fs [])
-  \\ qabbrev_tac ‘e3 = transform_cexp e1’
-  \\ qspec_then ‘e3’ mp_tac demands_analysis_soundness \\ fs []
-  \\ dxrule_then strip_assume_tac infer_types_SOME
-  \\ dxrule_then strip_assume_tac infer_types_SOME
-  \\ fs []
-  \\ impl_tac
-  >- cheat
-  \\ strip_tac
   \\ mp_tac safe_exp_app_bisim_F_IMP_same_itree
   \\ gvs [pure_exp_relTheory.app_bisimilarity_eq]
   \\ disch_then drule_all \\ fs []

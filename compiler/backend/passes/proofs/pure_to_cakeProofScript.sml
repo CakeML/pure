@@ -5,17 +5,17 @@
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory combinTheory
-     pure_to_thunkProofTheory thunk_to_envProofTheory
+     pure_to_thunkProofTheory thunk_to_envProofTheory pure_letrecProofTheory
      env_to_stateProofTheory state_to_cakeProofTheory pure_to_cakeTheory;
 
 val _ = new_theory "pure_to_cakeProof";
 
 val _ = set_grammar_ancestry
-  ["pure_to_cake", "pure_semantics", "pure_cexp", "pureLang"];
+  ["pure_to_cake", "pure_semantics", "pure_cexp", "pureLang", "pure_letrecProof"];
 
 Theorem pure_to_env_correct:
   cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
-  safe_itree (itree_of (exp_of x))
+  safe_itree (itree_of (exp_of x)) ∧ letrecs_distinct (exp_of x)
   ⇒
   itree_of (exp_of x) =
   env_semantics$itree_of (envLang$exp_of (pure_to_env x)) ∧
@@ -36,7 +36,7 @@ QED
 
 Theorem pure_to_state_correct:
   cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
-  safe_itree (itree_of (exp_of x))
+  safe_itree (itree_of (exp_of x)) ∧ letrecs_distinct (exp_of x)
   ⇒
   itree_of (exp_of x) =
   stateLang$itree_of (stateLang$exp_of (pure_to_state x)) ∧
@@ -58,7 +58,7 @@ QED
 
 Theorem pure_to_cake_correct:
   cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
-  safe_itree (itree_of (exp_of x)) ∧
+  safe_itree (itree_of (exp_of x)) ∧ letrecs_distinct (exp_of x) ∧
   namespace_init_ok ((I ## K ns) initial_namespace) ∧
   state_to_cakeProof$cns_ok ((I ## K ns) initial_namespace)
     (IMAGE (IMAGE (explode ## I)) (pure_cexp$cns_arities x))
