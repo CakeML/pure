@@ -43,7 +43,9 @@ Definition string_to_cexp_def:
   string_to_cexp s =
   do
     asts <- string_to_asts s ;
-    decls_to_letrec asts
+    (ce, tysig) <- decls_to_letrec asts ;
+    assert (closed_under empty ce) ;
+    return (ce, tysig)
   od
 End
 

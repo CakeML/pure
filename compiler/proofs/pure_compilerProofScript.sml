@@ -79,8 +79,9 @@ Proof
   \\ gvs [pure_exp_relTheory.app_bisimilarity_eq,GSYM pure_semanticsTheory.itree_of_def]
   \\ disch_then drule \\ fs []
   \\ disch_then irule
-  \\ unabbrev_all_tac
-  \\ imp_res_tac close_transform_cexp
+  \\ simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of]
+  \\ gvs[string_to_cexp_def] \\ pairarg_tac \\ gvs[]
+  \\ drule_at Any $ iffLR ast_to_cexpTheory.closed_under \\ simp[]
 QED
 
 val _ = export_theory();

@@ -731,13 +731,6 @@ Proof
   \\ last_x_assum $ drule \\ fs [rows_of_def]
 QED
 
-Theorem close_transform_cexp:
-  closed (exp_of (transform_cexp e1)) ⇒
-  closed (exp_of e1)
-Proof
-  cheat
-QED
-
 (********************)
 
 Theorem transform_cexp_correct:

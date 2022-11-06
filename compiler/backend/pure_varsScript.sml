@@ -30,6 +30,10 @@ Definition list_delete_def:
   list_delete s l = FOLDL (λs v. delete s v) s l
 End
 
+Definition list_insert_set_def:
+  list_insert_set s l = FOLDL (λs v. insert s v ()) s l
+End
+
 (* TODO move to mlmapTheory
 Definition unionWith_def:
   unionWith f (Map cmp t1) (Map _ t2) =
@@ -132,6 +136,27 @@ Proof
   DEP_REWRITE_TAC[lookup_delete] >> drule map_ok_list_delete >> simp[]
 QED
 
+Theorem list_delete_thm:
+  ∀l m.  map_ok m ⇒
+  map_ok (list_delete m l) ∧ cmp_of (list_delete m l) = cmp_of m ∧
+  to_fmap (list_delete m l) = FDIFF (to_fmap m) (set l)
+Proof
+  Induct >> rw[list_delete_def] >> gvs[GSYM list_delete_def] >>
+  `map_ok (delete m h)` by simp[delete_thm] >>
+  last_x_assum drule >> rw[] >> simp[delete_thm, FDIFF_FDOMSUB_INSERT]
+QED
+
+Theorem list_insert_set_thm:
+  ∀l m.  map_ok m ⇒
+  map_ok (list_insert_set m l) ∧ cmp_of (list_insert_set m l) = cmp_of m ∧
+  to_fmap (list_insert_set m l) = (to_fmap m) |++ MAP (λk. (k,())) l
+Proof
+  Induct >> rw[list_insert_set_def] >> gvs[GSYM list_insert_set_def]
+  >- gvs[FUPDATE_LIST_THM] >>
+  `map_ok (insert m h ())` by simp[insert_thm] >>
+  last_x_assum drule >> rw[] >> simp[insert_thm, FUPDATE_LIST_THM]
+QED
+
 (* TODO move to mlmapTheory *)
 Theorem MAP_KEYS_sing_set_FMERGE_WITH_KEY:
   FMERGE_WITH_KEY (λk a b. f k a b)
@@ -222,6 +247,12 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ gvs [lookup_thm, finite_mapTheory.FLOOKUP_DEF])
   \\ simp [Once INSERT_SING_UNION, UNION_COMM]
+QED
+
+Theorem to_fmap_empty[simp]:
+  to_fmap empty = FEMPTY
+Proof
+  rw[empty_def, empty_thm]
 QED
 
 val _ = export_theory();
