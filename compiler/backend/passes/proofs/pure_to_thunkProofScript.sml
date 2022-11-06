@@ -112,14 +112,16 @@ Theorem exp_rel_to_thunk:
     to_thunk s x = (x1,s1) ∧ NestedCase_free x ∧ vars_ok s ∧
     allvars_of x ⊆ set_of s ∧ cexp_wf x ∧ letrecs_distinct (exp_of x) ⇒
     exp_rel x x1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1 ∧ boundvars (exp_of x1) ⊆ set_of s1 ∧
-    cexp_wf x1) ∧
+    cexp_wf x1 ∧
+    cns_arities x1 ⊆ IMAGE (IMAGE (explode ## I)) (cns_arities x)) ∧
   (∀s (xs:('a pure_cexp$cexp) list) xs1 s1.
     to_thunk_list s xs = (xs1,s1) ∧ EVERY NestedCase_free xs ∧ vars_ok s ∧
     EVERY (λx.  allvars_of x ⊆ set_of s) xs ∧ EVERY cexp_wf xs ∧
     EVERY (λe. letrecs_distinct (exp_of e)) xs ⇒
     LIST_REL exp_rel xs xs1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1 ∧
     EVERY (λx. boundvars (exp_of x) ⊆ set_of s1) xs1 ∧
-    EVERY cexp_wf xs1)
+    EVERY cexp_wf xs1 ∧
+    LIST_REL (λx x1. cns_arities x1 ⊆ IMAGE (IMAGE (explode ## I)) (cns_arities x)) xs xs1)
 Proof
   ho_match_mp_tac to_thunk_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rewrite_tac [to_thunk_def]
@@ -127,7 +129,8 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ TRY strip_tac
   \\ gvs [cexp_wf_def, boundvars_def, thunk_exp_ofTheory.cexp_wf_def,
-          exp_of_def, letrecs_distinct_def, letrecs_distinct_Lams, letrecs_distinct_Apps]
+          exp_of_def, letrecs_distinct_def, letrecs_distinct_Lams, letrecs_distinct_Apps,
+          thunk_cexpTheory.cns_arities_def, pure_cexpTheory.cns_arities_def]
   >~ [‘exp_rel (Var _ _)’] >-
    (irule exp_rel_Var)
   >~ [‘exp_rel (Lam _ ns x)’] >-
@@ -145,22 +148,46 @@ Proof
     \\ fs [] \\ imp_res_tac SUBSET_TRANS \\ fs []
     \\ strip_tac
     \\ conj_tac
-    >- (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    >- (qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
         \\ simp [LIST_REL_MAP_ALT]
         \\ match_mp_tac LIST_REL_mono \\ rw []
         \\ rename [‘exp_rel x1 y1’]
         \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     \\ reverse conj_tac
-    >- (reverse conj_tac
+    >- (conj_tac
+        >- (fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
+            \\ gen_tac \\ strip_tac
+            \\ first_x_assum $ dxrule_then mp_tac
+            \\ rpt $ pop_assum kall_tac
+            \\ strip_tac
+            \\ rename1 ‘mk_delay expr’
+            \\ Cases_on ‘expr’ \\ gs [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
+            \\ CASE_TAC \\ simp [thunk_exp_ofTheory.cexp_wf_def])
+        \\ conj_tac
         >- (strip_tac \\ fs [])
-        \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
+        \\ simp [BIGUNION_SUBSET]
+        \\ fs [LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
         \\ gen_tac \\ strip_tac
-        \\ first_x_assum $ dxrule_then mp_tac
+        \\ gs []
+        \\ first_x_assum $ drule_then mp_tac
+        \\ pop_assum mp_tac
+        \\ pop_assum mp_tac
         \\ rpt $ pop_assum kall_tac
-        \\ strip_tac
+        \\ strip_tac \\ strip_tac \\ strip_tac
+        \\ simp [SUBSET_DEF, MEM_EL, PULL_EXISTS]
+        \\ gen_tac \\ strip_tac
+        \\ disj2_tac
+        \\ first_assum $ irule_at Any
+        \\ simp [EL_MAP]
+        \\ gs [SUBSET_DEF]
+        \\ first_assum irule
         \\ rename1 ‘mk_delay expr’
-        \\ Cases_on ‘expr’ \\ gs [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
-        \\ CASE_TAC \\ simp [thunk_exp_ofTheory.cexp_wf_def])
+        \\ Cases_on ‘expr’ \\ gs [mk_delay_def, thunk_cexpTheory.cns_arities_def]
+        >~[‘Force c’]
+        >- (Cases_on ‘c’
+            \\ gs [thunk_cexpTheory.cns_arities_def]
+            \\ metis_tac [])
+        \\ metis_tac [])
     \\ gs [EVERY_MEM]
     \\ simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
     \\ rw []
@@ -210,7 +237,14 @@ Proof
         \\ Cases_on ‘ys’ \\ fs [])
     >- (‘MAP FST (MAP FST (ZIP (xs, ys))) = MAP FST xs’ by simp [MAP_ZIP]
         \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-        \\ fs [MAP2_ZIP, pure_demands_analysisProofTheory.ALL_DISTINCT_IMP2]))
+        \\ fs [MAP2_ZIP, pure_demands_analysisProofTheory.ALL_DISTINCT_IMP2])
+    >- (gs [EL_MAP2, thunk_cexpTheory.cns_arities_def, LIST_REL_EL_EQN]
+        \\ first_x_assum $ drule_all_then assume_tac
+        \\ disj1_tac
+        \\ first_assum $ irule_at Any
+        \\ fs [EL_MAP]
+        \\ irule_at Any EQ_REFL
+        \\ pairarg_tac \\ gs [EL_MAP]))
   >~ [‘exp_rel (Case _ _ _ _ _)’] >-
    (qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
     >- (fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
@@ -231,7 +265,9 @@ Proof
      (reverse conj_tac
       >- (simp [boundvars_def]
           \\ reverse conj_tac
-          >- (fs [thunk_exp_ofTheory.cexp_wf_def, EVERY_EL, EL_MAP2, EL_MAP]
+          >- (reverse conj_tac
+              >- cheat
+              \\ fs [thunk_exp_ofTheory.cexp_wf_def, EVERY_EL, EL_MAP2, EL_MAP]
               \\ conj_tac
               >- (rename1 ‘mk_delay expr’
                   \\ qpat_x_assum ‘cexp_wf expr’ mp_tac
@@ -310,48 +346,52 @@ Proof
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss,
             letrecs_distinct_rows_of, IfDisj_def, letrecs_distinct_def]
     \\ strip_tac \\ fs []
-    \\ reverse conj_tac
-    >- (simp [boundvars_def]
-        \\ reverse conj_tac
-        >- (fs [thunk_exp_ofTheory.cexp_wf_def, EVERY_EL, EL_MAP2, EL_MAP]
-            \\ conj_tac
-            >- (rename1 ‘mk_delay expr’
-                \\ qpat_x_assum ‘cexp_wf expr’ mp_tac
-                \\ rpt $ pop_assum kall_tac
-                \\ strip_tac
-                \\ Cases_on ‘expr’ \\ gs [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
-                \\ CASE_TAC \\ simp [thunk_exp_ofTheory.cexp_wf_def])
-            \\ rw []
-            >- (first_x_assum $ dxrule_then assume_tac
-                \\ pairarg_tac \\ gs []
-                \\ pairarg_tac \\ gs [])
-            >- (strip_tac \\ fs [MEM_FLAT, MEM_MAP, MEM_EL, EL_MAP2, LIST_REL_EL_EQN]
-                \\ qpat_x_assum ‘∀n. _ < _ ⇒ set (MAP _ _) ⊆ _’ $ drule_then assume_tac
-                \\ gs [EL_MAP2]
-                \\ pairarg_tac \\ fs [SUBSET_DEF, MEM_EL, EL_MAP, PULL_EXISTS]
-                \\ first_x_assum $ drule_then assume_tac
-                \\ gs [])
-            >- (first_x_assum irule
-                \\ gs [MEM_EL, EL_MAP, EL_MAP2]
-                \\ first_assum $ irule_at Any
-                \\ simp [EL_MAP]
-                \\ pairarg_tac \\ fs []
-                \\ pairarg_tac \\ fs []))
-        \\ reverse conj_tac
+    \\ conj_tac
+    >- (irule exp_rel_Case \\ fs []
+        \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
+        \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
+        \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
+        \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
+        \\ qid_spec_tac ‘ys’
+        \\ qid_spec_tac ‘rs’
+        \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,MAP_EQ_CONS,AND_IMP_INTRO]
+        >-
+         (imp_res_tac expof_caseProofTheory.freevars_exp_of' \\ fs []
+          \\ rw [] \\ fs [SUBSET_DEF]
+          \\ CCONTR_TAC \\ fs []
+          \\ imp_res_tac freevars_IMP_allvars \\ fs [allvars_of]
+          \\ res_tac \\ res_tac \\ res_tac \\ metis_tac [])
+        \\ rpt gen_tac \\ strip_tac
+        \\ rename [‘set (MAP explode p1) ⊆ set_of s’]
+        \\ Cases_on ‘MEM w p1’ \\ fs []
+        >-
+         (fs [SUBSET_DEF]
+          \\ drule_then assume_tac MEM_explode_MAP_explode
+          \\ first_x_assum $ drule_then assume_tac
+          \\ fs [SUBSET_DEF] \\ metis_tac [])
+        \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
+        \\ CCONTR_TAC \\ fs []
+        \\ imp_res_tac expof_caseProofTheory.freevars_exp_of' \\ fs []
+        \\ imp_res_tac freevars_IMP_allvars \\ fs []
+        \\ fs [SUBSET_DEF]
+        \\ metis_tac [])
+    \\ simp [boundvars_def]
+    \\ conj_tac
+    >- (reverse conj_tac
         >- gs [SUBSET_DEF]
-          \\ conj_tac
-          >- (rename1 ‘mk_delay expr’
-              \\ qpat_x_assum ‘boundvars (exp_of expr) ⊆ set_of _’ mp_tac
-              \\ rpt $ qpat_x_assum ‘set_of _ ⊆ set_of _’ mp_tac
-              \\ rpt $ pop_assum kall_tac
-              \\ rw []
-              \\ Cases_on ‘expr’
-              \\ gs [exp_of_def, mk_delay_def, boundvars_def, SUBSET_DEF]
-              >- metis_tac []
-              \\ CASE_TAC
-              \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
-              \\ metis_tac [])
-        \\ irule SUBSET_TRANS
+        \\ conj_tac
+        >- (rename1 ‘mk_delay expr’
+            \\ qpat_x_assum ‘boundvars (exp_of expr) ⊆ set_of _’ mp_tac
+            \\ rpt $ qpat_x_assum ‘set_of _ ⊆ set_of _’ mp_tac
+            \\ rpt $ pop_assum kall_tac
+            \\ rw []
+            \\ Cases_on ‘expr’
+            \\ gs [exp_of_def, mk_delay_def, boundvars_def, SUBSET_DEF]
+            >- metis_tac []
+            \\ CASE_TAC
+            \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
+            \\ metis_tac [])
+        \\irule SUBSET_TRANS
         \\ irule_at Any boundvars_rows_of_SOME
         \\ simp []
         \\ rw [SUBSET_DEF, MEM_EL]
@@ -362,34 +402,31 @@ Proof
             \\ gs [])
         >- (qpat_x_assum ‘∀n. _ < LENGTH _ ⇒ ∀x. _ ∈ boundvars _ ⇒ _ ∈ _’ $ drule_then assume_tac
             \\ gs []))
-    \\ irule exp_rel_Case \\ fs []
-    \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
-    \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
-    \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
-    \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
-    \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘rs’
-    \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,MAP_EQ_CONS,AND_IMP_INTRO]
-    >-
-     (imp_res_tac expof_caseProofTheory.freevars_exp_of' \\ fs []
-      \\ rw [] \\ fs [SUBSET_DEF]
-      \\ CCONTR_TAC \\ fs []
-      \\ imp_res_tac freevars_IMP_allvars \\ fs [allvars_of]
-      \\ res_tac \\ res_tac \\ res_tac \\ metis_tac [])
-    \\ rpt gen_tac \\ strip_tac
-    \\ rename [‘set (MAP explode p1) ⊆ set_of s’]
-    \\ Cases_on ‘MEM w p1’ \\ fs []
-    >-
-     (fs [SUBSET_DEF]
-      \\ drule_then assume_tac MEM_explode_MAP_explode
-      \\ first_x_assum $ drule_then assume_tac
-      \\ fs [SUBSET_DEF] \\ metis_tac [])
-    \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
-    \\ CCONTR_TAC \\ fs []
-    \\ imp_res_tac expof_caseProofTheory.freevars_exp_of' \\ fs []
-    \\ imp_res_tac freevars_IMP_allvars \\ fs []
-    \\ fs [SUBSET_DEF]
-    \\ metis_tac [])
+    \\ fs [thunk_exp_ofTheory.cexp_wf_def, EVERY_EL, EL_MAP2, EL_MAP, GSYM CONJ_ASSOC]
+    \\ conj_tac
+    >- (rename1 ‘mk_delay expr’
+        \\ qpat_x_assum ‘cexp_wf expr’ mp_tac
+        \\ rpt $ pop_assum kall_tac
+        \\ strip_tac
+        \\ Cases_on ‘expr’ \\ gs [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
+        \\ CASE_TAC \\ simp [thunk_exp_ofTheory.cexp_wf_def])
+    \\ rw []
+    >- (first_x_assum $ dxrule_then assume_tac
+        \\ pairarg_tac \\ gs []
+        \\ pairarg_tac \\ gs [])
+    >- (strip_tac \\ fs [MEM_FLAT, MEM_MAP, MEM_EL, EL_MAP2, LIST_REL_EL_EQN]
+        \\ qpat_x_assum ‘∀n. _ < _ ⇒ set (MAP _ _) ⊆ _’ $ drule_then assume_tac
+        \\ gs [EL_MAP2]
+        \\ pairarg_tac \\ fs [SUBSET_DEF, MEM_EL, EL_MAP, PULL_EXISTS]
+        \\ first_x_assum $ drule_then assume_tac
+        \\ gs [])
+    >- (first_x_assum irule
+        \\ gs [MEM_EL, EL_MAP, EL_MAP2]
+        \\ first_assum $ irule_at Any
+        \\ simp [EL_MAP]
+        \\ pairarg_tac \\ fs []
+        \\ pairarg_tac \\ fs [])
+    >- cheat)
   >~ [‘exp_rel (Let c v x y)’] >-
    (irule_at Any exp_rel_Let
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
@@ -412,12 +449,29 @@ Proof
         \\ CASE_TAC
         \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
         \\ metis_tac [])
-    \\ gs [SUBSET_DEF]
-    \\ rename1 ‘mk_delay expr’
-    \\ Cases_on ‘expr’
-    \\ fs [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
-    \\ CASE_TAC
-    \\ simp [thunk_exp_ofTheory.cexp_wf_def])
+    \\ conj_tac >- gs [SUBSET_DEF]
+    \\ conj_tac
+    >- (rename1 ‘mk_delay expr’
+        \\ Cases_on ‘expr’
+        \\ fs [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
+        \\ CASE_TAC
+        \\ simp [thunk_exp_ofTheory.cexp_wf_def])
+    \\ conj_tac
+    >- (pop_assum kall_tac
+        \\ qpat_x_assum ‘cns_arities _ ⊆ _’ mp_tac
+        \\ rpt $ pop_assum kall_tac
+        \\ rw [SUBSET_DEF]
+        \\ disj1_tac
+        \\ first_x_assum irule
+        \\ rename1 ‘mk_delay expr’
+        \\ Cases_on ‘expr’
+        \\ fs [mk_delay_def, thunk_cexpTheory.cns_arities_def]
+        >~[‘Force c’]
+        >- (Cases_on ‘c’
+            \\ gs [thunk_cexpTheory.cns_arities_def]
+            \\ metis_tac [])
+        \\ metis_tac [])
+    \\ gs [SUBSET_DEF])
   >~ [‘Prim c p xs’] >-
    (Cases_on ‘p’
     >~ [‘Cons m’] >-
@@ -433,12 +487,25 @@ Proof
           >- (fs [EVERY_MEM, thunk_exp_ofTheory.args_ok_def, num_args_ok_def,
                   pure_configTheory.num_monad_args_def]
               \\ reverse conj_tac
+              >- (simp [thunk_cexpTheory.cns_arities_def]
+                  \\ conj_tac
+                  >- cheat
+                  \\ gs [SUBSET_DEF, LIST_REL_EL_EQN, MEM_EL]
+                  \\ gen_tac \\ strip_tac
+                  \\ gs [EL_MAP, thunk_cexpTheory.cns_arities_def]
+                  \\ first_x_assum $ drule_all_then assume_tac
+                  \\ disj2_tac
+                  \\ first_assum $ irule_at Any
+                  \\ simp [EL_MAP])
+              \\ reverse conj_tac
               >- simp [MEM_MAP, PULL_EXISTS, thunk_exp_ofTheory.cexp_wf_def]
               \\ fs [LIST_REL_EL_EQN]
               \\ rw []
               \\ gvs [LENGTH_EQ_NUM_compute])
           \\ reverse conj_tac
           >- (reverse conj_tac
+              >- cheat
+              \\ reverse conj_tac
               >- (rw [EVERY_MEM, MEM_MAP]
                   \\ first_x_assum $ dxrule_then mp_tac
                   \\ rename1 ‘mk_delay expr’
@@ -449,8 +516,9 @@ Proof
                   \\ CASE_TAC
                   \\ simp [thunk_exp_ofTheory.cexp_wf_def])
               \\ fs [thunk_exp_ofTheory.args_ok_def, num_args_ok_def,
-                     pure_configTheory.num_monad_args_def]
-              \\ cheat)
+                     pure_configTheory.num_monad_args_def, must_delay_def]
+              \\ rw []
+              \\ gvs [LENGTH_EQ_NUM_compute])
           \\ rw []
           \\ qpat_x_assum ‘∀x. MEM _ _ ⇒ boundvars _ ⊆ _’$ dxrule_then mp_tac
           \\ rename1 ‘mk_delay expr’
@@ -463,7 +531,7 @@ Proof
           \\ gs [exp_of_def, boundvars_def, SUBSET_DEF]
           \\ metis_tac [])
       \\ IF_CASES_TAC \\ gvs [LIST_REL_MAP_ALT, SF ETA_ss]
-      \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
       \\ match_mp_tac LIST_REL_mono \\ fs [] \\ rw []
       \\ irule IMP_mk_delay_eq_Delay \\ fs [])
     >~ [‘AtomOp a’] >-
@@ -472,20 +540,26 @@ Proof
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
       \\ strip_tac \\ fs [thunk_exp_ofTheory.cexp_wf_def, SF ETA_ss]
       \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def]
-      \\ drule_then assume_tac LIST_REL_LENGTH
-      \\ Cases_on ‘a’
-      \\ fs [num_args_ok_def, thunk_exp_ofTheory.args_ok_def,
-             pure_configTheory.num_atomop_args_ok_def]
-      \\ gs []
-      \\ cheat)
+      \\ conj_tac
+      >- (drule_then assume_tac LIST_REL_LENGTH
+          \\ Cases_on ‘a’
+          \\ fs [num_args_ok_def, thunk_exp_ofTheory.args_ok_def,
+                 pure_configTheory.num_atomop_args_ok_def]
+          \\ gs []
+          \\ cheat)
+      >- cheat)
     >~ [‘Seq’]
     \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute,any_el_def]
     \\ irule_at Any exp_rel_Seq \\ gvs [thunk_exp_ofTheory.cexp_wf_def]
     \\ drule_all invent_var_thm \\ strip_tac \\ gvs []
     \\ fs [pureLangTheory.allvars_of,SUBSET_DEF]
     \\ reverse conj_tac
-    >- (simp [boundvars_def]
-        \\ rw [] \\ gs [])
+    >- (conj_tac
+        >- (simp [boundvars_def]
+            \\ rw [] \\ gs [])
+        \\ simp [thunk_cexpTheory.cns_arities_def]
+        \\ rw []
+        \\ metis_tac [])
     \\ CCONTR_TAC \\ fs []
     \\ drule expof_caseProofTheory.freevars_exp_of'
     \\ strip_tac \\ fs []
@@ -518,9 +592,7 @@ Theorem IMP_to_thunk_cexp_wf:
   closed (exp_of x) ∧
   letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
-  thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk (pure_names x) x))) ∧
-  cns_arities (FST (to_thunk (pure_names x) x)) ⊆
-              IMAGE (IMAGE (explode ## I)) (cns_arities x)
+  thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk (pure_names x) x)))
 Proof
   strip_tac
   \\ Cases_on ‘to_thunk (pure_names x) x’
@@ -535,7 +607,6 @@ Proof
   \\ dxrule_then assume_tac thunk_unthunkProofTheory.delay_force_closed
   \\ dxrule_then assume_tac expof_caseProofTheory.freevars_exp_of'
   \\ fs [pure_expTheory.closed_def, thunkLangTheory.closed_def]
-  \\ cheat
 QED
 
 Theorem compile_to_thunk_itree_of:
