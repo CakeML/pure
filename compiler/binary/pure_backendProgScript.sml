@@ -28,40 +28,69 @@ val r = translate var_setTheory.invent_var_def;
 val r = translate FLAT;
 val r = translate var_setTheory.empty_vars_def;
 
-val r = translate_no_ind pure_namesTheory.extract_names_def;
+val res = translate_no_ind pure_namesTheory.extract_names_def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp r))`,
-  rpt gen_tac
+Triviality extract_names_ind:
+  extract_names_ind (:α)
+Proof
+  once_rewrite_tac [fetch "-" "extract_names_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ reverse (rpt strip_tac)
   \\ last_x_assum match_mp_tac
   \\ simp_tac std_ss [CONS_11] \\ asm_rewrite_tac []
-  \\ fs [])
-  |> update_precondition;
+  \\ fs []
+QED
+
+val _ = extract_names_ind |> update_precondition;
 
 val r = translate pure_namesTheory.pure_names_def;
+
+val r = translate FOLDL;
+val r = translate FOLDR;
+val r = translate thunk_split_Delay_LamTheory.dest_Var_def;
+val r = translate thunk_split_Delay_LamTheory.dest_Delay_Lam_def;
+val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
+val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
+
+Triviality split_delayed_lam_ind:
+  split_delayed_lam_ind
+Proof
+  once_rewrite_tac [fetch "-" "split_delayed_lam_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ cheat
+QED
+
+val _ = split_delayed_lam_ind |> update_precondition;
 
 val r = translate pure_to_thunkTheory.mk_delay_def;
 val r = translate pure_to_thunkTheory.must_delay_def;
 val r = translate pure_to_thunkTheory.any_el_def;
 val r = translate pure_to_thunkTheory.get_var_name_def;
 val r = translate MAP2_DEF;
-val r = translate pure_to_thunkTheory.to_thunk_def;
-
 val r = translate_no_ind pure_to_thunkTheory.to_thunk_def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp r))`,
-  rpt gen_tac
+Triviality to_thunk_ind:
+  to_thunk_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "to_thunk_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ reverse (rpt strip_tac)
   \\ last_x_assum match_mp_tac
   \\ simp_tac std_ss [CONS_11] \\ asm_rewrite_tac []
-  \\ fs [])
-  |> update_precondition;
+  \\ fs []
+QED
+
+val _ = to_thunk_ind |> update_precondition;
 
 val r = translate compile_to_thunk_def;
 

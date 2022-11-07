@@ -137,6 +137,8 @@ val r = translate
   (pure_inferenceTheory.infer'_def
    |> SIMP_RULE std_ss [infer_bind_eq,infer_ignore_bind_eq]);
 
+val r = translate pure_inferencePropsTheory.infer'_infer;
+
 val _ = (length (hyp r) = 0) orelse fail (); (* no side conditions *)
 
 (*-----------------------------------------------------------------------*

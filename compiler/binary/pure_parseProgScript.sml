@@ -191,18 +191,24 @@ val r = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
 
 val r = translate ispegexecTheory.peg_exec_def;
 
+val r = translate string_to_cst_def;
+
 Theorem string_to_cst_side:
   ∀s. string_to_cst_side s = T
 Proof
   fs [fetch "-" "string_to_cst_side_def"]
   \\ fs [fetch "-" "ispeg_exec_side_def"]
   \\ fs [fetch "-" "coreloop_side_def"]
-  \\ REPEAT STRIP_TAC
-  \\ STRIP_ASSUME_TAC (Q.SPEC `v1` cmlPEGTheory.owhile_TopLevelDecs_total)
-  \\ FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] \\ POP_ASSUM MP_TAC
+  \\ rw []
+  \\ qspec_then `lexer_fun s` strip_assume_tac purePEGTheory.owhile_nDecls_total
+  \\ pop_assum mp_tac
+  \\ fs [INTRO_FLOOKUP]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss []
-  \\ cheat
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE f1 g1 _ = SOME _’
+  \\ fs [purePEGTheory.NT_def]
 QED
+
+val _ = string_to_cst_side |> update_precondition;
 
 (*-----------------------------------------------------------------------*
    AST translations
@@ -227,7 +233,16 @@ Proof
 QED
 
 val _ = (extra_preprocessing :=
-  [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert,THE_orelse]);
+  [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert,THE_orelse,
+   cst_to_astTheory.grab_eq,
+   cst_to_astTheory.grabPairs_eq,
+   cst_to_astTheory.grabsepby_eq]);
+
+val r = translate (def_of_const “cst_to_ast$grab'”);
+
+val r = translate (def_of_const “cst_to_ast$grabsepby'”);
+
+val r = translate (def_of_const “cst_to_ast$grabPairs'”);
 
 val r = translate (def_of_const “cst_to_ast$mkSym”)
 
@@ -235,9 +250,11 @@ val r = translate (def_of_const “cst_to_ast$mkFunTy”);
 
 val r = translate_no_ind (def_of_const “cst_to_ast$astType”);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp r))`,
-  rpt gen_tac
+Triviality asttype_ind:
+  asttype_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "asttype_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
@@ -245,21 +262,27 @@ val ind_lemma = Q.prove(
   \\ rpt strip_tac
   \\ full_simp_tac bool_ss [NOT_CONS_NIL,NOT_NIL_CONS,CONS_11,SOME_11]
   \\ gvs [PULL_EXISTS]
-  \\ gvs [AllCaseEqs()])
-  |> update_precondition;
+  \\ gvs [AllCaseEqs()]
+QED
+
+val _ = asttype_ind |> update_precondition;
 
 val res = translate_no_ind cst_to_astTheory.optLAST_def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality optlast_ind:
+  optlast_ind (:α) (:γ) (:β)
+Proof
+  once_rewrite_tac [fetch "-" "optlast_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac \\ fs []
-  \\ gvs [FORALL_PROD, SF ETA_ss])
-  |> update_precondition;
+  \\ gvs [FORALL_PROD, SF ETA_ss]
+QED
+
+val _ = optlast_ind |> update_precondition;
 
 val r = translate precparserTheory.isFinal_def;
 val r = translate (def_of_const “precparse1”);
@@ -287,82 +310,92 @@ QED
 
 val r = translate (cst_to_astTheory.exp_to_pat_def |> RW1 [OPT_MMAP_eq]);
 
+(*
 val r = translate (def_of_const “grab”);
 val r = translate (def_of_const “grabPairs”);
 val r = translate (def_of_const “grabsepby”);
+*)
+
 val r = translate (def_of_const “strip_comb”);
 
-val r = translate_no_ind (def_of_const “cst_to_ast$astExp”);
+val r = translate_no_ind
+  (def_of_const “cst_to_ast$astExp”
+   |> ONCE_REWRITE_RULE [OPT_MMAP_eq]);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp r))`,
-  rpt gen_tac
+Triviality astexp_ind:
+  astexp_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "astexp_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
+  \\ match_mp_tac cst_to_astTheory.astExp_ind
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
-  \\ cheat
-(*\\ fs []
+  \\ rpt var_eq_tac
+  \\ fs []
   \\ gvs [] \\ every_case_tac \\ fs []
-  \\ gvs [AllCaseEqs(),SF DNF_ss] *))
-  |> update_precondition;
+  \\ gvs [AllCaseEqs(),SF DNF_ss,LLOOKUP_def]
+  \\ gvs [cst_to_astTheory.grab_eq,EVAL “LLOOKUP [x;y] 1”]
+QED
 
-(*
-    7.  ∀a. MEM a x49 ⇒ P2 a
-    8.  INL nEqBindSeq = FST nt2
-
-    7.  ∀a. MEM a x49 ⇒ P2 a
-    8.  INL nEqBindSeq = FST nt2
-    9.  tokcheck x50 LbraceT
-
-    7.  P0 nAExp x46
-    8.  INL nFExp = FST nt2
-    9.  astExp nAExp x46 = SOME x44
-
-    6.  ∀a. MEM a x39 ⇒ P0 nFExp2 a
-    7.  P0 nFExp x40
-    8.  INL nIExp = FST nt2
-    9.  astExp nFExp x40 = SOME x38
-*)
+val _ = astexp_ind |> update_precondition;
 
 val r = translate (def_of_const “cst_to_ast$astValBinding”);
 val r = translate (def_of_const “cst_to_ast$astDecl”);
 val r = translate (def_of_const “cst_to_ast$astDecls”);
 
-val r = translate_no_ind (def_of_const “ast_to_cexp$translate_type”);
+val r = translate_no_ind
+  (def_of_const “ast_to_cexp$translate_type”
+   |> ONCE_REWRITE_RULE [OPT_MMAP_eq]);
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp r))`,
-  rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac) \\ cheat (*
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac \\ cheat *))
-  |> update_precondition;
-
-val r = translate_no_ind (def_of_const “ast_to_cexp$translate_exp”);
-
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp r))`,
-  rpt gen_tac
+Triviality translate_type_ind:
+  translate_type_ind
+Proof
+  once_rewrite_tac [fetch "-" "translate_type_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (latest_ind ())
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
-  \\ fs [] \\ cheat)
-  |> update_precondition;
+  \\ rw [] \\ gvs []
+QED
+
+val _ = translate_type_ind |> update_precondition;
+
+Triviality translate_type_side:
+  ∀x y z. translate_type_side x y z
+Proof
+  ho_match_mp_tac (latest_ind ())
+  \\ rpt gen_tac \\ rpt conj_tac \\ rpt gen_tac \\ TRY strip_tac
+  \\ once_rewrite_tac [fetch "-" "translate_type_side_def"]
+  \\ rpt strip_tac \\ gvs []
+QED
+
+val _ = translate_type_side |> update_precondition;
+
+val r = translate_no_ind (def_of_const “ast_to_cexp$translate_exp”);
+
+Triviality translate_exp_ind:
+  translate_exp_ind (:α) (:β) (:γ)
+Proof
+  once_rewrite_tac [fetch "-" "translate_exp_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ fs [] \\ cheat
+QED
+
+val _ = translate_exp_ind |> update_precondition;
 
 val r = translate (def_of_const “ast_to_cexp$translate_decs”);
 val r = translate (def_of_const “ast_to_cexp$decls_to_letrec”);
 
 (* ------------------------------------------------------------------- *)
 
-(*
-
-string_to_asts_def
-string_to_cexp_def
-
-*)
+val r = translate string_to_asts_def;
+val r = translate string_to_cexp_def;
 
 val _ = export_theory ();

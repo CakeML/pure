@@ -779,5 +779,66 @@ Definition astDecls_def:
    else OPT_MMAP astDecl args)
 End
 
+(* translator help *)
+
+Definition grab'_def:
+  grab' [] ys = SOME ([],[]) ∧
+  grab' (h::t) ys =
+    do v <- h; (vs,tail) <- grab' t (TL ys); SOME (v::vs,tail) od ++
+    SOME ([],ys)
+End
+
+Theorem grab_eq:
+  ∀xs f. grab f xs = grab' (MAP f xs) xs
+Proof
+  Induct \\ fs [grab_def,grab'_def]
+QED
+
+Definition grabPairs'_def:
+  grabPairs' A ys =
+    case ys of
+    | [] => SOME (REVERSE A)
+    | [v0] => NONE
+    | (pt1::pt2::rest) =>
+      do
+        opv <- SND pt1;
+        v <- FST pt2;
+        grabPairs' (INR v::INL opv::A) rest
+      od
+End
+
+Theorem grabPairs_eq:
+  ∀f g a xs. grabPairs f g a xs = grabPairs' a (ZIP (MAP f xs, MAP g xs))
+Proof
+  ho_match_mp_tac grabPairs_ind \\ rw []
+  \\ simp [grabPairs_def,Once grabPairs'_def] \\ rw []
+  \\ Cases_on ‘g pt1’ \\ fs []
+  \\ Cases_on ‘f pt2’ \\ fs []
+QED
+
+Definition grabsepby'_def:
+  grabsepby' tok [] ys = ([],[]) ∧
+  grabsepby' tok [pt1] ys =
+     (case pt1 of NONE => ([],ys) | SOME v => ([v],[])) ∧
+  grabsepby' tok (pt1::pt2::rest) ys =
+     case pt1 of
+       NONE => ([],ys)
+     | SOME v =>
+       case ys of
+       | (y1::y2::ys1) =>
+         (if tokcheck y2 tok
+          then (CONS v ## I) (grabsepby' tok rest ys1)
+          else ([v],TL ys))
+       | _ => ([],[])
+End
+
+Theorem grabsepby_eq:
+  ∀f tok xs. grabsepby f tok xs = grabsepby' tok (MAP f xs) xs
+Proof
+  ho_match_mp_tac grabsepby_ind
+  \\ fs [grabsepby_def,grabsepby'_def]
+  \\ rw [] \\ Cases_on ‘f pt1’ \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+QED
 
 val _ = export_theory();
