@@ -42,8 +42,10 @@ QED
 Definition cns_arities_def:
   cns_arities (Var v :cexp) = {} ∧
   cns_arities (Prim op es) = (
-    (case op of | Cons cn => {{explode cn, LENGTH es}} | _ => {}) ∪
-      BIGUNION (set (MAP cns_arities es))) ∧
+    (case op of
+     | Cons cn => if explode cn ∈ monad_cns then {{explode cn, LENGTH es}} else {}
+     | _ => {}) ∪
+    BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (App e1 es) = cns_arities e1 ∪ BIGUNION (set (MAP cns_arities es)) ∧
   cns_arities (Lam vs e) = cns_arities e ∧
   cns_arities (Letrec funs e) =

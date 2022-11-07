@@ -330,7 +330,7 @@ Definition cns_arities_def:
       | NONE => {css_cn_ars}
       | SOME (a,e) =>
         (set a ∪ css_cn_ars) INSERT cns_arities e) ∪
-    BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
+    cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
   cns_arities _ = {}
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
