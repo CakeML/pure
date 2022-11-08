@@ -241,7 +241,9 @@ End
 
 Definition cexp_wf_def:
   cexp_wf (Var _ v) = T ∧
-  cexp_wf (Prim _ op es) = (num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es) ∧
+  cexp_wf (Prim _ op es) = (
+    num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es ∧
+    ∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
   cexp_wf (App _ e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
   cexp_wf (Lam _ vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
