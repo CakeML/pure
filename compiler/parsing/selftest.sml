@@ -191,6 +191,10 @@ val _ = app fptest [
            \   foo x",
    “astExp nExp”,
    “expDo [expdostmtBind (patVar "x") (‹f› ⬝ ‹y› ⬝ 𝕀 3)] (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "do do x\n\
+           \   y",
+   “astExp nExp”,
+   “expDo [expdostmtExp (expDo [] ‹x›)] ‹y›”),
   (“nExp”, "do x <- f y 3\n\
            \   foo x",
    “CEXP”,
@@ -289,8 +293,10 @@ val _ = app convtest [
      ] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”),
   ("s2cexp bracey-let",
-   EVAL, “string_to_cexp "f x = let { y = x + 1; z = y * 2 } in [z,y]"”,
+   EVAL, “string_to_cexp "main = 4\n\
+                         \f x = let { y = x + 1; z = y * 2 } in [z,y]"”,
    “SOME (Letrec () [
+     («main», 𝕁 4);
      («f», Lam () [«x»] (Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 1); («z», 𝕍 «y» *ₑ 𝕁 2)]
                                 (𝕍 «z» ::ₑ 𝕍 «y» ::ₑ []ₑ)))] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
