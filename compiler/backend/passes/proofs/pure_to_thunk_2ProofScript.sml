@@ -540,6 +540,7 @@ Proof
     \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Prim
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Prim \\ fs []
     \\ irule_at Any thunk_unthunkProofTheory.delay_force_Prim \\ fs []
+    \\ pop_assum kall_tac
     \\ pop_assum mp_tac
     \\ pop_assum kall_tac
     \\ pop_assum mp_tac

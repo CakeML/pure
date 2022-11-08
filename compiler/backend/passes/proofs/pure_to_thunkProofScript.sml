@@ -554,8 +554,7 @@ Proof
           \\ Cases_on ‘a’
           \\ fs [num_args_ok_def, thunk_exp_ofTheory.args_ok_def,
                  pure_configTheory.num_atomop_args_ok_def]
-          \\ gs []
-          \\ cheat)
+          \\ Cases_on `l` \\ gs [])
       >- (simp [thunk_cexpTheory.cns_arities_def]
           \\ simp [BIGUNION_SUBSET, MEM_EL]
           \\ gen_tac \\ strip_tac
