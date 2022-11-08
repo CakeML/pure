@@ -127,8 +127,7 @@ Definition infer_atom_op_def:
     if ar = 0n then SOME ([], Integer) else NONE) ∧
   (infer_atom_op ar (Lit $ Str s) =
     if ar = 0 then SOME ([], String) else NONE) ∧
-  (infer_atom_op ar (Lit $ Msg s1 s2) =
-    if ar = 0 then SOME ([], Message) else NONE) ∧
+  (infer_atom_op ar (Lit $ Msg s1 s2) = NONE) ∧
   (infer_atom_op ar (Lit $ Loc n) = NONE) ∧
   (infer_atom_op ar Add =
     if ar = 2 then SOME ([Integer; Integer], Integer) else NONE) ∧

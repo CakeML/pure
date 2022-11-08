@@ -2214,7 +2214,7 @@ Proof
     gvs[pure_walkstar_alt, pure_apply_subst, type_of_def] >>
     gvs[GSYM pure_walkstar_alt] >>
     imp_res_tac infer_atom_op_LENGTH >> pop_assum $ assume_tac o GSYM >> gvs[] >>
-    simp[GSYM infer_atom_op] >> goal_assum $ drule_at Any >> simp[get_PrimTys_SOME] >>
+    imp_res_tac infer_atom_op >> goal_assum $ drule_at Any >> simp[get_PrimTys_SOME] >>
     gvs[LIST_REL_EL_EQN, EL_ZIP, EL_MAP, MAP2_MAP, MEM_MAP, MEM_ZIP, PULL_EXISTS] >>
     rw[] >> last_x_assum drule >> strip_tac >> pop_assum irule >> conj_tac
     >- gvs[MEM_EL, PULL_EXISTS, SF SFY_ss] >>
@@ -4172,6 +4172,17 @@ QED
 
 (****************************************)
 
+
+Theorem minfer_cexp_Lits_wf:
+  ∀ns mset e mas cs t.
+    minfer ns mset e mas cs t ⇒ cexp_Lits_wf e
+Proof
+  gen_tac >> Induct_on `minfer` >> rw[cexp_Lits_wf_def] >> gvs[] >>
+  gvs[LIST_REL_EL_EQN, EL_ZIP, EVERY_EL, EL_MAP] >> gvs[ELIM_UNCURRY] >>
+  gvs[DefnBase.one_line_ify NONE infer_atom_op_def] >>
+  every_case_tac >> gvs[]
+QED
+
 Theorem typedefs_ok_IMP_namespace_init_ok:
   typedefs_ok_impl tysig ⇒
   namespace_init_ok ((I ## K tysig) initial_namespace)
@@ -4208,13 +4219,16 @@ Proof
   disch_then $ qspecl_then [`pure_vars$empty`,`e`] mp_tac >> simp[] >> strip_tac >>
   drule_at Any $ inst type_tcexp_NestedCase_free >> simp[] >>
   disch_then $ qspec_then `e` assume_tac >> gvs[] >>
-  drule_at Any type_tcexp_tcexp_wf >> simp[] >>
-  simp[GSYM cexp_wf_tcexp_wf] >> strip_tac >>
+  irule_at Any $ iffRL cexp_wf_tcexp_wf >>
+  drule_at Any type_tcexp_tcexp_wf >> simp[] >> strip_tac >>
   drule type_tcexp_freevars_tcexp >> simp[freevars_tcexp_of] >>
   simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of] >>
   strip_tac >> irule_at Any type_soundness_cexp >> rpt $ goal_assum $ drule_at Any >>
   simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
-  simp[ELIM_UNCURRY] >> drule $ inst type_tcexp_cnames_arities >> simp[]
+  simp[ELIM_UNCURRY] >> drule $ inst type_tcexp_cnames_arities >> rw[] >>
+  irule minfer_cexp_Lits_wf >>
+  gvs[infer_top_level_def, infer_bind_def] >> every_case_tac >> gvs[] >>
+  PairCases_on `q` >> drule infer_minfer >> rw[] >> simp[SF SFY_ss]
 QED
 
 (****************************************)

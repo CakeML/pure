@@ -1031,18 +1031,13 @@ Proof
 QED
 
 Theorem infer_atom_op:
-  infer_atom_op (LENGTH arg_tys) aop = SOME (arg_tys, ret_ty) ⇔
+  infer_atom_op (LENGTH arg_tys) aop = SOME (arg_tys, ret_ty) ⇒
   type_atom_op aop arg_tys ret_ty
 Proof
-  rw[] >> Cases_on `aop` >> rw[infer_atom_op_def] >> gvs[] >>
-  gvs[Once type_atom_op_cases] >> rw[EQ_IMP_THM] >> gvs[]
+  Cases_on `aop` >> rw[infer_atom_op_def] >> rw[Once type_atom_op_cases]
   >- (Cases_on `l` >> rw[] >> gvs[infer_atom_op_def])
-  >- (Cases_on `l` >> rw[] >> gvs[infer_atom_op_def, Once type_lit_cases])
-  >- (Cases_on `l` >> rw[] >> gvs[infer_atom_op_def, Once type_lit_cases])
-  >- (pop_assum $ SUBST_ALL_TAC o GSYM >> simp[])
-  >- (rw[LIST_EQ_REWRITE, rich_listTheory.EL_REPLICATE] >> gvs[EVERY_EL])
-  >- (pop_assum $ SUBST_ALL_TAC o GSYM >> simp[])
-  >- (rw[LIST_EQ_REWRITE, rich_listTheory.EL_REPLICATE] >> gvs[EVERY_EL])
+  >- (Cases_on `l` >> rw[] >> gvs[infer_atom_op_def, Once type_lit_cases]) >>
+  gvs[LIST_EQ_REWRITE, rich_listTheory.EL_REPLICATE] >> gvs[EVERY_EL]
 QED
 
 Theorem infer_cons_mono:

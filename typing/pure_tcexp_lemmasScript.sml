@@ -151,9 +151,10 @@ Proof
 QED
 
 Theorem cexp_wf_tcexp_wf:
-  ∀e. NestedCase_free e ⇒ (cexp_wf e ⇔ tcexp_wf (tcexp_of e))
+  ∀e. NestedCase_free e ⇒ (cexp_wf e ⇔ tcexp_wf (tcexp_of e) ∧ cexp_Lits_wf e)
 Proof
-  recInduct cexp_wf_ind >> rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def] >>
+  recInduct cexp_wf_ind >>
+  rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def, cexp_Lits_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
       EXISTS_PROD, PULL_EXISTS, MEM_FLAT] >>
   eq_tac >> rw[]
@@ -341,16 +342,16 @@ Proof
 QED
 
 Theorem exp_of_tcexp_of_exp_eq:
-  ∀e. cexp_wf e ∧ NestedCase_free e
+  ∀e. tcexp_wf (tcexp_of e) ∧ NestedCase_free e
     ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pureLang$exp_of e
 Proof
   recInduct tcexp_of_ind >>
-  rw[cexp_wf_def, tcexp_of_def, exp_of_def, pureLangTheory.exp_of_def]
+  rw[tcexp_wf_def, tcexp_of_def, exp_of_def, pureLangTheory.exp_of_def]
   >- simp[exp_eq_Var_cong]
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    irule exp_eq_Prim_cong >> rw[LIST_REL_EL_EQN, EL_MAP] >>
-    first_x_assum irule >> simp[EL_MEM] >> gvs[EVERY_EL]
+    irule exp_eq_Prim_cong >> rw[LIST_REL_EL_EQN] >> gvs[EL_MAP] >>
+    first_x_assum irule >> simp[EL_MEM] >> gvs[EVERY_EL, EL_MAP]
     )
   >- (
     irule exp_eq_App_cong >> simp[] >>
@@ -358,7 +359,7 @@ Proof
     )
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF] >> gvs[] >>
-    qpat_x_assum `_ ≠ []` kall_tac >> gvs[EVERY_MEM] >>
+    qpat_x_assum `_ ≠ []` kall_tac >> gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
     ntac 4 $ pop_assum kall_tac >>
     Induct_on `xs` using SNOC_INDUCT >> rw[MAP_SNOC, Apps_SNOC] >>
     irule exp_eq_App_cong >> simp[]
@@ -376,7 +377,8 @@ Proof
     first_x_assum irule >> gvs[MEM_EL, PULL_EXISTS, FORALL_PROD] >>
     goal_assum $ drule_at Any >> gvs[] >>
     ntac 2 (first_x_assum $ irule_at Any >> goal_assum drule) >> gvs[]
-    ) >>
+    )
+  >- (irule FALSITY >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]) >>
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
   rename [‘eopt = SOME _ ⇒ _’] >> reverse $ Cases_on ‘eopt’ >> gvs[] >>
   irule exp_eq_App_cong >> simp[] >>

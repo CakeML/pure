@@ -132,5 +132,21 @@ Termination
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
 End
 
+Definition cexp_Lits_wf_def:
+  cexp_Lits_wf (Var _ v) = T ∧
+  cexp_Lits_wf (Prim _ op es) = (
+    EVERY cexp_Lits_wf es ∧ ∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+  cexp_Lits_wf (App _ e es) = (cexp_Lits_wf e ∧ EVERY cexp_Lits_wf es) ∧
+  cexp_Lits_wf (Lam _ vs e) = cexp_Lits_wf e ∧
+  cexp_Lits_wf (Let _ v e1 e2) = (cexp_Lits_wf e1 ∧ cexp_Lits_wf e2) ∧
+  cexp_Lits_wf (Letrec _ fns e) = (EVERY cexp_Lits_wf $ MAP SND fns ∧ cexp_Lits_wf e) ∧
+  cexp_Lits_wf (Case _ e v css eopt) = (
+    cexp_Lits_wf e ∧ EVERY cexp_Lits_wf $ MAP (SND o SND) css ∧
+    OPTION_ALL (λ(a,e). cexp_Lits_wf e) eopt) ∧
+  cexp_Lits_wf _ = F
+Termination
+  WF_REL_TAC `measure $ cexp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>
+  rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[cexp_size_def]
+End
 
 val _ = export_theory();

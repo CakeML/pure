@@ -1439,8 +1439,9 @@ Proof
     drule_all $ SRULE [] type_tcexp_NestedCase_free >> strip_tac >>
     drule type_tcexp_freevars_tcexp >> strip_tac >>
     drule_at (Pos last) type_tcexp_tcexp_wf >> strip_tac >> gvs[] >>
-    simp[cexp_wf_tcexp_wf, closed_def, freevars_exp_of] >>
-    gvs[freevars_tcexp_of, pure_cexp_lemmasTheory.freevars_exp_of]
+    simp[closed_def, freevars_exp_of] >>
+    gvs[freevars_tcexp_of, pure_tcexp_lemmasTheory.freevars_exp_of,
+        pure_cexp_lemmasTheory.freevars_exp_of]
     ) >>
   rw[itree_of_def, semantics_def] >>
   irule type_soundness_interp >>
