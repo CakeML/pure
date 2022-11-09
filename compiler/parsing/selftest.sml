@@ -308,5 +308,24 @@ val custom_eval =
   REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
   pairLib.GEN_BETA_CONV THENC
   LAND_CONV (REWRITE_CONV [pure_typingTheory.initial_namespace_def] THENC
-             pure_inferenceLib.pure_infer_eval)
+             pure_inferenceLib.pure_infer_eval) THENC
+  REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
+  pairLib.GEN_BETA_CONV
 
+val hworld = "return v = Ret v\n\
+             \main = do\n\
+             \  Act (#(stdout) \"Hello\")\n\
+             \  return ()"
+
+val hworld_t = stringSyntax.fromMLstring hworld
+
+val res = custom_eval “parse_tcheck ^hworld_t”
+
+fun paper_check f nopt =
+    let
+      val s0 = filetake nopt "paper.hs"
+      val sfx = case nopt of NONE => "" | SOME _ => "\n\nmain = main"
+      val s_t = stringSyntax.fromMLstring (s0 ^ sfx)
+    in
+      custom_eval “^f ^s_t”
+    end
