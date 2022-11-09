@@ -71,8 +71,12 @@ Definition translate_headop_def:
          | #"+" => SOME Add
          | #"-" => SOME Sub
          | #"*" => SOME Mul
+         | #"<" => SOME Lt
+         | #">" => SOME Gt
          | _ => NONE
        else if s = «==» then SOME Eq
+       else if s = «div» then SOME Div
+       else if s = «mod» then SOME Mod
        else NONE
    in
      case opopt of
