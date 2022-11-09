@@ -36,4 +36,19 @@ Definition compile_def:
                 SOME (ast_to_string $ pure_to_cake ns e3)
 End
 
+Theorem compile_monadically:
+  compile s =
+  do
+    (e1,ns) <- string_to_cexp s ;
+    e2 <<- transform_cexp e1 ;
+    infer_types ns e2 ;
+    e3 <<- demands_analysis e2 ;
+    infer_types ns e3 ;
+    return (ast_to_string $ pure_to_cake ns e3)
+  od
+Proof
+  simp[compile_def] >> EVERY_CASE_TAC >> simp[]
+QED
+
+
 val _ = export_theory();
