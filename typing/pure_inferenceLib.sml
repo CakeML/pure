@@ -103,6 +103,7 @@ in
                 combinLib.add_combin_compset,
                 basisComputeLib.add_basis_compset,
                 finite_mapLib.add_finite_map_compset,
+                pred_setLib.add_pred_set_compset,
                 add_unify_compset
                 ] ::
               computeLib.Tys [``:ordering``,``:itype``,``:'a constraint``] ::
