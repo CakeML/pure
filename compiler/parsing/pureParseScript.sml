@@ -39,6 +39,14 @@ End
 
 val fact_ast = EVAL “string_to_ast ^fact_s”
 
+Definition string_to_cexp0_def:
+  string_to_cexp0 s =
+  do
+    asts <- string_to_asts s ;
+    decls_to_letrec asts
+  od
+End
+
 Definition string_to_cexp_def:
   string_to_cexp s =
   do
