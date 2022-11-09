@@ -283,20 +283,54 @@ Proof
       \\ first_x_assum $ drule_then assume_tac
       \\ pairarg_tac \\ fs []
       \\ pairarg_tac \\ fs [])
-  >- cheat
+  >- (simp [BIGUNION_SUBSET, MEM_EL, EL_MAP, PULL_EXISTS]
+      \\ reverse conj_tac
+      >- gs [SUBSET_DEF]
+      \\ gs [LIST_REL_EL_EQN]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ gs [EL_MAP]
+      \\ pairarg_tac \\ fs []
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF, MEM_EL]
+      \\ rw []
+      \\ disj1_tac
+      \\ disj1_tac
+      \\ first_assum $ irule_at Any
+      \\ first_assum $ irule_at Any
+      \\ simp [EL_MAP]
+      \\ pairarg_tac \\ fs [])
   >~[‘Lam ov _’]
   >- (Cases_on ‘ov’ \\ fs [cexp_wf_def])
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
   >- gs [EVERY_EL, LIST_REL_EL_EQN, EL_MAP]
-  >- cheat
+  >- (conj_tac
+      >- (drule_then assume_tac LIST_REL_LENGTH
+          \\ CASE_TAC \\ simp [])
+      \\ gs [LIST_REL_EL_EQN, SUBSET_DEF, MEM_EL, PULL_EXISTS, EL_MAP]
+      \\ rw []
+      \\ disj2_tac
+      \\ first_assum $ irule_at Any
+      \\ first_x_assum $ drule_then assume_tac
+      \\ fs [EL_MAP])
   >- (gs [EVERY_EL, LIST_REL_EL_EQN, EL_MAP]
       \\ rw []
       \\ first_x_assum $ drule_then assume_tac
       \\ first_x_assum $ drule_then assume_tac
       \\ pairarg_tac \\ fs []
       \\ pairarg_tac \\ fs [])
-  >- cheat
+  >- (reverse conj_tac
+      >- fs [SUBSET_DEF]
+      \\ gs [LIST_REL_EL_EQN, SUBSET_DEF, MEM_EL, PULL_EXISTS, EL_MAP]
+      \\ rw []
+      \\ disj1_tac
+      \\ first_assum $ irule_at Any
+      \\ first_x_assum $ drule_then assume_tac
+      \\ fs [EL_MAP]
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
   >- (conj_tac
@@ -320,7 +354,31 @@ Proof
       \\ pop_assum $ drule_then assume_tac
       \\ pairarg_tac \\ fs []
       \\ pairarg_tac \\ fs [])
-  >- cheat
+  >- (conj_tac
+      >- (CASE_TAC \\ fs [OPTREL_def]
+          >- (disj1_tac
+              \\ AP_TERM_TAC
+              \\ irule LIST_EQ
+              \\ qpat_x_assum ‘MAP FST _ = MAP _ _’ mp_tac
+              \\ qpat_x_assum ‘MAP (FST o SND) _ = MAP _ _’ mp_tac
+              \\ once_rewrite_tac [GSYM LIST_REL_eq]
+              \\ strip_tac
+              \\ dxrule_then assume_tac $ iffLR LIST_REL_EL_EQN
+              \\ strip_tac
+              \\ dxrule_then assume_tac $ iffLR LIST_REL_EL_EQN
+              \\ gs [EL_MAP]
+              \\ rw []
+              \\ first_x_assum $ drule_then assume_tac
+              \\ first_x_assum $ drule_then assume_tac
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs [])
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ conj_tac
+          >- (disj1_tac \\ disj1_tac
+              \\ cheat)
+          \\ cheat)
+      \\ cheat)
 QED
 
 Inductive cexp_rel:
