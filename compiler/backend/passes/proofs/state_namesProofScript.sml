@@ -189,4 +189,14 @@ Proof
   \\ drule compile_rel_itree_of \\ fs []
 QED
 
+
+Theorem give_all_names_cexp_wf:
+  cexp_wf x ⇒
+  cexp_wf (give_all_names x) ∧
+  cns_arities (give_all_names x) ⊆ cns_arities x
+Proof
+  cheat
+QED
+
+
 val _ = export_theory ();

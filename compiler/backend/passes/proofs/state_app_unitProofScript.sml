@@ -266,6 +266,63 @@ Proof
   rw [] \\ fs []
 QED
 
+Theorem cexp1_rel_cexp_wf:
+  ∀x y. cexp1_rel x y ⇒ (cexp_wf x ⇒ cexp_wf y) ∧ cns_arities y ⊆ cns_arities x
+Proof
+  Induct_on ‘cexp1_rel’ \\ rpt strip_tac
+  \\ gs [cexp_wf_def, cns_arities_def]
+  >>~[‘Let x_opt _ _’]
+  >- (Cases_on ‘x_opt’ \\ fs [cexp_wf_def])
+  >- (Cases_on ‘x_opt’ \\ fs [cexp_wf_def])
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- (gs [EVERY_EL, LIST_REL_EL_EQN, EL_MAP]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+  >- cheat
+  >~[‘Lam ov _’]
+  >- (Cases_on ‘ov’ \\ fs [cexp_wf_def])
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- gs [EVERY_EL, LIST_REL_EL_EQN, EL_MAP]
+  >- cheat
+  >- (gs [EVERY_EL, LIST_REL_EL_EQN, EL_MAP]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+  >- cheat
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- (conj_tac
+      >- (strip_tac \\ fs [])
+      \\ simp [CONJ_ASSOC]
+      \\ conj_tac
+      >- (rename1 ‘OPTREL _ te se’
+          \\ Cases_on ‘te’ \\ fs [OPTREL_def]
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ gs [])
+      \\ gs [EVERY_EL, LIST_REL_EL_EQN]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ qpat_x_assum ‘MAP (FST o SND) _ = MAP _ _’ mp_tac
+      \\ once_rewrite_tac [GSYM LIST_REL_eq]
+      \\ strip_tac
+      \\ dxrule_then assume_tac $ iffLR LIST_REL_EL_EQN
+      \\ gs [EL_MAP]
+      \\ pop_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+  >- cheat
+QED
+
 Inductive cexp_rel:
 
 [~refl:]
@@ -523,6 +580,15 @@ Proof
   \\ fs [] \\ rw [] \\ metis_tac []
 QED
 
+Theorem NRC_cexp_wf:
+  ∀n x y. NRC cexp1_rel n x y ⇒ (cexp_wf x ⇒ cexp_wf y) ∧ cns_arities y ⊆ cns_arities x
+Proof
+  Induct \\ fs [NRC, PULL_EXISTS] \\ rw []
+  \\ dxrule_all_then assume_tac cexp1_rel_cexp_wf
+  \\ last_x_assum $ dxrule_all_then assume_tac
+  \\ metis_tac [SUBSET_TRANS]
+QED
+
 Theorem LIST_REL_EXISTS_NRC:
   ∀xs ys.
     LIST_REL (λx y. cexp_rel x y ∧ ∃n. NRC cexp1_rel n x y) xs ys ⇒
@@ -684,6 +750,15 @@ Proof
   \\ imp_res_tac cexp1_rel_correct \\ fs []
 QED
 
+Theorem cexp_rel_cexp_wf:
+  ∀x y. cexp_rel x y ⇒ (cexp_wf x ⇒ cexp_wf y) ∧ cns_arities y ⊆ cns_arities x
+Proof
+  gen_tac \\ gen_tac \\ strip_tac
+  \\ dxrule_then assume_tac cexp_rel_imp_nrc
+  \\ fs []
+  \\ dxrule_all_then irule NRC_cexp_wf
+QED
+
 Theorem unit_apps_0[simp]:
   unit_apps 0 x = x
 Proof
@@ -817,6 +892,15 @@ Proof
   once_rewrite_tac [EQ_SYM_EQ]
   \\ simp_tac std_ss [Once $ GSYM unit_apps_0]
   \\ irule cexp_rel_itree
+  \\ fs [cexp_rel_pust_app_unit]
+QED
+
+Theorem cexp_wf_push_app_unit:
+  (cexp_wf x ⇒ cexp_wf (push_app_unit 0 x)) ∧ cns_arities (push_app_unit 0 x) ⊆ cns_arities x
+Proof
+  qspecl_then [‘unit_apps 0 x’, ‘push_app_unit 0 x’] mp_tac cexp_rel_cexp_wf
+  \\ reverse impl_tac
+  >- simp [unit_apps_0]
   \\ fs [cexp_rel_pust_app_unit]
 QED
 

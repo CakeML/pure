@@ -1137,4 +1137,14 @@ Proof
   \\ drule state_app_unitProofTheory.cexp_rel_itree \\ fs []
 QED
 
+
+Theorem to_state_cexp_wf:
+  envLang$cexp_wf x ⇒
+  cexp_wf (compile x) ∧
+  cns_arities (compile x) ⊆ cns_arities x
+Proof
+  cheat
+QED
+
+
 val _ = export_theory ();
