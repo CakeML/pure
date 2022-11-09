@@ -2,6 +2,8 @@ open HolKernel Parse boolLib bossLib
 open cst_to_astTheory purePEGTheory testutils ast_to_cexpTheory
 open pureParseTheory;
 
+open pure_inferenceLib
+
 val errcount = ref 0
 val _ = diemode := Remember errcount
 
@@ -30,10 +32,10 @@ val fullparse0 =
                Result (Success [] [pt] _ _) => SOME pt
              | _ => NONE”;
 
-fun filetake n f =
+fun filetake nopt f =
     let val is = TextIO.openIn f
         fun getlines c A =
-            if c < n then
+            if nopt = NONE orelse c < valOf nopt then
               case TextIO.inputLine is of
                   NONE => String.concat (List.rev A)
                 | SOME line => getlines (c + 1) (line::A)
@@ -70,15 +72,13 @@ fun fptest (x as (nt, s, cf, exp)) =
      fptest0 x)
 
 fun filetest (fname, sem, NONE) =
-    let val is = TextIO.openIn fname
-        val str = TextIO.inputAll is
-        val _ = TextIO.closeIn is
+    let val str = filetake NONE fname
     in
       tprint ("Parsing contents of "^fname);
       fptest0 (“nDecls”, str, sem, “NONE”)
     end
   | filetest (fname, sem, SOME c) =
-    let val s = filetake c fname
+    let val s = filetake (SOME c) fname
         val _ = tprint ("Parsing " ^ Int.toString c ^ " lines of " ^ fname)
     in
       fptest0 (“nDecls”, s, sem, “NONE”)
@@ -98,7 +98,7 @@ val _ = temp_overload_on("ASTEXP", “astExp nExp”)
 val _ = temp_overload_on("CEXP",
   “flip (OPTION_BIND o ASTEXP)
      (translate_exp (insert (empty str_compare) «[]» listinfo))
-    : (token, ppegnt, locs) parsetree -> unit cexp option”)
+    : (tokens$token, ppegnt, locs) parsetree -> unit cexp option”)
 val _ = temp_overload_on ("CMAIN", “𝕍«main»”);
 
 val _ = temp_overload_on ("CDECLS",
@@ -301,3 +301,12 @@ val _ = app convtest [
                                 (𝕍 «z» ::ₑ 𝕍 «y» ::ₑ []ₑ)))] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
+
+val custom_eval =
+  REWRITE_CONV [parse_tcheck_def] THENC
+  LAND_CONV EVAL THENC
+  REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
+  pairLib.GEN_BETA_CONV THENC
+  LAND_CONV (REWRITE_CONV [pure_typingTheory.initial_namespace_def] THENC
+             pure_inferenceLib.pure_infer_eval)
+
