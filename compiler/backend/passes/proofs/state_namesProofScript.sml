@@ -189,13 +189,218 @@ Proof
   \\ drule compile_rel_itree_of \\ fs []
 QED
 
+Theorem give_names_cexp_wf:
+    ∀x e n.
+    give_names x = (e,n) ⇒
+    cexp_wf x ⇒ cexp_wf e
+Proof
+  ho_match_mp_tac give_names_ind \\ rpt strip_tac
+  >~[‘Var’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ rw [cexp_wf_def])
+  >~[‘Lam vn’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ Cases_on ‘vn’ \\ fs [cexp_wf_def]
+      \\ pairarg_tac \\ fs [cexp_wf_def]
+      \\ rw [cexp_wf_def])
+  >~[‘Let vn’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ Cases_on ‘vn’ \\ fs [cexp_wf_def]
+      \\ pairarg_tac \\ fs [cexp_wf_def]
+      \\ pairarg_tac \\ fs [cexp_wf_def]
+      \\ rw [cexp_wf_def])
+  >~[‘App’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ rw [cexp_wf_def, EVERY_MEM, MEM_MAP]
+      \\ last_x_assum $ drule_then assume_tac
+      \\ rename1 ‘give_names a’
+      \\ Cases_on ‘give_names a’ \\ fs [EVERY_MEM])
+  >~[‘Handle’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cexp_wf_def])
+  >~[‘HandleApp’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cexp_wf_def])
+  >~[‘If’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cexp_wf_def])
+  >~[‘Raise’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ pairarg_tac \\ fs []
+      \\ rw [cexp_wf_def])
+  >~[‘Letrec’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ pairarg_tac \\ fs []
+      \\ rw [cexp_wf_def]
+      >- (gs [EVERY_EL, EL_MAP, EL_MAP2, MEM_EL, PULL_EXISTS]
+          \\ rw []
+          \\ last_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      \\ ‘∀l1 l2 : mlstring list. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+      \\ pop_assum $ dxrule_then irule
+      \\ irule LIST_EQ
+      \\ simp [EL_MAP, EL_MAP2]
+      \\ rw []
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+  >~[‘Case _ rows d’]
+  >- (fs [give_names_def, cexp_wf_def]
+      \\ Cases_on ‘d’ \\ fs []
+      \\ rw [cexp_wf_def]
+      >- (Cases_on ‘rows’ \\ fs [])
+      >- (‘∀l1 l2 : mlstring list. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+          \\ pop_assum $ dxrule_then irule
+          \\ irule LIST_EQ
+          \\ simp [EL_MAP, EL_MAP2]
+          \\ rw []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      >- (gs [EVERY_EL, EL_MAP, EL_MAP2, MEM_EL, PULL_EXISTS]
+          \\ rw []
+          \\ first_x_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cexp_wf_def]
+      >- (Cases_on ‘rows’ \\ fs [])
+      >- (‘∀l1 l2 : mlstring list. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+          \\ pop_assum $ dxrule_then irule
+          \\ AP_THM_TAC \\ AP_TERM_TAC
+          \\ irule LIST_EQ
+          \\ simp [EL_MAP, EL_MAP2]
+          \\ rw []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      >- (gs [EVERY_EL, EL_MAP, EL_MAP2, MEM_EL, PULL_EXISTS]
+          \\ rw []
+          \\ first_x_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []))
+QED
+
+Theorem give_names_cns_arities:
+    ∀x e n.
+    give_names x = (e,n) ⇒
+    cns_arities e = cns_arities x
+Proof
+  ho_match_mp_tac give_names_ind \\ rpt strip_tac
+  \\ gs [give_names_def]
+  >~[‘Lam vn’]
+  >- (Cases_on ‘vn’ \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cns_arities_def])
+  >~[‘Let vn’]
+  >- (Cases_on ‘vn’ \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cns_arities_def])
+  >~[‘App’]
+  >- (rw [cns_arities_def]
+      \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+      \\ irule LIST_EQ
+      \\ gs [MEM_EL, PULL_EXISTS, EL_MAP]
+      \\ gen_tac \\ strip_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum irule
+      \\ irule_at Any $ GSYM PAIR)
+  >~[‘Handle’]
+  >- (pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cns_arities_def])
+  >~[‘HandleApp’]
+  >- (pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cns_arities_def, UNION_COMM])
+  >~[‘If’]
+  >- (pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cns_arities_def])
+  >~[‘Raise’]
+  >- (pairarg_tac \\ fs []
+      \\ rw [cns_arities_def])
+  >~[‘Letrec’]
+  >- (pairarg_tac \\ fs []
+      \\ rw [cns_arities_def]
+      \\ AP_THM_TAC \\ AP_TERM_TAC
+      \\ AP_TERM_TAC \\ AP_TERM_TAC
+      \\ irule LIST_EQ
+      \\ gs [MEM_EL, PULL_EXISTS, EL_MAP, EL_MAP2]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+  >~[‘Case _ rows d’]
+  >- (Cases_on ‘d’ \\ fs []
+      \\ rw [cns_arities_def]
+      >- (MK_COMB_TAC
+          >- (AP_TERM_TAC \\ fs []
+              \\ AP_TERM_TAC
+              \\ irule LIST_EQ
+              \\ fs [MEM_EL, EL_MAP, EL_MAP2, PULL_EXISTS]
+              \\ rw []
+              \\ last_x_assum $ drule_then assume_tac
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs [])
+          \\ AP_TERM_TAC \\ AP_TERM_TAC
+          \\ irule LIST_EQ
+          \\ fs [MEM_EL, EL_MAP, EL_MAP2, PULL_EXISTS]
+          \\ rw []
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      \\ CASE_TAC \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ rw [cns_arities_def]
+      \\ MK_COMB_TAC
+      >- (AP_TERM_TAC
+          \\ AP_THM_TAC \\ AP_TERM_TAC
+          \\ AP_TERM_TAC \\ AP_TERM_TAC
+          \\ irule LIST_EQ
+          \\ fs [MEM_EL, EL_MAP, EL_MAP2, PULL_EXISTS]
+          \\ rw []
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      \\ AP_TERM_TAC \\ AP_TERM_TAC
+      \\ irule LIST_EQ
+      \\ fs [MEM_EL, EL_MAP, EL_MAP2, PULL_EXISTS]
+      \\ rw []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+QED
 
 Theorem give_all_names_cexp_wf:
   cexp_wf x ⇒
   cexp_wf (give_all_names x) ∧
-  cns_arities (give_all_names x) ⊆ cns_arities x
+  cns_arities (give_all_names x) = cns_arities x
 Proof
-  cheat
+  fs [give_all_names_def]
+  \\ Cases_on ‘give_names x’
+  \\ drule_then assume_tac give_names_cexp_wf
+  \\ drule_then assume_tac give_names_cns_arities
+  \\ fs []
 QED
 
 

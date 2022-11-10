@@ -376,9 +376,31 @@ Proof
           \\ pairarg_tac \\ fs []
           \\ conj_tac
           >- (disj1_tac \\ disj1_tac
-              \\ cheat)
-          \\ cheat)
-      \\ cheat)
+              \\ AP_TERM_TAC \\ AP_TERM_TAC
+              \\ irule LIST_EQ
+              \\ qpat_x_assum ‘MAP FST _ = MAP _ _’ mp_tac
+              \\ qpat_x_assum ‘MAP (FST o SND) _ = MAP _ _’ mp_tac
+              \\ once_rewrite_tac [GSYM LIST_REL_eq]
+              \\ strip_tac
+              \\ dxrule_then assume_tac $ iffLR LIST_REL_EL_EQN
+              \\ strip_tac
+              \\ dxrule_then assume_tac $ iffLR LIST_REL_EL_EQN
+              \\ gs [EL_MAP]
+              \\ rw []
+              \\ first_x_assum $ drule_then assume_tac
+              \\ first_x_assum $ drule_then assume_tac
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs [])
+          \\ fs [SUBSET_DEF])
+      \\ fs [LIST_REL_EL_EQN, SUBSET_DEF, MEM_EL]
+      \\ rw []
+      \\ disj2_tac \\ gs []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_assum $ irule_at Any
+      \\ irule_at Any EQ_REFL
+      \\ gs [EL_MAP]
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
 QED
 
 Inductive cexp_rel:
