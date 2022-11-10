@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 open cst_to_astTheory purePEGTheory testutils ast_to_cexpTheory
 open pureParseTheory;
 
-open pure_inferenceLib
+open pure_inferenceLib pure_letrec_cexpTheory
 
 val errcount = ref 0
 val _ = diemode := Remember errcount
@@ -93,13 +93,14 @@ val _ = temp_overload_on("𝕀", “λi. expLit (litInt i)”);
 val _ = temp_overload_on("𝕁", “λi. Prim () (AtomOp (Lit (Int i))) []”);
 val _ = temp_overload_on("𝕊", “λs. expLit (litString s)”);
 val _ = temp_overload_on("𝕋", “λs. Prim () (AtomOp (Lit (Str s))) []”);
-val _ = temp_overload_on("𝕍", “pure_cexp$Var ()”)
+val _ = temp_overload_on("𝕍", “pure_cexp$Var”)
+val _ = temp_overload_on("𝕍u", “pure_cexp$Var ()”)
 val _ = temp_overload_on("ASTEXP", “astExp nExp”)
 val _ = temp_overload_on("CEXP",
   “flip (OPTION_BIND o ASTEXP)
      (translate_exp (insert (empty str_compare) «[]» listinfo))
     : (tokens$token, ppegnt, locs) parsetree -> unit cexp option”)
-val _ = temp_overload_on ("CMAIN", “𝕍«main»”);
+val _ = temp_overload_on ("CMAIN", “𝕍u «main»”);
 
 val _ = temp_overload_on ("CDECLS",
                           inst [alpha |-> “:locs”]
@@ -167,9 +168,9 @@ val _ = app fptest [
   (“nExp”, "f [x,y] 3", “astExp nExp”,
    “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”),
   (“nExp”, "f [x,y] 3", “CEXP”,
-   “App () (𝕍 «f») [𝕍 «x» ::ₑ 𝕍 «y» ::ₑ []ₑ; 𝕁 3]”),
+   “App () (𝕍u «f») [𝕍u «x» ::ₑ 𝕍u «y» ::ₑ []ₑ; 𝕁 3]”),
   (“nExp”, "f \"foo\"", “astExp nExp”, “‹f› ⬝ 𝕊 "foo"”),
-  (“nExp”, "f \"foo\"", “CEXP”, “App () (𝕍 «f») [𝕋 "foo"]”),
+  (“nExp”, "f \"foo\"", “CEXP”, “App () (𝕍u «f») [𝕋 "foo"]”),
   (“nExp”, "let y = x + 3 in y + z",
    “astExp nExp”,
    “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
@@ -182,9 +183,9 @@ val _ = app fptest [
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z", “CEXP”,
-   “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3); («z», 𝕁 10)] (𝕍 «y» +ₑ 𝕍 «z»)”),
+   “Letrec () [(«y», 𝕍u «x» +ₑ 𝕁 3); («z», 𝕁 10)] (𝕍u «y» +ₑ 𝕍u «z»)”),
   (“nExp”, "let { y = x + 3; z = 10; } in y + z", “CEXP”,
-   “Letrec () [(«y», 𝕍 «x» +ₑ 𝕁 3);
+   “Letrec () [(«y», 𝕍u «x» +ₑ 𝕁 3);
                («z», 𝕁 10)]
               (𝕍 «y» +ₑ 𝕍 «z»)”),
   (“nExp”, "do x <- f y 3\n\
@@ -198,7 +199,8 @@ val _ = app fptest [
   (“nExp”, "do x <- f y 3\n\
            \   foo x",
    “CEXP”,
-   “App () (𝕍 «f») [𝕍 «y»; 𝕁 3] >>= Lam () [«x»] (App () (𝕍 «foo») [𝕍 «x»])”),
+   “App () (𝕍u «f») [𝕍u «y»; 𝕁 3] >>=
+    Lam () [«x»] (App () (𝕍u «foo») [𝕍u «x»])”),
   (“nExp”, "do let y = 10\n\
            \       f :: Int -> Int\n\
            \       f z = z + 1\n\
@@ -219,7 +221,7 @@ val _ = app fptest [
   (“nExp”, "case e of [] -> 3\n\
            \          h:t -> 4",
    “CEXP”,
-   “Case () (𝕍 «e») «» [(«[]», [], 𝕁 3); («::», [«h»; «t»], 𝕁 4)] NONE”),
+   “Case () (𝕍u «e») «» [(«[]», [], 𝕁 3); («::», [«h»; «t»], 𝕁 4)] NONE”),
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
    “astExp nExp”,
@@ -302,30 +304,151 @@ val _ = app convtest [
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
 
-val custom_eval =
-  REWRITE_CONV [parse_tcheck_def] THENC
-  LAND_CONV EVAL THENC
-  REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
-  pairLib.GEN_BETA_CONV THENC
-  LAND_CONV (REWRITE_CONV [pure_typingTheory.initial_namespace_def] THENC
-             pure_inferenceLib.pure_infer_eval) THENC
-  REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
-  pairLib.GEN_BETA_CONV
+val upto_demands_def = Define‘
+  upto_demands s =
+  do
+    (e1,ns) <- string_to_cexp s;
+    e2 <<- transform_cexp e1;
+    infer_types ns e2;
+    return e2
+  od
+’;
+
+val c0 = REWRITE_CONV [upto_demands_def] THENC
+         LAND_CONV EVAL THENC
+         REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
+         pairLib.GEN_BETA_CONV THENC RAND_CONV EVAL THENC SCONV [LET_THM]
+val upto_eval0 =
+  c0 THENC
+  LAND_CONV (pure_inferenceLib.pure_infer_eval THENC EVAL THENC
+             SCONV[])
+
+val upto_eval = upto_eval0 THENC SCONV[]
+
 
 val hworld = "return v = Ret v\n\
+             \s1 ++ s2 = #(__Concat) s1 s2\n\
+             \print s = Act (#(stdout) (s ++ \"\\n\"))\n\
              \main = do\n\
-             \  Act (#(stdout) \"Hello\")\n\
+             \  print \"Hello\"\n\
              \  return ()"
 
-val hworld_t = stringSyntax.fromMLstring hworld
-
-val res = custom_eval “parse_tcheck ^hworld_t”
-
-fun paper_check f nopt =
-    let
-      val s0 = filetake nopt "paper.hs"
-      val sfx = case nopt of NONE => "" | SOME _ => "\n\nmain = main"
-      val s_t = stringSyntax.fromMLstring (s0 ^ sfx)
+val _ = temp_add_user_printer("maphide", “mlmap$Map c bm”,
+            (fn _ => fn be => fn syspr => fn {add_string,...} =>
+             fn gravs => fn depth => fn t => add_string "𝕸"))
+fun extract_int adds t =
+    let val aop = el 2 (#2 (strip_comb t))
+        val i_t = rand (rand (rand aop))
+        val i = intSyntax.int_of_term i_t
+        fun slice s = String.extract(s, 0, SOME (size s - 1))
     in
-      custom_eval “^f ^s_t”
+      adds (slice (Arbint.toString i) ^ "ₑ")
     end
+
+fun extract_mlstring adds t =
+    let val s_t = rand t
+        val s = stringSyntax.fromHOLstring s_t
+    in
+      adds (Literal.string_literalpp {ldelim = "‹",rdelim = "›"} s)
+    end
+
+
+val _ = temp_add_user_printer("prettyint", “Prim m (AtomOp (Lit (Int i))) []”,
+            (fn _ => fn be => fn syspr => fn {add_string,...} =>
+             fn gravs => fn depth => fn t => extract_int add_string t
+                 handle HOL_ERR _ => raise term_pp_types.UserPP_Failed))
+
+val _ = temp_add_user_printer("prettylet", “pure_cexp$Let m”,
+            (fn _ => fn be => fn syspr => fn {add_string,...} =>
+             fn gravs => fn depth => fn t => add_string "Let"
+                 handle HOL_ERR _ => raise term_pp_types.UserPP_Failed))
+
+val _ = temp_add_user_printer("prettynil", “Prim m (Cons «[]») []”,
+            (fn _ => fn be => fn syspr => fn {add_string,...} =>
+             fn gravs => fn depth => fn t => add_string "[]ₑ"))
+
+val _ = temp_add_user_printer("prettyvar", “pure_cexp$Var m s”,
+            (fn _ => fn be => fn syspr => fn {add_string,...} =>
+             fn gravs => fn depth => fn t => extract_mlstring add_string(rand t)
+                 handle HOL_ERR _ => raise term_pp_types.UserPP_Failed))
+
+fun op2str t =
+  case #Name (dest_thy_const t) of
+      "Mul" => "*"
+    | "Add" => "+"
+    | "Sub" => "-"
+    | "Lt" => "<"
+    | "Gt" => ">"
+    | s => s
+
+val _ = temp_add_user_printer(
+  "prettybinop",
+  “pure_cexp$Prim m (AtomOp p) [arg1; arg2]”,
+   (fn _ => fn be => fn syspr => fn {add_string,ublock,add_break,...} =>
+             fn gravs => fn depth => fn t =>
+                let open smpp term_pp_types
+                    val (_, [_, aop, args_t]) = strip_comb t
+                    val pr = syspr {gravs = (Top,Top,Top), binderp = false,
+                                    depth = depth - 1}
+                    val (args, _) = listSyntax.dest_list args_t
+                in
+                  add_string "(" >>
+                  ublock PP.INCONSISTENT 1 (
+                     pr (el 1 args) >> add_string " " >>
+                     add_string (op2str (rand aop)) >> add_break(1,0) >>
+                     pr (el 2 args)
+                  ) >> add_string ")"
+                end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed))
+
+val _ = temp_add_user_printer(
+  "prettyapp",
+  “pure_cexp$App m f args”,
+   (fn _ => fn be => fn syspr => fn {add_string,ublock,add_break,...} =>
+             fn gravs => fn depth => fn t =>
+                let open smpp term_pp_types
+                    val (_, [_, f, args_t]) = strip_comb t
+                    val pr = syspr {gravs = (Top,Top,Top), binderp = false,
+                                    depth = depth - 1}
+                in
+                  ublock PP.INCONSISTENT 0 (
+                     pr f >> add_break(0,0) >> pr args_t
+                  )
+                end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed))
+
+val _ = temp_add_user_printer(
+  "prettypcons",
+  “pure_cexp$Prim m (Cons s) args”,
+   (fn _ => fn be => fn syspr => fn {add_string,ublock,add_break,...} =>
+             fn gravs => fn depth => fn t =>
+                let open smpp term_pp_types
+                    val (_, [_, f, args_t]) = strip_comb t
+                    val pr = syspr {gravs = (Top,Top,Top), binderp = false,
+                                    depth = depth - 1}
+                in
+                  ublock PP.INCONSISTENT 0 (
+                     add_string "PCons" >>
+                     pr (rand f) >> add_break(0,0) >> pr args_t
+                  )
+                end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed))
+
+
+val _ = set_trace "pp_avoids_symbol_merges" 0
+
+
+fun filetake' fname nopt =
+    let
+      val s0 = filetake nopt fname
+      val sfx = case nopt of NONE => "" | SOME _ => "\n\nmain = main"
+    in
+      s0 ^ sfx
+    end
+
+fun string_check s c f =
+    let
+      val s_t = stringSyntax.fromMLstring s
+    in
+      c “^f ^s_t”
+    end
+
+(* val _ = tprint "string_to_cexp paper.hs" *)
+(* string_check (filetake' "paper.hs" NONE)  c0 ``upto_demands``; *)

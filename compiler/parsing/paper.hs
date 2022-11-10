@@ -1,3 +1,11 @@
+f $ x = f x
+
+-- only works on strings
+s1 ++ s2 = #(__Concat) s1 s2
+
+implode :: [Int] -> String
+implode l = #(__Implode) l
+
 numbers :: [Int]
 numbers =
   let num n = n : num (n + 1)
@@ -12,8 +20,8 @@ take n l =
      h:t -> h : take (n - 1) t
 
 factA :: Int -> Int -> Int
-factA a n = 
-  if n < 2 then a 
+factA a n =
+  if n < 2 then a
   else factA (a * n) (n - 1)
 
 map :: (a -> b) -> [a] -> [b]
@@ -40,7 +48,7 @@ strlen :: String -> Int
 strlen s = #(__Len) s
 
 print :: String -> IO ()
-print s = do Act (#(stdout) (#(__Concat) s "\n"))
+print s = do Act (#(stdout) (s ++ "\n"))
              return ()
 
 
@@ -58,16 +66,24 @@ fromStringI i limit acc s =
 fromString :: String -> Int
 fromString s = fromStringI 0 (strlen s) 0 s
 
-toString0 :: Int -> String
+toString0 :: Int -> [Int]
 toString0 i =
   if i == 0 then []
-  else chr (mod i 10 + 48) : toString0 (div i 10)
+  else (mod i 10 + 48) : toString0 (div i 10)
+
+reverse :: [a] -> [a]
+reverse l =
+  let revA a l =
+        case l of [] -> a
+                  h:t -> revA (h:a) t
+  in
+    revA [] l
 
 toString :: Int -> String
 toString i =
-  if i < 0 then "-" ++ reverse (toString0 i)
+  if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
   else if i == 0 then "0"
-  else reverse $ toString0 i
+  else implode $ reverse $ toString0 i
 
 get_cline_arg :: Int -> IO String
 get_cline_arg i = Act (#(getArg) (toString i))
@@ -77,5 +93,5 @@ main =
   do
     arg0 <- get_cline_arg 0
     let i = fromString arg0
-    let facts = take i factorials
+        facts = take i factorials
     app (\i -> print $ toString i) facts
