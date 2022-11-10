@@ -281,7 +281,7 @@ Inductive minfer:
         ty1) ∧
 
 [~TupleCase:]
-  (¬MEM v pvars ∧
+  (¬MEM v pvars ∧ ALL_DISTINCT pvars ∧
    minfer ns (f INSERT set freshes ∪ mset) rest asrest csrest tyrest ∧
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint [(eas,ecs,ety);(asrest,csrest,tyrest)] ∧
@@ -308,6 +308,7 @@ Inductive minfer:
    LIST_REL (λ((cname,pvars,rest),ty) (a,c).
       minfer ns (f INSERT mset) rest a c ty)
       (ZIP (cases,tys)) (ZIP (ass,css)) ∧
+   EVERY (λ(cname,pvars,rest). ALL_DISTINCT pvars) cases ∧
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
    f ∉ mset ∧
@@ -341,6 +342,7 @@ Inductive minfer:
                minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
             (ZIP (cases,tys))
             (ZIP (ass,css)) ∧
+   EVERY (λ(cname,pvars,rest). ALL_DISTINCT pvars) cases ∧
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
    EVERY (λf. f ∉ mset ∧
@@ -382,6 +384,7 @@ Inductive minfer:
                minfer ns (f INSERT set freshes ∪ mset) rest a c ty)
             (ZIP (cases,tys))
             (ZIP (ass,css)) ∧
+   EVERY (λ(cname,pvars,rest). ALL_DISTINCT pvars) cases ∧
    minfer ns mset e eas ecs ety ∧
    minfer ns (f INSERT set freshes ∪ mset) usrest usas uscs usty ∧
    cvars_disjoint ((eas,ecs,ety)::(usas,uscs,usty)::ZIP (ass, ZIP (css, tys))) ∧
@@ -713,6 +716,13 @@ val inferM_ss = simpLib.named_rewrites "inferM_ss"
 val _ = simpLib.register_frag inferM_ss;
 
 val inferM_rws = SF inferM_ss;
+
+Triviality infer_ignore_bind_simps[simp]:
+  (do _ <- ( λs. NONE) ; foo od = \s. NONE) ∧
+  (do _ <- ( λs. SOME ((),s)) ; foo od = foo)
+Proof
+  rw[FUN_EQ_THM, inferM_rws]
+QED
 
 fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
 
@@ -2005,7 +2015,7 @@ Proof
       gvs[] >> gvs[inferM_rws, get_case_type_def] >>
       every_case_tac >> gvs[] >>
       rename1 `infer _ _ _ _ = SOME ((ety,eas,ecs),m)` >>
-      rename1 `SOME ((tyrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ (_ + _) = SOME ((tyrest,asrest,csrest),r)` >>
       last_x_assum drule >> impl_tac
       >- (
         simp[domain_list_insert] >> rw[] >> gvs[MEM_GENLIST] >>
@@ -2284,6 +2294,7 @@ Proof
         simp[DISJ_EQ_IMP] >> disch_then irule >> gvs[oEL_THM] >>
         goal_assum $ drule_at Any >> simp[]) >>
       gvs[inferM_rws] >> every_case_tac >> gvs[] >>
+      gvs[COND_RAND, COND_RATOR, inferM_rws] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename [
         `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
@@ -2311,6 +2322,7 @@ Proof
           LIST_REL (λ((cname,pvars,rest),ty) (a,c).
             minfer ns (n INSERT domain mset) rest a c ty)
             (ZIP (cases,tyrest)) (ZIP (ass,css)) ∧
+          EVERY (λ(cn,pvars,rest). ALL_DISTINCT pvars) cases ∧
           LIST_REL
            (λ((cn,pvars,rest),as,cs) (as',cs').
                 ∃schemes.
@@ -2450,6 +2462,7 @@ Proof
           )
         >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule_all >> simp[])
         >- (
+          qpat_x_assum `EVERY _ cases` kall_tac >>
           qpat_assum `BIGUNION _ = _` mp_tac >> rewrite_tac[EXTENSION] >> simp[] >>
           disch_then $ mp_tac o iffRL >> simp[PULL_EXISTS] >>
           disch_then drule >> strip_tac >> gvs[] >>
@@ -2509,7 +2522,10 @@ Proof
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
       gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
-      every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
+      reverse $ Cases_on `ALL_DISTINCT pvars` >> gvs[inferM_rws] >>
+      qpat_x_assum `_ = SOME ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      strip_tac >> gvs[inferM_rws, PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
       rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
@@ -2582,7 +2598,7 @@ Proof
       ) >>
     print_tac "DataCase" >>
     ntac 3 $ pop_assum kall_tac >> strip_tac >>
-    Cases_on `eopt` >> gvs[inferM_rws]
+    Cases_on `eopt` >> gvs[inferM_rws, COND_RATOR, COND_RAND]
     >- (
       print_tac "Case case - exhaustive" >>
       every_case_tac >> gvs[] >>
@@ -2613,6 +2629,7 @@ Proof
         minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
           rest a c ty)
         (ZIP (cases,tyrest)) (ZIP (ass,css)) ∧
+      EVERY (λ(cn,pvars,rest). ALL_DISTINCT pvars) cases ∧
       LIST_REL
        (λ((cn,pvars,rest),as,cs) (as',cs').
             ∃schemes.
@@ -2651,10 +2668,13 @@ Proof
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
       gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
-      every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
+      reverse $ Cases_on `ALL_DISTINCT pvars` >> gvs[inferM_rws] >>
+      qpat_x_assum `_ = SOME ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      PairCases_on `x` >> simp[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      strip_tac >> gvs[inferM_rws, PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),rm)` >>
+      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),mm)` >>
       gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
       last_x_assum drule >> disch_then drule >> simp[] >>
       strip_tac >> gvs[] >>
@@ -2696,7 +2716,7 @@ Proof
         imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
         pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
         irule SUBSET_DISJOINT >> goal_assum $ drule_at Any >>
-        qexists_tac `{v | ar + SUC n ≤ v ∧ v < r}` >>
+        qexists_tac `{v | ar + SUC n ≤ v ∧ v < rm}` >>
         conj_tac >- rw[DISJOINT_ALT] >> gvs[] >> rw[] >>
         irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
         gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, PULL_EXISTS] >> rw[]
@@ -2949,6 +2969,7 @@ Proof
         minfer ns (n INSERT set (GENLIST (λn'. n' + SUC n) ar) ∪ domain mset)
           rest a c ty)
         (ZIP (cases,tyrest)) (ZIP (ass,css)) ∧
+      EVERY (λ(cn,pvars,rest). ALL_DISTINCT pvars) cases ∧
       LIST_REL
        (λ((cn,pvars,rest),as,cs) (as',cs').
             ∃schemes.
@@ -2987,10 +3008,13 @@ Proof
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
       gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
-      every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
+      reverse $ Cases_on `ALL_DISTINCT pvars` >> gvs[inferM_rws] >>
+      qpat_x_assum `_ = SOME ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      PairCases_on `x` >> simp[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      strip_tac >> gvs[inferM_rws, PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),rm)` >>
+      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),mm)` >>
       gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
       last_x_assum drule >> disch_then drule >> simp[] >>
       strip_tac >> gvs[] >>
@@ -3032,7 +3056,7 @@ Proof
         imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[PULL_EXISTS] >> rw[] >>
         pop_assum mp_tac >> DEP_REWRITE_TAC[EL_ZIP] >> simp[] >> strip_tac >> gvs[] >>
         irule SUBSET_DISJOINT >> goal_assum $ drule_at Any >>
-        qexists_tac `{v | ar + SUC n ≤ v ∧ v < r}` >>
+        qexists_tac `{v | ar + SUC n ≤ v ∧ v < rm}` >>
         conj_tac >- rw[DISJOINT_ALT] >> gvs[] >> rw[] >>
         irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
         gvs[new_vars_def, BIGUNION_SUBSET, pure_vars, PULL_EXISTS] >> rw[]

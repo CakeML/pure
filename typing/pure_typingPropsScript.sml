@@ -541,6 +541,16 @@ Proof
   rw[EQ_IMP_THM] >> simp[]
 QED
 
+(* TODO move *)
+Theorem ALL_DISTINCT_LENGTH_SET:
+  LENGTH a = LENGTH b ∧ set a = set b ∧ ALL_DISTINCT a ⇒ ALL_DISTINCT b
+Proof
+  rw[] >>
+  drule PERM_ALL_DISTINCT_LENGTH >>
+  disch_then $ qspec_then `b` assume_tac >> gvs[] >>
+  metis_tac[sortingTheory.ALL_DISTINCT_PERM]
+QED
+
 Theorem type_tcexp_tcexp_wf:
   ∀ ns db st env e t.
     EVERY (type_ok (SND ns) db) st ∧
@@ -624,9 +634,17 @@ Proof
     )
   >- (Cases_on `css` >> gvs[])
   >- (
+    gvs[LENGTH_EQ_NUM_compute, EXISTS_PROD, numeral_less_thm] >>
+    rw[] >> gvs[EXTENSION, SF DNF_ss]
+    )
+  >- (
     simp[MEM_FLAT, MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
     rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM >>
     first_x_assum drule >> simp[]
+    )
+  >- (
+    gvs[LENGTH_EQ_NUM_compute, EXISTS_PROD, numeral_less_thm] >>
+    rw[] >> gvs[EXTENSION, EQ_IMP_THM, SF DNF_ss]
     )
   >- simp[monad_cns_def]
   >- simp[monad_cns_def]
@@ -653,9 +671,16 @@ Proof
     )
   >- (Cases_on `css` >> gvs[namespace_ok_def])
   >- (
+    rw[] >> first_x_assum drule >> simp[ELIM_UNCURRY] >> strip_tac >> gvs[]
+    )
+  >- (
     simp[MEM_FLAT, MEM_MAP, EXISTS_PROD, DISJ_EQ_IMP, PULL_EXISTS] >>
     rw[Once MEM_EL] >> pop_assum $ assume_tac o GSYM >>
     first_x_assum drule >> simp[] >> strip_tac >> gvs[]
+    )
+  >- (
+    gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
+    irule ALL_DISTINCT_LENGTH_SET >> qexists_tac `MAP FST exndef` >> simp[]
     )
   >- (
     gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
@@ -711,10 +736,14 @@ Proof
      pop_assum mp_tac >> rw[Once MEM_EL] >> gvs[EL_MAP] >>
      last_x_assum drule >> rw[] >> pairarg_tac >> gvs[] >>
      imp_res_tac ALOOKUP_MEM >> simp[SF SFY_ss]) >>
-   first_x_assum $ drule_at Concl >> simp[] >> strip_tac >>
+   last_x_assum $ drule_at Concl >> simp[] >> strip_tac >>
    gvs[reserved_cns_def, monad_cns_def] >>
    simp[GSYM implodeEQ] >> gvs[MEM_MAP] >> rpt strip_tac >> gvs[implodeEQ]
    )
+  >- (
+    rw[] >> first_x_assum drule >> simp[ELIM_UNCURRY] >> strip_tac >> gvs[]
+    )
+  >- (Cases_on `usopt` >> gvs[] >> PairCases_on `x` >> gvs[])
 QED
 
 Theorem type_tcexp_freevars_tcexp:

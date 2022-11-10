@@ -169,7 +169,7 @@ Definition infer_atom_op_def:
   (infer_atom_op ar StrGeq =
     if ar = 2 then SOME ([String; String], Bool) else NONE) ∧
   (infer_atom_op ar (Message s) =
-    if ar = 1 then SOME ([String], Message : prim_ty) else NONE)
+    if ar = 1 ∧ s ≠ "" then SOME ([String], Message : prim_ty) else NONE)
 End
 
 Definition get_typedef_def:
@@ -433,6 +433,7 @@ Definition infer_def:
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
             (λ(cname,pvars,rest) acc. do
+                if ALL_DISTINCT pvars then return () else fail;
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- infer ns (list_insert mono_vars mset) rest;
                 expected_cname_arg_tys <- oreturn (ALOOKUP cdefs cname);
@@ -696,6 +697,7 @@ Definition infer'_def:
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
             (λ(cname,pvars,f) acc. do
+                if ALL_DISTINCT pvars then return () else fail;
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- f ns (list_insert mono_vars mset);
                 expected_cname_arg_tys <- oreturn (ALOOKUP cdefs cname);

@@ -153,16 +153,28 @@ QED
 Theorem cexp_wf_tcexp_wf:
   ∀e. NestedCase_free e ⇒ (cexp_wf e ⇔ tcexp_wf (tcexp_of e) ∧ cexp_Lits_wf e)
 Proof
-  cheat
-(*  recInduct cexp_wf_ind >>
+  recInduct cexp_wf_ind >>
   rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def, cexp_Lits_wf_def] >>
   gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD, MEM_MAP,
       EXISTS_PROD, PULL_EXISTS, MEM_FLAT] >>
-  eq_tac >> rw[]
-  >>~-
-  ([‘eopt = SOME _ ⇒ _’],
-   Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> metis_tac[]) >>
-  metis_tac[]*)
+  eq_tac >> rw[] >> res_tac
+  >- (Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> metis_tac[])
+  >- (
+    qmatch_goalsub_abbrev_tac `ALL_DISTINCT foo` >>
+    qmatch_asmsub_abbrev_tac `ALL_DISTINCT bar` >>
+    qsuff_tac `foo = bar` >> rw[] >> unabbrev_all_tac >> gvs[] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> Cases_on `eopt` >> rw[] >>
+    rpt (pairarg_tac >> gvs[]) >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[]
+    )
+  >- (Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> metis_tac[])
+  >- (Cases_on ‘eopt’ >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> metis_tac[])
+  >- (
+    qmatch_goalsub_abbrev_tac `ALL_DISTINCT foo` >>
+    qmatch_asmsub_abbrev_tac `ALL_DISTINCT bar` >>
+    qsuff_tac `foo = bar` >> rw[] >> unabbrev_all_tac >> gvs[] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> Cases_on `eopt` >> rw[] >>
+    rpt (pairarg_tac >> gvs[]) >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[]
+    )
 QED
 
 Theorem freevars_tcexp_of:

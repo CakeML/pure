@@ -1426,6 +1426,10 @@ Proof
   map_every qid_spec_tac [`x`,`r`,`tys`,`as`,`cs`,`css`] >>
   Induct >> rw[] >- gvs[return_def] >>
   pairarg_tac >> gvs[] >> pop_assum mp_tac >>
+
+  once_rewrite_tac[infer_ignore_bind_def] >>
+  once_rewrite_tac[infer_bind_def] >>
+  TOP_CASE_TAC >> gvs[fail_def] >> TOP_CASE_TAC >> gvs[] >>
   ntac 2 (
     once_rewrite_tac[infer_bind_def] >>
     ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[]) >>

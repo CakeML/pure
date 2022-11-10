@@ -237,7 +237,7 @@ End
 Inductive type_lit:
   type_lit (Int i) Integer ∧
   type_lit (Str s) String ∧
-  type_lit (Msg s1 s2) Message
+  (s1 ≠ ""⇒ type_lit (Msg s1 s2) Message)
 End
 
 Inductive type_atom_op:
@@ -277,7 +277,7 @@ Inductive type_atom_op:
     type_atom_op op [String;String] Bool) ∧
 
 [~Message:]
-  (type_atom_op (Message s) [String] Message)
+  (s ≠ "" ⇒ type_atom_op (Message s) [String] Message)
 End
 
 (* Typing judgments for type constructors *)
@@ -434,7 +434,7 @@ Inductive type_tcexp:
 
 [~TupleCase:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
-   css = [(«»,pvars,cexp)] ∧ ¬ MEM v pvars ∧
+   css = [(«»,pvars,cexp)] ∧ ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
    LENGTH pvars = LENGTH tyargs ∧ eopt = NONE ∧
    type_tcexp ns db st
       (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
@@ -453,8 +453,8 @@ Inductive type_tcexp:
    EVERY (λ(cname,pvars,cexp). (* For each case: *)
       ∃tys.
         ALOOKUP exndef cname = SOME tys ∧
-        (* Pattern variables do not shadow case split: *)
-          ¬ MEM v pvars ∧
+        (* Pattern variables do not shadow case split and are distinct: *)
+          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
         (* Constructor arities match *)
           LENGTH tys = LENGTH pvars ∧
         (* Continuation is well-typed: *)
@@ -496,8 +496,8 @@ Inductive type_tcexp:
         ALOOKUP constructors cname = SOME schemes ∧
         (* Constructor arities match: *)
           LENGTH pvars = LENGTH schemes ∧
-        (* Pattern variables do not shadow case split: *)
-          ¬ MEM v pvars ∧
+        (* Pattern variables do not shadow case split and are distinct: *)
+          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
         (* Constructor argument types match: *)
           MAP (tsubst tyargs) schemes = ptys ∧
         (* Continuation is well-typed: *)

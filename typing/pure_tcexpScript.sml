@@ -121,9 +121,11 @@ Definition tcexp_wf_def:
   tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP SND fns ∧ tcexp_wf e ∧ fns ≠ []) ∧
   tcexp_wf (Case e v css eopt) = (
     tcexp_wf e ∧ EVERY tcexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
+    EVERY ALL_DISTINCT $ MAP (FST o SND) css ∧
     OPTION_ALL
       (λ(a,e). a ≠ [] ∧ tcexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
+    ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
@@ -135,7 +137,9 @@ End
 Definition cexp_Lits_wf_def:
   cexp_Lits_wf (Var _ v) = T ∧
   cexp_Lits_wf (Prim _ op es) = (
-    EVERY cexp_Lits_wf es ∧ ∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+    EVERY cexp_Lits_wf es ∧
+    (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
   cexp_Lits_wf (App _ e es) = (cexp_Lits_wf e ∧ EVERY cexp_Lits_wf es) ∧
   cexp_Lits_wf (Lam _ vs e) = cexp_Lits_wf e ∧
   cexp_Lits_wf (Let _ v e1 e2) = (cexp_Lits_wf e1 ∧ cexp_Lits_wf e2) ∧

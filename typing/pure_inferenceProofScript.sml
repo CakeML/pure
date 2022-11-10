@@ -6,6 +6,7 @@ open pure_miscTheory pure_typingTheory pure_typingPropsTheory pure_typingProofTh
      pure_tcexpTheory pure_tcexp_lemmasTheory
      pure_inference_commonTheory pure_unificationTheory
      pure_inferenceTheory pure_inferencePropsTheory pure_inference_modelTheory;
+local open cardinalTheory in end
 
 val _ = new_theory "pure_inferenceProof";
 
@@ -363,21 +364,21 @@ Proof
     >- (
       first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
       gvs[FLOOKUP_FDIFF] >>
-      ntac 2 $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
+      rpt $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
       strip_tac >> first_x_assum drule >> simp[]
       )
     >- res_tac
     >- (
       first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
       gvs[FLOOKUP_FDIFF] >>
-      ntac 2 $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
+      rpt $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
       strip_tac >> first_x_assum drule >> simp[]
       )
     >- res_tac
     >- (
       first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
       gvs[FLOOKUP_FDIFF] >>
-      ntac 2 $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
+      rpt $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
       strip_tac >> first_x_assum drule >> simp[]
       )
     >- res_tac
@@ -385,7 +386,7 @@ Proof
     >- (
       first_x_assum drule >> pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
       gvs[FLOOKUP_FDIFF] >>
-      ntac 2 $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
+      rpt $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >> simp[] >>
       strip_tac >> first_x_assum drule >> simp[]
       )
     >- (
@@ -398,7 +399,7 @@ Proof
       first_x_assum drule >> pairarg_tac >> rw[] >> gvs[pure_vars]
       >- (
         gvs[get_massumptions_def] >> every_case_tac >> gvs[] >>
-        ntac 2 $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >>
+        rpt $ qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _` drule >>
         rw[DISJOINT_ALT] >> res_tac
         )
       >- (
@@ -429,7 +430,7 @@ Proof
         simp[MEM_MAP, EXISTS_PROD] >> irule_at Any EQ_REFL >> simp[MEM_EL] >>
         gvs[oEL_THM] >> goal_assum drule >> simp[]
         )
-      >- (ntac 2 $ last_x_assum drule >> simp[])
+      >- (rpt $ last_x_assum drule >> simp[])
       )
     )
 QED
@@ -2997,7 +2998,11 @@ Proof
     first_x_assum drule >> simp[] >> strip_tac >> simp[] >> rpt conj_asm1_tac
     >- (
       gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, EXISTS_PROD, MEM_EL] >>
-      metis_tac[]
+      rpt $ first_x_assum drule >> simp[]
+      )
+    >- (
+      gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, EXISTS_PROD, MEM_EL] >>
+      rpt $ first_x_assum drule >> simp[]
       )
     >- (
       gvs[namespace_ok_def, ALL_DISTINCT_APPEND] >>
@@ -3173,6 +3178,10 @@ Proof
     >- (
       gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, EXISTS_PROD, MEM_EL] >>
       metis_tac[]
+      )
+    >- (
+      gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, EXISTS_PROD, MEM_EL] >>
+      rpt $ first_x_assum drule >> simp[]
       ) >>
     last_x_assum drule >> simp[] >> strip_tac >> pop_assum irule >> conj_tac
     >- (
@@ -3407,6 +3416,10 @@ Proof
     >- (
       gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, EXISTS_PROD, MEM_EL] >>
       metis_tac[]
+      )
+    >- (
+      gvs[MEM_FLAT, MEM_MAP, DISJ_EQ_IMP, PULL_EXISTS, EXISTS_PROD, MEM_EL] >>
+      rpt $ first_x_assum drule >> simp[]
       ) >>
     qpat_x_assum `∀n. n < LENGTH final_cs ⇒ _ (_,_)` drule >> simp[] >>
     strip_tac >> pop_assum irule >> conj_tac
@@ -3545,7 +3558,8 @@ Proof
     gvs[assumptions_rel_def] >>
     Cases_on `as` >> gvs[null_def] >>
     Cases_on `b` >> gvs[balanced_mapTheory.null_def] >>
-    gvs[lookup_def, balanced_mapTheory.lookup_def] >> rw[fmap_eq_flookup]) >>
+    gvs[mlmapTheory.lookup_def, balanced_mapTheory.lookup_def] >>
+    rw[fmap_eq_flookup]) >>
   gvs[] >> simp[ctxt_rel_def, ctxt_vars_def, msubst_vars_def] >>
   qabbrev_tac `vs = BIGUNION $ IMAGE (pure_vars o pure_walkstar sub o CVar) $
     pure_vars ty ∪
@@ -4179,8 +4193,9 @@ Theorem minfer_cexp_Lits_wf:
 Proof
   gen_tac >> Induct_on `minfer` >> rw[cexp_Lits_wf_def] >> gvs[] >>
   gvs[LIST_REL_EL_EQN, EL_ZIP, EVERY_EL, EL_MAP] >> gvs[ELIM_UNCURRY] >>
-  gvs[DefnBase.one_line_ify NONE infer_atom_op_def] >>
-  every_case_tac >> gvs[]
+  gvs[DefnBase.one_line_ify NONE infer_atom_op_def]
+  >- (every_case_tac >> gvs[])
+  >- (Cases_on `aop` >> gvs[])
 QED
 
 Theorem typedefs_ok_IMP_namespace_init_ok:
