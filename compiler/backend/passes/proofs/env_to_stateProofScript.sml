@@ -34,15 +34,18 @@ QED
 Theorem IMP_state_cexp_wf:
   envLang$cexp_wf x ⇒
   cexp_wf (compile_to_state x) ∧
-  cns_arities (compile_to_state x) ⊆ cns_arities x
+  cns_arities (compile_to_state x) ⊆ cns_arities x ∪ {{("",0)}; {("True", 0)}; {("False", 0)}}
 Proof
   strip_tac
   \\ simp [compile_to_state_def]
   \\ dxrule_then assume_tac to_state_cexp_wf
-  \\ qspec_then ‘compile x’ assume_tac $ GEN_ALL cexp_wf_push_app_unit
+  \\ qspec_then ‘compile x’ assume_tac $ GEN_ALL cexp_wwf_push_app_unit
   \\ gs []
   \\ dxrule_then assume_tac give_all_names_cexp_wf
-  \\ metis_tac [SUBSET_TRANS]
+  \\ fs []
+  \\ irule SUBSET_TRANS
+  \\ first_x_assum $ irule_at Any
+  \\ simp []
 QED
 
 val _ = export_theory ();

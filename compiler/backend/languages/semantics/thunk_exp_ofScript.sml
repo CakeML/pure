@@ -64,6 +64,7 @@ End
 Definition args_ok_def:
   args_ok (thunk_cexp$AtomOp aop) es =
     (num_atomop_args_ok aop (LENGTH es) ∧
+     (∀m. aop = Message m ⇒ m ≠ "") ∧
      ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l)) ∧
   args_ok (Cons cn) es =
     if cn = «Ret» ∨ cn = «Raise» then
@@ -95,10 +96,11 @@ Definition cexp_wf_def:
   cexp_wf (Letrec fns e) = (EVERY (λ(_,x). cexp_ok_bind x ∧ cexp_wf x) fns ∧ cexp_wf e
                             ∧ fns ≠ [] ∧ ALL_DISTINCT (MAP FST fns)) ∧
   cexp_wf (Case v css eopt) = (
-    EVERY (λ(_,_,x). cexp_wf x) css ∧
-    (eopt = NONE ⇒ css ≠ []) ∧
+    EVERY (λ(_,vs,x). ALL_DISTINCT vs ∧ cexp_wf x) css ∧
+    css ≠ [] ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    OPTION_ALL (λ(_,e). cexp_wf e) eopt ∧
+    ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
+    OPTION_ALL (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
     (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns))
 Termination
   WF_REL_TAC ‘measure cexp_size’

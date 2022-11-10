@@ -73,6 +73,26 @@ Definition op_args_ok_def:
   op_args_ok (_ :csop)              n = T
 End
 
+Definition cexp_wwf_def:
+  cexp_wwf (Var v :cexp) = T ∧
+  cexp_wwf (App op es) = (EVERY cexp_wwf es ∧ op_args_ok op (LENGTH es) ∧
+    ∀ch. op = FFI ch ⇒ ch ≠ «») ∧
+  cexp_wwf (Lam x e) = cexp_wwf e ∧
+  cexp_wwf (Letrec funs e) = (
+    cexp_wwf e ∧ EVERY (λ(v,x,e). cexp_wwf e) funs ∧ ALL_DISTINCT (MAP FST funs)) ∧
+  cexp_wwf (Let x e1 e2) = (cexp_wwf e1 ∧ cexp_wwf e2) ∧
+  cexp_wwf (If e e1 e2) = (cexp_wwf e ∧ cexp_wwf e1 ∧ cexp_wwf e2) ∧
+  cexp_wwf (Case v css d) = (css ≠ [] ∧
+    OPTION_ALL (λ(a,e). a ≠ [] ∧ cexp_wwf e) d ∧
+    ALL_DISTINCT (MAP FST css ++ case d of NONE => [] | SOME (a,_) => MAP FST a) ∧
+    EVERY (λ(cn,vs,ce). ALL_DISTINCT vs ∧ cexp_wwf ce) css) ∧
+  cexp_wwf (Raise e) = cexp_wwf e ∧
+  cexp_wwf (Handle e1 x e2) = (cexp_wwf e1 ∧ cexp_wwf e2) ∧
+  cexp_wwf (HandleApp e1 e2) = (cexp_wwf e1 ∧ cexp_wwf e2)
+Termination
+  WF_REL_TAC `measure cexp_size`
+End
+
 Definition cexp_wf_def:
   cexp_wf (Var v :cexp) = T ∧
   cexp_wf (App op es) = (EVERY cexp_wf es ∧ op_args_ok op (LENGTH es) ∧

@@ -1677,8 +1677,7 @@ Proof
               \\ pairarg_tac \\ gs [MAPi_MAP_explode])
           \\ simp [empty_thm, TotOrd_compare]
           \\ simp [SUBSET_DEF, PULL_EXISTS, MEM_MAP])
-      \\ rename1 ‘cexp_wf (SND x)’
-      \\ PairCases_on ‘x’
+      \\ pairarg_tac
       \\ gs [empty_thm, TotOrd_compare]
       \\ qpat_x_assum ‘union _ _ = _’ assume_tac
       \\ dxrule_then assume_tac EQ_SYM
@@ -2941,7 +2940,7 @@ Proof
           \\ PairCases_on ‘p2’
           \\ gvs [exp_of_def, op_of_def, demands_map_union, union_thm, letrecs_distinct_def]
           \\ dxrule_then (dxrule_then irule) find_Seq2) >~
-      [‘AtomOp op’]
+      [‘AtomOp op = AtomOp (Lit _)’]
       >- (rpt gen_tac \\ strip_tac
           \\ gvs [exp_of_def, op_of_def, demands_analysis_fun_def, UNZIP3_MAP,
                   letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF]
@@ -3764,6 +3763,7 @@ Proof
           \\ PairCases_on ‘daf’
           \\ gs []
           \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
+          \\ last_x_assum $ drule_then assume_tac
           \\ last_x_assum $ drule_then assume_tac
           \\ last_x_assum $ drule_then assume_tac
           \\ last_x_assum $ drule_then assume_tac

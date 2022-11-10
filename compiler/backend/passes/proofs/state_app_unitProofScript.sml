@@ -266,14 +266,11 @@ Proof
   rw [] \\ fs []
 QED
 
-Theorem cexp1_rel_cexp_wf:
-  ∀x y. cexp1_rel x y ⇒ (cexp_wf x ⇒ cexp_wf y) ∧ cns_arities y ⊆ cns_arities x
+Theorem cexp1_rel_cexp_wwf:
+  ∀x y. cexp1_rel x y ⇒ (cexp_wwf x ⇒ cexp_wwf y) ∧ cns_arities y ⊆ cns_arities x
 Proof
   Induct_on ‘cexp1_rel’ \\ rpt strip_tac
-  \\ gs [cexp_wf_def, cns_arities_def]
-  >>~[‘Let x_opt _ _’]
-  >- (Cases_on ‘x_opt’ \\ fs [cexp_wf_def])
-  >- (Cases_on ‘x_opt’ \\ fs [cexp_wf_def])
+  \\ gs [cexp_wwf_def, cns_arities_def]
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
@@ -301,8 +298,6 @@ Proof
       \\ first_assum $ irule_at Any
       \\ simp [EL_MAP]
       \\ pairarg_tac \\ fs [])
-  >~[‘Lam ov _’]
-  >- (Cases_on ‘ov’ \\ fs [cexp_wf_def])
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
   >- gs [EVERY_EL, LIST_REL_EL_EQN, EL_MAP]
@@ -660,11 +655,11 @@ Proof
   \\ fs [] \\ rw [] \\ metis_tac []
 QED
 
-Theorem NRC_cexp_wf:
-  ∀n x y. NRC cexp1_rel n x y ⇒ (cexp_wf x ⇒ cexp_wf y) ∧ cns_arities y ⊆ cns_arities x
+Theorem NRC_cexp_wwf:
+  ∀n x y. NRC cexp1_rel n x y ⇒ (cexp_wwf x ⇒ cexp_wwf y) ∧ cns_arities y ⊆ cns_arities x
 Proof
   Induct \\ fs [NRC, PULL_EXISTS] \\ rw []
-  \\ dxrule_all_then assume_tac cexp1_rel_cexp_wf
+  \\ dxrule_all_then assume_tac cexp1_rel_cexp_wwf
   \\ last_x_assum $ dxrule_all_then assume_tac
   \\ metis_tac [SUBSET_TRANS]
 QED
@@ -830,13 +825,13 @@ Proof
   \\ imp_res_tac cexp1_rel_correct \\ fs []
 QED
 
-Theorem cexp_rel_cexp_wf:
-  ∀x y. cexp_rel x y ⇒ (cexp_wf x ⇒ cexp_wf y) ∧ cns_arities y ⊆ cns_arities x
+Theorem cexp_rel_cexp_wwf:
+  ∀x y. cexp_rel x y ⇒ (cexp_wwf x ⇒ cexp_wwf y) ∧ cns_arities y ⊆ cns_arities x
 Proof
   gen_tac \\ gen_tac \\ strip_tac
   \\ dxrule_then assume_tac cexp_rel_imp_nrc
   \\ fs []
-  \\ dxrule_all_then irule NRC_cexp_wf
+  \\ dxrule_all_then irule NRC_cexp_wwf
 QED
 
 Theorem unit_apps_0[simp]:
@@ -975,10 +970,10 @@ Proof
   \\ fs [cexp_rel_pust_app_unit]
 QED
 
-Theorem cexp_wf_push_app_unit:
-  (cexp_wf x ⇒ cexp_wf (push_app_unit 0 x)) ∧ cns_arities (push_app_unit 0 x) ⊆ cns_arities x
+Theorem cexp_wwf_push_app_unit:
+  (cexp_wwf x ⇒ cexp_wwf (push_app_unit 0 x)) ∧ cns_arities (push_app_unit 0 x) ⊆ cns_arities x
 Proof
-  qspecl_then [‘unit_apps 0 x’, ‘push_app_unit 0 x’] mp_tac cexp_rel_cexp_wf
+  qspecl_then [‘unit_apps 0 x’, ‘push_app_unit 0 x’] mp_tac cexp_rel_cexp_wwf
   \\ reverse impl_tac
   >- simp [unit_apps_0]
   \\ fs [cexp_rel_pust_app_unit]

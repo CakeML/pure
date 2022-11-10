@@ -42,7 +42,7 @@ Theorem pure_to_state_correct:
   stateLang$itree_of (stateLang$exp_of (pure_to_state x)) ∧
   state_cexp$cexp_wf (pure_to_state x) ∧
   cns_arities (pure_to_state x) ⊆
-    IMAGE (IMAGE (explode ## I)) (cns_arities x)
+    IMAGE (IMAGE (explode ## I)) (cns_arities x) ∪ {{("",0)}; {("True",0)}; {("False",0)}}
 Proof
   strip_tac
   \\ drule_all pure_to_env_correct
@@ -53,7 +53,8 @@ Proof
   \\ strip_tac \\ fs []
   \\ drule_all IMP_state_cexp_wf \\ fs []
   \\ rw [] \\ irule SUBSET_TRANS
-  \\ first_assum $ irule_at Any \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ fs [SUBSET_DEF]
 QED
 
 Theorem pure_to_cake_correct:
@@ -73,7 +74,9 @@ Proof
   \\ irule state_to_cakeProofTheory.compile_correct
   \\ fs [GSYM cns_ok_def]
   \\ irule state_to_cakeProofTheory.cns_ok_SUBSET
-  \\ first_assum $ irule_at $ Pos last \\ fs []
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ irule state_to_cakeProofTheory.cns_ok_UNION
+  \\ fs []
 QED
 
 val _ = export_theory ();

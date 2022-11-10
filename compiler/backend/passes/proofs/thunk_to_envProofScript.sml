@@ -68,15 +68,15 @@ Proof
     \\ fs [FORALL_PROD,SF SFY_ss,EVERY_MEM])
   >~ [‘Case’] >-
    (fs [to_env_def]
-    \\ qpat_x_assum ‘d = NONE ⇒ _’ kall_tac
+    \\ qpat_x_assum ‘_ ≠ []’ kall_tac
     \\ qpat_x_assum ‘~(MEM _ _)’ kall_tac
     \\ Induct_on ‘rows’ \\ fs []
     >-
      (fs [rows_of_def,envLangTheory.rows_of_def]
       \\ Cases_on ‘d’ \\ fs []
       >- simp [Once exp_rel_cases]
-      \\ rename [‘x = (_,_)’]
-      \\ PairCases_on ‘x’ \\ fs []
+      \\ pairarg_tac \\ fs []
+      \\ strip_tac
       \\ irule_at Any exp_rel_If \\ gvs [exp_rel_Disj]
       \\ simp [Once exp_rel_cases])
     \\ PairCases \\ simp [SF DNF_ss, SF CONJ_ss, AND_IMP_INTRO]
@@ -177,7 +177,51 @@ Proof
       \\ fs [to_env_def]
       \\ fs [cexp_wf_def] \\ rename [‘Lams l’] \\ Cases_on ‘l’ \\ fs [Lams_def])
     >- metis_tac [])
-  >- cheat
+  >- (strip_tac \\ strip_tac \\ fs []
+      \\ rpt $ conj_tac
+      >- (fs [EVERY_EL, EL_MAP, MEM_EL, PULL_EXISTS]
+          \\ rw []
+          \\ first_x_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
+      >- (CASE_TAC \\ fs []
+          \\ CASE_TAC
+          \\ fs [EVERY_MEM, DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+          \\ rw []
+          \\ first_x_assum $ dxrule_then assume_tac
+          \\ simp [])
+      >- (gs [DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+          \\ rw []
+          \\ first_x_assum $ drule_then assume_tac
+          \\ fs [])
+      >- (CASE_TAC
+          >- fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+          \\ CASE_TAC
+          \\ fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM])
+      >- fs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+      >- (CASE_TAC \\ fs []
+          >- simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ CASE_TAC \\ fs []
+          \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at Any
+          \\ simp [SUBSET_DEF])
+      >- (fs [EVERY_MEM, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
+          \\ rw []
+          \\ last_x_assum $ drule_then assume_tac
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs []
+          \\ last_x_assum $ drule_then assume_tac
+          \\ gs []
+          \\ irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at Any
+          \\ rw [SUBSET_DEF, MEM_MAP]
+          \\ disj2_tac
+          \\ first_assum $ irule_at Any
+          \\ first_assum $ irule_at Any
+          \\ simp []))
   \\ Cases_on ‘∃m. p = Cons m’
   >-
    (rw [] \\ fs [args_ok_def]

@@ -870,7 +870,7 @@ Proof
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,UNCURRY]
     \\ ‘ALL_DISTINCT (MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1)))’ by
      (qsuff_tac ‘(MAP (λx. explode (FST (FST x))) (ZIP (rs,xs1))) =
-                 MAP explode (MAP FST rs)’ >- simp []
+                 MAP explode (MAP FST rs)’ >- fs [ALL_DISTINCT_APPEND]
       \\ drule LIST_REL_LENGTH \\ fs []
       \\ qid_spec_tac ‘rs’
       \\ qid_spec_tac ‘xs1’
@@ -1137,14 +1137,290 @@ Proof
   \\ drule state_app_unitProofTheory.cexp_rel_itree \\ fs []
 QED
 
+Theorem cns_arities_Lets:
+  ∀l e. cns_arities (Lets l e) = BIGUNION (set (MAP (cns_arities o SND) l)) ∪ cns_arities e
+Proof
+  Induct
+  \\ fs [Lets_def, FORALL_PROD, state_cexpTheory.cns_arities_def, GSYM UNION_ASSOC]
+QED
+
+Theorem Letrec_split_1:
+  ∀l1 lnames funs delays p0 p1 p2.
+    env_to_state$Letrec_split lnames l1 = (delays, funs) ∧ MEM (p0, p1, p2) delays
+    ⇒ MEM (p0, Delay p2) l1
+Proof
+  Induct \\ gs [FORALL_PROD, Letrec_split_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  >- (CASE_TAC \\ fs []
+      >- (rw []
+          \\ last_x_assum $ drule_all_then assume_tac
+          \\ fs [])
+      \\ CASE_TAC \\ fs []
+      \\ rw []
+      \\ last_x_assum $ drule_all_then assume_tac
+      \\ fs [])
+  \\ rw []
+  \\ fs []
+  >- (rename1 ‘dest_Delay p_2’
+      \\ Cases_on ‘p_2’ \\ fs [dest_Delay_def])
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ fs []
+QED
+
+Theorem Letrec_split_2:
+  ∀l1 lnames funs delays p0 p1 p2.
+    env_to_state$Letrec_split lnames l1 = (delays, funs) ∧ MEM (p0, p1, p2) funs
+    ⇒ MEM (p0, Lam p1 p2) l1
+Proof
+  Induct \\ gs [FORALL_PROD, Letrec_split_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  >- (CASE_TAC \\ fs []
+      >- (rw []
+          \\ last_x_assum $ drule_all_then assume_tac
+          \\ fs [])
+      \\ CASE_TAC \\ fs []
+      \\ rw [] \\ fs []
+      >- (rename1 ‘dest_Lam p_2’
+          \\ Cases_on ‘p_2’
+          \\ fs [dest_Lam_def])
+      \\ last_x_assum $ drule_all_then assume_tac
+      \\ fs [])
+  \\ rw []
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ fs []
+QED
+
+Theorem to_state_cns_arities_lemma:
+  ∀x.
+    cexp_wf x ⇒
+    cns_arities (to_state x) ⊆ cns_arities x ∪ {{("", 0)}; {("True", 0)}; {("False", 0)}}
+Proof
+  ho_match_mp_tac to_state_ind \\ rpt strip_tac
+  \\ fs [to_state_def, state_cexpTheory.cns_arities_def,
+         env_cexpTheory.cns_arities_def, envLangTheory.cexp_wf_def]
+  >- (conj_tac
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (conj_tac
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (conj_tac
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (conj_tac
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (rw []
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (conj_tac
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (pairarg_tac
+      \\ fs [cns_arities_Lets, state_cexpTheory.cns_arities_def]
+      \\ simp [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+      \\ rw []
+      >- (simp [some_ref_bool_def, state_cexpTheory.cns_arities_def]
+          \\ rename1 ‘Bool b’
+          \\ Cases_on ‘b’
+          \\ simp [Bool_def, state_cexpTheory.cns_arities_def])
+      >- (last_x_assum $ drule_then assume_tac
+          \\ dxrule_then (dxrule_then assume_tac) Letrec_split_2
+          \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
+          \\ last_x_assum $ drule_then assume_tac
+          \\ fs [cexp_wf_def]
+          \\ irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at Any
+          \\ simp [SUBSET_DEF]
+          \\ rw [MEM_MAP, PULL_EXISTS]
+          \\ disj1_tac \\ disj1_tac
+          \\ first_assum $ irule_at Any
+          \\ fs [env_cexpTheory.cns_arities_def])
+      >- (simp [unsafe_update_def, state_cexpTheory.cns_arities_def]
+          \\ last_x_assum $ drule_then assume_tac
+          \\ dxrule_then (dxrule_then assume_tac) Letrec_split_1
+          \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
+          \\ last_x_assum $ drule_then assume_tac
+          \\ fs [cexp_wf_def]
+          \\ IF_CASES_TAC \\ simp [state_cexpTheory.cns_arities_def]
+          \\ irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at Any
+          \\ simp [SUBSET_DEF]
+          \\ rw [MEM_MAP, PULL_EXISTS]
+          \\ disj1_tac \\ disj1_tac
+          \\ first_assum $ irule_at Any
+          \\ fs [env_cexpTheory.cns_arities_def])
+      >- (irule SUBSET_TRANS
+          \\ last_x_assum $ irule_at Any
+          \\ fs [SUBSET_DEF]))
+  >- (conj_tac
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (rw []
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+  >- (conj_tac
+      >- (CASE_TAC \\ fs []
+          >- simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ CASE_TAC \\ fs []
+          \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ irule SUBSET_TRANS
+          \\ first_x_assum $ irule_at Any
+          \\ simp [SUBSET_DEF])
+      \\ fs [SUBSET_DEF, MEM_EL, EL_MAP, PULL_EXISTS, EVERY_EL]
+      \\ rw []
+      \\ first_x_assum $ drule_then assume_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ fs [EL_MAP]
+      \\ pairarg_tac \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ fs []
+      \\ disj1_tac \\ disj2_tac
+      \\ first_assum $ irule_at Any
+      \\ simp [EL_MAP])
+  >- (fs [SUBSET_DEF, EVERY_EL, MEM_EL, EL_MAP, PULL_EXISTS]
+      \\ rw []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ fs [EL_MAP]
+      \\ first_x_assum $ drule_then assume_tac
+      \\ fs []
+      \\ disj1_tac \\ disj2_tac
+      \\ first_assum $ irule_at Any
+      \\ simp [EL_MAP])
+  >~[‘dest_Message b’]
+  >- (Cases_on ‘dest_Message b’
+      \\ fs [state_cexpTheory.cns_arities_def]
+      >- (fs [SUBSET_DEF, EVERY_EL, MEM_EL, EL_MAP, PULL_EXISTS]
+          \\ rw []
+          \\ last_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ fs [EL_MAP]
+          \\ first_x_assum $ drule_then assume_tac
+          \\ fs []
+          \\ disj1_tac
+          \\ first_assum $ irule_at Any
+          \\ simp [EL_MAP])
+      \\ rename1 ‘MAP _ xs’
+      \\ Cases_on ‘xs’
+      \\ fs [state_cexpTheory.cns_arities_def]
+      \\ rename1 ‘cexp_wf h’
+      \\ last_x_assum $ qspec_then ‘h’ assume_tac
+      \\ gs []
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at Any
+      \\ simp [SUBSET_DEF])
+QED
+
+Theorem cexp_wwf_Lets:
+  ∀l e. cexp_wwf (Lets l e) ⇔ EVERY cexp_wwf (MAP SND l) ∧ cexp_wwf e
+Proof
+  Induct \\ simp [cexp_wwf_def, Lets_def, FORALL_PROD, GSYM CONJ_ASSOC]
+QED
+
+Theorem Letrec_split_3:
+  ∀l lname delays funs. env_to_state$Letrec_split lname l = (delays, funs) ∧
+                        ALL_DISTINCT (MAP (λx. explode (FST x)) l)
+                        ⇒ ALL_DISTINCT (MAP FST funs)
+Proof
+  Induct \\ simp [env_to_stateTheory.Letrec_split_def, FORALL_PROD]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs []
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >- (rw [] \\ last_x_assum $ drule_all_then irule)
+  \\ CASE_TAC \\ fs []
+  >- (rw [] \\ last_x_assum $ drule_all_then irule)
+  \\ CASE_TAC \\ fs []
+  \\ rw [] \\ fs []
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ fs []
+  \\ strip_tac
+  \\ first_x_assum irule
+  \\ fs [MEM_MAP, EXISTS_PROD]
+  \\ dxrule_then (dxrule_then assume_tac) Letrec_split_2
+  \\ first_x_assum $ irule_at Any
+QED
+
+Theorem to_state_cexp_wf_lemma:
+  ∀x.
+    cexp_wf x ⇒
+    cexp_wwf (to_state x)
+Proof
+  ho_match_mp_tac to_state_ind \\ rpt strip_tac
+  \\ simp [to_state_def]
+  >~[‘Letrec’]
+  >- (pairarg_tac \\ fs [cexp_wwf_Lets, cexp_wwf_def]
+      \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+      \\ simp [GSYM LAMBDA_PROD, GSYM FST_THM]
+      \\ drule_all_then (irule_at Any) Letrec_split_3
+      \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+      \\ rw []
+      \\ drule_then assume_tac Letrec_split_1
+      \\ drule_then assume_tac Letrec_split_2
+      \\ rpt $ first_x_assum $ drule_then assume_tac
+      \\ fs [some_ref_bool_def, unsafe_update_def, cexp_wwf_def, op_args_ok_def]
+      >- (rename1 ‘Bool b’
+          \\ Cases_on ‘b’
+          \\ fs [Bool_def, cexp_wwf_def, op_args_ok_def])
+      \\ IF_CASES_TAC \\ fs [cexp_wwf_def])
+  >~[‘cexp_wf (Case _ rows d)’]
+  >- (fs [envLangTheory.cexp_wf_def, cexp_wwf_def, op_args_ok_def]
+      \\ conj_tac
+      >- (Cases_on ‘d’ \\ fs []
+          \\ CASE_TAC \\ fs [])
+      \\ conj_tac
+      >- (simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ simp [GSYM LAMBDA_PROD, GSYM FST_THM]
+          \\ Cases_on ‘d’ \\ fs []
+          \\ pairarg_tac \\ fs [])
+      \\ fs [EVERY_EL, EL_MAP, MEM_EL, PULL_EXISTS]
+      \\ rw []
+      \\ last_x_assum $ drule_then assume_tac
+      \\ last_x_assum $ drule_then assume_tac
+      \\ pairarg_tac \\ fs []
+      \\ pairarg_tac \\ fs [])
+  >~[‘Prim (Cons _)’]
+  >- (fs [envLangTheory.cexp_wf_def, cexp_wwf_def, op_args_ok_def]
+      \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS])
+  >~[‘Prim (AtomOp op) xs’]
+  >- (Cases_on ‘dest_Message op’ \\ fs []
+      >~[‘dest_Message op = SOME _’]
+      >- (fs [envLangTheory.cexp_wf_def]
+          \\ Cases_on ‘op’
+          \\ fs [dest_Message_def]
+          \\ Cases_on ‘xs’ \\ fs [cexp_wwf_def, op_args_ok_def]
+          \\ strip_tac \\ fs [mlstringTheory.implode_def])
+      \\ fs [cexp_wwf_def, op_args_ok_def]
+      \\ conj_tac
+      >- fs [MEM_EL, PULL_EXISTS, EVERY_EL, EL_MAP]
+      \\ Cases_on ‘op’
+      \\ fs [num_atomop_args_ok_def, op_args_ok_def]
+      >- (rename1 ‘Lit l’
+          \\ Cases_on ‘l’ \\ fs [op_args_ok_def])
+      \\ fs [dest_Message_def])
+  \\ fs [envLangTheory.cexp_wf_def, state_cexpTheory.cexp_wwf_def, op_args_ok_def]
+QED
 
 Theorem to_state_cexp_wf:
   envLang$cexp_wf x ⇒
-  cexp_wf (compile x) ∧
-  cns_arities (compile x) ⊆ cns_arities x
+  cexp_wwf (compile x) ∧
+  cns_arities (compile x) ⊆ cns_arities x ∪ {{("", 0)}; {("True", 0)}; {("False", 0)}}
 Proof
-  cheat
+  rw [compile_def, cexp_wwf_def, state_cexpTheory.cns_arities_def, op_args_ok_def]
+  >- drule_then irule to_state_cexp_wf_lemma
+  \\ drule_then irule to_state_cns_arities_lemma
 QED
-
 
 val _ = export_theory ();

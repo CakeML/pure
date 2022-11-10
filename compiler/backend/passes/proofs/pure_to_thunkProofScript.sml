@@ -310,7 +310,9 @@ Proof
       \\ conj_tac
       >- (fs [EVERY_EL, EL_MAP2, EL_MAP]
           \\ rw []
-          \\ first_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
+          \\ first_x_assum $ drule_then assume_tac
           \\ pairarg_tac \\ fs []
           \\ pairarg_tac \\ fs [])
       \\ conj_tac
@@ -324,6 +326,14 @@ Proof
           \\ pairarg_tac \\ fs [SUBSET_DEF, MEM_EL, EL_MAP, PULL_EXISTS]
           \\ first_x_assum $ drule_then assume_tac
           \\ gs [])
+      \\ conj_tac
+      >- (‘∀l1 l2 : mlstring list. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+          \\ pop_assum $ dxrule_then irule
+          \\ irule LIST_EQ
+          \\ gs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2]
+          \\ rw []
+          \\ pairarg_tac \\ fs []
+          \\ pairarg_tac \\ fs [])
       \\ conj_tac
       >- (fs [MEM_EL, PULL_EXISTS, EL_MAP, EL_MAP2]
           \\ gen_tac \\ strip_tac
@@ -410,14 +420,24 @@ Proof
     \\ fs [thunk_exp_ofTheory.cexp_wf_def, EVERY_EL, EL_MAP2, EL_MAP, GSYM CONJ_ASSOC, cexp_wf_mk_delay]
     \\ rw []
     >- (first_x_assum $ dxrule_then assume_tac
+        \\ first_x_assum $ dxrule_then assume_tac
         \\ pairarg_tac \\ gs []
         \\ pairarg_tac \\ gs [])
+    >- (Cases_on ‘ys’ \\ fs [])
     >- (strip_tac \\ fs [MEM_FLAT, MEM_MAP, MEM_EL, EL_MAP2, LIST_REL_EL_EQN]
         \\ qpat_x_assum ‘∀n. _ < _ ⇒ set (MAP _ _) ⊆ _’ $ drule_then assume_tac
         \\ gs [EL_MAP2]
         \\ pairarg_tac \\ fs [SUBSET_DEF, MEM_EL, EL_MAP, PULL_EXISTS]
         \\ first_x_assum $ drule_then assume_tac
         \\ gs [])
+    >- (‘∀l1 l2 : mlstring list. ALL_DISTINCT l1 ∧ l1 = l2 ⇒ ALL_DISTINCT l2’ by simp []
+        \\ pop_assum $ dxrule_then irule
+        \\ AP_THM_TAC \\ AP_TERM_TAC
+        \\ irule LIST_EQ
+        \\ gs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2]
+        \\ rw []
+        \\ pairarg_tac \\ fs []
+        \\ pairarg_tac \\ fs [])
     >- (first_x_assum irule
         \\ gs [MEM_EL, EL_MAP, EL_MAP2]
         \\ first_assum $ irule_at Any
@@ -554,7 +574,8 @@ Proof
           \\ Cases_on ‘a’
           \\ fs [num_args_ok_def, thunk_exp_ofTheory.args_ok_def,
                  pure_configTheory.num_atomop_args_ok_def]
-          \\ Cases_on `l` \\ gs [])
+          \\ rename1 ‘l ≠ Loc _’
+          \\ Cases_on ‘l’ \\ gs [])
       >- (simp [thunk_cexpTheory.cns_arities_def]
           \\ simp [BIGUNION_SUBSET, MEM_EL]
           \\ gen_tac \\ strip_tac

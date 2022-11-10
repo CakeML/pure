@@ -316,7 +316,7 @@ Proof
     \\ rpt $ pop_assum $ irule_at Any
     \\ rename [‘LIST_REL _ ys1 ys2’]
     \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-    \\ qpat_x_assum ‘EVERY _ _’ mp_tac
+    \\ qpat_x_assum ‘EVERY (λa. cexp_wf a) _’ mp_tac
     \\ qpat_x_assum ‘¬MEM v (FLAT (MAP (FST ∘ SND) ys1))’ mp_tac
     \\ qid_spec_tac ‘ys2’
     \\ qid_spec_tac ‘ys1’
@@ -540,6 +540,7 @@ Proof
     \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Prim
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Prim \\ fs []
     \\ irule_at Any thunk_unthunkProofTheory.delay_force_Prim \\ fs []
+    \\ pop_assum kall_tac
     \\ pop_assum kall_tac
     \\ pop_assum mp_tac
     \\ pop_assum kall_tac

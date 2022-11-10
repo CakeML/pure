@@ -253,9 +253,7 @@ Proof
   >- (rename1 ‘Case m l opt’
       \\ gs [cexp_wf_def]
       \\ Cases_on ‘l’ \\ simp [rows_of_def]
-      >- (Cases_on ‘opt’ \\ gs []
-          \\ pairarg_tac \\ simp [])
-      >- (pairarg_tac \\ simp [rows_of_def]))
+      \\ pairarg_tac \\ simp [rows_of_def])
 QED
 
 Theorem split_Delayed_Lam_is_Delay:
@@ -905,8 +903,6 @@ Proof
   >- (rename1 ‘rows_of _ (MAP _ l) (OPTION_MAP _ fall)’
       \\ Cases_on ‘l’
       \\ gs [exp_rel1_def, exp_rel2_def, is_Lam_def, FOLDL_APPEND, rows_of_def]
-      >- (Cases_on ‘fall’ \\ gs []
-          \\ pairarg_tac \\ gs [exp_rel1_def, exp_rel2_def, is_Lam_def])
       \\ pairarg_tac \\ gs [rows_of_def, exp_rel1_def, exp_rel2_def, is_Lam_def])
 QED
 
@@ -930,10 +926,8 @@ Proof
       \\ qspec_then ‘l’ assume_tac SNOC_CASES
       \\ gs [exp_rel1_def, is_Lam_def, FOLDL_APPEND])
   >- (rename1 ‘rows_of _ (MAP _ l) (OPTION_MAP _ fall)’
-      \\ Cases_on ‘l’
+      \\ Cases_on ‘l’ \\ fs []
       \\ gs [exp_rel1_def, is_Lam_def, FOLDL_APPEND, rows_of_def]
-      >- (Cases_on ‘fall’ \\ gs []
-          \\ pairarg_tac \\ gs [exp_rel1_def, is_Lam_def])
       \\ pairarg_tac \\ gs [rows_of_def, exp_rel1_def, is_Lam_def])
 QED
 
@@ -1842,8 +1836,6 @@ Proof
                   \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
               >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
                   \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
-                  >- (Cases_on ‘fall’ \\ gs []
-                      \\ pairarg_tac \\ gs [])
                   \\ pairarg_tac \\ gs [rows_of_def]))
           >- (gs [FOLDL_replace_Force_Delay]
               \\ rename1 ‘cexp_ok_bind e2’
@@ -1852,8 +1844,6 @@ Proof
                   \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
               >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
                   \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
-                  >- (Cases_on ‘fall’ \\ gs []
-                      \\ pairarg_tac \\ gs [])
                   \\ pairarg_tac \\ gs [rows_of_def])))
       >- (gs [ALL_DISTINCT_APPEND]
           \\ drule_all_then assume_tac unfold_Delay_Lam_Eq2
@@ -3483,7 +3473,13 @@ Proof
       \\ impl_tac
       >- (gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
           \\ rw []
-          \\ first_x_assum $ dxrule_then irule)
+          >- (first_x_assum $ dxrule_then assume_tac
+              \\ fs [])
+          >- (Cases_on ‘fallthrough’ \\ fs []
+              \\ rename1 ‘UNCURRY _ x’
+              \\ Cases_on ‘x’ \\ fs [])
+          >- (first_x_assum $ dxrule_then assume_tac
+              \\ fs []))
       \\ rw [] \\ simp []
       \\ qpat_x_assum ‘thunk_Delay_Lam$exp_rel _ _’ $ irule_at Any
       \\ rpt $ first_x_assum $ irule_at Any
@@ -3495,10 +3491,28 @@ Proof
       >- metis_tac [SUBSET_TRANS]
       >- (gs [cexp_wf_def] \\ rw []
           >- (gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
-              \\ rw []
-              \\ first_x_assum $ dxrule_then irule)
+              \\ reverse $ rw []
+              >- first_x_assum $ drule_then irule
+              \\ gs [MEM_EL, PULL_EXISTS]
+              \\ qpat_x_assum ‘MAP (FST o SND) _ = _’ mp_tac
+              \\ once_rewrite_tac [GSYM LIST_REL_eq]
+              \\ strip_tac
+              \\ dxrule_then assume_tac $ iffLR LIST_REL_EL_EQN
+              \\ gs [EL_MAP]
+              \\ first_x_assum $ drule_then assume_tac
+              \\ last_x_assum $ drule_then assume_tac
+              \\ fs [SND_THM, FST_THM]
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ gs [])
+          >- (strip_tac \\ fs [])
           >- (Cases_on  ‘fallthrough'’ \\ gs []
-              \\ pairarg_tac \\ gs [])))
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs [UNCURRY])
+          >- (Cases_on  ‘fallthrough'’ \\ gs []
+              \\ pairarg_tac \\ fs []
+              \\ pairarg_tac \\ fs [UNCURRY])))
   >~[‘Delay _’]
 
   >- (rename1 ‘split_Delayed_Lam e _ _’

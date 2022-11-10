@@ -493,17 +493,19 @@ Definition cexp_wf_def[simp]:
      ALL_DISTINCT (MAP (λx. explode (FST x)) fs) ∧
      EVERY (λ(_,x). ∃n m. x = Lam n m ∨ x = Delay m) fs) ∧
   cexp_wf (Case v rs x) =
-    (EVERY I (MAP (λ(_,_,x). cexp_wf x) rs) ∧ rs ≠ [] ∧
+    (EVERY I (MAP (λ(_,vs,x). ALL_DISTINCT vs ∧ cexp_wf x) rs) ∧ rs ≠ [] ∧
      OPTION_ALL (λ(a,x). cexp_wf x ∧
-       DISJOINT (set (MAP (explode o FST) a)) monad_cns) x ∧
+          DISJOINT (set (MAP (explode o FST) a)) monad_cns ∧
+          a ≠ []) x ∧
      DISJOINT (set (MAP (explode o FST) rs)) monad_cns ∧
-     ALL_DISTINCT (MAP FST rs) ∧
+     ALL_DISTINCT (MAP FST rs ++ case x of NONE => [] | SOME (a,_) => MAP FST a) ∧
      ~MEM v (FLAT (MAP (FST o SND) rs))) ∧
   cexp_wf (Prim p xs) =
     (EVERY cexp_wf xs ∧
      (case p of
       | Cons m => explode m ∉ monad_cns
-      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1) ∧
+      | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1 ∧ m ≠ "") ∧
+                    num_atomop_args_ok b (LENGTH xs) ∧
                     (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
   cexp_wf _ = T
 Termination

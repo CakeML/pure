@@ -2710,6 +2710,22 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem cns_ok_UNION:
+  cns_ok ns t1 ⇒
+  cns_ok ns (t1 ∪ {{("",0)}; {("True",0)}; {("False",0)}})
+Proof
+  fs [cns_ok_def,pure_typingTheory.cns_arities_ok_def, PULL_EXISTS]
+  \\ rw []
+  >- first_x_assum $ drule_then irule
+  >- simp [IMAGE_SING, mlstringTheory.implode_def]
+  \\ rename1 ‘ns_cns_arities ns’
+  \\ PairCases_on ‘ns’
+  \\ fs [IMAGE_UNION, IMAGE_SING, mlstringTheory.implode_def,
+         pure_typingTheory.ns_cns_arities_def]
+  \\ qexists_tac ‘{(«True»,0); («False»,0)}’
+  \\ simp []
+QED
+
 Theorem image_implode_lemma:
   IMAGE (implode ## I) s = {(strlit l, x)} ⇔ s = {(l,x)}
 Proof

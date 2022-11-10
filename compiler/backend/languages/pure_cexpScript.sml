@@ -243,17 +243,19 @@ Definition cexp_wf_def:
   cexp_wf (Var _ v) = T ∧
   cexp_wf (Prim _ op es) = (
     num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es ∧
-    ∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+    (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
   cexp_wf (App _ e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
   cexp_wf (Lam _ vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let _ v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec _ fns e) = (EVERY cexp_wf $ MAP SND fns ∧ cexp_wf e ∧ fns ≠ []) ∧
   cexp_wf (Case _ e v css eopt) = (
     cexp_wf e ∧ EVERY cexp_wf $ MAP (SND o SND) css ∧ css ≠ [] ∧
+    EVERY ALL_DISTINCT $ MAP (FST o SND) css ∧
     OPTION_ALL
       (λ(a,e). a ≠ [] ∧ cexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    OPTION_ALL (cexp_wf o SND) eopt ∧
+    ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
     (∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns)) ∧
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
