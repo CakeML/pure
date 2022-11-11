@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib
 open cst_to_astTheory purePEGTheory testutils ast_to_cexpTheory
 open pureParseTheory;
 
-open pure_inferenceLib pure_letrec_cexpTheory
+open pure_inferenceLib pure_letrec_cexpTheory pure_demands_analysisTheory
 
 val errcount = ref 0
 val _ = diemode := Remember errcount
@@ -448,7 +448,48 @@ fun string_check s c f =
       val s_t = stringSyntax.fromMLstring s
     in
       c “^f ^s_t”
-    end
+    end;
+
+val with_demands_def = Define‘
+  with_demands s =
+  do
+    (e1,ns) <- string_to_cexp s;
+    e2 <<- transform_cexp e1;
+    infer_types ns e2;
+    e3 <<- demands_analysis e2;
+    infer_types ns e3;
+    return e3
+  od
+’;
+
+val d0 = REWRITE_CONV [with_demands_def] THENC
+         LAND_CONV EVAL THENC
+         REWRITE_CONV [optionTheory.OPTION_BIND_def] THENC
+         pairLib.GEN_BETA_CONV THENC RAND_CONV EVAL THENC
+         PURE_ONCE_REWRITE_CONV [LET_THM] THENC
+         pairLib.GEN_BETA_CONV
+
+val wd0 =
+  d0 THENC
+  LAND_CONV (pure_inferenceLib.pure_infer_eval THENC EVAL THENC
+             SCONV[])
+
+val wd = wd0 THENC
+         PURE_REWRITE_CONV[optionTheory.OPTION_IGNORE_BIND_thm] THENC
+         RAND_CONV EVAL THENC
+         PURE_ONCE_REWRITE_CONV[LET_THM] THENC pairLib.GEN_BETA_CONV THENC
+         LAND_CONV (pure_inferenceLib.pure_infer_eval THENC EVAL THENC
+                    SCONV[]) THENC
+         PURE_REWRITE_CONV[optionTheory.OPTION_IGNORE_BIND_thm]
+
+val notypes_def = Define‘
+  notypes s =
+  do
+    (e1,ns) <- string_to_cexp s;
+    e2 <<- transform_cexp e1;
+    return e2
+  od
+’;
 
 (* val _ = tprint "string_to_cexp paper.hs" *)
-(* string_check (filetake' "paper.hs" NONE)  c0 ``upto_demands``; *)
+(* string_check (filetake' "paper.hs" NONE) EVAL ``string_to_cexp``; *)
