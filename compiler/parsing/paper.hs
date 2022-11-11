@@ -53,9 +53,9 @@ print s = do Act (#(stdout) (s ++ "\n"))
 
 
 app :: (a -> IO b) -> [a] -> IO ()
-app f l = case l of [] -> return ()
-                    h:t -> do f h
-                              app f t
+app f l = case l of 
+            [] -> return ()
+            h:t -> do f h ; app f t
 
 fromStringI :: Int -> Int -> Int -> String -> Int
 fromStringI i limit acc s =

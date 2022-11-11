@@ -11,7 +11,8 @@ Datatype:
          | nFExp | nFExpEQ | nFExp2 | nAExp | nAExpEQ
          | nLit | nOp
          | nEqBindSeq | nEqBindSeq' | nEqBind | nFreeEqBind | nValBinding
-         | nDoStmt | nDoBlock | nPatAlt | nPatAlts
+         | nDoStmt | nDoBlock | nBlockLayout | nDoStmtEQ | nPatAlt | nPatAlts
+         | nDoStmtSeq | nDoStmtSeqEQ | nDoBlockLayout
 End
 
 val distinct_ths = let

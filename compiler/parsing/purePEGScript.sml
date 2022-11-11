@@ -64,6 +64,12 @@ Overload NTGE = “λn. NT n I lrGE”
 Overload NTGT = “λn. NT n I lrGT”
 Overload NTEQ = “λn. NT n I lrEQ”
 
+Definition odds_def[simp]:
+  odds [] = [] ∧
+  odds [x] = [x] ∧
+  odds (x::y::rest) = x :: odds rest
+End
+
 Definition purePEG_def[nocompute]:
   purePEG = <|
     anyEOF := "Didn't expect an EOF";
@@ -161,8 +167,29 @@ Definition purePEG_def[nocompute]:
          seql [NTEQ nAExp; rpt (NTEQ nAExp) FLAT] (mkNT nFExp));
         (INL nFExpEQ,
          seql [NTEQ nAExpEQ; rpt (NTEQ nAExp) FLAT] (mkNT nFExp));
-        (INL nDoBlock, pegf (rpt (NTEQ nDoStmt) FLAT) (mkNT nDoBlock));
+        (INL nDoBlock,
+         choicel [
+             seql [tokGT ((=) LbraceT); NT nDoStmtSeq I lrOK;
+                   tok ((=) RbraceT) mktokLf lrOK]
+                  (mkNT nDoBlock o FRONT o DROP 1);
+             pegf (NTGT nDoBlockLayout) (mkNT nDoBlock)
+           ]);
+        (INL nDoBlockLayout, RPT1 (NTEQ nDoStmtSeqEQ));
+        (INL nDoStmtSeq,
+         pegf (sepby1 (NTEQ nDoStmt) (tokGT ((=) SemicolonT))) odds);
+        (INL nDoStmtSeqEQ,
+         seql [NTEQ nDoStmtEQ;
+               rpt (seql [tokGT ((=) SemicolonT); NTEQ nDoStmt] I) FLAT]
+              odds);
         (INL nDoStmt,
+         choicel [
+             seql [NTEQ nExp;
+                   choicel [seql [tokGT ((=) $ SymbolT "<-"); NTGT nExp] I;
+                            empty []]
+                  ] (mkNT nDoStmt);
+             seql [tokGT ((=) LetT); NTGT nEqBindSeq'] (mkNT nDoStmt)
+           ]);
+        (INL nDoStmtEQ,
          choicel [
              seql [NTEQ nExpEQ;
                    choicel [seql [tokGT ((=) $ SymbolT "<-"); NTGT nExp] I;
@@ -184,7 +211,7 @@ Definition purePEG_def[nocompute]:
                         tokGT ((=) ElseT); NTEQ nExp] (mkNT nExp);
                   seql [tokGT ((=) LetT) ; NTEQ nEqBindSeq ;
                         tokGT ((=) InT) ; NTEQ nExp] (mkNT nExp);
-                  seql [tokGT ((=) $ AlphaT "do"); NTGT nDoBlock] (mkNT nExp);
+                  seql [tokGT ((=) $ AlphaT "do"); NTEQ nDoBlock] (mkNT nExp);
                   seql [tokGT ((=) CaseT); NTEQ nExp; tokGT ((=) OfT);
                         NTGT nPatAlts] (mkNT nExp);
                  ]);
@@ -330,7 +357,9 @@ val topo_nts = [“nLit”, “nAExp”, “nAExpEQ”,
                 “nFExp2”,
                 “nIExpEQ”, “nLSafeExpEQ”, “nIExp”, “nExp”,
                 “nExpEQ”, “nValBinding”, “nDecl”, “nPatAlt”, “nAPat”,
-                “nEqBind”, “nDoStmt”, “nTyBase”]
+                “nEqBind”, “nDoStmt”, “nDoStmtEQ”, “nTyBase”,
+                “nDoStmtSeqEQ”, “nDoStmtSeq”, “nDoBlockLayout”,
+                “nDoBlock”]
 
 fun npeg0(t,acc) =
   let
@@ -468,6 +497,9 @@ val ty5 = testty "Foo a B"
 val ty6 = testty "Foo [Bar] -> a"
 val ty7 = testty " Foo Bar ->\na"
 
+Overload P[local] = “POSN”
+Overload L[local] = “Locs”
+
 Theorem gooddata1 =
         EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
              (lexer_fun "data Ei a b = \n\
@@ -524,5 +556,20 @@ val letbraces1 =
                \{x=\n\
                \10;y::Int;}\n\
                \ in x"
+
+val doblock1 =
+test “nExp” "do x <- \n\
+            \     f y\n\
+            \   return (x + 1)"
+
+val doblock2 =
+test “nExp” "do x <- f y ; check (x + 1)\n\
+            \   return (x,y)"
+
+val doblock3 =
+test “nExp” "do {\n\
+            \x <- f y ; check 3; \n\
+            \return (x + 1)}"
+
 
 val _ = export_theory();
