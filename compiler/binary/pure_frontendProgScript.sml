@@ -77,14 +77,6 @@ val r = translate split_all_cexp_def;
 val r = translate clean_all_cexp_def;
 val r = translate transform_cexp_def;
 
-Triviality transform_cexp_side:
-  transform_cexp_side x
-Proof
-  cheat
-QED
-
-val _ = transform_cexp_side |> update_precondition;
-
 (*-----------------------------------------------------------------------*
    demands_analysis
  *-----------------------------------------------------------------------*)
@@ -92,46 +84,14 @@ val _ = transform_cexp_side |> update_precondition;
 val r = translate demands_analysis_fun_def;
 val r = translate demands_analysis_def;
 
-Triviality demands_analysis_side:
-  demands_analysis_side x
-Proof
-  cheat
-QED
-
-val _ = demands_analysis_side |> update_precondition;
-
 (*-----------------------------------------------------------------------*
    ast_to_string
  *-----------------------------------------------------------------------*)
 
 val r = translate num_to_dec_string_def;
 
-Triviality num_to_dec_string_side:
-  num_to_dec_string_side x
-Proof
-  cheat
-QED
-
-val _ = num_to_dec_string_side |> update_precondition;
-
 val r = translate num_to_hex_string_def;
 
-Triviality num_to_hex_string_side:
-  num_to_hex_string_side x
-Proof
-  cheat
-QED
-
-val _ = num_to_hex_string_side |> update_precondition;
-
 val r = translate ast_to_string_def;
-
-Triviality ast_to_string_side:
-  ast_to_string_side x
-Proof
-  cheat
-QED
-
-val _ = ast_to_string_side |> update_precondition;
 
 val _ = export_theory ();

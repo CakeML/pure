@@ -220,27 +220,11 @@ Theorem pure_oc_ind:
          P v13 v14 v15) ⇒
       ∀s t v. pure_wfs s ⇒ P s t v
 Proof
-  cheat
-QED
-
-(*
   rpt strip_tac
-  \\ first_assum mp_tac
-  \\ first_x_assum mp_tac
-  \\ qid_spec_tac ‘v’
-  \\ qid_spec_tac ‘s’
-  \\ qid_spec_tac ‘t’
-  \\ cheat
-  \\ irule
-     pure_unificationTheory.pure_walkstar_ind
-     |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
-     |> Q.GEN ‘P’
-     |> Q.SPEC `P (s:num |-> itype)`
-     |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN_ALL
-  REPEAT STRIP_TAC THEN Q.SPEC_TAC (`t`,`t`)
-  THEN IMP_RES_TAC unifyTheory.t_walkstar_ind
-  THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []
-  *)
+  \\ drule pure_unificationTheory.pure_walkstar_ind
+  \\ disch_then $ qspec_then ‘λx. ∀v. P s x v’ mp_tac
+  \\ simp []
+QED
 
 val r = translate
  (pure_unificationTheory.pure_oc
@@ -251,7 +235,16 @@ val r = translate
 Triviality pure_oc_side:
   pure_oc_side s t v = pure_wfs s
 Proof
-  cheat
+  reverse $ Cases_on ‘pure_wfs s’ \\ simp []
+  >- simp [Once $ fetch "-" "pure_oc_side_def"]
+  \\ first_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘v’
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘s’
+  \\ ho_match_mp_tac pure_oc_ind
+  \\ rw []
+  \\ simp [Once $ fetch "-" "pure_oc_side_def"]
 QED
 
 val _ = pure_oc_side |> update_precondition;
@@ -326,6 +319,15 @@ Triviality pure_unify_ind:
   pure_unify_ind
 Proof
   rewrite_tac [fetch "-" "pure_unify_ind_def"]
+  \\ rpt gen_tac \\ strip_tac
+  \\ ho_match_mp_tac pure_unificationTheory.pure_unify_ind
+  \\ rw []
+  \\ Cases_on ‘ts1’ \\ fs []
+  \\ Cases_on ‘ts2’ \\ fs []
+  \\ last_x_assum kall_tac
+  \\ fs [PULL_FORALL]
+  \\ first_x_assum irule
+  \\ fs []
   \\ cheat
 QED
 
@@ -338,7 +340,18 @@ Triviality pure_unify_side:
   (∀s t1 t2. pure_unify_side s t1 t2 ⇔ pure_wfs s) ∧
   (∀s ts1 ts2. pure_unifyl_side s ts1 ts2 ⇔ pure_wfs s)
 Proof
-  cheat
+  qsuff_tac ‘
+    (∀s t1 t2. pure_wfs s ⇒ pure_wfs s ⇒ pure_unify_side s t1 t2) ∧
+    (∀s ts1 ts2. pure_wfs s ⇒ pure_wfs s ⇒ pure_unifyl_side s ts1 ts2)’
+  >-
+   (rw [] \\ Cases_on ‘pure_wfs s’ \\ fs []
+    \\ simp [Once $ fetch "-" "pure_unify_side_def"])
+  \\ ho_match_mp_tac pure_unify_ind_lemma
+  \\ rw []
+  \\ simp [Once $ fetch "-" "pure_unify_side_def"]
+  \\ rw [] \\ fs [SF SFY_ss]
+  \\ res_tac \\ fs []
+  \\ imp_res_tac pure_unificationTheory.pure_unify_wfs \\ fs []
 QED
 
 val _ = pure_unify_side |> update_precondition;
@@ -360,7 +373,10 @@ Theorem pure_walkstar_ind:
          P v13 v14) ⇒
       ∀s t. pure_wfs s ⇒ P s t
 Proof
-  cheat
+  rpt strip_tac
+  \\ drule pure_unificationTheory.pure_walkstar_ind
+  \\ disch_then $ qspec_then ‘λx. P s x’ mp_tac
+  \\ simp []
 QED
 
 Triviality pure_walkstar_eta:
@@ -379,7 +395,15 @@ val r = translate
 Theorem pure_walkstar_side:
   pure_walkstar_side s t = pure_wfs s
 Proof
-  cheat
+  reverse $ Cases_on ‘pure_wfs s’ \\ simp []
+  >- simp [Once $ fetch "-" "pure_walkstar_side_def"]
+  \\ first_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘t’
+  \\ qid_spec_tac ‘s’
+  \\ ho_match_mp_tac pure_walkstar_ind
+  \\ rw []
+  \\ simp [Once $ fetch "-" "pure_walkstar_side_def"]
 QED
 
 val _ = pure_walkstar_side |> update_precondition;

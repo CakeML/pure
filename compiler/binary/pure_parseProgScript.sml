@@ -193,23 +193,6 @@ val r = translate ispegexecTheory.peg_exec_def;
 
 val r = translate string_to_cst_def;
 
-Theorem string_to_cst_side:
-  ∀s. string_to_cst_side s = T
-Proof
-  fs [fetch "-" "string_to_cst_side_def"]
-  \\ fs [fetch "-" "ispeg_exec_side_def"]
-  \\ fs [fetch "-" "coreloop_side_def"]
-  \\ rw []
-  \\ qspec_then `lexer_fun s` strip_assume_tac purePEGTheory.owhile_nDecls_total
-  \\ pop_assum mp_tac
-  \\ fs [INTRO_FLOOKUP]
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ FULL_SIMP_TAC std_ss []
-  \\ qmatch_goalsub_abbrev_tac ‘OWHILE f1 g1 _ = SOME _’
-  \\ fs [purePEGTheory.NT_def]
-QED
-
-val _ = string_to_cst_side |> update_precondition;
-
 (*-----------------------------------------------------------------------*
    AST translations
  *-----------------------------------------------------------------------*)
@@ -375,20 +358,6 @@ QED
 val _ = translate_type_side |> update_precondition;
 
 val r = translate_no_ind (def_of_const “ast_to_cexp$translate_exp”);
-
-Triviality translate_exp_ind:
-  translate_exp_ind (:α) (:β) (:γ)
-Proof
-  once_rewrite_tac [fetch "-" "translate_exp_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ fs [] \\ cheat
-QED
-
-val _ = translate_exp_ind |> update_precondition;
 
 val r = translate (def_of_const “ast_to_cexp$translate_decs”);
 val r = translate (def_of_const “ast_to_cexp$decls_to_letrec”);

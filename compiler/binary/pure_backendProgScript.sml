@@ -54,22 +54,6 @@ val r = translate thunk_split_Delay_LamTheory.dest_Delay_Lam_def;
 val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
 val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
 
-Triviality split_delayed_lam_ind:
-  split_delayed_lam_ind
-Proof
-  once_rewrite_tac [fetch "-" "split_delayed_lam_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD]
-  \\ cheat
-QED
-
-val _ = split_delayed_lam_ind |> update_precondition;
-
 val r = translate pure_to_thunkTheory.mk_delay_def;
 val r = translate pure_to_thunkTheory.must_delay_def;
 val r = translate pure_to_thunkTheory.any_el_def;
