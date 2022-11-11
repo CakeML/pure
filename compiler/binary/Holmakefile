@@ -6,6 +6,7 @@ INCLUDES = ../../language \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/basis \
            $(CAKEMLDIR)/translator \
+           $(CAKEMLDIR)/compiler \
            $(HOLDIR)/examples/formal-languages/context-free \
            $(HOLDIR)/examples/algorithms \
            $(HOLDIR)/examples/algorithms/unification/triangular/first-order
