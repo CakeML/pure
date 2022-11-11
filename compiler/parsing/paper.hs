@@ -1,10 +1,10 @@
-f $ x = f x
+read_arg1 = Act (#(cline_arg) " ")
 
--- only works on strings
-s1 ++ s2 = #(__Concat) s1 s2
+str_elem :: String -> Int -> Int
+str_elem s i = #(__Elem) s i
 
-implode :: [Int] -> String
-implode l = #(__Implode) l
+strlen :: String -> Int
+strlen s = #(__Len) s
 
 numbers :: [Int]
 numbers =
@@ -33,38 +33,36 @@ map f l =
 factorials :: [Int]
 factorials = map (factA 1) numbers
 
-return :: a -> IO a
-return x = Ret x
-
-head :: [a] -> IO a
-head l = case l of
-           [] -> Raise Subscript
-           h:t -> return h
-
-str_elem :: String -> Int -> Int
-str_elem s i = #(__Elem) s i
-
-strlen :: String -> Int
-strlen s = #(__Len) s
-
-print :: String -> IO ()
-print s = do Act (#(stdout) (s ++ "\n"))
-             return ()
-
-
-app :: (a -> IO b) -> [a] -> IO ()
-app f l = case l of 
-            [] -> return ()
-            h:t -> do f h ; app f t
-
 fromStringI :: Int -> Int -> Int -> String -> Int
 fromStringI i limit acc s =
-  if i > limit then acc
+  if limit == i then acc
+  else if limit < i then acc
   else
     fromStringI (i + 1) limit (acc * 10 + (str_elem s i - 48)) s
 
 fromString :: String -> Int
 fromString s = fromStringI 0 (strlen s) 0 s
+
+-- delete this, and defs of div and mod below it when
+-- new binary built
+x < y =
+  let testi i = if x + i == y then True
+                else if y + i == x then False
+                else testi (i + 1)
+  in
+    if x == y then False else testi 1
+
+div m n = if m < n then 0 else 1 + div (m - n) n
+mod m n = if m < n then m else mod (m - n) n
+
+f $ x = f x
+
+s1 ++ s2 = #(__Concat) s1 s2
+
+implode l =
+  case l of
+    [] -> ""
+    h:t -> #(__Implode) h ++ implode t
 
 toString0 :: Int -> [Int]
 toString0 i =
@@ -79,19 +77,27 @@ reverse l =
   in
     revA [] l
 
+
 toString :: Int -> String
 toString i =
   if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
   else if i == 0 then "0"
   else implode $ reverse $ toString0 i
 
-get_cline_arg :: Int -> IO String
-get_cline_arg i = Act (#(getArg) (toString i))
+print s = Act (#(stdout) (s ++ "\n"))
 
-main :: IO ()
-main =
-  do
-    arg0 <- get_cline_arg 0
-    let i = fromString arg0
-        facts = take i factorials
-    app (\i -> print $ toString i) facts
+return v = Ret v
+
+app :: (a -> IO b) -> [a] -> IO ()
+app f l =
+  case l of
+    [] -> return ()
+    h:t -> do f h
+              app f t
+
+main = do
+  arg1 <- read_arg1
+  -- fromString == 0 on malformed input
+  let i = fromString arg1
+      facts = take i factorials
+  app (\i -> print $ toString i) facts
