@@ -321,14 +321,16 @@ Proof
   rewrite_tac [fetch "-" "pure_unify_ind_def"]
   \\ rpt gen_tac \\ strip_tac
   \\ ho_match_mp_tac pure_unificationTheory.pure_unify_ind
+  \\ conj_tac
+  >-
+   (rpt strip_tac
+    \\ last_x_assum irule
+    \\ last_x_assum kall_tac
+    \\ fs [])
+  \\ last_x_assum kall_tac
   \\ rw []
   \\ Cases_on ‘ts1’ \\ fs []
   \\ Cases_on ‘ts2’ \\ fs []
-  \\ last_x_assum kall_tac
-  \\ fs [PULL_FORALL]
-  \\ first_x_assum irule
-  \\ fs []
-  \\ cheat
 QED
 
 val _ = pure_unify_ind |> update_precondition;

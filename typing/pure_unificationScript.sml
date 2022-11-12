@@ -953,9 +953,8 @@ Theorem pure_unify_ind:
      ⇒ P0 s t1 t2) ∧
     (∀s ts1 ts2.
       (∀t1 ts1' t2 ts2' s'.
-        ts1 = t1::ts1' ∧ ts2 = t2::ts2' ∧
-        pure_unify s t1 t2 = SOME s'
-       ⇒ P0 s t1 t2 ∧ P1 s' ts1' ts2')
+        ts1 = t1::ts1' ∧ ts2 = t2::ts2' ⇒
+        P0 s t1 t2 ∧ (pure_unify s t1 t2 = SOME s' ⇒ P1 s' ts1' ts2'))
      ⇒ P1 s ts1 ts2)
   ⇒ (∀s t1 t2. pure_wfs s ⇒ P0 s t1 t2) ∧
     (∀s ts1 ts2. pure_wfs s ⇒ P1 s ts1 ts2)
@@ -984,7 +983,6 @@ Proof
         t1 = Pair (Const c) (encode_itype u1) ∧
         t2 = Pair (Const c) (encode_itype u2)
        ⇒ P0 us u1 u2) ∧
-
       (∀us v1 u1 v2 u2.
         wfs s ∧ s = encode_itype o_f us ∧
         t1 = Pair (encode_itype v1) (encode_itypes u1) ∧
