@@ -11,9 +11,16 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
      pure_cexpTheory pure_demandTheory pure_demands_analysisTheory pureLangTheory;
 open pure_letrec_seqTheory pure_letrecProofTheory;
-
+open pure_typingPropsTheory
 
 val _ = new_theory "pure_demands_analysisProof";
+
+val _ = set_grammar_ancestry [
+          "pure_letrecProof",
+          "pureLang",
+          "pure_demand",
+          "pure_demands_analysis"
+        ]
 
 (** Proof **)
 
@@ -288,6 +295,20 @@ Proof
   \\ fs [empty_thm]
   \\ rw [union_thm]
 QED
+
+Theorem FOLDL_union:
+  ∀l cmp (m:('a,unit) map).
+    TotOrd cmp ∧
+    EVERY (λm. map_ok m ∧ cmp_of m = cmp) l ∧
+    map_ok m ∧ cmp_of m = cmp
+  ⇒ map_ok (FOLDL union m l) ∧ cmp_of (FOLDL union m l) = cmp_of m ∧
+    FDOM (to_fmap (FOLDL union m l)) =
+    FDOM (to_fmap m) ∪ BIGUNION { FDOM (to_fmap m') | MEM m' l }
+Proof
+  Induct >> rw[union_thm] >>
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[PULL_EXISTS] >> metis_tac[]
+QED
+
 
 Theorem adds_demands_soundness:
   ∀vl e e' m ds c ds a fds fd fd2.
@@ -3847,6 +3868,600 @@ Proof
   \\ gvs [empty_thm, TotOrd_compare, ctxt_trans_def, fdemands_map_to_set_def]
   \\ dxrule_then assume_tac find_soundness
   \\ gs []
+QED
+
+
+(********** Prove that analysis only inserts well-defined Seqs **********)
+
+Triviality empty_map_simps[simp]:
+  map_ok (empty compare) ∧
+  cmp_of (empty compare) = compare ∧
+  to_fmap (empty compare) = FEMPTY ∧
+  TotOrd compare
+Proof
+  simp[empty_def, map_ok_def, to_fmap_def, balanced_mapTheory.empty_def] >>
+  simp[balanced_mapTheory.invariant_def, TotOrd_compare]
+QED
+
+Theorem freevars_add_all_demands:
+  ∀m ce.
+    freevars_cexp (add_all_demands d (m,ce,any)) =
+    freevars_cexp ce ∪ FDOM (to_fmap m)
+Proof
+  Cases >> simp[add_all_demands_def, foldrWithKey_def, cmp_of_def] >>
+  Induct_on `b` >> rw[balanced_mapTheory.foldrWithKey_def] >>
+  gvs[map_ok_def, balanced_mapTheory.invariant_def, to_fmap_def] >>
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+QED
+
+Theorem add_all_demands_insert_seq_lemma[local]:
+  ∀m ce ce'.
+    map_ok (Map compare m) ∧
+    FDOM (to_fmap (Map compare m)) SUBSET freevars_cexp ce ∧
+    pure_typingProps$insert_seq ce ce'
+  ⇒ pure_typingProps$insert_seq ce (add_all_demands d (Map compare m,ce',any))
+Proof
+  simp[add_all_demands_def, foldrWithKey_def] >>
+  Induct >> rw[balanced_mapTheory.foldrWithKey_def] >>
+  qmatch_goalsub_abbrev_tac `foldrWithKey f` >>
+  gvs[map_ok_def, balanced_mapTheory.invariant_def] >>
+  first_x_assum irule >> simp[] >>
+  gvs[to_fmap_def] >>
+  simp[Once insert_seq_cases] >> disj1_tac >>
+  qspecl_then [`Map compare m'`,`ce'`] assume_tac freevars_add_all_demands >>
+  gvs[add_all_demands_def, foldrWithKey_def] >>
+  imp_res_tac insert_seq_freevars >> gvs[]
+QED
+
+Theorem add_all_demands_insert_seq_lemma[local]:
+  ∀m ce ce'.
+    FDOM (to_fmap (Map cmp m)) SUBSET freevars_cexp ce ∧
+    pure_typingProps$insert_seq ce ce'
+  ⇒ pure_typingProps$insert_seq ce (add_all_demands d (Map cmp m, ce', any))
+Proof
+  simp[add_all_demands_def, foldrWithKey_def] >>
+  Induct >> rw[balanced_mapTheory.foldrWithKey_def] >> gvs[to_fmap_def] >>
+  qmatch_goalsub_abbrev_tac `foldrWithKey f` >>
+  first_x_assum irule >> simp[] >>
+  simp[Once insert_seq_cases] >> disj1_tac >>
+  qspecl_then [`Map compare m'`,`ce'`] assume_tac freevars_add_all_demands >>
+  gvs[add_all_demands_def, foldrWithKey_def] >>
+  imp_res_tac insert_seq_freevars >> gvs[]
+QED
+
+Theorem add_all_demands_insert_seq:
+  ∀d m ce any.
+    FDOM (to_fmap m) ⊆ freevars_cexp ce ∧
+    NestedCase_free ce
+  ⇒ pure_typingProps$insert_seq ce (add_all_demands d (m,ce,any))
+Proof
+  rw[] >> Cases_on `m` >>
+  irule add_all_demands_insert_seq_lemma >> simp[insert_seq_refl]
+QED
+
+Theorem adds_demands_freevars:
+  ∀vs d m ce fd. map_ok m ⇒
+  freevars_cexp (adds_demands d (m,ce,fd) vs) =
+  freevars_cexp ce ∪ (FDOM (to_fmap m) ∩ set vs)
+Proof
+  Induct >> rw[adds_demands_def] >> CASE_TAC >> rw[] >>
+  gvs[lookup_thm, FLOOKUP_DEF] >> rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+QED
+
+Theorem adds_demands_insert_seq:
+  ∀vs ce d m fd.
+    FDOM (to_fmap m) ⊆ freevars_cexp ce ∧ map_ok m ∧
+    NestedCase_free ce
+  ⇒ pure_typingProps$insert_seq ce (adds_demands d (m,ce,fd) vs)
+Proof
+  Induct >> rw[adds_demands_def, insert_seq_refl] >>
+  CASE_TAC >> rw[] >> simp[Once insert_seq_cases] >> disj1_tac >>
+  gvs[adds_demands_freevars, lookup_thm, FLOOKUP_DEF, SUBSET_DEF]
+QED
+
+Theorem handle_Apps_demands_insert_seq:
+  ∀d bools args.
+    EVERY (λ(m,e,any). FDOM (to_fmap m) ⊆ freevars_cexp e ∧ NestedCase_free e) args
+  ⇒ LIST_REL pure_typingProps$insert_seq (MAP (λ(_,ce,_). ce) args)
+                                         (FST $ SND $ handle_Apps_demands d bools args)
+Proof
+  recInduct handle_Apps_demands_ind >> rw[handle_Apps_demands_def]
+  >- (
+    gvs[EVERY_EL, LIST_REL_EL_EQN, EL_MAP] >> rw[] >> pairarg_tac >> gvs[] >>
+    first_x_assum drule >> rw[] >> gvs[add_all_demands_insert_seq]
+    )
+  >- (pairarg_tac >> gvs[insert_seq_refl])
+  >- rpt (pairarg_tac >> gvs[add_all_demands_insert_seq])
+QED
+
+Theorem handle_Apps_demands_submap:
+  ∀d bools args a b m.
+    handle_Apps_demands d bools args = (a,b,m) ∧
+    EVERY (λ(m,e,any). map_ok m ∧ cmp_of m = compare) args
+    ⇒
+    map_ok m ∧ cmp_of m = compare ∧
+    ∀x. x ∈ FDOM (to_fmap m) ⇒
+      ∃m' e fd. MEM (m',e,fd) args ∧ x ∈ FDOM (to_fmap m')
+Proof
+  recInduct handle_Apps_demands_ind >> simp[handle_Apps_demands_def] >>
+  gvs[mlmapTheory.empty_def, balanced_mapTheory.empty_def, to_fmap_def] >>
+  rpt conj_tac >> rpt gen_tac >>
+  strip_tac >> rpt gen_tac >> strip_tac >>
+  rpt (pairarg_tac >> gvs[]) >> gvs[union_thm] >> metis_tac[]
+QED
+
+Theorem rev_split_body_inner_freevars:
+  ∀xs d ce.
+    freevars_cexp (rev_split_body_inner d xs ce) =
+    freevars_cexp ce ∪ { v | MEM (v,T) xs }
+Proof
+  Induct >> rw[rev_split_body_inner_def] >>
+  PairCases_on `h` >> Cases_on `h1` >> rw[rev_split_body_inner_def] >>
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+QED
+
+Theorem rev_split_body_inner_insert_seq:
+  ∀xs ce d.
+    { v | MEM (v,T) xs } ⊆ freevars_cexp ce ∧
+    NestedCase_free ce
+  ⇒ pure_typingProps$insert_seq ce (rev_split_body_inner d xs ce)
+Proof
+  Induct >> rw[]
+  >- rw[rev_split_body_inner_def, insert_seq_refl] >>
+  PairCases_on `h` >> Cases_on `h1` >> rw[rev_split_body_inner_def] >> gvs[] >>
+  simp[Once insert_seq_cases] >> disj1_tac >>
+  simp[rev_split_body_inner_freevars] >> gvs[SUBSET_DEF]
+QED
+
+Theorem compute_fixpoint_rec_MAP_FST:
+  ∀n binds.
+    MAP FST (compute_fixpoint_rec n binds) = MAP FST binds
+Proof
+  Induct >> rw[compute_fixpoint_rec_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
+  simp[handle_fixpoint1_def] >> pairarg_tac >> gvs[]
+QED
+
+Theorem compute_fixpoint_rec_LIST_REL:
+  ∀n binds.
+    LIST_REL (λ(v',vbs',ce',lab') (v,vbs,ce,lab).
+      ce = ce' ∧ MAP FST vbs = MAP FST vbs') (compute_fixpoint_rec n binds) binds
+Proof
+  Induct >> rw[compute_fixpoint_rec_def] >> gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+  rpt (pairarg_tac >> gvs[handle_fixpoint1_def]) >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  >- (rw[MAP_EQ_f] >> pairarg_tac >> gvs[])
+  >- (rw[MAP_EQ_f] >> pairarg_tac >> gvs[]) >>
+  qmatch_asmsub_abbrev_tac `EL _ $ compute_fixpoint_rec _ binds'` >>
+  last_x_assum $ qspec_then `binds'` assume_tac >> gvs[] >>
+  pop_assum $ qspec_then `n'` mp_tac >> simp[] >>
+  unabbrev_all_tac >> simp[EL_MAP, handle_fixpoint1_def] >>
+  rpt (pairarg_tac >> gvs[]) >> rw[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  pop_assum $ assume_tac o GSYM >> rw[MAP_EQ_f] >> pairarg_tac >> gvs[]
+QED
+
+Theorem fixpoint_analysis_MAP_FST:
+  ∀binds b binds'.
+    fixpoint_analysis binds = (b,binds')
+  ⇒ MAP FST binds' = MAP FST binds
+Proof
+  rw[fixpoint_analysis_def] >> pairarg_tac >> gvs[AllCaseEqs()] >>
+  gvs[can_compute_fixpoint_def, AllCaseEqs()] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  rw[MAP_EQ_f] >> rpt (pairarg_tac >> gvs[]) >>
+  simp[compute_fixpoint_rec_MAP_FST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  rw[MAP_EQ_f] >> rpt (pairarg_tac >> gvs[])
+QED
+
+Theorem fixpoint_analysis_LIST_REL:
+  ∀binds b binds'.
+    fixpoint_analysis binds = (b,binds')
+  ⇒ LIST_REL (λ(v,ce) (v',vbs,ce',lab).
+      ∃vs lab'. split_body ce = (vs,ce',lab') ∧ MAP FST vbs = vs) binds binds'
+Proof
+  rw[fixpoint_analysis_def] >> pairarg_tac >> gvs[AllCaseEqs()] >>
+  gvs[can_compute_fixpoint_def, AllCaseEqs()] >> rpt $ pop_assum kall_tac
+  >- (
+    qmatch_goalsub_abbrev_tac `compute_fixpoint_rec n binds'` >>
+    qspecl_then [`n`,`binds'`] mp_tac compute_fixpoint_rec_LIST_REL >>
+    rw[] >> gvs[LIST_REL_EL_EQN] >>
+    conj_asm1_tac >- (unabbrev_all_tac >> simp[]) >>
+    rw[] >> rpt (pairarg_tac >> gvs[]) >>
+    first_x_assum $ qspec_then `n'` mp_tac >> rw[] >> pairarg_tac >> gvs[] >>
+    unabbrev_all_tac >> fs[] >> gvs[EL_MAP] >>
+    pairarg_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF]
+    ) >>
+  rw[LIST_REL_EL_EQN, EL_MAP] >> rpt (pairarg_tac >> gvs[]) >>
+  simp[MAP_MAP_o, combinTheory.o_DEF]
+QED
+
+Theorem fixpoint_demands_App_map:
+  ∀bs ds vs m FVs.
+    fixpoint_demands_App bs ds = (vs, m) ∧
+    EVERY (λ(m,_). map_ok m ∧ cmp_of m = compare ∧ FDOM (to_fmap m) ⊆ FVs) ds
+  ⇒ map_ok m ∧ cmp_of m = compare ∧ FDOM (to_fmap m) ⊆ FVs
+Proof
+  recInduct fixpoint_demands_App_ind >> simp[fixpoint_demands_App_def] >>
+  rpt conj_tac >> rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+  rpt (pairarg_tac >> gvs[])
+  >- (res_tac >> simp[])
+  >- (first_x_assum drule >> simp[union_thm])
+QED
+
+Theorem fixpoint1_map:
+  ∀d ce fds m fdopt.
+    fixpoint1 d ce fds = (m,fdopt) ∧
+    map_ok fds ∧ cmp_of fds = compare
+  ⇒ map_ok m ∧ cmp_of m = compare ∧
+    FDOM (to_fmap m) ⊆ freevars_cexp ce DIFF FDOM (to_fmap fds) ∧
+    (∀bl optm. fdopt = SOME (bl, optm) ⇒
+        map_ok optm ∧ cmp_of optm = compare ∧
+        FDOM (to_fmap optm) ⊆ freevars_cexp ce DIFF FDOM (to_fmap fds))
+Proof
+  recInduct fixpoint1_ind >> simp[fixpoint1_def] >>
+  rpt conj_tac >> rpt gen_tac >> strip_tac
+  >- (
+    gvs[AllCaseEqs(), insert_thm] >> rw[] >> gvs[lookup_thm, FLOOKUP_DEF]
+    )
+  >- (
+    pairarg_tac >> gvs[] >> rpt gen_tac >> strip_tac >> gvs[AllCaseEqs()]
+    >- gvs[SUBSET_DEF] >>
+      (
+        drule fixpoint_demands_App_map >>
+        disch_then $ qspec_then
+          `BIGUNION (set (MAP freevars_cexp argl)) DIFF FDOM (to_fmap fds)` mp_tac >>
+        simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> impl_tac
+        >- (
+          rw[] >> pairarg_tac >> gvs[] >>
+          last_x_assum drule >> simp[] >> rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS] >>
+          goal_assum $ drule_at Any >> simp[]
+          ) >>
+        strip_tac >> simp[union_thm] >> gvs[SUBSET_DEF] >>
+        gvs[MEM_MAP, PULL_EXISTS] >> metis_tac[]
+      )
+    )
+  >- (
+    rpt (pairarg_tac >> gvs[]) >> strip_tac >> simp[union_thm] >> gvs[SUBSET_DEF]
+    )
+  >- (
+    strip_tac >> gvs[FOLDR_MAP, LAMBDA_PROD] >>
+    Induct_on `eL` >> gvs[] >> gen_tac >> pairarg_tac >> gvs[] >>
+    simp[DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >>
+    DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >> simp[SF CONJ_ss] >>
+    qpat_x_assum `(∀e. _) ⇒ _` mp_tac >> impl_tac >- metis_tac[] >>
+    strip_tac >> simp[] >> gvs[SUBSET_DEF]
+    ) >>
+  rpt (pairarg_tac >> gvs[]) >> ntac 3 strip_tac >> gvs[AllCaseEqs()]
+  >- (
+    DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >> simp[] >>
+    DEP_REWRITE_TAC[cj 1 delete_thm, cj 2 delete_thm] >> simp[SF CONJ_ss] >>
+    qmatch_goalsub_abbrev_tac `FDOM foo ⊆ bar` >>
+    `FDOM foo ⊆ bar` by (unabbrev_all_tac >> gvs[SUBSET_DEF]) >>
+    simp[] >> pop_assum kall_tac >> unabbrev_all_tac >>
+    DEP_REWRITE_TAC $ map (SRULE []) [cj 1 fixpoint1_Case_lemma2,
+      cj 2 fixpoint1_Case_lemma2, cj 3 fixpoint1_Case_lemma2] >>
+    simp[] >>
+    Cases_on `rows` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >> pairarg_tac >> gvs[] >>
+    qpat_abbrev_tac `h' = fixpoint1 _ _ _` >> PairCases_on `h'` >> gvs[] >>
+    last_x_assum mp_tac >> impl_tac
+    >- (DEP_REWRITE_TAC[cj 1 FOLDR_delete, cj 2 FOLDR_delete] >> simp[delete_thm]) >>
+    strip_tac >> gvs[] >> simp[FOLDR_delete] >> rw[]
+    >- (
+      simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac >>
+      qpat_abbrev_tac `res = fixpoint1 _ _ _` >> PairCases_on `res` >> gvs[] >>
+      last_x_assum drule >> simp[] >> impl_tac
+      >- (DEP_REWRITE_TAC[cj 1 FOLDR_delete, cj 2 FOLDR_delete] >> simp[delete_thm]) >>
+      strip_tac >> gvs[] >> simp[FOLDR_delete]
+      )
+    >- (
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      gvs[SUBSET_DEF] >> simp[MEM_MAP, PULL_EXISTS] >> rw[] >> gvs[] >>
+      first_x_assum drule >> DEP_REWRITE_TAC[cj 3 FOLDR_delete] >> simp[delete_thm]
+      )
+    )
+  >- (
+    DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >> simp[] >>
+    DEP_REWRITE_TAC[cj 1 delete_thm, cj 2 delete_thm] >> simp[SF CONJ_ss] >>
+    qmatch_goalsub_abbrev_tac `FDOM foo ⊆ bar` >>
+    `FDOM foo ⊆ bar` by (unabbrev_all_tac >> gvs[SUBSET_DEF]) >>
+    simp[] >> pop_assum kall_tac >> unabbrev_all_tac >>
+    DEP_REWRITE_TAC $ map (SRULE []) [cj 1 fixpoint1_Case_lemma2,
+      cj 2 fixpoint1_Case_lemma2, cj 3 fixpoint1_Case_lemma2] >>
+    simp[] >> qpat_abbrev_tac `h' = fixpoint1 _ _ _` >>
+    PairCases_on `h'` >> gvs[delete_thm] >> rw[]
+    >- (
+      simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac >>
+      qpat_abbrev_tac `res = fixpoint1 _ _ _` >> PairCases_on `res` >> gvs[] >>
+      last_x_assum drule >> simp[] >> impl_tac
+      >- (DEP_REWRITE_TAC[cj 1 FOLDR_delete, cj 2 FOLDR_delete] >> simp[delete_thm]) >>
+      strip_tac >> gvs[] >> simp[FOLDR_delete]
+      )
+    >- (
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      gvs[SUBSET_DEF] >> simp[MEM_MAP, PULL_EXISTS] >> rw[] >> gvs[] >>
+      first_x_assum drule >> DEP_REWRITE_TAC[cj 3 FOLDR_delete] >> simp[delete_thm]
+      )
+    )
+QED
+
+Theorem handle_fixpoint1_freevars:
+  ∀fds v args body label v' args' body' label' x.
+    handle_fixpoint1 fds (v,args,body,label) = (v',args',body',label') ∧
+    MEM (x,T) args' ∧ map_ok fds ∧ cmp_of fds = compare
+  ⇒ ∃b. MEM (x,b) args ∧ x ∈ freevars_cexp body ∧ x ∉ FDOM (to_fmap fds)
+Proof
+  rw[handle_fixpoint1_def] >> pairarg_tac >> gvs[] >>
+  drule fixpoint1_map >> simp[] >> strip_tac >>
+  gvs[MEM_MAP] >> pairarg_tac >> gvs[] >>
+  goal_assum drule >> gvs[lookup_thm, FLOOKUP_DEF, SUBSET_DEF]
+QED
+
+Theorem compute_fixpoint_rec_freevars:
+  ∀n binds binds' fn xs body lab x.
+    compute_fixpoint_rec n binds = binds' ∧
+    MEM (fn,xs,body,lab) binds' ∧ MEM (x,T) xs
+  ⇒ x ∈ freevars_cexp body
+Proof
+  Induct >> rw[compute_fixpoint_rec_def] >> gvs[]
+  >- rpt (gvs[MEM_MAP] >> pairarg_tac)
+  >- (
+    gvs[MEM_MAP] >> PairCases_on `y` >>
+    qpat_x_assum `_ = handle_fixpoint1 _ _` $ assume_tac o GSYM >>
+    drule handle_fixpoint1_freevars >> disch_then drule >> reverse impl_tac
+    >- (rw[] >> gvs[handle_fixpoint1_def] >> pairarg_tac >> gvs[]) >>
+    rpt $ pop_assum kall_tac >>
+    Induct_on `binds` >> rw[] >> rpt (pairarg_tac >> gvs[]) >> simp[insert_thm]
+    )
+  >- (last_x_assum drule >> simp[])
+QED
+
+Theorem fixpoint_analysis_freevars:
+  fixpoint_analysis binds = (b, binds') ∧
+  MEM (fn,xs,body,lab) binds' ∧
+  MEM (x,T) xs
+  ⇒ x ∈ freevars_cexp body
+Proof
+  simp[fixpoint_analysis_def] >> pairarg_tac >> gvs[] >>
+  reverse IF_CASES_TAC >> rw[] >> gvs[]
+  >- (gvs[MEM_MAP] >> pairarg_tac >> gvs[MEM_MAP]) >>
+  drule_all $ SRULE [] compute_fixpoint_rec_freevars >> simp[]
+QED
+
+Theorem handle_multi_bind_map:
+  ∀m ms vs m'.
+    handle_multi_bind m ms vs = m' ∧
+    EVERY (λm. map_ok m ∧ cmp_of m = compare ∧ FDOM (to_fmap m) ⊆ FVs) (m::ms)
+  ⇒ FDOM (to_fmap m') ⊆ FVs
+Proof
+  recInduct handle_multi_bind_ind >> rw[handle_multi_bind_def] >> gvs[] >>
+  DEP_REWRITE_TAC[cj 3 union_thm] >> simp[] >>
+  irule map_handle_multi_ok >> simp[] >> gvs[EVERY_MEM]
+QED
+
+Theorem demands_analysis_fun_insert_seq:
+  ∀ctxt ce fds m ce' fdopt.
+    demands_analysis_fun ctxt ce fds = (m, ce', fdopt) ∧
+    NestedCase_free ce
+  ⇒ map_ok m ∧ cmp_of m = compare ∧
+    FDOM (to_fmap m) ⊆ freevars_cexp ce ∧
+    (∀bl optm. fdopt = SOME (bl, optm) ⇒
+        map_ok optm ∧ cmp_of optm = compare ∧ FDOM (to_fmap optm) ⊆ freevars_cexp ce) ∧
+    pure_typingProps$insert_seq ce ce'
+Proof
+  recInduct demands_analysis_fun_ind >> simp[demands_analysis_fun_def] >>
+  rpt conj_tac >> rpt gen_tac
+  >- (
+    DEP_REWRITE_TAC[cj 1 insert_thm, cj 2 insert_thm] >>
+    simp[Once insert_seq_cases] >>
+    TOP_CASE_TAC >> gvs[] >> simp[empty_thm, TotOrd_compare]
+    )
+  >- (
+    strip_tac >> pairarg_tac >> gvs[] >> TOP_CASE_TAC >> gvs[] >> strip_tac >> gvs[]
+    >- (
+      gvs[SUBSET_DEF] >> simp[Once insert_seq_cases] >> disj2_tac >>
+      simp[MAP_MAP_o, combinTheory.o_DEF] >> rw[LIST_REL_EL_EQN, EL_MAP] >>
+      gvs[MEM_EL, PULL_EXISTS] >> last_x_assum drule >>
+      qpat_abbrev_tac `dn = demands_analysis_fun _ _ _` >>
+      PairCases_on `dn` >> rw[] >> gvs[EVERY_EL] >>
+      irule insert_seq_trans >> goal_assum drule >>
+      irule add_all_demands_insert_seq >>
+      imp_res_tac insert_seq_NestedCase_free >>
+      imp_res_tac insert_seq_freevars >> gvs[SUBSET_DEF]
+      ) >>
+    simp[AllCaseEqs(), PULL_EXISTS] >> rpt gen_tac >> strip_tac >> gvs[] >>
+      (
+        DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >> simp[] >>
+        qspecl_then [`a0`,`fdL`,`MAP (λe. demands_analysis_fun c e fds) argl`]
+          mp_tac handle_Apps_demands_insert_seq >> impl_tac
+        >- (
+          rw[EVERY_MAP, EVERY_MEM] >> pairarg_tac >> gvs[] >>
+          first_x_assum drule >> simp[] >> rw[] >> gvs[EVERY_MEM]
+          >- (imp_res_tac insert_seq_freevars >> gvs[])
+          >- imp_res_tac insert_seq_NestedCase_free
+          ) >>
+        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> strip_tac >>
+        qspecl_then [`a0`,`fdL`,`MAP (λe. demands_analysis_fun c e fds) argl`]
+          mp_tac handle_Apps_demands_submap >>
+        simp[EVERY_MAP] >> impl_tac
+        >- (
+          gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+          last_x_assum drule >> simp[]
+          ) >>
+        strip_tac >> gvs[SUBSET_DEF] >> rw[]
+        >- (
+          first_x_assum drule >> simp[MEM_MAP, PULL_EXISTS] >> rw[Once EQ_SYM_EQ] >>
+          first_x_assum drule >> gvs[EVERY_MEM] >> rw[] >>
+          first_x_assum drule >> simp[SF SFY_ss]
+          ) >>
+        simp[Once insert_seq_cases] >> disj1_tac >> qrefine `App a0 f' args` >>
+        qmatch_asmsub_abbrev_tac `LIST_REL _ args` >> qexists `args` >>
+        simp[Once insert_seq_cases, SF DNF_ss] >> disj2_tac >>
+        unabbrev_all_tac >> rw[]
+        >- (
+          rw[LIST_REL_EL_EQN, EL_MAP] >> pairarg_tac >> gvs[] >>
+          gvs[SF DNF_ss] >> last_x_assum irule >> simp[EL_MEM] >> gvs[EVERY_EL]
+          ) >>
+        simp[Once insert_seq_cases] >> disj2_tac >>
+        imp_res_tac insert_seq_NestedCase_free >> simp[insert_seq_refl]
+      )
+    )
+  >- (
+    strip_tac >> pairarg_tac >> gvs[] >> strip_tac >> gvs[] >>
+    simp[Once insert_seq_cases] >> rpt disj2_tac >>
+    irule insert_seq_trans >> goal_assum drule >>
+    irule add_all_demands_insert_seq >>
+    map_every imp_res_tac [insert_seq_NestedCase_free, insert_seq_freevars] >> gvs[]
+    )
+  >- (
+    strip_tac >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    DEP_REWRITE_TAC[cj 1 delete_thm, cj 2 delete_thm] >>
+    simp[AllCaseEqs(), PULL_EXISTS] >> rpt conj_tac
+    >- gvs[SUBSET_DEF]
+    >- (
+      rpt gen_tac >> strip_tac >>
+      DEP_REWRITE_TAC[cj 1 delete_thm, cj 2 delete_thm] >> gvs[SUBSET_DEF]
+      ) >>
+    TOP_CASE_TAC >> simp[Once insert_seq_cases] >> disj2_tac >>
+    simp[Once insert_seq_cases] >> disj1_tac >>
+    pop_assum mp_tac >> simp[lookup_thm, FLOOKUP_DEF] >>
+    imp_res_tac insert_seq_freevars >> gvs[SUBSET_DEF]
+    )
+  >- (
+    strip_tac >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >> simp[] >>
+    gvs[SUBSET_DEF] >> simp[Once insert_seq_cases]
+    )
+  >- simp[Once insert_seq_cases]
+  >- simp[Once insert_seq_cases, insert_seq_refl]
+  >- (
+    rw[Once insert_seq_cases, insert_seq_refl] >> disj2_tac >>
+    rw[LIST_REL_EL_EQN] >> gvs[EVERY_EL, insert_seq_refl]
+    )
+  >- (
+    strip_tac >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    DEP_REWRITE_TAC[cj 1 FOLDL_union, cj 2 FOLDL_union, cj 3 FOLDL_union] >>
+    gvs[BIGUNION_SUBSET, UNZIP3_MAP, MEM_MAP, EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
+    rpt conj_tac
+    >- (
+      gen_tac >> strip_tac >>
+      qmatch_goalsub_abbrev_tac `FST foo` >> PairCases_on `foo` >> gvs[] >>
+      last_x_assum drule >> simp[]
+      )
+    >- (
+      rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> goal_assum $ drule_at Any >>
+      last_x_assum drule >>
+      qpat_abbrev_tac `foo = demands_analysis_fun _ _ _` >>
+      PairCases_on `foo` >> gvs[SUBSET_DEF]
+      )
+    >- (
+      simp[Once insert_seq_cases] >> disj2_tac >>
+      rw[LIST_REL_EL_EQN, EL_MAP] >> gvs[MEM_EL, PULL_EXISTS] >>
+      last_x_assum drule >>
+      qpat_abbrev_tac `foo = demands_analysis_fun _ _ _` >>
+      PairCases_on `foo` >> rw[]
+      )
+    )
+  >- (
+    strip_tac >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    simp[Once insert_seq_cases] >> disj2_tac >>
+    rw[LIST_REL_EL_EQN, EL_MAP] >> gvs[EVERY_EL, MEM_EL, PULL_EXISTS] >>
+    qpat_abbrev_tac `dn = demands_analysis_fun _ _ _` >> PairCases_on `dn` >> gvs[] >>
+    irule insert_seq_trans >> irule_at (Pos last) add_all_demands_insert_seq >>
+    last_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+    map_every imp_res_tac [insert_seq_NestedCase_free, insert_seq_freevars] >> gvs[]
+    )
+  >~ [`Case`]
+  >- (
+    strip_tac >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    conj_tac >- gvs[SUBSET_DEF] >>
+    simp[Once insert_seq_cases] >> disj2_tac >> rw[LIST_REL_EL_EQN, EL_MAP]
+    >- (
+      rpt (pairarg_tac >> gvs[]) >> gvs[MEM_EL, PULL_EXISTS] >>
+      qmatch_goalsub_abbrev_tac `add_all_demands _ foo` >> PairCases_on `foo` >> gvs[] >>
+      first_x_assum drule >> rw[] >>
+      gvs[EVERY_EL, EL_MAP] >> first_x_assum drule >> rw[] >> gvs[] >>
+      irule insert_seq_trans >> goal_assum drule >>
+      irule add_all_demands_insert_seq >>
+      map_every imp_res_tac [insert_seq_NestedCase_free, insert_seq_freevars] >> gvs[]
+      )
+    >- (
+      Cases_on `eopt` >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
+      qmatch_goalsub_abbrev_tac `add_all_demands _ foo` >> PairCases_on `foo` >> gvs[] >>
+      irule insert_seq_trans >> goal_assum drule >>
+      irule add_all_demands_insert_seq >>
+      map_every imp_res_tac [insert_seq_NestedCase_free, insert_seq_freevars] >> gvs[]
+      )
+    ) >>
+  strip_tac >> rpt (pairarg_tac >> gvs[]) >>
+  imp_res_tac fixpoint_analysis_MAP_FST >>
+  IF_CASES_TAC >> simp[] >> strip_tac >> gvs[] >>
+  gvs[UNZIP3_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  >- (
+    DEP_REWRITE_TAC[cj 1 FOLDL_delete_ok, cj 2 FOLDL_delete_ok] >> simp[] >>
+    DEP_REWRITE_TAC[cj 3 FOLDL_delete_soundness] >> simp[] >>
+    conj_tac >- gvs[SUBSET_DEF] >>
+    simp[AllCaseEqs(), PULL_EXISTS] >> conj_tac
+    >- (
+      rpt gen_tac >> strip_tac >> gvs[] >> PairCases_on `a` >> gvs[] >>
+      DEP_REWRITE_TAC[cj 1 FOLDL_delete_ok, cj 2 FOLDL_delete_ok] >> simp[] >>
+      DEP_REWRITE_TAC[cj 3 FOLDL_delete_soundness] >> gvs[SUBSET_DEF]
+      ) >>
+    simp[Once insert_seq_cases] >> disj2_tac >> reverse conj_tac
+    >- (
+      irule insert_seq_trans >> goal_assum drule >> irule adds_demands_insert_seq >>
+      map_every imp_res_tac [insert_seq_NestedCase_free, insert_seq_freevars] >> gvs[]
+      ) >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >> rw[] >>
+    rpt (pairarg_tac >> gvs[]) >> last_x_assum drule >> rw[] >>
+    Cases_on `args` >> rw[rev_split_body_def] >>
+    drule fixpoint_analysis_LIST_REL >> rw[LIST_REL_EL_EQN] >>
+    pop_assum drule >> rw[] >> first_x_assum drule >> rw[] >>
+    gvs[DefnBase.one_line_ify NONE split_body_def, AllCaseEqs(), insert_seq_refl]
+    >- simp[Once insert_seq_cases, insert_seq_refl] >>
+    simp[Once insert_seq_cases] >> disj2_tac >>
+    irule rev_split_body_inner_insert_seq >> simp[] >>
+    drule fixpoint_analysis_freevars >> simp[Once MEM_EL, PULL_EXISTS] >>
+    disch_then drule >> simp[SUBSET_DEF]
+    )
+  >- (
+    DEP_REWRITE_TAC[cj 1 FOLDL_delete_ok, cj 2 FOLDL_delete_ok] >> simp[] >>
+    DEP_REWRITE_TAC[cj 3 FOLDL_delete_soundness] >> simp[SF CONJ_ss] >>
+    DEP_REWRITE_TAC[cj 1 map_handle_multi_ok, cj 2 map_handle_multi_ok] >>
+    simp[] >> rpt conj_tac
+    >- (
+      simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac >>
+      qmatch_goalsub_abbrev_tac `FST foo` >> PairCases_on `foo` >> gvs[] >>
+      last_x_assum drule >> simp[] >> impl_tac >> rw[] >>
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> first_x_assum drule >> simp[]
+      )
+    >- (
+      simp[pure_miscTheory.DIFF_SUBSET] >>
+      irule SUBSET_TRANS >> irule_at Any $ SRULE [] handle_multi_bind_map >>
+      simp[EVERY_MAP, LAMBDA_PROD] >>
+      irule_at (Pos last) SUBSET_REFL >> gvs[SUBSET_DEF] >>
+      gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+      qmatch_goalsub_abbrev_tac `FST foo` >> PairCases_on `foo` >> gvs[] >>
+      last_x_assum drule >> simp[] >> impl_tac >> rw[]
+      >- (gvs[MEM_MAP, PULL_EXISTS] >> first_x_assum drule >> simp[])
+      >- (simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[])
+      )
+    >- (
+      Cases_on `fd'` >> gvs[] >> pairarg_tac >> gvs[] >>
+      simp[FOLDL_delete_soundness] >> gvs[SUBSET_DEF]
+      ) >>
+    simp[Once insert_seq_cases] >> disj2_tac >>
+    simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> reverse conj_tac
+    >- (
+      irule insert_seq_trans >> goal_assum drule >> irule adds_demands_insert_seq >>
+      map_every imp_res_tac [insert_seq_NestedCase_free, insert_seq_freevars] >> gvs[]
+      ) >>
+    rw[LIST_REL_EL_EQN, EL_MAP] >> rpt (pairarg_tac >> gvs[]) >>
+    qmatch_goalsub_abbrev_tac `SND foo` >> PairCases_on `foo` >> gvs[] >>
+    gvs[MEM_EL, PULL_EXISTS] >> last_x_assum drule >> simp[] >>
+    impl_tac >> gvs[EVERY_EL, EL_MAP] >> first_x_assum drule >> simp[]
+    )
 QED
 
 val _ = export_theory();

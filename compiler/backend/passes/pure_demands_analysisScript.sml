@@ -322,8 +322,8 @@ Definition demands_analysis_fun_def:
      let (m1, e1', fd1) = demands_analysis_fun c e1 fds in
        let (m2, e2', fd2) = demands_analysis_fun c e2 fds in
          (union m1 m2, Prim a0 Seq [e1'; e2'], fd2)) ∧
-  (demands_analysis_fun c (Prim a0 Seq _) fds =
-   (empty compare, Prim a0 Seq [], NONE)) ∧
+  (demands_analysis_fun c (Prim a0 Seq bad) fds =
+   (empty compare, Prim a0 Seq bad, NONE)) ∧
 
   (demands_analysis_fun c (Prim a0 (AtomOp op) el) fds =
      let outL = MAP (λe. demands_analysis_fun c e fds) el in
