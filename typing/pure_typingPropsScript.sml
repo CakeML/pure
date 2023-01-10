@@ -1,7 +1,9 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory rich_listTheory alistTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_cexpTheory pure_tcexpTheory pure_configTheory pure_typingTheory
+open pure_miscTheory pure_cexpTheory pure_tcexpTheory pure_configTheory
+     pure_typingTheory pure_tcexp_lemmasTheory
+
 
 val _ = new_theory "pure_typingProps";
 
@@ -1510,6 +1512,204 @@ Proof
   rw[finite_mapTheory.FUPDATE_EQ_FUPDATE_LIST] >>
   irule type_tcexp_closing_subst >> simp[PULL_EXISTS, EXISTS_PROD] >>
   goal_assum drule >> simp[]
+QED
+
+
+(******************** Seq (Var _) insertion ********************)
+
+Inductive insert_seq:
+  (insert_seq ce ce' ∧ v ∈ freevars_cexp ce'
+    ⇒ insert_seq ce (Prim d Seq [Var d' v; ce'])) ∧
+
+  (* corner case in demand analysis functions *)
+  (insert_seq ce ce'
+    ⇒ insert_seq (Lam d [] ce) ce') ∧
+
+[~trans:]
+  (* shouldn't be necessary, but seems easier *)
+  (insert_seq ce1 ce2 ∧ insert_seq ce2 ce3
+    ⇒ insert_seq ce1 ce3) ∧
+
+(* boilerplate: *)
+  insert_seq (Var d v) (Var d' v) ∧
+
+  (LIST_REL insert_seq ce1s ce2s
+    ⇒ insert_seq (Prim d cop ce1s) (Prim d' cop ce2s)) ∧
+
+  (LIST_REL insert_seq ce1s ce2s ∧ insert_seq ce1 ce2
+    ⇒ insert_seq (App d ce1 ce1s) (App d' ce2 ce2s)) ∧
+
+  (insert_seq ce1 ce2
+    ⇒ insert_seq (Lam d xs ce1) (Lam d' xs ce2)) ∧
+
+  (insert_seq ce1 ce2 ∧ insert_seq ce1' ce2'
+    ⇒ insert_seq (Let d x ce1 ce1') (Let d' x ce2 ce2')) ∧
+
+  (LIST_REL (λ(fn1,ce1) (fn2,ce2). fn1 = fn2 ∧ insert_seq ce1 ce2) fns1 fns2 ∧
+   insert_seq ce1 ce2
+    ⇒ insert_seq (Letrec d fns1 ce1) (Letrec d' fns2 ce2)) ∧
+
+  (insert_seq ce1 ce2 ∧
+   LIST_REL (λ(cn1,pvs1,ce1) (cn2,pvs2,ce2).
+    cn1 = cn2 ∧ pvs1 = pvs2 ∧ insert_seq ce1 ce2) css1 css2 ∧
+   OPTION_REL (λ(cn_ars1,ce1) (cn_ars2,ce2).
+    cn_ars1 = cn_ars2 ∧ insert_seq ce1 ce2) usopt1 usopt2
+    ⇒ insert_seq (pure_cexp$Case d ce1 x css1 usopt1) (Case d' ce2 x css2 usopt2))
+End
+
+Theorem insert_seq_refl:
+  ∀ce. NestedCase_free ce ⇒ insert_seq ce ce
+Proof
+  Induct using NestedCase_free_ind >> rw[NestedCase_free_def] >>
+  simp[Once insert_seq_cases] >> rpt disj2_tac >>
+  gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, MEM_EL, PULL_EXISTS, SF SFY_ss] >> rw[]
+  >- (pairarg_tac >> gvs[] >> rpt $ first_x_assum drule >> simp[])
+  >- (pairarg_tac >> gvs[] >> rpt $ first_x_assum drule >> simp[])
+  >- (Cases_on `eopt` >> gvs[OPTREL_THM] >> pairarg_tac >> gvs[])
+QED
+
+Theorem insert_seq_NestedCase_free:
+  insert_seq a b ⇒ NestedCase_free a ∧ NestedCase_free b
+Proof
+  Induct_on `insert_seq` >>
+  rw[NestedCase_free_def] >>
+  gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP]
+  >>~- (
+    [`OPTION_ALL`],
+    gvs[DefnBase.one_line_ify NONE OPTREL_THM] >>
+    every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[])
+    ) >>
+  rw[] >> first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+QED
+
+Theorem insert_seq_freevars:
+  ∀a b. insert_seq a b ⇒ freevars_cexp a = freevars_cexp b
+Proof
+  Induct_on `insert_seq` >> rw[] >> gvs[]
+  >- (rw[EXTENSION] >> eq_tac >> rw[] >> simp[])
+  >- (ntac 2 AP_TERM_TAC >> rw[MAP_EQ_EVERY2] >> gvs[LIST_REL_EL_EQN])
+  >- (ntac 3 AP_TERM_TAC >> rw[MAP_EQ_EVERY2] >> gvs[LIST_REL_EL_EQN])
+  >- (
+    reverse $ MK_COMB_TAC
+    >- (
+      AP_TERM_TAC >> rw[MAP_EQ_EVERY2] >> gvs[LIST_REL_EL_EQN] >>
+      rw[] >> first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+      ) >>
+    ntac 4 AP_TERM_TAC >> rw[MAP_EQ_EVERY2] >> gvs[LIST_REL_EL_EQN] >>
+    rw[] >> first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+    )
+  >- (
+    AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> reverse $ MK_COMB_TAC
+    >- (
+      Cases_on `usopt1` >> Cases_on `usopt2` >> gvs[] >> rpt (pairarg_tac >> gvs[])
+      ) >>
+    ntac 3 AP_TERM_TAC >> rw[MAP_EQ_EVERY2] >> gvs[LIST_REL_EL_EQN] >>
+    rw[] >> first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+    )
+QED
+
+Theorem insert_seq_preserves_typing:
+  ∀ns db st env ce1 t ce2.
+    type_tcexp ns db st env (tcexp_of ce1) t ∧
+    insert_seq ce1 ce2
+  ⇒ type_tcexp ns db st env (tcexp_of ce2) t
+Proof
+  Induct_on `insert_seq` >> rw[] >> gvs[tcexp_of_def]
+  >- (
+    ntac 2 $ simp[Once type_tcexp_cases] >>
+    imp_res_tac type_tcexp_freevars_tcexp >>
+    imp_res_tac insert_seq_NestedCase_free >>
+    imp_res_tac insert_seq_freevars >>
+    gvs[freevars_tcexp_of, SUBSET_DEF] >>
+    first_x_assum drule >> strip_tac >>
+    Cases_on `ALOOKUP env v` >> gvs[ALOOKUP_NONE] >>
+    PairCases_on `x` >> simp[specialises_def] >>
+    qexists_tac `REPLICATE x0 $ PrimTy Bool` >> simp[type_ok]
+    )
+  >- (
+    pop_assum mp_tac >> simp[Once type_tcexp_cases]
+    )
+  >- (
+    pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
+    rw[] >> gvs[MAP_EQ_CONS] >> gvs[LIST_REL_EL_EQN, EL_MAP] >> metis_tac[]
+    )
+  >- (
+    pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
+    rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP] >> metis_tac[]
+    )
+  >- (
+    pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
+    rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP] >> metis_tac[]
+    )
+  >- (
+    pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
+    rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP] >> metis_tac[]
+    )
+  >- (
+    pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
+    rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP] >>
+    irule_at Any EQ_REFL >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+    gvs[GSYM LAMBDA_PROD] >>
+    `MAP FST fns2 = MAP FST fns1` by (
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> rw[] >>
+      last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+    gvs[] >> reverse $ rw[]
+    >- (CCONTR_TAC >> gvs[]) >>
+    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >>
+    last_x_assum drule >> rw[]
+    ) >>
+  pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
+  rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP]
+  >- (
+    Cases_on `usopt2` >> gvs[OPTREL_THM] >> disj1_tac >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[GSYM LAMBDA_PROD, GSYM FST_THM] >>
+    `MAP FST css1 = MAP FST css2` by (
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> rw[] >>
+      first_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+    gvs[EVERY_EL, EL_MAP] >> rw[] >>
+    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >>
+    first_x_assum drule >> rw[]
+    )
+  >- (
+    Cases_on `usopt2` >> gvs[OPTREL_THM] >> disj1_tac >>
+    rpt (pairarg_tac >> gvs[]) >>
+    rpt $ first_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    Cases_on `usopt2` >> gvs[OPTREL_THM] >> ntac 2 disj2_tac >> disj1_tac >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[GSYM LAMBDA_PROD, GSYM FST_THM] >> rw[]
+    >- (
+      AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> rw[] >>
+      first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+      ) >>
+    gvs[EVERY_EL, EL_MAP] >> rw[] >>
+    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    first_x_assum drule >> rw[] >> gvs[]
+    ) >>
+  rpt disj2_tac >> rpt $ first_x_assum $ irule_at Any >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  gvs[GSYM LAMBDA_PROD, GSYM FST_THM] >>
+  `MAP FST css2 = MAP FST css1` by (
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> rw[] >>
+    first_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+  gvs[] >> reverse $ rpt conj_tac
+  >- (
+    gvs[EVERY_EL, EL_MAP] >> rw[] >>
+    ntac 2 $ first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >> gvs[]
+    )
+  >- (
+    rpt gen_tac >> strip_tac >> gvs[] >>
+    Cases_on `usopt1` >> Cases_on `usopt2` >> gvs[] >- (CCONTR_TAC >> gvs[]) >>
+    rename1 `foo = (_,_)` >> PairCases_on `foo` >> gvs[] >>
+    rename1 `bar = (_,_)` >> PairCases_on `bar` >> gvs[ELIM_UNCURRY] >>
+    gvs[EXISTS_PROD] >> CCONTR_TAC >> gvs[]
+    )
+  >- (
+    strip_tac >> gvs[] >> Cases_on `usopt1` >> gvs[]
+    )
 QED
 
 
