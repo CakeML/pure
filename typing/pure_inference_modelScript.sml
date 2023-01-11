@@ -642,7 +642,7 @@ QED
 
 Triviality infer_bind_alt_def:
   ∀g f.
-    infer_bind g f = λs. case g s of NONE => NONE | SOME ((a,b,c),s') => f (a,b,c) s'
+    infer_bind g f = λs. case g s of Err e => Err e | OK ((a,b,c),s') => f (a,b,c) s'
 Proof
   rw[FUN_EQ_THM, infer_bind_def] >> rpt (CASE_TAC >> simp[])
 QED
@@ -718,8 +718,8 @@ val _ = simpLib.register_frag inferM_ss;
 val inferM_rws = SF inferM_ss;
 
 Triviality infer_ignore_bind_simps[simp]:
-  (do _ <- ( λs. NONE) ; foo od = \s. NONE) ∧
-  (do _ <- ( λs. SOME ((),s)) ; foo od = foo)
+  (do _ <- ( λs. Err e) ; foo od = \s. Err e) ∧
+  (do _ <- ( λs. OK ((),s)) ; foo od = foo)
 Proof
   rw[FUN_EQ_THM, inferM_rws]
 QED
@@ -728,7 +728,7 @@ fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
 
 Theorem infer_minfer:
   ∀ns mset e n ty as cs m.
-    infer ns mset e n = SOME ((ty,as,cs),m) ∧
+    infer ns mset e n = OK ((ty,as,cs),m) ∧
     namespace_ok ns ∧
     (∀mvar. mvar ∈ domain mset ⇒ mvar < n) ⇒
     ∃mas.
@@ -1052,7 +1052,7 @@ Proof
     every_case_tac >> gvs[]
     >- ( (* Exception *)
       print_tac "Exception" >>
-      rename1 `_ = SOME ((_,_,cs),_)` >>
+      rename1 `_ = OK ((_,_,cs),_)` >>
       qsuff_tac
         `∃ass css.
           LIST_REL (λ(e,ty) (a,c). minfer ns (domain mset) e a c ty)
@@ -1088,8 +1088,8 @@ Proof
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
       every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
       last_x_assum drule >> strip_tac >> gvs[] >>
       last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
       disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
@@ -1142,7 +1142,7 @@ Proof
       ) >>
     print_tac "Cons"
     >- (
-      gvs[inferM_rws] >> rename1 `_ = SOME ((_,_,cs),m)` >>
+      gvs[inferM_rws] >> rename1 `_ = OK ((_,_,cs),m)` >>
       qsuff_tac
         `∃ass css.
           LIST_REL (λ(e,ty) (a,c). minfer ns (domain mset) e a c ty)
@@ -1229,8 +1229,8 @@ Proof
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
       every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
       last_x_assum drule >> strip_tac >> gvs[] >>
       last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
       disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
@@ -1282,7 +1282,7 @@ Proof
         )
       )
     >- (
-      gvs[inferM_rws] >> rename1 `_ = SOME ((_,_,cs),m)` >>
+      gvs[inferM_rws] >> rename1 `_ = OK ((_,_,cs),m)` >>
       qsuff_tac
         `∃ass css.
           LIST_REL (λ(e,ty) (a,c). minfer ns (domain mset) e a c ty)
@@ -1313,7 +1313,7 @@ Proof
       qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >>
       ntac 3 $ pop_assum kall_tac >> pop_assum mp_tac >>
       ntac 12 $ last_x_assum kall_tac >>
-      rename1 `FOLDR _ _ _ _ = SOME (_,m)` >>
+      rename1 `FOLDR _ _ _ _ = OK (_,m)` >>
       map_every qid_spec_tac [`m`,`n`,`tys`,`as`,`cs`] >>
       Induct_on `es` >> rw[] >> simp[]
       >- (
@@ -1321,8 +1321,8 @@ Proof
         simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
         ) >>
       every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
       last_x_assum drule >> strip_tac >> gvs[] >>
       last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
       disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
@@ -1378,7 +1378,7 @@ Proof
     print_tac "AtomOp" >>
     Cases_on `infer_atom_op (LENGTH es) aop` >> gvs[inferM_rws] >>
     pairarg_tac >> gvs[] >>
-    every_case_tac >> gvs[] >> rename1 `FOLDR _ _ _ _ = SOME ((tys,as,cs),m)` >>
+    every_case_tac >> gvs[] >> rename1 `FOLDR _ _ _ _ = OK ((tys,as,cs),m)` >>
     qsuff_tac
       `∃ass css.
         LIST_REL (λ(e,ty) (a,c). minfer ns (domain mset) e a c ty)
@@ -1410,8 +1410,8 @@ Proof
       simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
       ) >>
     every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
-    rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-    rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+    rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+    rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
     last_x_assum drule >> strip_tac >> gvs[] >>
     last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
     disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
@@ -1491,14 +1491,17 @@ Proof
       first_x_assum drule >> rw[]
       )
     )
+  >- gvs[fail_def] (* Seq empty case *)
+  >- gvs[fail_def] (* Seq singleton case *)
+  >- gvs[fail_def] (* Seq too many args case *)
   >- gvs[fail_def] (* App empty case *)
   >- ( (* App non-empty case *)
     print_tac "App" >>
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     rename [
-      `FOLDR _ _ _ _ = SOME ((tys,as,cs),m)`,
-      `infer _ _ _ _ = SOME ((ety,eas,ecs),l)`] >>
+      `FOLDR _ _ _ _ = OK ((tys,as,cs),m)`,
+      `infer _ _ _ _ = OK ((ety,eas,ecs),l)`] >>
     qsuff_tac
       `∃ass css.
         LIST_REL (λ(e,ty) (a,c). minfer ns (domain mset) e a c ty)
@@ -1622,8 +1625,8 @@ Proof
       simp[cvars_disjoint_def, new_vars_def, list_disjoint_def, pure_vars]
       ) >>
     every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
-    rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-    rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+    rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+    rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
     last_x_assum drule >> strip_tac >> gvs[] >>
     last_x_assum $ qspec_then `h` mp_tac >> simp[] >>
     disch_then drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
@@ -1792,8 +1795,8 @@ Proof
     gvs[inferM_rws] >> every_case_tac >> gvs[] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >>
     rename [
-      `FOLDR _ _ _ _ = SOME ((tys,as,cs),m)`,
-      `infer _ _ _ _ = SOME ((ety,eas,ecs),l)`] >>
+      `FOLDR _ _ _ _ = OK ((tys,as,cs),m)`,
+      `infer _ _ _ _ = OK ((ety,eas,ecs),l)`] >>
     qsuff_tac
       `∃ass css.
         LIST_REL (λ((fn,e),ty) (a,c). minfer ns (domain mset) e a c ty)
@@ -1935,8 +1938,8 @@ Proof
       ) >>
     every_case_tac >> gvs[PULL_EXISTS, EXISTS_PROD] >>
     pairarg_tac >> gvs[] >> every_case_tac >> gvs[] >> simp[PULL_EXISTS] >>
-    rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-    rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+    rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+    rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
     gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
     first_x_assum drule >> strip_tac >> gvs[] >>
     last_x_assum drule >> impl_tac >- (rw[] >> first_x_assum drule >> rw[]) >>
@@ -2010,8 +2013,8 @@ Proof
         goal_assum $ drule_at Any >> simp[]) >>
       gvs[] >> gvs[inferM_rws, get_case_type_def] >>
       every_case_tac >> gvs[] >>
-      rename1 `infer _ _ _ _ = SOME ((ety,eas,ecs),m)` >>
-      rename1 `infer _ _ _ (_ + _) = SOME ((tyrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = OK ((ety,eas,ecs),m)` >>
+      rename1 `infer _ _ _ (_ + _) = OK ((tyrest,asrest,csrest),r)` >>
       last_x_assum drule >> impl_tac
       >- (
         simp[domain_list_insert] >> rw[] >> gvs[MEM_GENLIST] >>
@@ -2094,11 +2097,11 @@ Proof
       ) >>
     qpat_abbrev_tac `cases = h::t` >>
     qmatch_asmsub_abbrev_tac `list_CASE _ _ (λv1 v2. foo)` >>
-    `foo n = SOME ((ty,as,cs),m)` by (PairCases_on `h` >> gvs[Abbr `cases`] >>
+    `foo n = OK ((ty,as,cs),m)` by (PairCases_on `h` >> gvs[Abbr `cases`] >>
       Cases_on `h0` >> gvs[] >> Cases_on `t` >> gvs[]) >>
     qpat_x_assum `(list_CASE _ _ _) _ = _` kall_tac >> gvs[Abbr `foo`] >>
     `∀n' ty' as' cs' m'.
-      infer ns mset e n' = SOME ((ty',as',cs'),m') ∧
+      infer ns mset e n' = OK ((ty',as',cs'),m') ∧
       (∀mvar. mvar ∈ domain mset ⇒ mvar < n') ⇒
       ∃mas.
         assumptions_rel as' mas ∧
@@ -2112,7 +2115,7 @@ Proof
       MEM (cname,pvars,rest) cases ⇒
         ∀n' ty' as' cs' m'.
           infer ns (list_insert (fresh_v::fresh_tyargs) mset) rest n' =
-          SOME ((ty',as',cs'),m') ∧
+          OK ((ty',as',cs'),m') ∧
           (∀mvar.
              mvar ∈ domain (list_insert (fresh_v::fresh_tyargs) mset) ⇒
              mvar < n') ⇒
@@ -2128,7 +2131,7 @@ Proof
     `∀us_cn_ars rest. eopt = SOME (us_cn_ars, rest) ⇒
       ∀fresh_v fresh_tyargs n' ty' as' cs' m'.
         infer ns (list_insert (fresh_v::fresh_tyargs) mset) rest n' =
-        SOME ((ty',as',cs'),m') ∧
+        OK ((ty',as',cs'),m') ∧
         (∀mvar.
            mvar ∈ domain (list_insert (fresh_v::fresh_tyargs) mset) ⇒
            mvar < n') ⇒
@@ -2141,7 +2144,7 @@ Proof
         Cases_on `eopt` >> gvs[] >>
         unabbrev_all_tac >> PairCases_on `h` >> gvs[]) >>
     last_x_assum assume_tac >> ntac 3 $ last_x_assum kall_tac >>
-    qpat_x_assum `_ = SOME _` assume_tac >> gvs[inferM_rws] >>
+    qpat_x_assum `_ = OK _` assume_tac >> gvs[inferM_rws] >>
     gvs[get_case_type_def] >> pop_assum mp_tac >> IF_CASES_TAC >> gvs[]
     >- (PairCases_on `h` >> gvs[]) >>
     IF_CASES_TAC >> gvs[]
@@ -2173,9 +2176,9 @@ Proof
       (
         qmatch_goalsub_abbrev_tac `[(cn1,_,_);(cn2,_,_)]` >>
         `{cn1;cn2} = {cn2;cn1}` by (rw[EXTENSION] >> eq_tac >> rw[]) >>
-        rename1 `infer _ _ e2 _ = SOME ((ty2,as2,cs2),n2)` >>
-        rename1 `infer _ _ e1 _ = SOME ((ty1,as1,cs1),n1)` >>
-        rename1 `infer _ _ e _ = SOME ((tye,ase,cse),ne)` >>
+        rename1 `infer _ _ e2 _ = OK ((ty2,as2,cs2),n2)` >>
+        rename1 `infer _ _ e1 _ = OK ((ty1,as1,cs1),n1)` >>
+        rename1 `infer _ _ e _ = OK ((tye,ase,cse),ne)` >>
         gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
         first_x_assum drule >> impl_tac
         >- (
@@ -2293,8 +2296,8 @@ Proof
       gvs[COND_RAND, COND_RATOR, inferM_rws] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename [
-        `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
-        `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`] >>
+        `infer _ _ _ _ = OK ((ety,eas,ecs),m)`,
+        `FOLDR _ _ _ _ = OK ((tyrest,asrest,csrest),l)`] >>
       `ALL_DISTINCT (MAP FST (FST ns))` by (
         PairCases_on `ns` >> gvs[namespace_ok_def, ALL_DISTINCT_APPEND]) >>
       `PERM (MAP (λ(cn,ts). (cn,LENGTH ts)) (FST ns))
@@ -2519,12 +2522,12 @@ Proof
         ) >>
       gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
       reverse $ Cases_on `ALL_DISTINCT pvars` >> gvs[inferM_rws] >>
-      qpat_x_assum `_ = SOME ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      qpat_x_assum `_ = OK ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
       pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[inferM_rws, PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),r)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),m)` >>
+      rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),r)` >>
+      rename1 `infer _ _ _ _ = OK ((ty,as,cs),m)` >>
       gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
       last_x_assum drule >> disch_then drule >> simp[] >>
       strip_tac >> gvs[] >>
@@ -2598,14 +2601,14 @@ Proof
     >- (
       print_tac "Case case - exhaustive" >>
       every_case_tac >> gvs[] >>
-      qmatch_asmsub_abbrev_tac `oreturn foo` >>
+      qmatch_asmsub_abbrev_tac `oreturn _ foo` >>
       Cases_on `foo` >> gvs[inferM_rws] >> rename1 `SOME (tyid,ar,cdefs)` >>
       gvs[inferM_rws] >> every_case_tac >> gvs[] >>
-      gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+      gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename [
-        `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
-        `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`] >>
+        `infer _ _ _ _ = OK ((ety,eas,ecs),m)`,
+        `FOLDR _ _ _ _ = OK ((tyrest,asrest,csrest),l)`] >>
       drule get_typedef_SOME >>
       disch_then $ qspec_then `FST ns` assume_tac >> gvs[] >>
       `EVERY (λ(cn,pvs,_).
@@ -2665,12 +2668,12 @@ Proof
         ) >>
       gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
       reverse $ Cases_on `ALL_DISTINCT pvars` >> gvs[inferM_rws] >>
-      qpat_x_assum `_ = SOME ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
-      PairCases_on `x` >> simp[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      qpat_x_assum `_ = OK ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[inferM_rws, PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),rm)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),mm)` >>
+      rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),rm)` >>
+      rename1 `infer _ _ _ _ = OK ((ty,as,cs),mm)` >>
       gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
       last_x_assum drule >> disch_then drule >> simp[] >>
       strip_tac >> gvs[] >>
@@ -2938,14 +2941,14 @@ Proof
       print_tac "Case case - NON-exhaustive" >>
       PairCases_on `x` >> rename1 `us_cn_ars,usrest` >> gvs[] >>
       every_case_tac >> gvs[] >>
-      qmatch_asmsub_abbrev_tac `oreturn foo` >>
+      qmatch_asmsub_abbrev_tac `oreturn _ foo` >>
       Cases_on `foo` >> gvs[inferM_rws] >> rename1 `SOME (tyid,ar,cdefs)` >>
       gvs[inferM_rws] >> every_case_tac >> gvs[] >>
-      gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
+      gvs[ALOOKUP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
       rename [
-        `infer _ _ _ _ = SOME ((ety,eas,ecs),m)`,
-        `FOLDR _ _ _ _ = SOME ((tyrest,asrest,csrest),l)`] >>
+        `infer _ _ _ _ = OK ((ety,eas,ecs),m)`,
+        `FOLDR _ _ _ _ = OK ((tyrest,asrest,csrest),l)`] >>
       drule get_typedef_SOME >>
       disch_then $ qspec_then `FST ns` assume_tac >> gvs[] >>
       `EVERY (λ(cn,pvs,_).
@@ -3005,12 +3008,12 @@ Proof
         ) >>
       gvs[Abbr `f`] >> pairarg_tac >> gvs[] >>
       reverse $ Cases_on `ALL_DISTINCT pvars` >> gvs[inferM_rws] >>
-      qpat_x_assum `_ = SOME ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
-      PairCases_on `x` >> simp[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      qpat_x_assum `_ = OK ((_,_,_),_)` mp_tac >> rpt (TOP_CASE_TAC >> gvs[]) >>
+      pairarg_tac >> gvs[] >> rpt (TOP_CASE_TAC >> gvs[]) >>
       strip_tac >> gvs[inferM_rws, PULL_EXISTS, EXISTS_PROD] >>
       qmatch_asmsub_abbrev_tac `FOLDR f` >>
-      rename1 `FOLDR _ _ _ _ = SOME ((tysrest,asrest,csrest),rm)` >>
-      rename1 `infer _ _ _ _ = SOME ((ty,as,cs),mm)` >>
+      rename1 `FOLDR _ _ _ _ = OK ((tysrest,asrest,csrest),rm)` >>
+      rename1 `infer _ _ _ _ = OK ((ty,as,cs),mm)` >>
       gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
       last_x_assum drule >> disch_then drule >> simp[] >>
       strip_tac >> gvs[] >>
@@ -3078,7 +3081,7 @@ Proof
         rename1 `foo ⊆ _` >> gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[]
         )
       ) >>
-      rename1 `infer _ _ usrest m = SOME ((usty,usas,uscs),k)` >>
+      rename1 `infer _ _ usrest m = OK ((usty,usas,uscs),k)` >>
       rw[] >> gvs[] >>
       last_x_assum drule >> impl_tac >- (rw[] >> last_x_assum drule >> simp[]) >>
       strip_tac >> gvs[] >>
@@ -3397,9 +3400,6 @@ Proof
       >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule_all >> simp[])
       )
     )
-  >- gvs[fail_def] (* Seq empty case *)
-  >- gvs[fail_def] (* Seq singleton case *)
-  >- gvs[fail_def] (* Seq too many args case *)
   >- gvs[fail_def] (* NestedCase *)
 QED
 

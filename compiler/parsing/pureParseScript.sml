@@ -69,7 +69,8 @@ Definition parse_tcheck_def:
   parse_tcheck s =
   do
     (ce, tysig) <- string_to_cexp s ;
-    tyresult <- infer_top_level ((I ## K tysig) initial_namespace) () ce ;
+    tyresult <- to_option $
+                  infer_top_level ((I ## K tysig) initial_namespace) () ce ;
     return (ce, tyresult) ;
   od
 End

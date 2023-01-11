@@ -3543,7 +3543,7 @@ Proof
 QED
 
 Theorem inference_constraints_sound:
-  namespace_ok ns ∧ infer ns LN e 0 = SOME ((ty,as,cs), n) ∧
+  namespace_ok ns ∧ infer ns LN e 0 = OK ((ty,as,cs), n) ∧
   null as ∧
   pure_wfs sub ∧
   (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
@@ -3592,7 +3592,7 @@ Proof
 QED
 
 Theorem inference_constraints_safe_itree:
-  namespace_ok ns ∧ infer ns LN e 0 = SOME ((ty,as,cs), n) ∧
+  namespace_ok ns ∧ infer ns LN e 0 = OK ((ty,as,cs), n) ∧
   null as ∧
   pure_wfs sub ∧
   (∀it. it ∈ FRANGE sub ⇒ itype_ok (SND ns) 0 it) ∧
@@ -3768,7 +3768,7 @@ Proof
 QED
 
 Theorem solve_monad_mono:
-  ∀cs n ss m. solve cs n = SOME (ss, m) ⇒ n ≤ m
+  ∀cs n ss m. solve cs n = OK (ss, m) ⇒ n ≤ m
 Proof
   Induct using solve_ind >> simp[Once solve_def] >- gvs[return_def] >>
   rpt gen_tac >> TOP_CASE_TAC >> gvs[fail_def] >>
@@ -3789,7 +3789,7 @@ QED
 Theorem solve_sound:
   ∀ns. namespace_ok ns ⇒
   ∀cs sub n m.
-    solve cs n = SOME (sub,m) ∧
+    solve cs n = OK (sub,m) ∧
     constraints_ok (SND ns) (set (MAP to_mconstraint cs)) ∧
     (BIGUNION $ set (MAP (constraint_vars o to_mconstraint) cs) ⊆ count n)
   ⇒ pure_wfs sub ∧
@@ -4142,7 +4142,7 @@ QED
 
 Theorem infer_top_level_typed:
   namespace_ok ns ∧
-  IS_SOME (infer_top_level ns d cexp) ⇒
+  is_ok (infer_top_level ns d cexp) ⇒
   type_tcexp ns 0 [] [] (tcexp_of cexp) (M Unit)
 Proof
   rw[] >> gvs[infer_top_level_def] >>
@@ -4151,7 +4151,7 @@ Proof
   every_case_tac >> gvs[] >>
   Cases_on `solve (Unify d ty (M Unit)::cs) r` >> gvs[] >>
   drule inference_constraints_sound >> rpt $ disch_then drule >>
-  PairCases_on `x` >> rename1 `sub,r'` >>
+  PairCases_on `a` >> rename1 `sub,r'` >>
   disch_then $ qspecl_then [`sub`,`M Unit`,`0`] mp_tac >>
   simp[type_of_def] >> disch_then irule >>
   drule infer_minfer >> simp[] >> strip_tac >> gvs[] >>
@@ -4181,7 +4181,7 @@ QED
 
 Theorem infer_top_level_sound:
   namespace_ok ns ∧
-  IS_SOME (infer_top_level ns d cexp) ⇒
+  is_ok (infer_top_level ns d cexp) ⇒
   safe_itree (itree_of (exp_of cexp))
 Proof
   rw[] >> drule_all infer_top_level_typed >> strip_tac >>
@@ -4242,7 +4242,7 @@ Proof
 QED
 
 Theorem infer_types_SOME:
-  infer_types tysig e = SOME v
+  infer_types tysig e = OK v
   ⇒
   cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
   namespace_init_ok ((I ## K tysig) initial_namespace) ∧
@@ -4252,7 +4252,7 @@ Theorem infer_types_SOME:
            (∃x. s0 = IMAGE (explode ## I) x ∧ x ∈ cns_arities e) ∧
               s = IMAGE (implode ## I) s0)}
 Proof
-  strip_tac >> gvs[infer_types_def, AllCaseEqs()] >>
+  strip_tac >> gvs[infer_types_def, AllCaseEqs(), fail_def] >>
   drule typedefs_ok_IMP_namespace_init_ok >> strip_tac >> gvs[] >>
   gvs[namespace_init_ok_def] >>
   drule $ inst infer_top_level_typed >>

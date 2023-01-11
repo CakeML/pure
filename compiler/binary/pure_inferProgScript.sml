@@ -106,21 +106,21 @@ val r = translate pure_varsTheory.list_delete_def;
 
 Theorem infer_bind_eq:
   infer_bind g f =
-    λs. case g s of NONE => NONE | SOME (x,s') => f x s'
+    λs. case g s of Err e => Err e | OK (x,s') => f x s'
 Proof
   fs [FUN_EQ_THM,infer_bind_def]
 QED
 
 Theorem infer_bind_eq:
   infer_bind g f =
-    λs. case g s of NONE => NONE | SOME (x,s') => f x s'
+    λs. case g s of Err e => Err e | OK (x,s') => f x s'
 Proof
   fs [FUN_EQ_THM,infer_bind_def]
 QED
 
 Theorem infer_ignore_bind_eq:
   infer_ignore_bind g f =
-    λs. case g s of NONE => NONE | SOME (x,s') => f s'
+    λs. case g s of Err e => Err e | OK (x,s') => f s'
 Proof
   fs [FUN_EQ_THM,infer_bind_def,infer_ignore_bind_def]
 QED
@@ -433,10 +433,10 @@ QED
 val _ = subst_constraint_side |> update_precondition;
 
 Triviality infer_bind:
-  infer_bind (g : 'a inferM) f = λs.
+  infer_bind (g : ('a,'e) inferM) f = λs.
     case g s of
-    | NONE => NONE
-    | SOME (x, s') => (f x : 'b inferM) s'
+    | Err e => Err e
+    | OK (x, s') => (f x : ('b,'e) inferM) s'
 Proof
   fs [infer_bind_def,FUN_EQ_THM]
 QED

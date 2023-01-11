@@ -61,11 +61,12 @@ Proof
   \\ ‘letrecs_distinct (exp_of e3)’
      by simp [Abbr ‘e3’, transform_cexp_letrecs_distinct]
   \\ qspec_then ‘e3’ assume_tac demands_analysis_soundness \\ fs []
+  \\ gvs[DefnBase.one_line_ify NONE pure_inferenceTheory.to_option_def, AllCaseEqs()]
   \\ drule_then strip_assume_tac infer_types_SOME
-  \\ gvs[pure_inferenceTheory.infer_types_def,
-         pure_typingTheory.namespace_init_ok_def] >>
+  \\ gvs[pure_inferenceTheory.infer_types_def, pure_inferenceTheory.fail_def,
+         pure_typingTheory.namespace_init_ok_def, AllCaseEqs()] >>
      drule $ INST_TYPE [alpha |-> ``:(mlstring,unit) map``] infer_top_level_typed >>
-     simp[IS_SOME_EXISTS, PULL_EXISTS] >> disch_then dxrule >> strip_tac >>
+     disch_then $ qspecl_then [`empty`,`e3`] assume_tac >> gvs[] >>
      gvs[pure_demands_analysisTheory.demands_analysis_def] >>
      qabbrev_tac `d = demands_analysis_fun Nil e3 (empty str_compare)` >>
      PairCases_on `d` >> gvs[] >>

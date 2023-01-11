@@ -106,7 +106,8 @@ in
                 pred_setLib.add_pred_set_compset,
                 add_unify_compset
                 ] ::
-              computeLib.Tys [``:ordering``,``:itype``,``:'a constraint``] ::
+              computeLib.Tys [``:ordering``,``:itype``,``:'a constraint``,
+                              ``:('a,'b) inferResult``] ::
               computeLib.Defs [pure_walk] ::
               map (computeLib.Defs o theory_computes) [
                 "pure_inference", "pure_inference_common",

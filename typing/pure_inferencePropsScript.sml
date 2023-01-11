@@ -1395,7 +1395,8 @@ Proof
     last_x_assum drule >> rw[]
     ) >>
   qmatch_goalsub_abbrev_tac `case css of [] => _ | _::_ => foo` >>
-  `(case css of [] => fail | _::_ => foo) = foo` by (Cases_on `css` >> gvs[]) >>
+  `(case css of [] => fail (Unknown d) | _::_ => foo) = foo` by (
+    Cases_on `css` >> gvs[]) >>
   pop_assum SUBST_ALL_TAC >> unabbrev_all_tac >> rw[LAMBDA_PROD, FUN_EQ_THM] >>
   ntac 2 (rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> rw[FUN_EQ_THM]) >>
   map_every qpat_abbrev_tac [`left = FOLDR _ _ _`,`right = FOLDR _ _ _`] >>
@@ -1412,21 +1413,20 @@ Proof
     pairarg_tac >> gvs[] >>
     once_rewrite_tac[infer_bind_def] >>
     ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[] >>
-    simp[infer_bind_def] >> rename1 `oreturn _ n` >>
-    qsuff_tac `oreturn (oHD tys') n = SOME (HD tys', n)` >> simp[] >>
+    simp[infer_bind_def] >> rename1 `oreturn _ _ n` >>
+    qsuff_tac `oreturn (Unknown d) (oHD tys') n = OK (HD tys', n)` >> simp[] >>
     pop_assum mp_tac >> simp[infer_bind_def] >>
     ntac 2 (TOP_CASE_TAC >> gvs[]) >> pairarg_tac >> gvs[] >>
     simp[return_def] >> rw[] >> simp[oreturn_def, return_def]
     ) >>
-  simp[return_def, infer_bind_def] >> rename1 `oreturn _ n` >>
-  qsuff_tac `oreturn (oHD tys) n = SOME $ (HD tys, n)` >> simp[] >>
+  simp[return_def, infer_bind_def] >> rename1 `oreturn _ _ n` >>
+  qsuff_tac `oreturn (Unknown d) (oHD tys) n = OK (HD tys, n)` >> simp[] >>
   qsuff_tac `LENGTH tys = LENGTH css`
   >- (rw[] >> Cases_on `tys` >> gvs[oreturn_def, return_def]) >>
   qpat_x_assum `FOLDR _ _ _ _ = _` mp_tac >> rpt $ pop_assum kall_tac >>
   map_every qid_spec_tac [`x`,`r`,`tys`,`as`,`cs`,`css`] >>
   Induct >> rw[] >- gvs[return_def] >>
   pairarg_tac >> gvs[] >> pop_assum mp_tac >>
-
   once_rewrite_tac[infer_ignore_bind_def] >>
   once_rewrite_tac[infer_bind_def] >>
   TOP_CASE_TAC >> gvs[fail_def] >> TOP_CASE_TAC >> gvs[] >>

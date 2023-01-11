@@ -26,7 +26,7 @@ Definition compile_def:
     | NONE => NONE
     | SOME (e1,ns) =>
       let e2 = transform_cexp e1 in
-        case infer_types ns e2 of
+        case to_option (infer_types ns e2) of
         | NONE => NONE
         | SOME _ =>
           let e3 = demands_analysis e2 in
@@ -38,7 +38,7 @@ Theorem compile_monadically:
   do
     (e1,ns) <- string_to_cexp s ;
     e2 <<- transform_cexp e1 ;
-    infer_types ns e2 ;
+    to_option $ infer_types ns e2 ;
     e3 <<- demands_analysis e2 ;
     return (ast_to_string $ pure_to_cake ns e3)
   od

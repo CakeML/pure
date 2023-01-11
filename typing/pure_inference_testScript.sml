@@ -14,7 +14,7 @@ Definition solve_def:
         solve (MAP (monomorphise_implicit active) cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
-        sub <- oreturn $ pure_unify FEMPTY t1 t2;
+        sub <- oreturn (Unknown d) $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve cs';
         return (sub :: solve_rest) od
@@ -53,11 +53,11 @@ Definition parse_and_infer_def:
   parse_and_infer parse ns str = do
       parsed <<- parse str;
       (ty, as, cs) <- infer ns LN parsed;
-      if ¬ null as then fail else return ();
+      if ¬ null as then fail (Unknown ARB) else return ();
       subs <- solve cs;
       sub_ty <<- subst_solution subs ty;
       (vars, _, gen_ty) <<- generalise 0 LN FEMPTY sub_ty;
-      res_ty <- oreturn $ type_of gen_ty;
+      res_ty <- oreturn (Unknown ARB) $ type_of gen_ty;
       return (vars, res_ty)
     od 0
 End
@@ -73,7 +73,7 @@ Definition solve_k_def:
         solve_k n (MAP (monomorphise_implicit active) cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
-        sub <- oreturn $ pure_unify FEMPTY t1 t2;
+        sub <- oreturn (Unknown d) $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve_k n cs';
         return (sub :: solve_rest) od
@@ -97,7 +97,7 @@ Definition parse_and_get_constraints_def:
   parse_and_get_constraints parse ns str = do
       parsed <<- parse str;
       (ty, as, cs) <- infer ns LN parsed;
-      if ¬ null as then fail else return (ty, cs)
+      if ¬ null as then fail (Unknown ARB) else return (ty, cs)
     od 0
 End
 
@@ -105,10 +105,14 @@ Definition parse_and_solve_k_def:
   parse_and_solve_k k parse ns str = do
       parsed <<- parse str;
       (ty, as, cs) <- infer ns LN parsed;
-      if ¬ null as then fail else return ();
+      if ¬ null as then fail (Unknown ARB) else return ();
       subs <- solve_k k cs;
       return subs
     od 0
+End
+
+Definition from_ok_def[simp]:
+  from_ok (OK ok) = ok
 End
 
 fun debug_eval tm =
@@ -119,7 +123,8 @@ fun debug_eval tm =
                   fetch "-" "subst_solution_def",
                   fetch "-" "solve_k_compute",
                   fetch "-" "parse_and_get_constraints_def",
-                  fetch "-" "parse_and_solve_k_def"
+                  fetch "-" "parse_and_solve_k_def",
+                  fetch "-" "from_ok_def"
                   ]] cmp
   in (SIMP_CONV (srw_ss()) [parse_and_infer_def]
         THENC computeLib.CBV_CONV cmp) tm end;
@@ -169,7 +174,7 @@ Definition example_2_infer_def[simp]:
 End
 
 Theorem example_2_infer:
-  example_2_infer = SOME $
+  example_2_infer = OK $
     ((Function (CVar 0) (CVar 1),
       fromList var_cmp [],
       [
@@ -185,14 +190,14 @@ QED
 
 Definition example_2_solve_def[simp]:
   example_2_solve =
-    let ((t, _, cs), cvs) = THE example_2_infer in
+    let ((t, _, cs), cvs) = from_ok example_2_infer in
     (t, solve cs cvs)
 End
 
 Theorem example_2_solve:
   example_2_solve = (
     Function (CVar 0) (CVar 1),
-    SOME (
+    OK (
       [
         FEMPTY;
         FEMPTY |+ (0,CVar 4); FEMPTY |+ (2,CVar 4);
@@ -208,7 +213,7 @@ QED
 Definition example_2_solved_def[simp]:
   example_2_solved =
     let (t, res) = example_2_solve in
-    let (subs, _) = THE res in
+    let (subs, _) = from_ok res in
     subst_solution subs t
 End
 
