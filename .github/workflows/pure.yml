@@ -150,7 +150,3 @@ jobs:
       run: |
         cd pure/examples
         Holmake
-    - name: Build examples
-      run: |
-        cd pure/examples
-        Holmake
