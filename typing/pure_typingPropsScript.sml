@@ -1712,6 +1712,44 @@ Proof
     )
 QED
 
+Theorem insert_seq_preserves_cexp_wf:
+  insert_seq a b ∧ cexp_wf a ⇒ cexp_wf b
+Proof
+  Induct_on `insert_seq` >> rw[cexp_wf_def] >> gvs[num_args_ok_def] >>
+  gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP] >>
+  rw[] >> rpt $ first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+  >- (CCONTR_TAC >> gvs[])
+  >- (CCONTR_TAC >> gvs[])
+  >- (CCONTR_TAC >> gvs[])
+  >- (
+    Cases_on `usopt1` >> Cases_on `usopt2` >> gvs[OPTREL_THM] >>
+    rpt (pairarg_tac >> gvs[])
+    )
+  >- (
+    gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >>
+    simp[Once MEM_EL, Once EQ_SYM_EQ] >> rw[DISJ_EQ_IMP] >>
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >> gvs[] >>
+    gvs[MEM_EL] >> metis_tac[]
+    ) >>
+  `MAP FST css2 = MAP FST css1` by (
+    rw[MAP_EQ_EVERY2] >> gvs[LIST_REL_EL_EQN] >> rw[] >>
+    last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+  gvs[] >> Cases_on `usopt1` >> Cases_on `usopt2` >> gvs[] >>
+  rpt (pairarg_tac >> gvs[])
+QED
+
+Theorem insert_seq_imps:
+  cexp_wf a ∧ type_tcexp ns db st env (tcexp_of a) t ∧ insert_seq a b
+  ⇒ cexp_wf b ∧ NestedCase_free b ∧ type_tcexp ns db st env (tcexp_of b) t
+Proof
+  strip_tac >>
+  map_every imp_res_tac [
+    insert_seq_preserves_typing,
+    insert_seq_preserves_cexp_wf,
+    insert_seq_NestedCase_free] >>
+  simp[]
+QED
+
 
 (********************)
 

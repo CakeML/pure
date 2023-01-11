@@ -61,15 +61,24 @@ Proof
   \\ ‘letrecs_distinct (exp_of e3)’
      by simp [Abbr ‘e3’, transform_cexp_letrecs_distinct]
   \\ qspec_then ‘e3’ assume_tac demands_analysis_soundness \\ fs []
-  \\ dxrule_then strip_assume_tac infer_types_SOME
-  \\ dxrule_then strip_assume_tac infer_types_SOME
-  \\ gs []
-  \\ qsuff_tac ‘itree_of (exp_of e1) = itree_of (exp_of e2)’
-  >-
-   (disch_then $ rewrite_tac o single
+  \\ drule_then strip_assume_tac infer_types_SOME
+  \\ gvs[pure_inferenceTheory.infer_types_def,
+         pure_typingTheory.namespace_init_ok_def] >>
+     drule $ INST_TYPE [alpha |-> ``:(mlstring,unit) map``] infer_top_level_typed >>
+     simp[IS_SOME_EXISTS, PULL_EXISTS] >> disch_then dxrule >> strip_tac >>
+     gvs[pure_demands_analysisTheory.demands_analysis_def] >>
+     qabbrev_tac `d = demands_analysis_fun Nil e3 (empty str_compare)` >>
+     PairCases_on `d` >> gvs[] >>
+     dxrule_then assume_tac $ cj 5 demands_analysis_fun_insert_seq >> gvs[] >>
+     dxrule_all_then assume_tac pure_typingPropsTheory.insert_seq_imps >> gvs[] >>
+     dxrule well_typed_program_imps >> disch_then drule >>
+     impl_tac >- gvs[pure_tcexp_lemmasTheory.cexp_wf_tcexp_wf] >> strip_tac
+  \\ qsuff_tac ‘itree_of (exp_of e1) = itree_of (exp_of d1)’
+  >- (
+    disch_then $ rewrite_tac o single
     \\ irule_at Any pure_to_cakeProofTheory.pure_to_cake_correct
-    \\ fs [cns_ok_def]
-    \\ imp_res_tac infer_types_SOME \\ fs [])
+    \\ fs [cns_ok_def, pure_typingTheory.namespace_init_ok_def, EXISTS_PROD]
+    )
   \\ mp_tac safe_exp_app_bisim_F_IMP_same_itree
   \\ gvs [pure_exp_relTheory.app_bisimilarity_eq]
   \\ disch_then drule_all \\ fs []

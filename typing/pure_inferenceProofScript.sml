@@ -4220,6 +4220,27 @@ QED
 
 val inst = INST_TYPE [alpha |-> ``:(mlstring,'a) map``];
 
+Theorem well_typed_program_imps:
+  type_tcexp ns 0 [] [] (tcexp_of e) (M Unit) ∧
+  namespace_ok ns ∧ cexp_Lits_wf e
+  ⇒ cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
+    safe_exp (exp_of e) ∧
+    cns_arities_ok ns
+      {s | (∃s0.
+             (∃x. s0 = IMAGE (explode ## I) x ∧ x ∈ cns_arities e) ∧
+                s = IMAGE (implode ## I) s0)}
+Proof
+  strip_tac >> drule_at Any type_tcexp_NestedCase_free >> simp[] >>
+  disch_then $ drule_then assume_tac >> simp[] >>
+  irule_at Any $ iffRL cexp_wf_tcexp_wf >>
+  drule_at (Pos last) type_tcexp_tcexp_wf >> simp[] >> strip_tac >>
+  drule type_tcexp_freevars_tcexp >> simp[freevars_tcexp_of] >>
+  simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of] >>
+  strip_tac >> irule_at Any type_soundness_cexp >> rpt $ goal_assum $ drule_at Any >>
+  simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[ELIM_UNCURRY] >> drule type_tcexp_cnames_arities >> rw[]
+QED
+
 Theorem infer_types_SOME:
   infer_types tysig e = SOME v
   ⇒
@@ -4236,15 +4257,7 @@ Proof
   gvs[namespace_init_ok_def] >>
   drule $ inst infer_top_level_typed >>
   disch_then $ qspecl_then [`pure_vars$empty`,`e`] mp_tac >> simp[] >> strip_tac >>
-  drule_at Any $ inst type_tcexp_NestedCase_free >> simp[] >>
-  disch_then $ qspec_then `e` assume_tac >> gvs[] >>
-  irule_at Any $ iffRL cexp_wf_tcexp_wf >>
-  drule_at Any type_tcexp_tcexp_wf >> simp[] >> strip_tac >>
-  drule type_tcexp_freevars_tcexp >> simp[freevars_tcexp_of] >>
-  simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of] >>
-  strip_tac >> irule_at Any type_soundness_cexp >> rpt $ goal_assum $ drule_at Any >>
-  simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
-  simp[ELIM_UNCURRY] >> drule $ inst type_tcexp_cnames_arities >> rw[] >>
+  irule well_typed_program_imps >> simp[] >>
   irule minfer_cexp_Lits_wf >>
   gvs[infer_top_level_def, infer_bind_def] >> every_case_tac >> gvs[] >>
   PairCases_on `q` >> drule infer_minfer >> rw[] >> simp[SF SFY_ss]

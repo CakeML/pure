@@ -30,10 +30,7 @@ Definition compile_def:
         | NONE => NONE
         | SOME _ =>
           let e3 = demands_analysis e2 in
-            case infer_types ns e3 of
-            | NONE => NONE
-            | SOME _ =>
-                SOME (ast_to_string $ pure_to_cake ns e3)
+          SOME (ast_to_string $ pure_to_cake ns e3)
 End
 
 Theorem compile_monadically:
@@ -43,7 +40,6 @@ Theorem compile_monadically:
     e2 <<- transform_cexp e1 ;
     infer_types ns e2 ;
     e3 <<- demands_analysis e2 ;
-    infer_types ns e3 ;
     return (ast_to_string $ pure_to_cake ns e3)
   od
 Proof
