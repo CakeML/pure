@@ -3822,14 +3822,15 @@ Proof
       imp_res_tac generalise_0_FEMPTY >> gvs[] >>
       qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new,gen_sub,_)` >>
       `FDIFF gen_sub (domain (union vs active)) = gen_sub` by (
-        rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+        rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[] >>
+        metis_tac[]) >>
       pop_assum SUBST_ALL_TAC >> rw[]
       >- (
         irule itype_ok_pure_apply_subst >>
         simp[IN_FRANGE_FLOOKUP, PULL_EXISTS, FLOOKUP_o_f] >>
         reverse $ rw[] >- gvs[itype_ok_def] >>
         FULL_CASE_TAC >> gvs[] >> simp[itype_ok] >>
-        gvs[EXTENSION, FRANGE_FLOOKUP, EQ_IMP_THM, SF DNF_ss] >> res_tac
+        gvs[EXTENSION, FRANGE_FLOOKUP, FLOOKUP_FDIFF, EQ_IMP_THM, SF DNF_ss] >> res_tac
         )
       >- (
         gvs[constraint_vars_def] >> simp[pure_vars_pure_apply_subst] >>
@@ -3846,7 +3847,8 @@ Proof
       pairarg_tac >> gvs[] >> imp_res_tac generalise_0_FEMPTY >> gvs[] >>
       qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new,gen_sub,_)` >>
       `FDIFF gen_sub (domain (union vs active)) = gen_sub` by (
-        rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+        rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[] >>
+        metis_tac[]) >>
       pop_assum SUBST_ALL_TAC >> rw[mactivevars_def, SUBSET_DEF] >>
       simp[MEM_MAP, PULL_EXISTS]
       >- (disj1_tac >> goal_assum $ drule_at Any >> simp[mactivevars_def]) >>
@@ -3862,7 +3864,8 @@ Proof
       pairarg_tac >> gvs[] >> imp_res_tac generalise_0_FEMPTY >> gvs[] >>
       qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new,gen_sub,_)` >>
       `FDIFF gen_sub (domain (union vs active)) = gen_sub` by (
-        rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+        rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[] >>
+        metis_tac[]) >>
       pop_assum SUBST_ALL_TAC >> gvs[LIST_TO_SET_MAP, IMAGE_IMAGE] >>
       `BIGUNION $ IMAGE
         (mactivevars o to_mconstraint o monomorphise_implicit active) (set l) =
@@ -3874,7 +3877,8 @@ Proof
           drule generalise_0_FEMPTY >> strip_tac >> gvs[] >>
           qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new',gen_sub',_)` >>
           `FDIFF gen_sub' (domain (union vs' active)) = gen_sub'` by (
-            rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+            rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[] >>
+            metis_tac[]) >>
           pop_assum SUBST_ALL_TAC >>
           gvs[mactivevars_def, SUBSET_DEF] >> simp[MEM_MAP, PULL_EXISTS]
           >- (goal_assum $ drule_at Any >> simp[mactivevars_def]) >>
@@ -3890,7 +3894,8 @@ Proof
           drule generalise_0_FEMPTY >> strip_tac >> gvs[] >>
           qmatch_asmsub_abbrev_tac `generalise _ _ _ _ = (new',gen_sub',_)` >>
           `FDIFF gen_sub' (domain (union vs' active)) = gen_sub'` by (
-            rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[]) >>
+            rw[fmap_eq_flookup, FLOOKUP_FDIFF] >> rw[FLOOKUP_DEF] >> gvs[] >>
+            metis_tac[]) >>
           pop_assum SUBST_ALL_TAC >>
           gvs[mactivevars_def, SUBSET_DEF] >> simp[MEM_MAP, PULL_EXISTS] >> disj2_tac >>
           simp[pure_vars_pure_apply_subst] >>
@@ -3918,7 +3923,7 @@ Proof
       simp[combinTheory.o_DEF, pure_walkstar_alt] >> irule_at Any EQ_REFL >>
       simp[GSYM IMAGE_FRANGE, PULL_EXISTS] >> rw[]
       >- (
-        simp[DIFF_SUBSET] >> rw[SUBSET_DEF, SF DNF_ss] >>
+        simp[FDOM_FDIFF_alt, DIFF_SUBSET] >> rw[SUBSET_DEF, SF DNF_ss] >>
         Cases_on `x ∈ domain vs` >> gvs[] >>
         `x < n` by (
           gvs[SUBSET_DEF, SF DNF_ss] >> last_x_assum irule >>
@@ -3936,27 +3941,26 @@ Proof
         simp[pure_vars] >> Cases_on `x ≠ x'` >> gvs[] >>
         gvs[GSYM IMAGE_FRANGE, pure_rangevars]
         )
-      >- (gvs[GSYM IMAGE_FRANGE, EVERY_EL] >> simp[isubst_def])
       >- (
+        gvs[GSYM IMAGE_FRANGE, EVERY_EL] >> simp[isubst_def] >>
+        gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF] >>
+        qpat_x_assum `FRANGE gen_sub = _` $ mp_tac >>
+        simp[EXTENSION, IN_FRANGE_FLOOKUP, EQ_IMP_THM, PULL_EXISTS] >>
+        rw[] >> gvs[] >> metis_tac[]
+        )
+      >- (
+        gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF, FDOM_FDIFF_alt] >>
+        `x < LENGTH subs` by (gvs[EXTENSION, IN_FRANGE_FLOOKUP] >> metis_tac[]) >>
         simp[isubst_def, pure_vars_pure_apply_subst] >>
-        rw[SUBSET_DEF, PULL_EXISTS] >>
-        `∃rev_gen. fmap_linv gen_sub rev_gen` by (
-          irule $ iffRL CARD_has_fmap_linv >> simp[] >>
-          DEP_REWRITE_TAC[CARD_DIFF] >> rw[PULL_EXISTS] >>
-          imp_res_tac get_solveable_NONE >> gvs[] >> pop_assum drule >> rw[] >>
-          simp[mactivevars_def]) >>
-        gvs[fmap_linv_alt_def] >>
-        qexists_tac `rev_gen ' x` >>
-        simp[pure_apply_subst, FLOOKUP_DEF, FRANGE_DEF] >>
-        reverse IF_CASES_TAC >- gvs[] >> pop_assum kall_tac >> simp[] >>
-        gvs[DISJOINT_ALT, FRANGE_DEF, PULL_EXISTS] >> last_x_assum drule >> rw[] >>
-        `rev_gen ' x ∈ pure_vars t2` by (
-          qpat_x_assum `_ DIFF _ = _` mp_tac >>
-          simp[Once EXTENSION, EQ_IMP_THM, SF DNF_ss]) >>
-        rename1 `foo ∈ _` >>
+        rw[SUBSET_DEF, PULL_EXISTS] >> gvs[] >>
+        simp[pure_apply_subst, FLOOKUP_o_f, FLOOKUP_FDIFF, PULL_EXISTS] >>
+        gvs[DISJ_EQ_IMP, PULL_FORALL, PULL_EXISTS] >>
+        qexists_tac `k` >> simp[] >> IF_CASES_TAC >> gvs[] >>
         simp[pure_vars_pure_walkstar_alt] >> simp[PULL_EXISTS, pure_vars] >>
+        qpat_x_assum `FLOOKUP _ k = _` mp_tac >> rw[FLOOKUP_DEF] >>
+        `k ∉ FDOM sub` by gvs[DISJOINT_ALT, pure_substvars] >>
         goal_assum $ drule_at Any >>
-        simp[pure_walkstar_alt, FLOOKUP_DEF] >> gvs[pure_substvars, pure_vars]
+        simp[pure_walkstar_alt, FLOOKUP_DEF, pure_vars]
         )
       )
     ) >>

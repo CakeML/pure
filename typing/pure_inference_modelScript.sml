@@ -772,7 +772,7 @@ Proof
       DEP_REWRITE_TAC[cj 1 unionWith_thm, cj 2 unionWith_thm, lookup_unionWith] >>
       simp[maunion_def, FLOOKUP_FMERGE] >>
       every_case_tac >> gvs[] >> rw[] >>
-      once_rewrite_tac[UNION_COMM] >> metis_tac[wf_union, domain_union]
+      simp[AC UNION_ASSOC UNION_COMM] >> metis_tac[wf_union, domain_union]
       )
     >- (
       qpat_x_assum `minfer _ _ _ _ _ (Tuple _)` mp_tac >>
@@ -1890,12 +1890,10 @@ Proof
         ntac 3 $ first_x_assum $ qspec_then `p_1` assume_tac >>
         rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS]
         >- (first_x_assum drule >> simp[SUBSET_DEF])
-        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[])
-        >- (
-          gvs[domain_union] >>
-          first_x_assum drule >> first_x_assum drule >> simp[SUBSET_DEF] >>
-          rw[] >> first_x_assum drule >> simp[]
-          )
+        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]) >>
+        gvs[domain_union] >>
+        first_x_assum drule >> first_x_assum drule >> simp[SUBSET_DEF] >>
+        rw[] >> first_x_assum drule >> simp[]
         )
       >- (
         gvs[get_assumptions_def, assumptions_rel_def] >> every_case_tac >> gvs[] >>
@@ -1905,12 +1903,10 @@ Proof
         ntac 3 $ first_x_assum $ qspec_then `p_1` assume_tac >>
         rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS]
         >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[])
-        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[])
-        >- (
-          gvs[domain_union] >>
-          first_x_assum drule >> first_x_assum drule >> simp[SUBSET_DEF] >>
-          rw[] >> first_x_assum drule >> simp[]
-          )
+        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]) >>
+        gvs[domain_union] >>
+        first_x_assum drule >> first_x_assum drule >> simp[SUBSET_DEF] >>
+        rw[] >> first_x_assum drule >> simp[]
         )
       >- (
         last_x_assum $ qspec_then `EL n'' tys` mp_tac >> simp[EL_MEM, SUBSET_DEF] >>
