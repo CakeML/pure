@@ -255,12 +255,12 @@ Proof
 QED
 
 Theorem application_thm:
-  application op (tenv:env) tvs ts tk = (tr1,ts1,tk1) ∧
+  application op tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
   LIST_REL v_rel tvs svs ∧
   num_args_ok op (LENGTH svs) ⇒
   ∃sr1 ss1 sk1.
-    application op (senv:env) svs ss sk = (sr1,ss1,sk1) ∧
+    application op svs ss sk = (sr1,ss1,sk1) ∧
     OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
     step_res_rel tr1 tk1 sr1 sk1
 Proof
@@ -701,10 +701,9 @@ Proof
     >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
     \\ Cases_on ‘REVERSE xs’ \\ gvs []
     >-
-     (‘∃a. application op env1 [] ts tk = a’ by fs [] \\ PairCases_on ‘a’
+     (‘∃a. application op [] ts tk = a’ by fs [] \\ PairCases_on ‘a’
       \\ drule application_thm \\ fs []
-      \\ disch_then drule_all
-      \\ disch_then $ qspec_then ‘env2’ strip_assume_tac \\ gvs []
+      \\ disch_then drule_all \\ strip_tac \\ gvs[]
       \\ fs [step_1_ind_hyp_def]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ rpt $ disch_then $ drule_at $ Pos $ last
@@ -897,11 +896,10 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ simp [Once step_res_rel_cases]
     \\ simp [Once cont_rel_cases] \\ NO_TAC)
-  \\ ‘∃x. application op tenv (v1::tvs) ts tk = x’ by fs []
+  \\ ‘∃x. application op (v1::tvs) ts tk = x’ by fs []
   \\ PairCases_on ‘x’
   \\ drule application_thm \\ fs [PULL_EXISTS]
-  \\ rpt $ disch_then drule \\ simp []
-  \\ disch_then $ qspec_then ‘senv’ strip_assume_tac \\ gvs []
+  \\ rpt $ disch_then drule \\ simp [] \\ strip_tac \\ gvs[]
   \\ first_assum $ irule_at Any \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd \\ fs []
 QED

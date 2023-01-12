@@ -236,12 +236,12 @@ Proof
 QED
 
 Theorem application_thm:
-  application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
+  application op tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
-  LIST_REL v_rel tvs svs ∧ env_rel tenv senv ∧
+  LIST_REL v_rel tvs svs ∧
   num_args_ok op (LENGTH svs) ⇒
   ∃sr1 ss1 sk1.
-    application op senv svs ss sk = (sr1,ss1,sk1) ∧
+    application op svs ss sk = (sr1,ss1,sk1) ∧
     OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
     step_res_rel tr1 tk1 sr1 sk1
 Proof
@@ -570,7 +570,7 @@ Proof
     \\ gvs [AllCaseEqs()]
     >- fs [step_res_rel_cases]
     >-
-     (‘∃a. application op env1 [] ts tk = a’ by fs [] \\ PairCases_on ‘a’
+     (‘∃a. application op [] ts tk = a’ by fs [] \\ PairCases_on ‘a’
       \\ drule application_thm \\ fs []
       \\ disch_then drule_all \\ strip_tac \\ gvs [])
     \\ gvs [SWAP_REVERSE_SYM]
@@ -659,7 +659,7 @@ Proof
     \\ simp [Once cont_rel_cases])
   \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
   \\ IF_CASES_TAC >- gvs [step_res_rel_cases]
-  \\ ‘∃x. application op tenv (v1::tvs) ts tk = x’ by fs []
+  \\ ‘∃x. application op (v1::tvs) ts tk = x’ by fs []
   \\ PairCases_on ‘x’
   \\ drule application_thm \\ fs [PULL_EXISTS]
   \\ disch_then drule_all \\ strip_tac \\ gvs []

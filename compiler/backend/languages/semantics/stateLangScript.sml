@@ -234,13 +234,13 @@ End
     - arguments are in call-order
     - enough arguments are passed *)
 Definition application_def:
-  application AppOp env vs (st:state option) k = (
+  application AppOp vs (st:state option) k = (
     case dest_anyClosure (HD vs) of
     | NONE => error st k
     | SOME (arg, env', e) =>
         continue (opt_bind arg (EL 1 vs) env') e st k) ∧
-  application (Cons s) env vs st k = value (Constructor s vs) st k ∧
-  application (AtomOp aop) env vs st k = (
+  application (Cons s) vs st k = value (Constructor s vs) st k ∧
+  application (AtomOp aop) vs st k = (
     case get_atoms vs of
       NONE => error st k
     | SOME as =>
@@ -249,41 +249,41 @@ Definition application_def:
       | SOME $ INR T => value (Constructor "True" []) st k
       | SOME $ INR F => value (Constructor "False" []) st k
       | _            => error st k) ∧
-  application Alloc env vs st k = (
+  application Alloc vs st k = (
     case HD vs, st of
       Atom (Int i), SOME arrays =>
         let n = if i < 0 then 0 else Num i in
         value (Atom $ Loc $ LENGTH arrays)
           (SOME (SNOC (REPLICATE n (EL 1 vs)) arrays)) k
     | _ => error st k) ∧
-  application Ref env vs st k = (
+  application Ref vs st k = (
     case st of
       SOME arrays =>
         value (Atom $ Loc $ LENGTH arrays)
           (SOME (SNOC vs arrays)) k
     | _ => error st k) ∧
-  application Length env vs st k = (
+  application Length vs st k = (
     case HD vs, st of
       Atom (Loc n), SOME arrays => (
         case oEL n arrays of
           SOME l => value (Atom $ Int $ & LENGTH l) st k
         | _ => error st k)
     | _ => error st k) ∧
-  application (Proj s i) env vs st k = (
+  application (Proj s i) vs st k = (
     case HD vs of
       Constructor t ys => (
         if t = s ∧ i < LENGTH ys then
           value (EL i ys) st k
         else error st k)
     | _ => error st k) ∧
-  application (IsEq s i) env vs st k = (
+  application (IsEq s i) vs st k = (
     case HD vs of
       Constructor t ys => (
         if t = s ⇒ i = LENGTH ys then
           value (Constructor (if t = s then "True" else "False") []) st k
         else error st k)
     | _ => error st k) ∧
-  application Sub env vs st k = (
+  application Sub vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
       (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
         case oEL n arrays of
@@ -294,7 +294,7 @@ Definition application_def:
               (Exn (Constructor "Subscript" []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
-  application UnsafeSub env vs st k = (
+  application UnsafeSub vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
       (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
         case oEL n arrays of
@@ -305,7 +305,7 @@ Definition application_def:
               error st k
         | _ => error st k)
     | _ => error st k) ∧
-  application Update env vs st k = (
+  application Update vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
       (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
         case oEL n arrays of
@@ -319,7 +319,7 @@ Definition application_def:
               (Exn (Constructor "Subscript" []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
-  application UnsafeUpdate env vs st k = (
+  application UnsafeUpdate vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
       (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
         case oEL n arrays of
@@ -333,7 +333,7 @@ Definition application_def:
               error st k
         | _ => error st k)
     | _ => error st k) ∧
-  application (FFI channel) env vs st k = (
+  application (FFI channel) vs st k = (
     case HD vs, st of
       (Atom $ Str content, SOME _) => (Action channel content, st, k)
     | _ => error st k)
@@ -354,7 +354,7 @@ Definition return_def:
   return v st (HandleAppK env e :: k) = value v st k ∧
   return v st (AppK env sop vs' [] :: k) = (let vs = v::vs' in
     if ¬ num_args_ok sop (LENGTH vs) then error st k else
-    application sop env vs st k) ∧
+    application sop vs st k) ∧
   return v st (AppK env sop vs (e::es) :: k) =
     continue env e st (AppK env sop (v::vs) es :: k) ∧
   return v st (ForceK1 :: k) =
@@ -416,7 +416,7 @@ Definition step_def:
     if ¬ num_args_ok sop (LENGTH es) then error st k else
     case REVERSE es of (* right-to-left evaluation *)
       [] => (* sop = Cons s ∨ sop = AtomOp aop   because   num_args_ok ... *)
-        application sop env [] st k
+        application sop [] st k
     | e::es' => push env e st (AppK env sop [] es') k) ∧
   step st k (Exp env $ Box e) = push env e st BoxK k ∧
   step st k (Exp env $ Force e) = push env e st ForceK1 k ∧
@@ -644,7 +644,7 @@ Proof
 QED
 
 Triviality application_Action:
-  application p env vs st k = (Action channel content,st1,k1) ⇒
+  application p vs st k = (Action channel content,st1,k1) ⇒
   p = FFI channel ∧ ∃st1. st = SOME st1
 Proof
   fs [application_def |> DefnBase.one_line_ify NONE, AllCaseEqs(), error_def, value_def]
@@ -678,9 +678,9 @@ Proof
 QED
 
 Theorem application_cut_cont[local]:
-  ∀sop env vs st k x y z k'.
-  application sop env vs st k = (x,y,z) ∧ num_args_ok sop (LENGTH vs) ∧ k' ≼ k ⇒
-  ∃x' y' z'. application sop env vs st k' = (x',y',z') ∧
+  ∀sop vs st k x y z k'.
+  application sop vs st k = (x,y,z) ∧ num_args_ok sop (LENGTH vs) ∧ k' ≼ k ⇒
+  ∃x' y' z'. application sop vs st k' = (x',y',z') ∧
        ((x,y,z) = (x',y',z' ++ DROP (LENGTH k') k) ∨ is_halt (x',y',z'))
 Proof
   Cases >> rw[step] >>
@@ -764,14 +764,14 @@ Definition forceK2_none_def[simp]:
 End
 
 Theorem application_NONE:
-  application Alloc env [v1;v2] NONE s = (Error,NONE,s) ∧
-  application Ref env vs NONE s = (Error,NONE,s) ∧
-  application Length env [v1] NONE s = (Error,NONE,s) ∧
-  application Sub env [v1;v2] NONE s = (Error,NONE,s) ∧
-  application UnsafeSub env [v1;v2] NONE s = (Error,NONE,s) ∧
-  application Update env [v1;v2;v3] NONE s = (Error,NONE,s) ∧
-  application UnsafeUpdate env [v1;v2;v3] NONE s = (Error,NONE,s) ∧
-  application (FFI f) env [v1] NONE s = (Error,NONE,s)
+  application Alloc [v1;v2] NONE s = (Error,NONE,s) ∧
+  application Ref vs NONE s = (Error,NONE,s) ∧
+  application Length [v1] NONE s = (Error,NONE,s) ∧
+  application Sub [v1;v2] NONE s = (Error,NONE,s) ∧
+  application UnsafeSub [v1;v2] NONE s = (Error,NONE,s) ∧
+  application Update [v1;v2;v3] NONE s = (Error,NONE,s) ∧
+  application UnsafeUpdate [v1;v2;v3] NONE s = (Error,NONE,s) ∧
+  application (FFI f) [v1] NONE s = (Error,NONE,s)
 Proof
   fs [application_def,error_def]
   \\ EVERY_CASE_TAC \\ fs []
@@ -1026,9 +1026,9 @@ Proof
 QED
 
 Theorem application_set_cont[local]:
-  ∀sop env vs st k' sr k x y z.
-  application sop env vs st k' = (x,y,z) ∧ x ≠ Error ∧ (∀v. x = Exn v ⇒ z ≠ []) ⇒ k' ≼ k ⇒
-  application sop env vs st k = (x,y,z ++ DROP (LENGTH k') k)
+  ∀sop vs st k' sr k x y z.
+  application sop vs st k' = (x,y,z) ∧ x ≠ Error ∧ (∀v. x = Exn v ⇒ z ≠ []) ⇒ k' ≼ k ⇒
+  application sop vs st k = (x,y,z ++ DROP (LENGTH k') k)
 Proof
   Cases >> rw[step] >>
   gvs[AllCaseEqs(),dest_Closure_def,quantHeuristicsTheory.LIST_LENGTH_1,

@@ -428,7 +428,7 @@ Theorem step_n_AtomOp:
   ∀t ys a' vs.
     LIST_REL (λes a. ∀k. ∃ck. step_n ck (Exp senv es,st,k) = (Val (Atom a),st,k)) t ys ⇒
     ∃ck1. step_n ck1 (Val (Atom a'),st,AppK senv (AtomOp a) vs t::k) =
-            application (AtomOp a) [] (MAP Atom (REVERSE ys) ++ Atom a' :: vs) st k
+            application (AtomOp a) (MAP Atom (REVERSE ys) ++ Atom a' :: vs) st k
 Proof
   Induct \\ fs [] \\ rw []
   >- (qexists_tac ‘1’ \\ fs [step])

@@ -264,12 +264,12 @@ Proof
 QED
 
 Theorem application_thm:
-  application op tenv tvs ts tk = (tr1,ts1,tk1) ∧
+  application op tvs ts tk = (tr1,ts1,tk1) ∧
   OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
-  LIST_REL v_rel tvs svs ∧ env_rel s tenv senv ∧
+  LIST_REL v_rel tvs svs ∧
   num_args_ok op (LENGTH svs) ⇒
   ∃sr1 ss1 sk1.
-    application op senv svs ss sk = (sr1,ss1,sk1) ∧
+    application op svs ss sk = (sr1,ss1,sk1) ∧
     cont_rel tk1 sk1 ∧ OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
     step_res_rel tr1 sr1
 Proof

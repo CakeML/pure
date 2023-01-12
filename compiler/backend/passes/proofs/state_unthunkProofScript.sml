@@ -854,11 +854,11 @@ Proof
 QED
 
 Theorem application_thm:
-  application op tenv tvs ts tk = (t_0,t_1,t_2) ∧
-  application op senv svs (SOME ss) sk = (s_0,s_1,s_2) ∧
+  application op tvs ts tk = (t_0,t_1,t_2) ∧
+  application op svs (SOME ss) sk = (s_0,s_1,s_2) ∧
   state_rel p (pick_opt zs ts) (SOME ss) ∧
   op ≠ AppOp ∧ (∀l. op ≠ AtomOp (Lit (Loc l))) ∧
-  LIST_REL (v_rel p) tvs svs ∧ env_rel p tenv senv ∧
+  LIST_REL (v_rel p) tvs svs ∧
   num_args_ok op (LENGTH svs) ∧ cont_rel p tk sk ⇒
   t_0 = Error ∨
   ∃q ss1.
@@ -897,7 +897,7 @@ Proof
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
     \\ ntac 4 $ pop_assum mp_tac \\ simp [Once v_rel_cases]
     \\ gvs [AllCaseEqs()] \\ rpt strip_tac
-    \\ once_rewrite_tac [step_res_rel_cases] \\ fs [])
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs [] \\ gvs[])
   \\ Cases_on ‘op = Sub ∨ op = UnsafeSub ∨ op = Length ∨
                op = Update ∨ op = UnsafeUpdate’ THEN1
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
@@ -1923,9 +1923,9 @@ Proof
       \\ disch_then drule
       \\ strip_tac
       \\ rpt (first_x_assum $ irule_at Any))
-    \\ ‘∃s_. application op tenv (v2::tvs) (SOME ss) sk = s_’ by fs []
+    \\ ‘∃s_. application op (v2::tvs) (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
-    \\ ‘∃t_. application op tenv' (v1::tvs') ts tk = t_’ by fs []
+    \\ ‘∃t_. application op (v1::tvs') ts tk = t_’ by fs []
     \\ PairCases_on ‘t_’ \\ gvs []
     \\ drule_then drule application_thm
     \\ disch_then drule \\ simp [ADD1] \\ rw [] \\ gvs [ADD1]
@@ -2025,9 +2025,9 @@ Proof
       \\ pop_assum $ irule_at Any \\ fs []
       \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
       \\ once_rewrite_tac [cont_rel_cases] \\ fs [])
-    \\ ‘∃s_. application op env2 [] (SOME ss) sk = s_’ by fs []
+    \\ ‘∃s_. application op [] (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
-    \\ ‘∃t_. application op env1 [] ts tk = t_’ by fs []
+    \\ ‘∃t_. application op [] ts tk = t_’ by fs []
     \\ PairCases_on ‘t_’ \\ gvs []
     \\ drule_then drule application_thm
     \\ disch_then drule \\ simp [ADD1]
@@ -2327,9 +2327,9 @@ Proof
       \\ gvs [] \\ rpt (first_x_assum $ irule_at Any)
       \\ simp [Once step_res_rel_cases]
       \\ irule_at Any imp_env_rel_opt_bind \\ simp [])
-    \\ ‘∃s_. application op senv (v2::svs) (SOME ss) sk = s_’ by fs []
+    \\ ‘∃s_. application op (v2::svs) (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
-    \\ ‘∃t_. application op tenv (v1::tvs) ts tk = t_’ by fs []
+    \\ ‘∃t_. application op (v1::tvs) ts tk = t_’ by fs []
     \\ PairCases_on ‘t_’ \\ gvs []
     \\ drule_then drule application_thm
     \\ disch_then drule \\ simp [ADD1] \\ rw []
@@ -2429,9 +2429,9 @@ Proof
       \\ rpt (first_assum $ irule_at $ Any \\ fs [])
       \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
       \\ once_rewrite_tac [cont_rel_cases] \\ fs [])
-    \\ ‘∃s_. application op env2 [] (SOME ss) sk = s_’ by fs []
+    \\ ‘∃s_. application op [] (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
-    \\ ‘∃t_. application op env1 [] ts tk = t_’ by fs []
+    \\ ‘∃t_. application op [] ts tk = t_’ by fs []
     \\ PairCases_on ‘t_’ \\ gvs []
     \\ drule_then drule application_thm
     \\ disch_then drule \\ simp [ADD1]
