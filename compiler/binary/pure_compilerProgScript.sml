@@ -14,6 +14,7 @@ val _ = translation_extends "pure_frontendProg";
 
 val _ = (max_print_depth := 10);
 
+val res = translate pure_inferenceTheory.to_option_def;
 val res = translate pure_compilerTheory.compile_def;
 
 Definition main_function_def:
