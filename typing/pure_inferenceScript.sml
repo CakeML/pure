@@ -18,19 +18,17 @@ val _ = new_theory "pure_inference";
 
 (******************** Inference monad ********************)
 (*
-  For now this is just a state/error monad.
+  This is just a state/error monad.
   The state (a number) keeps track of the next fresh variable.
-
-  TODO make return type a sum, with some basic errors:
-    unbound variable
-    incorrect arity (e.g. supplying arguments to Lit, nullary functions, ...)
-
-  Some of these errors will be picked up by the parser, but still should be
-  handled gracefully.
 *)
 
 Datatype:
-  inferError = Unknown 'a
+  inferError = IllFormed 'a mlstring
+             | UnknownCase 'a ((mlstring # num) list)
+             | Unification 'a itype itype
+             | Freevars 'a var_set
+             | BadDataDeclarations
+             | Internal
 End
 
 Datatype:
@@ -206,7 +204,7 @@ Definition get_case_type_def:
   get_case_type info has_us ns cnames_arities =
     let len = LENGTH cnames_arities; cnames = MAP FST cnames_arities in
     if len = 1 ∧ cnames = [«»] ∧ ¬has_us then do (* tuple case *)
-      h <- oreturn (Unknown info) (oHD cnames_arities);
+      h <- oreturn Internal (oHD cnames_arities);
       freshes <- fresh_vars (SND h);
       return (Tuple (MAP CVar freshes), freshes, [(«»,MAP CVar freshes)]);
     od else if len = 2 ∧ ¬has_us ∧ (* bool case *)
@@ -217,7 +215,8 @@ Definition get_case_type_def:
       EVERY (λ(cn,ts). MEM (cn, LENGTH ts) cnames_arities) (FST ns)
       then return (Exception, [], MAP (λ(cn,ts). (cn, MAP itype_of ts)) $ FST ns)
     else do (* data case *)
-      (n, ar, cs) <- oreturn (Unknown info) (get_typedef 0 (SND ns) cnames_arities);
+      (n, ar, cs) <- oreturn (UnknownCase info cnames_arities)
+                      (get_typedef 0 (SND ns) cnames_arities);
       freshes <- fresh_vars ar;
       cfreshes <<- MAP CVar freshes;
       return (TypeCons n cfreshes, freshes,
@@ -248,7 +247,7 @@ Definition infer_def:
     else if s = «Ret» then (
       case es of
       | [e] => do (ty, as, cs) <- infer ns mset e; return (M ty, as, cs) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Ret»)
 
     else if s = «Bind» then (
       case es of
@@ -261,7 +260,7 @@ Definition infer_def:
              (Unify d ty1 $ M $ CVar fresh1)::
               (Unify d ty2 $ Function (CVar fresh1) (M $ CVar fresh2))::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Bind»)
 
     else if s = «Raise» then (
       case es of
@@ -270,7 +269,7 @@ Definition infer_def:
           fresh <- fresh_var;
           return (M $ CVar fresh, as,
             (Unify d (CVar fresh) (CVar fresh))::(Unify d ty Exception)::cs) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Raise»)
 
     else if s = «Handle» then (
       case es of
@@ -283,14 +282,14 @@ Definition infer_def:
              (Unify d ty1 $ M $ CVar fresh)::
               (Unify d ty2 $ Function Exception (M $ CVar fresh))::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Handle»)
 
     else if s = «Act» then (
       case es of
       | [e] => do
           (ty, as, cs) <- infer ns mset e;
           return (M $ PrimTy String, as, (Unify d ty $ PrimTy Message)::cs) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Act»)
 
     else if s = «Alloc» then (
       case es of
@@ -300,7 +299,7 @@ Definition infer_def:
           return
             (M $ Array ty2, as1 ⋓ as2, (Unify d ty1 $ PrimTy Integer)::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Alloc»)
 
     else if s = «Length» then (
       case es of
@@ -310,7 +309,7 @@ Definition infer_def:
           return
             (M $ PrimTy Integer, as, (Unify d ty $ Array $ CVar fresh)::cs)
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Length»)
 
     else if s = «Deref» then (
       case es of
@@ -323,7 +322,7 @@ Definition infer_def:
               (Unify d ty2 $ PrimTy Integer)::
               (Unify d ty1 $ Array $ CVar fresh)::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Deref»)
 
     else if s = «Update» then (
       case es of
@@ -337,12 +336,12 @@ Definition infer_def:
               (Unify d ty3 $ CVar fresh)::(Unify d ty2 $ PrimTy Integer)::
                 (Unify d ty1 $ Array $ CVar fresh)::(cs1++cs2++cs3))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Update»)
 
     else if s = «True» ∨ s = «False» then (
       case es of
       | [] => return (PrimTy Bool, empty, [])
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d $ strcat «bad arity: boolean literal » s)
 
     else do
       (tys,as,cs) <- FOLDR
@@ -357,7 +356,7 @@ Definition infer_def:
           if LENGTH arg_tys = LENGTH tys then
             return (Exception, as,
                     (list$MAP2 (λt a. Unify d t $ itype_of a) tys arg_tys) ++ cs)
-          else fail $ Unknown d)
+          else fail $ IllFormed d $ strcat «bad arity: exception constructor » s)
       | NONE => case infer_cons 0 (SND ns) s of
       (* Constructors *)
       | SOME (n, ar, arg_tys) => (
@@ -368,11 +367,12 @@ Definition infer_def:
             (MAP (λcf. Unify d cf cf) cfreshes ++
              list$MAP2
               (λt a. Unify d t (isubst cfreshes $ itype_of a)) tys arg_tys) ++ cs) od
-          else fail $ Unknown d)
-      | NONE => fail $ Unknown d od) ∧
+          else fail $ IllFormed d $ strcat «bad arity: data constructor » s)
+      | NONE => fail $ IllFormed d $ strcat «unknown constructor » s od) ∧
 
   infer ns mset (Prim d (AtomOp aop) es) = do
-    (arg_tys, ret_ty) <- oreturn (Unknown d) $ infer_atom_op (LENGTH es) aop;
+    (arg_tys, ret_ty) <- oreturn (IllFormed d «bad primitive application») $
+                          infer_atom_op (LENGTH es) aop;
     (tys, as, cs) <- FOLDR
           (λe acc. do
               (tys, as, cs) <- acc;
@@ -387,10 +387,10 @@ Definition infer_def:
     (ty1, as1, cs1) <- infer ns mset e1;
     return (ty2, as1 ⋓ as2, cs1++cs2) od ∧
 
-  infer ns mset (Prim d Seq _) = fail $ Unknown d ∧
+  infer ns mset (Prim d Seq _) = (fail $ IllFormed d «bad arity: Seq») ∧
 
   infer ns mset (App d e es) = (
-    if NULL es then fail $ Unknown d else do
+    if NULL es then fail $ IllFormed d «bad arity: empty App» else do
     (tys, as, cs) <- FOLDR
           (λe acc. do
               (tys, as, cs) <- acc;
@@ -403,7 +403,7 @@ Definition infer_def:
             (Unify d tyf (iFunctions tys $ CVar fresh))::(csf ++ cs)) od) ∧
 
   infer ns mset (Lam d xs e) = (
-    if NULL xs then fail $ Unknown d else do
+    if NULL xs then fail $ IllFormed d «bad arity: empty Lam» else do
     freshes <- fresh_vars (LENGTH xs);
     cfreshes <<- MAP CVar freshes;
     (ty, as, cs) <- infer ns (list_insert freshes mset) e;
@@ -421,7 +421,7 @@ Definition infer_def:
               cs1 ++ cs2) od ∧
 
   infer ns mset (Letrec d fns e) = (
-    if NULL fns then fail $ Unknown d else do
+    if NULL fns then fail $ IllFormed d «bad arity: empty Letrec» else do
     (tye, ase, cse) <- infer ns mset e;
     (tyfns, asfns, csfns) <- FOLDR
           (λ(fn,e) acc. do
@@ -439,9 +439,9 @@ Definition infer_def:
 
   infer ns mset (Case d e v css eopt) = (
     if MEM v (FLAT (MAP (FST o SND) css))
-    then fail $ Unknown d else
+    then fail $ IllFormed d «shadowed pattern variable in case split» else
     case css of
-    | [] => fail $ Unknown d (* no empty case statements *)
+    | [] => fail $ IllFormed d «bad arity: empty Case» (* no empty case statements *)
     | _::_ => do
       fresh_v <- fresh_var;
       cfresh_v <<- CVar fresh_v;
@@ -449,17 +449,20 @@ Definition infer_def:
         (case eopt of
         | NONE => get_case_type d F ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css)
         | SOME (us_cn_ars, _) =>
-            if NULL us_cn_ars then fail $ Unknown d else
-            get_case_type d T ns
-              (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css ++ us_cn_ars));
+            if NULL us_cn_ars then
+              fail $ IllFormed d «bad arity: empty catch-all in Case»
+            else get_case_type d T ns
+                  (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css ++ us_cn_ars));
       cfresh_tyargs <<- MAP CVar fresh_tyargs;
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
             (λ(cname,pvars,rest) acc. do
-                if ALL_DISTINCT pvars then return () else fail $ Unknown d;
+                if ALL_DISTINCT pvars then return ()
+                else fail $ IllFormed d $
+                      strcat «duplicate pattern variables in case split » cname;
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- infer ns (list_insert mono_vars mset) rest;
-                expected_cname_arg_tys <- oreturn (Unknown d) $ ALOOKUP cdefs cname;
+                expected_cname_arg_tys <- oreturn Internal $ ALOOKUP cdefs cname;
                 pvar_constraints <<- list$MAP2
                   (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v as')
                     (v::pvars) (cfresh_v::expected_cname_arg_tys);
@@ -490,7 +493,7 @@ Definition infer_def:
               (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs)
     od) ∧
 
-  infer _ _ (NestedCase d _ _ _ _ _) = fail $ Unknown d
+  infer _ _ (NestedCase d _ _ _ _ _) = fail $ IllFormed d «Unexpected NestedCase»
 Termination
   WF_REL_TAC `measure ( λ(_,_,e). cexp_size (K 0) e)` >> rw[] >>
   rename1 `MEM _ es` >> pop_assum mp_tac >> rpt $ pop_assum kall_tac >>
@@ -516,7 +519,7 @@ Definition infer'_prim_def:
     else if s = «Ret» then (
       case fs of
       | [f] => do (ty, as, cs) <- f ns mset; return (M ty, as, cs) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Ret»)
 
     else if s = «Bind» then (
       case fs of
@@ -529,7 +532,7 @@ Definition infer'_prim_def:
              (Unify d ty1 $ M $ CVar fresh1)::
               (Unify d ty2 $ Function (CVar fresh1) (M $ CVar fresh2))::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Bind»)
 
     else if s = «Raise» then (
       case fs of
@@ -538,7 +541,7 @@ Definition infer'_prim_def:
           fresh <- fresh_var;
           return (M $ CVar fresh, as,
             (Unify d (CVar fresh) (CVar fresh))::(Unify d ty Exception)::cs) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Raise»)
 
     else if s = «Handle» then (
       case fs of
@@ -551,14 +554,14 @@ Definition infer'_prim_def:
              (Unify d ty1 $ M $ CVar fresh)::
               (Unify d ty2 $ Function Exception (M $ CVar fresh))::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Handle»)
 
     else if s = «Act» then (
       case fs of
       | [f] => do
           (ty, as, cs) <- f ns mset;
           return (M $ PrimTy String, as, (Unify d ty $ PrimTy Message)::cs) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Act»)
 
     else if s = «Alloc» then (
       case fs of
@@ -568,7 +571,7 @@ Definition infer'_prim_def:
           return
             (M $ Array ty2, as1 ⋓ as2, (Unify d ty1 $ PrimTy Integer)::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Alloc»)
 
     else if s = «Length» then (
       case fs of
@@ -578,7 +581,7 @@ Definition infer'_prim_def:
           return
             (M $ PrimTy Integer, as, (Unify d ty $ Array $ CVar fresh)::cs)
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Length»)
 
     else if s = «Deref» then (
       case fs of
@@ -591,7 +594,7 @@ Definition infer'_prim_def:
               (Unify d ty2 $ PrimTy Integer)::
               (Unify d ty1 $ Array $ CVar fresh)::(cs1++cs2))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Deref»)
 
     else if s = «Update» then (
       case fs of
@@ -605,10 +608,11 @@ Definition infer'_prim_def:
               (Unify d ty3 $ CVar fresh)::(Unify d ty2 $ PrimTy Integer)::
                 (Unify d ty1 $ Array $ CVar fresh)::(cs1++cs2++cs3))
           od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Update»)
 
     else if s = «True» ∨ s = «False» then (
-      if NULL fs then return (PrimTy Bool, empty, []) else fail $ Unknown d)
+      if NULL fs then return (PrimTy Bool, empty, [])
+      else fail $ IllFormed d $ strcat «bad arity: boolean literal » s)
 
     else do
       (tys, as, cs) <- apply_foldr ns mset fs;
@@ -618,7 +622,7 @@ Definition infer'_prim_def:
           if LENGTH arg_tys = LENGTH tys then
             return (Exception, as,
                     (list$MAP2 (λt a. Unify d t $ itype_of a) tys arg_tys) ++ cs)
-          else fail $ Unknown d)
+          else fail $ IllFormed d $ strcat «bad arity: exception constructor » s)
       | NONE => case infer_cons 0 (SND ns) s of
       (* Constructors *)
       | SOME (n, ar, arg_tys) => (
@@ -629,12 +633,13 @@ Definition infer'_prim_def:
             (MAP (λcf. Unify d cf cf) cfreshes ++
              list$MAP2
               (λt a. Unify d t (isubst cfreshes $ itype_of a)) tys arg_tys) ++ cs) od
-          else fail $ Unknown d)
-      | NONE => fail $ Unknown d od) ∧
+          else fail $ IllFormed d $ strcat «bad arity: data constructor » s)
+      | NONE => fail $ IllFormed d $ strcat «unknown constructor » s od) ∧
 
   (infer'_prim d (AtomOp aop) fs ns mset =
       do
-        (arg_tys, ret_ty) <- oreturn (Unknown d) $ infer_atom_op (LENGTH fs) aop;
+        (arg_tys, ret_ty) <- oreturn (IllFormed d «bad primitive application») $
+                              infer_atom_op (LENGTH fs) aop;
         (tys, as, cs) <- apply_foldr ns mset fs;
         return (PrimTy ret_ty, as,
                 (list$MAP2 (λt a. Unify d t (PrimTy a)) tys arg_tys) ++ cs) od) ∧
@@ -646,7 +651,7 @@ Definition infer'_prim_def:
             (ty2, as2, cs2) <- f2 ns mset;
             (ty1, as1, cs1) <- f1 ns mset;
             return (ty2, as1 ⋓ as2, cs1++cs2) od
-      | _ => fail $ Unknown d)
+      | _ => fail $ IllFormed d «bad arity: Seq»)
 End
 
 Definition infer'_def:
@@ -659,7 +664,7 @@ Definition infer'_def:
       infer'_prim d p fs ns mset) ∧
 
   infer' (App d e es) = (λns mset.
-    if NULL es then fail $ Unknown d else do
+    if NULL es then fail $ IllFormed d «bad arity: empty App» else do
     fs <<- MAP infer' es;
     f <<- infer' e;
     (tys, as, cs) <- apply_foldr ns mset fs;
@@ -669,7 +674,7 @@ Definition infer'_def:
             (Unify d tyf (iFunctions tys $ CVar fresh))::(csf ++ cs)) od) ∧
 
   infer' (Lam d xs e) = (λns mset.
-    if NULL xs then fail $ Unknown d else do
+    if NULL xs then fail $ IllFormed d «bad arity: empty Lam» else do
     f <<- infer' e;
     freshes <- fresh_vars (LENGTH xs);
     cfreshes <<- MAP CVar freshes;
@@ -690,7 +695,7 @@ Definition infer'_def:
               cs1 ++ cs2) od) ∧
 
   infer' (Letrec d fns e) = (λns mset.
-    if NULL fns then fail $ Unknown d else do
+    if NULL fns then fail $ IllFormed d «bad arity: empty Letrec» else do
     f <<- infer' e;
     fs <<- MAP (λ(_,e). infer' e) fns;
     (tye, ase, cse) <- f ns mset;
@@ -704,7 +709,11 @@ Definition infer'_def:
             csfns ++ cse) od) ∧
 
   infer' (Case d e v css eopt) = (λns mset.
-    if MEM v (FLAT (MAP (FST o SND) css)) ∨ NULL css then fail $ Unknown d else do
+    if MEM v (FLAT (MAP (FST o SND) css)) then
+      fail $ IllFormed d «shadowed pattern variable in case split»
+    else if NULL css then
+      fail $ IllFormed d «bad arity: empty Case»
+    else do
       f <<- infer' e;
       css_fs <<- MAP (λ(cn,pvs,e). (cn,pvs,infer' e)) css;
       fresh_v <- fresh_var;
@@ -713,17 +722,20 @@ Definition infer'_def:
         (case eopt of
         | NONE => get_case_type d F ns (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css)
         | SOME (us_cn_ars, _) =>
-            if NULL us_cn_ars then fail $ Unknown d else
-            get_case_type d T ns
-              (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css ++ us_cn_ars));
+            if NULL us_cn_ars then
+              fail $ IllFormed d «bad arity: empty catch-all in Case»
+            else get_case_type d T ns
+                  (MAP (λ(cn,pvs,_). (cn, LENGTH pvs)) css ++ us_cn_ars));
       cfresh_tyargs <<- MAP CVar fresh_tyargs;
       mono_vars <<- fresh_v::fresh_tyargs;
       (tys, as, cs) <- FOLDR
             (λ(cname,pvars,f) acc. do
-                if ALL_DISTINCT pvars then return () else fail $ Unknown d;
+                if ALL_DISTINCT pvars then return ()
+                else fail $ IllFormed d $
+                      strcat «duplicate pattern variables in case split » cname;
                 (tys, as, cs) <- acc;
                 (ty, as', cs') <- f ns (list_insert mono_vars mset);
-                expected_cname_arg_tys <- oreturn (Unknown d) $ ALOOKUP cdefs cname;
+                expected_cname_arg_tys <- oreturn Internal $ ALOOKUP cdefs cname;
                 pvar_constraints <<- list$MAP2
                   (λv t. MAP (λn. Unify d (CVar n) t) $ get_assumptions v as')
                     (v::pvars) (cfresh_v::expected_cname_arg_tys);
@@ -745,7 +757,7 @@ Definition infer'_def:
                  pvar_constraints ++ ucs ++ cs
                );
              od) ;
-      hd_ty <- oreturn (Unknown d) (oHD tys);
+      hd_ty <- oreturn Internal (oHD tys);
 
       return (hd_ty, ase ⋓ as,
               (* type of guard expression unifies with tye (result of infer) *)
@@ -756,7 +768,8 @@ Definition infer'_def:
               (MAP (λt. Unify d hd_ty t) (TL tys)) ++ cse ++ cs)
     od) ∧
 
-  infer' (NestedCase d _ _ _ _ _) = (λns mset. fail $ Unknown d)
+  infer' (NestedCase d _ _ _ _ _) =
+    (λns mset. fail $ IllFormed d «Unexpected NestedCase»)
 Termination
   WF_REL_TAC `measure ( λe. cexp_size (K 0) e)`
 End
@@ -914,7 +927,7 @@ Definition solve_def:
         let active = FOLDL (λacc c. union (activevars c) acc) LN cs in
         solve (MAP (monomorphise_implicit active) cs)
     | SOME $ (Unify d t1 t2, cs) => do
-        sub <- oreturn (Unknown d) $ pure_unify FEMPTY t1 t2;
+        sub <- oreturn (Unification d t1 t2) $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve cs';
         return (FUNION sub solve_rest) od
@@ -947,8 +960,8 @@ End
 Definition infer_top_level_def:
   infer_top_level ns d cexp = do
     (ty, as, cs) <- infer ns LN cexp;
-    if ¬ null as then fail (Unknown d) else return ();
-    solve (Unify d ty (M Unit) :: cs)
+    if ¬ null as then fail (Freevars d $ map (K ()) as)
+    else solve (Unify d ty (M Unit) :: cs)
   od 0
 End
 
@@ -983,7 +996,7 @@ End
 
 Definition infer_types_def:
   infer_types tysig e =
-    if ¬typedefs_ok_impl tysig then fail (Unknown pure_vars$empty) 0
+    if ¬typedefs_ok_impl tysig then fail BadDataDeclarations 0
     else infer_top_level ((I ## K tysig) initial_namespace) pure_vars$empty e
 End
 

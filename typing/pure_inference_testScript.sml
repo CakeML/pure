@@ -14,7 +14,7 @@ Definition solve_def:
         solve (MAP (monomorphise_implicit active) cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
-        sub <- oreturn (Unknown d) $ pure_unify FEMPTY t1 t2;
+        sub <- oreturn (Internal : unit inferError) $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve cs';
         return (sub :: solve_rest) od
@@ -53,11 +53,11 @@ Definition parse_and_infer_def:
   parse_and_infer parse ns str = do
       parsed <<- parse str;
       (ty, as, cs) <- infer ns LN parsed;
-      if ¬ null as then fail (Unknown ARB) else return ();
+      if ¬ null as then fail Internal else return ();
       subs <- solve cs;
       sub_ty <<- subst_solution subs ty;
       (vars, _, gen_ty) <<- generalise 0 LN FEMPTY sub_ty;
-      res_ty <- oreturn (Unknown ARB) $ type_of gen_ty;
+      res_ty <- oreturn Internal $ type_of gen_ty;
       return (vars, res_ty)
     od 0
 End
@@ -73,7 +73,7 @@ Definition solve_k_def:
         solve_k n (MAP (monomorphise_implicit active) cs)
 
     | SOME $ (Unify d t1 t2, cs) => do
-        sub <- oreturn (Unknown d) $ pure_unify FEMPTY t1 t2;
+        sub <- oreturn Internal $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve_k n cs';
         return (sub :: solve_rest) od
@@ -97,7 +97,7 @@ Definition parse_and_get_constraints_def:
   parse_and_get_constraints parse ns str = do
       parsed <<- parse str;
       (ty, as, cs) <- infer ns LN parsed;
-      if ¬ null as then fail (Unknown ARB) else return (ty, cs)
+      if ¬ null as then fail Internal else return (ty, cs)
     od 0
 End
 
@@ -105,7 +105,7 @@ Definition parse_and_solve_k_def:
   parse_and_solve_k k parse ns str = do
       parsed <<- parse str;
       (ty, as, cs) <- infer ns LN parsed;
-      if ¬ null as then fail (Unknown ARB) else return ();
+      if ¬ null as then fail Internal else return ();
       subs <- solve_k k cs;
       return subs
     od 0
