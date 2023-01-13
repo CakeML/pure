@@ -357,6 +357,20 @@ QED
 
 val _ = translate_type_side |> update_precondition;
 
+Triviality FRONT_alt_def:
+  FRONT (h::t) = if NULL t then [] else h::FRONT t
+Proof
+  rw[FRONT_DEF] >> gvs[] >> Cases_on `t` >> gvs[]
+QED
+
+val r = translate FRONT_alt_def;
+
+val front_1_side = Q.prove (
+  `∀v. front_1_side v ⇔ ¬NULL v`,
+  simp[Once $ fetch "-" "front_1_side_def"] >>
+  Induct >> rw[] >> gvs[] >> simp[Once $ fetch "-" "front_1_side_def"])
+  |> update_precondition;
+
 val r = translate_no_ind (def_of_const “ast_to_cexp$translate_exp”);
 
 val r = translate (def_of_const “ast_to_cexp$translate_decs”);

@@ -164,7 +164,7 @@ Definition translate_exp_def:
    od) ∧
   (translate_exp tyinfo (expCase ge pats) =
    do
-     assert (pats ≠ []);
+     assert (¬NULL pats);
      g <- translate_exp tyinfo ge;
      (pats',usopt) <<-
         case LAST pats of
