@@ -3315,6 +3315,48 @@ Proof
   gvs[dstate_component_equality, extend_dec_env_def]
 QED
 
+Theorem every_exp_one_con_check_list_to_exp:
+  EVERY (every_exp (one_con_check env)) es ∧
+  nsLookup env (Short "[]") = SOME (0,stamp1) ∧
+  nsLookup env (Short "::") = SOME (2,stamp2)
+  ⇒ every_exp (one_con_check env) (list_to_exp es)
+Proof
+  Induct_on `es` >> rw[list_to_exp_def, do_con_check_def]
+QED
+
+Theorem every_exp_one_con_check_compile:
+  cexp_compile_rel cnenv se ce ∧
+  cnenv_rel cnenv cml_ns
+  ⇒ every_exp (one_con_check cml_ns) ce
+Proof
+  Induct_on `cexp_compile_rel` >> reverse $ rw[] >>
+  gvs[do_con_check_def, EVERY_EL, LIST_REL_EL_EQN] >> rw[] >> gvs[]
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (pairarg_tac >> gvs[] >> first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (
+    irule every_exp_one_con_check_list_to_exp >> gvs[EVERY_EL] >>
+    gvs[cnenv_rel_def, prim_types_ok_def] >> metis_tac[]
+    )
+  >- (
+    irule every_exp_one_con_check_list_to_exp >> gvs[EVERY_EL] >>
+    gvs[cnenv_rel_def, prim_types_ok_def] >> metis_tac[]
+    )
+  >- (
+    gvs[cnenv_rel_def, prim_types_ok_def] >>
+    first_x_assum $ qspec_then `"True"` mp_tac >> simp[]
+    )
+  >- (
+    gvs[cnenv_rel_def, prim_types_ok_def] >>
+    first_x_assum $ qspec_then `"False"` mp_tac >> simp[]
+    )
+  >- (
+    gvs[cnenv_rel_def, prim_types_ok_def] >>
+    first_x_assum $ qspec_then `"False"` mp_tac >> simp[]
+    )
+  >- (gvs[cnenv_rel_def] >> first_x_assum drule >> simp[])
+QED
+
 
 
 (********** Key namespace result **********)
@@ -3527,19 +3569,54 @@ Proof
     simp[do_app_def, integerTheory.INT_ADD_CALCULATE, store_alloc_def] >>
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def, pmatch_def] >>
   simp[Abbr `strle_dec`, strle_exp_def] >>
-    ntac 3 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+    qmatch_goalsub_abbrev_tac `COND cond` >>
+    `cond` by (
+      unabbrev_all_tac >> simp[do_con_check_def, SF CONJ_ss] >>
+      simp[smallStepTheory.collapse_env_def, extend_dec_env_def] >>
+      once_rewrite_tac[DECIDE ``x ∧ y ⇔ (x = T) ∧ (y = T)``] >>
+      rewrite_tac[AllCaseEqs()] >>
+      rw[EXISTS_PROD, nsLookup_nsAppend_some, id_to_mods_def] >>
+      rpt $ irule_at Any OR_INTRO_THM2 >> simp[nsLookup_nsAppend_none] >>
+      DEP_REWRITE_TAC[nsLookup_build_typedefs_NONE, nsLookup_build_exns_NONE] >>
+      simp[start_env_def, nsLookup_def] >>
+      qmatch_goalsub_abbrev_tac `implode cn` >>
+      gvs[namespace_ok_def, initial_namespace_def, ALL_DISTINCT_APPEND] >>
+      ntac 2 $ first_x_assum $ qspec_then `implode cn` mp_tac >>
+      simp[Abbr `cn`, MEM_MAP, mlstringTheory.implode_def] >>
+      DEP_REWRITE_TAC[MEM_SET_TO_LIST] >> simp[reserved_cns_def]) >>
+    simp[] >> ntac 2 $ pop_assum kall_tac >>
+    qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def] >>
   simp[Abbr `char_list_dec`, char_list_exp_def] >>
-    ntac 3 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
+    qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def] >>
+    qmatch_goalsub_abbrev_tac `COND cond` >>
+    `cond` by (
+      unabbrev_all_tac >> simp[do_con_check_def, SF CONJ_ss] >>
+      simp[smallStepTheory.collapse_env_def, extend_dec_env_def] >>
+      once_rewrite_tac[DECIDE ``x ∧ y ⇔ (x = T) ∧ (y = T)``] >>
+      rewrite_tac[AllCaseEqs()] >>
+      rw[EXISTS_PROD, nsLookup_nsAppend_some, id_to_mods_def] >>
+      rpt $ irule_at Any OR_INTRO_THM2 >> simp[nsLookup_nsAppend_none] >>
+      DEP_REWRITE_TAC[nsLookup_build_typedefs_NONE, nsLookup_build_exns_NONE] >>
+      simp[start_env_def, nsLookup_def, mlstringTheory.implode_def] >>
+      qmatch_goalsub_abbrev_tac `MEM cn _` >>
+      gvs[namespace_ok_def, initial_namespace_def, ALL_DISTINCT_APPEND] >>
+      first_x_assum $ qspec_then `cn` mp_tac >> simp[]) >>
+    simp[] >> ntac 2 $ pop_assum kall_tac >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
   qexists0 >> simp[dstep, Abbr `dst'`] >>
   simp[start_dstate_def, smallStepTheory.collapse_env_def] >>
   simp[extend_dec_env_def, build_rec_env_def] (* slow step *) >>
+  irule_at Any $ SRULE [SimpRHS] $ SCONV []
+    ``cond ∧ a = res ∧ rest ⇒ (if cond then a else b) = res ∧ rest`` >>
+  irule_at Any every_exp_one_con_check_compile >>
   simp[env_ok_def, nsLookup_nsAppend_some] >>
   simp[strle_v_def, char_list_v_def, strle_exp_def, char_list_exp_def] >>
-  irule_at Any compile_rel_cexp_compile_rel >>
-  irule_at Any compile_cexp_compile_rel >> simp[] >> goal_assum $ drule_at Any >>
+  irule_at Any compile_rel_cexp_compile_rel >> qexists `e` >>
+  rpt $ irule_at Any compile_cexp_compile_rel >> rpt $ goal_assum $ drule_at Any >>
   PairCases_on `ns'` >> rename1 `append_ns _ (exns,tdefs)` >>
   drule ns_to_cml_ns >> gvs[start_dstate_def] >> strip_tac >> gvs[] >>
-  goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def]
+  rpt $ goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def]
 QED
 
 
