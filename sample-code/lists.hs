@@ -39,6 +39,12 @@ map f l =
      [] -> []
      h:t -> f h : map f t
 
+filter :: (a -> Bool) -> [a] -> [a]
+filter p l =
+  case l of
+   [] -> []
+   h:t -> if p h then h : filter p t else filter p t
+
 tail :: [a] -> [a]
 tail l =
   case l of
@@ -156,12 +162,8 @@ main = do
   print (int_to_str $ length list)
   print (int_to_str $ length $ tail list)
   print (int_to_str $ foldr (\x y -> x + y) 0 list)
-  print_list print_int list
-  print ""
-  print_list print_int (map (\x -> x + 50) list)
-  print ""
-  print_list print_int $ take 20 numbers
-  print ""
-  print_list (print_list print_int) [[1,2],[3,4]]
-  print ""
+  print_list print_int list ; print ""
+  print_list print_int (filter (\x -> mod x 2 == 0) $ take 20 numbers) ; print ""
+  print_list print_int (map (\x -> x + 50) list) ; print ""
+  print_list (print_list print_int) [[1,2],[3,4]] ; print ""
   return ()
