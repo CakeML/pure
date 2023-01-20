@@ -61,6 +61,13 @@ implode l =
     [] -> ""
     h:t -> str_concat (#(__Implode) h) (implode t)
 
+explode :: String -> [Int]
+explode s =
+  let
+    l = str_len s
+    from i = if i < l then str_elem s i : from (i+1) else []
+  in from 0
+
 str_to_intI :: Int -> Int -> Int -> String -> Int
 str_to_intI i limit acc s =
   if limit == i then acc
@@ -116,4 +123,6 @@ factorials = map (factA 1) numbers
 main = do
   arg1 <- read_arg 1
   print arg1
+  print (implode $ explode arg1)
+  print (implode (explode arg1 ++ explode arg1))
   return ()
