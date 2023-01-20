@@ -61,12 +61,12 @@ arr_update loc index x = Update loc index x
 -- main program
 
 main = do
-  -- allocate and array
+  -- allocate an array
   a <- arr_alloc 10 "Hi"
-  -- check length
+  -- check length of array
   n <- arr_len a
   print (int_to_str n)
-  -- look up element at element 5
+  -- look up element at index 5
   s <- arr_elem a 5
   print s
   -- update element at index 5
@@ -74,6 +74,7 @@ main = do
   s <- arr_elem a 5
   print s
   -- attempt to look up element at index 15 in array of length 10
+  -- and catch the exception that is raised
   Handle (do
             arr_elem a 15
             print "OK")
