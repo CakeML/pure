@@ -55,6 +55,24 @@ str_len s = #(__Len) s
 str_concat :: String -> String -> String
 str_concat s1 s2 = #(__Concat) s1 s2
 
+str_substr :: String -> Int -> Int
+str_substr s i j = #(__Substring) s i j
+
+str_eq :: String -> String -> Bool
+str_eq s1 s2 = #(__StrEq) s1 s2
+
+str_lt :: String -> String -> Bool
+str_lt s1 s2 = #(__StrLt) s1 s2
+
+str_gt :: String -> String -> Bool
+str_gt s1 s2 = #(__StrGt) s1 s2
+
+str_leq :: String -> String -> Bool
+str_leq s1 s2 = #(__StrLeq) s1 s2
+
+str_geq :: String -> String -> Bool
+str_geq s1 s2 = #(__StrGeq) s1 s2
+
 implode :: [Int] -> String
 implode l =
   case l of
@@ -89,6 +107,12 @@ int_to_str i =
   else if i == 0 then "0"
   else implode $ reverse $ int_to_str0 i
 
+bool_to_str :: Bool -> String
+bool_to_str b =
+  case b of
+   True -> "True"
+   False -> "False"
+
 -- monads
 
 return v = Ret v
@@ -108,6 +132,16 @@ read_arg n =
 
 print s = Act (#(stdout) (str_concat s "\n"))
 
+-- arrays
+
+arr_alloc len init_el = Alloc len init_el
+
+arr_len loc = Length loc
+
+arr_elem loc index = Deref loc index
+
+arr_update loc index x = Update loc index x
+
 -- factorial
 
 factA :: Int -> Int -> Int
@@ -122,7 +156,28 @@ factorials = map (factA 1) numbers
 
 main = do
   arg1 <- read_arg 1
+  -- simple echo
   print arg1
+  -- string and list functions
   print (implode $ explode arg1)
   print (implode (explode arg1 ++ explode arg1))
+  print (bool_to_str (1 < 2))
+  print (str_substr "Hello" 1 2)
+  print (bool_to_str (str_eq "Hello" "There"))
+  print (bool_to_str (str_lt "Hello" "There"))
+  -- integers
+  print (int_to_str (1 + 2))
+  print (int_to_str (1 - 2))
+  print (int_to_str (1 * 2))
+  print (int_to_str (div 1 2))
+  print (int_to_str (mod 1 2))
+  -- arrays
+  a <- arr_alloc 10 "Hi"
+  n <- arr_len a
+  print (int_to_str n)
+  s <- arr_elem a 5
+  print s
+  arr_update a 5 "There"
+  s <- arr_elem a 5
+  print s
   return ()
