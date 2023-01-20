@@ -9,6 +9,12 @@
 .HOLMK
 .hollogs
 
+# Sample
+sample-code/cake
+sample-code/pure
+sample-code/pure.tar.gz
+sample-code/factorials
+
 # TacticToe
 *Script_ttt.sml
 
