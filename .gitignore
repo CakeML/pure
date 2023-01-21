@@ -16,6 +16,9 @@ sample-code/pure.tar.gz
 sample-code/factorials
 sample-code/arrays
 sample-code/strings
+sample-code/lists
+sample-code/data
+sample-code/long_compile_time
 
 # TacticToe
 *Script_ttt.sml
