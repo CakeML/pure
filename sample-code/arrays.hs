@@ -80,7 +80,7 @@ main = do
             print "OK")
          (\e ->
             print "Oops")
-  -- raising a user-defined exception
+  -- raising an exception directly
   Handle (do
             print "Part 1"
             Raise Subscript
