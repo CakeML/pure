@@ -17,33 +17,6 @@ l1 ++ l2 =
    [] -> l2
    h:t -> h : (t ++ l2)
 
-take :: Int -> [a] -> [a]
-take n l =
-  if n == 0 then []
-  else
-   case l of
-     [] -> []
-     h:t -> h : take (n - 1) t
-
-drop :: Int -> [a] -> [a]
-drop n l =
-  if n == 0 then l
-  else
-   case l of
-     [] -> []
-     h:t -> drop (n - 1) t
-
-map :: (a -> b) -> [a] -> [b]
-map f l =
-   case l of
-     [] -> []
-     h:t -> f h : map f t
-
-numbers :: [Int]
-numbers =
-  let num n = n : num (n + 1)
-  in num 0
-
 -- string functions
 
 str_elem :: String -> Int -> Int
@@ -117,12 +90,6 @@ bool_to_str b =
 
 return v = Ret v
 
-app :: (a -> IO b) -> [a] -> IO ()
-app f l =
-  case l of
-    [] -> return ()
-    h:t -> do f h ; app f t
-
 -- basic I/O
 
 read_arg n =
@@ -131,26 +98,6 @@ read_arg n =
   in Act (#(cline_arg) (make_str n))
 
 print s = Act (#(stdout) (str_concat s "\n"))
-
--- arrays
-
-arr_alloc len init_el = Alloc len init_el
-
-arr_len loc = Length loc
-
-arr_elem loc index = Deref loc index
-
-arr_update loc index x = Update loc index x
-
--- factorial
-
-factA :: Int -> Int -> Int
-factA a n =
-  if n < 2 then a
-  else factA (a * n) (n - 1)
-
-factorials :: [Int]
-factorials = map (factA 1) numbers
 
 -- main program
 
@@ -165,19 +112,4 @@ main = do
   print (str_substr "Hello" 1 2)
   print (bool_to_str (str_eq "Hello" "There"))
   print (bool_to_str (str_lt "Hello" "There"))
-  -- integers
-  print (int_to_str (1 + 2))
-  print (int_to_str (1 - 2))
-  print (int_to_str (1 * 2))
-  print (int_to_str (div 1 2))
-  print (int_to_str (mod 1 2))
-  -- arrays
-  a <- arr_alloc 10 "Hi"
-  n <- arr_len a
-  print (int_to_str n)
-  s <- arr_elem a 5
-  print s
-  arr_update a 5 "There"
-  s <- arr_elem a 5
-  print s
   return ()
