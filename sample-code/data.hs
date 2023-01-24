@@ -48,9 +48,19 @@ flatten t =
   case t of
    Tree a rs -> a : flat (map flatten rs)
 
+data Foo a b = C Bool a Integer | D b [Bar a]
+
+data Bar d = E d | F (Foo d Integer)
+
+f x = case x of
+        C b a i -> i + 1
+        _ -> 3
+
 -- main program
 
 main = do
   print (if length (flatten (Tree 1 [Tree 2 [], Tree 3 []])) == 3
          then "Yes" else "No")
+  print (if f (D 1 [E ()]) == 3
+         then "Yes!" else "No!")
   return ()
