@@ -22,15 +22,22 @@ End
 
 Definition compile_def:
   compile s =
-    case string_to_cexp s of
+    let _ = empty_ffi (strlit "starting...") in
+    let r = string_to_cexp s in
+    let _ = empty_ffi (strlit "parsing") in
+    case r of
     | NONE => NONE
     | SOME (e1,ns) =>
       let e2 = transform_cexp e1 in
-        case to_option (infer_types ns e2) of
+      let _ = empty_ffi (strlit "transform_cexp") in
+      let i = infer_types ns e2 in
+      let _ = empty_ffi (strlit "infer_types") in
+        case to_option i of
         | NONE => NONE
         | SOME _ =>
           let e3 = demands_analysis e2 in
-          SOME (ast_to_string $ pure_to_cake ns e3)
+          let _ = empty_ffi (strlit "demands_analysis") in
+            SOME (ast_to_string $ pure_to_cake ns e3)
 End
 
 Theorem compile_monadically:
