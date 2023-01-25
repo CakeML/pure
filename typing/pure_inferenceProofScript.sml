@@ -3788,11 +3788,12 @@ QED
 
 Theorem solve_sound:
   ∀ns. namespace_ok ns ⇒
-  ∀cs sub n m.
-    solve cs n = OK (sub,m) ∧
+  ∀cs u n m.
+    solve cs n = OK (u,m) ∧
     constraints_ok (SND ns) (set (MAP to_mconstraint cs)) ∧
     (BIGUNION $ set (MAP (constraint_vars o to_mconstraint) cs) ⊆ count n)
-  ⇒ pure_wfs sub ∧
+  ⇒ ∃sub.
+    pure_wfs sub ∧
     pure_substvars sub ⊆
       BIGUNION (set (MAP (mactivevars o to_mconstraint) cs)) ∪
       { v | n ≤ v ∧ v < m } ∧
@@ -3800,7 +3801,8 @@ Theorem solve_sound:
     (∀c. MEM c cs ⇒ satisfies (SND ns) sub (to_mconstraint c))
 Proof
   gen_tac >> strip_tac >> recInduct solve_ind >>
-  conj_tac >> rpt gen_tac >> strip_tac >- gvs[solve_def, return_def] >>
+  conj_tac >> rpt gen_tac >> strip_tac
+  >- (qexists `FEMPTY` >> gvs[solve_def, return_def]) >>
   rpt gen_tac >> strip_tac >>
   qpat_x_assum `solve _ _ = _` mp_tac >> once_rewrite_tac[solve_def] >>
   CASE_TAC
@@ -3839,7 +3841,7 @@ Proof
         CASE_TAC >> simp[pure_vars] >> gvs[SUBSET_DEF]
         )
       ) >>
-    rw[]
+    rw[] >> goal_assum drule >> rw[]
     >- (
       irule SUBSET_TRANS >> goal_assum drule >> simp[] >>
       rw[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
@@ -4000,7 +4002,7 @@ Proof
       irule constraint_vars_subst_constraint_SUBSET >> simp[] >>
       gvs[constraint_vars_def, SUBSET_DEF] >> metis_tac[]
       ) >>
-    rename1 `FUNION x sub'` >> strip_tac >>
+    strip_tac >> qexists `FUNION x sub'` >>
     `DISJOINT (FDOM x) (pure_substvars sub')` by (
       irule DISJOINT_SUBSET >> goal_assum $ drule_at Any >>
       simp[MEM_MAP, PULL_EXISTS] >> once_rewrite_tac[DISJOINT_SYM] >>
@@ -4057,7 +4059,7 @@ Proof
         ) >>
       gvs[SUBSET_DEF] >> rw[] >> res_tac >> simp[]
       ) >>
-    strip_tac >> simp[] >> rpt conj_tac
+    strip_tac >> goal_assum drule >> simp[] >> rpt conj_tac
     >- (
       irule SUBSET_TRANS >> goal_assum $ drule_at Any >>
       simp[mactivevars_def, GSYM CONJ_ASSOC] >> rw[]
@@ -4109,7 +4111,7 @@ Proof
       simp[GSYM IMAGE_FRANGE, PULL_EXISTS, itype_ok] >> gvs[itype_ok_def] >>
       rw[] >> drule $ SRULE [SUBSET_DEF] FRANGE_FDIFF_SUBSET >> simp[]
       ) >>
-    strip_tac >> gvs[SF DNF_ss, GSYM CONJ_ASSOC] >>
+    strip_tac >> goal_assum drule >> gvs[SF DNF_ss, GSYM CONJ_ASSOC] >>
     DEP_REWRITE_TAC[satisfies_implicit_alt] >> simp[] >> rw[]
     >- (
       `itype_ok (SND ns) 0 (pure_walkstar sub t2)` suffices_by rw[itype_ok_def] >>
@@ -4150,19 +4152,21 @@ Proof
   every_case_tac >> gvs[] >> pairarg_tac >> gvs[infer_bind_def] >>
   every_case_tac >> gvs[] >>
   Cases_on `solve (Unify d ty (M Unit)::cs) r` >> gvs[] >>
-  drule inference_constraints_sound >> rpt $ disch_then drule >>
-  PairCases_on `a` >> rename1 `sub,r'` >>
-  disch_then $ qspecl_then [`sub`,`M Unit`,`0`] mp_tac >>
-  simp[type_of_def] >> disch_then irule >>
+  PairCases_on `a` >> gvs[] >> rename1 `_,r'` >>
   drule infer_minfer >> simp[] >> strip_tac >> gvs[] >>
   `mas = FEMPTY` by (
     gvs[assumptions_rel_def] >> Cases_on `as` >> gvs[null_def] >>
     Cases_on `b` >> gvs[balanced_mapTheory.null_def] >>
     gvs[lookup_def, balanced_mapTheory.lookup_def] >> rw[fmap_eq_flookup]) >>
-  gvs[] >> drule solve_sound >> disch_then drule >>
+  gvs[] >>
+  drule solve_sound >> disch_then drule >>
   reverse impl_tac
   >- (
-    rw[] >> gvs[MEM_MAP, SF DNF_ss, satisfies_def, pure_walkstar_alt] >>
+    rw[] >>
+    drule inference_constraints_sound >> rpt $ disch_then drule >>
+    disch_then $ qspecl_then [`M Unit`,`0`] mp_tac >>
+    simp[type_of_def] >> disch_then irule >>
+    gvs[MEM_MAP, SF DNF_ss, satisfies_def, pure_walkstar_alt] >>
     simp[generalises_to_def, pure_vars] >> qexists_tac `FEMPTY` >> simp[]
     ) >>
   simp[] >> once_rewrite_tac[INSERT_SING_UNION] >> simp[constraints_ok_UNION] >>
@@ -4255,8 +4259,8 @@ Proof
   strip_tac >> gvs[infer_types_def, AllCaseEqs(), fail_def] >>
   drule typedefs_ok_IMP_namespace_init_ok >> strip_tac >> gvs[] >>
   gvs[namespace_init_ok_def] >>
-  drule $ inst infer_top_level_typed >>
-  disch_then $ qspecl_then [`pure_vars$empty`,`e`] mp_tac >> simp[] >> strip_tac >>
+  drule $ inst infer_top_level_typed >> simp[] >>
+  disch_then $ qspecl_then [`empty`,`e`] mp_tac >> simp[] >> strip_tac >>
   irule well_typed_program_imps >> simp[] >>
   irule minfer_cexp_Lits_wf >>
   gvs[infer_top_level_def, infer_bind_def] >> every_case_tac >> gvs[] >>

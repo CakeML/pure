@@ -920,7 +920,7 @@ Definition monomorphise_implicit_def:
 End
 
 Definition solve_def:
-  solve [] = return FEMPTY ∧
+  solve [] = return () ∧
 
   solve cs = case get_solveable cs [] of
     | NONE =>
@@ -930,7 +930,7 @@ Definition solve_def:
         sub <- oreturn (Unification d t1 t2) $ pure_unify FEMPTY t1 t2;
         cs' <<- MAP (subst_constraint sub) cs;
         solve_rest <- solve cs';
-        return (FUNION sub solve_rest) od
+        return () od
 
     | SOME $ (Instantiate d t (vs, scheme), cs) => do
         freshes <- fresh_vars vs;
