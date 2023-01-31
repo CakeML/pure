@@ -6532,7 +6532,6 @@ Theorem delay_lam_apply_closure[local]:
   (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒ next_rel v_rel (f x) (g y)) ⇒
     next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
 Proof
-  cheat (*
   rw [apply_closure_def]
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
@@ -6718,9 +6717,8 @@ Proof
           \\ Cases_on ‘vL1’ \\ gvs []
           \\ rename1 ‘Lam hd1 (Lams vL1 (Apps (Var _) _))’
           \\ Cases_on ‘vL1 = []’ \\ gvs []
-          >- (Cases_on ‘bL2’ \\ gvs [] \\ Cases_on ‘vL2’ \\ gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
-              \\ last_x_assum $ qspec_then ‘0’ assume_tac
-              \\ Cases_on ‘i’ \\ gvs []
+          >- (Cases_on ‘bL2’ \\ gvs [] \\ Cases_on ‘vL2’
+              \\ gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
               \\ drule_then assume_tac exp_rel_freevars
               \\ gvs [subst_def, REVERSE_APPEND, subst_APPEND, subst1_notin_frees, eval_Tick, eval_App_Values_Rec]
               \\ irule exp_rel_eval
@@ -6731,9 +6729,8 @@ Proof
               >- (irule exp_rel_subst \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
                   \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
                   \\ rename1 ‘Lam h (App (Var v1) (Var h))’
-                  \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-                  \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs []
-                  \\ Cases \\ gvs [])
+                  \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ simp []
+                  \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ simp [])
               \\ rename1 ‘MAP FST xs = MAP FST ys’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
               \\ rw [] \\ rename1 ‘n < _’
               \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
@@ -6741,9 +6738,8 @@ Proof
               \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
               \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
               \\ rename1 ‘Lam h (App (Var v1) (Var h))’
-              \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-              \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
-              \\ Cases \\ gvs [])
+              \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ simp []
+              \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ simp [LIST_REL_EL_EQN, EL_MAP])
           \\ gvs [eval_Lams, subst_Lams]
           \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj1_tac
           \\ rename1 ‘MAP FST xs = MAP FST ys’
@@ -6994,8 +6990,6 @@ Proof
           \\ rename1 ‘Lam hd1 (Lams vL1 (Apps (Var _) _))’
           \\ Cases_on ‘vL1 = []’ \\ gvs []
           >- (Cases_on ‘bL2’ \\ gvs [] \\ Cases_on ‘vL2’ \\ gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
-              \\ last_x_assum $ qspec_then ‘0’ assume_tac
-              \\ Cases_on ‘i’ \\ gvs []
               \\ drule_then assume_tac exp_rel_freevars
               \\ gvs [subst_def, REVERSE_APPEND, subst_APPEND, subst1_notin_frees, eval_Tick, eval_App_Values_Rec]
               \\ irule exp_rel_eval
@@ -7007,7 +7001,7 @@ Proof
                   \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
                   \\ rename1 ‘Lam h (App (Var v1) (Var h))’
                   \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-                  \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs []
+                   \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs []
                   \\ Cases \\ gvs [])
               \\ rename1 ‘MAP FST xs = MAP FST ys’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
               \\ rw [] \\ rename1 ‘n < _’
@@ -7017,7 +7011,7 @@ Proof
               \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
               \\ rename1 ‘Lam h (App (Var v1) (Var h))’
               \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-              \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
+              \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
               \\ Cases \\ gvs [])
           \\ gvs [eval_Lams, subst_Lams]
           \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac
@@ -7189,7 +7183,7 @@ Proof
       \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
       \\ qexists_tac ‘vL2’ \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’
       \\ qexists_tac ‘i’ \\ gvs [Lams_split, EL_MAP]
-      \\ gvs [LIST_REL_EL_EQN, EL_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]) *)
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
 QED
 
 Theorem delay_lam_rel_ok[local]:
