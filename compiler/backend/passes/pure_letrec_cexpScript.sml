@@ -189,11 +189,11 @@ End
 Definition transform_cexp_def:
   transform_cexp (conf:compiler_opts) e =
     let e = init_sets e in
-    if ~conf.do_pure_simp then e else
-      let d = distinct_cexp e in
-      let s = split_all_cexp d in
-      let c = clean_all_cexp s in
-        c
+    let d = distinct_cexp e in
+      if ~conf.do_pure_simp then d else
+        let s = split_all_cexp d in
+        let c = clean_all_cexp s in
+          c
 End
 
 (*******************)

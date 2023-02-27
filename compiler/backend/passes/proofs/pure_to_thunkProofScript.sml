@@ -655,7 +655,7 @@ Theorem compile_to_thunk_itree_of:
   letrecs_distinct (exp_of x) ∧
   safe_itree (pure_semantics$itree_of (exp_of x)) ⇒
   pure_semantics$itree_of (exp_of x) =
-  thunk_semantics$itree_of (exp_of (compile_to_thunk x))
+  thunk_semantics$itree_of (exp_of (compile_to_thunk c x))
 Proof
   rw [compile_to_thunk_def]
   \\ Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
@@ -665,7 +665,7 @@ Proof
   \\ fs [pure_names_ok,pure_names_eq_allvars]
   \\ rw [thunk_semanticsTheory.itree_of_def]
   \\ pairarg_tac \\ fs []
-  \\ drule_then mp_tac split_Delayed_Lam_soundness
+  \\ drule_then mp_tac split_delated_lam_soundness
   \\ impl_tac \\ simp []
   \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
   \\ gs []
@@ -676,9 +676,9 @@ Theorem IMP_thunk_cexp_wf:
   closed (exp_of x) ∧
   letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
-  thunk_exp_of$cexp_wf (compile_to_thunk x) ∧
-  thunkLang$closed (thunk_exp_of$exp_of (compile_to_thunk x)) ∧
-  cns_arities (compile_to_thunk x) ⊆
+  thunk_exp_of$cexp_wf (compile_to_thunk c x) ∧
+  thunkLang$closed (thunk_exp_of$exp_of (compile_to_thunk c x)) ∧
+  cns_arities (compile_to_thunk c x) ⊆
               IMAGE (IMAGE (explode ## I)) (cns_arities x)
 Proof
   fs [compile_to_thunk_def] \\ strip_tac
@@ -687,8 +687,10 @@ Proof
   \\ gs [pure_names_ok,pure_names_eq_allvars]
   \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
   \\ pairarg_tac \\ fs []
-  \\ drule_then assume_tac split_Delayed_Lam_soundness
-  \\ gs []
+  \\ drule_then mp_tac split_delated_lam_soundness
+  \\ impl_tac \\ simp []
+  \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
+  \\ gs [] \\ rw [] \\ fs []
 QED
 
 val _ = export_theory ();

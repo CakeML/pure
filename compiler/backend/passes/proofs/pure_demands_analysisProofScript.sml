@@ -3858,9 +3858,11 @@ QED
 
 Theorem demands_analysis_soundness:
   ∀(e : α cexp) a. NestedCase_free e ∧ cexp_wf e ∧ letrecs_distinct (exp_of e) ⇒
-                   exp_of e ≈ exp_of (demands_analysis e) ∧ letrecs_distinct (exp_of (demands_analysis e))
+                   exp_of e ≈ exp_of (demands_analysis c e) ∧
+                   letrecs_distinct (exp_of (demands_analysis c e))
 Proof
   rpt strip_tac \\ gvs [demands_analysis_def, SND_THM]
+  \\ rw [] \\ fs [exp_eq_refl]
   \\ pairarg_tac \\ gs [FST_THM]
   \\ pairarg_tac \\ gs []
   \\ qspecl_then [‘(K 0) : α -> num’, ‘e’, ‘Nil’, ‘empty compare’]

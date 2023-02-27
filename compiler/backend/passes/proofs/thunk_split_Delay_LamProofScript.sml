@@ -3600,5 +3600,24 @@ Proof
   \\ gs [closed_def]
 QED
 
+Theorem split_delated_lam_soundness:
+  ∀e vc e_out vc_out.
+     split_delated_lam do_it e vc = (e_out, vc_out) ∧
+     closed (exp_of e) ∧
+     boundvars (exp_of e) ⊆ set_of vc ∧
+     vars_ok vc ∧
+     cexp_wf e
+     ⇒ cexp_wf e_out ∧
+       cns_arities e = cns_arities e_out ∧
+       boundvars (exp_of e_out) ⊆ set_of vc_out ∧
+       closed (exp_of e_out) ∧
+       vars_ok vc_out ∧
+       semantics (exp_of e) Done [] = semantics (exp_of e_out) Done []
+Proof
+  rewrite_tac [split_delated_lam_def]
+  \\ reverse $ Cases_on ‘do_it’ >- gvs [] \\ fs []
+  \\ rpt gen_tac \\ strip_tac
+  \\ drule_all split_Delayed_Lam_soundness \\ simp []
+QED
 
 val _ = export_theory ();

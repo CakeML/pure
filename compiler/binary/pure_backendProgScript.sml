@@ -53,7 +53,7 @@ val r = translate thunk_split_Delay_LamTheory.dest_Var_def;
 val r = translate thunk_split_Delay_LamTheory.dest_Delay_Lam_def;
 val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
 val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
-val r = translate split_delated_lam_def;
+val r = translate thunk_split_Delay_LamTheory.split_delated_lam_def;
 
 val r = translate pure_to_thunkTheory.mk_delay_def;
 val r = translate pure_to_thunkTheory.must_delay_def;
