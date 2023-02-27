@@ -11,7 +11,7 @@ open pure_comp_confTheory;
 val _ = new_theory "pure_to_thunk";
 
 val _ = set_grammar_ancestry
-  ["pure_cexp", "thunk_cexp", "pure_names", "thunk_split_Delay_Lam"];
+  ["pure_cexp", "thunk_cexp", "pure_names", "thunk_split_Delay_Lam", "pure_comp_conf"];
 
 Definition any_el_def:
   any_el n [] = thunk_cexp$Prim (AtomOp Add) [] ∧
@@ -107,7 +107,7 @@ End
 Definition compile_to_thunk_def:
   compile_to_thunk (c:compiler_opts) e =
     let (e1, vs) = to_thunk (pure_names e) e in
-    let (e2, vs2) = split_Delayed_Lam e1 vs (empty compare) in
+    let (e2, vs2) = split_delated_lam c.do_split_dlam e1 vs in
       e2
 End
 

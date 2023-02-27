@@ -183,7 +183,7 @@ End
 Definition compile_to_state_def:
   compile_to_state (c:compiler_opts) e =
     let x = compile e in
-    let y = state_app_unit$push_app_unit 0 x in
+    let y = state_app_unit$optimise_app_unit c.do_app_unit x in
     let z = state_names$give_all_names y in
       z
 End

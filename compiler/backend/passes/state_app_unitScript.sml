@@ -61,4 +61,9 @@ Proof
   EVAL_TAC
 QED
 
+Definition optimise_app_unit_def:
+  optimise_app_unit do_it x =
+    if do_it then push_app_unit 0 x else x
+End
+
 val _ = export_theory ();
