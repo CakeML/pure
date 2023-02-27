@@ -54,8 +54,7 @@ Theorem pure_compiler_correct:
        (itree_of (exp_of pure_ce))
        (itree_semantics cake_prog)
 Proof
-  cheat
-  (* strip_tac \\ gvs [compile_def,AllCaseEqs()]
+  strip_tac \\ gvs [compile_def,AllCaseEqs()]
   \\ fs [string_to_ast_ast_to_string]
   \\ qabbrev_tac ‘e3 = transform_cexp c e1’
   \\ qabbrev_tac ‘e2 = demands_analysis c e3’
@@ -68,14 +67,17 @@ Proof
          pure_typingTheory.namespace_init_ok_def, AllCaseEqs()] >>
      drule $ INST_TYPE [alpha |-> ``:(mlstring,unit) map``] infer_top_level_typed >>
      disch_then $ qspecl_then [`empty`,`e3`] assume_tac >> gvs[] >>
-     gvs[pure_demands_analysisTheory.demands_analysis_def] >>
-     qabbrev_tac `d = demands_analysis_fun Nil e3 (empty str_compare)` >>
-     PairCases_on `d` >> gvs[] >>
-     dxrule_then assume_tac $ cj 5 demands_analysis_fun_insert_seq >> gvs[] >>
-     dxrule_all_then assume_tac pure_typingPropsTheory.insert_seq_imps >> gvs[] >>
-     dxrule well_typed_program_imps >> disch_then drule >>
+     `cexp_wf e2 ∧ NestedCase_free e2 ∧
+      type_tcexp (append_ns initial_namespace ns') 0 [] [] (tcexp_of e2) (M Unit)` by (
+        gvs[pure_demands_analysisTheory.demands_analysis_def] >>
+        FULL_CASE_TAC >> gvs[] >>
+        qabbrev_tac `d = demands_analysis_fun Nil e3 (empty str_compare)` >>
+        PairCases_on `d` >> gvs[] >>
+        dxrule_then assume_tac $ cj 5 demands_analysis_fun_insert_seq >> gvs[] >>
+        dxrule_all_then assume_tac pure_typingPropsTheory.insert_seq_imps >> gvs[]) >>
+     dxrule well_typed_program_imps >> simp[] >>
      impl_tac >- gvs[pure_tcexp_lemmasTheory.cexp_wf_tcexp_wf] >> strip_tac
-  \\ qsuff_tac ‘itree_of (exp_of e1) = itree_of (exp_of d1)’
+  \\ qsuff_tac ‘itree_of (exp_of e1) = itree_of (exp_of e2)’
   >- (
     disch_then $ rewrite_tac o single
     \\ irule_at Any pure_to_cakeProofTheory.pure_to_cake_correct
@@ -92,7 +94,7 @@ Proof
   \\ disch_then irule
   \\ simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of]
   \\ gvs[string_to_cexp_def] \\ pairarg_tac \\ gvs[]
-  \\ drule_at Any $ iffLR ast_to_cexpTheory.closed_under \\ simp[] *)
+  \\ drule_at Any $ iffLR ast_to_cexpTheory.closed_under \\ simp[]
 QED
 
 val _ = export_theory();
