@@ -3,7 +3,7 @@
 *)
 
 open HolKernel Parse boolLib bossLib term_tactic;
-open pure_cexpTheory mlmapTheory mlstringTheory;
+open pure_cexpTheory mlmapTheory mlstringTheory pure_comp_confTheory;
 
 val _ = new_theory "pure_demands_analysis";
 
@@ -392,7 +392,9 @@ Termination
 End
 
 Definition demands_analysis_def:
-    demands_analysis e = FST (SND (demands_analysis_fun Nil e (empty compare)))
+    demands_analysis c e =
+      if c.do_demands then FST (SND (demands_analysis_fun Nil e (empty compare)))
+      else e
 End
 
 Definition demands_analysis2_def:
@@ -495,7 +497,7 @@ QED
 *)
 
 Theorem demands_analysis_test_1:
-  demands_analysis
+  demands_analysis default_conf
   (Letrec 0
     [(«fact», Lam 0 [«n»; «c»]
      (Case 0
