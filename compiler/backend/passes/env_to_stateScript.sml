@@ -5,14 +5,14 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_miscTheory pure_configTheory
+open pure_miscTheory pure_configTheory pure_comp_confTheory
      env_cexpTheory state_cexpTheory
      state_app_unitTheory state_namesTheory;
 local open pure_semanticsTheory in end
 
 val _ = new_theory "env_to_state";
 
-val _ = set_grammar_ancestry ["env_cexp", "state_cexp"];
+val _ = set_grammar_ancestry ["env_cexp", "state_cexp", "pure_comp_conf"];
 
 Definition dest_Message_def:
   dest_Message (Message s) = SOME s ∧
@@ -181,9 +181,9 @@ Definition compile_def:
 End
 
 Definition compile_to_state_def:
-  compile_to_state e =
+  compile_to_state (c:compiler_opts) e =
     let x = compile e in
-    let y = state_app_unit$push_app_unit 0 x in
+    let y = state_app_unit$optimise_app_unit c.do_app_unit x in
     let z = state_names$give_all_names y in
       z
 End

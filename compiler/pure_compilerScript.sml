@@ -21,37 +21,36 @@ Definition ast_to_string_def:
 End
 
 Definition compile_def:
-  compile s =
+  compile c s =
     let _ = empty_ffi (strlit "starting...") in
     let r = string_to_cexp s in
     let _ = empty_ffi (strlit "parsing") in
     case r of
     | NONE => NONE
     | SOME (e1,ns) =>
-      let e2 = transform_cexp e1 in
+      let e2 = transform_cexp c e1 in
       let _ = empty_ffi (strlit "transform_cexp") in
       let i = infer_types ns e2 in
       let _ = empty_ffi (strlit "infer_types") in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
-          let e3 = demands_analysis e2 in
+          let e3 = demands_analysis c e2 in
           let _ = empty_ffi (strlit "demands_analysis") in
-            SOME (ast_to_string $ pure_to_cake ns e3)
+            SOME (ast_to_string $ pure_to_cake c ns e3)
 End
 
 Theorem compile_monadically:
-  compile s =
+  compile c s =
   do
     (e1,ns) <- string_to_cexp s ;
-    e2 <<- transform_cexp e1 ;
+    e2 <<- transform_cexp c e1 ;
     to_option $ infer_types ns e2 ;
-    e3 <<- demands_analysis e2 ;
-    return (ast_to_string $ pure_to_cake ns e3)
+    e3 <<- demands_analysis c e2 ;
+    return (ast_to_string $ pure_to_cake c ns e3)
   od
 Proof
   simp[compile_def] >> EVERY_CASE_TAC >> simp[]
 QED
-
 
 val _ = export_theory();

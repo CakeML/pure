@@ -3,7 +3,7 @@
 *)
 open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
-open pure_cexpTheory pure_varsTheory balanced_mapTheory;
+open pure_cexpTheory pure_varsTheory balanced_mapTheory pure_comp_confTheory;
 
 val _ = new_theory "pure_letrec_cexp";
 
@@ -187,12 +187,13 @@ End
 *)
 
 Definition transform_cexp_def:
-  transform_cexp e =
+  transform_cexp (conf:compiler_opts) e =
     let e = init_sets e in
     let d = distinct_cexp e in
-    let s = split_all_cexp d in
-    let c = clean_all_cexp s in
-    c
+      if ~conf.do_pure_simp then d else
+        let s = split_all_cexp d in
+        let c = clean_all_cexp s in
+          c
 End
 
 (*******************)

@@ -53,6 +53,7 @@ val r = translate thunk_split_Delay_LamTheory.dest_Var_def;
 val r = translate thunk_split_Delay_LamTheory.dest_Delay_Lam_def;
 val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
 val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
+val r = translate thunk_split_Delay_LamTheory.split_delated_lam_def;
 
 val r = translate pure_to_thunkTheory.mk_delay_def;
 val r = translate pure_to_thunkTheory.must_delay_def;
@@ -102,6 +103,7 @@ val r = translate env_to_stateTheory.compile_def;
 val r = translate state_app_unitTheory.unit_apps_def;
 val r = translate state_app_unitTheory.any_el_def;
 val r = translate state_app_unitTheory.push_app_unit_def;
+val r = translate state_app_unitTheory.optimise_app_unit_def;
 val r = translate state_namesTheory.max_name_def;
 val r = translate state_namesTheory.list_max_def;
 val r = translate state_namesTheory.make_name_def;

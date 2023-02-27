@@ -971,12 +971,26 @@ Proof
 QED
 
 Theorem cexp_wwf_push_app_unit:
-  (cexp_wwf x ⇒ cexp_wwf (push_app_unit 0 x)) ∧ cns_arities (push_app_unit 0 x) ⊆ cns_arities x
+  (cexp_wwf x ⇒ cexp_wwf (push_app_unit 0 x)) ∧
+  cns_arities (push_app_unit 0 x) ⊆ cns_arities x
 Proof
   qspecl_then [‘unit_apps 0 x’, ‘push_app_unit 0 x’] mp_tac cexp_rel_cexp_wwf
   \\ reverse impl_tac
   >- simp [unit_apps_0]
   \\ fs [cexp_rel_pust_app_unit]
+QED
+
+Theorem itree_of_optimise_app_unit:
+  itree_of (exp_of (optimise_app_unit b x)) = itree_of (exp_of x)
+Proof
+  rw [optimise_app_unit_def,itree_of_push_app_unit]
+QED
+
+Theorem cexp_wwf_optimise_app_unit:
+  (cexp_wwf x ⇒ cexp_wwf (optimise_app_unit b x)) ∧
+  cns_arities (optimise_app_unit b x) ⊆ cns_arities x
+Proof
+  rw [optimise_app_unit_def,cexp_wwf_push_app_unit]
 QED
 
 val _ = export_theory ();

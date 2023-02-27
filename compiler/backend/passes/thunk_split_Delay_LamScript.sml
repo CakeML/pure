@@ -176,4 +176,9 @@ Termination
   \\ CASE_TAC \\ gs [cexp_size_def]
 End
 
+Definition split_delated_lam_def:
+  split_delated_lam do_it e1 vs =
+    if do_it then split_Delayed_Lam e1 vs (empty compare) else (e1,vs)
+End
+
 val _ = export_theory ();
