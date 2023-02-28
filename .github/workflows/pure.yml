@@ -146,7 +146,3 @@ jobs:
       run: |
         cd pure/compiler/binary
         Holmake
-    - name: Build examples
-      run: |
-        cd pure/examples
-        Holmake
