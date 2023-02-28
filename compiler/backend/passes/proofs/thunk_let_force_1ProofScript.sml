@@ -42,6 +42,10 @@ Definition can_keep_def:
   can_keep m (a,b) ⇔ m ≠ a ∧ m ≠ b:mlstring
 End
 
+Definition can_keep_list_def:
+  can_keep_list ms (a,b) ⇔ ~MEM a ms ∧ ~MEM (b:mlstring) ms
+End
+
 Definition let_force_def:
   let_force (m:(mlstring # mlstring) list) ((Var v):thunk_cexp$cexp) = Var v:thunk_cexp$cexp∧
   let_force m (Let opt x y) =
@@ -55,7 +59,7 @@ Definition let_force_def:
            case ALOOKUP m w of
            | SOME t => Let opt (Var t) (let_force m1 y)
            | NONE => Let opt x (let_force ((w,v)::m1) y)) ∧
-  let_force m (Lam vs x) = Lam vs (let_force [] x) ∧
+  let_force m (Lam vs x) = Lam vs (let_force (FILTER (can_keep_list vs) m) x) ∧
   let_force m (App x xs) = App (let_force m x) (MAP (let_force m) xs) ∧
   let_force m (Delay x) = Delay (let_force m x) ∧
   let_force m (Force x) =
@@ -66,9 +70,10 @@ Definition let_force_def:
                  | SOME t => Var t) ∧
   let_force m (Box x) = Box (let_force m x) ∧
   let_force m (Letrec fs x) =
-    Letrec (MAP (λ(n,x). (n,let_force [] x)) fs) (let_force [] x) ∧
+    (let m1 = FILTER (can_keep_list (MAP FST fs)) m in
+       Letrec (MAP (λ(n,x). (n,let_force m1 x)) fs) (let_force m1 x)) ∧
   let_force m (Case v rows d) =
-    Case v (MAP (λ(n,p,x). (n,p,let_force m x)) rows)
+    Case v (MAP (λ(n,p,x). (n,p,let_force (FILTER (can_keep_list p) m) x)) rows)
       (case d of NONE => NONE | SOME (a,e) => SOME (a,let_force m e)) ∧
   let_force m (Prim p xs) = Prim p (MAP (let_force m) xs)
 Termination
@@ -76,7 +81,7 @@ Termination
 End
 
 Definition simp_let_force_def:
-  simp_let_force e = let_force [] e
+  simp_let_force do_it e = if do_it then let_force [] e else e
 End
 
 Definition dest_Var_def[simp]:
@@ -89,6 +94,12 @@ Proof
   Induct \\ fs [filter_clash_def,name_clash_def]
 QED
 
+Theorem LIST_REL_MAP_same:
+  ∀xs. LIST_REL R (MAP f xs) (MAP g xs) = EVERY (λx. R (f x) (g x)) xs
+Proof
+  Induct \\ fs []
+QED
+
 Theorem let_force_thm:
   ∀m x.
     EVERY (λm. ∀n x. m = SOME (n,x) ⇒ ∃v. n = Var v) m ⇒
@@ -96,7 +107,6 @@ Theorem let_force_thm:
             (exp_of (let_force (MAP (λ(x,n). (implode (dest_Var x),implode n))
                         (MAP THE (FILTER IS_SOME m))) x))
 Proof
-
   rpt gen_tac \\ qid_spec_tac ‘m’ \\ qid_spec_tac ‘x’
   \\ ho_match_mp_tac (cns_arities_ind |> SIMP_RULE std_ss [])
   \\ rpt conj_tac \\ rpt gen_tac
@@ -189,15 +199,117 @@ Proof
     \\ strip_tac
     \\ gvs [name_clash_def,can_keep_def]
     \\ rpt (IF_CASES_TAC \\ gvs []))
-
-  \\ cheat
+  >~ [‘Prim’] >-
+   (rw [] \\ fs []
+    \\ last_x_assum $ drule_at $ Pos $ el 2
+    \\ strip_tac
+    \\ fs [let_force_def]
+    \\ irule e_rel_Prim
+    \\ fs [MAP_MAP_o,LIST_REL_MAP_same]
+    \\ fs [EVERY_MEM])
+  >~ [‘App’] >-
+   (fs [exp_of_def,let_force_def]
+    \\ rw [] \\ fs []
+    \\ last_x_assum $ drule_at $ Pos $ el 2
+    \\ first_x_assum dxrule
+    \\ qid_spec_tac ‘es’
+    \\ ho_match_mp_tac SNOC_INDUCT \\ rw []
+    \\ gvs [FOLDL_SNOC,MAP_SNOC]
+    \\ irule e_rel_App
+    \\ fs [])
+  >~ [‘Lam’] >- cheat
+  >~ [‘Letrec’] >- cheat
+  \\ rename [‘Case’]
+  \\ fs [let_force_def]
+  \\ Induct_on ‘css’ \\ fs []
+  >-
+   (fs [rows_of_def] \\ Cases_on ‘d’ \\ fs []
+    \\ rw [] >- simp [Once e_rel_cases]
+    \\ rename [‘x = (_,_)’] \\ PairCases_on ‘x’ \\ fs []
+    \\ rw [] \\ last_x_assum drule \\ rw []
+    \\ simp [Once e_rel_cases]
+    \\ reverse conj_tac
+    >- simp [Once e_rel_cases]
+    \\ rename [‘Disj a xs’]
+    \\ Induct_on ‘xs’
+    >- simp [Once e_rel_cases,Disj_def]
+    \\ Cases \\ simp [Once e_rel_cases,Disj_def]
+    \\ ntac 5 $ simp [Once e_rel_cases,Disj_def])
+  \\ rw []
+  \\ fs [SF DNF_ss]
+  \\ PairCases_on ‘h’ \\ gvs []
+  \\ fs [rows_of_def]
+  \\ irule e_rel_If \\ fs []
+  \\ conj_tac >- (ntac 2 $ simp [Once e_rel_cases])
+  \\ reverse conj_tac >- metis_tac []
+  \\ last_x_assum kall_tac
+  \\ qabbrev_tac ‘n = LENGTH h1’ \\ pop_assum kall_tac
+  \\ qsuff_tac ‘∀z n.
+          e_rel m
+          (lets_for n (explode h0) (explode x)
+             (MAPi (λi v. (i+z,v)) (MAP explode h1)) (exp_of h2))
+          (lets_for n (explode h0) (explode x)
+             (MAPi (λi v. (i+z,v)) (MAP explode h1))
+             (exp_of
+                (let_force
+                   (FILTER (can_keep_list h1)
+                      (MAP (λ(x,n). (implode (dest_Var x),implode n))
+                         (MAP THE (FILTER IS_SOME m)))) h2)))’
+  >- (disch_then $ qspecl_then [‘0’,‘n’] mp_tac \\ fs [])
+  \\ pop_assum mp_tac \\ qid_spec_tac ‘m’
+  \\ Induct_on ‘h1’
+  >-
+   (rw [lets_for_def]
+    \\ ‘∀xs. FILTER (can_keep_list []) xs = xs’ by
+         (Induct \\ gvs [can_keep_list_def,FORALL_PROD])
+    \\ fs [FORALL_PROD,lets_for_def])
+  \\ fs [FORALL_PROD,lets_for_def,combinTheory.o_DEF,ADD1]
+  \\ rw [] \\ ntac 6 $ simp [Once e_rel_cases]
+  \\ irule e_rel_Let
+  \\ conj_tac >- (ntac 6 $ simp [Once e_rel_cases])
+  \\ fs [PULL_FORALL]
+  \\ first_x_assum $ qspec_then
+       ‘(MAP (filter_clash (SOME (explode h))) (MAP (filter_clash NONE) m))’ mp_tac
+  \\ disch_then $ qspecl_then [‘z+1’,‘n’] mp_tac
+  \\ impl_tac
+  >-
+   (fs [EVERY_MAP,filter_clash_def]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw [] \\ res_tac \\ fs [])
+  \\ match_mp_tac EQ_IMPLIES
+  \\ rpt AP_TERM_TAC
+  \\ AP_THM_TAC
+  \\ rpt AP_TERM_TAC
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘m’
+  \\ rpt $ pop_assum kall_tac
+  \\ Induct \\ fs []
+  \\ Cases \\ fs [filter_clash_def]
+  \\ PairCases_on ‘x’ \\ gvs [name_clash_def]
+  \\ strip_tac \\ gvs [name_clash_def,can_keep_list_def]
+  \\ rw [] \\ gvs []
+  \\ rw [] \\ gvs [can_keep_list_def]
 QED
 
 Theorem simp_let_force_thm:
-  e_rel [] (exp_of x) (exp_of (simp_let_force x))
+  e_rel [] (exp_of x) (exp_of (simp_let_force T x))
 Proof
   qspec_then ‘[]’ mp_tac let_force_thm
   \\ fs [simp_let_force_def]
+QED
+
+Theorem itree_of_simp_let_force:
+  safe_itree (itree_of (exp_of x)) ∧
+  closed (exp_of x)
+  ⇒
+  itree_of (exp_of (simp_let_force do_it x)) = itree_of (exp_of x) ∧
+  closed (exp_of (simp_let_force do_it x))
+Proof
+  reverse $ Cases_on ‘do_it’
+  >- simp [simp_let_force_def]
+  \\ strip_tac
+  \\ assume_tac simp_let_force_thm
+  \\ drule_all e_rel_semantics \\ fs []
 QED
 
 val _ = export_theory ();
