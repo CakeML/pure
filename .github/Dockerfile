@@ -1,5 +1,8 @@
 FROM ubuntu:latest
 
+ENV WORKDIR /home
+WORKDIR $WORKDIR
+
 # Install pre-requisites
 RUN apt-get update && \
     apt-get install -y git build-essential gcc-10 libffi-dev
@@ -21,10 +24,10 @@ RUN git clone https://github.com/cakeml/cakeml && \
     git clone https://github.com/cakeml/pure
 
 # Update environment variables
-ENV HOLDIR /hol/bin
+ENV HOLDIR $WORKDIR/hol/bin
 ENV PATH $HOLDIR:$PATH
-ENV CAKEMLDIR /cakeml
-ENV PUREDIR /pure
+ENV CAKEMLDIR $WORKDIR/cakeml
+ENV PUREDIR $WORKDIR/pure
 
 # Build PureCake and necessary dependencies
 RUN cd pure && Holmake
