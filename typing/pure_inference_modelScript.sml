@@ -256,13 +256,15 @@ Inductive minfer:
       (ZIP (fns,tys)) (ZIP (ass,css)) ∧
    minfer ns mset e eas ecs ety ∧
    cvars_disjoint ((eas,ecs,ety)::ZIP (ass, ZIP (css, tys))) ∧
-   as = FOLDR maunion FEMPTY (eas::ass) ∧
+   as = FOLDR maunion FEMPTY ass ∧
    cs = ecs ∪ BIGUNION (set css)
     ⇒ minfer ns mset (Letrec d fns e)
-        (FDIFF as (set $ MAP FST fns))
+        (FDIFF (maunion eas as) (set $ MAP FST fns))
         (set (MAP (λt. mUnify t t) tys) ∪ cs ∪
           (BIGUNION $ set $ list$MAP2 (λ(x,b) tyfn.
-            IMAGE (λn. mImplicit (CVar n) mset tyfn) (get_massumptions as x)) fns tys))
+            IMAGE (λn. mUnify (CVar n) tyfn) (get_massumptions as x)) fns tys) ∪
+          (BIGUNION $ set $ list$MAP2 (λ(x,b) tyfn.
+            IMAGE (λn. mImplicit (CVar n) mset tyfn) (get_massumptions eas x)) fns tys))
         ety) ∧
 
 [~BoolCase:]
@@ -1836,6 +1838,7 @@ Proof
         )
       >- (
         simp[AC UNION_ASSOC UNION_COMM] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+        simp[Once UNION_COMM] >> MK_COMB_TAC >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
         simp[LIST_TO_SET_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
              IMAGE_BIGUNION, LIST_TO_SET_MAP, IMAGE_IMAGE] >>
         rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
@@ -1886,30 +1889,48 @@ Proof
         )
       >- (first_x_assum drule >> rw[SUBSET_DEF] >> first_x_assum drule >> simp[])
       >- (
+        rename1 `fst,snd` >>
         gvs[get_assumptions_def, assumptions_rel_def] >> every_case_tac >> gvs[] >>
         gvs[miscTheory.toAList_domain] >>
         qpat_x_assum `lookup _ _ = _` mp_tac >> simp[aunion_def] >>
         DEP_REWRITE_TAC[lookup_unionWith] >> simp[] >>
-        ntac 3 $ first_x_assum $ qspec_then `p_1` assume_tac >>
-        rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS]
-        >- (first_x_assum drule >> simp[SUBSET_DEF])
-        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]) >>
-        gvs[domain_union] >>
-        first_x_assum drule >> first_x_assum drule >> simp[SUBSET_DEF] >>
+        ntac 3 $ first_x_assum $ qspec_then `fst` assume_tac >>
+        rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+        first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]
+        )
+      >- (
+        rename1 `fst,snd` >>
+        gvs[get_assumptions_def, assumptions_rel_def] >> every_case_tac >> gvs[] >>
+        gvs[miscTheory.toAList_domain] >>
+        qpat_x_assum `lookup _ _ = _` mp_tac >> simp[aunion_def] >>
+        DEP_REWRITE_TAC[lookup_unionWith] >> simp[] >>
+        ntac 3 $ first_x_assum $ qspec_then `fst` assume_tac >>
+        rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+        first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]
+        )
+      >- (
+        last_x_assum $ qspec_then `EL n' tys` mp_tac >> simp[EL_MEM, SUBSET_DEF] >>
         rw[] >> first_x_assum drule >> simp[]
         )
       >- (
+        rename1 `fst,snd` >>
         gvs[get_assumptions_def, assumptions_rel_def] >> every_case_tac >> gvs[] >>
         gvs[miscTheory.toAList_domain] >>
         qpat_x_assum `lookup _ _ = _` mp_tac >> simp[aunion_def] >>
         DEP_REWRITE_TAC[lookup_unionWith] >> simp[] >>
-        ntac 3 $ first_x_assum $ qspec_then `p_1` assume_tac >>
-        rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS]
-        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[])
-        >- (first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]) >>
-        gvs[domain_union] >>
-        first_x_assum drule >> first_x_assum drule >> simp[SUBSET_DEF] >>
-        rw[] >> first_x_assum drule >> simp[]
+        ntac 3 $ first_x_assum $ qspec_then `fst` assume_tac >>
+        rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+        first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]
+        )
+      >- (
+        rename1 `fst,snd` >>
+        gvs[get_assumptions_def, assumptions_rel_def] >> every_case_tac >> gvs[] >>
+        gvs[miscTheory.toAList_domain] >>
+        qpat_x_assum `lookup _ _ = _` mp_tac >> simp[aunion_def] >>
+        DEP_REWRITE_TAC[lookup_unionWith] >> simp[] >>
+        ntac 3 $ first_x_assum $ qspec_then `fst` assume_tac >>
+        rw[] >> every_case_tac >> gvs[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
+        first_x_assum drule >> simp[SUBSET_DEF] >> disch_then drule >> simp[]
         )
       >- (
         last_x_assum $ qspec_then `EL n'' tys` mp_tac >> simp[EL_MEM, SUBSET_DEF] >>

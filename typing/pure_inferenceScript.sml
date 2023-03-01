@@ -431,9 +431,15 @@ Definition infer_def:
           (return ([],empty,[])) fns;
     return (tye, list_delete (ase ⋓ asfns) (MAP FST fns),
             MAP (λt. Unify d t t) tyfns ++
+            (* Usages in binding group must be monomorphic *)
+            (FLAT $ list$MAP2
+                (λ(x,b) tyfn. MAP (λn. Unify d (CVar n) tyfn) $
+                                              get_assumptions x asfns)
+                fns tyfns) ++
+            (* Usages in continuation can be polymorphic *)
             (FLAT $ list$MAP2
                 (λ(x,b) tyfn. MAP (λn. Implicit d (CVar n) mset tyfn) $
-                                              get_assumptions x (ase ⋓ asfns))
+                                              get_assumptions x ase)
                 fns tyfns) ++
             csfns ++ cse) od) ∧
 
@@ -703,8 +709,12 @@ Definition infer'_def:
     return (tye, list_delete (ase ⋓ asfns) (MAP FST fns),
             MAP (λt. Unify d t t) tyfns ++
             (FLAT $ list$MAP2
+                (λ(x,b) tyfn. MAP (λn. Unify d (CVar n) tyfn) $
+                                              get_assumptions x asfns)
+                fns tyfns) ++
+            (FLAT $ list$MAP2
                 (λ(x,b) tyfn. MAP (λn. Implicit d (CVar n) mset tyfn) $
-                                              get_assumptions x (ase ⋓ asfns))
+                                              get_assumptions x ase)
                 fns tyfns) ++
             csfns ++ cse) od) ∧
 
@@ -856,7 +866,6 @@ Definition activevars_def:
     union (freecvars t) (freecvars scheme)
 End
 
-
 (* TODO this approach is naive *)
 Definition is_solveable_def:
   is_solveable (Unify d t1 t2) cs = T ∧
@@ -944,14 +953,13 @@ Termination
   WF_REL_TAC `measure $ λl. SUM $ MAP constraint_weight l` >>
   reverse $ rw[constraint_weight_def, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
   >- (
-    rename1 `c::cs` >> drule get_solveable_NONE >> rw[] >> gvs[SF DNF_ss] >>
-    gvs[get_solveable_def] >> FULL_CASE_TAC >> gvs[] >>
-    irule $  DECIDE ``a ≤ c:num ∧ b < d ⇒ a + b < c + d`` >>
-    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def] >>
-    rename1 `monomorphise_implicit active` >>
-    last_x_assum kall_tac >> ntac 2 $ pop_assum kall_tac >>
-    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss] >>
-    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def]
+    rename [`c::cs`,`monomorphise_implicit active`] >>
+    drule get_solveable_NONE >> rw[] >> last_x_assum kall_tac >>
+    gvs[SF DNF_ss, monomorphise_implicit_def] >>
+    pairarg_tac >> gvs[constraint_weight_def] >>
+    irule $ DECIDE ``a ≤ b ⇒ a + 2 < b + 3n`` >>
+    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss, monomorphise_implicit_def] >>
+    pairarg_tac >> gvs[constraint_weight_def]
     ) >>
   drule get_solveable_SOME >> strip_tac >> gvs[] >>
   Cases_on `left` >> gvs[SUM_APPEND, constraint_weight_def]
