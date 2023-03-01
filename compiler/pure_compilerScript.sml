@@ -40,6 +40,22 @@ Definition compile_def:
             SOME (ast_to_string $ pure_to_cake c ns e3)
 End
 
+Definition compile_to_ast_def:
+  compile_to_ast c s =
+    case string_to_cexp s of
+    | NONE => NONE
+    | SOME (e1,ns) =>
+      let e2 = transform_cexp c e1 in
+      let i = infer_types ns e2 in
+        case to_option i of
+        | NONE => NONE
+        | SOME _ =>
+          let e3 = demands_analysis c e2 in
+          SOME (pure_to_cake c ns e3)
+End
+
+(********** Alternative phrasings **********)
+
 Theorem compile_monadically:
   compile c s =
   do
@@ -51,6 +67,37 @@ Theorem compile_monadically:
   od
 Proof
   simp[compile_def] >> EVERY_CASE_TAC >> simp[]
+QED
+
+Definition frontend_def:
+  frontend c s =
+    case string_to_cexp s of
+    | NONE => NONE
+    | SOME (e1,ns) =>
+      let e2 = transform_cexp c e1 in
+      let i = infer_types ns e2 in
+        case to_option i of
+        | NONE => NONE
+        | SOME _ => SOME (e2,ns)
+End
+
+Theorem compile_to_string:
+  compile c s = OPTION_MAP ast_to_string $ compile_to_ast c s
+Proof
+  rw[compile_def, compile_to_ast_def] >>
+  rpt (TOP_CASE_TAC >> gvs[])
+QED
+
+Theorem compile_to_ast_alt_def:
+  compile_to_ast c s =
+    case frontend c s of
+    | NONE => NONE
+    | SOME (e2,ns) =>
+        let e3 = demands_analysis c e2 in
+        SOME (pure_to_cake c ns e3)
+Proof
+  rw[compile_to_ast_def, frontend_def] >>
+  rpt (TOP_CASE_TAC >> simp[])
 QED
 
 val _ = export_theory();
