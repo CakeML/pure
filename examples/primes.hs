@@ -4,9 +4,9 @@ main :: IO ()
 main = do
   arg1 <- read_arg1
   let n = fromString arg1
-      a = primeA n
-      b = primeB n
   print $ "Finding prime no. " ++ toString n
+  let a = primeA n
+      b = primeB n
   print $ "Sieve of Eratosthenes: " ++ toString a
   print $ "Divisor testing: " ++ toString b
   Ret ()
