@@ -1,14 +1,18 @@
 # Sample PureCake programs and compiling them
 
-This directory contains sample PureCake programs and a set up that enables compiling them.
+This directory contains sample PureCake programs and a `Makefile` that enables compiling them.
 
-By running `make`, you:
- - download prebuilt files `pure.S` and `cake.S` (the PureCake and CakeML compilers);
- - build compilers `pure` and `cake`;
- - compile sample program `factorials.hs`.
+You can compile and execute a source file `foo.hs` as follows:
+```bash
+make foo.exe
+./foo.exe
+```
 
-Once make has been run, the `purecake.sh` script can be used to create executables from `.hs` source files:
-```
-$ ./purecake.sh foo.hs
-```
-This will produce executable `foo`.
+The first time you run `make`, it will:
+ - download `pure.tar.gz`;
+ - extract prebuilt `pure.S` and `cake.S` files (the PureCake and CakeML compilers); and
+ - build the compiler executables `pure` and `cake`.
+
+Running `make` without arguments produces `factorials.exe`.
+Running `make clean` removes all generated files except `pure.tar.gz`, and `make cleanAll` further removes `pure.tar.gz`.
+
