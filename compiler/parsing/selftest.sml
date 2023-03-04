@@ -129,11 +129,11 @@ val _ = app lextest [
 ];
 
 val _ = app fptest [
-  (“nTy”, "[Int]", “astType nTy”, “listTy intTy”),
+  (“nTy”, "[Integer]", “astType nTy”, “listTy intTy”),
   (“nTy”, "a -> B", “astType nTy”, “funTy (tyVar "a") (tyOp "B" [])”),
   (“nTy”, "(Tree a, B)", “astType nTy”, “tyTup [tyOp "Tree" [tyVar "a"];
                                                 tyOp "B" []]”),
-  (“nTy”, "[Int -> ()]", “astType nTy”, “listTy (funTy intTy $ tyTup [])”),
+  (“nTy”, "[Integer -> ()]", “astType nTy”, “listTy (funTy intTy $ tyTup [])”),
   (“nExp”, "f 2 x", “astExp nExp”, “‹f› ⬝ 𝕀 2 ⬝ ‹x›”),
   (“nExp”, "\\x y -> y x", “astExp nExp”,
    “expAbs (patVar "x") (expAbs (patVar "y") (‹y› ⬝ ‹x›))”),
@@ -202,7 +202,7 @@ val _ = app fptest [
    “App () (𝕍u «f») [𝕍u «y»; 𝕁 3] >>=
     Lam () [«x»] (App () (𝕍u «foo») [𝕍u «x»])”),
   (“nExp”, "do let y = 10\n\
-           \       f :: Int -> Int\n\
+           \       f :: Integer -> Integer\n\
            \       f z = z + 1\n\
            \   x <- g (f y) 3\n\
            \   foo x",
@@ -237,18 +237,18 @@ val _ = app fptest [
   (“nExp”, "case e of h : t -> 3",
    “CEXP”,
    “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] NONE”),
-  (“nDecl”, "f :: a -> Int", “astDecl”,
-   “declTysig "f" (funTy (tyVar "a") (tyOp "Int" []))”),
+  (“nDecl”, "f :: a -> Integer", “astDecl”,
+   “declTysig "f" (funTy (tyVar "a") intTy)”),
   (“nDecl”, "f x y = x + y", “astDecl”,
    “declFunbind "f" [patVar "x"; patVar "y"] (‹+› ⬝ ‹x› ⬝ ‹y›)”),
   (“nDecl”, "h:t = f e", “astDecl”,
    “declPatbind (patApp "::" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
-  (“nDecl”, "data Foo a = C a Int | D [Int]", “astDecl”,
-   “declData "Foo" ["a"] [("C", [tyVar "a"; tyOp "Int" []]);
-                          ("D", [tyOp "[]" [tyOp "Int"[]]])]”),
-  (“nDecls”, "data Bar = C | D Int Bar\nf:: Bar -> Int", “astDecls”,
-   “[declData "Bar" [] [("C", []); ("D", [tyOp "Int" []; tyOp "Bar" []])];
-     declTysig "f" (funTy (tyOp "Bar" []) (tyOp "Int" []))]”),
+  (“nDecl”, "data Foo a = C a Integer | D [Integer]", “astDecl”,
+   “declData "Foo" ["a"] [("C", [tyVar "a"; intTy]);
+                          ("D", [tyOp "[]" [intTy]])]”),
+  (“nDecls”, "data Bar = C | D Integer Bar\nf:: Bar -> Integer", “astDecls”,
+   “[declData "Bar" [] [("C", []); ("D", [intTy; tyOp "Bar" []])];
+     declTysig "f" (funTy (tyOp "Bar" []) intTy)]”),
   (“nDecls”, "data Bar = C | D Integer Bar\nf:: Bar -> Integer", “CDECLS”,
    “(Letrec () [] CMAIN,
      [(1n, [(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);
@@ -304,13 +304,20 @@ val _ = app convtest [
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ]
 
+
+val handle_inferResult_def = Define‘
+  handle_inferResult ires =
+    case ires of
+        OK x => SOME x
+      | Err _ => NONE
+’
 val upto_demands_def = Define‘
-  upto_demands s =
+  upto_demands (opts:compiler_opts) s =
   do
     (e1,ns) <- string_to_cexp s;
-    e2 <<- transform_cexp e1;
-    infer_types ns e2;
-    return e2
+    e2 <<- transform_cexp opts e1;
+    handle_inferResult $ infer_types ns e2 ;
+    return e2;
   od
 ’;
 
@@ -451,13 +458,13 @@ fun string_check s c f =
     end;
 
 val with_demands_def = Define‘
-  with_demands s =
+  with_demands opts s =
   do
     (e1,ns) <- string_to_cexp s;
-    e2 <<- transform_cexp e1;
-    infer_types ns e2;
-    e3 <<- demands_analysis e2;
-    infer_types ns e3;
+    e2 <<- transform_cexp opts e1;
+    handle_inferResult $ infer_types ns e2;
+    e3 <<- demands_analysis opts e2;
+    handle_inferResult $ infer_types ns e3;
     return e3
   od
 ’;
@@ -483,10 +490,10 @@ val wd = wd0 THENC
          PURE_REWRITE_CONV[optionTheory.OPTION_IGNORE_BIND_thm]
 
 val notypes_def = Define‘
-  notypes s =
+  notypes opts s =
   do
     (e1,ns) <- string_to_cexp s;
-    e2 <<- transform_cexp e1;
+    e2 <<- transform_cexp opts e1;
     return e2
   od
 ’;
