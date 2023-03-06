@@ -1,37 +1,67 @@
-# PureCake
-## A verified compiler for a lazy functional language
+# PureCake: A verified compiler for a lazy functional language
 
-PureCake is a verified implementation of a small, Haskell-like language known as PureLang.
-It targets [CakeML](https://github.com/cakeml/cakeml), a verified implementation of a significant subset of Standard ML.
-PureCake is developed within the [HOL4 interactive theorem prover](http://hol-theorem-prover.org).
+### Getting Started Guide
 
-
-### Quick start
-
+You should have already executed something like the following to get this far:
 ```bash
-docker run -it ghcr.io/cakeml/pure:master
+docker load --input pure-pldi23-docker.tar.gz
+docker run -it pure-pldi23
 ```
+
 This [Docker](https://www.docker.com/) image contains a pre-built version of the PureCake compiler.
+That is, all HOL4 theories are already built, and the PureCake compiler has already been verifiably bootstrapped.
 
-
-### Quick start without Docker
-
+You can verify that all theories have been built and the compiler bootstrapped by executing:
 ```bash
-git clone https://github.com/cakeml/pure
-cd pure/examples && make download
+cd ~/pure/compiler/binary && Holmake
 ```
-This downloads the latest pre-built version of the PureCake compiler from GitHub.
-You can now compile PureLang programs without building the compiler yourself, as described in [`examples/README.md`](examples/README.md).
+
+You can re-compile the sample PureLang programs in [`examples`](examples) by executing:
+```bash
+cd ~/pure/examples && make clean && make check   # re-compile sample PureCake programs
+```
 
 
-### Slow start
-
-Follow the build process described by our [`Dockerfile`](/.github/Dockerfile).
-In summary: install PolyML; build HOL4; clone the PureCake and CakeML repositories; run `Holmake` in the top-level of the PureCake repository.
-Building the entire PureCake project (including the bootstrapped compiler) will take several hours and require considerable compute resources.
+### Step-by-Step instructions
 
 
-### Repository structure
+#### Examining HOL4 theories
+
+All of the PureCake project is developed within the [HOL4](http://hol-theorem-prover.org/) interactive theorem prover.
+Any results stated in the paper have been mechanically verified within HOL4's metalogic.
+Therefore, we envisage the bulk of in-depth evaluation of this artifact will be via inspection of the theorems we have proved.
+To aid this, we have written a [`correspondences.md`](correspondences.md) document which links each part of the paper to the corresponding mechanisation.
+The [project structure](#project-structure) section below also gives a high-level overview of the PureCake project structure.
+
+
+#### Examining and compiling programs
+
+The [`examples`](examples) directory contains several sample PureCake programs.
+Reviewers can examine and compile these programs.
+Refer to [`examples/README.md`](examples/README.md) for more details.
+
+
+#### Re-building HOL4 theories and the PureCake binary
+
+**NB: this will take ~5 hrs and require ~32 GB RAM (64 GB recommended). We do not believe it is necessary for evaluation of this artifact.**
+
+To produce this Docker image, we:
+ 1. Installed a prerequisite: PolyML
+ 2. Copied in the `hol`, `cakeml`, and `pure` directories (HOL4, CakeML, and PureCake respectively)
+ 3. Set environment variables: `HOLDIR=~/hol`, `CAKEMLDIR=~/cakeml`, `PUREDIR=~/pure`, `PATH=$HOLDIR:$PATH`
+ 3. Built HOL4: `cd hol && poly < tools/smart-configure.sml && ./bin/build`
+ 4. Built the PureCake theories and compiler binary: `cd pure && Holmake`
+
+You can redo step 4 as follows:
+```bash
+cd ~/pure
+Holmake -r cleanAll                # clean all theory files
+rm ~/pure/compiler/binary/pure.S   # delete the PureCake binary
+Holmake                            # rebuild all theories and the binary
+```
+
+
+### Project structure
 
 [COPYING](COPYING):
   PureCake Copyright Notice, License, and Disclaimer.
@@ -68,3 +98,4 @@ Building the entire PureCake project (including the bootstrapped compiler) will 
 
 [typing](typing):
   PureCake's type system: proof of type soundness and a verified type inferencer.
+

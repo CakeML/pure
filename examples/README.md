@@ -16,18 +16,13 @@ make foo.exe
 Note that executables are placed in the `out` directory.
 
 The first time you run `make`, it will:
- - download a prebuilt `cake.S` (the CakeML compiler);
- - copy in the PureCake compiler (`pure.S`): either from `../compiler/binary` if it has been built, or from our GitHub releases if not.
+ - copy in `../compiler/binary/pure.S` (the PureCake compiler); and
  - build the compiler executables `pure` and `cake`, and the FFI object `basis_ffi.o`.
 
 Running `make` without arguments produces `factorials.exe`.
-Running `make clean` removes all generated files, including `lib/{pure.S,cake.S}`.
+Running `make clean` removes all generated files, including `lib/pure.S`.
 Running `make check` compiles all `.hs` files.
 Running `make download` will download a prebuilt `pure.S` from our GitHub releases.
-
-### Using your own versions of the PureCake/CakeML compilers
-
-You can replace `lib/{pure.S,cake.S}` with your own versions.
 
 
 ## PureCake's "prelude"
