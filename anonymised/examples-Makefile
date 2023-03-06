@@ -1,0 +1,40 @@
+all: factorials.exe
+.PHONY: all check clean
+
+# Apple Silicon can emulate the x86
+ifeq ($(shell uname), Darwin)
+CCOPT = -arch x86_64
+endif
+
+CAKEOPT = --skip_type_inference=true --exclude_prelude=true --sexp=true
+
+ifeq ($(DEBUG),1)
+  CAKEOPT += --emit_empty_ffi=true
+  CCOPT += -DDEBUG_FFI
+endif
+
+%.exe: %.S lib/basis_ffi.o
+	@mkdir -p $(dir out/$@)
+	gcc $(CCOPT) $< lib/basis_ffi.o -o out/$@
+
+%.S: %.hs lib/pure lib/cake
+	cat $< | ./lib/pure $(PUREOPT) | ./lib/cake $(CAKEOPT) > $@
+
+check: $(patsubst %.hs,%.exe,$(wildcard *.hs)) \
+       $(patsubst %.hs,%.exe,$(wildcard prelude/*.hs))
+
+lib/pure: lib/pure.S lib/basis_ffi.o
+	cc $(CCOPT) -o $@ $^
+
+lib/cake: lib/cake.S lib/basis_ffi.o
+	cc $(CCOPT) -o $@ $^
+
+lib/basis_ffi.o: lib/basis_ffi.c
+	cc $(CCOPT) -c -o $@ $^
+
+lib/pure.S:
+	cp ../compiler/binary/$(@F) $@
+
+clean:
+	rm -rf out lib/basis_ffi.o lib/cake lib/pure lib/pure.S
+

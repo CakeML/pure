@@ -145,7 +145,7 @@ def plotData(df):
                     ylabel="log2(speedup)", legend=False)
     df["Allocated"].plot(ax=axes[1], kind="bar", rot=0,
                   ylabel="log2(allocation reduction)", sharex=True, legend=False)
-    axes[0].legend(title="Optimisations", ncol=4,
+    axes[0].legend(title="Optimisations", ncol=5,
                    loc="upper center", bbox_to_anchor=(0.5, 1.35))
 
     for ax in fig.axes:

@@ -1,0 +1,124 @@
+# Paper correspondences
+
+--------------------------------------------------
+
+## §3 - PureLang
+
+### §3.1 - Features
+- Example PureLang code - figure 1: `examples/factorials.hs`
+
+### §3.2 - Formal syntax
+- PureLang formal syntax - figure 2 (`op`, `ce`, and `e`)
+  - `op` and `e`: `language/pure_expScript.sml`
+    (*NB* `e` is `exp` in the formalisation)
+  - `ce`: `compiler/backend/languages/pure_cexpScript.sml`
+    (*NB* `ce` is `cexp` in the formalisation; the `cepat` type and `NestedCase` constructor in this file are unused currently)
+- Desugaring - equation 1, `exp_of`: `exp_of_def` in `compiler/backend/languages/semantics/pureLangScript.sml`
+
+### §3.3 - Semantics
+- ITrees in HOL4: in the HOL4 repository, `hol/src/coalgebras/itreeScript.sml`
+- Semantics machinery - figure 3 (`wh`, `E`, `A`, `R`)
+  - `wh`: `language/pure_evalScript.sml`
+  - `E`, `A`, `R`: `language/pure_semanticsScript.sml`
+- Clocked evaluation to weak-head normal - `eval^n_wh`: `eval_wh_to_def` in `language/pure_evalScript.sml`
+- *Un*clocked evaluation to weak-head normal - equation 2 (`eval_wh`): `eval_wh_def` in `language/pure_evalScript.sml`
+- Stateful interpretation - figure 4 (`(|wh, k, st|)`): `semantics_def` in `language/pure_semanticsScript.sml`
+- Final semantics function (`[|e|] : itree E A R`): `itree_of_def` in `language/pure_semanticsScript.sml`
+
+### §3.4 - Equational reasoning
+- Definitions of expression relations (*e.g.* applicative bisimulations): `meta-theory/pure_exp_relScript.sml`
+- Howe's method: `meta-theory/pure_congruenceScript.sml`
+- Alpha-equivalence: `meta-theory/pure_alpha_equivScript.sml`
+- Beta-equivalence: `meta-theory/pure_beta_equivScript.sml`
+- Expression equivalence coincides with contextual equivalence: `meta-theory/pure_ctxt_equivScript.sml` (using results from `meta-theory/pure_obs_sem_equalScript.sml`)
+
+### §3.5 - Type system
+- Typing expressions (including `safeproj`): `typing/pure_tcexpScript.sml`
+- Typing rules: `typing/pure_typingScript.sml`
+- Type soundness proof: `typing/pure_typingProofScript`
+
+--------------------------------------------------
+
+## §4 - Compiler front end
+
+Many files are found in `compiler/backend` - elided with `...` below.
+
+### §4.1 - Parsing expression grammar (PEG) parsing
+- Lexing: `compiler/parsing/pure_lexer_implScript.sml` (some utility functions in `pureTokenUtilsScript.sml`)
+- Parsing framework: `compiler/parsing/{ispeg,ispegexec}Script.sml`. First file defines the "indentation-sensitive PEG" notion (including the indentation relations), and proves that such PEGs are deterministic and terminating when operating over well-formed PEGs. The "exec" script defines the tail-recursive algorithm for efficiently evaluating PEGs (with success and error continuations for back-tracking).
+- Parsing PureCake's concrete syntax: mostly in `compiler/parsing/purePEGScript.sml` (see in particular, `purePEG_def`)
+- From concrete syntax to `ce` type: in two stages, `cst_to_astScript.sml` and then `ast_to_cexpScript.sml`. Former also resolves precedence parsing of infix operators within expressions.
+
+### §4.2 - PureLang
+- Binding group analysis: `.../passes/pure_letrec_cexpScript.sml`
+  - Including pseudo-topological sort in the HOL4 repository: `hol/examples/algorithms/topological_sortScript.sml`
+  - Core soundness proof `.../passes/proofs/pure_letrecProofScript.sml`
+
+### §4.3 - Constraint-based type inference
+- Inference algorithm: `typing/pure_inferenceScript.sml`
+- Top declarative inference rules: `typing/pure_inference_modelScript.sml`
+- Core soundness proof: `typing/pure_inferenceProofScript.sml`
+
+### §4.4 - Demand analysis
+- Formalisation of demands: `meta-theory/pure_demandScript.sml`
+- Demand analysis algorithm: `.../passes/pure_demands_analysisScript.sml`
+- Core soundness proof: `.../passes/proofs/pure_demands_analysisProofScript.sml`
+
+--------------------------------------------------
+
+## §5 - Compiler back end
+
+Most files are found in `compiler/backend` - elided with `...` below.
+
+### §5.2 - ThunkLang
+- Compiler expressions: `.../languages/thunk_cexpScript.sml`
+- Semantics expressions: `.../languages/semantics/thunkLangScript.sml`
+- Semantics: `.../languages/semantics/thunk_semanticsScript.sml`
+- Compilation from PureLang to ThunkLang: `.../passes/pure_to_thunkScript.sml`
+  - Core soundness proofs: `.../passes/proofs/{pure_to_thunk,thunk}*Script.sml`
+- ThunkLang optimisation passes: `.../passes/thunk_split_Delay_LamScript.sml` and `.../passes/thunk_let_forceScript.sml`
+  - Core soundness proofs: `.../passes/proofs/thunk_split_Delay_LamProofScript.sml` and `.../passes/proofs/thunk_let_forceProofScript.sml`
+
+### §5.2 - EnvLang
+- Compiler expressions: `.../languages/envLang_cexpScript.sml`
+- Semantics expressions: `.../languages/semantics/envLangScript.sml`
+- Semantics: `.../languages/semantics/env_semanticsScript.sml`
+- Compilation from ThunkLang to EnvLang: `.../passes/thunk_to_envScript.sml`
+  - Core soundness proofs: `.../passes/proofs/thunk_to_env*Script.sml`
+
+### §5.2 - StateLang
+- Compiler expressions: `.../languages/state_cexpScript.sml`
+- Semantics expressions + semantics: `.../languages/semantics/stateLangScript.sml`
+- Compilation from EnvLang to StateLang (figure 10): `.../passes/env_to_stateScript.sml`
+  - Core soundness proofs: `.../passes/proofs/thunk_to_env*Script.sml`
+- StateLang optimisation pass: `.../passes/state_app_unitScript.sml`
+  - Core soundness proofs: `.../passes/proofs/state_app_unit*Script.sml`
+- Compilation from StateLang to CakeML: `.../passes/state_to_cakeScript.sml` and `.../passes/state_app_unitScript.sml`
+  - Core soundness proofs: `.../passes/proofs/state_to_cakeProofScript.sml` and `.../passes/proofs/state_app_unit*Script.sml`
+
+--------------------------------------------------
+
+## §6 - Targeting CakeML
+
+In the CakeML repository:
+- CakeML CESK semantics: `cakeml/semantics/alt_semantics/smallStepScript.sml`
+- CakeML ITree semantics: `cakeml/semantics/alt_semantics/itree_semanticsScript.sml`
+- Equivalence proofs: `cakeml/semantics/alt_semantics/proofs`
+  - Particularly `alt_semanticsScript.sml`, `itree_semantics*Script.sml`
+- ITree machine semantics: `cakeml/compiler/backend/semantics/target_itreeSemScript.sml`
+- ITree compiler correctness (theorem 1): `cakeml/compiler/backend/proofs/backend_itreeProofScript.sml`
+
+In the PureCake repository:
+- Compiler correctness (theorems 2-3): `compiler/proofs/pure_compilerProofScript.sml`
+- End-to-end correctness (theorem 4): `compiler/proofs/pure_end_to_endProofScript.sml`
+
+--------------------------------------------------
+
+## §7 - Evaluation
+
+- Example programs: `examples/*.hs`, `examples/prelude/*.hs`
+- Benchmarking apparatus: `examples/benchmark`
+    - Raw data for figure 11: `examples/benchmark/paper.csv`
+
+`README.md` contains more details on how to compile, run, and benchmark example programs.
+
