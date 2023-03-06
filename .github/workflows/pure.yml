@@ -18,14 +18,12 @@ env:
   CAKEMLDIR: ${{ github.workspace }}/cakeml
   LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
+
   build:
-    # The type of runner that the job will run on
     runs-on: self-hosted
     container: ubuntu:latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
+
     steps:
     - name: Update PATH
       run: |
@@ -34,6 +32,7 @@ jobs:
       run: |
         apt update
         apt install -y build-essential gcc-10 libffi-dev wget
+
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
@@ -46,6 +45,7 @@ jobs:
         ./configure
         make
         make install
+
     - name: Checkout HOL4
       uses: actions/checkout@v2
       with:
@@ -61,11 +61,13 @@ jobs:
       with:
         repository: CakeML/CakeML
         path: cakeml
+
     - name: Build HOL4
       run: |
         cd $HOLDIR
         poly < tools/smart-configure.sml
         bin/build
+
     - name: Build CakeML misc
       run: |
         cd $CAKEMLDIR/misc
@@ -90,6 +92,7 @@ jobs:
       run: |
         cd $CAKEMLDIR/basis/pure
         Holmake
+
     - name: Build misc
       run: |
         cd pure/misc
@@ -159,18 +162,21 @@ jobs:
     container: ubuntu:latest
     env:
       COMMITS: ${{ github.workspace }}/commits.txt
+
     steps:
     - name: Get release name
       id: version
       run: |
         cd pure
         echo "VERSION=v$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
     - name: Get HOL4/CakeML versions
       run : |
         cd $HOLDIR
         echo "HOL checkout: $(git rev-parse --short HEAD)" >> $COMMITS
         cd $CAKEMLDIR
         echo "CakeML checkout: $(git rev-parse --short HEAD)" >> $COMMITS
+
     - name: Create GitHub release
       uses: softprops/action-gh-release@v1
       with:
