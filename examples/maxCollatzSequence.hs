@@ -11,13 +11,13 @@ main = do
   print $ "Length of sequence: " ++ toString (snd res)
   Ret ()
 
-maxCollatzSequence :: Int -> (Int, Int)
+maxCollatzSequence :: Integer -> (Integer, Integer)
 maxCollatzSequence n = maxIndex (take n collatzSequences)
 
-collatzSequences :: [Int]
+collatzSequences :: [Integer]
 collatzSequences = map collatzSequence (numbers 0)
 
-collatzSequence :: Int -> Int
+collatzSequence :: Integer -> Integer
 collatzSequence n =
   let seqAux acc n =
         if n < 1 then (0-1)
@@ -25,16 +25,16 @@ collatzSequence n =
         else seqAux (acc + 1) (collatz n)
   in seqAux 0 n
 
-collatz :: Int -> Int
+collatz :: Integer -> Integer
 collatz n = if mod n 2 == 0 then div n 2 else 3 * n + 1
 
 
 -- Helper functions
 
-numbers :: Int -> [Int]
+numbers :: Integer -> [Integer]
 numbers n = n : numbers (n + 1)
 
-maxIndex :: [Int] -> (Int, Int)
+maxIndex :: [Integer] -> (Integer, Integer)
 maxIndex l =
   let maxAux maxIdx maxElem idx l =
         case l of [] -> (maxIdx, maxElem)
@@ -46,7 +46,7 @@ map :: (a -> b) -> [a] -> [b]
 map f l = case l of [] -> []
                     h:t -> f h : map f t
 
-take :: Int -> [a] -> [a]
+take :: Integer -> [a] -> [a]
 take n l =
   if n < 1 then []
   else case l of [] -> []
@@ -71,7 +71,7 @@ reverse l =
                            h:t -> revA (h:a) t
   in revA [] l
 
-fromString :: String -> Int
+fromString :: String -> Integer
 fromString s =
   let fromStringI i limit acc s =
         if limit == i then acc
@@ -80,7 +80,7 @@ fromString s =
           fromStringI (i + 1) limit (acc * 10 + (#(__Elem) s i - 48)) s
   in fromStringI 0 (#(__Len) s) 0 s
 
-toString :: Int -> String
+toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []

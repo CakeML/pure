@@ -19,7 +19,7 @@ main = do
 
 -- Functional quicksort
 
-qsortList :: [Int] -> [Int]
+qsortList :: [Integer] -> [Integer]
 qsortList l =
   case l of
     [] -> []
@@ -30,7 +30,7 @@ qsortList l =
             append (qsortList less) (h : qsortList greaterEq)
 
 
-partitionList :: Int -> [Int] -> ([Int],[Int])
+partitionList :: Integer -> [Integer] -> ([Integer],[Integer])
 partitionList pivot l =
   case l of
     [] -> ([],[])
@@ -44,7 +44,7 @@ partitionList pivot l =
 
 -- Imperative quicksort
 
-qsortArray :: Array Int -> IO ()
+qsortArray :: Array Integer -> IO ()
 qsortArray a =
   let qsortAux a lo hi =
         if lo < 0 then Ret ()
@@ -58,7 +58,7 @@ qsortArray a =
     qsortAux a 0 (len - 1)
 
 
-partitionArray :: Array Int -> Int -> Int -> IO Int
+partitionArray :: Array Integer -> Integer -> Integer -> IO Integer
 partitionArray a lo hi = do
   pivotElem <- Deref a hi
   let loop i j = do
@@ -72,7 +72,7 @@ partitionArray a lo hi = do
   swap a (i + 1) hi
   Ret (i + 1)
 
-swap :: Array a -> Int -> Int -> IO ()
+swap :: Array a -> Integer -> Integer -> IO ()
 swap a i j = do
   iElem <- Deref a i
   jElem <- Deref a j
@@ -86,17 +86,17 @@ append :: [a] -> [a] -> [a]
 append l1 l2 = case l1 of [] -> l2
                           h:t -> h : append t l2
 
-numbersList :: Int -> [Int]
+numbersList :: Integer -> [Integer]
 numbersList n = if n < 0 then []
                 else n : numbersList (n - 1)
 
--- numbersList :: Int -> [Int]
+-- numbersList :: Integer -> [Integer]
 -- numbersList n =
 --   let numbersAux current =
 --         if current < n then current : numbersAux (current + 1) else []
 --   in if n < 0 then [] else numbersAux 0
 
-isSortedList :: [Int] -> Bool
+isSortedList :: [Integer] -> Bool
 isSortedList l =
   let sortedAux last l =
         case l of [] -> True
@@ -108,7 +108,7 @@ isSortedList l =
 
 -- Array helper functions
 
-numbersArray :: Int -> IO (Array Int)
+numbersArray :: Integer -> IO (Array Integer)
 numbersArray n =
   let length = if n < 0 then 0 else n
       fill a next remaining =
@@ -121,7 +121,7 @@ numbersArray n =
     fill a 0 length
     Ret a
 
-isSortedArray :: Array Int -> IO Bool
+isSortedArray :: Array Integer -> IO Bool
 isSortedArray a =
   let loop lastElem nextIdx len =
         if nextIdx < len then do
@@ -136,7 +136,7 @@ isSortedArray a =
       first <- Deref a 0
       loop first 1 len
 
-printArray :: Array Int -> IO ()
+printArray :: Array Integer -> IO ()
 printArray a =
   let printAux i len =
         if i < len then do
@@ -167,7 +167,7 @@ reverse l =
                            h:t -> revA (h:a) t
   in revA [] l
 
-fromString :: String -> Int
+fromString :: String -> Integer
 fromString s =
   let fromStringI i limit acc s =
         if limit == i then acc
@@ -176,7 +176,7 @@ fromString s =
           fromStringI (i + 1) limit (acc * 10 + (#(__Elem) s i - 48)) s
   in fromStringI 0 (#(__Len) s) 0 s
 
-toString :: Int -> String
+toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []

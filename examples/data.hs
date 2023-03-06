@@ -21,7 +21,7 @@ flat ll =
    [] -> []
    h:t -> h ++ flat t
 
-length :: [a] -> Int
+length :: [a] -> Integer
 length l =
   case l of
    [] -> 0

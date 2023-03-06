@@ -14,27 +14,27 @@ reverse l =
 
 -- string functions
 
-str_elem :: String -> Int -> Int
+str_elem :: String -> Integer -> Integer
 str_elem s i = #(__Elem) s i
 
-str_len :: String -> Int
+str_len :: String -> Integer
 str_len s = #(__Len) s
 
 str_concat :: String -> String -> String
 str_concat s1 s2 = #(__Concat) s1 s2
 
-implode :: [Int] -> String
+implode :: [Integer] -> String
 implode l =
   case l of
     [] -> ""
     h:t -> str_concat (#(__Implode) h) (implode t)
 
-int_to_str0 :: Int -> [Int]
+int_to_str0 :: Integer -> [Integer]
 int_to_str0 i =
   if i == 0 then []
   else (mod i 10 + 48) : int_to_str0 (div i 10)
 
-int_to_str :: Int -> String
+int_to_str :: Integer -> String
 int_to_str i =
   if i < 0 then str_concat "-" (implode $ reverse $ int_to_str0 (0-i))
   else if i == 0 then "0"

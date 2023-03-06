@@ -11,7 +11,7 @@ main = do
   print $ "No. solutions: " ++ toString (length boards)
   Ret ()
 
-queens :: Int -> [[Int]]
+queens :: Integer -> [[Integer]]
 queens n =
   if n < 0 then [] else
   let test x c n = and [not (x == c), not (x == c + n), not (x == c - n)]
@@ -33,7 +33,7 @@ queens n =
 
   in iter [[]] 0
 
-printBoard :: [[Int]] -> IO String
+printBoard :: [[Integer]] -> IO String
 printBoard l =
   let rowToString l = case l of [] -> ""
                                 h:t -> toString h ++ rowToString t
@@ -52,7 +52,7 @@ not :: Bool -> Bool
 not b = case b of True -> False
                   False -> True
 
-length :: [a] -> Int
+length :: [a] -> Integer
 length l = case l of [] -> 0
                      h:t -> 1 + length t
 
@@ -80,7 +80,7 @@ reverse l =
                            h:t -> revA (h:a) t
   in revA [] l
 
-fromString :: String -> Int
+fromString :: String -> Integer
 fromString s =
   let fromStringI i limit acc s =
         if limit == i then acc
@@ -89,7 +89,7 @@ fromString s =
           fromStringI (i + 1) limit (acc * 10 + (#(__Elem) s i - 48)) s
   in fromStringI 0 (#(__Len) s) 0 s
 
-toString :: Int -> String
+toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []

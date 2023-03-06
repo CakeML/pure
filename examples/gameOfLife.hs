@@ -29,14 +29,14 @@ circuit = "$bo98bo7$86b2o$86b2o11$68b2o14b2o3b2o$68b2o16b3o$85bo3bo$86bobo$87bo$
 
 -- Stepping through the game
 
-step :: Int -> [[Int]] -> [[Int]]
+step :: Integer -> [[Integer]] -> [[Integer]]
 step n l = if n == 0 then l else step (n - 1) (next l)
 
-next :: [[Int]] -> [[Int]]
+next :: [[Integer]] -> [[Integer]]
 next l = case l of [] -> []
                    h:t -> nextRows (zero h) h t
 
-nextRows :: [Int] -> [Int] -> [[Int]] -> [[Int]]
+nextRows :: [Integer] -> [Integer] -> [[Integer]] -> [[Integer]]
 nextRows xs ys rows =
   case rows of [] -> nextRow 0 (hd xs) (tl xs)
                              0 (hd ys) (tl ys)
@@ -45,7 +45,7 @@ nextRows xs ys rows =
                                   0 (hd ys) (tl ys)
                                   0 (hd zs) (tl zs) : nextRows ys zs rest
 
-nextRow :: Int -> Int -> [Int] -> Int -> Int -> [Int] -> Int -> Int -> [Int] -> [Int]
+nextRow :: Integer -> Integer -> [Integer] -> Integer -> Integer -> [Integer] -> Integer -> Integer -> [Integer] -> [Integer]
 nextRow x1 x2 xs
         y1 y2 ys
         z1 z2 zs =
@@ -65,7 +65,7 @@ nextRow x1 x2 xs
                        y2 y3 ys'
                        z2 z3 zs'
 
-nextCell :: Int -> Int -> Int -> Int ->  Int ->  Int ->  Int ->  Int ->  Int -> Int
+nextCell :: Integer -> Integer -> Integer -> Integer ->  Integer ->  Integer ->  Integer ->  Integer ->  Integer -> Integer
 nextCell x1 x2 x3
          y1 y2 y3
          z1 z2 z3 =
@@ -76,7 +76,7 @@ nextCell x1 x2 x3
 
 -- Parsing and printing
 
-parse :: String -> [[Int]]
+parse :: String -> [[Integer]]
 parse s =
   let width = 102
   in map (pad width 0) $ split $ expand s
@@ -90,7 +90,7 @@ expand s =
              else (implode $ replicate (max 1 count) e) ++ (expandAux (idx + 1) 0)
   in expandAux 0 0
 
-split :: String -> [[Int]]
+split :: String -> [[Integer]]
 split s =
   let splitAux idx acc =
         if strlen s < idx + 1 then [] else
@@ -100,7 +100,7 @@ split s =
             else splitAux (idx + 1) ((if e == 111 then 1 else 0) : acc) -- check for 'b'/'o'
   in splitAux 0 []
 
-printGOL :: [[Int]] -> IO String
+printGOL :: [[Integer]] -> IO String
 printGOL l =
   let rowToString l = case l of [] -> ""
                                 h:t -> if h == 0 then "-" ++ rowToString t
@@ -112,11 +112,11 @@ printGOL l =
 
 -- Helper functions
 
-zero :: [Int] -> [Int]
+zero :: [Integer] -> [Integer]
 zero l = case l of [] -> []
                    h:t -> 0 : zero t
 
-hd :: [Int] -> Int
+hd :: [Integer] -> Integer
 hd l = case l of [] -> 0
                  h:t -> h
 
@@ -133,14 +133,14 @@ and :: Bool -> Bool -> Bool
 and b1 b2 = case b1 of False -> False
                        True  -> b2
 
-max :: Int -> Int -> Int
+max :: Integer -> Integer -> Integer
 max x y = if x < y then y else x
 
 tl :: [a] -> [a]
 tl l = case l of [] -> []
                  h:t -> t
 
-length :: [a] -> Int
+length :: [a] -> Integer
 length l = case l of [] -> 0
                      h:t -> 1 + length t
 
@@ -158,20 +158,20 @@ append :: [a] -> [a] -> [a]
 append l r = case l of [] -> r
                        h:t -> h : append t r
 
-replicate :: Int -> a -> [a]
+replicate :: Integer -> a -> [a]
 replicate n a = if n < 1 then [] else a : replicate (n - 1) a
 
 
-pad :: Int -> a -> [a] -> [a]
+pad :: Integer -> a -> [a] -> [a]
 pad n a l = append l $ replicate (n - length l) a
 
 
 -- I/O helpers
 
-fromDigit :: String -> Int -> Int
+fromDigit :: String -> Integer -> Integer
 fromDigit s i = str_elem s i - 48
 
-fromString :: String -> Int
+fromString :: String -> Integer
 fromString s =
   let fromStringI i limit acc s =
         if limit == i then acc
@@ -180,7 +180,7 @@ fromString s =
           fromStringI (i + 1) limit (acc * 10 + fromDigit s i) s
   in fromStringI 0 (strlen s) 0 s
 
-toString :: Int -> String
+toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []
@@ -203,10 +203,10 @@ print s = Act (#(stdout) (s ++ "\n"))
 
 s1 ++ s2 = #(__Concat) s1 s2
 
-str_elem :: String -> Int -> Int
+str_elem :: String -> Integer -> Integer
 str_elem s i = #(__Elem) s i
 
-strlen :: String -> Int
+strlen :: String -> Integer
 strlen s = #(__Len) s
 
 str_eq :: String -> String -> Bool

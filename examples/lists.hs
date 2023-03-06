@@ -17,7 +17,7 @@ l1 ++ l2 =
    [] -> l2
    h:t -> h : (t ++ l2)
 
-take :: Int -> [a] -> [a]
+take :: Integer -> [a] -> [a]
 take n l =
   if n == 0 then []
   else
@@ -25,7 +25,7 @@ take n l =
      [] -> []
      h:t -> h : take (n - 1) t
 
-drop :: Int -> [a] -> [a]
+drop :: Integer -> [a] -> [a]
 drop n l =
   if n == 0 then l
   else
@@ -51,7 +51,7 @@ tail l =
    [] -> []
    h:t -> t
 
-length :: [a] -> Int
+length :: [a] -> Integer
 length l =
   case l of
    [] -> 0
@@ -74,51 +74,51 @@ null l =
    [] -> True
    h:t -> False
 
-numbers :: [Int]
+numbers :: [Integer]
 numbers =
   let num n = n : num (n + 1)
   in num 0
 
 -- string functions
 
-str_elem :: String -> Int -> Int
+str_elem :: String -> Integer -> Integer
 str_elem s i = #(__Elem) s i
 
-str_len :: String -> Int
+str_len :: String -> Integer
 str_len s = #(__Len) s
 
 str_concat :: String -> String -> String
 str_concat s1 s2 = #(__Concat) s1 s2
 
-implode :: [Int] -> String
+implode :: [Integer] -> String
 implode l =
   case l of
     [] -> ""
     h:t -> str_concat (#(__Implode) h) (implode t)
 
-explode :: String -> [Int]
+explode :: String -> [Integer]
 explode s =
   let
     l = str_len s
     from i = if i < l then str_elem s i : from (i+1) else []
   in from 0
 
-str_to_intI :: Int -> Int -> Int -> String -> Int
+str_to_intI :: Integer -> Integer -> Integer -> String -> Integer
 str_to_intI i limit acc s =
   if limit == i then acc
   else if limit < i then acc
   else
     str_to_intI (i + 1) limit (acc * 10 + (str_elem s i - 48)) s
 
-str_to_int :: String -> Int
+str_to_int :: String -> Integer
 str_to_int s = str_to_intI 0 (str_len s) 0 s
 
-int_to_str0 :: Int -> [Int]
+int_to_str0 :: Integer -> [Integer]
 int_to_str0 i =
   if i == 0 then []
   else (mod i 10 + 48) : int_to_str0 (div i 10)
 
-int_to_str :: Int -> String
+int_to_str :: Integer -> String
 int_to_str i =
   if i < 0 then str_concat "-" (implode $ reverse $ int_to_str0 (0-i))
   else if i == 0 then "0"

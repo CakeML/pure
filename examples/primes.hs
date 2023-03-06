@@ -14,7 +14,7 @@ main = do
 
 -- Method 1: sieve of Eratosthenes
 
-primesA :: [Int]
+primesA :: [Integer]
 primesA =
   let sieve l =
         case l of
@@ -22,23 +22,23 @@ primesA =
           h:t -> h : filter (\n -> not $ mod n h == 0) (sieve t)
   in sieve $ numbers 2
 
-primeA :: Int -> Int
+primeA :: Integer -> Integer
 primeA n = idx n primesA
 
 
 -- Method 2: divisor testing
 
-isPrime :: Int -> Bool
+isPrime :: Integer -> Bool
 isPrime n =
   let checkPrime div n = if n < div * div then True
                          else if mod n div == 0 then False
                          else checkPrime (div + 1) n
   in if n < 2 then False else checkPrime 2 n
 
-primesB :: [Int]
+primesB :: [Integer]
 primesB = filter isPrime $ numbers 2
 
-primeB :: Int -> Int
+primeB :: Integer -> Integer
 primeB n = idx n primesB
 
 
@@ -57,13 +57,13 @@ filter f l =
     h:t -> if f h then h : filter f t
            else filter f t
 
-idx :: Int -> [Int] -> Int
+idx :: Integer -> [Integer] -> Integer
 idx n l =
   case l of
     [] -> ~1 -- should not happen
     h:t -> if n == 0 then h else idx (n - 1) t
 
-numbers :: Int -> [Int]
+numbers :: Integer -> [Integer]
 numbers n = n : numbers (n + 1)
 
 
@@ -75,7 +75,7 @@ reverse l =
                            h:t -> revA (h:a) t
   in revA [] l
 
-fromString :: String -> Int
+fromString :: String -> Integer
 fromString s =
   let fromStringI i limit acc s =
         if limit == i then acc
@@ -84,7 +84,7 @@ fromString s =
           fromStringI (i + 1) limit (acc * 10 + (str_elem s i - 48)) s
   in fromStringI 0 (strlen s) 0 s
 
-toString :: Int -> String
+toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []
@@ -107,10 +107,10 @@ print s = Act (#(stdout) (s ++ "\n"))
 
 s1 ++ s2 = #(__Concat) s1 s2
 
-str_elem :: String -> Int -> Int
+str_elem :: String -> Integer -> Integer
 str_elem s i = #(__Elem) s i
 
-strlen :: String -> Int
+strlen :: String -> Integer
 strlen s = #(__Len) s
 
 

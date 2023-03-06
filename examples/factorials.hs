@@ -1,14 +1,14 @@
-numbers :: [Int]
+numbers :: [Integer]
 numbers =
   let num n = n : num (n + 1)
   in num 0
 
-factA :: Int -> Int -> Int
+factA :: Integer -> Integer -> Integer
 factA a n =
   if n < 2 then a
   else factA (a * n) (n - 1)
 
-factorials :: [Int]
+factorials :: [Integer]
 factorials = map (factA 1) numbers
 
 app :: (a -> IO b) -> [a] -> IO ()
@@ -38,7 +38,7 @@ map f l =
      [] -> []
      h:t -> f h : map f t
 
-take :: Int -> [a] -> [a]
+take :: Integer -> [a] -> [a]
 take n l =
   if n == 0 then []
   else
@@ -55,7 +55,7 @@ reverse l =
                            h:t -> revA (h:a) t
   in revA [] l
 
-fromString :: String -> Int
+fromString :: String -> Integer
 fromString s =
   let fromStringI i limit acc s =
         if limit == i then acc
@@ -64,7 +64,7 @@ fromString s =
           fromStringI (i + 1) limit (acc * 10 + (str_elem s i - 48)) s
   in fromStringI 0 (strlen s) 0 s
 
-toString :: Int -> String
+toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []
@@ -87,10 +87,10 @@ print s = Act (#(stdout) (s ++ "\n"))
 
 s1 ++ s2 = #(__Concat) s1 s2
 
-str_elem :: String -> Int -> Int
+str_elem :: String -> Integer -> Integer
 str_elem s i = #(__Elem) s i
 
-strlen :: String -> Int
+strlen :: String -> Integer
 strlen s = #(__Len) s
 
 return v = Ret v
