@@ -5,7 +5,7 @@ WORKDIR $WORKDIR
 
 # Install pre-requisites
 RUN apt-get update && \
-    apt-get install -y git build-essential gcc-10 libffi-dev
+    apt-get install -y git build-essential gcc-10 libffi-dev wget
 
 # Install PolyML
 RUN git clone https://github.com/polyml/polyml.git && cd polyml && \
@@ -31,5 +31,8 @@ ENV PUREDIR $WORKDIR/pure
 
 # Build PureCake and necessary dependencies
 RUN cd pure && Holmake
+
+# Build PureLang sample programs
+RUN cd pure/examples && make check
 
 ENTRYPOINT ["bash"]

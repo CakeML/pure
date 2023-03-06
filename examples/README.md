@@ -22,6 +22,7 @@ The first time you run `make`, it will:
 
 Running `make` without arguments produces `factorials.exe`.
 Running `make clean` removes all generated files, including `lib/{pure.S,cake.S}`.
+Running `make check` compiles all `.hs` files.
 
 
 ## PureCake's "prelude"

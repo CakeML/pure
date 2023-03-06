@@ -33,7 +33,7 @@ jobs:
     - name: Get build-essentials
       run: |
         apt update
-        apt install -y build-essential gcc-10 libffi-dev
+        apt install -y build-essential gcc-10 libffi-dev wget
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
@@ -146,3 +146,8 @@ jobs:
       run: |
         cd pure/compiler/binary
         Holmake
+    - name: Build examples
+      run: |
+        cd pure/examples
+        make check
+

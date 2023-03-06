@@ -1,5 +1,5 @@
 all: factorials.exe
-.PHONY: all clean
+.PHONY: all check clean
 
 # Apple Silicon can emulate the x86
 ifeq ($(shell uname), Darwin)
@@ -14,6 +14,9 @@ CAKEOPT = --skip_type_inference=true --exclude_prelude=true --sexp=true
 
 %.S: %.hs lib/pure lib/cake
 	cat $< | ./lib/pure | ./lib/cake $(CAKEOPT) > $@
+
+check: $(patsubst %.hs,%.exe,$(wildcard *.hs)) \
+       $(patsubst %.hs,%.exe,$(wildcard prelude/*.hs))
 
 lib/pure: lib/pure.S lib/basis_ffi.o
 	cc $(CCOPT) -o $@ $^
