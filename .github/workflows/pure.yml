@@ -185,6 +185,8 @@ jobs:
         echo "CakeML checkout: CakeML/CakeML@$(git rev-parse --short HEAD)" >> $COMMITS
 
     - name: Create GitHub release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd pure
         gh release create ${{ env.VERSION }} --latest --prerelease -F ${{ env.COMMITS }} compiler/binary/pure.S
