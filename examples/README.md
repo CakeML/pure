@@ -24,6 +24,11 @@ Running `make` without arguments produces `factorials.exe`.
 Running `make clean` removes all generated files, including `lib/{pure.S,cake.S}`.
 Running `make check` compiles all `.hs` files.
 
+### Using your own versions of the PureCake/CakeML compilers
+
+You can replace `lib/{pure.S,cake.S}` with your own versions.
+For example, you can download the latest `pure.S` from our GitHub releases if you do not want to build `../compiler/binary/pure.S` yourself.
+
 
 ## PureCake's "prelude"
 

@@ -14,6 +14,15 @@ docker run -it ghcr.io/cakeml/pure:master
 This [Docker](https://www.docker.com/) image contains a pre-built version of the PureCake compiler.
 
 
+### Quick start without Docker
+
+```bash
+git clone https://github.com/cakeml/pure && cd pure/examples
+wget https://github.com/cakeml/pure/releases/latest/download/pure.S -P lib
+```
+You can now compile PureLang programs without building the compiler yourself, as described in [`examples/README.md`](examples/README.md).
+
+
 ### Slow start
 
 Follow the build process described by our [`Dockerfile`](/.github/Dockerfile).

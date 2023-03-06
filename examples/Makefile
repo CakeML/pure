@@ -28,6 +28,7 @@ lib/basis_ffi.o: lib/basis_ffi.c
 	cc $(CCOPT) -c -o $@ $^
 
 lib/pure.S:
+	@if [ ! -f "../compiler/binary/$(@F)" ] ; then echo "Could not find \`pure.S\`. Try downloading it from the PureCake GitHub releases." ; false ; fi
 	cp ../compiler/binary/$(@F) $@
 
 lib/cake.S:
