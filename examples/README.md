@@ -16,12 +16,12 @@ make foo.exe
 Note that executables are placed in the `out` directory.
 
 The first time you run `make`, it will:
- - download `pure.tar.gz` into the `lib` directory;
- - extract prebuilt `pure.S` and `cake.S` files (the PureCake and CakeML compilers); and
+ - download a prebuilt `cake.S` (the CakeML compiler);
+ - copy in `../compiler/binary/pure.S` (the PureCake compiler, ***NB this must have been built already***); and
  - build the compiler executables `pure` and `cake`, and the FFI object `basis_ffi.o`.
 
 Running `make` without arguments produces `factorials.exe`.
-Running `make clean` removes all generated files except `pure.tar.gz`, and `make cleanAll` further removes `pure.tar.gz`.
+Running `make clean` removes all generated files, including `lib/{pure.S,cake.S}`.
 
 
 ## PureCake's "prelude"
