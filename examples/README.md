@@ -23,3 +23,18 @@ The first time you run `make`, it will:
 Running `make` without arguments produces `factorials.exe`.
 Running `make clean` removes all generated files except `pure.tar.gz`, and `make cleanAll` further removes `pure.tar.gz`.
 
+
+## PureCake's "prelude"
+
+The [`prelude`] directory is inspired by its namesake in Haskell: it is a (work-in-progress) collection of useful functions on basic data types.
+PureCake does not yet have an import system, so the functions are not directly usable.
+However, they can be a useful set of "building blocks" when creating larger PureLang programs.
+
+To build and run file in the `prelude` directory:
+```bash
+make prelude/bar.exe
+./out/prelude/bar.exe
+```
+Note that no files in `prelude` will have observable effects when executed.
+They are compiled and typechecked only.
+

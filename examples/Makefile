@@ -9,7 +9,7 @@ endif
 CAKEOPT = --skip_type_inference=true --exclude_prelude=true --sexp=true
 
 %.exe: %.S lib
-	@mkdir -p out
+	@mkdir -p $(dir out/$@)
 	gcc $(CCOPT) $< lib/basis_ffi.o -o out/$@
 
 %.S: %.hs lib
