@@ -1,8 +1,14 @@
-# Sample PureCake programs and compiling them
+# Sample PureLang programs
 
-This directory contains sample PureCake programs and a `Makefile` that enables compiling them.
+This directory contains sample PureLang programs which showcase its expressivity.
+The file [`syntax.hs`](syntax.hs) contains a near-exhaustive demonstration of PureLang's concrete syntax.
+The other `.hs` files are non-trivial programs written in PureLang.
 
-You can compile and execute a source file `foo.hs` as follows:
+
+## Compiling sample programs using PureCake
+
+The [`Makefile`](Makefile) in this directory enables compilation of all sample programs.
+To compile and execute `foo.hs`:
 ```bash
 make foo.exe
 ./out/foo.exe
