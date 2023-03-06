@@ -1,11 +1,10 @@
-FROM ubuntu:latest
+FROM ubuntu:20.04
 
-ENV WORKDIR /home
-WORKDIR $WORKDIR
+WORKDIR /home
 
 # Install pre-requisites
 RUN apt-get update && \
-    apt-get install -y git build-essential gcc-10 libffi-dev wget
+    apt-get install -y git build-essential gcc-10 libffi-dev wget mlton
 
 # Install PolyML
 RUN git clone https://github.com/polyml/polyml.git && cd polyml && \
@@ -13,6 +12,18 @@ RUN git clone https://github.com/polyml/polyml.git && cd polyml && \
     ./configure --prefix=/usr && \
     make && \
     make install
+
+# Create user
+ARG USERNAME=pure
+RUN mkdir /etc/sudoers.d && \
+    adduser --shell /bin/bash --disabled-password --gecos "" $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME && \
+    chmod 0440 /etc/sudoers.d/$USERNAME
+
+# Switch to user
+USER $USERNAME
+ENV WORKDIR /home/$USERNAME
+WORKDIR $WORKDIR
 
 # Build HOL
 RUN git clone https://github.com/hol-theorem-prover/hol.git && cd hol && \
@@ -35,4 +46,7 @@ RUN cd pure && Holmake
 # Build PureLang sample programs
 RUN cd pure/examples && make check
 
+# Set up entrypoint
+RUN echo "export PS1='\u:\w \$ '" > /home/$USERNAME/.bashrc
 ENTRYPOINT ["bash"]
+

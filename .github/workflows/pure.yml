@@ -22,7 +22,7 @@ jobs:
 
   build:
     runs-on: self-hosted
-    container: ubuntu:latest
+    container: ubuntu:20.04
 
     steps:
     - name: Update PATH
@@ -31,7 +31,7 @@ jobs:
     - name: Get build-essentials
       run: |
         apt update
-        apt install -y build-essential gcc-10 libffi-dev wget
+        apt install -y build-essential gcc-10 libffi-dev wget mlton
 
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
@@ -149,39 +149,43 @@ jobs:
       run: |
         cd pure/compiler/binary
         Holmake
+
+    - name: Save build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: pure.S
+        path: pure/compiler/binary/pure.S
+
     - name: Build examples
       run: |
         cd pure/examples
         make check
 
   release:
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     needs: build
     permissions:
       contents: write
     runs-on: self-hosted
-    container: ubuntu:latest
+    container: ubuntu:20.04
     env:
       COMMITS: ${{ github.workspace }}/commits.txt
 
     steps:
-    - name: Get release name
-      id: version
+    - name: Get release tag
       run: |
         cd pure
-        echo "VERSION=v$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "VERSION=v$(date +'%Y.%m.%d')" >> $GITHUB_ENV
 
     - name: Get HOL4/CakeML versions
-      run : |
+      run: |
         cd $HOLDIR
-        echo "HOL checkout: $(git rev-parse --short HEAD)" >> $COMMITS
+        echo "HOL checkout: HOL-Theorem-Prover/HOL@$(git rev-parse --short HEAD)" >> $COMMITS
         cd $CAKEMLDIR
-        echo "CakeML checkout: $(git rev-parse --short HEAD)" >> $COMMITS
+        echo "CakeML checkout: CakeML/CakeML@$(git rev-parse --short HEAD)" >> $COMMITS
 
     - name: Create GitHub release
-      uses: softprops/action-gh-release@v1
-      with:
-        name: ${{ steps.version.outputs.VERSION }}
-        body_path: ${{ env.COMMITS }}
-        files: pure/compiler/binary/pure.S
-        prerelease: true
+      run: |
+        cd pure
+        gh release create ${{ env.VERSION }} --latest --prerelease -F ${{ env.COMMITS }} compiler/binary/pure.S
 
