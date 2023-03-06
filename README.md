@@ -17,9 +17,10 @@ This [Docker](https://www.docker.com/) image contains a pre-built version of the
 ### Quick start without Docker
 
 ```bash
-git clone https://github.com/cakeml/pure && cd pure/examples
-wget https://github.com/cakeml/pure/releases/latest/download/pure.S -P lib
+git clone https://github.com/cakeml/pure
+cd pure/examples && make download
 ```
+This downloads the latest pre-built version of the PureCake compiler from GitHub.
 You can now compile PureLang programs without building the compiler yourself, as described in [`examples/README.md`](examples/README.md).
 
 

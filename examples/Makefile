@@ -1,5 +1,5 @@
 all: factorials.exe
-.PHONY: all check clean
+.PHONY: all check clean download
 
 # Apple Silicon can emulate the x86
 ifeq ($(shell uname), Darwin)
@@ -28,8 +28,11 @@ lib/basis_ffi.o: lib/basis_ffi.c
 	cc $(CCOPT) -c -o $@ $^
 
 lib/pure.S:
-	@if [ ! -f "../compiler/binary/$(@F)" ] ; then echo "Could not find \`pure.S\`. Try downloading it from the PureCake GitHub releases." ; false ; fi
-	cp ../compiler/binary/$(@F) $@
+	@if [ ! -f "../compiler/binary/$(@F)" ] ; then $(MAKE) download ; else cp ../compiler/binary/$(@F) $@ ; fi
+
+download:
+	@echo "$(red)Could not find \`pure.S\`. Downloading the latest version from PureCake's GitHub releases.$(reset)"
+	wget -q https://github.com/cakeml/pure/releases/latest/download/pure.S -P lib
 
 lib/cake.S:
 	wget -q https://github.com/cakeml/cakeml/releases/latest/download/cake-x64-64.tar.gz
@@ -39,3 +42,5 @@ lib/cake.S:
 clean:
 	rm -rf out lib/basis_ffi.o lib/cake lib/pure lib/cake.S lib/pure.S
 
+red = \033[0;31m
+reset = \033[0m
