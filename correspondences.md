@@ -44,7 +44,10 @@
 Many files are found in `compiler/backend` - elided with `...` below.
 
 ### §4.1 - Parsing expression grammar (PEG) parsing
-- TODO Michael
+- Lexing: `compiler/parsing/pure_lexer_implScript.sml` (some utility functions in `pureTokenUtilsScript.sml`)
+- Parsing framework: `compiler/parsing/{ispeg,ispegexec}Script.sml`. First file defines the "indentation-sensitive PEG" notion and proves that such PEGs are deterministic and terminating when operating over well-formed PEGs. The "exec" script defines the tail-recursive algorithm for efficiently evaluating PEGs (with success and error continuations for back-tracking).
+- Parsing PureCake's concrete syntax: mostly in `compiler/parsing/purePEGScript.sml` (see in particular, `purePEG_def`)
+- From concrete syntax to `ce` type: in two stages, `cst_to_astScript.sml` and then `ast_to_cexpScript.sml`. Former also resolves precedence parsing of infix operators within expressions.
 
 ### §4.2 - PureLang
 - Binding group analysis: `.../passes/pure_letrec_cexpScript.sml`
