@@ -4,7 +4,10 @@ WORKDIR /home
 
 # Install pre-requisites
 RUN apt-get update && \
-    apt-get install -y git build-essential gcc-10 libffi-dev wget mlton
+    DEBIAN_FRONTEND=noninteractive \
+     apt-get install -y git build-essential gcc-10 libffi-dev wget mlton sudo \
+                        locales-all emacs-nox vim tmux nano
+ENV LANG en_US.UTF-8
 
 # Install PolyML
 RUN git clone https://github.com/polyml/polyml.git && cd polyml && \
@@ -22,13 +25,19 @@ RUN mkdir /etc/sudoers.d && \
 
 # Switch to user
 USER $USERNAME
-ENV WORKDIR /home/$USERNAME
+ARG WORKDIR /home/$USERNAME
 WORKDIR $WORKDIR
 
 # Build HOL
 RUN git clone https://github.com/hol-theorem-prover/hol.git && cd hol && \
     poly < tools/smart-configure.sml && \
     ./bin/build
+
+# Set up HOL interaction
+RUN echo '(load "~/hol/tools/hol-mode")' >> .emacs && \
+    cp hol/tools/vim/hol-config.sml .hol-config.sml && \
+    echo "filetype on" >> .vimrc && mkdir -p .vim && \
+    cp hol/tools/vim/filetype.vim .vim/filetype.vim
 
 # Clone PureCake and CakeML
 RUN git clone https://github.com/cakeml/cakeml && \
@@ -48,5 +57,6 @@ RUN cd pure/examples && make check
 
 # Set up entrypoint
 RUN echo "export PS1='\u:\w \$ '" > /home/$USERNAME/.bashrc
+WORKDIR $WORKDIR/pure
 ENTRYPOINT ["bash"]
 

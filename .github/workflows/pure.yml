@@ -8,6 +8,7 @@ on:
     paths:
       - '**.sml'
       - 'Holmakefile'
+      - '**.hs'
   pull_request:
     branches:
     - master
@@ -162,7 +163,7 @@ jobs:
         make check
 
   release:
-    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     needs: build
     permissions:
       contents: write
@@ -172,6 +173,14 @@ jobs:
       COMMITS: ${{ github.workspace }}/commits.txt
 
     steps:
+    - name: Install GitHub CLI
+      run: |
+        apt install -y curl
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        apt update && apt install -y gh
+
     - name: Get release tag
       run: |
         cd pure
@@ -186,7 +195,7 @@ jobs:
 
     - name: Create GitHub release
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd pure
         gh release create ${{ env.VERSION }} --latest --prerelease -F ${{ env.COMMITS }} compiler/binary/pure.S
