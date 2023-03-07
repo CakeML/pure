@@ -60,7 +60,6 @@ Many files are found in `compiler/backend` - elided with `...` below.
 - Core soundness proof: `typing/pure_inferenceProofScript.sml`
 
 ### §4.4 - Demand analysis
-- TODO Samuel
 - Formalisation of demands: `meta-theory/pure_demandScript.sml`
 - Demand analysis algorithm: `.../passes/pure_demands_analysisScript.sml`
 - Core soundness proof: `.../passes/proofs/pure_demands_analysisProofScript.sml`
@@ -77,6 +76,8 @@ Most files are found in `compiler/backend` - elided with `...` below.
 - Semantics: `.../languages/semantics/thunk_semanticsScript.sml`
 - Compilation from PureLang to ThunkLang: `.../passes/pure_to_thunkScript.sml`
   - Core soundness proofs: `.../passes/proofs/{pure_to_thunk,thunk}*Script.sml`
+- ThunkLang optimisation pass: `.../passes/thunk_split_Delay_LamScript.sml`
+  - Core soundness proofs: `.../passes/proofs/thunk_split_Delay_LamProofScript.sml`
 
 ### §5.2 - EnvLang
 - Compiler expressions: `.../languages/envLang_cexpScript.sml`
