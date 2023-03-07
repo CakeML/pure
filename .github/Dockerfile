@@ -18,14 +18,13 @@ RUN git clone https://github.com/polyml/polyml.git && cd polyml && \
 
 # Create user
 ARG USERNAME=pure
-RUN mkdir /etc/sudoers.d && \
-    adduser --shell /bin/bash --disabled-password --gecos "" $USERNAME && \
+RUN adduser --shell /bin/bash --disabled-password --gecos "" $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME && \
     chmod 0440 /etc/sudoers.d/$USERNAME
 
 # Switch to user
 USER $USERNAME
-ARG WORKDIR /home/$USERNAME
+ARG WORKDIR=/home/$USERNAME
 WORKDIR $WORKDIR
 
 # Build HOL
