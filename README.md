@@ -28,7 +28,7 @@ cd ~/pure/examples && make clean && make check   # re-compile sample PureCake pr
 #### Examining HOL4 theories
 
 All of the PureCake project is developed within the [HOL4](http://hol-theorem-prover.org/) interactive theorem prover.
-Any results stated in the paper have been mechanically verified within HOL4's metalogic.
+Any results stated in the paper have been mechanically verified within HOL4's logic.
 Therefore, we envisage the bulk of in-depth evaluation of this artifact will be via inspection of the theorems we have proved.
 To aid this, we have written a [`correspondences.md`](correspondences.md) document which links each part of the paper to the corresponding mechanisation.
 The [project structure](#project-structure) section below also gives a high-level overview of the PureCake project structure.
