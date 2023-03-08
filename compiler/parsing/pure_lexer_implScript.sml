@@ -226,8 +226,7 @@ Definition next_sym_alt_def:
      else if c = #"\"" then (* read string *)
        let (t, loc', rest) = read_string str "" (next_loc 1 loc) in
          SOME (t, Locs loc loc', rest)
-     else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, Locs loc (next_loc 2 loc), TL str)
+     else if c = #"`" then SOME (OtherS "`", Locs loc loc, str)
      else if isPREFIX "#\"" (c::str) then
        let (t, loc', rest) = read_string (TL str) "" (next_loc 2 loc) in
          SOME (mkCharS t, Locs loc loc', rest)
