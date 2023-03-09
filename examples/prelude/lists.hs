@@ -2,7 +2,7 @@ main :: IO ()
 main = do
   Ret (append, head, last, tail, singleton, null, length)
   Ret (map, reverse)
-  Ret (foldr, foldl, unfoldr, concat, all, any)
+  Ret (foldr, foldl, foldl', unfoldr, concat, all, any)
   Ret (iterate, repeat, replicate)
   Ret (take, drop)
   Ret (filter, first, lookup, index)
@@ -64,10 +64,10 @@ foldl :: (b -> a -> b) -> b -> [a] -> b
 foldl f acc l = case l of [] -> acc
                           h:t -> foldl f (f acc h) t
 
--- foldl' :: (b -> a -> b) -> b -> [a] -> b
--- foldl' f acc l = case l of [] -> acc
---                            h:t -> let acc' = f acc h in
---                                   seq acc' (foldl' f acc' t)
+foldl' :: (b -> a -> b) -> b -> [a] -> b
+foldl' f acc l = case l of [] -> acc
+                           h:t -> let acc' = f acc h in
+                                  acc' `seq` (foldl' f acc' t)
 
 unfoldr :: (b -> Maybe (a, b)) -> b -> [a]
 unfoldr f x =

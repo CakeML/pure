@@ -106,6 +106,7 @@ myFunc arg1 arg2 = myVal arg2 arg1 -- function declaration
 myVal = myFunc                     -- value declaration
 
 f $ x = f x                        -- infix declaration
+quotedInfix = 42 `mod` 6           -- back-quoted infix operations
 compose f g = \x -> f (g x)        -- lambdas / anonymous functions
 
 id :: a -> a                       -- with type signature (currently ignored)
@@ -117,7 +118,7 @@ id x = x
 data Tree a = Leaf                 -- data type declaration
             | Branch (Tree a) a (Tree a)
 
--- sequence a b = #(__Seq) a b -- coming soon: Haskell's `seq` statement
+sequence a b = seq a b -- Haskell's `seq` statement
 
 -- if-statements
 myIf b e1 e2 = if b then e1 else e2
@@ -158,7 +159,8 @@ main = do -- force type-checking + compilation of everything in this file
     return, bind, doNotation, arrayOperations,
     exceptions, throwException, exceptionHandler, handleException,
     performFFI, printAction, readArgumentAction,
-    myFunc, myVal, id, myIf, myLet, isEmptyList, isEmptyTree, true
+    myFunc, myVal, quotedInfix, compose, id, sequence,
+    myIf, myLet, isEmptyList, isEmptyTree, true
     )
   Ret ()
 

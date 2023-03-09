@@ -26,7 +26,7 @@ collatzSequence n =
   in seqAux 0 n
 
 collatz :: Integer -> Integer
-collatz n = if mod n 2 == 0 then div n 2 else 3 * n + 1
+collatz n = if n `mod` 2 == 0 then n `div` 2 else 3 * n + 1
 
 
 -- Helper functions
@@ -84,7 +84,7 @@ toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []
-        else (mod i 10 + 48) : toString0 (div i 10)
+        else (i `mod` 10 + 48) : toString0 (i `div` 10)
   in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
      else if i == 0 then "0"
      else implode $ reverse $ toString0 i

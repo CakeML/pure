@@ -44,14 +44,14 @@ factorial n =
 gcd :: Integer -> Integer -> Integer
 gcd n m =
   let gcd' a b = if b == 0 then a
-                 else gcd' b (mod a b)
+                 else gcd' b (a `mod` b)
   in gcd' (abs n) (abs m)
 
 collatz :: Integer -> [Integer]
 collatz n =
   let n' = abs n
       rest = if n' < 2 then []
-             else if mod n' 2 == 0 then collatz (div n 2)
+             else if n' `mod` 2 == 0 then collatz (n `div` 2)
              else collatz (3 * n + 1)
   in n' : rest
 
@@ -85,7 +85,7 @@ fromString s =
 toString :: Integer -> String
 toString i =
   let toStringAux acc i = if i == 0 then acc
-                          else toStringAux ((mod i 10 + 48) : acc) (div i 10)
+                          else toStringAux ((i `mod` 10 + 48) : acc) (i `div` 10)
       implode l = case l of [] -> ""
                             h:t -> #(__Concat) (#(__Implode) h) (implode t)
   in if i < 0 then #(__Concat) "-" (toString (abs i))

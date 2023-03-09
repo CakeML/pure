@@ -19,7 +19,7 @@ primesA =
   let sieve l =
         case l of
           [] -> [] -- should not happen
-          h:t -> h : filter (\n -> not $ mod n h == 0) (sieve t)
+          h:t -> h : filter (\n -> not $ n `mod` h == 0) (sieve t)
   in sieve $ numbers 2
 
 primeA :: Integer -> Integer
@@ -31,7 +31,7 @@ primeA n = idx n primesA
 isPrime :: Integer -> Bool
 isPrime n =
   let checkPrime div n = if n < div * div then True
-                         else if mod n div == 0 then False
+                         else if n `mod` div == 0 then False
                          else checkPrime (div + 1) n
   in if n < 2 then False else checkPrime 2 n
 
@@ -88,7 +88,7 @@ toString :: Integer -> String
 toString i =
   let toString0 i =
         if i == 0 then []
-        else (mod i 10 + 48) : toString0 (div i 10)
+        else (i `mod` 10 + 48) : toString0 (i `div` 10)
   in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
      else if i == 0 then "0"
      else implode $ reverse $ toString0 i
