@@ -14,16 +14,20 @@ on:
     - master
   workflow_dispatch:
 
-env:
-  HOLDIR: ${{ github.workspace }}/HOL
-  CAKEMLDIR: ${{ github.workspace }}/cakeml
-  LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
-
 jobs:
 
   build:
     runs-on: self-hosted
     container: ubuntu:20.04
+
+    env:
+      HOLDIR: ${{ github.workspace }}/HOL
+      CAKEMLDIR: ${{ github.workspace }}/cakeml
+      LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
+
+    outputs:
+      hol_sha: ${{ steps.shas.outputs.HOL_SHA }}
+      cakeml_sha: ${{ steps.shas.outputs.CAKEML_SHA }}
 
     steps:
     - name: Update PATH
@@ -32,7 +36,7 @@ jobs:
     - name: Get build-essentials
       run: |
         apt update
-        apt install -y build-essential gcc-10 libffi-dev wget mlton
+        apt install -y git build-essential gcc-10 libffi-dev wget mlton
 
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
@@ -162,6 +166,14 @@ jobs:
         cd pure/examples
         make check
 
+    - name: Record HOL/CakeML checkouts
+      id: shas
+      run: |
+        cd $HOLDIR
+        echo "HOL_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        cd $CAKEMLDIR
+        echo "CAKEML_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
   release:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     needs: build
@@ -181,22 +193,21 @@ jobs:
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
         apt update && apt install -y gh
 
-    - name: Get release tag
+    - name: Create release tag and release notes
       run: |
-        cd pure
         echo "VERSION=v$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+        echo "HOL checkout: HOL-Theorem-Prover/HOL@${{ needs.build.outputs.hol_sha }}" >> $COMMITS
+        echo "CakeML checkout: CakeML/CakeML@${{ needs.build.outputs.cakeml_sha }}" >> $COMMITS
 
-    - name: Get HOL4/CakeML versions
-      run: |
-        cd $HOLDIR
-        echo "HOL checkout: HOL-Theorem-Prover/HOL@$(git rev-parse --short HEAD)" >> $COMMITS
-        cd $CAKEMLDIR
-        echo "CakeML checkout: CakeML/CakeML@$(git rev-parse --short HEAD)" >> $COMMITS
+    - name: Download build artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: pure.S
 
     - name: Create GitHub release
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cd pure
-        gh release create ${{ env.VERSION }} --latest -F ${{ env.COMMITS }} compiler/binary/pure.S
+        gh release create ${{ env.VERSION }} --repo cakeml/pure --latest --notes-file $COMMITS pure.S
+        rm -f pure.S $COMMITS
 
