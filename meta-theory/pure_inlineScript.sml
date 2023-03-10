@@ -4,7 +4,8 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
+     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
+     combinTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
@@ -86,47 +87,29 @@ Proof
   \\ fs [eval_wh_App,eval_wh_Lam,bind1_def]
   \\ rw [subst1_def]
   \\ AP_TERM_TAC
-
-
-  \\ reverse $ qsuff_tac ‘∀v. v ∈ FRANGE (f \\ w) ⇒ closed v’
-
+  \\ sg ‘∀v. v ∈ FRANGE (f \\ w) ⇒ closed v’
   >- (
-    rw []
-    \\ qspecl_then [‘f \\ w’] assume_tac (iffLR FLOOKUP_closed_FRANGE_closed)
-    \\ gvs []
+    simp [GSYM FLOOKUP_closed_FRANGE_closed]
+    \\ simp [DOMSUB_FLOOKUP_THM]
     \\ rw []
-    \\ first_x_assum irule
-    \\ rw[]
-    \\ first_x_assum irule
-    \\ qexists ‘n’
-    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
-    \\ fs [DOMSUB_FAPPLY_THM]
-    \\ gvs []
+    \\ res_tac
   )
-
-  \\ rw []
-
-
   \\ qsuff_tac ‘w ∉ freevars (subst (f \\ w) e)’
-
   >- (
     rw []
-    \\ qspecl_then [‘w’, ‘subst (f \\ w) e’, ‘subst f e’] assume_tac subst1_notin
-    \\ gvs []
-    \\ irule subst_fdomsub
-    \\ rw []
+    \\ irule EQ_TRANS
+    \\ irule_at (Pos last) $ GSYM subst1_notin
+    \\ simp [subst_fdomsub]
   )
-
   \\ qsuff_tac ‘closed (subst (f \\ w) e)’
   >- (
     rw []
     \\ fs [closed_def]
   )
-
-  \\ qspecl_then [‘f’, ‘e’, ‘w’] assume_tac subst_fdomsub
-  \\ gvs []
+  \\ gvs [GSYM subst_fdomsub]
 QED
 
+(* //TODO(kπ) move *)
 Theorem exp_eq_subst_IMP_exp_eq:
   (∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
        freevars x ⊆ FDOM f ∧ freevars y ⊆ FDOM f ⇒
@@ -134,17 +117,13 @@ Theorem exp_eq_subst_IMP_exp_eq:
     (x ≅? y) b
 Proof
   rw []
-  
   \\ irule (iffRL exp_eq_open_bisimilarity_freevars)
   \\ simp [open_bisimilarity_def]
   \\ rw []
-
   \\ first_x_assum (qspecl_then [‘f’] assume_tac)
   \\ gs []
-
   \\ simp [bind_def]
   \\ rw []
-  
   \\ reverse (qsuff_tac ‘(subst f x ≅? subst f y) b’)
   >- (
     simp []
@@ -154,38 +133,13 @@ Proof
     \\ qexists ‘n’
     \\ rw []
   )
-
   \\ rw []
-
   \\ irule (iffLR (GSYM app_bisimilarity_eq))
   \\ rw []
-
-  >- (
-
-    (* //TODO(kπ) there has to be a better way for this *)
-
-    rw []
-    \\ irule IMP_closed_subst
-    \\ rw []
-    \\ qspecl_then [‘f’] assume_tac (iffLR FLOOKUP_closed_FRANGE_closed)
-    \\ gvs []
-    \\ first_x_assum irule
-    \\ rw []
-    \\ first_x_assum irule
-    \\ qexists ‘n’
-    \\ rw []
-  )
-
   \\ rw []
   \\ irule IMP_closed_subst
   \\ rw []
-  \\ qspecl_then [‘f’] assume_tac (iffLR FLOOKUP_closed_FRANGE_closed)
-  \\ gvs []
-  \\ first_x_assum irule
-  \\ rw []
-  \\ first_x_assum irule
-  \\ qexists ‘n’
-  \\ rw []
+  \\ gvs [FLOOKUP_closed_FRANGE_closed]
 QED
 
 Theorem Let_Lam:
@@ -193,56 +147,153 @@ Theorem Let_Lam:
     (Let v x (Lam w t) ≅? Lam w (Let v x t)) b
 Proof
   rw []
-
   \\ irule exp_eq_subst_IMP_exp_eq
   \\ rw [subst_def]
-
   \\ irule exp_eq_trans
   \\ irule_at Any beta_equality
-  
   \\ conj_asm1_tac
-
   >- (
     irule IMP_closed_subst
     \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
   )
-  
   \\ rw [subst_def]
   \\ rw [exp_eq_Lam_removed]
-
   \\ simp [exp_eq_sym]
   \\ irule exp_eq_trans
   \\ irule_at Any beta_equality
   \\ rw []
-
   >- (
     irule IMP_closed_subst
     \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
     \\ simp [DOMSUB_FAPPLY_NEQ]
     \\ fs [SUBSET_DEF]
   )
-
   \\ simp [DOMSUB_FUPDATE_NEQ]
   \\ simp [exp_eq_refl]
-
   \\ reverse $ qsuff_tac
     ‘(subst (f \\ w \\ v) t = subst (f \\ v \\ w) t)
       ∧ (subst (f \\ w) x = subst f x)’
-  
   >- (
     rw []
-
     >- (
       rw []
       \\ simp [DOMSUB_COMMUTES]
     )
-
     \\ irule (GSYM subst_fdomsub)
     \\ rw []
   )
-
   \\ rw []
   \\ rw [exp_eq_refl]
+QED
+
+Theorem FST_intro:
+  (λ(p1,p2). p1) = FST
+Proof
+  simp [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem Let_Letrec:
+  v ∉ freevars x ∧ EVERY (λ(n,u). n ∉ freevars x) xs ∧
+  ¬MEM v (MAP FST xs) ∧
+  DISJOINT (freevars x) (set (MAP FST xs)) ⇒
+    (Let v x (Letrec xs e) ≅? Letrec (MAP (λ(n,t). (n, Let v x t)) xs) (Let v x e)) b
+Proof
+  rw []
+  \\ irule exp_eq_subst_IMP_exp_eq
+  \\ rw []
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro]
+  \\ simp [subst_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ conj_asm1_tac
+  >- (
+    irule IMP_closed_subst
+    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+  )
+  \\ rw [subst_def]
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro]
+  \\ irule exp_eq_Letrec_cong
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro]
+  \\ reverse $ conj_tac
+  >- (
+    simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any beta_equality
+    \\ conj_asm1_tac
+    >- (
+      irule IMP_closed_subst
+      \\ fs [FDOM_FDIFF,SUBSET_DEF,IN_DISJOINT]
+      \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+
+      \\ fs [FDIFF_def,DRESTRICT_DEF]
+      \\ metis_tac []
+    )
+    \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+    \\ conj_tac
+    >- (
+      fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+      \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+    )
+    \\ qmatch_goalsub_abbrev_tac ‘(subst f1 e ≅? subst f2 e) b’
+    \\ qsuff_tac ‘f1 = f2’
+    >- (simp [exp_eq_refl])
+    \\ unabbrev_all_tac
+    \\ rpt MK_COMB_TAC \\ fs []
+    \\ simp [FLOOKUP_EXT,FUN_EQ_THM,FLOOKUP_FDIFF,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
+    \\ rw []
+    \\ fs []
+    \\ irule subst_FDIFF'
+    \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ rw []
+    \\ res_tac
+  )
+  \\ simp [LIST_REL_MAP_MAP]
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ rw []
+  \\ res_tac
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ rw [subst_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ conj_asm1_tac
+  >- (
+    irule IMP_closed_subst
+    \\ fs [FDOM_FDIFF,SUBSET_DEF,IN_DISJOINT]
+    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+
+    \\ fs [FDIFF_def,DRESTRICT_DEF]
+    \\ metis_tac []
+  )
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+  )
+  \\ qmatch_goalsub_abbrev_tac ‘(subst f1 p_2 ≅? subst f2 p_2) b’
+  \\ qsuff_tac ‘f1 = f2’
+  >- (simp [exp_eq_refl])
+  \\ unabbrev_all_tac
+  \\ rpt MK_COMB_TAC \\ fs []
+  \\ simp [FLOOKUP_EXT,FUN_EQ_THM,FLOOKUP_FDIFF,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
+  \\ rw []
+  \\ fs []
+  \\ irule subst_FDIFF'
+  \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
+  \\ rw []
+  \\ res_tac
+QED
+
+Theorem LIST_REL_swap:
+  ∀xs ys. LIST_REL R xs ys = LIST_REL (λx y. R y x) ys xs
+Proof
+  Induct \\ fs []
 QED
 
 Theorem subst_rel_IMP_exp_eq:
@@ -258,14 +309,11 @@ Proof
   >- (
     rw []
     \\ gvs []
-
     \\ irule exp_eq_trans
     \\ irule_at Any Let_Prim
-
     \\ simp [Once exp_eq_sym]
     \\ irule exp_eq_trans
     \\ irule_at Any Let_Prim
-
     \\ irule exp_eq_Prim_cong
     \\ simp [LIST_REL_MAP]
     \\ gvs [LIST_REL_EL_EQN]
@@ -298,10 +346,8 @@ Proof
   >- (
     rw []
     \\ gvs []
-
     \\ ‘(Lam w (Let v x u) ≅? Let v x (Lam w u)) b’ by (simp [Let_Lam, exp_eq_sym])
     \\ ‘(Let v x (Lam w t) ≅? Lam w (Let v x t)) b’ by (simp [Let_Lam, exp_eq_sym])
-
     \\ qsuff_tac ‘(Lam w (Let v x t) ≅? Lam w (Let v x u)) b’
     >- (
       rw []
@@ -312,25 +358,144 @@ Proof
       \\ qexists ‘Lam w (Let v x u)’
       \\ rw []
     )
-
     \\ simp [exp_eq_Lam_removed]
   )
-  \\ cheat
-
-  m “(Letrec _ _ ≅? _) b”
-
-  (*
-    pure_congruenceTheory.exp_eq_Letrec_cong (THEOREM)
-    --------------------------------------------------
-    ⊢ LIST_REL (λx y. (x ≅? y) b) (MAP SND xs) (MAP SND xs') ∧ (e ≅? e') b ∧
-      MAP FST xs = MAP FST xs' ⇒
-      (Letrec xs e ≅? Letrec xs' e') b
-  *)
+  \\ rw []
+  \\ gvs []
+  \\ irule exp_eq_trans
+  \\ irule_at Any Let_Letrec
+  \\ rw []
+  >- (
+    rw []
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ qspecl_then [‘xs’, ‘ys’, ‘(λ(n,t') (m,u'). n ∉ freevars x)’, ‘(p_1,p_2)’] assume_tac LIST_REL_MEM_IMP
+    \\ gvs []
+    \\ first_x_assum mp_tac
+    \\ reverse $ impl_tac
+    >- (
+      rw []
+      \\ Cases_on ‘y’
+      \\ gvs []
+    )
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1'’, ‘p_2'’, ‘p_1''’, ‘p_2''’] assume_tac)
+    \\ rw []
+  )
+  >- (
+    rw []
+    \\ simp [Once DISJOINT_SYM]
+    \\ simp [DISJOINT_ALT]
+    \\ rw []
+    \\ fs [MEM_MAP]
+    \\ Cases_on ‘y’
+    \\ qspecl_then [‘xs’, ‘ys’, ‘(λ(n,t') (m,u'). n ∉ freevars x)’, ‘(q,r)’] assume_tac LIST_REL_MEM_IMP
+    \\ simp [FST]
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ gvs []
+    \\ first_x_assum mp_tac
+    \\ reverse $ impl_tac
+    >- (
+      rw []
+      \\ Cases_on ‘y’
+      \\ gvs []
+    )
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+    \\ gvs []
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any Let_Letrec
+  \\ rw []
+  >- (
+    rw []
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ fs [Once LIST_REL_swap]
+    \\ qspecl_then [‘ys’, ‘xs’, ‘(λ(n,t') (m,u'). n ∉ freevars x)’, ‘(p_1,p_2)’] assume_tac LIST_REL_MEM_IMP
+    \\ gvs []
+    \\ first_x_assum mp_tac
+    \\ reverse $ impl_tac
+    >- (
+      rw []
+      \\ Cases_on ‘y’
+      \\ gvs []
+    )
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1'’, ‘p_2'’, ‘p_1''’, ‘p_2''’] assume_tac)
+    \\ gvs []
+  )
+  >- (
+    rw []
+    \\ qsuff_tac ‘MAP FST xs = MAP FST ys’
+    >- (
+      rw []
+      \\ gvs []
+    )
+    \\ simp [MAP_EQ_EVERY2]
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+    \\ gvs []
+  )
+  >- (
+    rw []
+    \\ simp [Once DISJOINT_SYM]
+    \\ simp [DISJOINT_ALT]
+    \\ rw []
+    \\ fs [MEM_MAP]
+    \\ Cases_on ‘y’
+    \\ fs [Once LIST_REL_swap]
+    \\ qspecl_then [‘ys’, ‘xs’, ‘(λ(n,t') (m,u'). n ∉ freevars x)’, ‘(q,r)’] assume_tac LIST_REL_MEM_IMP
+    \\ simp [FST]
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ gvs []
+    \\ first_x_assum mp_tac
+    \\ reverse $ impl_tac
+    >- (
+      rw []
+      \\ Cases_on ‘y’
+      \\ gvs []
+    )
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+    \\ gvs []
+  )
+  \\ irule exp_eq_Letrec_cong
+  \\ rw []
+  >- (
+    rw []
+    \\ simp [Once EQ_SYM_EQ]
+    \\ simp [MAP_EQ_EVERY2]
+    \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro]
+    \\ simp [LIST_REL_MAP]
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+    \\ gvs []
+  )
+  >- (
+    rw []
+    \\ simp [LIST_REL_MAP]
+    \\ simp [Once LIST_REL_swap]
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+    \\ gvs []
+    \\ simp [Once exp_eq_sym]
+  )
+  \\ rw [exp_eq_sym]
 QED
-
-  (* (Let v x (App t t') ≅? Let v x (App u u')) b *)
-  (* (App (Lam v (Lam w t)) x) ≅? App (Lam v (Lam w u)) x) b *)
-
 
 (*
 
