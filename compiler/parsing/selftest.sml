@@ -149,6 +149,7 @@ val _ = app fptest [
   (“nExp”, "3 * 4 + 6", “astExp nExp”, “‹+› ⬝ (‹*› ⬝ 𝕀 3 ⬝ 𝕀 4) ⬝ 𝕀 6”),
   (“nExp”, "3 `mod` z + 7", “ASTEXP”, “‹+› ⬝ (‹mod› ⬝ 𝕀 3 ⬝ ‹z›) ⬝ 𝕀 7”),
   (“nExp”, "x * y `mod` z", “ASTEXP”, “‹mod› ⬝ (‹*› ⬝ ‹x› ⬝ ‹y›) ⬝ ‹z›”),
+  (“nExp”, "x + y `foo` z", “ASTEXP”, “‹+› ⬝ ‹x› ⬝ (‹foo› ⬝ ‹y› ⬝ ‹z›)”),
   (“nExp”, "x `seq` z", “ASTEXP”, “‹seq› ⬝ ‹x› ⬝ ‹z›”),
   (“nExp”, "x `seq` z", “CEXP”, “Prim () Seq [𝕍 «x»; 𝕍 «z»]”),
   (“nExp”, "6 + 3 * 4", “astExp nExp”, “‹+› ⬝ 𝕀 6 ⬝ (‹*› ⬝ 𝕀 3 ⬝ 𝕀 4)”),
