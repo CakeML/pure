@@ -1,7 +1,5 @@
 main :: IO ()
-main = do
-  Ret (not, equal, and, or, xor, toString, fromString)
-  Ret ()
+main = Ret ()
 
 not :: Bool -> Bool
 not b = if b then False else True

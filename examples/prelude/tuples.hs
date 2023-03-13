@@ -1,7 +1,5 @@
 main :: IO ()
-main = do
-  Ret (fst, snd, curry, uncurry)
-  Ret ()
+main = Ret ()
 
 fst :: (a, b) -> a
 fst p = case p of (a, b) -> a

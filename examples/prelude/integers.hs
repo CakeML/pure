@@ -1,8 +1,5 @@
 main :: IO ()
-main = do
-  Ret (numbers, abs, exp, isEven, isOdd, exp, ntimes, fibonacci, factorial, gcd,
-       collatz, primitiveRecursion, minimisation, ackermann, fromString, toString)
-  Ret ()
+main = Ret ()
 
 numbers :: Integer -> [Integer]
 numbers n = n : numbers (n + 1)

@@ -1,14 +1,5 @@
 main :: IO ()
-main = do
-  Ret (append, head, last, tail, singleton, null, length)
-  Ret (map, reverse)
-  Ret (foldr, foldl, foldl', unfoldr, concat, all, any)
-  Ret (iterate, repeat, replicate)
-  Ret (take, drop)
-  Ret (filter, first, lookup, index)
-  Ret (interleave, zipWith, unzip)
-  Ret (toString)
-  Ret ()
+main = Ret ()
 
 
 -- Basic operations

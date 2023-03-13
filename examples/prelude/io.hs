@@ -1,7 +1,5 @@
 main :: IO ()
-main = do
-  Ret (return, bind, app, read_args, print, println)
-  Ret ()
+main = Ret ()
 
 return v = Ret v
 

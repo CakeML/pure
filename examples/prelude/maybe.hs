@@ -1,7 +1,5 @@
 main :: IO ()
-main = do
-  Ret (maybe, fold, map, bind, toString)
-  Ret ()
+main = Ret ()
 
 data Maybe a = Nothing | Just a
 

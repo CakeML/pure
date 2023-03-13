@@ -1,7 +1,5 @@
 main :: IO ()
-main = do
-  Ret (compose, s, k, i, fix)
-  Ret ()
+main = Ret ()
 
 f $ x = f x
 

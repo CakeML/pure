@@ -151,16 +151,5 @@ isEmptyTree t =
 true = case bools of (b1, b2) -> b1
 
 -- main :: IO () must be declared
-main = do -- force type-checking + compilation of everything in this file
-  Ret (
-    unit, unitTriple, bools,
-    zero, minusOne, fortyTwo, integerOperations, integerComparisons,
-    stringLiterals, stringOperations, stringComparisons, listLiterals,
-    return, bind, doNotation, arrayOperations,
-    exceptions, throwException, exceptionHandler, handleException,
-    performFFI, printAction, readArgumentAction,
-    myFunc, myVal, quotedInfix, compose, id, sequence,
-    myIf, myLet, isEmptyList, isEmptyTree, true
-    )
-  Ret ()
+main = Ret ()
 

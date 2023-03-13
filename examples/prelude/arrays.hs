@@ -1,8 +1,5 @@
 main :: IO ()
-main = do
---  Ret (alloc, length, get, update, index, toString)
-  Ret (alloc, length, get, getAndHandle, update, index, toString)
-  Ret ()
+main = Ret ()
 
 alloc :: Integer -> a -> IO Array a
 alloc len elem = Alloc len elem

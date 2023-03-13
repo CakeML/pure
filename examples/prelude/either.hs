@@ -1,7 +1,5 @@
 main :: IO ()
-main = do
-  Ret either
-  Ret ()
+main = Ret ()
 
 data Either a b = Left a | Right b
 

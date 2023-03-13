@@ -8,8 +8,6 @@ main = do
   print $ "Finding no. permutations for [1.." ++ toString n ++ "]"
   let perms = permutations (numbersUpTo n)
   print $ "Computed " ++ (toString (length perms)) ++ " permutations"
-  printIntegers (numbersUpTo n)
-  Ret permutations
   Ret ()
 
 

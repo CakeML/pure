@@ -1,8 +1,5 @@
 main :: IO ()
-main = do
-  Ret (fold, flatten, inorder, preorder, postorder, invert)
-  Ret (foldRose, flattenRose, invertRose)
-  Ret ()
+main = Ret ()
 
 -- Binary trees
 

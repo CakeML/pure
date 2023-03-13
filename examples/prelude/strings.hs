@@ -1,8 +1,5 @@
 main :: IO ()
-main = do
-  Ret (get, index, length, concat, substring2, substring3,
-       equal, less, greater, leq, geq, implode, explode, reverse)
-  Ret ()
+main = Ret ()
 
 get :: String -> Integer -> Integer
 get s idx = #(__Elem) s idx
