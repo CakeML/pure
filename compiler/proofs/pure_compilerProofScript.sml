@@ -26,7 +26,8 @@ Theorem compiler_correctness:
       safe_itree $ itree_of (exp_of pure_ce) ∧
       itree_rel
          (itree_of (exp_of pure_ce))
-         (itree_semantics cake)
+         (itree_semantics cake) ∧
+      itree_semantics$safe_itree ffi_convention (itree_semantics cake)
 Proof
   strip_tac \\ gvs [compile_to_ast_def,frontend_def,AllCaseEqs()]
   \\ qabbrev_tac ‘e4 = transform_cexp c e1’
@@ -63,7 +64,7 @@ Proof
   \\ qsuff_tac ‘itree_of (exp_of e4) = itree_of (exp_of e2)’
   >- (
     disch_then $ rewrite_tac o single \\ simp[]
-    \\ irule_at Any pure_to_cakeProofTheory.pure_to_cake_correct
+    \\ irule pure_to_cakeProofTheory.pure_to_cake_correct
     \\ fs [cns_ok_def, pure_typingTheory.namespace_init_ok_def, EXISTS_PROD]
     ) >>
   qspec_then `e4` mp_tac clean_cexp_correct >> strip_tac >>
@@ -89,7 +90,8 @@ Theorem alternative_compiler_correctness:
       compile_to_ast c s = SOME cake ∧
       itree_rel
          (itree_of (exp_of pure_ce))
-         (itree_semantics cake)
+         (itree_semantics cake) ∧
+      itree_semantics$safe_itree ffi_convention (itree_semantics cake)
 Proof
   strip_tac >> assume_tac $ Q.GEN `cake` compiler_correctness >>
   gvs[compile_to_ast_alt_def]
@@ -130,7 +132,8 @@ Theorem pure_compiler_to_string_correct:
     safe_exp (exp_of pure_ce) ∧
     itree_rel
        (itree_of (exp_of pure_ce))
-       (itree_semantics cake_prog)
+       (itree_semantics cake_prog) ∧
+    itree_semantics$safe_itree ffi_convention (itree_semantics cake_prog)
 Proof
   rw[compile_to_string] >> simp[string_to_ast_ast_to_string] >>
   drule compiler_correctness >> rw[] >> gvs[frontend_def, AllCaseEqs()] >>
