@@ -796,6 +796,89 @@ Proof
   gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
 QED
 
+Theorem type_tcexp_env_extensional:
+  ∀ns db st env e t env'.
+    type_tcexp ns db st env e t ∧
+    (∀x. x ∈ freevars_tcexp e ⇒ ALOOKUP env x = ALOOKUP env' x)
+  ⇒ type_tcexp ns db st env' e t
+Proof
+  Induct_on `type_tcexp` >> rw[] >> rw[Once type_tcexp_cases] >>
+  rpt $ first_assum $ irule_at Any >> rw[ALOOKUP_MAP]
+  >- (
+    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
+    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
+    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
+    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
+    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
+    first_x_assum irule >> disj2_tac >> goal_assum drule >> simp[EL_MEM]
+    )
+  >- (
+    rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
+    first_x_assum irule >> simp[] >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
+    )
+  >- (
+    rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
+    first_x_assum irule >> simp[] >>
+    gvs[LIST_REL_EL_EQN, ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    first_x_assum drule >> simp[] >> strip_tac >> first_x_assum irule >> rw[] >>
+    simp[ALOOKUP_MAP, ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
+    AP_TERM_TAC >> first_x_assum irule >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP] >>
+    gvs[MEM_MAP] >> disj2_tac >> qexists `fn,body` >> simp[MEM_EL] >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    disj1_tac >> gvs[EVERY_MEM] >> rw[] >> rpt (pairarg_tac >> gvs[]) >>
+    first_x_assum drule >> simp[] >> strip_tac >> pop_assum irule >> rw[] >>
+    first_x_assum irule >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[]
+    )
+  >- (
+    disj1_tac >> rpt $ first_x_assum $ irule_at Any >> rw[ALOOKUP_APPEND] >>
+    CASE_TAC >> gvs[] >> first_x_assum irule >> disj2_tac >> gvs[] >>
+    gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
+    )
+  >- (
+    ntac 2 disj2_tac >> disj1_tac >>
+    gvs[EVERY_MEM] >> rw[] >> rpt (pairarg_tac >> gvs[]) >>
+    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+    first_x_assum $ irule_at Any >> rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
+    first_x_assum irule >> disj2_tac >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    rpt $ goal_assum $ drule_at Any >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
+    )
+  >- (
+    rpt disj2_tac >> rpt $ first_x_assum $ irule_at Any >> simp[] >>
+    gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
+    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
+    first_x_assum irule >> rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
+    first_x_assum irule >> disj2_tac >> gvs[] >> disj2_tac >>
+    gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    rpt $ goal_assum $ drule_at Any >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
+    )
+  >- (disj1_tac >> first_x_assum $ irule_at Any >> simp[])
+  >- (rpt disj2_tac >> rpt $ first_x_assum $ irule_at Any >> simp[])
+QED
+
 Theorem type_tcexp_weaken:
   ∀ns db st env e t db' st' env'.
     type_tcexp ns db st env e t
