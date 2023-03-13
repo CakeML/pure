@@ -76,6 +76,7 @@ val r = translate subspt_eq;
 val r = translate split_all_cexp_def;
 val r = translate clean_all_cexp_def;
 val r = translate transform_cexp_def;
+val r = translate clean_cexp_def;
 
 (*-----------------------------------------------------------------------*
    demands_analysis
