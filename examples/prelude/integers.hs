@@ -18,7 +18,7 @@ isOdd n = if n == 0 then False
 exp :: Integer -> Integer -> Integer
 exp n a =
   let expAux acc a = if a < 1 then acc else expAux (acc * n) (a - 1)
-  in exp 1 a
+  in expAux 1 a
 
 ntimes :: Integer -> (a -> a) -> a -> a
 ntimes n f x = if n < 1 then x
