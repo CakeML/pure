@@ -821,6 +821,25 @@ Proof
     )
 QED
 
+Theorem clean_all_cexp_cexp_wf:
+  ∀ce. cexp_wf ce ∧ NestedCase_free ce ⇒ cexp_wf (clean_all_cexp ce)
+Proof
+  recInduct freevars_cexp_ind >>
+  rw[clean_all_cexp_def, letrec_recurse_fvs_def] >> gvs[cexp_wf_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[EVERY_MEM, EVERY_MAP]
+  >- (
+    rw[clean_one_cexp_def] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+    rpt (pairarg_tac >> gvs[cexp_wf_def]) >> simp[cexp_wf_def] >>
+    gvs[MAP_EQ_CONS, FORALL_PROD, SF DNF_ss] >> rpt (pairarg_tac >> gvs[]) >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
+    rpt (first_x_assum drule_all >> strip_tac)
+    )
+  >- (
+    Cases_on `eopt` >> gvs[FST_THM, FORALL_PROD, LAMBDA_PROD] >>
+    rpt (pairarg_tac >> gvs[]) >> metis_tac[]
+    )
+QED
+
 (********************)
 
 Theorem exp_of_init_sets:
@@ -847,7 +866,6 @@ Proof
   >-
    (simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
     irule_at (Pos last) distinct_exp_eq) >>
-  irule exp_eq_trans >> irule_at (Pos last) clean_all_cexp_exp_eq >>
   irule exp_eq_trans >> irule_at (Pos last) split_all_cexp_exp_eq >>
   simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
   irule_at (Pos last) distinct_exp_eq
@@ -857,9 +875,21 @@ Theorem transform_cexp_letrecs_distinct:
   ∀ce. letrecs_distinct (exp_of (transform_cexp c ce))
 Proof
   rw [transform_cexp_def] >>
-  simp[transform_cexp_def, clean_all_cexp_correct, split_all_cexp_correct,
+  simp[transform_cexp_def, split_all_cexp_correct,
        distinct_cexp_correct, exp_of_init_sets] >>
   assume_tac simplify_letrecs_distinct >> gvs[simplify_def,distinct_letrecs_distinct]
+QED
+
+Theorem clean_cexp_correct:
+  ∀ce. exp_of ce ≅ exp_of (clean_cexp c ce)
+Proof
+  rw[clean_cexp_def, exp_eq_refl, clean_all_cexp_exp_eq]
+QED
+
+Theorem clean_cexp_letrecs_distinct:
+  ∀ce. letrecs_distinct (exp_of ce) ⇒ letrecs_distinct (exp_of (clean_cexp c ce))
+Proof
+  rw[clean_cexp_def, clean_all_letrecs_distinct, clean_all_cexp_correct]
 QED
 
 (********************)
