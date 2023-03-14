@@ -19,6 +19,7 @@ jobs:
   build:
     runs-on: self-hosted
     container: ubuntu:20.04
+    timeout-minutes: 480
 
     env:
       HOLDIR: ${{ github.workspace }}/HOL
@@ -145,6 +146,11 @@ jobs:
     - name: Build compiler
       run: |
         cd pure/compiler
+        Holmake
+
+    - name: Build CakeML compiler/backend/proofs
+      run: |
+        cd $CAKEMLDIR/compiler/backend/proofs
         Holmake
     - name: Build compiler/proofs
       run: |
