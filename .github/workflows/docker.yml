@@ -9,6 +9,7 @@ env:
 jobs:
   push-image:
     runs-on: self-hosted
+    timeout-minutes: 480
     permissions:
       contents: read
       packages: write
