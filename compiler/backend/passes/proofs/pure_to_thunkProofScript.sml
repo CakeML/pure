@@ -94,24 +94,25 @@ Proof
 QED
 
 Theorem IMP_mk_delay_eq_Delay:
-  exp_rel x1 y1 ∧ (∀c v. x1 = Var c v ⇒ mk_delay y1 ≠ Var v) ⇒
-  ∃x2. exp_rel x1 x2 ∧ mk_delay y1 = Delay x2
+  exp_rel x1 y1 ∧ (∀c v. x1 = Var c v ⇒ mk_delay flag y1 ≠ Var v) ⇒
+  ∃x2. exp_rel x1 x2 ∧ mk_delay flag y1 = Delay x2
 Proof
   Cases_on ‘∃c m. x1 = Var c m’ \\ gvs []
-  >- (simp [Once exp_rel_cases] \\ rw [] \\ fs [mk_delay_def])
-  \\ strip_tac
-  \\ first_assum $ irule_at $ Pos hd
-  \\ pop_assum mp_tac
-  \\ Cases_on ‘x1’ \\ fs []
-  \\ simp [Once exp_rel_cases] \\ rw []
-  \\ fs [mk_delay_def]
+  >- (
+    simp [Once exp_rel_cases] \\ rw [] \\ fs [mk_delay_def, AllCaseEqs()] >>
+    simp[Once exp_rel_cases]
+    ) >>
+  rw[Once exp_rel_cases] >>
+  simp[Once exp_rel_cases] >> gvs[PULL_EXISTS] >>
+  goal_assum $ drule_at Any >> simp[mk_delay_def]
 QED
 
 Theorem cns_arities_mk_delay:
-  ∀e. cns_arities (mk_delay e) = cns_arities e
+  ∀e flag. cns_arities (mk_delay flag e) = cns_arities e
 Proof
   Cases \\ simp [mk_delay_def, thunk_cexpTheory.cns_arities_def]
   \\ CASE_TAC \\ simp [thunk_cexpTheory.cns_arities_def]
+  \\ Cases \\ simp[thunk_cexpTheory.cns_arities_def]
 QED
 
 Theorem must_delay_in_monad_cns:
@@ -122,28 +123,30 @@ Proof
 QED
 
 Theorem boundvars_exp_of_mk_delay:
-  ∀e. boundvars (exp_of (mk_delay e)) = boundvars (exp_of e)
+  ∀e flag. boundvars (exp_of (mk_delay flag e)) = boundvars (exp_of e)
 Proof
   Cases \\ simp [mk_delay_def, Once exp_of_def, boundvars_def]
   \\ CASE_TAC \\ simp [exp_of_def, boundvars_def]
+  \\ Cases \\ simp[exp_of_def, boundvars_def]
 QED
 
 Theorem cexp_wf_mk_delay:
-  ∀e. cexp_wf (mk_delay e) = cexp_wf e
+  ∀e flag. cexp_wf (mk_delay flag e) = cexp_wf e
 Proof
   Cases \\ simp [mk_delay_def, thunk_exp_ofTheory.cexp_wf_def]
   \\ CASE_TAC \\ simp [thunk_exp_ofTheory.cexp_wf_def]
+  \\ Cases \\ simp [thunk_exp_ofTheory.cexp_wf_def]
 QED
 
 Theorem exp_rel_to_thunk:
-  (∀s (x:'a pure_cexp$cexp) x1 s1.
-    to_thunk s x = (x1,s1) ∧ NestedCase_free x ∧ vars_ok s ∧
+  (∀flag s (x:'a pure_cexp$cexp) x1 s1.
+    to_thunk flag s x = (x1,s1) ∧ NestedCase_free x ∧ vars_ok s ∧
     allvars_of x ⊆ set_of s ∧ cexp_wf x ∧ letrecs_distinct (exp_of x) ⇒
     exp_rel x x1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1 ∧ boundvars (exp_of x1) ⊆ set_of s1 ∧
     cexp_wf x1 ∧
     cns_arities x1 ⊆ IMAGE (IMAGE (explode ## I)) (cns_arities x)) ∧
-  (∀s (xs:('a pure_cexp$cexp) list) xs1 s1.
-    to_thunk_list s xs = (xs1,s1) ∧ EVERY NestedCase_free xs ∧ vars_ok s ∧
+  (∀flag s (xs:('a pure_cexp$cexp) list) xs1 s1.
+    to_thunk_list flag s xs = (xs1,s1) ∧ EVERY NestedCase_free xs ∧ vars_ok s ∧
     EVERY (λx.  allvars_of x ⊆ set_of s) xs ∧ EVERY cexp_wf xs ∧
     EVERY (λe. letrecs_distinct (exp_of e)) xs ⇒
     LIST_REL exp_rel xs xs1 ∧ set_of s ⊆ set_of s1 ∧ vars_ok s1 ∧
@@ -617,9 +620,9 @@ Theorem to_thunk_itree_of:
   safe_itree (pure_semantics$itree_of (exp_of x)) ∧
   letrecs_distinct (exp_of x) ⇒
   pure_semantics$itree_of (exp_of x) =
-  thunk_semantics$itree_of (exp_of (FST (to_thunk (pure_names x) x)))
+  thunk_semantics$itree_of (exp_of (FST (to_thunk flag (pure_names x) x)))
 Proof
-  Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
+  Cases_on ‘to_thunk flag (pure_names x) x’ \\ fs []
   \\ drule (exp_rel_to_thunk |> CONJUNCT1) \\ fs []
   \\ fs [pure_names_ok,pure_names_eq_allvars]
   \\ fs [pure_semanticsTheory.itree_of_def]
@@ -633,10 +636,10 @@ Theorem IMP_to_thunk_cexp_wf:
   closed (exp_of x) ∧
   letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
-  thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk (pure_names x) x)))
+  thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk flag (pure_names x) x)))
 Proof
   strip_tac
-  \\ Cases_on ‘to_thunk (pure_names x) x’
+  \\ Cases_on ‘to_thunk flag (pure_names x) x’
   \\ drule_then assume_tac (exp_rel_to_thunk |> CONJUNCT1)
   \\ gs [pure_names_ok,pure_names_eq_allvars]
   \\ dxrule_then assume_tac exp_rel_imp_combined
@@ -658,16 +661,17 @@ Theorem compile_to_thunk_itree_of:
   thunk_semantics$itree_of (exp_of (compile_to_thunk c x))
 Proof
   rw [compile_to_thunk_def]
-  \\ Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
+  \\ Cases_on ‘to_thunk c.do_mk_delay (pure_names x) x’ \\ fs []
   \\ irule_at Any EQ_TRANS
-  \\ irule_at Any to_thunk_itree_of
+  \\ irule_at Any to_thunk_itree_of \\ qexists `c.do_mk_delay`
   \\ drule (exp_rel_to_thunk |> CONJUNCT1) \\ fs []
   \\ fs [pure_names_ok,pure_names_eq_allvars]
   \\ rw [thunk_semanticsTheory.itree_of_def]
   \\ pairarg_tac \\ fs []
   \\ drule_then mp_tac split_delated_lam_soundness
   \\ impl_tac \\ simp []
-  \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
+  \\ drule_all IMP_to_thunk_cexp_wf
+  \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
   \\ gs []
 QED
 
@@ -682,14 +686,16 @@ Theorem IMP_thunk_cexp_wf:
               IMAGE (IMAGE (explode ## I)) (cns_arities x)
 Proof
   fs [compile_to_thunk_def] \\ strip_tac
-  \\ Cases_on ‘to_thunk (pure_names x) x’ \\ fs []
+  \\ Cases_on ‘to_thunk c.do_mk_delay (pure_names x) x’ \\ fs []
   \\ drule_then assume_tac (exp_rel_to_thunk |> CONJUNCT1)
   \\ gs [pure_names_ok,pure_names_eq_allvars]
-  \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
+  \\ drule_all IMP_to_thunk_cexp_wf
+  \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
   \\ pairarg_tac \\ fs []
   \\ drule_then mp_tac split_delated_lam_soundness
-  \\ impl_tac \\ simp []
-  \\ drule_all_then assume_tac IMP_to_thunk_cexp_wf
+  \\ impl_tac \\ gvs []
+  \\ drule_all IMP_to_thunk_cexp_wf
+  \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
   \\ gs [] \\ rw [] \\ fs []
 QED
 
