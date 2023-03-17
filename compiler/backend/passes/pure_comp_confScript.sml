@@ -40,8 +40,8 @@ Definition read_cline_args_def:
     | [] => INL <| do_pure_sort  := ¬ MEM pure_sort_flag cl  ;
                    do_pure_clean := ¬ MEM pure_clean_flag cl ;
                    do_demands    := ¬ MEM demands_flag cl    ;
-                   do_mk_delay   := ¬ MEM dlam_flag cl       ;
-                   do_split_dlam := ¬ MEM mk_delay_flag cl   ;
+                   do_mk_delay   := ¬ MEM mk_delay_flag cl   ;
+                   do_split_dlam := ¬ MEM dlam_flag cl       ;
                    do_app_unit   := ¬ MEM unit_flag cl       |>
 End
 
