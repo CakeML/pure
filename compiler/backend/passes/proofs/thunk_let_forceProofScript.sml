@@ -40,6 +40,12 @@ Definition name_clash_def:
   name_clash (SOME n) (SOME (Val v, w)) = (n = w)
 End
 
+Definition name_clashes_def:
+  name_clashes vs NONE = F ∧
+  name_clashes vs (SOME (Var m, w)) = (MEM m vs ∨ MEM w vs) ∧
+  name_clashes vs (SOME (Val v, w)) = MEM w vs
+End
+
 Inductive exp_rel:
 [exp_rel_Let_Force_Var:]
   (∀m v w y1 y2.
@@ -70,12 +76,14 @@ Inductive exp_rel:
        exp_rel m (App f x) (App g y)) ∧
 [exp_rel_Lam:]
   (∀m s x y.
-     exp_rel NONE x y ⇒
+     exp_rel (if name_clash (SOME s) m then NONE else m) x y ⇒
        exp_rel m (Lam s x) (Lam s y)) ∧
 [exp_rel_Letrec:]
   (∀m f g x y.
-     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel NONE x y) f g ∧
-     exp_rel NONE x y ⇒
+     LIST_REL (λ(fn,x) (gn,y).
+                 fn = gn ∧
+                 exp_rel (if name_clashes (MAP FST f) m then NONE else m) x y) f g ∧
+     exp_rel (if name_clashes (MAP FST f) m then NONE else m) x y ⇒
        exp_rel m (Letrec f x) (Letrec g y)) ∧
 [exp_rel_Let:]
   (∀m bv x1 y1 x2 y2.
@@ -202,6 +210,17 @@ Proof
     \\ ‘set (MAP FST f) = set (MAP FST g)’ by fs []
     \\ fs [EXTENSION,MEM_MAP,EXISTS_PROD]
     \\ metis_tac [])
+  >-
+   (eq_tac \\ rw [] \\ fs []
+    \\ TRY $ drule_all LIST_REL_MEM
+    \\ TRY $ drule_all LIST_REL_MEM_ALT
+    \\ fs [EXISTS_PROD]
+    \\ rpt strip_tac \\ gvs [PULL_EXISTS]
+    \\ drule LIST_REL_IMP_MAP_FST_EQ \\ fs [FORALL_PROD]
+    \\ strip_tac
+    \\ ‘set (MAP FST f) = set (MAP FST g)’ by fs []
+    \\ fs [EXTENSION,MEM_MAP,EXISTS_PROD]
+    \\ metis_tac [])
   \\ eq_tac \\ rw [] \\ fs []
   \\ TRY $ drule_all LIST_REL_MEM
   \\ TRY $ drule_all LIST_REL_MEM_ALT
@@ -314,6 +333,18 @@ Proof
   \\ fs [] \\ rpt strip_tac \\ gvs [SF ETA_ss]
   \\ simp [Once exp_rel_cases]
   >- metis_tac []
+  >- metis_tac []
+  >- (Cases_on ‘v’ \\ fs [name_clash_def])
+  >- (BasicProvers.FULL_CASE_TAC \\ gvs []
+      \\ gvs [MEM_MAP,FORALL_PROD]
+      \\ gvs [LIST_REL_EL_EQN,MEM_EL]
+      \\ rw [] \\ rpt $ (pairarg_tac \\ gvs [])
+      \\ last_x_assum drule \\ gvs [GSYM IMP_DISJ_THM,PULL_FORALL]
+      \\ metis_tac [])
+  >- (BasicProvers.FULL_CASE_TAC \\ gvs []
+      \\ drule LIST_REL_IMP_MAP_FST_EQ
+      \\ impl_tac >- fs [FORALL_PROD]
+      \\ strip_tac \\ Cases_on ‘v’ \\ fs [name_clashes_def])
   >- (fs [name_clash_def,freevars_def]
       \\ Cases_on ‘bv’ \\ fs [] \\ fs [name_clash_def,freevars_def]
       \\ Cases_on ‘v’ \\ fs [] \\ fs [name_clash_def,freevars_def]
@@ -324,6 +355,16 @@ Proof
   \\ first_x_assum irule
   \\ fs [MEM_MAP,EXISTS_PROD]
   \\ metis_tac []
+QED
+
+Triviality exp_rel_imp_opt:
+  (m1 ≠ NONE ⇒ m2 = m1) ⇒
+  exp_rel m1 x y ⇒ exp_rel m2 x y
+Proof
+  Cases_on ‘m1’ \\ rw []
+  \\ Cases_on ‘m2’ \\ rw []
+  \\ irule exp_rel_NONE_IMP_SOME
+  \\ fs []
 QED
 
 Theorem exp_rel_subst_general[local]:
@@ -409,8 +450,31 @@ Proof
   >~ [‘Lam’] >-
    (fs [subst_def]
     \\ irule exp_rel_Lam \\ fs [subst_acc_def]
-    \\ first_x_assum irule \\ fs [MAP_FST_FILTER_NEQ]
-    \\ irule LIST_REL_MAP_SND_FILTER \\ fs [])
+    \\ first_x_assum $ qspecl_then [‘FILTER (λ(n,x). n ≠ s) vs’,
+                                    ‘FILTER (λ(n,x). n ≠ s) ws’] mp_tac
+    \\ impl_tac
+    >-
+      (fs [LIST_REL_MAP_MAP]
+       \\ rewrite_tac [CONJ_ASSOC] \\ reverse conj_tac
+       >-
+        (rw [] \\ gvs []
+         \\ fs [ALOOKUP_NONE,MEM_MAP,MEM_FILTER]
+         \\ rw [name_clash_def,FORALL_PROD] \\ disj2_tac \\ fs []
+         \\ gvs [name_clash_def]
+         \\ rpt $ first_assum $ irule_at Any
+         \\ qexists_tac ‘i’ \\ fs []
+         \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE])
+       \\ pop_assum kall_tac
+       \\ rpt $ pop_assum mp_tac
+       \\ qid_spec_tac ‘vs’
+       \\ qid_spec_tac ‘ws’ \\ Induct \\ gvs [PULL_EXISTS,FORALL_PROD]
+       \\ rw [] \\ gvs [])
+    \\ match_mp_tac exp_rel_imp_opt
+    \\ Cases_on ‘m’ \\ fs [subst_acc_def]
+    \\ rename [‘subst_acc vs ws (SOME yy)’] \\ PairCases_on ‘yy’ \\ gvs []
+    \\ rw [] \\ fs [subst_acc_def,name_clash_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ gvs [subst_acc_def,name_clash_def,GSYM FILTER_REVERSE,ALOOKUP_FILTER])
   >~ [‘subst _ (Force _)’] >-
    (fs [subst_def]
     \\ irule exp_rel_Force
@@ -433,7 +497,7 @@ Proof
     \\ last_x_assum mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs [])
   >~ [‘Letrec’] >-
-   (fs [subst_def]
+   cheat (* (fs [subst_def]
     \\ irule exp_rel_Letrec \\ fs [subst_acc_def]
     \\ last_x_assum assume_tac
     \\ drule LIST_REL_IMP_MAP_FST_EQ
@@ -454,7 +518,7 @@ Proof
     \\ qpat_x_assum ‘MAP FST vs = MAP FST ws’ mp_tac
     \\ qid_spec_tac ‘vs’\\ qid_spec_tac ‘ws’
     \\ Induct \\ fs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS]
-    \\ rw [])
+    \\ rw []) *)
   >~ [‘Let bv’] >-
    (Cases_on ‘bv’ \\ fs [subst_def]
     \\ irule exp_rel_Let \\ fs [subst_acc_def,name_clash_def]
@@ -2008,12 +2072,14 @@ Proof
     >-
      (rw []
       \\ irule_at Any exp_rel_Lam
+      \\ fs [name_clash_def]
       \\ first_x_assum $ irule_at $ Pos hd
       \\ res_tac \\ fs [])
     \\ Induct_on ‘m’ \\ fs [PULL_EXISTS]
     \\ rw [] \\ res_tac
     \\ pop_assum $ irule_at $ Pos last
-   \\ irule_at Any exp_rel_Lam \\ fs [])
+    \\ irule_at Any exp_rel_Lam \\ fs []
+    \\ irule exp_rel_imp_opt \\ first_x_assum $ irule_at Any \\ fs [])
   >~ [‘Var’] >-
    (qexists_tac ‘0’ \\ fs []
     \\ reverse Induct \\ fs []
@@ -2153,14 +2219,21 @@ Proof
     >- (Induct \\ fs [PULL_EXISTS,FORALL_PROD])
     \\ rw []
     \\ irule_at Any exp_rel_Letrec
+    \\ irule_at Any exp_rel_imp_opt
     \\ last_x_assum $ irule_at Any
     \\ last_x_assum $ irule_at Any
-    \\ last_x_assum $ irule_at Any
+    \\ last_x_assum $ irule_at Any \\ simp []
     \\ pop_assum mp_tac
+    \\ rename [‘COND b’]
     \\ EVERY (map qid_spec_tac [‘g’,‘f’])
-    \\ Induct \\ fs [PULL_EXISTS] \\ rw []
-    \\ PairCases_on ‘h’ \\ PairCases_on ‘y’ \\ fs [] \\ gvs [EXISTS_PROD]
-    \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
+    \\ Induct \\ fs [PULL_EXISTS] \\ simp [FORALL_PROD,EXISTS_PROD]
+    \\ rpt strip_tac \\ gvs []
+    \\ irule_at Any exp_rel_imp_opt
+    \\ rpt $ last_x_assum $ irule_at Any \\ fs []
+    \\ last_x_assum $ dxrule_then assume_tac \\ fs []
+    \\ rpt $ last_x_assum $ irule_at Any \\ fs []
+    \\ pop_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono)
 QED
 
 Theorem e_rel_semantics:
