@@ -569,6 +569,16 @@ Definition is_Lam_def[simp]:
   (is_Lam _ = F)
 End
 
+Definition is_Delay_def[simp]:
+  (is_Delay (Delay x) = T) ∧
+  (is_Delay _ = F)
+End
+
+Definition is_Box_def[simp]:
+  (is_Box (Box x) = T) ∧
+  (is_Box _ = F)
+End
+
 Definition ok_bind_def[simp]:
   (ok_bind (Lam _ _) = T) ∧
   (ok_bind (Delay _) = T) ∧
@@ -581,6 +591,16 @@ Proof
   Induct using freevars_ind
   \\ gs [boundvars_def, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ gs []
+QED
+
+Theorem FINITE_freevars:
+  ∀e. FINITE (freevars e)
+Proof
+  Induct using freevars_ind
+  \\ gs [freevars_def, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ irule FINITE_DIFF
+  \\ simp [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rw [] \\ last_x_assum $ dxrule_then irule
 QED
 
 Theorem boundvars_Lams:

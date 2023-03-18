@@ -111,4 +111,10 @@ Definition is_Delay_def:
   (is_Delay _ = F)
 End
 
+Theorem lets_for_APPEND:
+  lets_for l m n (l1 ++ l2) e = lets_for l m n l1 (lets_for l m n l2 e)
+Proof
+  Induct_on ‘l1’ \\ gvs [lets_for_def, FORALL_PROD]
+QED
+
 val _ = export_theory ();

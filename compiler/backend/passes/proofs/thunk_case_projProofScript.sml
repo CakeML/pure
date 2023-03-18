@@ -1341,7 +1341,7 @@ Proof
   \\ simp [Once thunk_tickProofTheory.exp_rel_cases]
   \\ simp [Once thunk_untickProofTheory.exp_rel_cases]
   \\ ntac 3 strip_tac
-  \\ gvs [thunk_untickProofTheory.ok_bind_def]
+  \\ gvs [ok_bind_def]
   \\ fs [Once exp_rel_cases]
 QED
 
