@@ -100,6 +100,33 @@ Proof
   Induct \\ fs []
 QED
 
+Theorem e_rel_Lams:
+  ∀vs x y m.
+    e_rel (MAP (λm. if name_clashes vs m then NONE else m) m) x y ⇒
+    e_rel m (Lams vs x) (Lams vs y)
+Proof
+  Induct \\ fs []
+  >-
+   (rpt gen_tac
+    \\ match_mp_tac EQ_IMPLIES
+    \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+    \\ Induct_on ‘m’ \\ fs []
+    \\ Cases \\ fs []
+    \\ Cases_on ‘x’ \\ fs []
+    \\ Cases_on ‘q’ \\ fs [name_clashes_def])
+  \\ rpt strip_tac
+  \\ irule e_rel_Lam
+  \\ last_x_assum irule
+  \\ pop_assum mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ Induct_on ‘m’ \\ fs []
+  \\ Cases \\ fs []
+  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘q’ \\ fs [name_clashes_def] \\ rw []
+  \\ gvs [name_clashes_def,name_clash_def]
+QED
+
 Theorem let_force_thm:
   ∀m x.
     EVERY (λm. ∀n x. m = SOME (n,x) ⇒ ∃v. n = Var v) m ⇒
@@ -217,8 +244,51 @@ Proof
     \\ gvs [FOLDL_SNOC,MAP_SNOC]
     \\ irule e_rel_App
     \\ fs [])
-  >~ [‘Lam’] >- cheat
-  >~ [‘Letrec’] >- cheat
+  >~ [‘Lam vs x’] >-
+   (fs [let_force_def] \\ rw []
+    \\ irule e_rel_Lams
+    \\ last_x_assum $ qspec_then
+         ‘(MAP (λm. if name_clashes (MAP explode vs) m then NONE else m) m)’ mp_tac
+    \\ impl_tac
+    >- (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ rw [] \\ res_tac \\ fs [])
+    \\ match_mp_tac EQ_IMPLIES
+    \\ rpt AP_TERM_TAC \\ AP_THM_TAC \\ rpt AP_TERM_TAC
+    \\ Induct_on ‘m’ \\ gvs [] \\ rpt strip_tac
+    \\ Cases_on ‘h’ \\ fs []
+    \\ Cases_on ‘x’ \\ gvs [can_keep_list_def,name_clashes_def]
+    \\ rw [] \\ fs []
+    \\ gvs [MEM_MAP])
+  >~ [‘Letrec’] >-
+   (fs [let_force_def] \\ rw []
+    \\ irule e_rel_Letrec
+    \\ qpat_abbrev_tac ‘m1 = MAP _ m’
+    \\ qpat_abbrev_tac ‘f1 = FILTER _ _’
+    \\ ‘EVERY (λm. ∀n x. m = SOME (n,x) ⇒ ∃v. n = Var v) m1’ by
+      (fs [Abbr‘m1’,EVERY_MEM,MEM_MAP] \\ rw [] \\ gvs [] \\ res_tac \\ fs [])
+    \\ first_x_assum drule
+    \\ first_x_assum $ drule_at Any
+    \\ qsuff_tac ‘(MAP (λ(x,n). (implode (dest_Var x),implode n))
+                   (MAP THE (FILTER IS_SOME m1))) = f1’ >-
+     (simp [MAP_MAP_o]
+      \\ fs [LIST_REL_MAP_MAP,EVERY2_refl_EQ,FORALL_PROD]
+      \\ rw [] \\ res_tac \\ fs [])
+    \\ unabbrev_all_tac
+    \\ pop_assum kall_tac
+    \\ fs [FILTER_MAP,FILTER_FILTER]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+    \\ Induct_on ‘m’ \\ fs []
+    \\ Cases \\ fs []
+    \\ Cases_on ‘x’ \\ fs []
+    \\ strip_tac \\ gvs []
+    \\ qmatch_goalsub_abbrev_tac ‘COND b1’
+    \\ qpat_abbrev_tac ‘b2 = can_keep_list _ _’
+    \\ qsuff_tac ‘b1 = b2’
+    >- (fs [] \\ IF_CASES_TAC \\ fs []
+        \\ unabbrev_all_tac \\ fs [IS_SOME_EXISTS])
+    \\ unabbrev_all_tac
+    \\ fs [name_clashes_def,can_keep_list_def,MEM_MAP,EXISTS_PROD,FORALL_PROD]
+    \\ fs [IS_SOME_EXISTS,AllCaseEqs()]
+    \\ eq_tac \\ rw [] \\ gvs [])
   \\ rename [‘Case’]
   \\ fs [let_force_def]
   \\ Induct_on ‘css’ \\ fs []
