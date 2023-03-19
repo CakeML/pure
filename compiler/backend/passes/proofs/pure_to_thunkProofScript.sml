@@ -499,7 +499,6 @@ Proof
     \\ simp [cns_arities_mk_delay]
     \\ gs [SUBSET_DEF])
   >~ [‘Prim c p xs’] >-
-
    (Cases_on ‘p’
     >~ [‘Cons m’] >-
      (gvs [] \\ irule_at Any exp_rel_Cons \\ gvs []
@@ -667,12 +666,18 @@ Proof
   \\ drule (exp_rel_to_thunk |> CONJUNCT1) \\ fs []
   \\ fs [pure_names_ok,pure_names_eq_allvars]
   \\ rw [thunk_semanticsTheory.itree_of_def]
+  \\ fs [GSYM thunk_semanticsTheory.itree_of_def]
+  \\ drule_all to_thunk_itree_of
+  \\ disch_then $ qspec_then ‘c.do_mk_delay’ assume_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ drule_then mp_tac split_delated_lam_soundness
-  \\ impl_tac \\ simp []
+  \\ simp []
   \\ drule_all IMP_to_thunk_cexp_wf
-  \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
-  \\ gs []
+  \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac \\ gs []
+  \\ strip_tac
+  \\ fs [GSYM thunk_semanticsTheory.itree_of_def]
+  \\ drule_all thunk_let_force_1ProofTheory.itree_of_simp_let_force
+  \\ disch_then $ qspec_then `c.do_let_force` assume_tac \\ gs []
 QED
 
 Theorem IMP_thunk_cexp_wf:
@@ -691,7 +696,7 @@ Proof
   \\ gs [pure_names_ok,pure_names_eq_allvars]
   \\ drule_all IMP_to_thunk_cexp_wf
   \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
-  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs [thunk_let_force_1ProofTheory.simp_let_force_wf_lemmas]
   \\ drule_then mp_tac split_delated_lam_soundness
   \\ impl_tac \\ gvs []
   \\ drule_all IMP_to_thunk_cexp_wf

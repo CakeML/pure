@@ -2331,4 +2331,22 @@ Proof
   \\ imp_res_tac exp_rel_NONE_freevars \\ fs []
 QED
 
+Theorem e_rel_nil_closed:
+  e_rel [] x y ⇒ (closed x = closed y)
+Proof
+  strip_tac
+  \\ dxrule e_rel_exp_rel \\ strip_tac
+  \\ pop_assum $ qspec_then ‘k’ assume_tac
+  \\ fs [] \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘x’
+  \\ qid_spec_tac ‘y’
+  \\ qid_spec_tac ‘k’
+  \\ Induct \\ fs [] \\ rpt gen_tac
+  \\ rpt $ disch_then assume_tac
+  \\ gvs []
+  \\ res_tac \\ fs []
+  \\ imp_res_tac exp_rel_NONE_freevars \\ fs []
+  \\ fs [closed_def]
+QED
+
 val _ = export_theory ();

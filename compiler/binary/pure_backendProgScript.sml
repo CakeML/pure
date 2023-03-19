@@ -55,6 +55,13 @@ val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
 val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
 val r = translate thunk_split_Delay_LamTheory.split_delated_lam_def;
 
+val r = translate thunk_let_forceTheory.can_keep_def;
+val r = translate (thunk_let_forceTheory.can_keep_list_def |> REWRITE_RULE [MEMBER_INTRO]);
+val r = translate thunk_let_forceTheory.d_Var_def;
+val r = translate thunk_let_forceTheory.d_Force_Var_def;
+val r = translate thunk_let_forceTheory.let_force_def;
+val r = translate thunk_let_forceTheory.simp_let_force_def;
+
 val r = translate pure_to_thunkTheory.mk_delay_def;
 val r = translate pure_to_thunkTheory.must_delay_def;
 val r = translate pure_to_thunkTheory.any_el_def;

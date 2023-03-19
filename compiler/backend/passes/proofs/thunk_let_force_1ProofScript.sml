@@ -325,4 +325,32 @@ Proof
   \\ drule_all e_rel_semantics \\ fs []
 QED
 
+Theorem simp_let_force_wf_lemmas:
+  closed (exp_of (simp_let_force do_it e)) = closed (exp_of e) ∧
+  cexp_wf (simp_let_force do_it e) = cexp_wf e ∧
+  cns_arities (simp_let_force do_it e) = cns_arities e
+Proof
+  reverse $ Cases_on ‘do_it’ >- fs [simp_let_force_def]
+  \\ conj_tac >-
+   (qspec_then ‘e’ mp_tac (simp_let_force_thm |> GEN_ALL)
+    \\ strip_tac \\ imp_res_tac e_rel_nil_closed \\ fs [])
+  \\ fs [simp_let_force_def]
+  \\ rename [‘let_force m’]
+  \\ ‘∃res. let_force m e = res’ by fs []
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘res’
+  \\ qid_spec_tac ‘e’
+  \\ qid_spec_tac ‘m’
+  \\ ho_match_mp_tac let_force_ind
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ rpt gen_tac
+  \\ simp []
+  \\ pop_assum mp_tac
+  \\ simp [Once let_force_def,AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs [cexp_wf_def,cns_arities_def]
+  \\ cheat
+QED
+
 val _ = export_theory ();

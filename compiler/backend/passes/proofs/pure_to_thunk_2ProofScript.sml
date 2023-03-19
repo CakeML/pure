@@ -560,7 +560,7 @@ Proof
     \\ irule_at Any thunk_unthunkProofTheory.delay_force_Lam \\ fs []
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Lam \\ fs []
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Lam
-    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Lam
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Lam \\ fs []
     \\ rpt $ first_assum $ irule_at Any)
   >~ [‘Letrec’] >-
    (qpat_x_assum ‘_ ≠ []’ kall_tac
@@ -568,7 +568,7 @@ Proof
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Letrec \\ fs []
     \\ irule_at Any thunk_unthunkProofTheory.delay_force_Letrec \\ fs []
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Letrec
-    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Letrec
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Letrec \\ fs []
     \\ rpt $ first_assum $ irule_at Any
     \\ rename [‘LIST_REL _ xs ys’]
     \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac

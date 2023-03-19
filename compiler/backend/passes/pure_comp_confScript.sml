@@ -12,6 +12,7 @@ Datatype:
       do_pure_clean : bool ;  (* pure-to-pure cleaning / deadcode elimination *)
       do_demands    : bool ;  (* demand analysis *)
       do_mk_delay   : bool ;  (* thunk-to-thunk smart mk_delay constructor *)
+      do_let_force  : bool ;  (* thunk-to-thunk simplify let force *)
       do_split_dlam : bool ;  (* thunk-to-thunk split delayed lambdas *)
       do_app_unit   : bool    (* state-to-state *)
     |>
@@ -21,6 +22,7 @@ Overload pure_sort_flag[local]  = “strlit "-sort"”
 Overload pure_clean_flag[local] = “strlit "-clean"”
 Overload demands_flag[local]    = “strlit "-demands"”
 Overload mk_delay_flag[local]   = “strlit "-mk_delay"”
+Overload let_force_flag[local]  = “strlit "-let_force"”
 Overload dlam_flag[local]       = “strlit "-dlam"”
 Overload unit_flag[local]       = “strlit "-unit"”
 
@@ -29,6 +31,7 @@ Definition all_flags_def:
                pure_clean_flag;
                demands_flag;
                mk_delay_flag;
+               let_force_flag;
                dlam_flag;
                unit_flag]
 End
@@ -41,6 +44,7 @@ Definition read_cline_args_def:
                    do_pure_clean := ¬ MEM pure_clean_flag cl ;
                    do_demands    := ¬ MEM demands_flag cl    ;
                    do_mk_delay   := ¬ MEM mk_delay_flag cl   ;
+                   do_let_force  := ¬ MEM let_force_flag cl  ;
                    do_split_dlam := ¬ MEM dlam_flag cl       ;
                    do_app_unit   := ¬ MEM unit_flag cl       |>
 End
