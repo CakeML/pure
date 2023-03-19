@@ -367,6 +367,12 @@ Proof
   \\ fs []
 QED
 
+Triviality FST_INTRO:
+  (λ(x,y). x) = FST
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
 Theorem exp_rel_subst_general[local]:
   (∀m x y.
      exp_rel m x y ⇒
@@ -497,7 +503,7 @@ Proof
     \\ last_x_assum mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs [])
   >~ [‘Letrec’] >-
-   cheat (* (fs [subst_def]
+   (fs [subst_def]
     \\ irule exp_rel_Letrec \\ fs [subst_acc_def]
     \\ last_x_assum assume_tac
     \\ drule LIST_REL_IMP_MAP_FST_EQ
@@ -505,20 +511,51 @@ Proof
     \\ strip_tac \\ gvs []
     \\ fs [LIST_REL_MAP_MAP] \\ simp [LAMBDA_PROD]
     \\ reverse conj_tac >-
-     (first_x_assum irule
-      \\ irule_at Any LIST_REL_FILTER_ALT \\ fs []
-      \\ qpat_x_assum ‘MAP FST vs = MAP FST ws’ mp_tac
-      \\ qid_spec_tac ‘vs’\\ qid_spec_tac ‘ws’
-      \\ Induct \\ fs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS]
-      \\ rw [])
+     (fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
+      \\ pop_assum (assume_tac o GSYM) \\ fs []
+      \\ first_x_assum $ qspecl_then [‘(FILTER (λ(n,v). ¬MEM n (MAP FST f)) vs)’,
+                                      ‘(FILTER (λ(n,v). ¬MEM n (MAP FST f)) ws)’] mp_tac
+      \\ impl_tac
+      >-
+       (fs [LIST_REL_MAP_MAP,GSYM FILTER_REVERSE,ALOOKUP_FILTER]
+        \\ qpat_x_assum ‘MAP FST vs = _’ mp_tac
+        \\ qpat_x_assum ‘LIST_REL _ vs ws’ mp_tac
+        \\ rpt $ pop_assum kall_tac
+        \\ qid_spec_tac ‘vs’
+        \\ qid_spec_tac ‘ws’ \\ Induct \\ gvs [PULL_EXISTS,FORALL_PROD]
+        \\ rw [] \\ gvs [])
+      \\ match_mp_tac exp_rel_imp_opt
+      \\ IF_CASES_TAC \\ fs [subst_acc_def]
+      \\ Cases_on ‘m’ \\ fs [subst_acc_def]
+      \\ rename [‘SOME a’] \\ PairCases_on ‘a’ \\ fs []
+      \\ Cases_on ‘a0’ \\ fs [subst_acc_def,name_clashes_def]
+      \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
+      \\ Cases_on ‘ALOOKUP (REVERSE vs) s’ \\ fs []
+      \\ fs [name_clashes_def])
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
-    \\ fs [FORALL_PROD] \\ rw []
-    \\ first_x_assum irule
-    \\ irule_at Any LIST_REL_FILTER_ALT \\ fs []
-    \\ qpat_x_assum ‘MAP FST vs = MAP FST ws’ mp_tac
-    \\ qid_spec_tac ‘vs’\\ qid_spec_tac ‘ws’
-    \\ Induct \\ fs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS]
-    \\ rw []) *)
+    \\ fs [FORALL_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum $ qspecl_then [‘(FILTER (λ(n,v). ¬MEM n (MAP FST f)) vs)’,
+                                    ‘(FILTER (λ(n,v). ¬MEM n (MAP FST f)) ws)’] mp_tac
+    \\ impl_tac
+    >-
+     (fs [LIST_REL_MAP_MAP,GSYM FILTER_REVERSE,ALOOKUP_FILTER]
+      \\ qpat_x_assum ‘MAP FST vs = _’ mp_tac
+      \\ qpat_x_assum ‘LIST_REL _ vs ws’ mp_tac
+      \\ rpt $ pop_assum kall_tac
+      \\ qid_spec_tac ‘vs’
+      \\ qid_spec_tac ‘ws’ \\ Induct \\ gvs [PULL_EXISTS,FORALL_PROD]
+      \\ rw [] \\ gvs [])
+    \\ simp []
+    \\ match_mp_tac exp_rel_imp_opt
+    \\ IF_CASES_TAC \\ fs [subst_acc_def]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
+    \\ Cases_on ‘m’ \\ fs [subst_acc_def]
+    \\ rename [‘SOME a’] \\ PairCases_on ‘a’ \\ fs []
+    \\ Cases_on ‘a0’ \\ fs [subst_acc_def,name_clashes_def]
+    \\ fs [ALOOKUP_FILTER,GSYM FILTER_REVERSE]
+    \\ Cases_on ‘ALOOKUP (REVERSE vs) s’ \\ fs []
+    \\ fs [name_clashes_def])
   >~ [‘Let bv’] >-
    (Cases_on ‘bv’ \\ fs [subst_def]
     \\ irule exp_rel_Let \\ fs [subst_acc_def,name_clash_def]
