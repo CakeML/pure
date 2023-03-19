@@ -80,7 +80,7 @@ Definition translate_headop_def:
        else NONE
    in
      case opopt of
-       NONE => App l (Var l s)
+       NONE => if s = «seq» then Prim l Seq else App l (Var l s)
      | SOME op => Prim l (AtomOp op)) ∧
   translate_headop e = App () e (* forces unit *)
 End

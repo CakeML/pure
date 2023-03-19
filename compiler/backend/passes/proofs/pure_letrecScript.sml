@@ -86,8 +86,7 @@ Definition simplify_def:
   simplify e =
     let d = distinct e in
     let s = split_all d in
-    let c = clean_all s in
-    c
+    s
 End
 
 (*******************)

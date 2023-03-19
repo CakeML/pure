@@ -692,6 +692,10 @@ CoInductive itree_rel:
     ⇒ itree_rel (Vis (ch,conf) srest) (Vis (ch, compile_conf conf, ws) crest))
 End
 
+Definition ffi_convention_def:
+  ffi_convention = SUM_ALL (K T) (λbs. ∃s. compile_input_rel s bs)
+End
+
 
 (******************** Results ********************)
 
@@ -2450,6 +2454,81 @@ Proof
   goal_assum drule >> gvs[state_rel] >> gvs[Once cont_rel_cases]
 QED
 
+Theorem compile_safe_itree:
+    safe_itree (sinterp sr st sk) ∧
+    dstep_rel (sr,st,sk) (step_n benv n dr)
+  ⇒ safe_itree ffi_convention (interp benv dr)
+Proof
+  qsuff_tac
+    `∀d.
+      (∃s sr st sk benv n dr.
+        s = sinterp sr st sk ∧ d = interp benv dr ∧
+        safe_itree (sinterp sr st sk) ∧
+        dstep_rel (sr,st,sk) (step_n benv n dr)
+        ) ∨
+      (∃out k. d = Ret (FinalFFI out k))
+    ⇒ safe_itree ffi_convention d`
+  >- (
+    rw[] >> first_x_assum irule >> disj1_tac >>
+    rpt $ goal_assum $ drule_at Any >> simp[]
+    ) >>
+  ho_match_mp_tac safe_itree_coind >> rw[] >>
+  `interp benv dr = interp benv (step_n benv n dr)` by simp[interp_take_steps] >>
+  pop_assum SUBST_ALL_TAC >> qmatch_goalsub_abbrev_tac `interp benv d'` >>
+  `step_until_halt (sr,st,sk) ≠ Err` by (
+    gvs[Once sinterp] >> FULL_CASE_TAC >> gvs[] >>
+    gvs[Once pure_semanticsTheory.safe_itree_cases]) >>
+  drule_all step_until_halt_rel >> disch_then $ qspec_then `benv` assume_tac >>
+  gvs[next_res_rel_cases]
+  >- (once_rewrite_tac[sinterp, interp] >> simp[])
+  >- (once_rewrite_tac[sinterp, interp] >> simp[]) >>
+  ntac 3 disj2_tac >> simp[Once sinterp, Once interp] >>
+  drule $ iffLR dstep_rel_cases >> rw[] >> gvs[] >>
+  drule $ iffLR step_rel_cases >> strip_tac >> gvs[] >>
+  qmatch_goalsub_abbrev_tac `ExpVal _ _ ffi_exp` >>
+  `LENGTH ws = max_FFI_return_size + 2` by gvs[state_rel, store_lookup_def] >>
+  Cases >> rw[Once ffi_convention_def] >> gvs[compile_input_rel_def] >>
+  disj1_tac >> irule_at Any EQ_REFL >>
+  qexistsl [`SOME sst`,`Val $ Atom $ Str s`,`sk'`] >> rw[GSYM PULL_EXISTS]
+  >- (
+    last_x_assum mp_tac >> simp[Once sinterp] >>
+    simp[Once pure_semanticsTheory.safe_itree_cases] >>
+    disch_then $ qspec_then `INR s` mp_tac >> simp[Once sinterp]
+    ) >>
+  unabbrev_all_tac >>
+  ntac 7 (qrefine `SUC m` >> simp[dstep, cstep]) >>
+  simp[namespaceTheory.nsOptBind_def] >>
+  `nsLookup cenv.v (Short "ffi_array") = SOME (Loc 0)` by gvs[env_ok_def] >>
+  simp[] >> qrefine `SUC m` >> simp[dstep, cstep, do_app_def] >>
+  Cases_on `dst.refs` >> gvs[store_lookup_def, LUPDATE_DEF] >>
+  ntac 9 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
+  simp[store_lookup_def] >>
+  ntac 21 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
+  simp[opb_lookup_def, opn_lookup_def, do_if_def] >>
+  `&(256 * (STRLEN s DIV 256) MOD dimword (:8)) + &(STRLEN s MOD dimword (:8)) =
+    &(STRLEN s) : int` by (
+      simp[wordsTheory.dimword_def, wordsTheory.dimindex_8] >>
+      gvs[max_FFI_return_size_def] >> ARITH_TAC) >>
+  pop_assum SUBST_ALL_TAC >> simp[] >>
+  ntac 9 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>
+  simp[store_lookup_def, copy_array_def, integerTheory.INT_ADD_CALCULATE] >>
+  qmatch_goalsub_abbrev_tac `StrLit str1` >>
+  `str1 = s` by (
+    unabbrev_all_tac >> simp[TAKE_APPEND, GSYM MAP_TAKE] >>
+    simp[ws_to_chars_def, MAP_MAP_o, combinTheory.o_DEF, IMPLODE_EXPLODE_I]) >>
+  pop_assum SUBST_ALL_TAC >>
+  Cases_on `ck'` >> gvs[]
+  >- (
+    qrefine `SUC m` >> simp[dstep] >>
+    simp[astTheory.pat_bindings_def, pmatch_def] >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
+    simp[dstep_rel_cases] >> gvs[Once cont_rel_cases]
+    ) >>
+  qexists0 >> simp[dstep, store_lookup_def] >>
+  simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
+  goal_assum drule >> gvs[state_rel] >> gvs[Once cont_rel_cases]
+QED
+
 
 (****************************** Lifting to cexp ******************************)
 
@@ -2915,26 +2994,6 @@ QED
 
 
 (****************************** CakeML semantics ******************************)
-
-(* Copied from CakeML backend_itreeProofTheory *)
-val (_,start_env) =
-    prim_sem_env_eq |> Q.INST [`ffi` |-> `ARB`] |>
-      concl |> rhs |> optionSyntax.dest_some |> pairSyntax.dest_pair;
-
-Definition start_dstate_def:
-  start_dstate : dstate =
-    <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE |>
-End
-
-Definition start_env_def:
-  start_env = ^start_env
-End
-
-Definition itree_semantics_def:
-  itree_semantics prog =
-  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
-End
-(* End copy *)
 
 Theorem check_dup_ctors_ALL_DISTINCT[simp]:
   check_dup_ctors (tvs,tn,condefs) ⇔ ALL_DISTINCT (MAP FST condefs)
@@ -3538,10 +3597,12 @@ Theorem compile_correct:
   namespace_init_ok ns ∧
   safe_itree (itree_of (exp_of e))
   ⇒ itree_rel (itree_of (exp_of e))
-              (itree_semantics (compile_with_preamble ns e))
+              (itree_semantics (compile_with_preamble ns e)) ∧
+    safe_itree ffi_convention (itree_semantics (compile_with_preamble ns e))
 Proof
-  rw[itree_of_def, semantics_def, itree_semantics_def, cns_ok_def] >>
-  irule compile_itree_rel >>
+  simp[itree_of_def, semantics_def, itree_semantics_def, cns_ok_def] >> strip_tac >>
+  irule_at Any compile_itree_rel >> irule_at Any compile_safe_itree >>
+  goal_assum drule >> qrefinel [`n`,`n`] >> simp[] >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
   simp[Once cont_rel_cases, env_rel_def, state_rel] >>
   gvs[namespace_init_ok_def] >>
@@ -3618,7 +3679,6 @@ Proof
   drule ns_to_cml_ns >> gvs[start_dstate_def] >> strip_tac >> gvs[] >>
   rpt $ goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def]
 QED
-
 
 (**********)
 

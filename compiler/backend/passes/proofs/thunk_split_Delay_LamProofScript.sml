@@ -17,12 +17,6 @@ val _ = set_grammar_ancestry ["thunk_cexp", "thunkLang", "thunk_exp_of",
       "pure_vars", "thunk_split_Delay_Lam",
       "thunk_Delay_Lam", "thunk_Let_Delay_Var"];
 
-Theorem lets_for_APPEND:
-  lets_for l m n (l1 ++ l2) e = lets_for l m n l1 (lets_for l m n l2 e)
-Proof
-  Induct_on ‘l1’ \\ gvs [lets_for_def, FORALL_PROD]
-QED
-
 Theorem FOLDL_replace_Force_Var:
   ∀map_l map m.
     FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) (Var m) map_l

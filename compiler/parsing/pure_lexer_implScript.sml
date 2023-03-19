@@ -226,8 +226,7 @@ Definition next_sym_alt_def:
      else if c = #"\"" then (* read string *)
        let (t, loc', rest) = read_string str "" (next_loc 1 loc) in
          SOME (t, Locs loc loc', rest)
-     else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, Locs loc (next_loc 2 loc), TL str)
+     else if c = #"`" then SOME (OtherS "`", Locs loc loc, str)
      else if isPREFIX "#\"" (c::str) then
        let (t, loc', rest) = read_string (TL str) "" (next_loc 2 loc) in
          SOME (mkCharS t, Locs loc loc', rest)
@@ -402,24 +401,14 @@ Definition get_token_def[nocompute]:
     if s = "case" then CaseT else
     if s = "else" then ElseT else
     if s = "exception" then ExceptionT else
-    if s = "fn" then FnT else
-    if s = "fun" then FunT else
-    if s = "handle" then HandleT else
     if s = "if" then IfT else
     if s = "in" then InT else
     if s = "include" then IncludeT else
     if s = "let" then LetT else
-    if s = "local" then LocalT else
     if s = "of" then OfT else
-    if s = "op" then OpT else
-    if s = "open" then OpenT else
-    if s = "orelse" then OrelseT else
-    if s = "raise" then RaiseT else
     if s = "then" then ThenT else
     if s = "type" then TypeT else
     if s = "where" then WhereT else
-    if s = "with" then WithT else
-    if s = "withtype" then WithtypeT else
     processIdent s
 End
 

@@ -35,10 +35,29 @@ Definition compile_def:
         case to_option i of
         | NONE => NONE
         | SOME _ =>
-          let e3 = demands_analysis c e2 in
+          let e3 = clean_cexp c e2 in
+          let _ = empty_ffi (strlit "clean_cexp") in
+          let e4 = demands_analysis c e3 in
           let _ = empty_ffi (strlit "demands_analysis") in
-            SOME (ast_to_string $ pure_to_cake c ns e3)
+            SOME (ast_to_string $ pure_to_cake c ns e4)
 End
+
+Definition compile_to_ast_def:
+  compile_to_ast c s =
+    case string_to_cexp s of
+    | NONE => NONE
+    | SOME (e1,ns) =>
+      let e2 = transform_cexp c e1 in
+      let i = infer_types ns e2 in
+        case to_option i of
+        | NONE => NONE
+        | SOME _ =>
+          let e3 = clean_cexp c e2 in
+          let e4 = demands_analysis c e3 in
+          SOME (pure_to_cake c ns e4)
+End
+
+(********** Alternative phrasings **********)
 
 Theorem compile_monadically:
   compile c s =
@@ -46,11 +65,44 @@ Theorem compile_monadically:
     (e1,ns) <- string_to_cexp s ;
     e2 <<- transform_cexp c e1 ;
     to_option $ infer_types ns e2 ;
-    e3 <<- demands_analysis c e2 ;
-    return (ast_to_string $ pure_to_cake c ns e3)
+    e3 <<- clean_cexp c e2 ;
+    e4 <<- demands_analysis c e3 ;
+    return (ast_to_string $ pure_to_cake c ns e4)
   od
 Proof
   simp[compile_def] >> EVERY_CASE_TAC >> simp[]
+QED
+
+Definition frontend_def:
+  frontend c s =
+    case string_to_cexp s of
+    | NONE => NONE
+    | SOME (e1,ns) =>
+      let e2 = transform_cexp c e1 in
+      let i = infer_types ns e2 in
+        case to_option i of
+        | NONE => NONE
+        | SOME _ => SOME (e2,ns)
+End
+
+Theorem compile_to_string:
+  compile c s = OPTION_MAP ast_to_string $ compile_to_ast c s
+Proof
+  rw[compile_def, compile_to_ast_def] >>
+  rpt (TOP_CASE_TAC >> gvs[])
+QED
+
+Theorem compile_to_ast_alt_def:
+  compile_to_ast c s =
+    case frontend c s of
+    | NONE => NONE
+    | SOME (e2,ns) =>
+        let e3 = clean_cexp c e2 in
+        let e4 = demands_analysis c e3 in
+        SOME (pure_to_cake c ns e4)
+Proof
+  rw[compile_to_ast_def, frontend_def] >>
+  rpt (TOP_CASE_TAC >> simp[])
 QED
 
 val _ = export_theory();

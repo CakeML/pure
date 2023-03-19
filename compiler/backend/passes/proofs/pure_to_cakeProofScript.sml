@@ -69,7 +69,9 @@ Theorem pure_to_cake_correct:
   ⇒
   state_to_cakeProof$itree_rel
     (itree_of (exp_of x))
-    (state_to_cakeProof$itree_semantics (pure_to_cake c ns x))
+    (itree_semantics$itree_semantics (pure_to_cake c ns x)) ∧
+  itree_semantics$safe_itree state_to_cakeProof$ffi_convention
+    (itree_semantics$itree_semantics (pure_to_cake c ns x))
 Proof
   strip_tac
   \\ drule_all pure_to_state_correct

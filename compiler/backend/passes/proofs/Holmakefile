@@ -1,5 +1,5 @@
 INCLUDES = .. ../../languages/properties \
-           $(PUREDIR)/language $(PUREDIR)/meta-theory \
+           $(PUREDIR)/language $(PUREDIR)/meta-theory $(PUREDIR)/typing\
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/semantics/proofs \
            $(CAKEMLDIR)/semantics/alt_semantics \

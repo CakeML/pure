@@ -154,7 +154,11 @@ Definition purePEG_def[nocompute]:
                         tokGT ((=) $ SymbolT "::");
                         NT nTy I lrGT]
                        (mkNT nEqBind)]);
-        (INL nOp, tok isSymbolOpT mktokLf lrEQ);
+        (INL nOp,
+         choicel [pegf (tok isSymbolOpT mktokLf lrEQ) (mkNT nOp);
+                  seql [tok ((=) (SymbolT "`")) mktokLf lrEQ;
+                        tok isAlphaT mktokLf lrGE;
+                        tok ((=) (SymbolT "`")) mktokLf lrGE] (mkNT nOp)]);
 
         (INL nIExp,
          seql [NTEQ nFExp; rpt (seql [NTGT nOp; NTEQ nFExp2] I) FLAT]

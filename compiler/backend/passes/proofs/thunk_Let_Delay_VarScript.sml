@@ -2823,26 +2823,6 @@ Proof
   \\ irule_at Any delay_lam_sim_ok
 QED
 
-Definition no_value_def:
-  (no_value (Var n) = T) ∧
-  (no_value (Force x) = no_value x) ∧
-  (no_value (Prim op xs) = EVERY no_value xs) ∧
-  (no_value (If x y z) = (no_value x ∧ no_value y ∧ no_value z)) ∧
-  (no_value (App x y) = (no_value x ∧ no_value y)) ∧
-  (no_value (Lam s x) = no_value x) ∧
-  (no_value (Let opt x y) = (no_value x ∧ no_value y)) ∧
-  (no_value (Box x) = no_value x) ∧
-  (no_value (MkTick x) = no_value x) ∧
-  (no_value (Letrec f x) = (no_value x ∧ EVERY no_value (MAP SND f) ∧ EVERY ok_bind (MAP SND f))) ∧
-  (no_value (Value v) = F) ∧
-  (no_value (Delay x) = no_value x)
-Termination
-  WF_REL_TAC ‘measure $ exp_size’ \\ rw [MEM_MAP, SND_THM]
-  \\ assume_tac exp_size_lemma
-  \\ pairarg_tac \\ gvs []
-  \\ first_x_assum $ dxrule_then assume_tac \\ gvs []
-End
-
 Theorem exp_rel_refl:
   ∀x. no_value x ⇒ exp_rel x x
 Proof

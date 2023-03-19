@@ -21,25 +21,6 @@ Theorem PAIR_REL_THM[local,simp] = quotient_pairTheory.PAIR_REL_THM;
 
 val _ = numLib.prefer_num ();
 
-Definition is_Lam_def[simp]:
-  is_Lam (Lam s x) = T ∧
-  is_Lam _ = F
-End
-
-Definition is_Delay_def[simp]:
-  is_Delay (Delay x) = T ∧
-  is_Delay _ = F
-End
-
-Definition is_Box_def[simp]:
-  is_Box (Box x) = T ∧
-  is_Box _ = F
-End
-
-Definition ok_bind_def:
-  ok_bind x = (is_Lam x ∨ is_Box x ∨ is_Delay x)
-End
-
 Theorem ok_bind_MkTick[simp]:
   ¬ok_bind (MkTick x)
 Proof
@@ -92,7 +73,7 @@ Inductive exp_rel:
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y)) ∧
 [~MkTick:]
   (∀x y.
      exp_rel x y ⇒
@@ -166,6 +147,21 @@ Theorem v_rel_simps[simp]:
 Proof
   rw [] \\ rw [Once exp_rel_cases]
 QED
+
+Theorem exp_rel_def =
+  [“exp_rel (Var v) x”,
+   “exp_rel (Prim op xs) x”,
+   “exp_rel (App f x) y”,
+   “exp_rel (Lam s x) y”,
+   “exp_rel (Letrec f x) y”,
+   “exp_rel (Let s x y) z”,
+   “exp_rel (If x y z) w”,
+   “exp_rel (Delay x) y”,
+   “exp_rel (Box x) y”,
+   “exp_rel (MkTick x) y”,
+   “exp_rel (Force x) y”]
+  |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
+  |> LIST_CONJ;
 
 Theorem ok_bind_subst[simp]:
   ∀x. ok_bind x ⇒ ok_bind (subst ws x)

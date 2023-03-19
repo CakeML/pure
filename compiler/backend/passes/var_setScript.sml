@@ -50,6 +50,26 @@ Definition invent_var_def:
           (new_var, insert_var (vs,n) new_var)
 End
 
+Definition contains_var_def:
+  contains_var v ((vs,n):vars) =
+    case lookup vs v of
+    | NONE => F
+    | SOME _ => T
+End
+
+Definition delete_var_def:
+  delete_var ((vs,n):vars) v = (delete vs v, n)
+End
+
+Definition delete_vars_def:
+  delete_vars s [] = s ∧
+  delete_vars s (n::ns) = delete_vars (delete_var s n) ns
+End
+
+Definition var_union_def:
+  var_union ((vs1,n1):vars) ((vs2,n2):vars) = (union vs1 vs2, MAX n1 n2)
+End
+
 (* --- definitions for proofs --- *)
 
 Definition vars_ok_def:
@@ -97,6 +117,29 @@ Proof
   qid_spec_tac ‘vs’ \\ Induct_on ‘ns’ \\ fs [insert_vars_def]
 QED
 
+Theorem vars_ok_delete_var[simp]:
+  vars_ok vs ⇒ vars_ok (delete_var vs n)
+Proof
+  PairCases_on ‘vs’
+  \\ fs [delete_var_def,vars_ok_def,delete_thm,lookup_delete]
+QED
+
+Theorem vars_ok_delete_vars[simp]:
+  vars_ok vs ⇒ vars_ok (delete_vars vs ns)
+Proof
+  qid_spec_tac ‘vs’ \\ Induct_on ‘ns’ \\ fs [delete_vars_def]
+QED
+
+Theorem vars_ok_union[simp]:
+  vars_ok vs1 ∧ vars_ok vs2 ⇒ vars_ok (var_union vs1 vs2)
+Proof
+  PairCases_on ‘vs1’
+  \\ PairCases_on ‘vs2’
+  \\ fs [var_union_def,vars_ok_def,lookup_thm,union_thm,FLOOKUP_FUNION]
+  \\ strip_tac \\ gen_tac
+  \\ CASE_TAC \\ gs [lookup_thm]
+QED
+
 Theorem set_of_insert_var[simp]:
   vars_ok vs ⇒
   set_of (insert_var vs n) = explode n INSERT set_of vs
@@ -111,6 +154,47 @@ Theorem set_of_insert_vars[simp]:
 Proof
   qid_spec_tac ‘vs’ \\ Induct_on ‘ns’ \\ fs [insert_vars_def]
   \\ fs [EXTENSION] \\ metis_tac []
+QED
+
+Theorem set_of_delete_var[simp]:
+  vars_ok vs ⇒
+  set_of (delete_var vs n) = set_of vs DELETE explode n
+Proof
+  PairCases_on ‘vs’
+  \\ fs [delete_var_def,vars_ok_def,delete_thm,lookup_delete,set_of_def]
+  \\ rw [EXTENSION] \\ eq_tac
+  \\ rw []
+  >- metis_tac []
+  >- (strip_tac \\ first_x_assum irule
+      \\ irule EQ_TRANS
+      \\ irule_at (Pos hd) $ GSYM implode_explode
+      \\ asm_rewrite_tac [] \\ simp [])
+  >- (irule_at (Pos hd) EQ_REFL \\ simp []
+      \\ strip_tac \\ gs [])
+QED
+
+Theorem set_of_delete_vars[simp]:
+  vars_ok vs ⇒
+  set_of (delete_vars vs ns) = set_of vs DIFF set (MAP explode ns)
+Proof
+  qid_spec_tac ‘vs’ \\ Induct_on ‘ns’ \\ fs [delete_vars_def]
+  \\ fs [EXTENSION] \\ metis_tac []
+QED
+
+Theorem set_of_var_union[simp]:
+  vars_ok vs1 ∧ vars_ok vs2 ⇒ set_of (var_union vs1 vs2) = set_of vs1 ∪ set_of vs2
+Proof
+  PairCases_on ‘vs1’
+  \\ PairCases_on ‘vs2’
+  \\ fs [var_union_def,vars_ok_def,lookup_thm,union_thm,set_of_def,EXTENSION]
+QED
+
+Theorem contains_var_in_set_of:
+  vars_ok vs ⇒ (contains_var v vs ⇔ explode v ∈ set_of vs)
+Proof
+  PairCases_on ‘vs’
+  \\ fs [contains_var_def,vars_ok_def,set_of_def, lookup_thm]
+  \\ CASE_TAC \\ gs [flookup_thm]
 QED
 
 Theorem invent_var_thm:

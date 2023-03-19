@@ -10,48 +10,42 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 
 val _ = new_theory "thunk_combine_Forcing_Lambdas";
 
-Definition ok_bind_def:
-  ok_bind (Lam s e : exp) = T ∧
-  ok_bind (Delay e) = T ∧
-  ok_bind _ = F
-End
-
-Inductive exp_rel:
+Inductive combine_rel:
 [~Var:]
-  (∀n. exp_rel (Var n) (Var n)) ∧
+  (∀n. combine_rel (Var n) (Var n)) ∧
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       exp_rel (Value v) (Value w)) ∧
+       combine_rel (Value v) (Value w)) ∧
 [~Prim:]
   (∀op xs ys.
-     LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim op xs) (Prim op ys)) ∧
+     LIST_REL combine_rel xs ys ⇒
+       combine_rel (Prim op xs) (Prim op ys)) ∧
 [~App:]
   (∀f g x y.
-     exp_rel f g ∧
-     exp_rel x y ⇒
-       exp_rel (App f x) (App g y)) ∧
+     combine_rel f g ∧
+     combine_rel x y ⇒
+       combine_rel (App f x) (App g y)) ∧
 [~Lam:]
   (∀s x y.
-     exp_rel x y ⇒
-       exp_rel (Lam s x) (Lam s y)) ∧
+     combine_rel x y ⇒
+       combine_rel (Lam s x) (Lam s y)) ∧
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel x y ⇒
-     exp_rel (Letrec f x) (Letrec g y)) ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel x y ⇒
+     combine_rel (Letrec f x) (Letrec g y)) ∧
 [~Letrec_Lams_combine1:]
   (∀f g y1 y2 v1 v2 x1 x2 vL1 vL2 vL3 bL1 bL2 bL3 i.
      MAP FST f = MAP FST g ∧
      ¬MEM v1 (MAP FST f) ∧ ¬MEM v2 (MAP FST f) ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel y1 y2 ∧ exp_rel x1 x2 ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel y1 y2 ∧ combine_rel x1 x2 ∧
 
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
      ¬MEM v1 vL1 ∧ ALL_DISTINCT vL1 ∧ vL1 ≠ [] ∧ ALL_DISTINCT (vL3 ++ vL2) ∧
@@ -61,7 +55,7 @@ Inductive exp_rel:
 
      i < LENGTH vL1 ∧ (∀j. j ≤ i ⇒ ¬EL j bL2) ∧ bL1 = GENLIST (λn. n = i) (LENGTH vL1) ∧
      EVERY (λv. v ∉ freevars x1) (vL1 ++ vL2 ++ vL3) ⇒
-     exp_rel (Letrec (SNOC (v1, Lams (vL3++vL2) (Apps x1
+     combine_rel (Letrec (SNOC (v1, Lams (vL3++vL2) (Apps x1
                                                  (MAP Var vL3 ++
                                                   MAP2 (λb e. if b then Force e else e)
                                                        bL1 (MAP Var vL2))))
@@ -86,8 +80,8 @@ Inductive exp_rel:
      ¬MEM v1 (MAP FST f) ∧ ¬MEM v2 (MAP FST f) ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel y1 y2 ∧ exp_rel x1 x2 ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel y1 y2 ∧ combine_rel x1 x2 ∧
 
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
      ¬MEM v1 vL1 ∧ ALL_DISTINCT vL1 ∧ vL1 ≠ [] ∧ ALL_DISTINCT (vL3 ++ vL2) ∧
@@ -97,7 +91,7 @@ Inductive exp_rel:
 
      i < LENGTH vL1 ∧ (∀j. j ≤ i ⇒ ¬EL j bL2) ∧ bL1 = GENLIST (λn. n = i) (LENGTH vL1) ∧
      EVERY (λv. v ∉ freevars x1) (vL1 ++ vL2 ++ vL3) ⇒
-     exp_rel (Letrec (SNOC (v1, Lams (vL3++vL2) (Apps x1
+     combine_rel (Letrec (SNOC (v1, Lams (vL3++vL2) (Apps x1
                                                  (Var (EL i vL2)::MAP Var vL3 ++
                                                   MAP2 (λb e. if b then Force e else e)
                                                        bL1 (MAP Var vL2))))
@@ -118,9 +112,9 @@ Inductive exp_rel:
                        g)) y2)) ∧
 [~Let:]
   (∀opt x1 y1 x2 y2.
-     exp_rel x1 x2 ∧
-     exp_rel y1 y2 ⇒
-     exp_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+     combine_rel x1 x2 ∧
+     combine_rel y1 y2 ⇒
+     combine_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
 [~Let_Lams_combine1:]
   (∀v1 v2 vL1 vL2 vL3 bL1 bL2 bL3 x1 x2 y1 y2 i.
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
@@ -132,8 +126,8 @@ Inductive exp_rel:
      i < LENGTH vL1 ∧ (∀j. j ≤ i ⇒ ¬EL j bL2) ∧ bL1 = GENLIST (λn. n = i) (LENGTH vL1) ∧
      v1 ∉ freevars x1 ∧ EVERY (λv. v ∉ freevars x1) (vL1 ++ vL2 ++ vL3) ∧
 
-     exp_rel x1 x2 ∧ exp_rel y1 y2 ∧ v1 ≠ v2 ⇒
-     exp_rel (Let (SOME v1) (Lams (vL3 ++ vL2) (Apps x1 (MAP Var vL3 ++
+     combine_rel x1 x2 ∧ combine_rel y1 y2 ∧ v1 ≠ v2 ⇒
+     combine_rel (Let (SOME v1) (Lams (vL3 ++ vL2) (Apps x1 (MAP Var vL3 ++
                                                          MAP2 (λb e. if b then Force e else e)
                                                                   bL1 (MAP Var vL2))))
               (Let (SOME v2) (Lams vL1 (Apps (Var v1) (MAP Var vL3 ++
@@ -158,8 +152,8 @@ Inductive exp_rel:
      i < LENGTH vL1 ∧ (∀j. j ≤ i ⇒ ¬EL j bL2) ∧ bL1 = GENLIST (λn. n = i) (LENGTH vL1) ∧
      v1 ∉ freevars x1 ∧ EVERY (λv. v ∉ freevars x1) (vL1 ++ vL2 ++ vL3) ∧
 
-     exp_rel x1 x2 ∧ exp_rel y1 y2 ∧ v1 ≠ v2 ⇒
-     exp_rel (Let (SOME v1) (Lams (vL3 ++ vL2) (Apps x1 (Var (EL i vL2)::MAP Var vL3 ++
+     combine_rel x1 x2 ∧ combine_rel y1 y2 ∧ v1 ≠ v2 ⇒
+     combine_rel (Let (SOME v1) (Lams (vL3 ++ vL2) (Apps x1 (Var (EL i vL2)::MAP Var vL3 ++
                                                          MAP2 (λb e. if b then Force e else e)
                                                               bL1 (MAP Var vL2))))
               (Let (SOME v2) (Lams vL1 (Apps (Var v1)(MAP Var vL3 ++
@@ -177,31 +171,31 @@ Inductive exp_rel:
                                                      bL2 (MAP Var vL1)))))) y2))) ∧
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
-     exp_rel x1 x2 ∧
-     exp_rel y1 y2 ∧
-     exp_rel z1 z2 ⇒
-       exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+     combine_rel x1 x2 ∧
+     combine_rel y1 y2 ∧
+     combine_rel z1 z2 ⇒
+       combine_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
 [~Delay:]
   (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Delay x) (Delay y)) ∧
+     combine_rel x y ⇒
+       combine_rel (Delay x) (Delay y)) ∧
 [~Box:]
   (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
+     combine_rel x y ⇒
+       combine_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
-     exp_rel x y ⇒
-     exp_rel (Force x) (Force y)) ∧
+     combine_rel x y ⇒
+     combine_rel (Force x) (Force y)) ∧
 [~MkTick:]
-  (∀x y. exp_rel x y ⇒ exp_rel (MkTick x) (MkTick y)) ∧
+  (∀x y. combine_rel x y ⇒ combine_rel (MkTick x) (MkTick y)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_Closure:]
   (∀s x y.
-     exp_rel x y ⇒
+     combine_rel x y ⇒
        v_rel (Closure s x) (Closure s y)) ∧
 [v_rel_Closure_combine1:]
   (∀vL1a vL1b vL2 vL3a vL3b eL1a eL1 eL2a eL2 bL1 bL2 bL3a bL3b x y i.
@@ -220,7 +214,7 @@ Inductive exp_rel:
      LIST_REL v_rel eL1 eL2 ∧
      i < LENGTH bL2 ∧ (∀j. j ≤ i ⇒ ¬EL j bL2) ∧ bL1 = GENLIST (λn. n = i) (LENGTH bL2) ∧
      EVERY (λv. v ∉ freevars x) (vL1a ++ vL1b ++ vL2 ++ vL3a ++ vL3b) ∧
-     exp_rel x y ⇒
+     combine_rel x y ⇒
      v_rel (Closure (HD vL1b)
             (Lams (TL vL1b) (Apps (Value (
                                    Closure (HD (vL3a ++ vL3b ++ vL2))
@@ -254,7 +248,7 @@ Inductive exp_rel:
      LIST_REL v_rel eL1 eL2 ∧
      i < LENGTH bL2 ∧ (∀j. j ≤ i ⇒ ¬EL j bL2) ∧ bL1 = GENLIST (λn. n = i) (LENGTH bL2) ∧
      EVERY (λv. v ∉ freevars x) (vL1a ++ vL1b ++ vL2 ++ vL3a ++ vL3b) ∧
-     exp_rel x y ⇒
+     combine_rel x y ⇒
      v_rel (Closure (HD vL1b)
             (Lams (TL vL1b) (Apps (Value (
                                    Closure (HD (vL3a ++ vL3b ++ vL2))
@@ -279,8 +273,8 @@ Inductive exp_rel:
      ¬MEM v1 (MAP FST f) ∧ ¬MEM v2 (MAP FST f) ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel x1 x2 ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel x1 x2 ∧
 
      LENGTH (vL1a ++ vL1b) = LENGTH bL2 ∧ LENGTH bL2 = LENGTH vL2 ∧
      LENGTH vL1a = LENGTH bL3a ∧ LENGTH vL1b = LENGTH bL3b ∧
@@ -334,8 +328,8 @@ Inductive exp_rel:
      ¬MEM v1 (MAP FST f) ∧ ¬MEM v2 (MAP FST f) ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel x1 x2 ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel x1 x2 ∧
 
      LENGTH (vL1a ++ vL1b) = LENGTH bL2 ∧ LENGTH bL2 = LENGTH vL2 ∧
      LENGTH vL1a = LENGTH bL3a ∧ LENGTH vL1b = LENGTH bL3b ∧
@@ -392,7 +386,7 @@ Inductive exp_rel:
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ⇒
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ⇒
      v_rel (Recclosure f n) (Recclosure g n)) ∧
 [v_rel_Recclosure_combine1:]
   (∀f g n v1 v2 x1 x2 vL1 vL2 vL3 bL1 bL2 bL3 i.
@@ -400,8 +394,8 @@ Inductive exp_rel:
      ¬MEM v1 (MAP FST f) ∧ ¬MEM v2 (MAP FST f) ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel x1 x2 ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel x1 x2 ∧
 
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
      ¬MEM v1 vL1 ∧ ALL_DISTINCT vL1 ∧ vL1 ≠ [] ∧ ALL_DISTINCT (vL3 ++ vL2) ∧
@@ -436,8 +430,8 @@ Inductive exp_rel:
      ¬MEM v1 (MAP FST f) ∧ ¬MEM v2 (MAP FST f) ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
-     LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
-     exp_rel x1 x2 ∧
+     LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
+     combine_rel x1 x2 ∧
 
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
      ¬MEM v1 vL1 ∧ ALL_DISTINCT vL1 ∧ vL1 ≠ [] ∧ ALL_DISTINCT (vL3 ++ vL2) ∧
@@ -472,7 +466,7 @@ Inductive exp_rel:
        v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
 [v_rel_Thunk_INR:]
   (∀x y.
-     exp_rel x y ⇒
+     combine_rel x y ⇒
      v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
 [v_rel_Atom:]
   (∀x.
@@ -483,20 +477,20 @@ Inductive exp_rel:
      v_rel (DoTick v) (DoTick w))
 End
 
-Theorem exp_rel_def =
-  [“exp_rel (Var v) x”,
-   “exp_rel (Value v) x”,
-   “exp_rel (Prim op xs) x”,
-   “exp_rel (App f x) y”,
-   “exp_rel (Lam s x) y”,
-   “exp_rel (Letrec f x) y”,
-   “exp_rel (Let s x y) z”,
-   “exp_rel (If x y z) w”,
-   “exp_rel (Delay x) y”,
-   “exp_rel (Box x) y”,
-   “exp_rel (MkTick x) y”,
-   “exp_rel (Force x) y”]
-  |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
+Theorem combine_rel_def =
+  [“combine_rel (Var v) x”,
+   “combine_rel (Value v) x”,
+   “combine_rel (Prim op xs) x”,
+   “combine_rel (App f x) y”,
+   “combine_rel (Lam s x) y”,
+   “combine_rel (Letrec f x) y”,
+   “combine_rel (Let s x y) z”,
+   “combine_rel (If x y z) w”,
+   “combine_rel (Delay x) y”,
+   “combine_rel (Box x) y”,
+   “combine_rel (MkTick x) y”,
+   “combine_rel (Force x) y”]
+  |> map (SIMP_CONV (srw_ss()) [Once combine_rel_cases])
   |> LIST_CONJ;
 
 Theorem v_rel_def =
@@ -506,7 +500,7 @@ Theorem v_rel_def =
    “v_rel (Atom x) v”,
    “v_rel (Thunk x) v”,
    “v_rel (DoTick x) v”]
-  |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
+  |> map (SIMP_CONV (srw_ss()) [Once combine_rel_cases])
   |> LIST_CONJ
 
 Triviality less_1_lemma[simp]:
@@ -515,14 +509,26 @@ Proof
   fs []
 QED
 
-Theorem exp_rel_freevars:
-  ∀x y. exp_rel x y ⇒ freevars x = freevars y
+Theorem combine_rel_Lams:
+  ∀l x y. combine_rel x y ⇒ combine_rel (Lams l x) (Lams l y)
 Proof
-  ‘(∀x y. exp_rel x y ⇒ freevars x = freevars y) ∧
+  Induct >> gvs [combine_rel_def]
+QED
+
+Theorem combine_rel_Apps:
+  ∀l1 l2 x y. combine_rel x y ∧ LIST_REL combine_rel l1 l2 ⇒ combine_rel (Apps x l1) (Apps y l2)
+Proof
+  Induct >> gvs [combine_rel_def, PULL_EXISTS]
+QED
+
+Theorem combine_rel_freevars:
+  ∀x y. combine_rel x y ⇒ freevars x = freevars y
+Proof
+  ‘(∀x y. combine_rel x y ⇒ freevars x = freevars y) ∧
    (∀v w. v_rel v w ⇒ T)’
     suffices_by rw [] >>
-  ho_match_mp_tac exp_rel_strongind >>
-  gs [exp_rel_def, PULL_EXISTS, freevars_def] >> rw []
+  ho_match_mp_tac combine_rel_strongind >>
+  gs [combine_rel_def, PULL_EXISTS, freevars_def] >> rw []
   >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
       gs [LIST_REL_EL_EQN, MEM_EL, EL_MAP, PULL_EXISTS])
   >- (AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
@@ -676,6 +682,114 @@ Proof
           \\ IF_CASES_TAC \\ strip_tac \\ gs [freevars_def]))
 QED
 
+Theorem LIST_REL_EQ_IMP_EQ:
+  ∀xs ys. LIST_REL (λx y. boundvars x = boundvars y) xs ys ⇒
+          MAP boundvars xs = MAP boundvars ys
+Proof
+  Induct >> gs [PULL_EXISTS]
+QED
+
+Theorem combine_rel_boundvars:
+  ∀x y. combine_rel x y ⇒ boundvars x = boundvars y
+Proof
+  ‘(∀x y. combine_rel x y ⇒ boundvars x = boundvars y) ∧
+   (∀v w. v_rel v w ⇒ T)’
+    suffices_by rw [] >>
+  ho_match_mp_tac combine_rel_strongind >>
+  simp [boundvars_def] >> rw []
+  >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
+      dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >> gs [])
+  >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
+      dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >>
+      gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SF ETA_ss])
+  >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
+      dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >>
+      gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SF ETA_ss, MAP_SNOC, LIST_TO_SET_SNOC,
+          boundvars_Lams, boundvars_def, boundvars_Apps] >>
+      rw [SET_EQ_SUBSET, SUBSET_DEF] >> gs []
+      >- (rename1 ‘MEM s (MAP boundvars (MAP2 _ bL2 (MAP Var vL1)))’ >>
+          rename1 ‘x'' ∈ s’ >>
+          ‘MEM x'' vL1’ suffices_by gs [] >>
+          gs [MEM_EL, EL_MAP, EL_MAP2] >>
+          first_assum $ irule_at Any >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def])
+      >- (rename1 ‘MEM s (MAP boundvars (MAP2 _ (GENLIST _ _) (MAP2 _ bL2 (MAP Var vL1))))’ >>
+          rename1 ‘x'' ∈ s’ >>
+          ‘MEM x'' vL1’ suffices_by gs [] >>
+          gs [MEM_EL, EL_MAP, EL_MAP2] >>
+          first_assum $ irule_at Any >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def] >>
+          IF_CASES_TAC >> gs [boundvars_def]))
+  >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
+      dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >>
+      gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SF ETA_ss, MAP_SNOC, LIST_TO_SET_SNOC,
+          boundvars_Lams, boundvars_def, boundvars_Apps] >>
+      rw [SET_EQ_SUBSET, SUBSET_DEF] >> gs []
+      >- (rename1 ‘MEM s (MAP boundvars (MAP2 _ bL2 (MAP Var vL1)))’ >>
+          rename1 ‘x'' ∈ s’ >>
+          ‘MEM x'' vL1’ suffices_by gs [] >>
+          gs [MEM_EL, EL_MAP, EL_MAP2] >>
+          first_assum $ irule_at Any >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def])
+      >- (rename1 ‘MEM s (MAP boundvars (MAP2 _ (GENLIST _ _) (MAP2 _ bL2 (MAP Var vL1))))’ >>
+          rename1 ‘x'' ∈ s’ >>
+          ‘MEM x'' vL1’ suffices_by gs [] >>
+          gs [MEM_EL, EL_MAP, EL_MAP2] >>
+          first_assum $ irule_at Any >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def] >>
+          IF_CASES_TAC >> gs [boundvars_def]))
+  >- (rename1 ‘Let opt _ _’ >>
+      Cases_on ‘opt’ >> gs [boundvars_def])
+  >- (rw [boundvars_Apps, boundvars_Lams, boundvars_def, SET_EQ_SUBSET, SUBSET_DEF] >>
+      gs []
+      >- (disj1_tac >> disj1_tac >>
+          disj1_tac >> disj2_tac >> disj1_tac >>
+          first_x_assum $ irule_at Any >> simp [])
+      >- (disj1_tac >> disj2_tac >>
+          disj1_tac >> disj1_tac >> disj2_tac >>
+          gs [MEM_EL, LIST_REL_EL_EQN] >>
+          first_assum $ irule_at Any >> gs[EL_MAP, EL_MAP2] >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def])
+      >- (disj1_tac >> disj2_tac >>
+          disj1_tac >> disj1_tac >> disj2_tac >>
+          gs [MEM_MAP, MEM_FILTER, MEM_EL] >>
+          first_assum $ irule_at Any >> gs[EL_ZIP, boundvars_def])
+      >- (disj1_tac >> disj2_tac >>
+          disj1_tac >> disj1_tac >> disj2_tac >>
+          gs [MEM_EL, LIST_REL_EL_EQN] >>
+          first_assum $ irule_at Any >> gs[EL_MAP, EL_MAP2] >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def] >>
+          IF_CASES_TAC >> gs [boundvars_def]))
+  >- (rw [boundvars_Apps, boundvars_Lams, boundvars_def, SET_EQ_SUBSET, SUBSET_DEF] >>
+      gs []
+      >- (disj1_tac >> disj1_tac >>
+          disj1_tac >> disj2_tac >> disj1_tac >>
+          first_x_assum $ irule_at Any >> simp [])
+      >- (disj1_tac >> disj2_tac >>
+          disj1_tac >> disj1_tac >> disj2_tac >>
+          gs [MEM_EL, LIST_REL_EL_EQN] >>
+          first_assum $ irule_at Any >> gs[EL_MAP, EL_MAP2] >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def])
+      >- (disj1_tac >> disj2_tac >>
+          disj1_tac >> disj1_tac >> disj2_tac >>
+          gs [MEM_MAP, MEM_FILTER, MEM_EL] >>
+          first_assum $ irule_at Any >> gs[EL_ZIP, boundvars_def])
+      >- (disj1_tac >> disj2_tac >>
+          disj1_tac >> disj1_tac >> disj2_tac >>
+          gs [MEM_EL, LIST_REL_EL_EQN] >>
+          first_assum $ irule_at Any >> gs[EL_MAP, EL_MAP2] >>
+          pop_assum mp_tac >>
+          IF_CASES_TAC >> gs [boundvars_def] >>
+          IF_CASES_TAC >> gs [boundvars_def]))
+QED
+
 Theorem LIST_FILTERED:
   ∀l1 l2 R f. MAP FST l1 = MAP FST l2 ∧ LIST_REL R (MAP SND l1) (MAP SND l2)
               ⇒ MAP FST (FILTER (λ(n, v). f n) l1) = MAP FST (FILTER (λ(n,v). f n) l2)
@@ -694,42 +808,42 @@ Proof
   Cases \\ rw [ok_bind_def] \\ gs [subst_def, ok_bind_def]
 QED
 
-Theorem exp_rel_subst:
+Theorem combine_rel_subst:
   ∀vs x ws y.
     MAP FST vs = MAP FST ws ∧
     LIST_REL v_rel (MAP SND vs) (MAP SND ws) ∧
-    exp_rel x y ⇒
-      exp_rel (subst vs x) (subst ws y)
+    combine_rel x y ⇒
+      combine_rel (subst vs x) (subst ws y)
 Proof
   ‘(∀x y.
-     exp_rel x y ⇒
+     combine_rel x y ⇒
      ∀vs ws.
        MAP FST vs = MAP FST ws ∧
        LIST_REL v_rel (MAP SND vs) (MAP SND ws) ⇒
-         exp_rel (subst vs x) (subst ws y)) ∧
+         combine_rel (subst vs x) (subst ws y)) ∧
    (∀v w. v_rel v w ⇒ T)’
     suffices_by rw []
-  \\ ho_match_mp_tac exp_rel_strongind \\ rw []
+  \\ ho_match_mp_tac combine_rel_strongind \\ rw []
   >~ [‘Var v’] >- (
     rw [subst_def]
     \\ rename1 ‘LIST_REL v_rel (MAP SND vs) (MAP SND ws)’
     \\ ‘OPTREL v_rel (ALOOKUP (REVERSE vs) v) (ALOOKUP (REVERSE ws) v)’
       by (irule LIST_REL_OPTREL
           \\ gs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
-    \\ gs [OPTREL_def, exp_rel_Var, exp_rel_Value])
+    \\ gs [OPTREL_def, combine_rel_Var, combine_rel_Value])
   >~ [‘Value v’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_Value])
+    \\ gs [combine_rel_Value])
   >~ [‘Prim op xs’] >- (
     rw [subst_def]
-    \\ irule exp_rel_Prim
+    \\ irule combine_rel_Prim
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
   >~ [‘App f x’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_App])
+    \\ gs [combine_rel_App])
   >~ [‘Lam s x’] >- (
     rw [subst_def]
-    \\ irule exp_rel_Lam
+    \\ irule combine_rel_Lam
     \\ first_x_assum irule
     \\ gs [MAP_FST_FILTER, EVERY2_MAP]
     \\ qabbrev_tac ‘P = λn. n ≠ s’ \\ gs []
@@ -737,7 +851,7 @@ Proof
     \\ gs [LIST_REL_EL_EQN])
   >~ [‘SNOC _ (SNOC _ _)’] >- (
     rw [subst_def, MAP_SNOC, subst_Lams, subst_Apps, GSYM LAMBDA_PROD, FILTER_T]
-    \\ gs [exp_rel_def] \\ disj2_tac \\ disj1_tac
+    \\ gs [combine_rel_def] \\ disj2_tac \\ disj1_tac
     \\ rpt (‘∀e1 e2 l1 l2. e1 = e2 ∧ l1 = l2 ⇒ Lams l1 e1 = Lams l2 e2’ by gs []
             \\ pop_assum $ irule_at Any)
     \\ gs []
@@ -766,8 +880,8 @@ Proof
         \\ rw [EL_MAP, EL_MAP2, subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM]
         \\ gs [MEM_MAP] \\ first_x_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
         \\ gs [EL_MEM])
-    >- (rename1 ‘subst _ y2 = _’ \\ rename1 ‘exp_rel x2 y2’
-        \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+    >- (rename1 ‘subst _ y2 = _’ \\ rename1 ‘combine_rel x2 y2’
+        \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
         \\ qspecl_then [‘FILTER (λ(n,v). n ≠ v1 ∧ n ≠ v2 ∧ ¬MEM n (MAP FST g)) ws’, ‘y2’]
                        assume_tac subst_remove
         \\ first_assum $ qspec_then ‘set vL1’ assume_tac
@@ -814,7 +928,7 @@ Proof
         \\ first_x_assum $ irule_at Any \\ gs []))
   >~ [‘SNOC _ (SNOC _ _)’] >- (
     rw [subst_def, MAP_SNOC, subst_Lams, subst_Apps, GSYM LAMBDA_PROD, FILTER_T]
-    \\ gs [exp_rel_def] \\ disj2_tac \\ disj2_tac
+    \\ gs [combine_rel_def] \\ disj2_tac \\ disj2_tac
     \\ rpt (‘∀e1 e2 l1 l2. e1 = e2 ∧ l1 = l2 ⇒ Lams l1 e1 = Lams l2 e2’ by gs []
             \\ pop_assum $ irule_at Any)
     \\ gs []
@@ -843,8 +957,8 @@ Proof
         \\ rw [EL_MAP, EL_MAP2, subst_def, GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM]
         \\ gs [MEM_MAP] \\ first_x_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
         \\ gs [EL_MEM])
-    >- (rename1 ‘subst _ y2 = _’ \\ rename1 ‘exp_rel x2 y2’
-        \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+    >- (rename1 ‘subst _ y2 = _’ \\ rename1 ‘combine_rel x2 y2’
+        \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
         \\ qspecl_then [‘FILTER (λ(n,v). n ≠ v1 ∧ n ≠ v2 ∧ ¬MEM n (MAP FST g)) ws’, ‘y2’]
                        assume_tac subst_remove
         \\ first_assum $ qspec_then ‘set vL1’ assume_tac
@@ -891,7 +1005,7 @@ Proof
         \\ first_x_assum $ irule_at Any \\ gs []))
   >~ [‘Letrec f x’] >- (
     rw [subst_def]
-    \\ irule exp_rel_Letrec
+    \\ irule combine_rel_Letrec
     \\ gs [EVERY_MAP, EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
             GSYM FST_THM]
     \\ first_x_assum (irule_at Any)
@@ -913,7 +1027,7 @@ Proof
   >~[‘Apps (App _ _) _’]
   >- (gs [subst_def, subst_Lams, subst_Apps, GSYM LAMBDA_PROD, FILTER_T,
            GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM]
-      \\ gs [exp_rel_def] \\ disj2_tac \\ disj2_tac
+      \\ gs [combine_rel_def] \\ disj2_tac \\ disj2_tac
       \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gs []
               \\ pop_assum $ irule_at Any)
       \\ gs []
@@ -946,13 +1060,13 @@ Proof
       >- (gs [FILTER_FILTER, LAMBDA_PROD]
           \\ rename1 ‘subst (FILTER (λ(p1, p2). ¬MEM p1 vL1 ∧ p1 ≠ v1) ws) y = subst (FILTER _ ws) _’
           \\ qspecl_then [‘ws’, ‘y’, ‘set vL1 ∪ {v1}’] mp_tac subst_remove \\ impl_tac \\ gs []
-          >- (qspecl_then [‘x’, ‘y’] assume_tac exp_rel_freevars
+          >- (qspecl_then [‘x’, ‘y’] assume_tac combine_rel_freevars
               \\ gs [DISJOINT_ALT, EVERY_MEM])
           \\ disch_then kall_tac
           \\ qspecl_then [‘ws’, ‘y’, ‘set (MAP SND (FILTER FST (ZIP (bL3, vL1)))) ∪ set vL2’] mp_tac
                          $ GSYM subst_remove
           \\ impl_tac \\ gs []
-          \\ qspecl_then [‘x’, ‘y’] assume_tac exp_rel_freevars
+          \\ qspecl_then [‘x’, ‘y’] assume_tac combine_rel_freevars
           \\ gs [DISJOINT_ALT, EVERY_MEM])
       >- gs [freevars_subst]
       >- gs [EVERY_MEM, freevars_subst]
@@ -973,7 +1087,7 @@ Proof
   >~[‘Let _ _ (Let _ _ _)’]
   >- (gs [subst_def, subst_Lams, subst_Apps, GSYM LAMBDA_PROD, FILTER_T,
            GSYM FILTER_REVERSE, ALOOKUP_FILTER, EL_MEM]
-      \\ gs [exp_rel_def] \\ disj2_tac \\ disj1_tac
+      \\ gs [combine_rel_def] \\ disj2_tac \\ disj1_tac
       \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gs []
               \\ pop_assum $ irule_at Any)
       \\ gs []
@@ -1007,13 +1121,13 @@ Proof
       >- (gs [FILTER_FILTER, LAMBDA_PROD]
           \\ rename1 ‘subst (FILTER (λ(p1, p2). ¬MEM p1 vL1 ∧ p1 ≠ v1) ws) y = subst (FILTER _ ws) _’
           \\ qspecl_then [‘ws’, ‘y’, ‘set vL1 ∪ {v1}’] mp_tac subst_remove \\ impl_tac \\ gs []
-          >- (qspecl_then [‘x’, ‘y’] assume_tac exp_rel_freevars
+          >- (qspecl_then [‘x’, ‘y’] assume_tac combine_rel_freevars
               \\ gs [DISJOINT_ALT, EVERY_MEM])
           \\ disch_then kall_tac
           \\ qspecl_then [‘ws’, ‘y’, ‘set (MAP SND (FILTER FST (ZIP (bL3, vL1)))) ∪ set vL2’] mp_tac
                          $ GSYM subst_remove
           \\ impl_tac \\ gs []
-          \\ qspecl_then [‘x’, ‘y’] assume_tac exp_rel_freevars
+          \\ qspecl_then [‘x’, ‘y’] assume_tac combine_rel_freevars
           \\ gs [DISJOINT_ALT, EVERY_MEM])
       >- (first_x_assum irule \\ gs [MAP_FST_FILTER, EVERY2_MAP]
           \\ qabbrev_tac ‘P = λv. ¬MEM v (MAP SND (FILTER FST (ZIP (bL3, vL1)))) ∧ ¬MEM v vL2’ \\ gs []
@@ -1029,7 +1143,7 @@ Proof
           \\ gs [FORALL_PROD]))
   >~ [‘Let s x y’] >- (
     Cases_on ‘s’ \\ rw [subst_def]
-    \\ irule exp_rel_Let \\ gs []
+    \\ irule combine_rel_Let \\ gs []
     \\ first_x_assum irule
     \\ gs [MAP_FST_FILTER]
     \\ rename1 ‘_ ≠ s’
@@ -1039,19 +1153,19 @@ Proof
     \\ gs [LIST_REL_EL_EQN])
   >~ [‘If x y z’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_If])
+    \\ gs [combine_rel_If])
   >~ [‘Delay x’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_Delay])
+    \\ gs [combine_rel_Delay])
   >~ [‘Box x’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_Box])
+    \\ gs [combine_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_Force])
+    \\ gs [combine_rel_Force])
   >~[‘MkTick x’] >- (
     rw [subst_def]
-    \\ gs [exp_rel_MkTick])
+    \\ gs [combine_rel_MkTick])
 QED
 
 Theorem eval_to_Apps_Lams_not_0:
@@ -1160,19 +1274,19 @@ Proof
   \\ CASE_TAC \\ gs []
 QED
 
-Theorem exp_rel_Lams:
-  ∀vL x y. exp_rel x y ⇒ exp_rel (Lams vL x) (Lams vL y)
+Theorem combine_rel_Lams:
+  ∀vL x y. combine_rel x y ⇒ combine_rel (Lams vL x) (Lams vL y)
 Proof
-  Induct \\ gs [exp_rel_def]
+  Induct \\ gs [combine_rel_def]
 QED
 
-Theorem exp_rel_Apps:
-  ∀eL1 eL2 x y. LIST_REL exp_rel eL1 eL2 ∧ exp_rel x y ⇒ exp_rel (Apps x eL1) (Apps y eL2)
+Theorem combine_rel_Apps:
+  ∀eL1 eL2 x y. LIST_REL combine_rel eL1 eL2 ∧ combine_rel x y ⇒ combine_rel (Apps x eL1) (Apps y eL2)
 Proof
-  Induct \\ gs [exp_rel_def]
+  Induct \\ gs [combine_rel_def]
   \\ gen_tac \\ Cases \\ gs []
   \\ rw [] \\ last_x_assum irule
-  \\ gs [exp_rel_def]
+  \\ gs [combine_rel_def]
 QED
 
 Theorem LESS_EQ_CASES:
@@ -1196,7 +1310,7 @@ Proof
   \\ gs []
 QED
 
-Theorem eval_to_Apps_arg_Div_exp_rel:
+Theorem eval_to_Apps_arg_Div_combine_rel:
   ∀eL eL2 i k e e2.
     eval_to k (Apps e eL) ≠ INL Type_error ∧ i < LENGTH eL ∧ eval_to k (EL i eL) = INL Diverge ∧
     LENGTH eL = LENGTH eL2 ∧
@@ -1230,7 +1344,7 @@ Proof
   \\ Cases_on ‘eval_to k x2’ \\ gs []
 QED
 
-Theorem eval_to_Apps_arg_Div_exp_rel2:
+Theorem eval_to_Apps_arg_Div_combine_rel2:
   ∀eL eL2 i k e2.
     i < LENGTH eL ∧ eval_to k (EL i eL) = INL Diverge ∧
     LENGTH eL = LENGTH eL2 ∧
@@ -1375,32 +1489,32 @@ QED
 
 fun print_tac str g = (print (str ^ "\n"); ALL_TAC g);
 
-Theorem exp_rel_eval_to:
+Theorem combine_rel_eval_to:
   ∀x y.
     eval_to k x ≠ INL Type_error ∧
-    exp_rel x y ⇒
+    combine_rel x y ⇒
       ∃j. ($= +++ v_rel) (eval_to k x) (eval_to (j + k) y)
 Proof
 
   completeInduct_on ‘k’ \\ completeInduct_on ‘exp_size x’
   \\ Cases \\ gvs [PULL_FORALL, exp_size_def] \\ rw []
   >~ [‘Var m’] >- (
-    gvs [Once exp_rel_def]
+    gvs [Once combine_rel_def]
     \\ qexists_tac ‘0’
     \\ simp [eval_to_def])
   >~ [‘Value v’] >- (
-    gvs [Once exp_rel_def]
+    gvs [Once combine_rel_def]
     \\ qexists_tac ‘0’
     \\ simp [eval_to_def])
   >~ [‘Lam s x’] >- (
-    gvs [Once exp_rel_def]
+    gvs [Once combine_rel_def]
     \\ qexists_tac ‘0’
     \\ gvs [eval_to_def, v_rel_Closure])
   >~ [‘Delay x’] >- (
-    gvs [Once exp_rel_def, eval_to_def, v_rel_def])
+    gvs [Once combine_rel_def, eval_to_def, v_rel_def])
   >~ [‘Box x’] >- (
-    gvs [Once exp_rel_def, eval_to_def]
-    \\ rename1 ‘exp_rel x y’
+    gvs [Once combine_rel_def, eval_to_def]
+    \\ rename1 ‘combine_rel x y’
     \\ first_x_assum $ qspecl_then [‘x’, ‘y’] mp_tac \\ gs []
     \\ impl_tac >- (strip_tac \\ gvs [])
     \\ disch_then $ qx_choose_then ‘j’ assume_tac
@@ -1411,8 +1525,8 @@ Proof
 
 >- (
 
-    gvs [Once exp_rel_def, eval_to_def]
-    \\ rename1 ‘exp_rel x y’
+    gvs [Once combine_rel_def, eval_to_def]
+    \\ rename1 ‘combine_rel x y’
     \\ Cases_on ‘eval_to k x = INL Type_error’ \\ gvs []
     \\ first_assum $ qspec_then ‘x’ mp_tac \\ impl_tac >- gs []
     \\ disch_then $ drule_then $ drule_then $ qx_choose_then ‘j’ assume_tac \\ gs []
@@ -1461,10 +1575,10 @@ Proof
             \\ dxrule_then (qspecl_then [‘j1’] assume_tac) eval_to_mono
             \\ gvs [])
         \\ rename1 ‘eval_to (k - 1) (subst1 s v1 body)’
-        \\ rename1 ‘v_rel v1 w1’ \\ rename1 ‘exp_rel body body'’
+        \\ rename1 ‘v_rel v1 w1’ \\ rename1 ‘combine_rel body body'’
         \\ last_x_assum $ qspecl_then [‘k - 1’, ‘subst1 s v1 body’, ‘subst1 s w1 body'’] mp_tac
         \\ gvs [] \\ impl_tac
-        >- (irule exp_rel_subst \\ gvs [])
+        >- (irule combine_rel_subst \\ gvs [])
         \\ disch_then $ qx_choose_then ‘j2’ assume_tac
         \\ Cases_on ‘eval_to (k - 1) (subst1 s v1 body) = INL Diverge’
         >- (qexists_tac ‘0’
@@ -1530,14 +1644,14 @@ Proof
                 \\ dxrule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gvs []
                 \\ dxrule_then (qspec_then ‘j1 + k’ assume_tac) eval_to_mono \\ gs []
-                \\ rename1 ‘hd ∉ freevars x2’ \\ rename1 ‘exp_rel x2 y2’
-                \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘hd ∉ freevars x2’ \\ rename1 ‘combine_rel x2 y2’
+                \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
                 \\ Cases_on ‘k = 1’
                 \\ gvs [subst_Apps, subst1_notin_frees, freevars_def, subst1_def, eval_to_Tick]
                 >- simp [eval_to_def]
                 \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ (Apps expr2 argL2))’
                 \\ qspecl_then [‘argL1’, ‘argL2’, ‘i2’, ‘k - 2’, ‘expr1’, ‘expr2’]
-                               mp_tac eval_to_Apps_arg_Div_exp_rel
+                               mp_tac eval_to_Apps_arg_Div_combine_rel
                 \\ impl_tac \\ gvs []
                 \\ conj_tac
                 >- (Cases_on ‘eval_to (k - 2) (Apps expr1 argL1) = INL Diverge’ \\ gs []
@@ -1564,11 +1678,11 @@ Proof
                 \\ gvs [EL_MAP2, EL_MAP]
                 \\ first_x_assum irule
                 \\ IF_CASES_TAC \\ gvs [EL_APPEND_EQN, EL_MAP, subst1_def]
-                \\ IF_CASES_TAC \\ gvs [exp_rel_def, subst1_def]
+                \\ IF_CASES_TAC \\ gvs [combine_rel_def, subst1_def]
                 \\ Cases_on ‘LENGTH vL2’ \\ gvs []
                 \\ gvs [NOT_LESS, GSYM LESS_EQ_IFF_LESS_SUC, GSYM ADD1]
                 \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
-                \\ gvs [subst1_def, exp_rel_def])
+                \\ gvs [subst1_def, combine_rel_def])
             \\ gvs [FOLDL_APPEND]
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL1)) _’
             \\ qspecl_then [‘argL1’, ‘expr1’, ‘k - 1’] mp_tac eval_to_Apps_no_INL
@@ -1667,7 +1781,7 @@ Proof
             >- (dxrule_then (qspec_then ‘i’ assume_tac) eval_to_Apps_arg_Div
                 \\ gvs [EL_MAP2, EL_MAP]
                 \\ qexists_tac ‘0’
-                \\ rename1 ‘exp_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘combine_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
                 \\ Cases_on ‘eval_to k y = INL Diverge’ \\ gs []
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs []
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gs []
@@ -1688,7 +1802,7 @@ Proof
                                   (MAP2 (λb e. if b then Force e else e) bL2 (MAP Value eL1 ++ [Value v1]))’,
                               ‘MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
                                   (MAP2 (λb e. if b then Force e else e) bL2 (MAP Value eL2 ++ [Value w1]))’,
-                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_exp_rel2
+                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_combine_rel2
                 \\ impl_tac \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN]
                 \\ ‘LENGTH valL1 = SUC (LENGTH eL1)’ by gvs []
                 \\ ‘EL i (eL1 ++ [v1]) = EL i valL1’
@@ -1734,7 +1848,7 @@ Proof
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘i’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ rpt $ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -1742,13 +1856,13 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘j’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -1756,18 +1870,18 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
-                    \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN, eval_to_Value, exp_rel_def])
+                    \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN, eval_to_Value, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [LIST_REL_EL_EQN, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def, eval_to_Value]))
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def, eval_to_Value]))
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL2)) _’
             \\ qspecl_then [‘argL2’, ‘expr1’, ‘k - 2’] mp_tac eval_to_Apps_no_INL
             \\ gvs [] \\ impl_tac
@@ -1779,7 +1893,7 @@ Proof
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gs []
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
-                \\ rename1 ‘exp_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘combine_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
                 \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, eval_to_Tick]
                 \\ ‘MAP (subst [(h,w1)])
                     (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -1804,7 +1918,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -1814,7 +1928,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                       ‘Force (Value (EL i2 eL2))’] assume_tac
                           \\ gvs [LIST_REL_EL_EQN]
@@ -1822,7 +1936,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -1832,7 +1946,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                           \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                           \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -1851,18 +1965,18 @@ Proof
                 \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                                ‘Apps expr2 (MAP Value valL2')’] mp_tac
                 \\ gvs [] \\ impl_tac \\ gvs []
-                \\ irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+                \\ irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
                                    assume_tac $ GEN_ALL LIST_REL_FILTER
                     \\ gs [GSYM FST_THM] \\ pop_assum irule \\ gvs [MAP_ZIP]
                     \\ irule LIST_REL_mono
                     \\ qexists_tac ‘λx y. v_rel (SND x) (SND y)’ \\ gvs []
                     \\ gvs [LIST_REL_EL_EQN, EL_ZIP])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ Q.REFINE_EXISTS_TAC ‘j + j1 + j2’ \\ gvs []
             \\ ‘eval_to (j + k) y ≠ INL Diverge’ by gvs []
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
@@ -1870,7 +1984,7 @@ Proof
             \\ ‘eval_to (j1 + k) g ≠ INL Diverge’ by gvs []
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
             \\ pop_assum kall_tac
-            \\ rename1 ‘exp_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+            \\ rename1 ‘combine_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
             \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, eval_to_Tick]
             \\ ‘MAP (subst [(h,w1)])
                 (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -1898,7 +2012,7 @@ Proof
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘i’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -1906,14 +2020,14 @@ Proof
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                   ‘Force (Value (EL i2 eL2))’] assume_tac
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘i2’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gvs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -1922,7 +2036,7 @@ Proof
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                       \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                       \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -1946,11 +2060,11 @@ Proof
             \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                            ‘Apps expr2 (MAP Value valL2')’] mp_tac
             \\ gvs [] \\ impl_tac
-            >- (irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
-                \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’] \\ irule exp_rel_Apps
-                \\ irule_at Any exp_rel_Apps \\ gs []
+            >- (irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
+                \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’] \\ irule combine_rel_Apps
+                \\ irule_at Any combine_rel_Apps \\ gs []
                 \\ conj_tac
-                >- (gvs [EVERY2_MAP, exp_rel_def]
+                >- (gvs [EVERY2_MAP, combine_rel_def]
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
                                    assume_tac $ GEN_ALL LIST_REL_FILTER
                     \\ gvs [GSYM FST_THM] \\ pop_assum irule
@@ -1958,7 +2072,7 @@ Proof
                     \\ irule LIST_REL_mono
                     \\ qexists_tac ‘λx y. v_rel (SND x) (SND y)’ \\ gvs []
                     \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_ZIP])
-                \\ IF_CASES_TAC \\ gvs [exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [combine_rel_def])
             \\ disch_then $ qx_choose_then ‘j3’ assume_tac \\ qexists_tac ‘j3’
             \\ Cases_on ‘eval_to (j3 + k − 2) (Apps expr2 (MAP Value valL2')) = INL Diverge’ \\ gs []
             >- (Cases_on ‘eval_to (k - 2) (Apps expr1 (MAP Value valL2))’ \\ gvs [])
@@ -1973,7 +2087,7 @@ Proof
         \\ gvs []
         \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Apps e1 l1 = Apps e2 l2’ by gvs [] \\ pop_assum $ irule_at Any)
         \\ gvs [ALL_DISTINCT_APPEND]
-        \\ irule_at (Pos last) exp_rel_subst
+        \\ irule_at (Pos last) combine_rel_subst
         \\ gvs [EXISTS_PROD, PULL_EXISTS, subst1_notin_frees]
         \\ first_assum $ irule_at $ Pos hd \\ first_assum $ irule_at $ Pos hd
         \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs [] \\ pop_assum $ irule_at Any)
@@ -2125,14 +2239,14 @@ Proof
                 \\ dxrule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gvs []
                 \\ dxrule_then (qspec_then ‘j1 + k’ assume_tac) eval_to_mono \\ gs []
-                \\ rename1 ‘hd ∉ freevars x2’ \\ rename1 ‘exp_rel x2 y2’
-                \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘hd ∉ freevars x2’ \\ rename1 ‘combine_rel x2 y2’
+                \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
                 \\ Cases_on ‘k = 1’
                 \\ gvs [subst_Apps, subst1_notin_frees, freevars_def, subst1_def, eval_to_Tick]
                 >- simp [eval_to_def]
                 \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ (Apps expr2 argL2))’
                 \\ qspecl_then [‘argL1’, ‘argL2’, ‘i2’, ‘k - 2’, ‘expr1’, ‘expr2’]
-                               mp_tac eval_to_Apps_arg_Div_exp_rel
+                               mp_tac eval_to_Apps_arg_Div_combine_rel
                 \\ impl_tac \\ gvs []
                 \\ conj_tac
                 >- (Cases_on ‘eval_to (k - 2) (Apps expr1 argL1) = INL Diverge’ \\ gs []
@@ -2159,11 +2273,11 @@ Proof
                 \\ gvs [EL_MAP2, EL_MAP]
                 \\ first_x_assum irule
                 \\ IF_CASES_TAC \\ gvs [EL_APPEND_EQN, EL_MAP, subst1_def]
-                \\ IF_CASES_TAC \\ gvs [exp_rel_def, subst1_def]
+                \\ IF_CASES_TAC \\ gvs [combine_rel_def, subst1_def]
                 \\ Cases_on ‘LENGTH vL2’ \\ gvs []
                 \\ gvs [NOT_LESS, GSYM LESS_EQ_IFF_LESS_SUC, GSYM ADD1]
                 \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
-                \\ gvs [subst1_def, exp_rel_def])
+                \\ gvs [subst1_def, combine_rel_def])
             \\ gvs [FOLDL_APPEND]
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL1)) _’
             \\ qspecl_then [‘argL1’, ‘expr1’, ‘k - 1’] mp_tac eval_to_Apps_no_INL
@@ -2262,7 +2376,7 @@ Proof
             >- (dxrule_then (qspec_then ‘i’ assume_tac) eval_to_Apps_arg_Div
                 \\ gvs [EL_MAP2, EL_MAP]
                 \\ qexists_tac ‘0’
-                \\ rename1 ‘exp_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘combine_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
                 \\ Cases_on ‘eval_to k y = INL Diverge’ \\ gs []
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs []
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gs []
@@ -2283,7 +2397,7 @@ Proof
                                   (MAP2 (λb e. if b then Force e else e) bL2 (MAP Value eL1 ++ [Value v1]))’,
                               ‘MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
                                   (MAP2 (λb e. if b then Force e else e) bL2 (MAP Value eL2 ++ [Value w1]))’,
-                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_exp_rel2
+                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_combine_rel2
                 \\ impl_tac \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN]
                 \\ ‘LENGTH valL1 = SUC (LENGTH eL1)’ by gvs []
                 \\ ‘EL i (eL1 ++ [v1]) = EL i valL1’
@@ -2329,7 +2443,7 @@ Proof
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘i’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ rpt $ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -2337,13 +2451,13 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘j’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -2351,18 +2465,18 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
-                    \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN, eval_to_Value, exp_rel_def])
+                    \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN, eval_to_Value, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [LIST_REL_EL_EQN, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def, eval_to_Value]))
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def, eval_to_Value]))
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL2)) _’
             \\ qspecl_then [‘argL2’, ‘expr1’, ‘k - 2’] mp_tac eval_to_Apps_no_INL
             \\ gvs [] \\ impl_tac
@@ -2374,7 +2488,7 @@ Proof
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gs []
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
-                \\ rename1 ‘exp_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘combine_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
                 \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, eval_to_Tick]
                 \\ ‘MAP (subst [(h,w1)])
                     (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -2399,7 +2513,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -2409,7 +2523,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                       ‘Force (Value (EL i2 eL2))’] assume_tac
                           \\ gvs [LIST_REL_EL_EQN]
@@ -2417,7 +2531,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -2427,7 +2541,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                           \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                           \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -2446,11 +2560,11 @@ Proof
                 \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                                ‘Apps expr2 (MAP Value valL2')’] mp_tac
                 \\ gvs [] \\ impl_tac \\ gvs []
-                \\ irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+                \\ irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ conj_tac
                     >- (gvs [subst_def, Abbr ‘list’, GSYM ZIP_APPEND, REVERSE_APPEND, ALOOKUP_APPEND]
                         \\ qspecl_then [‘ZIP (vL2, valL1)’, ‘i’] assume_tac ALOOKUP_ALL_DISTINCT_EL
@@ -2458,7 +2572,7 @@ Proof
                         \\ gvs [MAP_ZIP, ALL_DISTINCT_APPEND, EL_ZIP, subst1_def]
                         \\ rpt $ first_x_assum $ qspec_then ‘i’ assume_tac
                         \\ gvs [Abbr ‘argL1’, eval_to_Value, EL_MAP2, EL_APPEND_EQN]
-                        \\ rw [EL_MAP, subst1_def] \\ gvs [EL_MAP, exp_rel_def, eval_to_Value]
+                        \\ rw [EL_MAP, subst1_def] \\ gvs [EL_MAP, combine_rel_def, eval_to_Value]
                         \\ gvs [NOT_LESS] \\ dxrule_then assume_tac LESS_EQUAL_ANTISYM
                         \\ gvs [subst1_def, eval_to_Value])
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
@@ -2467,7 +2581,7 @@ Proof
                     \\ irule LIST_REL_mono
                     \\ qexists_tac ‘λx y. v_rel (SND x) (SND y)’ \\ gvs []
                     \\ gvs [LIST_REL_EL_EQN, EL_ZIP])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ Q.REFINE_EXISTS_TAC ‘j + j1 + j2’ \\ gvs []
             \\ ‘eval_to (j + k) y ≠ INL Diverge’ by gvs []
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
@@ -2475,7 +2589,7 @@ Proof
             \\ ‘eval_to (j1 + k) g ≠ INL Diverge’ by gvs []
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
             \\ pop_assum kall_tac
-            \\ rename1 ‘exp_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac exp_rel_freevars
+            \\ rename1 ‘combine_rel x2 y2’ \\ qspecl_then [‘x2’, ‘y2’] assume_tac combine_rel_freevars
             \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, eval_to_Tick]
             \\ ‘MAP (subst [(h,w1)])
                 (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -2503,7 +2617,7 @@ Proof
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘i’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -2511,14 +2625,14 @@ Proof
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                   ‘Force (Value (EL i2 eL2))’] assume_tac
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘i2’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gvs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -2527,7 +2641,7 @@ Proof
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                       \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                       \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -2551,11 +2665,11 @@ Proof
             \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                            ‘Apps expr2 (MAP Value valL2')’] mp_tac
             \\ gvs [] \\ impl_tac
-            >- (irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+            >- (irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ conj_tac
                     >- (gvs [subst_def, Abbr ‘list’, GSYM ZIP_APPEND, REVERSE_APPEND, ALOOKUP_APPEND]
                         \\ qspecl_then [‘ZIP (vL2, valL1)’, ‘i’] assume_tac ALOOKUP_ALL_DISTINCT_EL
@@ -2563,7 +2677,7 @@ Proof
                         \\ gvs [MAP_ZIP, ALL_DISTINCT_APPEND, EL_ZIP, subst1_def]
                         \\ rpt $ first_x_assum $ qspec_then ‘i’ assume_tac
                         \\ gvs [Abbr ‘argL1’, eval_to_Value, EL_MAP2, EL_APPEND_EQN]
-                        \\ rw [EL_MAP, subst1_def] \\ gvs [EL_MAP, exp_rel_def, eval_to_Value]
+                        \\ rw [EL_MAP, subst1_def] \\ gvs [EL_MAP, combine_rel_def, eval_to_Value]
                         \\ gvs [NOT_LESS] \\ dxrule_then assume_tac LESS_EQUAL_ANTISYM
                         \\ gvs [subst1_def, eval_to_Value])
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
@@ -2572,7 +2686,7 @@ Proof
                     \\ irule LIST_REL_mono
                     \\ qexists_tac ‘λx y. v_rel (SND x) (SND y)’ \\ gvs []
                     \\ gvs [LIST_REL_EL_EQN, EL_ZIP])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ disch_then $ qx_choose_then ‘j3’ assume_tac \\ qexists_tac ‘j3’
             \\ Cases_on ‘eval_to (j3 + k − 2) (Apps expr2 (MAP Value valL2')) = INL Diverge’ \\ gs []
             >- (Cases_on ‘eval_to (k - 2) (Apps expr1 (MAP Value valL2))’ \\ gvs [])
@@ -2587,7 +2701,7 @@ Proof
         \\ gvs []
         \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Apps e1 l1 = Apps e2 l2’ by gvs [] \\ pop_assum $ irule_at Any)
         \\ gvs [ALL_DISTINCT_APPEND]
-        \\ irule_at (Pos last) exp_rel_subst
+        \\ irule_at (Pos last) combine_rel_subst
         \\ gvs [EXISTS_PROD, PULL_EXISTS, subst1_notin_frees]
         \\ first_assum $ irule_at $ Pos hd \\ first_assum $ irule_at $ Pos hd
         \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs [] \\ pop_assum $ irule_at Any)
@@ -2754,7 +2868,7 @@ Proof
                 >- simp [eval_to_def]
                 \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ (Apps expr2 argL2))’
                 \\ qspecl_then [‘argL1’, ‘argL2’, ‘i2’, ‘k - 2’, ‘expr1’, ‘expr2’]
-                               mp_tac eval_to_Apps_arg_Div_exp_rel
+                               mp_tac eval_to_Apps_arg_Div_combine_rel
                 \\ impl_tac \\ gvs []
                 \\ conj_tac
                 >- (Cases_on ‘eval_to (k - 2) (Apps expr1 argL1) = INL Diverge’ \\ gs []
@@ -2782,11 +2896,11 @@ Proof
                 \\ gvs [EL_MAP2, EL_MAP]
                 \\ first_x_assum irule
                 \\ IF_CASES_TAC \\ gvs [EL_APPEND_EQN, EL_MAP, subst1_def]
-                \\ IF_CASES_TAC \\ gvs [exp_rel_def, subst1_def]
+                \\ IF_CASES_TAC \\ gvs [combine_rel_def, subst1_def]
                 \\ Cases_on ‘LENGTH vL2’ \\ gvs []
                 \\ gvs [NOT_LESS, GSYM LESS_EQ_IFF_LESS_SUC, GSYM ADD1]
                 \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
-                \\ gvs [subst1_def, exp_rel_def])
+                \\ gvs [subst1_def, combine_rel_def])
             \\ gvs [FOLDL_APPEND]
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL1)) _’
             \\ qspecl_then [‘argL1’, ‘expr1’, ‘k - 1’] mp_tac eval_to_Apps_no_INL
@@ -2951,14 +3065,14 @@ Proof
                       \\ gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM \\ gvs [subst1_def])
                 \\ gvs [] \\ pop_assum kall_tac
-                \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                 \\ gvs [subst1_notin_frees, freevars_subst]
                 \\ qmatch_goalsub_abbrev_tac ‘_ (INL Diverge) (eval_to _ (Apps expr2 _))’
                 \\ qspecl_then [‘MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
                                   (MAP2 (λb e. if b then Force e else e) bL2 (MAP Value eL1 ++ [Value v1]))’,
                               ‘MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
                                   (MAP2 (λb e. if b then Force e else e) bL2 (MAP Value eL2 ++ [Value w1]))’,
-                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_exp_rel2
+                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_combine_rel2
                 \\ impl_tac \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN]
                 \\ ‘LENGTH valL1 = SUC (LENGTH eL1)’ by gvs []
                 \\ ‘EL i (eL1 ++ [v1]) = EL i valL1’
@@ -3004,7 +3118,7 @@ Proof
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘i’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ rpt $ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -3012,13 +3126,13 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘j’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -3026,18 +3140,18 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
-                    \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN, eval_to_Value, exp_rel_def])
+                    \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN, eval_to_Value, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [LIST_REL_EL_EQN, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def, eval_to_Value]))
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def, eval_to_Value]))
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL2)) _’
             \\ qspecl_then [‘argL2’, ‘expr1’, ‘k - 2’] mp_tac eval_to_Apps_no_INL
             \\ gvs [] \\ impl_tac
@@ -3049,7 +3163,7 @@ Proof
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gs []
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
-                \\ rename1 ‘exp_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘combine_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                 \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, freevars_subst, eval_to_Tick]
                 \\ ‘MAP (subst [(h,w1)])
                     (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -3074,7 +3188,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -3084,7 +3198,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                       ‘Force (Value (EL i2 eL2))’] assume_tac
                           \\ gvs [LIST_REL_EL_EQN]
@@ -3092,7 +3206,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -3102,7 +3216,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                           \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                           \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -3121,11 +3235,11 @@ Proof
                 \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                                ‘Apps expr2 (MAP Value valL2')’] mp_tac
                 \\ gvs [] \\ impl_tac \\ gvs []
-                \\ irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+                \\ irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
                                    assume_tac $ GEN_ALL LIST_REL_FILTER
                     \\ gs [GSYM FST_THM] \\ pop_assum $ irule_at Any \\ gvs [MAP_ZIP]
@@ -3135,12 +3249,12 @@ Proof
                     \\ rpt $ qpat_x_assum ‘eval_to _ _ = _’ kall_tac
                     \\ rpt $ qpat_x_assum ‘∀j. _ ⇒ eval_to _ _ = _’ kall_tac
                     \\ gvs [Abbr ‘list1b’, FILTER_FILTER, LAMBDA_PROD]
-                    \\ qmatch_goalsub_abbrev_tac ‘exp_rel (subst (FILTER _ list1) _)
+                    \\ qmatch_goalsub_abbrev_tac ‘combine_rel (subst (FILTER _ list1) _)
                                                   (subst (FILTER _ list2) _)’
                     \\ ‘∀l (v : string). l ≠ [] ⇒ (¬MEM v (TL l) ∧ v ≠ HD l) = ¬MEM v l’
                       by (Cases \\ gvs [CONJ_COMM])
                     \\ gvs [] \\ pop_assum kall_tac
-                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ qspecl_then [‘list2’, ‘x2’, ‘set vL1a ∪ {h}’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT, EVERY_MEM]
                     \\ pop_assum kall_tac
@@ -3150,7 +3264,7 @@ Proof
                                      set vL2’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT]
                     \\ pop_assum kall_tac
-                    \\ irule exp_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
+                    \\ irule combine_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
                     \\ conj_tac
                     >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                     \\ gvs [MAP_SNOC, LIST_REL_SNOC]
@@ -3172,7 +3286,7 @@ Proof
                     \\ qexists_tac ‘i’
                     \\ gvs [FOLDL_APPEND, GSYM ZIP_APPEND, FILTER_APPEND, MAP_APPEND]
                     \\ gvs [LIST_REL_EL_EQN, EL_MAP, EVERY_MEM])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ Q.REFINE_EXISTS_TAC ‘j + j1 + j2’ \\ gvs []
             \\ ‘eval_to (j + k) y ≠ INL Diverge’ by gvs []
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
@@ -3181,7 +3295,7 @@ Proof
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
             \\ pop_assum kall_tac
             \\ qpat_x_assum ‘eval_to _ f = _’ kall_tac
-            \\ rename1 ‘exp_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+            \\ rename1 ‘combine_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
             \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, eval_to_Tick]
             \\ ‘MAP (subst [(h,w1)])
                 (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -3210,7 +3324,7 @@ Proof
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘i’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -3218,14 +3332,14 @@ Proof
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                   ‘Force (Value (EL i2 eL2))’] assume_tac
                       \\ gvs [LIST_REL_EL_EQN]
                       \\ rpt $ first_x_assum $ qspecl_then [‘i2’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gvs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -3234,7 +3348,7 @@ Proof
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN, eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                       \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                       \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -3258,11 +3372,11 @@ Proof
             \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                            ‘Apps expr2 (MAP Value valL2')’] mp_tac
             \\ gvs [] \\ impl_tac
-            >- (irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+            >- (irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’, subst1_notin_frees, freevars_subst]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
                                    assume_tac $ GEN_ALL LIST_REL_FILTER
                     \\ gs [GSYM FST_THM] \\ pop_assum $ irule_at Any \\ gvs [MAP_ZIP]
@@ -3272,12 +3386,12 @@ Proof
                     \\ rpt $ qpat_x_assum ‘eval_to _ _ = _’ kall_tac
                     \\ rpt $ qpat_x_assum ‘∀j. _ ⇒ eval_to _ _ = _’ kall_tac
                     \\ gvs [Abbr ‘list1b’, FILTER_FILTER, LAMBDA_PROD]
-                    \\ qmatch_goalsub_abbrev_tac ‘exp_rel (subst (FILTER _ list1) _)
+                    \\ qmatch_goalsub_abbrev_tac ‘combine_rel (subst (FILTER _ list1) _)
                                                   (subst (FILTER _ list2) _)’
                     \\ ‘∀l (v : string). l ≠ [] ⇒ (¬MEM v (TL l) ∧ v ≠ HD l) = ¬MEM v l’
                       by (Cases \\ gvs [CONJ_COMM])
                     \\ gvs [] \\ pop_assum kall_tac
-                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ qspecl_then [‘list2’, ‘x2’, ‘set vL1a ∪ {h}’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT, EVERY_MEM]
                     \\ pop_assum kall_tac
@@ -3287,7 +3401,7 @@ Proof
                                      set vL2’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT]
                     \\ pop_assum kall_tac
-                    \\ irule exp_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
+                    \\ irule combine_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
                     \\ conj_tac
                     >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                     \\ gvs [MAP_SNOC, LIST_REL_SNOC]
@@ -3309,7 +3423,7 @@ Proof
                     \\ qexists_tac ‘i’
                     \\ gvs [FOLDL_APPEND, GSYM ZIP_APPEND, FILTER_APPEND, MAP_APPEND]
                     \\ gvs [LIST_REL_EL_EQN, EL_MAP, EVERY_MEM])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ disch_then $ qx_choose_then ‘j3’ assume_tac \\ qexists_tac ‘j3’
             \\ Cases_on ‘eval_to (j3 + k − 2) (Apps expr2 (MAP Value valL2')) = INL Diverge’
             \\ gs []
@@ -3334,7 +3448,7 @@ Proof
                 \\ pop_assum $ irule_at Any)
         \\ gvs []
         \\ gvs [subst1_notin_frees, freevars_subst]
-        \\ qpat_assum ‘exp_rel x1 x2’ $ irule_at Any
+        \\ qpat_assum ‘combine_rel x1 x2’ $ irule_at Any
         \\ qexists_tac ‘vL2’ \\ qexists_tac ‘i’ \\ gvs []
         \\ rename1 ‘MAP FST xs = MAP FST ys’ \\ qexists_tac ‘ys’ \\ gvs []
         \\ qexists_tac ‘eL2 ++ [w1]’ \\ qexists_tac ‘eL1 ++ [v1]’ \\ gvs []
@@ -3419,12 +3533,12 @@ Proof
         >- (irule EQ_TRANS \\ irule_at (Pos hd) subst1_notin_frees
             \\ gvs [GSYM CONJ_ASSOC, freevars_subst]
             \\ first_x_assum $ qspec_then ‘h’ assume_tac \\ gvs []
-            \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars \\ gvs []
+            \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars \\ gvs []
             \\ once_rewrite_tac [CONS_APPEND] \\ gvs [])
         >- (irule EQ_TRANS \\ irule_at (Pos hd) subst1_notin_frees
             \\ gvs [GSYM CONJ_ASSOC, freevars_subst]
             \\ first_x_assum $ qspec_then ‘h’ assume_tac \\ gvs []
-            \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars \\ gvs []
+            \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars \\ gvs []
             \\ once_rewrite_tac [CONS_APPEND] \\ gvs [])
         >- (qpat_x_assum ‘ALL_DISTINCT vL1b’ mp_tac
             \\ qpat_x_assum ‘LENGTH vL1b = LENGTH bL3b’ mp_tac
@@ -3496,7 +3610,7 @@ Proof
                 >- simp [eval_to_def]
                 \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ (Apps expr2 argL2))’
                 \\ qspecl_then [‘argL1’, ‘argL2’, ‘i2’, ‘k - 2’, ‘expr1’, ‘expr2’]
-                               mp_tac eval_to_Apps_arg_Div_exp_rel
+                               mp_tac eval_to_Apps_arg_Div_combine_rel
                 \\ impl_tac \\ gvs []
                 \\ conj_tac
                 >- (Cases_on ‘eval_to (k - 2) (Apps expr1 argL1) = INL Diverge’ \\ gs []
@@ -3524,11 +3638,11 @@ Proof
                 \\ gvs [EL_MAP2, EL_MAP]
                 \\ first_x_assum irule
                 \\ IF_CASES_TAC \\ gvs [EL_APPEND_EQN, EL_MAP, subst1_def]
-                \\ IF_CASES_TAC \\ gvs [exp_rel_def, subst1_def]
+                \\ IF_CASES_TAC \\ gvs [combine_rel_def, subst1_def]
                 \\ Cases_on ‘LENGTH vL2’ \\ gvs []
                 \\ gvs [NOT_LESS, GSYM LESS_EQ_IFF_LESS_SUC, GSYM ADD1]
                 \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
-                \\ gvs [subst1_def, exp_rel_def])
+                \\ gvs [subst1_def, combine_rel_def])
             \\ gvs [FOLDL_APPEND]
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL1)) _’
             \\ qspecl_then [‘argL1’, ‘expr1’, ‘k - 1’] mp_tac eval_to_Apps_no_INL
@@ -3724,7 +3838,7 @@ Proof
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ gvs [subst1_def])
                 \\ gvs [] \\ pop_assum kall_tac
-                \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                 \\ gvs [subst1_notin_frees, freevars_subst]
                 \\ qmatch_goalsub_abbrev_tac ‘_ (INL Diverge) (eval_to _ (Apps expr2 _))’
                 \\ qspecl_then [‘MAP2 (λb e. if b then Force e else e)
@@ -3735,7 +3849,7 @@ Proof
                                  (GENLIST (λn. n = i) (LENGTH valL1))
                                  (MAP2 (λb e. if b then Force e else e)
                                   bL2 (MAP Value eL2 ++ [Value w1]))’,
-                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_exp_rel2
+                                ‘i’, ‘k - 2’, ‘expr2’] mp_tac eval_to_Apps_arg_Div_combine_rel2
                 \\ impl_tac \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN]
                 \\ ‘LENGTH valL1 = SUC (LENGTH eL1)’ by gvs []
                 \\ ‘EL i (eL1 ++ [v1]) = EL i valL1’
@@ -3781,7 +3895,7 @@ Proof
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘i’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ rpt $ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -3789,13 +3903,13 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN]
                     \\ pop_assum $ qspec_then ‘j’ assume_tac
-                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def]
+                    \\ gvs [Abbr ‘argL1’, EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def]
                     \\ last_x_assum $ qspec_then ‘i’ assume_tac \\ gvs [])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
@@ -3803,19 +3917,19 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, Abbr ‘argL1’, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def])
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [EL_MAP2, EL_MAP, EL_APPEND_EQN, LIST_REL_EL_EQN,
-                            eval_to_Value, exp_rel_def])
+                            eval_to_Value, combine_rel_def])
                 >- (last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gvs []
                     \\ pop_assum irule
                     \\ qpat_x_assum ‘LIST_REL _ _ _’ assume_tac
                     \\ gvs [LIST_REL_EL_EQN, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                     \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                     \\ first_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, exp_rel_def, eval_to_Value]))
+                    \\ gvs [EL_APPEND_EQN, EL_MAP2, EL_MAP, combine_rel_def, eval_to_Value]))
             \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) (eval_to _ (Apps expr1 argL2)) _’
             \\ qspecl_then [‘argL2’, ‘expr1’, ‘k - 2’] mp_tac eval_to_Apps_no_INL
             \\ gvs [] \\ impl_tac
@@ -3827,7 +3941,7 @@ Proof
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
                 \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gs []
                 \\ dxrule_then assume_tac eval_to_mono \\ gvs [] \\ pop_assum kall_tac
-                \\ rename1 ‘exp_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                \\ rename1 ‘combine_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                 \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, freevars_subst, eval_to_Tick]
                 \\ ‘MAP (subst [(h,w1)])
                     (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -3854,7 +3968,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -3864,7 +3978,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                       ‘Force (Value (EL i2 eL2))’] assume_tac
                           \\ gvs [LIST_REL_EL_EQN]
@@ -3872,7 +3986,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                           \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -3882,7 +3996,7 @@ Proof
                           \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                                   eval_to_Value, eval_to_Tick]
                           \\ dxrule_then assume_tac eval_to_mono \\ gvs []
-                          \\ first_x_assum irule \\ rw [exp_rel_def])
+                          \\ first_x_assum irule \\ rw [combine_rel_def])
                       >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                           \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                           \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -3903,11 +4017,11 @@ Proof
                 \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                                ‘Apps expr2 (MAP Value valL2')’] mp_tac
                 \\ gvs [] \\ impl_tac \\ gvs []
-                \\ irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+                \\ irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
                                    assume_tac $ GEN_ALL LIST_REL_FILTER
                     \\ gs [GSYM FST_THM] \\ pop_assum $ irule_at Any \\ gvs [MAP_ZIP]
@@ -3928,12 +4042,12 @@ Proof
                     \\ rpt $ qpat_x_assum ‘eval_to _ _ = _’ kall_tac
                     \\ rpt $ qpat_x_assum ‘∀j. _ ⇒ eval_to _ _ = _’ kall_tac
                     \\ gvs [Abbr ‘list1b’, FILTER_FILTER, LAMBDA_PROD]
-                    \\ qmatch_goalsub_abbrev_tac ‘exp_rel (subst (FILTER _ list1) _)
+                    \\ qmatch_goalsub_abbrev_tac ‘combine_rel (subst (FILTER _ list1) _)
                                                   (subst (FILTER _ list2) _)’
                     \\ ‘∀l (v : string). l ≠ [] ⇒ (¬MEM v (TL l) ∧ v ≠ HD l) = ¬MEM v l’
                       by (Cases \\ gvs [CONJ_COMM])
                     \\ gvs [] \\ pop_assum kall_tac
-                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ qspecl_then [‘list2’, ‘x2’, ‘set vL1a ∪ {h}’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT, EVERY_MEM]
                     \\ pop_assum kall_tac
@@ -3943,7 +4057,7 @@ Proof
                                      set vL2’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT]
                     \\ pop_assum kall_tac
-                    \\ irule exp_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
+                    \\ irule combine_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
                     \\ conj_tac
                     >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                     \\ gvs [MAP_SNOC, LIST_REL_SNOC]
@@ -3969,7 +4083,7 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, EL_MAP, EVERY_MEM]
                     \\ gvs [EL_APPEND_EQN, EL_MAP] \\ rw []
                     \\ gvs [NOT_LESS] \\ dxrule_then assume_tac LESS_EQUAL_ANTISYM \\ gvs [])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ Q.REFINE_EXISTS_TAC ‘j + j1 + j2’ \\ gvs []
             \\ ‘eval_to (j + k) y ≠ INL Diverge’ by gvs []
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
@@ -3978,7 +4092,7 @@ Proof
             \\ dxrule_then assume_tac eval_to_mono \\ gvs []
             \\ pop_assum kall_tac
             \\ qpat_x_assum ‘eval_to _ f = _’ kall_tac
-            \\ rename1 ‘exp_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+            \\ rename1 ‘combine_rel x1 x2’ \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
             \\ gvs [subst_Apps, subst1_notin_frees, subst1_def, eval_to_Tick]
             \\ ‘MAP (subst [(h,w1)])
                 (MAP2 (λb e. if b then Force e else e) (GENLIST (λn. n = i) (LENGTH valL1))
@@ -4013,7 +4127,7 @@ Proof
                       \\ rpt $ first_x_assum $ qspecl_then [‘i’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                               eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Force (Value v1)’,
@@ -4022,7 +4136,7 @@ Proof
                       \\ rpt $ first_x_assum $ qspecl_then [‘LENGTH eL1’] assume_tac
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                               eval_to_Value]
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value (EL i2 eL1))’,
                                                   ‘Force (Value (EL i2 eL2))’] assume_tac
                       \\ gvs [LIST_REL_EL_EQN]
@@ -4030,7 +4144,7 @@ Proof
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                               eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gvs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [GSYM ADD1, GSYM LESS_EQ_IFF_LESS_SUC, NOT_LESS]
                       \\ dxrule_then (dxrule_then assume_tac) LESS_EQUAL_ANTISYM
                       \\ last_x_assum $ qspecl_then [‘k - 1’, ‘Force (Value v1)’,
@@ -4040,7 +4154,7 @@ Proof
                       \\ gvs [Abbr ‘argL1’, Abbr ‘argL2’, EL_MAP2, EL_MAP, EL_APPEND_EQN,
                               eval_to_Value]
                       \\ Q.REFINE_EXISTS_TAC ‘j + 1’ \\ gs []
-                      \\ first_x_assum irule \\ rw [exp_rel_def])
+                      \\ first_x_assum irule \\ rw [combine_rel_def])
                   >- (gvs [eval_to_Value, LIST_REL_EL_EQN, Abbr ‘argL1’, Abbr ‘argL2’]
                       \\ rpt $ last_x_assum $ qspec_then ‘i2’ assume_tac
                       \\ gvs [EL_MAP2, EL_APPEND_EQN, EL_MAP, eval_to_Value])
@@ -4065,11 +4179,11 @@ Proof
             \\ last_x_assum $ qspecl_then [‘k - 2’, ‘Apps expr1 (MAP Value valL2)’,
                                            ‘Apps expr2 (MAP Value valL2')’] mp_tac
             \\ gvs [] \\ impl_tac
-            >- (irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, exp_rel_def]
+            >- (irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP, combine_rel_def]
                 \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’, subst1_notin_frees, freevars_subst]
-                \\ irule exp_rel_Apps
+                \\ irule combine_rel_Apps
                 \\ conj_tac
-                >- (irule exp_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, exp_rel_def]
+                >- (irule combine_rel_Apps \\ gvs [EVERY2_MAP, subst1_def, combine_rel_def]
                     \\ qspecl_then [‘λx y. v_rel (SND x) (SND y)’, ‘λx.x’]
                                    assume_tac $ GEN_ALL LIST_REL_FILTER
                     \\ gs [GSYM FST_THM] \\ pop_assum $ irule_at Any \\ gvs [MAP_ZIP]
@@ -4087,12 +4201,12 @@ Proof
                     \\ rpt $ qpat_x_assum ‘eval_to _ _ = _’ kall_tac
                     \\ rpt $ qpat_x_assum ‘∀j. _ ⇒ eval_to _ _ = _’ kall_tac
                     \\ gvs [Abbr ‘list1b’, FILTER_FILTER, LAMBDA_PROD]
-                    \\ qmatch_goalsub_abbrev_tac ‘exp_rel (subst (FILTER _ list1) _)
+                    \\ qmatch_goalsub_abbrev_tac ‘combine_rel (subst (FILTER _ list1) _)
                                                   (subst (FILTER _ list2) _)’
                     \\ ‘∀l (v : string). l ≠ [] ⇒ (¬MEM v (TL l) ∧ v ≠ HD l) = ¬MEM v l’
                       by (Cases \\ gvs [CONJ_COMM])
                     \\ gvs [] \\ pop_assum kall_tac
-                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ qspecl_then [‘list2’, ‘x2’, ‘set vL1a ∪ {h}’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT, EVERY_MEM]
                     \\ pop_assum kall_tac
@@ -4102,7 +4216,7 @@ Proof
                                      set vL2’] assume_tac subst_remove
                     \\ gvs [DISJOINT_ALT]
                     \\ pop_assum kall_tac
-                    \\ irule exp_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
+                    \\ irule combine_rel_subst \\ gvs [Abbr ‘list1’, Abbr ‘list2’]
                     \\ conj_tac
                     >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                     \\ gvs [MAP_SNOC, LIST_REL_SNOC]
@@ -4128,7 +4242,7 @@ Proof
                     \\ gvs [LIST_REL_EL_EQN, EL_MAP, EVERY_MEM]
                     \\ gvs [EL_APPEND_EQN, EL_MAP] \\ rw [] \\ gvs [NOT_LESS]
                     \\ dxrule_then assume_tac LESS_EQUAL_ANTISYM \\ gvs [Abbr ‘argL1’])
-                \\ IF_CASES_TAC \\ gvs [subst1_def, exp_rel_def])
+                \\ IF_CASES_TAC \\ gvs [subst1_def, combine_rel_def])
             \\ disch_then $ qx_choose_then ‘j3’ assume_tac \\ qexists_tac ‘j3’
             \\ Cases_on ‘eval_to (j3 + k − 2) (Apps expr2 (MAP Value valL2')) = INL Diverge’
             \\ gs []
@@ -4153,7 +4267,7 @@ Proof
                 \\ pop_assum $ irule_at Any)
         \\ gvs []
         \\ gvs [subst1_notin_frees, freevars_subst]
-        \\ qpat_assum ‘exp_rel x1 x2’ $ irule_at Any
+        \\ qpat_assum ‘combine_rel x1 x2’ $ irule_at Any
         \\ qexists_tac ‘vL2’ \\ qexists_tac ‘i’ \\ gvs []
         \\ rename1 ‘MAP FST xs = MAP FST ys’ \\ qexists_tac ‘ys’ \\ gvs []
         \\ qexists_tac ‘eL2 ++ [w1]’ \\ qexists_tac ‘eL1 ++ [v1]’ \\ gvs []
@@ -4238,12 +4352,12 @@ Proof
         >- (irule EQ_TRANS \\ irule_at (Pos hd) subst1_notin_frees
             \\ gvs [GSYM CONJ_ASSOC, freevars_subst]
             \\ first_x_assum $ qspec_then ‘h’ assume_tac \\ gvs []
-            \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars \\ gvs []
+            \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars \\ gvs []
             \\ once_rewrite_tac [CONS_APPEND] \\ gvs [])
         >- (irule EQ_TRANS \\ irule_at (Pos hd) subst1_notin_frees
             \\ gvs [GSYM CONJ_ASSOC, freevars_subst]
             \\ first_x_assum $ qspec_then ‘h’ assume_tac \\ gvs []
-            \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars \\ gvs []
+            \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars \\ gvs []
             \\ once_rewrite_tac [CONS_APPEND] \\ gvs [])
         >- (gvs [EL_APPEND_EQN, EL_MAP]
             \\ IF_CASES_TAC
@@ -4276,11 +4390,11 @@ Proof
     (* default recclosure *)
     >- (print_tac "Recclosure 1/3"
         \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL
               \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
         \\ gvs [OPTREL_def]
-        \\ rename1 ‘exp_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [exp_rel_def]
+        \\ rename1 ‘combine_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [combine_rel_def]
         \\ IF_CASES_TAC \\ gvs []
         >- (qexists_tac ‘0’ \\ gvs []
             \\ Cases_on ‘eval_to 0 y = INL Diverge’ \\ gs []
@@ -4289,12 +4403,12 @@ Proof
             \\ dxrule_then (qspecl_then [‘j1’] assume_tac) eval_to_mono
             \\ gvs [])
         \\ rename1 ‘subst (_ ++ [(s2, v1)]) _’
-        \\ rename1 ‘exp_rel body body2’
+        \\ rename1 ‘combine_rel body body2’
         \\ last_x_assum $ qspecl_then [‘k - 1’, ‘subst (MAP (λ(g,x). (g, Recclosure xs g)) xs
                                                         ++ [(s2, v1)]) body’,
                      ‘subst (MAP (λ(g,x).(g, Recclosure ys g)) ys ++ [(s2, w1)]) body2’] mp_tac
         \\ gs [] \\ impl_tac
-        >- (gs [] \\ irule exp_rel_subst \\ gvs []
+        >- (gs [] \\ irule combine_rel_subst \\ gvs []
             \\ gvs [LIST_REL_EL_EQN, EL_MAP, MAP_MAP_o, combinTheory.o_DEF,
                     LAMBDA_PROD, GSYM FST_THM]
             \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
@@ -4334,10 +4448,10 @@ Proof
     (* Recclosure with inlining 1 *)
     >- (print_tac "Recclosure 2/3"
         \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL
               \\ qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac
-              \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
+              \\ qpat_x_assum ‘LIST_REL combine_rel _ _’ mp_tac
               \\ rpt $ pop_assum kall_tac
               \\ rw []
               \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
@@ -4356,7 +4470,7 @@ Proof
             \\ IF_CASES_TAC \\ gvs [Lams_split]
             \\ strip_tac \\ strip_tac
             \\ gvs [OPTREL_def]
-            \\ rename1 ‘exp_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [exp_rel_def])
+            \\ rename1 ‘combine_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [combine_rel_def])
         \\ qpat_x_assum ‘_ = INR (_, _, _)’ mp_tac
         \\ Cases_on ‘vL2 = []’ \\ gvs []
         \\ rw [REVERSE_APPEND] \\ gvs [Lams_split]
@@ -4374,13 +4488,13 @@ Proof
                                                    ‘App (subst_funs list2 x2)
                                                     (Force (Value w1))’] mp_tac
                     \\ gvs [] \\ impl_tac
-                    >- (gvs [Abbr ‘expr1’, Abbr ‘list2’, exp_rel_def, subst_funs_def,
+                    >- (gvs [Abbr ‘expr1’, Abbr ‘list2’, combine_rel_def, subst_funs_def,
                              SNOC_APPEND, subst_APPEND]
-                        \\ irule exp_rel_subst \\ rw []
+                        \\ irule combine_rel_subst \\ rw []
                         >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                         >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                            \\ irule exp_rel_subst \\ gvs []
-                            \\ irule_at Any exp_rel_subst \\ gvs [exp_rel_subst]
+                            \\ irule combine_rel_subst \\ gvs []
+                            \\ irule_at Any combine_rel_subst \\ gvs [combine_rel_subst]
                             \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
                             \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
                             \\ Cases_on ‘vL1’ \\ gvs []
@@ -4405,7 +4519,7 @@ Proof
                         \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gvs []
                         \\ dxrule_then assume_tac eval_to_mono
                         \\ gvs [REVERSE_SNOC, subst_def, Abbr ‘list2’]
-                        \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                        \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                         \\ gvs [subst_funs_def, subst1_notin_frees]
                         \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ expr2)’
                         \\ gvs []
@@ -4414,7 +4528,7 @@ Proof
                     \\ qpat_x_assum ‘∀i. eval_to _ g = _’ $ qspec_then ‘j + j2’ assume_tac
                     \\ qpat_x_assum ‘∀i. eval_to _ y = _’ $ qspec_then ‘j1+ j2’ assume_tac
                     \\ qexists_tac ‘j + j1 + j2’ \\ gvs [REVERSE_SNOC, subst_def, Abbr ‘list2’]
-                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ gvs [subst_funs_def, subst1_notin_frees]
                     \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ expr2)’ \\ gvs []
                     \\ ‘eval_to (j2 + k - 1) expr2 ≠ INL Diverge’
@@ -4424,18 +4538,18 @@ Proof
                 \\ qpat_x_assum ‘∀i. eval_to _ y = _’ $ qspec_then ‘j1’ assume_tac
                 \\ qexists_tac ‘j + j1’
                 \\ gvs [Lams_split, eval_to_def, REVERSE_SNOC, subst_def, subst_Lams]
-                \\ irule v_rel_Closure \\ irule exp_rel_Lams \\ gvs []
+                \\ irule v_rel_Closure \\ irule combine_rel_Lams \\ gvs []
                 \\ gvs [FILTER_FILTER, LAMBDA_PROD]
                 \\ ‘∀p. (¬MEM p (TL vL2) ∧ p ≠ (HD vL2)) = ¬MEM p vL2’
                   by (Cases_on ‘vL2’ \\ gvs []
                       \\ gen_tac \\ metis_tac [CONJ_COMM])
                 \\ gvs [SNOC_APPEND, subst_APPEND]
-                \\ irule exp_rel_subst \\ rw []
+                \\ irule combine_rel_subst \\ rw []
                 >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, MAP_FST_FILTER]
-                >- (irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP2, EL_MAP]
+                >- (irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP2, EL_MAP]
                     \\ rw [] \\ rename1 ‘n < SUC (LENGTH _)’
-                    \\ gvs [exp_rel_def]
-                    \\ Cases_on ‘n’ \\ gvs [EL_MAP, exp_rel_def])
+                    \\ gvs [combine_rel_def]
+                    \\ Cases_on ‘n’ \\ gvs [EL_MAP, combine_rel_def])
                 >- (qabbrev_tac ‘P = λv. ¬MEM v vL2’ \\ gvs [EVERY2_MAP]
                     \\ irule LIST_REL_FILTER \\ gvs []
                     \\ conj_tac >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
@@ -4474,8 +4588,8 @@ Proof
             \\ qexists_tac ‘j + j1’ \\ gvs [REVERSE_SNOC, subst_def]
             \\ gvs [eval_to_def, subst_Lams]
             \\ irule v_rel_Closure
-            \\ irule exp_rel_Lams
-            \\ irule exp_rel_subst \\ rw []
+            \\ irule combine_rel_Lams
+            \\ irule combine_rel_subst \\ rw []
             >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, MAP_FST_FILTER]
                 \\ gvs [FILTER_FILTER, LAMBDA_PROD]
                 \\ AP_THM_TAC \\ AP_TERM_TAC
@@ -4483,9 +4597,9 @@ Proof
                 \\ Cases_on ‘t’ \\ gvs [GSYM CONJ_ASSOC]
                 >- (Cases_on ‘vL2’ \\ gvs [] \\ metis_tac [CONJ_COMM])
                 \\ metis_tac [CONJ_COMM])
-            >- (irule exp_rel_Apps \\ gvs [exp_rel_def]
+            >- (irule combine_rel_Apps \\ gvs [combine_rel_def]
                 \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2, EL_APPEND_EQN]
-                \\ rw [exp_rel_def])
+                \\ rw [combine_rel_def])
             >- (gvs [FILTER_FILTER, LAMBDA_PROD, EVERY2_MAP]
                 \\ rename1 ‘TL (t ++ vL2)’
                 \\ ‘∀p. ¬MEM p (TL (t ++ vL2)) ∧ p ≠ HD (t ++ vL2) ⇔ ¬MEM p t ∧ ¬MEM p vL2’
@@ -4513,21 +4627,21 @@ Proof
                     \\ rename1 ‘n < _’
                     \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
                     \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-                    \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                    \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘i’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘bL2’
                     \\ gvs [Lams_split, LIST_REL_EL_EQN, EL_MAP]
                     \\ rw [] \\ last_x_assum $ drule_then assume_tac
                     \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [])
                 >- (gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-                    \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                    \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘i’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘bL2’
                     \\ gvs [Lams_split, LIST_REL_EL_EQN, EL_MAP]
                     \\ rw [] \\ last_x_assum $ drule_then assume_tac
                     \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [])
                 >- (gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-                    \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                    \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘i’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘bL2’
                     \\ gvs [Lams_split, LIST_REL_EL_EQN, EL_MAP]
@@ -4582,7 +4696,7 @@ Proof
                               mp_tac
                 \\ ‘k - 2 < k’ by gvs []
                 \\ disch_then $ dxrule_then $ dxrule_then mp_tac
-                \\ impl_tac >- gvs [exp_rel_def]
+                \\ impl_tac >- gvs [combine_rel_def]
                 \\ disch_then $ qx_choose_then ‘j2’ assume_tac
                 \\ Cases_on ‘eval_to (k - 2) (Force (Value v1)) = INL Diverge’ \\ gvs []
                 >- (qexists_tac ‘0’
@@ -4637,7 +4751,7 @@ Proof
                               \\ Q.REFINE_EXISTS_TAC ‘{_}’ \\ gvs []
                               \\ irule_at Any EQ_REFL \\ gvs [freevars_subst])
                         \\ gvs [subst_APPEND])
-                    \\ gvs [exp_rel_def]
+                    \\ gvs [combine_rel_def]
                     \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’]
                     \\ ‘∀l h2. subst1 h2 v1 (subst (FILTER (λ(n,x). n ≠ h2) l) x1)
                                = subst l (subst1 h2 v1 x1)’
@@ -4649,13 +4763,13 @@ Proof
                           \\ irule_at Any EQ_REFL \\ gvs [freevars_subst])
                     \\ gvs [subst_APPEND]
                     \\ gvs [Abbr ‘list2’, SNOC_APPEND, subst_APPEND]
-                    \\ irule exp_rel_subst \\ rw []
+                    \\ irule combine_rel_subst \\ rw []
                     >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                     >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                        \\ irule exp_rel_subst \\ irule_at Any exp_rel_subst
-                        \\ last_x_assum $ qspec_then ‘0’ assume_tac \\ gvs [exp_rel_subst]
+                        \\ irule combine_rel_subst \\ irule_at Any combine_rel_subst
+                        \\ last_x_assum $ qspec_then ‘0’ assume_tac \\ gvs [combine_rel_subst]
                         \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-                        \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                        \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
                         \\ qpat_assum ‘_ ∉ freevars x1’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
@@ -4666,7 +4780,7 @@ Proof
                         \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
                         \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
                         \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-                        \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                        \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
                         \\ qpat_assum ‘_ ∉ freevars x1’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ simp []
@@ -4716,7 +4830,7 @@ Proof
             \\ gvs [subst_Lams, Lams_split, eval_to_def]
             \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj1_tac
             \\ irule_at (Pos hd) EQ_REFL \\ gvs []
-            \\ qpat_assum ‘exp_rel x1 x2’ $ irule_at Any
+            \\ qpat_assum ‘combine_rel x1 x2’ $ irule_at Any
             \\ qexists_tac ‘vL2’ \\ qexists_tac ‘[h]’ \\ gvs []
             \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs []
                     \\ pop_assum $ irule_at Any)
@@ -4734,7 +4848,7 @@ Proof
                 \\ ‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Apps e1 l1 = Apps e2 l2’ by gvs []
                 \\ pop_assum $ irule_at Any
                 \\ conj_tac
-                >- (qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                >- (qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ gvs [subst_APPEND, FILTER_APPEND, subst1_notin_frees]
                     \\ irule EQ_TRANS
                     \\ irule_at (Pos hd) $ GSYM subst_remove
@@ -4860,23 +4974,23 @@ Proof
             >- (rw [] \\ gvs [])
             >- (rename1 ‘b3 ⇒ b2’ \\ Cases_on ‘b3’ \\ gvs []))
         \\ gvs [OPTREL_def]
-        \\ rename1 ‘exp_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [exp_rel_def]
+        \\ rename1 ‘combine_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [combine_rel_def]
         \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
         \\ pop_assum $ dxrule_then assume_tac
         \\ qpat_x_assum ‘∀i. eval_to _ g = _’ mp_tac
         \\ qmatch_goalsub_abbrev_tac ‘eval_to _ g = INR (Recclosure list _)’ \\ strip_tac
-        \\ rename1 ‘exp_rel body body'’
+        \\ rename1 ‘combine_rel body body'’
         \\ rename1 ‘ALOOKUP _ _ = SOME (Lam s2 body)’
         \\ first_x_assum $ qspec_then ‘subst (MAP (λ(g,x). (g, Recclosure list g)) list
                                               ++ [(s2, w1)]) body'’ mp_tac
         \\ impl_tac
         >- (gvs [Abbr ‘list’, subst_APPEND, SNOC_APPEND, MAP_APPEND]
-            \\ irule exp_rel_subst
+            \\ irule combine_rel_subst
             \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
             \\ conj_tac
             >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                \\ irule exp_rel_subst \\ rw []
-                >- (irule exp_rel_subst \\ gvs [exp_rel_subst]
+                \\ irule combine_rel_subst \\ rw []
+                >- (irule combine_rel_subst \\ gvs [combine_rel_subst]
                     \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
                     \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’
@@ -4918,10 +5032,10 @@ Proof
     (* Recclosure with inlining 2 *)
     >- (print_tac "Recclosure 3/3"
         \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-        \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+        \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
           by (irule LIST_REL_OPTREL
               \\ qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac
-              \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
+              \\ qpat_x_assum ‘LIST_REL combine_rel _ _’ mp_tac
               \\ rpt $ pop_assum kall_tac
               \\ rw []
               \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
@@ -4940,7 +5054,7 @@ Proof
             \\ IF_CASES_TAC \\ gvs [Lams_split]
             \\ strip_tac \\ strip_tac
             \\ gvs [OPTREL_def]
-            \\ rename1 ‘exp_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [exp_rel_def])
+            \\ rename1 ‘combine_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [combine_rel_def])
         \\ qpat_x_assum ‘_ = INR (_, _, _)’ mp_tac
         \\ Cases_on ‘vL2 = []’ \\ gvs []
         \\ rw [REVERSE_APPEND] \\ gvs [Lams_split]
@@ -4959,14 +5073,14 @@ Proof
                                                          (Value w1))
                                                     (Force (Value w1))’] mp_tac
                     \\ gvs [] \\ impl_tac
-                    >- (gvs [Abbr ‘expr1’, Abbr ‘list2’, exp_rel_def, subst_funs_def,
+                    >- (gvs [Abbr ‘expr1’, Abbr ‘list2’, combine_rel_def, subst_funs_def,
                              SNOC_APPEND, subst_APPEND]
-                        \\ gvs [exp_rel_def]
-                        \\ irule exp_rel_subst \\ rw []
+                        \\ gvs [combine_rel_def]
+                        \\ irule combine_rel_subst \\ rw []
                         >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                         >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                            \\ irule exp_rel_subst \\ gvs []
-                            \\ irule_at Any exp_rel_subst \\ gvs [exp_rel_subst]
+                            \\ irule combine_rel_subst \\ gvs []
+                            \\ irule_at Any combine_rel_subst \\ gvs [combine_rel_subst]
                             \\ rename1 ‘Lam (HD vL1) _’
                             \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
                             \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
@@ -4992,7 +5106,7 @@ Proof
                         \\ Cases_on ‘eval_to k g = INL Diverge’ \\ gvs []
                         \\ dxrule_then assume_tac eval_to_mono
                         \\ gvs [REVERSE_SNOC, subst_def, Abbr ‘list2’]
-                        \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                        \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                         \\ gvs [subst_funs_def, subst1_notin_frees]
                         \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ expr2)’
                         \\ gvs []
@@ -5001,7 +5115,7 @@ Proof
                     \\ qpat_x_assum ‘∀i. eval_to _ g = _’ $ qspec_then ‘j + j2’ assume_tac
                     \\ qpat_x_assum ‘∀i. eval_to _ y = _’ $ qspec_then ‘j1+ j2’ assume_tac
                     \\ qexists_tac ‘j + j1 + j2’ \\ gvs [REVERSE_SNOC, subst_def, Abbr ‘list2’]
-                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                    \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ gvs [subst_funs_def, subst1_notin_frees]
                     \\ qmatch_goalsub_abbrev_tac ‘($= +++ v_rel) _ (eval_to _ expr2)’ \\ gvs []
                     \\ ‘eval_to (j2 + k - 1) expr2 ≠ INL Diverge’
@@ -5011,18 +5125,18 @@ Proof
                 \\ qpat_x_assum ‘∀i. eval_to _ y = _’ $ qspec_then ‘j1’ assume_tac
                 \\ qexists_tac ‘j + j1’
                 \\ gvs [Lams_split, eval_to_def, REVERSE_SNOC, subst_def, subst_Lams]
-                \\ irule v_rel_Closure \\ irule exp_rel_Lams \\ gvs []
+                \\ irule v_rel_Closure \\ irule combine_rel_Lams \\ gvs []
                 \\ gvs [FILTER_FILTER, LAMBDA_PROD]
                 \\ ‘∀p. (¬MEM p (TL vL2) ∧ p ≠ (HD vL2)) = ¬MEM p vL2’
                   by (Cases_on ‘vL2’ \\ gvs []
                       \\ gen_tac \\ metis_tac [CONJ_COMM])
                 \\ gvs [SNOC_APPEND, subst_APPEND]
-                \\ irule exp_rel_subst \\ rw []
+                \\ irule combine_rel_subst \\ rw []
                 >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, MAP_FST_FILTER]
-                >- (irule exp_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP2, EL_MAP]
+                >- (irule combine_rel_Apps \\ gvs [LIST_REL_EL_EQN, EL_MAP2, EL_MAP]
                     \\ rw [] \\ rename1 ‘n < SUC (LENGTH _)’
-                    \\ gvs [exp_rel_def]
-                    \\ Cases_on ‘n’ \\ gvs [EL_MAP, exp_rel_def])
+                    \\ gvs [combine_rel_def]
+                    \\ Cases_on ‘n’ \\ gvs [EL_MAP, combine_rel_def])
                 >- (qabbrev_tac ‘P = λv. ¬MEM v vL2’ \\ gvs [EVERY2_MAP]
                     \\ irule LIST_REL_FILTER \\ gvs []
                     \\ conj_tac >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
@@ -5061,8 +5175,8 @@ Proof
             \\ qexists_tac ‘j + j1’ \\ gvs [REVERSE_SNOC, subst_def]
             \\ gvs [eval_to_def, subst_Lams]
             \\ irule v_rel_Closure
-            \\ irule exp_rel_Lams
-            \\ irule exp_rel_subst \\ rw []
+            \\ irule combine_rel_Lams
+            \\ irule combine_rel_subst \\ rw []
             >- (gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, MAP_FST_FILTER]
                 \\ gvs [FILTER_FILTER, LAMBDA_PROD]
                 \\ AP_THM_TAC \\ AP_TERM_TAC
@@ -5070,9 +5184,9 @@ Proof
                 \\ Cases_on ‘t’ \\ gvs [GSYM CONJ_ASSOC]
                 >- (Cases_on ‘vL2’ \\ gvs [] \\ metis_tac [CONJ_COMM])
                 \\ metis_tac [CONJ_COMM])
-            >- (irule exp_rel_Apps \\ gvs [exp_rel_def]
+            >- (irule combine_rel_Apps \\ gvs [combine_rel_def]
                 \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_MAP2, EL_APPEND_EQN]
-                \\ rw [exp_rel_def])
+                \\ rw [combine_rel_def])
             >- (gvs [FILTER_FILTER, LAMBDA_PROD, EVERY2_MAP]
                 \\ rename1 ‘TL (t ++ vL2)’
                 \\ ‘∀p. ¬MEM p (TL (t ++ vL2)) ∧ p ≠ HD (t ++ vL2) ⇔ ¬MEM p t ∧ ¬MEM p vL2’
@@ -5100,21 +5214,21 @@ Proof
                     \\ rename1 ‘n < _’
                     \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
                     \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-                    \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                    \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘i’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘bL2’
                     \\ gvs [Lams_split, LIST_REL_EL_EQN, EL_MAP]
                     \\ rw [] \\ last_x_assum $ drule_then assume_tac
                     \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [])
                 >- (gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-                    \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                    \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘i’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘bL2’
                     \\ gvs [Lams_split, LIST_REL_EL_EQN, EL_MAP]
                     \\ rw [] \\ last_x_assum $ drule_then assume_tac
                     \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs [])
                 >- (gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-                    \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                    \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘i’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘bL2’
                     \\ gvs [Lams_split, LIST_REL_EL_EQN, EL_MAP]
@@ -5169,7 +5283,7 @@ Proof
                               mp_tac
                 \\ ‘k - 2 < k’ by gvs []
                 \\ disch_then $ dxrule_then $ dxrule_then mp_tac
-                \\ impl_tac >- gvs [exp_rel_def]
+                \\ impl_tac >- gvs [combine_rel_def]
                 \\ disch_then $ qx_choose_then ‘j2’ assume_tac
                 \\ Cases_on ‘eval_to (k - 2) (Force (Value v1)) = INL Diverge’ \\ gvs []
                 >- (qexists_tac ‘0’
@@ -5226,8 +5340,8 @@ Proof
                               \\ Q.REFINE_EXISTS_TAC ‘{_}’ \\ gvs []
                               \\ irule_at Any EQ_REFL \\ gvs [freevars_subst])
                         \\ gvs [subst_APPEND])
-                    \\ gvs [exp_rel_def]
-                    \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’] \\ gvs [exp_rel_def]
+                    \\ gvs [combine_rel_def]
+                    \\ gvs [Abbr ‘expr1’, Abbr ‘expr2’] \\ gvs [combine_rel_def]
                     \\ ‘∀l h2. subst1 h2 v1 (subst (FILTER (λ(n,x). n ≠ h2) l) x1)
                                = subst l (subst1 h2 v1 x1)’
                       by (gen_tac \\ gen_tac \\ irule EQ_TRANS
@@ -5238,13 +5352,13 @@ Proof
                           \\ irule_at Any EQ_REFL \\ gvs [freevars_subst])
                     \\ gvs [subst_APPEND]
                     \\ gvs [Abbr ‘list2’, SNOC_APPEND, subst_APPEND]
-                    \\ irule exp_rel_subst \\ rw []
+                    \\ irule combine_rel_subst \\ rw []
                     >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
                     >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                        \\ irule exp_rel_subst \\ irule_at Any exp_rel_subst
-                        \\ last_x_assum $ qspec_then ‘0’ assume_tac \\ gvs [exp_rel_subst]
+                        \\ irule combine_rel_subst \\ irule_at Any combine_rel_subst
+                        \\ last_x_assum $ qspec_then ‘0’ assume_tac \\ gvs [combine_rel_subst]
                         \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-                        \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                        \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
                         \\ qpat_assum ‘_ ∉ freevars x1’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
@@ -5255,7 +5369,7 @@ Proof
                         \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
                         \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
                         \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-                        \\ qpat_x_assum ‘exp_rel x1 x2’ $ irule_at Any
+                        \\ qpat_x_assum ‘combine_rel x1 x2’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
                         \\ qpat_assum ‘_ ∉ freevars x1’ $ irule_at Any
                         \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
@@ -5306,7 +5420,7 @@ Proof
             \\ gvs [subst_Lams, Lams_split, eval_to_def]
             \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac
             \\ irule_at (Pos hd) EQ_REFL \\ gvs []
-            \\ qpat_assum ‘exp_rel x1 x2’ $ irule_at Any
+            \\ qpat_assum ‘combine_rel x1 x2’ $ irule_at Any
             \\ qexists_tac ‘vL2’ \\ qexists_tac ‘[h]’ \\ gvs []
             \\ rpt (‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs []
                     \\ pop_assum $ irule_at Any)
@@ -5324,7 +5438,7 @@ Proof
                 \\ ‘∀l1 l2 e1 e2. l1 = l2 ∧ e1 = e2 ⇒ Apps e1 l1 = Apps e2 l2’ by gvs []
                 \\ pop_assum $ irule_at Any
                 \\ conj_tac
-                >- (qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+                >- (qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
                     \\ gvs [subst_APPEND, FILTER_APPEND, subst1_notin_frees, subst_App]
                     \\ conj_tac
                     >- (‘EL i (Var h::MAP Var vL1) = Var (EL i (h::vL1))’
@@ -5462,23 +5576,23 @@ Proof
             >- (rw [] \\ gvs [])
             >- (rename1 ‘b3 ⇒ b2’ \\ Cases_on ‘b3’ \\ gvs []))
         \\ gvs [OPTREL_def]
-        \\ rename1 ‘exp_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [exp_rel_def]
+        \\ rename1 ‘combine_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [combine_rel_def]
         \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
         \\ pop_assum $ dxrule_then assume_tac
         \\ qpat_x_assum ‘∀i. eval_to _ g = _’ mp_tac
         \\ qmatch_goalsub_abbrev_tac ‘eval_to _ g = INR (Recclosure list _)’ \\ strip_tac
-        \\ rename1 ‘exp_rel body body'’
+        \\ rename1 ‘combine_rel body body'’
         \\ rename1 ‘ALOOKUP _ _ = SOME (Lam s2 body)’
         \\ first_x_assum $ qspec_then ‘subst (MAP (λ(g,x). (g, Recclosure list g)) list
                                               ++ [(s2, w1)]) body'’ mp_tac
         \\ impl_tac
         >- (gvs [Abbr ‘list’, subst_APPEND, SNOC_APPEND, MAP_APPEND]
-            \\ irule exp_rel_subst
+            \\ irule combine_rel_subst
             \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
             \\ conj_tac
             >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                \\ irule exp_rel_subst \\ rw []
-                >- (irule exp_rel_subst \\ gvs [exp_rel_subst]
+                \\ irule combine_rel_subst \\ rw []
+                >- (irule combine_rel_subst \\ gvs [combine_rel_subst]
                     \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
                     \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
                     \\ qexists_tac ‘vL2’ \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’
@@ -5520,7 +5634,7 @@ Proof
   >~ [‘Let opt x1 y1’] >- (
     print_tac "Finished App"
     \\ Cases_on ‘opt’ >~[‘Seq x1 y1’]
-    >- (gvs [exp_rel_def, eval_to_def]
+    >- (gvs [combine_rel_def, eval_to_def]
         \\ IF_CASES_TAC \\ gs [] >- (qexists_tac ‘0’ \\ gs [])
         \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
         \\ last_x_assum kall_tac
@@ -5546,7 +5660,7 @@ Proof
         \\ ‘eval_to (j1 + k - 1) y2 ≠ INL Diverge’
           by (strip_tac \\ Cases_on ‘eval_to (k - 1) y1’ \\ gvs [])
         \\ dxrule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono \\ gvs [])
-    \\ gvs [Once exp_rel_def, eval_to_def]
+    \\ gvs [Once combine_rel_def, eval_to_def]
     >~[‘Apps (App _ _) _’]
     >- (IF_CASES_TAC \\ gs []
         >- (qexists_tac ‘0’ \\ gs [])
@@ -5555,15 +5669,15 @@ Proof
         \\ IF_CASES_TAC \\ gs [] >- (qexists_tac ‘0’ \\ gvs [])
         \\ last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gs []
         \\ last_x_assum irule \\ gvs []
-        \\ irule exp_rel_subst \\ gvs []
-        \\ irule_at Any exp_rel_subst \\ gvs []
+        \\ irule combine_rel_subst \\ gvs []
+        \\ irule_at Any combine_rel_subst \\ gvs []
         \\ conj_tac
-        >- (irule v_rel_Closure \\ irule exp_rel_Lams
-            \\ irule exp_rel_Apps \\ gvs [exp_rel_def]
+        >- (irule v_rel_Closure \\ irule combine_rel_Lams
+            \\ irule combine_rel_Apps \\ gvs [combine_rel_def]
             \\ rpt $ pop_assum kall_tac
             \\ rw [LIST_REL_EL_EQN, EL_MAP2, EL_MAP, EL_APPEND_EQN]
-            \\ IF_CASES_TAC \\ gvs [exp_rel_def]
-            \\ IF_CASES_TAC \\ gvs [exp_rel_def])
+            \\ IF_CASES_TAC \\ gvs [combine_rel_def]
+            \\ IF_CASES_TAC \\ gvs [combine_rel_def])
         \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj1_tac
         \\ irule_at (Pos hd) EQ_REFL
         \\ rpt (‘∀l1 l2 e1 e2. l1=l2 ∧ e1=e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs []
@@ -5600,8 +5714,8 @@ Proof
             >- (IF_CASES_TAC \\ gvs [EL_MEM]))
         >- gvs [EL_MEM]
         >- gvs [EL_MAP]
-        >- (rename1 ‘exp_rel x1 (subst1 _ _ x2)’
-            \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+        >- (rename1 ‘combine_rel x1 (subst1 _ _ x2)’
+            \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
             \\ gvs [subst1_notin_frees]))
     >~[‘Lams _ _’]
     >- (IF_CASES_TAC \\ gs []
@@ -5611,15 +5725,15 @@ Proof
         \\ IF_CASES_TAC \\ gs [] >- (qexists_tac ‘0’ \\ gvs [])
         \\ last_x_assum $ qspec_then ‘k - 2’ assume_tac \\ gs []
         \\ last_x_assum irule \\ gvs []
-        \\ irule exp_rel_subst \\ gvs []
-        \\ irule_at Any exp_rel_subst \\ gvs []
+        \\ irule combine_rel_subst \\ gvs []
+        \\ irule_at Any combine_rel_subst \\ gvs []
         \\ conj_tac
-        >- (irule v_rel_Closure \\ irule exp_rel_Lams
-            \\ irule exp_rel_Apps \\ gvs []
+        >- (irule v_rel_Closure \\ irule combine_rel_Lams
+            \\ irule combine_rel_Apps \\ gvs []
             \\ rpt $ pop_assum kall_tac
             \\ rw [LIST_REL_EL_EQN, EL_MAP2, EL_MAP, EL_APPEND_EQN]
-            \\ IF_CASES_TAC \\ gvs [exp_rel_def]
-            \\ IF_CASES_TAC \\ gvs [exp_rel_def])
+            \\ IF_CASES_TAC \\ gvs [combine_rel_def]
+            \\ IF_CASES_TAC \\ gvs [combine_rel_def])
         \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
         \\ irule_at (Pos hd) EQ_REFL
         \\ rpt (‘∀l1 l2 e1 e2. l1=l2 ∧ e1=e2 ⇒ Lams l1 e1 = Lams l2 e2’ by gvs []
@@ -5654,8 +5768,8 @@ Proof
             >- (IF_CASES_TAC \\ gvs [EL_MEM])
             >- (IF_CASES_TAC \\ gvs [EL_MEM])
             >- (IF_CASES_TAC \\ gvs [EL_MEM]))
-        >- (rename1 ‘exp_rel x1 (subst1 _ _ x2)’
-            \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars
+        >- (rename1 ‘combine_rel x1 (subst1 _ _ x2)’
+            \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars
             \\ gvs [subst1_notin_frees]))
     \\ IF_CASES_TAC \\ gs []
     >- (
@@ -5670,8 +5784,8 @@ Proof
       \\ qexists_tac ‘j’ \\ simp [])
     \\ Cases_on ‘eval_to (j + k - 1) x2’ \\ gs []
     \\ rename1 ‘v_rel v1 w1’ \\ rename1 ‘subst1 m _ _’
-    \\ ‘exp_rel (subst1 m v1 y1) (subst1 m w1 y2)’
-      by (irule exp_rel_subst \\ gs [])
+    \\ ‘combine_rel (subst1 m v1 y1) (subst1 m w1 y2)’
+      by (irule combine_rel_subst \\ gs [])
     \\ last_x_assum (drule_then $ drule_then $ qx_choose_then ‘j1’ assume_tac)
     \\ Cases_on ‘eval_to (k - 1) (subst1 m v1 y1) = INL Diverge’ \\ gs []
     >- (
@@ -5693,7 +5807,7 @@ Proof
     \\ qexists_tac ‘j + j1’ \\ gs [])
   >~ [‘If x1 y1 z1’] >- (
     print_tac "If syntax"
-    \\ gvs [Once exp_rel_def, eval_to_def]
+    \\ gvs [Once combine_rel_def, eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     >- (
       qexists_tac ‘0’
@@ -5744,18 +5858,18 @@ Proof
         \\ qexists_tac ‘j2 + j’ \\ gs []))
   >~ [‘Letrec f x’] >- (
     print_tac "Letrec"
-    \\ gvs [Once exp_rel_def, eval_to_def]
+    \\ gvs [Once combine_rel_def, eval_to_def]
     >~[‘Apps (App _ (Var (EL _ _))) _’]
     >- (IF_CASES_TAC \\ gs []
         >- (qexists_tac ‘0’ \\ gs [])
         \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
         \\ pop_assum irule \\ gvs []
-        \\ gvs [subst_funs_def, SNOC_APPEND, MAP_APPEND, subst_APPEND] \\ irule exp_rel_subst
+        \\ gvs [subst_funs_def, SNOC_APPEND, MAP_APPEND, subst_APPEND] \\ irule combine_rel_subst
         \\ rw []
         >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
         >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-            \\ irule exp_rel_subst \\ gvs []
-            \\ irule_at Any exp_rel_subst \\ gvs [exp_rel_subst]
+            \\ irule combine_rel_subst \\ gvs []
+            \\ irule_at Any combine_rel_subst \\ gvs [combine_rel_subst]
             \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
             \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’ \\ qexists_tac ‘vL2’
             \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘i’ \\ gvs [Lams_split]
@@ -5774,12 +5888,12 @@ Proof
         >- (qexists_tac ‘0’ \\ gs [])
         \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
         \\ pop_assum irule \\ gvs []
-        \\ gvs [subst_funs_def, SNOC_APPEND, MAP_APPEND, subst_APPEND] \\ irule exp_rel_subst
+        \\ gvs [subst_funs_def, SNOC_APPEND, MAP_APPEND, subst_APPEND] \\ irule combine_rel_subst
         \\ rw []
         >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
         >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-            \\ irule exp_rel_subst \\ gvs []
-            \\ irule_at Any exp_rel_subst \\ gvs [exp_rel_subst]
+            \\ irule combine_rel_subst \\ gvs []
+            \\ irule_at Any combine_rel_subst \\ gvs [combine_rel_subst]
             \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
             \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’ \\ qexists_tac ‘vL2’
             \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’ \\ qexists_tac ‘i’ \\ gvs [Lams_split]
@@ -5795,12 +5909,12 @@ Proof
             \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, LIST_REL_EL_EQN, EL_MAP]))
     \\ IF_CASES_TAC \\ gs []
     >- (qexists_tac ‘0’ \\ gs [])
-    \\ rename1 ‘exp_rel x y’
+    \\ rename1 ‘combine_rel x y’
     \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ last_x_assum kall_tac
     \\ gvs []
     \\ pop_assum irule
     \\ gvs [subst_funs_def]
-    \\ irule exp_rel_subst
+    \\ irule combine_rel_subst
     \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, LIST_REL_EL_EQN, EL_MAP]
     \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
     \\ rename1 ‘n < LENGTH g’
@@ -5809,7 +5923,7 @@ Proof
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >~ [‘Force x’] >- (
     print_tac "Force"
-    \\ qpat_x_assum ‘_ ≠ INL Type_error’ mp_tac \\ rgs [Once exp_rel_def]
+    \\ qpat_x_assum ‘_ ≠ INL Type_error’ mp_tac \\ rgs [Once combine_rel_def]
     \\ once_rewrite_tac [eval_to_def] \\ simp []
     \\ pop_assum kall_tac
     \\ IF_CASES_TAC \\ gs []
@@ -5818,7 +5932,7 @@ Proof
     \\ Cases_on ‘eval_to k x = INL Type_error’ \\ gs []
     \\ first_x_assum $ qspec_then ‘x’ assume_tac \\ gs []
     \\ first_x_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
-    \\ rename1 ‘exp_rel x y’ \\ gvs []
+    \\ rename1 ‘combine_rel x y’ \\ gvs []
     \\ Cases_on ‘eval_to k x’ \\ gs []
     >~ [‘INL err’] >-(
       qexists_tac ‘j’
@@ -5832,54 +5946,54 @@ Proof
         qexists_tac ‘j’ \\ gs []
         \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [dest_anyThunk_def, v_rel_def]
         \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-        >- (‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+        >- (‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
               by (irule LIST_REL_OPTREL
                   \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
             \\ gvs [OPTREL_def]
-            \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-            \\ rw [Once exp_rel_cases] \\ gs []
+            \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+            \\ rw [Once combine_rel_cases] \\ gs []
             \\ Cases_on ‘x0’ \\ gvs [])
         >- (gvs [REVERSE_APPEND]
             \\ Cases_on ‘vL2 = []’ \\ gvs []
             \\ IF_CASES_TAC \\ gvs [Lams_split]
             \\ IF_CASES_TAC \\ gvs [Lams_split]
-            \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+            \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
               by (irule LIST_REL_OPTREL
                   \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
                   \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
                   \\ gvs [EL_MAP])
             \\ gvs [OPTREL_def]
-            \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-            \\ rw [Once exp_rel_cases] \\ gs []
+            \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+            \\ rw [Once combine_rel_cases] \\ gs []
             \\ Cases_on ‘x0’ \\ gvs [])
         >- (gvs [REVERSE_APPEND]
             \\ Cases_on ‘vL2 = []’ \\ gvs []
             \\ IF_CASES_TAC \\ gvs [Lams_split]
             \\ IF_CASES_TAC \\ gvs [Lams_split]
-            \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+            \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
               by (irule LIST_REL_OPTREL
                   \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
                   \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
                   \\ gvs [EL_MAP])
             \\ gvs [OPTREL_def]
-            \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-            \\ rw [Once exp_rel_cases] \\ gs []
+            \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+            \\ rw [Once combine_rel_cases] \\ gs []
             \\ Cases_on ‘x0’ \\ gvs []))
       \\ pairarg_tac \\ gvs []
       \\ Cases_on ‘∃xs n. v1 = Recclosure xs n’ \\ gvs [v_rel_def]
       >- (gvs [dest_anyThunk_def, v_rel_def]
           \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-          \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
           \\ gvs [OPTREL_def]
-          \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-          \\ rw [Once exp_rel_cases] \\ gvs []
+          \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+          \\ rw [Once combine_rel_cases] \\ gvs []
           \\ rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-          \\ rename1 ‘subst_funs xs x2’ \\ rename1 ‘exp_rel x2 y2’
+          \\ rename1 ‘subst_funs xs x2’ \\ rename1 ‘combine_rel x2 y2’
           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘subst_funs xs x2’, ‘subst_funs ys y2’] mp_tac
           \\ gs [] \\ impl_tac
-          >- (gvs [subst_funs_def] \\ irule exp_rel_subst
+          >- (gvs [subst_funs_def] \\ irule combine_rel_subst
               \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
                       LIST_REL_EL_EQN, EL_MAP]
               \\ rw [] \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
@@ -5907,29 +6021,29 @@ Proof
           \\ IF_CASES_TAC \\ gvs []
           \\ strip_tac
           \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-          \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
               by (irule LIST_REL_OPTREL
                   \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
                   \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
                   \\ gvs [EL_MAP])
           \\ gvs [OPTREL_def]
-          \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-          \\ rw [Once exp_rel_cases] \\ gvs []
+          \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+          \\ rw [Once combine_rel_cases] \\ gvs []
           \\ rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
           \\ qpat_x_assum ‘eval_to _ y = _’ mp_tac
           \\ qmatch_goalsub_abbrev_tac ‘Recclosure list2 _’ \\ strip_tac
           \\ qmatch_goalsub_abbrev_tac ‘subst_funs list1 _’
-          \\ rename1 ‘subst_funs _ x3’ \\ rename1 ‘exp_rel x3 y3’
+          \\ rename1 ‘subst_funs _ x3’ \\ rename1 ‘combine_rel x3 y3’
           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘subst_funs list1 x3’, ‘subst_funs list2 y3’]
                           mp_tac
           \\ gs [] \\ impl_tac
           >- (gvs [subst_funs_def, Abbr ‘list1’, Abbr ‘list2’, SNOC_APPEND, subst_APPEND]
-              \\ irule exp_rel_subst
+              \\ irule combine_rel_subst
               \\ rw []
               >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
               >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                  \\ irule exp_rel_subst \\ gvs []
-                  \\ irule_at Any exp_rel_subst \\ gvs [exp_rel_subst]
+                  \\ irule combine_rel_subst \\ gvs []
+                  \\ irule_at Any combine_rel_subst \\ gvs [combine_rel_subst]
                   \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
                   \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
                   \\ qexists_tac ‘vL2’
@@ -5970,29 +6084,29 @@ Proof
           \\ IF_CASES_TAC \\ gvs []
           \\ strip_tac
           \\ rename [‘LIST_REL _ (MAP SND xs) (MAP SND ys)’, ‘ALOOKUP _ s’]
-          \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+          \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
               by (irule LIST_REL_OPTREL
                   \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
                   \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
                   \\ gvs [EL_MAP])
           \\ gvs [OPTREL_def]
-          \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-          \\ rw [Once exp_rel_cases] \\ gvs []
+          \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+          \\ rw [Once combine_rel_cases] \\ gvs []
           \\ rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
           \\ qpat_x_assum ‘eval_to _ y = _’ mp_tac
           \\ qmatch_goalsub_abbrev_tac ‘Recclosure list2 _’ \\ strip_tac
           \\ qmatch_goalsub_abbrev_tac ‘subst_funs list1 _’
-          \\ rename1 ‘subst_funs _ x3’ \\ rename1 ‘exp_rel x3 y3’
+          \\ rename1 ‘subst_funs _ x3’ \\ rename1 ‘combine_rel x3 y3’
           \\ last_x_assum $ qspecl_then [‘k - 1’, ‘subst_funs list1 x3’, ‘subst_funs list2 y3’]
                           mp_tac
           \\ gs [] \\ impl_tac
           >- (gvs [subst_funs_def, Abbr ‘list1’, Abbr ‘list2’, SNOC_APPEND, subst_APPEND]
-              \\ irule exp_rel_subst
+              \\ irule combine_rel_subst
               \\ rw []
               >- gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
               >- (once_rewrite_tac [CONS_APPEND] \\ gvs [subst_APPEND]
-                  \\ irule exp_rel_subst \\ gvs []
-                  \\ irule_at Any exp_rel_subst \\ gvs [exp_rel_subst]
+                  \\ irule combine_rel_subst \\ gvs []
+                  \\ irule_at Any combine_rel_subst \\ gvs [combine_rel_subst]
                   \\ conj_tac \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
                   \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
                   \\ qexists_tac ‘vL2’
@@ -6027,11 +6141,11 @@ Proof
           \\ dxrule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono
           \\ gvs [Abbr ‘list2’, REVERSE_SNOC])
       \\ ‘∃wx' binds'. dest_anyThunk w1 = INR (wx', binds') ∧
-                       (v_rel +++ exp_rel) wx wx' ∧
+                       (v_rel +++ combine_rel) wx wx' ∧
                        MAP FST binds = MAP FST binds' ∧
                        EVERY ok_bind (MAP SND binds) ∧
                        EVERY ok_bind (MAP SND binds') ∧
-                       LIST_REL exp_rel (MAP SND binds) (MAP SND binds')’
+                       LIST_REL combine_rel (MAP SND binds) (MAP SND binds')’
         by (Cases_on ‘v1’ \\ Cases_on ‘w1’
             \\ gvs [v_rel_def]
             \\ gvs [dest_anyThunk_def, v_rel_def])
@@ -6041,10 +6155,10 @@ Proof
         \\ CASE_TAC \\ gs []
         \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [dest_anyThunk_def])
       \\ Cases_on ‘wx'’ \\ gs []
-      \\ rename1 ‘exp_rel x1 x2’
-      \\ ‘exp_rel (subst_funs binds x1) (subst_funs binds' x2)’
+      \\ rename1 ‘combine_rel x1 x2’
+      \\ ‘combine_rel (subst_funs binds x1) (subst_funs binds' x2)’
         by (simp [subst_funs_def]
-            \\ irule exp_rel_subst
+            \\ irule combine_rel_subst
             \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, EVERY2_MAP]
             \\ gvs [LIST_REL_EL_EQN] \\ rw []
             \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
@@ -6080,8 +6194,8 @@ Proof
     \\ rename1 ‘dest_Tick v1 = SOME v2’
     \\ ‘∃w2. dest_Tick w1 = SOME w2 ∧ v_rel v2 w2’
       by (Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def])
-    \\ ‘exp_rel (Force (Value v2)) (Force (Value w2))’
-      by simp [exp_rel_Force, exp_rel_Value]
+    \\ ‘combine_rel (Force (Value v2)) (Force (Value w2))’
+      by simp [combine_rel_Force, combine_rel_Value]
     \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gs []
     \\ first_x_assum (drule_all_then (qx_choose_then ‘j1’ assume_tac))
     \\ Cases_on ‘eval_to (k - 1) (Force (Value v2)) = INL Diverge’ \\ gs []
@@ -6101,8 +6215,8 @@ Proof
       by (irule eval_to_mono \\ gs [])
     \\ qexists_tac ‘j1 + j’ \\ gs [])
   >~ [‘MkTick x’] >- (
-    gvs [Once exp_rel_def, eval_to_def]
-    \\ rename1 ‘exp_rel x y’
+    gvs [Once combine_rel_def, eval_to_def]
+    \\ rename1 ‘combine_rel x y’
     \\ first_x_assum $ qspec_then ‘x’ assume_tac
     \\ Cases_on ‘eval_to k x = INL Type_error’ \\ gs []
     \\ first_x_assum $ dxrule_then $ qx_choose_then ‘j’ assume_tac
@@ -6111,7 +6225,7 @@ Proof
     \\ simp [v_rel_def])
   >~ [‘Prim op xs’] >- (
     print_tac "Prim"
-    \\ gvs [Once exp_rel_def, eval_to_def]
+    \\ gvs [Once combine_rel_def, eval_to_def]
     \\ gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
     \\ Cases_on ‘op’ \\ gs []
     >- ((* Cons *)
@@ -6213,7 +6327,7 @@ Proof
       \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ rename1 ‘exp_rel x y’
+      \\ rename1 ‘combine_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
         qexists_tac ‘0’
@@ -6230,7 +6344,7 @@ Proof
       \\ rw [v_rel_def])
     >- ((* Proj *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ rename1 ‘exp_rel x y’
+      \\ rename1 ‘combine_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
         qexists_tac ‘0’
@@ -6408,8 +6522,8 @@ Proof
       \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gs [v_rel_def]))
 QED
 
-Theorem exp_rel_eval:
-  exp_rel x y ∧ eval x ≠ INL Type_error ⇒
+Theorem combine_rel_eval:
+  combine_rel x y ∧ eval x ≠ INL Type_error ⇒
     ($= +++ v_rel) (eval x) (eval y)
 Proof
   strip_tac
@@ -6428,7 +6542,7 @@ Proof
                 by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
               \\ gvs [])
           \\ first_x_assum $ irule_at Any)
-    \\ drule_all_then (qx_choose_then ‘m’ assume_tac) exp_rel_eval_to
+    \\ drule_all_then (qx_choose_then ‘m’ assume_tac) combine_rel_eval_to
     \\ ‘eval_to ( MAX k j) x = eval_to k x’
       by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
     \\ ‘eval_to (m + MAX k j) y = eval_to j y’
@@ -6437,7 +6551,7 @@ Proof
   >- (
     rename1 ‘_ _ (eval_to j y)’
     \\ ‘eval_to j x ≠ INL Type_error’ by gvs []
-    \\ drule_all_then (qx_choose_then ‘m’ assume_tac) exp_rel_eval_to \\ gs []
+    \\ drule_all_then (qx_choose_then ‘m’ assume_tac) combine_rel_eval_to \\ gs []
     \\ drule_then (qspec_then ‘m + j’ assume_tac) eval_to_mono \\ gs [])
   \\ rename1 ‘_ _ (eval_to k x)’
   \\ ‘eval_to k x ≠ INL Type_error’
@@ -6450,7 +6564,7 @@ Proof
               by (irule eval_to_mono \\ gs [arithmeticTheory.MAX_DEF])
             \\ gvs [])
         \\ first_x_assum $ irule_at Any)
-  \\ drule_all_then (qx_choose_then ‘m’ assume_tac) exp_rel_eval_to
+  \\ drule_all_then (qx_choose_then ‘m’ assume_tac) combine_rel_eval_to
   \\ Cases_on ‘eval_to (k + m) x’ \\ gvs []
 QED
 
@@ -6461,10 +6575,10 @@ Proof
   DEEP_INTRO_TAC some_intro >> rw []
 QED
 
-Theorem delay_lam_apply_force[local] =
+Theorem combine_rel_apply_force[local] =
   apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘exp_rel’,‘allow_error’|->‘F’]
-  |> SIMP_RULE std_ss [exp_rel_eval, exp_rel_Force, exp_rel_Value];
+  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘combine_rel’,‘allow_error’|->‘F’]
+  |> SIMP_RULE std_ss [combine_rel_eval, combine_rel_Force, combine_rel_Value];
 
 Theorem eval_App_Values:
   eval (App (Value (Closure s e)) (Value v)) = eval (subst1 s v e)
@@ -6520,11 +6634,11 @@ Theorem v_rel_eval_subst:
   ($= +++ v_rel) (eval (subst1 s v e)) (eval (subst1 s w f))
 Proof
   gvs [GSYM eval_App_Values]
-  \\ rw [] \\ irule exp_rel_eval
-  \\ gvs [exp_rel_def]
+  \\ rw [] \\ irule combine_rel_eval
+  \\ gvs [combine_rel_def]
 QED
 
-Theorem delay_lam_apply_closure[local]:
+Theorem combine_rel_apply_closure[local]:
   v_rel v1 w1 ∧
   v_rel v2 w2 ∧
   apply_closure v1 v2 f ≠ Err ∧
@@ -6532,15 +6646,14 @@ Theorem delay_lam_apply_closure[local]:
   (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒ next_rel v_rel (f x) (g y)) ⇒
     next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
 Proof
-  cheat (*
   rw [apply_closure_def]
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule \\ fs []
-    \\ irule exp_rel_eval
+    \\ irule combine_rel_eval
     \\ conj_tac
     >- (strip_tac \\ gvs [])
-    \\ irule exp_rel_subst \\ gs [])
+    \\ irule combine_rel_subst \\ gs [])
   >- (first_x_assum irule \\ fs []
       \\ irule v_rel_eval_subst \\ fs []
       \\ conj_tac >- (strip_tac \\ gvs [])
@@ -6610,18 +6723,18 @@ Proof
       \\ rpt $ irule_at Any EQ_REFL \\ gvs []
       \\ rpt $ irule_at Any EQ_REFL \\ gvs [])
   >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
       \\ gs [OPTREL_def]
-      \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-      \\ rw [Once exp_rel_cases] \\ gs []
+      \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+      \\ rw [Once combine_rel_cases] \\ gs []
       \\ drule_then assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
       \\ gvs [EVERY_EL, EL_MAP]
       \\ first_x_assum irule \\ fs []
-      \\ irule exp_rel_eval
+      \\ irule combine_rel_eval
       \\ conj_tac >- (strip_tac \\ gvs [])
-      \\ irule exp_rel_subst
+      \\ irule combine_rel_subst
       \\ simp [EVERY2_MAP, LAMBDA_PROD, v_rel_def, MAP_MAP_o, combinTheory.o_DEF,
                GSYM FST_THM]
       \\ gvs [LIST_REL_EL_EQN] \\ rw []
@@ -6639,15 +6752,15 @@ Proof
           >- (qmatch_goalsub_abbrev_tac ‘_ (eval (subst (MAP fun list1 ++
                                                          list2 ++ list3) expr)) ≠ _’
               \\ gvs [])
-          \\ irule exp_rel_eval
+          \\ irule combine_rel_eval
           \\ conj_tac
           >- (strip_tac \\ gvs [])
-          \\ irule exp_rel_subst
+          \\ irule combine_rel_subst
           \\ rpt $ conj_tac
           >- gvs [MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-          >- (irule exp_rel_Lams \\ irule exp_rel_Apps
-              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, exp_rel_def]
-              \\ rw [exp_rel_def])
+          >- (irule combine_rel_Lams \\ irule combine_rel_Apps
+              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, combine_rel_def]
+              \\ rw [combine_rel_def])
           \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2] \\ rw []
           >- (pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
               \\ rename1 ‘MAP FST xs = MAP FST ys’
@@ -6679,15 +6792,15 @@ Proof
           >- (qmatch_goalsub_abbrev_tac ‘_ (eval (subst (MAP fun list1 ++
                                                          list2 ++ list3) expr)) ≠ _’
               \\ gvs [])
-          \\ irule exp_rel_eval
+          \\ irule combine_rel_eval
           \\ conj_tac
           >- (strip_tac \\ gvs [])
-          \\ irule exp_rel_subst
+          \\ irule combine_rel_subst
           \\ rpt $ conj_tac
           >- gvs [MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-          >- (irule exp_rel_Lams \\ irule exp_rel_Apps
-              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, exp_rel_def]
-              \\ rw [exp_rel_def])
+          >- (irule combine_rel_Lams \\ irule combine_rel_Apps
+              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, combine_rel_def]
+              \\ rw [combine_rel_def])
           \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2] \\ rw []
           >- (pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
               \\ rename1 ‘MAP FST xs = MAP FST ys’
@@ -6718,32 +6831,29 @@ Proof
           \\ Cases_on ‘vL1’ \\ gvs []
           \\ rename1 ‘Lam hd1 (Lams vL1 (Apps (Var _) _))’
           \\ Cases_on ‘vL1 = []’ \\ gvs []
-          >- (Cases_on ‘bL2’ \\ gvs [] \\ Cases_on ‘vL2’ \\ gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
-              \\ last_x_assum $ qspec_then ‘0’ assume_tac
-              \\ Cases_on ‘i’ \\ gvs []
-              \\ drule_then assume_tac exp_rel_freevars
+          >- (Cases_on ‘bL2’ \\ gvs [] \\ Cases_on ‘vL2’
+              \\ gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
+              \\ drule_then assume_tac combine_rel_freevars
               \\ gvs [subst_def, REVERSE_APPEND, subst_APPEND, subst1_notin_frees, eval_Tick, eval_App_Values_Rec]
-              \\ irule exp_rel_eval
+              \\ irule combine_rel_eval
               \\ conj_tac >- (strip_tac \\ gvs [])
-              \\ gvs [exp_rel_def]
-              \\ irule exp_rel_subst \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+              \\ gvs [combine_rel_def]
+              \\ irule combine_rel_subst \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
               \\ conj_tac
-              >- (irule exp_rel_subst \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-                  \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
+              >- (irule combine_rel_subst \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
+                  \\ qpat_x_assum ‘combine_rel _ _ ’ $ irule_at Any
                   \\ rename1 ‘Lam h (App (Var v1) (Var h))’
-                  \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-                  \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs []
-                  \\ Cases \\ gvs [])
+                  \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ simp []
+                  \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ simp [])
               \\ rename1 ‘MAP FST xs = MAP FST ys’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
               \\ rw [] \\ rename1 ‘n < _’
               \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
               \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gvs []
               \\ gvs [v_rel_def] \\ disj2_tac \\ disj1_tac
-              \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
+              \\ qpat_x_assum ‘combine_rel _ _ ’ $ irule_at Any
               \\ rename1 ‘Lam h (App (Var v1) (Var h))’
-              \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-              \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
-              \\ Cases \\ gvs [])
+              \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ simp []
+              \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ simp [LIST_REL_EL_EQN, EL_MAP])
           \\ gvs [eval_Lams, subst_Lams]
           \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj1_tac
           \\ rename1 ‘MAP FST xs = MAP FST ys’
@@ -6861,7 +6971,7 @@ Proof
               \\ gvs [GSYM LAMBDA_PROD, FILTER_T, SNOC_APPEND, Lams_split]
               \\ irule EQ_TRANS \\ irule_at (Pos hd) $ GSYM subst_remove
               \\ Q.REFINE_EXISTS_TAC ‘{_}’ \\ gvs [FILTER_FILTER, LAMBDA_PROD, FILTER_APPEND]
-              \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars \\ gvs []
+              \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars \\ gvs []
               \\ first_x_assum $ irule_at Any \\ gvs []
               \\ AP_THM_TAC \\ AP_TERM_TAC \\ rw [] \\ gvs [])
           >- rw []
@@ -6870,18 +6980,18 @@ Proof
           >- (qpat_x_assum ‘EVERY _ (MAP SND _)’ mp_tac
               \\ IF_CASES_TAC \\ gvs []))
       \\ rename1 ‘MAP FST xs = MAP FST ys’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
             \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
             \\ gvs [EL_MAP])
       \\ gs [OPTREL_def]
-      \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-      \\ rw [Once exp_rel_cases] \\ gs []
+      \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+      \\ rw [Once combine_rel_cases] \\ gs []
       \\ first_x_assum irule \\ fs []
-      \\ irule exp_rel_eval
+      \\ irule combine_rel_eval
       \\ conj_tac >- (strip_tac \\ gvs [])
-      \\ irule exp_rel_subst \\ gvs []
+      \\ irule combine_rel_subst \\ gvs []
       \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
               LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP]
       \\ rw []
@@ -6914,15 +7024,15 @@ Proof
           >- (qmatch_goalsub_abbrev_tac ‘_ (eval (subst (MAP fun list1 ++
                                                          list2 ++ list3) expr)) ≠ _’
               \\ gvs [])
-          \\ irule exp_rel_eval
+          \\ irule combine_rel_eval
           \\ conj_tac
           >- (strip_tac \\ gvs [])
-          \\ irule exp_rel_subst
+          \\ irule combine_rel_subst
           \\ rpt $ conj_tac
           >- gvs [MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-          >- (irule exp_rel_Lams \\ irule exp_rel_Apps
-              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, exp_rel_def]
-              \\ rw [exp_rel_def])
+          >- (irule combine_rel_Lams \\ irule combine_rel_Apps
+              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, combine_rel_def]
+              \\ rw [combine_rel_def])
           \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2] \\ rw []
           >- (pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
               \\ rename1 ‘MAP FST xs = MAP FST ys’
@@ -6954,15 +7064,15 @@ Proof
           >- (qmatch_goalsub_abbrev_tac ‘_ (eval (subst (MAP fun list1 ++
                                                          list2 ++ list3) expr)) ≠ _’
               \\ gvs [])
-          \\ irule exp_rel_eval
+          \\ irule combine_rel_eval
           \\ conj_tac
           >- (strip_tac \\ gvs [])
-          \\ irule exp_rel_subst
+          \\ irule combine_rel_subst
           \\ rpt $ conj_tac
           >- gvs [MAP_APPEND, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
-          >- (irule exp_rel_Lams \\ irule exp_rel_Apps
-              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, exp_rel_def]
-              \\ rw [exp_rel_def])
+          >- (irule combine_rel_Lams \\ irule combine_rel_Apps
+              \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2, combine_rel_def]
+              \\ rw [combine_rel_def])
           \\ gvs [LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP, EL_MAP2] \\ rw []
           >- (pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
               \\ rename1 ‘MAP FST xs = MAP FST ys’
@@ -6994,30 +7104,28 @@ Proof
           \\ rename1 ‘Lam hd1 (Lams vL1 (Apps (Var _) _))’
           \\ Cases_on ‘vL1 = []’ \\ gvs []
           >- (Cases_on ‘bL2’ \\ gvs [] \\ Cases_on ‘vL2’ \\ gvs [subst_def, GSYM LAMBDA_PROD, FILTER_T]
-              \\ last_x_assum $ qspec_then ‘0’ assume_tac
-              \\ Cases_on ‘i’ \\ gvs []
-              \\ drule_then assume_tac exp_rel_freevars
+              \\ drule_then assume_tac combine_rel_freevars
               \\ gvs [subst_def, REVERSE_APPEND, subst_APPEND, subst1_notin_frees, eval_Tick, eval_App_Values_Rec]
-              \\ irule exp_rel_eval
+              \\ irule combine_rel_eval
               \\ conj_tac >- (strip_tac \\ gvs [])
-              \\ gvs [exp_rel_def]
-              \\ irule exp_rel_subst \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+              \\ gvs [combine_rel_def]
+              \\ irule combine_rel_subst \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
               \\ conj_tac
-              >- (irule exp_rel_subst \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-                  \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
+              >- (irule combine_rel_subst \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
+                  \\ qpat_x_assum ‘combine_rel _ _ ’ $ irule_at Any
                   \\ rename1 ‘Lam h (App (Var v1) (Var h))’
                   \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-                  \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs []
+                   \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs []
                   \\ Cases \\ gvs [])
               \\ rename1 ‘MAP FST xs = MAP FST ys’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
               \\ rw [] \\ rename1 ‘n < _’
               \\ ‘EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs [] \\ gvs [EL_MAP]
               \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gvs []
               \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac
-              \\ qpat_x_assum ‘exp_rel _ _ ’ $ irule_at Any
+              \\ qpat_x_assum ‘combine_rel _ _ ’ $ irule_at Any
               \\ rename1 ‘Lam h (App (Var v1) (Var h))’
               \\ qexists_tac ‘[h]’ \\ Q.REFINE_EXISTS_TAC ‘[_]’ \\ gvs []
-              \\ qexists_tac ‘0’ \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
+              \\ qexists_tac ‘[F]’ \\ qexists_tac ‘[F]’ \\ gvs [LIST_REL_EL_EQN, EL_MAP]
               \\ Cases \\ gvs [])
           \\ gvs [eval_Lams, subst_Lams]
           \\ gvs [v_rel_def] \\ disj2_tac \\ disj2_tac \\ disj2_tac \\ disj2_tac
@@ -7137,7 +7245,7 @@ Proof
               >- (gvs [GSYM LAMBDA_PROD, FILTER_T, SNOC_APPEND, Lams_split]
                   \\ irule EQ_TRANS \\ irule_at (Pos hd) $ GSYM subst_remove
                   \\ Q.REFINE_EXISTS_TAC ‘{_}’ \\ gvs [FILTER_FILTER, LAMBDA_PROD, FILTER_APPEND]
-                  \\ qspecl_then [‘x1’, ‘x2’] assume_tac exp_rel_freevars \\ gvs []
+                  \\ qspecl_then [‘x1’, ‘x2’] assume_tac combine_rel_freevars \\ gvs []
                   \\ first_x_assum $ irule_at Any \\ gvs []
                   \\ AP_THM_TAC \\ AP_TERM_TAC \\ rw [] \\ gvs [EL_MAP]
                   \\ Cases_on ‘i’ \\ gvs [EL_MAP])
@@ -7154,18 +7262,18 @@ Proof
           >- (qpat_x_assum ‘EVERY _ (MAP SND _)’ mp_tac
               \\ IF_CASES_TAC \\ gvs []))
       \\ rename1 ‘MAP FST xs = MAP FST ys’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+      \\ ‘OPTREL combine_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP]
             \\ ‘∀n. n < LENGTH ys ⇒ EL n (MAP FST xs) = EL n (MAP FST ys)’ by gvs []
             \\ gvs [EL_MAP])
       \\ gs [OPTREL_def]
-      \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-      \\ rw [Once exp_rel_cases] \\ gs []
+      \\ qpat_x_assum ‘combine_rel x0 _’ mp_tac
+      \\ rw [Once combine_rel_cases] \\ gs []
       \\ first_x_assum irule \\ fs []
-      \\ irule exp_rel_eval
+      \\ irule combine_rel_eval
       \\ conj_tac >- (strip_tac \\ gvs [])
-      \\ irule exp_rel_subst \\ gvs []
+      \\ irule combine_rel_subst \\ gvs []
       \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
               LIST_REL_EL_EQN, EL_APPEND_EQN, EL_MAP]
       \\ rw []
@@ -7189,24 +7297,24 @@ Proof
       \\ qexists_tac ‘x1’ \\ qexists_tac ‘x2’ \\ qexists_tac ‘vL1’
       \\ qexists_tac ‘vL2’ \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’
       \\ qexists_tac ‘i’ \\ gvs [Lams_split, EL_MAP]
-      \\ gvs [LIST_REL_EL_EQN, EL_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]) *)
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
 QED
 
-Theorem delay_lam_rel_ok[local]:
+Theorem combine_rel_rel_ok[local]:
   rel_ok F v_rel
 Proof
-  rw [rel_ok_def, v_rel_def, exp_rel_def]
-  \\ rw [delay_lam_apply_force, delay_lam_apply_closure]
+  rw [rel_ok_def, v_rel_def, combine_rel_def]
+  \\ rw [combine_rel_apply_force, combine_rel_apply_closure]
 QED
 
-Theorem delay_lam_sim_ok[local]:
-  sim_ok F v_rel exp_rel
+Theorem combine_rel_sim_ok[local]:
+  sim_ok F v_rel combine_rel
 Proof
-  rw [sim_ok_def, exp_rel_eval, exp_rel_subst]
+  rw [sim_ok_def, combine_rel_eval, combine_rel_subst]
 QED
 
-Theorem delay_lam_semantics:
-  exp_rel x y ∧
+Theorem combine_rel_semantics:
+  combine_rel x y ∧
   safe_itree (semantics x Done []) ∧
   closed x ⇒
     semantics x Done [] = semantics y Done []
@@ -7215,8 +7323,8 @@ Proof
   \\ irule sim_ok_semantics \\ gs []
   \\ first_assum (irule_at Any)
   \\ qexists_tac ‘F’ \\ gs []
-  \\ irule_at Any delay_lam_rel_ok
-  \\ irule_at Any delay_lam_sim_ok
+  \\ irule_at Any combine_rel_rel_ok
+  \\ irule_at Any combine_rel_sim_ok
 QED
 
 val _ = export_theory ();

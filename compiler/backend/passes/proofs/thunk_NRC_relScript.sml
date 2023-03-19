@@ -43,6 +43,15 @@ Proof
   gvs [NRC_refl]
 QED
 
+Theorem NRC_change_rel:
+  (∀x y. R x y ⇒ R2 x y) ⇒
+  ∀n x y. NRC R n x y ⇒ NRC R2 n x y
+Proof
+  strip_tac >> Induct >> gs [NRC] >>
+  rw [] >>
+  rpt $ last_x_assum $ irule_at Any
+QED
+
 Theorem LIST_REL_NRC_0:
   ∀xs ys. LIST_REL (NRC R 0) xs ys ⇔ xs = ys
 Proof
@@ -105,6 +114,19 @@ Proof
   irule_at (Pos last) NRC_INC_1 >>
   rpt $ first_x_assum $ irule_at Any >>
   gvs [MAX_LE]
+QED
+
+Theorem NRC_rel_Apps_MAX:
+  (∀f g x y. R f g ∧ R x y ⇒ R (App f x) (App g y)) ⇒
+  ∀lx ly n f g. NRC R n f g ∧ LIST_REL (λx y. ∃m. NRC R m x y) lx ly ∧ R f f ∧ LIST_REL R lx lx
+                ⇒ ∃n. NRC R n (Apps f lx) (Apps g ly)
+Proof
+  strip_tac >> Induct >> gs [PULL_EXISTS] >> rw []
+  >- first_x_assum $ irule_at Any >>
+  first_x_assum $ irule_at Any >> simp [] >>
+  irule_at Any NRC_rel_App_MAX >> simp [] >>
+  first_x_assum $ irule_at Any >>
+  first_x_assum $ irule_at Any
 QED
 
 Theorem NRC_rel_If:
@@ -221,6 +243,24 @@ Proof
   rpt $ last_x_assum $ drule_then $ irule_at Any
 QED
 
+Theorem NRC_rel_Lams_lemma:
+  (∀s x y. R x y ⇒ R (Lam s x) (Lam s y)) ⇒
+  (∀l x y. R x y ⇒ R (Lams l x) (Lams l y))
+Proof
+  strip_tac >> Induct >> gvs []
+QED
+
+Theorem NRC_rel_Lams:
+  (∀s x y. R x y ⇒ R (Lam s x) (Lam s y)) ⇒
+      ∀n l x y. NRC R n x y ⇒ NRC R n (Lams l x) (Lams l y)
+Proof
+  strip_tac >> Induct >> gvs [NRC] >>
+  rw [] >>
+  irule_at Any NRC_rel_Lams_lemma >> gs [] >>
+  rpt $ last_x_assum $ drule_then $ irule_at Any >>
+  simp []
+QED
+
 Theorem LIST_REL_NRC_MAX_1:
   ∀xs ys. LIST_REL (λx y. ∃n. NRC R n x y) xs ys ∧ LIST_REL R xs xs ⇒ ∃n. LIST_REL (NRC R n) xs ys
 Proof
@@ -318,6 +358,34 @@ Theorem NRC_semantics_full:
 Proof
   rw [] >>
   metis_tac [NRC_semantics]
+QED
+
+Theorem NRC_semantics_safe:
+  (∀x y. R x y ∧ closed x ∧ pure_semantics$safe_itree (semantics x Done [])
+         ⇒ semantics x Done [] = semantics y Done []) ∧
+  (∀x y. R x y ∧ closed x ⇒ closed y) ⇒
+  ∀n x y. NRC R n x y ∧
+          closed x ∧
+          pure_semantics$safe_itree (semantics x Done []) ⇒
+          semantics x Done [] = semantics y Done []
+Proof
+  strip_tac >> Induct >> gvs [NRC, PULL_EXISTS] >>
+  rw [] >>
+  irule EQ_TRANS >>
+  first_x_assum $ drule_then $ irule_at Any >>
+  metis_tac []
+QED
+
+Theorem NRC_semantics_safe_full:
+  (∀x y. R x y ∧ closed x ∧ pure_semantics$safe_itree (semantics x Done [])
+         ⇒ semantics x Done [] = semantics y Done []) ∧
+  (∀x y. R x y ∧ closed x ⇒ closed y) ∧
+  (∀x y. R2 x y ⇒ ∃n. NRC R n x y) ⇒
+  ∀x y. R2 x y ∧ closed x ∧ pure_semantics$safe_itree (semantics x Done [])
+        ⇒ semantics x Done [] = semantics y Done []
+Proof
+  rw [] >>
+  metis_tac [NRC_semantics_safe]
 QED
 
 val _ = export_theory ();

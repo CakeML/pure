@@ -8,4 +8,5 @@ INCLUDES = .. \
            ../backend/passes \
            ../backend/passes/proofs \
            $(CAKEMLDIR)/compiler/parsing \
-           $(HOLDIR)/examples/bootstrap
+           $(HOLDIR)/examples/bootstrap \
+           $(CAKEMLDIR)/compiler/backend/proofs
