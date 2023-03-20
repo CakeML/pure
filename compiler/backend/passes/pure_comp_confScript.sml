@@ -14,7 +14,8 @@ Datatype:
       do_mk_delay   : bool ;  (* thunk-to-thunk smart mk_delay constructor *)
       do_let_force  : bool ;  (* thunk-to-thunk simplify let force *)
       do_split_dlam : bool ;  (* thunk-to-thunk split delayed lambdas *)
-      do_app_unit   : bool    (* state-to-state *)
+      do_app_unit   : bool ;  (* state-to-state *)
+      do_final_gc   : bool ;  (* invoke GC at end of CakeML program *)
     |>
 End
 
@@ -25,6 +26,7 @@ Overload mk_delay_flag[local]   = “strlit "-mk_delay"”
 Overload let_force_flag[local]  = “strlit "-let_force"”
 Overload dlam_flag[local]       = “strlit "-dlam"”
 Overload unit_flag[local]       = “strlit "-unit"”
+Overload final_gc_flag[local]   = “strlit "-final_gc"”
 
 Definition all_flags_def:
   all_flags = [pure_sort_flag;
@@ -33,7 +35,8 @@ Definition all_flags_def:
                mk_delay_flag;
                let_force_flag;
                dlam_flag;
-               unit_flag]
+               unit_flag;
+               final_gc_flag]
 End
 
 Definition read_cline_args_def:
@@ -46,7 +49,8 @@ Definition read_cline_args_def:
                    do_mk_delay   := ¬ MEM mk_delay_flag cl   ;
                    do_let_force  := ¬ MEM let_force_flag cl  ;
                    do_split_dlam := ¬ MEM dlam_flag cl       ;
-                   do_app_unit   := ¬ MEM unit_flag cl       |>
+                   do_app_unit   := ¬ MEM unit_flag cl       ;
+                   do_final_gc   := MEM final_gc_flag cl     |> (* NB final GC only if flag is present *)
 End
 
 val default = EVAL “read_cline_args []” |> concl |> rand |> rand

@@ -6,10 +6,11 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      rich_listTheory arithmeticTheory;
 open semanticPrimitivesTheory;
 open pure_miscTheory pure_configTheory pure_typingTheory state_cexpTheory;
+open pure_comp_confTheory
 
 val _ = new_theory "state_to_cake";
 
-val _ = set_grammar_ancestry ["pure_typing", "state_cexp", "semanticPrimitives"]
+val _ = set_grammar_ancestry ["pure_typing", "state_cexp", "semanticPrimitives", "pure_comp_conf"]
 
 
 (********** Primitives operation implementations **********)
@@ -341,10 +342,17 @@ Termination
   WF_REL_TAC `measure cexp_size`
 End
 
+Definition final_gc_def:
+  final_gc flag =
+    if flag then [Dlet unknown_loc (Pvar "gc") $ (App ConfigGC [int 0; int 0])] else []
+End
+
 (* Remove initial built-in datatypes from ns *)
 Definition compile_with_preamble_def:
-  compile_with_preamble ns e =
-    preamble ((TL ## TL) ns) ++ [Dlet unknown_loc (Pvar "prog") $ compile e]
+  compile_with_preamble c ns e =
+    preamble ((TL ## TL) ns) ++
+    [Dlet unknown_loc (Pvar "prog") $ compile e] ++
+    final_gc c.do_final_gc
 End
 
 

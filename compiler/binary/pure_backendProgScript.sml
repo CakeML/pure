@@ -137,6 +137,7 @@ val r = translate state_to_cakeTheory.failure_def;
 val r = translate state_to_cakeTheory.list_to_exp_def;
 val r = translate state_to_cakeTheory.cexp_pat_row_def;
 val r = translate state_to_cakeTheory.compile_def;
+val r = translate state_to_cakeTheory.final_gc_def;
 val r = translate compile_with_preamble_def;
 
 (* compositions *)

@@ -32,7 +32,7 @@ End
 Definition pure_to_cake_def:
   pure_to_cake c ns e =
     let state_prog = pure_to_state c e in
-    let cake_prog = compile_with_preamble ((I ## K ns) initial_namespace) state_prog in
+    let cake_prog = compile_with_preamble c ((I ## K ns) initial_namespace) state_prog in
     let _ = empty_ffi (strlit "to_cake") in
       cake_prog
 End
