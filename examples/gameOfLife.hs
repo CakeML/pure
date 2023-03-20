@@ -50,20 +50,22 @@ nextRow x1 x2 xs
         y1 y2 ys
         z1 z2 zs =
   case xs of
-    [] -> nextCell x1 x2 0
-                   y1 y2 0
-                   z1 z2 0 : []
+    [] -> let x = nextCell x1 x2 0
+                           y1 y2 0
+                           z1 z2 0
+          in seq x (x : [])
+
     x3:xs' ->
       let y3  = hd ys
           ys' = tl ys
           z3  = hd zs
-          zs' = tl zs in
-      nextCell x1 x2 x3
-               y1 y2 y3
-               z1 z2 z3 :
-               nextRow x2 x3 xs'
-                       y2 y3 ys'
-                       z2 z3 zs'
+          zs' = tl zs
+          x   = nextCell x1 x2 x3
+                         y1 y2 y3
+                         z1 z2 z3
+      in seq x (x : nextRow x2 x3 xs'
+                            y2 y3 ys'
+                            z2 z3 zs')
 
 nextCell :: Integer -> Integer -> Integer -> Integer ->  Integer ->  Integer ->  Integer ->  Integer ->  Integer -> Integer
 nextCell x1 x2 x3
