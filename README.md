@@ -54,7 +54,7 @@ Building the entire PureCake project (including the bootstrapped compiler) will 
     the compiler's top-level definition.
 
 [examples](examples):
-  Examples of PureLang code and how to invoke the PureCake compiler on them.
+  Examples of PureLang code, how to invoke the PureCake compiler on them, and how to measure their performance.
 
 [language](language):
   Definitions concerning PureLang and its semantics, including built-in operations.
