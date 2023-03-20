@@ -9,7 +9,7 @@
 
 *)
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
+open HolKernel Parse boolLib bossLib term_tactic monadsyntax BasicProvers;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
@@ -325,9 +325,17 @@ Proof
   \\ drule_all e_rel_semantics \\ fs []
 QED
 
+Triviality let_force_Delay:
+  let_force m e = Delay e' ⇒ ∃e0. e = Delay e0
+Proof
+  simp[Once $ DefnBase.one_line_ify NONE let_force_def] >>
+  simp[AllCaseEqs(), PULL_EXISTS]
+QED
+
 Theorem simp_let_force_wf_lemmas:
   closed (exp_of (simp_let_force do_it e)) = closed (exp_of e) ∧
   cexp_wf (simp_let_force do_it e) = cexp_wf e ∧
+  cexp_ok_bind (simp_let_force do_it e) = cexp_ok_bind e ∧
   cns_arities (simp_let_force do_it e) = cns_arities e
 Proof
   reverse $ Cases_on ‘do_it’ >- fs [simp_let_force_def]
@@ -350,7 +358,46 @@ Proof
   \\ pop_assum mp_tac
   \\ simp [Once let_force_def,AllCaseEqs()]
   \\ rpt strip_tac \\ gvs [cexp_wf_def,cns_arities_def]
-  \\ cheat
+  \\ gvs[DefnBase.one_line_ify NONE d_Force_Var_def,
+         DefnBase.one_line_ify NONE d_Var_def, AllCaseEqs()]
+  \\ gvs[cexp_wf_def, cexp_ok_bind_def, cns_arities_def, EVERY_MAP, EVERY_MEM]
+  >- (gvs[MAP_MAP_o, combinTheory.o_DEF] >> ntac 3 AP_TERM_TAC >> gvs[MAP_EQ_f])
+  >- (
+    gvs[MAP_MAP_o, combinTheory.o_DEF, FORALL_PROD, LAMBDA_PROD, GSYM FST_THM] >>
+    rpt $ (irule AND_CONG >> simp[]) >> strip_tac >>
+    eq_tac >> rw[] >> gvs[] >> metis_tac[]
+    )
+  >- (
+    gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY, LAMBDA_PROD, GSYM FST_THM] >>
+    AP_THM_TAC >> ntac 3 AP_TERM_TAC >> gvs[MAP_EQ_f, FORALL_PROD] >> rw[] >> res_tac
+    )
+  >- (
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FORALL_PROD] >>
+    reverse $ rpt $ (irule AND_CONG >> simp[] >> strip_tac)
+    >- (strip_tac >> metis_tac[]) >>
+    strip_tac >> Cases_on `d` >> gvs[] >- gvs[FST_THM, LAMBDA_PROD] >>
+    reverse $ rpt $ (irule AND_CONG >> simp[] >> strip_tac) >> strip_tac >>
+    rpt (pairarg_tac >> gvs[]) >> simp[FST_THM, LAMBDA_PROD]
+    )
+  >- (
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FORALL_PROD] >>
+    simp[AC UNION_ASSOC UNION_COMM] >> MK_COMB_TAC
+    >- (ntac 3 AP_TERM_TAC >> gvs[MAP_EQ_f, FORALL_PROD] >> metis_tac[]) >>
+    Cases_on `d` >> gvs[] >> rpt (pairarg_tac >> gvs[])
+    )
+  >- (
+    rpt $ (irule AND_CONG >> simp[]) >> strip_tac >>
+    rw[DefnBase.one_line_ify NONE args_ok_def] >>
+    rpt (TOP_CASE_TAC >> simp[]) >>
+    simp[MAP_EQ_CONS] >> eq_tac >> rw[] >> gvs[] >>
+    imp_res_tac $ GSYM let_force_Delay >> gvs[] >> simp[let_force_def]
+    )
+  >- (
+    rpt (TOP_CASE_TAC >> gvs[])
+    >- (ntac 2 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
+    >- (ntac 3 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
+    >- (ntac 2 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
+    )
 QED
 
 val _ = export_theory ();
