@@ -6,7 +6,9 @@ WORKDIR /home
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
      apt-get install -y git build-essential gcc-10 libffi-dev wget mlton sudo \
-                        locales-all emacs-nox vim tmux nano
+                        locales-all emacs-nox vim tmux nano python3 python3-pip && \
+    pip install parse matplotlib pandas
+
 ENV LANG en_US.UTF-8
 
 # Install PolyML

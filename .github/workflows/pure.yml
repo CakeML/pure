@@ -171,6 +171,14 @@ jobs:
       run: |
         cd pure/examples
         make check
+    - name: Check that benchmarks compile
+      run: |
+        apt install -y python3 python3-pip
+        pip install parse matplotlib pandas
+        cd pure/examples
+        git apply benchmark/benchmark.patch
+        touch lib/basis_ffi.c
+        cd benchmark && ./benchmark.py --mode compile
 
     - name: Record HOL/CakeML checkouts
       id: shas
