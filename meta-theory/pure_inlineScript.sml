@@ -497,11 +497,300 @@ Proof
   \\ rw [exp_eq_sym]
 QED
 
+Inductive deep_subst_rel:
+[~Let:]
+  (∀v x y y'.
+    subst_rel v x y y' ∧
+    v ∉ freevars x ⇒
+    deep_subst_rel (Let v x y) (Let v x y')) ∧
+(* Boilerplate: *)
+[~refl:]
+  (∀t.
+    deep_subst_rel t t) ∧
+[~Prim:]
+  (∀p xs ys.
+    LIST_REL (deep_subst_rel) xs ys ⇒
+    deep_subst_rel (Prim p xs) (Prim p ys)) ∧
+[~App:]
+  (∀t1 t2 u1 u2.
+    deep_subst_rel t1 u1 ∧
+    deep_subst_rel t2 u2 ⇒
+    deep_subst_rel (App t1 t2) (App u1 u2)) ∧
+[~Lam:]
+  (∀t u w.
+    deep_subst_rel t u  ⇒
+    deep_subst_rel (Lam w t) (Lam w u)) ∧
+[~Letrec:]
+  (∀t u xs ys.
+    LIST_REL (λ(n,t1) (m,u1). n = m ∧ deep_subst_rel t1 u1) xs ys ∧
+    deep_subst_rel t u  ⇒
+    deep_subst_rel (Letrec xs t) (Letrec ys u))
+End
+
+Theorem deep_subst_rel_IMP_exp_eq:
+  ∀t u.
+    deep_subst_rel t u ⇒
+    (t ≅? u) b
+Proof
+  Induct_on ‘deep_subst_rel’
+  \\ rpt strip_tac
+  >- (
+    rw []
+    \\ irule subst_rel_IMP_exp_eq
+    \\ rw []
+  )
+  >- rw [exp_eq_refl]
+  >- (
+    rw []
+    \\ irule exp_eq_Prim_cong
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ gvs []
+  )
+  >- (
+    irule exp_eq_App_cong
+    \\ rw []
+  )
+  >- simp [exp_eq_Lam_removed]
+  >- (
+    irule exp_eq_Letrec_cong
+    \\ rw []
+    >- (
+      simp [MAP_EQ_EVERY2]
+      \\ fs [LAMBDA_PROD,FST_intro]
+      \\ fs [LIST_REL_EVERY_ZIP]
+      \\ fs [EVERY_MEM,FORALL_PROD]
+      \\ rw []
+      \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+      \\ gvs []
+    )
+    \\ simp [LIST_REL_MAP]
+    \\ fs [LAMBDA_PROD,FST_intro]
+    \\ fs [LIST_REL_EVERY_ZIP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw []
+    \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+    \\ gvs []
+  )
+QED
+
+Definition list_lookup_def:
+  list_lookup v [] = NONE ∧
+  list_lookup v ((v', x)::rest) = if v = v' then SOME (x, rest) else list_lookup v rest
+End
+
+Inductive list_subst_rel:
+[~refl:]
+  (∀l t.
+    list_subst_rel l t t) ∧
+[~Let:]
+  (∀l v x y.
+    list_subst_rel l x x' ∧
+    list_subst_rel ((FILTER (λ(w,e). v ≠ w) l) ++ [(v,x')]) y y' ∧
+    v ∉ freevars x ⇒
+      list_subst_rel l (Let v x y) (Let v x' y')) ∧
+[~Var:]
+  (∀v x x' l rest.
+    list_lookup v l = SOME (x, rest) ∧ list_subst_rel rest x x' ⇒
+    list_subst_rel l (Var v) x') ∧
+[~Prim:]
+  (∀l p xs ys.
+    LIST_REL (list_subst_rel l) xs ys ⇒
+    list_subst_rel l (Prim p xs) (Prim p ys)) ∧
+[~App:]
+  (∀l t1 t2 u1 u2.
+    list_subst_rel l t1 u1 ∧
+    list_subst_rel l t2 u2 ⇒
+    list_subst_rel l (App t1 t2) (App u1 u2)) ∧
+[~Lam:]
+  (∀l t u w.
+    list_subst_rel (FILTER (λ(v,x). v ≠ w ∧ w ∉ freevars x) l) t u ⇒
+    list_subst_rel l (Lam w t) (Lam w u)) ∧
+[~Letrec:]
+  (∀l t u xs ys.
+    LIST_REL (λ(n,t1) (m,u1). n = m ∧ list_subst_rel (FILTER (λ(v,x). ~MEM v (MAP FST xs) ∧ DISJOINT (freevars x) (set (MAP FST xs))) l) t1 u1) xs ys ∧
+    list_subst_rel (FILTER (λ(v,x). ~MEM v (MAP FST xs) ∧ DISJOINT (freevars x) (set (MAP FST xs))) l) t u ⇒
+    list_subst_rel l (Letrec xs t) (Letrec ys u))
+End
+
+Theorem xxx:
+  list_subst_rel (l ++ [(v,x)]) t u = ∃r. list_subst_rel l t r ∧ subst_rel v x r u
+Proof
+  cheat
+QED
+
+Inductive list_deep_rel:
+[~refl:]
+  (∀l x. list_deep_rel l x x) ∧
+[~left:]
+  (∀l x y z. deep_subst_rel x y ∧ list_deep_rel l y z ⇒ list_deep_rel l x z) ∧
+[~right:]
+  (∀l x y z. list_deep_rel l x y ∧ deep_subst_rel y z ⇒ list_deep_rel l x z) ∧
+[~cons:]
+  (∀v e l x y z. subst_rel v e x y ∧ list_deep_rel l y z ⇒ list_deep_rel ((v,e)::l) x z) ∧
+[~trans:]
+  (∀l x y z. list_deep_rel l x y ∧ list_deep_rel l y z ⇒ list_deep_rel l x z) ∧
+[~ignore:]
+  (∀l m x y. list_deep_rel l x y ⇒ list_deep_rel (m::l) x y)
+End
+
+Theorem list_subst_IMP_list_deep_rel:
+  ∀l x y. list_subst_rel l x y ⇒ list_deep_rel l x y
+Proof
+  Induct_on ‘list_subst_rel’
+  \\ rpt strip_tac
+  >- simp [list_deep_rel_refl]
+  >~ [‘Var _’]
+  >- (
+    Induct_on ‘l’
+    >- simp []
+    \\ simp []
+    \\ rpt strip_tac
+    \\ gvs []
+    >- (
+      irule list_deep_rel_cons
+      \\ irule_at Any list_deep_rel_refl
+      \\ irule subst_rel_Var
+    )
+    \\ irule list_deep_rel_ignore
+    \\ simp []
+  )
+  >~ [‘Let _ _ _’]
+  >- (
+    irule list_deep_rel_trans
+    \\ qexists ‘Let v x' y’
+    \\ conj_tac
+    >- cheat
+    \\ irule list_deep_rel_left
+    \\ irule_at Any deep_subst_rel_Let
+  )
+QED
+
+Theorem list_deep_rel_semantics:
+  list_deep_rel [] t u ⇒ (t ≅? u) b
+Proof
+  qsuff_tac ‘∀l t u. list_deep_rel l t u ∧ l = [] ⇒ (t ≅? u) b’
+  >- fs []
+  \\ Induct_on ‘list_deep_rel’
+  \\ simp []
+  \\ rpt strip_tac
+  >- simp [exp_eq_refl]
+  \\ irule exp_eq_trans
+  \\ first_x_assum $ irule_at Any
+  \\ simp [deep_subst_rel_IMP_exp_eq]
+QED
+
+
+Inductive e_subst_rel:
+[~refl:]
+  (∀x y b l. (x ≅? y) b ⇒ e_subst_rel l x y) ∧
+[~Cons:]
+  (∀x y v e l. (∃u. subst_rel v e x u ∧ e_subst_rel l u y) ⇒ e_subst_rel ((v,e)::l) x y)
+End
+
+Definition expand_subst_rel_def:
+  expand_subst_rel [] x y = (x = y) ∧
+  expand_subst_rel ((v,e)::l) x y = ∃u. subst_rel v e x u ∧ expand_subst_rel l u y
+End
+
+Theorem expand_subst_rel_refl:
+  expand_subst_rel l t t
+Proof
+  Induct_on ‘l’
+  >- simp [expand_subst_rel_def]
+  \\ Cases_on ‘h’
+  \\ simp [expand_subst_rel_def]
+  \\ qexists ‘t’
+  \\ simp [subst_rel_refl]
+QED
+
+Theorem list_subst_IMP_e_subst_rel:
+  list_subst_rel l x y ⇒ e_subst_rel l x y
+Proof
+  cheat
+  
+  (* Induct_on ‘list_subst_rel’
+  \\ rpt strip_tac
+  >- simp [exp_eq_refl,e_subst_rel_refl] *)
+QED
+
+
+Theorem list_subst_IMP_expand_subst_rel:
+  list_subst_rel l x y ⇒ expand_subst_rel l x y
+Proof
+  cheat
+  
+  (* Induct_on ‘list_subst_rel’
+  \\ rpt strip_tac
+  >- (
+    Induct_on ‘l’
+    >- simp [expand_subst_rel_def]
+    \\ Cases_on ‘h’
+    \\ simp [expand_subst_rel_def]
+    \\ qexists ‘t’
+    \\ rw [subst_rel_refl]
+  )
+  >- (
+    (* Induct_on ‘l’
+    >- (
+      rw []
+      \\ fs [expand_subst_rel_def]
+    ) *)
+    cheat
+  )
+  >- (
+    Induct_on ‘l’
+    >- rw []
+    \\ Cases_on ‘h’
+    \\ Cases_on ‘(v,x) = (q,r)’
+    >- (
+      rw []
+      >- (
+        simp [expand_subst_rel_def]
+        \\ qexists ‘r’
+        \\ simp [subst_rel_Var,expand_subst_rel_refl]
+      )
+      \\ gvs []
+      \\ simp [expand_subst_rel_def]
+      \\ qexists ‘(Var v)’
+      \\ simp [subst_rel_refl]
+    )
+  )
+  \\ cheat *)
+QED
+
+Theorem list_subst_rel_semantics:
+  list_subst_rel [] t u ⇒ (t ≅? u) b
+Proof
+  cheat
+QED
+
+(* 
+
+Need to prove:
+
+  list_subst_rel l x z ==> 
+  ?n y. NRC n deep_subst_rel x y /\ expand_subst_rel l y z
+
+where
+
+  expand_subst_rel [] x y = (x = y) /\
+  expand_subst_rel ((v,b)::l) x y = ?z. subst_rel v b x z /\ expand_subst_rel l z y
+
+  NRC 0 R x y = (x = y) /\
+  NRC (SUC n) R x y = ?z. R x z /\ NRC n R z y    
+
+in order to prove:
+
+  list_subst_rel [] x y ==> x ~=~ y 
+
+*)
+
 (*
 
 TODO:
  - remember to add a simplifying pass after inlining (particularly to simplify Case)
-
+ - also would be nice to check dead code elimination too (+unused lambda abstraction elimination?)
 *)
 
 val _ = export_theory();
