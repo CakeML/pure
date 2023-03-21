@@ -55,6 +55,9 @@ timing.log
 # Vim swap files
 *.swp
 
+# Vscode
+.vscode/*
+
 # Reference manual
 documentation/*.pdf
 documentation/*.aux
