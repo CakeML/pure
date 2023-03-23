@@ -367,13 +367,11 @@ Definition demands_analysis_fun_def:
 
   (demands_analysis_fun c (Case a0 e n cases eopt) fds =
    let (m, e', fd) = demands_analysis_fun c e fds ;
-       cases' = MAP (λ(name,args,ce).
-                       (name, args,
-                        add_all_demands a0
-                                        (demands_analysis_fun
-                                         (Unfold name n args (Bind n e c))
-                                         ce
-                                         (empty compare)))) cases ;
+       (demands, cases') = FOLDR (λ(name,args,ce) (lD, lRows).
+                         let result = (demands_analysis_fun
+                                  (Unfold name n args (Bind n e c))
+                                  ce (FOLDL (λm v. delete m v) (delete fds n) args)) in
+                       (FST result::lD, (name, args, add_all_demands a0 result)::lRows)) ([], []) cases ;
        eopt' = (case eopt of
                 | NONE => NONE
                 | SOME (a,e0) =>
