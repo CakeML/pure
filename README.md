@@ -1,6 +1,6 @@
 # PureCake: A verified compiler for a lazy functional language
 
-### Getting Started Guide
+## Getting Started Guide
 
 This [Docker](https://www.docker.com/) image contains a pre-built version of
 the PureCake compiler.  That is, all HOL4 theories are already built, and the
@@ -25,10 +25,10 @@ cd ~/pure/examples && make clean && make check
 ```
 
 
-### Step-by-Step instructions
+## Step-by-Step instructions
 
 
-#### Examining HOL4 theories
+### Examining HOL4 theories
 
 All of the PureCake project is developed within the
 [HOL4](http://hol-theorem-prover.org/) interactive theorem prover.  Any results
@@ -48,14 +48,53 @@ use HOL4's `emacs` or `vim` interaction (both are set up) to step through the
 files.
 
 
-#### Examining and compiling programs
+### Examining and compiling programs
 
-The [`examples`](examples) directory contains several sample PureCake programs.
-Reviewers can examine and compile these programs.  Refer to
-[`examples/README.md`](examples/README.md) for more details.
+The [`examples`](examples) directory contains sample programs which reviewers
+can examine and compile. The file [`syntax.hs`](examples/syntax.hs) file
+contains a near-exhaustive demonstration of PureLang's concrete syntax. The
+other `.hs` files are non-trivial programs written in PureLang.
+
+#### Compiling sample programs using PureCake
+
+The [`Makefile`](examples/Makefile) enables compilation of all sample
+programs. To compile and execute `foo.hs`:
+```bash
+cd examples
+make foo.exe
+./out/foo.exe
+```
+Note that executables are placed in the `examples/out` directory.
+
+The first time you run `make`, it will:
+ - copy in `../compiler/binary/pure.S` (the PureCake compiler); and
+ - build the compiler executables `pure` and `cake`, and the FFI object
+   `basis_ffi.o`.
+
+Running `make` without arguments produces `factorials.exe`. Running `make
+clean` removes all generated files, including `lib/pure.S`. Running `make
+check` compiles all `.hs` files.
 
 
-#### Re-building HOL4 theories and the PureCake binary
+#### PureCake's "prelude"
+
+The [`examples/prelude`](examples/prelude) directory is inspired by its
+namesake in Haskell: it is a (work-in-progress) collection of useful functions
+on basic data types. PureCake does not yet have an import system, so the
+functions are not directly usable. However, they can be a useful set of
+"building blocks" when creating larger PureLang programs.
+
+To build and run files in the `prelude` directory:
+```bash
+cd examples
+make prelude/bar.exe
+./out/prelude/bar.exe
+```
+Note that no files in `prelude` will have observable effects when executed.
+They are compiled and typechecked only.
+
+
+### Re-building HOL4 theories and the PureCake binary
 
 **NB: this will take ~5 hrs and require ~8 GB RAM (16 GB recommended). We do
 not believe it is necessary for evaluation of this artifact.**
@@ -78,7 +117,7 @@ Holmake                            # rebuild all theories and the binary
 ```
 
 
-### Project structure
+## Project structure
 
 [COPYING](COPYING):
   PureCake Copyright Notice, License, and Disclaimer.
