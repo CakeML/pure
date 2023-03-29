@@ -159,3 +159,107 @@ Holmake                            # rebuild all theories and the binary
   PureCake's type system: proof of type soundness and a verified type
   inferencer.
 
+
+## Extending PureCake
+
+PureCake is readily extensible, either by enriching its features or building on
+it as-is.  Below are some pointers on how to get started.
+
+### Meta-theory
+
+- **Derive useful identities and rules in our equational theory.**
+  For example, formalising textbook equations on Haskell code.
+  The proofs in the following files provide some starting points:
+    [`pure_congruenceScript.sml`](meta-theory/pure_congruenceScript.sml) (latter half),
+    [`pure_congruence_lemmasScript.sml`](meta-theory/pure_congruence_lemmasScript.sml),
+    [`meta-theory/pure_letrec_congScript.sml`](meta-theory/pure_letrec_congScript.sml).
+- **Mechanise improvement theory over PureLang semantics.**
+  This would take inspiration from literature, e.g.
+  [this](https://doi.org/10.1145/292540.292547). An instructive starting point
+  is the mechanisation of our [equational
+  theory](meta-theory/pure_exp_relScript.sml) and its [proofs of
+  congruence](meta-theory/pure_congruenceScript.sml).
+
+### Compiler front end
+
+- **Enriching PureLang's concrete syntax.**
+  Parsing of concrete syntax is found in [`compiler/parsing`](compiler/parsing), and transforms
+  concrete syntax first into AST and then into the `cexp` datatype (PureLang
+  compiler expressions).  Some useful features (from easier to harder to
+  implement) are:
+    permitting underscores when pattern-matching don't-care arguments;
+    adding syntactic sugar for Haskell-like record types;
+    enabling pattern-matching on left-hand-sides of equations (for e.g. tuples)
+    by desugaring into `case`-statements;
+    enabling multiple clauses in function definitions by desugaring into single
+    clauses.
+  The parser requires its [well-formedness
+  proof](compiler/parsing/purePEGScript.sml) to be updated.
+- **Improving type inference.**
+  Our [implementation](typing/pure_inferenceScript.sml) of type inference is
+  proof-of-concept and can be improved by porting features from [this
+  work](https://www.open.ou.nl/bhr/TopQuality.pdf). For example: enforcing
+  user-defined type signatures, using efficient data structures to store
+  constraints, implementing better solving strategies. Modifying constraint
+  generation changes require updates to
+  implementation, [declarative
+  rules](typing/pure_inference_modelScript.sml), and [soundness
+  proofs](typing/pure_inferenceProofScript.sml).  Modifying solving requires
+  updating only implementation and soundness proofs.
+- **New front end features.**
+  Some features require modifying both parsing and type inference, e.g. adding
+  type class support.  This can be considered at the `cexp` level first, by
+  modifying [typing rules](typing/pure_typingScript.sml) independently of type
+  inference to account for a context of type classes.  Parsing must handle
+  declarations, and accumulate the context to pass to type inference (similar
+  to the current [context of data types](compiler/parsing/ast_to_cexpScript.sml)).  Inference must also elaborate
+  type classes appropriately.
+- **Demand analysis.**
+  Demand analysis is currently over-eager in inserting `seq`, and can be
+  improved to find demands better around data types and pattern-matching.
+  [Implementation](compiler/backend/passes/pure_demands_analysisScript.sml) and
+  [proofs](compiler/backend/passes/proofs/pure_demands_analysisProofScript.sml)
+  will require updating.
+
+### Compiler back end
+
+- **Augmenting intermediate languages.**
+  Semantics expressions and semantics can be modified in
+  `compiler/backend/languages/semantics/*{Lang,_semantics}.sml`. Syntax of
+  compiler expressions can be modified in
+  `compiler/backend/languages/*_cexpScript.sml`. Proofs of invariants and
+  well-formedness predicates will need to be updated in
+  `compiler/backend/lanugages/properties`.
+- **Adding optimisation passes.**
+  Implementing a verifying a new optimisation consists of the several steps below (using the `state_app_unit` pass as a running example).
+  1. define one or more syntactic compiler relations between expressions and prove they preserve semantics ([`state_app_unit_1ProofScript.sml`](compiler/backend/passes/proofs/state_app_unit_1ProofScript.sml) and [`state_app_unit_2ProofScript.sml`](compiler/backend/passes/proofs/state_app_unit_2ProofScript.sml)
+  2. implement the code transformation ([`state_app_unitScript.sml`](compiler/backend/passes/state_app_unitScript.sml))
+  3. prove that the code transformation inhabits the syntactic relation and satisfies bookkeeping invariants ([`state_app_unitProofScript.ml`](compiler/backend/passes/proofs/state_app_unitProofScript.sml))
+  4. integrate into PureCake's [back end](compiler/backend/passes/pure_to_cakeScript.sml) and update [proofs](compiler/backend/passes/proofs/pure_to_cakeProofScript.sml)
+
+  Simpler passes can omit definition of compiler relations, instead proving
+  correctness directly over compiler implementation. For example, the
+  `state_names*Script.sml` files implement and verify such a pass.
+- **Reasoning principles for ThunkLang.**
+  Implementing an equational theory for ThunkLang would simplify proofs greatly.
+  This can take inspiration from [PureLang's
+  theory](meta-theory/pure_congruenceScript.sml), but will be simplified by
+  ThunkLang's call-by-value semantics.
+
+### Using PureCake as-is
+
+- **Creating real-world PureLang programs and testing them.**
+  The various `.hs` files in [`examples`](examples), (particularly
+  [`syntax.hs`](examples/syntax.hs) and the ["prelude"](examples/prelude))
+  provide useful reference material.
+- **Verifying PureLang programs.**
+  Verification of simple Haskell-like programs can use either PureLang's equational theory, or reason directly about semantics.
+  A simple example of such a proof is found at the bottom of [`pure_beta_equivScript.sml`](meta-theory/pure_beta_equivScript.sml).
+  This reasoning can then be transported down to machine code by appealing to [compiler correctness proofs](compiler/proofs).
+- **Differential analysis with GHC.**
+  Compilation of safety-critical Haskell code by GHC can be made more trustworthy by testing against PureCake.
+  By writing programs in the common subset accepted by both PureCake and GHC, input fuzzing can identify bugs introduced by compilation by searching for differences between the two compilers.
+- **Re-using PureCake's compiler backend.**
+  Compiling to PureLang's untyped AST permits straightforward reuse of its end-to-end verification down to machine code.
+  The untyped AST must satisfy the preconditions of [`pure_to_cake_correct`](compiler/backend/passes/proofs/pure_to_cakeProofScript.sml) to permit composition with the correctness theorem.
+
