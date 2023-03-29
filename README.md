@@ -62,9 +62,10 @@ programs. To compile and execute `foo.hs`:
 ```bash
 cd examples
 make foo.exe
-./out/foo.exe
+./out/foo.exe <input>
 ```
 Note that executables are placed in the `examples/out` directory.
+All current examples expect integer input.
 
 The first time you run `make`, it will:
  - copy in `../compiler/binary/pure.S` (the PureCake compiler); and
