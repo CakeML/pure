@@ -8,12 +8,17 @@ endif
 
 CAKEOPT = --skip_type_inference=true --exclude_prelude=true --sexp=true
 
+ifeq ($(DEBUG),1)
+  CAKEOPT += --emit_empty_ffi=true
+  CCOPT += -DDEBUG_FFI
+endif
+
 %.exe: %.S lib/basis_ffi.o
 	@mkdir -p $(dir out/$@)
 	gcc $(CCOPT) $< lib/basis_ffi.o -o out/$@
 
 %.S: %.hs lib/pure lib/cake
-	cat $< | ./lib/pure | ./lib/cake $(CAKEOPT) > $@
+	cat $< | ./lib/pure $(PUREOPT) | ./lib/cake $(CAKEOPT) > $@
 
 check: $(patsubst %.hs,%.exe,$(wildcard *.hs)) \
        $(patsubst %.hs,%.exe,$(wildcard prelude/*.hs))

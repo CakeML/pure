@@ -33,7 +33,7 @@ cd ~/pure/examples && make clean && make check
 All of the PureCake project is developed within the
 [HOL4](http://hol-theorem-prover.org/) interactive theorem prover.  Any results
 stated in the paper have been mechanically verified within HOL4's logic.
-Therefore, we envisage the bulk of in-depth evaluation of this artifact will be
+Therefore, we envisage the bulk of in-depth examination of this artifact will be
 via inspection of the theorems we have proved.  To aid this, we have written a
 [`correspondences.md`](correspondences.md) document which links each part of
 the paper to the corresponding mechanisation.  The [project
@@ -48,12 +48,12 @@ use HOL4's `emacs` or `vim` interaction (both are set up) to step through the
 files.
 
 
-### Examining and compiling programs
+### Examining, compiling, and benchmarking programs
 
-The [`examples`](examples) directory contains sample programs which reviewers
-can examine and compile. The file [`syntax.hs`](examples/syntax.hs) file
-contains a near-exhaustive demonstration of PureLang's concrete syntax. The
-other `.hs` files are non-trivial programs written in PureLang.
+The [`examples`](examples) directory contains sample programs which readers can
+examine, compile, and benchmark. The file [`syntax.hs`](examples/syntax.hs)
+file contains a near-exhaustive demonstration of PureLang's concrete syntax.
+The other `.hs` files are non-trivial programs written in PureLang.
 
 #### Compiling sample programs using PureCake
 
@@ -76,6 +76,65 @@ Running `make` without arguments produces `factorials.exe`. Running `make
 clean` removes all generated files, including `lib/pure.S`. Running `make
 check` compiles all `.hs` files.
 
+#### Benchmarking programs
+
+The [`benchmark`](examples/benchmark) directory allows simple benchmarking of
+PureCake as follows:
+```bash
+cd examples
+patch -u -i benchmark/benchmark.patch
+touch lib/basis_ffi.c # ensure PureCake's FFI is rebuilt with debug output enabled
+cd benchmark
+benchmark.py # takes ~4 hrs with supplied configuration
+benchmark.py --mode plot
+```
+This will:
+1. Patch some programs to make them suitable for benchmarking:
+   remove functional quicksort from [`quicksort.hs`](examples/quicksort.hs) and
+   remove polymorphic usages of functions (these will not typecheck if binding
+   group analysis is disabled).
+2. Compile and run the benchmarks as specified in
+   [`bench.config`](examples/benchmark/bench.config), collecting data on
+   timings and heap allocations into `benchmark/data.csv`.
+3. Plot graphs from the collected data, saving them to `benchmark/data.pdf`.
+   These show base-2 logarithm of runtime speedup and reduction in heap
+   allocations.
+
+##### [`bench.config`](examples/benchmark/bench.config)
+
+This specifies the benchmarking configuration for
+[`benchmark.py`](examples/benchmark/benchmark.py):
+- `settings.iterations`: number of iterations to run each program/flag
+  combination.
+- `settings.heap`: CakeML heap size in bytes.
+- `programs`: key-value pairs of benchmark names (without the `.hs` suffix) and
+  their commandline inputs.
+- `flags`: key-value pairs of names and sets of flags used when invoking
+  PureCake.
+
+Each program will be compiled and run with each set of supplied flags.
+Possible flags are:
+- `-sort`: binding group analysis in PureLang
+- `-clean`: deadcode elimination in PureLang
+- `-demands`: demand analysis in PureLang
+- `-mk_delay`: `mk_delay` smart constructor in ThunkLang
+- `-dlam`: split delayed `lambda`s under `letrec`s in ThunkLang
+- `-let_force`: common subexpression elimination of `force (var v)` in ThunkLang
+- `-unit`: pushing in applications to `unit` in StateLang
+
+**NB supplying a flag *disables* the corresponding optimisation**.
+Graphs produced by [`benchmark.py`](benchmark/benchmark.py) therefore show the
+improvements made when *removing* the flags specified.
+
+##### [`benchmark.py`](benchmark/benchmark.py)
+
+Run `benchmark.py -h` for usage information.  By default, it will read/write
+`data.{csv,pdf}` - you can change this with e.g. `benchmark.py --filestem foo`
+to read/write `foo.{csv,pdf}`.  To compile all benchmarks specified in
+[`bench.config`](benchmark/bench.config) *without* running them, use
+`benchmark.py --mode compile`.
+
+The data shown in the paper is in [`paper.csv`](examples/benchmark/paper.csv).
 
 #### PureCake's "prelude"
 
@@ -98,7 +157,7 @@ They are compiled and typechecked only.
 ### Re-building HOL4 theories and the PureCake binary
 
 **NB: this will take ~5 hrs and require ~8 GB RAM (16 GB recommended). We do
-not believe it is necessary for evaluation of this artifact.**
+not believe it is necessary for examination of this artifact.**
 
 To produce this Docker image, we:
  1. Installed a prerequisite: PolyML
@@ -141,7 +200,7 @@ Holmake                            # rebuild all theories and the binary
     the compiler's top-level definition.
 
 [examples](examples):
-  Examples of PureLang code, how to invoke the PureCake compiler on them, and how to measure their performance.
+  Examples of PureLang code with tools to compile and benchmark them.
 
 [language](language):
   Definitions concerning PureLang and its semantics, including built-in
