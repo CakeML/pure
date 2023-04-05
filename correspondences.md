@@ -22,7 +22,7 @@
   - `E`, `A`, `R`: `language/pure_semanticsScript.sml`
 - Clocked evaluation to weak-head normal - `eval^n_wh`: `eval_wh_to_def` in `language/pure_evalScript.sml`
 - *Un*clocked evaluation to weak-head normal - equation 2 (`eval_wh`): `eval_wh_def` in `language/pure_evalScript.sml`
-- Stateful interpretation - middle of pg. 6 (`(|wh, k, st|)`): `semantics_def` in `language/pure_semanticsScript.sml`
+- Stateful interpretation - figure 4 (`(|wh, k, st|)`): `semantics_def` in `language/pure_semanticsScript.sml`
 - Final semantics function (`[|e|] : itree E A R`): `itree_of_def` in `language/pure_semanticsScript.sml`
 
 ### §3.4 - Equational reasoning
@@ -76,8 +76,8 @@ Most files are found in `compiler/backend` - elided with `...` below.
 - Semantics: `.../languages/semantics/thunk_semanticsScript.sml`
 - Compilation from PureLang to ThunkLang: `.../passes/pure_to_thunkScript.sml`
   - Core soundness proofs: `.../passes/proofs/{pure_to_thunk,thunk}*Script.sml`
-- ThunkLang optimisation pass: `.../passes/thunk_split_Delay_LamScript.sml`
-  - Core soundness proofs: `.../passes/proofs/thunk_split_Delay_LamProofScript.sml`
+- ThunkLang optimisation passes: `.../passes/thunk_split_Delay_LamScript.sml` and `.../passes/thunk_let_forceScript.sml`
+  - Core soundness proofs: `.../passes/proofs/thunk_split_Delay_LamProofScript.sml` and `.../passes/proofs/thunk_let_forceProofScript.sml`
 
 ### §5.2 - EnvLang
 - Compiler expressions: `.../languages/envLang_cexpScript.sml`
@@ -89,7 +89,7 @@ Most files are found in `compiler/backend` - elided with `...` below.
 ### §5.2 - StateLang
 - Compiler expressions: `.../languages/state_cexpScript.sml`
 - Semantics expressions + semantics: `.../languages/semantics/stateLangScript.sml`
-- Compilation from EnvLang to StateLang: `.../passes/env_to_stateScript.sml`
+- Compilation from EnvLang to StateLang (figure 10): `.../passes/env_to_stateScript.sml`
   - Core soundness proofs: `.../passes/proofs/thunk_to_env*Script.sml`
 - StateLang optimisation pass: `.../passes/state_app_unitScript.sml`
   - Core soundness proofs: `.../passes/proofs/state_app_unit*Script.sml`
@@ -100,14 +100,25 @@ Most files are found in `compiler/backend` - elided with `...` below.
 
 ## §6 - Targeting CakeML
 
-Many files below are in the CakeML repository.
-
+In the CakeML repository:
 - CakeML CESK semantics: `cakeml/semantics/alt_semantics/smallStepScript.sml`
 - CakeML ITree semantics: `cakeml/semantics/alt_semantics/itree_semanticsScript.sml`
 - Equivalence proofs: `cakeml/semantics/alt_semantics/proofs`
   - Particularly `alt_semanticsScript.sml`, `itree_semantics*Script.sml`
 - ITree machine semantics: `cakeml/compiler/backend/semantics/target_itreeSemScript.sml`
-- ITree compiler correctness (middle of pg. 18): `cakeml/compiler/backend/proofs/backend_itreeProofScript.sml`
+- ITree compiler correctness (theorem 1): `cakeml/compiler/backend/proofs/backend_itreeProofScript.sml`
 
-- Compiler correctness (theorem 1): `compiler/proofs/pure_compilerProofScript.sml`
-  (*NB* in the PureCake repository)
+In the PureCake repository:
+- Compiler correctness (theorems 2-3): `compiler/proofs/pure_compilerProofScript.sml`
+- End-to-end correctness (theorem 4): `compiler/proofs/pure_end_to_endProofScript.sml`
+
+--------------------------------------------------
+
+## §7 - Evaluation
+
+- Example programs: `examples/*.hs`, `examples/prelude/*.hs`
+- Benchmarking apparatus: `examples/benchmark`
+    - Raw data for figure 11: `examples/benchmark/paper.csv`
+
+`README.md` contains more details on how to compile, run, and benchmark example programs.
+
