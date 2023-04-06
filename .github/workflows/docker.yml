@@ -33,5 +33,6 @@ jobs:
         with:
           file: .github/Dockerfile
           push: true
+          no-cache: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
