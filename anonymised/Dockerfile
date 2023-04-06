@@ -1,4 +1,4 @@
-FROM ghcr.io/cakeml/pure@sha256:066a10f5d1716cb9568230211eb3321142c1cc212fbd5b7857bd566f817d9654
+FROM ghcr.io/cakeml/pure@sha256:0bb91cfb3646193d0f53beeca59578f2e7ccfa482b9b49dc09c0ec190fe62405
 
 # Checkout artifact branch
 RUN cd ~/pure && git fetch && git checkout origin/pldi23-artifact
