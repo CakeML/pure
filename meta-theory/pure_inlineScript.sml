@@ -237,7 +237,7 @@ Proof
     )
     \\ qmatch_goalsub_abbrev_tac ‘(subst f1 e ≅? subst f2 e) b’
     \\ qsuff_tac ‘f1 = f2’
-    >- (simp [exp_eq_refl])
+    >- simp [exp_eq_refl]
     \\ unabbrev_all_tac
     \\ rpt MK_COMB_TAC \\ fs []
     \\ simp [FLOOKUP_EXT,FUN_EQ_THM,FLOOKUP_FDIFF,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
@@ -267,7 +267,6 @@ Proof
     irule IMP_closed_subst
     \\ fs [FDOM_FDIFF,SUBSET_DEF,IN_DISJOINT]
     \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
-
     \\ fs [FDIFF_def,DRESTRICT_DEF]
     \\ metis_tac []
   )
@@ -740,16 +739,37 @@ Proof
   \\ irule exp_eq_App_cong \\ fs [exp_eq_refl,Binds_Lam]
 QED
 
+Theorem exp_eq_Let_cong:
+  (e1 ≅? e2) b ∧ (bod1 ≅? bod2) b ⇒
+  (Let v e1 bod1 ≅? Let v e2 bod2) b
+Proof
+  simp[exp_eq_App_cong, exp_eq_Lam_cong]
+QED
+
 Theorem Binds_cong:
   (x ≅? y) b ⇒ (Binds xs x ≅? Binds xs y) b
 Proof
-  cheat
+  rw []
+  \\ Induct_on `xs`
+  >- rw [Binds_def]
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    irule exp_eq_Let_cong
+    \\ rw [exp_eq_refl]
+  )
+  \\ irule exp_eq_Letrec_cong
+  \\ rw [MAP,exp_eq_refl]
 QED
 
 Theorem not_in_vars_of_imp:
   v ∉ vars_of xs ⇒ ¬MEM v (MAP FST xs)
 Proof
-  cheat
+  rw []
+  \\ Induct_on `xs`
+  >- rw [vars_of_def,MAP]
+  \\ Cases_on `h` \\ Cases_on `r`
+  >- rw [vars_of_def,MAP]
+  >- rw [vars_of_def,MAP]
 QED
 
 Theorem Binds_append:
@@ -776,18 +796,24 @@ Proof
   >- (
     sg ‘(∀w. w ∈ FRANGE (f \\ v) ⇒ closed w)’
     >- (
-        simp [FRANGE_FLOOKUP]
-        \\ rw [EQ_IMP_THM]
-        \\ first_x_assum irule
-        \\ qexists ‘k’
-        \\ rw []
-        \\ fs [DOMSUB_FLOOKUP_THM]
+      simp [FRANGE_FLOOKUP]
+      \\ rw [EQ_IMP_THM]
+      \\ first_x_assum irule
+      \\ qexists ‘k’
+      \\ rw []
+      \\ fs [DOMSUB_FLOOKUP_THM]
     )
     \\ simp [freevars_subst]
   )
   \\ simp [subst1_notin]
   \\ simp [GSYM subst_fdomsub]
   \\ simp [exp_eq_refl]
+QED
+
+Theorem Letrec1_ignore:
+  ∀v t e. v ∉ freevars e ⇒ (Letrec [(v, t)] e ≅? e) b
+Proof
+  cheat
 QED
 
 Theorem Let_Letrec1:
@@ -827,7 +853,6 @@ Proof
   cheat
 QED
 
-(* Check assumptions *)
 Theorem Let_Let:
   ∀v t w u e.
   v ≠ w ∧ v ∉ freevars u ∧ w ∉ freevars t ⇒
@@ -850,15 +875,153 @@ QED
 
 Theorem Binds_copy:
   ∀e x.
+    bind_ok [] e ⇒
     (Binds [e] x ≅? Binds [e; e] x) b
 Proof
-  cheat
+  rw []
+  \\ Induct_on `e` \\ rw [] \\ Induct_on `p_2` \\ rw []
+  >- (
+    fs [binds_ok_def,bind_ok_def]
+    \\ irule exp_eq_subst_IMP_exp_eq
+    \\ rw []
+    \\ simp [subst_def]
+    \\ irule exp_eq_trans
+    \\ irule_at Any beta_equality
+    \\ conj_asm1_tac
+    >- (
+      irule IMP_closed_subst
+      \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    )
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any beta_equality
+    \\ rw []
+    \\ simp [subst1_def]
+    \\ irule exp_eq_trans
+    \\ irule_at Any beta_equality
+    \\ rw []
+    >- (
+      irule IMP_closed_subst
+      \\ rw []
+      \\ sg ‘(∀w. w ∈ FRANGE (f \\ p_1) ⇒ closed w)’
+      >- (
+        simp [FRANGE_FLOOKUP]
+        \\ rw [EQ_IMP_THM]
+        \\ first_x_assum irule
+        \\ qexists ‘k’
+        \\ rw []
+        \\ fs [DOMSUB_FLOOKUP_THM]
+      )
+      \\ fs [freevars_subst]
+      \\ cheat
+    )
+    \\ sg ‘(∀w. w ∈ FRANGE (f \\ p_1) ⇒ closed w)’
+    >- (
+      simp [FRANGE_FLOOKUP]
+      \\ rw [EQ_IMP_THM]
+      \\ first_x_assum irule
+      \\ qexists ‘k’
+      \\ rw []
+      \\ fs [DOMSUB_FLOOKUP_THM]
+    )
+    \\ qsuff_tac `(subst1 p_1 (subst f e) (subst (f \\ p_1) e)) = (subst f e)`
+    >- rw [exp_eq_refl]
+    \\ qsuff_tac `p_1 ∉ freevars (subst (f \\ p_1) e)`
+    >- (
+      rw []
+      \\ simp [subst1_notin]
+      \\ simp [subst_fdomsub]
+    )
+    \\ simp [freevars_subst]
+  )
+  \\ fs [binds_ok_def,bind_ok_def]
+  \\ irule exp_eq_subst_IMP_exp_eq
+  \\ rw []
+  \\ simp [subst_def]
+  \\ simp [FDIFF_FDIFF]
+  \\ simp [Once exp_eq_sym]
+  \\ qsuff_tac `p_1 ∉ freevars (Letrec [(p_1,subst (FDIFF f {p_1}) e)] (subst (FDIFF f {p_1}) x))`
+  >- (
+    rw []
+    \\ irule Letrec1_ignore
+    \\ rw []
+  )
+  \\ simp [freevars_def]
 QED
 
 Theorem bind_ok_sublist:
   ∀x xs ys e. bind_ok (ys ++ x::xs) e ⇒ bind_ok (ys ++ xs) e
 Proof
   cheat
+QED
+
+Theorem Let_Let_copy:
+  ∀v w x y e.
+    v ≠ w ∧
+    w ∉ freevars x ⇒
+    (Let v x (Let v x (Let w y e)) ≅? Let v x (Let w y (Let v x e))) b
+Proof
+  rw []
+  \\ irule exp_eq_subst_IMP_exp_eq
+  \\ rw []
+
+  \\ simp [Once subst_def]
+  \\ simp [Once subst_def]
+  \\ simp [Once exp_eq_sym]
+  \\ simp [Once subst_def]
+  \\ simp [Once subst_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ conj_asm1_tac
+  >- (
+    irule IMP_closed_subst
+    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ conj_asm1_tac
+  >- (
+    irule IMP_closed_subst
+    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+  )
+  
+
+
+
+
+  \\ simp []
+
+
+
+  \\ irule exp_eq_Let_cong
+  \\ rw [exp_eq_refl]
+
+
+  \\ irule exp_eq_trans
+  \\ irule_at Any Let_App
+  \\ irule exp_eq_App_cong
+  \\ rw []
+  >- (
+    irule Let_ignore
+    \\ simp [freevars_subst]
+  )
+  
+  \\ irule exp_eq_trans
+  \\ irule_at Any Let_Let
+  \\ rw []
+
+  \\ irule exp_eq_Let_cong
+  \\ rw [exp_eq_refl]
+  \\ simp [Once exp_eq_sym]
+
 QED
 
 Theorem Binds_MEM:
@@ -894,6 +1057,8 @@ Proof
     fs []
     \\ rw []
     \\ irule Binds_copy
+    \\ Induct_on `e` \\ Induct_on `p_2`
+    \\ rw [] \\ fs [binds_ok_def,bind_ok_def,vars_of_def]
   )
   \\ rw []
   \\ first_x_assum $ qspec_then ‘ys’ assume_tac
@@ -924,8 +1089,11 @@ Proof
     \\ asm_rewrite_tac [Once CONS_APPEND, APPEND_ASSOC]
   )
   \\ gvs []
-  \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ Cases_on ‘h’ \\ Cases_on ‘r’ \\ rw []
+  \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ Cases_on ‘h’ \\ Cases_on ‘r’ \\ rw []  
   >- (
+    (* 
+      Let v x (Let w y e) ≅? Let v x (Let w y (Let v x e)) 
+    *)
     irule exp_eq_trans
     \\ irule_at Any Let_Let
     \\ fs [bind_ok_def]
@@ -962,60 +1130,6 @@ Proof
     \\ fs [Binds_append]
     \\ irule Binds_cong
     \\ irule Let_Var
-(* 
-    \\ drule Binds_MEM
-    \\ fs [binds_ok_def]
-
-    \\ gvs [MEM_SPLIT,Binds_append]
-    \\ irule Binds_cong
-    \\ ‘~MEM v (MAP FST l2)’ by gvs [binds_ok_def,ALL_DISTINCT_APPEND]
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘l2’
-    \\ Induct \\ fs []
-    >- (
-      irule exp_eq_trans
-      \\ irule_at Any Let_Var3
-      \\ rw []
-      >- fs [binds_ok_def,bind_ok_def]
-      \\ irule exp_eq_App_cong
-      \\ rw [exp_eq_refl]
-      \\ irule exp_eq_Lam_cong
-      \\ cheat
-    )
-    \\ PairCases
-    \\ simp [FST]
-    \\ Cases_on ‘h1’ \\ fs [] \\ strip_tac \\ gvs []
-    >- (
-      irule exp_eq_trans
-      \\ irule_at Any Let_Let
-      \\ rw []
-      >- cheat
-      >- cheat
-      \\ simp [Once exp_eq_sym]
-      \\ irule exp_eq_trans
-      \\ irule_at Any Let_Let
-      \\ rw []
-      >- cheat
-      >- cheat
-      \\ irule exp_eq_App_cong
-      \\ rw [exp_eq_refl]
-      \\ irule exp_eq_Lam_cong
-      \\ simp [Once exp_eq_sym]
-    )
-    \\ irule exp_eq_trans
-    \\ irule_at Any Let_Letrec
-    \\ rw []
-    >- cheat
-    >- cheat
-    \\ simp [Once exp_eq_sym]
-    \\ irule exp_eq_trans
-    \\ irule_at Any Let_Letrec
-    \\ rw []
-    >- cheat
-    >- cheat
-    \\ irule exp_eq_Letrec_cong
-    \\ simp [exp_eq_refl]
-    \\ simp [Once exp_eq_sym] *)
   )
   >~ [‘Let _ _ _’] >- (
     cheat
@@ -1034,7 +1148,8 @@ Proof
     \\ once_rewrite_tac [DISJOINT_SYM] \\ fs [vars_of_append,vars_of_def]
     \\ once_rewrite_tac [DISJOINT_SYM] \\ fs []
     \\ fs [IN_DISJOINT,not_in_vars_of_imp]
-    \\ metis_tac [] *)
+    \\ rw []
+    \\ cheat *)
   )
   >- (
     irule exp_eq_trans
@@ -1044,46 +1159,6 @@ Proof
     \\ last_x_assum $ irule_at $ Pos hd
     \\ gvs []
     \\ simp [Binds_append,exp_eq_refl]
-    (* \\ ‘MEM (v,Rec t) xs’ by cheat
-    \\ gvs [MEM_SPLIT,Binds_append]
-    \\ irule Binds_cong
-    \\ ‘~MEM v (MAP FST l2)’ by gvs [binds_ok_def,ALL_DISTINCT_APPEND]
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘l2’
-    \\ Induct \\ fs []
-    >- cheat
-    \\ PairCases \\ Cases_on ‘h1’ \\ fs [] \\ strip_tac \\ gvs []
-    >- (
-      irule exp_eq_trans
-      \\ irule_at Any Letrec_Let
-      \\ rw []
-      >- cheat
-      >- cheat
-      \\ simp [Once exp_eq_sym]
-      \\ irule exp_eq_trans
-      \\ irule_at Any Letrec_Let
-      \\ rw []
-      >- cheat
-      >- cheat
-      \\ irule exp_eq_App_cong
-      \\ rw [exp_eq_refl]
-      \\ irule exp_eq_Lam_cong
-      \\ simp [Once exp_eq_sym]
-    )
-    \\ irule exp_eq_trans
-    \\ irule_at Any Letrec_Letrec
-    \\ rw []
-    >- cheat
-    >- cheat
-    \\ simp [Once exp_eq_sym]
-    \\ irule exp_eq_trans
-    \\ irule_at Any Letrec_Letrec
-    \\ rw []
-    >- cheat
-    >- cheat
-    \\ irule exp_eq_Letrec_cong
-    \\ rw [exp_eq_refl]
-    \\ simp [Once exp_eq_sym] *)
   )
   >~ [‘App’] >-
    cheat
@@ -1091,7 +1166,7 @@ Proof
    cheat
   >~ [‘Lam’] >-
    cheat
-  \\ rename [‘Letrec’] (* only case left *)
+  \\ rename [‘Letrec’]
   \\ cheat
 QED
 
