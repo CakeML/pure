@@ -55,10 +55,8 @@ Inductive subst_rel:
 End
 
 Theorem FLOOKUP_closed_FRANGE_closed:
-  ∀f. (
-    (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ⇔
+  ∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ⇔
       (∀v. v ∈ FRANGE f ⇒ closed v)
-  )
 Proof
   rw []
   \\ simp [FRANGE_FLOOKUP]
@@ -611,7 +609,8 @@ Inductive no_shadowing:
      no_shadowing (Prim p l)) ∧
 [~App:]
   (∀x y.
-     no_shadowing x ∧ no_shadowing y ⇒
+     no_shadowing x ∧ no_shadowing y ∧
+     DISJOINT (boundvars x) (boundvars y) ⇒
      no_shadowing (App x y)) ∧
 [~Lam:]
   (∀v x.
@@ -698,6 +697,7 @@ End
 Definition bind_ok_def:
   (bind_ok xs (v,Exp x) ⇔
     v ∉ freevars x ∧
+    v ∉ boundvars x ∧
     no_shadowing x ∧
     DISJOINT (boundvars x) (vars_of xs) ∧
     DISJOINT (boundvars x) (freevars x)) ∧
@@ -713,7 +713,12 @@ End
 Theorem vars_of_append:
   ∀xs ys. vars_of (xs ++ ys) = vars_of xs ∪ vars_of ys
 Proof
-  cheat
+  rw []
+  \\ Induct_on ‘xs’ \\ rw []
+  >- simp [vars_of_def]
+  \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def, UNION_ASSOC]
+  >- cheat
+  \\ cheat
 QED
 
 Theorem Binds_Lam:
@@ -775,7 +780,12 @@ QED
 Theorem Binds_append:
   ∀xs ys e. Binds (xs ++ ys) e = Binds xs (Binds ys e)
 Proof
-  cheat
+  rw []
+  \\ Induct_on `xs`
+  >- rw [Binds_def]
+  \\ Cases_on `h` \\ Cases_on `r`
+  >- rw [Binds_def]
+  >- rw [Binds_def]
 QED
 
 Theorem Let_ignore:
@@ -844,7 +854,6 @@ Proof
   \\ rw []
 QED
 
-(* Might need some more asumptions too (maybe) *)
 Theorem Letrec_Letrec:
   ∀v t w u e.
   v ≠ w ∧ v ∉ freevars u ∧ w ∉ freevars t ⇒
@@ -952,19 +961,22 @@ QED
 Theorem bind_ok_sublist:
   ∀x xs ys e. bind_ok (ys ++ x::xs) e ⇒ bind_ok (ys ++ xs) e
 Proof
-  cheat
+  rw []
+  \\ Cases_on `e` \\ Cases_on `r` \\ rw [] \\ fs [bind_ok_def]
+  \\ fs [vars_of_append]
+  \\ Cases_on `x` \\ Cases_on `r` \\ rw [] \\ fs [vars_of_def]
 QED
 
 Theorem Let_Let_copy:
   ∀v w x y e.
     v ≠ w ∧
-    w ∉ freevars x ⇒
+    w ∉ freevars x ∧
+    v ∉ freevars x ⇒
     (Let v x (Let v x (Let w y e)) ≅? Let v x (Let w y (Let v x e))) b
 Proof
   rw []
   \\ irule exp_eq_subst_IMP_exp_eq
   \\ rw []
-
   \\ simp [Once subst_def]
   \\ simp [Once subst_def]
   \\ simp [Once exp_eq_sym]
@@ -992,36 +1004,160 @@ Proof
     fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
     \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
   )
-  
-
-
-
-
-  \\ simp []
-
-
-
-  \\ irule exp_eq_Let_cong
-  \\ rw [exp_eq_refl]
-
-
-  \\ irule exp_eq_trans
-  \\ irule_at Any Let_App
-  \\ irule exp_eq_App_cong
-  \\ rw []
-  >- (
-    irule Let_ignore
-    \\ simp [freevars_subst]
-  )
-  
+  \\ simp [FUNION_FUPDATE_2]
+  \\ simp [subst_def]
+  \\ simp [DOMSUB_FUPDATE_THM]
   \\ irule exp_eq_trans
   \\ irule_at Any Let_Let
   \\ rw []
-
-  \\ irule exp_eq_Let_cong
-  \\ rw [exp_eq_refl]
+  >- (
+    fs [FLOOKUP_closed_FRANGE_closed]
+    \\ sg `(∀n. n ∈ FRANGE (f \\ w |+ (v,subst f x)) ⇒ closed n)`
+    >- (
+      rw []
+      >- simp []
+      \\ first_assum $ qspec_then `n` assume_tac
+      \\ fs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+      \\ first_x_assum irule
+      \\ qexists ‘k’
+      \\ simp []
+    )
+    \\ simp [freevars_subst]
+  )
+  >- (
+    fs [FLOOKUP_closed_FRANGE_closed]
+    \\ sg `(∀n. n ∈ FRANGE (f |+ (v,subst f x)) ⇒ closed n)`
+    >- (
+      rw []
+      >- simp []
+      \\ first_assum $ qspec_then `n` assume_tac
+      \\ fs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+      \\ first_x_assum irule
+      \\ qexists ‘k’
+      \\ simp []
+    )
+    \\ simp [freevars_subst]
+  )
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ rw []
+  >- (
+    irule IMP_closed_subst
+    \\ rw []
+    >- simp []
+    >- (
+      fs [FLOOKUP_closed_FRANGE_closed]
+      \\ first_assum $ qspec_then `v'` assume_tac
+      \\ fs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+      \\ first_x_assum irule
+      \\ qexists `k`
+      \\ rw []
+    )
+    \\ qsuff_tac `freevars x DELETE w ⊆ FDOM f DELETE w`
+    >- (
+      rw []
+      \\ gvs [DELETE_NON_ELEMENT]
+    )
+    \\ fs [SUBSET_DELETE_BOTH]
+  )
+  \\ simp [subst_def]
   \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ rw []
+  >- (
+    irule IMP_closed_subst
+    \\ rw []
+    >- simp []
+    \\ fs [FLOOKUP_closed_FRANGE_closed]
+    \\ first_assum $ qspec_then `v'` assume_tac
+    \\ fs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+    \\ first_x_assum irule
+    \\ qexists `k`
+    \\ rw []
+  )
+  \\ simp [subst_def]
+  \\ irule exp_eq_Let_cong
+  \\ rw []
+  >- (
+    qsuff_tac `subst (f |+ (v,subst f x)) x = subst (f \\ w |+ (v,subst f x)) x`
+    >- simp [DOMSUB_COMMUTES, exp_eq_refl]
+    \\ qsuff_tac `subst (f |+ (v,subst f x)) x = subst ((f |+ (v,subst f x)) \\ w) x`
+    >- simp [DOMSUB_FUPDATE_NEQ]
+    \\ simp [subst_fdomsub]
+  )
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    rw []
+    >- (
+      fs [FLOOKUP_closed_FRANGE_closed]
+      \\ first_assum $ qspec_then `v'` assume_tac
+      \\ fs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+      \\ first_x_assum irule
+      \\ qexists `k`
+      \\ rw []
+    )
+    >- simp []
+    >- (
+      fs [FLOOKUP_closed_FRANGE_closed]
+      \\ first_assum $ qspec_then `v'` assume_tac
+      \\ fs [FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM]
+      \\ first_x_assum irule
+      \\ qexists `k`
+      \\ rw []
+    )
+  )
+  \\ simp [FUNION_FUPDATE_2, DOMSUB_FUPDATE_THM]
+  \\ qsuff_tac `subst (f |+ (v,subst f x)) x = subst f x`
+  >- rw [exp_eq_refl]
+  \\ qspecl_then [`(f |+ (v,subst f x))`, `x`, `v`] assume_tac subst_fdomsub
+  \\ gvs []
+  \\ qspecl_then [`f`, `x`, `v`] assume_tac subst_fdomsub
+  \\ gvs []
+QED
 
+Theorem Let_Letrec1_copy:
+  ∀v w x y e.
+    v ≠ w ∧
+    w ∉ freevars x ∧
+    v ∉ freevars x ⇒
+    (Let v x (Let v x (Letrec [(w, y)] e)) ≅? Let v x (Letrec [(w, y)] (Let v x e))) b
+Proof
+  rw []
+  \\ irule exp_eq_subst_IMP_exp_eq
+  \\ rw []
+  \\ simp [Once subst_def]
+  \\ simp [Once subst_def]
+  \\ simp [Once exp_eq_sym]
+  \\ simp [Once subst_def]
+  \\ simp [Once subst_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ conj_asm1_tac
+  >- (
+    irule IMP_closed_subst
+    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality
+  \\ conj_asm1_tac
+  >- (
+    irule IMP_closed_subst
+    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+  )
+  \\ simp [FUNION_FUPDATE_2]
+  \\ simp [subst_def]
+  \\ simp [DOMSUB_FUPDATE_THM]
+  \\ cheat
 QED
 
 Theorem Binds_MEM:
@@ -1089,20 +1225,58 @@ Proof
     \\ asm_rewrite_tac [Once CONS_APPEND, APPEND_ASSOC]
   )
   \\ gvs []
+  \\ irule exp_eq_trans
+  \\ qexists `Binds (e::e::h::xs) x`
+  \\ rw []
+  >- (
+    sg `(Binds [e; e] (Binds (h::xs) x) ≅? Binds (e::e::h::xs) x) b`
+    >- simp [GSYM Binds_append, exp_eq_refl]
+    \\ sg `(Binds [e] (Binds (h::xs) x) ≅? Binds [e; e] (Binds (h::xs) x)) b`
+    >- (
+      irule Binds_copy
+      \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ fs [bind_ok_def, vars_of_def]
+    )
+    \\ gvs [GSYM Binds_append]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ qexists `Binds (e::e::h::(xs ++ [e])) x`
+  \\ rw []
+  >- (
+    sg `(Binds [e; e] (Binds (h::(xs ++ [e])) x) ≅? Binds (e::e::h::(xs ++ [e])) x) b`
+    >- simp [GSYM Binds_append, exp_eq_refl]
+    \\ sg `(Binds [e] (Binds (h::(xs ++ [e])) x) ≅? Binds [e; e] (Binds (h::(xs ++ [e])) x)) b`
+    >- (
+      irule Binds_copy
+      \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ fs [bind_ok_def, vars_of_def]
+    )
+    \\ gvs [GSYM Binds_append]
+  )
+  \\ simp [Once exp_eq_sym]
   \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ Cases_on ‘h’ \\ Cases_on ‘r’ \\ rw []  
   >- (
-    (* 
-      Let v x (Let w y e) ≅? Let v x (Let w y (Let v x e)) 
-    *)
     irule exp_eq_trans
-    \\ irule_at Any Let_Let
+    \\ irule_at Any Let_Let_copy
     \\ fs [bind_ok_def]
-    \\ cheat
+    \\ rw []
+    >- cheat (* needs assumption in binds_ok ??? *)
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Let_Let_copy
+    \\ rw []
+    >- cheat (* Same as above *)
+    \\ irule exp_eq_Let_cong
+    \\ simp [exp_eq_refl]
+    \\ irule exp_eq_Let_cong
+    \\ simp [exp_eq_refl]
+    \\ simp [Once exp_eq_sym]
   )
-
-
-
-
+  >- (
+    cheat
+  )
+  >- (
+    cheat
+  )
   \\ cheat
 QED
 
@@ -1132,10 +1306,40 @@ Proof
     \\ irule Let_Var
   )
   >~ [‘Let _ _ _’] >- (
-    cheat
-    (* fs [Binds_snoc]
+    fs [Binds_snoc]
     \\ irule exp_eq_trans
     \\ last_x_assum $ irule_at Any
+    \\ conj_tac
+    >- (
+      fs [binds_ok_def,bind_ok_def]
+      \\ fs [ALL_DISTINCT_APPEND]
+      \\ fs [not_in_vars_of_imp]
+      \\ fs [vars_of_append, vars_of_def]
+      \\ once_rewrite_tac [DISJOINT_SYM]
+      \\ simp []
+      \\ fs [EVERY_MEM]
+      \\ rw []
+      \\ Cases_on `e` \\ Cases_on `r` \\ fs [bind_ok_def, vars_of_def]
+      \\ res_tac
+      \\ fs [bind_ok_def]
+      \\ fs [vars_of_append, vars_of_def]
+      \\ once_rewrite_tac [DISJOINT_SYM]
+      \\ simp []
+      \\ qsuff_tac `vars_of (xs ++ [(v,Exp x)]) = vars_of xs`
+      >- simp []
+      \\ gvs [MEM_SPLIT]
+    )
+    \\ conj_tac
+    >- (
+      fs [vars_of_append, vars_of_def]
+      \\ metis_tac [DISJOINT_SYM]
+    )
+    \\ conj_tac
+    >- (
+      fs [IN_DISJOINT]
+      \\ metis_tac []
+    )
+
     \\ irule_at Any exp_eq_trans
     \\ irule_at Any Binds_Let
     \\ irule_at Any exp_eq_trans
@@ -1148,8 +1352,11 @@ Proof
     \\ once_rewrite_tac [DISJOINT_SYM] \\ fs [vars_of_append,vars_of_def]
     \\ once_rewrite_tac [DISJOINT_SYM] \\ fs []
     \\ fs [IN_DISJOINT,not_in_vars_of_imp]
-    \\ rw []
-    \\ cheat *)
+    
+    \\ reverse $ rw []
+    >- metis_tac []
+    >- metis_tac []
+    \\ cheat
   )
   >- (
     irule exp_eq_trans
@@ -1166,6 +1373,9 @@ Proof
    cheat
   >~ [‘Lam’] >-
    cheat
+  >- (
+    cheat
+  )
   \\ rename [‘Letrec’]
   \\ cheat
 QED
