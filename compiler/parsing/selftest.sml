@@ -125,7 +125,9 @@ val _ = app lextest [
   ("do x", “[AlphaT "do"; AlphaT "x"]”),
   ("foo_bar _", “[AlphaT "foo_bar"; UnderbarT]”),
   ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”),
-  ("foo #(foo)", “[AlphaT "foo"; FFIT "foo"]”)
+  ("foo #(foo)", “[AlphaT "foo"; FFIT "foo"]”),
+  ("foo\n--bar", “[AlphaT "foo"]”),
+  ("foo\n--bar\n", “[AlphaT "foo"]”)
 ];
 
 val _ = app fptest [
