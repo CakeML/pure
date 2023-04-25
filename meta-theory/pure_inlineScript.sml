@@ -746,6 +746,12 @@ Proof
   \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def]
 QED
 
+Theorem vars_of_DISJOINT_MAP_FST:
+  DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP FST xs))
+Proof
+  cheat
+QED
+
 Theorem vars_of_MEM_DISJOINT:
   MEM (q,Exp e) xs ∧ DISJOINT s (vars_of xs) ⇒
   DISJOINT s (boundvars e)
@@ -778,6 +784,45 @@ Theorem vars_of_DISJOINT_FILTER:
   DISJOINT s (vars_of (FILTER P ys))
 Proof
   cheat
+QED
+
+Theorem bind_ok_EVERY_append:
+  EVERY (bind_ok xs) xs ∧
+  no_shadowing x ∧
+  v ∉ vars_of xs ∧
+  v ∉ freevars x ∧
+  v ∉ boundvars x ∧
+  DISJOINT (boundvars x) (vars_of xs) ∧
+  DISJOINT (boundvars x) (freevars x) ⇒
+  EVERY (bind_ok (xs ++ [(v,Exp x)])) xs
+Proof
+  rw []
+  \\ fs [EVERY_MEM]
+  \\ rw []
+  \\ first_assum $ qspec_then `e` assume_tac
+  \\ Cases_on `e` \\ Cases_on `r` \\ rw []
+  \\ fs [bind_ok_def,vars_of_def]
+  \\ gvs []
+  \\ fs [vars_of_append]
+  \\ fs [DISJOINT_SYM]
+  \\ fs [vars_of_def]
+  \\ irule_at Any vars_of_MEM_not_in
+  \\ qexists `xs` \\ qexists `q`
+  \\ simp []
+  \\ fs [vars_of_append_FILTER]
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ simp []
+  \\ Cases_on `v = q`
+  >- simp [vars_of_def]
+  \\ simp [vars_of_def]
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ irule_at Any vars_of_MEM_DISJOINT
+  \\ qexists `xs` \\ qexists `q`
+  \\ simp []
+  \\ irule vars_of_MEM_not_in
+  \\ qexists `q` \\ qexists `xs`
+  \\ simp []
+  
 QED
 
 Theorem Binds_Lam:
@@ -1340,70 +1385,6 @@ Proof
   \\ cheat
 QED
 
-Theorem Binds_FILTER:
-  v ∉ freevars x ⇒
-  (Binds (FILTER (λ(w,_). w ≠ v) xs) x ≅? Binds xs x) b
-Proof
-  rw []
-  \\ Induct_on `xs`
-  >- simp [exp_eq_refl]
-  \\ Cases_on `h`
-  \\ Cases_on `q ≠ v`
-  >- (
-    simp []
-    \\ once_rewrite_tac [CONS_APPEND]
-    \\ simp [Binds_append]
-    \\ irule Binds_cong
-    \\ simp []
-  )
-  \\ simp []
-  \\ simp [Once exp_eq_sym]
-  \\ once_rewrite_tac [CONS_APPEND]
-  \\ simp [Binds_append]
-  \\ Cases_on `r`
-  \\ cheat
-QED
-
-Theorem Binds_TAKE_WHILE:
-  v ∉ freevars x ∧ binds_ok xs ⇒
-  (Binds xs x ≅? Binds (TAKE_WHILE (λ(w,_). w ≠ v) xs) x) b
-Proof
-  rw []
-  \\ Induct_on `xs`
-  >- simp [TAKE_WHILE_def,exp_eq_refl]
-  \\ Cases_on `h`
-  \\ Cases_on `q ≠ v`
-  >- (
-    simp []
-    \\ simp [TAKE_WHILE_def]
-    \\ once_rewrite_tac [CONS_APPEND]
-    \\ simp [Binds_append]
-    \\ rw []
-    \\ irule Binds_cong
-    \\ fs [binds_ok_def]
-    \\ fs [EVERY_MEM]
-    \\ fs [bind_ok_rec_def]
-    \\ first_x_assum $ irule
-    \\ Cases_on `r`
-    >- (
-      fs [bind_ok_rec_def,bind_ok_def]
-      \\ rw []
-      \\ qspecl_then [`(q,Exp e)`, `xs`, `[]`, `e'`] assume_tac bind_ok_sublist
-      \\ gvs []
-    )
-    \\ fs [bind_ok_rec_def,bind_ok_def]
-    \\ rw []
-    \\ qspecl_then [`(q,Rec e)`, `xs`, `[]`, `e'`] assume_tac bind_ok_sublist
-    \\ gvs []
-  )
-  \\ rw []
-  \\ simp [TAKE_WHILE_def]
-  \\ once_rewrite_tac [CONS_APPEND]
-  \\ simp [Binds_append]
-  \\ fs [binds_ok_def]
-  \\ cheat
-QED
-
 Theorem x_equiv_IMP_weak:
   ∀b. (x ≅? y) T ⇒ (x ≅? y) b
 Proof
@@ -1467,44 +1448,24 @@ Proof
       fs [binds_ok_def,bind_ok_def]
       \\ fs [ALL_DISTINCT_APPEND]
       \\ fs [DISJOINT_SYM]
-      \\ rw []
-      >- (
-        fs [EVERY_MEM]
-        \\ rw []
-        \\ first_assum $ qspec_then `e` assume_tac
-        \\ Cases_on `e` \\ Cases_on `r` \\ rw []
-        \\ fs [bind_ok_def,vars_of_def]
-        \\ gvs []
-        \\ fs [vars_of_append]
-        \\ fs [DISJOINT_SYM]
-        \\ fs [vars_of_def]
-        \\ irule_at Any vars_of_MEM_not_in
-        \\ qexists `xs` \\ qexists `q`
-        \\ simp []
-        \\ fs [vars_of_append_FILTER]
-        \\ once_rewrite_tac [DISJOINT_SYM]
-        \\ simp []
-        \\ Cases_on `v = q`
-        >- simp [vars_of_def]
-        \\ simp [vars_of_def]
-        \\ once_rewrite_tac [DISJOINT_SYM]
-        \\ irule_at Any vars_of_MEM_DISJOINT
-        \\ qexists `xs` \\ qexists `q`
-        \\ simp []
-        \\ irule vars_of_MEM_not_in
-        \\ qexists `q` \\ qexists `xs`
-        \\ simp []
-      )
-      >- (
-        fs [vars_of_append_FILTER]
-        \\ fs [DISJOINT_SYM]
-        \\ fs [vars_of_def]
-        \\ fs [vars_of_DISJOINT_FILTER]
-      )
+      \\ fs [not_in_vars_of_imp]
+      \\ fs [vars_of_DISJOINT_MAP_FST]
+      \\ fs [FILTER_APPEND]
+      \\ fs [vars_of_DISJOINT_FILTER]
+      \\ fs [bind_ok_EVERY_append]
       \\ cheat (* bind_ok_rec (xs ++ [(v,Exp x)]) *)
     )
     \\ conj_tac
-    >- simp [DISJOINT_SYM]
+    >- (
+      simp [vars_of_append,vars_of_def,DISJOINT_SYM]
+      \\ fs [DISJOINT_SYM]
+    )
+    \\ conj_tac
+    >- (
+      fs [IN_DISJOINT]
+      \\ rw []
+      \\ metis_tac []
+    )
     \\ irule_at Any exp_eq_trans
     \\ irule_at Any Binds_Let
     \\ irule_at Any exp_eq_trans
@@ -1557,7 +1518,7 @@ Theorem list_subst_rel_IMP_exp_eq:
   (x ≅? y) b
 Proof
   rw [] \\ drule list_subst_rel_IMP_exp_eq_lemma
-  \\ fs [binds_ok_def,vars_of_def,closed_def]
+  \\ fs [binds_ok_def,vars_of_def,closed_def,bind_ok_rec_def]
 QED
 
 (*
