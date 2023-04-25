@@ -632,6 +632,17 @@ Theorem no_shadowing_simp[simp] =
      “no_shadowing (App x y)”,
      “no_shadowing (Lam v x)”] |> LIST_CONJ;
 
+Definition TAKE_WHILE_def:
+  (TAKE_WHILE P [] = []) ∧
+  (TAKE_WHILE P (h::t) = if P h then h::(TAKE_WHILE P t) else [])
+End
+
+Definition vars_of_def:
+  vars_of [] = {} ∧
+  vars_of ((v,Exp e)::rest) = v INSERT boundvars e ∪ vars_of rest ∧
+  vars_of ((v,Rec e)::rest) = v INSERT boundvars e ∪ vars_of rest
+End
+
 Inductive list_subst_rel:
 [~refl:]
   (∀l t.
@@ -647,9 +658,18 @@ Inductive list_subst_rel:
     list_subst_rel l x y ⇒
     list_subst_rel l x (Letrec [(v,t)] y)) ∧
 [~Var:]
-  (∀v x x' l.
-    MEM (v, Exp x) l ∧ list_subst_rel (FILTER (λ(w,_). w ≠ v) l) x x' ⇒
-    list_subst_rel l (Var v) x') ∧
+  (∀v x x1 x2 l.
+    MEM (v, Exp x) l ∧
+    x ≅ x1 ∧
+    no_shadowing x1 ∧
+    DISJOINT (boundvars x1) (freevars x1) ∧
+    DISJOINT (boundvars x1) (vars_of l) ∧
+    list_subst_rel l x1 x2 ⇒
+    list_subst_rel l (Var v) x2) ∧
+[~VarSimp:]
+  (∀v x l.
+    MEM (v, Exp x) l ⇒
+    list_subst_rel l (Var v) x) ∧
 [~Prim:]
   (∀l p xs ys.
     LIST_REL (list_subst_rel l) xs ys ⇒
@@ -687,12 +707,6 @@ Proof
   Induct \\ fs []
   \\ PairCases \\ Cases_on ‘h1’ \\ fs []
 QED
-
-Definition vars_of_def:
-  vars_of [] = {} ∧
-  vars_of ((v,Exp e)::rest) = v INSERT boundvars e ∪ vars_of rest ∧
-  vars_of ((v,Rec e)::rest) = v INSERT boundvars e ∪ vars_of rest
-End
 
 Definition bind_ok_def:
   (bind_ok xs (v,Exp x) ⇔
@@ -1330,13 +1344,75 @@ Theorem Binds_FILTER:
   v ∉ freevars x ⇒
   (Binds (FILTER (λ(w,_). w ≠ v) xs) x ≅? Binds xs x) b
 Proof
-  
+  rw []
+  \\ Induct_on `xs`
+  >- simp [exp_eq_refl]
+  \\ Cases_on `h`
+  \\ Cases_on `q ≠ v`
+  >- (
+    simp []
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ simp [Binds_append]
+    \\ irule Binds_cong
+    \\ simp []
+  )
+  \\ simp []
+  \\ simp [Once exp_eq_sym]
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ simp [Binds_append]
+  \\ Cases_on `r`
+  \\ cheat
+QED
+
+Theorem Binds_TAKE_WHILE:
+  v ∉ freevars x ∧ binds_ok xs ⇒
+  (Binds xs x ≅? Binds (TAKE_WHILE (λ(w,_). w ≠ v) xs) x) b
+Proof
+  rw []
+  \\ Induct_on `xs`
+  >- simp [TAKE_WHILE_def,exp_eq_refl]
+  \\ Cases_on `h`
+  \\ Cases_on `q ≠ v`
+  >- (
+    simp []
+    \\ simp [TAKE_WHILE_def]
+    \\ once_rewrite_tac [CONS_APPEND]
+    \\ simp [Binds_append]
+    \\ rw []
+    \\ irule Binds_cong
+    \\ fs [binds_ok_def]
+    \\ fs [EVERY_MEM]
+    \\ fs [bind_ok_rec_def]
+    \\ first_x_assum $ irule
+    \\ Cases_on `r`
+    >- (
+      fs [bind_ok_rec_def,bind_ok_def]
+      \\ rw []
+      \\ qspecl_then [`(q,Exp e)`, `xs`, `[]`, `e'`] assume_tac bind_ok_sublist
+      \\ gvs []
+    )
+    \\ fs [bind_ok_rec_def,bind_ok_def]
+    \\ rw []
+    \\ qspecl_then [`(q,Rec e)`, `xs`, `[]`, `e'`] assume_tac bind_ok_sublist
+    \\ gvs []
+  )
+  \\ rw []
+  \\ simp [TAKE_WHILE_def]
+  \\ once_rewrite_tac [CONS_APPEND]
+  \\ simp [Binds_append]
+  \\ fs [binds_ok_def]
+  \\ cheat
+QED
+
+Theorem x_equiv_IMP_weak:
+  ∀b. (x ≅? y) T ⇒ (x ≅? y) b
+Proof
+  cheat
 QED
 
 Theorem list_subst_rel_IMP_exp_eq_lemma:
   ∀xs x y.
     list_subst_rel xs x y ∧ binds_ok xs ∧
-    DISJOINT (boundvars x) (set (MAP FST xs)) ∧ (* v ∉ set (MAP FST xs) *)
     DISJOINT (boundvars x) (vars_of xs) ∧ (* v ∉ boundvars e (where e ∈ MAP SND xs), this is required for DISJOINT (boundvars x) (set (MAP FST xs)) in bind_ok *)
     DISJOINT (boundvars x) (freevars x) ∧ (* v ∉ freevars x *)
     no_shadowing x ⇒
@@ -1362,15 +1438,25 @@ Proof
       \\ simp []
     )
     \\ irule exp_eq_trans
-    \\ last_x_assum $ irule_at Any
-  
-    \\ cheat
-
-    (* \\ fs [MAP_FILTER,FILTER_ALL_DISTINCT]
+    \\ pop_assum $ irule_at Any
     \\ irule exp_eq_trans
-    \\ first_x_assum $ irule_at Any
-    \\ fs [GSYM EVERY_MEM] *)
-    
+    \\ irule_at (Pos hd) Binds_cong
+    \\ drule_then (qspec_then `b` assume_tac) x_equiv_IMP_weak
+    \\ pop_assum $ irule_at $ Pos hd
+    \\ fs []
+  )
+  >~ [‘Var’] >- (
+    rw []
+    \\ fs [binds_ok_def,EVERY_MEM,bind_ok_def]
+    \\ res_tac
+    \\ fs [bind_ok_def]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_MEM
+    \\ first_assum $ irule_at $ Pos hd
+    \\ fs [EVERY_MEM,binds_ok_def]
+    \\ fs [Binds_append]
+    \\ irule Binds_cong
+    \\ irule Let_Var
   )
   >~ [‘Let _ _ _’] >- (
     fs [Binds_snoc]
