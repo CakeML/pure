@@ -587,6 +587,12 @@ Proof
   simp [deep_subst_rel_IMP_exp_eq]
 QED
 
+Theorem x_equiv_IMP_weak:
+  ∀b. (x ≅? y) T ⇒ (x ≅? y) b
+Proof
+  cheat
+QED
+
 Datatype:
   rhs = Exp exp | Rec exp
 End
@@ -643,6 +649,12 @@ Definition vars_of_def:
   vars_of ((v,Rec e)::rest) = v INSERT boundvars e ∪ vars_of rest
 End
 
+Definition freevars_of_def:
+  freevars_of [] = {} ∧
+  freevars_of ((v,Exp e)::rest) = freevars e ∪ freevars_of rest ∧
+  freevars_of ((v,Rec e)::rest) = freevars e ∪ freevars_of rest
+End
+
 Inductive list_subst_rel:
 [~refl:]
   (∀l t.
@@ -664,6 +676,7 @@ Inductive list_subst_rel:
     no_shadowing x1 ∧
     DISJOINT (boundvars x1) (freevars x1) ∧
     DISJOINT (boundvars x1) (vars_of l) ∧
+    DISJOINT (boundvars x1) (freevars_of l) ∧
     list_subst_rel l x1 x2 ⇒
     list_subst_rel l (Var v) x2) ∧
 [~VarSimp:]
@@ -736,6 +749,16 @@ Definition binds_ok_def:
     bind_ok_rec xs
 End
 
+Theorem bind_ok_rec_APPEND:
+  bind_ok_rec (ys ++ xs) ⇒ bind_ok_rec xs
+Proof
+  rw []
+  \\ Induct_on `ys` \\ rw []
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- fs [bind_ok_rec_def]
+  \\ fs [bind_ok_rec_def]
+QED
+
 Theorem vars_of_MEM_not_in:
   MEM (q,Exp e) xs ∧ v ∉ vars_of xs ⇒
   v ∉ boundvars e
@@ -749,7 +772,18 @@ QED
 Theorem vars_of_DISJOINT_MAP_FST:
   DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP FST xs))
 Proof
-  cheat
+  rw []
+  \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
+  >- (
+    Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def]
+  )
+  \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def]
+  >- (
+    last_x_assum irule
+    \\ fs [DISJOINT_SYM]
+  )
+  \\ last_x_assum irule
+  \\ fs [DISJOINT_SYM]
 QED
 
 Theorem vars_of_MEM_DISJOINT:
@@ -767,33 +801,59 @@ Theorem vars_of_append:
 Proof
   rw []
   \\ Induct_on ‘xs’ \\ rw []
-  >- simp [vars_of_def]
-  \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def, UNION_ASSOC]
-  >- cheat
-  \\ cheat
+  >- fs [vars_of_def]
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    fs [vars_of_def]
+    \\ fs [UNION_ASSOC]
+    \\ fs [INSERT_UNION_EQ]
+  )
+  \\ fs [vars_of_def]
+  \\ fs [UNION_ASSOC]
+  \\ fs [INSERT_UNION_EQ]
 QED
 
-Theorem vars_of_append_FILTER:
-  ∀xs ys. vars_of (FILTER P (xs ++ ys)) = vars_of (FILTER P xs) ∪ vars_of (FILTER P ys)
+Theorem freevars_of_append:
+  ∀xs ys. freevars_of (xs ++ ys) = freevars_of xs ∪ freevars_of ys
 Proof
-  cheat
+  rw []
+  \\ Induct_on ‘xs’ \\ rw []
+  >- fs [freevars_of_def]
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    fs [freevars_of_def]
+    \\ fs [UNION_ASSOC]
+  )
+  \\ fs [freevars_of_def]
+  \\ fs [UNION_ASSOC]
 QED
 
 Theorem vars_of_DISJOINT_FILTER:
   ∀xs ys. DISJOINT s (vars_of ys) ⇒
-  DISJOINT s (vars_of (FILTER P ys))
+    DISJOINT s (vars_of (FILTER P ys))
 Proof
-  cheat
+  rw []
+  \\ Induct_on ‘ys’ \\ reverse $ rw []
+  >- (
+    last_x_assum irule
+    \\ qsuff_tac `DISJOINT s (vars_of ([h] ++ ys))`
+    >- fs [vars_of_append, vars_of_def, DISJOINT_SYM]
+    \\ fs [Once APPEND]
+  )
+  \\ sg `DISJOINT s (vars_of ([h] ++ ys))`
+  >- simp [Once APPEND]
+  \\ qsuff_tac `DISJOINT s (vars_of ([h] ++ FILTER P ys))`
+  >- simp [Once APPEND]
+  \\ fs [vars_of_append]
+  \\ simp [Once DISJOINT_SYM]
+  \\ last_x_assum irule
+  \\ fs [DISJOINT_SYM]
 QED
 
 Theorem bind_ok_EVERY_append:
   EVERY (bind_ok xs) xs ∧
-  no_shadowing x ∧
   v ∉ vars_of xs ∧
-  v ∉ freevars x ∧
-  v ∉ boundvars x ∧
-  DISJOINT (boundvars x) (vars_of xs) ∧
-  DISJOINT (boundvars x) (freevars x) ⇒
+  DISJOINT (boundvars x) (vars_of xs) ⇒
   EVERY (bind_ok (xs ++ [(v,Exp x)])) xs
 Proof
   rw []
@@ -809,7 +869,7 @@ Proof
   \\ irule_at Any vars_of_MEM_not_in
   \\ qexists `xs` \\ qexists `q`
   \\ simp []
-  \\ fs [vars_of_append_FILTER]
+  \\ fs [FILTER_APPEND, vars_of_append]
   \\ once_rewrite_tac [DISJOINT_SYM]
   \\ simp []
   \\ Cases_on `v = q`
@@ -822,7 +882,31 @@ Proof
   \\ irule vars_of_MEM_not_in
   \\ qexists `q` \\ qexists `xs`
   \\ simp []
-  
+QED
+
+Theorem bind_ok_rec_Exp_append:
+  bind_ok_rec xs ∧
+  v ∉ freevars_of xs ∧
+  DISJOINT (boundvars x) (freevars_of xs) ∧
+  no_shadowing x ⇒
+    bind_ok_rec (xs ++ [(v,Exp x)])
+Proof
+  rw []
+  \\ Induct_on `xs` \\ rw []
+  >- fs [bind_ok_rec_def]
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    fs [bind_ok_rec_def]
+    \\ fs [DISJOINT_SYM]
+    \\ fs [freevars_of_def]
+    \\ last_x_assum $ irule
+    \\ fs [DISJOINT_SYM]
+  )
+  \\ fs [bind_ok_rec_def]
+  \\ fs [DISJOINT_SYM]
+  \\ fs [freevars_of_def]
+  \\ last_x_assum $ irule
+  \\ fs [DISJOINT_SYM]
 QED
 
 Theorem Binds_Lam:
@@ -986,6 +1070,14 @@ Proof
   \\ irule exp_eq_refl
 QED
 
+Theorem set_DIFF_DELETE_EMPTY:
+  a ⊆ b ∧
+  x ∉ a ⇒
+  a DIFF (b DELETE x) = ∅
+Proof
+  cheat
+QED
+
 Theorem Binds_copy:
   ∀e x.
     bind_ok [] e ⇒
@@ -1026,7 +1118,7 @@ Proof
         \\ fs [DOMSUB_FLOOKUP_THM]
       )
       \\ fs [freevars_subst]
-      \\ cheat
+      \\ fs [set_DIFF_DELETE_EMPTY]
     )
     \\ sg ‘(∀w. w ∈ FRANGE (f \\ p_1) ⇒ closed w)’
     >- (
@@ -1067,9 +1159,19 @@ Theorem bind_ok_sublist:
 Proof
   rw []
   \\ Cases_on `e` \\ Cases_on `r` \\ rw [] \\ fs [bind_ok_def]
-  \\ fs [vars_of_append]
-  \\ Cases_on `x` \\ Cases_on `r` \\ rw [] \\ fs [vars_of_def]
-  \\ cheat
+  \\ fs [FILTER_APPEND, vars_of_append]
+  \\ fs [DISJOINT_SYM]
+  \\ Cases_on `x` \\ Cases_on `r` \\ rw []
+  >- (
+    Cases_on `q' = q`
+    >- gvs []
+    \\ gvs []
+    \\ fs [vars_of_def, DISJOINT_SYM]
+  )
+  \\ Cases_on `q' = q`
+  >- gvs []
+  \\ gvs []
+  \\ fs [vars_of_def, DISJOINT_SYM]
 QED
 
 Theorem Let_Let_copy:
@@ -1271,7 +1373,7 @@ Theorem Binds_MEM:
     (Binds xs x ≅? Binds (xs ++ [e]) x) b
 Proof
   qsuff_tac
-    ‘∀xs ys e x. MEM e xs ∧ ALL_DISTINCT (MAP FST xs) ∧ EVERY (bind_ok (ys ++ xs)) xs ⇒
+    ‘∀xs ys e x. MEM e xs ∧ ALL_DISTINCT (MAP FST xs) ∧ EVERY (bind_ok (ys ++ xs)) xs ∧ bind_ok_rec xs ⇒
       (Binds xs x ≅? Binds (xs ++ [e]) x) b’
   >- (
     fs [binds_ok_def] \\ metis_tac [APPEND]
@@ -1281,6 +1383,14 @@ Proof
   >- (
     sg ‘EVERY (bind_ok ((ys ++ [h]) ++ xs)) xs’ 
     >- asm_rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+    \\ sg `bind_ok_rec ([h] ++ xs)`
+    >- simp [APPEND]
+    \\ sg `bind_ok_rec xs`
+    >- (
+      irule bind_ok_rec_APPEND
+      \\ qexists `[h]`
+      \\ simp []
+    )
     \\ last_x_assum $ drule_all
     \\ qspec_then ‘[h]’ assume_tac Binds_append
     \\ first_assum $ qspec_then ‘xs’ mp_tac
@@ -1358,23 +1468,25 @@ Proof
     \\ gvs [GSYM Binds_append]
   )
   \\ simp [Once exp_eq_sym]
-  \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ Cases_on ‘h’ \\ Cases_on ‘r’ \\ rw []  
+  \\ Cases_on ‘e’ \\ Cases_on ‘r’ \\ Cases_on ‘h’ \\ Cases_on ‘r’ \\ rw []
   >- (
     irule exp_eq_trans
     \\ irule_at Any Let_Let_copy
     \\ fs [bind_ok_def]
     \\ rw []
-    >- cheat (* needs assumption in binds_ok ??? *)
+    >- fs [bind_ok_rec_def]
     \\ simp [Once exp_eq_sym]
     \\ irule exp_eq_trans
     \\ irule_at Any Let_Let_copy
     \\ rw []
-    >- cheat (* Same as above *)
+    >- fs [bind_ok_rec_def]
     \\ irule exp_eq_Let_cong
     \\ simp [exp_eq_refl]
     \\ irule exp_eq_Let_cong
     \\ simp [exp_eq_refl]
     \\ simp [Once exp_eq_sym]
+    \\ last_x_assum $ irule
+    \\ fs [bind_ok_rec_def]
   )
   >- (
     cheat
@@ -1385,17 +1497,12 @@ Proof
   \\ cheat
 QED
 
-Theorem x_equiv_IMP_weak:
-  ∀b. (x ≅? y) T ⇒ (x ≅? y) b
-Proof
-  cheat
-QED
-
 Theorem list_subst_rel_IMP_exp_eq_lemma:
   ∀xs x y.
     list_subst_rel xs x y ∧ binds_ok xs ∧
     DISJOINT (boundvars x) (vars_of xs) ∧ (* v ∉ boundvars e (where e ∈ MAP SND xs), this is required for DISJOINT (boundvars x) (set (MAP FST xs)) in bind_ok *)
     DISJOINT (boundvars x) (freevars x) ∧ (* v ∉ freevars x *)
+    DISJOINT (boundvars x) (freevars_of xs) ∧ (* v ∉ freevars e (where (_, e) ∈ xs) *)
     no_shadowing x ⇒
     (Binds xs x ≅? Binds xs y) b
 Proof
@@ -1453,7 +1560,8 @@ Proof
       \\ fs [FILTER_APPEND]
       \\ fs [vars_of_DISJOINT_FILTER]
       \\ fs [bind_ok_EVERY_append]
-      \\ cheat (* bind_ok_rec (xs ++ [(v,Exp x)]) *)
+      \\ fs [bind_ok_rec_def]
+      \\ fs [bind_ok_rec_Exp_append]
     )
     \\ conj_tac
     >- (
@@ -1465,6 +1573,11 @@ Proof
       fs [IN_DISJOINT]
       \\ rw []
       \\ metis_tac []
+    )
+    \\ conj_tac
+    >- (
+      fs [freevars_of_append, freevars_of_def]
+      \\ fs [DISJOINT_SYM]
     )
     \\ irule_at Any exp_eq_trans
     \\ irule_at Any Binds_Let
@@ -1505,7 +1618,8 @@ Theorem list_subst_rel_IMP_exp_eq_lemma_specialized:
   ∀xs x y.
     list_subst_rel xs x y ∧ binds_ok xs ∧
     DISJOINT (boundvars x) (vars_of xs) ∧ no_shadowing x ∧
-    DISJOINT (boundvars x) (freevars x) ⇒
+    DISJOINT (boundvars x) (freevars x) ∧
+    DISJOINT (boundvars x) (freevars_of xs) ⇒
     Binds xs x ≅ Binds xs y
 Proof
   rw []
@@ -1518,163 +1632,7 @@ Theorem list_subst_rel_IMP_exp_eq:
   (x ≅? y) b
 Proof
   rw [] \\ drule list_subst_rel_IMP_exp_eq_lemma
-  \\ fs [binds_ok_def,vars_of_def,closed_def,bind_ok_rec_def]
-QED
-
-(*
-
-
-
-Theorem xxx:
-  list_subst_rel (l ++ [(v,x)]) t u = ∃r. list_subst_rel l t r ∧ subst_rel v x r u
-Proof
-  cheat
-QED
-
-Inductive list_deep_rel:
-[~refl:]
-  (∀l x. list_deep_rel l x x) ∧
-[~left:]
-  (∀l x y z. deep_subst_rel x y ∧ list_deep_rel l y z ⇒ list_deep_rel l x z) ∧
-[~right:]
-  (∀l x y z. list_deep_rel l x y ∧ deep_subst_rel y z ⇒ list_deep_rel l x z) ∧
-[~cons:]
-  (∀v e l x y z. subst_rel v e x y ∧ list_deep_rel l y z ⇒ list_deep_rel ((v,e)::l) x z) ∧
-[~trans:]
-  (∀l x y z. list_deep_rel l x y ∧ list_deep_rel l y z ⇒ list_deep_rel l x z) ∧
-[~ignore:]
-  (∀l m x y. list_deep_rel l x y ⇒ list_deep_rel (m::l) x y)
-End
-
-Theorem list_subst_IMP_list_deep_rel:
-  ∀l x y. list_subst_rel l x y ⇒ list_deep_rel l x y
-Proof
-  Induct_on ‘list_subst_rel’
-  \\ rpt strip_tac
-  >- simp [list_deep_rel_refl]
-  >~ [‘Var _’]
-  >- (
-    Induct_on ‘l’
-    >- simp []
-    \\ simp []
-    \\ rpt strip_tac
-    \\ gvs []
-    >- (
-      irule list_deep_rel_cons
-      \\ irule_at Any list_deep_rel_refl
-      \\ irule subst_rel_Var
-    )
-    \\ irule list_deep_rel_ignore
-    \\ simp []
-  )
-  >~ [‘Let _ _ _’]
-  >- (
-    irule list_deep_rel_trans
-    \\ qexists ‘Let v x' y’
-    \\ conj_tac
-    >- cheat
-    \\ irule list_deep_rel_left
-    \\ irule_at Any deep_subst_rel_Let
-  )
-QED
-
-Theorem list_deep_rel_semantics:
-  list_deep_rel [] t u ⇒ (t ≅? u) b
-Proof
-  qsuff_tac ‘∀l t u. list_deep_rel l t u ∧ l = [] ⇒ (t ≅? u) b’
-  >- fs []
-  \\ Induct_on ‘list_deep_rel’
-  \\ simp []
-  \\ rpt strip_tac
-  >- simp [exp_eq_refl]
-  \\ irule exp_eq_trans
-  \\ first_x_assum $ irule_at Any
-  \\ simp [deep_subst_rel_IMP_exp_eq]
-QED
-
-
-Inductive e_subst_rel:
-[~refl:]
-  (∀x y b l. (x ≅? y) b ⇒ e_subst_rel l x y) ∧
-[~Cons:]
-  (∀x y v e l. (∃u. subst_rel v e x u ∧ e_subst_rel l u y) ⇒ e_subst_rel ((v,e)::l) x y)
-End
-
-Definition expand_subst_rel_def:
-  expand_subst_rel [] x y = (x = y) ∧
-  expand_subst_rel ((v,e)::l) x y = ∃u. subst_rel v e x u ∧ expand_subst_rel l u y
-End
-
-Theorem expand_subst_rel_refl:
-  expand_subst_rel l t t
-Proof
-  Induct_on ‘l’
-  >- simp [expand_subst_rel_def]
-  \\ Cases_on ‘h’
-  \\ simp [expand_subst_rel_def]
-  \\ qexists ‘t’
-  \\ simp [subst_rel_refl]
-QED
-
-Theorem list_subst_IMP_e_subst_rel:
-  list_subst_rel l x y ⇒ e_subst_rel l x y
-Proof
-  cheat
-
-  (* Induct_on ‘list_subst_rel’
-  \\ rpt strip_tac
-  >- simp [exp_eq_refl,e_subst_rel_refl] *)
-QED
-
-
-Theorem list_subst_IMP_expand_subst_rel:
-  list_subst_rel l x y ⇒ expand_subst_rel l x y
-Proof
-  cheat
-
-  (* Induct_on ‘list_subst_rel’
-  \\ rpt strip_tac
-  >- (
-    Induct_on ‘l’
-    >- simp [expand_subst_rel_def]
-    \\ Cases_on ‘h’
-    \\ simp [expand_subst_rel_def]
-    \\ qexists ‘t’
-    \\ rw [subst_rel_refl]
-  )
-  >- (
-    (* Induct_on ‘l’
-    >- (
-      rw []
-      \\ fs [expand_subst_rel_def]
-    ) *)
-    cheat
-  )
-  >- (
-    Induct_on ‘l’
-    >- rw []
-    \\ Cases_on ‘h’
-    \\ Cases_on ‘(v,x) = (q,r)’
-    >- (
-      rw []
-      >- (
-        simp [expand_subst_rel_def]
-        \\ qexists ‘r’
-        \\ simp [subst_rel_Var,expand_subst_rel_refl]
-      )
-      \\ gvs []
-      \\ simp [expand_subst_rel_def]
-      \\ qexists ‘(Var v)’
-      \\ simp [subst_rel_refl]
-    )
-  )
-  \\ cheat *)
-QED
-
-Theorem list_subst_rel_semantics:
-  list_subst_rel [] t u ⇒ (t ≅? u) b
-Proof
-  cheat
+  \\ fs [binds_ok_def,vars_of_def,freevars_of_def,closed_def,bind_ok_rec_def]
 QED
 
 (*
@@ -1703,8 +1661,6 @@ in order to prove:
 TODO:
  - remember to add a simplifying pass after inlining (particularly to simplify Case)
  - also would be nice to check dead code elimination too (+unused lambda abstraction elimination?)
-*)
-
 *)
 
 val _ = export_theory();
