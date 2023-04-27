@@ -1070,6 +1070,7 @@ Proof
   \\ rw []
 QED
 
+(* not used
 Theorem Letrec_Letrec:
   ∀v t w u e.
   v ≠ w ∧ v ∉ freevars u ∧ w ∉ freevars t ⇒
@@ -1077,6 +1078,7 @@ Theorem Letrec_Letrec:
 Proof
   cheat
 QED
+*)
 
 Theorem Let_Let:
   ∀v t w u e.
@@ -1517,7 +1519,18 @@ Proof
     \\ fs [bind_ok_rec_def]
   )
   >- (
-    cheat
+    irule exp_eq_trans
+    \\ irule_at (Pos hd) Let_Letrec1_copy \\ fs []
+    \\ conj_asm1_tac >- gvs [bind_ok_rec_def]
+    \\ conj_asm1_tac >- gvs [bind_ok_rec_def,bind_ok_def]
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) Let_Letrec1_copy \\ fs []
+    \\ irule exp_eq_Let_cong \\ fs [exp_eq_refl]
+    \\ irule exp_eq_Letrec_cong \\ fs [exp_eq_refl]
+    \\ simp [Once exp_eq_sym]
+    \\ first_x_assum irule
+    \\ gvs [bind_ok_rec_def]
   )
   >- (
     cheat
