@@ -914,7 +914,7 @@ Theorem Binds_Lam:
   v ∉ set (MAP FST xs) ⇒
   (Binds xs (Lam v x) ≅? Lam v (Binds xs x)) b
 Proof
-  cheat
+  cheat (* false as stated: what is v is a free var in xs *)
 QED
 
 Theorem Binds_App:
@@ -1022,7 +1022,24 @@ QED
 Theorem Letrec1_ignore:
   ∀v t e. v ∉ freevars e ⇒ (Letrec [(v, t)] e ≅? e) b
 Proof
-  cheat
+  rw []
+  \\ irule pure_exp_relTheory.eval_wh_IMP_exp_eq
+  \\ rw [] \\ gvs [subst_def,eval_wh_Letrec,subst_funs_def,bind_def]
+  \\ gvs [FUPDATE_LIST,FLOOKUP_UPDATE]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ conj_tac
+  >- fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,FDIFF_def,DRESTRICT_DEF]
+  \\ reverse IF_CASES_TAC >- gvs [SUBSET_DEF]
+  \\ AP_TERM_TAC
+  \\ irule EQ_TRANS
+  \\ irule_at Any subst1_ignore
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ conj_tac
+  >- fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,FDIFF_def,DRESTRICT_DEF]
+  \\ gvs []
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ irule subst_FDIFF'
+  \\ gvs []
 QED
 
 Theorem Let_Letrec1:
