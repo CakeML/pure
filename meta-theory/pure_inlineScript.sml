@@ -918,9 +918,19 @@ Proof
 QED
 
 Theorem Binds_App:
-  (Binds xs (App x y) ≅? App (Binds xs x) (Binds xs y)) b
+  ∀xs x y. (Binds xs (App x y) ≅? App (Binds xs x) (Binds xs y)) b
 Proof
-  cheat
+  Induct \\ fs [Binds_def,exp_eq_refl]
+  \\ PairCases \\ Cases_on ‘h1’ \\ fs [Binds_def]
+  \\ rw []
+  >-
+   (irule exp_eq_trans
+    \\ irule_at Any pure_congruenceTheory.Let_App
+    \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
+    \\ irule exp_eq_Lam_cong \\ fs [exp_eq_refl])
+  \\ irule exp_eq_trans
+  \\ irule_at Any pure_congruenceTheory.Letrec_App
+  \\ irule exp_eq_Letrec_cong \\ fs [exp_eq_refl]
 QED
 
 Theorem Binds_Let:
