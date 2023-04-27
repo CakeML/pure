@@ -590,7 +590,8 @@ QED
 Theorem x_equiv_IMP_weak:
   ∀b. (x ≅? y) T ⇒ (x ≅? y) b
 Proof
-  cheat
+  Cases \\ fs []
+  \\ cheat
 QED
 
 Datatype:
@@ -1075,7 +1076,7 @@ Theorem set_DIFF_DELETE_EMPTY:
   x ∉ a ⇒
   a DIFF (b DELETE x) = ∅
 Proof
-  cheat
+  fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
 QED
 
 Theorem Binds_copy:
@@ -1381,7 +1382,7 @@ Proof
   \\ Induct \\ fs []
   \\ reverse $ rw []
   >- (
-    sg ‘EVERY (bind_ok ((ys ++ [h]) ++ xs)) xs’ 
+    sg ‘EVERY (bind_ok ((ys ++ [h]) ++ xs)) xs’
     >- asm_rewrite_tac [GSYM APPEND_ASSOC,APPEND]
     \\ sg `bind_ok_rec ([h] ++ xs)`
     >- simp [APPEND]
