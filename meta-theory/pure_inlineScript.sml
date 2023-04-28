@@ -1396,6 +1396,42 @@ Proof
   \\ gvs [EXTENSION]
 QED
 
+Theorem Letrec1_dup:
+  (Letrec [(v,x)] (Letrec [(v,x)] y) ≅?
+   Letrec [(v,x)] y) b
+Proof
+  rw []
+  \\ irule eval_wh_IMP_exp_eq
+  \\ fs [freevars_def,subst_def] \\ rw []
+  \\ simp [Once eval_wh_Letrec]
+  \\ gvs [subst_funs_def]
+  \\ reverse $ rw [bind_def]
+  >- simp [Once eval_wh_Letrec,subst_funs_def,bind_def]
+  \\ fs [FUPDATE_LIST]
+  \\ DEP_REWRITE_TAC [subst1_ignore]
+  \\ fs [FDIFF_SING]
+QED
+
+Theorem Let_dup:
+  v ∉ freevars x ⇒
+  (Let v x (Let v x y) ≅?
+   Let v x y) b
+Proof
+  rw []
+  \\ irule eval_wh_IMP_exp_eq
+  \\ fs [freevars_def,subst_def] \\ rw []
+  \\ simp [Once eval_wh_App,eval_wh_Lam]
+  \\ reverse $ rw [bind_def]
+  >- fs [Once eval_wh_App,eval_wh_Lam,bind_def,SF SFY_ss,FLOOKUP_UPDATE]
+  \\ DEP_REWRITE_TAC [subst1_ignore]
+  \\ fs [FDIFF_SING]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ gvs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM]
+  \\ ntac 2 (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ simp [Once EQ_SYM_EQ]
+  \\ irule subst_fdomsub \\ fs []
+QED
+
 Theorem Letrec1_Let_copy:
   ∀v w x y e.
     v ≠ w ∧
