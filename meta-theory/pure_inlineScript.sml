@@ -1070,16 +1070,6 @@ Proof
   \\ rw []
 QED
 
-(* not used
-Theorem Letrec_Letrec:
-  ∀v t w u e.
-  v ≠ w ∧ v ∉ freevars u ∧ w ∉ freevars t ⇒
-    (Letrec [(v, t)] (Letrec [(w, u)] e) ≅? Letrec [(w, u)] (Letrec [(v, t)] e)) b
-Proof
-  cheat
-QED
-*)
-
 Theorem Let_Let:
   ∀v t w u e.
   v ≠ w ∧ v ∉ freevars u ∧ w ∉ freevars t ⇒
@@ -1209,7 +1199,8 @@ Theorem Let_Let_copy:
     v ≠ w ∧
     w ∉ freevars x ∧
     v ∉ freevars x ⇒
-    (Let v x (Let v x (Let w y e)) ≅? Let v x (Let w y (Let v x e))) b
+    (Let v x (Let v x (Let w y e)) ≅?
+     Let v x (Let w y (Let v x e))) b
 Proof
   rw []
   \\ irule exp_eq_subst_IMP_exp_eq
@@ -1359,7 +1350,8 @@ Theorem Let_Letrec1_copy:
     v ≠ w ∧
     w ∉ freevars x ∧
     v ∉ freevars x ⇒
-    (Let v x (Let v x (Letrec [(w, y)] e)) ≅? Let v x (Letrec [(w, y)] (Let v x e))) b
+    (Let v x (Let v x (Letrec [(w, y)] e)) ≅?
+     Let v x (Letrec [(w, y)] (Let v x e))) b
 Proof
   rw []
   \\ irule exp_eq_subst_IMP_exp_eq
@@ -1397,14 +1389,62 @@ Proof
   \\ cheat
 QED
 
+Theorem FDIFF_SING:
+  FDIFF f {x} = f \\ x
+Proof
+  fs [FDIFF_def,fmap_EXT,DRESTRICT_DEF,DOMSUB_FAPPLY_NEQ]
+  \\ gvs [EXTENSION]
+QED
+
+Theorem Letrec1_Let_copy:
+  ∀v w x y e.
+    v ≠ w ∧
+    w ∉ freevars x ⇒
+    (Letrec [(v,x)] (Letrec [(v,x)] (Let w y e)) ≅?
+     Letrec [(v,x)] (Let w y (Letrec [(v,x)] e))) b
+Proof
+  rw []
+  \\ irule eval_wh_IMP_exp_eq
+  \\ fs [freevars_def,subst_def] \\ rw []
+  \\ fs [eval_wh_Letrec,subst_funs_def]
+  \\ DEP_REWRITE_TAC [bind_eq_subst]
+  \\ gvs [subst_def,eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def]
+  \\ DEP_REWRITE_TAC [bind_eq_subst]
+  \\ gvs [subst_def,eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def]
+  \\ DEP_REWRITE_TAC [bind_eq_subst]
+  \\ gvs [subst_def,eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def]
+  \\ gvs [FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ gvs [FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ DEP_REWRITE_TAC [IMP_closed_subst]
+  \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF]
+  \\ conj_asm1_tac >- (gvs [SUBSET_DEF] \\ metis_tac [])
+  \\ gvs []
+  \\ cheat
+QED
+
+Theorem Letrec1_Letrec1_copy:
+  ∀v w x y e.
+    v ≠ w ∧
+    w ∉ freevars x ⇒
+    (Letrec [(v,x)] (Letrec [(v,x)] (Letrec [(w,y)] e)) ≅?
+     Letrec [(v,x)] (Letrec [(w,y)] (Letrec [(v,x)] e))) b
+Proof
+  cheat
+QED
+
 Theorem Binds_MEM:
   ∀xs e x.
     MEM e xs ∧ binds_ok xs ⇒
     (Binds xs x ≅? Binds (xs ++ [e]) x) b
 Proof
   qsuff_tac
-    ‘∀xs ys e x. MEM e xs ∧ ALL_DISTINCT (MAP FST xs) ∧ EVERY (bind_ok (ys ++ xs)) xs ∧ bind_ok_rec xs ⇒
-      (Binds xs x ≅? Binds (xs ++ [e]) x) b’
+    ‘∀xs ys e x.
+       MEM e xs ∧ ALL_DISTINCT (MAP FST xs) ∧
+       EVERY (bind_ok (ys ++ xs)) xs ∧ bind_ok_rec xs ⇒
+       (Binds xs x ≅? Binds (xs ++ [e]) x) b’
   >- (
     fs [binds_ok_def] \\ metis_tac [APPEND]
   )
@@ -1533,9 +1573,31 @@ Proof
     \\ gvs [bind_ok_rec_def]
   )
   >- (
-    cheat
+    irule exp_eq_trans
+    \\ irule_at (Pos hd) Letrec1_Let_copy \\ fs []
+    \\ conj_asm1_tac >- gvs [bind_ok_rec_def]
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) Letrec1_Let_copy \\ fs []
+    \\ irule exp_eq_Letrec_cong \\ fs [exp_eq_refl]
+    \\ irule exp_eq_Let_cong \\ fs [exp_eq_refl]
+    \\ simp [Once exp_eq_sym]
+    \\ first_x_assum irule
+    \\ gvs [bind_ok_rec_def]
   )
-  \\ cheat
+  >- (
+    irule exp_eq_trans
+    \\ irule_at (Pos hd) Letrec1_Letrec1_copy \\ fs []
+    \\ conj_asm1_tac >- gvs [bind_ok_rec_def]
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) Letrec1_Letrec1_copy \\ fs []
+    \\ irule exp_eq_Letrec_cong \\ fs [exp_eq_refl]
+    \\ irule exp_eq_Letrec_cong \\ fs [exp_eq_refl]
+    \\ simp [Once exp_eq_sym]
+    \\ first_x_assum irule
+    \\ gvs [bind_ok_rec_def]
+  )
 QED
 
 Theorem list_subst_rel_IMP_exp_eq_lemma:
