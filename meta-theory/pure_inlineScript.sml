@@ -587,13 +587,6 @@ Proof
   simp [deep_subst_rel_IMP_exp_eq]
 QED
 
-Theorem x_equiv_IMP_weak:
-  ∀b. (x ≅? y) T ⇒ (x ≅? y) b
-Proof
-  Cases \\ fs []
-  \\ cheat
-QED
-
 Datatype:
   rhs = Exp exp | Rec exp
 End
@@ -1743,7 +1736,7 @@ Proof
     \\ pop_assum $ irule_at Any
     \\ irule exp_eq_trans
     \\ irule_at (Pos hd) Binds_cong
-    \\ drule_then (qspec_then `b` assume_tac) x_equiv_IMP_weak
+    \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
     \\ pop_assum $ irule_at $ Pos hd
     \\ fs []
   )
