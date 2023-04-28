@@ -1808,12 +1808,35 @@ Proof
     \\ gvs []
     \\ simp [Binds_append,exp_eq_refl]
   )
-  >~ [‘App’] >-
-   cheat
-  >~ [‘Prim’] >-
-   cheat
+  >~ [‘App’] >- (
+    irule exp_eq_trans
+    \\ irule_at Any Binds_App
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_App
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_App_cong
+    \\ first_x_assum $ irule_at Any
+    \\ first_x_assum $ irule_at Any
+    \\ fs [IN_DISJOINT]
+    \\ metis_tac []
+  )
+  >~ [‘Prim’] >- (
+    cheat
+  )
   >~ [‘Lam’] >-
-   cheat
+    irule exp_eq_trans
+    \\ irule_at Any Binds_Lam
+    \\ fs [not_in_vars_of_imp]
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_Lam
+    \\ fs [not_in_vars_of_imp]
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_Lam_cong
+    \\ first_x_assum $ irule_at Any
+    \\ fs [IN_DISJOINT]
+    \\ metis_tac []
   >- (
     cheat
   )
