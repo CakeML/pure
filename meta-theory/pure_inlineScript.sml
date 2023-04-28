@@ -1366,50 +1366,6 @@ Proof
   \\ gvs []
 QED
 
-Theorem Let_Letrec1_copy:
-  ∀v w x y e.
-    v ≠ w ∧
-    w ∉ freevars x ∧
-    v ∉ freevars x ⇒
-    (Let v x (Let v x (Letrec [(w, y)] e)) ≅?
-     Let v x (Letrec [(w, y)] (Let v x e))) b
-Proof
-  rw []
-  \\ irule exp_eq_subst_IMP_exp_eq
-  \\ rw []
-  \\ simp [Once subst_def]
-  \\ simp [Once subst_def]
-  \\ simp [Once exp_eq_sym]
-  \\ simp [Once subst_def]
-  \\ simp [Once subst_def]
-  \\ irule exp_eq_trans
-  \\ irule_at Any beta_equality
-  \\ conj_asm1_tac
-  >- (
-    irule IMP_closed_subst
-    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
-  )
-  \\ simp [Once exp_eq_sym]
-  \\ irule exp_eq_trans
-  \\ irule_at Any beta_equality
-  \\ conj_asm1_tac
-  >- (
-    irule IMP_closed_subst
-    \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
-  )
-  \\ simp [Once exp_eq_sym]
-  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
-  \\ conj_tac
-  >- (
-    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
-    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
-  )
-  \\ simp [FUNION_FUPDATE_2]
-  \\ simp [subst_def]
-  \\ simp [DOMSUB_FUPDATE_THM]
-  \\ cheat
-QED
-
 Theorem FDIFF_SING:
   FDIFF f {x} = f \\ x
 Proof
@@ -1532,6 +1488,57 @@ Proof
   \\ fs []
   \\ fs [eval_wh_Letrec,subst_funs_def,FUPDATE_LIST]
   \\ DEP_REWRITE_TAC [bind_eq_subst]
+  \\ gvs [FLOOKUP_UPDATE]
+  \\ drule_at (Pos last) subst1_subst1
+  \\ disch_then $ DEP_REWRITE_TAC o single
+  \\ fs []
+  \\ metis_tac [DOMSUB_COMMUTES]
+QED
+
+Theorem Let_Letrec1_copy:
+  ∀v w x y e.
+    v ≠ w ∧
+    w ∉ freevars x ∧
+    v ∉ freevars x ⇒
+    (Let v x (Let v x (Letrec [(w, y)] e)) ≅?
+     Let v x (Letrec [(w, y)] (Let v x e))) b
+Proof
+  rw []
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) Let_dup \\ fs []
+  \\ irule eval_wh_IMP_exp_eq
+  \\ fs [freevars_def,subst_def] \\ rw []
+  \\ simp [Once eval_wh_App,eval_wh_Lam,subst_funs_def]
+  \\ reverse $ rw [bind_def]
+  >- fs [eval_wh_App,eval_wh_Lam,bind_def,subst_funs_def,FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ simp [Once eval_wh_App,eval_wh_Lam,subst_funs_def,bind_def]
+  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,FDIFF_SING]
+  \\ once_rewrite_tac [DOMSUB_COMMUTES] \\ fs []
+  \\ ‘subst (f \\ v \\ w) x = subst (f \\ v) x’ by
+    (simp [Once EQ_SYM_EQ] \\ irule subst_fdomsub \\ fs [])
+  \\ fs [] \\ fs [subst_def,FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ simp [Once eval_wh_Letrec,subst_funs_def]
+  \\ reverse $ rw [bind_def]
+  >- fs [eval_wh_Letrec,bind_def,subst_funs_def,FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ fs [FLOOKUP_UPDATE,FDIFF_SING,DOMSUB_FUPDATE_THM,FUPDATE_LIST]
+  \\ simp [Once eval_wh_Letrec,subst_funs_def,bind_def,FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ gvs [FLOOKUP_UPDATE,FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ gvs [subst_def,FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ ‘∀a. subst1 v a (subst (f \\ w \\ v) x) = (subst (f \\ w \\ v) x)’ by
+   (rw []
+    \\ DEP_REWRITE_TAC [subst1_ignore]
+    \\ DEP_REWRITE_TAC [freevars_subst]
+    \\ fs [FRANGE_DEF,PULL_EXISTS,FLOOKUP_DEF,DOMSUB_FAPPLY_NEQ])
+  \\ ‘∀a. subst1 w a (subst (f \\ w \\ v) x) = (subst (f \\ w \\ v) x)’ by
+   (rw []
+    \\ DEP_REWRITE_TAC [subst1_ignore]
+    \\ DEP_REWRITE_TAC [freevars_subst]
+    \\ fs [FRANGE_DEF,PULL_EXISTS,FLOOKUP_DEF,DOMSUB_FAPPLY_NEQ])
+  \\ fs []
+  \\ fs [eval_wh_App,eval_wh_Lam,subst_funs_def,FUPDATE_LIST]
+  \\ DEP_REWRITE_TAC [bind_eq_subst]
+  \\ ‘subst (f \\ w \\ v) x = subst f x’ by
+    (DEP_REWRITE_TAC [GSYM subst_fdomsub] \\ fs [])
   \\ gvs [FLOOKUP_UPDATE]
   \\ drule_at (Pos last) subst1_subst1
   \\ disch_then $ DEP_REWRITE_TAC o single
