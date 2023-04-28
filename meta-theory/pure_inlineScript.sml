@@ -9,7 +9,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrec_seqTheory;
+     pure_letrec_seqTheory pure_demandTheory;
 
 val _ = new_theory "pure_inline";
 
@@ -910,11 +910,38 @@ Proof
   \\ fs [DISJOINT_SYM]
 QED
 
+Theorem exp_eq_Let_cong:
+  (e1 ≅? e2) b ∧ (bod1 ≅? bod2) b ⇒
+  (Let v e1 bod1 ≅? Let v e2 bod2) b
+Proof
+  simp[exp_eq_App_cong, exp_eq_Lam_cong]
+QED
+
 Theorem Binds_Lam:
-  v ∉ set (MAP FST xs) ⇒
+  v ∉ set (MAP FST xs) ∧
+  v ∉ freevars_of xs ⇒
   (Binds xs (Lam v x) ≅? Lam v (Binds xs x)) b
 Proof
-  cheat (* false as stated: what is v is a free var in xs *)
+  rw []
+  \\ Induct_on `xs` \\ rw []
+  >- simp [exp_eq_refl]
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule_at Any Let_Lam
+    \\ fs [FST,freevars_of_def]
+    \\ irule exp_eq_Let_cong
+    \\ fs [exp_eq_refl]
+  )
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ once_rewrite_tac [exp_eq_sym]
+  \\ irule_at Any Letrec_Lam_weak
+  \\ fs [FST,freevars_of_def,MAP]
+  \\ irule exp_eq_Letrec_cong1
+  \\ fs [exp_eq_refl]
 QED
 
 Theorem Binds_App:
@@ -934,20 +961,14 @@ Proof
 QED
 
 Theorem Binds_Let:
-  v ∉ set (MAP FST xs) ⇒
+  v ∉ set (MAP FST xs) ∧
+  v ∉ freevars_of xs ⇒
   (Binds xs (Let v x y) ≅? Let v (Binds xs x) (Binds xs y)) b
 Proof
   rw []
   \\ irule exp_eq_trans
   \\ irule_at Any Binds_App
   \\ irule exp_eq_App_cong \\ fs [exp_eq_refl,Binds_Lam]
-QED
-
-Theorem exp_eq_Let_cong:
-  (e1 ≅? e2) b ∧ (bod1 ≅? bod2) b ⇒
-  (Let v e1 bod1 ≅? Let v e2 bod2) b
-Proof
-  simp[exp_eq_App_cong, exp_eq_Lam_cong]
 QED
 
 Theorem Binds_cong:
