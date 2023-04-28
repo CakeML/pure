@@ -1824,7 +1824,7 @@ Proof
   >~ [‘Prim’] >- (
     cheat
   )
-  >~ [‘Lam’] >-
+  >~ [‘Lam’] >- (
     irule exp_eq_trans
     \\ irule_at Any Binds_Lam
     \\ fs [not_in_vars_of_imp]
@@ -1837,6 +1837,7 @@ Proof
     \\ first_x_assum $ irule_at Any
     \\ fs [IN_DISJOINT]
     \\ metis_tac []
+  )
   >- (
     cheat
   )
