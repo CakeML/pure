@@ -1440,25 +1440,39 @@ Theorem Letrec1_Let_copy:
      Letrec [(v,x)] (Let w y (Letrec [(v,x)] e))) b
 Proof
   rw []
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) Letrec1_dup
   \\ irule eval_wh_IMP_exp_eq
   \\ fs [freevars_def,subst_def] \\ rw []
-  \\ fs [eval_wh_Letrec,subst_funs_def]
+  \\ simp [Once eval_wh_Letrec,subst_funs_def]
+  \\ reverse $ rw [bind_def]
+  >- fs [eval_wh_Letrec,bind_def,subst_funs_def,FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ simp [Once eval_wh_Letrec,subst_funs_def,bind_def]
+  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,FDIFF_SING]
+  \\ once_rewrite_tac [DOMSUB_COMMUTES] \\ fs []
+  \\ ‘subst (f \\ v \\ w) x = subst (f \\ v) x’ by
+    (simp [Once EQ_SYM_EQ] \\ irule subst_fdomsub \\ fs [])
+  \\ fs [] \\ fs [subst_def]
+  \\ simp [Once eval_wh_App,eval_wh_Lam,subst_funs_def]
+  \\ reverse $ rw [bind_def]
+  >- fs [eval_wh_App,eval_wh_Lam,bind_def,subst_funs_def,FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ gvs [FLOOKUP_UPDATE,FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ simp [Once eval_wh_App,eval_wh_Lam,subst_funs_def,bind_def]
+  \\ gvs [FLOOKUP_UPDATE,FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ gvs [subst_def,FDIFF_SING,DOMSUB_FUPDATE_THM]
+  \\ ‘∀a. subst1 w a (subst (f \\ v) x) = (subst (f \\ v) x)’ by
+   (rw []
+    \\ DEP_REWRITE_TAC [subst1_ignore]
+    \\ DEP_REWRITE_TAC [freevars_subst]
+    \\ fs [FRANGE_DEF,PULL_EXISTS,FLOOKUP_DEF,DOMSUB_FAPPLY_NEQ])
+  \\ fs []
+  \\ fs [eval_wh_Letrec,subst_funs_def,FUPDATE_LIST]
   \\ DEP_REWRITE_TAC [bind_eq_subst]
-  \\ gvs [subst_def,eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def]
-  \\ DEP_REWRITE_TAC [bind_eq_subst]
-  \\ gvs [subst_def,eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def]
-  \\ DEP_REWRITE_TAC [bind_eq_subst]
-  \\ gvs [subst_def,eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def]
-  \\ gvs [FLOOKUP_UPDATE,FUPDATE_LIST]
-  \\ DEP_REWRITE_TAC [freevars_subst]
-  \\ gvs [FDIFF_SING,DOMSUB_FUPDATE_THM]
-  \\ DEP_REWRITE_TAC [IMP_closed_subst]
-  \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF]
-  \\ DEP_REWRITE_TAC [freevars_subst]
-  \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF]
-  \\ conj_asm1_tac >- (gvs [SUBSET_DEF] \\ metis_tac [])
-  \\ gvs []
-  \\ cheat
+  \\ gvs [FLOOKUP_UPDATE]
+  \\ drule_at (Pos last) subst1_subst1
+  \\ disch_then $ DEP_REWRITE_TAC o single
+  \\ fs []
+  \\ metis_tac [DOMSUB_COMMUTES]
 QED
 
 Theorem Letrec1_Letrec1_copy:
