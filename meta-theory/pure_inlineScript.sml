@@ -1960,7 +1960,151 @@ Proof
     \\ metis_tac []
   )
   >- (
-    cheat
+    irule exp_eq_trans
+    \\ irule_at Any Binds_Letrec
+    \\ conj_tac
+    >- (
+      fs [Once no_shadowing_cases]
+      \\ fs [EVERY_MEM]
+      \\ Cases \\ fs [FORALL_PROD]
+      \\ strip_tac
+      \\ conj_tac
+      >- (
+        fs [IN_DISJOINT]
+        \\ qsuff_tac `q ∉ vars_of xs`
+        >- fs [vars_of_not_in_MAP_FST]
+        \\ fs [MEM_MAP, FORALL_PROD]
+        \\ metis_tac []
+      )
+      \\ fs [IN_DISJOINT]
+      \\ fs [MEM_MAP, FORALL_PROD]
+      \\ metis_tac []
+    )
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_Letrec
+    \\ conj_tac
+    >- (
+      fs [Once no_shadowing_cases]
+      \\ fs [LIST_REL_EL_EQN]
+      \\ rw []
+      \\ fs [EVERY_MEM]
+      \\ Cases \\ fs [FORALL_PROD]
+      \\ simp [Once MEM_EL]
+      \\ strip_tac
+      \\ first_x_assum $ qspec_then `n` assume_tac
+      \\ gvs []
+      \\ Cases_on `(EL n xs')`
+      \\ Cases_on `(EL n ys)`
+      \\ gvs []
+      \\ conj_tac
+      >- (
+        fs [IN_DISJOINT]
+        \\ qsuff_tac `q ∉ vars_of xs`
+        >- fs [vars_of_not_in_MAP_FST]
+        \\ qpat_x_assum `∀x. ¬MEM x (MAP FST xs') ∨ x ∉ vars_of xs` $ qspec_then `q` mp_tac
+        \\ sg `MEM (EL n xs') xs'`
+        >- (
+          fs [MEM_EL]
+          \\ qexists `n`
+          \\ rw []
+        )
+        \\ simp [MEM_MAP]
+        \\ fs [FORALL_PROD]
+        \\ metis_tac []
+      )
+      \\ fs [IN_DISJOINT]
+      \\ fs [MEM_MAP, FORALL_PROD]
+      \\ qpat_x_assum `∀x. (∀p_2. ¬MEM (x,p_2) xs') ∨ x ∉ freevars_of xs` $ qspec_then `q` mp_tac
+      \\ sg `MEM (EL n xs') xs'`
+      >- (
+        fs [MEM_EL]
+        \\ qexists `n`
+        \\ rw []
+      )
+      \\ metis_tac []
+    )
+    \\ irule exp_eq_Letrec_cong
+    \\ conj_tac
+    >- (
+      simp [Once EQ_SYM_EQ]
+      \\ simp [MAP_EQ_EVERY2]
+      \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro]
+      \\ simp [LIST_REL_MAP]
+      \\ fs [LIST_REL_EVERY_ZIP]
+      \\ fs [EVERY_MEM,FORALL_PROD]
+      \\ fs [LIST_REL_EL_EQN]
+      \\ rw []
+      \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
+      \\ gvs []
+    )
+    \\ conj_tac
+    >- (
+      simp [Once LIST_REL_SYM,exp_eq_sym]
+      \\ fs [LIST_REL_EL_EQN]
+      \\ rw []
+      \\ first_x_assum $ qspec_then `n` assume_tac
+      \\ gvs []
+      \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+      \\ Cases_on `(EL n xs')`
+      \\ Cases_on `(EL n ys)`
+      \\ gvs []
+      \\ simp [EL_MAP]
+      \\ last_x_assum irule
+      \\ qpat_x_assum `no_shadowing _` mp_tac
+      \\ simp [Once no_shadowing_cases]
+      \\ strip_tac
+      \\ fs [EVERY_MEM]
+      \\ last_x_assum $ qspec_then `(q, r)` assume_tac
+      \\ qspecl_then [`n`, `xs'`] assume_tac EL_MEM
+      \\ gvs []
+      \\ conj_tac
+      >- (
+        qpat_x_assum `∀s'.
+          MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
+          DISJOINT s'
+            (freevars x ∪
+             BIGUNION (set (MAP (λ(fn,e'). freevars e') xs')) DIFF
+             set (MAP FST xs'))` $ qspec_then `boundvars r` mp_tac
+        \\ fs [MEM_MAP]
+        \\ impl_tac
+        >- (
+          qexists `(q, r)`
+          \\ simp []
+        )
+        \\ fs [UNION_DIFF_DISTRIBUTE]
+        \\ rw []
+        \\ cheat
+      )
+      \\ conj_tac
+      >- (
+        qpat_x_assum `∀s'.
+          MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
+          DISJOINT s' (freevars_of xs)` $ qspec_then `boundvars r` mp_tac
+        \\ fs [MEM_MAP]
+        \\ impl_tac
+        >- (
+          qexists `(q, r)`
+          \\ simp []
+        )
+        \\ simp []
+      )
+      \\ qpat_x_assum `∀s'.
+        MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
+        DISJOINT s' (vars_of xs)` $ qspec_then `boundvars r` mp_tac
+      \\ fs [MEM_MAP]
+      \\ impl_tac
+      >- (
+        qexists `(q, r)`
+        \\ simp []
+      )
+      \\ simp []
+    )
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ first_x_assum irule
+    \\ fs [Once no_shadowing_cases]
+    \\ fs [IN_DISJOINT]
+    \\ metis_tac []
   )
   \\ rename [‘Letrec’]
   \\ fs [Binds_snoc_rec]
