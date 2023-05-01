@@ -1035,7 +1035,70 @@ Theorem Binds_Letrec:
   EVERY (λ(v, e). v ∉ set (MAP FST xs) ∧ v ∉ freevars_of xs) l ⇒
     (Binds xs (Letrec l y) ≅? Letrec (MAP (λ(v, e). (v, Binds xs e)) l) (Binds xs y)) b
 Proof
-  cheat
+  rw []
+  \\ Induct_on `xs` \\ rw []
+  >- (
+    irule exp_eq_Letrec_cong
+    \\ fs [MAP_MAP_o, o_DEF,LAMBDA_PROD,FST]
+    \\ conj_tac
+    >- fs [FST_intro]
+    \\ simp [exp_eq_refl]
+    \\ fs [LIST_REL_MAP_MAP, LAMBDA_PROD, SND]
+    \\ fs [EVERY_MEM]
+    \\ rw []
+    \\ Cases_on `e` \\ rw []
+    \\ simp [exp_eq_refl]
+  )
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    qsuff_tac `(Let q e (Binds xs (Letrec l y)) ≅?
+         Letrec (MAP (λ(v,t). (v,Let q e t)) (MAP (λ(v,t). (v,Binds xs t)) l))
+           (Let q e (Binds xs y))) b`
+    >- fs [MAP_MAP_o, o_DEF, LAMBDA_PROD]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Let_Letrec
+    \\ fs [freevars_of_def]
+    \\ fs [EVERY_MAP, LAMBDA_PROD]
+    \\ fs [MAP_MAP_o, o_DEF, LAMBDA_PROD, FST_intro]
+    \\ conj_tac
+    >- (
+      fs [EVERY_MEM]
+      \\ rw [MEM_MAP]
+      \\ Cases_on `e'` \\ rw []
+      \\ last_x_assum $ qspec_then `(q', r)` assume_tac
+      \\ gvs []
+    )
+    \\ sg `EVERY
+          (λv.
+               (v ≠ q ∧ ¬MEM v (MAP FST xs)) ∧ v ∉ freevars e ∧
+               v ∉ freevars_of xs) (MAP FST l)`
+    >- fs [EVERY_MAP, LAMBDA_PROD, FST]
+    \\ conj_tac
+    >- (
+      fs [EVERY_MEM]
+      \\ reverse $ Cases_on `MEM q (MAP FST l)`
+      >- simp []
+      \\ last_x_assum $ qspec_then `q` assume_tac
+      \\ gvs []
+    )
+    \\ conj_tac
+    >- (
+      fs [EVERY_MEM, IN_DISJOINT]
+      \\ rw []
+      \\ last_x_assum $ qspec_then `x` assume_tac
+      \\ Cases_on `MEM x (MAP FST l)` \\ rw []
+    )
+    \\ irule exp_eq_Let_cong
+    \\ simp [exp_eq_refl]
+    \\ first_x_assum irule
+    \\ fs [EVERY_MEM]
+    \\ rw []
+    \\ first_x_assum $ qspec_then `e'` assume_tac
+    \\ gvs []
+    \\ Cases_on `e'` \\ simp []
+    \\ gvs []
+  )
+  \\ cheat
 QED
 
 Theorem Binds_Prim:
