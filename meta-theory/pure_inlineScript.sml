@@ -1041,7 +1041,51 @@ QED
 Theorem Binds_Prim:
   (Binds xs (Prim op ys) ≅? Prim op (MAP (Binds xs) ys)) b
 Proof
-  cheat
+  rw []
+  \\ Induct_on `xs` \\ rw []
+  >- (
+    irule exp_eq_Prim_cong
+    \\ simp [LIST_REL_MAP2]
+    \\ simp [LIST_REL_EL_EQN]
+    \\ simp [exp_eq_refl]
+  )
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    qsuff_tac `(Let q e (Binds xs (Prim op ys)) ≅?
+         Prim op (MAP (Let q e) (MAP (Binds xs) ys))) b`
+    >- (
+      rw []
+      \\ fs [MAP_MAP_o, o_DEF]
+      \\ irule exp_eq_trans
+      \\ first_x_assum $ irule_at Any
+      \\ qsuff_tac `(MAP (λx. Let q e (Binds xs x)) ys) = (MAP (Binds ((q,Exp e)::xs)) ys)`
+      >- simp [exp_eq_refl]
+      \\ simp [MAP_EQ_EVERY2]
+      \\ simp [EVERY2_refl_EQ]
+    )
+    \\ rw []
+    \\ irule exp_eq_trans
+    \\ irule_at Any Let_Prim
+    \\ irule exp_eq_Let_cong
+    \\ simp [exp_eq_refl]
+  )
+  \\ qsuff_tac `(Letrec [(q, e)] (Binds xs (Prim op ys)) ≅?
+         Prim op (MAP (Letrec [(q, e)]) (MAP (Binds xs) ys))) b`
+  >- (
+    rw []
+    \\ fs [MAP_MAP_o, o_DEF]
+    \\ irule exp_eq_trans
+    \\ first_x_assum $ irule_at Any
+    \\ qsuff_tac `(MAP (λx. Letrec [(q, e)] (Binds xs x)) ys) = (MAP (Binds ((q,Rec e)::xs)) ys)`
+    >- simp [exp_eq_refl]
+    \\ simp [MAP_EQ_EVERY2]
+    \\ simp [EVERY2_refl_EQ]
+  )
+  \\ rw []
+  \\ irule exp_eq_trans
+  \\ irule_at Any Letrec_Prim
+  \\ irule exp_eq_Letrec_cong1
+  \\ simp [exp_eq_refl]
 QED
 
 Theorem Binds_cong:
