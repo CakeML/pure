@@ -621,6 +621,7 @@ Inductive no_shadowing:
     EVERY (λ(v,e).
             no_shadowing e ∧
             DISJOINT (boundvars e) (boundvars x) ∧
+            DISJOINT (boundvars e) (freevars e) ∧
             DISJOINT (set (MAP FST l)) (boundvars e)) l ∧
     no_shadowing x ∧ DISJOINT (set (MAP FST l)) (boundvars x) ⇒
     no_shadowing (Letrec l x))
@@ -660,10 +661,11 @@ Inductive list_subst_rel:
     list_subst_rel (l ++ [(v,Exp x)]) y y' ⇒
     list_subst_rel l (Let v x y) (Let v x' y')) ∧
 [~LetrecInline:]
-  (∀v l t x y.
+  (∀v l t x y z.
     MEM (v, Rec t) l ∧
-    list_subst_rel l x y ⇒
-    list_subst_rel l x (Letrec [(v,t)] y)) ∧
+    list_subst_rel l x y ∧
+    (Letrec [(v,t)] y) ≅ z ⇒
+    list_subst_rel l x z) ∧
 [~Var:]
   (∀v x x1 x2 l.
     MEM (v, Exp x) l ∧
@@ -1891,6 +1893,13 @@ Proof
   )
 QED
 
+Theorem DISJOINT_lemma:
+  DISJOINT s t ∧ s1 ⊆ s ⇒ DISJOINT t s1
+Proof
+  fs [IN_DISJOINT, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem list_subst_rel_IMP_exp_eq_lemma:
   ∀xs x y.
     list_subst_rel xs x y ∧ binds_ok xs ∧
@@ -1988,6 +1997,9 @@ Proof
   )
   >- (
     irule exp_eq_trans
+    \\ irule_at (Pos last) Binds_cong
+    \\ drule_then (irule_at Any) exp_eq_T_IMP_F
+    \\ irule exp_eq_trans
     \\ last_x_assum $ irule_at Any
     \\ irule exp_eq_trans
     \\ irule_at Any Binds_MEM
@@ -2066,6 +2078,7 @@ Proof
     \\ fs [IN_DISJOINT]
     \\ metis_tac []
   )
+
   >- (
     irule exp_eq_trans
     \\ irule_at Any Binds_Letrec
@@ -2145,73 +2158,74 @@ Proof
       \\ first_x_assum (qspecl_then [‘p_1’, ‘p_2’, ‘p_1'’, ‘p_2'’] assume_tac)
       \\ gvs []
     )
+    \\ reverse $ conj_tac
+    >- (
+      once_rewrite_tac [exp_eq_sym]
+      \\ first_x_assum irule
+      \\ fs [Once no_shadowing_cases]
+      \\ fs [IN_DISJOINT]
+      \\ metis_tac []
+    )
+    \\ simp [Once LIST_REL_SYM,exp_eq_sym]
+    \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+    \\ fs [LIST_REL_MAP]
+    \\ last_x_assum $ mp_tac
+    \\ match_mp_tac LIST_REL_mono
+    \\ PairCases
+    \\ PairCases
+    \\ fs []
+    \\ rpt strip_tac
+    \\ first_x_assum irule
+    \\ gvs []
     \\ conj_tac
     >- (
-      simp [Once LIST_REL_SYM,exp_eq_sym]
-      \\ fs [LIST_REL_EL_EQN]
-      \\ rw []
-      \\ first_x_assum $ qspec_then `n` assume_tac
-      \\ gvs []
-      \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
-      \\ Cases_on `(EL n xs')`
-      \\ Cases_on `(EL n ys)`
-      \\ gvs []
-      \\ simp [EL_MAP]
-      \\ last_x_assum irule
-      \\ qpat_x_assum `no_shadowing _` mp_tac
+      qpat_x_assum `no_shadowing _` mp_tac
       \\ simp [Once no_shadowing_cases]
-      \\ strip_tac
+      \\ rpt strip_tac
       \\ fs [EVERY_MEM]
-      \\ last_x_assum $ qspec_then `(q, r)` assume_tac
-      \\ qspecl_then [`n`, `xs'`] assume_tac EL_MEM
-      \\ gvs []
-      \\ conj_tac
-      >- (
-        qpat_x_assum `∀s'.
-          MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
-          DISJOINT s'
-            (freevars x ∪
-             BIGUNION (set (MAP (λ(fn,e'). freevars e') xs')) DIFF
-             set (MAP FST xs'))` $ qspec_then `boundvars r` mp_tac
-        \\ fs [MEM_MAP]
-        \\ impl_tac
-        >- (
-          qexists `(q, r)`
-          \\ simp []
-        )
-        \\ fs [UNION_DIFF_DISTRIBUTE]
-        \\ rw []
-        \\ cheat
-      )
-      \\ conj_tac
-      >- (
-        qpat_x_assum `∀s'.
-          MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
-          DISJOINT s' (freevars_of xs)` $ qspec_then `boundvars r` mp_tac
-        \\ fs [MEM_MAP]
-        \\ impl_tac
-        >- (
-          qexists `(q, r)`
-          \\ simp []
-        )
-        \\ simp []
-      )
-      \\ qpat_x_assum `∀s'.
+      \\ res_tac
+      \\ fs []
+    )
+    \\ conj_tac
+    >- (
+      qpat_x_assum `no_shadowing _` mp_tac
+      \\ simp [Once no_shadowing_cases]
+      \\ rpt strip_tac
+      \\ fs [EVERY_MEM]
+      \\ res_tac
+      \\ fs []
+    )
+    \\ conj_tac
+    (* >- (
+      qpat_x_assum `no_shadowing _` mp_tac
+      \\ simp [Once no_shadowing_cases]
+      \\ rpt strip_tac
+      \\ fs [EVERY_MEM]
+      \\ res_tac
+      \\ fs []
+    ) *)
+    >- (
+      qpat_x_assum `∀s'.
         MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
-        DISJOINT s' (vars_of xs)` $ qspec_then `boundvars r` mp_tac
+        DISJOINT s' (freevars_of xs)` $ qspec_then `boundvars x'1` mp_tac
       \\ fs [MEM_MAP]
       \\ impl_tac
       >- (
-        qexists `(q, r)`
+        qexists `(x'0,x'1)`
         \\ simp []
       )
       \\ simp []
     )
-    \\ once_rewrite_tac [exp_eq_sym]
-    \\ first_x_assum irule
-    \\ fs [Once no_shadowing_cases]
-    \\ fs [IN_DISJOINT]
-    \\ metis_tac []
+    \\ qpat_x_assum `∀s'.
+      MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
+      DISJOINT s' (vars_of xs)` $ qspec_then `boundvars x'1` mp_tac
+    \\ fs [MEM_MAP]
+    \\ impl_tac
+    >- (
+      qexists `(x'0,x'1)`
+      \\ simp []
+    )
+    \\ simp []
   )
   \\ rename [‘Letrec’]
   \\ fs [Binds_snoc_rec]
