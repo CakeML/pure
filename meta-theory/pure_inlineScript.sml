@@ -223,7 +223,6 @@ Proof
       irule IMP_closed_subst
       \\ fs [FDOM_FDIFF,SUBSET_DEF,IN_DISJOINT]
       \\ fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
-
       \\ fs [FDIFF_def,DRESTRICT_DEF]
       \\ metis_tac []
     )
@@ -1033,6 +1032,15 @@ Proof
   \\ irule exp_eq_App_cong \\ fs [exp_eq_refl,Binds_Lam]
 QED
 
+Theorem Letrec1_Letrec:
+  ∀v x xs e.
+  EVERY (λ(n,u). n ∉ freevars x) xs ∧
+  ¬MEM v (MAP FST xs) ⇒
+    (Letrec [(v, x)] (Letrec xs e) ≅? Letrec (MAP (λ(n,t). (n, Letrec [(v, x)] t)) xs) (Letrec [(v, x)] e)) b
+Proof
+  cheat
+QED
+
 Theorem Binds_Letrec:
   EVERY (λ(v, e). v ∉ set (MAP FST xs) ∧ v ∉ freevars_of xs) l ⇒
     (Binds xs (Letrec l y) ≅? Letrec (MAP (λ(v, e). (v, Binds xs e)) l) (Binds xs y)) b
@@ -1100,7 +1108,45 @@ Proof
     \\ Cases_on `e'` \\ simp []
     \\ gvs []
   )
-  \\ cheat
+  \\ qsuff_tac `(Letrec [(q, e)] (Binds xs (Letrec l y)) ≅?
+         Letrec (MAP (λ(v,t). (v,Letrec [(q, e)] t)) (MAP (λ(v,t). (v,Binds xs t)) l))
+           (Letrec [(q, e)] (Binds xs y))) b`
+  >- fs [MAP_MAP_o, o_DEF, LAMBDA_PROD]
+  \\ irule exp_eq_trans
+  \\ irule_at Any Letrec1_Letrec
+  \\ fs [freevars_of_def]
+  \\ fs [EVERY_MAP, LAMBDA_PROD]
+  \\ fs [MAP_MAP_o, o_DEF, LAMBDA_PROD, FST_intro]
+  \\ conj_tac
+  >- (
+    fs [EVERY_MEM]
+    \\ rw [MEM_MAP]
+    \\ Cases_on `e'` \\ rw []
+    \\ last_x_assum $ qspec_then `(q', r)` assume_tac
+    \\ gvs []
+  )
+  \\ sg `EVERY
+        (λv.
+              (v ≠ q ∧ ¬MEM v (MAP FST xs)) ∧ v ∉ freevars e ∧
+              v ∉ freevars_of xs) (MAP FST l)`
+  >- fs [EVERY_MAP, LAMBDA_PROD, FST]
+  \\ conj_tac
+  >- (
+    fs [EVERY_MEM]
+    \\ reverse $ Cases_on `MEM q (MAP FST l)`
+    >- simp []
+    \\ last_x_assum $ qspec_then `q` assume_tac
+    \\ gvs []
+  )
+  \\ irule exp_eq_Letrec_cong1
+  \\ simp [exp_eq_refl]
+  \\ first_x_assum irule
+  \\ fs [EVERY_MEM]
+  \\ rw []
+  \\ first_x_assum $ qspec_then `e'` assume_tac
+  \\ gvs []
+  \\ Cases_on `e'` \\ simp []
+  \\ gvs []
 QED
 
 Theorem Binds_Prim:
@@ -1891,13 +1937,6 @@ Proof
     \\ first_x_assum irule
     \\ gvs [bind_ok_rec_def]
   )
-QED
-
-Theorem DISJOINT_lemma:
-  DISJOINT s t ∧ s1 ⊆ s ⇒ DISJOINT t s1
-Proof
-  fs [IN_DISJOINT, SUBSET_DEF]
-  \\ metis_tac []
 QED
 
 Theorem list_subst_rel_IMP_exp_eq_lemma:
