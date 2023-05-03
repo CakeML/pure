@@ -275,7 +275,7 @@ Proof
   )
   \\ qmatch_goalsub_abbrev_tac ‘(subst f1 p_2 ≅? subst f2 p_2) b’
   \\ qsuff_tac ‘f1 = f2’
-  >- (simp [exp_eq_refl])
+  >- simp [exp_eq_refl]
   \\ unabbrev_all_tac
   \\ rpt MK_COMB_TAC \\ fs []
   \\ simp [FLOOKUP_EXT,FUN_EQ_THM,FLOOKUP_FDIFF,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
@@ -1038,7 +1038,187 @@ Theorem Letrec1_Letrec:
   ¬MEM v (MAP FST xs) ⇒
     (Letrec [(v, x)] (Letrec xs e) ≅? Letrec (MAP (λ(n,t). (n, Letrec [(v, x)] t)) xs) (Letrec [(v, x)] e)) b
 Proof
-  cheat
+  rw []
+  \\ sg `DISJOINT (set (MAP FST xs)) (freevars x)`
+  >- (
+    fs [IN_DISJOINT]
+    \\ rw []
+    \\ fs [MEM_MAP,FST,NOT_EXISTS]
+    \\ Cases_on `x' ∉ freevars x` \\ rw []
+    \\ Cases_on `y`
+    \\ fs [EVERY_MEM]
+    \\ last_x_assum $ qspec_then `(q, r)` assume_tac
+    \\ gvs []
+  )
+  \\ irule exp_eq_subst_IMP_exp_eq
+  \\ rw []
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro]
+  \\ simp [subst_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro,FDIFF_FDIFF,subst_funs_def]
+  \\ sg `(∀w. w ∈ FRANGE (FDIFF f {v}) ⇒ closed w)`
+  >- (
+    rw []
+    \\ fs [FLOOKUP_DEF,PULL_EXISTS,FRANGE_DEF]
+    \\ first_x_assum $ qspec_then `x'` assume_tac
+    \\ gvs []
+    \\ fs [FDIFF_def,DRESTRICT_DEF]
+  )
+  \\ conj_tac
+  >- (
+    fs [freevars_subst,DIFF_SUBSET]
+    \\ irule SUBSET_TRANS
+    \\ last_x_assum $ irule_at Any
+    \\ fs [SUBSET_UNION]
+    \\ fs [SUBSET_DEF]
+  )
+  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ sg `closed (Letrec [(v,subst (FDIFF f {v}) x)] (subst (FDIFF f {v}) x))`
+  >- (
+    fs [freevars_subst,DIFF_SUBSET]
+    \\ irule SUBSET_TRANS
+    \\ last_x_assum $ irule_at Any
+    \\ fs [SUBSET_UNION]
+    \\ fs [SUBSET_DEF]
+  )
+  \\ fs [bind1_def]
+  \\ rw [subst_def]
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro,FDIFF_FDIFF,subst_funs_def,FDIFF_FUPDATE]
+  \\ irule exp_eq_Letrec_cong
+  \\ rw []
+  >- fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST]
+  >- (
+    fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,SND,LIST_REL_EVERY_ZIP,ZIP_MAP,EVERY_MAP]
+    \\ fs [EVERY_MEM]
+    \\ rw []
+    \\ Cases_on `e'`
+    \\ rw []
+    \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+    \\ conj_tac
+    >- (
+      fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+      \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+    )
+    \\ fs [FUNION_FUPDATE_2]
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any beta_equality_Letrec
+    \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro,FDIFF_FDIFF,subst_funs_def]
+    \\ sg `(∀w. w ∈ FRANGE (FDIFF f (set (MAP FST xs) ∪ {v})) ⇒ closed w)`
+    >- (
+      rw []
+      \\ fs [FLOOKUP_DEF,PULL_EXISTS,FRANGE_DEF]
+      \\ first_x_assum $ qspec_then `x'` assume_tac
+      \\ gvs []
+      \\ fs [FDIFF_def,DRESTRICT_DEF]
+    )
+    \\ conj_tac
+    >- (
+      fs [freevars_subst,DIFF_SUBSET]
+      \\ fs [SUBSET_UNION]
+      \\ fs [SUBSET_DEF]
+      \\ fs [IN_DISJOINT]
+      \\ rw []
+      \\ metis_tac []
+    )
+    \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST]
+    \\ sg `closed (Letrec [(v,subst (FDIFF f (set (MAP FST xs) ∪ {v})) x)]
+              (subst (FDIFF f (set (MAP FST xs) ∪ {v})) x))`
+    >- (
+      fs [freevars_subst,DIFF_SUBSET]
+      \\ fs [SUBSET_UNION]
+      \\ fs [SUBSET_DEF]
+      \\ fs [IN_DISJOINT]
+      \\ rw []
+      \\ metis_tac []
+    )
+    \\ fs [bind1_def]
+    \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+    \\ conj_tac
+    >- (
+      fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+      \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+    )
+    \\ fs [FUNION_FUPDATE_2]
+    \\ simp [Once exp_eq_sym]
+    \\ qmatch_goalsub_abbrev_tac ‘(subst f1 e1 ≅? subst f2 e2) b’
+    \\ qsuff_tac ‘f1 = f2’
+    >- simp [exp_eq_refl]
+    \\ unabbrev_all_tac
+    \\ fs [UNION_COMM]
+    \\ MK_COMB_TAC \\ fs []
+    \\ sg `FDIFF f ({v} ∪ set (MAP FST xs)) = FDIFF (FDIFF f {v}) (set (MAP FST xs))`
+    >- fs [FDIFF_FDIFF]
+    \\ fs []
+    \\ irule subst_FDIFF'
+    \\ rw []
+    \\ fs [IN_DISJOINT]
+    \\ res_tac
+    \\ metis_tac []
+  )
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+  )
+  \\ fs [FUNION_FUPDATE_2]
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any beta_equality_Letrec
+  \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_intro,FDIFF_FDIFF,subst_funs_def]
+  \\ sg `(∀w. w ∈ FRANGE (FDIFF f (set (MAP FST xs) ∪ {v})) ⇒ closed w)`
+  >- (
+    rw []
+    \\ fs [FLOOKUP_DEF,PULL_EXISTS,FRANGE_DEF]
+    \\ first_x_assum $ qspec_then `x'` assume_tac
+    \\ gvs []
+    \\ fs [FDIFF_def,DRESTRICT_DEF]
+  )
+  \\ conj_tac
+  >- (
+    fs [freevars_subst,DIFF_SUBSET]
+    \\ fs [SUBSET_UNION]
+    \\ fs [SUBSET_DEF]
+    \\ fs [IN_DISJOINT]
+    \\ rw []
+    \\ metis_tac []
+  )
+  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ sg `closed (Letrec [(v,subst (FDIFF f (set (MAP FST xs) ∪ {v})) x)]
+            (subst (FDIFF f (set (MAP FST xs) ∪ {v})) x))`
+  >- (
+    fs [freevars_subst,DIFF_SUBSET]
+    \\ fs [SUBSET_UNION]
+    \\ fs [SUBSET_DEF]
+    \\ fs [IN_DISJOINT]
+    \\ rw []
+    \\ metis_tac []
+  )
+  \\ fs [bind1_def]
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac
+  >- (
+    fs [FLOOKUP_DEF, PULL_EXISTS, FRANGE_DEF]
+    \\ fs [FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+  )
+  \\ fs [FUNION_FUPDATE_2]
+  \\ simp [Once exp_eq_sym]
+  \\ qmatch_goalsub_abbrev_tac ‘(subst f1 e1 ≅? subst f2 e2) b’
+  \\ qsuff_tac ‘f1 = f2’
+  >- simp [exp_eq_refl]
+  \\ unabbrev_all_tac
+  \\ fs [UNION_COMM]
+  \\ MK_COMB_TAC \\ fs []
+  \\ sg `FDIFF f ({v} ∪ set (MAP FST xs)) = FDIFF (FDIFF f {v}) (set (MAP FST xs))`
+  >- fs [FDIFF_FDIFF]
+  \\ fs []
+  \\ irule subst_FDIFF'
+  \\ rw []
+  \\ fs [IN_DISJOINT]
+  \\ res_tac
+  \\ metis_tac []
 QED
 
 Theorem Binds_Letrec:
