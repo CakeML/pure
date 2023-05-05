@@ -10,7 +10,7 @@ val _ = new_theory "pure_inline_cexp";
 (*******************)
 
 Datatype:
-  cexp_rhs = Exp ('a cexp) | Rec ('a cexp)
+  cexp_rhs = cExp ('a cexp) | cRec ('a cexp)
 End
 
 (* heuristic for deciding when to inline *)
@@ -20,8 +20,8 @@ Definition inline_def:
   inline (m: ('a cexp_rhs) var_map) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
       None => Var a v
-    | Some (Exp e) => e (* Might want to freshen the names and recurse *)
-    | Some (Rec e) => Var a v) ∧
+    | Some (cExp e) => e (* Might want to freshen the names and recurse *)
+    | Some (cRec e) => Var a v) ∧
   inline m h (Prim a op es) =
     Prim a op (MAP (inline m h) es) ∧
   inline m h (App a e es) =
@@ -30,12 +30,12 @@ Definition inline_def:
     Lam a vs (inline m h e) ∧
   inline m h (Let a v e1 e2) =
     (if h e1 then
-      inline (insert m v (Exp e1)) h e2
+      inline (insert m v (cExp e1)) h e2
     else
       Let a v (inline m h e1) (inline m h e2)) ∧
   inline m h (Letrec a [(v, e)] e') =
     (if h e then
-      inline (insert m v (Rec e)) h e'
+      inline (insert m v (cRec e)) h e'
     else
       Letrec a [(v, inline m h e)] (inline m h e')) ∧
   inline m h (Letrec a vbs e) =
