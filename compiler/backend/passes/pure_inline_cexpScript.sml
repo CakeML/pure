@@ -16,6 +16,15 @@ End
 (* heuristic for deciding when to inline *)
 Type heuristic = “:'a cexp -> bool”
 
+Triviality cexp_size_lemma:
+  ∀xs v e.
+    MEM (v,e) xs ⇒
+    cexp_size (K 0) e ≤ list_size (pair_size mlstring_size (cexp_size (K 0))) xs
+Proof
+  Induct  \\ fs [] \\ rw [] \\ res_tac
+  \\ fs [list_size_def,basicSizeTheory.pair_size_def]
+QED
+
 Definition inline_def:
   inline (m: ('a cexp_rhs) var_map) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
@@ -50,12 +59,22 @@ Definition inline_def:
     NestedCase a (inline m h e) v p (inline m h e')
       (MAP (λ(p, e). (p, inline m h e)) bs)
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ cexp_size (K 0) o SND o SND’
+  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ imp_res_tac cexp_size_lemma \\ fs []
 End
 
 Definition inline_all_def:
   inline_all = inline pure_vars$empty
 End
+
+Triviality cexp_size_lemma2:
+  ∀xs e.
+    MEM e xs ⇒
+    cexp_size (K 0) e ≤ list_size (cexp_size (K 0)) xs
+Proof
+  Induct  \\ fs [] \\ rw [] \\ res_tac \\ fs [list_size_def]
+QED
 
 Definition tree_size_def:
   tree_size (Var a v) = 1 ∧
@@ -72,7 +91,9 @@ Definition tree_size_def:
   tree_size (NestedCase a e v p e' bs) =
     1 + tree_size e + tree_size e' + SUM (MAP (λ(p, e). tree_size e) bs)
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ cexp_size (K 0)’
+  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ imp_res_tac cexp_size_lemma2 \\ fs []
 End
 
 Definition tree_size_heuristic_def:
