@@ -95,7 +95,9 @@ Apps:
 Inductive letrec_spec:
 [~Switch:]
   (∀info x b1 b2.
-    call_with_arg F info x ∧ info_ok info ⇒
+    call_with_arg F info x ∧ info_ok info ∧
+    freevars (mk_fun b1 info) ⊆ {info.fname} ∧
+    freevars (mk_fun b2 info) ⊆ {info.fname} ⇒
     letrec_spec info (mk_letrec b1 info x)
                      (mk_letrec b2 info x)) ∧
 [~Apps:]
@@ -236,7 +238,7 @@ Proof
 QED
 
 Theorem subst_letrec_spec:
-  ∀binds x y m1 m2.
+  ∀i x y m1 m2.
     letrec_spec i x y ∧
     FDOM m1 = FDOM m2 ∧
     (∀k v1 v2.
@@ -244,27 +246,17 @@ Theorem subst_letrec_spec:
       letrec_spec i v1 v2 ∧ closed v1 ∧ closed v2) ⇒
     letrec_spec i (subst m1 x) (subst m2 y)
 Proof
-  cheat (*
   Induct_on ‘letrec_spec’ \\ rw []
   >-
-   (DEP_REWRITE_TAC [closed_subst]
-    \\ irule_at Any letrec_spec_change \\ fs [MAP_FST_mk_bind]
-    \\ drule_at Any freevars_mk_seqs
-    \\ PairCases_on ‘b’ \\ fs [mk_bind_def,EVERY_MEM]
-    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS,mk_seq_bind_def,mk_bind_def]
-    \\ gvs [SF SFY_ss]
-    \\ fs [obligation_def,EVERY_MEM,FORALL_PROD]
-    \\ rw [] \\ res_tac
-    \\ gvs [SUBSET_DEF]
-    \\ metis_tac [])
+   (fs [mk_letrec_def,subst_def]
+    \\ ‘subst (FDIFF m1 {i.fname}) (mk_fun b1 i) = mk_fun b1 i ∧
+        subst (FDIFF m2 {i.fname}) (mk_fun b2 i) = mk_fun b2 i’ by
+      (rw [] \\ irule subst_ignore
+       \\ fs [IN_DISJOINT,SUBSET_DEF] \\ metis_tac [])
+    \\ fs [GSYM mk_letrec_def] \\ cheat (*
+      \\ irule letrec_spec_Switch *))
   >-
-   (simp [subst_def]
-    \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.subst_subst_FUNION]
-    \\ conj_tac >- fs [FRANGE_DEF,FEVERY_DEF,PULL_EXISTS]
-    \\ irule letrec_spec_seq
-    \\ last_x_assum $ irule_at Any
-    \\ fs [FEVERY_DEF,FUNION_DEF,FLOOKUP_DEF]
-    \\ rw [])
+   (fs [subst_Apps,info_ok_def] \\ cheat)
   >-
    (fs [subst_def] \\ rpt CASE_TAC \\ fs [letrec_spec_refl]
     \\ res_tac \\ fs [] \\ gvs [FLOOKUP_DEF])
@@ -277,11 +269,11 @@ Proof
   >-
    (fs [subst_def]
     \\ simp [Once letrec_spec_cases]
+    \\ disj2_tac
     \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
   >-
    (fs [subst_def]
     \\ simp [Once letrec_spec_cases,SF ETA_ss]
-    \\ disj2_tac
     \\ last_x_assum mp_tac \\ fs []
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
@@ -317,7 +309,7 @@ Proof
     \\ first_x_assum irule
     \\ fs [FDOM_FDIFF,EXTENSION,FLOOKUP_FDIFF]
     \\ fs [DOMSUB_FLOOKUP_THM,AllCaseEqs(),SUBSET_DEF]
-    \\ rw [] \\ res_tac \\ fs []) *)
+    \\ rw [] \\ res_tac \\ fs [])
 QED
 
 Theorem letrec_spec_subst1:
@@ -945,6 +937,9 @@ Proof
   \\ qexists_tac ‘letrec_spec i’
   \\ irule_at Any letrec_spec_Switch
   \\ fs [letrec_spec_refl,eval_forward_letrec_spec,eval_forward_letrec_spec_rev]
+  \\ fs [closed_def,mk_letrec_def]
+  \\ fs [SUBSET_DEF,EXTENSION]
+  \\ metis_tac []
 QED
 
 Theorem FDIFF_SING:
