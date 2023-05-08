@@ -103,7 +103,9 @@ Inductive letrec_spec:
 [~Apps:]
   (∀info xs ys b1 b2.
     LENGTH xs = LENGTH info.args ∧ info_ok info ∧
-    LIST_REL (letrec_spec info) xs ys ⇒
+    LIST_REL (letrec_spec info) xs ys ∧
+    closed (mk_rec b1 info) ∧
+    closed (mk_rec b2 info) ⇒
     letrec_spec info
       (Apps (mk_rec b1 info) (xs ++ [info.const]))
       (Apps (mk_rec b2 info) (ys ++ [info.const]))) ∧
@@ -237,6 +239,14 @@ Proof
   \\ metis_tac []
 QED
 
+Triviality LIST_REL_MAP_MAP_TWO:
+  ∀xs ys.
+    LIST_REL R (MAP f xs) (MAP g ys) = LIST_REL (λx y. R (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ Cases_on ‘ys’ \\ fs []
+QED
+
 Theorem subst_letrec_spec:
   ∀i x y m1 m2.
     letrec_spec i x y ∧
@@ -253,10 +263,15 @@ Proof
         subst (FDIFF m2 {i.fname}) (mk_fun b2 i) = mk_fun b2 i’ by
       (rw [] \\ irule subst_ignore
        \\ fs [IN_DISJOINT,SUBSET_DEF] \\ metis_tac [])
-    \\ fs [GSYM mk_letrec_def] \\ cheat (*
+    \\ fs [GSYM mk_letrec_def]
+    \\ cheat (*
       \\ irule letrec_spec_Switch *))
   >-
-   (fs [subst_Apps,info_ok_def] \\ cheat)
+   (fs [subst_Apps,info_ok_def]
+    \\ irule letrec_spec_Apps \\ fs []
+    \\ fs [info_ok_def,LIST_REL_MAP_MAP_TWO]
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ gvs [SF SFY_ss])
   >-
    (fs [subst_def] \\ rpt CASE_TAC \\ fs [letrec_spec_refl]
     \\ res_tac \\ fs [] \\ gvs [FLOOKUP_DEF])
