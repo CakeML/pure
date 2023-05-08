@@ -268,7 +268,7 @@ Proof
   fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
 QED
 
-Theorem ALOOKUP_REVERSE_LIST_REL[local]:
+Theorem ALOOKUP_REVERSE_LIST_REL:
   ∀bs ys.
     LIST_REL p (MAP SND bs) (MAP SND ys) ∧
     MAP FST ys = MAP FST bs ∧
