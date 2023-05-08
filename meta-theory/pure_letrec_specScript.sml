@@ -22,11 +22,13 @@ End
 Inductive call_with_arg:
 [~Apps_Var:]
   (∀info xs.
-    LENGTH xs = LENGTH info.args ⇒
+    LENGTH xs = LENGTH info.args ∧
+    EVERY (call_with_arg T info) xs ⇒
     call_with_arg T info (Apps (Var info.fname) (xs ++ [Var info.arg]))) ∧
 [~Apps_Const:]
   (∀info xs.
-    LENGTH xs = LENGTH info.args ⇒
+    LENGTH xs = LENGTH info.args ∧
+    EVERY (call_with_arg F info) xs ⇒
     call_with_arg F info (Apps (Var info.fname) (xs ++ [info.const]))) ∧
 [~Var:]
   (∀info n b.
@@ -93,12 +95,12 @@ Apps:
 Inductive letrec_spec:
 [~Switch:]
   (∀info x b1 b2.
-    call_with_arg F info x ⇒
+    call_with_arg F info x ∧ info_ok info ⇒
     letrec_spec info (mk_letrec b1 info x)
                      (mk_letrec b2 info x)) ∧
 [~Apps:]
   (∀info xs ys b1 b2.
-    LENGTH xs = LENGTH info.args ∧
+    LENGTH xs = LENGTH info.args ∧ info_ok info ∧
     LIST_REL (letrec_spec info) xs ys ⇒
     letrec_spec info
       (Apps (mk_rec b1 info) (xs ++ [info.const]))
@@ -184,36 +186,40 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem free_vars_mk_fun_subset:
+  info_ok i ⇒
+  freevars (mk_fun b2 i) ⊆ freevars (mk_fun b1 i)
+Proof
+  strip_tac
+  \\ fs [mk_fun_def,info_ok_def]
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [FRANGE_DEF]
+  \\ gvs [SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Theorem free_vars_mk_fun:
+  info_ok i ⇒
+  freevars (mk_fun b i) = freevars (mk_fun T i)
+Proof
+  strip_tac
+  \\ imp_res_tac free_vars_mk_fun_subset
+  \\ gvs [SUBSET_DEF,EXTENSION]
+  \\ metis_tac []
+QED
+
 Theorem letrec_spec_freevars:
   ∀i x y. letrec_spec i x y ⇒ freevars x = freevars y
 Proof
-  cheat (*
   Induct_on ‘letrec_spec’ \\ rw [] \\ gvs []
-  >-
-   (PairCases_on ‘b’ \\ fs [mk_bind_def,MAP_FST_mk_bind]
-    \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
-    \\ fs [mk_seq_bind_def,MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD,mk_bind_def]
-    \\ gvs [freevars_mk_seqs]
-    \\ metis_tac [freevars_mk_seqs])
-  >-
-   (simp [subset_funs_mk_bind,subset_funs_mk_seq_bind]
-    \\ DEP_REWRITE_TAC [mk_seqs_subst]
-    \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.subst_subst_FUNION]
-    \\ DEP_REWRITE_TAC [freevars_subst]
-    \\ fs [FDOM_FUPDATE_LIST]
-    \\ drule_at Any freevars_mk_seqs \\ strip_tac
-    \\ drule mk_bind_closed
-    \\ drule mk_seq_bind_closed
-    \\ fs [SF SFY_ss]
-    \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,mk_bind_def,mk_seq_bind_def]
-    \\ fs [FRANGE_FLOOKUP,PULL_EXISTS,FLOOKUP_FUNION,AllCaseEqs()]
-    \\ fs [SF SFY_ss, SF DNF_ss]
-    \\ rw []
-    \\ imp_res_tac FEVERY_FLOOKUP
-    \\ fs []
-    \\ fs [obligation_def,IN_DISJOINT,EVERY_MEM]
-    \\ res_tac \\ fs []
-    \\ fs [SUBSET_DEF,EXTENSION,MEM_MAP,EXISTS_PROD,FORALL_PROD,MEM_FILTER])
+  >- (fs [mk_letrec_def,mk_rec_def] \\ metis_tac [free_vars_mk_fun])
+  >- (fs [mk_letrec_def,mk_rec_def]
+      \\ ‘freevars (mk_fun b1 i) = freevars (mk_fun b2 i)’ by  metis_tac [free_vars_mk_fun]
+      \\ qsuff_tac ‘MAP freevars xs = MAP freevars ys’ >- fs []
+      \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+      \\ qid_spec_tac ‘ys’
+      \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [PULL_EXISTS])
   >- (pop_assum mp_tac
       \\ qid_spec_tac ‘xs’
       \\ qid_spec_tac ‘ys’
@@ -226,7 +232,7 @@ Proof
   \\ strip_tac \\ Cases \\ fs []
   \\ strip_tac \\ res_tac \\ fs [UNCURRY]
   \\ gvs [EXTENSION]
-  \\ metis_tac [] *)
+  \\ metis_tac []
 QED
 
 Theorem subst_letrec_spec:
@@ -376,9 +382,17 @@ Proof
 QED
 
 Theorem closed_mk_rec:
-  closed (mk_rec b1 i) ⇒ closed (mk_rec b2 i)
+  info_ok i ∧ closed (mk_rec b1 i) ⇒ closed (mk_rec b2 i)
 Proof
-  cheat
+  fs [closed_def,mk_rec_def,mk_letrec_def,mk_fun_def] \\ rpt strip_tac
+  \\ gvs [info_ok_def,GSYM DIFF_UNION]
+  \\ fs [SUBSET_DIFF_EMPTY]
+  \\ pop_assum mp_tac
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [FRANGE_DEF]
+  \\ gvs [SUBSET_DEF]
+  \\ metis_tac []
 QED
 
 Triviality LIST_REL_letrec_spec_closed:
@@ -411,18 +425,62 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem free_vars_mk_fun:
-  freevars (mk_fun b2 i) ⊆ freevars (mk_fun b1 i)
+Theorem closed_mk_rec:
+  info_ok i ∧ freevars (mk_fun b1 i) ⊆ {i.fname} ⇒
+  closed (mk_rec b1 i)
 Proof
-  cheat (* true? *)
+  gvs [closed_def,mk_rec_def,mk_letrec_def,mk_fun_def,info_ok_def]
+  \\ gvs [EXTENSION,SUBSET_DEF] \\ metis_tac []
+QED
+
+Theorem closed_mk_rec_copy:
+  info_ok i ∧ closed (mk_rec b1 i) ⇒ closed (mk_rec b2 i)
+Proof
+  rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ strip_tac
+  \\ gvs [closed_def,mk_rec_def,mk_letrec_def,mk_fun_def,info_ok_def]
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [FRANGE_DEF]
+  \\ gvs [EXTENSION,SUBSET_DEF]
+  \\ rw []
+  \\ gvs [SF DNF_ss,closed_def,EXTENSION]
+  \\ metis_tac []
 QED
 
 Theorem call_with_arg_imp_letrec_spec:
-  call_with_arg F i x ∧ info_ok i ⇒
+  call_with_arg F i x ∧ info_ok i ∧
+  freevars (mk_fun b1 i) ⊆ {i.fname} ∧
+  freevars (mk_fun b2 i) ⊆ {i.fname} ⇒
   letrec_spec i (subst1 i.fname (mk_rec b1 i) x)
                 (subst1 i.fname (mk_rec b2 i) x)
 Proof
-  cheat
+  qsuff_tac ‘∀b i x.
+    call_with_arg b i x ∧ info_ok i ∧ ~b ∧
+    freevars (mk_fun b1 i) ⊆ {i.fname} ∧
+    freevars (mk_fun b2 i) ⊆ {i.fname} ⇒
+    letrec_spec i (subst1 i.fname (mk_rec b1 i) x)
+                  (subst1 i.fname (mk_rec b2 i) x)’
+  >- metis_tac []
+  \\ Induct_on ‘call_with_arg’
+  \\ rpt strip_tac \\ gvs []
+  >-
+   (imp_res_tac closed_mk_rec
+    \\ fs [subst_Apps,subst1_def,info_ok_def]
+    \\ irule letrec_spec_Apps \\ fs [] \\ fs [info_ok_def]
+    \\ fs [LIST_REL_MAP_MAP]
+    \\ gvs [EVERY_MEM] \\ rw [])
+  >- (gvs [subst1_def] \\ simp [Once letrec_spec_cases])
+  >- (gvs [subst1_def] \\ simp [Once letrec_spec_cases])
+  >- (gvs [subst1_def] \\ simp [Once letrec_spec_cases])
+  >- (gvs [subst1_def] \\ irule letrec_spec_Prim
+      \\ Induct_on ‘xs’ \\ fs [])
+  >-
+   (gvs [subst1_def] \\ irule letrec_spec_Letrec
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+    \\ fs [LAMBDA_PROD]
+    \\ Induct_on ‘xs’ \\ fs [FORALL_PROD])
+  \\ simp [letrec_spec_refl]
 QED
 
 Theorem eval_forward_letrec_spec:
@@ -514,6 +572,7 @@ Proof
     \\ drule_all Apps_rec_lemma
     \\ disch_then $ qspec_then ‘b2’ strip_assume_tac
     \\ simp []
+    \\ drule_all closed_mk_rec_copy \\ strip_tac
     \\ last_x_assum irule \\ fs []
     \\ first_assum $ irule_at Any
     \\ irule app_bisimilarity_trans
@@ -566,7 +625,7 @@ Proof
     \\ ‘freevars (mk_fun b2 i) ⊆ {i.fname}’ by
       (irule_at Any SUBSET_TRANS
        \\ first_assum $ irule_at Any
-       \\ fs [free_vars_mk_fun])
+       \\ fs [free_vars_mk_fun_subset])
     \\ fs [subst_funs_def,bind_def]
     \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST]
     \\ DEP_REWRITE_TAC [IMP_closed_subst]
@@ -935,7 +994,8 @@ Proof
   \\ gvs [subst_def]
   >-
    (fs [subst_Apps,subst_def,FLOOKUP_DEF]
-    \\ irule call_with_arg_Apps_Var \\ fs [])
+    \\ irule call_with_arg_Apps_Var \\ fs []
+    \\ gvs [EVERY_MEM] \\ rw [] \\ gvs [MEM_MAP])
   >-
    (Cases_on ‘FLOOKUP m n’ \\ fs []
     >- (irule call_with_arg_Var \\ fs [])
@@ -1055,25 +1115,30 @@ Proof
     \\ gvs [SUBSET_DEF]
     \\ metis_tac [])
   \\ conj_tac >- gvs [SUBSET_DEF]
+  \\ reverse conj_tac >-
+   (irule call_with_arg_T_with \\ fs [Abbr‘rhs1’]
+    \\ irule call_with_arg_subst \\ fs [SF SFY_ss]
+    \\ gvs [FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM])
+  \\ gvs [Abbr‘x’]
+  \\ simp [Once Apps_append]
+  \\ irule call_with_arg_Apps
   \\ conj_tac
   >-
-   (gvs [Abbr‘x’]
-    \\ simp [Once Apps_append]
-    \\ irule call_with_arg_Apps
-    \\ conj_tac
-    >-
-     (rw [EVERY_MEM]
-      \\ irule call_with_arg_closed
-      \\ gvs [MEM_MAP,closed_def,BIGUNION_SUBSET]
-      \\ DEP_REWRITE_TAC [freevars_subst]
-      \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF,closed_def,EVERY_MEM]
-      \\ res_tac \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-    \\ simp [Once call_with_arg_cases]
-    \\ disj1_tac
-    \\ irule_at Any EQ_REFL \\ fs [])
-  \\ irule call_with_arg_T_with \\ fs [Abbr‘rhs1’]
-  \\ irule call_with_arg_subst \\ fs [SF SFY_ss]
-  \\ gvs [FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
+   (rw [EVERY_MEM]
+    \\ irule call_with_arg_closed
+    \\ gvs [MEM_MAP,closed_def,BIGUNION_SUBSET]
+    \\ DEP_REWRITE_TAC [freevars_subst]
+    \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF,closed_def,EVERY_MEM]
+    \\ res_tac \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+  \\ simp [Once call_with_arg_cases]
+  \\ disj1_tac
+  \\ irule_at Any EQ_REFL \\ fs []
+  \\ rw [EVERY_MEM]
+  \\ irule call_with_arg_closed
+  \\ gvs [MEM_MAP,closed_def,BIGUNION_SUBSET]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ gvs [FRANGE_DEF,PULL_EXISTS,DOMSUB_FAPPLY_THM,FLOOKUP_DEF,closed_def,EVERY_MEM]
+  \\ res_tac \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
 QED
 
 val _ = export_theory();
