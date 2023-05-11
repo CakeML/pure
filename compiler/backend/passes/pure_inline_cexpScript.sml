@@ -117,6 +117,36 @@ Proof
   Induct  \\ fs [] \\ rw [] \\ res_tac \\ fs [list_size_def]
 QED
 
+Definition tree_size_heuristic_rec_def:
+  tree_size_heuristic_rec n (Var a v) = (n - 1) ∧
+  tree_size_heuristic_rec n (Prim a op es) =
+    FOLDL (λa e. if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) es ∧
+  tree_size_heuristic_rec n (App a e es) =
+    FOLDL (λa e. if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) (e::es) ∧
+  tree_size_heuristic_rec n (Lam a vs e) =
+    tree_size_heuristic_rec (n - 1) e ∧
+  tree_size_heuristic_rec n (Let a v e1 e2) =
+    (let n1 = tree_size_heuristic_rec (n - 1) e1
+    in if n1 < 0 then n1 else tree_size_heuristic_rec n1 e2) ∧
+  tree_size_heuristic_rec n (Letrec a vbs e) =
+    (let n1 = FOLDL (λa (v, e). if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) vbs
+    in if n1 < 0 then n1 else tree_size_heuristic_rec n1 e) ∧
+  tree_size_heuristic_rec n (Case a e v bs f) =
+    (let n1 = FOLDL (λa (v, vs, e). if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) bs
+    in if n1 < 0 then n1 else
+      case f of
+        NONE => n1
+      | SOME (vs, e) => tree_size_heuristic_rec n1 e) ∧
+  tree_size_heuristic_rec n (NestedCase a e v p e' bs) =
+    (let n1 = FOLDL (λa (p, e). if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) bs
+    in if n1 < 0 then n1 else tree_size_heuristic_rec n1 e')
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+    | (n, e) => cexp_size (K 0) e’
+  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ imp_res_tac cexp_size_lemma2 \\ fs []
+End
+
 Definition tree_size_def:
   tree_size (Var a v) = 1 ∧
   tree_size (Prim a op es) = 1 + SUM (MAP tree_size es) ∧
@@ -140,7 +170,7 @@ End
 (* rewrite *)
 Definition tree_size_heuristic_def:
   tree_size_heuristic n =
-    (λe. tree_size e < n)
+    (λe. tree_size_heuristic_rec n e ≥ 0)
 End
 
 (*******************)
