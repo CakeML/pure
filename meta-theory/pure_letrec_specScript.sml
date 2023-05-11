@@ -23,12 +23,12 @@ Inductive call_with_arg:
 [~Apps_Var:]
   (∀info xs ys R.
     LENGTH xs = LENGTH info.args ∧
-    LIST_REL (call_with_arg F info R) xs ys ⇒
+    LIST_REL (call_with_arg T info R) xs ys ⇒
     call_with_arg T info R (Apps (Var info.fname) (xs ++ [Var info.arg]))
                            (Apps (Var info.fname) (ys ++ [Var info.arg]))) ∧
 [~Apps_Const:]
   (∀info xs ys R.
-    LENGTH xs = LENGTH info.args ∧
+    LENGTH xs = LENGTH info.args ∧ closed info.const ∧
     LIST_REL (call_with_arg F info R) xs ys ⇒
     call_with_arg F info R (Apps (Var info.fname) (xs ++ [info.const]))
                            (Apps (Var info.fname) (ys ++ [info.const]))) ∧
@@ -300,6 +300,17 @@ Proof
   fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
+Theorem call_with_arg_Apps:
+  ∀xs ys x y.
+    call_with_arg b i R x y ∧
+    LIST_REL (call_with_arg b i R) xs ys ⇒
+    call_with_arg b i R (Apps x xs) (Apps y ys)
+Proof
+  Induct \\ fs [Apps_def,PULL_EXISTS] \\ rw []
+  \\ last_x_assum irule \\ fs []
+  \\ irule call_with_arg_App \\ fs []
+QED
+
 Theorem subst_call_with_arg:
   ∀b i R x y.
     call_with_arg b i R x y ⇒
@@ -315,7 +326,20 @@ Proof
   \\ rpt strip_tac \\ gvs []
   >-
    (fs [subst_Apps]
-    \\ cheat)
+    \\ fs [subst_def,FLOOKUP_DEF]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+     (irule call_with_arg_Apps \\ fs []
+      \\ irule_at (Pos last) call_with_arg_closed
+      \\ irule_at (Pos last) call_with_arg_closed
+      \\ res_tac \\ fs [letrec_spec_refl]
+      \\ simp [LIST_REL_MAP]
+      \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+      \\ rw [] \\ gvs [SF SFY_ss])
+    \\ irule call_with_arg_Apps_Const \\ fs []
+    \\ simp [LIST_REL_MAP]
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ rw [] \\ gvs [SF SFY_ss])
   >-
    (fs [subst_def,FLOOKUP_DEF]
     \\ IF_CASES_TAC \\ fs []
@@ -569,10 +593,8 @@ Theorem call_with_arg_imp_letrec_spec:
   letrec_spec i (subst1 i.fname (mk_rec b1 i) x)
                 (subst1 i.fname (mk_rec b2 i) y)
 Proof
-  cheat (*
   qsuff_tac ‘∀b i x.
-    call_with_arg b i x ∧
-    call_with_arg b i y ∧ info_ok i ∧ ~b ∧
+    call_with_arg b i (letrec_spec i) x y ∧ info_ok i ∧ ~b ∧
     freevars (mk_fun b1 i) ⊆ {i.fname} ∧
     freevars (mk_fun b2 i) ⊆ {i.fname} ⇒
     letrec_spec i (subst1 i.fname (mk_rec b1 i) x)
@@ -584,19 +606,25 @@ Proof
    (imp_res_tac closed_mk_rec
     \\ fs [subst_Apps,subst1_def,info_ok_def]
     \\ irule letrec_spec_Apps \\ fs [] \\ fs [info_ok_def]
-    \\ fs [LIST_REL_MAP_MAP]
-    \\ gvs [EVERY_MEM] \\ rw [])
+    \\ gvs [LIST_REL_MAP]
+    \\ first_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [])
   >- (gvs [subst1_def] \\ simp [Once letrec_spec_cases])
   >- (gvs [subst1_def] \\ simp [Once letrec_spec_cases])
   >- (gvs [subst1_def] \\ simp [Once letrec_spec_cases])
   >- (gvs [subst1_def] \\ irule letrec_spec_Prim
-      \\ Induct_on ‘xs’ \\ fs [])
+      \\ last_x_assum mp_tac
+      \\ qid_spec_tac ‘ys’
+      \\ qid_spec_tac ‘xs’
+      \\ Induct \\ fs [PULL_EXISTS])
   >-
    (gvs [subst1_def] \\ irule letrec_spec_Letrec
     \\ fs [MAP_MAP_o,combinTheory.o_DEF]
     \\ fs [LAMBDA_PROD]
-    \\ Induct_on ‘xs’ \\ fs [FORALL_PROD])
-  \\ simp [letrec_spec_refl] *)
+    \\ rpt $ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ gvs [FORALL_PROD,PULL_EXISTS,MAP_EQ_CONS])
 QED
 
 Theorem eval_forward_letrec_spec:
@@ -1051,11 +1079,39 @@ Proof
   simp [Once letrec_spec_sym,SF ETA_ss,eval_forward_letrec_spec]
 QED
 
+Theorem letrec_spec_Apps_simple:
+  ∀xs ys x y i.
+    letrec_spec i x y ∧
+    LIST_REL (letrec_spec i) xs ys ⇒
+    letrec_spec i (Apps x xs) (Apps y ys)
+Proof
+  Induct \\ fs [Apps_def,PULL_EXISTS] \\ rw []
+  \\ last_x_assum irule \\ fs []
+  \\ irule letrec_spec_App  \\ fs []
+QED
+
 Theorem call_with_arg_imp:
   call_with_arg F i (letrec_spec i) x y ⇒
   letrec_spec i x y
 Proof
-  cheat
+  qsuff_tac ‘∀b i R x y.
+    call_with_arg b i R x y ⇒ ~b ⇒ R = letrec_spec i ⇒
+    letrec_spec i x y’
+  >- metis_tac []
+  \\ Induct_on ‘call_with_arg’
+  \\ rpt strip_tac \\ gvs []
+  >-
+   (match_mp_tac letrec_spec_Apps_simple \\ fs []
+    \\ fs [letrec_spec_refl]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >- irule letrec_spec_Var
+  >- (irule letrec_spec_Lam \\ fs [])
+  >- (irule letrec_spec_App \\ fs [])
+  >- (irule letrec_spec_Prim \\ fs []
+      \\ pop_assum mp_tac \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >- (irule letrec_spec_Letrec \\ fs []
+      \\ last_x_assum mp_tac \\ match_mp_tac LIST_REL_mono \\ fs [])
 QED
 
 Theorem Letrec_spec_equiv_closed:
@@ -1102,56 +1158,80 @@ QED
 
 Triviality call_with_arg_T_with:
   ∀b i R x y.
-    call_with_arg b i R x y ⇒ b ∧ R = $= ∧ x = y ⇒
+    call_with_arg b i R x y ⇒ b ⇒
     call_with_arg b (i with <|const := c; rhs := rhs1|>) R x y
 Proof
-  cheat (*
-  Induct_on ‘call_with_arg’
-  \\ rpt strip_tac
+  ho_match_mp_tac call_with_arg_ind
+  \\ rpt strip_tac \\ gvs []
+  \\ rpt (simp [Once call_with_arg_cases] \\ gvs [SF ETA_ss] \\ NO_TAC)
+  \\ simp [Once call_with_arg_cases] \\ gvs []
+  \\ disj1_tac
+  \\ irule_at Any EQ_REFL
+  \\ irule_at Any EQ_REFL
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+  \\ qid_spec_tac ‘xs’
+  \\ qid_spec_tac ‘ys’
+  \\ Induct \\ fs [PULL_EXISTS]
+QED
 
-  \\ simp [Once call_with_arg_cases]
-  \\ gvs []
+Theorem Apps_11:
+  ∀xs ys x y. Apps x xs = Apps y ys ∧ LENGTH xs = LENGTH ys ⇒ x = y ∧ xs = ys
+Proof
+  Induct \\ fs [Apps_def]
+  \\ Cases_on ‘ys’ \\ fs [Apps_def]
+  \\ rw [] \\ res_tac \\ fs []
+QED
 
-  call_with_arg_ind
-
-  \\ gvs [] \\ gvs [EVERY_MEM]
-  \\ metis_tac [] *)
+Theorem LIST_REL_same:
+  ∀xs. LIST_REL R xs xs = EVERY (λx. R x x) xs
+Proof
+  Induct \\ fs []
 QED
 
 Theorem call_with_arg_subst:
   ∀b i rhs m.
-    call_with_arg b i (=) rhs rhs ∧ i.arg ∉ FDOM m ∧ i.fname ∉ FDOM m ∧
+    call_with_arg b i (=) rhs rhs ⇒
+    i.arg ∉ FDOM m ∧ i.fname ∉ FDOM m ∧
     (∀n v. FLOOKUP m n = SOME v ⇒ closed v) ∧ b ⇒
     call_with_arg b i (=) (subst m rhs) (subst m rhs)
 Proof
-  cheat (*
   Induct_on ‘call_with_arg’
   \\ rpt strip_tac
+  \\ rpt var_eq_tac
   \\ gvs [subst_def]
   >-
    (fs [subst_Apps,subst_def,FLOOKUP_DEF]
     \\ irule call_with_arg_Apps_Var \\ fs []
-    \\ gvs [EVERY_MEM] \\ rw [] \\ gvs [MEM_MAP])
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [LIST_REL_MAP]
+    \\ drule Apps_11 \\ fs [] \\ rw [] \\ fs [LIST_REL_same]
+    \\ gvs [EVERY_MEM])
   >-
-   (Cases_on ‘FLOOKUP m n’ \\ fs []
-    >- (irule call_with_arg_Var \\ fs [])
-    \\ irule call_with_arg_closed \\ fs [SF SFY_ss])
+   (Cases_on ‘FLOOKUP m n’ \\ fs [] \\ res_tac
+    >- (irule_at Any call_with_arg_Var \\ fs [])
+    \\ irule_at Any call_with_arg_closed \\ fs [])
   >-
-   (irule call_with_arg_Lam \\ fs []
-    \\ first_x_assum irule
-    \\ fs [DOMSUB_FLOOKUP_THM,SF SFY_ss])
-  >- (irule call_with_arg_App \\ fs [SF SFY_ss])
-  >- (irule call_with_arg_Prim \\ fs [SF SFY_ss,EVERY_MEM,MEM_MAP,PULL_EXISTS])
-  \\ rpt (irule call_with_arg_closed \\ fs [] \\ NO_TAC)
-  \\ irule call_with_arg_Letrec
-  \\ fs [SF SFY_ss,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-  \\ rw []
+   (irule_at Any call_with_arg_Lam \\ fs []
+    \\ first_x_assum irule \\ fs [FDOM_DOMSUB,DOMSUB_FLOOKUP_THM]
+    \\ rw [] \\ res_tac \\ gvs [])
   >-
-   (last_x_assum $ drule_then strip_assume_tac
-    \\ first_assum irule \\ fs []
-    \\ fs [FDIFF_def,FLOOKUP_DRESTRICT,SF SFY_ss])
-  \\ first_assum irule \\ fs []
-  \\ fs [FDIFF_def,FLOOKUP_DRESTRICT,SF SFY_ss] *)
+   (irule_at Any call_with_arg_App \\ fs [SF SFY_ss])
+  >-
+   (irule_at Any call_with_arg_Prim \\ fs [SF SFY_ss,LIST_REL_MAP_MAP]
+    \\ fs [LIST_REL_same]
+    \\ gvs [EVERY_MEM] \\ rw [] \\ res_tac)
+  >-
+   (irule call_with_arg_Letrec
+    \\ fs [SF SFY_ss,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ fs [SF SFY_ss,LIST_REL_MAP_MAP]
+    \\ fs [LIST_REL_same] \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+    \\ rw []
+    >-
+     (last_x_assum drule \\ strip_tac
+      \\ pop_assum irule \\ fs [] \\ fs [FLOOKUP_FDIFF,SF SFY_ss])
+    \\ first_x_assum irule \\ fs []
+    \\ fs [FDIFF_def,DRESTRICT_DEF,FLOOKUP_DEF])
+  \\ simp [Once call_with_arg_cases]
 QED
 
 Theorem subst_subst1_lemma:
