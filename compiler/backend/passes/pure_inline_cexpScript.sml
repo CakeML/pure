@@ -51,6 +51,15 @@ Definition is_Lam_def:
   is_Lam _ = F
 End
 
+Triviality size_lemma:
+  ∀bs.
+    list_size (cexp_size (K 0)) (MAP (λ(v,vs,e). e) bs) ≤
+    list_size (pair_size mlstring_size
+                 (pair_size (list_size mlstring_size) (cexp_size (K 0)))) bs
+Proof
+  Induct \\ fs [list_size_def,FORALL_PROD,basicSizeTheory.pair_size_def]
+QED
+
 Definition inline_def:
   inline (m: ('a cexp_rhs) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
@@ -102,7 +111,7 @@ Termination
     | INR (m, ns, h, es) => list_size (cexp_size (K 0)) es`
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
-  \\ cheat
+  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
 End
 
 Definition inline_all_def:
