@@ -3,13 +3,14 @@
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite monadsyntax;
 open pairTheory listTheory rich_listTheory pred_setTheory
-open pure_cexpTheory pure_varsTheory;
+open pure_cexpTheory pure_varsTheory var_setTheory;
 
 val _ = new_theory "pure_freshen";
 
-(***** Monad *****)
+(***** State monad *****)
 
-Type freshenM[pp] = ``:var_set -> ('a # var_set)``
+(* State: var_set (set of names to avoid), num (max variable name length) *)
+Type freshenM[pp] = ``:(var_set # num) -> ('a # (var_set # num))``
 
 Definition freshen_return_def:
   freshen_return x : 'a freshenM = λs. (x, s)
@@ -93,19 +94,13 @@ Termination
   qspec_then `IMAGE strlen s` mp_tac X_LE_MAX_SET >> simp[PULL_EXISTS]
 End
 
-(* Record a single variable to an avoid set *)
-Definition record_var_def:
-  record_var v : unit freshenM = λs. ((), insert s v ())
-End
 
 (* Generate a single fresh variable, adding it to both avoid and renaming sets *)
 Definition fresh_boundvar_def:
-  fresh_boundvar v varmap = λavoid.
-    let v' = fresh v avoid in (
-    do
-      record_var v';
-      return (v', if v = v' then varmap else insert varmap v v')
-    od avoid)
+  fresh_boundvar v varmap = do
+    v' <- invent_var v;
+    return (v', if v = v' then varmap else insert varmap v v')
+    od
 End
 
 (* Generate several fresh variables, adding to both avoid and renaming sets.
@@ -136,12 +131,8 @@ End
 Definition freshen_aux_def:
   freshen_aux varmap (Var d v) = do
     v' <<- (case lookup varmap v of | NONE => v | SOME v' => v');
-    record_var v';
     return $ Var d v'
   od ∧
-  (* We shouldn't really need `record_var v'` above:
-     - either v' is a free variable and is already recorded
-     - or we generated v' fresh earlier and recorded it then *)
 
   freshen_aux varmap (Prim d cop ces) = do
     ces' <- freshen_aux_list varmap ces;
