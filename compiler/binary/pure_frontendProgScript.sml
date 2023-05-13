@@ -4,12 +4,14 @@
 open basis
      pure_demands_analysisTheory
      pure_letrec_cexpTheory
+     pure_freshenTheory
      pure_compilerTheory
      pure_inferProgTheory;
 
 val _ = new_theory "pure_frontendProg";
 
-val _ = set_grammar_ancestry ["pure_inferProg", "pure_letrec_cexp", "pure_demands_analysis"];
+val _ = set_grammar_ancestry ["pure_inferProg", "pure_letrec_cexp",
+                              "pure_demands_analysis", "pure_freshen"];
 
 val _ = translation_extends "pure_inferProg";
 
@@ -83,6 +85,19 @@ val r = translate transform_cexp_def;
 
 val r = translate demands_analysis_fun_def;
 val r = translate demands_analysis_def;
+
+(*-----------------------------------------------------------------------*
+   freshening
+ *-----------------------------------------------------------------------*)
+
+val r = translate freshen_return_def;
+val r = translate freshen_bind_def;
+val r = translate freshen_ignore_bind_def;
+val r = translate freshen_mfoldl_def;
+val r = translate fresh_boundvar_def;
+val r = translate fresh_boundvars_def;
+val r = translate_no_ind freshen_aux_def; (* TODO bad induction *)
+val r = translate freshen_cexp_def;
 
 (*-----------------------------------------------------------------------*
    ast_to_string

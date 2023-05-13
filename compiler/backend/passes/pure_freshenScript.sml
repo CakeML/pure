@@ -39,21 +39,21 @@ val _ = enable_monad "freshen";
 
 Overload return[local] = ``freshen_return``;
 
-Definition mfoldl_def:
-  mfoldl f acc [] = return acc ∧
-  mfoldl f acc (x::xs) = do
+Definition freshen_mfoldl_def:
+  freshen_mfoldl f acc [] = return acc ∧
+  freshen_mfoldl f acc (x::xs) = do
     acc' <- f acc x;
-    mfoldl f acc' xs
+    freshen_mfoldl f acc' xs
   od
 End
 
-Theorem mfoldl_bind_cong[defncong]:
+Theorem freshen_mfoldl_cong[defncong]:
   ∀l l' acc acc' f f'.
     l = l' ∧ acc = acc' ∧
     (∀x a. MEM x l' ⇒ f a x = f' a x)
-  ⇒ mfoldl f acc l = mfoldl f' acc' l'
+  ⇒ freshen_mfoldl f acc l = freshen_mfoldl f' acc' l'
 Proof
-  Induct >> rw[] >> gvs[mfoldl_def] >>
+  Induct >> rw[] >> gvs[freshen_mfoldl_def] >>
   AP_TERM_TAC >> rw[FUN_EQ_THM]
 QED
 
@@ -160,10 +160,10 @@ Definition freshen_aux_def:
 
   freshen_aux varmap (Letrec d fns ce) = do
     (fs', varmap') <- fresh_boundvars (MAP FST fns) varmap;
-    fces' <- mfoldl (λacc (f,fce). do
-                      fce' <- freshen_aux varmap' fce;
-                      return $ fce'::acc od)
-                    [] fns;
+    fces' <- freshen_mfoldl (λacc (f,fce). do
+                fce' <- freshen_aux varmap' fce;
+                return $ fce'::acc od)
+              [] fns;
     ce' <- freshen_aux varmap' ce;
     return $ Letrec d (ZIP (fs', REVERSE fces')) ce'
   od ∧
@@ -171,11 +171,11 @@ Definition freshen_aux_def:
   freshen_aux varmap (Case d ce v css usopt) = do
     ce' <- freshen_aux varmap ce;
     (v',varmap') <- fresh_boundvar v varmap;
-    css' <- mfoldl (λacc (cn,pvs,ce). do
-                      (pvs',varmap'') <- fresh_boundvars pvs varmap';
-                      ce' <- freshen_aux varmap'' ce;
-                      return $ (cn,pvs',ce')::acc od)
-                    [] css;
+    css' <- freshen_mfoldl (λacc (cn,pvs,ce). do
+                (pvs',varmap'') <- fresh_boundvars pvs varmap';
+                ce' <- freshen_aux varmap'' ce;
+                return $ (cn,pvs',ce')::acc od)
+              [] css;
     usopt' <- (case usopt of
               | NONE => return NONE
               | SOME (cn_ars, usce) => do
