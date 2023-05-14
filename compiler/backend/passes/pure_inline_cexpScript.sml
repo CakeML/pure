@@ -51,6 +51,11 @@ Definition is_Lam_def:
   is_Lam _ = F
 End
 
+Definition get_Var_name_def:
+  get_Var_name (Var a v) = (SOME v) ∧
+  get_Var_name _ = NONE
+End
+
 Triviality size_lemma:
   ∀bs.
     list_size (cexp_size (K 0)) (MAP (λ(v,vs,e). e) bs) ≤
@@ -63,22 +68,22 @@ QED
 Definition inline_def:
   inline (m: ('a cexp_rhs) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
-      NONE => (Var a v, ns)
+    | NONE => (Var a v, ns)
     | SOME (cExp e) =>
       if is_Lam e
       then (Var a v, ns)
       else (e, ns) (* Might want to freshen the names and recurse *)
     | SOME (cRec e) => (Var a v, ns)) ∧
-  inline m ns h (Prim a op es) =
-    (let (es2, ns2) = inline_list m ns h es
-     in (Prim a op es2, ns2)) ∧
   inline m ns h (App a e es) =
-    (let (e1, ns1) = inline m ns h e in
-     let (es2, ns2) = inline_list m ns1 h es
+    (let (e1, ns1) = (case get_Var_name e of
+      | SOME v =>
+        (case lookup m v of
+        | NONE => inline m ns h e
+        | SOME (cExp e) => (e, ns) (* Might want to freshen the names and recurse *)
+        | SOME (cRec _) => inline m ns h e)
+      | NONE => inline m ns h e)
+     in let (es2, ns2) = inline_list m ns1 h es
      in (App a e1 es2, ns2)) ∧
-  inline m ns h (Lam a vs e) =
-    (let (e1, ns1) = inline m ns h e
-    in (Lam a vs e1, ns1)) ∧
   inline m ns h (Let a v e1 e2) =
     (let m1 = heuristic_insert m h v e1
      in let (e3, ns3) = inline m ns h e1
@@ -89,11 +94,17 @@ Definition inline_def:
      in let (vbs1, ns1) = inline_list m ns h (MAP SND vbs)
      in let (e2, ns2) = inline m1 ns1 h e
      in (Letrec a (MAP2 (λ(v,_) x. (v, x)) vbs vbs1) e2, ns2)) ∧
+  inline m ns h (Lam a vs e) =
+    (let (e1, ns1) = inline m ns h e
+    in (Lam a vs e1, ns1)) ∧
+  inline m ns h (Prim a op es) =
+    (let (es2, ns2) = inline_list m ns h es
+     in (Prim a op es2, ns2)) ∧
   inline m ns h (Case a e v bs f) =
     (let (e1, ns1) = inline m ns h e
      in let (bs2, ns2) = inline_list m ns1 h (MAP (λ(v, vs, e). e) bs)
      in let (f3, ns3) = case f of
-          NONE => (NONE, ns2)
+        | NONE => (NONE, ns2)
         | SOME (vs, e) =>
           let (e4, ns4) = inline m ns2 h e
           in (SOME (vs, e4), ns4)

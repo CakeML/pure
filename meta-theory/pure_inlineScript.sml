@@ -2415,14 +2415,6 @@ Proof
       \\ fs []
     )
     \\ conj_tac
-    (* >- (
-      qpat_x_assum `no_shadowing _` mp_tac
-      \\ simp [Once no_shadowing_cases]
-      \\ rpt strip_tac
-      \\ fs [EVERY_MEM]
-      \\ res_tac
-      \\ fs []
-    ) *)
     >- (
       qpat_x_assum `∀s'.
         MEM s' (MAP (λ(fn,e'). boundvars e') xs') ⇒
@@ -2512,6 +2504,15 @@ Theorem list_subst_rel_IMP_exp_eq:
 Proof
   rw [] \\ drule list_subst_rel_IMP_exp_eq_lemma
   \\ fs [binds_ok_def,vars_of_def,freevars_of_def,closed_def,bind_ok_rec_def]
+QED
+
+Theorem list_subst_rel_IMP_exp_eq_specialized:
+  list_subst_rel [] x y ∧ no_shadowing x ∧ closed x ⇒
+  x ≅ y
+Proof
+  rw []
+  \\ irule list_subst_rel_IMP_exp_eq
+  \\ fs []
 QED
 
 (*

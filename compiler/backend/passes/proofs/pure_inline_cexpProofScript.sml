@@ -259,29 +259,15 @@ Proof
     \\ res_tac
     \\ fs [crhs_to_rhs_def]
   )
-  >~ [`Prim _ _ _`] >- (
-    gvs [inline_def]
-    \\ Cases_on `inline_list m ns h es`
-    \\ gvs []
-    \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
-    \\ irule list_subst_rel_Prim
-    \\ fs [LIST_REL_MAP,o_DEF,FORALL_PROD,LIST_REL_MAP2,PULL_EXISTS]
-    \\ last_x_assum irule
-    \\ fs []
-    \\ fs [EVERY_MAP]
-    \\ simp [EVERY_MEM]
-    \\ rw []
-    \\ first_x_assum $ qspec_then `boundvars (exp_of x)` assume_tac
-    \\ fs [MAP_MAP_o,o_DEF]
-    \\ first_x_assum irule
-    \\ fs [MEM_MAP]
-    \\ rw []
-    \\ qexists `x`
-    \\ rw []
-  )
   >~ [`App _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline m ns h e`
+    \\ Cases_on `(case get_Var_name e of
+      | NONE => inline m ns h e
+      | SOME v =>
+        case lookup m v of
+        | NONE => inline m ns h e
+        | SOME (cExp v1) => (v1,ns)
+        | SOME (cRec v2) => inline m ns h e)`
     \\ gvs []
     \\ Cases_on `inline_list m r h es`
     \\ gvs []
@@ -290,24 +276,20 @@ Proof
     \\ irule list_subst_rel_Apps
     \\ fs [LIST_REL_MAP,o_DEF]
     \\ last_x_assum $ irule_at Any
-    \\ last_x_assum $ irule_at Any
     \\ gvs [memory_inv_def,DISJOINT_SYM]
     \\ qspecl_then [`set (MAP FST xs)`,`exp_of e`,`MAP exp_of es`] assume_tac DISJOINT_boundvars_Apps
     \\ drule no_shadowing_Apps_EVERY
     \\ strip_tac
     \\ fs [EVERY_MAP,DISJOINT_SYM]
-  )
-  >~ [`Lam _ _`] >- (
-    gvs [inline_def]
-    \\ Cases_on `inline m ns h e`
-    \\ gvs []
-    \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
-    \\ Induct_on `vs`
-    >- fs [Lams_def,list_subst_rel_refl,inline_def,exp_of_def,MAP]
-    \\ rw []
-    \\ gvs [Lams_def]
-    \\ irule list_subst_rel_Lam
-    \\ last_x_assum irule
+    \\ Cases_on `get_Var_name e`
+    >- gvs []
+    \\ Cases_on `e` \\ gvs [get_Var_name_def]
+    \\ gvs [exp_of_def]
+    \\ Cases_on `lookup m m'` \\ gvs []
+    \\ Cases_on `x` \\ gvs []
+    \\ irule list_subst_rel_VarSimp
+    \\ res_tac
+    \\ fs [crhs_to_rhs_def]
   )
   >~ [`Let _ _ _`] >- (
     gvs [inline_def]
@@ -411,6 +393,38 @@ Proof
     \\ irule_at Any memory_inv_APPEND_Rec
     \\ fs []
     \\ drule no_shadowing_Letrec_EVERY
+    \\ rw []
+  )
+  >~ [`Lam _ _`] >- (
+    gvs [inline_def]
+    \\ Cases_on `inline m ns h e`
+    \\ gvs []
+    \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
+    \\ Induct_on `vs`
+    >- fs [Lams_def,list_subst_rel_refl,inline_def,exp_of_def,MAP]
+    \\ rw []
+    \\ gvs [Lams_def]
+    \\ irule list_subst_rel_Lam
+    \\ last_x_assum irule
+  )
+  >~ [`Prim _ _ _`] >- (
+    gvs [inline_def]
+    \\ Cases_on `inline_list m ns h es`
+    \\ gvs []
+    \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
+    \\ irule list_subst_rel_Prim
+    \\ fs [LIST_REL_MAP,o_DEF,FORALL_PROD,LIST_REL_MAP2,PULL_EXISTS]
+    \\ last_x_assum irule
+    \\ fs []
+    \\ fs [EVERY_MAP]
+    \\ simp [EVERY_MEM]
+    \\ rw []
+    \\ first_x_assum $ qspec_then `boundvars (exp_of x)` assume_tac
+    \\ fs [MAP_MAP_o,o_DEF]
+    \\ first_x_assum irule
+    \\ fs [MEM_MAP]
+    \\ rw []
+    \\ qexists `x`
     \\ rw []
   )
   >~ [`Case _ _ _ _ _`] >- (
