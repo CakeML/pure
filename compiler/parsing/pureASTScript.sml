@@ -104,5 +104,13 @@ Datatype:
           | declPatbind patAST expAST
 End
 
+Datatype:
+  importAST = import string
+End
+
+Datatype:
+  moduleAST = module string (importAST list) (declAST list)
+End
+
 
 val _ = export_theory();
