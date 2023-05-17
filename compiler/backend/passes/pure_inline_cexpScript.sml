@@ -3,7 +3,8 @@
 *)
 open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
-open pure_cexpTheory pure_varsTheory balanced_mapTheory;
+open pure_cexpTheory pure_varsTheory balanced_mapTheory
+     pure_freshenTheory;
 
 val _ = new_theory "pure_inline_cexp";
 
@@ -65,6 +66,117 @@ Proof
   Induct \\ fs [list_size_def,FORALL_PROD,basicSizeTheory.pair_size_def]
 QED
 
+(*
+It can be the case that we create sth like:
+```
+(\x -> x + 1) y
+```
+by inlining in the App case. The problem now is that
+```
+(\x -> x + 1) y ≠ let x = y in x + 1
+```
+And so goint further won't do anything
+*)
+
+Definition SPLIT_AT_GO_def:
+  SPLIT_AT_GO (0: num) xs ys = (xs, ys) ∧
+  SPLIT_AT_GO n xs [] = (xs, []) ∧
+  SPLIT_AT_GO n xs (y::ys) =
+    SPLIT_AT_GO (n - 1) (xs ++ [y]) ys
+End
+
+Definition SPLIT_AT_def:
+  SPLIT_AT (n: num) xs = SPLIT_AT_GO n [] xs
+End
+
+Definition Lets_def:
+  Lets a [] [] e = e ∧
+  Lets a (v::vs) (e::es) e1 = Let a v e (Lets a vs es e1)
+End
+
+Definition make_Let_def:
+  make_Let (App a (Lam _ vs e) es) = (
+    let (vs1, vs2) = SPLIT_AT (LENGTH es) vs
+    in let (es1, es2) = SPLIT_AT (LENGTH vs) es
+    in let e1 = (if LENGTH vs2 = 0 then e else Lam a vs2 e)
+    in let lets = Lets a vs1 es1 e1
+    in let r = (if LENGTH es2 = 0 then lets else App a lets es2)
+    in SOME r
+  ) ∧
+  make_Let e = NONE
+End
+
+Definition inline_new_def:
+  inline_new (m: ('a cexp_rhs) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
+    (case lookup m v of
+    | NONE => (Var a v, ns)
+    | SOME (cExp e) =>
+      if is_Lam e
+      then (Var a v, ns)
+      else (
+        let (fe, ns0, _) = freshen_cexp e (ns, 100)
+        in let (e1, ns1) = inline_new m ns0 h fe
+        in (e1, ns1)
+      )
+    | SOME (cRec e) => (Var a v, ns)) ∧
+  inline_new m ns h (App a e es) =
+    (let (e1, ns1) = (case get_Var_name e of
+      | SOME v =>
+        (case lookup m v of
+        | NONE => inline_new m ns h e
+        | SOME (cExp e) => (e, ns)
+        | SOME (cRec _) => inline_new m ns h e)
+      | NONE => inline_new m ns h e)
+     in let (es2, ns2) = inline_new_list m ns1 h es
+     in let exp = (App a e1 es2)
+     in (case make_Let exp of
+        | NONE => (exp, ns2)
+        | SOME exp1 =>
+          let (fe, ns3, _) = freshen_cexp exp1 (ns2, 100)
+          in let (fe1, ns4) = inline_new m ns3 h fe
+          in (fe1, ns4))) ∧
+  inline_new m ns h (Let a v e1 e2) =
+    (let m1 = heuristic_insert m h v e1
+     in let (e3, ns3) = inline_new m ns h e1
+     in let (e4, ns4) = inline_new m1 ns3 h e2
+     in (Let a v e3 e4, ns4)) ∧
+  inline_new m ns h (Letrec a vbs e) =
+    (let m1 = heuristic_insert_Rec m h vbs
+     in let (vbs1, ns1) = inline_new_list m ns h (MAP SND vbs)
+     in let (e2, ns2) = inline_new m1 ns1 h e
+     in (Letrec a (MAP2 (λ(v,_) x. (v, x)) vbs vbs1) e2, ns2)) ∧
+  inline_new m ns h (Lam a vs e) =
+    (let (e1, ns1) = inline_new m ns h e
+    in (Lam a vs e1, ns1)) ∧
+  inline_new m ns h (Prim a op es) =
+    (let (es2, ns2) = inline_new_list m ns h es
+     in (Prim a op es2, ns2)) ∧
+  inline_new m ns h (Case a e v bs f) =
+    (let (e1, ns1) = inline_new m ns h e
+     in let (bs2, ns2) = inline_new_list m ns1 h (MAP (λ(v, vs, e). e) bs)
+     in let (f3, ns3) = case f of
+        | NONE => (NONE, ns2)
+        | SOME (vs, e) =>
+          let (e4, ns4) = inline_new m ns2 h e
+          in (SOME (vs, e4), ns4)
+     in (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3, ns3)) ∧
+  inline_new m ns h (NestedCase a e v p e' bs) =
+    (NestedCase a e v p e' bs, ns) ∧
+  inline_new_list m ns h [] = ([], ns) ∧
+  inline_new_list m ns h (e::es) =
+    (let (e1, ns1) = inline_new m ns h e in
+     let (es2, ns2) = inline_new_list m ns1 h es
+     in (e1::es2, ns2))
+Termination
+  WF_REL_TAC `measure $ λx. case x of
+    | INL (m, ns, h, e) => cexp_size (K 0) e
+    | INR (m, ns, h, es) => list_size (cexp_size (K 0)) es`
+  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
+  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
+  \\ cheat
+End
+
 Definition inline_def:
   inline (m: ('a cexp_rhs) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
@@ -125,6 +237,11 @@ Termination
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
 End
 
+
+Definition inline_all_new_def:
+  inline_all_new = inline_new pure_vars$empty empty
+End
+
 Definition inline_all_def:
   inline_all = inline pure_vars$empty empty
 End
@@ -138,7 +255,7 @@ Proof
 QED
 
 Definition tree_size_heuristic_rec_def:
-  tree_size_heuristic_rec n (Var a v) = (n - 1) ∧
+  tree_size_heuristic_rec (n: num) (Var a v) = (n - 1) ∧
   tree_size_heuristic_rec n (Prim a op es) =
     FOLDL (λa e. if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) es ∧
   tree_size_heuristic_rec n (App a e es) =
@@ -161,8 +278,8 @@ Definition tree_size_heuristic_rec_def:
     (let n1 = FOLDL (λa (p, e). if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) bs
     in if n1 < 0 then n1 else tree_size_heuristic_rec n1 e')
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-    | (n, e) => cexp_size (K 0) e’
+  WF_REL_TAC ‘measure (λx. case x of
+    | (n, e) => cexp_size (K 0) e)’
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ imp_res_tac cexp_size_lemma2 \\ fs []
 End
@@ -182,7 +299,7 @@ Definition tree_size_def:
   tree_size (NestedCase a e v p e' bs) =
     1 + tree_size e + tree_size e' + SUM (MAP (λ(p, e). tree_size e) bs)
 Termination
-  WF_REL_TAC ‘measure $ cexp_size (K 0)’
+  WF_REL_TAC ‘measure (cexp_size (K 0))’
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ imp_res_tac cexp_size_lemma2 \\ fs []
 End
