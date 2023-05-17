@@ -33,7 +33,7 @@ Definition example_3_def:
 End
 
 val inline_example_3 =
-  EVAL “example_3” |>
+  EVAL “inline_all_new (tree_size_heuristic 100) example_3” |>
   concl |>
   rand |>
   rator |> rand |>

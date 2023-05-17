@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory
-     pure_freshenTheory;
+     pure_freshenTheory pure_letrec_spec_cexpTheory;
 
 val _ = new_theory "pure_inline_cexp";
 
@@ -119,22 +119,40 @@ Definition inline_new_def:
         in (e1, ns1)
       )
     | SOME (cRec e) => (Var a v, ns)) ∧
-  inline_new m ns h (App a e es) =
-    (let (e1, ns1) = (case get_Var_name e of
-      | SOME v =>
-        (case lookup m v of
-        | NONE => inline_new m ns h e
-        | SOME (cExp e) => (e, ns)
-        | SOME (cRec _) => inline_new m ns h e)
-      | NONE => inline_new m ns h e)
-     in let (es2, ns2) = inline_new_list m ns1 h es
-     in let exp = (App a e1 es2)
-     in (case make_Let exp of
-        | NONE => (exp, ns2)
-        | SOME exp1 =>
-          let (fe, ns3, _) = freshen_cexp exp1 (ns2, 100)
-          in let (fe1, ns4) = inline_new m ns3 h fe
-          in (fe1, ns4))) ∧
+  inline_new m ns h (App a e es) = (
+    let (es1, ns1) = inline_new_list m ns h es
+    in (
+      case get_Var_name e of
+      | SOME v => (
+        case lookup m v of
+        | NONE =>
+          let (e1, ns2) = inline_new m ns1 h e
+          in (App a e1 es1, ns2)
+        | SOME (cExp e) =>
+          let exp = (App a e es1)
+          in (case make_Let exp of
+          | NONE => (exp, ns1)
+          | SOME exp1 =>
+            let (fe, ns3, _) = freshen_cexp exp1 (ns1, 100)
+            in let (fe1, ns4) = inline_new m ns3 h fe
+            in (fe1, ns4)
+          )
+        | SOME (cRec er) => (
+          case spec v es er of
+          | NONE =>
+            (Lam a [v] (App a (Lam a [v] er) es1), ns1)
+            (* let (e1, ns2) = inline_new m ns1 h e
+            in (App a e1 es1, ns2) *)
+          | SOME b =>
+            let (e1, ns2) = inline_new m ns1 h e
+            in (Letrec a [(v, b)] (App a e1 es1), ns2)
+          )
+        )
+      | NONE =>
+        let (e1, ns2) = inline_new m ns h e
+        in (App a e1 es1, ns2)
+    )
+  ) ∧
   inline_new m ns h (Let a v e1 e2) =
     (let m1 = heuristic_insert m h v e1
      in let (e3, ns3) = inline_new m ns h e1

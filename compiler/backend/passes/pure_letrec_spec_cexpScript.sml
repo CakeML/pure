@@ -76,7 +76,7 @@ Definition const_call_args_def:
     )
   ) ∧
   const_call_args f vs (NestedCase a e v p e' bs) = vs ∧
-  const_call_args_list f vs [] = [] ∧
+  const_call_args_list f vs [] = vs ∧
   const_call_args_list f vs (e::es) = (
     let vs1 = const_call_args f vs e
     in const_call_args_list f vs1 es
@@ -112,21 +112,25 @@ Definition subst_map_def:
   subst_map m (App a e es) = (
     let e1 = subst_map m e
     in let es1 = MAP (subst_map m) es
-    in App a e1 es1
+    in (App a e1 es1)
   ) ∧
   subst_map m (Let a v e1 e2) = (
     let e11 = subst_map m e1
     in let e21 = subst_map m e2
-    in Let a v e11 e21
+    in (Let a v e11 e21)
   ) ∧
   subst_map m (Lam a vs e) = (
     let e1 = subst_map m e
-    in Lam a vs e1
+    in (Lam a vs e1)
+  ) ∧
+  subst_map m (Prim a p es) = (
+    let es1 = MAP (subst_map m) es
+    in (Prim a p es1)
   ) ∧
   subst_map m (Letrec a ves e) = (
     let ves1 = MAP (λ(v, e). (v, subst_map m e)) ves
     in let e1 = subst_map m e
-    in Letrec a ves1 e1
+    in (Letrec a ves1 e1)
   ) ∧
   subst_map m (Case a e v bs d) = (
     let e1 = subst_map m e
@@ -134,7 +138,7 @@ Definition subst_map_def:
     in let d1 = case d of
       | NONE => NONE
       | SOME (v, e) => SOME (v, subst_map m e)
-    in Case a e1 v bs1 d1
+    in (Case a e1 v bs1 d1)
   ) ∧
   subst_map m (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs)
@@ -166,11 +170,11 @@ Definition spec_def:
     let p = const_call_args f (MAP SOME vs) e
     in let m = spec_map p args
     in if m = empty then
-      (Lam a vs e)
+      NONE
     else
-      (Lam a vs (subst_map m e))
+      SOME (Lam a vs (subst_map m e))
   ) ∧
-  spec f args e = e
+  spec f args e = NONE
 End
 
 (*******************)
