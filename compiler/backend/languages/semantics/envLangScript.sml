@@ -23,6 +23,7 @@ Type vname = “:string”
 Datatype:
   exp = Var vname                            (* variable                *)
       | Prim op (exp list)                   (* primitive operations    *)
+      | Monad mop (exp list)                 (* monadic operations      *)
       | App exp exp                          (* function application    *)
       | Lam vname exp                        (* lambda                  *)
       | Letrec ((vname # exp) list) exp      (* mutually recursive exps *)
@@ -77,20 +78,19 @@ Definition exp_of_def:
   exp_of (Delay x) = Delay (exp_of x) ∧
   exp_of (Box x) = Box (exp_of x) ∧
   exp_of (Force x) = Force (exp_of x) ∧
-  exp_of (Delay x) = Delay (exp_of x) ∧
   exp_of (Case v rs d) = rows_of (explode v)
                            (MAP (λ(cn,vs,e). (explode cn, MAP explode vs, exp_of e)) rs)
                            (OPTION_MAP (λ(a,e). (MAP (explode ## I) a, exp_of e)) d) ∧
   (* monads *)
-  exp_of (Ret x)        = Prim (Cons "Ret")    [exp_of x] ∧
-  exp_of (Raise x)      = Prim (Cons "Raise")  [exp_of x] ∧
-  exp_of (Bind x y)     = Prim (Cons "Bind")   [Delay (exp_of x); Delay (exp_of y)] ∧
-  exp_of (Handle x y)   = Prim (Cons "Handle") [Delay (exp_of x); Delay (exp_of y)] ∧
-  exp_of (Act x)        = Prim (Cons "Act")    [Delay (exp_of x)] ∧
-  exp_of (Length x)     = Prim (Cons "Length") [Delay (exp_of x)] ∧
-  exp_of (Alloc x y)    = Prim (Cons "Alloc")  [Delay (exp_of x); Delay (exp_of y)] ∧
-  exp_of (Deref x y)    = Prim (Cons "Deref")  [Delay (exp_of x); Delay (exp_of y)] ∧
-  exp_of (Update x y z) = Prim (Cons "Update") [Delay (exp_of x); Delay (exp_of y); Delay (exp_of z)]
+  exp_of (Ret x)        = Monad Ret    [exp_of x] ∧
+  exp_of (Raise x)      = Monad Raise  [exp_of x] ∧
+  exp_of (Bind x y)     = Monad Bind   [exp_of x; exp_of y] ∧
+  exp_of (Handle x y)   = Monad Handle [exp_of x; exp_of y] ∧
+  exp_of (Act x)        = Monad Act    [exp_of x] ∧
+  exp_of (Length x)     = Monad Length [exp_of x] ∧
+  exp_of (Alloc x y)    = Monad Alloc  [exp_of x; exp_of y] ∧
+  exp_of (Deref x y)    = Monad Deref  [exp_of x; exp_of y] ∧
+  exp_of (Update x y z) = Monad Update [exp_of x; exp_of y; exp_of z]
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
@@ -109,6 +109,7 @@ End
 
 Datatype:
   v = Constructor string (v list)
+    | Monadic ((vname # v) list) mop (exp list)
     | Closure vname ((vname # v) list) exp
     | Recclosure ((vname # exp) list) ((vname # v) list) vname
     | Thunk (v + (vname # v) list # exp)
@@ -172,6 +173,7 @@ End
 Definition freevars_def:
   freevars (Var n) = {n} ∧
   freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
+  freevars (Monad mop xs) = (BIGUNION (set (MAP freevars xs))) ∧
   freevars (If x y z)  = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b) = freevars b DIFF {s} ∧
@@ -286,7 +288,8 @@ Definition eval_to_def:
              | SOME (INR b) =>
                return (Constructor (if b then "True" else "False") [])
              | NONE => fail Type_error
-           od)
+           od) ∧
+  eval_to k env (Monad mop xs) = return (Monadic env mop xs)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ(k, c, x). (k, exp_size x))’ \\ rw []
   \\ Induct_on ‘xs’ \\ rw [] \\ fs [fetch "-" "exp_size_def"]
@@ -440,6 +443,7 @@ Proof
       >- (
         rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
       \\ gs [Abbr ‘f’, Abbr ‘g’, CaseEq "sum"]))
+  >- rw[eval_to_def]
 QED
 
 Theorem eval_eq_Diverge:
