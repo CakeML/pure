@@ -1,9 +1,9 @@
 open HolKernel Parse boolLib bossLib;
 
-local open stringTheory integerTheory pure_configTheory in end
+local open stringTheory integerTheory pure_configTheory namespaceTheory in end
 val _ = new_theory "pureAST";
 
-val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
+val _ = set_grammar_ancestry ["string", "integer", "pure_config", "namespace"]
 
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
@@ -11,8 +11,8 @@ val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
    The tyTup constructor should never be applied to a singleton list
 *)
 Datatype:
-  tyAST = tyOp string (tyAST list)
-        | tyVar string
+  tyAST = tyOp (string id) (tyAST list)
+        | tyVar (string id)
         | tyTup (tyAST list)
 End
 
@@ -34,8 +34,8 @@ Datatype:
 End
 
 Datatype:
-  expAST = expVar string
-         | expCon string (expAST list)
+  expAST = expVar (string id)
+         | expCon (string id) (expAST list)
          | expOp pure_config$atom_op (expAST list)
          | expTup (expAST list)
          | expApp expAST expAST
@@ -105,11 +105,11 @@ Datatype:
 End
 
 Datatype:
-  importAST = import string
+  importAST = import (string list)
 End
 
 Datatype:
-  moduleAST = module string (importAST list) (declAST list)
+  moduleAST = module (string list) (importAST list) (declAST list)
 End
 
 
