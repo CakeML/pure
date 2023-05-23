@@ -5,21 +5,22 @@ val _ = new_theory "pureAST";
 
 val _ = set_grammar_ancestry ["string", "integer", "pure_config", "namespace"]
 
+Type long_name = “:(string, string) id”
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
 
    The tyTup constructor should never be applied to a singleton list
 *)
 Datatype:
-  tyAST = tyOp (string id) (tyAST list)
-        | tyVar (string id)
+  tyAST = tyOp long_name (tyAST list)
+        | tyVar string
         | tyTup (tyAST list)
 End
 
-Overload boolTy = “tyOp "Bool" []”;
-Overload intTy = “tyOp "Integer" []”
-Overload listTy = “λty. tyOp "[]" [ty]”
-Overload funTy = “λd r. tyOp "Fun" [d; r]”
+Overload boolTy = “tyOp (Short "Bool") []”;
+Overload intTy = “tyOp (Short "Integer") []”
+Overload listTy = “λty. tyOp (Short "[]") [ty]”
+Overload funTy = “λd r. tyOp (Short "Fun") [d; r]”
 
 Datatype:
   litAST = litInt int | litString string
@@ -27,15 +28,15 @@ End
 
 Datatype:
   patAST = patVar string
-         | patApp string (patAST list)
+         | patApp long_name (patAST list)
          | patTup (patAST list)
          | patLit litAST
          | patUScore
 End
 
 Datatype:
-  expAST = expVar (string id)
-         | expCon (string id) (expAST list)
+  expAST = expVar long_name
+         | expCon long_name (expAST list)
          | expOp pure_config$atom_op (expAST list)
          | expTup (expAST list)
          | expApp expAST expAST
@@ -69,8 +70,8 @@ Theorem better_expAST_induction =
           |> Q.GENL [‘eP’, ‘dP’, ‘doP’]
 
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
-Overload pNIL = “expCon "[]" []”
-Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
+Overload pNIL = “expCon (Short "[]") []”
+Overload pCONS = “λe1 e2. expCon (Short "::") [e1;e2]”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)
