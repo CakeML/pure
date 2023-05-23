@@ -50,6 +50,8 @@ Datatype:
     | DoTick v                                   (* extra clock when forced *)
 End
 
+Type thk[pp] = ``:v + exp``;
+
 Overload Tick = “λx. Letrec [] x”;
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
 Overload Cons = “λs xs. Prim (Cons s) xs”;

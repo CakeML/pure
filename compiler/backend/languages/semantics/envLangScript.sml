@@ -116,6 +116,9 @@ Datatype:
     | Atom lit
 End
 
+Type env[pp] = ``:(vname # v) list``;
+Type thk[pp] = ``:v + env # exp``;
+
 Definition mk_rec_env_def[simp]:
   mk_rec_env funs env =
     MAP (λ(fn, _). (fn, Recclosure funs env fn)) funs ++ env

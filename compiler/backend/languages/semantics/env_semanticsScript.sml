@@ -14,25 +14,15 @@ val _ = set_grammar_ancestry ["envLang", "itree"];
 (******************** Datatypes and helpers ********************)
 
 Datatype:
-  cont = Done      (* nothing left to do *)
-       | BC v cont (* RHS of Bind, rest *)
-       | HC v cont (* RHS of Handle, rest *)
+  cont = Done                (* nothing left to do *)
+       | BC (env # exp) cont (* RHS of Bind, rest *)
+       | HC (env # exp) cont (* RHS of Handle, rest *)
 End
 
 Type state[pp] = “:(v list) list”;
 
 Datatype:
   next_res = Act 'e cont state | Ret | Div | Err
-End
-
-Definition force_def:
-  force v =
-    do
-      (wx, binds) <- dest_anyThunk v;
-      case wx of
-        INL v => return v
-      | INR (env, y) => eval (mk_rec_env binds env) y
-    od
 End
 
 Definition get_atoms_def:
@@ -42,8 +32,8 @@ Definition get_atoms_def:
 End
 
 Definition with_atoms_def:
-  with_atoms vs f =
-    case result_map force vs of
+  with_atoms env vs f =
+    case result_map (eval env) vs of
     | INL Diverge => Div
     | INL Type_error => Err
     | INR ws =>
@@ -52,27 +42,32 @@ Definition with_atoms_def:
       | NONE => Err
 End
 
-Definition apply_closure_def:
-  apply_closure f arg cont =
-    case dest_anyClosure f of
-    | INR (x, env, body) => cont (eval ((x,arg)::env) body)
-    | _ => Err
+Definition with_value_def:
+  with_value e f =
+    case UNCURRY eval e of
+    | INR v => f v
+    | INL Diverge => Div
+    | INL _ => Err
 End
 
-Definition force_apply_closure_def:
-  force_apply_closure f arg cont =
-    case force f of
-    | INR f' => apply_closure f' arg cont
-    | INL Diverge => Div
-    | INL Type_error => Err
+Definition apply_closure_def:
+  apply_closure f arg cont =
+    with_value arg (λa.
+      with_value f (λv.
+        case dest_anyClosure v of
+        | INR (x, env, body) =>
+            cont (eval ((x, a)::env) body)
+        | INL _ => Err))
 End
+
+
 
 (******************** Intermediate definitions ********************)
 
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
-Overload RetVal = “λv. Constructor "Ret" [Thunk (INR ([("v",v)],Var "v"))]”;
-Overload RaiseVal = “λv. Constructor "Raise" [Thunk (INR ([("v",v)],Var "v"))]”;
-Overload RetRawVal = “λv. Constructor "Ret" [v]”;
+Overload RetExp = “λe. Monadic [] Ret [e]”;
+Overload RetVal = “λv. Monadic ["v", v] Ret [Var "v"]”
+Overload RaiseExp = “λe. Monadic [] Raise [e]”;
 
 Definition next_def:
   next (k:num) sv stack (state:state) =
@@ -81,84 +76,90 @@ Definition next_def:
     | INL _ => Err
     | INR v =>
       case v of
-      | Constructor s vs => (
-          if s = "Ret" ∧ LENGTH vs = 1 then
+      | Monadic env mop vs => (
+          if mop = Ret ∧ LENGTH vs = 1 then
             (case stack of
              | Done => Ret
              | BC f fs =>
                 if k = 0 then Div else
-                  force_apply_closure f (HD vs) (λw. next (k-1) w fs state)
+                  apply_closure f (env, HD vs) (λw. next (k-1) w fs state)
              | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
-          else if s = "Raise" ∧ LENGTH vs = 1 then
+          else if mop = Raise ∧ LENGTH vs = 1 then
             (case stack of
              | Done => Ret
              | BC f fs => if k = 0 then Div else next (k-1) sv fs state
              | HC f fs =>
                 if k = 0 then Div else
-                  force_apply_closure f (HD vs) (λw. next (k-1) w fs state))
-          else if s = "Bind" ∧ LENGTH vs = 2 then
+                  apply_closure f (env, HD vs) (λw. next (k-1) w fs state))
+          else if mop = Bind ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
-               if k = 0 then Div else next (k-1) (force m) (BC f stack) state)
-          else if s = "Handle" ∧ LENGTH vs = 2 then
+               if k = 0 then Div
+               else next (k-1) (eval env m) (BC (env,f) stack) state)
+          else if mop = Handle ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
-               if k = 0 then Div else next (k-1) (force m) (HC f stack) state)
-          else if s = "Act" ∧ LENGTH vs = 1 then
-            (with_atoms vs (λas.
+               if k = 0 then Div
+               else next (k-1) (eval env m) (HC (env,f) stack) state)
+          else if mop = Act ∧ LENGTH vs = 1 then
+            (with_atoms env vs (λas.
                case HD as of
                | Msg channel content => Act (channel, content) stack state
                | _ => Err))
-          else if s = "Alloc" ∧ LENGTH vs = 2 then
-            (with_atoms [HD vs] (λas.
+          else if mop = Alloc ∧ LENGTH vs = 2 then
+            (with_atoms env [HD vs] (λas.
                case HD as of
                | Int len =>
                    (let n = if len < 0 then 0 else Num len in
-                    let new_state = state ++ [REPLICATE n (EL 1 vs)] in
+                    with_value (env, EL 1 vs) (λv.
+                      let new_state = state ++ [REPLICATE n v] in
                       if k = 0 then Div else
                         next (k-1)
-                          (INR $ RetVal $ Atom $ Loc (LENGTH state))
-                          stack new_state)
+                          (INR $ RetExp $ Lit $ Loc (LENGTH state))
+                          stack new_state))
                | _ => Err))
-          else if s = "Length" ∧ LENGTH vs = 1 then
-            (with_atoms vs (λas.
+          else if mop = Length ∧ LENGTH vs = 1 then
+            (with_atoms env vs (λas.
                case HD as of
                | Loc n =>
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                       next (k-1)
-                        (INR $ RetVal $ Atom $ Int (& (LENGTH (EL n state))))
+                        (INR $ RetExp $ Lit $ Int (& (LENGTH (EL n state))))
                         stack state)
                | _ => Err))
-          else if s = "Deref" ∧ LENGTH vs = 2 then
-            (with_atoms vs (λas.
+          else if mop = Deref ∧ LENGTH vs = 2 then
+            (with_atoms env vs (λas.
                case (EL 0 as, EL 1 as) of
                | (Loc n, Int i) =>
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                       next (k-1)
-                        (INR $ RetRawVal $ EL (Num i) (EL n state))
+                        (INR $ RetVal $ EL (Num i) (EL n state))
                         stack state
                     else
                       next (k-1)
-                        (INR $ RaiseVal $ Constructor "Subscript" [])
+                        (INR $ RaiseExp $ Prim (Cons "Subscript") [])
                         stack state)
                | _ => Err))
-          else if s = "Update" ∧ LENGTH vs = 3 then
-            (with_atoms [EL 0 vs; EL 1 vs] (λas.
+          else if mop = Update ∧ LENGTH vs = 3 then
+            (with_atoms env [EL 0 vs; EL 1 vs] (λas.
                case (EL 0 as, EL 1 as) of
                | (Loc n, Int i) =>
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
-                      next (k-1)
-                        (INR $ RetVal $ Constructor "" [])
-                        stack
-                        (LUPDATE (LUPDATE (EL 2 vs) (Num i) (EL n state)) n state)
+                      with_value (env, EL 2 vs) (λv.
+                        let new_state =
+                          LUPDATE (LUPDATE v (Num i) (EL n state)) n state
+                        in
+                          next (k-1)
+                            (INR $ RetExp $ Prim (Cons "") [])
+                            stack new_state)
                     else
                       next (k-1)
-                        (INR $ RaiseVal $ Constructor "Subscript" [])
+                        (INR $ RaiseExp $ Prim (Cons "Subscript") [])
                         stack state)
                | _ => Err))
           else Err)
@@ -182,7 +183,7 @@ Definition interp'_def:
         | Div => Div'
         | Act a new_stack new_state =>
             Vis' a
-              (λy. (INR $ Constructor "Ret" [Thunk (INR ([("v",Atom (Str y))], Var "v"))],
+              (λy. (INR $ Monadic [("v", Atom $ Str y)] Ret [Var "v"],
                     new_stack, new_state)))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
@@ -207,7 +208,7 @@ Theorem interp_def:
               Ret $ pure_semantics$FinalFFI a x
           | INR y =>
               if STRLEN y ≤ max_FFI_return_size then
-                interp (INR $ Constructor "Ret" [Thunk (INR ([("v",Atom (Str y))], Var "v"))])
+                interp (INR $ Monadic [("v",Atom $ Str y)] Ret [Var "v"])
                   new_stack new_state
               else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
 Proof
@@ -239,42 +240,42 @@ Proof
   ntac 2 $ pop_assum mp_tac >>
   once_rewrite_tac[next_def] >>
   TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
-  Cases_on `s = "Bind"` >- (gvs[] >> rw[]) >>
-  Cases_on `s = "Handle"` >- (gvs[] >> rw[]) >>
-  Cases_on `s = "Act"` >- (gvs[] >> rw[]) >>
-  Cases_on `s = "Raise"` >> gvs[]
+  rename1 `s = Ret` >>
+  Cases_on `s = Bind` >- (gvs[] >> rw[]) >>
+  Cases_on `s = Handle` >- (gvs[] >> rw[]) >>
+  Cases_on `s = Act` >- (gvs[] >> rw[]) >>
+  Cases_on `s = Raise` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
-    simp[apply_closure_def,force_apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
+    simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
-  Cases_on `s = "Ret"` >> gvs[]
+  Cases_on `s = Ret` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >>
     reverse $ TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
-    simp[apply_closure_def,force_apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
+    simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
-  Cases_on `s = "Alloc"` >> gvs[]
+  Cases_on `s = Alloc` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 4 (TOP_CASE_TAC >> gvs[]) >>
-    first_x_assum irule >> simp[] >> qexists_tac `[Int i]` >> simp[]
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def, with_value_def] >>
+    rpt (TOP_CASE_TAC >> gvs[]) >> first_x_assum drule >> simp[]
     ) >>
-  Cases_on `s = "Length"` >> gvs[]
+  Cases_on `s = Length` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 5 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n]` >> simp[]
     ) >>
-  Cases_on `s = "Deref"` >> gvs[]
+  Cases_on `s = Deref` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     ) >>
-  Cases_on `s = "Update"` >> gvs[]
+  Cases_on `s = Update` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 7 (TOP_CASE_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def, with_value_def] >>
+    rpt (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     )
 QED
@@ -284,12 +285,6 @@ Theorem next_next:
   next n e k st = next m e k st
 Proof
   metis_tac [arithmeticTheory.LESS_EQ_CASES, next_less_eq]
-QED
-
-Theorem force_Thunk[simp]:
-  force (Thunk (INR (env,e))) = eval env e
-Proof
-  fs [force_def,dest_anyThunk_def,dest_Thunk_def]
 QED
 
 (****************************************)
