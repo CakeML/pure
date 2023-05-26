@@ -51,12 +51,11 @@ End
 
 Definition apply_closure_def:
   apply_closure f arg cont =
-    with_value arg (λa.
-      with_value f (λv.
-        case dest_anyClosure v of
-        | INR (x, body, binds) =>
-            cont (eval (subst (binds ++ [x, a]) body))
-        | INL _ => Err))
+    with_value f (λv.
+      case dest_anyClosure v of
+      | INR (x, body, binds) =>
+          cont (eval (subst (binds ++ [x, arg]) body))
+      | INL _ => Err)
 End
 
 
@@ -71,22 +70,24 @@ Definition next_def:
       case v of
       | Monadic mop vs => (
           if mop = Ret ∧ LENGTH vs = 1 then
-            (case stack of
-             | Done => Ret
-             | BC f fs =>
-                (* Lifting the clock check out of the continuation causes the
-                 * computation to diverge up front, hiding errors. On the
-                 * other hand, so does other clauses. *)
-                if k = 0 then Div else
-                  apply_closure f (HD vs) (λw. next (k-1) w fs state)
-             | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
+            with_value (HD vs) (λv.
+              case stack of
+              | Done => Ret
+              | BC f fs =>
+                  (* Lifting the clock check out of the continuation causes the
+                   * computation to diverge up front, hiding errors. On the
+                   * other hand, so does other clauses. *)
+                  if k = 0 then Div else
+                    apply_closure f v (λw. next (k-1) w fs state)
+              | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
           else if mop = Raise ∧ LENGTH vs = 1 then
-            (case stack of
-             | Done => Ret
-             | BC f fs => if k = 0 then Div else next (k-1) sv fs state
-             | HC f fs =>
-                if k = 0 then Div else
-                apply_closure f (HD vs) (λw. next (k-1) w fs state))
+            with_value (HD vs) (λv.
+              case stack of
+              | Done => Ret
+              | BC f fs => if k = 0 then Div else next (k-1) sv fs state
+              | HC f fs =>
+                  if k = 0 then Div else
+                  apply_closure f v (λw. next (k-1) w fs state))
           else if mop = Bind ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
@@ -239,13 +240,14 @@ Proof
   Cases_on `s = Act` >- (gvs[] >> rw[]) >>
   Cases_on `s = Raise` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> simp[with_value_def] >>
+    ntac 2 (TOP_CASE_TAC >> gvs[]) >- (IF_CASES_TAC >> gvs[]) >>
     simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
   Cases_on `s = Ret` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >>
-    reverse $ TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> simp[with_value_def] >>
+    ntac 2 (reverse TOP_CASE_TAC >> gvs[]) >- (IF_CASES_TAC >> gvs[]) >>
     simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
   Cases_on `s = Alloc` >> gvs[]

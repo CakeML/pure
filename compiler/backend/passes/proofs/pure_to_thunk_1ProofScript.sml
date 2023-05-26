@@ -2651,7 +2651,7 @@ Proof
   >- ((* Ret - Delay *)
     `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
-    \\ simp [Once thunk_semanticsTheory.next_def]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
     \\ rgs [Once next'_def] \\ gvs []
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
@@ -2681,7 +2681,7 @@ Proof
   >- ((* Ret - thunk_rel *)
     `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
-    \\ simp [Once thunk_semanticsTheory.next_def]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
     \\ rgs [Once next'_def] \\ gvs []
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
@@ -2711,7 +2711,7 @@ Proof
   >- ((* Raise - Delay *)
     `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
-    \\ simp [Once thunk_semanticsTheory.next_def]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
     \\ rgs [Once next'_def] \\ gvs []
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
@@ -2741,7 +2741,7 @@ Proof
   >- ((* Raise - thunk_rel *)
     `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
     gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
-    \\ simp [Once thunk_semanticsTheory.next_def]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
     \\ rgs [Once next'_def] \\ gvs []
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
@@ -2903,7 +2903,7 @@ Proof
     \\ IF_CASES_TAC \\ gs [] \\
     Cases_on `k = 0` >> gvs[] >- (qexists `0` >> simp[]) >>
     `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[state_rel_def, LIST_REL_EL_EQN] >>
-    simp[] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
+    simp[with_value_def] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
       qrefine `ck + 1` >> simp[] >>
       first_x_assum irule >> simp[mop_cases] >>
@@ -2955,7 +2955,7 @@ Proof
     \\ IF_CASES_TAC \\ gs [arithmeticTheory.NOT_LESS_EQUAL] >>
     `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[state_rel_def, LIST_REL_EL_EQN] >>
     Cases_on `k = 0` >> gvs[] >- (qexists `0` >> simp[]) >>
-    IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
+    simp[with_value_def] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
       simp[with_value_def] >>
       ntac 2 $ simp[Once thunk_semanticsTheory.next_def] >>
@@ -2967,10 +2967,10 @@ Proof
       simp[thunk_rel_def]
       )
     >- (
-      simp[Once thunk_semanticsTheory.next_def] >>
+      simp[Once thunk_semanticsTheory.next_def, with_value_def] >>
       qrefine `ck + 1` >> simp[] >>
       simp[apply_closure_def, with_value_def, dest_anyClosure_def, subst1_def] >>
-      simp[Once thunk_semanticsTheory.next_def] >>
+      simp[Once thunk_semanticsTheory.next_def, with_value_def] >>
       qrefine `ck + 1` >> simp[] >>
       first_x_assum irule >> simp[mop_cases, PULL_EXISTS] >>
       goal_assum $ drule_at Any >> irule_at Any integerTheory.INT_LT_REFL >>
