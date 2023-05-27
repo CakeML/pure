@@ -108,17 +108,19 @@ Definition next_def:
                | Msg channel content => Act (channel, content) stack state
                | _ => Err))
           else if mop = Alloc ∧ LENGTH vs = 2 then
-            (with_atoms env [HD vs] (λas.
-               case HD as of
-               | Int len =>
-                   (let n = if len < 0 then 0 else Num len in
-                    with_value (env, EL 1 vs) (λv.
-                      let new_state = state ++ [REPLICATE n v] in
-                      if k = 0 then Div else
-                        next (k-1)
-                          (INR $ RetExp $ Lit $ Loc (LENGTH state))
-                          stack new_state))
-               | _ => Err))
+            (case result_map (eval env) vs of
+             | INR [vl; v] =>
+                (case get_atoms [vl] of
+                 | SOME [Int len] =>
+                    let n = if len < 0 then 0 else Num len in
+                    let new_state = state ++ [REPLICATE n v] in
+                    if k = 0 then Div else
+                      next (k-1)
+                        (INR $ RetExp $ Lit $ Loc (LENGTH state))
+                        stack new_state
+                 | _ => Err)
+             | INL Diverge => Div
+             | _ => Err)
           else if mop = Length ∧ LENGTH vs = 1 then
             (with_atoms env vs (λas.
                case HD as of
@@ -145,24 +147,25 @@ Definition next_def:
                         stack state)
                | _ => Err))
           else if mop = Update ∧ LENGTH vs = 3 then
-            (with_atoms env [EL 0 vs; EL 1 vs] (λas.
-               case (EL 0 as, EL 1 as) of
-               | (Loc n, Int i) =>
-                   (if LENGTH state ≤ n then Err else
-                    if k = 0 then Div else
-                    if 0 ≤ i ∧ i < & LENGTH (EL n state) then
-                      with_value (env, EL 2 vs) (λv.
+            (case result_map (eval env) vs of
+             | INR [vl; vi; v] =>
+                 (case get_atoms [vl; vi] of
+                  | SOME [Loc n; Int i] =>
+                      if LENGTH state ≤ n then Err else
+                      if k = 0 then Div else
+                      if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                         let new_state =
                           LUPDATE (LUPDATE v (Num i) (EL n state)) n state
-                        in
-                          next (k-1)
+                        in next (k-1)
                             (INR $ RetExp $ Prim (Cons "") [])
-                            stack new_state)
-                    else
-                      next (k-1)
-                        (INR $ RaiseExp $ Prim (Cons "Subscript") [])
-                        stack state)
-               | _ => Err))
+                            stack new_state
+                      else
+                        next (k-1)
+                          (INR $ RaiseExp $ Prim (Cons "Subscript") [])
+                          stack state
+                  | _ => Err)
+             | INL Diverge => Div
+             | _ => Err)
           else Err)
       | _ => Err
 End
