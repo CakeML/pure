@@ -758,6 +758,12 @@ Proof
   Induct_on ‘n’ \\ fs [step_n_def,FUNPOW,step_def,return_def,value_def]
 QED
 
+Theorem step_n_Action:
+  step_n n (Action a b, s, k) = (Action a b, s, k)
+Proof
+  Induct_on `n` >> rw[step_n_SUC, step_def]
+QED
+
 Definition forceK2_none_def[simp]:
   forceK2_none (ForceK2 _) = ForceK2 NONE ∧
   forceK2_none y = y
