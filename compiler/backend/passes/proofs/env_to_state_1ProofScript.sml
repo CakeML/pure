@@ -20,11 +20,6 @@ Overload "suspend" = ``Lam NONE``
 Overload "trigger" = ``λe. app e Unit``;
 Overload "suspended" = ``Closure NONE``
 
-(* TODO see if `ret` can be streamlined *)
-Overload "ret" = ``λx. app (slet "v" x $
-                            slet "v" (Var "v") $
-                             suspend (Var "v")) Unit``
-
 (****************************************)
 
 Inductive compile_rel:
@@ -56,22 +51,22 @@ Inductive compile_rel:
 [~Alloc:]
   (compile_rel tl sl ∧ compile_rel tx sx ⇒
   compile_rel (Monad Alloc [tl; tx])
-              (suspend $ ret $ App Alloc [sl; sx])) ∧
+              (suspend $ App Alloc [sl; sx])) ∧
 
 [~Length:]
   (compile_rel tl sl ⇒
   compile_rel (Monad Length [tl])
-              (suspend $ ret $ App Length [sl])) ∧
+              (suspend $ App Length [sl])) ∧
 
 [~Deref:]
   (compile_rel tl sl ∧ compile_rel ti si ⇒
   compile_rel (Monad Deref [tl; ti])
-              (suspend $ ret $ App Sub [sl; si])) ∧
+              (suspend $ App Sub [sl; si])) ∧
 
 [~Update:]
   (compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ⇒
   compile_rel (Monad Update [tl; ti; tx])
-              (suspend $ ret $ App Update [sl; si; sx])) ∧
+              (suspend $ App Update [sl; si; sx])) ∧
 
 [~Message:]
   (compile_rel te se ⇒
@@ -82,7 +77,7 @@ Inductive compile_rel:
 [~Act:]
   (compile_rel te se ⇒
   compile_rel (Monad Act [te])
-              (suspend $ ret $ trigger se)) ∧
+              (suspend $ trigger se)) ∧
 
 [~Proj:]
   (compile_rel te se ∧ s ∉ monad_cns ⇒
@@ -190,7 +185,7 @@ Inductive v_rel:
   (∀te se tenv senv.
      compile_rel te se ∧ env_rel tenv senv ⇒
      v_rel (Monadic tenv Act [te])
-           (suspended senv $ ret $ trigger se)) ∧
+           (suspended senv $ trigger se)) ∧
 
 [~Ret:]
   (∀te se tenv senv.
@@ -221,28 +216,28 @@ Inductive v_rel:
   (∀tl sl tenv senv.
      compile_rel tl sl ∧ env_rel tenv senv ⇒
      v_rel (Monadic tenv Length [tl])
-           (suspended senv $ ret $ App Length [sl])) ∧
+           (suspended senv $ App Length [sl])) ∧
 
 [~Alloc:]
   (∀tl sl tenv senv.
      compile_rel tl sl ∧ compile_rel tx sx ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Alloc [tl; tx])
-       (suspended senv $ ret $ App Alloc [sl; sx])) ∧
+       (suspended senv $ App Alloc [sl; sx])) ∧
 
 [~Deref:]
   (∀tl sl ti si tenv senv.
      compile_rel tl sl ∧ compile_rel ti si ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Deref [tl; ti])
-       (suspended senv $ ret $ (App Sub [sl; si]))) ∧
+       (suspended senv $ (App Sub [sl; si]))) ∧
 
 [~Update:]
   (∀tl sl ti si tx sx tenv senv.
      compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Update [tl; ti; tx])
-       (suspended senv $ ret $ App Update [sl; si; sx])) ∧
+       (suspended senv $ App Update [sl; si; sx])) ∧
 
 [env_rel:]
   (∀tenv senv.
@@ -1058,9 +1053,7 @@ Inductive next_res_rel:
 
   (cont_rel tk sk ∧ LIST_REL (LIST_REL v_rel) ts ss
     ⇒ next_res_rel (Act (ea,eb) tk ts)
-                   (Action ea eb, SOME ss,
-                    LetK nenv1 (SOME "v") (slet "v" (Var "v") $ suspend (Var "v")) ::
-                      AppUnitK nenv2 :: sk))
+                   (Action ea eb, SOME ss, sk))
 End
 
 Inductive next_action_rel:
@@ -1347,7 +1340,7 @@ Proof
   >~ [`Act`]
   >- (
     strip_tac >> gvs[with_atoms_def, result_map_def] >>
-    ntac 8 (qrefine `n + 1` >> simp[step_n_add, step]) >>
+    ntac 4 (qrefine `n + 1` >> simp[step_n_add, step]) >>
     rev_drule_all eval_thm >> qmatch_goalsub_abbrev_tac `_,_,sk` >>
     disch_then $ qspecl_then [`SOME ss`,`sk`] assume_tac >> gvs[]
     >- (
@@ -1365,7 +1358,7 @@ Proof
   >~ [`Alloc`]
   >- (
     strip_tac >> gvs[result_map_def] >>
-    ntac 6 (qrefine `n + 1` >> simp[step_n_add, step]) >>
+    ntac 2 (qrefine `n + 1` >> simp[step_n_add, step]) >>
     drule_all eval_thm >> qmatch_goalsub_abbrev_tac `_,_,sk` >>
     disch_then $ qspecl_then [`SOME ss`,`sk`] assume_tac >> gvs[]
     >- (
@@ -1388,7 +1381,7 @@ Proof
     IF_CASES_TAC >> gvs[] >- (qexists `0` >> simp[next_res_rel_cases]) >>
     qpat_x_assum `v_rel (Atom _) _` mp_tac >> simp[Once v_rel_cases] >>
     strip_tac >> gvs[] >>
-    ntac 8 (qrefine `n + 1` >> simp[step_n_add, step]) >>
+    qrefine `n + 1` >> simp[step_n_add, step] >>
     last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
     disch_then $ drule_at Any >>
     qmatch_goalsub_abbrev_tac `Val v` >>
@@ -1406,7 +1399,7 @@ Proof
   >~ [`Length`]
   >- (
     strip_tac >> gvs[with_atoms_def, result_map_def] >>
-    ntac 6 (qrefine `n + 1` >> simp[step_n_add, step]) >>
+    ntac 2 (qrefine `n + 1` >> simp[step_n_add, step]) >>
     drule_all eval_thm >> qmatch_goalsub_abbrev_tac `_,_,sk` >>
     disch_then $ qspecl_then [`SOME ss`,`sk`] assume_tac >> gvs[]
     >- (
@@ -1422,7 +1415,6 @@ Proof
     strip_tac >> gvs[] >>
     qrefine `m + 1` >> simp[step_n_add, step] >>
     imp_res_tac LIST_REL_LENGTH >> simp[oEL_THM] >>
-    ntac 7 (qrefine `m + 1` >> simp[step_n_add, step]) >>
     last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
     disch_then $ drule_at Any >>
     qmatch_goalsub_abbrev_tac `Val v` >>
@@ -1437,7 +1429,7 @@ Proof
   >~ [`Deref`]
   >- (
     strip_tac >> gvs[with_atoms_def, result_map_def] >>
-    ntac 6 (qrefine `n + 1` >> simp[step_n_add, step]) >>
+    ntac 2 (qrefine `n + 1` >> simp[step_n_add, step]) >>
     drule_all eval_thm >> qmatch_goalsub_abbrev_tac `_,_,sk` >>
     disch_then $ qspecl_then [`SOME ss`,`sk`] assume_tac >> gvs[]
     >- (
@@ -1467,7 +1459,6 @@ Proof
     `LENGTH (EL n ts) = LENGTH (EL n ss)` by gvs[LIST_REL_EL_EQN] >> gvs[] >>
     IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
-      ntac 7 (qrefine `m + 1` >> simp[step_n_add, step]) >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then $ drule_at Any >>
       qmatch_goalsub_abbrev_tac `Val v` >>
@@ -1482,7 +1473,6 @@ Proof
       gvs[LIST_REL_EL_EQN, NOT_LESS_EQUAL]
       )
     >- (
-      ntac 2 (qrefine `m + 1` >> simp[step_n_add, step]) >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then $ drule_at Any >>
       qmatch_goalsub_abbrev_tac `Exn e` >>
@@ -1499,7 +1489,7 @@ Proof
   >~ [`Update`]
   >- (
     strip_tac >> gvs[with_atoms_def, result_map_def] >>
-    ntac 6 (qrefine `n + 1` >> simp[step_n_add, step]) >>
+    ntac 2 (qrefine `n + 1` >> simp[step_n_add, step]) >>
     drule_all eval_thm >> qmatch_goalsub_abbrev_tac `_,_,sk` >>
     disch_then $ qspecl_then [`SOME ss`,`sk`] assume_tac >> gvs[]
     >- (
@@ -1540,7 +1530,6 @@ Proof
     `LENGTH (EL n ts) = LENGTH (EL n ss)` by gvs[LIST_REL_EL_EQN] >> gvs[] >>
     IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
-      ntac 7 (qrefine `m + 1` >> simp[step_n_add, step]) >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then $ drule_at Any >>
       qmatch_goalsub_abbrev_tac `Val v` >>
@@ -1556,7 +1545,6 @@ Proof
       gvs[LIST_REL_EL_EQN, EL_LUPDATE, COND_RAND]
       )
     >- (
-      ntac 2 (qrefine `m + 1` >> simp[step_n_add, step]) >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then $ drule_at Any >>
       qmatch_goalsub_abbrev_tac `Exn e` >>
@@ -1742,8 +1730,6 @@ Proof
   \\ reverse IF_CASES_TAC >- fs []
   \\ fs [] \\ fs [value_def]
   \\ rw []
-
-
   \\ `interp (INR (RetVal (Atom (Str y)))) c l =
       interp (eval [("v",Atom (Str y))] (Monad Ret [Var "v"])) c l` by
    (fs [eval_def,eval_to_def,result_map_def]
@@ -1760,10 +1746,8 @@ Proof
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
   \\ unabbrev_all_tac \\ fs []
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
-  \\ ntac 7 (irule EQ_TRANS
-             \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
   \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ ntac 10 (irule EQ_TRANS
+  \\ ntac 3 (irule EQ_TRANS
               \\ irule_at Any step_unitl_halt_unwind \\ fs [step])
 QED
 
