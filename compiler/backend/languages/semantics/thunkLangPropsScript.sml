@@ -574,7 +574,7 @@ Definition rel_ok_def:
   rel_ok allow_error Rv Re ⇔
     (∀v1 w1 v2 w2 f g.
        Re v1 w1 ∧
-       Re v2 w2 ∧
+       Rv v2 w2 ∧
        (¬allow_error ⇒
           apply_closure v1 v2 f ≠ Err ∧
           f (INL Type_error) = Err) ∧
@@ -679,20 +679,30 @@ Proof
   \\ print_tac "[1/9] Ret"
   \\ IF_CASES_TAC \\ simp[]
   >- ((* Ret *)
+    gvs[LENGTH_EQ_NUM_compute] >> simp[with_value_def] >> rename1 `Re v w` >>
+    `($= +++ Rv) (eval v) (eval w)` by (
+      fs[rel_ok_def] >> first_x_assum drule >> rw[] >>
+      gvs[sim_ok_def] >> first_x_assum irule >> simp[] >>
+      rw[] >> CCONTR_TAC >> fs[Once next_def, with_value_def]) >>
+    Cases_on `eval v` >> Cases_on `eval w` >> gvs[] >- (CASE_TAC >> gvs[]) >>
     rw[] >> reverse $ Cases_on `c` >> Cases_on `d` >> gvs[] >> rw[]
-    >- (first_x_assum irule >> rw[] >> gvs[] >> fs[Once next_def]) >>
-    fs[rel_ok_def] >> first_x_assum irule >> rw[] >> gvs[]
-    >- gvs[LENGTH_EQ_NUM_compute] >>
-    fs[Once next_def]
+    >- (first_x_assum irule >> rw[] >> gvs[] >> fs[Once next_def, with_value_def]) >>
+    fs[rel_ok_def] >> first_x_assum irule >> rw[] >> gvs[] >>
+    fs[Once next_def, with_value_def]
     )
   \\ print_tac "[2/9] Raise"
   \\ IF_CASES_TAC
   >- ((* Raise *)
+    gvs[LENGTH_EQ_NUM_compute] >> simp[with_value_def] >> rename1 `Re v w` >>
+    `($= +++ Rv) (eval v) (eval w)` by (
+      fs[rel_ok_def] >> first_x_assum drule >> rw[] >>
+      gvs[sim_ok_def] >> first_x_assum irule >> simp[] >>
+      rw[] >> CCONTR_TAC >> fs[Once next_def, with_value_def]) >>
+    Cases_on `eval v` >> Cases_on `eval w` >> gvs[] >- (CASE_TAC >> gvs[]) >>
     rw[] >> Cases_on `c` >> Cases_on `d` >> gvs[] >> rw[]
-    >- (first_x_assum irule >> rw[] >> gvs[] >> fs[Once next_def]) >>
-    fs[rel_ok_def] >> first_x_assum irule >> rw[] >> gvs[]
-    >- gvs[LENGTH_EQ_NUM_compute] >>
-    fs[Once next_def]
+    >- (first_x_assum irule >> rw[] >> gvs[] >> fs[Once next_def, with_value_def]) >>
+    fs[rel_ok_def] >> first_x_assum irule >> rw[] >> gvs[] >>
+    fs[Once next_def, with_value_def]
     )
   \\ print_tac "[3/9] Bind"
   \\ IF_CASES_TAC
@@ -761,15 +771,26 @@ Proof
             DECIDE “∀x. x < 2 ⇔ x = 0 ∨ x = 1”]
     \\ gvs [SF DNF_ss]
     \\ rename1 ‘Rv (_ _ [v1; v2]) (_ _ [w1; w2])’
-    \\ simp [with_atoms_def, result_map_def]
-    \\ ‘¬allow_error ⇒ eval v1 ≠ INL Type_error’
+    \\ gvs [with_atoms_def, result_map_def]
+    \\ ‘¬allow_error ⇒ eval v1 ≠ INL Type_error ∧ eval v2 ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
           \\ gs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (eval v1) (eval w1)’ by (
       gvs[sim_ok_def] >> first_x_assum irule >>
       fs[rel_ok_def] >> first_x_assum drule >> simp[])
-    \\ Cases_on ‘eval v1’ \\ Cases_on ‘eval w1’ \\ gvs []
-    >~ [‘eval _ = INL err’] >- (Cases_on ‘err’ \\ fs [])
+    \\ ‘($= +++ Rv) (eval v2) (eval w2)’ by (
+      gvs[sim_ok_def] >> first_x_assum irule >>
+      fs[rel_ok_def] >> first_x_assum rev_drule >> simp[]) >>
+    `∀err. eval v1 = INL err ⇔ eval w1 = INL err` by (
+      Cases_on `eval v1` >> Cases_on `eval w1` >> gvs[]) >>
+    `∀err. eval v2 = INL err ⇔ eval w2 = INL err` by (
+      Cases_on `eval v2` >> Cases_on `eval w2` >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
+    Cases_on `eval v1` >> gvs[]
+    >~ [`eval _ = INL err`] >- (Cases_on `err` >> gvs[SF DNF_ss, EQ_IMP_THM]) >>
+    Cases_on `eval v2` >> gvs[]
+    >~ [`eval _ = INL err`] >- (Cases_on `err` >> gvs[SF DNF_ss, EQ_IMP_THM]) >>
+    Cases_on `eval w1` >> gvs[] >> Cases_on `eval w2` >> gvs[]
     \\ rename1 ‘eval v1 = INR a’  \\ rename1 ‘eval w1 = INR b’
     \\ ‘¬allow_error ⇒ get_atoms [a] ≠ NONE’
       by (rpt strip_tac \\ gs [Once next_def, with_atoms_def, result_map_def])
@@ -782,22 +803,16 @@ Proof
       \\ simp []
       \\ Cases_on ‘b’ \\ gvs [get_atoms_def]
       \\ Cases_on ‘a’ \\ fs [get_atoms_def, rel_ok_def]
-      \\ rpt (first_x_assum (drule_then assume_tac)) \\ rw [])
-    \\ ‘¬allow_error ⇒ eval v2 ≠ INL Type_error’
-      by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, get_atoms_def, result_map_def]
-          \\ Cases_on `x` \\ gvs[with_value_def])
-    \\ ‘($= +++ Rv) (eval v2) (eval w2)’ by (
-      gvs[sim_ok_def] >> first_x_assum irule >>
-      fs[rel_ok_def] >> first_x_assum drule >> simp[]) >>
-    rpt (CASE_TAC \\ gvs[with_value_def]) >>
-    first_x_assum $ qspec_then `[Int i]` mp_tac >> simp[] >>
-    disch_then irule >>
+      \\ rpt (first_x_assum (drule_then assume_tac)) \\ rw []) >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >>
+    first_x_assum irule >>
     gvs[state_rel_def, LIST_REL_REPLICATE_same, LIST_REL_EL_EQN, rel_ok_def] >>
     rw[] >> gvs[] >>
     qpat_x_assum `next _ _ _ _ ≠ _` mp_tac >>
     simp[Once next_def, with_atoms_def,
-        result_map_def, get_atoms_def, with_value_def])
+        result_map_def, get_atoms_def, with_value_def]
+    )
   \\ print_tac "[7/9] Length"
   \\ IF_CASES_TAC
   >- ((* Length *)
@@ -936,10 +951,8 @@ Proof
     \\ gvs [SF DNF_ss]
     \\ rename1 ‘Rv (_ _ [v1; v2; v3]) (_ _ [w1; w2; w3])’
     \\ simp [with_atoms_def, result_map_def]
-    \\ ‘¬allow_error ⇒ eval v1 ≠ INL Type_error’
-      by (rpt strip_tac \\ gvs []
-          \\ gs [Once next_def, with_atoms_def, result_map_def])
-    \\ ‘¬allow_error ⇒ eval v2 ≠ INL Type_error’
+    \\ ‘¬allow_error ⇒ eval v1 ≠ INL Type_error ∧
+          eval v2 ≠ INL Type_error ∧eval v3 ≠ INL Type_error’
       by (rpt strip_tac \\ gvs []
           \\ gs [Once next_def, with_atoms_def, result_map_def])
     \\ ‘($= +++ Rv) (eval v1) (eval w1)’ by (
@@ -947,17 +960,25 @@ Proof
       fs[rel_ok_def] >> first_x_assum drule >> simp[])
     \\ ‘($= +++ Rv) (eval v2) (eval w2)’ by (
       gvs[sim_ok_def] >> first_x_assum irule >>
-      fs[rel_ok_def] >> first_x_assum drule >> simp[])
-    \\ Cases_on ‘eval v1’ \\ Cases_on ‘eval w1’ \\ gvs []
-    >~ [‘eval _ = INL err’] >- (
-      Cases_on ‘err = Type_error’ \\ fs []
-      \\ Cases_on ‘eval v2’ \\ Cases_on ‘eval w2’ \\ gvs []
-      >~ [‘eval _ = INL err’] >- (
-        Cases_on ‘err’ \\ fs [])
-      \\ Cases_on ‘err’ \\ fs [])
-    \\ Cases_on ‘eval v2’ \\ Cases_on ‘eval w2’ \\ gvs []
-    >~ [‘eval _ = INL err’] >- (
-        Cases_on ‘err’ \\ fs [])
+      fs[rel_ok_def] >> first_x_assum rev_drule >> simp[])
+    \\ ‘($= +++ Rv) (eval v3) (eval w3)’ by (
+      gvs[sim_ok_def] >> first_x_assum irule >>
+      fs[rel_ok_def] >> first_x_assum rev_drule >> simp[]) >>
+    `∀err. eval v1 = INL err ⇔ eval w1 = INL err` by (
+      Cases_on `eval v1` >> Cases_on `eval w1` >> gvs[]) >>
+    `∀err. eval v2 = INL err ⇔ eval w2 = INL err` by (
+      Cases_on `eval v2` >> Cases_on `eval w2` >> gvs[]) >>
+    `∀err. eval v3 = INL err ⇔ eval w3 = INL err` by (
+      Cases_on `eval v3` >> Cases_on `eval w3` >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
+    Cases_on `eval v1` >> gvs[]
+    >~ [`eval _ = INL err`] >- (Cases_on `err` >> gvs[EQ_IMP_THM, SF DNF_ss]) >>
+    Cases_on `eval v2` >> gvs[]
+    >~ [`eval _ = INL err`] >- (Cases_on `err` >> gvs[EQ_IMP_THM, SF DNF_ss]) >>
+    Cases_on `eval v3` >> gvs[]
+    >~ [`eval _ = INL err`] >- (Cases_on `err` >> gvs[EQ_IMP_THM, SF DNF_ss]) >>
+    Cases_on `eval w1` >> gvs[] >> Cases_on `eval w2` >> gvs[] >>
+    Cases_on `eval w3` >> gvs[]
     \\ rename1 ‘eval v1 = INR a1’  \\ rename1 ‘eval w1 = INR b1’
     \\ rename1 ‘eval v2 = INR a2’  \\ rename1 ‘eval w2 = INR b2’
     \\ ‘¬allow_error ⇒ get_atoms [a1; a2] ≠ NONE’
@@ -1005,25 +1026,19 @@ Proof
     \\ qpat_x_assum ‘¬_ ⇒ next _ _ _ _ ≠ _’ mp_tac
     \\ simp [Once next_def, with_value_def,
              with_atoms_def, result_map_def, get_atoms_def]
+    \\ fs[result_map_def, get_atoms_def]
     \\ strip_tac
     \\ ‘LENGTH (EL n t) = LENGTH (EL n s)’
       by gvs [state_rel_def, LIST_REL_EL_EQN]
-    \\ rpt (first_x_assum (resolve_then Any assume_tac HD) \\ fs [])
-    \\ IF_CASES_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs[]
     >- (
-      ‘¬allow_error ⇒ eval v3 ≠ INL Type_error’
-        by (rpt strip_tac \\ gvs [])
-      \\ ‘($= +++ Rv) (eval v3) (eval w3)’ by (
-        gvs[sim_ok_def] >> first_x_assum irule >> fs[rel_ok_def] >>
-        qpat_x_assum `∀mop vs w. Rv (Monadic mop vs) w ⇒ _` drule >> simp[])
-      \\ rpt (CASE_TAC >> gvs[])
-      \\ first_x_assum irule \\ simp[] \\ fs[rel_ok_def]
+      first_x_assum irule >> simp[result_map_def, get_atoms_def]
       \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
       \\ rw [] \\ gs []
-      \\ rw [EL_LUPDATE]
+      \\ rw [EL_LUPDATE] \\ fs[rel_ok_def]
       )
-    \\ first_x_assum irule \\ gs [SF SFY_ss]
-    \\ fs [rel_ok_def, SF SFY_ss] \\ intLib.COOPER_TAC
+    >- (last_x_assum irule >> fs[rel_ok_def])
+    >- (first_x_assum irule >> fs[rel_ok_def])
     )
   \\ fs []
 QED
