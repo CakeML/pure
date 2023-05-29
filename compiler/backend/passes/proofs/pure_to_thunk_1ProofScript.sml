@@ -13,7 +13,7 @@ val _ = new_theory "pure_to_thunk_1Proof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
                               "pure_semantics", "thunk_semantics",
-                              "pure_exp_lemmas", "pure_misc"];
+                              "pure_exp_lemmas", "pure_misc", "pure_config"];
 
 val _ = numLib.prefer_num ();
 
@@ -81,19 +81,19 @@ Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
 
 (* Simple monadic operation mapping *)
 Inductive mop_rel:
-  mop_rel "Bind" Bind ∧
+  mop_rel "Bind" pure_config$Bind ∧
   mop_rel "Handle" Handle
 End
 
 (* Ret/Raise require a Delay operation *)
 Inductive mop_ret_rel:
-  mop_ret_rel "Ret" Ret ∧
+  mop_ret_rel "Ret" pure_config$Ret ∧
   mop_ret_rel "Raise" Raise
 End
 
 (* Length/Alloc/Act require wrapping in a `Ret $ Delay` *)
 Inductive mop_delay_rel:
-  mop_delay_rel "Length" Length NONE ∧
+  mop_delay_rel "Length" pure_config$Length NONE ∧
   mop_delay_rel "Alloc" Alloc (SOME 1n) ∧
   mop_delay_rel "Act" Act NONE
 End

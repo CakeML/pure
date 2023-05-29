@@ -93,10 +93,38 @@ Definition isInt_def[simp]:
   isInt (Int i) = T ∧ isInt _ = F
 End
 
-Definition monad_cns_def:
+(* Monadic operations *)
+Datatype:
+  mop = Ret | Bind
+      | Raise | Handle
+      | Act
+      | Alloc | Length | Deref | Update
+End
+
+Definition mop_of_string_def:
+  mop_of_string s =
+    if      s = "Ret"    then SOME Ret
+    else if s = "Bind"   then SOME Bind
+    else if s = "Raise"  then SOME Raise
+    else if s = "Handle" then SOME Handle
+    else if s = "Act"    then SOME Act
+    else if s = "Alloc"  then SOME Alloc
+    else if s = "Length" then SOME Length
+    else if s = "Deref"  then SOME Deref
+    else if s = "Update" then SOME Update
+    else NONE
+End
+
+Definition monad_cns:
+  monad_cns = { s | ∃mop. mop_of_string s = SOME mop }
+End
+
+Theorem monad_cns_def:
   monad_cns =
     {"Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"}
-End
+Proof
+  rw[monad_cns, mop_of_string_def, EXTENSION] >> EQ_TAC >> rw[]
+QED
 
 Definition reserved_cns_def:
   reserved_cns = {"";"True";"False";"Subscript"} ∪ monad_cns
@@ -158,7 +186,23 @@ Proof
     )
 QED
 
-Definition num_monad_args_def:
+Definition num_mop_args_def:
+  num_mop_args Ret    = 1n ∧
+  num_mop_args Raise  = 1n ∧
+  num_mop_args Length = 1n ∧
+  num_mop_args Act    = 1n ∧
+  num_mop_args Bind   = 2n ∧
+  num_mop_args Alloc  = 2n ∧
+  num_mop_args Handle = 2n ∧
+  num_mop_args Deref  = 2n ∧
+  num_mop_args Update = 3n
+End
+
+Definition num_monad_args:
+  num_monad_args cn = OPTION_MAP num_mop_args (mop_of_string cn)
+End
+
+Theorem num_monad_args_def:
   num_monad_args cn =
          if cn = "Ret"    then SOME 1n
     else if cn = "Bind"   then SOME 2
@@ -170,7 +214,10 @@ Definition num_monad_args_def:
     else if cn = "Update" then SOME 3
     else if cn = "Act"    then SOME 1
     else NONE
-End
+Proof
+  simp[num_monad_args, mop_of_string_def] >>
+  rpt IF_CASES_TAC >> gvs[num_mop_args_def]
+QED
 
 Theorem num_monad_args_ok_monad_cns:
   IS_SOME (num_monad_args cn) ⇔ cn ∈ monad_cns

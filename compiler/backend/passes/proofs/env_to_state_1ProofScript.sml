@@ -12,7 +12,7 @@ local open pure_semanticsTheory in end
 
 val _ = new_theory "env_to_state_1Proof";
 
-val _ = set_grammar_ancestry ["stateLang", "envLang", "env_semantics"];
+val _ = set_grammar_ancestry ["stateLang", "envLang", "env_semantics", "pure_config"];
 
 Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
 Overload "slet" = ``λv e1 e2. stateLang$Let (SOME v) e1 e2``
@@ -320,7 +320,7 @@ Theorem v_rel_bool:
   (v_rel (Constructor "True" []) sv  ⇔ sv = Constructor "True" []) ∧
   (v_rel (Constructor "False" []) sv ⇔ sv = Constructor "False" [])
 Proof
-  once_rewrite_tac [v_rel_cases] \\ fs [] \\ EVAL_TAC
+  once_rewrite_tac [v_rel_cases] \\ fs [] \\ EVAL_TAC \\ simp[]
 QED
 
 Theorem v_rel_dest_anyClosure:

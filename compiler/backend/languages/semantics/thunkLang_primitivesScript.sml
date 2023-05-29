@@ -249,13 +249,5 @@ Proof
   \\ strip_tac \\ gvs []
 QED
 
-Datatype:
-  mop = Ret | Bind
-      | Raise | Handle
-      | Act
-      | Alloc | Length | Deref | Update
-End
-
-
 val _ = export_theory ();
 
