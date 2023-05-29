@@ -45,6 +45,7 @@ End
 Definition exp_of_def[simp]:
   exp_of (Var n)         = Var (explode n):thunkLang$exp ∧
   exp_of (Prim p xs)     = Prim (op_of p) (MAP exp_of xs) ∧
+  exp_of (Monad mop xs)  = Monad mop (MAP exp_of xs) ∧
   exp_of (Let w x y)     = Let (OPTION_MAP explode w) (exp_of x) (exp_of y) ∧
   exp_of (App f xs)      = Apps (exp_of f) (MAP exp_of xs) ∧
   exp_of (Lam vs x)      = Lams (MAP explode vs) (exp_of x) ∧
@@ -65,17 +66,7 @@ Definition args_ok_def:
   args_ok (thunk_cexp$AtomOp aop) es =
     (num_atomop_args_ok aop (LENGTH es) ∧
      (∀m. aop = Message m ⇒ m ≠ "") ∧
-     ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l)) ∧
-  args_ok (Cons cn) es =
-    if cn = «Ret» ∨ cn = «Raise» then
-      (∃e0. es = [e0])
-    else if cn = «Length» ∨ cn = «Act» then
-      (∃e0. es = [Delay e0])
-    else if cn = «Bind» ∨ cn = «Handle» ∨ cn = «Alloc» ∨ cn = «Deref» then
-      (∃e0 e1. es = [Delay e0; Delay e1])
-    else if cn = «Update» then
-      (∃e0 e1 e2. es = [Delay e0; Delay e1; Delay e2])
-    else T
+     ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l))
 End
 
 Definition cexp_ok_bind_def:
@@ -87,6 +78,7 @@ End
 Definition cexp_wf_def:
   cexp_wf (Var v) = T ∧
   cexp_wf (Prim op es) = (args_ok op es ∧ EVERY cexp_wf es) ∧
+  cexp_wf (Monad mop es) = (num_mop_args mop = LENGTH es ∧ EVERY cexp_wf es) ∧
   cexp_wf (App e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
   cexp_wf (Force e) = cexp_wf e ∧
   cexp_wf (Delay e) = cexp_wf e ∧

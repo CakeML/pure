@@ -510,7 +510,7 @@ Definition cexp_wf_def[simp]:
   cexp_wf (Prim p xs) =
     (EVERY cexp_wf xs ∧
      (case p of
-      | Cons m => explode m ∉ monad_cns
+      | Cons m => T
       | AtomOp b => (∀m. b = Message m ⇒ LENGTH xs = 1 ∧ m ≠ "") ∧
                     num_atomop_args_ok b (LENGTH xs) ∧
                     (∀s1 s2. b ≠ Lit (Msg s1 s2)) ∧ (∀l. b ≠ Lit (Loc l)))) ∧
