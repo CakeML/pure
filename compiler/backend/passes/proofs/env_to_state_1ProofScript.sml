@@ -80,11 +80,11 @@ Inductive compile_rel:
               (suspend $ trigger se)) ∧
 
 [~Proj:]
-  (compile_rel te se ∧ s ∉ monad_cns ⇒
+  (compile_rel te se ⇒
   compile_rel (Prim (Proj s n) [te]) (App (Proj s n) [se])) ∧
 
 [~IsEq:]
-  (compile_rel te se ∧ s ∉ monad_cns ⇒
+  (compile_rel te se ⇒
   compile_rel (Prim (IsEq s n q) [te]) (App (IsEq s n) [se])) ∧
 
 [~AtomOp:]
@@ -93,7 +93,7 @@ Inductive compile_rel:
   compile_rel (Prim (AtomOp aop) tes) (App (AtomOp aop) ses)) ∧
 
 [~Cons:]
-  (LIST_REL compile_rel tes ses ∧ s ∉ monad_cns ⇒
+  (LIST_REL compile_rel tes ses ⇒
   compile_rel (Prim (Cons s) tes) (App (Cons s) ses)) ∧
 
 [~App:]
@@ -145,7 +145,7 @@ Inductive v_rel:
 
 [~Constructor:]
   (∀tvs svs.
-     LIST_REL v_rel tvs svs ∧ s ∉ monad_cns ⇒
+     LIST_REL v_rel tvs svs ⇒
      v_rel (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
 
 [~Closure:]
