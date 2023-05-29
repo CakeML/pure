@@ -540,7 +540,6 @@ Definition sim_ok_def:
   sim_ok allow_error Rv Re ⇔
     (∀x y.
        Re x y ∧
-       closed x ∧
        (¬allow_error ⇒ eval x ≠ INL Type_error) ⇒
          ($= +++ Rv) (eval x) (eval y)) ∧
     (∀vs ws x y.
@@ -610,8 +609,7 @@ Definition rel_ok_def:
        Rv x y ⇒ Rv (Monadic s [Value x])
                    (Monadic s [Value y])) ∧
     (∀mop vs w.
-       Rv (Monadic mop vs) w ⇒ EVERY closed vs ∧
-                               ∃ws. w = Monadic mop ws ∧
+       Rv (Monadic mop vs) w ⇒ ∃ws. w = Monadic mop ws ∧
                                       LIST_REL Re vs ws)
 End
 
@@ -1155,7 +1153,6 @@ Theorem sim_ok_semantics:
   rel_ok allow_error Rv Re ∧
   sim_ok allow_error Rv Re ∧
   Re x y ∧
-  closed x ∧
   (¬allow_error ⇒ pure_semantics$safe_itree (semantics x Done [])) ⇒
     semantics x Done [] = semantics y Done []
 Proof
