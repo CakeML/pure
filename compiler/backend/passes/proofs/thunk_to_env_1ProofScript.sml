@@ -64,6 +64,10 @@ Inductive exp_rel:
   (∀env op xs ys.
      LIST_REL (exp_rel env) xs ys ⇒
        exp_rel env (Prim op xs) (Prim op ys)) ∧
+[exp_rel_Monad:]
+  (∀env mop xs ys.
+     LIST_REL (exp_rel env) xs ys ⇒
+       exp_rel env (Monad mop xs) (Monad mop ys)) ∧
 [exp_rel_Letrec:]
   (∀env f g x y.
      LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
@@ -87,6 +91,10 @@ Inductive exp_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Constructor:]
+  (∀mop xs ys env.
+     LIST_REL (exp_rel env) xs ys ⇒
+       v_rel (Monadic mop xs) (Monadic env mop ys)) ∧
 [v_rel_Closure:]
   (∀env s x y.
      exp_rel env (Lam s x) (Lam s y) ⇒
@@ -116,6 +124,7 @@ Theorem exp_rel_def =
   [ “exp_rel env (Value v) y”,
     “exp_rel env (Var v) y”,
     “exp_rel env (Prim op xs) y”,
+    “exp_rel env (Monad mop xs) y”,
     “exp_rel env (App x y) z”,
     “exp_rel env (Lam s x) y”,
     “exp_rel env (Let NONE x y) z”,
@@ -135,6 +144,8 @@ Theorem v_rel_def =
     “v_rel z (Recclosure s funs x)”,
     “v_rel (Constructor s x) z”,
     “v_rel z (Constructor s x)”,
+    “v_rel (Monadic mop xs) z”,
+    “v_rel z (Monadix env mop ys)”,
     “v_rel (Atom s) z”,
     “v_rel z (Atom s)”,
     “v_rel (Thunk (INL s)) z”,
@@ -275,6 +286,8 @@ Proof
     rw [subst_def, exp_rel_def])
   >~ [‘Force x’] >- (
     rw [subst_def, exp_rel_def])
+  >~ [`Monad mop xs`]
+  >- (rw[subst_def, exp_rel_def] >> gvs[LIST_REL_EL_EQN, EL_MAP])
 QED
 
 Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
@@ -574,6 +587,11 @@ Proof
       \\ Cases_on ‘eval_to (k - 1) env (EL m ys)’ \\ gs []
       \\ rename1 ‘v_rel v w’
       \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [v_rel_def]))
+  >~ [`Monad mop xs`]
+  >- (
+    gvs[exp_rel_def, thunkLangTheory.eval_to_def, envLangTheory.eval_to_def] >>
+    rw[v_rel_def]
+    )
 QED
 
 Theorem eval_exp_rel:
@@ -604,8 +622,8 @@ QED
 
 Definition cont_rel_def[simp]:
   cont_rel thunk_semantics$Done env_semantics$Done = T ∧
-  cont_rel (BC v c) (BC w d) = (v_rel v w ∧ cont_rel c d) ∧
-  cont_rel (HC v c) (HC w d) = (v_rel v w ∧ cont_rel c d) ∧
+  cont_rel (BC v c) (BC env_w d) = (exp_rel (FST env_w) v (SND env_w) ∧ cont_rel c d) ∧
+  cont_rel (HC v c) (HC env_w d) = (exp_rel (FST env_w) v (SND env_w) ∧ cont_rel c d) ∧
   cont_rel _ _ = F
 End
 
@@ -641,61 +659,28 @@ Proof
   \\ Cases_on ‘ys’ \\ gvs []
 QED
 
-Theorem force_thm:
-  ∀v w. v_rel v w ⇒ ($= +++ v_rel) (force v) (force w)
-Proof
-  fs [force_def,env_semanticsTheory.force_def]
-  \\ reverse Cases \\ simp [Once v_rel_cases]
-  \\ fs [PULL_EXISTS]
-  \\ fs [dest_anyThunk_def,envLangTheory.dest_anyThunk_def]
-  \\ rw [] \\ gvs []
-  >~ [‘subst_funs []’]
-  >- (fs [subst_funs_def] \\ imp_res_tac eval_exp_rel \\ fs [])
-  \\ drule LIST_REL_ALOOKUP_lemma
-  \\ disch_then $ qspec_then ‘s’ strip_assume_tac
-  \\ fs []
-  \\ pop_assum mp_tac
-  \\ simp [Once exp_rel_cases]
-  \\ strip_tac \\ gvs []
-  \\ fs [subst_funs_def]
-  \\ irule eval_exp_rel
-  \\ irule exp_rel_subst
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
-  \\ fs [MEM_MAP,FORALL_PROD]
-  \\ fs [env_rel_def]
-  \\ fs [GSYM MAP_REVERSE]
-  \\ simp [LIST_REL_MAP_MAP,LAMBDA_PROD]
-  \\ fs [LIST_REL_EL_EQN]
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs []
-  \\ rw [LAMBDA_PROD]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ gvs []
-  \\ first_assum drule
-  \\ asm_rewrite_tac []
-  \\ fs [] \\ rw []
-  \\ simp [Once v_rel_cases]
-  \\ fs [LIST_REL_EL_EQN,MEM_MAP,FORALL_PROD]
-QED
-
 Theorem apply_closure_thm:
-  ∀v1 w1 v2 w2 f g.
-    v_rel v1 w1 ∧
+  ∀x1 y1 v2 w2 f g env.
+    exp_rel env x1 y1 ∧
     v_rel v2 w2 ∧
     (∀x y. ($= +++ v_rel) x y ⇒ next_rel (f x) (g y)) ⇒
-    next_rel (apply_closure v1 v2 f)
-             (apply_closure w1 w2 g)
+    next_rel (apply_closure x1 v2 f)
+             (apply_closure (env,y1) w2 g)
 Proof
   fs [apply_closure_def,env_semanticsTheory.apply_closure_def]
-  \\ fs [dest_anyClosure_def,envLangTheory.dest_anyClosure_def]
-  \\ simp [Once v_rel_cases] \\ rw [] \\ gvs []
+  \\ fs [with_value_def,env_semanticsTheory.with_value_def]
+  \\ fs [dest_anyClosure_def,envLangTheory.dest_anyClosure_def] >>
+  rw[] >> drule eval_exp_rel >> BasicProvers.TOP_CASE_TAC >> gvs[]
+  >- (Cases_on `eval env y1` >> gvs[] >> CASE_TAC >> rw[] >> gvs[]) >>
+  rename1 `INR v1` >> Cases_on `eval env y1` >> gvs[] >>
+  rename1 `INR w1` >> rw[Once v_rel_cases] >> gvs[]
   >-
    (first_x_assum irule
     \\ irule eval_exp_rel
     \\ once_rewrite_tac [GSYM (EVAL “[x:'a] ++ xs”)]
     \\ irule exp_rel_subst \\ fs []
     \\ fs [env_rel_def]
-    \\ last_x_assum mp_tac
+    \\ pop_assum mp_tac
     \\ simp [Once exp_rel_cases])
   \\ drule LIST_REL_ALOOKUP_lemma
   \\ disch_then $ qspec_then ‘n’ strip_assume_tac
@@ -734,19 +719,10 @@ Proof
 QED
 
 Triviality v_rel_RetVal[simp]:
-  v_rel (Constructor "Ret" [Thunk (INR (Lit a))]) (RetVal (Atom a))
+  v_rel (Monadic Ret [Lit a]) (RetVal (Atom a))
 Proof
   simp [Once v_rel_cases]
-  \\ simp [Once v_rel_cases]
   \\ simp [Once exp_rel_cases]
-QED
-
-Triviality force_similar:
-  ($= +++ v_rel) (force x) (force y) ⇒
-  (force y = INL Type_error ⇔ force x = INL Type_error) ∧
-  (force y = INL Diverge ⇔ force x = INL Diverge)
-Proof
-  Cases_on ‘force y’ \\ Cases_on ‘force x’ \\ gvs []
 QED
 
 Theorem LIST_REL_LUPDATE:
@@ -774,228 +750,189 @@ Proof
   \\ Cases_on ‘(∃s x. v = Closure s x) ∨
                (∃f n. v = Recclosure f n) ∨
                (∃x. v = Thunk x) ∨
-               (∃x. v = Atom x)’
+               (∃x. v = Atom x) ∨
+               (∃n vs. v = Constructor n vs) ∨
+               (∃v'. v = DoTick v')’
   >- (
     gvs [] \\ fs [Once v_rel_cases]
-    \\ res_tac \\ rgs []
-    >~ [‘Atom x’] >- (
-      Cases_on ‘w’ \\ res_tac \\ gs []
-      \\ simp [next_def,env_semanticsTheory.next_def])
-    \\ simp [next_def,env_semanticsTheory.next_def])
-  \\ Cases_on ‘∃x. v = DoTick x’
-  >- (gvs [] \\ fs [Once v_rel_cases])
+    \\ simp [next_def,env_semanticsTheory.next_def]
+    )
   \\  fs []
-  \\ ‘∃nm vs. v = Constructor nm vs’
+  \\ ‘∃mop es. v = Monadic mop es’
     by (Cases_on ‘v’ \\ gs [])
   \\ gvs [v_rel_def]
   \\ simp [Once next_def]
   \\ simp [Once env_semanticsTheory.next_def]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-  \\ Cases_on ‘nm = "Ret"’ \\ gvs [] >-
+  \\ Cases_on ‘mop = Ret’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs [] \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
+    \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”] >>
+    simp[with_value_def, env_semanticsTheory.with_value_def] >>
+    drule_then assume_tac eval_exp_rel >> rename1 `_ (eval x) (eval _ y)` >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >> Cases_on `eval env y` >> gvs[]
+    >- (CASE_TAC >> gvs[]) >>
+    rename1 `eval _ = INR v` >> rename1 `eval _ _ = INR w`
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs [])
     \\ reverse (Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs [])
     >- (first_x_assum irule \\ gs []
-        \\ simp [Once v_rel_cases])
-    \\ simp [force_apply_closure_def,
-             env_semanticsTheory.force_apply_closure_def]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (CASE_TAC \\ gs [])
-    \\ irule apply_closure_thm \\ fs [])
-  \\ Cases_on ‘nm = "Raise"’ \\ gvs [] >-
+        \\ simp [Once v_rel_cases]) >>
+    PairCases_on `p` >> irule apply_closure_thm >> gvs[]
+    )
+  \\ Cases_on ‘mop = Raise’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs [] \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
+    \\ gvs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”] >>
+    simp[with_value_def, env_semanticsTheory.with_value_def] >>
+    drule_then assume_tac eval_exp_rel >> rename1 `_ (eval x) (eval _ y)` >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >> Cases_on `eval env y` >> gvs[]
+    >- (CASE_TAC >> gvs[]) >>
+    rename1 `eval _ = INR v` >> rename1 `eval _ _ = INR w`
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs [])
     \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
     >- (first_x_assum irule \\ gs []
-        \\ simp [Once v_rel_cases])
-    \\ simp [force_apply_closure_def,
-             env_semanticsTheory.force_apply_closure_def]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (CASE_TAC \\ gs [])
-    \\ irule apply_closure_thm \\ fs [])
-  \\ Cases_on ‘nm = "Bind"’ \\ gvs [] >-
+        \\ simp [Once v_rel_cases]) >>
+    PairCases_on `p` >> irule apply_closure_thm >> gvs[]
+    )
+  \\ Cases_on ‘mop = Bind’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs [] \\ gvs []
     \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
             DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”]
-    \\ rw [] \\ rgs [SF DNF_ss]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ simp [Once next_def])
-  \\ Cases_on ‘nm = "Handle"’ \\ gvs [] >-
+    \\ rw [] \\ rgs [SF DNF_ss] >>
+    first_x_assum irule >> gvs[] >>
+    irule eval_exp_rel >> simp[])
+  \\ Cases_on ‘mop = Handle’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs []
     \\ gs [] \\ res_tac \\ gvs []
     \\ rgs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute,
             DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”]
-    \\ rw [] \\ rgs [SF DNF_ss]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ simp [Once next_def])
-  \\ Cases_on ‘nm = "Act"’ \\ gvs [] >-
+    \\ rw [] \\ rgs [SF DNF_ss] >>
+    first_x_assum irule >> gvs[] >>
+    irule eval_exp_rel >> simp[])
+  \\ Cases_on ‘mop = Act’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs []
     \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
-    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (Cases_on `x'` \\ gs [])
-    \\ gvs []
-    \\ rename1 ‘v_rel a b’
-    \\ qpat_x_assum ‘v_rel a b’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [get_atoms_def,env_semanticsTheory.get_atoms_def]
-    \\ CASE_TAC \\ gs []
-    \\ gs [LIST_REL_EL_EQN])
-  \\ Cases_on ‘nm = "Alloc"’ \\ gvs [] >-
+    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[] >>
+    drule_then assume_tac eval_exp_rel >> rename1 `_ (eval x) (eval env y)` >>
+    Cases_on `eval x` >> Cases_on `eval env y` >> gvs[]
+    >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+    qpat_x_assum `v_rel _ _` mp_tac >>
+    rw[Once v_rel_cases] >> simp[get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+    CASE_TAC >> gvs[LIST_REL_EL_EQN])
+  \\ Cases_on ‘mop = Alloc’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs []
     \\ rgs [LENGTH_EQ_NUM_compute,
-            DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
-    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (Cases_on `x'` \\ gs [])
-    \\ qpat_x_assum ‘v_rel a b’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [get_atoms_def,env_semanticsTheory.get_atoms_def]
-    \\ CASE_TAC \\ gs []
-    \\ CASE_TAC \\ gs []
-    \\ first_x_assum irule \\ gs []
-    \\ simp [PULL_EXISTS]
-    \\ qexists_tac ‘[Int i]’ \\ simp [LIST_REL_REPLICATE_same]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on ‘nm = "Length"’ \\ gvs [] >-
+            DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss] >>
+    gvs[result_map_def] >>
+    dxrule_then assume_tac eval_exp_rel >> rename1 `_ (eval x1) (eval env y1)` >>
+    dxrule_then assume_tac eval_exp_rel >> rename1 `_ (eval x2) (eval env y2)` >>
+    `∀err. eval x1 = INL err ⇔ eval env y1 = INL err` by (
+      Cases_on `eval x1` >> Cases_on `eval env y1` >> gvs[]) >>
+    `∀err. eval x2 = INL err ⇔ eval env y2 = INL err` by (
+      Cases_on `eval x2` >> Cases_on `eval env y2` >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
+    Cases_on `eval x1` >> gvs[] >> Cases_on `eval env y1` >> gvs[]
+    >- (Cases_on `x` >> gvs[]) >>
+    rename1 `v_rel v w` >>
+    gvs[Once v_rel_cases, get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >>
+    first_x_assum irule >> simp[v_rel_def, exp_rel_def] >>
+    Cases_on `eval x2` >> gvs[] >> Cases_on `eval env y2` >> gvs[]
+    >- (Cases_on `x` >> gvs[]) >>
+    gvs[LIST_REL_EL_EQN, EL_REPLICATE])
+  \\ Cases_on ‘mop = Length’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs []
     \\ gs [] \\ res_tac \\ gvs []
     \\ gs [LIST_REL_EL_EQN, LENGTH_EQ_NUM_compute, DECIDE “∀x. x < 1n ⇔ x = 0”]
-    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[]
-    \\ rename1 ‘v_rel v w’
-    \\ ‘($= +++ v_rel) (force v) (force w)’ by (irule force_thm \\ fs [])
-    \\ Cases_on ‘force v’ \\ Cases_on ‘force w’ \\ gs []
-    >- (Cases_on `x'` \\ gs [])
-    \\ gvs []
-    \\ rename1 ‘v_rel a b’
-    \\ qpat_x_assum ‘v_rel a b’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ gvs [get_atoms_def,env_semanticsTheory.get_atoms_def]
-    \\ rpt (CASE_TAC \\ gs [])
-    \\ first_x_assum irule \\ gs []
-    \\ qexists_tac ‘[Loc n]’ \\ fs [])
-  \\ Cases_on ‘nm = "Deref"’ \\ gvs [] >-
+    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[] >>
+    dxrule_then assume_tac eval_exp_rel >> rename1 `_ (eval x) (eval env y)` >>
+    Cases_on `eval x` >> Cases_on `eval env y` >> gvs[]
+    >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+    rename1 `v_rel v w` >>
+    qpat_x_assum `v_rel _ _` mp_tac >>
+    rw[Once v_rel_cases] >> gvs[get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+    ntac 3 (BasicProvers.TOP_CASE_TAC >> gvs[]) >>
+    first_x_assum irule >> simp[v_rel_def, exp_rel_def] >>
+    qexists `[Loc n]` >> simp[])
+  \\ Cases_on ‘mop = Deref’ \\ gvs [] >-
    (IF_CASES_TAC \\ gs []
     \\ rgs [LENGTH_EQ_NUM_compute,
             DECIDE “∀x. x < 2n ⇔ x = 0 ∨ x = 1”, SF DNF_ss]
-    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[]
-    \\ rename [‘force h1 = INL Type_error ∨ force h2 = INL Type_error’]
-    \\ rename1 ‘v_rel h1' h1’
-    \\ rename1 ‘v_rel h2' h2’
-    \\ ‘($= +++ v_rel) (force h1') (force h1)’ by (irule force_thm \\ fs [])
-    \\ drule force_similar \\ strip_tac
-    \\ ‘($= +++ v_rel) (force h2') (force h2)’ by (irule force_thm \\ fs [])
-    \\ drule force_similar \\ strip_tac
-    \\ fs []
-    \\ IF_CASES_TAC \\ gvs []
-    \\ IF_CASES_TAC \\ gvs []
-    \\ Cases_on ‘force h1'’ \\ fs []
-    >- (Cases_on ‘x’ \\ gvs [])
-    \\ Cases_on ‘force h2'’ \\ fs []
-    >- (Cases_on ‘x’ \\ gvs [])
-    \\ Cases_on ‘force h1’ >- gvs []
-    \\ Cases_on ‘force h2’ >- gvs []
-    \\ gvs []
-    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-    \\ simp [Once v_rel_cases]
-    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-    \\ simp [Once v_rel_cases]
-    \\ rpt strip_tac \\ gvs []
-    \\ fs [thunk_semanticsTheory.get_atoms_def,
-           env_semanticsTheory.get_atoms_def]
-    \\ Cases_on ‘l’ \\ gvs []
-    \\ Cases_on ‘l'’ \\ gvs []
-    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [] \\ fs []
-    \\ IF_CASES_TAC >- gvs []
-    \\ IF_CASES_TAC >- gvs []
-    \\ IF_CASES_TAC
-    >-
-     (fs [] \\ gvs [LIST_REL_EL_EQN]
-      \\ first_x_assum irule
-      \\ fs [PULL_EXISTS]
-      \\ qexists_tac ‘[Loc n; Int i]’ \\ fs []
-      \\ gvs [GSYM arithmeticTheory.NOT_LESS]
-      \\ simp [Once v_rel_cases]
-      \\ ‘Num i < LENGTH (EL n t)’ by (Cases_on ‘i’ \\ fs [])
-      \\ metis_tac [])
-    \\ ‘LENGTH (EL n t) = LENGTH (EL n s)’ by gvs [LIST_REL_EL_EQN]
-    \\ simp [] \\ gvs []
-    \\ first_x_assum $ qspec_then ‘[Loc n; Int i]’ mp_tac
-    \\ first_x_assum $ qspec_then ‘[Loc n; Int i]’ mp_tac
-    \\ first_x_assum $ qspec_then ‘[Loc n; Int i]’ mp_tac
-    \\ fs [] \\ rw []
-    >-
-     (first_x_assum irule \\ simp [PULL_EXISTS]
-      \\ simp [Once v_rel_cases]
-      \\ simp [Once v_rel_cases]
-      \\ simp [Once exp_rel_cases])
-    >-
-     (first_x_assum irule \\ simp [PULL_EXISTS]
-      \\ simp [Once v_rel_cases]
-      \\ simp [Once v_rel_cases]
-      \\ simp [Once exp_rel_cases]))
-  \\ Cases_on ‘nm = "Update"’ \\ gvs []
+    \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def] \\ gvs[] >>
+    dxrule_then assume_tac eval_exp_rel >> rename1 `_ (eval x1) (eval env y1)` >>
+    dxrule_then assume_tac eval_exp_rel >> rename1 `_ (eval x2) (eval env y2)` >>
+    `∀err. eval x1 = INL err ⇔ eval env y1 = INL err` by (
+      Cases_on `eval x1` >> Cases_on `eval env y1` >> gvs[]) >>
+    `∀err. eval x2 = INL err ⇔ eval env y2 = INL err` by (
+      Cases_on `eval x2` >> Cases_on `eval env y2` >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
+    Cases_on `eval x1` >> gvs[] >> Cases_on `eval env y1` >> gvs[]
+    >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+    Cases_on `eval x2` >> gvs[] >> Cases_on `eval env y2` >> gvs[]
+    >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+    rename1 `thunk_semantics$get_atoms [v1;v2]` >>
+    qpat_x_assum `v_rel v1 _` mp_tac >>
+    rw[Once v_rel_cases] >> gvs[get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+    qpat_x_assum `v_rel v2 _` mp_tac >>
+    rw[Once v_rel_cases] >> gvs[get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+    ntac 4 (BasicProvers.TOP_CASE_TAC >> gvs[]) >>
+    `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[LIST_REL_EL_EQN] >>
+    simp[] >> BasicProvers.TOP_CASE_TAC >> gvs[]
+    >- (
+      first_x_assum irule >> simp[v_rel_def, exp_rel_def] >> rw[]
+      >- (qexists `[Loc n; Int i]` >> simp[]) >>
+      gvs[LIST_REL_EL_EQN, arithmeticTheory.NOT_LESS_EQUAL, SF DNF_ss] >>
+      first_x_assum irule >> simp[] >> Cases_on `i` >> gvs[]
+      )
+    >- (
+      first_x_assum irule >> simp[v_rel_def, exp_rel_def] >> rw[] >>
+      rpt $ goal_assum drule >> qexists `[Loc n; Int i]` >> simp[]
+      )
+    >- (
+      last_x_assum irule >> simp[v_rel_def, exp_rel_def] >> rw[] >>
+      rpt $ goal_assum drule >> qexists `[Loc n; Int i]` >> simp[]
+      )
+    )
+  \\ Cases_on ‘mop = Update’ \\ gvs []
   \\ IF_CASES_TAC \\ gs []
-  \\ gvs [LENGTH_EQ_NUM_compute]
-  \\ rename [‘next_rel (with_atoms [h1; h2] _) (with_atoms [h1'; h2'] _)’]
-  \\ ‘($= +++ v_rel) (force h1) (force h1')’ by (irule force_thm \\ fs [])
-  \\ drule force_similar \\ strip_tac
-  \\ ‘($= +++ v_rel) (force h2) (force h2')’ by (irule force_thm \\ fs [])
-  \\ drule force_similar \\ strip_tac
-  \\ simp [with_atoms_def, result_map_def, env_semanticsTheory.with_atoms_def]
-  \\ IF_CASES_TAC >- fs []
-  \\ IF_CASES_TAC >- fs []
-  \\ fs []
-  \\ Cases_on ‘force h1’ \\ fs []
-  \\ Cases_on ‘force h1'’ \\ gvs []
-  >- (Cases_on ‘x’ \\ gvs [])
-  \\ Cases_on ‘force h2’ \\ fs []
-  \\ Cases_on ‘force h2'’ \\ gvs []
-  >- (Cases_on ‘x’ \\ gvs [])
-  \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-  \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-  \\ simp_tac std_ss [Once v_rel_cases] \\ strip_tac
-  \\ gvs [get_atoms_def,env_semanticsTheory.get_atoms_def]
-  \\ simp_tac std_ss [Once v_rel_cases] \\ strip_tac
-  \\ gvs [get_atoms_def,env_semanticsTheory.get_atoms_def]
-  \\ Cases_on ‘l’ \\ fs []
-  \\ Cases_on ‘l'’ \\ fs []
-  \\ IF_CASES_TAC \\ fs []
-  \\ IF_CASES_TAC \\ fs []
-  \\ ‘LENGTH (EL n t) = LENGTH (EL n s)’ by gvs [LIST_REL_EL_EQN]
-  \\ simp []
-  \\ IF_CASES_TAC
-  >-
-   (gvs []
-    \\ first_x_assum irule
-    \\ fs [PULL_EXISTS]
-    \\ qexists_tac ‘[Loc n; Int i]’ \\ fs []
-    \\ simp [Once v_rel_cases]
-    \\ simp [Once v_rel_cases]
-    \\ irule_at Any LIST_REL_LUPDATE \\ fs []
-    \\ irule_at Any LIST_REL_LUPDATE \\ fs []
-    \\ conj_tac >- gvs [LIST_REL_EL_EQN]
-    \\ simp [Once exp_rel_cases])
-  \\ simp []
-  \\ first_x_assum irule \\ simp [PULL_EXISTS]
-  \\ qexists_tac ‘[Loc n; Int i]’ \\ fs []
-  \\ simp [Once v_rel_cases]
-  \\ simp [Once v_rel_cases]
-  \\ simp [Once exp_rel_cases]
+  \\ gvs [LENGTH_EQ_NUM_compute] >>
+  rename1 `result_map eval [x1;x2;x3]` >> rename1 `result_map (eval env) [y1;y2;y3]` >>
+  simp[result_map_def] >> rpt $ dxrule_then assume_tac eval_exp_rel >>
+  `∀err. eval x1 = INL err ⇔ eval env y1 = INL err` by (
+    Cases_on `eval x1` >> Cases_on `eval env y1` >> gvs[]) >>
+  `∀err. eval x2 = INL err ⇔ eval env y2 = INL err` by (
+    Cases_on `eval x2` >> Cases_on `eval env y2` >> gvs[]) >>
+  `∀err. eval x3 = INL err ⇔ eval env y3 = INL err` by (
+    Cases_on `eval x3` >> Cases_on `eval env y3` >> gvs[]) >>
+  IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >>
+  Cases_on `eval x1` >> gvs[] >> Cases_on `eval env y1` >> gvs[]
+  >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+  Cases_on `eval x2` >> gvs[] >> Cases_on `eval env y2` >> gvs[]
+  >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+  Cases_on `eval x3` >> gvs[] >> Cases_on `eval env y3` >> gvs[]
+  >- (rename1 `_ = INL err` >> Cases_on `err` >> gvs[]) >>
+  rename1 `thunk_semantics$get_atoms [v1;v2]` >>
+  qpat_x_assum `v_rel v1 _` mp_tac >>
+  rw[Once v_rel_cases] >> gvs[get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+  qpat_x_assum `v_rel v2 _` mp_tac >>
+  rw[Once v_rel_cases] >> gvs[get_atoms_def, env_semanticsTheory.get_atoms_def] >>
+  ntac 4 (BasicProvers.TOP_CASE_TAC >> gvs[]) >>
+  `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[LIST_REL_EL_EQN] >>
+  simp[] >> BasicProvers.TOP_CASE_TAC >> gvs[]
+  >- (
+    first_x_assum irule >> simp[v_rel_def, exp_rel_def] >>
+    gvs[LIST_REL_EL_EQN, EL_LUPDATE, COND_RAND] >>
+    simp[result_map_def, get_atoms_def]
+    )
+  >- (
+    first_x_assum irule >> simp[v_rel_def, exp_rel_def] >> rw[] >>
+    simp[result_map_def, get_atoms_def]
+    )
+  >- (
+    last_x_assum irule >> simp[v_rel_def, exp_rel_def] >> rw[] >>
+    simp[result_map_def, get_atoms_def]
+    )
 QED
 
 Theorem next_action_thm:
