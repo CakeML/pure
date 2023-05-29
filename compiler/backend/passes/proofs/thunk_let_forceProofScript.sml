@@ -98,6 +98,10 @@ Inductive exp_rel:
   (∀m op xs ys.
      LIST_REL (exp_rel m) xs ys ⇒
        exp_rel m (Prim op xs) (Prim op ys)) ∧
+[exp_rel_Monad:]
+  (∀m mop xs ys.
+     LIST_REL (exp_rel m) xs ys ⇒
+       exp_rel m (Monad mop xs) (Monad mop ys)) ∧
 [exp_rel_Delay:]
   (∀m x y.
      exp_rel m x y ⇒
@@ -128,6 +132,10 @@ Inductive exp_rel:
   (∀vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀mop xs ys.
+     LIST_REL (exp_rel NONE) xs ys ∧ EVERY closed xs ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Closure:]
   (∀s x y.
      exp_rel NONE x y ∧ freevars x ⊆ {s} ⇒
@@ -161,6 +169,8 @@ Theorem v_rel_def[simp] =
     “v_rel z (Recclosure s x)”,
     “v_rel (Constructor s x) z”,
     “v_rel z (Constructor s x)”,
+    “v_rel (Monadic mop xs) z”,
+    “v_rel z (Monadic mop ys)”,
     “v_rel (Atom x) z”,
     “v_rel z (Atom x)”,
     “v_rel (Thunk (INL x)) z”,
@@ -502,6 +512,11 @@ Proof
     \\ fs [LIST_REL_MAP_MAP]
     \\ last_x_assum mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >~ [`Monad`]
+  >- (
+    gvs[subst_def] >> irule exp_rel_Monad >> gvs[LIST_REL_MAP_MAP] >>
+    last_x_assum mp_tac >> match_mp_tac LIST_REL_mono >> gvs[]
+    )
   >~ [‘Letrec’] >-
    (fs [subst_def]
     \\ irule exp_rel_Letrec \\ fs [subst_acc_def]
@@ -1493,6 +1508,11 @@ Proof
     \\ rpt strip_tac
     \\ first_x_assum (qspec_then ‘k’ mp_tac)
     \\ simp [eval_to_def])
+  >~ [`Monad mop xs`]
+  >- (
+    rw[] >> qpat_x_assum `exp_rel _ _ _` mp_tac >> rw[Once exp_rel_cases] >>
+    gvs[eval_to_def]
+    )
   >~ [‘Prim op xs’]
   \\ ntac 2 strip_tac
   \\ rw [Once exp_rel_cases]
@@ -1869,30 +1889,26 @@ Proof
   \\ drule_then (qspec_then ‘k + m’ assume_tac) eval_to_mono \\ gs []
 QED
 
-Theorem force_apply_force[local]:
-  v_rel v w ∧
-  force v ≠ INL Type_error ⇒
-    ($= +++ v_rel) (force v) (force w)
-Proof
-  rw [] \\ irule apply_force_rel \\ simp []
-  \\ qexists_tac ‘λx y. exp_rel NONE x y ∧ closed x’
-  \\ qexists_tac ‘F’
-  \\ simp [exp_rel_Force, exp_rel_Value, exp_rel_eval]
-QED
+Overload closed_exp_rel = ``λx y. closed x ∧ exp_rel NONE x y``
 
 Theorem force_apply_closure[local]:
-  v_rel v1 w1 ∧
+  closed_exp_rel x y ∧
   v_rel v2 w2 ∧
-  apply_closure v1 v2 f ≠ Err ∧
+  apply_closure x v2 f ≠ Err ∧
   f (INL Type_error) = Err ∧
   (∀x y.
      ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
-       next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel
-             (apply_closure v1 v2 f)
-             (apply_closure w1 w2 g)
+       next_rel v_rel closed_exp_rel (f x) (g y)) ⇒
+    next_rel v_rel closed_exp_rel
+             (apply_closure x v2 f)
+             (apply_closure y w2 g)
 Proof
-  rw [thunk_semanticsTheory.apply_closure_def]
+  rw [thunk_semanticsTheory.apply_closure_def] >>
+  gvs[thunk_semanticsTheory.with_value_def] >>
+  `eval x ≠ INL Type_error` by (CCONTR_TAC >> gvs[]) >>
+  dxrule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
   >- (
     first_x_assum irule \\ gs []
@@ -1906,7 +1922,7 @@ Proof
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]
-  \\ qpat_x_assum ‘exp_rel NONE x y’ mp_tac
+  \\ qpat_x_assum ‘exp_rel NONE _ _’ mp_tac
   \\ rw [Once exp_rel_cases] \\ gs []
   \\ first_x_assum irule \\ gs []
   \\ irule exp_rel_eval
@@ -1921,11 +1937,9 @@ Proof
 QED
 
 Theorem force_rel_ok[local]:
-  rel_ok F v_rel
+  rel_ok F v_rel closed_exp_rel
 Proof
   rw [rel_ok_def]
-  >- ((* force preserves rel *)
-    simp [force_apply_force])
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [force_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
@@ -1935,13 +1949,20 @@ Proof
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)
     simp [exp_rel_Prim])
+  >- ((* v_rel v1 v2 ⇒ exp_rel (Value v1) (Value v2) *)
+    simp[exp_rel_Value]
+    )
+  >- ((* LIST_REL stuff *)
+    gvs[LIST_REL_EL_EQN, EVERY_EL]
+    )
 QED
 
 Theorem force_sim_ok[local]:
-  sim_ok F v_rel (exp_rel NONE)
+  sim_ok F v_rel closed_exp_rel
 Proof
   rw [sim_ok_def]
   \\ simp [exp_rel_eval]
+  >- (DEP_REWRITE_TAC[subst_notin_frees] >> gvs[closed_def])
   \\ irule exp_rel_subst \\ gs []
 QED
 
@@ -2004,6 +2025,10 @@ Inductive e_rel:
   (∀m op xs ys.
      LIST_REL (e_rel m) xs ys ⇒
        e_rel m (Prim op xs) (Prim op ys)) ∧
+[e_rel_Monad:]
+  (∀m mop xs ys.
+     LIST_REL (e_rel m) xs ys ⇒
+       e_rel m (Monad mop xs) (Monad mop ys)) ∧
 [e_rel_Delay:]
   (∀m x y.
      e_rel m x y ⇒
@@ -2235,6 +2260,35 @@ Proof
     >- (Induct \\ fs [PULL_EXISTS])
     \\ rw []
     \\ irule_at Any exp_rel_Prim
+    \\ last_x_assum $ irule_at Any
+    \\ last_x_assum mp_tac
+    \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+    \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+    \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
+  >~ [`Monad`] >-
+   (‘∃k. ∀k1. k ≤ k1 ⇒
+              LIST_REL (λx y. rel_list (REPLICATE k1 NONE ++ m) x y) xs ys’ by
+     (last_x_assum mp_tac
+      \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+      \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+      \\ last_x_assum dxrule \\ rw []
+      \\ qexists_tac ‘k+k'’ \\ fs [])
+    \\ last_x_assum kall_tac
+    \\ qexists_tac ‘k’ \\ rw []
+    \\ last_x_assum $ dxrule
+    \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+    \\ qid_spec_tac ‘k1’ \\ reverse Induct \\ fs [PULL_EXISTS]
+    >-
+     (rw [] \\ irule_at Any exp_rel_Monad
+      \\ last_x_assum $ irule_at Any
+      \\ last_x_assum mp_tac
+      \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])
+      \\ Induct \\ fs [PULL_EXISTS] \\ rw []
+      \\ rpt $ last_x_assum $ irule_at Any \\ fs [])
+    \\ Induct_on ‘m’ \\ fs []
+    >- (Induct \\ fs [PULL_EXISTS])
+    \\ rw []
+    \\ irule_at Any exp_rel_Monad
     \\ last_x_assum $ irule_at Any
     \\ last_x_assum mp_tac
     \\ EVERY (map qid_spec_tac [‘xs’,‘ys’])

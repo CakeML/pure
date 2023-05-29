@@ -37,6 +37,10 @@ Inductive exp_rel:
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
+[~Monad:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Monad mop xs) (Monad mop ys)) ∧
 [~App:]
   (∀f g x y.
      exp_rel f g ∧
@@ -85,6 +89,10 @@ Inductive exp_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
@@ -117,6 +125,7 @@ Theorem exp_rel_def =
   [“exp_rel (Var v) x”,
    “exp_rel (Value v) x”,
    “exp_rel (Prim op xs) x”,
+   “exp_rel (Monad mop xs) x”,
    “exp_rel (App f x) y”,
    “exp_rel (Lam s x) y”,
    “exp_rel (Letrec f x) y”,
@@ -131,6 +140,7 @@ Theorem exp_rel_def =
 
 Theorem v_rel_def =
   [“v_rel (Constructor s vs) v”,
+   “v_rel (Monadic mop xs) v”,
    “v_rel (Closure s x) v”,
    “v_rel (Recclosure f n) v”,
    “v_rel (Atom x) v”,
@@ -150,6 +160,12 @@ Proof
   \\ fs [freevars_def] \\ rw []
   >~ [‘Let opt’]
   >- (Cases_on ‘opt’ \\ fs [freevars_def])
+  >-
+   (pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [PULL_EXISTS]
+    \\ rw [] \\ first_x_assum drule
+    \\ fs [EXTENSION] \\ metis_tac [])
   >-
    (pop_assum mp_tac
     \\ qid_spec_tac ‘ys’
@@ -197,6 +213,8 @@ Proof
     qexists_tac ‘0’
     \\ irule_at Any exp_rel_Prim
     \\ gvs [LIST_REL_EL_EQN])
+  >~ [`Monad mop xs`]
+  >- (qexists_tac `0` >> irule_at Any exp_rel_Monad >> gvs[LIST_REL_EL_EQN])
   >~ [‘App f x’] >- (
     qexists_tac ‘0’
     \\ irule_at Any exp_rel_App
@@ -279,6 +297,8 @@ Proof
     rw [subst_def]
     \\ irule exp_rel_Prim
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
+  >~ [`Monad mop xs`]
+  >- (rw[subst_def] >> irule exp_rel_Monad >> gvs[LIST_REL_EL_EQN, EVERY2_MAP])
   >~ [‘App f x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_App])
@@ -816,6 +836,11 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘j + n’
     \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
     \\ simp [eval_to_Tick, eval_to_def])
+  >~ [`Monad mop xs`]
+  >- (
+    dxrule_then assume_tac exp_rel_FUNPOW >> gvs[] >> gvs[Once exp_rel_def] >>
+    qexists `n` >> simp[eval_to_def, eval_to_Tick] >> simp[Once v_rel_def]
+    )
   >~ [‘Prim op xs’] >- (
     dxrule_then assume_tac exp_rel_FUNPOW \\ gvs []
     \\ gvs [Once exp_rel_def]
@@ -1133,18 +1158,17 @@ Proof
   \\ Cases_on ‘eval_to (k + m) x’ \\ gvs []
 QED
 
-Theorem tick_apply_force[local] =
-  apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘exp_rel’,‘allow_error’|->‘T’]
-  |> SIMP_RULE std_ss [exp_rel_eval, exp_rel_Force, exp_rel_Value];
-
 Theorem tick_apply_closure[local]:
-  v_rel v1 w1 ∧
+  exp_rel x y ∧
   v_rel v2 w2 ∧
-  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel exp_rel (f x) (g y)) ⇒
+    next_rel v_rel exp_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
+  rw [apply_closure_def] >> simp[with_value_def] >>
+  dxrule_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
+  >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule
@@ -1171,9 +1195,9 @@ Proof
 QED
 
 Theorem tick_rel_ok[local]:
-  rel_ok T v_rel
+  rel_ok T v_rel exp_rel
 Proof
-  rw [rel_ok_def, tick_apply_force, tick_apply_closure]
+  rw[rel_ok_def, tick_apply_closure]
   \\ gs [v_rel_def] \\ rw [Once exp_rel_cases]
 QED
 
