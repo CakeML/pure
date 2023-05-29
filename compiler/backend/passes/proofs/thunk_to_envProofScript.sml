@@ -22,6 +22,12 @@ Proof
   \\ rpt (irule_at Any exp_rel_Var \\ fs [])
 QED
 
+Triviality op_of_op_to_env[simp]:
+  op_of (op_to_env op) = op_of op
+Proof
+  Cases_on `op` >> rw[op_to_env_def, op_of_def]
+QED
+
 Theorem to_env_exp_of:
   ∀x. cexp_wf x ⇒ exp_rel [] (exp_of x) (exp_of (to_env x))
 Proof
@@ -102,20 +108,17 @@ Proof
     \\ irule_at Any exp_rel_Prim \\ fs []
     \\ irule_at Any exp_rel_Var \\ fs []
     \\ rpt (irule_at Any exp_rel_Prim \\ fs []))
-  \\ rename [‘Prim’]
-  \\ reverse (Cases_on ‘p’)
-  >-
-   (fs [to_env_def]
-    \\ irule exp_rel_Prim
-    \\ last_x_assum mp_tac
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘xs’
-    \\ Induct \\ fs [])
-  \\ fs [to_env_def,SF ETA_ss]
-  \\ fs [args_ok_def]
-  \\ rw [] \\ fs [get_arg_def,to_env_def,SF DNF_ss]
-  \\ irule exp_rel_Prim \\ fs [] \\ gvs []
-  \\ Induct_on ‘xs’ \\ fs []
+  >~ [`Prim`]
+  >- (
+    gvs[to_env_def] >> irule exp_rel_Prim >>
+    gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EVERY_EL, EL_MAP]
+    )
+  >~ [`Monad`]
+  >- (
+    gvs[to_env_def] >> Cases_on `mop` >> gvs[exp_of_def] >>
+    gvs[pure_configTheory.num_mop_args_def, LENGTH_EQ_NUM_compute, get_arg_def] >>
+    simp[Once exp_rel_cases]
+    )
 QED
 
 Theorem to_env_semantics:
@@ -222,28 +225,27 @@ Proof
           \\ first_assum $ irule_at Any
           \\ first_assum $ irule_at Any
           \\ simp []))
-  \\ Cases_on ‘∃m. p = Cons m’
-  >-
-   (rw [] \\ fs [args_ok_def]
-    \\ gvs [get_arg_def,remove_Delay_def,to_env_def,SF DNF_ss]
-    \\ gvs [env_cexpTheory.cns_arities_def,SUBSET_DEF,cns_arities_def]
-    \\ rw [] \\ fs [MEM_MAP,EVERY_MEM,PULL_EXISTS,get_arg_def,to_env_def,remove_Delay_def]
-    \\ gvs [env_cexpTheory.cns_arities_def,SUBSET_DEF,cns_arities_def,SF DNF_ss,to_env_def]
-    \\ gvs [EVAL “monad_cns”,MEM_MAP]
-    \\ Cases_on ‘m’ \\ fs []
-    \\ metis_tac [])
-  \\ Cases_on ‘p’ \\ fs []
-  \\ gvs [env_cexpTheory.cns_arities_def,SUBSET_DEF,cns_arities_def,MEM_MAP,PULL_EXISTS]
-  \\ rewrite_tac [AND_IMP_INTRO]
-  \\ strip_tac
-  \\ Cases_on ‘∃m. a = Message m’ \\ fs []
-  >- gvs [args_ok_def,pure_configTheory.num_atomop_args_ok_def,LENGTH_EQ_NUM_compute]
-  \\ fs [args_ok_def]
-  \\ qpat_x_assum ‘num_atomop_args_ok _ _’ kall_tac
-  \\ Induct_on ‘xs’ \\ fs [SF DNF_ss]
-  \\ rewrite_tac [AND_IMP_INTRO]
-  \\ rpt gen_tac \\ strip_tac \\ gvs []
-  \\ metis_tac []
+  >~ [`op_to_env p`]
+  >- (
+    Cases_on `p` >> gvs[op_to_env_def, args_ok_def]
+    >- (
+      rw[] >- gvs[EVERY_MAP, EVERY_MEM] >>
+      gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> rw[] >> disj2_tac >>
+      first_x_assum drule >> gvs[EVERY_MEM] >> rw[] >>
+      pop_assum drule >> rw[SF SFY_ss]
+      )
+    >- (
+      rw[] >> gvs[pure_configTheory.num_atomop_args_ok_def]
+      >- gvs[EVERY_MAP, EVERY_MEM] >>
+      gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> rw[] >>
+      first_x_assum drule >> gvs[EVERY_MEM] >> rw[] >>
+      pop_assum drule >> rw[SF SFY_ss]
+      )
+    ) >>
+  Cases_on `mop` >> gvs[] >>
+  gvs[pure_configTheory.num_mop_args_def, LENGTH_EQ_NUM_compute] >>
+  ntac 2 strip_tac >> gvs[get_arg_def, env_cexpTheory.cns_arities_def] >>
+  gvs[SF DNF_ss, SUBSET_DEF]
 QED
 
 val _ = export_theory ();
