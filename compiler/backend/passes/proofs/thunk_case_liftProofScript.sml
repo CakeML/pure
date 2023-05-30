@@ -697,7 +697,7 @@ Inductive compile_rel:
   (∀op xs ys.
      LIST_REL compile_rel xs ys ⇒
        compile_rel (Prim op xs) (Prim op ys)) ∧
-[~Prim:]
+[~Monad:]
   (∀mop xs ys.
      LIST_REL compile_rel xs ys ⇒
        compile_rel (Monad mop xs) (Monad mop ys)) ∧
