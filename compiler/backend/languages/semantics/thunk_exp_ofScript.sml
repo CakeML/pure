@@ -66,7 +66,8 @@ Definition args_ok_def:
   args_ok (thunk_cexp$AtomOp aop) es =
     (num_atomop_args_ok aop (LENGTH es) ∧
      (∀m. aop = Message m ⇒ m ≠ "") ∧
-     ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l))
+     ∀s1 s2. aop ≠ Lit (Msg s1 s2) ∧ ∀l. aop ≠ Lit (Loc l)) ∧
+  args_ok _ _ = T
 End
 
 Definition cexp_ok_bind_def:
