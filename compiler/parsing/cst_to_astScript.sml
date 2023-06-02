@@ -22,9 +22,9 @@ Overload ptsize = “parsetree_size (K 0) (K 0) (K 0)”;
 Overload ptlsize = “parsetree1_size (K 0) (K 0) (K 0)”;
 
 Definition mkFunTy_def:
-  mkFunTy [] = tyOp "Bool" [] ∧ (* bogus but should never occur *)
+  mkFunTy [] = tyOp (Short "Bool") [] ∧ (* bogus but should never occur *)
   mkFunTy [ty] = ty ∧
-  mkFunTy (ty::rest) = tyOp "Fun" [ty; mkFunTy rest]
+  mkFunTy (ty::rest) = tyOp (Short "Fun") [ty; mkFunTy rest]
 End
 
 Definition grab_def:
@@ -138,7 +138,7 @@ Definition astType_def:
          do
            s <- destAlphaT ' (destTOK ' (destLf pt));
            c1 <- oHD s;
-           if isUpper c1 then SOME $ tyOp s []
+           if isUpper c1 then SOME $ tyOp (string_to_long_name (s:string)) []
            else SOME $ tyVar s
          od
      | [ld; rd] => do assert(tokcheck ld LparT ∧ tokcheck rd RparT) ;
@@ -156,7 +156,7 @@ Definition astType_def:
            else if t = LbrackT then
              do
                assert(tokcheck rd RbrackT);
-               SOME $ tyOp "[]" [ty]
+               SOME $ tyOp (Short "[]") [ty]
              od
            else NONE
          od
@@ -185,7 +185,7 @@ Definition astType_def:
          do
            opnm <- destAlphaT ' (destTOK ' (destLf op_pt)) ;
            ty_args <- astTypeBaseL rest ;
-           SOME $ tyOp opnm ty_args
+           SOME $ tyOp (string_to_long_name opnm) ty_args
          od
    else
      NONE) ∧
@@ -361,13 +361,17 @@ Definition tok_action_def:
 End
 
 Definition mkSym_def:
-  mkSym s = THE (do
-                  c1 <- oHD s ;
-                  if isUpper c1 then SOME $ expCon s []
-                  else if isAlpha c1 ∨ c1 ≠ #":" then SOME $ expVar s
-                  else if s = ":" then SOME $ expCon "::" []
-                  else SOME $ expCon s []
-                od ++ SOME (expVar s))
+  mkSym s =
+  let ln = string_to_long_name s in
+    let n = id_to_n ln
+    in
+      THE (do
+            c1 <- oHD n ;
+            if isUpper c1 then SOME $ expCon ln []
+            else if isAlpha c1 ∨ c1 ≠ #":" then SOME $ expVar ln
+            else if s = ":" then SOME $ expCon (Short "::") []
+            else SOME $ expCon ln []
+          od ++ SOME (expVar ln))
 End
 
 Definition mkFFISym_def:
@@ -442,7 +446,7 @@ Datatype:
 End
 
 Definition exp_to_pat_def:
-  exp_to_pat (expVar s) = (if s = "_" then SOME $ patUScore else SOME $ patVar s) ∧
+  exp_to_pat (expVar (Short s)) = (if s = "_" then SOME $ patUScore else SOME $ patVar s) ∧
   exp_to_pat (expCon s es) = OPTION_MAP (patApp s) (OPT_MMAP exp_to_pat es) ∧
   exp_to_pat (expTup es) = OPTION_MAP patTup (OPT_MMAP exp_to_pat es) ∧
   exp_to_pat (expLit l) = SOME $ patLit l ∧
@@ -457,7 +461,7 @@ Definition resolve_decl_def:
     SOME (patVar s) => SOME $ resolve_declFun s []
   | SOME p => SOME $ resolve_declPattern p
   | NONE => (case strip_comb e of
-               (expVar fname, args) =>
+               (expVar (Short fname), args) =>
                  OPTION_MAP (resolve_declFun fname) (OPT_MMAP exp_to_pat args)
              | _ => NONE)
 End
@@ -487,7 +491,7 @@ Definition astExp_def:
          od ++ (lift expLit $ astLit pt) ++
          do
            assert (tokcheck pt UnderbarT) ;
-           SOME $ expVar "_"
+           SOME $ expVar (Short "_")
          od ++
          do
            ffi_s <- destFFIT ' (destTOK ' (destLf pt)) ;
@@ -583,16 +587,16 @@ Definition astExp_def:
          od
    else if nt1 = nEqBindSeq then
      case args of
-       [] => return (expLet [] (expVar ""))
+       [] => return (expLet [] (expVar (Short "")))
      | pt1 :: rest =>
          do
            assert (tokcheck pt1 LbraceT);
            (adecs,rest') <<- grabsepby astExpDec SemicolonT rest;
            rbpt <- oHD rest';
            assert (tokcheck rbpt RbraceT ∧ LENGTH rest' = 1);
-           return (expLet adecs (expVar ""))
+           return (expLet adecs (expVar (Short "")))
          od ++
-         OPTION_MAP (λads. expLet ads (expVar ""))
+         OPTION_MAP (λads. expLet ads (expVar (Short "")))
                     (OPT_MMAP astExpDec (pt1::rest))
    else
      NONE) ∧
@@ -712,7 +716,8 @@ Definition astFunPatBindf_def:
   od ++
   do
     (f, args) <<- strip_comb e ;
-    fnm <- dest_expVar f;
+    fln <- dest_expVar f;
+    fnm <- dest_Short fln;
     arg_pats <- OPT_MMAP exp_to_pat args;
     return (declFunbind fnm arg_pats)
   od

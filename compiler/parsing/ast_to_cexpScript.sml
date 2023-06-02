@@ -99,7 +99,7 @@ Definition translate_pat_def:
   translate_pat (patApp s pvs) =
   do
     vs <- OPT_MMAP dest_patVar pvs ;
-    SOME (implode s, vs)
+    SOME (implode (long_name_to_string s), vs)
   od ∧
   translate_pat _ = NONE
 End
@@ -111,11 +111,11 @@ End
 
 Overload Bind = “λa1 a2. pure_cexp$Prim () (Cons «Bind») [a1;a2]”
 Definition translate_exp_def:
-  translate_exp tyinfo (expVar s) = SOME (Var () (implode s)) ∧
+  translate_exp tyinfo (expVar s) = SOME (Var () (implode (long_name_to_string s))) ∧
   translate_exp tyinfo (expCon s es) =
   do
     rs <- OPT_MMAP (translate_exp tyinfo) es;
-    SOME (Prim () (Cons (implode s)) rs)
+    SOME (Prim () (Cons (implode (long_name_to_string s))) rs)
   od ∧
   translate_exp tyinfo (expOp op es) =
   do
@@ -375,33 +375,35 @@ QED
  *)
 
 Definition translate_type_def:
-  translate_type nm_map arg_map (tyOp s tys) =
-  (if s = "Fun" then
-     do
-       assert (LENGTH tys = 2);
-       dty <- oHD tys ;
-       rty <- oEL 1 tys ;
-       d <- translate_type nm_map arg_map dty;
-       r <- translate_type nm_map arg_map rty;
-       return (pure_typing$Function d r)
-     od
-   else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
-   else if s = "Integer" then do assert (tys = []); return $ PrimTy Integer od
-   else if s = "String" then do assert (tys = []); return $ PrimTy String od
-   else if s = "IO" then do assert (LENGTH tys = 1);
-                            t <- translate_type nm_map arg_map (HD tys);
-                            return $ M t;
-                         od
-   else if s = "Array" then do assert (LENGTH tys = 1);
-                               t <- translate_type nm_map arg_map (HD tys);
-                               return $ Array t;
-                            od
-   else
-     do
-       opidx <- lookup nm_map (implode s) ;
-       args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
-       return $ TypeCons opidx args
-     od) ∧
+  translate_type nm_map arg_map (tyOp ln tys) =
+  (let s = long_name_to_string ln
+   in
+     if s = "Fun" then
+       do
+         assert (LENGTH tys = 2);
+         dty <- oHD tys ;
+         rty <- oEL 1 tys ;
+         d <- translate_type nm_map arg_map dty;
+         r <- translate_type nm_map arg_map rty;
+         return (pure_typing$Function d r)
+       od
+     else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
+     else if s = "Integer" then do assert (tys = []); return $ PrimTy Integer od
+     else if s = "String" then do assert (tys = []); return $ PrimTy String od
+     else if s = "IO" then do assert (LENGTH tys = 1);
+                              t <- translate_type nm_map arg_map (HD tys);
+                              return $ M t;
+                           od
+     else if s = "Array" then do assert (LENGTH tys = 1);
+                                 t <- translate_type nm_map arg_map (HD tys);
+                                 return $ Array t;
+                              od
+     else
+       do
+         opidx <- lookup nm_map (implode s) ;
+         args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
+         return $ TypeCons opidx args
+       od) ∧
 
   translate_type nm_map arg_map (tyVar s) =
   do
@@ -480,7 +482,7 @@ Definition build_tysig1_def:
 End
 
 Definition listinfo_def:
-  listinfo = (["a"], [(«[]», []); («::», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
+  listinfo = (["a"], [(«[]», []); («::», [tyVar "a"; tyOp (Short "[]") [tyVar "a"]])])
 End
 
 Definition decls_to_letrec_def:

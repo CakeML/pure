@@ -87,7 +87,7 @@ fun sp (* simple parse *) nt s =
     EVAL (list_mk_icomb(fullparse, [hd (decls nt), stringSyntax.fromMLstring s,
                                     ptSOME]))
 
-val threetimesfour = “expApp (expApp (expVar "*") (expLit (litInt 3)))
+val threetimesfour = “expApp (expApp (expVar (Short "*")) (expLit (litInt 3)))
                              (expLit (litInt 4))”
 val _ = temp_overload_on("𝕀", “λi. expLit (litInt i)”);
 val _ = temp_overload_on("𝕁", “λi. Prim () (AtomOp (Lit (Int i))) []”);
@@ -132,36 +132,36 @@ val _ = app lextest [
 
 val _ = app fptest [
   (“nTy”, "[Integer]", “astType nTy”, “listTy intTy”),
-  (“nTy”, "a -> B", “astType nTy”, “funTy (tyVar "a") (tyOp "B" [])”),
-  (“nTy”, "(Tree a, B)", “astType nTy”, “tyTup [tyOp "Tree" [tyVar "a"];
-                                                tyOp "B" []]”),
+  (“nTy”, "a -> B", “astType nTy”, “funTy (tyVar "a") (tyOp (Short "B") [])”),
+  (“nTy”, "(Tree a, B)", “astType nTy”, “tyTup [tyOp (Short "Tree") [tyVar "a"];
+                                                tyOp (Short "B") []]”),
   (“nTy”, "[Integer -> ()]", “astType nTy”, “listTy (funTy intTy $ tyTup [])”),
-  (“nExp”, "f 2 x", “astExp nExp”, “‹f› ⬝ 𝕀 2 ⬝ ‹x›”),
+  (“nExp”, "f 2 x", “astExp nExp”, “(expVar (Short "f")) ⬝ 𝕀 2 ⬝ (expVar (Short "x"))”),
   (“nExp”, "\\x y -> y x", “astExp nExp”,
-   “expAbs (patVar "x") (expAbs (patVar "y") (‹y› ⬝ ‹x›))”),
+   “expAbs (patVar "x") (expAbs (patVar "y") (expVar (Short "y") ⬝ (expVar (Short "x"))))”),
   (“nExp”, " if p x \nthen 1 else 2", “astExp nExp”,
-   “expIf (expApp (expVar "p") (expVar "x")) (𝕀 1) (𝕀 2)”),
+   “expIf (expApp (expVar (Short "p")) (expVar (Short "x"))) (𝕀 1) (𝕀 2)”),
   (“nExp”, " if p x \nthen 1 else 2", “CEXP”,
    “Case () (App () (pure_cexp$Var () «p») [pure_cexp$Var () «x»]) «»
          [(«True», [], Prim () (AtomOp (Lit (Int 1))) []);
           («False», [], Prim () (AtomOp (Lit (Int 2))) []);
          ] NONE”),
   (“nExp”, "z + if p x \nthen 1 else 2", “astExp nExp”,
-   “‹+› ⬝ ‹z› ⬝ expIf (expApp (expVar "p") (expVar "x")) (𝕀 1) (𝕀 2)”),
-  (“nExp”, "3 * 4 + 6", “astExp nExp”, “‹+› ⬝ (‹*› ⬝ 𝕀 3 ⬝ 𝕀 4) ⬝ 𝕀 6”),
-  (“nExp”, "3 `mod` z + 7", “ASTEXP”, “‹+› ⬝ (‹mod› ⬝ 𝕀 3 ⬝ ‹z›) ⬝ 𝕀 7”),
-  (“nExp”, "x * y `mod` z", “ASTEXP”, “‹mod› ⬝ (‹*› ⬝ ‹x› ⬝ ‹y›) ⬝ ‹z›”),
-  (“nExp”, "x + y `foo` z", “ASTEXP”, “‹+› ⬝ ‹x› ⬝ (‹foo› ⬝ ‹y› ⬝ ‹z›)”),
-  (“nExp”, "x `seq` z", “ASTEXP”, “‹seq› ⬝ ‹x› ⬝ ‹z›”),
+   “expVar (Short "+") ⬝ expVar (Short "z") ⬝ expIf (expApp (expVar (Short "p")) (expVar (Short "x"))) (𝕀 1) (𝕀 2)”),
+  (“nExp”, "3 * 4 + 6", “astExp nExp”, “expVar (Short "+") ⬝ (expVar (Short "*") ⬝ 𝕀 3 ⬝ 𝕀 4) ⬝ 𝕀 6”),
+  (“nExp”, "3 `mod` z + 7", “ASTEXP”, “expVar (Short "+") ⬝ (expVar (Short "mod") ⬝ 𝕀 3 ⬝ expVar (Short "z")) ⬝ 𝕀 7”),
+  (“nExp”, "x * y `mod` z", “ASTEXP”, “expVar (Short "mod") ⬝ (expVar (Short "*") ⬝ expVar (Short "x") ⬝ expVar (Short "y")) ⬝ expVar (Short "z")”),
+  (“nExp”, "x + y `foo` z", “ASTEXP”, “expVar (Short "+") ⬝ expVar (Short "x") ⬝ (expVar (Short "foo") ⬝ expVar (Short "y") ⬝ expVar (Short "z"))”),
+  (“nExp”, "x `seq` z", “ASTEXP”, “expVar (Short "seq") ⬝ expVar (Short "x") ⬝ expVar (Short "z")”),
   (“nExp”, "x `seq` z", “CEXP”, “Prim () Seq [𝕍 «x»; 𝕍 «z»]”),
-  (“nExp”, "6 + 3 * 4", “astExp nExp”, “‹+› ⬝ 𝕀 6 ⬝ (‹*› ⬝ 𝕀 3 ⬝ 𝕀 4)”),
-  (“nExp”, "(6 + 3) * 4", “astExp nExp”, “‹*› ⬝ (‹+› ⬝ 𝕀 6 ⬝ 𝕀 3) ⬝ 𝕀 4”),
-  (“nExp”, "h1:h2:t", “astExp nExp”, “‹h1› ::ₚ ‹h2› ::ₚ ‹t›”),
-  (“nExp”, "1+3:t", “astExp nExp”, “(‹+› ⬝ 𝕀 1 ⬝ 𝕀 3) ::ₚ ‹t›”),
-  (“nExp”, "C () 3", “astExp nExp”, “expCon "C" [expTup []; 𝕀 3]”),
-  (“nExp”, "C (x+y) 3", “astExp nExp”, “expCon "C" [‹+› ⬝ ‹x› ⬝ ‹y›; 𝕀 3]”),
-  (“nExp”, "C (x,y) 3", “astExp nExp”, “expCon "C" [expTup [‹x›; ‹y›]; 𝕀 3]”),
-  (“nExp”, "D [] 3", “astExp nExp”, “expCon "D" [pNIL; 𝕀 3]”),
+  (“nExp”, "6 + 3 * 4", “astExp nExp”, “expVar (Short "+") ⬝ 𝕀 6 ⬝ (expVar (Short "*") ⬝ 𝕀 3 ⬝ 𝕀 4)”),
+  (“nExp”, "(6 + 3) * 4", “astExp nExp”, “expVar (Short "*") ⬝ (expVar (Short "+") ⬝ 𝕀 6 ⬝ 𝕀 3) ⬝ 𝕀 4”),
+  (“nExp”, "h1:h2:t", “astExp nExp”, “expVar (Short "h1") ::ₚ expVar (Short "h2") ::ₚ expVar (Short "t")”),
+  (“nExp”, "1+3:t", “astExp nExp”, “(expVar (Short "+") ⬝ 𝕀 1 ⬝ 𝕀 3) ::ₚ expVar (Short "t")”),
+  (“nExp”, "C () 3", “astExp nExp”, “expCon (Short "C") [expTup []; 𝕀 3]”),
+  (“nExp”, "C (x+y) 3", “astExp nExp”, “expCon (Short "C") [expVar (Short "+") ⬝ expVar (Short "x") ⬝ expVar (Short "y"); 𝕀 3]”),
+  (“nExp”, "C (x,y) 3", “astExp nExp”, “expCon (Short "C") [expTup [expVar (Short "x"); expVar (Short "y")]; 𝕀 3]”),
+  (“nExp”, "D [] 3", “astExp nExp”, “expCon (Short "D") [pNIL; 𝕀 3]”),
   (“nExp”, "D [] 3", “CEXP”,
    “Prim () (Cons «D») [Prim () (Cons «[]») []; 𝕁 3]”),
   (“nExp”, "#(stdout) \"Hello, world!\\n\"", “astExp nExp”,
@@ -173,20 +173,20 @@ val _ = app fptest [
   (“nExp”, "#(__Len) \"Hello, world!\\n\"", “CEXP”,
    “Prim () (AtomOp Len) [𝕋 "Hello, world!\n"]”),
   (“nExp”, "f [x,y] 3", “astExp nExp”,
-   “‹f› ⬝ (‹x› ::ₚ ‹y› ::ₚ pNIL) ⬝ 𝕀 3”),
+   “expVar (Short "f") ⬝ (expVar (Short "x") ::ₚ expVar (Short "y") ::ₚ pNIL) ⬝ 𝕀 3”),
   (“nExp”, "f [x,y] 3", “CEXP”,
    “App () (𝕍u «f») [𝕍u «x» ::ₑ 𝕍u «y» ::ₑ []ₑ; 𝕁 3]”),
-  (“nExp”, "f \"foo\"", “astExp nExp”, “‹f› ⬝ 𝕊 "foo"”),
+  (“nExp”, "f \"foo\"", “astExp nExp”, “expVar (Short "f") ⬝ 𝕊 "foo"”),
   (“nExp”, "f \"foo\"", “CEXP”, “App () (𝕍u «f») [𝕋 "foo"]”),
   (“nExp”, "let y = x + 3 in y + z",
    “astExp nExp”,
-   “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+   “expLet [expdecFunbind "y" [] (expVar (Short "+") ⬝ expVar (Short "x") ⬝ 𝕀 3)] (expVar (Short "+") ⬝ expVar (Short "y") ⬝ expVar (Short "z"))”),
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z",
    “astExp nExp”,
-   “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3);
-            expdecFunbind "z" [] (𝕀 10)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+   “expLet [expdecFunbind "y" [] (expVar (Short "+") ⬝ expVar (Short "x") ⬝ 𝕀 3);
+            expdecFunbind "z" [] (𝕀 10)] (expVar (Short "+") ⬝ expVar (Short "y") ⬝ expVar (Short "z"))”),
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z", “CEXP”,
@@ -198,11 +198,11 @@ val _ = app fptest [
   (“nExp”, "do x <- f y 3\n\
            \   foo x",
    “astExp nExp”,
-   “expDo [expdostmtBind (patVar "x") (‹f› ⬝ ‹y› ⬝ 𝕀 3)] (‹foo› ⬝ ‹x›)”),
+   “expDo [expdostmtBind (patVar "x") (expVar (Short "f") ⬝ expVar (Short "y") ⬝ 𝕀 3)] (expVar (Short "foo") ⬝ expVar (Short "x"))”),
   (“nExp”, "do do x\n\
            \   y",
    “astExp nExp”,
-   “expDo [expdostmtExp (expDo [] ‹x›)] ‹y›”),
+   “expDo [expdostmtExp (expDo [] (expVar (Short "x")))] (expVar (Short "y"))”),
   (“nExp”, "do x <- f y 3\n\
            \   foo x",
    “CEXP”,
@@ -216,15 +216,15 @@ val _ = app fptest [
    “astExp nExp”,
    “expDo [expdostmtLet [expdecFunbind "y" [] (𝕀 10);
                          expdecTysig "f" (funTy intTy intTy);
-                         expdecFunbind "f" [patVar "z"] (‹+› ⬝ ‹z› ⬝ 𝕀 1)];
-           expdostmtBind (patVar "x") (‹g› ⬝ (‹f› ⬝ ‹y›) ⬝ 𝕀 3)]
-          (‹foo› ⬝ ‹x›)”),
+                         expdecFunbind "f" [patVar "z"] (expVar (Short "+") ⬝ expVar (Short "z") ⬝ 𝕀 1)];
+           expdostmtBind (patVar "x") (expVar (Short "g") ⬝ (expVar (Short "f") ⬝ expVar (Short "y")) ⬝ 𝕀 3)]
+          (expVar (Short "foo") ⬝ expVar (Short "x"))”),
   (“nPatAlt”, "_ -> 10", “astPatAlt”, “(patUScore, 𝕀 10)”),
   (“nExp”, "case e of [] -> 3\n\
            \          h:t -> 4",
    “astExp nExp”,
-   “expCase ‹e› [(patApp "[]" [], 𝕀 3);
-                 (patApp "::" [patVar "h"; patVar "t"], 𝕀 4)]”),
+   “expCase (expVar (Short "e")) [(patApp (Short "[]") [], 𝕀 3);
+                 (patApp (Short "::") [patVar "h"; patVar "t"], 𝕀 4)]”),
   (“nExp”, "case e of [] -> 3\n\
            \          h:t -> 4",
    “CEXP”,
@@ -232,7 +232,7 @@ val _ = app fptest [
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
    “astExp nExp”,
-    “expCase ‹e› [(patApp "::" [patVar "h"; patVar "t"], 𝕀 3);
+    “expCase (expVar (Short "e")) [(patApp (Short "::") [patVar "h"; patVar "t"], 𝕀 3);
                   (patUScore, 𝕀 10)]”),
   (“nExp”, "case e of h : t -> 3\n\
            \          _ -> 10",
@@ -240,22 +240,22 @@ val _ = app fptest [
    “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] (SOME ([(«[]», 0)], 𝕁 10))”),
   (“nExp”, "case e of h : t -> 3",
    “astExp nExp”,
-   “expCase ‹e› [(patApp "::" [patVar "h"; patVar "t"], 𝕀 3)]”),
+   “expCase (expVar (Short "e")) [(patApp (Short "::") [patVar "h"; patVar "t"], 𝕀 3)]”),
   (“nExp”, "case e of h : t -> 3",
    “CEXP”,
    “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] NONE”),
   (“nDecl”, "f :: a -> Integer", “astDecl”,
    “declTysig "f" (funTy (tyVar "a") intTy)”),
   (“nDecl”, "f x y = x + y", “astDecl”,
-   “declFunbind "f" [patVar "x"; patVar "y"] (‹+› ⬝ ‹x› ⬝ ‹y›)”),
+   “declFunbind "f" [patVar "x"; patVar "y"] (expVar (Short "+") ⬝ expVar (Short "x") ⬝ expVar (Short "y"))”),
   (“nDecl”, "h:t = f e", “astDecl”,
-   “declPatbind (patApp "::" [patVar "h"; patVar "t"]) (‹f› ⬝ ‹e›)”),
+   “declPatbind (patApp (Short "::") [patVar "h"; patVar "t"]) (expVar (Short "f") ⬝ expVar (Short "e"))”),
   (“nDecl”, "data Foo a = C a Integer | D [Integer]", “astDecl”,
    “declData "Foo" ["a"] [("C", [tyVar "a"; intTy]);
-                          ("D", [tyOp "[]" [intTy]])]”),
+                          ("D", [tyOp (Short "[]") [intTy]])]”),
   (“nDecls”, "data Bar = C | D Integer Bar\nf:: Bar -> Integer", “astDecls”,
-   “[declData "Bar" [] [("C", []); ("D", [intTy; tyOp "Bar" []])];
-     declTysig "f" (funTy (tyOp "Bar" []) intTy)]”),
+   “[declData "Bar" [] [("C", []); ("D", [intTy; tyOp (Short "Bar") []])];
+     declTysig "f" (funTy (tyOp (Short "Bar") []) intTy)]”),
   (“nDecls”, "data Bar = C | D Integer Bar\nf:: Bar -> Integer", “CDECLS”,
    “(Letrec () [] CMAIN,
      [(1n, [(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])]);

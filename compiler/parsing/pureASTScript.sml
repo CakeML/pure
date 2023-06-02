@@ -6,6 +6,47 @@ val _ = new_theory "pureAST";
 val _ = set_grammar_ancestry ["string", "integer", "pure_config", "namespace"]
 
 Type long_name = “:(string, string) id”
+
+Definition mods_to_string_def:
+  mods_to_string [] = "" ∧
+  mods_to_string ((mn: string):: mns) =
+  case mns of
+    [] => mn
+  | _ => STRCAT (STRCAT mn ".") (mods_to_string mns)
+End
+
+Definition long_name_to_string_def:
+  long_name_to_string ln =
+  STRCAT (STRCAT (mods_to_string (id_to_mods ln)) ".") (id_to_n ln)
+End
+
+
+val test1 = EVAL “long_name_to_string (Long "Foo" (Short "f"))”;
+
+val test1 = EVAL “long_name_to_string (Short "f")”;
+
+val test1 = EVAL “long_name_to_string (Long "Bar" (Long "Foo" (Short "f")))”;
+
+
+Definition string_to_mods_def:
+  (string_to_mods s mods [] = (s, mods)) ∧
+  (string_to_mods s mods (c::rest) =
+   if c = #"." then
+     string_to_mods "" (mods ++ [s]) rest
+   else string_to_mods (s ++ [c]) mods rest)
+End
+
+Definition string_to_long_name_def:
+  string_to_long_name s =
+  let (n, mods) = string_to_mods "" [] s in
+    mk_id mods n
+End
+
+Definition dest_Short_def:
+  dest_Short (Short s) = SOME s ∧
+  dest_Short _ = NONE
+End
+
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
 
