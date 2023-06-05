@@ -16,8 +16,8 @@ Definition mods_to_string_def:
 End
 
 Definition long_name_to_string_def:
-  long_name_to_string ln =
-  STRCAT (STRCAT (mods_to_string (id_to_mods ln)) ".") (id_to_n ln)
+  long_name_to_string (Short s) = s ∧
+  long_name_to_string ln = STRCAT (STRCAT (mods_to_string (id_to_mods ln)) ".") (id_to_n ln)
 End
 
 

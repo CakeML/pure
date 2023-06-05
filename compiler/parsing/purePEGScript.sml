@@ -80,6 +80,18 @@ Definition purePEG_def[nocompute]:
     start := NT nDecls I lrOK;
     rules :=
     FEMPTY |++ [
+        (INL nModules, pegf (rpt (NT nModule I lrEQ) FLAT) (mkNT nModules));
+        (INL nModule,
+         seql [tokEQ ((=) $ AlphaT "module") ;
+               tokGE capname_tok;
+               tokGT ((=) $ AlphaT "with") ;
+               NT nImports I lrEQ;
+               NT nDecls I lrEQ]
+              (mkNT nModule));
+        (INL nImports, pegf (rpt (NT nImport I lrEQ) FLAT) (mkNT nImports));
+        (INL nImport,
+         seql [tokEQ ((=) $ AlphaT "import") ;
+               tokGE capname_tok] (mkNT nImport));
         (INL nDecls, pegf (rpt (NT nDecl I lrEQ) FLAT) (mkNT nDecls));
         (INL nDecl,
          choicel [
@@ -363,7 +375,7 @@ val topo_nts = [“nLit”, “nAExp”, “nAExpEQ”,
                 “nExpEQ”, “nValBinding”, “nDecl”, “nPatAlt”, “nAPat”,
                 “nEqBind”, “nDoStmt”, “nDoStmtEQ”, “nTyBase”,
                 “nDoStmtSeqEQ”, “nDoStmtSeq”, “nDoBlockLayout”,
-                “nDoBlock”]
+                “nDoBlock”, “nImport”, “nModule”]
 
 fun npeg0(t,acc) =
   let
@@ -396,7 +408,7 @@ val wfpeg_nt_rwts =
   List.foldl wfnt []
     (topo_nts @ [“nPatAlts”, “nDecls”, “nEqBindSeq”, “nDoBlock”,
                  “nEqBindSeq'”, “nTyApp”, “nTy”, “nFreeEqBind”,
-                 “nTyConDecl”])
+                 “nTyConDecl”, “nImports”, “nModules”])
   |> LIST_CONJ
 
 Theorem PEG_wellformed[simp]:
@@ -440,7 +452,6 @@ fun test n s =
           (lexer_fun ^(stringLib.fromMLstring s))
           lpTOP [] NONE [] done failed” |> concl |> rhs
 val testty = test “nTy”
-
 
 val good1 = test “nDecls”
                      "foo :: A -> (B,\n\
@@ -575,5 +586,40 @@ test “nExp” "do {\n\
             \x <- f y ; check 3; \n\
             \return (x + 1)}"
 
+val imports_long = test “nImports”
+                            "import Foo.Bar.Baz"
+
+val imports_short = test “nImports”
+                             "import Foo"
+                                     
+val imports2 = test “nImports”
+                             "import Foo\n\
+                             \import Bar.Baz"
+
+val module1 = test “nModule” "module Foo with\n\
+                             \import Bar\n\
+                             \data Baz a = C a"
+
+val module2 = test “nModule” "module Foo with\n\
+                              \y = 1\n\
+                              \f x = let \n\
+                              \  y = x + 1\n\
+                              \  in y"
+
+(* does not work, stop parsing at f *)
+val module2 = test “nModule” "module Foo with\n\
+                              \y = 1\n\
+                              \f x = let \n\
+                              \{y = x + 1}\n\
+                              \  in y"
+
+(* does not work, just parse the first module *)
+val modules = test “nModules” "module Foo with\n\
+                              \y = 1\n\
+                              \f x = let \n\
+                              \  y = x + 1\n\
+                              \  in y\n\
+                              \module Bar.Baz with \n\
+                              \import Foo"
 
 val _ = export_theory();

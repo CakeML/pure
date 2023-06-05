@@ -5,7 +5,8 @@ val _ = new_theory "pureNT";
 val _ = set_grammar_ancestry ["list"]
 
 Datatype:
-  ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
+  ppegnt = nModules | nModule | nImports | nImport
+         | nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
          | nPat | nAPat | nFunRHS
          | nExp | nExpEQ | nLSafeExp | nLSafeExpEQ | nIExp | nIExpEQ
          | nFExp | nFExpEQ | nFExp2 | nAExp | nAExpEQ
