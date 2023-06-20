@@ -183,12 +183,6 @@ Proof
   fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
 QED
 
-Triviality FORALL_FRANGE: (* TODO: move *)
-  (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
-Proof
-  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
-QED
-
 Theorem mk_bind_closed:
   obligation binds ⇒
   (∀v. v ∈ FRANGE
@@ -469,15 +463,6 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality MEM_IMP_EQ: (* TODO: move *)
-  ∀b1 k p1 p2.
-    MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
-Proof
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ fs [MEM_MAP,EXISTS_PROD]
-  \\ res_tac \\ fs []
-QED
-
 Triviality EVERY_FLOOKUP_closed_lemma:
   EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
   (∀n v.
@@ -488,31 +473,6 @@ Proof
   \\ rw [] \\ imp_res_tac ALOOKUP_MEM
   \\ gvs [MEM_MAP,EXISTS_PROD,EVERY_MEM,PULL_EXISTS]
   \\ res_tac \\ fs []
-QED
-
-Theorem MEM_LIST_REL: (* TODO: move *)
-  ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem MEM_LIST_REL1: (* TODO: move *)
-  ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem LIST_REL_COMP: (* TODO: move *)
-  ∀xs ys zs.
-    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
-    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ metis_tac []
 QED
 
 Theorem subst_funs_Lams:
@@ -604,14 +564,6 @@ QED
 
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
-
-Triviality LIST_REL_IMP_MAP_EQ: (* TODO: move *)
-  ∀xs ys P f g.
-    (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
-    LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
-Proof
-  Induct \\ fs [PULL_EXISTS,SF DNF_ss] \\ metis_tac []
-QED
 
 Triviality IMP_Seq_Zero:
   closed y ∧ (x ≃ y) F ⇒ (x ≃ Seq Zero y) F
@@ -780,7 +732,7 @@ Proof
       \\ drule EVERY_FLOOKUP_closed_lemma \\ strip_tac
       \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys)’ by
         (fs [EVERY_MEM] \\ rw []
-         \\ drule_all MEM_LIST_REL \\ rw []
+         \\ drule_all LIST_REL_MEM_ALT \\ rw []
          \\ imp_res_tac letrec_seq_freevars \\ fs []
          \\ res_tac  \\ gvs [] \\ metis_tac [])
       \\ imp_res_tac letrec_seq_freevars \\ fs []
@@ -989,7 +941,7 @@ Proof
     \\ rw []
     >-
      (fs [EVERY_MEM,MEM_MAP] \\ rw []
-      \\ drule_all MEM_LIST_REL \\ rw []
+      \\ drule_all LIST_REL_MEM_ALT \\ rw []
       \\ first_x_assum $ drule_then drule
       \\ res_tac
       \\ imp_res_tac letrec_seq_freevars
@@ -1004,7 +956,7 @@ Proof
     >-
      (CCONTR_TAC \\ fs []
       \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
-      \\ drule_all MEM_LIST_REL \\ strip_tac
+      \\ drule_all LIST_REL_MEM_ALT \\ strip_tac
       \\ ‘closed x ∧ ¬error_Atom (eval_wh_to (k − 1) x)’ by (res_tac \\ fs [])
       \\ ‘eval_wh_to (k − 1) x ≠ wh_Diverge’ by (CCONTR_TAC \\ fs [] \\ res_tac \\ fs [])
       \\ first_x_assum $ drule_then drule
@@ -1028,12 +980,6 @@ Proof
        \\ fs [closed_def,EVERY_MEM] \\ res_tac \\ fs [])
     \\ disch_then drule \\ fs []
     \\ Cases_on ‘eval_wh_to (k − 1) x’ \\ fs [])
-QED
-
-Triviality LIST_REL_flip: (* TODO: move *)
-  ∀xs ys. LIST_REL r xs ys ⇒ LIST_REL (λx y. r y x) ys xs
-Proof
-  Induct \\ fs [PULL_EXISTS]
 QED
 
 Theorem eval_wh_mk_seqs_skip:
@@ -1138,7 +1084,7 @@ Proof
       \\ drule EVERY_FLOOKUP_closed_lemma \\ strip_tac
       \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys)’ by
         (fs [EVERY_MEM] \\ rw []
-         \\ drule_all MEM_LIST_REL1 \\ rw []
+         \\ drule_all LIST_REL_MEM \\ rw []
          \\ imp_res_tac letrec_seq_freevars \\ fs []
          \\ res_tac  \\ gvs [] \\ metis_tac [])
       \\ imp_res_tac letrec_seq_freevars \\ fs []
@@ -1254,9 +1200,11 @@ Proof
     \\ ‘eval_wh (Cons s xs') = wh_Constructor s xs'’ by fs [eval_wh_Cons]
     \\ drule_all eval_wh_Constructor_bisim \\ strip_tac \\ fs []
     \\ pop_assum mp_tac
-    \\ drule LIST_REL_flip \\ rpt strip_tac
+    \\ simp [Once LIST_REL_SWAP] \\ rpt strip_tac
     \\ drule_then drule LIST_REL_COMP
-    \\ match_mp_tac LIST_REL_mono \\ fs [])
+    \\ simp [Once LIST_REL_SWAP]
+    \\ match_mp_tac LIST_REL_mono \\ fs []
+    \\ metis_tac [])
   >~ [‘If’] >-
    (gvs [eval_wh_to_def]
     \\ IF_CASES_TAC \\ fs []
@@ -1360,7 +1308,7 @@ Proof
     \\ rw []
     >-
      (fs [EVERY_MEM,MEM_MAP] \\ rw []
-      \\ drule_all MEM_LIST_REL1 \\ rw []
+      \\ drule_all LIST_REL_MEM \\ rw []
       \\ last_x_assum $ drule_at $ Pos $ el 2
       \\ disch_then $ qspec_then ‘k-1’ mp_tac \\ fs []
       \\ res_tac
@@ -1376,7 +1324,7 @@ Proof
     >-
      (CCONTR_TAC \\ fs []
       \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
-      \\ drule_all MEM_LIST_REL1 \\ strip_tac
+      \\ drule_all LIST_REL_MEM \\ strip_tac
       \\ ‘closed y' ∧ ¬error_Atom (eval_wh_to (k − 1) y')’ by (res_tac \\ fs [])
       \\ ‘eval_wh_to (k − 1) y' ≠ wh_Diverge’ by (CCONTR_TAC \\ fs [] \\ res_tac \\ fs [])
       \\ last_x_assum $ drule_at $ Pos $ el 2
@@ -1504,11 +1452,6 @@ Proof
   \\ fs [eval_wh_Prim,get_atoms_def]
 QED
 
-Definition Seqs_def[simp]: (* TODO: move *)
-  Seqs [] x = x /\
-  Seqs (y::ys) x = Seq y (Seqs ys x)
-End
-
 Inductive reformulate:
 [~full:]
   (∀(binds:bind list) f es seqs bs.
@@ -1605,22 +1548,6 @@ Proof
       \\ first_x_assum $ irule_at Any
       \\ simp [FILTER_FILTER, CONJ_COMM]
       \\ irule_at Any EQ_REFL)
-QED
-
-Triviality FST_INTRO: (* TODO: move *)
-  (λ(x,y). x) = FST
-Proof
-  fs [FUN_EQ_THM,FORALL_PROD]
-QED
-
-Theorem LIST_REL_MAP: (* TODO: move *)
-  ∀xs ys.
-    LIST_REL P (MAP f xs) (MAP g ys) ⇔
-    LIST_REL (λx y. P (f x) (g y)) xs ys
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ gen_tac \\ gen_tac
-  \\ Cases_on ‘ys’ \\ fs []
 QED
 
 Triviality FDIFF_LIST_FUPDATE:
@@ -1797,28 +1724,6 @@ Proof
   \\ irule_at Any exp_eq_refl
   \\ irule mk_seqs_mk_seqs
   \\ fs []
-QED
-
-Theorem subst_Seqs: (* TODO: move *)
-  ∀xs y. subst m (Seqs xs y) = Seqs (MAP (subst m) xs) (subst m y)
-Proof
-  Induct \\ fs [subst_def]
-QED
-
-Theorem subst_Apps: (* TODO: move *)
-  ∀xs m f. subst m (Apps f xs) = Apps (subst m f) (MAP (subst m) xs)
-Proof
-  Induct \\ fs [Apps_def,subst_def]
-QED
-
-Triviality ALL_DISTINCT_MEM_MEM: (* TODO: move *)
-  ALL_DISTINCT (MAP FST xs) ∧ MEM (x,y) xs ∧ MEM (x,y1) xs ⇒ y = y1
-Proof
-  rw [] \\ pop_assum mp_tac
-  \\ rewrite_tac [MEM_SPLIT]
-  \\ strip_tac \\ gvs []
-  \\ gvs [MEM_SPLIT]
-  \\ gvs [ALL_DISTINCT_APPEND,SF DNF_ss]
 QED
 
 Triviality ALOOKUP_IMP_FLOOKUP:
