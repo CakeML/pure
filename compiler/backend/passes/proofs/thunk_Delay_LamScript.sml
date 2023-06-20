@@ -87,7 +87,11 @@ Inductive exp_rel:
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y)) ∧
+[~Monad:]
+  (∀m xs ys.
+     LIST_REL exp_rel xs ys ⇒
+     exp_rel (Monad m xs) (Monad m ys)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
@@ -149,7 +153,11 @@ Inductive exp_rel:
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
-     v_rel (DoTick v) (DoTick w))
+     v_rel (DoTick v) (DoTick w)) ∧
+[v_rel_Monadic:]
+  (∀m xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       v_rel (Monadic m xs) (Monadic m ys))
 End
 
 Theorem exp_rel_def =
@@ -164,12 +172,14 @@ Theorem exp_rel_def =
    “exp_rel (Delay x) y”,
    “exp_rel (Box x) y”,
    “exp_rel (MkTick x) y”,
-   “exp_rel (Force x) y”]
+   “exp_rel (Force x) y”,
+   “exp_rel (Monad m xs) x”]
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
   |> LIST_CONJ;
 
 Theorem v_rel_def =
   [“v_rel (Constructor s vs) v”,
+   “v_rel (Monadic m xs) v”,
    “v_rel (Closure s x) v”,
    “v_rel (Recclosure f n) v”,
    “v_rel (Atom x) v”,
@@ -326,6 +336,8 @@ Proof
   Induct using freevars_ind >> gvs [exp_rel_def, PULL_EXISTS, freevars_def] >> rw []
   >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
       gvs [EL_MAP, MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN])
+  >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
+      gvs [EL_MAP, MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN])
   >- (rpt $ first_x_assum $ dxrule_then assume_tac >> gvs [])
   >- (rpt $ first_x_assum $ dxrule_then assume_tac >> gvs [])
   >- (rpt $ first_x_assum $ dxrule_then assume_tac >> gvs [])
@@ -407,6 +419,9 @@ Proof
   >- (gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS] >>
       first_assum $ irule_at Any >> first_x_assum $ drule_then assume_tac >>
       first_x_assum $ drule_then $ drule_then assume_tac >> gvs [EL_MAP])
+  >- (gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS] >>
+      first_assum $ irule_at Any >> first_x_assum $ drule_then assume_tac >>
+      first_x_assum $ drule_then $ drule_then assume_tac >> gvs [EL_MAP])
   >- gvs [exp_rel_def, PULL_EXISTS, boundvars_def]
   >- gvs [exp_rel_def, PULL_EXISTS, boundvars_def]
   >- (gvs [LIST_REL_EL_EQN, MEM_EL, EL_MAP, PULL_EXISTS] >>
@@ -464,6 +479,12 @@ Proof
       \\ gvs []
       \\ first_x_assum irule \\ gvs []
       \\ strip_tac \\ gvs [])
+  >- (irule LIST_EQ >> gvs [EL_MAP, MEM_EL, PULL_EXISTS, freevars_def] >>
+      rpt $ strip_tac >> last_x_assum irule >> rw [] >>
+      rename1 ‘n ∈ _’ >> first_x_assum $ qspecl_then [‘n’] assume_tac >> gs [] >>
+      rename1 ‘EL n2 xs’ >>
+      first_x_assum $ qspecl_then [‘freevars (EL n2 xs)’] assume_tac >> gs [] >>
+      first_x_assum $ qspecl_then [‘n2’] assume_tac >> gs [EL_MAP])
   >- (irule LIST_EQ >> gvs [EL_MAP, MEM_EL, PULL_EXISTS, freevars_def] >>
       rpt $ strip_tac >> last_x_assum irule >> rw [] >>
       rename1 ‘n ∈ _’ >> first_x_assum $ qspecl_then [‘n’] assume_tac >> gs [] >>
@@ -620,6 +641,10 @@ Proof
   >~ [‘Prim op xs’] >- (
     rw [subst_def]
     \\ irule exp_rel_Prim
+    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
+  >~ [‘Monad m xs’] >- (
+    rw [subst_def]
+    \\ irule exp_rel_Monad
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
   >~ [‘App f x’] >- (
     rw [subst_def]
@@ -887,6 +912,21 @@ Proof
           irule v_rel_Recclosure_Delay_Lam >> gvs [EVERY_CONJ] >> rw [MEM_MAP] >>
           first_x_assum $ irule_at Any >> gvs [FORALL_PROD]))
   >~[‘Prim op’]
+  >- (gvs [subst_funs_def, subst_def, exp_rel_def] >> rpt $ strip_tac >>
+      gvs [LIST_REL_EL_EQN, EL_MAP] >> rw [] >>
+      first_x_assum irule >> gvs [EVERY_CONJ, EL_MEM] >>
+      rename1 ‘MAP FST g = MAP FST f’ >>
+      ‘LENGTH g = LENGTH f’ by metis_tac [LENGTH_MAP] >>
+      gvs [EL_MAP, freevars_def, boundvars_def, EVERY_MEM, PULL_EXISTS] >>
+      rw [] >> rpt $ first_x_assum $ drule_then assume_tac
+      >~ [‘freevars (EL n2 xs)’]
+      >- (first_x_assum $ qspecl_then [‘freevars (EL n2 xs)’] assume_tac >> gvs [MEM_MAP] >>
+          first_x_assum $ qspecl_then [‘EL n2 xs’] assume_tac >> gvs [MEM_EL])
+      >~ [‘boundvars (EL n2 xs)’]
+      >- (rpt $ first_x_assum $ qspecl_then [‘boundvars (EL n2 xs)’] assume_tac >>
+          gvs [MEM_MAP] >>
+          rpt $ first_x_assum $ qspecl_then [‘EL n2 xs’] assume_tac >> gvs [MEM_EL]))
+  >~[‘Monad’]
   >- (gvs [subst_funs_def, subst_def, exp_rel_def] >> rpt $ strip_tac >>
       gvs [LIST_REL_EL_EQN, EL_MAP] >> rw [] >>
       first_x_assum irule >> gvs [EVERY_CONJ, EL_MEM] >>
@@ -2156,6 +2196,8 @@ Proof
       \\ rpt (first_x_assum (drule_all_then assume_tac))
       \\ Cases_on ‘eval_to k (EL n xs)’
       \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gs [v_rel_def]))
+ >~ [‘Monad mop xy’] >- (
+    gvs [Once exp_rel_def, eval_to_def, v_rel_def])
 QED
 
 Theorem exp_rel_eval:

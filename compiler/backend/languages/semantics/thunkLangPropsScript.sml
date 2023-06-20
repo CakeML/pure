@@ -36,6 +36,7 @@ Definition no_value_def:
   (no_value (Var n) = T) ∧
   (no_value (Force x) = no_value x) ∧
   (no_value (Prim op xs) = EVERY no_value xs) ∧
+  (no_value (Monad mop xs) = EVERY no_value xs) ∧
   (no_value (If x y z) = (no_value x ∧ no_value y ∧ no_value z)) ∧
   (no_value (App x y) = (no_value x ∧ no_value y)) ∧
   (no_value (Lam s x) = no_value x) ∧

@@ -28,6 +28,10 @@ Inductive clean_rel:
   (∀op xs ys.
      LIST_REL clean_rel xs ys ⇒
        clean_rel (Prim op xs) (Prim op ys)) ∧
+[~Monad:]
+  (∀mop xs ys.
+     LIST_REL clean_rel xs ys ⇒
+       clean_rel (Monad mop xs) (Monad mop ys)) ∧
 [~App:]
   (∀f g x y.
      clean_rel f g ∧
@@ -97,6 +101,10 @@ Inductive clean_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀mop xs ys.
+     LIST_REL clean_rel xs ys ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Closure:]
   (∀s x y.
      clean_rel x y ⇒
@@ -140,6 +148,7 @@ Theorem clean_rel_def =
   [“clean_rel (Var v) x”,
    “clean_rel (Value v) x”,
    “clean_rel (Prim op xs) x”,
+   “clean_rel (Monad mop xs) x”,
    “clean_rel (App f x) y”,
    “clean_rel (Lam s x) y”,
    “clean_rel (Letrec f x) y”,
@@ -154,6 +163,7 @@ Theorem clean_rel_def =
 
 Theorem v_rel_def =
   [“v_rel (Constructor s vs) v”,
+   “v_rel (Monadic mop xs) v”,
    “v_rel (Closure s x) v”,
    “v_rel (Recclosure f n) v”,
    “v_rel (Atom x) v”,
@@ -185,6 +195,7 @@ Theorem clean_rel_refl:
 Proof
   Induct using freevars_ind >> gs [clean_rel_def, no_value_def]
   >- gs [MEM_EL, PULL_EXISTS, EVERY_EL, LIST_REL_EL_EQN]
+  >- gs [MEM_EL, PULL_EXISTS, EVERY_EL, LIST_REL_EL_EQN]
   >- (gs [MEM_EL, PULL_EXISTS, EVERY_EL, LIST_REL_EL_EQN] >>
       rw [] >> disj1_tac >> rw [] >>
       last_x_assum irule >>
@@ -199,6 +210,14 @@ Proof
   completeInduct_on ‘exp_size x’ >> Cases >>
   gvs [exp_size_def, clean_rel_def, PULL_EXISTS, freevars_def, SUBSET_DEF, PULL_FORALL] >>
   rw [] >> gvs []
+  >- (rename1 ‘LIST_REL _ xs ys’
+      \\ last_x_assum $ irule_at Any
+      \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
+      \\ rpt $ last_assum $ irule_at Any
+      \\ assume_tac exp_size_lemma
+      \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
+      \\ rename1 ‘n < _’
+      \\ first_x_assum $ qspecl_then [‘xs’, ‘n’] assume_tac \\ gvs [])
   >- (rename1 ‘LIST_REL _ xs ys’
       \\ last_x_assum $ irule_at Any
       \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
@@ -282,6 +301,14 @@ Proof
   completeInduct_on ‘exp_size x’ >> Cases >>
   gvs [exp_size_def, clean_rel_def, PULL_EXISTS, boundvars_def, SUBSET_DEF, PULL_FORALL] >>
   rw [] >> gvs []
+  >- (rename1 ‘LIST_REL _ xs ys’
+      \\ last_x_assum $ irule_at Any
+      \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
+      \\ rpt $ last_assum $ irule_at Any
+      \\ assume_tac exp_size_lemma
+      \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
+      \\ rename1 ‘n < _’
+      \\ first_x_assum $ qspecl_then [‘xs’, ‘n’] assume_tac \\ gvs [])
   >- (rename1 ‘LIST_REL _ xs ys’
       \\ last_x_assum $ irule_at Any
       \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
@@ -393,6 +420,10 @@ Proof
   >~ [‘Prim op xs’] >- (
     rw [subst_def]
     \\ irule clean_rel_Prim
+    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
+  >~ [‘Monad mop xs’] >- (
+    rw [subst_def]
+    \\ irule clean_rel_Monad
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
   >~ [‘App f x’] >- (
     rw [subst_def]
@@ -1330,6 +1361,9 @@ Proof
       \\ Cases_on ‘eval_to k (EL n ys)’
       \\ Cases_on ‘eval_to (j + k) (EL n xs)’ \\ gs []
       \\ rename1 ‘v_rel v0 (Atom _)’ \\ Cases_on ‘v0’ \\ gs [v_rel_def]))
+  >~ [‘Monad mop xs’] >- (
+    rw [Once clean_rel_cases] \\ gs []
+    \\ simp [eval_to_def, v_rel_def])
 QED
 
 Theorem clean_rel_eval:
