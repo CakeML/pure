@@ -183,7 +183,7 @@ Proof
   fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
 QED
 
-Triviality FORALL_FRANGE:
+Triviality FORALL_FRANGE: (* TODO: move *)
   (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
 Proof
   fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
@@ -469,7 +469,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality MEM_IMP_EQ:
+Triviality MEM_IMP_EQ: (* TODO: move *)
   ∀b1 k p1 p2.
     MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
 Proof
@@ -490,7 +490,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem MEM_LIST_REL:
+Theorem MEM_LIST_REL: (* TODO: move *)
   ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -498,7 +498,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem MEM_LIST_REL1:
+Theorem MEM_LIST_REL1: (* TODO: move *)
   ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -506,7 +506,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem LIST_REL_COMP:
+Theorem LIST_REL_COMP: (* TODO: move *)
   ∀xs ys zs.
     LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
     LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
@@ -605,7 +605,7 @@ QED
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Triviality LIST_REL_IMP_MAP_EQ:
+Triviality LIST_REL_IMP_MAP_EQ: (* TODO: move *)
   ∀xs ys P f g.
     (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
     LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
@@ -1030,7 +1030,7 @@ Proof
     \\ Cases_on ‘eval_wh_to (k − 1) x’ \\ fs [])
 QED
 
-Triviality LIST_REL_flip:
+Triviality LIST_REL_flip: (* TODO: move *)
   ∀xs ys. LIST_REL r xs ys ⇒ LIST_REL (λx y. r y x) ys xs
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -1504,7 +1504,7 @@ Proof
   \\ fs [eval_wh_Prim,get_atoms_def]
 QED
 
-Definition Seqs_def[simp]:
+Definition Seqs_def[simp]: (* TODO: move *)
   Seqs [] x = x /\
   Seqs (y::ys) x = Seq y (Seqs ys x)
 End
@@ -1607,13 +1607,13 @@ Proof
       \\ irule_at Any EQ_REFL)
 QED
 
-Triviality FST_INTRO:
+Triviality FST_INTRO: (* TODO: move *)
   (λ(x,y). x) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
-Theorem LIST_REL_MAP:
+Theorem LIST_REL_MAP: (* TODO: move *)
   ∀xs ys.
     LIST_REL P (MAP f xs) (MAP g ys) ⇔
     LIST_REL (λx y. P (f x) (g y)) xs ys
@@ -1799,19 +1799,19 @@ Proof
   \\ fs []
 QED
 
-Theorem subst_Seqs:
+Theorem subst_Seqs: (* TODO: move *)
   ∀xs y. subst m (Seqs xs y) = Seqs (MAP (subst m) xs) (subst m y)
 Proof
   Induct \\ fs [subst_def]
 QED
 
-Theorem subst_Apps:
+Theorem subst_Apps: (* TODO: move *)
   ∀xs m f. subst m (Apps f xs) = Apps (subst m f) (MAP (subst m) xs)
 Proof
   Induct \\ fs [Apps_def,subst_def]
 QED
 
-Triviality ALL_DISTINCT_MEM_MEM:
+Triviality ALL_DISTINCT_MEM_MEM: (* TODO: move *)
   ALL_DISTINCT (MAP FST xs) ∧ MEM (x,y) xs ∧ MEM (x,y1) xs ⇒ y = y1
 Proof
   rw [] \\ pop_assum mp_tac

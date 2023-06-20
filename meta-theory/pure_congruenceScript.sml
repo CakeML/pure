@@ -2973,7 +2973,7 @@ Proof
   simp [bind_def, SF SFY_ss]
 QED
 
-Triviality ignore_FDIFF:
+Triviality ignore_FDIFF: (* TODO: move *)
   DISJOINT f (FDOM m) ⇒ FDIFF m f = m
 Proof
   fs [fmap_eq_flookup,FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,IN_DISJOINT]

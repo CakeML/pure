@@ -52,7 +52,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Triviality LIST_REL_opp:
+Triviality LIST_REL_opp: (* TODO: move *)
   ∀xs ys. LIST_REL R xs ys ⇒ LIST_REL (λx y. R y x) ys xs
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -145,7 +145,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality MAP_ID:
+Triviality MAP_ID: (* TODO: move *)
   ∀xs f. (MAP f xs = xs) ⇔ ∀x. MEM x xs ⇒ f x = x
 Proof
   Induct \\ fs [] \\ metis_tac []
@@ -235,13 +235,13 @@ Proof
   fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
 QED
 
-Triviality FORALL_FRANGE:
+Triviality FORALL_FRANGE: (* TODO: move *)
   (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
 Proof
   fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
 QED
 
-Triviality MEM_IMP_EQ:
+Triviality MEM_IMP_EQ: (* TODO: move *)
   ∀b1 k p1 p2.
     MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
 Proof
@@ -262,7 +262,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Triviality FORALL_FRANGE:
+Triviality FORALL_FRANGE: (* TODO: move *)
   (∀x. x IN FRANGE v ⇒ p x) ⇔ ∀k x. FLOOKUP v k = SOME x ⇒ p x
 Proof
   fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
@@ -285,7 +285,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem MEM_LIST_REL:
+Theorem MEM_LIST_REL: (* TODO: move *)
   ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -293,7 +293,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem MEM_LIST_REL1:
+Theorem MEM_LIST_REL1: (* TODO: move *)
   ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -301,7 +301,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem LIST_REL_COMP:
+Theorem LIST_REL_COMP: (* TODO: move *)
   ∀xs ys zs.
     LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
     LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
@@ -313,7 +313,7 @@ QED
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Triviality LIST_REL_IMP_MAP_EQ:
+Triviality LIST_REL_IMP_MAP_EQ: (* TODO: move *)
   ∀xs ys P f g.
     (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
     LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
@@ -818,13 +818,13 @@ Proof
   \\ metis_tac [app_bisimilarity_sym]
 QED
 
-Triviality FST_LAM:
+Triviality FST_LAM: (* TODO: move *)
   FST = λ(p1,p2). p1
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
-Triviality LIST_REL_MAP_CONG:
+Triviality LIST_REL_MAP_CONG: (* TODO: move *)
   ∀xs ys R Q f.
     (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ Q (f x) (f y)) ∧ LIST_REL R xs ys ⇒
     LIST_REL Q (MAP f xs) (MAP f ys)
