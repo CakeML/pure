@@ -167,7 +167,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Triviality LIST_REL_SWAP:
+Triviality LIST_REL_SWAP: (* TODO: move *)
   ∀R xs ys. LIST_REL R xs ys = LIST_REL (λx y. R y x) ys xs
 Proof
   Induct_on ‘xs’ \\ fs []
@@ -279,7 +279,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality LIST_REL_MAP_MAP_TWO:
+Triviality LIST_REL_MAP_MAP_TWO: (* TODO: move *)
   ∀xs ys.
     LIST_REL R (MAP f xs) (MAP g ys) = LIST_REL (λx y. R (f x) (g y)) xs ys
 Proof
@@ -287,7 +287,7 @@ Proof
   \\ Cases_on ‘ys’ \\ fs []
 QED
 
-Theorem LIST_REL_MAP:
+Theorem LIST_REL_MAP: (* TODO: move *)
   ∀xs ys.
     LIST_REL R (MAP f xs) (MAP g ys) =
     LIST_REL (λx y. R (f x) (g y)) xs ys
@@ -295,7 +295,7 @@ Proof
   Induct \\ fs [MAP_EQ_CONS,PULL_EXISTS]
 QED
 
-Triviality FST_INTRO:
+Triviality FST_INTRO: (* TODO: move *)
   (λ(p1,p2). p1) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -544,7 +544,7 @@ Proof
   \\ fs [FLOOKUP_DEF]
 QED
 
-Theorem MEM_LIST_REL:
+Theorem MEM_LIST_REL: (* TODO: move *)
   ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -552,7 +552,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem MEM_LIST_REL1:
+Theorem MEM_LIST_REL1: (* TODO: move *)
   ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
 Proof
   Induct \\ fs [PULL_EXISTS]
@@ -560,7 +560,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem LIST_REL_COMP:
+Theorem LIST_REL_COMP: (* TODO: move *)
   ∀xs ys zs.
     LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
     LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
@@ -569,7 +569,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality LIST_REL_IMP_MAP_EQ:
+Triviality LIST_REL_IMP_MAP_EQ: (* TODO: move *)
   ∀xs ys P f g.
     (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
     LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
@@ -601,7 +601,7 @@ Proof
   \\ imp_res_tac letrec_spec_freevars \\ fs [closed_def]
 QED
 
-Triviality FORALL_FRANGE:
+Triviality FORALL_FRANGE: (* TODO: move *)
   (∀x. x IN FRANGE v ⇒ p x) ⇔ ∀k x. FLOOKUP v k = SOME x ⇒ p x
 Proof
   fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
@@ -752,13 +752,13 @@ Proof
   \\ gvs [info_ok_def]
 QED
 
-Triviality MAP_FST_ZIP:
+Triviality MAP_FST_ZIP: (* TODO: move *)
   ∀xs ys. LENGTH xs = LENGTH ys ⇒ MAP FST (ZIP (xs,ys)) = xs
 Proof
   gvs [MAP_ZIP]
 QED
 
-Triviality MAP_SND_ZIP:
+Triviality MAP_SND_ZIP: (* TODO: move *)
   ∀xs ys. LENGTH xs = LENGTH ys ⇒ MAP SND (ZIP (xs,ys)) = ys
 Proof
   gvs [MAP_ZIP]
@@ -862,7 +862,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem FLOOKUP_FUPDATE_LIST:
+Theorem FLOOKUP_FUPDATE_LIST: (* TODO: move *)
   ∀xs k m. FLOOKUP (m |++ xs) k =
            case ALOOKUP (REVERSE xs) k of
            | NONE => FLOOKUP m k
@@ -1537,14 +1537,14 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem FDIFF_SING:
+Theorem FDIFF_SING: (* TODO: move *)
   FDIFF f {x} = f \\ x
 Proof
   fs [FDIFF_def,fmap_EXT,DRESTRICT_DEF,DOMSUB_FAPPLY_NEQ]
   \\ gvs [EXTENSION]
 QED
 
-Theorem Apps_append:
+Theorem Apps_append: (* TODO: move *)
   ∀xs ys x. Apps x (xs ++ ys) = Apps (Apps x xs) ys
 Proof
   Induct \\ fs [Apps_def]
@@ -1580,7 +1580,7 @@ Proof
   \\ Induct \\ fs [PULL_EXISTS]
 QED
 
-Theorem Apps_11:
+Theorem Apps_11: (* TODO: move *)
   ∀xs ys x y. Apps x xs = Apps y ys ∧ LENGTH xs = LENGTH ys ⇒ x = y ∧ xs = ys
 Proof
   Induct \\ fs [Apps_def]
@@ -1588,7 +1588,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Theorem LIST_REL_same:
+Theorem LIST_REL_same: (* TODO: move *)
   ∀xs. LIST_REL R xs xs = EVERY (λx. R x x) xs
 Proof
   Induct \\ fs []
