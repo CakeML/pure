@@ -1393,18 +1393,17 @@ Proof
   \\ dxrule_then (qspec_then ‘m + k’ assume_tac) eval_to_mono \\ gvs []
 QED
 
-Theorem clean_rel_apply_force[local] =
-  apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘clean_rel’,‘allow_error’|->‘T’]
-  |> SIMP_RULE std_ss [clean_rel_eval, clean_rel_Force, clean_rel_Value];
-
 Theorem clean_rel_apply_closure[local]:
-  v_rel v1 w1 ∧
+  clean_rel x y ∧
   v_rel v2 w2 ∧
-  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel clean_rel (f x) (g y)) ⇒
+    next_rel v_rel clean_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
+  rw [apply_closure_def] >> simp[with_value_def] >>
+  dxrule_then assume_tac clean_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
+  >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule
@@ -1442,9 +1441,9 @@ Proof
       \\ gvs [EVERY_EL, EL_MAP]
       \\ first_x_assum irule
       \\ irule clean_rel_eval
-      \\ rename1 ‘clean_rel x y’
+      \\ rename1 ‘clean_rel x' y'’
       \\ rename1 ‘v ∉ _’ \\ rename1 ‘subst (_ ++ _ ++ [(s2, _)]) _’
-      \\ ‘v ∉ freevars (Lam s2 x)’ by (first_x_assum $ dxrule_then assume_tac \\ gvs [])
+      \\ ‘v ∉ freevars (Lam s2 x')’ by (first_x_assum $ dxrule_then assume_tac \\ gvs [])
       \\ gvs [freevars_def, subst_APPEND, freevars_subst, subst1_notin_frees]
       \\ irule clean_rel_subst \\ gvs [clean_rel_subst]
       \\ simp [EVERY2_MAP, LAMBDA_PROD, v_rel_def, MAP_MAP_o, combinTheory.o_DEF,
@@ -1456,10 +1455,10 @@ Proof
 QED
 
 Theorem clean_rel_rel_ok[local]:
-  rel_ok T v_rel
+  rel_ok T v_rel clean_rel
 Proof
   rw [rel_ok_def, v_rel_def, clean_rel_def]
-  \\ rw [clean_rel_apply_force, clean_rel_apply_closure]
+  \\ rw [clean_rel_apply_closure]
 QED
 
 Theorem clean_rel_sim_ok[local]:

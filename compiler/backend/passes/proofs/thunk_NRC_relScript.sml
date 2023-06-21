@@ -189,6 +189,15 @@ Proof
   rpt $ last_x_assum $ drule_then $ irule_at Any
 QED
 
+Theorem NRC_rel_Monad:
+  (∀mop xs ys. LIST_REL R xs ys ⇒ R (Monad mop xs) (Monad mop ys))
+      ⇒ ∀n op xs ys. LIST_REL (NRC R n) xs ys ⇒ NRC R n (Monad mop xs) (Monad mop ys)
+Proof
+  strip_tac >> Induct >> gvs [NRC, LIST_REL_NRC_0, LIST_REL_NRC_SUC] >>
+  rw [] >>
+  rpt $ last_x_assum $ drule_then $ irule_at Any
+QED
+
 Theorem NRC_rel_fun:
   ∀fun. (∀x y. R x y ⇒ R (fun x) (fun y)) ⇒
       ∀n x y. NRC R n x y ⇒ NRC R n (fun x) (fun y)
