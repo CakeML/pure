@@ -528,7 +528,7 @@ Theorem lrnext_alt_thm:
   ∀n. sptree$lrnext n = 2 ** (LOG 2 (n + 1))
 Proof
   strip_tac >> completeInduct_on `n` >> rw[] >>
-  rw[Once lrnext_def] >- simp[LOG_RWT] >>
+  rw[Once lrnext_def] >>
   first_x_assum $ qspec_then `(n - 1) DIV 2` mp_tac >>
   impl_tac >> rw[] >- simp[DIV_LT_X] >>
   simp[GSYM EXP] >> Cases_on `EVEN n` >>
