@@ -1170,7 +1170,6 @@ Proof
       \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_assum $ qspec_then ‘0’ assume_tac \\ gs []
       \\ rename1 ‘clean_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -1187,7 +1186,6 @@ Proof
       \\ rw [v_rel_def])
     >- ((* Proj *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute]
-      \\ first_assum $ qspec_then ‘0’ assume_tac \\ gs []
       \\ rename1 ‘clean_rel x y’
       \\ IF_CASES_TAC \\ gs []
       >- (
