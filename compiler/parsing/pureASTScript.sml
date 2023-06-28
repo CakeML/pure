@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 
-local open stringTheory integerTheory pure_configTheory namespaceTheory in end
+local open stringTheory integerTheory pure_configTheory namespaceTheory mlstringTheory in end
 val _ = new_theory "pureAST";
 
 val _ = set_grammar_ancestry ["string", "integer", "pure_config", "namespace"]
@@ -40,6 +40,12 @@ Definition string_to_long_name_def:
   string_to_long_name s =
   let (n, mods) = string_to_mods "" [] s in
     mk_id mods n
+End
+
+Definition string_to_moduleName_def:
+  string_to_moduleName s =
+  let (n, mods) = string_to_mods "" [] s in
+    SOME (mods ++ [n])
 End
 
 Definition dest_Short_def:
@@ -153,6 +159,5 @@ End
 Datatype:
   moduleAST = module (string list) (importAST list) (declAST list)
 End
-
 
 val _ = export_theory();

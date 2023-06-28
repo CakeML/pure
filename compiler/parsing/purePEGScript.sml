@@ -606,6 +606,12 @@ val module2 = test “nModule” "module Foo with\n\
                               \  y = x + 1\n\
                               \  in y"
 
+val module3 = test “nModule” "module Fact with\n\
+                              \import Foo\n\
+                              \f :: Int -> Int\n\
+                              \f x = if x == 0 then 1 else x * f(x - 1)\n\
+                              \z = 4\n"
+
 (* does not work, stop parsing at f *)
 val module2 = test “nModule” "module Foo with\n\
                               \y = 1\n\

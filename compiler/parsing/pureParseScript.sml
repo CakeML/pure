@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib;
 
 (* supposed to contain all the things *)
 
-open purePEGTheory cst_to_astTheory ast_to_cexpTheory
+open purePEGTheory cst_to_astTheory ast_to_shortASTTheory ast_to_cexpTheory
 open pure_inferenceTheory
 
 
@@ -10,7 +10,7 @@ val _ = new_theory "pureParse";
 
 Definition string_to_cst_def:
   string_to_cst s =
-  case ispeg_exec purePEG (nt (INL nDecls) I lrOK) (pure_lexer_impl$lexer_fun s)
+  case ispeg_exec purePEG (nt (INL nModules) I lrOK) (pure_lexer_impl$lexer_fun s)
                   lpTOP [] NONE [] done failed
   of
     Result (Success [] pts _ _ ) => SOME pts
@@ -23,9 +23,10 @@ val _ = computeLib.add_funs [pure_lexer_implTheory.get_token_def,
                              numposrepTheory.l2n_def]
 
 
-val fact_s = “"f :: Int -> Int\n\
-              \f x = if x == 0 then 1 else x * f(x - 1)\n\
-              \z = 4\n"”
+val fact_s = “"module Fact with\n\
+               \f :: Int -> Int\n\
+               \f x = if x == 0 then 1 else x * f(x - 1)\n\
+               \z = 4\n"”
 val fact_cst = EVAL “string_to_cst ^fact_s”
 
 Definition string_to_asts_def:
@@ -33,17 +34,22 @@ Definition string_to_asts_def:
   do
     csts <- string_to_cst s ;
     cst <- oHD csts ;
-    astDecls cst
+    astModules cst
   od
 End
 
-val fact_ast = EVAL “string_to_ast ^fact_s”
+val fact_ast = EVAL “string_to_asts ^fact_s”
+
+val fact_ast_without_modules = EVAL “case string_to_asts ^fact_s of
+                                       NONE => NONE
+                                     | SOME asts => SOME (remove_modules asts)”
 
 Definition string_to_cexp0_def:
   string_to_cexp0 s =
   do
     asts <- string_to_asts s ;
-    decls_to_letrec asts
+    asts' <- remove_modules asts ;
+    decls_to_letrec asts'
   od
 End
 
@@ -51,7 +57,8 @@ Definition string_to_cexp_def:
   string_to_cexp s =
   do
     asts <- string_to_asts s ;
-    (ce, tysig) <- decls_to_letrec asts ;
+    asts' <- remove_modules asts ;
+    (ce, tysig) <- decls_to_letrec asts' ;
     assert (closed_under empty ce) ;
     return (ce, tysig)
   od

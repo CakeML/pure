@@ -804,6 +804,57 @@ Definition astDecls_def:
    else OPT_MMAP astDecl args)
 End
 
+Definition astImport_def:
+  (astImport (Lf _) = NONE) ∧
+  (astImport (Nd nt args) =
+   if FST nt ≠ INL nImport then NONE
+   else
+     case args of
+       (importtok :: importname_tok :: rest) =>
+         do
+           assert (tokcheck importtok (AlphaT "import"));
+           importname <- astcapname importname_tok;
+           importln <- string_to_moduleName importname;
+           assert (rest = []) ;
+           return (import importln);
+         od
+     | _ => NONE)
+End
+
+Definition astImports_def:
+  (astImports (Lf _) = NONE) ∧
+  (astImports (Nd nt args) =
+   if FST nt ≠ INL nImports then NONE
+   else OPT_MMAP astImport args)
+End
+
+Definition astModule_def:
+  (astModule (Lf _) = NONE) ∧
+  (astModule (Nd nt args) =
+   if FST nt ≠ INL nModule then NONE
+   else
+     case args of
+       (moduletok :: modulename_tok :: withtok :: importstok :: declstok :: rest) =>
+         do
+           assert (tokcheck moduletok (AlphaT "module"));
+           modulename <- astcapname modulename_tok;
+           moduleln <- string_to_moduleName modulename;
+           assert (tokcheck withtok (AlphaT "with"));
+           imports <- astImports importstok;
+           decls <- astDecls declstok;
+           assert (rest = []);
+           return (module moduleln imports decls)
+         od
+     | _ => NONE)
+End
+
+Definition astModules_def:
+  (astModules (Lf _) = NONE) ∧
+  (astModules (Nd nt args) =
+   if FST nt ≠ INL nModules then NONE
+   else OPT_MMAP astModule args)
+End
+
 (* translator help *)
 
 Definition grab'_def:
