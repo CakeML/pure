@@ -29,6 +29,21 @@ val fact_s = “"module Fact with\n\
                \z = 4\n"”
 val fact_cst = EVAL “string_to_cst ^fact_s”
 
+val do_s = “"module Foo with\n\
+             \f t = do x <- \n\
+             \           g y\n\
+             \         return (x + 1)"”
+val do_cst = EVAL “string_to_cst ^do_s”
+
+val two_modules = “"module Foo with\n\
+                    \f t = t + 1\n\
+                    \g t = 1\n\
+                    \module Bar with\n\
+                    \import Foo\n\
+                    \h x = let f t = t in\n\
+                    \                (f 0) + (g 0) + (h 0)"”
+val two_modules_cst = EVAL “string_to_cst ^two_modules”
+
 Definition string_to_asts_def:
   string_to_asts s =
   do
@@ -40,9 +55,21 @@ End
 
 val fact_ast = EVAL “string_to_asts ^fact_s”
 
+val do_ast = EVAL “string_to_asts ^do_s”
+
+val two_modules_ast = EVAL “string_to_asts ^two_modules”
+
 val fact_ast_without_modules = EVAL “case string_to_asts ^fact_s of
                                        NONE => NONE
                                      | SOME asts => SOME (remove_modules asts)”
+
+val do_ast_without_modules = EVAL “case string_to_asts ^do_s of
+                                     NONE => NONE
+                                   | SOME asts => SOME (remove_modules asts)”
+
+val two_modules_ast_without_modules = EVAL “case string_to_asts ^two_modules of
+                                              NONE => NONE
+                                            | SOME asts => SOME (remove_modules asts)”
 
 Definition string_to_cexp0_def:
   string_to_cexp0 s =

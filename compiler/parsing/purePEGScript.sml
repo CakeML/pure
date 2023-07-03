@@ -82,16 +82,26 @@ Definition purePEG_def[nocompute]:
     FEMPTY |++ [
         (INL nModules, pegf (rpt (NT nModule I lrEQ) FLAT) (mkNT nModules));
         (INL nModule,
-         seql [tokEQ ((=) $ AlphaT "module") ;
-               tokGE capname_tok;
-               tokGT ((=) $ AlphaT "with") ;
-               NT nImports I lrEQ;
-               NT nDecls I lrEQ]
-              (mkNT nModule));
+         choicel [
+             seql [tokEQ ((=) $ AlphaT "module") ;
+                   tokGE capname_tok;
+                   tokGT ((=) $ AlphaT "with") ;
+                   NT nImports I lrEQ;
+                   NT nDecls I lrEQ]
+             (mkNT nModule);
+             seql [tokEQ ((=) $ AlphaT "module") ;
+                   tokGE isLongidT;
+                   tokGT ((=) $ AlphaT "with") ;
+                   NT nImports I lrEQ;
+                   NT nDecls I lrEQ]
+                  (mkNT nModule)]);
         (INL nImports, pegf (rpt (NT nImport I lrEQ) FLAT) (mkNT nImports));
         (INL nImport,
-         seql [tokEQ ((=) $ AlphaT "import") ;
-               tokGE capname_tok] (mkNT nImport));
+         choicel [
+             seql [tokEQ ((=) $ AlphaT "import") ;
+                   tokGE capname_tok] (mkNT nImport);
+             seql [tokEQ ((=) $ AlphaT "import") ;
+                   tokGE isLongidT] (mkNT nImport)]);
         (INL nDecls, pegf (rpt (NT nDecl I lrEQ) FLAT) (mkNT nDecls));
         (INL nDecl,
          choicel [
@@ -586,9 +596,6 @@ test “nExp” "do {\n\
             \x <- f y ; check 3; \n\
             \return (x + 1)}"
 
-val imports_long = test “nImports”
-                            "import Foo.Bar.Baz"
-
 val imports_short = test “nImports”
                              "import Foo"
                                      
@@ -612,14 +619,11 @@ val module3 = test “nModule” "module Fact with\n\
                               \f x = if x == 0 then 1 else x * f(x - 1)\n\
                               \z = 4\n"
 
-(* does not work, stop parsing at f *)
-val module2 = test “nModule” "module Foo with\n\
-                              \y = 1\n\
-                              \f x = let \n\
-                              \{y = x + 1}\n\
-                              \  in y"
+val module_do = test “nModule” "module Foo with\n\
+                                \f t = do x <- \n\
+                                \           g y\n\
+                                \         return (x + 1)"
 
-(* does not work, just parse the first module *)
 val modules = test “nModules” "module Foo with\n\
                               \y = 1\n\
                               \f x = let \n\
@@ -627,5 +631,12 @@ val modules = test “nModules” "module Foo with\n\
                               \  in y\n\
                               \module Bar.Baz with \n\
                               \import Foo"
+
+(* does not work, stop parsing at f *)
+val module2 = test “nModule” "module Foo with\n\
+                              \y = 1\n\
+                              \f x = let \n\
+                              \{y = x + 1}\n\
+                              \  in y"
 
 val _ = export_theory();

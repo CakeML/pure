@@ -103,15 +103,15 @@ Termination
 End
 
 Definition add_local_names_def:
-  add_local_names l (patVar v) = (Short v, SOME (Short v)) :: l ∧
-  add_local_names l (patApp id []) = l ∧
-  (add_local_names l (patApp id (pat::rest)) =
-   add_local_names (add_local_names l pat) (patApp id rest)) ∧
-  add_local_names l (patTup []) = l ∧
-  (add_local_names l (patTup (pat::rest)) =
-   add_local_names (add_local_names l pat) (patTup rest)) ∧
-  add_local_names l (patLit _) = l ∧
-  add_local_names l patUScore = l
+  add_local_names (patVar v) l = (Short v, SOME (Short v)) :: l ∧
+  add_local_names (patApp id []) l = l ∧
+  (add_local_names (patApp id (pat::rest)) l =
+   add_local_names (patApp id rest) (add_local_names pat l)) ∧
+  add_local_names (patTup []) l = l ∧
+  (add_local_names (patTup (pat::rest)) l =
+   add_local_names (patTup rest) (add_local_names pat l)) ∧
+  add_local_names (patLit _) l = l ∧
+  add_local_names patUScore l = l
 End
 
 Definition shorten_exp_def:
@@ -125,35 +125,57 @@ Definition shorten_exp_def:
   (shorten_exp imp (expApp exp1 exp2) =
    expApp (shorten_exp imp exp1) (shorten_exp imp exp2)) ∧
   (shorten_exp imp (expAbs pat exp) =
-   expAbs (shorten_pat imp pat) (shorten_exp (add_local_names imp pat) exp)) ∧
+   expAbs (shorten_pat imp pat) (shorten_exp (add_local_names pat imp) exp)) ∧
   (shorten_exp imp (expIf exp1 exp2 exp3) =
    expIf (shorten_exp imp exp1) (shorten_exp imp exp2) (shorten_exp imp exp3)) ∧
   shorten_exp imported (expLit lit) = expLit lit ∧
-  (shorten_exp imp (expLet expdec exp) =
-   expLet (MAP (shorten_expdec imp) expdec) (shorten_exp imp exp)) ∧
-  (shorten_exp imp (expDo l exp) =
-   expDo (MAP (shorten_expdostmt imp) l) (shorten_exp imp exp)) ∧
+  (shorten_exp imp (expLet expdecs exp) =
+   let (expdec', imp') = shorten_expdecs imp expdecs in
+     expLet expdec' (shorten_exp imp' exp)) ∧
+   (* expLet (MAP (shorten_expdec imp) expdec) (shorten_exp imp exp)) ∧ *)
+  (shorten_exp imp (expDo dostmts exp) =
+   case dostmts of
+     [] => expDo [] (shorten_exp imp exp)
+   | dostmt :: rest => let (do', imp') = shorten_expdostmt imp dostmt in
+                         case shorten_exp imp' (expDo rest exp) of
+                           expDo rest' exp' => expDo (do' :: rest') exp') ∧
+  (* expDo (MAP (shorten_expdostmt imp) l) (shorten_exp imp exp)) ∧ *)
   (shorten_exp imp (expCase exp l) =
    expCase (shorten_exp imp exp)
-           (MAP (λ (pat, exp). (shorten_pat imp pat, shorten_exp (add_local_names imp pat) exp)) l)) ∧
+           (MAP (λ (pat, exp). (shorten_pat imp pat, shorten_exp (add_local_names pat imp) exp)) l)) ∧
 
-  (shorten_expdec imp (expdecTysig s ty) =
-   expdecTysig s (shorten_ty imp ty)) ∧
-  (shorten_expdec imp (expdecPatbind pat exp) =
-   expdecPatbind (shorten_pat imp pat) (shorten_exp imp exp)) ∧
-  (shorten_expdec imp (expdecFunbind s l exp) =
-   expdecFunbind s (MAP (shorten_pat imp) l) (shorten_exp imp exp)) ∧
+  (* (shorten_expdec imp (expdecTysig s ty) = *)
+  (*  expdecTysig s (shorten_ty imp ty)) ∧ *)
+  (* (shorten_expdec imp (expdecPatbind pat exp) = *)
+  (*  expdecPatbind (shorten_pat imp pat) (shorten_exp imp exp)) ∧ *)
+  (* (shorten_expdec imp (expdecFunbind s l exp) = *)
+  (*  expdecFunbind s (MAP (shorten_pat imp) l) (shorten_exp imp exp)) ∧ *)
+
+  (shorten_expdecs imp []) = ([], imp) ∧
+  (shorten_expdecs imp (dec :: rest) =
+   case dec of
+     expdecTysig s ty =>
+       (let (rest', imp') = shorten_expdecs imp rest in
+         ((expdecTysig s (shorten_ty imp ty)) :: rest', imp'))
+   | expdecPatbind pat exp =>
+       (let (rest', imp') = shorten_expdecs (add_local_names pat imp) rest in
+          ((expdecPatbind (shorten_pat imp pat) (shorten_exp imp exp)) :: rest', imp'))
+   | expdecFunbind s pats exp =>
+       let imp_fun = add_local_names (patVar s) (FOLDR add_local_names imp pats) in
+         let (rest', imp') = shorten_expdecs imp_fun rest in
+             (expdecFunbind s (MAP (shorten_pat imp) pats) (shorten_exp imp_fun exp)) :: rest', imp') ∧
 
   (shorten_expdostmt imp (expdostmtExp exp) =
-   expdostmtExp (shorten_exp imp exp)) ∧
+   (expdostmtExp (shorten_exp imp exp), imp)) ∧
   (shorten_expdostmt imp (expdostmtBind pat exp) =
-   expdostmtBind (shorten_pat imp pat) (shorten_exp imp exp)) ∧
-  (shorten_expdostmt imp (expdostmtLet l) =
-   expdostmtLet (MAP (shorten_expdec imp) l))
+   (expdostmtBind (shorten_pat imp pat) (shorten_exp imp exp), add_local_names pat imp)) ∧
+  (shorten_expdostmt imp (expdostmtLet decs) =
+   let (decs', imp') = shorten_expdecs imp decs in
+     (expdostmtLet decs', imp'))
 Termination
   WF_REL_TAC ‘measure (λs. case s of
                              INL (_, e) => expAST_size e
-                           | INR (INL (_, ed)) => expdecAST_size ed
+                           | INR (INL (_, l)) => expAST5_size l
                            | INR (INR (_, ed)) => expdostmtAST_size ed)’
 End
 
