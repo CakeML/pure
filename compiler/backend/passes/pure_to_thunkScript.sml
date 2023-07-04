@@ -78,7 +78,7 @@ Definition monad_to_thunk_def:
       (thandle
         (Monad Update (delay_arg flag xs 2))
         (lam_v $ traise (Delay var_v)))
-      (lam_v $ traise (Delay var_v))
+      (lam_v $ tret (Delay var_v))
 End
 
 Definition to_thunk_def:

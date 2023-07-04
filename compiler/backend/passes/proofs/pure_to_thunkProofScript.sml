@@ -10,6 +10,7 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pure_to_thunk_2ProofTheory pure_cexpTheory pureLangTheory thunk_cexpTheory
      var_setTheory pure_namesTheory pure_namesProofTheory pure_to_thunkTheory
      thunk_split_Delay_LamTheory thunk_split_Delay_LamProofTheory pure_letrecProofTheory;
+local open pure_demands_analysisProofTheory thunk_let_force_1ProofTheory in end
 
 val _ = new_theory "pure_to_thunkProof";
 
@@ -180,7 +181,6 @@ Theorem exp_rel_to_thunk:
     EVERY cexp_wf xs1 ∧
     LIST_REL (λx x1. cns_arities x1 ⊆ IMAGE (IMAGE (explode ## I)) (cns_arities x)) xs xs1)
 Proof
-
   ho_match_mp_tac to_thunk_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rewrite_tac [to_thunk_def]
   \\ strip_tac \\ fs [] \\ rpt gen_tac
@@ -278,9 +278,10 @@ Proof
         \\ fs [EL_MAP]
         \\ irule_at Any EQ_REFL
         \\ pairarg_tac \\ gs [EL_MAP]))
-  >~ [‘exp_rel (Case _ _ _ _ _)’] >- cheat
-(*
-   (last_x_assum (fn th => mp_tac th \\ impl_tac)
+  >~ [‘exp_rel (Case _ _ _ _ _)’]
+  >- (
+    gvs[COND_RAND, letrecs_distinct_def] >>
+    last_x_assum (fn th => mp_tac th \\ impl_tac)
     >- (fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
         \\ fs [letrecs_distinct_rows_of, EVERY_MEM, FORALL_PROD, MEM_MAP, PULL_EXISTS]
         \\ rw []
@@ -511,7 +512,7 @@ Proof
         \\ rw [SUBSET_DEF, MEM_EL, PULL_EXISTS]
         \\ disj2_tac
         \\ first_assum $ irule_at Any
-        \\ gs [EL_MAP, SUBSET_DEF])) *)
+        \\ gs [EL_MAP, SUBSET_DEF]))
   >~ [‘exp_rel (Let c v x y)’] >-
    (irule_at Any exp_rel_Let
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
@@ -568,26 +569,23 @@ Proof
       \\ qpat_x_assum ‘mop_of_mlstring m = SOME x’ mp_tac
       \\ simp [mop_of_mlstring_def,AllCaseEqs()]
       \\ strip_tac \\ gvs [pure_configTheory.num_monad_args_def]
+
       \\ gvs [LENGTH_EQ_NUM_compute,monad_to_thunk_def,cns_arities_def,
               thunkLangTheory.boundvars_def,cexp_wf_mk_delay,cns_arities_mk_delay,
               thunk_exp_ofTheory.cexp_wf_def,pure_configTheory.num_mop_args_def,
               boundvars_exp_of_mk_delay]
       \\ gvs [SUBSET_DEF]
       \\ simp [Once exp_rel_cases]
-      \\ simp [delay_arg_def,EVAL “LUPDATE x 1 [y1;y2]”,any_el_def,
-               boundvars_exp_of_mk_delay]
+      \\ simp [delay_arg_def,EVAL “LUPDATE x 1 [y1;y2]”,EVAL “LUPDATE x 2 [y1;y2;y3]”,
+               any_el_def, boundvars_exp_of_mk_delay]
       \\ simp [IMP_mk_delay_eq_Delay,cexp_wf_mk_delay,cns_arities_mk_delay]
       \\ simp [PULL_EXISTS,SF DNF_ss]
       \\ gvs [to_thunk_def]
       \\ rpt (pairarg_tac \\ gvs [])
-      >-
-       (rename [‘mk_delay flag y3’]
-        \\ Cases_on ‘mk_delay flag y3 = Delay y3’
-        >- gvs []
-        \\ gvs [mk_delay_not_Delay]
-        \\ imp_res_tac to_thunk_eq_Force_Var \\ gvs [mk_delay_def])
-      \\ cheat (* Update case *))
-
+      \\ rename [‘mk_delay flag y3’]
+      \\ Cases_on ‘mk_delay flag y3 = Delay y3’
+      \\ gvs [mk_delay_not_Delay]
+      \\ imp_res_tac to_thunk_eq_Force_Var \\ gvs [mk_delay_def])
     >~ [‘AtomOp a’] >-
      (gvs [] \\ irule_at Any exp_rel_Prim \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
