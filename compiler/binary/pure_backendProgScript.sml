@@ -94,6 +94,7 @@ val r = translate thunk_to_envTheory.Lams_def;
 val r = translate thunk_to_envTheory.Apps_def;
 val r = translate thunk_to_envTheory.get_arg_def;
 val r = translate thunk_to_envTheory.remove_Delay_def;
+val r = translate thunk_to_envTheory.op_to_env_def;
 val r = translate thunk_to_envTheory.to_env_def;
 
 (* env_to_state *)
