@@ -32,6 +32,8 @@ Definition extract_names_def:
        delete_vars s (MAP FST xs)) ∧
   extract_names (Prim p xs) =
     extract_names_list (empty_vars) xs ∧
+  extract_names (Monad mop xs) =
+    extract_names_list (empty_vars) xs ∧
   extract_names (App x ys) =
     extract_names_list (extract_names x) ys ∧
   extract_names (Let NONE x y) =
@@ -98,6 +100,9 @@ Definition my_function_def:
   (my_function s (Prim op l) =
    let (s, l) = my_function_list s l in
          (s, Prim op l)) ∧
+  (my_function s (Monad mop l) =
+   let (s, l) = my_function_list s l in
+         (s, Monad mop l)) ∧
   (my_function s (Letrec f x) =
      let (s, x) = my_function s x in
        let (s, f) = my_function_bind s f in

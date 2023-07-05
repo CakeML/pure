@@ -199,7 +199,7 @@ Inductive combine_rel:
        v_rel (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_Monadic:]
   (∀s vs ws.
-     LIST_REL conbine_rel vs ws ⇒
+     LIST_REL combine_rel vs ws ⇒
        v_rel (Monadic s vs) (Monadic s ws)) ∧
 [v_rel_Closure:]
   (∀s x y.
@@ -1513,9 +1513,7 @@ Theorem combine_rel_eval_to:
     combine_rel x y ⇒
       ∃j. ($= +++ v_rel) (eval_to k x) (eval_to (j + k) y)
 Proof
-  cheat
-
-(*  completeInduct_on ‘k’ \\ completeInduct_on ‘exp_size x’
+  completeInduct_on ‘k’ \\ completeInduct_on ‘exp_size x’
   \\ Cases \\ gvs [PULL_FORALL, exp_size_def] \\ rw []
   >~ [‘Var m’] >- (
     gvs [Once combine_rel_def]
@@ -1540,6 +1538,10 @@ Proof
     \\ qexists_tac ‘j’
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to (j + k) y’ \\ gs []
     \\ simp [v_rel_def])
+  >~ [`Monad mop xs`]
+  >- (
+    gvs[Once combine_rel_def, eval_to_def] >> rw[Once v_rel_def, SF SFY_ss]
+    )
   >~ [‘App f x’]
 
 >- (
@@ -6538,7 +6540,7 @@ Proof
       \\ rename1 ‘n < LENGTH ys’
       \\ rpt (first_x_assum (drule_all_then assume_tac))
       \\ Cases_on ‘eval_to k (EL n xs)’
-      \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gs [v_rel_def]))*)
+      \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gs [v_rel_def]))
 QED
 
 Theorem combine_rel_eval:
@@ -6593,11 +6595,6 @@ Proof
   Cases >> gvs [eval_def, eval_to_Lams] >>
   DEEP_INTRO_TAC some_intro >> rw []
 QED
-
-(*Theorem combine_rel_apply_force[local] =
-  apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘combine_rel’,‘allow_error’|->‘F’]
-  |> SIMP_RULE std_ss [combine_rel_eval, combine_rel_Force, combine_rel_Value];*)
 
 Theorem eval_App_Values:
   eval (App (Value (Closure s e)) (Value v)) = eval (subst1 s v e)
@@ -6657,15 +6654,19 @@ Proof
   \\ gvs [combine_rel_def]
 QED
 
-(*Theorem combine_rel_apply_closure[local]:
-  v_rel v1 w1 ∧
+Theorem combine_rel_apply_closure[local]:
+  combine_rel x y ∧
   v_rel v2 w2 ∧
-  apply_closure v1 v2 f ≠ Err ∧
+  apply_closure x v2 f ≠ Err ∧
   f (INL Type_error) = Err ∧
-  (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒ next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+  (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒ next_rel v_rel combine_rel (f x) (g y)) ⇒
+    next_rel v_rel combine_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
+  rw[apply_closure_def, with_value_def] >>
+  `eval x ≠ INL Type_error` by (CCONTR_TAC >> gvs[]) >>
+  dxrule_all_then assume_tac combine_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule \\ fs []
@@ -7317,14 +7318,13 @@ Proof
       \\ qexists_tac ‘vL2’ \\ qexists_tac ‘bL2’ \\ qexists_tac ‘bL3’
       \\ qexists_tac ‘i’ \\ gvs [Lams_split, EL_MAP]
       \\ gvs [LIST_REL_EL_EQN, EL_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
-QED*)
+QED
 
 Theorem combine_rel_rel_ok[local]:
   rel_ok F v_rel combine_rel
 Proof
-  cheat
-(*  rw [rel_ok_def, v_rel_def, combine_rel_def]
-  \\ rw [combine_rel_apply_force, combine_rel_apply_closure]*)
+  rw [rel_ok_def, v_rel_def, combine_rel_def]
+  \\ rw [combine_rel_apply_closure]
 QED
 
 Theorem combine_rel_sim_ok[local]:

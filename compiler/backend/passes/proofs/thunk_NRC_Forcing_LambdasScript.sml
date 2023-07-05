@@ -34,6 +34,10 @@ Inductive exp_rel:
   (∀s op xs ys.
      LIST_REL (exp_rel s) xs ys ⇒
        exp_rel s (Prim op xs) (Prim op ys)) ∧
+[~Monad:]
+  (∀s mop xs ys.
+     LIST_REL (exp_rel s) xs ys ⇒
+       exp_rel s (Monad mop xs) (Monad mop ys)) ∧
 [~App:]
   (∀s f g x y.
      exp_rel s f g ∧
@@ -103,6 +107,7 @@ End
 Theorem exp_rel_def =
   [“exp_rel s (Var v) x”,
    “exp_rel s (Prim op xs) x”,
+   “exp_rel s (Monad mop xs) x”,
    “exp_rel s (App f x) y”,
    “exp_rel s (Lam v x) y”,
    “exp_rel s (Letrec f x) y”,
@@ -182,6 +187,8 @@ Theorem exp_rel_freevars:
 Proof
   Induct using exp_rel_ind >> simp [freevars_def] >>
   rw []
+  >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
+      gs [LIST_REL_EL_EQN, EL_MAP])
   >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
       gs [LIST_REL_EL_EQN, EL_MAP])
   >- (AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
@@ -269,6 +276,7 @@ Proof
              mp_tac exp_rel_strongind >>
   impl_tac >> rw [forcing_lam_rel_def, forcing_lam_rel_Lams, forcing_lam_rel_Apps] >>
   gs []
+  >- gs [LIST_REL_CONJ, LIST_REL_EL_EQN]
   >- gs [LIST_REL_CONJ, LIST_REL_EL_EQN]
   >- gs [LIST_REL_CONJ, LIST_REL_EL_EQN]
   >- simp [forcing_lam_rel_lets_force]
@@ -787,6 +795,12 @@ Proof
   impl_tac >> rw [forcing_lam_rel_def] >> gs []
   >- (qexists_tac ‘0’ >> gs [])
   >- (irule_at Any NRC_rel_Prim >>
+      simp [forcing_lam_rel_def] >>
+      irule_at Any LIST_REL_NRC_MAX_1 >>
+      gs [LIST_REL_CONJ, LIST_REL_EL_EQN] >>
+      rw [] >> last_x_assum $ dxrule_then assume_tac >>
+      dxrule_then irule forcing_lam_rel_refl)
+  >- (irule_at Any NRC_rel_Monad >>
       simp [forcing_lam_rel_def] >>
       irule_at Any LIST_REL_NRC_MAX_1 >>
       gs [LIST_REL_CONJ, LIST_REL_EL_EQN] >>

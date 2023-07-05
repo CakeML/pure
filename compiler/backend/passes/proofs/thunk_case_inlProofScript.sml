@@ -93,6 +93,10 @@ Inductive exp_rel:
   (∀m op xs ys.
      LIST_REL (exp_rel m) xs ys ⇒
        exp_rel m (Prim op xs) (Prim op ys)) ∧
+[exp_rel_Monad:]
+  (∀m mop xs ys.
+     LIST_REL (exp_rel m) xs ys ⇒
+       exp_rel m (Monad mop xs) (Monad mop ys)) ∧
 [exp_rel_Delay:]
   (∀m x y.
      exp_rel m x y ⇒
@@ -120,6 +124,10 @@ Inductive exp_rel:
   (∀vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀mop xs ys.
+     LIST_REL (exp_rel {}) xs ys ∧ EVERY closed xs ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Closure:]
   (∀s x y.
      exp_rel EMPTY x y ∧
@@ -157,6 +165,8 @@ Theorem v_rel_def[simp] =
     “v_rel z (Recclosure s x)”,
     “v_rel (Constructor s x) z”,
     “v_rel z (Constructor s x)”,
+    “v_rel (Monadic mop xs) z”,
+    “v_rel z (Monadic mop ys)”,
     “v_rel (Atom s) z”,
     “v_rel z (Atom s)”,
     “v_rel (Thunk (INL s)) z”,
@@ -263,6 +273,12 @@ Proof
     \\ first_x_assum irule \\ gs []
     \\ first_assum (irule_at Any)
     \\ first_assum (irule_at Any) \\ gs [])
+  >- ((* Monad *)
+    gvs[freevars_def] >> rw[Once exp_rel_cases] >>
+    last_x_assum mp_tac >> match_mp_tac LIST_REL_mono >> rw[] >> gvs[] >>
+    first_x_assum irule >> gvs[EXTENSION, PULL_EXISTS, MEM_MAP, EQ_IMP_THM] >>
+    metis_tac[]
+    )
   >- ((* Delay *)
     gs [freevars_def]
     \\ irule exp_rel_Delay \\ gs [])
@@ -334,6 +350,12 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ first_x_assum (irule_at Any) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
+  >- ( (* Monad *)
+    rw[Once exp_rel_cases] >> gvs[subst_def] >>
+    irule exp_rel_Monad >> gvs[LIST_REL_MAP_MAP] >>
+    rw[LIST_REL_EL_EQN] >> gvs[MEM_EL] >> imp_res_tac LIST_REL_LENGTH >>
+    gvs[EL_MAP, PULL_EXISTS] >> first_x_assum irule >> gvs[LIST_REL_EL_EQN]
+    )
   >- ((* If *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -784,6 +806,13 @@ Proof
       \\ first_x_assum (drule_all_then assume_tac)
       \\ first_x_assum (drule_all_then assume_tac)
       \\ rpt CASE_TAC \\ gs []))
+  >~ [‘Monad mop xs’]
+  >- (
+    rw[Once exp_rel_cases] >> gvs[eval_to_def] >>
+    pop_assum mp_tac >> match_mp_tac LIST_REL_mono >> rw[] >>
+    irule exp_rel_freevars >> simp[] >> gvs[EVERY_MEM, closed_def] >>
+    goal_assum drule
+    )
 QED
 
 Theorem exp_rel_eval[local]:
@@ -797,25 +826,21 @@ Proof
   \\ rw [exp_rel_eval_to, SF SFY_ss]
 QED
 
-Theorem inl_apply_force[local]:
-  v_rel v w ⇒
-    ($= +++ v_rel) (force v) (force w)
-Proof
-  rw [] \\ irule apply_force_rel \\ simp []
-  \\ qexists_tac ‘λx y. closed x ∧ exp_rel m x y’
-  \\ qexists_tac ‘T’
-  \\ simp [exp_rel_Force, exp_rel_Value, exp_rel_eval, SF SFY_ss]
-QED
+Overload closed_exp_rel = ``λx y. closed x ∧ exp_rel {} x y``
 
 Theorem inl_apply_closure[local]:
-  v_rel v1 w1 ∧
+  closed_exp_rel x y ∧
   v_rel v2 w2 ∧
   (∀x y.
      ($= +++ v_rel) x y ⇒
-       next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+       next_rel v_rel closed_exp_rel (f x) (g y)) ⇒
+    next_rel v_rel closed_exp_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  rw [thunk_semanticsTheory.apply_closure_def]
+  rw[thunk_semanticsTheory.apply_closure_def] >>
+  gvs[thunk_semanticsTheory.with_value_def] >>
+  dxrule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
   >- (
     first_x_assum irule \\ gs []
@@ -832,7 +857,7 @@ Proof
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, closed_def])
   \\ gs [OPTREL_def]
-  \\ qpat_x_assum ‘exp_rel m x y’ mp_tac
+  \\ qpat_x_assum ‘exp_rel m x0 y0’ mp_tac
   \\ rw [Once exp_rel_cases] \\ gs []
   \\ first_x_assum irule \\ gs []
   \\ irule exp_rel_eval
@@ -846,11 +871,9 @@ Proof
 QED
 
 Theorem inl_rel_ok[local]:
-  rel_ok T v_rel
+  rel_ok T v_rel closed_exp_rel
 Proof
   rw [rel_ok_def]
-  >- ((* force preserves rel *)
-    simp [inl_apply_force])
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [inl_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
@@ -861,13 +884,16 @@ Proof
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)
     simp [exp_rel_Prim])
+  >- rw[Once exp_rel_cases] (* v_rel x y ⇒ exp_rel {} (Value x) (Value y) *)
+  >- gvs[LIST_REL_EL_EQN, EVERY_EL] (* LIST_REL stuff *)
 QED
 
 Theorem inl_sim_ok[local]:
-  sim_ok T v_rel (exp_rel EMPTY)
+  sim_ok T v_rel closed_exp_rel
 Proof
   rw [sim_ok_def]
   \\ simp [exp_rel_eval, SF SFY_ss]
+  >- (DEP_REWRITE_TAC[subst_notin_frees] >> gvs[closed_def])
   \\ irule exp_rel_subst \\ gs [EVERY2_MAP, LAMBDA_PROD]
 QED
 

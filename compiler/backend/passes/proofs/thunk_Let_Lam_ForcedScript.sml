@@ -413,8 +413,7 @@ Theorem force_arg_rel_refl:
   ∀x. no_value x ⇒ force_arg_rel x x
 Proof
   Induct using freevars_ind >> gvs [force_arg_rel_def, no_value_def, EVERY_CONJ] >>
-  gvs [EVERY_EL, MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN] >> rw []
-  >- cheat >>
+  gvs [EVERY_EL, MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN] >> rw [] >>
   disj1_tac >> rw [] >>
   last_x_assum irule >> gvs [] >>
   first_assum $ irule_at Any >>
@@ -1158,6 +1157,7 @@ Theorem eval_App_div:
                        NONE => INL Type_error
                      | SOME (Var v22) => INL Type_error
                      | SOME (Prim v23 v24) => INL Type_error
+                     | SOME (Monad mop xs) => INL Type_error
                      | SOME (App v25 v26) => INL Type_error
                      | SOME (Lam s x'') =>
                          INR (s,x'',MAP (λ(g,x). (g,Recclosure f g)) f)
@@ -1195,6 +1195,7 @@ Theorem eval_App_Tick:
                        NONE => INL Type_error
                      | SOME (Var v22) => INL Type_error
                      | SOME (Prim v23 v24) => INL Type_error
+                     | SOME (Monad mop xs) => INL Type_error
                      | SOME (App v25 v26) => INL Type_error
                      | SOME (Lam s x'') =>
                          INR (s,x'',MAP (λ(g,x). (g,Recclosure f g)) f)
@@ -1237,6 +1238,7 @@ Theorem eval_App_Tick2:
                          NONE => INL Type_error
                        | SOME (Var v22) => INL Type_error
                        | SOME (Prim v23 v24) => INL Type_error
+                       | SOME (Monad mop xs) => INL Type_error
                        | SOME (App v25 v26) => INL Type_error
                        | SOME (Lam s x'') =>
                            INR (s,x'',MAP (λ(g,x). (g,Recclosure f g)) f)
@@ -1282,6 +1284,7 @@ Theorem eval_App_Tick_Force_Val_Div:
                        NONE => INL Type_error
                      | SOME (Var v22) => INL Type_error
                      | SOME (Prim v23 v24) => INL Type_error
+                     | SOME (Monad mop xs) => INL Type_error
                      | SOME (App v25 v26) => INL Type_error
                      | SOME (Lam s x'') =>
                          INR (s,x'',MAP (λ(g,x). (g,Recclosure f g)) f)
@@ -1332,6 +1335,8 @@ Proof
     gvs [Once force_arg_rel_def]
     \\ qexists_tac ‘0’
     \\ gvs [eval_to_def, v_rel_Closure])
+  >~ [`Monad mop xs`]
+  >- (gvs[Once force_arg_rel_def, eval_to_def] >> rw[Once v_rel_def])
  >~ [‘App f x’] >- print_tac "App" (
     gvs [Once force_arg_rel_def, eval_to_def]
     \\ rename1 ‘force_arg_rel x y’
@@ -1475,10 +1480,8 @@ Proof
         >- (Cases_on ‘eval_to (k - 1) (subst1 s v1 body)’ \\ gvs [])
         \\ dxrule_then (qspecl_then [‘j + j1 + j2 + k - 1’] assume_tac) eval_to_mono
         \\ gvs [])
-    \\ cheat
-
     (* Closure -> Lams (Apps ( )) HD *)
-(*    >- print_tac "Closure 1/8" (
+    >- print_tac "Closure 1/8" (
         IF_CASES_TAC \\ gvs []
         >- (qexists_tac ‘0’ \\ simp [] \\ irule eval_App_div
             \\ first_x_assum $ irule_at Any
@@ -4213,7 +4216,6 @@ Proof
         \\ ‘eval_to (j3 + k - 2) expr2 ≠ INL Diverge’
           by (strip_tac \\ Cases_on ‘eval_to (k - 2) expr1’ \\ gvs [])
         \\ dxrule_then (qspec_then ‘j + j1 + j2 + j3 + k - 2’ assume_tac) eval_to_mono \\ gvs []))
-        *))
  >~ [‘Seq x1 y1’] >- print_tac "Seq" (
     gvs [Once force_arg_rel_def, eval_to_def]
     \\ IF_CASES_TAC \\ gs []
@@ -5067,7 +5069,6 @@ Proof
       \\ rpt (first_x_assum (drule_all_then assume_tac))
       \\ Cases_on ‘eval_to k (EL n xs)’
       \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gs [v_rel_def]))
- >- cheat
 QED
 
 Theorem force_arg_rel_eval:
@@ -5105,11 +5106,6 @@ Proof
   DEEP_INTRO_TAC some_intro >> rw []
 QED
 
-(*Theorem force_arg_rel_apply_force[local] =
-  apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘force_arg_rel’,‘allow_error’|->‘T’]
-  |> SIMP_RULE std_ss [force_arg_rel_eval, force_arg_rel_Force, force_arg_rel_Value];*)
-
 Theorem eval_App_Values:
   eval (App (Value (Closure s e)) (Value v)) = eval (subst1 s v e)
 Proof
@@ -5134,13 +5130,16 @@ Proof
 QED
 
 Theorem force_arg_rel_apply_closure[local]:
-  force_arg_rel v1 w1 ∧
+  force_arg_rel x y ∧
   v_rel v2 w2 ∧
   (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel force_arg_rel (f x) (g y)) ⇒
-    next_rel v_rel force_arg_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+    next_rel v_rel force_arg_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  cheat
-(*  rw [apply_closure_def]
+  rw [thunk_semanticsTheory.apply_closure_def] >>
+  simp[thunk_semanticsTheory.with_value_def] >>
+  dxrule_all_then assume_tac force_arg_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule
@@ -5266,8 +5265,8 @@ Proof
               \\ first_assum $ irule_at $ Pos hd
               \\ first_x_assum $ irule_at Any
               \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
-              \\ qexists_tac ‘ys’ \\ qexists_tac ‘y’ \\ qexists_tac ‘xs’
-              \\ qexists_tac ‘x’ \\ qexists_tac ‘vL2’
+              \\ qexists_tac ‘ys’ \\ qexists_tac ‘y'’ \\ qexists_tac ‘xs’
+              \\ qexists_tac ‘x'’ \\ qexists_tac ‘vL2’
               \\ gvs []
               \\ qexists_tac ‘[]’ \\ gvs []
               \\ qexists_tac ‘v2'’ \\ gvs []
@@ -5317,7 +5316,8 @@ Proof
             suffices_by rw []
           \\ irule EQ_TRANS \\ first_x_assum $ irule_at $ Pos last
           \\ AP_TERM_TAC
-          \\ gvs [])
+          \\ gvs []
+          )
       \\ qpat_assum ‘∀i. _ ⇒ force_arg_rel _ _’ $ qspec_then ‘n’ assume_tac
       \\ Cases_on ‘SND (EL n xs)’ \\ gvs [force_arg_rel_def]
       \\ first_x_assum irule
@@ -5407,7 +5407,7 @@ Proof
               \\ first_assum $ irule_at $ Pos hd
               \\ first_x_assum $ irule_at Any
               \\ once_rewrite_tac [CONS_APPEND] \\ gvs []
-              \\ qexists_tac ‘ys’ \\ qexists_tac ‘y’ \\ qexists_tac ‘xs’
+              \\ qexists_tac ‘ys’ \\ qexists_tac ‘y'’ \\ qexists_tac ‘xs’
               \\ first_x_assum $ irule_at $ Pos last
               \\ irule_at (Pos $ el 2) EQ_REFL \\ gvs []
               \\ qexists_tac ‘[]’ \\ gvs []
@@ -5472,7 +5472,8 @@ Proof
             suffices_by rw []
           \\ irule EQ_TRANS \\ first_x_assum $ irule_at $ Pos last
           \\ AP_TERM_TAC
-          \\ gvs [subst1_commutes])
+          \\ gvs [subst1_commutes]
+          )
       \\ qpat_assum ‘∀i. _ ⇒ force_arg_rel _ _’ $ qspec_then ‘n’ assume_tac
       \\ Cases_on ‘SND (EL n xs)’ \\ gvs [force_arg_rel_def]
       \\ first_x_assum irule
@@ -5503,7 +5504,7 @@ Proof
       \\ rpt $ irule_at (Pos hd) EQ_REFL
       \\ gvs [MEM_EL, LIST_REL_EL_EQN, EL_MAP]
       \\ irule_at (Pos hd) EQ_REFL \\ gvs []
-      \\ qexists_tac ‘n2’ \\ gvs [EL_MAP])*)
+      \\ qexists_tac ‘n2’ \\ gvs [EL_MAP])
 QED
 
 Theorem force_arg_rel_rel_ok[local]:
