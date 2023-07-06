@@ -13,27 +13,15 @@ val _ = set_grammar_ancestry ["thunkLang", "itree"];
 (******************** Datatypes and helpers ********************)
 
 Datatype:
-  cont = Done      (* nothing left to do *)
-       | BC v cont (* RHS of Bind, rest *)
-       | HC v cont (* RHS of Handle, rest *)
+  cont = Done        (* nothing left to do *)
+       | BC exp cont (* RHS of Bind, rest *)
+       | HC exp cont (* RHS of Handle, rest *)
 End
 
 Type state[pp] = “:(v list) list”;
 
 Datatype:
   next_res = Act 'e cont state | Ret | Div | Err
-End
-
-Definition force_def:
-  force v =
-    case dest_Tick v of
-      SOME w => eval (Force (Value w))
-    | NONE =>
-        do (wx, binds) <- dest_anyThunk v;
-           case wx of
-             INL v => return v
-           | INR y => eval (subst_funs binds y)
-        od
 End
 
 Definition get_atoms_def:
@@ -44,7 +32,7 @@ End
 
 Definition with_atoms_def:
   with_atoms vs f =
-    case result_map force vs of
+    case result_map eval vs of
     | INL Diverge => Div
     | INL Type_error => Err
     | INR ws =>
@@ -53,20 +41,23 @@ Definition with_atoms_def:
       | NONE => Err
 End
 
-Definition apply_closure_def:
-  apply_closure f arg cont =
-    case dest_anyClosure f of
-    | INR (x, body, binds) => cont (eval (subst (binds ++ [(x,arg)]) body))
-    | _ => Err
+Definition with_value_def:
+  with_value e f =
+    case eval e of
+    | INR v => f v
+    | INL Diverge => Div
+    | INL _ => Err
 End
 
-Definition force_apply_closure_def:
-  force_apply_closure f arg cont =
-    case force f of
-    | INR f' => apply_closure f' arg cont
-    | INL Diverge => Div
-    | INL Type_error => Err
+Definition apply_closure_def:
+  apply_closure f arg cont =
+    with_value f (λv.
+      case dest_anyClosure v of
+      | INR (x, body, binds) =>
+          cont (eval (subst (binds ++ [x, arg]) body))
+      | INL _ => Err)
 End
+
 
 (******************** Intermediate definitions ********************)
 
@@ -77,61 +68,64 @@ Definition next_def:
     | INL _ => Err
     | INR v =>
       case v of
-      | Constructor s vs => (
-          if s = "Ret" ∧ LENGTH vs = 1 then
-            (case stack of
-             | Done => Ret
-             | BC f fs =>
-                (* Lifting the clock check out of the continuation causes the
-                 * computation to diverge up front, hiding errors. On the
-                 * other hand, so does other clauses. *)
-                if k = 0 then Div else
-                  force_apply_closure f (HD vs) (λw. next (k-1) w fs state)
-             | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
-          else if s = "Raise" ∧ LENGTH vs = 1 then
-            (case stack of
-             | Done => Ret
-             | BC f fs => if k = 0 then Div else next (k-1) sv fs state
-             | HC f fs =>
-                 if k = 0 then Div else
-                force_apply_closure f (HD vs) (λw. next (k-1) w fs state))
-          else if s = "Bind" ∧ LENGTH vs = 2 then
+      | Monadic mop vs => (
+          if mop = Ret ∧ LENGTH vs = 1 then
+            with_value (HD vs) (λv.
+              case stack of
+              | Done => Ret
+              | BC f fs =>
+                  (* Lifting the clock check out of the continuation causes the
+                   * computation to diverge up front, hiding errors. On the
+                   * other hand, so does other clauses. *)
+                  if k = 0 then Div else
+                    apply_closure f v (λw. next (k-1) w fs state)
+              | HC f fs => if k = 0 then Div else next (k-1) sv fs state)
+          else if mop = Raise ∧ LENGTH vs = 1 then
+            with_value (HD vs) (λv.
+              case stack of
+              | Done => Ret
+              | BC f fs => if k = 0 then Div else next (k-1) sv fs state
+              | HC f fs =>
+                  if k = 0 then Div else
+                  apply_closure f v (λw. next (k-1) w fs state))
+          else if mop = Bind ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
-               if k = 0 then Div else next (k-1) (force m) (BC f stack) state)
-          else if s = "Handle" ∧ LENGTH vs = 2 then
+               if k = 0 then Div else next (k-1) (eval m) (BC f stack) state)
+          else if mop = Handle ∧ LENGTH vs = 2 then
             (let m = EL 0 vs in
              let f = EL 1 vs in
-               if k = 0 then Div else next (k-1) (force m) (HC f stack) state)
-          else if s = "Act" ∧ LENGTH vs = 1 then
+               if k = 0 then Div else next (k-1) (eval m) (HC f stack) state)
+          else if mop = Act ∧ LENGTH vs = 1 then
             (with_atoms vs (λas.
                case HD as of
                | Msg channel content => Act (channel, content) stack state
                | _ => Err))
-          else if s = "Alloc" ∧ LENGTH vs = 2 then
-            (with_atoms [HD vs] (λas.
-               case HD as of
-               | Int len =>
-                   (let n = if len < 0 then 0 else Num len in
-                    let new_state = state ++ [REPLICATE n (EL 1 vs)] in
-                      if k = 0 then Div else
-                        next (k-1)
-                          (INR $ Constructor "Ret" [
-                             Thunk (INR (Lit (Loc (LENGTH state))))])
-                          stack new_state)
-               | _ => Err))
-          else if s = "Length" ∧ LENGTH vs = 1 then
+          else if mop = Alloc ∧ LENGTH vs = 2 then
+            (case result_map eval vs of
+             | INR [vl; v] =>
+                (case get_atoms [vl] of
+                 | SOME [Int len] =>
+                    let n = if len < 0 then 0 else Num len in
+                    let new_state = state ++ [REPLICATE n v] in
+                    if k = 0 then Div else
+                      next (k-1)
+                        (INR $ Monadic Ret [Lit (Loc (LENGTH state))])
+                        stack new_state
+                 | _ => Err)
+             | INL Diverge => Div
+             | _ => Err)
+          else if mop = Length ∧ LENGTH vs = 1 then
             (with_atoms vs (λas.
                case HD as of
                | Loc n =>
                    (if LENGTH state ≤ n then Err else
                     if k = 0 then Div else
                       next (k-1)
-                        (INR $ Constructor "Ret" [
-                           Thunk (INR (Lit (Int (& (LENGTH (EL n state))))))])
+                        (INR $ Monadic Ret [Lit (Int (& (LENGTH (EL n state))))])
                         stack state)
                | _ => Err))
-          else if s = "Deref" ∧ LENGTH vs = 2 then
+          else if mop = Deref ∧ LENGTH vs = 2 then
             (with_atoms vs (λas.
                case (EL 0 as, EL 1 as) of
                | (Loc n, Int i) =>
@@ -139,32 +133,31 @@ Definition next_def:
                     if k = 0 then Div else
                     if 0 ≤ i ∧ i < & LENGTH (EL n state) then
                       next (k-1)
-                        (INR $ Constructor "Ret" [EL (Num i) (EL n state)])
+                        (INR $ Monadic Ret [Value $ EL (Num i) (EL n state)])
                         stack state
                     else
                       next (k-1)
-                        (INR $ Constructor "Raise" [
-                           Thunk (INR (Cons "Subscript" []))])
+                        (INR $ Monadic Raise [Cons "Subscript" []])
                         stack state)
                | _ => Err))
-          else if s = "Update" ∧ LENGTH vs = 3 then
-            (with_atoms [EL 0 vs; EL 1 vs] (λas.
-               case (EL 0 as, EL 1 as) of
-               | (Loc n, Int i) =>
-                   (if LENGTH state ≤ n then Err else
-                    if k = 0 then Div else
-                    if 0 ≤ i ∧ i < & LENGTH (EL n state) then
-                      next (k-1)
-                        (INR $ Constructor "Ret" [
-                           Thunk (INR (Cons "" []))])
-                        stack
-                        (LUPDATE (LUPDATE (EL 2 vs) (Num i) (EL n state)) n state)
-                    else
-                      next (k-1)
-                        (INR $ Constructor "Raise" [
-                           Thunk (INR (Cons "Subscript" []))])
-                        stack state)
-               | _ => Err))
+          else if mop = Update ∧ LENGTH vs = 3 then
+            (case result_map eval vs of
+             | INR [vl; vi; v] =>
+                 (case get_atoms [vl; vi] of
+                  | SOME [Loc n; Int i] =>
+                      if LENGTH state ≤ n then Err else
+                      if k = 0 then Div else
+                      if 0 ≤ i ∧ i < & LENGTH (EL n state) then
+                        let new_state =
+                          LUPDATE (LUPDATE v (Num i) (EL n state)) n state
+                        in next (k-1) (INR $ Monadic Ret [Cons "" []]) stack new_state
+                      else
+                        next (k-1)
+                          (INR $ Monadic Raise [Cons "Subscript" []])
+                          stack state
+                  | _ => Err)
+             | INL Diverge => Div
+             | _ => Err)
           else Err)
       | _ => Err
 End
@@ -186,7 +179,7 @@ Definition interp'_def:
         | Div => Div'
         | Act a new_stack new_state =>
             Vis' a
-              (λy. (INR $ Constructor "Ret" [Thunk (INR (Lit (Str y)))],
+              (λy. (INR $ Monadic Ret [Lit (Str y)],
                     new_stack, new_state)))
       ((λ_ ret. STRLEN ret ≤ max_FFI_return_size),
        pure_semantics$FinalFFI,
@@ -212,7 +205,7 @@ Theorem interp_def:
               Ret $ pure_semantics$FinalFFI a x
           | INR y =>
               if STRLEN y ≤ max_FFI_return_size then
-                interp (INR $ Constructor "Ret" [Thunk (INR (Lit (Str y)))])
+                interp (INR $ Monadic Ret [Lit (Str y)])
                        new_stack
                        new_state
               else Ret $ pure_semantics$FinalFFI a pure_semantics$FFI_failure)
@@ -245,42 +238,43 @@ Proof
   ntac 2 $ pop_assum mp_tac >>
   once_rewrite_tac[next_def] >>
   TOP_CASE_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >>
-  Cases_on `s = "Bind"` >- (gvs[] >> rw[]) >>
-  Cases_on `s = "Handle"` >- (gvs[] >> rw[]) >>
-  Cases_on `s = "Act"` >- (gvs[] >> rw[]) >>
-  Cases_on `s = "Raise"` >> gvs[]
+  rename1 `s = Ret` >>
+  Cases_on `s = Bind` >- (gvs[] >> rw[]) >>
+  Cases_on `s = Handle` >- (gvs[] >> rw[]) >>
+  Cases_on `s = Act` >- (gvs[] >> rw[]) >>
+  Cases_on `s = Raise` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
-    simp[apply_closure_def,force_apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
+    IF_CASES_TAC >> gvs[] >> simp[with_value_def] >>
+    ntac 2 (TOP_CASE_TAC >> gvs[]) >- (IF_CASES_TAC >> gvs[]) >>
+    simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
-  Cases_on `s = "Ret"` >> gvs[]
+  Cases_on `s = Ret` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >>
-    reverse $ TOP_CASE_TAC >> gvs[] >- (IF_CASES_TAC >> gvs[]) >>
-    simp[apply_closure_def,force_apply_closure_def] >> rpt $ TOP_CASE_TAC >> gvs[]
+    IF_CASES_TAC >> gvs[] >> simp[with_value_def] >>
+    ntac 2 (reverse TOP_CASE_TAC >> gvs[]) >- (IF_CASES_TAC >> gvs[]) >>
+    simp[apply_closure_def, with_value_def] >> rpt $ TOP_CASE_TAC >> gvs[]
     ) >>
-  Cases_on `s = "Alloc"` >> gvs[]
+  Cases_on `s = Alloc` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 4 (TOP_CASE_TAC >> gvs[]) >>
-    first_x_assum irule >> simp[] >> qexists_tac `[Int i]` >> simp[]
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def, with_value_def] >>
+    rpt (TOP_CASE_TAC >> gvs[]) >> first_x_assum drule >> simp[]
     ) >>
-  Cases_on `s = "Length"` >> gvs[]
+  Cases_on `s = Length` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 5 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n]` >> simp[]
     ) >>
-  Cases_on `s = "Deref"` >> gvs[]
+  Cases_on `s = Deref` >> gvs[]
   >- (
     IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
     ntac 7 (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     ) >>
-  Cases_on `s = "Update"` >> gvs[]
+  Cases_on `s = Update` >> gvs[]
   >- (
-    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def] >>
-    ntac 7 (TOP_CASE_TAC >> gvs[]) >>
+    IF_CASES_TAC >> gvs[] >> rw[with_atoms_def, with_value_def] >>
+    rpt (TOP_CASE_TAC >> gvs[]) >>
     first_x_assum irule >> simp[] >> qexists_tac `[Loc n; Int i]` >> simp[]
     )
 QED

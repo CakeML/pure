@@ -913,4 +913,37 @@ Proof
   rw[closed_def, freevars_Lams] >> simp[SUBSET_DIFF_EMPTY]
 QED
 
+Theorem Apps_append:
+  ∀xs ys x. Apps x (xs ++ ys) = Apps (Apps x xs) ys
+Proof
+  Induct \\ fs [Apps_def]
+QED
+
+Theorem Apps_11:
+  ∀xs ys x y. Apps x xs = Apps y ys ∧ LENGTH xs = LENGTH ys ⇒ x = y ∧ xs = ys
+Proof
+  Induct \\ fs [Apps_def]
+  \\ Cases_on ‘ys’ \\ fs [Apps_def]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
+Theorem subst_Seqs:
+  ∀xs y. subst m (Seqs xs y) = Seqs (MAP (subst m) xs) (subst m y)
+Proof
+  Induct \\ fs [subst_def]
+QED
+
+Theorem subst_Apps:
+  ∀xs m f. subst m (Apps f xs) = Apps (subst m f) (MAP (subst m) xs)
+Proof
+  Induct \\ fs [Apps_def,subst_def]
+QED
+
+Theorem ignore_FDIFF:
+  DISJOINT f (FDOM m) ⇒ FDIFF m f = m
+Proof
+  fs [fmap_eq_flookup,FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,IN_DISJOINT]
+  \\ metis_tac []
+QED
+
 val _ = export_theory();

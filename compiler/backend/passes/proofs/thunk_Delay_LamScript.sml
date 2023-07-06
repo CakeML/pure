@@ -87,7 +87,11 @@ Inductive exp_rel:
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y)) ∧
+[~Monad:]
+  (∀m xs ys.
+     LIST_REL exp_rel xs ys ⇒
+     exp_rel (Monad m xs) (Monad m ys)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
@@ -149,7 +153,11 @@ Inductive exp_rel:
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
-     v_rel (DoTick v) (DoTick w))
+     v_rel (DoTick v) (DoTick w)) ∧
+[v_rel_Monadic:]
+  (∀m xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       v_rel (Monadic m xs) (Monadic m ys))
 End
 
 Theorem exp_rel_def =
@@ -164,12 +172,14 @@ Theorem exp_rel_def =
    “exp_rel (Delay x) y”,
    “exp_rel (Box x) y”,
    “exp_rel (MkTick x) y”,
-   “exp_rel (Force x) y”]
+   “exp_rel (Force x) y”,
+   “exp_rel (Monad m xs) x”]
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
   |> LIST_CONJ;
 
 Theorem v_rel_def =
   [“v_rel (Constructor s vs) v”,
+   “v_rel (Monadic m xs) v”,
    “v_rel (Closure s x) v”,
    “v_rel (Recclosure f n) v”,
    “v_rel (Atom x) v”,
@@ -326,6 +336,8 @@ Proof
   Induct using freevars_ind >> gvs [exp_rel_def, PULL_EXISTS, freevars_def] >> rw []
   >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
       gvs [EL_MAP, MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN])
+  >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
+      gvs [EL_MAP, MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN])
   >- (rpt $ first_x_assum $ dxrule_then assume_tac >> gvs [])
   >- (rpt $ first_x_assum $ dxrule_then assume_tac >> gvs [])
   >- (rpt $ first_x_assum $ dxrule_then assume_tac >> gvs [])
@@ -407,6 +419,9 @@ Proof
   >- (gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS] >>
       first_assum $ irule_at Any >> first_x_assum $ drule_then assume_tac >>
       first_x_assum $ drule_then $ drule_then assume_tac >> gvs [EL_MAP])
+  >- (gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS] >>
+      first_assum $ irule_at Any >> first_x_assum $ drule_then assume_tac >>
+      first_x_assum $ drule_then $ drule_then assume_tac >> gvs [EL_MAP])
   >- gvs [exp_rel_def, PULL_EXISTS, boundvars_def]
   >- gvs [exp_rel_def, PULL_EXISTS, boundvars_def]
   >- (gvs [LIST_REL_EL_EQN, MEM_EL, EL_MAP, PULL_EXISTS] >>
@@ -464,6 +479,12 @@ Proof
       \\ gvs []
       \\ first_x_assum irule \\ gvs []
       \\ strip_tac \\ gvs [])
+  >- (irule LIST_EQ >> gvs [EL_MAP, MEM_EL, PULL_EXISTS, freevars_def] >>
+      rpt $ strip_tac >> last_x_assum irule >> rw [] >>
+      rename1 ‘n ∈ _’ >> first_x_assum $ qspecl_then [‘n’] assume_tac >> gs [] >>
+      rename1 ‘EL n2 xs’ >>
+      first_x_assum $ qspecl_then [‘freevars (EL n2 xs)’] assume_tac >> gs [] >>
+      first_x_assum $ qspecl_then [‘n2’] assume_tac >> gs [EL_MAP])
   >- (irule LIST_EQ >> gvs [EL_MAP, MEM_EL, PULL_EXISTS, freevars_def] >>
       rpt $ strip_tac >> last_x_assum irule >> rw [] >>
       rename1 ‘n ∈ _’ >> first_x_assum $ qspecl_then [‘n’] assume_tac >> gs [] >>
@@ -620,6 +641,10 @@ Proof
   >~ [‘Prim op xs’] >- (
     rw [subst_def]
     \\ irule exp_rel_Prim
+    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
+  >~ [‘Monad m xs’] >- (
+    rw [subst_def]
+    \\ irule exp_rel_Monad
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
   >~ [‘App f x’] >- (
     rw [subst_def]
@@ -887,6 +912,21 @@ Proof
           irule v_rel_Recclosure_Delay_Lam >> gvs [EVERY_CONJ] >> rw [MEM_MAP] >>
           first_x_assum $ irule_at Any >> gvs [FORALL_PROD]))
   >~[‘Prim op’]
+  >- (gvs [subst_funs_def, subst_def, exp_rel_def] >> rpt $ strip_tac >>
+      gvs [LIST_REL_EL_EQN, EL_MAP] >> rw [] >>
+      first_x_assum irule >> gvs [EVERY_CONJ, EL_MEM] >>
+      rename1 ‘MAP FST g = MAP FST f’ >>
+      ‘LENGTH g = LENGTH f’ by metis_tac [LENGTH_MAP] >>
+      gvs [EL_MAP, freevars_def, boundvars_def, EVERY_MEM, PULL_EXISTS] >>
+      rw [] >> rpt $ first_x_assum $ drule_then assume_tac
+      >~ [‘freevars (EL n2 xs)’]
+      >- (first_x_assum $ qspecl_then [‘freevars (EL n2 xs)’] assume_tac >> gvs [MEM_MAP] >>
+          first_x_assum $ qspecl_then [‘EL n2 xs’] assume_tac >> gvs [MEM_EL])
+      >~ [‘boundvars (EL n2 xs)’]
+      >- (rpt $ first_x_assum $ qspecl_then [‘boundvars (EL n2 xs)’] assume_tac >>
+          gvs [MEM_MAP] >>
+          rpt $ first_x_assum $ qspecl_then [‘EL n2 xs’] assume_tac >> gvs [MEM_EL]))
+  >~[‘Monad’]
   >- (gvs [subst_funs_def, subst_def, exp_rel_def] >> rpt $ strip_tac >>
       gvs [LIST_REL_EL_EQN, EL_MAP] >> rw [] >>
       first_x_assum irule >> gvs [EVERY_CONJ, EL_MEM] >>
@@ -2156,6 +2196,8 @@ Proof
       \\ rpt (first_x_assum (drule_all_then assume_tac))
       \\ Cases_on ‘eval_to k (EL n xs)’
       \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gs [v_rel_def]))
+ >~ [‘Monad mop xy’] >- (
+    gvs [Once exp_rel_def, eval_to_def, v_rel_def])
 QED
 
 Theorem exp_rel_eval:
@@ -2186,18 +2228,17 @@ Proof
   \\ Cases_on ‘eval_to (k + m) x’ \\ gvs []
 QED
 
-Theorem delay_lam_apply_force[local] =
-  apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘exp_rel’,‘allow_error’|->‘T’]
-  |> SIMP_RULE std_ss [exp_rel_eval, exp_rel_Force, exp_rel_Value];
-
 Theorem delay_lam_apply_closure[local]:
-  v_rel v1 w1 ∧
+  exp_rel x y ∧
   v_rel v2 w2 ∧
-  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+  (∀x y. ($= +++ v_rel) x y ⇒ next_rel v_rel exp_rel (f x) (g y)) ⇒
+    next_rel v_rel exp_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
+  rw [apply_closure_def] >> simp[with_value_def] >>
+  dxrule_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
+  >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule
@@ -2247,71 +2288,73 @@ Proof
           \\ first_x_assum $ qspecl_then [‘EL n vL’] assume_tac
           \\ gvs [])
       \\ gvs [EL_MAP])
-  >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
-      \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
-        by (irule LIST_REL_OPTREL
-            \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
-      \\ gs [OPTREL_def]
-      \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
-      \\ rw [Once exp_rel_cases] \\ gs []
-      \\ drule_then assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
-      \\ gvs [EVERY_EL, EL_MAP]
-      \\ first_x_assum irule
-      \\ irule exp_rel_eval
-      \\ irule exp_rel_subst
-      \\ simp [EVERY2_MAP, LAMBDA_PROD, v_rel_def, MAP_MAP_o, combinTheory.o_DEF,
-               GSYM FST_THM]
-      \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EVERY_EL, EL_MAP, LIST_EQ_REWRITE])
-  >- (CASE_TAC \\ gvs [ALOOKUP_NONE, MAP_REVERSE]
-      \\ dxrule_then assume_tac ALOOKUP_MEM \\ gvs []
-      \\ drule_then (drule_then assume_tac) ALOOKUP_Letrec_Delay
-      \\ gvs [EVERY_CONJ, MEM_EL, PULL_EXISTS, EL_MAP, LIST_REL_EL_EQN]
-      \\ first_x_assum $ drule_then assume_tac
-      \\ rename1 ‘(FST (EL n g2), _) = EL n2 l’
-      \\ drule_then (qspecl_then [‘n’, ‘n2’] assume_tac) ALL_DISTINCT_EL_IMP \\ gvs [EL_MAP]
-      \\ ‘∀i. i < LENGTH g2 ⇒ FST (EL i g2) = FST (EL i l)’
-        by (rw [] >>
-            ‘i < LENGTH g2’ by gs [] >>
-            dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
-            ‘i < LENGTH l’ by gs [] >>
-            dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
-            rw [])
-      \\ Cases_on ‘EL n2 l’ \\ gvs []
-      \\ rename1 ‘EL n _’ \\ Cases_on ‘EL n g2’ \\ gvs []
-      \\ first_x_assum $ drule_then assume_tac \\ gs []
-      \\ rename1 ‘EL n l = (name, e1)’ \\ rename1 ‘EL n g2 = (name, e2)’
-      \\ ‘exp_rel e1 e2’ by (last_x_assum $ dxrule_then assume_tac \\ gvs [])
-      \\ Cases_on ‘e1’ \\ gvs [exp_rel_def] \\ rw []
-      \\ first_x_assum irule
-      \\ irule exp_rel_eval
-      \\ gvs [subst_APPEND]
-      \\ rename1 ‘exp_rel (subst _ (subst1 s v2 e)) _’
-      \\ qspecl_then [‘subst1 s v2 e’, ‘K T’] assume_tac exp_rel_subst_Letrec
-      \\ gvs [FILTER_T, GSYM LAMBDA_PROD]
-      \\ first_x_assum irule
-      \\ irule_at Any exp_rel_subst
-      \\ gvs [EVERY_CONJ, freevars_subst, boundvars_subst, LIST_REL_EL_EQN, EL_MAP, EVERY_MEM]
-      \\ rw []
+  >- (
+     rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
+     \\ ‘OPTREL exp_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
+       by (irule LIST_REL_OPTREL
+           \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
+     \\ gs [OPTREL_def]
+     \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
+     \\ rw [Once exp_rel_cases] \\ gs []
+     \\ drule_then assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
+     \\ gvs [EVERY_EL, EL_MAP]
+     \\ first_x_assum irule
+     \\ irule exp_rel_eval
+     \\ irule exp_rel_subst
+     \\ simp [EVERY2_MAP, LAMBDA_PROD, v_rel_def, MAP_MAP_o, combinTheory.o_DEF,
+              GSYM FST_THM]
+     \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EVERY_EL, EL_MAP, LIST_EQ_REWRITE])
+  >- (
+     CASE_TAC \\ gvs [ALOOKUP_NONE, MAP_REVERSE]
+     \\ dxrule_then assume_tac ALOOKUP_MEM \\ gvs []
+     \\ drule_then (drule_then assume_tac) ALOOKUP_Letrec_Delay
+     \\ gvs [EVERY_CONJ, MEM_EL, PULL_EXISTS, EL_MAP, LIST_REL_EL_EQN]
+     \\ first_x_assum $ drule_then assume_tac
+     \\ rename1 ‘(FST (EL n g2), _) = EL n2 l’
+     \\ drule_then (qspecl_then [‘n’, ‘n2’] assume_tac) ALL_DISTINCT_EL_IMP \\ gvs [EL_MAP]
+     \\ ‘∀i. i < LENGTH g2 ⇒ FST (EL i g2) = FST (EL i l)’
+       by (rw [] >>
+           ‘i < LENGTH g2’ by gs [] >>
+           dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
+           ‘i < LENGTH l’ by gs [] >>
+           dxrule_then (qspecl_then [‘FST’] assume_tac) $ GSYM EL_MAP >>
+           rw [])
+     \\ Cases_on ‘EL n2 l’ \\ gvs []
+     \\ rename1 ‘EL n _’ \\ Cases_on ‘EL n g2’ \\ gvs []
+     \\ first_x_assum $ drule_then assume_tac \\ gs []
+     \\ rename1 ‘EL n l = (name, e1)’ \\ rename1 ‘EL n g2 = (name, e2)’
+     \\ ‘exp_rel e1 e2’ by (last_x_assum $ dxrule_then assume_tac \\ gvs [])
+     \\ Cases_on ‘e1’ \\ gvs [exp_rel_def] \\ rw []
+     \\ first_x_assum irule
+     \\ irule exp_rel_eval
+     \\ gvs [subst_APPEND]
+     \\ rename1 ‘exp_rel (subst _ (subst1 s v2 e)) _’
+     \\ qspecl_then [‘subst1 s v2 e’, ‘K T’] assume_tac exp_rel_subst_Letrec
+     \\ gvs [FILTER_T, GSYM LAMBDA_PROD]
+     \\ first_x_assum irule
+     \\ irule_at Any exp_rel_subst
+     \\ gvs [EVERY_CONJ, freevars_subst, boundvars_subst, LIST_REL_EL_EQN, EL_MAP, EVERY_MEM]
+     \\ rw []
       \\ rpt $ first_x_assum $ drule_then assume_tac
-      \\ gvs [MEM_EL, PULL_EXISTS]
-      \\ rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac
-      \\ drule_then assume_tac exp_rel_freevars
-          \\ drule_then assume_tac exp_rel_boundvars
-      >- (‘∀(A : string -> bool) B. A = B ⇒ ∀x. x ∈ A ⇒ x ∈ B’ by gvs []
-          \\ pop_assum $ dxrule_then assume_tac
-          \\ gvs [freevars_def, boundvars_def]
-          \\ strip_tac \\ first_x_assum $ dxrule_then assume_tac
-          \\ gvs [])
-      \\ gvs [freevars_def, boundvars_def, SUBSET_DEF]
-      \\ rename1 ‘EL n2 vL ∉ boundvars _’ \\ first_x_assum $ qspecl_then [‘EL n2 vL’] assume_tac
-      \\ strip_tac \\ gvs [])
+     \\ gvs [MEM_EL, PULL_EXISTS]
+     \\ rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac
+     \\ drule_then assume_tac exp_rel_freevars
+     \\ drule_then assume_tac exp_rel_boundvars
+     >- (‘∀(A : string -> bool) B. A = B ⇒ ∀x. x ∈ A ⇒ x ∈ B’ by gvs []
+         \\ pop_assum $ dxrule_then assume_tac
+         \\ gvs [freevars_def, boundvars_def]
+         \\ strip_tac \\ first_x_assum $ dxrule_then assume_tac
+         \\ gvs [])
+     \\ gvs [freevars_def, boundvars_def, SUBSET_DEF]
+     \\ rename1 ‘EL n2 vL ∉ boundvars _’ \\ first_x_assum $ qspecl_then [‘EL n2 vL’] assume_tac
+     \\ strip_tac \\ gvs [])
 QED
 
 Theorem delay_lam_rel_ok[local]:
-  rel_ok T v_rel
+  rel_ok T v_rel exp_rel
 Proof
   rw [rel_ok_def, v_rel_def, exp_rel_def]
-  \\ rw [delay_lam_apply_force, delay_lam_apply_closure]
+  \\ rw [delay_lam_apply_closure]
 QED
 
 Theorem delay_lam_sim_ok[local]:

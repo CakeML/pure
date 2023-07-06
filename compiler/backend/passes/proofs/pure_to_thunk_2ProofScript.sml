@@ -14,12 +14,16 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      thunk_let_forceProofTheory
      thunk_cexpTheory
      expof_caseProofTheory;
+local open pure_obs_sem_equalTheory in end
 
 val _ = new_theory "pure_to_thunk_2Proof";
 
 val _ = set_grammar_ancestry
           ["pure_to_thunk_1Proof", "pure_cexp", "thunk_exp_of",
            "thunkLang", "thunk_cexp", "pureLang", "expof_caseProof"];
+
+Overload mk_delay_rel = ``λf x y. (∃c v. x = Var c v ∧ y = Var v) ∨
+                                  (∃z. f x z ∧ y = Delay z)``
 
 Inductive exp_rel:
 [~Var:]
@@ -50,8 +54,46 @@ Inductive exp_rel:
 [~Cons:]
   (∀xs ys n.
      LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
-                      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ⇒
+                      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ∧
+     explode n ∉ monad_cns ⇒
        exp_rel (Prim i (Cons n) xs) (Prim (Cons n) ys)) ∧
+[~Ret_Raise:]
+  (∀mop xs ys n.
+     (if n = «Ret» then mop = Ret else n = «Raise» ∧ mop = Raise) ∧
+     LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
+                      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ⇒
+       exp_rel (Prim i (Cons n) xs) (Monad mop ys)) ∧
+[~Bind_Handle:]
+  (∀mop xs ys n.
+     (if n = «Bind» then mop = Bind else n = «Handle» ∧ mop = Handle) ∧
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim i (Cons n) xs) (Monad mop ys)) ∧
+[~Act_Length:]
+  (∀mop xs ys n.
+     (if n = «Act» then mop = Act else n = «Length» ∧ mop = Length) ∧
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim i (Cons n) xs)
+               (Monad Bind [Monad mop ys; Lam [«v»] (Monad Ret [Delay $ Var «v»])])) ∧
+[~Alloc:]
+  (∀x1 x2 y1 y2.
+     exp_rel x1 y1 ∧ mk_delay_rel exp_rel x2 y2 ⇒
+       exp_rel (Prim i (Cons «Alloc») [x1; x2])
+               (Monad Bind [Monad Alloc [y1; y2];
+                            Lam [«v»] (Monad Ret [Delay $ Var «v»])])) ∧
+[~Deref:]
+  (∀xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Prim i (Cons «Deref») xs)
+               (Monad Handle [Monad Deref ys;
+                              Lam [«v»] (Monad Raise [Delay $ Var «v»])])) ∧
+[~Update:]
+  (∀x1 x2 x3 y1 y2 y3.
+     exp_rel x1 y1 ∧ exp_rel x2 y2 ∧ mk_delay_rel exp_rel x3 y3 ⇒
+       exp_rel (Prim i (Cons «Update») [x1;x2;x3])
+               (Monad Bind [
+                  Monad Handle [Monad Update [y1;y2;y3];
+                                Lam [«v»] (Monad Raise [Delay $ Var «v»])];
+                  Lam [«v»] (Monad Ret [Delay $ Var «v»])])) ∧
 [~Prim:]
   (∀xs ys a.
      LIST_REL exp_rel xs ys ⇒
@@ -95,7 +137,7 @@ Theorem lets_for_lemma[local]:
     force_rel NONE y2 y3 ∧
     proj_rel y3 y4 ∧
     delay_force y4 (exp_of yy2) ∧
-    ~MEM fresh vs ∧ ~MEM h vs ∧ fresh ≠ h ∧
+    ~MEM fresh vs ∧ ~MEM h vs ∧ fresh ≠ h ∧ cn ∉ monad_cns ∧
     fresh ∉ freevars (exp_of' h2) ⇒
     ∃x1 x2 x3 x4.
       to_thunk
@@ -120,6 +162,8 @@ Proof
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
+  \\ simp[pure_configTheory.monad_cns_def,
+         mop_rel_cases, mop_ret_rel_cases, mop_delay_rel_cases]
   \\ simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases, PULL_EXISTS]
   \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Let
   \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Proj \\ fs [PULL_EXISTS]
@@ -176,14 +220,15 @@ Theorem to_thunk_Disj:
   ∀xs v. to_thunk (Disj v xs) (Disj' (Force (Var v)) xs)
 Proof
   Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []
-  \\ rpt (simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases])
+  \\ ntac 4 (simp [Once pure_to_thunk_1ProofTheory.compile_rel_cases])
+  \\ simp[pure_configTheory.monad_cns_def]
 QED
 
 Theorem lift_rel_Disj:
   ∀xs v. lift_rel (Disj' (Force (Var v)) xs) (Disj' (Force (Var v)) xs)
 Proof
   Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []
-  \\ rpt (simp [Once thunk_case_liftProofTheory.compile_rel_cases])
+  \\ ntac 5 (simp [Once thunk_case_liftProofTheory.compile_rel_cases])
 QED
 
 Theorem force_rel_Disj:
@@ -218,6 +263,12 @@ Proof
   Induct \\ fs [pureLangTheory.Disj_def,FORALL_PROD,Disj'_def] \\ rw []
   \\ fs [freevars_def]
 QED
+
+Theorem to_thunk_cases[local] = Once pure_to_thunk_1ProofTheory.compile_rel_cases;
+Theorem lift_cases[local] = Once thunk_case_liftProofTheory.compile_rel_cases;
+Theorem force_cases[local] = Once thunk_let_forceProofTheory.exp_rel_cases;
+Theorem proj_cases[local] = Once thunk_case_projProofTheory.compile_rel_cases;
+Theorem delay_force_cases[local] = Once thunk_unthunkProofTheory.delay_force_cases;
 
 Theorem exp_rel_imp_combined:
   ∀x y.
@@ -318,6 +369,8 @@ Proof
     \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
     \\ qpat_x_assum ‘EVERY (λa. cexp_wf a) _’ mp_tac
     \\ qpat_x_assum ‘¬MEM v (FLAT (MAP (FST ∘ SND) ys1))’ mp_tac
+    \\ `∀cn. MEM cn (MAP FST ys1) ⇒ explode cn ∉ monad_cns` by gvs[]
+    \\ pop_assum mp_tac
     \\ qid_spec_tac ‘ys2’
     \\ qid_spec_tac ‘ys1’
     \\ Induct \\ fs [PULL_EXISTS]
@@ -433,6 +486,7 @@ Proof
     \\ fs []
     \\ pop_assum mp_tac
     \\ pop_assum kall_tac
+    \\ pop_assum mp_tac
     \\ pop_assum mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
@@ -589,7 +643,126 @@ Proof
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
     \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Delay
     \\ rpt $ first_assum $ irule_at Any
-    \\ EVAL_TAC \\ fs [])
+    \\ EVAL_TAC \\ fs []) >>
+  gvs[num_args_ok_def, pure_configTheory.num_monad_args_def] >>
+  gvs[LENGTH_EQ_NUM_compute] >>
+  simp[to_thunk_cases, PULL_EXISTS, pure_configTheory.monad_cns_def,
+       mop_rel_cases, mop_ret_rel_cases, mop_delay_rel_cases]
+  >~ [`Ret`]
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    last_x_assum $ mp_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM] >> rw[] >> gvs[]
+    >- (
+      simp[exp_of'_def, to_thunk_cases, PULL_EXISTS] >>
+      ntac 3 $ simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS]
+      ) >>
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    rpt $ goal_assum drule
+    )
+  >~ [`Raise`]
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    last_x_assum $ mp_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM] >> rw[] >> gvs[]
+    >- (
+      simp[exp_of'_def, to_thunk_cases, PULL_EXISTS] >>
+      ntac 3 $ simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS]
+      ) >>
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    rpt $ goal_assum drule
+    )
+  >~ [`Bind`]
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    rpt $ goal_assum drule
+    )
+  >~ [`Handle`]
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    rpt $ goal_assum $ drule
+    )
+  >~ [`Act`]
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    goal_assum drule >> simp[lift_cases, PULL_EXISTS] >>
+    goal_assum drule >> ntac 4 $ simp[lift_cases, PULL_EXISTS] >>
+    simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 4 $ simp[force_cases, PULL_EXISTS] >>
+    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 4 $ simp[proj_cases, PULL_EXISTS] >>
+    ntac 5 $ simp[delay_force_cases]
+    )
+  >~ [`Length`]
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    goal_assum drule >> simp[lift_cases, PULL_EXISTS] >>
+    goal_assum drule >> ntac 4 $ simp[lift_cases, PULL_EXISTS] >>
+    simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 4 $ simp[force_cases, PULL_EXISTS] >>
+    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 4 $ simp[proj_cases, PULL_EXISTS] >>
+    ntac 5 $ simp[delay_force_cases]
+    )
+  >~ [`Alloc`] (* Delay (Force (Var _)) case *)
+  >- (
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    goal_assum drule >> simp[exp_of'_def, to_thunk_cases, PULL_EXISTS] >>
+    simp[LUPDATE_DEF] >> simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 7 $ simp[lift_cases, PULL_EXISTS] >> simp[force_cases, PULL_EXISTS] >>
+    goal_assum drule >> ntac 7 $ simp[force_cases, PULL_EXISTS] >>
+    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 7 $ simp[proj_cases, PULL_EXISTS] >> ntac 6 $ simp[delay_force_cases]
+    )
+  >~ [`Alloc`]
+  >- (
+    simp[LUPDATE_DEF] >>
+    ntac 2 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 7 $ simp[lift_cases, PULL_EXISTS] >>
+    ntac 2 $ simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+    simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 7 $ simp[force_cases, PULL_EXISTS] >>
+    ntac 2 $ simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 7 $ simp[proj_cases, PULL_EXISTS] >>
+    ntac 7 $ simp[delay_force_cases, PULL_EXISTS]
+    )
+  >~ [`Deref`]
+  >- (
+    ntac 2 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 4 $ simp[lift_cases, PULL_EXISTS] >>
+    ntac 2 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 4 $ simp[force_cases, PULL_EXISTS] >>
+    ntac 2 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 4 $ simp[proj_cases, PULL_EXISTS] >>
+    ntac 2 $ simp[delay_force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 4 $ simp[delay_force_cases, PULL_EXISTS]
+    )
+  >~ [`Update`] (* Delay (Force (Var _)) case *)
+  >- (
+    simp[LUPDATE_DEF, exp_of'_def] >> rpt $ goal_assum drule >>
+    simp[to_thunk_cases, PULL_EXISTS] >>
+    ntac 3 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 11 $ simp[lift_cases, PULL_EXISTS] >>
+    ntac 3 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 11 $ simp[force_cases, PULL_EXISTS] >>
+    ntac 3 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    ntac 11 $ simp[proj_cases, PULL_EXISTS] >>
+    ntac 12 $ simp[Once delay_force_cases]
+    )
+  >~ [`Update`]
+  >- (
+    simp[LUPDATE_DEF, exp_of'_def] >> rpt $ goal_assum drule >>
+    ntac 3 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 11 $ simp[lift_cases, PULL_EXISTS] >>
+    ntac 3 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 11 $ simp[force_cases, PULL_EXISTS] >>
+    ntac 3 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+    ntac 11 $ simp[proj_cases, PULL_EXISTS] >>
+    ntac 12 $ simp[Once delay_force_cases]
+    )
 QED
 
 Theorem exp_rel_semantics:

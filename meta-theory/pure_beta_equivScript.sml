@@ -614,7 +614,7 @@ Definition iidd_def:
   iidd = Lam "y" (App id (Var "y"))
 End
 
-(*TODO: a tactic that, given a goal like:
+(* Would be nice to have a tactic that, given a goal like:
 
         exp_alpha (Lam "y" (Var "y")) (Lam "x" (Var "x"))
 
@@ -642,4 +642,3 @@ Theorem id_iidd_equivalence_expanded =
    id_iidd_equivalence |> REWRITE_RULE [iidd_def,id_def]
 
 val _ = export_theory();
-

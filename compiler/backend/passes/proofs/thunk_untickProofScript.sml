@@ -39,6 +39,10 @@ Inductive exp_rel:
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
+[~Monad:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Monad mop xs) (Monad mop ys)) ∧
 [~App:]
   (∀f x g y.
      exp_rel f g ∧
@@ -82,6 +86,10 @@ Inductive exp_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Constructor:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
@@ -112,6 +120,10 @@ Theorem v_rel_def[simp]:
      v_rel (Constructor s vs) w =
        ∃ws. w = Constructor s ws ∧
             LIST_REL v_rel vs ws) /\
+  (∀mop xs.
+     v_rel (Monadic mop xs) w =
+       ∃ys. w = Monadic mop ys ∧
+            LIST_REL exp_rel xs ys) /\
   (∀s x.
      v_rel (Closure s x) w =
        ∃y. w = Closure s y ∧
@@ -140,6 +152,7 @@ QED
 
 Theorem v_rel_simps[simp]:
   ¬v_rel (Thunk x) (Constructor s l) ∧
+  ¬v_rel (Thunk x) (Monadic mop ys) ∧
   ¬v_rel (Thunk x) (Closure s z) ∧
   ¬v_rel (Thunk x) (Recclosure f n) ∧
   ¬v_rel (Thunk x) (Atom y) ∧
@@ -151,6 +164,7 @@ QED
 Theorem exp_rel_def =
   [“exp_rel (Var v) x”,
    “exp_rel (Prim op xs) x”,
+   “exp_rel (Monad mop xs) x”,
    “exp_rel (App f x) y”,
    “exp_rel (Lam s x) y”,
    “exp_rel (Letrec f x) y”,
@@ -220,6 +234,10 @@ Proof
   >- ((* Prim *)
     rw [Once exp_rel_cases] \\ simp [subst_def]
     \\ irule exp_rel_Prim
+    \\ gvs [EVERY2_MAP, LIST_REL_EL_EQN, EL_MEM])
+  >- ((* Monad *)
+    rw [Once exp_rel_cases] \\ simp [subst_def]
+    \\ irule exp_rel_Monad
     \\ gvs [EVERY2_MAP, LIST_REL_EL_EQN, EL_MEM])
   >- ((* If *)
     rw [Once exp_rel_cases] \\ simp [subst_def]
@@ -1344,6 +1362,9 @@ Proof
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ first_x_assum (qspec_then ‘j’ assume_tac)
       \\ rpt CASE_TAC \\ gs []))
+  >- ( (* Monad *)
+    rw[Once exp_rel_cases] >> gvs[eval_to_def]
+    )
 QED
 
 Theorem exp_rel_eval:
@@ -1390,30 +1411,23 @@ Proof
   \\ Cases_on ‘k ≤ j’ \\ gs []
 QED
 
-Theorem untick_apply_force[local]:
-  v_rel v w ∧
-  force v ≠ INL Type_error ⇒
-    ($= +++ v_rel) (force v) (force w)
-Proof
-  rw [force_eval]
-  \\ irule exp_rel_eval \\ simp []
-  \\ irule exp_rel_Force
-  \\ irule exp_rel_Value \\ gs []
-QED
-
 Theorem untick_apply_closure[local]:
-  v_rel v1 w1 ∧
+  exp_rel x y ∧
   v_rel v2 w2 ∧
-  apply_closure v1 v2 f ≠ Err ∧
+  apply_closure x v2 f ≠ Err ∧
   f (INL Type_error) = Err ∧
   (∀x y.
      ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
-       next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel
-             (apply_closure v1 v2 f)
-             (apply_closure w1 w2 g)
+       next_rel v_rel exp_rel (f x) (g y)) ⇒
+    next_rel v_rel exp_rel
+             (apply_closure x v2 f)
+             (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
+  rw [apply_closure_def, with_value_def] >>
+  `eval x ≠ INL Type_error` by (CCONTR_TAC >> gvs[]) >>
+  dxrule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
   >- (
     first_x_assum irule \\ gs []
@@ -1428,7 +1442,7 @@ Proof
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]
-  \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+  \\ qpat_x_assum ‘exp_rel _ _ ’ mp_tac
   \\ rw [Once exp_rel_cases] \\ gs []
   \\ first_x_assum irule \\ gs []
   \\ irule exp_rel_eval
@@ -1440,11 +1454,9 @@ Proof
 QED
 
 Theorem untick_rel_ok[local]:
-  rel_ok F v_rel
+  rel_ok F v_rel exp_rel
 Proof
   rw [rel_ok_def]
-  >- ((* force preserves rel *)
-    simp [untick_apply_force])
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [untick_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
@@ -1453,6 +1465,8 @@ Proof
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)
     simp [exp_rel_Prim])
+  >- ((* v_rel v1 v2 ⇒ exp_rel (Value v1) (Value v2) *)
+    simp [exp_rel_Value])
 QED
 
 Theorem untick_sim_ok[local]:

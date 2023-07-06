@@ -86,6 +86,11 @@ Definition split_Delayed_Lam_def:
                               let (e', vc) = split_Delayed_Lam e vc maps in
                                 (e'::l, vc)) ([], var_creator) xs in
        (Prim op xs', vc)) /\
+    (split_Delayed_Lam (Monad mop xs) var_creator maps =
+     let (xs', vc) = FOLDR (λe (l, vc).
+                              let (e', vc) = split_Delayed_Lam e vc maps in
+                                (e'::l, vc)) ([], var_creator) xs in
+       (Monad mop xs', vc)) /\
     (split_Delayed_Lam (Let NONE expr1 expr2) var_creator maps =
      let (expr1, vc) = split_Delayed_Lam expr1 var_creator maps in
        let (expr2, vc) = split_Delayed_Lam expr2 vc maps in
@@ -157,17 +162,19 @@ Termination
       \\ Cases_on ‘expr1’ \\ gs [dest_Delay_Lam_def]
       \\ rename1 ‘dest_Delay_Lam (Delay expr1)’
       \\ Cases_on ‘expr1’ \\ gvs [dest_Delay_Lam_def, cexp_size_def])
-  >~[‘MEM _ _’]
+  >>~[‘MEM _ _’]
   >- (assume_tac cexp_size_lemma \\ gs []
       \\ first_x_assum $ dxrule_then assume_tac
       \\ CASE_TAC \\ gs []
       \\ CASE_TAC \\ gs [])
-  >~[‘MEM _ _’]
   >- (assume_tac cexp_size_lemma \\ gs []
       \\ first_x_assum $ dxrule_then assume_tac
       \\ CASE_TAC \\ gs []
       \\ CASE_TAC \\ gs [])
-  >~[‘MEM _ _’]
+  >- (assume_tac cexp_size_lemma \\ gs []
+      \\ first_x_assum $ dxrule_then assume_tac
+      \\ CASE_TAC \\ gs []
+      \\ CASE_TAC \\ gs [])
   >- (assume_tac cexp_size_lemma \\ gs []
       \\ first_x_assum $ dxrule_then assume_tac
       \\ CASE_TAC \\ gs []

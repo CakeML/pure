@@ -70,6 +70,10 @@ Inductive exp_rel:
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
+[exp_rel_Monad:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Monad mop xs) (Monad mop ys)) ∧
 [exp_rel_Delay:]
   (∀x y.
      exp_rel x y ⇒
@@ -100,6 +104,10 @@ Inductive exp_rel:
   (∀vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
@@ -132,6 +140,8 @@ Theorem v_rel_def[simp] =
     “v_rel z (Recclosure s x)”,
     “v_rel (Constructor s x) z”,
     “v_rel z (Constructor s x)”,
+    “v_rel (Monadic mop xs) z”,
+    “v_rel z (Monadic mop ys)”,
     “v_rel (Atom x) z”,
     “v_rel z (Atom x)”,
     “v_rel (Thunk (INL x)) z”,
@@ -193,6 +203,11 @@ Proof
     \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
     \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any) \\ rw [])
+  >- ((* Monad *)
+    rw[Once exp_rel_cases] >> gvs[subst_def] >>
+    rw[Once exp_rel_cases] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS]
+    )
   >- ((* If *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -1507,6 +1522,8 @@ Proof
       \\ rpt (first_x_assum (drule_then assume_tac))
       \\ first_x_assum (qspec_then ‘j’ assume_tac)
       \\ rpt CASE_TAC \\ gs []))
+  >~ [`Monad mop xs`]
+  >- (strip_tac >> rw[Once exp_rel_cases] >> gvs[eval_to_def])
 QED
 
 Theorem exp_rel_eval_to = REWRITE_RULE [d2b_goal_def] exp_rel_eval_to;
@@ -1541,30 +1558,24 @@ Proof
   \\ drule_then (qspec_then ‘k + m’ assume_tac) eval_to_mono \\ gs []
 QED
 
-Theorem d2b_apply_force[local]:
-  v_rel v w ∧
-  force v ≠ INL Type_error ⇒
-    ($= +++ v_rel) (force v) (force w)
-Proof
-  rw [] \\ irule apply_force_rel \\ simp []
-  \\ qexists_tac ‘exp_rel’
-  \\ qexists_tac ‘F’
-  \\ simp [exp_rel_Force, exp_rel_Value, exp_rel_eval]
-QED
-
 Theorem d2b_apply_closure[local]:
-  v_rel v1 w1 ∧
+  exp_rel x y ∧
   v_rel v2 w2 ∧
-  apply_closure v1 v2 f ≠ Err ∧
+  apply_closure x v2 f ≠ Err ∧
   f (INL Type_error) = Err ∧
   (∀x y.
      ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
-       next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel
-             (apply_closure v1 v2 f)
-             (apply_closure w1 w2 g)
+       next_rel v_rel exp_rel (f x) (g y)) ⇒
+    next_rel v_rel exp_rel
+             (apply_closure x v2 f)
+             (apply_closure y w2 g)
 Proof
-  rw [thunk_semanticsTheory.apply_closure_def]
+  rw[thunk_semanticsTheory.apply_closure_def] >>
+  gvs[thunk_semanticsTheory.with_value_def] >>
+  `eval x ≠ INL Type_error` by (CCONTR_TAC >> gvs[]) >>
+  dxrule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
   >- (
     first_x_assum irule \\ gs []
@@ -1577,7 +1588,7 @@ Proof
     by (irule LIST_REL_OPTREL
         \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
   \\ gs [OPTREL_def]
-  \\ qpat_x_assum ‘exp_rel x y’ mp_tac
+  \\ qpat_x_assum ‘exp_rel x0 y0’ mp_tac
   \\ rw [Once exp_rel_cases] \\ gs []
   \\ first_x_assum irule \\ gs []
   \\ irule exp_rel_eval
@@ -1589,11 +1600,9 @@ Proof
 QED
 
 Theorem d2b_rel_ok[local]:
-  rel_ok F v_rel
+  rel_ok F v_rel exp_rel
 Proof
   rw [rel_ok_def]
-  >- ((* force preserves rel *)
-    simp [d2b_apply_force])
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [d2b_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
@@ -1603,6 +1612,8 @@ Proof
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)
     simp [exp_rel_Prim])
+  >- ((* v_rel x y ⇒ exp_rel (Value x) (Value y) *)
+    simp [exp_rel_Value])
 QED
 
 Theorem d2b_sim_ok[local]:

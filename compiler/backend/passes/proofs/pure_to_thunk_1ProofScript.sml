@@ -6,14 +6,14 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite
      intLib;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     pure_semanticsTheory thunk_semanticsTheory pure_evalTheory
+     pure_semanticsTheory thunk_semanticsTheory pure_evalTheory pure_configTheory
      thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory;
 
 val _ = new_theory "pure_to_thunk_1Proof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
                               "pure_semantics", "thunk_semantics",
-                              "pure_exp_lemmas", "pure_misc"];
+                              "pure_exp_lemmas", "pure_misc", "pure_config"];
 
 val _ = numLib.prefer_num ();
 
@@ -52,6 +52,23 @@ val _ = numLib.prefer_num ();
     - The remainder of the operations already produce results in weak head
       normal form, so we don't do anything special to them.
     - The first argument to ‘Seq’ is forced.
+  * [Monad]
+    - `Ret`/`Raise` have their arguments delayed, so that future call-by-value applications to `Bind` produce the correct semantics.
+        Ret e   --> Ret (Delay e)
+        Raise e --> Raise (Delay e)
+    - `Act`/`Length` must delay their return values to maintain this invariant:
+        Act e    --> Bind (Act e) (λv. Ret (Delay v))
+        Length e --> Bind (Length e) (λv. Ret (Delay v))
+    - `Alloc` also delays its return value, but must further ensure that items stored in arrays are delayed to match PureLang's call-by-name arrays.
+        Alloc n e --> Bind (Alloc n (Delay e)) (λv. Ret (Delay v))`
+    - `Deref` delays its potential exception to align with the `Ret`/`Raise` invariant:
+        Deref l e --> Handle (Deref l e) (λv. Raise (Delay v))
+    - `Update` delays three things: the element it stores, its return value, and its potential exception
+        Update l n e -->
+          Bind
+            (Handle (Update l n (Delay e)) (λv. Raise (Delay v)))
+            (λv. Ret (Delay v))
+    - `Bind`/`Handle` are straightforwardly compiled
   * [Letrec]
     - We expect all expressions in the list of bindings to be suspended by
       something (either Lam or Delay or Box), so we insert Delay everywhere.
@@ -60,6 +77,37 @@ val _ = numLib.prefer_num ();
 Overload Suspend[local] = “λx. Force (Value (Thunk (INR x)))”;
 
 Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
+
+
+(* Simple monadic operation mapping *)
+Inductive mop_rel:
+  mop_rel "Bind" pure_config$Bind ∧
+  mop_rel "Handle" Handle
+End
+
+(* Ret/Raise require a Delay operation *)
+Inductive mop_ret_rel:
+  mop_ret_rel "Ret" pure_config$Ret ∧
+  mop_ret_rel "Raise" Raise
+End
+
+(* Length/Alloc/Act require wrapping in a `Ret $ Delay` *)
+Inductive mop_delay_rel:
+  mop_delay_rel "Length" pure_config$Length NONE ∧
+  mop_delay_rel "Alloc" Alloc (SOME 1n) ∧
+  mop_delay_rel "Act" Act NONE
+End
+
+(* Deref / Update handled separately *)
+
+val mop_cases_ss = simpLib.named_rewrites "mop_cases_ss" [
+                    mop_rel_cases, mop_ret_rel_cases, mop_delay_rel_cases];
+val mop_cases = SF mop_cases_ss;
+
+Definition opt_delay_arg_def[simp]:
+  opt_delay_arg NONE ys = ys ∧
+  opt_delay_arg (SOME idx) ys = LUPDATE (Delay $ EL idx ys) idx ys
+End
 
 Inductive exp_rel:
 [exp_rel_Value_Rec:]
@@ -96,11 +144,52 @@ Inductive exp_rel:
        exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
 [exp_rel_Cons:]
   (∀n xs ys.
+     n ∉ monad_cns ∧
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Cons n xs) (Prim (Cons n) (MAP Delay ys))) ∧
+[exp_rel_LitVal:]
+  (exp_rel (Lit l) (Value (Atom l))) ∧
+[exp_rel_ConsVal:]
+  (cn ∉ monad_cns ⇒ exp_rel (Cons cn []) (Value (Constructor cn []))) ∧
+[exp_rel_Monad:]
+  (∀n mop xs ys.
+     mop_rel n mop ∧
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Cons n xs) (Monad mop ys)) ∧
+[exp_rel_Monad_Ret:]
+  (∀n mop xs ys.
+     mop_ret_rel n mop ∧
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Cons n xs) (Monad mop (MAP Delay ys))) ∧
+[exp_rel_Monad_Delay:]
+  (∀n mop idopt xs ys.
+     mop_delay_rel n mop idopt ∧ (∀idx. idopt = SOME idx ⇒ idx < LENGTH xs) ∧
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Cons n xs)
+               (Monad Bind [
+                  Monad mop (opt_delay_arg idopt ys);
+                  Lam "v" $ Monad Ret [Delay $ Var "v"]
+                ])) ∧
+[exp_rel_Deref:]
+  (∀xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Cons "Deref" xs)
+               (Monad Handle [
+                  Monad Deref ys;
+                  Lam "v" $ Monad Raise [Delay $ Var "v"]])) ∧
+[exp_rel_Update:]
+  (∀xs ys.
+     LIST_REL exp_rel xs ys ∧ 2 < LENGTH xs ⇒
+       exp_rel (Cons "Update" xs)
+               (Monad Bind [
+                  Monad Handle [
+                    Monad Update (opt_delay_arg (SOME 2n) ys);
+                    Lam "v" $ Monad Raise [Delay $ Var "v"]];
+                  Lam "v" $ Monad Ret [Delay $ Var "v"]
+                ])) ∧
 [exp_rel_Proj:]
   (∀s i xs ys.
-     LIST_REL exp_rel xs ys ⇒
+     LIST_REL exp_rel xs ys ∧ s ∉ monad_cns ⇒
        exp_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
 [exp_rel_Seq:]
   (∀x1 x2 y1 y2.
@@ -140,7 +229,35 @@ Definition v_rel_def[simp]:
   v_rel (wh_Closure s x) (INR (Closure t y)) =
     (s = t ∧ exp_rel x y ∧ freevars x ⊆ {s}) ∧
   v_rel (wh_Constructor s xs) (INR (Constructor t ys)) =
-    (s = t ∧ LIST_REL thunk_rel xs ys ∧ EVERY closed xs) ∧
+    (s = t ∧ s ∉ monad_cns ∧ LIST_REL thunk_rel xs ys ∧ EVERY closed xs) ∧
+  v_rel (wh_Constructor s xs) (INR (Monadic mop ys)) =
+    (EVERY closed xs ∧ (
+     mop_rel s mop ∧ LIST_REL exp_rel xs ys ∨
+     (∃zs.
+        mop_ret_rel s mop ∧
+        LIST_REL exp_rel xs zs ∧ ys = MAP Delay zs) ∨
+     (∃zs.
+        mop_ret_rel s mop ∧
+        LIST_REL thunk_rel xs zs ∧ ys = MAP (λz. Value z) zs) ∨
+     (∃mop' idopt zs.
+        mop = Bind ∧
+        ys = [Monad mop' (opt_delay_arg idopt zs);
+              Lam "v" $ Monad Ret [Delay $ Var "v"]] ∧
+        mop_delay_rel s mop' idopt ∧ (∀idx. idopt = SOME idx ⇒ idx < LENGTH xs) ∧
+        LIST_REL exp_rel xs zs) ∨
+     (∃zs.
+        s = "Deref" ∧ mop = Handle ∧
+        ys = [Monad Deref zs;
+              Lam "v" $ Monad Raise [Delay $ Var "v"]] ∧
+        LIST_REL exp_rel xs zs) ∨
+     (∃zs.
+        s = "Update" ∧ mop = Bind ∧
+        ys = [Monad Handle [
+                Monad Update (opt_delay_arg (SOME 2) zs);
+                Lam "v" $ Monad Raise [Delay $ Var "v"]];
+              Lam "v" $ Monad Ret [Delay $ Var "v"]] ∧
+        LIST_REL exp_rel xs zs ∧ 2 < LENGTH xs)
+     )) ∧
   v_rel (wh_Atom a) (INR (Atom b)) = (a = b) ∧
   v_rel _ _ = F
 End
@@ -157,8 +274,39 @@ Theorem v_rel_rev[local,simp]:
   v_rel x (INR (Constructor s ys)) =
     (∃xs.
        x = wh_Constructor s xs ∧
+       s ∉ monad_cns ∧
        EVERY closed xs ∧
        LIST_REL thunk_rel xs ys) ∧
+  v_rel x (INR (Monadic mop zs)) =
+    (∃xs s.
+       x = wh_Constructor s xs ∧
+       EVERY closed xs ∧
+       (mop_rel s mop ∧ LIST_REL exp_rel xs zs ∨
+       (∃ys.
+          mop_ret_rel s mop ∧
+          LIST_REL exp_rel xs ys ∧ zs = MAP Delay ys) ∨
+       (∃ys.
+          mop_ret_rel s mop ∧
+          LIST_REL thunk_rel xs ys ∧ zs = MAP (λz. Value z) ys) ∨
+       (∃mop' idopt ys.
+          mop = Bind ∧
+          zs = [Monad mop' (opt_delay_arg idopt ys);
+                Lam "v" $ Monad Ret [Delay $ Var "v"]] ∧
+          mop_delay_rel s mop' idopt ∧ (∀idx. idopt = SOME idx ⇒ idx < LENGTH xs) ∧
+          LIST_REL exp_rel xs ys) ∨
+       (∃ys.
+          s = "Deref" ∧ mop = Handle ∧
+          zs = [Monad Deref ys;
+                Lam "v" $ Monad Raise [Delay $ Var "v"]] ∧
+          LIST_REL exp_rel xs ys) ∨
+       (∃ys.
+          s = "Update" ∧ mop = Bind ∧
+          zs = [Monad Handle [
+                  Monad Update (opt_delay_arg (SOME 2) ys);
+                  Lam "v" $ Monad Raise [Delay $ Var "v"]];
+                Lam "v" $ Monad Ret [Delay $ Var "v"]] ∧
+          LIST_REL exp_rel xs ys ∧ 2 < LENGTH xs)
+         )) ∧
   v_rel x (INR (Atom l)) =
     (x = wh_Atom l)
 Proof
@@ -251,6 +399,28 @@ Proof
     AP_TERM_TAC \\ AP_TERM_TAC
     \\ irule LIST_EQ
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+  >- (
+    AP_TERM_TAC \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_LUPDATE, COND_RAND, freevars_def]
+    )
+  >- (
+    ntac 2 AP_TERM_TAC >> irule LIST_EQ >>
+    Cases_on `idopt` >>
+    gvs [LIST_REL_EL_EQN, EL_MAP, EL_LUPDATE, COND_RAND, freevars_def]
+    )
+  >- (
+    AP_TERM_TAC \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
+  >- (
+    ntac 2 AP_TERM_TAC >> irule LIST_EQ >>
+    gvs [LIST_REL_EL_EQN, EL_MAP, EL_LUPDATE, COND_RAND, freevars_def]
+    )
+  >- (
+    AP_TERM_TAC \\ AP_TERM_TAC
+    \\ irule LIST_EQ
+    \\ gvs [LIST_REL_EL_EQN, EL_MAP])
   >- (fs [EXTENSION] \\ metis_tac [])
   >- (
     AP_TERM_TAC \\ AP_TERM_TAC
@@ -276,6 +446,17 @@ QED
 
 Theorem subst_single_def[local] = pure_exp_lemmasTheory.subst1_def;
 Theorem subst1_def[local] = thunkLangTheory.subst1_def;
+
+Triviality subst1_opt_delay_arg:
+  ∀ys idopt n e.
+  (∀idx. idopt = SOME idx ⇒ idx < LENGTH ys) ⇒
+  MAP (subst1 n e) (opt_delay_arg idopt ys) =
+  opt_delay_arg idopt (MAP (subst1 n e) ys)
+Proof
+  Induct >> Cases_on `idopt` >> rw[opt_delay_arg_def, LUPDATE_DEF, subst_def] >>
+  simp[LUPDATE_MAP, subst_def] >>
+  Cases_on `x` >> gvs[EL_MAP]
+QED
 
 Theorem exp_rel_subst:
   ∀x y a b n s.
@@ -307,6 +488,52 @@ Proof
       \\ fs [LIST_REL_EL_EQN] \\ rw []
       \\ first_x_assum irule \\ fs [MEM_EL]
       \\ irule_at Any EQ_REFL \\ fs [])
+    >- ( (* Value $ Atom *)
+      simp[subst1_def] >> simp[Once exp_rel_cases]
+      )
+    >- ( (* Unit *)
+      simp[subst1_def] >> simp[Once exp_rel_cases]
+      )
+    >- ( (* Monad - mop_rel *)
+      simp[subst_single_def, subst1_def] >>
+      rw[Once exp_rel_cases] >> disj1_tac >>
+      gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] >> rw[EL_MAP]
+      )
+    >- ( (* Monad - mop_ret_rel *)
+      simp[subst_single_def, subst1_def] >>
+      rw[Once exp_rel_cases] >> gvs[mop_cases] >>
+      qrefine `MAP f ys` >> simp[MAP_MAP_o, combinTheory.o_DEF, subst1_def] >>
+      irule_at Any EQ_REFL >> gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+      )
+    >- ( (* Monad - mop_delay_rel *)
+      simp[subst_single_def, subst1_def] >>
+      DEP_REWRITE_TAC[subst1_opt_delay_arg] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      rw[Once exp_rel_cases] >> gvs[mop_cases]
+      >- gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+      >- (
+        irule_at Any EQ_REFL >>
+        gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+        )
+      >- gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+      )
+    >- ( (* Deref *)
+      simp[subst_single_def, subst1_def] >>
+      DEP_REWRITE_TAC[subst1_opt_delay_arg] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      rw[Once exp_rel_cases] >> gvs[mop_cases]
+      >- gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] >>
+      irule_at Any EQ_REFL >>
+      gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+      )
+    >- ( (* Update *)
+      simp[subst_single_def, subst1_def] >>
+      simp[LUPDATE_MAP, subst_def] >>
+      rw[Once exp_rel_cases] >> gvs[mop_cases] >>
+      qrefine `MAP foo ys` >> imp_res_tac LIST_REL_LENGTH >> gvs[EL_MAP] >>
+      simp[SF ETA_ss] >> irule_at Any EQ_REFL >>
+      gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP]
+      )
     >- ((* Proj *)
       simp [subst_single_def, subst1_def]
       \\ simp [Once exp_rel_cases, EVERY2_MAP]
@@ -415,6 +642,17 @@ Proof
   Induct \\ rw [FDIFF_def]
 QED
 
+Triviality subst_opt_delay_arg:
+  ∀ys idopt s.
+  (∀idx. idopt = SOME idx ⇒ idx < LENGTH ys) ⇒
+  MAP (λe. subst s e) (opt_delay_arg idopt ys) =
+  opt_delay_arg idopt (MAP (λe. subst s e) ys)
+Proof
+  Induct >> Cases_on `idopt` >> rw[opt_delay_arg_def, LUPDATE_DEF, subst_def] >>
+  simp[LUPDATE_MAP, subst_def] >>
+  Cases_on `x` >> gvs[EL_MAP]
+QED
+
 Theorem exp_rel_subst_list[local]:
   ∀x f g y ks.
     LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel x y ∧
@@ -457,6 +695,46 @@ Proof
     \\ irule exp_rel_Cons
     \\ fs [EVERY2_MAP, LIST_REL_EL_EQN]
     \\ rw [] \\ gvs [EL_MEM])
+  >- simp[Once exp_rel_cases]
+  >- simp[Once exp_rel_cases]
+  >- ( (* Monad - mop_rel *)
+    rw[Once exp_rel_cases] >> disj1_tac >>
+    gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] >> rw[EL_MAP] >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+    )
+  >- ( (* Monad - mop_ret_rel *)
+    rw[Once exp_rel_cases] >> gvs[mop_cases] >>
+    qrefine `MAP foo ys` >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, subst_def] >>
+    irule_at Any EQ_REFL >> gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS]
+    )
+  >- ( (* Monad - mop_delay_rel *)
+    rw[Once exp_rel_cases] >> gvs[mop_cases] >>
+    gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] >>
+    simp[GSYM FILTER_REVERSE, ALOOKUP_FILTER] >>
+    simp[LUPDATE_MAP, subst_def, SF ETA_ss] >>
+    qmatch_goalsub_abbrev_tac `Delay (subst subs _)` >>
+    qexists `MAP (subst subs) ys` >> simp[EL_MAP] >>
+    unabbrev_all_tac >> gvs[]
+    )
+  >- ( (* Deref *)
+    rw[Once exp_rel_cases] >> gvs[mop_cases] >>
+    gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] >>
+    simp[GSYM FILTER_REVERSE, ALOOKUP_FILTER] >>
+    simp[LUPDATE_MAP, subst_def] >>
+    qmatch_goalsub_abbrev_tac `Delay (subst subs _)` >>
+    qexists `MAP (subst subs) ys` >>
+    unabbrev_all_tac >> gvs[EL_MAP, SF ETA_ss]
+    )
+  >- ( (* Update *)
+    rw[Once exp_rel_cases] >> gvs[mop_cases] >>
+    gvs[LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP] >>
+    simp[GSYM FILTER_REVERSE, ALOOKUP_FILTER] >>
+    simp[LUPDATE_MAP, subst_def] >>
+    qmatch_goalsub_abbrev_tac `Delay (subst subs _)` >>
+    qexists `MAP (subst subs) ys` >>
+    unabbrev_all_tac >> gvs[EL_MAP, SF ETA_ss]
+    )
   >- ((* Proj *)
     irule exp_rel_Proj
     \\ fs [EVERY2_MAP, LIST_REL_EL_EQN]
@@ -494,7 +772,8 @@ Proof
   \\ irule exp_rel_Prim \\ fs [EVERY2_MAP]
   \\ conj_tac >- fs []
   \\ irule LIST_REL_mono
-  \\ first_assum (irule_at Any) \\ rw [])
+  \\ first_assum (irule_at Any) \\ rw []
+  )
   >- ((* App *)
   pop_assum mp_tac
   \\ rw [Once exp_rel_cases]
@@ -671,6 +950,10 @@ Proof
     irule MAP_ID_ON \\ rw []
     \\ first_x_assum irule
     \\ gs [MEM_MAP, Once DISJ_COMM, DISJ_EQ_IMP, PULL_EXISTS])
+  >- (
+    irule MAP_ID_ON \\ rw []
+    \\ first_x_assum irule
+    \\ gs [MEM_MAP, Once DISJ_COMM, DISJ_EQ_IMP, PULL_EXISTS])
   \\ IF_CASES_TAC \\ fs []
   \\ irule MAP_ID_ON \\ simp [FORALL_PROD]
   \\ qx_genl_tac [‘k’, ‘y’] \\ strip_tac
@@ -827,6 +1110,10 @@ Proof
                 LIST_REL_EL_EQN]
         \\ rw [] \\ gvs [EL_MAP]
         \\ gs [thunk_rel_def, EVERY_EL])
+      >- simp[get_atoms_def]
+      >- (gvs[mop_cases] >> metis_tac[])
+      >- (gvs[mop_cases] >> metis_tac[])
+      >- (gvs[mop_cases] >> metis_tac[])
       >- (
         gvs [eval_to_def, eval_wh_to_def, LIST_REL_EL_EQN]
         \\ IF_CASES_TAC \\ gs []
@@ -840,11 +1127,12 @@ Proof
         simp [get_atoms_def]
         \\ CASE_TAC \\ fs []
         \\ CASE_TAC \\ fs []
-        \\ IF_CASES_TAC \\ fs [])
+        \\ IF_CASES_TAC \\ fs [monad_cns_def])
       \\ ‘ys ≠ []’ by (strip_tac \\ fs [])
       \\ simp [get_atoms_MAP_Diverge]
       \\ gs [NIL_iff_NOT_MEM]
-      \\ rw [] \\ gs [])
+      \\ rw [] \\ gs []
+      )
     \\ rw [Once exp_rel_cases]
     >- ((* If *)
       simp [eval_to_def, eval_wh_to_def]
@@ -854,7 +1142,8 @@ Proof
       \\ first_assum drule_all
       \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
       \\ rename1 ‘INR res’
-      \\ CASE_TAC \\ Cases_on ‘res’ \\ gvs []
+      \\ CASE_TAC \\ reverse $ Cases_on ‘res’ \\ gvs []
+      >- (strip_tac >> gvs[mop_cases])
       \\ strip_tac \\ gvs []
       \\ IF_CASES_TAC \\ gvs []
       >- (
@@ -865,12 +1154,20 @@ Proof
         first_x_assum irule
         \\ gs [eval_wh_to_def])
       \\ IF_CASES_TAC \\ gvs []
-      \\ IF_CASES_TAC \\ gvs [])
+      \\ IF_CASES_TAC \\ gvs []
+      )
     >- ((* Cons *)
       simp [eval_wh_to_def, eval_to_def, result_map_MAP, combinTheory.o_DEF,
             result_map_def, MEM_MAP, MAP_MAP_o, EVERY2_MAP, thunk_rel_def,
             SF ETA_ss]
       \\ gs [LIST_REL_EL_EQN, EVERY_EL])
+    >- (simp[eval_wh_to_def, eval_to_def, get_atoms_def])
+    >- (simp[eval_wh_to_def, eval_to_def, monad_cns_def])
+    >- (gvs[mop_cases, eval_wh_to_def, eval_to_def] >> metis_tac[])
+    >- (gvs[mop_cases, eval_wh_to_def, eval_to_def] >> metis_tac[])
+    >- (gvs[mop_cases, eval_wh_to_def, eval_to_def] >> metis_tac[])
+    >- (gvs[mop_cases, eval_wh_to_def, eval_to_def] >> metis_tac[])
+    >- (gvs[mop_cases, eval_wh_to_def, eval_to_def] >> metis_tac[])
     >- ((* Proj *)
       simp [eval_wh_to_def, Once eval_to_def]
       \\ simp [Once eval_to_def]
@@ -886,7 +1183,8 @@ Proof
       \\ rename1 ‘dest_Constructor v’
       \\ Cases_on ‘dest_Constructor v’
       >- (
-        Cases_on ‘eval_wh_to (k - 1) x’ \\ Cases_on ‘v’ \\ gvs [])
+        Cases_on ‘eval_wh_to (k - 1) x’ \\ Cases_on ‘v’
+        \\ gvs[mop_cases, monad_cns_def])
       \\ Cases_on ‘v’ \\ gvs []
       \\ gvs [LIST_REL_EL_EQN]
       \\ IF_CASES_TAC \\ gvs []
@@ -930,13 +1228,13 @@ Proof
         \\ Cases_on ‘dest_Constructor v’ \\ fs []
         >- (
           Cases_on ‘eval_to (k - 1) y’ \\ Cases_on ‘eval_wh_to (k - 1) x’
-          \\ Cases_on ‘v’ \\ gvs [])
+          \\ Cases_on ‘v’ \\ gvs []
+          \\ gvs[mop_cases, monad_cns_def])
         \\ pairarg_tac \\ gvs []
         \\ Cases_on ‘v’ \\ gvs []
-        \\ IF_CASES_TAC \\ gvs []
+        \\ IF_CASES_TAC \\ gvs [monad_cns_def]
         \\ drule_then assume_tac LIST_REL_LENGTH
-        \\ IF_CASES_TAC \\ gvs []
-        \\ IF_CASES_TAC \\ gvs [])
+        \\ IF_CASES_TAC \\ gvs [monad_cns_def])
       >- ((* AtomOp *)
         qmatch_goalsub_abbrev_tac ‘result_map f ys’
         \\ gs [MEM_EL, PULL_EXISTS, EVERY_EL, eval_wh_to_def]
@@ -987,7 +1285,7 @@ Proof
           rw []
           \\ CASE_TAC \\ gs []
           \\ CASE_TAC \\ gs []
-          \\ IF_CASES_TAC \\ gs [])
+          \\ IF_CASES_TAC \\ gs [monad_cns_def])
         \\ irule LIST_EQ
         \\ gvs [result_map_def, CaseEq "bool", MEM_MAP, MEM_EL, PULL_EXISTS,
                 MAP_MAP_o, combinTheory.o_DEF, EL_MAP, LIST_REL_EL_EQN]
@@ -1052,8 +1350,8 @@ QED
 
 Definition cont_rel_def[simp]:
   cont_rel Done Done = T ∧
-  cont_rel (BC x c) (BC v d) = (closed x ∧ thunk_rel x v ∧ cont_rel c d) ∧
-  cont_rel (HC x c) (HC v d) = (closed x ∧ thunk_rel x v ∧ cont_rel c d) ∧
+  cont_rel (BC x c) (BC v d) = (closed x ∧ exp_rel x v ∧ cont_rel c d) ∧
+  cont_rel (HC x c) (HC v d) = (closed x ∧ exp_rel x v ∧ cont_rel c d) ∧
   cont_rel _ _ = F
 End
 
@@ -1065,7 +1363,10 @@ Definition next_rel_def[simp]:
   next_rel Ret Ret = T ∧
   next_rel Div Div = T ∧
   next_rel Err Err = T ∧
-  next_rel (Act a c s) (Act b d t) = (a = b ∧ cont_rel c d ∧ state_rel s t) ∧
+  next_rel (Act a c s) (Act b d t) = (
+    ∃d'.
+      d = BC (Lam "v" $ Monad Ret [Delay $ Var "v"]) d' ∧
+      a = b ∧ cont_rel c d' ∧ state_rel s t) ∧
   next_rel _ _ = F
 End
 
@@ -2308,13 +2609,25 @@ Proof
   \\ simp [Once tick_rel_cases]
 QED
 
+Triviality eval_simps[simp]:
+  eval (Delay e) = INR (Thunk (INR e)) ∧
+  eval (Lit l) = INR (Atom l) ∧
+  eval (Monad mop es) = INR (Monadic mop es) ∧
+  eval (Lam x body) = INR (Closure x body) ∧
+  eval (Value v) = INR v ∧
+  eval (Cons cn []) = INR (Constructor cn [])
+Proof
+  rw[thunkLangTheory.eval_def] >>
+  DEEP_INTRO_TAC some_intro >> simp[thunkLangTheory.eval_to_def, result_map_def]
+QED
+
 Theorem pure_to_thunk_next[local]:
   ∀k v c s w d t.
     v_rel v w ∧
     cont_rel c d ∧
     state_rel s t ∧
     next' k v c s ≠ Err ⇒
-      next_rel (next' k v c s) (next k w d t)
+      ∃ck. next_rel (next' k v c s) (next (k + ck) w d t)
 Proof
   ho_match_mp_tac pure_semanticsTheory.next_ind \\ rw []
   \\ simp [Once next'_def]
@@ -2332,344 +2645,338 @@ Proof
   \\ rename1 ‘v_rel _ w’ \\ Cases_on ‘w’ \\ gvs []
   \\ rename1 ‘v_rel _ (INR w)’ \\ Cases_on ‘w’ \\ gvs []
   \\ gs [LIST_REL_EL_EQN]
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Ret *)
-    gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
-    \\ rename1 ‘thunk_rel x y’
-    \\ simp [Once thunk_semanticsTheory.next_def]
-    \\ rgs [Once next'_def, thunk_rel_def] \\ gvs []
+  >- (gvs[monad_cns_def] >> simp[next_def])
+  \\ gvs[mop_cases]
+  >~ [`Monadic Ret (MAP Delay _)`]
+  >- ((* Ret - Delay *)
+    `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
+    \\ rgs [Once next'_def] \\ gvs []
     \\ Cases_on ‘k = 0’ \\ gs []
     >- (
-      Cases_on ‘c’ \\ Cases_on ‘d’ \\ rgs []
-      \\ rgs [force_apply_closure_def, force_def,
-              thunk_rel_def, dest_anyThunk_def, subst_funs_def,
-              apply_closure'_def]
-      \\ ‘eval_wh e ≠ wh_Error’
-        by (strip_tac \\ gs [])
+      reverse $ Cases_on ‘c’ \\ Cases_on ‘d’ \\ rgs [] >- (qexists `0` >> simp[])
+      \\ rgs[apply_closure'_def, AllCaseEqs()]
+      \\ ‘eval_wh e ≠ wh_Error’ by (strip_tac \\ gs [])
       \\ drule_all_then assume_tac exp_rel_eval
       \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gvs []
-      \\ rename1 ‘v_rel _ (INR w)’
-      \\ Cases_on ‘w’ \\ gs [thunk_semanticsTheory.apply_closure_def,
-                             dest_anyClosure_def])
-    \\ reverse (Cases_on ‘c’) \\ Cases_on ‘d’ \\ gs []
-    >- (
-      first_x_assum irule \\ gs [thunk_rel_def])
-    \\ gvs [force_apply_closure_def, force_def,
-            thunk_rel_def, dest_anyThunk_def, subst_funs_def,
-            apply_closure'_def]
-    \\ ‘eval_wh e ≠ wh_Error’
-      by (strip_tac \\ gs [])
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gs []
-    \\ rename1 ‘v_rel _ (INR w)’
-    \\ Cases_on ‘w’ \\ gs [thunk_semanticsTheory.apply_closure_def,
-                           dest_anyClosure_def]
-    \\ first_x_assum irule \\ gs []
+      \\ qexists `0` >> simp[]
+      ) >>
+    reverse $ Cases_on `c` >> Cases_on `d` >> gvs[]
+    >- (first_x_assum irule >> simp[mop_cases]) >>
+    gvs[apply_closure_def, apply_closure'_def, with_value_def] >>
+    `eval_wh e ≠ wh_Error` by (CCONTR_TAC >> gvs[]) >>
+    drule_all_then assume_tac exp_rel_eval >>
+    Cases_on `eval_wh e` >> Cases_on `eval e'` >> gvs[] >>
+    rename1 `v_rel _ (INR w)` >> Cases_on `w` >> gvs[dest_anyClosure_def] >>
+    first_x_assum irule >> simp[]
     \\ irule exp_rel_eval
     \\ gs [pure_expTheory.bind_def, FLOOKUP_UPDATE, pure_expTheory.closed_def,
            freevars_subst1, EXTENSION, SUBSET_DEF, DISJ_EQ_IMP]
     \\ irule_at Any exp_rel_subst \\ gs []
     \\ fs [pure_expTheory.closed_def, EXTENSION]
-    \\ strip_tac \\ gs [Once next'_def])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Raise *)
-    gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
-    \\ rename1 ‘thunk_rel x y’
-    \\ simp [Once thunk_semanticsTheory.next_def]
-    \\ rgs [Once next'_def, thunk_rel_def] \\ gvs []
-    \\ Cases_on ‘k = 0’ \\ gs []
-    >- (
-      Cases_on ‘c’ \\ Cases_on ‘d’ \\ rgs []
-      \\ rgs [force_apply_closure_def, force_def,
-              thunk_rel_def, dest_anyThunk_def, subst_funs_def,
-              apply_closure'_def]
-      \\ ‘eval_wh e ≠ wh_Error’
-        by (strip_tac \\ gs [])
-      \\ drule_all_then assume_tac exp_rel_eval
-      \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gvs []
-      \\ rename1 ‘v_rel _ (INR w)’
-      \\ Cases_on ‘w’ \\ gs [thunk_semanticsTheory.apply_closure_def,
-                             dest_anyClosure_def])
-    \\ Cases_on ‘c’ \\ Cases_on ‘d’ \\ gs []
-    >- (
-      first_x_assum irule \\ gs [thunk_rel_def])
-    \\ gvs [force_apply_closure_def, force_def,
-            thunk_rel_def, dest_anyThunk_def, subst_funs_def,
-            apply_closure'_def]
-    \\ ‘eval_wh e ≠ wh_Error’
-      by (strip_tac \\ gs [])
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gs []
-    \\ rename1 ‘v_rel _ (INR w)’
-    \\ Cases_on ‘w’ \\ gs [thunk_semanticsTheory.apply_closure_def,
-                           dest_anyClosure_def]
-    \\ first_x_assum irule \\ gs []
-    \\ irule exp_rel_eval
-    \\ gs [pure_expTheory.bind_def, FLOOKUP_UPDATE, pure_expTheory.closed_def,
-           freevars_subst1, EXTENSION, SUBSET_DEF, DISJ_EQ_IMP]
-    \\ irule_at Any exp_rel_subst \\ gs []
-    \\ fs [pure_expTheory.closed_def, EXTENSION]
-    \\ strip_tac \\ gs [Once next'_def])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Bind *)
-    simp [Once thunk_semanticsTheory.next_def]
-    \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 2 ⇔ n = 1 ∨ n = 0”,
-            SF DNF_ss]
-    \\ IF_CASES_TAC \\ gs []
-    \\ first_x_assum irule \\ gs []
-    \\ gs [Once next'_def]
-    \\ rename1 ‘thunk_rel x2 y2’
-    \\ rename1 ‘v_rel (eval_wh x1) (force y1)’
-    \\ ‘eval_wh x1 ≠ wh_Error’
-      by (strip_tac \\ gs [Once next'_def])
-    \\ gvs [thunk_rel_def, force_def, dest_anyThunk_def, subst_funs_def]
-    \\ irule exp_rel_eval \\ gs [])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Handle *)
-    simp [Once thunk_semanticsTheory.next_def]
-    \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 2 ⇔ n = 1 ∨ n = 0”,
-            SF DNF_ss]
-    \\ IF_CASES_TAC \\ gs []
-    \\ first_x_assum irule \\ gs []
-    \\ gs [Once next'_def]
-    \\ rename1 ‘thunk_rel x2 y2’
-    \\ rename1 ‘v_rel (eval_wh x1) (force y1)’
-    \\ ‘eval_wh x1 ≠ wh_Error’
-      by (strip_tac \\ gs [Once next'_def])
-    \\ gvs [thunk_rel_def, force_def, dest_anyThunk_def, subst_funs_def]
-    \\ irule exp_rel_eval \\ gs [])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Act *)
-    gs [Once thunk_semanticsTheory.next_def,
-        Once next'_def]
-    \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”, SF DNF_ss,
-            pure_semanticsTheory.with_atom_def,
-            pure_semanticsTheory.with_atoms_def,
-            thunk_semanticsTheory.with_atoms_def]
-    \\ IF_CASES_TAC \\ gs []
-    \\ gvs [result_map_def, force_def, thunk_rel_def, dest_anyThunk_def,
-            subst_funs_def]
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ rename1 ‘v_rel (eval_wh x) (eval y)’
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      Cases_on ‘eval y’ \\ gs [v_rel_def])
-    \\ Cases_on ‘eval_wh x’ \\ gs [pure_semanticsTheory.get_atoms_def]
-    \\ CASE_TAC \\ gs []
-    \\ namedCases_on ‘eval y’ ["a","a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gs [thunk_semanticsTheory.get_atoms_def]
-    \\ CASE_TAC \\ gs [])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Alloc *)
-    simp [Once thunk_semanticsTheory.next_def]
-    \\ rgs [Once next'_def]
-    \\ rgs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 2 ⇔ n = 0 ∨ n = 1”,
-            SF DNF_ss, pure_semanticsTheory.with_atom_def,
-            pure_semanticsTheory.with_atoms_def,
-            thunk_semanticsTheory.with_atoms_def]
-    \\ rename1 ‘thunk_rel x2 y2’
-    \\ ‘eval_wh x2 ≠ wh_Error’
-      by (strip_tac \\ gs [])
-    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
-            subst_funs_def] \\ gvs []
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ rename1 ‘v_rel (eval_wh x2) (eval y2)’
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      Cases_on ‘eval y2’ \\ gs [])
-    \\ Cases_on ‘eval_wh x2’ \\ gs [pure_semanticsTheory.get_atoms_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      namedCases_on ‘eval y2’ ["a", "a"] \\ gs []
-      \\ Cases_on ‘a’ \\ gs [thunk_semanticsTheory.get_atoms_def]
-      \\ CASE_TAC \\ gs [])
-    \\ namedCases_on ‘eval y2’ ["a", "a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gvs [thunk_semanticsTheory.get_atoms_def]
-    \\ first_x_assum irule
-    \\ gs [state_rel_def, LIST_REL_REPLICATE_same, thunk_rel_def]
-    \\ gs [LIST_REL_EL_EQN, exp_rel_rules])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Length *)
-    simp [Once thunk_semanticsTheory.next_def]
-    \\ rgs [Once next'_def]
-    \\ rgs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”, SF DNF_ss,
-            pure_semanticsTheory.with_atom_def,
-            pure_semanticsTheory.with_atoms_def,
-            thunk_semanticsTheory.with_atoms_def]
-    \\ rename1 ‘thunk_rel x y’
-    \\ ‘eval_wh x ≠ wh_Error’
-      by (strip_tac \\ gs [])
-    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
-            subst_funs_def] \\ gvs []
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ rename1 ‘v_rel (eval_wh x) (eval y)’
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      Cases_on ‘eval y’ \\ gs [])
-    \\ Cases_on ‘eval_wh x’ \\ gs [pure_semanticsTheory.get_atoms_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      namedCases_on ‘eval y’ ["a", "a"] \\ gs []
-      \\ Cases_on ‘a’ \\ gs [thunk_semanticsTheory.get_atoms_def]
-      \\ CASE_TAC \\ gs [state_rel_def, LIST_REL_EL_EQN])
-    \\ namedCases_on ‘eval y’ ["a", "a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gvs [thunk_semanticsTheory.get_atoms_def]
-    \\ ‘n < LENGTH t’
-      by gs [state_rel_def, LIST_REL_EL_EQN, arithmeticTheory.NOT_LESS_EQUAL]
-    \\ gs []
-    \\ first_x_assum irule \\ gs []
-    \\ gs [state_rel_def, thunk_rel_def, LIST_REL_EL_EQN, exp_rel_rules])
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Deref *)
-    simp [Once thunk_semanticsTheory.next_def]
-    \\ rgs [Once next'_def]
-    \\ rgs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 2 ⇔ n = 0 ∨ n = 1”,
-            SF DNF_ss]
-    \\ rename1 ‘with_atom2 [x1; x2]’
-    \\ rename1 ‘with_atoms [y1; y2]’
-    \\ rgs [pure_semanticsTheory.with_atom_def,
-            pure_semanticsTheory.with_atoms_def,
-            thunk_semanticsTheory.with_atoms_def,
-            pure_semanticsTheory.with_atom2_def]
-    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
-            subst_funs_def] \\ gvs []
-    \\ ‘eval_wh x1 ≠ wh_Error’
-      by (strip_tac \\ gs [])
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ ‘eval_wh x2 ≠ wh_Error’
-      by (strip_tac \\ gs [])
-    \\ drule_all_then assume_tac exp_rel_eval
-    \\ rename1 ‘v_rel (eval_wh x1) (eval y1)’
-    \\ rename1 ‘v_rel (eval_wh x2) (eval y2)’
-    \\ gs []
-    \\ Cases_on `eval y1 = INL Type_error` \\ gs []
-    \\ Cases_on `eval y2 = INL Type_error` \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      Cases_on ‘eval y1’ \\ gs [])
-    >- (
-      Cases_on ‘eval y2’ \\ gs [])
-    \\ Cases_on ‘eval_wh x1’ \\ Cases_on ‘eval_wh x2’
-    \\ gs [pure_semanticsTheory.get_atoms_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ ‘LENGTH s = LENGTH t’
-      by gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ namedCases_on ‘eval y2’ ["a", "a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gvs []
-    \\ namedCases_on ‘eval y1’ ["a", "a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gvs []
-    \\ simp [thunk_semanticsTheory.get_atoms_def]
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    >- (
-      IF_CASES_TAC \\ gs []
-      \\ reverse IF_CASES_TAC \\ gs []
-      \\ gs [state_rel_def, LIST_REL_EL_EQN]
-      \\ first_x_assum irule
-      \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
-      \\ first_x_assum drule
-      \\ strip_tac
-      \\ ‘Num i < LENGTH (EL n s)’
-        by intLib.ARITH_TAC
-      \\ first_x_assum (drule_then assume_tac) \\ gs [thunk_rel_def])
-    >- (
-      IF_CASES_TAC \\ gs []
-      \\ first_x_assum irule \\ gs []
-      \\ first_assum (irule_at Any)
-      \\ first_assum (irule_at Any)
-      \\ gs [thunk_rel_def]
-      \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
-        by gs []
-      \\ pop_assum SUBST1_TAC
-      \\ simp [exp_rel_Cons])
-    \\ IF_CASES_TAC \\ gs []
-    \\ IF_CASES_TAC \\ gs []
-    \\ gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ first_x_assum irule
-    \\ first_assum (irule_at Any)
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ gs [thunk_rel_def]
-    \\ simp[Once exp_rel_cases]
-    \\ intLib.ARITH_TAC
+    \\ strip_tac \\ gs [Once next'_def]
     )
-  \\ IF_CASES_TAC \\ gs []
-  >- ((* Update *)
+  >~ [`wh_Constructor "Ret"`]
+  >- ((* Ret - thunk_rel *)
+    `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
+    \\ rgs [Once next'_def] \\ gvs []
+    \\ Cases_on ‘k = 0’ \\ gs []
+    >- (
+      reverse $ Cases_on ‘c’ \\ Cases_on ‘d’ \\ rgs [] >- (qexists `0` >> simp[])
+      \\ rgs[apply_closure'_def, AllCaseEqs()]
+      \\ ‘eval_wh e ≠ wh_Error’ by (strip_tac \\ gs [])
+      \\ drule_all_then assume_tac exp_rel_eval
+      \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gvs []
+      \\ qexists `0` >> simp[]
+      ) >>
+    reverse $ Cases_on `c` >> Cases_on `d` >> gvs[]
+    >- (first_x_assum irule >> simp[mop_cases]) >>
+    gvs[apply_closure_def, apply_closure'_def, with_value_def] >>
+    `eval_wh e ≠ wh_Error` by (CCONTR_TAC >> gvs[]) >>
+    drule_all_then assume_tac exp_rel_eval >>
+    Cases_on `eval_wh e` >> Cases_on `eval e'` >> gvs[] >>
+    rename1 `v_rel _ (INR w)` >> Cases_on `w` >> gvs[dest_anyClosure_def] >>
+    first_x_assum irule >> simp[]
+    \\ irule exp_rel_eval
+    \\ gs [pure_expTheory.bind_def, FLOOKUP_UPDATE, pure_expTheory.closed_def,
+           freevars_subst1, EXTENSION, SUBSET_DEF, DISJ_EQ_IMP]
+    \\ gvs[thunk_rel_def]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ strip_tac \\ gs [Once next'_def]
+    )
+  >~ [`Monadic Raise (MAP Delay _)`]
+  >- ((* Raise - Delay *)
+    `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
+    \\ rgs [Once next'_def] \\ gvs []
+    \\ Cases_on ‘k = 0’ \\ gs []
+    >- (
+      Cases_on ‘c’ \\ Cases_on ‘d’ \\ rgs [] >- (qexists `0` >> simp[])
+      \\ rgs[apply_closure'_def, AllCaseEqs()]
+      \\ ‘eval_wh e ≠ wh_Error’ by (strip_tac \\ gs [])
+      \\ drule_all_then assume_tac exp_rel_eval
+      \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gvs []
+      \\ qexists `0` >> simp[]
+      ) >>
+    Cases_on `c` >> Cases_on `d` >> gvs[]
+    >- (first_x_assum irule >> simp[mop_cases]) >>
+    gvs[apply_closure_def, apply_closure'_def, with_value_def] >>
+    `eval_wh e ≠ wh_Error` by (CCONTR_TAC >> gvs[]) >>
+    drule_all_then assume_tac exp_rel_eval >>
+    Cases_on `eval_wh e` >> Cases_on `eval e'` >> gvs[] >>
+    rename1 `v_rel _ (INR w)` >> Cases_on `w` >> gvs[dest_anyClosure_def] >>
+    first_x_assum irule >> simp[]
+    \\ irule exp_rel_eval
+    \\ gs [pure_expTheory.bind_def, FLOOKUP_UPDATE, pure_expTheory.closed_def,
+           freevars_subst1, EXTENSION, SUBSET_DEF, DISJ_EQ_IMP]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ fs [pure_expTheory.closed_def, EXTENSION]
+    \\ strip_tac \\ gs [Once next'_def]
+    )
+  >~ [`wh_Constructor "Raise"`]
+  >- ((* Raise - thunk_rel *)
+    `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm]
+    \\ simp [Once thunk_semanticsTheory.next_def, with_value_def]
+    \\ rgs [Once next'_def] \\ gvs []
+    \\ Cases_on ‘k = 0’ \\ gs []
+    >- (
+      Cases_on ‘c’ \\ Cases_on ‘d’ \\ rgs [] >- (qexists `0` >> simp[])
+      \\ rgs[apply_closure'_def, AllCaseEqs()]
+      \\ ‘eval_wh e ≠ wh_Error’ by (strip_tac \\ gs [])
+      \\ drule_all_then assume_tac exp_rel_eval
+      \\ Cases_on ‘eval_wh e’ \\ Cases_on ‘eval y’ \\ gvs []
+      \\ qexists `0` >> simp[]
+      ) >>
+    Cases_on `c` >> Cases_on `d` >> gvs[]
+    >- (first_x_assum irule >> simp[mop_cases]) >>
+    gvs[apply_closure_def, apply_closure'_def, with_value_def] >>
+    `eval_wh e ≠ wh_Error` by (CCONTR_TAC >> gvs[]) >>
+    drule_all_then assume_tac exp_rel_eval >>
+    Cases_on `eval_wh e` >> Cases_on `eval e'` >> gvs[] >>
+    rename1 `v_rel _ (INR w)` >> Cases_on `w` >> gvs[dest_anyClosure_def] >>
+    first_x_assum irule >> simp[]
+    \\ irule exp_rel_eval
+    \\ gs [pure_expTheory.bind_def, FLOOKUP_UPDATE, pure_expTheory.closed_def,
+           freevars_subst1, EXTENSION, SUBSET_DEF, DISJ_EQ_IMP]
+    \\ gvs[thunk_rel_def]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ fs [pure_expTheory.closed_def, EXTENSION]
+    \\ strip_tac \\ gs [Once next'_def]
+    )
+  >~ [`wh_Constructor "Bind"`]
+  >- ((* Bind *)
+    `LENGTH xs = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
     simp [Once thunk_semanticsTheory.next_def]
+    \\ IF_CASES_TAC \\ gs [] >- (qexists `0` >> simp[])
+    \\ first_x_assum irule \\ gs []
+    \\ gs [Once next'_def]
+    \\ irule exp_rel_eval \\ gs []
+    \\ gvs[Once next'_def] \\ CCONTR_TAC \\ gvs[]
+    )
+  >~ [`wh_Constructor "Handle"`]
+  >- ((* Handle *)
+    `LENGTH l = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
+    simp [Once thunk_semanticsTheory.next_def]
+    \\ IF_CASES_TAC \\ gs [] >- (qexists `0` >> simp[])
+    \\ first_x_assum irule \\ gs []
+    \\ gs [Once next'_def]
+    \\ irule exp_rel_eval \\ gs []
+    \\ gvs[Once next'_def] \\ CCONTR_TAC \\ gvs[]
+    )
+  >~ [`Act`]
+  >- ((* Act *)
+    `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm] >>
+    ntac 2 $ simp[Once thunk_semanticsTheory.next_def] >>
+    gs [Once next'_def] >>
+    gvs[pure_semanticsTheory.with_atom_def,
+        pure_semanticsTheory.with_atoms_def,
+        thunk_semanticsTheory.with_atoms_def,
+        result_map_def] >>
+    qrefine `ck + 1` >> simp[] >>
+    `eval_wh h ≠ wh_Error` by (CCONTR_TAC >> gvs[]) >>
+    drule_all_then assume_tac exp_rel_eval >>
+    rename1 `v_rel (eval_wh x) (eval y)` >>
+    Cases_on `eval_wh x` >> Cases_on `eval y` >>
+    gvs[pure_semanticsTheory.get_atoms_def] >>
+    rename1 `v_rel (wh_Atom a) (INR b)` >> Cases_on `b` >> gvs[] >>
+    simp[thunk_semanticsTheory.get_atoms_def] >> CASE_TAC >> gvs[]
+    )
+  >~ [`Alloc`]
+  >- ((* Alloc *)
+    `LENGTH zs = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
+    simp[LUPDATE_DEF] >>
+    rename1 `wh_Constructor _ [x1;x2]` >> rename1 `Monad Alloc [z1; _ z2]`
     \\ rgs [Once next'_def]
-    \\ rgs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 3 ⇔ n = 0 ∨ n = 1 ∨ n = 2”,
-            SF DNF_ss]
-    \\ rename1 ‘with_atom2 [x1; x2]’
-    \\ rename1 ‘with_atoms [y1; y2]’
+    \\ rgs [pure_semanticsTheory.with_atom_def,
+            pure_semanticsTheory.with_atoms_def] >>
+    `eval_wh x1 ≠ wh_Error` by (CCONTR_TAC >> gvs[]) >>
+    drule_all_then assume_tac exp_rel_eval >>
+    ntac 2 $ simp[Once thunk_semanticsTheory.next_def] >>
+    simp[thunk_semanticsTheory.with_atoms_def, result_map_def] >>
+    reverse $ Cases_on `eval_wh x1` >> gvs[pure_semanticsTheory.get_atoms_def]
+    >- (
+      Cases_on `k = 0` >> gvs[] >- (qexists `0` >> simp[]) >>
+      Cases_on `eval z1` >> gvs[]
+      ) >>
+    Cases_on `eval z1` >> gvs[] >> rename1 `eval z1 = INR y` >>
+    Cases_on `y` >> gvs[] >> simp[thunk_semanticsTheory.get_atoms_def] >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >> simp[with_value_def] >>
+    IF_CASES_TAC >> gvs[] >- (qexists `0` >> simp[]) >>
+    qrefine `ck + 1` >> simp[] >>
+    simp[Once thunk_semanticsTheory.next_def] >> qrefine `ck + 1` >> simp[] >>
+    simp[thunk_semanticsTheory.apply_closure_def,
+         with_value_def, dest_anyClosure_def, subst1_def] >>
+    first_x_assum irule >> rw[] >> gvs[state_rel_def]
+    >- gvs[LIST_REL_EL_EQN, EL_REPLICATE, thunk_rel_def] >>
+    gvs[mop_cases] >> simp[Once exp_rel_cases] >> gvs[LIST_REL_EL_EQN]
+    )
+  >~ [`Length`]
+  >- ((* Length *)
+    `LENGTH zs = 1` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm] >>
+    rename1 `wh_Constructor _ [x]` >> rename1 `Monad Length [y]`
+    \\ rgs [Once next'_def]
     \\ rgs [pure_semanticsTheory.with_atom_def,
             pure_semanticsTheory.with_atoms_def,
-            thunk_semanticsTheory.with_atoms_def,
+            thunk_semanticsTheory.with_atoms_def]
+    \\ ‘eval_wh x ≠ wh_Error’ by (strip_tac \\ gs []) >>
+    ntac 2 $ simp[Once thunk_semanticsTheory.next_def] >>
+    simp[thunk_semanticsTheory.with_atoms_def, result_map_def] >>
+    drule_all_then assume_tac exp_rel_eval >> simp[] >>
+    reverse $ Cases_on `eval_wh x` >> gvs[pure_semanticsTheory.get_atoms_def]
+    >- (
+      Cases_on `k = 0` >> gvs[] >- (qexists `0` >> simp[]) >>
+      Cases_on `eval y` >> gvs[]
+      ) >>
+    Cases_on `eval y` >> gvs[] >> rename1 `eval y = INR a` >>
+    Cases_on `a` >> gvs[] >> rename1 `Atom a` >>
+    simp[thunk_semanticsTheory.get_atoms_def] >>
+    qrefine `ck + 1` >> simp[] >>
+    BasicProvers.TOP_CASE_TAC >> gvs[] >>
+    `LENGTH s = LENGTH t` by gvs[state_rel_def, LIST_REL_EL_EQN] >>
+    IF_CASES_TAC >> gvs[] >> IF_CASES_TAC >> gvs[] >- (qexists `0` >> simp[]) >>
+    simp[Once thunk_semanticsTheory.next_def] >> qrefine `ck + 1` >> simp[] >>
+    simp[thunk_semanticsTheory.apply_closure_def,
+         with_value_def, dest_anyClosure_def, subst1_def] >>
+    first_x_assum irule >> rw[] >> gvs[mop_cases] >>
+    `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[state_rel_def, LIST_REL_EL_EQN] >>
+    simp[Once exp_rel_cases]
+    )
+  >~ [`Deref`]
+  >- ((* Deref *)
+    `LENGTH zs = 2` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
+    rename1 `wh_Constructor _ [x1;x2]` >> rename1 `Monad Deref [z1;z2]` >>
+    ntac 3 $ simp [Once thunk_semanticsTheory.next_def]
+    \\ rgs [Once next'_def]
+    \\ rgs [pure_semanticsTheory.with_atom_def,
+            pure_semanticsTheory.with_atoms_def,
+            thunk_semanticsTheory.with_atoms_def, result_map_def,
             pure_semanticsTheory.with_atom2_def]
-    \\ rgs [thunk_rel_def, result_map_def, force_def, dest_anyThunk_def,
-            subst_funs_def] \\ gvs []
-    \\ ‘eval_wh x1 ≠ wh_Error’
-      by (strip_tac \\ gs [])
+    \\ ‘eval_wh x1 ≠ wh_Error’ by (strip_tac \\ gs [])
     \\ drule_all_then assume_tac exp_rel_eval
-    \\ ‘eval_wh x2 ≠ wh_Error’
-      by (strip_tac \\ gs [])
+    \\ ‘eval_wh x2 ≠ wh_Error’ by (strip_tac \\ gs [])
     \\ drule_all_then assume_tac exp_rel_eval
-    \\ rename1 ‘v_rel (eval_wh x1) (eval y1)’
-    \\ rename1 ‘v_rel (eval_wh x2) (eval y2)’
-    \\ rgs []
-    \\ Cases_on `eval y1 = INL Type_error` \\ gs []
-    \\ Cases_on `eval y2 = INL Type_error` \\ gs []
+    \\ Cases_on `eval z1 = INL Type_error` \\ gs []
+    \\ Cases_on `eval z2 = INL Type_error` \\ gs []
     \\ IF_CASES_TAC \\ gs []
-    >- (
-      Cases_on ‘eval y1’ \\ gs [])
-    >- (
-      Cases_on ‘eval y2’ \\ gs [])
+    >- (Cases_on ‘eval z1’ \\ gs [])
+    >- (Cases_on ‘eval z2’ \\ gs [])
     \\ Cases_on ‘eval_wh x1’ \\ Cases_on ‘eval_wh x2’
-    \\ gs [pure_semanticsTheory.get_atoms_def]
+    \\ gs [pure_semanticsTheory.get_atoms_def] >>
+    namedCases_on `eval z1` ["a1", "a1"] >> gvs[] >> Cases_on `a1` >> gvs[] >>
+    namedCases_on `eval z2` ["a2", "a2"] >> gvs[] >> Cases_on `a2` >> gvs[] >>
+    simp[thunk_semanticsTheory.get_atoms_def] >>
+    qrefine `ck + 1` >> simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ ‘LENGTH s = LENGTH t’
-      by gs [state_rel_def, LIST_REL_EL_EQN]
-    \\ namedCases_on ‘eval y2’ ["a", "a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gvs []
-    \\ namedCases_on ‘eval y1’ ["a", "a"] \\ gs []
-    \\ Cases_on ‘a’ \\ gvs []
-    \\ simp [thunk_semanticsTheory.get_atoms_def]
-    \\ IF_CASES_TAC \\ gs [arithmeticTheory.NOT_LESS_EQUAL]
+    \\ ‘LENGTH s = LENGTH t’ by gs [state_rel_def, LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gs [] \\
+    Cases_on `k = 0` >> gvs[] >- (qexists `0` >> simp[]) >>
+    `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[state_rel_def, LIST_REL_EL_EQN] >>
+    simp[with_value_def] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
+    >- (
+      qrefine `ck + 1` >> simp[] >>
+      first_x_assum irule >> simp[mop_cases] >>
+      `Num i < LENGTH (EL n s)` by intLib.ARITH_TAC >> gvs[] >>
+      gvs[state_rel_def, LIST_REL_EL_EQN] >>
+      gvs[arithmeticTheory.NOT_LESS_EQUAL] >>
+      first_x_assum drule >> strip_tac >> gvs[] >>
+      pop_assum drule >> rw[thunk_rel_def]
+      )
+    >- (
+      simp[Once thunk_semanticsTheory.next_def] >>
+      simp[thunk_semanticsTheory.apply_closure_def, with_value_def,
+           dest_anyClosure_def, subst1_def] >>
+      qrefine `ck + 1` >> simp[] >>
+      first_x_assum irule >> simp[mop_cases, PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> irule_at Any integerTheory.INT_LT_REFL >>
+      simp[Once exp_rel_cases, monad_cns_def]
+      )
+    )
+  >~ [`Update`]
+  >- ((* Update *)
+    `LENGTH zs = 3` by (CCONTR_TAC >> gvs[Once next'_def]) >>
+    gvs[LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
+    rename1 `wh_Constructor _ [x1;x2;x3]` >>
+    rename1 `Monad _ (LUPDATE _ _ [z1;z2;z3])` >>
+    ntac 3 $ simp [Once thunk_semanticsTheory.next_def] >> simp[LUPDATE_DEF]
+    \\ rgs [Once next'_def]
+    \\ rgs [pure_semanticsTheory.with_atom_def,
+            pure_semanticsTheory.with_atoms_def,
+            thunk_semanticsTheory.with_atoms_def, result_map_def,
+            pure_semanticsTheory.with_atom2_def]
+    \\ ‘eval_wh x1 ≠ wh_Error’ by (strip_tac \\ gs [])
+    \\ drule_all_then assume_tac exp_rel_eval
+    \\ ‘eval_wh x2 ≠ wh_Error’ by (strip_tac \\ gs [])
+    \\ drule_all_then assume_tac exp_rel_eval
+    \\ Cases_on `eval z1 = INL Type_error` \\ gs []
+    \\ Cases_on `eval z2 = INL Type_error` \\ gs []
     \\ IF_CASES_TAC \\ gs []
+    >- (Cases_on ‘eval z1’ \\ gs [])
+    >- (Cases_on ‘eval z2’ \\ gs [])
+    \\ Cases_on ‘eval_wh x1’ \\ Cases_on ‘eval_wh x2’
+    \\ gs [pure_semanticsTheory.get_atoms_def] \\
+    namedCases_on `eval z1` ["a1", "a1"] >> gvs[] >> Cases_on `a1` >> gvs[] >>
+    namedCases_on `eval z2` ["a2", "a2"] >> gvs[] >> Cases_on `a2` >> gvs[] >>
+    qrefine `ck + 2` >> simp[thunk_semanticsTheory.get_atoms_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ ‘LENGTH s = LENGTH t’ by gs [state_rel_def, LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gs [arithmeticTheory.NOT_LESS_EQUAL] >>
+    `LENGTH (EL n s) = LENGTH (EL n t)` by gvs[state_rel_def, LIST_REL_EL_EQN] >>
+    Cases_on `k = 0` >> gvs[] >- (qexists `0` >> simp[]) >>
+    simp[with_value_def] >> IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
-      IF_CASES_TAC \\ gs []
-      \\ IF_CASES_TAC \\ gs []
-      \\ gs [state_rel_def, LIST_REL_EL_EQN]
-      \\ first_x_assum irule \\ gs []
-      \\ reverse conj_tac
-      >- (
-        simp [thunk_rel_def]
-        \\ ‘Cons "" [] = Cons "" (MAP Delay [])’
-          by gs []
-        \\ pop_assum SUBST1_TAC
-        \\ simp [exp_rel_Cons])
-      \\ qx_gen_tac ‘m’
-      \\ rw [LENGTH_LUPDATE, EL_LUPDATE] \\ rw []
-      \\ gs [thunk_rel_def])
+      simp[with_value_def] >>
+      ntac 2 $ simp[Once thunk_semanticsTheory.next_def] >>
+      qrefine `ck + 2` >> simp[] >>
+      simp[apply_closure_def, with_value_def, dest_anyClosure_def, subst1_def] >>
+      first_x_assum irule >> simp[mop_cases] >>
+      simp[Once exp_rel_cases, monad_cns_def] >>
+      gvs[state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE, COND_RAND] >>
+      simp[thunk_rel_def]
+      )
     >- (
-      IF_CASES_TAC \\ gs []
-      \\ gs [state_rel_def, LIST_REL_EL_EQN]
-      \\ first_x_assum irule \\ gs []
-      \\ simp [thunk_rel_def]
-      \\ ‘Cons "Subscript" [] = Cons "Subscript" (MAP Delay [])’
-        by gs []
-      \\ pop_assum SUBST1_TAC
-      \\ simp [exp_rel_Cons]
-      \\ intLib.ARITH_TAC)
-    \\ IF_CASES_TAC \\ gs [arithmeticTheory.NOT_LESS_EQUAL, state_rel_def,
-                           LIST_REL_EL_EQN]
-    \\ first_x_assum irule \\ gs []
-    \\ simp [thunk_rel_def, Once exp_rel_cases]
-    \\ intLib.ARITH_TAC)
-  \\ rw [Once thunk_semanticsTheory.next_def]
+      simp[Once thunk_semanticsTheory.next_def, with_value_def] >>
+      qrefine `ck + 1` >> simp[] >>
+      simp[apply_closure_def, with_value_def, dest_anyClosure_def, subst1_def] >>
+      simp[Once thunk_semanticsTheory.next_def, with_value_def] >>
+      qrefine `ck + 1` >> simp[] >>
+      first_x_assum irule >> simp[mop_cases, PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> irule_at Any integerTheory.INT_LT_REFL >>
+      simp[Once exp_rel_cases, monad_cns_def]
+      )
+    )
 QED
 
 Theorem pure_to_thunk_next_action':
@@ -2679,39 +2986,48 @@ Theorem pure_to_thunk_next_action':
   next_action' v c s ≠ Err ⇒
     next_rel (next_action' v c s) (next_action w d t)
 Proof
-  rw [thunk_semanticsTheory.next_action_def]
-  \\ ‘∀k. next' k v c s ≠ Err’
-    by (rpt strip_tac
-        \\ qpat_x_assum ‘next_action' _ _ _ ≠ _’ mp_tac
-        \\ rw [next_action'_def]
-        \\ DEEP_INTRO_TAC some_intro \\ simp []
-        \\ rw []
-        >- (
-          qpat_assum ‘_ = Err’ (SUBST1_TAC o SYM)
-          \\ irule next'_next'
-          \\ gs [])
-        \\ qexists_tac ‘k’ \\ gs [])
-  \\ rw [next_action'_def]
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ simp [PULL_FORALL]
-  \\ qx_gen_tac ‘i’
-  \\ qx_gen_tac ‘j’
-  \\ qx_gen_tac ‘k’
-  \\ rw []
+  rw[] >>
+  `∀k. next' k v c s ≠ Err` by (
+    CCONTR_TAC >> qpat_x_assum `next_action' _ _ _ ≠ _` mp_tac >>
+    gvs[next_action'_def] >> DEEP_INTRO_TAC some_intro >> rw[]
+    >- (drule next'_next' >> disch_then $ qspec_then `k` mp_tac >> simp[])
+    >- (qexists `k` >> simp[])) >>
+  qpat_x_assum `next_action' _ _ _ ≠ Err` mp_tac >>
+  simp[next_action'_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
   >- (
-    ‘next' j v c s ≠ Err’
-      by gs []
-    \\ drule_all_then assume_tac pure_to_thunk_next
-    \\ ‘next j w d t ≠ Div’
-      by (strip_tac \\ Cases_on ‘next' j v c s’ \\ gs [])
-    \\ drule_then (qspec_then ‘i’ assume_tac) next_next \\ gs [])
-  \\ ‘next' i v c s ≠ Err’
-    by gs []
-  \\ drule_all_then assume_tac pure_to_thunk_next \\ gs []
-  \\ ‘next' k v c s ≠ Err’
-    by gs []
-  \\ drule_all_then assume_tac pure_to_thunk_next \\ gs []
+    rw[thunk_semanticsTheory.next_action_def] >> DEEP_INTRO_TAC some_intro >> rw[] >>
+    `next' x v c s ≠ Err` by simp[] >>
+    drule_all_then assume_tac pure_to_thunk_next >> gvs[] >>
+    drule next_less_eq >> disch_then $ qspec_then `ck + x` mp_tac >> gvs[]
+    ) >>
+  `next' x v c s ≠ Err` by simp[] >>
+  drule_all_then assume_tac pure_to_thunk_next >> gvs[] >>
+  simp[next_action_def] >> DEEP_INTRO_TAC some_intro >> rw[] >> gvs[] >>
+  drule next_next >> disch_then $ qspec_then `ck + x` assume_tac >>
+  Cases_on `next' x v c s` >> Cases_on `next (ck + x) w d t` >> gvs[]
+QED
+
+Triviality interp_action_return:
+  interp (INR (Monadic Ret [Lit (Str y)]))
+    (BC (Lam "v" (Monad Ret [Delay (Var "v")])) cont) st =
+  interp (INR (Monadic Ret [Delay $ Value $ Atom $ Str y])) cont st
+Proof
+  simp[Once interp_def, thunk_semanticsTheory.next_action_def] >>
+  DEEP_INTRO_TAC some_intro >> reverse $ rw[]
+  >- (
+    pop_assum $ qspec_then `SUC n` $ assume_tac o GEN_ALL >>
+    gvs[Once thunk_semanticsTheory.next_def] >>
+    gvs[apply_closure_def, with_value_def, dest_anyClosure_def, subst1_def] >>
+    simp[Once interp_def, thunk_semanticsTheory.next_action_def]
+    )
+  >- (
+    Cases_on `x` >> gvs[Once thunk_semanticsTheory.next_def] >>
+    simp[Once thunk_semanticsTheory.next_def] >>
+    gvs[apply_closure_def, with_value_def, dest_anyClosure_def, subst1_def] >>
+    simp[SimpRHS, Once interp_def, thunk_semanticsTheory.next_action_def] >>
+    DEEP_INTRO_TAC some_intro >> rw[] >> gvs[] >>
+    dxrule_all next_next >> rw[]
+    )
 QED
 
 Theorem pure_to_thunk_interp_alt[local]:
@@ -2774,9 +3090,8 @@ Proof
   \\ rw [] \\ CASE_TAC \\ gs [] \\ rw []
   \\ disj2_tac
   \\ irule_at Any EQ_REFL
-  \\ irule_at Any EQ_REFL \\ gs []
-  \\ simp [thunk_rel_def, exp_rel_Prim]
-  \\ strip_tac
+  \\ simp[interp_action_return]
+  \\ irule_at Any EQ_REFL \\ gvs[mop_cases] \\ simp[Once exp_rel_cases]
   \\ first_x_assum (qspec_then ‘INR y’ assume_tac)
   \\ rgs [Once safe_itree_cases]
 QED
@@ -2858,11 +3173,47 @@ Inductive compile_rel:
        compile_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
 [~Cons:]
   (∀n xs ys.
-     LIST_REL compile_rel xs ys ⇒
+     LIST_REL compile_rel xs ys ∧ n ∉ monad_cns ⇒
        compile_rel (Cons n xs) (Prim (Cons n) (MAP Delay ys))) ∧
+[~Monadic:]
+  (∀n mop xs ys.
+     mop_rel n mop ∧
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Cons n xs) (Monad mop ys)) ∧
+[~Monadic_Ret:]
+  (∀n mop xs ys.
+     mop_ret_rel n mop ∧
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Cons n xs) (Monad mop (MAP Delay ys))) ∧
+[~Monadic_Delay:]
+  (∀n mop idopt xs ys.
+     mop_delay_rel n mop idopt ∧ (∀idx. idopt = SOME idx ⇒ idx < LENGTH xs) ∧
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Cons n xs)
+                   (Monad Bind [
+                      Monad mop (opt_delay_arg idopt ys);
+                      Lam "v" $ Monad Ret [Delay $ Var "v"]
+                    ])) ∧
+[~Deref:]
+  (∀xs ys.
+     LIST_REL compile_rel xs ys ⇒
+       compile_rel (Cons "Deref" xs)
+                   (Monad Handle [
+                      Monad Deref ys;
+                      Lam "v" $ Monad Raise [Delay $ Var "v"]])) ∧
+[~Update:]
+  (∀xs ys.
+     LIST_REL compile_rel xs ys ∧ 2 < LENGTH xs ⇒
+       compile_rel (Cons "Update" xs)
+               (Monad Bind [
+                  Monad Handle [
+                    Monad Update (opt_delay_arg (SOME 2n) ys);
+                    Lam "v" $ Monad Raise [Delay $ Var "v"]];
+                  Lam "v" $ Monad Ret [Delay $ Var "v"]
+                ])) ∧
 [~Proj:]
   (∀s i xs ys.
-     LIST_REL compile_rel xs ys ⇒
+     LIST_REL compile_rel xs ys ∧ s ∉ monad_cns ⇒
        compile_rel (Prim (Proj s i) xs) (Force (Prim (Proj s i) ys))) ∧
 [~Seq:]
   (∀x1 x2 y1 y2.
@@ -2935,10 +3286,34 @@ Proof
     \\ gs [SF SFY_ss])
   >- ((* Cons *)
     irule_at Any exp_rel_Cons
+    \\ irule_at Any tick_rel_Prim \\ simp[]
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Monad - mop_rel *)
+    irule_at Any exp_rel_Monad >> goal_assum drule
+    \\ irule_at Any tick_rel_Prim \\ simp[]
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Monad - mop_ret_rel *)
+    irule_at Any exp_rel_Monad_Ret >> goal_assum drule
+    \\ irule_at Any tick_rel_Prim \\ simp[]
+    \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ((* Monad - mop_delay_rel *)
+    irule_at Any exp_rel_Monad_Delay >> goal_assum drule >>
+    drule LIST_REL_lemma >> rw[] >>
+    irule_at Any tick_rel_Prim >> goal_assum drule >> gvs[] >>
+    imp_res_tac LIST_REL_LENGTH >> gvs[]
+    )
+  >- ( (* Deref *)
+    irule_at Any exp_rel_Deref
     \\ irule_at Any tick_rel_Prim
     \\ irule_at Any LIST_REL_lemma \\ gs [])
+  >- ( (* Update *)
+    irule_at Any $ SRULE [] exp_rel_Update
+    \\ irule_at Any tick_rel_Prim
+    \\ drule LIST_REL_lemma \\ rw[]
+    \\ rpt $ goal_assum drule
+    \\ imp_res_tac LIST_REL_LENGTH \\ gs[])
   >- ((* Proj *)
-    irule_at Any exp_rel_Proj
+    irule_at Any exp_rel_Proj \\ simp[]
     \\ irule_at Any tick_rel_Prim
     \\ irule_at Any LIST_REL_lemma \\ gs [])
   >- ((* Seq *)
