@@ -11,38 +11,14 @@ open pure_miscTheory thunkLangPropsTheory thunkLangTheory thunkLang_primitivesTh
 
 val _ = new_theory "thunk_split_Forcing_LamProof";
 
-Theorem extract_names_list_soundness:
-  (∀l. (∀e. cexp_size e < list_size cexp_size l ⇒
-            cexp_wf e ⇒
-            set_of (extract_names e) = freevars (exp_of e) ∧ vars_ok (extract_names e)) ⇒
-       ∀s. vars_ok s ∧ EVERY cexp_wf l ⇒ set_of (extract_names_list s l) = set_of s
-                                                          ∪ (BIGUNION $ set (MAP (λe. freevars (exp_of e)) l)) ∧
-                       vars_ok (extract_names_list s l))
-Proof
-  Induct >> gs [extract_names_def, list_size_def] >>
-  simp [UNION_ASSOC]
-QED
-
-Theorem extract_names_rows_soundness:
-  (∀l. (∀e. cexp_size e < list_size (cexp_size o SND o SND) l ⇒
-            cexp_wf e ⇒
-            set_of (extract_names e) = freevars (exp_of e) ∧ vars_ok (extract_names e)) ⇒
-       ∀s. vars_ok s ∧ EVERY cexp_wf (MAP (SND o SND) l) ⇒
-           set_of (extract_names_rows s l)
-           = set_of s ∪ (BIGUNION $ set (MAP (λ(_, vs, e). freevars (exp_of e) DIFF set (MAP explode vs)) l)) ∧
-           vars_ok (extract_names_rows s l))
-Proof
-  Induct >> gs [extract_names_def, list_size_def] >>
-  PairCases >>
-  gs [extract_names_def, UNION_ASSOC]
-QED
-
+(* TODO move *)
 Theorem list_size_MAP:
   ∀l f g. list_size f (MAP g l) = list_size (f o g) l
 Proof
   Induct >> gs [list_size_def]
 QED
 
+(* TODO move *)
 Theorem in_freevars_Disj:
   ∀l n x. x ∈ freevars (Disj n l) ⇒ x = n
 Proof
@@ -50,6 +26,7 @@ Proof
   rw [] >> gs []
 QED
 
+(* TODO move *)
 Theorem freevars_lets_for:
   ∀l v n x len. freevars (lets_for len v n (MAPi (λi v. (i, v)) l) x) DELETE n = freevars x DIFF (n INSERT set l)
 Proof
@@ -59,6 +36,7 @@ Proof
   \\ rw [] \\ simp []
 QED
 
+(* TODO move *)
 Theorem freevars_rows_of:
   ∀rows n eopt.
     rows ≠ [] ⇒
@@ -93,104 +71,57 @@ Proof
   gs [SET_EQ_SUBSET, SUBSET_DEF]
 QED
 
-Theorem thunk_names_soundness:
-  cexp_wf e ⇒ set_of (thunk_names e) = freevars (exp_of e) ∧ vars_ok (thunk_names e)
+Theorem extract_names_soundness_lemma:
+  (∀e. cexp_wf e ⇒
+    set_of (extract_names e) = freevars (exp_of e) ∧ vars_ok (extract_names e)) ∧
+  (∀s l. vars_ok s ∧ EVERY cexp_wf l ⇒
+    set_of (extract_names_list s l) =
+      set_of s ∪ BIGUNION (set $ MAP (λce. freevars (exp_of ce)) l) ∧
+    vars_ok (extract_names_list s l)) ∧
+  (∀s css. vars_ok s ∧ EVERY cexp_wf (MAP (SND o SND) css) ⇒
+    set_of (extract_names_rows s css) = set_of s ∪
+      BIGUNION (set $
+        MAP (λ(cn,vs,ce). freevars (exp_of ce) DIFF set (MAP explode vs)) css) ∧
+    vars_ok (extract_names_rows s css))
 Proof
-  simp [thunk_names_def]
-  \\ completeInduct_on ‘cexp_size e’
-  \\ Cases \\ simp [extract_names_def, exp_of_def,freevars_def, cexp_wf_def]
-  >~[‘cexp_size (Prim c l)’]
-  >- (strip_tac >> strip_tac >>
-      qspec_then ‘l’ mp_tac extract_names_list_soundness >>
-      impl_tac
-      >- (gs [cexp_size_def] >>
-          gen_tac >> strip_tac >> strip_tac >>
-          last_x_assum irule >>
-          simp [GSYM size_eq]) >>
-      fs [SF ETA_ss] >>
-      simp [MAP_MAP_o, combinTheory.o_DEF])
-  >~[‘cexp_size (App e l)’]
-  >- (strip_tac >> qspec_then ‘l’ mp_tac extract_names_list_soundness >>
-      impl_tac
-      >- (gs [cexp_size_def] >>
-          gen_tac >> strip_tac >> strip_tac >>
-          last_x_assum irule >>
-          simp [GSYM size_eq]) >>
-      simp [SF ETA_ss] >>
-      gs [freevars_Apps, PULL_FORALL, cexp_size_def, MAP_MAP_o, combinTheory.o_DEF])
-  >~[‘cexp_size (Lam l e)’]
-  >- (strip_tac >>
-      last_x_assum $ qspec_then ‘cexp_size e’ assume_tac >>
-      gs [cexp_size_def, freevars_Lams])
-  >~[‘cexp_size (Let opt e1 e2)’]
-  >- (strip_tac >> gs [PULL_FORALL] >>
-      last_assum $ qspec_then ‘e1’ assume_tac >>
-      last_x_assum $ qspec_then ‘e2’ assume_tac >>
-      gs [cexp_size_def] >>
-      Cases_on ‘opt’ >> simp [extract_names_def, freevars_def, EXTENSION])
-  >~[‘cexp_size (Letrec l e)’]
-  >- (strip_tac >> strip_tac >>
-      qspec_then ‘MAP SND l’ mp_tac extract_names_list_soundness >>
-      impl_tac
-      >- (gs [cexp_size_def] >>
-          gen_tac >> strip_tac >> strip_tac >>
-          last_x_assum irule >>
-          simp [size_eq2]) >>
-      gs [PULL_FORALL] >>
-      last_x_assum $ qspec_then ‘e’ assume_tac >>
-      gs [cexp_size_def, EVERY_MAP, EVERY_MEM] >>
-      disch_then $ drule_then assume_tac >> gs [FORALL_PROD, SF DNF_ss] >>
-      first_x_assum $ drule_then assume_tac >>
-      first_x_assum $ drule_then assume_tac >>
-      simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
-  >~[‘cexp_size (Case n rows eopt)’]
-  >- (strip_tac >> strip_tac >>
-      qspec_then ‘rows’ mp_tac extract_names_rows_soundness >>
-      impl_tac
-      >- (gs [cexp_size_def] >>
-          gen_tac >> strip_tac >> strip_tac >>
-          last_x_assum irule >>
-          simp [size_eq_case, list_size_MAP]) >>
-      disch_then $ qspec_then ‘case eopt of NONE => empty_vars | SOME (a,e) => extract_names e’ mp_tac >>
-      impl_tac
-      >- (conj_tac
-          >- (CASE_TAC >> simp [] >> CASE_TAC >> gs [cexp_size_def]) >>
-          gs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-          rw [] >> last_x_assum $ drule_then assume_tac >> gs []) >>
-      simp [freevars_rows_of] >>
-      disch_then kall_tac >>
-      rw [SET_EQ_SUBSET, SUBSET_DEF] >> gs []
-      >- (Cases_on ‘eopt’ >> gs [] >>
-          pairarg_tac >> gs [PULL_FORALL] >>
-          rename1 ‘extract_names e’ >>
-          last_x_assum $ qspec_then ‘e’ assume_tac >> gs [cexp_size_def])
-      >- (disj1_tac >> disj2_tac >>
-          first_x_assum $ irule_at Any >>
-          gs [MEM_MAP] >>
-          first_x_assum $ irule_at Any >>
-          pairarg_tac >> gs [])
-      >- (disj2_tac >> disj2_tac >>
-          first_x_assum $ irule_at Any >>
-          gs [MEM_MAP] >>
-          first_x_assum $ irule_at Any >>
-          pairarg_tac >> gs [] >>
-          pairarg_tac >> gs [])
-      >- (CASE_TAC >> gs [] >>
-          CASE_TAC >> gs [PULL_FORALL] >>
-          rename1 ‘extract_names e’ >>
-          last_x_assum $ qspec_then ‘e’ assume_tac >> gs [cexp_size_def]))
-  >~[‘cexp_size (Delay e)’]
-  >- (strip_tac >>
-      last_x_assum $ qspec_then ‘cexp_size e’ assume_tac >>
-      gs [cexp_size_def])
-  >~[‘cexp_size (Box e)’]
-  >- (strip_tac >>
-      last_x_assum $ qspec_then ‘cexp_size e’ assume_tac >>
-      gs [cexp_size_def])
-  >~[‘cexp_size (Force e)’]
-  >- (strip_tac >>
-      last_x_assum $ qspec_then ‘cexp_size e’ assume_tac >>
-      gs [cexp_size_def])
+  ho_match_mp_tac extract_names_ind >>
+  rw[extract_names_def, exp_of_def, freevars_def, cexp_wf_def,
+     freevars_Lams, freevars_Apps, freevars_rows_of] >>
+  gvs[SF ETA_ss, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+  >- (
+    `EVERY cexp_wf (MAP SND xs)` by (
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
+    gvs[] >> simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+    )
+  >- (
+    `EVERY cexp_wf (MAP SND xs)` by (
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
+    gvs[] >> simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+    )
+  >- gvs[DELETE_DEF]
+  >- (
+    `EVERY cexp_wf (MAP (λ(cn,vars,ce). ce) css)` by (
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
+    gvs[] >> Cases_on `eopt` >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rpt (pairarg_tac >> gvs[])
+    >- (DEP_REWRITE_TAC[set_of_insert_var] >> gvs[] >> rw[Once INSERT_SING_UNION])
+    >- (rw[Once INSERT_SING_UNION] >> simp[AC UNION_ASSOC UNION_COMM])
+    )
+  >- (
+    `EVERY cexp_wf (MAP (λ(cn,vars,ce). ce) css)` by (
+      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
+    DEP_REWRITE_TAC[vars_ok_insert_var] >>
+    Cases_on `eopt` >> gvs[] >> PairCases_on `x` >> gvs[]
+    )
+  >- gvs[AC UNION_ASSOC UNION_COMM]
+  >- gvs[AC UNION_ASSOC UNION_COMM]
+QED
+
+Theorem thunk_names_soundness:
+  cexp_wf e ⇒
+    set_of (thunk_names e) = freevars (exp_of e) ∧ vars_ok (thunk_names e)
+Proof
+  rw[thunk_names_def, extract_names_soundness_lemma]
 QED
 
 Theorem boundvars_to_lets_force:
@@ -850,7 +781,7 @@ Proof
   completeInduct_on ‘cexp_size e’ >>
   Cases >> simp [cexp_size_def, my_function_def, boundvars_def, freevars_def, cexp_wf_def]
   >- simp [exp_rel_Var]
-  >~[‘Prim _ _’]
+  >~ [‘Prim _ _’]
   >- (strip_tac >> gen_tac >> strip_tac >>
       rpt gen_tac >> strip_tac >>
       pairarg_tac >> gvs [] >>
@@ -876,6 +807,26 @@ Proof
           rename1 ‘exp_rel s3’ >>
           first_x_assum $ qspec_then ‘s3’ mp_tac >> gs [] >>
           simp [LIST_REL_EL_EQN, EL_MAP]))
+  >~ [`Monad _ _`]
+  >- (
+    strip_tac >> gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    pairarg_tac >> gvs[] >>
+    rename [‘my_function_list s l = (s2, l2)’] >>
+    qspecl_then [‘l’, ‘s’, ‘l2’, ‘s2’] mp_tac my_function_list_lemma >>
+    asm_rewrite_tac [] >> impl_tac
+    >- (gen_tac >> strip_tac >>
+        rename1 ‘cexp_size arg < _’ >>
+        last_x_assum $ qspec_then ‘cexp_size arg’ mp_tac >>
+        simp [GSYM size_eq] >>
+        disch_then $ qspec_then ‘arg’ assume_tac >>
+        gs []) >>
+    last_x_assum kall_tac >>
+    gs [BIGUNION_SUBSET, cexp_wf_def, EVERY_CONJ, EVERY_MEM, MEM_MAP,
+        PULL_EXISTS, boundvars_def, freevars_def] >>
+    rw [] >- (pop_assum $ qspec_then ‘{}’ assume_tac >> gvs[LIST_REL_EL_EQN]) >>
+    irule exp_rel_Monad >> rename1 `exp_rel s3` >>
+    first_x_assum $ qspec_then ‘s3’ mp_tac >> gs [] >> simp [LIST_REL_EL_EQN, EL_MAP]
+    )
   >~[‘Apps _ _’]
   >- (strip_tac >> gen_tac >> strip_tac >>
       rpt gen_tac >> strip_tac >>

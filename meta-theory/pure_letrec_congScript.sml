@@ -52,12 +52,6 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Triviality LIST_REL_opp:
-  ∀xs ys. LIST_REL R xs ys ⇒ LIST_REL (λx y. R y x) ys xs
-Proof
-  Induct \\ fs [PULL_EXISTS]
-QED
-
 Theorem letrec_binds_opp:
   letrec_binds binds2 binds1 = (λx y. letrec_binds binds1 binds2 y x)
 Proof
@@ -65,7 +59,7 @@ Proof
   >- (rw [FUN_EQ_THM] \\ eq_tac \\ fs [])
   \\ ho_match_mp_tac letrec_binds_ind \\ rw []
   \\ simp [Once letrec_binds_cases]
-  \\ imp_res_tac LIST_REL_opp \\ fs [SF ETA_ss]
+  \\ once_rewrite_tac [LIST_REL_SWAP] \\ fs [SF ETA_ss]
 QED
 
 Theorem letrec_binds_freevars:
@@ -145,12 +139,6 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality MAP_ID:
-  ∀xs f. (MAP f xs = xs) ⇔ ∀x. MEM x xs ⇒ f x = x
-Proof
-  Induct \\ fs [] \\ metis_tac []
-QED
-
 Theorem subst_letrec_binds:
   ∀b1 b2 x y m1 m2.
     letrec_binds b1 b2 x y ∧
@@ -165,7 +153,7 @@ Proof
    (fs [subst_def]
     \\ simp [Once letrec_binds_cases]
     \\ disj1_tac
-    \\ fs [MAP_ID,FORALL_PROD]
+    \\ fs [MAP_ID_EQ,FORALL_PROD]
     \\ reverse (rw [])
     >-
      (last_x_assum irule \\ fs [FDOM_FDIFF,EXTENSION,SUBSET_DEF]
@@ -235,21 +223,6 @@ Proof
   fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
 QED
 
-Triviality FORALL_FRANGE:
-  (∀v. v ∈ FRANGE m ⇒ P v) ⇔ ∀k v. FLOOKUP m k = SOME v ⇒ P v
-Proof
-  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
-QED
-
-Triviality MEM_IMP_EQ:
-  ∀b1 k p1 p2.
-    MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
-Proof
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ fs [MEM_MAP,EXISTS_PROD]
-  \\ res_tac \\ fs []
-QED
-
 Triviality EVERY_FLOOKUP_closed_lemma:
   EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
   (∀n v.
@@ -262,13 +235,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Triviality FORALL_FRANGE:
-  (∀x. x IN FRANGE v ⇒ p x) ⇔ ∀k x. FLOOKUP v k = SOME x ⇒ p x
-Proof
-  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
-QED
-
-Theorem ALOOKUP_REVERSE_LIST_REL[local]:
+Theorem ALOOKUP_REVERSE_LIST_REL:
   ∀bs ys.
     LIST_REL p (MAP SND bs) (MAP SND ys) ∧
     MAP FST ys = MAP FST bs ∧
@@ -285,41 +252,20 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem MEM_LIST_REL:
+Theorem MEM_LIST_REL[local]:
   ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
 Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
+  metis_tac [LIST_REL_MEM_ALT]
 QED
 
 Theorem MEM_LIST_REL1:
   ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
 Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem LIST_REL_COMP:
-  ∀xs ys zs.
-    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
-    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ metis_tac []
+  metis_tac [LIST_REL_MEM]
 QED
 
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
-
-Triviality LIST_REL_IMP_MAP_EQ:
-  ∀xs ys P f g.
-    (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
-    LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
-Proof
-  Induct \\ fs [PULL_EXISTS,SF DNF_ss] \\ metis_tac []
-QED
 
 Theorem eval_forward_letrec_binds:
   ALL_DISTINCT (MAP FST binds2) ∧
@@ -811,25 +757,11 @@ Proof
   \\ irule_at Any eval_forward_letrec_binds
   \\ fs []
   \\ pop_assum kall_tac
-  \\ drule LIST_REL_opp \\ fs []
+  \\ pop_assum mp_tac \\ simp [Once LIST_REL_SWAP] \\ fs []
   \\ fs [UNCURRY,LAMBDA_PROD]
   \\ match_mp_tac LIST_REL_mono
   \\ fs [FORALL_PROD]
   \\ metis_tac [app_bisimilarity_sym]
-QED
-
-Triviality FST_LAM:
-  FST = λ(p1,p2). p1
-Proof
-  fs [FUN_EQ_THM,FORALL_PROD]
-QED
-
-Triviality LIST_REL_MAP_CONG:
-  ∀xs ys R Q f.
-    (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ Q (f x) (f y)) ∧ LIST_REL R xs ys ⇒
-    LIST_REL Q (MAP f xs) (MAP f ys)
-Proof
-  Induct \\ fs [PULL_EXISTS] \\ metis_tac []
 QED
 
 Triviality LIST_REL_IMP_same_keys:
@@ -860,7 +792,7 @@ Proof
    (rw [] \\ irule pure_exp_lemmasTheory.IMP_closed_bind \\ fs [])
   \\ rw [bind_def] \\ fs [subst_def,bind_def] \\ fs [SF SFY_ss]
   \\ irule exp_eq_Letrec_change_lemma
-  \\ gs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,GSYM FST_LAM]
+  \\ gs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
   \\ conj_tac
   >-
    (irule LIST_REL_MAP_CONG \\ fs []

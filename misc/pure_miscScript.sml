@@ -528,7 +528,7 @@ Theorem lrnext_alt_thm:
   ∀n. sptree$lrnext n = 2 ** (LOG 2 (n + 1))
 Proof
   strip_tac >> completeInduct_on `n` >> rw[] >>
-  rw[Once lrnext_def] >- simp[LOG_RWT] >>
+  rw[Once lrnext_def] >>
   first_x_assum $ qspec_then `(n - 1) DIV 2` mp_tac >>
   impl_tac >> rw[] >- simp[DIV_LT_X] >>
   simp[GSYM EXP] >> Cases_on `EVEN n` >>
@@ -604,6 +604,125 @@ Theorem LIST_REL_MAP_MAP:
   LIST_REL P (MAP f xs) (MAP g xs) = EVERY (λx. P (f x) (g x)) xs
 Proof
   Induct_on ‘xs’ \\ fs []
+QED
+
+Theorem LIST_REL_SWAP:
+  ∀R xs ys. LIST_REL R xs ys = LIST_REL (λx y. R y x) ys xs
+Proof
+  Induct_on ‘xs’ \\ fs []
+QED
+
+Theorem LIST_REL_MAP:
+  ∀xs ys.
+    LIST_REL R (MAP f xs) (MAP g ys) =
+    LIST_REL (λx y. R (f x) (g y)) xs ys
+Proof
+  Induct \\ fs [MAP_EQ_CONS,PULL_EXISTS]
+QED
+
+Theorem FST_INTRO:
+  (λ(p1,p2). p1) = FST
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem SND_INTRO:
+  (λ(p1,p2). p2) = SND
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem LIST_REL_COMP:
+  ∀xs ys zs.
+    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
+    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
+Proof
+  Induct \\ fs [PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem LIST_REL_IMP_MAP_EQ:
+  ∀xs ys P f g.
+    (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
+    LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
+Proof
+  Induct \\ fs [PULL_EXISTS,SF DNF_ss] \\ metis_tac []
+QED
+
+Theorem FORALL_FRANGE:
+  (∀x. x IN FRANGE v ⇒ p x) ⇔ ∀k x. FLOOKUP v k = SOME x ⇒ p x
+Proof
+  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
+QED
+
+Theorem MAP_FST_ZIP:
+  ∀xs ys. LENGTH xs = LENGTH ys ⇒ MAP FST (ZIP (xs,ys)) = xs
+Proof
+  gvs [MAP_ZIP]
+QED
+
+Theorem MAP_SND_ZIP:
+  ∀xs ys. LENGTH xs = LENGTH ys ⇒ MAP SND (ZIP (xs,ys)) = ys
+Proof
+  gvs [MAP_ZIP]
+QED
+
+Theorem FLOOKUP_FUPDATE_LIST:
+  ∀xs k m. FLOOKUP (m |++ xs) k =
+           case ALOOKUP (REVERSE xs) k of
+           | NONE => FLOOKUP m k
+           | SOME x => SOME x
+Proof
+  Induct \\ fs [FUPDATE_LIST,FORALL_PROD,ALOOKUP_APPEND]
+  \\ fs [FLOOKUP_UPDATE]
+  \\ rw [] \\ fs []
+  \\ CASE_TAC \\ fs []
+QED
+
+Theorem FDIFF_SING:
+  FDIFF f {x} = f \\ x
+Proof
+  fs [FDIFF_def,fmap_EXT,DRESTRICT_DEF,DOMSUB_FAPPLY_NEQ]
+  \\ gvs [EXTENSION]
+QED
+
+Theorem LIST_REL_same: (* TODO: auto? *)
+  ∀xs. LIST_REL R xs xs = EVERY (λx. R x x) xs
+Proof
+  Induct \\ fs []
+QED
+
+Theorem MAP_ID_EQ:
+  ∀xs f. (MAP f xs = xs) ⇔ ∀x. MEM x xs ⇒ f x = x
+Proof
+  Induct \\ fs [] \\ metis_tac []
+QED
+
+Theorem MEM_IMP_EQ:
+  ∀b1 k p1 p2.
+    MEM (k,p1) b1 ∧ MEM (k,p2) b1 ∧ ALL_DISTINCT (MAP FST b1) ⇒ p1 = p2
+Proof
+  Induct \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [MEM_MAP,EXISTS_PROD]
+  \\ res_tac \\ fs []
+QED
+
+Theorem LIST_REL_MAP_CONG:
+  ∀xs ys R Q f.
+    (∀x y. R x y ∧ MEM x xs ∧ MEM y ys ⇒ Q (f x) (f y)) ∧ LIST_REL R xs ys ⇒
+    LIST_REL Q (MAP f xs) (MAP f ys)
+Proof
+  Induct \\ fs [PULL_EXISTS] \\ metis_tac []
+QED
+
+Theorem ALL_DISTINCT_MEM_MEM:
+  ALL_DISTINCT (MAP FST xs) ∧ MEM (x,y) xs ∧ MEM (x,y1) xs ⇒ y = y1
+Proof
+  rw [] \\ pop_assum mp_tac
+  \\ rewrite_tac [MEM_SPLIT]
+  \\ strip_tac \\ gvs []
+  \\ gvs [MEM_SPLIT]
+  \\ gvs [ALL_DISTINCT_APPEND,SF DNF_ss]
 QED
 
 val _ = export_theory();

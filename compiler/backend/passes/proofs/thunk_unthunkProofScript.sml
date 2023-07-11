@@ -73,6 +73,10 @@ Inductive exp_inv:
      (∀nm. op ≠ Cons nm) ∧
      EVERY exp_inv xs ⇒
        exp_inv (Prim op xs)) ∧
+[exp_inv_Monad:]
+  (∀mop xs.
+     EVERY exp_inv xs ⇒
+       exp_inv (Monad mop xs)) ∧
 [exp_inv_Delay:]
   (∀x.
      exp_inv x ⇒
@@ -88,6 +92,10 @@ Inductive exp_inv:
   (∀s vs.
      EVERY v_inv vs ⇒
        v_inv (Constructor s vs)) ∧
+[v_inv_Monadic:]
+  (∀mop xs.
+     EVERY exp_inv xs ⇒
+       v_inv (Monadic mop xs)) ∧
 [v_inv_Closure:]
   (∀s x.
      exp_inv x ⇒
@@ -143,6 +151,9 @@ Theorem exp_inv_def:
      (∀nm. op ≠ Cons nm) ⇒
      exp_inv (Prim op xs) =
        EVERY exp_inv xs) ∧
+  (∀mop xs.
+     exp_inv (Monad mop xs) =
+       EVERY exp_inv xs) ∧
   (∀x.
      exp_inv (Force x) = exp_inv x) ∧
   (∀x.
@@ -155,6 +166,7 @@ QED
 
 Theorem v_inv_def[simp]:
   (∀s vs. v_inv (Constructor s vs) = EVERY v_inv vs) ∧
+  (∀mop xs. v_inv (Monadic mop xs) = EVERY exp_inv xs) ∧
   (∀s x. v_inv (Closure s x) = exp_inv x) ∧
   (∀f n. v_inv (Recclosure f n) =
            EVERY (λv. ∃x. v = Delay x ∧ exp_inv x) (MAP SND f)) ∧
@@ -214,6 +226,10 @@ Inductive exp_rel:
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys)) ∧
+[exp_rel_Monad:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ⇒
+       exp_rel (Monad mop xs) (Monad mop ys)) ∧
 [exp_rel_Let:]
   (∀bv x1 y1 x2 y2.
      exp_rel x1 x2 ∧
@@ -254,6 +270,10 @@ Inductive exp_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀mop xs ys.
+     LIST_REL exp_rel xs ys ∧ EVERY closed xs ⇒
+       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
 [v_rel_Thunk_Same:]
   (∀x y.
      exp_rel x y ∧
@@ -287,6 +307,11 @@ Theorem v_rel_def[simp]:
      v_rel (Constructor s vs) z =
        (∃ws. z = Constructor s ws ∧
              LIST_REL v_rel vs ws)) ∧
+  (∀op xs z.
+     v_rel (Monadic mop xs) z =
+       (∃ys. z = Monadic mop ys ∧
+             LIST_REL exp_rel xs ys ∧
+             EVERY closed xs)) ∧
   (∀x z.
      v_rel (Atom x) z = (z = Atom x))
 Proof
@@ -310,6 +335,7 @@ QED
 
 Theorem v_rel_Thunk_simps[simp]:
   (∀x s vs. ¬v_rel (Thunk x) (Constructor s vs)) ∧
+  (∀x mop xs. ¬v_rel (Thunk x) (Monadic mop xs)) ∧
   (∀x s y. ¬v_rel (Thunk x) (Closure s y)) ∧
   (∀x y. ¬v_rel (Thunk x) (Atom y)) ∧
   (∀x w. ¬v_rel (DoTick x) w)
@@ -342,6 +368,11 @@ Theorem v_rel_rev[simp]:
      v_rel v (Constructor s vs) =
        (∃ws. v = Constructor s ws ∧
              LIST_REL v_rel ws vs)) ∧
+  (∀v mop ys.
+     v_rel v (Monadic mop ys) =
+       (∃xs. v = Monadic mop xs ∧
+             LIST_REL exp_rel xs ys ∧
+             EVERY closed xs)) ∧
   (∀v s.
      v_rel v (Thunk s) =
       (∃x y.
@@ -374,6 +405,12 @@ Proof
   >- rw []
   \\ ho_match_mp_tac exp_rel_ind
   \\ rw [] \\ fs [freevars_def]
+  >-
+   (AP_TERM_TAC \\ AP_TERM_TAC
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ fs [PULL_EXISTS])
   >-
    (AP_TERM_TAC \\ AP_TERM_TAC
     \\ pop_assum mp_tac
@@ -434,6 +471,13 @@ Proof
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
     \\ irule exp_rel_Prim
+    \\ gs [EVERY2_MAP]
+    \\ irule LIST_REL_mono
+    \\ first_assum (irule_at Any) \\ rw [])
+  >- ((* Monad *)
+    rw [Once exp_rel_cases]
+    \\ simp [subst_def]
+    \\ irule exp_rel_Monad
     \\ gs [EVERY2_MAP]
     \\ irule LIST_REL_mono
     \\ first_assum (irule_at Any) \\ rw [])
@@ -579,6 +623,8 @@ Proof
       \\ rw [MAP_MAP_o, combinTheory.o_DEF, subst_def]
       \\ gvs [MEM_MAP, PULL_EXISTS, exp_inv_def, subst_def])
   >- ((* Prim *)
+    gvs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
+  >- ((* Monad *)
     gvs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
   >- ((* Delay *)
     gvs [subst_def, exp_inv_def])
@@ -851,6 +897,9 @@ Proof
       \\ Cases_on ‘f (EL x ys)’ \\ Cases_on ‘f (EL x xs)’ \\ gs []
       \\ gs [Abbr ‘f’, PULL_EXISTS, CaseEqs ["sum", "v"]]
       \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []))
+  >- ((* Monad *)
+    rw[Once exp_rel_cases] >> gvs[eval_to_def, exp_inv_def]
+    )
 QED
 
 Theorem exp_rel_eval:
@@ -884,38 +933,54 @@ QED
  * Top-level semantics
  * ------------------------------------------------------------------------- *)
 
-Theorem unthunk_apply_force[local]:
-  v_rel v w ∧ v_inv v ⇒
-    ($= +++ (λv w. v_rel v w ∧ v_inv v)) (force v) (force w)
+Overload v_inv_rel = ``λv w. v_inv v ∧ v_rel v w``
+Overload exp_inv_rel = ``λx y. exp_inv x ∧ closed x ∧ exp_rel x y``
+
+Triviality exp_inv_rel_eval:
+  exp_inv_rel x y ==>
+    ($= +++ v_inv_rel) (eval x) (eval y)
 Proof
-  rw [] \\ irule apply_force_rel \\ gs []
-  \\ qexists_tac ‘λx y. closed x ∧ exp_inv x ∧ exp_rel x y’
-  \\ qexists_tac ‘T’
-  \\ simp [exp_rel_eval]
-  \\ rw [exp_inv_def, exp_rel_Force, exp_rel_Value_Unchanged]
+  rw[] >> drule_all exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[]
+QED
+
+Triviality exp_inv_rel_subst:
+  ∀vs x ws y.
+    LIST_REL v_inv_rel (MAP SND vs) (MAP SND ws) ∧
+    MAP FST vs = MAP FST ws ∧
+    exp_inv_rel x y ⇒
+      exp_inv_rel (subst vs x) (subst ws y)
+Proof
+  rw[]
+  >- (irule exp_inv_subst >> gvs[LIST_REL_EL_EQN, EVERY_EL])
+  >- (simp[closed_subst] >> gvs[closed_def])
+  >- (irule exp_rel_subst >> gvs[LIST_REL_EL_EQN, EVERY_EL])
 QED
 
 Theorem unthunk_apply_closure[local]:
-  v_rel v1 w1 ∧ v_inv v1 ∧
-  v_rel v2 w2 ∧ v_inv v2 ∧
+  exp_inv_rel x y ∧
+  v_inv_rel v2 w2 ∧
   (∀x y.
-     ($= +++ (λv w. v_rel v w ∧ v_inv v)) x y ⇒
-       next_rel (λv w. v_rel v w ∧ v_inv v) (f x) (g y)) ⇒
-    next_rel (λv w. v_rel v w ∧ v_inv v)
-             (apply_closure v1 v2 f)
-             (apply_closure w1 w2 g)
+     ($= +++ v_inv_rel) x y ⇒
+       next_rel v_inv_rel exp_inv_rel (f x) (g y)) ⇒
+    next_rel v_inv_rel exp_inv_rel
+             (apply_closure x v2 f)
+             (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
-  \\ gs [rel_ok_def]
+  rw [apply_closure_def, with_value_def] >>
+  drule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
   >- (
     first_x_assum irule
-    \\ irule exp_rel_eval
+    \\ irule exp_inv_rel_eval
     \\ gs [closed_subst]
     \\ irule_at Any exp_inv_subst
-    \\ irule_at Any exp_rel_subst \\ gs [])
+    \\ irule_at Any exp_rel_subst
+    \\ gs [])
   \\ rename1 ‘LIST_REL _ xs ys’
-  \\ ‘OPTREL (λx y. is_delay x ∧ is_delay y ∧ exp_rel x y)
+  \\ ‘OPTREL (λx y. is_delay x ∧ is_delay y)
              (ALOOKUP (REVERSE xs) s)
              (ALOOKUP (REVERSE ys) s)’
     by (irule LIST_REL_OPTREL
@@ -926,11 +991,9 @@ Proof
 QED
 
 Theorem unthunk_rel_ok[local]:
-  rel_ok T (λv w. v_rel v w ∧ v_inv v)
+  rel_ok T v_inv_rel exp_inv_rel
 Proof
   rw [rel_ok_def]
-  >- ((* force preserves rel *)
-    simp [unthunk_apply_force])
   >- ((* apply_closure preserves rel *)
     simp [unthunk_apply_closure])
   >- ((* Thunks go to Thunks or DoTicks *)
@@ -938,26 +1001,27 @@ Proof
     \\ Cases_on ‘w’ \\ gs [])
   >- ((* Constructors are related *)
     gs [LIST_REL_EL_EQN, EVERY_EL])
-  >- ((* Equal literals are related *)
-    simp [exp_rel_Prim])
   >- ((* exp_inv holds for Lits *)
     simp [exp_inv_def])
-  >- ((* Equal 0-arity conses are related *)
+  >- ((* Equal literals are related *)
     simp [exp_rel_Prim])
   >- ((* exp_inv holds for 0-arity conses *)
     simp [exp_inv_def])
+  >- ((* Equal 0-arity conses are related *)
+    simp [exp_rel_Prim])
+  >- simp[exp_inv_def] (* v_inv v ⇒ exp_inv (Value v) *)
+  >- simp[exp_rel_Value_Unchanged] (* v_rel v1 v2 ⇒ exp_rel (Value v1) (Value v2) *)
+  >- gvs[LIST_REL_EL_EQN, EVERY_EL]
 QED
 
 Theorem unthunk_sim_ok[local]:
-  sim_ok T (λv w. v_rel v w ∧ v_inv v) (λx y. exp_rel x y ∧ exp_inv x)
+  sim_ok T v_inv_rel exp_inv_rel
 Proof
   rw [sim_ok_def]
-  \\ simp [exp_rel_eval]
-  >- (
-    irule exp_rel_subst
-    \\ gs [LIST_REL_CONJ, SF ETA_ss])
-  \\ irule exp_inv_subst \\ gs []
-  \\ gvs [EVERY_EL, LIST_REL_EL_EQN]
+  \\ simp [exp_inv_rel_eval]
+  >- (irule exp_inv_subst >> gvs[LIST_REL_EL_EQN, EVERY_EL])
+  >- gvs[closed_subst, closed_def]
+  >- (irule exp_rel_subst >> gvs[LIST_REL_EL_EQN, EVERY_EL])
 QED
 
 Theorem unthunk_semantics:
@@ -1001,6 +1065,10 @@ Inductive delay_force:
      LIST_REL delay_force xs ys ∧
      (∀m. op = Cons m ⇒ EVERY is_delay xs) ⇒
        delay_force (Prim op xs) (Prim op ys)) ∧
+[delay_force_Monad:]
+  (∀mop xs ys.
+     LIST_REL delay_force xs ys ⇒
+       delay_force (Monad mop xs) (Monad mop ys)) ∧
 [delay_force_Let:]
   (∀bv x1 y1 x2 y2.
      delay_force x1 x2 ∧
@@ -1071,6 +1139,13 @@ Proof
     \\ Induct \\ fs [PULL_EXISTS,FORALL_PROD,PULL_FORALL,EXISTS_PROD,MAP_EQ_CONS]
     \\ rw [] \\ res_tac \\ fs []
     \\ metis_tac [])
+  >- ( (* Monad *)
+    simp[exp_inv_def] >>
+    irule_at Any exp_rel_Monad >>
+    irule_at Any thunk_untickProofTheory.exp_rel_Monad >>
+    pop_assum mp_tac >> Induct_on `LIST_REL` >> rw[PULL_EXISTS] >>
+    rpt $ goal_assum drule
+    )
   >- (* Let *)
    (irule_at Any exp_rel_Let \\ fs [exp_inv_def]
     \\ irule_at Any thunk_untickProofTheory.exp_rel_Let

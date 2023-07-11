@@ -16,7 +16,7 @@ val _ = set_grammar_ancestry
 
 Definition any_el_def:
   any_el n [] = thunk_cexp$Prim (AtomOp Add) [] ∧
-  any_el n (x::xs) = if n = 0 then x else any_el (n-1) xs
+  any_el n (x::xs) = if n = 0n then x else any_el (n-1) xs
 End
 
 Definition get_var_name_def:
@@ -33,15 +33,52 @@ Definition mk_delay_def:
     else Delay x
 End
 
-Definition must_delay_def:
-  must_delay s ⇔
-    s = strlit "Bind"   ∨
-    s = strlit "Handle" ∨
-    s = strlit "Act"    ∨
-    s = strlit "Length" ∨
-    s = strlit "Alloc"  ∨
-    s = strlit "Deref"  ∨
-    s = strlit "Update"
+Definition mop_of_mlstring_def:
+  mop_of_mlstring s =
+    if      s = «Ret»    then SOME Ret
+    else if s = «Bind»   then SOME Bind
+    else if s = «Raise»  then SOME Raise
+    else if s = «Handle» then SOME Handle
+    else if s = «Act»    then SOME Act
+    else if s = «Alloc»  then SOME Alloc
+    else if s = «Length» then SOME Length
+    else if s = «Deref»  then SOME Deref
+    else if s = «Update» then SOME Update
+    else NONE
+End
+
+Definition delay_arg_def:
+  delay_arg flag args idx =
+    let arg = pure_to_thunk$any_el idx args in
+    LUPDATE (mk_delay flag arg) idx args
+End
+
+Overload tbind[local] = ``λce1 ce2. Monad Bind [ce1; ce2]``
+Overload thandle[local] = ``λce1 ce2. Monad Handle [ce1; ce2]``
+Overload tret[local] = ``λce. Monad Ret [ce]``
+Overload traise[local] = ``λce. Monad Raise [ce]``
+Overload lam_v[local] = ``thunk_cexp$Lam [«v»]``
+Overload var_v[local] = ``thunk_cexp$Var «v»``
+
+Definition monad_to_thunk_def:
+  monad_to_thunk flag Ret xs = Monad Ret (MAP (mk_delay flag) xs) ∧
+  monad_to_thunk flag Raise xs = Monad Raise (MAP (mk_delay flag) xs) ∧
+  monad_to_thunk flag Bind xs = Monad Bind xs ∧
+  monad_to_thunk flag Handle xs = Monad Handle xs ∧
+  monad_to_thunk flag Act xs =
+    tbind (Monad Act xs) (lam_v $ tret (Delay var_v)) ∧
+  monad_to_thunk flag Length xs =
+    tbind (Monad Length xs) (lam_v $ tret (Delay var_v)) ∧
+  monad_to_thunk flag Alloc xs =
+    tbind (Monad Alloc (delay_arg flag xs 1)) (lam_v $ tret (Delay var_v)) ∧
+  monad_to_thunk flag Deref xs =
+    thandle (Monad Deref xs) (lam_v $ traise (Delay var_v)) ∧
+  monad_to_thunk flag Update xs =
+    tbind
+      (thandle
+        (Monad Update (delay_arg flag xs 2))
+        (lam_v $ traise (Delay var_v)))
+      (lam_v $ tret (Delay var_v))
 End
 
 Definition to_thunk_def:
@@ -64,9 +101,10 @@ Definition to_thunk_def:
   to_thunk flag s (Prim c p ys) =
     (let (xs,s) = to_thunk_list flag s ys in
        case p of
-       | Cons t => (Prim (Cons t) (if must_delay t
-                                   then MAP Delay xs
-                                   else MAP (mk_delay flag) xs),s)
+       | Cons t => (
+          case mop_of_mlstring t of
+          | SOME mop => (monad_to_thunk flag mop xs, insert_var s «v»)
+          | NONE => (Prim (Cons t) (MAP (mk_delay flag) xs)),s)
        | AtomOp a => (Prim (AtomOp a) xs,s)
        | Seq =>
            let x = any_el 0 xs in

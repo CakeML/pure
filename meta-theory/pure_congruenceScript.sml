@@ -2973,13 +2973,6 @@ Proof
   simp [bind_def, SF SFY_ss]
 QED
 
-Triviality ignore_FDIFF:
-  DISJOINT f (FDOM m) ⇒ FDIFF m f = m
-Proof
-  fs [fmap_eq_flookup,FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,IN_DISJOINT]
-  \\ metis_tac []
-QED
-
 Theorem Lams_cong:
   ∀vs x y. (x ≅? y) b ⇒ (Lams vs x ≅? Lams vs y) b
 Proof

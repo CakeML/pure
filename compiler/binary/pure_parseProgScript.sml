@@ -3,6 +3,7 @@
  *)
 open basis
      pureParseTheory
+     ast_to_shortASTTheory
      pure_typingTheory
      pure_backendProgTheory;
 
@@ -328,6 +329,9 @@ val r = translate (def_of_const “cst_to_ast$astValBinding”);
 val r = translate (def_of_const “cst_to_ast$astDecl”);
 val r = translate (def_of_const “cst_to_ast$astDecls”);
 
+val r = translate pureASTTheory.mods_to_string_def;
+val r = translate namespaceTheory.id_to_mods_def;
+val r = translate pureASTTheory.long_name_to_string_def;
 val r = translate_no_ind
   (def_of_const “ast_to_cexp$translate_type”
    |> ONCE_REWRITE_RULE [OPT_MMAP_eq]);
@@ -375,6 +379,10 @@ val r = translate_no_ind (def_of_const “ast_to_cexp$translate_exp”);
 
 val r = translate (def_of_const “ast_to_cexp$translate_decs”);
 val r = translate (def_of_const “ast_to_cexp$decls_to_letrec”);
+
+val r = translate ast_to_shortASTTheory.shorten_tys_snd_def;
+val r = translate ast_to_shortASTTheory.shorten_decl_def;
+val r = translate ast_to_shortASTTheory.shorten_module_def;
 
 (* ------------------------------------------------------------------- *)
 

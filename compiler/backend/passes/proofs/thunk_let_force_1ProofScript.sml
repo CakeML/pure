@@ -177,6 +177,14 @@ Proof
     \\ irule e_rel_Prim
     \\ fs [MAP_MAP_o,LIST_REL_MAP_same]
     \\ fs [EVERY_MEM])
+  >~ [`Monad`] >-
+   (rw [] \\ fs []
+    \\ last_x_assum $ drule_at $ Pos $ el 2
+    \\ strip_tac
+    \\ fs [let_force_def]
+    \\ irule e_rel_Monad
+    \\ fs [MAP_MAP_o,LIST_REL_MAP_same]
+    \\ fs [EVERY_MEM])
   >~ [‘App’] >-
    (fs [exp_of_def,let_force_def]
     \\ rw [] \\ fs []
@@ -387,17 +395,14 @@ Proof
     )
   >- (
     rpt $ (irule AND_CONG >> simp[]) >> strip_tac >>
-    rw[DefnBase.one_line_ify NONE args_ok_def] >>
-    rpt (TOP_CASE_TAC >> simp[]) >>
-    simp[MAP_EQ_CONS] >> eq_tac >> rw[] >> gvs[] >>
-    imp_res_tac $ GSYM let_force_Delay >> gvs[] >> simp[let_force_def]
+    rw[DefnBase.one_line_ify NONE args_ok_def]
     )
   >- (
     rpt (TOP_CASE_TAC >> gvs[])
-    >- (ntac 2 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
     >- (ntac 3 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
     >- (ntac 2 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
     )
+  >- (ntac 2 AP_TERM_TAC >> simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
 QED
 
 val _ = export_theory ();

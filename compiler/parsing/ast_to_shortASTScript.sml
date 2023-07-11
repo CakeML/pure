@@ -74,6 +74,7 @@ Definition short_name_def:
   short_name imp id =
   case assoc_opt (id:long_name) (imp : ((long_name # (long_name option)) list)) of
     SOME s => s
+  | NONE => Short ""
 End
 
 Definition short_name_string_def:

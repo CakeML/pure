@@ -21,6 +21,10 @@ Inductive combine_rel:
   (∀op xs ys.
      LIST_REL combine_rel xs ys ⇒
        combine_rel (Prim op xs) (Prim op ys)) ∧
+[~Monad:]
+  (∀mop xs ys.
+     LIST_REL combine_rel xs ys ⇒
+       combine_rel (Monad mop xs) (Monad mop ys)) ∧
 [~App:]
   (∀f g x y.
      combine_rel f g ∧
@@ -193,6 +197,10 @@ Inductive combine_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
+[v_rel_Monadic:]
+  (∀s vs ws.
+     LIST_REL combine_rel vs ws ⇒
+       v_rel (Monadic s vs) (Monadic s ws)) ∧
 [v_rel_Closure:]
   (∀s x y.
      combine_rel x y ⇒
@@ -481,6 +489,7 @@ Theorem combine_rel_def =
   [“combine_rel (Var v) x”,
    “combine_rel (Value v) x”,
    “combine_rel (Prim op xs) x”,
+   “combine_rel (Monad mop xs) x”,
    “combine_rel (App f x) y”,
    “combine_rel (Lam s x) y”,
    “combine_rel (Letrec f x) y”,
@@ -495,6 +504,7 @@ Theorem combine_rel_def =
 
 Theorem v_rel_def =
   [“v_rel (Constructor s vs) v”,
+   “v_rel (Monadic s vs) v”,
    “v_rel (Closure s x) v”,
    “v_rel (Recclosure f n) v”,
    “v_rel (Atom x) v”,
@@ -529,6 +539,8 @@ Proof
     suffices_by rw [] >>
   ho_match_mp_tac combine_rel_strongind >>
   gs [combine_rel_def, PULL_EXISTS, freevars_def] >> rw []
+  >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
+      gs [LIST_REL_EL_EQN, MEM_EL, EL_MAP, PULL_EXISTS])
   >- (AP_TERM_TAC >> AP_TERM_TAC >> irule LIST_EQ >>
       gs [LIST_REL_EL_EQN, MEM_EL, EL_MAP, PULL_EXISTS])
   >- (AP_THM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >> AP_TERM_TAC >>
@@ -700,6 +712,8 @@ Proof
   >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
       dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >> gs [])
   >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
+      dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >> gs [])
+  >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
       dxrule_then assume_tac LIST_REL_EQ_IMP_EQ >>
       gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, SF ETA_ss])
   >- (gs [LIST_REL_CONJ, SF ETA_ss] >>
@@ -837,6 +851,10 @@ Proof
   >~ [‘Prim op xs’] >- (
     rw [subst_def]
     \\ irule combine_rel_Prim
+    \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
+  >~ [‘Monad op xs’] >- (
+    rw [subst_def]
+    \\ irule combine_rel_Monad
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
   >~ [‘App f x’] >- (
     rw [subst_def]
@@ -1495,7 +1513,6 @@ Theorem combine_rel_eval_to:
     combine_rel x y ⇒
       ∃j. ($= +++ v_rel) (eval_to k x) (eval_to (j + k) y)
 Proof
-
   completeInduct_on ‘k’ \\ completeInduct_on ‘exp_size x’
   \\ Cases \\ gvs [PULL_FORALL, exp_size_def] \\ rw []
   >~ [‘Var m’] >- (
@@ -1521,6 +1538,10 @@ Proof
     \\ qexists_tac ‘j’
     \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to (j + k) y’ \\ gs []
     \\ simp [v_rel_def])
+  >~ [`Monad mop xs`]
+  >- (
+    gvs[Once combine_rel_def, eval_to_def] >> rw[Once v_rel_def, SF SFY_ss]
+    )
   >~ [‘App f x’]
 
 >- (
@@ -6575,11 +6596,6 @@ Proof
   DEEP_INTRO_TAC some_intro >> rw []
 QED
 
-Theorem combine_rel_apply_force[local] =
-  apply_force_rel
-  |> Q.INST [‘Rv’|->‘v_rel’, ‘Re’|->‘combine_rel’,‘allow_error’|->‘F’]
-  |> SIMP_RULE std_ss [combine_rel_eval, combine_rel_Force, combine_rel_Value];
-
 Theorem eval_App_Values:
   eval (App (Value (Closure s e)) (Value v)) = eval (subst1 s v e)
 Proof
@@ -6639,14 +6655,18 @@ Proof
 QED
 
 Theorem combine_rel_apply_closure[local]:
-  v_rel v1 w1 ∧
+  combine_rel x y ∧
   v_rel v2 w2 ∧
-  apply_closure v1 v2 f ≠ Err ∧
+  apply_closure x v2 f ≠ Err ∧
   f (INL Type_error) = Err ∧
-  (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒ next_rel v_rel (f x) (g y)) ⇒
-    next_rel v_rel (apply_closure v1 v2 f) (apply_closure w1 w2 g)
+  (∀x y. ($= +++ v_rel) x y ∧ f x ≠ Err ⇒ next_rel v_rel combine_rel (f x) (g y)) ⇒
+    next_rel v_rel combine_rel (apply_closure x v2 f) (apply_closure y w2 g)
 Proof
-  rw [apply_closure_def]
+  rw[apply_closure_def, with_value_def] >>
+  `eval x ≠ INL Type_error` by (CCONTR_TAC >> gvs[]) >>
+  dxrule_all_then assume_tac combine_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
   \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def, dest_anyClosure_def]
   >- (
     first_x_assum irule \\ fs []
@@ -7301,10 +7321,10 @@ Proof
 QED
 
 Theorem combine_rel_rel_ok[local]:
-  rel_ok F v_rel
+  rel_ok F v_rel combine_rel
 Proof
   rw [rel_ok_def, v_rel_def, combine_rel_def]
-  \\ rw [combine_rel_apply_force, combine_rel_apply_closure]
+  \\ rw [combine_rel_apply_closure]
 QED
 
 Theorem combine_rel_sim_ok[local]:

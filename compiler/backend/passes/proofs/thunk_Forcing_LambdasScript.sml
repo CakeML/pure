@@ -22,6 +22,10 @@ Inductive forcing_lam_rel:
   (∀s op xs ys.
      LIST_REL (forcing_lam_rel s) xs ys ⇒
        forcing_lam_rel s (Prim op xs) (Prim op ys)) ∧
+[~Monad:]
+  (∀s mop xs ys.
+     LIST_REL (forcing_lam_rel s) xs ys ⇒
+       forcing_lam_rel s (Monad mop xs) (Monad mop ys)) ∧
 [~App:]
   (∀s f g x y.
      forcing_lam_rel s f g ∧
@@ -162,6 +166,7 @@ End
 Theorem forcing_lam_rel_def =
   [“forcing_lam_rel s (Var v) x”,
    “forcing_lam_rel s (Prim op xs) x”,
+   “forcing_lam_rel s (Monad mop xs) x”,
    “forcing_lam_rel s (App f x) y”,
    “forcing_lam_rel s (Lam v x) y”,
    “forcing_lam_rel s (Letrec f x) y”,
@@ -179,6 +184,10 @@ Theorem forcing_lam_rel_freevars:
 Proof
   ho_match_mp_tac forcing_lam_rel_strongind >>
   gvs [forcing_lam_rel_def, PULL_EXISTS, freevars_def] >> rw []
+  >- (simp [SET_EQ_SUBSET, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, MEM_EL, SUBSET_DEF] >>
+      rw [] >> gs [LIST_REL_EL_EQN] >>
+      first_assum $ irule_at $ Pos last >>
+      metis_tac [])
   >- (simp [SET_EQ_SUBSET, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, MEM_EL, SUBSET_DEF] >>
       rw [] >> gs [LIST_REL_EL_EQN] >>
       first_assum $ irule_at $ Pos last >>
@@ -255,6 +264,7 @@ Theorem forcing_lam_rel_refl:
 Proof
   Induct using freevars_ind >> gs [forcing_lam_rel_def, no_value_def]
   >- gs [MEM_EL, EVERY_EL, LIST_REL_EL_EQN, PULL_EXISTS]
+  >- gs [MEM_EL, EVERY_EL, LIST_REL_EL_EQN, PULL_EXISTS]
   >- (gs [MEM_EL, EVERY_EL, LIST_REL_EL_EQN, PULL_EXISTS] >>
       rw [] >>
       last_x_assum irule >>
@@ -266,6 +276,7 @@ Theorem forcing_lam_rel_subset:
   ∀s x y. forcing_lam_rel s x y ⇒ ∀s2. s2 ⊆ s ⇒ forcing_lam_rel s2 x y
 Proof
   Induct using forcing_lam_rel_ind >> rw [] >> gs [forcing_lam_rel_def]
+  >- gs [LIST_REL_EL_EQN]
   >- gs [LIST_REL_EL_EQN]
   >- gs [LIST_REL_EL_EQN]
   >- (disj1_tac >>
@@ -487,6 +498,16 @@ Proof
       irule_at Any clean_rel_Prim >>
       irule_at Any combine_rel_Prim >>
       irule_at Any clean_rel_Prim >>
+      gvs [LIST_REL_CONJ, boundvars_def, SF ETA_ss] >>
+      dxrule_then assume_tac LIST_REL_EXISTS >> gs [] >>
+      first_x_assum $ irule_at Any >> simp [] >>
+      first_x_assum $ irule_at Any >> simp [] >>
+      first_x_assum $ irule_at Any >>
+      simp [boundvars_def, SF ETA_ss])
+  >- (irule_at Any force_arg_rel_Monad >>
+      irule_at Any clean_rel_Monad >>
+      irule_at Any combine_rel_Monad >>
+      irule_at Any clean_rel_Monad >>
       gvs [LIST_REL_CONJ, boundvars_def, SF ETA_ss] >>
       dxrule_then assume_tac LIST_REL_EXISTS >> gs [] >>
       first_x_assum $ irule_at Any >> simp [] >>

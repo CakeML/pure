@@ -17,6 +17,7 @@ End
 Datatype:
   cexp = Var name                                    (* variable                 *)
        | Prim cop (cexp list)                        (* primitive operations     *)
+       | Monad mop (cexp list)                       (* monadic operations       *)
        | App cexp (cexp list)                        (* function application     *)
        | Lam (name list) cexp                        (* lambda                   *)
        | Let (name option) cexp cexp                 (* let                      *)
@@ -43,9 +44,10 @@ Definition cns_arities_def:
   cns_arities (Var v :cexp) = {} ∧
   cns_arities (Prim op es) = (
     (case op of
-     | Cons cn => if explode cn ∈ monad_cns then {} else {{explode cn, LENGTH es}}
+     | Cons cn => {{explode cn, LENGTH es}}
      | _ => {}) ∪
     BIGUNION (set (MAP cns_arities es))) ∧
+  cns_arities (Monad mop es) = (BIGUNION (set (MAP cns_arities es))) ∧
   cns_arities (App e1 es) = cns_arities e1 ∪ BIGUNION (set (MAP cns_arities es)) ∧
   cns_arities (Lam vs e) = cns_arities e ∧
   cns_arities (Letrec funs e) =

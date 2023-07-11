@@ -89,3 +89,16 @@ Graphs produced by [`benchmark.py`](benchmark/benchmark.py) therefore show the i
 Run `benchmark.py -h` for usage information.
 By default, it will read/write `data.{csv,pdf}` - you can change this with e.g. `benchmark.py --filestem foo` to read/write `foo.{csv,pdf}`.
 To compile all benchmarks specified in [`bench.config`](benchmark/bench.config) *without* running them, use `benchmark.py --mode compile`.
+
+## Compiling programs with GHC
+
+PureLang resembles a subset of Haskell, so PureLang programs are accepted by GHC with minimal changes.
+The diff [`ghc.patch`](./ghc.patch) demonstrates these changes on some examples, and can be applied as follows:
+```
+git apply ghc.patch
+```
+The changes mostly:
+- reconcile PureLang/GHC I/O and monads, including converting PureLang's `Array` to GHC's `IOArray`
+- adapt PureLang primitives to GHC - including appropriate casts between `Int`/`Integer`
+- use functions from GHC's `Prelude` rather than manually defining them
+

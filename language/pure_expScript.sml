@@ -47,6 +47,11 @@ Definition Lams_def:
   Lams (v::vs) b = Lam v (Lams vs b)
 End
 
+Definition Seqs_def[simp]: (* TODO: move *)
+  Seqs [] x = x /\
+  Seqs (y::ys) x = Seq y (Seqs ys x)
+End
+
 Definition Bottom_def:
   Bottom = Letrec [("bot",Var "bot")] (Var "bot")
 End

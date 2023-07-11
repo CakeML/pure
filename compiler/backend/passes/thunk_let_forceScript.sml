@@ -56,7 +56,8 @@ Definition let_force_def:
   let_force m (Case v rows d) =
     Case v (MAP (λ(n,p,x). (n,p,let_force (FILTER (can_keep_list p) m) x)) rows)
       (case d of NONE => NONE | SOME (a,e) => SOME (a,let_force m e)) ∧
-  let_force m (Prim p xs) = Prim p (MAP (let_force m) xs)
+  let_force m (Prim p xs) = Prim p (MAP (let_force m) xs) ∧
+  let_force m (Monad mop xs) = Monad mop (MAP (let_force m) xs)
 Termination
   WF_REL_TAC ‘measure $ cexp_size o SND’
 End

@@ -34,6 +34,15 @@ Proof
   Induct \\ gvs [replace_Force_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
 QED
 
+Theorem FOLDL_replace_Force_Monad:
+  ∀map_l map mop l.  FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e)
+                          (Monad mop l) map_l
+                    = Monad mop (MAP (λe. FOLDL (λe v. replace_Force
+                                                     (Var (explode (to_fmap map ' v))) (explode v) e) e map_l) l)
+Proof
+  Induct \\ gvs [replace_Force_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+QED
+
 Theorem FOLDL_replace_Force_Seq:
   ∀map_l map x y.
     FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) (Seq x y) map_l
@@ -257,7 +266,7 @@ Proof
   \\ pairarg_tac \\ rw [] \\ simp [is_Delay_def]
 QED
 
-Theorem args_ok_split_Delayed_Lam:
+(*Theorem args_ok_split_Delayed_Lam:
   ∀xs vc s map xs' vc'.
     FOLDR (λe (l',vc). (λ(e', vc'). (e'::l', vc')) (split_Delayed_Lam e vc map)) ([],vc) xs = (xs',vc')
     ∧ args_ok (Cons s) xs
@@ -290,7 +299,7 @@ Proof
   \\ rename1 ‘exp1 = Delay _ ∧ exp2 = Delay _’
   \\ Cases_on ‘exp1’ \\ gs [is_Delay_def]
   \\ Cases_on ‘exp2’ \\ gs [is_Delay_def]
-QED
+QED*)
 
 Theorem split_Delay_Lam_soundness_Prim:
   ∀xs. (∀e vc'' map map_l' e_out' vc_out.
@@ -1359,6 +1368,29 @@ Proof
           \\ rename1 ‘value < cexp_size (Prim _ _)’
           \\ last_x_assum $ qspec_then ‘value’ assume_tac
           \\ gs [cexp_size_def])
+      \\ rename [‘split_Delayed_Lam _ _ m’, ‘set_of vc ⊆ _’]
+      \\ disch_then $ qspecl_then [‘vc’, ‘m’] assume_tac
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ pairarg_tac \\ gs []
+      \\ first_x_assum $ irule_at (Pos hd)
+      \\ last_x_assum irule
+      \\ first_x_assum $ irule_at Any
+      \\ gs [])
+  >~[‘Monad op l’]
+  >- (pop_assum mp_tac
+      \\ Induct_on ‘l’ \\ gs []
+      \\ simp [cexp_size_def]
+      \\ gen_tac \\ strip_tac
+      \\ rpt $ gen_tac \\ strip_tac
+      \\ irule_at Any SUBSET_TRANS
+      \\ last_x_assum mp_tac
+      \\ impl_tac
+      >- (gen_tac \\ strip_tac
+          \\ rename1 ‘value < cexp_size (Monad _ _)’
+          \\ last_x_assum $ qspec_then ‘value’ assume_tac
+          \\ gs [cexp_size_def])
+      \\ rename [‘split_Delayed_Lam _ _ m’, ‘set_of vc ⊆ _’]
       \\ disch_then $ qspecl_then [‘vc’, ‘m’] assume_tac
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs []
@@ -2844,10 +2876,28 @@ Proof
       \\ disch_then $ qx_choose_then ‘ys’ $ qx_choose_then ‘ys'’ assume_tac \\ fs []
       \\ qpat_assum ‘LIST_REL _ _ _’ $ irule_at Any
       \\ qpat_assum ‘LIST_REL _ _ _’ $ irule_at Any \\ simp []
-      \\ drule_then assume_tac FOLDR_split_Delayed_Lam_LENGTH \\ gs []
-      >- (drule_then assume_tac args_ok_split_Delayed_Lam \\ gvs [PULL_FORALL])
-      >- (drule_then assume_tac FOLDR_split_Delayed_Lam_LENGTH
-          \\ gvs [args_ok_def]))
+      \\ drule_then assume_tac FOLDR_split_Delayed_Lam_LENGTH \\ gs [args_ok_def])
+  >~[‘num_mop_args mop = LENGTH xs’] (* Monad *)
+
+  >- (gvs [split_Delayed_Lam_def, FOLDL_replace_Force_Monad, exp_of_def,
+              exp_rel1_def, PULL_EXISTS, exp_rel2_def]
+      \\ rw []
+      \\ pairarg_tac \\ gvs [exp_of_def, cexp_wf_def, freevars_def, boundvars_def, PULL_FORALL]
+      \\ qspec_then ‘xs’ mp_tac split_Delay_Lam_soundness_Prim
+      \\ impl_tac
+      >- (rw [] \\ rename1 ‘MEM e xs’ \\ last_x_assum $ qspec_then ‘e’ assume_tac
+          \\ assume_tac cexp_size_lemma \\ fs []
+          \\ first_x_assum $ dxrule_then assume_tac
+          \\ gvs [cexp_size_def]
+          \\ pop_assum kall_tac \\ pop_assum kall_tac \\ pop_assum kall_tac
+          \\ pop_assum $ drule_all_then $ qx_choose_then ‘e2’ assume_tac
+          \\ qexists_tac ‘e2’ \\ gvs [])
+      \\ disch_then $ drule_then $ drule_then $ drule_then $ drule_then $ drule_then mp_tac
+      \\ gvs [DISJOINT_SYM, cns_arities_def]
+      \\ disch_then $ qx_choose_then ‘ys’ $ qx_choose_then ‘ys'’ assume_tac \\ fs []
+      \\ qpat_assum ‘LIST_REL _ _ _’ $ irule_at Any
+      \\ qpat_assum ‘LIST_REL _ _ _’ $ irule_at Any \\ simp []
+      \\ drule_then assume_tac FOLDR_split_Delayed_Lam_LENGTH \\ gs [])
   >~[‘Apps (exp_of f) (MAP _ args)’]
 
   >- (gvs [split_Delayed_Lam_def, FOLDL_replace_Force_Apps, exp_of_def, PULL_EXISTS]
