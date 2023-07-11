@@ -834,12 +834,12 @@ Definition astModule_def:
    if FST nt ≠ INL nModule then NONE
    else
      case args of
-       (moduletok :: modulename_tok :: withtok :: importstok :: declstok :: rest) =>
+       (moduletok :: modulename_tok :: wheretok :: importstok :: declstok :: rest) =>
          do
            assert (tokcheck moduletok (AlphaT "module"));
            modulename <- astcapname modulename_tok;
            moduleln <- string_to_moduleName modulename;
-           assert (tokcheck withtok (AlphaT "with"));
+           assert (tokcheck wheretok WhereT);
            imports <- astImports importstok;
            decls <- astDecls declstok;
            assert (rest = []);

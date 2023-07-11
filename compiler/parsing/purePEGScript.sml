@@ -85,13 +85,13 @@ Definition purePEG_def[nocompute]:
          choicel [
              seql [tokEQ ((=) $ AlphaT "module") ;
                    tokGE capname_tok;
-                   tokGT ((=) $ AlphaT "with") ;
+                   tokGT ((=) $ WhereT) ;
                    NT nImports I lrEQ;
                    NT nDecls I lrEQ]
              (mkNT nModule);
              seql [tokEQ ((=) $ AlphaT "module") ;
                    tokGE isLongidT;
-                   tokGT ((=) $ AlphaT "with") ;
+                   tokGT ((=) $ WhereT) ;
                    NT nImports I lrEQ;
                    NT nDecls I lrEQ]
                   (mkNT nModule)]);
@@ -578,8 +578,8 @@ val caseexp3 =
 
 val letbraces1 =
   test “nDecl” "y = let\n\
-               \{x=\n\
-               \10;y::Int;}\n\
+               \ {x=\n\
+               \ 10;y::Int;}\n\
                \ in x"
 
 val doblock1 =
@@ -603,40 +603,40 @@ val imports2 = test “nImports”
                              "import Foo\n\
                              \import Bar.Baz"
 
-val module1 = test “nModule” "module Foo with\n\
+val module1 = test “nModule” "module Foo where\n\
                              \import Bar\n\
                              \data Baz a = C a"
 
-val module2 = test “nModule” "module Foo with\n\
+val module2 = test “nModule” "module Foo where\n\
                               \y = 1\n\
                               \f x = let \n\
                               \  y = x + 1\n\
                               \  in y"
 
-val module3 = test “nModule” "module Fact with\n\
+val module3 = test “nModule” "module Fact where\n\
                               \import Foo\n\
                               \f :: Int -> Int\n\
                               \f x = if x == 0 then 1 else x * f(x - 1)\n\
                               \z = 4\n"
 
-val module_do = test “nModule” "module Foo with\n\
+val module_do = test “nModule” "module Foo where\n\
                                 \f t = do x <- \n\
                                 \           g y\n\
                                 \         return (x + 1)"
 
-val modules = test “nModules” "module Foo with\n\
+val modules = test “nModules” "module Foo where\n\
                               \y = 1\n\
                               \f x = let \n\
                               \  y = x + 1\n\
                               \  in y\n\
-                              \module Bar.Baz with \n\
+                              \module Bar.Baz where \n\
                               \import Foo"
 
 (* does not work, stop parsing at f *)
-val module2 = test “nModule” "module Foo with\n\
+val module2 = test “nModule” "module Foo where\n\
                               \y = 1\n\
                               \f x = let \n\
-                              \{y = x + 1}\n\
+                              \ {y = x + 1}\n\
                               \  in y"
 
 val _ = export_theory();

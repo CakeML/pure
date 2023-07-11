@@ -23,22 +23,24 @@ val _ = computeLib.add_funs [pure_lexer_implTheory.get_token_def,
                              numposrepTheory.l2n_def]
 
 
-val fact_s = “"module Fact with\n\
+val fact_s = “"module Fact where\n\
                \f :: Int -> Int\n\
                \f x = if x == 0 then 1 else x * f(x - 1)\n\
                \z = 4\n"”
 val fact_cst = EVAL “string_to_cst ^fact_s”
 
-val do_s = “"module Foo with\n\
-             \f t = do x <- \n\
-             \           g y\n\
-             \         return (x + 1)"”
+val do_s = “"module Foo where\n\
+             \f t = do let y = 10\n\
+             \             f :: Integer -> Integer\n\
+             \             f z = z + 1\n\
+             \         x <- g (f y) 3\n\
+             \         foo x"”
 val do_cst = EVAL “string_to_cst ^do_s”
 
-val two_modules = “"module Foo with\n\
+val two_modules = “"module Foo where\n\
                     \f t = t + 1\n\
                     \g t = 1\n\
-                    \module Bar with\n\
+                    \module Bar where\n\
                     \import Foo\n\
                     \h x = let f t = t in\n\
                     \                (f 0) + (g 0) + (h 0)"”
