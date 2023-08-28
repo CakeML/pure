@@ -40,8 +40,11 @@ Definition heuristic_insert_Rec_def:
   heuristic_insert_Rec m h fs =
     case fs of
       | [(v, e)] =>
-        if h e then
-          insert m v (cRec e)
+        if h e then (
+          case specialise v e of
+          | NONE => m
+          | SOME b => insert m v (cExp b)
+        )
         else
           m
       | _ => m
@@ -123,6 +126,7 @@ Definition inline_new_def:
     let (es1, ns1) = inline_new_list m ns h es
     in (
       case get_Var_name e of
+      (* Var applied to arguments *)
       | SOME v => (
         case lookup m v of
         | NONE =>
@@ -137,6 +141,7 @@ Definition inline_new_def:
             in let (fe1, ns4) = inline_new m ns3 h fe
             in (fe1, ns4)
           )
+        (* Unused for now? We only insert cExps *)
         | SOME (cRec er) => (
           case spec v es er of
           | NONE =>
@@ -148,6 +153,7 @@ Definition inline_new_def:
             in (Letrec a [(v, b)] (App a e1 es1), ns2)
           )
         )
+      (* Not a Var -- can't inline *)
       | NONE =>
         let (e1, ns2) = inline_new m ns h e
         in (App a e1 es1, ns2)

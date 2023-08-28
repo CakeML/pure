@@ -177,6 +177,33 @@ Definition spec_def:
   spec f args e = NONE
 End
 
+Definition inv_const_args_def:
+  inv_const_args (vs: 'a list) p =
+    MAP2 (λx y. case y of
+      | NONE => SOME x
+      | SOME y => NONE
+    ) vs p
+End
+
+Definition get_SOMEs_def:
+  get_SOMEs [] = [] ∧
+  get_SOMEs (NONE :: xs) = get_SOMEs xs ∧
+  get_SOMEs ((SOME x) :: xs) = x :: (get_SOMEs xs)
+End
+
+Definition specialise_def:
+  specialise v (Lam a vs e) = (
+    let p = const_call_args v (MAP SOME vs) e
+    in let inner_vs = get_SOMEs (inv_const_args vs p)
+    in let inner_lam = Lam a inner_vs e
+    in let const_vs = get_SOMEs p
+    in let const_refs = MAP (λv. Var a v) const_vs
+    in let ltrec = Letrec a [(v, inner_lam)] (App a (Var a v) const_refs)
+    in SOME (Lam a const_vs ltrec)
+  ) ∧
+  specialise v e = NONE
+End
+
 (*******************)
 
 val _ = export_theory();
