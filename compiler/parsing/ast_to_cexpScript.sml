@@ -80,7 +80,7 @@ Definition translate_headop_def:
        else NONE
    in
      case opopt of
-       NONE => App l (Var l s)
+       NONE => if s = «seq» then Prim l Seq else App l (Var l s)
      | SOME op => Prim l (AtomOp op)) ∧
   translate_headop e = App () e (* forces unit *)
 End
@@ -388,10 +388,10 @@ Definition translate_type_def:
    else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
    else if s = "Integer" then do assert (tys = []); return $ PrimTy Integer od
    else if s = "String" then do assert (tys = []); return $ PrimTy String od
-   else if s = "M" then do assert (LENGTH tys = 1);
-                           t <- translate_type nm_map arg_map (HD tys);
-                           return $ M t;
-                        od
+   else if s = "IO" then do assert (LENGTH tys = 1);
+                            t <- translate_type nm_map arg_map (HD tys);
+                            return $ M t;
+                         od
    else if s = "Array" then do assert (LENGTH tys = 1);
                                t <- translate_type nm_map arg_map (HD tys);
                                return $ Array t;

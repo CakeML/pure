@@ -1817,7 +1817,6 @@ Theorem simplify_correct:
   ∀e. e ≅ simplify e
 Proof
   rw[simplify_def] >>
-  irule exp_eq_trans >> irule_at (Pos last) clean_all_correct >>
   irule exp_eq_trans >> irule_at (Pos last) split_all_correct >>
   simp[distinct_letrecs_distinct] >>
   irule distinct_exp_eq
@@ -1827,7 +1826,6 @@ Theorem simplify_letrecs_distinct:
   ∀e. letrecs_distinct (simplify e)
 Proof
   rw[simplify_def] >>
-  irule clean_all_letrecs_distinct >>
   irule split_all_letrecs_distinct >>
   simp[distinct_letrecs_distinct]
 QED

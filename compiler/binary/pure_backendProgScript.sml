@@ -55,11 +55,20 @@ val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
 val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
 val r = translate thunk_split_Delay_LamTheory.split_delated_lam_def;
 
+val r = translate thunk_let_forceTheory.can_keep_def;
+val r = translate (thunk_let_forceTheory.can_keep_list_def |> REWRITE_RULE [MEMBER_INTRO]);
+val r = translate thunk_let_forceTheory.d_Var_def;
+val r = translate thunk_let_forceTheory.d_Force_Var_def;
+val r = translate thunk_let_forceTheory.let_force_def;
+val r = translate thunk_let_forceTheory.simp_let_force_def;
+
 val r = translate pure_to_thunkTheory.mk_delay_def;
-val r = translate pure_to_thunkTheory.must_delay_def;
 val r = translate pure_to_thunkTheory.any_el_def;
 val r = translate pure_to_thunkTheory.get_var_name_def;
 val r = translate MAP2_DEF;
+val r = translate mop_of_mlstring_def;
+val r = translate delay_arg_def;
+val r = translate monad_to_thunk_def;
 val r = translate_no_ind pure_to_thunkTheory.to_thunk_def;
 
 Triviality to_thunk_ind:
@@ -85,6 +94,7 @@ val r = translate thunk_to_envTheory.Lams_def;
 val r = translate thunk_to_envTheory.Apps_def;
 val r = translate thunk_to_envTheory.get_arg_def;
 val r = translate thunk_to_envTheory.remove_Delay_def;
+val r = translate thunk_to_envTheory.op_to_env_def;
 val r = translate thunk_to_envTheory.to_env_def;
 
 (* env_to_state *)
@@ -130,6 +140,7 @@ val r = translate state_to_cakeTheory.failure_def;
 val r = translate state_to_cakeTheory.list_to_exp_def;
 val r = translate state_to_cakeTheory.cexp_pat_row_def;
 val r = translate state_to_cakeTheory.compile_def;
+val r = translate state_to_cakeTheory.final_gc_def;
 val r = translate compile_with_preamble_def;
 
 (* compositions *)

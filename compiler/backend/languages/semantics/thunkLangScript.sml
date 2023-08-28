@@ -29,6 +29,7 @@ val _ = numLib.prefer_num();
 Datatype:
   exp = Var vname                                (* variable                *)
       | Prim op (exp list)                       (* primitive operations    *)
+      | Monad mop (exp list)                     (* monadic operations      *)
       | App exp exp                              (* function application    *)
       | Lam vname exp                            (* lambda                  *)
       | Letrec ((vname # exp) list) exp          (* mutually recursive exps *)
@@ -41,12 +42,15 @@ Datatype:
       | MkTick exp;                              (* creates a delayed Tick  *)
 
   v = Constructor string (v list)
+    | Monadic mop (exp list)
     | Closure vname exp
     | Recclosure ((vname # exp) list) vname
     | Thunk (v + exp)
     | Atom lit
     | DoTick v                                   (* extra clock when forced *)
 End
+
+Type thk[pp] = ``:v + exp``;
 
 Overload Tick = “λx. Letrec [] x”;
 Overload Lit = “λl. Prim (AtomOp (Lit l)) []”;
@@ -67,6 +71,7 @@ Definition subst_def:
        NONE => Var s
      | SOME x => Value x) ∧
   subst m (Prim op xs) = Prim op (MAP (subst m) xs) ∧
+  subst m (Monad mop xs) = Monad mop (MAP (subst m) xs) ∧
   subst m (If x y z) =
     If (subst m x) (subst m y) (subst m z) ∧
   subst m (App x y) = App (subst m x) (subst m y) ∧
@@ -104,6 +109,7 @@ QED
 Theorem subst1_def:
   subst1 n v (Var s) = (if n = s then Value v else Var s) ∧
   subst1 n v (Prim op xs) = Prim op (MAP (subst1 n v) xs) ∧
+  subst1 n v (Monad mop xs) = Monad mop (MAP (subst1 n v) xs) ∧
   subst1 n v (If x y z) =
     If (subst1 n v x) (subst1 n v y) (subst1 n v z) ∧
   subst1 n v (App x y) = App (subst1 n v x) (subst1 n v y) ∧
@@ -186,6 +192,7 @@ End
 Definition freevars_def:
   freevars (Var n) = {n} ∧
   freevars (Prim op xs) = (BIGUNION (set (MAP freevars xs))) ∧
+  freevars (Monad mop xs) = (BIGUNION (set (MAP freevars xs))) ∧
   freevars (If x y z) = freevars x ∪ freevars y ∪ freevars z ∧
   freevars (App x y) = freevars x ∪ freevars y ∧
   freevars (Lam s b) = freevars b DIFF {s} ∧
@@ -210,6 +217,7 @@ End
 Definition boundvars_def:
   boundvars (Var n) = {} ∧
   boundvars (Prim op xs) = (BIGUNION (set (MAP boundvars xs))) ∧
+  boundvars (Monad mop xs) = (BIGUNION (set (MAP boundvars xs))) ∧
   boundvars (If x y z) = boundvars x ∪ boundvars y ∪ boundvars z ∧
   boundvars (App x y) = boundvars x ∪ boundvars y ∧
   boundvars (Lam s b) = boundvars b ∪ {s} ∧
@@ -334,7 +342,8 @@ Definition eval_to_def:
              | SOME (INR b) =>
                return (Constructor (if b then "True" else "False") [])
              | NONE => fail Type_error
-           od)
+           od) ∧
+  eval_to k (Monad mop xs) = return (Monadic mop xs)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (I ## exp_size)’ \\ rw []
   \\ Induct_on ‘xs’ \\ rw [] \\ fs [exp_size_def]
@@ -397,7 +406,8 @@ Theorem eval_to_ind:
          op = Proj s' i ∧
          k ≠ 0 ⇒
            P (k − 1) (HD xs)) ⇒
-            P k (Prim op xs)) ⇒
+            P k (Prim op xs)) ∧
+    (∀k mop xs. P k (Monad mop xs)) ⇒
         ∀v v1. P v v1
 Proof
   rw []
@@ -562,11 +572,22 @@ Proof
       >- (
         rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
       \\ gs [Abbr ‘f’, Abbr ‘g’, CaseEq "sum"]))
+  >- rw[eval_to_def]
 QED
 
 Definition is_Lam_def[simp]:
   (is_Lam (Lam _ _) = T) ∧
   (is_Lam _ = F)
+End
+
+Definition is_Delay_def[simp]:
+  (is_Delay (Delay x) = T) ∧
+  (is_Delay _ = F)
+End
+
+Definition is_Box_def[simp]:
+  (is_Box (Box x) = T) ∧
+  (is_Box _ = F)
 End
 
 Definition ok_bind_def[simp]:
@@ -581,6 +602,16 @@ Proof
   Induct using freevars_ind
   \\ gs [boundvars_def, MEM_MAP, PULL_EXISTS, FORALL_PROD]
   \\ gs []
+QED
+
+Theorem FINITE_freevars:
+  ∀e. FINITE (freevars e)
+Proof
+  Induct using freevars_ind
+  \\ gs [freevars_def, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ irule FINITE_DIFF
+  \\ simp [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rw [] \\ last_x_assum $ dxrule_then irule
 QED
 
 Theorem boundvars_Lams:

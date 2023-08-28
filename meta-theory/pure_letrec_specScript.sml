@@ -167,12 +167,6 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Triviality LIST_REL_SWAP:
-  ∀R xs ys. LIST_REL R xs ys = LIST_REL (λx y. R y x) ys xs
-Proof
-  Induct_on ‘xs’ \\ fs []
-QED
-
 Theorem call_with_arg_sym:
   ∀b i R x y. call_with_arg b i R x y ⇒ call_with_arg b i (λx y. R y x) y x
 Proof
@@ -277,28 +271,6 @@ Proof
   \\ strip_tac \\ res_tac \\ fs [UNCURRY]
   \\ gvs [EXTENSION]
   \\ metis_tac []
-QED
-
-Triviality LIST_REL_MAP_MAP_TWO:
-  ∀xs ys.
-    LIST_REL R (MAP f xs) (MAP g ys) = LIST_REL (λx y. R (f x) (g y)) xs ys
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ Cases_on ‘ys’ \\ fs []
-QED
-
-Theorem LIST_REL_MAP:
-  ∀xs ys.
-    LIST_REL R (MAP f xs) (MAP g ys) =
-    LIST_REL (λx y. R (f x) (g y)) xs ys
-Proof
-  Induct \\ fs [MAP_EQ_CONS,PULL_EXISTS]
-QED
-
-Triviality FST_INTRO:
-  (λ(p1,p2). p1) = FST
-Proof
-  fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
 Theorem call_with_arg_Apps:
@@ -477,7 +449,7 @@ Proof
   >-
    (fs [subst_Apps,info_ok_def]
     \\ irule letrec_spec_Apps \\ fs []
-    \\ fs [info_ok_def,LIST_REL_MAP_MAP_TWO]
+    \\ fs [info_ok_def,LIST_REL_MAP]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
     \\ gvs [SF SFY_ss])
   >-
@@ -544,39 +516,6 @@ Proof
   \\ fs [FLOOKUP_DEF]
 QED
 
-Theorem MEM_LIST_REL:
-  ∀xs ys P y. LIST_REL P xs ys ∧ MEM y ys ⇒ ∃x. MEM x xs ∧ P x y
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem MEM_LIST_REL1:
-  ∀xs ys P x. LIST_REL P xs ys ∧ MEM x xs ⇒ ∃y. MEM y ys ∧ P x y
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
-  \\ metis_tac []
-QED
-
-Theorem LIST_REL_COMP:
-  ∀xs ys zs.
-    LIST_REL f xs ys ∧ LIST_REL g ys zs ⇒
-    LIST_REL (λx z. ∃y. f x y ∧ g y z) xs zs
-Proof
-  Induct \\ fs [PULL_EXISTS]
-  \\ metis_tac []
-QED
-
-Triviality LIST_REL_IMP_MAP_EQ:
-  ∀xs ys P f g.
-    (∀x y. MEM x xs ∧ MEM y ys ∧ P x y ⇒ f x = g y) ⇒
-    LIST_REL P xs ys ⇒ MAP g ys = MAP f xs
-Proof
-  Induct \\ fs [PULL_EXISTS,SF DNF_ss] \\ metis_tac []
-QED
-
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
@@ -599,12 +538,6 @@ Triviality LIST_REL_letrec_spec_closed:
 Proof
   Induct \\ rw [] \\ fs []
   \\ imp_res_tac letrec_spec_freevars \\ fs [closed_def]
-QED
-
-Triviality FORALL_FRANGE:
-  (∀x. x IN FRANGE v ⇒ p x) ⇔ ∀k x. FLOOKUP v k = SOME x ⇒ p x
-Proof
-  fs [FRANGE_DEF,FLOOKUP_DEF,PULL_EXISTS]
 QED
 
 Theorem ALOOKUP_REVERSE_LIST_REL:
@@ -752,18 +685,6 @@ Proof
   \\ gvs [info_ok_def]
 QED
 
-Triviality MAP_FST_ZIP:
-  ∀xs ys. LENGTH xs = LENGTH ys ⇒ MAP FST (ZIP (xs,ys)) = xs
-Proof
-  gvs [MAP_ZIP]
-QED
-
-Triviality MAP_SND_ZIP:
-  ∀xs ys. LENGTH xs = LENGTH ys ⇒ MAP SND (ZIP (xs,ys)) = ys
-Proof
-  gvs [MAP_ZIP]
-QED
-
 Theorem eval_wh_to_Apps:
   ∀xs vs x k e.
     (∀l. 0 < l ⇒ eval_wh_to l x = wh_Closures vs e) ∧
@@ -860,18 +781,6 @@ Proof
   \\ gvs [fmap_EXT,FUNION_DEF]
   \\ rw [] \\ fs [EXTENSION]
   \\ metis_tac []
-QED
-
-Theorem FLOOKUP_FUPDATE_LIST:
-  ∀xs k m. FLOOKUP (m |++ xs) k =
-           case ALOOKUP (REVERSE xs) k of
-           | NONE => FLOOKUP m k
-           | SOME x => SOME x
-Proof
-  Induct \\ fs [FUPDATE_LIST,FORALL_PROD,ALOOKUP_APPEND]
-  \\ fs [FLOOKUP_UPDATE]
-  \\ rw [] \\ fs []
-  \\ CASE_TAC \\ fs []
 QED
 
 Theorem freecars_mk_body:
@@ -1148,7 +1057,7 @@ Proof
       \\ drule EVERY_FLOOKUP_closed_lemma \\ strip_tac
       \\ ‘EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys)’ by
         (fs [EVERY_MEM] \\ rw []
-         \\ drule_all MEM_LIST_REL \\ rw []
+         \\ drule_all LIST_REL_MEM_ALT \\ rw []
          \\ imp_res_tac letrec_spec_freevars \\ fs []
          \\ res_tac  \\ gvs [] \\ metis_tac [])
       \\ imp_res_tac letrec_spec_freevars \\ fs []
@@ -1392,7 +1301,7 @@ Proof
       \\ gvs [MEM_MAP]
       \\ Cases_on ‘k=0’ \\ gvs [error_Atom_def]
       \\ last_assum $ qspec_then ‘k-1’ mp_tac \\ fs []
-      \\ drule_all MEM_LIST_REL1 \\ strip_tac
+      \\ drule_all LIST_REL_MEM \\ strip_tac
       \\ disch_then drule \\ fs []
       \\ rename [‘letrec_spec _ x y’]
       \\ imp_res_tac letrec_spec_freevars
@@ -1434,7 +1343,7 @@ Proof
     \\ rw []
     >-
      (fs [EVERY_MEM,MEM_MAP] \\ rw []
-      \\ drule_all MEM_LIST_REL \\ rw []
+      \\ drule_all LIST_REL_MEM_ALT \\ rw []
       \\ last_assum $ qspec_then ‘k-1’ mp_tac \\ fs []
       \\ disch_then drule \\ fs []
       \\ imp_res_tac letrec_spec_freevars
@@ -1449,7 +1358,7 @@ Proof
     >-
      (CCONTR_TAC \\ fs []
       \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
-      \\ drule_all MEM_LIST_REL \\ strip_tac
+      \\ drule_all LIST_REL_MEM_ALT \\ strip_tac
       \\ ‘closed x ∧ ¬error_Atom (eval_wh_to (k − 1) x)’ by (res_tac \\ fs [])
       \\ ‘eval_wh_to (k − 1) x ≠ wh_Diverge’ by (CCONTR_TAC \\ fs [] \\ res_tac \\ fs [])
       \\ last_assum $ qspec_then ‘k-1’ mp_tac \\ fs []
@@ -1537,19 +1446,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem FDIFF_SING:
-  FDIFF f {x} = f \\ x
-Proof
-  fs [FDIFF_def,fmap_EXT,DRESTRICT_DEF,DOMSUB_FAPPLY_NEQ]
-  \\ gvs [EXTENSION]
-QED
-
-Theorem Apps_append:
-  ∀xs ys x. Apps x (xs ++ ys) = Apps (Apps x xs) ys
-Proof
-  Induct \\ fs [Apps_def]
-QED
-
 Theorem call_with_arg_Apps:
   ∀xs x ys y.
     call_with_arg b i R x y ∧
@@ -1578,20 +1474,6 @@ Proof
   \\ qid_spec_tac ‘xs’
   \\ qid_spec_tac ‘ys’
   \\ Induct \\ fs [PULL_EXISTS]
-QED
-
-Theorem Apps_11:
-  ∀xs ys x y. Apps x xs = Apps y ys ∧ LENGTH xs = LENGTH ys ⇒ x = y ∧ xs = ys
-Proof
-  Induct \\ fs [Apps_def]
-  \\ Cases_on ‘ys’ \\ fs [Apps_def]
-  \\ rw [] \\ res_tac \\ fs []
-QED
-
-Theorem LIST_REL_same:
-  ∀xs. LIST_REL R xs xs = EVERY (λx. R x x) xs
-Proof
-  Induct \\ fs []
 QED
 
 Theorem call_with_arg_subst:

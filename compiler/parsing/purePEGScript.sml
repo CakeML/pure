@@ -154,7 +154,11 @@ Definition purePEG_def[nocompute]:
                         tokGT ((=) $ SymbolT "::");
                         NT nTy I lrGT]
                        (mkNT nEqBind)]);
-        (INL nOp, tok isSymbolOpT mktokLf lrEQ);
+        (INL nOp,
+         choicel [pegf (tok isSymbolOpT mktokLf lrEQ) (mkNT nOp);
+                  seql [tok ((=) (SymbolT "`")) mktokLf lrEQ;
+                        tok isAlphaT mktokLf lrGE;
+                        tok ((=) (SymbolT "`")) mktokLf lrGE] (mkNT nOp)]);
 
         (INL nIExp,
          seql [NTEQ nFExp; rpt (seql [NTGT nOp; NTEQ nFExp2] I) FLAT]
@@ -294,7 +298,7 @@ val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β,γ,δ)ispeg``)
 
 val _ = print "Calculating application of purePEG rules\n"
 val purepeg_rules_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
     Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0

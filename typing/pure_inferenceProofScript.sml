@@ -81,6 +81,7 @@ Proof
     pop_assum drule >> simp[]
     )
   >- (first_x_assum drule >> pairarg_tac >> gvs[])
+  >- (first_x_assum drule >> pairarg_tac >> gvs[])
   >- metis_tac[]
   >- metis_tac[]
   >- metis_tac[]
@@ -196,24 +197,17 @@ Proof
     >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
     >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
     >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
-    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac)
+    >- (last_x_assum drule >> pairarg_tac >> rw[] >> res_tac) >>
+    gvs[EL_ZIP] >> pairarg_tac >> gvs[pure_vars] >>
+    gvs[get_massumptions_def, FLOOKUP_maunion, FLOOKUP_FOLDR_maunion] >>
+    every_case_tac >> gvs[] >> rw[]
     >- (
-      gvs[EL_ZIP] >> pairarg_tac >> gvs[pure_vars] >>
-      gvs[get_massumptions_def, FLOOKUP_maunion, FLOOKUP_FOLDR_maunion] >>
-      every_case_tac >> gvs[]
-      >- (last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT])
-      >- (
-        reverse $ rw[] >- (last_x_assum drule >> simp[]) >>
-        gvs[MEM_EL] >> last_x_assum drule >> pairarg_tac >> rw[] >>
-        metis_tac[DISJOINT_ALT]
-        )
-      >- (last_x_assum drule >> rw[] >> metis_tac[DISJOINT_ALT])
-      >- (
-        reverse $ rw[] >- (last_x_assum drule >> simp[]) >>
-        gvs[MEM_EL] >> last_x_assum drule >> pairarg_tac >> rw[] >>
-        metis_tac[DISJOINT_ALT]
-        )
+      gvs[MEM_EL] >> last_x_assum rev_drule >> pairarg_tac >> rw[] >>
+      metis_tac[DISJOINT_ALT]
       )
+    >- (last_x_assum drule >> rw[])
+    >- (first_x_assum drule >> metis_tac[DISJOINT_ALT])
+    >- (last_x_assum drule >> rw[])
     )
   >- (
     rw[] >> every_case_tac >> gvs[] >> res_tac >> simp[] >>
@@ -725,6 +719,7 @@ Proof
     >- (last_x_assum drule >> rw[] >> imp_res_tac minfer_itype_ok)
     >- (last_x_assum drule >> simp[] >> strip_tac >> res_tac >> simp[])
     >- (simp[itype_ok] >> last_x_assum drule >> rw[] >> imp_res_tac minfer_itype_ok)
+    >- (simp[itype_ok] >> last_x_assum drule >> rw[] >> imp_res_tac minfer_itype_ok)
     )
   >- (strip_tac >> gvs[itype_ok] >> res_tac >> simp[])
   >- (
@@ -1165,7 +1160,7 @@ Proof
     Cases_on `k ∈ set (MAP FST fns)` >>
     gvs[FLOOKUP_FDIFF, FLOOKUP_maunion, SF SFY_ss, GSYM DISJ_ASSOC]
     >- (
-      ntac 4 disj2_tac >> disj1_tac >>
+      ntac 5 disj2_tac >> disj1_tac >>
       simp[MEM_ZIP, EXISTS_PROD, PULL_EXISTS, pure_vars, SF DNF_ss] >>
       simp[get_massumptions_def, FLOOKUP_maunion] >> disj1_tac >>
       qexists_tac `k` >> simp[] >> gvs[MEM_EL] >>
@@ -1193,7 +1188,7 @@ Proof
         Cases_on `EL n' fns` >> gvs[] >>
         qsuff_tac `∃v. FLOOKUP (FOLDR maunion FEMPTY ass) q = SOME v ∧ s ⊆ v` >>
         rw[] >> gvs[SUBSET_DEF]
-        >- (CASE_TAC >> gvs[] >> goal_assum drule >> simp[]) >>
+        >- (goal_assum drule >> simp[]) >>
         simp[FLOOKUP_FOLDR_maunion, PULL_EXISTS, MEM_EL, SF SFY_ss] >>
         gvs[FLOOKUP_DEF, SF SFY_ss]
         )
@@ -1210,6 +1205,7 @@ Proof
     >- simp[MEM_EL, PULL_EXISTS, SF SFY_ss]
     >- simp[MEM_EL, PULL_EXISTS, SF SFY_ss]
     )
+  >- (rpt (pairarg_tac >> gvs[]))
   >- (rpt (pairarg_tac >> gvs[]))
   >- (
     gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule >> rw[] >> gvs[] >> disj2_tac >>
@@ -2543,7 +2539,7 @@ Proof
         disj1_tac >> simp[Once SWAP_EXISTS_THM] >>
         qexists_tac `k` >> simp[] >> CASE_TAC >> simp[]
         ) >>
-      ntac 4 disj2_tac >> disj1_tac >>
+      ntac 5 disj2_tac >> disj1_tac >>
       pop_assum mp_tac >> simp[MEM_MAP, MEM_EL, EXISTS_PROD] >> rw[] >>
       pop_assum $ assume_tac o GSYM >> goal_assum $ drule_at Any >> simp[] >>
       simp[PULL_EXISTS, pure_vars, get_massumptions_def, FLOOKUP_maunion] >>
@@ -2585,7 +2581,7 @@ Proof
       first_x_assum $ drule_at Any >>
       pairarg_tac >> simp[PULL_EXISTS] >>
       simp[get_massumptions_def, FLOOKUP_maunion] >> gvs[] >>
-      disch_then $ qspec_then `n'` mp_tac >> impl_tac >- (CASE_TAC >> simp[]) >>
+      disch_then $ qspec_then `n'` mp_tac >> simp[] >>
       simp[satisfies_def] >> rw[] >> simp[] >>
       gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_MAP] >> rw[] >>
       DEP_REWRITE_TAC[pure_walkstar_pure_apply_subst_pure_walkstar] >>
@@ -2746,7 +2742,7 @@ Proof
       simp[get_massumptions_def, FLOOKUP_maunion, PULL_EXISTS, pure_vars] >>
       qexists_tac `n'` >> simp[] >>
       qsuff_tac `∃v. FLOOKUP (FOLDR maunion FEMPTY ass) k = SOME v ∧ s ⊆ v`
-      >- (rw[] >> simp[] >> CASE_TAC >> gvs[SUBSET_DEF]) >>
+      >- (rw[] >> simp[] >> gvs[SUBSET_DEF]) >>
       simp[FLOOKUP_FOLDR_maunion, MEM_EL, PULL_EXISTS] >>
       qexists_tac `n` >> gvs[FLOOKUP_DEF, SUBSET_DEF, PULL_EXISTS, SF SFY_ss]
       )
@@ -2781,6 +2777,18 @@ Proof
       imp_res_tac minfer_itype_ok >> gvs[itype_ok_def]
       )
     >- (
+      `∀c n. c ∈
+          (λ(x,b) tyfn.
+               IMAGE (λn. mImplicit (CVar n) mset tyfn)
+                 (get_massumptions (FOLDR maunion FEMPTY ass) x)) (EL n fns)
+            (EL n tys) ∧ n < LENGTH fn_tys ⇒
+          satisfies (SND ns) sub c` by (
+        qpat_x_assum `∀c n. c ∈ _ ∧ _ ⇒ _` kall_tac >>
+        qpat_x_assum `∀c n. c ∈ _ ∧ _ ⇒ _` assume_tac >>
+        rw[] >> rename1 `EL m tys` >> pairarg_tac >> gvs[] >>
+        rename1 `CVar u` >>
+        first_x_assum $ qspecl_then [`mUnify (CVar u) (EL m tys)`,`m`] mp_tac >>
+        rw[satisfies_def] >> qexists_tac `FEMPTY` >> simp[]) >>
       gvs[ctxt_rel_def] >> rw[] >> simp[ALOOKUP_APPEND] >> CASE_TAC >> gvs[]
       >- (
         `¬MEM k (MAP FST fns)` by (
@@ -2804,12 +2812,10 @@ Proof
       qabbrev_tac `n'_fns = EL n' fns` >> PairCases_on `n'_fns` >> gvs[] >>
       qpat_x_assum `∀c n. _ ⇒ satisifes _ _ _` $ drule_at Any >>
       simp[PULL_EXISTS, get_massumptions_def] >>
-      `∃v'. FLOOKUP (maunion as' (FOLDR maunion FEMPTY ass)) n'_fns0 =
-              SOME v' ∧ v ⊆ v'` by (
-        simp[FLOOKUP_maunion, FLOOKUP_FOLDR_maunion, MEM_EL, PULL_EXISTS] >>
-        IF_CASES_TAC >> gvs[]
-        >- (first_x_assum $ qspec_then `n` assume_tac >> gvs[FLOOKUP_DEF]) >>
-        CASE_TAC >> simp[SUBSET_DEF, PULL_EXISTS, SF SFY_ss]) >>
+      `∃v'. FLOOKUP (FOLDR maunion FEMPTY ass) n'_fns0 = SOME v' ∧ v ⊆ v'` by (
+        simp[FLOOKUP_FOLDR_maunion, MEM_EL, PULL_EXISTS] >>
+        goal_assum rev_drule >> gvs[FLOOKUP_DEF] >>
+        simp[SUBSET_DEF, PULL_EXISTS] >> rw[] >> goal_assum drule >> simp[]) >>
       simp[satisfies_def] >> disch_then $ qspec_then `n''` mp_tac >>
       impl_tac >- gvs[SUBSET_DEF] >> rw[] >>
       qpat_x_assum `∀n. _ ⇒ _ (pure_walkstar _ _)` drule >> rw[] >>

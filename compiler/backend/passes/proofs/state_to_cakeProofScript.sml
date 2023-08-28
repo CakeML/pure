@@ -637,7 +637,7 @@ Inductive dstep_rel:
   (step_rel (seve, SOME sst, sk) (Estep (cenv,dst.refs,dst.fp_state,ceve,ck)) ∧
    ¬is_halt (seve, SOME sst, sk)
     ⇒ dstep_rel (seve, SOME sst, sk)
-        (Dstep dst (ExpVal cenv ceve ck locs (Pvar "prog")) [CdlocalG lenv genv []])) ∧
+        (Dstep dst (ExpVal cenv ceve ck locs (Pvar "prog")) [CdlocalG lenv genv (final_gc flag)])) ∧
 
   dstep_rel (Val sv, SOME sst, []) Ddone ∧
 
@@ -648,7 +648,7 @@ Inductive dstep_rel:
              (Effi ch ws1 ws2 0 cenv' dst.refs ck)
     ⇒ dstep_rel (Action ch conf, SOME sst, sk)
                 (Dffi dst (ch,ws1,ws2,0,cenv',ck)
-                 locs (Pvar "prog") [CdlocalG lenv genv []]))
+                 locs (Pvar "prog") [CdlocalG lenv genv (final_gc flag)]))
 End
 
 Inductive next_res_rel:
@@ -690,6 +690,10 @@ CoInductive itree_rel:
    (∀f. itree_rel (srest $ INL f) (crest $ INL $ compile_final_ffi f))
 
     ⇒ itree_rel (Vis (ch,conf) srest) (Vis (ch, compile_conf conf, ws) crest))
+End
+
+Definition ffi_convention_def:
+  ffi_convention = SUM_ALL (K T) (λbs. ∃s. compile_input_rel s bs)
 End
 
 
@@ -2286,37 +2290,44 @@ Theorem dstep1_rel:
           ⇒ dget_ffi_array d = SOME ws
 Proof
   reverse $ rw[Once dstep_rel_cases] >> gvs[]
-  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
-  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
-  >- simp[dstep_rel_cases, sstep, SF SFY_ss] >>
+  >- (simp[dstep_rel_cases, sstep, SF SFY_ss] >> irule_at Any EQ_REFL)
+  >- (simp[dstep_rel_cases, sstep, SF SFY_ss] >> irule_at Any EQ_REFL)
+  >- (simp[dstep_rel_cases, sstep, SF SFY_ss] >> irule_at Any EQ_REFL) >>
   drule step1_rel >> simp[] >> strip_tac >> gvs[] >>
   `cstep_n (SUC n) (Estep (cenv,dst.refs,dst.fp_state,ceve,ck)) ≠ Edone` by (
     CCONTR_TAC >> gvs[step_rel_cases]) >>
   qrefine `m + n` >> simp[SUC_ADD_SYM, itree_semanticsPropsTheory.step_n_add] >>
   drule $ SRULE [] cstep_n_to_dstep_n >>
   disch_then $ qspecl_then
-    [`benv`,`locs`,`Pvar "prog"`,`[CdlocalG lenv genv []]`] assume_tac >> gvs[] >>
-  pop_assum kall_tac >>
+    [`benv`,`locs`,`Pvar "prog"`,`[CdlocalG lenv genv (final_gc flag)]`] assume_tac >>
+  gvs[] >> pop_assum kall_tac >>
   reverse $ Cases_on
     `cstep_n (SUC n) (Estep (cenv,dst.refs,dst.fp_state,ceve,ck))` >> gvs[]
   >- fs[Once step_rel_cases]
   >- (
     qpat_x_assum `step_rel _ _` mp_tac >>
-    simp[step_rel_cases, dstep_rel_cases] >> strip_tac >> gvs[SF SFY_ss]
+    simp[step_rel_cases, dstep_rel_cases] >> strip_tac >> gvs[SF SFY_ss] >>
+    irule_at Any EQ_REFL
     ) >>
   PairCases_on `p` >> gvs[] >>
   drule $ iffLR step_rel_cases >> simp[] >> strip_tac >> gvs[]
-  >- (qexists0 >> simp[dstep, dstep_rel_cases])
+  >- (qexists0 >> simp[dstep, dstep_rel_cases] >> irule_at Any EQ_REFL)
   >- (
     reverse $ Cases_on `sk'` >> gvs[]
-    >- (qexists0 >> simp[dstep, dstep_rel_cases]) >>
+    >- (qexists0 >> simp[dstep, dstep_rel_cases] >> irule_at Any EQ_REFL) >>
     gvs[Once cont_rel_cases] >> qrefine `SUC m` >> simp[dstep] >>
+    simp[astTheory.pat_bindings_def, pmatch_def] >>
+    reverse $ rw[final_gc_def]
+    >- (ntac 2 (qrefine `SUC m` >> simp[dstep]) >> simp[dstep_rel_cases]) >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
+    simp[dstep, astTheory.pat_bindings_def, smallStepTheory.collapse_env_def] >>
+    ntac 6 (qrefine `SUC m` >> simp[cstep, dstep, do_app_def]) >>
     simp[astTheory.pat_bindings_def, pmatch_def] >>
     ntac 2 (qrefine `SUC m` >> simp[dstep]) >> simp[dstep_rel_cases]
     )
   >- (
     reverse $ Cases_on `sk'` >> gvs[]
-    >- (qexists0 >> simp[dstep, dstep_rel_cases]) >>
+    >- (qexists0 >> simp[dstep, dstep_rel_cases] >> irule_at Any EQ_REFL) >>
     gvs[Once cont_rel_cases] >>
     qrefine `SUC m` >> simp[dstep, dstep_rel_cases, SF SFY_ss]
     )
@@ -2334,9 +2345,9 @@ Proof
   qrefine `SUC (m + k)` >> simp[SUC_ADD_SYM] >>
   once_rewrite_tac[ADD_COMM] >> simp[itree_semanticsPropsTheory.step_n_add] >>
   drule $ iffLR dstep_rel_cases >> reverse strip_tac >> gvs[step_n_alt]
-  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
-  >- simp[dstep_rel_cases, sstep, SF SFY_ss]
-  >- simp[dstep_rel_cases, sstep, SF SFY_ss] >>
+  >- (simp[dstep_rel_cases, sstep, SF SFY_ss] >> irule_at Any EQ_REFL)
+  >- (simp[dstep_rel_cases, sstep, SF SFY_ss] >> irule_at Any EQ_REFL)
+  >- (simp[dstep_rel_cases, sstep, SF SFY_ss] >> irule_at Any EQ_REFL) >>
   drule dstep1_rel >> disch_then $ qspec_then `benv` mp_tac >> impl_tac
   >- (rw[] >> last_x_assum $ qspec_then `n' + n` mp_tac >> simp[step_n_add]) >>
   strip_tac >> gvs[] >> goal_assum drule >> simp[]
@@ -2442,12 +2453,35 @@ Proof
   >- (
     qrefine `SUC m` >> simp[dstep] >>
     simp[astTheory.pat_bindings_def, pmatch_def] >>
-    ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
-    simp[dstep_rel_cases] >> gvs[Once cont_rel_cases]
+    reverse $ rw[final_gc_def] >> ntac 2 (qrefine `SUC m` >> simp[dstep]) >>
+    simp[dstep_rel_cases] >> gvs[Once cont_rel_cases] >>
+    simp[astTheory.pat_bindings_def] >>
+    ntac 6 (qrefine `SUC m` >> simp[cstep, dstep, do_app_def]) >>
+    simp[astTheory.pat_bindings_def, pmatch_def] >>
+    ntac 2 (qrefine `SUC m` >> simp[dstep])
     ) >>
   qexists0 >> simp[dstep, store_lookup_def] >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
-  goal_assum drule >> gvs[state_rel] >> gvs[Once cont_rel_cases]
+  irule_at Any EQ_REFL >> goal_assum drule >> gvs[state_rel] >>
+  qpat_x_assum `cont_rel _ _ _` mp_tac >> rw[Once cont_rel_cases]
+QED
+
+Theorem compile_safe_itree:
+    safe_itree (sinterp sr st sk) ∧
+    dstep_rel (sr,st,sk) (step_n benv n dr)
+  ⇒ safe_itree ffi_convention (interp benv dr)
+Proof
+  rw[] >> dxrule_all compile_itree_rel >> rename1 `itree_rel a b` >>
+  qsuff_tac `∀b. (∃a. itree_rel a b) ⇒ safe_itree ffi_convention b`
+  >- (rw[PULL_EXISTS] >> res_tac) >>
+  ho_match_mp_tac safe_itree_coind >> rw[] >> gvs[Once itree_rel_cases] >>
+  rw[ffi_convention_def] >> Cases_on `s` >> gvs[]
+  >- (
+    pop_assum $ qspec_then
+      `case x of FFI_failed => FFI_failure | _ => FFI_divergence` mp_tac >>
+    CASE_TAC >> simp[compile_final_ffi_def] >> disch_then $ irule_at Any
+    )
+  >- (first_x_assum $ irule_at Any >> simp[SF SFY_ss])
 QED
 
 
@@ -2915,26 +2949,6 @@ QED
 
 
 (****************************** CakeML semantics ******************************)
-
-(* Copied from CakeML backend_itreeProofTheory *)
-val (_,start_env) =
-    prim_sem_env_eq |> Q.INST [`ffi` |-> `ARB`] |>
-      concl |> rhs |> optionSyntax.dest_some |> pairSyntax.dest_pair;
-
-Definition start_dstate_def:
-  start_dstate : dstate =
-    <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE |>
-End
-
-Definition start_env_def:
-  start_env = ^start_env
-End
-
-Definition itree_semantics_def:
-  itree_semantics prog =
-  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
-End
-(* End copy *)
 
 Theorem check_dup_ctors_ALL_DISTINCT[simp]:
   check_dup_ctors (tvs,tn,condefs) ⇔ ALL_DISTINCT (MAP FST condefs)
@@ -3538,16 +3552,20 @@ Theorem compile_correct:
   namespace_init_ok ns ∧
   safe_itree (itree_of (exp_of e))
   ⇒ itree_rel (itree_of (exp_of e))
-              (itree_semantics (compile_with_preamble ns e))
+              (itree_semantics (compile_with_preamble c ns e)) ∧
+    safe_itree ffi_convention (itree_semantics (compile_with_preamble c ns e))
 Proof
-  rw[itree_of_def, semantics_def, itree_semantics_def, cns_ok_def] >>
-  irule compile_itree_rel >>
+  simp[itree_of_def, semantics_def, itree_semantics_def, cns_ok_def] >> strip_tac >>
+  irule_at Any compile_itree_rel >> irule_at Any compile_safe_itree >>
+  goal_assum drule >> qrefinel [`n`,`n`] >> simp[] >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
+  qrefinel [`_`,`_`,`_`,`_`,`c.do_final_gc`] >>
   simp[Once cont_rel_cases, env_rel_def, state_rel] >>
   gvs[namespace_init_ok_def] >>
   simp[compile_with_preamble_def, initial_namespace_def, preamble_def] >>
   qmatch_goalsub_abbrev_tac `[ffi_array;strle_dec;char_list_dec]` >>
-  once_rewrite_tac[GSYM APPEND_ASSOC] >> qmatch_goalsub_abbrev_tac `_ ++ prog` >>
+  ntac 2 $ once_rewrite_tac[GSYM APPEND_ASSOC] >>
+  qmatch_goalsub_abbrev_tac `compile_namespace _ ++ prog` >>
   qspecl_then [`ns'`,`start_env`,`start_dstate`,`[]`,`HD prog`,`TL prog`]
     mp_tac step_over_compile_namespace >>
   impl_tac
@@ -3560,7 +3578,7 @@ Proof
     PairCases_on `tdef` >> first_x_assum drule >> gvs[]
     ) >>
   strip_tac >> gvs[Abbr `prog`] >>
-  once_rewrite_tac[GSYM APPEND_ASSOC] >> rewrite_tac[APPEND] >> simp[] >>
+  ntac 2 (once_rewrite_tac[GSYM APPEND_ASSOC] >> rewrite_tac[APPEND]) >> simp[] >>
   qrefine `m + n` >> simp[itree_semanticsPropsTheory.step_n_add] >>
   pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac `Dstep dst'` >> qpat_abbrev_tac `cml_ns = nsAppend _ _` >>
@@ -3618,7 +3636,6 @@ Proof
   drule ns_to_cml_ns >> gvs[start_dstate_def] >> strip_tac >> gvs[] >>
   rpt $ goal_assum drule >> simp[] >> gvs[cnenv_rel_def, prim_types_ok_def]
 QED
-
 
 (**********)
 

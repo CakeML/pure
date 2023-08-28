@@ -31,14 +31,13 @@ Termination
   WF_REL_TAC `measure $ λl. SUM $ MAP constraint_weight l` >>
   reverse $ rw[constraint_weight_def, listTheory.MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
   >- (
-    rename1 `c::cs` >> drule get_solveable_NONE >> rw[] >> gvs[SF DNF_ss] >>
-    gvs[get_solveable_def] >> FULL_CASE_TAC >> gvs[] >>
-    irule $  DECIDE ``a ≤ c:num ∧ b < d ⇒ a + b < c + d`` >>
-    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def] >>
-    rename1 `monomorphise_implicit active` >>
-    last_x_assum kall_tac >> ntac 2 $ pop_assum kall_tac >>
-    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss] >>
-    simp[monomorphise_implicit_def] >> pairarg_tac >> simp[constraint_weight_def]
+    rename [`c::cs`,`monomorphise_implicit active`] >>
+    drule get_solveable_NONE >> rw[] >> last_x_assum kall_tac >>
+    gvs[SF DNF_ss, monomorphise_implicit_def] >>
+    pairarg_tac >> gvs[constraint_weight_def] >>
+    irule $ DECIDE ``a ≤ b ⇒ a + 2 < b + 3n`` >>
+    Induct_on `cs` >> rw[] >> gvs[SF DNF_ss, monomorphise_implicit_def] >>
+    pairarg_tac >> gvs[constraint_weight_def]
     ) >>
   drule get_solveable_SOME >> strip_tac >> gvs[] >>
   Cases_on `left` >> gvs[listTheory.SUM_APPEND, constraint_weight_def]
@@ -290,11 +289,13 @@ val ntimes_str = toMLstring `
   (letrec
     (o (lam (f g x) (app f (app g x))))
 
-    (ntimes (lam (f n)
-      (case n temp
-        ((((Z) (lam (x) x))
-          ((S (m)) (app o f (app ntimes f m)))) . NONE))))
-    (cons 0 o ntimes))`;
+    (letrec
+
+      (ntimes (lam (f n)
+        (case n temp
+          ((((Z) (lam (x) x))
+            ((S (m)) (app o f (app ntimes f m)))) . NONE))))
+      (cons 0 o ntimes)))`;
 
 Theorem ntimes_str_type:
   parse_and_infer parse_cexp simple_ns ^ntimes_str =
@@ -305,10 +306,9 @@ Theorem ntimes_str_type:
       Functions [Function (TypeVar 0) (TypeVar 1);
                  Function (TypeVar 2) (TypeVar 0)]
         (Function (TypeVar 2) (TypeVar 1));
-
       Functions [Function (TypeVar 3) (TypeVar 3); TypeCons 1 []]
         (Function (TypeVar 3) (TypeVar 3))
-      ]) 29
+      ]) 30
 Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
@@ -317,23 +317,25 @@ val curried_mult_str = toMLstring `
   (letrec
     (o (lam (f g x) (app f (app g x))))
 
+  (letrec
     (ntimes (lam (f n)
       (case n temp
         ((((Z) (lam (x) x))
           ((S (m)) (app o f (app ntimes f m)))) . NONE))))
-
+  (letrec
     (add (lam (x y)
       (case x temp
         ((((Z) y)
           ((S (xx)) (app add xx (cons S y)))) . NONE))))
 
+  (letrec
     (mult (lam (x y) (app ntimes (app add x) y (cons Z))))
 
-    mult)`;
+    mult))))`;
 
 Theorem curried_mult_str_type:
   parse_and_infer parse_cexp simple_ns ^curried_mult_str =
-    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 42
+    return (0, Functions [TypeCons 1 []; TypeCons 1 []] (TypeCons 1 [])) 43
 Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
@@ -404,6 +406,64 @@ Theorem add_str_type:
 Proof
   simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
 QED
+
+val length_poly_str = toMLstring `
+  (letrec
+    (length (lam (l)
+      (case l temp
+        ((((Nil) (int 0))
+          ((Cons (h t)) (+ (int 1) (app length t)))) . NONE))))
+
+  (cons 0
+    (app length (cons Cons (int 0) (cons Nil)))
+    (app length (cons Cons (cons True) (cons Nil)))
+  ))`;
+
+Theorem length_poly_str_type:
+  parse_and_infer parse_cexp simple_ns ^length_poly_str =
+    return (0, Tuple [PrimTy Integer; PrimTy Integer]) 17
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
+QED
+
+val id_poly_str = toMLstring `
+  (letrec
+    (id (lam (x) x))
+  (app id id))`;
+
+Theorem id_poly_str_type:
+  parse_and_infer parse_cexp simple_ns ^id_poly_str =
+    return (1, Function (TypeVar 0) (TypeVar 0)) 7
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
+QED
+
+val ntimes_poly_str = toMLstring `
+  (letrec
+    (id (lam (x) x))
+    (letrec
+      (ntimes (lam (f n x)
+        (case n temp
+          ((((Z) x)
+            ((S (m)) (app f (app (app (app ntimes f) m) x)))) . NONE))))
+      (cons 0
+        ntimes
+        (app (app (app ntimes id) (cons Z)) (cons True))
+        (app (app (app ntimes id) (cons Z)) (cons Z))
+        )))`;
+
+Theorem ntimes_poly_str_type:
+  parse_and_infer parse_cexp simple_ns ^ntimes_poly_str =
+    return (1, Tuple [
+      Functions
+        [Function (TypeVar 0) (TypeVar 0); TypeCons 1 []]
+        (Function (TypeVar 0) (TypeVar 0));
+      PrimTy Bool;
+      TypeCons 1 []]) 33
+Proof
+  simp[parse_and_infer_def] >> CONV_TAC debug_eval >> EVAL_TAC
+QED
+
 
 (********************)
 

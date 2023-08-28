@@ -50,7 +50,7 @@ Definition isSymbolOpT_def:
   isSymbolOpT t ⇔
   do
     s <- destSymbolT t ;
-    assert (s ≠ "<-" ∧ s ≠ "::" ∧ s ≠ "->");
+    assert (s ≠ "<-" ∧ s ≠ "::" ∧ s ≠ "->" ∧ s ≠ "`");
   od = SOME ()
 End
 

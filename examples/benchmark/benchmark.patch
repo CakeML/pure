@@ -1,0 +1,278 @@
+diff --git a/examples/gameOfLife.hs b/examples/gameOfLife.hs
+index b472ef2..51d831c 100644
+--- a/examples/gameOfLife.hs
++++ b/examples/gameOfLife.hs
+@@ -40,7 +40,7 @@ nextRows :: [Integer] -> [Integer] -> [[Integer]] -> [[Integer]]
+ nextRows xs ys rows =
+   case rows of [] -> nextRow 0 (hd xs) (tl xs)
+                              0 (hd ys) (tl ys)
+-                             0  0      (zero $ tl ys) : []
++                             0  0      (zero (tl ys)) : []
+                zs:rest -> nextRow 0 (hd xs) (tl xs)
+                                   0 (hd ys) (tl ys)
+                                   0 (hd zs) (tl zs) : nextRows ys zs rest
+@@ -79,7 +79,7 @@ nextCell x1 x2 x3
+ parse :: String -> [[Integer]]
+ parse s =
+   let width = 102
+-  in map (pad width 0) $ split $ expand s
++  in map (pad width 0) (split (expand s))
+ 
+ expand :: String -> String
+ expand s =
+@@ -87,7 +87,7 @@ expand s =
+         if strlen s < idx + 1 then "" else
+           let e = str_elem s idx
+           in if and (47 < e) (e < 58) then expandAux (idx + 1) (count * 10 + e - 48)
+-             else (implode $ replicate (max 1 count) e) ++ (expandAux (idx + 1) 0)
++             else (implode (replicate (max 1 count) e) ++ (expandAux (idx + 1) 0))
+   in expandAux 0 0
+ 
+ split :: String -> [[Integer]]
+@@ -107,7 +107,7 @@ printGOL l =
+                                        else "#" ++ rowToString t
+       toString l = case l of [] -> ""
+                              h:t -> rowToString h ++ "\n" ++ toString t
+-  in print $ toString l
++  in print (toString l)
+ 
+ 
+ -- Helper functions
+@@ -123,8 +123,6 @@ hd l = case l of [] -> 0
+ 
+ -- Standard functions
+ 
+-f $ x = f x
+-
+ or :: Bool -> Bool -> Bool
+ or b1 b2 = case b1 of True  -> True
+                       False -> b2
+@@ -163,7 +161,7 @@ replicate n a = if n < 1 then [] else a : replicate (n - 1) a
+ 
+ 
+ pad :: Integer -> a -> [a] -> [a]
+-pad n a l = append l $ replicate (n - length l) a
++pad n a l = append l (replicate (n - length l) a)
+ 
+ 
+ -- I/O helpers
+@@ -185,9 +183,9 @@ toString i =
+   let toString0 i =
+         if i == 0 then []
+         else (i `mod` 10 + 48) : toString0 (i `div` 10)
+-  in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
++  in if i < 0 then "-" ++ (implode (reverse (toString0 (0-i))))
+      else if i == 0 then "0"
+-     else implode $ reverse $ toString0 i
++     else implode (reverse (toString0 i))
+ 
+ implode l =
+   case l of
+diff --git a/examples/maxCollatzSequence.hs b/examples/maxCollatzSequence.hs
+index b1f7654..b5fcd33 100644
+--- a/examples/maxCollatzSequence.hs
++++ b/examples/maxCollatzSequence.hs
+@@ -5,10 +5,10 @@ main :: IO ()
+ main = do
+   arg1 <- read_arg1
+   let n = fromString arg1
+-  print $ "Finding longest Collatz sequence less than " ++ toString n
++  print ("Finding longest Collatz sequence less than " ++ toString n)
+   let res = maxCollatzSequence n
+-  print $ "Number with longest sequence: " ++ toString (fst res)
+-  print $ "Length of sequence: " ++ toString (snd res)
++  print ("Number with longest sequence: " ++ toString (fst res))
++  print ("Length of sequence: " ++ toString (snd res))
+   Ret ()
+ 
+ maxCollatzSequence :: Integer -> (Integer, Integer)
+@@ -61,8 +61,6 @@ snd p = case p of (a,b) -> b
+ 
+ -- I/O helpers
+ 
+-f $ x = f x
+-
+ s1 ++ s2 = #(__Concat) s1 s2
+ 
+ reverse :: [a] -> [a]
+@@ -85,9 +83,9 @@ toString i =
+   let toString0 i =
+         if i == 0 then []
+         else (i `mod` 10 + 48) : toString0 (i `div` 10)
+-  in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
++  in if i < 0 then "-" ++ (implode (reverse (toString0 (0-i))))
+      else if i == 0 then "0"
+-     else implode $ reverse $ toString0 i
++     else implode (reverse (toString0 i))
+ 
+ implode l =
+   case l of
+diff --git a/examples/primes.hs b/examples/primes.hs
+index 3f02043..98e1a4c 100644
+--- a/examples/primes.hs
++++ b/examples/primes.hs
+@@ -4,11 +4,11 @@ main :: IO ()
+ main = do
+   arg1 <- read_arg1
+   let n = fromString arg1
+-  print $ "Finding prime no. " ++ toString n
++  print ("Finding prime no. " ++ toString n)
+   let a = primeA n
+-      b = primeB n
+-  print $ "Sieve of Eratosthenes: " ++ toString a
+-  print $ "Divisor testing: " ++ toString b
++  print ("Sieve of Eratosthenes: " ++ toString a)
++  let b = primeB n
++  print ("Divisor testing: " ++ toString b)
+   Ret ()
+ 
+ 
+@@ -19,8 +19,8 @@ primesA =
+   let sieve l =
+         case l of
+           [] -> [] -- should not happen
+-          h:t -> h : filter (\n -> not $ n `mod` h == 0) (sieve t)
+-  in sieve $ numbers 2
++          h:t -> h : filter (\n -> not (n `mod` h == 0)) (sieve t)
++  in sieve (numbers 2)
+ 
+ primeA :: Integer -> Integer
+ primeA n = idx n primesA
+@@ -36,7 +36,7 @@ isPrime n =
+   in if n < 2 then False else checkPrime 2 n
+ 
+ primesB :: [Integer]
+-primesB = filter isPrime $ numbers 2
++primesB = filter isPrime (numbers 2)
+ 
+ primeB :: Integer -> Integer
+ primeB n = idx n primesB
+@@ -44,8 +44,6 @@ primeB n = idx n primesB
+ 
+ -- Helper functions
+ 
+-f $ x = f x
+-
+ not :: Bool -> Bool
+ not b = case b of True -> False
+                   False -> True
+@@ -89,9 +87,9 @@ toString i =
+   let toString0 i =
+         if i == 0 then []
+         else (i `mod` 10 + 48) : toString0 (i `div` 10)
+-  in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
++  in if i < 0 then "-" ++ (implode (reverse (toString0 (0-i))))
+      else if i == 0 then "0"
+-     else implode $ reverse $ toString0 i
++     else implode (reverse (toString0 i))
+ 
+ implode l =
+   case l of
+diff --git a/examples/queens.hs b/examples/queens.hs
+index d1ac747..ecfe697 100644
+--- a/examples/queens.hs
++++ b/examples/queens.hs
+@@ -6,9 +6,9 @@ main :: IO ()
+ main = do
+   arg1 <- read_arg1
+   let n = fromString arg1
+-  print $ "Finding no. N-Queens solutions for board size " ++ toString n
++  print ("Finding no. N-Queens solutions for board size " ++ toString n)
+   let boards = queens n
+-  print $ "No. solutions: " ++ toString (length boards)
++  print ("No. solutions: " ++ toString (length boards))
+   Ret ()
+ 
+ queens :: Integer -> [[Integer]]
+@@ -70,8 +70,6 @@ concatMap f = foldr (\a -> append (f a)) []
+ 
+ -- I/O helpers
+ 
+-f $ x = f x
+-
+ s1 ++ s2 = #(__Concat) s1 s2
+ 
+ reverse :: [a] -> [a]
+@@ -94,9 +92,9 @@ toString i =
+   let toString0 i =
+         if i == 0 then []
+         else (i `mod` 10 + 48) : toString0 (i `div` 10)
+-  in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
++  in if i < 0 then "-" ++ (implode (reverse (toString0 (0-i))))
+      else if i == 0 then "0"
+-     else implode $ reverse $ toString0 i
++     else implode (reverse (toString0 i))
+ 
+ implode l =
+   case l of
+diff --git a/examples/quicksort.hs b/examples/quicksort.hs
+index aad9456..3421899 100644
+--- a/examples/quicksort.hs
++++ b/examples/quicksort.hs
+@@ -5,43 +5,14 @@ main :: IO ()
+ main = do
+   arg1 <- read_arg1
+   let n = fromString arg1
+-  printOnly $ "Sorting the *list* [" ++ toString n ++ "..0]... "
+-  let res = qsortList (numbersList n)
+-  print $ if isSortedList res then "Success!" else "Failure :("
+-  printOnly $ "Sorting the *array* [" ++ toString n ++ "..0]... "
++  printOnly ("Sorting the *array* [" ++ toString n ++ "..0]... ")
+   a <- numbersArray n
+-  len <- Length a
+   qsortArray a
+   ok <- isSortedArray a
+-  print $ if ok then "Success!" else "Failure :("
++  print (if ok then "Success!" else "Failure :(")
+   Ret ()
+ 
+ 
+--- Functional quicksort
+-
+-qsortList :: [Integer] -> [Integer]
+-qsortList l =
+-  case l of
+-    [] -> []
+-    h:t ->
+-      let parts = partitionList h t
+-      in case parts of
+-          (less, greaterEq) ->
+-            append (qsortList less) (h : qsortList greaterEq)
+-
+-
+-partitionList :: Integer -> [Integer] -> ([Integer],[Integer])
+-partitionList pivot l =
+-  case l of
+-    [] -> ([],[])
+-    h:t ->
+-      let rest = partitionList pivot t
+-      in case rest of
+-          (less, greaterEq) ->
+-            if h < pivot then (h:less, greaterEq)
+-            else (less, h:greaterEq)
+-
+-
+ -- Imperative quicksort
+ 
+ qsortArray :: Array Integer -> IO ()
+@@ -157,8 +128,6 @@ printArray a =
+ 
+ -- I/O helpers
+ 
+-f $ x = f x
+-
+ s1 ++ s2 = #(__Concat) s1 s2
+ 
+ reverse :: [a] -> [a]
+@@ -181,9 +150,9 @@ toString i =
+   let toString0 i =
+         if i == 0 then []
+         else (i `mod` 10 + 48) : toString0 (i `div` 10)
+-  in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
++  in if i < 0 then "-" ++ (implode (reverse (toString0 (0-i))))
+      else if i == 0 then "0"
+-     else implode $ reverse $ toString0 i
++     else implode (reverse (toString0 i))
+ 
+ implode l =
+   case l of

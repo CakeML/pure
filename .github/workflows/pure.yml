@@ -8,24 +8,28 @@ on:
     paths:
       - '**.sml'
       - 'Holmakefile'
+      - '**.hs'
   pull_request:
     branches:
     - master
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
+
   build:
-    # The type of runner that the job will run on
     runs-on: self-hosted
-    container: ubuntu:latest
-    # Set environment variables
+    container: ubuntu:20.04
+    timeout-minutes: 480
+
     env:
       HOLDIR: ${{ github.workspace }}/HOL
       CAKEMLDIR: ${{ github.workspace }}/cakeml
       LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
-    # Steps represent a sequence of tasks that will be executed as part of the job
+
+    outputs:
+      hol_sha: ${{ steps.shas.outputs.HOL_SHA }}
+      cakeml_sha: ${{ steps.shas.outputs.CAKEML_SHA }}
+
     steps:
     - name: Update PATH
       run: |
@@ -33,7 +37,8 @@ jobs:
     - name: Get build-essentials
       run: |
         apt update
-        apt install -y build-essential gcc-10 libffi-dev
+        apt install -y git build-essential gcc-10 libffi-dev wget mlton
+
     - name: Checkout Poly/ML
       uses: actions/checkout@v2
       with:
@@ -46,6 +51,7 @@ jobs:
         ./configure
         make
         make install
+
     - name: Checkout HOL4
       uses: actions/checkout@v2
       with:
@@ -61,11 +67,13 @@ jobs:
       with:
         repository: CakeML/CakeML
         path: cakeml
+
     - name: Build HOL4
       run: |
         cd $HOLDIR
         poly < tools/smart-configure.sml
         bin/build
+
     - name: Build CakeML misc
       run: |
         cd $CAKEMLDIR/misc
@@ -90,6 +98,7 @@ jobs:
       run: |
         cd $CAKEMLDIR/basis/pure
         Holmake
+
     - name: Build misc
       run: |
         cd pure/misc
@@ -138,6 +147,11 @@ jobs:
       run: |
         cd pure/compiler
         Holmake
+
+    - name: Build CakeML compiler/backend/proofs
+      run: |
+        cd $CAKEMLDIR/compiler/backend/proofs
+        Holmake
     - name: Build compiler/proofs
       run: |
         cd pure/compiler/proofs
@@ -146,7 +160,68 @@ jobs:
       run: |
         cd pure/compiler/binary
         Holmake
+
+    - name: Save build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: pure.S
+        path: pure/compiler/binary/pure.S
+
     - name: Build examples
       run: |
         cd pure/examples
-        Holmake
+        make check
+    - name: Check that benchmarks compile
+      run: |
+        apt install -y python3 python3-pip
+        pip install parse matplotlib pandas
+        cd pure/examples
+        git apply benchmark/benchmark.patch
+        touch lib/basis_ffi.c
+        cd benchmark && ./benchmark.py --mode compile
+
+    - name: Record HOL/CakeML checkouts
+      id: shas
+      run: |
+        cd $HOLDIR
+        echo "HOL_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        cd $CAKEMLDIR
+        echo "CAKEML_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    needs: build
+    permissions:
+      contents: write
+    runs-on: self-hosted
+    container: ubuntu:20.04
+    env:
+      COMMITS: ${{ github.workspace }}/commits.txt
+
+    steps:
+    - name: Install GitHub CLI
+      run: |
+        apt update && apt install -y curl
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        apt update && apt install -y gh
+
+    - name: Create release tag and release notes
+      run: |
+        echo "VERSION=v$(date +'%Y.%m.%d')" >> $GITHUB_ENV
+        echo "HOL checkout: HOL-Theorem-Prover/HOL@${{ needs.build.outputs.hol_sha }}" >> $COMMITS
+        echo "CakeML checkout: CakeML/CakeML@${{ needs.build.outputs.cakeml_sha }}" >> $COMMITS
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: pure.S
+
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create ${{ env.VERSION }} --repo cakeml/pure --latest --notes-file $COMMITS pure.S
+        rm -f pure.S $COMMITS
+

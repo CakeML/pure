@@ -12,5 +12,4 @@ INCLUDES = misc\
 	   compiler/parsing\
 	   compiler\
      compiler/proofs\
-     compiler/binary\
-	   examples
+     compiler/binary

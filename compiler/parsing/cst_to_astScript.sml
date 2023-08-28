@@ -225,12 +225,26 @@ Definition astLit_def:
 End
 
 Definition astOp_def:
-  astOp pt = do
-               t <- destTOK ' (destLf pt) ;
-               destSymbolT t ++ (if t = StarT then SOME "*"
-                                 else if t = ColonT then SOME ":"
-                                 else NONE)
-             od
+  astOp (Lf _) = NONE ∧
+  astOp (Nd nt args) =
+  if FST nt ≠ INL nOp then NONE
+  else
+    case args of
+    | [pt] =>
+        do
+          t <- destTOK ' (destLf pt) ;
+          destSymbolT t ++ (if t = StarT then SOME "*"
+                            else if t = ColonT then SOME ":"
+                            else NONE)
+        od
+    | [bqt1; idpt; bqt2] =>
+        do
+          assert (tokcheck bqt1 (SymbolT "`") ∧
+                  tokcheck bqt2 (SymbolT "`"));
+          t <- destTOK ' (destLf idpt);
+          destAlphaT t
+        od
+    | _ => NONE
 End
 
 Theorem SUM_MAP_EL_lemma:
@@ -287,7 +301,6 @@ End
 
 (* Table 4.1 from
      https://www.haskell.org/onlinereport/haskell2010/haskellch4.html
-   omitting alpha-ids in backquotes
 *)
 val tabinfo = [
   ("!!", (10, “Left”)),
@@ -297,11 +310,17 @@ val tabinfo = [
   ("**", (8, “Right”)),
   ("*", (7, “Left”)),
   ("/", (7, “Left”)),
+  ("mod", (7, “Left”)),
+  ("div", (7, “Left”)),
+  ("quot", (7, “Left”)),
+  ("rem", (7, “Left”)),
   ("+", (6, “Left”)),
   ("-", (6, “Left”)),
   (":", (5, “Right”)),
   ("++", (5, “Right”)),
   ("==", (4, “NonAssoc”)),
+  ("elem", (4, “NonAssoc”)),
+  ("notElem", (4, “NonAssoc”)),
   ("/=", (4, “NonAssoc”)),
   ("<", (4, “NonAssoc”)),
   ("<=", (4, “NonAssoc”)),
@@ -312,6 +331,7 @@ val tabinfo = [
   (">>", (1, “Left”)),
   (">>=", (1, “Left”)),
   ("$", (0, “Right”)),
+  ("seq", (0, “Right”)),
   ("$!", (0, “Right”))
 ]
 val s = mk_var("s", “:string”)
