@@ -110,7 +110,8 @@ Definition make_Let_def:
 End
 
 Definition inline_def:
-  inline (m: ('a cexp_rhs) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
+  inline m ns (0: num) h e = (e, ns) ∧
+  inline (m: ('a cexp_rhs) var_map) (ns: var_set) cl (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
     | NONE => (Var a v, ns)
     | SOME (cExp e) =>
@@ -118,19 +119,19 @@ Definition inline_def:
       then (Var a v, ns)
       else (
         let (fe, ns0, _) = freshen_cexp e (ns, 100)
-        in let (e1, ns1) = inline m ns0 h fe (* Decrement clock *)
+        in let (e1, ns1) = inline m ns0 (cl - 1) h fe (* Decrement clock *)
         in (e1, ns1)
       )
     | SOME (cRec e) => (Var a v, ns)) ∧
-  inline m ns h (App a e es) = (
-    let (es1, ns1) = inline_list m ns h es
+  inline m ns cl h (App a e es) = (
+    let (es1, ns1) = inline_list m ns cl h es
     in (
       case get_Var_name e of
       (* Var applied to arguments *)
       | SOME v => (
         case lookup m v of
         | NONE =>
-          let (e1, ns2) = inline m ns1 h e
+          let (e1, ns2) = inline m ns1 cl h e
           in (App a e1 es1, ns2)
         | SOME (cExp e) =>
           let exp = (App a e es1)
@@ -138,7 +139,7 @@ Definition inline_def:
           | NONE => (exp, ns1)
           | SOME exp1 =>
             let (fe, ns3, _) = freshen_cexp exp1 (ns1, 100)
-            in let (fe1, ns4) = inline m ns3 h fe (* Decrement clock *)
+            in let (fe1, ns4) = inline m ns3 (cl - 1) h fe (* Decrement clock *)
             in (fe1, ns4)
           )
         (* Unused for now? We only insert cExps *)
@@ -149,52 +150,52 @@ Definition inline_def:
             (* let (e1, ns2) = inline m ns1 h e
             in (App a e1 es1, ns2) *)
           | SOME b =>
-            let (e1, ns2) = inline m ns1 h e
+            let (e1, ns2) = inline m ns1 cl h e
             in (Letrec a [(v, b)] (App a e1 es1), ns2)
           )
         )
       (* Not a Var -- can't inline *)
       | NONE =>
-        let (e1, ns2) = inline m ns h e
+        let (e1, ns2) = inline m ns cl h e
         in (App a e1 es1, ns2)
     )
   ) ∧
-  inline m ns h (Let a v e1 e2) =
+  inline m ns cl h (Let a v e1 e2) =
     (let m1 = heuristic_insert m h v e1
-     in let (e3, ns3) = inline m ns h e1
-     in let (e4, ns4) = inline m1 ns3 h e2
+     in let (e3, ns3) = inline m ns cl h e1
+     in let (e4, ns4) = inline m1 ns3 cl h e2
      in (Let a v e3 e4, ns4)) ∧
-  inline m ns h (Letrec a vbs e) =
+  inline m ns cl h (Letrec a vbs e) =
     (let m1 = heuristic_insert_Rec m h vbs
-     in let (vbs1, ns1) = inline_list m ns h (MAP SND vbs)
-     in let (e2, ns2) = inline m1 ns1 h e
+     in let (vbs1, ns1) = inline_list m ns cl h (MAP SND vbs)
+     in let (e2, ns2) = inline m1 ns1 cl h e
      in (Letrec a (MAP2 (λ(v,_) x. (v, x)) vbs vbs1) e2, ns2)) ∧
-  inline m ns h (Lam a vs e) =
-    (let (e1, ns1) = inline m ns h e
+  inline m ns cl h (Lam a vs e) =
+    (let (e1, ns1) = inline m ns cl h e
     in (Lam a vs e1, ns1)) ∧
-  inline m ns h (Prim a op es) =
-    (let (es2, ns2) = inline_list m ns h es
+  inline m ns cl h (Prim a op es) =
+    (let (es2, ns2) = inline_list m ns cl h es
      in (Prim a op es2, ns2)) ∧
-  inline m ns h (Case a e v bs f) =
-    (let (e1, ns1) = inline m ns h e
-     in let (bs2, ns2) = inline_list m ns1 h (MAP (λ(v, vs, e). e) bs)
+  inline m ns cl h (Case a e v bs f) =
+    (let (e1, ns1) = inline m ns cl h e
+     in let (bs2, ns2) = inline_list m ns1 cl h (MAP (λ(v, vs, e). e) bs)
      in let (f3, ns3) = case f of
         | NONE => (NONE, ns2)
         | SOME (vs, e) =>
-          let (e4, ns4) = inline m ns2 h e
+          let (e4, ns4) = inline m ns2 cl h e
           in (SOME (vs, e4), ns4)
      in (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3, ns3)) ∧
-  inline m ns h (NestedCase a e v p e' bs) =
+  inline m ns cl h (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs, ns) ∧
-  inline_list m ns h [] = ([], ns) ∧
-  inline_list m ns h (e::es) =
-    (let (e1, ns1) = inline m ns h e in
-     let (es2, ns2) = inline_list m ns1 h es
+  inline_list m ns cl h [] = ([], ns) ∧
+  inline_list m ns cl h (e::es) =
+    (let (e1, ns1) = inline m ns cl h e in
+     let (es2, ns2) = inline_list m ns1 cl h es
      in (e1::es2, ns2))
 Termination
   WF_REL_TAC `measure $ λx. case x of
-    | INL (m, ns, h, e) => cexp_size (K 0) e
-    | INR (m, ns, h, es) => list_size (cexp_size (K 0)) es`
+    | INL (m, ns, cl, h, e) => cexp_size (K 0) e
+    | INR (m, ns, cl, h, es) => list_size (cexp_size (K 0)) es`
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []

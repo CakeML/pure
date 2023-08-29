@@ -11,7 +11,7 @@ Definition example_1_def:
 End
 
 val inline_example_1 =
-  EVAL “inline_all (tree_size_heuristic 100) example_1” |>
+  EVAL “inline_all 2 (tree_size_heuristic 100) example_1” |>
   concl |>
   rand |>
   rator |> rand |>
@@ -22,7 +22,7 @@ Definition example_2_def:
 End
 
 val inline_example_2 =
-  EVAL “inline_all (tree_size_heuristic 100) example_2” |>
+  EVAL “inline_all 2 (tree_size_heuristic 100) example_2” |>
   concl |>
   rand |>
   rator |> rand |>
@@ -33,7 +33,7 @@ Definition example_3_def:
 End
 
 val inline_example_3 =
-  EVAL “inline_all (tree_size_heuristic 100) example_3” |>
+  EVAL “inline_all 2 (tree_size_heuristic 100) example_3” |>
   concl |>
   rand |>
   rator |> rand |>
@@ -44,7 +44,7 @@ Definition example_4_def:
 End
 
 val inline_example_4 =
-  EVAL “inline_all (tree_size_heuristic 100) example_4” |>
+  EVAL “inline_all 2 (tree_size_heuristic 100) example_4” |>
   concl |>
   rand |>
   rator |> rand |>
@@ -55,7 +55,7 @@ Definition example_5_def:
 End
 
 val inline_example_5 =
-  EVAL “inline_all (tree_size_heuristic 100) example_5” |>
+  EVAL “inline_all 1 (tree_size_heuristic 100) example_5” |>
   concl |>
   rand |>
   rator |> rand |>
