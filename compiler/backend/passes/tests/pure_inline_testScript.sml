@@ -29,7 +29,7 @@ val ex = toMLstring `
 val ex_cexp = “parse_cexp ^ex”
   |> EVAL |> concl |> rand;
 
-val inline_paper =
+val inline_ex =
   EVAL “inline_all 2 (tree_size_heuristic 100) ^ex_cexp” |>
   concl |>
   rand |>
@@ -49,7 +49,7 @@ val example_paper_cexp = “parse_cexp ^example_paper”
   |> EVAL |> concl |> rand;
 
 val inline_paper =
-  EVAL “inline_all 1 (tree_size_heuristic 100) ^example_paper_cexp” |>
+  EVAL “inline_all 2 (tree_size_heuristic 100) ^example_paper_cexp” |>
   concl |>
   rand |>
   rator |> rand |>
