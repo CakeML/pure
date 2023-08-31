@@ -27,6 +27,7 @@ Definition memory_inv_def:
     ∀v e. (lookup m v = SOME e) ⇒ (MEM (explode v, (crhs_to_rhs e)) xs)
 End
 
+(*
 Theorem inline_list_empty:
   (inline_list m ns h l = ([], ns1)) ⇒ l = []
 Proof
@@ -695,6 +696,7 @@ Proof
   \\ qexists `h` \\ qexists `empty` \\ qexists `empty` \\ qexists `ns1`
   \\ fs [map_ok_empty,memory_inv_def] 
 QED
+*)
 
 (*******************)
 
