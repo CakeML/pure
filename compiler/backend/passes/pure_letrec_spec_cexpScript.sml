@@ -234,6 +234,37 @@ Definition spec_def:
   spec f args e = NONE
 End
 
+Definition count_head_NONEs_def:
+  count_head_NONEs (NONE::xs) = 1 + (count_head_NONEs xs) ∧
+  count_head_NONEs _ = (0: num)
+End
+
+Definition drop_while_SOME_def:
+  drop_while_SOME ((SOME x)::xs) (v::vs) = drop_while_SOME xs vs ∧
+  drop_while_SOME _ vs = vs
+End
+
+Definition drop_safe_def:
+  drop_safe 0 xs = xs ∧
+  drop_safe n [] = [] ∧
+  drop_safe (SUC n) (x::xs) = drop_safe n xs
+End
+
+Definition drop_tail_def:
+  drop_tail n xs = (
+    let xs1 = REVERSE xs
+    in let xs2 = drop_safe n xs1
+    in REVERSE xs2
+  )
+End
+
+Definition count_params_to_drop_def:
+  count_params_to_drop p = (
+    let p1 = REVERSE p
+    in count_head_NONEs p1
+  )
+End
+
 Definition inv_const_args_def:
   inv_const_args (vs: 'a list) p =
     MAP2 (λx y. case y of
@@ -249,31 +280,51 @@ Definition get_SOMEs_def:
 End
 
 (*
-Problems with this implementation:
-- all arguments are left in the outer lambda
+The main specialisation function.
+Takes:
+- v : function name
+- e : definition of function f
 
 Currently works like so:
 
+1.
 map f [] = []
 map f (x::xs) = (f x)::(map f xs)
 
 ==>
 
-\f xs.
+\f.
   let map1 [] = []
       map1 (x::xs) = (f x)::(map1 xs)
-  in map1 xs
+  in map1
 
+2.
+mapfy f [] y = []
+mapfy f (x::xs) y = (f x y)::(mapfy f xs y)
+
+==>
+
+\f lst y.
+  let mapfy1 [] = []
+      mapfy1 (x::xs) = (f x y)::(mapfy1 xs)
+  in mapfy1 lst
+
+Rules for appropriate parameter lists:
+- drop all const parameters from inner lam
+- drop trailing non-const parameters from outer lam
 *)
 Definition specialise_def:
   specialise v (Lam a vs e) = (
-    let p = const_call_args v (MAP SOME vs) e
-    in let inner_vs = get_SOMEs (inv_const_args vs p)
+    let p = const_call_args v (MAP SOME vs) e (* Find constant parameters *)
+    in let inner_vs = get_SOMEs (inv_const_args vs p) (* inner parameters are the non-const ones *)
     in let inner_lam = Lam a inner_vs (remove_const_args v p e)
-    in let const_vs = get_SOMEs p
-    in let inner_refs = MAP (λv. Var a v) inner_vs
-    in let ltrec = Letrec a [(v, inner_lam)] (App a (Var a v) inner_refs)
-    in SOME (Lam a vs ltrec)
+    in let params_to_drop_no = count_params_to_drop p
+    in let outer_vs = drop_tail params_to_drop_no vs (* outer parameters are without trailing non-const parameters *)
+    in let inner_applied_vs = drop_tail params_to_drop_no inner_vs
+    in let inner_refs = MAP (λv. Var a v) inner_applied_vs
+    in let v_ref = (if inner_refs = [] then Var a v else App a (Var a v) inner_refs)
+    in let ltrec = Letrec a [(v, inner_lam)] v_ref
+    in SOME (Lam a outer_vs ltrec)
   ) ∧
   specialise v e = NONE
 End

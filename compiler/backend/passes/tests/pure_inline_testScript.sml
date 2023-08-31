@@ -2,13 +2,13 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open arithmeticTheory;
 open intLib pure_printTheory pure_printLib;
-open pure_inline_cexpTheory;
+open pure_inline_cexpTheory pure_letrec_spec_cexpTheory;
 
 val _ = new_theory "pure_inline_test";
 
 val toMLstring = stringLib.fromMLstring o dest_QUOTE;
 
-val ex = toMLstring `
+val example_paper_partially_specialised = toMLstring `
   (letrec
     (map
         (lam (f lst)
@@ -26,11 +26,11 @@ val ex = toMLstring `
                         .  NONE))))
           map1)))`;
 
-val ex_cexp = “parse_cexp ^ex”
+val example_paper_partially_specialised_cexp = “parse_cexp ^example_paper_partially_specialised”
   |> EVAL |> concl |> rand;
 
-val inline_ex =
-  EVAL “inline_all 2 (tree_size_heuristic 100) ^ex_cexp” |>
+val inline_example_paper_partially_specialised =
+  EVAL “inline_all 5 (tree_size_heuristic 100) ^example_paper_partially_specialised_cexp” |>
   concl |>
   rand |>
   rator |> rand |>
@@ -48,11 +48,43 @@ val example_paper = toMLstring `
 val example_paper_cexp = “parse_cexp ^example_paper”
   |> EVAL |> concl |> rand;
 
-val inline_paper =
+val inline_example_paper =
   EVAL “inline_all 2 (tree_size_heuristic 100) ^example_paper_cexp” |>
   concl |>
   rand |>
   rator |> rand |>
+  print_cexp;
+
+val map_def = toMLstring `
+    (lam (f lst)
+      (case lst temp
+        ((((Nil) (cons Nil))
+          ((Cons (x xs)) (cons Cons (app f x) (app map f xs)))) . NONE)))`;
+
+val map_def_cexp = “parse_cexp ^map_def”
+  |> EVAL |> concl |> rand;
+
+val specialise_map_def =
+  EVAL “specialise «map» ^map_def_cexp” |>
+  concl |>
+  rand |>
+  rand |>
+  print_cexp;
+
+val mapfy_def = toMLstring `
+    (lam (f lst y)
+      (case lst temp
+        ((((Nil) (cons Nil))
+          ((Cons (x xs)) (cons Cons (app f x y) (app mapfy f xs y)))) . NONE)))`;
+
+val mapfy_def_cexp = “parse_cexp ^mapfy_def”
+  |> EVAL |> concl |> rand;
+
+val specialise_mapfy_def =
+  EVAL “specialise «mapfy» ^mapfy_def_cexp” |>
+  concl |>
+  rand |>
+  rand |>
   print_cexp;
 
 Definition example_1_def:
