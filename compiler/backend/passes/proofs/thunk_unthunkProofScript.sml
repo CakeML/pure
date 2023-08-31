@@ -13,12 +13,11 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
 val _ = new_theory "thunk_unthunkProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "quotient_sum", "thunk_semantics",
-                              "thunkLangProps"];
+                              "thunkLang", "thunk_semantics", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
 (* --------------------------
    exp_inv:

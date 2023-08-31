@@ -19,13 +19,13 @@ val _ = new_theory "thunk_case_projProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-   "quotient_sum", "quotient_pair", "thunkLangProps", "thunk_semantics" ];
+  "thunkLangProps", "thunk_semantics" ];
 
 val _ = numLib.prefer_num ();
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧

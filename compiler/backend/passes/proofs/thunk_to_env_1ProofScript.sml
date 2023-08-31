@@ -290,9 +290,9 @@ Proof
   >- (rw[subst_def, exp_rel_def] >> gvs[LIST_REL_EL_EQN, EL_MAP])
 QED
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Theorem eval_to_exp_rel:
   ∀k x env y.
