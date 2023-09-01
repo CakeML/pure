@@ -33,7 +33,6 @@ val inline_example_paper_partially_specialised =
   EVAL “inline_all 5 (tree_size_heuristic 100) ^example_paper_partially_specialised_cexp” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp;
 
 val example_paper = toMLstring `
@@ -52,7 +51,6 @@ val inline_example_paper =
   EVAL “inline_all 5 (tree_size_heuristic 100) ^example_paper_cexp” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp;
 
 val map_def = toMLstring `
@@ -95,7 +93,6 @@ val inline_example_1 =
   EVAL “inline_all 2 (tree_size_heuristic 100) example_1” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp
 
 Definition example_2_def:
@@ -106,7 +103,6 @@ val inline_example_2 =
   EVAL “inline_all 2 (tree_size_heuristic 100) example_2” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp
 
 Definition example_3_def:
@@ -117,7 +113,6 @@ val inline_example_3 =
   EVAL “inline_all 2 (tree_size_heuristic 100) example_3” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp
 
 Definition example_4_def:
@@ -128,7 +123,6 @@ val inline_example_4 =
   EVAL “inline_all 2 (tree_size_heuristic 100) example_4” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp
 
 Definition example_5_def:
@@ -142,7 +136,6 @@ val inline_example_5 =
   EVAL “inline_all 1 (tree_size_heuristic 100) example_5” |>
   concl |>
   rand |>
-  rator |> rand |>
   print_cexp
 
 val _ = export_theory();

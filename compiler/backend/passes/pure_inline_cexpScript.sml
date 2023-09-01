@@ -4,7 +4,8 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory
-     pure_freshenTheory pure_letrec_spec_cexpTheory;
+     pure_freshenTheory pure_letrec_spec_cexpTheory
+     pure_dead_letTheory;
 
 val _ = new_theory "pure_inline_cexp";
 
@@ -262,11 +263,11 @@ Termination
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
 End
 
-
 Definition inline_all_def:
   inline_all cl h e = 
     let (e1, s) = freshen_cexp e empty_vars
-    in inline empty s cl h e1
+    in let (inlined_e, _) = inline empty s cl h e1
+    in dead_let inlined_e
 End
 
 Definition inline_all_old_def:
