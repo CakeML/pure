@@ -49,7 +49,7 @@ val example_paper_cexp = “parse_cexp ^example_paper”
   |> EVAL |> concl |> rand;
 
 val inline_example_paper =
-  EVAL “inline_all 2 (tree_size_heuristic 100) ^example_paper_cexp” |>
+  EVAL “inline_all 5 (tree_size_heuristic 100) ^example_paper_cexp” |>
   concl |>
   rand |>
   rator |> rand |>

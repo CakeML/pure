@@ -111,14 +111,14 @@ End
 
 Definition inline_def:
   inline m ns (0: num) h e = (e, ns) ∧
-  inline (m: ('a cexp_rhs) var_map) (ns: var_set) cl (h: 'a heuristic) (Var (a: 'a) v) =
+  inline (m: ('a cexp_rhs) var_map) ns cl (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
     | NONE => (Var a v, ns)
     | SOME (cExp e) =>
       if is_Lam e
       then (Var a v, ns)
       else (
-        let (fe, ns0, _) = freshen_cexp e (ns, 100)
+        let (fe, ns0) = freshen_cexp e ns
         in let (e1, ns1) = inline m ns0 (cl - 1) h fe (* Decrement clock *)
         in (e1, ns1)
       )
@@ -138,7 +138,7 @@ Definition inline_def:
           in (case make_Let exp of
           | NONE => (exp, ns1)
           | SOME exp1 =>
-            let (fe, ns3, _) = freshen_cexp exp1 (ns1, 100)
+            let (fe, ns3) = freshen_cexp exp1 ns1
             in let (fe1, ns4) = inline m ns3 (cl - 1) h fe (* Decrement clock *)
             in (fe1, ns4)
           )
@@ -264,7 +264,9 @@ End
 
 
 Definition inline_all_def:
-  inline_all = inline pure_vars$empty empty
+  inline_all cl h e = 
+    let (e1, s) = freshen_cexp e empty_vars
+    in inline empty s cl h e1
 End
 
 Definition inline_all_old_def:
