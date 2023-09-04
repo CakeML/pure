@@ -8,19 +8,439 @@
   The main theorem above states that two beta-equivalent expressions
   belong to the same equivalence class under the eval function.
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_miscTheory
+open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
+open pairTheory listTheory rich_listTheory alistTheory finite_mapTheory pred_setTheory;
+open pure_miscTheory pure_expTheory pure_exp_lemmasTheory pure_evalTheory
      pure_exp_relTheory pure_alpha_equivTheory pure_congruenceTheory;
-
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "pure_beta_equiv";
 
+
+(********** Freshening as a relation **********)
+
+Definition binds_ok_def:
+  binds_ok m ⇔
+    ∀l x y r. m = l ++ [x,y] ++ r ⇒
+      ¬MEM x (MAP SND r) ∧ ¬MEM y (MAP SND r)
+End
+
+Definition perm1_list_def:
+  perm1_list [] z = z ∧
+  perm1_list ((x,y)::rest) z = perm1 x y (perm1_list rest z)
+End
+
+Definition perm_exp_list_def:
+  perm_exp_list [] e = e ∧
+  perm_exp_list ((old,new)::binds) e = perm_exp old new (perm_exp_list binds e)
+End
+
+Inductive freshen_rel:
+  freshen_rel avoid (Var x) (Var x) ∧
+
+  (LIST_REL (freshen_rel avoid) es es'
+    ⇒ freshen_rel avoid (Prim op es) (Prim op es')) ∧
+
+  (y ∉ avoid ∧ freshen_rel (y INSERT avoid) (perm_exp x y e) e'
+    ⇒ freshen_rel avoid (Lam x e) (Lam y e')) ∧
+
+  (freshen_rel avoid e1 e1' ∧ freshen_rel avoid e2 e2'
+    ⇒ freshen_rel avoid (App e1 e2) (App e1' e2')) ∧
+
+  (binds_ok binds ∧ EVERY (λx. x ∉ avoid) (MAP SND binds) ∧
+   MAP FST binds = MAP FST fns ∧
+   LIST_REL (λ(f,body) (f',body').
+      perm1_list binds f = f' ∧
+      freshen_rel (avoid ∪ set (MAP SND binds)) (perm_exp_list binds body) body')
+    fns fns' ∧
+   freshen_rel (avoid ∪ set (MAP SND binds)) (perm_exp_list binds e) e'
+   ⇒ freshen_rel avoid (Letrec fns e) (Letrec fns' e'))
+End
+
+
+(* Proofs *)
+
+Theorem binds_ok_all_distinct:
+  ∀m. binds_ok m ⇒ ALL_DISTINCT (MAP SND m)
+Proof
+  Induct >> rw[] >> PairCases_on `h` >> gvs[binds_ok_def]
+QED
+
+Theorem perm1_list_APPEND:
+  ∀l1 l2.  perm1_list (l1 ++ l2) = (perm1_list l1) o (perm1_list l2)
+Proof
+  Induct >> rw[FUN_EQ_THM, perm1_list_def] >>
+  PairCases_on `h` >> rw[perm1_list_def]
+QED
+
+Theorem freevars_perm_exp_list:
+  ∀binds e. freevars (perm_exp_list binds e) = IMAGE (perm1_list binds) (freevars e)
+Proof
+  recInduct perm_exp_list_ind >> rw[perm_exp_list_def]
+  >- (rw[EXTENSION, perm1_list_def]) >>
+  gvs[EXTENSION, freevars_eqvt, PULL_EXISTS] >>
+  rw[perm1_list_def]
+QED
+
+Theorem perm1_list_id:
+  ∀l x. MAP FST l = MAP SND l ⇒ perm1_list l x = x
+Proof
+  Induct >> rw[perm1_list_def] >>
+  PairCases_on `h` >> rw[perm1_list_def] >> gvs[perm1_simps]
+QED
+
+Theorem perm_exp_list_id:
+  ∀l e. MAP FST l = MAP SND l ⇒ perm_exp_list l e = e
+Proof
+  Induct >> rw[perm_exp_list_def] >>
+  PairCases_on `h` >> rw[perm_exp_list_def] >> gvs[perm_exp_id]
+QED
+
+Theorem perm1_list_unchanged:
+  ∀l x. ¬ MEM x (MAP FST l) ∧ ¬ MEM x (MAP SND l) ⇒ perm1_list l x = x
+Proof
+  recInduct perm1_list_ind >> rw[perm1_list_def] >>
+  gvs[perm1_def]
+QED
+
+Theorem perm1_list_changed:
+  ∀m a.
+    MEM a (MAP FST m) ∧ ¬ MEM a (MAP SND m) ∧
+    binds_ok m
+  ⇒ perm1_list m a ≠ a
+Proof
+  simp[binds_ok_def] >>
+  gen_tac >> completeInduct_on `LENGTH m` >> rw[] >> gvs[PULL_FORALL] >>
+  Cases_on `m` >> gvs[] >> PairCases_on `h` >> rw[perm1_list_def] >> gvs[] >>
+  rename1 `(x,y)`
+  >- (
+    reverse $ Cases_on `MEM x (MAP FST t)` >> gvs[]
+    >- (
+      first_x_assum $ qspec_then `[]` assume_tac >> gvs[] >>
+      drule_all perm1_list_unchanged >> simp[perm1_def]
+      ) >>
+    `∃tl z tr. t = tl ++ [x,z] ++ tr ∧ ¬ MEM x (MAP FST tr)` by (
+      pop_assum mp_tac >> simp[Once MEM_SPLIT_APPEND_last] >>
+      simp[MAP_EQ_APPEND, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+      irule_at Any EQ_REFL >> simp[]) >>
+    gvs[] >>
+    `¬MEM x (MAP SND tr)` by (
+      first_x_assum $ qspec_then `(x,y)::tl` mp_tac >> simp[]) >>
+    once_rewrite_tac[GSYM APPEND_ASSOC] >> simp[Once perm1_list_APPEND] >>
+    simp[perm1_list_def] >> drule_all perm1_list_unchanged >> rw[perm1_simps] >>
+    `¬MEM z (MAP FST tl) ∧ ¬MEM z (MAP SND tl)` by (
+      rw[] >> simp[MEM_MAP, FORALL_PROD, Once MEM_SPLIT_APPEND_first] >> rw[] >>
+      first_x_assum $ qspec_then `(x,y)::pfx` assume_tac >> gvs[]) >>
+    drule_all perm1_list_unchanged >> rw[] >>
+    `x ≠ z ∧ y ≠ z` by (
+      first_assum $ qspec_then `[]` mp_tac >>
+      first_x_assum $ qspec_then `(x,y)::tl` mp_tac >> simp[]) >>
+    simp[perm1_def]
+    )
+  >- (
+    rename1 `perm1_list _ w` >>
+    `∃tl z tr. t = tl ++ [w,z] ++ tr ∧ ¬ MEM w (MAP FST tr)` by (
+      qpat_x_assum `MEM _ _` mp_tac >> simp[Once MEM_SPLIT_APPEND_last] >>
+      simp[MAP_EQ_APPEND, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+      irule_at Any EQ_REFL >> simp[]) >>
+    gvs[] >> once_rewrite_tac[GSYM APPEND_ASSOC] >> simp[Once perm1_list_APPEND] >>
+    `¬MEM w (MAP SND tr)` by (CCONTR_TAC >> gvs[]) >>
+    simp[perm1_list_def] >> drule_all perm1_list_unchanged >> rw[perm1_simps] >>
+    `¬MEM z (MAP FST tl) ∧ ¬MEM z (MAP SND tl)` by (
+      rw[] >> simp[MEM_MAP, FORALL_PROD, Once MEM_SPLIT_APPEND_first] >> rw[] >>
+      first_x_assum $ qspec_then `(x,y)::pfx` assume_tac >> gvs[]) >>
+    drule_all perm1_list_unchanged >> rw[] >>
+    `x ≠ z ∧ y ≠ z` by (
+      first_assum $ qspec_then `[]` mp_tac >>
+      first_x_assum $ qspec_then `(x,y)::tl` mp_tac >> simp[]) >>
+    simp[perm1_def]
+    )
+QED
+
+Theorem perm1_list_apply:
+  ∀m x.
+    MEM x (MAP FST m) ∧
+    binds_ok m
+  ⇒ ALOOKUP (REVERSE m) x = SOME (perm1_list m x)
+Proof
+  Induct >> rw[perm1_list_def] >> gvs[binds_ok_def] >>
+  PairCases_on `h` >> rename1 `(a,b)` >> gvs[perm1_list_def, ALOOKUP_APPEND]
+  >- (
+    reverse $ Cases_on `MEM a (MAP FST m)` >> gvs[]
+    >- (
+      gvs[AllCaseEqs(), ALOOKUP_NONE, MAP_REVERSE] >> disj1_tac >>
+      first_x_assum $ qspec_then `[]` mp_tac >> simp[] >> strip_tac >>
+      Cases_on `a = b` >> gvs[perm1_list_unchanged, perm1_def]
+      ) >>
+    last_x_assum drule >> strip_tac >> gvs[] >>
+    `perm1_list m a ≠ b` by (
+      CCONTR_TAC >> gvs[] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP]) >>
+    Cases_on `a = b` >- gvs[perm1_def] >>
+    `¬MEM a (MAP SND m)` by (
+      first_x_assum $ qspec_then `[]` mp_tac >> simp[]) >>
+    first_x_assum $ qspec_then `(a,b)::l` $ assume_tac o GEN_ALL >> gvs[] >>
+    simp[perm1_def, AllCaseEqs()] >>
+    irule perm1_list_changed >> simp[binds_ok_def]
+    )
+  >- (
+    last_x_assum drule >> strip_tac >> gvs[] >>
+    `perm1_list m x ≠ b` by (
+      CCONTR_TAC >> gvs[] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP]) >>
+    Cases_on `a = b` >- gvs[perm1_def] >>
+    `¬MEM a (MAP SND m)` by (
+      first_x_assum $ qspec_then `[]` mp_tac >> simp[]) >>
+    rw[perm1_def] >> gvs[] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP]
+    )
+QED
+
+Theorem perm_exp_list_Letrec:
+  ∀l fns e.
+    perm_exp_list l (Letrec fns e) =
+    Letrec
+      (MAP (λ(fn,e). (perm1_list l fn, perm_exp_list l e)) fns)
+      (perm_exp_list l e)
+Proof
+  Induct >> rw[perm_exp_list_def]
+  >- (rw[perm1_list_def] >> Induct_on `fns` >> rw[] >> pairarg_tac >> gvs[]) >>
+  PairCases_on `h` >> gvs[perm_exp_list_def, perm1_list_def] >>
+  simp[perm_exp_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+QED
+
+Theorem exp_alpha_perm_exp_list:
+  ∀binds e.
+    (DISJOINT (set (MAP FST binds)) (freevars e)) ∧
+    (DISJOINT (set (MAP SND binds)) (freevars e))
+  ⇒ exp_alpha e (perm_exp_list binds e)
+Proof
+  recInduct perm_exp_list_ind >> rw[perm_exp_list_def, exp_alpha_refl] >>
+  irule exp_alpha_Trans >> qexists_tac `perm_exp old new e` >>
+  irule_at Any exp_alpha_perm_irrel >> simp[] >>
+  irule exp_alpha_perm_closed >>
+  last_x_assum irule >> simp[]
+QED
+
+Theorem freshen_rel_exp_alpha:
+  ∀avoid e1 e2.
+    freshen_rel avoid e1 e2 ∧ freevars e1 ⊆ avoid
+  ⇒ exp_alpha e1 e2
+Proof
+  Induct_on `freshen_rel` >> rw[exp_alpha_refl]
+  >- ( (* Prim *)
+    irule exp_alpha_Prim >> gvs[LIST_REL_EL_EQN] >> rw[] >>
+    first_x_assum drule >> strip_tac >>
+    first_x_assum irule >> gvs[BIGUNION_SUBSET, MEM_MAP, MEM_EL, PULL_EXISTS]
+    )
+  >- ( (* Lam *)
+    Cases_on `x = y` >> gvs[perm_exp_id]
+    >- (
+      irule exp_alpha_Lam >> first_x_assum irule >>
+      gvs[SUBSET_INSERT_DELETE]
+      ) >>
+    irule exp_alpha_Trans >> qexists_tac `Lam y (perm_exp x y e)`  >>
+    irule_at Any exp_alpha_Lam >>
+    first_x_assum (irule_at Any) >> irule_at Any exp_alpha_Alpha >>
+    gvs[freevars_eqvt, SUBSET_DEF, perm1_def] >> metis_tac[]
+    )
+  >- (irule exp_alpha_App >> gvs[]) (* App *)
+  >- (
+    gvs[DIFF_SUBSET] >> qpat_x_assum `_ ⇒ exp_alpha _ _` mp_tac >> impl_keep_tac
+    >- (
+      qpat_x_assum `freevars e ⊆ _` mp_tac >> rw[SUBSET_DEF] >>
+      gvs[freevars_perm_exp_list] >> Cases_on `MEM x' (MAP FST fns)` >> gvs[]
+      >- (
+        drule_at Any perm1_list_apply >> simp[] >> disch_then drule >> strip_tac >>
+        imp_res_tac ALOOKUP_MEM >> gvs[] >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss]
+        ) >>
+      first_x_assum drule >> rw[] >>
+      qsuff_tac `perm1_list binds x' = x'` >> simp[] >>
+      irule perm1_list_unchanged >> simp[] >>
+      rw[MEM_EL, Once MONO_NOT_EQ] >>
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] >> metis_tac[]
+      ) >>
+    strip_tac >> irule exp_alpha_Trans >>
+    irule_at Any exp_alpha_perm_exp_list >> qexists `binds` >> simp[] >> rw[]
+    >- simp[DISJOINT_ALT]
+    >- (
+      irule DISJOINT_SUBSET >> qexists `avoid` >> simp[DIFF_SUBSET] >>
+      rw[DISJOINT_ALT] >> gvs[EVERY_MEM]
+      ) >>
+    simp[perm_exp_list_Letrec] >>
+    irule_at Any exp_alpha_Letrec >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> rw[]
+    >- (
+      gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2, EL_MAP] >> rw[] >>
+      first_x_assum drule >> simp[UNCURRY]
+      ) >>
+    gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >>
+    strip_tac >> pop_assum irule >>
+    qpat_x_assum `BIGUNION _ ⊆ _` mp_tac >>
+    simp[SUBSET_DEF] >> simp[Once MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> rw[] >>
+    gvs[freevars_perm_exp_list] >> Cases_on `MEM x' (MAP FST fns)` >> gvs[]
+    >- (
+      drule_at Any perm1_list_apply >> simp[] >> disch_then drule >> strip_tac >>
+      imp_res_tac ALOOKUP_MEM >> gvs[] >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss]
+      ) >>
+    first_x_assum drule >> simp[Once MEM_EL, PULL_EXISTS] >>
+    disch_then drule >> rw[] >>
+    qsuff_tac `perm1_list binds x' = x'` >> simp[] >>
+    irule perm1_list_unchanged >> simp[] >>
+    rw[MEM_EL, Once MONO_NOT_EQ] >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EVERY_EL] >> metis_tac[]
+    )
+QED
+
+(* ALL_DISTINCT is necessary - consider ``Lam "x" (Lam "x" Fail)`` *)
+Theorem freshen_rel_refl:
+  ∀e avoid.
+    DISJOINT avoid (boundvars e) ∧
+    ALL_DISTINCT (boundvars_l e) ∧
+    freevars e ⊆ avoid
+  ⇒ freshen_rel avoid e e
+Proof
+  Induct using freevars_ind >> rw[] >> simp[Once freshen_rel_cases]
+  >- (
+    gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP, SUBSET_DEF, PULL_EXISTS, SF CONJ_ss] >>
+    rw[] >> last_x_assum drule >> disch_then irule >> gvs[] >>
+    rw[] >> gvs[] >- metis_tac[] >>
+    drule ALL_DISTINCT_FLAT_IMP >> simp[MEM_EL, EL_MAP, PULL_EXISTS]
+    )
+  >- (
+    gvs[ALL_DISTINCT_APPEND] >> rpt $ first_x_assum $ irule_at Any >>
+    gvs[DISJOINT_ALT, boundvars_equiv] >> metis_tac[]
+    )
+  >- (
+    simp[perm_exp_id] >> last_x_assum irule >> simp[] >>
+    gvs[boundvars_equiv, SUBSET_DEF] >> metis_tac[]
+    ) >>
+  gvs[ALL_DISTINCT_APPEND] >>
+  qexists `ZIP (MAP FST lcs, MAP FST lcs)` >>
+  simp[MAP_ZIP, perm1_list_id, perm_exp_list_id] >> rw[]
+  >- (
+    qpat_x_assum `ALL_DISTINCT (MAP FST lcs)` mp_tac >>
+    rpt $ pop_assum kall_tac >> rename1 `ALL_DISTINCT l` >>
+    Induct_on `l` >> rw[binds_ok_def] >>
+    Cases_on `l'` >> gvs[] >> gvs[binds_ok_def]
+    )
+  >- gvs[EVERY_MEM, DISJOINT_ALT]
+  >- (
+    rw[LIST_REL_EL_EQN] >> rpt (pairarg_tac >> gvs[]) >>
+    last_x_assum irule >> simp[MEM_EL, PULL_EXISTS] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    irule_at Any ALL_DISTINCT_FLAT_IMP >> goal_assum drule >>
+    simp[MEM_EL, EL_MAP, PULL_EXISTS, SF CONJ_ss] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    gvs[boundvars_equiv, DISJOINT_ALT, MEM_FLAT] >> rw[]
+    >- (
+      CCONTR_TAC >> gvs[] >> first_x_assum $ drule_at Concl >>
+      simp[MEM_EL, EL_MAP, SF CONJ_ss, PULL_EXISTS] >>
+      goal_assum drule >> simp[]
+      )
+    >- (
+      CCONTR_TAC >> gvs[] >>
+      first_x_assum drule >> simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+      goal_assum $ drule_at Any >> simp[MEM_EL] >> goal_assum drule >> simp[]
+      )
+    >- (
+      gvs[SUBSET_DEF, SF DNF_ss] >> rw[] >>
+      first_x_assum $ qspecl_then [`x`,`freevars body`] mp_tac >>
+      simp[Once MEM_EL, EL_MAP, SF CONJ_ss, PULL_EXISTS] >>
+      disch_then drule >> simp[] >> metis_tac[]
+      )
+    )
+  >- (
+    first_x_assum irule >>
+    gvs[DISJOINT_ALT, boundvars_equiv, SUBSET_DEF] >>
+    metis_tac[]
+    )
+QED
+
+Theorem freshen_rel_safe_renaming:
+  ∀avoid e1 e2.
+    freshen_rel avoid e1 e2 ∧
+    freevars e1 ⊆ avoid
+  ⇒ DISJOINT avoid (boundvars e2)
+Proof
+  Induct_on `freshen_rel` >> rw[] >> gvs[DIFF_SUBSET]
+  >- gvs[BIGUNION_SUBSET, MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
+  >- (
+    qpat_x_assum `_ ⇒ _` mp_tac >> impl_tac >> rw[] >>
+    simp[freevars_eqvt] >> gvs[SUBSET_DEF] >> rw[perm1_def] >> gvs[] >>
+    rw[] >> gvs[]
+    )
+  >- simp[Once DISJOINT_SYM]
+  >- simp[Once DISJOINT_SYM]
+  >- (
+    simp[Once DISJOINT_SYM] >> qpat_x_assum `_ ⇒ _` mp_tac >> impl_tac >> rw[] >>
+    simp[freevars_perm_exp_list] >> gvs[SUBSET_DEF] >> rw[] >>
+    Cases_on `MEM x' (MAP FST fns)` >> rw[] >> gvs[]
+    >- (
+      drule_at Any perm1_list_apply >> simp[] >> disch_then drule >> rw[] >>
+      drule ALOOKUP_MEM >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss]
+      )
+    >- (
+      first_x_assum drule >> rw[] >>
+      DEP_REWRITE_TAC[perm1_list_unchanged] >> simp[] >>
+      CCONTR_TAC >> gvs[EVERY_MEM]
+      )
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN] >>
+    `set (MAP FST fns') = IMAGE (perm1_list binds) $ set (MAP FST fns)` by (
+      rw[EXTENSION, MEM_EL, EL_MAP, SF CONJ_ss, PULL_EXISTS] >> eq_tac >> rw[] >>
+      goal_assum $ drule_at Any >> first_x_assum drule >> rw[UNCURRY]) >>
+    `set (MAP FST fns') ⊆ set (MAP SND binds)` by (
+      rw[SUBSET_DEF] >>
+      drule_at Any perm1_list_apply >> simp[] >> disch_then drule >> rw[] >>
+      drule ALOOKUP_MEM >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss]) >>
+    pop_assum mp_tac >> pop_assum kall_tac >>
+    rw[SUBSET_DEF, DISJOINT_ALT] >> first_x_assum drule >> rw[] >> gvs[EVERY_MEM]
+    )
+  >- (
+    gvs[BIGUNION_SUBSET] >>
+    ntac 2 $ pop_assum mp_tac >> rw[MEM_EL, EL_MAP, SF CONJ_ss, PULL_EXISTS] >>
+    gvs[LIST_REL_EL_EQN] >> last_x_assum drule >> rw[UNCURRY] >>
+    rw[Once DISJOINT_SYM] >> pop_assum mp_tac >> impl_tac >> rw[] >>
+    rw[SUBSET_DEF, freevars_perm_exp_list] >>
+    Cases_on `MEM x' (MAP FST fns)` >> gvs[]
+    >- (
+      drule_at Any perm1_list_apply >> simp[] >> disch_then drule >> rw[] >>
+      drule ALOOKUP_MEM >> simp[MEM_MAP, EXISTS_PROD, SF SFY_ss]
+      )
+    >- (
+      DEP_REWRITE_TAC[perm1_list_unchanged] >> simp[] >>
+      first_x_assum drule >> simp[UNCURRY, SUBSET_DEF] >>
+      disch_then drule >> rw[] >> gvs[] >> CCONTR_TAC >> gvs[EVERY_MEM]
+      )
+    )
+QED
+
+Theorem freshen_rel_freevars:
+  ∀avoid e1 e2.
+    freshen_rel avoid e1 e2 ∧ freevars e1 ⊆ avoid
+  ⇒ freevars e2 = freevars e1
+Proof
+  rw[] >> drule_all freshen_rel_exp_alpha >> rw[] >>
+  drule exp_alpha_freevars >> rw[]
+QED
+
+Theorem freshen_rel_reduce:
+  ∀avoid e1 e2 avoid'.
+    freshen_rel avoid e1 e2 ∧ avoid' ⊆ avoid ⇒
+    freshen_rel avoid' e1 e2
+Proof
+  Induct_on `freshen_rel` >> rw[] >> simp[Once freshen_rel_cases] >> gvs[]
+  >- gvs[LIST_REL_EL_EQN]
+  >- (gvs[SUBSET_DEF] >> first_x_assum $ irule_at Any >> simp[] >> metis_tac[])
+  >- (
+    goal_assum drule >> simp[] >> first_x_assum $ irule_at Any >> simp[] >>
+    gvs[EVERY_MEM, SUBSET_DEF, LIST_REL_EL_EQN] >> rw[] >> gvs[UNCURRY]
+    >- metis_tac[] >>
+    first_x_assum drule >> strip_tac >> pop_assum irule >> simp[] >> metis_tac[]
+    )
+QED
+
+
+(********** Freshening as a function **********)
 
 Definition fresh_var_def:
   fresh_var v xs = if ¬MEM v xs then v else fresh_var (v ++ "'") xs
@@ -29,101 +449,12 @@ Termination
   \\ Induct_on ‘xs’ \\ fs[] \\ rpt strip_tac \\ fs[]
 End
 
-Theorem fresh_var_correctness:
-  ∀v l. ¬ MEM (fresh_var v l) l
-Proof
-  recInduct fresh_var_ind \\ rw []
-  \\ once_rewrite_tac [fresh_var_def]
-  \\ IF_CASES_TAC \\ fs[]
-QED
-
-Theorem fresh_var_avoid_eq:
-  ∀x avoid1 avoid2.
-    set avoid1 = set avoid2
-  ⇒ fresh_var x avoid1 = fresh_var x avoid2
-Proof
-  recInduct fresh_var_ind >> rw[EXTENSION] >>
-  once_rewrite_tac[fresh_var_def] >> gvs[] >>
-  IF_CASES_TAC >> gvs[]
-QED
-
-Theorem fresh_var_DISJ:
-  ∀v l. (fresh_var v l = v ∧ ¬ MEM v l) ∨ (fresh_var v l ≠ v ∧ MEM v l)
-Proof
-  once_rewrite_tac[fresh_var_def] >> rw[] >>
-  metis_tac[fresh_var_correctness]
-QED
-
 Definition fresh_var_list_def:
   fresh_var_list []      to_avoid = [] ∧
   fresh_var_list (x::xs) to_avoid =
     let fresh = fresh_var x to_avoid in
     ((x,fresh)::fresh_var_list xs (fresh::to_avoid))
 End
-
-Theorem MAP_FST_fresh_var_list:
-  ∀ v avoid. MAP FST (fresh_var_list v avoid) = v
-Proof
-  Induct \\ fs[fresh_var_list_def,MAP]
-QED
-
-Theorem fresh_var_list_correctness:
-  ∀v l. DISJOINT (set (MAP SND (fresh_var_list v l))) (set l)
-Proof
-  Induct \\ fs[fresh_var_list_def]
-  \\ rw[] \\ fs[fresh_var_correctness]
-  \\ pop_assum (qspec_then ‘(fresh_var h l::l)’ assume_tac)
-  \\ fs[EXTENSION,DISJOINT_DEF]
-  \\ metis_tac[]
-QED
-
-Theorem fresh_var_list_distinctness:
-  ∀vars avoids. ALL_DISTINCT (MAP SND (fresh_var_list vars avoids))
-Proof
-  Induct \\ fs[fresh_var_list_def]
-  \\ rw[] \\ fs[]
-  \\ CCONTR_TAC \\ fs[]
-  \\ qspecl_then [‘vars’,‘(fresh_var h avoids::avoids)’]
-                 assume_tac fresh_var_list_correctness
-  \\ CCONTR_TAC
-  \\ fs[]
-QED
-
-Theorem fresh_var_list_SUBSET:
-  ∀l avoid.
-    set l ⊆ set (MAP SND (fresh_var_list l avoid)) ∪ set avoid
-Proof
-  Induct >> rw[fresh_var_list_def]
-  >- (simp[Once fresh_var_def] >> IF_CASES_TAC >> gvs[]) >>
-  gvs[SUBSET_DEF] >> rw[] >>
-  last_x_assum drule >>
-  disch_then (qspec_then `fresh_var h avoid::avoid` assume_tac) >> gvs[]
-QED
-
-Theorem fresh_var_list_avoid_eq:
-  ∀l avoid1 avoid2.
-    set avoid1 = set avoid2
-  ⇒ fresh_var_list l avoid1 = fresh_var_list l avoid2
-Proof
-  Induct >> rw[fresh_var_list_def]
-  >- (
-    once_rewrite_tac[fresh_var_def] >>
-    drule fresh_var_avoid_eq >> gvs[EXTENSION]
-    ) >>
-  first_x_assum irule >> gvs[] >>
-  drule fresh_var_avoid_eq >> simp[]
-QED
-
-Theorem fresh_var_list_unchanged:
-  ∀l avoid.
-    DISJOINT (set l) (set avoid) ∧
-    ALL_DISTINCT l
-  ⇒ MAP SND (fresh_var_list l avoid) = l
-Proof
-  Induct >> rw[fresh_var_list_def]
-  >- metis_tac[fresh_var_DISJ] >>
-  qspecl_then [`h`,`avoid`] assume_tac fresh_var_DISJ >> gvs[]
-QED
 
 Definition exp_size_alt_def:
   exp_size_alt (Var v) = 1 ∧
@@ -149,52 +480,11 @@ Proof
     )
 QED
 
-Definition perm_exp_list_def:
-  perm_exp_list [] e = e ∧
-  perm_exp_list ((old,new)::binds) e = perm_exp old new (perm_exp_list binds e)
-End
-
 Theorem perm_exp_list_size:
   ∀ binds e. exp_size_alt (perm_exp_list binds e) = exp_size_alt e
 Proof
   recInduct perm_exp_list_ind >> rw[perm_exp_list_def] >>
   metis_tac[perm_exp_size]
-QED
-
-Theorem exp_alpha_perm_exp_list:
-  ∀ binds e.
-      (DISJOINT (set (MAP FST binds)) (freevars e))
-    ∧ (DISJOINT (set (MAP SND binds)) (freevars e))
-    ⇒ exp_alpha e (perm_exp_list binds e)
-Proof
-  recInduct perm_exp_list_ind >> rw[perm_exp_list_def, exp_alpha_refl] >>
-  irule exp_alpha_Trans >> qexists_tac `perm_exp old new e` >>
-  irule_at Any exp_alpha_perm_irrel >> simp[] >>
-  irule exp_alpha_perm_closed >>
-  last_x_assum irule >> simp[]
-QED
-
-Theorem perm_exp_list_unchanged:
-  ∀l e.
-    MAP FST l = MAP SND l
-  ⇒ perm_exp_list l e = e
-Proof
-  Induct >> rw[perm_exp_list_def] >>
-  PairCases_on `h` >> gvs[] >> rw[perm_exp_list_def, perm_exp_id]
-QED
-
-Theorem freevars_perm_exp_list_unchanged:
-  ∀ binds e.
-    DISJOINT (set (MAP FST binds)) (freevars e) ∧
-    DISJOINT (set (MAP SND binds)) (freevars e)
-  ⇒ freevars (perm_exp_list binds e) = freevars e
-Proof
-  recInduct perm_exp_list_ind >> rw[perm_exp_list_def] >>
-  gvs[freevars_eqvt] >>
-  rw[EXTENSION, perm1_def] >>
-  eq_tac >> rw[]
-  >- (EVERY_CASE_TAC >> gvs[])
-  >- (qexists_tac `x` >> EVERY_CASE_TAC >> gvs[])
 QED
 
 Definition freshen_def:
@@ -204,112 +494,108 @@ Definition freshen_def:
     (let y = fresh_var x avoid in
     Lam y (freshen (y::avoid) (perm_exp x y e))) ∧
   freshen avoid (App e1 e2) = App (freshen avoid e1) (freshen avoid e2) ∧
-  freshen avoid (Letrec lcs e) =
-    let fresh_vars = fresh_var_list (MAP FST lcs) avoid in
-    let fresh_lcs = MAP (λ(n,e). (n, freshen (MAP SND fresh_vars ++ avoid) e)) lcs in
-    let fresh_e = freshen (MAP SND fresh_vars ++ avoid) e in
-    perm_exp_list fresh_vars (Letrec fresh_lcs fresh_e)
+  freshen avoid (Letrec fns e) =
+    let fresh_vars = fresh_var_list (MAP FST fns) avoid in
+    let fresh_fns =
+      MAP (λ(f,body).
+        perm1_list fresh_vars f,
+        freshen (MAP SND fresh_vars ++ avoid) (perm_exp_list fresh_vars body)) fns in
+    let fresh_e = freshen (MAP SND fresh_vars ++ avoid) (perm_exp_list fresh_vars e) in
+    Letrec fresh_fns fresh_e
 Termination
   WF_REL_TAC `measure (λ(_,e). exp_size_alt e)` >> rw[exp_size_alt_def] >>
   simp[GSYM perm_exp_size, perm_exp_list_size]
-  >- (Induct_on `lcs` >> rw[] >> gvs[])
+  >- (Induct_on `fns` >> rw[] >> gvs[])
   >- (Induct_on `es` >> rw[] >> gvs[] >> DECIDE_TAC)
 End
 
-Theorem exp_alpha_freshen:
-  ∀ avoid e. freevars e ⊆ (set avoid) ⇒ exp_alpha e (freshen avoid e)
+
+(* Proofs *)
+
+Theorem fresh_var_correctness:
+  ∀v l. ¬ MEM (fresh_var v l) l
 Proof
-  recInduct freshen_ind >> rw[freshen_def, exp_alpha_refl]
+  recInduct fresh_var_ind \\ rw []
+  \\ once_rewrite_tac [fresh_var_def]
+  \\ IF_CASES_TAC \\ fs[]
+QED
+
+Theorem fresh_var_DISJ:
+  ∀v l. (fresh_var v l = v ∧ ¬ MEM v l) ∨ (fresh_var v l ≠ v ∧ MEM v l)
+Proof
+  once_rewrite_tac[fresh_var_def] >> rw[] >>
+  metis_tac[fresh_var_correctness]
+QED
+
+Theorem fresh_var_list_correctness:
+  ∀v l. DISJOINT (set (MAP SND (fresh_var_list v l))) (set l)
+Proof
+  Induct \\ fs[fresh_var_list_def]
+  \\ rw[] \\ fs[fresh_var_correctness]
+  \\ pop_assum (qspec_then ‘(fresh_var h l::l)’ assume_tac)
+  \\ fs[EXTENSION,DISJOINT_DEF]
+  \\ metis_tac[]
+QED
+
+Theorem MAP_FST_fresh_var_list:
+  ∀ v avoid. MAP FST (fresh_var_list v avoid) = v
+Proof
+  Induct \\ fs[fresh_var_list_def,MAP]
+QED
+
+Theorem fresh_var_list_binds_ok:
+  ∀vs avoid m.  binds_ok (fresh_var_list vs avoid)
+Proof
+  simp[binds_ok_def] >>
+  Induct >> simp[fresh_var_list_def] >> rpt gen_tac >> strip_tac >> gvs[] >>
+  Cases_on `l` >> gvs[]
   >- (
-    irule exp_alpha_Prim >> rw[LIST_REL_EL_EQN, EL_MAP] >>
-    last_x_assum irule >> simp[EL_MEM] >>
-    gvs[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    first_x_assum irule >> goal_assum (drule_at Any) >> simp[EL_MEM]
-    )
-  >- (
-    Cases_on `fresh_var x avoid = x` >> gvs[perm_exp_id]
-    >- (
-      irule exp_alpha_Lam >> first_x_assum irule >>
-      gvs[SUBSET_INSERT_DELETE]
-      ) >>
-    `¬ MEM (fresh_var x avoid) avoid` by simp[fresh_var_correctness] >>
-    qabbrev_tac `y = fresh_var x avoid` >>
-    irule exp_alpha_Trans >>
-    qexists_tac `Lam y (perm_exp x y e)`  >>
-    irule_at Any exp_alpha_Lam >>
-    first_x_assum (irule_at Any) >>
-    gvs[freevars_eqvt, SUBSET_DEF, perm1_def] >>
-    conj_tac >- metis_tac[] >>
-    irule exp_alpha_Alpha >> simp[] >>
-    metis_tac[]
-    )
-  >- (irule exp_alpha_App >> res_tac >> simp[])
-  >- (
-    gvs[DIFF_SUBSET] >>
-    qpat_x_assum `_ ⇒ exp_alpha _ _` mp_tac >>
-    impl_keep_tac
-    >- (
-      qspecl_then [`MAP FST lcs`,`avoid`] assume_tac fresh_var_list_SUBSET >>
-      gvs[SUBSET_DEF] >> rw[] >> metis_tac[]
-      ) >>
-    strip_tac >>
-    imp_res_tac exp_alpha_freevars >> pop_assum (assume_tac o GSYM) >>
-    `∀p1 p2. MEM (p1,p2) lcs ⇒
-      exp_alpha p2
-      (freshen (MAP SND (fresh_var_list (MAP FST lcs) avoid) ++ avoid) p2)` by (
-      rw[] >> first_x_assum irule >> simp[PULL_EXISTS] >> goal_assum drule >>
-      qspecl_then [`MAP FST lcs`,`avoid`] assume_tac fresh_var_list_SUBSET >>
-      rgs[SUBSET_DEF] >> rw[] >>
-      qsuff_tac `MEM x (MAP FST lcs) ∨ MEM x avoid` >- metis_tac[] >>
-      first_x_assum irule >> simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-      goal_assum drule >> goal_assum drule) >>
-    last_x_assum kall_tac >>
-    qmatch_goalsub_abbrev_tac `exp_alpha _ (perm_exp_list l exp)` >>
-    irule exp_alpha_Trans >> qexists_tac `exp` >> rw[]
-    >- (
-      unabbrev_all_tac >> irule exp_alpha_Letrec >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
-      rw[LIST_REL_EL_EQN, EL_MAP, UNCURRY] >>
-      first_x_assum irule >>
-      qexists_tac `FST (EL n lcs)` >> gvs[EL_MEM]
-      ) >>
-    irule exp_alpha_perm_exp_list >> unabbrev_all_tac >>
-    simp[MAP_FST_fresh_var_list] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM FST_THM, DISJOINT_DIFF] >>
-    `MAP (λ(p1,p2).
-      freevars (freshen
-        (MAP SND (fresh_var_list (MAP FST lcs) avoid) ++ avoid) p2)) lcs =
-      MAP (λ(p1,p2). freevars p2) lcs` by (
-        rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-        first_x_assum drule >> strip_tac >>
-        imp_res_tac exp_alpha_freevars >> simp[]) >>
-    gvs[] >> pop_assum kall_tac >>
-    qspecl_then [`MAP FST lcs`,`avoid`]
+    qspecl_then [`h`,`avoid`] assume_tac fresh_var_DISJ >> gvs[] >>
+    qspecl_then [`vs`,`fresh_var h avoid::avoid`]
       assume_tac fresh_var_list_correctness >>
-    gvs[DISJOINT_DEF, EXTENSION] >> rw[] >>
-    pop_assum (qspec_then `x` assume_tac) >> gvs[] >>
-    Cases_on `MEM x (MAP FST lcs)` >> gvs[] >>
-    gvs[SUBSET_DEF] >>
-    last_x_assum (qspec_then `x` assume_tac) >>
-    last_x_assum (qspec_then `x` assume_tac) >> gvs[]
+    gvs[DISJOINT_ALT] >> metis_tac[]
+    )
+  >- (
+    first_assum drule >> simp[] >> strip_tac >> CCONTR_TAC >> gvs[]
     )
 QED
 
-Theorem freevars_freshen_mono:
-  ∀ avoid e . freevars e ⊆ set avoid
-  ⇒ freevars (freshen avoid e) = freevars e
+Theorem freshen_imp_freshen_rel:
+  ∀avoid e. freshen_rel (set avoid) e (freshen avoid e)
 Proof
-  rw[]
-  \\ drule exp_alpha_freshen
-  \\ disch_tac
-  \\ imp_res_tac exp_alpha_freevars
-  \\ fs[]
+  recInduct freshen_ind >> rw[freshen_def] >> simp[Once freshen_rel_cases]
+  >- gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP, PULL_EXISTS]
+  >- simp[fresh_var_correctness] >>
+  qexists `fresh_var_list (MAP FST fns) avoid` >>
+  gvs[AC UNION_ASSOC UNION_COMM] >>
+  simp[fresh_var_list_binds_ok, MAP_FST_fresh_var_list] >> conj_tac
+  >- (
+    qspecl_then [`MAP FST fns`,`avoid`] mp_tac fresh_var_list_correctness >>
+    simp[DISJOINT_ALT, EVERY_MEM]
+    ) >>
+  gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL, PULL_EXISTS] >> rw[] >>
+  rpt (pairarg_tac >> gvs[]) >> first_x_assum drule >> simp[]
 QED
 
-(********Capture avoiding substitution**********)
+Theorem exp_alpha_freshen:
+  ∀avoid e. freevars e ⊆ (set avoid) ⇒ exp_alpha e (freshen avoid e)
+Proof
+  rw[] >> irule freshen_rel_exp_alpha >> goal_assum drule >>
+  simp[freshen_imp_freshen_rel]
+QED
 
-Theorem App_Lam_bisim:
+
+(********** Capture avoiding substitution **********)
+
+Definition ca_subst_def:
+   ca_subst x arg body =
+       subst1 x arg (freshen (freevars_l arg ++ freevars_l body) body)
+End
+
+
+(********** Beta equivalences **********)
+
+Theorem beta_equivalence_bisimulation:
   ∀b. closed (Lam x body) ∧ closed arg ⇒
   (App (Lam x body) arg ≃ subst1 x arg body) b
 Proof
@@ -319,288 +605,36 @@ Proof
   \\ fs [] \\ fs [closed_def,FILTER_EQ_NIL,EVERY_MEM,SUBSET_DEF]
 QED
 
-Triviality app_bisimilarity_trans =
-  transitive_app_bisimilarity |> SIMP_RULE std_ss [transitive_def];
-
-Triviality app_bisimilarity_sym =
-  symmetric_app_bisimilarity |> SIMP_RULE std_ss [symmetric_def];
-
-Definition perm1_list_def:
-  perm1_list [] z = z ∧
-  perm1_list ((x,y)::rest) z = perm1 x y (perm1_list rest z)
-End
-
-Theorem boundvars_perm_exp_list:
-  ∀l e. boundvars (perm_exp_list l e) = IMAGE (perm1_list l) (boundvars e)
+Theorem disjoint_vars_beta_equivalence:
+    DISJOINT (freevars arg) (boundvars body)
+  ⇒ App (Lam x body) arg ≅ subst1 x arg body
 Proof
-  recInduct perm_exp_list_ind >> rw[perm_exp_list_def]
-  >- (rw[EXTENSION, perm1_list_def]) >>
-  gvs[EXTENSION, boundvars_eqvt, PULL_EXISTS] >>
-  rw[perm1_list_def]
-QED
-
-Theorem perm1_list_unchanged:
-  ∀l x. ¬ MEM x (MAP FST l) ∧ ¬ MEM x (MAP SND l) ⇒ perm1_list l x = x
-Proof
-  recInduct perm1_list_ind >> rw[perm1_list_def] >>
-  gvs[perm1_def]
-QED
-
-Theorem perm1_list_fresh_var_list_correctness:
-  ∀l avoid A.
-    A ⊆ set avoid
-  ⇒ DISJOINT (IMAGE (perm1_list (fresh_var_list l avoid)) (set l)) A
-Proof
-  Induct >> rw[] >>
-  gvs[fresh_var_list_def, DISJOINT_DEF, EXTENSION,
-      DISJ_EQ_IMP, PULL_EXISTS, PULL_FORALL] >>
-  rw[]
+  rw[exp_eq_def, bind_def] >> rw[] >> simp[subst_def] >>
+  DEP_REWRITE_TAC[subst1_distrib] >> simp[] >> conj_tac >> gvs[] >>
+  irule beta_equivalence_bisimulation >> rw[]
+  >- (irule IMP_closed_subst >> simp[IN_FRANGE_FLOOKUP])
   >- (
-    simp[perm1_list_def] >>
-    qspecl_then [`h`,`avoid`] assume_tac fresh_var_DISJ >> gvs[perm1_simps]
-    >- (last_x_assum irule >> gvs[SUBSET_DEF]) >>
-    qabbrev_tac `fh = fresh_var h avoid` >> rename1 `MEM x l` >>
-    last_x_assum (qspecl_then [`fh::avoid`,`fh INSERT set avoid`] mp_tac) >>
-    simp[SUBSET_OF_INSERT] >> disch_then drule >> strip_tac >>
-    simp[perm1_def] >> gvs[SUBSET_DEF] >>
-    rw[] >> metis_tac[]
-    ) >>
-  qspecl_then [`h`,`avoid`] assume_tac fresh_var_DISJ >> gvs[]
-  >- (
-    simp[perm1_list_def, perm1_simps] >>
-    Cases_on `MEM h l`
-    >- (last_x_assum irule >> gvs[SUBSET_DEF]) >>
-    qsuff_tac `perm1_list (fresh_var_list l (h::avoid)) h = h`
-    >- (gvs[SUBSET_DEF] >> metis_tac[]) >>
-    irule perm1_list_unchanged >> simp[MAP_FST_fresh_var_list] >>
-    qspecl_then [`l`,`h::avoid`] assume_tac fresh_var_list_correctness >>
-    gvs[DISJOINT_DEF, EXTENSION] >> metis_tac[]
-    ) >>
-  qabbrev_tac `fh = fresh_var h avoid` >>
-  simp[perm1_list_def, perm1_def] >>
-  qspecl_then [`h`,`avoid`] assume_tac fresh_var_correctness >>
-  IF_CASES_TAC >- metis_tac[SUBSET_DEF] >>
-  qspecl_then [`l`,`fh::avoid`] assume_tac fresh_var_list_correctness >>
-  gvs[DISJOINT_DEF, EXTENSION] >>
-  pop_assum (qspec_then `h` assume_tac) >> gvs[] >>
-  Cases_on `¬MEM h l`
-  >- (drule_at Any perm1_list_unchanged >> simp[MAP_FST_fresh_var_list]) >>
-  gvs[] >> reverse IF_CASES_TAC
-  >- (last_x_assum irule >> gvs[SUBSET_DEF]) >>
-  last_x_assum (qspecl_then [`fh::avoid`,`fh INSERT set avoid`] assume_tac) >>
-  gvs[]
-QED
-
-Theorem freshen_safe_renaming:
-  ∀ avoid e.
-    freevars e ⊆ set avoid
-  ⇒ DISJOINT (boundvars (freshen avoid e)) (set avoid)
-Proof
-  recInduct freshen_ind >> rw[freshen_def]
-  >- (
-    gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP] >> rw[] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF] >>
-    gvs[MEM_FLAT, MEM_MAP] >>
-    first_x_assum irule >> goal_assum drule >> simp[] >>
-    gvs[SUBSET_DEF] >> rw[] >>
-    last_x_assum irule >> simp[MEM_MAP, PULL_EXISTS] >>
-    goal_assum drule >> simp[]
-    )
-  >- (
-    gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP] >> rw[] >>
-    gvs[IMP_CONJ_THM, FORALL_AND_THM] >>
-    first_x_assum irule >> gvs[GSYM SUBSET_INSERT_DELETE] >>
-    gvs[freevars_eqvt, SUBSET_DEF, PULL_EXISTS] >> rw[] >>
-    rename1 `z ∈ _` >> simp[perm1_def] >>
-    IF_CASES_TAC >> gvs[] >>
-    reverse IF_CASES_TAC >> gvs[] >- metis_tac[] >>
-    pop_assum mp_tac >> simp[Once fresh_var_def] >>
-    IF_CASES_TAC >> gvs[]
-    )
-  >- simp[fresh_var_correctness] >>
-  rgs[DIFF_SUBSET, AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
-  qspecl_then [`MAP FST lcs`,`avoid`] assume_tac fresh_var_list_SUBSET >>
-  `freevars e ⊆
-    set (MAP SND (fresh_var_list (MAP FST lcs) avoid)) ∪ set avoid` by (
-      irule SUBSET_TRANS >> goal_assum drule >> simp[]) >>
-  rgs[] >> rw[boundvars_perm_exp_list]
-  >- (
-    qmatch_goalsub_abbrev_tac `IMAGE _ bvars` >>
-    `DISJOINT (set (MAP FST lcs)) bvars` by (
-      gvs[DISJOINT_DEF, EXTENSION, SUBSET_DEF] >> metis_tac[]) >>
-    gvs[DISJOINT_DEF, EXTENSION] >> rw[] >>
-    Cases_on `MEM x avoid` >> gvs[] >> rw[] >>
-    rename1 `_ ≠ _ z` >>
-    first_x_assum (qspec_then `z` assume_tac) >> gvs[] >>
-    first_x_assum (qspec_then `z` assume_tac) >> gvs[] >>
-    drule_at Any perm1_list_unchanged >> simp[MAP_FST_fresh_var_list] >>
-    strip_tac >>
-    Cases_on `x = z` >> gvs[] >> metis_tac[]
-    )
-  >- (
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[IMAGE_BIGUNION] >> rw[] >> pop_assum mp_tac >>
-    simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
-    qspecl_then [`MAP FST lcs`,`avoid`,`set avoid`]
-      assume_tac perm1_list_fresh_var_list_correctness >>
-    gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP, PULL_EXISTS, MEM_MAP] >>
-    rw[] >> first_x_assum drule >> simp[GSYM FST_THM]
-    )
-  >- (
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[IMAGE_BIGUNION] >> rw[] >> pop_assum mp_tac >>
-    simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
-    qpat_x_assum `DISJOINT _ _` kall_tac >>
-    qpat_x_assum `DISJOINT _ _` kall_tac >>
-    ntac 2 $ qpat_x_assum `freevars e ⊆ _` kall_tac >>
-    last_x_assum drule >>
-    impl_tac
-    >- (
-      qpat_x_assum `BIGUNION _ ⊆ _` mp_tac >> simp[SUBSET_DEF, PULL_EXISTS] >>
-      simp[Once MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
-      first_x_assum drule_all >> rw[] >> gvs[] >> gvs[SUBSET_DEF]
-      ) >>
-    strip_tac >>
-    gvs[DISJOINT_DEF, EXTENSION] >> rw[] >>
-    Cases_on `MEM x avoid` >> gvs[] >> rw[] >>
-    rename1 `z ∉ _` >>
-    first_assum (qspec_then `x` assume_tac) >>
-    first_x_assum (qspec_then `z` assume_tac) >> gvs[] >>
-    first_x_assum (qspec_then `z` assume_tac) >> gvs[] >>
-    gvs[SUBSET_DEF] >>
-    `¬ MEM z (MAP FST lcs)` by metis_tac[] >>
-    drule_at Any perm1_list_unchanged >> simp[MAP_FST_fresh_var_list] >>
-    strip_tac >> simp[DISJ_EQ_IMP] >> rw[] >> gvs[]
+    DEP_REWRITE_TAC[freevars_subst] >>
+    simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, PULL_EXISTS] >>
+    gvs[SUBSET_DEF] >> metis_tac[]
     )
 QED
-
-Definition ca_subst_def:
-   ca_subst x arg body =
-       subst1 x arg (freshen (freevars_l arg ++ freevars_l body) body)
-End
 
 Theorem beta_equivalence:
   App (Lam x body) arg ≅ ca_subst x arg body
 Proof
-  fs[ca_subst_def, exp_eq_def] >> rw[bind_def, subst_def] >>
-  irule app_bisimilarity_trans >>
-  irule_at Any App_Lam_bisim >>
-  conj_asm1_tac
+  simp[ca_subst_def] >> irule exp_eq_trans >>
+  qexists `Let x arg (freshen (freevars_l arg ++ freevars_l body) body)` >> rw[]
   >- (
-    simp[] >> dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >>
-    simp[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM] >> conj_tac >- metis_tac[] >>
-    gvs[SUBSET_DEF] >> metis_tac[]
-    ) >>
-  conj_asm1_tac
-  >- (
-    simp[closed_def] >> once_rewrite_tac[GSYM LIST_TO_SET_EQ_EMPTY] >>
-    dep_rewrite.DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP] >>
-    simp[SUBSET_DIFF_EMPTY]
-    ) >>
-  dep_rewrite.DEP_REWRITE_TAC[subst1_distrib] >> rw[] >- metis_tac[]
-  >- (
-    qspecl_then [`freevars_l arg ++ freevars_l body`,`body`]
-      assume_tac freshen_safe_renaming >> gvs[] >>
-    gvs[freevars_equiv]
-    ) >>
-  dep_rewrite.DEP_REWRITE_TAC[subst_subst_FUNION] >>
-  simp[FUNION_FUPDATE_2, IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM] >>
-  conj_tac >- (gvs[freevars_equiv] >> metis_tac[]) >>
-  irule exp_alpha_app_bisimilarity >>
-  simp[closed_def] >>
-  dep_rewrite.DEP_REWRITE_TAC[freevars_subst, freevars_freshen_mono] >>
-  simp[IN_FRANGE_FLOOKUP, FLOOKUP_UPDATE] >>
-  conj_asm1_tac
-  >- (rw[] >> EVERY_CASE_TAC >> gvs[freevars_equiv] >> metis_tac[]) >>
-  gvs[SUBSET_DIFF_EMPTY, SUBSET_INSERT_DELETE] >>
-  irule exp_alpha_subst_all_closed'' >>
-  simp[IN_FRANGE_FLOOKUP, FLOOKUP_UPDATE] >>
-  irule exp_alpha_freshen >> simp[]
-QED
-
-Theorem beta_bisimilarity:
-  closed (Let x arg body) ⇒
-  (Let x arg body ≃ ca_subst x arg body) T
-Proof
-  rw[app_bisimilarity_eq, beta_equivalence] >>
-  simp[closed_def, ca_subst_def] >>
-  DEP_REWRITE_TAC [freevars_subst, freevars_freshen_mono] >>
-  simp[IN_FRANGE_FLOOKUP, FLOOKUP_UPDATE, SUBSET_DIFF_EMPTY] >>
-  gvs[freevars_equiv]
-QED
-
-(* ALL_DISTINCT is necessary - consider ``freshen [] (Lam "x" (Lam "x" Fail))`` *)
-Theorem disjoint_namespaces_avoid_vars_mono:
-  ∀avoids e.
-    DISJOINT (set avoids) (boundvars e) ∧
-    ALL_DISTINCT (boundvars_l e) ∧
-    freevars e ⊆ set avoids
-  ⇒ freshen avoids e = e
-Proof
-  recInduct freshen_ind >> rw[freshen_def]
-  >- (
-    irule MAP_ID_ON >> rw[] >> first_x_assum irule >>
-    gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
-    qspecl_then [`es`,`x`] assume_tac (GEN_ALL MEM_SING_APPEND) >> gvs[] >>
-    gvs[ALL_DISTINCT_APPEND]
-    )
-  >- metis_tac[fresh_var_DISJ]
-  >- (
-    qspecl_then [`x`,`avoid`] assume_tac fresh_var_DISJ >> gvs[perm_exp_id] >>
-    first_x_assum irule >> gvs[SUBSET_INSERT_DELETE] >>
-    gvs[boundvars_equiv]
-    )
-  >- (last_x_assum irule >> gvs[ALL_DISTINCT_APPEND] >> simp[Once DISJOINT_SYM])
-  >- (last_x_assum irule >> gvs[ALL_DISTINCT_APPEND] >> simp[Once DISJOINT_SYM]) >>
-  gvs[FLAT_APPEND, ALL_DISTINCT_APPEND] >>
-  last_x_assum assume_tac >> last_x_assum (DEP_REWRITE_TAC o single) >>
-  DEP_REWRITE_TAC[fresh_var_list_unchanged, perm_exp_list_unchanged] >>
-  csimp[MAP_FST_fresh_var_list] >> rpt conj_asm1_tac >> gvs[DIFF_SUBSET]
-  >- (
-    gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP] >> rw[] >>
-    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-    gvs[boundvars_equiv] >>
-    last_x_assum irule >> PairCases_on `y` >> gvs[] >> rw[] >> gvs[]
-    )
-  >- simp[Once DISJOINT_SYM] >>
-  irule MAP_ID_ON >> simp[FORALL_PROD] >> rw[] >>
-  qpat_x_assum `∀n e. _` mp_tac >>
-  DEP_REWRITE_TAC[fresh_var_list_unchanged] >> simp[] >>
-  disch_then irule >> simp[] >>
-  gvs[BIGUNION_SUBSET, MEM_FLAT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-  goal_assum (drule_at Any) >>
-  drule ALL_DISTINCT_FLAT_IMP >> simp[MEM_MAP, PULL_EXISTS] >>
-  disch_then drule >> simp[] >> strip_tac >>
-  gvs[DISJOINT_DEF, EXTENSION, DISJ_EQ_IMP] >> reverse (rw[])
-  >- res_tac
-  >- (
-    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> PairCases_on `y` >> gvs[] >>
-    gvs[boundvars_equiv] >> first_x_assum irule >> simp[PULL_EXISTS] >>
-    goal_assum drule >> goal_assum drule
+    irule exp_eq_App_cong >> irule_at Any exp_eq_Lam_cong >> simp[exp_eq_refl] >>
+    irule exp_alpha_exp_eq >> irule exp_alpha_freshen >> simp[freevars_equiv]
     )
   >- (
-    CCONTR_TAC >> gvs[] >>
-    last_x_assum drule >> strip_tac >> first_x_assum drule >> gvs[]
+    irule disjoint_vars_beta_equivalence >>
+    qmatch_goalsub_abbrev_tac `freshen avoid _` >>
+    qspecl_then [`avoid`,`body`] assume_tac freshen_imp_freshen_rel >>
+    dxrule freshen_rel_safe_renaming >> unabbrev_all_tac >> gvs[freevars_equiv]
     )
-QED
-
-Theorem disjoint_namespaces_beta_equivalence:
-    DISJOINT (freevars arg) (boundvars body) ∧
-    DISJOINT (freevars body) (boundvars body) ∧
-    ALL_DISTINCT (boundvars_l body)
-  ⇒ App (Lam x body) arg ≅ subst1 x arg body
-Proof
-  rw[]
-  \\ irule exp_eq_trans
-  \\ qexists_tac ‘ca_subst x arg body’
-  \\ fs[beta_equivalence, ca_subst_def]
-  \\ qspecl_then [‘freevars_l arg ++ freevars_l body’,‘body’]
-      assume_tac freshen_safe_renaming
-  \\ fs[]
-  \\ qsuff_tac ‘freshen (freevars_l arg ++ freevars_l body) body = body’
-  THEN1 (fs[exp_eq_refl])
-  \\ irule disjoint_namespaces_avoid_vars_mono
-  \\ fs[freevars_equiv]
 QED
 
 
