@@ -1,12 +1,7 @@
 (*
-  Theorem beta_equivalence:
-    App (Lam x body) arg ≅ ca_subst x arg body
-
-  where ca_subst is the capture-avoiding substitution of the free variables "x"
-  in the expression "body" with the expression "arg"
-
-  The main theorem above states that two beta-equivalent expressions
-  belong to the same equivalence class under the eval function.
+  Capture-avoiding substitution (ca_subst) and beta equivalences:
+    App (Lam x body) arg ≅ ca_subst [(x,arg)] body
+    Letrec fns e ≅ ca_subst (MAP (λ(f,body). (f, Letrec fns body)) fns) e
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory listTheory rich_listTheory alistTheory finite_mapTheory pred_setTheory;
@@ -588,16 +583,18 @@ QED
 (********** Capture avoiding substitution **********)
 
 Definition ca_subst_def:
-   ca_subst x arg body =
-       subst1 x arg (freshen (freevars_l arg ++ freevars_l body) body)
+  ca_subst binds e =
+    subst (FEMPTY |++ binds) (freshen
+        (FLAT (MAP (λ(x,e'). freevars_l e') binds) ++ freevars_l e)
+        e)
 End
 
 
 (********** Beta equivalences **********)
 
 Theorem beta_equivalence_bisimulation:
-  ∀b. closed (Lam x body) ∧ closed arg ⇒
-  (App (Lam x body) arg ≃ subst1 x arg body) b
+  closed (Lam x body) ∧ closed arg
+  ⇒ (App (Lam x body) arg ≃ subst1 x arg body) b
 Proof
   rw [] \\ match_mp_tac eval_IMP_app_bisimilarity
   \\ fs [eval_Let,bind1_def]
@@ -621,20 +618,113 @@ Proof
 QED
 
 Theorem beta_equivalence:
-  App (Lam x body) arg ≅ ca_subst x arg body
+  App (Lam x body) arg ≅ ca_subst [(x,arg)] body
 Proof
-  simp[ca_subst_def] >> irule exp_eq_trans >>
-  qexists `Let x arg (freshen (freevars_l arg ++ freevars_l body) body)` >> rw[]
+  simp[ca_subst_def] >> qmatch_goalsub_abbrev_tac `freshen avoid` >>
+  irule exp_eq_trans >> qexists `Let x arg (freshen avoid body)` >> rw[]
   >- (
     irule exp_eq_App_cong >> irule_at Any exp_eq_Lam_cong >> simp[exp_eq_refl] >>
-    irule exp_alpha_exp_eq >> irule exp_alpha_freshen >> simp[freevars_equiv]
+    irule exp_alpha_exp_eq >> irule exp_alpha_freshen >>
+    unabbrev_all_tac >> simp[freevars_equiv]
     )
   >- (
+    simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
     irule disjoint_vars_beta_equivalence >>
-    qmatch_goalsub_abbrev_tac `freshen avoid _` >>
     qspecl_then [`avoid`,`body`] assume_tac freshen_imp_freshen_rel >>
-    dxrule freshen_rel_safe_renaming >> unabbrev_all_tac >> gvs[freevars_equiv]
+    dxrule freshen_rel_safe_renaming >>
+    unabbrev_all_tac >> simp[DISJOINT_ALT, freevars_equiv]
     )
+QED
+
+Theorem beta_equivalence_Letrec_bisimulation:
+  closed (Letrec fns e) ⇒
+  (Letrec fns e ≃ subst (FEMPTY |++ (MAP (λ(f,body). f, Letrec fns body) fns)) e) b
+Proof
+  rw[] >> irule eval_IMP_app_bisimilarity >>
+  simp[eval_Letrec, subst_funs_def, bind_def, FLOOKUP_FUPDATE_LIST, AllCaseEqs()] >>
+  reverse $ IF_CASES_TAC >> gvs[]
+  >- (
+    irule FALSITY >> pop_assum mp_tac >> simp[] >>
+    dxrule ALOOKUP_MEM >> simp[MEM_MAP, EXISTS_PROD] >> strip_tac >> gvs[] >>
+    gvs[EVERY_MAP, EVERY_MEM] >> first_x_assum drule >> simp[]
+    ) >>
+  irule IMP_closed_subst >>
+  simp[IN_FRANGE_FLOOKUP, FLOOKUP_FUPDATE_LIST, AllCaseEqs()] >>
+  simp[FDOM_FUPDATE_LIST] >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+QED
+
+Theorem disjoint_vars_beta_equivalence_Letrec:
+    EVERY (λ(f,body). DISJOINT (freevars body DIFF set (MAP FST fns)) (boundvars e)) fns
+  ⇒ Letrec fns e ≅ subst (FEMPTY |++ (MAP (λ(f,body). f, Letrec fns body) fns)) e
+Proof
+  rw[exp_eq_def, bind_def] >> rw[] >> simp[subst_def] >>
+  DEP_ONCE_REWRITE_TAC[subst_distrib] >> simp[AC CONJ_ASSOC CONJ_COMM] >>
+  conj_tac >> gvs[] >>
+  simp[o_f_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  qabbrev_tac `g = FDIFF f (set (MAP FST fns))` >>
+  simp[subst_def, FDOM_FUPDATE_LIST, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[GSYM FST_THM] >>
+  simp[IN_FRANGE_FLOOKUP, FLOOKUP_FUPDATE_LIST, PULL_EXISTS, AllCaseEqs()] >> rw[]
+  >- (
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, EXISTS_PROD] >>
+    rw[UNION_DIFF_DISTRIBUTE]
+    >- (gvs[EVERY_MEM] >> first_x_assum drule >> simp[]) >>
+    simp[BIGUNION_DIFF, PULL_EXISTS, MEM_MAP] >> rw[] >> pairarg_tac >> gvs[] >>
+    gvs[EVERY_MEM] >> first_x_assum drule >> simp[]
+    ) >>
+  irule $ SRULE [relationTheory.transitive_def] transitive_app_bisimilarity >>
+  irule_at Any beta_equivalence_Letrec_bisimulation >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+  irule_at Any $ SRULE [relationTheory.reflexive_def] reflexive_app_bisimilarity >>
+  simp[EVERY_MAP, LAMBDA_PROD] >>
+  irule_at Any IMP_closed_subst >>
+  simp[IN_FRANGE_FLOOKUP, FLOOKUP_FUPDATE_LIST, FDOM_FUPDATE_LIST] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+  simp[AllCaseEqs(), PULL_EXISTS, SF CONJ_ss] >> conj_asm2_tac >> rw[]
+  >- (
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, EXISTS_PROD] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >>
+    gvs[EVERY_MAP, LAMBDA_PROD] >> gvs[EVERY_MEM, FORALL_PROD] >>
+    first_x_assum drule >> simp[]
+    )
+  >- (
+    DEP_REWRITE_TAC[freevars_subst] >>
+    unabbrev_all_tac >> simp[IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF] >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    )
+  >- (
+    gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
+    DEP_REWRITE_TAC[freevars_subst] >>
+    unabbrev_all_tac >> simp[IN_FRANGE_FLOOKUP, FLOOKUP_FDIFF, FDOM_FDIFF_alt] >>
+    gvs[SUBSET_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> metis_tac[]
+    )
+QED
+
+Theorem beta_equivalence_Letrec:
+  Letrec fns e ≅ ca_subst (MAP (λ(f,body). f, Letrec fns body) fns) e
+Proof
+  rw[ca_subst_def] >> qmatch_goalsub_abbrev_tac `freshen avoid` >>
+  irule exp_eq_trans >> qexists `Letrec fns (freshen avoid e)` >> rw[]
+  >- (
+    irule exp_eq_Letrec_cong >> simp[LIST_REL_EL_EQN, exp_eq_refl] >>
+    irule exp_alpha_exp_eq >> irule exp_alpha_freshen >>
+    unabbrev_all_tac >> simp[freevars_equiv]
+    ) >>
+  irule disjoint_vars_beta_equivalence_Letrec >>
+  qspecl_then [`avoid`,`e`] assume_tac freshen_imp_freshen_rel >>
+  dxrule freshen_rel_safe_renaming >> impl_tac
+  >- (unabbrev_all_tac >> gvs[freevars_equiv]) >>
+  qsuff_tac
+    `EVERY (λ(f,body). freevars (Letrec fns body) ⊆ set avoid) fns`
+  >- (rw[EVERY_MEM, SUBSET_DEF, DISJOINT_ALT, UNCURRY] >> metis_tac[]) >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
+      Excl "freevars_l_def", Excl "freevars_def"] >>
+  rw[EVERY_MEM, SUBSET_DEF, Excl "freevars_def", Excl "freevars_l_def"] >>
+  pairarg_tac >> gvs[Excl "freevars_def", Excl "freevars_l_def"] >>
+  gen_tac >> strip_tac >> unabbrev_all_tac >>
+  gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS, EXISTS_PROD, freevars_equiv,
+      Excl "freevars_def", Excl "freevars_l_def"] >>
+  disj1_tac >> goal_assum drule >> simp[]
 QED
 
 
@@ -663,7 +753,7 @@ Proof
  simp[id_def,iidd_def]
  \\ once_rewrite_tac [exp_eq_sym]
  \\ qspecl_then [‘"x"’,‘Var "x"’,‘Var "y"’] assume_tac (GEN_ALL beta_equivalence)
- \\ fs[ca_subst_def,freshen_def,subst1_def]
+ \\ fs[ca_subst_def,freshen_def,GSYM FUPDATE_EQ_FUPDATE_LIST,subst1_def]
  \\ drule exp_eq_Lam_cong \\ disch_then $ qspec_then `"y"` assume_tac
  \\ irule exp_eq_trans
  \\ qexists_tac ‘Lam "y" (Var "y")’ \\ fs[]
