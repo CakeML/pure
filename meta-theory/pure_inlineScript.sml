@@ -9,7 +9,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrec_seqTheory pure_demandTheory;
+     pure_letrec_seqTheory pure_demandTheory pure_barendregtTheory;
 
 val _ = new_theory "pure_inline";
 
@@ -632,6 +632,33 @@ Theorem no_shadowing_simp[simp] =
      “no_shadowing (Prim p l)”,
      “no_shadowing (App x y)”,
      “no_shadowing (Lam v x)”] |> LIST_CONJ;
+
+Theorem barendregt_imp_no_shadowing:
+  ∀e. barendregt e ⇒ no_shadowing e
+Proof
+  simp[barendregt_def] >>
+  Induct using unique_boundvars_ind >>
+  rw[unique_boundvars_Letrec, unique_boundvars_def] >>
+  gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, SF DNF_ss]
+  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
+  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
+  >- (first_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
+  simp[Once no_shadowing_cases, EVERY_MEM] >> reverse $ rw[]
+  >- (last_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
+  first_x_assum drule >> pairarg_tac >> gvs[] >> rw[]
+  >- (
+    first_x_assum irule >> simp[SF SFY_ss] >>
+    first_x_assum drule >> gvs[DISJOINT_ALT] >>
+    rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
+    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
+    )
+  >- simp[Once DISJOINT_SYM]
+  >- (
+    first_x_assum drule >> gvs[DISJOINT_ALT] >> rw[] >>
+    first_x_assum drule >> rw[] >> gvs[] >>
+    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
+    )
+QED
 
 Definition TAKE_WHILE_def:
   (TAKE_WHILE P [] = []) ∧

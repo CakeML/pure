@@ -730,12 +730,12 @@ QED
 
 (******** Example:  λx.x ≅ λy. (λx.x) y **********)
 
-Definition id_def:
-  id = Lam "x" (Var "x")
+Definition id_exp_def:
+  id_exp = Lam "x" (Var "x")
 End
 
-Definition iidd_def:
-  iidd = Lam "y" (App id (Var "y"))
+Definition iidd_exp_def:
+  iidd_exp = Lam "y" (App id_exp (Var "y"))
 End
 
 (* Would be nice to have a tactic that, given a goal like:
@@ -748,9 +748,9 @@ End
 *)
 
 Theorem id_iidd_equivalence:
-  id ≅ iidd
+  id_exp ≅ iidd_exp
 Proof
- simp[id_def,iidd_def]
+ simp[id_exp_def,iidd_exp_def]
  \\ once_rewrite_tac [exp_eq_sym]
  \\ qspecl_then [‘"x"’,‘Var "x"’,‘Var "y"’] assume_tac (GEN_ALL beta_equivalence)
  \\ fs[ca_subst_def,freshen_def,GSYM FUPDATE_EQ_FUPDATE_LIST,subst1_def]
@@ -763,6 +763,6 @@ Proof
 QED
 
 Theorem id_iidd_equivalence_expanded =
-   id_iidd_equivalence |> REWRITE_RULE [iidd_def,id_def]
+   id_iidd_equivalence |> REWRITE_RULE [iidd_exp_def,id_exp_def]
 
 val _ = export_theory();
