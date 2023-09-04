@@ -299,17 +299,35 @@ Proof
   rpt (pairarg_tac >> gvs[]) >> metis_tac[]
 QED
 
+Theorem dead_let_cexp_wf:
+  ∀ce1 ce2. dead_let ce1 = ce2 ∧ cexp_wf ce1 ⇒ cexp_wf ce2
+Proof
+  recInduct dead_let_ind >> rw[dead_let_def] >> gvs[cexp_wf_def] >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD]
+  >- (CASE_TAC >> gvs[cexp_wf_def])
+  >- metis_tac[] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, pure_miscTheory.FST_THM] >>
+  gvs[rich_listTheory.MAP_FST_funs]
+  >- (
+    Cases_on `us` >> gvs[] >- metis_tac[] >>
+    rpt (pairarg_tac >> gvs[]) >> metis_tac[]
+    )
+  >- metis_tac[]
+QED
+
 
 (********* top-level **********)
 
 Theorem dead_let_correct:
   ∀ce. exp_of ce ≅ exp_of (dead_let ce) ∧
        (closed $ exp_of ce ⇒ closed $ exp_of (dead_let ce)) ∧
-       cns_arities (dead_let ce) ⊆ cns_arities ce
+       cns_arities (dead_let ce) ⊆ cns_arities ce ∧
+       (cexp_wf ce ⇒ cexp_wf (dead_let ce))
 Proof
   gen_tac >>
   qspec_then `ce` assume_tac dead_let_imp_rel >> gvs[] >>
   qspec_then `ce` assume_tac dead_let_cns_arities >> gvs[] >>
+  qspec_then `ce` assume_tac dead_let_cexp_wf >> gvs[] >>
   drule dead_let_rel_exp_eq >> rw[] >>
   drule dead_let_rel_freevars >> gvs[closed_def, SUBSET_DEF, EXTENSION]
 QED
