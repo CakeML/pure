@@ -6,13 +6,13 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_cexpTheory pure_to_cakeTheory pureParseTheory pure_inferenceTheory
-     pure_letrec_cexpTheory pure_demands_analysisTheory
+     pure_letrec_cexpTheory pure_demands_analysisTheory pure_inline_cexpTheory
      fromSexpTheory simpleSexpParseTheory;
 
 val _ = set_grammar_ancestry
           ["pure_cexp", "pure_to_cake", "pureParse", "pure_inference",
-           "pure_letrec_cexp", "pure_demands_analysis", "fromSexp",
-           "simpleSexpParse"];
+           "pure_letrec_cexp", "pure_demands_analysis",
+           "pure_inline_cexp", "fromSexp", "simpleSexpParse"];
 
 val _ = new_theory "pure_compiler";
 
@@ -39,7 +39,9 @@ Definition compile_def:
           let _ = empty_ffi (strlit "clean_cexp") in
           let e4 = demands_analysis c e3 in
           let _ = empty_ffi (strlit "demands_analysis") in
-            SOME (ast_to_string $ pure_to_cake c ns e4)
+          let e5 = inline_top_level c e4 in
+          let _ = empty_ffi (strlit "inlining") in
+            SOME (ast_to_string $ pure_to_cake c ns e5)
 End
 
 Definition compile_to_ast_def:
@@ -54,7 +56,8 @@ Definition compile_to_ast_def:
         | SOME _ =>
           let e3 = clean_cexp c e2 in
           let e4 = demands_analysis c e3 in
-          SOME (pure_to_cake c ns e4)
+          let e5 = inline_top_level c e4 in
+          SOME (pure_to_cake c ns e5)
 End
 
 (********** Alternative phrasings **********)
@@ -67,7 +70,8 @@ Theorem compile_monadically:
     to_option $ infer_types ns e2 ;
     e3 <<- clean_cexp c e2 ;
     e4 <<- demands_analysis c e3 ;
-    return (ast_to_string $ pure_to_cake c ns e4)
+    e5 <<- inline_top_level c e4 ;
+    return (ast_to_string $ pure_to_cake c ns e5)
   od
 Proof
   simp[compile_def] >> EVERY_CASE_TAC >> simp[]
@@ -99,7 +103,8 @@ Theorem compile_to_ast_alt_def:
     | SOME (e2,ns) =>
         let e3 = clean_cexp c e2 in
         let e4 = demands_analysis c e3 in
-        SOME (pure_to_cake c ns e4)
+        let e5 = inline_top_level c e4 in
+        SOME (pure_to_cake c ns e5)
 Proof
   rw[compile_to_ast_def, frontend_def] >>
   rpt (TOP_CASE_TAC >> simp[])

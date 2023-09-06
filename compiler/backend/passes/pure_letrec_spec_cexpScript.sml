@@ -147,9 +147,9 @@ Termination
 End
 
 Definition take_non_const_def:
-  take_non_const [] args = args ∧
   take_non_const (NONE::xs) (arg::args) = arg :: (take_non_const xs args) ∧
-  take_non_const ((SOME x)::xs) (arg::args) = take_non_const xs args
+  take_non_const ((SOME x)::xs) (arg::args) = take_non_const xs args ∧
+  take_non_const _ args = args
 End
 
 (*

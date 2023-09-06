@@ -5,13 +5,17 @@ open basis
      pure_demands_analysisTheory
      pure_letrec_cexpTheory
      pure_freshenTheory
+     pure_dead_letTheory
+     pure_letrec_spec_cexpTheory
+     pure_inline_cexpTheory
      pure_compilerTheory
      pure_inferProgTheory;
 
 val _ = new_theory "pure_frontendProg";
 
 val _ = set_grammar_ancestry ["pure_inferProg", "pure_letrec_cexp",
-                              "pure_demands_analysis", "pure_freshen"];
+                              "pure_demands_analysis", "pure_freshen",
+                              "pure_inline_cexp"];
 
 val _ = translation_extends "pure_inferProg";
 
@@ -99,6 +103,39 @@ val r = translate fresh_boundvar_def;
 val r = translate fresh_boundvars_def;
 val r = translate_no_ind freshen_aux_def; (* TODO bad induction *)
 val r = translate freshen_cexp_def;
+
+(*-----------------------------------------------------------------------*
+   inlining TODO various unproved side conditions
+ *-----------------------------------------------------------------------*)
+
+val r = translate_no_ind dead_let_def; (* TODO bad induction *)
+val r = translate_no_ind boundvars_of_def; (* TODO bad induction *)
+
+
+val r = translate min_call_args_def;
+val r = translate const_call_args_def;
+val r = translate_no_ind inline_def;
+
+Triviality inline_ind:
+  inline_ind (:'a)
+Proof
+  once_rewrite_tac[fetch "-" "inline_ind_def"] >>
+  rpt gen_tac >>
+  rpt $ disch_then strip_assume_tac >>
+  match_mp_tac $ latest_ind () >>
+  rpt strip_tac >>
+  last_x_assum match_mp_tac >>
+  rpt strip_tac >>
+  gvs[FORALL_PROD, LAMBDA_PROD, ADD1] >>
+  metis_tac[PAIR]
+QED
+
+val r = inline_ind |> update_precondition;
+
+val r = translate inline_all_def;
+val r = translate_no_ind tree_size_heuristic_rec_def; (* TODO bad induction *)
+val r = translate tree_size_heuristic_def;
+val r = translate inline_top_level_def;
 
 (*-----------------------------------------------------------------------*
    ast_to_string

@@ -5,7 +5,7 @@ open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory
      pure_freshenTheory pure_letrec_spec_cexpTheory
-     pure_dead_letTheory;
+     pure_dead_letTheory pure_comp_confTheory;
 
 val _ = new_theory "pure_inline_cexp";
 
@@ -84,9 +84,9 @@ And so goint further won't do anything
 
 Definition SPLIT_AT_GO_def:
   SPLIT_AT_GO (0: num) xs ys = (xs, ys) ∧
-  SPLIT_AT_GO n xs [] = (xs, []) ∧
-  SPLIT_AT_GO n xs (y::ys) =
-    SPLIT_AT_GO (n - 1) (xs ++ [y]) ys
+  SPLIT_AT_GO (SUC n) xs [] = (xs, []) ∧
+  SPLIT_AT_GO (SUC n) xs (y::ys) =
+    SPLIT_AT_GO n (xs ++ [y]) ys
 End
 
 Definition SPLIT_AT_def:
@@ -94,8 +94,8 @@ Definition SPLIT_AT_def:
 End
 
 Definition Lets_def:
-  Lets a [] [] e = e ∧
-  Lets a (v::vs) (e::es) e1 = Let a v e (Lets a vs es e1)
+  Lets a (v::vs) (e::es) e1 = Let a v e (Lets a vs es e1) ∧
+  Lets a _ _ e = e
 End
 
 Definition make_Let_def:
@@ -263,9 +263,35 @@ Termination
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
 End
 
+Definition boundvars_of_def:
+  boundvars_of (Var c x) = empty_vars ∧
+  boundvars_of (Prim c cop ces) =
+   FOLDR (λce s. var_union s $ boundvars_of ce) empty_vars ces ∧
+  boundvars_of (App c ce ces) =
+   FOLDR (λce s. var_union s $ boundvars_of ce) (boundvars_of ce) ces ∧
+  boundvars_of (Lam c xs ce) = insert_vars (boundvars_of ce) xs ∧
+  boundvars_of (Let c x ce1 ce2) =
+    insert_var (var_union (boundvars_of ce1) (boundvars_of ce2)) x ∧
+  boundvars_of (Letrec c fns ce) =
+    FOLDR (λ(f,body) s. var_union s $ insert_var (boundvars_of body) f)
+      (boundvars_of ce) fns ∧
+  boundvars_of (Case c ce x css us) =
+    var_union (insert_var (boundvars_of ce) x) $
+    var_union (case us of NONE => empty_vars | SOME (_,ce) => boundvars_of ce) $
+    FOLDR (λ(cn,vs,ce) s. var_union s $ insert_vars (boundvars_of ce) vs)
+      empty_vars css ∧
+  boundvars_of (NestedCase c ce x p pce pces) =
+    var_union (insert_var (boundvars_of ce) x) $
+    var_union (insert_vars (boundvars_of pce) (cepat_vars_l p)) $
+    FOLDR (λ(p,ce) s. var_union s $ insert_vars (boundvars_of ce) (cepat_vars_l p))
+      empty_vars pces
+Termination
+  WF_REL_TAC `measure $ cexp_size (K 0)`
+End
+
 Definition inline_all_def:
-  inline_all cl h e = 
-    let (e1, s) = freshen_cexp e empty_vars
+  inline_all cl h e =
+    let (e1, s) = freshen_cexp e (boundvars_of e)
     in let (inlined_e, _) = inline empty s cl h e1
     in dead_let inlined_e
 End
@@ -333,8 +359,15 @@ Termination
 End
 
 Definition tree_size_heuristic_def:
-  tree_size_heuristic n =
-    (λe. tree_size_heuristic_rec n e ≥ 0)
+  tree_size_heuristic n e =
+    (tree_size_heuristic_rec n e ≥ 0)
+End
+
+(*******************)
+
+Definition inline_top_level_def:
+  inline_top_level c e =
+    inline_all c.inlining.depth (tree_size_heuristic c.inlining.heuristic) e
 End
 
 (*******************)
