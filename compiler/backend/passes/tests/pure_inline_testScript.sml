@@ -53,6 +53,24 @@ val inline_example_paper =
   rand |>
   print_cexp;
 
+val example_foldr_sum = toMLstring `
+  (letrec
+    (foldr (lam (f x lst)
+      (case lst temp
+        ((((Nil) x)
+          ((Cons (y ys)) (app f y (app foldr f x ys)))) . NONE))))
+
+  (app foldr (lam (v w) (+ v w)) (int 0)))`;
+
+val example_foldr_sum_cexp = “parse_cexp ^example_foldr_sum”
+  |> EVAL |> concl |> rand;
+
+val inline_example_foldr_sum =
+  EVAL “inline_all 5 (tree_size_heuristic 100) ^example_foldr_sum_cexp” |>
+  concl |>
+  rand |>
+  print_cexp;
+
 val map_def = toMLstring `
     (lam (f lst)
       (case lst temp
