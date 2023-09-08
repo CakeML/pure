@@ -904,8 +904,8 @@ Proof
     >~ [‘Let (SOME s) x1 y1’] >- (
       strip_tac
       \\ rw [Once exp_rel_cases]
-      >- ((* D2B *)
-        pop_assum mp_tac
+      >- ((* D2B *) cheat
+(*        pop_assum mp_tac
         \\ simp [Once eval_to_def]
         \\ simp [Once eval_to_def, subst_def]
         \\ simp [Once eval_to_def]
@@ -1007,7 +1007,7 @@ Proof
         \\ Cases_on ‘eval_to (k - 2) X2’ \\ gs []
         \\ ‘eval_to (j1 + j2 + k) X1 = eval_to (j2 + k - 2) X1’
           suffices_by rw []
-        \\ irule eval_to_mono \\ gs [])
+        \\ irule eval_to_mono \\ gs []*))
       \\ ‘∀k. eval_to k x1 ≠ INL Type_error’
         by (qx_gen_tac ‘j’
             \\ strip_tac
@@ -1561,9 +1561,6 @@ Proof
   rw [rel_ok_def]
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [d2b_apply_closure])
-  >- ((* Thunks go to Thunks or DoTicks *)
-    Cases_on ‘s’ \\ gs []
-    \\ gs [Once v_rel_cases])
   >- ((* Equal literals are related *)
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)

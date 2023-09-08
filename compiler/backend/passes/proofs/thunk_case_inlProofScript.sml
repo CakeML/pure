@@ -292,7 +292,7 @@ Theorem exp_rel_subst:
   ∀vs x ws y m.
     MAP FST vs = MAP FST ws ∧
     LIST_REL (λ(f,v) (g,w).
-      (* (f ∈ m ⇒ v_rel v (Thunk (INL w))) ∧ *)
+      (f ∈ m ⇒ v_rel v (Thunk (Value w))) ∧
       (f ∉ m ⇒ v_rel v w)) vs ws ∧
     exp_rel m x y ⇒
       exp_rel m (subst vs x) (subst ws y)
@@ -313,6 +313,7 @@ Proof
       \\ ‘k < LENGTH ws’ by gs [Abbr ‘k’]
       \\ first_x_assum (drule_then assume_tac)
       \\ rpt (pairarg_tac \\ gvs [])
+      \\ gs [Once exp_rel_cases]
       \\ irule exp_rel_Inline_Value
       \\ gs [])
         (* s ∉ m *)
@@ -478,7 +479,8 @@ Proof
   \\ rpt conj_tac \\ rpt gen_tac
   >~ [‘Value v’] >- (
     rw [Once exp_rel_cases]
-    \\ simp [eval_to_def])
+    \\ simp [eval_to_def]
+    \\ irule exp_rel_Value \\ simp [])
   >~ [‘App f x’] >- (
     strip_tac
     \\ rw [Once exp_rel_cases] \\ gs []
@@ -547,7 +549,8 @@ Proof
       \\ first_x_assum irule
       \\ simp [closed_subst]
       \\ irule_at Any exp_rel_subst \\ gs []
-      \\ first_assum (irule_at Any) \\ gs [])
+      \\ first_assum (irule_at Any) \\ gs []
+      \\ irule exp_rel_Value \\ gs [])
     \\ simp [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
     \\ first_x_assum (drule_then assume_tac)
@@ -648,7 +651,6 @@ Proof
         \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
         \\ first_x_assum (drule_then assume_tac)
         \\ gs [ELIM_UNCURRY, freevars_def])
-      \\ CASE_TAC \\ gs []
       \\ first_x_assum irule
       \\ simp [subst_funs_def, SF SFY_ss])
     \\ ‘∃y. dest_Tick w = SOME y’
@@ -850,8 +852,6 @@ Proof
   rw [rel_ok_def]
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [inl_apply_closure])
-  >- ((* Thunks go to Thunks or DoTicks *)
-    Cases_on ‘s’ \\ gs [])
   >- (
     gs [Once v_rel_cases])
   >- ((* Equal literals are related *)
