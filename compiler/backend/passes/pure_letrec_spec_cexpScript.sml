@@ -316,15 +316,18 @@ Rules for appropriate parameter lists:
 Definition specialise_def:
   specialise v (Lam a vs e) = (
     let p = const_call_args v (MAP SOME vs) e (* Find constant parameters *)
-    in let inner_vs = get_SOMEs (inv_const_args vs p) (* inner parameters are the non-const ones *)
-    in let inner_lam = Lam a inner_vs (remove_const_args v p e)
-    in let params_to_drop_no = count_params_to_drop p
-    in let outer_vs = drop_tail params_to_drop_no vs (* outer parameters are without trailing non-const parameters *)
-    in let inner_applied_vs = drop_tail params_to_drop_no inner_vs
-    in let inner_refs = MAP (λv. Var a v) inner_applied_vs
-    in let v_ref = (if inner_refs = [] then Var a v else App a (Var a v) inner_refs)
-    in let ltrec = Letrec a [(v, inner_lam)] v_ref
-    in SOME (Lam a outer_vs ltrec)
+    in if EXISTS (λx. x ≠ NONE) p then (
+      let inner_vs = get_SOMEs (inv_const_args vs p) (* inner parameters are the non-const ones *)
+      in let inner_lam = Lam a inner_vs (remove_const_args v p e)
+      in let params_to_drop_no = count_params_to_drop p
+      in let outer_vs = drop_tail params_to_drop_no vs (* outer parameters are without trailing non-const parameters *)
+      in let inner_applied_vs = drop_tail params_to_drop_no inner_vs
+      in let inner_refs = MAP (λv. Var a v) inner_applied_vs
+      in let v_ref = (if inner_refs = [] then Var a v else App a (Var a v) inner_refs)
+      in let ltrec = Letrec a [(v, inner_lam)] v_ref
+      in SOME (Lam a outer_vs ltrec)
+    )
+    else NONE
   ) ∧
   specialise v e = NONE
 End
