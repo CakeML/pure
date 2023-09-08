@@ -20,8 +20,8 @@ val _ = new_theory "thunk_let_force_1Proof";
 
 val _ = set_grammar_ancestry ["thunk_let_force", "thunk_let_forceProof","thunk_cexp",
                               "finite_map", "pred_set", "rich_list",
-                              "thunkLang", "wellorder", "quotient_sum",
-                              "quotient_pair", "thunkLangProps", "thunk_exp_of"];
+                              "thunkLang", "wellorder",
+                              "thunkLangProps", "thunk_exp_of"];
 
 Overload safe_itree = “pure_semantics$safe_itree”
 
@@ -84,9 +84,6 @@ Proof
    (fs [let_force_def,e_rel_Var])
   >~ [‘Delay’] >-
    (fs [let_force_def] \\ rw [] \\ irule e_rel_Delay
-    \\ first_x_assum irule \\ fs [])
-  >~ [‘Box’] >-
-   (fs [let_force_def] \\ rw [] \\ irule e_rel_Box
     \\ first_x_assum irule \\ fs [])
   >~ [‘Force’] >-
    (rw [] \\ fs [let_force_def]

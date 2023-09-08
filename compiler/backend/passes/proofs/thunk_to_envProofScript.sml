@@ -65,8 +65,6 @@ Proof
    (fs [to_env_def] \\ irule exp_rel_Delay \\ fs [cexp_wf_def])
   >~ [‘Force’] >-
    (fs [to_env_def] \\ irule exp_rel_Force \\ fs [cexp_wf_def])
-  >~ [‘Box’] >-
-   (fs [to_env_def] \\ irule exp_rel_Box \\ fs [cexp_wf_def])
   >~ [‘Letrec’] >-
    (fs [to_env_def] \\ irule exp_rel_Letrec \\ fs [cexp_wf_def]
     \\ fs [GSYM MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF]

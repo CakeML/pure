@@ -11,12 +11,12 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
 val _ = new_theory "thunk_tickProof";
 
 val _ = set_grammar_ancestry [
-  "finite_map", "pred_set", "rich_list", "thunkLang", "quotient_sum",
-  "quotient_pair", "thunkLangProps", "thunk_semantics" ];
+  "finite_map", "pred_set", "rich_list", "thunkLang",
+  "thunkLangProps", "thunk_semantics" ];
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_THM[local,simp] = quotient_pairTheory.PAIR_REL_THM;
+Theorem PAIR_REL_THM[local,simp] = pairTheory.PAIR_REL_THM;
 
 val _ = numLib.prefer_num ();
 
@@ -73,10 +73,6 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ⇒
        exp_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
@@ -104,14 +100,10 @@ Inductive exp_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ⇒
        v_rel (Recclosure f n) (Recclosure g n)) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-       v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+       v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -132,7 +124,6 @@ Theorem exp_rel_def =
    “exp_rel (Let s x y) z”,
    “exp_rel (If x y z) w”,
    “exp_rel (Delay x) y”,
-   “exp_rel (Box x) y”,
    “exp_rel (MkTick x) y”,
    “exp_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
@@ -240,10 +231,6 @@ Proof
     qexists_tac ‘0’
     \\ irule_at Any exp_rel_Delay
     \\ gs [])
-  >~ [‘Box x’] >- (
-    qexists_tac ‘0’
-    \\ irule_at Any exp_rel_Box
-    \\ gs [])
   >~ [‘Force x’] >- (
     qexists_tac ‘0’
     \\ irule_at Any exp_rel_Force
@@ -347,9 +334,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [exp_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Force])
@@ -704,20 +688,6 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘j + n’
     \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
     \\ simp [eval_to_Tick, eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    dxrule_then assume_tac exp_rel_FUNPOW \\ gvs []
-    \\ gvs [Once exp_rel_def]
-    \\ Q.REFINE_EXISTS_TAC ‘j + n’
-    \\ once_rewrite_tac [DECIDE “j + n + k = (j + k) + n”]
-    \\ simp [eval_to_Tick, eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ ‘∃j. ($= +++ v_rel) (eval_to k x) (eval_to (j + k) y)’
-      suffices_by (
-        disch_then (qx_choose_then ‘j’ assume_tac)
-        \\ qexists_tac ‘j’
-        \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to (j + k) y’ \\ gs []
-        \\ simp [v_rel_def])
-    \\ first_x_assum (irule_at Any) \\ gs [])
   >~ [‘Force x’] >- (
     dxrule_then assume_tac exp_rel_FUNPOW \\ gvs []
     \\ rgs [Once exp_rel_def]
@@ -752,8 +722,9 @@ Proof
         \\ rw [Once exp_rel_cases] \\ gs []
         \\ Cases_on ‘x0’ \\ gvs [])
       \\ pairarg_tac \\ gvs []
+      \\ rename1 ‘dest_anyThunk v1 = INR (wx, binds)’
       \\ ‘∃wx' binds'. dest_anyThunk w1 = INR (wx', binds') ∧
-                       (v_rel +++ exp_rel) wx wx' ∧
+                       exp_rel wx wx' ∧
                        MAP FST binds = MAP FST binds' ∧
                        EVERY ok_bind (MAP SND binds) ∧
                        EVERY ok_bind (MAP SND binds') ∧
@@ -771,12 +742,6 @@ Proof
             \\ gvs [EVERY_EL, EL_MAP]
             \\ first_x_assum (drule_then assume_tac)
             \\ gvs [ok_bind_def])
-      \\ CASE_TAC \\ gs []
-      >- (
-        qexists_tac ‘j’ \\ simp []
-        \\ CASE_TAC \\ gs []
-        \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [dest_anyThunk_def])
-      \\ Cases_on ‘wx'’ \\ gs []
       \\ rename1 ‘exp_rel x1 x2’
       \\ ‘exp_rel (subst_funs binds x1) (subst_funs binds' x2)’
         by (simp [subst_funs_def]

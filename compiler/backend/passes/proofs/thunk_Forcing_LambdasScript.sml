@@ -151,10 +151,6 @@ Inductive forcing_lam_rel:
   (∀set x y.
      forcing_lam_rel set x y ⇒
        forcing_lam_rel set (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀set x y.
-     forcing_lam_rel set x y ⇒
-       forcing_lam_rel set (Box x) (Box y)) ∧
 [~Force:]
   (∀set x y.
      forcing_lam_rel set x y ⇒
@@ -173,7 +169,6 @@ Theorem forcing_lam_rel_def =
    “forcing_lam_rel s (Let opt x y) z”,
    “forcing_lam_rel s (If x y z) w”,
    “forcing_lam_rel s (Delay x) y”,
-   “forcing_lam_rel s (Box x) y”,
    “forcing_lam_rel s (MkTick x) y”,
    “forcing_lam_rel s (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once forcing_lam_rel_cases])
@@ -902,13 +897,6 @@ Proof
       irule_at (Pos last) clean_rel_Delay >>
       simp [boundvars_def] >>
       metis_tac [])
-  >- (gs [boundvars_def] >>
-      gs [boundvars_def] >>
-      irule_at Any force_arg_rel_Box >>
-      irule_at Any combine_rel_Box >>
-      irule_at (Pos last) clean_rel_Box >>
-      irule_at (Pos last) clean_rel_Box >>
-      simp [boundvars_def] >> metis_tac [])
   >- (gs [boundvars_def] >>
       irule_at Any force_arg_rel_Force >>
       irule_at Any combine_rel_Force >>

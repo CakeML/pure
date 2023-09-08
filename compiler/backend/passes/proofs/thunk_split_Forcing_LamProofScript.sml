@@ -1447,12 +1447,6 @@ Proof
       gen_tac >> pairarg_tac >> gs [boundvars_def, freevars_def, exp_rel_def] >>
       gen_tac >> strip_tac >> simp [cexp_wf_def] >>
       last_x_assum $ dxrule_then assume_tac >> gs [])
-  >~[‘Box (exp_of e)’]
-  >- (strip_tac >> gs [PULL_FORALL] >>
-      last_x_assum $ qspec_then ‘e’ assume_tac >>
-      gen_tac >> pairarg_tac >> gs [boundvars_def, freevars_def, exp_rel_def] >>
-      gen_tac >> strip_tac >> simp [cexp_wf_def] >>
-      last_x_assum $ dxrule_then assume_tac >> gs [])
   >~[‘Force (exp_of e)’]
   >- (strip_tac >> gs [PULL_FORALL] >>
       last_x_assum $ qspec_then ‘e’ assume_tac >>

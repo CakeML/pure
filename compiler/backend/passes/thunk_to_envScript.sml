@@ -42,7 +42,6 @@ Definition to_env_def:
   to_env (App x xs) = Apps (to_env x) (MAP to_env xs) ∧
   to_env (Delay x) = Delay (to_env x) ∧
   to_env (Force x) = Force (to_env x) ∧
-  to_env (Box x) = Box (to_env x) ∧
   to_env (Letrec fs x) = Letrec (REVERSE (MAP (λ(n,x). (n,to_env x)) fs)) (to_env x) ∧
   to_env (Case v rows d) = Case v (MAP (λ(n,p,x). (n,p,to_env x)) rows)
                             (case d of NONE => NONE | SOME (a,e) => SOME (a,to_env e)) ∧

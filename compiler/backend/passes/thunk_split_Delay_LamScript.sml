@@ -113,9 +113,6 @@ Definition split_Delayed_Lam_def:
     (split_Delayed_Lam (Delay e) var_creator maps =
         let (e', vc) = split_Delayed_Lam e var_creator maps in
         (Delay e', vc)) /\
-    (split_Delayed_Lam (Box e) var_creator maps =
-        let (e', vc) = split_Delayed_Lam e var_creator maps in
-        (Box e', vc)) /\
     (split_Delayed_Lam (Force e) var_creator maps =
         case dest_Var e of
             | SOME v =>

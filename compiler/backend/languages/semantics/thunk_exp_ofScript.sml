@@ -56,8 +56,7 @@ Definition exp_of_def[simp]:
         (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)
         (OPTION_MAP (λ(a,e). (MAP (explode ## I) a, exp_of e)) d) ∧
   exp_of (Force x)       = Force (exp_of x) ∧
-  exp_of (Delay x)       = Delay (exp_of x) ∧
-  exp_of (Box x)         = Box (exp_of x)
+  exp_of (Delay x)       = Delay (exp_of x)
 Termination
   WF_REL_TAC ‘measure cexp_size’ >> rw [cexp_size_eq]
 End
@@ -83,7 +82,6 @@ Definition cexp_wf_def:
   cexp_wf (App e es) = (cexp_wf e ∧ EVERY cexp_wf es ∧ es ≠ []) ∧
   cexp_wf (Force e) = cexp_wf e ∧
   cexp_wf (Delay e) = cexp_wf e ∧
-  cexp_wf (Box e) = cexp_wf e ∧
   cexp_wf (Lam vs e) = (cexp_wf e ∧ vs ≠ []) ∧
   cexp_wf (Let v e1 e2) = (cexp_wf e1 ∧ cexp_wf e2) ∧
   cexp_wf (Letrec fns e) = (EVERY (λ(_,x). cexp_ok_bind x ∧ cexp_wf x) fns ∧ cexp_wf e

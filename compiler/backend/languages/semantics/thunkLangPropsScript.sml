@@ -17,9 +17,9 @@ val _ = set_grammar_ancestry ["thunkLang", "pure_misc", "thunk_semantics"];
 val _ = numLib.prefer_num ();
 
 Theorem exp_size_lemma:
-  (∀x xs. MEM x xs ⇒ exp_size x ≤ exp4_size xs) ∧
+  (∀x xs. MEM x xs ⇒ exp_size x ≤ exp3_size xs) ∧
   (∀x y xs. MEM (x,y) xs ⇒ exp_size y ≤ exp1_size xs) ∧
-  (∀x xs. MEM x xs ⇒ v_size x < exp5_size xs)
+  (∀x xs. MEM x xs ⇒ v_size x < exp4_size xs)
 Proof
   rpt conj_tac
   \\ Induct_on ‘xs’ \\ rw []
@@ -41,7 +41,6 @@ Definition no_value_def:
   (no_value (App x y) = (no_value x ∧ no_value y)) ∧
   (no_value (Lam s x) = no_value x) ∧
   (no_value (Let opt x y) = (no_value x ∧ no_value y)) ∧
-  (no_value (Box x) = no_value x) ∧
   (no_value (MkTick x) = no_value x) ∧
   (no_value (Letrec f x) = (no_value x ∧ EVERY no_value (MAP SND f) ∧ EVERY ok_bind (MAP SND f))) ∧
   (no_value (Value v) = F) ∧
@@ -125,7 +124,6 @@ Theorem exp_ind:
     (∀v x y. P x ∧ P y ⇒ P (Let v x y)) ∧
     (∀f x. (∀n x'. MEM (n,x') f ⇒ P x') ∧ P x ⇒ P (Letrec f x)) ∧
     (∀x. P x ⇒ P (Delay x)) ∧
-    (∀x. P x ⇒ P (Box x)) ∧
     (∀x. P x ⇒ P (Force x)) ∧
     (∀v. P (Value v)) ∧
     (∀x. P x ⇒ P (MkTick x)) ⇒
@@ -263,7 +261,6 @@ Theorem closed_simps[simp]:
   (∀mop xs. closed (Monad mop xs) ⇔ EVERY closed xs) ∧
   (∀x. closed (Force x) ⇔ closed x)  ∧
   (∀x. closed (Delay x) ⇔ closed x)  ∧
-  (∀x. closed (Box x) ⇔ closed x)  ∧
   (∀v. closed (Value v) ⇔ T)  ∧
   (∀x. closed (MkTick x) ⇔ closed x) ∧
   (∀v. closed (Var v) ⇔ F)
@@ -359,8 +356,6 @@ Proof
       \\ rgs [DISJ_EQ_IMP, MEM_MAP])
     \\ simp [AC CONJ_COMM CONJ_ASSOC, SF DNF_ss])
   >- ((* Delay *)
-    gs [freevars_def, subst_def])
-  >- ((* Box *)
     gs [freevars_def, subst_def])
   >- ((* Force *)
     gs [freevars_def, subst_def])
@@ -1186,10 +1181,8 @@ Theorem eval_Force:
     case dest_Tick v of
       NONE =>
         do
-          (wx,binds) <- dest_anyThunk v;
-          case wx of
-            INL v => return v
-          | INR y => eval (subst_funs binds y)
+          (y,binds) <- dest_anyThunk v;
+          eval (subst_funs binds y)
         od
     | SOME w => eval (Force (Value w))
 Proof
@@ -1204,7 +1197,6 @@ Proof
     >- (
       Cases_on ‘dest_anyThunk v’ \\ gs []
       \\ pairarg_tac \\ gvs []
-      \\ CASE_TAC \\ gs []
       \\ irule eval_to_equals_eval \\ gs [])
     \\ irule eval_to_equals_eval \\ gs [])
   \\ Cases_on ‘dest_Tick v’ \\ gs []
@@ -1216,7 +1208,6 @@ Proof
       first_x_assum (qspec_then ‘1’ assume_tac)
       \\ Cases_on ‘v’ \\ gs [])
     \\ pairarg_tac \\ gvs []
-    \\ CASE_TAC \\ gs []
     \\ simp [eval_def]
     \\ DEEP_INTRO_TAC some_intro \\ rw []
     \\ first_x_assum (qspec_then ‘x + 1’ assume_tac) \\ gs [])

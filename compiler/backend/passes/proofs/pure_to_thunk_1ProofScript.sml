@@ -24,9 +24,8 @@ val _ = numLib.prefer_num ();
 
   As pureLang is lazy it allows non-functional value declarations that are
   mutually recursive, and lazy value declarations. All such computations are
-  suspended thunkLang-side by Lam, Box or Delay. This relation (exp_rel) acts as
-  if the compiler inserted Delay everywhere, but the compiler can insert Box
-  for things that do not require a thunk to be allocated, such as a lambda.
+  suspended thunkLang-side by Lam or Delay. This relation (exp_rel) acts as
+  if the compiler inserted Delay everywhere.
 
   * [Var]
     - All variables are wrapped in ‘Force’ as if they were suspended either by
@@ -71,10 +70,10 @@ val _ = numLib.prefer_num ();
     - `Bind`/`Handle` are straightforwardly compiled
   * [Letrec]
     - We expect all expressions in the list of bindings to be suspended by
-      something (either Lam or Delay or Box), so we insert Delay everywhere.
+      something (either Lam or Delay), so we insert Delay everywhere.
  *)
 
-Overload Suspend[local] = “λx. Force (Value (Thunk (INR x)))”;
+Overload Suspend[local] = “λx. Force (Value (Thunk x))”;
 
 Overload Rec[local] = “λf n. Force (Value (Recclosure f n))”;
 
@@ -218,7 +217,7 @@ End
 
 Definition thunk_rel_def:
   thunk_rel x v ⇔
-    ∃y. v = Thunk (INR y) ∧
+    ∃y. v = Thunk y ∧
         exp_rel x y ∧
         closed x
 End
@@ -464,7 +463,7 @@ Theorem exp_rel_subst:
     exp_rel a b ∧
     closed a ⇒
       exp_rel (subst1 n (Tick a) x)
-              (subst1 n (Thunk (INR b)) y)
+              (subst1 n (Thunk b) y)
 Proof
   ho_match_mp_tac exp_ind_alt \\ rw []
   >- ((* Var *)
@@ -2610,7 +2609,7 @@ Proof
 QED
 
 Triviality eval_simps[simp]:
-  eval (Delay e) = INR (Thunk (INR e)) ∧
+  eval (Delay e) = INR (Thunk e) ∧
   eval (Lit l) = INR (Atom l) ∧
   eval (Monad mop es) = INR (Monadic mop es) ∧
   eval (Lam x body) = INR (Closure x body) ∧

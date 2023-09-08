@@ -33,7 +33,6 @@ Definition replace_Force_def:
                                           then Let (SOME s) (replace_Force expr v e1) e2
                                           else Let (SOME s) (replace_Force expr v e1) (replace_Force expr v e2)) ∧
   (replace_Force expr v (Delay e) = Delay (replace_Force expr v e)) ∧
-  (replace_Force expr v (Box e) = Box (replace_Force expr v e)) ∧
   (replace_Force expr v (MkTick e) = MkTick (replace_Force expr v e)) ∧
   (replace_Force expr v (Value val) = Value val) ∧
   (replace_Force expr v (Force e) = Force (replace_Force expr v e)) ∧
@@ -61,7 +60,6 @@ Definition unreplace_Force_def:
                                               else Let (SOME s) (unreplace_Force w v e1)
                                                        (unreplace_Force w v e2)) ∧
   (unreplace_Force w v (Delay e) = Delay (unreplace_Force w v e)) ∧
-  (unreplace_Force w v (Box e) = Box (unreplace_Force w v e)) ∧
   (unreplace_Force w v (MkTick e) = MkTick (unreplace_Force w v e)) ∧
   (unreplace_Force w v (Value val) = Value val) ∧
   (unreplace_Force w v (Force e) = Force (unreplace_Force w v e)) ∧
@@ -225,10 +223,6 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ⇒
        exp_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
@@ -238,7 +232,7 @@ Inductive exp_rel:
 [~Force_Value:]
   (∀v1 v2.
      v_rel v1 v2 ⇒
-     exp_rel (Force (Value (Thunk (INR (Value v1))))) (Value v2)) ∧
+     exp_rel (Force (Value (Thunk (Value v1)))) (Value v2)) ∧
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
@@ -279,14 +273,10 @@ Inductive exp_rel:
      MEM v2 (MAP FST f) ∧ MEM (v1, Delay (Var v2)) f ⇒
      exp_rel (Force (Value (Recclosure f v1)))
              (Value (Recclosure (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) g) v2))) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-     v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+     v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -307,7 +297,6 @@ Theorem exp_rel_def =
    “exp_rel (Let s x y) z”,
    “exp_rel (If x y z) w”,
    “exp_rel (Delay x) y”,
-   “exp_rel (Box x) y”,
    “exp_rel (MkTick x) y”,
    “exp_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
@@ -768,9 +757,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [exp_rel_Box])
   >>~[‘Force (Value _)’]
   >- (rw [subst_def]
       \\ gs [exp_rel_Force_Value])
@@ -1066,14 +1052,14 @@ QED
 Theorem exp_rel_subst_replace_Force:
   ∀x y v w n.
     exp_rel x y ∧ v_rel v w ⇒
-    exp_rel (subst1 n (Thunk (INR (Value v))) x)
-            (subst1 n (Thunk (INR (Value w))) (replace_Force (Value w) n y))
+    exp_rel (subst1 n (Thunk (Value v)) x)
+            (subst1 n (Thunk (Value w)) (replace_Force (Value w) n y))
 Proof
   ‘(∀x y.
       exp_rel x y ⇒
       ∀v w n. v_rel v w ⇒
-              exp_rel (subst1 n (Thunk (INR (Value v))) x)
-                      (subst1 n (Thunk (INR (Value w))) (replace_Force (Value w) n y))) ∧
+              exp_rel (subst1 n (Thunk (Value v)) x)
+                      (subst1 n (Thunk (Value w)) (replace_Force (Value w) n y))) ∧
    (∀v w. v_rel v w ⇒ T)’
     suffices_by rw []
   \\ ho_match_mp_tac exp_rel_strongind \\ rw []
@@ -1121,7 +1107,7 @@ Proof
           \\ gvs [EL_MAP]
           \\ Cases_on ‘EL n2 f’ \\ gs [])
       \\ rw []
-      \\ qspecl_then [‘replace_Force (Value w) n y’, ‘Var v2’, ‘v1’, ‘[(n, Thunk (INR (Value w)))]’]
+      \\ qspecl_then [‘replace_Force (Value w) n y’, ‘Var v2’, ‘v1’, ‘[(n, Thunk (Value w))]’]
                      mp_tac subst_replace_Force
       \\ impl_tac
       >- (gvs [freevars_def]
@@ -1134,10 +1120,10 @@ Proof
           \\ gvs [MEM_MAP]
           \\ first_x_assum $ irule_at Any \\ gs [])
       \\ rw [subst_def] \\ gs []
-      \\ qsuff_tac ‘MAP (λ(p1,p2).(p1, subst1 n (Thunk (INR (Value w)))
+      \\ qsuff_tac ‘MAP (λ(p1,p2).(p1, subst1 n (Thunk (Value w))
                                               (replace_Force (Value w) n (replace_Force (Var v2) v1 p2)))) g
                     = MAP (λ(p1, p2). (p1, replace_Force (Var v2) v1 p2))
-                          (MAP (λ(p1,p2).(p1,subst1 n (Thunk (INR (Value w))) (replace_Force (Value w) n p2))) g)’
+                          (MAP (λ(p1,p2).(p1,subst1 n (Thunk (Value w)) (replace_Force (Value w) n p2))) g)’
       >- (rw []
           \\ irule exp_rel_Letrec_Delay_Var
           \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, GSYM SND_THM,
@@ -1183,7 +1169,7 @@ Proof
           \\ gvs [MEM_MAP]
           \\ first_x_assum $ irule_at Any \\ gs [])
       \\ rw []
-      \\ qspecl_then [‘replace_Force (Value w) n p2’, ‘Var v2’, ‘v1’, ‘[(n, Thunk (INR (Value w)))]’]
+      \\ qspecl_then [‘replace_Force (Value w) n p2’, ‘Var v2’, ‘v1’, ‘[(n, Thunk (Value w))]’]
                      mp_tac subst_replace_Force
       \\ impl_tac
       >- (gvs [freevars_def]
@@ -1208,7 +1194,7 @@ Proof
           \\ rename1 ‘replace_Force (Value w) n (replace_Force (Var v2) v1 y2)’
           \\ qspecl_then [‘y2’, ‘Value w’, ‘Var v2’, ‘n’, ‘v1’] assume_tac replace_Force_COMM
           \\ gvs [freevars_def]
-          \\ qspecl_then [‘replace_Force (Value w) n y2’, ‘Var v2’, ‘v1’, ‘[(n, Thunk (INR (Value w)))]’]
+          \\ qspecl_then [‘replace_Force (Value w) n y2’, ‘Var v2’, ‘v1’, ‘[(n, Thunk (Value w))]’]
                          assume_tac subst_replace_Force
           \\ conj_asm2_tac
           \\ gvs [freevars_def, subst_def]
@@ -1728,10 +1714,6 @@ Proof
   >- (irule exp_rel_Delay >>
       last_x_assum irule >>
       gvs [exp_size_def, boundvars_def])
-  >~[‘Box _’]
-  >- (irule exp_rel_Box >>
-      last_x_assum irule >>
-      gvs [exp_size_def, boundvars_def])
   >~[‘replace_Force _ _ (Force y)’]
   >- (rename1 ‘exp_rel x y’ >>
       qpat_x_assum ‘exp_rel (Force _) (Force _)’ kall_tac >>
@@ -2153,8 +2135,8 @@ Proof
         \\ rename1 ‘exp_rel y y2’
         \\ Cases_on ‘eval_to (j + k - 1) x’ \\ gs []
         \\ rename1 ‘v_rel val1 val2’
-        \\ first_x_assum $ qspecl_then [‘subst1 w (Thunk (INR (Value val1))) (subst1 v val1 y)’,
-             ‘subst1 w (Thunk (INR (Value val2))) (subst1 v val2 (replace_Force (Var v) w y2))’] mp_tac
+        \\ first_x_assum $ qspecl_then [‘subst1 w (Thunk (Value val1)) (subst1 v val1 y)’,
+             ‘subst1 w (Thunk (Value val2)) (subst1 v val2 (replace_Force (Var v) w y2))’] mp_tac
         \\ impl_tac
         >- (qspecl_then [‘y2’, ‘Var v’, ‘w’, ‘[(v, val2)]’] assume_tac subst_replace_Force
             \\ drule_then assume_tac exp_rel_freevars
@@ -2162,22 +2144,22 @@ Proof
             \\ gvs [freevars_def, subst_def]
             \\ gvs [exp_rel_subst_replace_Force])
         \\ disch_then $ qx_choose_then ‘j1’ assume_tac
-        \\ Cases_on ‘eval_to (k − 2) (subst1 w (Thunk (INR (Value val2)))
+        \\ Cases_on ‘eval_to (k − 2) (subst1 w (Thunk (Value val2))
                                       (subst1 v val2 (replace_Force (Var v) w y2))) = INL Diverge’
         >- (qexists_tac ‘0’ \\ gs []
             \\ Cases_on ‘eval_to (k - 1) x = INL Diverge’ \\ gs []
             \\ dxrule_then (qspecl_then [‘j + k - 1’] assume_tac) eval_to_mono \\ gs []
-            \\ Cases_on ‘eval_to (k - 2) (subst1 w (Thunk (INR (Value val1)))
+            \\ Cases_on ‘eval_to (k - 2) (subst1 w (Thunk (Value val1))
                                           (subst1 v val1 y)) = INL Diverge’ \\ gs []
             \\ dxrule_then (qspecl_then [‘j1 + k - 2’] assume_tac) eval_to_mono \\ gs [])
         \\ qexists_tac ‘j + j1’
         \\ ‘eval_to (j + j1 + k - 1) x = eval_to (j + k - 1) x’
           by (irule eval_to_mono \\ gs [])
-        \\ ‘eval_to (j + j1 + k - 2) (subst1 w (Thunk (INR (Value val1))) (subst1 v val1 y))
-            = eval_to (j1 + k - 2) (subst1 w (Thunk (INR (Value val1))) (subst1 v val1 y))’
+        \\ ‘eval_to (j + j1 + k - 2) (subst1 w (Thunk (Value val1)) (subst1 v val1 y))
+            = eval_to (j1 + k - 2) (subst1 w (Thunk (Value val1)) (subst1 v val1 y))’
           by (irule eval_to_mono
               \\ gs [] \\ strip_tac
-              \\ Cases_on ‘eval_to (k − 2) (subst1 w (Thunk (INR (Value val2)))
+              \\ Cases_on ‘eval_to (k − 2) (subst1 w (Thunk (Value val2))
                                             (subst1 v val2 (replace_Force (Var v) w y2)))’ \\ gs [])
         \\ gvs [])
     \\ simp [eval_to_def]
@@ -2475,13 +2457,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    rw [exp_rel_def] \\ gs []
-    \\ simp [eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ first_x_assum $ drule_then $ qx_choose_then ‘j’ assume_tac
-    \\ qexists_tac ‘j’
-    \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to (k + j) x’ \\ gs [v_rel_def])
   >~ [‘MkTick x’] >- (
     rw [exp_rel_def] \\ gs [eval_to_def]
     \\ first_x_assum $ dxrule_then $ qx_choose_then ‘j’ assume_tac
@@ -3048,10 +3023,6 @@ Inductive full_exp_rel:
   (∀x y.
      full_exp_rel x y ⇒
        full_exp_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     full_exp_rel x y ⇒
-       full_exp_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      full_exp_rel x y ⇒
@@ -3071,7 +3042,6 @@ Theorem full_exp_rel_def =
    “full_exp_rel (Let s x y) z”,
    “full_exp_rel (If x y z) w”,
    “full_exp_rel (Delay x) y”,
-   “full_exp_rel (Box x) y”,
    “full_exp_rel (MkTick x) y”,
    “full_exp_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once full_exp_rel_cases])
@@ -3272,7 +3242,6 @@ Proof
   >~[‘no_value (Let (SOME _) x (Let (SOME _) _ y))’] >- gvs [no_value_def]
   >~[‘no_value (Let opt x y)’] >- gvs [no_value_def]
   >~[‘no_value (If x y z)’] >- gvs [no_value_def]
-  >~[‘no_value (Box x)’] >- gvs [no_value_def]
   >~[‘Var _’]
   >- (qexists_tac ‘0’ >> gvs [exp_rel_Var, NRC])
   >~[‘App _ _’]
@@ -3354,10 +3323,6 @@ Proof
   >~[‘Delay _’]
   >- (irule_at Any NRC_rel_Delay >>
       gvs [exp_rel_Delay, exp_rel_refl] >>
-      first_x_assum $ irule_at Any)
-  >~[‘Box _’]
-  >- (irule_at Any NRC_rel_Box >>
-      gvs [exp_rel_Box, exp_rel_refl] >>
       first_x_assum $ irule_at Any)
   >~[‘Force _’]
   >- (irule_at Any NRC_rel_Force >>

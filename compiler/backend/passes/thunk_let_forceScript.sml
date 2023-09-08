@@ -49,7 +49,6 @@ Definition let_force_def:
      | SOME v => case ALOOKUP m v of
                  | NONE => Force (let_force m x)
                  | SOME t => Var t) ∧
-  let_force m (Box x) = Box (let_force m x) ∧
   let_force m (Letrec fs x) =
     (let m1 = FILTER (can_keep_list (MAP FST fs)) m in
        Letrec (MAP (λ(n,x). (n,let_force m1 x)) fs) (let_force m1 x)) ∧

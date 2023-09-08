@@ -45,7 +45,6 @@ Definition extract_names_def:
        | NONE => empty_vars
        | SOME (a,e) => (extract_names e) in
        insert_var (extract_names_rows s ys) n) ∧
-  extract_names (Box x) = extract_names x ∧
   extract_names (Delay x) = extract_names x ∧
   extract_names (Force x) = extract_names x ∧
   extract_names_list s [] = s ∧
@@ -139,9 +138,6 @@ Definition my_function_def:
   (my_function s (Delay e) =
      let (s, e) = my_function s e in
        (s, Delay e)) ∧
-  (my_function s (Box e) =
-     let (s, e) = my_function s e in
-       (s, Box e)) ∧
   (my_function_list s [] = (s, [])) ∧
   (my_function_list s (hd::tl) =
      let (s, hd) = my_function s hd in

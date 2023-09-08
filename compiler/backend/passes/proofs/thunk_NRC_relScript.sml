@@ -234,15 +234,6 @@ Proof
   rpt $ last_x_assum $ drule_then $ irule_at Any
 QED
 
-Theorem NRC_rel_Box:
-  (∀x y. R x y ⇒ R (Box x) (Box y)) ⇒
-      ∀n x y. NRC R n x y ⇒ NRC R n (Box x) (Box y)
-Proof
-  strip_tac >> Induct >> gvs [NRC] >>
-  rw [] >>
-  rpt $ last_x_assum $ drule_then $ irule_at Any
-QED
-
 Theorem NRC_rel_Lam:
   (∀s x y. R x y ⇒ R (Lam s x) (Lam s y)) ⇒
       ∀n s x y. NRC R n x y ⇒ NRC R n (Lam s x) (Lam s y)

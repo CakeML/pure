@@ -1635,7 +1635,7 @@ Inductive insert_seq:
   (insert_seq ce1 ce2 ∧
    LIST_REL (λ(cn1,pvs1,ce1) (cn2,pvs2,ce2).
     cn1 = cn2 ∧ pvs1 = pvs2 ∧ insert_seq ce1 ce2) css1 css2 ∧
-   OPTION_REL (λ(cn_ars1,ce1) (cn_ars2,ce2).
+   OPTREL (λ(cn_ars1,ce1) (cn_ars2,ce2).
     cn_ars1 = cn_ars2 ∧ insert_seq ce1 ce2) usopt1 usopt2
     ⇒ insert_seq (pure_cexp$Case d ce1 x css1 usopt1) (Case d' ce2 x css2 usopt2))
 End

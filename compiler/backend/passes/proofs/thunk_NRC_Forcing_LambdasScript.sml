@@ -92,10 +92,6 @@ Inductive exp_rel:
   (∀set x y.
      exp_rel set x y ⇒
        exp_rel set (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀set x y.
-     exp_rel set x y ⇒
-       exp_rel set (Box x) (Box y)) ∧
 [~Force:]
   (∀set x y.
      exp_rel set x y ⇒
@@ -114,7 +110,6 @@ Theorem exp_rel_def =
    “exp_rel s (Let opt x y) z”,
    “exp_rel s (If x y z) w”,
    “exp_rel s (Delay x) y”,
-   “exp_rel s (Box x) y”,
    “exp_rel s (MkTick x) y”,
    “exp_rel s (Value x) y”,
    “exp_rel s (Force x) y”]
@@ -882,9 +877,6 @@ Proof
       first_x_assum $ irule_at Any >>
       first_x_assum $ irule_at Any)
   >- (irule_at Any NRC_rel_Delay >>
-      gs [forcing_lam_rel_def] >>
-      first_x_assum $ irule_at Any)
-  >- (irule_at Any NRC_rel_Box >>
       gs [forcing_lam_rel_def] >>
       first_x_assum $ irule_at Any)
   >- (irule_at Any NRC_rel_Force >>

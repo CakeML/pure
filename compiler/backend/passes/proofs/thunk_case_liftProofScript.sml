@@ -19,14 +19,14 @@ val _ = new_theory "thunk_case_liftProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-  "quotient_sum", "quotient_pair", "thunk_semantics", "thunkLangProps",
+  "thunk_semantics", "thunkLangProps",
   "thunk_tickProof" ];
 
 val _ = numLib.prefer_num ();
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Inductive exp_rel:
 (* Lifting case: *)
@@ -75,10 +75,6 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ⇒
        exp_rel (Delay x) (Delay y)) ∧
-[exp_rel_Box:]
-  (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
 [exp_rel_Force:]
   (∀x y.
      exp_rel x y ⇒
@@ -117,14 +113,10 @@ Inductive exp_rel:
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel x y) f g ⇒
        v_rel (Recclosure f n) (Recclosure g n)) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-       v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w)))
+       v_rel (Thunk x) (Thunk y))
 End
 
 Theorem v_rel_cases[local] = CONJUNCT2 exp_rel_cases;
@@ -141,10 +133,8 @@ Theorem v_rel_def[simp] =
     “v_rel z (Monadic mop ys)”,
     “v_rel (Atom x) z”,
     “v_rel z (Atom x)”,
-    “v_rel (Thunk (INL x)) z”,
-    “v_rel z (Thunk (INL x))”,
-    “v_rel (Thunk (INR x)) z”,
-    “v_rel z (Thunk (INR x))” ]
+    “v_rel (Thunk x) z”,
+    “v_rel z (Thunk x)” ]
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;
 
@@ -291,11 +281,6 @@ Proof
           \\ rpt (pop_assum kall_tac)
           \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
     \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_Var, exp_rel_Value])
-  >- ((* Box *)
-    rw [Once exp_rel_cases] \\ gs []
-    \\ simp [subst_def]
-    \\ irule exp_rel_Box
-    \\ first_x_assum irule \\ gs [])
   >- ((* Force *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -421,13 +406,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [eval_to_def])
-  >~ [‘Box x’] >- (
-    strip_tac
-    \\ rw [Once exp_rel_cases] \\ gs []
-    \\ simp [eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ first_x_assum (drule_then assume_tac)
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs [])
   >~ [‘Force x’] >- (
     strip_tac
     \\ rw [Once exp_rel_cases] \\ gs []
@@ -458,7 +436,6 @@ Proof
                                       EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM]
         \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
         \\ irule LIST_EQ \\ gvs [EL_MAP])
-      \\ CASE_TAC \\ gs []
       \\ first_x_assum irule
       \\ simp [subst_funs_def])
     \\ ‘∃y. dest_Tick w = SOME y’
@@ -625,8 +602,6 @@ Proof
   rw [rel_ok_def]
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [lift_apply_closure])
-  >- ((* Thunks go to Thunks or DoTicks *)
-    Cases_on ‘s’ \\ gs [])
   >- (
     gs [Once v_rel_cases])
   >- ((* Equal literals are related *)
@@ -705,10 +680,6 @@ Inductive compile_rel:
   (∀x y.
      compile_rel x y ⇒
        compile_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     compile_rel x y ⇒
-       compile_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      compile_rel x y ⇒
@@ -756,7 +727,6 @@ Proof
   \\ rpt $ irule_at Any thunk_tickProofTheory.exp_rel_Prim
   \\ rpt $ irule_at Any thunk_tickProofTheory.exp_rel_Monad
   \\ rpt $ irule_at Any thunk_tickProofTheory.exp_rel_Delay
-  \\ rpt $ irule_at Any thunk_tickProofTheory.exp_rel_Box
   \\ rpt $ irule_at Any thunk_tickProofTheory.exp_rel_Force
   \\ rpt $ irule_at Any thunk_tickProofTheory.exp_rel_Var
   \\ rpt $ first_x_assum $ irule_at $ Pos hd
@@ -766,7 +736,6 @@ Proof
   >~ [‘Let’] >- (irule_at Any exp_rel_Let \\ fs [])
   >~ [‘If’] >- (irule_at Any exp_rel_If \\ fs [])
   >~ [‘Delay’] >- (irule_at Any exp_rel_Delay \\ fs [])
-  >~ [‘Box’] >- (irule_at Any exp_rel_Box \\ fs [])
   >~ [‘Var’] >- (irule_at Any exp_rel_Var \\ fs [])
   >~ [`Monad`]
   >- (
