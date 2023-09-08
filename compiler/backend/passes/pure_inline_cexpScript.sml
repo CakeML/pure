@@ -120,7 +120,7 @@ Definition inline_def:
       then (Var a v, ns)
       else (
         let (fe, ns0) = freshen_cexp e ns
-        in let (e1, ns1) = inline m ns0 (cl - 1) h fe (* Decrement clock *)
+        in let (e1, ns1) = inline m ns0 (cl - 1) h fe
         in (e1, ns1)
       )
     | SOME (cRec e) => (Var a v, ns)) ∧
@@ -140,7 +140,7 @@ Definition inline_def:
           | NONE => (exp, ns1)
           | SOME exp1 =>
             let (fe, ns3) = freshen_cexp exp1 ns1
-            in let (fe1, ns4) = inline m ns3 (cl - 1) h fe (* Decrement clock *)
+            in let (fe1, ns4) = inline m ns3 (cl - 1) h fe
             in (fe1, ns4)
           )
         (* Unused for now? We only insert cExps *)
@@ -194,13 +194,12 @@ Definition inline_def:
      let (es2, ns2) = inline_list m ns1 cl h es
      in (e1::es2, ns2))
 Termination
-  WF_REL_TAC `measure $ λx. case x of
-    | INL (m, ns, cl, h, e) => cexp_size (K 0) e
-    | INR (m, ns, cl, h, es) => list_size (cexp_size (K 0)) es`
+  WF_REL_TAC `inv_image ($< LEX $<) $ λx. case x of
+    | INL (m, ns, cl, h, e) => (cl, cexp_size (K 0) e)
+    | INR (m, ns, cl, h, es) => (cl, list_size (cexp_size (K 0)) es)`
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
-  \\ cheat
 End
 
 Definition inline_old_def:
