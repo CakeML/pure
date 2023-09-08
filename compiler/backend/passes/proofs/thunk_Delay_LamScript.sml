@@ -80,10 +80,6 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ⇒
        exp_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
@@ -135,18 +131,14 @@ Inductive exp_rel:
      i < LENGTH vL ∧ SND (EL i f) = Delay (Lam s ef) ∧ EL i bL ⇒
      v_rel (Closure s (subst (FILTER (λ(v,e). v≠s) (MAP (λ(v,x).(v, Recclosure f v)) f)) ef))
            (Recclosure (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) (EL i vL))) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-     v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
-[v_rel_Thunk_INR_Lam:]
+     v_rel (Thunk x) (Thunk y)) ∧
+[v_rel_Thunk_Lam:]
   (∀x y s.
      exp_rel x y ⇒
-     v_rel (Thunk (INR (Lam s x))) (Thunk (INR (Value (Closure s y))))) ∧
+     v_rel (Thunk (Lam s x)) (Thunk (Value (Closure s y)))) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -170,7 +162,6 @@ Theorem exp_rel_def =
    “exp_rel (Let s x y) z”,
    “exp_rel (If x y z) w”,
    “exp_rel (Delay x) y”,
-   “exp_rel (Box x) y”,
    “exp_rel (MkTick x) y”,
    “exp_rel (Force x) y”,
    “exp_rel (Monad m xs) x”]
@@ -541,7 +532,6 @@ Proof
   >- first_x_assum $ drule_then irule
   >- first_x_assum $ drule_then irule
   >- first_x_assum $ drule_then irule
-  >- first_x_assum $ drule_then irule
 QED
 
 Theorem subst_Letrec_Delay:
@@ -765,9 +755,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [exp_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Force])
@@ -1108,10 +1095,6 @@ Proof
   >- (gvs [exp_rel_def, subst_def] >>
       last_x_assum $ irule >>
       gvs [freevars_def, boundvars_def])
-  >~[‘Box x’]
-  >- (gvs [exp_rel_def, subst_def] >>
-      last_x_assum $ irule >>
-      gvs [freevars_def, boundvars_def])
   >~[‘Force x’]
   >- (gvs [exp_rel_def, subst_def] >>
       last_x_assum $ irule >>
@@ -1435,11 +1418,11 @@ Proof
       \\ Cases_on ‘x1’ \\ fs [is_Lam_def, Once exp_rel_def, eval_to_def, subst_def, PULL_EXISTS]
       \\ Q.REFINE_EXISTS_TAC ‘j + n’
       \\ qexists_tac ‘1’ \\ gvs [subst1_notin_frees]
-      \\ rename1 ‘_ (eval_to _ (subst1 m (Thunk (INR (Lam s x1))) y1))
-                  (eval_to _ (subst1 _ (Thunk (INR (Value (Closure s x2)))) y2))’
-      \\ ‘exp_rel (subst1 m (Thunk (INR (Lam s x1))) y1)
-                  (subst1 m (Thunk (INR (Value (Closure s x2)))) y2)’
-        by (irule exp_rel_subst \\ gs [v_rel_Thunk_INR_Lam])
+      \\ rename1 ‘_ (eval_to _ (subst1 m (Thunk (Lam s x1)) y1))
+                  (eval_to _ (subst1 _ (Thunk (Value (Closure s x2))) y2))’
+      \\ ‘exp_rel (subst1 m (Thunk (Lam s x1)) y1)
+                  (subst1 m (Thunk (Value (Closure s x2))) y2)’
+        by (irule exp_rel_subst \\ gs [v_rel_Thunk_Lam])
       \\ last_x_assum $ dxrule_then $ qx_choose_then ‘j1’ assume_tac
       \\ qexists_tac ‘j1’ \\ gvs [])
     \\ IF_CASES_TAC \\ gs []
@@ -1557,16 +1540,6 @@ Proof
     \\ pairarg_tac \\ gvs [])
  >~ [‘Delay x’] >- (
     gvs [Once exp_rel_def, eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    gvs [Once exp_rel_def, eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ ‘∃j. ($= +++ v_rel) (eval_to k x) (eval_to (j + k) y)’
-      suffices_by (
-        disch_then (qx_choose_then ‘j’ assume_tac)
-        \\ qexists_tac ‘j’
-        \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to (j + k) y’ \\ gs []
-        \\ simp [v_rel_def])
-    \\ first_x_assum (irule_at Any) \\ gs [])
   >~ [‘Force x’] >- (
     rgs [Once exp_rel_def]
     \\ once_rewrite_tac [eval_to_def] \\ simp []
@@ -1625,8 +1598,8 @@ Proof
             \\ Cases_on ‘EL n2 xs’ \\ gvs []
             \\ rename1 ‘EL n _’ \\ Cases_on ‘SND (EL n xs)’ \\ gvs [exp_rel_def]))
       \\ pairarg_tac \\ gvs []
-      \\ Cases_on ‘∃s x y. v1 = Thunk (INR (Lam s x)) ∧
-                           w1 = Thunk (INR (Value (Closure s y))) ∧ exp_rel x y’
+      \\ Cases_on ‘∃s x y. v1 = Thunk (Lam s x) ∧
+                           w1 = Thunk (Value (Closure s y)) ∧ exp_rel x y’
       \\ gs []
       >- (gvs [dest_anyThunk_def, subst_funs_def, subst_empty]
           \\ qexists_tac ‘j’ \\ gs []
@@ -1760,13 +1733,6 @@ Proof
             by (gen_tac \\ irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
           \\ gvs [OPTREL_def]
-          \\ CASE_TAC
-          >- (qexists_tac ‘j’
-              \\ gvs [dest_anyThunk_def]
-              \\ rename1 ‘ALOOKUP _ n’ \\ first_x_assum $ qspecl_then [‘n’] assume_tac
-              \\ gvs []
-              \\ rename1 ‘exp_rel x0 _’
-              \\ Cases_on ‘x0’ \\ gvs [exp_rel_def])
           \\ rename1 ‘subst_funs binds y1’
           \\ Cases_on ‘eval_to (k - 1) (subst_funs binds y1) = INL Diverge’ \\ gs []
           >- (qexists_tac ‘0’
@@ -1830,8 +1796,9 @@ Proof
             by (irule eval_to_mono \\ gvs []
                 \\ strip_tac \\ Cases_on ‘eval_to (k - 1) (subst_funs binds y1)’ \\ gs [])
           \\ gvs [])
+      \\ rename1 ‘dest_anyThunk v1 = INR (wx, binds)’
       \\ ‘∃wx' binds'. dest_anyThunk w1 = INR (wx', binds') ∧
-                       (v_rel +++ exp_rel) wx wx' ∧
+                       exp_rel wx wx' ∧
                        MAP FST binds = MAP FST binds' ∧
                        EVERY ok_bind (MAP SND binds) ∧
                        EVERY ok_bind (MAP SND binds') ∧
@@ -1851,12 +1818,6 @@ Proof
             \\ gvs [EVERY_EL, EL_MAP]
             \\ first_x_assum (drule_then assume_tac)
             \\ gvs [ok_bind_def])
-      \\ CASE_TAC \\ gs []
-      >- (
-        qexists_tac ‘j’ \\ simp []
-        \\ CASE_TAC \\ gs []
-        \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [dest_anyThunk_def])
-      \\ Cases_on ‘wx'’ \\ gs []
       \\ rename1 ‘exp_rel x1 x2’
       \\ ‘exp_rel (subst_funs binds x1) (subst_funs binds' x2)’
         by (simp [subst_funs_def]

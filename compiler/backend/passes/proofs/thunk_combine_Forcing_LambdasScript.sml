@@ -183,10 +183,6 @@ Inductive combine_rel:
   (∀x y.
      combine_rel x y ⇒
        combine_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     combine_rel x y ⇒
-       combine_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      combine_rel x y ⇒
@@ -468,14 +464,10 @@ Inductive combine_rel:
                                                        (MAP2 (λb e. if b then Force e else e) bL2
                                                         (MAP Var vL1))))))
                        g)) n)) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      combine_rel x y ⇒
-     v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+     v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -496,7 +488,6 @@ Theorem combine_rel_def =
    “combine_rel (Let s x y) z”,
    “combine_rel (If x y z) w”,
    “combine_rel (Delay x) y”,
-   “combine_rel (Box x) y”,
    “combine_rel (MkTick x) y”,
    “combine_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once combine_rel_cases])
@@ -1175,9 +1166,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [combine_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [combine_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
     \\ gs [combine_rel_Force])
@@ -1529,15 +1517,6 @@ Proof
     \\ gvs [eval_to_def, v_rel_Closure])
   >~ [‘Delay x’] >- (
     gvs [Once combine_rel_def, eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    gvs [Once combine_rel_def, eval_to_def]
-    \\ rename1 ‘combine_rel x y’
-    \\ first_x_assum $ qspecl_then [‘x’, ‘y’] mp_tac \\ gs []
-    \\ impl_tac >- (strip_tac \\ gvs [])
-    \\ disch_then $ qx_choose_then ‘j’ assume_tac
-    \\ qexists_tac ‘j’
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to (j + k) y’ \\ gs []
-    \\ simp [v_rel_def])
   >~ [`Monad mop xs`]
   >- (
     gvs[Once combine_rel_def, eval_to_def] >> rw[Once v_rel_def, SF SFY_ss]

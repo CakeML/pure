@@ -19,13 +19,13 @@ val _ = new_theory "thunk_case_projProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-   "quotient_sum", "quotient_pair", "thunkLangProps", "thunk_semantics" ];
+  "thunkLangProps", "thunk_semantics" ];
 
 val _ = numLib.prefer_num ();
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧
@@ -56,7 +56,7 @@ Inductive exp_rel:
   (∀xs s i.
      i < LENGTH xs ∧
      v_rel (EL i xs) v ⇒
-       v_rel (Thunk (INR (Force (Proj s i (Value (Constructor s xs))))))
+       v_rel (Thunk (Force (Proj s i (Value (Constructor s xs)))))
              (DoTick v)) ∧
 (* Boilerplate: *)
 [exp_rel_App:]
@@ -107,10 +107,6 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ⇒
        exp_rel (Delay x) (Delay y)) ∧
-[exp_rel_Box:]
-  (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
 [exp_rel_Force:]
   (∀x y.
      exp_rel x y ⇒
@@ -131,7 +127,7 @@ Inductive exp_rel:
      v_rel (Atom x) (Atom x)) ∧
 [v_rel_Constructor:]
   (∀vs ws.
-     LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk (INR x)) vs ws ⇒
+     LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk x) vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
 [v_rel_Monadic:]
   (∀mop xs ys.
@@ -154,15 +150,11 @@ Inductive exp_rel:
                  exp_rel x y ∧
                  ok_binder x) f g ⇒
        v_rel (Recclosure f n) (Recclosure g n)) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel x y ∧
      closed x ⇒
-       v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w)))
+       v_rel (Thunk x) (Thunk y))
 End
 
 Theorem v_rel_cases[local] = CONJUNCT2 exp_rel_cases;
@@ -180,10 +172,8 @@ Theorem v_rel_def[simp] =
     “v_rel z (DoTick x)”,
     “v_rel (Atom s) z”,
     “v_rel z (Atom s)”,
-    “v_rel (Thunk (INL s)) z”,
-    “v_rel z (Thunk (INL s))”,
-    “v_rel (Thunk (INR s)) z”,
-    “v_rel z (Thunk (INR s))” ]
+    “v_rel (Thunk s) z”,
+    “v_rel z (Thunk s)” ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
 
@@ -344,10 +334,6 @@ Proof
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
     \\ irule exp_rel_Delay \\ gs [])
-  >- ((* Box *)
-    rw [Once exp_rel_cases]
-    \\ simp [subst_def]
-    \\ irule exp_rel_Box \\ gs [])
   >- ((* Force *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -502,7 +488,7 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH
     >- ((* Cons *)
       first_x_assum (qspec_then ‘k’ assume_tac)
-      \\ ‘($= +++ LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk (INR x)))
+      \\ ‘($= +++ LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk x))
                            (result_map (eval_to k) xs)
                            (result_map (eval_to k) ys)’
         suffices_by (
@@ -604,7 +590,6 @@ Proof
     >~ [‘dest_Tick w = SOME u’] >- (
       Cases_on ‘v’ \\ gvs []
       \\ simp [dest_anyThunk_def, subst_funs_def]
-      \\ CASE_TAC \\ gvs []
       \\ ‘($= +++ v_rel)
             (eval_to (k - 1) (Force (Value (EL i xs))))
             (eval_to (k - 1) (Force (Value u)))’
@@ -639,19 +624,10 @@ Proof
       \\ first_x_assum (drule_then assume_tac)
       \\ gs [freevars_def])
         (* Thunk *)
-    \\ CASE_TAC \\ gs []
     \\ simp [subst_funs_def]
     \\ first_x_assum irule
     \\ simp [eval_to_wo_def])
   >~ [‘MkTick x’] >- (
-    strip_tac
-    \\ rw [Once exp_rel_cases]
-    \\ simp [eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ ‘($= +++ v_rel) (eval_to k x) (eval_to k y)’
-      by (first_x_assum irule \\ simp [eval_to_wo_def, exp_size_def])
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs [])
-  >~ [‘Box x’] >- (
     strip_tac
     \\ rw [Once exp_rel_cases]
     \\ simp [eval_to_def]
@@ -759,8 +735,6 @@ Proof
   rw [rel_ok_def]
   >- ((* ∀x. f x ≠ Err from rel_ok prevents this case *)
     simp [case_proj_apply_closure])
-  >- ((* Thunks go to Thunks or DoTicks *)
-    Cases_on ‘s’ \\ gs [])
   >- ( (* LIST_REL stuff *)
     gvs[LIST_REL_EL_EQN]
     )
@@ -855,10 +829,6 @@ Inductive compile_rel:
   (∀x y.
      compile_rel x y ⇒
        compile_rel (Delay x) (Delay y)) ∧
-[compile_rel_Box:]
-  (∀x y.
-     compile_rel x y ⇒
-       compile_rel (Box x) (Box y)) ∧
 [compile_rel_Force:]
   (∀x y.
      compile_rel x y ⇒
@@ -913,11 +883,6 @@ Proof
    (irule_at Any exp_rel_If
     \\ irule_at Any thunk_tickProofTheory.exp_rel_If
     \\ irule_at Any thunk_untickProofTheory.exp_rel_If \\ fs []
-    \\ rpt $ first_assum $ irule_at $ Pos hd)
-  >~ [‘Box’] >-
-   (irule_at Any exp_rel_Box
-    \\ irule_at Any thunk_tickProofTheory.exp_rel_Box
-    \\ irule_at Any thunk_untickProofTheory.exp_rel_Box \\ fs []
     \\ rpt $ first_assum $ irule_at $ Pos hd)
   >~ [‘Force’] >-
    (irule_at Any exp_rel_Force

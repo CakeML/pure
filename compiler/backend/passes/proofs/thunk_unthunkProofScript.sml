@@ -13,12 +13,11 @@ open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
 val _ = new_theory "thunk_unthunkProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "quotient_sum", "thunk_semantics",
-                              "thunkLangProps"];
+                              "thunkLang", "thunk_semantics", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
 (* --------------------------
    exp_inv:
@@ -107,7 +106,7 @@ Inductive exp_inv:
 [v_inv_Thunk:]
   (∀x.
      exp_inv x ⇒
-       v_inv (Thunk (INR x))) ∧
+       v_inv (Thunk x)) ∧
 [v_inv_DoTick:]
   (∀v.
      v_inv v ⇒
@@ -119,8 +118,6 @@ Theorem exp_inv_def:
      exp_inv (Var v) = T) ∧
   (∀v.
      exp_inv (Value v) = v_inv v) ∧
-  (∀x.
-     exp_inv (Box x) = F) ∧
   (∀f x.
      exp_inv (App f x) =
        (∃y. x = Delay y ∧
@@ -170,8 +167,7 @@ Theorem v_inv_def[simp]:
   (∀s x. v_inv (Closure s x) = exp_inv x) ∧
   (∀f n. v_inv (Recclosure f n) =
            EVERY (λv. ∃x. v = Delay x ∧ exp_inv x) (MAP SND f)) ∧
-  (∀v. v_inv (Thunk (INL v)) = F) ∧
-  (∀x. v_inv (Thunk (INR x)) = exp_inv x) ∧
+  (∀x. v_inv (Thunk x) = exp_inv x) ∧
   (∀v. v_inv (DoTick v) = v_inv v) ∧
   (∀x. v_inv (Atom x) = T)
 Proof
@@ -278,11 +274,11 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ∧
      closed x ⇒
-       v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+       v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Thunk_Changed:]
   (∀v w.
      v_rel v w ⇒
-       v_rel (Thunk (INR (Force (Value v)))) (DoTick w)) ∧
+       v_rel (Thunk (Force (Value v))) (DoTick w)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x))
@@ -321,11 +317,11 @@ QED
 
 Theorem v_rel_Thunk_def:
   v_rel (Thunk x) z =
-    ((∃y w. z = Thunk (INR y) ∧
-            x = INR w ∧
+    ((∃y w. z = Thunk y ∧
+            x = w ∧
             exp_rel w y ∧
             closed w) ∨
-     (∃v y. x = INR (Force (Value v)) ∧
+     (∃v y. x = Force (Value v) ∧
             z = DoTick y ∧
             v_rel v y))
 Proof
@@ -348,7 +344,7 @@ QED
 Theorem v_rel_rev[simp]:
   (∀w.
      v_rel v (DoTick w) =
-       (∃x. v = Thunk (INR (Force (Value x))) ∧
+       (∃x. v = Thunk (Force (Value x)) ∧
             v_rel x w)) ∧
   (∀s y.
      v_rel v (Closure s y) =
@@ -376,8 +372,8 @@ Theorem v_rel_rev[simp]:
   (∀v s.
      v_rel v (Thunk s) =
       (∃x y.
-         v = Thunk (INR x) ∧
-         s = INR y ∧
+         v = Thunk x ∧
+         s = y ∧
          exp_rel x y ∧
          closed x)) ∧
   (∀v a.
@@ -547,8 +543,6 @@ Proof
           \\ rpt (pop_assum kall_tac)
           \\ qid_spec_tac ‘ws’ \\ Induct_on ‘vs’ \\ Cases_on ‘ws’ \\ simp [])
     \\ gvs [Abbr ‘R’, OPTREL_def, exp_rel_Delay_Force_Var, exp_rel_Value])
-  >- ((* Box *)
-    rw [Once exp_rel_cases])
   >- ((* Force *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -737,8 +731,6 @@ Proof
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ rgs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
-  >- ((* Box *)
-    rw [Once exp_rel_cases])
   >- ((* Force *)
     rw [Once exp_rel_cases]
     \\ CONV_TAC (PATH_CONV "lr" (SIMP_CONV (srw_ss()) [Once eval_to_def]))

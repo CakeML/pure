@@ -87,10 +87,6 @@ Inductive clean_rel:
   (∀x y.
      clean_rel x y ⇒
        clean_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     clean_rel x y ⇒
-       clean_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      clean_rel x y ⇒
@@ -127,14 +123,10 @@ Inductive clean_rel:
      LIST_REL clean_rel (MAP SND f) (MAP SND g) ∧
      EVERY (λe. v ∉ freevars e) (MAP SND f) ⇒
      v_rel (Recclosure (SNOC (v,w) f) n) (Recclosure g n)) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      clean_rel x y ⇒
-     v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+     v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -155,7 +147,6 @@ Theorem clean_rel_def =
    “clean_rel (Let s x y) z”,
    “clean_rel (If x y z) w”,
    “clean_rel (Delay x) y”,
-   “clean_rel (Box x) y”,
    “clean_rel (MkTick x) y”,
    “clean_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once clean_rel_cases])
@@ -286,7 +277,6 @@ Proof
   >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
   >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
   >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
 QED
 
 Theorem exp1_size_append:
@@ -380,8 +370,6 @@ Proof
       \\ rpt $ first_x_assum $ irule_at Any)
   >- (disj2_tac
       \\ last_x_assum irule \\ simp []
-      \\ rpt $ first_x_assum $ irule_at Any)
-  >- (last_x_assum irule \\ simp []
       \\ rpt $ first_x_assum $ irule_at Any)
   >- (last_x_assum irule \\ simp []
       \\ rpt $ first_x_assum $ irule_at Any)
@@ -536,9 +524,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [clean_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [clean_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
     \\ gs [clean_rel_Force])
@@ -1051,13 +1036,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [Once clean_rel_cases] \\ gs []
     \\ simp [eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    rw [clean_rel_def] \\ gs []
-    \\ simp [eval_to_def]
-    \\ rename1 ‘clean_rel x y’
-    \\ first_x_assum $ drule_then $ qx_choose_then ‘j’ assume_tac
-    \\ qexists_tac ‘j’
-    \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to (k + j) x’ \\ gs [v_rel_def])
   >~ [‘MkTick x’] >- (
     rw [clean_rel_def] \\ gs [eval_to_def]
     \\ first_x_assum $ dxrule_then $ qx_choose_then ‘j’ assume_tac

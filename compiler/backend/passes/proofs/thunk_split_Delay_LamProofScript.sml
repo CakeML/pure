@@ -112,14 +112,6 @@ Proof
   Induct \\ gvs [replace_Force_def]
 QED
 
-Theorem FOLDL_replace_Force_Box:
-  ∀map_l map x.
-    FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) (Box x) map_l
-    = Box (FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) x map_l)
-Proof
-  Induct \\ gvs [replace_Force_def]
-QED
-
 Theorem FOLDL_replace_Force_If:
   ∀map_l map x y z.
     FOLDL (λe v. replace_Force (Var (explode (to_fmap map ' v))) (explode v) e) (If x y z) map_l
@@ -1493,12 +1485,6 @@ Proof
       \\ pop_assum $ dxrule_then assume_tac \\ gs []
       \\ metis_tac [SUBSET_TRANS])
   >~[‘Delay e’]
-  >- (rpt $ gen_tac \\ strip_tac
-      \\ last_x_assum irule
-      \\ pairarg_tac \\ gs []
-      \\ first_x_assum $ irule_at Any
-      \\ simp [cexp_size_def])
-  >~[‘Box e’]
   >- (rpt $ gen_tac \\ strip_tac
       \\ last_x_assum irule
       \\ pairarg_tac \\ gs []
@@ -3565,16 +3551,6 @@ Proof
       \\ last_x_assum $ qspec_then ‘e’ assume_tac \\ fs [cexp_size_def]
       \\ pop_assum $ drule_all_then $ qx_choose_then ‘e_mid’ assume_tac
       \\ gvs [exp_of_def, FOLDL_replace_Force_Delay, exp_rel1_def, exp_rel2_def,
-              freevars_def, boundvars_def, cexp_wf_def, PULL_EXISTS, cns_arities_def]
-      \\ metis_tac [])
-  >~[‘Box _’]
-
-  >- (rename1 ‘split_Delayed_Lam e _ _’
-      \\ rpt $ gen_tac \\ pairarg_tac
-      \\ gvs [PULL_FORALL] \\ strip_tac
-      \\ last_x_assum $ qspec_then ‘e’ assume_tac \\ fs [cexp_size_def]
-      \\ pop_assum $ drule_all_then $ qx_choose_then ‘e_mid’ assume_tac
-      \\ gvs [exp_of_def, FOLDL_replace_Force_Box, exp_rel1_def, exp_rel2_def,
               freevars_def, boundvars_def, cexp_wf_def, PULL_EXISTS, cns_arities_def]
       \\ metis_tac [])
   >~[‘Force (exp_of e)’]

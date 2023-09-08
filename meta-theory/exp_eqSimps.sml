@@ -19,19 +19,19 @@ val impi = REWRITE_RULE [GSYM AND_IMP_INTRO]
 
 val PAIR_REL_REFL' = Q.prove(
   ‘(∀x. R1 x x) ∧ (∀y. R2 y y) ⇒ ∀p. (R1 ### R2) p p’,
-  rpt strip_tac >> Cases_on ‘p’ >> simp[quotient_pairTheory.PAIR_REL]);
+  rpt strip_tac >> Cases_on ‘p’ >> simp[pairTheory.PAIR_REL]);
 
 val PAIR_REL_TRANS' = Q.prove(
   ‘(∀x y z. R1 x y ∧ R1 y z ⇒ R1 x z) ∧ (∀a b c. R2 a b ∧ R2 b c ⇒ R2 a c) ⇒
    ∀p1 p2 p3. (R1 ### R2) p1 p2 ∧ (R1 ### R2) p2 p3 ⇒ (R1 ### R2) p1 p3’,
   rpt strip_tac >> map_every Cases_on [‘p1’, ‘p2’, ‘p3’] >>
-  gs[quotient_pairTheory.PAIR_REL] >> metis_tac[]);
+  gs[pairTheory.PAIR_REL] >> metis_tac[]);
 
 val PAIR_REL_SYM' = Q.prove(
   ‘(∀x y. R1 x y ⇒ R1 y x) ∧ (∀a b. R2 a b ⇒ R2 b a) ⇒
    ∀p1 p2. (R1 ### R2) p1 p2 ⇒ (R1 ### R2) p2 p1’,
   rpt strip_tac >> map_every Cases_on [‘p1’, ‘p2’] >>
-  gs[quotient_pairTheory.PAIR_REL]);
+  gs[pairTheory.PAIR_REL]);
 
 
 val EXPEQ_ss = let
@@ -74,7 +74,7 @@ val lrintro_cong = Q.prove(
 val lr_cons_cong = Q.prove(
   ‘k1 = k2 ⇒ x ≅ y ⇒ lrt xs ys ⇒ lrt ((k1,x)::xs) ((k2,y)::ys)’,
   rpt strip_tac >>
-  simp[listTheory.LIST_REL_CONS1, quotient_pairTheory.PAIR_REL]);
+  simp[listTheory.LIST_REL_CONS1, pairTheory.PAIR_REL]);
 
 val LREXPEQ_ss = let
   val rsd = {refl = lreq_refl, trans = lreq_trans,

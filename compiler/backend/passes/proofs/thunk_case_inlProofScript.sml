@@ -18,17 +18,16 @@ val _ = new_theory "thunk_case_inlProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-   "quotient_sum", "quotient_pair", "thunk_semantics", "thunkLangProps" ];
+  "thunk_semantics", "thunkLangProps" ];
 
 val _ = numLib.prefer_num ();
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Definition ok_binder_def[simp]:
   ok_binder (Lam s x) = T ∧
-  ok_binder (Box x) = T ∧
   ok_binder (Delay x) = T ∧
   ok_binder _ = F
 End
@@ -38,11 +37,11 @@ Inductive exp_rel:
 [exp_rel_Inline:]
   (∀m v.
      v ∈ m ⇒
-       exp_rel m (Var v) (Box (Var v))) ∧
+       exp_rel m (Var v) (Delay (Var v))) ∧
 [exp_rel_Inline_Value:]
   (∀m v w.
      v_rel v w ⇒
-       exp_rel m (Value (Thunk (INL v))) (Box (Value w))) ∧
+       exp_rel m (Value (Thunk (Value v))) (Delay (Value w))) ∧
 [exp_rel_NoInline:]
   (∀m v.
      v ∉ m ⇒
@@ -51,13 +50,13 @@ Inductive exp_rel:
   (∀m v w y1 y2.
      exp_rel (v INSERT m) y1 y2 ∧
      w ∉ m ⇒
-       exp_rel m (Let (SOME v) (Box (Var w)) y1)
+       exp_rel m (Let (SOME v) (Delay (Var w)) y1)
                      (Let (SOME v) (Var w) y2)) ∧
 [exp_rel_Bind_Value:]
   (∀m v x1 x2 y1 y2.
      exp_rel (v INSERT m) y1 y2 ∧
      v_rel x1 x2 ⇒
-       exp_rel m (Let (SOME v) (Box (Value x1)) y1)
+       exp_rel m (Let (SOME v) (Delay (Value x1)) y1)
                      (Let (SOME v) (Value x2) y2)) ∧
 (* Boilerplate: *)
 [exp_rel_App:]
@@ -101,10 +100,6 @@ Inductive exp_rel:
   (∀m x y.
      exp_rel m x y ⇒
        exp_rel m (Delay x) (Delay y)) ∧
-[exp_rel_Box:]
-  (∀m x y.
-     exp_rel m x y ⇒
-       exp_rel m (Box x) (Box y)) ∧
 [exp_rel_Force:]
   (∀m x y.
      exp_rel m x y ⇒
@@ -145,15 +140,11 @@ Inductive exp_rel:
                  ok_binder x ∧
                  exp_rel EMPTY x y) f g ⇒
        v_rel (Recclosure f n) (Recclosure g n)) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel EMPTY x y ∧
      closed x ⇒
-       v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w)))
+       v_rel (Thunk x) (Thunk y))
 End
 
 Theorem v_rel_cases[local] = CONJUNCT2 exp_rel_cases;
@@ -169,10 +160,8 @@ Theorem v_rel_def[simp] =
     “v_rel z (Monadic mop ys)”,
     “v_rel (Atom s) z”,
     “v_rel z (Atom s)”,
-    “v_rel (Thunk (INL s)) z”,
-    “v_rel z (Thunk (INL s))”,
-    “v_rel (Thunk (INR s)) z”,
-    “v_rel z (Thunk (INR s))” ]
+    “v_rel (Thunk s) z”,
+    “v_rel z (Thunk s)” ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
 
@@ -282,9 +271,6 @@ Proof
   >- ((* Delay *)
     gs [freevars_def]
     \\ irule exp_rel_Delay \\ gs [])
-  >- ((* Box *)
-    gs [freevars_def]
-    \\ irule exp_rel_Box \\ gs [])
   >- ((* Force *)
     gs [freevars_def]
     \\ irule exp_rel_Force \\ gs [])
@@ -306,7 +292,7 @@ Theorem exp_rel_subst:
   ∀vs x ws y m.
     MAP FST vs = MAP FST ws ∧
     LIST_REL (λ(f,v) (g,w).
-      (f ∈ m ⇒ v_rel v (Thunk (INL w))) ∧
+      (* (f ∈ m ⇒ v_rel v (Thunk (INL w))) ∧ *)
       (f ∉ m ⇒ v_rel v w)) vs ws ∧
     exp_rel m x y ⇒
       exp_rel m (subst vs x) (subst ws y)
@@ -463,11 +449,6 @@ Proof
     \\ irule exp_rel_Delay
     \\ first_x_assum irule \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
-  >- ((* Box *)
-    rw [Once exp_rel_cases] \\ gs []
-    \\ simp [subst_def]
-    \\ irule exp_rel_Box
-    \\ first_x_assum irule \\ gs [])
   >- ((* Force *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -684,13 +665,6 @@ Proof
     \\ irule exp_rel_freevars
     \\ first_assum (irule_at Any)
     \\ gs [closed_def])
-  >~ [‘Box x’] >- (
-    strip_tac
-    \\ rw [Once exp_rel_cases] \\ gs []
-    \\ simp [eval_to_def]
-    \\ rename1 ‘exp_rel m x y’
-    \\ first_x_assum (drule_then assume_tac)
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k y’ \\ gs [])
   >~ [‘MkTick x’] >- (
     strip_tac
     \\ rw [Once exp_rel_cases] \\ gs []
@@ -909,4 +883,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

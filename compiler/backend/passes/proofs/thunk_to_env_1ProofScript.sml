@@ -79,10 +79,6 @@ Inductive exp_rel:
   (∀env x y.
      exp_rel env x y ⇒
        exp_rel env (Delay x) (Delay y)) ∧
-[exp_rel_Box:]
-  (∀env x y.
-     exp_rel env x y ⇒
-       exp_rel env (Box x) (Box y)) ∧
 [exp_rel_Force:]
   (∀env x y.
      exp_rel env x y ⇒
@@ -105,14 +101,10 @@ Inductive exp_rel:
                  exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c)
               (REVERSE f) g ⇒
        v_rel (Recclosure f n) (Recclosure g env n)) ∧
-[v_rel_Thunk_v:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_exp:]
+[v_rel_Thunk:]
   (∀env x y.
      exp_rel env x y ⇒
-       v_rel (Thunk (INR x)) (Thunk (INR (env, y)))) ∧
+       v_rel (Thunk x) (Thunk (INR (env, y)))) ∧
 [v_rel_Atom:]
   (∀l.
      v_rel (Atom l) (Atom l))
@@ -132,7 +124,6 @@ Theorem exp_rel_def =
     “exp_rel env (If x y z) w”,
     “exp_rel env (Letrec f x) y”,
     “exp_rel env (Delay x) y”,
-    “exp_rel env (Box x) y”,
     “exp_rel env (Force x) y” ]
   |> map (SIMP_CONV (srw_ss ()) [Once exp_rel_cases])
   |> LIST_CONJ;
@@ -148,9 +139,8 @@ Theorem v_rel_def =
     “v_rel z (Monadix env mop ys)”,
     “v_rel (Atom s) z”,
     “v_rel z (Atom s)”,
-    “v_rel (Thunk (INL s)) z”,
     “v_rel z (Thunk (INL s))”,
-    “v_rel (Thunk (INR s)) z”,
+    “v_rel (Thunk s) z”,
     “v_rel z (Thunk (INR (env, s)))” ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
@@ -282,17 +272,15 @@ Proof
     \\ gvs [ELIM_UNCURRY, env_rel_def, LIST_REL_EL_EQN])
   >~ [‘Delay x’] >- (
     rw [subst_def, exp_rel_def])
-  >~ [‘Box x’] >- (
-    rw [subst_def, exp_rel_def])
   >~ [‘Force x’] >- (
     rw [subst_def, exp_rel_def])
   >~ [`Monad mop xs`]
   >- (rw[subst_def, exp_rel_def] >> gvs[LIST_REL_EL_EQN, EL_MAP])
 QED
 
-Theorem SUM_REL_def[local,simp] = quotient_sumTheory.SUM_REL_def;
+Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
-Theorem PAIR_REL_def[local,simp] = quotient_pairTheory.PAIR_REL;
+Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
 Theorem eval_to_exp_rel:
   ∀k x env y.
@@ -388,11 +376,6 @@ Proof
             v_rel_def])
   >~ [‘Delay x’] >- (
     gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    gvs [exp_rel_def, eval_to_def, envLangTheory.eval_to_def, v_rel_def]
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ rename1 ‘exp_rel _ x y’
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to k env y’ \\ gs [v_rel_def])
   >~ [‘Force x’] >- (
     gvs [exp_rel_def]
     \\ rename1 ‘exp_rel _ x y’
@@ -424,7 +407,6 @@ Proof
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
       \\ gvs [env_rel_def, LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, EL_REVERSE,
               Abbr ‘xs’, v_rel_def])
-    \\ CASE_TAC \\ gvs [v_rel_def]
     \\ first_x_assum irule
     \\ simp [subst_funs_def])
   >~ [‘MkTick x’] >- (

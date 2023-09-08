@@ -5,12 +5,11 @@
    thunkLang is the next language in the compiler after pureLang.
    - It has a call-by-value semantics.
    - It extends the pureLang syntax with explicit syntax for delaying and
-     forcing computations (“Delay” and “Force”) and “Thunk” values. Non-
-     suspended thunks can be created with “Box”.
+     forcing computations (“Delay” and “Force”) and “Thunk” values.
    - Suspended computations can be wrapped in “MkTick” to cause the suspended
      evaluation to consume one extra clock tick by producing a value wrapped in
      “DoTick”.
-   - Any expression bound by a Letrec must be one of “Lam”, “Delay” or “Box”.
+   - Any expression bound by a Letrec must be one of “Lam”, “Delay”.
    - thunkLang has a substitution-based semantics. See [envLangScript.sml]
      for the next language in the compiler, which has an environment-based
      semantics.
@@ -36,7 +35,6 @@ Datatype:
       | Let (vname option) exp exp               (* non-recursive let       *)
       | If exp exp exp                           (* if-then-else            *)
       | Delay exp                                (* suspend in a Thunk      *)
-      | Box exp                                  (* wrap result in a Thunk  *)
       | Force exp                                (* evaluates a Thunk       *)
       | Value v                                  (* for substitution        *)
       | MkTick exp;                              (* creates a delayed Tick  *)
@@ -45,7 +43,7 @@ Datatype:
     | Monadic mop (exp list)
     | Closure vname exp
     | Recclosure ((vname # exp) list) vname
-    | Thunk (v + exp)
+    | Thunk exp
     | Atom lit
     | DoTick v                                   (* extra clock when forced *)
 End
@@ -83,7 +81,6 @@ Definition subst_def:
     (let m1 = FILTER (λ(n, v). ¬MEM n (MAP FST f)) m in
        Letrec (MAP (λ(n, x). (n, subst m1 x)) f) (subst m1 x)) ∧
   subst m (Delay x) = Delay (subst m x) ∧
-  subst m (Box x) = Box (subst m x) ∧
   subst m (Force x) = Force (subst m x) ∧
   subst m (Value v) = Value v ∧
   subst m (MkTick x) = MkTick (subst m x)
@@ -124,7 +121,6 @@ Theorem subst1_def:
      else
        Letrec (MAP (λ(f, x). (f, subst1 n v x)) f) (subst1 n v x)) ∧
   subst1 n v (Delay x) = Delay (subst1 n v x) ∧
-  subst1 n v (Box x) = Box (subst1 n v x) ∧
   subst1 n v (Force x) = Force (subst1 n v x) ∧
   subst1 n v (Value w) = Value w ∧
   subst1 n v (MkTick x) = MkTick (subst1 n v x)
@@ -179,7 +175,7 @@ Definition dest_anyThunk_def:
     do
       (f, n) <- dest_Recclosure v;
       case ALOOKUP (REVERSE f) n of
-        SOME (Delay x) => return (INR x, f)
+        SOME (Delay x) => return (x, f)
       | _ => fail Type_error
     od
 End
@@ -202,7 +198,6 @@ Definition freevars_def:
     ((freevars x ∪ BIGUNION (set (MAP (λ(n, x). freevars x) f))) DIFF
      set (MAP FST f)) ∧
   freevars (Delay x) = freevars x ∧
-  freevars (Box x) = freevars x ∧
   freevars (Force x) = freevars x ∧
   freevars (Value v) = ∅ ∧
   freevars (MkTick x) = freevars x
@@ -227,7 +222,6 @@ Definition boundvars_def:
     ((boundvars x ∪ BIGUNION (set (MAP (λ(n, x). boundvars x) f))) ∪
      set (MAP FST f)) ∧
   boundvars (Delay x) = boundvars x ∧
-  boundvars (Box x) = boundvars x ∧
   boundvars (Force x) = boundvars x ∧
   boundvars (Value v) = ∅ ∧
   boundvars (MkTick x) = boundvars x
@@ -281,12 +275,7 @@ Definition eval_to_def:
   eval_to k (Letrec funs x) =
     (if k = 0 then fail Diverge else
        eval_to (k - 1) (subst_funs funs x)) ∧
-  eval_to k (Delay x) = return (Thunk (INR x)) ∧
-  eval_to k (Box x) =
-    (do
-       v <- eval_to k x;
-       return (Thunk (INL v))
-     od) ∧
+  eval_to k (Delay x) = return (Thunk x) ∧
   eval_to k (Force x) =
     (if k = 0 then fail Diverge else
        do
@@ -294,10 +283,8 @@ Definition eval_to_def:
          case dest_Tick v of
            SOME w => eval_to (k - 1) (Force (Value w))
          | NONE =>
-             do (wx, binds) <- dest_anyThunk v;
-                case wx of
-                  INL v => return v
-                | INR y => eval_to (k - 1) (subst_funs binds y)
+             do (y, binds) <- dest_anyThunk v;
+                eval_to (k - 1) (subst_funs binds y)
              od
        od) ∧
   eval_to k (MkTick x) =
@@ -377,7 +364,6 @@ Theorem eval_to_ind:
     (∀k funs x.
       (k ≠ 0 ⇒ P (k − 1) (subst_funs funs x)) ⇒ P k (Letrec funs x)) ∧
     (∀k x. P k (Delay x)) ∧
-    (∀k x. P k x ⇒ P k (Box x)) ∧
     (∀k x.
       (∀y binds.
          k ≠ 0 ⇒
@@ -476,9 +462,6 @@ Proof
     rw [eval_to_def, subst_funs_def])
   >- ((* Delay *)
     rw [eval_to_def])
-  >- ((* Box *)
-    rw [eval_to_def]
-    \\ Cases_on ‘eval_to k x’ \\ fs [])
   >- ((* Force *)
     rw []
     \\ rgs [Once eval_to_def]
@@ -488,8 +471,8 @@ Proof
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     \\ Cases_on ‘dest_anyThunk y’ \\ gs []
-    \\ pairarg_tac \\ gvs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
+    \\ pairarg_tac \\ gvs [])
+    (* \\ BasicProvers.TOP_CASE_TAC \\ gs []) *)
   >- ((* MkTick *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
@@ -583,11 +566,6 @@ End
 Definition is_Delay_def[simp]:
   (is_Delay (Delay x) = T) ∧
   (is_Delay _ = F)
-End
-
-Definition is_Box_def[simp]:
-  (is_Box (Box x) = T) ∧
-  (is_Box _ = F)
 End
 
 Definition ok_bind_def[simp]:

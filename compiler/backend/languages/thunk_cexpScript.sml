@@ -25,7 +25,6 @@ Datatype:
        | Case name ((name # (name list) # cexp) list)    (* pattern match        *)
                     (((name # num) list # cexp) option)  (* optional fallthrough *)
        | Delay cexp                   (* delay a computation as a thunk          *)
-       | Box cexp                     (* eagerly compute, but wrap as a thunk    *)
        | Force cexp                   (* force a thunk                           *)
 End
 
@@ -60,7 +59,6 @@ Definition cns_arities_def:
       | SOME (a,e) =>
         (set (MAP (λ(cn,ar). explode cn, ar) a) ∪ css_cn_ars) INSERT cns_arities e) ∪
     BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
-  cns_arities (Box e) = cns_arities e ∧
   cns_arities (Delay e) = cns_arities e ∧
   cns_arities (Force e) = cns_arities e
 Termination

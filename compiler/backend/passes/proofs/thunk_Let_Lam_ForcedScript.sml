@@ -126,10 +126,6 @@ Inductive force_arg_rel:
   (∀x y.
      force_arg_rel x y ⇒
        force_arg_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     force_arg_rel x y ⇒
-       force_arg_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      force_arg_rel x y ⇒
@@ -364,14 +360,10 @@ Inductive force_arg_rel:
                           (LUPDATE (v1, Lams (vL1 ++ s::vL2)
                      (Apps (Var v2) (Var s::MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2)))
                            i g)) n)) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      force_arg_rel x y ⇒
-     v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+     v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -392,7 +384,6 @@ Theorem force_arg_rel_def =
    “force_arg_rel (Let s x y) z”,
    “force_arg_rel (If x y z) w”,
    “force_arg_rel (Delay x) y”,
-   “force_arg_rel (Box x) y”,
    “force_arg_rel (MkTick x) y”,
    “force_arg_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once force_arg_rel_cases])
@@ -1001,9 +992,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [force_arg_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [force_arg_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
     \\ gs [force_arg_rel_Force])
@@ -1165,7 +1153,6 @@ Theorem eval_App_div:
                      | SOME (Let v31 v32 v33) => INL Type_error
                      | SOME (If v34 v35 v36) => INL Type_error
                      | SOME (Delay v37) => INL Type_error
-                     | SOME (Box v38) => INL Type_error
                      | SOME (Force v39) => INL Type_error
                      | SOME (Value v40) => INL Type_error
                      | SOME (MkTick v41) => INL Type_error
@@ -1203,7 +1190,6 @@ Theorem eval_App_Tick:
                      | SOME (Let v31 v32 v33) => INL Type_error
                      | SOME (If v34 v35 v36) => INL Type_error
                      | SOME (Delay v37) => INL Type_error
-                     | SOME (Box v38) => INL Type_error
                      | SOME (Force v39) => INL Type_error
                      | SOME (Value v40) => INL Type_error
                      | SOME (MkTick v41) => INL Type_error
@@ -1246,7 +1232,6 @@ Theorem eval_App_Tick2:
                        | SOME (Let v31 v32 v33) => INL Type_error
                        | SOME (If v34 v35 v36) => INL Type_error
                        | SOME (Delay v37) => INL Type_error
-                       | SOME (Box v38) => INL Type_error
                        | SOME (Force v39) => INL Type_error
                        | SOME (Value v40) => INL Type_error
                        | SOME (MkTick v41) => INL Type_error
@@ -1292,7 +1277,6 @@ Theorem eval_App_Tick_Force_Val_Div:
                      | SOME (Let v31 v32 v33) => INL Type_error
                      | SOME (If v34 v35 v36) => INL Type_error
                      | SOME (Delay v37) => INL Type_error
-                     | SOME (Box v38) => INL Type_error
                      | SOME (Force v39) => INL Type_error
                      | SOME (Value v40) => INL Type_error
                      | SOME (MkTick v41) => INL Type_error
@@ -4459,15 +4443,8 @@ Proof
     \\ ‘EL n (MAP FST f) = EL n (MAP FST g)’ by gs [] \\ gvs [EL_MAP]
     \\ irule v_rel_Recclosure
     \\ gvs [LIST_REL_EL_EQN, EL_MAP])
- >~ [‘Delay x’] >- print_tac "Delay" (
+  >~ [‘Delay x’] >- print_tac "Delay" (
     gvs [Once force_arg_rel_def, eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    gvs [Once force_arg_rel_def, eval_to_def]
-    \\ rename1 ‘force_arg_rel x y’
-    \\ first_x_assum $ dxrule_then $ qx_choose_then ‘j’ assume_tac
-    \\ qexists_tac ‘j’
-    \\ Cases_on ‘eval_to k x’ \\ Cases_on ‘eval_to (j + k) y’ \\ gs []
-    \\ simp [v_rel_def])
   >~ [‘Force x’] >- print_tac "Force" (
     rgs [Once force_arg_rel_def]
     \\ once_rewrite_tac [eval_to_def] \\ simp []
@@ -4710,8 +4687,9 @@ Proof
             by (strip_tac \\ Cases_on ‘eval_to (k - 1) (subst_funs binds e)’ \\ gvs [])
           \\ dxrule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono
           \\ gvs [])
+      \\ rename1 ‘dest_anyThunk v1 = INR (wx, binds)’
       \\ ‘∃wx' binds'. dest_anyThunk w1 = INR (wx', binds') ∧
-                       (v_rel +++ force_arg_rel) wx wx' ∧
+                       force_arg_rel wx wx' ∧
                        MAP FST binds = MAP FST binds' ∧
                        EVERY ok_bind (MAP SND binds) ∧
                        EVERY ok_bind (MAP SND binds') ∧
@@ -4719,12 +4697,6 @@ Proof
         by (Cases_on ‘v1’ \\ Cases_on ‘w1’
             \\ gvs [v_rel_def]
             \\ gvs [dest_anyThunk_def, v_rel_def])
-      \\ CASE_TAC \\ gs []
-      >- (
-        qexists_tac ‘j’ \\ simp []
-        \\ CASE_TAC \\ gs []
-        \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gs [dest_anyThunk_def])
-      \\ Cases_on ‘wx'’ \\ gs []
       \\ rename1 ‘force_arg_rel x1 x2’
       \\ ‘force_arg_rel (subst_funs binds x1) (subst_funs binds' x2)’
         by (simp [subst_funs_def]

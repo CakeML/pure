@@ -53,10 +53,6 @@ Inductive force_delay_rel:
   (∀x y.
      force_delay_rel x y ⇒
        force_delay_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     force_delay_rel x y ⇒
-       force_delay_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      force_delay_rel x y ⇒
@@ -80,7 +76,6 @@ Theorem force_delay_rel_def =
    “force_delay_rel (Let s x y) z”,
    “force_delay_rel (If x y z) w”,
    “force_delay_rel (Delay x) y”,
-   “force_delay_rel (Box x) y”,
    “force_delay_rel (MkTick x) y”,
    “force_delay_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once force_delay_rel_cases])
@@ -134,10 +129,6 @@ Inductive exp_rel:
   (∀x y.
      exp_rel x y ⇒
        exp_rel (Delay x) (Delay y)) ∧
-[~Box:]
-  (∀x y.
-     exp_rel x y ⇒
-       exp_rel (Box x) (Box y)) ∧
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
@@ -167,14 +158,10 @@ Inductive exp_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ⇒
      v_rel (Recclosure f n) (Recclosure g n)) ∧
-[v_rel_Thunk_INL:]
-  (∀v w.
-     v_rel v w ⇒
-       v_rel (Thunk (INL v)) (Thunk (INL w))) ∧
-[v_rel_Thunk_INR:]
+[v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-     v_rel (Thunk (INR x)) (Thunk (INR y))) ∧
+     v_rel (Thunk x) (Thunk y)) ∧
 [v_rel_Atom:]
   (∀x.
      v_rel (Atom x) (Atom x)) ∧
@@ -195,7 +182,6 @@ Theorem exp_rel_def =
    “exp_rel (Let s x y) z”,
    “exp_rel (If x y z) w”,
    “exp_rel (Delay x) y”,
-   “exp_rel (Box x) y”,
    “exp_rel (MkTick x) y”,
    “exp_rel (Force x) y”]
   |> map (SIMP_CONV (srw_ss()) [Once exp_rel_cases])
@@ -229,7 +215,7 @@ Proof
         gen_tac >> strip_tac >> last_x_assum irule >>
         first_x_assum $ irule_at $ Pos last >> simp [] >>
         rename1 ‘EL x l’ >>
-        ‘exp_size (EL x l) ≤ exp4_size l’ suffices_by gvs [] >>
+        ‘exp_size (EL x l) ≤ exp3_size l’ suffices_by gvs [] >>
         assume_tac exp_size_lemma >> fs [] >>
         first_x_assum irule >> gs [EL_MEM])
     >- (AP_TERM_TAC >> AP_TERM_TAC >>
@@ -237,7 +223,7 @@ Proof
         gen_tac >> strip_tac >> last_x_assum irule >>
         first_x_assum $ irule_at $ Pos last >> simp [] >>
         rename1 ‘EL x l’ >>
-        ‘exp_size (EL x l) ≤ exp4_size l’ suffices_by gvs [] >>
+        ‘exp_size (EL x l) ≤ exp3_size l’ suffices_by gvs [] >>
         assume_tac exp_size_lemma >> fs [] >>
         first_x_assum irule >> gs [EL_MEM])
     >- (MK_COMB_TAC >- (AP_TERM_TAC >> gs []) >> gs [])
@@ -359,9 +345,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Delay])
-  >~ [‘Box x’] >- (
-    rw [subst_def]
-    \\ gs [exp_rel_Box])
   >~ [‘Force x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_Force])
@@ -553,12 +536,6 @@ Proof
   >~ [‘Delay x’] >- (
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [eval_to_def, v_rel_def])
-  >~ [‘Box x’] >- (
-    rw [exp_rel_def] \\ gs []
-    \\ simp [eval_to_def]
-    \\ rename1 ‘exp_rel x y’
-    \\ first_x_assum $ drule_then assume_tac
-    \\ Cases_on ‘eval_to k y’ \\ Cases_on ‘eval_to k x’ \\ gs [v_rel_def])
   >~ [‘MkTick x’] >- (
     rw [exp_rel_def] \\ gs []
     \\ simp [eval_to_def]
@@ -841,7 +818,6 @@ Proof
     \\ rw []
     >- (metis_tac [])
     >- (disj1_tac \\ metis_tac []))
-  >- metis_tac []
   >- metis_tac []
   >- metis_tac []
   >- metis_tac []
