@@ -103,6 +103,24 @@ val specialise_mapfy_def =
   rand |>
   print_cexp;
 
+val sum_letrec = toMLstring `
+  (letrec
+    (sum (lam (lst)
+      (case lst temp
+        ((((Nil) (int 0))
+          ((Cons (x xs)) (+ x (app sum xs)))) . NONE))))
+
+  (app sum (cons Cons (int 1) (cons Cons (int 2) (cons Cons (int 3) (cons Nil))))))`;
+
+val sum_letrec_cexp = “parse_cexp ^sum_letrec”
+  |> EVAL |> concl |> rand;
+
+val inline_sum_letrec =
+  EVAL “inline_all 5 (tree_size_heuristic 100) ^sum_letrec_cexp” |>
+  concl |>
+  rand |>
+  print_cexp;
+
 Definition example_1_def:
   example_1 = parse_cexp "(let x (int 7) (lam (m) (app m x)))"
 End
