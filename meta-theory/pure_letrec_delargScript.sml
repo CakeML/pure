@@ -1933,7 +1933,7 @@ Inductive can_spec_arg:
                            (mk_apps T (Var f) ys (Var v) ys1)) ∧
 [~Var:]
   (∀f vs v ws n.
-    n ≠ v ∧ n ≠ f ⇒
+    n ≠ f ⇒
     can_spec_arg f vs v ws (Var n) (Var n)) ∧
 [~Lam:]
   (∀f vs v ws n x y.
@@ -1961,14 +1961,15 @@ End
 Theorem call_with_spec_subst:
   call_with_spec T <|args := vs; arg := v; fname := f|> $= rhs1 rhs1 ∧
   w ∉ boundvars rhs1 ∧ w ∉ freevars rhs1 ∧
-  v ∉ boundvars rhs1 ∧ f ≠ v ⇒
+  v ∉ boundvars rhs1 ∧ f ≠ w ∧ f ≠ v ⇒
   call_with_spec T <|args := vs; arg := w; fname := f|> $=
     (subst1 v (Var w) rhs1) (subst1 v (Var w) rhs1)
 Proof
   qsuff_tac ‘
     ∀b i c x y.
       call_with_spec b i c x y ⇒
-      b ∧ w ∉ freevars x ∧ w ∉ boundvars x ∧ v ∉ boundvars x ∧ i.fname ≠ i.arg ⇒
+      b ∧ w ∉ freevars x ∧ w ∉ boundvars x ∧ v ∉ boundvars x ∧
+      i.fname ≠ i.arg ∧ i.fname ≠ w ⇒
       call_with_spec b (i with arg := w) c
                      (subst1 i.arg (Var w) x)
                      (subst1 i.arg (Var w) y)’
@@ -1985,7 +1986,7 @@ Proof
       \\ last_x_assum mp_tac
       \\ match_mp_tac LIST_REL_mono \\ fs [MEM_MAP,FORALL_PROD]
       \\ gvs [boundvars_Apps,MEM_MAP] \\ metis_tac [])
-  >- (gvs [subst_def,FLOOKUP_SIMP]
+  >- (gvs [subst_def,FLOOKUP_SIMP] \\ rw []
       \\ simp [Once pure_letrec_specTheory.call_with_arg_cases])
   >- (gvs [subst_def,FLOOKUP_SIMP]
       \\ simp [Once pure_letrec_specTheory.call_with_arg_cases]
@@ -2051,8 +2052,8 @@ Proof
     \\ gvs [EVERY_MEM,MEM_MAP] \\ rw []
     \\ metis_tac [])
   >~ [‘Var’] >-
-   (irule_at Any pure_letrec_specTheory.call_with_arg_Var
-    \\ irule_at Any call_with_arg_Var \\ fs [])
+   (irule_at Any call_with_arg_Var \\ fs []
+    \\ irule_at Any pure_letrec_specTheory.call_with_arg_Var \\ fs [])
   >~ [‘Lam’] >-
    (irule_at Any pure_letrec_specTheory.call_with_arg_Lam
     \\ irule_at Any call_with_arg_Lam \\ fs [SF SFY_ss] \\ gvs [])
