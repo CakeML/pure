@@ -7,7 +7,8 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory;
+     pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
+     pure_letrec_specTheory;
 
 val _ = new_theory "pure_letrec_delarg";
 
@@ -1800,6 +1801,351 @@ Proof
   \\ irule letrec_delarg_Apps
   \\ fs [LIST_REL_MAP,LIST_REL_same,letrec_delarg_refl]
   \\ gvs [Abbr‘i2’]
+QED
+
+Triviality letrec_del_arg' =
+  letrec_del_arg
+  |> Q.INST [‘i’|->‘<| fname := f;
+                       args := vs;
+                       args' := ws;
+                       arg := v;
+                       w_arg := w |>’]
+  |> SIMP_RULE (srw_ss()) []
+
+(*--------------------------------------------------------------------------------*
+   Composition with specialisation from pure_letrec_spec
+ *--------------------------------------------------------------------------------*)
+
+Overload call_with_spec[local] = “pure_letrec_spec$call_with_arg”
+
+Triviality Lams_app_lemma:
+  ∀xs. Lams (xs ++ ys) b = Lams xs (Lams ys b)
+Proof
+  Induct \\ fs [Lams_def]
+QED
+
+Triviality Letrec_specialise' =
+  Letrec_specialise
+  |> Q.INST [‘i’|->‘<| fname := f;
+                       args := vs;
+                       arg := v|>’]
+  |> SIMP_RULE (srw_ss()) [Lams_app_lemma,Lams_def]
+  |> Q.INST [‘v’|->‘w’,‘w’|->‘v’]
+
+Theorem subst1_subst1_const:
+  ∀rhs1 w e v.
+    v ∉ boundvars rhs1 ∧ w ∉ boundvars rhs1 ∧ w ∉ freevars rhs1 ∧ closed e ⇒
+    subst1 w e (subst1 v (Var w) rhs1) = subst1 v e rhs1
+Proof
+  ho_match_mp_tac freevars_ind \\ rw []
+  >- (ntac 2 (fs [subst_def,FLOOKUP_SIMP] \\ rw []))
+  >- (fs [subst_def] \\ Induct_on ‘es’ \\ fs [] \\ metis_tac [])
+  >- (fs [subst_def,FLOOKUP_SIMP] \\ rw [])
+  >- fs [subst_def,DOMSUB_FUPDATE_THM]
+  \\ fs [subst_def,FDIFF_FUPDATE]
+  \\ fs [MAP_MAP_o,LAMBDA_PROD,combinTheory.o_DEF,FST_INTRO]
+  \\ fs [MAP_EQ_f,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ gvs [MEM_MAP,FORALL_PROD]
+  \\ metis_tac []
+QED
+
+Triviality rename_lemma:
+  v ∉ boundvars rhs1 ∧
+  w ∉ boundvars rhs1 ∧
+  w ∉ freevars rhs1 ∧
+  ~MEM v ws ∧ ~MEM w ws
+  ⇒
+  Letrec [(f,Lams vs (Lam v (Lams ws rhs1)))] b
+  ≅
+  Letrec [(f,Lams vs (Lam w (Lams ws (subst1 v (Var w) rhs1))))] b
+Proof
+  rw [] \\ irule exp_eq_Letrec_cong \\ fs [exp_eq_refl]
+  \\ irule Lams_cong
+  \\ fs [pure_congruenceTheory.exp_eq_Lam_strong]
+  \\ fs [subst_Lams,subst_def,FDIFF_FUPDATE] \\ rw []
+  \\ irule Lams_cong \\ fs [subst1_subst1_const,exp_eq_refl]
+QED
+
+Theorem boundvars_Lams:
+  ∀vs b. boundvars (Lams vs b) = set vs ∪ boundvars b
+Proof
+  Induct \\ fs [Lams_def]
+  \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem subst_subst_cancel:
+  ∀rhs1.
+    w ∉ boundvars rhs1 ∧ v ∉ boundvars rhs1 ∧ w ∉ freevars rhs1 ⇒
+    subst1 w (Var v) (subst1 v (Var w) rhs1) = rhs1
+Proof
+  ho_match_mp_tac freevars_ind \\ rw []
+  >- (ntac 2 (fs [subst_def,FLOOKUP_SIMP] \\ rw []))
+  >- (fs [subst_def] \\ Induct_on ‘es’ \\ fs [] \\ metis_tac [])
+  >- (fs [subst_def,FLOOKUP_SIMP] \\ rw [])
+  >- fs [subst_def,DOMSUB_FUPDATE_THM]
+  \\ fs [subst_def,FDIFF_FUPDATE]
+  \\ fs [MAP_MAP_o,LAMBDA_PROD,combinTheory.o_DEF,FST_INTRO]
+  \\ fs [MAP_ID_EQ,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ gvs [MEM_MAP,FORALL_PROD]
+  \\ metis_tac []
+QED
+
+Theorem boundvars_subst1:
+  ∀rhs1.
+    k ∉ boundvars rhs1 ⇒
+    k ∉ boundvars (subst1 v (Var w) rhs1)
+Proof
+  ho_match_mp_tac freevars_ind \\ rw []
+  \\ fs [subst_def,boundvars_def,FLOOKUP_SIMP] \\ rw []
+  \\ fs [MEM_MAP,DOMSUB_FUPDATE_THM] \\ rw []
+  \\ gvs [FORALL_PROD]
+  \\ rpt (rename [‘~MEM yy lcs’] \\ PairCases_on ‘yy’ \\ gvs [])
+  \\ metis_tac []
+QED
+
+Triviality invent_name:
+  FINITE (s:'a set) ∧ ~FINITE (UNIV:'a set) ⇒ ∃k. k ∉ s
+Proof
+  rw [] \\ gvs [NOT_IN_FINITE]
+QED
+
+Theorem call_with_spec_Lams:
+  ∀ws i b.
+    ~MEM i.arg ws ∧
+    ~MEM i.fname ws ∧
+    call_with_spec c i $= b b ⇒
+    call_with_spec c i $= (Lams ws b) (Lams ws b)
+Proof
+  Induct \\ fs [Lams_def] \\ rw []
+  \\ irule pure_letrec_specTheory.call_with_arg_Lam \\ fs []
+QED
+
+Inductive can_spec_arg:
+[~Apps_Var:]
+  (∀f vs v ws xs xs1 ys ys1.
+    LENGTH xs = LENGTH vs ∧
+    LENGTH xs1 = LENGTH ws ∧
+    LIST_REL (can_spec_arg f vs v ws) xs ys ∧
+    LIST_REL (can_spec_arg f vs v ws) xs1 ys1 ⇒
+    can_spec_arg f vs v ws (mk_apps F (Var f) xs (Var v) xs1)
+                           (mk_apps T (Var f) ys (Var v) ys1)) ∧
+[~Var:]
+  (∀f vs v ws n.
+    n ≠ v ∧ n ≠ f ⇒
+    can_spec_arg f vs v ws (Var n) (Var n)) ∧
+[~Lam:]
+  (∀f vs v ws n x y.
+    can_spec_arg f vs v ws x y ∧
+    v ≠ n ∧ f ≠ n ⇒
+    can_spec_arg f vs v ws (Lam n x) (Lam n y)) ∧
+[~App:]
+  (∀f vs v ws f1 g1 x y.
+    can_spec_arg f vs v ws f1 g1 ∧
+    can_spec_arg f vs v ws x y ⇒
+    can_spec_arg f vs v ws (App f1 x) (App g1 y)) ∧
+[~Prim:]
+  (∀f vs v ws n xs ys.
+    LIST_REL (can_spec_arg f vs v ws) xs ys ⇒
+    can_spec_arg f vs v ws (Prim n xs) (Prim n ys)) ∧
+[~Letrec:]
+  (∀f vs v ws x y xs ys.
+    LIST_REL (can_spec_arg f vs v ws) (MAP SND xs) (MAP SND ys) ∧
+    DISJOINT {v; f} (set (MAP FST xs)) ∧
+    MAP FST xs = MAP FST ys ∧
+    can_spec_arg f vs v ws x y ⇒
+    can_spec_arg f vs v ws (Letrec xs x) (Letrec ys y))
+End
+
+Theorem call_with_spec_subst:
+  call_with_spec T <|args := vs; arg := v; fname := f|> $= rhs1 rhs1 ∧
+  w ∉ boundvars rhs1 ∧ w ∉ freevars rhs1 ∧
+  v ∉ boundvars rhs1 ∧ f ≠ v ⇒
+  call_with_spec T <|args := vs; arg := w; fname := f|> $=
+    (subst1 v (Var w) rhs1) (subst1 v (Var w) rhs1)
+Proof
+  qsuff_tac ‘
+    ∀b i c x y.
+      call_with_spec b i c x y ⇒
+      b ∧ w ∉ freevars x ∧ w ∉ boundvars x ∧ v ∉ boundvars x ∧ i.fname ≠ i.arg ⇒
+      call_with_spec b (i with arg := w) c
+                     (subst1 i.arg (Var w) x)
+                     (subst1 i.arg (Var w) y)’
+  >- (rw [] \\ last_x_assum drule \\ fs [])
+  \\ ho_match_mp_tac pure_letrec_specTheory.call_with_arg_ind
+  \\ rpt strip_tac \\ gvs []
+  >- (gvs [subst_def,subst_Apps,FLOOKUP_SIMP]
+      \\ simp [Once pure_letrec_specTheory.call_with_arg_cases]
+      \\ disj1_tac \\ fs [LIST_REL_MAP]
+      \\ qexists_tac ‘MAP (subst (FEMPTY |+ (i.arg,Var w))) xs’
+      \\ qexists_tac ‘MAP (subst (FEMPTY |+ (i.arg,Var w))) ys’
+      \\ fs [LIST_REL_MAP]
+      \\ last_x_assum assume_tac
+      \\ last_x_assum mp_tac
+      \\ match_mp_tac LIST_REL_mono \\ fs [MEM_MAP,FORALL_PROD]
+      \\ gvs [boundvars_Apps,MEM_MAP] \\ metis_tac [])
+  >- (gvs [subst_def,FLOOKUP_SIMP]
+      \\ simp [Once pure_letrec_specTheory.call_with_arg_cases])
+  >- (gvs [subst_def,FLOOKUP_SIMP]
+      \\ simp [Once pure_letrec_specTheory.call_with_arg_cases]
+      \\ fs [MEM_MAP,DOMSUB_FUPDATE_THM] \\ rw [])
+  >- (gvs [subst_def,FLOOKUP_SIMP]
+      \\ simp [Once pure_letrec_specTheory.call_with_arg_cases])
+  >- (gvs [subst_def,FLOOKUP_SIMP]
+      \\ simp [Once pure_letrec_specTheory.call_with_arg_cases]
+      \\ disj1_tac \\ fs [LIST_REL_MAP]
+      \\ last_x_assum mp_tac
+      \\ match_mp_tac LIST_REL_mono  \\ fs [MEM_MAP] \\ metis_tac [])
+  >- (gvs [subst_def,FLOOKUP_SIMP]
+      \\ simp [Once pure_letrec_specTheory.call_with_arg_cases]
+      \\ disj1_tac \\ fs [LIST_REL_MAP]
+      \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
+      \\ last_x_assum mp_tac
+      \\ match_mp_tac LIST_REL_mono \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac [])
+ \\ simp [Once pure_letrec_specTheory.call_with_arg_cases]
+QED
+
+Theorem LIST_REL_1:
+  ∀xs ys. LIST_REL R xs ys ⇒ EVERY (λx. ∃z. R x z) xs
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [] \\ metis_tac []
+QED
+
+Theorem can_spec_arg_imp:
+  ∀f vs v ws rhs1 rhs2.
+    can_spec_arg f vs v ws rhs1 rhs2 ⇒
+    ∀w.
+      w ∉ freevars rhs1 ∧ w ∉ boundvars rhs1 ⇒
+      call_with_spec T <|args := vs; arg := v; fname := f|> $= rhs1 rhs1 ∧
+      call_with_arg F T T
+        <|fname := f; args := vs; arg := w; w_arg := v; args' := ws|> $=
+        rhs1 rhs2
+Proof
+  ho_match_mp_tac can_spec_arg_ind
+  \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac \\ rpt gen_tac
+  \\ rpt disch_tac
+  >-
+   (reverse conj_tac >-
+     (simp [Once call_with_arg_cases] \\ disj1_tac
+      \\ qexists_tac ‘xs’
+      \\ qexists_tac ‘ys’
+      \\ qexists_tac ‘xs1’
+      \\ qexists_tac ‘ys1’
+      \\ fs [] \\ conj_tac
+      \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+      \\ fs [MEM_MAP,mk_apps_def,boundvars_Apps] \\ metis_tac [])
+    \\ gvs [LIST_REL_same,mk_apps_def]
+    \\ once_rewrite_tac [Apps_append]
+    \\ irule call_with_arg_Apps
+    \\ conj_tac
+    >-
+     (gvs [LIST_REL_same]
+      \\ imp_res_tac LIST_REL_1 \\ gvs [boundvars_Apps]
+      \\ gvs [EVERY_MEM,MEM_MAP] \\ rw []
+      \\ metis_tac [])
+    \\ simp [Once pure_letrec_specTheory.call_with_arg_cases] \\ disj1_tac
+    \\ qexists_tac ‘xs’ \\ qexists_tac ‘xs’ \\ gvs []
+    \\ gvs [LIST_REL_same]
+    \\ imp_res_tac LIST_REL_1 \\ gvs [boundvars_Apps]
+    \\ gvs [EVERY_MEM,MEM_MAP] \\ rw []
+    \\ metis_tac [])
+  >~ [‘Var’] >-
+   (irule_at Any pure_letrec_specTheory.call_with_arg_Var
+    \\ irule_at Any call_with_arg_Var \\ fs [])
+  >~ [‘Lam’] >-
+   (irule_at Any pure_letrec_specTheory.call_with_arg_Lam
+    \\ irule_at Any call_with_arg_Lam \\ fs [SF SFY_ss] \\ gvs [])
+  >~ [‘App’] >-
+   (irule_at Any pure_letrec_specTheory.call_with_arg_App
+    \\ irule_at Any call_with_arg_App \\ fs [SF SFY_ss] \\ gvs [])
+  >~ [‘Prim’] >-
+   (irule_at Any pure_letrec_specTheory.call_with_arg_Prim
+    \\ irule_at Any call_with_arg_Prim \\ fs [SF SFY_ss,MEM_MAP]
+    \\ conj_tac
+    >- (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+        \\ gvs [] \\ metis_tac [])
+    \\ gvs [LIST_REL_same]
+    \\ imp_res_tac LIST_REL_1 \\ gvs []
+    \\ gvs [EVERY_MEM] \\ metis_tac [])
+  \\ irule_at Any pure_letrec_specTheory.call_with_arg_Letrec
+  \\ irule_at Any call_with_arg_Letrec \\ fs [SF SFY_ss]
+  \\ gvs [LIST_REL_same]
+  \\ conj_tac
+  >- (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+      \\ gvs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+  \\ gvs [LIST_REL_same]
+  \\ imp_res_tac LIST_REL_1 \\ gvs []
+  \\ gvs [EVERY_MEM,MEM_MAP,EXISTS_PROD] \\ metis_tac []
+QED
+
+Triviality map_fst_eq_lemma:
+  ∀xs ys.
+    MAP FST xs = MAP FST ys ⇒
+    ∀x. (∃y. MEM (x,y) xs) ⇔ ∃y. MEM (x,y) ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [] \\ strip_tac
+  \\ rename [‘FST h1 = FST h2’]
+  \\ PairCases_on ‘h1’ \\ PairCases_on ‘h2’ \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem can_spec_arg_imp_boundvars:
+  ∀f vs v ws rhs1 rhs2.
+    can_spec_arg f vs v ws rhs1 rhs2 ⇒
+    v ∉ boundvars rhs1 ∧
+    f ∉ boundvars rhs1
+Proof
+  ho_match_mp_tac can_spec_arg_ind
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ fs [mk_apps_def,boundvars_Apps,MEM_MAP]
+  \\ strip_tac
+  \\ imp_res_tac LIST_REL_MEM
+  \\ gvs [MEM_MAP,PULL_FORALL,EXISTS_PROD,PULL_EXISTS,FORALL_PROD]
+  \\ imp_res_tac map_fst_eq_lemma
+  \\ metis_tac []
+QED
+
+Theorem letrec_spec_delarg:
+  can_spec_arg f vs v ws rhs1 rhs2 ∧
+  (vs = [] ⇒ ws ≠ []) ∧
+  ALL_DISTINCT (f::v::vs ++ ws) ∧
+  EVERY (λx. f ∉ freevars x) xs ∧
+  EVERY (λx. f ∉ freevars x) ys ∧
+  LENGTH xs = LENGTH vs ∧
+  LENGTH ys = LENGTH ws
+  ⇒
+  Letrec [(f,Lams (vs ++ [v] ++ ws) rhs1)]
+    (Apps (Var f) (xs ++ [Var v] ++ ys))
+  ≅
+  Letrec [(f,Lams (vs ++ ws) rhs2)]
+    (Apps (Var f) (xs ++ ys))
+Proof
+  strip_tac
+  \\ imp_res_tac can_spec_arg_imp_boundvars
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos last) letrec_del_arg'
+  \\ qexists_tac ‘v’
+  \\ gvs [ALL_DISTINCT,Lams_app_lemma,Lams_def]
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at (Pos hd) rename_lemma
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at (Pos hd) Letrec_specialise'
+  \\ irule_at Any exp_eq_Letrec_cong \\ fs []
+  \\ ‘∃w. w ∉ ({v;f} ∪ set vs ∪ set ws ∪ freevars rhs1 ∪ freevars rhs2 ∪
+               boundvars rhs1 ∪ boundvars rhs2)’ by (irule invent_name \\ fs [])
+  \\ qexists_tac ‘w’
+  \\ qexists_tac ‘w’
+  \\ gvs [exp_eq_refl]
+  \\ irule_at Any Lams_cong \\ fs [boundvars_Lams]
+  \\ fs [subst_Lams]
+  \\ qexists_tac ‘rhs1’ \\ fs [FDIFF_FUPDATE]
+  \\ DEP_REWRITE_TAC [subst_subst_cancel]
+  \\ fs [exp_eq_refl,ALL_DISTINCT_APPEND]
+  \\ rpt $ irule_at Any boundvars_subst1 \\ fs []
+  \\ irule_at Any call_with_spec_Lams \\ fs []
+  \\ irule_at Any call_with_spec_subst \\ fs []
+  \\ irule can_spec_arg_imp \\ fs []
 QED
 
 val _ = export_theory();
