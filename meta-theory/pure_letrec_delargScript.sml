@@ -2215,6 +2215,7 @@ Proof
   \\ irule exp_eq_Lam_cong \\ fs []
 QED
 
+(* TODO: move *)
 Theorem Letrec_eq_Let_Letrec:
   (Letrec [(f,a)] x ≅? Let f (Letrec [(f,a)] (Var f)) x) b
 Proof
@@ -2233,6 +2234,7 @@ Proof
   \\ rw [] \\ metis_tac []
 QED
 
+(* TODO: move *)
 Theorem Letrec_ETA_1:
   ALL_DISTINCT (f::xs)
   ⇒
@@ -2290,6 +2292,85 @@ Proof
   \\ irule_at Any Letrec_ETA_1 \\ fs []
   \\ irule_at Any Letrec_Lams_1 \\ fs []
   \\ fs [EVERY_MEM]
+QED
+
+Theorem Lams_append:
+  ∀xs ys e. Lams (xs ++ ys) e = Lams xs (Lams ys e)
+Proof
+  Induct \\ fs [Lams_def]
+QED
+
+Theorem Letrec_contract_1:
+  ~MEM f ps ∧ ~MEM f ws
+  ⇒
+  (Lams (vs ++ ps)
+     (Letrec [(f,Lams (ws ++ ps) a)]
+        (Apps (Var f) (MAP Var (ws ++ ps))))
+   ≅?
+   Lams vs
+     (Letrec [(f,Lams (ws ++ ps) a)]
+        (Apps (Var f) (MAP Var ws)))) b
+Proof
+  strip_tac
+  \\ rewrite_tac [Lams_append]
+  \\ irule Lams_cong
+  \\ irule exp_eq_trans
+  \\ once_rewrite_tac [exp_eq_sym]
+  \\ irule_at (Pos last) pure_demandTheory.Letrec_Apps
+  \\ irule exp_eq_trans
+  \\ irule_at Any pure_demandTheory.exp_eq_Apps_cong
+  \\ qexists_tac ‘MAP Var ws’
+  \\ qexists_tac ‘Letrec [(f,Lams ws (Lams ps a))] (Var f)’
+  \\ fs [exp_eq_refl,MAP_MAP_o,combinTheory.o_DEF]
+  \\ fs [LIST_REL_MAP,LIST_REL_same]
+  \\ conj_tac
+  >-
+   (rw [EVERY_MEM]
+    \\ irule pure_demandTheory.Letrec_not_in_freevars
+    \\ fs [] \\ CCONTR_TAC \\ gvs [])
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘Lams ps
+           (Apps (Letrec [(f,Lams ws (Lams ps a))] $ Var f)
+              (MAP Var ws ++ MAP Var ps))’
+  \\ reverse conj_tac
+  >-
+   (irule Lams_cong
+    \\ irule exp_eq_trans
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule_at (Pos last) pure_demandTheory.Letrec_Apps
+    \\ irule_at (Pos last) pure_demandTheory.exp_eq_Apps_cong
+    \\ fs [exp_eq_refl,MAP_MAP_o,combinTheory.o_DEF]
+    \\ rewrite_tac [GSYM MAP_APPEND,LIST_REL_MAP,LIST_REL_same]
+    \\ gvs [EVERY_MEM] \\ rw []
+    \\ irule pure_demandTheory.Letrec_not_in_freevars
+    \\ fs [] \\ CCONTR_TAC \\ gvs [])
+  \\ ‘(Letrec [(f,Lams ws (Lams ps a))] (Var f) ≅?
+       Lams ws (Lams ps (Letrec [(f,Lams ws (Lams ps a))] a))) b’ by
+   (rewrite_tac [GSYM Lams_append,GSYM MAP_APPEND]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Letrec_Var_1
+    \\ irule Letrec_Lams_1 \\ fs [EVERY_MEM])
+  \\ qabbrev_tac ‘bb = Letrec [(f,Lams ws (Lams ps a))] (Var f)’
+  \\ qabbrev_tac ‘aa = (Letrec [(f,Lams ws (Lams ps a))] a)’
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘Lams ps aa’
+  \\ conj_tac >-
+   (irule exp_eq_trans
+    \\ qexists_tac ‘Apps (Lams ws (Lams ps aa)) (MAP Var ws)’
+    \\ rewrite_tac [Apps_Lams_Vars]
+    \\ irule pure_demandTheory.exp_eq_Apps_cong
+    \\ fs [LIST_REL_same,exp_eq_refl])
+  \\ irule Lams_cong
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘Apps (Lams ws (Lams ps aa)) (MAP Var ws ++ MAP Var ps)’
+  \\ conj_tac
+  >-
+   (rewrite_tac [GSYM Lams_append,GSYM MAP_APPEND]
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ rewrite_tac [Apps_Lams_Vars])
+  \\ irule_at (Pos last) pure_demandTheory.exp_eq_Apps_cong
+  \\ fs [LIST_REL_same,exp_eq_refl]
+  \\ once_rewrite_tac [exp_eq_sym] \\ fs []
 QED
 
 val _ = export_theory();
