@@ -8,7 +8,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrec_specTheory;
+     pure_letrec_specTheory pure_inlineTheory;
 
 val _ = new_theory "pure_letrec_delarg";
 
@@ -2147,6 +2147,149 @@ Proof
   \\ irule_at Any call_with_spec_Lams \\ fs []
   \\ irule_at Any call_with_spec_subst \\ fs []
   \\ irule can_spec_arg_imp \\ fs []
+QED
+
+(* TODO: move *)
+Theorem Apps_Lams_Vars:
+  (Apps (Lams vs x) (MAP Var vs) ≅? x) b
+Proof
+  fs [exp_eq_def,bind_def] \\ rw []
+  \\ irule eval_wh_IMP_app_bisimilarity
+  \\ fs [subst_Apps,subst_Lams]
+  \\ DEP_REWRITE_TAC [eval_wh_Apps_Lams]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ gvs [TO_FLOOKUP,FLOOKUP_SIMP,SUBSET_DEF,PULL_EXISTS,MEM_MAP,SF SFY_ss]
+  \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ conj_asm1_tac \\ gvs [] >-
+   (rw [] \\ irule IMP_closed_subst
+    \\ gvs [TO_FLOOKUP,FLOOKUP_SIMP,SUBSET_DEF,PULL_EXISTS,MEM_MAP,SF SFY_ss])
+  \\ conj_tac >- metis_tac []
+  \\ conj_tac >-
+   (rw [] \\ irule IMP_closed_subst
+    \\ gvs [TO_FLOOKUP,FLOOKUP_SIMP,SUBSET_DEF,PULL_EXISTS,MEM_MAP,SF SFY_ss])
+  \\ AP_TERM_TAC
+  \\ DEP_REWRITE_TAC [subst_subst_FUNION]
+  \\ conj_tac >- gvs [TO_FLOOKUP,FLOOKUP_SIMP,PULL_EXISTS,SUBSET_DEF,MEM_MAP,SF SFY_ss]
+  \\ once_rewrite_tac [pure_exp_lemmasTheory.subst_FDIFF]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [TO_FLOOKUP,FLOOKUP_SIMP,FLOOKUP_FUNION,FUN_EQ_THM]
+  \\ rw [] \\ gvs [] \\ res_tac \\ gvs []
+  >-
+   (CASE_TAC \\ fs [FLOOKUP_FUPDATE_LIST,AllCaseEqs()]
+    \\ fs [ALOOKUP_NONE,MAP_REVERSE]
+    \\ DEP_REWRITE_TAC [MAP_FST_ZIP] \\ fs [])
+  \\ fs [FLOOKUP_FUPDATE_LIST,AllCaseEqs()]
+  \\ rename [‘MEM v vs’]
+  \\ res_tac \\ Cases_on ‘FLOOKUP f v’ \\ gvs []
+  \\ rename [‘_ = SOME y’]
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘vs’
+  \\ Induct using SNOC_INDUCT \\ fs []
+  \\ gvs [ZIP_SNOC,MAP_SNOC,REVERSE_SNOC]
+  \\ strip_tac \\ Cases_on ‘v = x'’ \\ fs []
+  \\ fs [subst_def]
+QED
+
+Theorem Letrec_Var_1:
+  (Letrec [(f,x)] (Var f) ≅? Letrec [(f,x)] x) b
+Proof
+  qspecl_then [‘[(f,x)]’,‘0’,‘b’] mp_tac pure_demandTheory.Letrec_unfold
+  \\ fs []
+QED
+
+Triviality Letrec_Lam_1 =
+  pure_demandTheory.Letrec_Lam_weak
+  |> Q.SPEC ‘[(f,x)]’ |> SIMP_RULE std_ss [MAP,EVERY_DEF,MEM]
+  |> Q.GENL [‘f’,‘x’]
+
+Theorem Letrec_Lams_1:
+  ∀vs e f x b.
+    EVERY (λv. v ∉ freevars x ∧ v ≠ f) vs ⇒
+    (Letrec [(f,x)] (Lams vs e) ≅? Lams vs (Letrec [(f,x)] e)) b
+Proof
+  Induct \\ fs [Lams_def,exp_eq_refl] \\ rw []
+  \\ irule exp_eq_trans
+  \\ irule_at Any Letrec_Lam_1 \\ fs []
+  \\ irule exp_eq_Lam_cong \\ fs []
+QED
+
+Theorem Letrec_eq_Let_Letrec:
+  (Letrec [(f,a)] x ≅? Let f (Letrec [(f,a)] (Var f)) x) b
+Proof
+  irule exp_eq_trans
+  \\ qexists_tac ‘Let f (Letrec [(f,a)] a) x’
+  \\ reverse conj_tac
+  >-
+   (irule exp_eq_App_cong \\ fs [exp_eq_refl]
+    \\ simp [Once exp_eq_sym,Letrec_Var_1])
+  \\ fs [exp_eq_def,bind_def] \\ rw []
+  \\ irule eval_wh_IMP_app_bisimilarity
+  \\ fs [subst_def,FDIFF_SING]
+  \\ fs [eval_wh_Letrec,eval_wh_App,eval_wh_Lam,subst_funs_def,FUPDATE_LIST]
+  \\ DEP_REWRITE_TAC [freevars_subst]
+  \\ fs [TO_FLOOKUP,FLOOKUP_SIMP,PULL_EXISTS,SUBSET_DEF,DOMSUB_FLOOKUP_THM]
+  \\ rw [] \\ metis_tac []
+QED
+
+Theorem Letrec_ETA_1:
+  ALL_DISTINCT (f::xs)
+  ⇒
+  (Letrec [(f,Lams xs a)] (Var f)
+   ≅?
+   Letrec [(f,Lams xs a)] (Lams xs (Apps (Var f) (MAP Var xs)))) b
+Proof
+  strip_tac \\ fs []
+  \\ ‘EVERY (λv. v ∉ freevars (Lams xs a) ∧ v ≠ f) xs’ by rw [EVERY_MEM]
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) Letrec_Var_1
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) Letrec_Lams_1 \\ fs []
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘Lams xs (Apps (Lams xs (Letrec [(f,Lams xs a)] a)) (MAP Var xs))’
+  \\ conj_tac >- (irule Lams_cong \\ simp [Once exp_eq_sym,Apps_Lams_Vars])
+  \\ irule exp_eq_trans
+  \\ qexists_tac ‘Lams xs (Apps (Letrec [(f,Lams xs a)] (Lams xs a)) (MAP Var xs))’
+  \\ conj_tac >-
+   (irule Lams_cong
+    \\ irule pure_demandTheory.exp_eq_Apps_cong
+    \\ fs [LIST_REL_same,exp_eq_refl]
+    \\ simp [Once exp_eq_sym]
+    \\ irule_at (Pos hd) Letrec_Lams_1 \\ fs [])
+  \\ irule exp_eq_trans
+  \\ once_rewrite_tac [exp_eq_sym]
+  \\ irule_at Any Letrec_Lams_1 \\ fs []
+  \\ irule Lams_cong
+  \\ irule exp_eq_trans
+  \\ irule_at Any pure_demandTheory.Letrec_Apps
+  \\ irule pure_demandTheory.exp_eq_Apps_cong
+  \\ fs [Letrec_Var_1]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+  \\ fs [LIST_REL_MAP,LIST_REL_same]
+  \\ fs [EVERY_MEM] \\ rw []
+  \\ irule pure_demandTheory.Letrec_not_in_freevars
+  \\ fs [] \\ CCONTR_TAC \\ gvs []
+QED
+
+Theorem Letrec_expand_1:
+  ALL_DISTINCT (f::xs)
+  ⇒
+  (Letrec [(f,Lams xs a)] x
+   ≅?
+   Let f (Lams xs
+           (Letrec [(f,Lams xs a)]
+             (Apps (Var f) (MAP Var xs))))
+     x) b
+Proof
+  rw []
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) Letrec_eq_Let_Letrec
+  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
+  \\ irule exp_eq_trans
+  \\ irule_at Any Letrec_ETA_1 \\ fs []
+  \\ irule_at Any Letrec_Lams_1 \\ fs []
+  \\ fs [EVERY_MEM]
 QED
 
 val _ = export_theory();
