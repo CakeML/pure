@@ -2250,7 +2250,7 @@ QED
 
 (* TODO: move *)
 Theorem Letrec_ETA_1:
-  ALL_DISTINCT (f::xs)
+  ¬MEM f xs
   ⇒
   (Letrec [(f,Lams xs a)] (Var f)
    ≅?
@@ -2289,7 +2289,7 @@ Proof
 QED
 
 Theorem Letrec_expand_1:
-  ALL_DISTINCT (f::xs)
+  ~MEM f xs
   ⇒
   (Letrec [(f,Lams xs a)] x
    ≅?
