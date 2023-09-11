@@ -2107,7 +2107,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem letrec_spec_delarg:
+Theorem letrec_spec_delarg_lemma:
   can_spec_arg f vs v ws rhs1 rhs2 ∧
   (vs = [] ⇒ ws ≠ []) ∧
   ALL_DISTINCT (f::v::vs ++ ws) ∧
@@ -2147,6 +2147,20 @@ Proof
   \\ irule_at Any call_with_spec_Lams \\ fs []
   \\ irule_at Any call_with_spec_subst \\ fs []
   \\ irule can_spec_arg_imp \\ fs []
+QED
+
+Theorem letrec_spec_delarg:
+  can_spec_arg f vs v ws rhs1 rhs2 ∧
+  (vs = [] ⇒ ws ≠ []) ∧ ALL_DISTINCT (f::v::vs ++ ws)
+  ⇒
+  Letrec [(f,Lams (vs ++ [v] ++ ws) rhs1)]
+    (Apps (Var f) (MAP Var (vs ++ [v] ++ ws)))
+  ≅
+  Letrec [(f,Lams (vs ++ ws) rhs2)]
+    (Apps (Var f) (MAP Var (vs ++ ws)))
+Proof
+  rw [] \\ irule letrec_spec_delarg_lemma
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
 QED
 
 (* TODO: move *)
