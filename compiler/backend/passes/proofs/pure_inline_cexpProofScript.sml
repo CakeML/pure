@@ -399,11 +399,10 @@ Proof
     \\ fs [DISJOINT_SYM,memory_inv_def]
   )
   >~ [`Letrec _ _ _`] >- (
-    cheat
-    (* gvs [inline_def]
-    \\ Cases_on `inline_list m ns h (MAP SND vbs)`
+    gvs [inline_def]
+    \\ Cases_on `inline_list m ns (SUC v16) h (MAP SND vbs)`
     \\ gvs []
-    \\ Cases_on `inline (heuristic_insert_Rec m h vbs) r h e`
+    \\ Cases_on `inline (heuristic_insert_Rec m h vbs) r (SUC v16) h e`
     \\ gvs []
     \\ gvs [list_subst_rel_refl,exp_of_def]
     \\ Cases_on `heuristic_insert_Rec m h vbs = m`
@@ -440,6 +439,7 @@ Proof
     \\ gvs [heuristic_insert_Rec_def]
     \\ Cases_on `vbs`
     >- gvs []
+    \\ gvs []
     \\ reverse $ Cases_on `t`
     >- gvs []
     \\ PairCases_on `h'`
@@ -451,17 +451,18 @@ Proof
     \\ Cases_on `q`
     >- (
       gvs [MAP2,inline_def]
-      \\ Cases_on `inline m ns h u`
+      \\ Cases_on `inline m ns (SUC v16) h u`
       \\ gvs []
     )
     \\ reverse $ Cases_on `t`
     >- (
       gvs [MAP2,inline_def]
-      \\ Cases_on `inline m ns h u`
+      \\ Cases_on `inline m ns (SUC v16) h u`
       \\ gvs []
     )
     \\ gvs [MAP2,inline_def]
-    \\ irule list_subst_rel_LetrecIntro
+    \\ cheat
+    (* \\ irule list_subst_rel_Let
     \\ last_x_assum $ irule_at Any
     \\ fs [DISJOINT_SYM]
     \\ fs [mlmapTheory.insert_thm]
