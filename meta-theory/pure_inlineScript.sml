@@ -728,6 +728,16 @@ Inductive list_subst_rel:
   (∀l t u v x.
     list_subst_rel l x y ∧
     list_subst_rel (l ++ [(v,Rec x)]) t u ⇒
+    list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
+[~LetRecIntroExp:]
+  (∀l t u v x.
+    list_subst_rel l x y ∧
+    x ≅ x1 ∧
+    no_shadowing x1 ∧
+    DISJOINT (boundvars x1) (freevars x1) ∧
+    DISJOINT (boundvars x1) (vars_of l) ∧
+    DISJOINT (boundvars x1) (freevars_of l) ∧
+    list_subst_rel (l ++ [(v,Exp x1)]) t u ⇒
     list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u))
 End
 
