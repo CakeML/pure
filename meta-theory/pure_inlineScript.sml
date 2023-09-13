@@ -725,18 +725,23 @@ Inductive list_subst_rel:
     list_subst_rel l t u ⇒
     list_subst_rel l (Letrec xs t) (Letrec ys u)) ∧
 [~LetrecIntro:]
-  (∀l t u v x.
+  (∀l t u v x y.
     list_subst_rel l x y ∧
     list_subst_rel (l ++ [(v,Rec x)]) t u ⇒
     list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
 [~LetRecIntroExp:]
-  (∀l t u v x.
+  (∀l t u v x y x1.
     list_subst_rel l x y ∧
-    x ≅ x1 ∧
+    (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
     no_shadowing x1 ∧
+    v ∉ boundvars x1 ∧
+    v ∉ freevars x1 ∧
     DISJOINT (boundvars x1) (freevars x1) ∧
     DISJOINT (boundvars x1) (vars_of l) ∧
     DISJOINT (boundvars x1) (freevars_of l) ∧
+    DISJOINT (boundvars t) (boundvars x1) ∧
+    (* DISJOINT (boundvars t) (freevars t) ∧ *)
+    DISJOINT (boundvars t) (freevars x1) ∧
     list_subst_rel (l ++ [(v,Exp x1)]) t u ⇒
     list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u))
 End
@@ -2334,7 +2339,7 @@ Proof
     \\ fs [IN_DISJOINT]
     \\ metis_tac []
   )
-
+  \\ rename [`Letrec`]
   >- (
     irule exp_eq_trans
     \\ irule_at Any Binds_Letrec
@@ -2476,50 +2481,103 @@ Proof
     \\ simp []
   )
   \\ rename [‘Letrec’]
-  \\ fs [Binds_snoc_rec]
+  >- (
+    fs [Binds_snoc_rec]
+    \\ irule exp_eq_trans
+    \\ last_x_assum $ irule_at Any
+    \\ fs [Once no_shadowing_cases]
+    \\ conj_tac
+    >- (
+      fs [binds_ok_def,bind_ok_def]
+      \\ fs [ALL_DISTINCT_APPEND]
+      \\ fs [vars_of_not_in_MAP_FST]
+      \\ fs [bind_ok_rec_Rec_append]
+      \\ fs [bind_ok_EVERY_Rec_append]
+    )
+    \\ conj_tac
+    >- simp [vars_of_append,vars_of_def,DISJOINT_SYM]
+    \\ conj_tac
+    >- (
+      fs [IN_DISJOINT]
+      \\ rw []
+      \\ metis_tac []
+    )
+    \\ conj_tac
+    >- (
+      fs [freevars_of_append, freevars_of_def]
+      \\ fs [DISJOINT_SYM]
+      \\ fs [UNION_DIFF_DISTRIBUTE]
+      \\ fs [IN_DISJOINT]
+      \\ metis_tac []
+    )
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_Letrec
+    \\ simp [EVERY_DEF]
+    \\ fs [vars_of_not_in_MAP_FST]
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_Letrec
+    \\ simp [EVERY_DEF]
+    \\ fs [vars_of_not_in_MAP_FST]
+    \\ once_rewrite_tac [exp_eq_sym]
+    \\ irule exp_eq_Letrec_cong
+    \\ fs [MAP]
+    \\ fs [exp_eq_refl]
+    \\ last_x_assum irule
+    \\ fs [IN_DISJOINT]
+    \\ metis_tac []
+  )
+  \\ rename [`Letrec`]
+  \\ fs [Binds_snoc]
+  \\ sg `(∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e))`
+  >- (
+    rw []
+    \\ irule Binds_cong
+    \\ gvs []
+  )
+  \\ qpat_assum `∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e)` $ qspecl_then [`x`] assume_tac
+  \\ irule exp_eq_trans
+  \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
+  \\ first_x_assum $ irule_at Any
   \\ irule exp_eq_trans
   \\ last_x_assum $ irule_at Any
-  \\ fs [Once no_shadowing_cases]
+  \\ qpat_x_assum `no_shadowing _` mp_tac
+  \\ simp [Once no_shadowing_cases]
+  \\ strip_tac
+  \\ gvs [freevars_of_append,vars_of_append,vars_of_def,freevars_of_def,DISJOINT_SYM]
   \\ conj_tac
   >- (
     fs [binds_ok_def,bind_ok_def]
     \\ fs [ALL_DISTINCT_APPEND]
+    \\ fs [DISJOINT_SYM]
     \\ fs [vars_of_not_in_MAP_FST]
-    \\ fs [bind_ok_rec_Rec_append]
-    \\ fs [bind_ok_EVERY_Rec_append]
+    \\ fs [vars_of_DISJOINT_MAP_FST]
+    \\ fs [FILTER_APPEND]
+    \\ fs [vars_of_DISJOINT_FILTER]
+    \\ fs [bind_ok_EVERY_Exp_append]
+    \\ fs [bind_ok_rec_def]
+    \\ fs [bind_ok_rec_Exp_append]
   )
-  \\ conj_tac
-  >- simp [vars_of_append,vars_of_def,DISJOINT_SYM]
   \\ conj_tac
   >- (
     fs [IN_DISJOINT]
-    \\ rw []
     \\ metis_tac []
   )
-  \\ conj_tac
-  >- (
-    fs [freevars_of_append, freevars_of_def]
-    \\ fs [DISJOINT_SYM]
-    \\ fs [UNION_DIFF_DISTRIBUTE]
-    \\ fs [IN_DISJOINT]
-    \\ metis_tac []
-  )
+  \\ qpat_assum `∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e)` $ qspecl_then [`y`] assume_tac
+  \\ irule exp_eq_trans
+  \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
+  \\ simp [Once exp_eq_sym]
+  \\ first_x_assum $ irule_at Any
   \\ irule exp_eq_trans
   \\ irule_at Any Binds_Letrec
-  \\ simp [EVERY_DEF]
-  \\ fs [vars_of_not_in_MAP_FST]
-  \\ once_rewrite_tac [exp_eq_sym]
+  \\ gvs [vars_of_not_in_MAP_FST]
+  \\ simp [Once exp_eq_sym]
   \\ irule exp_eq_trans
   \\ irule_at Any Binds_Letrec
-  \\ simp [EVERY_DEF]
-  \\ fs [vars_of_not_in_MAP_FST]
-  \\ once_rewrite_tac [exp_eq_sym]
+  \\ gvs [vars_of_not_in_MAP_FST]
   \\ irule exp_eq_Letrec_cong
-  \\ fs [MAP]
-  \\ fs [exp_eq_refl]
-  \\ last_x_assum irule
-  \\ fs [IN_DISJOINT]
-  \\ metis_tac []
+  \\ gvs [exp_eq_refl]
+  \\ simp [Once exp_eq_sym]
 QED
 
 Theorem list_subst_rel_IMP_exp_eq_lemma_specialized:
