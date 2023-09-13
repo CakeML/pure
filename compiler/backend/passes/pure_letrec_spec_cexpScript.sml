@@ -7,7 +7,10 @@ open pure_cexpTheory pure_varsTheory balanced_mapTheory;
 
 val _ = new_theory "pure_letrec_spec_cexp";
 
-(*******************)
+Definition eq_Var_def:
+  eq_Var f (Var a v) = (f = v:mlstring) ∧
+  eq_Var f _ = F
+End
 
 (*
   For every elemen in xs, if y is a variable reference to the corresponding
@@ -17,18 +20,25 @@ val _ = new_theory "pure_letrec_spec_cexp";
 *)
 Definition min_call_args_def:
   min_call_args [] ys = [] ∧
-  min_call_args xs [] = MAP (λ_. NONE) xs ∧
-  min_call_args (NONE::xs) (y::ys) = (
-    NONE::(min_call_args xs ys)
-  ) ∧
-  min_call_args ((SOME x)::xs) ((Var a v)::ys) = (
-    if x = v then (SOME x)::(min_call_args xs ys)
+  min_call_args xs [] = [] ∧
+  min_call_args (NONE::xs) (y::ys) = NONE::(min_call_args xs ys) ∧
+  min_call_args ((SOME x)::xs) (y::ys) =
+    if eq_Var x y then (SOME x)::(min_call_args xs ys)
     else NONE::(min_call_args xs ys)
-  ) ∧
-  min_call_args ((SOME x)::xs) (y::ys) = (
-    NONE::(min_call_args xs ys)
-  )
 End
+
+Triviality const_call_args_lemma:
+  ∀bs.
+    list_size (cexp_size (K 1)) (MAP (λ(v,vs,e). e) bs)
+    ≤
+    list_size
+      (pair_size mlstring_size
+        (pair_size (list_size mlstring_size) (cexp_size (K 1)))) bs
+Proof
+  Induct \\ fs []
+  \\ fs [list_size_def]
+  \\ PairCases \\ fs [basicSizeTheory.pair_size_def]
+QED
 
 (*
   For a recursive function f with arguments vs. Compute the list of mlstring
@@ -82,256 +92,163 @@ Definition const_call_args_def:
     in const_call_args_list f vs1 es
   )
 Termination
-  cheat
+  WF_REL_TAC ‘measure (λx. case x of
+    | INL (f,vs,c) => cexp_size (K 1) c
+    | INR (f,vs,c) => list_size (cexp_size (K 1)) c)’
+  \\ rw [cexp_size_eq] \\ fs []
+  >- (Induct_on ‘ves’ \\ fs [list_size_def]
+      \\ PairCases \\ fs [basicSizeTheory.pair_size_def])
+  \\ irule arithmeticTheory.LESS_EQ_LESS_TRANS
+  \\ irule_at Any const_call_args_lemma \\ fs []
 End
 
-Definition can_spec_cond_def:
-  can_spec_cond const_args =
-    EXISTS (λx. x ≠ NONE) const_args
+Definition drop_common_prefix_def:
+  drop_common_prefix [] ys = ([],ys) ∧
+  drop_common_prefix xs [] = (xs,[]) ∧
+  drop_common_prefix (x::xs) (y::ys) =
+    if x = y then drop_common_prefix xs ys else (x::xs,y::ys)
 End
 
-Definition spec_map_def:
-  spec_map p args =
-    FOLDL2 (λacc x y.
-      case x of
-      | NONE => acc
-      | SOME x =>
-        insert acc x y
-    ) empty p args
+Definition drop_common_suffix_def:
+  drop_common_suffix xs ys =
+    let (xs1,ys1) = drop_common_prefix (REVERSE xs) (REVERSE ys) in
+      (REVERSE xs1, REVERSE ys1)
 End
 
-(*
-  Simple substitution of element in a map
-*)
-Definition subst_map_def:
-  subst_map m (Var a v) = (
-    case lookup m v of
-    | NONE => Var a v
-    | SOME e => e
-  ) ∧
-  subst_map m (App a e es) = (
-    let e1 = subst_map m e
-    in let es1 = MAP (subst_map m) es
-    in (App a e1 es1)
-  ) ∧
-  subst_map m (Let a v e1 e2) = (
-    let e11 = subst_map m e1
-    in let e21 = subst_map m e2
-    in (Let a v e11 e21)
-  ) ∧
-  subst_map m (Lam a vs e) = (
-    let e1 = subst_map m e
-    in (Lam a vs e1)
-  ) ∧
-  subst_map m (Prim a p es) = (
-    let es1 = MAP (subst_map m) es
-    in (Prim a p es1)
-  ) ∧
-  subst_map m (Letrec a ves e) = (
-    let ves1 = MAP (λ(v, e). (v, subst_map m e)) ves
-    in let e1 = subst_map m e
-    in (Letrec a ves1 e1)
-  ) ∧
-  subst_map m (Case a e v bs d) = (
-    let e1 = subst_map m e
-    in let bs1 = MAP (λ(v, vs, e). (v, vs, subst_map m e)) bs
-    in let d1 = case d of
-      | NONE => NONE
-      | SOME (v, e) => SOME (v, subst_map m e)
-    in (Case a e1 v bs1 d1)
-  ) ∧
-  subst_map m (NestedCase a e v p e' bs) =
-    (NestedCase a e v p e' bs)
+Definition all_somes_def:
+  all_somes [] = [] ∧
+  all_somes (NONE :: xs) = all_somes xs ∧
+  all_somes (SOME a :: xs) = (a:mlstring) :: all_somes xs
+End
+
+Definition delete_with_def:
+  delete_with [] es = es ∧
+  delete_with (F::bs) [] = [] ∧
+  delete_with (F::bs) (x::xs) = delete_with bs xs ∧
+  delete_with (T::bs) [] = [] ∧
+  delete_with (T::bs) (x::xs) = x::delete_with bs xs
+End
+
+Definition check_arg_def:
+  check_arg v [] es = T ∧
+  check_arg v (F::bs) [] = F ∧
+  check_arg v (F::bs) (x::xs) = (eq_Var v x ∧ check_arg v bs xs) ∧
+  check_arg v (T::bs) [] = T ∧
+  check_arg v (T::bs) (x::xs) = check_arg v bs xs
+End
+
+Definition spec_one_def:
+  spec_one f v vs (App (a: 'a) e es) =
+    (if eq_Var f e then
+       case spec_one_list f v vs es of
+       | NONE => NONE
+       | SOME es =>
+         if check_arg v vs es then
+           SOME (App a e (delete_with vs es))
+         else NONE
+     else
+       case (spec_one f v vs e, spec_one_list f v vs es) of
+       | (SOME e, SOME es) => SOME (App a e es)
+       | _ => NONE) ∧
+  spec_one f v vs (Var a x) =
+    (if x = f then NONE else SOME (Var a x)) ∧
+  spec_one f v vs (Let a w e1 e2) =
+    (case (spec_one f v vs e1, spec_one f v vs e2) of
+     | (SOME e, SOME es) => SOME (Let a w e1 e2)
+     | _ => NONE) ∧
+  spec_one f v vs (Lam a vss e) =
+    (case spec_one f v vs e of
+     | SOME e => SOME (Lam a vss e)
+     | _ => NONE) ∧
+  spec_one f v vs (Prim a p es) =
+    (case spec_one_list f v vs es of
+     | SOME es => SOME (Prim a p es)
+     | _ => NONE) ∧
+  spec_one f v vs (Letrec a ves e1) =
+    (case (spec_one_letrec f v vs ves, spec_one f v vs e1) of
+     | (SOME ves, SOME e1) => SOME (Letrec a ves e1)
+     | _ => NONE) ∧
+  spec_one f v vs (Case a e w bs d) =
+    (case (spec_one f v vs e, spec_one_case f v vs bs, spec_one_opt f v vs d) of
+     | (SOME e, SOME bs, SOME d) => SOME (Case a e w bs d)
+     | _ => NONE) ∧
+  spec_one f v vs (NestedCase a e w p e' bs) = NONE ∧
+  spec_one_list f v vs [] = SOME [] ∧
+  spec_one_list f v vs (e::es) =
+    (case (spec_one f v vs e, spec_one_list f v vs es) of
+     | (SOME e, SOME es) => SOME (e::es)
+     | _ => NONE) ∧
+  spec_one_letrec f v vs [] = SOME [] ∧
+  spec_one_letrec f v vs ((b,e)::es) =
+    (case (spec_one f v vs e, spec_one_letrec f v vs es) of
+     | (SOME e, SOME es) => SOME ((b,e)::es)
+     | _ => NONE) ∧
+  spec_one_case f v vs [] = SOME [] ∧
+  spec_one_case f v vs ((b,ps,e)::es) =
+    (case (spec_one f v vs e, spec_one_case f v vs es) of
+     | (SOME e, SOME es) => SOME ((b,ps,e)::es)
+     | _ => NONE) ∧
+  spec_one_opt f v vs NONE = SOME NONE ∧
+  spec_one_opt f v vs (SOME (d,e)) =
+    (case spec_one f v vs e of
+     | SOME e => SOME (SOME (d,e))
+     | _ => NONE)
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ λx. case x of
+    | INL (f,v,vs,c) => cexp_size (K 0) c
+    | INR (INL (f,v,vs,c)) => list_size (cexp_size (K 0)) c
+    | INR (INR (INL (f,v,vs,c))) =>
+        list_size (pair_size mlstring_size (cexp_size (K 0))) c
+    | INR (INR (INR (INL (f,v,vs,c)))) => list_size (cexp_size (K 0)) (MAP (SND o SND) c)
+    | INR (INR (INR (INR (f,v,vs,NONE)))) => 0
+    | INR (INR (INR (INR (f,v,vs,SOME (d,e))))) => 1 + cexp_size (K 0) e’
+  \\ fs [cexp_size_eq] \\ rw [list_size_def]
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ fs [basicSizeTheory.pair_size_def,basicSizeTheory.option_size_def]
+  \\ Induct_on ‘bs’ \\ fs [list_size_def] \\ PairCases
+  \\ fs [basicSizeTheory.pair_size_def,basicSizeTheory.option_size_def]
 End
 
-Definition take_non_const_def:
-  take_non_const (NONE::xs) (arg::args) = arg :: (take_non_const xs args) ∧
-  take_non_const ((SOME x)::xs) (arg::args) = take_non_const xs args ∧
-  take_non_const _ args = args
+Definition specialise_each_def:
+  specialise_each [] vs f e = (vs,e) ∧
+  specialise_each (p::ps) vs f e =
+    if LENGTH vs < 2 then (vs,e) else
+      let bs = MAP (λv. p ≠ (v:mlstring)) vs in
+        if NULL (FILTER I bs) then specialise_each ps vs f e else
+          case spec_one f p bs e of
+          | NONE => specialise_each ps vs f e
+          | SOME e1 => specialise_each ps (delete_with bs vs) f e1
 End
 
-(*
-For every reference of f applied to some arguments, remove the constant arguments
-i.e. the ones that correspond to SOMEs in vs
-*)
-Definition remove_const_args_def:
-  remove_const_args f vs (App a e es) = (
-    let e1 = remove_const_args f vs e
-    in let es1 = MAP (remove_const_args f vs) es
-    in (case e1 of
-      | (Var a v) => (
-        if v = f then
-          App a e1 (take_non_const vs es1)
-        else
-          App a e es1
-      )
-      | _ => App a e1 es1
-    )
-  ) ∧
-  remove_const_args f vs (Var a v) = (Var a v) ∧
-  remove_const_args f vs (Let a v e1 e2) = (
-    let e11 = remove_const_args f vs e1
-    in let e21 = remove_const_args f vs e2
-    in (Let a v e11 e21)
-  ) ∧
-  remove_const_args f vs (Lam a vss e1) = (
-    let e11 = remove_const_args f vs e1
-    in (Lam a vss e11)
-  ) ∧
-  remove_const_args f vs (Prim a p es) = (
-    let es1 = MAP (remove_const_args f vs) es
-    in (Prim a p es1)
-  ) ∧
-  remove_const_args f vs (Letrec a ves e) = (
-    let ves1 = MAP (λ(v, e). (v, remove_const_args f vs e)) ves
-    in let e1 = remove_const_args f vs e
-    in (Letrec a ves1 e1)
-  ) ∧
-  remove_const_args f vs (Case a e v bs d) = (
-    let e1 = remove_const_args f vs e
-    in let bs1 = MAP (λ(v, vss, e). (v, vss, remove_const_args f vs e)) bs
-    in let d1 = case d of
-      | NONE => NONE
-      | SOME (v, e) => SOME (v, remove_const_args f vs e)
-    in (Case a e1 v bs1 d1)
-  ) ∧
-  remove_const_args f vs (NestedCase a e v p e' bs) =
-    (NestedCase a e v p e' bs)
-Termination
-  cheat
+Definition split_at_def:
+  split_at n xs =
+    if n = 0:num then ([],xs) else
+      case xs of
+      | [] => ([],[])
+      | (x::xs) => let (ys,zs) = split_at (n-1) xs in
+                     (x::ys,zs)
 End
 
-(*
-  Can the given letrec be specialized for any arguments?
-  - f : function name
-  - e : definition of function f
-*)
-Definition can_spec_def:
-  can_spec f (Lam a vs e) = (
-    let p = const_call_args f (MAP SOME vs) e
-    in can_spec_cond p
-  ) ∧
-  can_spec f e = F
+Definition SmartLam_def:
+  SmartLam a vs x = if NULL vs then x else Lam a vs x
 End
 
-(*
-  Specialize a letrec expression for a given:
-  - f : function name
-  - args : list of arguments it is called with
-  - e : definition of function f
-*)
-Definition spec_def:
-  spec f args (Lam a vs e) = (
-    let p = const_call_args f (MAP SOME vs) e
-    in let m = spec_map p args
-    in if m = empty then
-      NONE
-    else
-      SOME (Lam a vs (subst_map m e))
-  ) ∧
-  spec f args e = NONE
+Definition SmartApp_def:
+  SmartApp a x xs = if NULL xs then x else App a x xs
 End
 
-Definition count_head_NONEs_def:
-  count_head_NONEs (NONE::xs) = 1 + (count_head_NONEs xs) ∧
-  count_head_NONEs _ = (0: num)
-End
-
-Definition drop_while_SOME_def:
-  drop_while_SOME ((SOME x)::xs) (v::vs) = drop_while_SOME xs vs ∧
-  drop_while_SOME _ vs = vs
-End
-
-Definition drop_safe_def:
-  drop_safe 0 xs = xs ∧
-  drop_safe n [] = [] ∧
-  drop_safe (SUC n) (x::xs) = drop_safe n xs
-End
-
-Definition drop_tail_def:
-  drop_tail n xs = (
-    let xs1 = REVERSE xs
-    in let xs2 = drop_safe n xs1
-    in REVERSE xs2
-  )
-End
-
-Definition count_params_to_drop_def:
-  count_params_to_drop p = (
-    let p1 = REVERSE p
-    in count_head_NONEs p1
-  )
-End
-
-Definition inv_const_args_def:
-  inv_const_args (vs: 'a list) p =
-    MAP2 (λx y. case y of
-      | NONE => SOME x
-      | SOME y => NONE
-    ) vs p
-End
-
-Definition get_SOMEs_def:
-  get_SOMEs [] = [] ∧
-  get_SOMEs (NONE :: xs) = get_SOMEs xs ∧
-  get_SOMEs ((SOME x) :: xs) = x :: (get_SOMEs xs)
-End
-
-(*
-The main specialisation function.
-Takes:
-- v : function name
-- e : definition of function f
-
-Currently works like so:
-
-1.
-map f [] = []
-map f (x::xs) = (f x)::(map f xs)
-
-==>
-
-\f.
-  let map1 [] = []
-      map1 (x::xs) = (f x)::(map1 xs)
-  in map1
-
-2.
-mapfy f [] y = []
-mapfy f (x::xs) y = (f x y)::(mapfy f xs y)
-
-==>
-
-\f lst y.
-  let mapfy1 [] = []
-      mapfy1 (x::xs) = (f x y)::(mapfy1 xs)
-  in mapfy1 lst
-
-Rules for appropriate parameter lists:
-- drop all const parameters from inner lam
-- drop trailing non-const parameters from outer lam
-*)
 Definition specialise_def:
-  specialise v (Lam a vs e) = (
-    let p = const_call_args v (MAP SOME vs) e (* Find constant parameters *)
-    in if EXISTS (λx. x ≠ NONE) p then (
-      let inner_vs = get_SOMEs (inv_const_args vs p) (* inner parameters are the non-const ones *)
-      in let inner_lam = Lam a inner_vs (remove_const_args v p e)
-      in let params_to_drop_no = count_params_to_drop p
-      in let outer_vs = drop_tail params_to_drop_no vs (* outer parameters are without trailing non-const parameters *)
-      in let inner_applied_vs = drop_tail params_to_drop_no inner_vs
-      in let inner_refs = MAP (λv. Var a v) inner_applied_vs
-      in let v_ref = (if inner_refs = [] then Var a v else App a (Var a v) inner_refs)
-      in let ltrec = Letrec a [(v, inner_lam)] v_ref
-      in SOME (Lam a outer_vs ltrec)
-    )
-    else NONE
-  ) ∧
-  specialise v e = NONE
+  specialise f (Lam a vs e) =
+    (let args = const_call_args f (MAP SOME vs) e in
+     let p = all_somes args in
+      if NULL p then NONE else
+        let (ws1,ws2) = split_at (LENGTH args) vs in
+        let (params,e1) = specialise_each p ws1 f (SmartLam a ws2 e) in
+        let (outer_vs,inner_vs) = drop_common_suffix ws1 params in
+          SOME (SmartLam a outer_vs $
+                  Letrec a [(f,Lam a params e1)] $
+                    SmartApp a (Var a f) (MAP (Var a) inner_vs))) ∧
+  specialise f e = NONE
 End
-
-(*******************)
 
 val _ = export_theory();

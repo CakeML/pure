@@ -131,9 +131,6 @@ Definition inline_def:
       (* Var applied to arguments *)
       | SOME v => (
         case lookup m v of
-        | NONE =>
-          let (e1, ns2) = inline m ns1 cl h e
-          in (App a e1 es1, ns2)
         | SOME (cExp e) =>
           let exp = (App a e es1)
           in (case make_Let exp of
@@ -143,20 +140,12 @@ Definition inline_def:
             in let (fe1, ns4) = inline m ns3 (cl - 1) h fe
             in (fe1, ns4)
           )
-        (* Unused for now? We only insert cExps *)
-        | SOME (cRec er) => (
-          case spec v es er of
-          | NONE =>
-            (Lam a [v] (App a (Lam a [v] er) es1), ns1)
-            (* let (e1, ns2) = inline m ns1 h e
-            in (App a e1 es1, ns2) *)
-          | SOME b =>
-            let (e1, ns2) = inline m ns1 cl h e
-            in (Letrec a [(v, b)] (App a e1 es1), ns2)
-          )
+        | _ =>
+          let (e1, ns2) = inline m ns1 cl h e
+          in (App a e1 es1, ns2)
         )
       (* Not a Var -- can't inline *)
-      | NONE =>
+      | _ =>
         let (e1, ns2) = inline m ns cl h e
         in (App a e1 es1, ns2)
     )
