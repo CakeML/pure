@@ -9,13 +9,14 @@ open basis
      pure_letrec_spec_cexpTheory
      pure_inline_cexpTheory
      pure_compilerTheory
-     pure_inferProgTheory;
+     pure_inferProgTheory
+     pure_printTheory;
 
 val _ = new_theory "pure_frontendProg";
 
 val _ = set_grammar_ancestry ["pure_inferProg", "pure_letrec_cexp",
                               "pure_demands_analysis", "pure_freshen",
-                              "pure_inline_cexp"];
+                              "pure_inline_cexp", "pure_print"];
 
 val _ = translation_extends "pure_inferProg";
 
@@ -68,6 +69,16 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = (extra_preprocessing := [MEMBER_INTRO,MAP]);
+
+(*-----------------------------------------------------------------------*
+   str_of
+ *-----------------------------------------------------------------------*)
+
+val r = translate source_valuesTheory.list_def;
+val r = translate pure_printTheory.sexp_of_op_def;
+val r = translate (pure_printTheory.sexp_of_def |> DefnBase.one_line_ify NONE)
+val r = translate printingTheory.vs2str_def;
+val r = translate pure_printTheory.str_of_def;
 
 (*-----------------------------------------------------------------------*
    transform_cexp

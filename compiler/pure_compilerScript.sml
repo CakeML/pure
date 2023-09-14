@@ -7,7 +7,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_cexpTheory pure_to_cakeTheory pureParseTheory pure_inferenceTheory
      pure_letrec_cexpTheory pure_demands_analysisTheory pure_inline_cexpTheory
-     fromSexpTheory simpleSexpParseTheory;
+     fromSexpTheory simpleSexpParseTheory pure_printTheory;
 
 val _ = set_grammar_ancestry
           ["pure_cexp", "pure_to_cake", "pureParse", "pure_inference",
@@ -41,6 +41,7 @@ Definition compile_def:
           let _ = empty_ffi (strlit "demands_analysis") in
           let e5 = inline_top_level c e4 in
           let _ = empty_ffi (strlit "inlining") in
+          let _ = empty_ffi (implode ("\n\n" ++ pure_print$str_of e5 ++ "\n\n")) in
             SOME (ast_to_string $ pure_to_cake c ns e5)
 End
 

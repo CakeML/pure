@@ -1,7 +1,7 @@
 (*
   Translation of pure-to-cake compiler backend.
  *)
-open basis
+open basis lispProgTheory
      pure_to_thunkTheory
      thunk_to_envTheory
      env_to_stateTheory
@@ -12,7 +12,7 @@ val _ = new_theory "pure_backendProg";
 
 val _ = set_grammar_ancestry ["pure_to_cake", "ml_translator", "basisProg"];
 
-val _ = translation_extends "basisProg";
+val _ = translation_extends "lispProg";
 
 val _ = (max_print_depth := 1000);
 
