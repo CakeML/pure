@@ -154,7 +154,7 @@ Definition spec_one_def:
     (if x = f then NONE else SOME (Var a x)) ∧
   spec_one f v vs (Let a w e1 e2) =
     (case (spec_one f v vs e1, spec_one f v vs e2) of
-     | (SOME e, SOME es) => SOME (Let a w e1 e2)
+     | (SOME e1, SOME e2) => SOME (Let a w e1 e2)
      | _ => NONE) ∧
   spec_one f v vs (Lam a vss e) =
     (case spec_one f v vs e of

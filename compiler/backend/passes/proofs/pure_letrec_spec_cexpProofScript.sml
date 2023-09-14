@@ -57,24 +57,55 @@ Proof
   \\ gvs [GSYM SWAP_REVERSE_SYM,LAST_REVERSE]
 QED
 
+Definition min_app_def[simp]:
+  min_app f n e =
+    (∀a b es. e = App a (Var b f) es ⇒ n ≤ LENGTH es)
+End
+
 Theorem spec_one_thm:
-  (∀f v vs (e:'a cexp) e1 bs ts.
+  (∀f v vs (e:'a cexp) e1.
      spec_one f v vs e = SOME e1 ∧
+     every_cexp (min_app f (LENGTH vs)) e ∧
      explode f ∉ boundvars (exp_of e) ∧
      explode v ∉ boundvars (exp_of e) ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
-     boundvars (exp_of e1) ⊆ boundvars (exp_of e)) ∧
-  (∀f v vs (e:'a cexp list) e1 bs ts.
+     boundvars (exp_of e1) ⊆ boundvars (exp_of e) ∧
+     every_cexp (min_app f (LENGTH bs + LENGTH ts)) e1) ∧
+  (∀f v vs (e:'a cexp list) e1.
      spec_one_list f v vs e = SOME e1 ∧
-     EVERY (λe. explode f ∉ boundvars (exp_of e)) e ∧
-     EVERY (λe. explode v ∉ boundvars (exp_of e)) e ∧
+     EVERY (λe.
+       every_cexp (min_app f (LENGTH vs)) e ∧
+       explode f ∉ boundvars (exp_of e) ∧
+       explode v ∉ boundvars (exp_of e)) e ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      LIST_REL (λe e1.
        can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
-       boundvars (exp_of e1) ⊆ boundvars (exp_of e)) e e1)
+       boundvars (exp_of e1) ⊆ boundvars (exp_of e) ∧
+       every_cexp (min_app f (LENGTH bs + LENGTH ts)) e1) e e1) ∧
+  (∀f v vs (e:(mlstring # 'a cexp) list) e1.
+     spec_one_letrec f v vs e = SOME e1 ⇒ ARB e) ∧
+  (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1.
+     spec_one_case f v vs e = SOME e1 ⇒ ARB e) ∧
+  (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1.
+     spec_one_opt f v vs e = SOME e1 ⇒ ARB e)
 Proof
-  cheat
+  ho_match_mp_tac spec_one_ind
+  \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac
+  \\ rpt gen_tac \\ rpt disch_tac \\ gvs [exp_of_def,SF ETA_ss]
+  \\ gvs [spec_one_def,AllCaseEqs(),exp_of_def,SF ETA_ss]
+  >~ [‘Apps’] >-
+   (‘∃b. e = Var b f’ by (Cases_on ‘e’ \\ fs [eq_Var_def])
+    \\ gvs [exp_of_def] \\ cheat)
+  >~ [‘Apps’] >- cheat
+  >~ [‘Var’] >-
+   (irule can_spec_arg_Var \\ fs [])
+  >~ [‘Let a x y’] >- cheat
+  >~ [‘Lams’] >- cheat
+  >~ [‘Prim’] >- cheat
+  >~ [‘Letrec’] >- cheat
+  >~ [‘rows_of’] >- cheat
+  \\ cheat
 QED
 
 Triviality can_spec_arg_map:
@@ -104,6 +135,7 @@ QED
 Theorem specialise_each_thm:
   ∀p args f c args1 c1.
     specialise_each p args f c = (args1,c1) ∧
+    every_cexp (min_app f (LENGTH args)) c ∧
     explode f ∉ boundvars (exp_of c) ∧
     EVERY (λv. v ∉ boundvars (exp_of c)) (MAP explode args) ∧
     ALL_DISTINCT p ∧ ALL_DISTINCT (MAP explode args) ∧
@@ -286,6 +318,12 @@ Proof
   Induct \\ fs [all_somes_def]
 QED
 
+Theorem min_app_const_call_args:
+  every_cexp (min_app f (LENGTH (const_call_args f ps c))) c1
+Proof
+  cheat
+QED
+
 Theorem specialise_thm:
   specialise f e = SOME out ∧
   no_shadowing (exp_of (Lam a [f] e)) ∧
@@ -346,19 +384,22 @@ Proof
     \\ drule no_shadowing_Lams_distinct
     \\ rewrite_tac [GSYM MAP_APPEND]
     \\ metis_tac [ALL_DISTINCT_MAP])
-  \\ qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
-  \\ qabbrev_tac ‘zs1 = outer_vs ++ zs’
-  \\ simp [MEM_EL] \\ strip_tac \\ strip_tac
-  \\ pop_assum $ assume_tac o GSYM
-  \\ unabbrev_all_tac
-  \\ drule_all (const_call_args_el |> CONJUNCT1)
-  \\ gvs [] \\ strip_tac
-  \\ qexists_tac ‘n’ \\ fs []
-  \\ ‘n < LENGTH (outer_vs ++ zs)’ by fs []
-  \\ qpat_x_assum ‘_ = SOME x’ mp_tac
-  \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
-  \\ strip_tac \\ rw []
-  \\ metis_tac [EL_APPEND1]
+  \\ conj_tac
+  >-
+   (qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
+    \\ qabbrev_tac ‘zs1 = outer_vs ++ zs’
+    \\ simp [MEM_EL] \\ strip_tac \\ strip_tac
+    \\ pop_assum $ assume_tac o GSYM
+    \\ unabbrev_all_tac
+    \\ drule_all (const_call_args_el |> CONJUNCT1)
+    \\ gvs [] \\ strip_tac
+    \\ qexists_tac ‘n’ \\ fs []
+    \\ ‘n < LENGTH (outer_vs ++ zs)’ by fs []
+    \\ qpat_x_assum ‘_ = SOME x’ mp_tac
+    \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
+    \\ strip_tac \\ rw []
+    \\ metis_tac [EL_APPEND1])
+  \\ fs [Abbr‘guide’,min_app_const_call_args]
 QED
 
 val _ = export_theory();
