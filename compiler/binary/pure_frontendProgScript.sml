@@ -111,9 +111,19 @@ val r = translate freshen_cexp_def;
 val r = translate_no_ind dead_let_def; (* TODO bad induction *)
 val r = translate_no_ind boundvars_of_def; (* TODO bad induction *)
 
-
 val r = translate min_call_args_def;
 val r = translate const_call_args_def;
+val r = translate all_somes_def;
+val r = translate split_at_def;
+val r = translate drop_common_prefix_def;
+val r = translate drop_common_suffix_def;
+val r = translate SmartLam_def;
+val r = translate SmartApp_def;
+val r = translate delete_with_def;
+val r = translate spec_one_def;
+val r = translate specialise_each_def;
+val r = translate specialise_def;
+
 val r = translate_no_ind inline_def;
 
 Triviality inline_ind:
