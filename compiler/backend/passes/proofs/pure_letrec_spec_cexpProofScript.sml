@@ -57,38 +57,234 @@ Proof
   \\ gvs [GSYM SWAP_REVERSE_SYM,LAST_REVERSE]
 QED
 
+Theorem check_arg_MAP_K_T:
+  ∀xs ys es.
+    check_arg v (MAP (K T) xs ++ ys) es ⇒
+    ∃es1 es2. es = es1 ++ es2 ∧ LENGTH xs = LENGTH es1 ∧
+              check_arg v ys es2
+Proof
+  Induct \\ fs []
+  \\ Cases_on ‘es’ \\ gvs [check_arg_def]
+  \\ rw [] \\ last_x_assum dxrule \\ rw []
+  \\ pop_assum $ irule_at Any
+  \\ qexists_tac ‘h::es1’ \\ fs []
+QED
+
+Theorem check_arg_MAP_K_T_ALT:
+  ∀xs es.
+    check_arg v (MAP (K T) xs) es ⇒
+    LENGTH xs ≤ LENGTH es
+Proof
+  Induct \\ fs [] \\ Cases_on ‘es’ \\ gvs [check_arg_def]
+QED
+
+Theorem delete_with_MAP_K_T_APPEND:
+  ∀xs ys xs1 ys1.
+    LENGTH xs = LENGTH ys ⇒
+    delete_with (MAP (K T) xs ++ xs1) (ys ++ ys1) = ys ++ delete_with xs1 ys1
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [delete_with_def]
+QED
+
+Theorem delete_with_MAP_K_T:
+  ∀xs ys.
+    LENGTH xs ≤ LENGTH ys ⇒
+    delete_with (MAP (K T) xs) ys = ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [delete_with_def]
+QED
+
+Theorem can_spec_arg_Var_IMP:
+  can_spec_arg f vs v ws x (Var v) ∧ v ≠ f ⇒ x = Var v
+Proof
+  simp [Once can_spec_arg_cases]
+  \\ rw [] \\ fs [mk_apps_def]
+  \\ Cases_on ‘ys ++ ys1’ using SNOC_CASES
+  \\ fs [Apps_def] \\ fs [SNOC_APPEND,Apps_append,Apps_def]
+QED
+
+Theorem can_spec_arg_Lams:
+  ∀ps x y.
+    can_spec_arg f vs v ws x y ∧ ~MEM v ps ∧ ~MEM f ps ⇒
+    can_spec_arg f vs v ws (Lams ps x) (Lams ps y)
+Proof
+  Induct \\ fs [Lams_def,PULL_EXISTS]
+  \\ rw [] \\ irule can_spec_arg_Lam \\ fs []
+QED
+
+Theorem can_spec_arg_Apps:
+  ∀xs ys x y.
+    LIST_REL (can_spec_arg f vs v ws) xs ys ∧
+    can_spec_arg f vs v ws x y ⇒
+    can_spec_arg f vs v ws (Apps x xs) (Apps y ys)
+Proof
+  Induct using SNOC_INDUCT \\ fs [Apps_def,PULL_EXISTS]
+  \\ rw [] \\ fs [SNOC_APPEND,Apps_append,Apps_def]
+  \\ Cases_on ‘ys’ using SNOC_CASES
+  \\ rw [] \\ fs [SNOC_APPEND,Apps_append,Apps_def]
+  \\ irule can_spec_arg_App \\ fs []
+QED
+
+Theorem can_spec_arg_Apps_Var_ALT:
+  LENGTH xs = LENGTH vs ∧ LENGTH ws ≤ LENGTH xs1 ∧
+  LIST_REL (can_spec_arg f vs v ws) xs ys ∧
+  LIST_REL (can_spec_arg f vs v ws) xs1 ys1 ⇒
+  can_spec_arg f vs v ws (Apps (Var f) (xs ++ [Var v] ++ xs1))
+    (Apps (Var f) (ys ++ ys1))
+Proof
+  strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ ‘LENGTH ws ≤ LENGTH ys1’ by fs []
+  \\ dxrule miscTheory.LESS_EQ_LENGTH
+  \\ dxrule miscTheory.LESS_EQ_LENGTH
+  \\ rpt strip_tac \\ gvs []
+  \\ drule LIST_REL_APPEND_IMP \\ fs []
+  \\ once_rewrite_tac [Apps_append] \\ rw []
+  \\ irule can_spec_arg_Apps \\ fs []
+  \\ irule (can_spec_arg_Apps_Var |> SIMP_RULE std_ss [mk_apps_def,APPEND_NIL])
+  \\ fs []
+QED
+
+(*
 Definition min_app_def[simp]:
   min_app f n e =
     (∀a b es. e = App a (Var b f) es ⇒ n ≤ LENGTH es)
 End
+*)
+
+Triviality boundvars_Seq_Fail[simp]:
+  boundvars (if MEM w (FLAT (MAP (FST ∘ SND) e'))
+             then Seq Fail x else x) = boundvars x
+Proof
+  rw [] \\ fs [boundvars_def]
+QED
+
+Triviality boundvars_lets_for:
+  ∀ts. boundvars (lets_for p_1 w ts p_2) = boundvars p_2 ∪ set (MAP SND ts)
+Proof
+  Induct \\ fs [lets_for_def,FORALL_PROD,EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem boundvars_rows_of:
+  ∀es.
+    boundvars (rows_of w e es)
+    =
+    boundvars e ∪
+    set (FLAT (MAP (FST o SND) es)) ∪
+    BIGUNION (set (MAP (boundvars o SND o SND) es))
+Proof
+  Induct \\ fs [rows_of_def,FORALL_PROD,boundvars_lets_for]
+  \\ fs [combinTheory.o_DEF]
+  \\ fs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ gvs [MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Triviality can_spec_arg_if:
+  can_spec_arg f bs v ts e e1 ⇒
+  can_spec_arg f bs v ts (if b then Seq Fail e else e)
+                         (if b then Seq Fail e1 else e1)
+Proof
+  rw [] \\ rpt (irule can_spec_arg_Prim \\ fs [])
+QED
+
+Triviality map_eq_lemma:
+  ∀xs ys.
+    MAP (λ(p1,p1',p2). p1') xs = MAP (λ(p1,p1',p2). p1') ys ∧
+    MEM (p_1,p_1',p_2) xs ∧ MEM y p_1' ⇒
+    ∃a b c z. MEM (a,b,c) ys ∧ MEM y b
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [FORALL_PROD] \\ rw []
+  \\ PairCases_on ‘h’ \\ gvs [] \\ metis_tac []
+QED
+
+Theorem can_spec_arg_Disj:
+  ∀xs w f bs v ts. w ≠ f ⇒ can_spec_arg f bs v ts (Disj w xs) (Disj w xs)
+Proof
+  Induct \\ fs [Disj_def] \\ rw []
+  >- (irule_at Any can_spec_arg_Prim \\ fs [])
+  \\ PairCases_on ‘h’ \\ fs [Disj_def]
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Var \\ fs []
+QED
+
+Theorem can_spec_arg_lets_for:
+  ∀ps.
+    can_spec_arg f bs v ts e1 e2 ∧ f ≠ w ∧
+    ~MEM f (MAP SND ps) ∧ ~MEM v (MAP SND ps) ⇒
+    can_spec_arg f bs v ts (lets_for b w ps e1) (lets_for b w ps e2)
+Proof
+  Induct \\ fs [lets_for_def,FORALL_PROD] \\ rw []
+  \\ irule_at Any can_spec_arg_App
+  \\ irule_at Any can_spec_arg_Lam
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Var \\ fs []
+QED
 
 Theorem spec_one_thm:
   (∀f v vs (e:'a cexp) e1.
-     spec_one f v vs e = SOME e1 ∧
-     every_cexp (min_app f (LENGTH vs)) e ∧
+     spec_one f v vs e = SOME e1 ∧ f ≠ v ∧
      explode f ∉ boundvars (exp_of e) ∧
      explode v ∉ boundvars (exp_of e) ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
-     boundvars (exp_of e1) ⊆ boundvars (exp_of e) ∧
-     every_cexp (min_app f (LENGTH bs + LENGTH ts)) e1) ∧
+     boundvars (exp_of e1) ⊆ boundvars (exp_of e)) ∧
   (∀f v vs (e:'a cexp list) e1.
-     spec_one_list f v vs e = SOME e1 ∧
+     spec_one_list f v vs e = SOME e1 ∧ f ≠ v ∧
      EVERY (λe.
-       every_cexp (min_app f (LENGTH vs)) e ∧
        explode f ∉ boundvars (exp_of e) ∧
        explode v ∉ boundvars (exp_of e)) e ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      LIST_REL (λe e1.
-       can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
-       boundvars (exp_of e1) ⊆ boundvars (exp_of e) ∧
-       every_cexp (min_app f (LENGTH bs + LENGTH ts)) e1) e e1) ∧
+       can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1)) e e1 ∧
+     BIGUNION (set (MAP boundvars (MAP exp_of e1))) ⊆
+     BIGUNION (set (MAP boundvars (MAP exp_of e)))) ∧
   (∀f v vs (e:(mlstring # 'a cexp) list) e1.
-     spec_one_letrec f v vs e = SOME e1 ⇒ ARB e) ∧
-  (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1.
-     spec_one_case f v vs e = SOME e1 ⇒ ARB e) ∧
-  (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1.
-     spec_one_opt f v vs e = SOME e1 ⇒ ARB e)
+     spec_one_letrec f v vs e = SOME e1 ∧ f ≠ v ∧
+     EVERY (λe.
+       explode f ∉ boundvars (exp_of (SND e)) ∧
+       explode v ∉ boundvars (exp_of (SND e))) e ∧
+     vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
+     MAP (λ(p1,p2). explode p1) e = MAP (λ(p1,p2). explode p1) e1 ∧
+     LIST_REL (can_spec_arg (explode f) bs (explode v) ts)
+       (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e))
+       (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e1)) ∧
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) ⊆
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e)))) ∧
+  (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1 e4 e5 w.
+     spec_one_case f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
+     EVERY (λe.
+       explode f ∉ boundvars (exp_of (SND (SND e))) ∧
+       explode v ∉ boundvars (exp_of (SND (SND e)))) e ∧
+     vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ∧
+     ~MEM f (FLAT (MAP (FST o SND) e)) ∧
+     ~MEM v (FLAT (MAP (FST o SND) e)) ∧
+     can_spec_arg (explode f) bs (explode v) ts e4 e5 ⇒
+     MAP FST e = MAP FST e1 ∧
+     MAP (FST o SND) e = MAP (FST o SND) e1 ∧
+     can_spec_arg (explode f) bs (explode v) ts
+       (rows_of (explode w) e4
+                (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e))
+       (rows_of (explode w) e5
+                (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e1)) ∧
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) ⊆
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e)))) ∧
+  (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1 w.
+     spec_one_opt f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
+     (case e of
+      | NONE => T
+      | (SOME (_,e)) => explode f ∉ boundvars (exp_of e) ∧
+                        explode v ∉ boundvars (exp_of e)) ∧
+     vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
+     can_spec_arg (explode f) bs (explode v) ts
+          (case e of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e))
+          (case e1 of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e)) ∧
+     boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ⊆
+     boundvars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))))
 Proof
   ho_match_mp_tac spec_one_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac
@@ -96,16 +292,98 @@ Proof
   \\ gvs [spec_one_def,AllCaseEqs(),exp_of_def,SF ETA_ss]
   >~ [‘Apps’] >-
    (‘∃b. e = Var b f’ by (Cases_on ‘e’ \\ fs [eq_Var_def])
-    \\ gvs [exp_of_def] \\ cheat)
-  >~ [‘Apps’] >- cheat
+    \\ gvs [exp_of_def] \\ gvs [boundvars_Apps]
+    \\ last_x_assum mp_tac
+    \\ impl_tac >- (gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ metis_tac [])
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule check_arg_MAP_K_T \\ strip_tac \\ gvs []
+    \\ strip_tac \\ gvs [LIST_REL_SPLIT2]
+    \\ Cases_on ‘es2’ \\ gvs [check_arg_def]
+    \\ ‘∃b. h = Var b v’ by (Cases_on ‘h’ \\ fs [eq_Var_def])
+    \\ gvs [] \\ imp_res_tac check_arg_MAP_K_T_ALT
+    \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+    \\ gvs [delete_with_MAP_K_T_APPEND,delete_with_def,exp_of_def,delete_with_MAP_K_T]
+    \\ drule can_spec_arg_Var_IMP
+    \\ strip_tac \\ gvs []
+    \\ once_rewrite_tac [EVAL “[x] ++ ys” |> GSYM] \\ rewrite_tac [APPEND_ASSOC]
+    \\ irule can_spec_arg_Apps_Var_ALT
+    \\ fs [LIST_REL_MAP]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  >~ [‘Apps’] >-
+   (fs [boundvars_Apps]
+    \\ irule_at Any can_spec_arg_Apps
+    \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
+    \\ impl_tac >- (gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ metis_tac [])
+    \\ strip_tac \\ fs [LIST_REL_MAP]
+    \\ fs [SUBSET_DEF])
+  >~ [‘Lams’] >-
+   (fs [boundvars_Lams]
+    \\ irule_at Any can_spec_arg_Lams \\ fs []
+    \\ fs [SUBSET_DEF])
   >~ [‘Var’] >-
    (irule can_spec_arg_Var \\ fs [])
-  >~ [‘Let a x y’] >- cheat
-  >~ [‘Lams’] >- cheat
-  >~ [‘Prim’] >- cheat
-  >~ [‘Letrec’] >- cheat
-  >~ [‘rows_of’] >- cheat
-  \\ cheat
+  >~ [‘Prim’] >-
+   (last_x_assum mp_tac
+    \\ impl_tac >- (gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ metis_tac [])
+    \\ strip_tac
+    \\ irule_at Any can_spec_arg_Prim \\ fs []
+    \\ fs [LIST_REL_MAP])
+  >~ [‘Let _ x y’] >-
+   (irule_at Any can_spec_arg_App \\ fs []
+    \\ irule_at Any can_spec_arg_Lam \\ fs []
+    \\ fs [SUBSET_DEF])
+  >~ [‘Letrec’] >-
+   (irule_at Any can_spec_arg_Letrec \\ fs []
+    \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
+    \\ impl_tac >- (gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD] \\ metis_tac [])
+    \\ strip_tac \\ fs []
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD]
+    \\ fs [MEM_MAP,FORALL_PROD]
+    \\ fs [SUBSET_DEF])
+  >~ [‘rows_of’] >-
+   (first_x_assum $ qspec_then ‘w’ mp_tac
+    \\ impl_tac >-
+     (CASE_TAC \\ fs [] \\ CASE_TAC
+      \\ fs [boundvars_rows_of,IfDisj_def])
+    \\ strip_tac
+    \\ first_x_assum $ qspecl_then
+      [‘(case e'' of
+         | NONE => Fail
+         | SOME (a,e) => IfDisj w a (exp_of e))’,
+       ‘(case d of
+         | NONE => Fail
+         | SOME (a,e) => IfDisj w a (exp_of e))’,‘w’] mp_tac
+    \\ impl_tac >-
+     (gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,boundvars_rows_of]
+      \\ gvs [MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+      \\ metis_tac [])
+    \\ strip_tac \\ fs []
+    \\ irule_at Any can_spec_arg_if
+    \\ irule_at Any can_spec_arg_App \\ fs []
+    \\ irule_at Any can_spec_arg_Lam \\ fs []
+    \\ fs [boundvars_rows_of]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+    \\ fs [MEM_MAP,FORALL_PROD]
+    \\ fs [SUBSET_DEF,EXTENSION]
+    \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
+    \\ metis_tac [map_eq_lemma])
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- fs [rows_of_def]
+  >- (first_x_assum $ drule_at (Pos last)
+      \\ disch_then drule \\ strip_tac \\ fs []
+      \\ fs [SUBSET_DEF,rows_of_def]
+      \\ irule can_spec_arg_Prim \\ fs []
+      \\ irule_at Any can_spec_arg_Prim \\ fs []
+      \\ irule_at Any can_spec_arg_Var \\ fs []
+      \\ irule_at Any can_spec_arg_lets_for \\ fs []
+      \\ CCONTR_TAC
+      \\ gvs [MEM_EL,EL_MAPi,EL_MAP])
+  >- (irule can_spec_arg_Prim \\ fs [])
+  >- (fs [IfDisj_def] \\ fs [SUBSET_DEF]
+      \\ irule can_spec_arg_Prim \\ fs []
+      \\ irule_at Any can_spec_arg_Prim \\ fs []
+      \\ irule_at Any can_spec_arg_Disj \\ fs [])
 QED
 
 Triviality can_spec_arg_map:
@@ -135,7 +413,6 @@ QED
 Theorem specialise_each_thm:
   ∀p args f c args1 c1.
     specialise_each p args f c = (args1,c1) ∧
-    every_cexp (min_app f (LENGTH args)) c ∧
     explode f ∉ boundvars (exp_of c) ∧
     EVERY (λv. v ∉ boundvars (exp_of c)) (MAP explode args) ∧
     ALL_DISTINCT p ∧ ALL_DISTINCT (MAP explode args) ∧
@@ -318,12 +595,6 @@ Proof
   Induct \\ fs [all_somes_def]
 QED
 
-Theorem min_app_const_call_args:
-  every_cexp (min_app f (LENGTH (const_call_args f ps c))) c1
-Proof
-  cheat
-QED
-
 Theorem specialise_thm:
   specialise f e = SOME out ∧
   no_shadowing (exp_of (Lam a [f] e)) ∧
@@ -384,22 +655,19 @@ Proof
     \\ drule no_shadowing_Lams_distinct
     \\ rewrite_tac [GSYM MAP_APPEND]
     \\ metis_tac [ALL_DISTINCT_MAP])
-  \\ conj_tac
-  >-
-   (qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
-    \\ qabbrev_tac ‘zs1 = outer_vs ++ zs’
-    \\ simp [MEM_EL] \\ strip_tac \\ strip_tac
-    \\ pop_assum $ assume_tac o GSYM
-    \\ unabbrev_all_tac
-    \\ drule_all (const_call_args_el |> CONJUNCT1)
-    \\ gvs [] \\ strip_tac
-    \\ qexists_tac ‘n’ \\ fs []
-    \\ ‘n < LENGTH (outer_vs ++ zs)’ by fs []
-    \\ qpat_x_assum ‘_ = SOME x’ mp_tac
-    \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
-    \\ strip_tac \\ rw []
-    \\ metis_tac [EL_APPEND1])
-  \\ fs [Abbr‘guide’,min_app_const_call_args]
+  \\ qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
+  \\ qabbrev_tac ‘zs1 = outer_vs ++ zs’
+  \\ simp [MEM_EL] \\ strip_tac \\ strip_tac
+  \\ pop_assum $ assume_tac o GSYM
+  \\ unabbrev_all_tac
+  \\ drule_all (const_call_args_el |> CONJUNCT1)
+  \\ gvs [] \\ strip_tac
+  \\ qexists_tac ‘n’ \\ fs []
+  \\ ‘n < LENGTH (outer_vs ++ zs)’ by fs []
+  \\ qpat_x_assum ‘_ = SOME x’ mp_tac
+  \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
+  \\ strip_tac \\ rw []
+  \\ metis_tac [EL_APPEND1]
 QED
 
 val _ = export_theory();

@@ -133,7 +133,7 @@ Definition check_arg_def:
   check_arg v [] es = T ∧
   check_arg v (F::bs) [] = F ∧
   check_arg v (F::bs) (x::xs) = (eq_Var v x ∧ check_arg v bs xs) ∧
-  check_arg v (T::bs) [] = T ∧
+  check_arg v (T::bs) [] = F ∧
   check_arg v (T::bs) (x::xs) = check_arg v bs xs
 End
 
