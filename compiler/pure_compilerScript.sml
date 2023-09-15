@@ -30,19 +30,22 @@ Definition compile_def:
     | SOME (e1,ns) =>
       let e2 = transform_cexp c e1 in
       let _ = empty_ffi (strlit "transform_cexp") in
-      let i = infer_types ns e2 in
+      let e3 = inline_top_level c e2 in
+      let _ = empty_ffi (strlit "inlining") in
+      let i = infer_types ns e3 in
       let _ = empty_ffi (strlit "infer_types") in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
-          let e3 = clean_cexp c e2 in
-          let _ = empty_ffi (strlit "clean_cexp") in
-          let e4 = demands_analysis c e3 in
-          let _ = empty_ffi (strlit "demands_analysis") in
-          let e5 = inline_top_level c e4 in
-          let _ = empty_ffi (strlit "inlining") in
-          let _ = empty_ffi (implode ("\n\n" ++ pure_print$str_of e5 ++ "\n\n")) in
-            SOME (ast_to_string $ pure_to_cake c ns e5)
+            let e4 = clean_cexp c e3 in
+            let _ = empty_ffi (strlit "clean_cexp") in
+            let e5 = demands_analysis c e4 in
+            let _ = empty_ffi (strlit "demands_analysis") in
+              if c.do_explore then
+                SOME ("after inlining:\n\n" ++ pure_print$str_of e3 ++ "\n\n" ++
+                      "after demands:\n\n" ++ pure_print$str_of e5 ++ "\n\n")
+              else
+                SOME (ast_to_string $ pure_to_cake c ns e5)
 End
 
 Definition compile_to_ast_def:
@@ -51,13 +54,13 @@ Definition compile_to_ast_def:
     | NONE => NONE
     | SOME (e1,ns) =>
       let e2 = transform_cexp c e1 in
-      let i = infer_types ns e2 in
+      let e3 = inline_top_level c e2 in
+      let i = infer_types ns e3 in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
-          let e3 = clean_cexp c e2 in
-          let e4 = demands_analysis c e3 in
-          let e5 = inline_top_level c e4 in
+          let e4 = clean_cexp c e3 in
+          let e5 = demands_analysis c e4 in
           SOME (pure_to_cake c ns e5)
 End
 
@@ -68,14 +71,17 @@ Theorem compile_monadically:
   do
     (e1,ns) <- string_to_cexp s ;
     e2 <<- transform_cexp c e1 ;
-    to_option $ infer_types ns e2 ;
-    e3 <<- clean_cexp c e2 ;
-    e4 <<- demands_analysis c e3 ;
-    e5 <<- inline_top_level c e4 ;
-    return (ast_to_string $ pure_to_cake c ns e5)
+    e3 <<- inline_top_level c e2 ;
+    to_option $ infer_types ns e3 ;
+    e4 <<- clean_cexp c e3 ;
+    e5 <<- demands_analysis c e4 ;
+    return (if c.do_explore then
+              "after inlining:\n\n" ++ pure_print$str_of e3 ++ "\n\n" ++
+              "after demands:\n\n" ++ pure_print$str_of e5 ++ "\n\n"
+            else ast_to_string $ pure_to_cake c ns e5)
   od
 Proof
-  simp[compile_def] >> EVERY_CASE_TAC >> simp[]
+  simp[compile_def]>> EVERY_CASE_TAC >> simp[]
 QED
 
 Definition frontend_def:
@@ -84,13 +90,16 @@ Definition frontend_def:
     | NONE => NONE
     | SOME (e1,ns) =>
       let e2 = transform_cexp c e1 in
-      let i = infer_types ns e2 in
+      let e3 = inline_top_level c e2 in
+      let i = infer_types ns e3 in
         case to_option i of
         | NONE => NONE
-        | SOME _ => SOME (e2,ns)
+        | SOME _ => SOME (e3,ns)
 End
 
 Theorem compile_to_string:
+  ~c.do_explore
+  ⇒
   compile c s = OPTION_MAP ast_to_string $ compile_to_ast c s
 Proof
   rw[compile_def, compile_to_ast_def] >>
@@ -101,10 +110,9 @@ Theorem compile_to_ast_alt_def:
   compile_to_ast c s =
     case frontend c s of
     | NONE => NONE
-    | SOME (e2,ns) =>
-        let e3 = clean_cexp c e2 in
-        let e4 = demands_analysis c e3 in
-        let e5 = inline_top_level c e4 in
+    | SOME (e3,ns) =>
+        let e4 = clean_cexp c e3 in
+        let e5 = demands_analysis c e4 in
         SOME (pure_to_cake c ns e5)
 Proof
   rw[compile_to_ast_def, frontend_def] >>

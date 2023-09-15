@@ -24,6 +24,7 @@ Datatype:
       do_split_dlam : bool ;        (* thunk-to-thunk split delayed lambdas *)
       do_app_unit   : bool ;        (* state-to-state *)
       do_final_gc   : bool ;        (* invoke GC at end of CakeML program *)
+      do_explore    : bool          (* print explorer output *)
     |>
 End
 
@@ -37,6 +38,7 @@ Overload let_force_flag[local]  = “strlit "-let_force"”
 Overload dlam_flag[local]       = “strlit "-dlam"”
 Overload unit_flag[local]       = “strlit "-unit"”
 Overload final_gc_flag[local]   = “strlit "-final_gc"”
+Overload explore_flag[local]    = “strlit "-explore"”
 
 Overload inline_off_opts[local] = “<| depth := 0 ; heuristic := 0 |>”
 Overload inline_default_opts[local] = “<| depth := 50 ; heuristic := 100 |>”
@@ -52,7 +54,8 @@ Definition all_flags_def:
                let_force_flag;
                dlam_flag;
                unit_flag;
-               final_gc_flag]
+               final_gc_flag;
+               explore_flag]
 End
 
 Definition read_cline_args_def:
@@ -71,7 +74,8 @@ Definition read_cline_args_def:
                    do_let_force  := ¬ MEM let_force_flag cl  ;
                    do_split_dlam := ¬ MEM dlam_flag cl       ;
                    do_app_unit   := ¬ MEM unit_flag cl       ;
-                   do_final_gc   := MEM final_gc_flag cl     |> (* NB final GC only if flag is present *)
+                   do_final_gc   := MEM final_gc_flag cl     ; (* NB final GC only if flag is present *)
+                   do_explore    := MEM explore_flag cl      |>
 End
 
 val default = EVAL “read_cline_args []” |> concl |> rand |> rand
