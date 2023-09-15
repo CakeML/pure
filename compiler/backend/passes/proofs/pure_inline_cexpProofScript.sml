@@ -11,7 +11,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
      pure_letrec_seqTheory pure_demandTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
-open pure_inlineTheory pure_inline_cexpTheory;
+open pure_inlineTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory;
 
 val _ = new_theory "pure_inline_cexpProof";
 
@@ -249,7 +249,7 @@ Proof
   match_mp_tac lemma
   \\ rpt strip_tac
   >~ [`Var _ _`] >- (
-    Cases_on `inline m ns (SUC v13) h (Var a v) = (Var a v, _)`
+    Cases_on `inline m ns cl h (Var a v) = (Var a v, _)`
     >- gvs [list_subst_rel_refl,exp_of_def]
     \\ gvs [inline_def]
     \\ Cases_on `lookup m v` \\ gvs [list_subst_rel_refl]
@@ -283,9 +283,9 @@ Proof
   )
   >~ [`App _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline_list m ns (SUC v14) h es`
+    \\ Cases_on `inline_list m ns cl h es`
     \\ gvs []
-    \\ Cases_on `inline m ns (SUC v14) h e`
+    \\ Cases_on `inline m ns cl h e`
     \\ gvs [list_subst_rel_refl,exp_of_def,SF ETA_ss]
     \\ qspecl_then [`set (MAP FST xs)`,`exp_of e`,`MAP exp_of es`] assume_tac DISJOINT_boundvars_Apps
     \\ drule no_shadowing_Apps_EVERY
@@ -300,7 +300,7 @@ Proof
       \\ fs [EVERY_MAP,DISJOINT_SYM]
     )
     \\ gvs []
-    \\ Cases_on `inline m r (SUC v14) h e`
+    \\ Cases_on `inline m r cl h e`
     \\ gvs []
     \\ Cases_on `lookup m x`
     >- (
@@ -330,7 +330,7 @@ Proof
     \\ gvs []
     \\ Cases_on `freshen_cexp x r` \\ gvs []
     \\ rename [`freshen_cexp _ _ = (q_fresh, r_fresh)`]
-    \\ Cases_on `inline m r_fresh v14 h q_fresh` \\ gvs []
+    \\ Cases_on `inline m r_fresh v15 h q_fresh` \\ gvs []
     \\ rename [`inline _ _ _ _ _ = (q_inline, r_inline)`]
     \\ cheat
     (* 
@@ -367,9 +367,9 @@ Proof
   )
   >~ [`Let _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline m ns (SUC v15) h e1`
+    \\ Cases_on `inline m ns cl h e1`
     \\ gvs []
-    \\ Cases_on `inline (heuristic_insert m h v e1) r (SUC v15) h e2`
+    \\ Cases_on `inline (heuristic_insert m h v e1) r cl h e2`
     \\ gvs []
     \\ gvs [list_subst_rel_refl,exp_of_def]
     \\ fs [heuristic_insert_def]
@@ -400,9 +400,9 @@ Proof
   )
   >~ [`Letrec _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline_list m ns (SUC v16) h (MAP SND vbs)`
+    \\ Cases_on `inline_list m ns cl h (MAP SND vbs)`
     \\ gvs []
-    \\ Cases_on `inline (heuristic_insert_Rec m h vbs) r (SUC v16) h e`
+    \\ Cases_on `inline (heuristic_insert_Rec m h vbs) r cl h e`
     \\ gvs []
     \\ gvs [list_subst_rel_refl,exp_of_def]
     \\ Cases_on `heuristic_insert_Rec m h vbs = m`
@@ -451,29 +451,40 @@ Proof
     \\ Cases_on `q`
     >- (
       gvs [MAP2,inline_def]
-      \\ Cases_on `inline m ns (SUC v16) h u`
+      \\ Cases_on `inline m ns cl h u`
       \\ gvs []
     )
     \\ reverse $ Cases_on `t`
     >- (
       gvs [MAP2,inline_def]
-      \\ Cases_on `inline m ns (SUC v16) h u`
+      \\ Cases_on `inline m ns cl h u`
       \\ gvs []
     )
     \\ gvs [MAP2,inline_def]
-    \\ cheat
-    (* \\ irule list_subst_rel_Let
+    \\ irule list_subst_rel_LetRecIntroExp
+    \\ conj_tac
+    >- (
+      last_x_assum $ irule_at Any
+      \\ gvs [DISJOINT_SYM]
+      \\ fs [Once no_shadowing_cases]
+    )
     \\ last_x_assum $ irule_at Any
-    \\ fs [DISJOINT_SYM]
-    \\ fs [mlmapTheory.insert_thm]
-    \\ irule_at Any memory_inv_APPEND_Rec
-    \\ fs []
-    \\ drule no_shadowing_Letrec_EVERY
-    \\ rw [] *)
+    \\ Cases_on `specialise w u` \\ gvs []
+    \\ qexists_tac `(exp_of x)`
+    \\ drule specialise_thm
+    \\ fs [exp_of_def, GSYM PULL_FORALL]
+    \\ impl_tac
+    >- (
+      fs [Lams_def]
+      \\ fs [Once no_shadowing_cases]
+      \\ cheat (* NestedCase_free u -> add as assumption *)
+    )
+    \\ strip_tac
+    \\ cheat
   )
   >~ [`Lam _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline m ns (SUC v17) h e`
+    \\ Cases_on `inline m ns cl h e`
     \\ gvs []
     \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
     \\ Induct_on `vs`
@@ -485,7 +496,7 @@ Proof
   )
   >~ [`Prim _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline_list m ns (SUC v18) h es`
+    \\ Cases_on `inline_list m ns cl h es`
     \\ gvs []
     \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
     \\ irule list_subst_rel_Prim
@@ -505,14 +516,14 @@ Proof
   )
   >~ [`Case _ _ _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline m ns (SUC v19) h e`
+    \\ Cases_on `inline m ns cl h e`
     \\ gvs []
-    \\ Cases_on `inline_list m r (SUC v19) h (MAP (λ(v, vs, e). e) bs)`
+    \\ Cases_on `inline_list m r cl h (MAP (λ(v, vs, e). e) bs)`
     \\ gvs []
     \\ Cases_on `(case f of
         NONE => (NONE,r')
       | SOME (vs,e') =>
-        (λ(e4,ns4). (SOME (vs,e4),ns4)) (inline m r' (SUC v19) h e'))`
+        (λ(e4,ns4). (SOME (vs,e4),ns4)) (inline m r' cl h e'))`
     \\ gvs []
     \\ sg `LENGTH (MAP (λ(v,vs,e). e) bs) = LENGTH q'`
     >- (
@@ -534,7 +545,7 @@ Proof
       >- fs []
       \\ PairCases_on `x`
       \\ gvs []
-      \\ Cases_on `inline m r' (SUC v19) h x1`
+      \\ Cases_on `inline m r' cl h x1`
       \\ gvs []
     )
     \\ sg `(∀v1 x1. f = SOME (v1, x1) ⇒ no_shadowing (exp_of x1))`
@@ -662,7 +673,7 @@ Proof
       \\ pop_assum mp_tac
       \\ pop_assum mp_tac
       \\ pop_assum mp_tac
-      \\ qpat_x_assum `inline_list m r (SUC v19) h (MAP (λ(v,vs,e). e) bs) = (q',r')` mp_tac
+      \\ qpat_x_assum `inline_list m r cl h (MAP (λ(v,vs,e). e) bs) = (q',r')` mp_tac
       \\ qid_spec_tac `r`
       \\ qid_spec_tac `q'`
       \\ qid_spec_tac `bs`
@@ -677,7 +688,7 @@ Proof
         \\ Cases_on `q''`
         >- fs []
         \\ PairCases_on `x`
-        \\ Cases_on `inline m r' (SUC v19) h x1`
+        \\ Cases_on `inline m r' cl h x1`
         \\ gvs [IfDisj_def]
         \\ irule list_subst_rel_Prim
         \\ fs [LIST_REL_EL_EQN,list_subst_rel_refl]
@@ -697,12 +708,12 @@ Proof
       \\ simp [LIST_REL_EL_EQN,list_subst_rel_refl,lets_for_def]
       \\ irule_at Any list_subst_rel_lets_for
       \\ gvs [DISJOINT_SYM]
-      \\ rename [`inline_list m r (SUC v19) h (head::MAP (λ(v,vs,e). e) bs)`]
+      \\ rename [`inline_list m r cl h (head::MAP (λ(v,vs,e). e) bs)`]
       \\ gvs [DISJOINT_SYM,memory_inv_def,inline_def]
-      \\ Cases_on `inline m r (SUC v19) h head`
+      \\ Cases_on `inline m r cl h head`
       \\ gvs []
-      \\ rename [`inline_list m r1 (SUC v19) h (MAP (λ(v,vs,e). e) bs)`]
-      \\ Cases_on `inline_list m r1 (SUC v19) h (MAP (λ(v,vs,e). e) bs)`
+      \\ rename [`inline_list m r1 cl h (MAP (λ(v,vs,e). e) bs)`]
+      \\ Cases_on `inline_list m r1 cl h (MAP (λ(v,vs,e). e) bs)`
       \\ gvs []
       \\ first_x_assum $ irule_at Any
       \\ gvs []

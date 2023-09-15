@@ -733,14 +733,13 @@ Inductive list_subst_rel:
   (∀l t u v x y x1.
     list_subst_rel l x y ∧
     (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
-    no_shadowing x1 ∧
+    (* no_shadowing x1 ∧ *)
     v ∉ boundvars x1 ∧
     v ∉ freevars x1 ∧
     DISJOINT (boundvars x1) (freevars x1) ∧
     DISJOINT (boundvars x1) (vars_of l) ∧
     DISJOINT (boundvars x1) (freevars_of l) ∧
     DISJOINT (boundvars t) (boundvars x1) ∧
-    (* DISJOINT (boundvars t) (freevars t) ∧ *)
     DISJOINT (boundvars t) (freevars x1) ∧
     list_subst_rel (l ++ [(v,Exp x1)]) t u ⇒
     list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u))
@@ -772,8 +771,9 @@ Definition bind_ok_def:
     v ∉ boundvars x ∧
     DISJOINT (boundvars x) (set (MAP FST xs)) ∧ (* thm assumption *)
     DISJOINT (boundvars x) (vars_of (FILTER (λ(w,_). w ≠ v) xs)) ∧ (* thm assumption *)
-    DISJOINT (boundvars x) (freevars x) ∧ (* thm assumption *)
-    no_shadowing x) ∧
+    DISJOINT (boundvars x) (freevars x) (* thm assumption *)
+    (* no_shadowing x *)
+  ) ∧
   (bind_ok xs (v,Rec x) ⇔ T)
 End
 
@@ -966,8 +966,8 @@ QED
 Theorem bind_ok_rec_Exp_append:
   bind_ok_rec xs ∧
   v ∉ freevars_of xs ∧
-  DISJOINT (boundvars x) (freevars_of xs) ∧
-  no_shadowing x ⇒
+  DISJOINT (boundvars x) (freevars_of xs)
+  (* no_shadowing x *) ⇒
     bind_ok_rec (xs ++ [(v,Exp x)])
 Proof
   rw []

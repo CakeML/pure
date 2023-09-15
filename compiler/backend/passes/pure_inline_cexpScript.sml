@@ -111,18 +111,17 @@ Definition make_Let_def:
 End
 
 Definition inline_def:
-  inline m ns (0: num) h e = (e, ns) ∧
-  inline (m: ('a cexp_rhs) var_map) ns cl (h: 'a heuristic) (Var (a: 'a) v) =
+  inline (m: ('a cexp_rhs) var_map) ns (cl: num) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
     | NONE => (Var a v, ns)
     | SOME (cExp e) =>
       if is_Lam e
       then (Var a v, ns)
-      else (
-        let (fe, ns0) = freshen_cexp e ns
-        in let (e1, ns1) = inline m ns0 (cl - 1) h fe
-        in (e1, ns1)
-      )
+      else if cl = 0 then (Var a v, ns)
+        else (
+          let (fe, ns0) = freshen_cexp e ns
+          in inline m ns0 (cl - 1) h fe
+        )
     | SOME (cRec e) => (Var a v, ns)) ∧
   inline m ns cl h (App a e es) = (
     let (es1, ns1) = inline_list m ns cl h es
@@ -135,10 +134,11 @@ Definition inline_def:
           let exp = (App a e es1)
           in (case make_Let exp of
           | NONE => (exp, ns1)
-          | SOME exp1 =>
-            let (fe, ns3) = freshen_cexp exp1 ns1
-            in let (fe1, ns4) = inline m ns3 (cl - 1) h fe
-            in (fe1, ns4)
+          | SOME exp1 => if cl = 0 then (exp, ns1)
+            else (
+              let (fe, ns3) = freshen_cexp exp1 ns1
+              in inline m ns3 (cl - 1) h fe
+            )
           )
         | _ =>
           let (e1, ns2) = inline m ns1 cl h e
