@@ -5,7 +5,8 @@ open HolKernel Parse boolLib bossLib BasicProvers;
 open listTheory pairTheory topological_sortTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory
      pure_freshenTheory pure_letrec_spec_cexpTheory
-     pure_dead_letTheory pure_comp_confTheory;
+     pure_dead_letTheory pure_comp_confTheory
+     mlstringTheory;
 
 val _ = new_theory "pure_inline_cexp";
 
@@ -32,7 +33,8 @@ QED
 Definition heuristic_insert_def:
   heuristic_insert m h v e =
     if h e then
-      insert m v (cExp e)
+      let _ = empty_ffi (strlit "inliner inserting let: " ^ v) in
+        insert m v (cExp e)
     else
       m
 End
@@ -44,7 +46,9 @@ Definition heuristic_insert_Rec_def:
         if h e then (
           case specialise v e of
           | NONE => m
-          | SOME b => insert m v (cExp b)
+          | SOME b =>
+             let _ = empty_ffi (strlit "inliner inserting rec: " ^ v) in
+               insert m v (cExp b)
         )
         else
           m
@@ -119,6 +123,8 @@ Definition inline_def:
       then (Var a v, ns)
       else if cl = 0 then (Var a v, ns)
         else (
+          let _ = empty_ffi (strlit "inlining " ^ v ^
+                    strlit " and decrementing clock " ^ toString cl) in
           let (fe, ns0) = freshen_cexp e ns
           in inline m ns0 (cl - 1) h fe
         )
@@ -136,6 +142,8 @@ Definition inline_def:
           | NONE => (exp, ns1)
           | SOME exp1 => if cl = 0 then (exp, ns1)
             else (
+              let _ = empty_ffi (strlit "inlining " ^ v ^
+                    strlit " and decrementing clock " ^ toString cl) in
               let (fe, ns3) = freshen_cexp exp1 ns1
               in inline m ns3 (cl - 1) h fe
             )
