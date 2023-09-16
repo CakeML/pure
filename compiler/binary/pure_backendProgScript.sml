@@ -20,8 +20,10 @@ val _ = (max_print_depth := 1000);
 
 val _ = register_type “:'a pure_cexp$cexp”;
 
-val r = translate SmartLam_def;
-val r = translate SmartApp_def;
+val r = translate pure_cexpTheory.dest_Lam_def;
+val r = translate pure_cexpTheory.dest_App_def;
+val r = translate pure_cexpTheory.SmartLam_def;
+val r = translate pure_cexpTheory.SmartApp_def;
 
 val r = translate var_setTheory.insert_var_def;
 val r = translate var_setTheory.insert_vars_def;
