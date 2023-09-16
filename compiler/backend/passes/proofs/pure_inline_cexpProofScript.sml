@@ -302,7 +302,14 @@ Proof
     )
     \\ gvs []
     \\ reverse $ Cases_on `x'`
-    >- cheat (* cRec case -- This is currently unused *)
+    >- (
+      gvs [exp_of_def,SF ETA_ss]
+      \\ irule list_subst_rel_Apps
+      \\ fs [LIST_REL_MAP,o_DEF]
+      \\ last_x_assum $ irule_at Any
+      \\ gvs [memory_inv_def,DISJOINT_SYM]
+      \\ fs [EVERY_MAP,DISJOINT_SYM]
+    )
     \\ Cases_on `e` \\ gvs [get_Var_name_def]
     \\ Cases_on `make_Let (App a c q)`
     >- (
@@ -319,8 +326,19 @@ Proof
     \\ gvs []
     \\ Cases_on `freshen_cexp x r` \\ gvs []
     \\ rename [`freshen_cexp _ _ = (q_fresh, r_fresh)`]
-    \\ Cases_on `inline m r_fresh v15 h q_fresh` \\ gvs []
+    \\ Cases_on `inline m r_fresh (cl - 1) h q_fresh` \\ gvs []
     \\ rename [`inline _ _ _ _ _ = (q_inline, r_inline)`]
+    \\ Cases_on `cl = 0`
+    >- (
+      gvs [exp_of_def,SF ETA_ss]
+      \\ irule list_subst_rel_Apps
+      \\ fs [LIST_REL_MAP,o_DEF]
+      \\ last_x_assum $ irule_at Any
+      \\ gvs [memory_inv_def,DISJOINT_SYM]
+      \\ fs [EVERY_MAP,DISJOINT_SYM]
+      \\ irule list_subst_rel_refl
+    )
+    \\ gvs []
     \\ cheat
     (*
     0.  ∀xs'.

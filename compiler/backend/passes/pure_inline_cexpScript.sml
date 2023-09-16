@@ -142,11 +142,12 @@ Definition inline_def:
       (* Var applied to arguments *)
       | SOME v => (
         case lookup m v of
-        | SOME (cExp e) =>
-          let exp = (App a e es1)
+        | SOME (cExp e_m) =>
+          let exp = (App a e_m es1)
           in (case make_Let exp of
           | NONE => (exp, ns1)
-          | SOME exp1 => if cl = 0 then (exp, ns1)
+          | SOME exp1 =>
+            if cl = 0 then (App a e es1, ns1)
             else (
               let _ = empty_ffi (strlit "inlining " ^ v ^
                     strlit " and decrementing clock " ^ toString cl) in
