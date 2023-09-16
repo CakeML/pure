@@ -134,6 +134,7 @@ val r = translate delete_with_def;
 val r = translate spec_one_def;
 val r = translate specialise_each_def;
 val r = translate specialise_def;
+val r = translate cheap_def;
 
 val r = translate_no_ind inline_def;
 

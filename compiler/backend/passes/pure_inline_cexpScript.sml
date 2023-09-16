@@ -30,9 +30,16 @@ Proof
   \\ fs [list_size_def,basicSizeTheory.pair_size_def]
 QED
 
+Definition cheap_def:
+  cheap (Var _ e) = T ∧
+  cheap (Lam _ _ _) = T ∧
+  cheap (Prim _ _ xs) = NULL xs ∧
+  cheap _ = F
+End
+
 Definition heuristic_insert_def:
   heuristic_insert m h v e =
-    if h e then
+    if cheap e ∧ h e then
       let _ = empty_ffi (strlit "inliner inserting let: " ^ v) in
         insert m v (cExp e)
     else
