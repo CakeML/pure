@@ -485,9 +485,6 @@ Proof
     \\ irule_at Any memory_inv_APPEND \\ fs []
     \\ qpat_x_assum ‘no_shadowing _’ mp_tac
     \\ simp [Once no_shadowing_cases] \\ strip_tac
-    \\ drule specialise_vars \\ strip_tac
-    \\ Cases_on ‘w’ \\ fs []
-    \\ fs [IN_DISJOINT,SUBSET_DEF] \\ rw []
     \\ cheat
   )
   >~ [`Lam _ _`] >- (

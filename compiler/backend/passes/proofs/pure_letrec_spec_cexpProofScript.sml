@@ -232,7 +232,7 @@ Theorem spec_one_thm:
      explode v ∉ boundvars (exp_of e) ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
-     boundvars (exp_of e1) ⊆ boundvars (exp_of e)) ∧
+     boundvars (exp_of e1) = boundvars (exp_of e)) ∧
   (∀f v vs (e:'a cexp list) e1.
      spec_one_list f v vs e = SOME e1 ∧ f ≠ v ∧
      EVERY (λe.
@@ -241,7 +241,7 @@ Theorem spec_one_thm:
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      LIST_REL (λe e1.
        can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1)) e e1 ∧
-     BIGUNION (set (MAP boundvars (MAP exp_of e1))) ⊆
+     BIGUNION (set (MAP boundvars (MAP exp_of e1))) =
      BIGUNION (set (MAP boundvars (MAP exp_of e)))) ∧
   (∀f v vs (e:(mlstring # 'a cexp) list) e1.
      spec_one_letrec f v vs e = SOME e1 ∧ f ≠ v ∧
@@ -253,7 +253,7 @@ Theorem spec_one_thm:
      LIST_REL (can_spec_arg (explode f) bs (explode v) ts)
        (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e))
        (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e1)) ∧
-     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) ⊆
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) =
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e)))) ∧
   (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1 e4 e5 w.
      spec_one_case f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
@@ -271,7 +271,7 @@ Theorem spec_one_thm:
                 (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e))
        (rows_of (explode w) e5
                 (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e1)) ∧
-     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) ⊆
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) =
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e)))) ∧
   (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1 w.
      spec_one_opt f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
@@ -283,7 +283,7 @@ Theorem spec_one_thm:
      can_spec_arg (explode f) bs (explode v) ts
           (case e of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e))
           (case e1 of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e)) ∧
-     boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ⊆
+     boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) =
      boundvars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))))
 Proof
   ho_match_mp_tac spec_one_ind
@@ -367,8 +367,6 @@ Proof
     \\ fs [SUBSET_DEF,EXTENSION]
     \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
     \\ metis_tac [map_eq_lemma])
-  >- fs [SUBSET_DEF]
-  >- fs [SUBSET_DEF]
   >- fs [rows_of_def]
   >- (first_x_assum $ drule_at (Pos last)
       \\ disch_then drule \\ strip_tac \\ fs []
@@ -423,10 +421,12 @@ Theorem specialise_each_thm:
     ≅
     Letrec [(explode f,Lams (MAP explode args1) (exp_of c1))]
       (Apps (Var (explode f)) (MAP Var (MAP explode args1)))
+    ∧
+    boundvars (exp_of c1) = boundvars (exp_of c)
 Proof
   Induct \\ fs [specialise_each_def,exp_eq_refl]
   \\ rpt gen_tac \\ IF_CASES_TAC \\ strip_tac \\ gvs [exp_eq_refl]
-  \\ gvs [CaseEq"bool"] \\ gvs [CaseEq"option"]
+  \\ gvs [CaseEq"bool"] \\ gvs [CaseEq"option"] \\ gvs [SF SFY_ss]
   \\ ‘∃args1 args2. args = args1 ++ [h] ++ args2 ∧ ~MEM h args1 ∧ ~MEM h args2’ by
    (qpat_x_assum ‘ALL_DISTINCT args’ mp_tac
     \\ qpat_x_assum ‘MEM h args’ mp_tac
@@ -438,12 +438,13 @@ Proof
   \\ drule (CONJUNCT1 spec_one_thm |> SIMP_RULE std_ss [])
   \\ impl_tac >- fs []
   \\ strip_tac
-  \\ irule exp_eq_trans
+  \\ irule_at Any exp_eq_trans
   \\ irule_at Any (letrec_spec_delarg |> SIMP_RULE std_ss [MAP_APPEND,MAP])
   \\ irule_at Any can_spec_arg_map
   \\ first_x_assum $ irule_at Any
   \\ conj_tac >- (CCONTR_TAC \\ gvs [])
   \\ conj_tac >- (gvs [ALL_DISTINCT_APPEND,MEM_MAP] \\ rw [] \\ gvs [])
+  \\ pop_assum (assume_tac o GSYM) \\ fs []
   \\ rewrite_tac [GSYM MAP_APPEND]
   \\ last_x_assum irule \\ fs [delete_with_lemma]
   \\ gvs [ALL_DISTINCT_APPEND,SUBSET_DEF,MEM_MAP,EVERY_MEM,PULL_EXISTS,SF SFY_ss]
@@ -602,6 +603,10 @@ Theorem specialise_thm:
   Letrec [(explode f,exp_of e)] rest
   ≅
   Let (explode f) (exp_of out) rest
+(*
+  ∧
+  boundvars (exp_of out) = boundvars (exp_of e)
+*)
 Proof
   fs [exp_of_def,Lams_def]
   \\ Cases_on ‘e’ \\ fs [specialise_def]
@@ -616,10 +621,10 @@ Proof
   \\ qabbrev_tac ‘c1 = SmartLam a ws2 c’
   \\ qabbrev_tac ‘guide = const_call_args f (MAP SOME ws1 ++ MAP SOME ws2) c’
   \\ ‘Lams (MAP explode ws2) (exp_of c) = exp_of c1’ by fs [exp_of_def,Abbr‘c1’]
-  \\ fs []
-  \\ irule exp_eq_trans
+  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps]
+  \\ irule_at Any exp_eq_trans
   \\ irule_at (Pos hd) Letrec_expand_1 \\ fs [MEM_MAP]
-  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
+  \\ irule_at Any exp_eq_App_cong \\ fs [exp_eq_refl]
   \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def]
   \\ gvs [MEM_MAP,exp_of_def]
   \\ drule drop_common_suffix_thm
@@ -628,18 +633,19 @@ Proof
   \\ gvs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def]
   \\ ‘∀xs. MAP (λx. pure_exp$Var (explode x)) xs = MAP Var (MAP explode xs)’ by
        fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def] \\ fs []
-  \\ irule exp_eq_trans
-  \\ irule_at (Pos last) Letrec_contract_1
+  \\ irule_at Any exp_eq_trans
+  \\ irule_at (Pos $ el 2) Letrec_contract_1
   \\ gvs [MEM_MAP]
   \\ rewrite_tac [GSYM MAP_APPEND]
   \\ conj_tac >-
    (imp_res_tac specialise_each_subset
     \\ fs [SUBSET_DEF] \\ CCONTR_TAC \\ gvs [] \\ res_tac)
-  \\ irule Lams_cong
+  \\ irule_at Any Lams_cong
   \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
   \\ imp_res_tac no_shadowing_Lams
   \\ imp_res_tac no_shadowing_Lams_distinct
-  \\ irule specialise_each_thm \\ simp []
+  \\ irule (specialise_each_thm |> SPEC_ALL |> UNDISCH
+                                |> CONJUNCT1 |> DISCH_ALL) \\ simp []
   \\ first_x_assum $ irule_at Any \\ fs []
   \\ conj_tac >- (fs [Abbr‘c1’,exp_of_def,boundvars_Lams,MEM_MAP])
   \\ simp [SUBSET_DEF,MEM_all_somes]
@@ -669,15 +675,7 @@ Proof
   \\ metis_tac [EL_APPEND1]
 QED
 
-Theorem specialise_each_vars:
-  specialise_each ps vs f x = (ws,y) ⇒
-  boundvars (exp_of y) ⊆ boundvars (exp_of x) ∧
-  freevars (exp_of y) ⊆ freevars (exp_of x) ∧
-  set ws ⊆ set vs
-Proof
-  cheat
-QED
-
+(*
 Theorem specialise_vars:
   specialise w u = SOME x ⇒
   boundvars (exp_of x) ⊆ boundvars (exp_of u) ∧
@@ -705,5 +703,6 @@ Proof
   \\ rw []
   \\ cheat
 QED
+*)
 
 val _ = export_theory();
