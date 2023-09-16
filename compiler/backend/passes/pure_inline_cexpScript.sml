@@ -40,7 +40,7 @@ End
 Definition heuristic_insert_def:
   heuristic_insert m h v e =
     if cheap e ∧ h e then
-      let _ = empty_ffi (strlit "inliner inserting let: " ^ v) in
+      let _ = empty_ffi (strlit "inliner remembering let: " ^ v) in
         insert m v (cExp e)
     else
       m
@@ -54,7 +54,7 @@ Definition heuristic_insert_Rec_def:
           case specialise v e of
           | NONE => m
           | SOME b =>
-             let _ = empty_ffi (strlit "inliner inserting rec: " ^ v) in
+             let _ = empty_ffi (strlit "inliner remembering rec: " ^ v) in
                insert m v (cExp b)
         )
         else
