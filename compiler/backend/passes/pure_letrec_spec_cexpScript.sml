@@ -229,14 +229,6 @@ Definition split_at_def:
                      (x::ys,zs)
 End
 
-Definition SmartLam_def:
-  SmartLam a vs x = if NULL vs then x else Lam a vs x
-End
-
-Definition SmartApp_def:
-  SmartApp a x xs = if NULL xs then x else App a x xs
-End
-
 Definition specialise_def:
   specialise f (Lam a vs e) =
     (let args = const_call_args f (MAP SOME vs) e in
@@ -246,7 +238,7 @@ Definition specialise_def:
         let (params,e1) = specialise_each p ws1 f (SmartLam a ws2 e) in
         let (outer_vs,inner_vs) = drop_common_suffix ws1 params in
           SOME (SmartLam a outer_vs $
-                  Letrec a [(f,Lam a params e1)] $
+                  Letrec a [(f,SmartLam a params e1)] $
                     SmartApp a (Var a f) (MAP (Var a) inner_vs))) ∧
   specialise f e = NONE
 End

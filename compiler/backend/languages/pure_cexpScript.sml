@@ -371,4 +371,46 @@ Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
 End
 
+Definition dest_Lam_def:
+  dest_Lam (Lam a vs x) = SOME (vs,x) ∧
+  dest_Lam _ = NONE
+End
+
+Definition dest_App_def:
+  dest_App (App a x xs) = SOME (x,xs) ∧
+  dest_App _ = NONE
+End
+
+Definition SmartLam_def:
+  SmartLam a vs x =
+    if NULL vs then x else
+      case dest_Lam x of
+      | NONE => Lam a vs x
+      | SOME (ws,y) => if NULL ws then Lam a vs x else Lam a (vs ++ ws) y
+End
+
+Definition SmartApp_def:
+  SmartApp a x xs =
+    if NULL xs then x else
+      case dest_App x of
+      | NONE => App a x xs
+      | SOME (y,ys) => if NULL ys then App a x xs else App a y (ys ++ xs)
+End
+
+Theorem cexp_wf_SmartLam[simp]:
+  cexp_wf (SmartLam a vs x) ⇔ cexp_wf x
+Proof
+  rw [SmartLam_def] \\ Cases_on ‘x’ \\ fs [dest_Lam_def,cexp_wf_def]
+  \\ Cases_on ‘vs’ \\ fs [] \\ Cases_on ‘l’ \\ fs [cexp_wf_def]
+QED
+
+Theorem cexp_wf_SmartApp[simp]:
+  cexp_wf (SmartApp a x xs) ⇔ cexp_wf x ∧ EVERY cexp_wf xs
+Proof
+  rw [SmartApp_def] \\ Cases_on ‘x’ \\ fs [dest_App_def,cexp_wf_def]
+  \\ Cases_on ‘xs’ \\ fs [SF ETA_ss]
+  \\ Cases_on ‘l’ \\ fs [cexp_wf_def,SF ETA_ss]
+  \\ eq_tac \\ rw []
+QED
+
 val _ = export_theory();
