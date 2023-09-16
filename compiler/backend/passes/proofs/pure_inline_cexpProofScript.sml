@@ -9,7 +9,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrec_seqTheory pure_demandTheory;
+     pure_letrec_seqTheory pure_demandTheory pure_dead_letProofTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
 open pure_inlineTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory;
 
@@ -241,7 +241,7 @@ val lemma = inline_ind
     EVERY (λx. DISJOINT (set (MAP FST xs)) (boundvars (exp_of x))) es ∧
     (inline_list m ns cl h es) = (ts, ns1) ⇒
     LIST_REL (λx t. list_subst_rel xs (exp_of x) (exp_of t)) es ts`
-  |> SIMP_RULE std_ss []
+  |> SIMP_RULE std_ss [];
 
 Theorem inline_cexp_list_subst_rel:
   ^(lemma |> concl |> rand)
@@ -333,7 +333,7 @@ Proof
     \\ Cases_on `inline m r_fresh v15 h q_fresh` \\ gvs []
     \\ rename [`inline _ _ _ _ _ = (q_inline, r_inline)`]
     \\ cheat
-    (* 
+    (*
     0.  ∀xs'.
           memory_inv xs' m ∧ no_shadowing (exp_of q_fresh) ∧
           DISJOINT (set (MAP FST xs')) (boundvars (exp_of q_fresh)) ⇒
@@ -373,7 +373,7 @@ Proof
     \\ gvs []
     \\ gvs [list_subst_rel_refl,exp_of_def]
     \\ fs [heuristic_insert_def]
-    \\ Cases_on `h e1`
+    \\ Cases_on `cheap e1 ∧ h e1`
     >- (
       irule list_subst_rel_Let
       \\ conj_tac
@@ -387,6 +387,8 @@ Proof
       \\ irule memory_inv_APPEND
       \\ fs []
     )
+    \\ full_simp_tac pure_ss []
+    \\ pop_assum kall_tac
     \\ fs []
     \\ irule list_subst_rel_App
     \\ reverse $ conj_tac
@@ -477,9 +479,15 @@ Proof
     >- (
       fs [Lams_def]
       \\ fs [Once no_shadowing_cases]
-      \\ cheat (* NestedCase_free u -> add as assumption *)
     )
-    \\ strip_tac
+    \\ strip_tac \\ fs []
+    \\ fs [mlmapTheory.insert_thm]
+    \\ irule_at Any memory_inv_APPEND \\ fs []
+    \\ qpat_x_assum ‘no_shadowing _’ mp_tac
+    \\ simp [Once no_shadowing_cases] \\ strip_tac
+    \\ drule specialise_vars \\ strip_tac
+    \\ Cases_on ‘w’ \\ fs []
+    \\ fs [IN_DISJOINT,SUBSET_DEF] \\ rw []
     \\ cheat
   )
   >~ [`Lam _ _`] >- (
@@ -751,8 +759,6 @@ Proof
     \\ Cases_on `inline_list m r cl h es`
     \\ gvs []
   )
-  \\ gvs [inline_def]
-  \\ irule list_subst_rel_refl
 QED
 
 Theorem inline_cexp_list_subst_rel_spec:
@@ -772,21 +778,29 @@ Proof
   \\ metis_tac []
 QED
 
-(* TODO(kπ) rewrite to maybe full integration proof with freshening and dead_let *)
-(* Theorem inline_all_thm:
+Theorem inline_all_thm:
   ∀cl h x.
     no_shadowing (exp_of x) ∧
     closed (exp_of x) ⇒
     (exp_of x) ≅ (exp_of (inline_all cl h x))
 Proof
   rw []
-  \\ irule list_subst_rel_IMP_exp_eq
   \\ fs [inline_all_def]
-  \\ irule inline_cexp_list_subst_rel_spec
-  \\ fs []
-  \\ qexists `h` \\ qexists `empty` \\ qexists `empty` \\ qexists `ns1`
-  \\ fs [map_ok_empty,memory_inv_def] 
-QED *)
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos last) (CONJUNCT1 $ SPEC_ALL dead_let_correct)
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos last) list_subst_rel_IMP_exp_eq
+  \\ irule_at Any inline_cexp_list_subst_rel_spec \\ fs []
+  \\ pop_assum $ irule_at Any \\ fs []
+  \\ fs [memory_inv_def]
+  \\ drule pure_freshenProofTheory.freshen_cexp_correctness
+  \\ impl_tac
+  >- fs [pure_freshenProofTheory.avoid_set_ok_boundvars_of]
+  \\ strip_tac
+  \\ fs [closed_def]
+  \\ imp_res_tac barendregt_imp_no_shadowing
+QED
 
 (*******************)
 

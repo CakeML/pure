@@ -597,12 +597,11 @@ QED
 
 Theorem specialise_thm:
   specialise f e = SOME out ∧
-  no_shadowing (exp_of (Lam a [f] e)) ∧
-  NestedCase_free e
+  no_shadowing (exp_of (Lam a [f] e))
   ⇒
-  exp_of (Letrec a [(f,e)] rest)
+  Letrec [(explode f,exp_of e)] rest
   ≅
-  exp_of (Let a f out rest)
+  Let (explode f) (exp_of out) rest
 Proof
   fs [exp_of_def,Lams_def]
   \\ Cases_on ‘e’ \\ fs [specialise_def]
@@ -668,6 +667,43 @@ Proof
   \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
   \\ strip_tac \\ rw []
   \\ metis_tac [EL_APPEND1]
+QED
+
+Theorem specialise_each_vars:
+  specialise_each ps vs f x = (ws,y) ⇒
+  boundvars (exp_of y) ⊆ boundvars (exp_of x) ∧
+  freevars (exp_of y) ⊆ freevars (exp_of x) ∧
+  set ws ⊆ set vs
+Proof
+  cheat
+QED
+
+Theorem specialise_vars:
+  specialise w u = SOME x ⇒
+  boundvars (exp_of x) ⊆ boundvars (exp_of u) ∧
+  freevars (exp_of x) ⊆ freevars (exp_of u)
+Proof
+  Cases_on ‘u’
+  \\ fs [pure_letrec_spec_cexpTheory.specialise_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ strip_tac \\ gvs []
+  \\ fs [exp_of_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def,boundvars_Lams,
+         boundvars_Apps]
+  \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,PULL_EXISTS]
+  \\ drule split_at_thm
+  \\ impl_tac
+  >- metis_tac [LENGTH_MAP,LENGTH_const_call_args]
+  \\ strip_tac \\ gvs []
+  \\ drule drop_common_suffix_thm \\ strip_tac \\ gvs []
+  \\ drule specialise_each_vars
+  \\ fs [exp_of_def]
+  \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def,boundvars_Lams,
+         boundvars_Apps]
+  \\ strip_tac
+  \\ fs [SUBSET_DEF,MEM_MAP]
+  \\ rw []
+  \\ cheat
 QED
 
 val _ = export_theory();

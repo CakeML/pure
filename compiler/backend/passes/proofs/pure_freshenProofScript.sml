@@ -28,5 +28,10 @@ Proof
   cheat
 QED
 
-val _ = export_theory();
+Theorem avoid_set_ok_boundvars_of:
+  avoid_set_ok (boundvars_of x) x
+Proof
+  cheat
+QED
 
+val _ = export_theory();
