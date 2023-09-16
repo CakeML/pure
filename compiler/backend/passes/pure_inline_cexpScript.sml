@@ -132,8 +132,7 @@ Definition inline_def:
         else (
           let _ = empty_ffi (strlit "inlining " ^ v ^
                     strlit " and decrementing clock " ^ toString cl) in
-          let (fe, ns0) = freshen_cexp e ns
-          in inline m ns0 (cl - 1) h fe
+            inline m ns (cl - 1) h e
         )
     | SOME (cRec e) => (Var a v, ns)) ∧
   inline m ns cl h (App a e es) = (

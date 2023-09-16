@@ -24,7 +24,9 @@ End
 Definition memory_inv_def:
   memory_inv xs m ⇔
     { explode a | ∃e. lookup m a = SOME e } = set (MAP FST xs) ∧
-    ∀v e. (lookup m v = SOME e) ⇒ (MEM (explode v, (crhs_to_rhs e)) xs)
+    ∀v e. (lookup m v = SOME e) ⇒
+          ∃e1. e = cExp e1 ∧ cheap e1 ∧
+               MEM (explode v, (crhs_to_rhs e)) xs
 End
 
 Theorem inline_list_empty:
@@ -87,7 +89,7 @@ QED
 
 Theorem memory_inv_APPEND:
   memory_inv xs m ∧
-  map_ok m ∧
+  map_ok m ∧ cheap e1 ∧
   ¬MEM (explode v) (MAP FST xs) ⇒
   memory_inv (xs ++ [(explode v,Exp (exp_of e1))]) (insert m v (cExp e1))
 Proof
@@ -101,6 +103,7 @@ Proof
   \\ gvs [crhs_to_rhs_def,exp_of_def]
 QED
 
+(*
 Theorem memory_inv_APPEND_Rec:
   memory_inv xs m ∧
   map_ok m ∧
@@ -116,6 +119,7 @@ Proof
   \\ gvs [mlmapTheory.lookup_insert,AllCaseEqs()]
   \\ gvs [crhs_to_rhs_def,exp_of_def]
 QED
+*)
 
 Theorem DISJOINT_boundvars_Apps:
   ∀s e es.
@@ -249,37 +253,22 @@ Proof
   match_mp_tac lemma
   \\ rpt strip_tac
   >~ [`Var _ _`] >- (
-    Cases_on `inline m ns cl h (Var a v) = (Var a v, _)`
+    Cases_on `∃e. inline m ns cl h (Var a v) = (Var a v, e)`
     >- gvs [list_subst_rel_refl,exp_of_def]
     \\ gvs [inline_def]
     \\ Cases_on `lookup m v` \\ gvs [list_subst_rel_refl]
     \\ Cases_on `x` \\ gvs [list_subst_rel_refl]
     \\ Cases_on `is_Lam c` \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def]
+    \\ Cases_on ‘cl = 0’ \\ gvs []
+    \\ first_assum drule \\ strip_tac \\ fs []
+    \\ gvs []
     \\ irule list_subst_rel_Var
-    \\ cheat
-    (* 0.  ∀fe ns0.
-          (fe,ns0) = freshen_cexp c ns ⇒
-          ∀xs' t' ns1'.
-            (set (MAP FST xs) = set (MAP FST xs') ∧
-             ∀v e. lookup m v = SOME e ⇒ MEM (explode v,crhs_to_rhs e) xs') ∧
-            no_shadowing (exp_of fe) ∧
-            DISJOINT (set (MAP FST xs')) (boundvars (exp_of fe)) ∧
-            inline m ns0 v13 h fe = (t',ns1') ⇒
-            list_subst_rel xs' (exp_of fe) (exp_of t')
-    1.  {explode a | ∃e. lookup m a = SOME e} = set (MAP FST xs)
-    2.  ∀v e. lookup m v = SOME e ⇒ MEM (explode v,crhs_to_rhs e) xs
-    3.  map_ok m
-    4.  (λ(fe,ns0). (λ(e1,ns1). (e1,ns1)) (inline m ns0 v13 h fe))
-          (freshen_cexp c ns) = (t,ns1)
-    5.  t = Var a v ⇒ ns1 ≠ _0
-    6.  lookup m v = SOME (cExp c)
-    7.  ¬is_Lam c
-   ------------------------------------
-        ∃x x1.
-          no_shadowing x1 ∧ DISJOINT (boundvars x1) (freevars x1) ∧
-          DISJOINT (boundvars x1) (freevars_of xs) ∧
-          DISJOINT (boundvars x1) (vars_of xs) ∧ MEM (explode v,Exp x) xs ∧
-          x ≅ x1 ∧ list_subst_rel xs x1 (exp_of t) *)
+    \\ fs [crhs_to_rhs_def]
+    \\ pop_assum $ irule_at Any
+    \\ qexists_tac ‘exp_of c’ \\ fs [exp_eq_refl]
+    \\ qsuff_tac ‘no_shadowing (exp_of c) ∧ boundvars (exp_of c) = {}’ >- fs []
+    \\ Cases_on ‘c’ \\ gvs [cheap_def]
+    \\ fs [exp_of_def,is_Lam_def,NULL_EQ]
   )
   >~ [`App _ _ _`] >- (
     gvs [inline_def]
