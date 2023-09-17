@@ -611,11 +611,12 @@ Theorem specialise_thm:
   Letrec [(explode f,exp_of e)] rest
   ≅
   Let (explode f) (exp_of out) rest
-(*
   ∧
-  boundvars (exp_of out) = boundvars (exp_of e)
-*)
+  explode f ∉ freevars (exp_of out) ∧
+  boundvars (exp_of out) ⊆ boundvars (exp_of e) ∧
+  freevars (exp_of out) ⊆ freevars (exp_of e)
 Proof
+  cheat (*
   fs [exp_of_def,Lams_def]
   \\ Cases_on ‘e’ \\ fs [specialise_def]
   \\ strip_tac \\ gvs [exp_of_def,boundvars_Lams,MEM_MAP]
@@ -680,7 +681,7 @@ Proof
   \\ qpat_x_assum ‘_ = SOME x’ mp_tac
   \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
   \\ strip_tac \\ rw []
-  \\ metis_tac [EL_APPEND1]
+  \\ metis_tac [EL_APPEND1] *)
 QED
 
 (*

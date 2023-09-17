@@ -494,7 +494,8 @@ Proof
     \\ simp [Once no_shadowing_cases] \\ strip_tac
     \\ ‘cheap x’ by (imp_res_tac specialise_is_Lam \\ simp [cheap_def])
     \\ once_rewrite_tac [DISJOINT_SYM] \\ asm_rewrite_tac []
-    \\ cheat
+    \\ gvs [IN_DISJOINT,SUBSET_DEF]
+    \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ metis_tac []
   )
   >~ [`Lam _ _`] >- (
     gvs [inline_def]

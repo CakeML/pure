@@ -619,6 +619,7 @@ Inductive no_shadowing:
   (∀l x.
     EVERY (λ(v,e).
             no_shadowing e ∧
+            DISJOINT (freevars e) (boundvars x) ∧
             DISJOINT (boundvars e) (boundvars x) ∧
             DISJOINT (boundvars e) (freevars e) ∧
             DISJOINT (set (MAP FST l)) (boundvars e)) l ∧
@@ -652,6 +653,7 @@ Proof
     rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
     gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
     )
+  >- cheat
   >- simp[Once DISJOINT_SYM]
   >- (
     first_x_assum drule >> gvs[DISJOINT_ALT] >> rw[] >>
@@ -733,14 +735,7 @@ Inductive list_subst_rel:
   (∀l t u v x y x1.
     list_subst_rel l x y ∧
     (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
-    (* no_shadowing x1 ∧ *)
-    (* v ∉ boundvars x1 ∧ *)
     v ∉ freevars x1 ∧
-(*
-    DISJOINT (boundvars x1) (freevars x1) ∧
-    DISJOINT (boundvars x1) (vars_of l) ∧
-    DISJOINT (boundvars x1) (freevars_of l) ∧
-*)
     DISJOINT (boundvars t) (boundvars x1) ∧
     DISJOINT (boundvars t) (freevars x1) ∧
     list_subst_rel (l ++ [(v,Exp x1)]) t u ⇒
