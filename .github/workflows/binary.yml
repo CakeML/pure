@@ -1,0 +1,71 @@
+name: Binary
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build:
+    runs-on: self-hosted
+    container: ubuntu:20.04
+    timeout-minutes: 480
+
+    env:
+      HOLDIR: ${{ github.workspace }}/HOL
+      CAKEMLDIR: ${{ github.workspace }}/cakeml
+      LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
+
+    steps:
+    - name: Update PATH
+      run: |
+        echo "$HOLDIR/bin" >> $GITHUB_PATH
+    - name: Get build-essentials
+      run: |
+        apt update
+        apt install -y git build-essential gcc-10 libffi-dev wget mlton
+
+    - name: Checkout Poly/ML
+      uses: actions/checkout@v2
+      with:
+        repository: polyml/polyml
+        ref: fixes-5.9
+        path: polyml
+    - name: Build Poly/ML
+      run: |
+        cd polyml
+        ./configure
+        make
+        make install
+
+    - name: Checkout HOL4
+      uses: actions/checkout@v2
+      with:
+        repository: HOL-Theorem-Prover/HOL
+        ref: master
+        path: HOL
+    - name: Checkout pure
+      uses: actions/checkout@v2
+      with:
+        path: pure
+    - name: Checkout CakeML
+      uses: actions/checkout@v2
+      with:
+        repository: CakeML/CakeML
+        path: cakeml
+
+    - name: Build HOL4
+      run: |
+        cd $HOLDIR
+        poly < tools/smart-configure.sml
+        bin/build
+
+    - name: Build compiler/binary
+      run: |
+        cd pure/compiler/binary
+        Holmake
+
+    - name: Save build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: pure.S
+        path: pure/compiler/binary/pure.S
+
