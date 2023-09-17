@@ -596,6 +596,14 @@ Proof
   Induct \\ fs [all_somes_def]
 QED
 
+Theorem specialise_is_Lam:
+  specialise f e = SOME out ⇒ ∃a vs x. out = Lam a vs x
+Proof
+  Cases_on ‘e’ \\ gvs [specialise_def]
+  \\ rpt (pairarg_tac \\ gvs []) \\ rw []
+  \\ gvs [SmartLam_def,dest_Lam_def]
+QED
+
 Theorem specialise_thm:
   specialise f e = SOME out ∧
   no_shadowing (exp_of (Lam a [f] e))

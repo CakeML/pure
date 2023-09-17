@@ -237,9 +237,10 @@ Definition specialise_def:
         let (ws1,ws2) = split_at (LENGTH args) vs in
         let (params,e1) = specialise_each p ws1 f (SmartLam a ws2 e) in
         let (outer_vs,inner_vs) = drop_common_suffix ws1 params in
-          SOME (SmartLam a outer_vs $
-                  Letrec a [(f,SmartLam a params e1)] $
-                    SmartApp a (Var a f) (MAP (Var a) inner_vs))) ∧
+          if NULL outer_vs then NONE else
+            SOME (SmartLam a outer_vs $
+                    Letrec a [(f,SmartLam a params e1)] $
+                      SmartApp a (Var a f) (MAP (Var a) inner_vs))) ∧
   specialise f e = NONE
 End
 

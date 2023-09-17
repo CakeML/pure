@@ -29,7 +29,7 @@ Proof
 QED
 
 Theorem avoid_set_ok_boundvars_of:
-  avoid_set_ok (boundvars_of x) x
+  closed (exp_of x) ⇒ avoid_set_ok (boundvars_of x) x
 Proof
   cheat
 QED

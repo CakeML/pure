@@ -734,7 +734,7 @@ Inductive list_subst_rel:
     list_subst_rel l x y ∧
     (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
     (* no_shadowing x1 ∧ *)
-    v ∉ boundvars x1 ∧
+    (* v ∉ boundvars x1 ∧ *)
     v ∉ freevars x1 ∧
     DISJOINT (boundvars x1) (freevars x1) ∧
     DISJOINT (boundvars x1) (vars_of l) ∧
@@ -768,8 +768,8 @@ QED
 Definition bind_ok_def:
   (bind_ok xs (v,Exp x) ⇔
     v ∉ freevars x ∧ (* for copying *)
-    v ∉ boundvars x ∧
-    DISJOINT (boundvars x) (set (MAP FST xs)) ∧ (* thm assumption *)
+    (* v ∉ boundvars x ∧ *)
+    (* DISJOINT (boundvars x) (set (MAP FST xs)) ∧ (* thm assumption *) *)
     DISJOINT (boundvars x) (vars_of (FILTER (λ(w,_). w ≠ v) xs)) ∧ (* thm assumption *)
     DISJOINT (boundvars x) (freevars x) (* thm assumption *)
     (* no_shadowing x *)
@@ -911,8 +911,10 @@ Proof
   \\ fs [vars_of_append]
   \\ fs [DISJOINT_SYM]
   \\ fs [vars_of_def]
+(*
   \\ irule_at Any vars_of_MEM_not_in
   \\ qexists `xs` \\ qexists `q`
+*)
   \\ simp []
   \\ fs [FILTER_APPEND, vars_of_append]
   \\ once_rewrite_tac [DISJOINT_SYM]
@@ -945,8 +947,10 @@ Proof
   \\ fs [vars_of_append]
   \\ fs [DISJOINT_SYM]
   \\ fs [vars_of_def]
+(*
   \\ irule_at Any vars_of_MEM_not_in
   \\ qexists `xs` \\ qexists `q`
+*)
   \\ simp []
   \\ fs [FILTER_APPEND, vars_of_append]
   \\ once_rewrite_tac [DISJOINT_SYM]
