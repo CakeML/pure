@@ -245,6 +245,7 @@ Proof
   \\ fs []
 QED
 
+(*
 Theorem make_Let1_lemma:
   ∀acc_v acc_e a es vs body.
     EVERY (λe.
@@ -352,6 +353,7 @@ Proof
   \\ gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
   \\ cheat
 QED
+*)
 
 val lemma = inline_ind
   |> Q.SPEC `λm ns cl h x. ∀xs t ns1.
@@ -434,7 +436,7 @@ Proof
     \\ gvs []
     \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [`freshen_cexp _ _ = (q_fresh, r_fresh)`]
-    \\ Cases_on `make_Let1 q_fresh`
+    \\ Cases_on `App_Lam_to_Lets q_fresh`
     >- (
       gvs [exp_of_def,SF ETA_ss]
       \\ irule list_subst_rel_Apps
@@ -462,9 +464,9 @@ Proof
     \\ first_x_assum drule
     \\ impl_tac >- fs [boundvars_Apps,EVERY_MEM,MEM_MAP,PULL_EXISTS]
     \\ strip_tac
-    \\ Cases_on ‘q_fresh’ \\ gvs [make_Let1_def]
-    \\ rename [‘make_Let1 (App a2 c2 l2)’]
-    \\ Cases_on ‘c2’ \\ gvs [make_Let1_def]
+    \\ Cases_on ‘q_fresh’ \\ gvs [App_Lam_to_Lets_def]
+    \\ rename [‘App_Lam_to_Lets (App a2 c2 l2)’]
+    \\ Cases_on ‘c2’ \\ gvs [App_Lam_to_Lets_def]
     \\ rename [‘App a2 (Lam a3 l3 c3) es2’]
     \\ irule list_subst_rel_trans
     \\ last_x_assum $ irule_at Any
@@ -483,6 +485,15 @@ Proof
     \\ irule_at Any exp_eq_trans
     \\ fs [exp_of_def,SF ETA_ss]
     \\ first_x_assum $ irule_at $ Pos hd
+    \\ fs [NOT_LESS]
+    \\ drule miscTheory.LESS_EQ_LENGTH
+    \\ strip_tac
+    \\ rename [‘es2 = es2a ++ es2b’] \\ gvs []
+    \\ pop_assum $ assume_tac o GSYM
+    \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+    \\ rewrite_tac [Apps_append]
+    \\ irule_at Any pure_demandTheory.exp_eq_Apps_cong
+    \\ fs [LIST_REL_same,exp_eq_refl]
     \\ cheat
   )
   >~ [`Let _ _ _`] >- (

@@ -93,49 +93,18 @@ by inlining in the App case. The problem now is that
 And so goint further won't do anything
 *)
 
-Definition SPLIT_AT_GO_def:
-  SPLIT_AT_GO (0: num) xs ys = (xs, ys) ∧
-  SPLIT_AT_GO (SUC n) xs [] = (xs, []) ∧
-  SPLIT_AT_GO (SUC n) xs (y::ys) =
-    SPLIT_AT_GO n (xs ++ [y]) ys
-End
-
-Definition SPLIT_AT_def:
-  SPLIT_AT (n: num) xs = SPLIT_AT_GO n [] xs
-End
-
 Definition Lets_def:
-  Lets a (v::vs) (e::es) e1 = Let a v e (Lets a vs es e1) ∧
-  Lets a _ _ e = e
+  Lets a ((v,e)::xs) e1 = Let a v e (Lets a xs e1) ∧
+  Lets a _ e = e
 End
 
-Definition make_Let_def:
-  make_Let (App a (Lam _ vs e) es) = (
-    let (vs1, vs2) = SPLIT_AT (LENGTH es) vs
-    in let (es1, es2) = SPLIT_AT (LENGTH vs) es
-    in let e1 = (if LENGTH vs2 = 0 then e else Lam a vs2 e)
-    in let lets = Lets a vs1 es1 e1
-    in let r = (if LENGTH es2 = 0 then lets else App a lets es2)
-    in SOME r
-  ) ∧
-  make_Let e = NONE
-End
-
-Definition make_Let_GO_def:
-  make_Let_GO acc_v acc_e a (e::es) (v::vs) b =
-    make_Let_GO (acc_v ++ [v]) (acc_e ++ [e]) a es vs b ∧
-  make_Let_GO acc_v acc_e a [] [] b =
-    Lets a acc_v acc_e b ∧
-  make_Let_GO acc_v acc_e a [] (v::vs) b =
-    Lets a acc_v acc_e (Lam a (v::vs) b) ∧
-  make_Let_GO acc_v acc_e a (e::es) [] b =
-    App a (Lets a acc_v acc_e b) (e::es)
-End
-
-Definition make_Let1_def:
-  make_Let1 (App a (Lam _ vs b) es) =
-    SOME (make_Let_GO [] [] a es vs b) ∧
-  make_Let1 e = NONE
+Definition App_Lam_to_Lets_def:
+  App_Lam_to_Lets (App a (Lam _ vs b) es) =
+    (if LENGTH es < LENGTH vs (* not fully applied *) then NONE else
+       let es1 = TAKE (LENGTH vs) es in
+       let es2 = DROP (LENGTH vs) es in
+         SOME $ SmartApp a (Lets a (ZIP (vs,es1)) b) es2) ∧
+  App_Lam_to_Lets e = NONE
 End
 
 Definition inline_def:
@@ -161,7 +130,7 @@ Definition inline_def:
         case lookup m v of
         | SOME (cExp e_m) =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1
-          in (case make_Let1 exp of
+          in (case App_Lam_to_Lets exp of
           | NONE => (App a e es1, ns1)
           | SOME exp1 =>
             if cl = 0 then (App a e es1, ns1)
