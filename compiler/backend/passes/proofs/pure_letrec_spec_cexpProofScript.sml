@@ -159,11 +159,27 @@ Proof
   rw [] \\ fs [boundvars_def]
 QED
 
+Triviality freevars_Seq_Fail[simp]:
+  freevars (if MEM w (FLAT (MAP (FST ∘ SND) e'))
+             then Seq Fail x else x) = freevars x
+Proof
+  rw [] \\ fs [freevars_def]
+QED
+
 Triviality boundvars_lets_for:
   ∀ts. boundvars (lets_for p_1 w ts p_2) = boundvars p_2 ∪ set (MAP SND ts)
 Proof
   Induct \\ fs [lets_for_def,FORALL_PROD,EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Triviality freevars_lets_for:
+  ∀ts. freevars (lets_for p_1 w ts p_2) =
+       (freevars p_2 DIFF set (MAP SND ts)) ∪
+       (if NULL ts then {} else {w})
+Proof
+  Induct \\ fs [lets_for_def,FORALL_PROD,EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ gvs [MEM_MAP]
 QED
 
 Theorem boundvars_rows_of:
@@ -180,6 +196,24 @@ Proof
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ gvs [MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS]
   \\ metis_tac []
+QED
+
+Theorem freevars_rows_of:
+  ∀es.
+    freevars (rows_of w e es)
+    =
+    freevars e ∪
+    BIGUNION (set (MAP (λ(c,vs,e). (freevars e DIFF set vs) ∪ {w}) es))
+Proof
+  Induct \\ fs [rows_of_def,FORALL_PROD,freevars_lets_for]
+  \\ fs [combinTheory.o_DEF]
+  \\ fs [EXTENSION]
+  \\ gvs [MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS]
+  \\ rpt gen_tac
+  \\ Cases_on ‘x = w’ \\ gvs []
+  \\ Cases_on ‘x ∈ freevars e’ \\ fs []
+  \\ Cases_on ‘x ∈ freevars p_2’ \\ fs []
+  \\ Cases_on ‘MEM x p_1'’ \\ fs [] \\ rw []
 QED
 
 Triviality can_spec_arg_if:
@@ -232,7 +266,8 @@ Theorem spec_one_thm:
      explode v ∉ boundvars (exp_of e) ∧
      vs = MAP (K T) bs ++ [F] ++ MAP (K T) ts ⇒
      can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1) ∧
-     boundvars (exp_of e1) = boundvars (exp_of e)) ∧
+     boundvars (exp_of e1) = boundvars (exp_of e) ∧
+     freevars (exp_of e1) ⊆ freevars (exp_of e)) ∧
   (∀f v vs (e:'a cexp list) e1.
      spec_one_list f v vs e = SOME e1 ∧ f ≠ v ∧
      EVERY (λe.
@@ -242,7 +277,9 @@ Theorem spec_one_thm:
      LIST_REL (λe e1.
        can_spec_arg (explode f) bs (explode v) ts (exp_of e) (exp_of e1)) e e1 ∧
      BIGUNION (set (MAP boundvars (MAP exp_of e1))) =
-     BIGUNION (set (MAP boundvars (MAP exp_of e)))) ∧
+     BIGUNION (set (MAP boundvars (MAP exp_of e))) ∧
+     BIGUNION (set (MAP freevars (MAP exp_of e1))) ⊆
+     BIGUNION (set (MAP freevars (MAP exp_of e)))) ∧
   (∀f v vs (e:(mlstring # 'a cexp) list) e1.
      spec_one_letrec f v vs e = SOME e1 ∧ f ≠ v ∧
      EVERY (λe.
@@ -254,7 +291,9 @@ Theorem spec_one_thm:
        (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e))
        (MAP SND (MAP (λ(n,x). (explode n,exp_of x)) e1)) ∧
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) =
-     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e)))) ∧
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e))) ∧
+     BIGUNION (set (MAP freevars (MAP (exp_of o SND) e1))) ⊆
+     BIGUNION (set (MAP freevars (MAP (exp_of o SND) e)))) ∧
   (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1 e4 e5 w.
      spec_one_case f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
      EVERY (λe.
@@ -272,7 +311,11 @@ Theorem spec_one_thm:
        (rows_of (explode w) e5
                 (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) e1)) ∧
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) =
-     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e)))) ∧
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e))) ∧
+     BIGUNION (set (MAP (λ(p1,p1',p2).
+        freevars (exp_of p2) DIFF set (MAP explode p1')) e1)) ⊆
+     BIGUNION (set (MAP (λ(p1,p1',p2).
+        freevars (exp_of p2) DIFF set (MAP explode p1')) e))) ∧
   (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1 w.
      spec_one_opt f v vs e = SOME e1 ∧ f ≠ v ∧ f ≠ w ∧
      (case e of
@@ -284,7 +327,9 @@ Theorem spec_one_thm:
           (case e of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e))
           (case e1 of NONE => Fail | SOME (a,e) => IfDisj w a (exp_of e)) ∧
      boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) =
-     boundvars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))))
+     boundvars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ∧
+     freevars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ⊆
+     freevars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))))
 Proof
   ho_match_mp_tac spec_one_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac
@@ -306,9 +351,10 @@ Proof
     \\ drule can_spec_arg_Var_IMP
     \\ strip_tac \\ gvs []
     \\ once_rewrite_tac [EVAL “[x] ++ ys” |> GSYM] \\ rewrite_tac [APPEND_ASSOC]
-    \\ irule can_spec_arg_Apps_Var_ALT
+    \\ irule_at Any can_spec_arg_Apps_Var_ALT
     \\ fs [LIST_REL_MAP]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [SUBSET_DEF])
   >~ [‘Apps’] >-
    (fs [boundvars_Apps]
     \\ irule_at Any can_spec_arg_Apps
@@ -339,7 +385,8 @@ Proof
     \\ strip_tac \\ fs []
     \\ fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD]
     \\ fs [MEM_MAP,FORALL_PROD]
-    \\ fs [SUBSET_DEF])
+    \\ fs [SUBSET_DEF]
+    \\ metis_tac [])
   >~ [‘rows_of’] >-
    (first_x_assum $ qspec_then ‘w’ mp_tac
     \\ impl_tac >-
@@ -361,12 +408,19 @@ Proof
     \\ irule_at Any can_spec_arg_if
     \\ irule_at Any can_spec_arg_App \\ fs []
     \\ irule_at Any can_spec_arg_Lam \\ fs []
-    \\ fs [boundvars_rows_of]
+    \\ fs [boundvars_rows_of,freevars_rows_of]
     \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
     \\ fs [MEM_MAP,FORALL_PROD]
     \\ fs [SUBSET_DEF,EXTENSION]
     \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
-    \\ metis_tac [map_eq_lemma])
+    \\ conj_tac >- metis_tac [map_eq_lemma]
+    \\ rw [] \\ fs []
+    \\ DISJ1_TAC
+    \\ DISJ2_TAC
+    \\ first_x_assum irule
+    \\ metis_tac [])
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
   >- fs [rows_of_def]
   >- (first_x_assum $ drule_at (Pos last)
       \\ disch_then drule \\ strip_tac \\ fs []
@@ -426,7 +480,6 @@ Theorem specialise_each_thm:
     freevars (exp_of c1) ⊆ freevars (exp_of c) ∧
     ALL_DISTINCT args1
 Proof
-  cheat (*
   Induct \\ fs [specialise_each_def,exp_eq_refl]
   \\ rpt gen_tac \\ IF_CASES_TAC \\ strip_tac \\ gvs [exp_eq_refl]
   \\ gvs [CaseEq"bool"] \\ gvs [CaseEq"option"] \\ gvs [SF SFY_ss]
@@ -449,9 +502,13 @@ Proof
   \\ conj_tac >- (gvs [ALL_DISTINCT_APPEND,MEM_MAP] \\ rw [] \\ gvs [])
   \\ pop_assum (assume_tac o GSYM) \\ fs []
   \\ rewrite_tac [GSYM MAP_APPEND]
-  \\ last_x_assum irule \\ fs [delete_with_lemma]
-  \\ gvs [ALL_DISTINCT_APPEND,SUBSET_DEF,MEM_MAP,EVERY_MEM,PULL_EXISTS,SF SFY_ss]
-  \\ metis_tac [] *)
+  \\ fs [delete_with_lemma]
+  \\ last_x_assum drule
+  \\ impl_tac
+  >- (gvs [ALL_DISTINCT_APPEND,SUBSET_DEF,MEM_MAP,EVERY_MEM,PULL_EXISTS,SF SFY_ss]
+      \\ metis_tac [])
+  \\ strip_tac \\ gvs []
+  \\ imp_res_tac SUBSET_TRANS
 QED
 
 Triviality set_delete_with:
