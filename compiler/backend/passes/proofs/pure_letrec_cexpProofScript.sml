@@ -859,27 +859,6 @@ QED
 
 (********************)
 
-Theorem transform_cexp_correct:
-  ∀ce. exp_of ce ≅ exp_of (transform_cexp c ce)
-Proof
-  rw[transform_cexp_def,exp_of_init_sets,exp_eq_refl]
-  >-
-   (simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
-    irule_at (Pos last) distinct_exp_eq) >>
-  irule exp_eq_trans >> irule_at (Pos last) split_all_cexp_exp_eq >>
-  simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
-  irule_at (Pos last) distinct_exp_eq
-QED
-
-Theorem transform_cexp_letrecs_distinct:
-  ∀ce. letrecs_distinct (exp_of (transform_cexp c ce))
-Proof
-  rw [transform_cexp_def] >>
-  simp[transform_cexp_def, split_all_cexp_correct,
-       distinct_cexp_correct, exp_of_init_sets] >>
-  assume_tac simplify_letrecs_distinct >> gvs[simplify_def,distinct_letrecs_distinct]
-QED
-
 Theorem clean_cexp_correct:
   ∀ce. exp_of ce ≅ exp_of (clean_cexp c ce)
 Proof
@@ -890,6 +869,29 @@ Theorem clean_cexp_letrecs_distinct:
   ∀ce. letrecs_distinct (exp_of ce) ⇒ letrecs_distinct (exp_of (clean_cexp c ce))
 Proof
   rw[clean_cexp_def, clean_all_letrecs_distinct, clean_all_cexp_correct]
+QED
+
+Theorem transform_cexp_correct:
+  ∀ce. exp_of ce ≅ exp_of (transform_cexp c ce)
+Proof
+  simp[transform_cexp_def,exp_of_init_sets,exp_eq_refl] >> gen_tac >>
+  irule exp_eq_trans >> irule_at (Pos last) clean_cexp_correct >> rw[]
+  >- (
+    simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
+    simp[distinct_exp_eq]
+    ) >>
+  irule exp_eq_trans >> irule_at (Pos last) split_all_cexp_exp_eq >>
+  simp[distinct_cexp_correct, distinct_letrecs_distinct, exp_of_init_sets] >>
+  simp[distinct_exp_eq]
+QED
+
+Theorem transform_cexp_letrecs_distinct:
+  ∀ce. letrecs_distinct (exp_of (transform_cexp c ce))
+Proof
+  gen_tac >> simp[transform_cexp_def] >> irule clean_cexp_letrecs_distinct >> rw[] >>
+  simp[transform_cexp_def, split_all_cexp_correct, clean_cexp_correct,
+       distinct_cexp_correct, exp_of_init_sets] >>
+  assume_tac simplify_letrecs_distinct >> gvs[simplify_def,distinct_letrecs_distinct]
 QED
 
 (********************)

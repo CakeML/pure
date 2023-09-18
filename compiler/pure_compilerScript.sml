@@ -20,35 +20,36 @@ Definition ast_to_string_def:
   ast_to_string prog = print_sexp (listsexp (MAP decsexp prog))
 End
 
+Overload debug_print = ``λs. empty_ffi (implode s)``;
+Overload explore_print =
+  ``λc s. if c.do_explore then debug_print s else ()``;
+
+
 Definition compile_def:
   compile c s =
-    let _ = empty_ffi (strlit "starting...") in
+    let _ = debug_print "starting..." in
     let r = string_to_cexp s in
-    let _ = empty_ffi (strlit "parsing") in
+    let _ = debug_print "parsing" in
     case r of
     | NONE => NONE
     | SOME (e,ns) =>
       let e = transform_cexp c e in
-      let _ = empty_ffi (strlit "transform_cexp") in
+      let _ = debug_print "transform_cexp" in
+      let e = inline_top_level c e in
+      let _ = debug_print "inlining" in
+      let _ = explore_print c $
+                "after inlining:\n" ++ pure_print$str_of e ++ "\n" in
       let i = infer_types ns e in
-      let _ = empty_ffi (strlit "infer_types") in
+      let _ = debug_print "infer_types" in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
             let e = clean_cexp c e in
-            let _ = empty_ffi (strlit "clean_cexp") in
+            let _ = debug_print "clean_cexp" in
             let e = demands_analysis c e in
-            let _ = empty_ffi (strlit "demands_analysis") in
-            let _ = (if c.do_explore then
-                       empty_ffi (implode ("after demands:\n" ++
-                                  pure_print$str_of e ++ "\n"))
-                     else ()) in
-            let e = inline_top_level c e in
-            let _ = empty_ffi (strlit "inlining") in
-            let _ = (if c.do_explore then
-                       empty_ffi (implode ("after inlining:\n" ++
-                                  pure_print$str_of e ++ "\n"))
-                     else ()) in
+            let _ = debug_print "demands_analysis" in
+            let _ = explore_print c $
+                      "after demands:\n" ++ pure_print$str_of e ++ "\n" in
               SOME (ast_to_string $ pure_to_cake c ns e)
 End
 
@@ -58,13 +59,13 @@ Definition compile_to_ast_def:
     | NONE => NONE
     | SOME (e,ns) =>
       let e = transform_cexp c e in
+      let e = inline_top_level c e in
       let i = infer_types ns e in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
           let e = clean_cexp c e in
           let e = demands_analysis c e in
-          let e = inline_top_level c e in
             SOME (pure_to_cake c ns e)
 End
 
@@ -75,10 +76,10 @@ Theorem compile_monadically:
   do
     (e,ns) <- string_to_cexp s ;
     e <<- transform_cexp c e ;
+    e <<- inline_top_level c e ;
     to_option $ infer_types ns e ;
     e <<- clean_cexp c e ;
     e <<- demands_analysis c e ;
-    e <<- inline_top_level c e ;
     return (ast_to_string $ pure_to_cake c ns e)
   od
 Proof
@@ -91,6 +92,7 @@ Definition frontend_def:
     | NONE => NONE
     | SOME (e,ns) =>
       let e = transform_cexp c e in
+      let e = inline_top_level c e in
       let i = infer_types ns e in
         case to_option i of
         | NONE => NONE
@@ -111,7 +113,6 @@ Theorem compile_to_ast_alt_def:
     | SOME (e,ns) =>
         let e = clean_cexp c e in
         let e = demands_analysis c e in
-        let e = inline_top_level c e in
           SOME (pure_to_cake c ns e)
 Proof
   rw[compile_to_ast_def, frontend_def] >>
