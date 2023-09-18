@@ -451,7 +451,16 @@ Theorem Apps_Lams_eq_Lets_freevars:
     EVERY (λe. DISJOINT (set vs) (freevars e)) es ⇒
     freevars (Lets (ZIP (vs,es)) b) = freevars (Apps (Lams vs b) es)
 Proof
-  cheat
+  fs [freevars_Apps,freevars_Lams]
+  \\ Induct using SNOC_INDUCT
+  \\ Cases_on ‘vs’ using SNOC_CASES
+  \\ fs [pure_letrecProofTheory.Lets_def,EVERY_SNOC]
+  \\ gvs [ZIP_SNOC]
+  \\ fs [SNOC_APPEND,Lets_append,pure_letrecProofTheory.Lets_def] \\ rw []
+  \\ last_x_assum $ DEP_REWRITE_TAC o single \\ fs []
+  \\ gvs [EVERY_MEM] \\ gvs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ gvs [] \\ gvs [IN_DISJOINT]
+  \\ metis_tac []
 QED
 
 Theorem Apps_Lams_eq_Lets_boundvars:
@@ -460,7 +469,16 @@ Theorem Apps_Lams_eq_Lets_boundvars:
     EVERY (λe. DISJOINT (set vs) (freevars e)) es ⇒
     boundvars (Lets (ZIP (vs,es)) b) = boundvars (Apps (Lams vs b) es)
 Proof
-  cheat
+  fs [boundvars_Apps,boundvars_Lams]
+  \\ Induct using SNOC_INDUCT
+  \\ Cases_on ‘vs’ using SNOC_CASES
+  \\ fs [pure_letrecProofTheory.Lets_def,EVERY_SNOC]
+  \\ gvs [ZIP_SNOC]
+  \\ fs [SNOC_APPEND,Lets_append,pure_letrecProofTheory.Lets_def] \\ rw []
+  \\ last_x_assum $ DEP_REWRITE_TAC o single \\ fs []
+  \\ gvs [EVERY_MEM] \\ gvs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ gvs [] \\ gvs [IN_DISJOINT]
+  \\ metis_tac []
 QED
 
 val lemma = inline_ind
