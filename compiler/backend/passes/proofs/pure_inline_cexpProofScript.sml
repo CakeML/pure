@@ -365,13 +365,84 @@ Proof
   \\ fs [exp_of_def]
 QED
 
+Theorem Lets_append:
+  ∀xs ys b. Lets (xs ++ ys) b = Lets xs (Lets ys b)
+Proof
+  Induct \\ fs [pure_letrecProofTheory.Lets_def,FORALL_PROD]
+QED
+
+Theorem subst_Lets:
+  ∀xs vs f b.
+    LENGTH xs = LENGTH vs ∧
+    EVERY (λe. DISJOINT (set vs) (freevars e)) xs
+    ⇒
+    subst f (Lets (ZIP (vs,xs)) b) =
+    Lets (ZIP (vs, MAP (subst f) xs)) (subst (FDIFF f (set vs)) b)
+Proof
+  Induct using SNOC_INDUCT
+  \\ Cases_on ‘vs’ using SNOC_CASES
+  \\ fs [pure_letrecProofTheory.Lets_def]
+  \\ rw [] \\ gvs [ZIP_SNOC,MAP_SNOC]
+  \\ fs [SNOC_APPEND,Lets_append,pure_letrecProofTheory.Lets_def]
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ fs [subst_def] \\ gvs [EVERY_MEM]
+  \\ AP_TERM_TAC
+  \\ rename [‘n ∉ freevars y’]
+  \\ ‘subst f y = subst (FDIFF f (set l)) y’ by
+   (irule pure_exp_lemmasTheory.subst_FDIFF'
+    \\ gvs [IN_DISJOINT] \\ metis_tac [])
+  \\ fs [GSYM pure_miscTheory.FDIFF_SING,FDIFF_FDIFF]
+QED
+
+Theorem eval_wh_Lets:
+  ∀xs b.
+    EVERY closed (MAP SND xs) ⇒
+    eval_wh (Lets xs b) =
+    eval_wh (subst (FEMPTY |++ xs) b)
+Proof
+  Induct using SNOC_INDUCT
+  \\ fs [pure_letrecProofTheory.Lets_def,FUPDATE_LIST]
+  \\ PairCases \\ fs [MAP_SNOC,EVERY_SNOC]
+  \\ fs [SNOC_APPEND,Lets_append]
+  \\ fs [pure_letrecProofTheory.Lets_def,FUPDATE_LIST,subst_def]
+  \\ fs [eval_wh_App]
+  \\ fs [eval_wh_Lam,bind_def,FLOOKUP_SIMP]
+  \\ fs [FOLDL_APPEND] \\ rw []
+  \\ AP_TERM_TAC
+  \\ DEP_REWRITE_TAC [pure_exp_lemmasTheory.subst_subst_DISJOINT_FUNION]
+  \\ fs [TO_FLOOKUP,PULL_EXISTS,DOMSUB_FLOOKUP_THM]
+  \\ rw []
+  >-
+   (fs [GSYM FUPDATE_LIST]
+    \\ imp_res_tac FLOOKUP_LUPDATE
+    \\ fs [EVERY_MEM,PULL_EXISTS,MEM_MAP]
+    \\ res_tac \\ fs [closed_def])
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ gvs [TO_FLOOKUP,FLOOKUP_FUNION,FUN_EQ_THM]
+  \\ rw [DOMSUB_FLOOKUP_THM]
+  \\ gvs [FLOOKUP_SIMP]
+  \\ CASE_TAC \\ fs []
+QED
+
 Theorem Apps_Lams_eq_Lets:
   ∀es vs b.
     LENGTH vs = LENGTH es ∧
     EVERY (λe. DISJOINT (set vs) (freevars e)) es ⇒
     Apps (Lams vs b) es ≅ Lets (ZIP (vs,es)) b
 Proof
-  cheat
+  rw [exp_eq_def] \\ rw [bind_def]
+  \\ irule eval_wh_IMP_app_bisimilarity
+  \\ rpt $ irule_at Any IMP_closed_subst
+  \\ fs [TO_FLOOKUP]
+  \\ fs [subst_Apps,subst_Lams]
+  \\ DEP_REWRITE_TAC [eval_wh_Apps_Lams]
+  \\ DEP_REWRITE_TAC [subst_Lets] \\ fs []
+  \\ DEP_REWRITE_TAC [eval_wh_Lets]
+  \\ DEP_REWRITE_TAC [MAP_SND_ZIP] \\ fs []
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ rw []
+  \\ irule IMP_closed_subst
+  \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,TO_FLOOKUP]
+  \\ metis_tac []
 QED
 
 Theorem Apps_Lams_eq_Lets_freevars:
