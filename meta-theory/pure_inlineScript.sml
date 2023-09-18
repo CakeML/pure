@@ -746,7 +746,12 @@ Inductive list_subst_rel:
     DISJOINT (boundvars t) (boundvars x1) ∧
     DISJOINT (boundvars t) (freevars x1) ∧
     list_subst_rel (l ++ [(v,Exp x1)]) t u ⇒
-    list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u))
+    list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
+[~ExpEq:]
+  (∀l t u u1.
+    list_subst_rel l t u ∧
+    u ≅ u1 ⇒
+    list_subst_rel l t u1)
 End
 
 Definition Binds_def[simp]:
@@ -2283,8 +2288,7 @@ Proof
     \\ fs [IN_DISJOINT]
     \\ metis_tac []
   )
-  \\ rename [`Letrec`]
-  >- (
+  >~ [`Letrec`] >- (
     irule exp_eq_trans
     \\ irule_at Any Binds_Letrec
     \\ conj_tac
@@ -2424,8 +2428,7 @@ Proof
     )
     \\ simp []
   )
-  \\ rename [‘Letrec’]
-  >- (
+  >~ [‘Letrec’] >- (
     fs [Binds_snoc_rec]
     \\ irule exp_eq_trans
     \\ last_x_assum $ irule_at Any
@@ -2471,54 +2474,62 @@ Proof
     \\ fs [IN_DISJOINT]
     \\ metis_tac []
   )
-  \\ rename [`Letrec`]
-  \\ fs [Binds_snoc]
-  \\ sg `(∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e))`
-  >- (
-    rw []
-    \\ irule Binds_cong
-    \\ gvs []
+  >~ [`Letrec`] >- (
+    fs [Binds_snoc]
+    \\ sg `(∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e))`
+    >- (
+      rw []
+      \\ irule Binds_cong
+      \\ gvs []
+    )
+    \\ qpat_assum `∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e)` $ qspecl_then [`x`] assume_tac
+    \\ irule exp_eq_trans
+    \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
+    \\ first_x_assum $ irule_at Any
+    \\ irule exp_eq_trans
+    \\ last_x_assum $ irule_at Any
+    \\ qpat_x_assum `no_shadowing _` mp_tac
+    \\ simp [Once no_shadowing_cases]
+    \\ strip_tac
+    \\ gvs [freevars_of_append,vars_of_append,vars_of_def,freevars_of_def,DISJOINT_SYM]
+    \\ conj_tac
+    >- (
+      fs [binds_ok_def,bind_ok_def]
+      \\ fs [ALL_DISTINCT_APPEND]
+      \\ fs [DISJOINT_SYM]
+      \\ fs [vars_of_not_in_MAP_FST]
+      \\ fs [vars_of_DISJOINT_MAP_FST]
+      \\ fs [FILTER_APPEND]
+      \\ fs [vars_of_DISJOINT_FILTER]
+      \\ fs [bind_ok_EVERY_Exp_append]
+      \\ fs [bind_ok_rec_def]
+      \\ fs [bind_ok_rec_Exp_append]
+    )
+    \\ conj_tac
+    >- (
+      fs [IN_DISJOINT]
+      \\ metis_tac []
+    )
+    \\ qpat_assum `∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e)` $ qspecl_then [`y`] assume_tac
+    \\ irule exp_eq_trans
+    \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
+    \\ simp [Once exp_eq_sym]
+    \\ first_x_assum $ irule_at Any
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_Letrec
+    \\ gvs [vars_of_not_in_MAP_FST]
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_Letrec
+    \\ gvs [vars_of_not_in_MAP_FST]
+    \\ irule exp_eq_Letrec_cong
+    \\ gvs [exp_eq_refl]
+    \\ simp [Once exp_eq_sym]
   )
-  \\ qpat_assum `∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e)`
-       $ qspecl_then [`x`] assume_tac
-  \\ irule exp_eq_trans
-  \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
-  \\ first_x_assum $ irule_at Any
   \\ irule exp_eq_trans
   \\ last_x_assum $ irule_at Any
-  \\ qpat_x_assum `no_shadowing _` mp_tac
-  \\ simp [Once no_shadowing_cases]
-  \\ strip_tac
-  \\ gvs [freevars_of_append,vars_of_append,vars_of_def,freevars_of_def,DISJOINT_SYM]
-  \\ conj_tac
-  >- (
-    fs [binds_ok_def,bind_ok_def]
-    \\ fs [ALL_DISTINCT_APPEND]
-    \\ fs [DISJOINT_SYM]
-    \\ fs [vars_of_not_in_MAP_FST]
-    \\ fs [vars_of_DISJOINT_MAP_FST]
-    \\ fs [FILTER_APPEND]
-    \\ fs [vars_of_DISJOINT_FILTER]
-    \\ fs [bind_ok_EVERY_Exp_append]
-    \\ fs [bind_ok_rec_def]
-    \\ fs [bind_ok_rec_Exp_append]
-  )
-  \\ conj_tac >- (fs [IN_DISJOINT] \\ metis_tac [])
-  \\ qpat_assum `∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e)` $ qspecl_then [`y`] assume_tac
-  \\ irule exp_eq_trans
-  \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
-  \\ simp [Once exp_eq_sym]
-  \\ first_x_assum $ irule_at Any
-  \\ irule exp_eq_trans
-  \\ irule_at Any Binds_Letrec
-  \\ gvs [vars_of_not_in_MAP_FST]
-  \\ simp [Once exp_eq_sym]
-  \\ irule exp_eq_trans
-  \\ irule_at Any Binds_Letrec
-  \\ gvs [vars_of_not_in_MAP_FST]
-  \\ irule exp_eq_Letrec_cong
-  \\ gvs [exp_eq_refl]
-  \\ simp [Once exp_eq_sym]
+  \\ irule Binds_cong
+  \\ fs [exp_eq_T_IMP_F]
 QED
 
 Theorem list_subst_rel_IMP_exp_eq_lemma_specialized:

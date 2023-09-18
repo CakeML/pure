@@ -121,6 +121,23 @@ Definition make_Let_def:
   make_Let e = NONE
 End
 
+Definition make_Let_GO_def:
+  make_Let_GO acc_v acc_e a (e::es) (v::vs) b =
+    make_Let_GO (acc_v ++ [v]) (acc_e ++ [e]) a es vs b ∧
+  make_Let_GO acc_v acc_e a [] [] b =
+    Lets a acc_v acc_e b ∧
+  make_Let_GO acc_v acc_e a [] (v::vs) b =
+    Lets a acc_v acc_e (Lam a (v::vs) b) ∧
+  make_Let_GO acc_v acc_e a (e::es) [] b =
+    App a (Lets a acc_v acc_e b) (e::es)
+End
+
+Definition make_Let1_def:
+  make_Let1 (App a (Lam _ vs b) es) =
+    SOME (make_Let_GO [] [] a es vs b) ∧
+  make_Let1 e = NONE
+End
+
 Definition inline_def:
   inline (m: ('a cexp_rhs) var_map) ns (cl: num) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
@@ -143,16 +160,15 @@ Definition inline_def:
       | SOME v => (
         case lookup m v of
         | SOME (cExp e_m) =>
-          let exp = (App a e_m es1)
-          in (case make_Let exp of
+          let (exp, ns2) = freshen_cexp (App a e_m es1) ns1
+          in (case make_Let1 exp of
           | NONE => (exp, ns1)
           | SOME exp1 =>
             if cl = 0 then (App a e es1, ns1)
             else (
               let _ = empty_ffi (strlit "inlining " ^ v ^
-                    strlit " and decrementing clock " ^ toString cl) in
-              let (fe, ns3) = freshen_cexp exp1 ns1
-              in inline m ns3 (cl - 1) h fe
+                    strlit " and decrementing clock " ^ toString cl)
+              in inline m ns2 (cl - 1) h exp1
             )
           )
         | _ =>

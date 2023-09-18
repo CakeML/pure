@@ -11,7 +11,8 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
      pure_letrec_seqTheory pure_demandTheory pure_dead_letProofTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
-open pure_inlineTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory;
+open pure_inlineTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory
+     pure_freshenProofTheory;
 
 val _ = new_theory "pure_inline_cexpProof";
 
@@ -230,6 +231,128 @@ Proof
   \\ fs [lets_for_def]
 QED
 
+Theorem App_Let_notin:
+  v ∉ freevars e ⇒
+  (App (Let v a body) e ≅? Let v a (App body e)) b
+Proof
+  rw []
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at Any Let_App
+  \\ irule exp_eq_App_cong
+  \\ gvs [exp_eq_refl]
+  \\ irule Let_not_in_freevars
+  \\ fs []
+QED
+
+Theorem make_Let1_lemma:
+  ∀acc_v acc_e a es vs body.
+    EVERY (λe.
+      DISJOINT (set (MAP explode acc_v)) (freevars (exp_of e)) ∧
+      DISJOINT (set (MAP explode vs)) (freevars (exp_of e))) es ∧
+    LENGTH acc_v = LENGTH acc_e ⇒
+    ((exp_of (App a (Lets a acc_v acc_e (Lam a vs body)) es)) ≅?
+    (exp_of (make_Let_GO acc_v acc_e a es vs body))) b
+Proof
+  recInduct make_Let_GO_ind
+  \\ reverse $ rw []
+  >- (
+    gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
+    \\ irule exp_eq_Apps_cong
+    \\ rw []
+    >- (
+      Induct_on `es` \\ gvs [exp_eq_refl]
+    )
+    \\ irule exp_eq_App_cong \\ gvs [exp_eq_refl]
+    \\ last_x_assum mp_tac
+    \\ last_x_assum mp_tac
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac `acc_e`
+    \\ Induct_on `acc_v` \\ gvs [exp_eq_refl,Lams_def,Lets_def,exp_of_def]
+    \\ rw []
+    \\ Cases_on `acc_e` \\ gvs []
+    \\ gvs [Lets_def,exp_of_def]
+    \\ irule exp_eq_Let_cong
+    \\ gvs [exp_eq_refl]
+    \\ last_x_assum $ irule_at Any
+    \\ gvs [EVERY_MEM]
+  )
+  >- gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
+  >- (
+    gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac `acc_e`
+    \\ Induct_on `acc_v` \\ gvs [exp_eq_refl,Lams_def,Lets_def,exp_of_def]
+    \\ rw []
+    \\ Cases_on `acc_e` \\ gvs []
+    \\ gvs [Lets_def,exp_of_def]
+    \\ irule exp_eq_Let_cong
+    \\ gvs [exp_eq_refl]
+    \\ last_x_assum $ irule_at Any
+    \\ gvs [EVERY_MEM]
+  )
+  \\ gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
+  \\ irule exp_eq_trans
+  \\ last_x_assum $ irule_at Any
+  \\ conj_tac
+  >- gvs [EVERY_MEM]
+  \\ irule exp_eq_Apps_cong
+  \\ gvs [LIST_REL_MAP]
+  \\ rw []
+  >- (
+    Induct_on `es` \\ gvs [exp_eq_refl]
+  )
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ qid_spec_tac `acc_v`
+  \\ qid_spec_tac `acc_e`
+  \\ Induct
+  >- gvs [exp_eq_refl,Lets_def,exp_of_def,Apps_def,Lams_def]
+  \\ rw []
+  \\ Cases_on `acc_v`
+  >- gvs [exp_eq_refl,Lets_def,exp_of_def,Apps_def,Lams_def]
+  \\ rw []
+  \\ gvs [Lets_def,exp_of_def,Apps_def,Lams_def]
+  \\ last_x_assum $ drule
+  \\ rw []
+  \\ irule exp_eq_trans
+  \\ irule_at Any App_Let_notin
+  \\ gvs []
+  \\ irule exp_eq_Let_cong
+  \\ gvs [exp_eq_refl]
+  \\ last_x_assum $ irule_at Any
+  \\ gvs [EVERY_MEM]
+QED
+
+Theorem make_Let1_eq_SOME:
+  no_shadowing (exp_of e) ∧
+  DISJOINT (boundvars (exp_of e)) (freevars (exp_of e)) ∧
+  make_Let1 e = SOME x ⇒
+  ((exp_of e) ≅? (exp_of x)) b
+Proof
+  rw []
+  \\ Cases_on `e` \\ gvs [make_Let1_def]
+  \\ Cases_on `c` \\ gvs [make_Let1_def]
+  \\ Induct_on `l` \\ gvs [make_Let_GO_def]
+  >- (
+    Cases_on `l'`
+    \\ gvs [make_Let_GO_def,exp_eq_refl,exp_of_def,Apps_def,Lams_def,Lets_def]
+  )
+  \\ rw []
+  \\ Induct_on `l'` \\ gvs [make_Let_GO_def]
+  >- gvs [Lams_def,make_Let_GO_def,exp_eq_refl,exp_of_def,Apps_def,Lets_def]
+  \\ rw []
+  \\ gvs [exp_of_def,Apps_def,Lams_def]
+  \\ gvs [make_Let_GO_def,exp_eq_refl,exp_of_def,Apps_def,Lams_def,Lets_def]
+  \\ irule exp_eq_trans
+  \\ irule_at Any make_Let1_lemma
+  \\ gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
+  \\ cheat
+QED
+
 val lemma = inline_ind
   |> Q.SPEC `λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ∧
@@ -310,23 +433,15 @@ Proof
       \\ gvs [memory_inv_def,DISJOINT_SYM]
       \\ fs [EVERY_MAP,DISJOINT_SYM]
     )
-    \\ Cases_on `e` \\ gvs [get_Var_name_def]
-    \\ Cases_on `make_Let (App a c q)`
+    \\ Cases_on `c` \\ gvs [get_Var_name_def]
+    \\ Cases_on `(freshen_cexp (App a (Var a' m') q) r)` \\ gvs []
+    \\ rename [`freshen_cexp _ _ = (q_fresh, r_fresh)`]
+    \\ Cases_on `make_Let1 q_fresh`
     >- (
-      gvs [exp_of_def,SF ETA_ss]
-      \\ irule list_subst_rel_Apps
-      \\ fs [LIST_REL_MAP,o_DEF]
-      \\ last_x_assum $ irule_at Any
-      \\ gvs [memory_inv_def,DISJOINT_SYM]
-      \\ fs [EVERY_MAP,DISJOINT_SYM]
-      \\ irule list_subst_rel_VarSimp
-      \\ res_tac
-      \\ fs [crhs_to_rhs_def,exp_of_def]
+      cheat
     )
     \\ gvs []
-    \\ Cases_on `freshen_cexp x r` \\ gvs []
-    \\ rename [`freshen_cexp _ _ = (q_fresh, r_fresh)`]
-    \\ Cases_on `inline m r_fresh (cl - 1) h q_fresh` \\ gvs []
+    \\ Cases_on `inline m r_fresh (cl - 1) h x'` \\ gvs []
     \\ rename [`inline _ _ _ _ _ = (q_inline, r_inline)`]
     \\ Cases_on `cl = 0`
     >- (
@@ -342,34 +457,35 @@ Proof
     \\ cheat
     (*
     0.  ∀xs'.
-          memory_inv xs' m ∧ no_shadowing (exp_of q_fresh) ∧
-          DISJOINT (set (MAP FST xs')) (boundvars (exp_of q_fresh)) ⇒
-          list_subst_rel xs' (exp_of q_fresh) (exp_of q_inline)
+          memory_inv xs' m ∧ no_shadowing (exp_of x') ∧
+          DISJOINT (set (MAP FST xs')) (boundvars (exp_of x')) ⇒
+          list_subst_rel xs' (exp_of x') (exp_of q_inline)
     1.  ∀xs'.
           memory_inv xs' m ∧ EVERY (λe. no_shadowing (exp_of e)) es ∧
           EVERY (λx. DISJOINT (set (MAP FST xs')) (boundvars (exp_of x))) es ⇒
           LIST_REL (λx t. list_subst_rel xs' (exp_of x) (exp_of t)) es q
     2.  memory_inv xs m
     3.  map_ok m
-    4.  no_shadowing (Apps (exp_of (Var a' m')) (MAP exp_of es))
+    4.  no_shadowing (Apps (exp_of e) (MAP exp_of es))
     5.  DISJOINT (set (MAP FST xs))
-          (boundvars (Apps (exp_of (Var a' m')) (MAP exp_of es)))
-    6.  inline_list m ns (SUC v14) h es = (q,r)
-    7.  inline m ns (SUC v14) h (Var a' m') = (q',r')
-    8.  DISJOINT (boundvars (Apps (exp_of (Var a' m')) (MAP exp_of es)))
+          (boundvars (Apps (exp_of e) (MAP exp_of es)))
+    6.  inline_list m ns cl h es = (q,r)
+    7.  inline m ns cl h e = (q',r')
+    8.  DISJOINT (boundvars (Apps (exp_of e) (MAP exp_of es)))
           (set (MAP FST xs)) ⇒
-        DISJOINT (boundvars (exp_of (Var a' m'))) (set (MAP FST xs)) ∧
+        DISJOINT (boundvars (exp_of e)) (set (MAP FST xs)) ∧
         EVERY (λx. DISJOINT (boundvars x) (set (MAP FST xs))) (MAP exp_of es)
-    9.  no_shadowing (exp_of (Var a' m'))
+    9.  no_shadowing (exp_of e)
    10.  EVERY no_shadowing (MAP exp_of es)
-   11.  inline m r (SUC v14) h (Var a' m') = (q'',r'')
-   12.  lookup m m' = SOME (cExp c)
-   13.  make_Let (App a c q) = SOME x
-   14.  freshen_cexp x r = (q_fresh,r_fresh)
-   15.  inline m r_fresh v14 h q_fresh = (q_inline,r_inline)
+   11.  get_Var_name e = SOME x
+   12.  inline m r cl h e = (q'',r'')
+   13.  lookup m x = SOME (cExp (Var a' m'))
+   14.  freshen_cexp (App a (Var a' m') q) r = (q_fresh,r_fresh)
+   15.  make_Let1 q_fresh = SOME x'
+   16.  inline m r_fresh (cl − 1) h x' = (q_inline,ns1)
+   17.  cl ≠ 0
    ------------------------------------
-        list_subst_rel xs (Apps (exp_of (Var a' m')) (MAP exp_of es))
-          (exp_of q_inline)
+        list_subst_rel xs (Apps (exp_of e) (MAP exp_of es)) (exp_of q_inline)
      *)
   )
   >~ [`Let _ _ _`] >- (
@@ -787,6 +903,9 @@ QED
 
 Theorem inline_all_thm:
   ∀cl h x.
+    NestedCase_free x ∧
+    letrecs_distinct (exp_of x) ∧
+    cexp_wf x ∧
     no_shadowing (exp_of x) ∧
     closed (exp_of x) ⇒
     (exp_of x) ≅ (exp_of (inline_all cl h x))
