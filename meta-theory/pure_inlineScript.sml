@@ -747,6 +747,15 @@ Inductive list_subst_rel:
     DISJOINT (boundvars t) (freevars x1) ∧
     list_subst_rel (l ++ [(v,Exp x1)]) t u ⇒
     list_subst_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
+[~trans:]
+  (∀l x y z.
+    list_subst_rel l x y ∧
+    list_subst_rel l y z ∧
+    DISJOINT (boundvars y) (vars_of l) ∧
+    DISJOINT (boundvars y) (freevars y) ∧
+    DISJOINT (boundvars y) (freevars_of l) ∧
+    no_shadowing y ⇒
+    list_subst_rel l x z) ∧
 [~ExpEq:]
   (∀l t u u1.
     list_subst_rel l t u ∧
@@ -2526,6 +2535,9 @@ Proof
     \\ gvs [exp_eq_refl]
     \\ simp [Once exp_eq_sym]
   )
+  >-
+   (irule exp_eq_trans
+    \\ last_x_assum $ irule_at Any \\ fs [])
   \\ irule exp_eq_trans
   \\ last_x_assum $ irule_at Any
   \\ irule Binds_cong

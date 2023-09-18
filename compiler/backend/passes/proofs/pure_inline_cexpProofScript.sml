@@ -466,6 +466,23 @@ Proof
     \\ rename [‘make_Let1 (App a2 c2 l2)’]
     \\ Cases_on ‘c2’ \\ gvs [make_Let1_def]
     \\ rename [‘App a2 (Lam a3 l3 c3) es2’]
+    \\ irule list_subst_rel_trans
+    \\ last_x_assum $ irule_at Any
+    \\ irule_at Any list_subst_rel_ExpEq
+    \\ irule_at (Pos hd) list_subst_rel_Apps
+    \\ irule_at (Pos hd) list_subst_rel_VarSimp
+    \\ ‘MEM (explode v,Exp (exp_of c)) xs’ by
+          (fs [memory_inv_def] \\ res_tac  \\ fs [crhs_to_rhs_def])
+    \\ pop_assum $ irule_at Any
+    \\ qexists_tac ‘MAP exp_of es1’
+    \\ gvs [LIST_REL_MAP]
+    \\ drule pure_freshenProofTheory.freshen_cexp_correctness
+    \\ impl_tac
+    >- cheat (* freshen preconditions *)
+    \\ strip_tac
+    \\ irule_at Any exp_eq_trans
+    \\ fs [exp_of_def,SF ETA_ss]
+    \\ first_x_assum $ irule_at $ Pos hd
     \\ cheat
   )
   >~ [`Let _ _ _`] >- (
