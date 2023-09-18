@@ -39,22 +39,22 @@ val _ = enable_monad "freshen";
 
 Overload return[local] = ``freshen_return``;
 
-Definition freshen_mfoldl_def:
-  freshen_mfoldl f acc [] = return acc ∧
-  freshen_mfoldl f acc (x::xs) = do
-    acc' <- f acc x;
-    freshen_mfoldl f acc' xs
+Definition freshen_mapM_def:
+  freshen_mapM f [] = return [] ∧
+  freshen_mapM f (x::xs) = do
+    x' <- f x;
+    xs' <- freshen_mapM f xs;
+    return (x'::xs')
   od
 End
 
-Theorem freshen_mfoldl_cong[defncong]:
-  ∀l l' acc acc' f f'.
-    l = l' ∧ acc = acc' ∧
-    (∀x a. MEM x l' ⇒ f a x = f' a x)
-  ⇒ freshen_mfoldl f acc l = freshen_mfoldl f' acc' l'
+Theorem freshen_mapM_cong[defncong]:
+  ∀l l' f f'.
+    l = l' ∧ (∀x. MEM x l' ⇒ f x = f' x)
+  ⇒ freshen_mapM f l = freshen_mapM f' l'
 Proof
-  Induct >> rw[] >> gvs[freshen_mfoldl_def] >>
-  AP_TERM_TAC >> rw[FUN_EQ_THM]
+  Induct >> rw[] >> gvs[freshen_mapM_def, SF DNF_ss] >>
+  last_x_assum drule >> rw[]
 QED
 
 (***** Implementation *****)
@@ -99,7 +99,7 @@ End
 Definition fresh_boundvar_def:
   fresh_boundvar v varmap = do
     v' <- invent_var v;
-    return (v', if v = v' then varmap else insert varmap v v')
+    return (v', insert varmap v v')
     od
 End
 
@@ -129,10 +129,9 @@ End
   free variables of the expression.
 *)
 Definition freshen_aux_def:
-  freshen_aux varmap (Var d v) = do
-    v' <<- (case lookup varmap v of | NONE => v | SOME v' => v');
-    return $ Var d v'
-  od ∧
+  freshen_aux varmap (Var d v) = (λavoid.
+    let v' = (case lookup varmap v of | NONE => v | SOME v' => v') in
+    (Var d v', insert_var avoid v')) ∧
 
   freshen_aux varmap (Prim d cop ces) = do
     ces' <- freshen_aux_list varmap ces;
@@ -160,28 +159,25 @@ Definition freshen_aux_def:
 
   freshen_aux varmap (Letrec d fns ce) = do
     (fs', varmap') <- fresh_boundvars (MAP FST fns) varmap;
-    fces' <- freshen_mfoldl (λacc (f,fce). do
-                fce' <- freshen_aux varmap' fce;
-                return $ fce'::acc od)
-              [] fns;
+    fces' <- freshen_mapM (λ(f,fce). freshen_aux varmap' fce) fns;
     ce' <- freshen_aux varmap' ce;
-    return $ Letrec d (ZIP (fs', REVERSE fces')) ce'
+    return $ Letrec d (ZIP (fs',fces')) ce'
   od ∧
 
   freshen_aux varmap (Case d ce v css usopt) = do
     ce' <- freshen_aux varmap ce;
     (v',varmap') <- fresh_boundvar v varmap;
-    css' <- freshen_mfoldl (λacc (cn,pvs,ce). do
+    css' <- freshen_mapM (λ(cn,pvs,ce). do
                 (pvs',varmap'') <- fresh_boundvars pvs varmap';
                 ce' <- freshen_aux varmap'' ce;
-                return $ (cn,pvs',ce')::acc od)
-              [] css;
+                return (cn,pvs',ce') od)
+              css;
     usopt' <- (case usopt of
               | NONE => return NONE
               | SOME (cn_ars, usce) => do
                  usce' <- freshen_aux varmap' usce;
                  return $ SOME (cn_ars, usce') od);
-    return (Case d ce' v' (REVERSE css') usopt')
+    return (Case d ce' v' css' usopt')
   od ∧
 
   freshen_aux _ ce = return ce ∧ (* NestedCase not handled *)
