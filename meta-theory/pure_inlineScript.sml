@@ -653,7 +653,14 @@ Proof
     rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
     gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
     )
-  >- cheat
+  >- (
+    simp[Once DISJOINT_SYM] >> irule DISJOINT_SUBSET >>
+    qexists `(freevars body DIFF set (MAP FST fns)) ∪ set (MAP FST fns)` >> simp[] >>
+    simp[Once DISJOINT_SYM] >>
+    qpat_x_assum `DISJOINT (boundvars e) (_ DIFF _)` mp_tac >> rw[DISJOINT_ALT] >>
+    first_x_assum drule >> simp[DISJ_EQ_IMP, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    rw[] >> first_x_assum irule >> rw[SF SFY_ss]
+    )
   >- simp[Once DISJOINT_SYM]
   >- (
     first_x_assum drule >> gvs[DISJOINT_ALT] >> rw[] >>
