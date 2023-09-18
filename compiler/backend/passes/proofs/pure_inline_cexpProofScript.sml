@@ -374,6 +374,24 @@ Proof
   cheat
 QED
 
+Theorem Apps_Lams_eq_Lets_freevars:
+  ∀es vs b.
+    LENGTH vs = LENGTH es ∧
+    EVERY (λe. DISJOINT (set vs) (freevars e)) es ⇒
+    freevars (Lets (ZIP (vs,es)) b) = freevars (Apps (Lams vs b) es)
+Proof
+  cheat
+QED
+
+Theorem Apps_Lams_eq_Lets_boundvars:
+  ∀es vs b.
+    LENGTH vs = LENGTH es ∧
+    EVERY (λe. DISJOINT (set vs) (freevars e)) es ⇒
+    boundvars (Lets (ZIP (vs,es)) b) = boundvars (Apps (Lams vs b) es)
+Proof
+  cheat
+QED
+
 val lemma = inline_ind
   |> Q.SPEC `λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ∧
@@ -514,6 +532,31 @@ Proof
     \\ irule_at Any pure_demandTheory.exp_eq_Apps_cong
     \\ fs [LIST_REL_same,exp_eq_refl,exp_of_Lets]
     \\ irule_at Any Apps_Lams_eq_Lets \\ fs []
+    \\ fs [freevars_Apps,boundvars_Apps]
+    \\ DEP_REWRITE_TAC [Apps_Lams_eq_Lets_boundvars]
+    \\ DEP_REWRITE_TAC [Apps_Lams_eq_Lets_freevars]
+    \\ gvs [SF CONJ_ss,Apps_append]
+    \\ qabbrev_tac ‘app_lam = Apps (Lams (MAP explode l3) (exp_of c3)) (MAP exp_of es2a)’
+    \\ gvs [MEM_MAP,PULL_EXISTS]
+    (*
+      Most of these follow from barendregt, but more is needed
+      from some of the conjunctions in the goal.
+
+      I suspect the induction needs to assume something like
+
+         set (MAP FST xs) ⊆ ns
+         vars_of xs ⊆ ns
+         freevars_of xs ⊆ ns
+
+      so that we know that these are disjoint from the
+      boundvars of any expression produced by freshen.
+
+      And to maintain those, we also need to assume:
+
+         freevars (exp_of x) ⊆ ns
+         boundvars (exp_of x) ⊆ ns
+
+    *)
     \\ cheat
   )
   >~ [`Let _ _ _`] >- (
