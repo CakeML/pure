@@ -6,7 +6,8 @@ open pairTheory listTheory pred_setTheory finite_mapTheory;
 open pure_expTheory pure_exp_lemmasTheory pure_evalTheory
      pure_exp_relTheory pure_congruenceTheory;
 open pure_dead_letTheory pure_cexpTheory pureLangTheory
-     pure_letrec_cexpProofTheory mlmapTheory pure_varsTheory;
+     pure_letrecProofTheory pure_letrec_cexpProofTheory
+     mlmapTheory pure_varsTheory;
 
 val _ = new_theory "pure_dead_letProof";
 
@@ -315,6 +316,37 @@ Proof
   >- metis_tac[]
 QED
 
+Theorem dead_let_NestedCase_free:
+  ∀ce1 ce2. dead_let ce1 = ce2 ∧ NestedCase_free ce1 ⇒ NestedCase_free ce2
+Proof
+  recInduct dead_let_ind >> rw[dead_let_def] >> gvs[] >>
+  gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD]
+  >- (rpt CASE_TAC >> gvs[])
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (Cases_on `us` >> gvs[] >> Cases_on `x` >> gvs[])
+QED
+
+Theorem dead_let_letrecs_distinct:
+  ∀ce1 ce2. dead_let ce1 = ce2 ∧ letrecs_distinct (exp_of ce1) ∧ NestedCase_free ce1
+  ⇒ letrecs_distinct (exp_of ce2)
+Proof
+  recInduct dead_let_ind >> rw[dead_let_def] >>
+  gvs[exp_of_def, letrecs_distinct_def, letrecs_distinct_Apps, letrecs_distinct_Lams] >>
+  gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD]
+  >- (rpt CASE_TAC >> gvs[exp_of_def, letrecs_distinct_def])
+  >- (gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> metis_tac[])
+  >- (
+    gvs[COND_RAND, letrecs_distinct_def] >> gvs[letrecs_distinct_rows_of] >>
+    gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
+    reverse $ conj_tac >- metis_tac[] >>
+    Cases_on `us` >> gvs[] >> pairarg_tac >> gvs[] >>
+    last_x_assum mp_tac >> qpat_x_assum `letrecs_distinct (IfDisj _ _ _)` mp_tac >>
+    rpt $ pop_assum kall_tac >>
+    Induct_on `cn_ars` >> rw[IfDisj_def, Disj_def, letrecs_distinct_def]
+    )
+QED
+
 
 (********* top-level **********)
 
@@ -322,12 +354,16 @@ Theorem dead_let_correct:
   ∀ce. exp_of ce ≅ exp_of (dead_let ce) ∧
        (closed $ exp_of ce ⇒ closed $ exp_of (dead_let ce)) ∧
        cns_arities (dead_let ce) ⊆ cns_arities ce ∧
-       (cexp_wf ce ⇒ cexp_wf (dead_let ce))
+       (cexp_wf ce ⇒ cexp_wf (dead_let ce)) ∧
+       (letrecs_distinct (exp_of ce) ∧ NestedCase_free ce ⇒
+        letrecs_distinct (exp_of (dead_let ce)) ∧ NestedCase_free (dead_let ce))
 Proof
   gen_tac >>
   qspec_then `ce` assume_tac dead_let_imp_rel >> gvs[] >>
   qspec_then `ce` assume_tac dead_let_cns_arities >> gvs[] >>
   qspec_then `ce` assume_tac dead_let_cexp_wf >> gvs[] >>
+  qspec_then `ce` assume_tac dead_let_NestedCase_free >> gvs[] >>
+  qspec_then `ce` assume_tac dead_let_letrecs_distinct >> gvs[] >>
   drule dead_let_rel_exp_eq >> rw[] >>
   drule dead_let_rel_freevars >> gvs[closed_def, SUBSET_DEF, EXTENSION]
 QED

@@ -886,7 +886,6 @@ Theorem inline_all_thm:
     NestedCase_free x ∧
     letrecs_distinct (exp_of x) ∧
     cexp_wf x ∧
-    no_shadowing (exp_of x) ∧
     closed (exp_of x) ⇒
     (exp_of x) ≅ (exp_of (inline_all cl h x))
 Proof
@@ -907,6 +906,60 @@ Proof
   \\ fs [closed_def]
   \\ imp_res_tac barendregt_imp_no_shadowing
 QED
+
+(********** Syntactic well-formedness results **********)
+
+Theorem inline_wf:
+  inline empty vars cl h ce = (ce',vars') ∧
+  vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
+  ⇒ NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
+    freevars (exp_of ce') = freevars (exp_of ce) ∧
+    cns_arities ce' ⊆ cns_arities ce
+Proof
+  cheat
+QED
+
+Theorem inline_all_wf:
+  inline_all cl h ce = ce' ∧ closed (exp_of ce) ∧
+  NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
+  ⇒ closed (exp_of ce') ∧
+    NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
+    cns_arities ce' ⊆ cns_arities ce
+Proof
+  simp[inline_all_def] >> strip_tac >>
+  rpt (pairarg_tac >> gvs[]) >>
+  dxrule freshen_cexp_correctness >>
+  rpt $ disch_then $ dxrule_at Any >> simp[avoid_set_ok_boundvars_of] >> strip_tac >>
+  dxrule inline_wf >> rpt $ disch_then $ dxrule_at Any >> impl_tac
+  >- (
+    gvs[avoid_set_ok_def] >> irule unique_boundvars_letrecs_distinct >>
+    gvs[pure_barendregtTheory.barendregt_def]
+    ) >>
+  strip_tac >> qspec_then `inlined_e` assume_tac dead_let_correct >> gvs[] >>
+  gvs[closed_def, SUBSET_DEF]
+QED
+
+
+(********** Top-level theorems **********)
+
+Theorem inline_top_level_correct:
+  NestedCase_free ce ∧
+  letrecs_distinct (exp_of ce) ∧
+  cexp_wf ce ∧
+  closed (exp_of ce) ∧
+  inline_top_level c ce = ce'
+  ⇒ exp_of ce ≅ exp_of ce' ∧
+    NestedCase_free ce' ∧
+    letrecs_distinct (exp_of ce') ∧
+    cexp_wf ce' ∧
+    closed (exp_of ce') ∧
+    (cns_arities ce' ⊆ cns_arities ce)
+Proof
+  simp[inline_top_level_def] >> strip_tac >> gvs[] >>
+  drule_all inline_all_thm >> dxrule_at Any inline_all_wf >>
+  rpt $ disch_then $ dxrule_at Any >> strip_tac >> gvs[]
+QED
+
 
 (*******************)
 
