@@ -6,7 +6,7 @@ open pairTheory listTheory alistTheory rich_listTheory pred_setTheory
      finite_mapTheory;
 open pure_miscTheory pure_expTheory pure_cexpTheory pureLangTheory
      pure_alpha_equivTheory pure_congruenceTheory pure_beta_equivTheory
-     pure_barendregtTheory pure_exp_lemmasTheory
+     pure_barendregtTheory pure_exp_lemmasTheory pure_cexp_lemmasTheory
      pure_varsTheory var_setTheory pure_freshenTheory pure_letrecProofTheory;
 
 val _ = new_theory "pure_freshenProof";
@@ -110,6 +110,13 @@ Proof
   simp[AC UNION_ASSOC UNION_COMM]
 QED
 
+Theorem boundvars_Lams:
+  boundvars (Lams xs e) = set xs ∪ boundvars e
+Proof
+  Induct_on `xs` >> rw[boundvars_def, Lams_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
 Theorem FRANGE_FUPDATE_LIST_ALL_DISTINCT:
   ∀l m.
     ALL_DISTINCT (MAP FST l) ⇒
@@ -139,6 +146,74 @@ Proof
   Induct_on `projs` >> rw[lets_for_def] >>
   PairCases_on `h` >> rw[lets_for_def] >>
   rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem boundvars_rows_of:
+  boundvars (rows_of x us css) =
+    boundvars us ∪
+    BIGUNION (set $ MAP (λ(cn,pvs,e). set pvs ∪ boundvars e) css)
+Proof
+  Induct_on `css` >> rw[rows_of_def] >>
+  pairarg_tac >> gvs[rows_of_def] >>
+  simp[boundvars_lets_for, combinTheory.o_DEF] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem boundvars_FST_patguards_SUBSET:
+  ∀l. boundvars (FST (patguards l)) ⊆
+    BIGUNION (set $ MAP (λ(e,p). boundvars e) l)
+Proof
+  Induct using patguards_ind >> rw[patguards_def] >>
+  PairCases_on `ep` >> simp[] >> CASE_TAC >> gvs[]
+  >- gvs[SUBSET_DEF]
+  >- gvs[SUBSET_DEF] >>
+  gvs[combinTheory.o_DEF] >> pairarg_tac >> gvs[] >>
+  `BIGUNION $ set (MAP (λp. boundvars ep0) l') ⊆ boundvars ep0` by (
+    rpt $ pop_assum kall_tac >> Induct_on `l'` >> rw[]) >>
+  gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Theorem boundvars_SND_patguards_SUBSET:
+  BIGUNION (set $ MAP (boundvars o SND) $ SND (patguards l)) ⊆
+  BIGUNION (set $ MAP (boundvars o FST) l)
+Proof
+  qid_spec_tac `l` >> recInduct patguards_ind >> rw[patguards_def] >>
+  PairCases_on `ep` >> rw[] >> Cases_on `ep1` >> gvs[]
+  >- gvs[SUBSET_DEF] >- gvs[SUBSET_DEF] >>
+  gvs[combinTheory.o_DEF] >> rpt (pairarg_tac >> gvs[]) >>
+  `BIGUNION (set (MAP (λx. boundvars ep0) l)) ⊆ boundvars ep0` by (
+    rpt $ pop_assum kall_tac >> Induct_on `l` >> rw[]) >>
+  gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Triviality boundvars_FOLDR_Let_SUBSET:
+  boundvars (FOLDR (λ(u,e) A. Let (explode u) e A) acc binds) ⊆
+    boundvars acc ∪ IMAGE explode (set (MAP FST binds)) ∪
+    BIGUNION (set $ MAP (boundvars o SND) binds)
+Proof
+  qid_spec_tac `acc` >> Induct_on `binds` >> rw[] >>
+  pairarg_tac >> gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Theorem boundvars_nested_rows_SUBSET:
+  boundvars (nested_rows e pes) ⊆
+      boundvars e ∪ BIGUNION (set $ MAP
+        (λ(p,e). boundvars e ∪ (IMAGE explode $ cepat_vars p)) pes)
+Proof
+  Induct_on `pes` >> rw[boundvars_def] >>
+  rpt (pairarg_tac >> gvs[]) >> rw[]
+  >- (qspec_then `[(e,p)]` mp_tac boundvars_FST_patguards_SUBSET >> simp[SUBSET_DEF])
+  >- (
+    irule SUBSET_TRANS >> irule_at Any boundvars_FOLDR_Let_SUBSET >>
+    drule patguards_binds_pvars >> simp[] >> strip_tac >>
+    simp[AC CONJ_ASSOC CONJ_COMM] >>
+    conj_tac >- gvs[SUBSET_DEF] >>
+    conj_tac >- gvs[SUBSET_DEF] >>
+    irule SUBSET_TRANS >>
+    qspec_then `[(e,p)]` assume_tac $ GEN_ALL boundvars_SND_patguards_SUBSET >>
+    gvs[] >> goal_assum drule >> rw[SUBSET_DEF]
+    )
+  >- (gvs[SUBSET_DEF] >> metis_tac[])
 QED
 
 Theorem letrecs_distinct_Disj[simp]:
@@ -1926,6 +2001,214 @@ Proof
 QED
 
 
+(********** boundvars_of **********)
+
+Theorem boundvars_of_NestedCase_free:
+  NestedCase_free ce ⇒
+  vars_ok (boundvars_of ce) ∧
+  set_of (boundvars_of ce) = boundvars (exp_of ce)
+Proof
+  Induct_on `ce` using boundvars_of_ind >>
+  simp[boundvars_of_def, exp_of_def, boundvars_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >> strip_tac
+  >- ( (* Prim *)
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    qsuff_tac
+      `∀acc. EVERY NestedCase_free ces ∧ vars_ok acc ⇒ vars_ok (FOLDR f acc ces) ∧
+        set_of (FOLDR f acc ces) = BIGUNION s ∪ set_of acc`
+    >- (unabbrev_all_tac >> gvs[SF ETA_ss]) >>
+    qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+    Induct_on `ces` >> rw[] >> unabbrev_all_tac >> gvs[] >>
+    simp[AC UNION_ASSOC UNION_COMM]
+    )
+  >- ( (* App *)
+    simp[boundvars_Apps] >>
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    qsuff_tac
+      `∀acc. EVERY NestedCase_free ces ∧ vars_ok acc ⇒ vars_ok (FOLDR f acc ces) ∧
+        set_of (FOLDR f acc ces) = BIGUNION s ∪ set_of acc`
+    >- (
+      unabbrev_all_tac >> gvs[EVERY_MEM] >>
+      disch_then $ qspec_then `boundvars_of ce` mp_tac >> rw[] >>
+      simp[AC UNION_ASSOC UNION_COMM]
+      ) >>
+    qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+    Induct_on `ces` >> rw[] >> unabbrev_all_tac >> gvs[] >>
+    simp[AC UNION_ASSOC UNION_COMM]
+    )
+  >- simp[boundvars_Lams] (* Lams *)
+  >- (rw[EXTENSION] >> metis_tac[]) (* Let *)
+  >- ( (* Letrec *)
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    qsuff_tac
+      `∀acc. EVERY NestedCase_free (MAP SND fns) ∧ vars_ok acc ⇒
+        vars_ok (FOLDR f acc fns) ∧
+        set_of (FOLDR f acc fns) =
+          set (MAP (λ(f,e). explode f) fns) ∪ BIGUNION s ∪ set_of acc`
+    >- (
+      unabbrev_all_tac >> gvs[SF ETA_ss] >>
+      disch_then $ qspec_then `boundvars_of ce` mp_tac >> rw[] >>
+      simp[AC UNION_ASSOC UNION_COMM, LAMBDA_PROD]
+      ) >>
+    qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+    Induct_on `fns` >> unabbrev_all_tac >> gvs[] >>
+    PairCases >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+    ntac 4 $ strip_tac >>
+    last_x_assum drule >> strip_tac >> gvs[] >>
+    rw[EXTENSION] >> metis_tac[]
+    )
+  >- ( (* Case *)
+    simp[COND_RAND] >>
+    irule_at Any vars_ok_union >>
+    DEP_REWRITE_TAC[set_of_var_union] >> csimp[] >>
+    simp[boundvars_rows_of] >>
+    simp[AC UNION_ASSOC UNION_COMM, AC CONJ_ASSOC CONJ_COMM] >>
+    conj_tac >- (rpt CASE_TAC >> gvs[]) >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    `∀acc. vars_ok acc ⇒ vars_ok (FOLDR f acc css) ∧
+      set_of (FOLDR f acc css) = BIGUNION s ∪ set_of acc` by (
+      qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+      last_x_assum assume_tac >> ntac 4 $ last_x_assum kall_tac >>
+      qpat_x_assum `OPTION_ALL _ _` kall_tac >>
+      Induct_on `css` >> unabbrev_all_tac >> gvs[SF ETA_ss] >>
+      PairCases >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+      ntac 2 strip_tac >> gen_tac >> strip_tac >>
+      last_x_assum drule_all >> strip_tac >> gvs[] >>
+      rw[EXTENSION] >> metis_tac[]
+      ) >>
+    unabbrev_all_tac >> simp[] >>
+    namedCases_on `us` ["","us'"] >> gvs[]
+    >- (rw[EXTENSION] >> metis_tac[]) >>
+    PairCases_on `us'` >> simp[IfDisj_def] >> gvs[] >>
+    rw[EXTENSION] >> metis_tac[]
+    )
+QED
+
+Theorem boundvars_of_SUBSET:
+  vars_ok (boundvars_of ce) ∧
+  boundvars (exp_of ce) ⊆ set_of (boundvars_of ce)
+Proof
+  Induct_on `ce` using boundvars_of_ind >>
+  simp[boundvars_of_def, exp_of_def, boundvars_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY]
+  >- ( (* Prim *)
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    qsuff_tac
+      `∀acc. vars_ok acc ⇒ vars_ok (FOLDR f acc ces) ∧
+        BIGUNION s ∪ set_of acc ⊆ set_of (FOLDR f acc ces)`
+    >- (unabbrev_all_tac >> gvs[SF ETA_ss]) >>
+    qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+    Induct_on `ces` >> rw[] >> unabbrev_all_tac >> gvs[SUBSET_DEF]
+    )
+  >- ( (* App *)
+    simp[boundvars_Apps] >>
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    qsuff_tac
+      `∀acc. vars_ok acc ⇒ vars_ok (FOLDR f acc ces) ∧
+        BIGUNION s ∪ set_of acc ⊆ set_of (FOLDR f acc ces)`
+    >- (
+      unabbrev_all_tac >> gvs[] >>
+      disch_then $ qspec_then `boundvars_of ce` mp_tac >> rw[] >> gvs[SUBSET_DEF]
+      ) >>
+    qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+    Induct_on `ces` >> rw[] >> unabbrev_all_tac >> gvs[SUBSET_DEF]
+    )
+  >- ( (* Lams *)
+    simp[boundvars_Lams] >> gvs[SUBSET_DEF]
+    )
+  >- gvs[SUBSET_DEF] (* Let *)
+  >- ( (* Letrec *)
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    qsuff_tac
+      `∀acc. vars_ok acc ⇒
+        vars_ok (FOLDR f acc fns) ∧
+        set (MAP (λ(f,e). explode f) fns) ∪ BIGUNION s ∪ set_of acc ⊆
+          set_of (FOLDR f acc fns)`
+    >- (
+      unabbrev_all_tac >> gvs[SF ETA_ss] >>
+      disch_then $ qspec_then `boundvars_of ce` mp_tac >> rw[] >>
+      gvs[SUBSET_DEF, LAMBDA_PROD]
+      ) >>
+    qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+    Induct_on `fns` >> unabbrev_all_tac >> gvs[] >>
+    PairCases >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+    ntac 4 $ strip_tac >>
+    last_x_assum drule >> strip_tac >> gvs[SUBSET_DEF]
+    )
+  >- ( (* Case *)
+    simp[COND_RAND] >>
+    irule_at Any vars_ok_union >>
+    DEP_REWRITE_TAC[set_of_var_union] >> csimp[] >>
+    simp[boundvars_rows_of] >>
+    simp[AC UNION_ASSOC UNION_COMM, AC CONJ_ASSOC CONJ_COMM] >>
+    conj_tac >- (rpt CASE_TAC >> gvs[]) >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    qmatch_goalsub_abbrev_tac `BIGUNION s` >>
+    `∀acc. vars_ok acc ⇒ vars_ok (FOLDR f acc css) ∧
+      BIGUNION s ∪ set_of acc ⊆ set_of (FOLDR f acc css)` by (
+      qpat_x_assum `Abbrev (acc = _)` kall_tac >> gvs[Abbr `s`] >>
+      last_x_assum assume_tac >> ntac 3 $ last_x_assum kall_tac >>
+      Induct_on `css` >> unabbrev_all_tac >> gvs[SF ETA_ss] >>
+      PairCases >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+      strip_tac >> gen_tac >> strip_tac >>
+      last_x_assum drule_all >> strip_tac >> gvs[] >> gvs[SUBSET_DEF]) >>
+    unabbrev_all_tac >> simp[] >>
+    namedCases_on `us` ["","us'"] >> gvs[]
+    >- gvs[SUBSET_DEF] >>
+    PairCases_on `us'` >> simp[IfDisj_def] >> gvs[SUBSET_DEF]
+    )
+  >- ( (* NestedCase *)
+    irule_at Any vars_ok_union >>
+    DEP_REWRITE_TAC[set_of_var_union] >> csimp[] >>
+    qmatch_goalsub_abbrev_tac `FOLDR f acc` >>
+    simp[LIST_TO_SET_MAP, cepat_vars_l_correct] >>
+    `∀acc. vars_ok acc ⇒ vars_ok (FOLDR f acc pces) ∧
+      BIGUNION $ set $ MAP
+        (λ(p,e). boundvars (exp_of e) ∪ IMAGE explode (cepat_vars p)) pces ⊆
+      set_of (FOLDR f acc pces)` by (
+      qpat_x_assum `Abbrev (acc = _)` kall_tac >>
+      last_x_assum assume_tac >> ntac 4 $ last_x_assum kall_tac >>
+      Induct_on `pces` >> unabbrev_all_tac >> gvs[SF ETA_ss] >>
+      PairCases >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+      strip_tac >> gen_tac >> strip_tac >>
+      last_x_assum drule_all >> strip_tac >> gvs[SUBSET_DEF] >>
+      gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> simp[cepat_vars_l_correct]) >>
+    pop_assum $ qspec_then `acc` assume_tac >> gvs[Abbr `acc`] >> rw[]
+    >- (
+      irule SUBSET_TRANS >> irule_at Any boundvars_FST_patguards_SUBSET >>
+      simp[SUBSET_DEF]
+      )
+    >- (
+      irule SUBSET_TRANS >> irule_at Any boundvars_FOLDR_Let_SUBSET >>
+      simp[AC CONJ_ASSOC CONJ_COMM] >> conj_tac >- gvs[SUBSET_DEF] >> rw[]
+      >- (
+        simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP] >> gen_tac >> strip_tac >>
+        PairCases_on `y` >> gvs[] >> Cases_on `patguards [Var (explode x),p]` >>
+        drule patguards_binds_pvars >> gvs[MEM_MAP, EXTENSION, EXISTS_PROD] >>
+        metis_tac[]
+        )
+      >- (
+        irule SUBSET_TRANS >> irule_at Any boundvars_SND_patguards_SUBSET >>
+        simp[]
+        )
+      )
+    >- (
+      irule SUBSET_TRANS >> irule_at Any boundvars_nested_rows_SUBSET >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> gvs[SUBSET_DEF]
+      )
+    >- gvs[SUBSET_DEF]
+    )
+QED
+
 
 (****************************** Top-level theorems ******************************)
 
@@ -1950,6 +2233,18 @@ Proof
   `∃x'. x = explode x'` by (qexists `implode x` >> simp[]) >> gvs[] >>
   simp[GSYM contains_var_in_set_of] >>
   PairCases_on `avoid` >> gvs[contains_var_def] >> CASE_TAC >> gvs[]
+QED
+
+Theorem avoid_set_ok_boundvars_of:
+  closed (exp_of x) ⇒ avoid_set_ok (boundvars_of x) x
+Proof
+  rw[closed_def, avoid_set_ok_def] >>
+  qspec_then `x` assume_tac $ GEN_ALL boundvars_of_SUBSET >> gvs[] >>
+  gvs[SUBSET_DEF] >> first_x_assum drule >> strip_tac >>
+  `∃y. x' = explode y` by (qexists `implode x'` >> simp[]) >>
+  gvs[GSYM contains_var_in_set_of] >>
+  Cases_on `boundvars_of x` >> gvs[contains_var_def] >>
+  FULL_CASE_TAC >> gvs[]
 QED
 
 Theorem freshen_cexp_correctness:
@@ -1978,12 +2273,6 @@ Proof
   irule_at Any freshen_global_unique_boundvars >> goal_assum drule >> simp[] >>
   irule DISJOINT_SUBSET >> irule_at Any freshen_global_boundvars >>
   goal_assum drule >> gvs[avoid_ok_def, allvars_thm]
-QED
-
-Theorem avoid_set_ok_boundvars_of:
-  closed (exp_of x) ⇒ avoid_set_ok (boundvars_of x) x
-Proof
-  cheat
 QED
 
 (**********)
