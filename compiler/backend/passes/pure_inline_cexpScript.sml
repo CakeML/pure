@@ -162,7 +162,7 @@ Definition inline_def:
         | SOME (cExp e_m) =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1
           in (case make_Let1 exp of
-          | NONE => (exp, ns1)
+          | NONE => (App a e es1, ns1)
           | SOME exp1 =>
             if cl = 0 then (App a e es1, ns1)
             else (

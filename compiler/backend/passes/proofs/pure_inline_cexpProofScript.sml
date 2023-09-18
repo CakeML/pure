@@ -395,11 +395,10 @@ Proof
   )
   >~ [`App _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline_list m ns cl h es`
-    \\ gvs []
-    \\ Cases_on `inline m ns cl h e`
+    \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [list_subst_rel_refl,exp_of_def,SF ETA_ss]
-    \\ qspecl_then [`set (MAP FST xs)`,`exp_of e`,`MAP exp_of es`] assume_tac DISJOINT_boundvars_Apps
+    \\ qspecl_then [`set (MAP FST xs)`,`exp_of e`,`MAP exp_of es`]
+                   assume_tac DISJOINT_boundvars_Apps
     \\ drule no_shadowing_Apps_EVERY
     \\ strip_tac
     \\ Cases_on `get_Var_name e`
@@ -412,8 +411,6 @@ Proof
       \\ fs [EVERY_MAP,DISJOINT_SYM]
     )
     \\ gvs []
-    \\ Cases_on `inline m r cl h e`
-    \\ gvs []
     \\ Cases_on `lookup m x`
     >- (
       gvs [exp_of_def,SF ETA_ss]
@@ -424,7 +421,8 @@ Proof
       \\ fs [EVERY_MAP,DISJOINT_SYM]
     )
     \\ gvs []
-    \\ reverse $ Cases_on `x'`
+    \\ rename [‘lookup m x = SOME aa’]
+    \\ reverse $ Cases_on `aa`
     >- (
       gvs [exp_of_def,SF ETA_ss]
       \\ irule list_subst_rel_Apps
@@ -433,15 +431,20 @@ Proof
       \\ gvs [memory_inv_def,DISJOINT_SYM]
       \\ fs [EVERY_MAP,DISJOINT_SYM]
     )
-    \\ Cases_on `c` \\ gvs [get_Var_name_def]
-    \\ Cases_on `(freshen_cexp (App a (Var a' m') q) r)` \\ gvs []
+    \\ gvs []
+    \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [`freshen_cexp _ _ = (q_fresh, r_fresh)`]
     \\ Cases_on `make_Let1 q_fresh`
     >- (
-      cheat
+      gvs [exp_of_def,SF ETA_ss]
+      \\ irule list_subst_rel_Apps
+      \\ fs [LIST_REL_MAP,o_DEF]
+      \\ last_x_assum $ irule_at Any
+      \\ gvs [memory_inv_def,DISJOINT_SYM]
+      \\ fs [EVERY_MAP,DISJOINT_SYM]
+      \\ irule list_subst_rel_refl
     )
     \\ gvs []
-    \\ Cases_on `inline m r_fresh (cl - 1) h x'` \\ gvs []
     \\ rename [`inline _ _ _ _ _ = (q_inline, r_inline)`]
     \\ Cases_on `cl = 0`
     >- (
@@ -454,39 +457,16 @@ Proof
       \\ irule list_subst_rel_refl
     )
     \\ gvs []
+    \\ Cases_on ‘e’ \\ gvs [get_Var_name_def,exp_of_def]
+    \\ rename [‘lookup m v = SOME (cExp c)’]
+    \\ first_x_assum drule
+    \\ impl_tac >- fs [boundvars_Apps,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+    \\ strip_tac
+    \\ Cases_on ‘q_fresh’ \\ gvs [make_Let1_def]
+    \\ rename [‘make_Let1 (App a2 c2 l2)’]
+    \\ Cases_on ‘c2’ \\ gvs [make_Let1_def]
+    \\ rename [‘App a2 (Lam a3 l3 c3) es2’]
     \\ cheat
-    (*
-    0.  ∀xs'.
-          memory_inv xs' m ∧ no_shadowing (exp_of x') ∧
-          DISJOINT (set (MAP FST xs')) (boundvars (exp_of x')) ⇒
-          list_subst_rel xs' (exp_of x') (exp_of q_inline)
-    1.  ∀xs'.
-          memory_inv xs' m ∧ EVERY (λe. no_shadowing (exp_of e)) es ∧
-          EVERY (λx. DISJOINT (set (MAP FST xs')) (boundvars (exp_of x))) es ⇒
-          LIST_REL (λx t. list_subst_rel xs' (exp_of x) (exp_of t)) es q
-    2.  memory_inv xs m
-    3.  map_ok m
-    4.  no_shadowing (Apps (exp_of e) (MAP exp_of es))
-    5.  DISJOINT (set (MAP FST xs))
-          (boundvars (Apps (exp_of e) (MAP exp_of es)))
-    6.  inline_list m ns cl h es = (q,r)
-    7.  inline m ns cl h e = (q',r')
-    8.  DISJOINT (boundvars (Apps (exp_of e) (MAP exp_of es)))
-          (set (MAP FST xs)) ⇒
-        DISJOINT (boundvars (exp_of e)) (set (MAP FST xs)) ∧
-        EVERY (λx. DISJOINT (boundvars x) (set (MAP FST xs))) (MAP exp_of es)
-    9.  no_shadowing (exp_of e)
-   10.  EVERY no_shadowing (MAP exp_of es)
-   11.  get_Var_name e = SOME x
-   12.  inline m r cl h e = (q'',r'')
-   13.  lookup m x = SOME (cExp (Var a' m'))
-   14.  freshen_cexp (App a (Var a' m') q) r = (q_fresh,r_fresh)
-   15.  make_Let1 q_fresh = SOME x'
-   16.  inline m r_fresh (cl − 1) h x' = (q_inline,ns1)
-   17.  cl ≠ 0
-   ------------------------------------
-        list_subst_rel xs (Apps (exp_of e) (MAP exp_of es)) (exp_of q_inline)
-     *)
   )
   >~ [`Let _ _ _`] >- (
     gvs [inline_def]
