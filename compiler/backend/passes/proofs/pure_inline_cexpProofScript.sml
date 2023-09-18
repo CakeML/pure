@@ -351,9 +351,28 @@ Proof
   \\ irule exp_eq_trans
   \\ irule_at Any make_Let1_lemma
   \\ gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
-  \\ cheat
 QED
 *)
+
+Theorem exp_of_Lets:
+  ∀vs xs b.
+    LENGTH vs = LENGTH xs ⇒
+    exp_of (Lets a (ZIP (vs,xs)) b) =
+    Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
+Proof
+  Induct \\ Cases_on ‘xs’
+  \\ gvs [pure_inline_cexpTheory.Lets_def,pure_letrecProofTheory.Lets_def]
+  \\ fs [exp_of_def]
+QED
+
+Theorem Apps_Lams_eq_Lets:
+  ∀es vs b.
+    LENGTH vs = LENGTH es ∧
+    EVERY (λe. DISJOINT (set vs) (freevars e)) es ⇒
+    Apps (Lams vs b) es ≅ Lets (ZIP (vs,es)) b
+Proof
+  cheat
+QED
 
 val lemma = inline_ind
   |> Q.SPEC `λm ns cl h x. ∀xs t ns1.
@@ -493,7 +512,8 @@ Proof
     \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
     \\ rewrite_tac [Apps_append]
     \\ irule_at Any pure_demandTheory.exp_eq_Apps_cong
-    \\ fs [LIST_REL_same,exp_eq_refl]
+    \\ fs [LIST_REL_same,exp_eq_refl,exp_of_Lets]
+    \\ irule_at Any Apps_Lams_eq_Lets \\ fs []
     \\ cheat
   )
   >~ [`Let _ _ _`] >- (
