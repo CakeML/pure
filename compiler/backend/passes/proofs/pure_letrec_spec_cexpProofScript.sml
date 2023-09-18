@@ -422,8 +422,11 @@ Theorem specialise_each_thm:
     Letrec [(explode f,Lams (MAP explode args1) (exp_of c1))]
       (Apps (Var (explode f)) (MAP Var (MAP explode args1)))
     ∧
-    boundvars (exp_of c1) = boundvars (exp_of c)
+    boundvars (exp_of c1) = boundvars (exp_of c) ∧
+    freevars (exp_of c1) ⊆ freevars (exp_of c) ∧
+    ALL_DISTINCT args1
 Proof
+  cheat (*
   Induct \\ fs [specialise_each_def,exp_eq_refl]
   \\ rpt gen_tac \\ IF_CASES_TAC \\ strip_tac \\ gvs [exp_eq_refl]
   \\ gvs [CaseEq"bool"] \\ gvs [CaseEq"option"] \\ gvs [SF SFY_ss]
@@ -448,7 +451,7 @@ Proof
   \\ rewrite_tac [GSYM MAP_APPEND]
   \\ last_x_assum irule \\ fs [delete_with_lemma]
   \\ gvs [ALL_DISTINCT_APPEND,SUBSET_DEF,MEM_MAP,EVERY_MEM,PULL_EXISTS,SF SFY_ss]
-  \\ metis_tac []
+  \\ metis_tac [] *)
 QED
 
 Triviality set_delete_with:
@@ -596,6 +599,18 @@ Proof
   Induct \\ fs [all_somes_def]
 QED
 
+Triviality set_map_empty:
+  ∀xs. BIGUNION (set (MAP (λx. ∅) xs)) = ∅
+Proof
+  fs [EXTENSION,MEM_MAP,PULL_EXISTS] \\ Cases \\ fs [] \\ metis_tac []
+QED
+
+Triviality set_MAP_explode:
+  ∀vs. BIGUNION (set (MAP (λx. {explode x}) vs)) = set (MAP explode vs)
+Proof
+  Induct \\ fs [] \\ rw [EXTENSION]
+QED
+
 Theorem specialise_is_Lam:
   specialise f e = SOME out ⇒ ∃a vs x. out = Lam a vs x
 Proof
@@ -613,10 +628,9 @@ Theorem specialise_thm:
   Let (explode f) (exp_of out) rest
   ∧
   explode f ∉ freevars (exp_of out) ∧
-  boundvars (exp_of out) ⊆ boundvars (exp_of e) ∧
+  boundvars (exp_of out) ⊆ boundvars (exp_of e) ∪ {explode f} ∧
   freevars (exp_of out) ⊆ freevars (exp_of e)
 Proof
-  cheat (*
   fs [exp_of_def,Lams_def]
   \\ Cases_on ‘e’ \\ fs [specialise_def]
   \\ strip_tac \\ gvs [exp_of_def,boundvars_Lams,MEM_MAP]
@@ -630,7 +644,7 @@ Proof
   \\ qabbrev_tac ‘c1 = SmartLam a ws2 c’
   \\ qabbrev_tac ‘guide = const_call_args f (MAP SOME ws1 ++ MAP SOME ws2) c’
   \\ ‘Lams (MAP explode ws2) (exp_of c) = exp_of c1’ by fs [exp_of_def,Abbr‘c1’]
-  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps]
+  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps] \\ fs [MEM_MAP]
   \\ irule_at Any exp_eq_trans
   \\ irule_at (Pos hd) Letrec_expand_1 \\ fs [MEM_MAP]
   \\ irule_at Any exp_eq_App_cong \\ fs [exp_eq_refl]
@@ -644,7 +658,7 @@ Proof
        fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def] \\ fs []
   \\ irule_at Any exp_eq_trans
   \\ irule_at (Pos $ el 2) Letrec_contract_1
-  \\ gvs [MEM_MAP]
+  \\ gvs [MEM_MAP,set_map_empty]
   \\ rewrite_tac [GSYM MAP_APPEND]
   \\ conj_tac >-
    (imp_res_tac specialise_each_subset
@@ -653,65 +667,61 @@ Proof
   \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
   \\ imp_res_tac no_shadowing_Lams
   \\ imp_res_tac no_shadowing_Lams_distinct
-  \\ irule (specialise_each_thm |> SPEC_ALL |> UNDISCH
-                                |> CONJUNCT1 |> DISCH_ALL) \\ simp []
-  \\ first_x_assum $ irule_at Any \\ fs []
-  \\ conj_tac >- (fs [Abbr‘c1’,exp_of_def,boundvars_Lams,MEM_MAP])
-  \\ simp [SUBSET_DEF,MEM_all_somes]
+  \\ drule specialise_each_thm
+  \\ impl_tac
+  >-
+   (first_x_assum $ irule_at Any \\ fs []
+    \\ conj_tac >- (fs [Abbr‘c1’,exp_of_def,boundvars_Lams,MEM_MAP])
+    \\ simp [SUBSET_DEF,MEM_all_somes]
+    \\ conj_tac
+    >-
+     (unabbrev_all_tac
+      \\ irule (const_call_args_distinct |> CONJUNCT1)
+      \\ rewrite_tac [GSYM MAP_APPEND,all_somes_map_some]
+      \\ ‘no_shadowing (exp_of (Lam a (outer_vs ++ zs ++ ws2) c))’ by
+        fs [exp_of_def,Lams_append]
+      \\ fs [exp_of_def]
+      \\ drule no_shadowing_Lams_distinct
+      \\ rewrite_tac [GSYM MAP_APPEND]
+      \\ metis_tac [ALL_DISTINCT_MAP])
+    \\ qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
+    \\ qabbrev_tac ‘zs1 = outer_vs ++ zs’
+    \\ simp [MEM_EL] \\ strip_tac \\ strip_tac
+    \\ pop_assum $ assume_tac o GSYM
+    \\ unabbrev_all_tac
+    \\ drule_all (const_call_args_el |> CONJUNCT1)
+    \\ gvs [] \\ strip_tac
+    \\ qexists_tac ‘n’ \\ fs []
+    \\ ‘n < LENGTH (outer_vs ++ zs)’ by fs []
+    \\ qpat_x_assum ‘_ = SOME x’ mp_tac
+    \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
+    \\ strip_tac \\ rw []
+    \\ metis_tac [EL_APPEND1])
+  \\ strip_tac \\ fs []
+  \\ conj_tac >- fs [SUBSET_DEF]
+  \\ conj_tac >-
+   (fs [SUBSET_DEF]
+    \\ imp_res_tac specialise_each_subset \\ fs [SUBSET_DEF]
+    \\ fs [MEM_MAP] \\ metis_tac [])
+  \\ conj_tac >- fs [SUBSET_DEF]
+  \\ fs [Abbr‘c1’,exp_of_def,boundvars_Lams,set_MAP_explode]
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
+  \\ conj_tac >- fs [SUBSET_DEF]
+  \\ conj_tac >- fs [SUBSET_DEF]
+  \\ fs [DIFF_SUBSET]
   \\ conj_tac
   >-
-   (unabbrev_all_tac
-    \\ irule (const_call_args_distinct |> CONJUNCT1)
-    \\ rewrite_tac [GSYM MAP_APPEND,all_somes_map_some]
-    \\ ‘no_shadowing (exp_of (Lam a (outer_vs ++ zs ++ ws2) c))’ by
-         fs [exp_of_def,Lams_append]
-    \\ fs [exp_of_def]
-    \\ drule no_shadowing_Lams_distinct
-    \\ rewrite_tac [GSYM MAP_APPEND]
-    \\ metis_tac [ALL_DISTINCT_MAP])
-  \\ qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
-  \\ qabbrev_tac ‘zs1 = outer_vs ++ zs’
-  \\ simp [MEM_EL] \\ strip_tac \\ strip_tac
-  \\ pop_assum $ assume_tac o GSYM
-  \\ unabbrev_all_tac
-  \\ drule_all (const_call_args_el |> CONJUNCT1)
-  \\ gvs [] \\ strip_tac
-  \\ qexists_tac ‘n’ \\ fs []
-  \\ ‘n < LENGTH (outer_vs ++ zs)’ by fs []
-  \\ qpat_x_assum ‘_ = SOME x’ mp_tac
-  \\ rewrite_tac [GSYM MAP_APPEND] \\ simp [EL_MAP]
-  \\ strip_tac \\ rw []
-  \\ metis_tac [EL_APPEND1] *)
+   (imp_res_tac specialise_each_subset \\ fs [SUBSET_DEF]
+    \\ fs [MEM_MAP,PULL_EXISTS,SF DNF_ss]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+    \\ CCONTR_TAC \\ gvs []
+    \\ gvs [ALL_DISTINCT_APPEND])
+  \\ gvs [SUBSET_DEF]
+  \\ imp_res_tac specialise_each_subset \\ fs [SUBSET_DEF]
+  \\ fs [MEM_MAP,PULL_EXISTS,SF DNF_ss]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ metis_tac []
 QED
-
-(*
-Theorem specialise_vars:
-  specialise w u = SOME x ⇒
-  boundvars (exp_of x) ⊆ boundvars (exp_of u) ∧
-  freevars (exp_of x) ⊆ freevars (exp_of u)
-Proof
-  Cases_on ‘u’
-  \\ fs [pure_letrec_spec_cexpTheory.specialise_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ fs [exp_of_def]
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def,boundvars_Lams,
-         boundvars_Apps]
-  \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS,PULL_EXISTS]
-  \\ drule split_at_thm
-  \\ impl_tac
-  >- metis_tac [LENGTH_MAP,LENGTH_const_call_args]
-  \\ strip_tac \\ gvs []
-  \\ drule drop_common_suffix_thm \\ strip_tac \\ gvs []
-  \\ drule specialise_each_vars
-  \\ fs [exp_of_def]
-  \\ fs [MAP_MAP_o,combinTheory.o_DEF,exp_of_def,boundvars_Lams,
-         boundvars_Apps]
-  \\ strip_tac
-  \\ fs [SUBSET_DEF,MEM_MAP]
-  \\ rw []
-  \\ cheat
-QED
-*)
 
 val _ = export_theory();

@@ -186,20 +186,19 @@ End
     Putting it all together:
 *)
 
-Definition clean_cexp_def:
-  clean_cexp (conf:compiler_opts) e =
-    if conf.do_pure_clean then clean_all_cexp e else e
-End
-
 Definition transform_cexp_def:
   transform_cexp (conf:compiler_opts) e =
     let e = init_sets e in
     let d = distinct_cexp e in
-      clean_cexp conf $ if ~conf.do_pure_sort then d else
-                          let s = split_all_cexp d in
-                            s
+      if ~conf.do_pure_sort then d else
+        let s = split_all_cexp d in
+          s
 End
 
+Definition clean_cexp_def:
+  clean_cexp (conf:compiler_opts) e =
+    if conf.do_pure_clean then clean_all_cexp e else e
+End
 
 (*******************)
 
