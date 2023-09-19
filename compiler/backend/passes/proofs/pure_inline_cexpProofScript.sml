@@ -12,7 +12,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_letrec_seqTheory pure_demandTheory pure_dead_letProofTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
 open pure_inlineTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory
-     pure_freshenProofTheory var_setTheory;
+     pure_barendregtTheory pure_freshenProofTheory var_setTheory;
 
 val _ = new_theory "pure_inline_cexpProof";
 
@@ -643,11 +643,161 @@ Proof
   Induct \\ fs [Lams_def]
 QED
 
+Theorem boundvars_Lets:
+  boundvars (Lets binds e) =
+    set (MAP FST binds) ∪ BIGUNION (set $ MAP (boundvars o SND) binds) ∪ boundvars e
+Proof
+  Induct_on `binds` >> rw[pure_letrecProofTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem allvars_Lets:
+  allvars (Lets binds e) =
+    set (MAP FST binds) ∪ BIGUNION (set $ MAP (allvars o SND) binds) ∪ allvars e
+Proof
+  Induct_on `binds` >> rw[pure_letrecProofTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem unique_boundvars_Lets:
+  unique_boundvars (Lets binds e) ⇔
+    unique_boundvars e ∧
+    EVERY unique_boundvars (MAP SND binds) ∧
+    ALL_DISTINCT (MAP FST binds) ∧
+    list_disjoint (set (MAP FST binds) :: boundvars e :: MAP (boundvars o SND) binds)
+Proof
+  Induct_on `binds` >> rw[unique_boundvars_def, pure_letrecProofTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  simp[unique_boundvars_def, list_disjoint_cons, boundvars_Lets] >>
+  eq_tac >> rw[] >> gvs[]
+  >- (gvs[EVERY_MEM] >> metis_tac[DISJOINT_SYM])
+  >- (gvs[EVERY_MEM] >> metis_tac[])
+  >- (gvs[EVERY_MEM] >> metis_tac[])
+  >- (gvs[EVERY_MEM] >> metis_tac[DISJOINT_SYM])
+  >- (gvs[EVERY_MEM] >> metis_tac[DISJOINT_SYM])
+QED
+
+Theorem freevars_Lets_SUBSET:
+  freevars (Lets binds e) ⊆
+    (freevars e DIFF set (MAP FST binds)) ∪
+      BIGUNION (set $ MAP (freevars o SND) binds)
+Proof
+  Induct_on `binds` >> rw[pure_letrecProofTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Theorem IMP_barendregt_Lets:
+  barendregt e ∧ EVERY barendregt (MAP SND binds) ∧
+  ALL_DISTINCT (MAP FST binds) ∧
+  DISJOINT (boundvars e)
+    (set (MAP FST binds) ∪ BIGUNION (set $ MAP (allvars o SND) binds)) ∧
+  (∀l mid r. binds = l ++ [mid] ++ r ⇒
+    DISJOINT (boundvars (SND mid))
+      (allvars e ∪ set (MAP FST binds) ∪
+        BIGUNION (set $ MAP (allvars o SND) (l ++ r))) ∧
+    DISJOINT (freevars (SND mid)) (set (MAP FST binds)))
+  ⇒ barendregt (Lets binds e)
+Proof
+  reverse $ rw[barendregt_def, unique_boundvars_Lets, SF ETA_ss] >>
+  gvs[MEM_MAP, PULL_EXISTS, AC CONJ_ASSOC CONJ_COMM, SF DNF_ss]
+  >- (
+    irule DISJOINT_SUBSET >> irule_at Any freevars_Lets_SUBSET >>
+    rw[boundvars_Lets]
+    >- simp[DISJOINT_ALT]
+    >- (
+      gvs[MEM_MAP] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rpt $ first_x_assum $ qspec_then `a` mp_tac >>
+      simp[allvars_thm] >> gvs[DISJOINT_ALT] >> metis_tac[]
+      )
+    >- gvs[DISJOINT_ALT]
+    >- (
+      gvs[MEM_MAP] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rpt $ first_x_assum $ qspec_then `a` mp_tac >> simp[]
+      )
+    >- (
+      gvs[MEM_MAP] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[]
+      >- (
+        dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+        rpt $ first_x_assum $ qspec_then `a' ++ [y] ++ c'` mp_tac >> rw[] >>
+        gvs[allvars_thm] >> metis_tac[DISJOINT_SYM]
+        )
+      >- gvs[barendregt_def]
+      >- (
+        dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+        rpt $ first_x_assum $ qspec_then `a` mp_tac >> rw[] >>
+        gvs[allvars_thm] >> metis_tac[DISJOINT_SYM]
+        )
+      )
+    >- (gvs[MEM_MAP, allvars_thm] >> metis_tac[DISJOINT_SYM])
+    )
+  >- (
+    rw[list_disjoint_cons, list_disjoint]
+    >- (
+      gvs[MAP_EQ_APPEND, MEM_MAP] >> rename1 `l ++ [mid] ++ r` >>
+      rpt $ first_x_assum $ drule_at Any >> rw[allvars_thm] >>
+      simp[Once DISJOINT_SYM]
+      )
+    >- (
+      rw[EVERY_MEM] >> gvs[MEM_MAP] >>
+      last_x_assum drule >> rw[allvars_thm] >> simp[Once DISJOINT_SYM]
+      )
+    >- (
+      rw[EVERY_MEM] >> gvs[MEM_MAP] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rpt $ first_x_assum $ qspec_then `a` mp_tac >> simp[]
+      )
+    )
+  >- gvs[EVERY_MEM, barendregt_def]
+QED
+
+Theorem barendregt_Lets_lemma_lemma[local]:
+  barendregt (Apps (Lams vs b) ys) /\ LENGTH vs = LENGTH ys ⇒
+  barendregt (Lets (ZIP (vs,ys)) b)
+Proof
+  rw[barendregt_Apps, barendregt_Lams] >> gvs[allvars_Lams, boundvars_Lams] >>
+  irule IMP_barendregt_Lets >> simp[MAP_ZIP] >> conj_tac >> rpt gen_tac >> strip_tac
+  >- (
+    gvs[ZIP_EQ_APPEND] >> rename1 `le ++ me ++ re` >>
+    rename1 `LENGTH rx = LENGTH re` >>
+    rename1 `LENGTH mx = LENGTH me` >>
+    rename1 `LENGTH lx = LENGTH le` >>
+    `mx = [FST mid] ∧ me = [SND mid]` by (
+      Cases_on `mx` >> Cases_on `me` >> gvs[] >>
+      Cases_on `t` >> Cases_on `t'` >> gvs[]) >>
+    gvs[AC CONJ_ASSOC CONJ_COMM] >>
+    first_x_assum $ qspec_then `le` assume_tac >> gvs[] >>
+    gvs[MEM_MAP, PULL_EXISTS, SF DNF_ss] >> gvs[allvars_thm, SF DNF_ss] >>
+    ntac 2 $ simp[Once DISJOINT_SYM] >> gvs[MEM_ZIP, MEM_EL, PULL_EXISTS]
+    )
+  >- (
+    gvs[MEM_MAP, PULL_EXISTS] >> simp[Once DISJOINT_SYM]
+    )
+QED
+
 Theorem barendregt_Lets_lemma[local]:
   barendregt (Apps (Apps (Lams vs b) ys) xs) ∧ LENGTH vs = LENGTH ys ⇒
   barendregt (Apps (Lets (ZIP (vs,ys)) b) xs)
 Proof
-  cheat
+  simp[Once barendregt_Apps] >> strip_tac >> simp[Once barendregt_Apps] >>
+  irule_at Any barendregt_Lets_lemma_lemma >> goal_assum dxrule >>
+  gvs[boundvars_Apps, boundvars_Lams, boundvars_Lets,
+      allvars_Apps, allvars_Lams, allvars_Lets] >>
+  gvs[MEM_MAP, PULL_EXISTS, MAP_ZIP] >>
+  reverse conj_tac >> rpt gen_tac >> strip_tac
+  >- (
+    first_x_assum drule >> strip_tac >> gvs[SF DNF_ss] >>
+    rw[MEM_ZIP] >> gvs[] >> metis_tac[DISJOINT_SYM, EL_MEM]
+    ) >>
+  rw[] >> gvs[MEM_ZIP] >>
+  dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+  first_x_assum $ qspec_then `a` mp_tac >> rw[] >>
+  gvs[MEM_EL] >> metis_tac[DISJOINT_SYM]
 QED
 
 val lemma = inline_ind

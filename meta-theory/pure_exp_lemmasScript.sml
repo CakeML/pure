@@ -844,6 +844,20 @@ Proof
   simp[boundvars_equiv]
 QED
 
+Theorem boundvars_Apps:
+  boundvars (Apps e es) =
+    boundvars e ∪ BIGUNION (set $ MAP boundvars es)
+Proof
+  qid_spec_tac `e` >> Induct_on `es` >> rw[Apps_def] >> simp[UNION_ASSOC]
+QED
+
+Theorem boundvars_Lams:
+  boundvars (Lams xs e) = set xs ∪ boundvars e
+Proof
+  Induct_on `xs` >> rw[boundvars_def, Lams_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
 
 (******************* allvars ********************)
 

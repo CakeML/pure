@@ -83,21 +83,6 @@ Proof
   rw[] >> qspecl_then [`1`,`n`,`l`] assume_tac TAKE_SEG_DROP >> gvs[SEG1]
 QED
 
-Theorem boundvars_Apps:
-  boundvars (Apps e es) =
-    boundvars e ∪ BIGUNION (set $ MAP boundvars es)
-Proof
-  Induct_on `es` using SNOC_INDUCT >> rw[Apps_def, SNOC_APPEND, Apps_append] >>
-  simp[AC UNION_ASSOC UNION_COMM]
-QED
-
-Theorem boundvars_Lams:
-  boundvars (Lams xs e) = set xs ∪ boundvars e
-Proof
-  Induct_on `xs` >> rw[boundvars_def, Lams_def] >>
-  rw[EXTENSION] >> metis_tac[]
-QED
-
 Theorem FRANGE_FUPDATE_LIST_ALL_DISTINCT:
   ∀l m.
     ALL_DISTINCT (MAP FST l) ⇒

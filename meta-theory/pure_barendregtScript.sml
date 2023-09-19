@@ -151,6 +151,24 @@ Proof
   first_x_assum drule >> gvs[]
 QED
 
+Theorem unique_boundvars_Apps:
+  unique_boundvars (Apps e es) ⇔
+    unique_boundvars e ∧ EVERY unique_boundvars es ∧
+    list_disjoint (boundvars e :: MAP boundvars es)
+Proof
+  Induct_on `es` using SNOC_INDUCT >> rw[Apps_SNOC, SNOC_APPEND] >>
+  gvs[unique_boundvars_def, list_disjoint_cons, list_disjoint_append] >>
+  simp[boundvars_Apps] >> eq_tac >> rw[] >> gvs[]
+QED
+
+Theorem unique_boundvars_Lams:
+  unique_boundvars (Lams xs e) ⇔
+    unique_boundvars e ∧ ALL_DISTINCT xs ∧ DISJOINT (set xs) (boundvars e)
+Proof
+  Induct_on `xs` >> rw[Lams_def, unique_boundvars_def, boundvars_Lams] >>
+  eq_tac >> rw[] >> gvs[]
+QED
+
 Theorem unique_boundvars_thm:
   ∀e. unique_boundvars e ⇔ ALL_DISTINCT (boundvars_l e)
 Proof
@@ -303,6 +321,51 @@ Proof
       rpt $ first_x_assum $ qspec_then `a` mp_tac >> simp[allvars_thm]
       )
     )
+QED
+
+Theorem barendregt_Apps:
+  barendregt (Apps e es) ⇔
+    barendregt e ∧ EVERY barendregt es ∧
+    DISJOINT (boundvars e) (BIGUNION $ set $ MAP allvars es) ∧
+    ∀l mid r. es = l ++ [mid] ++ r ⇒
+      DISJOINT (boundvars mid) (allvars e ∪ (BIGUNION $ set $ MAP allvars (l ++ r)))
+Proof
+  rw[barendregt_def, unique_boundvars_Apps, boundvars_Apps, allvars_thm,
+     list_disjoint_cons, MEM_MAP, PULL_EXISTS, EVERY_MAP, SF DNF_ss] >>
+  eq_tac >> rw[] >> gvs[SF DNF_ss, list_disjoint_append, MEM_MAP, PULL_EXISTS]
+  >- simp[Once DISJOINT_SYM]
+  >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+  >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+  >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+  >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+  >- (
+    rw[list_disjoint] >> gvs[MAP_EQ_APPEND, MEM_MAP] >>
+    metis_tac[DISJOINT_SYM]
+    )
+  >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+  >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+  >- (
+    dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+    metis_tac[]
+    ) >>
+  dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[]
+  >- (
+    dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+    first_x_assum irule >> qexists `a'` >> simp[]
+    )
+  >- (gvs[barendregt_def] >> simp[Once DISJOINT_SYM])
+  >- (
+    dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+    last_x_assum irule >> qexists `a ++ [y'] ++ a'` >> simp[]
+    )
+QED
+
+Theorem barendregt_Lams:
+  barendregt (Lams xs e) ⇔
+    barendregt e ∧ ALL_DISTINCT xs ∧ DISJOINT (set xs) (boundvars e)
+Proof
+  Induct_on `xs` >> rw[Lams_def, barendregt_alt_def, boundvars_Lams] >>
+  eq_tac >> rw[] >> gvs[]
 QED
 
 Theorem barendregt_beta_equivalence:
