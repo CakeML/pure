@@ -601,7 +601,7 @@ Proof
 QED
 
 Theorem inline_wf:
-  inline empty vars cl h ce = (ce',vars') ∧
+  inline m vars cl h ce = (ce',vars') ∧
   vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
   ⇒ NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
     freevars (exp_of ce') = freevars (exp_of ce) ∧
@@ -800,6 +800,80 @@ Proof
   gvs[MEM_EL] >> metis_tac[DISJOINT_SYM]
 QED
 
+Theorem letrecs_distinct_Lets:
+  ∀vs xs x.
+    EVERY letrecs_distinct xs ∧ letrecs_distinct x ∧ LENGTH vs = LENGTH xs ⇒
+    letrecs_distinct (Lets (ZIP (vs,xs)) x)
+Proof
+  Induct \\ Cases_on ‘xs’
+  \\ fs [pure_letrecProofTheory.Lets_def] \\ rw []
+  \\ fs [pure_letrecProofTheory.letrecs_distinct_def]
+QED
+
+Theorem NestedCase_free_SmartApp:
+  ∀a f xs. NestedCase_free (SmartApp a f xs) = NestedCase_free (App a f xs)
+Proof
+  rw [SmartApp_def]
+  \\ gvs [NULL_EQ]
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ rw []
+  \\ Cases_on ‘f’ \\ gvs [dest_App_def]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
+Theorem NestedCase_free_Lets:
+  ∀vs xs x a.
+    NestedCase_free x ∧ EVERY NestedCase_free xs ∧ LENGTH vs = LENGTH xs ⇒
+    NestedCase_free (Lets a (ZIP (vs,xs)) x)
+Proof
+  Induct \\ Cases_on ‘xs’ \\ fs [Lets_def,NestedCase_free_def]
+QED
+
+Theorem cexp_wf_Lets:
+  ∀vs xs x a.
+    cexp_wf x ∧ EVERY cexp_wf xs ∧ LENGTH vs = LENGTH xs ⇒
+    cexp_wf (Lets a (ZIP (vs,xs)) x)
+Proof
+  Induct \\ Cases_on ‘xs’ \\ fs [Lets_def,cexp_wf_def]
+QED
+
+Theorem avoid_set_ok_switch:
+  avoid_set_ok ns (y:'a cexp) ∧
+  freevars (exp_of x) ∪ boundvars (exp_of x) ⊆
+  freevars (exp_of y) ∪ boundvars (exp_of y) ⇒
+  avoid_set_ok ns (x:'a cexp)
+Proof
+  fs [avoid_set_ok_def,SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Theorem avoid_set_ok_SmartApp:
+  avoid_set_ok ns (SmartApp a f xs) = avoid_set_ok ns (App a f xs)
+Proof
+  rw [SmartApp_def]
+  \\ gvs [NULL_EQ]
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ Cases_on ‘f’ \\ gvs [dest_App_def] \\ rw []
+  \\ eq_tac \\ rw []
+QED
+
+Theorem avoid_set_ok_Lets:
+  avoid_set_ok ns (App a2 (Lam a1 vs x) xs) ∧ LENGTH xs = LENGTH vs ⇒
+  avoid_set_ok ns (Lets a (ZIP (vs,xs)) x)
+Proof
+  rewrite_tac [avoid_set_ok_def]
+  \\ rpt strip_tac \\ asm_rewrite_tac []
+  \\ first_x_assum irule
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘xs’
+  \\ qid_spec_tac ‘vs’
+  \\ gvs [exp_of_def,boundvars_Apps,boundvars_Lams]
+  \\ Induct \\ Cases_on ‘xs’ \\ gvs [Lets_def,exp_of_def]
+  \\ metis_tac []
+QED
+
 val lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ns ∧
@@ -829,7 +903,6 @@ val lemma = inline_ind
 Theorem inline_cexp_list_subst_rel:
   ^(lemma |> concl |> rand)
 Proof
-
   match_mp_tac lemma
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
@@ -1006,6 +1079,37 @@ Proof
     \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
     \\ irule_at Any barendregt_imp_no_shadowing
     \\ irule_at Any barendregt_Lets_lemma \\ fs []
+    \\ irule_at Any memory_inv_subset
+    \\ qexists_tac ‘ns’ \\ fs []
+    \\ ‘set_of ns ⊆ set_of r_fresh ∧ vars_ok r_fresh ∧ vars_ok ns6’ by
+     (imp_res_tac avoid_set_ok_imp_vars_ok \\ fs []
+      \\ imp_res_tac $ cj 1 inline_set_of \\ gvs []
+      \\ imp_res_tac $ cj 2 inline_set_of
+      \\ drule fresh_cexp_subset \\ simp []
+      \\ metis_tac [SUBSET_TRANS])
+    \\ irule_at Any letrecs_distinct_Lets \\ fs []
+    \\ drule freshen_cexp_letrecs_distinct
+    \\ impl_tac
+    >-
+     (fs [exp_of_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+      \\ drule inline_list_wf
+      \\ impl_tac
+      >- fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,cexp_wf_def,avoid_set_ok_def]
+      \\ strip_tac
+      \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,cexp_wf_def,avoid_set_ok_def]
+      \\ gvs [memory_inv_def]
+      \\ res_tac \\ fs [])
+    \\ strip_tac
+    \\ gvs [exp_of_def]
+    \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,letrecs_distinct_Lams]
+    \\ fs [NestedCase_free_SmartApp]
+    \\ irule_at Any cexp_wf_Lets \\ fs [EVERY_MEM,cexp_wf_def]
+    \\ irule_at Any NestedCase_free_Lets
+    \\ fs [EVERY_MEM,avoid_set_ok_SmartApp]
+    \\ irule_at Any avoid_set_ok_Lets \\ fs [EVERY_MEM]
+    \\ qpat_x_assum ‘avoid_set_ok _ _’ $ irule_at $ Pos hd
+    \\ qpat_x_assum ‘barendregt _’ assume_tac
+
     \\ cheat (* complicated App case *)
   )
   >~ [`Let _ _ _`] >- (
