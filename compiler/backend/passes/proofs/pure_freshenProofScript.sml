@@ -2247,6 +2247,15 @@ Proof
   FULL_CASE_TAC >> gvs[]
 QED
 
+Theorem freshen_cexp_letrecs_distinct:
+  freshen_cexp e b = (e1,s) ∧
+  letrecs_distinct (exp_of e)
+  ⇒
+  letrecs_distinct (exp_of e1)
+Proof
+  cheat
+QED
+
 Theorem freshen_cexp_correctness:
   ∀ce avoid ce' avoid'.
     freshen_cexp ce avoid = (ce',avoid') ∧ avoid_set_ok avoid ce ∧
