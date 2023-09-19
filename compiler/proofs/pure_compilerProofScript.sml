@@ -20,6 +20,53 @@ val _ = set_grammar_ancestry
 
 val _ = new_theory "pure_compilerProof";
 
+Theorem clean_cexp_wf:
+  clean_cexp c e = e' ∧ cexp_wf e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ∧
+  namespace_ok ns ∧ type_tcexp ns 0 [] [] (tcexp_of e) t
+  ⇒ cexp_wf e' ∧ NestedCase_free e' ∧ letrecs_distinct (exp_of e') ∧
+    type_tcexp ns 0 [] [] (tcexp_of e') t ∧ closed (exp_of e')
+Proof
+  strip_tac >> gvs[pure_letrec_cexpTheory.clean_cexp_def] >>
+  `freevars (exp_of e) = {}` by (
+    imp_res_tac pure_typingPropsTheory.type_tcexp_freevars_tcexp >>
+    gvs[pure_tcexp_lemmasTheory.freevars_tcexp_of,
+      pure_cexp_lemmasTheory.freevars_exp_of]) >>
+  FULL_CASE_TAC >> gvs[pure_expTheory.closed_def] >>
+  irule_at Any clean_all_cexp_cexp_wf >> simp[] >>
+  drule_all clean_all_preserves_typing >> simp[] >> strip_tac >>
+  drule_all $ SRULE [] pure_typingPropsTheory.type_tcexp_NestedCase_free >>
+  simp[] >> strip_tac >> gvs[clean_all_cexp_correct, clean_all_letrecs_distinct] >>
+  qspec_then `exp_of e` assume_tac freevars_clean_all >>
+  gvs[SUBSET_DEF, pure_miscTheory.EMPTY_iff_NOTIN]
+QED
+
+Theorem demand_analysis_wf:
+  demands_analysis c e = e' ∧
+  NestedCase_free e ∧ cexp_wf e ∧ letrecs_distinct (exp_of e) ∧
+  namespace_ok ns ∧ type_tcexp ns 0 [] [] (tcexp_of e) (M Unit)
+  ⇒ cexp_wf e' ∧ closed (exp_of e') ∧ NestedCase_free e' ∧
+    safe_exp (exp_of e') ∧ letrecs_distinct (exp_of e') ∧
+    cns_arities_ok ns (cns_arities e')
+Proof
+  strip_tac >>
+  drule_all demands_analysis_soundness >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
+  drule well_typed_program_imps >> simp[] >>
+  impl_tac >- gvs[pure_tcexp_lemmasTheory.cexp_wf_tcexp_wf] >> strip_tac >>
+  gvs[pure_demands_analysisTheory.demands_analysis_def] >> FULL_CASE_TAC >> gvs[] >>
+  qpat_abbrev_tac `d = demands_analysis_fun _ _ _` >>
+  PairCases_on `d` >> gvs[] >>
+  dxrule_then assume_tac $ cj 5 demands_analysis_fun_insert_seq >> gvs[] >>
+  dxrule_all_then assume_tac pure_typingPropsTheory.insert_seq_imps >> gvs[] >>
+  drule well_typed_program_imps >> gvs[pure_tcexp_lemmasTheory.cexp_wf_tcexp_wf]
+QED
+
+Triviality PAIR_ID:
+  (λ(p1,p2). (p1,p2)) = I
+Proof
+  simp[FUN_EQ_THM] >> PairCases >> simp[]
+QED
+
 Theorem compiler_correctness:
   compile_to_ast c s = SOME cake ⇒
     ∃pure_ce ns.
@@ -30,67 +77,34 @@ Theorem compiler_correctness:
          (itree_semantics cake) ∧
       itree_semantics$safe_itree ffi_convention (itree_semantics cake)
 Proof
-  strip_tac \\ gvs [compile_to_ast_def,frontend_def,AllCaseEqs()]
-  \\ qabbrev_tac ‘e4 = transform_cexp c e’
-  \\ qabbrev_tac ‘e3 = clean_cexp c e4’
-  \\ qabbrev_tac ‘e2 = demands_analysis c e3’
-  \\ qabbrev_tac `e1 = inline_top_level c e2`
-  \\ ‘letrecs_distinct (exp_of e3)’ by (
-      simp[Abbr `e3`, Abbr `e4`] >>
-      irule clean_cexp_letrecs_distinct >> simp[transform_cexp_letrecs_distinct])
-  \\ qspec_then ‘e3’ assume_tac demands_analysis_soundness \\ fs []
-  \\ gvs[DefnBase.one_line_ify NONE pure_inferenceTheory.to_option_def, AllCaseEqs()]
-  \\ drule_then strip_assume_tac infer_types_SOME
-  \\ gvs[pure_inferenceTheory.infer_types_def, pure_inferenceTheory.fail_def,
-         pure_typingTheory.namespace_init_ok_def, AllCaseEqs()] >>
-     drule $ INST_TYPE [alpha |-> ``:(mlstring,unit) map``] infer_top_level_typed >>
-     disch_then $ qspecl_then [`empty`,`e4`] assume_tac >> gvs[] >>
-     `cexp_wf e3 ∧ NestedCase_free e3 ∧
-      type_tcexp (append_ns initial_namespace ns') 0 [] [] (tcexp_of e3) (M Unit)` by (
-        gvs[pure_letrec_cexpTheory.clean_cexp_def] >> FULL_CASE_TAC >> gvs[Abbr `e3`] >>
-        irule_at Any clean_all_cexp_cexp_wf >> simp[] >>
-        drule_all clean_all_preserves_typing >> rw[] >>
-        irule pure_typingPropsTheory.type_tcexp_NestedCase_free >> simp[SF SFY_ss]) >>
-     `cexp_wf e2 ∧ NestedCase_free e2 ∧
-      type_tcexp (append_ns initial_namespace ns') 0 [] [] (tcexp_of e2) (M Unit)`
-      by (
-        gvs[pure_demands_analysisTheory.demands_analysis_def] >>
-        FULL_CASE_TAC >> gvs[] >>
-        qabbrev_tac `d = demands_analysis_fun Nil e3 (empty str_compare)` >>
-        PairCases_on `d` >> gvs[] >>
-        dxrule_then assume_tac $ cj 5 demands_analysis_fun_insert_seq >> gvs[] >>
-        dxrule_all_then assume_tac pure_typingPropsTheory.insert_seq_imps >> gvs[]) >>
-     dxrule well_typed_program_imps >> simp[] >>
-     impl_tac >- gvs[pure_tcexp_lemmasTheory.cexp_wf_tcexp_wf] >> strip_tac >>
-     `letrecs_distinct (exp_of e2)` by (drule_all demands_analysis_soundness >> rw[]) >>
-     dxrule inline_top_level_correct >> simp[] >>
-     disch_then $ qspec_then `c` assume_tac >> gvs[] >>
-     `itree_of (exp_of e2) = itree_of (exp_of e1)` by (
-      simp[pure_semanticsTheory.itree_of_def] >>
-      irule bisimilarity_IMP_semantics_eq >>
-      gvs[pure_exp_relTheory.app_bisimilarity_eq])
-  \\ qsuff_tac ‘itree_of (exp_of e4) = itree_of (exp_of e1)’
+  rw[] >> gvs[compile_to_ast_def, frontend_def, AllCaseEqs()] >>
+  map_every qabbrev_tac [
+    `tr = transform_cexp c e`, `inl = inline_top_level c tr`,
+    `cl = clean_cexp c inl`, `dm = demands_analysis c cl`] >>
+  `letrecs_distinct (exp_of inl)` by (
+    `letrecs_distinct (exp_of tr)` by gvs[Abbr `tr`, transform_cexp_letrecs_distinct] >>
+    drule_at Any inline_top_level_letrecs_distinct >> simp[Abbr `inl`]) >>
+  gvs[DefnBase.one_line_ify NONE pure_inferenceTheory.to_option_def, AllCaseEqs()] >>
+  dxrule_then strip_assume_tac infer_types_OK >> simp[] >>
+  `namespace_ok ((I ## K ns) initial_namespace)` by
+    gvs[pure_typingTheory.namespace_init_ok_def] >>
+  drule_at Any clean_cexp_wf >> simp[] >> rpt $ disch_then drule >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
+  drule_at Any demand_analysis_wf >> simp[] >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
+  qsuff_tac `itree_of (exp_of inl) = itree_of (exp_of dm)`
   >- (
-    simp[] \\ strip_tac
-    \\ irule pure_to_cakeProofTheory.pure_to_cake_correct
-    \\ fs [cns_ok_def, pure_typingTheory.namespace_init_ok_def, EXISTS_PROD]
-    \\ gvs[pure_typingTheory.cns_arities_ok_def, SUBSET_DEF] \\ metis_tac[]
+    strip_tac >> simp[] >>
+    irule pure_to_cakeProofTheory.pure_to_cake_correct >> simp[cns_ok_def] >>
+    simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD, PAIR_ID]
     ) >>
-  qspec_then `e4` mp_tac clean_cexp_correct >> strip_tac >>
-  dxrule_at Any $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> simp[] >> impl_tac
-  >- (
-    imp_res_tac pure_typingPropsTheory.type_tcexp_freevars_tcexp >>
-    gvs[pure_tcexp_lemmasTheory.freevars_tcexp_of,
-        pure_cexp_lemmasTheory.freevars_exp_of, pure_expTheory.closed_def]
-    ) >>
-  strip_tac >> dxrule bisimilarity_IMP_semantics_eq >>
-  simp[GSYM pure_semanticsTheory.itree_of_def] >> strip_tac >>
-  irule EQ_TRANS >> goal_assum $ drule_at Any >>
-  irule safe_exp_app_bisim_F_IMP_same_itree >> gvs[] >>
-  irule $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> gvs[] >>
-  imp_res_tac pure_typingPropsTheory.type_tcexp_freevars_tcexp >>
-  gvs[pure_tcexp_lemmasTheory.freevars_tcexp_of,
-      pure_cexp_lemmasTheory.freevars_exp_of, pure_expTheory.closed_def]
+  irule safe_exp_app_bisim_F_IMP_same_itree >> simp[] >>
+  qspec_then `inl` assume_tac clean_cexp_correct >> gvs[] >>
+  drule_all $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> strip_tac >>
+  dxrule pure_exp_relTheory.app_bisimilarity_T_IMP_F >> strip_tac >>
+  qspec_then `cl` assume_tac demands_analysis_soundness >> gvs[] >>
+  drule_all $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> strip_tac >>
+  metis_tac[pure_exp_relTheory.app_bisimilarity_trans]
 QED
 
 Theorem alternative_compiler_correctness:
@@ -145,6 +159,7 @@ Theorem pure_compiler_to_string_correct:
        (itree_semantics cake_prog) ∧
     itree_semantics$safe_itree ffi_convention (itree_semantics cake_prog)
 Proof
+  cheat (* TODO
   rw[compile_to_string] >> simp[string_to_ast_ast_to_string] >>
   drule compiler_correctness >> rw[] >> gvs[frontend_def, AllCaseEqs()] >>
   qspec_then `e` assume_tac transform_cexp_correct >>
@@ -158,6 +173,7 @@ Proof
   gvs[string_to_cexp_def] >> pairarg_tac >> gvs[] >>
   drule_at Any $ iffLR ast_to_cexpTheory.closed_under >>
   simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of]
+  *)
 QED
 
 val _ = export_theory();

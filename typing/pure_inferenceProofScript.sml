@@ -4231,14 +4231,9 @@ QED
 val inst = INST_TYPE [alpha |-> ``:(mlstring,'a) map``];
 
 Theorem well_typed_program_imps:
-  type_tcexp ns 0 [] [] (tcexp_of e) (M Unit) ∧
-  namespace_ok ns ∧ cexp_Lits_wf e
-  ⇒ cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
-    safe_exp (exp_of e) ∧
-    cns_arities_ok ns
-      {s | (∃s0.
-             (∃x. s0 = IMAGE (explode ## I) x ∧ x ∈ cns_arities e) ∧
-                s = IMAGE (implode ## I) s0)}
+  type_tcexp ns 0 [] [] (tcexp_of e) (M Unit) ∧ namespace_ok ns ∧ cexp_Lits_wf e ⇒
+    cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
+    safe_exp (exp_of e) ∧ cns_arities_ok ns (cns_arities e)
 Proof
   strip_tac >> drule_at Any type_tcexp_NestedCase_free >> simp[] >>
   disch_then $ drule_then assume_tac >> simp[] >>
@@ -4247,20 +4242,16 @@ Proof
   drule type_tcexp_freevars_tcexp >> simp[freevars_tcexp_of] >>
   simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of] >>
   strip_tac >> irule_at Any type_soundness_cexp >> rpt $ goal_assum $ drule_at Any >>
-  simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD] >>
-  simp[ELIM_UNCURRY] >> drule type_tcexp_cnames_arities >> rw[]
+  drule type_tcexp_cnames_arities >> rw[]
 QED
 
-Theorem infer_types_SOME:
-  infer_types tysig e = OK v
-  ⇒
-  cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
-  namespace_init_ok ((I ## K tysig) initial_namespace) ∧
-  safe_exp (exp_of e) ∧
-  cns_arities_ok ((I ## K tysig) initial_namespace)
-    {s | (∃s0.
-           (∃x. s0 = IMAGE (explode ## I) x ∧ x ∈ cns_arities e) ∧
-              s = IMAGE (implode ## I) s0)}
+Theorem infer_types_OK:
+  infer_types tysig e = OK v ⇒
+      cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
+      namespace_init_ok ((I ## K tysig) initial_namespace) ∧
+      safe_exp (exp_of e) ∧
+      cns_arities_ok ((I ## K tysig) initial_namespace) (cns_arities e) ∧
+      type_tcexp ((I ## K tysig) initial_namespace) 0 [] [] (tcexp_of e) (M Unit)
 Proof
   strip_tac >> gvs[infer_types_def, AllCaseEqs(), fail_def] >>
   drule typedefs_ok_IMP_namespace_init_ok >> strip_tac >> gvs[] >>

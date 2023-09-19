@@ -1547,6 +1547,87 @@ Proof
     )
 QED
 
+Theorem freshen_aux_letrecs_distinct:
+  (∀m (ce1:'a cexp) avoid1 ce2 avoid2.
+    freshen_aux m ce1 avoid1 = (ce2, avoid2) ∧ vars_ok avoid1 ∧
+    letrecs_distinct (exp_of ce1)
+    ⇒ letrecs_distinct (exp_of ce2)) ∧
+  (∀m (ces1:'a cexp list) avoid1 ces2 avoid2.
+    freshen_aux_list m ces1 avoid1 = (ces2, avoid2) ∧ vars_ok avoid1 ∧
+    EVERY (letrecs_distinct o exp_of) ces1
+  ⇒ EVERY (letrecs_distinct o exp_of) ces2)
+Proof
+  ho_match_mp_tac freshen_aux_ind >> rw[freshen_aux_def] >>
+  gvs[combinTheory.o_DEF] >> rpt (pairarg_tac >> gvs[]) >>
+  gvs[letrecs_distinct_def, exp_of_def, SF ETA_ss, EVERY_MAP] >>
+  rpt $ (first_x_assum drule_all >> strip_tac >> gvs[])
+  >- (
+    gvs[letrecs_distinct_Apps, EVERY_MAP] >>
+    last_x_assum drule_all >> strip_tac >> simp[] >>
+    last_x_assum drule >> disch_then irule >> imp_res_tac freshen_aux_mono
+    )
+  >- (
+    gvs[letrecs_distinct_Lams] >>
+    last_x_assum drule >> disch_then irule >> imp_res_tac fresh_boundvars_vars
+    )
+  >- (
+    last_x_assum drule >> disch_then irule >>
+    imp_res_tac fresh_boundvar_vars >> imp_res_tac freshen_aux_mono >> gvs[]
+    )
+  >- (
+    gvs[MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
+    imp_res_tac fresh_boundvars_LENGTH >> imp_res_tac freshen_mapM_LENGTH >>
+    gvs $ map (SRULE [combinTheory.o_DEF]) [MAP_ZIP, every_zip_snd] >>
+    dxrule_all fresh_boundvars_vars >> strip_tac >> gvs[] >>
+    last_x_assum drule >> disch_then $ irule_at Any >>
+    qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
+    qpat_x_assum `vars_ok _` mp_tac >>
+    qpat_x_assum `EVERY _ fns` mp_tac >>
+    last_x_assum mp_tac >> rpt $ pop_assum kall_tac >> strip_tac >>
+    map_every qid_spec_tac [`s'`,`fces'`] >>
+    Induct_on `fns` >> simp[freshen_mapM_def, AND_IMP_INTRO] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    rpt (pairarg_tac >> gvs[]) >> PairCases_on `h` >> gvs[] >>
+    drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    first_x_assum dxrule_all >> strip_tac >>
+    last_x_assum dxrule_all >> simp[]
+    )
+  >- (
+    gvs[COND_RAND, letrecs_distinct_def, letrecs_distinct_rows_of] >>
+    gvs[EVERY_MAP, UNCURRY] >> last_x_assum drule_all >> strip_tac >> simp[] >>
+    rename1 `freshen_mapM _ css avoid = (css',avoid')` >>
+    qsuff_tac
+      `EVERY (λx. letrecs_distinct (exp_of (SND (SND x)))) css' ∧ vars_ok avoid'`
+    >- (
+      strip_tac >>
+      namedCases_on `usopt` ["","us"] >> gvs[letrecs_distinct_def] >>
+      PairCases_on `us` >> gvs[] >> simp[FST_THM] >> pairarg_tac >> gvs[] >>
+      first_x_assum drule >> simp[]
+      ) >>
+    dxrule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    dxrule_all fresh_boundvar_vars >> strip_tac >>
+    qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
+    qpat_x_assum `vars_ok _` mp_tac >>
+    qpat_x_assum `EVERY _ css` mp_tac >>
+    last_x_assum mp_tac >> rpt $ pop_assum kall_tac >> strip_tac >>
+    map_every qid_spec_tac [`avoid`,`css'`] >>
+    Induct_on `css` >> simp[freshen_mapM_def, AND_IMP_INTRO] >>
+    rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+    gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    rpt (pairarg_tac >> gvs[]) >> simp[FST_THM] >> rpt (pairarg_tac >> gvs[]) >>
+    rename1 `fresh_boundvars _ _ _ = (pvs',_)` >> PairCases_on `pvs'` >>
+    dxrule_all fresh_boundvars_vars >> strip_tac >>
+    drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    first_x_assum dxrule_all >> strip_tac >> gvs[] >>
+    last_x_assum drule_all >> rw[]
+    )
+  >- (
+    first_x_assum irule >> goal_assum $ drule_at Any >>
+    drule_all $ cj 1 freshen_aux_mono >> rw[]
+    )
+QED
+
 
 (********** relating freshen_aux and freshen_global **********)
 

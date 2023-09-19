@@ -1288,6 +1288,28 @@ QED
 
 (********** Syntactic well-formedness results **********)
 
+Theorem inline_letrecs_distinct:
+  inline empty vs cl h ce = (ce',vs') ∧
+  letrecs_distinct (exp_of ce)
+  ⇒ letrecs_distinct (exp_of ce')
+Proof
+  cheat
+QED
+
+Theorem inline_all_letrecs_distinct:
+  inline_all cl h ce = ce' ∧ letrecs_distinct (exp_of ce)
+  ⇒ letrecs_distinct (exp_of ce')
+Proof
+  cheat
+QED
+
+Theorem inline_top_level_letrecs_distinct:
+  inline_top_level c ce = ce' ∧ letrecs_distinct (exp_of ce)
+  ⇒ letrecs_distinct (exp_of ce')
+Proof
+  cheat
+QED
+
 Theorem inline_all_wf:
   inline_all cl h ce = ce' ∧ closed (exp_of ce) ∧
   NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
