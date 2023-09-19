@@ -545,7 +545,7 @@ Theorem fresh_cexp_subset:
   freshen_cexp x ns = (e,ns1) ∧ vars_ok ns ⇒
   set_of ns ⊆ set_of ns1 ∧ vars_ok ns1
 Proof
-  cheat
+  cheat (* freshen_cexp probably proved somewhere *)
 QED
 
 val set_of_lemma = inline_ind
@@ -604,10 +604,7 @@ Theorem inline_avoid_set_ok:
 Proof
   match_mp_tac avoid_set_ok_lemma
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac \\ rpt gen_tac \\ rpt disch_tac
-  >~ [`Var _ _`] >- cheat
-  >~ [`App _ _ _`] >- cheat
-  >~ [`Let _ _ _`] >- cheat
-  \\ cheat
+  \\ cheat (* inline preserves avoid_set_ok *)
 QED
 
 Theorem inline_wf:
@@ -617,7 +614,7 @@ Theorem inline_wf:
     freevars (exp_of ce') = freevars (exp_of ce) ∧
     cns_arities ce' ⊆ cns_arities ce
 Proof
-  cheat
+  cheat (* inline_wf *)
 QED
 
 Theorem inline_list_wf:
@@ -629,7 +626,7 @@ Theorem inline_list_wf:
     LIST_REL (λce ce'. freevars (exp_of ce') = freevars (exp_of ce) ∧
                        cns_arities ce' ⊆ cns_arities ce) ce ce'
 Proof
-  cheat
+  cheat (* inline_list_wf *)
 QED
 
 Theorem list_subst_rel_Lams:
@@ -638,6 +635,19 @@ Proof
   Induct_on ‘w’ \\ fs [Lams_def] \\ rw []
   \\ irule list_subst_rel_Lam
   \\ res_tac \\ fs []
+QED
+
+Theorem letrecs_distinct_Lams:
+  ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ fs [Lams_def]
+  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+QED
+
+Theorem no_shadowing_Lams_e:
+  ∀vs e. no_shadowing (Lams vs e) ⇒ no_shadowing e
+Proof
+  Induct \\ fs [Lams_def]
 QED
 
 val lemma = inline_ind
@@ -844,7 +854,7 @@ Proof
     \\ gvs [SF CONJ_ss,Apps_append]
     \\ qabbrev_tac ‘app_lam = Apps (Lams (MAP explode l3) (exp_of c3)) (MAP exp_of es2a)’
     \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
-    \\ cheat
+    \\ cheat (* complicated App case *)
   )
   >~ [`Let _ _ _`] >- (
     gvs [inline_def]
@@ -975,36 +985,30 @@ Proof
     \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ metis_tac []
   )
   >~ [`Lam _ _`] >- (
-
     gvs [inline_def,exp_of_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [exp_of_def]
     \\ irule_at Any list_subst_rel_Lams
     \\ last_x_assum irule
-    \\ fs [cexp_wf_def]
-    \\ cheat
+    \\ imp_res_tac no_shadowing_Lams_e
+    \\ fs [cexp_wf_def,letrecs_distinct_Lams]
+    \\ fs [boundvars_Lams] \\ fs [DISJOINT_SYM]
+    \\ fs [avoid_set_ok_def,exp_of_def,boundvars_Lams]
+    \\ metis_tac []
   )
-  >~ [`Prim _ _ _`] >- cheat (* (
-
-    gvs [inline_def]
-    \\ Cases_on `inline_list m ns cl h es`
-    \\ gvs []
-    \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
+  >~ [`Prim _ _ _`] >- (
+    gvs [inline_def,exp_of_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [inline_def,exp_of_def]
     \\ irule list_subst_rel_Prim
     \\ fs [LIST_REL_MAP,o_DEF,FORALL_PROD,LIST_REL_MAP2,PULL_EXISTS]
     \\ last_x_assum irule
-    \\ fs []
-    \\ fs [EVERY_MAP]
-    \\ simp [EVERY_MEM]
+    \\ fs [EVERY_MEM,cexp_wf_def,
+           pure_letrecProofTheory.letrecs_distinct_def,MEM_MAP,PULL_EXISTS]
     \\ rw []
-    \\ first_x_assum $ qspec_then `boundvars (exp_of x)` assume_tac
-    \\ fs [MAP_MAP_o,o_DEF]
-    \\ first_x_assum irule
-    \\ fs [MEM_MAP]
-    \\ rw []
-    \\ qexists `x`
-    \\ rw []
-  ) *)
+    \\ fs [avoid_set_ok_def,exp_of_def,MEM_MAP,PULL_EXISTS]
+    \\ metis_tac []
+  )
   >~ [`Case _ _ _ _ _`] >- cheat (* (
 
     gvs [inline_def]
@@ -1300,21 +1304,21 @@ Theorem inline_letrecs_distinct:
   letrecs_distinct (exp_of ce)
   ⇒ letrecs_distinct (exp_of ce')
 Proof
-  cheat
+  cheat (* inline_letrecs_distinct *)
 QED
 
 Theorem inline_all_letrecs_distinct:
   inline_all cl h ce = ce' ∧ letrecs_distinct (exp_of ce)
   ⇒ letrecs_distinct (exp_of ce')
 Proof
-  cheat
+  cheat (* inline_all_letrecs_distinct *)
 QED
 
 Theorem inline_top_level_letrecs_distinct:
   inline_top_level c ce = ce' ∧ letrecs_distinct (exp_of ce)
   ⇒ letrecs_distinct (exp_of ce')
 Proof
-  cheat
+  cheat (* inline_top_level_letrecs_distinct *)
 QED
 
 Theorem inline_all_wf:
