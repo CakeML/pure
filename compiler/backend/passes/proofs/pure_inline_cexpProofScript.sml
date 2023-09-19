@@ -535,6 +535,13 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem fresh_cexp_subset:
+  freshen_cexp x ns = (e,ns1) ∧ vars_ok ns ⇒
+  set_of ns ⊆ set_of ns1 ∧ vars_ok ns1
+Proof
+  cheat
+QED
+
 val set_of_lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀t ns1.
     (inline m ns cl h x) = (t, ns1) ∧ vars_ok ns ⇒
@@ -556,8 +563,17 @@ Proof
     \\ Cases_on `is_Lam c` \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def]
     \\ Cases_on ‘cl = 0’ \\ gvs []
   )
-  >~ [`App _ _ _`] >- cheat
-  >~ [`Let _ _ _`] >- cheat
+  >~ [`App _ _ _`] >-
+   (pop_assum mp_tac
+    \\ rewrite_tac [inline_def] \\ simp_tac (srw_ss()) [LET_THM]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ fs [AllCaseEqs()]
+    \\ rw [] \\ fs []
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac fresh_cexp_subset
+    \\ imp_res_tac SUBSET_TRANS \\ fs []
+    \\ imp_res_tac SUBSET_TRANS)
   \\ gvs [inline_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac SUBSET_TRANS
