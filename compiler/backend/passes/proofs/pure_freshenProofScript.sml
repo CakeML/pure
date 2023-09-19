@@ -2329,12 +2329,21 @@ Proof
 QED
 
 Theorem freshen_cexp_letrecs_distinct:
-  freshen_cexp e b = (e1,s) ∧
+  freshen_cexp e b = (e1,s) ∧ vars_ok b ∧
   letrecs_distinct (exp_of e)
   ⇒
   letrecs_distinct (exp_of e1)
 Proof
-  cheat
+  rw[freshen_cexp_def] >>
+  irule $ cj 1 freshen_aux_letrecs_distinct >> rpt $ goal_assum $ drule_at Any
+QED
+
+Theorem fresh_cexp_subset:
+  freshen_cexp x ns = (e,ns1) ∧ vars_ok ns ⇒
+  set_of ns ⊆ set_of ns1 ∧ vars_ok ns1
+Proof
+  simp[freshen_cexp_def] >> strip_tac >>
+  drule_all $ cj 1 freshen_aux_mono >> simp[]
 QED
 
 Theorem freshen_cexp_correctness:

@@ -541,13 +541,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem fresh_cexp_subset:
-  freshen_cexp x ns = (e,ns1) ∧ vars_ok ns ⇒
-  set_of ns ⊆ set_of ns1 ∧ vars_ok ns1
-Proof
-  cheat (* freshen_cexp probably proved somewhere *)
-QED
-
 val set_of_lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀t ns1.
     (inline m ns cl h x) = (t, ns1) ∧ vars_ok ns ⇒
@@ -1303,7 +1296,8 @@ Proof
   \\ strip_tac
   \\ fs [closed_def]
   \\ imp_res_tac barendregt_imp_no_shadowing
-  \\ imp_res_tac freshen_cexp_letrecs_distinct \\ fs []
+  \\ drule_at Any freshen_cexp_letrecs_distinct
+  \\ simp[boundvars_of_SUBSET]
 QED
 
 (********** Syntactic well-formedness results **********)
