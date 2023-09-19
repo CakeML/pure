@@ -8,7 +8,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_miscTheory pure_letrec_delargTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
 open pure_exp_relTheory pure_congruenceTheory
-open pure_inlineTheory pure_letrec_spec_cexpTheory
+open pure_inlineTheory pure_letrec_spec_cexpTheory pure_letrecProofTheory
 
 val _ = new_theory "pure_letrec_spec_cexpProof";
 
@@ -666,6 +666,15 @@ Triviality set_MAP_explode:
   ∀vs. BIGUNION (set (MAP (λx. {explode x}) vs)) = set (MAP explode vs)
 Proof
   Induct \\ fs [] \\ rw [EXTENSION]
+QED
+
+Theorem speclise_wf:
+  specialise w u = SOME x ∧
+  NestedCase_free u ∧ letrecs_distinct (exp_of u) ∧ cexp_wf u
+  ⇒
+  NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+Proof
+  cheat
 QED
 
 Theorem specialise_is_Lam:
