@@ -12,7 +12,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_letrec_seqTheory pure_demandTheory pure_dead_letProofTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
 open pure_inlineTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory
-     pure_freshenProofTheory;
+     pure_freshenProofTheory var_setTheory;
 
 val _ = new_theory "pure_inline_cexpProof";
 
@@ -489,15 +489,21 @@ Proof
   \\ metis_tac []
 QED
 
-Definition set_of_def:
-  set_of (ns:(mlstring, unit) map # num) x = ∃n. lookup (FST ns) x = SOME n
-End
+Triviality NOT_NONE_UNIT:
+  (x ≠ NONE) ⇔ x = SOME ()
+Proof
+  Cases_on ‘x’ \\ fs []
+QED
 
 Theorem avoid_set_ok_subset:
   avoid_set_ok ns e ∧ set_of ns ⊆ set_of ns1 ∧ vars_ok ns1 ⇒ avoid_set_ok ns1 e
 Proof
-  fs [avoid_set_ok_def,set_of_def,SUBSET_DEF,IN_DEF,PULL_EXISTS]
-  \\ rw [] \\ metis_tac []
+  PairCases_on ‘ns’
+  \\ PairCases_on ‘ns1’
+  \\ fs [avoid_set_ok_def,set_of_def,SUBSET_DEF,PULL_EXISTS]
+  \\ fs [vars_ok_def] \\ rw []
+  \\ gvs [mlmapTheory.lookup_thm,TO_FLOOKUP]
+  \\ res_tac \\ gvs [NOT_NONE_UNIT]
 QED
 
 Theorem memory_inv_subset:
