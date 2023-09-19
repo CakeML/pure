@@ -650,6 +650,13 @@ Proof
   Induct \\ fs [Lams_def]
 QED
 
+Theorem barendregt_Lets_lemma[local]:
+  barendregt (Apps (Apps (Lams vs b) ys) xs) ∧ LENGTH vs = LENGTH ys ⇒
+  barendregt (Apps (Lets (ZIP (vs,ys)) b) xs)
+Proof
+  cheat
+QED
+
 val lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ns ∧
@@ -854,6 +861,8 @@ Proof
     \\ gvs [SF CONJ_ss,Apps_append]
     \\ qabbrev_tac ‘app_lam = Apps (Lams (MAP explode l3) (exp_of c3)) (MAP exp_of es2a)’
     \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
+    \\ irule_at Any barendregt_imp_no_shadowing
+    \\ irule_at Any barendregt_Lets_lemma \\ fs []
     \\ cheat (* complicated App case *)
   )
   >~ [`Let _ _ _`] >- (
