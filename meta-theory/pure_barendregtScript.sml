@@ -3,7 +3,6 @@
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory listTheory rich_listTheory pred_setTheory;
-
 open pure_expTheory pure_exp_lemmasTheory pure_miscTheory pure_beta_equivTheory;
 
 val _ = new_theory "pure_barendregt";
@@ -34,6 +33,19 @@ Proof
     first_x_assum irule >> qexists_tac `left` >> simp[]
     )
   >- (first_x_assum irule >> qexists_tac `left ++ [mid]` >> simp[])
+QED
+
+Theorem list_disjoint:
+  list_disjoint l ⇔
+    ∀left mid right. l = left ++ [mid] ++ right
+    ⇒ DISJOINT mid (BIGUNION (set left))
+Proof
+  rw[list_disjoint_def] >> eq_tac >> rw[]
+  >- metis_tac[]
+  >- metis_tac[] >>
+  drule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+  first_x_assum $ qspec_then `left ++ [mid] ++ a` mp_tac >> rw[] >>
+  gvs[SF DNF_ss] >> simp[Once DISJOINT_SYM]
 QED
 
 Theorem list_disjoint_cons:
@@ -193,6 +205,105 @@ QED
 Definition barendregt_def:
   barendregt e ⇔ unique_boundvars e ∧ DISJOINT (boundvars e) (freevars e)
 End
+
+Theorem barendregt_alt_def:
+  barendregt (Var x) = T ∧
+  barendregt (Prim op es) =
+    (EVERY barendregt es ∧
+     ∀l mid r. es = l ++ [mid] ++ r ⇒
+      DISJOINT (boundvars mid) (BIGUNION $ set $ MAP allvars (l ++ r))) ∧
+  barendregt (App e1 e2) = (
+    barendregt e1 ∧ barendregt e2 ∧
+    DISJOINT (boundvars e1) (allvars e2) ∧
+    DISJOINT (boundvars e2) (allvars e1)) ∧
+  barendregt (Lam x e) = (x ∉ boundvars e ∧ barendregt e) ∧
+  barendregt (Letrec fns e) = (
+    EVERY barendregt (e :: MAP SND fns) ∧
+    ALL_DISTINCT (MAP FST fns) ∧
+    DISJOINT (boundvars e)
+      (set (MAP FST fns) ∪ BIGUNION (set $ MAP (allvars o SND) fns)) ∧
+    ∀l mid r. fns = l ++ [mid] ++ r ⇒
+      DISJOINT (boundvars (SND mid))
+        (set (MAP FST fns) ∪ allvars e ∪
+         BIGUNION (set $ MAP (allvars o SND) (l ++ r))))
+Proof
+  rw[barendregt_def, unique_boundvars_def, SF ETA_ss] >>
+  gvs[MEM_MAP, PULL_EXISTS, AC CONJ_ASSOC CONJ_COMM, SF DNF_ss]
+  >- (
+    eq_tac >> strip_tac
+    >- (
+      rw[]
+      >- gvs[EVERY_MEM, barendregt_def] >>
+      gvs[SF DNF_ss, list_disjoint_append, MEM_MAP, PULL_EXISTS] >>
+      gvs[allvars_thm] >> metis_tac[DISJOINT_SYM]
+      ) >>
+    rw[] >> gvs[allvars_thm]
+    >- gvs[EVERY_MEM, barendregt_def]
+    >- (
+      rw[list_disjoint, MAP_EQ_APPEND] >> gvs[MEM_MAP] >> metis_tac[DISJOINT_SYM]
+      ) >>
+    dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[barendregt_def]
+    >- (
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rename1 `a ++ [x] ++ b ++ [x'] ++ c` >>
+      last_x_assum $ qspec_then `a` mp_tac >> simp[] >> metis_tac[DISJOINT_SYM]
+      )
+    >- (
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rename1 `a ++ [x] ++ b ++ [x'] ++ c` >>
+      first_x_assum $ qspec_then `a ++ [x] ++ b` mp_tac >> simp[] >>
+      metis_tac[DISJOINT_SYM]
+      )
+    )
+  >- (simp[allvars_thm] >> metis_tac[DISJOINT_SYM])
+  >- (eq_tac >> rw[] >> gvs[DISJOINT_ALT] >> metis_tac[])
+  >- (
+    gvs[list_disjoint_cons] >> eq_tac >> strip_tac
+    >- (
+      `DISJOINT (boundvars e)
+        (freevars e ∪ BIGUNION (set $ MAP (freevars o SND) fns)) ∧
+       ∀y. MEM y fns ⇒
+        DISJOINT (boundvars (SND y))
+        (freevars e ∪ BIGUNION (set $ MAP (freevars o SND) fns))` by (
+          gvs[UNCURRY, DISJOINT_ALT, MEM_MAP, PULL_EXISTS, PULL_FORALL,
+              EVERY_MAP, EVERY_MEM] >> metis_tac[]) >>
+      qpat_x_assum `∀y. _ ⇒ DISJOINT (UNCURRY _ _) _` kall_tac >>
+      ntac 2 $ qpat_x_assum `DISJOINT _ (_ DIFF _)` kall_tac >>
+      rw[] >> gvs[list_disjoint_append, MEM_MAP, PULL_EXISTS, EVERY_MAP]
+      >- simp[Once DISJOINT_SYM]
+      >- (gvs[EVERY_MEM, barendregt_def] >> metis_tac[DISJOINT_SYM])
+      >- (gvs[allvars_thm, EVERY_MEM] >> metis_tac[DISJOINT_SYM]) >>
+      gvs[SF DNF_ss, allvars_thm] >> metis_tac[DISJOINT_SYM]
+      ) >>
+    gvs[AC CONJ_ASSOC CONJ_COMM, EVERY_MAP, MAP_MAP_o, ELIM_UNCURRY] >> rw[]
+    >- (gvs[EVERY_MEM, barendregt_def])
+    >- (
+      rw[list_disjoint] >> gvs[MAP_EQ_APPEND, MEM_MAP] >> rename1 `l ++ [m] ++ r` >>
+      first_x_assum $ drule_at Any >> rw[allvars_thm] >> simp[Once DISJOINT_SYM]
+      )
+    >- (
+      rw[EVERY_MEM] >> last_x_assum drule >> rw[allvars_thm] >>
+      simp[Once DISJOINT_SYM]
+      )
+    >- (
+      rw[EVERY_MEM] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rpt $ last_x_assum $ qspec_then `a` mp_tac >> simp[]
+      )
+    >- (gvs[DISJOINT_ALT, MEM_MAP, PULL_EXISTS, allvars_thm] >> metis_tac[])
+    >- (gvs[DISJOINT_ALT, MEM_MAP, PULL_EXISTS, allvars_thm] >> metis_tac[])
+    >- (
+      irule DISJOINT_SUBSET >> irule_at Any pred_setTheory.DIFF_SUBSET >> simp[] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rw[] >> gvs[MEM_MAP, barendregt_def]
+      >- (gvs[allvars_thm] >> metis_tac[])
+      >- (first_x_assum $ drule_at Any >> simp[allvars_thm])
+      >- simp[Once DISJOINT_SYM] >>
+      dxrule_at Concl $ iffLR MEM_SING_APPEND >> strip_tac >> gvs[] >>
+      rpt $ first_x_assum $ qspec_then `a` mp_tac >> simp[allvars_thm]
+      )
+    )
+QED
 
 Theorem barendregt_beta_equivalence:
   barendregt (App (Lam x body) arg) ⇒

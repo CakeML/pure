@@ -53,25 +53,6 @@ Proof
     )
 QED
 
-Theorem allvars_thm:
-  allvars e = freevars e ∪ boundvars e
-Proof
-  Induct_on `e` using freevars_ind >>
-  rw[allvars_def, freevars_def, boundvars_def]
-  >- (Induct_on `es` >> rw[] >> gvs[] >> rw[Once EXTENSION] >> metis_tac[])
-  >- (rw[EXTENSION] >> metis_tac[])
-  >- (rw[EXTENSION] >> metis_tac[]) >>
-  simp[AC UNION_ASSOC UNION_COMM] >> AP_TERM_TAC >>
-  simp[UNION_ASSOC] >>
-  qmatch_goalsub_abbrev_tac `_ = a ∪ b ∪ (c DIFF _)` >>
-  `a ∪ b ∪ (c DIFF a) = a ∪ b ∪ c` by (rw[EXTENSION] >> metis_tac[]) >>
-  rw[] >> unabbrev_all_tac >>
-  simp[AC UNION_ASSOC UNION_COMM] >> ntac 2 AP_TERM_TAC >>
-  ntac 2 $ pop_assum kall_tac >> Induct_on `lcs` >> rw[] >>
-  pairarg_tac >> gvs[SF DNF_ss] >> last_x_assum drule >> rw[] >>
-  rw[Once EXTENSION] >> metis_tac[]
-QED
-
 Theorem set_MAP_SND_fmap_to_alist:
   set (MAP SND (fmap_to_alist m)) = FRANGE m
 Proof
