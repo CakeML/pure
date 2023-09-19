@@ -837,14 +837,13 @@ Proof
     \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
     \\ cheat
   )
-  >~ [`Let _ _ _`] >- cheat (* (
-
+  >~ [`Let _ _ _`] >- (
     gvs [inline_def]
-    \\ Cases_on `inline m ns cl h e1`
-    \\ gvs []
-    \\ Cases_on `inline (heuristic_insert m h v e1) r cl h e2`
-    \\ gvs []
-    \\ gvs [list_subst_rel_refl,exp_of_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [exp_of_def]
+    \\ fs [cexp_wf_def,pure_letrecProofTheory.letrecs_distinct_def]
+    \\ ‘avoid_set_ok ns e1 ∧ avoid_set_ok ns e2’ by
+          (fs [avoid_set_ok_def,exp_of_def] \\ metis_tac [])
     \\ fs [heuristic_insert_def]
     \\ Cases_on `cheap e1 ∧ h e1`
     >- (
@@ -852,13 +851,18 @@ Proof
       \\ conj_tac
       >- (
         last_x_assum irule
+        \\ fs [cexp_wf_def,pure_letrecProofTheory.letrecs_distinct_def]
         \\ fs [DISJOINT_SYM,memory_inv_def]
       )
       \\ last_x_assum irule
       \\ fs [DISJOINT_SYM]
       \\ fs [mlmapTheory.insert_thm]
-      \\ irule memory_inv_APPEND
-      \\ fs []
+      \\ irule_at Any memory_inv_APPEND \\ fs []
+      \\ imp_res_tac inline_avoid_set_ok
+      \\ imp_res_tac inline_set_of
+      \\ imp_res_tac avoid_set_ok_imp_vars_ok
+      \\ gvs []
+      \\ metis_tac [memory_inv_subset,avoid_set_ok_subset,SUBSET_TRANS]
     )
     \\ full_simp_tac pure_ss []
     \\ pop_assum kall_tac
@@ -867,12 +871,17 @@ Proof
     \\ reverse $ conj_tac
     >- (
       last_x_assum irule
-      \\ fs [DISJOINT_SYM,memory_inv_def]
+      \\ fs [DISJOINT_SYM,memory_inv_def,cexp_wf_def]
     )
     \\ irule list_subst_rel_Lam
     \\ last_x_assum irule
-    \\ fs [DISJOINT_SYM,memory_inv_def]
-  ) *)
+    \\ fs [DISJOINT_SYM]
+    \\ imp_res_tac inline_set_of
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac SUBSET_TRANS
+    \\ gvs []
+    \\ metis_tac [memory_inv_subset,avoid_set_ok_subset]
+  )
   >~ [`Letrec _ _ _`] >- cheat (* (
 
     gvs [inline_def]
@@ -964,9 +973,13 @@ Proof
     \\ gvs [IN_DISJOINT,SUBSET_DEF]
     \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ metis_tac []
   ) *)
-  >~ [`Lam _ _`] >- cheat (* (
+  >~ [`Lam _ _`] >- (
 
-    gvs [inline_def]
+    gvs [inline_def,exp_of_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [exp_of_def]
+    \\ cheat
+    (*
     \\ Cases_on `inline m ns cl h e`
     \\ gvs []
     \\ gvs [memory_inv_def,list_subst_rel_refl,exp_of_def,FORALL_PROD]
@@ -975,8 +988,8 @@ Proof
     \\ rw []
     \\ gvs [Lams_def]
     \\ irule list_subst_rel_Lam
-    \\ last_x_assum irule
-  ) *)
+    \\ last_x_assum irule *)
+  )
   >~ [`Prim _ _ _`] >- cheat (* (
 
     gvs [inline_def]
