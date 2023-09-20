@@ -4,7 +4,8 @@
 open HolKernel Parse boolLib bossLib dep_rewrite;
 open pairTheory listTheory pred_setTheory finite_mapTheory;
 open pure_expTheory pure_exp_lemmasTheory pure_evalTheory
-     pure_exp_relTheory pure_congruenceTheory;
+     pure_exp_relTheory pure_congruenceTheory
+     pure_typingTheory pure_typingPropsTheory;
 open pure_dead_letTheory pure_cexpTheory pureLangTheory
      pure_letrecProofTheory pure_letrec_cexpProofTheory
      mlmapTheory pure_varsTheory;
@@ -363,6 +364,81 @@ Proof
     qpat_x_assum `letrecs_distinct (FOLDR _ _ _)` mp_tac >>
     rpt $ pop_assum kall_tac >>
     Induct_on `binds` >> rw[] >> pairarg_tac >> gvs[letrecs_distinct_def]
+    )
+QED
+
+
+(********** typing **********)
+
+Theorem dead_let_preserves_typing:
+  ∀ns ce db st env t.
+    type_tcexp ns db st env (tcexp_of ce) t
+  ⇒ type_tcexp ns db st env (tcexp_of (dead_let ce)) t
+Proof
+  gen_tac >> recInduct freevars_cexp_ind >> rpt conj_tac >>
+  simp[dead_let_def, pure_tcexpTheory.tcexp_of_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF] >> rpt gen_tac >> strip_tac >> rpt gen_tac
+  >- (
+    once_rewrite_tac[type_tcexp_cases] >> rw[]
+    >>~- ([`LIST_REL`], gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP] >> metis_tac[]) >>
+    gvs[MAP_EQ_CONS] >> metis_tac[]
+    )
+  >- (
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >>
+    rpt $ first_x_assum $ irule_at Any >>
+    gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP] >> metis_tac[]
+    )
+  >- (
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >>
+    rpt $ first_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    reverse CASE_TAC >> gvs[pure_tcexpTheory.tcexp_of_def]
+    >- (
+      once_rewrite_tac[type_tcexp_cases] >> rw[] >>
+      rpt $ first_x_assum $ irule_at Any >> simp[]
+      ) >>
+    rw[Once type_tcexp_cases] >> first_x_assum $ dxrule_then assume_tac >>
+    irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >> rw[] >>
+    irule FALSITY >>
+    imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+    gvs[pure_tcexp_lemmasTheory.freevars_tcexp_of] >>
+    qspec_then `e2` assume_tac $ cj 2 dead_let_imp_rel >> gvs[] >>
+    dxrule_then assume_tac fvs_ok_imp >> gvs[fv_set_ok_def] >>
+    pop_assum $ drule o iffRL >> simp[]
+    )
+  >- (
+    simp[LAMBDA_PROD] >> once_rewrite_tac[type_tcexp_cases] >> rw[] >>
+    qexists `schemes` >> rw[] >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP,  MEM_EL, PULL_EXISTS] >> rw[] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    first_x_assum drule >> simp[] >> strip_tac >>
+    last_x_assum drule >> simp[]
+    )
+  >- (
+    simp[LAMBDA_PROD, optionTheory.OPTION_MAP_COMPOSE, combinTheory.o_DEF] >>
+    rw[Once type_tcexp_cases] >> gvs[]
+    >- (
+      simp[Once type_tcexp_cases] >> disj1_tac >>
+      gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[]
+      )
+    >- (
+      simp[Once type_tcexp_cases] >> disj1_tac >> rpt (pairarg_tac >> gvs[]) >>
+      rpt $ first_x_assum $ irule_at Any >> simp[]
+      )
+    >- (
+      simp[Once type_tcexp_cases] >> ntac 2 disj2_tac >> disj1_tac >>
+      gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[]
+      )
+    >- (
+      simp[Once type_tcexp_cases] >> rpt disj2_tac >>
+      gvs[EXISTS_PROD, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      rpt $ first_x_assum $ irule_at Any >> simp[] >>
+      Cases_on `eopt` >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+      gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[]
+      )
     )
 QED
 

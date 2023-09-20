@@ -945,7 +945,6 @@ QED
 Theorem type_tcexp_NestedCase_free:
   ∀ns db st env e t ce.
     type_tcexp ns db st env e t ∧
-    namespace_ok ns ∧
     e = tcexp_of ce
   ⇒ NestedCase_free ce
 Proof

@@ -4235,8 +4235,7 @@ Theorem well_typed_program_imps:
     cexp_wf e ∧ closed (exp_of e) ∧ NestedCase_free e ∧
     safe_exp (exp_of e) ∧ cns_arities_ok ns (cns_arities e)
 Proof
-  strip_tac >> drule_at Any type_tcexp_NestedCase_free >> simp[] >>
-  disch_then $ drule_then assume_tac >> simp[] >>
+  strip_tac >> drule_at Any type_tcexp_NestedCase_free >> simp[] >> strip_tac >>
   irule_at Any $ iffRL cexp_wf_tcexp_wf >>
   drule_at (Pos last) type_tcexp_tcexp_wf >> simp[] >> strip_tac >>
   drule type_tcexp_freevars_tcexp >> simp[freevars_tcexp_of] >>

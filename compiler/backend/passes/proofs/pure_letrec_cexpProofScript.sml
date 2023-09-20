@@ -720,8 +720,7 @@ Proof
 QED
 
 Theorem clean_all_preserves_typing:
-  namespace_ok ns ⇒
-  ∀ce db st env t.
+  ∀ns ce db st env t.
     type_tcexp ns db st env (tcexp_of ce) t
   ⇒ type_tcexp ns db st env (tcexp_of (clean_all_cexp ce)) t
 Proof
