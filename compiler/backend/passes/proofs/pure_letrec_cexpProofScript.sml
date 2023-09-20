@@ -822,7 +822,7 @@ Proof
 QED
 
 Theorem clean_all_cexp_cexp_wf:
-  ∀ce. cexp_wf ce ∧ NestedCase_free ce ⇒ cexp_wf (clean_all_cexp ce)
+  ∀ce. cexp_wf ce ⇒ cexp_wf (clean_all_cexp ce)
 Proof
   recInduct freevars_cexp_ind >>
   rw[clean_all_cexp_def, letrec_recurse_fvs_def] >> gvs[cexp_wf_def] >>
@@ -838,6 +838,7 @@ Proof
     Cases_on `eopt` >> gvs[FST_THM, FORALL_PROD, LAMBDA_PROD] >>
     rpt (pairarg_tac >> gvs[]) >> metis_tac[]
     )
+  >- (gvs[FORALL_PROD] >> metis_tac[])
 QED
 
 (********************)

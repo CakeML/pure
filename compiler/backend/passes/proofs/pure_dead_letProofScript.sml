@@ -328,7 +328,7 @@ Proof
 QED
 
 Theorem dead_let_letrecs_distinct:
-  ∀ce1 ce2. dead_let ce1 = ce2 ∧ letrecs_distinct (exp_of ce1) ∧ NestedCase_free ce1
+  ∀ce1 ce2. dead_let ce1 = ce2 ∧ letrecs_distinct (exp_of ce1)
   ⇒ letrecs_distinct (exp_of ce2)
 Proof
   recInduct dead_let_ind >> rw[dead_let_def] >>
@@ -345,6 +345,25 @@ Proof
     rpt $ pop_assum kall_tac >>
     Induct_on `cn_ars` >> rw[IfDisj_def, Disj_def, letrecs_distinct_def]
     )
+  >- (
+    pairarg_tac >> gvs[letrecs_distinct_def] >> rw[]
+    >- (
+      qpat_x_assum `letrecs_distinct _ ⇒ letrecs_distinct _` mp_tac >>
+      qpat_x_assum `letrecs_distinct (FOLDR _ _ _)` mp_tac >>
+      rpt $ pop_assum kall_tac >>
+      Induct_on `binds` >> rw[] >> pairarg_tac >> gvs[letrecs_distinct_def]
+      ) >>
+    last_x_assum mp_tac >>
+    qpat_x_assum `letrecs_distinct (nested_rows _ _)` mp_tac >>
+    rpt $ pop_assum kall_tac >>
+    Induct_on `pces` >> rw[nested_rows_def] >>
+    rpt (pairarg_tac >> gvs[]) >> gvs[letrecs_distinct_def, SF DNF_ss] >>
+    last_x_assum drule >> simp[] >> strip_tac >>
+    qpat_x_assum `letrecs_distinct _ ⇒ letrecs_distinct _` mp_tac >>
+    qpat_x_assum `letrecs_distinct (FOLDR _ _ _)` mp_tac >>
+    rpt $ pop_assum kall_tac >>
+    Induct_on `binds` >> rw[] >> pairarg_tac >> gvs[letrecs_distinct_def]
+    )
 QED
 
 
@@ -355,8 +374,8 @@ Theorem dead_let_correct:
        (closed $ exp_of ce ⇒ closed $ exp_of (dead_let ce)) ∧
        cns_arities (dead_let ce) ⊆ cns_arities ce ∧
        (cexp_wf ce ⇒ cexp_wf (dead_let ce)) ∧
-       (letrecs_distinct (exp_of ce) ∧ NestedCase_free ce ⇒
-        letrecs_distinct (exp_of (dead_let ce)) ∧ NestedCase_free (dead_let ce))
+       (letrecs_distinct (exp_of ce) ⇒ letrecs_distinct (exp_of (dead_let ce))) ∧
+       (NestedCase_free ce ⇒ NestedCase_free (dead_let ce))
 Proof
   gen_tac >>
   qspec_then `ce` assume_tac dead_let_imp_rel >> gvs[] >>
