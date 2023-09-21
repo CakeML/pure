@@ -874,6 +874,33 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem memory_inv_imp_set_of:
+  memory_inv xs m ns ⇒
+  set (MAP FST xs) ⊆ set_of ns ∧
+  freevars_of xs ⊆ set_of ns ∧
+  vars_of xs ⊆ set_of ns
+Proof
+  fs [memory_inv_def]
+  \\ cheat
+QED
+
+Theorem freshen_cexp_disjoint:
+  freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ⇒
+  DISJOINT (boundvars (exp_of e1)) (set_of ns)
+Proof
+  cheat
+QED
+
+Triviality freshen_cexp_disjoint_lemma:
+  freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ∧ s ⊆ set_of ns ⇒
+  DISJOINT (boundvars (exp_of e1)) s
+Proof
+  rw []
+  \\ drule_all freshen_cexp_disjoint
+  \\ fs [IN_DISJOINT,SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 val lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ns ∧
@@ -1038,7 +1065,7 @@ Proof
     \\ gvs [LIST_REL_MAP]
     \\ rename [‘inline_list m ns cl h es = (es1,ns6)’]
     \\ drule pure_freshenProofTheory.freshen_cexp_correctness
-    \\ impl_tac
+    \\ impl_keep_tac
     >-
      (fs [exp_of_def,cexp_wf_def,SF ETA_ss]
       \\ fs [memory_inv_def] \\ res_tac \\ fs [] \\ gvs []
@@ -1090,15 +1117,7 @@ Proof
     \\ irule_at Any letrecs_distinct_Lets \\ fs []
     \\ drule freshen_cexp_letrecs_distinct
     \\ impl_tac
-    >-
-     (fs [exp_of_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-      \\ drule inline_list_wf
-      \\ impl_tac
-      >- fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,cexp_wf_def,avoid_set_ok_def]
-      \\ strip_tac
-      \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,cexp_wf_def,avoid_set_ok_def]
-      \\ gvs [memory_inv_def]
-      \\ res_tac \\ fs [])
+    >- (fs [exp_of_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
     \\ strip_tac
     \\ gvs [exp_of_def]
     \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,letrecs_distinct_Lams]
@@ -1109,8 +1128,49 @@ Proof
     \\ irule_at Any avoid_set_ok_Lets \\ fs [EVERY_MEM]
     \\ qpat_x_assum ‘avoid_set_ok _ _’ $ irule_at $ Pos hd
     \\ qpat_x_assum ‘barendregt _’ assume_tac
-
-    \\ cheat (* complicated App case *)
+    \\ first_assum mp_tac
+    \\ rewrite_tac [barendregt_def]
+    \\ strip_tac
+    \\ gvs [boundvars_Apps,MEM_MAP,PULL_EXISTS]
+    \\ ‘(∀y'. MEM y' es2a ⇒
+          DISJOINT (freevars (exp_of y')) (boundvars app_lam))’
+          by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]) \\ fs []
+    \\ ‘∀y. MEM y es2a ⇒
+            DISJOINT (set (MAP explode l3)) (freevars (exp_of y))’
+          by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
+              \\ gvs [boundvars_Apps,boundvars_Lams]) \\ fs []
+    \\ ‘∀y'. MEM y' es2b ⇒
+           DISJOINT (freevars (exp_of c3) DIFF set (MAP explode l3))
+             (boundvars (exp_of y')) ∧
+           ∀y''. MEM y'' es2a ⇒
+             DISJOINT (freevars (exp_of y'')) (boundvars (exp_of y'))’
+          by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
+              \\ gvs [boundvars_Apps,boundvars_Lams]) \\ fs [SF SFY_ss]
+    \\ ‘DISJOINT (freevars (exp_of c3) DIFF set (MAP explode l3))
+          (boundvars app_lam)’
+          by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
+              \\ gvs [boundvars_Apps,boundvars_Lams]) \\ fs []
+    \\ ‘∀y'.
+           MEM y' es2b ⇒
+           DISJOINT (boundvars app_lam) (freevars (exp_of y')) ∧
+           ∀y''.
+             MEM y'' es2b ⇒
+             DISJOINT (boundvars (exp_of y'')) (freevars (exp_of y'))’
+          by (unabbrev_all_tac \\ gvs [MEM_MAP,PULL_EXISTS]
+              \\ gvs [boundvars_Apps,boundvars_Lams]
+              \\ gvs [IN_DISJOINT] \\ metis_tac []) \\ fs [SF SFY_ss]
+    \\ ‘memory_inv xs m ns6’ by
+         (irule memory_inv_subset \\ fs []
+          \\ qexists_tac ‘ns’ \\ fs []
+          \\ imp_res_tac SUBSET_TRANS
+          \\ imp_res_tac avoid_set_ok_imp_vars_ok
+          \\ imp_res_tac inline_set_of)
+    \\ drule memory_inv_imp_set_of \\ strip_tac
+    \\ ‘avoid_set_ok ns6 (App a c es1)’ by gvs [avoid_set_ok_App,EVERY_MEM]
+    \\ drule_then drule freshen_cexp_disjoint_lemma
+    \\ disch_then (fn th => ntac 3 (dxrule th))
+    \\ fs [exp_of_def,Apps_append,SF ETA_ss]
+    \\ fs [boundvars_Apps,MEM_MAP,PULL_EXISTS]
   )
   >~ [`Let _ _ _`] >- (
     gvs [inline_def]
