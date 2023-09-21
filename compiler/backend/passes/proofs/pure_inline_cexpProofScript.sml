@@ -25,8 +25,9 @@ End
 Definition memory_inv_def:
   memory_inv xs m (ns:(mlstring,unit) map # num) ⇔
     { explode a | ∃e. lookup m a = SOME e } = set (MAP FST xs) ∧
+    EVERY (λ(v,r). v ∈ set_of ns ∧ ∃e:'a cexp. avoid_set_ok ns e ∧ r = Exp (exp_of e)) xs ∧
     ∀v e. (lookup m v = SOME e) ⇒
-          ∃e1. e = cExp e1 ∧ cheap e1 ∧
+          ∃e1. e = cExp (e1:'a cexp) ∧ cheap e1 ∧
                MEM (explode v, (crhs_to_rhs e)) xs ∧
                avoid_set_ok ns e1 ∧
                NestedCase_free e1 ∧
@@ -95,7 +96,7 @@ QED
 Theorem memory_inv_APPEND:
   memory_inv xs m ns ∧
   map_ok m ∧ cheap e1 ∧
-  avoid_set_ok ns e1 ∧
+  avoid_set_ok ns e1 ∧ explode v ∈ set_of ns ∧
   NestedCase_free e1 ∧
   letrecs_distinct (exp_of e1) ∧
   cexp_wf e1 ∧
@@ -110,6 +111,7 @@ Proof
   )
   \\ gvs [mlmapTheory.lookup_insert,AllCaseEqs()]
   \\ gvs [crhs_to_rhs_def,exp_of_def]
+  \\ first_x_assum $ irule_at Any \\ fs []
 QED
 
 (*
@@ -513,8 +515,9 @@ Theorem memory_inv_subset:
   ⇒
   memory_inv xs m ns1
 Proof
-  fs [memory_inv_def] \\ rw [] \\ res_tac \\ fs []
-  \\ metis_tac [avoid_set_ok_subset]
+  fs [memory_inv_def] \\ rw [] \\ res_tac \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ gvs [SUBSET_DEF]
+  \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF]
 QED
 
 Theorem avoid_set_ok_imp_vars_ok:
@@ -983,15 +986,16 @@ Proof
       \\ last_x_assum $ irule_at Any
       \\ gvs [memory_inv_def,DISJOINT_SYM]
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
-      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def,FORALL_PROD]
       \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ fs []
       \\ imp_res_tac inline_set_of \\ fs []
       \\ irule_at Any avoid_set_ok_subset \\ fs []
       \\ qexists_tac ‘ns’ \\ fs []
-      \\ rw [] \\ first_x_assum drule
-      \\ strip_tac \\ gvs []
-      \\ irule_at Any avoid_set_ok_subset \\ fs []
-      \\ metis_tac []
+      >-
+       (conj_tac \\ rw []
+        >- (gvs [SUBSET_DEF] \\ metis_tac [])
+        \\ last_x_assum drule
+        \\ metis_tac [avoid_set_ok_subset])
     )
     \\ gvs []
     \\ rename [‘lookup m x = SOME aa’]
@@ -1197,6 +1201,12 @@ Proof
       \\ imp_res_tac inline_set_of
       \\ imp_res_tac avoid_set_ok_imp_vars_ok
       \\ gvs []
+      \\ ‘avoid_set_ok ns3 (Let a v e1 e2)’ by metis_tac [avoid_set_ok_subset]
+      \\ ‘explode v ∈ set_of ns3’ by
+       (gvs [avoid_set_ok_def,exp_of_def]
+        \\ PairCases_on ‘ns3’ \\ gvs [set_of_def,vars_ok_def]
+        \\ gvs [GSYM mlmapTheory.lookup_thm, TO_FLOOKUP, NOT_NONE_UNIT]
+        \\ first_x_assum $ qspec_then ‘explode v’ mp_tac \\ fs [])
       \\ metis_tac [memory_inv_subset,avoid_set_ok_subset,SUBSET_TRANS]
     )
     \\ full_simp_tac pure_ss []
@@ -1283,6 +1293,13 @@ Proof
     \\ strip_tac \\ fs []
     \\ fs [mlmapTheory.insert_thm]
     \\ irule_at Any memory_inv_APPEND \\ fs []
+    \\ rename [‘explode w ∈ set_of ns8’]
+    \\ ‘explode w ∈ set_of ns8’ by
+     (‘avoid_set_ok ns8 (Letrec a [(w,u)] e)’ by metis_tac [avoid_set_ok_subset]
+      \\ gvs [avoid_set_ok_def,exp_of_def]
+      \\ PairCases_on ‘ns8’ \\ gvs [set_of_def,vars_ok_def]
+      \\ gvs [GSYM mlmapTheory.lookup_thm, TO_FLOOKUP, NOT_NONE_UNIT]
+      \\ first_x_assum $ qspec_then ‘explode w’ mp_tac \\ fs [])
     \\ qpat_x_assum ‘no_shadowing (Letrec _ _)’ mp_tac
     \\ simp [Once no_shadowing_cases] \\ strip_tac
     \\ ‘cheap x’ by (imp_res_tac specialise_is_Lam \\ simp [cheap_def])
