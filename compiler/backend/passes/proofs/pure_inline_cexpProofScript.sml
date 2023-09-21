@@ -888,10 +888,13 @@ Proof
 QED
 
 Theorem freshen_cexp_disjoint:
-  freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ⇒
+  freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ∧
+  cexp_wf e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ⇒
   DISJOINT (boundvars (exp_of e1)) (set_of ns)
 Proof
-  cheat
+  strip_tac >> gvs[avoid_set_ok_avoid_ok] >>
+  dxrule_all freshen_cexp_freshen_global >> strip_tac >>
+  dxrule_all freshen_global_boundvars >> simp[]
 QED
 
 Triviality freshen_cexp_disjoint_lemma:
