@@ -877,14 +877,35 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem avoid_set_ok_set_of:
+  avoid_set_ok ns e ⇒
+  boundvars (exp_of e) ⊆ set_of ns ∧
+  freevars (exp_of e) ⊆ set_of ns
+Proof
+  PairCases_on ‘ns’
+  \\ gvs [avoid_set_ok_def,set_of_def,SUBSET_DEF,vars_ok_def]
+  \\ gvs [TO_FLOOKUP,GSYM mlmapTheory.lookup_thm] \\ rw []
+  \\ first_x_assum $ qspec_then ‘x’ mp_tac \\ fs [] \\ rw []
+  \\ qexists_tac ‘implode x’ \\ fs []
+QED
+
 Theorem memory_inv_imp_set_of:
   memory_inv xs m ns ⇒
   set (MAP FST xs) ⊆ set_of ns ∧
   freevars_of xs ⊆ set_of ns ∧
   vars_of xs ⊆ set_of ns
 Proof
-  fs [memory_inv_def]
-  \\ cheat
+  strip_tac
+  \\ fs [memory_inv_def]
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
+  \\ Induct_on ‘xs’ \\ gvs [vars_of_def,freevars_of_def]
+  \\ PairCases \\ fs []
+  \\ Cases_on ‘h1’ \\ fs []
+  \\ gvs [vars_of_def,freevars_of_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ imp_res_tac avoid_set_ok_set_of \\ fs []
 QED
 
 Theorem freshen_cexp_disjoint:
