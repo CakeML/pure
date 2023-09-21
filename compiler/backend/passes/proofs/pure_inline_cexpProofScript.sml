@@ -898,7 +898,10 @@ Proof
 QED
 
 Triviality freshen_cexp_disjoint_lemma:
-  freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ∧ s ⊆ set_of ns ⇒
+  freshen_cexp e ns = (e1,ns1) ∧ avoid_set_ok ns e ∧
+  cexp_wf e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ∧
+  s ⊆ set_of ns
+  ⇒
   DISJOINT (boundvars (exp_of e1)) s
 Proof
   rw []
@@ -1175,6 +1178,7 @@ Proof
     \\ drule memory_inv_imp_set_of \\ strip_tac
     \\ ‘avoid_set_ok ns6 (App a c es1)’ by gvs [avoid_set_ok_App,EVERY_MEM]
     \\ drule_then drule freshen_cexp_disjoint_lemma
+    \\ fs [cexp_wf_def,EVERY_MEM,exp_of_def,MEM_MAP,PULL_EXISTS]
     \\ disch_then (fn th => ntac 3 (dxrule th))
     \\ fs [exp_of_def,Apps_append,SF ETA_ss]
     \\ fs [boundvars_Apps,MEM_MAP,PULL_EXISTS]
