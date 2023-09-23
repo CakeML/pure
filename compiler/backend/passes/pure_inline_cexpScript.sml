@@ -146,7 +146,7 @@ Definition inline_def:
         )
       (* Not a Var -- can't inline *)
       | _ =>
-        let (e1, ns2) = inline m ns cl h e
+        let (e1, ns2) = inline m ns1 cl h e
         in (App a e1 es1, ns2)
     )
   ) ∧

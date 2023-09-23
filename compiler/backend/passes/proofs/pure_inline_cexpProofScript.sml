@@ -584,15 +584,122 @@ Proof
   \\ imp_res_tac SUBSET_TRANS
 QED
 
+Definition mem_inv_def:
+  mem_inv m ns =
+    ∀n v. lookup m n = SOME v ⇒ ∃e. avoid_set_ok ns e ∧ v = cExp e
+End
+
+Theorem mem_inv_subset:
+  mem_inv m ns ∧ set_of ns ⊆ set_of ns1 ∧ vars_ok ns1 ⇒ mem_inv m ns1
+Proof
+  fs [mem_inv_def] \\ rw []
+  \\ res_tac \\ gvs []
+  \\ irule avoid_set_ok_subset
+  \\ metis_tac []
+QED
+
+Definition fake_avoid_set_ok_def:
+  fake_avoid_set_ok = avoid_set_ok
+End
+
+Theorem avoid_set_ok_change_exp:
+  (allvars (exp_of e) = allvars (exp_of e1)) ⇒
+  avoid_set_ok ns e ⇒ avoid_set_ok ns e1
+Proof
+  rewrite_tac [avoid_set_ok_def] \\ metis_tac [allvars_thm]
+QED
+
+Theorem allvars_Apps:
+  allvars (Apps x xs) = allvars x ∪ BIGUNION (set (MAP allvars xs))
+Proof
+  fs [allvars_thm,boundvars_Apps]
+  \\ gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+  \\ gvs [MEM_MAP,allvars_thm,PULL_EXISTS]
+  \\ metis_tac []
+QED
+
+Theorem allvars_Prim:
+  allvars (Prim x xs) = BIGUNION (set (MAP allvars xs))
+Proof
+  fs [allvars_thm,EXTENSION,MEM_MAP,allvars_thm]
+QED
+
+Theorem allvars_Lams:
+  allvars (Lams vs x) = allvars x ∪ set vs
+Proof
+  fs [allvars_thm,boundvars_Lams]
+  \\ gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem allvars_Lets:
+  allvars (Lets xs x) = allvars x ∪ set (MAP FST xs) ∪
+                        BIGUNION (set (MAP allvars (MAP SND xs)))
+Proof
+  Induct_on ‘xs’
+  \\ fs [pure_letrecProofTheory.Lets_def] \\ PairCases
+  \\ fs [pure_letrecProofTheory.Lets_def]
+  \\ gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+  \\ metis_tac []
+QED
+
+Theorem avoid_set_ok_allvars =
+  avoid_set_ok_def |> REWRITE_RULE [GSYM allvars_thm];
+
+Theorem avoid_set_ok_Lam:
+  avoid_set_ok ns (Lam a vs e) ⇔
+  avoid_set_ok ns e ∧ set (MAP explode vs) ⊆ set_of ns
+Proof
+  fs [avoid_set_ok_allvars,exp_of_def,allvars_Lams]
+  \\ eq_tac \\ rw [] \\ gvs []
+  >-
+  (gvs [SUBSET_DEF]
+   \\ PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
+   \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
+   \\ qexists_tac ‘implode x’ \\ fs [])
+  \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
+  \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
+  \\ res_tac \\ gvs []
+QED
+
+Theorem avoid_set_ok_Prim:
+  avoid_set_ok ns (Prim a p es) ⇔
+  EVERY (avoid_set_ok ns) es ∧ vars_ok ns
+Proof
+  fs [avoid_set_ok_allvars,exp_of_def,allvars_Prim,EVERY_MEM,PULL_EXISTS,MEM_MAP]
+  \\ gvs [SF CONJ_ss] \\ metis_tac []
+QED
+
+Triviality App_Lam_to_Lets_allvars:
+  App_Lam_to_Lets exp = SOME exp1 ⇒
+  allvars (exp_of exp) = allvars (exp_of exp1)
+Proof
+  Cases_on ‘exp’ \\ gvs [App_Lam_to_Lets_def]
+  \\ Cases_on ‘c’ \\ gvs [App_Lam_to_Lets_def] \\ rw []
+  \\ fs [exp_of_def,allvars_Apps,NOT_LESS]
+  \\ drule miscTheory.LESS_EQ_LENGTH \\ rw [] \\ gvs []
+  \\ pop_assum $ assume_tac o GSYM \\ fs []
+  \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+  \\ DEP_REWRITE_TAC [exp_of_Lets]
+  \\ fs [allvars_Lets]
+  \\ DEP_REWRITE_TAC [MAP_FST_ZIP,MAP_SND_ZIP]
+  \\ fs [SF ETA_ss,allvars_Lams]
+  \\ gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
+  \\ metis_tac []
+QED
+
 val avoid_set_ok_lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀t ns1.
     (inline m ns cl h x) = (t, ns1) ∧
+    mem_inv m ns ∧
     avoid_set_ok ns x ⇒
-    avoid_set_ok ns1 t’
+    fake_avoid_set_ok ns1 t’
   |> Q.SPEC ‘λm ns cl h es. ∀ts ns1.
     (inline_list m ns cl h es) = (ts, ns1) ∧
+    mem_inv m ns ∧
     EVERY (avoid_set_ok ns) es ⇒
-    EVERY (avoid_set_ok ns1) ts’
+    EVERY (fake_avoid_set_ok ns1) ts’
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
 
 Theorem inline_avoid_set_ok:
@@ -600,7 +707,66 @@ Theorem inline_avoid_set_ok:
 Proof
   match_mp_tac avoid_set_ok_lemma
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac \\ rpt gen_tac \\ rpt disch_tac
-  \\ cheat (* inline preserves avoid_set_ok *)
+  \\ gvs [inline_def]
+  >~ [‘Var’] >-
+   (gvs [fake_avoid_set_ok_def,AllCaseEqs()]
+    \\ gvs[ mem_inv_def] \\ res_tac \\ fs [])
+  >~ [‘App’] >-
+   (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [fake_avoid_set_ok_def]
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac inline_set_of \\ gvs []
+    \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
+    \\ imp_res_tac mem_inv_subset \\ gvs []
+    \\ rpt (gen_tac \\ metis_tac [avoid_set_ok_subset,SUBSET_TRANS])
+    \\ last_x_assum irule
+    \\ drule_all fresh_cexp_subset
+    \\ gvs [avoid_set_ok_avoid_ok]
+    \\ strip_tac \\ gvs []
+    \\ irule_at Any mem_inv_subset \\ fs []
+    \\ first_assum $ irule_at Any \\ fs []
+    \\ fs [pure_freshenTheory.freshen_cexp_def]
+    \\ drule $ cj 1 freshen_aux_avoid_ok \\ fs []
+    \\ gvs [EVERY_MEM]
+    \\ gvs [mem_inv_def] \\ res_tac \\ fs [] \\ gvs []
+    \\ gvs [GSYM avoid_set_ok_avoid_ok]
+    \\ match_mp_tac avoid_set_ok_change_exp
+    \\ imp_res_tac App_Lam_to_Lets_allvars \\ fs [])
+  >~ [‘Let’] >-
+   (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [fake_avoid_set_ok_def]
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac inline_set_of \\ gvs []
+    \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
+    \\ imp_res_tac mem_inv_subset \\ gvs []
+    \\ cheat)
+  >~ [‘Lam’] >-
+   (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [fake_avoid_set_ok_def]
+    \\ gvs [avoid_set_ok_Lam]
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac inline_set_of \\ gvs []
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Letrec’] >-
+   (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [fake_avoid_set_ok_def]
+    \\ cheat)
+  >~ [‘Prim’] >-
+   (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [fake_avoid_set_ok_def,avoid_set_ok_Prim]
+    \\ imp_res_tac inline_set_of \\ fs [])
+  >~ [‘Case’] >-
+   (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [fake_avoid_set_ok_def]
+    \\ cheat)
+  \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+  \\ gvs [fake_avoid_set_ok_def]
+  \\ last_x_assum $ irule_at Any
+  \\ imp_res_tac avoid_set_ok_imp_vars_ok
+  \\ imp_res_tac inline_set_of \\ gvs []
+  \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
+  \\ imp_res_tac mem_inv_subset \\ gvs []
+  \\ metis_tac [avoid_set_ok_subset]
 QED
 
 Theorem inline_wf:
@@ -999,9 +1165,14 @@ Proof
       \\ fs [LIST_REL_MAP,o_DEF]
       \\ last_x_assum $ irule_at Any
       \\ last_x_assum $ irule_at Any
-      \\ gvs [memory_inv_def,DISJOINT_SYM]
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
       \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ fs []
+      \\ imp_res_tac inline_set_of \\ fs []
+      \\ irule_at Any avoid_set_ok_subset \\ fs []
+      \\ qexists_tac ‘ns’ \\ fs []
+      \\ irule_at Any memory_inv_subset \\ fs []
+      \\ last_x_assum $ irule_at Any \\ fs []
     )
     \\ gvs []
     \\ Cases_on `lookup m x`
@@ -1114,7 +1285,12 @@ Proof
         \\ imp_res_tac inline_set_of \\ fs []
         \\ imp_res_tac avoid_set_ok_imp_vars_ok
         \\ gvs [] \\ res_tac \\ gvs [])
-      \\ imp_res_tac inline_avoid_set_ok)
+      \\ rewrite_tac [GSYM fake_avoid_set_ok_def]
+      \\ irule $ cj 2 inline_avoid_set_ok
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+      \\ fs [mem_inv_def] \\ rw []
+      \\ res_tac \\ gvs []
+    )
     \\ strip_tac
     \\ irule_at Any exp_eq_trans
     \\ fs [exp_of_def,SF ETA_ss]
