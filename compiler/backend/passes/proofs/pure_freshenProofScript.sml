@@ -7,9 +7,14 @@ open pairTheory listTheory alistTheory rich_listTheory pred_setTheory
 open pure_miscTheory pure_expTheory pure_cexpTheory pureLangTheory
      pure_alpha_equivTheory pure_congruenceTheory pure_beta_equivTheory
      pure_barendregtTheory pure_exp_lemmasTheory pure_cexp_lemmasTheory
-     pure_varsTheory var_setTheory pure_freshenTheory pure_letrecProofTheory;
+     pure_varsTheory var_setTheory pure_freshenTheory pure_letrecProofTheory
+     pure_typingTheory pure_typingPropsTheory pure_tcexpTheory;
 
 val _ = new_theory "pure_freshenProof";
+
+val exp_of_def = pureLangTheory.exp_of_def;
+val rows_of_def = pureLangTheory.rows_of_def;
+val lets_for_def = pureLangTheory.lets_for_def;
 
 
 (****************************** TODO move ******************************)
@@ -196,6 +201,13 @@ Proof
   Induct_on `cnars` >> rw[IfDisj_def, letrecs_distinct_def]
 QED
 
+Triviality ALOOKUP_MAP_3':
+  ALOOKUP (MAP (λ(k,v1,v2). (k,v1,f v1 v2)) l) =
+  OPTION_MAP (λ(v1,v2). (v1, f v1 v2)) o ALOOKUP l
+Proof
+  Induct_on `l` >> rw[FUN_EQ_THM] >> pairarg_tac >> gvs[] >>
+  IF_CASES_TAC >> gvs[]
+QED
 
 
 (****************************** Relations ******************************)
@@ -1042,6 +1054,31 @@ Proof
   gvs[MEM_MAP] >> rw[EXTENSION] >> metis_tac[]
 QED
 
+Theorem fresh_boundvar_varmap:
+  fresh_boundvar x varmap avoid = ((y, varmap'), avoid') ∧ map_ok varmap
+  ⇒ map_ok varmap' ∧
+    (∀k. lookup varmap' k = if k = x then SOME y else lookup varmap k)
+Proof
+  strip_tac >> gvs[fresh_boundvar_def] >> rpt (pairarg_tac >> gvs[]) >>
+  simp[mlmapTheory.insert_thm, mlmapTheory.lookup_insert] >> rw[] >> gvs[]
+QED
+
+Theorem fresh_boundvars_varmap:
+  ∀xs varmap avoid ys varmap' avoid'.
+    fresh_boundvars xs varmap avoid = ((ys, varmap'), avoid') ∧ map_ok varmap
+  ⇒ map_ok varmap' ∧
+    (∀k. lookup varmap' k =
+          case ALOOKUP (REVERSE (ZIP (xs,ys))) k of
+          | SOME y => SOME y
+          | NONE => lookup varmap k)
+Proof
+  Induct >> simp[fresh_boundvars_def] >>
+  rpt gen_tac >> strip_tac >> rpt (pairarg_tac >> gvs[]) >>
+  dxrule_all fresh_boundvar_varmap >> strip_tac >>
+  last_x_assum $ dxrule_all >> strip_tac >> simp[] >> gen_tac >>
+  simp[ALOOKUP_APPEND] >> TOP_CASE_TAC >> gvs[] >> IF_CASES_TAC >> gvs[]
+QED
+
 Theorem freshen_aux_mono:
   (∀varmap (ce1:'a cexp) avoid1 ce2 avoid2.
     freshen_aux varmap ce1 avoid1 = (ce2,avoid2) ∧ vars_ok avoid1
@@ -1097,7 +1134,7 @@ Proof
 QED
 
 Definition avoid_ok_def:
-  avoid_ok avoid ce ⇔
+  avoid_ok avoid (ce : 'a cexp) ⇔
     vars_ok avoid ∧
     allvars (exp_of ce) ⊆ set_of avoid
 End
@@ -1599,12 +1636,12 @@ QED
 
 Definition varmap_rel_def:
   varmap_rel varmap fmap ⇔
-    map_ok varmap ∧ cmp_of varmap = var_cmp ∧
+    map_ok varmap ∧
     (∀k v. lookup varmap k = SOME v ⇔
       FLOOKUP fmap (explode k) = SOME (explode v))
 End
 
-Theorem fresh_boundvar_rel:
+Triviality fresh_boundvar_rel:
   varmap_rel varmap m ∧
   vars_ok avoid ∧
   fresh_boundvar x varmap avoid = ((y,varmap'), avoid')
@@ -1613,14 +1650,19 @@ Theorem fresh_boundvar_rel:
     set_of avoid' = explode y INSERT set_of avoid ∧
     vars_ok avoid'
 Proof
-  strip_tac >> gvs[fresh_boundvar_def] >> rpt (pairarg_tac >> gvs[]) >>
-  drule_all invent_var_thm >> strip_tac >> gvs[varmap_rel_def] >>
-  DEP_REWRITE_TAC $ cjs mlmapTheory.insert_thm >> simp[] >> rw[] >>
-  DEP_REWRITE_TAC[mlmapTheory.lookup_insert] >> simp[FLOOKUP_SIMP] >>
-  IF_CASES_TAC >> gvs[]
+  strip_tac >> gvs[varmap_rel_def] >>
+  drule_all fresh_boundvar_vars >> strip_tac >>
+  drule_all fresh_boundvar_varmap >> strip_tac >> simp[FLOOKUP_SIMP] >> rw[]
 QED
 
-Theorem fresh_boundvars_rel:
+Triviality ALOOKUP_MAP_explode_FST:
+  ALOOKUP (MAP (λ(a,b). (explode a,b)) l) (explode k) = ALOOKUP l k
+Proof
+  Induct_on `l` >> rw[] >>
+  pairarg_tac >> gvs[]
+QED
+
+Triviality fresh_boundvars_rel:
   ∀xs varmap avoid ys varmap' avoid' m.
   varmap_rel varmap m ∧
   vars_ok avoid ∧
@@ -1632,13 +1674,13 @@ Theorem fresh_boundvars_rel:
     DISJOINT (set (MAP explode ys)) (set_of avoid) ∧
     vars_ok avoid'
 Proof
-  Induct >> rpt gen_tac >> strip_tac >> gvs[fresh_boundvars_def]
-  >- simp[FUPDATE_LIST_THM] >>
-  rpt (pairarg_tac >> gvs[]) >> simp[FUPDATE_LIST_THM] >>
-  dxrule_all fresh_boundvar_rel >> strip_tac >>
-  last_x_assum drule_all >> simp[] >> strip_tac >>
-  gvs[MEM_MAP] >>
-  rw[EXTENSION] >> eq_tac >> rw[] >> metis_tac[]
+  rpt gen_tac >> strip_tac >> gvs[varmap_rel_def] >>
+  drule_all fresh_boundvars_vars >> strip_tac >>
+  drule_all fresh_boundvars_varmap >> strip_tac >>
+  imp_res_tac fresh_boundvars_LENGTH >>
+  simp[FLOOKUP_FUPDATE_LIST, GSYM MAP_ZIP_ALT, GSYM MAP_REVERSE] >>
+  simp[ALOOKUP_MAP_explode_FST, ALOOKUP_MAP] >>
+  rw[] >> CASE_TAC >> gvs[]
 QED
 
 Theorem freshen_aux_freshen_global:
@@ -2048,6 +2090,425 @@ Proof
 QED
 
 
+(********** typing **********)
+
+Definition ctxt_rel_def:
+  ctxt_rel m s ctxt1 ctxt2 ⇔
+    ∀x t. x ∈ s ∧ ALOOKUP ctxt1 x = SOME t ⇒
+      case lookup m x of
+      | NONE => ALOOKUP ctxt2 x = SOME t
+      | SOME y => ALOOKUP ctxt2 y = SOME t
+End
+
+Theorem ctxt_rel_extend:
+  ∀xs ys ts env1 env2 m s.
+    ctxt_rel m (s DIFF set xs) env1 env2 ∧
+    ALL_DISTINCT ys ∧
+    DISJOINT (set ys) s ∧
+    LENGTH xs = LENGTH ts ∧ LENGTH ys = LENGTH ts ∧
+    (∀k v. lookup m k = SOME v ⇒ ¬ MEM v ys) ∧
+    (∀k. lookup m' k =
+          case ALOOKUP (ZIP (xs,ys)) k of
+          | NONE => lookup m k
+          | SOME v => SOME v)
+  ⇒ ctxt_rel m' s (ZIP (xs,ts) ++ env1) (ZIP (ys,ts) ++ env2)
+Proof
+  rw[ctxt_rel_def] >> gvs[ALOOKUP_APPEND] >>
+  pop_assum mp_tac >> CASE_TAC >> gvs[ALOOKUP_NONE] >> strip_tac
+  >- (
+    gvs[MAP_ZIP] >>
+    `ALOOKUP (ZIP (xs,ys)) x = NONE` by simp[ALOOKUP_NONE, MAP_ZIP] >>
+    simp[] >> last_x_assum drule_all >> rw[] >>
+    `¬ MEM x ys` by (gvs[DISJOINT_ALT] >> metis_tac[]) >>
+    `ALOOKUP (ZIP (ys,ts)) x = NONE` by simp[ALOOKUP_NONE, MAP_ZIP] >> simp[] >>
+    TOP_CASE_TAC >> gvs[] >>
+    qsuff_tac `ALOOKUP (ZIP (ys,ts)) x' = NONE` >> rw[] >>
+    simp[ALOOKUP_NONE, MAP_ZIP] >> CCONTR_TAC >> gvs[DISJOINT_ALT] >> metis_tac[]
+    )
+  >- (
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, EL_MAP] >>
+    CASE_TAC >- gvs[ALOOKUP_NONE, MAP_ZIP, EL_MEM] >>
+    rename1 `ALOOKUP _ (EL _ _) = SOME y` >>
+    qsuff_tac `ALOOKUP (ZIP (ys,ts)) y = SOME $ EL n ts` >> rw[] >>
+    qspecl_then [`ZIP (xs,ys)`,`ZIP (xs,ts)`] mp_tac ALOOKUP_SOME_EL_2 >>
+    disch_then drule >> simp[MAP_ZIP] >> strip_tac >> gvs[EL_ZIP] >>
+    qspec_then `ZIP (ys,ts)` mp_tac ALOOKUP_ALL_DISTINCT_EL >> simp[MAP_ZIP] >>
+    disch_then drule >> simp[EL_ZIP]
+    )
+QED
+
+Theorem freshen_aux_preserves_typing:
+  (∀m (ce1:α cexp) avoid1 ce2 avoid2 ce2 ns db st env1 t env2.
+    freshen_aux m ce1 avoid1 = (ce2, avoid2) ∧
+    type_tcexp ns db st env1 (tcexp_of ce1) t ∧
+    ctxt_rel m (freevars_cexp ce1) env1 env2 ∧
+    map_ok m ∧ (∀k v. lookup m k = SOME v ⇒ explode v ∈ set_of avoid1) ∧
+    avoid_ok avoid1 ce1
+  ⇒ type_tcexp ns db st env2 (tcexp_of ce2) t) ∧
+  (∀m (ces1:α cexp list) avoid1 ces2 avoid2 ns db st env1 t env2.
+    freshen_aux_list m ces1 avoid1 = (ces2, avoid2) ∧
+    ctxt_rel m (BIGUNION $ set $ MAP freevars_cexp ces1) env1 env2 ∧
+    map_ok m ∧ (∀k v. lookup m k = SOME v ⇒ explode v ∈ set_of avoid1) ∧
+    EVERY (avoid_ok avoid1) ces1
+  ⇒ LIST_REL (λce1 ce2. ∀t.
+      type_tcexp ns db st env1 (tcexp_of ce1) t
+      ⇒ type_tcexp ns db st env2 (tcexp_of ce2) t) ces1 ces2)
+Proof
+  ho_match_mp_tac freshen_aux_ind >> rw[freshen_aux_def] >> gvs[tcexp_of_def]
+  >- ( (* Var *)
+    gvs[Once type_tcexp_cases] >> simp[Once type_tcexp_cases] >>
+    gvs[ctxt_rel_def] >> CASE_TAC >> gvs[]
+    )
+  >- ( (* Prim *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def, SF ETA_ss] >>
+    last_x_assum drule_all >> disch_then $ qspecl_then [`ns`,`db`,`st`] mp_tac >>
+    rw[LIST_REL_EL_EQN] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >>
+    gvs[LENGTH_EQ_NUM_compute, MAP_EQ_CONS, numeral_less_thm, SF DNF_ss] >>
+    rpt $ first_x_assum drule >> simp[SF SFY_ss] >>
+    rpt $ goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN, EL_MAP] >> metis_tac[]
+    )
+  >- ( (* App *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def, SF ETA_ss] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >> goal_assum $ drule_at Any >>
+    last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
+    conj_tac >- gvs[ctxt_rel_def] >>
+    last_x_assum drule >>
+    disch_then $ qspecl_then [`ns`,`db`,`st`,`env1`,`env2`] mp_tac >>
+    impl_tac >> rw[]
+    >- gvs[ctxt_rel_def]
+    >- (
+      gvs[avoid_ok_def] >> drule_all $ cj 1 freshen_aux_mono >>
+      gvs[SUBSET_DEF] >> metis_tac[]
+      )
+    >- (
+      gvs[EVERY_MEM, avoid_ok_def] >>
+      drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+      drule_all $ cj 2 freshen_aux_mono >> gvs[SUBSET_DEF] >> metis_tac[]
+      )
+    >- (imp_res_tac freshen_aux_list_LENGTH >> gvs[LIST_REL_EL_EQN, EL_MAP])
+    )
+  >- ( (* Lam *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def] >>
+    rename1 `fresh_boundvars xs m avoid1 = ((ys,m'), avoid1')` >>
+    rename1 `freshen_aux m' ce avoid1' = (ce',avoid2)` >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >> gvs[] >>
+    irule_at Any EQ_REFL >> simp[] >>
+    imp_res_tac fresh_boundvars_LENGTH >> gvs[] >>
+    first_x_assum irule >> rpt $ goal_assum $ drule_at Any >>
+    gvs[avoid_ok_def] >>
+    drule_all fresh_boundvars_varmap >> strip_tac >> simp[] >>
+    drule_all fresh_boundvars_vars >> strip_tac >> simp[] >>
+    rev_drule_all $ cj 1 freshen_aux_mono >> strip_tac >> rw[]
+    >- (
+      rw[] >> FULL_CASE_TAC >> gvs[] >- (res_tac >> simp[]) >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP] >> simp[MEM_MAP, EL_MEM]
+      )
+    >- gvs[SUBSET_DEF] >>
+    gvs[REVERSE_ZIP] >> irule ctxt_rel_extend >> simp[PULL_EXISTS] >>
+    goal_assum $ drule_at Any >> simp[] >>
+    gvs[allvars_thm, freevars_exp_of] >>
+    gvs[DISJOINT_ALT, SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> metis_tac[]
+    )
+  >- ( (* Let *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def] >>
+    rename1 `freshen_aux m' ce2 avoid3 = (ce2',avoid4)` >>
+    rename1 `fresh_boundvar x m avoid2 = ((y,_),_)` >>
+    rename1 `freshen_aux m ce1 avoid1 = (ce1',_)` >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >> gvs[] >>
+    first_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
+    first_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
+    gvs[avoid_ok_def] >>
+    rev_drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    drule_all fresh_boundvar_varmap >> strip_tac >> simp[] >>
+    drule_all fresh_boundvar_vars >> strip_tac >> simp[] >>
+    reverse $ rw[]
+    >- (
+      gvs[ctxt_rel_def] >> rw[] >> gvs[ALOOKUP_MAP] >>
+      last_x_assum $ drule_at Any >> simp[] >> TOP_CASE_TAC >> gvs[]
+      )
+    >- gvs[SUBSET_DEF]
+    >- metis_tac[SUBSET_DEF] >>
+    qspecl_then [`[x]`,`[y]`,`[new,t1]`] mp_tac ctxt_rel_extend >> simp[] >>
+    disch_then irule >> simp[PULL_EXISTS] >> qexists `m` >> rw[]
+    >- (gvs[allvars_thm, freevars_exp_of] >> gvs[SUBSET_DEF] >> metis_tac[])
+    >- (gvs[SUBSET_DEF] >> metis_tac[])
+    >- gvs[ctxt_rel_def]
+    )
+  >- ( (* Letrec *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def] >>
+    rename1 `freshen_aux m' ce avoid3 = (ce',avoid4)` >>
+    rename1 `freshen_mapM _ fns avoid2 = (fns',_)` >>
+    rename1 `fresh_boundvars _ _ _ = ((ys,_),_)` >>
+    imp_res_tac fresh_boundvars_LENGTH >>
+    imp_res_tac freshen_mapM_LENGTH >> gvs[MAP_ZIP_ALT] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >> gvs[] >>
+    goal_assum $ drule_at Any >> gvs[MAP_ZIP] >>
+    pop_assum mp_tac >> simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[GSYM FST_THM] >> strip_tac >>
+    drule_all fresh_boundvars_varmap >> strip_tac >> simp[] >>
+    drule fresh_boundvars_vars >> impl_tac >- gvs[avoid_ok_def] >> strip_tac >>
+    `vars_ok avoid3 ∧ set_of avoid2 ⊆ set_of avoid3` by (
+      qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
+      qpat_x_assum `vars_ok avoid2` mp_tac >>
+      rpt $ pop_assum kall_tac >> map_every qid_spec_tac [`fns'`,`avoid2`] >>
+      Induct_on `fns` >> simp[freshen_mapM_def, AND_IMP_INTRO] >>
+      rpt gen_tac >> strip_tac >> rpt (pairarg_tac >> gvs[]) >>
+      drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+      last_x_assum drule_all >> rw[] >> gvs[SUBSET_DEF]) >>
+    qmatch_asmsub_abbrev_tac `freevars_cexp _ ∪ bigunion` >>
+    `ctxt_rel m' (freevars_cexp ce ∪ bigunion)
+      (REVERSE (ZIP (MAP FST fns,schemes)) ++ env1)
+      (REVERSE (ZIP (ys,schemes)) ++ env2)` by (
+      imp_res_tac LIST_REL_LENGTH >> gvs[REVERSE_ZIP] >>
+      irule ctxt_rel_extend >> simp[PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> simp[] >> unabbrev_all_tac >>
+      gvs[EVERY_MEM, FORALL_PROD, avoid_ok_def, allvars_thm, freevars_exp_of] >>
+      gvs[DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD, SUBSET_DEF] >>
+      metis_tac[]) >>
+    reverse $ rw[]
+    >- (
+      last_x_assum drule >> disch_then drule >> disch_then irule >> rw[]
+      >- (
+        pop_assum mp_tac >> CASE_TAC >> strip_tac >> gvs[]
+        >- (gvs[SUBSET_DEF] >> metis_tac[]) >>
+        imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, SUBSET_DEF, MEM_MAP] >>
+        metis_tac[EL_MEM]
+        )
+      >- gvs[avoid_ok_def, SUBSET_DEF]
+      >- gvs[ctxt_rel_def]
+      )
+    >- (
+      Cases_on `fns` >> Cases_on `ys` >> Cases_on `fns'` >> gvs[]
+      ) >>
+    qpat_x_assum `LIST_REL _ _ _` mp_tac >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+    qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
+    `ctxt_rel m' bigunion
+      (REVERSE (ZIP (MAP FST fns,schemes)) ++ env1)
+      (REVERSE (ZIP (ys,schemes)) ++ env2)` by gvs[ctxt_rel_def] >>
+    rewrite_tac[GSYM MAP_APPEND] >>
+    qmatch_asmsub_abbrev_tac `ctxt_rel _ _ env1' env2'` >>
+    qpat_x_assum `ctxt_rel _ _ _ _` mp_tac >> simp[Abbr `bigunion`] >>
+    `∀k v. lookup m' k = SOME v ⇒ explode v ∈ set_of avoid2` by (
+      simp[] >> rpt gen_tac >> CASE_TAC >> strip_tac >> gvs[]
+      >- (gvs[SUBSET_DEF] >> metis_tac[]) >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, SUBSET_DEF, MEM_MAP] >>
+      metis_tac[EL_MEM]) >>
+    pop_assum mp_tac >> qpat_x_assum `map_ok m'` mp_tac >>
+    `EVERY (λ(f,ce). avoid_ok avoid2 ce) fns` by (
+      gvs[EVERY_MEM, FORALL_PROD, avoid_ok_def, SUBSET_DEF] >> metis_tac[]) >>
+    pop_assum mp_tac >> qpat_x_assum `LENGTH ys = _` mp_tac >>
+    qpat_x_assum `∀f ce1 m. MEM _ _ ⇒ _` mp_tac >>
+    rpt $ pop_assum kall_tac >> strip_tac >>
+    map_every qid_spec_tac [`fns'`,`ys`,`schemes`,`avoid2`] >>
+    Induct_on `fns` >> rw[freshen_mapM_def] >>
+    rpt (pairarg_tac >> gvs[]) >> Cases_on `ys` >> gvs[SF DNF_ss] >>
+    last_x_assum dxrule >> disch_then $ irule_at Any >>
+    last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >>
+    gvs[EVERY_MEM, avoid_ok_def] >>
+    drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    reverse $ rw[]
+    >- gvs[ctxt_rel_def]
+    >- (gvs[SUBSET_DEF] >> res_tac >> res_tac)
+    >- (pairarg_tac >> gvs[FORALL_PROD, SUBSET_DEF] >> metis_tac[])
+    >- (
+      gvs[ctxt_rel_def, ALOOKUP_MAP_3'] >> rw[] >>
+      first_x_assum $ qspec_then `x` mp_tac >> simp[] >>
+      CASE_TAC >> gvs[]
+      )
+    )
+  >- ( (* Case *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def] >>
+    rename1 `_ avoid4 = (usopt',avoid5)` >>
+    rename1 `freshen_mapM _ css avoid3 = (css',_)` >>
+    rename1 `fresh_boundvar x m avoid2 = ((y,m'),_)` >>
+    rename1 `freshen_aux m ce avoid1 = (ce',_)` >>
+    imp_res_tac fresh_boundvars_LENGTH >>
+    imp_res_tac freshen_mapM_LENGTH >> gvs[MAP_ZIP_ALT] >>
+    gvs[avoid_ok_def] >> drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    drule_all fresh_boundvar_varmap >> strip_tac >>
+    drule_all fresh_boundvar_vars >> strip_tac >>
+    qmatch_asmsub_abbrev_tac `ctxt_rel m fvs env1 env2` >>
+    `IMAGE explode fvs ⊆ set_of avoid1` by (
+      gvs[Abbr `fvs`, allvars_thm, freevars_exp_of] >>
+      simp[UNION_DELETE] >> gvs[SUBSET_DEF, PULL_EXISTS] >> rw[]
+      >- (gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> metis_tac[])
+      >- (namedCases_on `usopt` ["","us"] >> gvs[] >> PairCases_on `us` >> gvs[])) >>
+    `∀s t. s ⊆ x INSERT fvs ⇒ ctxt_rel m' s ((x,t)::env1) ((y,t)::env2)` by (
+      rw[] >> qspecl_then [`[x]`,`[y]`,`[t']`] mp_tac ctxt_rel_extend >> simp[] >>
+      disch_then irule >> simp[PULL_EXISTS] >> qexists `m` >>
+      rw[] >> gvs[SUBSET_DEF, ctxt_rel_def] >> metis_tac[]) >>
+    first_x_assum drule >> rpt $ disch_then $ drule_at Any >> strip_tac >>
+    `LIST_REL (λ(cn,pvs,ce) (cn',pvs',ce').
+      cn' = cn ∧ LENGTH pvs' = LENGTH pvs ∧ ¬MEM y pvs' ∧ ALL_DISTINCT pvs' ∧
+      (∀ts tx t. LENGTH ts = LENGTH pvs ∧
+        type_tcexp ns db st
+          (REVERSE (ZIP (pvs,ts)) ++ (x,tx)::env1) (tcexp_of ce) t
+        ⇒ type_tcexp ns db st
+            (REVERSE (ZIP (pvs',ts)) ++ (y,tx)::env2) (tcexp_of ce') t)) css css' ∧
+     vars_ok avoid4 ∧ set_of avoid3 ⊆ set_of avoid4` by (
+      qpat_x_assum `freshen_mapM _ _ _ = _` mp_tac >>
+      `explode y ∈ set_of avoid3` by simp[] >> pop_assum mp_tac >>
+      `∀s t. s ⊆ x INSERT
+        BIGUNION (set $ MAP ( λ(cn,pvs,e). freevars_cexp e DIFF set pvs) css)
+          ⇒ ctxt_rel m' s ((x,t)::env1) ((y,t)::env2)` by (
+            unabbrev_all_tac >> rw[] >>
+            first_x_assum irule >> gvs[SUBSET_DEF] >> metis_tac[]) >>
+      pop_assum mp_tac >>
+      qpat_x_assum `map_ok m'` mp_tac >>
+      `∀k v. lookup m' k = SOME v ⇒ explode v ∈ set_of avoid3` by (
+        rw[DISJ_EQ_IMP] >> gvs[SUBSET_DEF] >> metis_tac[]) >>
+      pop_assum mp_tac >>
+      qpat_x_assum `vars_ok avoid3` mp_tac >>
+      `EVERY (λ(cn,pvs,ce). set (MAP explode pvs) ⊆ set_of avoid3 ∧
+                            allvars (exp_of ce) ⊆ set_of avoid3) css` by (
+        gvs[EVERY_MEM, FORALL_PROD, SUBSET_DEF] >> metis_tac[]) >>
+      pop_assum mp_tac >>
+      qpat_x_assum `∀cn pvs c m. MEM _ _ ⇒ _` mp_tac >>
+      rpt $ pop_assum kall_tac >> strip_tac >>
+      map_every qid_spec_tac [`css'`,`avoid3`] >>
+      Induct_on `css` >> simp[freshen_mapM_def, AND_IMP_INTRO] >>
+      gen_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+      strip_tac >> rpt gen_tac >> strip_tac >>
+      last_x_assum dxrule >> strip_tac >>
+      rpt (pairarg_tac >> gvs[]) >>
+      first_x_assum $ dxrule_at $ Pat `freshen_mapM` >> strip_tac >>
+      rename1 `fresh_boundvars _ _ _ = ((_,m''),avoid3A)` >>
+      rename1 `freshen_aux _ _ _ = (_,avoid3B)` >>
+      drule_all fresh_boundvars_varmap >> strip_tac >>
+      gvs[avoid_ok_def] >> drule_all fresh_boundvars_vars >> strip_tac >>
+      imp_res_tac fresh_boundvars_LENGTH >> simp[] >>
+      drule_all $ cj 1 freshen_aux_mono >> strip_tac >> gvs[] >>
+      simp[GSYM CONJ_ASSOC] >> conj_tac
+      >- (gvs[DISJOINT_ALT, MEM_MAP, PULL_EXISTS] >> metis_tac[]) >>
+      reverse conj_tac
+      >- (
+        qpat_x_assum `_ ⇒ LIST_REL _ _ _ ∧ _` mp_tac >> impl_tac
+        >- (gvs[SUBSET_DEF, EVERY_MEM, FORALL_PROD] >> metis_tac[]) >>
+        simp[] >> strip_tac >> gvs[SUBSET_DEF]
+        ) >>
+      rw[] >> last_x_assum irule >>
+      goal_assum $ drule_at $ Pat `freshen_aux` >> simp[] >>
+      goal_assum $ drule_at Any >> rw[]
+      >- (
+        gvs[MEM_MAP] >> pop_assum mp_tac >> TOP_CASE_TAC >> strip_tac >> gvs[]
+        >- metis_tac[] >>
+        imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, EL_MEM]
+        )
+      >- gvs[SUBSET_DEF] >>
+      qpat_abbrev_tac `env1' = _::env1` >>
+      qpat_abbrev_tac `env2' = _::env2` >>
+      last_x_assum $ qspecl_then [`freevars_cexp ce DIFF set pvs`,`tx`] mp_tac >>
+      simp[SUBSET_DEF] >> strip_tac >> gvs[REVERSE_ZIP] >>
+      irule ctxt_rel_extend >> simp[PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> simp[] >>
+      gvs[EVERY_MEM, FORALL_PROD, allvars_thm, freevars_exp_of] >>
+      gvs[SUBSET_DEF, DISJOINT_ALT, MEM_MAP, PULL_EXISTS] >> metis_tac[]
+      ) >>
+    qpat_x_assum `freshen_mapM _ _ _ = _` kall_tac >>
+    qpat_x_assum `∀cn pvs e m. MEM _ _ ⇒ _` kall_tac >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    rw[Once type_tcexp_cases] >> gvs[]
+    >- ( (* BoolCase *)
+      irule type_tcexp_BoolCase >> gvs[] >> rw[]
+      >- (
+        qsuff_tac `MAP FST css = MAP FST css'` >> rw[]
+        >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
+        gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] >> rw[] >>
+        last_x_assum drule >> first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+        )
+      >- (
+        gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP] >> rw[] >>
+        ntac 2 $ (first_x_assum drule >> strip_tac) >>
+        rpt (pairarg_tac >> gvs[])
+        )
+      >- (
+        first_x_assum irule >> goal_assum $ drule_at Any >>
+        unabbrev_all_tac >> gvs[ctxt_rel_def]
+        )
+      )
+    >- ( (* TupleCase *)
+      irule type_tcexp_TupleCase >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+      irule_at Any EQ_REFL >> first_x_assum $ irule_at Any >> simp[] >>
+      first_x_assum $ irule_at Any >> simp[] >> goal_assum $ drule_at Any >>
+      unabbrev_all_tac >> gvs[ctxt_rel_def]
+      )
+    >- ( (* ExceptionCase *)
+      irule type_tcexp_ExceptionCase >> gvs[] >> rw[]
+      >- (
+        qsuff_tac `MAP FST css = MAP FST css'` >> rw[]
+        >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM] >>
+        gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] >> rw[] >>
+        last_x_assum drule >> first_x_assum drule >> rpt (pairarg_tac >> gvs[])
+        )
+      >- (
+        gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP] >> rw[] >>
+        ntac 2 $ (first_x_assum drule >> strip_tac) >>
+        rpt (pairarg_tac >> gvs[])
+        )
+      >- (
+        first_x_assum irule >> goal_assum $ drule_at Any >>
+        unabbrev_all_tac >> gvs[ctxt_rel_def]
+        )
+      )
+    >- ( (* DataCase *)
+      irule type_tcexp_Case >> gvs[] >> rpt $ goal_assum $ drule_at Any >>
+      gvs[EXISTS_PROD] >> gvs[PULL_EXISTS] >>
+      `MAP FST css = MAP FST css'` by (
+        gvs[LIST_REL_EL_EQN, MAP_EQ_EVERY2] >> rw[] >>
+        first_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+      first_x_assum $ irule_at Any >> goal_assum $ drule_at Any >> rpt conj_tac
+      >- (unabbrev_all_tac >> gvs[ctxt_rel_def])
+      >- (
+        namedCases_on `usopt` ["","us"] >> gvs[] >>
+        PairCases_on `us` >> gvs[] >> pairarg_tac >> gvs[] >>
+        last_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >> rw[]
+        >- (last_x_assum irule >> unabbrev_all_tac >> gvs[SUBSET_DEF])
+        >- gvs[SUBSET_DEF]
+        >- (gvs[SUBSET_DEF] >> metis_tac[])
+        >- gvs[SUBSET_DEF]
+        >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+        >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+        >- (Cases_on `css` >> gvs[])
+        )
+      >- (
+        reverse $ namedCases_on `usopt` ["","us"] >> gvs[]
+        >- (PairCases_on `us` >> gvs[] >> pairarg_tac >> gvs[]) >>
+        gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
+        )
+      >- (
+        gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP] >> rw[] >>
+        ntac 2 $ (first_x_assum drule >> strip_tac) >>
+        rpt (pairarg_tac >> gvs[])
+        )
+      )
+    )
+  >- ( (* NestedCase *)
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    simp[Once type_tcexp_cases]
+    )
+  >- ( (* list case *)
+    rpt (pairarg_tac >> gvs[]) >> rw[]
+    >- (
+      last_x_assum irule >> simp[PULL_EXISTS] >>
+      rpt $ goal_assum $ drule_at Any >> gvs[ctxt_rel_def]
+      ) >>
+    last_x_assum irule >> simp[PULL_EXISTS] >>
+    rpt $ goal_assum $ drule_at Any >> gvs[ctxt_rel_def] >>
+    gvs[EVERY_MEM, avoid_ok_def] >>
+    drule_all $ cj 1 freshen_aux_mono >> strip_tac >>
+    drule_all $ cj 2 freshen_aux_mono >> strip_tac >>
+    gvs[SUBSET_DEF] >> metis_tac[]
+    )
+QED
+
+
 (********** boundvars_of **********)
 
 Theorem boundvars_of_NestedCase_free:
@@ -2260,7 +2721,7 @@ QED
 (****************************** Top-level theorems ******************************)
 
 Definition avoid_set_ok_def:
-  avoid_set_ok avoid ce ⇔
+  avoid_set_ok avoid (ce:'a cexp) ⇔
     vars_ok avoid ∧
     ∀x. x ∈ freevars (exp_of ce) ∪ boundvars (exp_of ce)
       ⇒ ∃v. lookup (FST avoid) (implode x) = SOME v
@@ -2297,8 +2758,7 @@ QED
 Theorem freshen_cexp_letrecs_distinct:
   freshen_cexp e b = (e1,s) ∧ vars_ok b ∧
   letrecs_distinct (exp_of e)
-  ⇒
-  letrecs_distinct (exp_of e1)
+  ⇒ letrecs_distinct (exp_of e1)
 Proof
   rw[freshen_cexp_def] >>
   irule $ cj 1 freshen_aux_letrecs_distinct >> rpt $ goal_assum $ drule_at Any
@@ -2338,6 +2798,18 @@ Proof
   irule_at Any freshen_global_unique_boundvars >> goal_assum drule >> simp[] >>
   irule DISJOINT_SUBSET >> irule_at Any freshen_global_boundvars >>
   goal_assum drule >> gvs[avoid_ok_def, allvars_thm]
+QED
+
+Theorem freshen_cexp_preserves_typing:
+  ∀ce avoid ce' avoid' ns db st env t.
+    freshen_cexp ce avoid = (ce',avoid') ∧ avoid_set_ok avoid ce ∧
+    type_tcexp ns db st env (tcexp_of ce) t
+  ⇒ type_tcexp ns db st env (tcexp_of ce') t
+Proof
+  rw[freshen_cexp_def] >>
+  irule $ cj 1 freshen_aux_preserves_typing >>
+  rpt $ goal_assum $ drule_at Any >> gvs[avoid_set_ok_avoid_ok] >>
+  rw[ctxt_rel_def]
 QED
 
 (**********)
