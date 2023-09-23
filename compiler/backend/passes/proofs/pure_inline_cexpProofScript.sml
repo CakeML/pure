@@ -609,6 +609,14 @@ Proof
   rewrite_tac [avoid_set_ok_def] \\ metis_tac [allvars_thm]
 QED
 
+Theorem avoid_set_ok_subset_exp:
+  (allvars (exp_of e1) ⊆ allvars (exp_of e) ∪ set_of ns) ⇒
+  avoid_set_ok ns e ⇒ avoid_set_ok ns e1
+Proof
+  fs [avoid_set_ok_allvars,TO_IN_set_of,SF CONJ_ss, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem allvars_Apps:
   allvars (Apps x xs) = allvars x ∪ BIGUNION (set (MAP allvars xs))
 Proof
@@ -671,6 +679,38 @@ Proof
   \\ gvs [SF CONJ_ss] \\ metis_tac []
 QED
 
+Theorem TO_IN_set_of:
+  vars_ok ns ⇒
+  (lookup (FST ns) v = SOME () ⇔ explode v ∈ set_of ns)
+Proof
+  PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
+  \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
+QED
+
+Theorem avoid_set_ok_Let:
+  avoid_set_ok ns (Let a v e1 e2) ⇔
+  explode v ∈ set_of ns ∧
+  avoid_set_ok ns e1 ∧
+  avoid_set_ok ns e2
+Proof
+  fs [avoid_set_ok_allvars,exp_of_def,SF DNF_ss]
+  \\ Cases_on ‘vars_ok ns’ \\ fs [TO_IN_set_of]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem avoid_set_ok_Letrec:
+  avoid_set_ok ns (Letrec a xs x) ⇔
+  (set (MAP explode (MAP FST xs)) ⊆ set_of ns ∧
+   EVERY (avoid_set_ok ns) (MAP SND xs) ∧
+   avoid_set_ok ns x)
+Proof
+  fs [avoid_set_ok_allvars,exp_of_def,SF DNF_ss,MEM_MAP,PULL_EXISTS, FORALL_PROD, EVERY_MEM]
+  \\ fs [TO_IN_set_of,SUBSET_DEF,SF CONJ_ss]
+  \\ gvs [MEM_MAP,FORALL_PROD,EXISTS_PROD,EVERY_MEM,PULL_EXISTS]
+  \\ Cases_on ‘vars_ok ns’ \\ fs [TO_IN_set_of]
+  \\ metis_tac []
+QED
+
 Triviality App_Lam_to_Lets_allvars:
   App_Lam_to_Lets exp = SOME exp1 ⇒
   allvars (exp_of exp) = allvars (exp_of exp1)
@@ -689,15 +729,33 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem inline_list_length:
+  ∀es m ns c h xs ns1.
+    inline_list m ns c h es = (xs,ns1) ⇒ LENGTH es = LENGTH xs
+Proof
+  Induct \\ fs [inline_def] \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
+  \\ res_tac \\ fs []
+QED
+
+Triviality MAP2_lemma:
+  ∀vbs vbs1.
+    LENGTH vbs = LENGTH vbs1 ⇒
+    MAP FST (MAP2 (λ(v,_) x. (v,x)) vbs vbs1) = MAP FST vbs ∧
+    MAP SND (MAP2 (λ(v,_) x. (v,x)) vbs vbs1) = vbs1
+Proof
+  Induct \\ Cases_on ‘vbs1’ \\ gvs []
+  \\ PairCases \\ fs []
+QED
+
 val avoid_set_ok_lemma = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀t ns1.
     (inline m ns cl h x) = (t, ns1) ∧
-    mem_inv m ns ∧
+    mem_inv m ns ∧ map_ok m ∧
     avoid_set_ok ns x ⇒
     fake_avoid_set_ok ns1 t’
   |> Q.SPEC ‘λm ns cl h es. ∀ts ns1.
     (inline_list m ns cl h es) = (ts, ns1) ∧
-    mem_inv m ns ∧
+    mem_inv m ns ∧ map_ok m ∧
     EVERY (avoid_set_ok ns) es ⇒
     EVERY (fake_avoid_set_ok ns1) ts’
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
@@ -739,7 +797,16 @@ Proof
     \\ imp_res_tac inline_set_of \\ gvs []
     \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
     \\ imp_res_tac mem_inv_subset \\ gvs []
-    \\ cheat)
+    \\ gvs [avoid_set_ok_Let]
+    \\ ‘map_ok (heuristic_insert m h v e1)’ by
+     (Cases_on ‘heuristic_insert m h v e1 = m’ >- fs []
+      \\ fs [heuristic_insert_def,AllCaseEqs(),mlmapTheory.insert_thm])
+    \\ qsuff_tac ‘mem_inv (heuristic_insert m h v e1) ns3’
+    >- (rw [] \\ fs [] \\ metis_tac [avoid_set_ok_subset])
+    \\ Cases_on ‘heuristic_insert m h v e1 = m’ >- fs []
+    \\ fs [heuristic_insert_def,AllCaseEqs()]
+    \\ gvs [mem_inv_def,lookup_insert,mlmapTheory.lookup_insert]
+    \\ rw [] \\ res_tac \\ fs [] \\ gvs [])
   >~ [‘Lam’] >-
    (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [fake_avoid_set_ok_def]
@@ -749,8 +816,41 @@ Proof
     \\ gvs [SUBSET_DEF])
   >~ [‘Letrec’] >-
    (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
-    \\ gvs [fake_avoid_set_ok_def]
-    \\ cheat)
+    \\ gvs [fake_avoid_set_ok_def,avoid_set_ok_Letrec]
+    \\ ‘map_ok (heuristic_insert_Rec m h vbs)’ by
+     (Cases_on ‘heuristic_insert_Rec m h vbs = m’ >- fs []
+      \\ fs [heuristic_insert_Rec_def,AllCaseEqs(),mlmapTheory.insert_thm]
+      \\ rpt (CASE_TAC \\ gvs [mlmapTheory.insert_thm])) \\ fs []
+    \\ drule inline_list_length \\ fs [MAP2_lemma]
+    \\ strip_tac
+    \\ irule_at Any SUBSET_TRANS
+    \\ first_assum $ irule_at $ Pos hd
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac inline_set_of \\ gvs []
+    \\ imp_res_tac SUBSET_TRANS \\ fs []
+    \\ conj_tac
+    >- (gvs [EVERY_MEM] \\ rw [] \\ res_tac
+        \\ metis_tac [avoid_set_ok_subset,SUBSET_REFL])
+    \\ last_x_assum irule
+    \\ irule_at Any avoid_set_ok_subset \\ qexists_tac ‘ns’ \\ fs []
+    \\ drule mem_inv_subset
+    \\ disch_then $ qspec_then ‘ns1'’ mp_tac
+    \\ impl_tac >- metis_tac []
+    \\ Cases_on ‘heuristic_insert_Rec m h vbs = m’ >- fs []
+    \\ rw []
+    \\ fs [heuristic_insert_Rec_def,AllCaseEqs(),mlmapTheory.insert_thm]
+    \\ rpt (CASE_TAC \\ gvs [mlmapTheory.insert_thm])
+    \\ gvs [mem_inv_def]
+    \\ gvs [mlmapTheory.lookup_insert] \\ rw []
+    \\ res_tac \\ gvs []
+    \\ gvs [LENGTH_EQ_NUM_compute]
+    \\ ‘avoid_set_ok ns1' r’ by metis_tac [avoid_set_ok_subset]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac avoid_set_ok_subset_exp
+    \\ irule SUBSET_TRANS
+    \\ drule_then (irule_at Any) specialise_allvars
+    \\ simp_tac std_ss [SUBSET_DEF,IN_UNION,SF DNF_ss,IN_INSERT]
+    \\ gvs [])
   >~ [‘Prim’] >-
    (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [fake_avoid_set_ok_def,avoid_set_ok_Prim]
@@ -766,7 +866,7 @@ Proof
   \\ imp_res_tac inline_set_of \\ gvs []
   \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
   \\ imp_res_tac mem_inv_subset \\ gvs []
-  \\ metis_tac [avoid_set_ok_subset]
+  \\ metis_tac [avoid_set_ok_subset,SUBSET_REFL]
 QED
 
 Theorem inline_wf:
@@ -1287,7 +1387,7 @@ Proof
         \\ gvs [] \\ res_tac \\ gvs [])
       \\ rewrite_tac [GSYM fake_avoid_set_ok_def]
       \\ irule $ cj 2 inline_avoid_set_ok
-      \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+      \\ first_x_assum $ irule_at $ Pos $ el 2 \\ fs []
       \\ fs [mem_inv_def] \\ rw []
       \\ res_tac \\ gvs []
     )

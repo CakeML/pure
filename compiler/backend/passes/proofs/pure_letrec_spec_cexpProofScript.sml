@@ -677,6 +677,13 @@ Proof
   cheat
 QED
 
+Theorem specialise_allvars:
+  specialise n r = SOME x ⇒
+  allvars (exp_of x) ⊆ allvars (exp_of r) ∪ { explode n }
+Proof
+  cheat
+QED
+
 Theorem specialise_is_Lam:
   specialise f e = SOME out ⇒ ∃a vs x. out = Lam a vs x
 Proof
