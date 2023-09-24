@@ -9,6 +9,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
+     pure_demandTheory pure_letrec_delargTheory
      pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory;
 
 val _ = new_theory "pure_pres";
@@ -27,17 +28,76 @@ End
 Overload "-->" = “unidir”
 
 Inductive bidir:
+(* --- standard rules --- *)
+[~refl:]
+  (∀x.
+     bidir x x) ∧
 [~sym:]
-  (∀x y. bidir x y ⇒ bidir y x) ∧
-[~Let_dup:]
+  (∀x y.
+     bidir x y
+     ⇒
+     bidir y x) ∧
+[~trans:]
+  (∀x y.
+     bidir x y ∧
+     bidir y z
+     ⇒
+     bidir x z) ∧
+[~Lam:]
+  (∀a b vs x y.
+     bidir x y
+     ⇒
+     bidir (Lam a vs x) (Lam b vs y)) ∧
+[~Prim:]
+  (∀a b p xs ys.
+     LIST_REL bidir xs ys
+     ⇒
+     bidir (Prim a p xs) (Prim b p ys)) ∧
+[~App:]
+  (∀a b x xs y ys.
+     bidir x y ∧
+     LIST_REL bidir xs ys
+     ⇒
+     bidir (App a x xs) (App b y ys)) ∧
+[~Let:]
+  (∀a b v x x1 y y1.
+     bidir x y ∧
+     bidir x1 y1
+     ⇒
+     bidir (Let a v x x1) (Let b v y y1)) ∧
+[~Letrec:]
+  (∀a b xs x ys y.
+     LIST_REL (λx y. FST x = FST y ∧ bidir (SND x) (SND y)) xs ys ∧
+     bidir x y
+     ⇒
+     bidir (Letrec a xs x) (Letrec b ys y)) ∧
+[~Case:]
+  (∀a b x y v xs ys d e.
+     bidir x y ∧
+     LIST_REL (λ(c1,vs1,x) (c2,vs2,y).
+                c1 = c2 ∧ vs1 = vs2 ∧ bidir x y) xs ys ∧
+     OPTREL (λ(r1,x) (r2,y). r1 = r2 ∧ bidir x y) d e
+     ⇒
+     bidir (Case a x v xs d) (Case b y v ys e)) ∧
+(* --- interesting rules --- *)
+[~Let_eq_Let_Letrec:]
   (∀a b v x y.
-    explode v ∉ freevars (exp_of x) ⇒
-    bidir (Let a v x y)
-          (Let a v x (Let b v x y)))
+    explode v ∉ freevars (exp_of x)
+    ⇒
+    bidir (Letrec a [(v,x)] y)
+          (Let b v (Letrec c [(v,x)] (Var d v)) y))
 End
 
 Overload "<-->" = “bidir”
 val _ = set_fixity "<-->" (Infixl 480);
+
+Theorem bidir_refl[simp] = bidir_refl;
+
+Theorem bidir_sym:
+  ∀x y. (x <--> y) ⇔ (y <--> x)
+Proof
+  metis_tac [bidir_sym]
+QED
 
 Inductive pres:
 [~refl:]
@@ -100,6 +160,8 @@ End
 Overload "~~>" = “pres”
 val _ = set_fixity "~~>" (Infixl 480);
 
+Theorem pres_refl[simp] = pres_refl;
+
 (*----------------------------------------------------------------------------*
    Proof of preservation of semantics
  *----------------------------------------------------------------------------*)
@@ -108,16 +170,9 @@ Theorem unidir_imp_exp_eq:
   ∀x y. (x --> y) ⇒ (exp_of x ≅ exp_of y)
 Proof
   Induct_on ‘unidir’
-  \\ cheat
-QED
-
-Theorem bidir_imp_exp_eq:
-  ∀x y. (x <--> y) ⇒ (exp_of x ≅ exp_of y)
-Proof
-  Induct_on ‘bidir’
   \\ rpt strip_tac
-  >- simp [Once exp_eq_sym]
-  \\ cheat
+  \\ fs [exp_of_def]
+  >- (irule pure_demandTheory.Let_not_in_freevars \\ fs [])
 QED
 
 Triviality case_lemma:
@@ -125,6 +180,82 @@ Triviality case_lemma:
 Proof
   rw [] \\ fs []
   \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+QED
+
+Theorem bidir_imp_exp_eq:
+  ∀x y. (x <--> y) ⇒ (exp_of x ≅ exp_of y)
+Proof
+  Induct_on ‘bidir’
+  \\ rpt strip_tac
+  >- simp [exp_eq_refl]
+  >- simp [Once exp_eq_sym]
+  >- imp_res_tac exp_eq_trans
+  >~ [‘Lam’] >-
+   (gvs [exp_of_def]
+    \\ Induct_on ‘vs’ \\ fs [Lams_def] \\ rw []
+    \\ irule exp_eq_Lam_cong \\ fs [])
+  >~ [‘Prim’] >-
+   (gvs [exp_of_def]
+    \\ irule exp_eq_Prim_cong \\ fs []
+    \\ gvs [LIST_REL_MAP]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >~ [‘App’] >-
+   (gvs [exp_of_def]
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct using SNOC_INDUCT
+    >- (Cases_on ‘ys’ \\ gvs [Apps_def])
+    \\ Cases_on ‘ys’ using SNOC_CASES \\ gvs [Apps_def]
+    \\ gvs [SNOC_APPEND,Apps_append,Apps_def]
+    \\ rw []
+    \\ irule exp_eq_App_cong \\ fs [])
+  >~ [‘Let’] >-
+   (gvs [exp_of_def]
+    \\ irule exp_eq_App_cong \\ fs []
+    \\ irule exp_eq_Lam_cong \\ fs [])
+  >~ [‘Letrec’] >-
+   (gvs [exp_of_def]
+    \\ irule exp_eq_Letrec_cong \\ fs []
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ Cases_on ‘ys’ \\ fs []
+    \\ PairCases_on ‘h’ \\ PairCases \\ fs [])
+  >~ [‘Case’] >-
+   (gvs [exp_of_def]
+    \\ ‘MEM v (FLAT (MAP (FST ∘ SND) xs)) = MEM v (FLAT (MAP (FST ∘ SND) ys))’ by
+      (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+       \\ qid_spec_tac ‘ys’
+       \\ qid_spec_tac ‘xs’
+       \\ Induct \\ Cases_on ‘ys’ \\ fs []
+       \\ PairCases_on ‘h’ \\ PairCases \\ fs []
+       \\ metis_tac [])
+    \\ fs [] \\ irule case_lemma
+    \\ irule exp_eq_App_cong \\ fs []
+    \\ irule exp_eq_Lam_cong \\ fs []
+    \\ pop_assum kall_tac
+    \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ Cases_on ‘ys’ \\ fs []
+    >-
+     (fs [rows_of_def] \\ rpt (CASE_TAC \\ gvs [exp_eq_refl])
+      \\ gvs [IfDisj_def]
+      \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
+    \\ PairCases_on ‘h’ \\ PairCases \\ fs []
+    \\ strip_tac \\ gvs [rows_of_def]
+    \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+    \\ rename [‘lets_for _ _ zs’]
+    \\ Induct_on ‘zs’ \\ gvs [lets_for_def,FORALL_PROD]
+    \\ rw []
+    \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
+    \\ irule exp_eq_Lam_cong \\ fs [])
+  (* interesting rules from here onwards *)
+  >-
+   (fs [exp_of_def]
+    \\ irule Letrec_eq_Let_Letrec)
 QED
 
 Theorem pres_imp_exp_eq:
