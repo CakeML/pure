@@ -609,6 +609,17 @@ Proof
   rewrite_tac [avoid_set_ok_def] \\ metis_tac [allvars_thm]
 QED
 
+Theorem TO_IN_set_of:
+  vars_ok ns ⇒
+  (lookup (FST ns) v = SOME () ⇔ explode v ∈ set_of ns)
+Proof
+  PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
+  \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
+QED
+
+Theorem avoid_set_ok_allvars =
+  avoid_set_ok_def |> REWRITE_RULE [GSYM allvars_thm];
+
 Theorem avoid_set_ok_subset_exp:
   (allvars (exp_of e1) ⊆ allvars (exp_of e) ∪ set_of ns) ⇒
   avoid_set_ok ns e ⇒ avoid_set_ok ns e1
@@ -651,9 +662,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem avoid_set_ok_allvars =
-  avoid_set_ok_def |> REWRITE_RULE [GSYM allvars_thm];
-
 Theorem avoid_set_ok_Lam:
   avoid_set_ok ns (Lam a vs e) ⇔
   avoid_set_ok ns e ∧ set (MAP explode vs) ⊆ set_of ns
@@ -679,14 +687,6 @@ Proof
   \\ gvs [SF CONJ_ss] \\ metis_tac []
 QED
 
-Theorem TO_IN_set_of:
-  vars_ok ns ⇒
-  (lookup (FST ns) v = SOME () ⇔ explode v ∈ set_of ns)
-Proof
-  PairCases_on ‘ns’ \\ gvs [vars_ok_def,set_of_def]
-  \\ gvs [TO_FLOOKUP,mlmapTheory.lookup_thm,NOT_NONE_UNIT] \\ rw []
-QED
-
 Theorem avoid_set_ok_Let:
   avoid_set_ok ns (Let a v e1 e2) ⇔
   explode v ∈ set_of ns ∧
@@ -696,6 +696,60 @@ Proof
   fs [avoid_set_ok_allvars,exp_of_def,SF DNF_ss]
   \\ Cases_on ‘vars_ok ns’ \\ fs [TO_IN_set_of]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem allvars_if:
+  allvars (if b then Seq Fail x else x) = allvars x
+Proof
+  rw [] \\ fs []
+QED
+
+Theorem allvars_IfDisj:
+  ∀xs v e. w ∈ allvars (IfDisj v xs e) ⇒ w = explode v ∨ w ∈ allvars e
+Proof
+  Induct \\ fs [IfDisj_def,Disj_def]
+  \\ PairCases \\ fs [Disj_def] \\ metis_tac []
+QED
+
+Theorem allvars_IfDisj_alt:
+  ∀xs v e. w ∈ allvars e ⇒ w ∈ allvars (IfDisj v xs e)
+Proof
+  Induct \\ fs [IfDisj_def,Disj_def]
+  \\ PairCases \\ fs [Disj_def] \\ metis_tac []
+QED
+
+Theorem allvars_lets_for:
+  ∀xs v e c.
+    allvars (lets_for c v xs e) =
+    allvars e ∪ set (MAP (K v) xs) ∪ set (MAP SND xs)
+Proof
+  Induct  \\ fs [lets_for_def,FORALL_PROD]
+  \\ gvs [EXTENSION] \\ metis_tac []
+QED
+
+Theorem avoid_set_ok_Case:
+  avoid_set_ok ns (Case a e v rows e1) ⇔
+  explode v ∈ set_of ns ∧
+  avoid_set_ok ns e ∧
+  EVERY (λ(c,vs,x). avoid_set_ok ns x ∧ EVERY (λv. explode v ∈ set_of ns) vs) rows ∧
+  (∀vs x. e1 = SOME (vs,x) ⇒ avoid_set_ok ns x)
+Proof
+  fs [avoid_set_ok_allvars,exp_of_def,SF DNF_ss,allvars_if]
+  \\ Cases_on ‘vars_ok ns’ \\ fs [TO_IN_set_of]
+  \\ Cases_on ‘explode v ∈ set_of ns’ \\ fs []
+  \\ simp [AC CONJ_ASSOC CONJ_COMM]
+  \\ irule (METIS_PROVE [] “(a ⇒ (b ⇔ b1)) ⇒ (a ∧ b ⇔ a ∧ b1)”)
+  \\ strip_tac
+  \\ Induct_on ‘rows’ \\ fs [rows_of_def]
+  >-
+   (CASE_TAC \\ gvs [] \\ CASE_TAC \\ gvs []
+    \\ metis_tac [allvars_IfDisj,allvars_IfDisj_alt])
+  \\ fs [rows_of_def,FORALL_PROD]
+  \\ rpt gen_tac
+  \\ gvs [SF DNF_ss,allvars_lets_for]
+  \\ gvs [o_DEF,indexedListsTheory.MAPi_EQ_MAP |> SIMP_RULE std_ss [SF ETA_ss]]
+  \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
+  \\ metis_tac []
 QED
 
 Theorem avoid_set_ok_Letrec:
@@ -745,6 +799,30 @@ Triviality MAP2_lemma:
 Proof
   Induct \\ Cases_on ‘vbs1’ \\ gvs []
   \\ PairCases \\ fs []
+QED
+
+Theorem Case_lemma:
+  ∀ns ns1a ns2 ns1 bs bs2.
+    LENGTH bs = LENGTH bs2 ∧
+    set_of ns ⊆ set_of ns1a ∧
+    set_of ns1a ⊆ set_of ns2 ∧
+    set_of ns2 ⊆ set_of ns1 ∧ vars_ok ns1 ∧
+    EVERY (avoid_set_ok ns2) bs2 ∧
+    EVERY (λ(c,vs,x).
+             avoid_set_ok ns x ∧ EVERY (λv. explode v ∈ set_of ns) vs) bs
+    ⇒
+    EVERY (λ(c,vs,x).
+             avoid_set_ok ns1 x ∧ EVERY (λv. explode v ∈ set_of ns1) vs)
+          (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2)
+Proof
+  ntac 4 gen_tac
+  \\ Induct \\ Cases_on ‘bs2’ \\ fs [FORALL_PROD]
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ gvs []
+  \\ gvs [EVERY_MEM]
+  \\ irule_at Any avoid_set_ok_subset
+  \\ qexists_tac ‘ns2’ \\ fs []
+  \\ gvs [SUBSET_DEF]
 QED
 
 val avoid_set_ok_lemma = inline_ind
@@ -858,7 +936,21 @@ Proof
   >~ [‘Case’] >-
    (rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [fake_avoid_set_ok_def]
-    \\ cheat)
+    \\ rename [‘inline_list m ns1a cl h’]
+    \\ gvs [avoid_set_ok_Case]
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac inline_set_of \\ gvs []
+    \\ imp_res_tac avoid_set_ok_subset \\ gvs []
+    \\ imp_res_tac mem_inv_subset \\ gvs []
+    \\ ‘explode v ∈ set_of ns1’ by gvs [SUBSET_DEF] \\ fs []
+    \\ imp_res_tac inline_list_length \\ fs []
+    \\ ‘EVERY (avoid_set_ok ns1a) (MAP (λ(v,vs,e). e) bs)’ by
+      (gvs [EVERY_MEM,EXISTS_PROD,PULL_EXISTS,MEM_MAP]
+       \\ rw [] \\ res_tac \\ fs []
+       \\ metis_tac [avoid_set_ok_subset]) \\ fs []
+    \\ irule Case_lemma \\ gvs []
+    \\ last_x_assum $ irule_at $ Pos hd
+    \\ fs [] \\ metis_tac [SUBSET_TRANS])
   \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
   \\ gvs [fake_avoid_set_ok_def]
   \\ last_x_assum $ irule_at Any
