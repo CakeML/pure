@@ -108,12 +108,16 @@ Inductive bidir:
           (Lam c vs (Letrec d l e))) ∧
 [~Lam_append:]
   (∀a xs ys x.
-    bidir (SmartLam a (xs ++ ys) x)
-          (SmartLam a xs (SmartLam a ys x))) ∧
+    xs ≠ [] ∧ ys ≠ []
+    ⇒
+    bidir (Lam a (xs ++ ys) x)
+          (Lam a xs (Lam a ys x))) ∧
 [~App_append:]
   (∀a xs ys x.
-    bidir (SmartApp a x (xs ++ ys))
-          (SmartApp a (SmartApp a x xs) ys)) ∧
+    xs ≠ [] ∧ ys ≠ []
+    ⇒
+    bidir (App a x (xs ++ ys))
+          (App a (App a x xs) ys)) ∧
 [~Letrec_App:]
   (∀a l b e es.
     bidir (Letrec a l (App b e es))
@@ -124,7 +128,13 @@ Inductive bidir:
                         (IMAGE explode (set (MAP FST l)))) es
     ⇒
     bidir (Letrec a l (App b e es))
-          (App b (Letrec a l e) es))
+          (App b (Letrec a l e) es)) ∧
+[~Letrec_unroll:]
+  (∀a b v x l.
+    MEM (v,x) l ∧ ALL_DISTINCT (MAP FST l)
+    ⇒
+    bidir (Letrec a l (Var b v))
+          (Letrec a l x))
 End
 
 Overload "<-->" = “bidir”
@@ -330,6 +340,23 @@ Proof
     \\ irule pure_demandTheory.Letrec_not_in_freevars
     \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,IN_DISJOINT]
     \\ metis_tac [])
+  >-
+   (gvs [exp_of_def,MEM_EL]
+    \\ qspec_then ‘MAP (λ(n,x'). (explode n,exp_of x')) l’ mp_tac
+                  pure_demandTheory.Letrec_unfold \\ fs []
+    \\ gvs [EL_MAP] \\ disch_then drule \\ fs []
+    \\ disch_then $ qspec_then ‘T’ mp_tac
+    \\ impl_tac
+    >-
+     (gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+      \\ pop_assum mp_tac
+      \\ qmatch_goalsub_abbrev_tac ‘_ xs ⇒ _ ys’
+      \\ qsuff_tac ‘xs = MAP implode ys’ \\ gvs []
+      >- metis_tac [ALL_DISTINCT_MAP]
+      \\ unabbrev_all_tac \\ rpt $ pop_assum kall_tac
+      \\ Induct_on ‘l’ \\ gvs [] \\ PairCases \\ fs [])
+    \\ qpat_x_assum ‘_ = EL _ _’ $ assume_tac o GSYM
+    \\ simp [])
 QED
 
 Theorem pres_imp_exp_eq:
@@ -549,6 +576,7 @@ Proof
       simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
       )
     )
+  >- cheat
   >- cheat
   >- cheat
   >- cheat
