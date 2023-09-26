@@ -201,6 +201,29 @@ Proof
     )
 QED
 
+Theorem tcexp_of_invert:
+  (∀x. tcexp_of ce = Var x ⇔ ∃d. ce = Var d x) ∧
+  (∀op tces. tcexp_of ce = Prim op tces ⇔
+    ∃d ces. ce = Prim d op ces ∧ MAP tcexp_of ces = tces) ∧
+  (∀x tce1 tce2. tcexp_of ce = Let x tce1 tce2 ⇔
+    ∃d ce1 ce2. ce = Let d x ce1 ce2 ∧ tcexp_of ce1 = tce1 ∧ tcexp_of ce2 = tce2) ∧
+  (∀tce tces. tcexp_of ce = App tce tces ⇔
+    ∃d ce' ces. ce = App d ce' ces ∧ tcexp_of ce' = tce ∧ MAP tcexp_of ces = tces) ∧
+  (∀xs tce. tcexp_of ce = Lam xs tce ⇔
+    (∃d ce'. ce = Lam d xs ce' ∧ tcexp_of ce' = tce) ∨
+    (∃d ce' x p pce pces. ce = NestedCase d ce' x p pce pces ∧ xs = [] ∧ tce = ARB)) ∧
+  (∀tfns tce. tcexp_of ce = Letrec tfns tce ⇔
+    ∃d fns ce'. ce = Letrec d fns ce' ∧
+      tcexp_of ce' = tce ∧ MAP (λ(f,ce). (f,tcexp_of ce)) fns = tfns) ∧
+  (∀tce x tcss tusopt. tcexp_of ce = pure_tcexp$Case tce x tcss tusopt ⇔
+    ∃d ce' css usopt. ce = pure_cexp$Case d ce' x css usopt ∧
+      tcexp_of ce' = tce ∧ MAP (λ(cn,pvs,ce). (cn,pvs,tcexp_of ce)) css = tcss ∧
+      OPTION_MAP (λ(cn_ars,ce). (cn_ars, tcexp_of ce)) usopt = tusopt)
+Proof
+  Induct_on `ce` using freevars_cexp_ind >> rw[] >> gvs[tcexp_of_def, SF ETA_ss] >>
+  eq_tac >> rw[]
+QED
+
 
 (********************)
 
