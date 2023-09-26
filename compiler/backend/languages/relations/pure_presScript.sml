@@ -5,7 +5,8 @@
 open HolKernel Parse boolLib bossLib term_tactic;
 open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
+     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
+     combinTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
@@ -13,6 +14,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
      pure_tcexpTheory pure_tcexp_lemmasTheory
      pure_typingTheory pure_typingPropsTheory;
+
 
 val exp_of_def = pureLangTheory.exp_of_def;
 val rows_of_def = pureLangTheory.rows_of_def;
@@ -92,7 +94,37 @@ Inductive bidir:
     explode v ∉ freevars (exp_of x)
     ⇒
     bidir (Letrec a [(v,x)] y)
-          (Let b v (Letrec c [(v,x)] (Var d v)) y))
+          (Let b v (Letrec c [(v,x)] (Var d v)) y)) ∧
+[~App_Lam:]
+  (∀a b c vs x.
+    bidir (App a (Lam b vs x) (MAP (Var c) vs))
+          x) ∧
+[~Letrec_Lam:]
+  (∀a b c d vs l e.
+    EVERY (λ(v,e). DISJOINT (IMAGE explode (set vs)) (freevars (exp_of e)) ∧
+                   ~MEM v vs) l
+    ⇒
+    bidir (Letrec a l (Lam b vs e))
+          (Lam c vs (Letrec d l e))) ∧
+[~Lam_append:]
+  (∀a xs ys x.
+    bidir (SmartLam a (xs ++ ys) x)
+          (SmartLam a xs (SmartLam a ys x))) ∧
+[~App_append:]
+  (∀a xs ys x.
+    bidir (SmartApp a x (xs ++ ys))
+          (SmartApp a (SmartApp a x xs) ys)) ∧
+[~Letrec_App:]
+  (∀a l b e es.
+    bidir (Letrec a l (App b e es))
+          (App b (Letrec a l e) (MAP (Letrec a l) es))) ∧
+[~Letrec_App_forget:]
+  (∀a b l e es.
+    EVERY (λe. DISJOINT (freevars (exp_of e))
+                        (IMAGE explode (set (MAP FST l)))) es
+    ⇒
+    bidir (Letrec a l (App b e es))
+          (App b (Letrec a l e) es))
 End
 
 Overload "<-->" = “bidir”
@@ -263,6 +295,41 @@ Proof
   >-
    (fs [exp_of_def]
     \\ irule Letrec_eq_Let_Letrec)
+  >-
+   (fs [exp_of_def,MAP_MAP_o,o_DEF]
+    \\ ‘MAP (λx. Var (explode x) : exp) vs = MAP Var (MAP explode vs)’ by
+          fs [MAP_MAP_o,o_DEF]
+    \\ simp [Apps_Lams_Vars])
+  >-
+   (Induct_on ‘vs’ \\ gvs [exp_of_def,Lams_def,exp_eq_refl]
+    \\ rw [] \\ irule exp_eq_trans
+    \\ irule_at (Pos last) exp_eq_Lam_cong
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ gvs [EVERY_MEM,FORALL_PROD]
+    \\ conj_tac >- metis_tac []
+    \\ irule pure_demandTheory.Letrec_Lam_weak
+    \\ gvs [EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]
+    \\ metis_tac [])
+  >-
+   (gvs [exp_of_def,Lams_append,exp_eq_refl])
+  >-
+   (gvs [exp_of_def,Apps_append,exp_eq_refl])
+  >-
+   (gvs [exp_of_def,MAP_MAP_o,o_DEF]
+    \\ rw [] \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) pure_demandTheory.Letrec_Apps
+    \\ gvs [exp_of_def,MAP_MAP_o,o_DEF,exp_eq_refl])
+  >-
+   (gvs [exp_of_def,MAP_MAP_o,o_DEF]
+    \\ rw [] \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) pure_demandTheory.Letrec_Apps
+    \\ gvs [exp_of_def,MAP_MAP_o,o_DEF,exp_eq_refl]
+    \\ irule pure_demandTheory.exp_eq_Apps_cong
+    \\ fs [exp_eq_refl,LIST_REL_MAP,LIST_REL_same]
+    \\ gvs [EVERY_MEM] \\ rw [] \\ res_tac
+    \\ irule pure_demandTheory.Letrec_not_in_freevars
+    \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,IN_DISJOINT]
+    \\ metis_tac [])
 QED
 
 Theorem pres_imp_exp_eq:
@@ -482,6 +549,12 @@ Proof
       simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
       )
     )
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
+  >- cheat
 QED
 
 Theorem pres_preserves_typing:
