@@ -1,5 +1,5 @@
 (*
-   This theorey defines a syntactic relation that preserves both semantics
+   This theory defines a syntactic relation that preserves both semantics
    and typing.
 *)
 open HolKernel Parse boolLib bossLib term_tactic;
@@ -89,10 +89,8 @@ Inductive bidir:
      ⇒
      bidir (Case a x v xs d) (Case b y v ys e)) ∧
 (* --- interesting rules --- *)
-[~Let_eq_Let_Letrec:]
+[~Letrec_eq_Let_Letrec:]
   (∀a b v x y.
-    explode v ∉ freevars (exp_of x)
-    ⇒
     bidir (Letrec a [(v,x)] y)
           (Let b v (Letrec c [(v,x)] (Var d v)) y)) ∧
 [~App_Lam:]
@@ -534,7 +532,7 @@ Proof
     )
 
 (* Interesting cases *)
-  >- (
+  >- cheat (* (
     eq_tac >> rw[]
     >- (
       pop_assum mp_tac >> rw[Once type_tcexp_cases] >> pairarg_tac >> gvs[] >>
@@ -575,7 +573,7 @@ Proof
       simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
       simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
       )
-    )
+    ) *)
   >- cheat
   >- cheat
   >- cheat
