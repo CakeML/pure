@@ -10,7 +10,14 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
      pure_demandTheory pure_letrec_delargTheory
-     pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory;
+     pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
+     pure_tcexpTheory pure_tcexp_lemmasTheory
+     pure_typingTheory pure_typingPropsTheory;
+
+val exp_of_def = pureLangTheory.exp_of_def;
+val rows_of_def = pureLangTheory.rows_of_def;
+val lets_for_def = pureLangTheory.lets_for_def;
+val freevars_exp_of = pure_cexp_lemmasTheory.freevars_exp_of
 
 val _ = new_theory "pure_pres";
 
@@ -334,5 +341,222 @@ QED
 (*----------------------------------------------------------------------------*
    Proof of preservation of typing
  *----------------------------------------------------------------------------*)
+
+Theorem unidir_preserves_typing:
+  ∀x y ns db st env t.
+    (x --> y) ∧
+    type_tcexp ns db st env (tcexp_of x) t
+  ⇒ type_tcexp ns db st env (tcexp_of y) t
+Proof
+  Induct_on `unidir` >> rw[] >>
+  drule $ SRULE [] type_tcexp_NestedCase_free >> strip_tac >> gvs[tcexp_of_def] >>
+  gvs[Once type_tcexp_cases] >>
+  irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+  simp[freevars_tcexp_of] >> gvs[freevars_exp_of] >>
+  rw[] >> gvs[]
+QED
+
+Theorem bidir_preserves_typing:
+  ∀x y ns db st env t.
+    (x <--> y) ∧ namespace_ok ns
+  ⇒ (type_tcexp ns db st env (tcexp_of x) t ⇔ type_tcexp ns db st env (tcexp_of y) t)
+Proof
+  Induct_on `bidir` >> rw[] >> gvs[tcexp_of_def]
+
+(* Boilerplate cases *)
+  >- ( (* Lam *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[]
+    )
+  >- ( (* Prim *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP] >>
+    eq_tac >> rw[] >>
+    gvs[MAP_EQ_CONS, LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
+    metis_tac[]
+    )
+  >- ( (* App *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >> gvs[LIST_REL_EL_EQN, EL_MAP]
+    )
+  >- ( (* Let *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[]
+    )
+  >- ( (* Letrec *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >> gvs[miscTheory.map_fst] >>
+    `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP] >> eq_tac >> rw[] >> gvs[] >>
+    irule_at Any EQ_REFL >> simp[] >> rw[]
+    >- (rpt (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[]))
+    >- (Cases_on `ys` >> gvs[])
+    >- (rpt (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[]))
+    >- (Cases_on `xs` >> gvs[])
+    )
+  >- ( (* Case *)
+    `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY] >>
+    eq_tac >> rw[Once type_tcexp_cases] >> gvs[]
+    >- (
+      irule type_tcexp_BoolCase >> gvs[OPTREL_def] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
+      )
+    >- (
+      rpt (pairarg_tac >> gvs[]) >>
+      irule type_tcexp_TupleCase >> gvs[OPTREL_def] >>
+      irule_at Any EQ_REFL >> gvs[]
+      )
+    >- (
+      irule type_tcexp_ExceptionCase >> gvs[OPTREL_def] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
+      )
+    >- (
+      irule type_tcexp_Case >> gvs[] >>
+      rpt $ goal_assum $ drule_at Any >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss] >>
+      gvs[OPTREL_def] >> Cases_on `ys` >> gvs[]
+      )
+    >- (
+      irule type_tcexp_BoolCase >> gvs[OPTREL_def] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
+      )
+    >- (
+      rpt (pairarg_tac >> gvs[]) >>
+      irule type_tcexp_TupleCase >> gvs[OPTREL_def] >>
+      irule_at Any EQ_REFL >> gvs[]
+      )
+    >- (
+      irule type_tcexp_ExceptionCase >> gvs[OPTREL_def] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
+      )
+    >- (
+      irule type_tcexp_Case >> gvs[] >>
+      rpt $ goal_assum $ drule_at Any >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss] >>
+      gvs[OPTREL_def] >> Cases_on `xs` >> gvs[]
+      )
+    )
+
+(* Interesting cases *)
+  >- (
+    eq_tac >> rw[]
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >> pairarg_tac >> gvs[] >>
+      irule type_tcexp_Let >> irule_at Any type_tcexp_Letrec >>
+      irule_at Any type_tcexp_Var >> simp[PULL_EXISTS, EXISTS_PROD] >>
+      goal_assum $ drule_at Any >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      rev_dxrule type_tcexp_env_extensional >>
+      gvs[freevars_tcexp_of, freevars_exp_of] >>
+      disch_then $ qspec_then `tshift_env vars env` mp_tac >>
+      impl_tac >> rw[] >> gvs[] >>
+      qexistsl [`0`,`scheme`] >> simp[] >>
+      qmatch_goalsub_abbrev_tac `MAP f (MAP _ _)` >>
+      `f = I` by (unabbrev_all_tac >> rw[FUN_EQ_THM, ELIM_UNCURRY]) >>
+      gvs[] >> pop_assum kall_tac >> rw[]
+      >- simp[specialises_def] >>
+      irule type_tcexp_env_extensional >> qexists `tshift_env vars env` >>
+      gvs[freevars_tcexp_of] >> rw[] >> gvs[]
+      )
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      qpat_x_assum `type_tcexp _ _ _ _ (Letrec _ _) _` mp_tac >>
+      rw[Once type_tcexp_cases] >> gvs[] >>
+      qpat_x_assum `type_tcexp _ _ _ _ (Var _) _` mp_tac >>
+      rw[Once type_tcexp_cases] >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+      irule type_tcexp_Letrec >> simp[PULL_EXISTS, EXISTS_PROD] >>
+      goal_assum $ drule_at $ Pos last >> rw[]
+      >- (gvs[specialises_def] >> irule type_ok_subst_db >> simp[]) >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      dxrule type_tcexp_env_extensional >>
+      gvs[freevars_tcexp_of, freevars_exp_of] >>
+      disch_then $ qspec_then `tshift_env vars (tshift_env new env)` mp_tac >>
+      impl_tac >> rw[] >> gvs[] >>
+      irule type_tcexp_env_extensional >>
+      qexists `tshift_env new env` >> simp[freevars_tcexp_of] >> rw[] >> gvs[] >>
+      gvs[specialises_def] >>
+      dxrule type_tcexp_subst_db >> disch_then $ qspecl_then [`0`,`subs`] mp_tac >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
+      )
+    )
+QED
+
+Theorem pres_preserves_typing:
+  namespace_ok ns ⇒
+  ∀x y db st env t.
+    (x ~~> y) ∧
+    type_tcexp ns db st env (tcexp_of x) t
+  ⇒ type_tcexp ns db st env (tcexp_of y) t
+Proof
+  strip_tac >> Induct_on `pres` >> rw[] >> gvs[tcexp_of_def]
+  >- ( (* unidir *)
+    drule_all unidir_preserves_typing >> simp[]
+    )
+  >- ( (* bidir *)
+    drule_all bidir_preserves_typing >> strip_tac >> gvs[]
+    ) >>
+
+  (* Boilerplate cases *)
+  qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac
+  >- ( (* Lam *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >>
+    metis_tac[]
+    )
+  >- ( (* Prim *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+    gvs[MAP_EQ_CONS, LENGTH_EQ_NUM_compute, numeral_less_thm, SF DNF_ss] >>
+    metis_tac[]
+    )
+  >- ( (* App *)
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP] >>
+    metis_tac[]
+    )
+  >- ( (* Let *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >> metis_tac[]
+    )
+  >- ( (* Letrec *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >> gvs[miscTheory.map_fst] >>
+    `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >> gvs[] >>
+    irule_at Any EQ_REFL >> simp[] >> rw[]
+    >- (rpt (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[]))
+    >- (Cases_on `ys` >> gvs[])
+    )
+  >- ( (* Case *)
+    `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY] >>
+    rw[Once type_tcexp_cases] >> gvs[]
+    >- (
+      irule type_tcexp_BoolCase >> gvs[OPTREL_def] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
+      )
+    >- (
+      rpt (pairarg_tac >> gvs[]) >>
+      irule type_tcexp_TupleCase >> gvs[OPTREL_def] >>
+      irule_at Any EQ_REFL >> gvs[]
+      )
+    >- (
+      irule type_tcexp_ExceptionCase >> gvs[OPTREL_def] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss] >>
+      metis_tac[]
+      )
+    >- (
+      irule type_tcexp_Case >> gvs[] >>
+      rpt $ goal_assum $ drule_at Any >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL, EL_MAP,
+          MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss] >>
+      gvs[OPTREL_def] >- metis_tac[] >>
+      conj_tac >- (Cases_on `ys` >> gvs[])
+      >- metis_tac[]
+      )
+    )
+QED
+
+(**********)
 
 val _ = export_theory ();
