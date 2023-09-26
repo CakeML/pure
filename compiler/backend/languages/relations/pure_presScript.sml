@@ -36,6 +36,58 @@ End
 
 Overload "-->" = “unidir”
 
+(* used by specialise rule in bidir below *)
+Inductive spec_arg:
+[~Apps_Var:]
+  (∀f vs v ws xs1 xs2 ys1 ys2 c d.
+    LENGTH xs1 = LENGTH vs ∧
+    LENGTH ys1 = LENGTH ws ∧
+    LIST_REL (spec_arg f vs v ws) xs1 xs2 ∧
+    LIST_REL (spec_arg f vs v ws) ys1 ys2 ⇒
+    spec_arg f vs v ws (App c (Var a f) (xs1 ++ [Var b v] ++ ys1))
+                       (App d (Var a f) (xs2 ++ ys2))) ∧
+[~Var:]
+  (∀f vs v ws n a b.
+    n ≠ f ⇒
+    spec_arg f vs v ws (Var a n) (Var b n :'a cexp)) ∧
+[~Lam:]
+  (∀f vs v ws ns x y a b.
+    spec_arg f vs v ws x y ∧
+    ~MEM v ns ∧ ~MEM f ns ⇒
+    spec_arg f vs v ws (Lam a ns x) (Lam b ns y)) ∧
+[~Let:]
+  (∀f vs v ws x1 x2 y1 y2 n.
+    spec_arg f vs v ws x1 x2 ∧
+    spec_arg f vs v ws y1 y2 ∧
+    n ≠ v ∧ n ≠ f ⇒
+    spec_arg f vs v ws (Let a n x1 y1) (Let b n x2 y2)) ∧
+[~App:]
+  (∀f vs v ws f1 g1 xs ys a b.
+    spec_arg f vs v ws f1 g1 ∧
+    LIST_REL (spec_arg f vs v ws) xs ys ⇒
+    spec_arg f vs v ws (App a f1 xs) (App b g1 ys)) ∧
+[~Prim:]
+  (∀f vs v ws n xs ys a b.
+    LIST_REL (spec_arg f vs v ws) xs ys ⇒
+    spec_arg f vs v ws (Prim a n xs) (Prim b n ys)) ∧
+[~Letrec:]
+  (∀f vs v ws x y xs ys a b.
+    LIST_REL (spec_arg f vs v ws) (MAP SND xs) (MAP SND ys) ∧
+    DISJOINT {v; f} (set (MAP FST xs)) ∧
+    MAP FST xs = MAP FST ys ∧
+    spec_arg f vs v ws x y ⇒
+    spec_arg f vs v ws (Letrec a xs x) (Letrec b ys y)) ∧
+[~Case:]
+  (∀f vs v ws x y xs ys a b d e.
+    LIST_REL (spec_arg f vs v ws) (MAP (SND o SND) xs) (MAP (SND o SND) ys) ∧
+    MAP FST xs = MAP FST ys ∧
+    MAP (FST o SND) xs = MAP (FST o SND) ys ∧
+    spec_arg f vs v ws x y ∧ z ≠ v ∧ z ≠ f ∧
+    EVERY (λ(c,ns,e). ~MEM v ns ∧ ~MEM f ns) xs ∧
+    OPTREL (λ(x,e1) (y,e2). x = y ∧ spec_arg f vs v ws e1 e2) d e ⇒
+    spec_arg f vs v ws (Case a x z xs d) (Case b y z ys e))
+End
+
 Inductive bidir:
 (* --- standard rules --- *)
 [~refl:]
@@ -132,7 +184,17 @@ Inductive bidir:
     MEM (v,x) l ∧ ALL_DISTINCT (MAP FST l)
     ⇒
     bidir (Letrec a l (Var b v))
-          (Letrec a l x))
+          (Letrec a l x)) ∧
+[~specialise:]
+  (∀f vs v ws rhs1 rhs2 a b c d e h rs.
+     spec_arg f vs v ws rhs1 rhs2 ∧
+     (vs = [] ⇒ ws ≠ []) ∧ ALL_DISTINCT (f::v::vs ++ ws) ∧
+     set vs ∪ {v} ∪ set ws ⊆ set rs
+     ⇒
+     bidir (Lam h rs $ Letrec a [(f,Lam e (vs ++ [v] ++ ws) rhs1)]
+                         (App b (Var c f) (MAP (Var d) (vs ++ [v] ++ ws))))
+           (Lam h rs $ Letrec a [(f,Lam e (vs ++ ws) rhs2)]
+                         (App b (Var c f) (MAP (Var d) (vs ++ ws)))))
 End
 
 Overload "<-->" = “bidir”
@@ -227,6 +289,124 @@ Triviality case_lemma:
 Proof
   rw [] \\ fs []
   \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+QED
+
+Theorem can_spec_arg_if_lemma[local]:
+  can_spec_arg f vs v ws x y ⇒
+  can_spec_arg f vs v ws (if b then Seq Fail x else x)
+                         (if b then Seq Fail y else y)
+Proof
+  rw [] \\ irule can_spec_arg_Prim \\ fs []
+  \\ irule can_spec_arg_Prim \\ fs []
+QED
+
+Theorem can_spec_arg_Disj[local]:
+  f ≠ z ⇒ can_spec_arg f vs v ws (Disj z xs) (Disj z xs)
+Proof
+  Induct_on ‘xs’ \\ fs [Disj_def] \\ rw []
+  >- (irule can_spec_arg_Prim \\ fs [])
+  \\ PairCases_on ‘h’ \\ gvs [Disj_def]
+  \\ irule can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Var \\ fs []
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+QED
+
+Theorem can_spec_arg_lets_for[local]:
+  ∀xs x y z w.
+    can_spec_arg f vs v ws x y ∧ ¬MEM v (MAP SND xs) ∧ ¬MEM f (MAP SND xs) ∧ w ≠ f ⇒
+    can_spec_arg f vs v ws (lets_for z w xs x) (lets_for z w xs y)
+Proof
+  Induct \\ rpt PairCases \\ fs [lets_for_def] \\ rw []
+  \\ irule can_spec_arg_App \\ fs []
+  \\ irule_at Any can_spec_arg_Prim \\ fs []
+  \\ irule_at Any can_spec_arg_Var \\ fs []
+  \\ irule can_spec_arg_Lam \\ fs []
+QED
+
+Theorem spec_arg_IMP_can_spec_arg:
+  ∀f vs v ws x y.
+    spec_arg f vs v ws x y ⇒
+    can_spec_arg (explode f)
+                 (MAP explode vs) (explode v)
+                 (MAP explode ws) (exp_of x) (exp_of y)
+Proof
+  Induct_on ‘spec_arg’ \\ rw []
+  >-
+   (fs [SF ETA_ss,exp_of_def]
+    \\ irule $ (can_spec_arg_Apps_Var |> SIMP_RULE std_ss [mk_apps_def,APPEND_NIL])
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ gvs [LIST_REL_MAP] \\ rw []
+    \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+    \\ fs [])
+  >~ [‘Var’] >-
+   (fs [exp_of_def] \\ irule can_spec_arg_Var \\ fs [])
+  >~ [‘Lam’] >-
+   (Induct_on ‘ns’ \\ fs [exp_of_def,Lams_def]
+    \\ rw [] \\ irule can_spec_arg_Lam \\ fs [])
+  >~ [‘Let’] >-
+   (gvs [exp_of_def]
+    \\ irule can_spec_arg_App \\ fs []
+    \\ irule can_spec_arg_Lam \\ fs [])
+  >~ [‘App’] >-
+   (pop_assum mp_tac \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘y’
+    \\ qid_spec_tac ‘x’
+    \\ qid_spec_tac ‘ys’
+    \\ Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [Apps_def,exp_of_def]
+    \\ rw []
+    \\ last_x_assum $ drule_at $ Pos last
+    \\ disch_then $ qspecl_then [‘App ARB x' [h']’,‘App ARB y' [h]’] mp_tac
+    \\ gvs [exp_of_def,Apps_def]
+    \\ disch_then irule
+    \\ irule can_spec_arg_App \\ fs [])
+  >~ [‘Prim’] >-
+   (gvs [exp_of_def,SF ETA_ss]
+    \\ irule can_spec_arg_Prim \\ fs [LIST_REL_MAP]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [])
+  >~ [‘Letrec’] >-
+   (gvs [exp_of_def,SF ETA_ss]
+    \\ irule can_spec_arg_Letrec \\ fs [LIST_REL_MAP]
+    \\ gvs [MEM_MAP,MAP_MAP_o,o_DEF,FORALL_PROD] \\ fs [LAMBDA_PROD]
+    \\ rewrite_tac [CONJ_ASSOC]
+    \\ conj_tac
+    >-
+     (qpat_x_assum ‘MAP FST _ = MAP FST _’ mp_tac
+      \\ qpat_x_assum ‘∀x. bb’ mp_tac
+      \\ qpat_x_assum ‘∀x. bb’ mp_tac
+      \\ qid_spec_tac ‘ys’
+      \\ qid_spec_tac ‘xs’ \\ rpt $ pop_assum kall_tac
+      \\ Induct \\ Cases_on ‘ys’
+      \\ gvs [] \\ PairCases_on ‘h’ \\ PairCases \\ gvs [UNCURRY]
+      \\ metis_tac [])
+    \\ last_x_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [FORALL_PROD])
+  >~ [‘Case’] >-
+   (gvs [exp_of_def]
+    \\ irule can_spec_arg_if_lemma
+    \\ irule can_spec_arg_App \\ fs []
+    \\ irule can_spec_arg_Lam \\ fs []
+    \\ qpat_x_assum ‘EVERY _ _’ mp_tac
+    \\ rpt $ qpat_x_assum ‘MAP _ _ = _’ mp_tac
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac ‘ys’
+    \\ qid_spec_tac ‘xs’
+    \\ Induct \\ Cases_on ‘ys’ \\ gvs [rows_of_def]
+    >-
+     (Cases_on ‘d’ \\ Cases_on ‘e’ \\ gvs []
+      >- (irule can_spec_arg_Prim \\ fs [])
+      \\ rpt (CASE_TAC \\ gvs [IfDisj_def])
+      \\ irule can_spec_arg_Prim \\ fs []
+      \\ irule_at Any can_spec_arg_Prim \\ fs []
+      \\ irule can_spec_arg_Disj \\ fs [])
+    \\ PairCases_on ‘h’ \\ PairCases \\ gvs [rows_of_def]
+    \\ rw []
+    \\ irule can_spec_arg_Prim \\ fs []
+    \\ irule_at Any can_spec_arg_Prim \\ fs []
+    \\ irule_at Any can_spec_arg_Var \\ fs []
+    \\ irule can_spec_arg_lets_for \\ fs []
+    \\ gvs [o_DEF,MEM_MAP])
 QED
 
 Theorem bidir_imp_exp_eq:
@@ -355,6 +535,17 @@ Proof
       \\ Induct_on ‘l’ \\ gvs [] \\ PairCases \\ fs [])
     \\ qpat_x_assum ‘_ = EL _ _’ $ assume_tac o GSYM
     \\ simp [])
+  >~ [‘spec_arg’] >-
+   (gvs [exp_of_def,SF ETA_ss,MAP_MAP_o,o_DEF]
+    \\ irule exp_eq_Lams_cong
+    \\ drule_then assume_tac spec_arg_IMP_can_spec_arg
+    \\ drule letrec_spec_delarg \\ fs [MEM_MAP]
+    \\ gvs [exp_of_def,SF ETA_ss,MAP_MAP_o,o_DEF]
+    \\ disch_then irule
+    \\ qpat_x_assum ‘ALL_DISTINCT _’ mp_tac
+    \\ rewrite_tac [GSYM MAP_APPEND]
+    \\ qabbrev_tac ‘xs = vs ++ ws’
+    \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [])
 QED
 
 Theorem pres_imp_exp_eq:
@@ -574,6 +765,7 @@ Proof
       simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
       )
     ) *)
+  >- cheat
   >- cheat
   >- cheat
   >- cheat
