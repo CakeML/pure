@@ -194,7 +194,21 @@ Inductive bidir:
      bidir (Lam h rs $ Letrec a [(f,Lam e (vs ++ [v] ++ ws) rhs1)]
                          (App b (Var c f) (MAP (Var d) (vs ++ [v] ++ ws))))
            (Lam h rs $ Letrec a [(f,Lam e (vs ++ ws) rhs2)]
-                         (App b (Var c f) (MAP (Var d) (vs ++ ws)))))
+                         (App b (Var c f) (MAP (Var d) (vs ++ ws))))) ∧
+[~Let_Let_Let:]
+  (∀v w x y e a.
+     v ≠ w ∧
+     explode w ∉ freevars (exp_of x) ∧
+     explode v ∉ freevars (exp_of x)
+     ⇒
+     bidir (Let a v x (Let a v x (Let a w y e)))
+           (Let a v x (Let a w y (Let a v x e)))) ∧
+[~Let_dup:]
+  (∀v x e a.
+     explode v ∉ freevars (exp_of x)
+     ⇒
+     bidir (Let a v x e)
+           (Let a v x (Let a v x e)))
 End
 
 Overload "<-->" = “bidir”
@@ -546,6 +560,12 @@ Proof
     \\ rewrite_tac [GSYM MAP_APPEND]
     \\ qabbrev_tac ‘xs = vs ++ ws’
     \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [])
+  >~ [‘Let a v x (Let a v x (Let a w y e))’] >-
+   (gvs [exp_of_def]
+    \\ irule pure_inlineTheory.Let_Let_copy \\ fs [])
+  >~ [‘exp_of (Let a v x e) ≅ exp_of (Let a v x (Let a v x e))’] >-
+   (gvs [exp_of_def] \\ simp [Once exp_eq_sym]
+    \\ irule pure_inlineTheory.Let_dup \\ fs [])
 QED
 
 Theorem pres_imp_exp_eq:
@@ -765,14 +785,7 @@ Proof
       simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
       )
     ) *)
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
+  \\ cheat
 QED
 
 Theorem pres_preserves_typing:
