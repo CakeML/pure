@@ -142,9 +142,12 @@ Inductive bidir:
      bidir (Case a x v xs d) (Case b y v ys e)) ∧
 (* --- interesting rules --- *)
 [~Letrec_eq_Let_Letrec:]
+  (* typing: neither direction proved - needs to reconcile differing polymorphism *)
   (∀a b v x y.
     bidir (Letrec a [(v,x)] y)
           (Let b v (Letrec c [(v,x)] (Var d v)) y)) ∧
+  (* typing: => direction proved
+             <= direction has mismatching free variables *)
 [~App_Lam:]
   (∀a b c vs x.
     bidir (App a (Lam b vs x) (MAP (Var c) vs))
@@ -169,6 +172,8 @@ Inductive bidir:
     bidir (App a x (xs ++ ys))
           (App a (App a x xs) ys)) ∧
 [~Letrec_App:]
+  (* typing: => direction proved
+             <= direction needs to reconcile differing polymorphism *)
   (∀a l b e es.
     bidir (Letrec a l (App b e es))
           (App b (Letrec a l e) (MAP (Letrec a l) es))) ∧
@@ -180,12 +185,15 @@ Inductive bidir:
     bidir (Letrec a l (App b e es))
           (App b (Letrec a l e) es)) ∧
 [~Letrec_unroll:]
+  (* typing: => direction proved
+             <= direction needs to reconcile differing polymorphism *)
   (∀a b v x l.
     MEM (v,x) l ∧ ALL_DISTINCT (MAP FST l)
     ⇒
     bidir (Letrec a l (Var b v))
           (Letrec a l x)) ∧
 [~specialise:]
+  (* typing not yet attempted *)
   (∀f vs v ws rhs1 rhs2 a b c d e h rs.
      spec_arg f vs v ws rhs1 rhs2 ∧
      (vs = [] ⇒ ws ≠ []) ∧ ALL_DISTINCT (f::v::vs ++ ws) ∧
@@ -196,6 +204,8 @@ Inductive bidir:
            (Lam h rs $ Letrec a [(f,Lam e (vs ++ ws) rhs2)]
                          (App b (Var c f) (MAP (Var d) (vs ++ ws))))) ∧
 [~Let_Let_Let:]
+  (* typing: => direction proved
+             <= direction needs to reconcile differing polymorphism *)
   (∀v w x y e a.
      v ≠ w ∧
      explode w ∉ freevars (exp_of x) ∧
@@ -659,6 +669,14 @@ Proof
   rw[] >> gvs[]
 QED
 
+Triviality ALOOKUP_MAP_3':
+  ALOOKUP (MAP (λ(k,v1,v2). (k,v1,f v1 v2)) l) =
+  OPTION_MAP (λ(v1,v2). (v1, f v1 v2)) o ALOOKUP l
+Proof
+  Induct_on `l` >> rw[FUN_EQ_THM] >> pairarg_tac >> gvs[] >>
+  IF_CASES_TAC >> gvs[]
+QED
+
 Theorem bidir_preserves_typing:
   ∀x y ns db st env t.
     (x <--> y) ∧ namespace_ok ns
@@ -743,26 +761,9 @@ Proof
     )
 
 (* Interesting cases *)
-  >- cheat (* (
-    eq_tac >> rw[]
-    >- (
-      pop_assum mp_tac >> rw[Once type_tcexp_cases] >> pairarg_tac >> gvs[] >>
-      irule type_tcexp_Let >> irule_at Any type_tcexp_Letrec >>
-      irule_at Any type_tcexp_Var >> simp[PULL_EXISTS, EXISTS_PROD] >>
-      goal_assum $ drule_at Any >>
-      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
-      rev_dxrule type_tcexp_env_extensional >>
-      gvs[freevars_tcexp_of, freevars_exp_of] >>
-      disch_then $ qspec_then `tshift_env vars env` mp_tac >>
-      impl_tac >> rw[] >> gvs[] >>
-      qexistsl [`0`,`scheme`] >> simp[] >>
-      qmatch_goalsub_abbrev_tac `MAP f (MAP _ _)` >>
-      `f = I` by (unabbrev_all_tac >> rw[FUN_EQ_THM, ELIM_UNCURRY]) >>
-      gvs[] >> pop_assum kall_tac >> rw[]
-      >- simp[specialises_def] >>
-      irule type_tcexp_env_extensional >> qexists `tshift_env vars env` >>
-      gvs[freevars_tcexp_of] >> rw[] >> gvs[]
-      )
+
+  >- ( (* Letrec_eq_Let_Letrec *)
+    reverse eq_tac >> rw[]
     >- (
       pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
       qpat_x_assum `type_tcexp _ _ _ _ (Letrec _ _) _` mp_tac >>
@@ -770,22 +771,265 @@ Proof
       qpat_x_assum `type_tcexp _ _ _ _ (Var _) _` mp_tac >>
       rw[Once type_tcexp_cases] >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
       irule type_tcexp_Letrec >> simp[PULL_EXISTS, EXISTS_PROD] >>
-      goal_assum $ drule_at $ Pos last >> rw[]
-      >- (gvs[specialises_def] >> irule type_ok_subst_db >> simp[]) >>
-      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
-      dxrule type_tcexp_env_extensional >>
-      gvs[freevars_tcexp_of, freevars_exp_of] >>
-      disch_then $ qspec_then `tshift_env vars (tshift_env new env)` mp_tac >>
-      impl_tac >> rw[] >> gvs[] >>
-      irule type_tcexp_env_extensional >>
-      qexists `tshift_env new env` >> simp[freevars_tcexp_of] >> rw[] >> gvs[] >>
-      gvs[specialises_def] >>
-      dxrule type_tcexp_subst_db >> disch_then $ qspecl_then [`0`,`subs`] mp_tac >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      simp[tsubst_tshift, subst_db_shift_db_unchanged, SF ETA_ss]
+      cheat
       )
-    ) *)
-  \\ cheat
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >> pairarg_tac >> gvs[] >>
+      irule type_tcexp_Let >> irule_at Any type_tcexp_Letrec >>
+      irule_at Any type_tcexp_Var >> simp[PULL_EXISTS, EXISTS_PROD] >>
+      cheat
+      )
+    )
+  >- ( (* App_Lam *)
+    simp[MAP_MAP_o, combinTheory.o_DEF, tcexp_of_def, SF ETA_ss] >>
+    reverse eq_tac >> rw[]
+    >- cheat (* free variables do not match *)
+    >- (
+      pop_assum mp_tac >>
+      ntac 2 $ simp[Once type_tcexp_cases] >> rw[] >> gvs[] >>
+      gvs[LIST_REL_MAP1, combinTheory.o_DEF] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      `arg_tys' = arg_tys ∧ t = ret_ty` by (
+        drule Functions_eq_imp >> strip_tac >>
+        gvs[Functions_APPEND, Functions_def] >>
+        Cases_on `cs` >> gvs[Functions_def]) >>
+      gvs[] >>
+      irule type_tcexp_generalise_env >> goal_assum $ drule_at Any >>
+      simp[ALOOKUP_APPEND] >> rw[] >>
+      pop_assum mp_tac >> CASE_TAC >> gvs[] >> rw[] >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, EL_MAP] >>
+      gvs[LIST_REL_EL_EQN] >> first_x_assum drule >>
+      rw[Once type_tcexp_cases] >>
+      PairCases_on `s` >> gvs[specialises_def] >> gen_tac >>
+      pop_assum $ assume_tac o GSYM >> gvs[] >>
+      qspecl_then [`0`,`subs`,`s1`,`0`] assume_tac $
+        GSYM subst_db_shift_db_2 >> gvs[] >>
+      irule_at (Pos last) EQ_REFL >> simp[] >>
+      gvs[EVERY_MAP, EVERY_MEM, type_ok_shift_db]
+      )
+    )
+  >- ( (* Letrec_Lam *)
+    eq_tac >> rw[]
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      irule type_tcexp_Lam >> simp[] >>
+      irule type_tcexp_Letrec >> simp[] >>
+      qexists `schemes` >> simp[] >> reverse $ rw[]
+      >- (
+        irule type_tcexp_env_extensional >>
+        goal_assum $ drule_at Any >> rw[] >>
+        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+        simp[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >- (CASE_TAC >> gvs[]) >>
+        qsuff_tac `ALOOKUP (REVERSE (ZIP (MAP FST l, schemes))) x = NONE` >> simp[] >>
+        imp_res_tac LIST_REL_LENGTH >>
+        gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP] >> simp[MEM_MAP, FORALL_PROD] >>
+        CCONTR_TAC >> gvs[EVERY_MEM] >> last_x_assum drule >>
+        simp[] >> imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP] >> simp[EL_MEM]
+        ) >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >> rw[] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_tcexp_of, freevars_exp_of] >>
+      `¬ MEM x vs` by (
+        gvs[EVERY_MEM, FORALL_PROD, SF DNF_ss, DISJOINT_ALT] >>
+        CCONTR_TAC >> gvs[] >> last_x_assum $ drule_at Any >> simp[] >>
+        simp[MEM_EL] >> rpt $ goal_assum $ drule_at Any >> simp[]) >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      simp[ALOOKUP_APPEND, ALOOKUP_MAP_3'] >>
+      CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, MEM_EL]
+      )
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      irule type_tcexp_Letrec >> simp[] >>
+      irule_at Any type_tcexp_Lam >> simp[] >>
+      qexists `schemes` >> rw[]
+      >- (
+        irule type_tcexp_env_extensional >>
+        goal_assum $ drule_at Any >> rw[] >>
+        simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> simp[GSYM FST_THM] >>
+        simp[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >- (CASE_TAC >> gvs[]) >>
+        qsuff_tac `ALOOKUP (REVERSE (ZIP (vs, MAP ($, 0n) arg_tys))) x = NONE` >>
+        simp[] >> imp_res_tac LIST_REL_LENGTH >>
+        gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP] >> simp[MEM_MAP, FORALL_PROD] >>
+        gvs[EVERY_MEM, FORALL_PROD, SF DNF_ss] >>
+        last_x_assum irule >>
+        imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, EL_MAP] >>
+        qexists `SND (EL n l)` >> simp[EL_MEM]
+        ) >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+      first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >> rw[] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_tcexp_of, freevars_exp_of] >>
+      `¬ MEM x vs` by (
+        gvs[EVERY_MEM, FORALL_PROD, SF DNF_ss, DISJOINT_ALT] >>
+        CCONTR_TAC >> gvs[] >> last_x_assum $ drule_at Any >> simp[] >>
+        simp[MEM_EL] >> rpt $ goal_assum $ drule_at Any >> simp[]) >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      simp[ALOOKUP_APPEND, ALOOKUP_MAP_3'] >>
+      CASE_TAC >> gvs[] >> CASE_TAC >> gvs[] >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, MEM_EL]
+      )
+    )
+  >- ( (* Lam_append *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >>
+    eq_tac >> rw[] >> gvs[]
+    >- (
+      irule_at Any type_tcexp_Lam >> gvs[LENGTH_EQ_SUM, Functions_APPEND] >>
+      irule_at Any EQ_REFL >> simp[] >> gvs[GSYM ZIP_APPEND, REVERSE_APPEND] >>
+      Cases_on `l1` >> Cases_on `l2` >> gvs[]
+      )
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      qexists `arg_tys ++ arg_tys'` >> simp[Functions_APPEND] >>
+      irule_at Any EQ_REFL >> simp[GSYM ZIP_APPEND, REVERSE_APPEND]
+      )
+    )
+  >- ( (* App_append *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >>
+    eq_tac >> rw[] >> gvs[]
+    >- (
+      gvs[LIST_REL_SPLIT1] >> irule_at Any type_tcexp_App >>
+      rpt $ goal_assum $ drule_at Any >> gvs[Functions_APPEND] >>
+      Cases_on `ys1` >> Cases_on `ys2` >> gvs[]
+      )
+    >- (
+      qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases] >>
+      simp[LIST_REL_SPLIT1, PULL_EXISTS] >>
+      rpt $ goal_assum $ drule_at Any >> gvs[Functions_APPEND]
+      )
+    )
+  >- ( (* Letrec_App *)
+    reverse eq_tac >> rw[]
+    >- cheat (* letrecs can all be typed differently *)
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      irule type_tcexp_App >> irule_at Any type_tcexp_Letrec >>
+      rpt $ goal_assum $ drule_at Any >> simp[] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >> simp[tcexp_of_def] >>
+      irule type_tcexp_Letrec >> simp[] >>
+      rpt $ goal_assum $ drule_at Any >> simp[] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP]
+      )
+    )
+  >- ( (* Letrec_App_forget *)
+    eq_tac >> rw[]
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      irule type_tcexp_App >> irule_at Any type_tcexp_Letrec >>
+      qexistsl [`schemes`,`arg_tys`] >> rw[] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >> first_x_assum drule >> rw[] >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+      rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >> irule FALSITY >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, EL_MAP] >>
+      pairarg_tac >> gvs[] >>
+      gvs[EVERY_EL] >> last_x_assum drule >> rw[DISJOINT_ALT, PULL_EXISTS] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_tcexp_of, freevars_exp_of] >>
+      simp[MEM_EL, EL_MAP, SF CONJ_ss] >> rpt $ goal_assum drule >> simp[]
+      )
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+      rw[Once type_tcexp_cases] >>
+      irule type_tcexp_Letrec >> simp[] >> goal_assum drule >> simp[] >>
+      irule type_tcexp_App >> goal_assum drule >> rw[] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >> last_x_assum drule >> strip_tac >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_tcexp_of, freevars_exp_of, EVERY_EL, DISJOINT_ALT] >>
+      rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_ZIP, EL_MAP, MEM_EL, SF CONJ_ss] >>
+      pairarg_tac >> gvs[] >>
+      last_x_assum drule >> simp[] >> disch_then $ qspec_then `n'` mp_tac >> simp[]
+      )
+    )
+  >- ( (* Letrec_unroll *)
+    once_rewrite_tac[type_tcexp_cases] >> simp[] >> eq_tac >> rw[]
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      goal_assum drule >> simp[] >>
+      gvs[MAP_MAP_o, o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+      gvs[LIST_REL_EL_EQN, EL_MAP, MEM_EL] >>
+      first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> strip_tac >>
+      PairCases_on `s` >> gvs[specialises_def] >>
+      `ALOOKUP (REVERSE (ZIP (MAP FST l,schemes))) fn = SOME (vars,scheme)` by (
+        DEP_REWRITE_TAC[alookup_distinct_reverse] >> simp[MAP_ZIP] >>
+        qspec_then `(ZIP (MAP FST l,schemes))` mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+        simp[] >> disch_then drule >> simp[MAP_ZIP, EL_ZIP, EL_MAP]) >>
+      gvs[ALOOKUP_APPEND] >>
+      drule type_tcexp_subst_db >>
+      disch_then $ qspecl_then [`0`,`subs`] mp_tac >>
+      simp[MAP_MAP_o, o_DEF, LAMBDA_PROD, subst_db_shift_db_unchanged] >>
+      simp[ELIM_UNCURRY]
+      )
+    >- (
+      goal_assum drule >> gvs[MAP_MAP_o, o_DEF, LAMBDA_PROD] >> gvs[GSYM FST_THM] >>
+      simp[Once type_tcexp_cases, ALOOKUP_APPEND] >>
+      DEP_REWRITE_TAC[alookup_distinct_reverse] >>
+      imp_res_tac LIST_REL_LENGTH >> gvs[] >> simp[MAP_ZIP] >>
+      qspec_then `(ZIP (MAP FST l,schemes))` mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+      simp[MAP_ZIP, EL_ZIP, EL_MAP] >>
+      gvs[MEM_EL] >> qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+      disch_then drule >> rw[] >>
+      gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_MAP] >>
+      pairarg_tac >> rw[] >> gvs[] >>
+      Cases_on `EL n schemes` >> rw[specialises_def] >>
+      cheat
+      )
+    )
+  >- ( (* specialise *)
+    cheat (* TODO *)
+    )
+  >- ( (* Let_Let_Let*)
+    reverse eq_tac >> rw[]
+    >- cheat (* lets can be typed differently *)
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      rename1 `type_tcexp _ _ (MAP (_ newx) _) _ (_ x) tx` >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      rename1 `type_tcexp _ _ (MAP (_ newx2) _) _ (_ x) tx2` >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      rename1 `type_tcexp _ _ (MAP (_ newy) _) _ (_ y) ty` >>
+      rename1 `type_tcexp _ _ _ _ (_ e) te` >>
+      ntac 3 $ irule_at Any type_tcexp_Let >>
+      qexistsl [`ty`,`tx2`,`tx2`,`newy`,`newx2`,`newx2`] >> simp[] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_exp_of] >> rw[] >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+      rw[freevars_tcexp_of] >> gvs[]
+      )
+    )
+  >- ( (* Let_dup *)
+    eq_tac >> rw[]
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      ntac 2 $ irule_at Any type_tcexp_Let >>
+      qexistsl [`t1`,`t1`,`new`,`new`] >> simp[] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_exp_of] >> rw[] >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+      rw[freevars_tcexp_of] >> gvs[]
+      )
+    >- (
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
+      rename1 `type_tcexp _ _ (MAP (_ newx) _) _ (_ x) tx` >>
+      irule_at Any type_tcexp_Let >>
+      qexistsl [`newx`,`tx`] >> simp[] >>
+      imp_res_tac $ SRULE [] type_tcexp_NestedCase_free >>
+      gvs[freevars_exp_of] >> rw[] >>
+      irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+      rw[freevars_tcexp_of] >> gvs[]
+      )
+    )
 QED
 
 Theorem pres_preserves_typing:
