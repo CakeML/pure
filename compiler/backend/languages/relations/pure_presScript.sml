@@ -10,7 +10,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_demandTheory pure_letrec_delargTheory
+     pure_letrecProofTheory pure_demandTheory pure_letrec_delargTheory
      pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
      pure_tcexpTheory pure_tcexp_lemmasTheory
      pure_typingTheory pure_typingPropsTheory;
@@ -294,6 +294,115 @@ Overload "~~>" = “pres”
 val _ = set_fixity "~~>" (Infixl 480);
 
 Theorem pres_refl[simp] = pres_refl;
+
+(*----------------------------------------------------------------------------*
+   Proof of preservation of well-formedness
+ *----------------------------------------------------------------------------*)
+
+Theorem unidir_imp_wf_preserved:
+  ∀x y. (x --> y) ⇒
+    (NestedCase_free x ⇒ NestedCase_free y) ∧
+    (letrecs_distinct (exp_of x) ⇒ letrecs_distinct (exp_of y)) ∧
+    (cexp_wf x ⇒ cexp_wf y)
+Proof
+  Induct_on `unidir` >> rpt conj_tac >> rpt gen_tac >> strip_tac >>
+  gvs[exp_of_def, NestedCase_free_def, letrecs_distinct_def, cexp_wf_def]
+QED
+
+Theorem bidir_imp_wf_preserved:
+  ∀x y. (x <--> y) ⇒
+    (NestedCase_free x ⇔ NestedCase_free y) ∧
+    (letrecs_distinct (exp_of x) ⇔ letrecs_distinct (exp_of y)) ∧
+    (cexp_wf x ⇔ cexp_wf y)
+Proof
+  Induct_on `bidir` >> rpt conj_tac >> rpt gen_tac >> simp[] >> strip_tac >>
+  gvs[NestedCase_free_def, cexp_wf_def, exp_of_def, letrecs_distinct_def,
+      letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_MAP]
+  >- gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL]
+  >- (
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    simp[ELIM_UNCURRY, MAP_MAP_o, combinTheory.o_DEF] >>
+    simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o] >>
+    `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> simp[] >>
+    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    )
+  >- (
+    once_rewrite_tac[COND_RAND] >>
+    simp[letrecs_distinct_def, letrecs_distinct_rows_of] >>
+    rpt conj_tac
+    >- (
+      gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> eq_tac >> rw[] >>
+      rpt $ (first_x_assum drule >> strip_tac) >>
+      rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> eq_tac >> rw[] >>
+      rpt $ (first_x_assum drule >> strip_tac) >>
+      rpt (pairarg_tac >> gvs[])
+      ) >>
+    `MAP FST xs = MAP FST ys ∧ MAP (FST o SND) xs = MAP (FST o SND) ys` by (
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+    `xs = [] ⇔ ys = []` by (Cases_on `xs` >> Cases_on `ys` >> gvs[]) >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> eq_tac >> rw[] >>
+    rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
+    )
+  >~ [`spec_arg`]
+  >- cheat (* TODO specialisation *) >>
+  rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac
+  >- cheat (* App_Lam - not true due to potentially empty `vs` *)
+QED
+
+Theorem pres_imp_wf_preserved:
+  ∀x y. (x ~~> y) ⇒
+    (NestedCase_free x ⇒ NestedCase_free y) ∧
+    (letrecs_distinct (exp_of x) ⇒ letrecs_distinct (exp_of y)) ∧
+    (cexp_wf x ⇒ cexp_wf y)
+Proof
+  Induct_on `pres` >> rpt conj_tac >> rpt gen_tac >> simp[] >> strip_tac >>
+  gvs[NestedCase_free_def, cexp_wf_def, exp_of_def, letrecs_distinct_def,
+      letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_MAP]
+  >- metis_tac[unidir_imp_wf_preserved]
+  >- metis_tac[bidir_imp_wf_preserved]
+  >- gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL]
+  >- (
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    simp[ELIM_UNCURRY, MAP_MAP_o, combinTheory.o_DEF] >>
+    simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o] >>
+    `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> simp[] >>
+    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    )
+  >- (
+    once_rewrite_tac[COND_RAND] >>
+    simp[letrecs_distinct_def, letrecs_distinct_rows_of] >>
+    rpt conj_tac >> strip_tac
+    >- (
+      gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
+      rpt $ (first_x_assum drule >> strip_tac) >>
+      rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
+      rpt $ (first_x_assum drule >> strip_tac) >>
+      rpt (pairarg_tac >> gvs[])
+      ) >>
+    `MAP FST xs = MAP FST ys ∧ MAP (FST o SND) xs = MAP (FST o SND) ys` by (
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+    `xs ≠ [] ⇒ ys ≠ []` by (Cases_on `xs` >> Cases_on `ys` >> gvs[]) >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
+    rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
+    )
+QED
+
 
 (*----------------------------------------------------------------------------*
    Proof of preservation of semantics
