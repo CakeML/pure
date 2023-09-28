@@ -12,6 +12,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
      pure_letrecProofTheory pure_demandTheory pure_letrec_delargTheory
      pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
+     pure_freshenTheory pure_freshenProofTheory
      pure_tcexpTheory pure_tcexp_lemmasTheory
      pure_typingTheory pure_typingPropsTheory;
 
@@ -31,7 +32,12 @@ Inductive unidir:
 [~Let:]
   (∀(x:'a cexp) y v a.
     explode v ∉ freevars (exp_of y) ⇒
-    unidir (Let a v x y) y)
+    unidir (Let a v x y) y) ∧
+
+[~freshen:]
+  (∀e1 e2 avoid1 avoid2.
+    freshen_cexp e1 avoid1 = (e2,avoid2) ∧ avoid_set_ok avoid1 e1
+    ⇒ unidir e1 e2)
 End
 
 Overload "-->" = “unidir”
@@ -307,6 +313,7 @@ Theorem unidir_imp_wf_preserved:
 Proof
   Induct_on `unidir` >> rpt conj_tac >> rpt gen_tac >> strip_tac >>
   gvs[exp_of_def, NestedCase_free_def, letrecs_distinct_def, cexp_wf_def]
+  >- (drule freshen_cexp_preserves_wf >> rw[])
 QED
 
 Theorem bidir_imp_wf_preserved:
@@ -409,19 +416,15 @@ QED
  *----------------------------------------------------------------------------*)
 
 Theorem unidir_imp_exp_eq:
-  ∀x y. (x --> y) ⇒ (exp_of x ≅ exp_of y)
+  ∀x y. (x --> y) ∧
+    NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+    ⇒ exp_of x ≅ exp_of y
 Proof
   Induct_on ‘unidir’
   \\ rpt strip_tac
   \\ fs [exp_of_def]
   >- (irule pure_demandTheory.Let_not_in_freevars \\ fs [])
-QED
-
-Triviality case_lemma:
-  x ≅ y ⇒ (if b then Seq Fail x else x) ≅ (if b then Seq Fail y else y)
-Proof
-  rw [] \\ fs []
-  \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
+  >- (drule_all freshen_cexp_correctness >> simp[])
 QED
 
 Theorem can_spec_arg_if_lemma[local]:
@@ -543,26 +546,37 @@ Proof
 QED
 
 Theorem bidir_imp_exp_eq:
-  ∀x y. (x <--> y) ⇒ (exp_of x ≅ exp_of y)
+  ∀x y. (x <--> y) ∧
+    NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+    ⇒ exp_of x ≅ exp_of y
 Proof
   Induct_on ‘bidir’
   \\ rpt strip_tac
+  \\ gvs[NestedCase_free_def, cexp_wf_def]
   >- simp [exp_eq_refl]
-  >- simp [Once exp_eq_sym]
-  >- imp_res_tac exp_eq_trans
+  >- (
+    imp_res_tac bidir_imp_wf_preserved >> gvs[] >>
+    simp [Once exp_eq_sym]
+    )
+  >- (
+    imp_res_tac bidir_imp_wf_preserved >> gvs[] >>
+    imp_res_tac exp_eq_trans
+    )
   >~ [‘Lam’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_Lams]
+    \\ pop_assum kall_tac
     \\ Induct_on ‘vs’ \\ fs [Lams_def] \\ rw []
     \\ irule exp_eq_Lam_cong \\ fs [])
   >~ [‘Prim’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_def]
     \\ irule exp_eq_Prim_cong \\ fs []
     \\ gvs [LIST_REL_MAP]
-    \\ pop_assum mp_tac
-    \\ match_mp_tac LIST_REL_mono \\ fs [])
+    \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [EVERY_MAP, EVERY_MEM])
   >~ [‘App’] >-
-   (gvs [exp_of_def]
-    \\ pop_assum mp_tac
+   (gvs [exp_of_def, letrecs_distinct_Apps]
+    \\ qpat_x_assum `_ ≠ []` kall_tac \\ qpat_x_assum `_ <--> _` kall_tac
+    \\ rpt $ pop_assum mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct using SNOC_INDUCT
@@ -572,13 +586,14 @@ Proof
     \\ rw []
     \\ irule exp_eq_App_cong \\ fs [])
   >~ [‘Let’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_def]
     \\ irule exp_eq_App_cong \\ fs []
     \\ irule exp_eq_Lam_cong \\ fs [])
   >~ [‘Letrec’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_def]
     \\ irule exp_eq_Letrec_cong \\ fs []
     \\ last_x_assum mp_tac
+    \\ rpt $ qpat_x_assum `EVERY _ _` mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ Cases_on ‘ys’ \\ fs []
@@ -592,11 +607,12 @@ Proof
        \\ Induct \\ Cases_on ‘ys’ \\ fs []
        \\ PairCases_on ‘h’ \\ PairCases \\ fs []
        \\ metis_tac [])
-    \\ fs [] \\ irule case_lemma
+    \\ fs []
+    \\ gvs[letrecs_distinct_def, letrecs_distinct_rows_of]
     \\ irule exp_eq_App_cong \\ fs []
     \\ irule exp_eq_Lam_cong \\ fs []
-    \\ pop_assum kall_tac
     \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rpt $ qpat_x_assum `EVERY _ _` mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ Cases_on ‘ys’ \\ fs []
@@ -604,14 +620,18 @@ Proof
      (fs [rows_of_def] \\ rpt (CASE_TAC \\ gvs [exp_eq_refl])
       \\ gvs [IfDisj_def]
       \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
-    \\ PairCases_on ‘h’ \\ PairCases \\ fs []
-    \\ strip_tac \\ gvs [rows_of_def]
+    >-
+     (fs [rows_of_def] \\ rpt (CASE_TAC \\ gvs [exp_eq_refl])
+      \\ gvs [IfDisj_def]
+      \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]) >>
+    rw[] >> rpt (pairarg_tac >> gvs[]) >> gvs[rows_of_def]
     \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
     \\ rename [‘lets_for _ _ zs’]
     \\ Induct_on ‘zs’ \\ gvs [lets_for_def,FORALL_PROD]
     \\ rw []
     \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
-    \\ irule exp_eq_Lam_cong \\ fs [])
+    \\ irule exp_eq_Lam_cong \\ fs []
+    )
   (* interesting rules from here onwards *)
   >-
    (fs [exp_of_def]
@@ -622,7 +642,8 @@ Proof
           fs [MAP_MAP_o,o_DEF]
     \\ simp [Apps_Lams_Vars])
   >-
-   (Induct_on ‘vs’ \\ gvs [exp_of_def,Lams_def,exp_eq_refl]
+   (last_x_assum mp_tac \\ rpt $ pop_assum kall_tac
+    \\ Induct_on ‘vs’ \\ gvs [exp_of_def,Lams_def,exp_eq_refl]
     \\ rw [] \\ irule exp_eq_trans
     \\ irule_at (Pos last) exp_eq_Lam_cong
     \\ first_x_assum $ irule_at $ Pos hd
@@ -660,7 +681,7 @@ Proof
     \\ impl_tac
     >-
      (gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
-      \\ pop_assum mp_tac
+      \\ qpat_x_assum `ALL_DISTINCT _` mp_tac
       \\ qmatch_goalsub_abbrev_tac ‘_ xs ⇒ _ ys’
       \\ qsuff_tac ‘xs = MAP implode ys’ \\ gvs []
       >- metis_tac [ALL_DISTINCT_MAP]
@@ -688,27 +709,35 @@ Proof
 QED
 
 Theorem pres_imp_exp_eq:
-  ∀x y. (x ~~> y) ⇒ (exp_of x ≅ exp_of y)
+  ∀x y. (x ~~> y) ∧
+    NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+  ⇒ (exp_of x ≅ exp_of y)
 Proof
   Induct_on ‘pres’
   \\ rpt strip_tac
+  \\ gvs[NestedCase_free_def, cexp_wf_def]
   >- simp [exp_eq_refl]
-  >- imp_res_tac exp_eq_trans
+  >- (
+    imp_res_tac pres_imp_wf_preserved >> gvs[] >>
+    imp_res_tac exp_eq_trans
+    )
   >- imp_res_tac unidir_imp_exp_eq
   >- imp_res_tac bidir_imp_exp_eq
   >~ [‘Lam’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_Lams]
+    \\ qpat_x_assum `_ ≠ _` kall_tac
     \\ Induct_on ‘vs’ \\ fs [Lams_def] \\ rw []
     \\ irule exp_eq_Lam_cong \\ fs [])
   >~ [‘Prim’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_def]
     \\ irule exp_eq_Prim_cong \\ fs []
     \\ gvs [LIST_REL_MAP]
-    \\ pop_assum mp_tac
-    \\ match_mp_tac LIST_REL_mono \\ fs [])
+    \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [EVERY_MAP, EVERY_MEM])
   >~ [‘App’] >-
-   (gvs [exp_of_def]
-    \\ pop_assum mp_tac
+   (gvs [exp_of_def, letrecs_distinct_Apps]
+    \\ qpat_x_assum `_ ≠ []` kall_tac \\ qpat_x_assum `_ ~~> _` kall_tac
+    \\ rpt $ pop_assum mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct using SNOC_INDUCT
@@ -718,13 +747,14 @@ Proof
     \\ rw []
     \\ irule exp_eq_App_cong \\ fs [])
   >~ [‘Let’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_def]
     \\ irule exp_eq_App_cong \\ fs []
     \\ irule exp_eq_Lam_cong \\ fs [])
   >~ [‘Letrec’] >-
-   (gvs [exp_of_def]
+   (gvs [exp_of_def, letrecs_distinct_def]
     \\ irule exp_eq_Letrec_cong \\ fs []
     \\ last_x_assum mp_tac
+    \\ rpt $ qpat_x_assum `EVERY _ _` mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ Cases_on ‘ys’ \\ fs []
@@ -738,11 +768,12 @@ Proof
        \\ Induct \\ Cases_on ‘ys’ \\ fs []
        \\ PairCases_on ‘h’ \\ PairCases \\ fs []
        \\ metis_tac [])
-    \\ fs [] \\ irule case_lemma
+    \\ fs []
+    \\ gvs[letrecs_distinct_def, letrecs_distinct_rows_of]
     \\ irule exp_eq_App_cong \\ fs []
     \\ irule exp_eq_Lam_cong \\ fs []
-    \\ pop_assum kall_tac
     \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+    \\ rpt $ qpat_x_assum `EVERY _ _` mp_tac
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ Cases_on ‘ys’ \\ fs []
@@ -750,14 +781,18 @@ Proof
      (fs [rows_of_def] \\ rpt (CASE_TAC \\ gvs [exp_eq_refl])
       \\ gvs [IfDisj_def]
       \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl])
-    \\ PairCases_on ‘h’ \\ PairCases \\ fs []
-    \\ strip_tac \\ gvs [rows_of_def]
+    >-
+     (fs [rows_of_def] \\ rpt (CASE_TAC \\ gvs [exp_eq_refl])
+      \\ gvs [IfDisj_def]
+      \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]) >>
+    rw[] >> rpt (pairarg_tac >> gvs[]) >> gvs[rows_of_def]
     \\ irule exp_eq_Prim_cong \\ fs [exp_eq_refl]
     \\ rename [‘lets_for _ _ zs’]
     \\ Induct_on ‘zs’ \\ gvs [lets_for_def,FORALL_PROD]
     \\ rw []
     \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
-    \\ irule exp_eq_Lam_cong \\ fs [])
+    \\ irule exp_eq_Lam_cong \\ fs []
+    )
 QED
 
 (*----------------------------------------------------------------------------*
@@ -770,12 +805,17 @@ Theorem unidir_preserves_typing:
     type_tcexp ns db st env (tcexp_of x) t
   ⇒ type_tcexp ns db st env (tcexp_of y) t
 Proof
-  Induct_on `unidir` >> rw[] >>
-  drule $ SRULE [] type_tcexp_NestedCase_free >> strip_tac >> gvs[tcexp_of_def] >>
-  gvs[Once type_tcexp_cases] >>
-  irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
-  simp[freevars_tcexp_of] >> gvs[freevars_exp_of] >>
-  rw[] >> gvs[]
+  Induct_on `unidir` >> rw[]
+  >- (
+    drule $ SRULE [] type_tcexp_NestedCase_free >> strip_tac >> gvs[tcexp_of_def] >>
+    gvs[Once type_tcexp_cases] >>
+    irule type_tcexp_env_extensional >> goal_assum $ drule_at Any >>
+    simp[freevars_tcexp_of] >> gvs[freevars_exp_of] >>
+    rw[] >> gvs[]
+    )
+  >- (
+    drule_all freshen_cexp_preserves_typing >> simp[]
+    )
 QED
 
 Triviality ALOOKUP_MAP_3':

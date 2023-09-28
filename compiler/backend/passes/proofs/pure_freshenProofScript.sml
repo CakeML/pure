@@ -2812,6 +2812,20 @@ Proof
   rw[ctxt_rel_def]
 QED
 
+Theorem freshen_cexp_preserves_wf:
+  ∀ce avoid ce' avoid'.
+    freshen_cexp ce avoid = (ce',avoid') ∧ avoid_set_ok avoid ce
+  ⇒ (NestedCase_free ce ⇒ NestedCase_free ce') ∧
+    (letrecs_distinct (exp_of ce) ⇒ letrecs_distinct (exp_of ce')) ∧
+    (cexp_wf ce ⇒ cexp_wf ce')
+Proof
+  rpt gen_tac >> strip_tac >> gvs[freshen_cexp_def] >>
+  drule $ cj 1 freshen_aux_NestedCase_free >> strip_tac >> simp[] >>
+  drule $ cj 1 freshen_aux_letrecs_distinct >> strip_tac >> simp[] >>
+  drule $ cj 1 freshen_aux_cexp_wf >> strip_tac >> simp[] >>
+  gvs[avoid_set_ok_def]
+QED
+
 (**********)
 
 val _ = export_theory();

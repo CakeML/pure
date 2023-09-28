@@ -1,4 +1,5 @@
 INCLUDES = ../semantics \
+           ../../passes \
            ../../passes/proofs \
            $(PUREDIR)/language \
            $(PUREDIR)/misc \
