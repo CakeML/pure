@@ -1174,13 +1174,7 @@ QED
 Theorem NestedCase_free_SmartApp:
   ∀a f xs. NestedCase_free (SmartApp a f xs) = NestedCase_free (App a f xs)
 Proof
-  rw [SmartApp_def]
-  \\ gvs [NULL_EQ]
-  \\ CASE_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
-  \\ rw []
-  \\ Cases_on ‘f’ \\ gvs [dest_App_def]
-  \\ rw [] \\ eq_tac \\ rw []
+  simp[NestedCase_free_def, SF ETA_ss]
 QED
 
 Theorem NestedCase_free_Lets:
