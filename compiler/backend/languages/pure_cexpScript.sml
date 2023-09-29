@@ -413,4 +413,25 @@ Proof
   \\ eq_tac \\ rw []
 QED
 
+Theorem NestedCase_free_SmartApp[simp]:
+  ∀es e d.
+    NestedCase_free (SmartApp d e es) ⇔
+      NestedCase_free e ∧ EVERY NestedCase_free es
+Proof
+  Induct >> rw[SmartApp_def] >>
+  rpt (CASE_TAC >> gvs[SF ETA_ss]) >>
+  gvs[DefnBase.one_line_ify NONE dest_App_def] >>
+  gvs[AllCaseEqs(), SF ETA_ss] >> eq_tac >> rw[]
+QED
+
+Theorem NestedCase_free_SmartLam[simp]:
+  ∀xs e d.
+    NestedCase_free (SmartLam d xs e) ⇔ NestedCase_free e
+Proof
+  Induct >> rw[SmartLam_def] >>
+  rpt (CASE_TAC >> gvs[SF ETA_ss]) >>
+  gvs[DefnBase.one_line_ify NONE dest_Lam_def] >>
+  gvs[AllCaseEqs(), SF ETA_ss]
+QED
+
 val _ = export_theory();
