@@ -20,6 +20,24 @@ val _ = set_grammar_ancestry
 
 val _ = new_theory "pure_compilerProof";
 
+Theorem string_to_cexp_wf:
+  string_to_cexp s = SOME (ce,ns) ⇒
+    closed (exp_of ce) ∧ NestedCase_free ce ∧ cexp_wf ce
+Proof
+  strip_tac >> gvs[string_to_cexp_def] >> pairarg_tac >> gvs[] >>
+  drule_at Any $ iffLR ast_to_cexpTheory.closed_under >>
+  simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of]
+QED
+
+Theorem transform_cexp_wf:
+  transform_cexp c e = e' ∧ cexp_wf e ∧ NestedCase_free e ∧ closed (exp_of e)
+  ⇒ cexp_wf e' ∧ NestedCase_free e' ∧ closed (exp_of e') ∧ letrecs_distinct (exp_of e')
+Proof
+  strip_tac >>
+  gvs[transform_cexp_cexp_wf, transform_cexp_NestedCase_free,
+      transform_cexp_closed, transform_cexp_letrecs_distinct]
+QED
+
 Theorem clean_cexp_wf:
   clean_cexp c e = e' ∧ cexp_wf e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ∧
   namespace_ok ns ∧ type_tcexp ns 0 [] [] (tcexp_of e) t
@@ -67,10 +85,17 @@ Proof
   simp[FUN_EQ_THM] >> PairCases >> simp[]
 QED
 
+Triviality exp_eq_itree_eq:
+  e1 ≅ e2 ∧ closed e1 ∧ closed e2 ⇒ itree_of e1 = itree_of e2
+Proof
+  rw[] >> dxrule_all $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> strip_tac >>
+  dxrule bisimilarity_IMP_semantics_eq >> rw[GSYM pure_semanticsTheory.itree_of_def]
+QED
+
 Theorem compiler_correctness:
   compile_to_ast c s = SOME cake ⇒
     ∃pure_ce ns.
-      frontend c s = SOME (pure_ce, ns) ∧
+      string_to_cexp s = SOME (pure_ce, ns) ∧
       safe_itree $ itree_of (exp_of pure_ce) ∧
       itree_rel
          (itree_of (exp_of pure_ce))
@@ -81,8 +106,10 @@ Proof
   map_every qabbrev_tac [
     `tr = transform_cexp c e`, `inl = inline_top_level c tr`,
     `cl = clean_cexp c inl`, `dm = demands_analysis c cl`] >>
+  drule string_to_cexp_wf >> strip_tac >>
+  drule_at Any transform_cexp_wf >> simp[] >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
   `letrecs_distinct (exp_of inl)` by (
-    `letrecs_distinct (exp_of tr)` by gvs[Abbr `tr`, transform_cexp_letrecs_distinct] >>
     drule_at Any inline_top_level_letrecs_distinct >> simp[Abbr `inl`]) >>
   gvs[DefnBase.one_line_ify NONE pure_inferenceTheory.to_option_def, AllCaseEqs()] >>
   dxrule_then strip_assume_tac infer_types_OK >> simp[] >>
@@ -92,33 +119,46 @@ Proof
   disch_then $ qspec_then `c` assume_tac >> gvs[] >>
   drule_at Any demand_analysis_wf >> simp[] >>
   disch_then $ qspec_then `c` assume_tac >> gvs[] >>
-  qsuff_tac `itree_of (exp_of inl) = itree_of (exp_of dm)`
+  qsuff_tac `itree_of (exp_of e) = itree_of (exp_of dm)`
   >- (
     strip_tac >> simp[] >>
     irule pure_to_cakeProofTheory.pure_to_cake_correct >> simp[cns_ok_def] >>
     simp[PULL_EXISTS, IMAGE_IMAGE, combinTheory.o_DEF, LAMBDA_PROD, PAIR_ID]
     ) >>
-  irule safe_exp_app_bisim_F_IMP_same_itree >> simp[] >>
+  drule string_to_cexp_wf >> strip_tac >>
+  qspec_then `e` assume_tac transform_cexp_correct >> gvs[] >>
+  drule_all exp_eq_itree_eq >> strip_tac >> gvs[] >>
+  rev_drule_at (Pat `letrecs_distinct _`) $ cj 1 inline_top_level_correct >> simp[] >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
+  drule_all exp_eq_itree_eq >> strip_tac >> gvs[] >>
   qspec_then `inl` assume_tac clean_cexp_correct >> gvs[] >>
-  drule_all $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> strip_tac >>
-  dxrule pure_exp_relTheory.app_bisimilarity_T_IMP_F >> strip_tac >>
+  drule_all exp_eq_itree_eq >> strip_tac >> gvs[] >>
   qspec_then `cl` assume_tac demands_analysis_soundness >> gvs[] >>
   drule_all $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> strip_tac >>
-  metis_tac[pure_exp_relTheory.app_bisimilarity_trans]
+  irule safe_exp_app_bisim_F_IMP_same_itree >> simp[]
 QED
 
 Theorem alternative_compiler_correctness:
-  frontend c s = SOME (pure_ce, ns)
-  ⇒ safe_itree $ itree_of (exp_of pure_ce) ∧
-    ∃cake.
+  frontend c s = SOME (ce, ns)
+  ⇒ ∃ce' cake.
+      string_to_cexp s = SOME (ce', ns) ∧
       compile_to_ast c s = SOME cake ∧
+      itree_of (exp_of ce) = itree_of (exp_of ce') ∧
       itree_rel
-         (itree_of (exp_of pure_ce))
+         (itree_of (exp_of ce'))
          (itree_semantics cake) ∧
       itree_semantics$safe_itree ffi_convention (itree_semantics cake)
 Proof
   strip_tac >> assume_tac $ Q.GEN `cake` compiler_correctness >>
-  gvs[compile_to_ast_alt_def]
+  gvs[compile_to_ast_alt_def, frontend_def, AllCaseEqs()] >>
+  drule string_to_cexp_wf >> strip_tac >>
+  drule_at Any transform_cexp_wf >> simp[] >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
+  qspec_then `e` assume_tac transform_cexp_correct >>
+  drule_all exp_eq_itree_eq >> strip_tac >> gvs[] >>
+  drule inline_top_level_correct >> simp[] >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
+  drule_all exp_eq_itree_eq >> strip_tac >> gvs[]
 QED
 
 
@@ -150,30 +190,17 @@ QED
 
 Theorem pure_compiler_to_string_correct:
   compile c s = SOME t ⇒
-  ∃pure_ce ty cake_prog.
-    string_to_cexp s = SOME (pure_ce,ty) ∧
-    string_to_ast t = SOME cake_prog ∧
+  ∃pure_ce ns cake.
+    string_to_cexp s = SOME (pure_ce,ns) ∧
+    string_to_ast t = SOME cake ∧
     safe_exp (exp_of pure_ce) ∧
     itree_rel
        (itree_of (exp_of pure_ce))
-       (itree_semantics cake_prog) ∧
-    itree_semantics$safe_itree ffi_convention (itree_semantics cake_prog)
+       (itree_semantics cake) ∧
+    itree_semantics$safe_itree ffi_convention (itree_semantics cake)
 Proof
-  cheat (* TODO
   rw[compile_to_string] >> simp[string_to_ast_ast_to_string] >>
-  drule compiler_correctness >> rw[] >> gvs[frontend_def, AllCaseEqs()] >>
-  qspec_then `e` assume_tac transform_cexp_correct >>
-  drule_at Any $ iffRL pure_exp_relTheory.app_bisimilarity_eq >> reverse impl_tac
-  >- (
-    rw[] >> drule bisimilarity_IMP_semantics_eq >>
-    simp[GSYM pure_semanticsTheory.itree_of_def]
-    ) >>
-  gvs[DefnBase.one_line_ify NONE pure_inferenceTheory.to_option_def, AllCaseEqs()] >>
-  drule infer_types_SOME >> strip_tac >>
-  gvs[string_to_cexp_def] >> pairarg_tac >> gvs[] >>
-  drule_at Any $ iffLR ast_to_cexpTheory.closed_under >>
-  simp[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of]
-  *)
+  drule compiler_correctness >> simp[]
 QED
 
 val _ = export_theory();

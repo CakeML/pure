@@ -546,6 +546,14 @@ Proof
   PairCases_on `h` >> rw[make_distinct_def] >> gvs[]
 QED
 
+Theorem distinct_cexp_freevars:
+  ∀ce. freevars_cexp (distinct_cexp ce) ⊆ freevars_cexp ce
+Proof
+  gen_tac >> qspec_then `exp_of ce` mp_tac freevars_distinct >>
+  simp[GSYM distinct_cexp_correct, freevars_exp_of] >>
+  gvs[SUBSET_DEF, PULL_EXISTS]
+QED
+
 
 (********** Splitting **********)
 
@@ -866,6 +874,15 @@ Proof
   drule $ SRULE [SUBSET_DEF] split_one_sets >> gvs[]
 QED
 
+Theorem split_all_cexp_freevars:
+  ∀ce. letrecs_distinct (exp_of ce) ⇒
+    freevars_cexp (split_all_cexp ce) = freevars_cexp ce
+Proof
+  rw[] >> qspec_then `exp_of ce` mp_tac split_all_freevars >>
+  simp[GSYM split_all_cexp_correct, freevars_exp_of] >>
+  gvs[EXTENSION, PULL_EXISTS, EQ_IMP_THM]
+QED
+
 
 (********** Cleaning up **********)
 
@@ -1038,6 +1055,14 @@ Proof
   rpt (TOP_CASE_TAC >> gvs[]) >> simp[]
 QED
 
+Theorem clean_all_cexp_freevars:
+  ∀ce. freevars_cexp (clean_all_cexp ce) ⊆ freevars_cexp ce
+Proof
+  rw[] >> qspec_then `exp_of ce` mp_tac freevars_clean_all >>
+  simp[GSYM clean_all_cexp_correct, freevars_exp_of] >>
+  gvs[SUBSET_DEF, PULL_EXISTS]
+QED
+
 (********************)
 
 Theorem exp_of_init_sets:
@@ -1083,6 +1108,15 @@ Proof
     )
 QED
 
+Theorem init_sets_freevars:
+  ∀ce. freevars_cexp (init_sets ce) = freevars_cexp ce
+Proof
+  rw[] >> qspec_then `ce` assume_tac exp_of_init_sets >>
+  qspec_then `init_sets ce` assume_tac freevars_exp_of >>
+  qspec_then `ce` assume_tac freevars_exp_of >>
+  gvs[EXTENSION, EQ_IMP_THM, PULL_EXISTS]
+QED
+
 (********************)
 
 Theorem clean_cexp_correct:
@@ -1107,6 +1141,12 @@ Theorem clean_cexp_NestedCase_free:
   ∀ce c. NestedCase_free ce ⇒ NestedCase_free (clean_cexp c ce)
 Proof
   rw[clean_cexp_def] >> irule clean_all_cexp_NestedCase_free >> simp[]
+QED
+
+Theorem clean_cexp_freevars:
+  ∀ce. freevars_cexp (clean_cexp c ce) ⊆ freevars_cexp ce
+Proof
+  rw[clean_cexp_def] >> gvs[clean_all_cexp_freevars]
 QED
 
 (**********)
@@ -1152,6 +1192,17 @@ Proof
   rpt $ irule split_all_cexp_NestedCase_free >>
   irule distinct_cexp_NestedCase_free >>
   simp[NestedCase_free_init_sets]
+QED
+
+Theorem transform_cexp_closed:
+  ∀ce. closed (exp_of ce) ⇒ closed (exp_of (transform_cexp c ce))
+Proof
+  rw[closed_def, transform_cexp_def, freevars_exp_of, EXTENSION] >>
+  CCONTR_TAC >> gvs[] >>
+  dxrule $ SRULE [SUBSET_DEF] clean_cexp_freevars >> strip_tac >>
+  gvs[split_all_cexp_freevars, distinct_cexp_correct, distinct_letrecs_distinct] >>
+  dxrule $ SRULE [SUBSET_DEF] distinct_cexp_freevars >> strip_tac >>
+  gvs[init_sets_freevars]
 QED
 
 
