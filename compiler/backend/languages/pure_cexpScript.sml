@@ -241,7 +241,7 @@ Definition num_args_ok_def:
   num_args_ok Seq n = (n = 2)
 End
 
-Definition cexp_wf_def:
+Definition cexp_wf_def[nocompute]:
   cexp_wf (Var _ v) = T ∧
   cexp_wf (Prim _ op es) = (
     num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es ∧
