@@ -689,9 +689,9 @@ Proof
 QED
 
 Theorem cexp_wf_alt_def[compute]:
-  (∀v0 v. cexp_wf (Var v0 v) ⇔ T) ∧
+  (∀v0 v. cexp_wf (Var v0 v : 'a cexp) ⇔ T) ∧
   (∀v1 op es.
-    cexp_wf (Prim v1 op es) ⇔
+    cexp_wf (Prim v1 op es : 'a cexp) ⇔
     num_args_ok op (LENGTH es) ∧ EVERY (λa. cexp_wf a) es ∧
     (case op of
      | AtomOp (Lit (Int i)) => T
@@ -700,15 +700,15 @@ Theorem cexp_wf_alt_def[compute]:
      | AtomOp (Message m) => m ≠ ""
      | _ => T)) ∧
   (∀v2 es e.
-    cexp_wf (App v2 e es) ⇔
+    cexp_wf (App v2 e es : 'a cexp) ⇔
     cexp_wf e ∧ EVERY (λa. cexp_wf a) es ∧ ¬ NULL es) ∧
-  (∀vs v3 e. cexp_wf (Lam v3 vs e) ⇔ cexp_wf e ∧ ¬ NULL vs) ∧
-  (∀v4 v e2 e1. cexp_wf (Let v4 v e1 e2) ⇔ cexp_wf e1 ∧ cexp_wf e2) ∧
+  (∀vs v3 e. cexp_wf (Lam v3 vs e : 'a cexp) ⇔ cexp_wf e ∧ ¬ NULL vs) ∧
+  (∀v4 v e2 e1. cexp_wf (Let v4 v e1 e2 : 'a cexp) ⇔ cexp_wf e1 ∧ cexp_wf e2) ∧
   (∀v5 fns e.
-    cexp_wf (Letrec v5 fns e) ⇔
+    cexp_wf (Letrec v5 fns e : 'a cexp) ⇔
     EVERY (λa. cexp_wf a) (MAP SND fns) ∧ cexp_wf e ∧ ¬ NULL fns) ∧
   (∀v6 v eopt e css.
-    cexp_wf (Case v6 e v css eopt) ⇔
+    cexp_wf (Case v6 e v css eopt : 'a cexp) ⇔
     cexp_wf e ∧ EVERY (λa. cexp_wf a) (MAP (SND ∘ SND) css) ∧ ¬ NULL css ∧
     EVERY ALL_DISTINCT (MAP (FST ∘ SND) css) ∧
     OPTION_ALL
@@ -720,7 +720,7 @@ Theorem cexp_wf_alt_def[compute]:
       (MAP FST css ++ case eopt of NONE => [] | SOME (a,v2) => MAP FST a) ∧
     EVERY (λ(cn,_,_). ¬MEM cn monad_cn_mlstrings) css) ∧
   (∀v7 pes p gv g e.
-   cexp_wf (NestedCase v7 g gv p e pes) ⇔
+   cexp_wf (NestedCase v7 g gv p e pes : 'a cexp) ⇔
    cexp_wf g ∧ cexp_wf e ∧ EVERY (λa. cexp_wf a) (MAP SND pes) ∧
    ¬MEM gv (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes))))
 Proof
