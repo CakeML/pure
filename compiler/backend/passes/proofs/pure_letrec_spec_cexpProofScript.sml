@@ -388,6 +388,7 @@ Proof
     \\ fs [SUBSET_DEF]
     \\ metis_tac [])
   >~ [‘rows_of’] >-
+
    (first_x_assum $ qspec_then ‘w’ mp_tac
     \\ impl_tac >-
      (CASE_TAC \\ fs [] \\ CASE_TAC
@@ -436,6 +437,98 @@ Proof
       \\ irule can_spec_arg_Prim \\ fs []
       \\ irule_at Any can_spec_arg_Prim \\ fs []
       \\ irule_at Any can_spec_arg_Disj \\ fs [])
+QED
+
+Theorem spec_one_vars:
+  (∀f v vs (e:'a cexp) e1.
+     spec_one f v vs e = SOME e1 ⇒
+     boundvars (exp_of e1) = boundvars (exp_of e) ∧
+     freevars (exp_of e1) ⊆ freevars (exp_of e)) ∧
+  (∀f v vs (e:'a cexp list) e1.
+     spec_one_list f v vs e = SOME e1 ⇒
+     BIGUNION (set (MAP boundvars (MAP exp_of e1))) =
+     BIGUNION (set (MAP boundvars (MAP exp_of e))) ∧
+     BIGUNION (set (MAP freevars (MAP exp_of e1))) ⊆
+     BIGUNION (set (MAP freevars (MAP exp_of e)))) ∧
+  (∀f v vs (e:(mlstring # 'a cexp) list) e1.
+     spec_one_letrec f v vs e = SOME e1 ⇒
+     set (MAP FST e) = set (MAP FST e1) ∧
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) =
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e))) ∧
+     BIGUNION (set (MAP freevars (MAP (exp_of o SND) e1))) ⊆
+     BIGUNION (set (MAP freevars (MAP (exp_of o SND) e)))) ∧
+  (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1 e4 e5 w.
+     spec_one_case f v vs e = SOME e1 ⇒
+     MAP FST e = MAP FST e1 ∧
+     MAP (FST o SND) e = MAP (FST o SND) e1 ∧
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) =
+     BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e))) ∧
+     BIGUNION (set (MAP (λ(p1,p1',p2).
+        freevars (exp_of p2) DIFF set (MAP explode p1')) e1)) ⊆
+     BIGUNION (set (MAP (λ(p1,p1',p2).
+        freevars (exp_of p2) DIFF set (MAP explode p1')) e))) ∧
+  (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1 w.
+     spec_one_opt f v vs e = SOME e1 ⇒
+     boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) =
+     boundvars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ∧
+     freevars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ⊆
+     freevars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))))
+Proof
+  ho_match_mp_tac spec_one_ind
+  \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac
+  \\ rpt gen_tac \\ rpt disch_tac \\ gvs [exp_of_def,SF ETA_ss]
+  \\ gvs [spec_one_def,AllCaseEqs(),exp_of_def,SF ETA_ss]
+  >~ [‘Apps’] >-
+   (‘∃b. e = Var b f’ by (Cases_on ‘e’ \\ fs [eq_Var_def])
+    \\ gvs [exp_of_def] \\ gvs [boundvars_Apps]
+    \\ conj_tac
+    >-
+     (last_x_assum $ rewrite_tac o single o GSYM
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘es'’
+      \\ qid_spec_tac ‘vs’
+      \\ Induct \\ gvs []
+      \\ gvs [delete_with_def] \\ Cases
+      \\ Cases \\ gvs [check_arg_def,delete_with_def]
+      \\ Cases_on ‘h’ \\ gvs [eq_Var_def,exp_of_def])
+    \\ last_x_assum kall_tac
+    \\ irule SUBSET_TRANS
+    \\ qexists_tac ‘BIGUNION (set (MAP freevars (MAP exp_of es')))’
+    \\ reverse conj_tac
+    >- gvs [SUBSET_DEF]
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘es'’
+    \\ qid_spec_tac ‘vs’
+    \\ Induct \\ gvs [] >- gvs [delete_with_def]
+    \\ Cases \\ Cases \\ gvs [check_arg_def,delete_with_def]
+    \\ rw [] \\ first_x_assum drule \\ strip_tac
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Apps’] >- (fs [boundvars_Apps] \\ fs [SUBSET_DEF])
+  >~ [‘Lams’] >- (fs [boundvars_Lams] \\ fs [SUBSET_DEF])
+  >- gvs [SUBSET_DEF]
+  >-
+   (fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD]
+    \\ rpt (pop_assum mp_tac)
+    \\ rewrite_tac [EXTENSION,SUBSET_DEF]
+    \\ gvs [MEM_MAP,PULL_EXISTS,EXISTS_PROD] \\ rw []
+    \\ metis_tac [])
+  >~ [‘rows_of’] >-
+   (first_x_assum $ qspec_then ‘w’ mp_tac \\ strip_tac
+    \\ fs [boundvars_rows_of,freevars_rows_of]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+    \\ fs [MEM_MAP,FORALL_PROD]
+    \\ fs [SUBSET_DEF,EXTENSION]
+    \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
+    \\ conj_tac >- metis_tac [map_eq_lemma]
+    \\ rw [] \\ fs []
+    \\ DISJ1_TAC
+    \\ DISJ2_TAC
+    \\ first_x_assum irule
+    \\ metis_tac [])
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF,rows_of_def]
+  >- (fs [IfDisj_def] \\ fs [SUBSET_DEF])
 QED
 
 Triviality can_spec_arg_map:
@@ -509,6 +602,21 @@ Proof
       \\ metis_tac [])
   \\ strip_tac \\ gvs []
   \\ imp_res_tac SUBSET_TRANS
+QED
+
+Theorem specialise_each_vars:
+  ∀p args f c args1 c1.
+    specialise_each p args f c = (args1,c1)
+    ⇒
+    boundvars (exp_of c1) = boundvars (exp_of c) ∧
+    freevars (exp_of c1) ⊆ freevars (exp_of c)
+Proof
+  Induct \\ fs [specialise_each_def,exp_eq_refl]
+  \\ rpt gen_tac \\ IF_CASES_TAC \\ strip_tac \\ gvs [exp_eq_refl]
+  \\ gvs [CaseEq"bool"] \\ gvs [CaseEq"option"] \\ gvs [SF SFY_ss]
+  \\ drule (cj 1 spec_one_vars) \\ strip_tac
+  \\ res_tac \\ gvs []
+  \\ imp_res_tac SUBSET_TRANS \\ gvs []
 QED
 
 Triviality set_delete_with:
@@ -681,7 +789,20 @@ Theorem specialise_allvars:
   specialise n r = SOME x ⇒
   allvars (exp_of x) ⊆ allvars (exp_of r) ∪ { explode n }
 Proof
-  cheat
+  Cases_on ‘r’ \\ gvs [specialise_def]
+  \\ rpt (pairarg_tac \\ gvs []) \\ rw []
+  \\ gvs [exp_of_def]
+  \\ ‘LENGTH (const_call_args n (MAP SOME l) c) ≤ LENGTH (MAP SOME l)’ by
+         rewrite_tac [LENGTH_const_call_args] \\ gvs []
+  \\ drule_all split_at_thm \\ strip_tac \\ gvs []
+  \\ drule specialise_each_vars \\ strip_tac \\ gvs []
+  \\ drule drop_common_suffix_thm \\ strip_tac \\ gvs []
+  \\ gvs [allvars_thm]
+  \\ gvs [boundvars_Lams,MAP_MAP_o,o_DEF,exp_of_def,boundvars_Apps,
+          set_map_empty,set_MAP_explode]
+  \\ imp_res_tac specialise_each_subset \\ fs []
+  \\ gvs [EXTENSION,SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+  \\ metis_tac []
 QED
 
 Theorem specialise_is_Lam:
