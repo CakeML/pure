@@ -961,6 +961,13 @@ Proof
   \\ metis_tac [avoid_set_ok_subset,SUBSET_REFL]
 QED
 
+Theorem letrecs_distinct_Lams:
+  ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ fs [Lams_def]
+  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+QED
+
 Definition wf_mem_def:
   wf_mem (m:(mlstring, 'a cexp_rhs) map) ⇔
     ∀n v. lookup m n = SOME v ⇒
@@ -1084,6 +1091,7 @@ Proof
        \\ pop_assum mp_tac
        \\ simp [heuristic_insert_Rec_def]
        \\ rpt (CASE_TAC \\ gvs [])
+       \\ gvs [LENGTH_EQ_NUM_compute]
        \\ gvs [wf_mem_def,mlmapTheory.insert_thm,mlmapTheory.lookup_insert]
        \\ drule_all speclise_wf \\ strip_tac \\ gvs []
        \\ rw [] \\ gvs [AllCaseEqs()]
@@ -1181,13 +1189,6 @@ Proof
   Induct_on ‘w’ \\ fs [Lams_def] \\ rw []
   \\ irule list_subst_rel_Lam
   \\ res_tac \\ fs []
-QED
-
-Theorem letrecs_distinct_Lams:
-  ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
-Proof
-  Induct \\ fs [Lams_def]
-  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
 QED
 
 Theorem no_shadowing_Lams_e:
