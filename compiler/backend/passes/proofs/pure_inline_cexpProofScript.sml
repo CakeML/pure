@@ -961,26 +961,218 @@ Proof
   \\ metis_tac [avoid_set_ok_subset,SUBSET_REFL]
 QED
 
+Definition wf_mem_def:
+  wf_mem (m:(mlstring, 'a cexp_rhs) map) ⇔
+    ∀n v. lookup m n = SOME v ⇒
+          ∃ce. v = cExp ce ∧ NestedCase_free ce ∧
+               cexp_wf ce ∧ letrecs_distinct (exp_of ce)
+End
+
+Definition block_def:
+  block x = x
+End
+
+val wf_lemma = inline_ind
+  |> Q.SPEC ‘λm vars cl h ce. ∀ce' vars'.
+     inline m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
+     vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
+     ⇒ block (NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
+       vars_ok vars' ∧
+       freevars (exp_of ce') ⊆
+       freevars (exp_of ce) ∪
+       { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x) } ∧
+       cns_arities ce' ⊆ cns_arities ce ∪
+       { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x })’
+  |> Q.SPEC ‘λm vars cl h ce. ∀ce' vars'.
+     inline_list m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
+     vars_ok vars ∧ EVERY NestedCase_free ce ∧ EVERY cexp_wf ce ∧
+     EVERY letrecs_distinct (MAP exp_of ce)
+     ⇒ block (EVERY NestedCase_free ce' ∧ EVERY cexp_wf ce' ∧
+       vars_ok vars' ∧
+       LENGTH ce' = LENGTH ce ∧
+       EVERY letrecs_distinct (MAP exp_of ce') ∧
+       BIGUNION (set (MAP freevars (MAP exp_of ce'))) ⊆
+       BIGUNION (set (MAP freevars (MAP exp_of ce))) ∪
+       { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x) } ∧
+       BIGUNION (set (MAP (λa. cns_arities a) ce')) ⊆
+       BIGUNION (set (MAP (λa. cns_arities a) ce)) ∪
+       { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x })’
+  |> CONV_RULE (DEPTH_CONV BETA_CONV);
+
+Theorem inline_wf_thm:
+  ^(wf_lemma |> concl |> rand)
+Proof
+  match_mp_tac wf_lemma
+  \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac \\ rpt gen_tac \\ rpt disch_tac
+  >~ [‘Var’] >-
+   (gvs [inline_def,AllCaseEqs()]
+    \\ gvs [block_def]
+    \\ last_x_assum mp_tac \\ impl_tac
+    >- (gvs [wf_mem_def] \\ res_tac \\ gvs [])
+    \\ rpt strip_tac \\ fs []
+    \\ irule SUBSET_TRANS
+    \\ first_x_assum $ irule_at (Pos hd) \\ fs [exp_of_def]
+    \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  >~ [‘App’] >- cheat (*
+   (gvs [inline_def]
+    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [cexp_wf_def,SF ETA_ss,exp_of_def]
+    \\ gvs [block_def,cns_arities_def,SF ETA_ss]
+    \\ imp_res_tac avoid_set_ok_imp_vars_ok
+    \\ imp_res_tac inline_set_of \\ gvs []
+    \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
+    \\ imp_res_tac mem_inv_subset \\ gvs []
+    \\ rpt (gen_tac \\ metis_tac [avoid_set_ok_subset,SUBSET_TRANS])
+    \\ last_x_assum irule
+    \\ drule_all fresh_cexp_subset
+    \\ gvs [avoid_set_ok_avoid_ok]
+    \\ strip_tac \\ gvs []
+    \\ irule_at Any mem_inv_subset \\ fs []
+    \\ first_assum $ irule_at Any \\ fs []
+    \\ fs [pure_freshenTheory.freshen_cexp_def]
+    \\ drule $ cj 1 freshen_aux_avoid_ok \\ fs []
+    \\ gvs [EVERY_MEM]
+    \\ gvs [mem_inv_def] \\ res_tac \\ fs [] \\ gvs []
+    \\ gvs [GSYM avoid_set_ok_avoid_ok]
+    \\ match_mp_tac avoid_set_ok_change_exp
+    \\ imp_res_tac App_Lam_to_Lets_allvars \\ fs []) *)
+  >~ [‘Let’] >-
+   (gvs [inline_def]
+    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [block_def]
+    \\ ‘wf_mem (heuristic_insert m h v e1) ∧
+        map_ok (heuristic_insert m h v e1) ∧
+        ∀n y. lookup (heuristic_insert m h v e1) n = SOME (cExp y) ⇒
+              lookup m n = SOME (cExp y) ∨
+              freevars (exp_of y) ⊆ freevars (exp_of e1) ∧
+              cns_arities y ⊆ cns_arities e1’ by
+      (Cases_on ‘heuristic_insert m h v e1 = m’ >- gvs []
+       \\ pop_assum mp_tac
+       \\ simp [heuristic_insert_def]
+       \\ rpt (CASE_TAC \\ gvs [])
+       \\ gvs [wf_mem_def,mlmapTheory.insert_thm,
+               mlmapTheory.lookup_insert]
+       \\ rw [] \\ gvs []
+       \\ gvs [AllCaseEqs()] \\ gvs []
+       \\ gvs [cexp_wf_def,exp_of_def,
+               pure_letrecProofTheory.letrecs_distinct_def]
+       \\ res_tac \\ fs [])
+    \\ gvs [cexp_wf_def,exp_of_def,cns_arities_def,
+            pure_letrecProofTheory.letrecs_distinct_def]
+    \\ gvs [SUBSET_DEF]
+    \\ metis_tac [])
+  >~ [‘Lam’] >-
+   (gvs [inline_def]
+    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [block_def,cexp_wf_def,exp_of_def,cns_arities_def,letrecs_distinct_Lams]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Letrec’] >-
+   (gvs [inline_def]
+    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [SF ETA_ss,cexp_wf_def,exp_of_def,MAP_MAP_o,o_DEF,
+            pure_letrecProofTheory.letrecs_distinct_def]
+    \\ gvs [LAMBDA_PROD,block_def]
+    \\ ‘wf_mem (heuristic_insert_Rec m h vbs) ∧
+        map_ok (heuristic_insert_Rec m h vbs) ∧
+        ∀n y. lookup (heuristic_insert_Rec m h vbs) n = SOME (cExp y) ⇒
+              lookup m n = SOME (cExp y) ∨
+              freevars (exp_of y) ⊆
+              BIGUNION (set (MAP freevars (MAP (exp_of o SND) vbs))) ∧
+              cns_arities y ⊆
+              BIGUNION (set (MAP cns_arities (MAP SND vbs)))’ by
+      (Cases_on ‘heuristic_insert_Rec m h vbs = m’ >- fs []
+       \\ pop_assum mp_tac
+       \\ simp [heuristic_insert_Rec_def]
+       \\ rpt (CASE_TAC \\ gvs [])
+       \\ gvs [wf_mem_def,mlmapTheory.insert_thm,mlmapTheory.lookup_insert]
+       \\ drule_all speclise_wf \\ strip_tac \\ gvs []
+       \\ rw [] \\ gvs [AllCaseEqs()]
+       \\ res_tac \\ gvs [])
+    \\ fs [cns_arities_def]
+    \\ ‘MAP SND (MAP2 (λ(v,_). $, v) vbs vbs1) = vbs1 ∧
+        MAP (λ(p1,p2). explode p1) (MAP2 (λ(v,_). $, v) vbs vbs1) =
+        MAP (λ(p1,p2). explode p1) vbs ∧
+        MAP (λ(p1,p2). freevars (exp_of p2)) (MAP2 (λ(v,_). $, v) vbs vbs1) =
+        MAP (λx. freevars (exp_of x)) vbs1 ∧
+        MAP (λ(v,e'). cns_arities e') (MAP2 (λ(v,_). $, v) vbs vbs1) =
+        MAP cns_arities vbs1 ∧
+        MAP (λ(p1,p2). exp_of p2) (MAP2 (λ(v,_). $, v) vbs vbs1) =
+        MAP exp_of vbs1 ∧
+        (MAP2 (λ(v,_). $, v) vbs vbs1 ≠ [] ⇔
+         vbs ≠ [])’ by
+     (qpat_x_assum ‘LENGTH vbs1 = LENGTH vbs’ mp_tac
+      \\ qid_spec_tac ‘vbs1’
+      \\ qid_spec_tac ‘vbs’
+      \\ Induct \\ fs []
+      \\ PairCases \\ Cases \\ fs [])
+    \\ gvs []
+    \\ rw []
+    \\ gvs [SUBSET_DEF]
+    \\ rw []
+    \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD,wf_mem_def]
+    \\ metis_tac [])
+  >~ [‘Prim’] >-
+   (gvs [inline_def]
+    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+    \\ gvs [block_def,cexp_wf_def,exp_of_def,SF ETA_ss,
+            pure_letrecProofTheory.letrecs_distinct_def]
+    \\ gvs [cns_arities_def]
+    \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  >~ [‘Case’] >-
+   (gvs [inline_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [block_def,cexp_wf_def,SF ETA_ss,exp_of_def,
+            pure_letrecProofTheory.letrecs_distinct_def]
+    \\ ‘MAP (λ(v,vs,e). e) bs = MAP (SND ∘ SND) bs’ by
+      (qid_spec_tac ‘bs’ \\ Induct \\ gvs [FORALL_PROD])
+    \\ gvs []
+    \\ imp_res_tac inline_list_length \\ gvs []
+    \\ ‘EVERY letrecs_distinct (MAP exp_of (MAP (SND ∘ SND) bs))’ by cheat
+    \\ ‘MAP (FST ∘ SND) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
+        MAP (FST ∘ SND) bs ∧
+        MAP FST (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
+        MAP FST bs ∧
+        (MAP (λ(cn,vs,e). (cn,LENGTH vs))
+          (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
+         MAP (λ(cn,vs,e). (cn,LENGTH vs)) bs) ∧
+        MAP (λ(cn,vs,e'). cns_arities e')
+                (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
+        MAP cns_arities bs2 ∧
+        MAP (SND ∘ SND) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) = bs2 ∧
+        (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2 ≠ [] ⇔ bs ≠ [])’ by cheat
+    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of]
+    \\ gvs [cns_arities_def]
+    \\ Cases_on ‘f’ \\ gvs []
+    >- cheat
+    \\ PairCases_on ‘x’ \\ gvs []
+    \\ Cases_on ‘inline m ns2 cl h x1’ \\ gvs [IfDisj_def]
+    \\ cheat)
+  \\ gvs [inline_def]
+  \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+  \\ gvs [block_def]
+  \\ gvs [SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem inline_wf:
-  inline m vars cl h ce = (ce',vars') ∧
+  inline empty vars cl h ce = (ce',vars') ∧
   vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
   ⇒ NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
-    freevars (exp_of ce') = freevars (exp_of ce) ∧
+    freevars (exp_of ce') ⊆ freevars (exp_of ce) ∧
     cns_arities ce' ⊆ cns_arities ce
 Proof
-  cheat (* inline_wf *)
+  strip_tac \\ drule $ cj 1 inline_wf_thm \\ fs []
+  \\ rw [] \\ fs [wf_mem_def,block_def]
 QED
 
 Theorem inline_list_wf:
-  inline_list m vars cl h ce = (ce',vars') ∧
+  inline_list m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
   vars_ok vars ∧ EVERY NestedCase_free ce ∧ EVERY cexp_wf ce ∧
   EVERY letrecs_distinct (MAP exp_of ce)
   ⇒ EVERY NestedCase_free ce' ∧ EVERY cexp_wf ce' ∧
-    EVERY letrecs_distinct (MAP exp_of ce') ∧
-    LIST_REL (λce ce'. freevars (exp_of ce') = freevars (exp_of ce) ∧
-                       cns_arities ce' ⊆ cns_arities ce) ce ce'
+    EVERY letrecs_distinct (MAP exp_of ce')
 Proof
-  cheat (* inline_list_wf *)
+  strip_tac \\ drule $ cj 2 inline_wf_thm \\ fs [block_def]
 QED
 
 Theorem list_subst_rel_Lams:
@@ -1458,7 +1650,9 @@ Proof
      (fs [exp_of_def,cexp_wf_def,SF ETA_ss]
       \\ fs [memory_inv_def] \\ res_tac \\ fs [] \\ gvs []
       \\ drule inline_list_wf
-      \\ impl_tac >- (fs [] \\ fs [avoid_set_ok_def])
+      \\ impl_tac >- (fs [] \\ fs [avoid_set_ok_def]
+                      \\ gvs [wf_mem_def,memory_inv_def]
+                      \\ rw [] \\ res_tac \\ fs [])
       \\ strip_tac
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ pop_assum $ assume_tac o GSYM
@@ -2023,6 +2217,7 @@ QED
 
 (********** Syntactic well-formedness results **********)
 
+(*
 Theorem inline_letrecs_distinct:
   inline empty vs cl h ce = (ce',vs') ∧
   letrecs_distinct (exp_of ce)
@@ -2044,6 +2239,7 @@ Theorem inline_top_level_letrecs_distinct:
 Proof
   cheat (* inline_top_level_letrecs_distinct *)
 QED
+*)
 
 Theorem inline_all_wf:
   inline_all cl h ce = ce' ∧ closed (exp_of ce) ∧
@@ -2062,7 +2258,8 @@ Proof
     gvs[pure_barendregtTheory.barendregt_def]
     ) >>
   strip_tac >> qspec_then `inlined_e` assume_tac dead_let_correct >> gvs[] >>
-  gvs[closed_def, SUBSET_DEF]
+  gvs[closed_def, SUBSET_DEF] >>
+  gvs [EXTENSION]
 QED
 
 

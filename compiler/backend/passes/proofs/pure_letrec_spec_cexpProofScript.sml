@@ -388,7 +388,6 @@ Proof
     \\ fs [SUBSET_DEF]
     \\ metis_tac [])
   >~ [‘rows_of’] >-
-
    (first_x_assum $ qspec_then ‘w’ mp_tac
     \\ impl_tac >-
      (CASE_TAC \\ fs [] \\ CASE_TAC
@@ -780,7 +779,9 @@ Theorem speclise_wf:
   specialise w u = SOME x ∧
   NestedCase_free u ∧ letrecs_distinct (exp_of u) ∧ cexp_wf u
   ⇒
-  NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+  NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x ∧
+  freevars (exp_of x) = freevars (exp_of u) ∧
+  cns_arities x = cns_arities u
 Proof
   cheat
 QED
