@@ -1219,14 +1219,19 @@ Proof
   >~ [‘Let’] >-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
-    \\ gvs [block_def]
-    \\ ‘wf_mem (heuristic_insert m h v e1) ∧
+    \\ gvs [block_def] >>
+    gvs[avoid_set_ok_Let] >>
+    rev_drule $ cj 1 inline_set_of >> impl_tac >- gvs[avoid_set_ok_def] >> strip_tac
+    \\ ‘wf_mem ns3 (heuristic_insert m h v e1) ∧
+        avoid_set_ok ns3 e2 ∧
         map_ok (heuristic_insert m h v e1) ∧
         ∀n y. lookup (heuristic_insert m h v e1) n = SOME (cExp y) ⇒
               lookup m n = SOME (cExp y) ∨
               freevars (exp_of y) ⊆ freevars (exp_of e1) ∧
               cns_arities y ⊆ cns_arities e1’ by
-      (Cases_on ‘heuristic_insert m h v e1 = m’ >- gvs []
+      (irule_at Any wf_mem_subset >> rpt $ goal_assum $ drule_at Any >>
+       irule_at Any avoid_set_ok_subset >> rpt $ goal_assum $ drule_at Any >>
+       Cases_on ‘heuristic_insert m h v e1 = m’ >- gvs []
        \\ pop_assum mp_tac
        \\ simp [heuristic_insert_def]
        \\ rpt (CASE_TAC \\ gvs [])
@@ -1236,32 +1241,44 @@ Proof
        \\ gvs [AllCaseEqs()] \\ gvs []
        \\ gvs [cexp_wf_def,exp_of_def,
                pure_letrecProofTheory.letrecs_distinct_def]
-       \\ res_tac \\ fs [])
+       \\ res_tac \\ fs []) >>
+       drule $ cj 1 $ SRULE [fake_avoid_set_ok_def] inline_avoid_set_ok >> simp[] >>
+       impl_tac >- metis_tac[wf_mem_IMP_mem_inv] >> strip_tac >>
+       rev_drule $ cj 1 $ SRULE [fake_avoid_set_ok_def] inline_avoid_set_ok >>
+       impl_tac >- metis_tac[wf_mem_IMP_mem_inv] >> strip_tac >>
+       drule $ cj 1 inline_set_of >> impl_tac >- gvs[avoid_set_ok_def] >> strip_tac >>
+       irule_at Any avoid_set_ok_subset >> rpt $ goal_assum $ drule_at Any
     \\ gvs [cexp_wf_def,exp_of_def,cns_arities_def,
             pure_letrecProofTheory.letrecs_distinct_def]
     \\ gvs [SUBSET_DEF]
-    \\ metis_tac [])
+    \\ metis_tac []
+    )
   >~ [‘Lam’] >-
-   (gvs [inline_def]
+   (gvs [inline_def, avoid_set_ok_Lam]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [block_def,cexp_wf_def,exp_of_def,cns_arities_def,letrecs_distinct_Lams]
-    \\ gvs [SUBSET_DEF])
+    \\ gvs [SUBSET_DEF, avoid_set_ok_Lam] >>
+    drule $ cj 1 inline_set_of >> gvs[avoid_set_ok_def, SUBSET_DEF])
   >~ [‘Letrec’] >-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [SF ETA_ss,cexp_wf_def,exp_of_def,MAP_MAP_o,o_DEF,
-            pure_letrecProofTheory.letrecs_distinct_def]
+            pure_letrecProofTheory.letrecs_distinct_def,avoid_set_ok_Letrec]
     \\ gvs [LAMBDA_PROD,block_def]
-    \\ dxrule LIST_REL_imp \\ strip_tac
-    \\ ‘wf_mem (heuristic_insert_Rec m h vbs) ∧
+    \\ dxrule LIST_REL_imp \\ strip_tac >>
+    rev_drule $ cj 2 inline_set_of >> impl_tac >- gvs[avoid_set_ok_def] >> strip_tac
+    \\ ‘wf_mem ns1 (heuristic_insert_Rec m h vbs) ∧
         map_ok (heuristic_insert_Rec m h vbs) ∧
+        avoid_set_ok ns1 e ∧
         ∀n y. lookup (heuristic_insert_Rec m h vbs) n = SOME (cExp y) ⇒
               lookup m n = SOME (cExp y) ∨
               freevars (exp_of y) ⊆
               BIGUNION (set (MAP freevars (MAP (exp_of o SND) vbs))) ∧
               cns_arities y ⊆
               BIGUNION (set (MAP cns_arities (MAP SND vbs)))’ by
-      (Cases_on ‘heuristic_insert_Rec m h vbs = m’ >- fs []
+      (irule_at Any wf_mem_subset >> rpt $ goal_assum $ drule_at Any >>
+       irule_at Any avoid_set_ok_subset >> rpt $ goal_assum $ drule_at Any >>
+       Cases_on ‘heuristic_insert_Rec m h vbs = m’ >- fs []
        \\ pop_assum mp_tac
        \\ simp [heuristic_insert_Rec_def]
        \\ rpt (CASE_TAC \\ gvs [])
@@ -1269,7 +1286,9 @@ Proof
        \\ gvs [wf_mem_def,mlmapTheory.insert_thm,mlmapTheory.lookup_insert]
        \\ drule_all speclise_wf \\ strip_tac \\ gvs []
        \\ rw [] \\ gvs [AllCaseEqs()]
-       \\ res_tac \\ gvs [])
+       \\ res_tac \\ gvs [] >>
+          drule specialise_allvars >> gvs[avoid_set_ok_allvars, SUBSET_DEF] >>
+          rw[] >> first_x_assum drule >> rw[] >> gvs[TO_IN_set_of])
     \\ fs [cns_arities_def]
     \\ ‘MAP SND (MAP2 (λ(v,_). $, v) vbs vbs1) = vbs1 ∧
         MAP (λ(p1,p2). explode p1) (MAP2 (λ(v,_). $, v) vbs vbs1) =
@@ -1287,17 +1306,23 @@ Proof
       \\ qid_spec_tac ‘vbs’
       \\ Induct \\ fs []
       \\ PairCases \\ Cases \\ fs [])
-    \\ gvs []
+    \\ gvs [] >>
+       drule $ cj 2 inline_set_of >>
+       impl_tac >- gvs[avoid_set_ok_def] >> strip_tac >>
+       drule $ cj 1 inline_set_of >>
+       impl_tac >- gvs[avoid_set_ok_def] >> strip_tac >>
+       drule_at (Pat `_ ⊆ _`) avoid_set_ok_subset >> strip_tac
     \\ rw []
     \\ gvs [SUBSET_DEF]
     \\ rw []
-    \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD,wf_mem_def]
+    \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD,wf_mem_def,EVERY_MEM]
     \\ metis_tac [])
   >~ [‘Prim’] >-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
-    \\ gvs [block_def,cexp_wf_def,exp_of_def,SF ETA_ss,
-            pure_letrecProofTheory.letrecs_distinct_def]
+    \\ gvs [block_def,cexp_wf_def,exp_of_def,SF ETA_ss,avoid_set_ok_Prim,
+            pure_letrecProofTheory.letrecs_distinct_def] >>
+       drule $ cj 2 inline_set_of >> strip_tac >> simp[]
     \\ dxrule LIST_REL_imp \\ strip_tac
     \\ gvs [cns_arities_def]
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
