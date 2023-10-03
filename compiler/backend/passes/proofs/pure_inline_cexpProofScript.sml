@@ -36,6 +36,12 @@ Definition memory_inv_def:
                cexp_wf e1
 End
 
+Theorem Lets_append:
+  ∀xs ys b. Lets (xs ++ ys) b = Lets xs (Lets ys b)
+Proof
+  Induct \\ fs [pure_letrecProofTheory.Lets_def,FORALL_PROD]
+QED
+
 Theorem inline_list_empty:
   (inline_list m ns cl h l = ([], ns1)) ⇒ l = []
 Proof
@@ -374,12 +380,6 @@ Proof
   Induct \\ Cases_on ‘xs’
   \\ gvs [pure_inline_cexpTheory.Lets_def,pure_letrecProofTheory.Lets_def]
   \\ fs [exp_of_def]
-QED
-
-Theorem Lets_append:
-  ∀xs ys b. Lets (xs ++ ys) b = Lets xs (Lets ys b)
-Proof
-  Induct \\ fs [pure_letrecProofTheory.Lets_def,FORALL_PROD]
 QED
 
 Theorem subst_Lets:
@@ -826,7 +826,7 @@ Proof
   \\ gvs [SUBSET_DEF]
 QED
 
-val avoid_set_ok_lemma = inline_ind
+fun avoid_set_ok_lemma () = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀t ns1.
     (inline m ns cl h x) = (t, ns1) ∧
     mem_inv m ns ∧ map_ok m ∧
@@ -840,9 +840,9 @@ val avoid_set_ok_lemma = inline_ind
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
 
 Theorem inline_avoid_set_ok:
-  ^(avoid_set_ok_lemma |> concl |> rand)
+  ^(avoid_set_ok_lemma () |> concl |> rand)
 Proof
-  match_mp_tac avoid_set_ok_lemma
+  match_mp_tac (avoid_set_ok_lemma())
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac \\ rpt gen_tac \\ rpt disch_tac
   \\ gvs [inline_def]
   >~ [‘Var’] >-
@@ -969,11 +969,116 @@ Definition wf_mem_def:
                cexp_wf ce ∧ letrecs_distinct (exp_of ce)
 End
 
+Triviality BIGUNION_set_SUBSET:
+  BIGUNION (set xs) ⊆ z ⇔ EVERY (λx. x ⊆ z) xs
+Proof
+  Induct_on ‘xs’ \\ gvs []
+QED
+
+Theorem cns_arities_Lets:
+  cns_arities (Lets a xs x) =
+  BIGUNION (set (MAP cns_arities (MAP SND xs))) ∪ cns_arities x
+Proof
+  Induct_on ‘xs’ \\ fs [Lets_def]
+  \\ PairCases \\ fs [Lets_def,cns_arities_def]
+  \\ gvs [AC UNION_COMM UNION_ASSOC]
+QED
+
+Triviality cexp_Lets_append:
+  ∀xs ys x. Lets a (xs ++ ys) x = Lets a xs (Lets a ys x)
+Proof
+  Induct \\ gvs [Lets_def,FORALL_PROD]
+QED
+
+Theorem freevars_Lets:
+  ∀xs x.
+    freevars (exp_of (Lets a xs x)) ⊆
+    BIGUNION (set (MAP freevars (MAP exp_of (MAP SND xs)))) ∪
+    (freevars (exp_of x) DIFF set (MAP explode (MAP FST xs)))
+Proof
+  Induct_on ‘xs’ \\ fs [Lets_def]
+  \\ PairCases \\ fs [Lets_def,exp_of_def]
+  \\ gvs [AC UNION_COMM UNION_ASSOC]
+  \\ gvs [SUBSET_DEF]
+QED
+
+Theorem NestedCase_free_Lets:
+  NestedCase_free (Lets a xs x) ⇔
+  EVERY NestedCase_free (MAP SND xs) ∧ NestedCase_free x
+Proof
+  Induct_on ‘xs’ \\ fs [Lets_def]
+  \\ PairCases \\ fs [Lets_def]
+  \\ gvs [AC CONJ_COMM CONJ_ASSOC]
+QED
+
+Theorem cexp_wf_Lets:
+  cexp_wf (Lets a xs x) ⇔
+  EVERY cexp_wf (MAP SND xs) ∧ cexp_wf x
+Proof
+  Induct_on ‘xs’ \\ fs [Lets_def]
+  \\ PairCases \\ fs [Lets_def,cexp_wf_def]
+  \\ gvs [AC CONJ_COMM CONJ_ASSOC]
+QED
+
+Theorem letrecs_distinct_Lets:
+  letrecs_distinct (exp_of (Lets a xs x)) ⇔
+  EVERY letrecs_distinct (MAP exp_of (MAP SND xs)) ∧
+  letrecs_distinct (exp_of x)
+Proof
+  Induct_on ‘xs’ \\ fs [Lets_def]
+  \\ PairCases
+  \\ fs [Lets_def,pure_letrecProofTheory.letrecs_distinct_def,exp_of_def]
+  \\ gvs [AC CONJ_COMM CONJ_ASSOC]
+QED
+
+Theorem App_Lam_to_Lets_wf:
+  App_Lam_to_Lets exp = SOME exp1 ⇒
+  cns_arities exp1 = cns_arities exp ∧
+  freevars (exp_of exp1) ⊆ freevars (exp_of exp) ∧
+  NestedCase_free exp1 = NestedCase_free exp ∧
+  (cexp_wf exp ⇒ cexp_wf exp1) ∧
+  letrecs_distinct (exp_of exp1) = letrecs_distinct (exp_of exp)
+Proof
+  Cases_on ‘exp’ \\ gvs [App_Lam_to_Lets_def]
+  \\ Cases_on ‘c’ \\ gvs [App_Lam_to_Lets_def]
+  \\ strip_tac \\ gvs []
+  \\ gvs [exp_of_def,letrecs_distinct_Lams,cns_arities_def]
+  \\ gvs [NOT_LESS,cexp_wf_def]
+  \\ drule miscTheory.LESS_EQ_LENGTH \\ strip_tac
+  \\ gvs []
+  \\ pop_assum $ assume_tac o GSYM
+  \\ gvs [rich_listTheory.TAKE_LENGTH_APPEND]
+  \\ gvs [rich_listTheory.DROP_LENGTH_APPEND,SF ETA_ss]
+  \\ gvs [AC UNION_ASSOC UNION_COMM,NestedCase_free_Lets,cexp_wf_Lets,
+          AC CONJ_COMM CONJ_ASSOC,cns_arities_Lets,MAP_FST_ZIP,MAP_SND_ZIP,
+          letrecs_distinct_Lets]
+  \\ conj_tac >- gvs [SUBSET_DEF]
+  \\ irule SUBSET_TRANS
+  \\ irule_at Any freevars_Lets
+  \\ fs [MAP_SND_ZIP,MAP_FST_ZIP]
+  \\ gvs [SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Theorem freshen_aux_freevars:
+  freshen_aux empty e1 ns1 = (e2,ns2) ⇒
+  freevars (exp_of e2) = freevars (exp_of e1)
+Proof
+  cheat
+QED
+
+Theorem freshen_aux_vars_ok:
+  freshen_aux empty e1 ns1 = (e2,ns2) ∧ vars_ok ns1 ⇒
+  vars_ok ns2
+Proof
+  cheat
+QED
+
 Definition block_def:
   block x = x
 End
 
-val wf_lemma = inline_ind
+fun wf_lemma () = inline_ind
   |> Q.SPEC ‘λm vars cl h ce. ∀ce' vars'.
      inline m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
      vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
@@ -1001,9 +1106,9 @@ val wf_lemma = inline_ind
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
 
 Theorem inline_wf_thm:
-  ^(wf_lemma |> concl |> rand)
+  ^((wf_lemma()) |> concl |> rand)
 Proof
-  match_mp_tac wf_lemma
+  match_mp_tac (wf_lemma())
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac \\ rpt gen_tac \\ rpt disch_tac
   >~ [‘Var’] >-
    (gvs [inline_def,AllCaseEqs()]
@@ -1014,29 +1119,41 @@ Proof
     \\ irule SUBSET_TRANS
     \\ first_x_assum $ irule_at (Pos hd) \\ fs [exp_of_def]
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
-  >~ [‘App’] >- cheat (*
+  >~ [‘App’] >-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
-    \\ gvs [cexp_wf_def,SF ETA_ss,exp_of_def]
-    \\ gvs [block_def,cns_arities_def,SF ETA_ss]
-    \\ imp_res_tac avoid_set_ok_imp_vars_ok
-    \\ imp_res_tac inline_set_of \\ gvs []
-    \\ imp_res_tac avoid_set_ok_subset \\ gvs [EVERY_MEM,SF SFY_ss]
-    \\ imp_res_tac mem_inv_subset \\ gvs []
-    \\ rpt (gen_tac \\ metis_tac [avoid_set_ok_subset,SUBSET_TRANS])
-    \\ last_x_assum irule
-    \\ drule_all fresh_cexp_subset
-    \\ gvs [avoid_set_ok_avoid_ok]
-    \\ strip_tac \\ gvs []
-    \\ irule_at Any mem_inv_subset \\ fs []
-    \\ first_assum $ irule_at Any \\ fs []
-    \\ fs [pure_freshenTheory.freshen_cexp_def]
-    \\ drule $ cj 1 freshen_aux_avoid_ok \\ fs []
-    \\ gvs [EVERY_MEM]
-    \\ gvs [mem_inv_def] \\ res_tac \\ fs [] \\ gvs []
-    \\ gvs [GSYM avoid_set_ok_avoid_ok]
-    \\ match_mp_tac avoid_set_ok_change_exp
-    \\ imp_res_tac App_Lam_to_Lets_allvars \\ fs []) *)
+    \\ ‘es ≠ [] ⇔ es1 ≠ []’ by
+     (imp_res_tac inline_list_length
+      \\ Cases_on ‘es1’ \\ Cases_on ‘es’ \\ gvs [])
+    \\ gvs [cexp_wf_def,SF ETA_ss,exp_of_def,block_def,cns_arities_def,block_def]
+    \\ (rename [‘freshen_cexp (App a e_m es1) ns1 = (exp,ns2)’] ORELSE
+        (gvs [SUBSET_DEF] \\ metis_tac []))
+    >- (gvs [SUBSET_DEF] \\ metis_tac [])
+    >- (gvs [SUBSET_DEF] \\ metis_tac [])
+    \\ drule App_Lam_to_Lets_wf \\ strip_tac
+    \\ gvs [pure_freshenTheory.freshen_cexp_def]
+    \\ drule freshen_aux_freevars \\ strip_tac
+    \\ drule $ cj 1 freshen_aux_cns_arities \\ strip_tac
+    \\ ‘vars_ok ns2 ∧ NestedCase_free exp1 ∧ cexp_wf exp1 ∧
+        letrecs_distinct (exp_of exp1)’ by
+       (imp_res_tac $ cj 1 freshen_aux_NestedCase_free
+        \\ gvs [SF ETA_ss,wf_mem_def]
+        \\ res_tac \\ gvs []
+        \\ imp_res_tac $ cj 1 freshen_aux_letrecs_distinct
+        \\ gvs [exp_of_def,EVERY_MAP]
+        \\ imp_res_tac $ cj 1 freshen_aux_cexp_wf
+        \\ gvs [cexp_wf_def,SF ETA_ss]
+        \\ drule freshen_aux_vars_ok \\ fs [])
+    \\ gvs []
+    \\ irule_at (Pos hd) SUBSET_TRANS
+    \\ last_x_assum $ irule_at $ Pos hd \\ gvs []
+    \\ irule_at (Pos last) SUBSET_TRANS
+    \\ last_x_assum $ irule_at $ Pos hd \\ gvs []
+    \\ irule_at (Pos last) SUBSET_TRANS
+    \\ last_x_assum $ irule_at $ Pos hd \\ gvs []
+    \\ gvs [exp_of_def,SF ETA_ss,cns_arities_def]
+    \\ gvs [SUBSET_DEF]
+    \\ metis_tac [])
   >~ [‘Let’] >-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
@@ -1121,6 +1238,7 @@ Proof
     \\ gvs [cns_arities_def]
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
   >~ [‘Case’] >-
+
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [block_def,cexp_wf_def,SF ETA_ss,exp_of_def,
@@ -1129,7 +1247,10 @@ Proof
       (qid_spec_tac ‘bs’ \\ Induct \\ gvs [FORALL_PROD])
     \\ gvs []
     \\ imp_res_tac inline_list_length \\ gvs []
-    \\ ‘EVERY letrecs_distinct (MAP exp_of (MAP (SND ∘ SND) bs))’ by cheat
+    \\ ‘EVERY letrecs_distinct (MAP exp_of (MAP (SND ∘ SND) bs))’ by
+          (qpat_x_assum ‘letrecs_distinct (rows_of (explode v) _ _)’ mp_tac
+           \\ rpt (pop_assum kall_tac)
+           \\ gvs [letrecs_distinct_rows_of,EVERY_MAP,o_DEF,LAMBDA_PROD])
     \\ ‘MAP (FST ∘ SND) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
         MAP (FST ∘ SND) bs ∧
         MAP FST (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
@@ -1141,11 +1262,47 @@ Proof
                 (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) =
         MAP cns_arities bs2 ∧
         MAP (SND ∘ SND) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) = bs2 ∧
-        (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2 ≠ [] ⇔ bs ≠ [])’ by cheat
+        (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2 ≠ [] ⇔ bs ≠ []) ∧
+        EVERY (λ(cons,vL,e). letrecs_distinct e)
+          (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x'))
+             (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2)) =
+        EVERY letrecs_distinct (MAP exp_of bs2)’ by
+      (qpat_x_assum ‘LENGTH bs = LENGTH bs2’ mp_tac
+       \\ qid_spec_tac ‘bs2’ \\ qid_spec_tac ‘bs’
+       \\ rpt (pop_assum kall_tac)
+       \\ Induct \\ Cases_on ‘bs2’ \\ gvs []
+       \\ PairCases \\ gvs [])
     \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of]
     \\ gvs [cns_arities_def]
     \\ Cases_on ‘f’ \\ gvs []
+
     >- cheat
+
+   (* gvs [letrecs_distinct_rows_of]
+      \\ reverse conj_tac
+      >-
+       (conj_tac
+        >- (gvs [SUBSET_DEF] \\ metis_tac [])
+        \\ gvs [MAP_MAP_o,o_DEF]
+        \\ irule SUBSET_TRANS
+        \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
+        \\ simp [LAMBDA_PROD] \\ simp [SUBSET_DEF])
+      \\ reverse conj_tac
+      >- (gvs [SUBSET_DEF] \\ metis_tac [])
+      \\ gvs [DELETE_SUBSET_INSERT,BIGUNION_set_SUBSET,EVERY_MEM]
+      \\ gvs [PULL_EXISTS,MEM_MAP,FORALL_PROD]
+      \\ rpt strip_tac
+      \\ gvs [DIFF_SUBSET]
+      \\ rename [‘MEM (a,b,c) _’]
+      \\ ‘∃d. MEM (a,b,d) bs ∧ MEM c bs2’ by cheat
+      \\ irule SUBSET_TRANS
+      \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
+      \\ reverse (rpt conj_tac)
+      >- (gvs [SUBSET_DEF] \\ metis_tac [])
+      \\ gvs [DELETE_SUBSET_INSERT,BIGUNION_set_SUBSET,EVERY_MEM]
+      \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD]
+      \\ rw [] *)
+
     \\ PairCases_on ‘x’ \\ gvs []
     \\ Cases_on ‘inline m ns2 cl h x1’ \\ gvs [IfDisj_def]
     \\ cheat)
@@ -2270,30 +2427,6 @@ Proof
 QED
 
 (********** Syntactic well-formedness results **********)
-
-(*
-Theorem inline_letrecs_distinct:
-  inline empty vs cl h ce = (ce',vs') ∧
-  letrecs_distinct (exp_of ce)
-  ⇒ letrecs_distinct (exp_of ce')
-Proof
-  cheat (* inline_letrecs_distinct *)
-QED
-
-Theorem inline_all_letrecs_distinct:
-  inline_all cl h ce = ce' ∧ letrecs_distinct (exp_of ce)
-  ⇒ letrecs_distinct (exp_of ce')
-Proof
-  cheat (* inline_all_letrecs_distinct *)
-QED
-
-Theorem inline_top_level_letrecs_distinct:
-  inline_top_level c ce = ce' ∧ letrecs_distinct (exp_of ce)
-  ⇒ letrecs_distinct (exp_of ce')
-Proof
-  cheat (* inline_top_level_letrecs_distinct *)
-QED
-*)
 
 Theorem inline_all_wf:
   inline_all cl h ce = ce' ∧ closed (exp_of ce) ∧
