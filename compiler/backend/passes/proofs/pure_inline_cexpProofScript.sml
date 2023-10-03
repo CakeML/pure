@@ -1067,13 +1067,6 @@ Proof
   cheat
 QED
 
-Theorem freshen_aux_vars_ok:
-  freshen_aux empty e1 ns1 = (e2,ns2) ∧ vars_ok ns1 ⇒
-  vars_ok ns2
-Proof
-  cheat
-QED
-
 Theorem LIST_REL_imp:
   ∀es es1.
     LIST_REL
@@ -1174,7 +1167,7 @@ Proof
         \\ gvs [exp_of_def,EVERY_MAP]
         \\ imp_res_tac $ cj 1 freshen_aux_cexp_wf
         \\ gvs [cexp_wf_def,SF ETA_ss]
-        \\ drule freshen_aux_vars_ok \\ fs [])
+        \\ drule $ cj 1 freshen_aux_mono \\ fs [])
     \\ gvs []
     \\ irule_at (Pos hd) SUBSET_TRANS
     \\ last_x_assum $ irule_at $ Pos hd \\ gvs []
