@@ -1074,6 +1074,36 @@ Proof
   cheat
 QED
 
+Theorem LIST_REL_imp:
+  ∀es es1.
+    LIST_REL
+      (λce ce'.
+         freevars (exp_of ce') ⊆ freevars (exp_of ce) ∪
+         {a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x)} ∧
+         cns_arities ce' ⊆ cns_arities ce ∪
+         {a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x}) es es1
+    ⇒
+    BIGUNION (set (MAP freevars (MAP exp_of es1))) ⊆
+    BIGUNION (set (MAP freevars (MAP exp_of es))) ∪
+    { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x) } ∧
+    BIGUNION (set (MAP (λa. cns_arities a) es1)) ⊆
+    BIGUNION (set (MAP (λa. cns_arities a) es)) ∪
+    { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x }
+Proof
+  Induct \\ gvs [PULL_EXISTS]
+  \\ rpt gen_tac \\ disch_tac \\ gvs []
+  \\ last_x_assum dxrule \\ strip_tac
+  \\ gvs [SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Triviality freevars_Disj:
+  freevars (Disj v xs) ⊆ {v}
+Proof
+  Induct_on ‘xs’ \\ gvs [Disj_def]
+  \\ PairCases \\ gvs [Disj_def]
+QED
+
 Definition block_def:
   block x = x
 End
@@ -1097,12 +1127,11 @@ fun wf_lemma () = inline_ind
        vars_ok vars' ∧
        LENGTH ce' = LENGTH ce ∧
        EVERY letrecs_distinct (MAP exp_of ce') ∧
-       BIGUNION (set (MAP freevars (MAP exp_of ce'))) ⊆
-       BIGUNION (set (MAP freevars (MAP exp_of ce))) ∪
-       { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x) } ∧
-       BIGUNION (set (MAP (λa. cns_arities a) ce')) ⊆
-       BIGUNION (set (MAP (λa. cns_arities a) ce)) ∪
-       { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x })’
+       LIST_REL (λce ce'.
+         freevars (exp_of ce') ⊆ freevars (exp_of ce) ∪
+         { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x) } ∧
+         cns_arities ce' ⊆ cns_arities ce ∪
+         { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x }) ce ce')’
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
 
 Theorem inline_wf_thm:
@@ -1126,6 +1155,8 @@ Proof
      (imp_res_tac inline_list_length
       \\ Cases_on ‘es1’ \\ Cases_on ‘es’ \\ gvs [])
     \\ gvs [cexp_wf_def,SF ETA_ss,exp_of_def,block_def,cns_arities_def,block_def]
+    \\ dxrule LIST_REL_imp \\ strip_tac
+    \\ fs []
     \\ (rename [‘freshen_cexp (App a e_m es1) ns1 = (exp,ns2)’] ORELSE
         (gvs [SUBSET_DEF] \\ metis_tac []))
     >- (gvs [SUBSET_DEF] \\ metis_tac [])
@@ -1190,6 +1221,7 @@ Proof
     \\ gvs [SF ETA_ss,cexp_wf_def,exp_of_def,MAP_MAP_o,o_DEF,
             pure_letrecProofTheory.letrecs_distinct_def]
     \\ gvs [LAMBDA_PROD,block_def]
+    \\ dxrule LIST_REL_imp \\ strip_tac
     \\ ‘wf_mem (heuristic_insert_Rec m h vbs) ∧
         map_ok (heuristic_insert_Rec m h vbs) ∧
         ∀n y. lookup (heuristic_insert_Rec m h vbs) n = SOME (cExp y) ⇒
@@ -1235,10 +1267,10 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [block_def,cexp_wf_def,exp_of_def,SF ETA_ss,
             pure_letrecProofTheory.letrecs_distinct_def]
+    \\ dxrule LIST_REL_imp \\ strip_tac
     \\ gvs [cns_arities_def]
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
   >~ [‘Case’] >-
-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [block_def,cexp_wf_def,SF ETA_ss,exp_of_def,
@@ -1273,39 +1305,53 @@ Proof
        \\ Induct \\ Cases_on ‘bs2’ \\ gvs []
        \\ PairCases \\ gvs [])
     \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of]
-    \\ gvs [cns_arities_def]
+    \\ gvs [DELETE_SUBSET_INSERT]
+    \\ gvs [letrecs_distinct_rows_of]
+    \\ ‘∀xx. BIGUNION
+            (set
+               (MAP (λ(c,vs,e). freevars e DIFF set vs ∪ {explode v})
+                  (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x'))
+                     (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2)))) ⊆
+          explode v INSERT
+          xx ∪
+          BIGUNION
+            (set
+               (MAP (λ(c,vs,e). freevars e DIFF set vs ∪ {explode v})
+                  (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x')) bs)))
+             DELETE explode v ∪ freevars (exp_of e) ∪
+          {a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x)}’ by
+      (rpt gen_tac
+       \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+       \\ qid_spec_tac ‘bs2’ \\ qid_spec_tac ‘bs’
+       \\ rpt $ pop_assum kall_tac
+       \\ Induct \\ gvs [PULL_EXISTS]
+       \\ PairCases \\ gvs []
+       \\ rpt gen_tac \\ disch_tac \\ gvs []
+       \\ last_x_assum drule
+       \\ gvs [SUBSET_DEF] \\ metis_tac [])
+    \\ gvs [] \\ pop_assum kall_tac
     \\ Cases_on ‘f’ \\ gvs []
-
-    >- cheat
-
-   (* gvs [letrecs_distinct_rows_of]
-      \\ reverse conj_tac
-      >-
-       (conj_tac
-        >- (gvs [SUBSET_DEF] \\ metis_tac [])
-        \\ gvs [MAP_MAP_o,o_DEF]
-        \\ irule SUBSET_TRANS
-        \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
-        \\ simp [LAMBDA_PROD] \\ simp [SUBSET_DEF])
-      \\ reverse conj_tac
-      >- (gvs [SUBSET_DEF] \\ metis_tac [])
-      \\ gvs [DELETE_SUBSET_INSERT,BIGUNION_set_SUBSET,EVERY_MEM]
-      \\ gvs [PULL_EXISTS,MEM_MAP,FORALL_PROD]
-      \\ rpt strip_tac
-      \\ gvs [DIFF_SUBSET]
-      \\ rename [‘MEM (a,b,c) _’]
-      \\ ‘∃d. MEM (a,b,d) bs ∧ MEM c bs2’ by cheat
-      \\ irule SUBSET_TRANS
-      \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
-      \\ reverse (rpt conj_tac)
-      >- (gvs [SUBSET_DEF] \\ metis_tac [])
-      \\ gvs [DELETE_SUBSET_INSERT,BIGUNION_set_SUBSET,EVERY_MEM]
-      \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD]
-      \\ rw [] *)
-
+    >-
+     (gvs [cns_arities_def]
+      \\ drule LIST_REL_imp \\ strip_tac
+      \\ gvs [cns_arities_def]
+      \\ gvs [SUBSET_DEF,MEM_MAP,EXISTS_PROD]
+      \\ metis_tac [])
     \\ PairCases_on ‘x’ \\ gvs []
-    \\ Cases_on ‘inline m ns2 cl h x1’ \\ gvs [IfDisj_def]
-    \\ cheat)
+    \\ Cases_on ‘inline m ns2 cl h x1’ \\ gvs []
+    \\ gvs [cns_arities_def,IfDisj_def]
+    \\ rpt strip_tac
+    >- (irule SUBSET_TRANS \\ irule_at Any freevars_Disj \\ fs [])
+    >- (gvs [SUBSET_DEF] \\ metis_tac [])
+    >- (gvs [SUBSET_DEF] \\ metis_tac [])
+    >- (gvs [SUBSET_DEF] \\ metis_tac [])
+    >- (gvs [SUBSET_DEF] \\ metis_tac [])
+    \\ drule LIST_REL_imp \\ strip_tac
+    \\ ‘MAP (λx. cns_arities (SND (SND x))) bs =
+        MAP (λ(cn,vs,e'). cns_arities e') bs’ by
+      (rpt $ pop_assum kall_tac \\ gvs [LAMBDA_PROD])
+    \\ gvs [MAP_MAP_o,o_DEF]
+    \\ gvs [SUBSET_DEF] \\ metis_tac [])
   \\ gvs [inline_def]
   \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
   \\ gvs [block_def]
