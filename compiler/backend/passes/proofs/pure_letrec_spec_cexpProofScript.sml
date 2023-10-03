@@ -24,6 +24,41 @@ Proof
   rw [SmartApp_def] \\ Cases_on ‘xs’ \\ gvs [exp_of_def,Apps_def]
 QED
 
+Theorem cns_arities_SmartLam[simp]:
+  cns_arities (SmartLam a vs x) = cns_arities x
+Proof
+  rw [SmartLam_def]
+  \\ rpt (CASE_TAC \\ gvs [])
+  \\ gvs [cns_arities_def]
+  \\ Cases_on ‘x’ \\ gvs [dest_Lam_def,cns_arities_def]
+QED
+
+Theorem cns_arities_SmartApp[simp]:
+  cns_arities (SmartApp a x xs) = cns_arities (App a x xs)
+Proof
+  rw [SmartApp_def]
+  \\ rpt (CASE_TAC \\ gvs [])
+  \\ gvs [NULL_EQ,cns_arities_def]
+  \\ Cases_on ‘x’ \\ gvs [dest_App_def,cns_arities_def,SF ETA_ss]
+  \\ gvs [AC UNION_ASSOC UNION_COMM]
+QED
+
+Theorem letrecs_distinct_Lams:
+  ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ fs [Lams_def]
+  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+QED
+
+Theorem letrecs_distinct_Apps:
+  ∀es e. letrecs_distinct (Apps e es) ⇔
+         letrecs_distinct e ∧ EVERY letrecs_distinct es
+Proof
+  Induct \\ fs [Apps_def]
+  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+  \\ metis_tac []
+QED
+
 Theorem split_at_thm:
   ∀n xs ys zs.
     split_at n xs = (ys,zs) ∧ n ≤ LENGTH xs ⇒
@@ -438,26 +473,76 @@ Proof
       \\ irule_at Any can_spec_arg_Disj \\ fs [])
 QED
 
+Theorem letrecs_distinct_if:
+  letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
+Proof
+  rw [pure_letrecProofTheory.letrecs_distinct_def]
+QED
+
+Triviality UNCURRY_lemma:
+  UNCURRY f = λ(x,y). f x y
+Proof
+  gvs [FUN_EQ_THM]
+QED
+
+Theorem delete_with_wf:
+  ∀vs es v.
+    check_arg v vs es ⇒
+    EVERY NestedCase_free (delete_with vs es) =
+    EVERY NestedCase_free es ∧
+    EVERY letrecs_distinct (MAP exp_of (delete_with vs es)) =
+    EVERY letrecs_distinct (MAP exp_of es) ∧
+    BIGUNION (set (MAP cns_arities (delete_with vs es))) =
+    BIGUNION (set (MAP cns_arities es)) ∧
+    (EVERY cexp_wf es ⇒ EVERY cexp_wf (delete_with vs es))
+Proof
+  Induct \\ Cases_on ‘es’ \\ gvs [delete_with_def]
+  \\ Cases \\ gvs [delete_with_def,check_arg_def]
+  \\ gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs [eq_Var_def,exp_of_def]
+  \\ gvs [cns_arities_def]
+  \\ gvs [pure_letrecProofTheory.letrecs_distinct_def]
+QED
+
 Theorem spec_one_vars:
   (∀f v vs (e:'a cexp) e1.
      spec_one f v vs e = SOME e1 ⇒
      boundvars (exp_of e1) = boundvars (exp_of e) ∧
-     freevars (exp_of e1) ⊆ freevars (exp_of e)) ∧
+     freevars (exp_of e1) ⊆ freevars (exp_of e) ∧
+     NestedCase_free e1 = NestedCase_free e ∧
+     letrecs_distinct (exp_of e1) = letrecs_distinct (exp_of e) ∧
+     (cexp_wf e ⇒ cexp_wf e1) ∧
+     cns_arities e1 = cns_arities e) ∧
   (∀f v vs (e:'a cexp list) e1.
      spec_one_list f v vs e = SOME e1 ⇒
      BIGUNION (set (MAP boundvars (MAP exp_of e1))) =
      BIGUNION (set (MAP boundvars (MAP exp_of e))) ∧
      BIGUNION (set (MAP freevars (MAP exp_of e1))) ⊆
-     BIGUNION (set (MAP freevars (MAP exp_of e)))) ∧
+     BIGUNION (set (MAP freevars (MAP exp_of e))) ∧
+     LENGTH e1 = LENGTH e ∧
+     EVERY NestedCase_free e1 = EVERY NestedCase_free e ∧
+     EVERY (λe1. letrecs_distinct (exp_of e1)) e1 =
+     EVERY (λe. letrecs_distinct (exp_of e)) e ∧
+     (EVERY cexp_wf e ⇒ EVERY cexp_wf e1) ∧
+     BIGUNION (set (MAP cns_arities e1)) = BIGUNION (set (MAP cns_arities e))) ∧
   (∀f v vs (e:(mlstring # 'a cexp) list) e1.
      spec_one_letrec f v vs e = SOME e1 ⇒
      set (MAP FST e) = set (MAP FST e1) ∧
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e1))) =
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND) e))) ∧
      BIGUNION (set (MAP freevars (MAP (exp_of o SND) e1))) ⊆
-     BIGUNION (set (MAP freevars (MAP (exp_of o SND) e)))) ∧
+     BIGUNION (set (MAP freevars (MAP (exp_of o SND) e))) ∧
+     EVERY NestedCase_free (MAP SND e1) = EVERY NestedCase_free (MAP SND e) ∧
+     EVERY (λe1. letrecs_distinct (exp_of e1)) (MAP SND e1) =
+     EVERY (λe. letrecs_distinct (exp_of e)) (MAP SND e) ∧
+     (EVERY cexp_wf (MAP SND e) ⇒ EVERY cexp_wf (MAP SND e1)) ∧
+     MAP (λ(p1,p2). explode p1) e1 = MAP (λ(p1,p2). explode p1) e ∧
+     BIGUNION (set (MAP (cns_arities o SND) e1)) =
+     BIGUNION (set (MAP (cns_arities o SND) e)) ∧
+     LENGTH e1 = LENGTH e) ∧
   (∀f v vs (e:(mlstring # mlstring list # 'a cexp) list) e1 e4 e5 w.
      spec_one_case f v vs e = SOME e1 ⇒
+     LENGTH e1 = LENGTH e ∧
      MAP FST e = MAP FST e1 ∧
      MAP (FST o SND) e = MAP (FST o SND) e1 ∧
      BIGUNION (set (MAP boundvars (MAP (exp_of o SND o SND) e1))) =
@@ -465,13 +550,41 @@ Theorem spec_one_vars:
      BIGUNION (set (MAP (λ(p1,p1',p2).
         freevars (exp_of p2) DIFF set (MAP explode p1')) e1)) ⊆
      BIGUNION (set (MAP (λ(p1,p1',p2).
-        freevars (exp_of p2) DIFF set (MAP explode p1')) e))) ∧
+        freevars (exp_of p2) DIFF set (MAP explode p1')) e)) ∧
+     EVERY NestedCase_free (MAP (SND o SND) e1) =
+     EVERY NestedCase_free (MAP (SND o SND) e) ∧
+     EVERY (λe1. letrecs_distinct (exp_of e1)) (MAP (SND o SND) e1) =
+     EVERY (λe. letrecs_distinct (exp_of e)) (MAP (SND o SND) e) ∧
+     (EVERY cexp_wf (MAP (SND o SND) e) ⇒
+      EVERY cexp_wf (MAP (SND o SND) e1)) ∧
+     MAP (λ(cn,vs,e). (cn,LENGTH vs)) e1 =
+     MAP (λ(cn,vs,e). (cn,LENGTH vs)) e ∧
+     BIGUNION (set (MAP (cns_arities o SND o SND) e1)) =
+     BIGUNION (set (MAP (cns_arities o SND o SND) e))) ∧
   (∀f v vs (e:((mlstring # num) list # 'a cexp) option) e1 w.
      spec_one_opt f v vs e = SOME e1 ⇒
      boundvars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) =
      boundvars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ∧
      freevars (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ⊆
-     freevars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))))
+     freevars (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ∧
+     letrecs_distinct
+       (option_CASE e1 Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) =
+     letrecs_distinct
+       (option_CASE e Fail (λ(p1,p2). IfDisj w p1 (exp_of p2))) ∧
+     (OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
+                           EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e ⇒
+      OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
+                           EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e) ∧
+     (∀xs x. ALL_DISTINCT (xs ++ option_CASE e1 x (λ(p1,p2). MAP FST p1)) =
+             ALL_DISTINCT (xs ++ option_CASE e x (λ(p1,p2). MAP FST p1))) ∧
+     (∀x y z. option_CASE e1 x (λ(p1,p2). set p1 ∪ y INSERT cns_arities p2) ∪ z =
+              option_CASE e x (λ(p1,p2). set p1 ∪ y INSERT cns_arities p2) ∪ z) ∧
+     (OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
+               EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e ⇒
+      OPTION_ALL (λ(a,e'). a ≠ [] ∧ cexp_wf e' ∧
+               EVERY (λ(cn,_). explode cn ∉ monad_cns) a) e1) ∧
+     OPTION_ALL (NestedCase_free o SND) e1 =
+     OPTION_ALL (NestedCase_free o SND) e)
 Proof
   ho_match_mp_tac spec_one_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac
@@ -490,44 +603,77 @@ Proof
       \\ gvs [delete_with_def] \\ Cases
       \\ Cases \\ gvs [check_arg_def,delete_with_def]
       \\ Cases_on ‘h’ \\ gvs [eq_Var_def,exp_of_def])
-    \\ last_x_assum kall_tac
-    \\ irule SUBSET_TRANS
-    \\ qexists_tac ‘BIGUNION (set (MAP freevars (MAP exp_of es')))’
-    \\ reverse conj_tac
-    >- gvs [SUBSET_DEF]
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘es'’
-    \\ qid_spec_tac ‘vs’
-    \\ Induct \\ gvs [] >- gvs [delete_with_def]
-    \\ Cases \\ Cases \\ gvs [check_arg_def,delete_with_def]
-    \\ rw [] \\ first_x_assum drule \\ strip_tac
-    \\ gvs [SUBSET_DEF])
-  >~ [‘Apps’] >- (fs [boundvars_Apps] \\ fs [SUBSET_DEF])
-  >~ [‘Lams’] >- (fs [boundvars_Lams] \\ fs [SUBSET_DEF])
-  >- gvs [SUBSET_DEF]
-  >-
+    \\ conj_tac
+    >-
+     (last_x_assum kall_tac
+      \\ irule SUBSET_TRANS
+      \\ qexists_tac ‘BIGUNION (set (MAP freevars (MAP exp_of es')))’
+      \\ reverse conj_tac
+      >- gvs [SUBSET_DEF]
+      \\ pop_assum mp_tac
+      \\ qid_spec_tac ‘es'’
+      \\ qid_spec_tac ‘vs’
+      \\ Induct \\ gvs [] >- gvs [delete_with_def]
+      \\ Cases \\ Cases \\ gvs [check_arg_def,delete_with_def]
+      \\ rw [] \\ first_x_assum drule \\ strip_tac
+      \\ gvs [SUBSET_DEF])
+    \\ gvs [cns_arities_def,cexp_wf_def,SF ETA_ss,
+            letrecs_distinct_Lams,letrecs_distinct_Apps,
+            pure_letrecProofTheory.letrecs_distinct_def]
+    \\ gvs [SF SFY_ss,delete_with_wf]
+    \\ gvs [EVERY_MAP])
+  >~ [‘Apps’] >-
+   (fs [boundvars_Apps] \\ fs [SUBSET_DEF,cexp_wf_def,SF ETA_ss]
+    \\ asm_rewrite_tac [GSYM LENGTH_NIL] \\ fs []
+    \\ gvs [cns_arities_def,SF ETA_ss,letrecs_distinct_Apps]
+    \\ gvs [EVERY_MAP])
+  >~ [‘Lams’] >-
+   (fs [boundvars_Lams] \\ fs [SUBSET_DEF,cexp_wf_def]
+    \\ gvs [cns_arities_def,SF ETA_ss,letrecs_distinct_Lams])
+  >~ [‘Let’] >-
+   (gvs [SUBSET_DEF,cexp_wf_def,cns_arities_def,
+         pure_letrecProofTheory.letrecs_distinct_def])
+  >~ [‘Prim’] >-
+   (gvs [SUBSET_DEF,cexp_wf_def,cns_arities_def,EVERY_MAP,SF ETA_ss,
+         pure_letrecProofTheory.letrecs_distinct_def])
+  >~ [‘Letrec’] >-
    (fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD]
+    \\ gvs [SUBSET_DEF,cexp_wf_def,cns_arities_def,EVERY_MAP,SF ETA_ss,
+            pure_letrecProofTheory.letrecs_distinct_def]
     \\ rpt (pop_assum mp_tac)
     \\ rewrite_tac [EXTENSION,SUBSET_DEF]
-    \\ gvs [MEM_MAP,PULL_EXISTS,EXISTS_PROD] \\ rw []
+    \\ rpt strip_tac
+    \\ gvs [MEM_MAP,PULL_EXISTS,EXISTS_PROD,MAP_MAP_o,o_DEF,LAMBDA_PROD] \\ rw []
     \\ metis_tac [])
   >~ [‘rows_of’] >-
    (first_x_assum $ qspec_then ‘w’ mp_tac \\ strip_tac
-    \\ fs [boundvars_rows_of,freevars_rows_of]
-    \\ fs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
-    \\ fs [MEM_MAP,FORALL_PROD]
-    \\ fs [SUBSET_DEF,EXTENSION]
-    \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
-    \\ conj_tac >- metis_tac [map_eq_lemma]
-    \\ rw [] \\ fs []
-    \\ DISJ1_TAC
-    \\ DISJ2_TAC
-    \\ first_x_assum irule
-    \\ metis_tac [])
+    \\ fs [boundvars_rows_of,freevars_rows_of,cexp_wf_def,cns_arities_def,SF ETA_ss]
+    \\ fs [MAP_MAP_o,combinTheory.o_DEF]
+    \\ fs [LAMBDA_PROD,letrecs_distinct_if]
+    \\ conj_tac
+    >- (fs [MEM_MAP,FORALL_PROD]
+        \\ fs [SUBSET_DEF,EXTENSION]
+        \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
+        \\ metis_tac [map_eq_lemma])
+    \\ conj_tac
+    >- (fs [MEM_MAP,FORALL_PROD]
+        \\ fs [SUBSET_DEF,EXTENSION]
+        \\ fs [MEM_MAP,EXISTS_PROD,MEM_FLAT,PULL_EXISTS]
+        \\ rw [] \\ fs []
+        \\ DISJ1_TAC
+        \\ DISJ2_TAC
+        \\ first_x_assum irule
+        \\ metis_tac [])
+    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,
+            letrecs_distinct_rows_of,EVERY_MAP]
+    \\ gvs [UNCURRY_lemma]
+    \\ gvs [LAMBDA_PROD]
+    \\ Cases_on ‘bs’ \\ Cases_on ‘e'’ \\ gvs [])
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF,rows_of_def]
-  >- (fs [IfDisj_def] \\ fs [SUBSET_DEF])
+  >- (fs [IfDisj_def] \\ fs [SUBSET_DEF]
+      \\ gvs [pure_letrecProofTheory.letrecs_distinct_def])
 QED
 
 Triviality can_spec_arg_map:
@@ -608,7 +754,12 @@ Theorem specialise_each_vars:
     specialise_each p args f c = (args1,c1)
     ⇒
     boundvars (exp_of c1) = boundvars (exp_of c) ∧
-    freevars (exp_of c1) ⊆ freevars (exp_of c)
+    freevars (exp_of c1) ⊆ freevars (exp_of c) ∧
+    NestedCase_free c1 = NestedCase_free c ∧
+    letrecs_distinct (exp_of c1) = letrecs_distinct (exp_of c) ∧
+    (cexp_wf c ⇒ cexp_wf c1) ∧
+    cns_arities c1 = cns_arities c ∧
+    (ALL_DISTINCT args ⇒ ALL_DISTINCT args1)
 Proof
   Induct \\ fs [specialise_each_def,exp_eq_refl]
   \\ rpt gen_tac \\ IF_CASES_TAC \\ strip_tac \\ gvs [exp_eq_refl]
@@ -616,6 +767,15 @@ Proof
   \\ drule (cj 1 spec_one_vars) \\ strip_tac
   \\ res_tac \\ gvs []
   \\ imp_res_tac SUBSET_TRANS \\ gvs []
+  \\ rw [] \\ first_x_assum irule
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘args’ \\ Induct \\ fs [delete_with_def]
+  \\ rw [] \\ gvs [ALL_DISTINCT]
+  \\ Cases_on ‘h = h'’ \\ gvs [delete_with_def]
+  \\ qpat_x_assum ‘~MEM _ _’ mp_tac
+  \\ rename [‘MEM x xs’]
+  \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [delete_with_def]
+  \\ rw [] \\ Cases_on ‘h = h'’ \\ gvs [delete_with_def]
 QED
 
 Triviality set_delete_with:
@@ -775,15 +935,50 @@ Proof
   Induct \\ fs [] \\ rw [EXTENSION]
 QED
 
+Theorem set_map_empty:
+  BIGUNION (set (MAP (λx. ∅) vs)) = ∅
+Proof
+  gvs [EXTENSION,MEM_MAP,PULL_EXISTS]
+  \\ Cases_on ‘vs’ \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem set_sing_lemma:
+  ∀xs. BIGUNION (set (MAP (λx. {explode x}) xs)) = set (MAP explode xs)
+Proof
+  Induct \\ fs [] \\ gvs [EXTENSION]
+QED
+
 Theorem speclise_wf:
-  specialise w u = SOME x ∧
-  NestedCase_free u ∧ letrecs_distinct (exp_of u) ∧ cexp_wf u
+  specialise w u = SOME x
   ⇒
-  NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x ∧
-  freevars (exp_of x) = freevars (exp_of u) ∧
+  NestedCase_free x = NestedCase_free u ∧
+  letrecs_distinct (exp_of x) = letrecs_distinct (exp_of u) ∧
+  (cexp_wf u ⇒ cexp_wf x) ∧
+  freevars (exp_of x) ⊆ freevars (exp_of u) ∧
   cns_arities x = cns_arities u
 Proof
-  cheat
+  Cases_on ‘u’ \\ gvs [specialise_def,cexp_wf_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ disch_tac \\ gvs [exp_of_def,cexp_wf_def]
+  \\ gvs [MAP_MAP_o,o_DEF,exp_of_def]
+  \\ gvs [EVERY_MAP,cns_arities_def,MAP_MAP_o,o_DEF]
+  \\ ‘LENGTH (const_call_args w (MAP SOME l) c) ≤ LENGTH (MAP SOME l)’ by
+         rewrite_tac [LENGTH_const_call_args] \\ gvs []
+  \\ dxrule_all split_at_thm \\ strip_tac \\ gvs []
+  \\ drule specialise_each_vars \\ strip_tac \\ gvs [cexp_wf_def]
+  \\ drule drop_common_suffix_thm \\ strip_tac \\ gvs [exp_of_def]
+  \\ gvs [letrecs_distinct_Lams,set_map_empty,letrecs_distinct_Apps,
+          pure_letrecProofTheory.letrecs_distinct_def]
+  \\ gvs [EVERY_MAP,pure_letrecProofTheory.letrecs_distinct_def,
+          set_sing_lemma,boundvars_Lams]
+  \\ imp_res_tac specialise_each_subset \\ fs []
+  \\ rewrite_tac [GSYM DIFF_UNION]
+  \\ gvs [SUBSET_DEF]
+  \\ gen_tac
+  \\ strip_tac \\ gvs [MEM_MAP]
+  \\ res_tac \\ gvs []
+  \\ gvs [ALL_DISTINCT_APPEND]
 QED
 
 Theorem specialise_allvars:

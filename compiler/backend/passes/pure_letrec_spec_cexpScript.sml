@@ -144,7 +144,7 @@ Definition spec_one_def:
        | NONE => NONE
        | SOME es =>
          if check_arg v vs es then
-           SOME (App a e (delete_with vs es))
+           SOME (SmartApp a e (delete_with vs es))
          else NONE
      else
        case (spec_one f v vs e, spec_one_list f v vs es) of
@@ -233,7 +233,7 @@ Definition specialise_def:
   specialise f (Lam a vs e) =
     (let args = const_call_args f (MAP SOME vs) e in
      let p = all_somes args in
-      if NULL p then NONE else
+      if NULL p ∨ ~(ALL_DISTINCT vs) then NONE else
         let (ws1,ws2) = split_at (LENGTH args) vs in
         let (params,e1) = specialise_each p ws1 f (SmartLam a ws2 e) in
         let (outer_vs,inner_vs) = drop_common_suffix ws1 params in

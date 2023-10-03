@@ -962,13 +962,6 @@ Proof
   \\ metis_tac [avoid_set_ok_subset,SUBSET_REFL]
 QED
 
-Theorem letrecs_distinct_Lams:
-  ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
-Proof
-  Induct \\ fs [Lams_def]
-  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
-QED
-
 Definition wf_mem_def:
   wf_mem (m:(mlstring, 'a cexp_rhs) map) ⇔
     ∀n v. lookup m n = SOME v ⇒
