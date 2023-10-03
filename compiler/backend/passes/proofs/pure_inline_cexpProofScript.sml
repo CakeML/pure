@@ -1634,7 +1634,37 @@ Proof
   \\ gvs [cexp_wf_def]
 QED
 
-val lemma = inline_ind
+Triviality if_lemma:
+  boundvars (if b then Seq Fail x else x) = boundvars x ∧
+  no_shadowing (if b then Seq Fail x else x) = no_shadowing x ∧
+  letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
+Proof
+  Cases_on ‘b’ \\ gvs []
+  \\ gvs [pure_letrecProofTheory.letrecs_distinct_def] \\ rw []
+QED
+
+Theorem list_subst_rel_if_lemma:
+  list_subst_rel xs x y ⇒
+  list_subst_rel xs (if b then Seq Fail x else x) (if b then Seq Fail y else y)
+Proof
+  rw [] \\ irule list_subst_rel_Prim \\ gvs [list_subst_rel_refl]
+QED
+
+Triviality list_subst_rel_rows_of:
+  ∀xs1 ys1.
+    list_subst_rel xs x y ∧
+    MAP FST xs1 = MAP FST ys1 ∧
+    MAP (FST o SND) xs1 = MAP (FST o SND) ys1 ∧
+    LIST_REL (list_subst_rel xs) (MAP (SND o SND) xs1) (MAP (SND o SND) ys1) ⇒
+    list_subst_rel xs (rows_of v x xs1) (rows_of v y ys1)
+Proof
+  Induct \\ Cases_on ‘ys1’ \\ gvs [rows_of_def]
+  \\ PairCases_on ‘h’ \\ PairCases \\ gvs [rows_of_def] \\ rw []
+  \\ irule list_subst_rel_Prim \\ gvs [list_subst_rel_refl]
+  \\ irule list_subst_rel_lets_for \\ fs []
+QED
+
+fun lemma () = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ns ∧
     map_ok m ∧
@@ -1661,9 +1691,9 @@ val lemma = inline_ind
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
 
 Theorem inline_cexp_list_subst_rel:
-  ^(lemma |> concl |> rand)
+  ^(lemma() |> concl |> rand)
 Proof
-  match_mp_tac lemma
+  match_mp_tac (lemma())
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
   >~ [`Var _ _`] >- (
@@ -2227,140 +2257,95 @@ Proof
       \\ irule lets_for_DISJOINT
       \\ metis_tac []
     )
-    \\ sg `list_subst_rel xs
-      (rows_of (explode v)
-        (case f of
-          NONE => Fail
-        | SOME (a1,e1) => IfDisj v a1 (exp_of e1))
-        (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x'))
-          bs))
-      (rows_of (explode v)
-        (case q'' of
-            NONE => Fail
-          | SOME (a1,e1) => IfDisj v a1 (exp_of e1))
-        (MAP (λ(c,vs,x'). (explode c,MAP explode vs,exp_of x'))
-            (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs q')))`
-    >- (
-      last_x_assum $ qspec_then `xs` assume_tac
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ pop_assum mp_tac
-      \\ qpat_x_assum `inline_list m r cl h (MAP (λ(v,vs,e). e) bs) = (q',r')` mp_tac
-      \\ qpat_x_assum `avoid_set_ok ns (Case a e v bs f)` mp_tac
-      \\ qpat_x_assum `cexp_wf (Case a e v bs f)` mp_tac
-      \\ qpat_x_assum `inline m ns cl h e = (q, r)` mp_tac
-      \\ qpat_x_assum `∀v e. _ ⇒ _ ` mp_tac
-      \\ qpat_x_assum `EVERY _ xs` mp_tac
-      \\ qid_spec_tac `ns`
-      \\ qid_spec_tac `r`
-      \\ qid_spec_tac `q'`
-      \\ qid_spec_tac `bs`
-      \\ Induct
-      >- (
-        rw []
-        \\ gvs [rows_of_def,MAP2,inline_def]
-        \\ Cases_on `f`
-        >- fs [list_subst_rel_refl]
-        \\ PairCases_on `x`
-        \\ gvs []
-        \\ Cases_on `q''`
-        >- fs []
-        \\ PairCases_on `x`
-        \\ Cases_on `inline m r cl h x1`
-        \\ gvs [IfDisj_def]
-        \\ irule list_subst_rel_Prim
-        \\ fs [LIST_REL_EL_EQN,list_subst_rel_refl]
-        \\ last_x_assum $ irule_at Any
-        \\ fs [DISJOINT_SYM]
-        \\ drule cexp_wf_Case_SOME \\ strip_tac
-        \\ gvs []
-        \\ conj_tac
-        >- cheat
-        \\ conj_tac
-        >- (
-          Cases_on `MEM v (FLAT (MAP (λx. FST (SND x)) bs))`
-          >- (
-            gvs [letrecs_distinct_def]
-            \\ qpat_x_assum `letrecs_distinct (rows_of _ _ _)` mp_tac
-            \\ qid_spec_tac `bs`
-            \\ Induct \\ gvs [letrecs_distinct_def,rows_of_def]
-            \\ rw []
-            \\ first_x_assum irule
-            \\ Cases_on `h'` \\ Cases_on `r'`
-            \\ gvs [letrecs_distinct_def,rows_of_def]
-          )
-          \\ gvs [letrecs_distinct_def]
-          \\ qpat_x_assum `letrecs_distinct (rows_of _ _ _)` mp_tac
-          \\ qid_spec_tac `bs`
-          \\ Induct \\ gvs [letrecs_distinct_def,rows_of_def]
-          \\ rw []
-          \\ first_x_assum irule
-          \\ Cases_on `h'` \\ Cases_on `r'`
-          \\ gvs [letrecs_distinct_def,rows_of_def]
-        )
-        \\ conj_tac
-        >- (
-          gvs [EVERY_MEM]
-          \\ rw []
-          \\ Cases_on `e'` \\ gvs []
-          \\ first_x_assum drule
-          \\ strip_tac \\ gvs []
-          \\ assume_tac inline_avoid_set_ok \\ gvs [fake_avoid_set_ok_def]
-          \\ assume_tac inline_set_of \\ gvs []
-          \\ first_x_assum $ drule_at Any
-          \\ cheat
-        )
-        \\ cheat
-      )
-      \\ rpt strip_tac
-      \\ fs [rows_of_def,MAP2,MAP]
-      \\ Cases_on `h'`
-      \\ rename [`(a,b)::bs`]
-      \\ Cases_on `b`
-      \\ rename [`MAP2 _ _ qs`]
-      \\ Cases_on `qs`
-      >- fs []
-      \\ gvs [rows_of_def,MAP2,MAP,FORALL_PROD]
-      \\ irule list_subst_rel_Prim
-      \\ simp [LIST_REL_EL_EQN,list_subst_rel_refl,lets_for_def]
-      \\ irule_at Any list_subst_rel_lets_for
-      \\ gvs [DISJOINT_SYM]
-      \\ rename [`inline_list m r cl h (head::MAP (λ(v,vs,e). e) bs)`]
-      \\ gvs [DISJOINT_SYM,memory_inv_def,inline_def]
-      \\ Cases_on `inline m r cl h head`
-      \\ gvs []
-      \\ rename [`inline_list m r1 cl h (MAP (λ(v,vs,e). e) bs)`]
-      \\ Cases_on `inline_list m r1 cl h (MAP (λ(v,vs,e). e) bs)`
-      \\ gvs []
-      \\ first_x_assum $ irule_at Any
-      \\ gvs []
-      \\ PairCases_on `r1`
-      \\ cheat
-      (* \\ metis_tac [] *)
-    )
-    \\ Cases_on `MEM v (FLAT (MAP (λx. FST (SND x)) bs))`
-    >- (
-      cheat
-      (* gvs []
-      \\ irule list_subst_rel_Prim
-      \\ fs [LIST_REL_def,list_subst_rel_refl]
-      \\ irule list_subst_rel_App
-      \\ first_x_assum $ irule_at Any
-      \\ fs [DISJOINT_SYM,memory_inv_def]
-      \\ irule list_subst_rel_Lam
-      \\ fs [] *)
-    )
-    \\ gvs []
+    \\ gvs [if_lemma]
+    \\ irule list_subst_rel_if_lemma
     \\ irule list_subst_rel_App
-    \\ first_x_assum $ irule_at Any
-    \\ fs [DISJOINT_SYM,memory_inv_def]
-    \\ irule_at Any list_subst_rel_Lam
-    \\ fs []
-    \\ cheat (* avoid_set_ok ns e ∧ letrecs_distinct (exp_of e) ∧ cexp_wf e *)
+    \\ reverse conj_tac
+    >-
+     (first_x_assum irule \\ fs []
+      \\ gvs [cexp_wf_def,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ simp [DISJOINT_SYM]
+      \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac avoid_set_ok_subset_exp)
+      \\ gvs [allvars_def,exp_of_def]
+      \\ simp [SUBSET_DEF])
+    \\ irule list_subst_rel_Lam
+    \\ irule list_subst_rel_rows_of
+    \\ match_mp_tac (METIS_PROVE [] “(b1∧b2)∧(b3∧b4) ⇒ b1∧b2∧b3∧b4”)
+    \\ conj_tac
+    >-
+     (qpat_x_assum ‘LENGTH bs = LENGTH q'’ mp_tac
+      \\ fs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+      \\ qid_spec_tac ‘bs’ \\ qid_spec_tac ‘q'’
+      \\ rpt $ pop_assum kall_tac
+      \\ Induct \\ gvs [] \\ Cases_on ‘bs’
+      \\ rewrite_tac [LENGTH,prim_recTheory.INV_SUC_EQ] >- simp []
+      \\ gen_tac \\ disch_tac
+      \\ last_x_assum drule \\ strip_tac
+      \\ gvs [] \\ PairCases_on ‘h’ \\ gvs [])
+    \\ reverse conj_tac
+    >-
+     (Cases_on ‘f’ \\ gvs []
+      >- (irule list_subst_rel_Prim \\ fs [])
+      \\ PairCases_on ‘x’ \\ gvs []
+      \\ rename [‘y ≠ NONE’] \\ Cases_on ‘y’ \\ gvs []
+      \\ PairCases_on ‘x’ \\ gvs []
+      \\ gvs [IfDisj_def]
+      \\ irule list_subst_rel_Prim \\ fs []
+      \\ irule_at Any list_subst_rel_Prim \\ fs []
+      \\ pairarg_tac \\ gvs [list_subst_rel_refl]
+      \\ last_x_assum irule \\ fs []
+      \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,
+              letrecs_distinct_rows_of,cexp_wf_def]
+      \\ simp [DISJOINT_SYM]
+      \\ ‘avoid_set_ok ns x1’ by
+       (first_x_assum (fn th => mp_tac th \\ match_mp_tac avoid_set_ok_subset_exp)
+        \\ gvs [allvars_def,exp_of_def]
+        \\ simp [SUBSET_DEF,allvars_thm,boundvars_rows_of,IfDisj_def,
+                 freevars_rows_of,SF DNF_ss])
+      \\ rename [‘inline m ns8 cl h x1 = (e4,ns1)’]
+      \\ ‘set_of ns ⊆ set_of ns8 ∧ vars_ok ns8’ by
+       (imp_res_tac inline_set_of
+        \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ gvs []
+        \\ imp_res_tac SUBSET_TRANS \\ fs [])
+      \\ gvs [EVERY_MEM,FORALL_PROD] \\ rw []
+      \\ res_tac \\ gvs []
+      \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF])
+    \\ gvs [MAP_MAP_o,o_DEF]
+    \\ simp [LAMBDA_PROD]
+    \\ ‘MAP (λ(p1,p1',p2). exp_of p2) (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs q') =
+        MAP exp_of q'’ by
+      (qpat_x_assum ‘LENGTH bs = LENGTH q'’ mp_tac
+       \\ qid_spec_tac ‘bs’
+       \\ qid_spec_tac ‘q'’
+       \\ rpt $ pop_assum kall_tac
+       \\ Induct \\ Cases_on ‘bs’ \\ gvs []
+       \\ PairCases_on ‘h’ \\ gvs []) \\ gvs []
+    \\ gvs [LIST_REL_MAP] \\ gvs [LIST_REL_MAP1]
+    \\ gvs [LAMBDA_PROD,o_DEF]
+    \\ first_x_assum irule \\ fs []
+    \\ rename [‘inline m ns cl h e = (q,ns8)’]
+    \\ ‘set_of ns ⊆ set_of ns8 ∧ vars_ok ns8’ by
+      (imp_res_tac inline_set_of
+       \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ gvs []
+       \\ imp_res_tac SUBSET_TRANS \\ fs [])
+    \\ gvs [boundvars_rows_of,MEM_MAP,PULL_EXISTS,FORALL_PROD,EVERY_MAP]
+    \\ simp [LAMBDA_PROD] \\ gvs []
+    \\ gvs [EVERY_MEM,FORALL_PROD]
+    \\ simp [DISJOINT_SYM,SF SFY_ss]
+    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,
+            letrecs_distinct_rows_of,cexp_wf_def]
+    \\ conj_tac >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
+    \\ reverse conj_tac >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
+    \\ gvs [EVERY_MAP,LAMBDA_PROD]
+    \\ gvs [EVERY_MEM,FORALL_PROD]
+    \\ rpt strip_tac
+    \\ res_tac \\ gvs []
+    \\ ‘avoid_set_ok ns8 (Case a e v bs f)’ by imp_res_tac avoid_set_ok_subset
+    \\ pop_assum mp_tac
+    \\ match_mp_tac avoid_set_ok_subset_exp
+    \\ gvs [exp_of_def,allvars_thm,boundvars_rows_of,freevars_rows_of]
+    \\ gvs [SUBSET_DEF,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ metis_tac []
   )
   >~ [`NestedCase _ _ _ _ _ _`] >- (
     gvs [NestedCase_free_def]
