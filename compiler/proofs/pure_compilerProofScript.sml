@@ -38,6 +38,16 @@ Proof
       transform_cexp_closed, transform_cexp_letrecs_distinct]
 QED
 
+Theorem inline_top_level_wf:
+  inline_top_level c e = e' ∧ cexp_wf e ∧ NestedCase_free e ∧
+  closed (exp_of e) ∧ letrecs_distinct (exp_of e)
+  ⇒ cexp_wf e' ∧ NestedCase_free e' ∧
+    closed (exp_of e') ∧ letrecs_distinct (exp_of e')
+Proof
+  strip_tac >> gvs[pure_inline_cexpTheory.inline_top_level_def] >>
+  drule_at Any inline_all_wf >> simp[]
+QED
+
 Theorem clean_cexp_wf:
   clean_cexp c e = e' ∧ cexp_wf e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ∧
   namespace_ok ns ∧ type_tcexp ns 0 [] [] (tcexp_of e) t
@@ -109,8 +119,8 @@ Proof
   drule string_to_cexp_wf >> strip_tac >>
   drule_at Any transform_cexp_wf >> simp[] >>
   disch_then $ qspec_then `c` assume_tac >> gvs[] >>
-  `letrecs_distinct (exp_of inl)` by (
-    drule_at Any inline_top_level_letrecs_distinct >> simp[Abbr `inl`]) >>
+  drule_at Any inline_top_level_wf >> simp[] >>
+  disch_then $ qspec_then `c` assume_tac >> gvs[] >>
   gvs[DefnBase.one_line_ify NONE pure_inferenceTheory.to_option_def, AllCaseEqs()] >>
   dxrule_then strip_assume_tac infer_types_OK >> simp[] >>
   `namespace_ok ((I ## K ns) initial_namespace)` by
