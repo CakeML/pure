@@ -963,9 +963,9 @@ Proof
 QED
 
 Definition wf_mem_def:
-  wf_mem (m:(mlstring, 'a cexp_rhs) map) ⇔
+  wf_mem vars (m:(mlstring, 'a cexp_rhs) map) ⇔
     ∀n v. lookup m n = SOME v ⇒
-          ∃ce. v = cExp ce ∧ NestedCase_free ce ∧
+          ∃ce. v = cExp ce ∧ NestedCase_free ce ∧ avoid_set_ok vars ce ∧
                cexp_wf ce ∧ letrecs_distinct (exp_of ce)
 End
 
@@ -1060,13 +1060,6 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem freshen_aux_freevars:
-  freshen_aux empty e1 ns1 = (e2,ns2) ⇒
-  freevars (exp_of e2) = freevars (exp_of e1)
-Proof
-  cheat
-QED
-
 Theorem LIST_REL_imp:
   ∀es es1.
     LIST_REL
@@ -1101,23 +1094,44 @@ Definition block_def:
   block x = x
 End
 
+Theorem wf_mem_IMP_mem_inv:
+wf_mem ns m ⇒ mem_inv m ns
+Proof
+  rw[wf_mem_def, mem_inv_def] >> first_x_assum drule >> rw[]
+QED
+
+Theorem wf_mem_subset:
+  wf_mem ns m ∧ set_of ns ⊆ set_of ns1 ∧ vars_ok ns1 ⇒ wf_mem ns1 m
+Proof
+  rw[wf_mem_def] >> first_x_assum drule >> rw[] >>
+  metis_tac[avoid_set_ok_subset]
+QED
+
+Triviality App_Lam_to_Lets_avoid_set_ok:
+  App_Lam_to_Lets e = SOME e' ⇒
+  avoid_set_ok vars e = avoid_set_ok vars e'
+Proof
+  rw[] >> drule App_Lam_to_Lets_allvars >>
+  rw[avoid_set_ok_allvars]
+QED
+
 fun wf_lemma () = inline_ind
   |> Q.SPEC ‘λm vars cl h ce. ∀ce' vars'.
-     inline m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
-     vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
+     inline m vars cl h ce = (ce',vars') ∧ wf_mem vars m ∧ map_ok m ∧
+     avoid_set_ok vars ce ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
      ⇒ block (NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
-       vars_ok vars' ∧
+       avoid_set_ok vars' ce' ∧
        freevars (exp_of ce') ⊆
        freevars (exp_of ce) ∪
        { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ freevars (exp_of x) } ∧
        cns_arities ce' ⊆ cns_arities ce ∪
        { a | ∃n x. lookup m n = SOME (cExp x) ∧ a ∈ cns_arities x })’
   |> Q.SPEC ‘λm vars cl h ce. ∀ce' vars'.
-     inline_list m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
-     vars_ok vars ∧ EVERY NestedCase_free ce ∧ EVERY cexp_wf ce ∧
+     inline_list m vars cl h ce = (ce',vars') ∧ wf_mem vars m ∧ map_ok m ∧
+     EVERY (avoid_set_ok vars) ce ∧ EVERY NestedCase_free ce ∧ EVERY cexp_wf ce ∧
      EVERY letrecs_distinct (MAP exp_of ce)
      ⇒ block (EVERY NestedCase_free ce' ∧ EVERY cexp_wf ce' ∧
-       vars_ok vars' ∧
+       EVERY (avoid_set_ok vars') ce' ∧
        LENGTH ce' = LENGTH ce ∧
        EVERY letrecs_distinct (MAP exp_of ce') ∧
        LIST_REL (λce ce'.
@@ -1142,8 +1156,17 @@ Proof
     \\ first_x_assum $ irule_at (Pos hd) \\ fs [exp_of_def]
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
   >~ [‘App’] >-
-   (gvs [inline_def]
-    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
+   (gvs [inline_def] >> rpt (pairarg_tac >> gvs[]) >>
+    `wf_mem ns1 m ∧ avoid_set_ok ns1 e` by (
+      irule_at Any wf_mem_subset >> irule_at Any avoid_set_ok_subset >>
+      rpt $ goal_assum $ drule_at Any >>
+      metis_tac[avoid_set_ok_imp_vars_ok, inline_set_of]) >>
+    `EVERY (avoid_set_ok ns2) es1` by (
+      drule $ cj 2 $ SRULE [fake_avoid_set_ok_def] inline_avoid_set_ok >>
+      gvs[wf_mem_IMP_mem_inv] >>
+      rw[EVERY_MEM] >> first_x_assum drule >> rw[] >>
+      irule avoid_set_ok_subset >> metis_tac[avoid_set_ok_imp_vars_ok, inline_set_of]) >>
+    gvs[AllCaseEqs()] >> rpt (pairarg_tac >> gvs[AllCaseEqs()])
     \\ ‘es ≠ [] ⇔ es1 ≠ []’ by
      (imp_res_tac inline_list_length
       \\ Cases_on ‘es1’ \\ Cases_on ‘es’ \\ gvs [])
@@ -1154,9 +1177,12 @@ Proof
         (gvs [SUBSET_DEF] \\ metis_tac []))
     >- (gvs [SUBSET_DEF] \\ metis_tac [])
     >- (gvs [SUBSET_DEF] \\ metis_tac [])
-    \\ drule App_Lam_to_Lets_wf \\ strip_tac
+    \\ drule App_Lam_to_Lets_wf \\ strip_tac >>
+       drule $ cj 4 freshen_cexp_correctness >>
+       simp[SF ETA_ss, exp_of_def, cexp_wf_def] >>
+       impl_keep_tac >- (gvs[wf_mem_def] >> first_x_assum drule >> rw[]) >>
+       strip_tac
     \\ gvs [pure_freshenTheory.freshen_cexp_def]
-    \\ drule freshen_aux_freevars \\ strip_tac
     \\ drule $ cj 1 freshen_aux_cns_arities \\ strip_tac
     \\ ‘vars_ok ns2 ∧ NestedCase_free exp1 ∧ cexp_wf exp1 ∧
         letrecs_distinct (exp_of exp1)’ by
@@ -1167,8 +1193,19 @@ Proof
         \\ gvs [exp_of_def,EVERY_MAP]
         \\ imp_res_tac $ cj 1 freshen_aux_cexp_wf
         \\ gvs [cexp_wf_def,SF ETA_ss]
-        \\ drule $ cj 1 freshen_aux_mono \\ fs [])
+        \\ drule $ cj 1 freshen_aux_mono \\ fs []
+        \\ metis_tac[avoid_set_ok_imp_vars_ok])
     \\ gvs []
+    \\ last_x_assum mp_tac >> impl_tac
+       >- (
+        irule_at Any wf_mem_subset >> simp[] >> goal_assum $ drule_at Any >>
+        drule $ cj 1 freshen_aux_mono >>
+        impl_tac >- imp_res_tac avoid_set_ok_imp_vars_ok >> rw[] >>
+        drule $ cj 1 freshen_aux_avoid_ok >> simp[GSYM avoid_set_ok_avoid_ok] >>
+        reverse impl_tac >- metis_tac[App_Lam_to_Lets_avoid_set_ok] >>
+        gvs[EVERY_MEM, GSYM avoid_set_ok_avoid_ok]
+        ) >>
+       strip_tac >> gvs[]
     \\ irule_at (Pos hd) SUBSET_TRANS
     \\ last_x_assum $ irule_at $ Pos hd \\ gvs []
     \\ irule_at (Pos last) SUBSET_TRANS
@@ -1177,7 +1214,8 @@ Proof
     \\ last_x_assum $ irule_at $ Pos hd \\ gvs []
     \\ gvs [exp_of_def,SF ETA_ss,cns_arities_def]
     \\ gvs [SUBSET_DEF]
-    \\ metis_tac [])
+    \\ metis_tac []
+    )
   >~ [‘Let’] >-
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
@@ -1354,6 +1392,7 @@ QED
 
 Theorem inline_wf:
   inline empty vars cl h ce = (ce',vars') ∧
+  avoid_set_ok vars ce ∧
   vars_ok vars ∧ NestedCase_free ce ∧ cexp_wf ce ∧ letrecs_distinct (exp_of ce)
   ⇒ NestedCase_free ce' ∧ cexp_wf ce' ∧ letrecs_distinct (exp_of ce') ∧
     freevars (exp_of ce') ⊆ freevars (exp_of ce) ∧
@@ -1364,9 +1403,9 @@ Proof
 QED
 
 Theorem inline_list_wf:
-  inline_list m vars cl h ce = (ce',vars') ∧ wf_mem m ∧ map_ok m ∧
+  inline_list m vars cl h ce = (ce',vars') ∧ wf_mem vars m ∧ map_ok m ∧
   vars_ok vars ∧ EVERY NestedCase_free ce ∧ EVERY cexp_wf ce ∧
-  EVERY letrecs_distinct (MAP exp_of ce)
+  EVERY letrecs_distinct (MAP exp_of ce) ∧ EVERY (avoid_set_ok vars) ce
   ⇒ EVERY NestedCase_free ce' ∧ EVERY cexp_wf ce' ∧
     EVERY letrecs_distinct (MAP exp_of ce')
 Proof
@@ -1880,7 +1919,8 @@ Proof
       \\ drule inline_list_wf
       \\ impl_tac >- (fs [] \\ fs [avoid_set_ok_def]
                       \\ gvs [wf_mem_def,memory_inv_def]
-                      \\ rw [] \\ res_tac \\ fs [])
+                      \\ rw [] \\ res_tac \\ fs [avoid_set_ok_def]
+                      \\ metis_tac[])
       \\ strip_tac
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ pop_assum $ assume_tac o GSYM
@@ -2461,9 +2501,9 @@ Theorem inline_all_wf:
 Proof
   simp[inline_all_def] >> strip_tac >>
   rpt (pairarg_tac >> gvs[]) >>
-  dxrule freshen_cexp_correctness >>
-  rpt $ disch_then $ dxrule_at Any >> simp[avoid_set_ok_boundvars_of] >> strip_tac >>
-  dxrule inline_wf >> rpt $ disch_then $ dxrule_at Any >> impl_tac
+  dxrule freshen_cexp_correctness >> rpt $ disch_then $ dxrule_at Any >>
+  simp[avoid_set_ok_boundvars_of] >> strip_tac >>
+  dxrule inline_wf >> rpt $ disch_then $ drule_at Any >> impl_tac
   >- (
     gvs[avoid_set_ok_def] >> irule unique_boundvars_letrecs_distinct >>
     gvs[pure_barendregtTheory.barendregt_def]
