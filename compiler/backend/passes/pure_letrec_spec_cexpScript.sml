@@ -7,11 +7,6 @@ open pure_cexpTheory pure_varsTheory balanced_mapTheory;
 
 val _ = new_theory "pure_letrec_spec_cexp";
 
-Definition eq_Var_def:
-  eq_Var f (Var a v) = (f = v:mlstring) ∧
-  eq_Var f _ = F
-End
-
 (*
   For every elemen in xs, if y is a variable reference to the corresponding
   element from xs, then return (SOME x). Otherwise NONE.

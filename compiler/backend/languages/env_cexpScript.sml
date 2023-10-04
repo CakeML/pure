@@ -80,4 +80,24 @@ Termination
   WF_REL_TAC `measure cexp_size`
 End
 
+Definition Lams_def:
+  Lams [] x = x ∧
+  Lams (y::ys) x = Lam y (Lams ys x)
+End
+
+Definition Apps_def:
+  Apps x [] = x ∧
+  Apps x (y::ys) = Apps (App x y) ys
+End
+
+Definition dest_Delay_def:
+  dest_Delay (Delay x) = SOME x ∧
+  dest_Delay _ = NONE
+End
+
+Definition dest_Lam_def:
+  dest_Lam (Lam v x) = SOME (v,x) ∧
+  dest_Lam _ = NONE
+End
+
 val _ = export_theory();

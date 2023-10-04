@@ -43,7 +43,7 @@ Proof
   >~ [‘Lam’] >-
    (last_x_assum mp_tac \\ fs [to_env_def]
     \\ qid_spec_tac ‘vs’ \\ Induct
-    \\ fs [Lams_def] \\ rw [] \\ fs []
+    \\ fs [env_cexpTheory.Lams_def] \\ rw [] \\ fs []
     \\ irule exp_rel_Lam \\ fs [])
   >~ [‘App’] >-
    (fs [to_env_def]
@@ -54,10 +54,10 @@ Proof
     \\ qid_spec_tac ‘x’
     \\ qid_spec_tac ‘xs’
     \\ Induct
-    \\ fs [Apps_def] \\ rw [] \\ fs [SF DNF_ss]
+    \\ fs [env_cexpTheory.Apps_def] \\ rw [] \\ fs [SF DNF_ss]
     \\ ‘cexp_wf (App x [h])’ by fs [cexp_wf_def]
     \\ last_x_assum drule
-    \\ fs [to_env_def,Apps_def]
+    \\ fs [to_env_def,env_cexpTheory.Apps_def]
     \\ disch_then irule
     \\ irule exp_rel_App
     \\ gs [])
@@ -144,7 +144,7 @@ Proof
   >~ [‘Lams’] >-
    (strip_tac
     \\ strip_tac \\ pop_assum kall_tac
-    \\ Induct_on ‘vs’ \\ fs [Lams_def,cexp_wf_def]
+    \\ Induct_on ‘vs’ \\ fs [env_cexpTheory.Lams_def,cexp_wf_def]
     \\ fs [to_env_def,cexp_wf_def,
            thunk_cexpTheory.cns_arities_def,
            env_cexpTheory.cns_arities_def])
@@ -153,13 +153,13 @@ Proof
     \\ strip_tac \\ pop_assum kall_tac \\ fs [SF ETA_ss]
     \\ rpt $ pop_assum mp_tac
     \\ qid_spec_tac ‘x’
-    \\ Induct_on ‘xs’ \\ fs [Apps_def,cexp_wf_def]
+    \\ Induct_on ‘xs’ \\ fs [env_cexpTheory.Apps_def,cexp_wf_def]
     \\ fs [to_env_def,cexp_wf_def,SF DNF_ss,
            thunk_cexpTheory.cns_arities_def,
            env_cexpTheory.cns_arities_def]
     \\ rw [] \\ fs []
     \\ rpt $ last_x_assum $ qspec_then ‘App x [h]’ mp_tac
-    \\ fs [to_env_def,Apps_def]
+    \\ fs [to_env_def,env_cexpTheory.Apps_def]
     \\ fs [to_env_def,cexp_wf_def,SF DNF_ss,
            thunk_cexpTheory.cns_arities_def,
            env_cexpTheory.cns_arities_def]
@@ -176,7 +176,8 @@ Proof
     >-
      (rename [‘cexp_ok_bind pp’] \\ Cases_on ‘pp’ \\ fs [cexp_ok_bind_def]
       \\ fs [to_env_def]
-      \\ fs [cexp_wf_def] \\ rename [‘Lams l’] \\ Cases_on ‘l’ \\ fs [Lams_def])
+      \\ fs [cexp_wf_def] \\ rename [‘Lams l’] \\ Cases_on ‘l’
+      \\ fs [env_cexpTheory.Lams_def])
     >- metis_tac [])
   >- (strip_tac \\ strip_tac \\ fs []
       \\ rpt $ conj_tac

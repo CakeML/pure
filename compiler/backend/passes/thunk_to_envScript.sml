@@ -10,16 +10,6 @@ val _ = new_theory "thunk_to_env";
 
 val _ = set_grammar_ancestry ["thunk_cexp", "env_cexp"]
 
-Definition Lams_def:
-  Lams [] x = x ∧
-  Lams (y::ys) x = env_cexp$Lam y (Lams ys x)
-End
-
-Definition Apps_def:
-  Apps x [] = x ∧
-  Apps x (y::ys) = Apps (env_cexp$App x y) ys
-End
-
 Definition get_arg_def:
   get_arg n [] = env_cexp$Prim (Cons (strlit "")) [] ∧
   get_arg n (x::xs) = if n = 0:num then x else get_arg (n-1) xs

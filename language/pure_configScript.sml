@@ -226,4 +226,9 @@ Proof
   simp[monad_cns_def]
 QED
 
+Definition dest_Message_def:
+  dest_Message (Message s) = SOME s ∧
+  dest_Message _ = NONE
+End
+
 val _ = export_theory ();
