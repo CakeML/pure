@@ -24,6 +24,8 @@ val r = translate pure_cexpTheory.dest_Lam_def;
 val r = translate pure_cexpTheory.dest_App_def;
 val r = translate pure_cexpTheory.SmartLam_def;
 val r = translate pure_cexpTheory.SmartApp_def;
+val r = translate pure_cexpTheory.is_Lam_def;
+val r = translate pure_cexpTheory.Lets_def;
 
 val r = translate var_setTheory.insert_var_def;
 val r = translate var_setTheory.insert_vars_def;
@@ -54,7 +56,7 @@ val r = translate pure_namesTheory.pure_names_def;
 
 val r = translate FOLDL;
 val r = translate FOLDR;
-val r = translate thunk_split_Delay_LamTheory.dest_Var_def;
+val r = translate thunk_cexpTheory.dest_Var_def;
 val r = translate thunk_split_Delay_LamTheory.dest_Delay_Lam_def;
 val r = translate thunk_split_Delay_LamTheory.letrec_split_def;
 val r = translate_no_ind thunk_split_Delay_LamTheory.split_Delayed_Lam_def;
@@ -95,8 +97,8 @@ val r = translate compile_to_thunk_def;
 
 (* thunk_to_env *)
 
-val r = translate thunk_to_envTheory.Lams_def;
-val r = translate thunk_to_envTheory.Apps_def;
+val r = translate env_cexpTheory.Lams_def;
+val r = translate env_cexpTheory.Apps_def;
 val r = translate thunk_to_envTheory.get_arg_def;
 val r = translate thunk_to_envTheory.remove_Delay_def;
 val r = translate thunk_to_envTheory.op_to_env_def;
@@ -104,10 +106,10 @@ val r = translate thunk_to_envTheory.to_env_def;
 
 (* env_to_state *)
 
-val r = translate env_to_stateTheory.dest_Message_def;
-val r = translate env_to_stateTheory.dest_Delay_def;
-val r = translate env_to_stateTheory.dest_Lam_def;
-val r = translate env_to_stateTheory.Lets_def;
+val r = translate pure_configTheory.dest_Message_def;
+val r = translate env_cexpTheory.dest_Delay_def;
+val r = translate env_cexpTheory.dest_Lam_def;
+val r = translate state_cexpTheory.Lets_def;
 val r = translate env_to_stateTheory.Bool_def;
 val r = translate env_to_stateTheory.some_ref_bool_def;
 val r = translate env_to_stateTheory.unsafe_update_def;
