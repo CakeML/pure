@@ -568,6 +568,11 @@ Definition is_Delay_def[simp]:
   (is_Delay _ = F)
 End
 
+Definition is_delay_def[simp]: (* TODO: delete, replace by above *)
+  is_delay (Delay x) = T ∧
+  is_delay _ = F
+End
+
 Definition ok_bind_def[simp]:
   (ok_bind (Lam _ _) = T) ∧
   (ok_bind (Delay _) = T) ∧
@@ -605,5 +610,11 @@ Proof
   Induct \\ fs [boundvars_def]
   \\ simp [SET_EQ_SUBSET, SUBSET_DEF]
 QED
+
+Definition ok_binder_def[simp]:
+  ok_binder (Lam s x) = T ∧
+  ok_binder (Delay x) = T ∧
+  ok_binder _ = F
+End
 
 val _ = export_theory ();

@@ -492,7 +492,7 @@ Proof
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ fs [PULL_EXISTS]
     \\ rw [] \\ gvs []
-    \\ fs [thunk_unthunkProofTheory.is_delay_def]
+    \\ fs []
     \\ rpt $ first_assum $ irule_at Any
     \\ last_x_assum drule \\ strip_tac
     \\ rpt $ first_assum $ irule_at Any
@@ -508,7 +508,7 @@ Proof
       \\ qpat_x_assum ‘force_rel NONE y2 _’ $ irule_at Any
       \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
       \\ first_x_assum $ irule_at $ Pos hd
-      \\ fs [thunk_unthunkProofTheory.is_delay_def]
+      \\ fs []
       \\ irule_at Any thunk_unthunkProofTheory.delay_force_Delay \\ fs [])
     \\ fs [cexp_wf_def,SF SFY_ss,exp_of'_def]
     \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Var
@@ -522,7 +522,7 @@ Proof
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Force
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Var
     \\ irule_at Any thunk_unthunkProofTheory.delay_force_Delat_Force_Var
-    \\ fs [thunk_unthunkProofTheory.is_delay_def])
+    \\ fs [])
   >~ [‘Apps’] >-
    (pop_assum kall_tac
     \\ rpt $ pop_assum mp_tac

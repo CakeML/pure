@@ -185,11 +185,6 @@ QED
 
  *)
 
-Definition is_delay_def[simp]:
-  is_delay (Delay x) = T ∧
-  is_delay _ = F
-End
-
 Inductive exp_rel:
 [exp_rel_Delay_Force_Var:]
   (∀v.
