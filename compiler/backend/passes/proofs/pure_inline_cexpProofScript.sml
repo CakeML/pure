@@ -1361,6 +1361,11 @@ Proof
        \\ Induct \\ Cases_on ‘bs2’ \\ gvs []
        \\ PairCases \\ gvs [])
     \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of]
+    \\ ‘wf_mem ns1 m ∧ EVERY (avoid_set_ok ns1) (MAP (SND ∘ SND) bs) ∧
+        avoid_set_ok ns e ∧
+        avoid_set_ok ns3
+          (Case a e1 v (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) f3)’ by cheat
+    \\ fs []
     \\ gvs [DELETE_SUBSET_INSERT]
     \\ gvs [letrecs_distinct_rows_of]
     \\ ‘∀xx. BIGUNION
@@ -1394,6 +1399,7 @@ Proof
       \\ gvs [SUBSET_DEF,MEM_MAP,EXISTS_PROD]
       \\ metis_tac [])
     \\ PairCases_on ‘x’ \\ gvs []
+    \\ ‘avoid_set_ok ns2 x1 ∧ wf_mem ns2 m’ by cheat
     \\ Cases_on ‘inline m ns2 cl h x1’ \\ gvs []
     \\ gvs [cns_arities_def,IfDisj_def]
     \\ rpt strip_tac
