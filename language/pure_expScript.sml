@@ -190,7 +190,7 @@ End
 
 Overload Case = “λx nm css. expandCases x nm css”
 
-Definition letrecs_distinct_def:
+Definition letrecs_distinct_def[simp]:
   (letrecs_distinct (pure_exp$Letrec xs y) ⇔
     ALL_DISTINCT (MAP FST xs) ∧
     EVERY letrecs_distinct (MAP SND xs) ∧

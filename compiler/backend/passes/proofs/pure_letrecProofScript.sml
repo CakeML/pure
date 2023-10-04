@@ -1764,17 +1764,18 @@ Proof
   recInduct freevars_ind >> rw[letrecs_distinct_def, letrec_recurse_def] >>
   gvs[EVERY_MAP, EVERY_MEM] >>
   simp[clean_one_def] >> IF_CASES_TAC >> gvs[] >>
-  pop_assum kall_tac >> Cases_on `lcs` >> gvs[] >- simp[letrecs_distinct_def] >>
+  pop_assum kall_tac >> Cases_on `lcs` >> gvs[] >>
   Cases_on `t` >> gvs[]
   >- (
     pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[] >> simp[letrecs_distinct_def]
     ) >>
-  ntac 2 $ once_rewrite_tac[GSYM MAP] >>
-  qpat_abbrev_tac `foo = _ :: _ :: _` >>
-  `ALL_DISTINCT (MAP FST foo)` by (unabbrev_all_tac >> gvs[]) >>
+  gvs [SF DNF_ss] >>
+  rename [‘FST h1 ≠ FST h2’] >>
+  PairCases_on ‘h1’ >> PairCases_on ‘h2’ >> gvs [] >>
+  gvs [MEM_MAP,FORALL_PROD,PULL_EXISTS,EVERY_MEM] >>
   simp[letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
   simp[GSYM FST_THM, EVERY_MAP, LAMBDA_PROD] >>
-  gvs[EVERY_MEM, FORALL_PROD] >> unabbrev_all_tac >> gvs[] >> metis_tac[]
+  metis_tac []
 QED
 
 

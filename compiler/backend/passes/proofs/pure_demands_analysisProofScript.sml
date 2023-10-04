@@ -3384,27 +3384,27 @@ Proof
           \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok]
           \\ rpt $ last_x_assum $ drule_then assume_tac \\ gs [])
       >- (rw [letrecs_distinct_def]
-          >- (gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-              \\ irule ALL_DISTINCT_IMP
-              \\ gs [MAP_ZIP, ALL_DISTINCT_IMP2])
-          >- (gs [EVERY_EL, EL_MAP, EL_ZIP] \\ rw [FST_THM, SND_THM]
-              \\ pairarg_tac \\ gs []
-              \\ pairarg_tac \\ gs []
-              \\ pairarg_tac \\ gs []
-              \\ rename1 ‘i < _’
-              \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-              \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
-                by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
+          \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ irule ALL_DISTINCT_IMP
+          \\ gs [MAP_ZIP, ALL_DISTINCT_IMP2])
+      >- (gs [EVERY_EL, EL_MAP, EL_ZIP] \\ rw [FST_THM, SND_THM]
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ rename1 ‘i < _’
+          \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
+          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+            by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
-                    \\ simp [])
-              \\ gvs [] \\ pop_assum kall_tac
-              \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
-              \\ gs [FOLDL_delete_ok]
-              \\ last_x_assum $ drule_then assume_tac
-              \\ last_x_assum $ drule_then assume_tac
-              \\ last_x_assum $ drule_then assume_tac
-              \\ gs [])
-          >- gs [letrecs_distinct_adds_demands])
+                \\ simp [])
+          \\ gvs [] \\ pop_assum kall_tac
+          \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
+          \\ gs [FOLDL_delete_ok]
+          \\ last_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ gs [])
+      >- gs [letrecs_distinct_adds_demands]
       >- (last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
           \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
@@ -3439,30 +3439,28 @@ Proof
           \\ qabbrev_tac ‘pair = EL i binds’ \\ PairCases_on ‘pair’ \\ gvs []
           \\ unabbrev_all_tac \\ gvs [ctxt_trans_def, FOLDL_delete_ok]
           \\ rpt $ last_x_assum $ drule_then assume_tac \\ gs [])
-      >- (rw [letrecs_distinct_def]
-          >- (gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
-              \\ irule ALL_DISTINCT_IMP
-              \\ gs [MAP_ZIP, ALL_DISTINCT_IMP2])
-          >- (gs [EVERY_EL, EL_MAP, EL_ZIP] \\ rw [FST_THM, SND_THM]
-              \\ pairarg_tac \\ gs []
-              \\ pairarg_tac \\ gs []
-              \\ pairarg_tac \\ gs []
-              \\ rename1 ‘i < _’
-              \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-              \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
-                by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
+      >- (gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]
+          \\ irule ALL_DISTINCT_IMP
+          \\ gs [MAP_ZIP, ALL_DISTINCT_IMP2])
+      >- (gs [EVERY_EL, EL_MAP, EL_ZIP] \\ rw [FST_THM, SND_THM]
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ pairarg_tac \\ gs []
+          \\ rename1 ‘i < _’
+          \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
+          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+            by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
-                    \\ simp [])
-              \\ gvs [] \\ pop_assum kall_tac
-              \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
-              \\ gs [FOLDL_delete_ok]
-              \\ last_x_assum $ drule_then assume_tac
-              \\ last_x_assum $ drule_then assume_tac
-              \\ last_x_assum $ drule_then assume_tac
-              \\ gs [])
-          >- gs [letrecs_distinct_adds_demands]))
+                \\ simp [])
+          \\ gvs [] \\ pop_assum kall_tac
+          \\ first_x_assum $ resolve_then (Pos hd) (drule_then assume_tac) EQ_REFL
+          \\ gs [FOLDL_delete_ok]
+          \\ last_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ last_x_assum $ drule_then assume_tac
+          \\ gs [])
+      >- gs [letrecs_distinct_adds_demands])
   >~ [‘Case a case_exp s l opt’]
-
   >- (gen_tac \\ gen_tac
       \\ rename1 ‘Bind _ _ c’
       \\ rpt $ gen_tac
