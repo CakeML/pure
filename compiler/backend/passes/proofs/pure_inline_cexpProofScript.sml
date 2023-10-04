@@ -1095,7 +1095,7 @@ Definition block_def:
 End
 
 Theorem wf_mem_IMP_mem_inv:
-wf_mem ns m ⇒ mem_inv m ns
+  wf_mem ns m ⇒ mem_inv m ns
 Proof
   rw[wf_mem_def, mem_inv_def] >> first_x_assum drule >> rw[]
 QED
@@ -1410,9 +1410,16 @@ Proof
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
   \\ gvs [inline_def]
   \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
-  \\ gvs [block_def]
-  \\ gvs [SUBSET_DEF]
-  \\ metis_tac []
+  \\ gvs [block_def] \\ gvs [SUBSET_DEF]
+  \\ drule $ cj 1 inline_set_of \\ strip_tac
+  \\ imp_res_tac avoid_set_ok_subset
+  \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ gvs []
+  \\ qsuff_tac ‘wf_mem ns1 m ∧ EVERY (avoid_set_ok ns1) es ∧ avoid_set_ok ns2 e1’
+  >- (strip_tac \\ gvs [])
+  \\ imp_res_tac inline_set_of
+  \\ drule_then (irule_at Any) wf_mem_subset
+  \\ gvs [] \\ gvs [EVERY_MEM]
+  \\ metis_tac [avoid_set_ok_subset,SUBSET_TRANS]
 QED
 
 Theorem inline_wf:
