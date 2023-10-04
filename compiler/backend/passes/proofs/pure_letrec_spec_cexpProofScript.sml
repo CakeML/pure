@@ -47,7 +47,7 @@ Theorem letrecs_distinct_Lams:
   ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
 Proof
   Induct \\ fs [Lams_def]
-  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+  \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
 QED
 
 Theorem letrecs_distinct_Apps:
@@ -55,7 +55,7 @@ Theorem letrecs_distinct_Apps:
          letrecs_distinct e ∧ EVERY letrecs_distinct es
 Proof
   Induct \\ fs [Apps_def]
-  \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+  \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
   \\ metis_tac []
 QED
 
@@ -476,7 +476,7 @@ QED
 Theorem letrecs_distinct_if:
   letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
 Proof
-  rw [pure_letrecProofTheory.letrecs_distinct_def]
+  rw [pure_expTheory.letrecs_distinct_def]
 QED
 
 Triviality UNCURRY_lemma:
@@ -501,7 +501,7 @@ Proof
   \\ gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs []
   \\ Cases_on ‘h’ \\ gvs [eq_Var_def,exp_of_def]
   \\ gvs [cns_arities_def]
-  \\ gvs [pure_letrecProofTheory.letrecs_distinct_def]
+  \\ gvs [pure_expTheory.letrecs_distinct_def]
 QED
 
 Theorem spec_one_vars:
@@ -619,7 +619,7 @@ Proof
       \\ gvs [SUBSET_DEF])
     \\ gvs [cns_arities_def,cexp_wf_def,SF ETA_ss,
             letrecs_distinct_Lams,letrecs_distinct_Apps,
-            pure_letrecProofTheory.letrecs_distinct_def]
+            pure_expTheory.letrecs_distinct_def]
     \\ gvs [SF SFY_ss,delete_with_wf]
     \\ gvs [EVERY_MAP])
   >~ [‘Apps’] >-
@@ -632,14 +632,14 @@ Proof
     \\ gvs [cns_arities_def,SF ETA_ss,letrecs_distinct_Lams])
   >~ [‘Let’] >-
    (gvs [SUBSET_DEF,cexp_wf_def,cns_arities_def,
-         pure_letrecProofTheory.letrecs_distinct_def])
+         pure_expTheory.letrecs_distinct_def])
   >~ [‘Prim’] >-
    (gvs [SUBSET_DEF,cexp_wf_def,cns_arities_def,EVERY_MAP,SF ETA_ss,
-         pure_letrecProofTheory.letrecs_distinct_def])
+         pure_expTheory.letrecs_distinct_def])
   >~ [‘Letrec’] >-
    (fs [MAP_MAP_o,combinTheory.o_DEF] \\ fs [LAMBDA_PROD]
     \\ gvs [SUBSET_DEF,cexp_wf_def,cns_arities_def,EVERY_MAP,SF ETA_ss,
-            pure_letrecProofTheory.letrecs_distinct_def]
+            pure_expTheory.letrecs_distinct_def]
     \\ rpt (pop_assum mp_tac)
     \\ rewrite_tac [EXTENSION,SUBSET_DEF]
     \\ rpt strip_tac
@@ -664,7 +664,7 @@ Proof
         \\ DISJ2_TAC
         \\ first_x_assum irule
         \\ metis_tac [])
-    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,
+    \\ gvs [pure_expTheory.letrecs_distinct_def,
             letrecs_distinct_rows_of,EVERY_MAP]
     \\ gvs [UNCURRY_lemma]
     \\ gvs [LAMBDA_PROD]
@@ -673,7 +673,7 @@ Proof
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF,rows_of_def]
   >- (fs [IfDisj_def] \\ fs [SUBSET_DEF]
-      \\ gvs [pure_letrecProofTheory.letrecs_distinct_def])
+      \\ gvs [pure_expTheory.letrecs_distinct_def])
 QED
 
 Triviality can_spec_arg_map:
@@ -969,8 +969,8 @@ Proof
   \\ drule specialise_each_vars \\ strip_tac \\ gvs [cexp_wf_def]
   \\ drule drop_common_suffix_thm \\ strip_tac \\ gvs [exp_of_def]
   \\ gvs [letrecs_distinct_Lams,set_map_empty,letrecs_distinct_Apps,
-          pure_letrecProofTheory.letrecs_distinct_def]
-  \\ gvs [EVERY_MAP,pure_letrecProofTheory.letrecs_distinct_def,
+          pure_expTheory.letrecs_distinct_def]
+  \\ gvs [EVERY_MAP,pure_expTheory.letrecs_distinct_def,
           set_sing_lemma,boundvars_Lams]
   \\ imp_res_tac specialise_each_subset \\ fs []
   \\ rewrite_tac [GSYM DIFF_UNION]
