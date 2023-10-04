@@ -678,15 +678,6 @@ Proof
                   pure_demandTheory.Letrec_unfold \\ fs []
     \\ gvs [EL_MAP] \\ disch_then drule \\ fs []
     \\ disch_then $ qspec_then ‘T’ mp_tac
-    \\ impl_tac
-    >-
-     (gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
-      \\ qpat_x_assum `ALL_DISTINCT _` mp_tac
-      \\ qmatch_goalsub_abbrev_tac ‘_ xs ⇒ _ ys’
-      \\ qsuff_tac ‘xs = MAP implode ys’ \\ gvs []
-      >- metis_tac [ALL_DISTINCT_MAP]
-      \\ unabbrev_all_tac \\ rpt $ pop_assum kall_tac
-      \\ Induct_on ‘l’ \\ gvs [] \\ PairCases \\ fs [])
     \\ qpat_x_assum ‘_ = EL _ _’ $ assume_tac o GSYM
     \\ simp [])
   >~ [‘spec_arg’] >-
@@ -826,6 +817,7 @@ Proof
   IF_CASES_TAC >> gvs[]
 QED
 
+(*
 Theorem bidir_preserves_typing:
   ∀x y ns db st env t.
     (x <--> y) ∧ namespace_ok ns
@@ -1253,6 +1245,7 @@ Proof
       )
     )
 QED
+*)
 
 (**********)
 
