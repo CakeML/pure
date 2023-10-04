@@ -1360,11 +1360,57 @@ Proof
        \\ rpt (pop_assum kall_tac)
        \\ Induct \\ Cases_on ‘bs2’ \\ gvs []
        \\ PairCases \\ gvs [])
-    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of]
-    \\ ‘wf_mem ns1 m ∧ EVERY (avoid_set_ok ns1) (MAP (SND ∘ SND) bs) ∧
-        avoid_set_ok ns e ∧
+    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of] >>
+       `wf_mem ns1 m ∧ wf_mem ns2 m` by (
+          irule_at Any wf_mem_subset >> rpt $ goal_assum $ drule_at Any >>
+          irule_at Any wf_mem_subset >> rpt $ goal_assum $ drule_at Any >>
+          imp_res_tac inline_set_of >> metis_tac[avoid_set_ok_def, SUBSET_DEF])
+    \\ ‘EVERY (avoid_set_ok ns1) (MAP (SND ∘ SND) bs) ∧ avoid_set_ok ns e ∧
+        (∀cnars e. f = SOME (cnars, e) ⇒ avoid_set_ok ns2 e) ∧
         avoid_set_ok ns3
-          (Case a e1 v (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) f3)’ by cheat
+          (Case a e1 v (MAP2 (λ(v,vs,_) e. (v,vs,e)) bs bs2) f3)’ by (
+            drule $ cj 1 inline_set_of >> impl_tac >- fs[avoid_set_ok_def] >>
+            strip_tac >> simp[] >>
+            drule $ cj 2 inline_set_of >> impl_tac >- fs[avoid_set_ok_def] >>
+            strip_tac >> rpt conj_asm1_tac >> fs[avoid_set_ok_Case]
+            >- (
+              fs[avoid_set_ok_Case, EVERY_MAP, EVERY_MEM] >> rw[] >>
+              res_tac >> pairarg_tac >> fs[] >>
+              irule avoid_set_ok_subset >> simp[SF SFY_ss]
+              )
+            >- (
+              rw[] >> irule avoid_set_ok_subset >> simp[] >>
+              goal_assum $ drule_at $ Pat `avoid_set_ok` >> fs[SUBSET_DEF]
+              ) >>
+            `vars_ok ns3 ∧ set_of ns2 ⊆ set_of ns3` by (
+              FULL_CASE_TAC >> fs[] >> pairarg_tac >> fs[] >>
+              Cases_on `inline m ns2 cl h e'` >> gvs[] >>
+              drule $ cj 1 inline_set_of >> fs[avoid_set_ok_def]) >>
+            fs[MAP2_MAP, EVERY_MAP, LAMBDA_PROD] >> rw[]
+            >- (
+              irule_at Any $ iffLR SUBSET_DEF >> goal_assum $ drule_at Any >>
+              fs[SUBSET_DEF]
+              )
+            >- (
+              irule avoid_set_ok_subset >> simp[] >>
+              goal_assum $ drule_at $ Pat `avoid_set_ok` >> fs[SUBSET_DEF]
+              )
+            >- (
+              qpat_x_assum `EVERY (λ(a,b,c). _ ∧ _) bs` mp_tac >>
+              qpat_x_assum `EVERY (avoid_set_ok _) bs2` mp_tac >>
+              once_rewrite_tac[EVERY_EL] >> simp[EL_ZIP] >> rw[] >>
+              ntac 2 $ first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >>
+              ntac 2 strip_tac >>
+              irule_at Any avoid_set_ok_subset >> goal_assum drule >> simp[] >>
+              gvs[EVERY_MEM] >> metis_tac[SUBSET_DEF]
+              )
+            >- (
+              Cases_on `f` >> gvs[] >> pairarg_tac >> gvs[] >>
+              Cases_on `inline m ns2 cl h p2` >> gvs[] >>
+              irule $ cj 1 $ SRULE [fake_avoid_set_ok_def] inline_avoid_set_ok >>
+              rpt $ goal_assum $ drule_at Any >> imp_res_tac wf_mem_IMP_mem_inv
+              )
+            )
     \\ fs []
     \\ gvs [DELETE_SUBSET_INSERT]
     \\ gvs [letrecs_distinct_rows_of]
@@ -1399,7 +1445,6 @@ Proof
       \\ gvs [SUBSET_DEF,MEM_MAP,EXISTS_PROD]
       \\ metis_tac [])
     \\ PairCases_on ‘x’ \\ gvs []
-    \\ ‘avoid_set_ok ns2 x1 ∧ wf_mem ns2 m’ by cheat
     \\ Cases_on ‘inline m ns2 cl h x1’ \\ gvs []
     \\ gvs [cns_arities_def,IfDisj_def]
     \\ rpt strip_tac
