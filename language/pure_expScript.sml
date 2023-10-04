@@ -26,7 +26,10 @@ Datatype:
       | Letrec ((vname # exp) list) exp   (* mutually recursive exps  *)
 End
 
+val exp_size_def = fetch "-" "exp_size_def";
+
 (* some abbreviations *)
+
 Overload Let  = “λs x y. App (Lam s y) x”         (* let-expression    *)
 Overload If   = “λx y z. Prim If [x; y; z]”       (* If   at exp level *)
 Overload Cons = “λs. Prim (Cons s)”               (* Cons at exp level *)
@@ -50,6 +53,11 @@ End
 Definition Seqs_def[simp]: (* TODO: move *)
   Seqs [] x = x /\
   Seqs (y::ys) x = Seq y (Seqs ys x)
+End
+
+Definition Lets_def:
+  Lets [] b = b ∧
+  Lets ((v,x)::xs) b = Let v x (Lets xs b)
 End
 
 Definition Bottom_def:
@@ -181,5 +189,20 @@ Definition expandCases_def:
 End
 
 Overload Case = “λx nm css. expandCases x nm css”
+
+Definition letrecs_distinct_def:
+  (letrecs_distinct (pure_exp$Letrec xs y) ⇔
+    ALL_DISTINCT (MAP FST xs) ∧
+    EVERY letrecs_distinct (MAP SND xs) ∧
+    letrecs_distinct y) ∧
+  (letrecs_distinct (Lam n x) ⇔ letrecs_distinct x) ∧
+  (letrecs_distinct (Prim p xs) ⇔ EVERY letrecs_distinct xs) ∧
+  (letrecs_distinct (App x y) ⇔ letrecs_distinct x ∧ letrecs_distinct y) ∧
+  (letrecs_distinct _ ⇔ T)
+Termination
+  WF_REL_TAC `measure (λe. exp_size e)` >> rw[exp_size_def] >>
+  Induct_on `xs` >> rw[] >> gvs[exp_size_def] >>
+  PairCases_on `h` >> gvs[exp_size_def]
+End
 
 val _ = export_theory ();

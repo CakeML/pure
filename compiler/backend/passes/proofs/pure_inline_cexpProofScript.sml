@@ -39,7 +39,7 @@ End
 Theorem Lets_append:
   ∀xs ys b. Lets (xs ++ ys) b = Lets xs (Lets ys b)
 Proof
-  Induct \\ fs [pure_letrecProofTheory.Lets_def,FORALL_PROD]
+  Induct \\ fs [pure_expTheory.Lets_def,FORALL_PROD]
 QED
 
 Theorem inline_list_empty:
@@ -378,7 +378,7 @@ Theorem exp_of_Lets:
     Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
 Proof
   Induct \\ Cases_on ‘xs’
-  \\ gvs [pure_inline_cexpTheory.Lets_def,pure_letrecProofTheory.Lets_def]
+  \\ gvs [pure_inline_cexpTheory.Lets_def,pure_expTheory.Lets_def]
   \\ fs [exp_of_def]
 QED
 
@@ -392,9 +392,9 @@ Theorem subst_Lets:
 Proof
   Induct using SNOC_INDUCT
   \\ Cases_on ‘vs’ using SNOC_CASES
-  \\ fs [pure_letrecProofTheory.Lets_def]
+  \\ fs [pure_expTheory.Lets_def]
   \\ rw [] \\ gvs [ZIP_SNOC,MAP_SNOC]
-  \\ fs [SNOC_APPEND,Lets_append,pure_letrecProofTheory.Lets_def]
+  \\ fs [SNOC_APPEND,Lets_append,pure_expTheory.Lets_def]
   \\ last_x_assum $ DEP_REWRITE_TAC o single
   \\ fs [subst_def] \\ gvs [EVERY_MEM]
   \\ AP_TERM_TAC
@@ -412,10 +412,10 @@ Theorem eval_wh_Lets:
     eval_wh (subst (FEMPTY |++ xs) b)
 Proof
   Induct using SNOC_INDUCT
-  \\ fs [pure_letrecProofTheory.Lets_def,FUPDATE_LIST]
+  \\ fs [pure_expTheory.Lets_def,FUPDATE_LIST]
   \\ PairCases \\ fs [MAP_SNOC,EVERY_SNOC]
   \\ fs [SNOC_APPEND,Lets_append]
-  \\ fs [pure_letrecProofTheory.Lets_def,FUPDATE_LIST,subst_def]
+  \\ fs [pure_expTheory.Lets_def,FUPDATE_LIST,subst_def]
   \\ fs [eval_wh_App]
   \\ fs [eval_wh_Lam,bind_def,FLOOKUP_SIMP]
   \\ fs [FOLDL_APPEND] \\ rw []
@@ -465,9 +465,9 @@ Proof
   fs [freevars_Apps,freevars_Lams]
   \\ Induct using SNOC_INDUCT
   \\ Cases_on ‘vs’ using SNOC_CASES
-  \\ fs [pure_letrecProofTheory.Lets_def,EVERY_SNOC]
+  \\ fs [pure_expTheory.Lets_def,EVERY_SNOC]
   \\ gvs [ZIP_SNOC]
-  \\ fs [SNOC_APPEND,Lets_append,pure_letrecProofTheory.Lets_def] \\ rw []
+  \\ fs [SNOC_APPEND,Lets_append,pure_expTheory.Lets_def] \\ rw []
   \\ last_x_assum $ DEP_REWRITE_TAC o single \\ fs []
   \\ gvs [EVERY_MEM] \\ gvs [EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ gvs [] \\ gvs [IN_DISJOINT]
@@ -483,9 +483,9 @@ Proof
   fs [boundvars_Apps,boundvars_Lams]
   \\ Induct using SNOC_INDUCT
   \\ Cases_on ‘vs’ using SNOC_CASES
-  \\ fs [pure_letrecProofTheory.Lets_def,EVERY_SNOC]
+  \\ fs [pure_expTheory.Lets_def,EVERY_SNOC]
   \\ gvs [ZIP_SNOC]
-  \\ fs [SNOC_APPEND,Lets_append,pure_letrecProofTheory.Lets_def] \\ rw []
+  \\ fs [SNOC_APPEND,Lets_append,pure_expTheory.Lets_def] \\ rw []
   \\ last_x_assum $ DEP_REWRITE_TAC o single \\ fs []
   \\ gvs [EVERY_MEM] \\ gvs [EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ gvs [] \\ gvs [IN_DISJOINT]
@@ -533,7 +533,7 @@ Theorem letrecs_distinct_Apps[simp]:
       letrecs_distinct e ∧ EVERY letrecs_distinct es
 Proof
   Induct
-  \\ asm_rewrite_tac [Apps_def,EVERY_DEF,pure_letrecProofTheory.letrecs_distinct_def]
+  \\ asm_rewrite_tac [Apps_def,EVERY_DEF,pure_expTheory.letrecs_distinct_def]
   \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
@@ -657,8 +657,8 @@ Theorem allvars_Lets:
                         BIGUNION (set (MAP allvars (MAP SND xs)))
 Proof
   Induct_on ‘xs’
-  \\ fs [pure_letrecProofTheory.Lets_def] \\ PairCases
-  \\ fs [pure_letrecProofTheory.Lets_def]
+  \\ fs [pure_expTheory.Lets_def] \\ PairCases
+  \\ fs [pure_expTheory.Lets_def]
   \\ gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []
   \\ metis_tac []
 QED
@@ -1027,7 +1027,7 @@ Theorem letrecs_distinct_Lets:
 Proof
   Induct_on ‘xs’ \\ fs [Lets_def]
   \\ PairCases
-  \\ fs [Lets_def,pure_letrecProofTheory.letrecs_distinct_def,exp_of_def]
+  \\ fs [Lets_def,pure_expTheory.letrecs_distinct_def,exp_of_def]
   \\ gvs [AC CONJ_COMM CONJ_ASSOC]
 QED
 
@@ -1240,7 +1240,7 @@ Proof
        \\ rw [] \\ gvs []
        \\ gvs [AllCaseEqs()] \\ gvs []
        \\ gvs [cexp_wf_def,exp_of_def,
-               pure_letrecProofTheory.letrecs_distinct_def]
+               pure_expTheory.letrecs_distinct_def]
        \\ res_tac \\ fs []) >>
        drule $ cj 1 $ SRULE [fake_avoid_set_ok_def] inline_avoid_set_ok >> simp[] >>
        impl_tac >- metis_tac[wf_mem_IMP_mem_inv] >> strip_tac >>
@@ -1249,7 +1249,7 @@ Proof
        drule $ cj 1 inline_set_of >> impl_tac >- gvs[avoid_set_ok_def] >> strip_tac >>
        irule_at Any avoid_set_ok_subset >> rpt $ goal_assum $ drule_at Any
     \\ gvs [cexp_wf_def,exp_of_def,cns_arities_def,
-            pure_letrecProofTheory.letrecs_distinct_def]
+            pure_expTheory.letrecs_distinct_def]
     \\ gvs [SUBSET_DEF]
     \\ metis_tac []
     )
@@ -1263,7 +1263,7 @@ Proof
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [SF ETA_ss,cexp_wf_def,exp_of_def,MAP_MAP_o,o_DEF,
-            pure_letrecProofTheory.letrecs_distinct_def,avoid_set_ok_Letrec]
+            pure_expTheory.letrecs_distinct_def,avoid_set_ok_Letrec]
     \\ gvs [LAMBDA_PROD,block_def]
     \\ dxrule LIST_REL_imp \\ strip_tac >>
     rev_drule $ cj 2 inline_set_of >> impl_tac >- gvs[avoid_set_ok_def] >> strip_tac
@@ -1321,7 +1321,7 @@ Proof
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
     \\ gvs [block_def,cexp_wf_def,exp_of_def,SF ETA_ss,avoid_set_ok_Prim,
-            pure_letrecProofTheory.letrecs_distinct_def] >>
+            pure_expTheory.letrecs_distinct_def] >>
        drule $ cj 2 inline_set_of >> strip_tac >> simp[]
     \\ dxrule LIST_REL_imp \\ strip_tac
     \\ gvs [cns_arities_def]
@@ -1330,7 +1330,7 @@ Proof
    (gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [block_def,cexp_wf_def,SF ETA_ss,exp_of_def,
-            pure_letrecProofTheory.letrecs_distinct_def]
+            pure_expTheory.letrecs_distinct_def]
     \\ ‘MAP (λ(v,vs,e). e) bs = MAP (SND ∘ SND) bs’ by
       (qid_spec_tac ‘bs’ \\ Induct \\ gvs [FORALL_PROD])
     \\ gvs []
@@ -1360,7 +1360,7 @@ Proof
        \\ rpt (pop_assum kall_tac)
        \\ Induct \\ Cases_on ‘bs2’ \\ gvs []
        \\ PairCases \\ gvs [])
-    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,freevars_rows_of] >>
+    \\ gvs [pure_expTheory.letrecs_distinct_def,freevars_rows_of] >>
        `wf_mem ns1 m ∧ wf_mem ns2 m` by (
           irule_at Any wf_mem_subset >> rpt $ goal_assum $ drule_at Any >>
           irule_at Any wf_mem_subset >> rpt $ goal_assum $ drule_at Any >>
@@ -1513,8 +1513,8 @@ Theorem boundvars_Lets:
   boundvars (Lets binds e) =
     set (MAP FST binds) ∪ BIGUNION (set $ MAP (boundvars o SND) binds) ∪ boundvars e
 Proof
-  Induct_on `binds` >> rw[pure_letrecProofTheory.Lets_def] >>
-  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  Induct_on `binds` >> rw[pure_expTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_expTheory.Lets_def] >>
   rw[EXTENSION] >> metis_tac[]
 QED
 
@@ -1522,8 +1522,8 @@ Theorem allvars_Lets:
   allvars (Lets binds e) =
     set (MAP FST binds) ∪ BIGUNION (set $ MAP (allvars o SND) binds) ∪ allvars e
 Proof
-  Induct_on `binds` >> rw[pure_letrecProofTheory.Lets_def] >>
-  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  Induct_on `binds` >> rw[pure_expTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_expTheory.Lets_def] >>
   rw[EXTENSION] >> metis_tac[]
 QED
 
@@ -1534,8 +1534,8 @@ Theorem unique_boundvars_Lets:
     ALL_DISTINCT (MAP FST binds) ∧
     list_disjoint (set (MAP FST binds) :: boundvars e :: MAP (boundvars o SND) binds)
 Proof
-  Induct_on `binds` >> rw[unique_boundvars_def, pure_letrecProofTheory.Lets_def] >>
-  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  Induct_on `binds` >> rw[unique_boundvars_def, pure_expTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_expTheory.Lets_def] >>
   simp[unique_boundvars_def, list_disjoint_cons, boundvars_Lets] >>
   eq_tac >> rw[] >> gvs[]
   >- (gvs[EVERY_MEM] >> metis_tac[DISJOINT_SYM])
@@ -1550,8 +1550,8 @@ Theorem freevars_Lets_SUBSET:
     (freevars e DIFF set (MAP FST binds)) ∪
       BIGUNION (set $ MAP (freevars o SND) binds)
 Proof
-  Induct_on `binds` >> rw[pure_letrecProofTheory.Lets_def] >>
-  PairCases_on `h` >> gvs[pure_letrecProofTheory.Lets_def] >>
+  Induct_on `binds` >> rw[pure_expTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_expTheory.Lets_def] >>
   gvs[SUBSET_DEF] >> metis_tac[]
 QED
 
@@ -1672,8 +1672,8 @@ Theorem letrecs_distinct_Lets:
     letrecs_distinct (Lets (ZIP (vs,xs)) x)
 Proof
   Induct \\ Cases_on ‘xs’
-  \\ fs [pure_letrecProofTheory.Lets_def] \\ rw []
-  \\ fs [pure_letrecProofTheory.letrecs_distinct_def]
+  \\ fs [pure_expTheory.Lets_def] \\ rw []
+  \\ fs [pure_expTheory.letrecs_distinct_def]
 QED
 
 Theorem NestedCase_free_SmartApp:
@@ -1801,7 +1801,7 @@ Triviality if_lemma:
   letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
 Proof
   Cases_on ‘b’ \\ gvs []
-  \\ gvs [pure_letrecProofTheory.letrecs_distinct_def] \\ rw []
+  \\ gvs [pure_expTheory.letrecs_distinct_def] \\ rw []
 QED
 
 Theorem list_subst_rel_if_lemma:
@@ -1894,7 +1894,7 @@ Proof
       \\ last_x_assum $ irule_at Any
       \\ last_x_assum $ irule_at Any
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
-      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
       \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ fs []
       \\ imp_res_tac inline_set_of \\ fs []
       \\ irule_at Any avoid_set_ok_subset \\ fs []
@@ -1912,7 +1912,7 @@ Proof
       \\ last_x_assum $ irule_at Any
       \\ gvs [memory_inv_def,DISJOINT_SYM]
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
-      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def,FORALL_PROD]
+      \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def,FORALL_PROD]
       \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ fs []
       \\ imp_res_tac inline_set_of \\ fs []
       \\ irule_at Any avoid_set_ok_subset \\ fs []
@@ -1934,7 +1934,7 @@ Proof
       \\ last_x_assum $ irule_at Any
       \\ gvs [memory_inv_def,DISJOINT_SYM]
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
-      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
       \\ imp_res_tac avoid_set_ok_imp_vars_ok \\ fs []
       \\ imp_res_tac inline_set_of \\ fs []
       \\ irule_at Any avoid_set_ok_subset \\ fs []
@@ -1957,7 +1957,7 @@ Proof
       \\ fs [EVERY_MAP,DISJOINT_SYM]
       \\ irule_at Any list_subst_rel_refl
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
-      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
     )
     \\ gvs []
     \\ rename [`inline _ _ _ _ _ = (q_inline, r_inline)`]
@@ -1971,7 +1971,7 @@ Proof
       \\ fs [EVERY_MAP,DISJOINT_SYM]
       \\ irule_at Any list_subst_rel_refl
       \\ fs [EVERY_MAP,DISJOINT_SYM,cexp_wf_def]
-      \\ fs [EVERY_MEM,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
     )
     \\ gvs []
     \\ Cases_on ‘e’ \\ gvs [get_Var_name_def,exp_of_def]
@@ -2115,7 +2115,7 @@ Proof
     gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [exp_of_def]
-    \\ fs [cexp_wf_def,pure_letrecProofTheory.letrecs_distinct_def]
+    \\ fs [cexp_wf_def,pure_expTheory.letrecs_distinct_def]
     \\ ‘avoid_set_ok ns e1 ∧ avoid_set_ok ns e2’ by
           (fs [avoid_set_ok_def,exp_of_def] \\ metis_tac [])
     \\ fs [heuristic_insert_def]
@@ -2125,7 +2125,7 @@ Proof
       \\ conj_tac
       >- (
         last_x_assum irule
-        \\ fs [cexp_wf_def,pure_letrecProofTheory.letrecs_distinct_def]
+        \\ fs [cexp_wf_def,pure_expTheory.letrecs_distinct_def]
         \\ fs [DISJOINT_SYM,memory_inv_def]
       )
       \\ last_x_assum irule
@@ -2166,7 +2166,7 @@ Proof
     gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [list_subst_rel_refl,exp_of_def]
-    \\ fs [pure_letrecProofTheory.letrecs_distinct_def]
+    \\ fs [pure_expTheory.letrecs_distinct_def]
     \\ ‘avoid_set_ok ns e ∧ EVERY (avoid_set_ok ns o SND) vbs’ by
       (fs [avoid_set_ok_def,EVERY_MEM,exp_of_def,MEM_MAP,PULL_EXISTS,
            FORALL_PROD,EXISTS_PROD] \\ metis_tac [])
@@ -2272,7 +2272,7 @@ Proof
     \\ fs [LIST_REL_MAP,o_DEF,FORALL_PROD,LIST_REL_MAP2,PULL_EXISTS]
     \\ last_x_assum irule
     \\ fs [EVERY_MEM,cexp_wf_def,
-           pure_letrecProofTheory.letrecs_distinct_def,MEM_MAP,PULL_EXISTS]
+           pure_expTheory.letrecs_distinct_def,MEM_MAP,PULL_EXISTS]
     \\ rw []
     \\ fs [avoid_set_ok_def,exp_of_def,MEM_MAP,PULL_EXISTS]
     \\ metis_tac []
@@ -2425,7 +2425,7 @@ Proof
     \\ reverse conj_tac
     >-
      (first_x_assum irule \\ fs []
-      \\ gvs [cexp_wf_def,pure_letrecProofTheory.letrecs_distinct_def]
+      \\ gvs [cexp_wf_def,pure_expTheory.letrecs_distinct_def]
       \\ simp [DISJOINT_SYM]
       \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac avoid_set_ok_subset_exp)
       \\ gvs [allvars_def,exp_of_def]
@@ -2456,7 +2456,7 @@ Proof
       \\ irule_at Any list_subst_rel_Prim \\ fs []
       \\ pairarg_tac \\ gvs [list_subst_rel_refl]
       \\ last_x_assum irule \\ fs []
-      \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,
+      \\ gvs [pure_expTheory.letrecs_distinct_def,
               letrecs_distinct_rows_of,cexp_wf_def]
       \\ simp [DISJOINT_SYM]
       \\ ‘avoid_set_ok ns x1’ by
@@ -2494,7 +2494,7 @@ Proof
     \\ simp [LAMBDA_PROD] \\ gvs []
     \\ gvs [EVERY_MEM,FORALL_PROD]
     \\ simp [DISJOINT_SYM,SF SFY_ss]
-    \\ gvs [pure_letrecProofTheory.letrecs_distinct_def,
+    \\ gvs [pure_expTheory.letrecs_distinct_def,
             letrecs_distinct_rows_of,cexp_wf_def]
     \\ conj_tac >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
     \\ reverse conj_tac >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]

@@ -6,7 +6,7 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory combinTheory
      pure_semanticsTheory thunkLangTheory thunk_semanticsTheory pure_evalTheory
-     thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory
+     thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory pure_expTheory
      pure_to_thunk_2ProofTheory pure_cexpTheory pureLangTheory thunk_cexpTheory
      var_setTheory pure_namesTheory pure_namesProofTheory pure_to_thunkTheory
      thunk_split_Delay_LamTheory thunk_split_Delay_LamProofTheory pure_letrecProofTheory;
@@ -44,10 +44,12 @@ Proof
 QED
 
 Theorem boundvars_lets_for:
-  ∀list constr len w e. boundvars (lets_for len constr w list e)
-                                  ⊆ {w} ∪ (set (MAP SND list)) ∪ boundvars e
+  ∀list constr len w e.
+    thunkLang$boundvars (lets_for len constr w list e)
+    ⊆ {w} ∪ (set (MAP SND list)) ∪ boundvars e
 Proof
-  Induct \\ gs [thunk_exp_ofTheory.lets_for_def, FORALL_PROD, boundvars_def]
+  Induct
+  \\ gs [thunk_exp_ofTheory.lets_for_def, FORALL_PROD, thunkLangTheory.boundvars_def]
   \\ rw []
   \\ irule SUBSET_TRANS
   \\ last_x_assum $ irule_at Any
@@ -58,7 +60,8 @@ Theorem boundvars_rows_of_NONE:
   ∀rows w. boundvars (thunk_exp_of$rows_of w rows NONE) ⊆ {w} ∪ BIGUNION (set (MAP (set o FST o SND) rows))
                      ∪ BIGUNION (set (MAP (boundvars o SND o SND) rows))
 Proof
-  Induct \\ gs [FORALL_PROD, thunk_exp_ofTheory.rows_of_def, boundvars_def]
+  Induct
+  \\ gs [FORALL_PROD, thunk_exp_ofTheory.rows_of_def, thunkLangTheory.boundvars_def]
   \\ rw []
   >- (irule SUBSET_TRANS
       \\ irule_at Any boundvars_lets_for
@@ -76,7 +79,9 @@ Theorem boundvars_rows_of_SOME:
                      ∪ BIGUNION (set (MAP (boundvars o SND o SND) rows))
                      ∪ boundvars e
 Proof
-  Induct \\ gs [FORALL_PROD, thunk_exp_ofTheory.rows_of_def, boundvars_def, boundvars_Disj]
+  Induct
+  \\ gs [FORALL_PROD, thunk_exp_ofTheory.rows_of_def,
+         thunkLangTheory.boundvars_def, boundvars_Disj]
   \\ rw []
   >- (irule SUBSET_TRANS
       \\ irule_at Any boundvars_lets_for
@@ -122,9 +127,9 @@ QED
 Theorem boundvars_exp_of_mk_delay:
   ∀e flag. boundvars (exp_of (mk_delay flag e)) = boundvars (exp_of e)
 Proof
-  Cases \\ simp [mk_delay_def, Once exp_of_def, boundvars_def]
-  \\ CASE_TAC \\ simp [exp_of_def, boundvars_def]
-  \\ Cases \\ simp[exp_of_def, boundvars_def]
+  Cases \\ simp [mk_delay_def, Once exp_of_def, thunkLangTheory.boundvars_def]
+  \\ CASE_TAC \\ simp [exp_of_def, thunkLangTheory.boundvars_def]
+  \\ Cases \\ simp[exp_of_def, thunkLangTheory.boundvars_def]
 QED
 
 Theorem cexp_wf_mk_delay:
@@ -187,7 +192,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ TRY strip_tac
   \\ rpt BasicProvers.var_eq_tac
-  \\ fs [cexp_wf_def, boundvars_def, thunk_exp_ofTheory.cexp_wf_def,
+  \\ fs [cexp_wf_def, thunkLangTheory.boundvars_def, thunk_exp_ofTheory.cexp_wf_def,
          exp_of_def, letrecs_distinct_def, letrecs_distinct_Lams, letrecs_distinct_Apps,
          thunk_cexpTheory.cns_arities_def, pure_cexpTheory.cns_arities_def]
   >~ [‘exp_rel (Var _ _)’] >-
@@ -253,7 +258,7 @@ Proof
     \\ irule_at (Pos hd) SUBSET_TRANS
     \\ first_assum $ irule_at $ Pos hd \\ fs []
     \\ conj_tac
-    \\ simp [SUBSET_DEF, PULL_EXISTS, boundvars_def, MEM_EL]
+    \\ simp [SUBSET_DEF, PULL_EXISTS, thunkLangTheory.boundvars_def, MEM_EL]
     \\ rpt $ gen_tac \\ strip_tac
     \\ gs [EVERY_EL, EL_MAP2, SUBSET_DEF]
     >- first_x_assum $ dxrule_all_then irule
@@ -321,7 +326,7 @@ Proof
           \\ drule freevars_IMP_allvars
           \\ strip_tac
           \\ metis_tac [])
-      \\ simp [boundvars_def, boundvars_exp_of_mk_delay, GSYM CONJ_ASSOC]
+      \\ simp [thunkLangTheory.boundvars_def, boundvars_exp_of_mk_delay, GSYM CONJ_ASSOC]
       \\ conj_tac
       >- gs [SUBSET_DEF]
       \\ conj_tac
@@ -432,7 +437,7 @@ Proof
         \\ imp_res_tac freevars_IMP_allvars \\ fs []
         \\ fs [SUBSET_DEF]
         \\ metis_tac [])
-    \\ simp [boundvars_def, boundvars_exp_of_mk_delay]
+    \\ simp [thunkLangTheory.boundvars_def, boundvars_exp_of_mk_delay]
     \\ conj_tac
     >- (simp [GSYM CONJ_ASSOC]
         \\ conj_tac
@@ -529,10 +534,8 @@ Proof
     \\ simp [cns_arities_mk_delay]
     \\ gs [SUBSET_DEF])
   >~ [‘Prim c p xs’] >-
-
    (Cases_on ‘p’
     >~ [‘Cons m’] >-
-
      (gvs []
       \\ Cases_on ‘mop_of_mlstring m’ \\ gvs []
       >-
@@ -540,8 +543,8 @@ Proof
         \\ irule_at Any exp_rel_Cons \\ gvs []
         \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
         >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
-        \\ strip_tac \\ fs [boundvars_def]
-        \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def]
+        \\ strip_tac \\ fs [thunkLangTheory.boundvars_def]
+        \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, thunkLangTheory.boundvars_def]
         \\ conj_tac
         >-
          (gvs [LIST_REL_MAP_ALT, SF ETA_ss]
@@ -569,7 +572,6 @@ Proof
       \\ qpat_x_assum ‘mop_of_mlstring m = SOME x’ mp_tac
       \\ simp [mop_of_mlstring_def,AllCaseEqs()]
       \\ strip_tac \\ gvs [pure_configTheory.num_monad_args_def]
-
       \\ gvs [LENGTH_EQ_NUM_compute,monad_to_thunk_def,cns_arities_def,
               thunkLangTheory.boundvars_def,cexp_wf_mk_delay,cns_arities_mk_delay,
               thunk_exp_ofTheory.cexp_wf_def,pure_configTheory.num_mop_args_def,
@@ -591,7 +593,7 @@ Proof
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
       >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
       \\ strip_tac \\ fs [thunk_exp_ofTheory.cexp_wf_def, SF ETA_ss]
-      \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, boundvars_def]
+      \\ fs [BIGUNION_SUBSET, EVERY_MEM, MEM_MAP, PULL_EXISTS, thunkLangTheory.boundvars_def]
       \\ conj_tac
       >- (drule_then assume_tac LIST_REL_LENGTH
           \\ Cases_on ‘a’
@@ -625,7 +627,7 @@ Proof
         \\ strip_tac
         \\ metis_tac [])
     \\ conj_tac
-    >- (simp [boundvars_def]
+    >- (simp [thunkLangTheory.boundvars_def]
         \\ rw [] \\ gs [])
     \\ simp [thunk_cexpTheory.cns_arities_def]
     \\ rw []
