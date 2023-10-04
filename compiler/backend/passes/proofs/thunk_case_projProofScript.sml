@@ -27,12 +27,6 @@ Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
 Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
 
-Definition ok_binder_def[simp]:
-  ok_binder (Lam s x) = T ∧
-  ok_binder (Delay x) = T ∧
-  ok_binder _ = F
-End
-
 Inductive exp_rel:
 (* Proj *)
 [exp_rel_Proj:]
