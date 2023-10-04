@@ -14,30 +14,10 @@ val _ = new_theory "env_to_state";
 
 val _ = set_grammar_ancestry ["env_cexp", "state_cexp", "pure_comp_conf"];
 
-Definition dest_Message_def:
-  dest_Message (Message s) = SOME s ∧
-  dest_Message _ = NONE
-End
-
-Definition Lets_def:
-  Lets [] x = (x:state_cexp$cexp) ∧
-  Lets ((v,y)::ys) x = Let v y (Lets ys x)
-End
-
 Definition Letrec_imm_def:
   (Letrec_imm vs ((Var v):env_cexp$cexp) ⇔ MEM v vs) ∧
   (Letrec_imm vs (Lam _ _) ⇔ T) ∧
   (Letrec_imm vs _ ⇔ F)
-End
-
-Definition dest_Delay_def:
-  dest_Delay (Delay x) = SOME (x:env_cexp$cexp) ∧
-  dest_Delay _ = NONE
-End
-
-Definition dest_Lam_def:
-  dest_Lam (Lam v x) = SOME (v,x:env_cexp$cexp) ∧
-  dest_Lam _ = NONE
 End
 
 Definition Letrec_split_def:

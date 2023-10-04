@@ -378,7 +378,7 @@ Theorem exp_of_Lets:
     Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
 Proof
   Induct \\ Cases_on ‘xs’
-  \\ gvs [pure_inline_cexpTheory.Lets_def,pure_expTheory.Lets_def]
+  \\ gvs [pure_cexpTheory.Lets_def,pure_expTheory.Lets_def]
   \\ fs [exp_of_def]
 QED
 

@@ -105,9 +105,29 @@ Theorem better_cexp_induction =
 
 val _ = TypeBase.update_induction better_cexp_induction
 
-Definition dest_var_def[simp]:
+Definition is_Lam_def:
+  is_Lam (Lam a vs e) = T ∧
+  is_Lam _ = F
+End
+
+Definition Lets_def:
+  Lets a ((v,e)::xs) e1 = Let a v e (Lets a xs e1) ∧
+  Lets a _ e = e
+End
+
+Definition dest_var_def[simp]: (* TODO: uppercase var *)
   dest_var (Var _ vnm) = SOME vnm ∧
   dest_var _ = NONE
+End
+
+Definition get_Var_name_def: (* TODO: replace by dest_var *)
+  get_Var_name (Var a v) = (SOME v) ∧
+  get_Var_name _ = NONE
+End
+
+Definition eq_Var_def:
+  eq_Var f (Var a v) = (f = v:mlstring) ∧
+  eq_Var f _ = F
 End
 
 Definition dest_nestedcase_def[simp]:
