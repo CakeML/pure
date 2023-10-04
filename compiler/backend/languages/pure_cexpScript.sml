@@ -75,6 +75,8 @@ Datatype:
                                         (* case w/non-empty pattern-exp list *)
 End
 
+val cexp_size_eq = fetch "-" "cexp_size_eq";
+
 Theorem cexp_size_lemma:
   (∀xs a. MEM a xs ⇒ cexp_size f a < cexp10_size f xs) ∧
   (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp6_size f xs) ∧
@@ -239,7 +241,7 @@ Definition num_args_ok_def:
   num_args_ok Seq n = (n = 2)
 End
 
-Definition cexp_wf_def:
+Definition cexp_wf_def[nocompute]:
   cexp_wf (Var _ v) = T ∧
   cexp_wf (Prim _ op es) = (
     num_args_ok op (LENGTH es) ∧ EVERY cexp_wf es ∧
@@ -284,6 +286,35 @@ Definition NestedCase_free_def[simp]:
 Termination
   WF_REL_TAC ‘measure $ cexp_size (K 0)’ >>
   simp[fetch "-" "cexp_size_eq", MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+  rename [‘MEM _ list’] >> Induct_on ‘list’ >>
+  simp[FORALL_PROD, listTheory.list_size_def, basicSizeTheory.pair_size_def] >>
+  rw[] >> gs[]
+End
+
+Definition every_cexp_def[simp]:
+  every_cexp (p:'a cexp -> bool) (Var a v) = p (Var a v) ∧
+  every_cexp p (Prim a x es) =
+    (p (Prim a x es) ∧ EVERY (every_cexp p) es) ∧
+  every_cexp p (App a e es) =
+    (p (App a e es) ∧ every_cexp p e ∧ EVERY (every_cexp p) es) ∧
+  every_cexp p (Lam a vs e) =
+    (p (Lam a vs e) ∧ every_cexp p e) ∧
+  every_cexp p (Let a v e1 e2) =
+    (p (Let a v e1 e2) ∧ every_cexp p e1 ∧ every_cexp p e2) ∧
+  every_cexp p (Letrec a fns e) =
+    (p (Letrec a fns e) ∧
+     every_cexp p e ∧ EVERY (every_cexp p) $ MAP SND fns) ∧
+  every_cexp p (Case a e v css eopt) =
+    (p (Case a e v css eopt) ∧
+     every_cexp p e ∧ EVERY (every_cexp p) $ MAP (SND o SND) css ∧
+     OPTION_ALL (every_cexp p o SND) eopt) ∧
+  every_cexp p (NestedCase a e1 v pat e2 rows) =
+    (p (NestedCase a e1 v pat e2 rows) ∧
+     every_cexp p e1 ∧ every_cexp p e2 ∧
+     EVERY (every_cexp p) $ MAP SND rows)
+Termination
+  WF_REL_TAC ‘measure $ cexp_size (K 0) o SND’ >>
+  simp[cexp_size_eq, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
   rename [‘MEM _ list’] >> Induct_on ‘list’ >>
   simp[FORALL_PROD, listTheory.list_size_def, basicSizeTheory.pair_size_def] >>
   rw[] >> gs[]
@@ -339,5 +370,68 @@ Definition cns_arities_def:
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
 End
+
+Definition dest_Lam_def:
+  dest_Lam (Lam a vs x) = SOME (vs,x) ∧
+  dest_Lam _ = NONE
+End
+
+Definition dest_App_def:
+  dest_App (App a x xs) = SOME (x,xs) ∧
+  dest_App _ = NONE
+End
+
+Definition SmartLam_def:
+  SmartLam a vs x =
+    if NULL vs then x else
+      case dest_Lam x of
+      | NONE => Lam a vs x
+      | SOME (ws,y) => if NULL ws then Lam a vs x else Lam a (vs ++ ws) y
+End
+
+Definition SmartApp_def:
+  SmartApp a x xs =
+    if NULL xs then x else
+      case dest_App x of
+      | NONE => App a x xs
+      | SOME (y,ys) => if NULL ys then App a x xs else App a y (ys ++ xs)
+End
+
+Theorem cexp_wf_SmartLam[simp]:
+  cexp_wf (SmartLam a vs x) ⇔ cexp_wf x
+Proof
+  rw [SmartLam_def] \\ Cases_on ‘x’ \\ fs [dest_Lam_def,cexp_wf_def]
+  \\ Cases_on ‘vs’ \\ fs [] \\ Cases_on ‘l’ \\ fs [cexp_wf_def]
+QED
+
+Theorem cexp_wf_SmartApp[simp]:
+  cexp_wf (SmartApp a x xs) ⇔ cexp_wf x ∧ EVERY cexp_wf xs
+Proof
+  rw [SmartApp_def] \\ Cases_on ‘x’ \\ fs [dest_App_def,cexp_wf_def]
+  \\ Cases_on ‘xs’ \\ fs [SF ETA_ss]
+  \\ Cases_on ‘l’ \\ fs [cexp_wf_def,SF ETA_ss]
+  \\ eq_tac \\ rw []
+QED
+
+Theorem NestedCase_free_SmartApp[simp]:
+  ∀es e d.
+    NestedCase_free (SmartApp d e es) ⇔
+      NestedCase_free e ∧ EVERY NestedCase_free es
+Proof
+  Induct >> rw[SmartApp_def] >>
+  rpt (CASE_TAC >> gvs[SF ETA_ss]) >>
+  gvs[DefnBase.one_line_ify NONE dest_App_def] >>
+  gvs[AllCaseEqs(), SF ETA_ss] >> eq_tac >> rw[]
+QED
+
+Theorem NestedCase_free_SmartLam[simp]:
+  ∀xs e d.
+    NestedCase_free (SmartLam d xs e) ⇔ NestedCase_free e
+Proof
+  Induct >> rw[SmartLam_def] >>
+  rpt (CASE_TAC >> gvs[SF ETA_ss]) >>
+  gvs[DefnBase.one_line_ify NONE dest_Lam_def] >>
+  gvs[AllCaseEqs(), SF ETA_ss]
+QED
 
 val _ = export_theory();

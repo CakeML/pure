@@ -1,0 +1,7 @@
+INCLUDES = ../semantics \
+           ../../passes \
+           ../../passes/proofs \
+           $(PUREDIR)/language \
+           $(PUREDIR)/misc \
+           $(PUREDIR)/meta-theory \
+           $(PUREDIR)/typing

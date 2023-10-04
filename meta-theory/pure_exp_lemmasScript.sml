@@ -821,7 +821,7 @@ Proof
 QED
 
 
-(******************* freevars ********************)
+(******************* boundvars ********************)
 
 Theorem boundvars_equiv:
   ∀e. boundvars e = set (boundvars_l e)
@@ -842,6 +842,42 @@ Theorem boundvars_FINITE[simp]:
   ∀e. FINITE (boundvars e)
 Proof
   simp[boundvars_equiv]
+QED
+
+Theorem boundvars_Apps:
+  boundvars (Apps e es) =
+    boundvars e ∪ BIGUNION (set $ MAP boundvars es)
+Proof
+  qid_spec_tac `e` >> Induct_on `es` >> rw[Apps_def] >> simp[UNION_ASSOC]
+QED
+
+Theorem boundvars_Lams:
+  boundvars (Lams xs e) = set xs ∪ boundvars e
+Proof
+  Induct_on `xs` >> rw[boundvars_def, Lams_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+
+(******************* allvars ********************)
+
+Theorem allvars_thm:
+  allvars e = freevars e ∪ boundvars e
+Proof
+  Induct_on `e` using freevars_ind >>
+  rw[allvars_def, freevars_def, boundvars_def]
+  >- (Induct_on `es` >> rw[] >> gvs[] >> rw[Once EXTENSION] >> metis_tac[])
+  >- (rw[EXTENSION] >> metis_tac[])
+  >- (rw[EXTENSION] >> metis_tac[]) >>
+  simp[AC UNION_ASSOC UNION_COMM] >> AP_TERM_TAC >>
+  simp[UNION_ASSOC] >>
+  qmatch_goalsub_abbrev_tac `_ = a ∪ b ∪ (c DIFF _)` >>
+  `a ∪ b ∪ (c DIFF a) = a ∪ b ∪ c` by (rw[EXTENSION] >> metis_tac[]) >>
+  rw[] >> unabbrev_all_tac >>
+  simp[AC UNION_ASSOC UNION_COMM] >> ntac 2 AP_TERM_TAC >>
+  ntac 2 $ pop_assum kall_tac >> Induct_on `lcs` >> rw[] >>
+  pairarg_tac >> gvs[SF DNF_ss] >> last_x_assum drule >> rw[] >>
+  rw[Once EXTENSION] >> metis_tac[]
 QED
 
 

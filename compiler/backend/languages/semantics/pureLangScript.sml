@@ -198,4 +198,29 @@ Proof
     )
 QED
 
+Theorem Apps_append:
+  ∀xs ys x. Apps x (xs ++ ys) = Apps (Apps x xs) ys
+Proof
+  Induct \\ fs [Apps_def]
+QED
+
+Theorem exp_of_SmartLam[simp]:
+  exp_of (SmartLam a vs x) = exp_of (Lam a vs x)
+Proof
+  rw [SmartLam_def,exp_of_def,NULL_EQ,Lams_def]
+  \\ Cases_on ‘dest_Lam x’ \\ fs [exp_of_def]
+  \\ CASE_TAC \\ fs [] \\ rw [exp_of_def]
+  \\ Cases_on ‘x’ \\ gvs [dest_Lam_def,exp_of_def]
+  \\ qid_spec_tac ‘vs’ \\ Induct \\ fs [Lams_def]
+QED
+
+Theorem exp_of_SmartApp[simp]:
+  exp_of (SmartApp a x xs) = exp_of (App a x xs)
+Proof
+  rw [SmartApp_def,exp_of_def,NULL_EQ,Apps_def]
+  \\ Cases_on ‘dest_App x’ \\ fs [exp_of_def]
+  \\ CASE_TAC \\ fs [] \\ rw [exp_of_def]
+  \\ Cases_on ‘x’ \\ gvs [dest_App_def,exp_of_def,SF ETA_ss,Apps_append]
+QED
+
 val _ = export_theory();

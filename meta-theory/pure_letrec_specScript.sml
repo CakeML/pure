@@ -34,7 +34,7 @@ Inductive call_with_arg:
                            (Apps (Var info.fname) (ys ++ [info.const]))) ∧
 [~Var:]
   (∀info n b R.
-    n ≠ info.arg ∧ n ≠ info.fname ⇒
+    n ≠ info.fname ⇒
     call_with_arg b info R (Var n) (Var n)) ∧
 [~Lam:]
   (∀info n x y b R.

@@ -393,6 +393,21 @@ Proof
   pairarg_tac >> gvs[] >> rw[]
 QED
 
+Theorem ZIP_EQ_APPEND:
+  LENGTH xs = LENGTH ys ⇒
+  (ZIP (xs,ys) = left ++ right ⇔
+    ∃xs1 ys1 xs2 ys2. xs = xs1 ++ xs2 ∧ ys = ys1 ++ ys2 ∧ LENGTH xs1 = LENGTH ys1 ∧
+     ZIP (xs1,ys1) = left ∧ ZIP (xs2,ys2) = right)
+Proof
+  simp[EQ_IMP_THM, SF DNF_ss] >> reverse conj_tac >>
+  map_every qid_spec_tac [`right`,`left`,`ys`,`xs`] >> Induct >> rw[] >> gvs[]
+  >- (Cases_on `xs1` >> gvs[] >> Cases_on `ys1` >> gvs[]) >>
+  Cases_on `ys` >> gvs[] >> Cases_on `left` >> gvs[]
+  >- (qexistsl [`[]`,`[]`] >> simp[]) >>
+  last_x_assum $ qspecl_then [`t`,`t'`,`right`] mp_tac >> rw[] >>
+  qexistsl [`h::xs1`,`h'::ys1`] >> simp[]
+QED
+
 
 (******************** Lazy lists ********************)
 

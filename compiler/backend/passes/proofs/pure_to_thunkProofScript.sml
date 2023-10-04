@@ -193,14 +193,14 @@ Proof
   >~ [‘exp_rel (Var _ _)’] >-
    (irule exp_rel_Var)
   >~ [‘exp_rel (Lam _ ns x)’] >-
-   (simp [boundvars_Lams]
+   (simp [thunkLangTheory.boundvars_Lams]
     \\ conj_tac
     >- (irule exp_rel_Lam \\ fs [])
     >- (irule SUBSET_TRANS
         \\ first_x_assum $ irule_at $ Pos hd
         \\ fs []))
   >~ [‘exp_rel (App _ _ _)’] >-
-   (irule_at Any exp_rel_App \\ fs [boundvars_Apps]
+   (irule_at Any exp_rel_App \\ fs [thunkLangTheory.boundvars_Apps]
     \\ qpat_x_assum ‘_ ⇒ _’ mp_tac
     \\ impl_tac
     >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]

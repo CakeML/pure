@@ -6,13 +6,13 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
      BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
 open pure_cexpTheory pure_to_cakeTheory pureParseTheory pure_inferenceTheory
-     pure_letrec_cexpTheory pure_demands_analysisTheory
-     fromSexpTheory simpleSexpParseTheory;
+     pure_letrec_cexpTheory pure_demands_analysisTheory pure_inline_cexpTheory
+     fromSexpTheory simpleSexpParseTheory pure_printTheory;
 
 val _ = set_grammar_ancestry
           ["pure_cexp", "pure_to_cake", "pureParse", "pure_inference",
-           "pure_letrec_cexp", "pure_demands_analysis", "fromSexp",
-           "simpleSexpParse"];
+           "pure_letrec_cexp", "pure_demands_analysis",
+           "pure_inline_cexp", "fromSexp", "simpleSexpParse"];
 
 val _ = new_theory "pure_compiler";
 
@@ -20,41 +20,53 @@ Definition ast_to_string_def:
   ast_to_string prog = print_sexp (listsexp (MAP decsexp prog))
 End
 
+Overload debug_print = ``λs. empty_ffi (implode s)``;
+Overload explore_print =
+  ``λc s. if c.do_explore then debug_print s else ()``;
+
+
 Definition compile_def:
   compile c s =
-    let _ = empty_ffi (strlit "starting...") in
+    let _ = debug_print "starting..." in
     let r = string_to_cexp s in
-    let _ = empty_ffi (strlit "parsing") in
+    let _ = debug_print "parsing" in
     case r of
     | NONE => NONE
-    | SOME (e1,ns) =>
-      let e2 = transform_cexp c e1 in
-      let _ = empty_ffi (strlit "transform_cexp") in
-      let i = infer_types ns e2 in
-      let _ = empty_ffi (strlit "infer_types") in
+    | SOME (e,ns) =>
+      let e = transform_cexp c e in
+      let _ = debug_print "transform_cexp" in
+      let e = inline_top_level c e in
+      let _ = debug_print "inlining" in
+      let _ = explore_print c $
+                "after inlining:\n" ++ pure_print$str_of e ++ "\n" in
+      let i = infer_types ns e in
+      let _ = debug_print "infer_types" in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
-          let e3 = clean_cexp c e2 in
-          let _ = empty_ffi (strlit "clean_cexp") in
-          let e4 = demands_analysis c e3 in
-          let _ = empty_ffi (strlit "demands_analysis") in
-            SOME (ast_to_string $ pure_to_cake c ns e4)
+            let e = clean_cexp c e in
+            let _ = debug_print "clean_cexp" in
+            let e = demands_analysis c e in
+            let _ = debug_print "demands_analysis" in
+            let _ = explore_print c $
+                      "after demands:\n" ++ pure_print$str_of e ++ "\n" in
+              SOME (ast_to_string $ pure_to_cake c ns e)
 End
 
 Definition compile_to_ast_def:
   compile_to_ast c s =
     case string_to_cexp s of
     | NONE => NONE
-    | SOME (e1,ns) =>
-      let e2 = transform_cexp c e1 in
-      let i = infer_types ns e2 in
+    | SOME (e,ns) =>
+      let e = transform_cexp c e in
+      let e = inline_top_level c e in
+      let i = infer_types ns e in
         case to_option i of
         | NONE => NONE
         | SOME _ =>
-          let e3 = clean_cexp c e2 in
-          let e4 = demands_analysis c e3 in
-          SOME (pure_to_cake c ns e4)
+          let e = clean_cexp c e in
+          let e = demands_analysis c e in
+            SOME (pure_to_cake c ns e)
 End
 
 (********** Alternative phrasings **********)
@@ -62,27 +74,29 @@ End
 Theorem compile_monadically:
   compile c s =
   do
-    (e1,ns) <- string_to_cexp s ;
-    e2 <<- transform_cexp c e1 ;
-    to_option $ infer_types ns e2 ;
-    e3 <<- clean_cexp c e2 ;
-    e4 <<- demands_analysis c e3 ;
-    return (ast_to_string $ pure_to_cake c ns e4)
+    (e,ns) <- string_to_cexp s ;
+    e <<- transform_cexp c e ;
+    e <<- inline_top_level c e ;
+    to_option $ infer_types ns e ;
+    e <<- clean_cexp c e ;
+    e <<- demands_analysis c e ;
+    return (ast_to_string $ pure_to_cake c ns e)
   od
 Proof
-  simp[compile_def] >> EVERY_CASE_TAC >> simp[]
+  simp[compile_def]>> EVERY_CASE_TAC >> simp[]
 QED
 
 Definition frontend_def:
   frontend c s =
     case string_to_cexp s of
     | NONE => NONE
-    | SOME (e1,ns) =>
-      let e2 = transform_cexp c e1 in
-      let i = infer_types ns e2 in
+    | SOME (e,ns) =>
+      let e = transform_cexp c e in
+      let e = inline_top_level c e in
+      let i = infer_types ns e in
         case to_option i of
         | NONE => NONE
-        | SOME _ => SOME (e2,ns)
+        | SOME _ => SOME (e,ns)
 End
 
 Theorem compile_to_string:
@@ -96,10 +110,10 @@ Theorem compile_to_ast_alt_def:
   compile_to_ast c s =
     case frontend c s of
     | NONE => NONE
-    | SOME (e2,ns) =>
-        let e3 = clean_cexp c e2 in
-        let e4 = demands_analysis c e3 in
-        SOME (pure_to_cake c ns e4)
+    | SOME (e,ns) =>
+        let e = clean_cexp c e in
+        let e = demands_analysis c e in
+          SOME (pure_to_cake c ns e)
 Proof
   rw[compile_to_ast_def, frontend_def] >>
   rpt (TOP_CASE_TAC >> simp[])

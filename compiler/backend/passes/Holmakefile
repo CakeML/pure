@@ -1,2 +1,3 @@
 INCLUDES = $(PUREDIR)/misc ../ ../languages $(PUREDIR)/typing \
+           $(CAKEMLDIR)/basis/pure \
            $(HOLDIR)/examples/algorithms

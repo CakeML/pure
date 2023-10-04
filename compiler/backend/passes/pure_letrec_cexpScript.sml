@@ -14,10 +14,10 @@ val _ = new_theory "pure_letrec_cexp";
 Definition letrec_recurse_cexp_def:
   letrec_recurse_cexp f (Letrec c xs y) =
     f c (MAP (λ(n,x). n, letrec_recurse_cexp f x) xs) (letrec_recurse_cexp f y) ∧
-  letrec_recurse_cexp f (Lam c ns x) = Lam c ns (letrec_recurse_cexp f x) ∧
+  letrec_recurse_cexp f (Lam c ns x) = SmartLam c ns (letrec_recurse_cexp f x) ∧
   letrec_recurse_cexp f (Prim c p xs) = Prim c p (MAP (letrec_recurse_cexp f) xs) ∧
   letrec_recurse_cexp f (App c x ys) =
-    App c (letrec_recurse_cexp f x) (MAP (letrec_recurse_cexp f) ys) ∧
+    SmartApp c (letrec_recurse_cexp f x) (MAP (letrec_recurse_cexp f) ys) ∧
   letrec_recurse_cexp f (Var c v) = Var c v ∧
   letrec_recurse_cexp f (Let c n x y) =
     Let c n (letrec_recurse_cexp f x) (letrec_recurse_cexp f y) ∧
@@ -186,18 +186,18 @@ End
     Putting it all together:
 *)
 
+Definition clean_cexp_def:
+  clean_cexp (conf:compiler_opts) e =
+    if conf.do_pure_clean then clean_all_cexp e else e
+End
+
 Definition transform_cexp_def:
   transform_cexp (conf:compiler_opts) e =
     let e = init_sets e in
     let d = distinct_cexp e in
-      if ~conf.do_pure_sort then d else
-        let s = split_all_cexp d in
-          s
-End
-
-Definition clean_cexp_def:
-  clean_cexp (conf:compiler_opts) e =
-    if conf.do_pure_clean then clean_all_cexp e else e
+      clean_cexp conf $ if ~conf.do_pure_sort then d else
+                          let s = split_all_cexp d in
+                            s
 End
 
 

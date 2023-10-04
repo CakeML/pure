@@ -24,12 +24,13 @@ Theorem end_to_end_correctness:
   cake_compile conf cake = SOME code ∧
   target_configs_ok conf m ∧
   code_in_memory conf code m
-  ⇒ ∃ce ns. frontend c s = SOME (ce,ns) ∧
+  ⇒ ∃ce ns. string_to_cexp s = SOME (ce,ns) ∧
             prunes (pure_semantics$itree_of (exp_of ce)) (machine_sem_itree m)
 Proof
-  rw[] >> drule pure_compilerProofTheory.compiler_correctness >> rw[] >>
-  rpt $ goal_assum drule >> PairCases_on `m` >> PairCases_on `code` >> gvs[] >>
-  gvs[ffi_convention_def] >>
+  rw[] >> drule pure_compilerProofTheory.compiler_correctness >>
+  strip_tac >> simp[] >>
+  PairCases_on `m` >> PairCases_on `code` >>
+  gvs[ffi_convention_def] >> goal_assum drule >>
   irule itree_compile_correct >> gvs[PULL_EXISTS, GSYM ffi_convention_def] >>
   rpt $ goal_assum $ drule_at Any >> simp[]
 QED

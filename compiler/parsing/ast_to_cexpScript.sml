@@ -497,7 +497,7 @@ Definition decls_to_letrec_def:
   od
 End
 
-(********** closedness **********)
+(********** closedness and well-formedness **********)
 
 (* unused *)
 Definition freevars_cexp_impl_def:
@@ -667,6 +667,71 @@ Proof
     Induct_on `pes` >> rw[] >> PairCases_on `h` >> gvs[] >>
     qspec_then `h0` assume_tac $ cj 1 cepat_vars_impl >> gvs[union_thm, insert_thm] >>
     gvs[GSYM SUBSET_INSERT_DELETE, pure_miscTheory.DIFF_SUBSET]
+    )
+QED
+
+Definition monad_cn_mlstrings_def:
+  monad_cn_mlstrings =
+    [«Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
+End
+
+Triviality implodeEQ:
+  y = implode x ⇔ (explode y = x)
+Proof
+  rw[EQ_IMP_THM] >> simp[]
+QED
+
+Triviality MEM_monad_cn_mlstrings:
+  MEM x monad_cn_mlstrings ⇔ explode x ∈ monad_cns
+Proof
+  rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def] >>
+  simp[SRULE [mlstringTheory.implode_def] implodeEQ]
+QED
+
+Theorem cexp_wf_alt_def[compute]:
+  (∀v0 v. cexp_wf (Var v0 v : 'a cexp) ⇔ T) ∧
+  (∀v1 op es.
+    cexp_wf (Prim v1 op es : 'a cexp) ⇔
+    num_args_ok op (LENGTH es) ∧ EVERY (λa. cexp_wf a) es ∧
+    (case op of
+     | AtomOp (Lit (Int i)) => T
+     | AtomOp (Lit (Str s)) => T
+     | AtomOp (Lit _) => F
+     | AtomOp (Message m) => m ≠ ""
+     | _ => T)) ∧
+  (∀v2 es e.
+    cexp_wf (App v2 e es : 'a cexp) ⇔
+    cexp_wf e ∧ EVERY (λa. cexp_wf a) es ∧ ¬ NULL es) ∧
+  (∀vs v3 e. cexp_wf (Lam v3 vs e : 'a cexp) ⇔ cexp_wf e ∧ ¬ NULL vs) ∧
+  (∀v4 v e2 e1. cexp_wf (Let v4 v e1 e2 : 'a cexp) ⇔ cexp_wf e1 ∧ cexp_wf e2) ∧
+  (∀v5 fns e.
+    cexp_wf (Letrec v5 fns e : 'a cexp) ⇔
+    EVERY (λa. cexp_wf a) (MAP SND fns) ∧ cexp_wf e ∧ ¬ NULL fns) ∧
+  (∀v6 v eopt e css.
+    cexp_wf (Case v6 e v css eopt : 'a cexp) ⇔
+    cexp_wf e ∧ EVERY (λa. cexp_wf a) (MAP (SND ∘ SND) css) ∧ ¬ NULL css ∧
+    EVERY ALL_DISTINCT (MAP (FST ∘ SND) css) ∧
+    OPTION_ALL
+      (λ(a,e').
+           ¬ NULL a ∧ cexp_wf e' ∧
+           EVERY (λ(cn,_). ¬ MEM cn monad_cn_mlstrings) a) eopt ∧
+    ¬MEM v (FLAT (MAP (FST ∘ SND) css)) ∧
+    ALL_DISTINCT
+      (MAP FST css ++ case eopt of NONE => [] | SOME (a,v2) => MAP FST a) ∧
+    EVERY (λ(cn,_,_). ¬MEM cn monad_cn_mlstrings) css) ∧
+  (∀v7 pes p gv g e.
+   cexp_wf (NestedCase v7 g gv p e pes : 'a cexp) ⇔
+   cexp_wf g ∧ cexp_wf e ∧ EVERY (λa. cexp_wf a) (MAP SND pes) ∧
+   ¬MEM gv (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes))))
+Proof
+  rw[] >> simp[cexp_wf_def] >> gvs[NULL_EQ]
+  >- (
+    eq_tac >> rw[] >> gvs[] >>
+    rpt (FULL_CASE_TAC >> gvs[])
+    )
+  >- (
+    simp[MEM_monad_cn_mlstrings] >>
+    gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
     )
 QED
 
