@@ -7,6 +7,8 @@ open pure_miscTheory env_cexpTheory ;
 val _ = new_theory "env_cexp_lemmas";
 
 val freevars_def = envLangTheory.freevars_def;
+val Lams_def = envLangTheory.Lams_def;
+val Apps_def = envLangTheory.Apps_def;
 
 Theorem freevars_Lams[simp]:
   ∀vs e. freevars (Lams vs e) = freevars e DIFF set vs
@@ -106,4 +108,3 @@ QED
  *)
 
 val _ = export_theory();
-
