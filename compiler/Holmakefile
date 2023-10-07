@@ -1,5 +1,6 @@
 INCLUDES = ../typing \
            parsing \
+           parsing/sexp \
            backend/languages \
            backend/passes \
            $(CAKEMLDIR)/compiler/parsing \

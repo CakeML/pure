@@ -7,7 +7,7 @@ open mlmapTheory;
 open pure_typingTheory pure_typingPropsTheory
      pure_cexpTheory pure_configTheory pure_varsTheory pure_unificationTheory
      pure_inference_commonTheory pure_inferenceTheory pure_inferencePropsTheory
-     pure_miscTheory;
+     pure_miscTheory pure_barendregtTheory;
 
 val _ = new_theory "pure_inference_model";
 
@@ -34,13 +34,6 @@ Definition massumptions_ok_def:
   massumptions_ok (asms : massumptions) ⇔
     ∀k v x. FLOOKUP asms k = SOME v ∧ x ∈ v (* if assumption k |-> x is present *)
     ⇒ x ∉ BIGUNION (FRANGE (asms \\ k)) (* then x is unique *)
-End
-
-Definition list_disjoint_def:
-  list_disjoint l ⇔
-    ∀left mid right.
-      l = left ++ [mid] ++ right
-    ⇒ DISJOINT mid (BIGUNION (set (left ++ right)))
 End
 
 Definition new_vars_constraint_def[simp]:
@@ -484,80 +477,6 @@ Theorem FDIFF_maunion:
   FDIFF (maunion a b) s = maunion (FDIFF a s) (FDIFF b s)
 Proof
   rw[maunion_def, FDIFF_FMERGE]
-QED
-
-Theorem list_disjoint_alt_def:
-  list_disjoint l ⇔
-    ∀left right. l = left ++ right ⇒
-      DISJOINT (BIGUNION (set left)) (BIGUNION (set right))
-Proof
-  rw[list_disjoint_def] >> eq_tac >> rw[]
-  >- (
-    first_x_assum irule >>
-    qspecl_then [`left`,`s'`] assume_tac $ GEN_ALL MEM_SING_APPEND >> gvs[] >>
-    qexists_tac `a` >> simp[]
-    )
-  >- (
-    once_rewrite_tac[DISJOINT_SYM] >>
-    first_x_assum irule >> qexists_tac `left` >> simp[]
-    )
-  >- (first_x_assum irule >> qexists_tac `left ++ [mid]` >> simp[])
-QED
-
-Theorem list_disjoint_singleton[simp]:
-  list_disjoint [a]
-Proof
-  rw[list_disjoint_alt_def] >> Cases_on `left` >> gvs[]
-QED
-
-Theorem list_disjoint_doubleton[simp]:
-  list_disjoint [a;b] ⇔ DISJOINT a b
-Proof
-  rw[list_disjoint_def] >> eq_tac >> rw[]
-  >- (first_x_assum irule >> qexistsl_tac [`[]`] >> simp[]) >>
-  Cases_on `left` >> gvs[] >> Cases_on `t` >> gvs[] >> simp[DISJOINT_SYM]
-QED
-
-Theorem list_disjoint_append:
-  ∀l1 l2. list_disjoint (l1 ++ l2) ⇔
-    list_disjoint l1 ∧ list_disjoint l2 ∧
-    DISJOINT (BIGUNION (set l1)) (BIGUNION (set l2))
-Proof
-  rw[list_disjoint_alt_def] >> eq_tac >> rw[]
-  >- (first_x_assum irule >> qexists_tac `left` >> simp[])
-  >- (first_x_assum irule >> qexists_tac `l1 ++ left` >> simp[])
-  >- (first_x_assum irule >> qexists_tac `l1` >> simp[]) >>
-  gvs[APPEND_EQ_APPEND]
-  >- (last_x_assum irule >> ntac 2 $ goal_assum drule >> simp[])
-  >- (
-    last_x_assum kall_tac >> last_x_assum irule >>
-    ntac 2 $ goal_assum drule >> simp[]
-    )
-QED
-
-Theorem list_disjoint_ALL_DISTINCT:
-  ∀l. EVERY FINITE l ⇒
-    (list_disjoint l ⇔ ALL_DISTINCT (FLAT $ MAP SET_TO_LIST l))
-Proof
-  rw[list_disjoint_alt_def, miscTheory.ALL_DISTINCT_FLAT] >>
-  eq_tac >> rw[]
-  >- (gvs[MEM_MAP, EVERY_MEM])
-  >- (
-    gvs[EL_MAP] >> pop_assum mp_tac >>
-    DEP_REWRITE_TAC[MEM_SET_TO_LIST] >> conj_tac >- gvs[EVERY_EL] >>
-    qid_spec_tac `e` >> simp[GSYM DISJOINT_ALT] >>
-    first_x_assum irule >>
-    qexistsl_tac [`TAKE (SUC i) l`,`DROP (SUC i) l`] >> rw[MEM_EL]
-    >- (qexists_tac `i` >> simp[EL_TAKE])
-    >- (qexists_tac `j - SUC i` >> simp[EL_DROP])
-    )
-  >- (
-    gvs[EL_MAP] >> ntac 2 $ pop_assum mp_tac >> rw[MEM_EL] >>
-    first_x_assum $ qspecl_then [`n`,`LENGTH left + n'`] assume_tac >> gvs[] >>
-    rw[DISJOINT_ALT] >> first_x_assum $ qspec_then `x` mp_tac >>
-    simp[EL_APPEND_EQN] >>
-    DEP_REWRITE_TAC[MEM_SET_TO_LIST] >> simp[] >> gvs[EVERY_EL]
-    )
 QED
 
 Theorem massumptions_ok_maunion:

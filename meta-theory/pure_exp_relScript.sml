@@ -815,7 +815,6 @@ Proof
   \\ metis_tac []
 QED
 
-
 (* expression relation without freevars argument *)
 
 Definition exp_eq0_def:
@@ -927,6 +926,27 @@ Theorem no_err_eval_IMP_app_bisimilarity:
 Proof
   rw[app_bisimilarity_similarity] >>
   metis_tac[no_err_eval_eq_imp_app_similarity]
+QED
+
+Theorem app_bisimilarity_T_IMP_F:
+  ∀x y. (x ≃ y) T ⇒ (x ≃ y) F
+Proof
+  ho_match_mp_tac app_bisimilarity_coinduct
+  \\ fs [FF_def,EXISTS_PROD,opp_def,unfold_rel_def]
+  \\ rw []
+  \\ last_x_assum mp_tac
+  \\ simp [Once app_bisimilarity_iff]
+  \\ rw [] \\ fs []
+  \\ qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+  \\ match_mp_tac LIST_REL_mono
+  \\ fs [opp_def,IN_DEF]
+QED
+
+Theorem exp_eq_T_IMP_F:
+  ∀b. (x ≅? y) T ⇒ (x ≅? y) b
+Proof
+  Cases \\ fs [exp_eq_def] \\ rw [] \\ res_tac
+  \\ fs [app_bisimilarity_T_IMP_F]
 QED
 
 Definition eval_to_sim_def:

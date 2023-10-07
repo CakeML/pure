@@ -379,6 +379,8 @@ val r = translate (def_of_const “ast_to_cexp$decls_to_letrec”);
 (* ------------------------------------------------------------------- *)
 
 val r = translate string_to_asts_def;
+val r = translate ast_to_cexpTheory.cexp_wf_alt_def; (* TODO bad induction *)
+val r = translate pure_cexpTheory.NestedCase_free_def; (* TODO bad induction *)
 val r = translate string_to_cexp_def;
 
 val _ = export_theory ();

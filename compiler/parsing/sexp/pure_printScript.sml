@@ -45,7 +45,7 @@ End
 Definition sexp_of_def:
   sexp_of (Var d n)       = Name' n ∧
   sexp_of (Prim d p xs)   = list (sexp_of_op p ++ MAP sexp_of xs) ∧
-  sexp_of (Let d v x y)   = list [Name "let"; sexp_of x; sexp_of y] ∧
+  sexp_of (Let d v x y)   = list [Name "let"; Name' v; sexp_of x; sexp_of y] ∧
   sexp_of (App _ f xs)    = list ([Name "app"; sexp_of f] ++ MAP sexp_of xs) ∧
   sexp_of (Lam d vs x)    = list ([Name "lam"; list (MAP Name' vs); sexp_of x])∧
   sexp_of (Letrec d rs x) = list ([Name "letrec"] ++

@@ -53,6 +53,8 @@ Definition string_to_cexp_def:
     asts <- string_to_asts s ;
     (ce, tysig) <- decls_to_letrec asts ;
     assert (closed_under empty ce) ;
+    assert (cexp_wf ce) ;
+    assert (NestedCase_free ce) ;
     return (ce, tysig)
   od
 End
