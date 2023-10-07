@@ -1,0 +1,23 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/cakeml/master
+endif
+
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
+           $(CAKEMLDIR)/semantics \
+           $(CAKEMLDIR)/basis/pure \
+           ../backend/languages/ \
+           ../../typing ../backend/passes
+
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+
+all: $(DEFAULT_TARGETS) selftest.exe parsing-selftest.log
+
+.PHONY: all
+
+selftest.exe: selftest.uo
+	$(HOLMOSMLC) -o $@ $<
+
+EXTRA_CLEANS = selftest.exe parsing-selftest.log
+
+parsing-selftest.log: selftest.exe
+	$(tee ./$<,$@)
