@@ -20,12 +20,6 @@ Theorem PAIR_REL_THM[local,simp] = pairTheory.PAIR_REL_THM;
 
 val _ = numLib.prefer_num ();
 
-Definition ok_bind_def[simp]:
-  ok_bind (Delay x) = T ∧
-  ok_bind (Lam s x) = T ∧
-  ok_bind _ = F
-End
-
 Inductive exp_rel:
 [~Var:]
   (∀n. exp_rel (Var n) (Var n)) ∧

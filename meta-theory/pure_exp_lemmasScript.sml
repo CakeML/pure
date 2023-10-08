@@ -975,6 +975,18 @@ Proof
   Induct \\ fs [Apps_def,subst_def]
 QED
 
+Theorem letrecs_distinct_Apps:
+  ∀l e. letrecs_distinct (Apps e l) ⇔ letrecs_distinct e ∧ EVERY letrecs_distinct l
+Proof
+  Induct \\ gs [letrecs_distinct_def, Apps_def, GSYM CONJ_ASSOC]
+QED
+
+Theorem letrecs_distinct_Lams:
+  ∀l e. letrecs_distinct (Lams l e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ gs [letrecs_distinct_def, Lams_def]
+QED
+
 Theorem ignore_FDIFF:
   DISJOINT f (FDOM m) ⇒ FDIFF m f = m
 Proof

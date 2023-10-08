@@ -65,33 +65,6 @@ Proof
   gvs[Once (GSYM MEM_MAP_FST_make_distinct)]
 QED
 
-Definition letrecs_distinct_def:
-  (letrecs_distinct (pure_exp$Letrec xs y) ⇔
-    ALL_DISTINCT (MAP FST xs) ∧
-    EVERY letrecs_distinct (MAP SND xs) ∧
-    letrecs_distinct y) ∧
-  (letrecs_distinct (Lam n x) ⇔ letrecs_distinct x) ∧
-  (letrecs_distinct (Prim p xs) ⇔ EVERY letrecs_distinct xs) ∧
-  (letrecs_distinct (App x y) ⇔ letrecs_distinct x ∧ letrecs_distinct y) ∧
-  (letrecs_distinct _ ⇔ T)
-Termination
-  WF_REL_TAC `measure (λe. exp_size e)` >> rw[exp_size_def] >>
-  Induct_on `xs` >> rw[] >> gvs[exp_size_def] >>
-  PairCases_on `h` >> gvs[exp_size_def]
-End
-
-Theorem letrecs_distinct_Apps:
-  ∀l e. letrecs_distinct (Apps e l) ⇔ letrecs_distinct e ∧ EVERY letrecs_distinct l
-Proof
-  Induct \\ gs [letrecs_distinct_def, Apps_def, GSYM CONJ_ASSOC]
-QED
-
-Theorem letrecs_distinct_Lams:
-  ∀l e. letrecs_distinct (Lams l e) ⇔ letrecs_distinct e
-Proof
-  Induct \\ gs [letrecs_distinct_def, Lams_def]
-QED
-
 Theorem letrecs_distinct_lets_for:
   ∀l m n e. letrecs_distinct (lets_for m n l e) ⇔ letrecs_distinct e
 Proof
@@ -191,11 +164,6 @@ Definition valid_split_def:
     ALL_DISTINCT (MAP FST xs) ∧ ALL_DISTINCT (MAP FST xs1 ++ MAP FST xs2) ∧
     set xs = set xs1 UNION set xs2 ∧
     DISJOINT (set (MAP FST xs2)) (BIGUNION (set (MAP (λ(_,e). freevars e) xs1)))
-End
-
-Definition Lets_def:
-  Lets [] b = b ∧
-  Lets ((v,x)::xs) b = Let v x (Lets xs b)
 End
 
 Inductive letrec_rel:
@@ -1796,17 +1764,18 @@ Proof
   recInduct freevars_ind >> rw[letrecs_distinct_def, letrec_recurse_def] >>
   gvs[EVERY_MAP, EVERY_MEM] >>
   simp[clean_one_def] >> IF_CASES_TAC >> gvs[] >>
-  pop_assum kall_tac >> Cases_on `lcs` >> gvs[] >- simp[letrecs_distinct_def] >>
+  pop_assum kall_tac >> Cases_on `lcs` >> gvs[] >>
   Cases_on `t` >> gvs[]
   >- (
     pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[] >> simp[letrecs_distinct_def]
     ) >>
-  ntac 2 $ once_rewrite_tac[GSYM MAP] >>
-  qpat_abbrev_tac `foo = _ :: _ :: _` >>
-  `ALL_DISTINCT (MAP FST foo)` by (unabbrev_all_tac >> gvs[]) >>
+  gvs [SF DNF_ss] >>
+  rename [‘FST h1 ≠ FST h2’] >>
+  PairCases_on ‘h1’ >> PairCases_on ‘h2’ >> gvs [] >>
+  gvs [MEM_MAP,FORALL_PROD,PULL_EXISTS,EVERY_MEM] >>
   simp[letrecs_distinct_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
   simp[GSYM FST_THM, EVERY_MAP, LAMBDA_PROD] >>
-  gvs[EVERY_MEM, FORALL_PROD] >> unabbrev_all_tac >> gvs[] >> metis_tac[]
+  metis_tac []
 QED
 
 

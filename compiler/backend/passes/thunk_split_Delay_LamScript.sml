@@ -7,19 +7,9 @@ open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_setTheory;
 
 val _ = new_theory "thunk_split_Delay_Lam";
 
-Definition is_Lam_def:
-  is_Lam (Lam s e) = T ∧
-  is_Lam _ = F
-End
-
 Definition dest_Delay_Lam_def:
     (dest_Delay_Lam (Delay (Lam v e)) = SOME (Lam v e)) /\
     (dest_Delay_Lam _ = NONE)
-End
-
-Definition dest_Var_def:
-    (dest_Var (Var v) = SOME v) /\
-    (dest_Var _ = NONE)
 End
 
 Definition letrec_split_def:

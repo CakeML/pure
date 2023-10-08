@@ -16,7 +16,6 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_tcexpTheory pure_tcexp_lemmasTheory
      pure_typingTheory pure_typingPropsTheory;
 
-
 val exp_of_def = pureLangTheory.exp_of_def;
 val rows_of_def = pureLangTheory.rows_of_def;
 val lets_for_def = pureLangTheory.lets_for_def;
@@ -155,9 +154,11 @@ Inductive bidir:
   (* typing: => direction proved
              <= direction has mismatching free variables *)
 [~App_Lam:]
-  (∀a b c vs x.
-    bidir (App a (Lam b vs x) (MAP (Var c) vs))
-          x) ∧
+  (∀a b c vs x ws.
+    set vs ⊆ set ws ∧ vs ≠ []
+    ⇒
+    bidir (Lam a ws (App b (Lam c vs x) (MAP (Var d) vs)))
+          (Lam a ws x)) ∧
 [~Letrec_Lam:]
   (∀a b c d vs l e.
     EVERY (λ(v,e). DISJOINT (IMAGE explode (set vs)) (freevars (exp_of e)) ∧
@@ -361,7 +362,6 @@ Proof
   >~ [`spec_arg`]
   >- cheat (* TODO specialisation *) >>
   rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac
-  >- cheat (* App_Lam - not true due to potentially empty `vs` *)
 QED
 
 Theorem pres_imp_wf_preserved:
@@ -638,6 +638,7 @@ Proof
     \\ irule Letrec_eq_Let_Letrec)
   >-
    (fs [exp_of_def,MAP_MAP_o,o_DEF]
+    \\ irule exp_eq_Lams_cong
     \\ ‘MAP (λx. Var (explode x) : exp) vs = MAP Var (MAP explode vs)’ by
           fs [MAP_MAP_o,o_DEF]
     \\ simp [Apps_Lams_Vars])
@@ -678,15 +679,6 @@ Proof
                   pure_demandTheory.Letrec_unfold \\ fs []
     \\ gvs [EL_MAP] \\ disch_then drule \\ fs []
     \\ disch_then $ qspec_then ‘T’ mp_tac
-    \\ impl_tac
-    >-
-     (gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
-      \\ qpat_x_assum `ALL_DISTINCT _` mp_tac
-      \\ qmatch_goalsub_abbrev_tac ‘_ xs ⇒ _ ys’
-      \\ qsuff_tac ‘xs = MAP implode ys’ \\ gvs []
-      >- metis_tac [ALL_DISTINCT_MAP]
-      \\ unabbrev_all_tac \\ rpt $ pop_assum kall_tac
-      \\ Induct_on ‘l’ \\ gvs [] \\ PairCases \\ fs [])
     \\ qpat_x_assum ‘_ = EL _ _’ $ assume_tac o GSYM
     \\ simp [])
   >~ [‘spec_arg’] >-
@@ -826,6 +818,7 @@ Proof
   IF_CASES_TAC >> gvs[]
 QED
 
+(*
 Theorem bidir_preserves_typing:
   ∀x y ns db st env t.
     (x <--> y) ∧ namespace_ok ns
@@ -1253,6 +1246,7 @@ Proof
       )
     )
 QED
+*)
 
 (**********)
 

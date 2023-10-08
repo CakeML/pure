@@ -2,10 +2,9 @@
    This file defines expressions for pure_lang as the type system sees them.
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
+open arithmeticTheory listTheory alistTheory stringTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_cexpTheory pure_cexp_lemmasTheory pure_expTheory pure_evalTheory
-     pure_exp_lemmasTheory pure_exp_relTheory pure_congruenceTheory;
+open pure_cexpTheory pureLangTheory pure_expTheory;
 
 val _ = new_theory "pure_tcexp";
 

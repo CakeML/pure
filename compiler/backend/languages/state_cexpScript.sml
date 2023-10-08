@@ -53,6 +53,11 @@ Overload IntLit = “λi. App (AtomOp (Lit (Int i))) []”
 Overload StrLit = “λs. App (AtomOp (Lit (Str s))) []”
 Overload Eq = “λx y. App (AtomOp Eq) [x; y]”
 
+Definition Lets_def:
+  Lets [] x = (x:state_cexp$cexp) ∧
+  Lets ((v,y)::ys) x = Let v y (Lets ys x)
+End
+
 (* We require the correct number of arguments to be passed to the following.
    We could specify this for all operations, but it isn't necessary *)
 Definition op_args_ok_def:

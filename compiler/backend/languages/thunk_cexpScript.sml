@@ -65,4 +65,14 @@ Termination
   WF_REL_TAC `measure cexp_size`
 End
 
+Definition is_Lam_def:
+  is_Lam (Lam s e) = T ∧
+  is_Lam _ = F
+End
+
+Definition dest_Var_def:
+  dest_Var (Var v) = SOME v ∧
+  dest_Var _ = NONE
+End
+
 val _ = export_theory();

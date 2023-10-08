@@ -15,7 +15,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 val _ = new_theory "pure_pres_lemmas";
 
 Theorem bidir_letrec_eta:
-  MEM (f,Lam a vs x) l ∧ ALL_DISTINCT (MAP FST l) ∧
+  MEM (f,Lam a vs x) l ∧ ALL_DISTINCT (MAP FST l) ∧ vs ≠ [] ∧
   EVERY (λ(v,e).
            DISJOINT (IMAGE explode (set vs)) (freevars (exp_of e)) ∧
            ~MEM v vs) l ∧
@@ -34,7 +34,8 @@ Proof
   \\ conj_tac
   >-
    (irule bidir_Letrec \\ fs [LIST_REL_same]
-    \\ irule bidir_Lam \\ simp [Once bidir_sym,bidir_App_Lam])
+    \\ simp [Once bidir_sym]
+    \\ irule bidir_App_Lam \\ fs [])
   \\ irule_at Any bidir_trans
   \\ irule_at (Pos hd) bidir_Letrec_Lam \\ fs []
   \\ simp [Once bidir_sym]
@@ -55,7 +56,7 @@ Proof
 QED
 
 Theorem bidir_letrec_eta_1:
-  ¬MEM f vs
+  ¬MEM f vs ∧ vs ≠ []
   ⇒
   (Letrec a [(f,Lam a vs x)] (Var a f))
   <-->
@@ -67,7 +68,7 @@ Proof
 QED
 
 Theorem bidir_letrec_expand_1:
-  ¬MEM f vs
+  ¬MEM f vs ∧ vs ≠ []
   ⇒
   (Letrec a [(f,Lam a vs x)] x)
   <-->
@@ -91,7 +92,7 @@ Proof
 QED
 
 Theorem bidir_contract_1:
-  ~MEM f ps ∧ ~MEM f ws ∧ vs ≠ [] ∧ ws ≠ []
+  ~MEM f ps ∧ ~MEM f ws ∧ vs ≠ [] ∧ ws ≠ [] ∧ set ws ⊆ set vs
   ⇒
   (Lam a (vs ++ ps)
      (Letrec a [(f,Lam a (ws ++ ps) x)]
@@ -103,53 +104,60 @@ Theorem bidir_contract_1:
 Proof
   Cases_on ‘ps = []’ >- fs []
   \\ rw []
-  \\ irule bidir_trans
-  \\ irule_at Any bidir_Lam_append \\ fs []
-  \\ irule bidir_Lam
-  \\ irule bidir_trans
-  \\ qabbrev_tac ‘y = Letrec a [(f,Lam a (ws ++ ps) x)] x’
-  \\ qexists_tac ‘Lam a ps
-                   (App a (Lam a (ws ++ ps) y) (MAP (Var a) ws ++ MAP (Var a) ps))’
-  \\ conj_tac >-
-   (irule bidir_Lam
-    \\ irule bidir_trans
-    \\ irule_at Any bidir_Letrec_App_forget
-    \\ irule_at Any bidir_App
-    \\ fs [LIST_REL_same,EVERY_MAP,exp_of_def]
-    \\ gvs [EVERY_MEM]
-    \\ irule bidir_trans
+  \\ qabbrev_tac ‘z = Letrec a [(f,Lam a (ws ++ ps) x)] x’
+  \\ ‘Letrec a [(f,Lam a (ws ++ ps) x)] (Var a f) <--> Lam a (ws ++ ps) z’ by
+   (irule bidir_trans
     \\ irule_at (Pos hd) bidir_Letrec_unroll \\ fs []
     \\ unabbrev_all_tac
-    \\ irule bidir_Letrec_Lam
-    \\ fs [exp_of_def,IN_DISJOINT,MEM_MAP]
+    \\ irule_at (Pos hd) bidir_Letrec_Lam \\ gvs []
+    \\ gvs [exp_of_def,IN_DISJOINT,MEM_MAP]
     \\ metis_tac [])
-  \\ simp [Once bidir_sym]
-  \\ irule bidir_trans
-  \\ qexists_tac ‘App a (Lam a (ws ++ ps) y) (MAP (Var a) ws)’
-  \\ conj_tac >-
-   (irule bidir_trans
-    \\ irule_at Any bidir_Letrec_App_forget
-    \\ irule_at Any bidir_App
-    \\ fs [LIST_REL_same,EVERY_MAP,exp_of_def]
-    \\ gvs [EVERY_MEM]
-    \\ irule bidir_trans
-    \\ irule_at (Pos hd) bidir_Letrec_unroll \\ fs []
+  \\ qsuff_tac ‘
+      Lam a (vs ++ ps)
+        (App a (Lam a (ws ++ ps) z) (MAP (Var a) ws ++ MAP (Var a) ps)) <-->
+      Lam a vs
+        (App a (Lam a (ws ++ ps) z) (MAP (Var a) ws))’
+  >-
+   (strip_tac
+    \\ irule_at (Pos hd) bidir_trans
+    \\ irule_at (Pos last) bidir_trans
+    \\ pop_assum $ irule_at $ Pos hd
+    \\ irule_at Any bidir_Lam
+    \\ irule_at Any bidir_Lam
     \\ unabbrev_all_tac
-    \\ irule bidir_Letrec_Lam
-    \\ fs [exp_of_def,IN_DISJOINT,MEM_MAP]
-    \\ metis_tac [])
-  \\ irule bidir_trans
-  \\ qexists_tac ‘Lam a ps y’
-  \\ conj_tac >-
-   (irule bidir_trans
+    \\ irule_at (Pos hd) bidir_trans
+    \\ irule_at Any bidir_Letrec_App_forget
+    \\ gvs [EVERY_MAP,exp_of_def] \\ gvs [EVERY_MEM]
     \\ irule_at (Pos hd) bidir_App
-    \\ irule_at (Pos hd) bidir_Lam_append \\ fs []
-    \\ qexists_tac ‘MAP (Var a) ws’ \\ fs []
     \\ gvs [LIST_REL_same]
-    \\ metis_tac [bidir_App_Lam])
-  \\ irule bidir_Lam
+    \\ simp [Once bidir_sym]
+    \\ irule_at (Pos hd) bidir_trans
+    \\ irule_at Any bidir_Letrec_App_forget
+    \\ gvs [EVERY_MAP,exp_of_def] \\ gvs [EVERY_MEM]
+    \\ irule_at (Pos hd) bidir_App
+    \\ gvs [LIST_REL_same])
+  \\ irule_at Any bidir_trans
+  \\ qexists_tac ‘Lam a (vs ++ ps) z’
+  \\ conj_tac >-
+   (rewrite_tac [GSYM MAP_APPEND]
+    \\ irule bidir_App_Lam \\ fs []
+    \\ gvs [SUBSET_DEF])
+  \\ qsuff_tac ‘
+      Lam a vs (Lam a ps z) <-->
+      Lam a vs (App a (Lam a ws (Lam a ps z)) (MAP (Var a) ws))’
+  >-
+   (strip_tac
+    \\ irule bidir_trans
+    \\ irule_at (Pos hd) bidir_Lam_append \\ fs []
+    \\ irule bidir_trans
+    \\ pop_assum $ irule_at $ Pos hd
+    \\ irule bidir_Lam
+    \\ irule bidir_App
+    \\ gvs [LIST_REL_same]
+    \\ simp [Once bidir_sym]
+    \\ irule_at (Pos hd) bidir_Lam_append \\ fs [])
   \\ simp [Once bidir_sym]
-  \\ rewrite_tac [GSYM MAP_APPEND,bidir_App_Lam]
+  \\ irule bidir_App_Lam \\ fs []
 QED
 
 val _ = export_theory ();

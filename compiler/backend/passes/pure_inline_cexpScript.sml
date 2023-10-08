@@ -62,16 +62,6 @@ Definition heuristic_insert_Rec_def:
       | _ => m
 End
 
-Definition is_Lam_def:
-  is_Lam (Lam a vs e) = T ∧
-  is_Lam _ = F
-End
-
-Definition get_Var_name_def:
-  get_Var_name (Var a v) = (SOME v) ∧
-  get_Var_name _ = NONE
-End
-
 Triviality size_lemma:
   ∀bs.
     list_size (cexp_size (K 0)) (MAP (λ(v,vs,e). e) bs) ≤
@@ -92,11 +82,6 @@ by inlining in the App case. The problem now is that
 ```
 And so goint further won't do anything
 *)
-
-Definition Lets_def:
-  Lets a ((v,e)::xs) e1 = Let a v e (Lets a xs e1) ∧
-  Lets a _ e = e
-End
 
 Definition App_Lam_to_Lets_def:
   App_Lam_to_Lets (App a (Lam _ vs b) es) =
