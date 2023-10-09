@@ -3588,8 +3588,8 @@ Proof
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def, pmatch_def] >>
   simp[Abbr `strle_dec`, strle_exp_def] >>
     ntac 2 (qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def]) >>
-    qmatch_goalsub_abbrev_tac `COND cond` >>
-    `cond` by (
+    qmatch_goalsub_abbrev_tac `COND condition` >>
+    `condition` by (
       unabbrev_all_tac >> simp[do_con_check_def, SF CONJ_ss] >>
       simp[smallStepTheory.collapse_env_def, extend_dec_env_def] >>
       once_rewrite_tac[DECIDE ``x ∧ y ⇔ (x = T) ∧ (y = T)``] >>
@@ -3607,8 +3607,8 @@ Proof
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def] >>
   simp[Abbr `char_list_dec`, char_list_exp_def] >>
     qrefine `SUC m` >> simp[dstep, cstep, astTheory.pat_bindings_def] >>
-    qmatch_goalsub_abbrev_tac `COND cond` >>
-    `cond` by (
+    qmatch_goalsub_abbrev_tac `COND condition` >>
+    `condition` by (
       unabbrev_all_tac >> simp[do_con_check_def, SF CONJ_ss] >>
       simp[smallStepTheory.collapse_env_def, extend_dec_env_def] >>
       once_rewrite_tac[DECIDE ``x ∧ y ⇔ (x = T) ∧ (y = T)``] >>
@@ -3626,7 +3626,7 @@ Proof
   simp[start_dstate_def, smallStepTheory.collapse_env_def] >>
   simp[extend_dec_env_def, build_rec_env_def] (* slow step *) >>
   irule_at Any $ SRULE [SimpRHS] $ SCONV []
-    ``cond ∧ a = res ∧ rest ⇒ (if cond then a else b) = res ∧ rest`` >>
+    ``condition ∧ a = res ∧ rest ⇒ (if condition then a else b) = res ∧ rest`` >>
   irule_at Any every_exp_one_con_check_compile >>
   simp[env_ok_def, nsLookup_nsAppend_some] >>
   simp[strle_v_def, char_list_v_def, strle_exp_def, char_list_exp_def] >>
