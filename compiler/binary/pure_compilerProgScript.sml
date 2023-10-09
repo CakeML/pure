@@ -16,9 +16,15 @@ val _ = (max_print_depth := 30);
 
 val res = translate pure_inferenceTheory.to_option_def;
 val res = translate pure_compilerTheory.compile_def;
-val res = translate pure_comp_confTheory.all_flags_def;
-val res = translate (pure_comp_confTheory.read_cline_args_def
-                       |> REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]);
+
+val res = translate pure_comp_confTheory.bool_flags_def;
+val res = translate pure_comp_confTheory.num_flags_def;
+val res = translate pure_comp_confTheory.num_flag_ok_def;
+val res = translate (pure_comp_confTheory.check_flags_def
+                        |> REWRITE_RULE [ml_translatorTheory.MEMBER_INTRO]);
+val res = translate pure_comp_confTheory.get_num_flag_def;
+val res = translate pure_comp_confTheory.read_cline_args_def;
+
 
 Definition main_function_def:
   main_function cl s =

@@ -2,7 +2,8 @@
   Configuration what to optimise.
  *)
 
-open HolKernel Parse boolLib bossLib mlstringTheory;
+open HolKernel Parse boolLib bossLib intLib
+     mlstringTheory mlintTheory mloptionTheory;
 
 val _ = new_theory "pure_comp_conf";
 
@@ -31,8 +32,8 @@ End
 Overload pure_sort_flag[local]  = “strlit "-sort"”
 Overload pure_clean_flag[local] = “strlit "-clean"”
 Overload demands_flag[local]    = “strlit "-demands"”
-Overload inline_off_flag[local] = “strlit "-inline"”
-Overload inline_max_flag[local] = “strlit "-inline_max"”
+Overload inline_depth_flag[local] = “strlit "-inline_depth="”
+Overload inline_size_flag[local] = “strlit "-inline_size="”
 Overload mk_delay_flag[local]   = “strlit "-mk_delay"”
 Overload let_force_flag[local]  = “strlit "-let_force"”
 Overload dlam_flag[local]       = “strlit "-dlam"”
@@ -40,16 +41,19 @@ Overload unit_flag[local]       = “strlit "-unit"”
 Overload final_gc_flag[local]   = “strlit "-final_gc"”
 Overload explore_flag[local]    = “strlit "-explore"”
 
-Overload inline_off_opts[local] = “<| depth := 0 ; heuristic := 0 |>”
-Overload inline_default_opts[local] = “<| depth := 50 ; heuristic := 100 |>”
-Overload inline_max_opts[local] = “<| depth := 5000 ; heuristic := 10000 |>”
+Definition get_num_flag_def:
+  get_num_flag flag (cl : mlstring list) =
+    case FILTER (λs. isPrefix flag s) cl of
+    | [] => NONE
+    | (s::_) =>
+        let num_str = extract s (strlen flag) NONE in
+        fromNatString num_str
+End
 
-Definition all_flags_def:
-  all_flags = [pure_sort_flag;
+Definition bool_flags_def:
+  bool_flags = [pure_sort_flag;
                pure_clean_flag;
                demands_flag;
-               inline_off_flag;
-               inline_max_flag;
                mk_delay_flag;
                let_force_flag;
                dlam_flag;
@@ -58,24 +62,41 @@ Definition all_flags_def:
                explore_flag]
 End
 
+Definition num_flags_def:
+  num_flags = [inline_depth_flag; inline_size_flag]
+End
+
+Definition num_flag_ok_def:
+  num_flag_ok s =
+    EXISTS
+      (λf. isPrefix f s ∧ IS_SOME (fromNatString $ extract s (strlen f) NONE))
+      num_flags
+End
+
+Definition check_flags_def:
+  check_flags (cl : mlstring list) =
+    FILTER (λs. ¬MEM s bool_flags ∧ ¬num_flag_ok s) cl
+End
+
 Definition read_cline_args_def:
   read_cline_args (cl:mlstring list) ⇔
-    case FILTER (λa. ~MEM a all_flags) cl of
-    | (a::_) => INR (concat [strlit "ERROR: unknown flag "; a; strlit "\n"])
-    | [] => INL <| do_pure_sort  := ¬ MEM pure_sort_flag cl  ;
-                   do_pure_clean := ¬ MEM pure_clean_flag cl ;
-                   do_demands    := ¬ MEM demands_flag cl    ;
-                   inlining      := if MEM inline_off_flag cl then
-                                      inline_off_opts
-                                    else if MEM inline_max_flag cl then
-                                      inline_max_opts
-                                    else inline_default_opts ;
-                   do_mk_delay   := ¬ MEM mk_delay_flag cl   ;
-                   do_let_force  := ¬ MEM let_force_flag cl  ;
-                   do_split_dlam := ¬ MEM dlam_flag cl       ;
-                   do_app_unit   := ¬ MEM unit_flag cl       ;
-                   do_final_gc   := MEM final_gc_flag cl     ; (* NB final GC only if flag is present *)
-                   do_explore    := MEM explore_flag cl      |>
+    case check_flags cl of
+    | x::xs => INR (concat [strlit "ERROR: unknown flag(s) ";
+                            concatWith (strlit ", ") (x::xs); strlit "\n"])
+    | _ =>
+      let inlining_opts =
+        <| depth := getOpt (get_num_flag inline_depth_flag cl) 5000 ;
+           heuristic := getOpt (get_num_flag inline_size_flag cl) 10000 |> in
+      INL <| do_pure_sort  := ¬ MEM pure_sort_flag cl  ;
+             do_pure_clean := ¬ MEM pure_clean_flag cl ;
+             do_demands    := ¬ MEM demands_flag cl    ;
+             inlining      := inlining_opts            ;
+             do_mk_delay   := ¬ MEM mk_delay_flag cl   ;
+             do_let_force  := ¬ MEM let_force_flag cl  ;
+             do_split_dlam := ¬ MEM dlam_flag cl       ;
+             do_app_unit   := ¬ MEM unit_flag cl       ;
+             do_final_gc   := MEM final_gc_flag cl     ; (* NB final GC only if flag is present *)
+             do_explore    := MEM explore_flag cl      |>
 End
 
 val default = EVAL “read_cline_args []” |> concl |> rand |> rand
