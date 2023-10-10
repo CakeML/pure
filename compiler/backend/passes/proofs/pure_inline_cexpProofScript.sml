@@ -1728,7 +1728,6 @@ QED
 Theorem memory_inv_imp_set_of:
   memory_inv xs m ns ⇒
   set (MAP FST xs) ⊆ set_of ns ∧
-  freevars_of xs ⊆ set_of ns ∧
   vars_of xs ⊆ set_of ns
 Proof
   strip_tac
@@ -1736,9 +1735,9 @@ Proof
   \\ pop_assum kall_tac
   \\ pop_assum mp_tac
   \\ pop_assum kall_tac
-  \\ Induct_on ‘xs’ \\ gvs [vars_of_def,freevars_of_def]
+  \\ Induct_on ‘xs’ \\ gvs [vars_of_def,vars_of_def]
   \\ PairCases \\ fs []
-  \\ gvs [vars_of_def,freevars_of_def]
+  \\ gvs [vars_of_def,vars_of_def]
   \\ rw [] \\ res_tac \\ fs []
   \\ imp_res_tac avoid_set_ok_set_of \\ fs []
 QED
@@ -2072,7 +2071,7 @@ Proof
     \\ ‘avoid_set_ok ns6 (App a c es1)’ by gvs [avoid_set_ok_App,EVERY_MEM]
     \\ drule_then drule freshen_cexp_disjoint_lemma
     \\ fs [cexp_wf_def,EVERY_MEM,exp_of_def,MEM_MAP,PULL_EXISTS]
-    \\ disch_then (fn th => ntac 3 (dxrule th))
+    \\ disch_then (fn th => ntac 2 (dxrule th))
     \\ fs [exp_of_def,Apps_append,SF ETA_ss]
     \\ fs [boundvars_Apps,MEM_MAP,PULL_EXISTS]
   )

@@ -54,20 +54,14 @@ Theorem no_shadowing_simp[simp] =
 
 Definition vars_of_def:
   vars_of [] = {} ∧
-  vars_of ((v,e)::rest) = v INSERT vars_of rest
-End
-
-Definition freevars_of_def:
-  freevars_of [] = {} ∧
-  freevars_of ((v,e)::rest) = freevars e ∪ freevars_of rest
+  vars_of ((v,e)::rest) = {v} ∪ freevars e ∪ vars_of rest
 End
 
 Definition pre_def:
   pre l x ⇔
     no_shadowing x ∧
     DISJOINT (boundvars x) (freevars x) ∧
-    DISJOINT (boundvars x) (vars_of l) ∧
-    DISJOINT (boundvars x) (freevars_of l)
+    DISJOINT (boundvars x) (vars_of l)
 End
 
 (*------------------------------------------------------------------------------*
@@ -169,6 +163,7 @@ Proof
   rw []
   \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
   \\ PairCases_on ‘h’ \\ gvs [vars_of_def]
+  \\ gvs [DISJOINT_SYM]
 QED
 
 Theorem vars_of_append:
@@ -177,30 +172,18 @@ Proof
   rw []
   \\ Induct_on ‘xs’ \\ rw []
   >- fs [vars_of_def]
-  \\ PairCases_on `h` \\ rw []
-  \\ fs [vars_of_def]
-  \\ fs [UNION_ASSOC]
-  \\ fs [INSERT_UNION_EQ]
-QED
-
-Theorem freevars_of_append:
-  ∀xs ys. freevars_of (xs ++ ys) = freevars_of xs ∪ freevars_of ys
-Proof
-  rw []
-  \\ Induct_on ‘xs’ \\ rw []
-  >- fs [freevars_of_def]
   \\ Cases_on `h` \\ Cases_on `r` \\ rw []
   >- (
-    fs [freevars_of_def]
+    fs [vars_of_def]
     \\ fs [UNION_ASSOC]
   )
-  \\ fs [freevars_of_def]
+  \\ fs [vars_of_def]
   \\ fs [UNION_ASSOC]
 QED
 
 Theorem vars_of_DISJOINT_FILTER:
   ∀xs ys. DISJOINT s (vars_of ys) ⇒
-    DISJOINT s (vars_of (FILTER P ys))
+          DISJOINT s (vars_of (FILTER P ys))
 Proof
   rw []
   \\ Induct_on ‘ys’ \\ reverse $ rw []
@@ -231,14 +214,12 @@ Proof
   \\ rw []
   \\ first_assum $ qspec_then `e` assume_tac
   \\ Cases_on `e` \\ Cases_on `r` \\ rw []
-  \\ fs [bind_ok_def,vars_of_def]
-  \\ gvs []
-  \\ fs [vars_of_append]
+  \\ fs [bind_ok_def]
 QED
 
 Theorem bind_ok_rec_Exp_append:
   bind_ok_rec xs ∧
-  v ∉ freevars_of xs
+  v ∉ vars_of xs
   ⇒
   bind_ok_rec (xs ++ [(v,x)])
 Proof
@@ -248,7 +229,7 @@ Proof
   \\ Cases_on `h`
   \\ fs [bind_ok_rec_def]
   \\ fs [DISJOINT_SYM]
-  \\ fs [freevars_of_def]
+  \\ fs [vars_of_def]
   \\ last_x_assum $ irule
   \\ fs [DISJOINT_SYM]
 QED
@@ -263,25 +244,9 @@ Proof
   \\ rw [vars_of_def,MAP]
 QED
 
-Theorem binds_ok_SNOC:
-  binds_ok xs ∧ pre xs (Let v x y) ⇒
-  binds_ok (xs ++ [(v,x)])
-Proof
-  fs [binds_ok_def,bind_ok_def,pre_def]
-  \\ fs [ALL_DISTINCT_APPEND]
-  \\ fs [DISJOINT_SYM]
-  \\ fs [vars_of_not_in_MAP_FST]
-  \\ fs [vars_of_DISJOINT_MAP_FST]
-  \\ fs [FILTER_APPEND]
-  \\ fs [vars_of_DISJOINT_FILTER]
-  \\ fs [bind_ok_EVERY_Exp_append]
-  \\ fs [bind_ok_rec_def]
-  \\ fs [bind_ok_rec_Exp_append]
-QED
-
 Theorem binds_ok_SNOC_alt:
   binds_ok xs ∧ v ∉ freevars x1 ∧ ~MEM v (MAP FST xs) ∧
-  v ∉ freevars_of xs ∧ v ∉ vars_of xs
+  v ∉ vars_of xs
   ⇒
   binds_ok (xs ++ [(v,x1)])
 Proof
@@ -295,6 +260,16 @@ Proof
   \\ fs [vars_of_DISJOINT_FILTER]
   \\ irule_at Any bind_ok_EVERY_Exp_append \\ fs []
   \\ irule_at Any bind_ok_rec_Exp_append \\ fs []
+QED
+
+Theorem binds_ok_SNOC:
+  binds_ok xs ∧ pre xs (Let v x y) ⇒
+  binds_ok (xs ++ [(v,x)])
+Proof
+  strip_tac
+  \\ irule binds_ok_SNOC_alt \\ fs []
+  \\ fs [pre_def]
+  \\ imp_res_tac vars_of_not_in_MAP_FST
 QED
 
 Theorem map_fst_subset_vars_of:
@@ -329,7 +304,7 @@ QED
 
 Theorem pre_Lam:
   pre xs (Lam w x) ⇒
-  ¬MEM w (MAP FST xs) ∧ w ∉ freevars_of xs ∧ pre xs x
+  ¬MEM w (MAP FST xs) ∧ w ∉ vars_of xs ∧ pre xs x
 Proof
   fs [pre_def] \\ strip_tac
   \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
@@ -343,18 +318,17 @@ Theorem pre_SNOC:
   DISJOINT (boundvars x) (freevars x1) ⇒
   pre (xs ++ [(v,x1)]) x
 Proof
-  fs [pre_def,vars_of_def,vars_of_append,freevars_of_append,freevars_of_def] \\ rw []
+  fs [pre_def,vars_of_append,vars_of_def] \\ rw []
   \\ simp [DISJOINT_SYM]
 QED
 
 Theorem pre_Let:
   pre xs (Let v x y) ⇒
   pre xs x ∧ pre (xs ++ [(v,x)]) y ∧
-  ¬MEM v (MAP FST xs) ∧ v ∉ freevars_of xs
+  ¬MEM v (MAP FST xs) ∧ v ∉ vars_of xs
 Proof
   fs [binds_ok_def,bind_ok_def,pre_def]
-  \\ simp [vars_of_append,vars_of_def,DISJOINT_SYM,
-           freevars_of_append,freevars_of_def]
+  \\ simp [DISJOINT_SYM,vars_of_append,vars_of_def]
   \\ strip_tac
   \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
   \\ gvs [IN_DISJOINT]
@@ -365,7 +339,7 @@ Theorem pre_Letrec:
   pre xs (Letrec ys x) ⇒
   pre xs x ∧ EVERY (pre xs) (MAP SND ys) ∧
   DISJOINT (set (MAP FST ys)) (boundvars x) ∧
-  EVERY (λ(v,e). ¬MEM v (MAP FST xs) ∧ v ∉ freevars_of xs) ys
+  EVERY (λ(v,e). ¬MEM v (MAP FST xs) ∧ v ∉ vars_of xs) ys
 Proof
   rpt strip_tac
   >-
@@ -386,13 +360,6 @@ Proof
   \\ ‘set (MAP FST xs) ⊆ vars_of xs’ by gvs [map_fst_subset_vars_of]
   \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT,SUBSET_DEF]
   \\ metis_tac []
-QED
-
-Triviality pre_Letrec_vars_of:
-  pre xs (Letrec [(v,y)] x) ⇒
-  v ∉ vars_of xs
-Proof
-  fs [pre_def]
 QED
 
 (*------------------------------------------------------------------------------*
@@ -701,7 +668,7 @@ QED
 
 Theorem Lets_Lam:
   v ∉ set (MAP FST xs) ∧
-  v ∉ freevars_of xs ⇒
+  v ∉ vars_of xs ⇒
   (Lets xs (Lam v x) ≅? Lam v (Lets xs x)) b
 Proof
   rw []
@@ -712,7 +679,7 @@ Proof
   \\ irule exp_eq_trans
   \\ once_rewrite_tac [exp_eq_sym]
   \\ irule_at Any Let_Lam
-  \\ fs [FST,freevars_of_def]
+  \\ fs [FST,vars_of_def]
   \\ irule exp_eq_Let_cong
   \\ fs [exp_eq_refl]
 QED
@@ -731,7 +698,7 @@ QED
 
 Theorem Lets_Let:
   v ∉ set (MAP FST xs) ∧
-  v ∉ freevars_of xs ⇒
+  v ∉ vars_of xs ⇒
   (Lets xs (Let v x y) ≅? Let v (Lets xs x) (Lets xs y)) b
 Proof
   rw []
@@ -930,7 +897,7 @@ Proof
 QED
 
 Theorem Lets_Letrec:
-  EVERY (λ(v, e). v ∉ set (MAP FST xs) ∧ v ∉ freevars_of xs) l ⇒
+  EVERY (λ(v, e). v ∉ set (MAP FST xs) ∧ v ∉ vars_of xs) l ⇒
     (Lets xs (Letrec l y) ≅? Letrec (MAP (λ(v, e). (v, Lets xs e)) l) (Lets xs y)) b
 Proof
   rw []
@@ -954,7 +921,7 @@ Proof
   >- fs [MAP_MAP_o, o_DEF, LAMBDA_PROD]
   \\ irule exp_eq_trans
   \\ irule_at Any Let_Letrec
-  \\ fs [freevars_of_def]
+  \\ fs [vars_of_def]
   \\ fs [EVERY_MAP, LAMBDA_PROD]
   \\ fs [MAP_MAP_o, o_DEF, LAMBDA_PROD, FST_intro]
   \\ conj_tac
@@ -967,8 +934,9 @@ Proof
   \\ sg `EVERY
         (λv.
            (v ≠ q ∧ ¬MEM v (MAP FST xs)) ∧ v ∉ freevars r ∧
-           v ∉ freevars_of xs) (MAP FST l)`
-  >- fs [EVERY_MAP, LAMBDA_PROD, FST]
+           v ∉ vars_of xs) (MAP FST l)`
+  >- (fs [EVERY_MAP, LAMBDA_PROD, FST, SF CONJ_ss]
+      \\ gvs [EVERY_MEM,FORALL_PROD] \\ metis_tac [])
   \\ conj_tac >-
    (fs [EVERY_MEM]
     \\ reverse $ Cases_on `MEM q (MAP FST l)`
@@ -1560,7 +1528,7 @@ Proof
     \\ rw []
     \\ irule Lets_copy
     \\ PairCases_on ‘e’
-    \\ rw [] \\ fs [binds_ok_def,bind_ok_def,vars_of_def,Lets_def]
+    \\ rw [] \\ fs [binds_ok_def,bind_ok_def,Lets_def]
   )
   \\ rw []
   \\ first_x_assum $ qspec_then ‘ys’ assume_tac
@@ -1600,7 +1568,7 @@ Proof
     \\ sg `(Lets [e] (Lets (h::xs) x) ≅? Lets [e; e] (Lets (h::xs) x)) b`
     >- (
       irule Lets_copy
-      \\ PairCases_on ‘e’ \\ fs [bind_ok_def, vars_of_def]
+      \\ PairCases_on ‘e’ \\ fs [bind_ok_def]
     )
     \\ gvs [GSYM Lets_append]
   )
@@ -1614,7 +1582,7 @@ Proof
     \\ sg `(Lets [e] (Lets (h::(xs ++ [e])) x) ≅? Lets [e; e] (Lets (h::(xs ++ [e])) x)) b`
     >- (
       irule Lets_copy
-      \\ PairCases_on ‘e’ \\ fs [bind_ok_def, vars_of_def]
+      \\ PairCases_on ‘e’ \\ fs [bind_ok_def]
     )
     \\ gvs [GSYM Lets_append]
   )
@@ -1787,8 +1755,6 @@ Proof
     \\ last_x_assum $ irule_at Any
     \\ irule_at Any pre_SNOC \\ fs []
     \\ irule_at Any binds_ok_SNOC_alt \\ fs []
-    \\ imp_res_tac pre_Letrec_vars_of \\ gvs []
-    \\ pop_assum kall_tac
     \\ first_assum $ qspecl_then [`y`] assume_tac
     \\ irule exp_eq_trans
     \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
@@ -1827,8 +1793,8 @@ Theorem inline_rel_IMP_exp_eq:
   (x ≅? y) b
 Proof
   rw [] \\ drule inline_rel_IMP_exp_eq_lemma
-  \\ fs [pre_def,binds_ok_def,vars_of_def,
-         freevars_of_def,closed_def,bind_ok_rec_def,Lets_def]
+  \\ fs [pre_def,binds_ok_def,
+         vars_of_def,closed_def,bind_ok_rec_def,Lets_def]
 QED
 
 Theorem inline_rel_IMP_exp_eq_specialized:
