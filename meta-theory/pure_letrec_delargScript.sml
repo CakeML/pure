@@ -8,7 +8,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrec_specTheory pure_inlineTheory;
+     pure_letrec_specTheory pure_inline_relTheory;
 
 val _ = new_theory "pure_letrec_delarg";
 
