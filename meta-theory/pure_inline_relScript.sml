@@ -358,22 +358,15 @@ Inductive inline_rel:
 [~refl:]
   (∀l t.
     inline_rel l t t) ∧
+[~Var:]
+  (∀v x l.
+    MEM (v, x) l ⇒
+    inline_rel l (Var v) x) ∧
 [~Let:]
   (∀l v x y.
     inline_rel l x x' ∧
     inline_rel (l ++ [(v,x)]) y y' ⇒
     inline_rel l (Let v x y) (Let v x' y')) ∧
-[~Var:]
-  (∀v x x1 x2 l.
-    MEM (v, x) l ∧
-    x ≅ x1 ∧
-    pre l x1 ∧
-    inline_rel l x1 x2 ⇒
-    inline_rel l (Var v) x2) ∧
-[~VarSimp:]
-  (∀v x l.
-    MEM (v, x) l ⇒
-    inline_rel l (Var v) x) ∧
 [~Prim:]
   (∀l p xs ys.
     LIST_REL (inline_rel l) xs ys ⇒
@@ -392,7 +385,7 @@ Inductive inline_rel:
     LIST_REL (λ(n,t1) (m,u1). n = m ∧ inline_rel l t1 u1) xs ys ∧
     inline_rel l t u ⇒
     inline_rel l (Letrec xs t) (Letrec ys u)) ∧
-[~LetRecIntroExp:]
+[~spec:]
   (∀l t u v x y x1.
     inline_rel l x y ∧
     (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
@@ -407,12 +400,26 @@ Inductive inline_rel:
     inline_rel l y z ∧
     pre l y ⇒
     inline_rel l x z) ∧
-[~ExpEq:]
+[~simp:]
   (∀l t u u1.
     inline_rel l t u ∧
     u ≅ u1 ⇒
     inline_rel l t u1)
 End
+
+Theorem inline_rel_Var_trans:
+  ∀v x x1 x2 l.
+    MEM (v,x) l ∧ x ≅ x1 ∧ pre l x1 ∧ inline_rel l x1 x2 ⇒
+    inline_rel l (Var v) x2
+Proof
+  rw []
+  \\ irule inline_rel_trans
+  \\ pop_assum $ irule_at Any \\ fs []
+  \\ irule_at Any inline_rel_simp
+  \\ last_x_assum $ irule_at Any
+  \\ irule_at Any inline_rel_Var
+  \\ fs []
+QED
 
 Theorem Lets_snoc:
   ∀xs. Lets (xs ++ [(v,x)]) y = Lets xs (Let v x y)
@@ -1670,31 +1677,6 @@ Theorem inline_rel_IMP_exp_eq_lemma:
 Proof
   Induct_on ‘inline_rel’
   \\ rpt strip_tac \\ fs [exp_eq_refl]
-  >~ [‘Var’] >- (
-    rw []
-    \\ fs [binds_ok_def,EVERY_MEM,bind_ok_def]
-    \\ res_tac
-    \\ fs [bind_ok_def]
-    \\ irule exp_eq_trans
-    \\ irule_at Any Lets_MEM
-    \\ first_assum $ irule_at $ Pos hd
-    \\ fs [EVERY_MEM,binds_ok_def]
-    \\ fs [Lets_append,Lets_def]
-    \\ sg `(Let v x (Var v) ≅? x) b`
-    >- irule Let_Var
-    \\ sg `(Lets xs (Let v x (Var v)) ≅? Lets xs x) b`
-    >- (
-      irule Lets_cong
-      \\ simp []
-    )
-    \\ irule exp_eq_trans
-    \\ pop_assum $ irule_at Any
-    \\ irule exp_eq_trans
-    \\ irule_at (Pos hd) Lets_cong
-    \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
-    \\ pop_assum $ irule_at $ Pos hd
-    \\ fs []
-  )
   >~ [‘Var’] >- (
     rw []
     \\ fs [binds_ok_def,EVERY_MEM,bind_ok_def,Lets_def]
