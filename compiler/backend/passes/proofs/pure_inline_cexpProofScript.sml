@@ -1844,7 +1844,7 @@ Proof
     \\ Cases_on ‘cl = 0’ \\ gvs []
     \\ first_assum drule \\ strip_tac \\ fs []
     \\ fs []
-    \\ irule_at Any inline_rel_Var
+    \\ irule_at Any inline_rel_Var_trans
     \\ fs []
     \\ qpat_x_assum ‘MEM _ _’ $ irule_at Any
     \\ qexists_tac ‘exp_of x’ \\ fs [exp_eq_refl]
@@ -1950,9 +1950,9 @@ Proof
     \\ rename [‘App a2 (Lam a3 l3 c3) es2’]
     \\ irule inline_rel_trans
     \\ last_x_assum $ irule_at Any
-    \\ irule_at Any inline_rel_ExpEq
+    \\ irule_at Any inline_rel_simp
     \\ irule_at (Pos hd) inline_rel_Apps
-    \\ irule_at (Pos hd) inline_rel_VarSimp
+    \\ irule_at (Pos hd) inline_rel_Var
     \\ ‘MEM (explode v,exp_of c) xs’ by
           (fs [memory_inv_def] \\ res_tac  \\ fs [])
     \\ pop_assum $ irule_at Any
@@ -2175,7 +2175,7 @@ Proof
     \\ Cases_on ‘specialise w u’ \\ gvs []
     \\ fs [inline_def]
     \\ pairarg_tac \\ gvs []
-    \\ irule inline_rel_LetRecIntroExp
+    \\ irule inline_rel_spec
     \\ conj_tac
     >- (
       last_x_assum $ irule_at Any
