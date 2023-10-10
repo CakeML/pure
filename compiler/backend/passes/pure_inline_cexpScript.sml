@@ -12,10 +12,6 @@ val _ = new_theory "pure_inline_cexp";
 
 (*******************)
 
-Datatype:
-  cexp_rhs = cExp ('a cexp) | cRec ('a cexp)
-End
-
 (* heuristic for deciding when to inline *)
 Type heuristic = “:'a cexp -> bool”
 
@@ -41,7 +37,7 @@ Definition heuristic_insert_def:
   heuristic_insert m h v e =
     if cheap e ∧ h e then
       let _ = empty_ffi (strlit "inliner remembering let: " ^ v) in
-        insert m v (cExp e)
+        insert m v e
     else
       m
 End
@@ -55,7 +51,7 @@ Definition heuristic_insert_Rec_def:
           | NONE => m
           | SOME b =>
              let _ = empty_ffi (strlit "inliner remembering rec: " ^ v) in
-               insert m v (cExp b)
+               insert m v b
         )
         else
           m
@@ -93,10 +89,10 @@ Definition App_Lam_to_Lets_def:
 End
 
 Definition inline_def:
-  inline (m: ('a cexp_rhs) var_map) ns (cl: num) (h: 'a heuristic) (Var (a: 'a) v) =
+  inline (m: ('a cexp) var_map) ns (cl: num) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
     | NONE => (Var a v, ns)
-    | SOME (cExp e) =>
+    | SOME e =>
       if is_Lam e
       then (Var a v, ns)
       else if cl = 0 then (Var a v, ns)
@@ -104,8 +100,7 @@ Definition inline_def:
           let _ = empty_ffi (strlit "inlining " ^ v ^
                     strlit " and decrementing clock " ^ toString cl) in
             inline m ns (cl - 1) h e
-        )
-    | SOME (cRec e) => (Var a v, ns)) ∧
+        )) ∧
   inline m ns cl h (App a e es) = (
     let (es1, ns1) = inline_list m ns cl h es
     in (
@@ -113,7 +108,7 @@ Definition inline_def:
       (* Var applied to arguments *)
       | SOME v => (
         case lookup m v of
-        | SOME (cExp e_m) =>
+        | SOME e_m =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1
           in (case App_Lam_to_Lets exp of
           | NONE => (App a e es1, ns1)
@@ -177,21 +172,19 @@ Termination
 End
 
 Definition inline_old_def:
-  inline_old (m: ('a cexp_rhs) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
+  inline_old (m: ('a cexp) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
     (case lookup m v of
     | NONE => (Var a v, ns)
-    | SOME (cExp e) =>
+    | SOME e =>
       if is_Lam e
       then (Var a v, ns)
-      else (e, ns) (* Might want to freshen the names and recurse *)
-    | SOME (cRec e) => (Var a v, ns)) ∧
+      else (e, ns) (* Might want to freshen the names and recurse *)) ∧
   inline_old m ns h (App a e es) =
     (let (e1, ns1) = (case get_Var_name e of
       | SOME v =>
         (case lookup m v of
         | NONE => inline_old m ns h e
-        | SOME (cExp e) => (e, ns) (* Might want to freshen the names and recurse *)
-        | SOME (cRec _) => inline_old m ns h e)
+        | SOME e => (e, ns) (* Might want to freshen the names and recurse *))
       | NONE => inline_old m ns h e)
      in let (es2, ns2) = inline_list_old m ns1 h es
      in (App a e1 es2, ns2)) ∧
