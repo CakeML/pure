@@ -338,7 +338,7 @@ End
 
 Definition vars_of_def:
   vars_of [] = {} ∧
-  vars_of ((v,e)::rest) = v INSERT boundvars e ∪ vars_of rest
+  vars_of ((v,e)::rest) = v INSERT vars_of rest
 End
 
 Definition freevars_of_def:
@@ -449,41 +449,12 @@ Proof
   \\ fs [bind_ok_rec_def]
 QED
 
-Theorem vars_of_MEM_not_in:
-  MEM (q,e) xs ∧ v ∉ vars_of xs ⇒
-  v ∉ boundvars e
-Proof
-  rw []
-  \\ Induct_on `xs` \\ rw []
-  >- fs [vars_of_def]
-  \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def]
-QED
-
 Theorem vars_of_DISJOINT_MAP_FST:
   DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP FST xs))
 Proof
   rw []
   \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
-  >- (
-    Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def]
-  )
-  \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def]
-  >- (
-    last_x_assum irule
-    \\ fs [DISJOINT_SYM]
-  )
-  \\ last_x_assum irule
-  \\ fs [DISJOINT_SYM]
-QED
-
-Theorem vars_of_MEM_DISJOINT:
-  MEM (q,e) xs ∧ DISJOINT s (vars_of xs) ⇒
-  DISJOINT s (boundvars e)
-Proof
-  rw []
-  \\ Induct_on `xs` \\ rw []
-  >- fs [vars_of_def,DISJOINT_SYM]
-  \\ Cases_on `h` \\ Cases_on `r` \\ fs [vars_of_def,DISJOINT_SYM]
+  \\ PairCases_on ‘h’ \\ gvs [vars_of_def]
 QED
 
 Theorem vars_of_append:
@@ -492,12 +463,7 @@ Proof
   rw []
   \\ Induct_on ‘xs’ \\ rw []
   >- fs [vars_of_def]
-  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
-  >- (
-    fs [vars_of_def]
-    \\ fs [UNION_ASSOC]
-    \\ fs [INSERT_UNION_EQ]
-  )
+  \\ PairCases_on `h` \\ rw []
   \\ fs [vars_of_def]
   \\ fs [UNION_ASSOC]
   \\ fs [INSERT_UNION_EQ]
@@ -919,7 +885,7 @@ Proof
   rw []
   \\ Induct_on `xs`
   >- rw [vars_of_def,MAP]
-  \\ Cases_on `h` \\ Cases_on `r`
+  \\ Cases_on `h`
   \\ rw [vars_of_def,MAP]
 QED
 
