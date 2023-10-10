@@ -13,6 +13,431 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 
 val _ = new_theory "pure_inline_rel";
 
+(*------------------------------------------------------------------------------*
+   Definition of precondition pre
+ *------------------------------------------------------------------------------*)
+
+Inductive no_shadowing:
+[~Var:]
+  (∀v. no_shadowing (Var v)) ∧
+[~Prim:]
+  (∀l p.
+    EVERY no_shadowing l ⇒
+    no_shadowing (Prim p l)) ∧
+[~App:]
+  (∀x y.
+    no_shadowing x ∧ no_shadowing y ∧
+    DISJOINT (boundvars x) (boundvars y) ⇒
+    no_shadowing (App x y)) ∧
+[~Lam:]
+  (∀v x.
+    no_shadowing x ∧ v ∉ boundvars x ⇒
+    no_shadowing (Lam v x)) ∧
+[~Letrec:]
+  (∀l x.
+    EVERY (λ(v,e).
+            no_shadowing e ∧
+            DISJOINT (freevars e) (boundvars x) ∧
+            DISJOINT (boundvars e) (boundvars x) ∧
+            DISJOINT (boundvars e) (freevars e) ∧
+            DISJOINT (set (MAP FST l)) (boundvars e)) l ∧
+    no_shadowing x ∧ DISJOINT (set (MAP FST l)) (boundvars x) ⇒
+    no_shadowing (Letrec l x))
+End
+
+Theorem no_shadowing_simp[simp] =
+  map (SIMP_CONV (srw_ss()) [Once no_shadowing_cases])
+    [“no_shadowing (Var v)”,
+     “no_shadowing (Prim p l)”,
+     “no_shadowing (App x y)”,
+     “no_shadowing (Lam v x)”] |> LIST_CONJ;
+
+Definition vars_of_def:
+  vars_of [] = {} ∧
+  vars_of ((v,e)::rest) = v INSERT vars_of rest
+End
+
+Definition freevars_of_def:
+  freevars_of [] = {} ∧
+  freevars_of ((v,e)::rest) = freevars e ∪ freevars_of rest
+End
+
+Definition pre_def:
+  pre l x ⇔
+    no_shadowing x ∧
+    DISJOINT (boundvars x) (freevars x) ∧
+    DISJOINT (boundvars x) (vars_of l) ∧
+    DISJOINT (boundvars x) (freevars_of l)
+End
+
+(*------------------------------------------------------------------------------*
+   Definition of inline_rel
+ *------------------------------------------------------------------------------*)
+
+Inductive inline_rel:
+[~refl:]
+  (∀l t.
+    inline_rel l t t) ∧
+[~Var:]
+  (∀v x l.
+    MEM (v, x) l ⇒
+    inline_rel l (Var v) x) ∧
+[~Let:]
+  (∀l v x y.
+    inline_rel l x x' ∧
+    inline_rel (l ++ [(v,x)]) y y' ⇒
+    inline_rel l (Let v x y) (Let v x' y')) ∧
+[~Prim:]
+  (∀l p xs ys.
+    LIST_REL (inline_rel l) xs ys ⇒
+    inline_rel l (Prim p xs) (Prim p ys)) ∧
+[~App:]
+  (∀l t1 t2 u1 u2.
+    inline_rel l t1 u1 ∧
+    inline_rel l t2 u2 ⇒
+    inline_rel l (App t1 t2) (App u1 u2)) ∧
+[~Lam:]
+  (∀l t u w.
+    inline_rel l t u ⇒
+    inline_rel l (Lam w t) (Lam w u)) ∧
+[~Letrec:]
+  (∀l t u xs ys.
+    LIST_REL (λ(n,t1) (m,u1). n = m ∧ inline_rel l t1 u1) xs ys ∧
+    inline_rel l t u ⇒
+    inline_rel l (Letrec xs t) (Letrec ys u)) ∧
+[~spec:]
+  (∀l t u v x y x1.
+    inline_rel l x y ∧
+    (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
+    v ∉ freevars x1 ∧
+    DISJOINT (boundvars t) (boundvars x1) ∧
+    DISJOINT (boundvars t) (freevars x1) ∧
+    inline_rel (l ++ [(v,x1)]) t u ⇒
+    inline_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
+[~trans:]
+  (∀l x y z.
+    inline_rel l x y ∧
+    inline_rel l y z ∧
+    pre l y ⇒
+    inline_rel l x z) ∧
+[~simp:]
+  (∀l t u u1.
+    inline_rel l t u ∧
+    u ≅ u1 ⇒
+    inline_rel l t u1)
+End
+
+(*------------------------------------------------------------------------------*
+   Definition of binds_ok
+ *------------------------------------------------------------------------------*)
+
+Definition bind_ok_def:
+  (bind_ok xs (v,x) ⇔ v ∉ freevars x)
+End
+
+Definition bind_ok_rec_def:
+  (bind_ok_rec [] = T) ∧
+  (bind_ok_rec ((v,x)::rest) =
+    (DISJOINT (freevars x) (set (MAP FST rest)) ∧ (* for pushing down bindings *)
+    bind_ok_rec rest))
+End
+
+Definition binds_ok_def:
+  binds_ok xs ⇔
+    ALL_DISTINCT (MAP FST xs) ∧
+    EVERY (bind_ok xs) xs ∧
+    bind_ok_rec xs
+End
+
+(*------------------------------------------------------------------------------*
+   Lemmas about binds_ok etc.
+ *------------------------------------------------------------------------------*)
+
+Theorem bind_ok_rec_APPEND:
+  bind_ok_rec (ys ++ xs) ⇒ bind_ok_rec xs
+Proof
+  rw []
+  \\ Induct_on `ys` \\ rw []
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- fs [bind_ok_rec_def]
+  \\ fs [bind_ok_rec_def]
+QED
+
+Theorem vars_of_DISJOINT_MAP_FST:
+  DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP FST xs))
+Proof
+  rw []
+  \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
+  \\ PairCases_on ‘h’ \\ gvs [vars_of_def]
+QED
+
+Theorem vars_of_append:
+  ∀xs ys. vars_of (xs ++ ys) = vars_of xs ∪ vars_of ys
+Proof
+  rw []
+  \\ Induct_on ‘xs’ \\ rw []
+  >- fs [vars_of_def]
+  \\ PairCases_on `h` \\ rw []
+  \\ fs [vars_of_def]
+  \\ fs [UNION_ASSOC]
+  \\ fs [INSERT_UNION_EQ]
+QED
+
+Theorem freevars_of_append:
+  ∀xs ys. freevars_of (xs ++ ys) = freevars_of xs ∪ freevars_of ys
+Proof
+  rw []
+  \\ Induct_on ‘xs’ \\ rw []
+  >- fs [freevars_of_def]
+  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
+  >- (
+    fs [freevars_of_def]
+    \\ fs [UNION_ASSOC]
+  )
+  \\ fs [freevars_of_def]
+  \\ fs [UNION_ASSOC]
+QED
+
+Theorem vars_of_DISJOINT_FILTER:
+  ∀xs ys. DISJOINT s (vars_of ys) ⇒
+    DISJOINT s (vars_of (FILTER P ys))
+Proof
+  rw []
+  \\ Induct_on ‘ys’ \\ reverse $ rw []
+  >- (
+    last_x_assum irule
+    \\ qsuff_tac `DISJOINT s (vars_of ([h] ++ ys))`
+    >- fs [vars_of_append, vars_of_def, DISJOINT_SYM]
+    \\ fs [Once APPEND]
+  )
+  \\ sg `DISJOINT s (vars_of ([h] ++ ys))`
+  >- simp [Once APPEND]
+  \\ qsuff_tac `DISJOINT s (vars_of ([h] ++ FILTER P ys))`
+  >- simp [Once APPEND]
+  \\ fs [vars_of_append]
+  \\ simp [Once DISJOINT_SYM]
+  \\ last_x_assum irule
+  \\ fs [DISJOINT_SYM]
+QED
+
+Theorem bind_ok_EVERY_Exp_append:
+  EVERY (bind_ok xs) xs ∧
+  v ∉ vars_of xs
+  ⇒
+  EVERY (bind_ok (xs ++ [(v,x)])) xs
+Proof
+  rw []
+  \\ fs [EVERY_MEM]
+  \\ rw []
+  \\ first_assum $ qspec_then `e` assume_tac
+  \\ Cases_on `e` \\ Cases_on `r` \\ rw []
+  \\ fs [bind_ok_def,vars_of_def]
+  \\ gvs []
+  \\ fs [vars_of_append]
+QED
+
+Theorem bind_ok_rec_Exp_append:
+  bind_ok_rec xs ∧
+  v ∉ freevars_of xs
+  ⇒
+  bind_ok_rec (xs ++ [(v,x)])
+Proof
+  rw []
+  \\ Induct_on `xs` \\ rw []
+  >- fs [bind_ok_rec_def]
+  \\ Cases_on `h`
+  \\ fs [bind_ok_rec_def]
+  \\ fs [DISJOINT_SYM]
+  \\ fs [freevars_of_def]
+  \\ last_x_assum $ irule
+  \\ fs [DISJOINT_SYM]
+QED
+
+Theorem vars_of_not_in_MAP_FST:
+  v ∉ vars_of xs ⇒ ¬MEM v (MAP FST xs)
+Proof
+  rw []
+  \\ Induct_on `xs`
+  >- rw [vars_of_def,MAP]
+  \\ Cases_on `h`
+  \\ rw [vars_of_def,MAP]
+QED
+
+Theorem binds_ok_SNOC:
+  binds_ok xs ∧ pre xs (Let v x y) ⇒
+  binds_ok (xs ++ [(v,x)])
+Proof
+  fs [binds_ok_def,bind_ok_def,pre_def]
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ fs [DISJOINT_SYM]
+  \\ fs [vars_of_not_in_MAP_FST]
+  \\ fs [vars_of_DISJOINT_MAP_FST]
+  \\ fs [FILTER_APPEND]
+  \\ fs [vars_of_DISJOINT_FILTER]
+  \\ fs [bind_ok_EVERY_Exp_append]
+  \\ fs [bind_ok_rec_def]
+  \\ fs [bind_ok_rec_Exp_append]
+QED
+
+Theorem binds_ok_SNOC_alt:
+  binds_ok xs ∧ v ∉ freevars x1 ∧ ~MEM v (MAP FST xs) ∧
+  v ∉ freevars_of xs ∧ v ∉ vars_of xs
+  ⇒
+  binds_ok (xs ++ [(v,x1)])
+Proof
+  rw []
+  \\ fs [binds_ok_def,bind_ok_def,pre_def]
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ fs [DISJOINT_SYM]
+  \\ fs [vars_of_not_in_MAP_FST]
+  \\ fs [vars_of_DISJOINT_MAP_FST]
+  \\ fs [FILTER_APPEND]
+  \\ fs [vars_of_DISJOINT_FILTER]
+  \\ irule_at Any bind_ok_EVERY_Exp_append \\ fs []
+  \\ irule_at Any bind_ok_rec_Exp_append \\ fs []
+QED
+
+Theorem map_fst_subset_vars_of:
+  ∀xs. set (MAP FST xs) ⊆ vars_of xs
+Proof
+  Induct \\ fs [vars_of_def,FORALL_PROD] \\ fs [SUBSET_DEF]
+QED
+
+Theorem bind_ok_sublist:
+  ∀x xs ys e. bind_ok (ys ++ x::xs) e ⇒ bind_ok (ys ++ xs) e
+Proof
+  rw [] \\ Cases_on `e` \\ Cases_on `r` \\ rw [] \\ fs [bind_ok_def]
+QED
+
+(*------------------------------------------------------------------------------*
+   Lemmas and precondition pre
+ *------------------------------------------------------------------------------*)
+
+Theorem pre_App:
+  pre xs (App x y) ⇒ pre xs x ∧ pre xs y
+Proof
+  gvs [pre_def]
+  \\ fs [IN_DISJOINT]
+  \\ metis_tac []
+QED
+
+Theorem pre_Prim:
+  pre xs (Prim x ys) ⇒ EVERY (pre xs) ys
+Proof
+  gvs [pre_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+QED
+
+Theorem pre_Lam:
+  pre xs (Lam w x) ⇒
+  ¬MEM w (MAP FST xs) ∧ w ∉ freevars_of xs ∧ pre xs x
+Proof
+  fs [pre_def] \\ strip_tac
+  \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
+  \\ gvs [IN_DISJOINT] \\ metis_tac []
+QED
+
+Theorem pre_SNOC:
+  pre xs x ∧
+  v ∉ freevars x1 ∧ v ∉ boundvars x ∧
+  DISJOINT (boundvars x) (boundvars x1) ∧
+  DISJOINT (boundvars x) (freevars x1) ⇒
+  pre (xs ++ [(v,x1)]) x
+Proof
+  fs [pre_def,vars_of_def,vars_of_append,freevars_of_append,freevars_of_def] \\ rw []
+  \\ simp [DISJOINT_SYM]
+QED
+
+Theorem pre_Let:
+  pre xs (Let v x y) ⇒
+  pre xs x ∧ pre (xs ++ [(v,x)]) y ∧
+  ¬MEM v (MAP FST xs) ∧ v ∉ freevars_of xs
+Proof
+  fs [binds_ok_def,bind_ok_def,pre_def]
+  \\ simp [vars_of_append,vars_of_def,DISJOINT_SYM,
+           freevars_of_append,freevars_of_def]
+  \\ strip_tac
+  \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
+  \\ gvs [IN_DISJOINT]
+  \\ metis_tac []
+QED
+
+Theorem pre_Letrec:
+  pre xs (Letrec ys x) ⇒
+  pre xs x ∧ EVERY (pre xs) (MAP SND ys) ∧
+  DISJOINT (set (MAP FST ys)) (boundvars x) ∧
+  EVERY (λ(v,e). ¬MEM v (MAP FST xs) ∧ v ∉ freevars_of xs) ys
+Proof
+  rpt strip_tac
+  >-
+   (gvs [pre_def]
+    \\ fs [Once no_shadowing_cases]
+    \\ gvs [IN_DISJOINT] \\ metis_tac [])
+  >-
+   (pop_assum mp_tac \\ fs [pre_def]
+    \\ fs [Once no_shadowing_cases]
+    \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT]
+    \\ gvs [IN_DISJOINT] \\ metis_tac [])
+  \\ pop_assum mp_tac \\ fs [pre_def]
+  \\ fs [Once no_shadowing_cases]
+  \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def]
+  \\ rpt disch_tac
+  \\ rpt gen_tac
+  \\ rpt disch_tac \\ fs []
+  \\ ‘set (MAP FST xs) ⊆ vars_of xs’ by gvs [map_fst_subset_vars_of]
+  \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT,SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Triviality pre_Letrec_vars_of:
+  pre xs (Letrec [(v,y)] x) ⇒
+  v ∉ vars_of xs
+Proof
+  fs [pre_def]
+QED
+
+(*------------------------------------------------------------------------------*
+   Lemma about no_shadowing
+ *------------------------------------------------------------------------------*)
+
+Theorem barendregt_imp_no_shadowing:
+  ∀e. barendregt e ⇒ no_shadowing e
+Proof
+  simp[barendregt_def] >>
+  Induct using unique_boundvars_ind >>
+  rw[unique_boundvars_Letrec, unique_boundvars_def] >>
+  gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, SF DNF_ss]
+  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
+  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
+  >- (first_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
+  simp[Once no_shadowing_cases, EVERY_MEM] >> reverse $ rw[]
+  >- (last_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
+  first_x_assum drule >> pairarg_tac >> gvs[] >> rw[]
+  >- (
+    first_x_assum irule >> simp[SF SFY_ss] >>
+    first_x_assum drule >> gvs[DISJOINT_ALT] >>
+    rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
+    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
+    )
+  >- (
+    simp[Once DISJOINT_SYM] >> irule DISJOINT_SUBSET >>
+    qexists `(freevars body DIFF set (MAP FST fns)) ∪ set (MAP FST fns)` >> simp[] >>
+    simp[Once DISJOINT_SYM] >>
+    qpat_x_assum `DISJOINT (boundvars e) (_ DIFF _)` mp_tac >> rw[DISJOINT_ALT] >>
+    first_x_assum drule >> simp[DISJ_EQ_IMP, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    rw[] >> first_x_assum irule >> rw[SF SFY_ss]
+    )
+  >- simp[Once DISJOINT_SYM]
+  >- (
+    first_x_assum drule >> gvs[DISJOINT_ALT] >> rw[] >>
+    first_x_assum drule >> rw[] >> gvs[] >>
+    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
+    )
+QED
+
+(*------------------------------------------------------------------------------*
+   Theorems about pushing and pulling let-expressions
+ *------------------------------------------------------------------------------*)
+
 Theorem FLOOKUP_closed_FRANGE_closed:
   ∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ⇔
       (∀v. v ∈ FRANGE f ⇒ closed v)
@@ -246,167 +671,6 @@ Proof
   \\ res_tac
 QED
 
-Theorem LIST_REL_swap:
-  ∀xs ys. LIST_REL R xs ys = LIST_REL (λx y. R y x) ys xs
-Proof
-  Induct \\ fs []
-QED
-
-Definition list_lookup_def:
-  list_lookup v [] = NONE ∧
-  list_lookup v ((v', x)::rest) =
-    if v = v' then SOME (x, rest) else
-      case list_lookup v rest of
-      | NONE => NONE
-      | SOME (y,ys) => SOME (y,(v', x)::ys)
-End
-
-Inductive no_shadowing:
-[~Var:]
-  (∀v. no_shadowing (Var v)) ∧
-[~Prim:]
-  (∀l p.
-    EVERY no_shadowing l ⇒
-    no_shadowing (Prim p l)) ∧
-[~App:]
-  (∀x y.
-    no_shadowing x ∧ no_shadowing y ∧
-    DISJOINT (boundvars x) (boundvars y) ⇒
-    no_shadowing (App x y)) ∧
-[~Lam:]
-  (∀v x.
-    no_shadowing x ∧ v ∉ boundvars x ⇒
-    no_shadowing (Lam v x)) ∧
-[~Letrec:]
-  (∀l x.
-    EVERY (λ(v,e).
-            no_shadowing e ∧
-            DISJOINT (freevars e) (boundvars x) ∧
-            DISJOINT (boundvars e) (boundvars x) ∧
-            DISJOINT (boundvars e) (freevars e) ∧
-            DISJOINT (set (MAP FST l)) (boundvars e)) l ∧
-    no_shadowing x ∧ DISJOINT (set (MAP FST l)) (boundvars x) ⇒
-    no_shadowing (Letrec l x))
-End
-
-Theorem no_shadowing_simp[simp] =
-  map (SIMP_CONV (srw_ss()) [Once no_shadowing_cases])
-    [“no_shadowing (Var v)”,
-     “no_shadowing (Prim p l)”,
-     “no_shadowing (App x y)”,
-     “no_shadowing (Lam v x)”] |> LIST_CONJ;
-
-Theorem barendregt_imp_no_shadowing:
-  ∀e. barendregt e ⇒ no_shadowing e
-Proof
-  simp[barendregt_def] >>
-  Induct using unique_boundvars_ind >>
-  rw[unique_boundvars_Letrec, unique_boundvars_def] >>
-  gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, SF DNF_ss]
-  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
-  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
-  >- (first_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
-  simp[Once no_shadowing_cases, EVERY_MEM] >> reverse $ rw[]
-  >- (last_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
-  first_x_assum drule >> pairarg_tac >> gvs[] >> rw[]
-  >- (
-    first_x_assum irule >> simp[SF SFY_ss] >>
-    first_x_assum drule >> gvs[DISJOINT_ALT] >>
-    rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
-    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
-    )
-  >- (
-    simp[Once DISJOINT_SYM] >> irule DISJOINT_SUBSET >>
-    qexists `(freevars body DIFF set (MAP FST fns)) ∪ set (MAP FST fns)` >> simp[] >>
-    simp[Once DISJOINT_SYM] >>
-    qpat_x_assum `DISJOINT (boundvars e) (_ DIFF _)` mp_tac >> rw[DISJOINT_ALT] >>
-    first_x_assum drule >> simp[DISJ_EQ_IMP, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    rw[] >> first_x_assum irule >> rw[SF SFY_ss]
-    )
-  >- simp[Once DISJOINT_SYM]
-  >- (
-    first_x_assum drule >> gvs[DISJOINT_ALT] >> rw[] >>
-    first_x_assum drule >> rw[] >> gvs[] >>
-    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
-    )
-QED
-
-Definition TAKE_WHILE_def:
-  (TAKE_WHILE P [] = []) ∧
-  (TAKE_WHILE P (h::t) = if P h then h::(TAKE_WHILE P t) else [])
-End
-
-Definition vars_of_def:
-  vars_of [] = {} ∧
-  vars_of ((v,e)::rest) = v INSERT vars_of rest
-End
-
-Definition freevars_of_def:
-  freevars_of [] = {} ∧
-  freevars_of ((v,e)::rest) = freevars e ∪ freevars_of rest
-End
-
-Definition pre_def:
-  pre l x ⇔
-    no_shadowing x ∧
-    DISJOINT (boundvars x) (freevars x) ∧
-    DISJOINT (boundvars x) (vars_of l) ∧
-    DISJOINT (boundvars x) (freevars_of l)
-End
-
-Inductive inline_rel:
-[~refl:]
-  (∀l t.
-    inline_rel l t t) ∧
-[~Var:]
-  (∀v x l.
-    MEM (v, x) l ⇒
-    inline_rel l (Var v) x) ∧
-[~Let:]
-  (∀l v x y.
-    inline_rel l x x' ∧
-    inline_rel (l ++ [(v,x)]) y y' ⇒
-    inline_rel l (Let v x y) (Let v x' y')) ∧
-[~Prim:]
-  (∀l p xs ys.
-    LIST_REL (inline_rel l) xs ys ⇒
-    inline_rel l (Prim p xs) (Prim p ys)) ∧
-[~App:]
-  (∀l t1 t2 u1 u2.
-    inline_rel l t1 u1 ∧
-    inline_rel l t2 u2 ⇒
-    inline_rel l (App t1 t2) (App u1 u2)) ∧
-[~Lam:]
-  (∀l t u w.
-    inline_rel l t u ⇒
-    inline_rel l (Lam w t) (Lam w u)) ∧
-[~Letrec:]
-  (∀l t u xs ys.
-    LIST_REL (λ(n,t1) (m,u1). n = m ∧ inline_rel l t1 u1) xs ys ∧
-    inline_rel l t u ⇒
-    inline_rel l (Letrec xs t) (Letrec ys u)) ∧
-[~spec:]
-  (∀l t u v x y x1.
-    inline_rel l x y ∧
-    (∀e. Letrec [(v, x)] e ≅ Let v x1 e) ∧
-    v ∉ freevars x1 ∧
-    DISJOINT (boundvars t) (boundvars x1) ∧
-    DISJOINT (boundvars t) (freevars x1) ∧
-    inline_rel (l ++ [(v,x1)]) t u ⇒
-    inline_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
-[~trans:]
-  (∀l x y z.
-    inline_rel l x y ∧
-    inline_rel l y z ∧
-    pre l y ⇒
-    inline_rel l x z) ∧
-[~simp:]
-  (∀l t u u1.
-    inline_rel l t u ∧
-    u ≅ u1 ⇒
-    inline_rel l t u1)
-End
-
 Theorem inline_rel_Var_trans:
   ∀v x x1 x2 l.
     MEM (v,x) l ∧ x ≅ x1 ∧ pre l x1 ∧ inline_rel l x1 x2 ⇒
@@ -426,124 +690,6 @@ Theorem Lets_snoc:
 Proof
   Induct \\ fs [Lets_def]
   \\ PairCases \\ Cases_on ‘h1’ \\ fs [Lets_def]
-QED
-
-Definition bind_ok_def:
-  (bind_ok xs (v,x) ⇔ v ∉ freevars x)
-End
-
-Definition bind_ok_rec_def:
-  (bind_ok_rec [] = T) ∧
-  (bind_ok_rec ((v,x)::rest) =
-    (DISJOINT (freevars x) (set (MAP FST rest)) ∧ (* for pushing down bindings *)
-    bind_ok_rec rest))
-End
-
-Definition binds_ok_def:
-  binds_ok xs ⇔
-    ALL_DISTINCT (MAP FST xs) ∧
-    EVERY (bind_ok xs) xs ∧
-    bind_ok_rec xs
-End
-
-Theorem bind_ok_rec_APPEND:
-  bind_ok_rec (ys ++ xs) ⇒ bind_ok_rec xs
-Proof
-  rw []
-  \\ Induct_on `ys` \\ rw []
-  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
-  >- fs [bind_ok_rec_def]
-  \\ fs [bind_ok_rec_def]
-QED
-
-Theorem vars_of_DISJOINT_MAP_FST:
-  DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP FST xs))
-Proof
-  rw []
-  \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
-  \\ PairCases_on ‘h’ \\ gvs [vars_of_def]
-QED
-
-Theorem vars_of_append:
-  ∀xs ys. vars_of (xs ++ ys) = vars_of xs ∪ vars_of ys
-Proof
-  rw []
-  \\ Induct_on ‘xs’ \\ rw []
-  >- fs [vars_of_def]
-  \\ PairCases_on `h` \\ rw []
-  \\ fs [vars_of_def]
-  \\ fs [UNION_ASSOC]
-  \\ fs [INSERT_UNION_EQ]
-QED
-
-Theorem freevars_of_append:
-  ∀xs ys. freevars_of (xs ++ ys) = freevars_of xs ∪ freevars_of ys
-Proof
-  rw []
-  \\ Induct_on ‘xs’ \\ rw []
-  >- fs [freevars_of_def]
-  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
-  >- (
-    fs [freevars_of_def]
-    \\ fs [UNION_ASSOC]
-  )
-  \\ fs [freevars_of_def]
-  \\ fs [UNION_ASSOC]
-QED
-
-Theorem vars_of_DISJOINT_FILTER:
-  ∀xs ys. DISJOINT s (vars_of ys) ⇒
-    DISJOINT s (vars_of (FILTER P ys))
-Proof
-  rw []
-  \\ Induct_on ‘ys’ \\ reverse $ rw []
-  >- (
-    last_x_assum irule
-    \\ qsuff_tac `DISJOINT s (vars_of ([h] ++ ys))`
-    >- fs [vars_of_append, vars_of_def, DISJOINT_SYM]
-    \\ fs [Once APPEND]
-  )
-  \\ sg `DISJOINT s (vars_of ([h] ++ ys))`
-  >- simp [Once APPEND]
-  \\ qsuff_tac `DISJOINT s (vars_of ([h] ++ FILTER P ys))`
-  >- simp [Once APPEND]
-  \\ fs [vars_of_append]
-  \\ simp [Once DISJOINT_SYM]
-  \\ last_x_assum irule
-  \\ fs [DISJOINT_SYM]
-QED
-
-Theorem bind_ok_EVERY_Exp_append:
-  EVERY (bind_ok xs) xs ∧
-  v ∉ vars_of xs
-  ⇒
-  EVERY (bind_ok (xs ++ [(v,x)])) xs
-Proof
-  rw []
-  \\ fs [EVERY_MEM]
-  \\ rw []
-  \\ first_assum $ qspec_then `e` assume_tac
-  \\ Cases_on `e` \\ Cases_on `r` \\ rw []
-  \\ fs [bind_ok_def,vars_of_def]
-  \\ gvs []
-  \\ fs [vars_of_append]
-QED
-
-Theorem bind_ok_rec_Exp_append:
-  bind_ok_rec xs ∧
-  v ∉ freevars_of xs
-  ⇒
-  bind_ok_rec (xs ++ [(v,x)])
-Proof
-  rw []
-  \\ Induct_on `xs` \\ rw []
-  >- fs [bind_ok_rec_def]
-  \\ Cases_on `h`
-  \\ fs [bind_ok_rec_def]
-  \\ fs [DISJOINT_SYM]
-  \\ fs [freevars_of_def]
-  \\ last_x_assum $ irule
-  \\ fs [DISJOINT_SYM]
 QED
 
 Theorem exp_eq_Let_cong:
@@ -886,16 +1032,6 @@ Proof
   \\ rw [exp_eq_refl]
 QED
 
-Theorem vars_of_not_in_MAP_FST:
-  v ∉ vars_of xs ⇒ ¬MEM v (MAP FST xs)
-Proof
-  rw []
-  \\ Induct_on `xs`
-  >- rw [vars_of_def,MAP]
-  \\ Cases_on `h`
-  \\ rw [vars_of_def,MAP]
-QED
-
 Theorem Lets_append:
   ∀xs ys e. Lets (xs ++ ys) e = Lets xs (Lets ys e)
 Proof
@@ -1076,12 +1212,6 @@ Proof
     \\ simp [subst_fdomsub]
   )
   \\ simp [freevars_subst]
-QED
-
-Theorem bind_ok_sublist:
-  ∀x xs ys e. bind_ok (ys ++ x::xs) e ⇒ bind_ok (ys ++ xs) e
-Proof
-  rw [] \\ Cases_on `e` \\ Cases_on `r` \\ rw [] \\ fs [bind_ok_def]
 QED
 
 Theorem Let_Let_copy:
@@ -1548,127 +1678,9 @@ Proof
   \\ first_x_assum $ irule_at Any \\ fs []
 QED
 
-Theorem pre_App:
-  pre xs (App x y) ⇒ pre xs x ∧ pre xs y
-Proof
-  gvs [pre_def]
-  \\ fs [IN_DISJOINT]
-  \\ metis_tac []
-QED
-
-Theorem pre_Prim:
-  pre xs (Prim x ys) ⇒ EVERY (pre xs) ys
-Proof
-  gvs [pre_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-QED
-
-Theorem pre_Lam:
-  pre xs (Lam w x) ⇒
-  ¬MEM w (MAP FST xs) ∧ w ∉ freevars_of xs ∧ pre xs x
-Proof
-  fs [pre_def] \\ strip_tac
-  \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
-  \\ gvs [IN_DISJOINT] \\ metis_tac []
-QED
-
-Theorem pre_SNOC:
-  pre xs x ∧
-  v ∉ freevars x1 ∧ v ∉ boundvars x ∧
-  DISJOINT (boundvars x) (boundvars x1) ∧
-  DISJOINT (boundvars x) (freevars x1) ⇒
-  pre (xs ++ [(v,x1)]) x
-Proof
-  fs [pre_def,vars_of_def,vars_of_append,freevars_of_append,freevars_of_def] \\ rw []
-  \\ simp [DISJOINT_SYM]
-QED
-
-Theorem pre_Let:
-  pre xs (Let v x y) ⇒
-  pre xs x ∧ pre (xs ++ [(v,x)]) y ∧
-  ¬MEM v (MAP FST xs) ∧ v ∉ freevars_of xs
-Proof
-  fs [binds_ok_def,bind_ok_def,pre_def]
-  \\ simp [vars_of_append,vars_of_def,DISJOINT_SYM,
-           freevars_of_append,freevars_of_def]
-  \\ strip_tac
-  \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
-  \\ gvs [IN_DISJOINT]
-  \\ metis_tac []
-QED
-
-Theorem map_fst_subset_vars_of:
-  ∀xs. set (MAP FST xs) ⊆ vars_of xs
-Proof
-  Induct \\ fs [vars_of_def,FORALL_PROD] \\ fs [SUBSET_DEF]
-QED
-
-Theorem pre_Letrec:
-  pre xs (Letrec ys x) ⇒
-  pre xs x ∧ EVERY (pre xs) (MAP SND ys) ∧
-  DISJOINT (set (MAP FST ys)) (boundvars x) ∧
-  EVERY (λ(v,e). ¬MEM v (MAP FST xs) ∧ v ∉ freevars_of xs) ys
-Proof
-  rpt strip_tac
-  >-
-   (gvs [pre_def]
-    \\ fs [Once no_shadowing_cases]
-    \\ gvs [IN_DISJOINT] \\ metis_tac [])
-  >-
-   (pop_assum mp_tac \\ fs [pre_def]
-    \\ fs [Once no_shadowing_cases]
-    \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT]
-    \\ gvs [IN_DISJOINT] \\ metis_tac [])
-  \\ pop_assum mp_tac \\ fs [pre_def]
-  \\ fs [Once no_shadowing_cases]
-  \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def]
-  \\ rpt disch_tac
-  \\ rpt gen_tac
-  \\ rpt disch_tac \\ fs []
-  \\ ‘set (MAP FST xs) ⊆ vars_of xs’ by gvs [map_fst_subset_vars_of]
-  \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT,SUBSET_DEF]
-  \\ metis_tac []
-QED
-
-Theorem binds_ok_SNOC:
-  binds_ok xs ∧ pre xs (Let v x y) ⇒
-  binds_ok (xs ++ [(v,x)])
-Proof
-  fs [binds_ok_def,bind_ok_def,pre_def]
-  \\ fs [ALL_DISTINCT_APPEND]
-  \\ fs [DISJOINT_SYM]
-  \\ fs [vars_of_not_in_MAP_FST]
-  \\ fs [vars_of_DISJOINT_MAP_FST]
-  \\ fs [FILTER_APPEND]
-  \\ fs [vars_of_DISJOINT_FILTER]
-  \\ fs [bind_ok_EVERY_Exp_append]
-  \\ fs [bind_ok_rec_def]
-  \\ fs [bind_ok_rec_Exp_append]
-QED
-
-Theorem binds_ok_SNOC_alt:
-  binds_ok xs ∧ v ∉ freevars x1 ∧ ~MEM v (MAP FST xs) ∧
-  v ∉ freevars_of xs ∧ v ∉ vars_of xs
-  ⇒
-  binds_ok (xs ++ [(v,x1)])
-Proof
-  rw []
-  \\ fs [binds_ok_def,bind_ok_def,pre_def]
-  \\ fs [ALL_DISTINCT_APPEND]
-  \\ fs [DISJOINT_SYM]
-  \\ fs [vars_of_not_in_MAP_FST]
-  \\ fs [vars_of_DISJOINT_MAP_FST]
-  \\ fs [FILTER_APPEND]
-  \\ fs [vars_of_DISJOINT_FILTER]
-  \\ irule_at Any bind_ok_EVERY_Exp_append \\ fs []
-  \\ irule_at Any bind_ok_rec_Exp_append \\ fs []
-QED
-
-Triviality pre_Letrec_vars_of:
-  pre xs (Letrec [(v,y)] x) ⇒
-  v ∉ vars_of xs
-Proof
-  fs [pre_def]
-QED
+(*------------------------------------------------------------------------------*
+   The main result of this script
+ *------------------------------------------------------------------------------*)
 
 Theorem inline_rel_IMP_exp_eq_lemma:
   ∀xs x y.
