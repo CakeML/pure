@@ -458,7 +458,6 @@ Proof
   \\ gvs [GSYM subst_fdomsub]
 QED
 
-(* //TODO(kπ) move *)
 Theorem exp_eq_subst_IMP_exp_eq:
   (∀f. (∀n v. FLOOKUP f n = SOME v ⇒ closed v) ∧
        freevars x ⊆ FDOM f ∧ freevars y ⊆ FDOM f ⇒
