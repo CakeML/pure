@@ -36,8 +36,7 @@ End
 Definition heuristic_insert_def:
   heuristic_insert m h v e =
     if cheap e ∧ h e then
-      let _ = empty_ffi (strlit "inliner remembering let: " ^ v) in
-        insert m v e
+      insert m v e
     else
       m
 End
@@ -49,9 +48,7 @@ Definition heuristic_insert_Rec_def:
         if h e then (
           case specialise v e of
           | NONE => m
-          | SOME b =>
-             let _ = empty_ffi (strlit "inliner remembering rec: " ^ v) in
-               insert m v b
+          | SOME b => insert m v b
         )
         else
           m
@@ -78,7 +75,6 @@ by inlining in the App case. The problem now is that
 ```
 And so goint further won't do anything
 *)
-
 Definition App_Lam_to_Lets_def:
   App_Lam_to_Lets (App a (Lam _ vs b) es) =
     (if LENGTH es < LENGTH vs (* not fully applied *) then NONE else
@@ -97,9 +93,7 @@ Definition inline_def:
       then (Var a v, ns)
       else if cl = 0 then (Var a v, ns)
         else (
-          let _ = empty_ffi (strlit "inlining " ^ v ^
-                    strlit " and decrementing clock " ^ toString cl) in
-            inline m ns (cl - 1) h e
+          inline m ns (cl - 1) h e
         )) ∧
   inline m ns cl h (App a e es) = (
     let (es1, ns1) = inline_list m ns cl h es
@@ -114,11 +108,7 @@ Definition inline_def:
           | NONE => (App a e es1, ns1)
           | SOME exp1 =>
             if cl = 0 then (App a e es1, ns1)
-            else (
-              let _ = empty_ffi (strlit "inlining " ^ v ^
-                    strlit " and decrementing clock " ^ toString cl)
-              in inline m ns2 (cl - 1) h exp1
-            )
+            else inline m ns2 (cl - 1) h exp1
           )
         | _ =>
           let (e1, ns2) = inline m ns1 cl h e
@@ -171,73 +161,11 @@ Termination
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
 End
 
-Definition inline_old_def:
-  inline_old (m: ('a cexp) var_map) (ns: var_set) (h: 'a heuristic) (Var (a: 'a) v) =
-    (case lookup m v of
-    | NONE => (Var a v, ns)
-    | SOME e =>
-      if is_Lam e
-      then (Var a v, ns)
-      else (e, ns) (* Might want to freshen the names and recurse *)) ∧
-  inline_old m ns h (App a e es) =
-    (let (e1, ns1) = (case get_Var_name e of
-      | SOME v =>
-        (case lookup m v of
-        | NONE => inline_old m ns h e
-        | SOME e => (e, ns) (* Might want to freshen the names and recurse *))
-      | NONE => inline_old m ns h e)
-     in let (es2, ns2) = inline_list_old m ns1 h es
-     in (App a e1 es2, ns2)) ∧
-  inline_old m ns h (Let a v e1 e2) =
-    (let m1 = heuristic_insert m h v e1
-     in let (e3, ns3) = inline_old m ns h e1
-     in let (e4, ns4) = inline_old m1 ns3 h e2
-     in (Let a v e3 e4, ns4)) ∧
-  inline_old m ns h (Letrec a vbs e) =
-    (let m1 = heuristic_insert_Rec m h vbs
-     in let (vbs1, ns1) = inline_list_old m ns h (MAP SND vbs)
-     in let (e2, ns2) = inline_old m1 ns1 h e
-     in (Letrec a (MAP2 (λ(v,_) x. (v, x)) vbs vbs1) e2, ns2)) ∧
-  inline_old m ns h (Lam a vs e) =
-    (let (e1, ns1) = inline_old m ns h e
-    in (Lam a vs e1, ns1)) ∧
-  inline_old m ns h (Prim a op es) =
-    (let (es2, ns2) = inline_list_old m ns h es
-     in (Prim a op es2, ns2)) ∧
-  inline_old m ns h (Case a e v bs f) =
-    (let (e1, ns1) = inline_old m ns h e
-     in let (bs2, ns2) = inline_list_old m ns1 h (MAP (λ(v, vs, e). e) bs)
-     in let (f3, ns3) = case f of
-        | NONE => (NONE, ns2)
-        | SOME (vs, e) =>
-          let (e4, ns4) = inline_old m ns2 h e
-          in (SOME (vs, e4), ns4)
-     in (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3, ns3)) ∧
-  inline_old m ns h (NestedCase a e v p e' bs) =
-    (NestedCase a e v p e' bs, ns) ∧
-  inline_list_old m ns h [] = ([], ns) ∧
-  inline_list_old m ns h (e::es) =
-    (let (e1, ns1) = inline_old m ns h e in
-     let (es2, ns2) = inline_list_old m ns1 h es
-     in (e1::es2, ns2))
-Termination
-  WF_REL_TAC `measure $ λx. case x of
-    | INL (m, ns, h, e) => cexp_size (K 0) e
-    | INR (m, ns, h, es) => list_size (cexp_size (K 0)) es`
-  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
-  \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
-  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
-End
-
 Definition inline_all_def:
   inline_all cl h e =
     let (e1, s) = freshen_cexp e (boundvars_of e)
     in let (inlined_e, _) = inline empty s cl h e1
     in dead_let inlined_e
-End
-
-Definition inline_all_old_def:
-  inline_all_old = inline_old pure_vars$empty empty
 End
 
 Triviality cexp_size_lemma2:
@@ -274,26 +202,6 @@ Definition tree_size_heuristic_rec_def:
 Termination
   WF_REL_TAC ‘measure (λx. case x of
     | (n, e) => cexp_size (K 0) e)’
-  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
-  \\ imp_res_tac cexp_size_lemma2 \\ fs []
-End
-
-Definition tree_size_def:
-  tree_size (Var a v) = 1 ∧
-  tree_size (Prim a op es) = 1 + SUM (MAP tree_size es) ∧
-  tree_size (App a e es) = 1 + SUM (MAP tree_size (e::es)) ∧
-  tree_size (Lam a vs e) = 1 + tree_size e ∧
-  tree_size (Let a v e1 e2) = 1 + tree_size e1 + tree_size e2 ∧
-  tree_size (Letrec a vbs e) = 1 + tree_size e + SUM (MAP (λ(v, e). tree_size e) vbs) ∧
-  tree_size (Case a e v bs f) =
-    1 + tree_size e + SUM (MAP (λ(v, vs, e). tree_size e) bs) +
-    (case f of
-      None => 0
-    | Some (vs, e) => tree_size e) ∧
-  tree_size (NestedCase a e v p e' bs) =
-    1 + tree_size e + tree_size e' + SUM (MAP (λ(p, e). tree_size e) bs)
-Termination
-  WF_REL_TAC ‘measure (cexp_size (K 0))’
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ imp_res_tac cexp_size_lemma2 \\ fs []
 End
