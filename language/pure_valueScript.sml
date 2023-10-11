@@ -198,7 +198,7 @@ Theorem v_11 = LIST_CONJ [Atom_11, Closure_11, Constructor_11];
  * Prove distinctness for constructors.
  *)
 
-Theorem v_distinct:
+Triviality v_distinct_lemma:
   ALL_DISTINCT [Atom b; Closure n x; Constructor s t; Error; Diverge]
 Proof
   rw [Atom_def, Closure_def, Constructor_def, Error_def, Diverge_def]
@@ -215,7 +215,7 @@ Proof
          Error_rep_def]
 QED
 
-Theorem v_distinct = SIMP_RULE list_ss [GSYM CONJ_ASSOC] v_distinct;
+Theorem v_distinct = SIMP_RULE list_ss [GSYM CONJ_ASSOC] v_distinct_lemma;
 
 (*
  * Prove nchotomy and cases for constructors.
@@ -284,7 +284,7 @@ Definition v_CASE[nocompute]:
     | _ => ARB
 End
 
-Theorem v_CASE[compute]:
+Theorem v_CASE[compute,allow_rebind]:
   v_CASE (Atom b) atom cons clos div err = atom b ∧
   v_CASE (Constructor s t) atom cons clos div err = cons s t ∧
   v_CASE (Closure n x) atom cons clos div err = clos n x ∧
@@ -766,7 +766,7 @@ Proof
   rw[]
 QED
 
-Theorem v_take_finite:
+Theorem v_take_finite[allow_rebind]:
   ∀v. v_finite v ⇔ ∃n. v_take n v = v
 Proof
   simp[EQ_IMP_THM,FORALL_AND_THM] >>
@@ -822,4 +822,3 @@ Proof
 QED
 
 val _ = export_theory ();
-

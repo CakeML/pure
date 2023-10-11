@@ -130,7 +130,7 @@ Definition reserved_cns_def:
   reserved_cns = {"";"True";"False";"Subscript"} ∪ monad_cns
 End
 
-Theorem reserved_cns_def:
+Theorem reserved_cns_def[allow_rebind]:
   reserved_cns =
     {"";"True";"False";"Subscript";
      "Ret";"Bind";"Raise";"Handle";"Alloc";"Length";"Deref";"Update";"Act"}
