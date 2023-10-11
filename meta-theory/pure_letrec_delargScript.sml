@@ -26,52 +26,52 @@ Definition mk_apps_def:
   mk_apps b f xs v ys = Apps f (xs ++ (if b then [] else [v]) ++ ys)
 End
 
-Inductive call_with_arg:
+Inductive remove_call_arg:
 [~Apps_Var:]
   (∀info xs ys xs1 ys1 R b1 b2.
     LENGTH xs = LENGTH info.args ∧
     LENGTH xs1 = LENGTH info.args' ∧
-    LIST_REL (call_with_arg b1 b2 T info R) xs ys ∧
-    LIST_REL (call_with_arg b1 b2 T info R) xs1 ys1 ⇒
-    call_with_arg b1 b2 T info R (mk_apps b1 (Var info.fname) xs (Var info.w_arg) xs1)
+    LIST_REL (remove_call_arg b1 b2 T info R) xs ys ∧
+    LIST_REL (remove_call_arg b1 b2 T info R) xs1 ys1 ⇒
+    remove_call_arg b1 b2 T info R (mk_apps b1 (Var info.fname) xs (Var info.w_arg) xs1)
                                  (mk_apps b2 (Var info.fname) ys (Var info.w_arg) ys1)) ∧
 [~Apps_Const:]
   (∀info xs ys xs1 ys1 R c.
     LENGTH xs = LENGTH info.args ∧
     LENGTH xs1 = LENGTH info.args' ∧ closed c ∧
-    LIST_REL (call_with_arg b1 b2 F info R) xs ys ∧
-    LIST_REL (call_with_arg b1 b2 F info R) xs1 ys1 ⇒
-    call_with_arg b1 b2 F info R (mk_apps b1 (Var info.fname) xs c xs1)
+    LIST_REL (remove_call_arg b1 b2 F info R) xs ys ∧
+    LIST_REL (remove_call_arg b1 b2 F info R) xs1 ys1 ⇒
+    remove_call_arg b1 b2 F info R (mk_apps b1 (Var info.fname) xs c xs1)
                                  (mk_apps b2 (Var info.fname) ys c ys1)) ∧
 [~Var:]
   (∀info n b R.
     n ≠ info.arg ∧ n ≠ info.fname ⇒
-    call_with_arg b1 b2 b info R (Var n) (Var n)) ∧
+    remove_call_arg b1 b2 b info R (Var n) (Var n)) ∧
 [~Lam:]
   (∀info n x y b R.
-    call_with_arg b1 b2 b info R x y ∧
+    remove_call_arg b1 b2 b info R x y ∧
     info.arg ≠ n ∧ info.w_arg ≠ n ∧ info.fname ≠ n ⇒
-    call_with_arg b1 b2 b info R (Lam n x) (Lam n y)) ∧
+    remove_call_arg b1 b2 b info R (Lam n x) (Lam n y)) ∧
 [~App:]
   (∀info f x g y  b R.
-    call_with_arg b1 b2 b info R f g ∧
-    call_with_arg b1 b2 b info R x y ⇒
-    call_with_arg b1 b2 b info R (App f x) (App g y)) ∧
+    remove_call_arg b1 b2 b info R f g ∧
+    remove_call_arg b1 b2 b info R x y ⇒
+    remove_call_arg b1 b2 b info R (App f x) (App g y)) ∧
 [~Prim:]
   (∀info n xs ys b R.
-    LIST_REL (call_with_arg b1 b2 b info R) xs ys ⇒
-    call_with_arg b1 b2 b info R (Prim n xs) (Prim n ys)) ∧
+    LIST_REL (remove_call_arg b1 b2 b info R) xs ys ⇒
+    remove_call_arg b1 b2 b info R (Prim n xs) (Prim n ys)) ∧
 [~Letrec:]
   (∀info xs x ys y b R.
-    LIST_REL (call_with_arg b1 b2 b info R) (MAP SND xs) (MAP SND ys) ∧
+    LIST_REL (remove_call_arg b1 b2 b info R) (MAP SND xs) (MAP SND ys) ∧
     DISJOINT {info.arg; info.fname; info.w_arg} (set (MAP FST xs)) ∧
     MAP FST xs = MAP FST ys ∧
-    call_with_arg b1 b2 b info R x y ⇒
-    call_with_arg b1 b2 b info R (Letrec xs x) (Letrec ys y)) ∧
+    remove_call_arg b1 b2 b info R x y ⇒
+    remove_call_arg b1 b2 b info R (Letrec xs x) (Letrec ys y)) ∧
 [~closed:]
   (∀info b c1 c2 R.
     closed c1 ∧ closed c2 ∧ R c1 c2 ⇒
-    call_with_arg b1 b2 b info R c1 c2)
+    remove_call_arg b1 b2 b info R c1 c2)
 End
 
 Definition info_ok_def:
@@ -80,7 +80,7 @@ Definition info_ok_def:
     i.arg ∉ freevars i.rhs_F ∧
     i.arg ∉ freevars i.rhs_T ∧
     ALL_DISTINCT (i.fname::i.arg::i.w_arg::i.args ++ i.args') ∧
-    call_with_arg F T F i (=) i.rhs_F i.rhs_T
+    remove_call_arg F T F i (=) i.rhs_F i.rhs_T
 End
 
 Definition mk_fun_def:
@@ -97,20 +97,20 @@ Definition mk_rec_def:
   mk_rec b i = mk_letrec b i (mk_fun b i)
 End
 
-Theorem call_with_arg_mono[mono]:
+Theorem remove_call_arg_mono[mono]:
   (∀x y. R1 x y ⇒ R2 x y) ⇒
-  call_with_arg b1 b2 b i R1 x y ⇒
-  call_with_arg b1 b2 b i R2 x y
+  remove_call_arg b1 b2 b i R1 x y ⇒
+  remove_call_arg b1 b2 b i R2 x y
 Proof
   qsuff_tac ‘
     ∀b1 b2 b i R1 x y.
-      call_with_arg b1 b2 b i R1 x y ⇒
+      remove_call_arg b1 b2 b i R1 x y ⇒
       (∀x y. R1 x y ⇒ R2 x y) ⇒
-      call_with_arg b1 b2 b i R2 x y’
+      remove_call_arg b1 b2 b i R2 x y’
   >- metis_tac []
-  \\ ho_match_mp_tac call_with_arg_ind
+  \\ ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac
-  \\ simp [Once call_with_arg_cases]
+  \\ simp [Once remove_call_arg_cases]
   \\ gvs [SF SFY_ss,SF ETA_ss]
   \\ metis_tac []
 QED
@@ -118,7 +118,7 @@ QED
 Inductive letrec_delarg:
 [~Switch:]
   (∀info x b1 b2.
-    call_with_arg b1 b2 F info (letrec_delarg info) x y ∧
+    remove_call_arg b1 b2 F info (letrec_delarg info) x y ∧
     info_ok info ∧
     freevars (mk_fun b1 info) ⊆ {info.fname} ∧
     freevars (mk_fun b2 info) ⊆ {info.fname} ∧
@@ -169,13 +169,13 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Theorem call_with_arg_sym:
+Theorem remove_call_arg_sym:
   ∀b1 b2 b i R x y.
-    call_with_arg b1 b2 b i R x y ⇒ call_with_arg b2 b1 b i (λx y. R y x) y x
+    remove_call_arg b1 b2 b i R x y ⇒ remove_call_arg b2 b1 b i (λx y. R y x) y x
 Proof
-  ho_match_mp_tac call_with_arg_ind
+  ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac
-  \\ simp [Once call_with_arg_cases]
+  \\ simp [Once remove_call_arg_cases]
   \\ once_rewrite_tac [LIST_REL_SWAP] \\ fs []
   \\ disj1_tac
   \\ irule_at (Pos hd) EQ_REFL
@@ -191,13 +191,13 @@ Proof
   \\ gvs [] \\ Cases_on ‘ys’ \\ gvs []
 QED
 
-Theorem call_with_arg_dup:
+Theorem remove_call_arg_dup:
   ∀b1 b2 b i R x y.
-    call_with_arg b1 b2 b i R x y ⇒ call_with_arg b1 b1 b i $= x x
+    remove_call_arg b1 b2 b i R x y ⇒ remove_call_arg b1 b1 b i $= x x
 Proof
-  ho_match_mp_tac call_with_arg_ind
+  ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac
-  \\ simp [Once call_with_arg_cases]
+  \\ simp [Once remove_call_arg_cases]
   \\ gvs [LIST_REL_ignore_first]
   \\ gvs [LIST_REL_same]
   \\ disj1_tac
@@ -217,7 +217,7 @@ Proof
   \\ rw []
   \\ imp_res_tac LIST_REL_LENGTH
   >- (irule letrec_delarg_Switch \\ fs []
-      \\ imp_res_tac call_with_arg_sym \\ gvs [SF ETA_ss])
+      \\ imp_res_tac remove_call_arg_sym \\ gvs [SF ETA_ss])
   >- (irule letrec_delarg_Apps \\ fs []
       \\ simp [Once LIST_REL_SWAP]
       \\ simp [Once LIST_REL_SWAP])
@@ -261,11 +261,11 @@ Proof
   Induct \\ fs [PULL_EXISTS]
 QED
 
-Theorem call_with_arg_freevars:
+Theorem remove_call_arg_freevars:
   ∀b1 b2 b i R x y.
-    call_with_arg b1 b2 b i R x y ⇒ ~b ⇒ freevars x = freevars y
+    remove_call_arg b1 b2 b i R x y ⇒ ~b ⇒ freevars x = freevars y
 Proof
-  ho_match_mp_tac call_with_arg_ind
+  ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac \\ gvs []
   \\ gvs [closed_def]
   \\ imp_res_tac LIST_REL_freevars_lemma_1 \\ gvs [mk_apps_def,SF ETA_ss]
@@ -292,7 +292,7 @@ Proof
   \\ gvs [SUBSET_DEF]
   \\ rpt strip_tac
   \\ CCONTR_TAC \\ gvs []
-  \\ drule call_with_arg_freevars \\ gvs []
+  \\ drule remove_call_arg_freevars \\ gvs []
   \\ CCONTR_TAC \\ gvs []
 QED
 
@@ -348,9 +348,9 @@ Proof
   fs [mk_apps_def] \\ rw [] \\ fs [] \\ eq_tac \\ gvs []
 QED
 
-Theorem subst_call_with_arg:
+Theorem subst_remove_call_arg:
   ∀b1 b2 b i R x y.
-    call_with_arg b1 b2 b i R x y ⇒
+    remove_call_arg b1 b2 b i R x y ⇒
     ∀m1 m2.
       R = letrec_delarg i ∧ ~b ∧
       FDOM m1 = FDOM m2 ∧
@@ -358,14 +358,14 @@ Theorem subst_call_with_arg:
       (∀k. k ∈ FDOM m2 ⇒
            letrec_delarg i (m1 ' k) (m2 ' k) ∧ closed (m1 ' k) ∧
            closed (m2 ' k)) ⇒
-      call_with_arg b1 b2 F i (letrec_delarg i) (subst m1 x) (subst m2 y)
+      remove_call_arg b1 b2 F i (letrec_delarg i) (subst m1 x) (subst m2 y)
 Proof
-  ho_match_mp_tac call_with_arg_ind
+  ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac \\ gvs []
   >-
    (fs [subst_Apps]
     \\ fs [subst_def,FLOOKUP_DEF,subst_mk_apps]
-    \\ irule call_with_arg_Apps_Const \\ fs []
+    \\ irule remove_call_arg_Apps_Const \\ fs []
     \\ rw []
     \\ simp [LIST_REL_MAP]
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
@@ -373,20 +373,20 @@ Proof
   >-
    (fs [subst_def,FLOOKUP_DEF]
     \\ IF_CASES_TAC \\ fs []
-    >- (irule call_with_arg_closed \\ res_tac \\ fs [])
-    \\ irule call_with_arg_Var \\ fs [])
+    >- (irule remove_call_arg_closed \\ res_tac \\ fs [])
+    \\ irule remove_call_arg_Var \\ fs [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_Lam \\ fs []
+   (fs [subst_def] \\ irule remove_call_arg_Lam \\ fs []
     \\ last_x_assum irule
     \\ gvs [FDOM_DOMSUB,DOMSUB_FAPPLY_THM])
   >-
-   (fs [subst_def] \\ irule call_with_arg_App \\ fs [])
+   (fs [subst_def] \\ irule remove_call_arg_App \\ fs [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_Prim \\ fs [LIST_REL_MAP]
+   (fs [subst_def] \\ irule remove_call_arg_Prim \\ fs [LIST_REL_MAP]
     \\ last_x_assum mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_Letrec \\ fs [LIST_REL_MAP]
+   (fs [subst_def] \\ irule remove_call_arg_Letrec \\ fs [LIST_REL_MAP]
     \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
     \\ reverse conj_tac
     >-
@@ -398,7 +398,7 @@ Proof
     \\ rw []
     \\ first_x_assum $ irule
     \\ gvs [FDIFF_def,DRESTRICT_DEF])
-  \\ irule call_with_arg_closed \\ fs []
+  \\ irule remove_call_arg_closed \\ fs []
 QED
 
 Theorem boundvars_Apps:
@@ -407,9 +407,9 @@ Proof
   Induct \\ fs [Apps_def, AC UNION_COMM UNION_ASSOC]
 QED
 
-Theorem subst_call_with_arg_F_F:
+Theorem subst_remove_call_arg_F_F:
   ∀b1 b2 b i R x y.
-    call_with_arg b1 b2 b i R x y ⇒
+    remove_call_arg b1 b2 b i R x y ⇒
     ∀m1 m2.
       R = letrec_delarg i ∧ ~b ∧
       i.fname ∉ FDOM m1 ∧
@@ -418,15 +418,15 @@ Theorem subst_call_with_arg_F_F:
       (∀k. k ∈ FDOM m2 ∧ k ≠ i.arg ⇒
            letrec_delarg i (m1 ' k) (m2 ' k) ∧ closed (m1 ' k) ∧
            closed (m2 ' k)) ⇒
-      call_with_arg b1 b2 F i (letrec_delarg i) (subst m1 x) (subst m2 y)
+      remove_call_arg b1 b2 F i (letrec_delarg i) (subst m1 x) (subst m2 y)
 Proof
-  ho_match_mp_tac call_with_arg_ind
+  ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac \\ gvs []
   >-
    (fs [subst_Apps]
     \\ ‘i.fname ∉ FDOM m2’ by (fs [info_ok_def] \\ metis_tac [])
     \\ fs [subst_def,FLOOKUP_DEF,subst_mk_apps]
-    \\ irule call_with_arg_Apps_Const \\ fs [info_ok_def]
+    \\ irule remove_call_arg_Apps_Const \\ fs [info_ok_def]
     \\ simp [LIST_REL_MAP] \\ rw []
     \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
     \\ rw [] \\ gvs [SF SFY_ss]
@@ -436,23 +436,23 @@ Proof
    (fs [subst_def,FLOOKUP_DEF]
     \\ ‘n ∈ FDOM m1 <=> n ∈ FDOM m2’ by (fs [EXTENSION] \\ metis_tac [])
     \\ IF_CASES_TAC \\ fs []
-    >- (irule call_with_arg_closed \\ res_tac \\ fs [])
-    \\ irule call_with_arg_Var \\ fs [])
+    >- (irule remove_call_arg_closed \\ res_tac \\ fs [])
+    \\ irule remove_call_arg_Var \\ fs [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_Lam \\ fs []
+   (fs [subst_def] \\ irule remove_call_arg_Lam \\ fs []
     \\ last_x_assum irule
     \\ gvs [FDOM_DOMSUB,DOMSUB_FAPPLY_THM,FLOOKUP_DEF]
     \\ gvs [EXTENSION] \\ metis_tac [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_App \\ fs [])
+   (fs [subst_def] \\ irule remove_call_arg_App \\ fs [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_Prim \\ fs [LIST_REL_MAP]
+   (fs [subst_def] \\ irule remove_call_arg_Prim \\ fs [LIST_REL_MAP]
     \\ last_x_assum mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs [] \\ rw []
     \\ first_x_assum $ irule \\ fs [boundvars_Apps,MEM_MAP]
     \\ metis_tac [])
   >-
-   (fs [subst_def] \\ irule call_with_arg_Letrec \\ fs [LIST_REL_MAP]
+   (fs [subst_def] \\ irule remove_call_arg_Letrec \\ fs [LIST_REL_MAP]
     \\ gvs [MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_INTRO]
     \\ reverse conj_tac
     >-
@@ -464,7 +464,7 @@ Proof
     \\ rw []
     \\ first_x_assum $ irule
     \\ gvs [FDIFF_def,DRESTRICT_DEF,FLOOKUP_DEF])
-  \\ irule call_with_arg_closed \\ fs []
+  \\ irule remove_call_arg_closed \\ fs []
 QED
 
 Theorem subst_letrec_delarg:
@@ -487,10 +487,10 @@ Proof
     \\ irule letrec_delarg_Switch
     \\ last_x_assum $ irule_at Any
     \\ fs [FDIFF_def,DRESTRICT_DEF,FLOOKUP_DEF]
-    \\ drule_at (Pos last) call_with_arg_mono
+    \\ drule_at (Pos last) remove_call_arg_mono
     \\ disch_then $ qspec_then ‘letrec_delarg i’ mp_tac \\ fs []
     \\ gvs [GSYM FDIFF_def] \\ strip_tac
-    \\ irule subst_call_with_arg \\ gvs []
+    \\ irule subst_remove_call_arg \\ gvs []
     \\ gvs [FDIFF_def,DRESTRICT_DEF])
   >-
    (fs [subst_Apps,info_ok_def,subst_mk_apps]
@@ -571,7 +571,7 @@ Proof
   Cases_on ‘b1 = b2’ >- fs []
   \\ Cases_on ‘b1’ \\ gvs []
   \\ fs [mk_rec_def,mk_fun_def,mk_letrec_def,info_ok_def] \\ rw []
-  \\ drule call_with_arg_freevars
+  \\ drule remove_call_arg_freevars
   \\ gvs [SUBSET_DEF] \\ rw []
   \\ metis_tac []
 QED
@@ -614,13 +614,13 @@ Proof
   Cases_on ‘b1 = b2’ >- fs []
   \\ Cases_on ‘b1’ \\ gvs []
   \\ fs [mk_rec_def,mk_fun_def,mk_letrec_def,info_ok_def] \\ rw []
-  \\ drule call_with_arg_freevars
+  \\ drule remove_call_arg_freevars
   \\ gvs [SUBSET_DEF] \\ rw []
   \\ metis_tac []
 QED
 
-Theorem call_with_arg_imp_letrec_delarg:
-  call_with_arg b1 b2 F i (letrec_delarg i) x y ∧
+Theorem remove_call_arg_imp_letrec_delarg:
+  remove_call_arg b1 b2 F i (letrec_delarg i) x y ∧
   info_ok i ∧
   freevars (mk_fun b1 i) ⊆ {i.fname} ∧
   freevars (mk_fun b2 i) ⊆ {i.fname} ⇒
@@ -628,13 +628,13 @@ Theorem call_with_arg_imp_letrec_delarg:
                   (subst1 i.fname (mk_rec b2 i) y)
 Proof
   qsuff_tac ‘∀b1 b2 b i x.
-    call_with_arg b1 b2 b i (letrec_delarg i) x y ∧ info_ok i ∧ ~b ∧
+    remove_call_arg b1 b2 b i (letrec_delarg i) x y ∧ info_ok i ∧ ~b ∧
     freevars (mk_fun b1 i) ⊆ {i.fname} ∧
     freevars (mk_fun b2 i) ⊆ {i.fname} ⇒
     letrec_delarg i (subst1 i.fname (mk_rec b1 i) x)
                     (subst1 i.fname (mk_rec b2 i) y)’
   >- metis_tac []
-  \\ Induct_on ‘call_with_arg’
+  \\ Induct_on ‘remove_call_arg’
   \\ rpt strip_tac \\ gvs []
   >-
    (imp_res_tac closed_mk_rec
@@ -875,20 +875,20 @@ Proof
   \\ fs [closed_def]
 QED
 
-Theorem call_with_arg_gen:
-  call_with_arg F T F i $= i.rhs_F i.rhs_T ⇒
-  call_with_arg b1 b2 F i $= (if b1 then i.rhs_T else i.rhs_F)
+Theorem remove_call_arg_gen:
+  remove_call_arg F T F i $= i.rhs_F i.rhs_T ⇒
+  remove_call_arg b1 b2 F i $= (if b1 then i.rhs_T else i.rhs_F)
                              (if b2 then i.rhs_T else i.rhs_F)
 Proof
   Cases_on ‘b1 ≠ b2’ \\ fs []
   >-
    (Cases_on ‘b1’ \\ gvs [] \\ strip_tac
-    \\ drule call_with_arg_sym
+    \\ drule remove_call_arg_sym
     \\ simp [Once EQ_SYM_EQ, SF ETA_ss])
   \\ Cases_on ‘b1’ \\ gvs [] \\ rw []
-  \\ drule call_with_arg_sym
+  \\ drule remove_call_arg_sym
   \\ simp [Once EQ_SYM_EQ, SF ETA_ss] \\ rw []
-  \\ imp_res_tac call_with_arg_dup \\ fs []
+  \\ imp_res_tac remove_call_arg_dup \\ fs []
 QED
 
 Triviality lemma1:
@@ -998,8 +998,8 @@ Proof
     \\ drule_all LIST_REL_MEM_ALT
     \\ strip_tac \\ res_tac
     \\ imp_res_tac letrec_delarg_freevars \\ gvs [closed_def] )
-  \\ irule call_with_arg_imp_letrec_delarg \\ fs []
-  \\ irule subst_call_with_arg_F_F
+  \\ irule remove_call_arg_imp_letrec_delarg \\ fs []
+  \\ irule subst_remove_call_arg_F_F
   \\ simp []
   \\ gvs [FDOM_FUPDATE_LIST]
   \\ DEP_REWRITE_TAC [MAP_FST_ZIP]
@@ -1010,10 +1010,10 @@ Proof
   \\ reverse conj_tac >-
    (conj_tac >- (fs [info_ok_def] \\ rw [] \\ fs [])
     \\ fs [info_ok_def]
-    \\ irule call_with_arg_mono
+    \\ irule remove_call_arg_mono
     \\ qexists_tac ‘$=’
     \\ conj_tac >- fs [letrec_delarg_refl]
-    \\ irule call_with_arg_gen \\ fs [])
+    \\ irule remove_call_arg_gen \\ fs [])
   \\ strip_tac \\ strip_tac
   \\ qabbrev_tac ‘b1' = if b1 then [] else [i.arg]’
   \\ qabbrev_tac ‘b2' = if b2 then [] else [i.arg]’
@@ -1182,7 +1182,7 @@ Proof
     \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,FRANGE_DEF]
     \\ imp_res_tac letrec_delarg_freevars
     \\ fs [GSYM mk_letrec_def,GSYM mk_rec_def]
-    \\ irule call_with_arg_imp_letrec_delarg \\ fs [])
+    \\ irule remove_call_arg_imp_letrec_delarg \\ fs [])
   >~ [‘mk_apps’] >-
    (Cases_on ‘eval_wh_to k (mk_apps b1 (mk_rec b1 i) xs c xs1) = wh_Diverge’ >- fs []
     \\ drule_then (drule_at $ Pos last) Apps_rec_lemma
@@ -1523,15 +1523,15 @@ Proof
   \\ fs [letrec_delarg_refl,eval_forward_letrec_delarg,eval_forward_letrec_delarg_rev]
 QED
 
-Triviality call_with_arg_T_with:
+Triviality remove_call_arg_T_with:
   ∀b1 b2 b i R x y.
-    call_with_arg b1 b2 b i R x y ⇒ b ⇒
-    call_with_arg b1 b2 b (i with <|rhs_T := rhs1; rhs_F := rhs2|>) R x y
+    remove_call_arg b1 b2 b i R x y ⇒ b ⇒
+    remove_call_arg b1 b2 b (i with <|rhs_T := rhs1; rhs_F := rhs2|>) R x y
 Proof
-  ho_match_mp_tac call_with_arg_ind
+  ho_match_mp_tac remove_call_arg_ind
   \\ rpt strip_tac \\ gvs []
-  \\ rpt (simp [Once call_with_arg_cases] \\ gvs [SF ETA_ss] \\ NO_TAC)
-  \\ simp [Once call_with_arg_cases] \\ gvs []
+  \\ rpt (simp [Once remove_call_arg_cases] \\ gvs [SF ETA_ss] \\ NO_TAC)
+  \\ simp [Once remove_call_arg_cases] \\ gvs []
   \\ disj1_tac
   \\ irule_at Any EQ_REFL
   \\ irule_at Any EQ_REFL
@@ -1559,16 +1559,16 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem call_with_arg_subst:
+Theorem remove_call_arg_subst:
   ∀b1 b2 b i rhs1 rhs2 m.
-    call_with_arg b1 b2 b i (=) rhs1 rhs2 ⇒
+    remove_call_arg b1 b2 b i (=) rhs1 rhs2 ⇒
     i.fname ∉ FDOM m ∧
     (i.w_arg ∈ freevars rhs1 ⇒ i.w_arg ∈ FDOM m) ∧
     (i.w_arg ∈ freevars rhs2 ⇒ i.w_arg ∈ FDOM m) ∧
     (∀n v. FLOOKUP m n = SOME v ⇒ closed v) ∧ b ⇒
-    call_with_arg b1 b2 F i (=) (subst m rhs1) (subst m rhs2)
+    remove_call_arg b1 b2 F i (=) (subst m rhs1) (subst m rhs2)
 Proof
-  Induct_on ‘call_with_arg’
+  Induct_on ‘remove_call_arg’
   \\ rpt strip_tac
   \\ rpt var_eq_tac
   \\ gvs [subst_def]
@@ -1582,7 +1582,7 @@ Proof
     >-
      (strip_tac \\ gvs []
       \\ gvs [GSYM mk_apps_def,subst_def]
-      \\ irule call_with_arg_Apps_Const \\ fs []
+      \\ irule remove_call_arg_Apps_Const \\ fs []
       \\ fs [LIST_REL_MAP]
       \\ strip_tac
       \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
@@ -1598,16 +1598,16 @@ Proof
     \\ qexists_tac ‘Lit ARB’ \\ fs [closed_def])
   >-
    (Cases_on ‘FLOOKUP m n’ \\ fs [] \\ res_tac
-    >- (irule_at Any call_with_arg_Var \\ fs [])
-    \\ irule_at Any call_with_arg_closed \\ fs [])
+    >- (irule_at Any remove_call_arg_Var \\ fs [])
+    \\ irule_at Any remove_call_arg_closed \\ fs [])
   >-
-   (irule_at Any call_with_arg_Lam \\ fs []
+   (irule_at Any remove_call_arg_Lam \\ fs []
     \\ first_x_assum irule \\ fs [FDOM_DOMSUB,DOMSUB_FLOOKUP_THM]
     \\ rw [] \\ res_tac \\ gvs [])
   >-
-   (irule_at Any call_with_arg_App \\ fs [SF SFY_ss])
+   (irule_at Any remove_call_arg_App \\ fs [SF SFY_ss])
   >-
-   (irule_at Any call_with_arg_Prim \\ fs [SF SFY_ss,LIST_REL_MAP]
+   (irule_at Any remove_call_arg_Prim \\ fs [SF SFY_ss,LIST_REL_MAP]
     \\ last_x_assum mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs []
     \\ rw [] \\ gvs [SF SFY_ss]
@@ -1616,7 +1616,7 @@ Proof
     \\ gvs [MEM_MAP,PULL_EXISTS]
     \\ res_tac)
   >-
-   (irule call_with_arg_Letrec
+   (irule remove_call_arg_Letrec
     \\ fs [SF SFY_ss,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ fs [SF SFY_ss,LIST_REL_MAP_MAP]
     \\ fs [LIST_REL_same] \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
@@ -1631,7 +1631,7 @@ Proof
     \\ last_x_assum $ irule_at Any
     \\ gvs [FLOOKUP_DRESTRICT,FDIFF_def,SF SFY_ss,DRESTRICT_DEF]
     \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD])
-  \\ simp [Once call_with_arg_cases]
+  \\ simp [Once remove_call_arg_cases]
 QED
 
 Theorem subst_subst1_lemma:
@@ -1698,7 +1698,7 @@ Proof
 QED
 
 Theorem letrec_del_arg:
-  call_with_arg F T T i (=) rhs1 rhs2 ∧
+  remove_call_arg F T T i (=) rhs1 rhs2 ∧
   i.arg = v ∧ i.w_arg = w ∧ i.args = vs ∧ i.args' = ws ∧ i.fname = f ∧
   EVERY (λx. f ∉ freevars x) xs ∧
   EVERY (λx. f ∉ freevars x) ys ∧
@@ -1773,9 +1773,9 @@ Proof
       \\ irule subst_fdomsub
       \\ fs [])
     \\ fs []
-    \\ irule call_with_arg_subst \\ fs [SF SFY_ss]
+    \\ irule remove_call_arg_subst \\ fs [SF SFY_ss]
     \\ gvs [FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF,DOMSUB_FAPPLY_THM]
-    \\ irule call_with_arg_T_with \\ fs [])
+    \\ irule remove_call_arg_T_with \\ fs [])
   \\ ‘(Letrec [(f,Lams (vs ++ [v] ++ ws) rhs_F)] (Lams (vs ++ [v] ++ ws) rhs_F)) =
       mk_rec F i2’ by fs [mk_rec_def,mk_letrec_def,mk_fun_def,Abbr‘i2’]
   \\ ‘(Letrec [(f,Lams (vs ++ ws) rhs_T)] (Lams (vs ++ ws) rhs_T)) =
@@ -2019,7 +2019,7 @@ Theorem can_spec_arg_imp:
     ∀w.
       w ∉ freevars rhs1 ∧ w ∉ boundvars rhs1 ⇒
       call_with_spec T <|args := vs; arg := v; fname := f|> $= rhs1 rhs1 ∧
-      call_with_arg F T T
+      remove_call_arg F T T
         <|fname := f; args := vs; arg := w; w_arg := v; args' := ws|> $=
         rhs1 rhs2
 Proof
@@ -2028,7 +2028,7 @@ Proof
   \\ rpt disch_tac
   >-
    (reverse conj_tac >-
-     (simp [Once call_with_arg_cases] \\ disj1_tac
+     (simp [Once remove_call_arg_cases] \\ disj1_tac
       \\ qexists_tac ‘xs’
       \\ qexists_tac ‘ys’
       \\ qexists_tac ‘xs1’
@@ -2052,17 +2052,17 @@ Proof
     \\ gvs [EVERY_MEM,MEM_MAP] \\ rw []
     \\ metis_tac [])
   >~ [‘Var’] >-
-   (irule_at Any call_with_arg_Var \\ fs []
+   (irule_at Any remove_call_arg_Var \\ fs []
     \\ irule_at Any pure_letrec_specTheory.call_with_arg_Var \\ fs [])
   >~ [‘Lam’] >-
    (irule_at Any pure_letrec_specTheory.call_with_arg_Lam
-    \\ irule_at Any call_with_arg_Lam \\ fs [SF SFY_ss] \\ gvs [])
+    \\ irule_at Any remove_call_arg_Lam \\ fs [SF SFY_ss] \\ gvs [])
   >~ [‘App’] >-
    (irule_at Any pure_letrec_specTheory.call_with_arg_App
-    \\ irule_at Any call_with_arg_App \\ fs [SF SFY_ss] \\ gvs [])
+    \\ irule_at Any remove_call_arg_App \\ fs [SF SFY_ss] \\ gvs [])
   >~ [‘Prim’] >-
    (irule_at Any pure_letrec_specTheory.call_with_arg_Prim
-    \\ irule_at Any call_with_arg_Prim \\ fs [SF SFY_ss,MEM_MAP]
+    \\ irule_at Any remove_call_arg_Prim \\ fs [SF SFY_ss,MEM_MAP]
     \\ conj_tac
     >- (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
         \\ gvs [] \\ metis_tac [])
@@ -2070,7 +2070,7 @@ Proof
     \\ imp_res_tac LIST_REL_1 \\ gvs []
     \\ gvs [EVERY_MEM] \\ metis_tac [])
   \\ irule_at Any pure_letrec_specTheory.call_with_arg_Letrec
-  \\ irule_at Any call_with_arg_Letrec \\ fs [SF SFY_ss]
+  \\ irule_at Any remove_call_arg_Letrec \\ fs [SF SFY_ss]
   \\ gvs [LIST_REL_same]
   \\ conj_tac
   >- (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
