@@ -519,20 +519,6 @@ QED
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Theorem closed_mk_rec:
-  info_ok i ∧ closed (mk_rec b1 i) ⇒ closed (mk_rec b2 i)
-Proof
-  fs [closed_def,mk_rec_def,mk_letrec_def,mk_fun_def] \\ rpt strip_tac
-  \\ gvs [info_ok_def,GSYM DIFF_UNION]
-  \\ fs [SUBSET_DIFF_EMPTY]
-  \\ pop_assum mp_tac
-  \\ rpt IF_CASES_TAC \\ gvs []
-  \\ DEP_REWRITE_TAC [freevars_subst]
-  \\ fs [FRANGE_DEF]
-  \\ gvs [SUBSET_DEF]
-  \\ metis_tac []
-QED
-
 Triviality LIST_REL_letrec_spec_closed:
   ∀xs ys. LIST_REL (letrec_spec i) xs ys ∧ EVERY closed xs ⇒ EVERY closed ys
 Proof
@@ -1444,17 +1430,6 @@ Proof
   \\ imp_res_tac call_with_arg_imp \\ fs []
   \\ imp_res_tac letrec_spec_freevars \\ fs []
   \\ metis_tac []
-QED
-
-Theorem call_with_arg_Apps:
-  ∀xs x ys y.
-    call_with_arg b i R x y ∧
-    LIST_REL (call_with_arg b i R) xs ys ⇒
-    call_with_arg b i R (Apps x xs) (Apps y ys)
-Proof
-  Induct \\ fs [Apps_def] \\ rw [] \\ fs [Apps_def]
-  \\ last_x_assum irule \\ fs []
-  \\ irule call_with_arg_App \\ fs []
 QED
 
 Triviality call_with_arg_T_with:
