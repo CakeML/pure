@@ -694,10 +694,10 @@ Proof
     \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [])
   >~ [‘Let a v x (Let a v x (Let a w y e))’] >-
    (gvs [exp_of_def]
-    \\ irule pure_inlineTheory.Let_Let_copy \\ fs [])
+    \\ irule pure_inline_relTheory.Let_Let_copy \\ fs [])
   >~ [‘exp_of (Let a v x e) ≅ exp_of (Let a v x (Let a v x e))’] >-
    (gvs [exp_of_def] \\ simp [Once exp_eq_sym]
-    \\ irule pure_inlineTheory.Let_dup \\ fs [])
+    \\ irule pure_inline_relTheory.Let_dup \\ fs [])
 QED
 
 Theorem pres_imp_exp_eq:

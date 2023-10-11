@@ -12,7 +12,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_letrec_seqTheory pure_demandTheory pure_barendregtTheory
      pure_presTheory pure_pres_lemmasTheory;
 
-val _ = new_theory "pure_inline_rel";
+val _ = new_theory "pure_inline_rel_alt";
 
 val _ = Parse.hide "bind_ok";
 

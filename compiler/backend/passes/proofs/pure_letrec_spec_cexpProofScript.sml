@@ -8,7 +8,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_miscTheory pure_letrec_delargTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
 open pure_exp_relTheory pure_congruenceTheory
-open pure_inlineTheory pure_letrec_spec_cexpTheory pure_letrecProofTheory
+open pure_inline_relTheory pure_letrec_spec_cexpTheory pure_letrecProofTheory
 
 val _ = new_theory "pure_letrec_spec_cexpProof";
 
