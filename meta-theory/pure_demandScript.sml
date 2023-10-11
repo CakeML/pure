@@ -94,7 +94,7 @@ Proof
   gvs [exp_eq_in_ctxt_def, eq_when_applied_def, Apps_def]
 QED
 
-Definition ctxt_size_def:
+Definition ctxt_size_def[allow_rebind]:
   ctxt_size Nil = 0n ∧
   ctxt_size (IsFree s ctxt) = 1 + ctxt_size ctxt ∧
   ctxt_size (Bind s e ctxt) = 1 + list_size char_size s +  exp_size e + ctxt_size ctxt ∧
@@ -376,44 +376,6 @@ Proof
   gvs [exp_eq_refl, Letrec_not_in_freevars]
 QED
 
-Theorem Let_Letrec2:
-  ∀s l e1 e2 b. ¬MEM s (MAP FST l)
-                ∧ EVERY (λv. v ∉ freevars e1) (MAP FST l)
-                ⇒ (Let s e1 (Letrec l e2) ≅? Letrec (MAP (λ(v, e). (v, Let s e1 e)) l)  (Let s e1 e2)) b
-Proof
-  rw [exp_eq_def, bind_def] >> IF_CASES_TAC >>
-  gvs [app_bisimilarity_eq, exp_eq_refl] >>
-  rpt $ irule_at Any IMP_closed_subst >>
-  gvs [subst_def, FRANGE_FLOOKUP] >>
-  irule exp_eq_trans >>
-  irule_at Any beta_equality >>
-  irule_at Any IMP_closed_subst >>
-  gvs [FRANGE_FLOOKUP, subst1_def, MAP_MAP_o] >>
-  rename1 ‘MEM s (MAP (FST o (λ(f', e). (f', subst (FDIFF (f \\ s) (set (MAP FST l))) e))) l)’ >>
-  ‘¬MEM s (MAP (FST o (λ(f', e). (f', subst (FDIFF (f \\ s) (set (MAP FST l))) e))) l)’
-    by (strip_tac >> first_x_assum irule >>
-        gvs [MEM_EL] >> first_assum $ irule_at Any >> gvs [EL_MAP] >>
-        rename1 ‘EL n l’ >> qabbrev_tac ‘p = EL n l’ >> PairCases_on ‘p’ >> fs []) >>
-  gvs [] >> irule exp_eq_Letrec_cong2 >>
-  irule_at Any fmap_rel_FUPDATE_LIST_same >> irule_at Any LIST_EQ >>
-  rw [EL_MAP, fmap_rel_FEMPTY, LIST_REL_EL_EQN]
-  >~[‘FST (_ (_ p)) = FST (_ (_ p))’]
-  >- (PairCases_on ‘p’ >> fs [])
-  >~[‘(SND (_ (_ p)) ≅? SND (_ (_ p))) _’]
-  >- (PairCases_on ‘p’ >> gvs [subst_def] >>
-      gvs [EVERY_MEM] >> drule_then assume_tac $ GSYM subst_FDIFF' >>
-      ‘MAP (FST o (λ(v, e). (v, Let s e1 e))) l = MAP FST l’
-        by (irule LIST_EQ >> rw [EL_MAP] >> rename1 ‘FST (_ p)’ >> PairCases_on ‘p’ >> fs []) >>
-      gvs [FDIFF_def, fmap_domsub, INTER_COMM, Once exp_eq_sym] >>
-      irule beta_equality >>
-      gvs [IMP_closed_subst, FRANGE_FLOOKUP])
-  >- (‘MAP (FST o (λ(v, e). (v, Let s e1 e))) l = MAP FST l’
-        by (irule LIST_EQ >> rw [EL_MAP] >> rename1 ‘FST (_ p)’ >> PairCases_on ‘p’ >> fs []) >>
-      gvs [EVERY_MEM] >> drule_then assume_tac $ GSYM subst_FDIFF' >>
-      gvs [FDIFF_def, fmap_domsub, INTER_COMM, Once exp_eq_sym] >>
-      irule beta_equality >> gvs [IMP_closed_subst, FRANGE_FLOOKUP])
-QED
-
 Theorem Let_Let:
   ∀v w e1 e2 e3 b. v ≠ w ∧ v ∉ freevars e2 ∧ w ∉ freevars e1 ⇒
                    (Let v e1 (Let w e2 e3) ≅? Let w e2 (Let v e1 e3)) b
@@ -440,14 +402,6 @@ Proof
   Induct >> rw [Apps_def, exp_eq_refl] >>
   irule exp_eq_trans >> pop_assum $ irule_at Any >>
   irule exp_eq_Apps_cong >> gvs [Let_App, exp_eq_l_refl]
-QED
-
-Theorem Letrec_Apps:
-  ∀eL bL e b. (Letrec bL (Apps e eL) ≅? Apps (Letrec bL e) (MAP (Letrec bL) eL)) b
-Proof
-  Induct >> rw [Apps_def, exp_eq_refl] >>
-  irule exp_eq_trans >> pop_assum $ irule_at Any >>
-  irule exp_eq_Apps_cong >> gvs [exp_eq_l_refl, Letrec_App]
 QED
 
 Theorem App_Seq:
