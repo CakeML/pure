@@ -969,12 +969,6 @@ Proof
   Induct \\ fs [subst_def]
 QED
 
-Theorem subst_Apps:
-  ∀xs m f. subst m (Apps f xs) = Apps (subst m f) (MAP (subst m) xs)
-Proof
-  Induct \\ fs [Apps_def,subst_def]
-QED
-
 Theorem letrecs_distinct_Apps:
   ∀l e. letrecs_distinct (Apps e l) ⇔ letrecs_distinct e ∧ EVERY letrecs_distinct l
 Proof
