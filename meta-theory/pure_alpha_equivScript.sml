@@ -2679,21 +2679,6 @@ Proof
   gvs[IN_FRANGE_FLOOKUP]
 QED
 
-Inductive wh_alpha:
-  (wh_alpha (wh_Error) (wh_Error)) ∧
-  (wh_alpha (wh_Diverge) (wh_Diverge)) ∧
-  (∀a. wh_alpha (wh_Atom a) (wh_Atom a)) ∧
-  (∀s x y.
-     exp_alpha x y ⇒
-     wh_alpha (wh_Closure s x) (wh_Closure s y)) ∧
-  (∀x y e1 e2.
-     x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2) ⇒
-     wh_alpha (wh_Closure x e1) (wh_Closure y e2)) ∧
-  (∀s xs ys.
-     LIST_REL exp_alpha xs ys ⇒
-     wh_alpha (wh_Constructor s xs) (wh_Constructor s ys))
-End
-
 CoInductive v_alpha:
 [~refl:]
   (∀v. v_alpha v v) ∧
