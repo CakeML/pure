@@ -74,13 +74,14 @@ Each program will be compiled and run with each set of supplied flags.
 Possible flags are:
 - `-sort`: binding group analysis in PureLang
 - `-clean`: deadcode elimination in PureLang
+- `-inline_depth=N`, `inline_size=N`: inlining in PureLang
 - `-demands`: demand analysis in PureLang
 - `-mk_delay`: `mk_delay` smart constructor in ThunkLang
 - `-dlam`: split delayed `lambda`s under `letrec`s in ThunkLang
 - `-let_force`: common subexpression elimination of `force (var v)` in ThunkLang
 - `-unit`: pushing in applications to `unit` in StateLang
 
-**NB supplying a flag *disables* the corresponding optimisation**.
+**NB for boolean flags, supplying the flag *disables* the corresponding optimisation**.
 Graphs produced by [`benchmark.py`](benchmark/benchmark.py) therefore show the improvements made when *removing* the flags specified.
 
 ### [`benchmark.py`](benchmark/benchmark.py)
