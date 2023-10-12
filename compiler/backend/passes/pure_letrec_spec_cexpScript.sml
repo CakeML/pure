@@ -239,4 +239,71 @@ Definition specialise_def:
   specialise f e = NONE
 End
 
+
+(******************** Alternative definitions ********************)
+
+Definition can_specialise_def:
+  (can_specialise f (Lam a vs e) =
+    let args = const_call_args f (MAP SOME vs) e in
+      if ~(ALL_DISTINCT vs) then [] else args) ∧
+  can_specialise _ _ = []
+End
+
+Definition specialise_alt_def:
+  (specialise_alt f (Lam a vs e) args =
+     let p = all_somes args in
+     if NULL p then NONE else
+     let (ws1,ws2) = split_at (LENGTH args) vs in
+     let (params,e1) = specialise_each p ws1 f (SmartLam a ws2 e) in
+     let (outer_vs,inner_vs) = drop_common_suffix ws1 params in
+      if NULL outer_vs then NONE else
+        SOME $
+         SmartLam a outer_vs $
+           Letrec a [(f,SmartLam a params e1)] $
+             SmartApp a (Var a f) (MAP (Var a) inner_vs)) ∧
+  specialise_alt _ _ _ = NONE
+End
+
+Theorem specialise_alt:
+  specialise_alt f e (can_specialise f e) = specialise f e
+Proof
+  Cases_on `e` >>
+  rw[can_specialise_def, specialise_alt_def, specialise_def] >> gvs[all_somes_def] >>
+  rpt (pairarg_tac >> gvs[])
+QED
+
+(**********)
+
+Definition extract_const_args_def:
+  (extract_const_args f (Lam a vs e) =
+    let args = const_call_args f (MAP SOME vs) e in
+    let (ws1, ws2) = split_at (LENGTH args) vs in
+    let p = if ALL_DISTINCT vs then all_somes args else [] in
+    (p, ws1, SmartLam a ws2 e)) ∧
+  extract_const_args _ e = ([], [], e)
+End
+
+Definition specialise_alt2_def:
+  specialise_alt2 (a,f) (p, ws1, e) = (
+    if NULL p then NONE else
+     let (params,e1) = specialise_each p ws1 f e in
+     let (outer_vs,inner_vs) = drop_common_suffix ws1 params in
+      if NULL outer_vs then NONE else
+        SOME $
+         SmartLam a outer_vs $
+           Letrec a [(f,SmartLam a params e1)] $
+             SmartApp a (Var a f) (MAP (Var a) inner_vs))
+End
+
+(**********)
+
+Theorem specialise_alt2:
+  specialise_alt2 (get_info e,f) (extract_const_args f e) = specialise f e
+Proof
+  Cases_on `e` >> simp[extract_const_args_def, specialise_alt2_def, specialise_def] >>
+  rpt (pairarg_tac >> gvs[]) >> simp[specialise_alt2_def] >>
+  Cases_on `ALL_DISTINCT l` >> gvs[get_info_def]
+QED
+
+
 val _ = export_theory();
