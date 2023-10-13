@@ -410,10 +410,6 @@ Inductive cexp_rel:
   (cexp_rel x y ⇒
    cexp_rel (app (Lam NONE x) Unit) y) ∧
 
-[~App_Lam:]
-  (cexp_rel x y ⇒
-   cexp_rel (app (Lam NONE x) Unit) y) ∧
-
 [~App_Let:]
   (cexp_rel x x1 ∧ cexp_rel y y1 ⇒
    cexp_rel (app (Let x_opt x y) Unit)
@@ -696,11 +692,6 @@ Proof
   >- (qexists_tac ‘n+n'’
       \\ fs [arithmeticTheory.NRC_ADD_EQN]
       \\ first_assum $ irule_at Any \\ fs [])
-  >-
-   (qexists_tac ‘1+n’
-    \\ rewrite_tac [arithmeticTheory.NRC_ADD_EQN]
-    \\ pop_assum $ irule_at Any
-    \\ fs [] \\ irule cexp1_rel_App_Lam \\ fs [])
   >-
    (qexists_tac ‘1+n’
     \\ rewrite_tac [arithmeticTheory.NRC_ADD_EQN]

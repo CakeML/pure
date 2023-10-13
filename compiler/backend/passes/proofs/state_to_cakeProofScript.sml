@@ -446,7 +446,7 @@ Inductive v_rel:
 End
 
 Theorem env_rel_def = cj 2 v_rel_cases;
-Theorem v_rel_cases = cj 1 v_rel_cases;
+Theorem v_rel_cases[allow_rebind] = cj 1 v_rel_cases;
 
 Theorem v_rel_def[simp] = [
   “v_rel cnenv (Constructor cn svs) cv”,

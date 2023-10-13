@@ -215,17 +215,6 @@ Proof
   rw [env_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
 QED
 
-Theorem env_rel_zip:
-  ∀n x y xs ys.
-    env_rel xs ys ∧ LIST_REL v_rel x y ∧
-    LENGTH n = LENGTH x ⇒
-    env_rel (ZIP(n,x)++xs) (ZIP(n,y)++ys)
-Proof
-  Induct \\ fs []
-  \\ Cases_on ‘x’ \\ fs [PULL_EXISTS] \\ rw []
-  \\ irule env_rel_cons \\ fs []
-QED
-
 Triviality FST_INTRO:
   (λ(p1,p2). p1) = FST
 Proof

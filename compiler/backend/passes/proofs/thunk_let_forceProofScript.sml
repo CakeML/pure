@@ -1817,7 +1817,7 @@ Proof
   \\ rpt CASE_TAC \\ gs []
 QED
 
-Theorem exp_rel_eval_to = REWRITE_RULE [force_goal_def] exp_rel_eval_to;
+Theorem exp_rel_eval_to[allow_rebind] = REWRITE_RULE [force_goal_def] exp_rel_eval_to;
 
 Theorem exp_rel_eval:
   exp_rel NONE x y ∧ closed x ∧

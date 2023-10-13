@@ -87,7 +87,7 @@ Inductive exp_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws)) ∧
-[v_rel_Constructor:]
+[v_rel_Monadic:]
   (∀mop xs ys env.
      LIST_REL (exp_rel env) xs ys ⇒
        v_rel (Monadic mop xs) (Monadic env mop ys)) ∧

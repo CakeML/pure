@@ -95,7 +95,7 @@ Termination
   WF_REL_TAC ‘measure cexp_size’
 End
 
-Theorem exp_of_def[simp] = exp_of_def |> CONV_RULE (DEPTH_CONV ETA_CONV);
+Theorem exp_of_def[simp,allow_rebind] = exp_of_def |> CONV_RULE (DEPTH_CONV ETA_CONV);
 
 Definition Lams_def:
   Lams [] e = e ∧
