@@ -17,41 +17,6 @@ val _ = new_theory "pure_inline_rel";
    Definition of precondition pre
  *------------------------------------------------------------------------------*)
 
-Inductive no_shadowing:
-[~Var:]
-  (∀v. no_shadowing (Var v)) ∧
-[~Prim:]
-  (∀l p.
-    EVERY no_shadowing l ⇒
-    no_shadowing (Prim p l)) ∧
-[~App:]
-  (∀x y.
-    no_shadowing x ∧ no_shadowing y ∧
-    DISJOINT (boundvars x) (boundvars y) ⇒
-    no_shadowing (App x y)) ∧
-[~Lam:]
-  (∀v x.
-    no_shadowing x ∧ v ∉ boundvars x ⇒
-    no_shadowing (Lam v x)) ∧
-[~Letrec:]
-  (∀l x.
-    EVERY (λ(v,e).
-            no_shadowing e ∧
-            DISJOINT (freevars e) (boundvars x) ∧
-            DISJOINT (boundvars e) (boundvars x) ∧
-            DISJOINT (boundvars e) (freevars e) ∧
-            DISJOINT (set (MAP FST l)) (boundvars e)) l ∧
-    no_shadowing x ∧ DISJOINT (set (MAP FST l)) (boundvars x) ⇒
-    no_shadowing (Letrec l x))
-End
-
-Theorem no_shadowing_simp[simp] =
-  map (SIMP_CONV (srw_ss()) [Once no_shadowing_cases])
-    [“no_shadowing (Var v)”,
-     “no_shadowing (Prim p l)”,
-     “no_shadowing (App x y)”,
-     “no_shadowing (Lam v x)”] |> LIST_CONJ;
-
 Definition vars_of_def:
   vars_of [] = {} ∧
   vars_of ((v,e)::rest) = {v} ∪ freevars e ∪ vars_of rest
@@ -59,7 +24,7 @@ End
 
 Definition pre_def:
   pre l x ⇔
-    no_shadowing x ∧
+    barendregt x ∧
     DISJOINT (boundvars x) (freevars x) ∧
     DISJOINT (boundvars x) (vars_of l)
 End
@@ -227,7 +192,7 @@ QED
 Theorem pre_App:
   pre xs (App x y) ⇒ pre xs x ∧ pre xs y
 Proof
-  gvs [pre_def]
+  gvs [pre_def,barendregt_alt_def]
   \\ fs [IN_DISJOINT]
   \\ metis_tac []
 QED
@@ -235,14 +200,14 @@ QED
 Theorem pre_Prim:
   pre xs (Prim x ys) ⇒ EVERY (pre xs) ys
 Proof
-  gvs [pre_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  gvs [pre_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,barendregt_alt_def]
 QED
 
 Theorem pre_Lam:
   pre xs (Lam w x) ⇒
   ¬MEM w (MAP FST xs) ∧ w ∉ vars_of xs ∧ pre xs x
 Proof
-  fs [pre_def] \\ strip_tac
+  fs [pre_def,barendregt_alt_def] \\ strip_tac
   \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
   \\ gvs [IN_DISJOINT] \\ metis_tac []
 QED
@@ -254,7 +219,7 @@ Theorem pre_SNOC:
   DISJOINT (boundvars x) (freevars x1) ⇒
   pre (xs ++ [(v,x1)]) x
 Proof
-  fs [pre_def,vars_of_append,vars_of_def] \\ rw []
+  fs [pre_def,vars_of_append,vars_of_def,barendregt_alt_def] \\ rw []
   \\ simp [DISJOINT_SYM]
 QED
 
@@ -263,7 +228,7 @@ Theorem pre_Let:
   pre xs x ∧ pre (xs ++ [(v,x)]) y ∧
   ¬MEM v (MAP FST xs) ∧ v ∉ vars_of xs
 Proof
-  fs [lets_ok_def,pre_def]
+  fs [lets_ok_def,pre_def,barendregt_alt_def]
   \\ simp [DISJOINT_SYM,vars_of_append,vars_of_def]
   \\ strip_tac
   \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
@@ -279,16 +244,18 @@ Theorem pre_Letrec:
 Proof
   rpt strip_tac
   >-
-   (gvs [pre_def]
-    \\ fs [Once no_shadowing_cases]
+   (gvs [pre_def,barendregt_alt_def]
     \\ gvs [IN_DISJOINT] \\ metis_tac [])
   >-
-   (pop_assum mp_tac \\ fs [pre_def]
-    \\ fs [Once no_shadowing_cases]
+   (pop_assum mp_tac \\ fs [pre_def] \\ strip_tac
+    \\ ‘EVERY barendregt (MAP SND ys)’ by gvs [barendregt_alt_def]
     \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT]
-    \\ gvs [IN_DISJOINT] \\ metis_tac [])
-  \\ pop_assum mp_tac \\ fs [pre_def]
-  \\ fs [Once no_shadowing_cases]
+    \\ gvs [IN_DISJOINT,SF SFY_ss]
+    \\ rw [] \\ CCONTR_TAC \\ gvs []
+    \\ first_x_assum drule
+    \\ gvs [barendregt_def,IN_DISJOINT]
+    \\ metis_tac [])
+  \\ pop_assum mp_tac \\ fs [pre_def,barendregt_alt_def]
   \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def]
   \\ rpt disch_tac
   \\ rpt gen_tac
@@ -296,45 +263,6 @@ Proof
   \\ ‘set (MAP FST xs) ⊆ vars_of xs’ by gvs [map_fst_subset_vars_of]
   \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT,SUBSET_DEF]
   \\ metis_tac []
-QED
-
-(*------------------------------------------------------------------------------*
-   Lemma about no_shadowing
- *------------------------------------------------------------------------------*)
-
-Theorem barendregt_imp_no_shadowing:
-  ∀e. barendregt e ⇒ no_shadowing e
-Proof
-  simp[barendregt_def] >>
-  Induct using unique_boundvars_ind >>
-  rw[unique_boundvars_Letrec, unique_boundvars_def] >>
-  gvs[EVERY_MEM, MEM_MAP, EXISTS_PROD, SF DNF_ss]
-  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
-  >- (first_x_assum irule >> simp[Once DISJOINT_SYM])
-  >- (first_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
-  simp[Once no_shadowing_cases, EVERY_MEM] >> reverse $ rw[]
-  >- (last_x_assum irule >> gvs[DISJOINT_ALT] >> metis_tac[]) >>
-  first_x_assum drule >> pairarg_tac >> gvs[] >> rw[]
-  >- (
-    first_x_assum irule >> simp[SF SFY_ss] >>
-    first_x_assum drule >> gvs[DISJOINT_ALT] >>
-    rw[] >> first_x_assum drule >> rw[] >> gvs[] >>
-    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
-    )
-  >- (
-    simp[Once DISJOINT_SYM] >> irule DISJOINT_SUBSET >>
-    qexists `(freevars body DIFF set (MAP FST fns)) ∪ set (MAP FST fns)` >> simp[] >>
-    simp[Once DISJOINT_SYM] >>
-    qpat_x_assum `DISJOINT (boundvars e) (_ DIFF _)` mp_tac >> rw[DISJOINT_ALT] >>
-    first_x_assum drule >> simp[DISJ_EQ_IMP, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    rw[] >> first_x_assum irule >> rw[SF SFY_ss]
-    )
-  >- simp[Once DISJOINT_SYM]
-  >- (
-    first_x_assum drule >> gvs[DISJOINT_ALT] >> rw[] >>
-    first_x_assum drule >> rw[] >> gvs[] >>
-    gvs[MEM_MAP, FORALL_PROD, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
-    )
 QED
 
 (*------------------------------------------------------------------------------*
@@ -1635,7 +1563,7 @@ Proof
 QED
 
 Theorem inline_rel_IMP_exp_eq:
-  inline_rel [] x y ∧ no_shadowing x ∧ closed x ⇒
+  inline_rel [] x y ∧ barendregt x ∧ closed x ⇒
   (x ≅? y) b
 Proof
   rw [] \\ drule inline_rel_IMP_exp_eq_lemma
@@ -1643,7 +1571,7 @@ Proof
 QED
 
 Theorem inline_rel_IMP_exp_eq_specialized:
-  inline_rel [] x y ∧ no_shadowing x ∧ closed x ⇒
+  inline_rel [] x y ∧ barendregt x ∧ closed x ⇒
   x ≅ y
 Proof
   rw [] \\ irule inline_rel_IMP_exp_eq \\ fs []

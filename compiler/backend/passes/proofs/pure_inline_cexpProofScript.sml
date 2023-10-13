@@ -50,33 +50,28 @@ Proof
   \\ gvs []
 QED
 
-Theorem no_shadowing_Apps_EVERY:
+Theorem barendregt_Apps_EVERY:
   ∀e es.
-    no_shadowing (Apps e es) ⇒
-    no_shadowing e ∧ EVERY no_shadowing es
+    barendregt (Apps e es) ⇒
+    barendregt e ∧ EVERY barendregt es
 Proof
-  strip_tac
-  \\ Induct_on `es` using SNOC_INDUCT
-  >- fs [Apps_def]
-  \\ fs [Apps_def,SNOC,Apps_SNOC,EVERY_SNOC]
+  strip_tac \\ Induct_on `es` using SNOC_INDUCT
+  \\ fs [Apps_def,SNOC,Apps_SNOC,EVERY_SNOC,barendregt_alt_def]
 QED
 
-Theorem no_shadowing_Letrec_EVERY:
+Theorem barendregt_Letrec_EVERY:
   ∀e xs.
-    no_shadowing (Letrec xs e) ⇒
-      no_shadowing e ∧
-      EVERY (λ(v, e). no_shadowing e) xs ∧
+    barendregt (Letrec xs e) ⇒
+      barendregt e ∧
+      EVERY (λ(v, e). barendregt e) xs ∧
       DISJOINT (boundvars e) (set (MAP FST xs))
 Proof
   strip_tac
   \\ strip_tac
-  \\ simp [Once no_shadowing_cases]
+  \\ simp [barendregt_alt_def]
   \\ strip_tac
-  \\ fs [DISJOINT_SYM,EVERY_MEM]
-  \\ rw []
-  \\ Cases_on `e'`
-  \\ last_x_assum $ qspec_then `(q,r)` assume_tac
-  \\ gvs []
+  \\ fs [DISJOINT_SYM,EVERY_MEM,MEM_MAP,EXISTS_PROD]
+  \\ PairCases \\ rw [] \\ res_tac \\ gvs []
 QED
 
 Theorem inline_rel_Apps:
@@ -201,17 +196,17 @@ Proof
   \\ fs [inline_rel_refl]
 QED
 
-Theorem lets_for_no_shadowing:
+Theorem lets_for_barendregt:
   ∀vs a.
-    no_shadowing (lets_for c v vs a) ⇒
-    no_shadowing a
+    barendregt (lets_for c v vs a) ⇒
+    barendregt a
 Proof
   strip_tac
   \\ Induct_on `vs`
-  >- fs [lets_for_def]
+  >- fs [lets_for_def,barendregt_alt_def]
   \\ rw []
   \\ Cases_on `h`
-  \\ fs [lets_for_def]
+  \\ fs [lets_for_def,barendregt_alt_def]
 QED
 
 Theorem lets_for_DISJOINT:
@@ -240,115 +235,6 @@ Proof
   \\ irule Let_not_in_freevars
   \\ fs []
 QED
-
-(*
-Theorem make_Let1_lemma:
-  ∀acc_v acc_e a es vs body.
-    EVERY (λe.
-      DISJOINT (set (MAP explode acc_v)) (freevars (exp_of e)) ∧
-      DISJOINT (set (MAP explode vs)) (freevars (exp_of e))) es ∧
-    LENGTH acc_v = LENGTH acc_e ⇒
-    ((exp_of (App a (Lets a acc_v acc_e (Lam a vs body)) es)) ≅?
-    (exp_of (make_Let_GO acc_v acc_e a es vs body))) b
-Proof
-  recInduct make_Let_GO_ind
-  \\ reverse $ rw []
-  >- (
-    gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
-    \\ irule exp_eq_Apps_cong
-    \\ rw []
-    >- (
-      Induct_on `es` \\ gvs [exp_eq_refl]
-    )
-    \\ irule exp_eq_App_cong \\ gvs [exp_eq_refl]
-    \\ last_x_assum mp_tac
-    \\ last_x_assum mp_tac
-    \\ last_x_assum mp_tac
-    \\ qid_spec_tac `acc_e`
-    \\ Induct_on `acc_v` \\ gvs [exp_eq_refl,Lams_def,Lets_def,exp_of_def]
-    \\ rw []
-    \\ Cases_on `acc_e` \\ gvs []
-    \\ gvs [Lets_def,exp_of_def]
-    \\ irule exp_eq_Let_cong
-    \\ gvs [exp_eq_refl]
-    \\ last_x_assum $ irule_at Any
-    \\ gvs [EVERY_MEM]
-  )
-  >- gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
-  >- (
-    gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
-    \\ last_x_assum mp_tac
-    \\ qid_spec_tac `acc_e`
-    \\ Induct_on `acc_v` \\ gvs [exp_eq_refl,Lams_def,Lets_def,exp_of_def]
-    \\ rw []
-    \\ Cases_on `acc_e` \\ gvs []
-    \\ gvs [Lets_def,exp_of_def]
-    \\ irule exp_eq_Let_cong
-    \\ gvs [exp_eq_refl]
-    \\ last_x_assum $ irule_at Any
-    \\ gvs [EVERY_MEM]
-  )
-  \\ gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
-  \\ irule exp_eq_trans
-  \\ last_x_assum $ irule_at Any
-  \\ conj_tac
-  >- gvs [EVERY_MEM]
-  \\ irule exp_eq_Apps_cong
-  \\ gvs [LIST_REL_MAP]
-  \\ rw []
-  >- (
-    Induct_on `es` \\ gvs [exp_eq_refl]
-  )
-  \\ last_x_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ last_x_assum mp_tac
-  \\ qid_spec_tac `acc_v`
-  \\ qid_spec_tac `acc_e`
-  \\ Induct
-  >- gvs [exp_eq_refl,Lets_def,exp_of_def,Apps_def,Lams_def]
-  \\ rw []
-  \\ Cases_on `acc_v`
-  >- gvs [exp_eq_refl,Lets_def,exp_of_def,Apps_def,Lams_def]
-  \\ rw []
-  \\ gvs [Lets_def,exp_of_def,Apps_def,Lams_def]
-  \\ last_x_assum $ drule
-  \\ rw []
-  \\ irule exp_eq_trans
-  \\ irule_at Any App_Let_notin
-  \\ gvs []
-  \\ irule exp_eq_Let_cong
-  \\ gvs [exp_eq_refl]
-  \\ last_x_assum $ irule_at Any
-  \\ gvs [EVERY_MEM]
-QED
-
-Theorem make_Let1_eq_SOME:
-  no_shadowing (exp_of e) ∧
-  DISJOINT (boundvars (exp_of e)) (freevars (exp_of e)) ∧
-  make_Let1 e = SOME x ⇒
-  ((exp_of e) ≅? (exp_of x)) b
-Proof
-  rw []
-  \\ Cases_on `e` \\ gvs [make_Let1_def]
-  \\ Cases_on `c` \\ gvs [make_Let1_def]
-  \\ Induct_on `l` \\ gvs [make_Let_GO_def]
-  >- (
-    Cases_on `l'`
-    \\ gvs [make_Let_GO_def,exp_eq_refl,exp_of_def,Apps_def,Lams_def,Lets_def]
-  )
-  \\ rw []
-  \\ Induct_on `l'` \\ gvs [make_Let_GO_def]
-  >- gvs [Lams_def,make_Let_GO_def,exp_eq_refl,exp_of_def,Apps_def,Lets_def]
-  \\ rw []
-  \\ gvs [exp_of_def,Apps_def,Lams_def]
-  \\ gvs [make_Let_GO_def,exp_eq_refl,exp_of_def,Apps_def,Lams_def,Lets_def]
-  \\ irule exp_eq_trans
-  \\ irule_at Any make_Let1_lemma
-  \\ gvs [exp_of_def,Apps_def,Lams_def,Lets_def,make_Let_GO_def,exp_eq_refl]
-QED
-*)
 
 Theorem exp_of_Lets:
   ∀vs xs b.
@@ -1482,10 +1368,10 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem no_shadowing_Lams_e:
-  ∀vs e. no_shadowing (Lams vs e) ⇒ no_shadowing e
+Theorem barendregt_Lams_e:
+  ∀vs e. barendregt (Lams vs e) ⇒ barendregt e
 Proof
-  Induct \\ fs [Lams_def]
+  Induct \\ fs [Lams_def,barendregt_alt_def]
 QED
 
 Theorem boundvars_Lets:
@@ -1774,11 +1660,14 @@ QED
 
 Triviality if_lemma:
   boundvars (if b then Seq Fail x else x) = boundvars x ∧
-  no_shadowing (if b then Seq Fail x else x) = no_shadowing x ∧
+  barendregt (if b then Seq Fail x else x) = barendregt x ∧
   letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
 Proof
-  Cases_on ‘b’ \\ gvs []
+  Cases_on ‘b’ \\ gvs [barendregt_alt_def]
   \\ gvs [pure_expTheory.letrecs_distinct_def] \\ rw []
+  \\ eq_tac \\ rw []
+  \\ Cases_on ‘l’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
 QED
 
 Theorem inline_rel_if_lemma:
@@ -1810,7 +1699,7 @@ fun lemma () = inline_ind
     NestedCase_free x ∧
     letrecs_distinct (exp_of x) ∧
     cexp_wf x ∧
-    no_shadowing (exp_of x) ∧
+    barendregt (exp_of x) ∧
     DISJOINT (set (MAP FST xs)) (boundvars (exp_of x)) ∧
     (inline m ns cl h x) = (t, ns1) ⇒
     inline_rel xs (exp_of x) (exp_of t)’
@@ -1822,7 +1711,7 @@ fun lemma () = inline_ind
              NestedCase_free x ∧
              letrecs_distinct (exp_of x) ∧
              cexp_wf x) es ∧
-    EVERY (λe. no_shadowing (exp_of e)) es ∧
+    EVERY (λe. barendregt (exp_of e)) es ∧
     EVERY (λx. DISJOINT (set (MAP FST xs)) (boundvars (exp_of x))) es ∧
     (inline_list m ns cl h es) = (ts, ns1) ⇒
     LIST_REL (λx t. inline_rel xs (exp_of x) (exp_of t)) es ts’
@@ -1847,13 +1736,13 @@ Proof
     \\ fs []
     \\ qpat_x_assum ‘MEM _ _’ $ irule_at Any
     \\ qexists_tac ‘exp_of x’ \\ fs [exp_eq_refl]
-    \\ qsuff_tac ‘no_shadowing (exp_of x) ∧ boundvars (exp_of x) = {} ∧
+    \\ qsuff_tac ‘barendregt (exp_of x) ∧ boundvars (exp_of x) = {} ∧
                   NestedCase_free x ∧
                   letrecs_distinct (exp_of x) ∧ cexp_wf x’
     >- (res_tac \\ fs [pre_def])
     \\ fs []
     \\ Cases_on ‘x’ \\ gvs [cheap_def]
-    \\ fs [exp_of_def,is_Lam_def,NULL_EQ]
+    \\ fs [exp_of_def,is_Lam_def,NULL_EQ,barendregt_alt_def]
   )
   >~ [`App _ _ _`] >- (
     gvs [inline_def]
@@ -1861,7 +1750,7 @@ Proof
     \\ gvs [inline_rel_refl,exp_of_def,SF ETA_ss]
     \\ qspecl_then [`set (MAP FST xs)`,`exp_of e`,`MAP exp_of es`]
                    assume_tac DISJOINT_boundvars_Apps
-    \\ drule no_shadowing_Apps_EVERY
+    \\ drule barendregt_Apps_EVERY
     \\ strip_tac
     \\ Cases_on `get_Var_name e`
     >- (
@@ -2006,7 +1895,6 @@ Proof
     \\ gvs [SF CONJ_ss,Apps_append]
     \\ qabbrev_tac ‘app_lam = Apps (Lams (MAP explode l3) (exp_of c3)) (MAP exp_of es2a)’
     \\ gvs [MEM_MAP,PULL_EXISTS,EVERY_MEM]
-    \\ irule_at Any barendregt_imp_no_shadowing
     \\ irule_at Any barendregt_Lets_lemma \\ fs []
     \\ irule_at Any memory_inv_subset
     \\ qexists_tac ‘ns’ \\ fs []
@@ -2090,7 +1978,7 @@ Proof
       >- (
         last_x_assum irule
         \\ fs [cexp_wf_def,pure_expTheory.letrecs_distinct_def]
-        \\ fs [DISJOINT_SYM,memory_inv_def]
+        \\ fs [DISJOINT_SYM,memory_inv_def,barendregt_alt_def]
       )
       \\ last_x_assum irule
       \\ fs [DISJOINT_SYM]
@@ -2106,6 +1994,7 @@ Proof
         \\ PairCases_on ‘ns3’ \\ gvs [set_of_def,vars_ok_def]
         \\ gvs [GSYM mlmapTheory.lookup_thm, TO_FLOOKUP, NOT_NONE_UNIT]
         \\ first_x_assum $ qspec_then ‘explode v’ mp_tac \\ fs [])
+      \\ gvs [barendregt_alt_def]
       \\ metis_tac [memory_inv_subset,avoid_set_ok_subset,SUBSET_TRANS]
     )
     \\ full_simp_tac pure_ss []
@@ -2115,11 +2004,11 @@ Proof
     \\ reverse $ conj_tac
     >- (
       last_x_assum irule \\ fs []
-      \\ fs [DISJOINT_SYM,memory_inv_def,cexp_wf_def]
+      \\ fs [DISJOINT_SYM,memory_inv_def,cexp_wf_def,barendregt_alt_def]
     )
     \\ irule inline_rel_Lam
     \\ last_x_assum irule
-    \\ fs [DISJOINT_SYM]
+    \\ fs [DISJOINT_SYM,barendregt_alt_def]
     \\ imp_res_tac inline_set_of
     \\ imp_res_tac avoid_set_ok_imp_vars_ok
     \\ imp_res_tac SUBSET_TRANS
@@ -2145,7 +2034,7 @@ Proof
       \\ rw [] \\ irule avoid_set_ok_subset \\ fs []
       \\ qexists_tac ‘ns’ \\ fs [EVERY_MEM,FORALL_PROD]
       \\ res_tac \\ fs [])
-    \\ drule no_shadowing_Letrec_EVERY \\ strip_tac
+    \\ drule barendregt_Letrec_EVERY \\ strip_tac
     \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ gvs [MEM_MAP,PULL_EXISTS,FORALL_PROD,EVERY_MEM,cexp_wf_def]
     \\ Cases_on `heuristic_insert_Rec m h vbs = m`
@@ -2187,7 +2076,9 @@ Proof
     \\ impl_tac
     >- (
       fs [Lams_def]
-      \\ fs [Once no_shadowing_cases]
+      \\ fs [barendregt_alt_def]
+      \\ first_x_assum $ qspecl_then [‘[]’] mp_tac
+      \\ fs []
     )
     \\ strip_tac \\ fs []
     \\ fs [mlmapTheory.insert_thm]
@@ -2199,8 +2090,8 @@ Proof
       \\ PairCases_on ‘ns8’ \\ gvs [set_of_def,vars_ok_def]
       \\ gvs [GSYM mlmapTheory.lookup_thm, TO_FLOOKUP, NOT_NONE_UNIT]
       \\ first_x_assum $ qspec_then ‘explode w’ mp_tac \\ fs [])
-    \\ qpat_x_assum ‘no_shadowing (Letrec _ _)’ mp_tac
-    \\ simp [Once no_shadowing_cases] \\ strip_tac
+    \\ qpat_x_assum ‘barendregt (Letrec _ _)’ mp_tac
+    \\ simp [barendregt_alt_def] \\ strip_tac
     \\ ‘cheap x’ by (imp_res_tac specialise_is_Lam \\ simp [cheap_def])
     \\ once_rewrite_tac [DISJOINT_SYM] \\ asm_rewrite_tac []
     \\ conj_tac
@@ -2213,8 +2104,11 @@ Proof
       \\ gvs [mlmapTheory.lookup_thm,vars_ok_def,NOT_NONE_UNIT])
     \\ drule_all speclise_wf
     \\ strip_tac \\ fs []
+    \\ conj_tac
     \\ gvs [IN_DISJOINT,SUBSET_DEF]
-    \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ metis_tac []
+    \\ CCONTR_TAC \\ gvs []
+    \\ res_tac \\ gvs [allvars_thm]
+    \\ metis_tac []
   )
   >~ [`Lam _ _`] >- (
     gvs [inline_def,exp_of_def]
@@ -2222,7 +2116,7 @@ Proof
     \\ gvs [exp_of_def]
     \\ irule_at Any inline_rel_Lams
     \\ last_x_assum irule
-    \\ imp_res_tac no_shadowing_Lams_e
+    \\ imp_res_tac barendregt_Lams_e
     \\ fs [cexp_wf_def,letrecs_distinct_Lams]
     \\ fs [boundvars_Lams] \\ fs [DISJOINT_SYM]
     \\ fs [avoid_set_ok_def,exp_of_def,boundvars_Lams]
@@ -2235,6 +2129,7 @@ Proof
     \\ irule inline_rel_Prim
     \\ fs [LIST_REL_MAP,o_DEF,FORALL_PROD,LIST_REL_MAP2,PULL_EXISTS]
     \\ last_x_assum irule
+    \\ conj_tac >- gvs [barendregt_alt_def,EVERY_MAP]
     \\ fs [EVERY_MEM,cexp_wf_def,
            pure_expTheory.letrecs_distinct_def,MEM_MAP,PULL_EXISTS]
     \\ rw []
@@ -2275,58 +2170,58 @@ Proof
       \\ Cases_on `inline m r' cl h x1`
       \\ gvs []
     )
-    \\ sg `(∀v1 x1. f = SOME (v1, x1) ⇒ no_shadowing (exp_of x1))`
+    \\ sg `(∀v1 x1. f = SOME (v1, x1) ⇒ barendregt (exp_of x1))`
     >- (
       rw []
       \\ Cases_on `MEM v (FLAT (MAP (λx. FST (SND x)) bs))`
       >- (
-        gvs []
-        \\ qpat_x_assum `no_shadowing (rows_of _ _ _)` mp_tac
+        gvs [barendregt_alt_def]
+        \\ qpat_x_assum `barendregt (rows_of _ _ _)` mp_tac
         \\ qid_spec_tac `bs`
         \\ Induct
-        >- fs [rows_of_def,IfDisj_def]
+        >- fs [rows_of_def,IfDisj_def,barendregt_alt_def]
         \\ rw []
         \\ Cases_on `h'`
         \\ Cases_on `r''`
-        \\ fs [rows_of_def,IfDisj_def,MAP]
+        \\ fs [rows_of_def,IfDisj_def,MAP,barendregt_alt_def]
       )
-      \\ gvs []
-      \\ qpat_x_assum `no_shadowing (rows_of _ _ _)` mp_tac
+      \\ gvs [barendregt_alt_def]
+      \\ qpat_x_assum `barendregt (rows_of _ _ _)` mp_tac
       \\ qid_spec_tac `bs`
       \\ Induct
-      >- fs [rows_of_def,IfDisj_def]
+      >- fs [rows_of_def,IfDisj_def,barendregt_alt_def]
       \\ rw []
       \\ Cases_on `h'`
       \\ Cases_on `r''`
-      \\ fs [rows_of_def,IfDisj_def,MAP]
+      \\ fs [rows_of_def,IfDisj_def,MAP,barendregt_alt_def]
     )
-    \\ sg `EVERY (λe. no_shadowing (exp_of e)) (MAP (λ(v,vs,e). e) bs)`
+    \\ sg `EVERY (λe. barendregt (exp_of e)) (MAP (λ(v,vs,e). e) bs)`
     >- (
       rw []
       \\ Cases_on `MEM v (FLAT (MAP (λx. FST (SND x)) bs))`
       >- (
-        gvs []
-        \\ qpat_x_assum `no_shadowing (rows_of _ _ _)` mp_tac
+        gvs [barendregt_alt_def]
+        \\ qpat_x_assum `barendregt (rows_of _ _ _)` mp_tac
         \\ qid_spec_tac `bs`
         \\ Induct
-        >- fs [rows_of_def,IfDisj_def]
+        >- fs [rows_of_def,IfDisj_def,barendregt_alt_def]
         \\ rw []
         \\ Cases_on `h'`
         \\ Cases_on `r''`
-        \\ fs [rows_of_def,lets_for_def,IfDisj_def,MAP,MAPi_def]
-        \\ irule lets_for_no_shadowing
+        \\ fs [rows_of_def,lets_for_def,IfDisj_def,MAP,MAPi_def,barendregt_alt_def]
+        \\ irule lets_for_barendregt
         \\ metis_tac []
       )
-      \\ gvs []
-      \\ qpat_x_assum `no_shadowing (rows_of _ _ _)` mp_tac
+      \\ gvs [barendregt_alt_def]
+      \\ qpat_x_assum `barendregt (rows_of _ _ _)` mp_tac
       \\ qid_spec_tac `bs`
       \\ Induct
-      >- fs [rows_of_def,IfDisj_def]
+      >- fs [rows_of_def,IfDisj_def,barendregt_alt_def]
       \\ rw []
       \\ Cases_on `h'`
       \\ Cases_on `r''`
-      \\ fs [rows_of_def,lets_for_def,IfDisj_def,MAP,MAPi_def]
-      \\ irule lets_for_no_shadowing
+      \\ fs [rows_of_def,lets_for_def,IfDisj_def,MAP,MAPi_def,barendregt_alt_def]
+      \\ irule lets_for_barendregt
       \\ metis_tac []
     )
     \\ sg `(∀v1 x1. f = SOME (v1, x1) ⇒ DISJOINT (boundvars (exp_of x1)) (set (MAP FST xs)))`
@@ -2389,7 +2284,7 @@ Proof
     \\ reverse conj_tac
     >-
      (first_x_assum irule \\ fs []
-      \\ gvs [cexp_wf_def,pure_expTheory.letrecs_distinct_def]
+      \\ gvs [cexp_wf_def,pure_expTheory.letrecs_distinct_def,barendregt_alt_def]
       \\ simp [DISJOINT_SYM]
       \\ gvs [SF SFY_ss]
       \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac avoid_set_ok_subset_exp)
@@ -2497,7 +2392,7 @@ Theorem inline_cexp_inline_rel_spec:
     memory_inv xs m ns ∧
     map_ok m ∧ avoid_set_ok ns x ∧
     NestedCase_free x ∧ cexp_wf x ∧ letrecs_distinct (exp_of x) ∧
-    no_shadowing (exp_of x) ∧
+    barendregt (exp_of x) ∧
     DISJOINT (set (MAP FST xs)) (boundvars (exp_of x)) ∧
     (inline m ns cl h x) = (t, ns1) ⇒
     inline_rel xs (exp_of x) (exp_of t)
@@ -2533,7 +2428,6 @@ Proof
   >- fs [pure_freshenProofTheory.avoid_set_ok_boundvars_of]
   \\ strip_tac
   \\ fs [closed_def]
-  \\ imp_res_tac barendregt_imp_no_shadowing
   \\ drule_at Any freshen_cexp_letrecs_distinct
   \\ simp[boundvars_of_SUBSET]
 QED
