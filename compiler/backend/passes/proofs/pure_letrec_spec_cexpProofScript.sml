@@ -5,7 +5,7 @@ open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
      combinTheory mlmapTheory indexedListsTheory;
 open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_miscTheory pure_letrec_delargTheory;
+     pure_miscTheory pure_letrec_delargTheory pure_barendregtTheory;
 open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
 open pure_exp_relTheory pure_congruenceTheory
 open pure_inline_relTheory pure_letrec_spec_cexpTheory pure_letrecProofTheory
@@ -800,24 +800,24 @@ Proof
   \\ fs [set_delete_with]
 QED
 
-Theorem no_shadowing_Lams_distinct:
+Theorem barendregt_Lams_distinct:
   ∀args x.
-    no_shadowing (Lams args x) ⇒
+    barendregt (Lams args x) ⇒
     ALL_DISTINCT args
 Proof
-  Induct \\ simp [Once no_shadowing_cases,Lams_def]
-  \\ rw [] \\ res_tac \\ fs []
-  \\ pop_assum kall_tac \\ pop_assum mp_tac
+  Induct \\ simp [barendregt_alt_def,Lams_def]
+  \\ rw [] \\ res_tac \\ gvs []
+  \\ last_x_assum mp_tac
   \\ qid_spec_tac ‘args’ \\ Induct \\ fs [Lams_def]
 QED
 
-Theorem no_shadowing_Lams:
+Theorem barendregt_Lams:
   ∀args x.
-    no_shadowing (Lams args x) ⇒
+    barendregt (Lams args x) ⇒
     EVERY (λv. v ∉ boundvars x) args
 Proof
-  Induct \\ simp [Once no_shadowing_cases,Lams_def]
-  \\ rw [] \\ pop_assum mp_tac
+  Induct \\ simp [barendregt_alt_def,Lams_def]
+  \\ rw [] \\ qpat_x_assum ‘~(_ ∈ _)’ mp_tac
   \\ qid_spec_tac ‘args’ \\ Induct \\ fs [Lams_def]
 QED
 
@@ -1011,7 +1011,7 @@ QED
 
 Theorem specialise_thm:
   specialise f e = SOME out ∧
-  no_shadowing (exp_of (Lam a [f] e))
+  barendregt (exp_of (Lam a [f] e))
   ⇒
   Letrec [(explode f,exp_of e)] rest
   ≅
@@ -1034,7 +1034,7 @@ Proof
   \\ qabbrev_tac ‘c1 = SmartLam a ws2 c’
   \\ qabbrev_tac ‘guide = const_call_args f (MAP SOME ws1 ++ MAP SOME ws2) c’
   \\ ‘Lams (MAP explode ws2) (exp_of c) = exp_of c1’ by fs [exp_of_def,Abbr‘c1’]
-  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps] \\ fs [MEM_MAP]
+  \\ fs [exp_of_def,boundvars_Lams,boundvars_Apps,barendregt_alt_def] \\ fs [MEM_MAP]
   \\ irule_at Any exp_eq_trans
   \\ irule_at (Pos hd) Letrec_expand_1 \\ fs [MEM_MAP]
   \\ irule_at Any exp_eq_App_cong \\ fs [exp_eq_refl]
@@ -1055,8 +1055,8 @@ Proof
     \\ fs [SUBSET_DEF] \\ CCONTR_TAC \\ gvs [] \\ res_tac)
   \\ irule_at Any Lams_cong
   \\ full_simp_tac bool_ss [GSYM MAP_APPEND]
-  \\ imp_res_tac no_shadowing_Lams
-  \\ imp_res_tac no_shadowing_Lams_distinct
+  \\ imp_res_tac barendregt_Lams
+  \\ imp_res_tac barendregt_Lams_distinct
   \\ drule specialise_each_thm
   \\ impl_tac
   >-
@@ -1068,10 +1068,10 @@ Proof
      (unabbrev_all_tac
       \\ irule (const_call_args_distinct |> CONJUNCT1)
       \\ rewrite_tac [GSYM MAP_APPEND,all_somes_map_some]
-      \\ ‘no_shadowing (exp_of (Lam a (outer_vs ++ zs ++ ws2) c))’ by
+      \\ ‘barendregt (exp_of (Lam a (outer_vs ++ zs ++ ws2) c))’ by
         fs [exp_of_def,Lams_append]
       \\ fs [exp_of_def]
-      \\ drule no_shadowing_Lams_distinct
+      \\ drule barendregt_Lams_distinct
       \\ rewrite_tac [GSYM MAP_APPEND]
       \\ metis_tac [ALL_DISTINCT_MAP])
     \\ qsuff_tac ‘∀x. MEM (SOME x) guide ⇒ MEM x (outer_vs ++ zs)’ >- fs []
