@@ -1383,15 +1383,6 @@ Proof
   rw[EXTENSION] >> metis_tac[]
 QED
 
-Theorem allvars_Lets:
-  allvars (Lets binds e) =
-    set (MAP FST binds) ∪ BIGUNION (set $ MAP (allvars o SND) binds) ∪ allvars e
-Proof
-  Induct_on `binds` >> rw[pure_expTheory.Lets_def] >>
-  PairCases_on `h` >> gvs[pure_expTheory.Lets_def] >>
-  rw[EXTENSION] >> metis_tac[]
-QED
-
 Theorem unique_boundvars_Lets:
   unique_boundvars (Lets binds e) ⇔
     unique_boundvars e ∧
@@ -1531,7 +1522,7 @@ Proof
   gvs[MEM_EL] >> metis_tac[DISJOINT_SYM]
 QED
 
-Theorem letrecs_distinct_Lets:
+Theorem letrecs_distinct_Lets_zip:
   ∀vs xs x.
     EVERY letrecs_distinct xs ∧ letrecs_distinct x ∧ LENGTH vs = LENGTH xs ⇒
     letrecs_distinct (Lets (ZIP (vs,xs)) x)
@@ -1547,7 +1538,7 @@ Proof
   simp[NestedCase_free_def, SF ETA_ss]
 QED
 
-Theorem NestedCase_free_Lets:
+Theorem NestedCase_free_Lets_zip:
   ∀vs xs x a.
     NestedCase_free x ∧ EVERY NestedCase_free xs ∧ LENGTH vs = LENGTH xs ⇒
     NestedCase_free (Lets a (ZIP (vs,xs)) x)
@@ -1555,7 +1546,7 @@ Proof
   Induct \\ Cases_on ‘xs’ \\ fs [Lets_def,NestedCase_free_def]
 QED
 
-Theorem cexp_wf_Lets:
+Theorem cexp_wf_Lets_zip:
   ∀vs xs x a.
     cexp_wf x ∧ EVERY cexp_wf xs ∧ LENGTH vs = LENGTH xs ⇒
     cexp_wf (Lets a (ZIP (vs,xs)) x)
@@ -1904,7 +1895,7 @@ Proof
       \\ imp_res_tac $ cj 2 inline_set_of
       \\ drule fresh_cexp_subset \\ simp []
       \\ metis_tac [SUBSET_TRANS])
-    \\ irule_at Any letrecs_distinct_Lets \\ fs []
+    \\ irule_at Any letrecs_distinct_Lets_zip \\ fs []
     \\ drule freshen_cexp_letrecs_distinct
     \\ impl_tac
     >- (fs [exp_of_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
@@ -1912,8 +1903,8 @@ Proof
     \\ gvs [exp_of_def]
     \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,letrecs_distinct_Lams]
     \\ fs [NestedCase_free_SmartApp]
-    \\ irule_at Any cexp_wf_Lets \\ fs [EVERY_MEM,cexp_wf_def]
-    \\ irule_at Any NestedCase_free_Lets
+    \\ irule_at Any cexp_wf_Lets_zip \\ fs [EVERY_MEM,cexp_wf_def]
+    \\ irule_at Any NestedCase_free_Lets_zip
     \\ fs [EVERY_MEM,avoid_set_ok_SmartApp]
     \\ irule_at Any avoid_set_ok_Lets \\ fs [EVERY_MEM]
     \\ qpat_x_assum ‘avoid_set_ok _ _’ $ irule_at $ Pos hd

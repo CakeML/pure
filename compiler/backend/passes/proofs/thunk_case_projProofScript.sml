@@ -660,7 +660,7 @@ Proof
     \\ rw [] \\ gs [SF SFY_ss])
 QED
 
-Theorem exp_rel_eval_to =
+Theorem exp_rel_eval_to[allow_rebind] =
   REWRITE_RULE [case_goal_def] exp_rel_eval_to;
 
 Theorem exp_rel_eval:

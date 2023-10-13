@@ -526,7 +526,7 @@ Proof
   \\ irule WF_LEX \\ gs []
 QED
 
-Theorem eval_to_wo_def = REWRITE_RULE [LEX_DEF] eval_to_wo_def;
+Theorem eval_to_wo_def[allow_rebind] = REWRITE_RULE [LEX_DEF] eval_to_wo_def;
 
 (* -------------------------------------------------------------------------
  * Generalized semantics theorem
