@@ -231,9 +231,9 @@ End
 Overload "<-->" = “bidir”
 val _ = set_fixity "<-->" (Infixl 480);
 
-Theorem bidir_refl[simp] = bidir_refl;
+Theorem bidir_refl[allow_rebind,simp] = bidir_refl;
 
-Theorem bidir_sym:
+Theorem bidir_sym[allow_rebind]:
   ∀x y. (x <--> y) ⇔ (y <--> x)
 Proof
   metis_tac [bidir_sym]
@@ -300,7 +300,7 @@ End
 Overload "~~>" = “pres”
 val _ = set_fixity "~~>" (Infixl 480);
 
-Theorem pres_refl[simp] = pres_refl;
+Theorem pres_refl[simp,allow_rebind] = pres_refl;
 
 (*----------------------------------------------------------------------------*
    Proof of preservation of well-formedness

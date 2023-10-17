@@ -1482,7 +1482,8 @@ Proof
   >- (strip_tac >> rw[Once exp_rel_cases] >> gvs[eval_to_def])
 QED
 
-Theorem exp_rel_eval_to = REWRITE_RULE [d2b_goal_def] exp_rel_eval_to;
+Theorem exp_rel_eval_to[allow_rebind] =
+  REWRITE_RULE [d2b_goal_def] exp_rel_eval_to;
 
 Theorem exp_rel_eval:
   exp_rel x y ∧
