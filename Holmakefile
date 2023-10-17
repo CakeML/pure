@@ -6,10 +6,11 @@ INCLUDES = misc\
 	   compiler/backend/languages\
 	   compiler/backend/languages/semantics\
 	   compiler/backend/languages/properties\
+	   compiler/backend/languages/relations\
 	   typing\
 	   compiler/backend/passes\
 	   compiler/backend/passes/proofs\
 	   compiler/parsing\
 	   compiler\
-     compiler/proofs\
-     compiler/binary
+	   compiler/proofs\
+	   compiler/binary
