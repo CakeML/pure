@@ -370,7 +370,7 @@ val add_even_even_str = toMLstring `
          . NONE))))
     add_ee)`;
 
-Theorem add_str_type:
+Theorem add_str_type[allow_rebind]:
   parse_and_infer parse_cexp even_odd_ns ^add_even_even_str =
     return (0, Functions [TypeCons 0 []; TypeCons 0 []] (TypeCons 0 [])) 12
 Proof
@@ -396,7 +396,7 @@ val add_even_odd_nats_str = toMLstring `
 
   (cons 0 add_ee add_eo add_oo))`;
 
-Theorem add_str_type:
+Theorem add_str_type[allow_rebind]:
   parse_and_infer parse_cexp even_odd_ns ^add_even_odd_nats_str =
     return (0, Tuple [
       Functions [TypeCons 0 []; TypeCons 0 []] (TypeCons 0 []);
