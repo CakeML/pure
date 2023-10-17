@@ -516,12 +516,6 @@ Proof
   Induct >> gvs [combine_rel_def]
 QED
 
-Theorem combine_rel_Apps:
-  ∀l1 l2 x y. combine_rel x y ∧ LIST_REL combine_rel l1 l2 ⇒ combine_rel (Apps x l1) (Apps y l2)
-Proof
-  Induct >> gvs [combine_rel_def, PULL_EXISTS]
-QED
-
 Theorem combine_rel_freevars:
   ∀x y. combine_rel x y ⇒ freevars x = freevars y
 Proof
@@ -1278,12 +1272,6 @@ Proof
   Cases \\ gs [dest_anyClosure_def]
   \\ CASE_TAC \\ gs []
   \\ CASE_TAC \\ gs []
-QED
-
-Theorem combine_rel_Lams:
-  ∀vL x y. combine_rel x y ⇒ combine_rel (Lams vL x) (Lams vL y)
-Proof
-  Induct \\ gs [combine_rel_def]
 QED
 
 Theorem combine_rel_Apps:
