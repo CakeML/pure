@@ -1,86 +1,14 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory;
-open pure_tcexpTheory pure_configTheory;
+open pure_typesTheory pure_tcexpTheory pure_configTheory;
 
 val _ = new_theory "pure_typing";
 
-
-(******************** Types ********************)
-
-Datatype:
-  prim_ty = Integer | String | Message | Bool
-End
-
-Datatype:
-  type = TypeVar num
-       | PrimTy prim_ty
-       | Exception
-       | TypeCons num (type list)
-       | VarTypeCons num (type list)
-         (* for sth like fmap::(a -> b) -> f a -> f a *)
-         (* need to kind-check *)
-         (* f a -> m f a *)
-       | Tuple (type list)
-       | Function type type
-       | Array type
-       | M type
-End
-
-Type class = ``:num``; (* index to the lists of classes *)
-(* or string? *)
-
-Datatype:
-  PredType = Pred ((class # num) list) type
-    (* e.g. Monad m, Functor f => m (f a) *)
-    (* only allow single-param type classes *)
-End
-
-Overload Unit = ``Tuple []``;
-
-Type type_scheme[pp] = ``:num # type``;
-
-(*
-  A type definition is an arity and a collection of constructor definitions.
-  Each constructor definition is a name and a type scheme for its arguments
-  (closed wrt the type definition arity).
-
-  Like CakeML, use numbers to refer to types - known typedefs represented as
-    : typedef list
-  We could instead have:
-    : (string # typedef) list     or     : string |-> typedef     etc.
-  Unlike CakeML, we group constructors by their type (i.e. group siblings).
-
-  E.g. the type definitions for Maybe and List might look like:
-  [
-    (1, [ ("Nothing", []) ; ("Just", [Var 0]) ]);
-    (1, [ ("Nil", []) ; ("Cons", [Var 0; TypeCons 1 [Var 0]]) ])
-  ]
-
-  The exception definition is a list of constructors associated to (closed)
-  argument types.
-
-  Together, the exception definition and a collection of type definitions form
-  our typing namespace.
-*)
-(* TODO make finite maps *)
-Type typedef[pp] = ``:num # ((mlstring # type list) list)``;
-Type typedefs[pp] = ``:typedef list``;
-Type exndef[pp] = ``:(mlstring # type list) list``;
-
-(* CakeML assumes the following initial namespace:
-      Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
-      Types: 0 -> Bool, 1 -> List
-
-   In Pure, we need only Subscript and List - Bool is built in and none of the
-   others are used. Therefore, the Pure initial namespace should be:
-      Exception: 0 -> Subscript
-      Types: 0 -> List
-*)
 Definition initial_namespace_def:
   initial_namespace : exndef # typedefs = (
     [«Subscript»,[]],
-    [1, [ («[]»,[]) ; («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]]) ]]
+    [1, [ («[]»,[]) ; («::»,[VarTypeCons 0 []; TypeCons 0 [TypeVar 0 []]]) ]]
   )
 End
 
@@ -104,16 +32,15 @@ End
 (********** Substitutions and shifts **********)
 
 Definition subst_db_def:
-  subst_db skip ts (TypeVar v) = (
-    if skip ≤ v ∧ v < skip + LENGTH ts then
-      EL (v - skip) ts
-    else if skip ≤ v then
-      TypeVar (v - LENGTH ts)
-    else TypeVar v) ∧
   subst_db skip ts (PrimTy p) = PrimTy p ∧
   subst_db skip ts  Exception = Exception ∧
   subst_db skip ts (TypeCons n tcs) = TypeCons n (MAP (subst_db skip ts) tcs) ∧
-  subst_db skip ts (Tuple tcs) = Tuple  (MAP (subst_db skip ts) tcs) ∧
+  subst_db skip ts (VarTypeCons v tcs) = (
+    if skip <= v ∧ v < skip + LENGTH ts then
+      EL (v - skip) ts
+    else if skip <= v then
+      VarTypeCons (v - LENGTH ts) (MAP (subst_db skip ts) tcs)
+    else VarTypeCons v (MAP (subst_db skip ts) tcs)) ∧
   subst_db skip ts (Function tf t) =
     Function (subst_db skip ts tf) (subst_db skip ts t) ∧
   subst_db skip ts (Array t) = Array (subst_db skip ts t) ∧
@@ -124,12 +51,12 @@ Termination
 End
 
 Definition shift_db_def:
-  shift_db skip n (TypeVar v) = (
-    if skip ≤ v then TypeVar (v + n) else TypeVar v) ∧
   shift_db skip n (PrimTy p) = PrimTy p ∧
   shift_db skip n  Exception = Exception ∧
   shift_db skip n (TypeCons tn tcs) = TypeCons tn (MAP (shift_db skip n) tcs) ∧
-  shift_db skip n (Tuple tcs) = Tuple  (MAP (shift_db skip n) tcs) ∧
+  shift_db skip n (VarTypeCons tn tcs) = (if skip <= tn
+    then VarTypeCons (tn + n) (MAP (shift_db skip n) tcs)
+    else VarTypeCons tn (MAP (shift_db skip n) tcs)) ∧
   shift_db skip n (Function tf t) =
     Function (shift_db skip n tf) (shift_db skip n t) ∧
   shift_db skip n (Array t) = Array (shift_db skip n t) ∧
@@ -159,11 +86,10 @@ End
 (******************** Properties of types ********************)
 
 Definition freetyvars_ok_def:
-  freetyvars_ok n (TypeVar v) = (v < n) ∧
   freetyvars_ok n (PrimTy p) = T ∧
   freetyvars_ok n  Exception = T ∧
   freetyvars_ok n (TypeCons c ts) = EVERY (freetyvars_ok n) ts ∧
-  freetyvars_ok n (Tuple ts) = EVERY (freetyvars_ok n) ts ∧
+  freetyvars_ok n (VarTypeCons v ts) = (v < n ∧ EVERY (freetyvars_ok n) ts) ∧
   freetyvars_ok n (Function tf t) =
     (freetyvars_ok n tf ∧ freetyvars_ok n t) ∧
   freetyvars_ok n (Array t) = freetyvars_ok n t ∧
@@ -177,19 +103,24 @@ Overload freetyvars_ok_scheme =
   ``λn (vars,scheme). freetyvars_ok (n + vars) scheme``;
 
 (* Does a type only contain defined constructors, and non-nullary functions? *)
+(* replace with kind check *)
 Definition type_wf_def:
   type_wf (typedefs : typedefs) (TypeVar n) = T ∧
   type_wf typedefs (PrimTy pty) = T ∧
   type_wf typedefs  Exception = T ∧
-  type_wf typedefs (TypeCons id tyargs) = (
+  type_wf typedefs (TypeCons (SOME id) tyargs) = (
     EVERY (type_wf typedefs) tyargs ∧
     ∃arity constructors.
       (* Type definition exists: *)
         oEL id typedefs = SOME (arity, constructors) ∧
       (* And has correct arity: *)
         LENGTH tyargs = arity) ∧
-  type_wf typedefs (Tuple ts) =
+  type_wf typedefs (TypeCons NONE ts) = (* Tuple *)
     EVERY (type_wf typedefs) ts ∧
+  type_wf typedefs (VarTypeCons id tyargs) = (
+    EVERY (type_wf typedefs) tyargs ∧
+    (* TODO *)
+  ) ∧
   type_wf typedefs (Function tf t) = (
     type_wf typedefs t ∧ type_wf typedefs tf) ∧
   type_wf typedefs (Array t) = type_wf typedefs t ∧
@@ -243,6 +174,7 @@ Definition namespace_init_ok_def:
     namespace_ok ns ∧
     ∃ns'. ns = append_ns initial_namespace ns'
 End
+
 
 (******************** Typing judgements ********************)
 

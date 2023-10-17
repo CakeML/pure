@@ -6,20 +6,80 @@ open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
 open pure_cexpTheory pure_cexp_lemmasTheory pure_expTheory pure_evalTheory
      pure_exp_lemmasTheory pure_exp_relTheory pure_congruenceTheory;
-
+open pure_typesTheory pure_kindCheckTheory;
 val _ = new_theory "pure_tcexp";
 
+(* which are these neccessary ?*)
 Datatype:
-  tcexp = Var cvname (Predtype option)                    (* variable                 *)
-        | Prim cop (tcexp list) (Predtype option)         (* primitive operations     *)
-        | App tcexp (tcexp list) (Predtype option)        (* function application     *)
-        | Lam (cvname list) tcexp (Predtype option)       (* lambda                   *)
-        | Let cvname tcexp tcexp (Predtype option)        (* let                      *)
+  tcexp = Var cvname (PredType option)                    (* variable                 *)
+        | Prim cop (tcexp list) (PredType option)         (* primitive operations     *)
+        | App tcexp (tcexp list)        (* function application     *)
+        | Lam (cvname list) tcexp (PredType option)       (* lambda                   *)
+        | Let cvname PredType_scheme (* with forall quantifier *) tcexp tcexp
+        (PredType option)        (* let                      *)
+        (* let poly-morphism *)
         | Letrec ((cvname # tcexp) list) tcexp
-            (Predtype option)                             (* mutually recursive exps  *)
+            (PredType option)                             (* mutually recursive exps  *)
         | NestedCase tcexp cvname cepat tcexp
-            ((cepat # tcexp) list) (Predtype option)      (* case of                  *)
-        | SafeProj cvname num num tcexp (Predtype option) (* typesafe projection      *)
+            ((cepat # tcexp) list) (PredType option)      (* case of                  *)
+        | SafeProj cvname num num tcexp (PredType option) (* typesafe projection      *)
+End
+
+Type minImplAST = ``:(string list) list``; (* DNF of function names*)
+
+Datatype:
+  classinfo =
+    <| super : string list
+     ; class : string
+     ; kind : Kind
+     ; methodsig : cvname |-> PredType
+     ; minImp : minImplAST
+     ; defaults : cvname |-> tcexp |>
+End
+
+Inductive super_reachable:
+  (!src dst sup.
+    cdb src = SOME c /\ MEM sup c.super /\
+    super_reachable cdb sup dst ==>
+      super_reachable cdb src dst) /\
+  (!src sup.
+    cdb src = SOME c /\ MEM sup c.super ==>
+      super_reachable cdb src sup)
+End
+
+Definition super_ok_def:
+  super_ok cdb =
+    !x. MEM x cdb ==>
+      ~(super_reachable (ALOOKUP cdb) (FST x) (FST x))
+End
+
+Datatype:
+  instinfo =
+    <| cstr : ('a # 'b) list (* class and type variable*)
+     ; class : 'a
+     ; insttype : type
+     ; impl : cvname |-> tcexp|> (* function name and its expression *)
+End
+
+Definition instinfo_constraint_ok_def:
+  instinfo_constraint_ok inst =
+    !x. MEM x inst.cstr ==>
+      (* everything in the left must be in used in the right *)
+      SND x IN collect_type_vars inst.insttype /\
+      (* everything in the left must be smaller than the type in the right *)
+      (* since we only allow a single type variable on the right now,
+      * so the following check should suffice *)
+      TypeVar (SND x) <> inst.insttype
+End
+
+Definition instinfo_impl_ok:
+  instinfo_impl_ok cdb inst <=>
+  ?c. cdb inst.class = SOME c /\
+    !meth ty. FLOOKUP c.methodsig meth = SOME ty ==>
+      ?exp.
+       (FLOOKUP inst.impl meth = SOME exp
+       (* /\ TODO: check if the tcexp has the correct instantiated type *)) \/
+       FLOOKUP c.defaults meth = SOME exp
 End
 
 Definition lets_for_def:
@@ -35,13 +95,14 @@ Definition rows_of_def:
       (lets_for cn (LENGTH vs) v (MAPi (λi v. (i,v)) vs) b) (rows_of v rest k)
 End
 
+(*
 Definition exp_of_def:
-  exp_of (Var n)       = pure_exp$Var (explode n) ∧
-  exp_of (Prim p xs)   = Prim (op_of p) (MAP exp_of xs) ∧
-  exp_of (Let v x y)   = Let (explode v) (exp_of x) (exp_of y) ∧
-  exp_of (App f xs)    = Apps (exp_of f) (MAP exp_of xs) ∧
-  exp_of (Lam vs x)    = Lams (MAP explode vs) (exp_of x) ∧
-  exp_of (Letrec rs x) = Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs)
+  exp_of (Var n _)       = pure_exp$Var (explode n) ∧
+  exp_of (Prim p xs _)   = Prim (op_of p) (MAP exp_of xs) ∧
+  exp_of (Let v _ _ x y _)   = Let (explode v) (exp_of x) (exp_of y) ∧
+  exp_of (App f xs _)    = Apps (exp_of f) (MAP exp_of xs) ∧
+  exp_of (Lam vs x _)    = Lams (MAP explode vs) (exp_of x) ∧
+  exp_of (Letrec rs x _) = Letrec (MAP (λ(n,x). (explode n,exp_of x)) rs)
                                 (exp_of x) ∧
   exp_of (Case x v rs eopt) =
     Let (explode v) (exp_of x)
@@ -153,5 +214,6 @@ Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[cexp_size_def]
 End
+*)
 
 val _ = export_theory();

@@ -11,21 +11,18 @@ val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
    The tyTup constructor should never be applied to a singleton list
 *)
 Datatype:
-  tyAST = tyOp string (tyAST list)
+  tyAST = tyOp (string option) (tyAST list) (* NONE for tyTup *)
         | tyVarOp string (tyAST list)
-        | tyVar string
-        (* should we remove tyVar as it can represent as tyVarOp string [] *)
-        | tyTup (tyAST list)
 End
 
 Datatype:
-  PredtyAST = Predty ((string # string) list) tyAST
+  PredtyAST = Predty ((string # tyAST) list) tyAST
 End
 
-Overload boolTy = “tyOp "Bool" []”;
-Overload intTy = “tyOp "Integer" []”
-Overload listTy = “λty. tyOp "[]" [ty]”
-Overload funTy = “λd r. tyOp "Fun" [d; r]”
+Overload boolTy = “tyOp (SOME "Bool") []”;
+Overload intTy = “tyOp (SOME "Integer") []”
+Overload listTy = “λty. tyOp (SOME "[]") [ty]”
+Overload funTy = “λd r. tyOp (SOME "Fun") [d; r]”
 
 Datatype:
   litAST = litInt int | litString string
@@ -104,7 +101,7 @@ val _ = add_rule {term_name = "expAbs", fixity = Prefix 1,
 
 Type classname = ``:string``;
 
-Type minImplAST = ``:(string list) list``; (* DNF *)
+Type minImplAST = ``:(string list) list``; (* DNF of function names*)
 
 (* for declClass:
 *  we only allow something like class Functor a => Monad a,
@@ -127,8 +124,9 @@ Datatype:
           | declFunbind string (patAST list) expAST
           | declPatbind patAST expAST
           | declClass (classname list) classname minImplAST (expdecAST list)
-          | declInst ((classname # string) list) classname tyAst (expdecAST list)
+            (* enforce type sigs for functions definintion in class *)
+          | declInst ((classname # string) list) classname tyAST (expdecAST list)
 End
-
+(* should we enforce type sig for all top level funcs? *)
 
 val _ = export_theory();
