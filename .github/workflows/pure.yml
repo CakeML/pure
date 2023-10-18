@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: self-hosted
     container: ubuntu:20.04
-    timeout-minutes: 480
+    timeout-minutes: 600
 
     env:
       HOLDIR: ${{ github.workspace }}/HOL
@@ -138,6 +138,10 @@ jobs:
     - name: Build compiler/backend/passes/proofs
       run: |
         cd pure/compiler/backend/passes/proofs
+        Holmake
+    - name: Build compiler/backend/languages/relations
+      run: |
+        cd pure/compiler/backend/languages/relations
         Holmake
     - name: Build compiler/parsing
       run: |
