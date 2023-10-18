@@ -890,12 +890,6 @@ Proof
   \\ fs [Once app_bisimilarity_iff,closed_def,eval_thm]
 QED
 
-Theorem app_similarity_closed:
-  (x ≲ y) b ⇒ closed x ∧ closed y
-Proof
-  fs [app_similarity_iff,Once unfold_rel_def]
-QED
-
 Theorem open_similarity_EMPTY:
   open_similarity b ∅ x y = (x ≲ y) b
 Proof
@@ -1086,13 +1080,6 @@ Theorem app_bisimilarity_sym:
 Proof
   assume_tac symmetric_app_bisimilarity
   \\ fs [symmetric_def]
-QED
-
-Theorem app_bisimilarity_trans:
-  ∀x y z b. (x ≃ y) b ∧ (y ≃ z) b ⇒ (x ≃ z) b
-Proof
-  assume_tac transitive_app_bisimilarity
-  \\ fs [transitive_def,SF SFY_ss]
 QED
 
 Definition eval_forward_def:

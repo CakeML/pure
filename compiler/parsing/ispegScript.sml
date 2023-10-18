@@ -957,7 +957,7 @@ Theorem ispeg_eval_tok_SOME:
 Proof simp[Once ispeg_eval_cases, pairTheory.EXISTS_PROD] >> metis_tac[]
 QED
 
-Theorem ispeg_eval_empty[simp]:
+Theorem ispeg_eval_empty[simp,allow_rebind]:
   ispeg_eval G p (i, empty r) x ⇔
     p = lpBOT ∧ x = Failure (sloc i) G.iFAIL ∨
     p ≠ lpBOT ∧ x = Success i r NONE p

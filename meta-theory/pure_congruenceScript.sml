@@ -902,7 +902,7 @@ Proof
   \\ qexists_tac ‘freevars e1 UNION freevars e2’ \\ fs []
 QED
 
-Theorem Howe_finite:
+Theorem Howe_finite_lemma[local]:
   Howe R vars e1 e2 ⇒ R = open_similarity b ⇒
   ∃ws. Howe R ws e1 e2 ∧ FINITE ws
 Proof
@@ -988,7 +988,7 @@ Proof
     irule Exps_SUBSET >> goal_assum drule >> simp[SUBSET_DEF]
 QED
 
-Theorem Howe_finite = GEN_ALL Howe_finite |> SIMP_RULE std_ss [] |> MP_CANON;
+Theorem Howe_finite = GEN_ALL Howe_finite_lemma |> SIMP_RULE std_ss [] |> MP_CANON;
 
 Theorem Howe_open_similarity_min_freevars:
   ∀R vars x e1 e2 b.

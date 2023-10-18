@@ -482,7 +482,7 @@ Proof
           simp[type_wh_cases, Once type_tcexp_cases,
                mlstringTheory.implode_def]) >>
       simp[type_wh_cases] >>
-      simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_def]
+      simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases]
       )
     >- (
       pop_assum mp_tac >> simp[Once type_tcexp_cases] >> rw[] >>
@@ -1287,7 +1287,7 @@ Proof
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
     ntac 2 $ simp[Once type_tcexp_cases] >>
     simp[get_PrimTys_def, type_atom_op_cases] >>
-    unabbrev_all_tac >> simp[type_lit_def, mlstringTheory.implode_def]
+    unabbrev_all_tac >> simp[type_lit_cases, mlstringTheory.implode_def]
     )
   >- (
     drule_at (Pos last) type_soundness_eval_wh >> simp[] >> strip_tac >>

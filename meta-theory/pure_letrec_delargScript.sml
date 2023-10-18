@@ -565,17 +565,6 @@ QED
 Triviality eval_wh_Constructor_NIL_bisim =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Theorem closed_mk_rec:
-  info_ok i ∧ closed (mk_rec b1 i) ⇒ closed (mk_rec b2 i)
-Proof
-  Cases_on ‘b1 = b2’ >- fs []
-  \\ Cases_on ‘b1’ \\ gvs []
-  \\ fs [mk_rec_def,mk_fun_def,mk_letrec_def,info_ok_def] \\ rw []
-  \\ drule remove_call_arg_freevars
-  \\ gvs [SUBSET_DEF] \\ rw []
-  \\ metis_tac []
-QED
-
 Triviality LIST_REL_letrec_delarg_closed:
   ∀xs ys. LIST_REL (letrec_delarg i) xs ys ∧ EVERY closed xs ⇒ EVERY closed ys
 Proof

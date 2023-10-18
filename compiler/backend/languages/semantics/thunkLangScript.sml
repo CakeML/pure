@@ -336,7 +336,7 @@ Termination
   \\ Induct_on ‘xs’ \\ rw [] \\ fs [exp_size_def]
 End
 
-Theorem eval_to_ind:
+Theorem eval_to_ind[allow_rebind]:
   ∀P.
     (∀k v. P k (Value v)) ∧
     (∀k n. P k (Var n)) ∧

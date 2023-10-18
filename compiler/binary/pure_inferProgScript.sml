@@ -111,13 +111,6 @@ Proof
   fs [FUN_EQ_THM,infer_bind_def]
 QED
 
-Theorem infer_bind_eq:
-  infer_bind g f =
-    λs. case g s of Err e => Err e | OK (x,s') => f x s'
-Proof
-  fs [FUN_EQ_THM,infer_bind_def]
-QED
-
 Theorem infer_ignore_bind_eq:
   infer_ignore_bind g f =
     λs. case g s of Err e => Err e | OK (x,s') => f s'
@@ -182,7 +175,7 @@ val r = translate
   |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
   |> MATCH_MP PRECONDITION_INTRO)
 
-Theorem pure_vwalk_side_def:
+Theorem pure_vwalk_side_def[allow_rebind]:
   ∀s v. pure_vwalk_side s v ⇔ pure_wfs s
 Proof
   strip_tac \\ reverse $ Cases_on ‘pure_wfs s’ \\ fs []
