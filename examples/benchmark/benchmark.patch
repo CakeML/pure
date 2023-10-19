@@ -1,5 +1,5 @@
 diff --git a/examples/gameOfLife.hs b/examples/gameOfLife.hs
-index b472ef2..51d831c 100644
+index aad3abf..97efd16 100644
 --- a/examples/gameOfLife.hs
 +++ b/examples/gameOfLife.hs
 @@ -40,7 +40,7 @@ nextRows :: [Integer] -> [Integer] -> [[Integer]] -> [[Integer]]
@@ -11,7 +11,7 @@ index b472ef2..51d831c 100644
                 zs:rest -> nextRow 0 (hd xs) (tl xs)
                                    0 (hd ys) (tl ys)
                                    0 (hd zs) (tl zs) : nextRows ys zs rest
-@@ -79,7 +79,7 @@ nextCell x1 x2 x3
+@@ -81,7 +81,7 @@ nextCell x1 x2 x3
  parse :: String -> [[Integer]]
  parse s =
    let width = 102
@@ -20,7 +20,7 @@ index b472ef2..51d831c 100644
  
  expand :: String -> String
  expand s =
-@@ -87,7 +87,7 @@ expand s =
+@@ -89,7 +89,7 @@ expand s =
          if strlen s < idx + 1 then "" else
            let e = str_elem s idx
            in if and (47 < e) (e < 58) then expandAux (idx + 1) (count * 10 + e - 48)
@@ -29,7 +29,7 @@ index b472ef2..51d831c 100644
    in expandAux 0 0
  
  split :: String -> [[Integer]]
-@@ -107,7 +107,7 @@ printGOL l =
+@@ -109,7 +109,7 @@ printGOL l =
                                         else "#" ++ rowToString t
        toString l = case l of [] -> ""
                               h:t -> rowToString h ++ "\n" ++ toString t
@@ -38,7 +38,7 @@ index b472ef2..51d831c 100644
  
  
  -- Helper functions
-@@ -123,8 +123,6 @@ hd l = case l of [] -> 0
+@@ -125,8 +125,6 @@ hd l = case l of [] -> 0
  
  -- Standard functions
  
@@ -47,7 +47,7 @@ index b472ef2..51d831c 100644
  or :: Bool -> Bool -> Bool
  or b1 b2 = case b1 of True  -> True
                        False -> b2
-@@ -163,7 +161,7 @@ replicate n a = if n < 1 then [] else a : replicate (n - 1) a
+@@ -165,7 +163,7 @@ replicate n a = if n < 1 then [] else a : replicate (n - 1) a
  
  
  pad :: Integer -> a -> [a] -> [a]
@@ -56,7 +56,7 @@ index b472ef2..51d831c 100644
  
  
  -- I/O helpers
-@@ -185,9 +183,9 @@ toString i =
+@@ -187,9 +185,9 @@ toString i =
    let toString0 i =
          if i == 0 then []
          else (i `mod` 10 + 48) : toString0 (i `div` 10)
@@ -265,6 +265,40 @@ index aad9456..3421899 100644
  
  reverse :: [a] -> [a]
 @@ -181,9 +150,9 @@ toString i =
+   let toString0 i =
+         if i == 0 then []
+         else (i `mod` 10 + 48) : toString0 (i `div` 10)
+-  in if i < 0 then "-" ++ (implode $ reverse $ toString0 (0-i))
++  in if i < 0 then "-" ++ (implode (reverse (toString0 (0-i))))
+      else if i == 0 then "0"
+-     else implode $ reverse $ toString0 i
++     else implode (reverse (toString0 i))
+ 
+ implode l =
+   case l of
+diff --git a/examples/suc_list.hs b/examples/suc_list.hs
+index 1f03d6b..d66e902 100644
+--- a/examples/suc_list.hs
++++ b/examples/suc_list.hs
+@@ -22,7 +22,7 @@ main = do
+   -- fromString == 0 on malformed input
+   let i = fromString arg1
+       ns = take i numbers
+-  app (\i -> print $ toString i) (n_times 1000000 suc_list ns)
++  app (\i -> print (toString i)) (n_times 1000000 suc_list ns)
+ 
+ 
+ -- Code below this line omitted from the paper
+@@ -30,8 +30,6 @@ main = do
+ 
+ -- Standard functions
+ 
+-f $ x = f x
+-
+ map :: (a -> b) -> [a] -> [b]
+ map f l =
+    case l of
+@@ -69,9 +67,9 @@ toString i =
    let toString0 i =
          if i == 0 then []
          else (i `mod` 10 + 48) : toString0 (i `div` 10)
