@@ -23,23 +23,25 @@ Datatype:
       do_mk_delay   : bool ;        (* thunk-to-thunk smart mk_delay constructor *)
       do_let_force  : bool ;        (* thunk-to-thunk simplify let force *)
       do_split_dlam : bool ;        (* thunk-to-thunk split delayed lambdas *)
+      do_to_box     : bool ;        (* env-to-env Delay to Box *)
       do_app_unit   : bool ;        (* state-to-state *)
       do_final_gc   : bool ;        (* invoke GC at end of CakeML program *)
       do_explore    : bool          (* print explorer output *)
     |>
 End
 
-Overload pure_sort_flag[local]  = “strlit "-sort"”
-Overload pure_clean_flag[local] = “strlit "-clean"”
-Overload demands_flag[local]    = “strlit "-demands"”
+Overload pure_sort_flag[local]    = “strlit "-sort"”
+Overload pure_clean_flag[local]   = “strlit "-clean"”
+Overload demands_flag[local]      = “strlit "-demands"”
 Overload inline_depth_flag[local] = “strlit "-inline_depth="”
-Overload inline_size_flag[local] = “strlit "-inline_size="”
-Overload mk_delay_flag[local]   = “strlit "-mk_delay"”
-Overload let_force_flag[local]  = “strlit "-let_force"”
-Overload dlam_flag[local]       = “strlit "-dlam"”
-Overload unit_flag[local]       = “strlit "-unit"”
-Overload final_gc_flag[local]   = “strlit "-final_gc"”
-Overload explore_flag[local]    = “strlit "-explore"”
+Overload inline_size_flag[local]  = “strlit "-inline_size="”
+Overload mk_delay_flag[local]     = “strlit "-mk_delay"”
+Overload let_force_flag[local]    = “strlit "-let_force"”
+Overload dlam_flag[local]         = “strlit "-dlam"”
+Overload unit_flag[local]         = “strlit "-unit"”
+Overload box_flag[local]          = “strlit "-box"”
+Overload final_gc_flag[local]     = “strlit "-final_gc"”
+Overload explore_flag[local]      = “strlit "-explore"”
 
 Definition get_num_flag_def:
   get_num_flag flag (cl : mlstring list) =
@@ -58,6 +60,7 @@ Definition bool_flags_def:
                let_force_flag;
                dlam_flag;
                unit_flag;
+               box_flag;
                final_gc_flag;
                explore_flag]
 End
@@ -95,6 +98,7 @@ Definition read_cline_args_def:
              do_let_force  := ¬ MEM let_force_flag cl  ;
              do_split_dlam := ¬ MEM dlam_flag cl       ;
              do_app_unit   := ¬ MEM unit_flag cl       ;
+             do_to_box     := ¬ MEM box_flag cl        ;
              do_final_gc   := MEM final_gc_flag cl     ; (* NB final GC only if flag is present *)
              do_explore    := MEM explore_flag cl      |>
 End
