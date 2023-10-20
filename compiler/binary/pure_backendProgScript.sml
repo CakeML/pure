@@ -103,6 +103,10 @@ val r = translate thunk_to_envTheory.get_arg_def;
 val r = translate thunk_to_envTheory.remove_Delay_def;
 val r = translate thunk_to_envTheory.op_to_env_def;
 val r = translate thunk_to_envTheory.to_env_def;
+val r = translate env_boxTheory.is_Lit_def;
+val r = translate env_boxTheory.to_box_def;
+val r = translate env_boxTheory.compile_to_box_def;
+val r = translate thunk_to_envTheory.thunk_to_env_def;
 
 (* env_to_state *)
 
