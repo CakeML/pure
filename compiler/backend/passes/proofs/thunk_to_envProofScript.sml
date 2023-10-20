@@ -7,7 +7,8 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pred_setTheory rich_listTheory thunkLang_primitivesTheory envLangTheory
      finite_mapTheory thunkLangTheory env_semanticsTheory thunk_semanticsTheory;
 open thunk_to_envTheory thunk_to_env_1ProofTheory thunk_exp_ofTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_cexpTheory thunk_to_envTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_cexpTheory thunk_to_envTheory
+     env_boxProofTheory;
 
 val _ = new_theory "thunk_to_envProof";
 
@@ -119,6 +120,17 @@ Proof
     )
 QED
 
+Theorem closed_to_env:
+  cexp_wf x ∧
+  closed (exp_of x) ⇒
+  closed (exp_of (to_env x))
+Proof
+  rw [] \\ drule_all to_env_exp_of \\ rw []
+  \\ drule exp_rel_freevars
+  \\ fs [closed_def,envLangTheory.closed_def]
+  \\ gvs [EXTENSION]
+QED
+
 Theorem to_env_semantics:
   cexp_wf x ∧ closed (exp_of x) ⇒
   itree_of (exp_of x) =
@@ -134,7 +146,12 @@ Theorem thunk_to_env_semantics:
   itree_of (exp_of x) =
   itree_of (exp_of (thunk_to_env c x))
 Proof
-  cheat
+  rw []
+  \\ irule EQ_TRANS
+  \\ irule_at (Pos hd) to_env_semantics \\ fs []
+  \\ gvs [thunk_to_env_def]
+  \\ irule itree_of_compile_to_box
+  \\ irule closed_to_env \\ fs []
 QED
 
 Theorem IMP_env_cexp_wf_lemma:
@@ -260,7 +277,10 @@ Theorem IMP_env_cexp_wf:
   envLang$cexp_wf (thunk_to_env c x) ∧
   cns_arities (thunk_to_env c x) ⊆ cns_arities x
 Proof
-  cheat
+  strip_tac
+  \\ gvs [thunk_to_env_def,compile_to_box_wf]
+  \\ irule IMP_env_cexp_wf_lemma
+  \\ fs []
 QED
 
 val _ = export_theory ();

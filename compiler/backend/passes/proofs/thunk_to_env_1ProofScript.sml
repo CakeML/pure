@@ -575,6 +575,71 @@ Proof
     )
 QED
 
+Triviality freevars_ind_lemma =
+  exp_rel_ind |> Q.SPECL [‘λenv x y.
+               exp_rel env x y ⇒ ∀v. v ∈ freevars y ∧ ~MEM v (MAP FST env) ⇒
+                                     v ∈ freevars x’,‘λx y. T’]
+              |> SIMP_RULE std_ss [];
+
+Triviality LIST_REL_MEM_TWICE:
+  ∀xs ys.
+    LIST_REL R1 xs ys ∧ LIST_REL R2 xs ys ∧ MEM y ys ⇒
+    ∃x. MEM x xs ∧ R1 x y ∧ R2 x y
+Proof
+  Induct \\ gvs [PULL_EXISTS] \\ rw [] \\ gvs [SF DNF_ss]
+  \\ metis_tac []
+QED
+
+Triviality LIST_REL_MAP_FST:
+  ∀xs ys.
+    LIST_REL (λ(fn,b) (gn,c). fn = gn ∧ P fn b gn c) xs ys ⇒
+    MAP FST xs = MAP FST ys
+Proof
+  Induct \\ fs [PULL_EXISTS,FORALL_PROD]
+QED
+
+Theorem exp_rel_freevars:
+  ∀env x y v.
+    exp_rel env x y ∧ v ∈ freevars y ∧ ~MEM v (MAP FST env) ⇒
+    v ∈ freevars x
+Proof
+  SUFF_TAC (freevars_ind_lemma |> concl |> rand)
+  >- (rw [] \\ res_tac \\ fs [])
+  \\ match_mp_tac freevars_ind_lemma
+  \\ gvs [freevars_def,envLangTheory.freevars_def]
+  \\ rpt conj_tac
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ qpat_x_assum ‘exp_rel _ _ _’ mp_tac
+  \\ simp [Once exp_rel_cases]
+  \\ TRY strip_tac \\ gvs [SF SFY_ss, SF DNF_ss]
+  >- (imp_res_tac ALOOKUP_MEM \\ gvs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+  >- (imp_res_tac ALOOKUP_MEM \\ gvs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+  >- (imp_res_tac ALOOKUP_MEM \\ gvs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+  \\ gvs [MEM_MAP,MEM_FILTER,FORALL_PROD,PULL_EXISTS]
+  >- (gvs [LIST_REL_EL_EQN,MEM_EL] \\ metis_tac [])
+  >- (gvs [LIST_REL_EL_EQN,MEM_EL] \\ metis_tac [])
+  \\ gvs [EXISTS_PROD]
+  \\ qabbrev_tac ‘f1 = REVERSE f’
+  \\ ‘∀x. MEM x f ⇔ MEM x f1’ by gvs [Abbr‘f1’]
+  \\ gvs [] \\ ntac 2 $ pop_assum kall_tac
+  \\ ‘∀n. MEM n (MAP FST f1) = MEM n (MAP FST g)’ by
+   (qsuff_tac ‘MAP FST f1 = MAP FST g’ >- fs []
+    \\ irule LIST_REL_MAP_FST
+    \\ qexists_tac ‘(λfn b gn c.
+               ∀v. exp_rel (FILTER (λ(n,x). ∀p_2. ¬MEM (n,p_2) f1) env) b c ⇒
+                   v ∈ freevars c ∧
+                   (∀p_2. (∃p_2. MEM (v,p_2) f1) ∨ ¬MEM (v,p_2) env) ⇒
+                   v ∈ freevars b)’ \\ gvs [])
+  \\ gvs [MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+  \\ rpt strip_tac
+  >-
+   (dxrule_then (dxrule_then drule) LIST_REL_MEM_TWICE
+    \\ gvs [EXISTS_PROD]
+    \\ metis_tac [])
+  \\ metis_tac []
+QED
+
 Theorem eval_exp_rel:
   exp_rel env x y ⇒
     ($= +++ v_rel) (eval x) (eval env y)
