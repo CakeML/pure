@@ -16,7 +16,7 @@ Definition pure_to_env_def:
   pure_to_env (c:compiler_opts) e =
     let thunk_prog = pure_to_thunk$compile_to_thunk c e in
     let _ = empty_ffi (strlit "to_thunk") in
-    let env_prog = thunk_to_env$to_env thunk_prog in
+    let env_prog = thunk_to_env$thunk_to_env c thunk_prog in
     let _ = empty_ffi (strlit "to_env") in
       env_prog
 End

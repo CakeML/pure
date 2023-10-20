@@ -4,7 +4,7 @@
 
 open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory;
-open thunk_cexpTheory env_cexpTheory;
+open thunk_cexpTheory env_cexpTheory env_boxTheory;
 
 val _ = new_theory "thunk_to_env";
 
@@ -53,6 +53,10 @@ Definition to_env_def:
     | Update => Update y0 y1 y2
 Termination
   WF_REL_TAC ‘measure cexp_size’
+End
+
+Definition thunk_to_env_def:
+  thunk_to_env c e = env_box$compile_to_box c (to_env e)
 End
 
 val _ = export_theory ();
