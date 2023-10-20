@@ -129,7 +129,15 @@ Proof
   \\ drule_all exp_rel_semantics \\ fs []
 QED
 
-Theorem IMP_env_cexp_wf:
+Theorem thunk_to_env_semantics:
+  cexp_wf x ∧ closed (exp_of x) ⇒
+  itree_of (exp_of x) =
+  itree_of (exp_of (thunk_to_env c x))
+Proof
+  cheat
+QED
+
+Theorem IMP_env_cexp_wf_lemma:
   thunk_exp_of$cexp_wf x ⇒
   envLang$cexp_wf (to_env x) ∧
   cns_arities (to_env x) ⊆ cns_arities x
@@ -245,6 +253,14 @@ Proof
   gvs[pure_configTheory.num_mop_args_def, LENGTH_EQ_NUM_compute] >>
   ntac 2 strip_tac >> gvs[get_arg_def, env_cexpTheory.cns_arities_def] >>
   gvs[SF DNF_ss, SUBSET_DEF]
+QED
+
+Theorem IMP_env_cexp_wf:
+  thunk_exp_of$cexp_wf x ⇒
+  envLang$cexp_wf (thunk_to_env c x) ∧
+  cns_arities (thunk_to_env c x) ⊆ cns_arities x
+Proof
+  cheat
 QED
 
 val _ = export_theory ();

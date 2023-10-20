@@ -6,13 +6,12 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      pred_setTheory rich_listTheory thunkLang_primitivesTheory envLangTheory
      finite_mapTheory thunkLangTheory env_semanticsTheory thunk_semanticsTheory;
-open thunk_to_envTheory;
 open pure_miscTheory thunkLangPropsTheory;
 
 val _ = new_theory "thunk_to_env_1Proof";
 
 val _ = set_grammar_ancestry ["pred_set", "rich_list", "envLang", "thunkLang",
-                              "thunk_to_env", "thunkLangProps", "env_semantics" ]
+                              "thunkLangProps", "env_semantics" ]
 
 val _ = numLib.prefer_num ();
 

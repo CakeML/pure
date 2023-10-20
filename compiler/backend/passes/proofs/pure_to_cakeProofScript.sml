@@ -27,7 +27,7 @@ Proof
   \\ drule_all pure_to_thunkProofTheory.compile_to_thunk_itree_of
   \\ disch_then $ qspec_then ‘c’ assume_tac
   \\ fs [pure_to_env_def]
-  \\ irule_at Any thunk_to_envProofTheory.to_env_semantics
+  \\ irule_at Any thunk_to_envProofTheory.thunk_to_env_semantics
   \\ drule_all IMP_thunk_cexp_wf \\ fs []
   \\ disch_then $ qspec_then ‘c’ strip_assume_tac
   \\ drule_all IMP_env_cexp_wf \\ fs []
