@@ -89,9 +89,14 @@ Definition to_box_def:
            | NONE => NONE
            | SOME (c,e) => SOME (c,let (e,_) = to_box e in e)), F)) ∧
   to_box (Letrec xs x) =
-    (let (ys,_) = to_box_list (MAP SND xs) in
-     let (y,_) = to_box x in
-       (Letrec (MAP2 (λ(n,_) e. (n,e)) xs ys) y, F)) ∧
+    (let (y,_) = to_box x in
+       (Letrec (to_box_letrec xs) y, F)) ∧
+  to_box_letrec [] = [] ∧
+  to_box_letrec ((n,e)::es) =
+    (let es1 = to_box_letrec es in
+       case dest_Delay e of
+       | NONE => (n,let (e1,_) = to_box e in e1)::es1
+       | SOME e => (n,let (e1,_) = to_box e in Delay e1)::es1) ∧
   to_box_list [] = ([],T) ∧
   to_box_list (e::es) =
     (let (x1,b1) = to_box e in
@@ -99,19 +104,16 @@ Definition to_box_def:
        (x1::xs1,b1 ∧ b2))
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
-                            | INL y => cexp_size y
-                            | INR ys => list_size cexp_size ys’
+       | INL y => cexp_size y
+       | INR (INL ys) => list_size (pair_size mlstring_size cexp_size) ys
+       | INR (INR ys) => list_size cexp_size ys’
+  \\ gvs [cexp_size_eq]
   \\ conj_tac
-  >-
-   (Induct_on ‘xs’
-    \\ gvs [listTheory.list_size_def,FORALL_PROD,cexp_size_eq,
-            basicSizeTheory.pair_size_def] \\ rw []
-    \\ pop_assum $ assume_tac o SPEC_ALL \\ gvs [])
-  >-
-   (Induct_on ‘rs’
-    \\ gvs [listTheory.list_size_def,FORALL_PROD,cexp_size_eq,
-            basicSizeTheory.pair_size_def] \\ rw []
-    \\ pop_assum $ assume_tac o SPEC_ALL \\ gvs [])
+  >- (rw [] \\ Cases_on ‘e’ \\ gvs [dest_Delay_def,cexp_size_def])
+  \\ Induct_on ‘rs’
+  \\ gvs [listTheory.list_size_def,FORALL_PROD,cexp_size_eq,
+          basicSizeTheory.pair_size_def] \\ rw []
+  \\ pop_assum $ assume_tac o SPEC_ALL \\ gvs []
 End
 
 Definition compile_to_box_def:

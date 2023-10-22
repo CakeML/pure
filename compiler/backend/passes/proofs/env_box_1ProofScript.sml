@@ -1037,7 +1037,7 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
-Theorem exp_rel_semantics:
+Theorem compile_rel_semantics:
   compile_rel x y ∧
   closed x
   ⇒

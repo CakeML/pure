@@ -99,6 +99,7 @@ val r = translate compile_to_thunk_def;
 
 val r = translate env_cexpTheory.Lams_def;
 val r = translate env_cexpTheory.Apps_def;
+val r = translate env_cexpTheory.dest_Delay_def;
 val r = translate thunk_to_envTheory.get_arg_def;
 val r = translate thunk_to_envTheory.remove_Delay_def;
 val r = translate thunk_to_envTheory.op_to_env_def;
