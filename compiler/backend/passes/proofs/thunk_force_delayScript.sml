@@ -12,24 +12,24 @@ val _ = new_theory "thunk_force_delay";
 
 Inductive force_delay_rel:
 [~Var:]
-  (∀n. force_delay_rel (Var n) (Var n)) ∧
+  (∀n. force_delay_rel (Var n) (Var n))
 [~Prim:]
   (∀op xs ys.
      LIST_REL force_delay_rel xs ys ⇒
-       force_delay_rel (Prim op xs) (Prim op ys)) ∧
+       force_delay_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL force_delay_rel xs ys ⇒
-       force_delay_rel (Monad mop xs) (Monad mop ys)) ∧
+       force_delay_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      force_delay_rel f g ∧
      force_delay_rel x y ⇒
-       force_delay_rel (App f x) (App g y)) ∧
+       force_delay_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      force_delay_rel x y ⇒
-       force_delay_rel (Lam s x) (Lam s y)) ∧
+       force_delay_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -37,30 +37,30 @@ Inductive force_delay_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL force_delay_rel (MAP SND f) (MAP SND g) ∧
      force_delay_rel x y ⇒
-     force_delay_rel (Letrec f x) (Letrec g y)) ∧
+     force_delay_rel (Letrec f x) (Letrec g y))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      force_delay_rel x1 x2 ∧
      force_delay_rel y1 y2 ⇒
-     force_delay_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+     force_delay_rel (Let opt x1 y1) (Let opt x2 y2))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      force_delay_rel x1 x2 ∧
      force_delay_rel y1 y2 ∧
      force_delay_rel z1 z2 ⇒
-       force_delay_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       force_delay_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      force_delay_rel x y ⇒
-       force_delay_rel (Delay x) (Delay y)) ∧
+       force_delay_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      force_delay_rel x y ⇒
-     force_delay_rel (Force x) (Force y)) ∧
+     force_delay_rel (Force x) (Force y))
 [~simp:]
    (∀x y.
      force_delay_rel x y ⇒
-     force_delay_rel (Force (Delay x)) y) ∧
+     force_delay_rel (Force (Delay x)) y)
 [~MkTick:]
   (∀x y. force_delay_rel x y ⇒ force_delay_rel (MkTick x) (MkTick y))
 End
@@ -84,28 +84,28 @@ Theorem force_delay_rel_def =
 
 Inductive exp_rel:
 [~Var:]
-  (∀n. exp_rel (Var n) (Var n)) ∧
+  (∀n. exp_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       exp_rel (Value v) (Value w)) ∧
+       exp_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim op xs) (Prim op ys)) ∧
+       exp_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      exp_rel f g ∧
      exp_rel x y ⇒
-       exp_rel (App f x) (App g y)) ∧
+       exp_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      exp_rel x y ⇒
-       exp_rel (Lam s x) (Lam s y)) ∧
+       exp_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -113,58 +113,58 @@ Inductive exp_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
      exp_rel x y ⇒
-     exp_rel (Letrec f x) (Letrec g y)) ∧
+     exp_rel (Letrec f x) (Letrec g y))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-     exp_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+     exp_rel (Let opt x1 y1) (Let opt x2 y2))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ∧
      exp_rel z1 z2 ⇒
-       exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Delay x) (Delay y)) ∧
+       exp_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-     exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y))
 [~simp:]
    (∀x y.
      exp_rel x y ⇒
-     exp_rel (Force (Delay x)) (Tick y)) ∧
+     exp_rel (Force (Delay x)) (Tick y))
 [~MkTick:]
-  (∀x y. exp_rel x y ⇒ exp_rel (MkTick x) (MkTick y)) ∧
+  (∀x y. exp_rel x y ⇒ exp_rel (MkTick x) (MkTick y))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Recclosure:]
   (∀f g n.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ⇒
-     v_rel (Recclosure f n) (Recclosure g n)) ∧
+     v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-     v_rel (Thunk x) (Thunk y)) ∧
+     v_rel (Thunk x) (Thunk y))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒

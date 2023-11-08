@@ -3660,93 +3660,93 @@ QED
 Inductive find_fixpoint:
 [~Var:]
   (∀v c binds.
-     find_fixpoint binds (Var v) c {v} {} []) ∧
+     find_fixpoint binds (Var v) c {v} {} [])
 [~Var_known:]
   (∀v (c : ctxt) binds (args : (string # bool) list) (body : exp).
      MEM (v, args, body) binds ⇒
-     find_fixpoint binds (Var v) c {} {} (MAP SND args)) ∧
+     find_fixpoint binds (Var v) c {} {} (MAP SND args))
 [~App:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
-     find_fixpoint binds (App e1 e2) c ds1 {} []) ∧
+     find_fixpoint binds (App e1 e2) c ds1 {} [])
 [~App_T:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 (T::l1) ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
-     find_fixpoint binds (App e1 e2) c ds1 (ads1 ∪ ds2) l1) ∧
+     find_fixpoint binds (App e1 e2) c ds1 (ads1 ∪ ds2) l1)
 [~App_F:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 (F::l1) ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
-     find_fixpoint binds (App e1 e2) c ds1 ads1 l1) ∧
+     find_fixpoint binds (App e1 e2) c ds1 ads1 l1)
 [~App_empty:]
   (∀e c binds ds ads.
      find_fixpoint binds e c ds ads [] ⇒
-     find_fixpoint binds e c (ds ∪ ads) {}  []) ∧
+     find_fixpoint binds e c (ds ∪ ads) {}  [])
 [~Seq:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
-     find_fixpoint binds (Seq e1 e2) c (ds1 ∪ ds2) ads2 l2) ∧
+     find_fixpoint binds (Seq e1 e2) c (ds1 ∪ ds2) ads2 l2)
 [~If:]
   (∀e1 e2 e3 c binds ds1 ds2 ds3 ads1 ads2 ads3 l1 l2 l3.
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ∧
      find_fixpoint binds e3 c ds3 ads3 l3 ⇒
-     find_fixpoint binds (If e1 e2 e3) c (ds1 ∪ (ds2 ∩ ds3)) {} []) ∧
+     find_fixpoint binds (If e1 e2 e3) c (ds1 ∪ (ds2 ∩ ds3)) {} [])
 [~If_Fail:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2.
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint binds e2 c ds2 ads2 l2 ⇒
-     find_fixpoint binds (If e1 e2 Fail) c (ds1 ∪ ds2) {} []) ∧
+     find_fixpoint binds (If e1 e2 Fail) c (ds1 ∪ ds2) {} [])
 [~Proj:]
   (∀binds e n i c ds ads l.
      find_fixpoint binds e c ds ads l ⇒
-     find_fixpoint binds (Proj n i e) c ds {} []) ∧
+     find_fixpoint binds (Proj n i e) c ds {} [])
 [~IsEq:]
   (∀binds e n i b c ds ads l.
      find_fixpoint binds e c ds ads l ⇒
-     find_fixpoint binds (IsEq n i b e) c ds {} []) ∧
+     find_fixpoint binds (IsEq n i b e) c ds {} [])
 [~Atom:]
   (∀binds el dsl c op.
      LIST_REL (λe ds.∃ads l. find_fixpoint binds e c ds ads l) el dsl ⇒
-     find_fixpoint binds (Prim (AtomOp op) el) c (BIGUNION (set dsl)) {} []) ∧
+     find_fixpoint binds (Prim (AtomOp op) el) c (BIGUNION (set dsl)) {} [])
 [~Lam_F:]
   (∀e c binds ds ads l s.
      find_fixpoint (FILTER (λ(v, _). v ≠ s) binds) e (IsFree s c) ds ads l ⇒
-     find_fixpoint binds (Lam s e) c {} (ads DELETE s) (F::l)) ∧
+     find_fixpoint binds (Lam s e) c {} (ads DELETE s) (F::l))
 [~Lam_T:]
   (∀e c binds ds ads l s.
      (s ∈ ds ∨ s ∈ ads) ∧
      find_fixpoint (FILTER (λ(v, _). v ≠ s) binds) e (IsFree s c) ds ads l ⇒
-     find_fixpoint binds (Lam s e) c {} (ads DELETE s) (T::l)) ∧
+     find_fixpoint binds (Lam s e) c {} (ads DELETE s) (T::l))
 [~Let:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2 w.
      w ∉ ds2 ∧ w ∉ ads2 ∧
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (IsFree w c) ds2 ads2 l2 ⇒
-     find_fixpoint binds (Let w e1 e2) c ds2 ads2 l2) ∧
+     find_fixpoint binds (Let w e1 e2) c ds2 ads2 l2)
 [~Let_demands:]
   (∀e1 e2 c binds ds1 ds2 ads1 ads2 l1 l2 w.
      w ∈ ds2 ∧
      find_fixpoint binds e1 c ds1 ads1 l1 ∧
      find_fixpoint (FILTER (λ(v, _). v ≠ w) binds) e2 (IsFree w c) ds2 ads2 l2 ⇒
-     find_fixpoint binds (Let w e1 e2) c (ds2 DELETE w ∪ ds1) (ads2 DELETE w) l2) ∧
+     find_fixpoint binds (Let w e1 e2) c (ds2 DELETE w ∪ ds1) (ads2 DELETE w) l2)
 [~Subset:]
   (∀e c binds ds1 ds2 ads1 ads2 l1 l2.
      ds2 ⊆ ds1 ∧ ads2 ⊆ ads1 ∧
      LIST_REL (λb1 b2. b2 ⇒ b1) l1 l2 ∧
      find_fixpoint binds e c ds1 ads1 l1 ⇒
-     find_fixpoint binds e c ds2 ads2 l2) ∧
+     find_fixpoint binds e c ds2 ads2 l2)
 [~drop_fd:]
   (∀e c binds ds ads l.
      find_fixpoint binds e c ds ads l ⇒
-     find_fixpoint binds e c ds {} []) ∧
+     find_fixpoint binds e c ds {} [])
 [~smaller_binds:]
   (∀e c binds f ds ads l.
      find_fixpoint (FILTER (λ(v, _). f v) binds) e c ds ads l ⇒
-     find_fixpoint binds e c ds ads l) ∧
+     find_fixpoint binds e c ds ads l)
 [~refl:]
   (∀e c binds.
      find_fixpoint binds e c {} {}  [])
@@ -4305,99 +4305,99 @@ Inductive find: (* i i i o o o *)
   (∀e e_mid e2 c fds ds_drop fd_drop ds fd.
      find e c fds ds_drop e_mid fd_drop ∧
      find e_mid c fds ds e2 fd ⇒
-     find e c fds ds e2 fd) ∧
+     find e c fds ds e2 fd)
 [find_Drop_fd:]
   (∀e e' c fds ds fd.
-     find e c fds ds e' fd ⇒ find e c fds ds e' NONE) ∧
+     find e c fds ds e' fd ⇒ find e c fds ds e' NONE)
 [find_Create_fd:]
   (∀e e' c fds ds.
-     find e c fds ds e' NONE ⇒ find e c fds ds e' (SOME ([], {}))) ∧
+     find e c fds ds e' NONE ⇒ find e c fds ds e' (SOME ([], {})))
 [find_smaller_fd:]
   (∀e e' c fds ds bL fd fd'.
      find e c fds ds e' (SOME (bL, fd)) ∧ fd' ⊆ fd
-     ⇒ find e c fds ds e' (SOME (bL, fd'))) ∧
+     ⇒ find e c fds ds e' (SOME (bL, fd')))
 [find_Bottom:]
   (∀e (c:ctxt) (fdc : (string # (bool list)) -> bool).
-    find e c fdc {} e NONE) ∧
+    find e c fdc {} e NONE)
 [find_Seq:]
   (∀e e' c (p:(string#num) list) ds v fdc fd.
     find e c fdc ds e' fd ∧ (p,v) ∈ ds ⇒
-    find e c fdc ds (Seq (Var v) e') fd) ∧
+    find e c fdc ds (Seq (Var v) e') fd)
 [find_Seq2:]
   (∀e e' e2 e2' c ds ds2 fdc fd fd2.
      find e c fdc ds e' fd ∧ find e2 c fdc ds2 e2' fd2 ⇒
-     find (Seq e e2) c fdc (ds ∪ ds2) (Seq e' e2') fd2) ∧
+     find (Seq e e2) c fdc (ds ∪ ds2) (Seq e' e2') fd2)
 [find_If:]
   (∀ec et ee ec' et' ee' c dsc dst dse fdc fd fdt fde.
      find ec c fdc dsc ec' fd
      ∧ find et c fdc dst et' fdt
      ∧ find ee c fdc dse ee' fde
-     ⇒ find (If ec et ee) c fdc (dsc ∪ (dst ∩ dse)) (If ec' et' ee') NONE) ∧
+     ⇒ find (If ec et ee) c fdc (dsc ∪ (dst ∩ dse)) (If ec' et' ee') NONE)
 [find_Var:]
-  (∀n c fdc. find (Var n) c fdc {([],n)} (Var n) NONE) ∧
+  (∀n c fdc. find (Var n) c fdc {([],n)} (Var n) NONE)
 [find_Var2:]
   (∀n c fdc argsDemanded.
      (n, argsDemanded) ∈ fdc
-     ⇒ find (Var n) c fdc {([],n)} (Var n) (SOME (argsDemanded, {}))) ∧
+     ⇒ find (Var n) c fdc {([],n)} (Var n) (SOME (argsDemanded, {})))
 [find_No_args:]
   (∀c fdc e e' ds ds'.
      find e c fdc ds e' (SOME ([], ds'))
-     ⇒ find e c fdc (ds ∪ ds') e' NONE) ∧
+     ⇒ find e c fdc (ds ∪ ds') e' NONE)
 [find_App:]
   (∀f f' e e' fdc c ds ds2 fd1 fd2.
      find f c fdc ds f' fd1 ∧
      find e c fdc ds2 e' fd2 ⇒
-     find (App f e) c fdc ds (App f' e') NONE) ∧
+     find (App f e) c fdc ds (App f' e') NONE)
 [find_App_arg_strict:]
   (∀f f' e e' fdc c ds ds2 ds3 fd argD.
      find f c fdc ds f' (SOME (T::argD, ds3))
      ∧ find e c fdc ds2 e' fd
-     ⇒ find (App f e) c fdc ds (App f' e') (SOME (argD, ds2 ∪ ds3))) ∧
+     ⇒ find (App f e) c fdc ds (App f' e') (SOME (argD, ds2 ∪ ds3)))
 [find_App_arg_not_strict:]
   (∀f f' e e' fdc c ds ds2 ds3 fd argD b.
      find f c fdc ds f' (SOME (b::argD, ds3))
      ∧ find e c fdc ds2 e' fd
-     ⇒ find (App f e) c fdc ds (App f' e') (SOME (argD, ds3))) ∧
+     ⇒ find (App f e) c fdc ds (App f' e') (SOME (argD, ds3)))
 [find_Apps:]
   (∀f f' el el' c ds fdc fd.
      LIST_REL (λe e'. ∃ds fd. find e c fdc ds e' fd) el el' ∧
-     find f c fdc ds f' fd ⇒ find (Apps f el) c fdc ds (Apps f' el') NONE) ∧
+     find f c fdc ds f' fd ⇒ find (Apps f el) c fdc ds (Apps f' el') NONE)
 [find_Apps_fd:]
   (∀f f' el el' c ds ds' fdc bL bL' fd dsL.
      LIST_REL (λe (ds, e'). ∃ fd. find e c fdc ds e' fd) el (ZIP (dsL, el'))
      ∧ LENGTH el' = LENGTH bL ∧ LENGTH dsL = LENGTH el'
      ∧ find f c fdc ds f' (SOME (bL ++ bL', fd))
      ∧ (∀p. p ∈ ds' ⇒ p ∈ fd ∨ ∃i. i < LENGTH bL ∧ p ∈ EL i dsL ∧ EL i bL)
-     ⇒ find (Apps f el) c fdc ds (Apps f' el') (SOME (bL', ds'))) ∧
+     ⇒ find (Apps f el) c fdc ds (Apps f' el') (SOME (bL', ds')))
 [find_Prim:]
   (∀c el el' ope fdc.
      LENGTH el = LENGTH el' ∧ (∀k. k < LENGTH el ⇒ ∃ds fd. find (EL k el) c fdc ds (EL k el') fd)
-     ⇒ find (Prim ope el) c fdc {} (Prim ope el') NONE) ∧
+     ⇒ find (Prim ope el) c fdc {} (Prim ope el') NONE)
 [find_Prim1:]
   (∀c el el' ope ds fdc fd.
       LIST_REL (λe e'. ∃ds2 fd2. find e c fdc ds2 e' fd2) el el'
       ∧ find (EL 0 el) c fdc ds (EL 0 el') fd ∧ el ≠ [] ∧ well_formed ope el
-      ⇒ find (Prim ope el) c fdc ds (Prim ope el') NONE) ∧
+      ⇒ find (Prim ope el) c fdc ds (Prim ope el') NONE)
 [find_Prim_Fail:]
   (∀c el ope fdc.
-     ¬ (well_written ope el) ⇒ find (Prim ope el) c fdc {} Fail NONE) ∧
+     ¬ (well_written ope el) ⇒ find (Prim ope el) c fdc {} Fail NONE)
 [find_Proj:]
   (∀e e' n i c ds fdc fd.
-     find e c fdc ds e' fd ⇒ find (Proj n i e) c fdc ds (Proj n i e') NONE) ∧
+     find e c fdc ds e' fd ⇒ find (Proj n i e) c fdc ds (Proj n i e') NONE)
 [find_IsEq:]
   (∀e e' n i b c ds fdc fd.
-     find e c fdc ds e' fd ⇒ find (IsEq n i b e) c fdc ds (IsEq n i b e') NONE) ∧
+     find e c fdc ds e' fd ⇒ find (IsEq n i b e) c fdc ds (IsEq n i b e') NONE)
 [find_Atom:]
   (∀el dsl el' fdc c op fd.
      LENGTH dsl = LENGTH el' ∧
      LIST_REL (λe (ds, e'). find e c fdc ds e' fd) el (ZIP (dsl, el')) ⇒
-     find (Prim (AtomOp op) el) c fdc (BIGUNION (set dsl)) (Prim (AtomOp op) el') NONE) ∧
+     find (Prim (AtomOp op) el) c fdc (BIGUNION (set dsl)) (Prim (AtomOp op) el') NONE)
 [find_Subset:]
   (∀e e' c ds ds' fdc fdc' fd.
      find e c fdc' ds e' fd
      ∧ (∀ps v. (ps, v) ∈ ds' ⇒ ∃ps'. (ps++ps', v) ∈ ds)
      ∧ fdc' ⊆ fdc
-     ⇒ find e c fdc ds' e' fd) ∧
+     ⇒ find e c fdc ds' e' fd)
 [find_Let:]
   (∀e e' e2 e2' ds ds' c v fdc fdc' fd fd'.
      find e c fdc ds e' fd ∧ find e2 (Bind v e c) fdc' ds' e2' fd'
@@ -4406,7 +4406,7 @@ Inductive find: (* i i i o o o *)
                        ⇒ (n ≠ v ∧ (n, argDemands) ∈ fdc)
                          ∨ (n = v ∧ ∃dset. SOME (argDemands, dset) = fd))
      ∧ (∀l. (l, v) ∉ dest_fd_SND fd')
-     ⇒ find (Let v e e2) c fdc ds' (Let v e' e2') fd') ∧
+     ⇒ find (Let v e e2) c fdc ds' (Let v e' e2') fd')
 [find_Let2:]
   (∀ e e' e2 e2' ds ds' ds'' c v ps fdc fdc' fd fd'.
      find e c fdc ds e' fd ∧ find e2 (Bind v e c) fdc' ds' e2' fd'
@@ -4416,29 +4416,29 @@ Inductive find: (* i i i o o o *)
                        ⇒ (n ≠ v ∧ (n, argDemands) ∈ fdc)
                          ∨ (n = v ∧ ∃dset. SOME (argDemands, dset) = fd))
      ∧ (∀l. (l, v) ∉ dest_fd_SND fd')
-     ⇒ find (Let v e e2) c fdc ds'' (Let v e' e2') fd') ∧
+     ⇒ find (Let v e e2) c fdc ds'' (Let v e' e2') fd')
 [find_Lam:]
   (∀e e' c ds v fdc fd.
      find e (IsFree v c) fdc ds e' fd ∧ (∀argDs. (v, argDs) ∉ fdc)
-     ⇒ find (Lam v e) c fdc {} (Lam v e') NONE) ∧
+     ⇒ find (Lam v e) c fdc {} (Lam v e') NONE)
 [find_Lams:]
   (∀e e' c ds vl fdc fd.
      find e (FOLDL (λc n. IsFree n c) c vl) fdc ds e' fd
      ∧ EVERY (λv. ∀argDs. (v, argDs) ∉ fdc) vl
-     ⇒ find (Lams vl e) c fdc {} (Lams vl e') NONE ) ∧
+     ⇒ find (Lams vl e) c fdc {} (Lams vl e') NONE )
 [find_Lams_fd:]
   (∀e e' c ds vl fdc bL.
      find e (FOLDL (λc n. IsFree n c) c vl) fdc ds e' NONE
      ∧ EVERY (λv. ∀argDs. (v, argDs) ∉ fdc) vl
      ∧ bL
-     ⇒ find (Lams vl e) c fdc {} (Lams vl e') (SOME (FST (demands_boolList ds vl), {}))) ∧
+     ⇒ find (Lams vl e) c fdc {} (Lams vl e') (SOME (FST (demands_boolList ds vl), {})))
 [find_Eq:]
   (∀e1 e2 e3 c fdc ds fd.
      exp_eq_in_ctxt c e1 e2
      ∧ find e2 c fdc ds e3 fd
-     ⇒ find e1 c fdc ds e3 fd) ∧
+     ⇒ find e1 c fdc ds e3 fd)
 [find_Fail:]
-  (∀c fds ds fd. find Fail c fds ds Fail fd) ∧
+  (∀c fds ds fd. find Fail c fds ds Fail fd)
 [find_Letrec:]
   (∀e e' ds ds' c b b' fdc fdc' fd dsL fdL.
      LENGTH b = LENGTH dsL ∧ LENGTH b = LENGTH b' ∧ LENGTH b = LENGTH fdL
@@ -4456,7 +4456,7 @@ Inductive find: (* i i i o o o *)
                  ∧ ((ps, v) ∈ ds
                     ∨ (∃ps' i. i < LENGTH b ∧ (ps', FST (EL i b)) ∈ ds ∧ (ps, v) ∈ EL i dsL)))
      ∧ ALL_DISTINCT (MAP FST b)
-     ⇒ find (Letrec b e) c fdc ds' (Letrec b' e') fd) ∧
+     ⇒ find (Letrec b e) c fdc ds' (Letrec b' e') fd)
 [find_Letrec2:]
   (∀e binds c binds2 binds3.
      ALL_DISTINCT (MAP FST binds) ∧

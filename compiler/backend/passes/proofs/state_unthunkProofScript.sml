@@ -102,65 +102,65 @@ End
 Inductive compile_rel:
 
 [~Var:]
-  compile_rel (stateLang$Var v) (stateLang$Var v) ∧
+  compile_rel (stateLang$Var v) (stateLang$Var v)
 
 [~Lam:]
   (compile_rel x y ⇒
-  compile_rel (Lam z x) (Lam z y)) ∧
+  compile_rel (Lam z x) (Lam z y))
 
 [~Raise:]
   (compile_rel x y ⇒
-  compile_rel (Raise x) (Raise y)) ∧
+  compile_rel (Raise x) (Raise y))
 
 [~Handle:]
   (compile_rel x1 y1 ∧ compile_rel x2 y2 ⇒
-  compile_rel (Handle x1 v x2) (Handle y1 v y2)) ∧
+  compile_rel (Handle x1 v x2) (Handle y1 v y2))
 
 [~HandleApp:]
   (compile_rel x1 y1 ∧ compile_rel x2 y2 ⇒
-  compile_rel (HandleApp x1 x2) (HandleApp y1 y2)) ∧
+  compile_rel (HandleApp x1 x2) (HandleApp y1 y2))
 
 [~App:]
   (LIST_REL compile_rel xs ys ∧ (∀l. op ≠ AtomOp (Lit (Loc l))) ⇒
-  compile_rel (App op xs) (App op ys)) ∧
+  compile_rel (App op xs) (App op ys))
 
 [~Letrec:]
   (∀tfns sfns te se.
     MAP FST tfns = MAP FST sfns ∧ ALL_DISTINCT (MAP FST tfns) ∧
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
     compile_rel te se ⇒
-    compile_rel (Letrec tfns te) (comp_Letrec sfns se)) ∧
+    compile_rel (Letrec tfns te) (comp_Letrec sfns se))
 
 [~Let:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2))
 
 [~If:]
   (compile_rel te se ∧
    compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (If te te1 te2) (If se se1 se2)) ∧
+  compile_rel (If te te1 te2) (If se se1 se2))
 
 [~Box:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Box te) (box se)) ∧
+    compile_rel (Box te) (box se))
 
 [~Delay:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Delay te) (delay se)) ∧
+    compile_rel (Delay te) (delay se))
 
 [~Force:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Force te) (force se)) ∧
+    compile_rel (Force te) (force se))
 
 [letrec_rel_Delay:]
   (∀te se.
     compile_rel te se ⇒
-    letrec_rel (Delay te) (Delay se)) ∧
+    letrec_rel (Delay te) (Delay se))
 
 [letrec_rel_Lam:]
   (∀te se n.
@@ -192,22 +192,22 @@ Inductive v_rel:
 [~Loc:]
   (∀p n1 n2.
      find_loc n1 p = SOME n2 ⇒
-     v_rel p (Atom (Loc n1)) (Atom (Loc n2))) ∧
+     v_rel p (Atom (Loc n1)) (Atom (Loc n2)))
 
 [~Atom:]
   (∀p a.
      (∀l. a ≠ Loc l) ⇒
-     v_rel p (Atom a) (Atom a)) ∧
+     v_rel p (Atom a) (Atom a))
 
 [~Constructor:]
   (∀p s tvs svs.
      LIST_REL (v_rel p) tvs svs ⇒
-     v_rel p (Constructor s tvs) (Constructor s svs)) ∧
+     v_rel p (Constructor s tvs) (Constructor s svs))
 
 [~Closure:]
   (∀p tenv senv te se n.
      env_rel p tenv senv ∧ compile_rel te se ⇒
-     v_rel p (Closure n tenv te) (Closure n senv se)) ∧
+     v_rel p (Closure n tenv te) (Closure n senv se))
 
 [~Recclosure:]
   (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n v e.
@@ -221,7 +221,7 @@ Inductive v_rel:
      LIST_REL (loc_rel p tenv tfns) tfns2 locs ∧
      MEM (n,Lam v e) tfns ⇒
      v_rel p (Recclosure tfns tenv n)
-             (Recclosure sfns1 (REVERSE locs ++ senv) n)) ∧
+             (Recclosure sfns1 (REVERSE locs ++ senv) n))
 
 [~Recthunk:]
   (∀p tfns tfns1 sfns1 tfns2 sfns tenv senv n loc.
@@ -234,12 +234,12 @@ Inductive v_rel:
      sfns1 = FILTER (is_Lam o SND) sfns ∧
      LIST_REL (loc_rel p tenv tfns) tfns2 locs ∧
      ALOOKUP locs n = SOME loc ⇒
-     v_rel p (Recclosure tfns tenv n) loc) ∧
+     v_rel p (Recclosure tfns tenv n) loc)
 
 [~Thunk:]
   (∀p n r.
      oEL n p = SOME (SOME (r,[])) ⇒
-     v_rel p (Thunk r) (Atom (Loc n))) ∧
+     v_rel p (Thunk r) (Atom (Loc n)))
 
 [env_rel:]
   (∀p tenv senv.

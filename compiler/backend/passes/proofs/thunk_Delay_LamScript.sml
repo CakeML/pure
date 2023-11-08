@@ -20,24 +20,24 @@ End
 
 Inductive exp_rel:
 [~Var:]
-  (∀n. exp_rel (Var n) (Var n)) ∧
+  (∀n. exp_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       exp_rel (Value v) (Value w)) ∧
+       exp_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim op xs) (Prim op ys)) ∧
+       exp_rel (Prim op xs) (Prim op ys))
 [~App:]
   (∀f g x y.
      exp_rel f g ∧
      exp_rel x y ⇒
-       exp_rel (App f x) (App g y)) ∧
+       exp_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      exp_rel x y ⇒
-       exp_rel (Lam s x) (Lam s y)) ∧
+       exp_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -45,7 +45,7 @@ Inductive exp_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
      exp_rel x y ⇒
-     exp_rel (Letrec f x) (Letrec g y)) ∧
+     exp_rel (Letrec f x) (Letrec g y))
 [~Letrec_Delay_Lam:]
   (∀f g x y vL bL.
      MAP FST f = MAP FST g ∧
@@ -58,51 +58,51 @@ Inductive exp_rel:
                 ∧ EVERY (λ(v2, e). v ∉ boundvars e) g
                 ∧ v ∉ freevars x ∧ v ∉ boundvars x) vL ∧
      exp_rel x y ⇒
-     exp_rel (Letrec f x) (Letrec (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) y)) ∧
+     exp_rel (Letrec f x) (Letrec (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) y))
 [~Let_Delay_Lam:]
   (∀opt v x1 y1 x2 y2.
      is_Lam x1 ∧ exp_rel x1 x2 ∧
      exp_rel y1 y2 ∧
      v ∉ freevars y1 ∧ (∀s. opt = SOME s ⇒ s ≠ v)
-     ⇒ exp_rel (Let opt (Delay x1) y1) (Let (SOME v) x2 (Let opt (Delay (Var v)) y2))) ∧
+     ⇒ exp_rel (Let opt (Delay x1) y1) (Let (SOME v) x2 (Let opt (Delay (Var v)) y2)))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+       exp_rel (Let opt x1 y1) (Let opt x2 y2))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ∧
      exp_rel z1 z2 ⇒
-       exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Delay x) (Delay y)) ∧
+       exp_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-     exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y))
 [~Monad:]
   (∀m xs ys.
      LIST_REL exp_rel xs ys ⇒
-     exp_rel (Monad m xs) (Monad m ys)) ∧
+     exp_rel (Monad m xs) (Monad m ys))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Recclosure:]
   (∀f g n.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ⇒
-     v_rel (Recclosure f n) (Recclosure g n)) ∧
+     v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Recclosure_Delay_Lam:]
   (∀f g n vL bL.
      MAP FST f = MAP FST g ∧
@@ -116,7 +116,7 @@ Inductive exp_rel:
                 ∧ EVERY (λ(v2, e). v ∉ boundvars e) g
                 ∧ v ∉ freevars x ∧ v ∉ boundvars x) vL ⇒
      v_rel (Recclosure f n)
-           (Recclosure (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) n)) ∧
+           (Recclosure (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) n))
 [v_rel_Closure_Recclosure:]
   (∀f g vL bL i s ef.
      MAP FST f = MAP FST g ∧
@@ -130,22 +130,22 @@ Inductive exp_rel:
                 ∧ v ∉ freevars x ∧ v ∉ boundvars x) vL ∧
      i < LENGTH vL ∧ SND (EL i f) = Delay (Lam s ef) ∧ EL i bL ⇒
      v_rel (Closure s (subst (FILTER (λ(v,e). v≠s) (MAP (λ(v,x).(v, Recclosure f v)) f)) ef))
-           (Recclosure (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) (EL i vL))) ∧
+           (Recclosure (FLAT $ MAP2 unfold_Delay_Lam g (ZIP (vL, bL))) (EL i vL)))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-     v_rel (Thunk x) (Thunk y)) ∧
+     v_rel (Thunk x) (Thunk y))
 [v_rel_Thunk_Lam:]
   (∀x y s.
      exp_rel x y ⇒
-     v_rel (Thunk (Lam s x)) (Thunk (Value (Closure s y)))) ∧
+     v_rel (Thunk (Lam s x)) (Thunk (Value (Closure s y))))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
-     v_rel (DoTick v) (DoTick w)) ∧
+     v_rel (DoTick v) (DoTick w))
 [v_rel_Monadic:]
   (∀m xs ys.
      LIST_REL exp_rel xs ys ⇒

@@ -29,63 +29,63 @@ Inductive exp_rel:
 [~Var:]
   (∀(n:mlstring).
      exp_rel (pure_cexp$Var i n)
-             (thunk_cexp$Force (Var n))) ∧
+             (thunk_cexp$Force (Var n)))
 [~Lam:]
   (∀(s:mlstring list) x y.
      exp_rel x y ⇒
-       exp_rel (pure_cexp$Lam i s x) (Lam s y)) ∧
+       exp_rel (pure_cexp$Lam i s x) (Lam s y))
 [~Let:]
   (∀s x y z1 y1.
      (~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
       (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) ∧
      exp_rel y y1 ⇒
-       exp_rel (Let i s x y) (Let (SOME s) z1 y1)) ∧
+       exp_rel (Let i s x y) (Let (SOME s) z1 y1))
 [~Letrec:]
   (∀i xs xs1 y y1.
      LIST_REL (λ(n,x) (m,x1). n = m ∧
                               ∃y. exp_rel x y ∧ x1 = Delay y) xs xs1 ∧ exp_rel y y1 ⇒
-       exp_rel (Letrec i xs y) (Letrec xs1 y1)) ∧
+       exp_rel (Letrec i xs y) (Letrec xs1 y1))
 [~App:]
   (∀f g xs ys.
      exp_rel f g ∧
      LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
                       (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ⇒
-       exp_rel (App i f xs) (App g ys)) ∧
+       exp_rel (App i f xs) (App g ys))
 [~Cons:]
   (∀xs ys n.
      LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
                       (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ∧
      explode n ∉ monad_cns ⇒
-       exp_rel (Prim i (Cons n) xs) (Prim (Cons n) ys)) ∧
+       exp_rel (Prim i (Cons n) xs) (Prim (Cons n) ys))
 [~Ret_Raise:]
   (∀mop xs ys n.
      (if n = «Ret» then mop = Ret else n = «Raise» ∧ mop = Raise) ∧
      LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
                       (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ⇒
-       exp_rel (Prim i (Cons n) xs) (Monad mop ys)) ∧
+       exp_rel (Prim i (Cons n) xs) (Monad mop ys))
 [~Bind_Handle:]
   (∀mop xs ys n.
      (if n = «Bind» then mop = Bind else n = «Handle» ∧ mop = Handle) ∧
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim i (Cons n) xs) (Monad mop ys)) ∧
+       exp_rel (Prim i (Cons n) xs) (Monad mop ys))
 [~Act_Length:]
   (∀mop xs ys n.
      (if n = «Act» then mop = Act else n = «Length» ∧ mop = Length) ∧
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim i (Cons n) xs)
-               (Monad Bind [Monad mop ys; Lam [«v»] (Monad Ret [Delay $ Var «v»])])) ∧
+               (Monad Bind [Monad mop ys; Lam [«v»] (Monad Ret [Delay $ Var «v»])]))
 [~Alloc:]
   (∀x1 x2 y1 y2.
      exp_rel x1 y1 ∧ mk_delay_rel exp_rel x2 y2 ⇒
        exp_rel (Prim i (Cons «Alloc») [x1; x2])
                (Monad Bind [Monad Alloc [y1; y2];
-                            Lam [«v»] (Monad Ret [Delay $ Var «v»])])) ∧
+                            Lam [«v»] (Monad Ret [Delay $ Var «v»])]))
 [~Deref:]
   (∀xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim i (Cons «Deref») xs)
                (Monad Handle [Monad Deref ys;
-                              Lam [«v»] (Monad Raise [Delay $ Var «v»])])) ∧
+                              Lam [«v»] (Monad Raise [Delay $ Var «v»])]))
 [~Update:]
   (∀x1 x2 x3 y1 y2 y3.
      exp_rel x1 y1 ∧ exp_rel x2 y2 ∧ mk_delay_rel exp_rel x3 y3 ⇒
@@ -93,16 +93,16 @@ Inductive exp_rel:
                (Monad Bind [
                   Monad Handle [Monad Update [y1;y2;y3];
                                 Lam [«v»] (Monad Raise [Delay $ Var «v»])];
-                  Lam [«v»] (Monad Ret [Delay $ Var «v»])])) ∧
+                  Lam [«v»] (Monad Ret [Delay $ Var «v»])]))
 [~Prim:]
   (∀xs ys a.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim i (AtomOp a) xs) (Prim (AtomOp a) ys)) ∧
+       exp_rel (Prim i (AtomOp a) xs) (Prim (AtomOp a) ys))
 [~Seq:]
   (∀x1 x2 y1 y2 fresh.
      exp_rel x1 y1 ∧ exp_rel x2 y2 ∧
      explode fresh ∉ freevars (exp_of' x2) ⇒
-       exp_rel (Prim i Seq [x1; x2]) (Let (SOME fresh) y1 y2)) ∧
+       exp_rel (Prim i Seq [x1; x2]) (Let (SOME fresh) y1 y2))
 [~Case:]
   (∀i x v xs ys fresh.
      ~MEM v (FLAT (MAP (FST ∘ SND) xs)) ∧ xs ≠ [] ∧

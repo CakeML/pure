@@ -29,77 +29,77 @@ QED
 Inductive exp_rel:
 [~Var:]
   (∀n.
-     exp_rel (Var n) (Var n)) ∧
+     exp_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       exp_rel (Value v) (Value w)) ∧
+       exp_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim op xs) (Prim op ys)) ∧
+       exp_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f x g y.
      exp_rel f g ∧
      exp_rel x y ⇒
-       exp_rel (App f x) (App g y)) ∧
+       exp_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      exp_rel x y ⇒
-       exp_rel (Lam s x) (Lam s y)) ∧
+       exp_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      LIST_REL (λ(f,x) (g,y). f = g ∧ ok_bind x ∧ exp_rel x y) f g ∧
      exp_rel x y ⇒
-       exp_rel (Letrec f x) (Letrec g y)) ∧
+       exp_rel (Letrec f x) (Letrec g y))
 [~Let:]
   (∀s x1 y1 x2 y2.
      exp_rel x1 y1 ∧
      exp_rel x2 y2 ⇒
-       exp_rel (Let s x1 x2) (Let s y1 y2)) ∧
+       exp_rel (Let s x1 x2) (Let s y1 y2))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      LIST_REL exp_rel [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Delay x) (Delay y)) ∧
+       exp_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-     exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y))
 [~MkTick:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (MkTick x) y) ∧
+       exp_rel (MkTick x) y)
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Recclosure:]
   (∀f g n.
      LIST_REL (λ(f,x) (g,y). f = g ∧ ok_bind x ∧ exp_rel x y) f g ⇒
-       v_rel (Recclosure f n) (Recclosure g n)) ∧
+       v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-       v_rel (Thunk x) (Thunk y)) ∧
+       v_rel (Thunk x) (Thunk y))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒

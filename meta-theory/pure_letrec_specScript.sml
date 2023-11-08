@@ -25,38 +25,38 @@ Inductive call_with_arg:
     LENGTH xs = LENGTH info.args ∧
     LIST_REL (call_with_arg T info R) xs ys ⇒
     call_with_arg T info R (Apps (Var info.fname) (xs ++ [Var info.arg]))
-                           (Apps (Var info.fname) (ys ++ [Var info.arg]))) ∧
+                           (Apps (Var info.fname) (ys ++ [Var info.arg])))
 [~Apps_Const:]
   (∀info xs ys R.
     LENGTH xs = LENGTH info.args ∧ closed info.const ∧
     LIST_REL (call_with_arg F info R) xs ys ⇒
     call_with_arg F info R (Apps (Var info.fname) (xs ++ [info.const]))
-                           (Apps (Var info.fname) (ys ++ [info.const]))) ∧
+                           (Apps (Var info.fname) (ys ++ [info.const])))
 [~Var:]
   (∀info n b R.
     n ≠ info.fname ⇒
-    call_with_arg b info R (Var n) (Var n)) ∧
+    call_with_arg b info R (Var n) (Var n))
 [~Lam:]
   (∀info n x y b R.
     call_with_arg b info R x y ∧
     info.arg ≠ n ∧ info.fname ≠ n ⇒
-    call_with_arg b info R (Lam n x) (Lam n y)) ∧
+    call_with_arg b info R (Lam n x) (Lam n y))
 [~App:]
   (∀info f x g y  b R.
     call_with_arg b info R f g ∧
     call_with_arg b info R x y ⇒
-    call_with_arg b info R (App f x) (App g y)) ∧
+    call_with_arg b info R (App f x) (App g y))
 [~Prim:]
   (∀info n xs ys b R.
     LIST_REL (call_with_arg b info R) xs ys ⇒
-    call_with_arg b info R (Prim n xs) (Prim n ys)) ∧
+    call_with_arg b info R (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀info xs x ys y b R.
     LIST_REL (call_with_arg b info R) (MAP SND xs) (MAP SND ys) ∧
     DISJOINT {info.arg; info.fname} (set (MAP FST xs)) ∧
     MAP FST xs = MAP FST ys ∧
     call_with_arg b info R x y ⇒
-    call_with_arg b info R (Letrec xs x) (Letrec ys y)) ∧
+    call_with_arg b info R (Letrec xs x) (Letrec ys y))
 [~closed:]
   (∀info b c1 c2 R.
     closed c1 ∧ closed c2 ∧ R c1 c2 ⇒
@@ -124,7 +124,7 @@ Inductive letrec_spec:
     freevars (mk_fun b2 info) ⊆ {info.fname} ∧
     letrec_spec info x y ⇒
     letrec_spec info (mk_letrec b1 info x)
-                     (mk_letrec b2 info y)) ∧
+                     (mk_letrec b2 info y))
 [~Apps:]
   (∀info xs ys b1 b2.
     LENGTH xs = LENGTH info.args ∧ info_ok info ∧
@@ -133,22 +133,22 @@ Inductive letrec_spec:
     closed (mk_rec b2 info) ⇒
     letrec_spec info
       (Apps (mk_rec b1 info) (xs ++ [info.const]))
-      (Apps (mk_rec b2 info) (ys ++ [info.const]))) ∧
+      (Apps (mk_rec b2 info) (ys ++ [info.const])))
 [~Var:]
   (∀info n.
-    letrec_spec info (Var n) (Var n)) ∧
+    letrec_spec info (Var n) (Var n))
 [~Lam:]
   (∀info n x y.
     letrec_spec info x y ⇒
-    letrec_spec info (Lam n x) (Lam n y)) ∧
+    letrec_spec info (Lam n x) (Lam n y))
 [~App:]
   (∀info f g x y.
     letrec_spec info f g ∧ letrec_spec info x y ⇒
-    letrec_spec info (App f x) (App g y)) ∧
+    letrec_spec info (App f x) (App g y))
 [~Prim:]
   (∀info n xs ys.
     LIST_REL (letrec_spec info) xs ys ⇒
-    letrec_spec info (Prim n xs) (Prim n ys)) ∧
+    letrec_spec info (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀info  xs ys x y.
     LIST_REL (letrec_spec info) (MAP SND xs) (MAP SND ys) ∧

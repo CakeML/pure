@@ -20,17 +20,17 @@ Inductive cexp1_rel:
 
 [~App_Lam:]
   (cexp1_rel x y ⇒
-   cexp1_rel (app (Lam NONE x) Unit) y) ∧
+   cexp1_rel (app (Lam NONE x) Unit) y)
 
 [~App_Let:]
   (cexp1_rel x x1 ∧ cexp1_rel y y1 ⇒
    cexp1_rel (app (Let x_opt x y) Unit)
-             (Let x_opt x1 (app y1 Unit))) ∧
+             (Let x_opt x1 (app y1 Unit)))
 
 [~App_If:]
   (cexp1_rel x x1 ∧ cexp1_rel y y1 ∧ cexp1_rel z z1 ⇒
    cexp1_rel (app (If x y z) Unit)
-             (If x1 (app y1 Unit) (app z1 Unit))) ∧
+             (If x1 (app y1 Unit) (app z1 Unit)))
 
 [~App_Letrec:]
   (cexp1_rel y y1 ∧
@@ -38,30 +38,30 @@ Inductive cexp1_rel:
    MAP (FST o SND) tfns = MAP (FST o SND) sfns ∧
    LIST_REL cexp1_rel (MAP (SND o SND) tfns) (MAP (SND o SND) sfns) ⇒
    cexp1_rel (app (Letrec tfns y) Unit)
-             (Letrec sfns (app y1 Unit))) ∧
+             (Letrec sfns (app y1 Unit)))
 
 [~Var:]
-  cexp1_rel (state_cexp$Var v) (state_cexp$Var v) ∧
+  cexp1_rel (state_cexp$Var v) (state_cexp$Var v)
 
 [~Lam:]
   (cexp1_rel x y ⇒
-  cexp1_rel (Lam ov x) (Lam ov y)) ∧
+  cexp1_rel (Lam ov x) (Lam ov y))
 
 [~Raise:]
   (cexp1_rel x y ⇒
-  cexp1_rel (Raise x) (Raise y)) ∧
+  cexp1_rel (Raise x) (Raise y))
 
 [~Handle:]
   (cexp1_rel x1 y1 ∧ cexp1_rel x2 y2 ⇒
-  cexp1_rel (Handle x1 v x2) (Handle y1 v y2)) ∧
+  cexp1_rel (Handle x1 v x2) (Handle y1 v y2))
 
 [~HandleApp:]
   (cexp1_rel x1 y1 ∧ cexp1_rel x2 y2 ⇒
-  cexp1_rel (HandleApp x1 x2) (HandleApp y1 y2)) ∧
+  cexp1_rel (HandleApp x1 x2) (HandleApp y1 y2))
 
 [~App:]
   (LIST_REL (cexp1_rel) xs ys ⇒
-  cexp1_rel (App op xs) (App op ys)) ∧
+  cexp1_rel (App op xs) (App op ys))
 
 [~Letrec:]
   (∀tfns sfns te se.
@@ -69,18 +69,18 @@ Inductive cexp1_rel:
     MAP (FST o SND) tfns = MAP (FST o SND) sfns ∧
     LIST_REL cexp1_rel (MAP (SND o SND) tfns) (MAP (SND o SND) sfns) ∧
     cexp1_rel te se ⇒
-    cexp1_rel (Letrec tfns te) (Letrec sfns se)) ∧
+    cexp1_rel (Letrec tfns te) (Letrec sfns se))
 
 [~Let:]
   (cexp1_rel te1 se1 ∧
    cexp1_rel te2 se2 ⇒
-  cexp1_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  cexp1_rel (Let x_opt te1 te2) (Let x_opt se1 se2))
 
 [~If:]
   (cexp1_rel te se ∧
    cexp1_rel te1 se1 ∧
    cexp1_rel te2 se2 ⇒
-  cexp1_rel (If te te1 te2) (If se se1 se2)) ∧
+  cexp1_rel (If te te1 te2) (If se se1 se2))
 
 [~Case:]
   (∀v te se tes ses.
@@ -401,24 +401,24 @@ QED
 Inductive cexp_rel:
 
 [~refl:]
-  (cexp_rel x x) ∧
+  (cexp_rel x x)
 
 [~trans:]
-  (cexp_rel x y ∧ cexp_rel y z ⇒ cexp_rel x z) ∧
+  (cexp_rel x y ∧ cexp_rel y z ⇒ cexp_rel x z)
 
 [~App_Lam:]
   (cexp_rel x y ⇒
-   cexp_rel (app (Lam NONE x) Unit) y) ∧
+   cexp_rel (app (Lam NONE x) Unit) y)
 
 [~App_Let:]
   (cexp_rel x x1 ∧ cexp_rel y y1 ⇒
    cexp_rel (app (Let x_opt x y) Unit)
-             (Let x_opt x1 (app y1 Unit))) ∧
+             (Let x_opt x1 (app y1 Unit)))
 
 [~App_If:]
   (cexp_rel x x1 ∧ cexp_rel y y1 ∧ cexp_rel z z1 ⇒
    cexp_rel (app (If x y z) Unit)
-             (If x1 (app y1 Unit) (app z1 Unit))) ∧
+             (If x1 (app y1 Unit) (app z1 Unit)))
 
 [~App_Letrec:]
   (cexp_rel y y1 ∧
@@ -426,30 +426,30 @@ Inductive cexp_rel:
    MAP (FST o SND) tfns = MAP (FST o SND) sfns ∧
    LIST_REL cexp_rel (MAP (SND o SND) tfns) (MAP (SND o SND) sfns) ⇒
    cexp_rel (app (Letrec tfns y) Unit)
-             (Letrec sfns (app y1 Unit))) ∧
+             (Letrec sfns (app y1 Unit)))
 
 [~Var:]
-  cexp_rel (state_cexp$Var v) (state_cexp$Var v) ∧
+  cexp_rel (state_cexp$Var v) (state_cexp$Var v)
 
 [~Lam:]
   (cexp_rel x y ⇒
-  cexp_rel (Lam ov x) (Lam ov y)) ∧
+  cexp_rel (Lam ov x) (Lam ov y))
 
 [~Raise:]
   (cexp_rel x y ⇒
-  cexp_rel (Raise x) (Raise y)) ∧
+  cexp_rel (Raise x) (Raise y))
 
 [~Handle:]
   (cexp_rel x1 y1 ∧ cexp_rel x2 y2 ⇒
-  cexp_rel (Handle x1 v x2) (Handle y1 v y2)) ∧
+  cexp_rel (Handle x1 v x2) (Handle y1 v y2))
 
 [~HandleApp:]
   (cexp_rel x1 y1 ∧ cexp_rel x2 y2 ⇒
-  cexp_rel (HandleApp x1 x2) (HandleApp y1 y2)) ∧
+  cexp_rel (HandleApp x1 x2) (HandleApp y1 y2))
 
 [~App:]
   (LIST_REL (cexp_rel) xs ys ⇒
-  cexp_rel (App op xs) (App op ys)) ∧
+  cexp_rel (App op xs) (App op ys))
 
 [~Letrec:]
   (∀tfns sfns te se.
@@ -457,18 +457,18 @@ Inductive cexp_rel:
     MAP (FST o SND) tfns = MAP (FST o SND) sfns ∧
     LIST_REL cexp_rel (MAP (SND o SND) tfns) (MAP (SND o SND) sfns) ∧
     cexp_rel te se ⇒
-    cexp_rel (Letrec tfns te) (Letrec sfns se)) ∧
+    cexp_rel (Letrec tfns te) (Letrec sfns se))
 
 [~Let:]
   (cexp_rel te1 se1 ∧
    cexp_rel te2 se2 ⇒
-  cexp_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  cexp_rel (Let x_opt te1 te2) (Let x_opt se1 se2))
 
 [~If:]
   (cexp_rel te se ∧
    cexp_rel te1 se1 ∧
    cexp_rel te2 se2 ⇒
-  cexp_rel (If te te1 te2) (If se se1 se2)) ∧
+  cexp_rel (If te te1 te2) (If se se1 se2))
 
 [~Case:]
   (∀v te se tes ses.

@@ -1717,37 +1717,46 @@ QED
 (******************** Seq (Var _) insertion ********************)
 
 Inductive insert_seq:
+[~Seq_Var:]
   (insert_seq ce ce' ∧ v ∈ freevars_cexp ce'
-    ⇒ insert_seq ce (Prim d Seq [Var d' v; ce'])) ∧
+    ⇒ insert_seq ce (Prim d Seq [Var d' v; ce']))
 
+[~Lam_NIL:]
   (* corner case in demand analysis functions *)
   (insert_seq ce ce'
-    ⇒ insert_seq (Lam d [] ce) ce') ∧
+    ⇒ insert_seq (Lam d [] ce) ce')
 
 [~trans:]
   (* shouldn't be necessary, but seems easier *)
   (insert_seq ce1 ce2 ∧ insert_seq ce2 ce3
-    ⇒ insert_seq ce1 ce3) ∧
+    ⇒ insert_seq ce1 ce3)
 
+[~Var:]
 (* boilerplate: *)
-  insert_seq (Var d v) (Var d' v) ∧
+  insert_seq (Var d v) (Var d' v)
 
+[~Prim:]
   (LIST_REL insert_seq ce1s ce2s
-    ⇒ insert_seq (Prim d cop ce1s) (Prim d' cop ce2s)) ∧
+    ⇒ insert_seq (Prim d cop ce1s) (Prim d' cop ce2s))
 
+[~App:]
   (LIST_REL insert_seq ce1s ce2s ∧ insert_seq ce1 ce2
-    ⇒ insert_seq (App d ce1 ce1s) (App d' ce2 ce2s)) ∧
+    ⇒ insert_seq (App d ce1 ce1s) (App d' ce2 ce2s))
 
+[~Lam:]
   (insert_seq ce1 ce2
-    ⇒ insert_seq (Lam d xs ce1) (Lam d' xs ce2)) ∧
+    ⇒ insert_seq (Lam d xs ce1) (Lam d' xs ce2))
 
+[~Let:]
   (insert_seq ce1 ce2 ∧ insert_seq ce1' ce2'
-    ⇒ insert_seq (Let d x ce1 ce1') (Let d' x ce2 ce2')) ∧
+    ⇒ insert_seq (Let d x ce1 ce1') (Let d' x ce2 ce2'))
 
+[~Letrec:]
   (LIST_REL (λ(fn1,ce1) (fn2,ce2). fn1 = fn2 ∧ insert_seq ce1 ce2) fns1 fns2 ∧
    insert_seq ce1 ce2
-    ⇒ insert_seq (Letrec d fns1 ce1) (Letrec d' fns2 ce2)) ∧
+    ⇒ insert_seq (Letrec d fns1 ce1) (Letrec d' fns2 ce2))
 
+[~Case:]
   (insert_seq ce1 ce2 ∧
    LIST_REL (λ(cn1,pvs1,ce1) (cn2,pvs2,ce2).
     cn1 = cn2 ∧ pvs1 = pvs2 ∧ insert_seq ce1 ce2) css1 css2 ∧
@@ -1953,4 +1962,3 @@ QED
 (********************)
 
 val _ = export_theory();
-

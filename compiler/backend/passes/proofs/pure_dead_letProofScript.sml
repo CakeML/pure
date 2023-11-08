@@ -18,20 +18,20 @@ val _ = new_theory "pure_dead_letProof";
 Inductive dead_let_rel:
 [~DeadLet:]
   (dead_let_rel e2 e2' ∧ x ∉ freevars e2'
-    ⇒ dead_let_rel (Let x e1 e2) e2') ∧
+    ⇒ dead_let_rel (Let x e1 e2) e2')
 
 (* Boilerplate: *)
 [~Var:]
-  dead_let_rel (Var x) (Var x) ∧
+  dead_let_rel (Var x) (Var x)
 [~App:]
   (dead_let_rel e1 e1' ∧ dead_let_rel e2 e2'
-    ⇒ dead_let_rel (App e1 e2) (App e1' e2')) ∧
+    ⇒ dead_let_rel (App e1 e2) (App e1' e2'))
 [~Lam:]
   (dead_let_rel e e'
-    ⇒ dead_let_rel (Lam x e) (Lam x e')) ∧
+    ⇒ dead_let_rel (Lam x e) (Lam x e'))
 [~Prim:]
   (LIST_REL dead_let_rel es es'
-    ⇒ dead_let_rel (Prim op es) (Prim op es')) ∧
+    ⇒ dead_let_rel (Prim op es) (Prim op es'))
 [~Letrec:]
   (LIST_REL (λ(f,body) (f',body'). f = f' ∧ dead_let_rel body body') fns fns' ∧
    dead_let_rel e e'

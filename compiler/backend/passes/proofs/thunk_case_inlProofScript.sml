@@ -31,101 +31,101 @@ Inductive exp_rel:
 [exp_rel_Inline:]
   (∀m v.
      v ∈ m ⇒
-       exp_rel m (Var v) (Delay (Var v))) ∧
+       exp_rel m (Var v) (Delay (Var v)))
 [exp_rel_Inline_Value:]
   (∀m v w.
      v_rel v w ⇒
-       exp_rel m (Value (Thunk (Value v))) (Delay (Value w))) ∧
+       exp_rel m (Value (Thunk (Value v))) (Delay (Value w)))
 [exp_rel_NoInline:]
   (∀m v.
      v ∉ m ⇒
-       exp_rel m (Var v) (Var v)) ∧
+       exp_rel m (Var v) (Var v))
 [exp_rel_Bind:]
   (∀m v w y1 y2.
      exp_rel (v INSERT m) y1 y2 ∧
      w ∉ m ⇒
        exp_rel m (Let (SOME v) (Delay (Var w)) y1)
-                     (Let (SOME v) (Var w) y2)) ∧
+                     (Let (SOME v) (Var w) y2))
 [exp_rel_Bind_Value:]
   (∀m v x1 x2 y1 y2.
      exp_rel (v INSERT m) y1 y2 ∧
      v_rel x1 x2 ⇒
        exp_rel m (Let (SOME v) (Delay (Value x1)) y1)
-                     (Let (SOME v) (Value x2) y2)) ∧
+                     (Let (SOME v) (Value x2) y2))
 (* Boilerplate: *)
 [exp_rel_App:]
   (∀m f g x y.
      exp_rel m f g ∧
      exp_rel m x y ⇒
-       exp_rel m (App f x) (App g y)) ∧
+       exp_rel m (App f x) (App g y))
 [exp_rel_Lam:]
   (∀m s x y.
      exp_rel (m DELETE s) x y ⇒
-       exp_rel m (Lam s x) (Lam s y)) ∧
+       exp_rel m (Lam s x) (Lam s y))
 [exp_rel_Letrec:]
   (∀m m1 f g x y.
      m1 = m DIFF set (MAP FST f) ∧
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ ok_binder x ∧ exp_rel m1 x y) f g ∧
      exp_rel m1 x y ⇒
-       exp_rel m (Letrec f x) (Letrec g y)) ∧
+       exp_rel m (Letrec f x) (Letrec g y))
 [exp_rel_Let_SOME:]
   (∀m bv x1 y1 x2 y2.
      exp_rel m x1 x2 ∧
      exp_rel (m DELETE bv) y1 y2 ⇒
-       exp_rel m (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2)) ∧
+       exp_rel m (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2))
 [exp_rel_Let_NONE:]
   (∀m x1 y1 x2 y2.
      exp_rel m x1 x2 ∧
      exp_rel m y1 y2 ⇒
-       exp_rel m (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       exp_rel m (Let NONE x1 y1) (Let NONE x2 y2))
 [exp_rel_If:]
   (∀m x1 x2 y1 y2 z1 z2.
      LIST_REL (exp_rel m) [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel m (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel m (If x1 y1 z1) (If x2 y2 z2))
 [exp_rel_Prim:]
   (∀m op xs ys.
      LIST_REL (exp_rel m) xs ys ⇒
-       exp_rel m (Prim op xs) (Prim op ys)) ∧
+       exp_rel m (Prim op xs) (Prim op ys))
 [exp_rel_Monad:]
   (∀m mop xs ys.
      LIST_REL (exp_rel m) xs ys ⇒
-       exp_rel m (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel m (Monad mop xs) (Monad mop ys))
 [exp_rel_Delay:]
   (∀m x y.
      exp_rel m x y ⇒
-       exp_rel m (Delay x) (Delay y)) ∧
+       exp_rel m (Delay x) (Delay y))
 [exp_rel_Force:]
   (∀m x y.
      exp_rel m x y ⇒
-       exp_rel m (Force x) (Force y)) ∧
+       exp_rel m (Force x) (Force y))
 [exp_rel_MkTick:]
   (∀m x y.
      exp_rel m x y ⇒
-       exp_rel m (MkTick x) (MkTick y)) ∧
+       exp_rel m (MkTick x) (MkTick y))
 [exp_rel_Value:]
   (∀m v w.
      v_rel v w ⇒
-       exp_rel m (Value v) (Value w)) ∧
+       exp_rel m (Value v) (Value w))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_Constructor:]
   (∀vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL (exp_rel {}) xs ys ∧ EVERY closed xs ⇒
-       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel EMPTY x y ∧
      freevars x ⊆ {s} ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
-       v_rel (DoTick v) (DoTick w)) ∧
+       v_rel (DoTick v) (DoTick w))
 [v_rel_Recclosure:]
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
@@ -133,7 +133,7 @@ Inductive exp_rel:
                  fn = gn ∧
                  ok_binder x ∧
                  exp_rel EMPTY x y) f g ⇒
-       v_rel (Recclosure f n) (Recclosure g n)) ∧
+       v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel EMPTY x y ∧

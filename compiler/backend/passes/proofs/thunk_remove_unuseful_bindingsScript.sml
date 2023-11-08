@@ -19,28 +19,28 @@ End
 
 Inductive clean_rel:
 [~Var:]
-  (∀n. clean_rel (Var n) (Var n)) ∧
+  (∀n. clean_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       clean_rel (Value v) (Value w)) ∧
+       clean_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL clean_rel xs ys ⇒
-       clean_rel (Prim op xs) (Prim op ys)) ∧
+       clean_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL clean_rel xs ys ⇒
-       clean_rel (Monad mop xs) (Monad mop ys)) ∧
+       clean_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      clean_rel f g ∧
      clean_rel x y ⇒
-       clean_rel (App f x) (App g y)) ∧
+       clean_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      clean_rel x y ⇒
-       clean_rel (Lam s x) (Lam s y)) ∧
+       clean_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -48,13 +48,13 @@ Inductive clean_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL clean_rel (MAP SND f) (MAP SND g) ∧
      clean_rel x y ⇒
-     clean_rel (Letrec f x) (Letrec g y)) ∧
+     clean_rel (Letrec f x) (Letrec g y))
 [~remove_Letrec:]
   (∀f x y.
      EVERY ok_bind (MAP SND f) ∧
      clean_rel x y ∧
      EVERY (λv. v ∉ freevars x) (MAP FST f) ⇒
-     clean_rel (Letrec f x) y) ∧
+     clean_rel (Letrec f x) y)
 [~simp_Letrec:]
   (∀f g v w x y.
      MAP FST f = MAP FST g ∧
@@ -65,53 +65,53 @@ Inductive clean_rel:
      ¬MEM v (MAP FST f) ∧
      v ∉ freevars x ∧ EVERY (λe. v ∉ freevars e) (MAP SND f) ∧
      clean_rel x y ⇒
-     clean_rel (Letrec (SNOC (v, w) f) x) (Letrec g y)) ∧
+     clean_rel (Letrec (SNOC (v, w) f) x) (Letrec g y))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      clean_rel x1 x2 ∧
      clean_rel y1 y2 ⇒
-     clean_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+     clean_rel (Let opt x1 y1) (Let opt x2 y2))
 [~remove_Let:]
   (∀s x y1 y2.
      clean_rel y1 y2 ∧
      s ∉ freevars y1 ∧
      no_op x ⇒
-     clean_rel (Let (SOME s) x y1) y2) ∧
+     clean_rel (Let (SOME s) x y1) y2)
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      clean_rel x1 x2 ∧
      clean_rel y1 y2 ∧
      clean_rel z1 z2 ⇒
-       clean_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       clean_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      clean_rel x y ⇒
-       clean_rel (Delay x) (Delay y)) ∧
+       clean_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      clean_rel x y ⇒
-     clean_rel (Force x) (Force y)) ∧
+     clean_rel (Force x) (Force y))
 [~MkTick:]
-  (∀x y. clean_rel x y ⇒ clean_rel (MkTick x) (MkTick y)) ∧
+  (∀x y. clean_rel x y ⇒ clean_rel (MkTick x) (MkTick y))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL clean_rel xs ys ⇒
-       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      clean_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Recclosure:]
   (∀f g n.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL clean_rel (MAP SND f) (MAP SND g) ⇒
-     v_rel (Recclosure f n) (Recclosure g n)) ∧
+     v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_simp_Recclosure:]
   (∀f g v w n.
      MAP FST f = MAP FST g ∧
@@ -122,14 +122,14 @@ Inductive clean_rel:
      MEM n (MAP FST g) ∧
      LIST_REL clean_rel (MAP SND f) (MAP SND g) ∧
      EVERY (λe. v ∉ freevars e) (MAP SND f) ⇒
-     v_rel (Recclosure (SNOC (v,w) f) n) (Recclosure g n)) ∧
+     v_rel (Recclosure (SNOC (v,w) f) n) (Recclosure g n))
 [v_rel_Thunk:]
   (∀x y.
      clean_rel x y ⇒
-     v_rel (Thunk x) (Thunk y)) ∧
+     v_rel (Thunk x) (Thunk y))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒

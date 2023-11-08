@@ -36,7 +36,7 @@ Inductive exp_rel:
        exp_rel (Seq (If (IsEq s j b (Var v)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Var v))))) x))
                (Seq (If (IsEq s j b (Var v)) Unit Fail)
-                    (Let (SOME w) (MkTick (Proj s i (Var v))) y))) ∧
+                    (Let (SOME w) (MkTick (Proj s i (Var v))) y)))
 [exp_rel_Proj_Value:]
   (∀x y s i j u v w b.
      i < j ∧
@@ -45,23 +45,23 @@ Inductive exp_rel:
        exp_rel (Seq (If (IsEq s j b (Value u)) Unit Fail)
                     (Let (SOME w) (Tick (Delay (Force (Proj s i (Value u))))) x))
                (Seq (If (IsEq s j b (Value v)) Unit Fail)
-                    (Let (SOME w) (MkTick (Proj s i (Value v))) y))) ∧
+                    (Let (SOME w) (MkTick (Proj s i (Value v))) y)))
 [v_rel_Proj:]
   (∀xs s i.
      i < LENGTH xs ∧
      v_rel (EL i xs) v ⇒
        v_rel (Thunk (Force (Proj s i (Value (Constructor s xs)))))
-             (DoTick v)) ∧
+             (DoTick v))
 (* Boilerplate: *)
 [exp_rel_App:]
   (∀f g x y.
      exp_rel f g ∧
      exp_rel x y ⇒
-       exp_rel (App f x) (App g y)) ∧
+       exp_rel (App f x) (App g y))
 [exp_rel_Lam:]
   (∀s x y.
      exp_rel x y ⇒
-       exp_rel (Lam s x) (Lam s y)) ∧
+       exp_rel (Lam s x) (Lam s y))
 [exp_rel_Letrec:]
   (∀f g x y.
      LIST_REL (λ(fn,x) (gn,y).
@@ -69,73 +69,73 @@ Inductive exp_rel:
                  exp_rel x y ∧
                  ok_binder x) f g ∧
      exp_rel x y ⇒
-       exp_rel (Letrec f x) (Letrec g y)) ∧
+       exp_rel (Letrec f x) (Letrec g y))
 [exp_rel_Let_SOME:]
   (∀bv x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2)) ∧
+       exp_rel (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2))
 [exp_rel_Let_NONE:]
   (∀x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       exp_rel (Let NONE x1 y1) (Let NONE x2 y2))
 [exp_rel_If:]
   (∀x1 x2 y1 y2 z1 z2.
      LIST_REL exp_rel [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel (If x1 y1 z1) (If x2 y2 z2))
 [exp_rel_Cons:]
   (∀s xs ys.
      LIST_REL (λx y. exp_rel x y ∧ ∃z. x = Delay z) xs ys ⇒
-       exp_rel (Prim (Cons s) xs) (Prim (Cons s) ys)) ∧
+       exp_rel (Prim (Cons s) xs) (Prim (Cons s) ys))
 [exp_rel_Prim:]
   (∀op xs ys.
      (∀s. op ≠ Cons s) ∧
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim op xs) (Prim op ys)) ∧
+       exp_rel (Prim op xs) (Prim op ys))
 [exp_rel_Monad:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel (Monad mop xs) (Monad mop ys))
 [exp_rel_Delay:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Delay x) (Delay y)) ∧
+       exp_rel (Delay x) (Delay y))
 [exp_rel_Force:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Force x) (Force y)) ∧
+       exp_rel (Force x) (Force y))
 [exp_rel_MkTick:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (MkTick x) (MkTick y)) ∧
+       exp_rel (MkTick x) (MkTick y))
 [exp_rel_Var:]
   (∀v.
-     exp_rel (Var v) (Var v)) ∧
+     exp_rel (Var v) (Var v))
 [exp_rel_Value:]
   (∀v w.
      v_rel v w ⇒
-       exp_rel (Value v) (Value w)) ∧
+       exp_rel (Value v) (Value w))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_Constructor:]
   (∀vs ws.
      LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk x) vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ∧ EVERY closed xs ⇒
-     v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+     v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ∧
      freevars x ⊆ {s} ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
-       v_rel (DoTick v) (DoTick w)) ∧
+       v_rel (DoTick v) (DoTick w))
 [v_rel_Recclosure:]
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y).
@@ -143,7 +143,7 @@ Inductive exp_rel:
                  fn = gn ∧
                  exp_rel x y ∧
                  ok_binder x) f g ⇒
-       v_rel (Recclosure f n) (Recclosure g n)) ∧
+       v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel x y ∧
@@ -773,17 +773,17 @@ Inductive compile_rel:
        compile_rel (Seq (If (IsEq s j b (Var v)) Unit Fail)
                     (Let (SOME w) (Delay (Force (Proj s i (Var v)))) x))
                (Seq (If (IsEq s j b (Var v)) Unit Fail)
-                    (Let (SOME w) (Proj s i (Var v)) y))) ∧
+                    (Let (SOME w) (Proj s i (Var v)) y)))
 (* Boilerplate: *)
 [compile_rel_App:]
   (∀f g x y.
      compile_rel f g ∧
      compile_rel x y ⇒
-       compile_rel (App f x) (App g y)) ∧
+       compile_rel (App f x) (App g y))
 [compile_rel_Lam:]
   (∀s x y.
      compile_rel x y ⇒
-       compile_rel (Lam s x) (Lam s y)) ∧
+       compile_rel (Lam s x) (Lam s y))
 [compile_rel_Letrec:]
   (∀f g x y.
      LIST_REL (λ(fn,x) (gn,y).
@@ -791,42 +791,42 @@ Inductive compile_rel:
                  compile_rel x y ∧
                  ok_binder x) f g ∧
      compile_rel x y ⇒
-       compile_rel (Letrec f x) (Letrec g y)) ∧
+       compile_rel (Letrec f x) (Letrec g y))
 [compile_rel_Let_SOME:]
   (∀bv x1 y1 x2 y2.
      compile_rel x1 x2 ∧
      compile_rel y1 y2 ⇒
-       compile_rel (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2)) ∧
+       compile_rel (Let (SOME bv) x1 y1) (Let (SOME bv) x2 y2))
 [compile_rel_Let_NONE:]
   (∀x1 y1 x2 y2.
      compile_rel x1 x2 ∧
      compile_rel y1 y2 ⇒
-       compile_rel (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       compile_rel (Let NONE x1 y1) (Let NONE x2 y2))
 [compile_rel_If:]
   (∀x1 x2 y1 y2 z1 z2.
      LIST_REL compile_rel [x1;y1;z1] [x2;y2;z2] ⇒
-       compile_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       compile_rel (If x1 y1 z1) (If x2 y2 z2))
 [compile_rel_Cons:]
   (∀s xs ys.
      LIST_REL (λx y. compile_rel x y ∧ ∃z. x = Delay z) xs ys ⇒
-       compile_rel (Prim (Cons s) xs) (Prim (Cons s) ys)) ∧
+       compile_rel (Prim (Cons s) xs) (Prim (Cons s) ys))
 [compile_rel_Prim:]
   (∀op xs ys.
      (∀s. op ≠ Cons s) ∧
      LIST_REL compile_rel xs ys ⇒
-       compile_rel (Prim op xs) (Prim op ys)) ∧
+       compile_rel (Prim op xs) (Prim op ys))
 [compile_rel_Monad:]
   (∀mop xs ys.
      LIST_REL compile_rel xs ys ⇒
-       compile_rel (Monad mop xs) (Monad mop ys)) ∧
+       compile_rel (Monad mop xs) (Monad mop ys))
 [compile_rel_Delay:]
   (∀x y.
      compile_rel x y ⇒
-       compile_rel (Delay x) (Delay y)) ∧
+       compile_rel (Delay x) (Delay y))
 [compile_rel_Force:]
   (∀x y.
      compile_rel x y ⇒
-       compile_rel (Force x) (Force y)) ∧
+       compile_rel (Force x) (Force y))
 [compile_rel_Var:]
   (∀v.
      compile_rel (Var v) (Var v))

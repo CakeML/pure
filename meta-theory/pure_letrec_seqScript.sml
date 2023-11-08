@@ -62,7 +62,7 @@ Inductive letrec_seq:
   (∀binds b.
     MEM b binds ∧ obligation binds ⇒
     letrec_seq binds (Letrec (MAP mk_bind binds) (SND (mk_bind b)))
-                     (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind b)))) ∧
+                     (Letrec (MAP mk_seq_bind binds) (SND (mk_seq_bind b))))
 [~seq:]
   (∀binds n vs e m1 m2.
     MEM (n,vs,e) binds ∧ obligation binds ∧
@@ -73,23 +73,23 @@ Inductive letrec_seq:
       letrec_seq binds v1 v2) ⇒
     letrec_seq binds
       (Seq Zero (subst m1 (subst_funs (MAP mk_bind binds) e)))
-      (Seq Zero (subst m2 (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e))))) ∧
+      (Seq Zero (subst m2 (mk_seqs vs (subst_funs (MAP mk_seq_bind binds) e)))))
    (* cases below are just recursion *)
 [~Var:]
   (∀binds n.
-    letrec_seq binds (Var n) (Var n)) ∧
+    letrec_seq binds (Var n) (Var n))
 [~Lam:]
   (∀binds n x y.
     letrec_seq binds x y ⇒
-    letrec_seq binds (Lam n x) (Lam n y)) ∧
+    letrec_seq binds (Lam n x) (Lam n y))
 [~App:]
   (∀binds f g x y.
     letrec_seq binds f g ∧ letrec_seq binds x y ⇒
-    letrec_seq binds (App f x) (App g y)) ∧
+    letrec_seq binds (App f x) (App g y))
 [~Prim:]
   (∀binds n xs ys.
     LIST_REL (letrec_seq binds) xs ys ⇒
-    letrec_seq binds (Prim n xs) (Prim n ys)) ∧
+    letrec_seq binds (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀binds  xs ys x y.
     LIST_REL (letrec_seq binds) (MAP SND xs) (MAP SND ys) ∧
@@ -1460,30 +1460,30 @@ Inductive reformulate:
     reformulate binds
       (Apps (Var f) es)
       (Seqs seqs (Apps (Var f) es)))
-  ∧
+
 [~partial:]
   (∀binds f bs body.
     ALOOKUP binds f = SOME (bs,body) ⇒
     reformulate binds
       (Var f)
       (SND (mk_seq_lams (f,bs,Apps (Var f) (MAP (Var o FST) bs)))))
-  ∧
+
   (* cases below are just recursion *)
 [~Var:]
   (∀binds n.
-     reformulate binds (Var n) (Var n)) ∧
+     reformulate binds (Var n) (Var n))
 [~Lam:]
   (∀binds n x y.
     reformulate (FILTER (λ(m,x). m ≠ n) binds) x y ⇒
-    reformulate binds (Lam n x) (Lam n y)) ∧
+    reformulate binds (Lam n x) (Lam n y))
 [~App:]
   (∀binds f g x y.
     reformulate binds f g ∧ reformulate binds x y ⇒
-    reformulate binds (App f x) (App g y)) ∧
+    reformulate binds (App f x) (App g y))
 [~Prim:]
   (∀binds n xs ys.
     LIST_REL (reformulate binds) xs ys ⇒
-    reformulate binds (Prim n xs) (Prim n ys)) ∧
+    reformulate binds (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀binds bs xs ys x y.
     bs = FILTER (λ(m,x). ~MEM m (MAP FST xs)) binds ∧

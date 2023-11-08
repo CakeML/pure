@@ -12,28 +12,28 @@ val _ = new_theory "thunk_Let_Lam_Forced";
 
 Inductive force_arg_rel:
 [~Var:]
-  (∀n. force_arg_rel (Var n) (Var n)) ∧
+  (∀n. force_arg_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       force_arg_rel (Value v) (Value w)) ∧
+       force_arg_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL force_arg_rel xs ys ⇒
-       force_arg_rel (Prim op xs) (Prim op ys)) ∧
+       force_arg_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL force_arg_rel xs ys ⇒
-       force_arg_rel (Monad mop xs) (Monad mop ys)) ∧
+       force_arg_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      force_arg_rel f g ∧
      force_arg_rel x y ⇒
-       force_arg_rel (App f x) (App g y)) ∧
+       force_arg_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      force_arg_rel x y ⇒
-       force_arg_rel (Lam s x) (Lam s y)) ∧
+       force_arg_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -41,7 +41,7 @@ Inductive force_arg_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL force_arg_rel (MAP SND f) (MAP SND g) ∧
      force_arg_rel x y ⇒
-     force_arg_rel (Letrec f x) (Letrec g y)) ∧
+     force_arg_rel (Letrec f x) (Letrec g y))
 [~Letrec_Lam_Force:]
   (∀f g x1 y1 x2 y2 v1 v2 vL1 vL2 s s2 i.
      MAP FST f = MAP FST g ∧
@@ -61,7 +61,7 @@ Inductive force_arg_rel:
              (Letrec (SNOC (v2, Lams (vL1 ++ s2::vL2) y2)
                       (LUPDATE (v1, Lams (vL1 ++ s::vL2)
                              (Apps (Var v2) (MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2)))
-                       i g)) y1)) ∧
+                       i g)) y1))
 [~Letrec_Lam_Force2:]
   (∀f g x1 y1 x2 y2 v1 v2 vL1 vL2 s s2 i.
      MAP FST f = MAP FST g ∧
@@ -80,12 +80,12 @@ Inductive force_arg_rel:
              (Letrec (SNOC (v2, Lams (s::vL1 ++ s2::vL2) y2)
                       (LUPDATE (v1, Lams (vL1 ++ s::vL2)
                    (Apps (Var v2) (Var s::MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2)))
-                       i g)) y1)) ∧
+                       i g)) y1))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      force_arg_rel x1 x2 ∧
      force_arg_rel y1 y2 ⇒
-       force_arg_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+       force_arg_rel (Let opt x1 y1) (Let opt x2 y2))
 [~Let_Lams_Force_Var:]
   (∀v1 v2 vL1 vL2 s s2 x1 x2 y1 y2.
      v2 ∉ freevars y1 ∧ v2 ∉ boundvars y2 ∧
@@ -100,7 +100,7 @@ Inductive force_arg_rel:
              (Let (SOME v2)
               (Lams (vL1 ++ s2::vL2) x2)
               (Let (SOME v1)
-                  (Lams (vL1 ++ s::vL2) (Apps (Var v2) (MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2))) y2))) ∧
+                  (Lams (vL1 ++ s::vL2) (Apps (Var v2) (MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2))) y2)))
 [~Let_Lams_Force_Var2:]
   (∀v1 v2 vL1 vL2 s s2 x1 x2 y1 y2.
      v2 ∉ freevars y1 ∧ v2 ∉ boundvars y2 ∧
@@ -115,35 +115,35 @@ Inductive force_arg_rel:
               (Lams (s::vL1 ++ s2::vL2) x2)
               (Let (SOME v1)
                (Lams (vL1 ++ s::vL2) (Apps (Var v2) (Var s::MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2)))
-                 y2))) ∧
+                 y2)))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      force_arg_rel x1 x2 ∧
      force_arg_rel y1 y2 ∧
      force_arg_rel z1 z2 ⇒
-       force_arg_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       force_arg_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      force_arg_rel x y ⇒
-       force_arg_rel (Delay x) (Delay y)) ∧
+       force_arg_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      force_arg_rel x y ⇒
-     force_arg_rel (Force x) (Force y)) ∧
+     force_arg_rel (Force x) (Force y))
 [~MkTick:]
-  (∀x y. force_arg_rel x y ⇒ force_arg_rel (MkTick x) (MkTick y)) ∧
+  (∀x y. force_arg_rel x y ⇒ force_arg_rel (MkTick x) (MkTick y))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀s vs ws.
      LIST_REL force_arg_rel vs ws ⇒
-       v_rel (Monadic s vs) (Monadic s ws)) ∧
+       v_rel (Monadic s vs) (Monadic s ws))
 [v_rel_Closure:]
   (∀s x y.
      force_arg_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Closure_Force_TL:]
   (∀eL1 eL2 vL1 vL2 vL3 s s2 x y.
      ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
@@ -156,7 +156,7 @@ Inductive force_arg_rel:
            (Closure (HD (SNOC s vL2)) (Lams (TL (vL2 ++ s::vL3))
                                        (Apps (Value (Closure (HD (vL1++vL2++s2::vL3))
                                                               (Lams (TL (vL1++vL2++s2::vL3)) y)))
-                                        (MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3))))) ∧
+                                        (MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3)))))
 [v_rel_Closure_Force_TL2:]
   (∀eL1 eL2 vL1 vL2 vL3 s s2 x y.
      ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
@@ -169,7 +169,7 @@ Inductive force_arg_rel:
                                        (Apps (Value (Closure s
                                                               (Lams (vL1++vL2++s2::vL3) y)))
                                         (Var s::MAP Value eL2 ++ MAP Var vL2 ++
-                                           (Tick (Force (Var s)))::MAP Var vL3))))) ∧
+                                           (Tick (Force (Var s)))::MAP Var vL3)))))
 [v_rel_Closure_Force_HD:]
   (∀eL1 eL1' eL2 eL2' e e' vL1 vL2 vL3 s s2 x y.
      ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
@@ -184,7 +184,7 @@ Inductive force_arg_rel:
                                        (Apps (Value (Closure (HD (vL1++s2::vL2++vL3))
                                                               (Lams (TL (vL1++s2::vL2++vL3)) y)))
                                         (MAP Value eL1' ++ (Tick (Force (Value e')))::MAP Value eL2'
-                                         ++ MAP Var vL3))))) ∧
+                                         ++ MAP Var vL3)))))
 [v_rel_Closure_Force_HD2:]
   (∀eL1 eL1' eL2 eL2' e e' vL1 vL2 vL3 s s2 x y.
      ALL_DISTINCT (s2::vL1 ++ vL2 ++ s::vL3) ∧
@@ -198,7 +198,7 @@ Inductive force_arg_rel:
                                        (Apps (Value (Closure s
                                                               (Lams (vL1++s2::vL2++vL3) y)))
                                         (Value e'::MAP Value eL1' ++ (Tick (Force (Value e')))::MAP Value eL2'
-                                         ++ MAP Var vL3))))) ∧
+                                         ++ MAP Var vL3)))))
 [v_rel_Closure_Force_TL_Rec:]
   (∀eL1 eL2 vL1 vL2 vL3 s s2 x y xs ys v1 v2 i.
      ALL_DISTINCT (MAP FST xs) ∧
@@ -227,7 +227,7 @@ Inductive force_arg_rel:
                                (Apps (Var v2) (MAP Var vL1 ++ MAP Var vL2 ++
                                                Tick (Force (Var s))::MAP Var vL3)))
                                         i ys)) v2))
-              (MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3))))) ∧
+              (MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3)))))
 [v_rel_Closure_Force_TL_Rec2:]
   (∀eL1 eL2 vL1 vL2 vL3 s s2 x y xs ys v1 v2 i.
      ALL_DISTINCT (MAP FST xs) ∧
@@ -254,7 +254,7 @@ Inductive force_arg_rel:
                                (Apps (Var v2) (Var s::MAP Var vL1 ++ MAP Var vL2 ++
                                                Tick (Force (Var s))::MAP Var vL3)))
                                         i ys)) v2))
-              (Var s::MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3))))) ∧
+              (Var s::MAP Value eL2 ++ MAP Var vL2 ++ (Tick (Force (Var s)))::MAP Var vL3)))))
 [v_rel_Closure_Force_HD_Rec:]
   (∀eL1 eL1' eL2 eL2' e e' vL1 vL2 vL3 s s2 x y xs ys v1 v2 i.
      ALL_DISTINCT (MAP FST xs) ∧
@@ -284,7 +284,7 @@ Inductive force_arg_rel:
                            (Apps (Var v2) (MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2
                                            ++ MAP Var vL3)))
                   i ys)) v2))
-              (MAP Value eL1' ++ (Tick (Force (Value e')))::MAP Value eL2' ++ MAP Var vL3))))) ∧
+              (MAP Value eL1' ++ (Tick (Force (Value e')))::MAP Value eL2' ++ MAP Var vL3)))))
 [v_rel_Closure_Force_HD_Rec2:]
   (∀eL1 eL1' eL2 eL2' e e' vL1 vL2 vL3 s s2 x y xs ys v1 v2 i.
      ALL_DISTINCT (MAP FST xs) ∧
@@ -314,14 +314,14 @@ Inductive force_arg_rel:
                                            ++ MAP Var vL3)))
                   i ys)) v2))
               (Value e'::MAP Value eL1' ++ (Tick (Force (Value e')))::MAP Value eL2'
-               ++ MAP Var vL3))))) ∧
+               ++ MAP Var vL3)))))
 [v_rel_Recclosure:]
   (∀f g n.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL force_arg_rel (MAP SND f) (MAP SND g) ⇒
-     v_rel (Recclosure f n) (Recclosure g n)) ∧
+     v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Recclosure_Lam_Force:]
   (∀f g x y v1 v2 vL1 vL2 s s2 i n.
      MAP FST f = MAP FST g ∧
@@ -340,7 +340,7 @@ Inductive force_arg_rel:
              (Recclosure (SNOC (v2, Lams (vL1 ++ s2::vL2) y)
                           (LUPDATE (v1, Lams (vL1 ++ s::vL2)
                                              (Apps (Var v2) (MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2)))
-                           i g)) n)) ∧
+                           i g)) n))
 [v_rel_Recclosure_Lam_Force2:]
   (∀f g x y v1 v2 vL1 vL2 s s2 i n.
      MAP FST f = MAP FST g ∧
@@ -359,14 +359,14 @@ Inductive force_arg_rel:
              (Recclosure (SNOC (v2, Lams (s::vL1 ++ s2::vL2) y)
                           (LUPDATE (v1, Lams (vL1 ++ s::vL2)
                      (Apps (Var v2) (Var s::MAP Var vL1 ++ Tick (Force (Var s))::MAP Var vL2)))
-                           i g)) n)) ∧
+                           i g)) n))
 [v_rel_Thunk:]
   (∀x y.
      force_arg_rel x y ⇒
-     v_rel (Thunk x) (Thunk y)) ∧
+     v_rel (Thunk x) (Thunk y))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒

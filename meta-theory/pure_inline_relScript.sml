@@ -36,34 +36,34 @@ End
 Inductive inline_rel:
 [~refl:]
   (∀l t.
-    inline_rel l t t) ∧
+    inline_rel l t t)
 [~Var:]
   (∀v x l.
     MEM (v, x) l ⇒
-    inline_rel l (Var v) x) ∧
+    inline_rel l (Var v) x)
 [~Let:]
   (∀l v x y.
     inline_rel l x x' ∧
     inline_rel (l ++ [(v,x)]) y y' ⇒
-    inline_rel l (Let v x y) (Let v x' y')) ∧
+    inline_rel l (Let v x y) (Let v x' y'))
 [~Prim:]
   (∀l p xs ys.
     LIST_REL (inline_rel l) xs ys ⇒
-    inline_rel l (Prim p xs) (Prim p ys)) ∧
+    inline_rel l (Prim p xs) (Prim p ys))
 [~App:]
   (∀l t1 t2 u1 u2.
     inline_rel l t1 u1 ∧
     inline_rel l t2 u2 ⇒
-    inline_rel l (App t1 t2) (App u1 u2)) ∧
+    inline_rel l (App t1 t2) (App u1 u2))
 [~Lam:]
   (∀l t u w.
     inline_rel l t u ⇒
-    inline_rel l (Lam w t) (Lam w u)) ∧
+    inline_rel l (Lam w t) (Lam w u))
 [~Letrec:]
   (∀l t u xs ys.
     LIST_REL (λ(n,t1) (m,u1). n = m ∧ inline_rel l t1 u1) xs ys ∧
     inline_rel l t u ⇒
-    inline_rel l (Letrec xs t) (Letrec ys u)) ∧
+    inline_rel l (Letrec xs t) (Letrec ys u))
 [~spec:]
   (∀l t u v x y x1.
     inline_rel l x y ∧
@@ -72,13 +72,13 @@ Inductive inline_rel:
     DISJOINT (boundvars t) (boundvars x1) ∧
     DISJOINT (boundvars t) (freevars x1) ∧
     inline_rel (l ++ [(v,x1)]) t u ⇒
-    inline_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u)) ∧
+    inline_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u))
 [~trans:]
   (∀l x y z.
     inline_rel l x y ∧
     inline_rel l y z ∧
     pre l y ⇒
-    inline_rel l x z) ∧
+    inline_rel l x z)
 [~simp:]
   (∀l t u u1.
     inline_rel l t u ∧

@@ -21,90 +21,90 @@ Inductive exp_rel:
   (∀env n v w.
      ALOOKUP env n = SOME w ∧
      v_rel v w ⇒
-       exp_rel env (Value v) (Var n)) ∧
+       exp_rel env (Value v) (Var n))
 [exp_rel_Lit_Var:] (* Used in proof of interp_eq below *)
   (∀env n s.
      ALOOKUP env n = SOME (Atom s) ⇒
-       exp_rel env (Lit s) (Var n)) ∧
+       exp_rel env (Lit s) (Var n))
 [exp_rel_Unit_Var:] (* Used in proof of interp_eq below *)
   (∀env n s.
      ALOOKUP env n = SOME (Constructor s []) ⇒
-       exp_rel env (Cons s []) (Var n)) ∧
+       exp_rel env (Cons s []) (Var n))
 [exp_rel_Fail:] (* proof of Case in exp_of *)
   (∀env.
-     exp_rel env Fail (Prim (AtomOp Add) [])) ∧
+     exp_rel env Fail (Prim (AtomOp Add) []))
 [exp_rel_Var:]
   (∀env n.
      ALOOKUP env n = NONE ⇒
-       exp_rel env (Var n) (Var n)) ∧
+       exp_rel env (Var n) (Var n))
 [exp_rel_App:]
   (∀env x1 x2 y1 y2.
      exp_rel env x1 x2 ∧
      exp_rel env y1 y2 ⇒
-       exp_rel env (App x1 y1) (App x2 y2)) ∧
+       exp_rel env (App x1 y1) (App x2 y2))
 [exp_rel_Lam:]
   (∀env x y s.
      exp_rel (FILTER (λ(n,x). n ≠ s) env) x y ⇒
-       exp_rel env (Lam s x) (Lam s y)) ∧
+       exp_rel env (Lam s x) (Lam s y))
 [exp_rel_Let_NONE:]
   (∀env x1 x2 y1 y2.
      exp_rel env x1 x2 ∧
      exp_rel env y1 y2 ⇒
-       exp_rel env (Let NONE x1 y1) (Let NONE x2 y2)) ∧
+       exp_rel env (Let NONE x1 y1) (Let NONE x2 y2))
 [exp_rel_Let_SOME:]
   (∀env x1 x2 y1 y2 s.
      exp_rel env x1 x2 ∧
      exp_rel (FILTER (λ(n,x). n ≠ s) env) y1 y2 ⇒
-       exp_rel env (Let (SOME s) x1 y1) (Let (SOME s) x2 y2)) ∧
+       exp_rel env (Let (SOME s) x1 y1) (Let (SOME s) x2 y2))
 [exp_rel_If:]
   (∀env x1 x2 y1 y2 z1 z2.
      LIST_REL (exp_rel env) [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel env (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel env (If x1 y1 z1) (If x2 y2 z2))
 [exp_rel_Prim:]
   (∀env op xs ys.
      LIST_REL (exp_rel env) xs ys ⇒
-       exp_rel env (Prim op xs) (Prim op ys)) ∧
+       exp_rel env (Prim op xs) (Prim op ys))
 [exp_rel_Monad:]
   (∀env mop xs ys.
      LIST_REL (exp_rel env) xs ys ⇒
-       exp_rel env (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel env (Monad mop xs) (Monad mop ys))
 [exp_rel_Letrec:]
   (∀env f g x y.
      LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
                  exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c)
               (REVERSE f) g ∧
      exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) x y ⇒
-       exp_rel env (Letrec f x) (Letrec g y)) ∧
+       exp_rel env (Letrec f x) (Letrec g y))
 [exp_rel_Delay:]
   (∀env x y.
      exp_rel env x y ⇒
-       exp_rel env (Delay x) (Delay y)) ∧
+       exp_rel env (Delay x) (Delay y))
 [exp_rel_Force:]
   (∀env x y.
      exp_rel env x y ⇒
-       exp_rel env (Force x) (Force y)) ∧
+       exp_rel env (Force x) (Force y))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys env.
      LIST_REL (exp_rel env) xs ys ⇒
-       v_rel (Monadic mop xs) (Monadic env mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic env mop ys))
 [v_rel_Closure:]
   (∀env s x y.
      exp_rel env (Lam s x) (Lam s y) ⇒
-       v_rel (Closure s x) (Closure s env y)) ∧
+       v_rel (Closure s x) (Closure s env y))
 [v_rel_Recclosure:]
   (∀env f g n.
      LIST_REL (λ(fn,b) (gn,c). fn = gn ∧
                  exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) b c)
               (REVERSE f) g ⇒
-       v_rel (Recclosure f n) (Recclosure g env n)) ∧
+       v_rel (Recclosure f n) (Recclosure g env n))
 [v_rel_Thunk:]
   (∀env x y.
      exp_rel env x y ⇒
-       v_rel (Thunk x) (Thunk (INR (env, y)))) ∧
+       v_rel (Thunk x) (Thunk (INR (env, y))))
 [v_rel_Atom:]
   (∀l.
      v_rel (Atom l) (Atom l))
