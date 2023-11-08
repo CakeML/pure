@@ -12,28 +12,28 @@ val _ = new_theory "thunk_combine_Forcing_Lambdas";
 
 Inductive combine_rel:
 [~Var:]
-  (∀n. combine_rel (Var n) (Var n)) ∧
+  (∀n. combine_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       combine_rel (Value v) (Value w)) ∧
+       combine_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL combine_rel xs ys ⇒
-       combine_rel (Prim op xs) (Prim op ys)) ∧
+       combine_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL combine_rel xs ys ⇒
-       combine_rel (Monad mop xs) (Monad mop ys)) ∧
+       combine_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      combine_rel f g ∧
      combine_rel x y ⇒
-       combine_rel (App f x) (App g y)) ∧
+       combine_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      combine_rel x y ⇒
-       combine_rel (Lam s x) (Lam s y)) ∧
+       combine_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -41,7 +41,7 @@ Inductive combine_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL combine_rel (MAP SND f) (MAP SND g) ∧
      combine_rel x y ⇒
-     combine_rel (Letrec f x) (Letrec g y)) ∧
+     combine_rel (Letrec f x) (Letrec g y))
 [~Letrec_Lams_combine1:]
   (∀f g y1 y2 v1 v2 x1 x2 vL1 vL2 vL3 bL1 bL2 bL3 i.
      MAP FST f = MAP FST g ∧
@@ -77,7 +77,7 @@ Inductive combine_rel:
                                                   MAP2 (λb e. if b then Force e else e) bL1
                                                        (MAP2 (λb e. if b then Force e else e)
                                                         bL2 (MAP Var vL1))))))
-                       g)) y2)) ∧
+                       g)) y2))
 [~Letrec_Lams_combine2:]
   (∀f g y1 y2 v1 v2 x1 x2 vL1 vL2 vL3 bL1 bL2 bL3 i.
      MAP FST f = MAP FST g ∧
@@ -113,12 +113,12 @@ Inductive combine_rel:
                                                   MAP2 (λb e. if b then Force e else e) bL1
                                                        (MAP2 (λb e. if b then Force e else e)
                                                         bL2 (MAP Var vL1))))))
-                       g)) y2)) ∧
+                       g)) y2))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      combine_rel x1 x2 ∧
      combine_rel y1 y2 ⇒
-     combine_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+     combine_rel (Let opt x1 y1) (Let opt x2 y2))
 [~Let_Lams_combine1:]
   (∀v1 v2 vL1 vL2 vL3 bL1 bL2 bL3 x1 x2 y1 y2 i.
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
@@ -144,7 +144,7 @@ Inductive combine_rel:
                                               (MAP Var vL3 ++
                                                MAP2 (λb e. if b then Force e else e) bL1
                                                     (MAP2 (λb e. if b then Force e else e)
-                                                          bL2 (MAP Var vL1)))))) y2))) ∧
+                                                          bL2 (MAP Var vL1)))))) y2)))
 [~Let_Lams_combine2:]
   (∀v1 v2 vL1 vL2 vL3 bL1 bL2 bL3 x1 x2 y1 y2 i.
      LENGTH vL1 = LENGTH bL2 ∧ LENGTH vL1 = LENGTH vL2 ∧ LENGTH vL1 = LENGTH bL3 ∧
@@ -172,35 +172,35 @@ Inductive combine_rel:
                                                MAP Var vL3 ++
                                                MAP2 (λb e. if b then Force e else e) bL1
                                                     (MAP2 (λb e. if b then Force e else e)
-                                                     bL2 (MAP Var vL1)))))) y2))) ∧
+                                                     bL2 (MAP Var vL1)))))) y2)))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      combine_rel x1 x2 ∧
      combine_rel y1 y2 ∧
      combine_rel z1 z2 ⇒
-       combine_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       combine_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      combine_rel x y ⇒
-       combine_rel (Delay x) (Delay y)) ∧
+       combine_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      combine_rel x y ⇒
-     combine_rel (Force x) (Force y)) ∧
+     combine_rel (Force x) (Force y))
 [~MkTick:]
-  (∀x y. combine_rel x y ⇒ combine_rel (MkTick x) (MkTick y)) ∧
+  (∀x y. combine_rel x y ⇒ combine_rel (MkTick x) (MkTick y))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀s vs ws.
      LIST_REL combine_rel vs ws ⇒
-       v_rel (Monadic s vs) (Monadic s ws)) ∧
+       v_rel (Monadic s vs) (Monadic s ws))
 [v_rel_Closure:]
   (∀s x y.
      combine_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Closure_combine1:]
   (∀vL1a vL1b vL2 vL3a vL3b eL1a eL1 eL2a eL2 bL1 bL2 bL3a bL3b x y i.
      LENGTH (vL1a ++ vL1b) = LENGTH vL2 ∧
@@ -234,7 +234,7 @@ Inductive combine_rel:
                                  (MAP Value eL2a ++ MAP Var vL3b ++
                                   MAP2 (λb e. if b then Force e else e) bL1
                                        (MAP2 (λb e. if b then Force e else e) bL2
-                                        (MAP Value eL2 ++ MAP Var vL1b)))))))) ∧
+                                        (MAP Value eL2 ++ MAP Var vL1b))))))))
 [v_rel_Closure_combine2:]
   (∀vL1a vL1b vL2 vL3a vL3b eL1a eL1 eL2a eL2 bL1 bL2 bL3a bL3b x y i.
      LENGTH (vL1a ++ vL1b) = LENGTH vL2 ∧
@@ -270,7 +270,7 @@ Inductive combine_rel:
                                     MAP Value eL2a ++ MAP Var vL3b ++
                                     MAP2 (λb e. if b then Force e else e) bL1
                                          (MAP2 (λb e. if b then Force e else e) bL2
-                                          (MAP Value eL2 ++ MAP Var vL1b)))))))) ∧
+                                          (MAP Value eL2 ++ MAP Var vL1b))))))))
 [v_rel_Closure_combine1_Rec:]
   (∀f g v1 v2 x1 x2 vL1a vL1b vL2 vL3a vL3b bL1 bL2 bL3a bL3b i list eL1 eL1a eL2a eL2.
      MAP FST f = MAP FST g ∧
@@ -325,7 +325,7 @@ Inductive combine_rel:
                                    (MAP Value eL2a ++ MAP Var vL3b ++
                                     MAP2 (λb e. if b then Force e else e) bL1
                                          (MAP2 (λb e. if b then Force e else e) bL2
-                                          (MAP Value eL2 ++ MAP Var vL1b)))))))) ∧
+                                          (MAP Value eL2 ++ MAP Var vL1b))))))))
 [v_rel_Closure_combine2_Rec:]
   (∀f g v1 v2 x1 x2 vL1a vL1b vL2 vL3a vL3b bL1 bL2 bL3a bL3b i list eL1 eL1a eL2a eL2.
      MAP FST f = MAP FST g ∧
@@ -384,14 +384,14 @@ Inductive combine_rel:
                                     MAP Value eL2a ++ MAP Var vL3b ++
                                     MAP2 (λb e. if b then Force e else e) bL1
                                          (MAP2 (λb e. if b then Force e else e) bL2
-                                          (MAP Value eL2 ++ MAP Var vL1b)))))))) ∧
+                                          (MAP Value eL2 ++ MAP Var vL1b))))))))
 [v_rel_Recclosure:]
   (∀f g n.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL combine_rel (MAP SND f) (MAP SND g) ⇒
-     v_rel (Recclosure f n) (Recclosure g n)) ∧
+     v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Recclosure_combine1:]
   (∀f g n v1 v2 x1 x2 vL1 vL2 vL3 bL1 bL2 bL3 i.
      MAP FST f = MAP FST g ∧
@@ -427,7 +427,7 @@ Inductive combine_rel:
                                                   MAP2 (λb e. if b then Force e else e) bL1
                                                        (MAP2 (λb e. if b then Force e else e) bL2
                                                         (MAP Var vL1))))))
-                       g)) n)) ∧
+                       g)) n))
 [v_rel_Recclosure_combine2:]
   (∀f g n v1 v2 x1 x2 vL1 vL2 vL3 bL1 bL2 bL3 i.
      MAP FST f = MAP FST g ∧
@@ -463,14 +463,14 @@ Inductive combine_rel:
                                                   MAP2 (λb e. if b then Force e else e) bL1
                                                        (MAP2 (λb e. if b then Force e else e) bL2
                                                         (MAP Var vL1))))))
-                       g)) n)) ∧
+                       g)) n))
 [v_rel_Thunk:]
   (∀x y.
      combine_rel x y ⇒
-     v_rel (Thunk x) (Thunk y)) ∧
+     v_rel (Thunk x) (Thunk y))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒

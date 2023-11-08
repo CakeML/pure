@@ -242,39 +242,39 @@ End
 
 Inductive type_atom_op:
 [~Lit:]
-  (type_lit l t ⇒ type_atom_op (Lit l) [] t) ∧
+  (type_lit l t ⇒ type_atom_op (Lit l) [] t)
 
 [~IntOps_Int:]
   (MEM op [Add; Sub; Mul; Div; Mod] ⇒
-    type_atom_op op [Integer;Integer] Integer) ∧
+    type_atom_op op [Integer;Integer] Integer)
 
 [~IntOps_Bool:]
   (MEM op [Eq; Lt; Leq; Gt; Geq] ⇒
-    type_atom_op op [Integer;Integer] Bool) ∧
+    type_atom_op op [Integer;Integer] Bool)
 
 [~Len:]
-  (type_atom_op Len [String] Integer) ∧
+  (type_atom_op Len [String] Integer)
 
 [~Elem:]
-  (type_atom_op Elem [String;Integer] Integer) ∧
+  (type_atom_op Elem [String;Integer] Integer)
 
 [~Concat:]
   (EVERY (λt. t = String) ts ⇒
-    type_atom_op Concat ts String) ∧
+    type_atom_op Concat ts String)
 
 [~Implode:]
   (EVERY (λt. t = Integer) ts ⇒
-    type_atom_op Implode ts String) ∧
+    type_atom_op Implode ts String)
 
 [~Substring1:]
-  (type_atom_op Substring [String;Integer] String) ∧
+  (type_atom_op Substring [String;Integer] String)
 
 [~Substring2:]
-  (type_atom_op Substring [String;Integer;Integer] String) ∧
+  (type_atom_op Substring [String;Integer;Integer] String)
 
 [~StrOps_Bool:]
   (MEM op [StrEq; StrLt; StrLeq; StrGt; StrGeq] ⇒
-    type_atom_op op [String;String] Bool) ∧
+    type_atom_op op [String;String] Bool)
 
 [~Message:]
   (s ≠ "" ⇒ type_atom_op (Message s) [String] Message)
@@ -317,102 +317,102 @@ End
 Inductive type_tcexp:
 [~Var:]
   (ALOOKUP env x = SOME s ∧ specialises (SND ns) db s t ⇒
-      type_tcexp ns db st env (Var x) t) ∧
+      type_tcexp ns db st env (Var x) t)
 
 [~Tuple:]
   (LIST_REL (type_tcexp ns db st env) es ts ⇒
-      type_tcexp ns db st env (Prim (Cons «») es) (Tuple ts)) ∧
+      type_tcexp ns db st env (Prim (Cons «») es) (Tuple ts))
 
 [~Ret:]
   (type_tcexp ns db st env e t ⇒
-      type_tcexp ns db st env (Prim (Cons «Ret») [e]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Ret») [e]) (M t))
 
 [~Bind:]
   (type_tcexp ns db st env e1 (M t1) ∧
    type_tcexp ns db st env e2 (Function t1 (M t2)) ⇒
-      type_tcexp ns db st env (Prim (Cons «Bind») [e1;e2]) (M t2)) ∧
+      type_tcexp ns db st env (Prim (Cons «Bind») [e1;e2]) (M t2))
 
 [~Raise:]
   (type_tcexp ns db st env e Exception ∧
    type_ok (SND ns) db t ⇒
-      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (M t))
 
 [~Handle:]
   (type_tcexp ns db st env e1 (M t) ∧
    type_tcexp ns db st env e2 (Function Exception (M t)) ⇒
-      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (M t))
 
 [~Act:]
   (type_tcexp ns db st env e (PrimTy Message) ⇒
-      type_tcexp ns db st env (Prim (Cons «Act») [e]) (M $ PrimTy String)) ∧
+      type_tcexp ns db st env (Prim (Cons «Act») [e]) (M $ PrimTy String))
 
 [~Alloc:]
   (type_tcexp ns db st env e1 (PrimTy Integer) ∧
    type_tcexp ns db st env e2 t ⇒
-      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2]) (M $ Array t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2]) (M $ Array t))
 
 [~Length:]
   (type_tcexp ns db st env e (Array t) ⇒
-      type_tcexp ns db st env (Prim (Cons «Length») [e]) (M $ PrimTy Integer)) ∧
+      type_tcexp ns db st env (Prim (Cons «Length») [e]) (M $ PrimTy Integer))
 
 [~Deref:]
   (type_tcexp ns db st env e1 (Array t) ∧
    type_tcexp ns db st env e2 (PrimTy Integer) ⇒
-      type_tcexp ns db st env (Prim (Cons «Deref») [e1;e2]) (M t)) ∧
+      type_tcexp ns db st env (Prim (Cons «Deref») [e1;e2]) (M t))
 
 [~Update:]
   (type_tcexp ns db st env e1 (Array t) ∧
    type_tcexp ns db st env e2 (PrimTy Integer) ∧
    type_tcexp ns db st env e3 t ⇒
-      type_tcexp ns db st env (Prim (Cons «Update») [e1;e2;e3]) (M Unit)) ∧
+      type_tcexp ns db st env (Prim (Cons «Update») [e1;e2;e3]) (M Unit))
 
 [~Exception:]
   (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
    type_exception exndef (cname,carg_ts) ⇒
-      type_tcexp (exndef,typedefs) db st env (Prim (Cons cname) es) Exception) ∧
+      type_tcexp (exndef,typedefs) db st env (Prim (Cons cname) es) Exception)
 
 [~True:]
-  (type_tcexp ns db st env (Prim (Cons «True») []) (PrimTy Bool)) ∧
+  (type_tcexp ns db st env (Prim (Cons «True») []) (PrimTy Bool))
 
 [~False:]
-  (type_tcexp ns db st env (Prim (Cons «False») []) (PrimTy Bool)) ∧
+  (type_tcexp ns db st env (Prim (Cons «False») []) (PrimTy Bool))
 
 [~Cons:]
   (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
    EVERY (type_ok typedefs db) tyargs ∧
    type_cons typedefs (cname,carg_ts) (tyid,tyargs) ⇒
       type_tcexp (exndef,typedefs) db st env
-        (Prim (Cons cname) es) (TypeCons tyid tyargs)) ∧
+        (Prim (Cons cname) es) (TypeCons tyid tyargs))
 
 [~Loc:]
   (oEL n st = SOME t ⇒
-      type_tcexp ns db st env (Prim (AtomOp $ Lit (Loc n)) []) (Array t)) ∧
+      type_tcexp ns db st env (Prim (AtomOp $ Lit (Loc n)) []) (Array t))
 
 [~AtomOp:]
   (LIST_REL (type_tcexp ns db st env) es ts ∧
    get_PrimTys ts = SOME pts ∧
    type_atom_op aop pts pt ⇒
-      type_tcexp ns db st env (Prim (AtomOp aop) es) (PrimTy pt)) ∧
+      type_tcexp ns db st env (Prim (AtomOp aop) es) (PrimTy pt))
 
 [~Seq:]
   (type_tcexp ns db st env e1 t1 ∧ type_tcexp ns db st env e2 t2 ⇒
-      type_tcexp ns db st env (Prim Seq [e1; e2]) t2) ∧
+      type_tcexp ns db st env (Prim Seq [e1; e2]) t2)
 
 [~App:]
   (type_tcexp ns db st env e (Functions arg_tys ret_ty) ∧
    LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ⇒
-      type_tcexp ns db st env (App e es) ret_ty) ∧
+      type_tcexp ns db st env (App e es) ret_ty)
 
 [~Lam:]
   (EVERY (type_ok (SND ns) db) arg_tys ∧
    LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
    type_tcexp ns db st (REVERSE (ZIP (xs, MAP ($, 0) arg_tys)) ++ env) e ret_ty
-      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty)) ∧
+      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty))
 
 [~Let:]
   (type_tcexp ns (db + new) (MAP (tshift new) st) (tshift_env new env) e1 t1 ∧
    type_tcexp ns db st ((x,new,t1)::env) e2 t2 ⇒
-      type_tcexp ns db st env (Let x e1 e2) t2) ∧
+      type_tcexp ns db st env (Let x e1 e2) t2)
 
 [~Letrec:]
   (LIST_REL
@@ -423,14 +423,14 @@ Inductive type_tcexp:
     fns schemes ∧
    EVERY (type_scheme_ok (SND ns) db) schemes ∧ fns ≠ [] ∧
    type_tcexp ns db st (REVERSE (ZIP (MAP FST fns, schemes)) ++ env) e t ⇒
-      type_tcexp ns db st env (Letrec fns e) t) ∧
+      type_tcexp ns db st env (Letrec fns e) t)
 
 [~BoolCase:]
   (type_tcexp ns db st env e (PrimTy Bool) ∧
    LENGTH css = 2 ∧ set (MAP FST css) = {«True»;«False»} ∧ eopt = NONE ∧
    EVERY (λ(cn,pvars,cexp). pvars = [] ∧
     type_tcexp ns db st ((v,0,PrimTy Bool)::env) cexp t) css ⇒
-      type_tcexp ns db st env (Case e v css eopt) t) ∧
+      type_tcexp ns db st env (Case e v css eopt) t)
 
 [~TupleCase:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
@@ -439,7 +439,7 @@ Inductive type_tcexp:
    type_tcexp ns db st
       (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
         cexp t ⇒
-      type_tcexp ns db st env (Case e v css eopt) t) ∧
+      type_tcexp ns db st env (Case e v css eopt) t)
 
 [~ExceptionCase:]
   (type_tcexp (exndef,typedefs) db st env e Exception ∧
@@ -461,7 +461,7 @@ Inductive type_tcexp:
           type_tcexp (exndef,typedefs) db st
             (REVERSE (ZIP (pvars, MAP ($, 0) tys)) ++ (v,0,Exception)::env) cexp t
       ) css ⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t) ∧
+      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t)
 
 [~Case:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
@@ -506,18 +506,18 @@ Inductive type_tcexp:
              (v,0,TypeCons tyid tyargs)::env)
             cexp t
       ) css ⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css usopt) t) ∧
+      type_tcexp (exndef,typedefs) db st env (Case e v css usopt) t)
 
 [~TupleSafeProj:]
   (type_tcexp ns db st env e (Tuple tyargs) ∧
    LENGTH tyargs = arity ∧ oEL i tyargs = SOME t ⇒
-    type_tcexp ns db st env (SafeProj «» arity i e) t) ∧
+    type_tcexp ns db st env (SafeProj «» arity i e) t)
 
 [~ExceptionSafeProj:]
   (type_tcexp (exndef,typedefs) db st env e Exception ∧
    ALOOKUP exndef cname = SOME tys ∧
    LENGTH tys = arity ∧ oEL i tys = SOME t ⇒
-    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t) ∧
+    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
 
 [~SafeProj:]
   (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧

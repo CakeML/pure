@@ -53,27 +53,27 @@ End
 Inductive compile_rel:
 
 [~Var:]
-  compile_rel (stateLang$Var v) (stateLang$Var v) ∧
+  compile_rel (stateLang$Var v) (stateLang$Var v)
 
 [~Lam:]
   (compile_rel x y ⇒
-  compile_rel (Lam v_opt x) (Lam v_opt y)) ∧
+  compile_rel (Lam v_opt x) (Lam v_opt y))
 
 [~Raise:]
   (compile_rel x y ⇒
-  compile_rel (Raise x) (Raise y)) ∧
+  compile_rel (Raise x) (Raise y))
 
 [~Handle:]
   (compile_rel x1 y1 ∧ compile_rel x2 y2 ⇒
-  compile_rel (Handle x1 v x2) (Handle y1 v y2)) ∧
+  compile_rel (Handle x1 v x2) (Handle y1 v y2))
 
 [~HandleApp:]
   (compile_rel x1 y1 ∧ compile_rel x2 y2 ⇒
-  compile_rel (HandleApp x1 x2) (HandleApp y1 y2)) ∧
+  compile_rel (HandleApp x1 x2) (HandleApp y1 y2))
 
 [~App:]
   (LIST_REL compile_rel xs ys ⇒
-  compile_rel (App op xs) (App op ys)) ∧
+  compile_rel (App op xs) (App op ys))
 
 [~Letrec:]
   (∀tfns sfns te se.
@@ -81,18 +81,18 @@ Inductive compile_rel:
     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
     EVERY (λ(n,x). ∃v y. x = Lam v y) tfns ∧
     compile_rel te se ⇒
-    compile_rel (Letrec tfns te) (Letrec sfns se)) ∧
+    compile_rel (Letrec tfns te) (Letrec sfns se))
 
 [~Let:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2))
 
 [~If:]
   (compile_rel te se ∧
    compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (If te te1 te2) (If se se1 se2)) ∧
+  compile_rel (If te te1 te2) (If se se1 se2))
 
 [~Case:]
   (∀v tes ses td sd.
@@ -108,17 +108,17 @@ Inductive v_rel:
 
 [~Atom:]
   (∀a.
-     v_rel (Atom a) (Atom a)) ∧
+     v_rel (Atom a) (Atom a))
 
 [~Constructor:]
   (∀s tvs svs.
      LIST_REL v_rel tvs svs ⇒
-     v_rel (Constructor s tvs) (Constructor s svs)) ∧
+     v_rel (Constructor s tvs) (Constructor s svs))
 
 [~Closure:]
   (∀tenv senv te se n.
      env_rel tenv senv ∧ compile_rel te se ⇒
-     v_rel (Closure n tenv te) (Closure n senv se)) ∧
+     v_rel (Closure n tenv te) (Closure n senv se))
 
 [~Recclosure:]
   (∀tfns sfns tenv senv n.
@@ -127,7 +127,7 @@ Inductive v_rel:
      EVERY (λ(n,x). ∃v y. x = Lam v y) tfns ∧
      MAP FST tfns = MAP FST sfns ⇒
      v_rel (Recclosure tfns tenv n)
-           (Recclosure sfns senv n)) ∧
+           (Recclosure sfns senv n))
 
 [env_rel:]
   (∀tenv senv.

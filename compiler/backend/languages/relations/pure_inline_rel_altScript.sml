@@ -268,20 +268,20 @@ End
 
 Inductive no_shadowing:
 [~Var:]
-  (∀v. no_shadowing (Var v)) ∧
+  (∀v. no_shadowing (Var v))
 [~Prim:]
   (∀l p.
     EVERY no_shadowing l ⇒
-    no_shadowing (Prim p l)) ∧
+    no_shadowing (Prim p l))
 [~App:]
   (∀x y.
     no_shadowing x ∧ no_shadowing y ∧
     DISJOINT (boundvars x) (boundvars y) ⇒
-    no_shadowing (App x y)) ∧
+    no_shadowing (App x y))
 [~Lam:]
   (∀v x.
     no_shadowing x ∧ v ∉ boundvars x ⇒
-    no_shadowing (Lam v x)) ∧
+    no_shadowing (Lam v x))
 [~Letrec:]
   (∀l x.
     EVERY (λ(v,e).
@@ -354,12 +354,12 @@ End
 Inductive inline_rel:
 [~refl:]
   (∀l (t:'a cexp).
-    inline_rel l t t) ∧
+    inline_rel l t t)
 [~Let:]
   (∀l v x y a.
     inline_rel l x x' ∧
     inline_rel (l ++ [(v,Exp x)]) y y' ⇒
-    inline_rel l (Let a v x y) (Let a v x' y')) ∧
+    inline_rel l (Let a v x y) (Let a v x' y'))
 [~Var:]
   (∀v x x1 x2 l a.
     MEM (v, Exp x) l ∧
@@ -369,29 +369,29 @@ Inductive inline_rel:
     DISJOINT (boundvars (exp_of x1)) (vars_of l) ∧
     DISJOINT (boundvars (exp_of x1)) (freevars_of l) ∧
     inline_rel l x1 x2 ⇒
-    inline_rel l (Var a v) x2) ∧
+    inline_rel l (Var a v) x2)
 [~VarSimp:]
   (∀v x l a.
     MEM (v, Exp x) l ⇒
-    inline_rel l (Var a v) x) ∧
+    inline_rel l (Var a v) x)
 [~Prim:]
   (∀l p xs ys a.
     LIST_REL (inline_rel l) xs ys ⇒
-    inline_rel l (Prim a p xs) (Prim a p ys)) ∧
+    inline_rel l (Prim a p xs) (Prim a p ys))
 [~App:]
   (∀l t1 t2 u1 u2 a.
     inline_rel l t1 u1 ∧
     LIST_REL (inline_rel l) t2 u2 ⇒
-    inline_rel l (App a t1 t2) (App a u1 u2)) ∧
+    inline_rel l (App a t1 t2) (App a u1 u2))
 [~Lam:]
   (∀l t u w a.
     inline_rel l t u ⇒
-    inline_rel l (Lam a w t) (Lam a w u)) ∧
+    inline_rel l (Lam a w t) (Lam a w u))
 [~Letrec:]
   (∀l t u xs ys a.
     LIST_REL (λ(n,t1) (m,u1). n = m ∧ inline_rel l t1 u1) xs ys ∧
     inline_rel l t u ⇒
-    inline_rel l (Letrec a xs t) (Letrec a ys u)) ∧
+    inline_rel l (Letrec a xs t) (Letrec a ys u))
 [~LetRecIntroExp:]
   (∀l t u v x y x1 a.
     inline_rel l x y ∧
@@ -400,7 +400,7 @@ Inductive inline_rel:
     DISJOINT (boundvars (exp_of t)) (boundvars (exp_of x1)) ∧
     DISJOINT (boundvars (exp_of t)) (freevars (exp_of x1)) ∧
     inline_rel (l ++ [(v,Exp x1)]) t u ⇒
-    inline_rel l (Letrec a [(v, x)] t) (Letrec a [(v, y)] u)) ∧
+    inline_rel l (Letrec a [(v, x)] t) (Letrec a [(v, y)] u))
 [~trans:]
   (∀l x y z.
     inline_rel l x y ∧
@@ -409,7 +409,7 @@ Inductive inline_rel:
     DISJOINT (boundvars (exp_of y)) (freevars (exp_of y)) ∧
     DISJOINT (boundvars (exp_of y)) (freevars_of l) ∧
     no_shadowing (exp_of y) ⇒
-    inline_rel l x z) ∧
+    inline_rel l x z)
 [~ExpEq:]
   (∀l t u u1.
     inline_rel l t u ∧

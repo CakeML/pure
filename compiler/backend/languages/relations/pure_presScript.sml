@@ -31,7 +31,7 @@ Inductive unidir:
 [~Let:]
   (∀(x:'a cexp) y v a.
     explode v ∉ freevars (exp_of y) ⇒
-    unidir (Let a v x y) y) ∧
+    unidir (Let a v x y) y)
 
 [~freshen:]
   (∀e1 e2 avoid1 avoid2.
@@ -50,38 +50,38 @@ Inductive spec_arg:
     LIST_REL (spec_arg f vs v ws) xs1 xs2 ∧
     LIST_REL (spec_arg f vs v ws) ys1 ys2 ⇒
     spec_arg f vs v ws (App c (Var a f) (xs1 ++ [Var b v] ++ ys1))
-                       (App d (Var a f) (xs2 ++ ys2))) ∧
+                       (App d (Var a f) (xs2 ++ ys2)))
 [~Var:]
   (∀f vs v ws n a b.
     n ≠ f ⇒
-    spec_arg f vs v ws (Var a n) (Var b n :'a cexp)) ∧
+    spec_arg f vs v ws (Var a n) (Var b n :'a cexp))
 [~Lam:]
   (∀f vs v ws ns x y a b.
     spec_arg f vs v ws x y ∧
     ~MEM v ns ∧ ~MEM f ns ⇒
-    spec_arg f vs v ws (Lam a ns x) (Lam b ns y)) ∧
+    spec_arg f vs v ws (Lam a ns x) (Lam b ns y))
 [~Let:]
   (∀f vs v ws x1 x2 y1 y2 n.
     spec_arg f vs v ws x1 x2 ∧
     spec_arg f vs v ws y1 y2 ∧
     n ≠ v ∧ n ≠ f ⇒
-    spec_arg f vs v ws (Let a n x1 y1) (Let b n x2 y2)) ∧
+    spec_arg f vs v ws (Let a n x1 y1) (Let b n x2 y2))
 [~App:]
   (∀f vs v ws f1 g1 xs ys a b.
     spec_arg f vs v ws f1 g1 ∧
     LIST_REL (spec_arg f vs v ws) xs ys ⇒
-    spec_arg f vs v ws (App a f1 xs) (App b g1 ys)) ∧
+    spec_arg f vs v ws (App a f1 xs) (App b g1 ys))
 [~Prim:]
   (∀f vs v ws n xs ys a b.
     LIST_REL (spec_arg f vs v ws) xs ys ⇒
-    spec_arg f vs v ws (Prim a n xs) (Prim b n ys)) ∧
+    spec_arg f vs v ws (Prim a n xs) (Prim b n ys))
 [~Letrec:]
   (∀f vs v ws x y xs ys a b.
     LIST_REL (spec_arg f vs v ws) (MAP SND xs) (MAP SND ys) ∧
     DISJOINT {v; f} (set (MAP FST xs)) ∧
     MAP FST xs = MAP FST ys ∧
     spec_arg f vs v ws x y ⇒
-    spec_arg f vs v ws (Letrec a xs x) (Letrec b ys y)) ∧
+    spec_arg f vs v ws (Letrec a xs x) (Letrec b ys y))
 [~Case:]
   (∀f vs v ws x y xs ys a b d e.
     LIST_REL (spec_arg f vs v ws) (MAP (SND o SND) xs) (MAP (SND o SND) ys) ∧
@@ -97,46 +97,46 @@ Inductive bidir:
 (* --- standard rules --- *)
 [~refl:]
   (∀x.
-     bidir x x) ∧
+     bidir x x)
 [~sym:]
   (∀x y.
      bidir x y
      ⇒
-     bidir y x) ∧
+     bidir y x)
 [~trans:]
   (∀x y.
      bidir x y ∧
      bidir y z
      ⇒
-     bidir x z) ∧
+     bidir x z)
 [~Lam:]
   (∀a b vs x y.
      bidir x y
      ⇒
-     bidir (Lam a vs x) (Lam b vs y)) ∧
+     bidir (Lam a vs x) (Lam b vs y))
 [~Prim:]
   (∀a b p xs ys.
      LIST_REL bidir xs ys
      ⇒
-     bidir (Prim a p xs) (Prim b p ys)) ∧
+     bidir (Prim a p xs) (Prim b p ys))
 [~App:]
   (∀a b x xs y ys.
      bidir x y ∧
      LIST_REL bidir xs ys
      ⇒
-     bidir (App a x xs) (App b y ys)) ∧
+     bidir (App a x xs) (App b y ys))
 [~Let:]
   (∀a b v x x1 y y1.
      bidir x y ∧
      bidir x1 y1
      ⇒
-     bidir (Let a v x x1) (Let b v y y1)) ∧
+     bidir (Let a v x x1) (Let b v y y1))
 [~Letrec:]
   (∀a b xs x ys y.
      LIST_REL (λx y. FST x = FST y ∧ bidir (SND x) (SND y)) xs ys ∧
      bidir x y
      ⇒
-     bidir (Letrec a xs x) (Letrec b ys y)) ∧
+     bidir (Letrec a xs x) (Letrec b ys y))
 [~Case:]
   (∀a b x y v xs ys d e.
      bidir x y ∧
@@ -158,39 +158,39 @@ Inductive bidir:
     set vs ⊆ set ws ∧ vs ≠ []
     ⇒
     bidir (Lam a ws (App b (Lam c vs x) (MAP (Var d) vs)))
-          (Lam a ws x)) ∧
+          (Lam a ws x))
 [~Letrec_Lam:]
   (∀a b c d vs l e.
     EVERY (λ(v,e). DISJOINT (IMAGE explode (set vs)) (freevars (exp_of e)) ∧
                    ~MEM v vs) l
     ⇒
     bidir (Letrec a l (Lam b vs e))
-          (Lam c vs (Letrec d l e))) ∧
+          (Lam c vs (Letrec d l e)))
 [~Lam_append:]
   (∀a xs ys x.
     xs ≠ [] ∧ ys ≠ []
     ⇒
     bidir (Lam a (xs ++ ys) x)
-          (Lam a xs (Lam a ys x))) ∧
+          (Lam a xs (Lam a ys x)))
 [~App_append:]
   (∀a xs ys x.
     xs ≠ [] ∧ ys ≠ []
     ⇒
     bidir (App a x (xs ++ ys))
-          (App a (App a x xs) ys)) ∧
+          (App a (App a x xs) ys))
 [~Letrec_App:]
   (* typing: => direction proved
              <= direction needs to reconcile differing polymorphism *)
   (∀a l b e es.
     bidir (Letrec a l (App b e es))
-          (App b (Letrec a l e) (MAP (Letrec a l) es))) ∧
+          (App b (Letrec a l e) (MAP (Letrec a l) es)))
 [~Letrec_App_forget:]
   (∀a b l e es.
     EVERY (λe. DISJOINT (freevars (exp_of e))
                         (IMAGE explode (set (MAP FST l)))) es
     ⇒
     bidir (Letrec a l (App b e es))
-          (App b (Letrec a l e) es)) ∧
+          (App b (Letrec a l e) es))
 [~Letrec_unroll:]
   (* typing: => direction proved
              <= direction needs to reconcile differing polymorphism *)
@@ -198,7 +198,7 @@ Inductive bidir:
     MEM (v,x) l ∧ ALL_DISTINCT (MAP FST l)
     ⇒
     bidir (Letrec a l (Var b v))
-          (Letrec a l x)) ∧
+          (Letrec a l x))
 [~specialise:]
   (* typing not yet attempted *)
   (∀f vs v ws rhs1 rhs2 a b c d e h rs.
@@ -209,7 +209,7 @@ Inductive bidir:
      bidir (Lam h rs $ Letrec a [(f,Lam e (vs ++ [v] ++ ws) rhs1)]
                          (App b (Var c f) (MAP (Var d) (vs ++ [v] ++ ws))))
            (Lam h rs $ Letrec a [(f,Lam e (vs ++ ws) rhs2)]
-                         (App b (Var c f) (MAP (Var d) (vs ++ ws))))) ∧
+                         (App b (Var c f) (MAP (Var d) (vs ++ ws)))))
 [~Let_Let_Let:]
   (* typing: => direction proved
              <= direction needs to reconcile differing polymorphism *)
@@ -219,7 +219,7 @@ Inductive bidir:
      explode v ∉ freevars (exp_of x)
      ⇒
      bidir (Let a v x (Let a v x (Let a w y e)))
-           (Let a v x (Let a w y (Let a v x e)))) ∧
+           (Let a v x (Let a w y (Let a v x e))))
 [~Let_dup:]
   (∀v x e a.
      explode v ∉ freevars (exp_of x)
@@ -242,51 +242,51 @@ QED
 Inductive pres:
 [~refl:]
   (∀x.
-     pres x x) ∧
+     pres x x)
 [~trans:]
   (∀x y.
      pres x y ∧
      pres y z
      ⇒
-     pres x z) ∧
+     pres x z)
 [~unidir:]
   (∀x y.
      (x --> y)
      ⇒
-     pres x y) ∧
+     pres x y)
 [~bidir:]
   (∀x y.
      (x <--> y)
      ⇒
-     pres x y) ∧
+     pres x y)
 [~Lam:]
   (∀a b vs x y.
      pres x y
      ⇒
-     pres (Lam a vs x) (Lam b vs y)) ∧
+     pres (Lam a vs x) (Lam b vs y))
 [~Prim:]
   (∀a b p xs ys.
      LIST_REL pres xs ys
      ⇒
-     pres (Prim a p xs) (Prim b p ys)) ∧
+     pres (Prim a p xs) (Prim b p ys))
 [~App:]
   (∀a b x xs y ys.
      pres x y ∧
      LIST_REL pres xs ys
      ⇒
-     pres (App a x xs) (App b y ys)) ∧
+     pres (App a x xs) (App b y ys))
 [~Let:]
   (∀a b v x x1 y y1.
      pres x y ∧
      pres x1 y1
      ⇒
-     pres (Let a v x x1) (Let b v y y1)) ∧
+     pres (Let a v x x1) (Let b v y y1))
 [~Letrec:]
   (∀a b xs x ys y.
      LIST_REL (λx y. FST x = FST y ∧ pres (SND x) (SND y)) xs ys ∧
      pres x y
      ⇒
-     pres (Letrec a xs x) (Letrec b ys y)) ∧
+     pres (Letrec a xs x) (Letrec b ys y))
 [~Case:]
   (∀a b x y v xs ys d e.
      pres x y ∧

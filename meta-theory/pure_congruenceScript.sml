@@ -137,26 +137,26 @@ Inductive Howe:
   (∀vars x e2.
      R vars (Var x) e2 ⇒
      Howe R vars (Var x) e2)
-  ∧
+ 
 [Howe2:]
   (∀x e1 e1' e2 vars.
      Howe R (x INSERT vars) e1 e1' ∧
      R vars (Lam x e1') e2 ⇒
      Howe R vars (Lam x e1) e2)
-  ∧
+ 
 [Howe3:]
   (∀e1 e1' e3 vars.
      Howe R vars e1 e1' ∧
      Howe R vars e2 e2' ∧
      R vars (App e1' e2') e3 ⇒
      Howe R vars (App e1 e2) e3)
-  ∧
+ 
 [Howe4:]
   (∀es es' e op vars.
     LIST_REL (Howe R vars) es es' ∧
     R vars (Prim op es') e ⇒
     Howe R vars (Prim op es) e)
-  ∧
+ 
 [Howe5:]
   (∀ves ves' e e' e2.
     Howe R (vars ∪ set (MAP FST ves)) e e' ∧

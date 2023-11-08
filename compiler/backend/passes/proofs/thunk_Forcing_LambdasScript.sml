@@ -17,24 +17,24 @@ val _ = set_grammar_ancestry ["thunk_Let_Lam_Forced", "thunk_combine_Forcing_Lam
 
 Inductive forcing_lam_rel:
 [~Var:]
-  (∀n. forcing_lam_rel s (Var n) (Var n)) ∧
+  (∀n. forcing_lam_rel s (Var n) (Var n))
 [~Prim:]
   (∀s op xs ys.
      LIST_REL (forcing_lam_rel s) xs ys ⇒
-       forcing_lam_rel s (Prim op xs) (Prim op ys)) ∧
+       forcing_lam_rel s (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀s mop xs ys.
      LIST_REL (forcing_lam_rel s) xs ys ⇒
-       forcing_lam_rel s (Monad mop xs) (Monad mop ys)) ∧
+       forcing_lam_rel s (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀s f g x y.
      forcing_lam_rel s f g ∧
      forcing_lam_rel s x y ⇒
-       forcing_lam_rel s (App f x) (App g y)) ∧
+       forcing_lam_rel s (App f x) (App g y))
 [~Lam:]
   (∀s v x y.
      forcing_lam_rel s x y ⇒
-       forcing_lam_rel s (Lam v x) (Lam v y)) ∧
+       forcing_lam_rel s (Lam v x) (Lam v y))
 [~Letrec:]
   (∀s f g x y.
      MAP FST f = MAP FST g ∧
@@ -42,12 +42,12 @@ Inductive forcing_lam_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL (forcing_lam_rel s) (MAP SND f) (MAP SND g) ∧
      forcing_lam_rel s x y ⇒
-     forcing_lam_rel s (Letrec f x) (Letrec g y)) ∧
+     forcing_lam_rel s (Letrec f x) (Letrec g y))
 [~Let:]
   (∀s opt x1 y1 x2 y2.
      forcing_lam_rel s x1 x2 ∧
      forcing_lam_rel s y1 y2 ⇒
-     forcing_lam_rel s (Let opt x1 y1) (Let opt x2 y2)) ∧
+     forcing_lam_rel s (Let opt x1 y1) (Let opt x2 y2))
 [~Let_Lams_Force_Var:]
   (∀set v1 v2 vL1 vL2 s s2 x1 x2 y1 y2.
      v2 ∉ boundvars x1 ∧ v2 ∉ boundvars y1 ∧
@@ -63,7 +63,7 @@ Inductive forcing_lam_rel:
              (Let (SOME v2)
               (Lams (vL1 ++ s2::vL2) x2)
               (Let (SOME v1)
-                  (Lams (vL1 ++ s::vL2) (Apps (Var v2) (MAP Var vL1 ++ Force (Var s)::MAP Var vL2))) y2))) ∧
+                  (Lams (vL1 ++ s::vL2) (Apps (Var v2) (MAP Var vL1 ++ Force (Var s)::MAP Var vL2))) y2)))
 [~Let_Lams_Force_Var2:]
   (∀set v1 v2 vL1 vL2 s s2 x1 x2 y1 y2.
      v2 ∉ boundvars x1 ∧ v2 ∉ boundvars y1 ∧
@@ -79,7 +79,7 @@ Inductive forcing_lam_rel:
               (Lams (s::vL1 ++ s2::vL2) x2)
               (Let (SOME v1)
                (Lams (vL1 ++ s::vL2) (Apps (Var v2) (Var s::MAP Var vL1 ++ Force (Var s)::MAP Var vL2)))
-                 y2))) ∧
+                 y2)))
 [~Let_Lams_combine1:]
   (∀set v1 v2 v3 vL1 vL2 vL5 bL bL2 vL3 vL4 s s2 x1 x2 y1 y2.
      LENGTH vL2 = LENGTH bL ∧
@@ -110,7 +110,7 @@ Inductive forcing_lam_rel:
               (Let (SOME v1)
                (Lams (vL1 ++ s::vL2) (Apps (Var v3) (MAP Var (vL3 ++ vL1) ++ Force (Var s)
                                                                          ::MAP2 (λb e. if b then Force e else e)
-                                                                         bL (MAP Var vL2)))) y2))) ∧
+                                                                         bL (MAP Var vL2)))) y2)))
 [~Let_Lams_combine2:]
   (∀set v1 v2 v3 vL1 vL2 vL5 bL bL2 vL3 vL4 s s2 x1 x2 y1 y2.
      LENGTH vL2 = LENGTH bL ∧
@@ -140,21 +140,21 @@ Inductive forcing_lam_rel:
               (Let (SOME v1)
                (Lams (vL1 ++ s::vL2) (Apps (Var v3) (MAP Var (s::vL3 ++ vL1) ++ Force (Var s)
                                                                          ::MAP2 (λb e. if b then Force e else e)
-                                                                         bL (MAP Var vL2)))) y2))) ∧
+                                                                         bL (MAP Var vL2)))) y2)))
 [~If:]
   (∀set x1 y1 z1 x2 y2 z2.
      forcing_lam_rel set x1 x2 ∧
      forcing_lam_rel set y1 y2 ∧
      forcing_lam_rel set z1 z2 ⇒
-       forcing_lam_rel set (If x1 y1 z1) (If x2 y2 z2)) ∧
+       forcing_lam_rel set (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀set x y.
      forcing_lam_rel set x y ⇒
-       forcing_lam_rel set (Delay x) (Delay y)) ∧
+       forcing_lam_rel set (Delay x) (Delay y))
 [~Force:]
   (∀set x y.
      forcing_lam_rel set x y ⇒
-     forcing_lam_rel set (Force x) (Force y)) ∧
+     forcing_lam_rel set (Force x) (Force y))
 [~MkTick:]
   (∀set x y. forcing_lam_rel set x y ⇒ forcing_lam_rel set (MkTick x) (MkTick y))
 End

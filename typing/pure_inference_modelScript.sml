@@ -57,7 +57,7 @@ Inductive minfer:
 [~Var:]
   (fresh ∉ mset
     ⇒ minfer (ns : exndef # typedefs) mset (pure_cexp$Var d x)
-        (FEMPTY |+ (x, {fresh})) {} (CVar fresh)) ∧
+        (FEMPTY |+ (x, {fresh})) {} (CVar fresh))
 
 [~Tuple:]
   (LENGTH es = LENGTH tys ∧
@@ -66,12 +66,12 @@ Inductive minfer:
       (ZIP (es,tys)) (ZIP (ass,css)) ∧
    cvars_disjoint (ZIP (ass, ZIP (css, tys)))
     ⇒ minfer ns mset (Prim d (Cons «») es)
-        (FOLDR maunion FEMPTY ass) (BIGUNION (set css)) (Tuple tys)) ∧
+        (FOLDR maunion FEMPTY ass) (BIGUNION (set css)) (Tuple tys))
 
 [~Ret:]
   (minfer ns mset e as cs ty
     ⇒ minfer ns mset (Prim d (Cons «Ret») [e])
-        as cs (M ty)) ∧
+        as cs (M ty))
 
 [~Bind:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -83,14 +83,14 @@ Inductive minfer:
         (maunion as1 as2)
         ({mUnify ty1 (M $ CVar f1); mUnify ty2 (Function (CVar f1) (M $ CVar f2))}
           ∪ cs1 ∪ cs2)
-        (M $ CVar f2)) ∧
+        (M $ CVar f2))
 
 [~Raise:]
   (minfer ns mset e as cs ty ∧
    f ∉ mset ∪ new_vars as cs ty
     ⇒ minfer ns mset (Prim d (Cons «Raise») [e])
         as (mUnify (CVar f) (CVar f) INSERT mUnify ty Exception INSERT cs)
-        (M $ CVar f)) ∧
+        (M $ CVar f))
 
 [~Handle:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -101,12 +101,12 @@ Inductive minfer:
         (maunion as1 as2)
         ({mUnify ty1 (M $ CVar f); mUnify ty2 (Function Exception (M $ CVar f))}
           ∪ cs1 ∪ cs2)
-        (M $ CVar f)) ∧
+        (M $ CVar f))
 
 [~Act:]
   (minfer ns mset e as cs ty
     ⇒ minfer ns mset (Prim d (Cons «Act») [e])
-        as (mUnify ty (PrimTy Message) INSERT cs) (M StrTy)) ∧
+        as (mUnify ty (PrimTy Message) INSERT cs) (M StrTy))
 
 [~Alloc:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -115,13 +115,13 @@ Inductive minfer:
     ⇒ minfer ns mset (Prim d (Cons «Alloc») [e1;e2])
         (maunion as1 as2)
         (mUnify ty1 IntTy INSERT cs1 ∪ cs2)
-        (M $ Array ty2)) ∧
+        (M $ Array ty2))
 
 [~Length:]
   (minfer ns mset e as cs ty ∧
    fresh ∉ mset ∪ new_vars as cs ty
     ⇒ minfer ns mset (Prim d (Cons «Length») [e])
-        as (mUnify ty (Array $ CVar fresh) INSERT cs) (M IntTy)) ∧
+        as (mUnify ty (Array $ CVar fresh) INSERT cs) (M IntTy))
 
 [~Deref:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -131,7 +131,7 @@ Inductive minfer:
     ⇒ minfer ns mset (Prim d (Cons «Deref») [e1;e2])
         (maunion as1 as2)
         ({mUnify ty2 IntTy; mUnify ty1 (Array $ CVar f)} ∪ cs1 ∪ cs2)
-        (M $ CVar f)) ∧
+        (M $ CVar f))
 
 [~Update:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -143,12 +143,12 @@ Inductive minfer:
         (maunion as1 (maunion as2 as3))
         ({mUnify ty3 (CVar f); mUnify ty2 IntTy; mUnify ty1 (Array $ CVar f)}
           ∪ cs1 ∪ cs2 ∪ cs3)
-        (M Unit)) ∧
+        (M Unit))
 
 [~True:]
-  (minfer ns mset (Prim d (Cons «True») []) FEMPTY {} BoolTy) ∧
+  (minfer ns mset (Prim d (Cons «True») []) FEMPTY {} BoolTy)
 [~False:]
-  (minfer ns mset (Prim d (Cons «False») []) FEMPTY {} BoolTy) ∧
+  (minfer ns mset (Prim d (Cons «False») []) FEMPTY {} BoolTy)
 
 [~Exception:]
   (LENGTH es = LENGTH tys ∧
@@ -162,7 +162,7 @@ Inductive minfer:
     ⇒ minfer ns mset (Prim d (Cons s) es)
         (FOLDR maunion FEMPTY ass)
         (set (list$MAP2 (λt a. mUnify t (itype_of a)) tys arg_tys) ∪ BIGUNION (set css))
-        Exception) ∧
+        Exception)
 
 [~Cons:]
   (LENGTH es = LENGTH tys ∧
@@ -184,7 +184,7 @@ Inductive minfer:
          set (list$MAP2
               (λt a. mUnify t (isubst (MAP CVar freshes) $ itype_of a)) tys arg_tys) ∪
           BIGUNION (set css))
-        (TypeCons id (MAP CVar freshes))) ∧
+        (TypeCons id (MAP CVar freshes)))
 
 [~AtomOp:]
   (infer_atom_op (LENGTH es) aop = SOME (parg_tys, pret_ty) ∧
@@ -196,14 +196,14 @@ Inductive minfer:
     ⇒ minfer ns mset (Prim d (AtomOp aop) es)
         (FOLDR maunion FEMPTY ass)
         (set (list$MAP2 (λt a. mUnify t (PrimTy a)) tys parg_tys) ∪ BIGUNION (set css))
-        (PrimTy pret_ty)) ∧
+        (PrimTy pret_ty))
 
 [~Seq:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
    minfer ns mset e2 as2 cs2 ty2 ∧
    cvars_disjoint [(as1,cs1,ty1);(as2,cs2,ty2)]
     ⇒ minfer ns mset (Prim d Seq [e1;e2])
-        (maunion as1 as2) (cs1 ∪ cs2) ty2) ∧
+        (maunion as1 as2) (cs1 ∪ cs2) ty2)
 
 [~App:]
   (¬NULL es ∧
@@ -218,7 +218,7 @@ Inductive minfer:
    as = FOLDR maunion FEMPTY (fas::ass) ∧
    cs = fcs ∪ BIGUNION (set css)
     ⇒ minfer ns mset (App d e es)
-        as (mUnify fty (iFunctions tys (CVar f)) INSERT cs) (CVar f)) ∧
+        as (mUnify fty (iFunctions tys (CVar f)) INSERT cs) (CVar f))
 
 [~Lam:]
   (¬NULL xs ∧
@@ -230,7 +230,7 @@ Inductive minfer:
         (cs ∪ set (MAP (λf. mUnify (CVar f) (CVar f)) freshes) ∪
          (BIGUNION $ set $ list$MAP2 (λf x.
           IMAGE (λn. mUnify (CVar f) (CVar n)) (get_massumptions as x)) freshes xs))
-        (iFunctions (MAP CVar freshes) ty)) ∧
+        (iFunctions (MAP CVar freshes) ty))
 
 [~Let:]
   (minfer ns mset e1 as1 cs1 ty1 ∧
@@ -239,7 +239,7 @@ Inductive minfer:
     ⇒ minfer ns mset (Let d x e1 e2)
         (maunion as1 (as2 \\ x))
         (IMAGE (λn. mImplicit (CVar n) mset ty1) (get_massumptions as2 x) ∪ cs1 ∪ cs2)
-        ty2) ∧
+        ty2)
 
 [~Letrec:]
   (¬NULL fns ∧
@@ -258,7 +258,7 @@ Inductive minfer:
             IMAGE (λn. mUnify (CVar n) tyfn) (get_massumptions as x)) fns tys) ∪
           (BIGUNION $ set $ list$MAP2 (λ(x,b) tyfn.
             IMAGE (λn. mImplicit (CVar n) mset tyfn) (get_massumptions eas x)) fns tys))
-        ety) ∧
+        ety)
 
 [~BoolCase:]
   (minfer ns (f INSERT mset) e1 as1 cs1 ty1 ∧
@@ -273,7 +273,7 @@ Inductive minfer:
           IMAGE (λn. mUnify (CVar n) (CVar f))
             (get_massumptions as1 v ∪ get_massumptions as2 v) ∪
           ecs ∪ cs1 ∪ cs2)
-        ty1) ∧
+        ty1)
 
 [~TupleCase:]
   (¬MEM v pvars ∧ ALL_DISTINCT pvars ∧
@@ -292,7 +292,7 @@ Inductive minfer:
         (maunion eas (FDIFF asrest (set (v::pvars))))
         (mUnify (CVar f) ety INSERT mUnify ety (Tuple $ MAP CVar freshes) INSERT
           BIGUNION (set pvar_cs) ∪ ecs ∪ csrest)
-        tyrest) ∧
+        tyrest)
 
 [~ExceptionCase:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
@@ -323,7 +323,7 @@ Inductive minfer:
         (FOLDR maunion FEMPTY (eas::final_as))
         (mUnify (CVar f) ety INSERT mUnify ety Exception INSERT
           set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪ BIGUNION (set final_cs))
-        (HD tys)) ∧
+        (HD tys))
 
 [~CaseExhaustive:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧
@@ -364,7 +364,7 @@ Inductive minfer:
          mUnify ety (TypeCons id (MAP CVar freshes)) INSERT
          set (MAP (λt. mUnify (HD tys) t) (TL tys)) ∪ ecs ∪
          BIGUNION (set final_cs))
-        (HD tys)) ∧
+        (HD tys))
 
 [~CaseNonexhaustive:]
   (¬MEM v (FLAT (MAP (FST o SND) cases)) ∧

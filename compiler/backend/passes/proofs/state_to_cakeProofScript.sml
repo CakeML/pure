@@ -225,27 +225,27 @@ End
 
 Inductive compile_rel:
 [~IntLit:]
-  compile_rel cnenv (App (AtomOp (Lit $ Int i)) []) (Lit $ IntLit i) ∧
+  compile_rel cnenv (App (AtomOp (Lit $ Int i)) []) (Lit $ IntLit i)
 
 [~StrLit:]
-  compile_rel cnenv (App (AtomOp (Lit $ Str s)) []) (Lit $ StrLit s) ∧
+  compile_rel cnenv (App (AtomOp (Lit $ Str s)) []) (Lit $ StrLit s)
 
 [~Tuple:]
   (LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App (Cons "") ses) (Con NONE ces)) ∧
+    ⇒ compile_rel cnenv (App (Cons "") ses) (Con NONE ces))
 
 [~Constructor:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
    ar = LENGTH ses ∧ cn ≠ ""
-    ⇒ compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short cn) ces)) ∧
+    ⇒ compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short cn) ces))
 
 [~Var:]
-  compile_rel cnenv (stateLang$Var v) (var (var_prefix v)) ∧
+  compile_rel cnenv (stateLang$Var v) (var (var_prefix v))
 
 [~App:]
   (op_rel sop cop ∧ LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App sop ses) (App cop ces)) ∧
+    ⇒ compile_rel cnenv (App sop ses) (App cop ces))
 
 [~TwoArgs:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
@@ -258,36 +258,36 @@ Inductive compile_rel:
     else if aop = StrGeq then rest = strgeq
     else aop = StrGt ∧ rest = strgt)
     ⇒ compile_rel cnenv (App (AtomOp aop) [se1;se2])
-                        (clet "v2" ce2 $ clet "v1" ce1 rest)) ∧
+                        (clet "v2" ce2 $ clet "v1" ce1 rest))
 
 [~Concat:]
   (LIST_REL (compile_rel cnenv) ses ces
-    ⇒ compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces])) ∧
+    ⇒ compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces]))
 
 [~Implode:]
   (LIST_REL (compile_rel cnenv) ses ces
     ⇒ compile_rel cnenv (App (AtomOp Implode) ses)
-                        (App Implode [capp (var "char_list") (list_to_exp ces)])) ∧
+                        (App Implode [capp (var "char_list") (list_to_exp ces)]))
 
 [~Substring3:]
   (LIST_REL (compile_rel cnenv) [se1;se2;se3] [ce1;ce2;ce3]
     ⇒ compile_rel cnenv (App (AtomOp Substring) [se1; se2; se3])
-                        (clet "l" ce3 $ clet "i" ce2 $ clet "s" ce1 substring3)) ∧
+                        (clet "l" ce3 $ clet "i" ce2 $ clet "s" ce1 substring3))
 
 [~Alloc:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
     ⇒ compile_rel cnenv (App Alloc [se1;se2])
-                        (clet "v2" ce2 $ clet "v1" ce1 alloc)) ∧
+                        (clet "v2" ce2 $ clet "v1" ce1 alloc))
 
 [~FFI:]
   (compile_rel cnenv se ce ∧ ch ≠ ""
     ⇒ compile_rel cnenv (App (FFI ch) [se])
                         (clet "s" ce $
-                          Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi)) ∧
+                          Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi))
 
 [~Lam:]
   (compile_rel cnenv se ce
-    ⇒ compile_rel cnenv (stateLang$Lam (SOME x) se) (Fun (var_prefix x) ce)) ∧
+    ⇒ compile_rel cnenv (stateLang$Lam (SOME x) se) (Fun (var_prefix x) ce))
 
 [~Letrec:]
   (LIST_REL
@@ -297,15 +297,15 @@ Inductive compile_rel:
       sfuns cfuns ∧
    ALL_DISTINCT (MAP FST cfuns) ∧
    compile_rel cnenv se ce
-    ⇒ compile_rel cnenv (stateLang$Letrec sfuns se) (ast$Letrec cfuns ce)) ∧
+    ⇒ compile_rel cnenv (stateLang$Letrec sfuns se) (ast$Letrec cfuns ce))
 
 [~Let:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
-    ⇒ compile_rel cnenv (Let (SOME x) se1 se2) (Let (SOME $ var_prefix x) ce1 ce2)) ∧
+    ⇒ compile_rel cnenv (Let (SOME x) se1 se2) (Let (SOME $ var_prefix x) ce1 ce2))
 
 [~If:]
   (LIST_REL (compile_rel cnenv) [se;se1;se2] [ce;ce1;ce2]
-    ⇒ compile_rel cnenv (If se se1 se2) (If ce ce1 ce2)) ∧
+    ⇒ compile_rel cnenv (If se se1 se2) (If ce ce1 ce2))
 
 [~CaseNone:]
   (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
@@ -314,7 +314,7 @@ Inductive compile_rel:
     (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
     scss ccss
     ⇒ compile_rel cnenv (Case sv scss NONE)
-                        (Mat (var (var_prefix sv)) ccss)) ∧
+                        (Mat (var (var_prefix sv)) ccss))
 
 [~CaseSome:]
   (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
@@ -326,16 +326,16 @@ Inductive compile_rel:
     ALOOKUP cnenv cn = SOME (stamp',ar) ∧ same_type stamp' stamp) scany ∧
    compile_rel cnenv suse cuse
     ⇒ compile_rel cnenv (Case sv scss (SOME (scany, suse)))
-                        (Mat (var (var_prefix sv)) (ccss ++ [Pany,cuse]))) ∧
+                        (Mat (var (var_prefix sv)) (ccss ++ [Pany,cuse])))
 
 [~TupleCase:]
   (compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
     ⇒ compile_rel cnenv (stateLang$Case sv ["",vs,sce] NONE)
-                        (Mat (var (var_prefix sv)) [(pat_row "" vs, cce)])) ∧
+                        (Mat (var (var_prefix sv)) [(pat_row "" vs, cce)]))
 
 [~Raise:]
   (compile_rel cnenv se ce
-    ⇒ compile_rel cnenv (Raise se) (Raise ce)) ∧
+    ⇒ compile_rel cnenv (Raise se) (Raise ce))
 
 [~Handle:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2
@@ -406,17 +406,17 @@ End
 Inductive v_rel:
 [~Tuple:]
   (LIST_REL (v_rel cnenv) svs cvs
-    ⇒ v_rel cnenv (Constructor "" svs) (Conv NONE cvs)) ∧
+    ⇒ v_rel cnenv (Constructor "" svs) (Conv NONE cvs))
 
 [~Constructor:]
   (LIST_REL (v_rel cnenv) svs cvs ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
    ar = LENGTH svs ∧ cn ≠ ""
-    ⇒ v_rel cnenv (Constructor cn svs) (Conv (SOME tyid) cvs)) ∧
+    ⇒ v_rel cnenv (Constructor cn svs) (Conv (SOME tyid) cvs))
 
 [~Closure:]
   (compile_rel cnenv se ce ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-   ⇒ v_rel cnenv (Closure (SOME sx) senv se) (Closure cenv (var_prefix sx) ce)) ∧
+   ⇒ v_rel cnenv (Closure (SOME sx) senv se) (Closure cenv (var_prefix sx) ce))
 
 [~Recclosure:]
   (compile_rel cnenv se ce ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
@@ -426,16 +426,16 @@ Inductive v_rel:
       sfuns cfuns ∧
    ALL_DISTINCT (MAP FST cfuns)
    ⇒ v_rel cnenv (stateLang$Recclosure sfuns senv sx)
-                 (Recclosure cenv cfuns (var_prefix sx))) ∧
+                 (Recclosure cenv cfuns (var_prefix sx)))
 
 [~IntLit:]
-  v_rel cnenv (Atom $ Int i) (Litv $ IntLit i) ∧
+  v_rel cnenv (Atom $ Int i) (Litv $ IntLit i)
 
 [~StrLit:]
-  v_rel cnenv (Atom $ Str s) (Litv $ StrLit s) ∧
+  v_rel cnenv (Atom $ Str s) (Litv $ StrLit s)
 
 [~Loc:]
-  v_rel cnenv (Atom $ Loc n) (Loc (n + 1)) ∧ (* leave space for FFI array *)
+  v_rel cnenv (Atom $ Loc n) (Loc (n + 1)) (* leave space for FFI array *)
 
 [~env_rel:]
   (cnenv_rel cnenv cenv.c ∧
@@ -463,14 +463,14 @@ Definition list_to_cont_def:
 End
 
 Inductive cont_rel:
-  cont_rel cnenv [] [] ∧
+  cont_rel cnenv [] []
 
 [~TupleK:]
   (LIST_REL (v_rel cnenv) svs cvs ∧
    LIST_REL (compile_rel cnenv) ses ces ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (Cons "") svs ses :: sk)
-                     ((Ccon NONE cvs ces, cenv) :: ck)) ∧
+                     ((Ccon NONE cvs ces, cenv) :: ck))
 
 [~ConsK:]
   (LIST_REL (v_rel cnenv) svs cvs ∧
@@ -479,7 +479,7 @@ Inductive cont_rel:
    ar = LENGTH ses + LENGTH svs + 1 ∧ cn ≠ "" ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (Cons cn) svs ses :: sk)
-                     ((Ccon (SOME $ Short cn) cvs ces, cenv) :: ck)) ∧
+                     ((Ccon (SOME $ Short cn) cvs ces, cenv) :: ck))
 
 [~AppK:]
   (op_rel sop cop ∧
@@ -487,8 +487,7 @@ Inductive cont_rel:
    LIST_REL (compile_rel cnenv) ses ces ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv sop svs ses :: sk)
-                     ((Capp cop cvs ces, cenv) :: ck)) ∧
-
+                     ((Capp cop cvs ces, cenv) :: ck))
 
 [~TwoArgs1:]
   (compile_rel cnenv se1 ce1 ∧
@@ -502,7 +501,7 @@ Inductive cont_rel:
     else if aop = StrGeq then rest = strgeq
     else aop = StrGt ∧ rest = strgt)
     ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [] [se1] :: sk)
-                     ((Clet (SOME "v2") (clet "v1" ce1 rest), cenv) :: ck)) ∧
+                     ((Clet (SOME "v2") (clet "v1" ce1 rest), cenv) :: ck))
 
 [~TwoArgs2:]
   (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
@@ -516,19 +515,19 @@ Inductive cont_rel:
     else if aop = StrGeq then rest = strgeq
     else aop = StrGt ∧ rest = strgt)
     ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [sv2] [] :: sk)
-                     ((Clet (SOME "v1") rest, cenv) :: ck)) ∧
+                     ((Clet (SOME "v1") rest, cenv) :: ck))
 
 [~Alloc1:]
   (compile_rel cnenv se1 ce1 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv Alloc [] [se1] :: sk)
-                     ((Clet (SOME "v2") (clet "v1" ce1 alloc), cenv) :: ck)) ∧
+                     ((Clet (SOME "v2") (clet "v1" ce1 alloc), cenv) :: ck))
 
 [~Alloc2:]
   (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv Alloc [sv2] [] :: sk)
-                     ((Clet (SOME "v1") alloc, cenv) :: ck)) ∧
+                     ((Clet (SOME "v1") alloc, cenv) :: ck))
 
 [~Concat:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
@@ -537,7 +536,7 @@ Inductive cont_rel:
   ⇒ cont_rel cnenv
     (AppK senv (AtomOp Concat) svs ses :: sk)
     ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
-        :: list_to_cont cenv ces ++ [Capp Strcat [] [], cenv] ++ ck)) ∧
+        :: list_to_cont cenv ces ++ [Capp Strcat [] [], cenv] ++ ck))
 
 [~Implode:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
@@ -547,50 +546,50 @@ Inductive cont_rel:
     (AppK senv (AtomOp Implode) svs ses :: sk)
     ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
         :: list_to_cont cenv ces ++ [Capp Opapp [] [var "char_list"], cenv] ++
-           [Capp Implode [] [], cenv] ++ ck)) ∧
+           [Capp Implode [] [], cenv] ++ ck))
 
 [~Substring3_1:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [] [se2;se1] :: sk)
-        ((Clet (SOME "l") (clet "i" ce2 $ clet "s" ce1 substring3), cenv) :: ck)) ∧
+        ((Clet (SOME "l") (clet "i" ce2 $ clet "s" ce1 substring3), cenv) :: ck))
 
 [~Substring3_2:]
   (nsLookup cenv.v (Short "l") = SOME cv3 ∧
    v_rel cnenv sv3 cv3 ∧ compile_rel cnenv se1 ce1 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv3] [se1] :: sk)
-                     ((Clet (SOME "i") (clet "s" ce1 substring3), cenv) :: ck)) ∧
+                     ((Clet (SOME "i") (clet "s" ce1 substring3), cenv) :: ck))
 
 [~Substring3_3:]
   (nsLookup cenv.v (Short "l") = SOME cv3 ∧ nsLookup cenv.v (Short "i") = SOME cv2 ∧
    v_rel cnenv sv3 cv3 ∧ v_rel cnenv sv2 cv2 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv2;sv3] [] :: sk)
-                      ((Clet (SOME "s") substring3, cenv) :: ck)) ∧
+                      ((Clet (SOME "s") substring3, cenv) :: ck))
 
 [~FFI:]
   (cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧ ch ≠ ""
     ⇒ cont_rel cnenv (AppK senv (FFI ch) [] [] :: sk)
                      ((Clet (SOME "s") $
                         Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi
-                       , cenv) :: ck)) ∧
+                       , cenv) :: ck))
 
 [~LetK:]
   (compile_rel cnenv se ce ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (LetK senv (SOME x) se :: sk)
-                     ((Clet (SOME $ var_prefix x) ce, cenv) :: ck)) ∧
+                     ((Clet (SOME $ var_prefix x) ce, cenv) :: ck))
 
 [~IfK:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
    cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
     ⇒ cont_rel cnenv (IfK senv se1 se2 :: sk)
-                     ((Cif ce1 ce2, cenv) :: ck)) ∧
+                     ((Cif ce1 ce2, cenv) :: ck))
 
 [~RaiseK:]
   (cont_rel cnenv sk ck
-    ⇒ cont_rel cnenv (RaiseK :: sk) ((Craise, cenv) :: ck)) ∧
+    ⇒ cont_rel cnenv (RaiseK :: sk) ((Craise, cenv) :: ck))
 
 [~HandleK:]
   (compile_rel cnenv se ce ∧
@@ -676,12 +675,15 @@ Definition compile_input_rel_def:
 End
 
 CoInductive itree_rel:
-  itree_rel (Ret Termination) (Ret Termination) ∧
+[~Ret_Termination:]
+  itree_rel (Ret Termination) (Ret Termination)
 
-  itree_rel Div Div ∧
+[~Div:]
+  itree_rel Div Div
 
+[~Ret_FinalFFI:]
   itree_rel (Ret $ FinalFFI (ch,conf) f)
-            (Ret $ FinalFFI (ch, compile_conf conf, ws) (compile_final_ffi f)) ∧
+            (Ret $ FinalFFI (ch, compile_conf conf, ws) (compile_final_ffi f))
 
 [~Vis:]
    ((∀s ws'. compile_input_rel s ws'
@@ -2500,27 +2502,27 @@ End
 
 Inductive cexp_compile_rel:
 [~IntLit:]
-  cexp_compile_rel cnenv (IntLit i : cexp) (ast$Lit $ IntLit i) ∧
+  cexp_compile_rel cnenv (IntLit i : cexp) (ast$Lit $ IntLit i)
 
 [~StrLit:]
-  cexp_compile_rel cnenv (StrLit s) (Lit $ StrLit s) ∧
+  cexp_compile_rel cnenv (StrLit s) (Lit $ StrLit s)
 
 [~Tuple:]
   (LIST_REL (cexp_compile_rel cnenv) ses ces
-    ⇒ cexp_compile_rel cnenv (App (Cons $ strlit "") ses) (Con NONE ces)) ∧
+    ⇒ cexp_compile_rel cnenv (App (Cons $ strlit "") ses) (Con NONE ces))
 
 [~Constructor:]
   (LIST_REL (cexp_compile_rel cnenv) ses ces ∧
    ALOOKUP cnenv $ explode cn = SOME (tyid,ar) ∧
    ar = LENGTH ses ∧ cn ≠ strlit ""
-    ⇒ cexp_compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short $ explode cn) ces)) ∧
+    ⇒ cexp_compile_rel cnenv (App (Cons cn) ses) (Con (SOME $ Short $ explode cn) ces))
 
 [~Var:]
-  cexp_compile_rel cnenv (Var v) (var (cexp_var_prefix v)) ∧
+  cexp_compile_rel cnenv (Var v) (var (cexp_var_prefix v))
 
 [~App:]
   (csop_rel sop cop ∧ LIST_REL (cexp_compile_rel cnenv) ses ces
-    ⇒ cexp_compile_rel cnenv (App sop ses) (App cop ces)) ∧
+    ⇒ cexp_compile_rel cnenv (App sop ses) (App cop ces))
 
 [~TwoArgs:]
   (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2 ∧
@@ -2533,37 +2535,37 @@ Inductive cexp_compile_rel:
     else if aop = StrGeq then rest = strgeq
     else aop = StrGt ∧ rest = strgt)
     ⇒ cexp_compile_rel cnenv (App (AtomOp aop) [se1;se2])
-                        (clet "v2" ce2 $ clet "v1" ce1 rest)) ∧
+                        (clet "v2" ce2 $ clet "v1" ce1 rest))
 
 [~Concat:]
   (LIST_REL (cexp_compile_rel cnenv) ses ces
-    ⇒ cexp_compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces])) ∧
+    ⇒ cexp_compile_rel cnenv (App (AtomOp Concat) ses) (App Strcat [list_to_exp ces]))
 
 [~Implode:]
   (LIST_REL (cexp_compile_rel cnenv) ses ces
     ⇒ cexp_compile_rel cnenv (App (AtomOp Implode) ses)
-                        (App Implode [capp (var "char_list") (list_to_exp ces)])) ∧
+                        (App Implode [capp (var "char_list") (list_to_exp ces)]))
 
 [~Substring3:]
   (LIST_REL (cexp_compile_rel cnenv) [se1;se2;se3] [ce1;ce2;ce3]
     ⇒ cexp_compile_rel cnenv (App (AtomOp Substring) [se1; se2; se3])
-                        (clet "l" ce3 $ clet "i" ce2 $ clet "s" ce1 substring3)) ∧
+                        (clet "l" ce3 $ clet "i" ce2 $ clet "s" ce1 substring3))
 
 [~Alloc:]
   (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2
     ⇒ cexp_compile_rel cnenv (App Alloc [se1;se2])
-                        (clet "v2" ce2 $ clet "v1" ce1 alloc)) ∧
+                        (clet "v2" ce2 $ clet "v1" ce1 alloc))
 
 [~FFI:]
   (cexp_compile_rel cnenv se ce ∧ ch ≠ strlit ""
     ⇒ cexp_compile_rel cnenv (App (FFI ch) [se])
                         (clet "s" ce $
                           Let NONE (App (FFI $ explode ch)
-                            [var "s"; var "ffi_array"]) $ ffi)) ∧
+                            [var "s"; var "ffi_array"]) $ ffi))
 
 [~Lam:]
   (cexp_compile_rel cnenv se ce
-    ⇒ cexp_compile_rel cnenv (Lam (SOME x) se) (Fun (cexp_var_prefix x) ce)) ∧
+    ⇒ cexp_compile_rel cnenv (Lam (SOME x) se) (Fun (cexp_var_prefix x) ce))
 
 [~Letrec:]
   (LIST_REL
@@ -2573,16 +2575,16 @@ Inductive cexp_compile_rel:
       sfuns cfuns ∧
    ALL_DISTINCT (MAP FST cfuns) ∧
    cexp_compile_rel cnenv se ce
-    ⇒ cexp_compile_rel cnenv (Letrec sfuns se) (ast$Letrec cfuns ce)) ∧
+    ⇒ cexp_compile_rel cnenv (Letrec sfuns se) (ast$Letrec cfuns ce))
 
 [~Let:]
   (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2
     ⇒ cexp_compile_rel cnenv (Let (SOME x) se1 se2)
-                             (Let (SOME $ cexp_var_prefix x) ce1 ce2)) ∧
+                             (Let (SOME $ cexp_var_prefix x) ce1 ce2))
 
 [~If:]
   (LIST_REL (cexp_compile_rel cnenv) [se;se1;se2] [ce;ce1;ce2]
-    ⇒ cexp_compile_rel cnenv (If se se1 se2) (If ce ce1 ce2)) ∧
+    ⇒ cexp_compile_rel cnenv (If se se1 se2) (If ce ce1 ce2))
 
 [~CaseNone:]
   (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
@@ -2591,7 +2593,7 @@ Inductive cexp_compile_rel:
     (λ(cn,vs,se) (pat,ce). cexp_compile_rel cnenv se ce ∧ pat = cexp_pat_row cn vs)
     scss ccss
     ⇒ cexp_compile_rel cnenv (Case sv scss NONE)
-                             (Mat (var (cexp_var_prefix sv)) ccss)) ∧
+                             (Mat (var (cexp_var_prefix sv)) ccss))
 
 [~CaseSome:]
   (EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
@@ -2603,17 +2605,17 @@ Inductive cexp_compile_rel:
     ALOOKUP cnenv $ explode cn = SOME (stamp',ar) ∧ same_type stamp' stamp) scany ∧
    cexp_compile_rel cnenv suse cuse
     ⇒ cexp_compile_rel cnenv (Case sv scss (SOME (scany, suse)))
-                             (Mat (var (cexp_var_prefix sv)) (ccss ++ [Pany,cuse]))) ∧
+                             (Mat (var (cexp_var_prefix sv)) (ccss ++ [Pany,cuse])))
 
 [~TupleCase:]
   (cexp_compile_rel cnenv sce cce ∧ ALL_DISTINCT vs
     ⇒ cexp_compile_rel cnenv (Case sv [strlit "",vs,sce] NONE)
                              (Mat (var (cexp_var_prefix sv))
-                                [(cexp_pat_row (strlit "") vs, cce)])) ∧
+                                [(cexp_pat_row (strlit "") vs, cce)]))
 
 [~Raise:]
   (cexp_compile_rel cnenv se ce
-    ⇒ cexp_compile_rel cnenv (Raise se) (Raise ce)) ∧
+    ⇒ cexp_compile_rel cnenv (Raise se) (Raise ce))
 
 [~Handle:]
   (cexp_compile_rel cnenv se1 ce1 ∧ cexp_compile_rel cnenv se2 ce2

@@ -332,7 +332,7 @@ QED
 Overload EOF = “Locs EOFpt EOFpt”
 Inductive ispeg_eval:
 [~empty:]
-  (∀s c p. ispeg_eval G p (s, empty c) (checkpred G p s c NONE (sloc s))) ∧
+  (∀s c p. ispeg_eval G p (s, empty c) (checkpred G p s c NONE (sloc s)))
 [~nt_success:]
   (∀n s s' r eo P0 P R f.
      n ∈ FDOM G.rules ∧
@@ -341,78 +341,78 @@ Inductive ispeg_eval:
      ispeg_eval G P0 (s, nt n f R)
                 (checkpred G (conjpred P0 (comppred R P))
                            s' (f r) eo
-                           (sloc s))) ∧
+                           (sloc s)))
 [~nt_failure:]
   (∀n s fl fe R p f.
      n ∈ FDOM G.rules ∧
      ispeg_eval G (precomp p R) (s, G.rules ' n) (Failure fl fe)
    ⇒
-     ispeg_eval G p (s, nt n f R) (Failure fl fe)) ∧
+     ispeg_eval G p (s, nt n f R) (Failure fl fe))
 [~any_success:]
   (∀h t f p. ispeg_eval G p (h::t, any f) (checkpred G p t (f h) NONE (SND h)))∧
 [~any_failure:]
-  (∀f p. ispeg_eval G p ([], any f) (Failure EOF G.anyEOF)) ∧
+  (∀f p. ispeg_eval G p ([], any f) (Failure EOF G.anyEOF))
 [~tok_success:]
   (∀tk l1 l2 t P f R p.
      P tk ⇒
      ispeg_eval G p ((tk,Locs l1 l2)::t, tok P f R)
                 (checkpred G (conjpred p (rel_at_col R $ loccol l1))
-                           t (f (tk,Locs l1 l2)) NONE (Locs l1 l2))) ∧
+                           t (f (tk,Locs l1 l2)) NONE (Locs l1 l2)))
 [~tok_failureF:]
   (∀h t P f R p.
      ¬P (FST h) ⇒
-     ispeg_eval G p (h::t, tok P f R) (Failure (SND h) G.tokFALSE)) ∧
+     ispeg_eval G p (h::t, tok P f R) (Failure (SND h) G.tokFALSE))
 [~tok_failureEOF:]
-  (∀P f R p. ispeg_eval G p ([], tok P f R) (Failure EOF G.tokEOF)) ∧
+  (∀P f R p. ispeg_eval G p ([], tok P f R) (Failure EOF G.tokEOF))
 [~not_success:]
   (∀e s c fr p.
      ispeg_eval G p (s, e) fr ∧ isFailure fr ⇒
-     ispeg_eval G p (s, not e c) (checkpred G p s c NONE (sloc s))) ∧
+     ispeg_eval G p (s, not e c) (checkpred G p s c NONE (sloc s)))
 [~not_failure:]
   (∀e s r c p s' eo p'.
      ispeg_eval G p (s, e) (Success s' r eo p') ⇒
-     ispeg_eval G p (s, not e c) (Failure (sloc s) G.notFAIL))  ∧
+     ispeg_eval G p (s, not e c) (Failure (sloc s) G.notFAIL)) 
 [~seq_fail1:]
   (∀e1 e2 s f fl fe p.
      ispeg_eval G p (s, e1) (Failure fl fe) ⇒
-     ispeg_eval G p (s, seq e1 e2 f) (Failure fl fe)) ∧
+     ispeg_eval G p (s, seq e1 e2 f) (Failure fl fe))
 [~seq_fail2:]
   (∀e1 e2 p0 p1 f s0 eo s1 c1 fl fe.
      ispeg_eval G p0 (s0, e1) (Success s1 c1 eo p1) ∧
      ispeg_eval G p1 (s1, e2) (Failure fl fe) ⇒
-     ispeg_eval G p0 (s0, seq e1 e2 f) (Failure fl fe)) ∧
+     ispeg_eval G p0 (s0, seq e1 e2 f) (Failure fl fe))
 [~seq_success:]
   (∀e1 e2 s0 s1 s2 c1 c2 f eo1 eo2 P0 P1 P2.
      ispeg_eval G P0 (s0, e1) (Success s1 c1 eo1 P1) ∧
      ispeg_eval G P1 (s1, e2) (Success s2 c2 eo2 P2)
     ⇒
-     ispeg_eval G P0 (s0, seq e1 e2 f) (Success s2 (f c1 c2) eo2 P2)) ∧
+     ispeg_eval G P0 (s0, seq e1 e2 f) (Success s2 (f c1 c2) eo2 P2))
 [~choice_fail:]
   (∀e1 e2 s f fl1 fe1 fl2 fe2 p.
      ispeg_eval G p (s, e1) (Failure fl1 fe1) ∧
      ispeg_eval G p (s, e2) (Failure fl2 fe2) ⇒
      ispeg_eval G p (s, choice e1 e2 f)
-              (UNCURRY Failure (MAXerr (fl1,fe1) (fl2,fe2)))) ∧
+              (UNCURRY Failure (MAXerr (fl1,fe1) (fl2,fe2))))
 [~choice_success1:]
   (∀e1 e2 s0 f s r eo P0 P.
      ispeg_eval G P0 (s0, e1) (Success s r eo P) ⇒
-     ispeg_eval G P0 (s0, choice e1 e2 f) (Success s (f (INL r)) eo P)) ∧
+     ispeg_eval G P0 (s0, choice e1 e2 f) (Success s (f (INL r)) eo P))
 [~choice_success2:]
   (∀e1 e2 s0 s r eo f fl fe P0 P.
      ispeg_eval G P0 (s0, e1) (Failure fl fe) ∧
      ispeg_eval G P0 (s0, e2) (Success s r eo P) ⇒
      ispeg_eval G P0 (s0, choice e1 e2 f)
-              (Success s (f (INR r)) (optmax MAXerr (SOME (fl,fe)) eo) P)) ∧
+              (Success s (f (INR r)) (optmax MAXerr (SOME (fl,fe)) eo) P))
 [~error:]
-  (∀e s p. ispeg_eval G p (s, error e) (Failure (sloc s) e)) ∧
+  (∀e s p. ispeg_eval G p (s, error e) (Failure (sloc s) e))
 [~rpt:]
   (∀e f s s1 list err P0 P.
      ispeg_eval_list G P0 (s, e) (s1,list,err,P) ⇒
      ispeg_eval G P0 (s, rpt e f)
-                (checkpred G P s1 (f list) (SOME err) (sloc s))) ∧
+                (checkpred G P s1 (f list) (SOME err) (sloc s)))
 [~list_nil:]
   (∀e s fl fe P. ispeg_eval G P (s, e) (Failure fl fe) ⇒
-                 ispeg_eval_list G P (s, e) (s,[],(fl,fe),P)) ∧
+                 ispeg_eval_list G P (s, e) (s,[],(fl,fe),P))
 [~list_cons:]
   (∀e eo0 eo s0 s1 s2 c cs P0 P1 P2.
      ispeg_eval G P0 (s0, e) (Success s1 c eo0 P1) ∧
@@ -750,13 +750,13 @@ QED
 Theorem lemma4_1a = lemma4_1a0 |> SIMP_RULE (srw_ss() ++ DNF_ss) [AND_IMP_INTRO]
 
 Inductive wfpeg:
-  (∀n f R. n ∈ FDOM G.rules ∧ wfpeg G (G.rules ' n) ⇒ wfpeg G (nt n f R)) ∧
+  (∀n f R. n ∈ FDOM G.rules ∧ wfpeg G (G.rules ' n) ⇒ wfpeg G (nt n f R))
 [~_empty[simp]:]
-  (∀c. wfpeg G (empty c)) ∧
+  (∀c. wfpeg G (empty c))
 [~_any[simp]:]
-  (∀f. wfpeg G (any f)) ∧
+  (∀f. wfpeg G (any f))
 [~tok[simp]:]
-  (∀t f R. wfpeg G (tok t f R)) ∧
+  (∀t f R. wfpeg G (tok t f R))
 [~_error[simp]:]
   (∀e. wfpeg G (error e)) ∧
   (∀e c. wfpeg G e ⇒ wfpeg G (not e c)) ∧

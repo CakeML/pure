@@ -25,114 +25,114 @@ Overload "suspended" = ``Closure NONE``
 Inductive compile_rel:
 
 [~Var:]
-  compile_rel (envLang$Var v) (stateLang$Var v) ∧
+  compile_rel (envLang$Var v) (stateLang$Var v)
 
 [~Ret:]
   (compile_rel te se ⇒
-  compile_rel (Monad Ret [te]) (suspend se)) ∧
+  compile_rel (Monad Ret [te]) (suspend se))
 
 [~Raise:]
   (compile_rel te se ⇒
-  compile_rel (Monad Raise [te]) (suspend (Raise se))) ∧
+  compile_rel (Monad Raise [te]) (suspend (Raise se)))
 
 [~Bind:]
   (compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
   compile_rel
     (Monad Bind [te1; te2])
-    (suspend $ trigger $ app se2 (trigger se1))) ∧
+    (suspend $ trigger $ app se2 (trigger se1)))
 
 [~Handle:]
   (compile_rel te1 se1 ∧ compile_rel te2 se2 ⇒
   compile_rel
     (Monad Handle [te1; te2])
     (suspend $ trigger $
-      HandleApp se2 $ slet "v" (trigger se1) (suspend $ Var "v"))) ∧
+      HandleApp se2 $ slet "v" (trigger se1) (suspend $ Var "v")))
 
 [~Alloc:]
   (compile_rel tl sl ∧ compile_rel tx sx ⇒
   compile_rel (Monad Alloc [tl; tx])
-              (suspend $ App Alloc [sl; sx])) ∧
+              (suspend $ App Alloc [sl; sx]))
 
 [~Length:]
   (compile_rel tl sl ⇒
   compile_rel (Monad Length [tl])
-              (suspend $ App Length [sl])) ∧
+              (suspend $ App Length [sl]))
 
 [~Deref:]
   (compile_rel tl sl ∧ compile_rel ti si ⇒
   compile_rel (Monad Deref [tl; ti])
-              (suspend $ App Sub [sl; si])) ∧
+              (suspend $ App Sub [sl; si]))
 
 [~Update:]
   (compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ⇒
   compile_rel (Monad Update [tl; ti; tx])
-              (suspend $ App Update [sl; si; sx])) ∧
+              (suspend $ App Update [sl; si; sx]))
 
 [~Message:]
   (compile_rel te se ⇒
    compile_rel
     (Prim (AtomOp (Message s)) [te])
-    (slet x se $ suspend (App (FFI s) [Var x]))) ∧
+    (slet x se $ suspend (App (FFI s) [Var x])))
 
 [~Act:]
   (compile_rel te se ⇒
   compile_rel (Monad Act [te])
-              (suspend $ trigger se)) ∧
+              (suspend $ trigger se))
 
 [~Proj:]
   (compile_rel te se ⇒
-  compile_rel (Prim (Proj s n) [te]) (App (Proj s n) [se])) ∧
+  compile_rel (Prim (Proj s n) [te]) (App (Proj s n) [se]))
 
 [~IsEq:]
   (compile_rel te se ⇒
-  compile_rel (Prim (IsEq s n q) [te]) (App (IsEq s n) [se])) ∧
+  compile_rel (Prim (IsEq s n q) [te]) (App (IsEq s n) [se]))
 
 [~AtomOp:]
   (LIST_REL compile_rel tes ses ∧
    (∀s. aop ≠ Message s) ∧ (∀s1 s2. aop ≠ Lit (Msg s1 s2)) ⇒
-  compile_rel (Prim (AtomOp aop) tes) (App (AtomOp aop) ses)) ∧
+  compile_rel (Prim (AtomOp aop) tes) (App (AtomOp aop) ses))
 
 [~Cons:]
   (LIST_REL compile_rel tes ses ⇒
-  compile_rel (Prim (Cons s) tes) (App (Cons s) ses)) ∧
+  compile_rel (Prim (Cons s) tes) (App (Cons s) ses))
 
 [~App:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (App te1 te2) (app se1 se2)) ∧
+  compile_rel (App te1 te2) (app se1 se2))
 
 [~Lam:]
   (∀x te se.
     compile_rel te se ⇒
-    compile_rel (Lam x te) (Lam (SOME x) se)) ∧
+    compile_rel (Lam x te) (Lam (SOME x) se))
 
 [~Letrec:]
   (∀tfns sfns te se.
     MAP FST tfns = MAP FST sfns ∧
     LIST_REL compile_rel (MAP SND tfns) (MAP SND sfns) ∧
     compile_rel te se ⇒
-    compile_rel (Letrec tfns te) (Letrec sfns se)) ∧
+    compile_rel (Letrec tfns te) (Letrec sfns se))
 
 [~Let:]
   (compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2)) ∧
+  compile_rel (Let x_opt te1 te2) (Let x_opt se1 se2))
 
 [~If:]
   (compile_rel te se ∧
    compile_rel te1 se1 ∧
    compile_rel te2 se2 ⇒
-  compile_rel (If te te1 te2) (If se se1 se2)) ∧
+  compile_rel (If te te1 te2) (If se se1 se2))
 
 [~Box:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Box te) (Box se)) ∧
+    compile_rel (Box te) (Box se))
 
 [~Delay:]
   (∀te se.
     compile_rel te se ⇒
-    compile_rel (Delay te) (Delay se)) ∧
+    compile_rel (Delay te) (Delay se))
 
 [~Force:]
   (∀te se.
@@ -146,58 +146,58 @@ Inductive v_rel:
 [~Constructor:]
   (∀tvs svs.
      LIST_REL v_rel tvs svs ⇒
-     v_rel (envLang$Constructor s tvs) (stateLang$Constructor s svs)) ∧
+     v_rel (envLang$Constructor s tvs) (stateLang$Constructor s svs))
 
 [~Closure:]
   (∀tenv senv te se.
      env_rel tenv senv ∧
      compile_rel te se ⇒
-     v_rel (Closure x tenv te) (Closure (SOME x) senv se)) ∧
+     v_rel (Closure x tenv te) (Closure (SOME x) senv se))
 
 [~Recclosure:]
   (∀tenv senv tfns sfns n.
      env_rel tenv senv ∧
      LIST_REL ((=) ### compile_rel) tfns sfns ⇒
-     v_rel (envLang$Recclosure tfns tenv n) (stateLang$Recclosure sfns senv n)) ∧
+     v_rel (envLang$Recclosure tfns tenv n) (stateLang$Recclosure sfns senv n))
 
 [~ThunkL:]
   (∀tv sv.
      v_rel tv sv ⇒
-     v_rel (Thunk $ INL tv) (Thunk $ INL sv)) ∧
+     v_rel (Thunk $ INL tv) (Thunk $ INL sv))
 
 [~ThunkR:]
   (∀tenv senv te se.
      env_rel tenv senv ∧
      compile_rel te se ⇒
-     v_rel (Thunk $ INR (tenv, te)) (Thunk $ INR (senv, se))) ∧
+     v_rel (Thunk $ INR (tenv, te)) (Thunk $ INR (senv, se)))
 
 [~Atom:]
   (∀a.
      (∀msg x. ~(a = Msg msg x)) ⇒
-     v_rel (Atom a) (Atom a)) ∧
+     v_rel (Atom a) (Atom a))
 
 [~Msg:]
   (∀msg s x senv.
      v_rel (Atom (Msg msg s))
-           (suspended ((x,Atom $ Str s)::senv) $ (App (FFI msg) [Var x]))) ∧
+           (suspended ((x,Atom $ Str s)::senv) $ (App (FFI msg) [Var x])))
 
 [~Act:]
   (∀te se tenv senv.
      compile_rel te se ∧ env_rel tenv senv ⇒
      v_rel (Monadic tenv Act [te])
-           (suspended senv $ trigger se)) ∧
+           (suspended senv $ trigger se))
 
 [~Ret:]
   (∀te se tenv senv.
      compile_rel te se ∧ env_rel tenv senv ⇒
-     v_rel (Monadic tenv Ret [te]) (suspended senv se)) ∧
+     v_rel (Monadic tenv Ret [te]) (suspended senv se))
 
 [~Bind:]
   (∀te1 se1 te2 se2 tenv senv.
      compile_rel te1 se1 ∧ compile_rel te2 se2 ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Bind [te1; te2])
-       (suspended senv $ trigger $ app se2 (trigger se1))) ∧
+       (suspended senv $ trigger $ app se2 (trigger se1)))
 
 [~Handle:]
   (∀te1 se1 te2 se2 tenv senv.
@@ -205,39 +205,39 @@ Inductive v_rel:
      v_rel
        (Monadic tenv Handle [te1; te2])
        (suspended senv $ trigger $
-          HandleApp se2 (slet "v" (trigger se1) (suspend $ Var "v")))) ∧
+          HandleApp se2 (slet "v" (trigger se1) (suspend $ Var "v"))))
 
 [~Raise:]
   (∀te se tenv senv.
      compile_rel te se ∧ env_rel tenv senv ⇒
-     v_rel (Monadic tenv Raise [te]) (suspended senv $ Raise se)) ∧
+     v_rel (Monadic tenv Raise [te]) (suspended senv $ Raise se))
 
 [~Length:]
   (∀tl sl tenv senv.
      compile_rel tl sl ∧ env_rel tenv senv ⇒
      v_rel (Monadic tenv Length [tl])
-           (suspended senv $ App Length [sl])) ∧
+           (suspended senv $ App Length [sl]))
 
 [~Alloc:]
   (∀tl sl tenv senv.
      compile_rel tl sl ∧ compile_rel tx sx ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Alloc [tl; tx])
-       (suspended senv $ App Alloc [sl; sx])) ∧
+       (suspended senv $ App Alloc [sl; sx]))
 
 [~Deref:]
   (∀tl sl ti si tenv senv.
      compile_rel tl sl ∧ compile_rel ti si ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Deref [tl; ti])
-       (suspended senv $ (App Sub [sl; si]))) ∧
+       (suspended senv $ (App Sub [sl; si])))
 
 [~Update:]
   (∀tl sl ti si tx sx tenv senv.
      compile_rel tl sl ∧ compile_rel ti si ∧ compile_rel tx sx ∧ env_rel tenv senv ⇒
      v_rel
        (Monadic tenv Update [tl; ti; tx])
-       (suspended senv $ App Update [sl; si; sx])) ∧
+       (suspended senv $ App Update [sl; si; sx]))
 
 [env_rel:]
   (∀tenv senv.

@@ -51,99 +51,99 @@ Inductive exp_rel:
      exp_rel (SOME (Var v,w)) y1 y2 ∧
      v ≠ w ⇒
        exp_rel m (Let (SOME w) (Force (Var v)) y1)
-                 (Let (SOME w) (Force (Var v)) y2)) ∧
+                 (Let (SOME w) (Force (Var v)) y2))
 [exp_rel_Let_Force_Value:]
   (∀m v1 v2 w y1 y2.
      exp_rel (SOME (Val v1,w)) y1 y2 ∧ v_rel v1 v2 ⇒
        exp_rel m (Let (SOME w) (Force (Value v1)) y1)
-                 (Let (SOME w) (Force (Value v2)) y2)) ∧
+                 (Let (SOME w) (Force (Value v2)) y2))
 [exp_rel_Force_Var:]
   (∀v w.
-     exp_rel (SOME(Var v,w)) (Force (Var v)) (Var w)) ∧
+     exp_rel (SOME(Var v,w)) (Force (Var v)) (Var w))
 [exp_rel_Force_Value:]
   (∀v w.
-     exp_rel (SOME(Val v,w)) (Force (Value v)) (Var w)) ∧
+     exp_rel (SOME(Val v,w)) (Force (Value v)) (Var w))
 [exp_rel_Force_Value_Value:]
   (∀m i t v w.
      (∀j. eval_to (i + j) (Force (Value t)) = INR v) ∧ v_rel v w ⇒
-     exp_rel m (Force (Value t)) (Value w)) ∧
+     exp_rel m (Force (Value t)) (Value w))
 (* Boilerplate: *)
 [exp_rel_App:]
   (∀m f g x y.
      exp_rel m f g ∧
      exp_rel m x y ⇒
-       exp_rel m (App f x) (App g y)) ∧
+       exp_rel m (App f x) (App g y))
 [exp_rel_Lam:]
   (∀m s x y.
      exp_rel (if name_clash (SOME s) m then NONE else m) x y ⇒
-       exp_rel m (Lam s x) (Lam s y)) ∧
+       exp_rel m (Lam s x) (Lam s y))
 [exp_rel_Letrec:]
   (∀m f g x y.
      LIST_REL (λ(fn,x) (gn,y).
                  fn = gn ∧
                  exp_rel (if name_clashes (MAP FST f) m then NONE else m) x y) f g ∧
      exp_rel (if name_clashes (MAP FST f) m then NONE else m) x y ⇒
-       exp_rel m (Letrec f x) (Letrec g y)) ∧
+       exp_rel m (Letrec f x) (Letrec g y))
 [exp_rel_Let:]
   (∀m bv x1 y1 x2 y2.
      exp_rel m x1 x2 ∧
      exp_rel (if name_clash bv m then NONE else m) y1 y2 ⇒
-       exp_rel m (Let bv x1 y1) (Let bv x2 y2)) ∧
+       exp_rel m (Let bv x1 y1) (Let bv x2 y2))
 [exp_rel_If:]
   (∀m x1 x2 y1 y2 z1 z2.
      LIST_REL (exp_rel m) [x1;y1;z1] [x2;y2;z2] ⇒
-       exp_rel m (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel m (If x1 y1 z1) (If x2 y2 z2))
 [exp_rel_Prim:]
   (∀m op xs ys.
      LIST_REL (exp_rel m) xs ys ⇒
-       exp_rel m (Prim op xs) (Prim op ys)) ∧
+       exp_rel m (Prim op xs) (Prim op ys))
 [exp_rel_Monad:]
   (∀m mop xs ys.
      LIST_REL (exp_rel m) xs ys ⇒
-       exp_rel m (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel m (Monad mop xs) (Monad mop ys))
 [exp_rel_Delay:]
   (∀m x y.
      exp_rel m x y ⇒
-       exp_rel m (Delay x) (Delay y)) ∧
+       exp_rel m (Delay x) (Delay y))
 [exp_rel_Force:]
   (∀m x y.
      exp_rel m x y ⇒
-       exp_rel m (Force x) (Force y)) ∧
+       exp_rel m (Force x) (Force y))
 [exp_rel_MkTick:]
   (∀m x y.
      exp_rel m x y ⇒
-       exp_rel m (MkTick x) (MkTick y)) ∧
+       exp_rel m (MkTick x) (MkTick y))
 [exp_rel_Var:]
   (∀m v.
-     exp_rel m (Var v) (Var v)) ∧
+     exp_rel m (Var v) (Var v))
 [exp_rel_Value:]
   (∀m v w.
      v_rel v w ⇒
-     exp_rel m (Value v) (Value w)) ∧
+     exp_rel m (Value v) (Value w))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_Constructor:]
   (∀vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL (exp_rel NONE) xs ys ∧ EVERY closed xs ⇒
-       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel NONE x y ∧ freevars x ⊆ {s} ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
-       v_rel (DoTick v) (DoTick w)) ∧
+       v_rel (DoTick v) (DoTick w))
 [v_rel_Recclosure:]
   (∀f g n.
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel NONE x y ∧
                                freevars x ⊆ set (MAP FST f)) f g ⇒
-       v_rel (Recclosure f n) (Recclosure g n)) ∧
+       v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel NONE x y ∧ closed x ⇒
@@ -1948,52 +1948,52 @@ Inductive e_rel:
      e_rel (SOME (Var v,w) :: MAP (filter_clash (SOME w)) m) y1 y2 ∧
      v ≠ w ⇒
        e_rel m (Let (SOME w) (Force (Var v)) y1)
-               (Let (SOME w) (Force (Var v)) y2)) ∧
+               (Let (SOME w) (Force (Var v)) y2))
 [e_rel_Force_Var:]
   (∀m v w.
      MEM (SOME (Var v,w)) m ⇒
-     e_rel m (Force (Var v)) (Var w)) ∧
+     e_rel m (Force (Var v)) (Var w))
 (* Boilerplate: *)
 [e_rel_App:]
   (∀m f g x y.
      e_rel m f g ∧
      e_rel m x y ⇒
-       e_rel m (App f x) (App g y)) ∧
+       e_rel m (App f x) (App g y))
 [e_rel_Lam:]
   (∀m s x y.
      e_rel (MAP (λm. if name_clash (SOME s) m then NONE else m) m) x y ⇒
-       e_rel m (Lam s x) (Lam s y)) ∧
+       e_rel m (Lam s x) (Lam s y))
 [e_rel_Letrec:]
   (∀m f g x y.
      LIST_REL (λ(fn,x) (gn,y). fn = gn ∧
        e_rel (MAP (λm. (if name_clashes (MAP FST f) m then NONE else m)) m) x y) f g ∧
      e_rel (MAP (λm. (if name_clashes (MAP FST f) m then NONE else m)) m) x y ⇒
-       e_rel m (Letrec f x) (Letrec g y)) ∧
+       e_rel m (Letrec f x) (Letrec g y))
 [e_rel_Let:]
   (∀m bv x1 y1 x2 y2.
      e_rel m x1 x2 ∧
      e_rel (MAP (filter_clash bv) m) y1 y2 ⇒
-       e_rel m (Let bv x1 y1) (Let bv x2 y2)) ∧
+       e_rel m (Let bv x1 y1) (Let bv x2 y2))
 [e_rel_If:]
   (∀m x1 x2 y1 y2 z1 z2.
      LIST_REL (e_rel m) [x1;y1;z1] [x2;y2;z2] ⇒
-       e_rel m (If x1 y1 z1) (If x2 y2 z2)) ∧
+       e_rel m (If x1 y1 z1) (If x2 y2 z2))
 [e_rel_Prim:]
   (∀m op xs ys.
      LIST_REL (e_rel m) xs ys ⇒
-       e_rel m (Prim op xs) (Prim op ys)) ∧
+       e_rel m (Prim op xs) (Prim op ys))
 [e_rel_Monad:]
   (∀m mop xs ys.
      LIST_REL (e_rel m) xs ys ⇒
-       e_rel m (Monad mop xs) (Monad mop ys)) ∧
+       e_rel m (Monad mop xs) (Monad mop ys))
 [e_rel_Delay:]
   (∀m x y.
      e_rel m x y ⇒
-       e_rel m (Delay x) (Delay y)) ∧
+       e_rel m (Delay x) (Delay y))
 [e_rel_Force:]
   (∀m x y.
      e_rel m x y ⇒
-       e_rel m (Force x) (Force y)) ∧
+       e_rel m (Force x) (Force y))
 [e_rel_Var:]
   (∀m v.
      e_rel m (Var v) (Var v))

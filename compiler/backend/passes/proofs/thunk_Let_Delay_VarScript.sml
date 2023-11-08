@@ -159,28 +159,28 @@ QED
 
 Inductive exp_rel:
 [~Var:]
-  (∀n. exp_rel (Var n) (Var n)) ∧
+  (∀n. exp_rel (Var n) (Var n))
 [~Value:]
   (∀v w.
      v_rel v w ⇒
-       exp_rel (Value v) (Value w)) ∧
+       exp_rel (Value v) (Value w))
 [~Prim:]
   (∀op xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Prim op xs) (Prim op ys)) ∧
+       exp_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       exp_rel (Monad mop xs) (Monad mop ys)) ∧
+       exp_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      exp_rel f g ∧
      exp_rel x y ⇒
-       exp_rel (App f x) (App g y)) ∧
+       exp_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      exp_rel x y ⇒
-       exp_rel (Lam s x) (Lam s y)) ∧
+       exp_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -188,7 +188,7 @@ Inductive exp_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ∧
      exp_rel x y ⇒
-     exp_rel (Letrec f x) (Letrec g y)) ∧
+     exp_rel (Letrec f x) (Letrec g y))
 [~Letrec_Delay_Var:]
   (∀f g x y v1 v2.
      MAP FST f = MAP FST g ∧
@@ -201,57 +201,57 @@ Inductive exp_rel:
      exp_rel x y ⇒
      exp_rel (Letrec f x)
              (Letrec (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) g)
-              (replace_Force (Var v2) v1 y))) ∧
+              (replace_Force (Var v2) v1 y)))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+       exp_rel (Let opt x1 y1) (Let opt x2 y2))
 [~Let_Delay_Var:]
   (∀v1 v2 x1 x2 y1 y2.
      v2 ∉ freevars y1 ∧ v2 ∉ boundvars y2 ∧ v1 ≠ v2 ∧
      exp_rel x1 x2 ∧ exp_rel y1 y2 ⇒
      exp_rel (Let (SOME v2) x1 (Let (SOME v1) (Delay (Var v2)) y1))
-             (Let (SOME v2) x2 (Let (SOME v1) (Delay (Var v2)) (replace_Force (Var v2) v1 y2)))) ∧
+             (Let (SOME v2) x2 (Let (SOME v1) (Delay (Var v2)) (replace_Force (Var v2) v1 y2))))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ∧
      exp_rel z1 z2 ⇒
-       exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       exp_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      exp_rel x y ⇒
-       exp_rel (Delay x) (Delay y)) ∧
+       exp_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      exp_rel x y ⇒
-     exp_rel (Force x) (Force y)) ∧
+     exp_rel (Force x) (Force y))
 [~MkTick:]
-  (∀x y. exp_rel x y ⇒ exp_rel (MkTick x) (MkTick y)) ∧
+  (∀x y. exp_rel x y ⇒ exp_rel (MkTick x) (MkTick y))
 [~Force_Value:]
   (∀v1 v2.
      v_rel v1 v2 ⇒
-     exp_rel (Force (Value (Thunk (Value v1)))) (Value v2)) ∧
+     exp_rel (Force (Value (Thunk (Value v1)))) (Value v2))
 [v_rel_Constructor:]
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
-       v_rel (Constructor s vs) (Constructor s ws)) ∧
+       v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
-       v_rel (Monadic mop xs) (Monadic mop ys)) ∧
+       v_rel (Monadic mop xs) (Monadic mop ys))
 [v_rel_Closure:]
   (∀s x y.
      exp_rel x y ⇒
-       v_rel (Closure s x) (Closure s y)) ∧
+       v_rel (Closure s x) (Closure s y))
 [v_rel_Recclosure:]
   (∀f g n.
      MAP FST f = MAP FST g ∧
      EVERY ok_bind (MAP SND f) ∧
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL exp_rel (MAP SND f) (MAP SND g) ⇒
-     v_rel (Recclosure f n) (Recclosure g n)) ∧
+     v_rel (Recclosure f n) (Recclosure g n))
 [v_rel_Recclosure_Delay_Var:]
   (∀f g n v1 v2.
      MAP FST f = MAP FST g ∧
@@ -261,7 +261,7 @@ Inductive exp_rel:
      ALL_DISTINCT (MAP FST f) ∧
      v1 ≠ v2 ∧ EVERY (λe. v2 ∉ boundvars e) (MAP SND g) ∧
      MEM v2 (MAP FST f) ∧ MEM (v1, Delay (Var v2)) f ⇒
-     v_rel (Recclosure f n) (Recclosure (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) g) n)) ∧
+     v_rel (Recclosure f n) (Recclosure (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) g) n))
 [~Force_Recclosure_Delay_Var:]
   (∀f g v1 v2.
      MAP FST f = MAP FST g ∧
@@ -272,14 +272,14 @@ Inductive exp_rel:
      v1 ≠ v2 ∧ EVERY (λe. v2 ∉ boundvars e) (MAP SND g) ∧
      MEM v2 (MAP FST f) ∧ MEM (v1, Delay (Var v2)) f ⇒
      exp_rel (Force (Value (Recclosure f v1)))
-             (Value (Recclosure (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) g) v2))) ∧
+             (Value (Recclosure (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) g) v2)))
 [v_rel_Thunk:]
   (∀x y.
      exp_rel x y ⇒
-     v_rel (Thunk x) (Thunk y)) ∧
+     v_rel (Thunk x) (Thunk y))
 [v_rel_Atom:]
   (∀x.
-     v_rel (Atom x) (Atom x)) ∧
+     v_rel (Atom x) (Atom x))
 [v_rel_DoTick:]
   (∀v w.
      v_rel v w ⇒
@@ -2961,24 +2961,24 @@ QED
 
 Inductive full_exp_rel:
 [~Var:]
-  (∀n. full_exp_rel (Var n) (Var n)) ∧
+  (∀n. full_exp_rel (Var n) (Var n))
 [~Prim:]
   (∀op xs ys.
      LIST_REL full_exp_rel xs ys ⇒
-       full_exp_rel (Prim op xs) (Prim op ys)) ∧
+       full_exp_rel (Prim op xs) (Prim op ys))
 [~Monad:]
   (∀mop xs ys.
      LIST_REL full_exp_rel xs ys ⇒
-       full_exp_rel (Monad mop xs) (Monad mop ys)) ∧
+       full_exp_rel (Monad mop xs) (Monad mop ys))
 [~App:]
   (∀f g x y.
      full_exp_rel f g ∧
      full_exp_rel x y ⇒
-       full_exp_rel (App f x) (App g y)) ∧
+       full_exp_rel (App f x) (App g y))
 [~Lam:]
   (∀s x y.
      full_exp_rel x y ⇒
-       full_exp_rel (Lam s x) (Lam s y)) ∧
+       full_exp_rel (Lam s x) (Lam s y))
 [~Letrec:]
   (∀f g x y.
      MAP FST f = MAP FST g ∧
@@ -2986,7 +2986,7 @@ Inductive full_exp_rel:
      EVERY ok_bind (MAP SND g) ∧
      LIST_REL full_exp_rel (MAP SND f) (MAP SND g) ∧
      full_exp_rel x y ⇒
-     full_exp_rel (Letrec f x) (Letrec g y)) ∧
+     full_exp_rel (Letrec f x) (Letrec g y))
 [~Letrec_Delay_Var:]
   (∀f g vL x y.
      MAP FST f = MAP FST g ∧
@@ -3001,32 +3001,32 @@ Inductive full_exp_rel:
      full_exp_rel x y ⇒
      full_exp_rel (Letrec f x)
              (Letrec (FOLDL (λl (v1, v2). MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) l) g vL)
-              (FOLDL (λe (v1, v2). replace_Force (Var v2) v1 e) y vL))) ∧
+              (FOLDL (λe (v1, v2). replace_Force (Var v2) v1 e) y vL)))
 [~Let:]
   (∀opt x1 y1 x2 y2.
      full_exp_rel x1 x2 ∧
      full_exp_rel y1 y2 ⇒
-       full_exp_rel (Let opt x1 y1) (Let opt x2 y2)) ∧
+       full_exp_rel (Let opt x1 y1) (Let opt x2 y2))
 [~Let_Delay_Var:]
   (∀v1 v2 x1 x2 y1 y2.
      v2 ∉ freevars y1 ∧ v2 ∉ boundvars y1 ∧ v1 ≠ v2 ∧
      full_exp_rel x1 x2 ∧ full_exp_rel y1 y2 ⇒
      full_exp_rel (Let (SOME v2) x1 (Let (SOME v1) (Delay (Var v2)) y1))
-             (Let (SOME v2) x2 (Let (SOME v1) (Delay (Var v2)) (replace_Force (Var v2) v1 y2)))) ∧
+             (Let (SOME v2) x2 (Let (SOME v1) (Delay (Var v2)) (replace_Force (Var v2) v1 y2))))
 [~If:]
   (∀x1 y1 z1 x2 y2 z2.
      full_exp_rel x1 x2 ∧
      full_exp_rel y1 y2 ∧
      full_exp_rel z1 z2 ⇒
-       full_exp_rel (If x1 y1 z1) (If x2 y2 z2)) ∧
+       full_exp_rel (If x1 y1 z1) (If x2 y2 z2))
 [~Delay:]
   (∀x y.
      full_exp_rel x y ⇒
-       full_exp_rel (Delay x) (Delay y)) ∧
+       full_exp_rel (Delay x) (Delay y))
 [~Force:]
   (∀x y.
      full_exp_rel x y ⇒
-     full_exp_rel (Force x) (Force y)) ∧
+     full_exp_rel (Force x) (Force y))
 [~MkTick:]
   (∀x y. full_exp_rel x y ⇒ full_exp_rel (MkTick x) (MkTick y))
 End

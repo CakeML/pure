@@ -749,26 +749,26 @@ QED
 
 Inductive exp_alpha:
 [~Refl:]
-  (∀e. exp_alpha e e) ∧
+  (∀e. exp_alpha e e)
 (*[~Sym:]
   (∀e e'. exp_alpha e' e ⇒ exp_alpha e e') ∧*)
 [~Trans:]
-  (∀e e' e''. exp_alpha e e' ∧ exp_alpha e' e'' ⇒ exp_alpha e e'') ∧
+  (∀e e' e''. exp_alpha e e' ∧ exp_alpha e' e'' ⇒ exp_alpha e e'')
 [~Lam:]
-  (∀e x e'. exp_alpha e e' ⇒ exp_alpha (Lam x e) (Lam x e')) ∧
+  (∀e x e'. exp_alpha e e' ⇒ exp_alpha (Lam x e) (Lam x e'))
 [~Alpha:]
   (∀e x y. x ≠ y ∧ y ∉ freevars e ⇒
-    exp_alpha (Lam x e) (Lam y (perm_exp x y e))) ∧
+    exp_alpha (Lam x e) (Lam y (perm_exp x y e)))
 [~Prim:]
-  (∀op es es'. LIST_REL exp_alpha es es' ⇒ exp_alpha (Prim op es) (Prim op es')) ∧
+  (∀op es es'. LIST_REL exp_alpha es es' ⇒ exp_alpha (Prim op es) (Prim op es'))
 [~App:]
   (∀e1 e1' e2 e2'. exp_alpha e1 e1' ∧ exp_alpha e2 e2' ⇒
-    exp_alpha (App e1 e2) (App e1' e2')) ∧
+    exp_alpha (App e1 e2) (App e1' e2'))
 [~Letrec:]
   (∀e1 e2 funs funs'.
      exp_alpha e1 e2 ∧ MAP FST funs = MAP FST funs' ∧
      LIST_REL exp_alpha (MAP SND funs) (MAP SND funs') ⇒
-     exp_alpha (Letrec funs e1) (Letrec funs' e2)) ∧
+     exp_alpha (Letrec funs e1) (Letrec funs' e2))
 [~Letrec_Alpha:]
   (∀funs1 funs2 x y e e1.
      x ≠ y ∧
@@ -778,7 +778,7 @@ Inductive exp_alpha:
                (Letrec
                   (MAP (perm1 x y ## perm_exp x y) funs1 ++
                        (y,perm_exp x y e)::MAP (perm1 x y ## perm_exp x y) funs2)
-                  (perm_exp x y e1))) ∧
+                  (perm_exp x y e1)))
 [~Letrec_Vacuous1:]
   (∀funs1 funs2 x y e e1.
      x ≠ y ∧
@@ -788,7 +788,7 @@ Inductive exp_alpha:
      ¬MEM y (MAP FST funs2)
      ⇒
      exp_alpha (Letrec (funs1 ++ (x,e)::funs2) e1)
-               (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1)) ∧
+               (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1))
 [~Letrec_Vacuous2:]
   (∀funs1 funs2 x y e e1.
      x ≠ y ∧
@@ -2681,12 +2681,12 @@ QED
 
 CoInductive v_alpha:
 [~refl:]
-  (∀v. v_alpha v v) ∧
+  (∀v. v_alpha v v)
 [~cons:]
    (∀s vs vs'. LIST_REL v_alpha vs vs'
-      ⇒ v_alpha (Constructor s vs) (Constructor s vs')) ∧
+      ⇒ v_alpha (Constructor s vs) (Constructor s vs'))
 [~closure:]
-   (∀s e1 e2. exp_alpha e1 e2 ⇒ v_alpha (Closure s e1) (Closure s e2)) ∧
+   (∀s e1 e2. exp_alpha e1 e2 ⇒ v_alpha (Closure s e1) (Closure s e2))
 [~alpha:]
    (∀x y e1 e2.
       x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2)
@@ -2695,9 +2695,9 @@ End
 
 Inductive v_prefix_alpha:
 [~Refl:]
-  (∀v1. v_prefix_alpha v1 v1) ∧
+  (∀v1. v_prefix_alpha v1 v1)
 [~Closure:]
-  (∀e1 e2 x. exp_alpha e1 e2 ⇒ v_prefix_alpha (Closure' x e1) (Closure' x e2)) ∧
+  (∀e1 e2 x. exp_alpha e1 e2 ⇒ v_prefix_alpha (Closure' x e1) (Closure' x e2))
 [~Alpha:]
   (∀x y e1 e2.
       x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2)
@@ -3017,12 +3017,12 @@ QED
 
 Inductive wh_alpha:
 [~refl:]
-  (wh_alpha v v) ∧
+  (wh_alpha v v)
 [~cons:]
   (LIST_REL exp_alpha e1s e2s
-    ⇒ wh_alpha (wh_Constructor s e1s) (wh_Constructor s e2s)) ∧
+    ⇒ wh_alpha (wh_Constructor s e1s) (wh_Constructor s e2s))
 [~closure:]
-   (exp_alpha e1 e2 ⇒ wh_alpha (wh_Closure s e1) (wh_Closure s e2)) ∧
+   (exp_alpha e1 e2 ⇒ wh_alpha (wh_Closure s e1) (wh_Closure s e2))
 [~alpha:]
    (x ∉ freevars e2 ∧ y ∉ freevars e1 ∧ exp_alpha e1 (perm_exp x y e2)
     ⇒ wh_alpha (wh_Closure x e1) (wh_Closure y e2))

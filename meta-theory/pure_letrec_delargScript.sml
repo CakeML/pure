@@ -34,7 +34,7 @@ Inductive remove_call_arg:
     LIST_REL (remove_call_arg b1 b2 T info R) xs ys ∧
     LIST_REL (remove_call_arg b1 b2 T info R) xs1 ys1 ⇒
     remove_call_arg b1 b2 T info R (mk_apps b1 (Var info.fname) xs (Var info.w_arg) xs1)
-                                 (mk_apps b2 (Var info.fname) ys (Var info.w_arg) ys1)) ∧
+                                 (mk_apps b2 (Var info.fname) ys (Var info.w_arg) ys1))
 [~Apps_Const:]
   (∀info xs ys xs1 ys1 R c.
     LENGTH xs = LENGTH info.args ∧
@@ -42,32 +42,32 @@ Inductive remove_call_arg:
     LIST_REL (remove_call_arg b1 b2 F info R) xs ys ∧
     LIST_REL (remove_call_arg b1 b2 F info R) xs1 ys1 ⇒
     remove_call_arg b1 b2 F info R (mk_apps b1 (Var info.fname) xs c xs1)
-                                 (mk_apps b2 (Var info.fname) ys c ys1)) ∧
+                                 (mk_apps b2 (Var info.fname) ys c ys1))
 [~Var:]
   (∀info n b R.
     n ≠ info.arg ∧ n ≠ info.fname ⇒
-    remove_call_arg b1 b2 b info R (Var n) (Var n)) ∧
+    remove_call_arg b1 b2 b info R (Var n) (Var n))
 [~Lam:]
   (∀info n x y b R.
     remove_call_arg b1 b2 b info R x y ∧
     info.arg ≠ n ∧ info.w_arg ≠ n ∧ info.fname ≠ n ⇒
-    remove_call_arg b1 b2 b info R (Lam n x) (Lam n y)) ∧
+    remove_call_arg b1 b2 b info R (Lam n x) (Lam n y))
 [~App:]
   (∀info f x g y  b R.
     remove_call_arg b1 b2 b info R f g ∧
     remove_call_arg b1 b2 b info R x y ⇒
-    remove_call_arg b1 b2 b info R (App f x) (App g y)) ∧
+    remove_call_arg b1 b2 b info R (App f x) (App g y))
 [~Prim:]
   (∀info n xs ys b R.
     LIST_REL (remove_call_arg b1 b2 b info R) xs ys ⇒
-    remove_call_arg b1 b2 b info R (Prim n xs) (Prim n ys)) ∧
+    remove_call_arg b1 b2 b info R (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀info xs x ys y b R.
     LIST_REL (remove_call_arg b1 b2 b info R) (MAP SND xs) (MAP SND ys) ∧
     DISJOINT {info.arg; info.fname; info.w_arg} (set (MAP FST xs)) ∧
     MAP FST xs = MAP FST ys ∧
     remove_call_arg b1 b2 b info R x y ⇒
-    remove_call_arg b1 b2 b info R (Letrec xs x) (Letrec ys y)) ∧
+    remove_call_arg b1 b2 b info R (Letrec xs x) (Letrec ys y))
 [~closed:]
   (∀info b c1 c2 R.
     closed c1 ∧ closed c2 ∧ R c1 c2 ⇒
@@ -124,7 +124,7 @@ Inductive letrec_delarg:
     freevars (mk_fun b2 info) ⊆ {info.fname} ∧
     letrec_delarg info x y ⇒
     letrec_delarg info (mk_letrec b1 info x)
-                       (mk_letrec b2 info y)) ∧
+                       (mk_letrec b2 info y))
 [~Apps:]
   (∀info xs ys b1 b2 c.
     LENGTH xs = LENGTH info.args ∧
@@ -135,22 +135,22 @@ Inductive letrec_delarg:
     closed (mk_rec b2 info) ⇒
     letrec_delarg info
       (mk_apps b1 (mk_rec b1 info) xs c xs1)
-      (mk_apps b2 (mk_rec b2 info) ys c ys1)) ∧
+      (mk_apps b2 (mk_rec b2 info) ys c ys1))
 [~Var:]
   (∀info n.
-    letrec_delarg info (Var n) (Var n)) ∧
+    letrec_delarg info (Var n) (Var n))
 [~Lam:]
   (∀info n x y.
     letrec_delarg info x y ⇒
-    letrec_delarg info (Lam n x) (Lam n y)) ∧
+    letrec_delarg info (Lam n x) (Lam n y))
 [~App:]
   (∀info f g x y.
     letrec_delarg info f g ∧ letrec_delarg info x y ⇒
-    letrec_delarg info (App f x) (App g y)) ∧
+    letrec_delarg info (App f x) (App g y))
 [~Prim:]
   (∀info n xs ys.
     LIST_REL (letrec_delarg info) xs ys ⇒
-    letrec_delarg info (Prim n xs) (Prim n ys)) ∧
+    letrec_delarg info (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀info  xs ys x y.
     LIST_REL (letrec_delarg info) (MAP SND xs) (MAP SND ys) ∧
@@ -1919,25 +1919,25 @@ Inductive can_spec_arg:
     LIST_REL (can_spec_arg f vs v ws) xs ys ∧
     LIST_REL (can_spec_arg f vs v ws) xs1 ys1 ⇒
     can_spec_arg f vs v ws (mk_apps F (Var f) xs (Var v) xs1)
-                           (mk_apps T (Var f) ys (Var v) ys1)) ∧
+                           (mk_apps T (Var f) ys (Var v) ys1))
 [~Var:]
   (∀f vs v ws n.
     n ≠ f ⇒
-    can_spec_arg f vs v ws (Var n) (Var n)) ∧
+    can_spec_arg f vs v ws (Var n) (Var n))
 [~Lam:]
   (∀f vs v ws n x y.
     can_spec_arg f vs v ws x y ∧
     v ≠ n ∧ f ≠ n ⇒
-    can_spec_arg f vs v ws (Lam n x) (Lam n y)) ∧
+    can_spec_arg f vs v ws (Lam n x) (Lam n y))
 [~App:]
   (∀f vs v ws f1 g1 x y.
     can_spec_arg f vs v ws f1 g1 ∧
     can_spec_arg f vs v ws x y ⇒
-    can_spec_arg f vs v ws (App f1 x) (App g1 y)) ∧
+    can_spec_arg f vs v ws (App f1 x) (App g1 y))
 [~Prim:]
   (∀f vs v ws n xs ys.
     LIST_REL (can_spec_arg f vs v ws) xs ys ⇒
-    can_spec_arg f vs v ws (Prim n xs) (Prim n ys)) ∧
+    can_spec_arg f vs v ws (Prim n xs) (Prim n ys))
 [~Letrec:]
   (∀f vs v ws x y xs ys.
     LIST_REL (can_spec_arg f vs v ws) (MAP SND xs) (MAP SND ys) ∧
