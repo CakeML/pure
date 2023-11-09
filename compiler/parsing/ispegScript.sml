@@ -349,7 +349,7 @@ Inductive ispeg_eval:
    ⇒
      ispeg_eval G p (s, nt n f R) (Failure fl fe))
 [~any_success:]
-  (∀h t f p. ispeg_eval G p (h::t, any f) (checkpred G p t (f h) NONE (SND h)))∧
+  (∀h t f p. ispeg_eval G p (h::t, any f) (checkpred G p t (f h) NONE (SND h)))
 [~any_failure:]
   (∀f p. ispeg_eval G p ([], any f) (Failure EOF G.anyEOF))
 [~tok_success:]
@@ -371,7 +371,7 @@ Inductive ispeg_eval:
 [~not_failure:]
   (∀e s r c p s' eo p'.
      ispeg_eval G p (s, e) (Success s' r eo p') ⇒
-     ispeg_eval G p (s, not e c) (Failure (sloc s) G.notFAIL)) 
+     ispeg_eval G p (s, not e c) (Failure (sloc s) G.notFAIL))
 [~seq_fail1:]
   (∀e1 e2 s f fl fe p.
      ispeg_eval G p (s, e1) (Failure fl fe) ⇒
@@ -576,7 +576,6 @@ Inductive peg0:
            pegnontop G (nt n f R)) ∧
 
   (* seq rules *)
-[pegfail_seq:]
   (∀e1 e2 f. pegfail G e1 ∨ (peg0 G e1 ∧ pegfail G e2) ∨
              (peggt0 G e1 ∧ pegfail G e2) ⇒
              pegfail G (seq e1 e2 f)) ∧
@@ -602,8 +601,7 @@ Inductive peg0:
   (∀e. pegfail G (error e)) ∧
 
 (* general *)
-[pegfail_nontop:]
-  ∀e. pegnontop G e ⇒ pegfail G e
+  (∀e. pegnontop G e ⇒ pegfail G e)
 End
 
 Theorem peg0_error[simp]:
