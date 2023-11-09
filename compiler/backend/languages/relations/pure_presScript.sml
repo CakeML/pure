@@ -144,13 +144,13 @@ Inductive bidir:
                 c1 = c2 ∧ vs1 = vs2 ∧ bidir x y) xs ys ∧
      OPTREL (λ(r1,x) (r2,y). r1 = r2 ∧ bidir x y) d e
      ⇒
-     bidir (Case a x v xs d) (Case b y v ys e)) ∧
+     bidir (Case a x v xs d) (Case b y v ys e))
 (* --- interesting rules --- *)
 [~Letrec_eq_Let_Letrec:]
   (* typing: neither direction proved - needs to reconcile differing polymorphism *)
   (∀a b v x y.
     bidir (Letrec a [(v,x)] y)
-          (Let b v (Letrec c [(v,x)] (Var d v)) y)) ∧
+          (Let b v (Letrec c [(v,x)] (Var d v)) y))
   (* typing: => direction proved
              <= direction has mismatching free variables *)
 [~App_Lam:]
