@@ -10,31 +10,10 @@ Datatype:
 End
 
 Inductive kind_wf:
-[~TyVar:]
-  (!cdb vdb v.
-    vdb v = kindType ==>
-      kind_wf cdb vdb kindType (TypeVar v)) /\
 [~Prim:]
   (!cdb vdb t. kind_wf cdb vdb kindType (PrimTy t)) /\
 [~Exception:]
   (!cdb vdb. kind_wf cdb vdb kindType Exception) /\
-[~Tuple:]
-  (!cdb vdb ts.
-    EVERY (kind_wf cdb vdb kindType) ts ==>
-      kind_wf cdb vdb kindType (Tuple ts)) /\
-[~Function:]
-  (!cdb vdb a b.
-    kind_wf cdb vdb kindType a /\
-    kind_wf cdb vdb kindType b ==>
-      kind_wf cdb vdb kindType (Function a b)) /\
-[~Array:]
-  (!cdb vdb t.
-    kind_wf cdb vdb kindType t ==>
-      kind_wf cdb vdb kindType (Array t)) /\
-[~M:]
-  (!cdb vdb t.
-    kind_wf cdb vdb kindType t ==>
-      kind_wf cdb vdb kindType (M t)) /\
 [~VarTypeConsBase:]
    (!cdb vdb v.
       kind_wf cdb vdb (vdb v) (VarTypeCons v [])) /\
@@ -53,6 +32,7 @@ Inductive kind_wf:
         kind_wf cdb vdb k2 (TypeCons v (t::ts)))
 End
 
+(* predicate to check if the predicated type is well-kinded *)
 Definition kind_ok_def:
   kind_ok cldb cdb vdb (Pred cls ty) =
     (kind_wf cdb vdb kindType ty /\
@@ -60,6 +40,7 @@ Definition kind_ok_def:
       kind_wf cdb vdb (cldb cl) v)
 End
 
+(* helper function to create a kind *)
 Definition kind_list_def:
   (kind_list [] ret = ret) /\
   (kind_list (k::ks) ret = kindArrow k (kind_list ks ret))

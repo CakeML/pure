@@ -5,10 +5,20 @@ open pure_typesTheory pure_tcexpTheory pure_configTheory;
 
 val _ = new_theory "pure_typing";
 
+(* CakeML assumes the following initial namespace:
+      Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
+      Types: 0 -> Bool, 1 -> List
+
+   In Pure, we need only Subscript and List - Bool is built in and none of the
+   others are used. Therefore, the Pure initial namespace should be:
+      Exception: 0 -> Subscript
+      Types: 0 -> List
+*)
+
 Definition initial_namespace_def:
   initial_namespace : exndef # typedefs = (
     [«Subscript»,[]],
-    [1, [ («[]»,[]) ; («::»,[VarTypeCons 0 []; TypeCons 0 [TypeVar 0 []]]) ]]
+    [1, [ («[]»,[]) ; («::»,[VarTypeCons 0 []; TypeCons 0 [VarTypeCons 0 []]]) ]]
   )
 End
 
