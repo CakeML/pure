@@ -37,16 +37,17 @@ Datatype:
 End
 
 Datatype:
-  expAST = expVar string
-         | expCon string (expAST list)
-         | expOp pure_config$atom_op (expAST list)
-         | expTup (expAST list)
-         | expApp expAST expAST
-         | expAbs patAST expAST
-         | expIf expAST expAST expAST
-         | expLit litAST
-         | expLet (expdecAST list) expAST
-         | expDo (expdostmtAST list) expAST
+  expAST = expVar string (PredtyAST option)
+         | expCon string (expAST list) (PredtyAST option)
+         | expOp pure_config$atom_op (expAST list) (PredtyAST option)
+         | expTup (expAST list) (PredtyAST option)
+         | expApp expAST expAST (PredtyAST option)
+         | expAbs patAST (PredtyAST option) expAST (PredtyAST option)
+         | expIf expAST expAST expAST (PredtyAST option)
+         | expLit litAST (* no need type sig *)
+         | expLet ((expdecAST # ((string list # PredtyAST) option)) list)
+            expAST (PredtyAST option)
+         | expDo (expdostmtAST list) expAST (PredtyAST option)
          | expCase expAST ((patAST # expAST) list);
   expdecAST = expdecTysig string PredtyAST
             | expdecPatbind patAST expAST
@@ -59,6 +60,8 @@ End
 Theorem better_expAST_induction =
         TypeBase.induction_of “:expAST”
           |> Q.SPECL [‘eP’, ‘dP’, ‘doP’,
+                      ‘λpds. ∀d vs t. MEM (d,t) pds ⇒ dP d’,
+                      ‘λpd. dP (FST pd)’,
                       ‘λpes. ∀p e. MEM (p,e) pes ⇒ eP e’,
                       ‘λpe. eP (SND pe)’,
                       ‘λdds. ∀ds. MEM ds dds ⇒ doP ds’,
@@ -80,17 +83,17 @@ val _ = set_fixity "⬝" (Infixl 600)
 Overload "⬝" = “expApp”
 
 Definition strip_comb_def:
-  strip_comb (expApp f x) = (I ## (λl. l ++ [x])) (strip_comb f) ∧
+  strip_comb (expApp f x _) = (I ## (λl. l ++ [x])) (strip_comb f) ∧
   strip_comb e = (e, [])
 End
 
 Definition dest_expVar_def:
-  dest_expVar (expVar s) = SOME s ∧
+  dest_expVar (expVar s _) = SOME s ∧
   dest_expVar _ = NONE
 End
 
 Definition dest_expLet_def:
-  dest_expLet (expLet ads e) = SOME (ads,e) ∧
+  dest_expLet (expLet ads e _) = SOME (MAP FST ads,e) ∧
   dest_expLet _ = NONE
 End
 
@@ -117,6 +120,7 @@ Type minImplAST = ``:(string list) list``; (* DNF of function names*)
 * In our case, we only need to ensure there is not a tyVar
 *)
 
+(* TODO: should we add kind signatures for class and data *)
 Datatype:
   declAST = declTysig string PredtyAST
           | declData string (string list)
