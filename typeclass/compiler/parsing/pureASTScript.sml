@@ -11,7 +11,7 @@ val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
    The tyTup constructor should never be applied to a singleton list
 *)
 Datatype:
-  tyAST = tyOp (string option) (tyAST list) (* NONE for tyTup *)
+  tyAST = tyOp (num + string) (tyAST list) (* INL for Tuple *)
         | tyVarOp string (tyAST list)
 End
 
@@ -19,10 +19,10 @@ Datatype:
   PredtyAST = Predty ((string # tyAST) list) tyAST
 End
 
-Overload boolTy = “tyOp (SOME "Bool") []”;
-Overload intTy = “tyOp (SOME "Integer") []”
-Overload listTy = “λty. tyOp (SOME "[]") [ty]”
-Overload funTy = “λd r. tyOp (SOME "Fun") [d; r]”
+Overload boolTy = “tyOp (INR "Bool") []”;
+Overload intTy = “tyOp (INR "Integer") []”
+Overload listTy = “λty. tyOp (INR "[]") [ty]”
+Overload funTy = “λd r. tyOp (INR "Fun") [d; r]”
 
 Datatype:
   litAST = litInt int | litString string
@@ -44,14 +44,14 @@ Datatype:
          | expApp expAST expAST (PredtyAST option)
          | expAbs patAST (PredtyAST option) expAST (PredtyAST option)
          | expIf expAST expAST expAST (PredtyAST option)
-         | expLit litAST (* no need type sig *)
-         | expLet ((expdecAST # ((string list # PredtyAST) option)) list)
-            expAST (PredtyAST option)
-         | expDo (expdostmtAST list) expAST (PredtyAST option)
-         | expCase expAST ((patAST # expAST) list);
+         | expLit litAST (* do not need type sig *)
+         | expLet (expdecAST list) expAST (PredtyAST option)
+         | expDo (expdostmtAST list) expAST
+         | expCase expAST ((patAST # expAST) list) (PredtyAST option);
   expdecAST = expdecTysig string PredtyAST
             | expdecPatbind patAST expAST
-            | expdecFunbind string (patAST list) expAST ;
+          (* if users would like to type annotate a function, use expdecTysig *)
+            | expdecFunbind string ((patAST # (PredtyAST option)) list) expAST ;
   expdostmtAST = expdostmtExp expAST
                | expdostmtBind patAST expAST
                | expdostmtLet (expdecAST list)
@@ -60,8 +60,6 @@ End
 Theorem better_expAST_induction =
         TypeBase.induction_of “:expAST”
           |> Q.SPECL [‘eP’, ‘dP’, ‘doP’,
-                      ‘λpds. ∀d vs t. MEM (d,t) pds ⇒ dP d’,
-                      ‘λpd. dP (FST pd)’,
                       ‘λpes. ∀p e. MEM (p,e) pes ⇒ eP e’,
                       ‘λpe. eP (SND pe)’,
                       ‘λdds. ∀ds. MEM ds dds ⇒ doP ds’,
@@ -75,8 +73,8 @@ Theorem better_expAST_induction =
           |> Q.GENL [‘eP’, ‘dP’, ‘doP’]
 
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
-Overload pNIL = “expCon "[]" []”
-Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
+Overload pNIL = “expCon "[]" [] NONE”
+Overload pCONS = “λe1 e2. expCon "::" [e1;e2] NONE”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)
@@ -93,7 +91,7 @@ Definition dest_expVar_def:
 End
 
 Definition dest_expLet_def:
-  dest_expLet (expLet ads e _) = SOME (MAP FST ads,e) ∧
+  dest_expLet (expLet ads e _) = SOME (ads,e) ∧
   dest_expLet _ = NONE
 End
 
@@ -120,14 +118,13 @@ Type minImplAST = ``:(string list) list``; (* DNF of function names*)
 * In our case, we only need to ensure there is not a tyVar
 *)
 
-(* TODO: should we add kind signatures for class and data *)
 Datatype:
   declAST = declTysig string PredtyAST
           | declData string (string list)
                      ((string # tyAST list) list)
-          | declFunbind string (patAST list) expAST
+          | declFunbind string ((patAST # (PredtyAST option)) list) expAST
           | declPatbind patAST expAST
-          | declClass (classname list) classname minImplAST (expdecAST list)
+          | declClass (classname list) classname string minImplAST (expdecAST list)
             (* enforce type sigs for functions definintion in class *)
           | declInst ((classname # string) list) classname tyAST (expdecAST list)
 End

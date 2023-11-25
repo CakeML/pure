@@ -10,17 +10,25 @@ open pure_typesTheory pure_kindCheckTheory;
 val _ = new_theory "pure_tcexp";
 
 Datatype:
-  tcexp = Var (PredType option) cvname                     (* variable                 *)
-        | Prim (PredType option) cop (tcexp list)          (* primitive operations     *)
-        | App (PredType option) tcexp (tcexp list)         (* function application     *)
-        | Lam ((PredType option # cvname) list)
-           (PredType option) tcexp                         (* lambda                   *)
-        | Let (PredType_scheme option) cvname tcexp
-            (PredType option) tcexp                        (* let                      *)
-        | Letrec (((PredType_scheme option) # cvname # tcexp) list)
-            (PredType option) tcexp                        (* mutually recursive exps  *)
+  (* The first argument for each constructor is the type of the whole expression *)
+  tcexp = Var (PredType option) cvname                            (* variable                 *)
+          (* the first type is the type for the whole expression,
+          *  and the second type is the type for the operator *)
+        | Prim (PredType option) cop (tcexp list)                 (* primitive operations     *)
+        | App (PredType option) tcexp (tcexp list)                (* function application     *)
+          (* the types inside the list are the types assigned for
+          * the corresponding variables *)
+        | Lam (PredType option) ((PredType option # cvname) list)
+            tcexp                                                 (* lambda                   *)
+          (* the type scheme is the polymorphic type for
+          *  the binding expression. Used for inferencing *)
+        | Let (PredType option)
+             (PredType_scheme option) cvname tcexp tcexp          (* let                      *)
+        | Letrec (PredType option)
+            (((PredType_scheme option) # cvname # tcexp) list)
+            tcexp                                                 (* mutually recursive exps  *)
         | NestedCase (PredType option) tcexp cvname cepat tcexp
-            ((cepat # tcexp) list)                         (* case of                  *)
+            ((cepat # tcexp) list)                                (* case of                  *)
 End
 
 (* top level declarations *)
@@ -34,9 +42,9 @@ Datatype:
   classinfo =
     <| super : mlstring list
      ; kind : Kind option
-     ; methodsig : (cvname, PredType) map
+     ; methodsig : cvname |-> PredType
      ; minImp : minImplAST
-     ; defaults : (cvname, tcexp) map |>
+     ; defaults : cvname |-> tcexp |>
 End
 
 Inductive super_reachable:
@@ -60,7 +68,7 @@ Datatype:
     <| cstr : (mlstring # 'b) list (* class and type variable*)
      ; class : mlstring
      ; insttype : type
-     ; impl : (cvname,tcexp) map |> (* function name and its expression *)
+     ; impl : cvname |-> tcexp |> (* function name and its expression *)
 End
 
 Definition instinfo_constraint_ok_def:
@@ -77,14 +85,14 @@ End
 Definition instinfo_impl_ok:
   instinfo_impl_ok cdb inst <=>
   ?c. FLOOKUP cdb inst.class = SOME c /\
-    (!meth ty. lookup c.methodsig meth = SOME ty ==>
+    (!meth ty. FLOOKUP c.methodsig meth = SOME ty ==>
       ?exp.
-       (lookup inst.impl meth = SOME exp
+       (FLOOKUP inst.impl meth = SOME exp
        (* /\ TODO: check if the tcexp has the correct instantiated type *)) \/
-       lookup c.defaults meth = SOME exp) /\
+       FLOOKUP c.defaults meth = SOME exp) /\
     (?minimpl. !m.
       MEM minimpl c.minImp /\ MEM m minimpl ==>
-        ?exp. lookup inst.impl m = SOME exp)
+        ?exp. FLOOKUP inst.impl m = SOME exp)
 End
 
 val _ = export_theory();

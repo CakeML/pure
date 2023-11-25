@@ -64,7 +64,7 @@ Type PredType_scheme[pp] = ``:num # PredType``;
 *)
 
 (* TODO make finite maps *)
-Type typedef[pp] = ``:num # ((mlstring # PredType list) list)``;
+Type typedef[pp] = ``:num # ((mlstring # type list) list)``;
 Type typedefs[pp] = ``:typedef list``;
 Type exndef[pp] = ``:(mlstring # type list) list``;
 

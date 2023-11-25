@@ -18,8 +18,16 @@ val _ = new_theory "pure_typing";
 Definition initial_namespace_def:
   initial_namespace : exndef # typedefs = (
     [«Subscript»,[]],
-    [1, [ («[]»,[]) ; («::»,[VarTypeCons 0 []; TypeCons 0 [VarTypeCons 0 []]]) ]]
+    [1, [ («[]»,[]) ; («::»,[VarTypeCons 0 []; TypeCons (INL 0) [VarTypeCons 0 []]]) ]]
   )
+End
+
+Definition initial_kindmap_def:
+  initial_kindmap (INR Function) = kind_arrows [kindType;kindType] kindType ∧
+  initial_kindmap (INR (Tuple n)) = kind_arrows (GENLIST (K kindType) n)
+  kindType ∧
+  initial_kindmap (INR Array) = kindArrow kindType kindType ∧
+  initial_kindmap (INR M) = kindArrow kindType kindType
 End
 
 (* Constructor names and their arities defined by a namespace *)
@@ -38,6 +46,10 @@ Definition cns_arities_ok_def:
     (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
 End
 
+Definition apply_rest_def:
+  apply_rest (TypeCons n tcs) rest = TypeCons n (tcs ++ rest) ∧
+  apply_rest (VarTypeCons n tcs) rest = VarTypeCons n (tcs ++ rest)
+End
 
 (********** Substitutions and shifts **********)
 
@@ -47,17 +59,13 @@ Definition subst_db_def:
   subst_db skip ts (TypeCons n tcs) = TypeCons n (MAP (subst_db skip ts) tcs) ∧
   subst_db skip ts (VarTypeCons v tcs) = (
     if skip <= v ∧ v < skip + LENGTH ts then
-      EL (v - skip) ts
+      apply_rest (EL (v - skip) ts) (MAP (subst_db skip ts) tcs)
     else if skip <= v then
       VarTypeCons (v - LENGTH ts) (MAP (subst_db skip ts) tcs)
-    else VarTypeCons v (MAP (subst_db skip ts) tcs)) ∧
-  subst_db skip ts (Function tf t) =
-    Function (subst_db skip ts tf) (subst_db skip ts t) ∧
-  subst_db skip ts (Array t) = Array (subst_db skip ts t) ∧
-  subst_db skip ts (M t) = M (subst_db skip ts t)
+    else VarTypeCons v (MAP (subst_db skip ts) tcs))
 Termination
-  WF_REL_TAC `measure (type_size o SND o SND)` >> rw[fetch "-" "type_size_def"] >>
-  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "type_size_def"] >> gvs[]
+  WF_REL_TAC `measure (type_size o SND o SND)` >> rw[fetch "pure_types" "type_size_def"] >>
+  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "pure_types" "type_size_def"] >> gvs[]
 End
 
 Definition shift_db_def:
@@ -66,14 +74,10 @@ Definition shift_db_def:
   shift_db skip n (TypeCons tn tcs) = TypeCons tn (MAP (shift_db skip n) tcs) ∧
   shift_db skip n (VarTypeCons tn tcs) = (if skip <= tn
     then VarTypeCons (tn + n) (MAP (shift_db skip n) tcs)
-    else VarTypeCons tn (MAP (shift_db skip n) tcs)) ∧
-  shift_db skip n (Function tf t) =
-    Function (shift_db skip n tf) (shift_db skip n t) ∧
-  shift_db skip n (Array t) = Array (shift_db skip n t) ∧
-  shift_db skip n (M t) = M (shift_db skip n t)
+    else VarTypeCons tn (MAP (shift_db skip n) tcs))
 Termination
-  WF_REL_TAC `measure (type_size o SND o SND)` >> rw[fetch "-" "type_size_def"] >>
-  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "type_size_def"] >> gvs[]
+  WF_REL_TAC `measure (type_size o SND o SND)` >> rw[fetch "pure_types" "type_size_def"] >>
+  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "pure_types" "type_size_def"] >> gvs[]
 End
 
 Overload subst_db_scheme =
@@ -89,7 +93,7 @@ Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_scheme n scheme))``;
 
 Definition Functions_def:
   Functions [] t = t ∧
-  Functions (at::ats) t = Function at (Functions ats t)
+  Functions (at::ats) t = TypeCons (INR Function) [at;Functions ats t]
 End
 
 
@@ -99,14 +103,10 @@ Definition freetyvars_ok_def:
   freetyvars_ok n (PrimTy p) = T ∧
   freetyvars_ok n  Exception = T ∧
   freetyvars_ok n (TypeCons c ts) = EVERY (freetyvars_ok n) ts ∧
-  freetyvars_ok n (VarTypeCons v ts) = (v < n ∧ EVERY (freetyvars_ok n) ts) ∧
-  freetyvars_ok n (Function tf t) =
-    (freetyvars_ok n tf ∧ freetyvars_ok n t) ∧
-  freetyvars_ok n (Array t) = freetyvars_ok n t ∧
-  freetyvars_ok n (M t) = freetyvars_ok n t
+  freetyvars_ok n (VarTypeCons v ts) = (v < n ∧ EVERY (freetyvars_ok n) ts)
 Termination
-  WF_REL_TAC `measure (type_size o SND)` >> rw[fetch "-" "type_size_def"] >>
-  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "type_size_def"] >> gvs[]
+  WF_REL_TAC `measure (type_size o SND)` >> rw[fetch "pure_types" "type_size_def"] >>
+  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "pure_types" "type_size_def"] >> gvs[]
 End
 
 Overload freetyvars_ok_scheme =
@@ -114,6 +114,7 @@ Overload freetyvars_ok_scheme =
 
 (* Does a type only contain defined constructors, and non-nullary functions? *)
 (* replace with kind check *)
+(*
 Definition type_wf_def:
   type_wf (typedefs : typedefs) (TypeVar n) = T ∧
   type_wf typedefs (PrimTy pty) = T ∧
@@ -484,7 +485,7 @@ Inductive type_tcexp:
       oEL i tys = SOME scheme ∧ tsubst tyargs scheme = t ⇒
     type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
 End
-
+*)
 
 (********************)
 

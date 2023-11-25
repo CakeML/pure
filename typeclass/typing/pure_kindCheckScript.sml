@@ -41,9 +41,9 @@ Definition kind_ok_def:
 End
 
 (* helper function to create a kind *)
-Definition kind_list_def:
-  (kind_list [] ret = ret) /\
-  (kind_list (k::ks) ret = kindArrow k (kind_list ks ret))
+Definition kind_arrows_def:
+  (kind_arrows [] ret = ret) /\
+  (kind_arrows (k::ks) ret = kindArrow k (kind_arrows ks ret))
 End
 
 Definition kind_to_arities_def:
