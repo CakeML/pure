@@ -633,6 +633,7 @@ Definition translate_decs_def:
     (* assert $ EVERY (EVERY (λx. x IN FDOM msigs)) minimpl; *)
     return (rest,cl_map |+ (clname, (* mlstring *)
       <| super := MAP implode spcls
+       ; kind := NONE
        (* do kind inference after collection all the classinfos *)
        ; methodsig := msigs
        ; minImp := minimpl
@@ -705,81 +706,6 @@ End
 
 (********** closedness **********)
 
-(* unused *)
-Definition freevars_cexp_impl_def:
-  freevars_cexp_impl (Var c v) = insert empty v () ∧
-  freevars_cexp_impl (Prim c op es) = freevars_cexp_impl_l es ∧
-  freevars_cexp_impl (App c e es) =
-    union (freevars_cexp_impl e) (freevars_cexp_impl_l es) ∧
-  freevars_cexp_impl (Lam c vs e) = list_delete (freevars_cexp_impl e) vs ∧
-  freevars_cexp_impl (Let c v e1 e2) =
-    union (freevars_cexp_impl e1) (delete (freevars_cexp_impl e2) v) ∧
-  freevars_cexp_impl (Letrec c fns e) = (
-    let (fs, bodies) = UNZIP fns in
-    list_delete (union (freevars_cexp_impl e) (freevars_cexp_impl_l bodies)) fs) ∧
-
-  freevars_cexp_impl (Case c e v css eopt) = (
-    let css_vars =
-        (FOLDL (λacc (cn,vs,e).
-          union acc (list_delete (freevars_cexp_impl e) vs)) empty css) in
-    let e_css_vars = union (freevars_cexp_impl e) (delete css_vars v) in
-    case eopt of
-    | NONE => e_css_vars
-    | SOME (a,e) => union (delete (freevars_cexp_impl e) v) e_css_vars) ∧
-
-  freevars_cexp_impl_l [] = empty ∧
-  freevars_cexp_impl_l (e::es) = union (freevars_cexp_impl e) (freevars_cexp_impl_l es)
-Termination
-  WF_REL_TAC `measure (λs. case s of
-    | INL e => cexp_size (K 0) e
-    | INR l => list_size (cexp_size (K 0)) l)` >>
-  ntac 2 gen_tac >> Induct >> rw[cexp_size_def] >> gvs[list_size_def] >>
-  Cases_on `UNZIP fns` >> PairCases_on `h` >> gvs[cexp_size_def]
-End
-
-Theorem freevars_cexp_impl:
-  (∀(e:'a cexp) s. freevars_cexp_impl e = s ∧ NestedCase_free e ⇒
-    map_ok s ∧ cmp_of s = var_cmp ∧ FDOM (to_fmap s) = freevars_cexp e) ∧
-  (∀(es:'a cexp list) s. freevars_cexp_impl_l es = s ∧ EVERY NestedCase_free es ⇒
-    map_ok s ∧ cmp_of s = var_cmp ∧
-    FDOM (to_fmap s) = BIGUNION (set (MAP freevars_cexp es)))
-Proof
-  ho_match_mp_tac freevars_cexp_impl_ind >> rw[] >>
-  gvs[freevars_cexp_impl_def, NestedCase_free_def, UNZIP_MAP, SF ETA_ss] >>
-  every_case_tac >> gvs[] >>
-  gvs[insert_thm, union_thm, delete_thm, list_delete_thm] >>
-  gvs[pure_miscTheory.FDOM_FDIFF_alt]
-  >- simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
-  `map_ok (FOLDL (λacc (cn,vs,e').
-    union acc $ list_delete (freevars_cexp_impl e') vs) empty css) ∧
-   cmp_of (FOLDL (λacc (cn,vs,e').
-    union acc $ list_delete (freevars_cexp_impl e') vs) empty css)
-    = var_cmp` by (
-    qabbrev_tac `foo = (empty : var_set)` >>
-    `map_ok foo ∧ cmp_of foo = var_cmp` by (unabbrev_all_tac >> gvs[]) >>
-    ntac 2 $ pop_assum mp_tac >> pop_assum kall_tac >>
-    qid_spec_tac `foo` >> Induct_on `css` >> gvs[] >>
-    ntac 2 (gen_tac >> ntac 2 strip_tac) >>
-    last_x_assum irule >> PairCases_on `h` >> gvs[] >>
-    simp[union_thm, list_delete_thm] >> gvs[DISJ_IMP_THM, FORALL_AND_THM]) >>
-  DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >> simp[] >>
-  DEP_REWRITE_TAC[cj 1 delete_thm, cj 2 delete_thm, cj 3 union_thm] >> simp[] >>
-  qsuff_tac
-    `∀foo:var_set. map_ok foo ∧ cmp_of foo = var_cmp ⇒
-      FDOM (to_fmap (FOLDL (λacc (cn,vs,e').
-        union acc $ list_delete (freevars_cexp_impl e') vs) foo css)) =
-      BIGUNION (set (MAP (λ(_,vs,ec). freevars_cexp ec DIFF set vs) css)) ∪
-        FDOM (to_fmap foo)` >>
-  simp[UNION_DELETE, AC UNION_ASSOC UNION_COMM] >>
-  ntac 2 $ pop_assum kall_tac >> Induct_on `css` >> rw[] >>
-  PairCases_on `h` >> gvs[] >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-  last_x_assum drule >>
-  disch_then $ qspec_then
-    `union foo $ list_delete (freevars_cexp_impl h2) h1` mp_tac >>
-  simp[union_thm, list_delete_thm] >> strip_tac >>
-  simp[pure_miscTheory.FDOM_FDIFF_alt, AC UNION_ASSOC UNION_COMM]
-QED
-
 Definition cepat_vars_impl_def:
   cepat_vars_impl cepatUScore = empty ∧
   cepat_vars_impl (cepatVar v) = insert empty v () ∧
@@ -789,42 +715,110 @@ Definition cepat_vars_impl_def:
   cepat_vars_impl_l (p::ps) = union (cepat_vars_impl p) (cepat_vars_impl_l ps)
 End
 
-Definition contains_def:
-  contains (s:var_set) v = (lookup s v = SOME ())
-End
+Theorem cepat_vars_impl_ok:
+  (!pat. map_ok (cepat_vars_impl pat) /\ cmp_of (cepat_vars_impl pat) = var_cmp)
+  /\
+  (!l. map_ok (cepat_vars_impl_l l) /\ cmp_of (cepat_vars_impl_l l) = var_cmp)
+Proof
+  ho_match_mp_tac pure_cexpTheory.cepat_induction >>
+  rw[] >>
+  gvs[cepat_vars_impl_def,insert_thm,union_thm]
+QED
 
-Definition closed_under_def:
-  closed_under vs (Var c v) = contains vs v ∧
-  closed_under vs (Prim c op es) = EVERY (closed_under vs) es ∧
-  closed_under vs (App c e es) = (closed_under vs e ∧ EVERY (closed_under vs) es) ∧
-  closed_under vs (Lam c xs e) = closed_under (list_insert_set vs xs) e ∧
-  closed_under vs (Let c x e1 e2) =
-    (closed_under vs e1 ∧ closed_under (insert vs x ()) e2) ∧
-  closed_under vs (Letrec c fns e) = (
-    let (fs, bodies) = UNZIP fns in
-    let vs' = list_insert_set vs fs in
-    closed_under vs' e ∧ EVERY (closed_under vs') bodies) ∧
+(* unused *)
+Definition freevars_tcexp_impl_def:
+  freevars_tcexp_impl (pure_tcexp$Var c v) = insert empty v () ∧
+  freevars_tcexp_impl (Prim c op es) = freevars_tcexp_impl_l es ∧
+  freevars_tcexp_impl (App c e es) =
+    union (freevars_tcexp_impl e) (freevars_tcexp_impl_l es) ∧
+  freevars_tcexp_impl (Lam c vs e) =
+    list_delete (freevars_tcexp_impl e) (MAP SND vs) ∧
+  freevars_tcexp_impl (Let c t v e1 e2) =
+    union (freevars_tcexp_impl e1) (delete (freevars_tcexp_impl e2) v) ∧
+  freevars_tcexp_impl (Letrec c fns e) = (
+    let (fs, bodies) = UNZIP (MAP SND fns) in
+    list_delete (union (freevars_tcexp_impl e) (freevars_tcexp_impl_l bodies)) fs) ∧
 
-  closed_under vs (Case c e v css eopt) = (
-    closed_under vs e ∧
-    let vs' = insert vs v () in
-    EVERY (λ(cn,pvs,e). closed_under (list_insert_set vs' pvs) e) css ∧
-    case eopt of
-    | NONE => T
-    | SOME (a,e) => closed_under vs' e) ∧
+  freevars_tcexp_impl (NestedCase c e v pat e1 rest) = (
+    let pat_vars =
+      FOLDL (λacc (p,te). union acc $
+        filterWithKey (λk v. lookup (cepat_vars_impl p) k = NONE) (freevars_tcexp_impl te))
+        empty ((pat,e1)::rest) in
+    mlmap$union (freevars_tcexp_impl e) (delete pat_vars v)) ∧
 
-  closed_under vs (NestedCase c g gv p e pes) = (
-    closed_under vs g ∧
-    let vs' = insert vs gv () in
-    EVERY (λ(pat,e).
-      closed_under (mlmap$union (cepat_vars_impl pat) vs') e) ((p,e)::pes))
+  freevars_tcexp_impl_l [] = empty ∧
+  freevars_tcexp_impl_l (e::es) = union (freevars_tcexp_impl e) (freevars_tcexp_impl_l es)
 Termination
-  WF_REL_TAC `measure $ cexp_size (K 0) o SND` >>
-  gvs[UNZIP_MAP, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
-  simp[DISJ_IMP_THM, FORALL_AND_THM] >> conj_tac >> gen_tac >>
-  Induct >> rw[] >> gvs[cexp_size_def] >> res_tac >> simp[] >>
-  first_x_assum $ qspecl_then [`p`,`gv`,`e`] assume_tac >> gvs[]
+  WF_REL_TAC `measure (λs. case s of
+    | INL e => tcexp_size e
+    | INR l => list_size tcexp_size l)` >>
+  conj_tac
+  >- (
+    ntac 3 gen_tac >>
+    Induct >>
+    rw[tcexp_size_def] >> gvs[list_size_def]
+    >- gvs[tcexp_size_def,list_size_def] >>
+    res_tac >>
+    irule arithmeticTheory.LESS_TRANS >>
+    first_x_assum (irule_at (Pos hd)) >>
+    qexistsl [`pat`,`e1`] >>
+    simp[] ) >>
+  ntac 2 gen_tac >> Induct >> rw[tcexp_size_def] >> gvs[list_size_def] >>
+  Cases_on `UNZIP (MAP SND fns)` >>
+  PairCases_on `h` >> gvs[tcexp_size_def]
 End
+
+Theorem FOLDL_union:
+  !m. map_ok m /\ cmp_of m = c /\
+    (!x. MEM x xs ==> map_ok (f x) /\ cmp_of (f x) = c) ==>
+  map_ok (FOLDL (λacc x. union acc (f x)) m xs) /\
+  cmp_of (FOLDL (λacc x. union acc (f x)) m xs) = c /\
+  FDOM (mlmap$to_fmap (FOLDL (λacc x. union acc (f x)) m xs)) =
+    (FDOM (to_fmap m)) ∪ BIGUNION (set (MAP (λx. FDOM (to_fmap (f x))) xs))
+Proof
+  Induct_on `xs`
+  >- gvs[] >>
+  rpt gen_tac >>
+  rpt (disch_then strip_assume_tac) >>
+  gvs[] >>
+  reverse (rw[])
+  >- (
+    irule_at (Pos hd) EQ_TRANS >>
+    first_x_assum $ irule_at (Pos hd) o cj 3 >>
+    DEP_REWRITE_TAC[cj 1 union_thm, cj 2 union_thm, cj 3 union_thm] >>
+    simp[UNION_ASSOC]) >>
+  metis_tac[union_thm]
+QED
+
+val FOLDL_union_filterWithKey = SRULE[GSYM PFORALL_THM,LAMBDA_PROD] $
+  Q.SPEC `λ(p,te). (filterWithKey
+     (λk v. lookup (cepat_vars_impl p) k = NONE)
+     (freevars_tcexp_impl te))` $
+  INST_TYPE [
+    ``:'c`` |-> ``:cepat # tcexp``,
+    ``:'b`` |-> ``:unit``,
+    ``:'a``|->``:mlstring``] $
+  Q.GEN `f` $ Q.SPEC `m` FOLDL_union ;
+
+Triviality filterWithKey_cmp_of:
+  cmp_of (filterWithKey f m) = cmp_of m
+Proof
+  Cases_on `m` >>
+  simp[filterWithKey_def,cmp_of_def]
+QED
+
+Triviality delete_cmp_of:
+  cmp_of (delete m k) = cmp_of m
+Proof
+  Cases_on `m` >>
+  simp[delete_def,cmp_of_def]
+QED
+
+Triviality FDOM_FLOOKUP_unit:
+  FLOOKUP m x = SOME () <=> x IN FDOM m
+Proof
+  simp[miscTheory.FDOM_FLOOKUP]
+QED
 
 Theorem cepat_vars_impl:
   (∀p m. cepat_vars_impl p = m ⇒
@@ -837,9 +831,145 @@ Proof
   gvs[insert_thm, union_thm]
 QED
 
+Triviality lookup_cepat_vars_impl:
+  (lookup (cepat_vars_impl pat) k ≠ NONE) <=>
+  k ∈ cepat_vars pat
+Proof
+  qspecl_then [`pat`,`cepat_vars_impl pat`] assume_tac $ cj 1 cepat_vars_impl >>
+  rw[] >>
+  gvs[lookup_thm] >>
+  Cases_on `FLOOKUP (to_fmap (cepat_vars_impl pat)) k` >>
+  simp[] >>
+  qspecl_then [`k`,`to_fmap (cepat_vars_impl pat)`] assume_tac $
+    GEN_ALL miscTheory.FDOM_FLOOKUP >>
+  gvs[]
+QED
+
+Theorem freevars_tcexp_impl:
+  (∀(e:tcexp) s. freevars_tcexp_impl e = s ==>
+  map_ok s ∧ cmp_of s = var_cmp ∧ FDOM (to_fmap s) = freevars_tcexp e) ∧
+  (∀(es:tcexp list) s. freevars_tcexp_impl_l es = s ==>
+    map_ok s ∧ cmp_of s = var_cmp ∧
+    FDOM (to_fmap s) = BIGUNION (set (MAP freevars_tcexp es)))
+Proof
+  ho_match_mp_tac freevars_tcexp_impl_ind >>
+  rpt (
+    conj_tac >>
+    gvs[freevars_tcexp_impl_def,UNZIP_MAP, SF ETA_ss] >>
+    every_case_tac >> gvs[] >>
+    gvs[insert_thm, union_thm, delete_thm, list_delete_thm] >>
+    gvs[pure_miscTheory.FDOM_FDIFF_alt])
+  >- simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+  rpt gen_tac >>
+  rpt (disch_then strip_assume_tac) >>
+  DEP_REWRITE_TAC[cj 1 union_thm,cj 2 union_thm,cj 3 union_thm] >>
+  simp[] >>
+  DEP_REWRITE_TAC[cj 1 delete_thm,cj 2 delete_thm,delete_cmp_of] >>
+  irule_at (Pos hd) $ cj 1 FOLDL_union_filterWithKey >>
+  qexists `var_cmp` >>
+  ntac 3 (
+    conj_asm1_tac
+    >- (
+      rpt gen_tac >>
+      rpt (disch_then strip_assume_tac) >>
+      DEP_REWRITE_TAC[cj 1 union_thm,cj 2 union_thm,cj 1 filterWithKey_thm] >>
+      simp[filterWithKey_cmp_of] >>
+      metis_tac[])) >>
+  conj_tac
+  >- (irule $ cj 2 FOLDL_union_filterWithKey >> simp[]) >>
+  drule_all_then assume_tac $ cj 3 FOLDL_union_filterWithKey >>
+  irule EQ_TRANS >>
+  simp[] >>
+  ntac 2 (BINOP_TAC >> simp[]) >>
+  BINOP_TAC
+  >- (
+    DEP_REWRITE_TAC[cj 3 union_thm] >>
+    simp[filterWithKey_cmp_of] >>
+    DEP_REWRITE_TAC[cj 1 filterWithKey_thm,cj 2 filterWithKey_thm] >>
+    simp[] >>
+    simp[pure_miscTheory.FDOM_FDIFF_alt] >>
+    CONV_TAC (RAND_CONV $ SCONV[Once $ GSYM DIFF_INTER2]) >>
+    AP_TERM_TAC >>
+    simp[EXTENSION] >>
+    rpt strip_tac >>
+    iff_tac >>
+    simp[GSPECIFICATION,PULL_EXISTS]
+    >- (
+      gen_tac >>
+      pairarg_tac >>
+      simp[] >>
+      rpt strip_tac
+      >- metis_tac[lookup_cepat_vars_impl] >>
+      metis_tac[miscTheory.FDOM_FLOOKUP])>>
+    strip_tac >>
+    qexists `(x,())` >>
+    rw[]
+    >- simp[FDOM_FLOOKUP_unit] >>
+    metis_tac[lookup_cepat_vars_impl] ) >>
+  ntac 2 AP_TERM_TAC >>
+  simp[MAP_EQ_f] >>
+  rpt strip_tac >>
+  pairarg_tac >>
+  simp[] >>
+  DEP_REWRITE_TAC[cj 2 filterWithKey_thm] >>
+  gvs[] >>
+  conj_tac
+  >- metis_tac[] >>
+  simp[pure_miscTheory.FDOM_FDIFF_alt] >>
+  CONV_TAC (RAND_CONV $ SCONV[Once $ GSYM DIFF_INTER2]) >>
+  BINOP_TAC
+  >- metis_tac[] >>
+  simp[EXTENSION] >>
+  rpt strip_tac >>
+  iff_tac >>
+  simp[GSPECIFICATION,PULL_EXISTS]
+  >- (
+    gen_tac >>
+    pairarg_tac >>
+    simp[] >>
+    rpt strip_tac
+    >- metis_tac[lookup_cepat_vars_impl] >>
+    metis_tac[FDOM_FLOOKUP_unit] ) >>
+  strip_tac >>
+  qexists `(x,())` >>
+  rw[]
+  >- (simp[FDOM_FLOOKUP_unit] >> metis_tac[]) >>
+  metis_tac[lookup_cepat_vars_impl]
+QED
+
+Definition contains_def:
+  contains (s:var_set) v = (lookup s v = SOME ())
+End
+
+Definition closed_under_def:
+  closed_under vs (pure_tcexp$Var c v) = contains vs v ∧
+  closed_under vs (Prim c op es) = EVERY (closed_under vs) es ∧
+  closed_under vs (App c e es) = (closed_under vs e ∧ EVERY (closed_under vs) es) ∧
+  closed_under vs (Lam c xs e) = closed_under (list_insert_set vs (MAP SND xs)) e ∧
+  closed_under vs (Let c t x e1 e2) =
+    (closed_under vs e1 ∧ closed_under (insert vs x ()) e2) ∧
+  closed_under vs (Letrec c fns e) = (
+    let (fs, bodies) = UNZIP (MAP SND fns) in
+    let vs' = list_insert_set vs fs in
+    closed_under vs' e ∧ EVERY (closed_under vs') bodies) ∧
+
+  closed_under vs (NestedCase c g gv p e pes) = (
+    closed_under vs g ∧
+    let vs' = insert vs gv () in
+    EVERY (λ(pat,e).
+      closed_under (mlmap$union (cepat_vars_impl pat) vs') e) ((p,e)::pes))
+Termination
+  WF_REL_TAC `measure $ tcexp_size o SND` >>
+  gvs[UNZIP_MAP, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+  simp[DISJ_IMP_THM, FORALL_AND_THM] >> conj_tac >>
+  ntac 2 gen_tac >>
+  Induct >> rw[] >> gvs[tcexp_size_def] >> res_tac >> simp[] >>
+  first_x_assum $ qspecl_then [`p`,`gv`,`e`] assume_tac >> gvs[]
+End
+
 Theorem closed_under:
   ∀m e. map_ok m ∧ cmp_of m = var_cmp ⇒
-  closed_under m e = (freevars_cexp e ⊆ FDOM (to_fmap m))
+  closed_under m e = (freevars_tcexp e ⊆ FDOM (to_fmap m))
 Proof
   recInduct closed_under_ind >> rw[closed_under_def, contains_def] >>
   gvs[union_thm, lookup_thm, insert_thm, list_insert_set_thm, FDOM_FUPDATE_LIST] >>
@@ -849,23 +979,11 @@ Proof
   >- gvs[FLOOKUP_DEF]
   >- (Induct_on `es` >> rw[])
   >- (AP_TERM_TAC >> Induct_on `es` >> rw[])
+  >- metis_tac[]
   >- (
     AP_TERM_TAC >> rename1 `list_insert_set _ fs` >>
     Induct_on `fns` >> rw[] >> PairCases_on `h` >> gvs[]
-    )
-  >- (
-    AP_TERM_TAC >> CASE_TAC
-    >- (
-      Induct_on `css` >> rw[] >> PairCases_on `h` >> gvs[] >>
-      gvs[GSYM SUBSET_INSERT_DELETE, pure_miscTheory.DIFF_SUBSET] >> metis_tac[]
-      )
-    >- (
-      CASE_TAC >> gvs[GSYM SUBSET_INSERT_DELETE] >>
-      simp[Once CONJ_SYM] >> AP_TERM_TAC >>
-      Induct_on `css` >> rw[] >> PairCases_on `h` >> gvs[] >>
-      gvs[pure_miscTheory.DIFF_SUBSET] >> metis_tac[]
-      )
-    )
+  )
   >- (
     AP_TERM_TAC >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
     qspec_then `p` assume_tac $ cj 1 cepat_vars_impl >> gvs[union_thm, insert_thm] >>
@@ -873,7 +991,55 @@ Proof
     Induct_on `pes` >> rw[] >> PairCases_on `h` >> gvs[] >>
     qspec_then `h0` assume_tac $ cj 1 cepat_vars_impl >> gvs[union_thm, insert_thm] >>
     gvs[GSYM SUBSET_INSERT_DELETE, pure_miscTheory.DIFF_SUBSET]
-    )
+  )
+QED
+
+Definition monad_cn_mlstrings_def:
+  monad_cn_mlstrings =
+    [«Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
+End
+
+Triviality implodeEQ:
+  y = implode x ⇔ (explode y = x)
+Proof
+  rw[EQ_IMP_THM] >> simp[]
+QED
+
+Triviality MEM_monad_cn_mlstrings:
+  MEM x monad_cn_mlstrings ⇔ explode x ∈ monad_cns
+Proof
+  rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def] >>
+  simp[SRULE [mlstringTheory.implode_def] implodeEQ]
+QED
+
+Theorem tcexp_wf_alt_def[compute]:
+  (∀v0 v. tcexp_wf (Var v0 v : tcexp) ⇔ T) ∧
+  (∀v1 op es.
+    tcexp_wf (Prim v1 op es : tcexp) ⇔
+    num_args_ok op (LENGTH es) ∧ EVERY (λa. tcexp_wf a) es ∧
+    (case op of
+     | AtomOp (Lit (Int i)) => T
+     | AtomOp (Lit (Str s)) => T
+     | AtomOp (Lit _) => F
+     | AtomOp (Message m) => m ≠ ""
+     | _ => T)) ∧
+  (∀v2 es e.
+    tcexp_wf (App v2 e es : tcexp) ⇔
+    tcexp_wf e ∧ EVERY (λa. tcexp_wf a) es ∧ ¬ NULL es) ∧
+  (∀vs v3 e. tcexp_wf (Lam v3 vs e : tcexp) ⇔ tcexp_wf e ∧ ¬ NULL vs) ∧
+  (∀v4 s v e2 e1. tcexp_wf (Let v4 s v e1 e2 : tcexp) ⇔ tcexp_wf e1 ∧ tcexp_wf e2) ∧
+  (∀v5 fns e.
+    tcexp_wf (Letrec v5 fns e : tcexp) ⇔
+    EVERY (λa. tcexp_wf a) (MAP (λx. SND (SND x)) fns) ∧ tcexp_wf e ∧ ¬ NULL fns) ∧
+  (∀v7 pes p gv g e.
+   tcexp_wf (NestedCase v7 g gv p e pes : tcexp) ⇔
+   tcexp_wf g ∧ tcexp_wf e ∧ EVERY (λa. tcexp_wf a) (MAP SND pes) ∧
+   ¬MEM gv (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes))))
+Proof
+  rw[] >> simp[tcexp_wf_def] >> gvs[NULL_EQ]
+  >- (
+    eq_tac >> rw[] >> gvs[] >>
+    rpt (FULL_CASE_TAC >> gvs[]))
 QED
 
 val _ = export_theory();
