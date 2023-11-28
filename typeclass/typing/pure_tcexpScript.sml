@@ -66,25 +66,25 @@ End
 Datatype:
   instinfo =
     <| cstr : (mlstring # 'b) list (* class and type variable*)
-     ; class : mlstring
-     ; insttype : type
+     (* ; class : mlstring *)
+     (* ; insttype : type *)
      ; impl : cvname |-> tcexp |> (* function name and its expression *)
 End
 
 Definition instinfo_constraint_ok_def:
-  instinfo_constraint_ok inst =
+  instinfo_constraint_ok inst insttype =
     !x. MEM x inst.cstr ==>
       (* everything in the left must be in used in the right *)
-      SND x IN collect_type_vars inst.insttype /\
+      SND x IN collect_type_vars insttype /\
       (* everything in the left must be smaller than the type in the right *)
       (* since we only allow a single type variable on the right now,
       * so the following check should suffice *)
-      TypeVar (SND x) <> inst.insttype
+      TypeVar (SND x) <> insttype
 End
 
 Definition instinfo_impl_ok:
-  instinfo_impl_ok cdb inst <=>
-  ?c. FLOOKUP cdb inst.class = SOME c /\
+  instinfo_impl_ok cdb inst class <=>
+  ?c. FLOOKUP cdb class = SOME c /\
     (!meth ty. FLOOKUP c.methodsig meth = SOME ty ==>
       ?exp.
        (FLOOKUP inst.impl meth = SOME exp
