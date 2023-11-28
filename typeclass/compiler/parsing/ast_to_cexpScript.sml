@@ -566,19 +566,53 @@ Proof
   gvs[FORALL_AND_THM, listTheory.MEM_FILTER]
 QED
 
+Datatype:
+  classinfo_impl =
+    <| super : mlstring list
+     ; kind : Kind option
+     ; methodsig : (cvname, PredType) mlmap$map
+     ; minImp : minImplAST
+     ; defaults : (cvname, tcexp) mlmap$map |>
+End
+
+Datatype:
+  instinfo_impl =
+    <| cstr : (mlstring # num) list (* class and type variable*)
+     ; impl : (cvname, tcexp) mlmap$map |> (* function name and its expression *)
+End
+
+Type class_map_impl = ``:(mlstring, classinfo_impl) map``;
+Type inst_map_impl = ``:(mlstring, (type # instinfo_impl) list) map``;
+
+Definition to_class_map_def:
+  to_class_map (m:class_map_impl) = FMAP_MAP2 (λ(k,x).
+    <| super := x.super
+     ; kind := x.kind
+     ; methodsig := to_fmap x.methodsig
+     ; minImp := x.minImp
+     ; defaults := to_fmap x.defaults |>) (to_fmap m)
+End
+
+Definition to_inst_map_def:
+  to_inst_map (m:inst_map_impl) =
+    FMAP_MAP2 (λ(k1,l).
+      MAP (λ(k2,x). (k2, <|cstr := x.cstr; impl := to_fmap x.impl|>)) l)
+    (to_fmap m) 
+End
+
 Definition extract_class_expdec_def:
   (extract_class_expdec nm_map arg_map tyinfo sigs impl [] = SOME (sigs,impl)) ∧
   (extract_class_expdec nm_map arg_map tyinfo sigs impl (expdecTysig s predty::decs) = do
       s <<- implode s;
-      assert (s ∉ FDOM sigs);
+      assert (lookup sigs s = NONE);
       pred' <- translate_predtype nm_map arg_map predty;
-      extract_class_expdec nm_map arg_map tyinfo (sigs |+ (s,pred')) impl decs;
+      extract_class_expdec nm_map arg_map tyinfo (insert sigs s pred') impl decs;
     od) ∧
   (extract_class_expdec nm_map arg_map tyinfo sigs impl (expdecFunbind s args exps::decs) = do
       s <<- implode s;
-      assert (s ∉ FDOM impl);
+      assert (lookup sigs s = NONE);
       meth <- translate_exp nm_map tyinfo exps;
-      extract_class_expdec nm_map arg_map tyinfo sigs (impl |+ (s, meth)) decs;
+      extract_class_expdec nm_map arg_map tyinfo sigs (insert impl s meth) decs;
     od) ∧
   (* ignore expdecPatbind *)
   extract_class_expdec nm_map arg_map tyinfo sigs impl (_ :: decs) = NONE
@@ -589,21 +623,21 @@ Definition extract_inst_expdec_def:
   (extract_inst_expdec nm_map arg_map tyinfo impls
     (expdecFunbind s args exps::ds) = do
       s <<- implode s;
-      assert (s ∉ FDOM impls);
+      assert (mlmap$lookup impls s = NONE);
       meth <- translate_exp nm_map tyinfo exps;
-      extract_inst_expdec nm_map arg_map tyinfo (impls |+ (s,meth)) ds;
+      extract_inst_expdec nm_map arg_map tyinfo (insert impls s meth) ds;
     od) ∧
   (* raise error for both expdecTysig and expdecPatbind? *)
   (extract_inst_expdec nm_map arg_map tyinfo impls (_::ds) = NONE)
 End
 
 Definition add_instance_def:
-  add_instance inst_map cl ty info =
-    case FLOOKUP inst_map cl of
-      | NONE => SOME $ inst_map |+ (cl, [(ty,info)])
+  add_instance (inst_map:inst_map_impl) cl ty info =
+    case lookup inst_map cl of
+      | NONE => SOME $ insert inst_map cl [(ty,info)]
       | SOME l =>
         (case ALOOKUP l ty of
-          | NONE => SOME $ inst_map |+ (cl, (ty,info)::l)
+          | NONE => SOME $ insert inst_map cl ((ty,info)::l)
           | _ => NONE)
 End
 
@@ -612,7 +646,7 @@ End
    been extracted
  *)
 Definition translate_decs_def:
-  translate_decs nm_map tyinfo [] = SOME ([],FEMPTY,FEMPTY) ∧
+  translate_decs nm_map tyinfo [] = SOME ([],empty,empty:inst_map_impl) ∧
   translate_decs nm_map tyinfo (declTysig name t :: ds) =
   do
     (rest,cl_map,inst_map) <- translate_decs nm_map tyinfo ds;
@@ -626,25 +660,26 @@ Definition translate_decs_def:
     (rest,cl_map,inst_map) <- translate_decs nm_map tyinfo ds ;
     minimpl <<- MAP (MAP implode) minimpl;
     clname <<- implode cl;
-    assert (clname ∉ FDOM cl_map);
+    assert (lookup cl_map clname = NONE);
     (* assert $ EVERY ALL_DISTINCT minimpl; *)
-    (msigs,defimpl) <- extract_class_expdec nm_map (insert empty (implode v) 0) tyinfo FEMPTY FEMPTY exps;
+    (msigs,defimpl) <- extract_class_expdec nm_map
+      (insert empty (implode v) 0) tyinfo empty empty exps;
     (* assert $ FEVERY (λ(funname,_). funname IN FDOM msigs) defimpl; *)
     (* assert $ EVERY (EVERY (λx. x IN FDOM msigs)) minimpl; *)
-    return (rest,cl_map |+ (clname, (* mlstring *)
+    return (rest,insert cl_map clname (* mlstring *)
       <| super := MAP implode spcls
        ; kind := NONE
        (* do kind inference after collection all the classinfos *)
        ; methodsig := msigs
        ; minImp := minimpl
-       ; defaults := defimpl|>), inst_map) ;
+       ; defaults := defimpl|>, inst_map) ;
   od ∧
   translate_decs nm_map tyinfo (declInst constraints cl ty exps :: ds) =
   do
     (rest,cl_map,inst_map) <- translate_decs nm_map tyinfo ds ;
     (arg_map,max_v) <<- build_arg_map empty 0 ty ;
     t <- translate_type nm_map arg_map ty ;
-    impls <- extract_inst_expdec nm_map arg_map tyinfo FEMPTY exps ;
+    impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps ;
     cstr' <- OPT_MMAP (λ(c,v). do
         v' <- mlmap$lookup arg_map (implode v) ;
         return (implode c,v')
@@ -660,7 +695,7 @@ Definition translate_decs_def:
     assert $ set (map FST constraints) SUBSET (FDOM classinfos)
     (* check if all variables in the constraints are bound in the insttype *)
     assert $ set (map snd constraints) SUBSET (collect_type_vars t); *)
-    inst_map' <- add_instance inst_map cl t (<|cstr := cstr';impl := impls|>);
+    inst_map' <- add_instance inst_map (implode cl) t (<|cstr := cstr';impl := impls|>);
     return (rest, cl_map, inst_map')
   od ∧
   translate_decs nm_map tyinfo (declFunbind s args body :: ds) =
