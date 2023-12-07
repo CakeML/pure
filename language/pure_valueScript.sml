@@ -313,6 +313,17 @@ Proof
   \\ fs [v_CASE, v_11, v_distinct]
 QED
 
+Theorem v_CASE_elim:
+  ∀f. f (v_CASE v atom cons clos div err) ⇔
+    (∃b.   v = Atom b ∧ f (atom b)) ∨
+    (∃s t. v = Constructor s t ∧ f (cons s t)) ∨
+    (∃n y. v = Closure n y ∧ f (clos n y)) ∨
+          (v = Diverge ∧ f div) ∨
+          (v = Error ∧ f err)
+Proof
+  qspec_then `v` assume_tac v_nchotomy >> gvs[v_CASE, v_distinct, v_11]
+QED
+
 (*
  * Register with TypeBase.
  *)
@@ -436,6 +447,7 @@ val _ = TypeBase.export
     { ax = TypeBasePure.ORIG TRUTH,
       induction = TypeBasePure.ORIG v_bisimulation,
       case_def = v_CASE,
+      case_elim = v_CASE_elim,
       case_cong = v_CASE_cong,
       case_eq = v_CASE_eq,
       nchotomy = v_nchotomy,
