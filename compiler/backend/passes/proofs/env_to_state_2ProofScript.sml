@@ -697,7 +697,6 @@ Proof
           OPTREL (λ(a,x) (b,y). a = b ∧ clean x y) te
             (case d of NONE => NONE | SOME (d',e) => SOME (d',to_state e))’ by
      (Cases_on ‘d’ \\ fs []
-      >- (rpt $ qexists_tac ‘NONE’ \\ fs [])
       \\ fs [] \\ rename [‘xx = (_,_)’]
       \\ PairCases_on ‘xx’ \\ fs [OPTREL_SOME,PULL_EXISTS,EXISTS_PROD]
       \\ rpt $ first_assum $ irule_at Any

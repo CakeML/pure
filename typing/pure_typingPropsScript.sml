@@ -1870,8 +1870,7 @@ Proof
   pop_assum mp_tac >> once_rewrite_tac[type_tcexp_cases] >>
   rw[] >> gvs[LIST_REL_EL_EQN, EL_MAP]
   >- (
-    Cases_on `usopt2` >> gvs[OPTREL_THM] >> disj1_tac >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    disj1_tac >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
     gvs[GSYM LAMBDA_PROD, GSYM FST_THM] >>
     `MAP FST css1 = MAP FST css2` by (
       gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> rw[] >>
@@ -1881,12 +1880,11 @@ Proof
     first_x_assum drule >> rw[]
     )
   >- (
-    Cases_on `usopt2` >> gvs[OPTREL_THM] >> disj1_tac >>
-    rpt (pairarg_tac >> gvs[]) >>
+    disj1_tac >> rpt (pairarg_tac >> gvs[]) >>
     rpt $ first_x_assum $ irule_at Any >> simp[]
     )
   >- (
-    Cases_on `usopt2` >> gvs[OPTREL_THM] >> ntac 2 disj2_tac >> disj1_tac >>
+    ntac 2 disj2_tac >> disj1_tac >>
     simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
     simp[GSYM LAMBDA_PROD, GSYM FST_THM] >> rw[]
     >- (
