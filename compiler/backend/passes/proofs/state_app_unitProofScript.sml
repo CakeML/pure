@@ -208,7 +208,6 @@ Proof
            OPTREL (λ(a,x) (b,y). a = b ∧ rel1 x y) tt
              (OPTION_MAP (λ(alts,e). (MAP (explode ## I) alts,exp_of e)) se)’ by
    (Cases_on ‘te’ \\ Cases_on ‘se’ \\ gvs []
-    >- (qexists_tac ‘NONE’ \\ fs [])
     \\ gvs [UNCURRY]
     \\ Q.REFINE_EXISTS_TAC ‘SOME (_,_)’
     \\ fs [] \\ rpt $ first_x_assum $ irule_at Any)
@@ -633,7 +632,6 @@ Proof
   \\ ‘∃tt. OPTREL (λ(a,x) (b,y). a = b ∧ cexp1_rel x y) x tt ∧
            OPTREL (λ(a,x) (b,x1). a = b ∧ NRC cexp1_rel k x x1) tt x1’ by
    (Cases_on ‘x’ \\ Cases_on ‘x1’ \\ fs []
-    >- (qexists_tac ‘NONE’ \\ fs [])
     \\ Cases_on ‘x’ \\ Cases_on ‘x'’ \\ gvs []
     \\ Q.REFINE_EXISTS_TAC ‘SOME (_,_)’ \\ fs []
     \\ first_x_assum $ irule_at Any \\ fs [])
