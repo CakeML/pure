@@ -11,20 +11,20 @@ End
 
 Inductive kind_wf:
 [~Prim:]
-  (!cdb vdb t. kind_wf cdb vdb kindType (PrimTy t)) /\
+  (!cdb vdb t. kind_wf cdb vdb kindType (PrimTy t))
 [~Exception:]
-  (!cdb vdb. kind_wf cdb vdb kindType Exception) /\
+  (!cdb vdb. kind_wf cdb vdb kindType Exception)
 [~VarTypeConsBase:]
    (!cdb vdb v.
-      kind_wf cdb vdb (vdb v) (VarTypeCons v [])) /\
+      kind_wf cdb vdb (vdb v) (VarTypeCons v []))
 [~VarTypeConsCons:]
    (!cdb vdb v t ts k1 k2.
       kind_wf cdb vdb (kindArrow k1 k2) (VarTypeCons v ts) /\
       kind_wf cdb vdb k1 t ==>
-        kind_wf cdb vdb k2 (VarTypeCons v (t::ts))) /\
+        kind_wf cdb vdb k2 (VarTypeCons v (t::ts)))
 [~TyConsBase:]
    (!cdb vdb.
-      kind_wf cdb vdb (cdb v) (TypeCons v [])) /\
+      kind_wf cdb vdb (cdb v) (TypeCons v []))
 [~TyConsCons:]
    (!cdb vdb.
       kind_wf cdb vdb (kindArrow k1 k2) (TypeCons v ts) /\
