@@ -4,14 +4,16 @@ name: CI
 on:
   push:
     branches:
-    - master
+      - master
     paths:
       - '**.sml'
       - 'Holmakefile'
       - '**.hs'
   pull_request:
     branches:
-    - master
+      - master
+  schedule:
+    - cron: '0 0 * * Fri'
   workflow_dispatch:
 
 jobs:
