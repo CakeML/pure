@@ -578,7 +578,7 @@ End
 
 Type class_map_impl = ``:(mlstring, classinfo_impl) map``;
 Type inst_map_impl = ``:(mlstring, (type # instinfo_impl) list) map``;
-Type func_sig_map_impl = ``:(mlstring, PredType) map``;
+Type sig_map_impl = ``:(mlstring, PredType) map``;
 
 Definition to_class_map_def:
   to_class_map (m:class_map_impl) = FMAP_MAP2 (λ(k,x).
@@ -668,7 +668,7 @@ End
    been extracted
  *)
 Definition translate_decs_def:
-  translate_decs nm_map tyinfo (sig_map:func_sig_map_impl)
+  translate_decs nm_map tyinfo (sig_map:sig_map_impl)
     (cl_map:class_map_impl) (inst_map:inst_map_impl) func_map [] =
   do
     func_decl_map <- to_FuncDecl sig_map func_map;
@@ -711,7 +711,7 @@ Definition translate_decs_def:
     t <- translate_type nm_map arg_map ty ;
     impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps ;
     cstr' <- OPT_MMAP (λ(c,v). do
-        v' <- mlmap$lookup arg_map (implode v) ;
+        v' <- lookup arg_map (implode v) ;
         return (implode c,v')
       od) constraints ;
     (* class <- FLOOKUP classinfo cl;
@@ -755,8 +755,8 @@ Definition listinfo_def:
     («::», [tyVarOp "a" []; tyOp (INR "[]") [tyVarOp "a" []]])])
 End
 
-Definition decls_to_letrec_def:
-  decls_to_letrec ds =
+Definition decls_to_tcdecl_def:
+  decls_to_tcdecl ds =
   do
     tyinfo <<- build_tyinfo (empty str_compare) ds ;
     tyinfo_l <<- toAscList tyinfo ;
@@ -1106,6 +1106,62 @@ Proof
   >- (
     eq_tac >> rw[] >> gvs[] >>
     rpt (FULL_CASE_TAC >> gvs[]))
+QED
+
+(**** type class checks ****)
+
+(* signatures are well-formed:
+* every function in func_map is in sig_map and
+* every method in cl_map is in sig_map,
+* function names in cl_map and func_map are distinct *)
+Theorem signatures_wf:
+  decls_to_tcdecl ds = SOME (func_map,sig_map,cl_map,inst_map) ==>
+  FEVERY (λ(name,fd).case fd of
+      | FuncDecl pt _ => FLOOKUP (to_fmap sig_map) name = SOME pt)
+    (to_fmap func_map) ∧
+  FEVERY (λ(clname,cl). FEVERY (
+    λ(name,pt). FLOOKUP (to_fmap sig_map) name =
+          SOME (add_pred (clname,VarTypeCons 0 []) pt)) cl.methodsig)
+    (to_class_map cl_map) ∧
+  FDOM (to_fmap sig_map) = (FDOM $ to_fmap func_map) ∪
+    (BIGUNION (FRANGE ((λcl. FDOM cl.methodsig) o_f (to_class_map cl_map)))) ∧
+  DISJOINT (FDOM $ to_fmap func_map)
+    (BIGUNION (FRANGE ((λcl. FDOM cl.methodsig) o_f (to_class_map cl_map)))) ∧
+  (∀clname1 clname2. clname1 ≠ clname2 ∧
+    FLOOKUP clname1 (to_class_map cl_map) = SOME c1 ∧
+    FLOOKUP clname2 (to_class_map cl_map) = SOME c2 ==>
+    DISJOINT (FDOM c1.methodsig) (FDOM c2.methodsig))
+Proof
+QED
+
+Theorem inst_map_unique_type:
+  decls_to_tcdecl ds = SOME (func_map,sig_ma-,cl_map,inst_map) ==>
+  FEVERY (λ(_,l). ∀t1 t2. t1 ≠ t2 ∧ MEM t1 l ∧ MEM t2 l ==>
+    ~(alpha t1 t2)) (to_inst_map inst_map)
+Proof
+QED
+
+(* check if there is cyclic superclass relation *)
+Definition check_cl_map_def:
+End
+
+Theorem
+  check_cl_map cl_map ==> class_map_wf (to_fmap cl_map)
+Proof
+QED
+(* check if every instance satisfy the class requirements:
+* - the class exists in cl_map
+* - has implemented super classes
+* - has implemented minImpl
+* - has implemented all methods with no function signatures
+*)
+Definition check_inst_map_def:
+  
+End
+
+Theorem check_inst_map_thm:
+  check_inst_map inst_map ==> inst_map_wf (to_fmap inst_map)
+Proof
 QED
 
 val _ = export_theory();
