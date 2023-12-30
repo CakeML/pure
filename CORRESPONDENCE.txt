@@ -1,0 +1,55 @@
+
+This file explains how the sections of the ESOP'24 submission relate
+to files provided in this supplementary material.
+
+Sec 1, i.e., the introduction, contains code that is part of the
+following benchmark: examples/suc_list.hs
+
+Sec 2 and Sec 3 do not correspond directly any specific file.
+
+Sec 4 (and particularly Sec 4.2) presents the development in
+meta-theory/pure_inline_relScript.sml
+where \mapsto from the paper is called inline_rel.
+
+Sec 5 (and particularly Sec 5.2) describes the development in:
+ - transform 1: meta-theory/pure_letrec_specScript.sml
+ - transform 2: meta-theory/pure_letrec_delargScript.sml
+The latter file ends with proofs that merge both
+transfromations into one.
+
+Sec 6.2, i.e., the implementation of the inliner, is in file:
+compiler/backend/passes/pure_inline_cexpScript.sml
+The implementation of specialisation is in:
+compiler/backend/passes/pure_letrec_spec_cexpScript.sml
+Freshening is implemented in:
+compiler/backend/passes/pure_freshenScript.sml
+Dead-let removal is implemented in:
+compiler/backend/passes/pure_dead_letScript.sml
+
+Sec 6.3, i.e., the correctness proof for the implementation are spread
+out into several files. The proofs for the inliner itself are here:
+compiler/backend/passes/proofs/pure_inline_cexpProofScript.sml
+This builds on: the proofs for specialisation which are in:
+compiler/backend/passes/proofs/pure_letrec_spec_cexpProofScript.sml
+and the ce (cexp) proofs for freshening are here:
+compiler/backend/passes/proofs/pure_freshenProofScript.sml
+similarly, the ce (cexp) proofs for dead-let elimination are here:
+compiler/backend/passes/proofs/pure_dead_letProofScript.sml
+
+Sec 7, i.e., integration into the PureCake compiler, relates to the
+implementation of the top-level compiler function, which now includes
+a call to the inliner:
+compiler/pure_compilerScript.sml
+The correctness proof for the top-level compiler function is here:
+compiler/proofs/pure_compilerProofScript.sml
+
+Sec 8, i.e., the benchmarks, can be found in the directory called
+examples. Files inlcude:
+examples/quicksort.hs
+examples/permutations.hs
+examples/gameOfLife.hs
+etc.
+The scripts for running the benchmarks are under examples/benchmark.
+
+Sec 9 (related work) and Sec 10 (summary) do not correspond directly
+to any file in the development.

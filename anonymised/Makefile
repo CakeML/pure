@@ -1,8 +1,8 @@
 .PHONY: all
 
-all: pure-pldi23-docker.tar.gz
+all: pure-esop24-docker.tar.gz
 
-pure-pldi23-docker.tar.gz: Dockerfile
-	docker build --pull --no-cache --squash -t pure-pldi23 .
-	docker save pure-pldi23 | gzip > $@
+pure-esop24-docker.tar.gz: Dockerfile
+	DOCKER_BUILDKIT=0 docker build --pull --no-cache --squash -t pure-esop24 .
+	docker save pure-esop24 | gzip > $@
 
