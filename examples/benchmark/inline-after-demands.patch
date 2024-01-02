@@ -1,0 +1,69 @@
+diff --git a/compiler/pure_compilerScript.sml b/compiler/pure_compilerScript.sml
+index bf5121d..829f4dd 100644
+--- a/compiler/pure_compilerScript.sml
++++ b/compiler/pure_compilerScript.sml
+@@ -35,10 +35,6 @@ Definition compile_def:
+     | SOME (e,ns) =>
+       let e = transform_cexp c e in
+       let _ = debug_print "transform_cexp" in
+-      let e = inline_top_level c e in
+-      let _ = debug_print "inlining" in
+-      let _ = explore_print c $
+-                "after inlining:\n" ++ pure_print$str_of e ++ "\n" in
+       let i = infer_types ns e in
+       let _ = debug_print "infer_types" in
+         case to_option i of
+@@ -48,6 +44,10 @@ Definition compile_def:
+             let _ = debug_print "clean_cexp" in
+             let e = demands_analysis c e in
+             let _ = debug_print "demands_analysis" in
++            let e = inline_top_level c e in
++            let _ = debug_print "inlining" in
++            let _ = explore_print c $
++                      "after inlining:\n" ++ pure_print$str_of e ++ "\n" in
+             let _ = explore_print c $
+                       "after demands:\n" ++ pure_print$str_of e ++ "\n" in
+               SOME (ast_to_string $ pure_to_cake c ns e)
+@@ -59,13 +59,13 @@ Definition compile_to_ast_def:
+     | NONE => NONE
+     | SOME (e,ns) =>
+       let e = transform_cexp c e in
+-      let e = inline_top_level c e in
+       let i = infer_types ns e in
+         case to_option i of
+         | NONE => NONE
+         | SOME _ =>
+           let e = clean_cexp c e in
+           let e = demands_analysis c e in
++          let e = inline_top_level c e in
+             SOME (pure_to_cake c ns e)
+ End
+ 
+@@ -76,10 +76,10 @@ Theorem compile_monadically:
+   do
+     (e,ns) <- string_to_cexp s ;
+     e <<- transform_cexp c e ;
+-    e <<- inline_top_level c e ;
+     to_option $ infer_types ns e ;
+     e <<- clean_cexp c e ;
+     e <<- demands_analysis c e ;
++    e <<- inline_top_level c e ;
+     return (ast_to_string $ pure_to_cake c ns e)
+   od
+ Proof
+@@ -92,7 +92,6 @@ Definition frontend_def:
+     | NONE => NONE
+     | SOME (e,ns) =>
+       let e = transform_cexp c e in
+-      let e = inline_top_level c e in
+       let i = infer_types ns e in
+         case to_option i of
+         | NONE => NONE
+@@ -113,6 +112,7 @@ Theorem compile_to_ast_alt_def:
+     | SOME (e,ns) =>
+         let e = clean_cexp c e in
+         let e = demands_analysis c e in
++        let e = inline_top_level c e in
+           SOME (pure_to_cake c ns e)
+ Proof
+   rw[compile_to_ast_def, frontend_def] >>

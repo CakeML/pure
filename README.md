@@ -121,8 +121,28 @@ to read/write `foo.{csv,pdf}`.  To compile all benchmarks specified in
 The data shown in the paper is in
 [`fig-3-blue.csv`](examples/benchmark/fig-3-blue.csv) and
 [`fig-4-red.csv`](examples/benchmark/fig-4-red.csv).
-**NB we have not provided a way to reproduce Figure 4 from the paper, as this
-requires modification and rebuild of the PureCake compiler.**
+The first can be reproduced by running `benchmark.py` as-is.
+To reproduce the second, we have included a pre-built PureCake compiler
+([`pure.inline-after-demands.S`](examples/lib/pure.inline-after-demands.S))
+which can be used instead of `pure.S`:
+```bash
+cd examples
+cp lib/pure.S.inline-after-demands.S lib/pure.S
+```
+Then continue with the benchmarking instructions as before (i.e. starting with
+`patch -u -i ...` above).
+
+To produce this alternative version of PureCake, we modified and rebuilt the
+compiler using the commands below. Note that this version is unverified.
+**NB: this will take ~5 hrs and require ~8 GB RAM (16 GB recommended). We do
+not believe it is necessary for examination of this artifact.**
+```bash
+cd ~/pure/compiler
+patch -u -i ../examples/benchmark/inline-after-demands.patch
+cd binary
+Holmake
+```
+This will produce `compiler/binary/pure.S`.
 
 
 ### Re-building HOL4 theories and the PureCake binary
@@ -146,4 +166,5 @@ Holmake -r cleanAll                # clean all theory files
 rm ~/pure/compiler/binary/pure.S   # delete the PureCake binary
 Holmake                            # rebuild all theories and the binary
 ```
+This will produce `compiler/binary/pure.S`.
 
