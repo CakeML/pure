@@ -73,18 +73,16 @@ The [`benchmark`](examples/benchmark) directory allows simple benchmarking of
 our inliner as follows:
 ```bash
 cd examples
-patch -u -i benchmark/benchmark.patch
 touch lib/basis_ffi.c # ensure PureCake's FFI is rebuilt with debug output enabled
 cd benchmark
 benchmark.py # takes ~1 hr with supplied configuration
 benchmark.py --mode plot
 ```
 This will:
-1. Apply PureCake's benchmarking patches to some sample programs.
-2. Compile and run the benchmarks as specified in
+1. Compile and run the benchmarks as specified in
    [`bench.config`](examples/benchmark/bench.config), collecting data on
    timings and heap allocations into `benchmark/data.csv`.
-3. Plot graphs from the collected data, saving them to `benchmark/data.pdf`.
+2. Plot graphs from the collected data, saving them to `benchmark/data.pdf`.
    These show base-2 logarithm of runtime speedup and reduction in heap
    allocations.
 
@@ -130,7 +128,7 @@ cd examples
 cp lib/pure.S.inline-after-demands.S lib/pure.S
 ```
 Then continue with the benchmarking instructions as before (i.e. starting with
-`patch -u -i ...` above).
+`touch ...` above).
 
 To produce this alternative version of PureCake, we modified and rebuilt the
 compiler using the commands below. Note that this version is unverified.

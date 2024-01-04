@@ -6,8 +6,8 @@ RUN cd ~/pure && git fetch && git checkout origin/esop24-artifact
 # Remove git files
 RUN rm -rf ~/pure/.git ~/pure/.github
 
-# Pull in CakeML compiler
-RUN cd ~/pure/examples && make lib/cake.S
+# Pull in CakeML compiler and set up benchmarking
+RUN cd ~/pure/examples && patch -u -i benchmark/benchmark.patch && rm benchmark/benchmark.patch
 
 # Replace identifying files
 RUN cp ~/pure/anonymised/examples-Makefile ~/pure/examples/Makefile
