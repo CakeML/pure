@@ -14,16 +14,12 @@ Definition Disj_def:
   Disj v ((cn,l)::xs) = If (IsEq cn l T (Var v)) True (Disj v xs)
 End
 
-Definition lets_for_def:
-  lets_for cn v [] b = b ∧
-  lets_for cn v ((n,w)::ws) b = Let w (Proj cn n (Var v)) (lets_for cn v ws b)
-End
-
 Definition rows_of_def:
   rows_of v k [] = k ∧
   rows_of v k ((cn,vs,b)::rest) =
     If (IsEq cn (LENGTH vs) T (Var v))
-      (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v k rest)
+     (Apps (Lams vs b) $ GENLIST (λi. Proj cn i $ Var v) (LENGTH vs))
+     (rows_of v k rest)
 End
 
 Definition patguards_def:
@@ -73,14 +69,9 @@ Definition exp_of_def:
        k = (case eopt of
             | NONE => Fail
             | SOME (a,e) => IfDisj v a (exp_of e)) ;
-       caseexp =
-       Let (explode v) (exp_of x)
+     in Let (explode v) (exp_of x)
            (rows_of (explode v) k
-            (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs))
-     in if MEM v (FLAT (MAP (FST o SND) rs)) then
-       Seq Fail caseexp
-     else
-       caseexp) ∧
+            (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs))) ∧
   exp_of (NestedCase d g gv p e pes) =
   Let (explode gv) (exp_of g)
       (nested_rows (Var (explode gv))
@@ -146,14 +137,6 @@ Proof
   rw[EXTENSION] >> eq_tac >> rw[] >> simp[]
 QED
 
-Theorem allvars_lets_for:
-  allvars (lets_for cn v ws b) =
-    (if ws = [] then {} else {v}) ∪ set (MAP SND ws) ∪ allvars b
-Proof
-  Induct_on `ws` >> rw[lets_for_def, allvars_def] >>
-  PairCases_on `h` >> rw[lets_for_def, EXTENSION] >> eq_tac >> rw[] >> gvs[]
-QED
-
 Theorem allvars_rows_of:
   allvars (rows_of v k css) =
     (if css = [] then {} else {v}) ∪
@@ -161,9 +144,14 @@ Theorem allvars_rows_of:
     BIGUNION (set (MAP (λ(cn,vs,b). set vs ∪ allvars b) css))
 Proof
   Induct_on `css` >> rw[rows_of_def] >> PairCases_on `h` >> rw[rows_of_def] >>
-  simp[allvars_lets_for, combinTheory.o_DEF] >>
-  Cases_on `h1` >> gvs[] >> rw[EXTENSION] >> eq_tac >> rw[] >>
-  gvs[MEM_MAP, EXISTS_PROD, PULL_EXISTS] >> metis_tac[]
+  gvs[allvars_Apps, allvars_Lams]
+  >- (
+    gvs[LIST_TO_SET_GENLIST, BIGUNION_IMAGE] >>
+    rw[EXTENSION] >> eq_tac >> rw[] >> gvs[MEM_MAP, MEM_GENLIST]
+    ) >>
+  simp[MAP_GENLIST, combinTheory.o_DEF, LIST_TO_SET_GENLIST, BIGUNION_IMAGE] >>
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[] >>
+  gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> metis_tac[]
 QED
 
 Theorem allvars_of:
