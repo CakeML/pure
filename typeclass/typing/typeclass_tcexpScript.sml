@@ -1,5 +1,5 @@
 (*
-   This file defines expressions for pure_lang as the type system sees them.
+   This file defines expressions for typeclass_lang as the type system sees them.
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
@@ -46,20 +46,16 @@ Datatype:
      ; defaults : cvname |-> tcexp |>
 End
 
-Inductive super_reachable:
-  (!src dst sup.
-    cdb src = SOME c /\ MEM sup c.super /\
-    super_reachable cdb sup dst ==>
-      super_reachable cdb src dst) /\
-  (!src sup.
-    cdb src = SOME c /\ MEM sup c.super ==>
-      super_reachable cdb src sup)
+Definition super_reachable_def:
+  super_reachable cdb =
+    TC (\src dst.
+      ∃c. FLOOKUP cdb src = SOME (c:classinfo) ∧
+      MEM dst c.super)
 End
 
-Definition super_ok_def:
-  super_ok cdb =
-    !x c. FLOOKUP cdb x = SOME c ==>
-      ~(super_reachable (FLOOKUP cdb) x x)
+Definition super_no_cycles_def:
+  super_no_cycles cdb =
+    ∀x. ¬(super_reachable cdb x x)
 End
 
 Datatype:

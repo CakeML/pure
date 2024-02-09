@@ -641,16 +641,6 @@ Definition extract_inst_expdec_def:
   (extract_inst_expdec nm_map arg_map tyinfo impls (_::ds) = NONE)
 End
 
-Definition add_instance_def:
-  add_instance (inst_map:inst_map_impl) cl ty info =
-    case lookup inst_map cl of
-      | NONE => SOME $ insert inst_map cl [(ty,info)]
-      | SOME l =>
-        (case ALOOKUP l ty of
-          | NONE => SOME $ insert inst_map cl ((ty,info)::l)
-          | _ => NONE)
-End
-
 Definition to_FuncDecl_def:
   to_FuncDecl sig_map func_map =
   do
@@ -1140,92 +1130,6 @@ Theorem signatures_wf:
     DISJOINT (FDOM c1.methodsig) (FDOM c2.methodsig))
 Proof
   cheat
-QED
-
-(* check if there is cyclic superclass relation *)
-(* TODO: proven trajan algorithm? *)
-Definition check_cl_map_no_cycles_def:
-  check_cl_map_no_cycles cl_map = T
-End
-
-Inductive super_reachable:
-  (!src dst sup.
-    cdb src = SOME (c:classinfo) /\ MEM sup c.super /\
-    super_reachable cdb sup dst ==>
-      super_reachable cdb src dst) /\
-  (!src sup.
-    cdb src = SOME c /\ MEM sup c.super ==>
-      super_reachable cdb src sup)
-End
-
-Definition super_no_cycles_def:
-  super_no_cycles cdb =
-    !x c. FLOOKUP cdb x = SOME c ==>
-      ~(super_reachable (FLOOKUP cdb) x x)
-End
-
-Theorem check_cl_map_no_cycles_IMP_super_no_cycles:
-  check_cl_map_no_cycles cl_map ⇒
-  super_no_cycles $ to_class_map cl_map
-Proof
-  cheat
-QED
-
-Definition check_cl_map_def:
-  check_cl_map cl_map =
-  (all (\cl cl_info.
-    EVERY (\c. lookup cl_map c ≠ NONE) cl_info.super ∧
-    all (\name impl. lookup cl_info.methodsig name ≠ NONE) cl_info.defaults ∧
-    EVERY (\names. EVERY (\name. lookup cl_info.methodsig name ≠ NONE) names)
-    cl_info.minImp
-    ) cl_map ∧
-  check_cl_map_no_cycles cl_map)
-End
-
-Definition EVERY_instance_def:
-  EVERY_instance f inst_map =
-    all (\cl_name l. EVERY (\(ty,instinfo). f cl_name ty instinfo) l) inst_map
-End
-
-Definition has_instance_def:
-  has_instance inst_map cstr ty cl =
-    case lookup inst_map cl of
-       | NONE => F
-       | SOME l => ARB l
-End
-
-(* check if every instance satisfy the class requirements *)
-Definition check_inst_map_sat_cl_req_def:
-  check_inst_map_sat_cl_req inst_map cl_map = EVERY_instance
-    (\cl_name ty instinfo.
-      (case lookup cl_map cl_name of
-      | NONE => F
-      | SOME cl_info =>
-        (* implemented minImpl *)
-        EXISTS (\names. EVERY (\name. lookup instinfo.impl name ≠ NONE) names) cl_info.minImp ∧
-        (* implemented every method without function definitions *)
-        EVERY (\name sig. lookup cl_info.defaults name ≠ NONE ∨ lookup instinfo.impl name ≠ NONE) cl_info.methodsig ∧
-        (* TODO: implemented super classes *)
-        EVERY (has_instance inst_map instinfo.cstr ty) cl_map.super
-      ) ∧
-      (* check if constraints is valid *)
-      EVERY (λ(cl,v). lookup cl_map cl ≠ NONE ∧
-        TypeVar v ≠ ty (* v must be a variable in ty,
-          so we only need to test there
-          size are not equal to show its size is smaller than ty *)
-        ) instinfo.cstr
-     ) inst_map
-End
-
-(* the constraints must be scoped if the parser does not produce an error *)
-Theorem inst_cstr_scoped_type_var:
-Proof
-QED
-
-(* inst_map produced after the parsing does not contain
-* type that are alpha equivalent *)
-Theorem inst_map_no_alpha_equiv:
-Proof
 QED
 
 val _ = export_theory();
