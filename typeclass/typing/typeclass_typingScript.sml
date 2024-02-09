@@ -1,9 +1,9 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory;
-open pure_typesTheory pure_tcexpTheory pure_configTheory;
+open typeclass_typesTheory typeclass_tcexpTheory pure_configTheory;
 
-val _ = new_theory "pure_typing";
+val _ = new_theory "typeclass_typing";
 
 (* CakeML assumes the following initial namespace:
       Exceptions: 0 -> Bind, 1 -> Chr, 2 -> Div, 3 -> Subscript
@@ -114,7 +114,6 @@ Overload freetyvars_ok_scheme =
 
 (* Does a type only contain defined constructors, and non-nullary functions? *)
 (* replace with kind check *)
-(*
 Definition type_wf_def:
   type_wf (typedefs : typedefs) (TypeVar n) = T ∧
   type_wf typedefs (PrimTy pty) = T ∧

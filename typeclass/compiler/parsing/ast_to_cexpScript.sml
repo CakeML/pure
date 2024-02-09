@@ -1,8 +1,8 @@
 open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory
-open pureASTTheory mlmapTheory mlstringTheory pure_tcexpTheory
-     pure_varsTheory pure_typingTheory
+open typeclassASTTheory mlmapTheory mlstringTheory typeclass_tcexpTheory
+     pure_varsTheory typeclass_typingTheory
      (* pure_cexpTheory: probably don't need it *)
 
 val _ = new_theory "ast_to_cexp";
@@ -11,7 +11,7 @@ val _ = new_theory "ast_to_cexp";
 val _ = set_grammar_ancestry [
           "pureAST", "mlmap", "pure_cexp", "pure_typing", "pure_vars"] *)
 val _ = set_grammar_ancestry [
-          "pureAST", "mlmap", "pure_tcexp","pure_typing","pure_vars"]
+          "typeclassAST", "mlmap", "typeclass_tcexp","typeclass_typing","pure_vars"]
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
@@ -708,6 +708,7 @@ Definition translate_decs_def:
     (declInst constraints cl ty exps :: ds) =
   do
     (arg_map,max_v) <<- build_arg_map empty 0 ty ;
+    assert $ max_v = 1; (* check if there is only 1 type variable in the type *)
     t <- translate_type nm_map arg_map ty ;
     impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps ;
     cstr' <- OPT_MMAP (λ(c,v). do
@@ -1116,51 +1117,114 @@ QED
 * function names in cl_map and func_map are distinct *)
 Theorem signatures_wf:
   decls_to_tcdecl ds = SOME (func_map,sig_map,cl_map,inst_map) ==>
+  (* every function in func_map is in sig_map *)
   FEVERY (λ(name,fd).case fd of
       | FuncDecl pt _ => FLOOKUP (to_fmap sig_map) name = SOME pt)
     (to_fmap func_map) ∧
+  (* every method in cl_map is in sig_map *)
   FEVERY (λ(clname,cl). FEVERY (
     λ(name,pt). FLOOKUP (to_fmap sig_map) name =
           SOME (add_pred (clname,VarTypeCons 0 []) pt)) cl.methodsig)
     (to_class_map cl_map) ∧
+  (* function names in sig_map is the union of the function names in func_map
+  * and method names in class maps *)
   FDOM (to_fmap sig_map) = (FDOM $ to_fmap func_map) ∪
     (BIGUNION (FRANGE ((λcl. FDOM cl.methodsig) o_f (to_class_map cl_map)))) ∧
+  (* function names in func_map is disjoint from method names in class maps *)
   DISJOINT (FDOM $ to_fmap func_map)
     (BIGUNION (FRANGE ((λcl. FDOM cl.methodsig) o_f (to_class_map cl_map)))) ∧
+  (* methods are disjoint in class maps *)
   (∀clname1 clname2. clname1 ≠ clname2 ∧
     FLOOKUP clname1 (to_class_map cl_map) = SOME c1 ∧
     FLOOKUP clname2 (to_class_map cl_map) = SOME c2 ==>
     DISJOINT (FDOM c1.methodsig) (FDOM c2.methodsig))
 Proof
-QED
-
-Theorem inst_map_unique_type:
-  decls_to_tcdecl ds = SOME (func_map,sig_ma-,cl_map,inst_map) ==>
-  FEVERY (λ(_,l). ∀t1 t2. t1 ≠ t2 ∧ MEM t1 l ∧ MEM t2 l ==>
-    ~(alpha t1 t2)) (to_inst_map inst_map)
-Proof
+  cheat
 QED
 
 (* check if there is cyclic superclass relation *)
-Definition check_cl_map_def:
+(* TODO: proven trajan algorithm? *)
+Definition check_cl_map_no_cycles_def:
+  check_cl_map_no_cycles cl_map = T
 End
 
-Theorem
-  check_cl_map cl_map ==> class_map_wf (to_fmap cl_map)
+Inductive super_reachable:
+  (!src dst sup.
+    cdb src = SOME (c:classinfo) /\ MEM sup c.super /\
+    super_reachable cdb sup dst ==>
+      super_reachable cdb src dst) /\
+  (!src sup.
+    cdb src = SOME c /\ MEM sup c.super ==>
+      super_reachable cdb src sup)
+End
+
+Definition super_no_cycles_def:
+  super_no_cycles cdb =
+    !x c. FLOOKUP cdb x = SOME c ==>
+      ~(super_reachable (FLOOKUP cdb) x x)
+End
+
+Theorem check_cl_map_no_cycles_IMP_super_no_cycles:
+  check_cl_map_no_cycles cl_map ⇒
+  super_no_cycles $ to_class_map cl_map
+Proof
+  cheat
+QED
+
+Definition check_cl_map_def:
+  check_cl_map cl_map =
+  (all (\cl cl_info.
+    EVERY (\c. lookup cl_map c ≠ NONE) cl_info.super ∧
+    all (\name impl. lookup cl_info.methodsig name ≠ NONE) cl_info.defaults ∧
+    EVERY (\names. EVERY (\name. lookup cl_info.methodsig name ≠ NONE) names)
+    cl_info.minImp
+    ) cl_map ∧
+  check_cl_map_no_cycles cl_map)
+End
+
+Definition EVERY_instance_def:
+  EVERY_instance f inst_map =
+    all (\cl_name l. EVERY (\(ty,instinfo). f cl_name ty instinfo) l) inst_map
+End
+
+Definition has_instance_def:
+  has_instance inst_map cstr ty cl =
+    case lookup inst_map cl of
+       | NONE => F
+       | SOME l => ARB l
+End
+
+(* check if every instance satisfy the class requirements *)
+Definition check_inst_map_sat_cl_req_def:
+  check_inst_map_sat_cl_req inst_map cl_map = EVERY_instance
+    (\cl_name ty instinfo.
+      (case lookup cl_map cl_name of
+      | NONE => F
+      | SOME cl_info =>
+        (* implemented minImpl *)
+        EXISTS (\names. EVERY (\name. lookup instinfo.impl name ≠ NONE) names) cl_info.minImp ∧
+        (* implemented every method without function definitions *)
+        EVERY (\name sig. lookup cl_info.defaults name ≠ NONE ∨ lookup instinfo.impl name ≠ NONE) cl_info.methodsig ∧
+        (* TODO: implemented super classes *)
+        EVERY (has_instance inst_map instinfo.cstr ty) cl_map.super
+      ) ∧
+      (* check if constraints is valid *)
+      EVERY (λ(cl,v). lookup cl_map cl ≠ NONE ∧
+        TypeVar v ≠ ty (* v must be a variable in ty,
+          so we only need to test there
+          size are not equal to show its size is smaller than ty *)
+        ) instinfo.cstr
+     ) inst_map
+End
+
+(* the constraints must be scoped if the parser does not produce an error *)
+Theorem inst_cstr_scoped_type_var:
 Proof
 QED
-(* check if every instance satisfy the class requirements:
-* - the class exists in cl_map
-* - has implemented super classes
-* - has implemented minImpl
-* - has implemented all methods with no function signatures
-*)
-Definition check_inst_map_def:
-  
-End
 
-Theorem check_inst_map_thm:
-  check_inst_map inst_map ==> inst_map_wf (to_fmap inst_map)
+(* inst_map produced after the parsing does not contain
+* type that are alpha equivalent *)
+Theorem inst_map_no_alpha_equiv:
 Proof
 QED
 

@@ -4,10 +4,9 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
      optionTheory pairTheory pred_setTheory mlmapTheory;
-open pure_cexpTheory pure_cexp_lemmasTheory pure_expTheory pure_evalTheory
-     pure_exp_lemmasTheory pure_exp_relTheory pure_congruenceTheory;
-open pure_typesTheory pure_kindCheckTheory;
-val _ = new_theory "pure_tcexp";
+open pure_cexpTheory;
+open typeclass_typesTheory typeclass_kindCheckTheory;
+val _ = new_theory "typeclass_tcexp";
 
 Datatype:
   (* The first argument for each constructor is the type of the whole expression *)

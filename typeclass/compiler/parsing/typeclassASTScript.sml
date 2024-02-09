@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 
 local open stringTheory integerTheory pure_configTheory in end
-val _ = new_theory "pureAST";
+val _ = new_theory "typeclassAST";
 
 val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
 

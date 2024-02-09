@@ -4,7 +4,7 @@ open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
 open mlstringTheory;
 open pure_configTheory;
 
-val _ = new_theory "pure_types";
+val _ = new_theory "typeclass_types";
 
 
 (******************** Types ********************)
