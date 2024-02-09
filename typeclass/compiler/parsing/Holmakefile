@@ -5,7 +5,9 @@ endif
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
            $(CAKEMLDIR)/semantics \
            $(CAKEMLDIR)/basis/pure \
-           $(PUREDIR)/typeclass/typing
+           $(PUREDIR)/typeclass/typing \
+           $(HOLDIR)/examples/algorithms \
+					 $(PUREDIR)/typeclass/
 HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
 
 all: $(DEFAULT_TARGETS) selftest.exe parsing-selftest.log
