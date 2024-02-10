@@ -20,11 +20,12 @@ val _ = new_theory "pure_inline_cexpProof";
 (* xs and m have the same elements *)
 Definition memory_inv_def:
   memory_inv xs m (ns:(mlstring,unit) map # num) ⇔
-    { explode a | ∃e. lookup m a = SOME e } = set (MAP FST xs) ∧
-    EVERY (λ(v,r). v ∈ set_of ns ∧ ∃e:'a cexp. avoid_set_ok ns e ∧ r = exp_of e) xs ∧
+    { explode a | ∃e. lookup m a = SOME e } = set (MAP lhs_name xs) ∧
+    EVERY (λx. case x of
+      Simple v r => v ∈ set_of ns ∧ ∃e:'a cexp. avoid_set_ok ns e ∧ r = exp_of e) xs ∧
     ∀v e. (lookup m v = SOME e) ⇒
           ∃e1. e = (e1:'a cexp) ∧ cheap e1 ∧
-               MEM (explode v, exp_of e) xs ∧
+               MEM (Simple (explode v) (exp_of e)) xs ∧
                avoid_set_ok ns e1 ∧
                NestedCase_free e1 ∧
                letrecs_distinct (exp_of e1) ∧
@@ -97,8 +98,8 @@ Theorem memory_inv_APPEND:
   NestedCase_free e1 ∧
   letrecs_distinct (exp_of e1) ∧
   cexp_wf e1 ∧
-  ¬MEM (explode v) (MAP FST xs) ⇒
-  memory_inv (xs ++ [(explode v,exp_of e1)]) (insert m v e1) ns
+  ¬MEM (explode v) (MAP lhs_name xs) ⇒
+  memory_inv (xs ++ [Simple (explode v) (exp_of e1)]) (insert m v e1) ns
 Proof
   gvs [memory_inv_def]
   \\ disch_tac \\ fs []
@@ -381,8 +382,11 @@ Theorem memory_inv_subset:
   ⇒
   memory_inv xs m ns1
 Proof
-  fs [memory_inv_def] \\ rw [] \\ res_tac \\ fs [EVERY_MEM,FORALL_PROD]
-  \\ gvs [SUBSET_DEF]
+  reverse (fs [memory_inv_def] \\ rw [] \\ res_tac)
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
+  \\ Cases \\ gvs [SUBSET_DEF]
+  \\ strip_tac \\ res_tac \\ gvs []
   \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF]
 QED
 
@@ -1604,7 +1608,7 @@ QED
 
 Theorem memory_inv_imp_set_of:
   memory_inv xs m ns ⇒
-  set (MAP FST xs) ⊆ set_of ns ∧
+  set (MAP lhs_name xs) ⊆ set_of ns ∧
   vars_of xs ⊆ set_of ns
 Proof
   strip_tac
@@ -1613,7 +1617,7 @@ Proof
   \\ pop_assum mp_tac
   \\ pop_assum kall_tac
   \\ Induct_on ‘xs’ \\ gvs [vars_of_def,vars_of_def]
-  \\ PairCases \\ fs []
+  \\ Cases \\ fs []
   \\ gvs [vars_of_def,vars_of_def]
   \\ rw [] \\ res_tac \\ fs []
   \\ imp_res_tac avoid_set_ok_set_of \\ fs []
@@ -1691,7 +1695,7 @@ fun lemma () = inline_ind
     letrecs_distinct (exp_of x) ∧
     cexp_wf x ∧
     barendregt (exp_of x) ∧
-    DISJOINT (set (MAP FST xs)) (boundvars (exp_of x)) ∧
+    DISJOINT (set (MAP lhs_name xs)) (boundvars (exp_of x)) ∧
     (inline m ns cl h x) = (t, ns1) ⇒
     inline_rel xs (exp_of x) (exp_of t)’
   |> Q.SPEC ‘λm ns cl h es. ∀xs ts ns1.
@@ -1703,7 +1707,7 @@ fun lemma () = inline_ind
              letrecs_distinct (exp_of x) ∧
              cexp_wf x) es ∧
     EVERY (λe. barendregt (exp_of e)) es ∧
-    EVERY (λx. DISJOINT (set (MAP FST xs)) (boundvars (exp_of x))) es ∧
+    EVERY (λx. DISJOINT (set (MAP lhs_name xs)) (boundvars (exp_of x))) es ∧
     (inline_list m ns cl h es) = (ts, ns1) ⇒
     LIST_REL (λx t. inline_rel xs (exp_of x) (exp_of t)) es ts’
   |> CONV_RULE (DEPTH_CONV BETA_CONV);
@@ -1739,7 +1743,7 @@ Proof
     gvs [inline_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [inline_rel_refl,exp_of_def,SF ETA_ss]
-    \\ qspecl_then [`set (MAP FST xs)`,`exp_of e`,`MAP exp_of es`]
+    \\ qspecl_then [`set (MAP lhs_name xs)`,`exp_of e`,`MAP exp_of es`]
                    assume_tac DISJOINT_boundvars_Apps
     \\ drule barendregt_Apps_EVERY
     \\ strip_tac
@@ -1778,8 +1782,9 @@ Proof
       >- (rw [] \\ gvs [SUBSET_DEF] \\ metis_tac [])
       \\ conj_tac
       >- (rw [] \\ last_x_assum drule
-          >- (gvs [SUBSET_DEF] \\ metis_tac [])
-          \\ metis_tac [avoid_set_ok_subset])
+          >- (CASE_TAC \\ gvs [SUBSET_DEF]
+              \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF])
+          \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF])
       \\ rw []
       \\ last_x_assum drule
       \\ metis_tac [avoid_set_ok_subset]
@@ -1832,7 +1837,7 @@ Proof
     \\ irule_at Any inline_rel_simp
     \\ irule_at (Pos hd) inline_rel_Apps
     \\ irule_at (Pos hd) inline_rel_Var
-    \\ ‘MEM (explode v,exp_of c) xs’ by
+    \\ ‘MEM (Simple (explode v) (exp_of c)) xs’ by
           (fs [memory_inv_def] \\ res_tac  \\ fs [])
     \\ pop_assum $ irule_at Any
     \\ qexists_tac ‘MAP exp_of es1’
@@ -2036,7 +2041,7 @@ Proof
       \\ gvs [MAP_MAP_o,o_DEF,FORALL_PROD,LAMBDA_PROD,SND_intro,EVERY_MAP]
       \\ last_x_assum $ qspec_then `xs` mp_tac
       \\ impl_tac >- fs [SF SFY_ss]
-      \\ sg `EVERY (λ(p1,p2). DISJOINT (boundvars (exp_of p2)) (set (MAP FST xs))) vbs`
+      \\ sg `EVERY (λ(p1,p2). DISJOINT (boundvars (exp_of p2)) (set (MAP lhs_name xs))) vbs`
       >-  simp [EVERY_MEM,FORALL_PROD,SF SFY_ss]
       \\ pop_assum mp_tac
       \\ qid_spec_tac `vbs1`
@@ -2215,13 +2220,13 @@ Proof
       \\ irule lets_for_barendregt
       \\ metis_tac []
     )
-    \\ sg `(∀v1 x1. f = SOME (v1, x1) ⇒ DISJOINT (boundvars (exp_of x1)) (set (MAP FST xs)))`
+    \\ sg `(∀v1 x1. f = SOME (v1, x1) ⇒ DISJOINT (boundvars (exp_of x1)) (set (MAP lhs_name xs)))`
     >- (
       rw []
       \\ Cases_on `MEM v (FLAT (MAP (λx. FST (SND x)) bs))`
       >- (
         gvs []
-        \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP FST xs))` mp_tac
+        \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP lhs_name xs))` mp_tac
         \\ qid_spec_tac `bs`
         \\ Induct
         >- fs [rows_of_def,IfDisj_def]
@@ -2231,7 +2236,7 @@ Proof
         \\ fs [rows_of_def,lets_for_def,IfDisj_def,MAP,MAPi_def]
       )
       \\ gvs []
-      \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP FST xs))` mp_tac
+      \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP lhs_name xs))` mp_tac
       \\ qid_spec_tac `bs`
       \\ Induct
       >- fs [rows_of_def,IfDisj_def]
@@ -2240,13 +2245,13 @@ Proof
       \\ Cases_on `r''`
       \\ fs [rows_of_def,lets_for_def,IfDisj_def,MAP,MAPi_def]
     )
-    \\ sg `EVERY (λx. DISJOINT (boundvars (exp_of x)) (set (MAP FST xs))) (MAP (λ(v,vs,e). e) bs)`
+    \\ sg `EVERY (λx. DISJOINT (boundvars (exp_of x)) (set (MAP lhs_name xs))) (MAP (λ(v,vs,e). e) bs)`
     >- (
       rw []
       \\ Cases_on `MEM v (FLAT (MAP (λx. FST (SND x)) bs))`
       >- (
         gvs []
-        \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP FST xs))` mp_tac
+        \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP lhs_name xs))` mp_tac
         \\ qid_spec_tac `bs`
         \\ Induct
         >- fs [rows_of_def,IfDisj_def]
@@ -2258,7 +2263,7 @@ Proof
         \\ metis_tac []
       )
       \\ gvs []
-      \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP FST xs))` mp_tac
+      \\ qpat_x_assum `DISJOINT (boundvars (rows_of _ _ _)) (set (MAP lhs_name xs))` mp_tac
       \\ qid_spec_tac `bs`
       \\ Induct
       >- fs [rows_of_def,IfDisj_def]
@@ -2322,6 +2327,7 @@ Proof
         \\ imp_res_tac SUBSET_TRANS \\ fs [])
       \\ gvs [EVERY_MEM,FORALL_PROD] \\ rw []
       \\ res_tac \\ gvs []
+      \\ TRY (Cases_on ‘x’ \\ gvs [] \\ res_tac \\ gvs [])
       \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF])
     \\ gvs [MAP_MAP_o,o_DEF]
     \\ simp [LAMBDA_PROD]
@@ -2348,7 +2354,10 @@ Proof
     \\ gvs [pure_expTheory.letrecs_distinct_def,
             letrecs_distinct_rows_of,cexp_wf_def]
     \\ conj_tac >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
-    \\ reverse conj_tac >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
+    \\ reverse conj_tac
+    >-
+     (Cases \\ gvs [] \\ rw [] \\ res_tac \\ gvs []
+      \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF])
     \\ gvs [EVERY_MAP,LAMBDA_PROD]
     \\ gvs [EVERY_MEM,FORALL_PROD]
     \\ rpt strip_tac
@@ -2384,7 +2393,7 @@ Theorem inline_cexp_inline_rel_spec:
     map_ok m ∧ avoid_set_ok ns x ∧
     NestedCase_free x ∧ cexp_wf x ∧ letrecs_distinct (exp_of x) ∧
     barendregt (exp_of x) ∧
-    DISJOINT (set (MAP FST xs)) (boundvars (exp_of x)) ∧
+    DISJOINT (set (MAP lhs_name xs)) (boundvars (exp_of x)) ∧
     (inline m ns cl h x) = (t, ns1) ⇒
     inline_rel xs (exp_of x) (exp_of t)
 Proof
