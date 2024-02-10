@@ -144,6 +144,7 @@ Proof
   fs[EXTENSION,SUBSET_DEF]
 QED
 
+(*
 Theorem check_cl_map_no_cycles_IMP_super_no_cycles:
   map_ok cl_map ∧
   (∀c d. FLOOKUP (to_fmap cl_map) c = SOME d ⇒
@@ -158,6 +159,45 @@ Proof
   drule_then assume_tac has_cycle_correct >>
   fs[check_cl_map_no_cycles_def]
 QED
+*)
+
+Triviality super_reachable_EQ_TC_depends_on_weak:
+  map_ok cl_map ⇒
+  super_reachable (to_class_map cl_map) =
+    TC_depends_on_weak (superAList cl_map)
+Proof
+  rw[super_reachable_def,TC_depends_on_weak_def] >>
+  AP_TERM_TAC >>
+  rw[FUN_EQ_THM,superAList_def,map_fst] >>
+  fs[to_class_map_def,FLOOKUP_FMAP_MAP2,FMAP_MAP2_THM,PULL_EXISTS] >>
+  drule_then strip_assume_tac mlmap_toAscList >>
+  gvs[ALOOKUP_MAP,PULL_EXISTS,EXTENSION] >>
+  rw[EQ_IMP_THM]
+  >- (
+    drule_then assume_tac $ cj 2 MAP_FST_toAscList >>
+    drule_then assume_tac ALOOKUP_ALL_DISTINCT_MEM >>
+    drule_then strip_assume_tac mlmap_toAscList >>
+    fs[EXTENSION] >>
+    metis_tac[]
+  ) >>
+  drule_then assume_tac ALOOKUP_MEM >>
+  drule_then assume_tac $ cj 2 mlmap_toAscList >>
+  fs[EXTENSION]
+QED
+
+Theorem check_cl_map_no_cycles_IMP_super_no_cycles:
+  map_ok cl_map ∧
+  check_cl_map_no_cycles cl_map ⇒
+  super_no_cycles $ to_class_map cl_map
+Proof
+  rw[super_no_cycles_def] >>
+  drule_all_then assume_tac
+    super_reachable_EQ_TC_depends_on_weak >>
+  drule_then assume_tac ALL_DISTINCT_superAList >>
+  drule_then assume_tac has_cycle_correct2 >>
+  fs[check_cl_map_no_cycles_def]
+QED
+
 
 (*
 Definition check_cl_map_def:

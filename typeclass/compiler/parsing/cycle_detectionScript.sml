@@ -136,7 +136,7 @@ Proof
   ntac 2 (pairarg_tac >> fs[])
 QED
 
-Theorem RTC_ALOOKUP_enc_graph_IMP_depends_on:
+Triviality RTC_ALOOKUP_enc_graph_IMP_depends_on:
   ALL_DISTINCT (MAP FST graph) ⇒
   ∀n n'. RTC (λx y.
    ∃aSetx.
@@ -340,6 +340,93 @@ Proof
   qexists `CARD {x;y}` >>
   irule_at (Pos last) CARD_SUBSET >>
   simp[]
+QED
+
+Definition TC_depends_on_weak_def:
+  TC_depends_on_weak alist ⇔
+  TC (λa b.
+    ∃deps.
+      ALOOKUP alist a = SOME deps ∧ MEM b deps)
+End
+
+Theorem TC_depends_on_weak_EQ_TC_depends_on:
+  (∀x l y. ALOOKUP alist x = SOME l ∧ MEM y l ⇒ MEM y (MAP FST alist)) ⇒
+  TC_depends_on alist = TC_depends_on_weak alist
+Proof
+  simp[TC_depends_on_weak_def,TC_depends_on_def] >>
+  strip_tac >>
+  AP_TERM_TAC >>
+  rw[FUN_EQ_THM,EQ_IMP_THM] >>
+  metis_tac[]
+QED
+
+Triviality TC_depends_on_weak_IMP_MEM:
+  ∀ x y. TC_depends_on_weak graph x y ⇒
+  MEM x (MAP FST graph)
+Proof
+  PURE_REWRITE_TAC[TC_depends_on_weak_def] >>
+  ho_match_mp_tac TC_INDUCT >>
+  rw[]>>
+  drule ALOOKUP_MEM >>
+  rw[MEM_MAP] >>
+  first_assum $ irule_at (Pos last) >>
+  simp[]
+QED
+
+Triviality TC_depends_on_weak_IMP_TC_depends_on:
+  ∀x y. TC_depends_on_weak graph x y ⇒
+    MEM y (MAP FST graph) ⇒
+    TC_depends_on graph x y
+Proof
+  PURE_REWRITE_TAC[TC_depends_on_weak_def] >>
+  ho_match_mp_tac TC_STRONG_INDUCT_RIGHT1 >>
+  rw[TC_depends_on_def]
+  >- (
+    irule $ cj 1 TC_RULES >>
+    simp[]
+  ) >>
+  irule TC_RIGHT1_I >>
+  last_x_assum $ irule_at (Pos last) >>
+  conj_tac
+  >- (
+    simp[MEM_MAP] >>
+    drule_then (irule_at (Pos last)) ALOOKUP_MEM >>
+    simp[]
+  ) >>
+  simp[]
+QED
+
+Theorem TC_depends_on_TC_depends_on_weak_thm:
+  ∀x y. TC_depends_on graph x y =
+    (TC_depends_on_weak graph x y ∧ MEM y (MAP FST graph))
+Proof
+  simp[EQ_IMP_THM,TC_depends_on_weak_IMP_TC_depends_on] >>
+  simp[TC_depends_on_weak_def,TC_depends_on_def] >>
+  simp[IMP_CONJ_THM,FORALL_AND_THM] >>
+  conj_tac
+  >- (
+    rpt strip_tac >>
+    drule_at_then (Pos last) irule TC_MONOTONE >>
+    rw[] >>
+    metis_tac[]
+  ) >>
+  ho_match_mp_tac TC_INDUCT_RIGHT1 >>
+  rw[]
+QED
+
+Theorem TC_depends_on_weak_cycle_thm:
+  TC_depends_on_weak graph x x = TC_depends_on graph x x
+Proof
+  simp[TC_depends_on_TC_depends_on_weak_thm,EQ_IMP_THM] >>
+  metis_tac[TC_depends_on_weak_IMP_MEM]
+QED
+
+Theorem has_cycle_correct2:
+  ALL_DISTINCT (MAP FST graph) ⇒
+  (has_cycle graph ⇔ ∃x. TC_depends_on_weak graph x x)
+Proof
+  simp[TC_depends_on_weak_cycle_thm] >>
+  metis_tac[has_cycle_correct]
 QED
 
 val _ = export_theory();
