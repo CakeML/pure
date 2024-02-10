@@ -14,12 +14,24 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
 val _ = new_theory "pure_inline_rel";
 
 (*------------------------------------------------------------------------------*
+   Definition of what inliner can remember
+ *------------------------------------------------------------------------------*)
+
+Datatype:
+  inline_mem = Simple string exp (* TODO: | Rec ... *)
+End
+
+Definition lhs_name_def[simp]:
+  lhs_name (Simple v e) = v
+End
+
+(*------------------------------------------------------------------------------*
    Definition of precondition pre
  *------------------------------------------------------------------------------*)
 
 Definition vars_of_def:
   vars_of [] = {} ∧
-  vars_of ((v,e)::rest) = {v} ∪ freevars e ∪ vars_of rest
+  vars_of ((Simple v e)::rest) = {v} ∪ freevars e ∪ vars_of rest
 End
 
 Definition pre_def:
@@ -39,12 +51,12 @@ Inductive inline_rel:
     inline_rel l t t)
 [~Var:]
   (∀v x l.
-    MEM (v, x) l ⇒
+    MEM (Simple v x) l ⇒
     inline_rel l (Var v) x)
 [~Let:]
   (∀l v x y.
     inline_rel l x x' ∧
-    inline_rel (l ++ [(v,x)]) y y' ⇒
+    inline_rel (l ++ [Simple v x]) y y' ⇒
     inline_rel l (Let v x y) (Let v x' y'))
 [~Prim:]
   (∀l p xs ys.
@@ -71,7 +83,7 @@ Inductive inline_rel:
     v ∉ freevars x1 ∧
     DISJOINT (boundvars t) (boundvars x1) ∧
     DISJOINT (boundvars t) (freevars x1) ∧
-    inline_rel (l ++ [(v,x1)]) t u ⇒
+    inline_rel (l ++ [Simple v x1]) t u ⇒
     inline_rel l (Letrec [(v, x)] t) (Letrec [(v, y)] u))
 [~trans:]
   (∀l x y z.
@@ -92,9 +104,9 @@ End
 
 Definition lets_ok_def:
   (lets_ok [] ⇔ T) ∧
-  (lets_ok ((v,x)::rest) ⇔
+  (lets_ok ((Simple v x)::rest) ⇔
     v ∉ freevars x ∧
-    DISJOINT ({v} ∪ freevars x) (set (MAP FST rest)) ∧
+    DISJOINT ({v} ∪ freevars x) (set (MAP lhs_name rest)) ∧
     lets_ok rest)
 End
 
@@ -103,11 +115,11 @@ End
  *------------------------------------------------------------------------------*)
 
 Theorem vars_of_DISJOINT_MAP_FST:
-  DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP FST xs))
+  DISJOINT s (vars_of xs) ⇒ DISJOINT s (set (MAP lhs_name xs))
 Proof
   rw []
   \\ Induct_on `xs` \\ reverse $ rw [vars_of_def]
-  \\ PairCases_on ‘h’ \\ gvs [vars_of_def]
+  \\ Cases_on ‘h’ \\ gvs [vars_of_def]
   \\ gvs [DISJOINT_SYM]
 QED
 
@@ -117,11 +129,7 @@ Proof
   rw []
   \\ Induct_on ‘xs’ \\ rw []
   >- fs [vars_of_def]
-  \\ Cases_on `h` \\ Cases_on `r` \\ rw []
-  >- (
-    fs [vars_of_def]
-    \\ fs [UNION_ASSOC]
-  )
+  \\ Cases_on `h`
   \\ fs [vars_of_def]
   \\ fs [UNION_ASSOC]
 QED
@@ -149,7 +157,7 @@ Proof
 QED
 
 Theorem vars_of_not_in_MAP_FST:
-  v ∉ vars_of xs ⇒ ¬MEM v (MAP FST xs)
+  v ∉ vars_of xs ⇒ ¬MEM v (MAP lhs_name xs)
 Proof
   rw []
   \\ Induct_on `xs`
@@ -159,19 +167,20 @@ Proof
 QED
 
 Theorem lets_ok_SNOC_alt:
-  lets_ok xs ∧ v ∉ freevars x1 ∧ ~MEM v (MAP FST xs) ∧
+  lets_ok xs ∧ v ∉ freevars x1 ∧ ~MEM v (MAP lhs_name xs) ∧
   v ∉ vars_of xs
   ⇒
-  lets_ok (xs ++ [(v,x1)])
+  lets_ok (xs ++ [Simple v x1])
 Proof
   Induct_on ‘xs’
   \\ fs [lets_ok_def,FORALL_PROD,vars_of_def]
-  \\ rw [] \\ simp [DISJOINT_SYM]
+  \\ Cases \\ rw [] \\ simp [DISJOINT_SYM,lets_ok_def]
+  \\ fs [lets_ok_def,FORALL_PROD,vars_of_def]
 QED
 
 Theorem lets_ok_SNOC:
   lets_ok xs ∧ pre xs (Let v x y) ⇒
-  lets_ok (xs ++ [(v,x)])
+  lets_ok (xs ++ [Simple v x])
 Proof
   strip_tac
   \\ irule lets_ok_SNOC_alt \\ fs []
@@ -180,9 +189,10 @@ Proof
 QED
 
 Theorem map_fst_subset_vars_of:
-  ∀xs. set (MAP FST xs) ⊆ vars_of xs
+  ∀xs. set (MAP lhs_name xs) ⊆ vars_of xs
 Proof
   Induct \\ fs [vars_of_def,FORALL_PROD] \\ fs [SUBSET_DEF]
+  \\ Cases \\ gvs [vars_of_def]
 QED
 
 (*------------------------------------------------------------------------------*
@@ -205,7 +215,7 @@ QED
 
 Theorem pre_Lam:
   pre xs (Lam w x) ⇒
-  ¬MEM w (MAP FST xs) ∧ w ∉ vars_of xs ∧ pre xs x
+  ¬MEM w (MAP lhs_name xs) ∧ w ∉ vars_of xs ∧ pre xs x
 Proof
   fs [pre_def,barendregt_alt_def] \\ strip_tac
   \\ imp_res_tac vars_of_not_in_MAP_FST \\ fs []
@@ -217,7 +227,7 @@ Theorem pre_SNOC:
   v ∉ freevars x1 ∧ v ∉ boundvars x ∧
   DISJOINT (boundvars x) (boundvars x1) ∧
   DISJOINT (boundvars x) (freevars x1) ⇒
-  pre (xs ++ [(v,x1)]) x
+  pre (xs ++ [Simple v x1]) x
 Proof
   fs [pre_def,vars_of_append,vars_of_def,barendregt_alt_def] \\ rw []
   \\ simp [DISJOINT_SYM]
@@ -225,8 +235,8 @@ QED
 
 Theorem pre_Let:
   pre xs (Let v x y) ⇒
-  pre xs x ∧ pre (xs ++ [(v,x)]) y ∧
-  ¬MEM v (MAP FST xs) ∧ v ∉ vars_of xs
+  pre xs x ∧ pre (xs ++ [Simple v x]) y ∧
+  ¬MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs
 Proof
   fs [lets_ok_def,pre_def,barendregt_alt_def]
   \\ simp [DISJOINT_SYM,vars_of_append,vars_of_def]
@@ -240,7 +250,7 @@ Theorem pre_Letrec:
   pre xs (Letrec ys x) ⇒
   pre xs x ∧ EVERY (pre xs) (MAP SND ys) ∧
   DISJOINT (set (MAP FST ys)) (boundvars x) ∧
-  EVERY (λ(v,e). ¬MEM v (MAP FST xs) ∧ v ∉ vars_of xs) ys
+  EVERY (λ(v,e). ¬MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs) ys
 Proof
   rpt strip_tac
   >-
@@ -260,7 +270,7 @@ Proof
   \\ rpt disch_tac
   \\ rpt gen_tac
   \\ rpt disch_tac \\ fs []
-  \\ ‘set (MAP FST xs) ⊆ vars_of xs’ by gvs [map_fst_subset_vars_of]
+  \\ ‘set (MAP lhs_name xs) ⊆ vars_of xs’ by gvs [map_fst_subset_vars_of]
   \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,pre_def,IN_DISJOINT,SUBSET_DEF]
   \\ metis_tac []
 QED
@@ -503,7 +513,7 @@ QED
 
 Theorem inline_rel_Var_trans:
   ∀v x x1 x2 l.
-    MEM (v,x) l ∧ x ≅ x1 ∧ pre l x1 ∧ inline_rel l x1 x2 ⇒
+    MEM (Simple v x) l ∧ x ≅ x1 ∧ pre l x1 ∧ inline_rel l x1 x2 ⇒
     inline_rel l (Var v) x2
 Proof
   rw []
@@ -515,11 +525,15 @@ Proof
   \\ fs []
 QED
 
-Theorem Lets_snoc:
-  ∀xs. Lets (xs ++ [(v,x)]) y = Lets xs (Let v x y)
+Definition Binds_def:
+  Binds [] y = y ∧
+  Binds ((Simple v x)::xs) y = Let v x (Binds xs y)
+End
+
+Theorem Binds_snoc:
+  ∀xs. Binds (xs ++ [Simple v x]) y = Binds xs (Let v x y)
 Proof
-  Induct \\ fs [Lets_def]
-  \\ PairCases \\ Cases_on ‘h1’ \\ fs [Lets_def]
+  Induct \\ fs [Binds_def] \\ Cases \\ fs [Binds_def]
 QED
 
 Theorem exp_eq_Let_cong:
@@ -529,15 +543,15 @@ Proof
   simp[exp_eq_App_cong, exp_eq_Lam_cong]
 QED
 
-Theorem Lets_Lam:
-  v ∉ set (MAP FST xs) ∧
+Theorem Binds_Lam:
+  v ∉ set (MAP lhs_name xs) ∧
   v ∉ vars_of xs ⇒
-  (Lets xs (Lam v x) ≅? Lam v (Lets xs x)) b
+  (Binds xs (Lam v x) ≅? Lam v (Binds xs x)) b
 Proof
   rw []
-  \\ Induct_on `xs` \\ rw [Lets_def]
+  \\ Induct_on `xs` \\ rw [Binds_def]
   >- simp [exp_eq_refl]
-  \\ Cases_on `h` \\ rw [Lets_def]
+  \\ Cases_on `h` \\ rw [Binds_def]
   \\ simp [Once exp_eq_sym]
   \\ irule exp_eq_trans
   \\ once_rewrite_tac [exp_eq_sym]
@@ -547,11 +561,11 @@ Proof
   \\ fs [exp_eq_refl]
 QED
 
-Theorem Lets_App:
-  ∀xs x y. (Lets xs (App x y) ≅? App (Lets xs x) (Lets xs y)) b
+Theorem Binds_App:
+  ∀xs x y. (Binds xs (App x y) ≅? App (Binds xs x) (Binds xs y)) b
 Proof
-  Induct \\ fs [Lets_def,exp_eq_refl]
-  \\ PairCases \\ fs [Lets_def]
+  Induct \\ fs [Binds_def,exp_eq_refl]
+  \\ Cases \\ fs [Binds_def]
   \\ rw []
   \\ irule exp_eq_trans
   \\ irule_at Any pure_congruenceTheory.Let_App
@@ -559,17 +573,18 @@ Proof
   \\ irule exp_eq_Lam_cong \\ fs [exp_eq_refl]
 QED
 
-Theorem Lets_Let:
-  v ∉ set (MAP FST xs) ∧
+Theorem Binds_Let:
+  v ∉ set (MAP lhs_name xs) ∧
   v ∉ vars_of xs ⇒
-  (Lets xs (Let v x y) ≅? Let v (Lets xs x) (Lets xs y)) b
+  (Binds xs (Let v x y) ≅? Let v (Binds xs x) (Binds xs y)) b
 Proof
   rw []
   \\ irule exp_eq_trans
-  \\ irule_at Any Lets_App
-  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl,Lets_Lam]
+  \\ irule_at Any Binds_App
+  \\ irule exp_eq_App_cong \\ fs [exp_eq_refl,Binds_Lam]
 QED
 
+(*
 Theorem Letrec1_Letrec:
   ∀v x xs e.
   EVERY (λ(n,u). n ∉ freevars x) xs ∧
@@ -758,13 +773,15 @@ Proof
   \\ res_tac
   \\ metis_tac []
 QED
+*)
 
-Theorem Lets_Letrec:
-  EVERY (λ(v, e). v ∉ set (MAP FST xs) ∧ v ∉ vars_of xs) l ⇒
-    (Lets xs (Letrec l y) ≅? Letrec (MAP (λ(v, e). (v, Lets xs e)) l) (Lets xs y)) b
+Theorem Binds_Letrec:
+  EVERY (λ(v, e). v ∉ set (MAP lhs_name xs) ∧ v ∉ vars_of xs) l ⇒
+    (Binds xs (Letrec l y) ≅?
+     Letrec (MAP (λ(v, e). (v, Binds xs e)) l) (Binds xs y)) b
 Proof
   rw []
-  \\ Induct_on `xs` \\ rw [Lets_def]
+  \\ Induct_on `xs` \\ rw [Binds_def]
   >- (
     irule exp_eq_Letrec_cong
     \\ fs [MAP_MAP_o, o_DEF,LAMBDA_PROD,FST]
@@ -777,10 +794,11 @@ Proof
     \\ Cases_on `e` \\ rw []
     \\ simp [exp_eq_refl]
   )
-  \\ Cases_on `h` \\ rw [Lets_def]
-  \\ qsuff_tac `(Let q r (Lets xs (Letrec l y)) ≅?
-                     Letrec (MAP (λ(v,t). (v,Let q r t)) (MAP (λ(v,t). (v,Lets xs t)) l))
-                     (Let q r (Lets xs y))) b`
+  \\ Cases_on `h` \\ rw [Binds_def]
+  \\ rename [‘Let q r _’]
+  \\ qsuff_tac `(Let q r (Binds xs (Letrec l y)) ≅?
+                     Letrec (MAP (λ(v,t). (v,Let q r t)) (MAP (λ(v,t). (v,Binds xs t)) l))
+                     (Let q r (Binds xs y))) b`
   >- fs [MAP_MAP_o, o_DEF, LAMBDA_PROD]
   \\ irule exp_eq_trans
   \\ irule_at Any Let_Letrec
@@ -796,7 +814,7 @@ Proof
     \\ gvs [])
   \\ sg `EVERY
         (λv.
-           (v ≠ q ∧ ¬MEM v (MAP FST xs)) ∧ v ∉ freevars r ∧
+           (v ≠ q ∧ ¬MEM v (MAP lhs_name xs)) ∧ v ∉ freevars r ∧
            v ∉ vars_of xs) (MAP FST l)`
   >- (fs [EVERY_MAP, LAMBDA_PROD, FST, SF CONJ_ss]
       \\ gvs [EVERY_MEM,FORALL_PROD] \\ metis_tac [])
@@ -822,55 +840,56 @@ Proof
   \\ gvs []
 QED
 
-Theorem Lets_Prim:
-  (Lets xs (Prim op ys) ≅? Prim op (MAP (Lets xs) ys)) b
+Theorem Binds_Prim:
+  (Binds xs (Prim op ys) ≅? Prim op (MAP (Binds xs) ys)) b
 Proof
   rw []
-  \\ Induct_on `xs` \\ rw [Lets_def]
+  \\ Induct_on `xs` \\ rw [Binds_def]
   >- (
     irule exp_eq_Prim_cong
-    \\ simp [LIST_REL_MAP2,Lets_def]
+    \\ simp [LIST_REL_MAP2,Binds_def]
     \\ simp [LIST_REL_EL_EQN]
     \\ simp [exp_eq_refl]
   )
-  \\ PairCases_on `h` \\ rw [Lets_def]
-  \\ qsuff_tac `(Let h0 h1 (Lets xs (Prim op ys)) ≅?
-         Prim op (MAP (Let h0 h1) (MAP (Lets xs) ys))) b`
+  \\ Cases_on `h` \\ rw [Binds_def]
+  \\ qsuff_tac `(Let s e (Binds xs (Prim op ys)) ≅?
+         Prim op (MAP (Let s e) (MAP (Binds xs) ys))) b`
   >-
    (rw []
-    \\ fs [MAP_MAP_o, o_DEF,Lets_def]
+    \\ fs [MAP_MAP_o, o_DEF,Binds_def]
     \\ irule exp_eq_trans
     \\ first_x_assum $ irule_at Any
-    \\ qsuff_tac `(MAP (λx. Let h0 h1 (Lets xs x)) ys) = (MAP (Lets ((h0,h1)::xs)) ys)`
+    \\ qsuff_tac `(MAP (λx. Let s e (Binds xs x)) ys) =
+                  (MAP (Binds ((Simple s e)::xs)) ys)`
     >- simp [exp_eq_refl]
-    \\ simp [MAP_EQ_EVERY2,Lets_def]
+    \\ simp [MAP_EQ_EVERY2,Binds_def]
     \\ simp [EVERY2_refl_EQ])
-  \\ rw [Lets_def]
+  \\ rw [Binds_def]
   \\ irule exp_eq_trans
   \\ irule_at Any Let_Prim
   \\ irule exp_eq_Let_cong
-  \\ simp [exp_eq_refl,Lets_def]
+  \\ simp [exp_eq_refl,Binds_def]
 QED
 
-Theorem Lets_cong:
-  (x ≅? y) b ⇒ (Lets xs x ≅? Lets xs y) b
+Theorem Binds_cong:
+  (x ≅? y) b ⇒ (Binds xs x ≅? Binds xs y) b
 Proof
   rw []
   \\ Induct_on `xs`
-  >- rw [Lets_def]
-  \\ PairCases \\ rw [Lets_def]
+  >- rw [Binds_def]
+  \\ Cases \\ rw [Binds_def]
   \\ irule exp_eq_Let_cong
   \\ rw [exp_eq_refl]
 QED
 
-Theorem Lets_append:
-  ∀xs ys e. Lets (xs ++ ys) e = Lets xs (Lets ys e)
+Theorem Binds_append:
+  ∀xs ys e. Binds (xs ++ ys) e = Binds xs (Binds ys e)
 Proof
   rw []
   \\ Induct_on `xs`
-  >- rw [Lets_def]
+  >- rw [Binds_def]
   \\ Cases_on `h`
-  \\ rw [Lets_def]
+  \\ rw [Binds_def]
 QED
 
 Theorem Let_ignore:
@@ -984,14 +1003,14 @@ Proof
   fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
 QED
 
-Theorem Lets_copy:
+Theorem Binds_copy:
   ∀e x.
     lets_ok [e] ⇒
-    (Lets [e] x ≅? Lets [e; e] x) b
+    (Binds [e] x ≅? Binds [e; e] x) b
 Proof
   rw []
   \\ Induct_on `e` \\ rw []
-  \\ fs [lets_ok_def,Lets_def]
+  \\ fs [lets_ok_def,Binds_def]
   \\ irule exp_eq_subst_IMP_exp_eq
   \\ rw []
   \\ simp [subst_def]
@@ -1013,7 +1032,7 @@ Proof
   >- (
     irule IMP_closed_subst
     \\ rw []
-    \\ sg ‘(∀w. w ∈ FRANGE (f \\ p_1) ⇒ closed w)’
+    \\ sg ‘(∀w. w ∈ FRANGE (f \\ s) ⇒ closed w)’
     >- (
       simp [FRANGE_FLOOKUP]
       \\ rw [EQ_IMP_THM]
@@ -1025,7 +1044,7 @@ Proof
     \\ fs [freevars_subst]
     \\ fs [set_DIFF_DELETE_EMPTY]
   )
-  \\ sg ‘(∀w. w ∈ FRANGE (f \\ p_1) ⇒ closed w)’
+  \\ sg ‘(∀w. w ∈ FRANGE (f \\ s) ⇒ closed w)’
   >- (
     simp [FRANGE_FLOOKUP]
     \\ rw [EQ_IMP_THM]
@@ -1034,9 +1053,9 @@ Proof
     \\ rw []
     \\ fs [DOMSUB_FLOOKUP_THM]
   )
-  \\ qsuff_tac `(subst1 p_1 (subst f p_2) (subst (f \\ p_1) p_2)) = (subst f p_2)`
+  \\ qsuff_tac `(subst1 s (subst f e) (subst (f \\ s) e)) = (subst f e)`
   >- rw [exp_eq_refl]
-  \\ qsuff_tac `p_1 ∉ freevars (subst (f \\ p_1) p_2)`
+  \\ qsuff_tac `s ∉ freevars (subst (f \\ s) e)`
   >- (
     rw []
     \\ simp [subst1_notin]
@@ -1376,30 +1395,33 @@ Proof
   \\ metis_tac [DOMSUB_COMMUTES]
 QED
 
-Theorem Lets_MEM_lemma:
+Theorem Binds_MEM_lemma:
   ∀xs.
     lets_ok (e::xs) ⇒
-    (Lets (e::xs) x ≅? Lets (e::(xs ++ [e])) x) b
+    (Binds (e::xs) x ≅? Binds (e::(xs ++ [e])) x) b
 Proof
   Induct
   >- (
     fs []
     \\ rw []
-    \\ irule Lets_copy
-    \\ PairCases_on ‘e’
-    \\ rw [] \\ fs [lets_ok_def,Lets_def]
+    \\ irule Binds_copy
+    \\ Cases_on ‘e’
+    \\ rw [] \\ fs [lets_ok_def,Binds_def]
   )
   \\ rw []
-  \\ PairCases_on ‘e’ \\ PairCases_on ‘h’ \\ fs [Lets_def]
+  \\ Cases_on ‘e’ \\ Cases_on ‘h’ \\ fs [Binds_def]
   \\ gvs [lets_ok_def]
   \\ irule exp_eq_trans
-  \\ irule_at (Pos hd) (Lets_copy |> Q.SPEC ‘(e1,e2)’ |> REWRITE_RULE [Lets_def])
+  \\ rename [‘Simple s e1’]
+  \\ irule_at (Pos hd) (Binds_copy
+       |> Q.SPEC ‘Simple s e1’ |> REWRITE_RULE [Binds_def])
   \\ gvs [lets_ok_def]
   \\ irule exp_eq_trans
   \\ irule_at Any Let_Let_copy \\ fs []
   \\ simp [Once exp_eq_sym]
   \\ irule exp_eq_trans
-  \\ irule_at (Pos hd) (Lets_copy |> Q.SPEC ‘(e1,e2)’ |> REWRITE_RULE [Lets_def])
+  \\ irule_at (Pos hd) (Binds_copy
+       |> Q.SPEC ‘Simple s e1’ |> REWRITE_RULE [Binds_def])
   \\ gvs [lets_ok_def]
   \\ irule exp_eq_trans
   \\ irule_at Any Let_Let_copy \\ fs []
@@ -1410,14 +1432,14 @@ Proof
   \\ simp [Once exp_eq_sym]
 QED
 
-Theorem Lets_MEM:
+Theorem Binds_MEM:
   ∀xs e x.
     MEM e xs ∧ lets_ok xs ⇒
-    (Lets xs x ≅? Lets (xs ++ [e]) x) b
+    (Binds xs x ≅? Binds (xs ++ [e]) x) b
 Proof
   Induct \\ fs [] \\ rw []
-  >- (irule Lets_MEM_lemma \\ fs [])
-  \\ PairCases_on ‘h’ \\ gvs [lets_ok_def,Lets_def]
+  >- (irule Binds_MEM_lemma \\ fs [])
+  \\ Cases_on ‘h’ \\ gvs [lets_ok_def,Binds_def]
   \\ irule exp_eq_App_cong \\ gvs [exp_eq_refl]
   \\ irule exp_eq_Lam_cong \\ gvs [exp_eq_refl]
 QED
@@ -1429,54 +1451,54 @@ QED
 Theorem inline_rel_IMP_exp_eq_lemma:
   ∀xs x y.
     inline_rel xs x y ∧ lets_ok xs ∧ pre xs x ⇒
-    (Lets xs x ≅? Lets xs y) b
+    (Binds xs x ≅? Binds xs y) b
 Proof
   Induct_on ‘inline_rel’
   \\ rpt strip_tac \\ fs [exp_eq_refl]
   >~ [‘Var’] >- (
     rw []
-    \\ fs [lets_ok_def,EVERY_MEM,Lets_def]
+    \\ fs [lets_ok_def,EVERY_MEM,Binds_def]
     \\ res_tac
     \\ fs []
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_MEM
+    \\ irule_at Any Binds_MEM
     \\ first_assum $ irule_at $ Pos hd
     \\ fs [EVERY_MEM,lets_ok_def]
-    \\ fs [Lets_append,Lets_def]
-    \\ irule Lets_cong
+    \\ fs [Binds_append,Binds_def]
+    \\ irule Binds_cong
     \\ irule Let_Var
   )
   >~ [‘Let _ _ _’] >- (
     imp_res_tac pre_Let \\ gvs []
-    \\ fs [Lets_snoc]
+    \\ fs [Binds_snoc]
     \\ irule exp_eq_trans
     \\ last_x_assum $ irule_at Any
     \\ drule_all lets_ok_SNOC \\ fs [] \\ strip_tac
     \\ irule_at Any exp_eq_trans
-    \\ irule_at Any Lets_Let \\ fs []
+    \\ irule_at Any Binds_Let \\ fs []
     \\ irule_at Any exp_eq_trans
     \\ once_rewrite_tac [exp_eq_sym]
-    \\ irule_at (Pos $ el 2) Lets_Let \\ fs []
+    \\ irule_at (Pos $ el 2) Binds_Let \\ fs []
     \\ irule_at Any exp_eq_App_cong \\ fs [exp_eq_refl]
     \\ once_rewrite_tac [exp_eq_sym] \\ fs []
   )
   >~ [‘App’] >- (
     imp_res_tac pre_App \\ gvs []
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_App
+    \\ irule_at Any Binds_App
     \\ once_rewrite_tac [exp_eq_sym]
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_App
+    \\ irule_at Any Binds_App
     \\ once_rewrite_tac [exp_eq_sym]
     \\ irule exp_eq_App_cong
     \\ fs []
   )
   >~ [‘Prim’] >- (
     irule exp_eq_trans
-    \\ irule_at Any Lets_Prim
+    \\ irule_at Any Binds_Prim
     \\ once_rewrite_tac [exp_eq_sym]
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Prim
+    \\ irule_at Any Binds_Prim
     \\ once_rewrite_tac [exp_eq_sym]
     \\ irule exp_eq_Prim_cong
     \\ fs [LIST_REL_MAP]
@@ -1486,20 +1508,20 @@ Proof
   >~ [‘Lam’] >- (
     imp_res_tac pre_Lam \\ gvs []
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Lam \\ fs []
+    \\ irule_at Any Binds_Lam \\ fs []
     \\ once_rewrite_tac [exp_eq_sym]
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Lam \\ fs []
+    \\ irule_at Any Binds_Lam \\ fs []
     \\ irule exp_eq_Lam_cong \\ fs []
     \\ once_rewrite_tac [exp_eq_sym] \\ fs []
   )
-  >~ [`Letrec`] >- (
+  >~ [‘Letrec’] >- (
     imp_res_tac pre_Letrec \\ gvs []
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Letrec \\ fs []
+    \\ irule_at Any Binds_Letrec \\ fs []
     \\ once_rewrite_tac [exp_eq_sym]
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Letrec \\ fs []
+    \\ irule_at Any Binds_Letrec \\ fs []
     \\ conj_tac >-
      (fs [LIST_REL_EL_EQN,EVERY_EL,FORALL_PROD]
       \\ rw [] \\ gvs []
@@ -1520,9 +1542,9 @@ Proof
   )
   >~ [‘Letrec’] >- (
     imp_res_tac pre_Letrec \\ gvs []
-    \\ fs [Lets_snoc]
-    \\ sg `(∀e. Lets xs (Letrec [(v,x')] e) ≅ Lets xs (Let v x1 e))`
-    >- (rw [] \\ irule Lets_cong \\ gvs [])
+    \\ fs [Binds_snoc]
+    \\ sg `(∀e. Binds xs (Letrec [(v,x')] e) ≅ Binds xs (Let v x1 e))`
+    >- (rw [] \\ irule Binds_cong \\ gvs [])
     \\ first_assum $ qspecl_then [`x`] assume_tac
     \\ irule exp_eq_trans
     \\ drule_then (qspec_then `b` assume_tac) exp_eq_T_IMP_F
@@ -1537,10 +1559,10 @@ Proof
     \\ simp [Once exp_eq_sym]
     \\ first_x_assum $ irule_at Any
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Letrec \\ fs []
+    \\ irule_at Any Binds_Letrec \\ fs []
     \\ simp [Once exp_eq_sym]
     \\ irule exp_eq_trans
-    \\ irule_at Any Lets_Letrec \\ fs []
+    \\ irule_at Any Binds_Letrec \\ fs []
     \\ irule exp_eq_Letrec_cong
     \\ gvs [exp_eq_refl]
     \\ simp [Once exp_eq_sym]
@@ -1550,14 +1572,14 @@ Proof
     \\ last_x_assum $ irule_at Any \\ fs [])
   \\ irule exp_eq_trans
   \\ last_x_assum $ irule_at Any
-  \\ irule Lets_cong
+  \\ irule Binds_cong
   \\ fs [exp_eq_T_IMP_F]
 QED
 
 Theorem inline_rel_IMP_exp_eq_lemma_specialized:
   ∀xs x y.
     inline_rel xs x y ∧ lets_ok xs ∧ pre xs x ⇒
-    Lets xs x ≅ Lets xs y
+    Binds xs x ≅ Binds xs y
 Proof
   rw [] \\ irule inline_rel_IMP_exp_eq_lemma \\ simp []
 QED
@@ -1567,7 +1589,7 @@ Theorem inline_rel_IMP_exp_eq:
   (x ≅? y) b
 Proof
   rw [] \\ drule inline_rel_IMP_exp_eq_lemma
-  \\ fs [pre_def,lets_ok_def,vars_of_def,closed_def,Lets_def]
+  \\ fs [pre_def,lets_ok_def,vars_of_def,closed_def,Binds_def]
 QED
 
 Theorem inline_rel_IMP_exp_eq_specialized:
