@@ -82,6 +82,10 @@ Inductive inline_rel:
     LIST_REL (λ(n,t1) (m,u1). n = m ∧ inline_rel l t1 u1) xs ys ∧
     inline_rel l t u ⇒
     inline_rel l (Letrec xs t) (Letrec ys u))
+[~Letrec_Rec:]
+  (∀l t u v x.
+    inline_rel (l ++ [Rec v x]) t u ⇒
+    inline_rel l (Letrec [(v,x)] t) (Letrec [(v,x)] u))
 [~spec:]
   (∀l t u v x y x1.
     inline_rel l x y ∧
@@ -197,6 +201,28 @@ Proof
   \\ imp_res_tac vars_of_not_in_MAP_FST
 QED
 
+Theorem lets_ok_SNOC_alt_Rec:
+  lets_ok xs ∧ ~MEM v (MAP lhs_name xs) ∧
+  v ∉ vars_of xs
+  ⇒
+  lets_ok (xs ++ [Rec v x1])
+Proof
+  Induct_on ‘xs’
+  \\ fs [lets_ok_def,FORALL_PROD,vars_of_def]
+  \\ Cases \\ rw [] \\ simp [DISJOINT_SYM,lets_ok_def]
+  \\ fs [lets_ok_def,FORALL_PROD,vars_of_def]
+QED
+
+Theorem lets_ok_SNOC_Rec:
+  lets_ok xs ∧ pre xs (Letrec [(v,x)] y) ⇒
+  lets_ok (xs ++ [Rec v x])
+Proof
+  strip_tac
+  \\ irule lets_ok_SNOC_alt_Rec \\ fs []
+  \\ fs [pre_def]
+  \\ imp_res_tac vars_of_not_in_MAP_FST
+QED
+
 Theorem map_fst_subset_vars_of:
   ∀xs. set (MAP lhs_name xs) ⊆ vars_of xs
 Proof
@@ -237,6 +263,17 @@ Theorem pre_SNOC:
   DISJOINT (boundvars x) (boundvars x1) ∧
   DISJOINT (boundvars x) (freevars x1) ⇒
   pre (xs ++ [Simple v x1]) x
+Proof
+  fs [pre_def,vars_of_append,vars_of_def,barendregt_alt_def] \\ rw []
+  \\ simp [DISJOINT_SYM]
+QED
+
+Theorem pre_SNOC_Rec:
+  pre xs x ∧
+  v ∉ boundvars x ∧
+  DISJOINT (boundvars x) (boundvars x1) ∧
+  DISJOINT (boundvars x) (freevars x1) ⇒
+  pre (xs ++ [Rec v x1]) x
 Proof
   fs [pre_def,vars_of_append,vars_of_def,barendregt_alt_def] \\ rw []
   \\ simp [DISJOINT_SYM]
@@ -1603,6 +1640,18 @@ Proof
     \\ qid_spec_tac ‘zs’
     \\ Induct \\ fs [PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
   )
+  >~ [‘inline_rel (xs ++ [Rec v x1]) x y’] >-
+   (gvs [Binds_append,Binds_def]
+    \\ first_x_assum irule
+    \\ irule_at Any lets_ok_SNOC_Rec \\ fs []
+    \\ first_assum $ irule_at (Pos hd)
+    \\ irule pre_SNOC_Rec \\ fs [pre_def]
+    \\ gvs [barendregt_alt_def]
+    \\ first_x_assum $ qspecl_then [‘[]’,‘(v,x1)’,‘[]’] mp_tac
+    \\ gvs [] \\ strip_tac
+    \\ gvs [barendregt_def,IN_DISJOINT,pure_exp_lemmasTheory.allvars_thm]
+    \\ metis_tac []
+   )
   >~ [‘Letrec’] >- (
     imp_res_tac pre_Letrec \\ gvs []
     \\ fs [Binds_snoc]
