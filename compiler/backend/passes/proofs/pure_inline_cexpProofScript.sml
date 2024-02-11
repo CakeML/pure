@@ -22,7 +22,9 @@ Definition memory_inv_def:
   memory_inv xs m (ns:(mlstring,unit) map # num) ⇔
     { explode a | ∃e. lookup m a = SOME e } = set (MAP lhs_name xs) ∧
     EVERY (λx. case x of
-      Simple v r => v ∈ set_of ns ∧ ∃e:'a cexp. avoid_set_ok ns e ∧ r = exp_of e) xs ∧
+      | Simple v r => (v ∈ set_of ns ∧
+                       ∃e:'a cexp. avoid_set_ok ns e ∧ r = exp_of e)
+      | Rec v r => F) xs ∧
     ∀v e. (lookup m v = SOME e) ⇒
           ∃e1. e = (e1:'a cexp) ∧ cheap e1 ∧
                MEM (Simple (explode v) (exp_of e)) xs ∧
@@ -2357,7 +2359,8 @@ Proof
     \\ reverse conj_tac
     >-
      (Cases \\ gvs [] \\ rw [] \\ res_tac \\ gvs []
-      \\ metis_tac [avoid_set_ok_subset,SUBSET_DEF])
+      >- metis_tac [avoid_set_ok_subset,SUBSET_DEF]
+      \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ gvs [])
     \\ gvs [EVERY_MAP,LAMBDA_PROD]
     \\ gvs [EVERY_MEM,FORALL_PROD]
     \\ rpt strip_tac
