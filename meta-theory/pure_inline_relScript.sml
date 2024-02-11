@@ -39,7 +39,7 @@ End
 Definition pre_def:
   pre l x ⇔
     barendregt x ∧
-    DISJOINT (boundvars x) (freevars x) ∧
+    DISJOINT (boundvars x) (freevars x) ∧  (* TODO: remove this redundant line *)
     DISJOINT (boundvars x) (vars_of l)
 End
 
@@ -83,9 +83,10 @@ Inductive inline_rel:
     inline_rel l t u ⇒
     inline_rel l (Letrec xs t) (Letrec ys u))
 [~Letrec_Rec:]
-  (∀l t u v x.
+  (∀l t u v x x'.
+    inline_rel l x x' ∧
     inline_rel (l ++ [Rec v x]) t u ⇒
-    inline_rel l (Letrec [(v,x)] t) (Letrec [(v,x)] u))
+    inline_rel l (Letrec [(v,x)] t) (Letrec [(v,x')] u))
 [~spec:]
   (∀l t u v x y x1.
     inline_rel l x y ∧
@@ -1530,6 +1531,13 @@ Proof
   \\ irule exp_eq_Letrec_cong \\ gvs [exp_eq_refl]
 QED
 
+Theorem MEM_lhs_name_IMP:
+  ∀xs v. MEM v (MAP lhs_name xs) ⇒ v ∈ vars_of xs
+Proof
+  Induct \\ gvs [] \\ Cases \\ gvs [vars_of_def]
+  \\ metis_tac []
+QED
+
 (*------------------------------------------------------------------------------*
    The main result of this script
  *------------------------------------------------------------------------------*)
@@ -1641,16 +1649,34 @@ Proof
     \\ Induct \\ fs [PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
   )
   >~ [‘inline_rel (xs ++ [Rec v x1]) x y’] >-
-   (gvs [Binds_append,Binds_def]
-    \\ first_x_assum irule
-    \\ irule_at Any lets_ok_SNOC_Rec \\ fs []
-    \\ first_assum $ irule_at (Pos hd)
-    \\ irule pre_SNOC_Rec \\ fs [pre_def]
+   (irule exp_eq_trans
+    \\ qexists_tac ‘Binds xs (Letrec [(v,x1)] y)’
+    \\ conj_tac
+    >-
+     (gvs [Binds_append,Binds_def]
+      \\ first_x_assum irule
+      \\ irule_at Any lets_ok_SNOC_Rec \\ fs []
+      \\ first_assum $ irule_at (Pos hd)
+      \\ irule pre_SNOC_Rec \\ fs [pre_def]
+      \\ gvs [barendregt_alt_def]
+      \\ first_x_assum $ qspecl_then [‘[]’,‘(v,x1)’,‘[]’] mp_tac
+      \\ gvs [] \\ strip_tac
+      \\ gvs [barendregt_def,IN_DISJOINT,pure_exp_lemmasTheory.allvars_thm]
+      \\ metis_tac [])
+    \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) Binds_Letrec \\ fs []
+    \\ conj_asm1_tac >-
+     (gvs [pre_def] \\ CCONTR_TAC \\ gvs []
+      \\ imp_res_tac MEM_lhs_name_IMP \\ gvs [])
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at (Pos hd) Binds_Letrec \\ fs []
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_Letrec_cong \\ gvs [exp_eq_refl]
+    \\ last_x_assum irule
+    \\ gvs [pre_def]
     \\ gvs [barendregt_alt_def]
-    \\ first_x_assum $ qspecl_then [‘[]’,‘(v,x1)’,‘[]’] mp_tac
-    \\ gvs [] \\ strip_tac
-    \\ gvs [barendregt_def,IN_DISJOINT,pure_exp_lemmasTheory.allvars_thm]
-    \\ metis_tac []
+    \\ gvs [barendregt_def]
    )
   >~ [‘Letrec’] >- (
     imp_res_tac pre_Letrec \\ gvs []
