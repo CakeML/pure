@@ -55,6 +55,10 @@ Inductive inline_rel:
   (∀v x l.
     MEM (Simple v x) l ⇒
     inline_rel l (Var v) x)
+[~Var_Rec:]
+  (∀v x l.
+    MEM (Rec v x) l ⇒
+    inline_rel l (Var v) x)
 [~Let:]
   (∀l v x y.
     inline_rel l x x' ∧
@@ -1501,17 +1505,31 @@ Proof
   Induct_on ‘inline_rel’
   \\ rpt strip_tac \\ fs [exp_eq_refl]
   >~ [‘Var’] >- (
-    rw []
-    \\ fs [lets_ok_def,EVERY_MEM,Binds_def]
-    \\ res_tac
-    \\ fs []
-    \\ irule exp_eq_trans
+    irule exp_eq_trans
     \\ irule_at Any Binds_MEM
     \\ first_assum $ irule_at $ Pos hd
     \\ fs [EVERY_MEM,lets_ok_def]
     \\ fs [Binds_append,Binds_def]
     \\ irule Binds_cong
     \\ irule Let_Var
+  )
+  >~ [‘MEM (Rec v y) xs’] >- (
+    irule exp_eq_trans
+    \\ irule_at Any Binds_MEM
+    \\ first_assum $ irule_at $ Pos hd
+    \\ fs [EVERY_MEM,lets_ok_def]
+    \\ fs [Binds_append,Binds_def]
+    \\ simp [Once exp_eq_sym]
+    \\ irule exp_eq_trans
+    \\ irule_at Any Binds_MEM
+    \\ first_assum $ irule_at $ Pos hd
+    \\ simp []
+    \\ fs [Binds_append,Binds_def]
+    \\ simp [Once exp_eq_sym]
+    \\ irule Binds_cong
+    \\ irule (pure_demandTheory.Letrec_unfold |> Q.SPECL [‘[(v,x)]’,‘0’]
+      |> SIMP_RULE std_ss [LENGTH,EL,HD,FST,MAP])
+    \\ fs []
   )
   >~ [‘Let _ _ _’] >- (
     imp_res_tac pre_Let \\ gvs []
