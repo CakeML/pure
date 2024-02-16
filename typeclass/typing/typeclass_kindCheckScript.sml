@@ -17,45 +17,36 @@ End
 
 Inductive kind_wf:
 [~Prim:]
-  (∀cdb vdb t. kind_wf cdb vdb kindType (PrimTy t))
+  ∀cdb vdb t. kind_wf cdb vdb kindType (Atom $ PrimTy t)
 [~Exception:]
-  (∀cdb vdb. kind_wf cdb vdb kindType Exception)
-[~VarTypeConsBase:]
-  (∀cdb vdb v.
-    kind_wf cdb vdb (vdb v) (VarTypeCons v []))
-[~VarTypeConsCons:]
-  (∀cdb vdb k1 k2 v t ts.
-     kind_wf cdb vdb (kindArrow k1 k2) (VarTypeCons v ts) ∧
-     kind_wf cdb vdb k1 t ⇒
-       kind_wf cdb vdb k2 (VarTypeCons v (t::ts)))
-[~TyConsBase:]
-  (∀cdb vdb v.
-     kind_wf cdb vdb (cdb v) (TypeCons (INL v) []))
-[~TyConsCons:]
-  (∀cdb vdb k1 k2 v t ts.
-     kind_wf cdb vdb (kindArrow k1 k2) (TypeCons v ts) ∧
-     kind_wf cdb vdb k1 t ⇒
-       kind_wf cdb vdb k2 (TypeCons v (t::ts)))
-[~TypeConsFunction:]
-  (∀cdb vdb.
-     kind_wf cdb vdb
-       (kindArrow kindType $ kindArrow kindType kindType)
-       (TypeCons (INR Function) []))
+  ∀cdb vdb. kind_wf cdb vdb kindType (Atom Exception)
+[~VarTypeCons:]
+   ∀cdb vdb v.
+      kind_wf cdb vdb (vdb v) (Atom $ VarTypeCons v)
+[~TyConsINL:]
+   ∀cdb vdb c.
+      kind_wf cdb vdb (cdb c) (Atom $ TypeCons (INL c))
+[~TyConsFunction:]
+   ∀cdb vdb.
+      kind_wf cdb vdb (kindArrow kindType $ kindArrow kindType kindType)
+        (Atom $ TypeCons (INR Function))
 [~TypeConsArray:]
-  (∀cdb vdb.
-     kind_wf cdb vdb
-       (kindArrow kindType kindType)
-       (TypeCons (INR Array) []))
+   ∀cdb vdb.
+      kind_wf cdb vdb (kindArrow kindType kindType)
+        (Atom $ TypeCons (INR Array))
 [~TypeConsM:]
-  (∀cdb vdb.
-     kind_wf cdb vdb
-       (kindArrow kindType kindType)
-       (TypeCons (INR M) []))
+   ∀cdb vdb.
+      kind_wf cdb vdb (kindArrow kindType kindType)
+        (Atom $ TypeCons (INR M))
 [~TypeConsTuple:]
-  (∀cdb vdb n.
-     kind_wf cdb vdb
-       (kind_arrows (GENLIST (K kindType) n) kindType)
-       (TypeCons (INR $ Tuple n) []))
+   ∀cdb vdb n.
+      kind_wf cdb vdb (kind_arrows (GENLIST (K kindType) n) kindType)
+        (Atom $ TypeCons (INR $ Tuple n))
+[~Cons:]
+   ∀cdb vdb k1 k2 t1 t2.
+      kind_wf cdb vdb (kindArrow k1 k2) t1 /\
+      kind_wf cdb vdb k1 t2 ==>
+        kind_wf cdb vdb k2 (Cons t1 t2)
 End
 
 (* predicate to check if the predicated type is well-kinded *)

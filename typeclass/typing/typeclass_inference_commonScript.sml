@@ -6,49 +6,26 @@ open typeclass_typesTheory;
 val _ = new_theory "typeclass_inference_common";
 
 Datatype:
-  itype = DBVarCons num (itype list)
-        | PrimTy prim_ty
-        | Exception
-        | TypeCons (num + comp_prim_ty) (itype list)
-        | CVarCons num (itype list)
+  itype = iAtom atom_ty
+        | iCons itype itype
+        | iCVar num
 End
 
-Overload Unit = ``TypeCons (INR $ Tuple 0) []``;
-Overload IntTy = ``PrimTy Integer``;
-Overload BoolTy = ``PrimTy Bool``;
-Overload StrTy = ``PrimTy String``;
-
-Theorem itype_ind:
-  ∀P.
-    (∀n ts. (∀a. MEM a ts ⇒ P a) ⇒ P (DBVarCons n ts)) ∧
-    (∀p. P (PrimTy p)) ∧ P Exception ∧
-    (∀id ts. (∀a. MEM a ts ⇒ P a) ⇒ P (TypeCons id ts)) ∧
-    (∀n ts. (∀a. MEM a ts ⇒ P a) ⇒ P (CVarCons n ts))
-  ⇒ ∀v. P v
-Proof
-  ntac 3 strip_tac >>
-  completeInduct_on `itype_size v` >> rw[] >>
-  Cases_on `v` >> gvs[fetch "-" "itype_size_def"] >>
-  last_x_assum irule >> rw[] >>
-  first_x_assum irule >> simp[] >>
-  Induct_on `l` >> rw[] >> gvs[fetch "-" "itype_size_def"]
-QED
+Overload Unit = ``iAtom $ TypeCons (INR $ Tuple 0)``;
+Overload IntTy = ``iAtom $ PrimTy Integer``;
+Overload BoolTy = ``iAtom $ PrimTy Bool``;
+Overload StrTy = ``iAtom $ PrimTy String``;
 
 Definition iFunctions_def:
   iFunctions [] t = t ∧
-  iFunctions (at::ats) t = TypeCons (INR Function)
-    [at; (iFunctions ats t)]
+  iFunctions (at::ats) t =
+    iCons (iCons (iAtom (TypeCons $ INR Function)) at) $ iFunctions ats t
 End
 
 Definition freedbvars_def:
-  (freedbvars (DBVarCons n its) =
-    {n} ∪ BIGUNION (set $ MAP freedbvars its)) ∧
-  (freedbvars (PrimTy pty) = {}) ∧
-  (freedbvars Exception = {}) ∧
-  (freedbvars (TypeCons id its) = BIGUNION (set (MAP freedbvars its))) ∧
-  (freedbvars (CVarCons cv its) = BIGUNION (set (MAP freedbvars its)))
-Termination
-  WF_REL_TAC `measure itype_size` >> rw[fetch "-" "itype_size_def"]
+  (freedbvars (iCons it1 it2) = freedbvars it1 ∪ freedbvars it2) ∧
+  (freedbvars (iAtom (VarTypeCons v)) = {v}) ∧
+  (freedbvars _ = {})
 End
 
 (*
@@ -82,55 +59,28 @@ Definition itype_ok_def:
 End
 *)
 
-Definition isubstDBVarCons_def:
-  isubstDBVarCons (DBVarCons v tcs) ts = DBVarCons v (tcs ++ ts) ∧
-  isubstDBVarCons (TypeCons v tcs) ts = TypeCons v (tcs ++ ts) ∧
-  isubstDBVarCons (CVarCons v tcs) ts = CVarCons v (tcs ++ ts) ∧
-  isubstDBVarCons p ts = p
-End
-
 Definition isubst_def:
-  isubst ts (DBVarCons v tcs) = (
-    if v < LENGTH ts
-      then isubstDBVarCons (EL v ts) (MAP (isubst ts) tcs)
-      else DBVarCons (v - LENGTH ts) (MAP (isubst ts) tcs)) ∧
-  isubst ts (PrimTy p) = PrimTy p ∧
-  isubst ts  Exception = Exception ∧
-  isubst ts (TypeCons v tcs) = TypeCons v (MAP (isubst ts) tcs) ∧
-  isubst ts (CVarCons v tcs) = CVarCons v (MAP (isubst ts) tcs)
-Termination
-  WF_REL_TAC `measure (itype_size o SND)` >> rw[fetch "-" "itype_size_def"]
+  (isubst ts (iAtom $ VarTypeCons v) =
+    if v < LENGTH ts then EL v ts else iAtom $ VarTypeCons $ v - LENGTH ts) ∧
+  (isubst ts (iCons t1 t2) = iCons (isubst ts t1) (isubst ts t2)) ∧
+  isubst ts t = t
 End
 
 Definition ishift_def:
-  ishift n (DBVarCons v tcs) = DBVarCons (v + n) (MAP (ishift n) tcs) ∧
-  ishift n (PrimTy p) = PrimTy p ∧
-  ishift n  Exception = Exception ∧
-  ishift n (TypeCons v tcs) = TypeCons v (MAP (ishift n) tcs) ∧
-  ishift n (CVarCons v tcs) = CVarCons v (MAP (ishift n) tcs)
-Termination
-  WF_REL_TAC `measure (itype_size o SND)` >> rw[fetch "-" "itype_size_def"]
+  ishift n (iAtom $ VarTypeCons v) = iAtom $ VarTypeCons (v + n) ∧
+  ishift n (iCons t1 t2) = iCons (ishift n t1) (ishift n t2) ∧
+  ishift n t = t
 End
 
 Definition itype_of_def:
-  itype_of (VarTypeCons n ts) = DBVarCons n (MAP itype_of ts) ∧
-  itype_of (PrimTy p) = PrimTy p ∧
-  itype_of Exception = Exception ∧
-  itype_of (TypeCons n ts) = TypeCons n (MAP itype_of ts)
-Termination
-  WF_REL_TAC `measure type_size` >> rw[type_size_def]
+  itype_of (Atom at) = iAtom at ∧
+  itype_of (Cons t1 t2) = iCons (itype_of t1) (itype_of t2)
 End
 
 Definition type_of_def:
-  type_of (DBVarCons n ts) =
-    OPTION_MAP (VarTypeCons n) $ OPT_MMAP type_of ts ∧
-  type_of (PrimTy p) = SOME $ PrimTy p ∧
-  type_of Exception = SOME $ Exception ∧
-  type_of (TypeCons n ts) =
-    OPTION_MAP (TypeCons n) $ OPT_MMAP type_of ts ∧
-  type_of (CVarCons n ts) = NONE
-Termination
-  WF_REL_TAC `measure itype_size` >> rw[fetch "-" "itype_size_def"]
+  type_of (iCons t1 t2) = lift2 Cons (type_of t1) (type_of t2) ∧
+  type_of (iAtom at) = SOME $ Atom at ∧
+  type_of (iCVar v) = NONE
 End
 
 val _ = export_theory();

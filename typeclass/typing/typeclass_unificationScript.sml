@@ -10,106 +10,26 @@ open typeclass_typesTheory typeclass_inference_commonTheory;
 
 val _ = new_theory "typeclass_unification";
 
+(*
 Datatype:
   utype = uDBVar num
         | uPrimTy prim_ty
         | uException
         | uTypeCons (num + comp_prim_ty)
 End
-
-f b
-((-> a) [a])
-Datatype:
-  type = Atom atom_ty | Cons type type | CVar n
-  (* eg. m f [a] -->
-  * Cons (Cons (Atom m) (Atom f)) (Cons (Atom []) (Atom a)) *)
-End
+*)
 
 Definition encode_itype_def[nocompute]:
-  encode_itype (DBVarCons n ts) =
-    encode_itypes (Const $ uDBVar n) ts ∧
-  encode_itype (PrimTy p) = Const (uPrimTy p) ∧
-  encode_itype  Exception = Const (uException) ∧
-  encode_itype (TypeCons c ts) =
-    encode_itypes (Const $ uTypeCons c) ts ∧
-  encode_itype (CVarCons n ts) = encode_itypes (Var n) ts ∧
-
-  encode_itypes ut [] = ut ∧
-  encode_itypes ut (t::ts) =
-    encode_itypes (Pair ut $ encode_itype t) ts
+  encode_itype (Atom at) = Const at
+  encode_itype (CVar n) = Var n
+  encode_itype (Cons it1 it2) = Pair (encode_itype it1) (encode_itype it2)
 End
-
-Theorem encode_itypes_alt:
-  (∀ut. encode_itypes ut [] = ut) ∧
-  (∀ut t ts. encode_itypes ut (SNOC t ts) =
-    Pair (encode_itypes ut ts) $ encode_itype t)
-Proof
-  conj_tac >- simp[encode_itype_def] >>
-  Induct_on `ts` >>
-  simp[encode_itype_def]
-QED
-
-Theorem itype_SNOC_CASES:
-  ∀it.
-  (∃n l. it = DBVarCons n []) ∨
-  (∃n t ts. it = DBVarCons n (SNOC t ts)) ∨
-  (∃p. it = PrimTy p) ∨
-  (it = Exception) ∨
-  (∃s. it = TypeCons s []) ∨
-  (∃s t ts. it = TypeCons s (SNOC t ts)) ∨
-  (∃n. it = CVarCons n []) ∨
-  (∃n t ts. it = CVarCons n (SNOC t ts))
-Proof
-  Cases_on `it` >> simp[] >>
-  Cases_on `l` using SNOC_CASES >> simp[]
-QED
-
-Theorem encode_itypes_Pair:
-  ∀u1 u2 l. ∃u3 u4. encode_itypes (Pair u1 u2) l = Pair u3 u4
-Proof
-  Cases_on `l` using SNOC_CASES >>
-  simp[encode_itypes_alt]
-QED
-
-Theorem encode_itype_alt:
-  (∀n. encode_itype (DBVarCons n []) = Const (uDBVar n)) ∧
-  (∀n t ts. encode_itype (DBVarCons n (SNOC t ts)) =
-    Pair (encode_itypes (Const $ uDBVar n) ts)
-      (encode_itype t)) ∧
-  (∀p. encode_itype (PrimTy p) = Const (uPrimTy p)) ∧
-  (encode_itype  Exception = Const (uException)) ∧
-  (∀c. encode_itype (TypeCons c []) = Const (uTypeCons c)) ∧
-  (∀c t ts. encode_itype (TypeCons c (SNOC t ts)) =
-    Pair (encode_itypes (Const $ uTypeCons c) ts)
-      (encode_itype t)) ∧
-  (∀n. encode_itype (CVarCons n []) = Var n) ∧
-  (∀n t ts. encode_itype (CVarCons n (SNOC t ts)) =
-    Pair (encode_itypes (Var n) ts)
-      (encode_itype t))
-Proof
-  rw[encode_itype_def,encode_itypes_alt]
-QED
-
-Theorem encode_itype_Var:
-  ∀ty n. encode_itype ty = Var n ⇒ ty = CVarCons n []
-Proof
-  Cases_on `ty` using itype_SNOC_CASES >>
-  simp[encode_itype_alt]
-QED
 
 Definition decode_utype_acc_def[nocompute]:
-  decode_utype_acc (Pair u1 u2) acc = OPTION_BIND (decode_utype_acc u2 [])
-    (λity2. decode_utype_acc u1 (ity2::acc)) ∧
-  decode_utype_acc (Const $ uDBVar n) acc = SOME $ DBVarCons n acc ∧
-  decode_utype_acc (Const $ uTypeCons n) acc = SOME $ TypeCons n acc ∧
-  decode_utype_acc (Const $ uPrimTy p) [] = SOME $ PrimTy p ∧
-  decode_utype_acc (Const uException) [] = SOME Exception ∧
-  decode_utype_acc (Var n) acc = SOME $ CVarCons n acc ∧
-  decode_utype_acc _ _ = NONE
-End
-
-Definition decode_utype_def[nocompute]:
-  decode_utype ut = decode_utype_acc ut []
+  decode_utype (Pair u1 u2) =
+    Cons (decode_utype u1) (decode_utype u2) ∧
+  decode_utype_acc (Const $ at) = Atom at ∧
+  decode_utype_acc (Var n) = CVarCons n ∧
 End
 
 Triviality I_o_f:
@@ -131,14 +51,15 @@ Proof
 QED
 
 Theorem decode_encode:
-  (∀it. decode_utype (encode_itype it) = SOME it) ∧
-  (∀it. decode_utype_acc (encode_itype it) [] = SOME it) ∧
-  (∀its ut l. decode_utype_acc (encode_itypes ut its) l =
-    decode_utype_acc ut (its ++ l))
+  ∀it. decode_utype (encode_itype it) = it
 Proof
   simp[decode_utype_def,AND_CLAUSES,CONJ_ASSOC] >>
   Induct >>
   rw[encode_itype_def, decode_utype_acc_def]
+QED
+
+Theorem encode_decode:
+Proof
 QED
 
 Definition pure_wfs_def[nocompute]:
@@ -210,6 +131,8 @@ Triviality SNOC_CONS:
 Proof
   metis_tac[list_nchotomy,rich_listTheory.NOT_SNOC_NIL]
 QED
+
+Triviality EXISTS_
 
 Theorem encode_vwalk:
   ∀s. pure_wfs s ⇒
@@ -284,15 +207,7 @@ Definition pure_unify_def[nocompute]:
       unify (encode_itype o_f s) (encode_itype t1) (encode_itype t2)
 End
 
-Definition unifyl_def:
-  unifyl s [] [] = SOME s ∧
-  unifyl s (t1::ts1) (t2::ts2) = (
-    case unify s t1 t2 of
-    | NONE => NONE
-    | SOME s' => unifyl s' ts1 ts2) ∧
-  unifyl s _ _ = NONE
-End
-
+(*
 Definition pure_unifyl_def:
   pure_unifyl s [] [] = SOME s ∧
   pure_unifyl s (t1::ts1) (t2::ts2) = (
@@ -301,85 +216,7 @@ Definition pure_unifyl_def:
     | SOME s' => pure_unifyl s' ts1 ts2) ∧
   pure_unifyl s _ _ = NONE
 End
-
-Triviality pure_unifyl_alt_lemma:
-  ∀s l1 l2.
-    (∀t1 ts1 t2 ts2. l1 = SNOC t1 ts1 ∧ l2 = SNOC t2 ts2 ⇒
-    pure_unifyl s l1 l2 =
-      (case pure_unifyl s ts1 ts2 of
-      | NONE => NONE
-      | SOME s' => pure_unify s' t1 t2))
-Proof
-  ho_match_mp_tac pure_unifyl_ind >>
-  rw[pure_unifyl_def] >>
-  Cases_on `ts1` >>
-  Cases_on `ts2` >>
-  gvs[pure_unifyl_def]
-  >- (CASE_TAC >> rw[])
-  >- (CASE_TAC >> Cases_on `t` >> rw[pure_unifyl_def])
-  >- (CASE_TAC >> Cases_on `t` >> rw[pure_unifyl_def])
-  >- (CASE_TAC >> fs[])
-QED
-
-Theorem pure_unifyl_alt:
-  (∀s. pure_unifyl s [] [] = SOME s) ∧
-  (∀s t1 ts1 t2 ts2.
-    pure_unifyl s (SNOC t1 ts1) (SNOC t2 ts2) = (
-    case pure_unifyl s ts1 ts2 of
-    | NONE => NONE
-    | SOME s' => pure_unify s' t1 t2)) ∧
-  (∀s x l. pure_unifyl s [] (SNOC x l) = NONE) ∧
-  (∀s x l. pure_unifyl s (SNOC x l) [] = NONE)
-Proof
-  rw[pure_unifyl_def]
-  >- metis_tac[pure_unifyl_alt_lemma] >>
-  Cases_on `l` >> simp[pure_unifyl_def]
-QED
-
-Theorem pure_unifyl:
-  pure_unify s ts1 ts2 =
-    OPTION_MAP ((o_f) (THE o decode_utype)) $
-      unifyl (encode_itype o_f s) (MAP encode_itype ts1) (MAP encode_itype ts2)
-Proof
-QED
-
-Theorem pure_unifyl_SNOC_ind:
-  ∀P.
-  (∀s. P s [] []) ∧
-  (∀s t1 ts1. P s [] (SNOC t1 ts1)) ∧
-  (∀s t1 ts1. P s (SNOC t1 ts1) []) ∧
-  (∀s t1 ts1 t2 ts2. P s ts1 ts2 ⇒
-    P s (SNOC t1 ts1) (SNOC t2 ts2)) ⇒
- ∀s l1 l2. P s l1 l2
-Proof
-  ntac 3 strip_tac >>
-  Induct using SNOC_INDUCT >>
-  Cases_on `l2` using SNOC_CASES >>
-  gvs[]
-QED
-
-Theorem pure_unifyl_compute:
-  ∀s l1 l2. 
-  pure_unifyl s l1 l2 =
-  if LENGTH l1 = LENGTH l2
-  then
-    FOLDR
-      (λ(t1,t2) os. OPTION_BIND os
-        (λs'. pure_unify s' t1 t2)) (SOME s) $
-       REVERSE $ ZIP (l1,l2)
-  else NONE
-Proof
-  ho_match_mp_tac pure_unifyl_ind >>
-  rw[pure_unifyl_def] >>
-  CASE_TAC >>
-  fs[rich_listTheory.FOLDR_APPEND] >>
-  last_x_assum mp_tac >>
-  qid_spec_tac `l2` >>
-  Induct_on `l1` >>
-  rw[] >>
-  Cases_on `l2` >>
-  fs[rich_listTheory.FOLDR_APPEND]
-QED
+*)
 
 Theorem encode_walk:
   ∀s. pure_wfs s ⇒
@@ -394,61 +231,22 @@ QED
 
 Theorem encode_pair_cases:
   ∀t t1 t2. encode_itype t = Pair t1 t2 ⇒
-    (∃c ts t. t1 = encode_itypes (Const $ uTypeCons c) ts ∧ t2 = encode_itype t) ∨
-    (∃c ts t. t1 = encode_itypes (Const $ uDBVar c) ts ∧ t2 = encode_itype t) ∨
-    (∃n ts t. t1 = encode_itypes (Var n) ts ∧ t2 = encode_itype t)
+    (∃c ts. t1 = Const (uTypeCons c) ∧ t2 = encode_itypes ts) ∨
+    (∃ts. t1 = Const uTuple ∧ t2 = encode_itypes ts) ∨
+    (∃it1 it2. t1 = Const uFunction ∧
+               t2 = Pair (encode_itype it1) (encode_itype it2)) ∨
+    (∃t. t1 = Const uArray ∧ t2 = encode_itype t) ∨
+    (∃t. t1 = Const uM ∧ t2 = encode_itype t)
 Proof
-  Cases >> fs[encode_itype_alt] >>
-  Cases_on `l` using SNOC_CASES >>
-  fs[encode_itype_alt] >>
-  metis_tac[]
-QED
-
-Theorem encode_itypes_size:
-  ∀ut ts. term_size utype_size ut ≤ term_size utype_size (encode_itypes ut ts)
-Proof
-  Induct_on `ut` >>
-  Induct_on `ts` using SNOC_INDUCT >>
-  fs[fetch "term" "term_size_def",
-    fetch "-" "utype_size_def",encode_itypes_alt] >>
-  rw[] >>
-  irule LESS_EQ_TRANS >>
-  pop_assum $ irule_at (Pos hd) >>
-  metis_tac[LESS_EQ_ADD,ADD_COMM,ADD_ASSOC]
-QED
-
-Triviality NOT_EQ_Pair_encode_itypes:
-  ut ≠ Pair (encode_itypes ut l) x
-Proof
-  `term_size utype_size ut <
-    term_size utype_size (Pair (encode_itypes ut l) x)`
-  suffices_by
-    (rpt strip_tac >>
-    metis_tac[prim_recTheory.LESS_REFL]) >>
-  simp[fetch "term" "term_size_def"] >>
-  irule LESS_EQ_LESS_TRANS >>
-  irule_at (Pos last) encode_itypes_size >>
-  qexists_tac `l` >>
-  simp[]
+  Cases >> rw[encode_itype_def] >> rpt $ irule_at Any EQ_REFL
 QED
 
 Theorem encode_itype_injective:
   (∀t1 t2. encode_itype t1 = encode_itype t2 ⇔ t1 = t2) ∧
-  (∀t1s t2s ut. encode_itypes ut t1s = encode_itypes ut t2s ⇔ t1s = t2s)
+  (∀t1s t2s. encode_itypes t1s = encode_itypes t2s ⇔ t1s = t2s)
 Proof
-  conj_asm1_tac
-  >- (
-    rw[] >> eq_tac >> rw[] >>
-    irule $ iffLR SOME_11 >>
-    once_rewrite_tac[GSYM decode_encode] >> simp[]) >>
-  simp[EQ_IMP_THM] >>
-  Induct_on `t1s` using SNOC_INDUCT >>
-  rw[] >>
-  Cases_on `t2s` using SNOC_CASES >>
-  gvs[encode_itypes_alt]
-  >- metis_tac[NOT_EQ_Pair_encode_itypes]
-  >- metis_tac[NOT_EQ_Pair_encode_itypes] >>
-  first_x_assum $ drule_then irule
+  rw[] >> eq_tac >> rw[] >>
+  irule $ iffLR SOME_11 >> once_rewrite_tac[GSYM decode_encode] >> simp[]
 QED
 
 Theorem encode_itype_o_f_injective:
@@ -464,132 +262,387 @@ Theorem encode_unify_lemma:
   ∀s t1 t2 s' t1' t2'.
     s = encode_itype o_f s' ∧
     pure_wfs s' ∧
-    (t1 = encode_itype t1' ∧ t2 = encode_itype t2')
+    (
+      (t1 = encode_itype t1' ∧ t2 = encode_itype t2') ∨
+      (∃c. t1 = Const c ∧ t2 = Const c ∧ t1' = t2') ∨
+      (∃c ts1 ts2.
+        t1 = Pair (Const c) (encode_itypes ts1) ∧
+        t2 = Pair (Const c) (encode_itypes ts2) ∧
+          ((t1' = TypeCons ARB ts1 ∧ t2' = TypeCons ARB ts2) ∨
+           (t1' = Tuple ts1 ∧ t2' = Tuple ts2))) ∨
+      (∃c t11 t12 t21 t22.
+        t1 = Pair (Const c) (Pair (encode_itype t11) (encode_itype t12)) ∧
+        t2 = Pair (Const c) (Pair (encode_itype t21) (encode_itype t22)) ∧
+        t1' = Function t11 t12 ∧ t2' = Function t21 t22) ∨
+      (∃c ta tb.
+        t1 = Pair (Const c) (encode_itype ta) ∧
+        t2 = Pair (Const c) (encode_itype tb) ∧
+        ((t1' = Array ta ∧ t2' = Array tb) ∨
+         (t1' = M ta ∧ t2' = M tb))) ∨
+
+      (∃ts1 ts2.
+        t1 = encode_itypes ts1 ∧
+        t2 = encode_itypes ts2 ∧
+          ((t1' = TypeCons ARB ts1 ∧ t2' = TypeCons ARB ts2) ∨
+           (t1' = Tuple ts1 ∧ t2' = Tuple ts2))) ∨
+      (∃t11 t12 t21 t22.
+        t1 = Pair (encode_itype t11) (encode_itype t12) ∧
+        t2 = Pair (encode_itype t21) (encode_itype t22) ∧
+        t1' = Function t11 t12 ∧ t2' = Function t21 t22) ∨
+      (∃ta tb.
+        t1 = encode_itype ta ∧
+        t2 = encode_itype tb ∧
+          ((t1' = Array ta ∧ t2' = Array tb) ∨
+           (t1' = M ta ∧ t2' = M tb)))
+    )
   ⇒ unify s t1 t2 = OPTION_MAP ((o_f) encode_itype) (pure_unify s' t1' t2')
 Proof
   recInduct unify_ind >> simp[] >>
   rw[pure_unify_def] >> gvs[pure_wfs_def, option_map_case] >>
-  qmatch_assum_abbrev_tac `wfs es` >>
-  qmatch_goalsub_abbrev_tac `unify es e1 e2` >>
-  Cases_on `unify es e1 e2` >> gvs[combinTheory.o_DEF] >>
-  qsuff_tac `∃s. x = encode_itype o_f s`
-  >- (strip_tac >> rw[GSYM fmap_EQ_THM, decode_encode]) >>
-  pop_assum mp_tac >> simp[Once unify_def] >>
-  Cases_on `walk es e1` >> Cases_on `walk es e2` >> gvs[]
+  qmatch_assum_abbrev_tac `wfs es`
   >- (
-    unabbrev_all_tac >> rw[]
-    >- (irule_at Any EQ_REFL) >>
-    mp_tac encode_walk >> simp[pure_wfs_def] >>
-    disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
-    qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
-    qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
-    qexists_tac `m |+ (k,foo)` >> rw[]
+    qmatch_goalsub_abbrev_tac `unify es e1 e2` >>
+    Cases_on `unify es e1 e2` >> gvs[combinTheory.o_DEF] >>
+    qsuff_tac `∃s. x = encode_itype o_f s`
+    >- (strip_tac >> rw[GSYM fmap_EQ_THM, decode_encode]) >>
+    pop_assum mp_tac >> simp[Once unify_def] >>
+    Cases_on `walk es e1` >> Cases_on `walk es e2` >> gvs[]
+    >- (
+      unabbrev_all_tac >> rw[]
+      >- (irule_at Any EQ_REFL) >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      rw[] >> gvs[] >>
+      qmatch_assum_rename_tac `walk es e1 = Pair t1a t1d` >>
+      qmatch_assum_rename_tac `walk es e2 = Pair t2a t2d` >>
+      `Pair t1a t1d = encode_itype (pure_walk s' t1')` by
+        metis_tac[encode_walk,pure_wfs_def] >>
+      `Pair t2a t2d = encode_itype (pure_walk s' t2')` by
+        metis_tac[encode_walk,pure_wfs_def] >>
+      `wfs sx` by metis_tac[unify_unifier] >>
+      `∀c1 c2.
+        ((t1a = Const c1 ∧ t2a = Const c2) ∨
+         (t2d = Const c1 ∧ t2d = Const c2)) ⇒ c1 = c2` by (
+          rw[] >> ntac 2 $ qpat_x_assum `unify _ _ _ = _` mp_tac >>
+          simp[Once unify_def] >> strip_tac >> simp[Once unify_def]) >>
+      pop_assum mp_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >>
+      qspecl_then [`pure_walk s' t1'`,`t1a`,`t1d`] mp_tac encode_pair_cases >>
+      qspecl_then [`pure_walk s' t2'`,`t2a`,`t2d`] mp_tac encode_pair_cases >>
+      simp[] >> strip_tac >> strip_tac >> gvs[] >>
+      rpt $ qpat_x_assum `Pair _ _ = _` $ assume_tac o GSYM
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`TypeCons ARB ts'`,`TypeCons ARB ts`] mp_tac >>
+        simp[] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Tuple ts'`,`Tuple ts`] mp_tac >>
+        simp[] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Function it1' it2'`,`Function it1 it2`] mp_tac >>
+        simp[encode_itype_def] >>
+        CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Array t'`,`Array t`] mp_tac >>
+        simp[encode_itype_def] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`M t'`,`M t`] mp_tac >>
+        simp[encode_itype_def] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (unabbrev_all_tac >> rw[] >> irule_at Any EQ_REFL)
     )
+  >- simp[decode_encode, SF ETA_ss, combinTheory.o_DEF]
+  >- (unabbrev_all_tac >> rw[Once unify_def])
+  >- (unabbrev_all_tac >> rw[Once unify_def])
+  >- (unabbrev_all_tac >> rw[Once unify_def])
+  >- (unabbrev_all_tac >> rw[Once unify_def])
+  >- (unabbrev_all_tac >> rw[Once unify_def])
   >- (
-    unabbrev_all_tac >> rw[] >>
-    mp_tac encode_walk >> simp[pure_wfs_def] >>
-    disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
-    qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
-    qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
-    qexists_tac `m |+ (k,foo)` >> rw[]
-    )
-  >- (
-    unabbrev_all_tac >> rw[] >>
-    mp_tac encode_walk >> simp[pure_wfs_def] >>
-    disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
-    qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
-    qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
-    qexists_tac `m |+ (k,foo)` >> rw[]
-    )
-  >- (
-    unabbrev_all_tac >> rw[] >>
-    mp_tac encode_walk >> simp[pure_wfs_def] >>
-    disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
-    qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
-    qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
-    qexists_tac `m |+ (k,foo)` >> rw[]
-    )
-  >- (
-    rw[] >> gvs[] >>
-    qmatch_assum_rename_tac `walk es e1 = Pair t1a t1d` >>
-    qmatch_assum_rename_tac `walk es e2 = Pair t2a t2d` >>
-    `Pair t1a t1d = encode_itype (pure_walk s' t1')` by
-      metis_tac[encode_walk,pure_wfs_def] >>
-    `Pair t2a t2d = encode_itype (pure_walk s' t2')` by
-      metis_tac[encode_walk,pure_wfs_def] >>
+    simp[encode_itype_def] >>
+    simp[Once unify_def, SimpRHS] >> CASE_TAC >> pop_assum mp_tac >>
+    Cases_on `ts1` >> Cases_on `ts2` >> simp[encode_itype_def, Once unify_def]
+    >- (
+      rw[Abbr `es`] >>
+      simp[o_f_o_f, combinTheory.o_DEF, decode_encode, SF ETA_ss]
+      ) >>
+    rw[] >> gvs[encode_itype_def] >>
+    first_x_assum $ qspecl_then [`s'`,`h`,`h'`] mp_tac >> simp[] >> rw[] >>
     `wfs sx` by metis_tac[unify_unifier] >>
-    `∀c1 c2.
-      ((t1a = Const c1 ∧ t2a = Const c2) ∨
-       (t2d = Const c1 ∧ t2d = Const c2)) ⇒ c1 = c2` by (
-        rw[] >> ntac 2 $ qpat_x_assum `unify _ _ _ = _` mp_tac >>
-        simp[Once unify_def] >> strip_tac >> simp[Once unify_def]) >>
-    pop_assum mp_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >>
-    qspecl_then [`pure_walk s' t1'`,`t1a`,`t1d`] mp_tac encode_pair_cases >>
-    qspecl_then [`pure_walk s' t2'`,`t2a`,`t2d`] mp_tac encode_pair_cases >>
-    simp[] >> strip_tac >> strip_tac >> gvs[] >>
-    rpt $ qpat_x_assum `Pair _ _ = _` $ assume_tac o GSYM
-    >- (
-      first_x_assum $
-        qspecl_then[`s'`,`TypeCons c' ts'`,`TypeCons c ts`] mp_tac >>
-      simp[encode_itype_def] >>
-      strip_tac >>
-      `sx = encode_itype o_f (λx. THE (decode_utype x)) o_f sx ` by
-      metis_tac[o_f_o_f] >>
-      last_x_assum $ dxrule_then
-        (qspecl_then [`t'`,`t`] $ mp_tac o SRULE[]) >>
-      pop_assum $ assume_tac o GSYM >>
-      simp[] >>
-      metis_tac[o_f_o_f]
-    )
-    >- (
-      first_x_assum $
-        qspecl_then [`s'`,`DBVarCons c' ts'`,`TypeCons c ts`] mp_tac >>
-      simp[encode_itype_def] >>
-      strip_tac >>
-      `sx = encode_itype o_f (λx. THE (decode_utype x)) o_f sx ` by
-      metis_tac[o_f_o_f] >>
-      last_x_assum $ dxrule_then
-        (qspecl_then [`t'`,`t`] $ mp_tac o SRULE[]) >>
-      pop_assum $ assume_tac o GSYM >>
-      simp[] >>
-      metis_tac[o_f_o_f]
-      )
-    >- (
-      first_x_assum $
-        qspecl_then [`s'`,`CVarCons n ts'`,`TypeCons c ts`] mp_tac >>
-      simp[encode_itype_def] >>
-      strip_tac >>
-      `sx = encode_itype o_f (λx. THE (decode_utype x)) o_f sx ` by
-      metis_tac[o_f_o_f] >>
-      last_x_assum $ dxrule_then
-        (qspecl_then [`t'`,`t`] $ mp_tac o SRULE[]) >>
-      pop_assum $ assume_tac o GSYM >>
-      simp[] >>
-      metis_tac[o_f_o_f]
-    )
-    >- (
-      first_x_assum $
-        qspecl_then [`s'`,`CVarCons n' ts'`,`CVarCons n ts`] mp_tac >>
-      simp[encode_itype_def] >>
-      strip_tac >>
-      `sx = encode_itype o_f (λx. THE (decode_utype x)) o_f sx ` by
-      metis_tac[o_f_o_f] >>
-      last_x_assum $ dxrule_then
-        (qspecl_then [`t'`,`t`] $ mp_tac o SRULE[]) >>
-      pop_assum $ assume_tac o GSYM >>
-      simp[] >>
-      metis_tac[o_f_o_f]
-      )
+    qabbrev_tac `dx = decode_utype o_f sx` >> simp[combinTheory.o_DEF] >>
+    `sx = encode_itype o_f THE o_f dx` by rw[Abbr `dx`] >>
+    first_x_assum $ qspecl_then
+      [`THE o_f dx`,`TypeCons ARB t`,`TypeCons ARB t'`] mp_tac >>
+    pop_assum $ SUBST1_TAC o GSYM >> simp[encode_itype_def] >>
+    simp[Once unify_def, combinTheory.o_DEF]
     )
   >- (
-    unabbrev_all_tac >> rw[] >>
-    mp_tac encode_walk >> simp[pure_wfs_def] >>
-    disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
-    qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
-    qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
-    qexists_tac `m |+ (k,foo)` >> rw[]
+    simp[encode_itype_def] >>
+    simp[Once unify_def, SimpRHS] >> CASE_TAC >> pop_assum mp_tac >>
+    Cases_on `ts1` >> Cases_on `ts2` >> simp[encode_itype_def, Once unify_def]
+    >- (
+      rw[Abbr `es`] >>
+      simp[o_f_o_f, combinTheory.o_DEF, decode_encode, SF ETA_ss]
+      ) >>
+    rw[] >> gvs[encode_itype_def] >>
+    first_x_assum $ qspecl_then [`s'`,`h`,`h'`] mp_tac >> simp[] >> rw[] >>
+    `wfs sx` by metis_tac[unify_unifier] >>
+    qabbrev_tac `dx = decode_utype o_f sx` >> simp[combinTheory.o_DEF] >>
+    `sx = encode_itype o_f THE o_f dx` by rw[Abbr `dx`] >>
+    first_x_assum $ qspecl_then [`THE o_f dx`,`Tuple t`,`Tuple t'`] mp_tac >>
+    pop_assum $ SUBST1_TAC o GSYM >> simp[encode_itype_def] >>
+    simp[Once unify_def, combinTheory.o_DEF]
     )
-  >- (unabbrev_all_tac >> rw[] >> irule_at Any EQ_REFL)
+  >- (
+    simp[encode_itype_def] >>
+    simp[Once unify_def, SimpRHS] >> CASE_TAC >> pop_assum mp_tac >>
+    simp[Once unify_def] >> rw[] >> gvs[encode_itype_def] >>
+    first_x_assum $ qspecl_then [`s'`,`t11`,`t21`] mp_tac >> simp[] >> rw[] >>
+    `wfs sx` by metis_tac[unify_unifier] >>
+    qabbrev_tac `dx = decode_utype o_f sx` >> simp[combinTheory.o_DEF] >>
+    `sx = encode_itype o_f THE o_f dx` by rw[Abbr `dx`] >>
+    first_x_assum $ qspecl_then [`THE o_f dx`,`t12`,`t22`] mp_tac >>
+    pop_assum $ SUBST1_TAC o GSYM >> simp[] >>
+    simp[Once unify_def, combinTheory.o_DEF]
+    )
+  >- (
+    simp[encode_itype_def] >>
+    simp[Once unify_def, SimpRHS] >>
+    qmatch_goalsub_abbrev_tac `unify es e1 e2` >> CASE_TAC >>
+    qsuff_tac `∃s. x = encode_itype o_f s`
+    >- (strip_tac >> rw[GSYM fmap_EQ_THM, decode_encode]) >>
+    pop_assum mp_tac >> simp[Once unify_def] >>
+    Cases_on `walk es e1` >> Cases_on `walk es e2` >> gvs[]
+    >- (
+      unabbrev_all_tac >> rw[]
+      >- (irule_at Any EQ_REFL) >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      rw[] >> gvs[] >>
+      qmatch_assum_rename_tac `walk es e1 = Pair t1a t1d` >>
+      qmatch_assum_rename_tac `walk es e2 = Pair t2a t2d` >>
+      `Pair t1a t1d = encode_itype (pure_walk s' ta)` by
+        metis_tac[encode_walk,pure_wfs_def] >>
+      `Pair t2a t2d = encode_itype (pure_walk s' tb)` by
+        metis_tac[encode_walk,pure_wfs_def] >>
+      `wfs sx` by metis_tac[unify_unifier] >>
+      `∀c1 c2.
+        ((t1a = Const c1 ∧ t2a = Const c2) ∨
+         (t2d = Const c1 ∧ t2d = Const c2)) ⇒ c1 = c2` by (
+          rw[] >> ntac 2 $ qpat_x_assum `unify _ _ _ = _` mp_tac >>
+          simp[Once unify_def] >> strip_tac >> simp[Once unify_def]) >>
+      pop_assum mp_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >>
+      qspecl_then [`pure_walk s' ta`,`t1a`,`t1d`] mp_tac encode_pair_cases >>
+      qspecl_then [`pure_walk s' tb`,`t2a`,`t2d`] mp_tac encode_pair_cases >>
+      simp[] >> strip_tac >> strip_tac >> gvs[] >>
+      rpt $ qpat_x_assum `Pair _ _ = _` $ assume_tac o GSYM
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`TypeCons ARB ts'`,`TypeCons ARB ts`] mp_tac >>
+        simp[] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Tuple ts'`,`Tuple ts`] mp_tac >>
+        simp[] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Function it1' it2'`,`Function it1 it2`] mp_tac >>
+        simp[encode_itype_def] >>
+        CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Array t'`,`Array t`] mp_tac >>
+        simp[encode_itype_def] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`M t'`,`M t`] mp_tac >>
+        simp[encode_itype_def] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (unabbrev_all_tac >> rw[] >> irule_at Any EQ_REFL)
+    )
+  >- (
+    simp[encode_itype_def] >>
+    simp[Once unify_def, SimpRHS] >>
+    qmatch_goalsub_abbrev_tac `unify es e1 e2` >> CASE_TAC >>
+    qsuff_tac `∃s. x = encode_itype o_f s`
+    >- (strip_tac >> rw[GSYM fmap_EQ_THM, decode_encode]) >>
+    pop_assum mp_tac >> simp[Once unify_def] >>
+    Cases_on `walk es e1` >> Cases_on `walk es e2` >> gvs[]
+    >- (
+      unabbrev_all_tac >> rw[]
+      >- (irule_at Any EQ_REFL) >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (
+      rw[] >> gvs[] >>
+      qmatch_assum_rename_tac `walk es e1 = Pair t1a t1d` >>
+      qmatch_assum_rename_tac `walk es e2 = Pair t2a t2d` >>
+      `Pair t1a t1d = encode_itype (pure_walk s' ta)` by
+        metis_tac[encode_walk,pure_wfs_def] >>
+      `Pair t2a t2d = encode_itype (pure_walk s' tb)` by
+        metis_tac[encode_walk,pure_wfs_def] >>
+      `wfs sx` by metis_tac[unify_unifier] >>
+      `∀c1 c2.
+        ((t1a = Const c1 ∧ t2a = Const c2) ∨
+         (t2d = Const c1 ∧ t2d = Const c2)) ⇒ c1 = c2` by (
+          rw[] >> ntac 2 $ qpat_x_assum `unify _ _ _ = _` mp_tac >>
+          simp[Once unify_def] >> strip_tac >> simp[Once unify_def]) >>
+      pop_assum mp_tac >> simp[DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >>
+      qspecl_then [`pure_walk s' ta`,`t1a`,`t1d`] mp_tac encode_pair_cases >>
+      qspecl_then [`pure_walk s' tb`,`t2a`,`t2d`] mp_tac encode_pair_cases >>
+      simp[] >> strip_tac >> strip_tac >> gvs[] >>
+      rpt $ qpat_x_assum `Pair _ _ = _` $ assume_tac o GSYM
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`TypeCons ARB ts'`,`TypeCons ARB ts`] mp_tac >>
+        simp[] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Tuple ts'`,`Tuple ts`] mp_tac >>
+        simp[] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Function it1' it2'`,`Function it1 it2`] mp_tac >>
+        simp[encode_itype_def] >>
+        CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`Array t'`,`Array t`] mp_tac >>
+        simp[encode_itype_def] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      >- (
+        last_x_assum $
+          qspecl_then[`s'`,`M t'`,`M t`] mp_tac >>
+        simp[encode_itype_def] >> CASE_TAC >> simp[] >> metis_tac[o_f_o_f]
+        )
+      )
+    >- (
+      unabbrev_all_tac >> rw[] >>
+      mp_tac encode_walk >> simp[pure_wfs_def] >>
+      disch_then imp_res_tac >> rgs[] >> rgs[pure_walk_def] >>
+      qmatch_goalsub_abbrev_tac ` _ m |+ (k,v)` >>
+      qmatch_asmsub_abbrev_tac `encode_itype foo = v` >>
+      qexists_tac `m |+ (k,foo)` >> rw[]
+      )
+    >- (unabbrev_all_tac >> rw[] >> irule_at Any EQ_REFL)
+    )
 QED
 
 Theorem encode_unify:
@@ -611,215 +664,44 @@ Proof
   metis_tac[encode_unify_lemma]
 QED
 
-Theorem encode_unify_decode:
-  pure_wfs s' ∧
-  unify (encode_itype o_f s') (encode_itype t1) (encode_itype t2) =
-  SOME x ⇒
-  ((λx. encode_itype (THE (decode_utype x))) o_f x) = x
-Proof
-  assume_tac encode_unify_alt >>
-  rpt strip_tac >>
-  fs[combinTheory.o_DEF,pure_unify_def,OPTION_MAP_COMPOSE] >>
-  last_x_assum $ drule_then (qspecl_then [`t1`,`t2`] mp_tac) >>
-  rw[]
-QED
-
 Theorem wfs_unify:
   ∀s t1 t2 s'. wfs s ∧ unify s t1 t2 = SOME s' ⇒ wfs s'
 Proof
   metis_tac[unify_unifier]
 QED
 
-Theorem encode_itype_APPEND:
-  ∀ut its l.
-    encode_itypes (encode_itypes ut its) l =
-    encode_itypes ut (its ++ l)
-Proof
-  Induct_on `its` >>
-  gvs[encode_itype_def]
-QED
-
-Triviality encode_pair_IMP_encode_itype:
-  encode_itype t = Pair t1 t2 ⇒
-  ∃t t'. encode_itype t = t1 ∧ encode_itype t' = t2
-Proof
-  strip_tac >>
-  drule $ SRULE[GSYM encode_itype_def] encode_pair_cases >>
-  metis_tac[]
-QED
-
-Triviality pure_unifyl_different_LENGTH:
-  LENGTH l1 ≠ LENGTH l2 ⇒
-  pure_unifyl s l1 l2 = NONE
-Proof
-  simp[pure_unifyl_compute]
-QED
-
-Triviality unify_Const_different_LENGTH:
-  ∀s ts ts'.
-  wfs s ∧ LENGTH ts ≠ LENGTH ts' ⇒
-  unify s (encode_itypes (Const c) ts)
-    (encode_itypes (Const c) ts') = NONE
-Proof
-  Induct_on `ts` using SNOC_INDUCT >>
-  Cases_on `ts'` using SNOC_CASES >>
-  rw[encode_itypes_alt,Once unify_def]
-QED
-
-Triviality unify_Var_Const:
-  ∀s ts ts'.
-  wfs s ∧ LENGTH ts' < LENGTH ts ⇒
-  unify s (encode_itypes (Var v) ts)
-    (encode_itypes (Const c) ts') = NONE
-Proof
-  Induct_on `ts` using SNOC_INDUCT >>
-  Cases_on `ts'` using SNOC_CASES >>
-  rw[encode_itypes_alt,Once unify_def]
-QED
-
-Triviality unify_Const_Var
-  ∀s ts ts'.
-  wfs s ∧ LENGTH ts < LENGTH ts' ⇒
-  unify s (encode_itypes (Const c) ts)
-    (encode_itypes (Var v) ts') = NONE
-Proof
-  Induct_on `ts` using SNOC_INDUCT >>
-  Cases_on `ts'` using SNOC_CASES >>
-  rw[encode_itypes_alt,Once unify_def]
-QED
-
-(*
-Theorem :
-  ∀s ts ts'.
-  wfs s ∧ LENGTH ts ≤ LENGTH ts'⇒
-  unify s (encode_itypes (Var n) ts) (encode_itypes (Const c) ts') =
-  OPTION_BIND
-    (unify s (Var n) (encode_itypes (Const c) (TAKE (LENGTH ts' - LENGTH ts) ts')))
-Proof
-  
-QED
-*)
-
-Triviality unify_Const_Const:
-  wfs s ⇒
-  unify s (Const c) (Const c) = SOME s
-Proof
-  rw[Once unify_def]
-QED
-
 Theorem pure_unifyl:
-  ∀s l1 l2 x ut ut' t t'.
+  ∀s l1 l2.
     pure_wfs s ⇒
-    LENGTH l1 = LENGTH l2 ∧
-    encode_itype t = encode_itypes ut l1 ∧
-    encode_itype t' = encode_itypes ut' l2 ∧
-    unify (encode_itype o_f s) ut ut' = SOME x ⇒
-      pure_unifyl ((THE o decode_utype) o_f x) l1 l2 =
+      pure_unifyl s l1 l2 =
         OPTION_MAP ((o_f) (THE o decode_utype)) $
-        unify (encode_itype o_f s) (encode_itype t) (encode_itype t')
+          unify (encode_itype o_f s) (encode_itypes l1) (encode_itypes l2)
 Proof
-  ho_match_mp_tac pure_unifyl_SNOC_ind >>
-  rw[pure_unifyl_alt,encode_itype_alt, encode_itypes_alt] >>
+  Induct_on `l1` >> Cases_on `l2` >> rw[pure_unifyl_def, encode_itype_def] >>
   imp_res_tac pure_wfs_def >>
-  gvs[OPTION_MAP_CASE, combinTheory.o_DEF, decode_encode] >>
-  rw[Once unify_def,DefnBase.one_line_ify NONE OPTION_BIND_def] >>
-  imp_res_tac $ cj 1 $ SRULE[GSYM PULL_EXISTS] $
-   encode_pair_IMP_encode_itype >>
-  last_x_assum drule_all >>
-  simp[] >>
-  disch_then kall_tac >>
-  ntac 2 $ pop_assum $ mp_tac o GSYM >>
-  ntac 2 strip_tac >>
-  fs[] >>
-  CASE_TAC >>
-  imp_res_tac encode_unify_decode >>
-  rw[pure_unify_def,combinTheory.o_DEF,OPTION_MAP_CASE]
+  gvs[OPTION_MAP_CASE, combinTheory.o_DEF, decode_encode]
+  >- rw[Once unify_def] >- rw[Once unify_def] >>
+  rw[Once unify_def] >> rw[pure_unify_def, combinTheory.o_DEF] >>
+  simp[OPTION_MAP_CASE, combinTheory.o_DEF] >>
+  CASE_TAC >> simp[] >>
+  imp_res_tac encode_unify_alt >> gvs[combinTheory.o_DEF, decode_encode] >>
+  last_x_assum irule >> rgs[pure_wfs_def, pure_unify_def] >>
+  irule wfs_unify >> goal_assum drule >>
+  irule_at Any EQ_TRANS >> pop_assum $ irule_at Any >> simp[PULL_EXISTS] >>
+  goal_assum drule >> simp[]
 QED
-
-Triviality pure_unifyl_Const_lem:
-  pure_wfs s ∧
-  ((∃t. c = uTypeCons t) ∨ (∃d. c = uDBVar d)) ⇒
-  pure_unifyl s ts ts' =
-    OPTION_MAP ((o_f) (THE o decode_utype)) $
-    unify (encode_itype o_f s)
-      (encode_itypes (Const c) ts)
-      (encode_itypes (Const c) ts')
-Proof
-  Cases_on `LENGTH ts = LENGTH ts'`
-  >- (
-    strip_tac >>
-    rw[GSYM encode_itype_def] >>
-    irule EQ_TRANS >>
-    irule_at (Pos last) pure_unifyl >>
-    simp[encode_itype_def] >>
-    irule_at (Pos $ el 2) EQ_REFL >>
-    irule_at (Pos $ el 2) EQ_REFL >>
-    imp_res_tac pure_wfs_def >>
-    drule_then (irule_at Any) unify_Const_Const >>
-    simp[combinTheory.o_DEF,o_f_o_f,decode_encode]) >>
-  drule_at (Pos last) unify_Const_different_LENGTH >>
-  simp[pure_wfs_def,pure_unifyl_compute]
-QED
-
-Theorem pure_unifyl_Const =
-  SRULE[FORALL_AND_THM] $ GEN_ALL $
-  SRULE[boolTheory.LEFT_AND_OVER_OR,
-    DISJ_IMP_THM, PULL_EXISTS] pure_unifyl_Const_lem;
-
-Triviality unify_Const_NEQ:
-  ∀s ts ts' c c'.
-  wfs s ∧ c ≠ c' ⇒
-  unify s (encode_itypes (Const c) ts) (encode_itypes (Const c') ts') = NONE
-Proof
-  ho_match_mp_tac pure_unifyl_SNOC_ind >>
-  rw[] >>
-  rw[Once unify_def,encode_itype_alt,encode_itypes_alt]
-QED
-
-Definition split_Cons_def:
-  split_Cons (DBVarCons v ts) = (DBVarCons v, ts) ∧
-  split_Cons (TypeCons t ts) = (TypeCons t, ts) ∧
-  split_Cons (CVarCons v ts) = (CVarCons v, ts) ∧
-  split_Cons t = (K t, [])
-End
 
 Theorem pure_unify:
   ∀t1 t2 s.
     pure_wfs s ⇒
     pure_unify s t1 t2 =
       case (pure_walk s t1, pure_walk s t2) of
-      | (CVarCons v1 ts1, CVarCons v2 ts2) =>
-          if LENGTH ts1 = LENGTH ts2
-          then
-            let s' = if v1 = v2 then s else s |+ (v1, CVarCons v2 []) in
-            pure_unifyl s' ts1 ts2
-          else
-            if LENGTH ts1 < LENGTH ts2
-            then
-              OPTION_BIND
-                (pure_ext_s_check s v1
-                  (CVarCons v2 (TAKE (LENGTH ts2 - LENGTH ts1) ts2)))
-              (λs. pure_unifyl s ts1 (LASTN (LENGTH ts1) ts2))
-            else
-              (* LENGTH ts2 < LENGTH ts1 *)
-              OPTION_BIND
-                (pure_ext_s_check s v2
-                  (CVarCons v1 (TAKE (LENGTH ts1 - LENGTH ts2) ts1)))
-              (λs. pure_unifyl s (LASTN (LENGTH ts2) ts1) ts2)
-      | (CVarCons v1 ts1, t2) =>
-        let (thd2,ttl2) = split_Cons t2 in
-        if LENGTH ts1 ≤ LENGTH ttl2
-        then
-          OPTION_BIND (pure_ext_s_check s v1 (thd2 (TAKE (LENGTH ttl2 - LENGTH ts1) ttl2)))
-          (λs. pure_unifyl s ts1 (LASTN (LENGTH ts1) ttl2))
-        else NONE
-      | (t1, CVarCons v2 ts2) =>
-        let (thd1,ttl1) = split_Cons t1 in
-        if LENGTH ts2 ≤ LENGTH ttl1
-        then
-          OPTION_BIND (pure_ext_s_check s v2 (thd1 (TAKE (LENGTH ttl1 - LENGTH ts2) ttl1)))
-          (λs. pure_unifyl s (LASTN (LENGTH ts2) ttl1) ts2)
-        else NONE
+      | (CVar v1 ts1, CVar v2 ts2) =>
+          SOME (if v1 = v2 then s else s |+ (v1, CVar v2))
+      | (CVar v1 ts1, t2) => let (tc2,tl2) = split_Cons t2 in
+          OPTION_BIND (pure_unifyl (LASTN (LENGTH tl2) ts1) tl2)
+          (λs'. pure_ext_s_check s' v1 tc2)
+      | (t1, CVar v2 ts2) => pure_ext_s_check s v2 t1
       | (TypeCons c1 ts1, TypeCons c2 ts2) =>
           if c1 = c2 then pure_unifyl s ts1 ts2 else NONE
       | (DBVarCons db1 ts1, DBVarCons db2 ts2) =>
@@ -830,46 +712,14 @@ Theorem pure_unify:
 Proof
   rw[pure_unify_def] >> imp_res_tac pure_wfs_def >>
   rw [Once unify_def, pure_walk_def] >>
-  Cases_on `t1` using itype_SNOC_CASES >>
-  Cases_on `t2` using itype_SNOC_CASES >>
-  rw[Excl"SNOC_APPEND",GSYM SNOC_APPEND
-    encode_itype_alt,encode_itypes_alt,
-    decode_utype_def,decode_utype_acc_def,
-    option_map_case, option_bind_case,
-    combinTheory.o_DEF, decode_encode,
-    encode_vwalk, pure_oc_lemma,
-    pure_unifyl_alt,split_Cons_def,
-    rich_listTheory.LASTN,
-    unify_Const_NEQ]
+  Cases_on `t1` >> Cases_on `t2` >>
+  rw[encode_itype_def, decode_utype_def, option_map_case, option_bind_case,
+     combinTheory.o_DEF, decode_encode, encode_vwalk, pure_unifyl, pure_oc_lemma]
   >- (
-    irule EQ_SYM >>
-    TOP_CASE_TAC using itype_SNOC_CASES >>
-    rw[decode_encode,split_Cons_def,
-      rich_listTheory.LASTN,pure_ext_s_check,
-      encode_itype_alt,encode_itypes_alt,
-      Once pure_oc,pure_walk,pure_unifyl_alt] >>
-    simp[combinTheory.o_DEF, decode_encode] >>
-    simp[decode_utype_acc_def,pure_unifyl_alt]
-    )
-  >- (
-    drule_then (qspecl_then [`ts'`,`ts`,`n`] assume_tac) $
-      cj 2 pure_unifyl_Const >>
-    simp[OPTION_MAP_CASE,o_f_o_f,combinTheory.o_DEF,GSYM decode_utype_def] >>
-    pop_assum kall_tac >>
-    CASE_TAC >>
-    fs[GSYM encode_itype_def] >>
-    drule_all encode_unify_decode >>
-    simp[pure_unify_def,OPTION_MAP_CASE,combinTheory.o_DEF,
-        o_f_o_f]
-    )
-  >- (
-    irule EQ_SYM >>
-    TOP_CASE_TAC using itype_SNOC_CASES >>
-
-    pop_assum mp_tac >> simp[] >>
-    `SUC (LENGTH ts) = LENGTH (SNOC t ts)` by fs[] >>
-    fs[Excl"LENGTH_SNOC",TAKE_LENGTH_ID,EXISTS_SNOC,pure_oc_def,EVERY_SNOC]
-    simp[GSYM SNOC_APPEND,decode_utype_acc_def]
+    Cases_on `pure_vwalk s n'` >> gvs[decode_encode] >>
+    simp[encode_itype_def] >> rw[] >>
+    simp[pure_ext_s_check, Once pure_oc, pure_walk, decode_utype_def] >>
+    gvs[combinTheory.o_DEF, decode_encode]
     )
   >- (
     Cases_on `pure_vwalk s n` >> gvs[decode_encode] >>

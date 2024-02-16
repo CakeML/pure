@@ -18,13 +18,21 @@ Datatype:
 End
 
 Datatype:
-  type =
-       | PrimTy prim_ty
-       | Exception
-       | TypeCons (num + comp_prim_ty) (type list)
-        (* INL: user-defined types, INR: built-in types *)
-       | VarTypeCons num (type list) (* consider type list vs type *)
-        (* for sth like fmap::(a -> b) -> f a -> f a *)
+  atom_ty =
+      | PrimTy prim_ty
+      | Exception
+      | TypeCons (num + comp_prim_ty)
+      (* concrete type constructor:
+      * INL: user-defined types, INR: built-in types *)
+      | VarTypeCons num
+      (* variable type constructor *)
+      (* eg. fmap :: (a -> b) -> f a -> f b *)
+End
+
+Datatype:
+  type = Atom atom_ty | Cons type type
+  (* eg. m f [a] = (m f) a -->
+  * Cons (Cons (Atom m) (Atom f)) (Atom ) *)
 End
 
 Type class = ``:mlstring``; (* key for map from classname to class *)
@@ -34,8 +42,8 @@ Datatype:
     (* e.g. Monad m, Monad m2, Functor f => m1 (f a) -> m2 a *)
 End
 
-Overload Unit = ``TypeCons (INR $ Tuple 0) []``;
-Overload TypeVar = ``\x. VarTypeCons x []``;
+Overload Unit = ``Atom $ TypeCons (INR $ Tuple 0)``;
+Overload TypeVar = ``\x. Atom (VarTypeCons x)``;
 Type type_scheme[pp] = ``:num # type``;
 Type PredType_scheme[pp] = ``:num # PredType``;
 
@@ -69,13 +77,10 @@ Type typedefs[pp] = ``:typedef list``;
 Type exndef[pp] = ``:(mlstring # type list) list``;
 
 Definition collect_type_vars_def:
-  (collect_type_vars (TypeCons c ts) =
-    BIGUNION $ set (MAP collect_type_vars ts)) /\
-  (collect_type_vars (VarTypeCons v ts) = {v} UNION
-    (BIGUNION $ set $ MAP collect_type_vars ts)) /\
+  (collect_type_vars (Cons t1 t2) =
+    collect_type_vars t1 ∪ collect_type_vars t2) ∧
+  (collect_type_vars (Atom $ VarTypeCons v) = {v}) /\
   (collect_type_vars _ = {})
-Termination
-  WF_REL_TAC `measure type_size`
 End
 
 val _ = export_theory();
