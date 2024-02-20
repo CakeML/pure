@@ -125,15 +125,6 @@ Proof
   simp[encode_itype_def]
 QED
 
-Theorem pure_oc_lemma:
-  ∀l u v s.
-    oc (encode_itype o_f s) (encode_itypes u l) v ⇔
-    (oc (encode_itype o_f s) u v ∨
-      EXISTS (λt. oc (encode_itype o_f s) (encode_itype t) v) l)
-Proof
-  Induct >> rw[encode_itype_def] >> metis_tac[]
-QED
-
 Theorem pure_oc:
   ∀s. pure_wfs s ⇒
     ∀t v.
@@ -477,78 +468,31 @@ Proof
   metis_tac[]
 QED
 
-Theorem pure_walkstar_ts_lemma:
-  ∀l s. pure_wfs s ⇒
-    decode_utypes ((encode_itype o_f s) ◁ encode_itypes l) =
-    SOME $ MAP (pure_walkstar s) l
-Proof
-  Induct >> rw[encode_itype_def] >> imp_res_tac pure_wfs_def >>
-  gvs[Once apply_ts_thm, decode_utype_def, pure_walkstar_def] >>
-  assume_tac pure_walkstar_wf >> gvs[] >>
-  Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype h)` >> gvs[]
-QED
-
-Theorem pure_walkstar_ts_lemma_alt:
-  ∀l s. pure_wfs s ⇒
-    MAP (pure_walkstar s) l =
-    THE $ decode_utypes ((encode_itype o_f s) ◁ encode_itypes l)
-Proof
-  rw[] >> DEP_REWRITE_TAC[pure_walkstar_ts_lemma] >> simp[]
-QED
-
 Theorem pure_walkstar:
   ∀s. pure_wfs s ⇒
     ∀t. pure_walkstar s t =
         case pure_walk s t of
-        | CVar v => CVar v
-        | TypeCons c ts => TypeCons c (MAP (pure_walkstar s) ts)
-        | Tuple ts => Tuple (MAP (pure_walkstar s) ts)
-        | Function t1 t2 =>
-            Function (pure_walkstar s t1) (pure_walkstar s t2)
-        | Array t => Array (pure_walkstar s t)
-        | M t => M (pure_walkstar s t)
+        | iCVar v => iCVar v
+        | iCons l r => iCons (pure_walkstar s l) (pure_walkstar s r)
         | t => t
 Proof
   rw[pure_walkstar_def] >> imp_res_tac pure_wfs_def >>
   rw[Once walkstar_def, pure_walk_def] >>
   Cases_on `t` >>
   gvs[encode_itype_def, decode_utype_def, decode_encode, encode_vwalk] >>
-  gvs[pure_walkstar_ts_lemma, option_bind_case] >>
-  assume_tac pure_walkstar_wf >> gvs[]
-  >- (CASE_TAC >> CASE_TAC >> gvs[])
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    )
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    ) >>
   Cases_on `pure_vwalk s n` >>
-  gvs[encode_itype_def, decode_utype_def, pure_walkstar_ts_lemma, option_bind_case]
-  >- (CASE_TAC >> CASE_TAC >> gvs[])
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    )
-  >- (
-    Cases_on `decode_utype (encode_itype o_f s ◁ encode_itype i)` >> gvs[]
-    )
+  gvs[encode_itype_def,decode_utype_def,decode_encode]
 QED
 
 Theorem pure_walkstar_alt:
   ∀s. pure_wfs s ⇒
-    (∀v. pure_walkstar s (DBVar v) = DBVar v) ∧
-    (∀pty. pure_walkstar s (PrimTy pty) = PrimTy pty) ∧
-    (pure_walkstar s Exception = Exception) ∧
-    (∀id ts. pure_walkstar s (TypeCons id ts) =
-              TypeCons id (MAP (pure_walkstar s) ts)) ∧
-    (∀ts. pure_walkstar s (Tuple ts) = Tuple (MAP (pure_walkstar s) ts)) ∧
-    (∀t1 t2. pure_walkstar s (Function t1 t2) =
-              Function (pure_walkstar s t1) (pure_walkstar s t2)) ∧
-    (∀t. pure_walkstar s (Array t) = Array (pure_walkstar s t)) ∧
-    (∀t. pure_walkstar s (M t) = M (pure_walkstar s t)) ∧
-    (∀v. pure_walkstar s (CVar v) =
+    (∀t1 t2. pure_walkstar s (iCons t1 t2) =
+      iCons (pure_walkstar s t1) (pure_walkstar s t2)) ∧
+    (∀v. pure_walkstar s (iCVar v) =
       case FLOOKUP s v of
-      | NONE => CVar v
-      | SOME t => pure_walkstar s t)
+      | NONE => iCVar v
+      | SOME t => pure_walkstar s t) ∧
+    (∀a. pure_walkstar s (iAtom a) = iAtom a)
 Proof
   rw[] >> simp[Once pure_walkstar, Once pure_walk] >>
   simp[Once pure_vwalk] >>
@@ -565,17 +509,15 @@ Proof
   qid_spec_tac `t` >> pop_assum ho_match_mp_tac >> rw[] >>
   rw[Once pure_walkstar] >> imp_res_tac pure_wfs_def >>
   rw[Once walkstar_def, Once encode_walk] >>
-  Cases_on `pure_walk s t` >> rw[encode_itype_def] >>
-  qpat_x_assum `pure_walk _ _ = _` kall_tac >>
-  Induct_on `l` >> rw[encode_itype_def]
+  Cases_on `pure_walk s t` >> rw[encode_itype_def]
 QED
 
 Definition pure_collapse_def[nocompute]:
-  pure_collapse s = (THE o decode_utype) o_f collapse (encode_itype o_f s)
+  pure_collapse s = decode_utype o_f collapse (encode_itype o_f s)
 End
 
 Theorem pure_collapse:
-  ∀s. pure_collapse s = FUN_FMAP (λv. pure_walkstar s (CVar v)) (FDOM s)
+  ∀s. pure_collapse s = FUN_FMAP (λv. pure_walkstar s (iCVar v)) (FDOM s)
 Proof
   rw[collapse_def, pure_collapse_def, pure_walkstar_def,
      encode_itype_def, walkstar_def] >>
@@ -598,42 +540,26 @@ Proof
 QED
 
 Theorem pure_unify_strongind:
-  ∀P0 P1.
+  ∀P.
     (∀s t1 t2.
       pure_wfs s ∧
-      (∀ts1 ts2 c.
-        (pure_walk s t1 = TypeCons c ts1 ∧
-         pure_walk s t2 = TypeCons c ts2) ∨
-        (pure_walk s t1 = Tuple ts1 ∧
-         pure_walk s t2 = Tuple ts2) ∨
-        (∃t11 t12 t21 t22.
-         pure_walk s t1 = Function t11 t12 ∧
-         pure_walk s t2 = Function t21 t22 ∧
-         ts1 = [t11;t12] ∧ ts2 = [t21;t22])
-       ⇒ P1 s ts1 ts2) ∧
-      (∀ta tb.
-        (pure_walk s t1 = Array ta ∧
-         pure_walk s t2 = Array tb) ∨
-        (pure_walk s t1 = M ta ∧
-         pure_walk s t2 = M tb)
-       ⇒ P0 s ta tb)
-     ⇒ P0 s t1 t2) ∧
-    (∀s ts1 ts2.
-      pure_wfs s ∧
-      (∀t1 ts1' t2 ts2' s'.
-        ts1 = t1::ts1' ∧ ts2 = t2::ts2' ∧
-        pure_unify s t1 t2 = SOME s'
-       ⇒ P0 s t1 t2 ∧ P1 s' ts1' ts2')
-     ⇒ P1 s ts1 ts2)
-  ⇒ (∀s t1 t2. pure_wfs s ⇒ P0 s t1 t2) ∧
-    (∀s ts1 ts2. pure_wfs s ⇒ P1 s ts1 ts2)
+      (∀l1 r1 l2 r2 sx.
+        pure_walk s t1 = iCons l1 r1 ∧
+        pure_walk s t2 = iCons l2 r2 ∧
+        pure_unify s l1 l2 = SOME sx ⇒
+        P sx r1 r2) ∧
+      (∀l1 r1 l2 r2.
+        pure_walk s t1 = iCons l1 r1 ∧ pure_walk s t2 = iCons l2 r1 ⇒
+        P s l1 l2) ⇒
+    P s t1 t2) ⇒
+  ∀s t1 t2. pure_wfs s ⇒ P s t1 t2
 Proof
   rpt gen_tac >> strip_tac >>
   qsuff_tac
-    `(∀s t1 t2. pure_wfs s ⇒ pure_wfs s ⇒ P0 s t1 t2) ∧
-     (∀s ts1 ts2. pure_wfs s ⇒ pure_wfs s ⇒ P1 s ts1 ts2)`
+    `(∀s t1 t2. pure_wfs s ⇒ pure_wfs s ⇒ P s t1 t2)`
   >- (rpt $ pop_assum kall_tac >> simp[]) >>
-  ho_match_mp_tac pure_unify_ind >> rw[] >>
+  ho_match_mp_tac pure_unify_ind >>
+  rpt strip_tac >>
   last_x_assum irule >> rw[] >>
   metis_tac[pure_unify_unifier]
 QED
@@ -893,22 +819,15 @@ Proof
 QED
 
 Theorem pure_vars:
-  (∀n. pure_vars (DBVar n) = {}) ∧
-  (∀p. pure_vars (PrimTy p) = {}) ∧
-  (pure_vars (Exception) = {}) ∧
-  (∀c ts. pure_vars (TypeCons c ts) = BIGUNION (set $ MAP pure_vars ts)) ∧
-  (∀ts. pure_vars (Tuple ts) = BIGUNION (set $ MAP pure_vars ts)) ∧
-  (∀t1 t2. pure_vars (Function t1 t2) = pure_vars t1 ∪ pure_vars t2) ∧
-  (∀t. pure_vars (Array t) = pure_vars t) ∧
-  (∀t. pure_vars (M t) = pure_vars t) ∧
-  (∀n. pure_vars (CVar n) = {n})
+  (∀a. pure_vars (iAtom a) = {}) ∧
+  (∀c t. pure_vars (iCons c t) = pure_vars c ∪ pure_vars t) ∧
+  (∀n. pure_vars (iCVar n) = {n})
 Proof
-  rw[pure_vars_def, encode_itype_def] >>
-  Induct_on `ts` >> rw[encode_itype_def, pure_vars_def]
+  rw[pure_vars_def, encode_itype_def]
 QED
 
 Theorem pure_vwalk_to_var:
-  pure_wfs s ⇒ ∀v u. pure_vwalk s v = CVar u ⇒ u ∉ FDOM s
+  pure_wfs s ⇒ ∀v u. pure_vwalk s v = iCVar u ⇒ u ∉ FDOM s
 Proof
   rw[pure_wfs_def, pure_vwalk_def] >>
   drule vwalk_to_var >> simp[] >> disch_then irule >>
@@ -954,12 +873,9 @@ QED
 Theorem pure_walkstar_alt_ind:
  ∀s. pure_wfs s ⇒
   ∀P.
-    (∀v. P (DBVar v)) ∧ (∀p. P (PrimTy p)) ∧ (P Exception) ∧
-    (∀c ts. (∀a. MEM a ts ⇒ P a) ⇒ P (TypeCons c ts)) ∧
-    (∀ts. (∀a. MEM a ts ⇒ P a) ⇒ P (Tuple ts)) ∧
-    (∀t1 t2. P t1 ∧ P t2 ⇒ P (Function t1 t2)) ∧
-    (∀t. P t ⇒ P (Array t)) ∧ (∀t. P t ⇒ P (M t)) ∧
-    (∀v. (∀t. FLOOKUP s v = SOME t ⇒ P t) ⇒ P (CVar v))
+    (∀a. P (iAtom a)) ∧
+    (∀l r. P l ∧ P r ⇒ P (iCons l r)) ∧
+    (∀v. (∀t. FLOOKUP s v = SOME t ⇒ P t) ⇒ P (iCVar v))
   ⇒ ∀t. P t
 Proof
   gen_tac >> strip_tac >> gen_tac >> strip_tac >>
@@ -970,13 +886,16 @@ Proof
     rw[] >> Cases_on `pure_vwalk s n` >> gvs[] >>
     drule pure_vwalk_to_var >> disch_then drule >> rw[] >>
     first_x_assum irule >> simp[FLOOKUP_DEF]) >>
-  pop_assum mp_tac >> ntac 5 $ pop_assum kall_tac >> rw[] >>
+  pop_assum mp_tac >>
+  qpat_x_assum `!c. _ ⇒ P (iCVar v)` mp_tac >>
+  last_x_assum mp_tac >>
+  rpt $ pop_assum kall_tac >>
+  rw[] >>
   imp_res_tac pure_vwalk_ind >>
-  pop_assum $ qspec_then ` λn. P (pure_vwalk s n) ⇒ P (CVar n)` mp_tac >> simp[] >>
+  pop_assum $ qspec_then ` λn. P (pure_vwalk s n) ⇒ P (iCVar n)` mp_tac >> simp[] >>
   disch_then irule >> rw[] >> rgs[Once pure_vwalk] >>
   Cases_on `FLOOKUP s v` >> gvs[] >> Cases_on `x` >> gvs[]
 QED
-
 
 (********************* Encoding-independent results ********************)
 
@@ -1017,8 +936,8 @@ Proof
   rw[termTheory.FINITE_vars]
 QED
 
-Theorem oc_dbvar:
-  ∀s uv tvs. pure_wfs s ⇒ ¬pure_oc s (DBVar tvs) uv
+Theorem oc_iAtom:
+  ∀s uv a. pure_wfs s ⇒ ¬pure_oc s (iAtom a) uv
 Proof
   rw[] >> drule pure_oc >>
   disch_then $ once_rewrite_tac o single >>
@@ -1026,9 +945,9 @@ Proof
 QED
 
 Theorem oc_unit:
-  ∀s uv tc. pure_wfs s ⇒  ¬pure_oc s (Tuple []) uv
+  ∀s uv. pure_wfs s ⇒ ¬pure_oc s Unit uv
 Proof
-  rw[Once pure_oc] >> simp[pure_walk]
+  metis_tac[oc_iAtom]
 QED
 
 Theorem no_vars_extend_subst_vwalk:
@@ -1036,7 +955,7 @@ Theorem no_vars_extend_subst_vwalk:
     ∀n s'.
       pure_wfs (s |++ s') ∧
       DISJOINT (FDOM s) (FDOM (FEMPTY |++ s')) ∧
-      (∀n'. pure_vwalk s n ≠ CVar n')
+      (∀n'. pure_vwalk s n ≠ iCVar n')
     ⇒ pure_vwalk (s |++ s') n = pure_vwalk s n
 Proof
   ntac 2 strip_tac >>
@@ -1063,29 +982,54 @@ Theorem no_vars_extend_subst:
 Proof
   ntac 2 $ strip_tac >>
   imp_res_tac pure_walkstar_ind >> pop_assum ho_match_mp_tac >> rw[] >>
-  Cases_on `t` >> rw[] >> gvs[pure_walk, pure_walkstar] >>
-  pop_assum mp_tac >>
-  imp_res_tac pure_walkstar >> ntac 2 $ pop_assum $ once_rewrite_tac o single >>
-  simp[pure_walk, pure_vars] >> strip_tac >> gvs[] >>
-  gvs[MAP_MAP_o, combinTheory.o_DEF]
+  Cases_on `t` >> rw[]
   >- (
-    rw[MAP_EQ_f] >> first_x_assum irule >> simp[] >>
-    gvs[Once EXTENSION, MEM_MAP] >>
-    first_x_assum $ irule o iffLR >> goal_assum $ drule_at Any >> simp[]
-    )
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk] >>
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk]
+  )
   >- (
-    rw[MAP_EQ_f] >> first_x_assum irule >> simp[] >>
-    gvs[Once EXTENSION, MEM_MAP] >>
-    first_x_assum $ irule o iffLR >> goal_assum $ drule_at Any >> simp[]
+    qpat_x_assum `∀t t'. pure_walk s _ = iCons _ _ ⇒ _` $
+      assume_tac o SRULE[Once pure_walk] >>
+    qpat_x_assum `pure_vars (pure_walkstar _ _) = ∅ ` $
+      mp_tac >>
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk] >>
+    simp[pure_vars] >>
+    strip_tac >>
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk] >>
+    irule EQ_SYM >>
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk]
+  )
+  >- (
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk] >>
+    irule EQ_SYM >>
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk] >>
+    rev_drule_then drule no_vars_extend_subst_vwalk >>
+    rw[] >>
+    Cases_on `pure_vwalk s n` >>
+    simp[]
+    >- (
+      qpat_x_assum `∀t t'. pure_walk s _ = iCons _ _ ⇒ _` $
+       assume_tac o SRULE[pure_walk] >>
+      first_x_assum drule >>
+      qpat_x_assum `pure_vars (pure_walkstar _ _) = ∅ ` $
+        mp_tac >>
+      simp[Once pure_walkstar] >>
+      simp[Once pure_walk] >>
+      rw[pure_vars]
     ) >>
-  last_x_assum assume_tac >>
-  drule no_vars_extend_subst_vwalk >> disch_then drule >> simp[] >>
-  disch_then $ qspec_then `n` mp_tac >> impl_tac
-  >- (CCONTR_TAC >> gvs[pure_vars]) >> rw[] >>
-  Cases_on `pure_vwalk s n` >> gvs[pure_vars, MAP_MAP_o, combinTheory.o_DEF] >>
-  rw[MAP_EQ_f] >> first_x_assum irule >> simp[] >>
-  gvs[Once EXTENSION, MEM_MAP] >>
-  first_x_assum $ irule o iffLR >> goal_assum $ drule_at Any >> simp[]
+    irule FALSITY >>
+    qpat_x_assum `pure_vars (pure_walkstar _ _) = ∅ ` $
+      mp_tac >>
+    simp[Once pure_walkstar] >>
+    simp[Once pure_walk,pure_vars]
+  )
 QED
 
 (* Theorems about unification for completeness proof *)
@@ -1133,7 +1077,7 @@ Theorem pure_unify_mgu:
 Proof
   rw[] >> drule_all pure_unify_wfs >> strip_tac >>
   gvs[pure_walkstar_def, encode_walkstar_reverse] >>
-  AP_TERM_TAC >> AP_TERM_TAC >> irule unify_mgu >>
+  AP_TERM_TAC >> irule unify_mgu >>
   imp_res_tac pure_wfs_def >> simp[] >>
   qexistsl_tac [`encode_itype t1`,`encode_itype t2`] >> gvs[encode_unify_alt] >>
   qpat_x_assum `_ = _` mp_tac >> gvs[encode_walkstar, decode_encode]
@@ -1141,7 +1085,7 @@ QED
 
 Theorem pure_walkstar_CVar_props:
   pure_wfs s ⇒
-  (uv ∉ FDOM s ⇔ pure_walkstar s (CVar uv) = CVar uv)
+  (uv ∉ FDOM s ⇔ pure_walkstar s (iCVar uv) = iCVar uv)
 Proof
   rw[] >> eq_tac >> rw[]
   >- (
@@ -1150,7 +1094,7 @@ Proof
     )
   >- (
     irule pure_walkstar_vars_notin >> simp[] >>
-    qexists_tac `CVar uv` >> simp[pure_vars]
+    qexists_tac `iCVar uv` >> simp[pure_vars]
     )
 QED
 
