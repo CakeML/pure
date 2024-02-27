@@ -201,7 +201,7 @@ Proof
   rw [] \\ fs [freevars_def]
 QED
 
-Triviality boundvars_lets_for:
+(*Triviality boundvars_lets_for:
   ∀ts. boundvars (lets_for p_1 w ts p_2) = boundvars p_2 ∪ set (MAP SND ts)
 Proof
   Induct \\ fs [lets_for_def,FORALL_PROD,EXTENSION]
@@ -215,7 +215,7 @@ Triviality freevars_lets_for:
 Proof
   Induct \\ fs [lets_for_def,FORALL_PROD,EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [] \\ gvs [MEM_MAP]
-QED
+QED*)
 
 Theorem boundvars_rows_of:
   ∀es.
@@ -225,12 +225,26 @@ Theorem boundvars_rows_of:
     set (FLAT (MAP (FST o SND) es)) ∪
     BIGUNION (set (MAP (boundvars o SND o SND) es))
 Proof
-  Induct \\ fs [rows_of_def,FORALL_PROD,boundvars_lets_for]
+  (*Induct \\ fs [rows_of_def,FORALL_PROD,boundvars_lets_for]
   \\ fs [combinTheory.o_DEF]
   \\ fs [EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ gvs [MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS]
-  \\ metis_tac []
+  \\ metis_tac []*)
+  Induct >| [
+    rw[rows_of_def],
+    fs[FORALL_PROD]
+    >> rw[rows_of_def]
+    >> fs[boundvars_Apps, boundvars_Lams]
+    >> gvs
+        [ EXTENSION
+        , MEM_GENLIST
+        , MEM_MAP
+        , EXISTS_PROD
+        , PULL_EXISTS
+        ]
+    >> metis_tac[]
+  ]
 QED
 
 Theorem freevars_rows_of:
@@ -240,7 +254,7 @@ Theorem freevars_rows_of:
     freevars e ∪
     BIGUNION (set (MAP (λ(c,vs,e). (freevars e DIFF set vs) ∪ {w}) es))
 Proof
-  Induct \\ fs [rows_of_def,FORALL_PROD,freevars_lets_for]
+  (*Induct \\ fs [rows_of_def,FORALL_PROD,freevars_lets_for]
   \\ fs [combinTheory.o_DEF]
   \\ fs [EXTENSION]
   \\ gvs [MEM_MAP,MEM_FLAT,EXISTS_PROD,PULL_EXISTS]
@@ -248,7 +262,27 @@ Proof
   \\ Cases_on ‘x = w’ \\ gvs []
   \\ Cases_on ‘x ∈ freevars e’ \\ fs []
   \\ Cases_on ‘x ∈ freevars p_2’ \\ fs []
-  \\ Cases_on ‘MEM x p_1'’ \\ fs [] \\ rw []
+  \\ Cases_on ‘MEM x p_1'’ \\ fs [] \\ rw []*)
+  Induct >| [
+    rw[rows_of_def],
+    fs[FORALL_PROD]
+    >> rw[rows_of_def]
+    >> gvs
+        [ EXTENSION
+        , combinTheory.o_DEF
+        , MAP_GENLIST
+        , MEM_GENLIST
+        , MEM_MAP
+        , EXISTS_PROD
+        , PULL_EXISTS
+        ]
+    >> rpt gen_tac
+    >> Cases_on `x = w` >| [
+      fs [],
+      metis_tac []
+    ]
+    (*>> Cases_on `x = w` >> metis_tac []*)
+  ]
 QED
 
 Triviality can_spec_arg_if:
@@ -281,7 +315,7 @@ Proof
   \\ irule_at Any can_spec_arg_Var \\ fs []
 QED
 
-Theorem can_spec_arg_lets_for:
+(*Theorem can_spec_arg_lets_for:
   ∀ps.
     can_spec_arg f bs v ts e1 e2 ∧ f ≠ w ∧
     ~MEM f (MAP SND ps) ∧ ~MEM v (MAP SND ps) ⇒
@@ -292,7 +326,7 @@ Proof
   \\ irule_at Any can_spec_arg_Lam
   \\ irule_at Any can_spec_arg_Prim \\ fs []
   \\ irule_at Any can_spec_arg_Var \\ fs []
-QED
+QED*)
 
 Theorem spec_one_thm:
   (∀f v vs (e:'a cexp) e1.

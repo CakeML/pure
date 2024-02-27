@@ -15,21 +15,34 @@ val _ = new_theory "expof_caseProof";
 (* TODO move to pure_exp? *)
 Overload Unit = “Prim (Cons "") []”;
 
-Definition lets_for'_def:
+(*Definition lets_for'_def:
   lets_for' m cn v [] b = b ∧
   lets_for' m cn v ((n,w)::ws) b =
     Seq (If (IsEq cn m T (Var v)) Unit Fail)
         (Let w (Proj cn n (Var v))
                (lets_for' m cn v ws b))
+End*)
+
+Definition safe_proj_def:
+  safe_proj cn arity v i =
+    If (IsEq cn arity T (Var v)) (Proj cn i $ Var v) Fail
 End
 
 Definition rows_of'_def:
   rows_of' v k [] = k ∧
   rows_of' v k ((cn,vs,b)::rest) =
+    If (IsEq cn (LENGTH vs) T (Var v))
+     (Apps (Lams vs b) $ GENLIST (safe_proj cn (LENGTH vs) v) (LENGTH vs))
+     (rows_of' v k rest)
+End
+
+(*Definition rows_of'_def:
+  rows_of' v k [] = k ∧
+  rows_of' v k ((cn,vs,b)::rest) =
           If (IsEq cn (LENGTH vs) T (Var v))
              (lets_for' (LENGTH vs) cn v (MAPi (λi v. (i,v)) vs) b)
              (rows_of' v k rest)
-End
+End*)
 
 Definition exp_of'_def:
   exp_of' (Var d n) =
@@ -141,7 +154,7 @@ Proof
            FLOOKUP_UPDATE]
 QED
 
-Theorem exp_eq_lets_of_cong:
+(*Theorem exp_eq_lets_of_cong:
   ∀n cn v ws x y a b.
    x ≅ y ∧
    a ≅ b ∧
@@ -175,11 +188,97 @@ Proof
     by (Cases_on ‘FLOOKUP f v’ \\ gs [flookup_thm])
   \\ res_tac
   \\ simp [subst_def, eval_wh_thm]
+QED*)
+
+Theorem exp_eq_If_dup:
+  If b x y ≅ If b (If b x Fail) y
+Proof
+  cheat
+
+(*
+  irule exp_eq_If_cong
+  rw [exp_eq_refl]
+
+  irule eval_wh_IMP_exp_eq
+  rw[eval_wh_thm, subst_def, bind_def]
+
+
+  ‘∃u. FLOOKUP f v = SOME u’
+    by (Cases_on ‘FLOOKUP f v’ \\ gs [flookup_thm])
+
+
+
+  rw [subst_def]
+  rw [eval_wh_thm]
+
+  // 1st subgoal
+  rw[]
+
+  print_match [] ``freevars x ⊆ FDOM f``
+  print_match [] ``FLOOKUP f n = SOME v``
+
+  help "flookup_thm"
+*)
+QED
+
+Theorem exp_eq_If_App:
+  If b (App f x) e ≅ 
+    If b (App (If b f e) (If b x e)) e
+Proof
+  cheat
+
+  (*
+
+  irule eval_wh_IMP_exp_eq
+  rw []
+
+  simp [eval_wh_thm, bind_def, subst_def, FLOOKUP_SIMP]
+  rw []
+  rpt CASE_TAC
+  rw []
+  gvs [subst_def] // subgoal 1 done
+  gvs [subst_def] // subgoal 2 done
+  gvs [subst_def]
+
+  *)
+QED 
+
+Theorem exp_eq_If_Apps:
+  If b (Apps f xs) e ≅
+    If b (Apps (If b f e') (MAP (λx. If b x e') xs)) e
+Proof
+  cheat
+QED
+
+Theorem exp_eq_If_Apps_If:
+  If b (Apps (If b f e') xs) e ≅
+   If b (Apps f xs) e
+Proof
+  cheat
+
+  (*
+  
+  irule eval_wh_IMP_exp_eq
+  rw[eval_wh_thm, subst_def]
+  rw[exp_eq_If_Apps]
+
+  *)
+QED
+
+ 
+Theorem exp_eq_If_Apps_push:
+  If b (Apps f xs) e ≅
+    If b (Apps f (MAP (λx. If b x Fail) xs)) e
+Proof
+  irule exp_eq_trans
+  \\ irule_at (Pos hd) exp_eq_If_Apps 
+  \\ qexists `Fail`
+  \\ irule exp_eq_If_Apps_If
 QED
 
 Theorem exp_eq_rows_of_cong:
   ∀v k1 xs k2 ys.
-    ¬MEM v (FLAT (MAP (FST o SND) xs)) ∧ k1 ≅ k2 ∧
+    k1 ≅ k2 ∧
     LIST_REL (λ(a,vs,x) (b,ws,y). a = b ∧ vs = ws ∧ x ≅ y) xs ys ⇒
       rows_of' v k1 xs ≅ rows_of v k2 ys
 Proof
@@ -187,9 +286,19 @@ Proof
   \\ simp [rows_of'_def, rows_of_def, exp_eq_refl]
   \\ rw [] \\ pairarg_tac \\ gvs []
   \\ simp [rows_of_def]
-  \\ irule exp_eq_lets_of_cong
-  \\ rw [indexedListsTheory.MEM_MAPi]
-  \\ gs [MEM_EL]
+  \\ simp [Once exp_eq_sym]
+  \\ irule exp_eq_trans
+  \\ irule_at (Pos hd) exp_eq_If_Apps_push
+  \\ irule exp_eq_If_cong
+  \\ simp [exp_eq_refl]
+  \\ reverse conj_tac
+  >- metis_tac[exp_eq_sym]
+  \\ irule exp_eq_Apps_cong
+  \\ irule_at Any exp_eq_Lams_cong
+  \\ simp [Once exp_eq_sym]
+  \\ rw [MAP_GENLIST]
+  \\ rw [combinTheory.o_DEF]
+  \\ rw [LIST_REL_GENLIST, safe_proj_def, exp_eq_refl]
 QED
 
 Theorem implodeEQ:

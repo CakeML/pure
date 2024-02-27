@@ -54,11 +54,11 @@ Proof
   Induct_on ‘l1’ >> simp[nested_rows_term_def]
 QED
 
-Theorem exp_eq_lets_for_cong:
+(*Theorem exp_eq_lets_for_cong:
   (e1 ≅? e2) b ⇒ (lets_for cn v l e1 ≅? lets_for cn v l e2) b
 Proof
   Induct_on ‘l’ >> simp[lets_for_def, FORALL_PROD, exp_eq_Let_cong_noaconv]
-QED
+QED*)
 
 Theorem exp_eq_rows_of_cong:
   (k1 ≅? k2) b ∧
@@ -70,6 +70,17 @@ Proof
   Induct_on ‘LIST_REL’ >> simp[rows_of_def, FORALL_PROD] >> rpt strip_tac >>
   irule exp_eq_If_cong >> simp[exp_eq_lets_for_cong]
 QED
+
+(* TODO this should work after fixing expof_caseProofScript
+Induct_on `LIST_REL`
+simp[rows_of_def, FORALL_PROD]
+rpt strip_tac
+irule exp_eq_If_cong
+rw[]
+rw[pure_congruenceTheory.exp_eq_refl]
+rw[expof_caseProofTheory.exp_eq_Lams_cong, expof_caseProofTheory.exp_eq_Apps_cong]
+...
+*)
 
 Theorem exp_eq_patguards_cong:
   ∀gps1 gps2 e1 binds1 e2 binds2.

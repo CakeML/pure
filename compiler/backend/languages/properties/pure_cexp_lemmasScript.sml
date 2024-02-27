@@ -26,7 +26,7 @@ Proof
   every_case_tac >> gvs[] >> metis_tac[]
 QED
 
-Theorem freevars_lets_for:
+(*Theorem freevars_lets_for:
   ∀c v l b. freevars (lets_for c v l b) =
     case l of
       [] => freevars b DIFF set (MAP SND l)
@@ -34,7 +34,7 @@ Theorem freevars_lets_for:
 Proof
   recInduct lets_for_ind >> rw[lets_for_def] >>
   CASE_TAC >> gvs[] >> simp[EXTENSION] >> metis_tac[]
-QED
+QED*)
 
 Theorem freevars_rows_of:
   ∀v k l.
@@ -44,9 +44,19 @@ Theorem freevars_rows_of:
     | _ => v INSERT freevars k ∪
            BIGUNION (set (MAP (λ(cn,vs,b). freevars b DIFF set vs) l))
 Proof
-  recInduct rows_of_ind >> rw[rows_of_def] >> simp[freevars_lets_for] >>
+  (*recInduct rows_of_ind >> rw[rows_of_def] >> simp[freevars_lets_for] >>
   Cases_on `rest` >> gvs[combinTheory.o_DEF] >>
-  CASE_TAC >> gvs[EXTENSION] >> metis_tac[]
+  CASE_TAC >> gvs[EXTENSION] >> metis_tac[]*)
+  recInduct rows_of_ind
+  >> rw
+      [ rows_of_def
+      , MAP_GENLIST
+      , combinTheory.o_DEF
+      , LIST_TO_SET_GENLIST
+      ]
+  >> Cases_on `rest`
+  >> gvs[EXTENSION]
+  >> metis_tac[]
 QED
 
 Theorem set_MAPK[local]:
@@ -202,7 +212,19 @@ Proof
    irule (SRULE [SUBSET_DEF] freevars_nested_rows_LB) >>
    simp[MAP_MAP_o, MEM_MAP, EXISTS_PROD, combinTheory.o_ABS_R, PULL_EXISTS]>>
    gs[FORALL_PROD] >> metis_tac[IN_IMAGE])
-  >~ [‘MEM v (FLAT (MAP _ css))’]
+
+  >- (simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
+      metis_tac[mlstringTheory.explode_11])
+  >- (simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
+      metis_tac[mlstringTheory.explode_11])
+  >- (simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
+      metis_tac[mlstringTheory.explode_11])
+  >- (simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
+      metis_tac[mlstringTheory.explode_11])
+  >- (simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
+      metis_tac[mlstringTheory.explode_11])
+
+
   >- (
     Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
     every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
@@ -211,25 +233,13 @@ Proof
     simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
     metis_tac[mlstringTheory.explode_11]
     )
-  >~ [‘MEM v (FLAT (MAP _ css))’]
   >- (
     Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
     every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
-    PairCases_on ‘h’ >> gvs[] >>
     gs[DISJ_IMP_THM, FORALL_AND_THM] >>
     simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
     metis_tac[mlstringTheory.explode_11]
     )
-  >>~- (
-    [‘MEM v (FLAT (MAP _ css))’],
-    Cases_on ‘css’ >> gs[IMAGE_explode_DELETE, AC UNION_COMM UNION_ASSOC] >>
-    every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
-    gs[DISJ_IMP_THM, FORALL_AND_THM] >>
-    simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    metis_tac[mlstringTheory.explode_11]
-    ) >>
-  simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
-  metis_tac[mlstringTheory.explode_11]
 QED
 
 Theorem subst_lets_for:

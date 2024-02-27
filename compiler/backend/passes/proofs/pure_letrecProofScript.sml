@@ -8,6 +8,7 @@ open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
      pure_congruenceTheory pure_miscTheory pure_eval_lemmasTheory
      pure_letrecTheory pure_letrec_cexpTheory topological_sortTheory;
 open miscTheory;
+open pureLangTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -65,11 +66,11 @@ Proof
   gvs[Once (GSYM MEM_MAP_FST_make_distinct)]
 QED
 
-Theorem letrecs_distinct_lets_for:
+(*Theorem letrecs_distinct_lets_for:
   ∀l m n e. letrecs_distinct (lets_for m n l e) ⇔ letrecs_distinct e
 Proof
   Induct \\ gs [FORALL_PROD, pureLangTheory.lets_for_def, letrecs_distinct_def]
-QED
+QED*)
 
 Theorem letrecs_distinct_rows_of:
   ∀rows fall n. letrecs_distinct (rows_of n fall rows)
@@ -77,8 +78,8 @@ Theorem letrecs_distinct_rows_of:
                   EVERY (λ(cons, vL, e). letrecs_distinct e) rows
 Proof
   Induct \\ gs [FORALL_PROD, pureLangTheory.rows_of_def, letrecs_distinct_def]
-  \\ gs [letrecs_distinct_lets_for]
-  \\ rw [] \\ eq_tac \\ simp []
+  \\ rw [letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_GENLIST]
+  \\ eq_tac \\ simp []
 QED
 
 Theorem distinct_letrecs_distinct:
