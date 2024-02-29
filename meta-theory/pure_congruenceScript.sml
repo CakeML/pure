@@ -3007,4 +3007,43 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
+Theorem app_bisimilarity_If_cong:
+  EVERY closed [b;b';e1;e1';e2;e2'] ∧
+  (b ≃ b') T ∧
+  (eval_wh b = wh_Diverge ∨
+  ((eval_wh b = wh_True ⇒ (e1 ≃ e1') T) ∧
+   (eval_wh b = wh_False ⇒ (e2 ≃ e2') T)))
+  ⇒ (If b e1 e2 ≃ If b' e1' e2') T
+Proof
+  simp[DISJ_EQ_IMP] >> strip_tac >> gvs[] >>
+  simp[Once app_bisimilarity_iff] >> simp[eval_wh_thm] >>
+  Cases_on `eval_wh b = wh_Diverge` >> gvs[] >>
+  qpat_x_assum `(_ ≃ _) T` mp_tac >> simp[Once app_bisimilarity_iff]
+  >- (Cases_on `eval_wh b'` >> gvs[]) >>
+  Cases_on `eval_wh b` >> gvs[] >>
+  strip_tac >> gvs[] >>
+  reverse $ Cases_on `l = []` >> gvs[]
+  >- (`e2s ≠ []` by (CCONTR_TAC >> gvs[]) >> simp[]) >>
+  Cases_on `s = "True"` >> gvs[]
+  >- (qpat_x_assum `(_ ≃ _) T` mp_tac >> simp[Once app_bisimilarity_iff]) >>
+  Cases_on `s = "False"` >> gvs[]
+  >- (qpat_x_assum `(_ ≃ _) T` mp_tac >> simp[Once app_bisimilarity_iff])
+QED
+
+Theorem app_bisimilarity_If_exp_cong:
+  EVERY closed [b;b';e1;e1';e2;e2'] ∧
+  (b ≃ b') T ∧
+  (eval_wh b = wh_Diverge ∨
+    ((b ≃ Prim (Cons "True") []) T ⇒ (e1 ≃ e1') T) ∧
+    ((b ≃ Prim (Cons "False") []) T ⇒ (e2 ≃ e2') T))
+  ⇒ (If b e1 e2 ≃ If b' e1' e2') T
+Proof
+  simp[DISJ_EQ_IMP] >> strip_tac >>
+  irule app_bisimilarity_If_cong >>
+  Cases_on `eval_wh b = wh_Diverge` >> gvs[] >>
+  ntac 2 (qpat_x_assum `_ ⇒ _` mp_tac) >>
+  ntac 2 (simp[Once app_bisimilarity_iff] >> strip_tac) >>
+  rw[] >> gvs[eval_wh_thm]
+QED
+
 val _ = export_theory();
