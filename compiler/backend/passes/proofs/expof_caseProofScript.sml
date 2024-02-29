@@ -3,7 +3,7 @@
   the pure2thunk Case compilation.
  *)
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
+open HolKernel Parse boolLib bossLib term_tactic monadsyntax BasicProvers;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory dep_rewrite
      relationTheory;
@@ -193,32 +193,8 @@ QED*)
 Theorem exp_eq_If_dup:
   If b x y ≅ If b (If b x Fail) y
 Proof
-  cheat
-
-(*
-  irule exp_eq_If_cong
-  rw [exp_eq_refl]
-
   irule eval_wh_IMP_exp_eq
-  rw[eval_wh_thm, subst_def, bind_def]
-
-
-  ‘∃u. FLOOKUP f v = SOME u’
-    by (Cases_on ‘FLOOKUP f v’ \\ gs [flookup_thm])
-
-
-
-  rw [subst_def]
-  rw [eval_wh_thm]
-
-  // 1st subgoal
-  rw[]
-
-  print_match [] ``freevars x ⊆ FDOM f``
-  print_match [] ``FLOOKUP f n = SOME v``
-
-  help "flookup_thm"
-*)
+  \\ rw[subst_def, eval_wh_If]
 QED
 
 Theorem exp_eq_If_App:
@@ -229,8 +205,15 @@ Proof
 
   (*
 
+  rw [exp_eq_def]
+  rw [bind_def]
+  rw [subst_def]
+
   irule eval_wh_IMP_exp_eq
-  rw []
+  rw [subst_def]
+  rw [eval_wh_thm]
+  TOP_CASE_TAC
+  
 
   simp [eval_wh_thm, bind_def, subst_def, FLOOKUP_SIMP]
   rw []
@@ -248,6 +231,7 @@ Theorem exp_eq_If_Apps:
     If b (Apps (If b f e') (MAP (λx. If b x e') xs)) e
 Proof
   cheat
+  (*induct on xs*)
 QED
 
 Theorem exp_eq_If_Apps_If:
