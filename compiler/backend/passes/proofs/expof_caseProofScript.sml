@@ -197,34 +197,37 @@ Proof
   \\ rw[subst_def, eval_wh_If]
 QED
 
+Triviality exp_eq_True_lemma:
+  b ≅ Cons "True" [] ⇒ x ≅ If b x y
+Proof
+  rw []
+  \\ irule eval_wh_IMP_exp_eq \\ rw []
+  \\ gvs [exp_eq_def]
+  \\ last_x_assum drule
+  \\ gvs [bind_def,SF SFY_ss]
+  \\ strip_tac
+  \\ dxrule app_bisimilarity_sym \\ strip_tac
+  \\ dxrule_at (Pos last) eval_wh_Constructor_bisim
+  \\ gvs [eval_wh_Cons]
+  \\ gvs [subst_def,eval_wh_If]
+QED
+
 Theorem exp_eq_If_App:
-  If b (App f x) e ≅ 
+  If b (App f x) e ≅
     If b (App (If b f e) (If b x e)) e
 Proof
-  cheat
-
-  (*
-
-  rw [exp_eq_def]
-  rw [bind_def]
-  rw [subst_def]
-
-  irule eval_wh_IMP_exp_eq
-  rw [subst_def]
-  rw [eval_wh_thm]
-  TOP_CASE_TAC
-  
-
-  simp [eval_wh_thm, bind_def, subst_def, FLOOKUP_SIMP]
-  rw []
-  rpt CASE_TAC
-  rw []
-  gvs [subst_def] // subgoal 1 done
-  gvs [subst_def] // subgoal 2 done
-  gvs [subst_def]
-
-  *)
-QED 
+  rw [exp_eq_def,bind_def,subst_def] \\ rw []
+  \\ irule app_bisimilarity_If_exp_cong \\ gvs []
+  \\ irule_at Any reflexive_app_bisimilarity
+  \\ rpt $ irule_at Any IMP_closed_subst \\ gvs [TO_FLOOKUP]
+  \\ disj2_tac \\ reverse $ rpt strip_tac
+  >- (irule_at Any reflexive_app_bisimilarity
+      \\ rpt $ irule_at Any IMP_closed_subst \\ gvs [TO_FLOOKUP])
+  \\ gvs [app_bisimilarity_eq]
+  \\ rpt $ irule_at Any IMP_closed_subst \\ gvs [TO_FLOOKUP]
+  \\ irule exp_eq_App_cong
+  \\ rpt $ irule_at Any exp_eq_True_lemma \\ fs []
+QED
 
 Theorem exp_eq_If_Apps:
   If b (Apps f xs) e ≅
@@ -241,7 +244,7 @@ Proof
   cheat
 
   (*
-  
+
   irule eval_wh_IMP_exp_eq
   rw[eval_wh_thm, subst_def]
   rw[exp_eq_If_Apps]
@@ -249,13 +252,13 @@ Proof
   *)
 QED
 
- 
+
 Theorem exp_eq_If_Apps_push:
   If b (Apps f xs) e ≅
     If b (Apps f (MAP (λx. If b x Fail) xs)) e
 Proof
   irule exp_eq_trans
-  \\ irule_at (Pos hd) exp_eq_If_Apps 
+  \\ irule_at (Pos hd) exp_eq_If_Apps
   \\ qexists `Fail`
   \\ irule exp_eq_If_Apps_If
 QED
