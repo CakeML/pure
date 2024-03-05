@@ -84,7 +84,8 @@ Definition exp_of_def:
   exp_of (NestedCase d g gv p e pes) =
   Let (explode gv) (exp_of g)
       (nested_rows (Var (explode gv))
-       (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
+       (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes))) ∧
+  exp_of (Annot d annot e) = exp_of e
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ >> rw [cexp_size_eq] >>
   simp[] >>
@@ -120,7 +121,8 @@ Definition allvars_of_def[simp]:
   allvars_of (NestedCase c g gv p e pes) =
     {explode gv} UNION
     BIGUNION (set (MAP (allvars_of o SND) pes)) UNION
-    allvars_of e UNION allvars_of g
+    allvars_of e UNION allvars_of g ∧
+  allvars_of (Annot d annot e) = allvars_of e
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)`
 End

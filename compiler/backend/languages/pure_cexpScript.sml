@@ -63,6 +63,10 @@ QED
 Type cvname = “:mlstring”
 
 Datatype:
+  annot = NoInline | Inline | Inlineable | ConLike | InlineHere cvname
+End
+
+Datatype:
   cexp = Var 'a cvname                           (* variable                 *)
        | Prim 'a cop (cexp list)                 (* primitive operations     *)
        | App 'a cexp (cexp list)                 (* function application     *)
@@ -73,6 +77,7 @@ Datatype:
                     (((cvname # num) list # cexp) option)     (* fallthrough *)
        | NestedCase 'a cexp cvname cepat cexp ((cepat # cexp) list)
                                         (* case w/non-empty pattern-exp list *)
+       | Annot 'a annot cexp
 End
 
 val cexp_size_eq = fetch "-" "cexp_size_eq";
@@ -152,7 +157,8 @@ Definition gencexp_recurse_def:
             (OPTION_MAP (λ(a,x). (a,gencexp_recurse f x)) eopt)) ∧
   gencexp_recurse f (NestedCase c g gv p e pes) =
     f (NestedCase c (gencexp_recurse f g) gv p (gencexp_recurse f e)
-       (MAP (λ(p,e). (p, gencexp_recurse f e)) pes))
+       (MAP (λ(p,e). (p, gencexp_recurse f e)) pes)) ∧
+  gencexp_recurse f (Annot c annot e) = f (Annot c annot (gencexp_recurse f e))
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0) o SND)’
 End
@@ -181,7 +187,8 @@ Definition freevars_cexp_def[simp]:
     freevars_cexp g ∪
     (((freevars_cexp e DIFF cepat_vars p) ∪
       BIGUNION (set (MAP (λ(p,e). freevars_cexp e DIFF cepat_vars p) pes)))
-    DELETE gv)
+    DELETE gv) ∧
+  freevars_cexp (Annot c annot e) = freevars_cexp e
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))` >> rw []
 End
@@ -208,7 +215,8 @@ Definition freevars_cexp_l_def[simp]:
       (FILTER (λv. v ≠ gv ∧ ¬MEM v (cepat_vars_l p)) (freevars_cexp_l e) ::
        MAP (λ(p, e). FILTER (λv. v ≠ gv ∧ ¬MEM v (cepat_vars_l p))
                             (freevars_cexp_l e))
-       pes)
+       pes) ∧
+  freevars_cexp_l (Annot c annot e) = freevars_cexp_l e
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))` >> rw []
 End
@@ -234,7 +242,8 @@ Definition substc_def:
     gv
     p
     (substc (FDIFF f (gv INSERT cepat_vars p)) e)
-    (MAP (λ(p,e). (p, substc (FDIFF f (gv INSERT cepat_vars p)) e)) pes)
+    (MAP (λ(p,e). (p, substc (FDIFF f (gv INSERT cepat_vars p)) e)) pes) ∧
+  substc f (Annot c annot e) = Annot c annot (substc f e)
 Termination
   WF_REL_TAC `measure (cexp_size (K 0) o  SND)` >> rw []
 End
@@ -249,7 +258,8 @@ Definition get_info_def:
   get_info (Let c _ _ _) = c ∧
   get_info (Letrec c _ _) = c ∧
   get_info (Case c _ _ _ _) = c ∧
-  get_info (NestedCase c _ _ _ _ _) = c
+  get_info (NestedCase c _ _ _ _ _) = c ∧
+  get_info (Annot c _ _) = c
 End
 
 Definition num_args_ok_def:
@@ -282,7 +292,8 @@ Definition cexp_wf_def[nocompute]:
   cexp_wf (NestedCase _ g gv p e pes) = (
     cexp_wf g ∧ cexp_wf e ∧ EVERY cexp_wf $ MAP SND pes ∧
     ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))
-  )
+  ) ∧
+  cexp_wf (Annot _ annot e) = cexp_wf e
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> rw[fetch "-" "cexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>
@@ -302,6 +313,7 @@ Definition NestedCase_free_def[simp]:
     NestedCase_free e ∧ EVERY NestedCase_free $ MAP (SND o SND) css ∧
     OPTION_ALL (NestedCase_free o SND) eopt
   ) ∧
+  NestedCase_free (Annot _ _ e) = NestedCase_free e ∧
   NestedCase_free (NestedCase _ _ _ _ _ _) = F
 Termination
   WF_REL_TAC ‘measure $ cexp_size (K 0)’ >>
@@ -331,7 +343,8 @@ Definition every_cexp_def[simp]:
   every_cexp p (NestedCase a e1 v pat e2 rows) =
     (p (NestedCase a e1 v pat e2 rows) ∧
      every_cexp p e1 ∧ every_cexp p e2 ∧
-     EVERY (every_cexp p) $ MAP SND rows)
+     EVERY (every_cexp p) $ MAP SND rows) ∧
+  every_cexp p (Annot a annot e) = every_cexp p e
 Termination
   WF_REL_TAC ‘measure $ cexp_size (K 0) o SND’ >>
   simp[cexp_size_eq, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
@@ -386,6 +399,7 @@ Definition cns_arities_def:
       | SOME (a,e) =>
         (set a ∪ css_cn_ars) INSERT cns_arities e) ∪
     cns_arities e ∪ BIGUNION (set (MAP (λ(cn,vs,e). cns_arities e) css))) ∧
+  cns_arities (Annot d annot e) = cns_arities e ∧
   cns_arities _ = {}
 Termination
   WF_REL_TAC `measure (cexp_size (K 0))`
