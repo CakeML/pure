@@ -609,7 +609,12 @@ Proof
     \\ fs [FST,vars_of_def]
     \\ irule exp_eq_Let_cong
     \\ fs [exp_eq_refl])
-  >~ [‘Rec s e’] >- cheat
+  >~ [‘Rec s e’]
+  >- (
+    rw[Binds_def] >> gvs[vars_of_def] >>
+    irule exp_eq_trans >> irule_at Any Letrec_Lam_weak >> simp[] >>
+    irule_at Any exp_eq_Letrec_cong >> simp[exp_eq_refl]
+    )
 QED
 
 Theorem Binds_App:
@@ -623,7 +628,12 @@ Proof
     \\ irule_at Any pure_congruenceTheory.Let_App
     \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
     \\ irule exp_eq_Lam_cong \\ fs [exp_eq_refl])
-  >~ [‘Rec s e’] >- cheat
+  >~ [‘Rec s e’]
+  >- (
+    rw[Binds_def] >>
+    irule exp_eq_trans >> irule_at Any Letrec_App >>
+    irule exp_eq_Letrec_cong >> simp[exp_eq_refl]
+    )
 QED
 
 Theorem Binds_Let:
@@ -893,7 +903,17 @@ Proof
     \\ gvs []
     \\ PairCases_on `e` \\ simp []
     \\ gvs [])
-  >~ [‘Rec s e’] >- cheat
+  >~ [‘Rec s e’]
+  >- (
+    gvs[EVERY_CONJ, ELIM_UNCURRY, vars_of_def, Binds_def] >>
+    irule exp_eq_trans >> irule_at Any exp_eq_Letrec_cong >>
+    irule_at Any $ iffRL LIST_REL_same >> simp[exp_eq_refl] >>
+    last_x_assum $ irule_at Any >>
+    irule exp_eq_trans >> irule_at Any Letrec_distrib_Letrec >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, exp_eq_refl, SF ETA_ss] >>
+    gvs[EVERY_MEM, MEM_MAP, DISJOINT_ALT] >> rw[] >> gvs[] >>
+    CCONTR_TAC >> gvs[] >> rpt $ first_x_assum drule >> simp[]
+    )
 QED
 
 Theorem Binds_Prim:
@@ -927,7 +947,15 @@ Proof
     \\ irule_at Any Let_Prim
     \\ irule exp_eq_Let_cong
     \\ simp [exp_eq_refl,Binds_def])
-  >~ [‘Rec s e’] >- cheat
+  >~ [‘Rec s e’]
+  >- (
+    gvs[Binds_def] >>
+    irule exp_eq_trans >> irule_at Any exp_eq_Letrec_cong >>
+    irule_at Any $ iffRL LIST_REL_same >> simp[exp_eq_refl] >>
+    first_x_assum $ irule_at Any >>
+    irule exp_eq_trans >> irule_at Any Letrec_Prim >>
+    irule exp_eq_Prim_cong >> rw[LIST_REL_EL_EQN, EL_MAP, Binds_def, exp_eq_refl]
+    )
 QED
 
 Theorem Binds_cong:
@@ -1062,6 +1090,22 @@ Proof
   fs [EXTENSION,SUBSET_DEF] \\ metis_tac []
 QED
 
+Theorem Letrec1_dup:
+  (Letrec [(v,x)] (Letrec [(v,x)] y) ≅?
+   Letrec [(v,x)] y) b
+Proof
+  rw []
+  \\ irule eval_wh_IMP_exp_eq
+  \\ fs [freevars_def,subst_def] \\ rw []
+  \\ simp [Once eval_wh_Letrec]
+  \\ gvs [subst_funs_def]
+  \\ reverse $ rw [bind_def]
+  >- simp [Once eval_wh_Letrec,subst_funs_def,bind_def]
+  \\ fs [FUPDATE_LIST]
+  \\ DEP_REWRITE_TAC [subst1_ignore]
+  \\ fs [FDIFF_SING]
+QED
+
 Theorem Binds_copy:
   ∀e x.
     lets_ok [e] ⇒
@@ -1122,7 +1166,8 @@ Proof
     \\ simp [subst_fdomsub]
     )
    \\ simp [freevars_subst])
-  >~ [‘Rec s e’] >- cheat
+  >~ [‘Rec s e’]
+  >- simp[Binds_def, Once exp_eq_sym, Letrec1_dup]
 QED
 
 Theorem Let_Let_copy:
@@ -1281,22 +1326,6 @@ Theorem FDIFF_SING:
 Proof
   fs [FDIFF_def,fmap_EXT,DRESTRICT_DEF,DOMSUB_FAPPLY_NEQ]
   \\ gvs [EXTENSION]
-QED
-
-Theorem Letrec1_dup:
-  (Letrec [(v,x)] (Letrec [(v,x)] y) ≅?
-   Letrec [(v,x)] y) b
-Proof
-  rw []
-  \\ irule eval_wh_IMP_exp_eq
-  \\ fs [freevars_def,subst_def] \\ rw []
-  \\ simp [Once eval_wh_Letrec]
-  \\ gvs [subst_funs_def]
-  \\ reverse $ rw [bind_def]
-  >- simp [Once eval_wh_Letrec,subst_funs_def,bind_def]
-  \\ fs [FUPDATE_LIST]
-  \\ DEP_REWRITE_TAC [subst1_ignore]
-  \\ fs [FDIFF_SING]
 QED
 
 Theorem Let_dup:
