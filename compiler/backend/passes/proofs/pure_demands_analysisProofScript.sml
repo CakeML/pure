@@ -1778,8 +1778,11 @@ Proof
   >- (rw [empty_thm, TotOrd_compare]
       \\ irule find_fixpoint_refl)
   >~[‘Annot _ _ _’]
-  >- (rw [empty_thm, TotOrd_compare]
-      \\ irule find_fixpoint_refl)
+  >- (
+    simp[exp_of_def, cexp_size_def] >> strip_tac >>
+    first_x_assum $ qspec_then `cexp_size (K 0) c` mp_tac >> simp[] >>
+    disch_then $ qspec_then `c` mp_tac >> simp[]
+    )
 QED
 
 Theorem test_list_rel_soundness:

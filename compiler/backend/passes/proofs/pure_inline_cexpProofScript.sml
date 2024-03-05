@@ -697,6 +697,12 @@ Proof
   \\ gvs [SUBSET_DEF]
 QED
 
+Theorem avoid_set_ok_Annot:
+  avoid_set_ok ns (Annot c annot e) ⇔ avoid_set_ok ns e
+Proof
+  rw[avoid_set_ok_def, exp_of_def]
+QED
+
 fun avoid_set_ok_lemma () = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀t ns1.
     (inline m ns cl h x) = (t, ns1) ∧
@@ -823,6 +829,11 @@ Proof
     \\ irule Case_lemma \\ gvs []
     \\ last_x_assum $ irule_at $ Pos hd
     \\ fs [] \\ metis_tac [SUBSET_TRANS])
+  >~ [`Annot`]
+  >- (
+    rpt (pairarg_tac >> gvs[]) >>
+    gvs[fake_avoid_set_ok_def, avoid_set_ok_Annot]
+    )
   \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
   \\ gvs [fake_avoid_set_ok_def]
   \\ last_x_assum $ irule_at Any
@@ -1330,6 +1341,11 @@ Proof
       (rpt $ pop_assum kall_tac \\ gvs [LAMBDA_PROD])
     \\ gvs [MAP_MAP_o,o_DEF]
     \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  >~ [`Annot`]
+  >- (
+    gvs[inline_def] >> rpt (pairarg_tac >> gvs[]) >>
+    gvs[avoid_set_ok_Annot, exp_of_def, cexp_wf_def, cns_arities_def]
+    )
   \\ gvs [inline_def]
   \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()])
   \\ gvs [block_def] \\ gvs [SUBSET_DEF]
@@ -2375,6 +2391,11 @@ Proof
   >~ [`NestedCase _ _ _ _ _ _`] >- (
     gvs [NestedCase_free_def]
   )
+  >~ [`Annot`]
+  >- (
+    gvs[inline_def] >> rpt (pairarg_tac >> gvs[]) >>
+    gvs[exp_of_def, cexp_wf_def, letrecs_distinct_def, avoid_set_ok_Annot]
+    )
   >~ [`LIST_REL _ [] _`] >- (
     gvs [inline_def]
   )

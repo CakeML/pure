@@ -285,6 +285,9 @@ Proof
       gvs[cepat_vars_l_correct] >> metis_tac[neq_some_unit]
       )
     )
+  >- ( (* Annot fvs_ok *)
+    imp_res_tac fvs_ok_imp >> gvs[fvs_ok_def, fv_set_ok_def]
+    )
 QED
 
 Theorem dead_let_cns_arities:
@@ -439,6 +442,9 @@ Proof
       Cases_on `eopt` >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
       gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[]
       )
+    )
+  >- (
+    once_rewrite_tac[type_tcexp_cases] >> simp[]
     )
 QED
 

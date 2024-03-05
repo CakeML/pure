@@ -54,7 +54,10 @@ Definition dead_let_def:
         c'    = union (get_info ce') $ combin$C delete x $ list_union $
                   MAP (λ(p,ce). list_delete (get_info ce) (cepat_vars_l p)) $
                     (p,pce')::pces'
-    in NestedCase c' ce' x p pce' pces')
+    in NestedCase c' ce' x p pce' pces') ∧
+  dead_let (Annot c annot ce) =
+    let ce'   = dead_let ce
+    in Annot (get_info ce') annot ce'
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)`
 End

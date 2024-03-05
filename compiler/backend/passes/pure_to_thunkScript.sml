@@ -125,6 +125,7 @@ Definition to_thunk_def:
             ((Let (SOME v) (mk_delay flag x) $
               Let (SOME w) (Force (Var v)) $
                Case w (MAP2 (λ(c,n,_) y. (c,n,y)) ys rs) (SOME (a,y))),s)) ∧
+  to_thunk flag s (Annot c annot e) = to_thunk flag s e ∧
   to_thunk flag s (NestedCase c g gv p e pes) = to_thunk flag s e ∧
   to_thunk_list flag s [] = ([],s) ∧
   to_thunk_list flag s (x::xs) =

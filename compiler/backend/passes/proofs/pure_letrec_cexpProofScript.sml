@@ -215,7 +215,8 @@ Definition fvs_ok_def:
      OPTION_ALL (λ(_,e). fvs_ok e) eopt) ∧
   fvs_ok (NestedCase c g gv p e pes) =
     (fv_set_ok (NestedCase c g gv p e pes) ∧
-     fvs_ok g ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes)
+     fvs_ok g ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes) ∧
+  fvs_ok (Annot c annot e) = (fv_set_ok (Annot c annot e) ∧ fvs_ok e)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >>
   simp[cexp_size_eq, DISJ_IMP_THM, FORALL_AND_THM] >> rpt strip_tac >>
@@ -390,6 +391,10 @@ Proof
       simp[cepat_vars_l_correct] >>
       strip_tac >> disj2_tac >> first_assum $ irule_at Any >>
       simp[lookup_list_delete, cepat_vars_l_correct])
+  >- (
+    imp_res_tac fvs_ok_imp >> gvs[fv_set_ok_def] >>
+    rw[fvs_ok_def, fv_set_ok_def, get_info_def]
+    )
 QED
 
 Triviality letrec_recurse_IfDisj:
@@ -1036,6 +1041,9 @@ Proof
       Cases_on `eopt` >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
       gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> metis_tac[]
       )
+    )
+  >- (
+    once_rewrite_tac[type_tcexp_cases] >> simp[]
     )
 QED
 

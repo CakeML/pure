@@ -207,6 +207,8 @@ Definition fixpoint1_def:
                                               else m) (empty compare) hd in
                 (union demands_e (delete m n), NONE))) ∧
 
+  (fixpoint1 c (Annot d annot e) fds = fixpoint1 c e fds) ∧
+
   (fixpoint1 c e fds = (mlmap$empty mlstring$compare, NONE))
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []

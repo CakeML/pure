@@ -147,6 +147,9 @@ Definition inline_def:
      in (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3, ns3)) ∧
   inline m ns cl h (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs, ns) ∧
+  inline m ns cl h (Annot a annot e) =
+    (let (e1, ns1) = inline m ns cl h e
+     in (Annot a annot e1, ns1)) ∧
   inline_list m ns cl h [] = ([], ns) ∧
   inline_list m ns cl h (e::es) =
     (let (e1, ns1) = inline m ns cl h e in
@@ -198,7 +201,9 @@ Definition tree_size_heuristic_rec_def:
       | SOME (vs, e) => tree_size_heuristic_rec n1 e) ∧
   tree_size_heuristic_rec n (NestedCase a e v p e' bs) =
     (let n1 = FOLDL (λa (p, e). if a < 0 then a else tree_size_heuristic_rec a e) (n - 1) bs
-    in if n1 < 0 then n1 else tree_size_heuristic_rec n1 e')
+    in if n1 < 0 then n1 else tree_size_heuristic_rec n1 e') ∧
+  tree_size_heuristic_rec n (Annot a annot e) =
+    tree_size_heuristic_rec (n - 1) e
 Termination
   WF_REL_TAC ‘measure (λx. case x of
     | (n, e) => cexp_size (K 0) e)’

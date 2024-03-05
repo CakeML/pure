@@ -180,6 +180,11 @@ Definition freshen_aux_def:
     return (Case d ce' v' css' usopt')
   od ∧
 
+  freshen_aux varmap (Annot d annot ce) = do
+    ce' <- freshen_aux varmap ce;
+    return (Annot d annot ce')
+  od ∧
+
   freshen_aux _ ce = return ce ∧ (* NestedCase not handled *)
 
   (* List form *)
@@ -222,7 +227,8 @@ Definition boundvars_of_def:
     var_union (insert_var (boundvars_of ce) x) $
     var_union (insert_vars (boundvars_of pce) (cepat_vars_l p)) $
     FOLDR (λ(p,ce) s. var_union s $ insert_vars (boundvars_of ce) (cepat_vars_l p))
-      empty_vars pces
+      empty_vars pces ∧
+  boundvars_of (Annot d annot ce) = boundvars_of ce
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)`
 End

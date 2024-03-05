@@ -1154,7 +1154,8 @@ Theorem avoid_ok_simps[simp]:
     avoid_ok avoid ce ∧
     explode x ∈ set_of avoid ∧
     EVERY (λ(cn,pvs,ce). set (MAP explode pvs) ⊆ set_of avoid ∧ avoid_ok avoid ce) css ∧
-    (∀cnars ce. usopt = SOME (cnars,ce) ⇒ avoid_ok avoid ce))
+    (∀cnars ce. usopt = SOME (cnars,ce) ⇒ avoid_ok avoid ce)) ∧
+  (avoid_ok avoid (Annot c annot ce) ⇔ avoid_ok avoid ce)
 Proof
   rw[avoid_ok_def, exp_of_def, EVERY_MEM, allvars_Apps, allvars_Lams, allvars_rows_of]
   >- (simp[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> metis_tac[])
@@ -1324,6 +1325,9 @@ Proof
     last_x_assum $ drule_at $ Pat `freshen_mapM` >> reverse impl_tac >> simp[]
     >- (strip_tac >> gvs[SUBSET_DEF, avoid_ok_def]) >>
     gvs[EVERY_MEM, FORALL_PROD, avoid_ok_def, SUBSET_DEF, EXTENSION] >> metis_tac[]
+    )
+  >- (
+    rpt (pairarg_tac >> gvs[]) >> res_tac
     )
   >- ( (* list case *)
     rpt (pairarg_tac >> gvs[]) >>
@@ -2055,6 +2059,9 @@ Proof
       metis_tac[]
       )
     )
+  >- (
+    rpt (pairarg_tac >> gvs[]) >> gvs[exp_of_def, cexp_wf_def]
+    )
   >- ( (* list case *)
     rpt (pairarg_tac >> gvs[]) >>
     rename1 `freshen_aux_list _ ces1 avoid1' = (ces2,_)` >>
@@ -2488,6 +2495,12 @@ Proof
         rpt (pairarg_tac >> gvs[])
         )
       )
+    )
+  >- ( (* Annot *)
+    rpt (pairarg_tac >> gvs[]) >> gvs[tcexp_of_def] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>
+    once_rewrite_tac[type_tcexp_cases] >> rw[] >>
+    first_x_assum irule >> simp[PULL_EXISTS] >> rpt $ goal_assum $ drule_at Any
     )
   >- ( (* NestedCase *)
     qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >>

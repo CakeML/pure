@@ -28,7 +28,8 @@ Definition letrec_recurse_cexp_def:
   letrec_recurse_cexp f (NestedCase c g gv p e pes) =
     NestedCase c (letrec_recurse_cexp f g) gv p
                (letrec_recurse_cexp f e)
-               (MAP (λ(p,e). (p, letrec_recurse_cexp f e)) pes)
+               (MAP (λ(p,e). (p, letrec_recurse_cexp f e)) pes) ∧
+  letrec_recurse_cexp f (Annot c annot e) = Annot c annot (letrec_recurse_cexp f e)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND`
 End
@@ -72,18 +73,21 @@ Definition letrec_recurse_fvs_def:
                     MAP (λ(cn,vs,e). list_delete (get_info e) vs) ys')) n)
     in Case c' e' n ys' eopt') ∧
   letrec_recurse_fvs f (NestedCase c g gv p e pes) =
-    let g' = letrec_recurse_fvs f g ;
-        e' = letrec_recurse_fvs f e ;
-        pes' = MAP (λ(p,e). (p, letrec_recurse_fvs f e)) pes ;
-        c' = union (get_info g')
-                   (delete
-                    (list_union
-                     (MAP (λ(p,e).
-                             list_delete (get_info e) (cepat_vars_l p))
-                          ((p,e')::pes')))
-                    gv)
-    in
-      NestedCase c' g' gv p e' pes'
+    (let g' = letrec_recurse_fvs f g ;
+         e' = letrec_recurse_fvs f e ;
+         pes' = MAP (λ(p,e). (p, letrec_recurse_fvs f e)) pes ;
+         c' = union (get_info g')
+                    (delete
+                     (list_union
+                      (MAP (λ(p,e).
+                              list_delete (get_info e) (cepat_vars_l p))
+                           ((p,e')::pes')))
+                     gv)
+     in
+       NestedCase c' g' gv p e' pes') ∧
+  letrec_recurse_fvs f (Annot c annot e) =
+    (let e' = letrec_recurse_fvs f e in Annot (get_info e') annot e')
+
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND`
 End
@@ -176,7 +180,8 @@ Definition init_sets_def:
   init_sets (NestedCase c g gv p e pes) =
     NestedCase empty (init_sets g) gv p
                (init_sets e)
-               (MAP (λ(p,e). (p, init_sets e)) pes)
+               (MAP (λ(p,e). (p, init_sets e)) pes) ∧
+  init_sets (Annot c annot e) = Annot empty annot (init_sets e)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)`
 End
