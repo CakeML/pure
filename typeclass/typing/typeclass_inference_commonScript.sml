@@ -77,10 +77,22 @@ Definition itype_of_def:
   itype_of (Cons t1 t2) = iCons (itype_of t1) (itype_of t2)
 End
 
+Definition itype_of_scheme_def:
+  itype_of_scheme (v,Atom (VarTypeCons v')) =
+    if v' < v then iCVar v' else iAtom (VarTypeCons v') ∧
+  itype_of_scheme (v,Cons t1 t2) = iCons (itype_of_scheme (v,t1))
+  (itype_of_scheme (v,t2)) ∧
+  itype_of_scheme (v,t) = t
+End
+
 Definition type_of_def:
   type_of (iCons t1 t2) = lift2 Cons (type_of t1) (type_of t2) ∧
   type_of (iAtom at) = SOME $ Atom at ∧
   type_of (iCVar v) = NONE
+End
+
+Definition type_of_scheme_def:
+  
 End
 
 val _ = export_theory();

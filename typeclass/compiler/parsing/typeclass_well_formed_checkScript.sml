@@ -240,8 +240,8 @@ Definition check_inst_map_sat_cl_req_def:
       (* check if constraints is valid *)
       EVERY (λ(cl,v). lookup cl_map cl ≠ NONE ∧
         TypeVar v ≠ ty (* v must be a variable in ty,
-          so we only need to test there
-          size are not equal to show its size is smaller than ty *)
+          so we only need to test their
+          sizes are not equal to show its size is smaller than ty *)
         ) instinfo.cstr
      ) inst_map
 End

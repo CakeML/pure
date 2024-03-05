@@ -6,7 +6,6 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
            $(CAKEMLDIR)/semantics \
            $(CAKEMLDIR)/basis/pure \
            $(PUREDIR)/typeclass/typing \
-           $(HOLDIR)/examples/algorithms \
 					 $(PUREDIR)/typeclass/
 HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
 

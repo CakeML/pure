@@ -4,5 +4,6 @@ endif
 
 INCLUDES = $(CAKEMLDIR)/basis/pure \
 					 $(PUREDIR)/misc \
+           $(HOLDIR)/examples/algorithms \
 					 $(PUREDIR)/typeclass/typing
 

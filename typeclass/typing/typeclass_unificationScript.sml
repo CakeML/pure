@@ -7,6 +7,7 @@ open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      pred_setTheory relationTheory listTheory alistTheory finite_mapTheory;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory substTheory;
 open typeclass_typesTheory typeclass_inference_commonTheory;
+open typeclass_kindCheckTheory;
 
 val _ = new_theory "typeclass_unification";
 
@@ -1135,6 +1136,20 @@ Proof
   qspecl_then  [`s`,`t1`,`t2`,`sx'`,`sx`] assume_tac pure_unify_mgu >> gvs[]
 QED
 
+(* How should I state it? *)
+Theorem pure_unify_preserve_kind:
+  kind_wf cdb vdb k t ∧ pure_wfs s ∧
+  pure_unify s (itype_of_scheme (ARB t) t) (itype_of t') = SOME s' ∧
+  ⇒ kind_wf cdb (ARB s' vdb) k t'
+Proof
+QED
+
+Theorem pure_apply_subst_preserve_kind:
+  kind_wf cdb vdb k t ∧ pure_wfs s ∧
+  ⇒
+  kind_wf cdb vdb k (pure_apply_subst s t)
+Proof
+QED
 (********************)
 
 val _ = export_theory();
