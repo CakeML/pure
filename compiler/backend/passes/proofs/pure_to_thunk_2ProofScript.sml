@@ -25,6 +25,22 @@ val _ = set_grammar_ancestry
 Overload mk_delay_rel = ``λf x y. (∃c v. x = Var c v ∧ y = Var v) ∨
                                   (∃z. f x z ∧ y = Delay z)``
 
+Inductive mk_delay_rel:
+  mk_delay_rel f (Var c v) (Var v) ∧
+
+  (f x z ∧ y = Delay z ⇒ mk_delay_rel f x y) ∧
+
+  (mk_delay_rel f x y ⇒ mk_delay_rel f (Annot c annot x) y)
+End
+
+Theorem mk_delay_rel_mono[mono]:
+  (∀x y. f x y ⇒ g x y) ⇒
+  mk_delay_rel f x y ⇒ mk_delay_rel g x y
+Proof
+  Induct_on `mk_delay_rel` >> rw[] >>
+  simp[Once mk_delay_rel_cases]
+QED
+
 Inductive exp_rel:
 [~Var:]
   (∀(n:mlstring).
@@ -36,8 +52,7 @@ Inductive exp_rel:
        exp_rel (pure_cexp$Lam i s x) (Lam s y))
 [~Let:]
   (∀s x y z1 y1.
-     (~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
-      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) ∧
+     mk_delay_rel exp_rel x z1 ∧
      exp_rel y y1 ⇒
        exp_rel (Let i s x y) (Let (SOME s) z1 y1))
 [~Letrec:]
@@ -48,20 +63,17 @@ Inductive exp_rel:
 [~App:]
   (∀f g xs ys.
      exp_rel f g ∧
-     LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
-                      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ⇒
+     LIST_REL (mk_delay_rel exp_rel) xs ys ⇒
        exp_rel (App i f xs) (App g ys))
 [~Cons:]
   (∀xs ys n.
-     LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
-                      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ∧
+     LIST_REL (mk_delay_rel exp_rel) xs ys ∧
      explode n ∉ monad_cns ⇒
        exp_rel (Prim i (Cons n) xs) (Prim (Cons n) ys))
 [~Ret_Raise:]
   (∀mop xs ys n.
      (if n = «Ret» then mop = Ret else n = «Raise» ∧ mop = Raise) ∧
-     LIST_REL (λx z1. ~(∃c v. x = Var c v ∧ z1 = Var v) ⇒
-                      (∃x1. exp_rel x x1 ∧ z1 = Delay x1)) xs ys ⇒
+     LIST_REL (mk_delay_rel exp_rel) xs ys ⇒
        exp_rel (Prim i (Cons n) xs) (Monad mop ys))
 [~Bind_Handle:]
   (∀mop xs ys n.
@@ -110,14 +122,15 @@ Inductive exp_rel:
        x1 = y1 ∧ x2 = y2 ∧ ~MEM fresh x2 ∧
        exp_rel x3 y3 ∧ explode fresh ∉ freevars (exp_of' x3)) xs ys ∧
      (∀a x. eopt = SOME (a,x) ⇒ explode fresh ∉ freevars (exp_of' x)) ∧
-     (~(∃c z. x = Var c z ∧ a_exp = Var z) ⇒
-      (∃x1. exp_rel x x1 ∧ a_exp = Delay x1)) ∧
+     mk_delay_rel exp_rel x a_exp ∧
      fresh ≠ v ∧
      OPTREL (λ(a,x) (b,y). a = b ∧ exp_rel x y) eopt yopt ⇒
        exp_rel (Case i x v xs eopt)
                (Let (SOME v) a_exp $
                 Let (SOME fresh) (Force (Var v)) $
                   Case fresh ys yopt))
+[~Annot:]
+  (exp_rel ce ce' ⇒ exp_rel (Annot d annot ce) ce')
 End
 
 Overload to_thunk = “pure_to_thunk_1Proof$compile_rel”
@@ -311,13 +324,14 @@ Proof
           lift_rel q1 q2 ∧
           force_rel NONE q2 q3 ∧
           proj_rel q3 q4 ∧
-          delay_force (Delay q4) (exp_of a_exp)’ by
-      (qpat_x_assum ‘(∀c z. x = Var c z ⇒ a_exp ≠ Var z) ⇒ _’ mp_tac
-       \\ disch_then (assume_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM])
-       \\ reverse $ gvs []
-       >- metis_tac [delay_force_Delay]
-       \\ fs [exp_of'_def]
-       \\irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Var
+          delay_force (Delay q4) (exp_of a_exp)’ by (
+        qpat_x_assum ‘mk_delay_rel _ _ _’ mp_tac >>
+        qpat_x_assum `cexp_wf _` mp_tac >>
+        rpt $ pop_assum kall_tac >>
+        Induct_on `mk_delay_rel` >> reverse $ rw[] >> gvs[exp_of'_def, cexp_wf_def]
+        >- metis_tac[]
+        >- metis_tac [delay_force_Delay]
+       \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Var
        \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Force
        \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Force
        \\ irule_at Any thunk_case_projProofTheory.compile_rel_Force
@@ -329,7 +343,7 @@ Proof
     \\ qpat_x_assum ‘lift_rel _ _’ $ irule_at Any
     \\ qpat_x_assum ‘force_rel NONE _ _’ $ irule_at Any
     \\ qpat_x_assum ‘proj_rel _ _’ $ irule_at Any \\ fs []
-    \\ qpat_x_assum ‘(∀c z. x = Var c z ⇒ a_exp ≠ Var z) ⇒ _’ kall_tac
+    \\ qpat_x_assum ‘mk_delay_rel _ _ _’ kall_tac
     \\ Cases_on ‘xs’ \\ fs []
     \\ PairCases_on ‘h’ \\ fs []
     \\ rename [‘_ = yy :: _’]
@@ -464,18 +478,19 @@ Proof
     \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
     \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Delay
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_Delay
-    \\ gvs [IMP_DISJ_THM,exp_of'_def]
-    >-
-     (irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Var
-      \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Force
-      \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Force
-      \\ irule_at Any thunk_case_projProofTheory.compile_rel_Force
-      \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Var
-      \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Var
-      \\ irule_at Any thunk_case_projProofTheory.compile_rel_Var
-      \\ irule_at Any thunk_unthunkProofTheory.delay_force_Delat_Force_Var
-      \\ metis_tac [])
-    \\ irule_at Any thunk_unthunkProofTheory.delay_force_Delay
+    \\ qpat_x_assum `mk_delay_rel _ _ _` mp_tac
+    \\ qpat_x_assum `cexp_wf x` mp_tac
+    \\ Induct_on `mk_delay_rel` >> reverse $ rw[] >> gvs[cexp_wf_def, exp_of'_def]
+    >- metis_tac[]
+    >- metis_tac [delay_force_Delay]
+    \\ irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Var
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Force
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Force
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Force
+    \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Var
+    \\ irule_at Any thunk_let_forceProofTheory.exp_rel_Var
+    \\ irule_at Any thunk_case_projProofTheory.compile_rel_Var
+    \\ irule_at Any thunk_unthunkProofTheory.delay_force_Delat_Force_Var
     \\ metis_tac [])
   >~ [‘Cons _ _’] >-
    (irule_at Any pure_to_thunk_1ProofTheory.compile_rel_Cons
@@ -497,9 +512,11 @@ Proof
     \\ last_x_assum drule \\ strip_tac
     \\ rpt $ first_assum $ irule_at Any
     \\ rpt $ qpat_x_assum ‘LIST_REL _ _ _’ kall_tac
-    \\ qpat_x_assum ‘(∀c z. h = Var c z ⇒ h5 ≠ Var z) ⇒ _’ mp_tac
-    \\ disch_then (assume_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM])
-    \\ reverse $ gvs []
+    \\ qpat_x_assum `mk_delay_rel _ _ _` mp_tac
+    \\ qpat_x_assum `cexp_wf _` mp_tac
+    \\ rpt $ pop_assum kall_tac
+    \\ Induct_on `mk_delay_rel` \\ reverse $ rw[] \\ gvs[cexp_wf_def, exp_of'_def]
+    >- metis_tac[]
     >-
      (qpat_x_assum ‘to_thunk (exp_of' _) _’ $ irule_at Any
       \\ irule_at Any thunk_case_liftProofTheory.compile_rel_Delay
@@ -542,7 +559,8 @@ Proof
     \\ qpat_x_assum ‘exp_rel x x5’ assume_tac
     \\ drule exp_rel_App
     \\ disch_then $ qspecl_then [‘ARB’,‘[h]’,‘[h5]’] mp_tac
-    \\ impl_tac >- (fs [] \\ strip_tac \\ gvs [SF SFY_ss])
+    \\ impl_tac
+    >- (gvs[] >> irule mk_delay_rel_mono >> goal_assum $ drule_at Any >> simp[])
     \\ strip_tac
     \\ first_x_assum $ drule
     \\ fs [GSYM PULL_EXISTS]
@@ -557,9 +575,10 @@ Proof
     \\ irule_at Any thunk_case_projProofTheory.compile_rel_App
     \\ irule_at Any thunk_unthunkProofTheory.delay_force_App
     \\ qpat_x_assum ‘LIST_REL _ _ _’ kall_tac
-    \\ qpat_x_assum ‘(∀c z. h = Var c z ⇒ h5 ≠ Var z) ⇒ _’ mp_tac
-    \\ disch_then (assume_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM])
-    \\ reverse $ gvs []
+    \\ qpat_x_assum `mk_delay_rel _ _ _` mp_tac
+    \\ qpat_x_assum `cexp_wf h` mp_tac
+    \\ Induct_on `mk_delay_rel` \\ reverse $ rw[] \\ gvs[cexp_wf_def, exp_of'_def]
+    >- metis_tac[]
     >-
      (qpat_x_assum ‘to_thunk (exp_of' _) _’ $ irule_at Any
       \\ qpat_x_assum ‘lift_rel y1 _’ $ irule_at Any
@@ -651,24 +670,32 @@ Proof
   >~ [`Ret`]
   >- (
     simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
-    last_x_assum $ mp_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM] >> rw[] >> gvs[]
+    rpt $ pop_assum mp_tac >> Induct_on `mk_delay_rel` >> reverse $ rw[] >>
+    gvs[cexp_wf_def, exp_of'_def]
+    >- metis_tac[]
+    >- (
+      simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+      rpt $ goal_assum drule
+      )
     >- (
       simp[exp_of'_def, to_thunk_cases, PULL_EXISTS] >>
       ntac 3 $ simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS]
-      ) >>
-    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
-    rpt $ goal_assum drule
+      )
     )
   >~ [`Raise`]
   >- (
     simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
-    last_x_assum $ mp_tac o ONCE_REWRITE_RULE [IMP_DISJ_THM] >> rw[] >> gvs[]
+    rpt $ pop_assum mp_tac >> Induct_on `mk_delay_rel` >> reverse $ rw[] >>
+    gvs[cexp_wf_def, exp_of'_def]
+    >- metis_tac[]
+    >- (
+      simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+      rpt $ goal_assum drule
+      )
     >- (
       simp[exp_of'_def, to_thunk_cases, PULL_EXISTS] >>
       ntac 3 $ simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS]
-      ) >>
-    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
-    rpt $ goal_assum drule
+      )
     )
   >~ [`Bind`]
   >- (
@@ -702,29 +729,38 @@ Proof
     ntac 4 $ simp[proj_cases, PULL_EXISTS] >>
     ntac 5 $ simp[delay_force_cases]
     )
-  >~ [`Alloc`] (* Delay (Force (Var _)) case *)
-  >- (
-    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
-    goal_assum drule >> simp[exp_of'_def, to_thunk_cases, PULL_EXISTS] >>
-    simp[LUPDATE_DEF] >> simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 7 $ simp[lift_cases, PULL_EXISTS] >> simp[force_cases, PULL_EXISTS] >>
-    goal_assum drule >> ntac 7 $ simp[force_cases, PULL_EXISTS] >>
-    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 7 $ simp[proj_cases, PULL_EXISTS] >> ntac 6 $ simp[delay_force_cases]
-    )
   >~ [`Alloc`]
   >- (
-    simp[LUPDATE_DEF] >>
-    ntac 2 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 7 $ simp[lift_cases, PULL_EXISTS] >>
-    ntac 2 $ simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
-    simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 7 $ simp[force_cases, PULL_EXISTS] >>
-    ntac 2 $ simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
-    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 7 $ simp[proj_cases, PULL_EXISTS] >>
-    ntac 7 $ simp[delay_force_cases, PULL_EXISTS]
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    goal_assum dxrule >>
+    rpt $ pop_assum mp_tac >>
+    Induct_on `mk_delay_rel` >> reverse $ rw[] >> gvs[exp_of'_def, cexp_wf_def]
+    >- metis_tac[]
+    >- (
+      goal_assum drule >>
+      simp[to_thunk_cases, PULL_EXISTS] >>
+      simp[LUPDATE_DEF] >> simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+      simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 5 $ simp[lift_cases, PULL_EXISTS] >>
+      simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+      simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 4 $ simp[force_cases, PULL_EXISTS] >>
+      simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+      simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 4 $ simp[proj_cases, PULL_EXISTS] >>
+      ntac 6 $ simp[delay_force_cases]
+      )
+    >- (
+      simp[LUPDATE_DEF] >>
+      simp[to_thunk_cases, PULL_EXISTS] >>
+      simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 7 $ simp[lift_cases, PULL_EXISTS] >>
+      simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 7 $ simp[force_cases, PULL_EXISTS] >>
+      simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 7 $ simp[proj_cases, PULL_EXISTS] >>
+      ntac 7 $ simp[delay_force_cases, PULL_EXISTS]
+      )
     )
   >~ [`Deref`]
   >- (
@@ -737,31 +773,36 @@ Proof
     ntac 2 $ simp[delay_force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
     ntac 4 $ simp[delay_force_cases, PULL_EXISTS]
     )
-  >~ [`Update`] (* Delay (Force (Var _)) case *)
-  >- (
-    simp[LUPDATE_DEF, exp_of'_def] >> rpt $ goal_assum drule >>
-    simp[to_thunk_cases, PULL_EXISTS] >>
-    ntac 3 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    ntac 11 $ simp[lift_cases, PULL_EXISTS] >>
-    ntac 3 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    ntac 11 $ simp[force_cases, PULL_EXISTS] >>
-    ntac 3 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    ntac 11 $ simp[proj_cases, PULL_EXISTS] >>
-    ntac 12 $ simp[Once delay_force_cases]
-    )
   >~ [`Update`]
   >- (
-    simp[LUPDATE_DEF, exp_of'_def] >> rpt $ goal_assum drule >>
-    ntac 3 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 11 $ simp[lift_cases, PULL_EXISTS] >>
-    ntac 3 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 11 $ simp[force_cases, PULL_EXISTS] >>
-    ntac 3 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
-    simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
-    ntac 11 $ simp[proj_cases, PULL_EXISTS] >>
-    ntac 12 $ simp[Once delay_force_cases]
+    simp[lift_cases, force_cases, proj_cases, delay_force_cases, PULL_EXISTS] >>
+    rpt $ goal_assum dxrule >>
+    rpt $ pop_assum mp_tac >>
+    Induct_on `mk_delay_rel` >> reverse $ rw[] >> gvs[exp_of'_def, cexp_wf_def]
+    >- metis_tac[]
+    >- (
+      simp[LUPDATE_DEF] >> rpt $ goal_assum drule >>
+      ntac 2 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+      simp[lift_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 8 $ simp[lift_cases, PULL_EXISTS] >>
+      ntac 2 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+      simp[force_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 8 $ simp[force_cases, PULL_EXISTS] >>
+      ntac 2 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+      simp[proj_cases, PULL_EXISTS] >> goal_assum drule >>
+      ntac 8 $ simp[proj_cases, PULL_EXISTS] >>
+      ntac 12 $ simp[Once delay_force_cases]
+      )
+    >- (
+      simp[LUPDATE_DEF] >> simp[to_thunk_cases] >>
+      ntac 2 $ simp[lift_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+      ntac 11 $ simp[lift_cases, PULL_EXISTS] >>
+      ntac 2 $ simp[force_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+      ntac 11 $ simp[force_cases, PULL_EXISTS] >>
+      ntac 2 $ simp[proj_cases, PULL_EXISTS] >> rpt $ goal_assum drule >>
+      ntac 11 $ simp[proj_cases, PULL_EXISTS] >>
+      ntac 12 $ simp[Once delay_force_cases]
+      )
     )
 QED
 

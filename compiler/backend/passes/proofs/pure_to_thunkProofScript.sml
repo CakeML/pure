@@ -99,21 +99,47 @@ Proof
   Induct \\ fs [PULL_EXISTS,MAP_EQ_CONS]
 QED
 
-Theorem IMP_mk_delay_eq_Delay:
-  exp_rel x1 y1 ∧ (∀c v. x1 = Var c v ⇒ mk_delay flag y1 ≠ Var v) ⇒
-  ∃x2. exp_rel x1 x2 ∧ mk_delay flag y1 = Delay x2
+Theorem mk_delay_rel_conj:
+  mk_delay_rel (λx y. P x y ∧ Q x y) x y
+  ⇒ mk_delay_rel P x y ∧ mk_delay_rel Q x y
 Proof
-  Cases_on ‘∃c m. x1 = Var c m’ \\ gvs []
+  Induct_on `mk_delay_rel` >> rw[] >> simp[Once mk_delay_rel_cases]
+QED
+
+Theorem IMP_mk_delay_eq_Delay:
+  exp_rel x1 y1 ⇒ mk_delay_rel exp_rel x1 (mk_delay flag y1)
+Proof
+  Induct_on `exp_rel` >> reverse $ rw[]
+  >- simp[Once mk_delay_rel_cases] >>
+  simp[Once mk_delay_rel_cases, mk_delay_def] >>
+  simp[Once exp_rel_cases] >> gvs[AllCaseEqs()]
   >- (
-    simp [Once exp_rel_cases] \\ rw [] \\ fs [mk_delay_def, AllCaseEqs()] >>
-    simp[Once exp_rel_cases]
+    rpt conj_tac
+    >- (
+      qpat_x_assum `LIST_REL _ _ _` mp_tac >>
+      match_mp_tac LIST_REL_mono >> rw[] >> rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      qpat_x_assum `mk_delay_rel _ _ _` mp_tac >>
+      rpt $ pop_assum kall_tac >>
+      Induct_on `mk_delay_rel` >> rw[] >> simp[Once mk_delay_rel_cases]
+      )
+    >- (
+      Cases_on `eopt` >> Cases_on `yopt` >> gvs[] >>
+      rpt (pairarg_tac >> gvs[])
+      )
+    )
+  >>~- (
+    [`LIST_REL`],
+    qpat_x_assum `LIST_REL _ _ _` mp_tac >> match_mp_tac LIST_REL_mono >>
+    rw[] >> rpt (pairarg_tac >> gvs[]) >>
+    qpat_x_assum `mk_delay_rel _ _ _` mp_tac >>
+    rpt $ pop_assum kall_tac >>
+    Induct_on `mk_delay_rel` >> rw[] >> simp[Once mk_delay_rel_cases]
     ) >>
-  Cases_on ‘x1’ \\ gvs []
-  \\ strip_tac
-  \\ first_assum $ irule_at $ Pos hd
-  \\ pop_assum mp_tac
-  \\ rw[Once exp_rel_cases]
-  \\ gvs [mk_delay_def]
+  qpat_x_assum `mk_delay_rel (λa b. _)  _ _` mp_tac >>
+  rpt $ pop_assum kall_tac >>
+  Induct_on `mk_delay_rel` >> rw[] >> simp[Once mk_delay_rel_cases]
 QED
 
 Theorem cns_arities_mk_delay:
@@ -160,14 +186,6 @@ Theorem mk_delay_not_Delay:
 Proof
   fs [mk_delay_def] \\ rw [] \\ Cases_on ‘y’ \\ fs []
   \\ Cases_on ‘c’ \\ gvs []
-QED
-
-Theorem to_thunk_eq_Force_Var:
-  to_thunk b s h = (Force (Var n),s') ∧ NestedCase_free h ⇒ ∃a. h = Var a n
-Proof
-  Cases_on ‘h’ \\ gvs [to_thunk_def]
-  \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()] \\ rw [])
-  \\ gvs [monad_to_thunk_def |> DefnBase.one_line_ify NONE, AllCaseEqs()]
 QED
 
 Theorem exp_rel_to_thunk:
@@ -304,7 +322,7 @@ Proof
     >-
      (conj_tac
       >- (irule exp_rel_Case \\ fs []
-          \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
+          \\ reverse conj_tac >- (irule IMP_mk_delay_eq_Delay \\ fs [])
           \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
           \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
           \\ qid_spec_tac ‘ys’
@@ -409,8 +427,8 @@ Proof
     \\ strip_tac \\ fs []
     \\ conj_tac
     >- (irule exp_rel_Case \\ fs []
-        \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
-        \\ conj_tac >- (strip_tac \\ irule IMP_mk_delay_eq_Delay \\ fs [])
+        \\ rewrite_tac [CONJ_ASSOC]
+        \\ reverse conj_tac >- (irule IMP_mk_delay_eq_Delay \\ fs [])
         \\ qpat_x_assum ‘LIST_REL exp_rel _ _’ mp_tac
         \\ rpt $ qpat_x_assum ‘EVERY _ _’ mp_tac
         \\ qid_spec_tac ‘ys’
@@ -581,13 +599,7 @@ Proof
       \\ simp [delay_arg_def,EVAL “LUPDATE x 1 [y1;y2]”,EVAL “LUPDATE x 2 [y1;y2;y3]”,
                any_el_def, boundvars_exp_of_mk_delay]
       \\ simp [IMP_mk_delay_eq_Delay,cexp_wf_mk_delay,cns_arities_mk_delay]
-      \\ simp [PULL_EXISTS,SF DNF_ss]
-      \\ gvs [to_thunk_def]
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ rename [‘mk_delay flag y3’]
-      \\ Cases_on ‘mk_delay flag y3 = Delay y3’
-      \\ gvs [mk_delay_not_Delay]
-      \\ imp_res_tac to_thunk_eq_Force_Var \\ gvs [mk_delay_def])
+      \\ simp [PULL_EXISTS,SF DNF_ss])
     >~ [‘AtomOp a’] >-
      (gvs [] \\ irule_at Any exp_rel_Prim \\ gvs []
       \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
@@ -632,6 +644,10 @@ Proof
     \\ simp [thunk_cexpTheory.cns_arities_def]
     \\ rw []
     \\ metis_tac [])
+  >~ [`Annot`]
+  >- (
+    simp[Once exp_rel_cases]
+    )
   \\ qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac
   >- fs [EVERY_MEM,SUBSET_DEF,PULL_EXISTS,MEM_MAP,PULL_FORALL,SF SFY_ss]
   \\ strip_tac \\ fs [] \\ fs [SUBSET_DEF]
