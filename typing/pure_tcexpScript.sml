@@ -18,6 +18,7 @@ Datatype:
         | Case tcexp cvname ((cvname # cvname list # tcexp) list)
                (((cvname # num) list # tcexp) option)           (* case of *)
         | SafeProj cvname num num tcexp        (* typesafe projection      *)
+        | Annot annot tcexp                    (* annotated expression     *)
 End
 
 Definition lets_for_def:
@@ -49,7 +50,8 @@ Definition exp_of_def:
   exp_of (SafeProj cn ar i e) =
     If (IsEq (explode cn) ar T (exp_of e))
        (Proj (explode cn) i (exp_of e))
-       Bottom
+       Bottom ∧
+  exp_of (Annot annot e) = exp_of e
 Termination
   WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"] >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
@@ -65,6 +67,7 @@ Definition tcexp_of_def:
   tcexp_of (Case d x v rs eopt) =
     Case (tcexp_of x) v (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
          (OPTION_MAP (λ(a,e). (a,tcexp_of e)) eopt) ∧
+  tcexp_of (Annot d annot e) = Annot annot (tcexp_of e) ∧
   tcexp_of _               = Lam [] ARB
 Termination
   WF_REL_TAC `measure $ cexp_size $ K 0`
@@ -85,7 +88,8 @@ Definition freevars_tcexp_def[simp]:
     (BIGUNION
      (set ((case eopt of NONE => ∅ | SOME (_, e) => freevars_tcexp e) ::
            MAP (λ(_,vs,ec). freevars_tcexp ec DIFF set vs) css)) DELETE v) ∧
-  freevars_tcexp (SafeProj cn ar i e) = freevars_tcexp e
+  freevars_tcexp (SafeProj cn ar i e) = freevars_tcexp e ∧
+  freevars_tcexp (Annot annot e) = freevars_tcexp e
 Termination
   WF_REL_TAC `measure tcexp_size`
 End
@@ -104,7 +108,8 @@ Definition subst_tc_def:
     Case (subst_tc f e) v
       (MAP (λ(cn,vs,e). (cn,vs, subst_tc (FDIFF f (v INSERT set vs)) e)) css)
       (OPTION_MAP (λ(a, e). (a, subst_tc (f \\ v) e)) eopt) ∧
-  subst_tc f (SafeProj cn ar i e) = SafeProj cn ar i (subst_tc f e)
+  subst_tc f (SafeProj cn ar i e) = SafeProj cn ar i (subst_tc f e) ∧
+  subst_tc f (Annot annot e) = Annot annot (subst_tc f e)
 Termination
   WF_REL_TAC `measure (tcexp_size o SND)`
 End
@@ -126,7 +131,8 @@ Definition tcexp_wf_def:
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
     ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
-  tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
+  tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar) ∧
+  tcexp_wf (Annot annot e) = tcexp_wf e
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>
@@ -146,6 +152,7 @@ Definition cexp_Lits_wf_def:
   cexp_Lits_wf (Case _ e v css eopt) = (
     cexp_Lits_wf e ∧ EVERY cexp_Lits_wf $ MAP (SND o SND) css ∧
     OPTION_ALL (λ(a,e). cexp_Lits_wf e) eopt) ∧
+  cexp_Lits_wf (Annot _ annot e) = cexp_Lits_wf e ∧
   cexp_Lits_wf _ = F
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>

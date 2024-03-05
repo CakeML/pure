@@ -499,6 +499,8 @@ Definition infer_def:
               (MAP (λt. Unify d (HD tys) t) (TL tys)) ++ cse ++ cs)
     od) ∧
 
+  infer ns mset (Annot d annot e) = infer ns mset e ∧
+
   infer _ _ (NestedCase d _ _ _ _ _) = fail $ IllFormed d «Unexpected NestedCase»
 Termination
   WF_REL_TAC `measure ( λ(_,_,e). cexp_size (K 0) e)` >> rw[] >>
@@ -779,7 +781,9 @@ Definition infer'_def:
     od) ∧
 
   infer' (NestedCase d _ _ _ _ _) =
-    (λns mset. fail $ IllFormed d «Unexpected NestedCase»)
+    (λns mset. fail $ IllFormed d «Unexpected NestedCase») ∧
+
+  infer' (Annot d annot e) = infer' e
 Termination
   WF_REL_TAC `measure ( λe. cexp_size (K 0) e)`
 End

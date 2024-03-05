@@ -3546,6 +3546,9 @@ Proof
       rpt $ goal_assum drule >> simp[FLOOKUP_FDIFF]
       )
     )
+  >- ( (* Annot *)
+    simp[Once type_tcexp_cases] >> metis_tac[]
+    )
 QED
 
 Theorem inference_constraints_sound:

@@ -218,7 +218,9 @@ Theorem tcexp_of_invert:
   (∀tce x tcss tusopt. tcexp_of ce = pure_tcexp$Case tce x tcss tusopt ⇔
     ∃d ce' css usopt. ce = pure_cexp$Case d ce' x css usopt ∧
       tcexp_of ce' = tce ∧ MAP (λ(cn,pvs,ce). (cn,pvs,tcexp_of ce)) css = tcss ∧
-      OPTION_MAP (λ(cn_ars,ce). (cn_ars, tcexp_of ce)) usopt = tusopt)
+      OPTION_MAP (λ(cn_ars,ce). (cn_ars, tcexp_of ce)) usopt = tusopt) ∧
+  (∀tce annot. tcexp_of ce = pure_tcexp$Annot annot tce ⇔
+    ∃d ce'. ce = pure_cexp$Annot d annot ce' ∧ tcexp_of ce' = tce)
 Proof
   Induct_on `ce` using freevars_cexp_ind >> rw[] >> gvs[tcexp_of_def, SF ETA_ss] >>
   eq_tac >> rw[]

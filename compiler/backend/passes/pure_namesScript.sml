@@ -33,6 +33,7 @@ Definition extract_names_def:
     (let s = extract_names (insert_var s gv) g in
      let s = extract_names s e in
        extract_names_list s (MAP SND pes)) ∧
+  extract_names s (Annot c annot e) = extract_names s e ∧
   extract_names_list s [] = s ∧
   extract_names_list s (x::xs) =
     extract_names_list (extract_names s x) xs

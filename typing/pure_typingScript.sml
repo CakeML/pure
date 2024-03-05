@@ -528,6 +528,10 @@ Inductive type_tcexp:
    (* We can project the constructor argument at the right type: *)
       oEL i tys = SOME scheme ∧ tsubst tyargs scheme = t ⇒
     type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
+
+[~Annot:]
+  (type_tcexp ns db st env e t
+    ⇒ type_tcexp ns db st env (Annot annot e) t)
 End
 
 

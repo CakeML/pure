@@ -669,6 +669,7 @@ Proof
     \\ gvs [UNCURRY_lemma]
     \\ gvs [LAMBDA_PROD]
     \\ Cases_on ‘bs’ \\ Cases_on ‘e'’ \\ gvs [])
+  >- fs[cexp_wf_def, cns_arities_def]
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF]
   >- fs [SUBSET_DEF,rows_of_def]

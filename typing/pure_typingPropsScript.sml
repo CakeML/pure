@@ -950,7 +950,7 @@ Proof
 QED
 
 Theorem type_tcexp_NestedCase_free:
-  ∀ns db st env e t ce.
+  ∀ce ns db st env e t.
     type_tcexp ns db st env e t ∧
     e = tcexp_of ce
   ⇒ NestedCase_free ce
@@ -1763,6 +1763,9 @@ Inductive insert_seq:
    OPTREL (λ(cn_ars1,ce1) (cn_ars2,ce2).
     cn_ars1 = cn_ars2 ∧ insert_seq ce1 ce2) usopt1 usopt2
     ⇒ insert_seq (pure_cexp$Case d ce1 x css1 usopt1) (Case d' ce2 x css2 usopt2))
+
+[~Annot:]
+  (insert_seq ce1 ce2 ⇒ insert_seq (Annot d annot ce1) (Annot d annot ce2))
 End
 
 Theorem insert_seq_refl:

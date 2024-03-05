@@ -81,6 +81,7 @@ Definition const_call_args_def:
     )
   ) ∧
   const_call_args f vs (NestedCase a e v p e' bs) = vs ∧
+  const_call_args f vs (Annot a annot e) = const_call_args f vs e ∧
   const_call_args_list f vs [] = vs ∧
   const_call_args_list f vs (e::es) = (
     let vs1 = const_call_args f vs e
@@ -168,6 +169,10 @@ Definition spec_one_def:
      | (SOME e, SOME bs, SOME d) => SOME (Case a e w bs d)
      | _ => NONE) ∧
   spec_one f v vs (NestedCase a e w p e' bs) = NONE ∧
+  spec_one f v vs (Annot d annot e) = (
+    case spec_one f v vs e of
+    | SOME e => SOME (Annot d annot e)
+    | _ => NONE) ∧
   spec_one_list f v vs [] = SOME [] ∧
   spec_one_list f v vs (e::es) =
     (case (spec_one f v vs e, spec_one_list f v vs es) of

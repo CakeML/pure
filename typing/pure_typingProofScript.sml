@@ -995,6 +995,9 @@ Proof
       gvs[LIST_REL_EL_EQN] >> first_x_assum drule >> simp[EL_MAP]
       )
     )
+  >- ( (* Annot *)
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases]
+    )
 QED
 
 Theorem type_soundness_eval_wh:

@@ -53,7 +53,8 @@ Definition exp_of'_def:
      in if MEM v (FLAT (MAP (FST o SND) rs)) then
        Seq Fail caseexp
      else
-       caseexp)
+       caseexp) ∧
+  exp_of' (Annot d annot e) = exp_of' e
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
@@ -272,6 +273,9 @@ Proof
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘EL n rs’ \\ gs []
     \\ irule_at Any PAIR)
+  >- ((* Annot *)
+    rw[exp_of_def, exp_of'_def]
+    )
 QED
 
 Triviality freevars_lets_for':

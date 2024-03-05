@@ -3,6 +3,7 @@ open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory
 open pureASTTheory mlmapTheory pure_cexpTheory mlstringTheory
      pure_typingTheory pure_varsTheory
+local open pure_miscTheory in end
 
 val _ = new_theory "ast_to_cexp";
 
@@ -520,6 +521,7 @@ Definition freevars_cexp_impl_def:
     case eopt of
     | NONE => e_css_vars
     | SOME (a,e) => union (delete (freevars_cexp_impl e) v) e_css_vars) ∧
+  freevars_cexp_impl (Annot c annot e) = freevars_cexp_impl e ∧
 
   freevars_cexp_impl_l [] = empty ∧
   freevars_cexp_impl_l (e::es) = union (freevars_cexp_impl e) (freevars_cexp_impl_l es)
@@ -611,7 +613,9 @@ Definition closed_under_def:
     closed_under vs g ∧
     let vs' = insert vs gv () in
     EVERY (λ(pat,e).
-      closed_under (mlmap$union (cepat_vars_impl pat) vs') e) ((p,e)::pes))
+      closed_under (mlmap$union (cepat_vars_impl pat) vs') e) ((p,e)::pes)) ∧
+
+  closed_under vs (Annot c annot e) = closed_under vs e
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0) o SND` >>
   gvs[UNZIP_MAP, MEM_MAP, PULL_EXISTS, FORALL_PROD] >>

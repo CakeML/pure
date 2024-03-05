@@ -410,6 +410,9 @@ Inductive minfer:
          set (MAP (λt. mUnify usty t) tys) ∪ ecs ∪
          final_uscs ∪ BIGUNION (set final_cs))
         usty)
+
+[~Annot:]
+  (minfer ns mset e as cs ty ⇒ minfer ns mset (Annot d annot e) as cs ty)
 End
 
 
@@ -3340,6 +3343,7 @@ Proof
       >- (gvs[SUBSET_DEF] >> rw[] >> first_x_assum drule_all >> simp[])
       )
     )
+  >- simp[Once minfer_cases] (* Annot *)
   >- gvs[fail_def] (* NestedCase *)
 QED
 
