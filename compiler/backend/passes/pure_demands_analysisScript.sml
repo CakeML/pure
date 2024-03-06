@@ -88,7 +88,8 @@ Definition extract_label_def:
   extract_label (Prim a _ _) = a ∧
   extract_label (Letrec a _ _) = a ∧
   extract_label (Case a _ _ _ _) = a ∧
-  extract_label (NestedCase a _ _ _ _ _) = a
+  extract_label (NestedCase a _ _ _ _ _) = a ∧
+  extract_label (Annot a _ _) = a
 End
 
 Definition split_body_def:
@@ -116,7 +117,8 @@ Definition compute_freevars_def:
      let m2 = FOLDR (λ(_, vL, e) m.
                        union (FOLDR (λv m. delete m v) (compute_freevars e) vL) m) m1 cases in
        union (compute_freevars e) (delete m2 n)) ∧
-  (compute_freevars (NestedCase d g gv p e pes) = empty compare : (mlstring, unit) map)
+  (compute_freevars (NestedCase d g gv p e pes) = empty compare : (mlstring, unit) map) ∧
+  (compute_freevars (Annot a ann e) = compute_freevars e)
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0))’ \\ rw []
 End
@@ -375,7 +377,10 @@ Definition demands_analysis_fun_def:
   (demands_analysis_fun c (NestedCase i _ _ _ _ _) fds =
    (empty compare,
     Var i (implode "Fail: demands analysis on NestedCase"),
-    NONE))
+    NONE)) ∧
+  (demands_analysis_fun c (Annot a0 ann e) fds =
+    let (m, e', fd) = demands_analysis_fun c e fds in
+      (m, Annot a0 ann e', fd))
 Termination
   WF_REL_TAC ‘measure $ (cexp_size (K 0)) o (FST o SND)’ \\ rw []
   \\ imp_res_tac cexp_size_lemma
