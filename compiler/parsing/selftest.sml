@@ -127,7 +127,10 @@ val _ = app lextest [
   ("foo \"bar\\n\" baz", “[AlphaT "foo"; StringT "bar\n"; AlphaT "baz"]”),
   ("foo #(foo)", “[AlphaT "foo"; FFIT "foo"]”),
   ("foo\n--bar", “[AlphaT "foo"]”),
-  ("foo\n--bar\n", “[AlphaT "foo"]”)
+  ("foo\n--bar\n", “[AlphaT "foo"]”),
+  ("{-# INLINE #-}\nf :: Int -> Int",
+   “[PragmaT "INLINE"; AlphaT "f"; SymbolT "::"; AlphaT "Int"; SymbolT "->";
+     AlphaT "Int"]”)
 ];
 
 val _ = app fptest [

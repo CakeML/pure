@@ -1,9 +1,7 @@
 (*
-  Definition of the lexer: code for consuming tokens until a top-level
-  semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
-  structures, signatures, and between parentheses).
+  Definition of the lexer: code for consuming strings and emitting the
+  corresponding list of tokens.
 
-  TODO: update this description if it is incorrect.
 *)
 
 open preamble tokensTheory locationTheory
@@ -26,6 +24,7 @@ Datatype:
          | WordS num
          | LongS string (* identifiers with a . in them *)
          | FFIS string
+         | PragmaS string
          | OtherS string
          | ErrorS
 End
@@ -149,6 +148,37 @@ Proof
   rw[] >> first_x_assum drule >> simp[]
 QED
 
+Definition consume_pragma_comment_def:
+  consume_pragma_comment A [] loc = NONE ∧
+  consume_pragma_comment A [c] loc = NONE ∧
+  consume_pragma_comment A [c1; c2] loc = NONE ∧
+  consume_pragma_comment A (c1::c2::c3::rest) loc =
+  if [c1;c2;c3] = "#-}" then SOME (rest,next_loc 3 loc,REVERSE A)
+  else if ORD c1 = 10 then
+    consume_pragma_comment (CHR 10::A) (c2::c3::rest) (next_line loc)
+  else if [c1;c2] = "{-" then
+    case skip_nested_comment (c3::rest) 0 loc of
+      NONE => NONE
+    | SOME (cs,loc) => consume_pragma_comment A cs loc
+  else
+    consume_pragma_comment (c1::A) (c2::c3::rest) (next_loc 1 loc)
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST o SND)’ >> simp[] >> rpt strip_tac >>
+  drule skip_nested_comment_thm >> simp[]
+End
+
+Theorem consume_pragma_comment_thm:
+  ∀A cs0 l0 cs l data.
+    consume_pragma_comment A cs0 l0 = SOME (cs, l, data) ⇒
+    LENGTH cs < LENGTH cs0
+Proof
+  recInduct consume_pragma_comment_ind >> rw[] >>
+  rpt strip_tac >> qpat_x_assum ‘consume_pragma_comment _ _ _ = _’ mp_tac >>
+  simp[Once consume_pragma_comment_def] >>
+  simp[AllCaseEqs()] >> rw[] >> simp[] >> gvs[] >>
+  drule skip_nested_comment_thm >> simp[]
+QED
+
 Definition unhex_alt_def:
   unhex_alt x = (if isHexDigit x then UNHEX x else 0n)
 End
@@ -235,6 +265,10 @@ Definition next_sym_alt_def:
              read_FFIcall (TL str) "" (next_loc 2 loc)
        in
          SOME (t, Locs loc loc', rest)
+     else if isPREFIX "{-#" (c::str) then
+       case consume_pragma_comment "" (TL (TL str)) (next_loc 3 loc) of
+         NONE => SOME (ErrorS, Locs loc (next_loc 3 loc), "")
+       | SOME (rest, loc', pstr) => SOME (PragmaS pstr, Locs loc loc', rest)
      else if isPREFIX "{-" (c::str) then
        case skip_nested_comment (TL str) (0:num) (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
@@ -369,7 +403,10 @@ Proof
   [‘read_FFIcall (TL str)’]
   >- (Cases_on ‘str’ >> gs[] >> drule read_FFIcall_reduces_input >> simp[]) >~
   [‘skip_eol_comment’]
-  >- (drule skip_eol_comment_thm >> Cases_on ‘str’ >> gvs[]) >>
+  >- (drule skip_eol_comment_thm >> Cases_on ‘str’ >> gvs[]) >~
+  [‘consume_pragma_comment’]
+  >- (drule consume_pragma_comment_thm >> Cases_on ‘str’ >> gvs[] >>
+      rename [‘TL str’] >> Cases_on ‘str’ >> gvs[]) >>
   rename [‘TL str’] >> Cases_on ‘str’ >> gs[]
 QED
 
@@ -412,6 +449,14 @@ Definition get_token_def[nocompute]:
     processIdent s
 End
 
+Overload PragmaT = “TyvarT”
+
+Definition kill_enclosing_wspace_def:
+  kill_enclosing_wspace s = let dp = dropWhile isSpace s ;
+                            in
+                              REVERSE (dropWhile isSpace (REVERSE dp))
+End
+
 Definition token_of_sym_def:
   token_of_sym s =
     case s of
@@ -422,6 +467,7 @@ Definition token_of_sym_def:
     | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
+    | PragmaS s => PragmaT (kill_enclosing_wspace s)
     | FFIS s => FFIT s
     | OtherS s  => get_token s
 End
