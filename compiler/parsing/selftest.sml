@@ -505,5 +505,9 @@ val notypes_def = Define‘
   od
 ’;
 
+val _ = print ("\n\nTest error count: " ^ Int.toString  (!errcount) ^ "\n");
+val _ = OS.Process.exit (if !errcount > 0 then OS.Process.failure
+                         else OS.Process.success)
+
 (* val _ = tprint "string_to_cexp paper.hs" *)
 (* string_check (filetake' "paper.hs" NONE) EVAL ``string_to_cexp``; *)
