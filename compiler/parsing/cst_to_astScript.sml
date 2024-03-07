@@ -763,14 +763,17 @@ Definition astTycons_def:
   od
 End
 
-
 Definition astDecl_def:
   (astDecl (Lf _) = NONE) ∧
   (astDecl (Nd nt args) =
    if FST nt ≠ INL nDecl then NONE
    else
      case args of
-       [vb_pt] => astValBinding vb_pt
+       [vb_pt] => astValBinding vb_pt ++
+                  do
+                    p <- destPragmaT ' (destTOK ' (destLf vb_pt));
+                    return (declPragma p)
+                  od
      | [idtok; coloncolontok; ty_pt] =>
          do
            assert (tokcheck coloncolontok (SymbolT "::"));

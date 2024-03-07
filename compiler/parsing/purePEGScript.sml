@@ -96,7 +96,10 @@ Definition purePEG_def[nocompute]:
                           (tokGT ((=) BarT))]
                   (mkNT nDecl);
              (* define value *)
-             pegf (NT nValBinding I lrEQ) (mkNT nDecl)]);
+             pegf (NT nValBinding I lrEQ) (mkNT nDecl);
+             (* pragma *)
+             pegf (tokEQ isPragmaT) (mkNT nDecl);
+             ]);
         (INL nValBinding,
          seql [NT nExpEQ I lrEQ; tokGT ((=) $ EqualsT); NT nExp I lrEQ]
               (mkNT nValBinding));
@@ -459,6 +462,12 @@ Theorem good2 =
 Theorem good3 =
         EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
              (lexer_fun "foo b x = if b then 10 else g (x + 11)")
+             lpTOP [] NONE [] done failed”
+
+Theorem good4 =
+        EVAL “ispeg_exec purePEG (nt (INL nDecls) I lrOK)
+             (lexer_fun "{-# INLINE #-}\n\
+                        \x :: Int")
              lpTOP [] NONE [] done failed”
 
 (* stops at arrow line, leaving it in input still to be consumed *)

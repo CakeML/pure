@@ -1,10 +1,10 @@
 open HolKernel Parse boolLib bossLib;
 
-open tokenUtilsTheory
+open tokenUtilsTheory pureTokensTheory
 
 val _ = new_theory "pureTokenUtils";
 
-val _ = set_grammar_ancestry ["tokenUtils"]
+val _ = set_grammar_ancestry ["tokenUtils", "pureTokens"]
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
 
@@ -52,6 +52,16 @@ Definition isSymbolOpT_def:
     s <- destSymbolT t ;
     assert (s ≠ "<-" ∧ s ≠ "::" ∧ s ≠ "->" ∧ s ≠ "`");
   od = SOME ()
+End
+
+Definition isPragmaT_def:
+  isPragmaT (PragmaT s) = T ∧
+  isPragmaT _ = F
+End
+
+Definition destPragmaT_def:
+  destPragmaT (PragmaT s) = SOME s ∧
+  destPragmaT _ = NONE
 End
 
 val _ = export_theory();

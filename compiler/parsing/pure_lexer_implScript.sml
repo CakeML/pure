@@ -4,12 +4,13 @@
 
 *)
 
-open preamble tokensTheory locationTheory
+open preamble tokensTheory pureTokensTheory locationTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory "pure_lexer_impl";
-val _ = set_grammar_ancestry ["misc", "tokens", "ASCIInumbers", "location"]
+val _ = set_grammar_ancestry ["misc", "tokens", "ASCIInumbers", "location",
+                              "pureTokens"]
 
 (* val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
@@ -448,8 +449,6 @@ Definition get_token_def[nocompute]:
     if s = "where" then WhereT else
     processIdent s
 End
-
-Overload PragmaT = “TyvarT”
 
 Definition kill_enclosing_wspace_def:
   kill_enclosing_wspace s = let dp = dropWhile isSpace s ;

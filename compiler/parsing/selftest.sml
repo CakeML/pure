@@ -249,6 +249,7 @@ val _ = app fptest [
    “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] NONE”),
   (“nDecl”, "f :: a -> Integer", “astDecl”,
    “declTysig "f" (funTy (tyVar "a") intTy)”),
+  (“nDecl”, "{-# INLINE #-}", “astDecl”, “declPragma "INLINE"”),
   (“nDecl”, "f x y = x + y", “astDecl”,
    “declFunbind "f" [patVar "x"; patVar "y"] (‹+› ⬝ ‹x› ⬝ ‹y›)”),
   (“nDecl”, "h:t = f e", “astDecl”,

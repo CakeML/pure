@@ -100,6 +100,7 @@ Datatype:
   declAST = declTysig string tyAST
           | declData string (string list)
                      ((string # tyAST list) list)
+          | declPragma string
           | declFunbind string (patAST list) expAST
           | declPatbind patAST expAST
 End
