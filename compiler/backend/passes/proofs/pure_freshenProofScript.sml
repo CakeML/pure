@@ -103,90 +103,6 @@ Proof
   gvs[EVERY_MEM, MEM_MAP, combinTheory.o_DEF, FORALL_PROD]
 QED
 
-Theorem boundvars_Disj[simp]:
-  boundvars (Disj x cnars) = {}
-Proof
-  Induct_on `cnars` >> rw[Disj_def] >>
-  PairCases_on `h` >> rw[Disj_def]
-QED
-
-Theorem boundvars_lets_for:
-  boundvars (lets_for cn x projs e) =
-    boundvars e ∪ set (MAP SND projs)
-Proof
-  Induct_on `projs` >> rw[lets_for_def] >>
-  PairCases_on `h` >> rw[lets_for_def] >>
-  rw[EXTENSION] >> metis_tac[]
-QED
-
-Theorem boundvars_rows_of:
-  boundvars (rows_of x us css) =
-    boundvars us ∪
-    BIGUNION (set $ MAP (λ(cn,pvs,e). set pvs ∪ boundvars e) css)
-Proof
-  Induct_on `css` >> rw[rows_of_def] >>
-  pairarg_tac >> gvs[rows_of_def] >>
-  simp[boundvars_lets_for, combinTheory.o_DEF] >>
-  rw[EXTENSION] >> metis_tac[]
-QED
-
-Theorem boundvars_FST_patguards_SUBSET:
-  ∀l. boundvars (FST (patguards l)) ⊆
-    BIGUNION (set $ MAP (λ(e,p). boundvars e) l)
-Proof
-  Induct using patguards_ind >> rw[patguards_def] >>
-  PairCases_on `ep` >> simp[] >> CASE_TAC >> gvs[]
-  >- gvs[SUBSET_DEF]
-  >- gvs[SUBSET_DEF] >>
-  gvs[combinTheory.o_DEF] >> pairarg_tac >> gvs[] >>
-  `BIGUNION $ set (MAP (λp. boundvars ep0) l') ⊆ boundvars ep0` by (
-    rpt $ pop_assum kall_tac >> Induct_on `l'` >> rw[]) >>
-  gvs[SUBSET_DEF] >> metis_tac[]
-QED
-
-Theorem boundvars_SND_patguards_SUBSET:
-  BIGUNION (set $ MAP (boundvars o SND) $ SND (patguards l)) ⊆
-  BIGUNION (set $ MAP (boundvars o FST) l)
-Proof
-  qid_spec_tac `l` >> recInduct patguards_ind >> rw[patguards_def] >>
-  PairCases_on `ep` >> rw[] >> Cases_on `ep1` >> gvs[]
-  >- gvs[SUBSET_DEF] >- gvs[SUBSET_DEF] >>
-  gvs[combinTheory.o_DEF] >> rpt (pairarg_tac >> gvs[]) >>
-  `BIGUNION (set (MAP (λx. boundvars ep0) l)) ⊆ boundvars ep0` by (
-    rpt $ pop_assum kall_tac >> Induct_on `l` >> rw[]) >>
-  gvs[SUBSET_DEF] >> metis_tac[]
-QED
-
-Triviality boundvars_FOLDR_Let_SUBSET:
-  boundvars (FOLDR (λ(u,e) A. Let (explode u) e A) acc binds) ⊆
-    boundvars acc ∪ IMAGE explode (set (MAP FST binds)) ∪
-    BIGUNION (set $ MAP (boundvars o SND) binds)
-Proof
-  qid_spec_tac `acc` >> Induct_on `binds` >> rw[] >>
-  pairarg_tac >> gvs[SUBSET_DEF] >> metis_tac[]
-QED
-
-Theorem boundvars_nested_rows_SUBSET:
-  boundvars (nested_rows e pes) ⊆
-      boundvars e ∪ BIGUNION (set $ MAP
-        (λ(p,e). boundvars e ∪ (IMAGE explode $ cepat_vars p)) pes)
-Proof
-  Induct_on `pes` >> rw[boundvars_def] >>
-  rpt (pairarg_tac >> gvs[]) >> rw[]
-  >- (qspec_then `[(e,p)]` mp_tac boundvars_FST_patguards_SUBSET >> simp[SUBSET_DEF])
-  >- (
-    irule SUBSET_TRANS >> irule_at Any boundvars_FOLDR_Let_SUBSET >>
-    drule patguards_binds_pvars >> simp[] >> strip_tac >>
-    simp[AC CONJ_ASSOC CONJ_COMM] >>
-    conj_tac >- gvs[SUBSET_DEF] >>
-    conj_tac >- gvs[SUBSET_DEF] >>
-    irule SUBSET_TRANS >>
-    qspec_then `[(e,p)]` assume_tac $ GEN_ALL boundvars_SND_patguards_SUBSET >>
-    gvs[] >> goal_assum drule >> rw[SUBSET_DEF]
-    )
-  >- (gvs[SUBSET_DEF] >> metis_tac[])
-QED
-
 Theorem letrecs_distinct_Disj[simp]:
   letrecs_distinct (Disj x cnars) = T
 Proof
@@ -1178,6 +1094,7 @@ Proof
     >- (CASE_TAC >> gvs[] >> CASE_TAC >> gvs[allvars_IfDisj] >> rw[])
     >- metis_tac[]
     >- metis_tac[]
+    >- (CASE_TAC >> gvs[])
   )
 QED
 

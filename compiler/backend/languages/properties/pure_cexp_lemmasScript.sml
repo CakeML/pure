@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
 open arithmeticTheory listTheory stringTheory alistTheory
      optionTheory pairTheory pred_setTheory finite_mapTheory;
 open pure_miscTheory pure_cexpTheory pureLangTheory
-     pure_expTheory pure_exp_lemmasTheory;
+     pure_expTheory pure_exp_lemmasTheory pure_barendregtTheory;
 
 val _ = new_theory "pure_cexp_lemmas";
 
@@ -14,6 +14,8 @@ Theorem silly_cong_lemma[local]:
 Proof
   simp[FORALL_PROD]
 QED
+
+(*---------- freevars ----------*)
 
 Theorem freevars_cexp_equiv:
   ∀ce. freevars_cexp ce = set (freevars_cexp_l ce)
@@ -169,6 +171,13 @@ Proof
   simp[EXTENSION, PULL_EXISTS] >> metis_tac[mlstringTheory.explode_11]
 QED
 
+Theorem freevars_Disj:
+  freevars (Disj v css) = case css of [] => {} | _ => {v}
+Proof
+  Induct_on `css` >> rw[Disj_def] >> Cases_on `h` >> gvs[Disj_def] >>
+  CASE_TAC >> gvs[]
+QED
+
 Theorem freevars_IfDisj:
   ∀a v e. freevars (IfDisj v a e) =
     case a of
@@ -180,10 +189,9 @@ Proof
   simp[GSYM INSERT_SING_UNION, INSERT_UNION_EQ] >> CASE_TAC >> gvs[]
 QED
 
-val _ = temp_delsimps ["nested_rows_def"]
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_cexp ce
-Proof
+Proof[exclude_simps = nested_rows_def]
   recInduct freevars_cexp_ind >> simp[FORALL_OPTION] >> rw[exp_of_def] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG, UNCURRY,
       silly_cong_lemma, freevars_rows_of]>>
@@ -231,6 +239,8 @@ Proof
   simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >>
   metis_tac[mlstringTheory.explode_11]
 QED
+
+(*---------- subst ----------*)
 
 Theorem subst_lets_for:
   ∀cn v l e f.  v ∉ FDOM f ⇒
@@ -381,7 +391,6 @@ Proof
   simp[EXTENSION] >> metis_tac[mlstringTheory.explode_11]
 QED
 
-
 Theorem combeq3:
   f = g ∧ x1 = y1 ∧ x2 = y2 ⇒ f x1 x2 = g y1 y2
 Proof
@@ -457,6 +466,239 @@ Proof
   simp[FDIFF_def, DRESTRICT_DEF, FUN_FMAP_DEF, DOMSUB_FAPPLY_THM]
 QED
 
+(*---------- boundvars ----------*)
+
+Theorem boundvars_Disj[simp]:
+  boundvars (Disj x cnars) = {}
+Proof
+  Induct_on `cnars` >> rw[Disj_def] >>
+  PairCases_on `h` >> rw[Disj_def]
+QED
+
+Theorem boundvars_IfDisj:
+  boundvars (IfDisj v a e) = boundvars e
+Proof
+  simp[IfDisj_def]
+QED
+
+Theorem boundvars_lets_for:
+  boundvars (lets_for cn x projs e) =
+    boundvars e ∪ set (MAP SND projs)
+Proof
+  Induct_on `projs` >> rw[lets_for_def] >>
+  PairCases_on `h` >> rw[lets_for_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem boundvars_rows_of:
+  boundvars (rows_of x us css) =
+    boundvars us ∪
+    BIGUNION (set $ MAP (λ(cn,pvs,e). set pvs ∪ boundvars e) css)
+Proof
+  Induct_on `css` >> rw[rows_of_def] >>
+  pairarg_tac >> gvs[rows_of_def] >>
+  simp[boundvars_lets_for, combinTheory.o_DEF] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
+Theorem boundvars_exp_of_Case:
+  boundvars (exp_of (Case d k v css usopt)) =
+    explode v INSERT
+    boundvars (exp_of k) ∪
+    BIGUNION (set $ MAP (λ(cn,pvs,e). IMAGE explode (set pvs) ∪ boundvars (exp_of e)) css) ∪
+    (case usopt of NONE => {} | SOME (cn_ars, e) => boundvars (exp_of e))
+Proof
+  simp[exp_of_def] >> simp[Once COND_RAND] >> simp[boundvars_rows_of] >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[LIST_TO_SET_MAP] >> qpat_abbrev_tac `foo = BIGUNION _` >>
+  Cases_on `usopt` >> gvs[]
+  >- (rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]) >>
+  pairarg_tac >> gvs[] >> simp[boundvars_IfDisj] >>
+  rw[EXTENSION] >> eq_tac >> rw[] >> gvs[]
+QED
+
+Theorem boundvars_FST_patguards_SUBSET:
+  ∀l. boundvars (FST (patguards l)) ⊆
+    BIGUNION (set $ MAP (λ(e,p). boundvars e) l)
+Proof
+  Induct using patguards_ind >> rw[patguards_def] >>
+  PairCases_on `ep` >> simp[] >> CASE_TAC >> gvs[]
+  >- gvs[SUBSET_DEF]
+  >- gvs[SUBSET_DEF] >>
+  gvs[combinTheory.o_DEF] >> pairarg_tac >> gvs[] >>
+  `BIGUNION $ set (MAP (λp. boundvars ep0) l') ⊆ boundvars ep0` by (
+    rpt $ pop_assum kall_tac >> Induct_on `l'` >> rw[]) >>
+  gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Theorem boundvars_SND_patguards_SUBSET:
+  BIGUNION (set $ MAP (boundvars o SND) $ SND (patguards l)) ⊆
+  BIGUNION (set $ MAP (boundvars o FST) l)
+Proof
+  qid_spec_tac `l` >> recInduct patguards_ind >> rw[patguards_def] >>
+  PairCases_on `ep` >> rw[] >> Cases_on `ep1` >> gvs[]
+  >- gvs[SUBSET_DEF] >- gvs[SUBSET_DEF] >>
+  gvs[combinTheory.o_DEF] >> rpt (pairarg_tac >> gvs[]) >>
+  `BIGUNION (set (MAP (λx. boundvars ep0) l)) ⊆ boundvars ep0` by (
+    rpt $ pop_assum kall_tac >> Induct_on `l` >> rw[]) >>
+  gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Theorem boundvars_FOLDR_Let_SUBSET:
+  boundvars (FOLDR (λ(u,e) A. Let (explode u) e A) acc binds) ⊆
+    boundvars acc ∪ IMAGE explode (set (MAP FST binds)) ∪
+    BIGUNION (set $ MAP (boundvars o SND) binds)
+Proof
+  qid_spec_tac `acc` >> Induct_on `binds` >> rw[] >>
+  pairarg_tac >> gvs[SUBSET_DEF] >> metis_tac[]
+QED
+
+Theorem boundvars_nested_rows_SUBSET:
+  boundvars (nested_rows e pes) ⊆
+      boundvars e ∪ BIGUNION (set $ MAP
+        (λ(p,e). boundvars e ∪ (IMAGE explode $ cepat_vars p)) pes)
+Proof
+  Induct_on `pes` >> rw[boundvars_def] >>
+  rpt (pairarg_tac >> gvs[]) >> rw[]
+  >- (qspec_then `[(e,p)]` mp_tac boundvars_FST_patguards_SUBSET >> simp[SUBSET_DEF])
+  >- (
+    irule SUBSET_TRANS >> irule_at Any boundvars_FOLDR_Let_SUBSET >>
+    drule patguards_binds_pvars >> simp[] >> strip_tac >>
+    simp[AC CONJ_ASSOC CONJ_COMM] >>
+    conj_tac >- gvs[SUBSET_DEF] >>
+    conj_tac >- gvs[SUBSET_DEF] >>
+    irule SUBSET_TRANS >>
+    qspec_then `[(e,p)]` assume_tac $ GEN_ALL boundvars_SND_patguards_SUBSET >>
+    gvs[] >> goal_assum drule >> rw[SUBSET_DEF]
+    )
+  >- (gvs[SUBSET_DEF] >> metis_tac[])
+QED
+
+(*---------- allvars ----------*)
+
+Theorem allvars_lets_for:
+  allvars (lets_for cn x projs e) =
+    allvars e ∪ set (MAP SND projs) ∪ (case projs of [] => {} | _ => {x})
+Proof
+  simp[allvars_thm, freevars_lets_for, boundvars_lets_for] >>
+  CASE_TAC >> gvs[EXTENSION] >> metis_tac[]
+QED
+
+Theorem allvars_rows_of:
+  allvars (rows_of x us css) =
+    allvars us ∪ (BIGUNION $ set $ MAP (λ(cn,pvs,e). set pvs ∪ allvars e) css) ∪
+    case css of [] => {} | _ => {x}
+Proof
+  simp[allvars_thm, freevars_rows_of, boundvars_rows_of] >>
+  CASE_TAC >> gvs[] >> PairCases_on `h` >> gvs[] >>
+  simp[Once EXTENSION] >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD, SF DNF_ss] >>
+  metis_tac[]
+QED
+
+(*---------- barendregt ----------*)
+
+Theorem barendregt_lets_for:
+  barendregt (lets_for cn v ps e) ⇔
+    barendregt e ∧
+    ¬MEM v (MAP SND ps) ∧
+    ALL_DISTINCT (MAP SND ps) ∧
+    (ps ≠ [] ⇒ v ∉ boundvars e) ∧
+    DISJOINT (set (MAP SND ps)) (boundvars e)
+Proof
+  Induct_on `ps` >> rw[lets_for_def] >>
+  PairCases_on `h` >> gvs[lets_for_def, barendregt_alt_def] >>
+  gvs[boundvars_lets_for] >>
+  eq_tac >> rw[] >> gvs[] >> Cases_on `l` >> gvs[]
+QED
+
+Theorem barendregt_rows_of:
+  barendregt (rows_of v k css) ⇔
+    barendregt k ∧
+    EVERY (λ(cn,pvs,e). ¬MEM v pvs ∧ v ∉ boundvars e ∧ ALL_DISTINCT pvs ∧
+                        DISJOINT (set pvs) (boundvars e) ∧ barendregt e) css ∧
+    EVERY (λ(cn,pvs,e). DISJOINT (freevars e) (boundvars k)) css ∧
+    (css ≠ [] ⇒ v ∉ boundvars k) ∧
+    ∀l cn pvs e r. css = l ++ [(cn,pvs,e)] ++ r ⇒
+      DISJOINT (set pvs ∪ boundvars e) (allvars k ∪
+        (BIGUNION $ set $ MAP (λ(cn',pvs',e'). set pvs' ∪ allvars e') (l ++ r)))
+Proof
+  Induct_on `css` >> rw[rows_of_def] >>
+  PairCases_on `h` >> rw[rows_of_def, barendregt_alt_def, barendregt_lets_for] >>
+  gvs[combinTheory.o_DEF] >> eq_tac >> strip_tac >> simp[] >> last_x_assum kall_tac
+  >- (
+    pop_assum mp_tac >>
+    simp[APPEND_EQ_CONS, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM,
+         RIGHT_AND_OVER_OR, LEFT_AND_OVER_OR] >>
+    strip_tac >> gvs[APPEND_EQ_CONS] >>
+    gvs[boundvars_lets_for, boundvars_rows_of,
+        allvars_lets_for, allvars_rows_of, combinTheory.o_DEF] >>
+    conj_tac >- gvs[allvars_thm] >>
+    rpt gen_tac >> strip_tac >> first_x_assum drule >> strip_tac >> gvs[] >>
+    gvs[SF DNF_ss, DISJOINT_SYM]
+    ) >>
+  pop_assum mp_tac >>
+  simp[APPEND_EQ_CONS, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM,
+       RIGHT_AND_OVER_OR, LEFT_AND_OVER_OR] >>
+  strip_tac >>
+  gvs[boundvars_lets_for, boundvars_rows_of,
+      allvars_lets_for, allvars_rows_of, combinTheory.o_DEF] >>
+  rpt conj_tac
+  >- (rpt gen_tac >> strip_tac >> first_x_assum drule >> strip_tac >> gvs[])
+  >- (CASE_TAC >> gvs[])
+  >- (CASE_TAC >> gvs[])
+  >- (
+    CCONTR_TAC >> gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
+    rpt $ (first_x_assum drule >> strip_tac) >> pairarg_tac >> gvs[]
+    )
+  >- (pop_assum kall_tac >> gvs[allvars_thm, DISJOINT_ALT] >> metis_tac[])
+  >- gvs[allvars_thm, DISJOINT_SYM]
+  >- (Cases_on `h1` >> gvs[]) >>
+  reverse $ rw[]
+  >- (
+    qpat_x_assum `EVERY _ _` kall_tac >> qpat_x_assum `EVERY _ _` mp_tac >>
+    gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> pairarg_tac >> gvs[] >>
+    disch_then drule >> CASE_TAC >> gvs[]
+    )
+  >- (
+    pop_assum mp_tac >> qpat_x_assum `∀s. _ ⇒ DISJOINT s (set h1)` mp_tac >>
+    simp[MEM_MAP, PULL_EXISTS, FORALL_PROD, allvars_thm] >>
+    rw[] >> gvs[] >> first_x_assum drule >> simp[]
+    ) >>
+  simp[allvars_thm] >> reverse conj_tac
+  >- (
+    pop_assum mp_tac >> qpat_x_assum `∀s. _ ⇒ DISJOINT s (boundvars h2)` mp_tac >>
+    simp[MEM_MAP, PULL_EXISTS, FORALL_PROD, allvars_thm] >>
+    rw[] >> gvs[] >> first_x_assum drule >> simp[]
+    ) >>
+  pop_assum mp_tac >> simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+  map_every qx_gen_tac [`cn`,`pvs`,`e`] >> strip_tac >> gvs[] >>
+  dxrule $ iffLR MEM_SPLIT_APPEND_first >> strip_tac >>
+  first_x_assum drule >> strip_tac >> gvs[allvars_thm] >> metis_tac[DISJOINT_ALT]
+QED
+
+Theorem barendregt_Disj:
+  barendregt (Disj v css)
+Proof
+  Induct_on `css` >> rw[Disj_def, barendregt_alt_def] >>
+  Cases_on `h` >> gvs[Disj_def, barendregt_alt_def] >>
+  simp[APPEND_EQ_CONS, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM,
+       RIGHT_AND_OVER_OR, LEFT_AND_OVER_OR]
+QED
+
+Theorem barendregt_IfDisj:
+  barendregt (IfDisj v a e) ⇔
+    barendregt e ∧
+    case a of [] => T | _ => explode v ∉ boundvars e
+Proof
+  simp[IfDisj_def, barendregt_alt_def] >>
+  simp[APPEND_EQ_CONS, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM,
+       RIGHT_AND_OVER_OR, LEFT_AND_OVER_OR] >>
+  simp[barendregt_Disj, allvars_thm, freevars_Disj, boundvars_Disj] >>
+  Cases_on `a` >> gvs[]
+QED
+
+(*---------- misc ----------*)
+
 Theorem lets_for_APPEND:
   ∀ws1 ws2 cn ar v n w b.
     lets_for cn v (ws1 ++ ws2) b =
@@ -466,5 +708,6 @@ Proof
   PairCases_on `h` >> simp[lets_for_def]
 QED
 
+(*--------------------*)
 
 val _ = export_theory();
