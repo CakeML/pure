@@ -200,13 +200,13 @@ Inductive bidir:
            (Lam h rs $ Letrec a [(f,Lam e (vs ++ ws) rhs2)]
                          (App b (Var c f) (MAP (Var d) (vs ++ ws)))))
 [~Let_Let_Let:]
-  (∀v w x y e a.
+  (∀v w x y e a1 a2 a3 b1 b2 b3.
      v ≠ w ∧
      explode w ∉ freevars (exp_of x) ∧
      explode v ∉ freevars (exp_of x)
      ⇒
-     bidir (Let a v x (Let a v x (Let a w y e)))
-           (Let a v x (Let a w y (Let a v x e))))
+     bidir (Let a1 v x (Let a2 v x (Let a3 w y e)))
+           (Let b1 v x (Let b2 w y (Let b3 v x e))))
 [~Let_dup:]
   (∀v x e a.
      explode v ∉ freevars (exp_of x)
@@ -679,7 +679,7 @@ Proof
     \\ rewrite_tac [GSYM MAP_APPEND]
     \\ qabbrev_tac ‘xs = vs ++ ws’
     \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [])
-  >~ [‘Let a v x (Let a v x (Let a w y e))’] >-
+  >~ [‘Let _ v x (Let _ v x (Let _ w y e))’] >-
    (gvs [exp_of_def]
     \\ irule pure_inline_relTheory.Let_Let_copy \\ fs [])
   >~ [‘exp_of (Let a v x e) ≅ exp_of (Let a v x (Let a v x e))’] >-
