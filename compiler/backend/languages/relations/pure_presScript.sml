@@ -94,11 +94,11 @@ End
 
 Inductive push_pull:
 [~Let_Let:]
-  x ≠ y ⇒
+  x ≠ y ∧ y ∉ freevars_cexp e1 ⇒
   push_pull (Let d1 x e1 (Let d2 y e2 e3))
             (Let d3 y (Let d4 x e1 e2) (Let d5 x e1 e3))
 [~Letrec_Let:]
-  x ≠ y ⇒
+  x ≠ y ∧ y ∉ freevars_cexp e1 ⇒
   push_pull (Letrec1 d1 x e1 (Let d2 y e2 e3))
             (Let d3 y (Letrec1 d4 x e1 e2) (Letrec1 d5 x e1 e3))
 [~Let_Prim:]
@@ -115,29 +115,29 @@ Inductive push_pull:
   push_pull (Letrec1 d1 x e1 (App d2 e es))
             (App d3 (Letrec1 d4 x e1 e) (MAP (Letrec1 d5 x e1) es))
 [~Let_Lam:]
-  ¬MEM x xs ⇒
+  ¬MEM x xs ∧ DISJOINT (set xs) (freevars_cexp e1) ⇒
   push_pull (Let d1 x e1 (Lam d2 xs e2))
             (Lam d3 xs (Let d4 x e1 e2))
 [~Letrec_Lam:]
-  ¬MEM x xs ⇒
+  ¬MEM x xs ∧ DISJOINT (set xs) (freevars_cexp e1) ⇒
   push_pull (Letrec1 d1 x e1 (Lam d2 xs e2))
             (Lam d3 xs (Letrec1 d4 x e1 e2))
 [~Let_Letrec:]
-  ¬MEM x (MAP FST fns) ⇒
+  ¬MEM x (MAP FST fns) ∧ DISJOINT (set $ MAP FST fns) (freevars_cexp e1) ⇒
   push_pull (Let d1 x e1 (Letrec d2 fns e2))
             (Letrec d3 (MAP (λ(f,e). (f, Let d4 x e1 e)) fns) (Let d4 x e1 e2))
 [~Letrec_Letrec:]
-  ¬MEM x (MAP FST fns) ⇒
+  ¬MEM x (MAP FST fns) ∧ DISJOINT (set $ MAP FST fns) (freevars_cexp e1) ⇒
   push_pull (Letrec1 d1 x e1 (Letrec d2 fns e2))
             (Letrec d3 (MAP (λ(f,e). (f, Letrec1 d4 x e1 e)) fns) (Letrec1 d4 x e1 e2))
 [~Let_Case:]
-  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ⇒
+  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ∧ y ∉ freevars_cexp e1 ⇒
   push_pull (Let d1 x e1 (Case d2 e2 y css usopt))
             (Case d3 (Let d4 x e1 e2) y
               (MAP (λ(cn,pvs,e). (cn,pvs,Let d4 x e1 e)) css)
               (OPTION_MAP (λ(cn_ars,e). (cn_ars, Let d4 x e1 e)) usopt))
 [~Letrec_Case:]
-  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ⇒
+  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ∧ y ∉ freevars_cexp e1 ⇒
   push_pull (Letrec1 d1 x e1 (Case d2 e2 y css usopt))
             (Case d3 (Letrec1 d4 x e1 e2) y
               (MAP (λ(cn,pvs,e). (cn,pvs,Letrec1 d4 x e1 e)) css)
@@ -656,8 +656,82 @@ QED
 Theorem push_pull_imp_exp_eq:
   ∀x y. push_pull x y ⇒ exp_of x ≅ exp_of y
 Proof
-  Induct_on `push_pull` >> rw[] >> gvs[exp_of_def, cexp_wf_def] >>
-  cheat
+  Induct_on `push_pull` >> rw[] >> gvs[exp_of_def, cexp_wf_def, exp_eq_refl]
+  >- (
+    irule exp_eq_trans >> irule_at Any Let_App >>
+    irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+    irule_at Any pure_inline_relTheory.Let_Lam >> simp[freevars_exp_of] >>
+    irule_at Any exp_eq_refl >> simp[exp_eq_refl]
+    )
+  >- (
+    irule exp_eq_trans >> irule_at Any Letrec_App >>
+    irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+    irule_at Any Letrec_Lam_weak >> simp[freevars_exp_of] >>
+    irule_at Any exp_eq_refl >> simp[exp_eq_refl]
+    )
+  >- (
+    irule exp_eq_trans >> irule_at Any Let_Prim >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, exp_of_def, exp_eq_refl]
+    )
+  >- (
+    irule exp_eq_trans >> irule_at Any Letrec_Prim >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, exp_of_def, exp_eq_refl]
+    )
+  >- (
+    irule exp_eq_trans >> irule_at Any Let_Apps >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, exp_of_def, exp_eq_refl]
+    )
+  >- (
+    irule exp_eq_trans >> irule_at Any Letrec_Apps >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, exp_of_def, exp_eq_refl]
+    )
+  >- (
+    Induct_on `xs` >> rw[Lams_def, exp_eq_refl] >>
+    irule exp_eq_trans >>
+    irule_at Any pure_inline_relTheory.Let_Lam >> simp[freevars_exp_of] >>
+    irule exp_eq_Lam_cong >> gvs[]
+    )
+  >- (
+    Induct_on `xs` >> rw[Lams_def, exp_eq_refl] >>
+    irule exp_eq_trans >> irule_at Any Letrec_Lam_weak >> simp[freevars_exp_of] >>
+    irule exp_eq_Lam_cong >> gvs[]
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> irule exp_eq_trans >>
+    irule_at Any pure_inline_relTheory.Let_Letrec >>
+    simp[EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> reverse $ rw[] >>
+    gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD, freevars_exp_of, DISJOINT_ALT]
+    >- (
+      irule exp_eq_Letrec_cong >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+      simp[LIST_REL_MAP, EVERY2_refl_EQ] >> simp[exp_of_def, exp_eq_refl]
+      ) >>
+    metis_tac[]
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >> irule exp_eq_trans >>
+    irule_at Any Letrec_distrib_Letrec >>
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD, DISJOINT_ALT, freevars_exp_of] >>
+    rw[] >- metis_tac[] >>
+    irule exp_eq_Letrec_cong >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    simp[LIST_REL_MAP, EVERY2_refl_EQ] >> simp[exp_of_def, exp_eq_refl]
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> IF_CASES_TAC >> gvs[]
+    >- (
+      irule exp_eq_trans >> qexists `Fail` >> rpt $ irule_at Any eval_wh_IMP_exp_eq >>
+      rw[subst_def, eval_wh_thm] >> rw[bind1_def, subst1_def, eval_wh_thm]
+      ) >>
+    cheat
+    )
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> IF_CASES_TAC >> gvs[]
+    >- (
+      irule exp_eq_trans >> qexists `Fail` >> rpt $ irule_at Any eval_wh_IMP_exp_eq >>
+      rw[subst_def, eval_wh_thm] >> rw[subst_funs_def, bind_def, subst_def, eval_wh_thm]
+      ) >>
+    cheat
+    )
 QED
 
 Theorem bidir_imp_exp_eq:
