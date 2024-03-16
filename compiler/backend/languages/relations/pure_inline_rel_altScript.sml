@@ -554,7 +554,7 @@ End
    inline_rev_rel ⇒ bidir
  *---------------------------------------------------------------------------*)
 
-Theorem inline_rev_rel_IMP_pure_pres_lemma:
+Theorem inline_rev_rel_IMP_bidir_lemma:
   ∀xs x y.
     inline_rev_rel xs x y ∧ lets_ok xs ∧ pre xs x ⇒
     Binds xs x <--> Binds xs y
@@ -715,5 +715,252 @@ Proof
     irule bidir_Binds >> rw[]
     )
 QED
+
+(*---------------------------------------------------------------------------*
+   Definition of inline_rel - non-reversible inlinings
+ *---------------------------------------------------------------------------*)
+
+Inductive inline_rel:
+[~Var:]
+  MEM (Simple d x e) l
+    ⇒ inline_rel l (Var d x) e
+[~Var_Rec:]
+  MEM (Rec d x e) l
+    ⇒ inline_rel l (Var d x) e
+[~Let:]
+  inline_rel l e1 e1' ∧
+  inline_rel (l ++ [Simple d x e1]) e2 e2'
+    ⇒ inline_rel l (Let d x e1 e2) (Let d x e1' e2')
+[~Prim:]
+  LIST_REL (inline_rel l) e1s e2s
+    ⇒ inline_rel l (Prim d p e1s) (Prim d p e2s)
+[~App:]
+  inline_rel l e1 e1' ∧
+  LIST_REL (inline_rel l) e2s e2s'
+    ⇒ inline_rel l (App d e1 e2s) (App d e1' e2s')
+[~Lam:]
+  inline_rel l e1 e2
+    ⇒ inline_rel l (Lam d xs e1) (Lam d xs e2)
+[~Letrec:]
+  LIST_REL (λ(f1,e1) (f2,e2). f2 = f1 ∧ inline_rel l e1 e2) fns1 fns2 ∧
+  inline_rel l e1 e2
+    ⇒ inline_rel l (Letrec d fns1 e1) (Letrec d fns2 e2)
+[~Letrec_Rec:]
+  inline_rel l e1 e1' ∧
+  inline_rel (l ++ [Rec d x e1]) e2 e2'
+    ⇒ inline_rel l (Letrec1 d x e1 e2) (Letrec1 d x e1' e2')
+[~spec:]
+  inline_rel l e1 e2 ∧
+  (∀e d. Letrec1 d x e1 e <--> Let d x e1' e) ∧
+  x ∉ freevars_cexp e1' ∧
+  DISJOINT (boundvars (exp_of e3)) (boundvars (exp_of e1')) ∧
+  DISJOINT (boundvars (exp_of e3)) (freevars (exp_of e1')) ∧
+  inline_rel (l ++ [Simple d x e1']) e3 e4
+    ⇒ inline_rel l (Letrec1 d x e1 e3) (Letrec1 d x e2 e4)
+[~Case:]
+  inline_rel l e1 e2 ∧
+  LIST_REL
+    (λ(cn1,pvs1,k1) (cn2,pvs2,k2). cn2 = cn1 ∧ pvs2 = pvs1 ∧ inline_rel l k1 k2)
+    css1 css2 ∧
+  OPTREL (λ(cn_ars1,k1) (cn_ars2,k2). cn_ars2 = cn_ars1 ∧ inline_rel l k1 k2)
+    usopt1 usopt2
+    ⇒ inline_rel l (Case d e1 v css1 usopt1) (Case d e2 v css2 usopt2)
+[~Annot:]
+  inline_rel l e1 e2
+    ⇒ inline_rel l (Annot d a e1) (Annot d' a e2)
+[~refl:]
+  inline_rel l e e
+[~trans:]
+  inline_rel l e1 e2 ∧ inline_rel l e2 e3 ∧ pre l e2
+    ⇒ inline_rel l e1 e3
+[~simp:]
+  inline_rel l e1 e2 ∧ e2 <--> e2'
+    ⇒ inline_rel l e1 e2'
+End
+
+(*---------------------------------------------------------------------------*
+   inline_rel ⇒ pure_pres
+ *---------------------------------------------------------------------------*)
+
+Theorem inline_rel_IMP_pure_pres_lemma:
+  ∀xs x y.
+    inline_rel xs x y ∧ lets_ok xs ∧ pre xs x ⇒
+    Binds xs x ~~> Binds xs y
+Proof
+  Induct_on `inline_rel` >> rw[]
+  >~ [`Var`,`Simple`]
+  >- (
+    irule pres_bidir >> irule bidir_trans >>
+    irule_at Any Binds_MEM >> goal_assum drule >> simp[] >>
+    simp[Binds_APPEND, Binds_def] >>
+    irule bidir_Binds >> rw[] >> simp[bidir_Let_unroll]
+    )
+  >~ [`Var`,`Rec`]
+  >- (
+    irule pres_bidir >> irule bidir_trans >>
+    irule_at Any Binds_MEM >> goal_assum drule >> simp[] >>
+    irule $ iffLR bidir_sym >> irule bidir_trans >>
+    irule_at Any Binds_MEM >> goal_assum drule >> simp[] >>
+    simp[Binds_APPEND, Binds_def] >>
+    irule bidir_Binds >> rw[] >>
+    irule $ iffLR bidir_sym >> irule bidir_Letrec_unroll >> simp[]
+    )
+  >~ [`Let`]
+  >- (
+    rename1 `Binds xs (Let _ v e1 e2) ~~> Binds xs (Let _ v e1' e2')` >>
+    imp_res_tac pre_Let >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
+    irule pres_trans >> first_x_assum $ irule_at Any >> rw[]
+    >- (
+      gvs[lets_ok_APPEND, lets_ok_def] >>
+      gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
+      gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
+      >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
+      drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
+      simp[MEM_MAP] >> metis_tac[]
+      ) >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Let >> simp[] >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Let >> simp[] >>
+    irule pres_Let >> simp[]
+    )
+  >~ [`Prim`]
+  >- (
+    Cases_on `e1s = []` >> gvs[] >> imp_res_tac pre_Prim >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Prim >> simp[] >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Prim >> simp[] >>
+    Cases_on `e2s = []` >> gvs[] >>
+    irule pres_Prim >> gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> gvs[EVERY_EL]
+    )
+  >~ [`App`]
+  >- (
+    imp_res_tac pre_App >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_App >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_App >> simp[] >>
+    irule pres_App >> simp[] >>
+    gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> gvs[EVERY_EL]
+    )
+  >~ [`Lam`]
+  >- (
+    imp_res_tac pre_Lam >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Lam >> conj_asm1_tac
+    >- gvs[DISJOINT_ALT, EVERY_MEM] >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Lam >>
+    simp[] >> irule pres_Lam >> gvs[]
+    )
+  >~ [`Letrec`]
+  >- (
+    imp_res_tac pre_Letrec >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Letrec >> conj_asm1_tac
+    >- (
+      gvs[DISJOINT_ALT, EVERY_MEM, MEM_MAP, PULL_EXISTS] >> rw[]>>
+      first_x_assum drule >> pairarg_tac >> gvs[]
+      ) >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Letrec >>
+    `MAP FST fns2 = MAP FST fns1` by
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY] >> simp[] >>
+    irule pres_Letrec >> gvs[LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, EVERY_EL]
+    )
+  >~ [`Rec`]
+  >- (
+    rename1 `Binds xs (Letrec1 _ v e1 e2) ~~> Binds xs (Letrec1 _ v e1' e2')` >>
+    imp_res_tac pre_Letrec1 >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
+    irule pres_trans >> first_x_assum $ irule_at Any >> rw[]
+    >- (
+      gvs[lets_ok_APPEND, lets_ok_def] >>
+      gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
+      gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
+      >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
+      drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
+      simp[MEM_MAP] >> metis_tac[]
+      ) >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Letrec >> simp[] >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Letrec >>
+    simp[] >> irule pres_Letrec >> simp[]
+    )
+  >~ [`Simple`] (* spec *)
+  >- (
+    rename1 `Binds xs (Letrec1 _ v eA eB) ~~> Binds xs (Letrec1 _ v eA' eB')` >>
+    (* push Binds in *)
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Letrec1 >> conj_asm1_tac
+    >- (imp_res_tac pre_Letrec >> gvs[]) >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym  >>
+    irule_at Any bidir_Binds_push_Letrec1 >> simp[] >>
+    (* turn eA' --> eA *)
+    imp_res_tac pre_Letrec1 >> irule pres_trans >>
+    irule_at (Pos last) pres_Letrec >> simp[PULL_EXISTS, EXISTS_PROD] >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    irule_at Any pres_bidir >> irule_at Any bidir_Binds >>
+    irule_at Any LIST_REL_mem_rel_refl >> irule_at Any bidir_refl >>
+    (* pull Binds out *)
+    irule_at Any pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Letrec1 >> simp[] >>
+    irule_at Any pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any bidir_Binds_push_Letrec1 >> simp[] >>
+    (* turn `Letrec1 _ v eA _` --> `Let _ v e1' _` *)
+    irule_at Any pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
+    last_assum $ irule_at Any >>
+    irule_at Any pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds >>
+    irule_at Any LIST_REL_mem_rel_refl >> last_assum $ irule_at Any >>
+    (* push `Let _ v e1' _` into Binds, irule, preconditions *)
+    simp[GSYM Binds_SNOC, SNOC_APPEND] >>
+    first_x_assum $ irule_at Any >> reverse $ rw[]
+    >- (irule pre_SNOC_Simple >> simp[] >> imp_res_tac pre_Letrec >> gvs[]) >>
+    gvs[lets_ok_APPEND, lets_ok_def] >>
+    gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
+    gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
+    >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
+    drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
+    simp[MEM_MAP] >> metis_tac[]
+    )
+  >~ [`Case`]
+  >- (
+    imp_res_tac pre_Case >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Case >> simp[] >>
+    irule pres_trans >> irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >>
+    irule_at Any bidir_Binds_push_Case >> simp[] >>
+    conj_asm1_tac >- gvs[EVERY_EL, LIST_REL_EL_EQN, ELIM_UNCURRY] >>
+    irule pres_Case >> first_x_assum $ irule_at Any >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY] >> rw[]
+    >- (first_x_assum drule >> strip_tac >> first_x_assum irule >> gvs[EVERY_EL])
+    >- (Cases_on `usopt1` >> gvs[] >> Cases_on `usopt2` >> gvs[])
+    )
+  >~ [`Annot`]
+  >- (
+    imp_res_tac pre_Annot >>
+    irule pres_trans >> irule_at Any pres_bidir >>
+    irule_at Any bidir_Binds_push_Annot >>
+    irule pres_trans >>
+    irule_at (Pos last) pres_bidir >>
+    irule_at Any $ iffLR bidir_sym >>
+    irule_at Any bidir_Binds_push_Annot >>
+    irule pres_Annot >> simp[]
+    )
+  >- metis_tac[pres_trans]
+  >- (
+    irule pres_trans >> first_x_assum $ irule_at Any >> simp[] >>
+    irule pres_bidir >> irule bidir_Binds >> rw[]
+    )
+QED
+
+(*--------------------*)
 
 val _ = export_theory();
