@@ -20,6 +20,8 @@ val freevars_exp_of = pure_cexp_lemmasTheory.freevars_exp_of
 
 val _ = new_theory "pure_pres";
 
+Overload Letrec1 = ``λd f e1 e2. Letrec d [(f,e1)] e2``
+
 (*----------------------------------------------------------------------------*
    Definition of syntactic relation
  *----------------------------------------------------------------------------*)
@@ -90,6 +92,62 @@ Inductive spec_arg:
     spec_arg f vs v ws (Case a x z xs d) (Case b y z ys e))
 End
 
+Inductive push_pull:
+[~Let_Let:]
+  x ≠ y ⇒
+  push_pull (Let d1 x e1 (Let d2 y e2 e3))
+            (Let d3 y (Let d4 x e1 e2) (Let d5 x e1 e3))
+[~Letrec_Let:]
+  x ≠ y ⇒
+  push_pull (Letrec1 d1 x e1 (Let d2 y e2 e3))
+            (Let d3 y (Letrec1 d4 x e1 e2) (Letrec1 d5 x e1 e3))
+[~Let_Prim:]
+  es ≠ [] ⇒
+  push_pull (Let d1 x e1 (Prim d2 p es)) (Prim d3 p (MAP (Let d4 x e1) es))
+[~Letrec_Prim:]
+  es ≠ [] ⇒
+  push_pull (Letrec1 d1 x e1 (Prim d2 p es))
+            (Prim d3 p (MAP (Letrec1 d4 x e1) es))
+[~Let_App:]
+  push_pull (Let d1 x e1 (App d2 e es))
+            (App d3 (Let d4 x e1 e) (MAP (Let d5 x e1) es))
+[~Letrec_App:]
+  push_pull (Letrec1 d1 x e1 (App d2 e es))
+            (App d3 (Letrec1 d4 x e1 e) (MAP (Letrec1 d5 x e1) es))
+[~Let_Lam:]
+  ¬MEM x xs ⇒
+  push_pull (Let d1 x e1 (Lam d2 xs e2))
+            (Lam d3 xs (Let d4 x e1 e2))
+[~Letrec_Lam:]
+  ¬MEM x xs ⇒
+  push_pull (Letrec1 d1 x e1 (Lam d2 xs e2))
+            (Lam d3 xs (Letrec1 d4 x e1 e2))
+[~Let_Letrec:]
+  ¬MEM x (MAP FST fns) ⇒
+  push_pull (Let d1 x e1 (Letrec d2 fns e2))
+            (Letrec d3 (MAP (λ(f,e). (f, Let d4 x e1 e)) fns) (Let d4 x e1 e2))
+[~Letrec_Letrec:]
+  ¬MEM x (MAP FST fns) ⇒
+  push_pull (Letrec1 d1 x e1 (Letrec d2 fns e2))
+            (Letrec d3 (MAP (λ(f,e). (f, Letrec1 d4 x e1 e)) fns) (Letrec1 d4 x e1 e2))
+[~Let_Case:]
+  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ⇒
+  push_pull (Let d1 x e1 (Case d2 e2 y css usopt))
+            (Case d3 (Let d4 x e1 e2) y
+              (MAP (λ(cn,pvs,e). (cn,pvs,Let d4 x e1 e)) css)
+              (OPTION_MAP (λ(cn_ars,e). (cn_ars, Let d4 x e1 e)) usopt))
+[~Letrec_Case:]
+  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ⇒
+  push_pull (Letrec1 d1 x e1 (Case d2 e2 y css usopt))
+            (Case d3 (Letrec1 d4 x e1 e2) y
+              (MAP (λ(cn,pvs,e). (cn,pvs,Letrec1 d4 x e1 e)) css)
+              (OPTION_MAP (λ(cn_ars,e). (cn_ars, Letrec1 d4 x e1 e)) usopt))
+[~Let_Annot:]
+  push_pull (Let d1 x e1 (Annot d2 annot e2)) (Annot d3 annot (Let d4 x e1 e2))
+[~Letrec_Annot:]
+  push_pull (Letrec1 d1 x e1 (Annot d2 annot e2)) (Annot d3 annot (Letrec1 d4 x e1 e2))
+End
+
 Inductive bidir:
 (* --- standard rules --- *)
 [~refl:]
@@ -142,6 +200,11 @@ Inductive bidir:
      OPTREL (λ(r1,x) (r2,y). r1 = r2 ∧ bidir x y) d e
      ⇒
      bidir (Case a x v xs d) (Case b y v ys e))
+[~Annot:]
+  (∀e1 e2 d1 d2.
+    bidir e1 e2
+    ⇒ bidir (Annot d1 annot e1) (Annot d2 annot e2))
+
 (* --- interesting rules --- *)
 [~Letrec_eq_Let_Letrec:]
   (∀a b v x y.
@@ -183,6 +246,8 @@ Inductive bidir:
     ⇒
     bidir (Letrec a l (App b e es))
           (App b (Letrec a l e) es))
+[~Let_unroll:]
+  (∀d x y d'. bidir (Let d x y (Var d' x)) y)
 [~Letrec_unroll:]
   (∀a b v x l.
     MEM (v,x) l ∧ ALL_DISTINCT (MAP FST l)
@@ -207,12 +272,38 @@ Inductive bidir:
      ⇒
      bidir (Let a1 v x (Let a2 v x (Let a3 w y e)))
            (Let b1 v x (Let b2 w y (Let b3 v x e))))
+[~Let_Let_Letrec:]
+  (∀a1 v x a2 a3 w y e b1 b2 b3.
+    v ≠ w ∧
+    explode w ∉ freevars (exp_of x) ∧
+    explode v ∉ freevars (exp_of x)
+    ⇒
+    bidir (Let a1 v x (Let a2 v x (Letrec1 a3 w y e)))
+          (Let b1 v x (Letrec1 b2 w y (Let b3 v x e))))
+[~Letrec_Letrec_Let:]
+  (∀a1 v x a2 w y e b1 b2 b3.
+    v ≠ w ∧
+    explode w ∉ freevars (exp_of x)
+    ⇒
+    bidir (Letrec1 a1 v x (Letrec1 a2 v x (Let a3 w y e)))
+          (Letrec1 b1 v x (Let b2 w y (Letrec1 b3 v x e))))
+[~Letrec_Letrec_Letrec:]
+  (∀a1 v x a2 w y e b1 b2 b3.
+    v ≠ w ∧
+    explode w ∉ freevars (exp_of x)
+    ⇒
+    bidir (Letrec1 a1 v x (Letrec1 a2 v x (Letrec1 a3 w y e)))
+          (Letrec1 b1 v x (Letrec1 b2 w y (Letrec1 b3 v x e))))
 [~Let_dup:]
   (∀v x e a.
      explode v ∉ freevars (exp_of x)
      ⇒
      bidir (Let a v x e)
            (Let a v x (Let a v x e)))
+[~Letrec_dup:]
+  (∀d1 f x y d2. bidir (Letrec1 d1 f x y) (Letrec1 d2 f x (Letrec1 d3 f x y)))
+[~push_pull:]
+  (∀e1 e2. push_pull e1 e2 ⇒ bidir e1 e2)
 End
 
 Overload "<-->" = “bidir”
@@ -282,6 +373,11 @@ Inductive pres:
      OPTREL (λ(r1,x) (r2,y). r1 = r2 ∧ pres x y) d e
      ⇒
      pres (Case a x v xs d) (Case b y v ys e))
+[~Annot:]
+  (∀a b annot x y.
+     pres x y
+     ⇒
+     pres (Annot a annot x) (Annot b annot y))
 End
 
 Overload "~~>" = “pres”
@@ -302,6 +398,29 @@ Proof
   Induct_on `unidir` >> rpt conj_tac >> rpt gen_tac >> strip_tac >>
   gvs[exp_of_def, NestedCase_free_def, letrecs_distinct_def, cexp_wf_def]
   >- (drule freshen_cexp_preserves_wf >> rw[])
+QED
+
+Theorem push_pull_imp_wf_preserved:
+  ∀x y. push_pull x y ⇒
+    (NestedCase_free x ⇔ NestedCase_free y) ∧
+    (letrecs_distinct (exp_of x) ⇔ letrecs_distinct (exp_of y)) ∧
+    (cexp_wf x ⇔ cexp_wf y)
+Proof
+  Induct_on `push_pull` >> rpt conj_tac >> rpt gen_tac >> simp[] >> strip_tac >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+  gvs[NestedCase_free_def, cexp_wf_def, exp_of_def, letrecs_distinct_def,
+      letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_MAP] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
+  >>~- (
+    [`OPTION_ALL`],
+    once_rewrite_tac[COND_RAND] >> simp[letrecs_distinct_rows_of] >>
+    gvs[exp_of_def, EVERY_MAP] >>
+    Cases_on `usopt` >> gvs[] >- (rw[] >> eq_tac >> rw[] >> gvs[]) >>
+    EVERY_CASE_TAC >> gvs[exp_of_def, cexp_wf_def] >>
+    rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM]
+    ) >>
+  rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[] >>
+  Cases_on `es` >> gvs[]
 QED
 
 Theorem bidir_imp_wf_preserved:
@@ -347,8 +466,10 @@ Proof
     rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
     )
   >~ [`spec_arg`]
-  >- cheat (* TODO specialisation *) >>
-  rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac
+  >- cheat (* TODO specialisation *)
+  >~ [`push_pull`]
+  >- gvs[push_pull_imp_wf_preserved] >>
+  rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[]
 QED
 
 Theorem pres_imp_wf_preserved:
@@ -532,6 +653,13 @@ Proof
     \\ gvs [o_DEF,MEM_MAP])
 QED
 
+Theorem push_pull_imp_exp_eq:
+  ∀x y. push_pull x y ⇒ exp_of x ≅ exp_of y
+Proof
+  Induct_on `push_pull` >> rw[] >> gvs[exp_of_def, cexp_wf_def] >>
+  cheat
+QED
+
 Theorem bidir_imp_exp_eq:
   ∀x y. (x <--> y) ∧
     NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
@@ -619,6 +747,8 @@ Proof
     \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
     \\ irule exp_eq_Lam_cong \\ fs []
     )
+  >~ [`Annot`]
+  >- gvs[exp_of_def]
   (* interesting rules from here onwards *)
   >-
    (fs [exp_of_def]
@@ -660,6 +790,11 @@ Proof
     \\ irule pure_demandTheory.Letrec_not_in_freevars
     \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,IN_DISJOINT]
     \\ metis_tac [])
+  >- (
+    irule eval_wh_IMP_exp_eq >> simp[exp_of_def] >> rw[] >>
+    simp[subst_def, eval_wh_thm, bind1_def, FLOOKUP_SIMP] >>
+    DEP_REWRITE_TAC[IMP_closed_subst] >> simp[IN_FRANGE_FLOOKUP]
+    )
   >-
    (gvs [exp_of_def,MEM_EL]
     \\ qspec_then ‘MAP (λ(n,x'). (explode n,exp_of x')) l’ mp_tac
@@ -685,6 +820,25 @@ Proof
   >~ [‘exp_of (Let a v x e) ≅ exp_of (Let a v x (Let a v x e))’] >-
    (gvs [exp_of_def] \\ simp [Once exp_eq_sym]
     \\ irule pure_inline_relTheory.Let_dup \\ fs [])
+  >~ [‘Let _ v x (Let _ v x (Letrec1 _ w y e))’]
+  >- (
+    gvs[exp_of_def] >> irule pure_inline_relTheory.Let_Letrec1_copy >> simp[]
+    )
+  >~ [‘Letrec1 _ v x (Letrec1 _ v x (Let _ w y e))’]
+  >- (
+    gvs[exp_of_def] >> irule pure_inline_relTheory.Letrec1_Let_copy >> simp[]
+    )
+  >~ [‘Letrec1 _ v x (Letrec1 _ v x (Letrec1 _ w y e))’]
+  >- (
+    gvs[exp_of_def] >> irule pure_inline_relTheory.Letrec1_Letrec1_copy >> simp[]
+    )
+  >~ [‘exp_of (Letrec1 _ f x y) ≅ exp_of (Letrec1 _ f x (Letrec1 _ f x y))’]
+  >- (
+    simp[exp_of_def] >> simp[Once exp_eq_sym] >>
+    irule pure_inline_relTheory.Letrec1_dup
+    )
+  >~ [`push_pull`]
+  >- gvs[push_pull_imp_exp_eq]
 QED
 
 Theorem pres_imp_exp_eq:
@@ -772,6 +926,8 @@ Proof
     \\ irule exp_eq_App_cong \\ fs [exp_eq_refl]
     \\ irule exp_eq_Lam_cong \\ fs []
     )
+  >~ [`Annot`]
+  >- gvs[exp_of_def]
 QED
 
 (**********)

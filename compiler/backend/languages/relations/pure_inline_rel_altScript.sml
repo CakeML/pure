@@ -13,169 +13,6 @@ val _ = set_grammar_ancestry ["pure_barendregt", "pure_cexp", "pure_pres"]
 Overload Letrec1 = ``λd f e1 e2. Letrec d [(f,e1)] e2``
 
 (*---------------------------------------------------------------------------*
-   TODO rules to add to pure_pres
- *---------------------------------------------------------------------------*)
-
-Theorem bidir_Let_unroll:
-  Let d x y (Var d' x) <--> y
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_dup:
-  Letrec1 d1 f x y <--> Letrec1 d2 f x (Letrec1 d3 f x y)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_Let_swap:
-  v ≠ w ∧ v ∉ freevars_cexp y ∧ w ∉ freevars_cexp x
-  ⇒ Let d v x (Let d' w y z) <--> Let d w y (Let d' v x z)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_Let_Letrec:
-  v ≠ w ∧
-  explode w ∉ freevars (exp_of x) ∧
-  explode v ∉ freevars (exp_of x)
-  ⇒
-  bidir (Let a1 v x (Let a2 v x (Letrec1 a3 w y e)))
-        (Let b1 v x (Letrec1 b2 w y (Let b3 v x e)))
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_Letrec_Let:
-  v ≠ w ∧
-  explode w ∉ freevars (exp_of x)
-  ⇒
-  bidir (Letrec1 a1 v x (Letrec1 a2 v x (Let a3 w y e)))
-        (Letrec1 b1 v x (Let b2 w y (Letrec1 b3 v x e)))
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_Letrec_Letrec:
-  v ≠ w ∧
-  explode w ∉ freevars (exp_of x)
-  ⇒
-  bidir (Letrec1 a1 v x (Letrec1 a2 v x (Letrec1 a3 w y e)))
-        (Letrec1 b1 v x (Letrec1 b2 w y (Letrec1 b3 v x e)))
-Proof
-  cheat
-QED
-
-Theorem bidir_Annot:
-  e1 <--> e2
-  ⇒ Annot d1 annot e1 <--> Annot d2 annot e2
-Proof
-  cheat
-QED
-
-(*---------- push cases ----------*)
-
-Theorem bidir_Let_push_Let:
-  x ≠ y ⇒
-  Let d1 x e1 (Let d2 y e2 e3) <--> Let d3 y (Let d4 x e1 e2) (Let d5 x e1 e3)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_Let:
-  x ≠ y ⇒
-  Letrec1 d1 x e1 (Let d2 y e2 e3) <--> Let d3 y (Letrec1 d4 x e1 e2) (Letrec1 d5 x e1 e3)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_push_Prim:
-  Let d1 x e1 (Prim d2 p es) <--> Prim d3 p (MAP (Let d4 x e1) es)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_Prim:
-  Letrec1 d1 x e1 (Prim d2 p es) <--> Prim d3 p (MAP (Letrec1 d4 x e1) es)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_push_App:
-  Let d1 x e1 (App d2 e es) <--> App d3 (Let d4 x e1 e) (MAP (Let d5 x e1) es)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_App:
-  Letrec1 d1 x e1 (App d2 e es) <--> App d3 (Letrec1 d4 x e1 e) (MAP (Letrec1 d5 x e1) es)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_push_Lam:
-  ¬MEM x xs ⇒
-  Let d1 x e1 (Lam d2 xs e2) <--> Lam d3 xs (Let d4 x e1 e2)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_Lam:
-  ¬MEM x xs ⇒
-  Letrec1 d1 x e1 (Lam d2 xs e2) <--> Lam d3 xs (Letrec1 d4 x e1 e2)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_push_Letrec:
-  ¬MEM x (MAP FST fns) ⇒
-  Let d1 x e1 (Letrec d2 fns e2) <-->
-  Letrec d3 (MAP (λ(f,e). (f, Let d4 x e1 e)) fns) (Let d4 x e1 e2)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_Letrec:
-  ¬MEM x (MAP FST fns) ⇒
-  Letrec1 d1 x e1 (Letrec d2 fns e2) <-->
-  Letrec d3 (MAP (λ(f,e). (f, Letrec1 d4 x e1 e)) fns) (Letrec1 d4 x e1 e2)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_push_Case:
-  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ⇒
-  Let d1 x e1 (Case d2 e2 y css usopt) <-->
-  Case d3 (Let d4 x e1 e2) y
-    (MAP (λ(cn,pvs,e). (cn,pvs,Let d4 x e1 e)) css)
-    (OPTION_MAP (λ(cn_ars,e). (cn_ars, Let d4 x e1 e)) usopt)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_Case:
-  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ⇒
-  Letrec1 d1 x e1 (Case d2 e2 y css usopt) <-->
-  Case d3 (Letrec1 d4 x e1 e2) y
-    (MAP (λ(cn,pvs,e). (cn,pvs,Letrec1 d4 x e1 e)) css)
-    (OPTION_MAP (λ(cn_ars,e). (cn_ars, Letrec1 d4 x e1 e)) usopt)
-Proof
-  cheat
-QED
-
-Theorem bidir_Let_push_Annot:
-  Let d1 x e1 (Annot d2 annot e2) <--> Annot d3 annot (Let d4 x e1 e2)
-Proof
-  cheat
-QED
-
-Theorem bidir_Letrec_push_Annot:
-  Letrec1 d1 x e1 (Annot d2 annot e2) <--> Annot d3 annot (Letrec1 d4 x e1 e2)
-Proof
-  cheat
-QED
-
-(*---------------------------------------------------------------------------*
    Definition of what inliner can remember
  *---------------------------------------------------------------------------*)
 
@@ -545,30 +382,22 @@ Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
   irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
-  last_x_assum $ irule_at Any >> gvs[SNOC_APPEND, vars_of_APPEND]
-  >- (irule bidir_Let_push_Let >> gvs[vars_of_def])
-  >- (irule bidir_Letrec_push_Let >> gvs[vars_of_def])
+  last_x_assum $ irule_at Any >> gvs[SNOC_APPEND, vars_of_APPEND] >>
+  irule bidir_push_pull >> simp[Once push_pull_cases] >> gvs[vars_of_def]
 QED
 
 Theorem bidir_Binds_push_Prim:
   ∀xs d p es.
+    es ≠ [] ⇒
     Binds xs (Prim d p es) <--> Prim d p (MAP (λe. Binds xs e) es)
 Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
-  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl
-  >- (
-    irule_at Any bidir_Let_push_Prim >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Prim >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    qexists `a` >> rw[LIST_REL_EL_EQN]
-    )
-  >- (
-    irule_at Any bidir_Letrec_push_Prim >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Prim >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    qexists `a` >> rw[LIST_REL_EL_EQN]
-    )
+  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
+  irule_at Any bidir_trans >> first_x_assum $ irule_at Any >> simp[] >>
+  irule_at Any bidir_Prim >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
+  qexists `a` >> rw[LIST_REL_EL_EQN]
 QED
 
 Theorem bidir_Binds_push_App:
@@ -577,19 +406,11 @@ Theorem bidir_Binds_push_App:
 Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
-  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl
-  >- (
-    irule_at Any bidir_Let_push_App >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_App >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    qexistsl [`a`,`a`] >> rw[LIST_REL_EL_EQN]
-    )
-  >- (
-    irule_at Any bidir_Letrec_push_App >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_App >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
-    qexistsl [`a`,`a`] >> rw[LIST_REL_EL_EQN]
-    )
+  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
+  irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
+  irule_at Any bidir_App >> simp[MAP_MAP_o, combinTheory.o_DEF] >>
+  qexistsl [`a`,`a`] >> rw[LIST_REL_EL_EQN]
 QED
 
 Theorem bidir_Binds_push_Lam:
@@ -599,19 +420,11 @@ Theorem bidir_Binds_push_Lam:
 Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
-  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl
-  >- (
-    irule_at Any bidir_Let_push_Lam >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Lam >> irule_at Any bidir_refl >>
-    gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
-    )
-  >- (
-    irule_at Any bidir_Letrec_push_Lam >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Lam >> irule_at Any bidir_refl >>
-    gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
-    )
+  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
+  irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
+  irule_at Any bidir_Lam >> irule_at Any bidir_refl >>
+  gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
 QED
 
 Theorem bidir_Binds_push_Letrec:
@@ -623,25 +436,14 @@ Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC]
   >- simp[ELIM_UNCURRY] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
-  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl
-  >- (
-    irule_at Any bidir_Let_push_Letrec >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Letrec >> irule_at Any bidir_refl >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM pure_miscTheory.FST_THM] >>
-    gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM] >>
-    rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-    )
-  >- (
-    irule_at Any bidir_Letrec_push_Letrec >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Letrec >> irule_at Any bidir_refl >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM pure_miscTheory.FST_THM] >>
-    gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM] >>
-    rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-    )
+  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
+  irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
+  irule_at Any bidir_Letrec >> irule_at Any bidir_refl >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  simp[GSYM pure_miscTheory.FST_THM] >>
+  gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM] >>
+  rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
 QED
 
 Triviality bidir_Binds_push_Letrec1:
@@ -664,25 +466,16 @@ Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC]
   >- simp[ELIM_UNCURRY] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
-  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl
-  >- (
-    irule_at Any bidir_Let_push_Case >>
+  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl>>
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
+  (
     irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
     irule_at Any bidir_Case >> irule_at Any bidir_refl >> rw[] >>
     gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
     >- rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
     >- (Cases_on `usopt` >> gvs[] >> rpt (pairarg_tac >> gvs[])) >>
     gvs[EVERY_MAP, FORALL_PROD, EVERY_MEM] >> metis_tac[]
-    )
-  >- (
-    irule_at Any bidir_Letrec_push_Case >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_Case >> irule_at Any bidir_refl >> rw[] >>
-    gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
-    >- rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
-    >- (Cases_on `usopt` >> gvs[] >> rpt (pairarg_tac >> gvs[])) >>
-    gvs[EVERY_MAP, FORALL_PROD, EVERY_MEM] >> metis_tac[]
-    )
+  )
 QED
 
 Theorem bidir_Binds_push_Annot:
@@ -690,17 +483,9 @@ Theorem bidir_Binds_push_Annot:
 Proof
   Induct using SNOC_INDUCT >> rw[Binds_SNOC] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
-  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl
-  >- (
-    irule_at Any bidir_Let_push_Annot >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_refl
-    )
-  >- (
-    irule_at Any bidir_Letrec_push_Annot >>
-    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
-    irule_at Any bidir_refl
-    )
+  irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
+  irule_at Any bidir_trans >> first_x_assum $ irule_at Any >> irule_at Any bidir_refl
 QED
 
 (*---------------------------------------------------------------------------*
@@ -812,10 +597,12 @@ Proof
     )
   >~ [`Prim`]
   >- (
+    Cases_on `e1s = []` >> gvs[] >>
     imp_res_tac pre_Prim >>
-    irule bidir_trans >> irule_at Any bidir_Binds_push_Prim >>
+    irule bidir_trans >> irule_at Any bidir_Binds_push_Prim >> simp[] >>
     irule $ iffLR bidir_sym >>
     irule bidir_trans >> irule_at Any bidir_Binds_push_Prim >>
+    Cases_on `e2s = []` >> gvs[] >>
     irule $ iffLR bidir_sym >>
     irule bidir_Prim >> gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
     first_x_assum drule >> strip_tac >> first_x_assum irule >> gvs[EVERY_EL]
