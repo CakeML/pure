@@ -153,6 +153,7 @@ Definition purePEG_def[nocompute]:
         (INL nEqBind,
          choicel [seql [NT nExpEQ I lrEQ; tokGT ((=) EqualsT) ; NTGT nExp]
                        (mkNT nEqBind);
+                  pegf (tokEQ isPragmaT) (mkNT nEqBind);
                   seql [tok lcname_tok mktokLf lrEQ;
                         tokGT ((=) $ SymbolT "::");
                         NT nTy I lrGT]

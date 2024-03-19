@@ -190,6 +190,14 @@ val _ = app fptest [
    “astExp nExp”,
    “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3);
             expdecFunbind "z" [] (𝕀 10)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+  (“nExp”, "let y = 10\n\
+           \    {-# INLINE f #-}\n\
+           \    f x = x + y\n\
+           \in f 16", “astExp nExp”,
+           “expLet [expdecFunbind "y" [] (𝕀 10);
+                    expdecPragma "INLINE f";
+                    expdecFunbind "f" [patVar "x"] (‹+› ⬝ ‹x› ⬝ ‹y›)]
+                   (‹f› ⬝ 𝕀 16) ”),
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z", “CEXP”,
@@ -249,7 +257,9 @@ val _ = app fptest [
    “Case () (𝕍 «e») «» [(«::», [«h»; «t»], 𝕁 3)] NONE”),
   (“nDecl”, "f :: a -> Integer", “astDecl”,
    “declTysig "f" (funTy (tyVar "a") intTy)”),
-  (“nDecl”, "{-# INLINE #-}", “astDecl”, “declPragma "INLINE"”),
+  (“nDecl”, "{-# INLINE f #-}", “astDecl”, “declPragma "INLINE f"”),
+  (“nDecls”, "{-# INLINE g #-}\ng x = x + 1\n", “astDecls”,
+   “[declPragma "INLINE g"; declFunbind "g" [patVar "x"] (‹+› ⬝ ‹x› ⬝ 𝕀 1)]”),
   (“nDecl”, "f x y = x + y", “astDecl”,
    “declFunbind "f" [patVar "x"; patVar "y"] (‹+› ⬝ ‹x› ⬝ ‹y›)”),
   (“nDecl”, "h:t = f e", “astDecl”,

@@ -624,7 +624,12 @@ Definition astExp_def:
            assert (tokcheck eq_t (SymbolT "::")) ;
            vnm <- destAlphaT ' (destTOK ' (destLf e1_pt)) ;
            ty <- astType nTy e2_pt;
-           SOME (expdecTysig vnm ty)
+           return (expdecTysig vnm ty)
+         od
+     | [pragma_pt] =>
+         do
+           p <- destPragmaT ' (destTOK ' (destLf pragma_pt));
+           return (expdecPragma p)
          od
      | _ => NONE) ∧
   (astDoStmt (Lf _) = NONE) ∧
