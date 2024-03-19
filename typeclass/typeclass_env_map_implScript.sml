@@ -203,8 +203,6 @@ Proof
   fs[check_cl_map_no_cycles_def]
 QED
 
-(* Similar to how it is implemented in
- * "Typing Haskell in Haskell" by Mark P. Jones *)
 Theorem TC_flip:
   ∀x y. TC R x y ⇒ TC (flip R) y x
 Proof
@@ -217,39 +215,90 @@ Proof
   metis_tac[]
 QED
 
-Theorem WF_PULL_lift:
-  ∀P f R g R'. 
-  (!x. P (f x) ⇒ WF (R (f x))) ⇒
-  (∀x y. R' x y ⇒ P (f x) ∧ f x = f y ∧ R (f x) (g x) (g y)) ⇒
-  WF R'
-Proof
-  rw[WF_DEF] >>
-  reverse $ Cases_on `∃w'. P (f w') ∧ B w'`
-  >- (
-    fs[] >>
-    metis_tac[]) >>
-  rw[] >>
-  first_x_assum drule >>
-  qpat_x_assum `B w` kall_tac >>
-  rw[PULL_EXISTS] >>
-  first_x_assum $ qspec_then
-    `\x. ∃y. x = g y ∧ B y ∧ P (f y) ∧ f y = f w'` assume_tac >>
-  fs[PULL_EXISTS] >>
-  first_x_assum (dxrule_then dxrule) >>
-  rw[] >>
-  first_assum $ irule_at (Pos hd) >>
-  rw[] >>
-  last_x_assum drule >>
-  rw[] >>
-  gvs[]
-QED
+(* Similar to how it is implemented in
+ * "Typing Haskell in Haskell" by Mark P. Jones *)
 
-(* everything in the super list must be in the map *)
+ (* everything in the super list must be in the map *)
 (* ∧ mlmap$lookup cl_map c ≠ NONE ∧
 (∀cl info s.
   lookup cl_map cl = SOME info ∧
   MEM s info.super ⇒
   mlmap$lookup cl_map s ≠ NONE) *)
+
+Theorem by_super_aux_relation_WF:
+  WF (
+   λ(cl_map,(visited:(mlstring,'a)mlmap$map),sup,(t:'a))
+    (cl_map',(visited':(mlstring,'a)mlmap$map),c,(t':'a)).
+    cl_map = cl_map' ∧ map_ok cl_map ∧
+    check_cl_map_no_cycles cl_map ∧
+    ∃info. lookup cl_map c = SOME info ∧
+      MEM sup info.super)
+Proof
+  qspecl_then [
+     `\x. map_ok x ∧ check_cl_map_no_cycles x`,
+     `FST`,
+     `\x sup c. ∃info. lookup x c = SOME info ∧
+       MEM sup info.super`,
+       `λ(cl_map,visited,c,t). c`]
+     irule WF_PULL >>
+   reverse $ rw[]
+   >- (
+    PairCases_on `x` >>
+    fs[] >>
+    rename1 `lookup cl_map` >>
+    `WF (reln_to_rel (rel_to_reln
+      (λsup c. ∃info. lookup cl_map c = SOME info ∧
+        MEM sup info.super)))`
+    suffices_by (
+      PURE_REWRITE_TAC[reln_rel_conv_thms] >>
+      simp[]) >>
+    irule acyclic_WF >>
+    simp[acyclic_def,rel_to_reln_def] >>
+    simp[reln_rel_conv_thms,reln_to_rel_def,
+      rel_to_reln_def] >>
+    conj_tac
+    >- (
+      rpt strip_tac >>
+      drule_all
+        check_cl_map_no_cycles_IMP_super_no_cycles >>
+      simp[super_no_cycles_def] >>
+      simp[super_reachable_def,to_class_map_def,
+        PULL_EXISTS,FLOOKUP_FMAP_MAP2] >>
+      drule TC_flip >>
+      simp[combinTheory.C_DEF,
+        GSYM mlmapTheory.lookup_thm] >>
+      metis_tac[]
+    ) >>
+    qexists
+      `{c | ∃x. lookup cl_map c = SOME x} ∪
+      BIGUNION (IMAGE (\info. set info.super) $
+      {info | ?c. lookup cl_map c = SOME info})` >>
+    rw[]
+    >- simp[mlmapTheory.lookup_thm,flookup_thm]
+    >- (
+      irule IMAGE_FINITE >>
+      `{info | ?c. mlmap$lookup cl_map c = SOME info} =
+        FRANGE (to_fmap cl_map)`
+      by simp[mlmapTheory.lookup_thm,EXTENSION,
+        IN_FRANGE,flookup_thm] >>
+      simp[])
+    >- simp[FINITE_LIST_TO_SET]
+    >- (
+      irule SUBSET_TRANS >>
+      irule_at (Pos last) $ cj 2 SUBSET_UNION >>
+      simp[mlmapTheory.lookup_thm,BIGUNION,
+        RDOM_DEF,SUBSET_DEF,IN_DEF] >>
+      metis_tac[]
+    )
+    >- (
+      irule SUBSET_TRANS >>
+      irule_at (Pos last) $ cj 1 SUBSET_UNION >>
+      rw[RRANGE,SUBSET_DEF,IN_DEF] >>
+      metis_tac[])
+   ) >>
+   ntac 2 (pairarg_tac >> fs[]) >>
+   metis_tac[]
+QED
 
 Theorem by_super_aux_terminate:
   ∃R. WF R ∧
@@ -272,7 +321,7 @@ Proof
      `\x sup c. ∃info. lookup x c = SOME info ∧
        MEM sup info.super`,
        `λ(cl_map,visited,c,t). c`]
-     irule WF_PULL_lift >>
+     irule WF_PULL >>
    reverse $ rw[]
    >- (
     PairCases_on `x` >>
@@ -338,18 +387,613 @@ Definition by_super_aux_def:
   if map_ok cl_map ∧ check_cl_map_no_cycles cl_map
   then
     case mlmap$lookup cl_map c of
-      | NONE => visited
-      | SOME clinfo =>
-        FOLDL  (λvisited sup.
-        case lookup visited sup of
-          | SOME _ => visited
-          | NONE => by_super_aux cl_map visited sup t)
-          (mlmap$insert visited c t)
+    | NONE => NONE
+    | SOME clinfo =>
+      OPTION_MAP (λm. insert m c t) $
+      FOLDL  (λret sup.
+        case ret of
+        | NONE => NONE
+        | SOME visited =>
+          case lookup visited sup of
+            | SOME _ => SOME visited
+            | NONE => by_super_aux cl_map visited sup t)
+            (SOME visited)
         clinfo.super
-  else visited (* should never happen *)
+  else NONE (* should never happen *)
 Termination
   metis_tac[by_super_aux_terminate]
 End
+
+Theorem terminating_measure_ext:
+  WF R /\
+  (!x y. R x y ==> R' x y) /\
+  (!x y. R' x y ==> (R x y /\ m y <= (m x):num) \/ m y < (m x):num) ==>
+  WF R'
+Proof
+  rw[WF_DEF,prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def] >>
+  `?n. n = m(f 0)` by simp[] >>
+  pop_assum mp_tac >>
+  qid_spec_tac `f` >> qid_spec_tac `n` >>
+  completeInduct_on `n` >>
+  rw[] >>
+
+  last_x_assum(qspec_then `f` mp_tac) >>
+  disch_then assume_tac >>
+  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+  rename1 `f n` >>
+  rpt strip_tac >>
+  reverse(Cases_on `R' (f n) (f (SUC n))`) >- goal_assum drule >>
+  res_tac >>
+  `m (f n) <= m (f 0)`
+    by(last_x_assum mp_tac >>
+       PRED_ASSUM is_forall mp_tac >>
+        `?i. i = 0:num` by simp[] >>
+       `i <= n` by simp[] >>
+       PRED_ASSUM is_eq (fn thm => simp[GSYM thm]) >>
+       last_x_assum mp_tac >>
+       pop_assum mp_tac >>
+       rpt(pop_assum kall_tac) >>
+       Induct_on `n - i` >- (rw[] >> imp_res_tac LESS_EQUAL_ANTISYM >> fs[]) >>
+       rw[] >>
+       Cases_on `n` >> fs[] >> rename1 `SUC v = SUC n - i` >>
+       `v = n - i` by intLib.COOPER_TAC >>
+       qpat_x_assum `!n i'. _ = _ - (_:num) ==> _` drule >>
+       simp[] >>
+       first_x_assum(qspec_then `n` mp_tac) >>
+       simp[] >>
+       strip_tac >> res_tac >> res_tac >> fs[]) >>
+    last_x_assum(qspec_then `m (f(SUC n))` mp_tac) >>
+    impl_tac >- simp[] >>
+    disch_then(qspec_then `f o $+ (SUC n)` mp_tac) >>
+    impl_tac >- simp[] >>
+    simp[] >>
+    strip_tac >>
+    metis_tac[ADD_SUC,ADD_SYM]
+QED
+
+Theorem mlmap_domain_FINITE:
+  map_ok m ⇒
+  FINITE {s | ∃v. mlmap$lookup m s = SOME v}
+Proof
+  simp[mlmapTheory.lookup_thm,flookup_thm]
+QED
+
+Triviality super_reachable_FDOM_cl_map:
+  ∀c s. super_reachable m c s ⇒
+  ∃x i. FLOOKUP m x = SOME i ∧ MEM s i.super 
+Proof
+  simp[super_reachable_def] >>
+  ho_match_mp_tac TC_INDUCT >>
+  simp[] >>
+  metis_tac[]
+QED
+
+Theorem super_reachable_FINITE:
+  map_ok cl_map ⇒
+  FINITE {s | super_reachable (to_class_map cl_map) c s}
+Proof
+  rw[] >>
+  irule SUBSET_FINITE >>
+  qexists `BIGUNION (IMAGE (\info. set info.super) $
+      {info | ?c. FLOOKUP (to_class_map cl_map) c = SOME info})` >>
+  simp[] >>
+  irule_at (Pos hd) IMAGE_FINITE >>
+  rw[]
+  >- (
+    simp[super_reachable_def,to_class_map_def,
+      FMAP_MAP2_THM,FLOOKUP_FMAP_MAP2,PULL_EXISTS] >>
+    qmatch_goalsub_abbrev_tac `FINITE m` >>
+    `m = IMAGE (\c. let v = to_fmap cl_map ' c in
+        <|super := v.super; kind := v.kind;
+          methodsig := to_fmap v.methodsig;
+          minImp := v.minImp;
+          defaults := to_fmap v.defaults|>)
+         {c | ∃v. (FLOOKUP (to_fmap cl_map) c = SOME v)}`
+      by (
+        simp[Abbr`m`,IMAGE_DEF,EXTENSION,flookup_thm] >>
+        metis_tac[]
+      ) >>
+     simp[] >>
+     irule IMAGE_FINITE >>
+     simp[flookup_thm]) >>
+  rw[SUBSET_DEF] >>
+  drule super_reachable_FDOM_cl_map >>
+  rw[] >>
+  metis_tac[SUBSET_DEF]
+QED
+
+Theorem super_reachable_list_FINITE:
+  map_ok cl_map ⇒
+  FINITE {s | ∃c. MEM c cs ∧
+    (super_reachable (to_class_map cl_map) c s ∨
+      c = s)}
+Proof
+  strip_tac >>
+  qmatch_goalsub_abbrev_tac `FINITE X` >>
+  `X = BIGUNION (set $ (MAP (λc. {s | super_reachable (to_class_map cl_map) c s ∨ c =
+  s}) cs))`
+    by (
+      simp[Abbr`X`,BIGUNION,MEM_MAP,EXTENSION] >>
+      rw[EQ_IMP_THM,PULL_EXISTS]
+      >- (
+        qexists_tac `\x. super_reachable (to_class_map cl_map) c x ∨ c = x` >>
+        simp[IN_DEF] >>
+        qexists_tac`c` >>
+        fs[SUBSET_DEF,IN_DEF]
+      )
+      >- (
+        qexists_tac `\x. super_reachable (to_class_map cl_map) c x ∨ c = x` >>
+        simp[IN_DEF] >>
+        qexists_tac`c` >>
+        fs[SUBSET_DEF,IN_DEF]
+      ) >>
+      metis_tac[]
+    ) >>
+    rw[MEM_MAP] >>
+    `{s | super_reachable (to_class_map cl_map) c s ∨ c = s} =
+    {s | super_reachable (to_class_map cl_map) c s} ∪ {c}` 
+      by (
+        rw[EXTENSION] >>
+        metis_tac[]
+      ) >>
+    pop_assum SUBST_ALL_TAC >>
+    simp[] >>
+    metis_tac[super_reachable_FINITE]
+QED
+
+Triviality INTER_PRESERVE_SUBSET:
+  s ⊆ s' ∧ x ⊆ x' ⇒ (s ∩ x) ⊆ (s' ∩ x')
+Proof
+  simp[INTER_DEF,SUBSET_DEF,EXTENSION,IN_DEF]
+QED
+
+Definition by_super_aux_def:
+  (by_super_aux cl_map visited c t =
+   if map_ok cl_map ∧ map_ok visited
+   then
+    case mlmap$lookup cl_map c of
+    | NONE => NONE
+    | SOME clinfo =>
+      case lookup visited c of
+      | NONE => by_super_aux_list cl_map (insert visited c t) clinfo.super t
+      | SOME _ => SOME visited
+   else NONE) ∧ 
+  by_super_aux_list cl_map ret [] t = SOME ret ∧
+  by_super_aux_list cl_map visited (sup::xs) t =
+    if map_ok cl_map ∧ map_ok visited
+    then
+     case lookup visited sup of
+     | SOME _ => by_super_aux_list cl_map visited xs t
+     | NONE =>
+        case by_super_aux cl_map visited sup t of
+        | SOME visited' => by_super_aux_list cl_map visited' xs t
+        | NONE => NONE
+    else NONE
+End
+
+Termination
+  WF_REL_TAC `inv_image ($< LEX $<) (\x.
+    ((case x of
+    | INR (cl_map,(visited:(mlstring,'a)map),cs,t:'a) =>
+      CARD ({s | ∃c. MEM c cs ∧ (super_reachable (to_class_map cl_map) c s ∨ c = s)}
+        DIFF {s | ∃v.  lookup visited s = SOME v})
+    | INL (cl_map,visited,c,t) =>
+       CARD ({s | super_reachable (to_class_map cl_map) c s ∨ c = s}
+        DIFF {s | ∃v. lookup visited s = SOME v})),
+    (case x of
+    | INR (cl_map,visited,cs,t) => LENGTH cs
+    | INL (cl_map,visited,c,t) => 0)))` >>
+  rw[]
+  >- (
+    Cases_on `?x. super_reachable (to_class_map cl_map) sup' x ∧ 
+    lookup visited x = NONE ∧
+    (∀c. MEM c xs ⇒
+      ¬super_reachable (to_class_map cl_map) c x ∧
+      c ≠ x)` >>
+    rw[]
+    >- (
+      disj1_tac >>
+      irule CARD_PSUBSET >>
+      conj_tac >- (
+        drule super_reachable_list_FINITE >>
+        disch_then $ qspec_then `sup'::xs` assume_tac >>
+        fs[]) >>
+      rw[PSUBSET_DEF,SUBSET_DEF,DIFF_DEF,EXTENSION,
+        PULL_EXISTS] >>
+      qexists_tac`x` >>
+      rw[] >>
+      metis_tac[]) >>
+    disj2_tac >>
+    AP_TERM_TAC >>
+    rw[EXTENSION,EQ_IMP_THM]
+    >- metis_tac[]
+    >- metis_tac[]
+    >- (
+      fs[] >>
+      first_x_assum $ qspec_then `x` mp_tac >>
+      simp[] >>
+      impl_tac >- (
+        Cases_on `lookup visited x` >>
+        gvs[]) >>
+      metis_tac[]
+    ) >>
+    metis_tac[]
+  )
+  >- (
+    irule CARD_PSUBSET >>
+    conj_tac
+    >- (
+      irule FINITE_DIFF >>
+      drule super_reachable_FINITE >>
+      disch_then $ qspec_then `c` assume_tac >>
+      qmatch_asmsub_abbrev_tac `FINITE s` >>
+      qmatch_goalsub_abbrev_tac `FINITE s'` >>
+      `s' = s ∪ {c}`
+      by (
+        simp[Abbr`s`,Abbr`s'`,EXTENSION] >>
+        metis_tac[]
+      ) >>
+      simp[]
+    ) >>
+    rw[PSUBSET_MEMBER,SUBSET_DEF,DIFF_DEF,
+      mlmapTheory.lookup_insert,AllCaseEqs()]
+    >- (
+      fs[super_reachable_def,to_class_map_def,
+        FMAP_MAP2_THM,FLOOKUP_FMAP_MAP2,PULL_EXISTS] >>
+      disj1_tac >>
+      irule TC_LEFT1_I >>
+      first_assum $ irule_at (Pos last) >>
+      fs[GSYM mlmapTheory.lookup_thm]
+    )
+    >- (Cases_on `c=x` >> fs[])
+    >- (
+      fs[super_reachable_def,to_class_map_def,
+        FMAP_MAP2_THM,FLOOKUP_FMAP_MAP2,PULL_EXISTS] >>
+      Cases_on `c=c'` >>
+      fs[GSYM mlmapTheory.lookup_thm] >>
+      irule $ cj 1 TC_RULES >>
+      simp[]
+    )
+    >- (Cases_on `c=c'` >> fs[]) >>
+    qexists_tac `c` >>
+    simp[]
+  ) >>
+  simp[GSYM arithmeticTheory.LE_LT] >>
+  irule CARD_SUBSET
+  >> (conj_tac
+    >- (
+      irule FINITE_DIFF >>
+      drule_then (qspec_then `sup'::xs` assume_tac)
+        super_reachable_list_FINITE >>
+      fs[])) >>
+  PURE_REWRITE_TAC[DIFF_INTER_COMPL] >>
+  irule INTER_PRESERVE_SUBSET >>
+  >- (
+    conj_tac
+    >- (simp[SUBSET_DEF] >> metis_tac[]) >>
+  )
+  simp[SUBSET_DEF]  >>
+  metis_tac[]
+End
+
+Termination
+  strip_assume_tac $ INST_TYPE [beta |-> alpha]
+    by_super_aux_relation_WF >>
+  qmatch_asmsub_abbrev_tac `WF R` >>
+  qexists_tac `\x y. case (x,y) of
+    | (INL v1, INL v2) => F
+    | (INL (cl_map,visited,c,t), INR (cl_map',visited',xs',t')) =>
+       ∃xs. xs' = c::xs
+    | (INR (cl_map,visited,xs,t), INL v2) =>
+      EVERY (\x. R (cl_map,visited,x,t) v2) xs
+    | (INR (_,_,xs,_), INR (_,_,xs',_)) => ∃x. xs'=x::xs` >>
+  reverse $ rw[]
+  >- rw[Abbr`R`,EVERY_MEM] >>
+  rw[WF_DEF] >>
+  cheat
+End
+
+Theorem by_super_aux_map_ok:
+  ∀cl_map visited c t new_visited.
+  map_ok visited ∧
+  by_super_aux cl_map visited c t = SOME new_visited ⇒
+  map_ok new_visited
+Proof
+  ho_match_mp_tac by_super_aux_ind >>
+  rw[] >>
+  pop_assum $ mp_tac o SRULE[Once by_super_aux_def] >>
+  rw[AllCaseEqs()] >>
+  gvs[] >>
+  irule $ cj 1 mlmapTheory.insert_thm >>
+  pop_assum mp_tac >>
+  pop_assum kall_tac >>
+  qpat_x_assum `map_ok visited` mp_tac >>
+  qpat_abbrev_tac `l=x.super` >>
+  pop_assum kall_tac >>
+  qid_spec_tac `visited` >>
+  qid_spec_tac `m` >>
+  Induct_on `l` using SNOC_INDUCT >>
+  rw[] >>
+  pop_assum mp_tac >>
+  simp[mlmapTheory.insert_thm,FOLDL_SNOC] >>
+  CASE_TAC >>
+  CASE_TAC
+  >- (
+    strip_tac >>
+    first_assum $ qspecl_then [`x`,`x'`] $
+      irule o SRULE[] >>
+    ntac 2 $ first_assum $ irule_at (Pos last) >>
+    last_x_assum irule >>
+    first_assum $ irule_at (Pos last) >>
+    rw[] >>
+    last_x_assum irule >>
+    metis_tac[]) >>
+  strip_tac >>
+  last_x_assum irule >>
+  fs[] >>
+  first_assum $ irule_at (Pos last) >>
+  rw[] >>
+  last_x_assum irule >>
+  metis_tac[]
+QED
+
+Theorem by_super_aux_induct:
+  ∀P.
+  (map_ok cl_map ∧ check_cl_map_no_cycles cl_map ⇒
+  ∀visited c t.
+    (∀clinfo sup ret visited'.
+       lookup cl_map c = SOME clinfo ∧
+       lookup visited' sup = NONE ⇒
+       P visited' sup t) ⇒
+    P visited c t) ⇒
+  map_ok cl_map ∧ check_cl_map_no_cycles cl_map ⇒
+  ∀(v1:(mlstring,'a) map) v2 (v3:'a). P v1 v2 v3
+Proof
+  ntac 2 strip_tac >>
+  rpt $ pop_assum mp_tac >>
+  qid_spec_tac `cl_map` >>
+  simp[PULL_FORALL] >>
+  ho_match_mp_tac by_super_aux_ind >>
+  rw[]
+QED
+
+Theorem by_super_aux_super_reachable:
+  (∀cl_map visited c (t:'a) new_visited. 
+  map_ok visited ∧
+  (* if something is visited,
+   * its superclasses are also visited *)
+  (∀c' v. lookup visited c' = SOME v ⇒ v = t) ∧
+  (∀c' s. lookup visited c' = SOME t ∧
+    super_reachable (to_class_map cl_map) c' s ⇒ 
+      lookup visited s = SOME t) ∧
+  by_super_aux cl_map visited c t = SOME new_visited ⇒
+  map_ok new_visited ∧
+  (∀c' v. lookup new_visited c' = SOME v ⇒ v = t) ∧
+  (∀c' s. lookup new_visited c' = SOME t ∧
+    super_reachable (to_class_map cl_map) c' s ⇒
+      lookup new_visited s = SOME t) ∧
+  (∀c'. lookup new_visited c' = SOME t ⇒
+    super_reachable (to_class_map cl_map) c c' ∨
+      c = c' ∨ lookup visited c' = SOME t) ∧
+  (∀c'. lookup visited c' = SOME t ⇒
+   lookup new_visited c' = SOME t) ∧
+  (* c is inserted in the map *)
+  (lookup new_visited c = SOME t)) ∧
+
+  (∀cl_map visited cs (t:'a) new_visited.
+  map_ok visited ∧
+  (∀c' v. lookup visited c' = SOME v ⇒ v = t) ∧
+  (∀c' s. lookup visited c' = SOME t ∧
+  super_reachable (to_class_map cl_map) c' s ⇒ 
+   lookup visited s = SOME t) ∧
+  by_super_aux_list cl_map visited cs t = SOME new_visited ⇒
+  map_ok new_visited ∧
+  (∀c' v. lookup new_visited c' = SOME v ⇒ v = t) ∧
+  (∀c' s. lookup new_visited c' = SOME t ∧
+   super_reachable (to_class_map cl_map) c' s ⇒
+     lookup new_visited s = SOME t) ∧
+  (∀c'. lookup new_visited c' = SOME t ⇒
+    (∃c. MEM c cs ∧
+      (super_reachable (to_class_map cl_map) c c' ∨
+      c = c')) ∨
+   lookup visited c' = SOME t) ∧
+  (∀c'. lookup visited c' = SOME t ⇒
+   lookup new_visited c' = SOME t) ∧
+  (* c is inserted in the map *)
+  (∀c. MEM c cs ⇒ lookup new_visited c = SOME t))
+Proof
+  PURE_REWRITE_TAC[super_reachable_def] >>
+  simp[to_class_map_def,FLOOKUP_FMAP_MAP2,FMAP_MAP2_THM,
+    PULL_EXISTS,GSYM $ mlmapTheory.lookup_thm] >>
+  ho_match_mp_tac by_super_aux_ind >>
+  strip_tac >>
+  rpt gen_tac >>
+  rpt $ disch_then strip_assume_tac
+  >- (
+    pop_assum $ markerLib.ASSUME_NAMED_TAC "ind_hyp" >>
+    rw[]
+    >- (
+      pop_assum $ mp_tac o SRULE[Once by_super_aux_def] >>
+      simp[AllCaseEqs()] >>
+      rw[] >>
+      irule $ cj 1 mlmapTheory.insert_thm >>
+      markerLib.LABEL_X_ASSUM "ind_hyp" $
+        qspec_then `clinfo` mp_tac >>
+      rw[] >>
+      pop_assum $ drule_then drule >>
+      simp[])
+    >- (
+      qpat_x_assum`by_super_aux _ _ _ _ = _` $
+        mp_tac o SRULE[Once by_super_aux_def] >>
+      rw[AllCaseEqs()] >>
+      markerLib.LABEL_X_ASSUM "ind_hyp" $
+        qspec_then `clinfo` mp_tac >>
+      rw[] >>
+      pop_assum $ drule_then drule >>
+      strip_tac >>
+      qpat_x_assum `lookup (insert _ _ _) _ = _` mp_tac >>
+      simp[mlmapTheory.lookup_insert] >>
+      IF_CASES_TAC >>
+      simp[] >>
+      metis_tac[]
+    )
+    >- (
+      qpat_x_assum`by_super_aux _ _ _ _ = _` $
+        mp_tac o SRULE[Once by_super_aux_def] >>
+      rw[AllCaseEqs()] >>
+      markerLib.LABEL_X_ASSUM "ind_hyp" $
+        qspec_then `clinfo` mp_tac >>
+      rw[] >>
+      pop_assum $ drule_then drule >>
+      strip_tac >>
+      simp[mlmapTheory.lookup_insert] >>
+      IF_CASES_TAC >>
+      simp[] >>
+      Cases_on `c' = c`
+      >- (
+        qpat_x_assum `TC _ c' s` $
+          mp_tac o SRULE[Once TC_CASES1] >>
+        rw[GSYM $ mlmapTheory.lookup_thm]
+        >- metis_tac[] >>
+        `lookup m dst = SOME t` by metis_tac[] >>
+        metis_tac[mlmapTheory.lookup_thm]
+      ) >>
+      qpat_x_assum `lookup (insert _ _ _) _ = _` mp_tac >>
+      simp[mlmapTheory.lookup_insert] >>
+      metis_tac[mlmapTheory.lookup_thm]
+    )
+    >- (
+      qpat_x_assum`by_super_aux _ _ _ _ = _` $
+        mp_tac o SRULE[Once by_super_aux_def] >>
+      rw[AllCaseEqs()] >>
+      markerLib.LABEL_X_ASSUM "ind_hyp" $
+        qspec_then `clinfo` mp_tac >>
+      rw[] >>
+      pop_assum $ drule_then drule >>
+      strip_tac >>
+      Cases_on`c'=c` >>
+      simp[] >>
+      qpat_x_assum `lookup (insert _ _ _) _ = _` $
+        mp_tac >>
+      simp[mlmapTheory.lookup_insert] >>
+      strip_tac >>
+      first_x_assum drule >>
+      rw[]
+      >- (
+        disj1_tac >>
+        irule TC_LEFT1_I >>
+        first_assum $ irule_at (Pos last) >>
+        simp[GSYM $ mlmapTheory.lookup_thm]
+      )
+      >- (
+        disj1_tac >>
+        irule $ cj 1 TC_RULES >>
+        simp[GSYM $ mlmapTheory.lookup_thm]
+      ) >>
+      simp[]
+    )
+    >> (
+      qpat_x_assum`by_super_aux _ _ _ _ = _` $
+        mp_tac o SRULE[Once by_super_aux_def] >>
+      rw[AllCaseEqs()] >>
+      markerLib.LABEL_X_ASSUM "ind_hyp" $
+        qspec_then `clinfo` mp_tac >>
+      rw[] >>
+      pop_assum $ drule_then drule >>
+      simp[mlmapTheory.lookup_insert]
+    )
+  ) >>
+  strip_tac >>
+  rpt gen_tac >>
+  rpt $ disch_then strip_assume_tac
+  >- (
+    fs[Once $ by_super_aux_def] >>
+    metis_tac[]) >>
+  qpat_x_assum`∀v. lookup visited c = SOME v ⇒ _` $
+    markerLib.ASSUME_NAMED_TAC "ind_hyp_visited" >>
+  qpat_x_assum`∀visited'. lookup visited c = NONE ∧ 
+    by_super_aux _ _ _ _ = _ ⇒ _` $
+    markerLib.ASSUME_NAMED_TAC "ind_hyp_by_super_aux" >>
+  qpat_x_assum`lookup visited c = NONE ⇒ _` $
+    markerLib.ASSUME_NAMED_TAC "ind_hyp_NONE" >>
+  rw[] >>
+  (qpat_x_assum`by_super_aux_list _ _ _ _ = _` $
+    mp_tac o SRULE[Once by_super_aux_def] >>
+  rw[AllCaseEqs()]
+  >- (
+    markerLib.LABEL_X_ASSUM "ind_hyp_NONE" $
+      drule_then drule >>
+    rw[] >>
+    pop_assum $ drule_then drule >>
+    rw[] >>
+    markerLib.LABEL_X_ASSUM "ind_hyp_by_super_aux" $
+      drule_then drule >>
+    rpt (disch_then drule) >>
+    metis_tac[]
+  ) >>
+  markerLib.LABEL_X_ASSUM "ind_hyp_visited" drule >>
+  rpt (disch_then drule) >>
+  metis_tac[])
+QED
+
+Theorem well_formed_by_super_aux:
+  (∀cl_map visited c (t:'a).
+    map_ok cl_map ∧ check_cl_map_no_cycles cl_map ∧
+    (∀c clinfo c'.
+      mlmap$lookup cl_map c = SOME clinfo ∧ MEM c' clinfo.super ⇒
+      ∃x. mlmap$lookup cl_map c' = SOME x) ∧
+    (∀c clinfo. mlmap$lookup visited c = SOME clinfo ⇒
+      ∃x. mlmap$lookup cl_map c = SOME x)
+    ⇒
+    ((∃m. by_super_aux cl_map visited c t = SOME m) ⇔
+      (∃x. mlmap$lookup cl_map c = SOME x)) ∧
+    (∀m c clinfo. by_super_aux cl_map visited c t = SOME m ∧
+      mlmap$lookup m c = SOME clinfo ⇒
+      ∃x. mlmap$lookup cl_map c = SOME x)) ∧
+
+  (∀cl_map visited cs (t:'a).
+    map_ok cl_map ∧ check_cl_map_no_cycles cl_map ∧
+    (∀c clinfo c'.
+      mlmap$lookup cl_map c = SOME clinfo ∧ MEM c' clinfo.super ⇒
+      ∃x. mlmap$lookup cl_map c' = SOME x) ∧
+    (∀c clinfo. mlmap$lookup visited c = SOME clinfo ⇒
+      ∃x. mlmap$lookup cl_map c = SOME x)
+    ⇒
+    ((∃m. by_super_aux_list cl_map visited cs t = SOME m) ⇔
+      (∀c. MEM c cs ⇒ (∃x. mlmap$lookup cl_map c = SOME x))) ∧
+     (∀m c m'. by_super_aux_list cl_map visited c t = SOME m ∧
+      mlmap$lookup m c = SOME m' ⇒
+      ∃x. mlmap$lookup cl_map c = SOME x))
+Proof
+  ho_match_mp_tac by_super_aux_ind >>
+  rpt strip_tac
+  >- (
+    last_x_assum $ drule_then drule >>
+    strip_tac >>
+  )
+  rw[] >>
+  simp[Once by_super_aux_def]
+  >- (
+    CASE_TAC >>
+    fs[] >>
+    metis_tac[])
+  >- (
+    TOP_CASE_TAC >>
+    fs[]
+    >- (
+      TOP_CASE_TAC >>
+      gvs[]
+      >- metis_tac[] >>
+      last_x_assum drule >>
+      first_x_assum drule >>
+      rw[EQ_IMP_THM]>>
+      metis_tac[]
+    ) >>
+    rw[EQ_IMP_THM] >>
+    gvs[] >>
+    metis_tac[]
+  )
+QED
 
 Definition by_super_def:
   by_super cl_map (c,t) =
@@ -358,13 +1002,12 @@ End
 
 Theorem by_super_thm:
   map_ok cl_map ∧ check_cl_map_no_cycles cl_map ⇒
-  (mlmap$lookup (by_super cl_map (c,t)) s = SOME v ⇔
-    (v = t ∧ super_reachable (to_class_map cl_map) c s))
+  (mlmap$lookup (by_super cl_map (c,t)) s = SOME v) ⇔
+    (v = t ∧
+    (super_reachable (to_class_map cl_map) c s ∨ c = s))
 Proof
-  rw[by_super_def] >>
-
+  rw[by_super_def,super_reachable_def] >>
 QED
-
 
 (* return a list of goals that the type has to satisfy in order
 * to satisfy c *)
@@ -373,19 +1016,189 @@ Definition apply_pred:
 End
 
 Definition by_inst_def:
-  byInst inst_map c t =
+  by_inst inst_map c t =
   OPTION_BIND (lookup inst_map c) (λinstl.
     let l  =
       FILTER (λ(m,inst_info). IS_SOME m) $
-      MAP (λ(t',inst_info). (specialize t t',inst_info)) instl
+      MAP (λ(t',inst_info). (specialize_impl t t',inst_info)) instl
     in
       if LENGTH l = 1
       then
-        (case HD l of
-          (SOME m,inst_info) =>
-            OPT_MMAP (apply_pred m) inst_info.cstr)
+        case HD l of
+         (SOME m,inst_info) =>
+            OPT_MMAP (apply_pred m) inst_info.cstr
+         | (NONE,_) => NONE (* should never happedn *)
       else NONE)
 End
+
+Triviality EL_FILTER_preserve_order:
+  ∀i j. i < LENGTH l ∧
+  j < i ∧
+  P (EL i l) ∧
+  P (EL j l) ⇒
+  ∃i' j'.
+  i' < LENGTH (FILTER P l) ∧
+  j' < LENGTH (FILTER P l) ∧
+  j' < i' ∧
+  EL i' (FILTER P l) = EL i l ∧
+  EL j' (FILTER P l) = EL j l
+Proof
+  Induct_on `l` >>
+  rw[] >>
+  Cases_on `j` >>
+  fs[] >>
+  `∃i'. i = SUC i'` by (
+    `i ≠ 0` by fs[] >>
+    metis_tac[num_CASES]) >>
+  fs[]
+  >- (
+    `P (EL i' l)` by fs[] >>
+    `MEM (EL i' l) (FILTER P l)` by
+      (fs[MEM_FILTER,MEM_EL] >>
+      metis_tac[]) >>
+    fs[MEM_EL] >>
+    qexistsl [`SUC n`,`0`] >>
+    simp[]
+  ) >>
+  last_x_assum drule_all >>
+  rw[] >>
+  qexistsl [`SUC i''`,`SUC j'`] >>
+  simp[]
+QED
+
+Triviality FILTER_EQ_NIL_EL:
+  (∀i. i < LENGTH l ⇒ ¬P (EL i l)) ⇒
+  FILTER P l = []
+Proof
+  simp[FILTER_EQ_NIL,EVERY_MEM,MEM_EL] >>
+  metis_tac[]
+QED
+
+Triviality EXISTS_UNIQUE_IMP_FILTER_SINGLE:
+  (∀i i'. i < LENGTH l ∧ P (EL i l) ∧
+    i' < LENGTH l ∧ P (EL i' l) ⇒
+    i = i') ⇒
+  ((∃i. i < LENGTH l ∧ P (EL i l)) ⇒
+    ∀i. i < LENGTH l ∧ P (EL i l) ⇒ FILTER P l = [EL i l]) ∧
+  (¬(∃i. i < LENGTH l ∧ P (EL i l)) ⇒
+    FILTER P l = [])
+Proof
+  Induct_on `l` >>
+  fs[EXISTS_UNIQUE_THM,PULL_EXISTS] >>
+  rpt gen_tac >>
+  rpt $ disch_then strip_assume_tac >>
+  last_x_assum mp_tac >>
+  impl_tac
+  >- (
+    rw[] >>
+    PURE_REWRITE_TAC[Once $ GSYM $ prim_recTheory.INV_SUC_EQ] >>
+    last_x_assum irule >>
+    simp[]) >>
+  strip_tac >>
+  fs[PULL_FORALL] >>
+  rw[]
+  >- (
+    last_x_assum $ qspecl_then [`0`,`i'`]
+      strip_assume_tac >>
+    gvs[]
+  )
+  >- (
+    last_x_assum irule >>
+    rw[GSYM IMP_DISJ_THM] >>    
+    last_x_assum $ qspecl_then [`SUC i''`,`0`] assume_tac >>
+    gvs[]
+  )
+  >- (
+    `∃j. i' = SUC j`
+    by (
+      Cases_on `i = 0` >>
+      fs[] >>
+      metis_tac[num_CASES]
+    ) >>
+    first_x_assum $ qspecl_then [`j`,`j`] assume_tac >>
+    fs[]
+  )
+  >- (
+    qexists `0` >>
+    simp[]
+  ) >>
+  last_x_assum irule >>
+  fs[GSYM IMP_DISJ_THM] >>
+  rw[] >>
+  first_x_assum $ qspec_then `SUC i` assume_tac >>
+  fs[]
+QED
+
+Theorem by_inst_thm:
+  (mlmap$lookup inst_map c = NONE ⇒
+    by_inst inst_map c t = NONE) ∧
+  (∀instl. lookup inst_map c = SOME instl ∧
+    (∀i. i < LENGTH instl ⇒
+       specialize_impl t (FST $ EL i instl) = NONE) ⇒
+     by_inst inst_map c t = NONE) ∧
+  (∀instl i j. lookup inst_map c = SOME instl ∧
+     i < j ∧ i < LENGTH instl ∧ j < LENGTH instl ∧
+     IS_SOME (specialize_impl t (FST $ EL i instl)) ∧ 
+     IS_SOME (specialize_impl t (FST $ EL j instl)) ⇒
+     by_inst inst_map c t = NONE) ∧
+  (∀instl i m. lookup inst_map c = SOME instl ∧
+    (∃!i. i < LENGTH instl ∧ IS_SOME (specialize_impl t (FST $ EL i instl))) ∧
+    i < LENGTH instl ∧
+    specialize_impl t (FST $ EL i instl) = SOME m ⇒
+    by_inst inst_map c t =
+      OPT_MMAP (apply_pred m) ((SND $ EL i instl).cstr))
+Proof
+  simp[by_inst_def] >>
+  Cases_on `lookup inst_map c` >>
+  rpt strip_tac >>
+  fs[]
+  >- (
+    spose_not_then kall_tac >>
+    fs[rich_listTheory.FILTER_MAP,combinTheory.o_DEF,
+      LAMBDA_PROD] >>
+    `(FILTER (λ(p1,p2). IS_SOME (specialize_impl t p1)) instl) = []` suffices_by
+      (strip_tac >> gvs[]) >>
+    irule FILTER_EQ_NIL_EL >>
+    rw[] >>
+    last_x_assum drule >>
+    pairarg_tac >>
+    simp[])
+  >- (
+    spose_not_then kall_tac >>
+    fs[rich_listTheory.FILTER_MAP,combinTheory.o_DEF,
+      LAMBDA_PROD] >>
+    drule_then drule EL_FILTER_preserve_order >>
+    disch_then $ qspec_then
+      `\x. IS_SOME (specialize_impl t (FST x))`
+      strip_assume_tac >>
+    gvs[LAMBDA_PROD]) >>
+  fs[EXISTS_UNIQUE_THM,LAMBDA_PROD,
+    rich_listTheory.FILTER_MAP,combinTheory.o_DEF] >>
+  qmatch_goalsub_abbrev_tac `LENGTH (FILTER P instl) = 1` >>
+  `FILTER P instl = [EL i' instl]`
+  by (
+    qspecl_then [`instl`,`P`] mp_tac $ GEN_ALL $
+      cj 1 EXISTS_UNIQUE_IMP_FILTER_SINGLE >>
+    fs[Abbr`P`] >>
+    impl_tac
+    >- (
+      rw[] >>
+      ntac 2 (pairarg_tac >> fs[])) >>
+    impl_tac
+    >- (
+      first_x_assum $ irule_at (Pos hd) >>
+      pairarg_tac >> fs[]
+    ) >>
+    rw[] >>
+    first_x_assum $ qspec_then `i'` mp_tac >>
+    pairarg_tac >> fs[]
+  ) >>
+  simp[] >>
+  pairarg_tac >>
+  fs[] >>
+  `i = i'` by (first_x_assum irule >> simp[]) >>
+  fs[]
+QED
 
 Definition entail_def:
   entail cl_map inst_map ps (c,t) = ANY (MEM (c,t)) (MAP (by_super

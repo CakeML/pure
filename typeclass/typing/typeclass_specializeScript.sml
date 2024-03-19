@@ -12,14 +12,10 @@ val _ = new_theory "typeclass_specialization";
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
 
-(* to avoid variable name collision get the max variable index *)
-Definition:
-End
-
 Definition VarType_to_CVar_def:
   (VarType_to_CVar (iAtom (VarTypeCons v)) = iCVar v) ∧
   (VarType_to_CVar (iCons i1 i2) = iCons (VarType_to_CVar i1) (VarType_to_CVar i2)) ∧
-  (VarType_to_CVar (iCVar n) = iAtom ) ∧ (* this should never happend *)
+  (VarType_to_CVar (iCVar n) = IntTy) ∧ (* this should never happend *)
   (VarType_to_CVar i = i)
 End
 
@@ -31,6 +27,8 @@ Definition specialize_impl_def:
   specialize_impl t t' = pure_unify FEMPTY (VarType_to_CVar (itype_of t)) (itype_of t')
 End
 
-
+Definition is_specialize_impl_def:
+  is_specialize_impl t t' = IS_SOME (specialize_impl t t')
+End
 
 val _ = export_theory();

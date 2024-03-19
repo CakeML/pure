@@ -99,62 +99,6 @@ Definition Functions_def:
       Functions ats t
 End
 
-
-(* What's the proper way to do this *)
-Definition generalise_def:
-  generalise db (avoid : num_set) s (DBVar n) = (0n, s, DBVar n) ∧
-  generalise db avoid s (PrimTy p) = (0, s, PrimTy p) ∧
-  generalise db avoid s  Exception = (0, s, Exception) ∧
-
-  generalise db avoid s (TypeCons id ts) = (
-    let (n, s', ts') = generalise_list db avoid s ts in (n, s', TypeCons id ts')) ∧
-
-  generalise db avoid s (Tuple ts) = (
-    let (n, s', ts') = generalise_list db avoid s ts in (n, s', Tuple ts')) ∧
-
-  generalise db avoid s (Function t1 t2) = (
-    let (n1, s', t1') = generalise db avoid s t1 in
-    let (n2, s'', t2') = generalise (db + n1) avoid s' t2 in
-    (n1 + n2, s'', Function t1' t2')) ∧
-
-  generalise db avoid s (Array t) = (
-    let (n, s', t') = generalise db avoid s t in (n, s', Array t')) ∧
-
-  generalise db avoid s (M t) = (
-    let (n, s', t') = generalise db avoid s t in (n, s', M t')) ∧
-
-  generalise db avoid s (CVar c) = (
-    if lookup c avoid = NONE then (
-      case FLOOKUP s c of
-      | SOME n => (0, s, DBVar n)
-      | NONE => (1, s |+ (c,db), DBVar db))
-    else (0, s, CVar c)) ∧
-
-  generalise_list db avoid s [] = (0, s, []) ∧
-  generalise_list db avoid s (t::ts) =
-    let (n, s', t') = generalise db avoid s t in
-    let (ns, s'', ts') = generalise_list (db + n) avoid s' ts in
-    (n + ns, s'', t'::ts')
-End
-
-
-Definition max_db_def:
-  max_db (Cons t1 t2) = MAX (max_db t1) (max_db t2) ∧
-  max_db (Atom (VarTypeCons v)) = 1 + v ∧
-  max_db (Atom a) = 0
-End
-
-Definition to_scheme_def:
-  to_scheme db avoid s (Cons t1 t2) =
-    let (n,s',t1') = to_scheme db avoid s t1 in
-    let (n',s'',t2') = to_scheme (db + n) avoid s t2 in
-    (n+n',s'',Cons t1' t2') ∧
-  to_scheme db avoid s (Atom (VarTypeCons v)) =
-    if lookup v avoid = NONE
-    then (0,s,Atom (VarTypeCons v))
-    else (1,s,Atom (VarTypeCons db))
-End
-
 (******************** Properties of types ********************)
 
 Definition freetyvars_ok_def:
@@ -166,5 +110,12 @@ End
 
 Overload freetyvars_ok_scheme =
   ``λn (vars,scheme). freetyvars_ok (n + vars) scheme``;
+
+Definition alpha_equiv_def:
+  alpha_equiv t t' ⇔
+  (∃ts. tsubst ts t = t' ∧
+  ∀ty. MEM ty ts ⇒ ∃v. ty = Atom (VarTypeCons v)) 
+End
+
 
 val _ = export_theory();
