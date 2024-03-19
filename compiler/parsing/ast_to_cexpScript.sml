@@ -304,22 +304,27 @@ Theorem translate_this_translate_exp =
    been extracted
  *)
 Definition translate_decs_def:
-  translate_decs tyinfo [] = SOME [] ∧
+  translate_decs tyinfo [] = SOME ([], []) ∧
   translate_decs tyinfo (declTysig _ _ :: ds) = translate_decs tyinfo ds ∧
   translate_decs tyinfo (declData _ _ _  :: ds) = translate_decs tyinfo ds ∧
   translate_decs tyinfo (declFunbind s args body :: ds) =
   do
-    rest <- translate_decs tyinfo ds ;
+    (rest,ps) <- translate_decs tyinfo ds ;
     vs <- OPT_MMAP dest_pvar args ;
     bce <- translate_exp tyinfo body ;
-    SOME ((implode s, mkLam () vs bce) :: rest)
+    SOME ((implode s, mkLam () vs bce) :: rest, ps)
   od ∧
   translate_decs tyinfo (declPatbind p e :: ds) =
   do
-    rest <- translate_decs tyinfo ds ;
+    (rest,ps) <- translate_decs tyinfo ds ;
     v <- dest_pvar p ;
     ce <- translate_exp tyinfo e ;
-    SOME ((v,ce) :: rest)
+    SOME ((v,ce) :: rest, ps)
+  od ∧
+  translate_decs tyinfo (declPragma s :: ds) =
+  do
+    (rest, ps) <- translate_decs tyinfo ds ;
+    SOME (rest, s::ps)
   od
 End
 
@@ -493,7 +498,7 @@ Definition decls_to_letrec_def:
                              (insert (empty str_compare) «[]» 0n, 1)
                              tyinfo_l ;
     sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND initial_namespace) ;
-    binds <- translate_decs (insert tyinfo «[]» listinfo) ds ;
+    (binds,ps) <- translate_decs (insert tyinfo «[]» listinfo) ds ;
     SOME (Letrec () binds (Var () «main»), REVERSE sig0)
   od
 End
