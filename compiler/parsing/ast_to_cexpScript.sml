@@ -301,7 +301,8 @@ Theorem translate_this_translate_exp =
 
 (* passes over declarations; ignoring type annotations because they're
    not handled; and ignoring datatype declarations because they've already
-   been extracted
+   been extracted. Returns the list of translated declarations alongside
+   a list of declaration-level pragmas.
  *)
 Definition translate_decs_def:
   translate_decs tyinfo [] = SOME ([], []) ∧
@@ -489,6 +490,16 @@ Definition listinfo_def:
   listinfo = (["a"], [(«[]», []); («::», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
 End
 
+Definition associate_inlining_pragmas_def:
+  associate_inlining_pragmas (binds0 : (mlstring # unit cexp) list) prags =
+  let
+    inlines = MAP (implode o DROP 7) (FILTER (isPREFIX "INLINE ") prags) ;
+  in
+    MAP (λ(n,ce). if MEM n inlines then (n,pure_cexp$Annot () Inline ce)
+                  else (n,ce))
+        binds0
+End
+
 Definition decls_to_letrec_def:
   decls_to_letrec ds =
   do
@@ -498,7 +509,8 @@ Definition decls_to_letrec_def:
                              (insert (empty str_compare) «[]» 0n, 1)
                              tyinfo_l ;
     sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND initial_namespace) ;
-    (binds,ps) <- translate_decs (insert tyinfo «[]» listinfo) ds ;
+    (binds0,ps) <- translate_decs (insert tyinfo «[]» listinfo) ds ;
+    binds <<- associate_inlining_pragmas binds0 ps ;
     SOME (Letrec () binds (Var () «main»), REVERSE sig0)
   od
 End

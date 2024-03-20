@@ -303,6 +303,12 @@ val _ = app fptest [
    “(Letrec () [
      («main», (Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]))
      ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”),
+  (“nDecls”, "{-# INLINE f #-}\n\
+             \f :: Int -> Int\n\
+             \f x = x + 1\n",
+   “CDECLS”,
+   “(Letrec () [(«f», Annot () Inline (Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1)))] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
 ];
 
