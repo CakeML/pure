@@ -1,17 +1,16 @@
 open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 
-open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory
-open typeclassASTTheory mlmapTheory mlstringTheory typeclass_tcexpTheory
-     pure_varsTheory typeclass_typingTheory
-     (* pure_cexpTheory: probably don't need it *)
+open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
+open typeclassASTTheory mlmapTheory mlstringTheory
+     typeclass_tcexpTheory typeclass_env_map_implTheory 
+     pure_varsTheory typeclass_typesTheory;
 
 val _ = new_theory "ast_to_cexp";
 
-(*
 val _ = set_grammar_ancestry [
-          "pureAST", "mlmap", "pure_cexp", "pure_typing", "pure_vars"] *)
-val _ = set_grammar_ancestry [
-          "typeclassAST", "mlmap", "typeclass_tcexp","typeclass_typing","pure_vars"]
+          "typeclassAST", "mlmap", "typeclass_tcexp",
+          "typeclass_types","pure_vars",
+          "typeclass_env_map_impl"]
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
@@ -26,6 +25,12 @@ Definition build_tyinfo_def:
   | _ => build_tyinfo A ds
 End
 
+
+Definition compose_types_def:
+  (compose_types t [] = t) ∧
+  compose_types t (t'::ts) = compose_types (Cons t t') ts
+End
+
 (* nm_map maps type-operator names to their indices in the typing
    signature/map; the arg_map maps type variables (the vector vs after
    something like data Op vs = ...) into integers
@@ -34,44 +39,61 @@ Definition translate_type_def:
   translate_type nm_map arg_map (tyOp (INR s) tys) =
   (if s = "Fun" then
      do
-       assert (LENGTH tys <= 2);
        args <- OPT_MMAP (translate_type nm_map arg_map) tys;
-       return $ TypeCons (INR Function) args
+       return $ compose_types (Atom $ TypeCons (INR Function)) args
      od
-   else if s = "Bool" then do assert (tys = []); return $ PrimTy Bool; od
-   else if s = "Integer" then do assert (tys = []); return $ PrimTy Integer od
-   else if s = "String" then do assert (tys = []); return $ PrimTy String od
-   else if s = "IO" then do assert (LENGTH tys <= 1);
+   else if s = "Bool" then do assert (tys = []); return $ Atom $ PrimTy Bool; od
+   else if s = "Integer" then do assert (tys = []); return $ Atom $ PrimTy Integer od
+   else if s = "String" then do assert (tys = []); return $ Atom $ PrimTy String od
+   else if s = "IO" then do
                             t <- OPT_MMAP (translate_type nm_map arg_map) tys;
-                            return $ TypeCons (INR M) t;
+                            return $ compose_types (Atom $ TypeCons (INR M)) t;
                          od
-   else if s = "Array" then do assert (LENGTH tys <= 1);
+   else if s = "Array" then do
                                t <- OPT_MMAP (translate_type nm_map arg_map) tys;
-                               return $ TypeCons (INR Array) t;
+                               return $ compose_types (Atom $ TypeCons (INR Array)) t;
                             od
   else
      do
-       opidx <- lookup nm_map (implode s) ;
-       args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
-       return $ TypeCons (INL opidx) args
+       opidx <- lookup nm_map (implode s);
+       args <- OPT_MMAP (translate_type nm_map arg_map) tys;
+       return $ compose_types (Atom $ TypeCons (INL opidx)) args
      od) ∧
   translate_type nm_map arg_map (tyVarOp s tys) =
   do
     varidx <- lookup arg_map (implode s);
     args <- OPT_MMAP (translate_type nm_map arg_map) tys ;
-    return $ VarTypeCons varidx args
+    return $ compose_types (Atom $ VarTypeCons varidx) args
   od ∧
   translate_type nm_map arg_map (tyOp (INL n) tys) =
   do
     args <- OPT_MMAP (translate_type nm_map arg_map) tys;
-    return $ TypeCons (INR $ Tuple n) args;
+    return $ compose_types (Atom $ TypeCons (INR $ Tuple n)) args;
   od
 Termination
-  WF_REL_TAC ‘measure (λ(_,_,ty). tyAST_size ty)’ >> rw[] >>
-  rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >> gvs[tyAST_size_def] >>
-  rename [‘LENGTH tys = _’] >> Cases_on ‘tys’ >>
-  gvs[tyAST_size_def, listTheory.oEL_def]
+  WF_REL_TAC ‘measure (λ(_,_,ty). tyAST_size ty)’
 End
+
+(* for translator's sake *)
+Definition translate_typel_def[simp]:
+  translate_typel nm_map arg_map [] = SOME [] ∧
+  translate_typel nm_map arg_map (h::t) =
+  do
+    ty <- translate_type nm_map arg_map h ;
+    tys <- translate_typel nm_map arg_map t ;
+    return (ty::tys)
+  od
+End
+
+Theorem OPT_MMAP_translate_type:
+  OPT_MMAP (translate_type nm_map arg_map) =
+  translate_typel nm_map arg_map
+Proof
+  simp[FUN_EQ_THM] >> Induct >> simp[]
+QED
+
+Theorem translate_this_translate_type =
+  SRULE [OPT_MMAP_translate_type, SF ETA_ss] translate_type_def
 
 Definition translate_predtype_def:
    translate_predtype nm_map arg_map (Predty preds ty) = do
@@ -100,28 +122,6 @@ Definition translate_predtype_scheme_def:
     return (n,t)
   od
 End
-
-(* for translator's sake *)
-Definition translate_typel_def[simp]:
-  translate_typel nm_map arg_map [] = SOME [] ∧
-  translate_typel nm_map arg_map (h::t) =
-  do
-    ty <- translate_type nm_map arg_map h ;
-    tys <- translate_typel nm_map arg_map t ;
-    return (ty::tys)
-  od
-End
-
-Theorem OPT_MMAP_translate_type:
-  OPT_MMAP (translate_type nm_map arg_map) =
-  translate_typel nm_map arg_map
-Proof
-  simp[FUN_EQ_THM] >> Induct >> simp[]
-QED
-
-Theorem translate_this_translate_type =
-  SRULE [OPT_MMAP_translate_type, SF ETA_ss] translate_type_def
-
 
 Overload str_compare = “mlstring$compare”
 
@@ -227,7 +227,7 @@ End
 Definition translate_headop_def:
   (* if we find that t is a cop, we will drop the type t *)
   (* t' is an user-annotated type of the result of the application *)
-  (translate_headop (pure_tcexp$Var t s) t' =
+  (translate_headop (typeclass_tcexp$Var t s) t' =
    let opopt =
        if strlen s = 1 then
          case strsub s 0 of
@@ -281,7 +281,7 @@ Definition mkLam_def:
   mkLam t vs e = Lam t vs e
 End
 
-Overload Bind = “λa1 a2. pure_tcexp$Prim NONE (Cons «Bind») [a1;a2]”
+Overload Bind = “λa1 a2. typeclass_tcexp$Prim NONE (Cons «Bind») [a1;a2]”
 
 Definition case_then_map_def:
   case_then_map NONE f = SOME NONE ∧
@@ -291,57 +291,66 @@ Definition case_then_map_def:
   od
 End
 
+Definition translate_args_def:
+  translate_args nm_map args =
+    OPT_MMAP (λ(pat,pty). do
+      pat' <- dest_pvar pat ;
+      pt' <- case_then_map pty $ translate_type nm_map empty ;
+      return (pat',pt')
+    od) args 
+End
+
 Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
   translate_exp nm_map tyinfo (expVar s t) =
   do
-    t' <- case_then_map t $ translate_predtype nm_map empty ;
-    return (pure_tcexp$Var t' $ implode s)
+    t' <- case_then_map t $ translate_type nm_map empty ;
+    return (typeclass_tcexp$Var t' $ implode s)
   od ∧
   translate_exp nm_map tyinfo (expCon s es t) =
   do
     rs <- OPT_MMAP (translate_exp nm_map tyinfo) es;
-    t' <- case_then_map t $ translate_predtype nm_map empty;
+    t' <- case_then_map t $ translate_type nm_map empty;
     SOME (Prim t' (Cons $ implode s) rs)
   od ∧
   translate_exp nm_map tyinfo (expOp op es t) =
   do
     rs <- OPT_MMAP (translate_exp nm_map tyinfo) es;
-    t' <- case_then_map t $ translate_predtype nm_map empty;
+    t' <- case_then_map t $ translate_type nm_map empty;
     return (Prim t' (AtomOp op) rs)
   od ∧
   translate_exp nm_map tyinfo (expTup es t) =
   do
     rs <- OPT_MMAP (translate_exp nm_map tyinfo) es;
-    t' <- case_then_map t $ translate_predtype nm_map empty;
+    t' <- case_then_map t $ translate_type nm_map empty;
     SOME (Prim t' (Cons «») rs)
   od ∧
   translate_exp nm_map tyinfo (expApp fe xe t) =
   do
     (fe0, es) <<- strip_comb fe ;
     f <- translate_exp nm_map tyinfo fe0 ;
-    t' <- case_then_map t $ translate_predtype nm_map empty ;
+    t' <- case_then_map t $ translate_type nm_map empty ;
     lhs <- translate_headop f t';
     args <- OPT_MMAP (translate_exp nm_map tyinfo) (es ++ [xe]) ;
     SOME (lhs args)
   od ∧
   (translate_exp nm_map tyinfo (expAbs p aty e ty) =
-   let aty = (case_then_map aty $ translate_predtype nm_map empty) in
-   let ty = (case_then_map ty $ translate_predtype nm_map empty) in
+   let aty = (case_then_map aty $ translate_type nm_map empty) in
+   let ty = (case_then_map ty $ translate_type nm_map empty) in
    case p of
      patVar n => do
                   aty' <- aty ;
                   ty' <- ty ;
                   body <- translate_exp nm_map tyinfo e ;
-                  SOME (Lam ty' [(aty',implode n)] body)
+                  SOME (Lam ty' [(implode n,aty')] body)
                 od
    | _ => do
            ty' <- ty ;
            ce <- translate_patcase tyinfo «» p e;
-           SOME (Lam ty' [(ARB,«»)] ce)
+           SOME (Lam ty' [(«»,NONE)] ce)
          od) ∧
   (translate_exp nm_map tyinfo (expIf g t e ty) =
    do
-     ty' <- case_then_map ty $ translate_predtype nm_map empty;
+     ty' <- case_then_map ty $ translate_type nm_map empty;
      gc <- translate_exp nm_map tyinfo g ;
      tc <- translate_exp nm_map tyinfo t ;
      ec <- translate_exp nm_map tyinfo e ;
@@ -355,14 +364,14 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
    do
      recbinds <- translate_edecs nm_map tyinfo empty empty ds;
      bodyce <- translate_exp nm_map tyinfo body;
-     ty' <- case_then_map bty $ translate_predtype nm_map empty ;
-     SOME (Letrec ty' recbinds bodyce)
+     ty' <- case_then_map bty $ translate_type nm_map empty ;
+     SOME (typeclass_tcexp$Letrec ty' recbinds bodyce)
    od) ∧
    (translate_exp nm_map tyinfo (expCase ge pats t) =
    do
      assert (¬NULL pats);
      g <- translate_exp nm_map tyinfo ge;
-     t' <- case_then_map t $ translate_predtype nm_map empty ;
+     t' <- case_then_map t $ translate_type nm_map empty ;
      (pats',usopt) <<-
         case LAST pats of
           (patUScore, ue) => (FRONT pats, SOME ue)
@@ -380,7 +389,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
                          return $ pes ++ [(cepatUScore,e)]
                       od ;
      (pat,e) <<- HD cepats;
-     return $ pure_tcexp$NestedCase t' g «» pat e (TL cepats)
+     return $ typeclass_tcexp$NestedCase t' g «» pat e (TL cepats)
    od) ∧
 
   (translate_exp nm_map tyinfo (expDo dostmts finalexp) =
@@ -392,7 +401,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
        do
          e <- translate_exp nm_map tyinfo ee;
          rest <- translate_exp nm_map tyinfo (expDo reste finalexp) ;
-         return (Bind e $ Lam NONE [NONE,«»] rest)
+         return (Bind e $ Lam NONE [«»,NONE] rest)
        od
    | expdostmtBind pe ee :: reste =>
        do
@@ -401,13 +410,13 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
              do
                e <- translate_exp nm_map tyinfo ee ;
                rest <- translate_exp nm_map tyinfo (expDo reste finalexp) ;
-               return (Bind e $ Lam NONE [NONE,implode n] rest)
+               return (Bind e $ Lam NONE [implode n,NONE] rest)
              od
          | patUScore =>
              do
                e <- translate_exp nm_map tyinfo ee ;
                rest <- translate_exp nm_map tyinfo (expDo reste finalexp) ;
-               return (Bind e $ Lam NONE [NONE,«»] rest)
+               return (Bind e $ Lam NONE [«»,NONE] rest)
              od
          | _ => NONE (*
              do
@@ -431,11 +440,11 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
 
   (translate_edecs nm_map tyinfo sigs funcs [] =
   do
-    assert $ all (λname _ . lookup funcs name ≠ NONE) sigs;
+    assert $ all (λname x. lookup funcs name ≠ NONE) sigs;
     return $ foldrWithKey (λname func binds.
         case lookup sigs name of
-        | SOME t => (SOME t, name, func) :: binds
-        | NONE => (NONE, name, func)::binds
+        | SOME t => ((name, SOME t), func) :: binds
+        | NONE => ((name, NONE), func)::binds
       ) [] funcs;
   od) ∧
   (translate_edecs nm_map tyinfo sigs funcs (d::ds) =
@@ -458,11 +467,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
    | expdecFunbind s args body =>
        do
          assert (lookup funcs (implode s) = NONE);
-         vs <- OPT_MMAP (λ(pat,pty). do
-             pat' <- dest_pvar pat ;
-             pt' <- case_then_map pty $ translate_predtype nm_map empty ;
-             return (pt',pat')
-           od) args ;
+         vs <- translate_args nm_map args;
          bce <- translate_exp nm_map tyinfo body ;
          funcs' <<- insert funcs (implode s) (mkLam NONE vs bce) ;
          translate_edecs nm_map tyinfo sigs funcs' ds;
@@ -470,7 +475,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
 Termination
   WF_REL_TAC
   ‘measure (λs. case s of
-                  INL (_,_, e) => pureAST$expAST_size e
+                  INL (_,_, e) => typeclassAST$expAST_size e
                 | INR (_,_,_,_, ds) => list_size expdecAST_size ds)’ >>
   rw[] >> simp[] >>
   rpt (qpat_x_assum ‘_ = strip_comb _’ (assume_tac o SYM)) >>~-
@@ -561,70 +566,111 @@ Proof
   gvs[FORALL_AND_THM, listTheory.MEM_FILTER]
 QED
 
-Datatype:
-  classinfo_impl =
-    <| super : mlstring list
-     ; kind : Kind option
-     ; methodsig : (cvname, PredType) mlmap$map
-     ; minImp : minImplAST
-     ; defaults : (cvname, tcexp) mlmap$map |>
-End
-
-Datatype:
-  instinfo_impl =
-    <| cstr : (mlstring # num) list (* class and type variable*)
-     ; impl : (cvname, tcexp) mlmap$map |> (* function name and its expression *)
-End
-
-Type class_map_impl = ``:(mlstring, classinfo_impl) map``;
-Type inst_map_impl = ``:(mlstring, (type # instinfo_impl) list) map``;
 Type sig_map_impl = ``:(mlstring, PredType) map``;
-
-Definition to_class_map_def:
-  to_class_map (m:class_map_impl) = FMAP_MAP2 (λ(k,x).
-    <| super := x.super
-     ; kind := x.kind
-     ; methodsig := to_fmap x.methodsig
-     ; minImp := x.minImp
-     ; defaults := to_fmap x.defaults |>) (to_fmap m)
-End
-
-Definition to_inst_map_def:
-  to_inst_map (m:inst_map_impl) =
-    FMAP_MAP2 (λ(k1,l).
-      MAP (λ(k2,x). (k2, <|cstr := x.cstr; impl := to_fmap x.impl|>)) l)
-    (to_fmap m)
-End
 
 Definition add_pred_def:
   add_pred p (Pred ps t) = Pred (p::ps) t
 End
 
+Definition collect_type_vars_impl_def:
+   (collect_type_vars_impl (Cons t1 t2) =
+    union (collect_type_vars_impl t1)
+      (collect_type_vars_impl t2)) ∧
+  (collect_type_vars_impl (Atom $ VarTypeCons v) =
+    insert (empty numOrd) v ()) /\
+  (collect_type_vars_impl _ = empty numOrd)
+End
+
+Theorem map_ok_collect_type_vars_impl:
+  map_ok (collect_type_vars_impl t) ∧
+  cmp_of (collect_type_vars_impl t) = numOrd
+Proof
+  Induct_on `t` >>
+  rw[] >>
+  simp[Once $ oneline collect_type_vars_impl_def,union_thm] >>
+  CASE_TAC >>
+  simp[empty_thm,totoTheory.TO_numOrd,insert_thm]
+QED
+
+Theorem collect_type_vars_impl_thm:
+  (lookup (collect_type_vars_impl t) v = SOME ()) ⇔
+  v ∈ collect_type_vars t
+Proof
+  Induct_on `t` >>
+  rw[] >>
+  simp[Once $ oneline collect_type_vars_impl_def,
+    Once $ oneline collect_type_vars_def]
+  >- (
+    CASE_TAC >>
+    DEP_REWRITE_TAC[lookup_thm] >>
+    simp[empty_thm,totoTheory.TO_numOrd,insert_thm,
+      FLOOKUP_UPDATE]
+  ) >>
+  DEP_REWRITE_TAC[pure_varsTheory.lookup_union] >>
+  simp[map_ok_collect_type_vars_impl] >>
+  TOP_CASE_TAC >> gvs[]
+QED
+
+Theorem collect_type_vars_impl_NONE_thm:
+  (lookup (collect_type_vars_impl t) v = NONE) ⇔ 
+  v ∉ collect_type_vars t
+Proof
+  Cases_on `lookup (collect_type_vars_impl t) v` >>
+  rw[] >>
+  rpt strip_tac
+  >- (drule $ iffRL collect_type_vars_impl_thm >> gvs[]) >>
+  Cases_on `x` >>
+  drule $ iffLR collect_type_vars_impl_thm >> gvs[]
+QED
+
+Definition no_pred_contains_def:
+  no_pred_contains v (Pred ps t) =
+    EVERY (λ(c,t). lookup (collect_type_vars_impl t) v = NONE) ps
+End
+
+Theorem no_pred_contains_thm:
+  (no_pred_contains v (Pred ps t)) ⇔
+  (∀c t. MEM (c,t) ps ⇒ v ∉ collect_type_vars t)
+Proof
+  rw[no_pred_contains_def,EVERY_MEM,EQ_IMP_THM]
+  >- (res_tac >> fs[collect_type_vars_impl_NONE_thm]) >>
+  pairarg_tac >> gvs[] >>
+  res_tac >> gvs[collect_type_vars_impl_NONE_thm]
+QED
+
 (* sig_map contains all top level function signatures,
 * meths contains signatures of the methods in the class, and
 * impls contains default implmentations *)
 (* NOTE: 0 in arg_map represents the class instance *)
+(* We do not allow the class variable to be in the constraints of the
+* method (see ConstrainedClassMethods in Haskell) *)
 Definition extract_class_expdec_def:
   (extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls [] =
-    SOME (meths,impls)) ∧
+    SOME (sig_map,meths,impls)) ∧
   (extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls (expdecTysig s predty::decs) = do
+      (* first check no other functions has used the same function name *)
       s <<- implode s;
       assert (mlmap$lookup sig_map s = NONE);
-      (* 0 is reserved *)
+      (* 0 is reserved for the class variable *)
       (_,pred') <- translate_predtype_scheme nm_map arg_map 1 predty;
+      (* we do not allow constraints on the class variable *)
+      assert $ no_pred_contains 0 pred';
       meths' <<- insert meths s pred';
       sig_map <<- insert sig_map s
-        (add_pred (clname,VarTypeCons 0 []) pred');
+        (add_pred (clname,Atom $ VarTypeCons 0) pred');
       extract_class_expdec nm_map arg_map tyinfo clname sig_map meths' impls decs;
     od) ∧
   (extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls (expdecFunbind s args exps::decs) = do
       s <<- implode s;
+      assert (lookup sig_map s ≠ NONE);
       assert (mlmap$lookup impls s = NONE);
-      impl <- translate_exp nm_map tyinfo exps;
+      vs <- translate_args nm_map args;
+      bce <- translate_exp nm_map tyinfo exps;
+      impl <<- mkLam NONE vs bce;
       impls' <<- insert impls s impl;
       extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls' decs;
     od) ∧
-  (* ignore expdecPatbind *)
+  (* rejects expdecPatbind *)
   extract_class_expdec nm_map arg_map tyinfo clname sig_map meths impls (_ :: decs) = NONE
 End
 
@@ -634,7 +680,9 @@ Definition extract_inst_expdec_def:
     (expdecFunbind s args exps::ds) = do
       s <<- implode s;
       assert (mlmap$lookup impls s = NONE);
-      meth <- translate_exp nm_map tyinfo exps;
+      vs <- translate_args nm_map args;
+      bce <- translate_exp nm_map tyinfo exps;
+      meth <<- mkLam NONE vs bce;
       extract_inst_expdec nm_map arg_map tyinfo (insert impls s meth) ds;
     od) ∧
   (* raise error for both expdecTysig and expdecPatbind *)
@@ -651,6 +699,13 @@ Definition to_FuncDecl_def:
       return (insert m name $ FuncDecl sig func);
     od) (toAscList func_map) empty;
   od
+End
+
+Definition translate_tycons_def:
+  translate_tycons (INL n) = INR (Tuple n) ∧
+  translate_tycons (INR s) =
+  if s = "Fun" then INR Function
+  else if s = "Bool" then Pr
 End
 
 (* passes over declarations;
@@ -678,28 +733,26 @@ Definition translate_decs_def:
     (declClass spcls cl v minimpl exps :: ds) =
   do
     minimpl <<- MAP (MAP implode) minimpl;
+    assert $ EVERY ALL_DISTINCT minimpl;
     clname <<- implode cl;
     assert (lookup cl_map clname = NONE);
-    (* assert $ EVERY ALL_DISTINCT minimpl; *)
-    (msigs,defimpl) <- extract_class_expdec nm_map
+    (sig_map',msigs,defimpl) <- extract_class_expdec nm_map
       (insert empty (implode v) 0) tyinfo clname sig_map empty empty exps;
-    (* assert $ FEVERY (λ(funname,_). funname IN FDOM msigs) defimpl; *)
-    (* assert $ EVERY (EVERY (λx. x IN FDOM msigs)) minimpl; *)
-    cl_map <<- insert cl_map clname (* mlstring *)
+    assert $ EVERY (EVERY (λs. lookup s msigs ≠ NONE)) minimpl;
+    cl_map' <<- insert cl_map clname (* mlstring *)
       <| super := MAP implode spcls
        ; kind := NONE
        (* do kind inference after collection all the classinfos *)
        ; methodsig := msigs
        ; minImp := minimpl
        ; defaults := defimpl|>;
-    translate_decs nm_map tyinfo sig_map cl_map inst_map func_map ds
+    translate_decs nm_map tyinfo sig_map' cl_map' inst_map func_map ds
   od ∧
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
-    (declInst constraints cl ty exps :: ds) =
+    (declInst constraints cl tc vs exps :: ds) =
   do
-    (arg_map,max_v) <<- build_arg_map empty 0 ty ;
-    assert $ max_v = 1; (* check if there is only 1 type variable in the type *)
-    t <- translate_type nm_map arg_map ty ;
+    assert $ ALL_DISTINCT vs;
+    t <- translate_type nm_map arg_map tc ;
     impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps ;
     cstr' <- OPT_MMAP (λ(c,v). do
         v' <- lookup arg_map (implode v) ;
@@ -722,11 +775,7 @@ Definition translate_decs_def:
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
     (declFunbind s args body :: ds) =
   do
-    vs <- OPT_MMAP (λ(pat,pty). do
-               pat' <- dest_pvar pat ;
-               pt' <- case_then_map pty $ translate_predtype nm_map empty ;
-               return (pt',pat')
-             od) args ;
+    vs <- translate_args nm_map args;
     bce <- translate_exp nm_map tyinfo body ;
     func_map <<- insert func_map (implode s) (mkLam NONE vs bce);
     translate_decs nm_map tyinfo sig_map cl_map inst_map func_map ds
@@ -784,7 +833,7 @@ QED
 
 (* unused *)
 Definition freevars_tcexp_impl_def:
-  freevars_tcexp_impl (pure_tcexp$Var c v) = insert empty v () ∧
+  freevars_tcexp_impl (typeclass_tcexp$Var c v) = insert empty v () ∧
   freevars_tcexp_impl (Prim c op es) = freevars_tcexp_impl_l es ∧
   freevars_tcexp_impl (App c e es) =
     union (freevars_tcexp_impl e) (freevars_tcexp_impl_l es) ∧
@@ -999,7 +1048,7 @@ Definition contains_def:
 End
 
 Definition closed_under_def:
-  closed_under vs (pure_tcexp$Var c v) = contains vs v ∧
+  closed_under vs (typeclass_tcexp$Var c v) = contains vs v ∧
   closed_under vs (Prim c op es) = EVERY (closed_under vs) es ∧
   closed_under vs (App c e es) = (closed_under vs e ∧ EVERY (closed_under vs) es) ∧
   closed_under vs (Lam c xs e) = closed_under (list_insert_set vs (MAP SND xs)) e ∧

@@ -10,8 +10,11 @@ val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
 
    The tyTup constructor should never be applied to a singleton list
 *)
+
+Type ty_consAST = ``:num + string``;
+
 Datatype:
-  tyAST = tyOp (num + string) (tyAST list) (* INL for Tuple *)
+  tyAST = tyOp ty_consAST (tyAST list) (* INL for Tuple *)
         | tyVarOp string (tyAST list)
 End
 
@@ -37,21 +40,22 @@ Datatype:
 End
 
 Datatype:
-  expAST = expVar string (PredtyAST option)
-         | expCon string (expAST list) (PredtyAST option)
-         | expOp pure_config$atom_op (expAST list) (PredtyAST option)
-         | expTup (expAST list) (PredtyAST option)
-         | expApp expAST expAST (PredtyAST option)
-         | expAbs patAST (PredtyAST option) expAST (PredtyAST option)
-         | expIf expAST expAST expAST (PredtyAST option)
+  expAST = expVar string (tyAST option)
+         | expCon string (expAST list) (tyAST option)
+         | expOp pure_config$atom_op (expAST list) (tyAST option)
+         | expTup (expAST list) (tyAST option)
+         | expApp expAST expAST (tyAST option)
+         | expAbs patAST (tyAST option) expAST (tyAST option)
+         | expIf expAST expAST expAST (tyAST option)
          | expLit litAST (* do not need type sig *)
-         | expLet (expdecAST list) expAST (PredtyAST option)
+         | expLet (expdecAST list) expAST (tyAST option)
          | expDo (expdostmtAST list) expAST
-         | expCase expAST ((patAST # expAST) list) (PredtyAST option);
+         | expCase expAST ((patAST # expAST) list) (tyAST option);
   expdecAST = expdecTysig string PredtyAST
             | expdecPatbind patAST expAST
-          (* if users would like to type annotate a function, use expdecTysig *)
-            | expdecFunbind string ((patAST # (PredtyAST option)) list) expAST ;
+          (* if users would like to type annotate a function with
+          * poly-types, use expdecTysig *)
+            | expdecFunbind string ((patAST # (tyAST option)) list) expAST ;
   expdostmtAST = expdostmtExp expAST
                | expdostmtBind patAST expAST
                | expdostmtLet (expdecAST list)
@@ -114,20 +118,26 @@ Type minImplAST = ``:(string list) list``; (* DNF of function names*)
 * we only allow the constraints to be
 * ``instance (Cl1 a,Cl2 b,...) => Cl ty``,
 * where ty can be any type that uses a, b...
-* We need to ensure ty is not smaller or equal to a,b...for termination.
-* In our case, we only need to ensure there is not a tyVar
+* This ensures that ty is not smaller or equal to a,b...,
+* which let us prove the termination of typeclass resolution.
 *)
 
 Datatype:
   declAST = declTysig string PredtyAST
           | declData string (string list)
                      ((string # tyAST list) list)
-          | declFunbind string ((patAST # (PredtyAST option)) list) expAST
+          | declFunbind string ((patAST # (tyAST option)) list) expAST
           | declPatbind patAST expAST
           | declClass (classname list) classname string minImplAST (expdecAST list)
             (* enforce type sigs for functions definintion in class *)
-          | declInst ((classname # string) list) classname tyAST (expdecAST list)
+          | declInst
+              (* constraints: list of class and variables *)
+              ((classname # string) list)
+              classname
+              (* type must be in the form `C v1 v2 ...`,
+               * where C is a type constructor *)
+              ty_consAST (string list)
+              (expdecAST list)
 End
-(* should we enforce type sig for all top level funcs? *)
 
 val _ = export_theory();

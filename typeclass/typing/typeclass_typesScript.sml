@@ -18,12 +18,17 @@ Datatype:
 End
 
 Datatype:
+  built_in_ty = Prim prim_ty | CompPrim comp_prim_ty
+End
+
+(* concrete type constructor:
+* INL: user-defined types, INR: built-in types *)
+Type ty_cons = ``:num + built_in_ty``;
+
+Datatype:
   atom_ty =
-      | PrimTy prim_ty
       | Exception
-      | TypeCons (num + comp_prim_ty)
-      (* concrete type constructor:
-      * INL: user-defined types, INR: built-in types *)
+      | TypeCons ty_cons 
       | VarTypeCons num
       (* variable type constructor *)
       (* eg. fmap :: (a -> b) -> f a -> f b *)
@@ -42,7 +47,9 @@ Datatype:
     (* e.g. Monad m, Monad m2, Functor f => m1 (f a) -> m2 a *)
 End
 
-Overload Unit = ``Atom $ TypeCons (INR $ Tuple 0)``;
+Overload PrimTy = ``\x. TypeCons (INR $ Prim x)``;
+Overload CompPrimTy = ``\x. TypeCons (INR $ CompPrim x)``;
+Overload Unit = ``Atom $ CompPrimTy $ Tuple 0``;
 Overload TypeVar = ``\x. Atom (VarTypeCons x)``;
 Overload UserType = ``\x. Atom (TypeCons $ INL x)``;
 Type type_scheme[pp] = ``:num # type``;
@@ -95,7 +102,7 @@ Definition Functions_def:
   Functions [] t = t ∧
   Functions (at::ats) t =
     Cons
-      (Cons (Atom $ TypeCons $ INR Function) at) $
+      (Cons (Atom $ CompPrimTy Function) at) $
       Functions ats t
 End
 
@@ -110,12 +117,5 @@ End
 
 Overload freetyvars_ok_scheme =
   ``λn (vars,scheme). freetyvars_ok (n + vars) scheme``;
-
-Definition alpha_equiv_def:
-  alpha_equiv t t' ⇔
-  (∃ts. tsubst ts t = t' ∧
-  ∀ty. MEM ty ts ⇒ ∃v. ty = Atom (VarTypeCons v)) 
-End
-
 
 val _ = export_theory();

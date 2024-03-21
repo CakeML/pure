@@ -7,10 +7,7 @@ open typeclass_unificationTheory typeclass_typesTheory;
 (* typeclass_typingTheory *)
 open typeclass_inference_commonTheory;
 
-val _ = new_theory "typeclass_specialization";
-
-val _ = monadsyntax.enable_monadsyntax()
-val _ = monadsyntax.enable_monad "option"
+val _ = new_theory "typeclass_specialize";
 
 Definition VarType_to_CVar_def:
   (VarType_to_CVar (iAtom (VarTypeCons v)) = iCVar v) ∧

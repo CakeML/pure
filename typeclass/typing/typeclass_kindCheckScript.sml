@@ -31,17 +31,17 @@ Inductive kind_wf:
 [~TyConsFunction:]
    kind_wf cdb vdb
      (kindArrow kindType $ kindArrow kindType kindType)
-     (Atom $ TypeCons (INR Function))
+     (Atom $ CompPrimTy Function)
 [~TypeConsArray:]
    kind_wf cdb vdb (kindArrow kindType kindType)
-     (Atom $ TypeCons (INR Array))
+     (Atom $ CompPrimTy Array)
 [~TypeConsM:]
    kind_wf cdb vdb (kindArrow kindType kindType)
-     (Atom $ TypeCons (INR M))
+     (Atom $ CompPrimTy M)
 [~TypeConsTuple:]
    ∀n.
      kind_wf cdb vdb (kind_arrows (GENLIST (K kindType) n) kindType)
-       (Atom $ TypeCons (INR $ Tuple n))
+       (Atom $ CompPrimTy $ Tuple n)
 [~Cons:]
    ∀k1 k2 t1 t2.
      kind_wf cdb vdb (kindArrow k1 k2) t1 ∧

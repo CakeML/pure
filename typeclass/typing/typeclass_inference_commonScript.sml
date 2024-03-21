@@ -11,7 +11,7 @@ Datatype:
         | iCVar num
 End
 
-Overload Unit = ``iAtom $ TypeCons (INR $ Tuple 0)``;
+Overload Unit = ``iAtom $ CompPrimTy $ Tuple 0``;
 Overload IntTy = ``iAtom $ PrimTy Integer``;
 Overload BoolTy = ``iAtom $ PrimTy Bool``;
 Overload StrTy = ``iAtom $ PrimTy String``;
@@ -19,7 +19,7 @@ Overload StrTy = ``iAtom $ PrimTy String``;
 Definition iFunctions_def:
   iFunctions [] t = t ∧
   iFunctions (at::ats) t =
-    iCons (iCons (iAtom (TypeCons $ INR Function)) at) $ iFunctions ats t
+    iCons (iCons (iAtom (CompPrimTy Function)) at) $ iFunctions ats t
 End
 
 Definition freedbvars_def:
@@ -77,23 +77,25 @@ Definition itype_of_def:
   itype_of (Cons t1 t2) = iCons (itype_of t1) (itype_of t2)
 End
 
-Definition itype_of_scheme_def:
-  itype_of_scheme (v,Atom (VarTypeCons v')) =
-    if v' < v then iCVar v' else iAtom (VarTypeCons v') ∧
-  itype_of_scheme (v,Cons t1 t2) = iCons (itype_of_scheme (v,t1))
-  (itype_of_scheme (v,t2)) ∧
-  itype_of_scheme (v,t) = t
-End
-
 Definition type_of_def:
   type_of (iCons t1 t2) = lift2 Cons (type_of t1) (type_of t2) ∧
   type_of (iAtom at) = SOME $ Atom at ∧
   type_of (iCVar v) = NONE
 End
 
-Definition type_of_scheme_def:
-  
+(* only call the_type_of when there is no iCVar *)
+Definition the_type_of_def:
+  the_type_of (iCons t1 t2) = Cons (the_type_of t1) (the_type_of t2) ∧
+  the_type_of (iAtom at) = Atom at ∧
+  the_type_of (iCVar v) = Unit (* should never be called when there is CVar *)
 End
+
+Theorem type_of_the_type_of:
+  ∀t t'. type_of t = SOME t' ⇒ the_type_of t = t'
+Proof
+  Induct_on `t` >>
+  rw[type_of_def,the_type_of_def]
+QED
 
 val _ = export_theory();
 
