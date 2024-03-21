@@ -1100,12 +1100,35 @@ Definition by_super_def:
 End
 
 Theorem by_super_thm:
-  map_ok cl_map ∧ check_cl_map_no_cycles cl_map ⇒
-  (mlmap$lookup (by_super cl_map (c,t)) s = SOME v) ⇔
+  by_super cl_map (c,t) = SOME visited ⇒
+  (∀s v. (mlmap$lookup visited s = SOME v) ⇔
     (v = t ∧
-    (super_reachable (to_class_map cl_map) c s ∨ c = s))
+      (c = s ∨ super_reachable (to_class_map cl_map) c s)))
 Proof
-  rw[by_super_def,super_reachable_def] >>
+  simp[super_reachable_def,to_class_map_def,by_super_def,
+    FMAP_MAP2_THM,FLOOKUP_FMAP_MAP2,PULL_EXISTS,
+    GSYM RTC_CASES_TC] >>
+  strip_tac >>
+  `map_ok (empty mlstring$compare)` by
+    simp[mlmapTheory.empty_thm,mlstringTheory.TotOrd_compare] >>
+  simp[EQ_IMP_THM,FORALL_AND_THM] >>
+  conj_asm1_tac
+  >- (
+    rw[]
+    >- (
+      (drule_then $ drule_then irule) $
+        cj 1 by_super_aux_lookup_preserve_type >>
+      simp[mlmapTheory.lookup_thm,mlmapTheory.empty_thm] >>
+      metis_tac[]
+    ) >>
+    drule_all $ cj 1 by_super_aux_IMP_reachable >>
+    simp[mlmapTheory.lookup_thm,mlmapTheory.empty_thm]
+  ) >>
+  drule_then drule $ cj 1 super_reachable_IMP_by_super_aux >>
+  simp[mlmapTheory.lookup_thm,mlmapTheory.empty_thm] >>
+  rw[] >>
+  first_x_assum drule >>
+  metis_tac[]
 QED
 
 (* return a list of goals that the type has to satisfy in order
