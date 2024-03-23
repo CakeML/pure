@@ -332,6 +332,22 @@ Proof
   >- (irule bidir_Letrec >> simp[])
 QED
 
+Triviality LIST_REL_mem_rel_refl_pres[simp]:
+  LIST_REL (mem_rel pres) xs xs
+Proof
+  rw[LIST_REL_EL_EQN] >> irule mem_rel_refl >> simp[]
+QED
+
+Theorem pres_Binds:
+  LIST_REL (mem_rel pres) xs ys ∧ e1 ~~> e2
+    ⇒ Binds xs e1 ~~> Binds ys e2
+Proof
+  Induct_on `LIST_REL` >> rw[Binds_def] >>
+  Cases_on `h1` >> gvs[Binds_def]
+  >- (irule pres_Let >> simp[])
+  >- (irule pres_Letrec >> simp[])
+QED
+
 Theorem Binds_MEM:
   ∀xs e x.
     MEM e xs ∧ lets_ok xs ⇒ Binds xs x <--> Binds (xs ++ [e]) x
@@ -776,6 +792,19 @@ Inductive inline_rel:
 [~simp:]
   inline_rel l e1 e2 ∧ e2 <--> e2'
     ⇒ inline_rel l e1 e2'
+
+(* non-reversible cases *)
+[~freshen:]
+  freshen_cexp e1 avoid1 = (e2,avoid2) ∧
+  avoid_set_ok avoid1 e1 ∧ IMAGE explode (vars_of l) ⊆ set_of avoid1
+  ⇒ inline_rel l e1 e2
+
+[~Case_simp:]
+  ALOOKUP css cn = SOME (pvs,e) ∧
+  LENGTH es = LENGTH pvs ∧
+  explode cn ∉ monad_cns
+    ⇒ inline_rel l (Case d (pure_cexp$Prim d' (Cons cn) es) x css usopt)
+                   (Let d x (Prim d' (Cons cn) es) $ Lets d (ZIP (pvs,es)) e)
 End
 
 (*---------------------------------------------------------------------------*
@@ -958,6 +987,42 @@ Proof
   >- (
     irule pres_trans >> first_x_assum $ irule_at Any >> simp[] >>
     irule pres_bidir >> irule bidir_Binds >> rw[]
+    )
+  >~ [`freshen_cexp`]
+  >- (
+    irule pres_Binds >> simp[] >>
+    irule pres_unidir >> drule_all unidir_freshen >> simp[]
+    )
+  >- (
+    irule pres_Binds >> simp[] >>
+    irule pres_unidir >> irule unidir_Case_simp >> simp[] >>
+    `css ≠ []` by (CCONTR_TAC >> gvs[]) >> pop_assum mp_tac >>
+    dxrule $ cj 1 $ iffLR pre_def >> qpat_x_assum `ALOOKUP _ _ = _` mp_tac >>
+    rpt $ pop_assum kall_tac >> ntac 3 strip_tac >>
+    gvs[MEM_MAP, DISJ_EQ_IMP, PULL_FORALL, AND_IMP_INTRO, SF CONJ_ss] >>
+    rpt gen_tac >> gvs[exp_of_def, COND_RAND] >>
+    qmatch_asmsub_abbrev_tac `COND _ _ (barendregt foo)` >>
+    gvs[barendregt_alt_def] >>
+    gvs[APPEND_EQ_CONS, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM,
+        RIGHT_AND_OVER_OR, LEFT_AND_OVER_OR] >>
+    unabbrev_all_tac >> conj_tac
+    >- (
+      simp[Once MONO_NOT_EQ] >> rw[] >> gvs[Once barendregt_alt_def, SF DNF_ss] >>
+      gvs[DECIDE ``A ∨ B ⇔ ¬B ⇒ A``, MEM_MAP, PULL_EXISTS] >>
+      gvs[allvars_thm, freevars_exp_of]
+      )
+    >- (
+      simp[Once MONO_NOT_EQ] >> rw[EVERY_MEM] >>
+      qmatch_asmsub_abbrev_tac `rows_of _ us css'` >>
+      `explode y ∈ boundvars (rows_of (explode x) us css')` by (
+        unabbrev_all_tac >> gvs[boundvars_rows_of, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+        disj2_tac >> imp_res_tac alistTheory.ALOOKUP_MEM >>
+        goal_assum $ drule_at Any >> simp[]) >>
+      gvs[op_of_def, SF ETA_ss, barendregt_alt_def, allvars_thm, SF DNF_ss] >>
+      qpat_x_assum `∀s. MEM _ (MAP allvars _) ⇒ DISJOINT (boundvars _) _` mp_tac >>
+      simp[MEM_MAP, allvars_thm, PULL_EXISTS] >> disch_then drule >>
+      simp[freevars_exp_of, DISJOINT_ALT] >> metis_tac[]
+      )
     )
 QED
 

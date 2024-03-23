@@ -11,7 +11,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
      pure_letrecProofTheory pure_demandTheory pure_letrec_delargTheory
      pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
-     pure_freshenTheory pure_freshenProofTheory;
+     pure_freshenTheory pure_freshenProofTheory pure_inline_cexpProofTheory;
 
 val exp_of_def = pureLangTheory.exp_of_def;
 val rows_of_def = pureLangTheory.rows_of_def;
@@ -36,6 +36,16 @@ Inductive unidir:
   (∀e1 e2 avoid1 avoid2.
     freshen_cexp e1 avoid1 = (e2,avoid2) ∧ avoid_set_ok avoid1 e1
     ⇒ unidir e1 e2)
+
+[~Case_simp:]
+  (∀es cn pvs e d d'.
+    ALOOKUP css cn = SOME (pvs,e) ∧
+    LENGTH es = LENGTH pvs ∧
+    explode cn ∉ monad_cns ∧
+    EVERY (λy. y ∉ freevars_cexp (Prim d' (Cons cn) es)) pvs ∧
+    x ∉ freevars_cexp (Prim d' (Cons cn) es)
+      ⇒ unidir (Case d (Prim d' (Cons cn) es) x css usopt)
+               (Let d x (pure_cexp$Prim d' (Cons cn) es) $ Lets d (ZIP (pvs,es)) e))
 End
 
 Overload "-->" = “unidir”
@@ -400,6 +410,41 @@ Proof
   Induct_on `unidir` >> rpt conj_tac >> rpt gen_tac >> strip_tac >>
   gvs[exp_of_def, NestedCase_free_def, letrecs_distinct_def, cexp_wf_def]
   >- (drule freshen_cexp_preserves_wf >> rw[])
+  >- (
+    conj_tac >> strip_tac
+    >- (
+      `NestedCase_free e` by (
+        imp_res_tac ALOOKUP_MEM >>
+        gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> res_tac) >>
+      pop_assum mp_tac >>
+      qpat_x_assum `EVERY _ es` mp_tac >> qpat_x_assum `LENGTH _ = LENGTH _` mp_tac >>
+      rpt $ pop_assum kall_tac >>
+      qid_spec_tac `pvs` >> Induct_on `es` >> rw[Lets_def] >>
+      Cases_on `pvs` >> gvs[Lets_def]
+      )
+    >- (
+      simp[Once COND_RAND, letrecs_distinct_rows_of] >> strip_tac >>
+      `letrecs_distinct (exp_of e)` by (
+        imp_res_tac ALOOKUP_MEM >>
+        gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> res_tac) >>
+      pop_assum mp_tac >>
+      qpat_x_assum `EVERY _ (_ es)` mp_tac >> qpat_x_assum `LENGTH _ = LENGTH _` mp_tac >>
+      rpt $ pop_assum kall_tac >> simp[EVERY_MAP] >>
+      qid_spec_tac `pvs` >> Induct_on `es` >> rw[Lets_def] >>
+      Cases_on `pvs` >> gvs[Lets_def, exp_of_def]
+      )
+    >- (
+      strip_tac >>
+      `cexp_wf e` by (
+        imp_res_tac ALOOKUP_MEM >>
+        gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> res_tac) >>
+      pop_assum mp_tac >>
+      qpat_x_assum `EVERY _ es` mp_tac >> qpat_x_assum `LENGTH _ = LENGTH _` mp_tac >>
+      rpt $ pop_assum kall_tac >> simp[EVERY_MAP] >>
+      qid_spec_tac `pvs` >> Induct_on `es` >> rw[Lets_def] >>
+      Cases_on `pvs` >> gvs[Lets_def, exp_of_def, cexp_wf_def]
+      )
+    )
 QED
 
 Theorem push_pull_imp_wf_preserved:
@@ -525,6 +570,120 @@ QED
    Proof of preservation of semantics
  *----------------------------------------------------------------------------*)
 
+Triviality exp_eq_If:
+  If (Cons "True" []) e1 e2 ≅ e1 ∧ If (Cons "False" []) e1 e2 ≅ e2
+Proof
+  rw[] >> irule eval_wh_IMP_exp_eq >> rw[subst_def, eval_wh_thm]
+QED
+
+Triviality lets_for_Lets:
+  lets_for cn x bs e = Lets (MAP (λ(i,v). (v, Proj cn i (Var x))) bs) e
+Proof
+  Induct_on `bs` >> rw[lets_for_def, pure_expTheory.Lets_def] >>
+  pairarg_tac >> gvs[lets_for_def, pure_expTheory.Lets_def]
+QED
+
+Theorem exp_eq_Case_simp:
+  ALOOKUP css cn = SOME (pvs,e) ∧
+  LENGTH es = LENGTH pvs ∧
+  ¬ MEM x (FLAT (MAP (FST o SND) css)) ∧
+  explode cn ∉ monad_cns
+  ⇒ exp_of (Case d (Prim d' (Cons cn) es) x css usopt) ≅
+    Let (explode x) (exp_of (Prim d' (Cons cn) es))
+      (Lets
+        (MAPi (λi v. (v,Proj (explode cn) i (Var $ explode x))) (MAP explode pvs))
+        (exp_of e))
+Proof
+  rw[exp_of_def, op_of_def] >> rename1 `rows_of _ us` >>
+  Induct_on `css` >> rw[] >> gvs[] >> pairarg_tac >> gvs[rows_of_def] >>
+  Cases_on `c = cn` >> gvs[]
+  >- (
+    irule_at Any exp_eq_trans >> irule_at Any Let_Prim >> simp[] >>
+    irule_at Any exp_eq_trans >> irule_at Any exp_eq_Prim_cong >> simp[PULL_EXISTS] >>
+    qexists `Prim (Cons "True") []` >> simp[GSYM PULL_EXISTS] >> conj_tac
+    >- (
+      irule eval_wh_IMP_exp_eq >> rw[subst_def] >>
+      rw[bind1_def, subst1_def, eval_wh_thm] >>
+      pop_assum mp_tac >> simp[EVERY_MAP, EVERY_MEM] >>
+      rw[] >> irule IMP_closed_subst >> gvs[IN_FRANGE_FLOOKUP] >>
+      gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
+      ) >>
+    ntac 2 $ irule_at Any exp_eq_refl >>
+    irule exp_eq_trans >> irule_at Any $ cj 1 exp_eq_If >>
+    irule exp_eq_App_cong >> simp[exp_eq_refl] >> irule exp_eq_Lam_cong >>
+    rw[lets_for_Lets, combinTheory.o_DEF, exp_eq_refl]
+    )
+  >- (
+    irule_at Any exp_eq_trans >> irule_at Any Let_Prim >> simp[] >>
+    irule_at Any exp_eq_trans >> irule_at Any exp_eq_Prim_cong >> simp[PULL_EXISTS] >>
+    qexists `Prim (Cons "False") []` >> simp[GSYM PULL_EXISTS] >> conj_tac
+    >- (
+      irule eval_wh_IMP_exp_eq >> rw[subst_def] >>
+      rw[bind1_def, subst1_def, eval_wh_thm] >>
+      pop_assum mp_tac >> simp[EVERY_MAP, EVERY_MEM] >>
+      rw[] >> irule IMP_closed_subst >> gvs[IN_FRANGE_FLOOKUP] >>
+      gvs[BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS]
+      ) >>
+    ntac 2 $ irule_at Any exp_eq_refl >>
+    irule exp_eq_trans >> irule_at Any $ cj 2 exp_eq_If >> simp[]
+    )
+QED
+
+Theorem Let_Lets:
+  ¬MEM x (MAP FST bs) ∧ EVERY (λy. y ∉ freevars e1) (MAP FST bs)
+  ⇒ Let x e1 (pure_exp$Lets bs e2) ≅ pure_exp$Lets (MAP (λ(y,e). (y, Let x e1 e)) bs) (Let x e1 e2)
+Proof
+  Induct_on `bs` >> rw[pure_expTheory.Lets_def, exp_eq_refl] >>
+  pairarg_tac >> gvs[pure_expTheory.Lets_def] >>
+  irule exp_eq_trans >> irule_at Any Let_App >>
+  irule exp_eq_App_cong >> simp[exp_eq_refl] >>
+  irule exp_eq_trans >> irule_at Any pure_inline_relTheory.Let_Lam >> simp[] >>
+  irule exp_eq_Lam_cong >> simp[]
+QED
+
+Theorem exp_eq_Lets_cong:
+  LIST_REL (λ(v1,e1) (v2,e2). v1 = v2 ∧ e1 ≅ e2) bs1 bs2 ∧ e1 ≅ e2
+  ⇒ Lets bs1 e1 ≅ Lets bs2 e2
+Proof
+  Induct_on `LIST_REL` >> rw[pure_expTheory.Lets_def] >>
+  rpt (pairarg_tac >> gvs[]) >> rw[pure_expTheory.Lets_def] >>
+  irule exp_eq_App_cong >> simp[] >> irule exp_eq_Lam_cong >> simp[]
+QED
+
+Theorem exp_eq_Let_Cons_lets_for[local]:
+  ∀pvs es e.
+  LENGTH pvs ≤ LENGTH es ∧ ¬MEM x pvs ∧
+  EVERY (λy. y ∉ freevars (Cons cn es)) pvs ∧ x ∉ freevars (Cons cn es)
+  ⇒
+  Let x (Cons cn es)
+    (Lets (MAPi (λi v. (v, Proj cn i (Var x))) pvs) e) ≅
+  Let x (Cons cn es) (Lets (ZIP (pvs,TAKE (LENGTH pvs) es)) e)
+Proof
+  Induct using SNOC_INDUCT >> rw[pure_expTheory.Lets_def, exp_eq_refl] >>
+  gvs[LE_LT1, ADD1] >> drule $ GSYM SNOC_EL_TAKE >> strip_tac >> gvs[ADD1] >>
+  gvs[SNOC_APPEND, GSYM ZIP_APPEND, Lets_APPEND, indexedListsTheory.MAPi_APPEND] >>
+  irule exp_eq_trans >> last_x_assum $ irule_at Any >> simp[pure_expTheory.Lets_def] >>
+  irule exp_eq_trans >> irule_at Any Let_Lets >> simp[MAP_ZIP] >>
+  irule $ iffLR exp_eq_sym >> irule exp_eq_trans >> irule_at Any Let_Lets >> simp[MAP_ZIP] >>
+  irule exp_eq_Lets_cong >>
+  irule_at Any $ iffRL LIST_REL_same >> simp[LAMBDA_PROD, exp_eq_refl] >>
+  simp[Once ELIM_UNCURRY] >>
+  irule exp_eq_trans >> irule_at Any Let_App >>
+  irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+  irule_at Any pure_inline_relTheory.Let_Lam >> simp[] >> irule_at Any exp_eq_refl >>
+  irule $ iffLR exp_eq_sym >>
+  irule exp_eq_trans >> irule_at Any Let_App >>
+  irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+  irule_at Any pure_inline_relTheory.Let_Lam >> simp[] >> irule_at Any exp_eq_refl >>
+  irule pure_inline_relTheory.exp_eq_Let_cong >> simp[exp_eq_refl] >>
+  irule eval_wh_IMP_exp_eq >> rw[subst_def, eval_wh_thm, bind1_def, subst1_def] >>
+  simp[EL_MAP] >> AP_TERM_TAC >> qmatch_goalsub_abbrev_tac `subst _ e` >>
+  `x ∉ freevars e` by (gvs[MEM_MAP, MEM_EL, PULL_FORALL] >> metis_tac[]) >>
+  simp[GSYM subst_fdomsub] >>
+  irule $ GSYM pure_inline_relTheory.subst1_notin >>
+  DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP]
+QED
+
 Theorem unidir_imp_exp_eq:
   ∀x y. (x --> y) ∧
     NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
@@ -535,6 +694,19 @@ Proof
   \\ fs [exp_of_def]
   >- (irule pure_demandTheory.Let_not_in_freevars \\ fs [])
   >- (drule_all freshen_cexp_correctness >> simp[])
+  >- (
+    IF_CASES_TAC >- gvs[cexp_wf_def] >>
+    irule exp_eq_trans >> irule_at Any $ SRULE [exp_of_def, LET_THM] exp_eq_Case_simp >>
+    simp[exp_of_Lets, op_of_def] >>
+    `¬MEM x pvs` by  (
+      gvs[MEM_FLAT, MEM_MAP, FORALL_PROD] >> imp_res_tac ALOOKUP_MEM >>
+      metis_tac[]) >>
+    irule_at Any exp_eq_trans >> irule_at Any exp_eq_Let_Cons_lets_for >> simp[] >>
+    simp[Once MEM_MAP, GSYM MAP_TAKE, SF ETA_ss] >>
+    `TAKE (LENGTH pvs) es = es` by gvs[] >> simp[exp_eq_refl] >>
+    gvs[EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, freevars_exp_of] >>
+    gvs[MEM_MAP, PULL_FORALL, DISJ_EQ_IMP]
+  )
 QED
 
 Theorem can_spec_arg_if_lemma[local]:
