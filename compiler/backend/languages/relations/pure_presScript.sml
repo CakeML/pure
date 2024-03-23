@@ -131,13 +131,15 @@ Inductive push_pull:
   push_pull (Letrec1 d1 x e1 (Letrec d2 fns e2))
             (Letrec d3 (MAP (λ(f,e). (f, Letrec1 d4 x e1 e)) fns) (Letrec1 d4 x e1 e2))
 [~Let_Case:]
-  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ∧ y ∉ freevars_cexp e1 ⇒
+  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ∧
+  y ∉ freevars_cexp e1 ∧ EVERY (λ(cn,pvs,e). DISJOINT (freevars_cexp e1) (set pvs)) css ⇒
   push_pull (Let d1 x e1 (Case d2 e2 y css usopt))
             (Case d3 (Let d4 x e1 e2) y
               (MAP (λ(cn,pvs,e). (cn,pvs,Let d4 x e1 e)) css)
               (OPTION_MAP (λ(cn_ars,e). (cn_ars, Let d4 x e1 e)) usopt))
 [~Letrec_Case:]
-  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ∧ y ∉ freevars_cexp e1 ⇒
+  x ≠ y ∧ EVERY (λ(cn,pvs,e). ¬ MEM x pvs) css ∧
+  y ∉ freevars_cexp e1 ∧ EVERY (λ(cn,pvs,e). DISJOINT (freevars_cexp e1) (set pvs)) css ⇒
   push_pull (Letrec1 d1 x e1 (Case d2 e2 y css usopt))
             (Case d3 (Letrec1 d4 x e1 e2) y
               (MAP (λ(cn,pvs,e). (cn,pvs,Letrec1 d4 x e1 e)) css)
@@ -653,6 +655,13 @@ Proof
     \\ gvs [o_DEF,MEM_MAP])
 QED
 
+Triviality exp_eq_Let_Fail[simp]:
+  Let x e Fail ≅ Fail ∧ Letrec [(x,e)] Fail ≅ Fail
+Proof
+  rw[] >> irule eval_wh_IMP_exp_eq >>
+  rw[eval_wh_thm, subst_def, subst_funs_def, bind_def]
+QED
+
 Theorem push_pull_imp_exp_eq:
   ∀x y. push_pull x y ⇒ exp_of x ≅ exp_of y
 Proof
@@ -718,19 +727,78 @@ Proof
     )
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> IF_CASES_TAC >> gvs[]
+    >- (irule_at Any eval_wh_IMP_exp_eq >> rw[subst_def, eval_wh_thm, bind1_def, subst1_def]) >>
+    irule exp_eq_trans >> irule_at Any Let_App >>
+    irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+    irule_at Any pure_inline_relTheory.Let_Lam >> simp[freevars_exp_of] >>
+    irule_at Any exp_eq_refl >>
+    irule_at Any exp_eq_App_cong >> simp[exp_eq_refl] >> irule exp_eq_Lam_cong >>
+    Induct_on `css` >> rw[] >> gvs[rows_of_def]
     >- (
-      irule exp_eq_trans >> qexists `Fail` >> rpt $ irule_at Any eval_wh_IMP_exp_eq >>
-      rw[subst_def, eval_wh_thm] >> rw[bind1_def, subst1_def, eval_wh_thm]
+      rpt (TOP_CASE_TAC >> gvs[]) >> simp[IfDisj_def] >>
+      irule exp_eq_trans >> irule_at Any Let_Prim >> simp[] >>
+      irule exp_eq_Prim_cong >> simp[exp_of_def, exp_eq_refl] >>
+      irule pure_demandTheory.Let_not_in_freevars >> simp[freevars_Disj] >>
+      CASE_TAC >> gvs[]
       ) >>
-    cheat
+    pairarg_tac >> gvs[] >>
+    irule exp_eq_trans >> irule_at Any Let_Prim >> simp[] >>
+    irule exp_eq_Prim_cong >> simp[exp_of_def] >> conj_tac
+    >- (irule pure_demandTheory.Let_not_in_freevars >> simp[]) >>
+    qmatch_goalsub_abbrev_tac `lets_for _ _ l` >>
+    `¬MEM (explode x) (MAP SND l)` by (
+      unabbrev_all_tac >> gvs[combinTheory.o_DEF] >> gvs[MEM_MAP]) >>
+    `DISJOINT (freevars (exp_of e1)) (set $ MAP SND l)` by (
+      unabbrev_all_tac >> gvs[combinTheory.o_DEF] >>
+      gvs[freevars_exp_of, DISJOINT_ALT, MEM_MAP] >> rw[] >> gvs[]) >>
+    ntac 2 $ pop_assum mp_tac >> ntac 2 $ last_x_assum mp_tac >>
+    rpt $ pop_assum kall_tac >> Induct_on `l` >> rw[lets_for_def, exp_eq_refl] >>
+    PairCases_on `h` >> gvs[lets_for_def] >>
+    irule exp_eq_trans >> irule_at Any Let_App >>
+    irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+    irule_at Any pure_inline_relTheory.Let_Lam >> simp[] >>
+    irule_at Any exp_eq_refl >> irule exp_eq_App_cong >> conj_tac
+    >- (irule pure_demandTheory.Let_not_in_freevars >> simp[]) >>
+    irule exp_eq_Lam_cong >> simp[]
     )
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> IF_CASES_TAC >> gvs[]
     >- (
-      irule exp_eq_trans >> qexists `Fail` >> rpt $ irule_at Any eval_wh_IMP_exp_eq >>
-      rw[subst_def, eval_wh_thm] >> rw[subst_funs_def, bind_def, subst_def, eval_wh_thm]
+      irule_at Any eval_wh_IMP_exp_eq >>
+      rw[subst_def, eval_wh_thm, subst_funs_def, bind_def]
       ) >>
-    cheat
+    irule exp_eq_trans >> irule_at Any Letrec_App >>
+    irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+    irule_at Any Letrec_Lam_weak >> simp[freevars_exp_of] >>
+    irule_at Any exp_eq_refl >>
+    irule_at Any exp_eq_App_cong >> simp[exp_eq_refl] >> irule exp_eq_Lam_cong >>
+    Induct_on `css` >> rw[] >> gvs[rows_of_def]
+    >- (
+      rpt (TOP_CASE_TAC >> gvs[]) >> simp[IfDisj_def] >>
+      irule exp_eq_trans >> irule_at Any Letrec_Prim >> simp[] >>
+      irule exp_eq_Prim_cong >> simp[exp_of_def, exp_eq_refl] >>
+      irule pure_demandTheory.Letrec_not_in_freevars >> simp[freevars_Disj] >>
+      CASE_TAC >> gvs[]
+      ) >>
+    pairarg_tac >> gvs[] >>
+    irule exp_eq_trans >> irule_at Any Letrec_Prim >> simp[] >>
+    irule exp_eq_Prim_cong >> simp[exp_of_def] >> conj_tac
+    >- (irule pure_demandTheory.Letrec_not_in_freevars >> simp[]) >>
+    qmatch_goalsub_abbrev_tac `lets_for _ _ l` >>
+    `¬MEM (explode x) (MAP SND l)` by (
+      unabbrev_all_tac >> gvs[combinTheory.o_DEF] >> gvs[MEM_MAP]) >>
+    `DISJOINT (freevars (exp_of e1)) (set $ MAP SND l)` by (
+      unabbrev_all_tac >> gvs[combinTheory.o_DEF] >>
+      gvs[freevars_exp_of, DISJOINT_ALT, MEM_MAP] >> rw[] >> gvs[]) >>
+    ntac 2 $ pop_assum mp_tac >> ntac 2 $ last_x_assum mp_tac >>
+    rpt $ pop_assum kall_tac >> Induct_on `l` >> rw[lets_for_def, exp_eq_refl] >>
+    PairCases_on `h` >> gvs[lets_for_def] >>
+    irule exp_eq_trans >> irule_at Any Letrec_App >>
+    irule exp_eq_trans >> irule_at Any exp_eq_App_cong >>
+    irule_at Any Letrec_Lam_weak >> simp[] >>
+    irule_at Any exp_eq_refl >> irule exp_eq_App_cong >> conj_tac
+    >- (irule pure_demandTheory.Letrec_not_in_freevars >> simp[]) >>
+    irule exp_eq_Lam_cong >> simp[]
     )
 QED
 
