@@ -2384,9 +2384,8 @@ Proof
     \\ ‘avoid_set_ok ns8 (Case a e v bs f)’ by imp_res_tac avoid_set_ok_subset
     \\ pop_assum mp_tac
     \\ match_mp_tac avoid_set_ok_subset_exp
-    \\ gvs [exp_of_def,allvars_thm,boundvars_rows_of,freevars_rows_of]
-    \\ gvs [SUBSET_DEF,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
-    \\ metis_tac []
+    \\ gvs[exp_of_def, allvars_rows_of, SUBSET_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+    \\ metis_tac[]
   )
   >~ [`NestedCase _ _ _ _ _ _`] >- (
     gvs [NestedCase_free_def]
