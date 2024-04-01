@@ -3,7 +3,8 @@ open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
 open typeclassASTTheory mlmapTheory mlstringTheory
      typeclass_tcexpTheory typeclass_env_map_implTheory
-     pure_varsTheory typeclass_typesTheory typeclass_typingTheory;
+     pure_varsTheory typeclass_typesTheory typeclass_typingTheory
+     pure_miscTheory pure_configTheory;
 
 val _ = new_theory "ast_to_cexp";
 
@@ -814,8 +815,8 @@ Definition decls_to_tcdecl_def:
     (nm_map, nops) <<- FOLDL (λ(m,i) (opn, info). (insert m opn i, i + 1))
                              (insert (empty str_compare) «[]» 0n, 1)
                              tyinfo_l ;
-    sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND
-    initial_namespace) ;
+    sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l
+      (MAP (LENGTH ## I) $ SND initial_namespace) ;
     (sig_map,cl_map,inst_map,func_map) <- translate_decs nm_map
       (insert tyinfo «[]» listinfo) empty empty init_inst_map empty ds ;
     SOME (func_map,sig_map,cl_map,inst_map)
@@ -850,11 +851,11 @@ Definition freevars_tcexp_impl_def:
   freevars_tcexp_impl (App c e es) =
     union (freevars_tcexp_impl e) (freevars_tcexp_impl_l es) ∧
   freevars_tcexp_impl (Lam c vs e) =
-    list_delete (freevars_tcexp_impl e) (MAP SND vs) ∧
-  freevars_tcexp_impl (Let c t v e1 e2) =
+    list_delete (freevars_tcexp_impl e) (MAP FST vs) ∧
+  freevars_tcexp_impl (Let c (v,t) e1 e2) =
     union (freevars_tcexp_impl e1) (delete (freevars_tcexp_impl e2) v) ∧
   freevars_tcexp_impl (Letrec c fns e) = (
-    let (fs, bodies) = UNZIP (MAP SND fns) in
+    let (fs, bodies) = UNZIP (MAP (λx. (FST $ FST x, SND x)) fns) in
     list_delete (union (freevars_tcexp_impl e) (freevars_tcexp_impl_l bodies)) fs) ∧
 
   freevars_tcexp_impl (NestedCase c e v pat e1 rest) = (
@@ -882,7 +883,7 @@ Termination
     qexistsl [`pat`,`e1`] >>
     simp[] ) >>
   ntac 2 gen_tac >> Induct >> rw[tcexp_size_def] >> gvs[list_size_def] >>
-  Cases_on `UNZIP (MAP SND fns)` >>
+  Cases_on `UNZIP (MAP (λx. (FST (FST x), SND x)) fns)` >>
   PairCases_on `h` >> gvs[tcexp_size_def]
 End
 
@@ -994,7 +995,7 @@ Proof
       simp[filterWithKey_cmp_of] >>
       metis_tac[])) >>
   conj_tac
-  >- (irule $ cj 2 FOLDL_union_filterWithKey >> simp[]) >>
+  >- (irule EQ_SYM >> irule $ cj 2 FOLDL_union_filterWithKey >> simp[]) >>
   drule_all_then assume_tac $ cj 3 FOLDL_union_filterWithKey >>
   irule EQ_TRANS >>
   simp[] >>
@@ -1063,11 +1064,11 @@ Definition closed_under_def:
   closed_under vs (typeclass_tcexp$Var c v) = contains vs v ∧
   closed_under vs (Prim c op es) = EVERY (closed_under vs) es ∧
   closed_under vs (App c e es) = (closed_under vs e ∧ EVERY (closed_under vs) es) ∧
-  closed_under vs (Lam c xs e) = closed_under (list_insert_set vs (MAP SND xs)) e ∧
-  closed_under vs (Let c t x e1 e2) =
+  closed_under vs (Lam c xs e) = closed_under (list_insert_set vs (MAP FST xs)) e ∧
+  closed_under vs (Let c (x,t) e1 e2) =
     (closed_under vs e1 ∧ closed_under (insert vs x ()) e2) ∧
   closed_under vs (Letrec c fns e) = (
-    let (fs, bodies) = UNZIP (MAP SND fns) in
+    let (fs, bodies) = UNZIP (MAP (λx. (FST (FST x),SND x)) fns) in
     let vs' = list_insert_set vs fs in
     closed_under vs' e ∧ EVERY (closed_under vs') bodies) ∧
 
@@ -1145,10 +1146,10 @@ Theorem tcexp_wf_alt_def[compute]:
     tcexp_wf (App v2 e es : tcexp) ⇔
     tcexp_wf e ∧ EVERY (λa. tcexp_wf a) es ∧ ¬ NULL es) ∧
   (∀vs v3 e. tcexp_wf (Lam v3 vs e : tcexp) ⇔ tcexp_wf e ∧ ¬ NULL vs) ∧
-  (∀v4 s v e2 e1. tcexp_wf (Let v4 s v e1 e2 : tcexp) ⇔ tcexp_wf e1 ∧ tcexp_wf e2) ∧
+  (∀v4 sv e2 e1. tcexp_wf (Let v4 sv e1 e2 : tcexp) ⇔ tcexp_wf e1 ∧ tcexp_wf e2) ∧
   (∀v5 fns e.
     tcexp_wf (Letrec v5 fns e : tcexp) ⇔
-    EVERY (λa. tcexp_wf a) (MAP (λx. SND (SND x)) fns) ∧ tcexp_wf e ∧ ¬ NULL fns) ∧
+    EVERY (λa. tcexp_wf a) (MAP (λx. (SND x)) fns) ∧ tcexp_wf e ∧ ¬ NULL fns) ∧
   (∀v7 pes p gv g e.
    tcexp_wf (NestedCase v7 g gv p e pes : tcexp) ⇔
    tcexp_wf g ∧ tcexp_wf e ∧ EVERY (λa. tcexp_wf a) (MAP SND pes) ∧
@@ -1166,6 +1167,7 @@ QED
 * every function in func_map is in sig_map and
 * every method in cl_map is in sig_map,
 * function names in cl_map and func_map are distinct *)
+(*
 Theorem signatures_wf:
   decls_to_tcdecl ds = SOME (func_map,sig_map,cl_map,inst_map) ==>
   (* every function in func_map is in sig_map *)
@@ -1192,5 +1194,6 @@ Theorem signatures_wf:
 Proof
   cheat
 QED
+*)
 
 val _ = export_theory();
