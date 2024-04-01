@@ -10,6 +10,9 @@ open miscTheory typeclass_unificationTheory
 
 val _ = new_theory "typeclass_env_map_impl";
 
+val _ = monadsyntax.enable_monadsyntax()
+val _ = monadsyntax.enable_monad "option"
+
 Datatype:
   classinfo_impl =
     <| super : mlstring list
@@ -122,9 +125,62 @@ Definition to_inst_map_def:
     (to_fmap m)
 End
 
-Definition lookup_inst_map_def[simp]:
-  lookup_inst_map (m:inst_map_impl) cl ty = lookup m (cl,ty)
+Definition head_ty_cons_def:
+  head_ty_cons (Cons t1 t2) = head_ty_cons t1 ∧
+  head_ty_cons (Atom $ TypeCons tc) = SOME tc ∧
+  head_ty_cons (Atom _) = NONE
 End
+
+Definition ty_args_aux_def:
+  ty_args_aux (Cons t1 t2) l = ty_args_aux t1 (t2::l) ∧
+  ty_args_aux (Atom _) l = l
+End
+
+Definition ty_args_def:
+  ty_args t = ty_args_aux t []
+End
+
+Triviality ty_args_aux_SNOC:
+  ∀t t1 t2 l. t = Cons t1 t2 ⇒ ty_args_aux t l = ty_args_aux t1 [] ++ (t2::l)
+Proof
+  Induct_on `t` >>
+  rw[] >>
+  Cases_on `t` >>
+  gvs[ty_args_aux_def]
+QED
+
+Theorem ty_args_SNOC:
+  ty_args (Cons t1 t2) = SNOC t2 (ty_args t1)
+Proof
+  simp[ty_args_def,ty_args_aux_SNOC]
+QED
+
+Definition split_ty_head_aux_def:
+  split_ty_head_aux (Cons t1 t2) l = split_ty_head_aux t1 (t2::l) ∧
+  split_ty_head_aux (Atom $ TypeCons tc) l = SOME (tc,l) ∧
+  split_ty_head_aux (Atom _) l = NONE
+End
+
+Triviality split_ty_head_aux_thm:
+  ∀t l tc targs.
+    split_ty_head_aux t l = SOME (tc,targs) ⇔
+    (head_ty_cons t = SOME tc ∧ ty_args_aux t l = targs)
+Proof
+  ho_match_mp_tac head_ty_cons_ind >>
+  rw[head_ty_cons_def,split_ty_head_aux_def,ty_args_aux_def]
+QED
+
+Definition split_ty_head_def:
+  split_ty_head t = split_ty_head_aux t []
+End
+
+Theorem split_ty_head_thm:
+  ∀t tc targs. 
+    split_ty_head t = SOME (tc,targs) ⇔
+    (head_ty_cons t = SOME tc ∧ ty_args t = targs)
+Proof
+  simp[split_ty_head_def,ty_args_def,split_ty_head_aux_thm]
+QED
 
 Definition add_instance_def:
   add_instance (inst_map:inst_map_impl) cl ty info =
@@ -1105,232 +1161,64 @@ Proof
     mlstringTheory.TotOrd_compare]
 QED
 
-(* return a list of goals that the type has to satisfy in order
-* to satisfy c *)
-(*
-Definition apply_pred:
-  apply_pred m (cl,v) = OPTION_MAP (λt. (cl,the_type_of t)) (FLOOKUP m v)
+Definition lookup_inst_map_def:
+  lookup_inst_map inst_map c t =
+    OPTION_BIND (split_ty_head t) (λ(tcons,targs).
+      OPTION_BIND (lookup inst_map (c,tcons)) (λinst_info.
+      if LENGTH targs = inst_info.nargs
+      then
+        SOME $ (inst_info.impl, MAP (I ## flip EL targs) inst_info.cstr)
+      else NONE))
 End
 
 Definition by_inst_def:
-  by_inst inst_map c t =
-  OPTION_BIND (lookup inst_map c) (λinstl.
-    let l  =
-      FILTER (λ(m,inst_info). IS_SOME m) $
-      MAP (λ(t',inst_info). (specialize_impl t t',inst_info)) instl
-    in
-      if LENGTH l = 1
-      then
-        case HD l of
-         (SOME m,inst_info) =>
-            OPT_MMAP (apply_pred m) inst_info.cstr
-         | (NONE,_) => NONE (* should never happedn *)
-      else NONE)
+  by_inst inst_map c t = OPTION_MAP SND $ lookup_inst_map inst_map c t
 End
 
-Triviality EL_FILTER_preserve_order:
-  ∀i j. i < LENGTH l ∧
-  j < i ∧
-  P (EL i l) ∧
-  P (EL j l) ⇒
-  ∃i' j'.
-  i' < LENGTH (FILTER P l) ∧
-  j' < LENGTH (FILTER P l) ∧
-  j' < i' ∧
-  EL i' (FILTER P l) = EL i l ∧
-  EL j' (FILTER P l) = EL j l
+Theorem lookup_inst_map_thm:
+  ∀inst_map c t impl cstr.
+    (∃tcons targs inst_info.
+      split_ty_head t = SOME (tcons,targs) ∧
+      lookup inst_map (c,tcons) = SOME inst_info ∧
+      LENGTH targs = inst_info.nargs ∧
+      impl = inst_info.impl ∧
+      LENGTH cstr = LENGTH inst_info.cstr ∧
+      (∀n. n < LENGTH inst_info.cstr ⇒
+        let (cl,v) = EL n inst_info.cstr in
+          EL n cstr = (cl,EL v targs)))
+    ⇔
+    lookup_inst_map inst_map c t = SOME (impl,cstr)
 Proof
-  Induct_on `l` >>
-  rw[] >>
-  Cases_on `j` >>
-  fs[] >>
-  `∃i'. i = SUC i'` by (
-    `i ≠ 0` by fs[] >>
-    metis_tac[arithmeticTheory.num_CASES]) >>
-  fs[]
+  rw[lookup_inst_map_def,EQ_IMP_THM]
   >- (
-    `P (EL i' l)` by fs[] >>
-    `MEM (EL i' l) (FILTER P l)` by
-      (fs[MEM_FILTER,MEM_EL] >>
-      metis_tac[]) >>
-    fs[MEM_EL] >>
-    qexistsl [`SUC n`,`0`] >>
+    simp[] >>
+    irule LIST_EQ >>
+    rw[EL_MAP,oneline PAIR_MAP_THM] >>
+    CASE_TAC >>
+    first_x_assum drule >>
     simp[]
   ) >>
-  last_x_assum drule_all >>
+  pairarg_tac >>
+  gvs[] >>
   rw[] >>
-  qexistsl [`SUC i''`,`SUC j'`] >>
-  simp[]
-QED
-
-Triviality FILTER_EQ_NIL_EL:
-  (∀i. i < LENGTH l ⇒ ¬P (EL i l)) ⇒
-  FILTER P l = []
-Proof
-  simp[FILTER_EQ_NIL,EVERY_MEM,MEM_EL] >>
-  metis_tac[]
-QED
-
-Triviality EXISTS_UNIQUE_IMP_FILTER_SINGLE:
-  (∀i i'. i < LENGTH l ∧ P (EL i l) ∧
-    i' < LENGTH l ∧ P (EL i' l) ⇒
-    i = i') ⇒
-  ((∃i. i < LENGTH l ∧ P (EL i l)) ⇒
-    ∀i. i < LENGTH l ∧ P (EL i l) ⇒ FILTER P l = [EL i l]) ∧
-  (¬(∃i. i < LENGTH l ∧ P (EL i l)) ⇒
-    FILTER P l = [])
-Proof
-  Induct_on `l` >>
-  fs[EXISTS_UNIQUE_THM,PULL_EXISTS] >>
-  rpt gen_tac >>
-  rpt $ disch_then strip_assume_tac >>
-  last_x_assum mp_tac >>
-  impl_tac
-  >- (
-    rw[] >>
-    PURE_REWRITE_TAC[Once $ GSYM $ prim_recTheory.INV_SUC_EQ] >>
-    last_x_assum irule >>
-    simp[]) >>
-  strip_tac >>
-  fs[PULL_FORALL] >>
-  rw[]
-  >- (
-    last_x_assum $ qspecl_then [`0`,`i'`]
-      strip_assume_tac >>
-    gvs[]
-  )
-  >- (
-    last_x_assum irule >>
-    rw[GSYM IMP_DISJ_THM] >>    
-    last_x_assum $ qspecl_then [`SUC i''`,`0`] assume_tac >>
-    gvs[]
-  )
-  >- (
-    `∃j. i' = SUC j`
-    by (
-      Cases_on `i = 0` >>
-      fs[] >>
-      metis_tac[arithmeticTheory.num_CASES]
-    ) >>
-    first_x_assum $ qspecl_then [`j`,`j`] assume_tac >>
-    fs[]
-  )
-  >- (
-    qexists `0` >>
-    simp[]
-  ) >>
-  last_x_assum irule >>
-  fs[GSYM IMP_DISJ_THM] >>
-  rw[] >>
-  first_x_assum $ qspec_then `SUC i` assume_tac >>
-  fs[]
+  pairarg_tac >>
+  gvs[EL_MAP,oneline PAIR_MAP_THM]
 QED
 
 Theorem by_inst_thm:
-  (mlmap$lookup inst_map c = NONE ⇒
-    by_inst inst_map c t = NONE) ∧
-  (∀instl. lookup inst_map c = SOME instl ∧
-    (∀i. i < LENGTH instl ⇒
-       specialize_impl t (FST $ EL i instl) = NONE) ⇒
-     by_inst inst_map c t = NONE) ∧
-  (∀instl i j. lookup inst_map c = SOME instl ∧
-     i < j ∧ i < LENGTH instl ∧ j < LENGTH instl ∧
-     IS_SOME (specialize_impl t (FST $ EL i instl)) ∧ 
-     IS_SOME (specialize_impl t (FST $ EL j instl)) ⇒
-     by_inst inst_map c t = NONE) ∧
-  (∀instl i m. lookup inst_map c = SOME instl ∧
-    (∃!i. i < LENGTH instl ∧ IS_SOME (specialize_impl t (FST $ EL i instl))) ∧
-    i < LENGTH instl ∧
-    specialize_impl t (FST $ EL i instl) = SOME m ⇒
-    by_inst inst_map c t =
-      OPT_MMAP (apply_pred m) ((SND $ EL i instl).cstr))
+  ∀inst_map c t cstr.
+    (∃tcons targs inst_info.
+      split_ty_head t = SOME (tcons,targs) ∧
+      lookup inst_map (c,tcons) = SOME inst_info ∧
+      LENGTH targs = inst_info.nargs ∧
+      LENGTH cstr = LENGTH inst_info.cstr ∧
+      (∀n. n < LENGTH inst_info.cstr ⇒
+        let (cl,v) = EL n inst_info.cstr in
+          EL n cstr = (cl,EL v targs)))
+    ⇔
+    by_inst inst_map c t = SOME cstr
 Proof
-  simp[by_inst_def] >>
-  Cases_on `lookup inst_map c` >>
-  rpt strip_tac >>
-  fs[]
-  >- (
-    spose_not_then kall_tac >>
-    fs[rich_listTheory.FILTER_MAP,combinTheory.o_DEF,
-      LAMBDA_PROD] >>
-    `(FILTER (λ(p1,p2). IS_SOME (specialize_impl t p1)) instl) = []` suffices_by
-      (strip_tac >> gvs[]) >>
-    irule FILTER_EQ_NIL_EL >>
-    rw[] >>
-    last_x_assum drule >>
-    pairarg_tac >>
-    simp[])
-  >- (
-    spose_not_then kall_tac >>
-    fs[rich_listTheory.FILTER_MAP,combinTheory.o_DEF,
-      LAMBDA_PROD] >>
-    drule_then drule EL_FILTER_preserve_order >>
-    disch_then $ qspec_then
-      `\x. IS_SOME (specialize_impl t (FST x))`
-      strip_assume_tac >>
-    gvs[LAMBDA_PROD]) >>
-  fs[EXISTS_UNIQUE_THM,LAMBDA_PROD,
-    rich_listTheory.FILTER_MAP,combinTheory.o_DEF] >>
-  qmatch_goalsub_abbrev_tac `LENGTH (FILTER P instl) = 1` >>
-  `FILTER P instl = [EL i' instl]`
-  by (
-    qspecl_then [`instl`,`P`] mp_tac $ GEN_ALL $
-      cj 1 EXISTS_UNIQUE_IMP_FILTER_SINGLE >>
-    fs[Abbr`P`] >>
-    impl_tac
-    >- (
-      rw[] >>
-      ntac 2 (pairarg_tac >> fs[])) >>
-    impl_tac
-    >- (
-      first_x_assum $ irule_at (Pos hd) >>
-      pairarg_tac >> fs[]
-    ) >>
-    rw[] >>
-    first_x_assum $ qspec_then `i'` mp_tac >>
-    pairarg_tac >> fs[]
-  ) >>
-  simp[] >>
-  pairarg_tac >>
-  fs[] >>
-  `i = i'` by (first_x_assum irule >> simp[]) >>
-  fs[]
-QED
-
-Theorem by_inst_SOME:
-  by_inst inst_map c t = SOME qs ⇒
-  ∃instl i m.
-    lookup inst_map c = SOME instl ∧
-    i < LENGTH instl ∧
-    specialize_impl t (FST (EL i instl)) = SOME m ∧
-    OPT_MMAP (apply_pred m) (SND (EL i instl)).cstr = SOME qs ∧
-    (∀j. i ≠ j ∧ j < LENGTH instl ⇒ specialize_impl t (FST (EL j instl)) = NONE)
-Proof
-  rw[] >>
-  strip_assume_tac by_inst_thm >>
-  Cases_on `lookup inst_map c` >>
-  gvs[] >>
-  qexists `i` >>
-  rw[] >>
-  qpat_abbrev_tac `si = specialize_impl _ _` >>
-  Cases_on`si` >> gvs[] >>
-  conj_asm2_tac
-  >- (
-    `(∃!i. i < LENGTH x ∧ IS_SOME (specialize_impl t (FST (EL i x))))` by (
-      rw[EXISTS_UNIQUE_THM] >>
-      metis_tac[IS_SOME_DEF]
-    ) >>
-    first_x_assum drule >>
-    rw[]
-  ) >>
-  rw[] >>
-  `i < j ∨ j < i` by DECIDE_TAC
-  >- (
-    last_x_assum $ qspecl_then [`i`,`j`] strip_assume_tac >>
-    gvs[]
-  ) >>
-  last_x_assum $ qspecl_then [`j`,`i`] strip_assume_tac >>
-  gvs[]
+  simp[by_inst_def,LAMBDA_PROD,GSYM PEXISTS_THM,GSYM lookup_inst_map_thm]
 QED
 
 Inductive full_entail:
@@ -1359,6 +1247,7 @@ Inductive entail:
   entail cl_map inst_map ps (c,t)
 End
 
+(*
 Theorem entail_tsubst:
   ∀p. entail cl_map inst_map ps p ⇒
   ∀c t ts. p = (c,t) ⇒
