@@ -97,6 +97,7 @@ Definition specialises_def:
       tsubst subs scheme = t
 End
 
+(*
 (* Our namespace is an exception definition and some datatype definitions *)
 Definition namespace_ok_def:
   namespace_ok (exndef : exndef, typedefs : typedefs) ⇔
@@ -123,7 +124,6 @@ Definition namespace_init_ok_def:
     namespace_ok ns ∧
     ∃ns'. ns = append_ns initial_namespace ns'
 End
-
 
 (******************** Typing judgements ********************)
 

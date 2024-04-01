@@ -18,7 +18,7 @@ Datatype:
 End
 
 Datatype:
-  built_in_ty = Prim prim_ty | CompPrim comp_prim_ty
+  built_in_ty = PrimT prim_ty | CompPrimT comp_prim_ty
 End
 
 (* concrete type constructor:
@@ -47,8 +47,8 @@ Datatype:
     (* e.g. Monad m, Monad m2, Functor f => m1 (f a) -> m2 a *)
 End
 
-Overload PrimTy = ``\x. TypeCons (INR $ Prim x)``;
-Overload CompPrimTy = ``\x. TypeCons (INR $ CompPrim x)``;
+Overload PrimTy = ``\x. TypeCons (INR $ PrimT x)``;
+Overload CompPrimTy = ``\x. TypeCons (INR $ CompPrimT x)``;
 Overload Unit = ``Atom $ CompPrimTy $ Tuple 0``;
 Overload TypeVar = ``\x. Atom (VarTypeCons x)``;
 Overload UserType = ``\x. Atom (TypeCons $ INL x)``;

@@ -2,14 +2,14 @@ open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
 open typeclassASTTheory mlmapTheory mlstringTheory
-     typeclass_tcexpTheory typeclass_env_map_implTheory 
-     pure_varsTheory typeclass_typesTheory;
+     typeclass_tcexpTheory typeclass_env_map_implTheory
+     pure_varsTheory typeclass_typesTheory typeclass_typingTheory;
 
 val _ = new_theory "ast_to_cexp";
 
 val _ = set_grammar_ancestry [
           "typeclassAST", "mlmap", "typeclass_tcexp",
-          "typeclass_types","pure_vars",
+          "typeclass_types","pure_vars","typeclass_typing",
           "typeclass_env_map_impl"]
 
 val _ = monadsyntax.enable_monadsyntax()
@@ -40,24 +40,24 @@ Definition translate_type_def:
   (if s = "Fun" then
      do
        args <- OPT_MMAP (translate_type nm_map arg_map) tys;
-       return $ compose_types (Atom $ TypeCons (INR Function)) args
+       return $ compose_types (Atom $ CompPrimTy Function) args
      od
    else if s = "Bool" then do assert (tys = []); return $ Atom $ PrimTy Bool; od
    else if s = "Integer" then do assert (tys = []); return $ Atom $ PrimTy Integer od
    else if s = "String" then do assert (tys = []); return $ Atom $ PrimTy String od
    else if s = "IO" then do
                             t <- OPT_MMAP (translate_type nm_map arg_map) tys;
-                            return $ compose_types (Atom $ TypeCons (INR M)) t;
+                            return $ compose_types (Atom $ CompPrimTy M) t;
                          od
    else if s = "Array" then do
                                t <- OPT_MMAP (translate_type nm_map arg_map) tys;
-                               return $ compose_types (Atom $ TypeCons (INR Array)) t;
+                               return $ compose_types (Atom $ CompPrimTy Array) t;
                             od
   else
      do
        opidx <- lookup nm_map (implode s);
        args <- OPT_MMAP (translate_type nm_map arg_map) tys;
-       return $ compose_types (Atom $ TypeCons (INL opidx)) args
+       return $ compose_types (UserType opidx) args
      od) ∧
   translate_type nm_map arg_map (tyVarOp s tys) =
   do
@@ -68,7 +68,7 @@ Definition translate_type_def:
   translate_type nm_map arg_map (tyOp (INL n) tys) =
   do
     args <- OPT_MMAP (translate_type nm_map arg_map) tys;
-    return $ compose_types (Atom $ TypeCons (INR $ Tuple n)) args;
+    return $ compose_types (Atom $ CompPrimTy $ Tuple n) args;
   od
 Termination
   WF_REL_TAC ‘measure (λ(_,_,ty). tyAST_size ty)’
@@ -297,7 +297,7 @@ Definition translate_args_def:
       pat' <- dest_pvar pat ;
       pt' <- case_then_map pty $ translate_type nm_map empty ;
       return (pat',pt')
-    od) args 
+    od) args
 End
 
 Definition translate_exp_def: (* translate_exp: translate exp to tcexp *)
@@ -612,7 +612,7 @@ Proof
 QED
 
 Theorem collect_type_vars_impl_NONE_thm:
-  (lookup (collect_type_vars_impl t) v = NONE) ⇔ 
+  (lookup (collect_type_vars_impl t) v = NONE) ⇔
   v ∉ collect_type_vars t
 Proof
   Cases_on `lookup (collect_type_vars_impl t) v` >>
@@ -702,10 +702,18 @@ Definition to_FuncDecl_def:
 End
 
 Definition translate_tycons_def:
-  translate_tycons (INL n) = INR (Tuple n) ∧
-  translate_tycons (INR s) =
-  if s = "Fun" then INR Function
-  else if s = "Bool" then Pr
+  translate_tycons nm_map (INL n) = SOME $ INR $ CompPrimT (Tuple n) ∧
+  translate_tycons nm_map (INR s) =
+  if s = "Fun" then SOME $ INR $ CompPrimT Function
+  else if s = "Bool" then SOME $ INR $ PrimT Bool
+  else if s = "Integer" then SOME $ INR $ PrimT Integer
+  else if s = "String" then SOME $ INR $ PrimT String
+  else if s = "IO" then SOME $ INR $ CompPrimT M
+  else if s = "Array" then SOME $ INR $ CompPrimT Array
+  else do
+    opidx <- lookup nm_map (implode s);
+    return $ INL opidx;
+  od
 End
 
 (* passes over declarations;
@@ -738,7 +746,7 @@ Definition translate_decs_def:
     assert (lookup cl_map clname = NONE);
     (sig_map',msigs,defimpl) <- extract_class_expdec nm_map
       (insert empty (implode v) 0) tyinfo clname sig_map empty empty exps;
-    assert $ EVERY (EVERY (λs. lookup s msigs ≠ NONE)) minimpl;
+    assert $ EVERY (EVERY (λs. lookup msigs s ≠ NONE)) minimpl;
     cl_map' <<- insert cl_map clname (* mlstring *)
       <| super := MAP implode spcls
        ; kind := NONE
@@ -752,8 +760,10 @@ Definition translate_decs_def:
     (declInst constraints cl tc vs exps :: ds) =
   do
     assert $ ALL_DISTINCT vs;
-    t <- translate_type nm_map arg_map tc ;
-    impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps ;
+    t <- translate_tycons nm_map tc ;
+    arg_map <<- fromList str_compare
+      (GENLIST (λn. (implode $ EL n vs,n)) $ LENGTH vs);
+    impls <- extract_inst_expdec nm_map arg_map tyinfo empty exps;
     cstr' <- OPT_MMAP (λ(c,v). do
         v' <- lookup arg_map (implode v) ;
         return (implode c,v')
@@ -769,24 +779,25 @@ Definition translate_decs_def:
     assert $ set (map FST constraints) SUBSET (FDOM classinfos)
     (* check if all variables in the constraints are bound in the insttype *)
     assert $ set (map snd constraints) SUBSET (collect_type_vars t); *)
-    inst_map <- add_instance inst_map (implode cl) t (<|cstr := cstr';impl := impls|>);
-    translate_decs nm_map tyinfo sig_map cl_map inst_map func_map ds
+    inst_map' <- add_instance inst_map (implode cl) t
+      (<|cstr := cstr';nargs := LENGTH vs; impl := impls|>);
+    translate_decs nm_map tyinfo sig_map cl_map inst_map' func_map ds
   od ∧
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
     (declFunbind s args body :: ds) =
   do
     vs <- translate_args nm_map args;
     bce <- translate_exp nm_map tyinfo body ;
-    func_map <<- insert func_map (implode s) (mkLam NONE vs bce);
-    translate_decs nm_map tyinfo sig_map cl_map inst_map func_map ds
+    func_map' <<- insert func_map (implode s) (mkLam NONE vs bce);
+    translate_decs nm_map tyinfo sig_map cl_map inst_map func_map' ds
   od ∧
   translate_decs nm_map tyinfo sig_map cl_map inst_map func_map
     (declPatbind p e :: ds) =
   do
     v <- dest_pvar p ;
     ce <- translate_exp nm_map tyinfo e ;
-    func_map <<- insert func_map v ce;
-    translate_decs nm_map tyinfo sig_map cl_map inst_map func_map ds
+    func_map' <<- insert func_map v ce;
+    translate_decs nm_map tyinfo sig_map cl_map inst_map func_map' ds
   od
 End
 
@@ -803,9 +814,10 @@ Definition decls_to_tcdecl_def:
     (nm_map, nops) <<- FOLDL (λ(m,i) (opn, info). (insert m opn i, i + 1))
                              (insert (empty str_compare) «[]» 0n, 1)
                              tyinfo_l ;
-    sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND initial_namespace) ;
+    sig0 <- MFOLDL (build_tysig1 nm_map) tyinfo_l (SND
+    initial_namespace) ;
     (sig_map,cl_map,inst_map,func_map) <- translate_decs nm_map
-      (insert tyinfo «[]» listinfo) empty empty empty empty ds ;
+      (insert tyinfo «[]» listinfo) empty empty init_inst_map empty ds ;
     SOME (func_map,sig_map,cl_map,inst_map)
   od
 End

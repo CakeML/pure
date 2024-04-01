@@ -29,6 +29,81 @@ End
 Type class_map_impl = ``:(mlstring, classinfo_impl) map``;
 Type inst_map_impl = ``:((mlstring # ty_cons), instinfo_impl) map``;
 
+Definition built_in_ty_num_def:
+  built_in_ty_num (PrimT Bool) = 0 ∧
+  built_in_ty_num (PrimT Integer) = 1 ∧
+  built_in_ty_num (PrimT String) = 2 ∧
+  built_in_ty_num (PrimT Message) = 3 ∧
+  built_in_ty_num (CompPrimT Function) = 4 ∧
+  built_in_ty_num (CompPrimT M) = 5 ∧
+  built_in_ty_num (CompPrimT Array) = 6 ∧
+  built_in_ty_num (CompPrimT $ Tuple n) = n + 7
+End
+
+Definition built_in_tyOrd_def:
+  built_in_tyOrd = imageOrd built_in_ty_num numOrd
+End
+
+Theorem TO_built_in_tyOrd:
+  TotOrd built_in_tyOrd
+Proof
+  DEP_REWRITE_TAC[totoTheory.TO_injection,built_in_tyOrd_def] >>
+  rw[totoTheory.TO_numOrd,ONE_ONE_THM] >>
+  gvs[oneline built_in_ty_num_def,AllCaseEqs()]
+QED
+
+Definition ty_consOrd_def:
+  ty_consOrd (INL x) (INR y) = Less ∧
+  ty_consOrd (INR x) (INL y) = Greater ∧
+  ty_consOrd (INL x) (INL y) = numOrd x y ∧
+  ty_consOrd (INR x) (INR y) = built_in_tyOrd x y
+End
+
+Theorem TO_ty_consOrd:
+  TotOrd ty_consOrd
+Proof
+  rw[totoTheory.TotOrd,oneline ty_consOrd_def,EQ_IMP_THM,
+    PULL_EXISTS,AllCaseEqs()]
+  >~ [`_ ∨ _`] >- (
+    Cases_on `x` >>
+    simp[] >>
+    metis_tac[totoTheory.TotOrd,totoTheory.TO_numOrd,TO_built_in_tyOrd]
+  ) >>
+  metis_tac[totoTheory.TotOrd,totoTheory.TO_numOrd,TO_built_in_tyOrd]
+QED
+
+Definition inst_map_cmp_def:
+  inst_map_cmp = mlstring$compare lexTO ty_consOrd
+End
+
+Theorem TO_inst_map_cmp:
+  TotOrd inst_map_cmp
+Proof
+  metis_tac[inst_map_cmp_def,totoTheory.TO_lexTO,TotOrd_compare,TO_ty_consOrd]
+QED
+
+Definition init_inst_map_def:
+  init_inst_map = empty inst_map_cmp
+End
+
+Theorem map_ok_init_inst_map:
+  map_ok init_inst_map
+Proof
+  simp[init_inst_map_def,mlmapTheory.empty_thm,TO_inst_map_cmp]
+QED
+
+Theorem to_fmap_init_inst_map:
+  to_fmap init_inst_map = FEMPTY
+Proof
+  simp[init_inst_map_def,mlmapTheory.empty_thm]
+QED
+
+Theorem cmp_of_init_inst_map:
+  cmp_of init_inst_map = inst_map_cmp
+Proof
+  simp[cmp_of_empty,init_inst_map_def]
+QED
+
 Definition to_class_map_def:
   to_class_map (m:class_map_impl) = FMAP_MAP2 (λ(k,x).
     <| super := x.super
@@ -215,7 +290,7 @@ QED
 
 Triviality super_reachable_FDOM_cl_map:
   ∀c s. super_reachable m c s ⇒
-  ∃x i. FLOOKUP m x = SOME i ∧ MEM s i.super 
+  ∃x i. FLOOKUP m x = SOME i ∧ MEM s i.super
 Proof
   simp[super_reachable_def] >>
   ho_match_mp_tac TC_INDUCT >>
