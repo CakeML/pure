@@ -28,7 +28,7 @@ Type ty_cons = ``:num + built_in_ty``;
 Datatype:
   atom_ty =
       | Exception
-      | TypeCons ty_cons 
+      | TypeCons ty_cons
       | VarTypeCons num
       (* variable type constructor *)
       (* eg. fmap :: (a -> b) -> f a -> f b *)
@@ -67,7 +67,7 @@ End
 Definition subst_db_def:
   (subst_db skip ts (Atom (VarTypeCons v)) =
     if skip ≤ v ∧ v < skip + LENGTH ts
-      then EL (v - skip) ts 
+      then EL (v - skip) ts
     else if skip ≤ v
       then Atom (VarTypeCons $ v - LENGTH ts)
     else
@@ -117,5 +117,81 @@ End
 
 Overload freetyvars_ok_scheme =
   ``λn (vars,scheme). freetyvars_ok (n + vars) scheme``;
+
+Definition cons_types_def:
+  cons_types thd [] = thd ∧
+  cons_types thd (t1::targs) = cons_types (Cons thd t1) targs
+End
+
+(* Apply the type constructor to the list of types.
+* Transforming from the representation of `F [a;b]` to `((F a) b)` *)
+Definition tcons_to_type_def:
+  tcons_to_type tcons targs = cons_types (Atom $ TypeCons tcons) targs
+End
+
+Theorem tcons_to_type_alt:
+  (∀tcons. tcons_to_type tcons [] = Atom $ TypeCons tcons) ∧
+  (∀tcons t1 targs.
+    tcons_to_type tcons (t1::targs) =
+      cons_types (Cons (Atom $ TypeCons tcons) t1) targs)
+Proof
+  rw[tcons_to_type_def] >>
+  simp[Once cons_types_def]
+QED
+
+Theorem cons_types_APPEND:
+   ∀t ts1 ts2.
+     cons_types t (ts1 ++ ts2) = cons_types (cons_types t ts1) ts2
+Proof
+  Induct_on `ts1` >>
+  rw[cons_types_def]
+QED
+
+Theorem cons_types_SNOC:
+  ∀t ts1 t2. cons_types t (ts1 ++ [t2]) = Cons (cons_types t ts1) t2
+Proof
+  simp[cons_types_APPEND,cons_types_def]
+QED
+
+Theorem tcons_to_type_APPEND:
+  tcons_to_type tcons (ts1 ++ ts2) = cons_types (tcons_to_type tcons ts1) ts2
+Proof
+  simp[tcons_to_type_def,cons_types_APPEND]
+QED
+
+Theorem tcons_to_type_SNOC:
+  tcons_to_type tcons (SNOC t ts1) = Cons (tcons_to_type tcons ts1) t
+Proof
+  simp[tcons_to_type_APPEND,SNOC_APPEND,cons_types_def]
+QED
+
+Theorem subst_db_cons_types:
+  ∀thd. subst_db n ts (cons_types thd targs) =
+    cons_types (subst_db n ts thd) $ MAP (subst_db n ts) targs
+Proof
+  Induct_on `targs` >>
+  rw[cons_types_def,subst_db_def]
+QED
+
+Theorem subst_db_tcons_to_type:
+  subst_db n ts (tcons_to_type tcons targs) =
+    tcons_to_type tcons $ MAP (subst_db n ts) targs
+Proof
+  rw[tcons_to_type_def,subst_db_cons_types,subst_db_def]
+QED
+
+Theorem tsubst_cons_types:
+  ∀thd. tsubst ts (cons_types thd targs) =
+    cons_types (tsubst ts thd) $ MAP (tsubst ts) targs
+Proof
+  rw[subst_db_cons_types]
+QED
+
+Theorem tsubst_tcons_to_type:
+  tsubst ts (tcons_to_type tcons targs) =
+    tcons_to_type tcons $ MAP (tsubst ts) targs
+Proof
+  rw[subst_db_tcons_to_type]
+QED
 
 val _ = export_theory();

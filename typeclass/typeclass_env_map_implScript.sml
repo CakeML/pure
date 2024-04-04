@@ -5,8 +5,7 @@ open relationTheory set_relationTheory;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory balanced_mapTheory alistTheory topological_sortTheory;
 open miscTheory typeclass_unificationTheory typeclass_typesTheory
-  typeclass_inference_commonTheory typeclass_tcexpTheory
-  typeclass_specializeTheory;
+  typeclass_inference_commonTheory typeclass_tcexpTheory;
 open monadsyntax;
 
 val _ = new_theory "typeclass_env_map_impl";
@@ -125,6 +124,20 @@ Definition to_inst_map_def:
        ;impl := to_fmap inf.impl|>)
     (to_fmap m)
 End
+
+Theorem FLOOKUP_to_class_map:
+  map_ok cl_map ⇒
+    (FLOOKUP (to_class_map cl_map) c = SOME x ⇔
+    ∃y. lookup cl_map c = SOME y ∧
+      x = <| super := y.super
+           ; kind := y.kind
+           ; methodsig := to_fmap y.methodsig
+           ; minImp := y.minImp
+           ; defaults := to_fmap y.defaults |>)
+Proof
+  rw[to_class_map_def,FLOOKUP_FMAP_MAP2,FMAP_MAP2_THM,
+    GSYM mlmapTheory.lookup_thm]
+QED
 
 Definition head_ty_cons_def:
   head_ty_cons (Cons t1 t2) = head_ty_cons t1 ∧
@@ -1384,15 +1397,6 @@ Proof
   metis_tac[]
 QED
 
-Definition cons_types_def:
-  cons_types thd [] = thd ∧
-  cons_types thd (t1::targs) = cons_types (Cons thd t1) targs
-End
-
-Definition tcons_to_type_def:
-  tcons_to_type tcons targs = cons_types (Atom $ TypeCons tcons) targs
-End
-
 Theorem head_ty_cons_cons_types:
   ∀t targs. head_ty_cons (cons_types t targs) = head_ty_cons t
 Proof
@@ -1407,16 +1411,6 @@ Proof
   rw[cons_types_def,ty_args_alt]
 QED
 
-Theorem tcons_to_type_alt:
-  (∀tcons. tcons_to_type tcons [] = Atom $ TypeCons tcons) ∧
-  (∀tcons t1 targs.
-    tcons_to_type tcons (t1::targs) =
-      cons_types (Cons (Atom $ TypeCons tcons) t1) targs)
-Proof
-  rw[tcons_to_type_def] >>
-  simp[Once cons_types_def]
-QED
-
 Theorem split_ty_head_tcons_to_type:
   split_ty_head (tcons_to_type tcons targs) = SOME (tcons, targs)
 Proof
@@ -1424,32 +1418,6 @@ Proof
   gvs[tcons_to_type_def,split_ty_head_thm] >>
   rw[cons_types_def,ty_args_alt,head_ty_cons_def] >>
   gvs[head_ty_cons_cons_types,ty_args_cons_types]
-QED
-
-Theorem cons_types_APPEND:
-   ∀t ts1 ts2.
-     cons_types t (ts1 ++ ts2) = cons_types (cons_types t ts1) ts2
-Proof
-  Induct_on `ts1` >>
-  rw[cons_types_def]
-QED
-
-Theorem cons_types_SNOC:
-  ∀t ts1 t2. cons_types t (ts1 ++ [t2]) = Cons (cons_types t ts1) t2
-Proof
-  simp[cons_types_APPEND,cons_types_def]
-QED
-
-Theorem tcons_to_type_APPEND:
-  tcons_to_type tcons (ts1 ++ ts2) = cons_types (tcons_to_type tcons ts1) ts2
-Proof
-  simp[tcons_to_type_def,cons_types_APPEND]
-QED
-
-Theorem tcons_to_type_SNOC:
-  tcons_to_type tcons (SNOC t ts1) = Cons (tcons_to_type tcons ts1) t
-Proof
-  simp[tcons_to_type_APPEND,SNOC_APPEND,cons_types_def]
 QED
 
 Theorem tcons_to_type_split_ty_head:
@@ -1470,21 +1438,6 @@ Proof
   rpt strip_tac >>
   pop_assum $ mp_tac o Q.AP_TERM `split_ty_head` >>
   simp[split_ty_head_tcons_to_type,split_ty_head_thm,head_ty_cons_def]
-QED
-
-Theorem tsubst_cons_types:
-  ∀thd. tsubst ts (cons_types thd targs) =
-    cons_types (tsubst ts thd) $ MAP (tsubst ts) targs
-Proof
-  Induct_on `targs` >>
-  rw[cons_types_def,subst_db_def]
-QED
-
-Theorem tsubst_tcons_to_type:
-  tsubst ts (tcons_to_type tcons targs) =
-    tcons_to_type tcons $ MAP (tsubst ts) targs
-Proof
-  rw[tcons_to_type_def,tsubst_cons_types,subst_db_def]
 QED
 
 Triviality tcons_to_type_tsubst_TypeVar:
@@ -1513,6 +1466,108 @@ Definition entail_wf_def:
       MEM (cl,v) inst.cstr ∨
       ∃scl. MEM (scl,v) inst.cstr ∧ super_reachable cl_map scl cl
 End
+
+Definition entail_wf_impl_def:
+  entail_wf_impl cl_map inst_map ⇔
+  all (λk inst.
+    case lookup cl_map (FST k) of
+    | NONE => T
+    | SOME clinfo =>
+        EVERY (λs.
+          case lookup inst_map (s,SND k) of
+          | NONE => F
+          | SOME inst' =>
+              inst'.nargs = inst.nargs ∧
+              let supers = MAP (by_super cl_map) inst.cstr in
+              EVERY (λclv.
+                EXISTS (λx.
+                  case x of
+                  | NONE => F
+                  | SOME visited =>
+                      lookup visited (FST clv) = SOME (SND clv))
+                supers) inst'.cstr) clinfo.super) inst_map
+End
+
+Definition inst_map_constraints_ok_def:
+  inst_map_constraints_ok cl_map inst_map ⇔
+  (∀k inst x.
+    lookup inst_map k = SOME inst ∧ MEM x inst.cstr ⇒
+      ∃clinfo. lookup cl_map (FST x) = SOME clinfo)
+End
+
+Theorem entail_wf_impl_thm:
+  map_ok cl_map ∧ map_ok inst_map ∧
+  super_keys_ok cl_map ∧ inst_map_constraints_ok cl_map inst_map ⇒
+  (entail_wf_impl cl_map inst_map ⇔
+    entail_wf (to_class_map cl_map) inst_map)
+Proof
+  rw[entail_wf_impl_def,all_thm,entail_wf_def,EQ_IMP_THM]
+  >- (
+    first_x_assum drule >>
+    simp[] >>
+    TOP_CASE_TAC
+    >- gvs[to_class_map_def,FLOOKUP_FMAP_MAP2,FMAP_MAP2_THM,
+      mlmapTheory.lookup_thm] >>
+    rw[EVERY_MEM] >>
+    gvs[FLOOKUP_to_class_map] >>
+    first_x_assum drule >>
+    TOP_CASE_TAC >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[EXISTS_MEM,MEM_MAP,PULL_EXISTS] >>
+    pop_assum mp_tac >>
+    TOP_CASE_TAC >>
+    strip_tac >>
+    rename1`by_super cl_map ct = SOME _` >>
+    Cases_on `ct` >>
+    drule_all $ iffLR by_super_thm >>
+    rw[] >>
+    metis_tac[]
+  ) >>
+  rename1 `lookup inst_map k = SOME _` >>
+  Cases_on `k` >>
+  gvs[FLOOKUP_to_class_map,EVERY_MEM,PULL_EXISTS] >>
+  TOP_CASE_TAC >>
+  rpt strip_tac >>
+  first_x_assum drule_all >>
+  rpt strip_tac >>
+  rw[EXISTS_MEM,MEM_MAP,PULL_EXISTS] >>
+  rename1 `MEM clv inst'.cstr` >>
+  Cases_on `clv` >>
+  first_x_assum drule >>
+  rw[]
+  >- (
+    first_assum $ irule_at (Pos hd) >>
+    rename1 `by_super cl_map (c',t')` >>
+    TOP_CASE_TAC
+    >- (
+      drule_all $ iffLR inst_map_constraints_ok_def >>
+      rpt strip_tac >>
+      fs[] >>
+      drule_all_then (qspec_then `t'` strip_assume_tac) $
+        SRULE[PULL_EXISTS] $ iffLR well_formed_by_super >>
+      gvs[]) >>
+    drule_then irule $ iffRL by_super_thm >>
+    rw[]
+  ) >>
+  first_x_assum $ irule_at (Pos hd) >>
+  rename1 `by_super cl_map (c',t')` >>
+  TOP_CASE_TAC
+  >- (
+    `∃x. lookup cl_map c' = SOME x`
+    by (
+      gvs[super_reachable_def] >>
+      drule TC_CASES1_E >>
+      rw[FLOOKUP_to_class_map] >>
+      metis_tac[]
+    ) >>
+    drule_all_then (qspec_then `t'` strip_assume_tac) $
+      SRULE[PULL_EXISTS] $ iffLR well_formed_by_super >>
+    gvs[]
+  ) >>
+  drule_then irule $ iffRL by_super_thm >>
+  rw[]
+QED
 
 Theorem entail_super_TypeVar:
   well_scoped_inst_map inst_map ∧
@@ -1964,6 +2019,17 @@ Proof
   dxrule_then strip_assume_tac OPT_MMAP_SOME_EL >>
   irule entail_aux_thm >>
   rw[]
+QED
+
+Theorem entail_impl_full_entail:
+  map_ok cl_map ∧ map_ok inst_map ∧
+  well_scoped_inst_map inst_map ∧ super_keys_ok cl_map ∧
+  entail_wf (to_class_map cl_map) inst_map ∧
+  (∀q. MEM q ps ⇒ ∃clinfo. lookup cl_map (FST q) = SOME clinfo) ⇒
+  entail_impl cl_map inst_map ps p =
+    full_entail (to_class_map cl_map) inst_map ps p
+Proof
+  metis_tac[entail_impl_thm,entail_eq_full_entail]
 QED
 
 val _ = export_theory();
