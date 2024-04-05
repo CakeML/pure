@@ -50,11 +50,11 @@ Inductive kind_wf:
 End
 
 (* predicate to check if a predicated type is well-kinded *)
-Definition pred_type_kind_ok_def:
-  pred_type_kind_ok cldb cdb vdb (Pred cls ty) =
+Definition pred_kind_wf_def:
+  pred_kind_wf cldb cdb vdb (Pred cls ty) =
     (kind_wf cdb vdb kindType ty ∧
-    ∀v cl. MEM (cl,v) cls ==>
-      kind_wf cdb vdb (cldb cl) v)
+    ∀v cl. MEM (cl,v) cls ⇒
+      ∃k. cldb cl = SOME k ∧ kind_wf cdb vdb k v)
 End
 
 Definition kind_to_arities_def:

@@ -3,6 +3,12 @@ open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory;
 open typeclass_typesTheory typeclass_tcexpTheory
 typeclass_kindCheckTheory pure_configTheory;
+open typeclass_env_mapTheory;
+open monadsyntax;
+
+val _ = monadsyntax.enable_monadsyntax();
+val _ = monadsyntax.enable_monad "option";
+
 
 val _ = new_theory "typeclass_typing";
 
@@ -53,7 +59,6 @@ Definition initial_namespace_def:
   )
 End
 
-(* TODO: Why do we need this? *)
 (* Constructor names and their arities defined by a namespace *)
 Definition ns_cns_arities_def:
   ns_cns_arities (exndef : exndef, tdefs : typedefs) =
@@ -70,54 +75,112 @@ Definition cns_arities_ok_def:
     (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
 End
 
-Definition type_wf_def:
-  type_wf (typedefs : typedefs) t =
-    ∃vdb.
-      kind_wf
-      (λc. OPTION_MAP
-        (λks. kind_arrows (FST ks) kindType)
-        (oEL c typedefs)) vdb kindType t
+Definition typedefs_to_cdb_def:
+  typedefs_to_cdb (typedefs:typedefs) =
+    (λc. OPTION_MAP (λtinfo. kind_arrows (FST tinfo) kindType)
+        (LLOOKUP typedefs c))
+End
+
+Definition kind_ok_def:
+  kind_ok (typedefs: typedefs) ks k t ⇔
+    kind_wf (typedefs_to_cdb typedefs) (LLOOKUP ks) k t
 End
 
 Definition type_ok_def:
-  type_ok typedefs db t ⇔
-    freetyvars_ok db t ∧
-    type_wf typedefs t
+  type_ok typedefs ks t = kind_ok typedefs ks kindType t
 End
 
+Definition pred_type_well_scoped_def: 
+  pred_type_well_scoped (Pred ps t) =
+  (∀cl v. MEM (cl,v) ps ⇒
+    collect_type_vars v ⊆ collect_type_vars t)
+End
+
+Definition pred_type_kind_ok_def:
+  pred_type_kind_ok (cl_map:class_map) (typedefs: typedefs) ks pt ⇔
+    let cldb s = do
+      clinfo <- FLOOKUP cl_map s;
+      clinfo.kind
+    od in
+    pred_kind_wf cldb (typedefs_to_cdb typedefs) (LLOOKUP ks) pt
+End
+
+Theorem kind_wf_IMP_freetyvars_ok:
+  ∀k t. kind_wf cdb (LLOOKUP ks) k t ⇒
+  freetyvars_ok (LENGTH ks) t
+Proof
+  ho_match_mp_tac kind_wf_ind >>
+  gvs[freetyvars_ok_def,miscTheory.LLOOKUP_THM]
+QED
+
+Theorem kind_ok_IMP_freetyvars_ok:
+  kind_ok typedefs ks k t ⇒ freetyvars_ok (LENGTH ks) t
+Proof
+  metis_tac[kind_wf_IMP_freetyvars_ok,kind_ok_def]
+QED
+
+Theorem type_ok_IMP_freetyvars_ok:
+  type_ok typedefs ks t ⇒ freetyvars_ok (LENGTH ks) t
+Proof
+  metis_tac[kind_ok_IMP_freetyvars_ok,type_ok_def]
+QED
+
 Overload type_scheme_ok =
-  ``λtdefs db (vars,scheme). type_ok tdefs (db + vars) scheme``
+  ``λtdefs ks (varks,scheme). type_ok tdefs (ks ++ varks) scheme``
+
+Overload pred_type_scheme_kind_ok =
+  ``λclm tdefs ks (varks,scheme). pred_type_kind_ok clm tdefs (ks ++ varks) scheme``
 
 (* Does a type specialise a type scheme in a given variable context/namespace? *)
 Definition specialises_def:
   specialises tdefs db (vars, scheme) t =
     ∃subs.
-      EVERY (type_ok tdefs db) subs ∧
-      LENGTH subs = vars ∧
+      LENGTH subs = LENGTH vars ∧
+      (∀n. n < LENGTH subs ⇒
+        kind_ok tdefs db (EL n vars) (EL n subs)) ∧
       tsubst subs scheme = t
 End
 
-(*
+Theorem specialises_alt:
+  specialises tdefs db (vars, scheme) t =
+  ∃subs.
+    LIST_REL (λk sub. kind_ok tdefs db k sub) vars subs ∧
+    tsubst subs scheme = t
+Proof
+  rw[specialises_def,EQ_IMP_THM] >>
+  irule_at (Pos last) EQ_REFL >>
+  gvs[LIST_REL_EVERY_ZIP,EVERY_EL,EL_ZIP]
+QED
+
+Definition specialises_pred_def:
+  specialises_pred tdefs db (vars, scheme) pt =
+    ∃subs.
+      LENGTH subs = LENGTH vars ∧
+      (∀n. n < LENGTH subs ⇒
+        kind_ok tdefs db (EL n vars) (EL n subs)) ∧
+      tsubst_pred subs scheme = pt
+End
+
 (* Our namespace is an exception definition and some datatype definitions *)
 Definition namespace_ok_def:
   namespace_ok (exndef : exndef, typedefs : typedefs) ⇔
     (* No empty type definitions: *)
-      EVERY (λ(ar,td). td ≠ []) typedefs ∧
+      EVERY (λ(ak,td). td ≠ []) typedefs ∧
     (* Unique, unreserved constructor names: *)
       ALL_DISTINCT
         (MAP implode (SET_TO_LIST (reserved_cns DELETE "Subscript")) ++
          MAP FST exndef ++ MAP FST (FLAT $ MAP SND typedefs)) ∧
-    (* Every constructor type is closed wrt type arity and uses only defined
+    (* Every constructor type is closed wrt kinds and uses only defined
        types: *)
-      EVERY (λ(ar,td).
-        EVERY (λ(cn,argtys). EVERY (type_ok typedefs ar) argtys) td) typedefs ∧
+      EVERY (λ(ak,td).
+        EVERY (λ(cn,argtys). EVERY (type_ok typedefs ak) argtys) td) typedefs ∧
     (* Every exception constructor type is closed and uses only defined types: *)
-      EVERY (λ(cn,tys). EVERY (type_ok typedefs 0) tys) exndef ∧
+      EVERY (λ(cn,tys). EVERY (type_ok typedefs []) tys) exndef ∧
     (* Subscript is a valid exception *)
       MEM («Subscript»,[]) exndef
 End
 
-Overload append_ns = ``λns ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
+Overload append_ns = ``λ (ns:(exndef # typedefs)) ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
 
 Definition namespace_init_ok_def:
   namespace_init_ok ns ⇔
@@ -136,56 +199,58 @@ End
 
 Inductive type_atom_op:
 [~Lit:]
-  (type_lit l t ⇒ type_atom_op (Lit l) [] t) ∧
+  (type_lit l t ⇒ type_atom_op (Lit l) [] t)
 
 [~IntOps_Int:]
   (MEM op [Add; Sub; Mul; Div; Mod] ⇒
-    type_atom_op op [Integer;Integer] Integer) ∧
+    type_atom_op op [Integer;Integer] Integer)
 
 [~IntOps_Bool:]
   (MEM op [Eq; Lt; Leq; Gt; Geq] ⇒
-    type_atom_op op [Integer;Integer] Bool) ∧
+    type_atom_op op [Integer;Integer] Bool)
 
 [~Len:]
-  (type_atom_op Len [String] Integer) ∧
+  (type_atom_op Len [String] Integer)
 
 [~Elem:]
-  (type_atom_op Elem [String;Integer] Integer) ∧
+  (type_atom_op Elem [String;Integer] Integer)
 
 [~Concat:]
   (EVERY (λt. t = String) ts ⇒
-    type_atom_op Concat ts String) ∧
+    type_atom_op Concat ts String)
 
 [~Implode:]
   (EVERY (λt. t = Integer) ts ⇒
-    type_atom_op Implode ts String) ∧
+    type_atom_op Implode ts String)
 
 [~Substring1:]
-  (type_atom_op Substring [String;Integer] String) ∧
+  (type_atom_op Substring [String;Integer] String)
 
 [~Substring2:]
-  (type_atom_op Substring [String;Integer;Integer] String) ∧
+  (type_atom_op Substring [String;Integer;Integer] String)
 
 [~StrOps_Bool:]
   (MEM op [StrEq; StrLt; StrLeq; StrGt; StrGeq] ⇒
-    type_atom_op op [String;String] Bool) ∧
+    type_atom_op op [String;String] Bool)
 
 [~Message:]
   (s ≠ "" ⇒ type_atom_op (Message s) [String] Message)
 End
 
+(* TODO: notes: probably don't need it as we have kind checking
 (* Typing judgments for type constructors *)
 Definition type_cons_def:
   type_cons (typedefs : typedefs) (cname,carg_tys) (tyid,tyargs) ⇔
-    ∃arity constructors schemes.
+    ∃argks constructors schemes.
       (* There is some type definition: *)
-        oEL tyid typedefs = SOME (arity, constructors) ∧
+        oEL tyid typedefs = SOME (argks, constructors) ∧
       (* Which declares the constructor: *)
         ALOOKUP constructors cname = SOME schemes ∧
       (* And we can specialise it appropriately: *)
-        LENGTH tyargs = arity ∧
+        LIST_REL (λk tyarg. kind_ok typedefs ) argks tyargs ∧
         MAP (tsubst tyargs) schemes = carg_tys
 End
+*)
 
 (* Typing judgments for exceptions *)
 Definition type_exception_def:
@@ -208,18 +273,84 @@ End
    -> (string # type_scheme) list -- term variables associated to type schemes
    -> tcexp -> type                -- expression and its type
 *)
+
+Definition user_annot_ok_def:
+  (user_annot_ok NONE pt ⇔ T) ∧
+  (user_annot_ok (SOME ut) pt ⇔ ut = pt)
+End
+
+Datatype:
+  inst_type = Instance [(mlstring # type)] (mlstring # type)
+End
+
+Inductive has_dict:
+[~lie:]
+  p ∈ lie ⇒ has_dict ie lie p
+[~ie:]
+  it ∈ ie ∧ specialises_inst it (Instance cstrs p) ∧
+  (∀cstr. MEM cstr cstrs ⇒ has_dict ie lie cstr) ⇒ 
+    entail_type ie lie p
+End
+
+Definition has_dicts_def:
+  has_dicts ps = (∀p. MEM p ps ⇒ has_dict ie lie p)
+End
+
 Inductive type_tcexp:
 [~Var:]
-  (ALOOKUP env x = SOME s ∧ specialises (SND ns) db s t ⇒
-      type_tcexp ns db st env (Var x) t) ∧
+  (ALOOKUP env x = SOME s ∧
+   specialises_pred (SND ns) db s pt ⇒
+      pred_type_tcexp ns ce ie lie db st env (Var NONE x) pt)
+
+[~VarSOME:]
+  (ALOOKUP env x = SOME s ∧
+   specialises_pred (SND ns) db s pt ∧
+   pt = Pred ps ut ∧ has_dicts ie lie ps ⇒
+      type_tcexp ns ce ie lie db st env (Var (SOME ut) x) pt)
+
+(* instantiate pred_type_tcexp to type_tcexp *)
+[~Rel:]
+  pred_type_tcexp ns ce ie lie db st env e (Pred ps t) ∧
+  has_dicts ie lie ps ⇒
+    type_tcexp ns ce ie lie db st env e t
+
+(* adding context to type_tcexp for pred_type_tcexp *)
+[~Pred:]
+  type_tcexp ns ce ie (lie ∪ set ps) db st env e t ∧
+  pred_type_well_scoped (Pred ps t) ⇒
+  pred_type_tcexp ns ce ie lie db st env e (Pred ps t)
 
 [~Tuple:]
-  (LIST_REL (type_tcexp ns db st env) es ts ⇒
-      type_tcexp ns db st env (Prim (Cons «») es) (Tuple ts)) ∧
+  (LIST_REL (type_tcexp ns ce ie lie db st env) es ts ∧
+  (pt = cons_types (Atom $ CompPrimTy $ Tuple (LENGTH es)) ts) ∧
+  user_annot_ok ut pt ⇒
+     type_tcexp ns ce ie lie db st env ((Prim ut (Cons «») es):tcexp) pt)
+
+[~App:]
+  (type_tcexp ns ce ie lie db st env e (Functions arg_tys ret_ty) ∧
+   LIST_REL (type_tcexp ns ce ie lie db st env) es arg_tys ∧ arg_tys ≠ [] ∧
+   user_annot_ok ut ret_ty ⇒
+      type_tcexp ns ce ie lie db st env (App ut e es) ret_ty)
+
+[~Let:]
+  (type_tcexp ns (db + new) (MAP (tshift new) st) (tshift_env new env) e1 t1 ∧
+   type_tcexp ns db st ((x,new,t1)::env) e2 t2 ⇒
+      type_tcexp ns ce ie lie db st env (Let ut (x,pt) e1 e2) t2)
+End
+
+
+[~Lam:]
+  (EVERY (type_ok (SND ns) db) arg_tys ∧
+   LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
+
+   type_tcexp ns ce ie lie db st (REVERSE (ZIP (xs, MAP ($, []) arg_tys)) ++ env) e ret_ty
+      ⇒ type_tcexp ns ce ie lie db st env (Lam ut xs e) (Functions arg_tys ret_ty))
+End
 
 [~Ret:]
-  (type_tcexp ns db st env e t ⇒
-      type_tcexp ns db st env (Prim (Cons «Ret») [e]) (M t)) ∧
+  (type_tcexp ns db st env e t ∧ user_annot_ok ut pt ⇒
+      type_tcexp ns db st env (Prim ut (Cons «Ret») [e]) (M t))
+End
 
 [~Bind:]
   (type_tcexp ns db st env e1 (M t1) ∧
@@ -424,7 +555,6 @@ Inductive type_tcexp:
     type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
 End
 *)
-
 (********************)
 
 val _ = export_theory();

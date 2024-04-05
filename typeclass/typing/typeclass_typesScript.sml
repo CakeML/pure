@@ -87,6 +87,16 @@ Definition shift_db_def:
     Cons (shift_db skip n t1) (shift_db skip n t2)
 End
 
+Definition subst_db_pred_def:
+  subst_db_pred skip ts (Pred ps t) =
+    Pred (MAP (I ## subst_db skip ts) ps) (subst_db skip ts t)
+End
+
+Definition shift_db_pred_def:
+  shift_db_pred skip n (Pred ps t) =
+    Pred (MAP (I ## shift_db skip n) ps) (shift_db skip n t)
+End
+
 Overload subst_db_scheme =
   ``λn ts (vars,scheme).
       (vars, subst_db (n + vars) (MAP (shift_db 0 vars) ts) scheme)``;
@@ -95,6 +105,8 @@ Overload shift_db_scheme =
       (vars, shift_db (skip + vars) shift scheme)``;
 Overload tsubst = ``subst_db 0``;
 Overload tshift = ``shift_db 0``;
+Overload tsubst_pred = ``subst_db_pred 0``;
+Overload tshift_pred = ``shift_db_pred 0``;
 Overload tshift_scheme = ``λn (vars,scheme). (vars, shift_db vars n scheme)``;
 Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_scheme n scheme))``;
 
@@ -105,8 +117,6 @@ Definition Functions_def:
       (Cons (Atom $ CompPrimTy Function) at) $
       Functions ats t
 End
-
-(******************** Properties of types ********************)
 
 Definition freetyvars_ok_def:
   (freetyvars_ok n (Atom (VarTypeCons v)) = (v < n)) ∧
@@ -192,6 +202,72 @@ Theorem tsubst_tcons_to_type:
     tcons_to_type tcons $ MAP (tsubst ts) targs
 Proof
   rw[subst_db_tcons_to_type]
+QED
+
+(* Functions to split the type in the form `F v1 v2 ...` to
+* F and [v1;v2...] *)
+Definition head_ty_cons_def:
+  head_ty_cons (Cons t1 t2) = head_ty_cons t1 ∧
+  head_ty_cons (Atom $ TypeCons tc) = SOME tc ∧
+  head_ty_cons (Atom _) = NONE
+End
+
+Definition ty_args_aux_def:
+  ty_args_aux (Cons t1 t2) l = ty_args_aux t1 (t2::l) ∧
+  ty_args_aux (Atom _) l = l
+End
+
+Definition ty_args_def:
+  ty_args t = ty_args_aux t []
+End
+
+Triviality ty_args_aux_SNOC:
+  ∀t t1 t2 l. t = Cons t1 t2 ⇒ ty_args_aux t l = ty_args_aux t1 [] ++ (t2::l)
+Proof
+  Induct_on `t` >>
+  rw[] >>
+  Cases_on `t` >>
+  gvs[ty_args_aux_def]
+QED
+
+Theorem ty_args_SNOC:
+  ty_args (Cons t1 t2) = SNOC t2 (ty_args t1)
+Proof
+  simp[ty_args_def,ty_args_aux_SNOC]
+QED
+
+Theorem ty_args_alt:
+  (∀t1 t2. ty_args (Cons t1 t2) = SNOC t2 (ty_args t1)) ∧
+  (∀x. ty_args (Atom x) = [])
+Proof
+  simp[ty_args_SNOC] >> simp[ty_args_def,ty_args_aux_def]
+QED
+
+Definition split_ty_head_aux_def:
+  split_ty_head_aux (Cons t1 t2) l = split_ty_head_aux t1 (t2::l) ∧
+  split_ty_head_aux (Atom $ TypeCons tc) l = SOME (tc,l) ∧
+  split_ty_head_aux (Atom _) l = NONE
+End
+
+Triviality split_ty_head_aux_thm:
+  ∀t l tc targs.
+    split_ty_head_aux t l = SOME (tc,targs) ⇔
+    (head_ty_cons t = SOME tc ∧ ty_args_aux t l = targs)
+Proof
+  ho_match_mp_tac head_ty_cons_ind >>
+  rw[head_ty_cons_def,split_ty_head_aux_def,ty_args_aux_def]
+QED
+
+Definition split_ty_head_def:
+  split_ty_head t = split_ty_head_aux t []
+End
+
+Theorem split_ty_head_thm:
+  ∀t tc targs.
+    split_ty_head t = SOME (tc,targs) ⇔
+    (head_ty_cons t = SOME tc ∧ ty_args t = targs)
+Proof
+  simp[split_ty_head_def,ty_args_def,split_ty_head_aux_thm]
 QED
 
 val _ = export_theory();
