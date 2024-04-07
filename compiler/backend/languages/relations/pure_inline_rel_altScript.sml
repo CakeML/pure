@@ -17,17 +17,17 @@ Overload Letrec1 = ``λd f e1 e2. Letrec d [(f,e1)] e2``
  *---------------------------------------------------------------------------*)
 
 Datatype:
-  inline_mem = Simple 'a mlstring ('a cexp) | Rec 'a mlstring ('a cexp)
+  inline_mem = Simple 'a mlstring ('a cexp) | Rec 'a ((mlstring # 'a cexp) list)
 End
 
-Definition lhs_name_def[simp]:
-  lhs_name (Simple d v e) = v ∧
-  lhs_name (Rec d v e) = v
+Definition lhs_names_def[simp]:
+  lhs_names (Simple d v e) = {v} ∧
+  lhs_names (Rec d fns) = set (MAP FST fns)
 End
 
-Definition lhs_exp_def[simp]:
-  lhs_exp (Simple d v e) = e ∧
-  lhs_exp (Rec d v e) = e
+Definition lhs_vars_def[simp]:
+  lhs_vars (Simple d v e) = freevars_cexp e ∧
+  lhs_vars (Rec d fns) = BIGUNION (set $ MAP (freevars_cexp o SND) fns)
 End
 
 (*---------------------------------------------------------------------------*
@@ -36,7 +36,7 @@ End
 
 Definition vars_of_def:
   vars_of [] = {} ∧
-  vars_of (h::t) = lhs_name h INSERT freevars_cexp (lhs_exp h) ∪ vars_of t
+  vars_of (h::t) = lhs_names h ∪ lhs_vars h ∪ vars_of t
 End
 
 Definition pre_def:
@@ -52,10 +52,13 @@ Definition lets_ok_def:
   (lets_ok [] ⇔ T) ∧
   (lets_ok ((Simple d v x)::rest) ⇔
     v ∉ freevars_cexp x ∧
-    DISJOINT ({v} ∪ freevars_cexp x) (set (MAP lhs_name rest)) ∧
+    DISJOINT ({v} ∪ freevars_cexp x) (BIGUNION (set $ MAP lhs_names rest)) ∧
     lets_ok rest) ∧
-  (lets_ok ((Rec d v x)::rest) ⇔
-    DISJOINT ({v} ∪ freevars_cexp x) (set (MAP lhs_name rest)) ∧
+  (lets_ok ((Rec d fns)::rest) ⇔
+    DISJOINT
+      (set (MAP FST fns) ∪ BIGUNION (set $ MAP (freevars_cexp o SND) fns))
+      (BIGUNION (set $ MAP lhs_names rest)) ∧
+    ALL_DISTINCT (MAP FST fns) ∧
     lets_ok rest)
 End
 
@@ -64,10 +67,9 @@ End
  *---------------------------------------------------------------------------*)
 
 Theorem vars_of_eq_MAP:
-  vars_of l = BIGUNION $ set $
-    MAP (λx. lhs_name x INSERT freevars_cexp (lhs_exp x)) l
+  vars_of l = BIGUNION $ set $ MAP (λx. lhs_names x ∪ lhs_vars x) l
 Proof
-  Induct_on `l` >> rw[vars_of_def, INSERT_UNION_EQ]
+  Induct_on `l` >> rw[vars_of_def]
 QED
 
 Theorem vars_of_APPEND:
@@ -76,64 +78,78 @@ Proof
   simp[vars_of_eq_MAP]
 QED
 
-Theorem lhs_name_SUBSET_vars_of:
-  ∀xs. set (MAP lhs_name xs) ⊆ vars_of xs
+Theorem lhs_names_SUBSET_vars_of:
+  ∀xs. EVERY (λx. lhs_names x ⊆ vars_of xs) xs
 Proof
-  Induct >> rw[lhs_name_def, vars_of_def] >> gvs[SUBSET_DEF]
+  Induct >> rw[lhs_names_def, vars_of_def] >> gvs[SUBSET_DEF] >>
+  gvs[EVERY_MEM] >> metis_tac[]
 QED
 
 Theorem lhs_exp_SUBSET_vars_of:
-  ∀xs. BIGUNION $ set (MAP (λx. freevars_cexp (lhs_exp x)) xs) ⊆ pure_inline_rel_alt$vars_of xs
+  ∀xs. BIGUNION $ set (MAP lhs_vars xs) ⊆ pure_inline_rel_alt$vars_of xs
 Proof
-  Induct >> rw[lhs_exp_def, vars_of_def] >> gvs[SUBSET_DEF]
+  rw[vars_of_eq_MAP, SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> metis_tac[]
 QED
 
 Theorem lets_ok_APPEND:
   lets_ok (l1 ++ l2) ⇔
     lets_ok l1 ∧ lets_ok l2 ∧
     DISJOINT
-      (BIGUNION $ set (MAP (λx. lhs_name x INSERT freevars_cexp (lhs_exp x)) l1))
-      (set (MAP lhs_name l2))
+      (BIGUNION $ set (MAP (λx. lhs_names x ∪ lhs_vars x) l1))
+      (BIGUNION $ set (MAP lhs_names l2))
 Proof
   Induct_on `l1` >> rw[lets_ok_def] >>
   Cases_on `h` >> gvs[lets_ok_def] >> pop_assum kall_tac >>
-  eq_tac >> rw[] >> gvs[DISJOINT_SYM] >> gvs[SF DNF_ss]
+  eq_tac >> rw[] >> gvs[SF DNF_ss, MEM_MAP] >> metis_tac[]
 QED
 
 Theorem lets_ok_SNOC_Simple_lemma[local]:
-  lets_ok xs ∧ v ∉ freevars_cexp x1 ∧ ¬MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs
+  lets_ok xs ∧ v ∉ freevars_cexp x1 ∧ v ∉ vars_of xs
   ⇒ lets_ok (SNOC (Simple d v x1) xs)
 Proof
   simp[SNOC_APPEND] >> Induct_on `xs` >> rw[] >> gvs[lets_ok_def] >>
-  Cases_on `h` >> gvs[lets_ok_def, vars_of_def, DISJOINT_SYM]
+  Cases_on `h` >> gvs[lets_ok_def, vars_of_def, SF DNF_ss] >>
+  gvs[vars_of_eq_MAP, MEM_MAP, PULL_FORALL] >> metis_tac[]
 QED
 
 Theorem lets_ok_SNOC_Simple:
   lets_ok xs ∧ pre xs (Let d v x y) ⇒ lets_ok (SNOC (Simple d' v x) xs)
 Proof
   rw[] >> irule lets_ok_SNOC_Simple_lemma >>
-  gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-  metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of, DISJOINT_ALT]
+  gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of]
 QED
 
 Theorem lets_ok_SNOC_Rec_lemma[local]:
-  lets_ok xs ∧ ¬MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs
-  ⇒ lets_ok (SNOC (Rec d v x1) xs)
+  lets_ok xs ∧ DISJOINT (set $ MAP FST fns) (vars_of xs) ∧ ALL_DISTINCT (MAP FST fns)
+  ⇒ lets_ok (SNOC (Rec d fns) xs)
 Proof
   simp[SNOC_APPEND] >> Induct_on `xs` >> rw[] >> gvs[lets_ok_def] >>
-  Cases_on `h` >> gvs[lets_ok_def, vars_of_def, DISJOINT_SYM]
+  Cases_on `h` >> gvs[lets_ok_def, vars_of_def, DISJOINT_SYM, SF DNF_ss]
 QED
 
 Theorem lets_ok_SNOC_Rec:
-  lets_ok xs ∧ pre xs (Letrec1 d v x y) ⇒
-  lets_ok (SNOC (Rec d' v x) xs)
+  lets_ok xs ∧ pre xs (Letrec d fns y) ⇒
+  lets_ok (SNOC (Rec d' fns) xs)
 Proof
-  rw[] >> irule lets_ok_SNOC_Rec_lemma >> gvs[pre_def, exp_of_def] >>
-  metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of, DISJOINT_ALT]
+  rw[] >> irule lets_ok_SNOC_Rec_lemma >> gvs[pre_def, exp_of_def] >> conj_tac
+  >- (
+    gvs[barendregt_alt_def, MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+    qpat_x_assum `ALL_DISTINCT _` mp_tac >>
+    simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o]
+    ) >>
+  gvs[DISJOINT_ALT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+  gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]
 QED
 
 Theorem lets_ok_Simple_MEM:
   lets_ok xs ∧ MEM (Simple d x e) xs ⇒ x ∉ freevars_cexp e
+Proof
+  Induct_on `xs` >> rw[] >> gvs[lets_ok_def] >>
+  Cases_on `h` >> gvs[lets_ok_def]
+QED
+
+Theorem lets_ok_Rec_MEM:
+  lets_ok xs ∧ MEM (Rec d fns) xs ⇒ ALL_DISTINCT (MAP FST fns)
 Proof
   Induct_on `xs` >> rw[] >> gvs[lets_ok_def] >>
   Cases_on `h` >> gvs[lets_ok_def]
@@ -145,13 +161,11 @@ QED
 
 Theorem pre_Let:
   pre xs (Let d v x y) ⇒
-  pre xs x ∧ pre (xs ++ [Simple d' v x]) y ∧
-  ¬MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs
+  pre xs x ∧ pre (xs ++ [Simple d' v x]) y ∧ v ∉ vars_of xs
 Proof
   rw[pre_def, exp_of_def, barendregt_alt_def, vars_of_APPEND, vars_of_def]
   >- simp[DISJOINT_SYM]
-  >- gvs[GSYM freevars_exp_of, allvars_thm] >>
-  metis_tac[SUBSET_DEF, lhs_name_SUBSET_vars_of]
+  >- gvs[GSYM freevars_exp_of, allvars_thm]
 QED
 
 Theorem pre_App:
@@ -168,12 +182,10 @@ Proof
 QED
 
 Theorem pre_Lam:
-  pre xs (Lam d ws x) ⇒
-    EVERY (λw. ¬MEM w (MAP lhs_name xs) ∧ w ∉ vars_of xs) ws ∧ pre xs x
+  pre xs (Lam d ws x) ⇒ EVERY (λw. w ∉ vars_of xs) ws ∧ pre xs x
 Proof
   rw[pre_def] >> gvs[exp_of_def, barendregt_Lams, boundvars_Lams] >>
   simp[EVERY_MEM] >> gen_tac >> strip_tac >>
-  qspec_then `xs` assume_tac lhs_name_SUBSET_vars_of >> gvs[SUBSET_DEF] >>
   gvs[DISJOINT_ALT, MEM_MAP, PULL_EXISTS, PULL_FORALL] >> metis_tac[]
 QED
 
@@ -233,20 +245,23 @@ QED
 
 Theorem pre_SNOC_Rec:
   pre xs x ∧
-  explode v ∉ boundvars (exp_of x) ∧
-  DISJOINT (boundvars (exp_of x)) (boundvars (exp_of x1)) ∧
-  DISJOINT (boundvars (exp_of x)) (freevars (exp_of x1))
-  ⇒ pre (xs ++ [Rec d v x1]) x
+  DISJOINT (set $ MAP (explode o FST) fns) (boundvars (exp_of x)) ∧
+  DISJOINT (BIGUNION $ set $ MAP (freevars o exp_of o SND) fns) (boundvars (exp_of x))
+  ⇒ pre (xs ++ [Rec d fns]) x
 Proof
-  gvs[pre_def, vars_of_APPEND, vars_of_def, GSYM freevars_exp_of] >>
-  simp[DISJOINT_SYM]
+  gvs[pre_def, vars_of_APPEND, vars_of_def] >> rw[DISJOINT_SYM]
+  >- gvs[GSYM LIST_TO_SET_MAP, MAP_MAP_o] >>
+  simp[Once DISJOINT_SYM] >>
+  gvs[DISJOINT_ALT, MEM_MAP, freevars_exp_of, PULL_EXISTS, PULL_FORALL] >>
+  metis_tac[]
 QED
 
 Theorem pre_Letrec:
   pre xs (Letrec d ys x) ⇒
   pre xs x ∧ EVERY (pre xs) (MAP SND ys) ∧
   DISJOINT (set (MAP (explode o FST) ys)) (boundvars (exp_of x)) ∧
-  EVERY (λ(v,e). ¬MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs) ys
+  DISJOINT (BIGUNION $ set $ MAP (freevars o exp_of o SND) ys) (boundvars (exp_of x)) ∧
+  EVERY (λ(v,e). v ∉ vars_of xs) ys
 Proof
   rw[]
   >- gvs[pre_def, exp_of_def, barendregt_alt_def]
@@ -261,23 +276,30 @@ Proof
     metis_tac[]
     )
   >- (
-    simp[EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac >>
-    qspec_then `xs` assume_tac lhs_name_SUBSET_vars_of >> gvs[SUBSET_DEF] >>
-    pop_assum $ qspec_then `p_1` assume_tac >> gvs[] >>
-    gvs[pre_def, exp_of_def] >> gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD, DISJOINT_ALT] >>
-    metis_tac[]
+    gvs[pre_def, exp_of_def, barendregt_alt_def] >>
+    gvs[MEM_MAP, PULL_EXISTS] >>
+    last_x_assum drule >> pairarg_tac >> gvs[] >> simp[allvars_thm]
+    )
+  >- (
+    rw[EVERY_MEM, FORALL_PROD] >> gvs[pre_def, exp_of_def] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+    gvs[DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> res_tac
     )
 QED
 
 Theorem pre_Letrec1:
   pre xs (Letrec1 d v x y) ⇒
-  pre xs x ∧ pre (xs ++ [Rec d' v x]) y ∧
-  ¬ MEM v (MAP lhs_name xs) ∧ v ∉ vars_of xs
+  pre xs x ∧ pre (xs ++ [Rec d' [(v,x)]]) y ∧ v ∉ vars_of xs
 Proof
-  rw[pre_def, exp_of_def, barendregt_alt_def, vars_of_APPEND, vars_of_def]
-  >- simp[DISJOINT_SYM]
-  >- gvs[GSYM freevars_exp_of, allvars_thm] >>
-  metis_tac[SUBSET_DEF, lhs_name_SUBSET_vars_of]
+  strip_tac >> imp_res_tac pre_Letrec >> gvs[] >> irule pre_SNOC_Rec >> gvs[]
+QED
+
+Theorem pre_Letrec_alt:
+  pre xs (Letrec d fns e) ⇒
+  pre xs e ∧ pre (xs ++ [Rec d' fns]) e ∧
+  EVERY (λ(v,e). v ∉ vars_of xs) fns
+Proof
+  rw[] >> imp_res_tac pre_Letrec >> irule pre_SNOC_Rec >> gvs[]
 QED
 
 (*---------------------------------------------------------------------------*
@@ -287,7 +309,7 @@ QED
 Definition Binds_def:
   Binds [] y = y ∧
   Binds ((Simple d v x)::xs) y = Let d v x (Binds xs y) ∧
-  Binds ((Rec d v x)::xs) y = Letrec1 d v x (Binds xs y)
+  Binds ((Rec d fns)::xs) y = Letrec d fns (Binds xs y)
 End
 
 Theorem Binds_APPEND:
@@ -299,7 +321,7 @@ QED
 Theorem Binds_SNOC:
   Binds [] y = y ∧
   Binds (SNOC (Simple d x e) xs) y = Binds xs (Let d x e y) ∧
-  Binds (SNOC (Rec d x e) xs) y = Binds xs (Letrec1 d x e y)
+  Binds (SNOC (Rec d fns) xs) y = Binds xs (Letrec d fns y)
 Proof
   simp[Binds_def] >> Induct_on `xs` >> rw[Binds_def] >>
   Cases_on `h` >> gvs[Binds_def]
@@ -307,13 +329,15 @@ QED
 
 Definition mem_rel[simp]:
   mem_rel R (Simple d x e) h = (∃d' e'. h = Simple d' x e' ∧ R e e') ∧
-  mem_rel R (Rec d x e) h = (∃d' e'. h = Rec d' x e' ∧ R e e')
+  mem_rel R (Rec d fns) h =
+    ∃d' fns'. h = Rec d' fns' ∧
+              LIST_REL (λ(f,e) (f',e'). f = f' ∧ R e e') fns fns'
 End
 
 Theorem mem_rel_refl:
   (∀e. R e e) ⇒ mem_rel R x x
 Proof
-  Cases_on `x` >> rw[]
+  Cases_on `x` >> rw[] >> gvs[LIST_REL_EL_EQN, ELIM_UNCURRY]
 QED
 
 Triviality LIST_REL_mem_rel_refl[simp]:
@@ -329,7 +353,10 @@ Proof
   Induct_on `LIST_REL` >> rw[Binds_def] >>
   Cases_on `h1` >> gvs[Binds_def]
   >- (irule bidir_Let >> simp[])
-  >- (irule bidir_Letrec >> simp[])
+  >- (
+    irule bidir_Letrec >> simp[] >>
+    gvs[LIST_REL_EL_EQN, ELIM_UNCURRY]
+    )
 QED
 
 Triviality LIST_REL_mem_rel_refl_pres[simp]:
@@ -345,7 +372,10 @@ Proof
   Induct_on `LIST_REL` >> rw[Binds_def] >>
   Cases_on `h1` >> gvs[Binds_def]
   >- (irule pres_Let >> simp[])
-  >- (irule pres_Letrec >> simp[])
+  >- (
+    irule pres_Letrec >> simp[] >>
+    gvs[LIST_REL_EL_EQN, ELIM_UNCURRY]
+    )
 QED
 
 Theorem Binds_MEM:
@@ -377,16 +407,19 @@ Proof
     )
   >- (
     irule bidir_Let_Let_Letrec >> gvs[lets_ok_APPEND, lets_ok_def] >>
-    gvs[MEM_MAP, PULL_EXISTS] >> first_x_assum drule >> gvs[freevars_exp_of] >>
+    gvs[MEM_MAP, PULL_EXISTS, freevars_exp_of] >>
+    first_x_assum drule >> gvs[MEM_MAP, DISJOINT_SYM] >>
     imp_res_tac lets_ok_Simple_MEM >> gvs[]
     )
   >- (
     irule bidir_Letrec_Letrec_Let >> gvs[lets_ok_APPEND, lets_ok_def] >>
-    gvs[MEM_MAP, PULL_EXISTS] >> first_x_assum drule >> gvs[freevars_exp_of]
+    gvs[MEM_MAP, PULL_EXISTS, freevars_exp_of] >>
+    first_x_assum drule >> gvs[MEM_MAP, EVERY_MEM, PULL_EXISTS] >> metis_tac[]
     )
   >- (
     irule bidir_Letrec_Letrec_Letrec >> gvs[lets_ok_APPEND, lets_ok_def] >>
-    gvs[MEM_MAP, PULL_EXISTS] >> first_x_assum drule >> gvs[freevars_exp_of]
+    gvs[MEM_MAP, PULL_EXISTS] >>
+    first_x_assum drule >> gvs[EVERY_MAP, EVERY_MEM, MEM_MAP, PULL_EXISTS, DISJOINT_SYM]
     )
 QED
 
@@ -399,7 +432,8 @@ Proof
   Cases_on `x` >> rw[Binds_SNOC] >>
   irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl >>
   last_x_assum $ irule_at Any >> gvs[SNOC_APPEND, vars_of_APPEND] >>
-  irule bidir_push_pull >> simp[Once push_pull_cases] >> gvs[vars_of_def]
+  irule bidir_push_pull >> simp[Once push_pull_cases] >> gvs[vars_of_def] >>
+  gvs[EVERY_MEM, MEM_MAP] >> metis_tac[]
 QED
 
 Theorem bidir_Binds_push_Prim:
@@ -440,7 +474,9 @@ Proof
   irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
   irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
   irule_at Any bidir_Lam >> irule_at Any bidir_refl >>
-  gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
+  gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM] >>
+  conj_tac >- (gvs[EVERY_MEM, DISJOINT_ALT] >> metis_tac[]) >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, DISJOINT_SYM]
 QED
 
 Theorem bidir_Binds_push_Letrec:
@@ -459,7 +495,8 @@ Proof
   simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
   simp[GSYM pure_miscTheory.FST_THM] >>
   gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM] >>
-  rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+  rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY] >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS]
 QED
 
 Triviality bidir_Binds_push_Letrec1:
@@ -483,15 +520,25 @@ Proof
   >- simp[ELIM_UNCURRY] >>
   Cases_on `x` >> rw[Binds_SNOC] >>
   irule bidir_trans >> irule_at Any bidir_Binds >> irule_at Any LIST_REL_mem_rel_refl>>
-  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS] >>
-  (
+  irule_at Any bidir_push_pull >> simp[Once push_pull_cases, PULL_EXISTS]
+  >- (
     irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
     irule_at Any bidir_Case >> irule_at Any bidir_refl >> rw[] >>
     gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
     >- rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
     >- (Cases_on `usopt` >> gvs[] >> rpt (pairarg_tac >> gvs[])) >>
     gvs[EVERY_MAP, FORALL_PROD, EVERY_MEM] >> metis_tac[]
-  )
+    )
+  >- (
+    irule_at Any bidir_trans >> first_x_assum $ irule_at Any >>
+    irule_at Any bidir_Case >> irule_at Any bidir_refl >> rw[] >>
+    gvs[SNOC_APPEND, vars_of_APPEND, vars_of_def, DISJOINT_SYM]
+    >- rw[LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+    >- (Cases_on `usopt` >> gvs[] >> rpt (pairarg_tac >> gvs[])) >>
+    gvs[DISJOINT_ALT, EVERY_MAP, MEM_FLAT, MEM_MAP, PULL_FORALL,
+        PULL_EXISTS, ELIM_UNCURRY, EVERY_MEM] >>
+    metis_tac[]
+    )
 QED
 
 Theorem bidir_Binds_push_Annot:
@@ -513,7 +560,7 @@ Inductive inline_rev_rel:
   MEM (Simple d x e) l
     ⇒ inline_rev_rel l (Var d x) e
 [~Var_Rec:]
-  MEM (Rec d x e) l
+  MEM (Rec d fns) l ∧ MEM (x,e) fns
     ⇒ inline_rev_rel l (Var d x) e
 [~Let:]
   inline_rev_rel l e1 e1' ∧
@@ -534,9 +581,9 @@ Inductive inline_rev_rel:
   inline_rev_rel l e1 e2
     ⇒ inline_rev_rel l (Letrec d fns1 e1) (Letrec d fns2 e2)
 [~Letrec_Rec:]
-  inline_rev_rel l e1 e1' ∧
-  inline_rev_rel (l ++ [Rec d x e1]) e2 e2'
-    ⇒ inline_rev_rel l (Letrec1 d x e1 e2) (Letrec1 d x e1' e2')
+  LIST_REL (λ(f1,e1) (f2,e2). f2 = f1 ∧ inline_rev_rel l e1 e2) fns1 fns2 ∧
+  inline_rev_rel (l ++ [Rec d fns1]) e1 e2
+    ⇒ inline_rev_rel l (Letrec d fns1 e1) (Letrec d fns2 e2)
 [~spec:]
   inline_rev_rel l e1 e2 ∧
   (∀e d. Letrec1 d x e1 e <--> Let d x e1' e) ∧
@@ -591,21 +638,15 @@ Proof
     irule_at Any Binds_MEM >> goal_assum drule >> simp[] >>
     simp[Binds_APPEND, Binds_def] >>
     irule bidir_Binds >> rw[] >>
-    irule $ iffLR bidir_sym >> irule bidir_Letrec_unroll >> simp[]
+    irule $ iffLR bidir_sym >> irule bidir_Letrec_unroll >> simp[] >>
+    imp_res_tac lets_ok_Rec_MEM
     )
   >~ [`Let`]
   >- (
     rename1 `Binds xs (Let _ v e1 e2) <--> Binds xs (Let _ v e1' e2')` >>
     imp_res_tac pre_Let >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
     irule bidir_trans >> first_x_assum $ irule_at Any >> rw[]
-    >- (
-      gvs[lets_ok_APPEND, lets_ok_def] >>
-      gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-      gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
-      >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
-      drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
-      simp[MEM_MAP] >> metis_tac[]
-      ) >>
+    >- (simp[GSYM SNOC_APPEND] >> irule lets_ok_SNOC_Simple >> simp[SF SFY_ss]) >>
     irule bidir_trans >> irule_at Any bidir_Binds_push_Let >> simp[] >>
     irule $ iffLR bidir_sym >>
     irule bidir_trans >> irule_at Any bidir_Binds_push_Let >> simp[] >>
@@ -648,7 +689,7 @@ Proof
     imp_res_tac pre_Letrec >>
     irule bidir_trans >> irule_at Any bidir_Binds_push_Letrec >> conj_asm1_tac
     >- (
-      gvs[DISJOINT_ALT, EVERY_MEM, MEM_MAP, PULL_EXISTS] >> rw[]>>
+      gvs[DISJOINT_ALT, EVERY_MEM, MEM_MAP, PULL_EXISTS] >> rw[] >>
       first_x_assum drule >> pairarg_tac >> gvs[]
       ) >>
     irule $ iffLR bidir_sym >>
@@ -660,21 +701,21 @@ Proof
     )
   >~ [`Rec`]
   >- (
-    rename1 `Binds xs (Letrec1 _ v e1 e2) <--> Binds xs (Letrec1 _ v e1' e2')` >>
-    imp_res_tac pre_Letrec1 >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
+    rename1 `Binds xs (Letrec _ fns1 e1) <--> Binds xs (Letrec _ fns2 e2)` >>
+    imp_res_tac pre_Letrec >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
     irule bidir_trans >> first_x_assum $ irule_at Any >> rw[]
-    >- (
-      gvs[lets_ok_APPEND, lets_ok_def] >>
-      gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-      gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
-      >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
-      drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
-      simp[MEM_MAP] >> metis_tac[]
-      ) >>
+    >- (simp[GSYM SNOC_APPEND] >> irule lets_ok_SNOC_Rec >> simp[SF SFY_ss])
+    >- (irule pre_SNOC_Rec >> simp[]) >>
     irule bidir_trans >> irule_at Any bidir_Binds_push_Letrec >> simp[] >>
+    conj_asm1_tac
+    >- (gvs[EVERY_MEM, DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
     irule $ iffLR bidir_sym >>
     irule bidir_trans >> irule_at Any bidir_Binds_push_Letrec >> simp[] >>
-    irule $ iffLR bidir_sym >> irule bidir_Letrec >> simp[]
+    `MAP FST fns2 = MAP FST fns1` by
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY] >> simp[] >>
+    irule $ iffLR bidir_sym >> irule bidir_Letrec >> simp[] >>
+    gvs[LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> gvs[EVERY_EL, EL_MAP]
     )
   >~ [`Simple`] (* spec *)
   >- (
@@ -698,10 +739,8 @@ Proof
     >- (irule pre_SNOC_Simple >> simp[] >> imp_res_tac pre_Letrec >> gvs[]) >>
     gvs[lets_ok_APPEND, lets_ok_def] >>
     gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-    gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
-    >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
-    drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
-    simp[MEM_MAP] >> metis_tac[]
+    gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[] >>
+    gvs[vars_of_eq_MAP, MEM_MAP, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
     )
   >~ [`Case`]
   >- (
@@ -741,7 +780,7 @@ Inductive inline_rel:
   MEM (Simple d x e) l
     ⇒ inline_rel l (Var d x) e
 [~Var_Rec:]
-  MEM (Rec d x e) l
+  MEM (Rec d fns) l ∧ MEM (x,e) fns
     ⇒ inline_rel l (Var d x) e
 [~Let:]
   inline_rel l e1 e1' ∧
@@ -762,9 +801,9 @@ Inductive inline_rel:
   inline_rel l e1 e2
     ⇒ inline_rel l (Letrec d fns1 e1) (Letrec d fns2 e2)
 [~Letrec_Rec:]
-  inline_rel l e1 e1' ∧
-  inline_rel (l ++ [Rec d x e1]) e2 e2'
-    ⇒ inline_rel l (Letrec1 d x e1 e2) (Letrec1 d x e1' e2')
+  LIST_REL (λ(f1,e1) (f2,e2). f2 = f1 ∧ inline_rel l e1 e2) fns1 fns2 ∧
+  inline_rel (l ++ [Rec d fns1]) e1 e2
+    ⇒ inline_rel l (Letrec d fns1 e1) (Letrec d fns2 e2)
 [~spec:]
   inline_rel l e1 e2 ∧
   (∀e d. Letrec1 d x e1 e <--> Let d x e1' e) ∧
@@ -832,21 +871,15 @@ Proof
     irule_at Any Binds_MEM >> goal_assum drule >> simp[] >>
     simp[Binds_APPEND, Binds_def] >>
     irule bidir_Binds >> rw[] >>
-    irule $ iffLR bidir_sym >> irule bidir_Letrec_unroll >> simp[]
+    irule $ iffLR bidir_sym >> irule bidir_Letrec_unroll >> simp[] >>
+    imp_res_tac lets_ok_Rec_MEM
     )
   >~ [`Let`]
   >- (
     rename1 `Binds xs (Let _ v e1 e2) ~~> Binds xs (Let _ v e1' e2')` >>
     imp_res_tac pre_Let >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
     irule pres_trans >> first_x_assum $ irule_at Any >> rw[]
-    >- (
-      gvs[lets_ok_APPEND, lets_ok_def] >>
-      gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-      gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
-      >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
-      drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
-      simp[MEM_MAP] >> metis_tac[]
-      ) >>
+    >- (simp[GSYM SNOC_APPEND] >> irule lets_ok_SNOC_Simple >> simp[SF SFY_ss]) >>
     irule pres_trans >> irule_at Any pres_bidir >>
     irule_at Any bidir_Binds_push_Let >> simp[] >>
     irule pres_trans >> irule_at (Pos last) pres_bidir >>
@@ -902,22 +935,22 @@ Proof
     )
   >~ [`Rec`]
   >- (
-    rename1 `Binds xs (Letrec1 _ v e1 e2) ~~> Binds xs (Letrec1 _ v e1' e2')` >>
-    imp_res_tac pre_Letrec1 >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
+    rename1 `Binds xs (Letrec _ fns1 e1) ~~> Binds xs (Letrec _ fns2 e2)` >>
+    imp_res_tac pre_Letrec >> gvs[SRULE [SNOC_APPEND] Binds_SNOC] >>
     irule pres_trans >> first_x_assum $ irule_at Any >> rw[]
-    >- (
-      gvs[lets_ok_APPEND, lets_ok_def] >>
-      gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-      gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
-      >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
-      drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
-      simp[MEM_MAP] >> metis_tac[]
-      ) >>
+    >- (simp[GSYM SNOC_APPEND] >> irule lets_ok_SNOC_Rec >> simp[SF SFY_ss])
+    >- (irule pre_SNOC_Rec >> simp[]) >>
     irule pres_trans >> irule_at Any pres_bidir >>
     irule_at Any bidir_Binds_push_Letrec >> simp[] >>
+    conj_asm1_tac
+    >- (gvs[EVERY_MEM, DISJOINT_ALT, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> metis_tac[]) >>
     irule pres_trans >> irule_at (Pos last) pres_bidir >>
     irule_at Any $ iffLR bidir_sym >> irule_at Any bidir_Binds_push_Letrec >>
-    simp[] >> irule pres_Letrec >> simp[]
+    `MAP FST fns2 = MAP FST fns1` by
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY] >> simp[] >>
+    irule pres_Letrec >> simp[] >>
+    gvs[LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP] >> rw[] >>
+    first_x_assum drule >> strip_tac >> first_x_assum irule >> gvs[EVERY_EL, EL_MAP]
     )
   >~ [`Simple`] (* spec *)
   >- (
@@ -953,10 +986,8 @@ Proof
     >- (irule pre_SNOC_Simple >> simp[] >> imp_res_tac pre_Letrec >> gvs[]) >>
     gvs[lets_ok_APPEND, lets_ok_def] >>
     gvs[pre_def, exp_of_def, barendregt_alt_def, allvars_thm, freevars_exp_of] >>
-    gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[]
-    >- metis_tac[SRULE [SUBSET_DEF] lhs_name_SUBSET_vars_of] >>
-    drule_at Concl $ SRULE [BIGUNION_SUBSET, SUBSET_DEF] lhs_exp_SUBSET_vars_of >>
-    simp[MEM_MAP] >> metis_tac[]
+    gvs[MEM_MAP, PULL_EXISTS] >> gen_tac >> strip_tac >> rw[] >>
+    gvs[vars_of_eq_MAP, MEM_MAP, DISJ_EQ_IMP, PULL_FORALL] >> metis_tac[]
     )
   >~ [`Case`]
   >- (
