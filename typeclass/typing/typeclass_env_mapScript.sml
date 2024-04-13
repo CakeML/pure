@@ -19,13 +19,13 @@ Datatype:
      ; kind : Kind option
      ; methodsig : cvname |-> PredType
      ; minImp : minImplAST
-     ; defaults : cvname |-> tcexp |>
+     ; defaults : cvname |-> 'a tcexp |>
 End
 
 Definition super_reachable_def:
   super_reachable cdb =
     TC (\src dst.
-      ∃c. FLOOKUP cdb src = SOME (c:classinfo) ∧
+      ∃c. FLOOKUP cdb src = SOME (c:'a classinfo) ∧
       MEM dst c.super)
 End
 
@@ -73,7 +73,7 @@ Datatype:
   instinfo =
     <| cstr : (mlstring # 'b) list (* class and type variable *)
      ; nargs : num (* number of arguments to the type constructor *)
-     ; impl : cvname |-> tcexp |> (* function name and its expression *)
+     ; impl : cvname |-> 'a tcexp |> (* function name and its expression *)
 End
 
 Definition instinfo_well_scoped_def:
@@ -93,18 +93,18 @@ Definition instinfo_impl_ok:
         ∃exp. FLOOKUP inst.impl m = SOME exp)
 End
 
-Type class_map = ``:mlstring |-> classinfo``;
-Type inst_map = ``: (mlstring # typeclass_types$ty_cons) |-> num instinfo``;
+Type class_map = ``:mlstring |-> 'a classinfo``;
+Type inst_map = ``: (mlstring # typeclass_types$ty_cons) |-> ('a ,num) instinfo``;
 
 Definition add_instance_def:
-  add_instance (inst_map:inst_map) cl ty info =
+  add_instance (inst_map:'a inst_map) cl ty info =
     case FLOOKUP inst_map (cl,ty) of
     | NONE => SOME $ inst_map |+ ((cl,ty), info)
     | SOME _ => NONE
 End
 
 Definition super_keys_ok_def:
-  super_keys_ok (cl_map:class_map) =
+  super_keys_ok (cl_map:'a class_map) =
   (∀c clinfo c'.
     FLOOKUP cl_map c = SOME clinfo ∧ MEM c' clinfo.super ⇒
     ∃x. FLOOKUP cl_map c' = SOME x)

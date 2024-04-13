@@ -11,19 +11,21 @@ val _ = new_theory "typeclass_tcexp";
 (* We associate a poly-type to variable.
 * This is needed for type elaboration.
 * It can be provided by the user as well. *)
-Type annot_cvname = ``:(cvname # (PredType_scheme option))``;
+Type annot_cvname = ``:(cvname # (num # PredType) option)``;
+Type class_constr = ``:(cvname # type)``;
 
 Datatype:
   (* The first argument for each constructor is the type of the whole expression *)
   (* So the user can do something like ``show ((read x)::Int)`` *)
-  tcexp = Var (type option) cvname                                   (* variable                 *)
-        | Prim (type option) cop (tcexp list)                        (* primitive operations     *)
-        | App (type option) tcexp (tcexp list)                       (* function application     *)
-        | Lam (type option) ((cvname # (type option)) list) tcexp    (* lambda                   *)
-        | Let (type option) annot_cvname tcexp tcexp                 (* let                      *)
-        | Letrec (type option) ((annot_cvname # tcexp) list) tcexp   (* mutually recursive exps  *)
-        | NestedCase (type option) tcexp cvname cepat tcexp
-            ((cepat # tcexp) list)                                   (* case of                  *)
+  tcexp = Var (class_constr list) cvname                    (* variable                 *)
+        | Prim cop (tcexp list)                        (* primitive operations     *)
+        | App tcexp (tcexp list)                       (* function application     *)
+        | Lam ((cvname # (type option)) list) tcexp    (* lambda                   *)
+        | Let annot_cvname tcexp tcexp                 (* let                      *)
+        | Letrec ((annot_cvname # tcexp) list) tcexp   (* mutually recursive exps  *)
+        | UserAnnot type tcexp                         (* user type annotation     *)
+        | NestedCase tcexp cvname cepat tcexp
+            ((cepat # tcexp) list)                     (* case of                  *)
 End
 
 (* top level declarations *)
@@ -32,40 +34,41 @@ Datatype:
 End
 
 Definition freevars_tcexp_def[simp]:
-  freevars_tcexp ((Var c v):tcexp) = {v} /\
-  freevars_tcexp (Prim c op es) = BIGUNION (set (MAP (λa. freevars_tcexp a) es)) /\
-  freevars_tcexp (App c e es) =
+  freevars_tcexp ((Var c v): tcexp) = {v} /\
+  freevars_tcexp (Prim op es) = BIGUNION (set (MAP (λa. freevars_tcexp a) es)) /\
+  freevars_tcexp (App e es) =
     freevars_tcexp e ∪ BIGUNION (set (MAP freevars_tcexp es)) ∧
-  freevars_tcexp (Lam c vs e) = freevars_tcexp e DIFF set (MAP FST vs) ∧
-  freevars_tcexp (Let c v e1 e2) =
+  freevars_tcexp (Lam vs e) = freevars_tcexp e DIFF set (MAP FST vs) ∧
+  freevars_tcexp (Let v e1 e2) =
     freevars_tcexp e1 ∪ (freevars_tcexp e2 DELETE (FST v)) ∧
-  freevars_tcexp (Letrec c fns e) =
+  freevars_tcexp (Letrec fns e) =
     freevars_tcexp e ∪ BIGUNION (set (MAP (λ(v,e). freevars_tcexp e) fns))
       DIFF set (MAP (FST o FST) fns) ∧
-  freevars_tcexp (NestedCase c g gv p e pes) =
+  freevars_tcexp (NestedCase g gv p e pes) =
     freevars_tcexp g ∪
     (((freevars_tcexp e DIFF cepat_vars p) ∪
       BIGUNION (set (MAP (λ(p,e). freevars_tcexp e DIFF cepat_vars p) pes)))
-    DELETE gv)
+    DELETE gv) ∧
+  freevars_tcexp (UserAnnot t e) = freevars_tcexp e
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw []
 End
 
 Definition tcexp_wf_def[nocompute]:
   tcexp_wf (Var _ v) = T ∧
-  tcexp_wf (Prim _ op es) = (
+  tcexp_wf (Prim op es) = (
     num_args_ok op (LENGTH es) ∧ EVERY tcexp_wf es ∧
     (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
     (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
-  tcexp_wf (App _ e es) = (tcexp_wf e ∧ EVERY tcexp_wf es ∧ es ≠ []) ∧
-  tcexp_wf (Lam _ vs e) = (tcexp_wf e ∧ vs ≠ []) ∧
-  tcexp_wf (Let _ v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
-  tcexp_wf (Letrec _ fns e) = (EVERY tcexp_wf $ MAP (λx. SND x) fns ∧
+  tcexp_wf (App e es) = (tcexp_wf e ∧ EVERY tcexp_wf es ∧ es ≠ []) ∧
+  tcexp_wf (Lam vs e) = (tcexp_wf e ∧ vs ≠ []) ∧
+  tcexp_wf (Let v e1 e2) = (tcexp_wf e1 ∧ tcexp_wf e2) ∧
+  tcexp_wf (Letrec fns e) = (EVERY tcexp_wf $ MAP (λx. SND x) fns ∧
     tcexp_wf e ∧ fns ≠ []) ∧
-  tcexp_wf (NestedCase _ g gv p e pes) = (
+  tcexp_wf (NestedCase g gv p e pes) = (
     tcexp_wf g ∧ tcexp_wf e ∧ EVERY tcexp_wf $ MAP SND pes ∧
-    ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))
-  )
+    ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))) ∧
+  tcexp_wf (UserAnnot _ e) = tcexp_wf e
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>
   gvs[MEM_MAP, EXISTS_PROD] >>
@@ -99,22 +102,23 @@ Theorem better_tcexp_induction =
 val _ = TypeBase.update_induction better_tcexp_induction
 
 Definition every_tcexp_def[simp]:
-  every_tcexp (p:tcexp -> bool) (Var a v) = p (Var a v) ∧
-  every_tcexp p (Prim a x es) =
-    (p (Prim a x es) ∧ EVERY (every_tcexp p) es) ∧
-  every_tcexp p (App a e es) =
-    (p (App a e es) ∧ every_tcexp p e ∧ EVERY (every_tcexp p) es) ∧
-  every_tcexp p (Lam a vs e) =
-    (p (Lam a vs e) ∧ every_tcexp p e) ∧
-  every_tcexp p (Let a v e1 e2) =
-    (p (Let a v e1 e2) ∧ every_tcexp p e1 ∧ every_tcexp p e2) ∧
-  every_tcexp p (Letrec a fns e) =
-    (p (Letrec a fns e) ∧
+  every_tcexp (p:tcexp -> bool) (Var cs v) = p (Var cs v) ∧
+  every_tcexp p (Prim x es) =
+    (p (Prim x es) ∧ EVERY (every_tcexp p) es) ∧
+  every_tcexp p (App e es) =
+    (p (App e es) ∧ every_tcexp p e ∧ EVERY (every_tcexp p) es) ∧
+  every_tcexp p (Lam vs e) =
+    (p (Lam vs e) ∧ every_tcexp p e) ∧
+  every_tcexp p (Let v e1 e2) =
+    (p (Let v e1 e2) ∧ every_tcexp p e1 ∧ every_tcexp p e2) ∧
+  every_tcexp p (Letrec fns e) =
+    (p (Letrec fns e) ∧
      every_tcexp p e ∧ EVERY (every_tcexp p) $ MAP (λx. SND x) fns) ∧
-  every_tcexp p (NestedCase a e1 v pat e2 rows) =
-    (p (NestedCase a e1 v pat e2 rows) ∧
+  every_tcexp p (NestedCase e1 v pat e2 rows) =
+    (p (NestedCase e1 v pat e2 rows) ∧
      every_tcexp p e1 ∧ every_tcexp p e2 ∧
-     EVERY (every_tcexp p) $ MAP SND rows)
+     EVERY (every_tcexp p) $ MAP SND rows) ∧
+  every_tcexp p (UserAnnot t e) = (p (UserAnnot t e) ∧ every_tcexp p e)
 Termination
   WF_REL_TAC ‘measure $ tcexp_size o SND’ >>
   simp[tcexp_size_eq, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>

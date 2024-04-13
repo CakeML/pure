@@ -52,8 +52,6 @@ Overload CompPrimTy = ``\x. TypeCons (INR $ CompPrimT x)``;
 Overload Unit = ``Atom $ CompPrimTy $ Tuple 0``;
 Overload TypeVar = ``\x. Atom (VarTypeCons x)``;
 Overload UserType = ``\x. Atom (TypeCons $ INL x)``;
-Type type_scheme[pp] = ``:num # type``;
-Type PredType_scheme[pp] = ``:num # PredType``;
 
 Definition collect_type_vars_def:
   (collect_type_vars (Cons t1 t2) =
@@ -97,18 +95,10 @@ Definition shift_db_pred_def:
     Pred (MAP (I ## shift_db skip n) ps) (shift_db skip n t)
 End
 
-Overload subst_db_scheme =
-  ``λn ts (vars,scheme).
-      (vars, subst_db (n + vars) (MAP (shift_db 0 vars) ts) scheme)``;
-Overload shift_db_scheme =
-  ``λskip shift (vars,scheme).
-      (vars, shift_db (skip + vars) shift scheme)``;
 Overload tsubst = ``subst_db 0``;
 Overload tshift = ``shift_db 0``;
 Overload tsubst_pred = ``subst_db_pred 0``;
 Overload tshift_pred = ``shift_db_pred 0``;
-Overload tshift_scheme = ``λn (vars,scheme). (vars, shift_db vars n scheme)``;
-Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_scheme n scheme))``;
 
 Definition Functions_def:
   Functions [] t = t ∧
