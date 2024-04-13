@@ -124,8 +124,8 @@ QED
 Type type_scheme[pp] = ``:num # type``;
 Type pred_type_scheme[pp] = ``:num # PredType``;
 
-Type type_kind_scheme[pp] = ``:King list # type``;
-Type pred_type_kind_scheme[pp] = ``:King list # PredType``;
+Type type_kind_scheme[pp] = ``:Kind list # type``;
+Type pred_type_kind_scheme[pp] = ``:Kind list # PredType``;
 
 Overload subst_db_scheme =
   ``λn ts (vars,scheme).
@@ -135,8 +135,11 @@ Overload shift_db_scheme =
       (vars, shift_db (skip + vars) shift scheme)``;
 Overload tshift_scheme = ``λn (vars,scheme). (vars, shift_db vars n scheme)``;
 Overload tshift_scheme_pred = ``λn (vars,scheme). (vars, shift_db_pred vars n scheme)``;
+Overload tshift_kind_scheme_pred = ``λn (vars,scheme). (vars, shift_db_pred
+(LENGTH vars) n scheme)``;
+
 Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_scheme n scheme))``;
-Overload tshift_env_pred = ``λn. MAP (λ(x,scheme). (x, tshift_scheme_pred n scheme))``;
+Overload tshift_env_pred = ``λn. MAP (λ(x,scheme). (x, tshift_kind_scheme_pred n scheme))``;
 
 Overload type_kind_scheme_ok =
   ``λtdefs ks (varks,scheme). type_ok tdefs (varks ++ ks) scheme``
@@ -275,7 +278,7 @@ Definition destruct_type_cons_def:
   then
     type_exception edef (cname,carg_tys)
   else
-  ∃tc targs. 
+  ∃tc targs.
     split_ty_head t = SOME (tc,targs) ∧
     case tc of
     | INL tyid => type_cons tdefs db (cname,carg_tys) (tyid,targs)
@@ -462,6 +465,19 @@ Proof
   gvs[]
 QED
 
+Inductive type_cepat:
+[~Var:]
+  type_cepat ns db (cepatVar v) t [(v,t)]
+
+[~UScore:]
+  type_cepat ns db cepatUScore t []
+
+[~Cons:]
+  destruct_type_cons ns db t c ts ∧
+  LIST_REL3 (type_cepat ns db) pats ts vtss ⇒
+    type_cepat ns db (cepatCons c pats) t (FLAT vtss)
+End
+
 (*
   The main typing relation.
   type_tcexp :
@@ -518,7 +534,7 @@ Inductive type_tcexp:
   pred_type_well_scoped pt1 ∧
   type_tcexp ns clk ie lie db st ((x,new,pt1)::env) e2 e2' t2 ⇒
      type_tcexp ns clk ie lie db st env (Let (x,NONE) e1 e2)
-        (Let (x,SOME (n,pt)) e1' e2') t2
+        (Let (x,SOME (n,pt1)) e1' e2') t2
 
 (* The poly type of the let binding is annotated by the user *)
 [~LetSOME:]
@@ -552,18 +568,18 @@ Inductive type_tcexp:
       | SOME t => t = (LENGTH varks,scheme)) ∧
       pred_type_tcexp ns clk ie lie (varks ++ db) (MAP (tshift vars) st)
         (tshift_env_pred (LENGTH varks) $
-          REVERSE (ZIP (MAP (FST o FST) fns, kind_schemes)) ++ env)
-          body body' scheme) 
+          REVERSE (ZIP (MAP (FST o FST) fns', kind_schemes)) ++ env)
+          body body' scheme)
     fns fns' kind_schemes ∧
    EVERY (pred_type_kind_scheme_ok clk (SND ns) db) kind_schemes ∧ fns ≠ [] ∧
-   type_tcexp ns clk ie lie db st (REVERSE (ZIP (MAP (FST o FST) fns, kind_schemes)) ++ env) e e' t ⇒
+   type_tcexp ns clk ie lie db st (REVERSE (ZIP (MAP (FST o FST) fns', kind_schemes)) ++ env) e e' t ⇒
       type_tcexp ns clk ie lie db st env (Letrec fns e) (Letrec fns' e') t
 
 [~Cons:]
-  LIST_REL3 (type_tcexp (exndef,typedefs) clk ie lie db st env) es es' carg_ts ∧
-  EVERY (type_ok typedefs db) tyargs ∧
-  type_cons typedefs db (cname,carg_ts) (tyid,tyargs) ⇒
-     type_tcexp (exndef,typedefs) clk ie lie db st env
+  LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' carg_ts ∧
+  EVERY (type_ok (SND ns) db) tyargs ∧
+  type_cons (SND ns) db (cname,carg_ts) (tyid,tyargs) ⇒
+     type_tcexp ns clk ie lie db st env
        (Prim (Cons cname) es) (Prim (Cons cname) es')
        (tcons_to_type (INL tyid) tyargs)
 
@@ -627,9 +643,9 @@ Inductive type_tcexp:
         (Prim (Cons «Update») [e1;e2;e3]) (Prim (Cons «Update») [e1';e2';e3']) (Monad Unit)
 
 [~Exception:]
-   LIST_REL3 (type_tcexp (exndef,typedefs) clk ie lie db st env) es es' carg_ts ∧
-   type_exception exndef (cname,carg_ts) ⇒
-      type_tcexp (exndef,typedefs) clk ie lie db st env
+   LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' carg_ts ∧
+   type_exception (FST ns) (cname,carg_ts) ⇒
+      type_tcexp ns clk ie lie db st env
         (Prim (Cons cname) es) (Prim (Cons cname) es') (Atom Exception)
 
 [~True:]
@@ -662,7 +678,7 @@ Inductive type_tcexp:
   LIST_REL
     (λ(p,e) (p',e').
       p' = p ∧
-      type_cepat ns db p vt vts ∧
+      ∃vts. type_cepat ns db p vt vts ∧
       type_tcexp ns clk ie lie db st
         (REVERSE (MAP (λ(v,t). (v,[],Pred [] t)) vts) ++
           ((v,[],Pred [] vt)::env))
@@ -670,17 +686,6 @@ Inductive type_tcexp:
     ((p,e1)::pes) ((p,e1')::pes') ⇒
   type_tcexp ns clk ie lie db st env
     (NestedCase e v p e1 pes) (NestedCase e' v p e1' pes') t
-
-[~cepatVar:]
-  type_cepat ns db (cepatVar v) t [(v,t)]
-
-[~cepatUSCORE:]
-  type_cepat ns db cepatUSCore t []
-
-[~cepatCons:]
-  destruct_type_cons ns db t c ts ∧
-  LIST_REL3 (type_cepat ns db) pats ts vtss ⇒
-    type_cepat ns db (cepatCons c pats) t (FLAT vtss)
 End
 
 (*
@@ -734,7 +739,7 @@ Inductive tcexp_construct_dict:
 [~Lam:]
   tcexp_construct_dict ns ie lie
     (set (MAP FST xs) ∪ env) e de ⇒
-      type_tcexp ns ie lie env (Lam xs e) (Lam _ (MAP FST xs) de)
+      tcexp_construct_dict ns ie lie env (Lam xs e) (Lam _ (MAP FST xs) de)
 
 [~App:]
   tcexp_construct_dict ns ie lie env e1 de1 ∧
@@ -750,112 +755,340 @@ Inductive tcexp_construct_dict:
     (NestedCase _ e' v p e1' pes')
 End
 
-(*
-[~BoolCase:]
-  (type_tcexp ns db st env e (PrimTy Bool) ∧
-   LENGTH css = 2 ∧ set (MAP FST css) = {«True»;«False»} ∧ eopt = NONE ∧
-   EVERY (λ(cn,pvars,cexp). pvars = [] ∧
-    type_tcexp ns db st ((v,0,PrimTy Bool)::env) cexp t) css ⇒
-      type_tcexp ns db st env (Case e v css eopt) t) ∧
-
-[~TupleCase:]
-  (type_tcexp ns db st env e (Tuple tyargs) ∧
-   css = [(«»,pvars,cexp)] ∧ ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
-   LENGTH pvars = LENGTH tyargs ∧ eopt = NONE ∧
-   type_tcexp ns db st
-      (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
-        cexp t ⇒
-      type_tcexp ns db st env (Case e v css eopt) t) ∧
-
-[~ExceptionCase:]
-  (type_tcexp (exndef,typedefs) db st env e Exception ∧
-
-   (* Pattern match is exhaustive: *)
-   set (MAP FST exndef) = set (MAP FST css) ∧ eopt = NONE ∧
-
-   (* forbid duplicated patterns *)
-   LENGTH exndef = LENGTH css ∧
-
-   EVERY (λ(cname,pvars,cexp). (* For each case: *)
-      ∃tys.
-        ALOOKUP exndef cname = SOME tys ∧
-        (* Pattern variables do not shadow case split and are distinct: *)
-          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
-        (* Constructor arities match *)
-          LENGTH tys = LENGTH pvars ∧
-        (* Continuation is well-typed: *)
-          type_tcexp (exndef,typedefs) db st
-            (REVERSE (ZIP (pvars, MAP ($, 0) tys)) ++ (v,0,Exception)::env) cexp t
-      ) css ⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t) ∧
-
-[~Case:]
-  (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
-
-   (* The type exists with correct arity: *)
-   oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
-
-   (* no catch-all case *)
-   (usopt = NONE ⇒
-      (* exhaustive pattern-match *)
-        set (MAP FST css) = set (MAP FST constructors) ∧
-      (* no duplicated patterns *)
-        ALL_DISTINCT (MAP FST css)) ∧
-
-   (* catch-all case *)
-   (∀us_cn_ars us_e. usopt = SOME (us_cn_ars, us_e) ⇒
-      (* exhaustive pattern-match *)
-        set (MAP FST css) ∪ set (MAP FST us_cn_ars) = set (MAP FST constructors) ∧
-      (* no duplicated patterns *)
-        ALL_DISTINCT (MAP FST css ++ MAP FST us_cn_ars) ∧
-      (* non-empty cases/underscore patterns *)
-        css ≠ [] ∧ us_cn_ars ≠ [] ∧
-      (* all underscore patterns are valid *)
-        EVERY (λ(cn,ar). ∃schemes.
-          ALOOKUP constructors cn = SOME schemes ∧ ar = LENGTH schemes) us_cn_ars ∧
-      (* continuation is well-typed *)
-        type_tcexp (exndef, typedefs) db st ((v,0,TypeCons tyid tyargs)::env) us_e t) ∧
-
-   (* For each case: *)
-   EVERY (λ(cname,pvars,cexp).
-      ∃schemes ptys.
-        ALOOKUP constructors cname = SOME schemes ∧
-        (* Constructor arities match: *)
-          LENGTH pvars = LENGTH schemes ∧
-        (* Pattern variables do not shadow case split and are distinct: *)
-          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
-        (* Constructor argument types match: *)
-          MAP (tsubst tyargs) schemes = ptys ∧
-        (* Continuation is well-typed: *)
-          type_tcexp (exndef,typedefs) db st
-            (REVERSE (ZIP (pvars, MAP ($, 0) ptys)) ++
-             (v,0,TypeCons tyid tyargs)::env)
-            cexp t
-      ) css ⇒
-      type_tcexp (exndef,typedefs) db st env (Case e v css usopt) t) ∧
-
-[~TupleSafeProj:]
-  (type_tcexp ns db st env e (Tuple tyargs) ∧
-   LENGTH tyargs = arity ∧ oEL i tyargs = SOME t ⇒
-    type_tcexp ns db st env (SafeProj «» arity i e) t) ∧
-
-[~ExceptionSafeProj:]
-  (type_tcexp (exndef,typedefs) db st env e Exception ∧
-   ALOOKUP exndef cname = SOME tys ∧
-   LENGTH tys = arity ∧ oEL i tys = SOME t ⇒
-    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t) ∧
-
-[~SafeProj:]
-  (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
-   (* The type exists with correct arity: *)
-      oEL tyid typedefs = SOME (tyarity, constructors) ∧ LENGTH tyargs = tyarity ∧
-   (* The constructor exists with correct arity: *)
-      ALOOKUP constructors cname = SOME tys ∧ LENGTH tys = arity ∧
-   (* We can project the constructor argument at the right type: *)
-      oEL i tys = SOME scheme ∧ tsubst tyargs scheme = t ⇒
-    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
-End
-*)
 (********************)
+
+Definition get_names_namespace_def:
+  get_names_namespace (ns: exndef # typedefs) =
+    (MAP FST $ FST ns) ++ FLAT (MAP (MAP FST o SND) $ SND ns)
+End
+
+Triviality INFINITE_mlstring:
+  INFINITE 𝕌(:mlstring)
+Proof
+  strip_assume_tac mlstringTheory.explode_BIJ >>
+  strip_tac >>
+  drule_all pred_setTheory.FINITE_BIJ >>
+  simp[INFINITE_LIST_UNIV]
+QED
+
+Triviality DISTINCT_SUBSET:
+  s ∩ u = {} ∧ v ⊆ u ⇒ s ∩ v = {}
+Proof
+  rw[] >>
+  irule $ iffLR pred_setTheory.SUBSET_EMPTY >>
+  irule pred_setTheory.SUBSET_TRANS >>
+  drule_then (irule_at $ Pos last) $ iffRL pred_setTheory.SUBSET_EMPTY >>
+  simp[] >>
+  irule pred_setTheory.SUBSET_TRANS >>
+  first_x_assum $ irule_at (Pos last) >>
+  simp[]
+QED
+
+Triviality INFINITE_INTER_FINITE_EMPTY:
+  ∀s. FINITE s ⇒ INFINITE (u:'a set) ⇒
+    ∃v. INFINITE v ∧ v ⊆ u ∧ v ∩ s = ∅
+Proof
+  ho_match_mp_tac pred_setTheory.FINITE_INDUCT >>
+  rw[]
+  >- (qexists `u` >> simp[]) >>
+  gvs[] >>
+  qexists `v DIFF {e}` >>
+  simp[pred_setTheory.DIFF_INTER] >>
+  reverse $ conj_tac
+  >- (
+    conj_tac
+    >- (
+      irule pred_setTheory.SUBSET_TRANS >>
+      irule_at (Pos hd) pred_setTheory.DIFF_SUBSET >>
+      simp[]
+    ) >>
+    simp[Once pred_setTheory.INTER_COMM] >>
+    simp[Once $ GSYM pred_setTheory.DIFF_INTER] >>
+    simp[pred_setTheory.DIFF_INTER] >>
+    simp[Once pred_setTheory.INTER_COMM]
+  ) >>
+  strip_tac >>
+  `v ⊆ e INSERT (v DIFF {e})` by
+    simp[pred_setTheory.SUBSET_DEF,
+      pred_setTheory.INSERT_DEF,pred_setTheory.DIFF_DEF] >>
+  qpat_x_assum `INFINITE v` mp_tac >>
+  simp[] >>
+  irule pred_setTheory.SUBSET_FINITE >>
+  first_x_assum $ irule_at (Pos last) >>
+  simp[]
+QED
+
+Triviality INFINITE_TAKE_N:
+  INFINITE v ⇒ ∃s. s ⊆ v ∧ FINITE s ∧ CARD s = n
+Proof
+  Induct_on `n` >>
+  rw[]
+  >- (qexists `{}` >> simp[]) >>
+  gvs[] >>
+  drule_all_then strip_assume_tac pred_setTheory.IN_INFINITE_NOT_FINITE >>
+  qexists `x INSERT s` >>
+  simp[]
+QED
+
+Triviality EXISTS_fresh_vars_list:
+  FINITE s ⇒
+  ∃vs. LENGTH (vs:mlstring list) = n ∧ set vs ∩ s = {} ∧ ALL_DISTINCT vs
+Proof
+  strip_tac >>
+  assume_tac INFINITE_mlstring >>
+  drule_all_then strip_assume_tac INFINITE_INTER_FINITE_EMPTY >>
+  drule_then (qspec_then `n` strip_assume_tac) INFINITE_TAKE_N >>
+  qexists `SET_TO_LIST s'` >>
+  simp[SET_TO_LIST_CARD,SET_TO_LIST_INV] >>
+  irule $ iffLR pred_setTheory.SUBSET_EMPTY >>
+  irule pred_setTheory.SUBSET_TRANS >>
+  drule_then (irule_at $ Pos last) $ iffRL pred_setTheory.SUBSET_EMPTY >>
+  simp[] >>
+  irule pred_setTheory.SUBSET_TRANS >>
+  first_x_assum $ irule_at (Pos last) >>
+  simp[]
+QED
+
+Triviality DISTINCT_FRANGE:
+  set (MAP FST l) ∩ FDOM m = {} ∧ ALL_DISTINCT (MAP FST l) ⇒
+    FRANGE m ∪ set (MAP SND l) = FRANGE (m |++ l)
+Proof
+  Induct_on `l` >>
+  rw[finite_mapTheory.FUPDATE_LIST_THM] >>
+  Cases_on `h` >>
+  gvs[finite_mapTheory.FUPDATE_FUPDATE_LIST_COMMUTES] >>
+  simp[Once pred_setTheory.UNION_COMM,pred_setTheory.INSERT_UNION_EQ] >>
+  AP_TERM_TAC >>
+  simp[pred_setTheory.UNION_COMM] >>
+  irule EQ_TRANS >>
+  last_x_assum $ irule_at (Pos hd) >>
+  conj_tac
+  >- (
+    irule $ iffLR pred_setTheory.SUBSET_EMPTY >>
+    irule pred_setTheory.SUBSET_TRANS >>
+    drule_then (irule_at $ Pos last) $ iffRL pred_setTheory.SUBSET_EMPTY >>
+    simp[]
+  ) >>
+  simp[pred_setTheory.SET_EQ_SUBSET,
+    finite_mapTheory.FRANGE_DOMSUB_SUBSET] >>
+  rw[finite_mapTheory.FRANGE_DEF,pred_setTheory.SUBSET_DEF,
+    pred_setTheory.EXTENSION,PULL_EXISTS] >>
+  first_assum $ irule_at (Pos hd) >>
+  `q ∉ FDOM (m |++ l)` suffices_by (
+      rw[]
+      >- (strip_tac >> gvs[]) >>
+      AP_THM_TAC >> AP_TERM_TAC >>
+      drule_then irule finite_mapTheory.DOMSUB_NOT_IN_DOM
+    ) >>
+  strip_tac >>
+  gvs[MEM_MAP,finite_mapTheory.FDOM_FUPDATE_LIST,
+    pred_setTheory.INSERT_INTER]
+QED
+
+Triviality DISTINCT_FRANGE_ZIP:
+  LENGTH vs = LENGTH ps ∧
+  set vs ∩ FDOM m = {} ∧ ALL_DISTINCT vs ⇒
+    FRANGE m ∪ set ps = FRANGE (m |++ ZIP (vs,ps))
+Proof
+  strip_tac >>
+  qspecl_then [`m`,`ZIP (vs,ps)`] assume_tac $ GEN_ALL DISTINCT_FRANGE >>
+  gvs[MAP_ZIP]
+QED
+
+Theorem MAP_FST_tshift_env_pred[simp]:
+  MAP FST (tshift_env_pred n env) = MAP FST env
+Proof
+  Induct_on `env` >>
+  rw[] >>
+  pairarg_tac >> rw[]
+QED
+
+Triviality MAP_FST_REVERSE_MAP_PRED_SND[simp]:
+  MAP FST (REVERSE (MAP (λ(v,t). (v,[],Pred [] t)) vts)) =
+    REVERSE (MAP FST vts)
+Proof
+  Induct_on `vts` >>
+  rw[] >>
+  pairarg_tac >> rw[]
+QED
+
+Theorem type_cepat_cepat_vars:
+  ∀p t vts. type_cepat ns db p t vts ⇒
+    set (MAP FST vts) = cepat_vars p
+Proof
+  ho_match_mp_tac type_cepat_ind >>
+  rw[pure_cexpTheory.cepat_vars_def] >>
+  pop_assum mp_tac >>
+  qid_spec_tac `vtss` >>
+  qid_spec_tac `ts` >>
+  qid_spec_tac `pats` >>
+  ho_match_mp_tac LIST_REL3_induct >>
+  rw[]
+QED
+
+Theorem type_tcexp_IMP_tcexp_construct_dict:
+  (∀lie db st env e e' pt.
+    pred_type_tcexp ns clk ie lie db st env e e' pt ⇒
+    ∀lie_map.
+      ie = FRANGE ie_map ∧
+      lie = FRANGE lie_map ⇒
+      ∃(d:'a cexp). pred_tcexp_construct_dict (set $ get_names_namespace ns)
+        ie_map lie_map (set $ MAP FST env) pt e' d) ∧
+  (∀lie db st env e e' t.
+    type_tcexp ns clk ie lie db st env e e' t ⇒
+    ∀lie_map.
+      ie = FRANGE ie_map ∧
+      lie = FRANGE lie_map ⇒
+      ∃(d:'a cexp). tcexp_construct_dict (set $ get_names_namespace ns)
+        ie_map lie_map (set $ MAP FST env) e' d)
+Proof
+  ho_match_mp_tac type_tcexp_ind >>
+  rw[]
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Var >>
+    metis_tac[has_dict_EXISTS_construct_dict]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Pred >>
+    qmatch_goalsub_abbrev_tac `set _ ∩ fs = _` >>
+    `FINITE fs` by simp[Abbr`fs`] >>
+    drule_then (qspec_then `LENGTH ps` strip_assume_tac)
+      EXISTS_fresh_vars_list >>
+    qexists `ZIP (vs,ps)` >>
+    simp[MAP_ZIP] >>
+    first_x_assum irule >>
+    irule DISTINCT_FRANGE_ZIP >>
+    simp[Abbr`fs`] >>
+    drule_then irule DISTINCT_SUBSET >>
+    metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.UNION_ASSOC]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_App >>
+    simp[GSYM PULL_EXISTS] >>
+    pop_assum mp_tac >>
+    qid_spec_tac `arg_tys` >>
+    qid_spec_tac `es'` >>
+    qid_spec_tac `es` >>
+    ho_match_mp_tac LIST_REL3_induct >>
+    rw[] >>
+    first_x_assum $ irule_at $ Pos last >>
+    first_x_assum irule >>
+    simp[]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Let >>
+    simp[GSYM PULL_EXISTS]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Lam >>
+    drule_then assume_tac $ cj 1 $ iffLR LIST_REL_EVERY_ZIP >>
+    fs[rich_listTheory.MAP_REVERSE,MAP_ZIP]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Letrec >>
+    drule_then assume_tac $ cj 1 $ iffLR LIST_REL3_EL >>
+    drule_then assume_tac $ cj 2 $ iffLR LIST_REL3_EL >>
+    gvs[rich_listTheory.MAP_REVERSE,MAP_ZIP] >>
+    simp[GSYM PULL_EXISTS] >>
+    reverse conj_tac
+    >- (
+      reverse conj_tac
+      >- (strip_tac >> gvs[]) >>
+      simp[Once pred_setTheory.UNION_COMM] >>
+      metis_tac[]
+    ) >>
+    qpat_x_assum `LIST_REL3 _ _ _ _` mp_tac >>
+    qpat_abbrev_tac `l = set (MAP (FST o FST) fns')` >>
+    pop_assum $ assume_tac o REWRITE_RULE[markerTheory.Abbrev_def] >>
+    strip_tac >>
+    drule $ cj 2 $ iffLR pred_setTheory.SET_EQ_SUBSET >>
+    pop_assum mp_tac >>
+    qid_spec_tac `kind_schemes` >>
+    qid_spec_tac `fns'` >>
+    qid_spec_tac `fns` >>
+    ho_match_mp_tac LIST_REL3_induct >>
+    rw[pairTheory.LAMBDA_PROD,GSYM pairTheory.PEXISTS_THM] >>
+    pairarg_tac >> gvs[] >>
+    pairarg_tac >> gvs[] >>
+    pairarg_tac >>
+    gvs[pred_setTheory.UNION_COMM] >>
+    rw[GSYM PULL_EXISTS] >>
+    metis_tac[]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    pop_assum mp_tac >>
+    qid_spec_tac `carg_ts` >>
+    qid_spec_tac `es'` >>
+    qid_spec_tac `es` >>
+    ho_match_mp_tac LIST_REL3_induct >>
+    rw[GSYM PULL_EXISTS]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    pop_assum mp_tac >>
+    qid_spec_tac `ts` >>
+    qid_spec_tac `es'` >>
+    qid_spec_tac `es` >>
+    ho_match_mp_tac LIST_REL3_induct >>
+    rw[GSYM PULL_EXISTS]
+  )
+  >> TRY (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    pop_assum $ qspec_then `lie_map` mp_tac >>
+    rw[GSYM PULL_EXISTS]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    pop_assum mp_tac >>
+    qid_spec_tac `carg_ts` >>
+    qid_spec_tac `es'` >>
+    qid_spec_tac `es` >>
+    ho_match_mp_tac LIST_REL3_induct >>
+    rw[GSYM PULL_EXISTS]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    simp[LIST_REL_rules]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    simp[LIST_REL_rules]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    simp[LIST_REL_rules]
+  )
+  >- (
+    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    pop_assum mp_tac >>
+    qid_spec_tac `ts` >>
+    qid_spec_tac `es'` >>
+    qid_spec_tac `es` >>
+    ho_match_mp_tac LIST_REL3_induct >>
+    rw[GSYM PULL_EXISTS]
+  ) >>
+  irule_at (Pos hd) tcexp_construct_dict_NestedCase >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac
+  >- (
+    last_x_assum $ qspec_then `lie_map` kall_tac >>
+    last_x_assum $ qspec_then `lie_map` mp_tac >>
+    drule type_cepat_cepat_vars >>
+    simp[Once pred_setTheory.UNION_COMM,
+      pred_setTheory.INSERT_UNION_EQ]
+  ) >>
+  pop_assum mp_tac >>
+  qid_spec_tac `pes'` >>
+  qid_spec_tac `pes` >>
+  ho_match_mp_tac LIST_REL_ind >>
+  rw[] >>
+  first_x_assum $ irule_at (Pos last) >>
+  pairarg_tac >> fs[] >>
+  pairarg_tac >> fs[pairTheory.LAMBDA_PROD,GSYM PEXISTS_THM] >>
+  drule_then assume_tac type_cepat_cepat_vars >>
+  fs[] >>
+  metis_tac[pred_setTheory.UNION_COMM,pred_setTheory.INSERT_UNION_EQ]
+QED
 
 val _ = export_theory();

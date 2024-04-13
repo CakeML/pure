@@ -53,13 +53,87 @@ End
 Definition pred_kind_wf_def:
   pred_kind_wf cldb cdb vdb (Pred cls ty) =
     (kind_wf cdb vdb kindType ty ∧
-    ∀v cl. MEM (cl,v) cls ⇒
-      ∃k. cldb cl = SOME k ∧ kind_wf cdb vdb k v)
+    ∀cl. MEM cl cls ⇒
+      ∃k. cldb (FST cl) = SOME k ∧ kind_wf cdb vdb k (SND cl))
 End
 
 Definition kind_to_arities_def:
-  (kind_to_arities (kindArrow a b) = 1 + kind_to_arities b) ∧
-  (kind_to_arities kindType = 0)
+  (kind_to_arities (kindArrow a b) = 1n + kind_to_arities b) ∧
+  (kind_to_arities kindType = 0n)
 End
+
+Theorem kind_to_arities_kind_arrow:
+  kind_to_arities (kind_arrows ks k) = LENGTH ks + kind_to_arities k
+Proof
+  Induct_on `ks` >>
+  simp[kind_to_arities_def,kind_arrows_def]
+QED
+
+Theorem kind_wf_subst_db:
+  ∀k t. kind_wf cdb vdb k t ⇒
+  (∀v k. v < n ∧ vdb v = SOME k ⇒ vdb' v = SOME k) ∧
+  (∀v k. n ≤ v ∧ v < n + LENGTH ts ∧ vdb v = SOME k ⇒
+    kind_wf cdb vdb' k (EL (v - n) ts)) ∧
+  (∀v k. n + LENGTH ts ≤ v ∧ vdb v = SOME k ⇒ vdb' (v - LENGTH ts) = SOME k) ⇒
+    kind_wf cdb vdb' k (subst_db n ts t)
+Proof
+  ho_match_mp_tac kind_wf_ind >>
+  rw[kind_wf_rules,subst_db_def] >>
+  gvs[] >>
+  metis_tac[kind_wf_Cons]
+QED
+
+Theorem kind_wf_shift_db:
+  ∀k t. kind_wf cdb vdb k t ⇒
+  (∀v k. skip ≤ v ∧ vdb v = SOME k ⇒ vdb' (n + v) = SOME k) ∧
+  (∀v k. v < skip ∧ vdb v = SOME k ⇒ vdb' v = SOME k) ⇒
+    kind_wf cdb vdb' k (shift_db skip n t)
+Proof
+  ho_match_mp_tac kind_wf_ind >>
+  rw[kind_wf_rules,shift_db_def] >>
+  gvs[] >>
+  metis_tac[kind_wf_Cons]
+QED
+
+Theorem pred_kind_wf_subst_db_pred:
+   pred_kind_wf cldb cdb vdb pt ∧
+   (∀v k. v < n ∧ vdb v = SOME k ⇒ vdb' v = SOME k) ∧
+   (∀v k. n ≤ v ∧ v < n + LENGTH ts ∧ vdb v = SOME k ⇒
+      kind_wf cdb vdb' k (EL (v - n) ts)) ∧
+   (∀v k. n + LENGTH ts ≤ v ∧ vdb v = SOME k ⇒
+      vdb' (v - LENGTH ts) = SOME k) ⇒
+    pred_kind_wf cldb cdb vdb' (subst_db_pred n ts pt)
+Proof
+  Cases_on `pt` >>
+  rw[pred_kind_wf_def,subst_db_pred_def]
+  >- (
+    drule_then irule kind_wf_subst_db >>
+    rw[] >> metis_tac[]
+  ) >>
+  gvs[MEM_MAP,pairTheory.PAIR_MAP] >>
+  last_x_assum $ drule_then strip_assume_tac >>
+  first_x_assum $ irule_at (Pos hd) >>
+  drule_then irule kind_wf_subst_db >>
+  rw[] >> metis_tac[]
+QED
+
+Theorem pred_kind_wf_shift_db_pred:
+   pred_kind_wf cldb cdb vdb pt ∧
+   (∀v k. skip ≤ v ∧ vdb v = SOME k ⇒ vdb' (n + v) = SOME k) ∧
+   (∀v k. v < skip ∧ vdb v = SOME k ⇒ vdb' v = SOME k) ⇒
+     pred_kind_wf cldb cdb vdb' (shift_db_pred skip n pt)
+Proof
+  Cases_on `pt` >>
+  rw[pred_kind_wf_def,shift_db_pred_def]
+  >- (
+    drule_then irule kind_wf_shift_db >>
+    metis_tac[]
+  ) >>
+  gvs[MEM_MAP,pairTheory.PAIR_MAP] >>
+  last_x_assum $ drule_then strip_assume_tac >>
+  first_x_assum $ irule_at (Pos hd) >>
+  drule_then irule kind_wf_shift_db >>
+  metis_tac[]
+QED
 
 val _ = export_theory();
