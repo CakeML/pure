@@ -269,6 +269,22 @@ Definition type_exception_def:
       ALOOKUP exndef cname = SOME carg_tys
 End
 
+Definition destruct_type_cons_def:
+  destruct_type_cons (edef:exndef,tdefs: typedefs) db t cname carg_tys ⇔
+  if t = Atom Exception
+  then
+    type_exception edef (cname,carg_tys)
+  else
+  ∃tc targs. 
+    split_ty_head t = SOME (tc,targs) ∧
+    case tc of
+    | INL tyid => type_cons tdefs db (cname,carg_tys) (tyid,targs)
+    | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
+    | INR (CompPrimT (Tuple n)) => cname = «» ∧ targs = carg_tys
+    | _ => F
+End
+
+
 Definition get_PrimTys_def:
   get_PrimTys [] = SOME [] ∧
   get_PrimTys ((Atom $ PrimTy pty) :: rest) = OPTION_MAP (CONS pty) (get_PrimTys rest) ∧
@@ -640,6 +656,31 @@ Inductive type_tcexp:
   type_tcexp ns clk ie lie db st env e2 e2' t2 ⇒
      type_tcexp ns clk ie lie db st env
         (Prim Seq [e1; e2]) (Prim Seq [e1';e2']) t2
+
+[~NestedCase:]
+  type_tcexp ns clk ie lie db st env e e' vt ∧
+  LIST_REL
+    (λ(p,e) (p',e').
+      p' = p ∧
+      type_cepat ns db p vt vts ∧
+      type_tcexp ns clk ie lie db st
+        (REVERSE (MAP (λ(v,t). (v,[],Pred [] t)) vts) ++
+          ((v,[],Pred [] vt)::env))
+        e e' t)
+    ((p,e1)::pes) ((p,e1')::pes') ⇒
+  type_tcexp ns clk ie lie db st env
+    (NestedCase e v p e1 pes) (NestedCase e' v p e1' pes') t
+
+[~cepatVar:]
+  type_cepat ns db (cepatVar v) t [(v,t)]
+
+[~cepatUSCORE:]
+  type_cepat ns db cepatUSCore t []
+
+[~cepatCons:]
+  destruct_type_cons ns db t c ts ∧
+  LIST_REL3 (type_cepat ns db) pats ts vtss ⇒
+    type_cepat ns db (cepatCons c pats) t (FLAT vtss)
 End
 
 (*
