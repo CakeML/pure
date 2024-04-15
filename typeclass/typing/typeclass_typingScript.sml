@@ -1,11 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers;
+open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory;
-open typeclass_typesTheory typeclass_tcexpTheory
+     listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
+open typeclass_typesTheory typeclass_texpTheory
 typeclass_kindCheckTheory pure_configTheory;
 open monadsyntax;
-
-(* open typeclass_env_mapTheory; *)
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "option";
@@ -480,7 +478,7 @@ End
 
 (*
   The main typing relation.
-  type_tcexp :
+  type_elaborate_texp :
       (ns: exndef # typedefs)     -- type definitions for exceptions and datatypes
    -> (clk: class -> Kind option) -- a map from class to its corresponding kind
    -> (ie: entailment set)        -- instance environment
@@ -490,7 +488,7 @@ End
    -> (st: type list)             -- store typing
    -> (env: (string # (num # Predtype)) list)
                                   -- term variables associated to type schemes
-   -> tcexp -> tcexp              -- expression, elaborated expression,
+   -> texp -> texp              -- expression, elaborated expression,
    -> type                        -- and its type
 *)
 (* It does four things:
@@ -502,45 +500,45 @@ End
 
 Overload Monad = ``Cons (Atom $ CompPrimTy $ M)``;
 
-Inductive type_tcexp:
+Inductive type_elaborate_texp:
 (* remove the user type annotation after class constraint elaboration *)
 [~UserAnnot:]
-  type_tcexp ns (clk:mlstring -> Kind option) ie lie db st env e e' t ⇒
-    type_tcexp ns clk ie lie db st env (UserAnnot t e) e' t
+  type_elaborate_texp ns (clk:mlstring -> Kind option) ie lie db st env e e' t ⇒
+    type_elaborate_texp ns clk ie lie db st env (UserAnnot t e) e' t
 
 [~Var:]
   (ALOOKUP env x = SOME s ∧
    specialises_pred (SND ns) db s (Pred ps t) ∧
    has_dicts ie lie ps ⇒
-      type_tcexp ns clk ie lie db st env (Var _ x) (Var ps x) t)
+      type_elaborate_texp ns clk ie lie db st env (Var _ x) (Var ps x) t)
 
 [~Pred:]
-  type_tcexp ns clk ie (lie ∪ set ps) db st env e e' t ∧
+  type_elaborate_texp ns clk ie (lie ∪ set ps) db st env e e' t ∧
   pred_type_kind_ok clk (SND ns) db (Pred ps t) ⇒
-    pred_type_tcexp ns clk ie lie db st env e e' (Pred ps t)
+    pred_type_elaborate_texp ns clk ie lie db st env e e' (Pred ps t)
 
 [~App:]
-  type_tcexp ns clk ie lie db st env e e' (Functions arg_tys ret_ty) ∧
+  type_elaborate_texp ns clk ie lie db st env e e' (Functions arg_tys ret_ty) ∧
   es ≠ [] ∧
-  LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' arg_tys ⇒
-    type_tcexp ns clk ie lie db st env (App e es) (App e' es') ret_ty
+  LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' arg_tys ⇒
+    type_elaborate_texp ns clk ie lie db st env (App e es) (App e' es') ret_ty
 
 [~Let:]
   LENGTH new = n ∧
-  pred_type_tcexp ns clk ie lie (new ++ db) (MAP (tshift $ LENGTH new) st)
+  pred_type_elaborate_texp ns clk ie lie (new ++ db) (MAP (tshift $ LENGTH new) st)
     (tshift_env_pred (LENGTH new) env) e1 e1' pt1 ∧
   (* enforces all variables in the predicates to be well scoped:
    * rejects `Read a, Show a => String -> String` *)
   pred_type_well_scoped pt1 ∧
-  type_tcexp ns clk ie lie db st ((x,new,pt1)::env) e2 e2' t2 ⇒
-     type_tcexp ns clk ie lie db st env (Let (x,NONE) e1 e2)
+  type_elaborate_texp ns clk ie lie db st ((x,new,pt1)::env) e2 e2' t2 ⇒
+     type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
         (Let (x,SOME (n,pt1)) e1' e2') t2
 
 (* The poly type of the let binding is annotated by the user *)
 [~LetSOME:]
-  type_tcexp ns clk ie lie db st env (Let (x,NONE) e1 e2)
+  type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
     (Let (x,SOME (n,pt)) e1' e2') t2 ⇒
-      type_tcexp ns clk ie lie db st env (Let (x,SONE (n,pt)) e1 e2)
+      type_elaborate_texp ns clk ie lie db st env (Let (x,SONE (n,pt)) e1 e2)
         (Let (x,SOME (n,pt)) e1' e2') t2
 
 [~Lam:]
@@ -552,10 +550,10 @@ Inductive type_tcexp:
     case ot of
     | NONE => T
     | SOME t => t = t') (MAP SND vs) arg_tys ∧
-  type_tcexp ns clk ie lie db st
+  type_elaborate_texp ns clk ie lie db st
     (REVERSE (ZIP (MAP FST vs, MAP (λat. ([],Pred [] at)) arg_tys)) ++ env)
     e e' ret_ty ⇒
-      type_tcexp ns clk ie lie db st env (Lam vs e) (Lam vs e')
+      type_elaborate_texp ns clk ie lie db st env (Lam vs e) (Lam vs e')
         (Functions args_tys ret_ty)
 
 [~Letrec:]
@@ -566,194 +564,351 @@ Inductive type_tcexp:
       (case ot of
       | NONE => T
       | SOME t => t = (LENGTH varks,scheme)) ∧
-      pred_type_tcexp ns clk ie lie (varks ++ db) (MAP (tshift vars) st)
+      pred_type_elaborate_texp ns clk ie lie (varks ++ db) (MAP (tshift vars) st)
         (tshift_env_pred (LENGTH varks) $
           REVERSE (ZIP (MAP (FST o FST) fns', kind_schemes)) ++ env)
           body body' scheme)
     fns fns' kind_schemes ∧
    EVERY (pred_type_kind_scheme_ok clk (SND ns) db) kind_schemes ∧ fns ≠ [] ∧
-   type_tcexp ns clk ie lie db st (REVERSE (ZIP (MAP (FST o FST) fns', kind_schemes)) ++ env) e e' t ⇒
-      type_tcexp ns clk ie lie db st env (Letrec fns e) (Letrec fns' e') t
+   type_elaborate_texp ns clk ie lie db st (REVERSE (ZIP (MAP (FST o FST) fns', kind_schemes)) ++ env) e e' t ⇒
+      type_elaborate_texp ns clk ie lie db st env (Letrec fns e) (Letrec fns' e') t
 
 [~Cons:]
-  LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' carg_ts ∧
+  LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' carg_ts ∧
   EVERY (type_ok (SND ns) db) tyargs ∧
   type_cons (SND ns) db (cname,carg_ts) (tyid,tyargs) ⇒
-     type_tcexp ns clk ie lie db st env
+     type_elaborate_texp ns clk ie lie db st env
        (Prim (Cons cname) es) (Prim (Cons cname) es')
        (tcons_to_type (INL tyid) tyargs)
 
 [~Tuple:]
-  LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' ts ∧
+  LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' ts ∧
   (t = cons_types (Atom $ CompPrimTy $ Tuple (LENGTH ts)) ts) ⇒
-     type_tcexp ns clk ie lie db st env (Prim (Cons «») es) (Prim (Cons «») es') t
+     type_elaborate_texp ns clk ie lie db st env (Prim (Cons «») es) (Prim (Cons «») es') t
 
 [~Ret:]
-  type_tcexp ns clk ie lie db st env e e' t ⇒
-     type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e e' t ⇒
+     type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Ret») [e]) (Prim (Cons «Ret») [e']) (Monad t)
 
 [~Bind:]
-  type_tcexp ns clk ie lie db st env e1 e1' (Monad t1) ∧
-  type_tcexp ns clk ie lie db st env e2 e2' (Functions [t1] (Monad t2)) ⇒
-     type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e1 e1' (Monad t1) ∧
+  type_elaborate_texp ns clk ie lie db st env e2 e2' (Functions [t1] (Monad t2)) ⇒
+     type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Bind») [e1;e2]) (Prim (Cons «Bind») [e1';e2']) (Monad t2)
 
 [~Raise:]
-  type_tcexp ns clk ie lie db st env e e' (Atom Exception) ∧
+  type_elaborate_texp ns clk ie lie db st env e e' (Atom Exception) ∧
   type_ok (SND ns) db t ⇒
-     type_tcexp ns clk ie lie db st env
+     type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Raise») [e]) (Prim (Cons «Raise») [e']) (Monad t)
 
 [~Handle:]
-  type_tcexp ns clk ie lie db st env e1 e1' (Monad t) ∧
-  type_tcexp ns clk ie lie db st env e2 e2' (Functions [Atom Exception] (Monad t)) ⇒
-     type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e1 e1' (Monad t) ∧
+  type_elaborate_texp ns clk ie lie db st env e2 e2' (Functions [Atom Exception] (Monad t)) ⇒
+     type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Handle») [e1;e2]) (Prim (Cons «Handle») [e1';e2']) (Monad t)
 
 [~Act:]
-  type_tcexp ns clk ie lie db st env e e' (Atom $ PrimTy Message) ⇒
-     type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e e' (Atom $ PrimTy Message) ⇒
+     type_elaborate_texp ns clk ie lie db st env
       (Prim (Cons «Act») [e]) (Prim (Cons «Act») [e']) (Monad $ Atom $ PrimTy String)
 
 [~Alloc:]
-  type_tcexp ns clk ie lie db st env e1 e1' (Atom $ PrimTy Integer) ∧
-   type_tcexp ns clk ie lie db st env e2 e2' t ⇒
-      type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e1 e1' (Atom $ PrimTy Integer) ∧
+   type_elaborate_texp ns clk ie lie db st env e2 e2' t ⇒
+      type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Alloc») [e1;e2]) (Prim (Cons «Alloc») [e1';e2'])
         (Monad $ Cons (Atom $ CompPrimTy Array) t)
 
 [~Length:]
-  type_tcexp ns clk ie lie db st env e e' (Cons (Atom $ CompPrimTy Array) t) ⇒
-     type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e e' (Cons (Atom $ CompPrimTy Array) t) ⇒
+     type_elaborate_texp ns clk ie lie db st env
        (Prim (Cons «Length») [e]) (Prim (Cons «Length») [e'])
        (Monad $ Atom $ PrimTy Integer)
 
 [~Deref:]
-   type_tcexp ns clk ie lie db st env e1 e1' (Cons (Atom $ CompPrimTy Array) t) ∧
-   type_tcexp ns clk ie lie db st env e2 e2' (Atom $ PrimTy Integer) ⇒
-      type_tcexp ns clk ie lie db st env
+   type_elaborate_texp ns clk ie lie db st env e1 e1' (Cons (Atom $ CompPrimTy Array) t) ∧
+   type_elaborate_texp ns clk ie lie db st env e2 e2' (Atom $ PrimTy Integer) ⇒
+      type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Deref») [e1;e2]) (Prim (Cons «Deref») [e1';e2']) (Monad t)
 
 [~Update:]
-   type_tcexp ns clk ie lie db st env e1 e1' (Cons (Atom $ CompPrimTy Array) t) ∧
-   type_tcexp ns clk ie lie db st env e2 e2' (Atom $ PrimTy Integer) ∧
-   type_tcexp ns clk ie lie db st env e3 e3' t ⇒
-      type_tcexp ns clk ie lie db st env
+   type_elaborate_texp ns clk ie lie db st env e1 e1' (Cons (Atom $ CompPrimTy Array) t) ∧
+   type_elaborate_texp ns clk ie lie db st env e2 e2' (Atom $ PrimTy Integer) ∧
+   type_elaborate_texp ns clk ie lie db st env e3 e3' t ⇒
+      type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons «Update») [e1;e2;e3]) (Prim (Cons «Update») [e1';e2';e3']) (Monad Unit)
 
 [~Exception:]
-   LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' carg_ts ∧
+   LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' carg_ts ∧
    type_exception (FST ns) (cname,carg_ts) ⇒
-      type_tcexp ns clk ie lie db st env
+      type_elaborate_texp ns clk ie lie db st env
         (Prim (Cons cname) es) (Prim (Cons cname) es') (Atom Exception)
 
 [~True:]
-  type_tcexp ns clk ie lie db st env (Prim (Cons «True») []) (Prim (Cons «True») []) (Atom $ PrimTy Bool)
+  type_elaborate_texp ns clk ie lie db st env (Prim (Cons «True») []) (Prim (Cons «True») []) (Atom $ PrimTy Bool)
 
 [~False:]
-  type_tcexp ns clk ie lie db st env (Prim (Cons «False») []) (Prim (Cons «False») []) (Atom $ PrimTy Bool)
+  type_elaborate_texp ns clk ie lie db st env (Prim (Cons «False») []) (Prim (Cons «False») []) (Atom $ PrimTy Bool)
 
 [~Loc:]
   oEL n st = SOME t ⇒
-     type_tcexp ns clk ie lie db st env
+     type_elaborate_texp ns clk ie lie db st env
         (Prim (AtomOp $ Lit (Loc n)) []) (Prim (AtomOp $ Lit (Loc n)) [])
         (Cons (Atom $ CompPrimTy Array) t)
 
 [~AtomOp:]
-   LIST_REL3 (type_tcexp ns clk ie lie db st env) es es' ts ∧
+   LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' ts ∧
    get_PrimTys ts = SOME pts ∧
    type_atom_op aop pts primt ⇒
-      type_tcexp ns clk ie lie db st env
+      type_elaborate_texp ns clk ie lie db st env
         (Prim (AtomOp aop) es) (Prim (AtomOp aop) es') (Atom $ PrimTy primt)
 
 [~Seq:]
-  type_tcexp ns clk ie lie db st env e1 e1' t1 ∧
-  type_tcexp ns clk ie lie db st env e2 e2' t2 ⇒
-     type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env e1 e1' t1 ∧
+  type_elaborate_texp ns clk ie lie db st env e2 e2' t2 ⇒
+     type_elaborate_texp ns clk ie lie db st env
         (Prim Seq [e1; e2]) (Prim Seq [e1';e2']) t2
 
 [~NestedCase:]
-  type_tcexp ns clk ie lie db st env e e' vt ∧
+  type_elaborate_texp ns clk ie lie db st env e e' vt ∧
   LIST_REL
     (λ(p,e) (p',e').
       p' = p ∧
       ∃vts. type_cepat ns db p vt vts ∧
-      type_tcexp ns clk ie lie db st
+      type_elaborate_texp ns clk ie lie db st
         (REVERSE (MAP (λ(v,t). (v,[],Pred [] t)) vts) ++
           ((v,[],Pred [] vt)::env))
         e e' t)
     ((p,e1)::pes) ((p,e1')::pes') ⇒
-  type_tcexp ns clk ie lie db st env
+  type_elaborate_texp ns clk ie lie db st env
     (NestedCase e v p e1 pes) (NestedCase e' v p e1' pes') t
 End
 
 (*
 * Dictionary construction given that we have the elaborated expression.
-* tcexp_construct_dict:
+* texp_construct_dict:
 *     ns: mlstring set                    all constructors
 * ->  ie: (mlstring |-> (class # type))   instance environment
 * -> lie: (mlstring |-> entailment)       local instance environment
 * -> env: mlstring set                    term variables in scope
-* ->  ps: tcexp                           elaborated expression
+* ->  ps: texp                           elaborated expression
 * ->  ds:'a cexp                          translated cexp expression
 *)
 
 (* we need to record the variables/constructors to avoid name collision *)
-Inductive tcexp_construct_dict:
+Inductive texp_construct_dict:
 [~Var:]
   construct_dicts ie lie ps ds ⇒
-    tcexp_construct_dict ns ie lie env (Var ps x)
+    texp_construct_dict ns ie lie env (Var ps x)
       (pure_cexp$App _ (pure_cexp$Var _ x) ds)
 
 [~Pred:]
   (* enforce all variables in vs are fresh *)
   set (MAP FST vs) ∩ (FDOM lie ∪ FDOM ie ∪ env ∪ ns) = ∅ ∧
-  tcexp_construct_dict ns ie (lie |++ vs) env e de ∧
+  texp_construct_dict ns ie (lie |++ vs) env e de ∧
   ps = MAP SND vs ⇒
-    pred_tcexp_construct_dict ns ie lie env (Pred ps t) e (pure_cexp$Lam _ (MAP FST vs) de)
+    pred_texp_construct_dict ns ie lie env (Pred ps t) e (pure_cexp$Lam _ (MAP FST vs) de)
 
 [~Let:]
-  pred_tcexp_construct_dict ns ie lie env pt e1 de1 ∧
-  tcexp_construct_dict ns ie lie (x INSERT env) e2 de2 ⇒
-    tcexp_construct_dict ns ie lie env
-      (typeclass_tcexp$Let (x,SOME (new,pt)) e1 e2)
+  pred_texp_construct_dict ns ie lie env pt e1 de1 ∧
+  texp_construct_dict ns ie lie (x INSERT env) e2 de2 ⇒
+    texp_construct_dict ns ie lie env
+      (typeclass_texp$Let (x,SOME (new,pt)) e1 e2)
       (pure_cexp$Let _ x de1 de2)
 
 [~Letrec:]
   LIST_REL
     (λ((x,ot),e) (y,de).
       x = y ∧ ∃new pt. ot = SOME (new,pt) ∧
-      pred_tcexp_construct_dict ns ie lie
+      pred_texp_construct_dict ns ie lie
         (env ∪ set (MAP (FST o FST) fns)) pt e de)
     fns dfns ∧
-  tcexp_construct_dict ns ie lie (env ∪ set (MAP (FST o FST) fns)) e2 de2 ∧
+  texp_construct_dict ns ie lie (env ∪ set (MAP (FST o FST) fns)) e2 de2 ∧
   fns ≠ [] ⇒
-    tcexp_construct_dict ns ie lie env
-      (typeclass_tcexp$Letrec fns e) (pure_cexp$Letrec _ dfns de)
+    texp_construct_dict ns ie lie env
+      (typeclass_texp$Letrec fns e) (pure_cexp$Letrec _ dfns de)
 
 [~Prim:]
-  LIST_REL (tcexp_construct_dict ns ie lie env) es des ⇒
-    tcexp_construct_dict ns ie lie env (Prim c es) (Prim _ c des)
+  LIST_REL (texp_construct_dict ns ie lie env) es des ⇒
+    texp_construct_dict ns ie lie env (Prim c es) (Prim _ c des)
 
 [~Lam:]
-  tcexp_construct_dict ns ie lie
+  texp_construct_dict ns ie lie
     (set (MAP FST xs) ∪ env) e de ⇒
-      tcexp_construct_dict ns ie lie env (Lam xs e) (Lam _ (MAP FST xs) de)
+      texp_construct_dict ns ie lie env (Lam xs e) (Lam _ (MAP FST xs) de)
 
 [~App:]
-  tcexp_construct_dict ns ie lie env e1 de1 ∧
-  LIST_REL (tcexp_construct_dict ns ie lie env) es des ⇒
-    tcexp_construct_dict ns ie lie env (App e1 es) (App _ de1 des)
+  texp_construct_dict ns ie lie env e1 de1 ∧
+  LIST_REL (texp_construct_dict ns ie lie env) es des ⇒
+    texp_construct_dict ns ie lie env (App e1 es) (App _ de1 des)
 
 [~NestedCase:]
-  tcexp_construct_dict ns ie lie env e e' ∧
+  texp_construct_dict ns ie lie env e e' ∧
   LIST_REL (λ(p,e) (p',e'). p = p' ∧
-      tcexp_construct_dict ns ie lie (v INSERT env ∪ pure_cexp$cepat_vars p) e e')
+      texp_construct_dict ns ie lie (v INSERT env ∪ pure_cexp$cepat_vars p) e e')
     ((p,e1)::pes) ((p,e1')::pes') ⇒
-  tcexp_construct_dict ns ie lie env (NestedCase e v p e1 pes)
+  texp_construct_dict ns ie lie env (NestedCase e v p e1 pes)
     (NestedCase _ e' v p e1' pes')
 End
+
+Definition acyclic_rec_def:
+  acyclic_rec r f err x =
+    if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s
+    then
+      let children = {y | r (y,x)} in
+        f x children (IMAGE (acyclic_rec r f err) children)
+    else err
+Termination
+  WF_REL_TAC `λx y.
+    FST x = FST y ∧
+    acyclic (FST y) ∧ ∃s. FINITE s ∧ domain (FST y) ⊆ s ∧ range (FST y) ⊆ s ∧
+    (FST y) (SND $ SND $ SND x, SND $ SND $ SND y)`
+  >- (
+    qspecl_then [
+      `\r. acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s`,
+      `FST`,
+      `λr x y. r(x,y)`,
+      `SND o SND o SND`
+    ] irule WF_PULL >>
+    reverse $ rw[]
+    >- (
+      drule_all acyclic_WF >>
+      simp[reln_to_rel_def,IN_DEF]
+    ) >>
+    metis_tac[]
+  ) >>
+  rw[]
+End
+
+Definition acyclic_depth_def:
+  acyclic_depth r x = acyclic_rec r (λx xs ys. MAX_SET ys + 1n) 0 x
+End
+
+Definition translate_predicate_def:
+  translate_predicate (ce: 'a |-> ('a list # (type list))) t (c:'a) =
+  if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
+  then
+  do
+    (sups, ts) <- FLOOKUP ce c;
+    sups' <- OPT_MMAP (translate_predicate ce t) sups;
+    return $ tcons_to_type (INR $ CompPrimT $ Tuple $ LENGTH sups' + LENGTH ts)
+      (sups' ++ MAP (tsubst [t]) ts)
+  od
+  else NONE
+Termination
+  WF_REL_TAC `λx y.
+    FST x = FST y ∧
+    acyclic (λp. ∃s x. FLOOKUP (FST y) (SND p) = SOME (s,x) ∧ MEM (FST p) s) ∧
+    measure
+      (acyclic_depth (λp. ∃s ts. FLOOKUP (FST y) (SND p) = SOME (s,ts) ∧ MEM (FST p) s))
+      (SND $ SND x) (SND $ SND y)`
+  >- (
+    qspecl_then [
+      `\(ce: 'a |-> ('a list # (type list))).
+        acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)`,
+      `FST`,
+      `λce. measure $ acyclic_depth
+         (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧ MEM (FST p) s)`,
+      `SND o SND`
+    ] irule WF_PULL >>
+    rw[]
+  ) >>
+  rw[acyclic_depth_def] >>
+  CONV_TAC $ RAND_CONV $ SCONV[Once acyclic_rec_def] >>
+  simp[] >>
+  reverse $ IF_CASES_TAC >>
+  rw[GSYM $ LE_LT1]
+  >- (
+    pop_assum mp_tac >> simp[] >>
+    qexists `FDOM ce ∪
+      BIGUNION (IMAGE (set o FST) $ FRANGE ce)` >>
+    rw[]
+    >- simp[FINITE_LIST_TO_SET]
+    >- (
+      irule pred_setTheory.SUBSET_TRANS >>
+      irule_at (Pos last) $ cj 2 pred_setTheory.SUBSET_UNION >>
+      rw[pred_setTheory.SUBSET_DEF,IN_DEF,set_relationTheory.domain_def,
+           SRULE[IN_DEF] finite_mapTheory.FRANGE_FLOOKUP] >>
+      first_x_assum $ irule_at (Pos last) >>
+      simp[]
+    ) >>
+    irule pred_setTheory.SUBSET_TRANS >>
+    irule_at (Pos last) $ cj 1 pred_setTheory.SUBSET_UNION >>
+    rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
+      finite_mapTheory.flookup_thm]
+  ) >>
+  irule in_max_set >>
+  simp[]
+End
+
+(*
+Definition translate_predicate_def:
+  translate_predicate (ce: 'a |-> ('a list # (type list))) t (c:'a) =
+  if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
+  then
+  do
+    (sups, ts) <- FLOOKUP ce c;
+    sups' <- OPT_MMAP (translate_predicate ce t) sups;
+    return $ tcons_to_type (INR $ CompPrimT $ Tuple $ LENGTH sups' + LENGTH ts)
+      (sups' ++ MAP (tsubst [t]) ts)
+  od
+  else NONE
+Termination
+  WF_REL_TAC `λx y.
+    FST x = FST y ∧
+    acyclic (λp. ∃s ts. FLOOKUP (FST y) (SND p) = SOME (s,ts) ∧ MEM (FST p) s) ∧
+    ∃sups ts. FLOOKUP (FST y) (SND (SND y)) = SOME (sups,ts) ∧ MEM (SND (SND x)) sups`
+  >- (
+    qspecl_then [
+      `\(ce: 'a |-> ('a list # (type list))).
+        acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)`,
+      `FST`,
+      `λce s c. ∃sups ts.  FLOOKUP ce c = SOME (sups,ts) ∧ MEM s sups`,
+      `SND o SND`
+    ] irule relationTheory.WF_PULL >>
+    rw[] >>
+    dxrule_at Any set_relationTheory.acyclic_WF >>
+    rw[set_relationTheory.reln_to_rel_def] >>
+    first_x_assum irule >>
+    qexists `FDOM (FST x) ∪
+      BIGUNION (IMAGE (set o FST) $ FRANGE (FST x))` >>
+    rw[]
+    >- simp[FINITE_LIST_TO_SET]
+    >- (
+      irule pred_setTheory.SUBSET_TRANS >>
+      irule_at (Pos last) $ cj 2 pred_setTheory.SUBSET_UNION >>
+      rw[pred_setTheory.SUBSET_DEF,IN_DEF,set_relationTheory.domain_def,
+           SRULE[IN_DEF] finite_mapTheory.FRANGE_FLOOKUP] >>
+      last_x_assum $ irule_at (Pos last) >>
+      simp[]
+    ) >>
+    irule pred_setTheory.SUBSET_TRANS >>
+    irule_at (Pos last) $ cj 1 pred_setTheory.SUBSET_UNION >>
+    rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
+      finite_mapTheory.flookup_thm]
+  ) >>
+  rw[]
+End
+*)
+
+Definition translate_predicatel_def:
+  translate_predicatel ce p [] = SOME [] ∧
+  translate_predicatel ce p (c::cs) =
+  do
+    h <- translate_predicate ce p c;
+    t <- translate_predicatel ce p cs;
+    return $ h::t
+  od
+End
+
+Theorem translate_predicatel_OPT_MMAP:
+  translate_predicatel ce p l = OPT_MMAP (translate_predicate ce p) l
+Proof
+  Induct_on `l` >>
+  rw[translate_predicatel_def,listTheory.OPT_MMAP_def]
+QED
 
 (********************)
 
@@ -926,30 +1081,30 @@ Proof
   rw[]
 QED
 
-Theorem type_tcexp_IMP_tcexp_construct_dict:
+Theorem type_elaborate_texp_IMP_texp_construct_dict:
   (∀lie db st env e e' pt.
-    pred_type_tcexp ns clk ie lie db st env e e' pt ⇒
+    pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
     ∀lie_map.
       ie = FRANGE ie_map ∧
       lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). pred_tcexp_construct_dict (set $ get_names_namespace ns)
+      ∃(d:'a cexp). pred_texp_construct_dict (set $ get_names_namespace ns)
         ie_map lie_map (set $ MAP FST env) pt e' d) ∧
   (∀lie db st env e e' t.
-    type_tcexp ns clk ie lie db st env e e' t ⇒
+    type_elaborate_texp ns clk ie lie db st env e e' t ⇒
     ∀lie_map.
       ie = FRANGE ie_map ∧
       lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). tcexp_construct_dict (set $ get_names_namespace ns)
+      ∃(d:'a cexp). texp_construct_dict (set $ get_names_namespace ns)
         ie_map lie_map (set $ MAP FST env) e' d)
 Proof
-  ho_match_mp_tac type_tcexp_ind >>
+  ho_match_mp_tac type_elaborate_texp_ind >>
   rw[]
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Var >>
+    irule_at (Pos hd) texp_construct_dict_Var >>
     metis_tac[has_dict_EXISTS_construct_dict]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Pred >>
+    irule_at (Pos hd) texp_construct_dict_Pred >>
     qmatch_goalsub_abbrev_tac `set _ ∩ fs = _` >>
     `FINITE fs` by simp[Abbr`fs`] >>
     drule_then (qspec_then `LENGTH ps` strip_assume_tac)
@@ -963,7 +1118,7 @@ Proof
     metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.UNION_ASSOC]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_App >>
+    irule_at (Pos hd) texp_construct_dict_App >>
     simp[GSYM PULL_EXISTS] >>
     pop_assum mp_tac >>
     qid_spec_tac `arg_tys` >>
@@ -976,16 +1131,16 @@ Proof
     simp[]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Let >>
+    irule_at (Pos hd) texp_construct_dict_Let >>
     simp[GSYM PULL_EXISTS]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Lam >>
+    irule_at (Pos hd) texp_construct_dict_Lam >>
     drule_then assume_tac $ cj 1 $ iffLR LIST_REL_EVERY_ZIP >>
     fs[rich_listTheory.MAP_REVERSE,MAP_ZIP]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Letrec >>
+    irule_at (Pos hd) texp_construct_dict_Letrec >>
     drule_then assume_tac $ cj 1 $ iffLR LIST_REL3_EL >>
     drule_then assume_tac $ cj 2 $ iffLR LIST_REL3_EL >>
     gvs[rich_listTheory.MAP_REVERSE,MAP_ZIP] >>
@@ -1016,7 +1171,7 @@ Proof
     metis_tac[]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `carg_ts` >>
     qid_spec_tac `es'` >>
@@ -1025,7 +1180,7 @@ Proof
     rw[GSYM PULL_EXISTS]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `ts` >>
     qid_spec_tac `es'` >>
@@ -1034,12 +1189,12 @@ Proof
     rw[GSYM PULL_EXISTS]
   )
   >> TRY (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum $ qspec_then `lie_map` mp_tac >>
     rw[GSYM PULL_EXISTS]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `carg_ts` >>
     qid_spec_tac `es'` >>
@@ -1048,19 +1203,19 @@ Proof
     rw[GSYM PULL_EXISTS]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     simp[LIST_REL_rules]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     simp[LIST_REL_rules]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     simp[LIST_REL_rules]
   )
   >- (
-    irule_at (Pos hd) tcexp_construct_dict_Prim >>
+    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `ts` >>
     qid_spec_tac `es'` >>
@@ -1068,7 +1223,7 @@ Proof
     ho_match_mp_tac LIST_REL3_induct >>
     rw[GSYM PULL_EXISTS]
   ) >>
-  irule_at (Pos hd) tcexp_construct_dict_NestedCase >>
+  irule_at (Pos hd) texp_construct_dict_NestedCase >>
   simp[GSYM PULL_EXISTS] >>
   conj_tac
   >- (
@@ -1089,6 +1244,240 @@ Proof
   drule_then assume_tac type_cepat_cepat_vars >>
   fs[] >>
   metis_tac[pred_setTheory.UNION_COMM,pred_setTheory.INSERT_UNION_EQ]
+QED
+
+Inductive type_tcexp:
+[~Var:]
+  (ALOOKUP env x = SOME s ∧ specialises (SND ns) db s t ⇒
+      type_tcexp ns db st env (Var x) t)
+
+[~Tuple:]
+  (LIST_REL (type_tcexp ns db st env) es ts ⇒
+      type_tcexp ns db st env (Prim (Cons «») es) (Tuple ts))
+
+[~Ret:]
+  (type_tcexp ns db st env e t ⇒
+      type_tcexp ns db st env (Prim (Cons «Ret») [e]) (Monad t))
+
+[~Bind:]
+  (type_tcexp ns db st env e1 (M t1) ∧
+   type_tcexp ns db st env e2 (Function t1 (M t2)) ⇒
+      type_tcexp ns db st env (Prim (Cons «Bind») [e1;e2]) (Monad t2))
+
+[~Raise:]
+  (type_tcexp ns db st env e Exception ∧
+   type_ok (SND ns) db t ⇒
+      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (M t))
+
+[~Handle:]
+  (type_tcexp ns db st env e1 (M t) ∧
+   type_tcexp ns db st env e2 (Function Exception (M t)) ⇒
+      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (M t))
+
+[~Act:]
+  (type_tcexp ns db st env e (PrimTy Message) ⇒
+      type_tcexp ns db st env (Prim (Cons «Act») [e]) (M $ PrimTy String))
+
+[~Alloc:]
+  (type_tcexp ns db st env e1 (PrimTy Integer) ∧
+   type_tcexp ns db st env e2 t ⇒
+      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2]) (M $ Array t))
+
+[~Length:]
+  (type_tcexp ns db st env e (Array t) ⇒
+      type_tcexp ns db st env (Prim (Cons «Length») [e]) (M $ PrimTy Integer))
+
+[~Deref:]
+  (type_tcexp ns db st env e1 (Array t) ∧
+   type_tcexp ns db st env e2 (PrimTy Integer) ⇒
+      type_tcexp ns db st env (Prim (Cons «Deref») [e1;e2]) (M t))
+
+[~Update:]
+  (type_tcexp ns db st env e1 (Array t) ∧
+   type_tcexp ns db st env e2 (PrimTy Integer) ∧
+   type_tcexp ns db st env e3 t ⇒
+      type_tcexp ns db st env (Prim (Cons «Update») [e1;e2;e3]) (M Unit))
+
+[~Exception:]
+  (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
+   type_exception exndef (cname,carg_ts) ⇒
+      type_tcexp (exndef,typedefs) db st env (Prim (Cons cname) es) Exception)
+
+[~True:]
+  (type_tcexp ns db st env (Prim (Cons «True») []) (PrimTy Bool))
+
+[~False:]
+  (type_tcexp ns db st env (Prim (Cons «False») []) (PrimTy Bool))
+
+[~Cons:]
+  (LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
+   EVERY (type_ok typedefs db) tyargs ∧
+   type_cons typedefs (cname,carg_ts) (tyid,tyargs) ⇒
+      type_tcexp (exndef,typedefs) db st env
+        (Prim (Cons cname) es) (TypeCons tyid tyargs))
+
+[~Loc:]
+  (oEL n st = SOME t ⇒
+      type_tcexp ns db st env (Prim (AtomOp $ Lit (Loc n)) []) (Array t))
+
+[~AtomOp:]
+  (LIST_REL (type_tcexp ns db st env) es ts ∧
+   get_PrimTys ts = SOME pts ∧
+   type_atom_op aop pts pt ⇒
+      type_tcexp ns db st env (Prim (AtomOp aop) es) (PrimTy pt))
+
+[~Seq:]
+  (type_tcexp ns db st env e1 t1 ∧ type_tcexp ns db st env e2 t2 ⇒
+      type_tcexp ns db st env (Prim Seq [e1; e2]) t2)
+
+[~App:]
+  (type_tcexp ns db st env e (Functions arg_tys ret_ty) ∧
+   LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ⇒
+      type_tcexp ns db st env (App e es) ret_ty)
+
+[~Lam:]
+  (EVERY (type_ok (SND ns) db) arg_tys ∧
+   LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
+   type_tcexp ns db st (REVERSE (ZIP (xs, MAP ($, 0) arg_tys)) ++ env) e ret_ty
+      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty))
+
+[~Let:]
+  (type_tcexp ns (db + new) (MAP (tshift new) st) (tshift_env new env) e1 t1 ∧
+   type_tcexp ns db st ((x,new,t1)::env) e2 t2 ⇒
+      type_tcexp ns db st env (Let x e1 e2) t2)
+
+[~Letrec:]
+  (LIST_REL
+    (λ(fn,body) (vars,scheme).
+      type_tcexp ns (db + vars) (MAP (tshift vars) st)
+        (tshift_env vars $ REVERSE (ZIP (MAP FST fns,schemes)) ++ env)
+        body scheme)
+    fns schemes ∧
+   EVERY (type_scheme_ok (SND ns) db) schemes ∧ fns ≠ [] ∧
+   type_tcexp ns db st (REVERSE (ZIP (MAP FST fns, schemes)) ++ env) e t ⇒
+      type_tcexp ns db st env (Letrec fns e) t)
+
+[~BoolCase:]
+  (type_tcexp ns db st env e (PrimTy Bool) ∧
+   LENGTH css = 2 ∧ set (MAP FST css) = {«True»;«False»} ∧ eopt = NONE ∧
+   EVERY (λ(cn,pvars,cexp). pvars = [] ∧
+    type_tcexp ns db st ((v,0,PrimTy Bool)::env) cexp t) css ⇒
+      type_tcexp ns db st env (Case e v css eopt) t)
+
+[~TupleCase:]
+  (type_tcexp ns db st env e (Tuple tyargs) ∧
+   css = [(«»,pvars,cexp)] ∧ ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
+   LENGTH pvars = LENGTH tyargs ∧ eopt = NONE ∧
+   type_tcexp ns db st
+      (REVERSE (ZIP (pvars, MAP ($, 0) tyargs)) ++ (v,0,Tuple tyargs)::env)
+        cexp t ⇒
+      type_tcexp ns db st env (Case e v css eopt) t)
+
+[~ExceptionCase:]
+  (type_tcexp (exndef,typedefs) db st env e Exception ∧
+
+   (* Pattern match is exhaustive: *)
+   set (MAP FST exndef) = set (MAP FST css) ∧ eopt = NONE ∧
+
+   (* forbid duplicated patterns *)
+   LENGTH exndef = LENGTH css ∧
+
+   EVERY (λ(cname,pvars,cexp). (* For each case: *)
+      ∃tys.
+        ALOOKUP exndef cname = SOME tys ∧
+        (* Pattern variables do not shadow case split and are distinct: *)
+          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
+        (* Constructor arities match *)
+          LENGTH tys = LENGTH pvars ∧
+        (* Continuation is well-typed: *)
+          type_tcexp (exndef,typedefs) db st
+            (REVERSE (ZIP (pvars, MAP ($, 0) tys)) ++ (v,0,Exception)::env) cexp t
+      ) css ⇒
+      type_tcexp (exndef,typedefs) db st env (Case e v css eopt) t)
+
+[~Case:]
+  (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
+
+   (* The type exists with correct arity: *)
+   oEL tyid typedefs = SOME (arity, constructors) ∧ LENGTH tyargs = arity ∧
+
+   (* no catch-all case *)
+   (usopt = NONE ⇒
+      (* exhaustive pattern-match *)
+        set (MAP FST css) = set (MAP FST constructors) ∧
+      (* no duplicated patterns *)
+        ALL_DISTINCT (MAP FST css)) ∧
+
+   (* catch-all case *)
+   (∀us_cn_ars us_e. usopt = SOME (us_cn_ars, us_e) ⇒
+      (* exhaustive pattern-match *)
+        set (MAP FST css) ∪ set (MAP FST us_cn_ars) = set (MAP FST constructors) ∧
+      (* no duplicated patterns *)
+        ALL_DISTINCT (MAP FST css ++ MAP FST us_cn_ars) ∧
+      (* non-empty cases/underscore patterns *)
+        css ≠ [] ∧ us_cn_ars ≠ [] ∧
+      (* all underscore patterns are valid *)
+        EVERY (λ(cn,ar). ∃schemes.
+          ALOOKUP constructors cn = SOME schemes ∧ ar = LENGTH schemes) us_cn_ars ∧
+      (* continuation is well-typed *)
+        type_tcexp (exndef, typedefs) db st ((v,0,TypeCons tyid tyargs)::env) us_e t) ∧
+
+   (* For each case: *)
+   EVERY (λ(cname,pvars,cexp).
+      ∃schemes ptys.
+        ALOOKUP constructors cname = SOME schemes ∧
+        (* Constructor arities match: *)
+          LENGTH pvars = LENGTH schemes ∧
+        (* Pattern variables do not shadow case split and are distinct: *)
+          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
+        (* Constructor argument types match: *)
+          MAP (tsubst tyargs) schemes = ptys ∧
+        (* Continuation is well-typed: *)
+          type_tcexp (exndef,typedefs) db st
+            (REVERSE (ZIP (pvars, MAP ($, 0) ptys)) ++
+             (v,0,TypeCons tyid tyargs)::env)
+            cexp t
+      ) css ⇒
+      type_tcexp (exndef,typedefs) db st env (Case e v css usopt) t)
+
+[~TupleSafeProj:]
+  (type_tcexp ns db st env e (Tuple tyargs) ∧
+   LENGTH tyargs = arity ∧ oEL i tyargs = SOME t ⇒
+    type_tcexp ns db st env (SafeProj «» arity i e) t)
+
+[~ExceptionSafeProj:]
+  (type_tcexp (exndef,typedefs) db st env e Exception ∧
+   ALOOKUP exndef cname = SOME tys ∧
+   LENGTH tys = arity ∧ oEL i tys = SOME t ⇒
+    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
+
+[~SafeProj:]
+  (type_tcexp (exndef,typedefs) db st env e (TypeCons tyid tyargs) ∧
+   (* The type exists with correct arity: *)
+      oEL tyid typedefs = SOME (tyarity, constructors) ∧ LENGTH tyargs = tyarity ∧
+   (* The constructor exists with correct arity: *)
+      ALOOKUP constructors cname = SOME tys ∧ LENGTH tys = arity ∧
+   (* We can project the constructor argument at the right type: *)
+      oEL i tys = SOME scheme ∧ tsubst tyargs scheme = t ⇒
+    type_tcexp (exndef,typedefs) db st env (SafeProj cname arity i e) t)
+End
+
+Theorem texp_construct_dict_IMP_type_tcexp:
+  (∀lie db st env e e' pt.
+    pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
+    pred_texp_construct_dict (set $ get_names_namespace ns)
+        ie_map lie_map (set $ MAP FST env) pt e' d ∧
+    FRANGE ie_map = ie ∧
+    FRANGE lie_map = lie ⇒
+    type_tcexp ns db st env d (translate_pred_type pt)) ∧
+  (∀lie db st env e e' t.
+    type_elaborate_texp ns clk ie lie db st env e e' t ⇒
+    ∀lie_map.
+      ie = FRANGE ie_map ∧
+      lie = FRANGE lie_map ⇒
+      ∃(d:'a cexp). texp_construct_dict (set $ get_names_namespace ns)
+        ie_map lie_map (set $ MAP FST env) e' d)
+Proof
 QED
 
 val _ = export_theory();

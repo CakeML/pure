@@ -3,7 +3,8 @@
 open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 open relationTheory set_relationTheory;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
-open miscTheory typeclass_typesTheory typeclass_tcexpTheory;
+open miscTheory typeclass_typesTheory typeclass_tcexpTheory
+typeclass_typingTheory;
 open monadsyntax;
 
 val _ = new_theory "typeclass_env_map";
