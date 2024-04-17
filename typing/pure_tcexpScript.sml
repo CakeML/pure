@@ -168,7 +168,8 @@ Definition cexp_Lits_wf_def:
     OPTION_ALL (λ(a,e). cexp_Lits_wf e) eopt) ∧
   cexp_Lits_wf (NestedCase _ x v p e pes) = (
     cexp_Lits_wf x ∧ cexp_Lits_wf e ∧
-    EVERY cexp_Lits_wf $ MAP SND pes)
+    EVERY cexp_Lits_wf $ MAP SND pes ∧
+    ¬MEM v (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes))))
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[cexp_size_def]
