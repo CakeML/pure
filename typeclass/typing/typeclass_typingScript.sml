@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory typeclass_texpTheory
+open typeclass_typesTheory pure_tcexpTheory typeclass_texpTheory
 typeclass_kindCheckTheory pure_configTheory;
 open monadsyntax;
 
@@ -47,8 +47,8 @@ Type exndef[pp] = ``:(mlstring # type list) list``;
       Exception: 0 -> Subscript
       Types: 0 -> List
 *)
-(* TODO: should we change this to kind instead of just arities *)
-(* somthing like f [] and f Int ??*)
+
+(* we use kind instead of just arities *)
 Definition initial_namespace_def:
   initial_namespace : exndef # typedefs = (
     [«Subscript»,[]],
@@ -476,6 +476,54 @@ Inductive type_cepat:
     type_cepat ns db (cepatCons c pats) t (FLAT vtss)
 End
 
+Inductive exhaustive_cepat:
+[~Var:]
+  cepatVar v ∈ s ⇒
+    exhaustive_cepat ns db t s
+
+[~UScore:]
+  cepatUScore ∈ s ⇒
+    exhaustive_cepat ns db t s
+
+[~Cons:]
+  (∀c ts. destruct_type_cons ns db t c ts ⇒
+    ∃(pss:cepat list set).
+      exhaustive_cepatl ns db ts pss ∧ IMAGE (cepat c) pss ⊆ s) ⇒
+  exhaustive_cepat ns db t s
+
+[~Nil:]
+  [] ∈ pss ⇒
+    exhaustive_cepatl ns db [] pss
+
+[~List:]
+  exhaustive_cepat ns db t hs ∧ 
+  exhaustive_cepatl ns db ts tls ∧
+  IMAGE (UNCURRY CONS) (hs × tls) ⊆ pss ⇒
+    exhaustive_cepatl ns db (t::ts) pss
+End
+
+Theorem exhaustive_cepat_monotone: 
+  (∀t s. exhaustive_cepat ns db t s ⇒
+    ∀s'. s ⊆ s' ⇒ exhaustive_cepat ns db t s') ∧
+
+  (∀ts s. exhaustive_cepatl ns db ts s ⇒
+    ∀s'. s ⊆ s' ⇒ exhaustive_cepatl ns db ts s')
+Proof
+  ho_match_mp_tac exhaustive_cepat_ind >>
+  rw[SUBSET_DEF]
+  >- metis_tac[exhaustive_cepat_Var]
+  >- metis_tac[exhaustive_cepat_UScore]
+  >- (
+    irule exhaustive_cepat_Cons >>
+    fs[SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[])
+  >- metis_tac[exhaustive_cepat_Nil]
+  >- (
+    irule exhaustive_cepat_List >>
+    fs[SUBSET_DEF,PULL_EXISTS] >>
+    metis_tac[])
+QED
+
 (*
   The main typing relation.
   type_elaborate_texp :
@@ -673,6 +721,7 @@ Inductive type_elaborate_texp:
 
 [~NestedCase:]
   type_elaborate_texp ns clk ie lie db st env e e' vt ∧
+  (* expression for each pattern type check *)
   LIST_REL
     (λ(p,e) (p',e').
       p' = p ∧
@@ -681,7 +730,9 @@ Inductive type_elaborate_texp:
         (REVERSE (MAP (λ(v,t). (v,[],Pred [] t)) vts) ++
           ((v,[],Pred [] vt)::env))
         e e' t)
-    ((p,e1)::pes) ((p,e1')::pes') ⇒
+    ((p,e1)::pes) ((p,e1')::pes') ∧
+  (* exhaust all cases *)
+  exhaustive_cepat ns db vt (p INSERT (IMAGE FST pes)) ⇒
   type_elaborate_texp ns clk ie lie db st env
     (NestedCase e v p e1 pes) (NestedCase e' v p e1' pes') t
 End
@@ -757,8 +808,8 @@ Definition acyclic_rec_def:
   acyclic_rec r f err x =
     if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s
     then
-      let children = {y | r (y,x)} in
-        f x children (IMAGE (acyclic_rec r f err) children)
+      let children = SET_TO_LIST {y | r (y,x)} in
+        f x children (MAP (acyclic_rec r f err) children)
     else err
 Termination
   WF_REL_TAC `λx y.
@@ -779,136 +830,207 @@ Termination
     ) >>
     metis_tac[]
   ) >>
-  rw[]
+  rw[] >>
+  pop_assum mp_tac >>
+  DEP_REWRITE_TAC[MEM_SET_TO_LIST] >>
+  reverse $ rw[]
+  >- metis_tac[] >>
+  drule_then irule SUBSET_FINITE >>
+  gvs[domain_def] >>
+  rev_drule_at_then Any irule SUBSET_TRANS >>
+  rw[SUBSET_DEF,IN_DEF] >>
+  metis_tac[]
 End
 
 Definition acyclic_depth_def:
-  acyclic_depth r x = acyclic_rec r (λx xs ys. MAX_SET ys + 1n) 0 x
+  acyclic_depth r x = acyclic_rec r (λx xs ys. list_max ys + 1n) 0 x
 End
 
-Definition translate_predicate_def:
-  translate_predicate (ce: 'a |-> ('a list # (type list))) t (c:'a) =
-  if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
-  then
-  do
-    (sups, ts) <- FLOOKUP ce c;
-    sups' <- OPT_MMAP (translate_predicate ce t) sups;
-    return $ tcons_to_type (INR $ CompPrimT $ Tuple $ LENGTH sups' + LENGTH ts)
-      (sups' ++ MAP (tsubst [t]) ts)
-  od
-  else NONE
-Termination
-  WF_REL_TAC `λx y.
-    FST x = FST y ∧
-    acyclic (λp. ∃s x. FLOOKUP (FST y) (SND p) = SOME (s,x) ∧ MEM (FST p) s) ∧
-    measure
-      (acyclic_depth (λp. ∃s ts. FLOOKUP (FST y) (SND p) = SOME (s,ts) ∧ MEM (FST p) s))
-      (SND $ SND x) (SND $ SND y)`
-  >- (
-    qspecl_then [
-      `\(ce: 'a |-> ('a list # (type list))).
-        acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)`,
-      `FST`,
-      `λce. measure $ acyclic_depth
-         (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧ MEM (FST p) s)`,
-      `SND o SND`
-    ] irule WF_PULL >>
-    rw[]
-  ) >>
-  rw[acyclic_depth_def] >>
-  CONV_TAC $ RAND_CONV $ SCONV[Once acyclic_rec_def] >>
-  simp[] >>
-  reverse $ IF_CASES_TAC >>
-  rw[GSYM $ LE_LT1]
-  >- (
-    pop_assum mp_tac >> simp[] >>
-    qexists `FDOM ce ∪
-      BIGUNION (IMAGE (set o FST) $ FRANGE ce)` >>
-    rw[]
-    >- simp[FINITE_LIST_TO_SET]
-    >- (
-      irule pred_setTheory.SUBSET_TRANS >>
-      irule_at (Pos last) $ cj 2 pred_setTheory.SUBSET_UNION >>
-      rw[pred_setTheory.SUBSET_DEF,IN_DEF,set_relationTheory.domain_def,
-           SRULE[IN_DEF] finite_mapTheory.FRANGE_FLOOKUP] >>
-      first_x_assum $ irule_at (Pos last) >>
-      simp[]
-    ) >>
-    irule pred_setTheory.SUBSET_TRANS >>
-    irule_at (Pos last) $ cj 1 pred_setTheory.SUBSET_UNION >>
-    rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
-      finite_mapTheory.flookup_thm]
-  ) >>
-  irule in_max_set >>
-  simp[]
-End
+Theorem list_max_MAX_SET_set:
+  list_max l = MAX_SET (set l)
+Proof
+  Induct_on `l` >>
+  rw[miscTheory.list_max_def,MAX_SET_THM,MAX_DEF]
+QED
 
-(*
-Definition translate_predicate_def:
-  translate_predicate (ce: 'a |-> ('a list # (type list))) t (c:'a) =
-  if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
-  then
-  do
-    (sups, ts) <- FLOOKUP ce c;
-    sups' <- OPT_MMAP (translate_predicate ce t) sups;
-    return $ tcons_to_type (INR $ CompPrimT $ Tuple $ LENGTH sups' + LENGTH ts)
-      (sups' ++ MAP (tsubst [t]) ts)
-  od
-  else NONE
-Termination
-  WF_REL_TAC `λx y.
-    FST x = FST y ∧
-    acyclic (λp. ∃s ts. FLOOKUP (FST y) (SND p) = SOME (s,ts) ∧ MEM (FST p) s) ∧
-    ∃sups ts. FLOOKUP (FST y) (SND (SND y)) = SOME (sups,ts) ∧ MEM (SND (SND x)) sups`
-  >- (
-    qspecl_then [
-      `\(ce: 'a |-> ('a list # (type list))).
-        acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)`,
-      `FST`,
-      `λce s c. ∃sups ts.  FLOOKUP ce c = SOME (sups,ts) ∧ MEM s sups`,
-      `SND o SND`
-    ] irule relationTheory.WF_PULL >>
-    rw[] >>
-    dxrule_at Any set_relationTheory.acyclic_WF >>
-    rw[set_relationTheory.reln_to_rel_def] >>
-    first_x_assum irule >>
-    qexists `FDOM (FST x) ∪
-      BIGUNION (IMAGE (set o FST) $ FRANGE (FST x))` >>
-    rw[]
-    >- simp[FINITE_LIST_TO_SET]
-    >- (
-      irule pred_setTheory.SUBSET_TRANS >>
-      irule_at (Pos last) $ cj 2 pred_setTheory.SUBSET_UNION >>
-      rw[pred_setTheory.SUBSET_DEF,IN_DEF,set_relationTheory.domain_def,
-           SRULE[IN_DEF] finite_mapTheory.FRANGE_FLOOKUP] >>
-      last_x_assum $ irule_at (Pos last) >>
-      simp[]
-    ) >>
-    irule pred_setTheory.SUBSET_TRANS >>
-    irule_at (Pos last) $ cj 1 pred_setTheory.SUBSET_UNION >>
-    rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
-      finite_mapTheory.flookup_thm]
-  ) >>
+Theorem acyclic_depth_alt:
+  ∀r x.
+    acyclic_depth r x =
+      if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s
+      then
+        MAX_SET (IMAGE (acyclic_depth r) {y | r (y,x)}) + 1
+      else 0
+Proof
+  simp[lambdify acyclic_depth_def] >>
+  `∀r f e x.
+     f = (λx xs ys. list_max ys + 1) ∧ e = 0 ⇒
+     acyclic_rec r f e x =
+     if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s then
+       MAX_SET (IMAGE (λx. acyclic_rec r f e x) {y | r (y,x)}) + 1
+     else 0` suffices_by rw[] >>
+  ho_match_mp_tac acyclic_rec_ind >>
+  reverse $ rw[]
+  >- simp[acyclic_rec_def] >>
+  simp[Once acyclic_rec_def] >>
+  reverse $ IF_CASES_TAC
+  >- metis_tac[] >>
+  simp[list_max_MAX_SET_set,LIST_TO_SET_MAP] >>
+  DEP_REWRITE_TAC[SET_TO_LIST_INV] >>
+  gvs[domain_def,IN_DEF] >>
+  drule_then irule SUBSET_FINITE >>
+  rev_drule_at_then Any irule SUBSET_TRANS >>
+  rw[SUBSET_DEF,IN_DEF] >>
+  metis_tac[]
+QED
+
+Theorem acyclic_super_FINITE:
+  acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s) ⇒
+  ∃s.
+    FINITE s ∧
+    domain
+      (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧ MEM (FST p) s) ⊆ s ∧
+    range
+      (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧ MEM (FST p) s) ⊆ s
+Proof
+  strip_tac >>
+  qexists `FDOM ce ∪
+    BIGUNION (IMAGE (set o FST) $ FRANGE ce)` >>
   rw[]
+  >- simp[FINITE_LIST_TO_SET]
+  >- (
+    irule pred_setTheory.SUBSET_TRANS >>
+    irule_at (Pos last) $ cj 2 pred_setTheory.SUBSET_UNION >>
+    rw[pred_setTheory.SUBSET_DEF,IN_DEF,set_relationTheory.domain_def,
+         SRULE[IN_DEF] finite_mapTheory.FRANGE_FLOOKUP] >>
+    first_x_assum $ irule_at (Pos last) >>
+    simp[]
+  ) >>
+  irule pred_setTheory.SUBSET_TRANS >>
+  irule_at (Pos last) $ cj 1 pred_setTheory.SUBSET_UNION >>
+  rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
+    finite_mapTheory.flookup_thm]
+QED
+
+Definition split_translate_predicate_tuple_def:
+  split_translate_predicate_tuple x =
+  case x of
+  | INL y => (FST y,INL $ SND $ SND y)
+  | INR y => (FST y,INR $ SND $ SND y)
 End
-*)
+
+Definition translate_predicate_def:
+  translate_predicate (ce: 'a |-> ('a list # (type list))) t (c:'a) =
+  (if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
+  then
+  do
+    (sups, ts) <- FLOOKUP ce c;
+    sups' <- translate_predicatel ce t sups;
+    return $ tcons_to_type (INR $ CompPrimT $ Tuple $ LENGTH sups' + LENGTH ts)
+      (sups' ++ MAP (tsubst [t]) ts)
+  od
+  else NONE) ∧
+  translate_predicatel ce ty [] = SOME [] ∧
+  translate_predicatel ce ty (c::cs) =
+  do
+    h <- if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
+      then translate_predicate ce ty c
+      else NONE;
+    t <- translate_predicatel ce ty cs;
+    return $ h::t
+  od
+Termination
+  simp[] >>
+  WF_REL_TAC `λa b.
+    let (ce,x) = split_translate_predicate_tuple a in
+    let (ce',y) = split_translate_predicate_tuple b in
+    ce = ce' ∧
+    acyclic (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧ MEM (FST p) s) ∧
+    inv_image ($< LEX $<) (λc.
+      (case c of
+       | INL c =>
+           acyclic_depth
+            (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
+              MEM (FST p) s) c
+       | INR cs =>
+          list_max $ MAP (acyclic_depth
+            (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
+              MEM (FST p) s)) cs),
+      (case c of
+       | INL c => 0
+       | INR cs => LENGTH cs)) x y`
+  >- (
+    qspecl_then [
+      `\(ce: 'a |-> ('a list # (type list))).
+        acyclic (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
+          MEM (FST p) s)`,
+       `(FST o split_translate_predicate_tuple):
+       (α |-> α list # type list) # δ # α +
+       (α |-> α list # type list) # δ # (α list) ->
+         (α |-> α list # type list)`,
+       `λce. inv_image ($< LEX $<) (λc.
+        (case c of
+         | INL c =>
+             acyclic_depth
+              (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
+                MEM (FST p) s) c
+         | INR cs =>
+            list_max $ MAP (acyclic_depth
+              (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
+                MEM (FST p) s)) cs),
+        (case c of
+         | INL c => 0
+         | INR cs => LENGTH cs))`,
+       `SND o split_translate_predicate_tuple`
+      ] irule WF_PULL >>
+    reverse $ rw[]
+    >- DEP_REWRITE_TAC[WF_inv_image,WF_LEX,prim_recTheory.WF_LESS] >>
+    Cases_on `x` >>
+    Cases_on `y` >>
+    gvs[split_translate_predicate_tuple_def]) >>
+  rw[split_translate_predicate_tuple_def] >>
+  simp[miscTheory.list_max_def] >>
+  CONV_TAC $ RAND_CONV $ SCONV[Once acyclic_depth_alt] >>
+  rw[list_max_MAX_SET_set,LIST_TO_SET_MAP] >>
+  spose_not_then kall_tac >>
+  pop_assum mp_tac >> simp[] >>
+  metis_tac[acyclic_super_FINITE]
+End
 
 Definition translate_predicatel_def:
-  translate_predicatel ce p [] = SOME [] ∧
-  translate_predicatel ce p (c::cs) =
+  translate_predicatel ce ty [] = SOME [] ∧
+  translate_predicatel ce ty (c::cs) =
   do
-    h <- translate_predicate ce p c;
-    t <- translate_predicatel ce p cs;
+    h <- translate_predicate ce ty c;
+    t <- translate_predicatel ce ty cs;
     return $ h::t
   od
 End
 
 Theorem translate_predicatel_OPT_MMAP:
-  translate_predicatel ce p l = OPT_MMAP (translate_predicate ce p) l
+  translate_predicatel ce ty l = OPT_MMAP (translate_predicate ce ty) l
 Proof
   Induct_on `l` >>
   rw[translate_predicatel_def,listTheory.OPT_MMAP_def]
 QED
+
+Overload translate_pred = ``λce p. translate_predicate ce (SND p) (FST p)``;
+
+Definition translate_pred_type_def:
+  translate_pred_type ce (Pred ps t) =
+  do
+    pts <- OPT_MMAP (translate_pred ce) ps;
+    return $ Functions pts t
+  od
+End
+
+Definition translate_entailment_def:
+  translate_entailment ce (Entail ps q) =
+  do
+    pts <- OPT_MMAP (translate_pred ce) ps;
+    qt <- translate_pred ce q;
+    return $ Functions pts qt
+  od
+End
 
 (********************)
 
@@ -1249,43 +1371,45 @@ QED
 Inductive type_tcexp:
 [~Var:]
   (ALOOKUP env x = SOME s ∧ specialises (SND ns) db s t ⇒
-      type_tcexp ns db st env (Var x) t)
+      type_tcexp ns db st env (pure_tcexp$Var x) t)
 
 [~Tuple:]
   (LIST_REL (type_tcexp ns db st env) es ts ⇒
-      type_tcexp ns db st env (Prim (Cons «») es) (Tuple ts))
+      type_tcexp ns db st env (Prim (Cons «») es)
+        (cons_types (Atom $ CompPrimTy $ Tuple $ LENGTH ts) ts))
 
 [~Ret:]
   (type_tcexp ns db st env e t ⇒
       type_tcexp ns db st env (Prim (Cons «Ret») [e]) (Monad t))
 
 [~Bind:]
-  (type_tcexp ns db st env e1 (M t1) ∧
-   type_tcexp ns db st env e2 (Function t1 (M t2)) ⇒
+  (type_tcexp ns db st env e1 (Monad t1) ∧
+   type_tcexp ns db st env e2 (Functions [t1] (Monad t2)) ⇒
       type_tcexp ns db st env (Prim (Cons «Bind») [e1;e2]) (Monad t2))
 
 [~Raise:]
-  (type_tcexp ns db st env e Exception ∧
+  (type_tcexp ns db st env e (Atom Exception) ∧
    type_ok (SND ns) db t ⇒
-      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (M t))
+      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (Monad t))
 
 [~Handle:]
-  (type_tcexp ns db st env e1 (M t) ∧
-   type_tcexp ns db st env e2 (Function Exception (M t)) ⇒
-      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (M t))
+  (type_tcexp ns db st env e1 (Monad t) ∧
+   type_tcexp ns db st env e2 (Functions [Atom Exception] (Monad t)) ⇒
+      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (Monad t))
 
 [~Act:]
-  (type_tcexp ns db st env e (PrimTy Message) ⇒
-      type_tcexp ns db st env (Prim (Cons «Act») [e]) (M $ PrimTy String))
+  (type_tcexp ns db st env e (Atom $ PrimTy Message) ⇒
+      type_tcexp ns db st env (Prim (Cons «Act») [e]) (Monad $ Atom $ PrimTy String))
 
 [~Alloc:]
-  (type_tcexp ns db st env e1 (PrimTy Integer) ∧
+  (type_tcexp ns db st env e1 (Atom $ PrimTy Integer) ∧
    type_tcexp ns db st env e2 t ⇒
-      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2]) (M $ Array t))
+      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2])
+        (Monad $ Cons (Atom $ CompPrimTy $ Array) t))
 
 [~Length:]
-  (type_tcexp ns db st env e (Array t) ⇒
-      type_tcexp ns db st env (Prim (Cons «Length») [e]) (M $ PrimTy Integer))
+  (type_tcexp ns db st env e (Cons (Atom $ CompPrimTy $ Array) t) ⇒
+      type_tcexp ns db st env (Prim (Cons «Length») [e]) (Monad $ Atom $ PrimTy Integer))
 
 [~Deref:]
   (type_tcexp ns db st env e1 (Array t) ∧
@@ -1463,20 +1587,25 @@ Inductive type_tcexp:
 End
 
 Theorem texp_construct_dict_IMP_type_tcexp:
+  acyclic_rec (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s) ∧
+  (* for all class environment, *)
+  relate_ce_ie ce ie ∧
+  relate_ce_clk ce clk ∧
+  FRANGE ie_map = ie ⇒
   (∀lie db st env e e' pt.
     pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
-    pred_texp_construct_dict (set $ get_names_namespace ns)
-        ie_map lie_map (set $ MAP FST env) pt e' d ∧
-    FRANGE ie_map = ie ∧
-    FRANGE lie_map = lie ⇒
-    type_tcexp ns db st env d (translate_pred_type pt)) ∧
+    ∀lie_map d. 
+      FRANGE lie_map = lie ∧
+      pred_texp_construct_dict (set $ get_names_namespace ns)
+        ie_map lie_map (IMAGE FST $ set env) pt e' (d:'a cexp) ⇒
+    type_tcexp ns db st (translate_env env ++ lie_to_env ce lie ++ ie_to_env ce ie) d (translate_pred_type ce pt)) ∧
   (∀lie db st env e e' t.
     type_elaborate_texp ns clk ie lie db st env e e' t ⇒
-    ∀lie_map.
-      ie = FRANGE ie_map ∧
-      lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). texp_construct_dict (set $ get_names_namespace ns)
-        ie_map lie_map (set $ MAP FST env) e' d)
+    ∀lie_map d.
+      lie = FRANGE lie_map ∧
+      texp_construct_dict (set $ get_names_namespace ns)
+        ie_map lie_map (IMAGE FST $ set env) e' (d:'a cexp) ⇒
+     type_tcexp ns db st (translate_env env ++ lie_to_env ce lie ++ ie_to_env ce ie) d t)
 Proof
 QED
 

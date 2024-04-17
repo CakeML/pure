@@ -5,7 +5,7 @@ open relationTheory set_relationTheory;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory balanced_mapTheory alistTheory topological_sortTheory;
 open miscTheory typeclass_unificationTheory typeclass_typesTheory
-  typeclass_inference_commonTheory typeclass_tcexpTheory;
+  typeclass_inference_commonTheory typeclass_texpTheory;
 open monadsyntax;
 
 val _ = new_theory "typeclass_env_map_impl";
@@ -19,14 +19,14 @@ Datatype:
      ; kind : Kind option
      ; methodsig : (cvname, PredType) mlmap$map
      ; minImp : minImplAST
-     ; defaults : (cvname, tcexp) mlmap$map |>
+     ; defaults : (cvname, texp) mlmap$map |>
 End
 
 Datatype:
   instinfo_impl =
     <| cstr : (mlstring # num) list (* class and type variable *)
      ; nargs : num (* number of arguments to the type constructor *)
-     ; impl : (cvname, tcexp) mlmap$map |> (* function name and its expression *)
+     ; impl : (cvname, texp) mlmap$map |> (* function name and its expression *)
 End
 
 Type class_map_impl = ``:(mlstring, classinfo_impl) map``;
@@ -1967,5 +1967,15 @@ Theorem entail_impl_full_entail:
 Proof
   metis_tac[entail_impl_thm,entail_eq_full_entail]
 QED
+
+Theorem entail_IMP_has_dict:
+Proof
+QED
+
+Theorem has_dict_IMP_entail:
+Proof
+QED
+
+
 
 val _ = export_theory();

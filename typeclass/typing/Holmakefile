@@ -3,5 +3,6 @@ INCLUDES = $(PUREDIR)/misc $(PUREDIR)/language $(PUREDIR)/meta-theory \
            $(PUREDIR)/compiler/parsing/sexp \
            $(PUREDIR)/compiler/backend/languages/properties \
            $(PUREDIR)/compiler/backend/languages/semantics \
+           $(PUREDIR)/typing \
            $(CAKEMLDIR)/basis/pure \
            $(HOLDIR)/examples/algorithms/unification/triangular/first-order
