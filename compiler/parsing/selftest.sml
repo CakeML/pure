@@ -184,6 +184,10 @@ val _ = app fptest [
   (“nExp”, "let y = x + 3 in y + z",
    “astExp nExp”,
    “expLet [expdecFunbind "y" [] (‹+› ⬝ ‹x› ⬝ 𝕀 3)] (‹+› ⬝ ‹y› ⬝ ‹z›)”),
+  (“nDecl”, "f x y = let z = 10 in x + z", “astDecl”,
+   “declFunbind "f" [patVar "x"; patVar "y"]
+       (expLet [expdecFunbind "z" [] (𝕀 10)]
+               (‹+› ⬝ ‹x› ⬝ ‹z›))”),
   (“nExp”, "let\n\
            \  y = x + 3\n\
            \  z = 10 in y + z",
@@ -230,6 +234,12 @@ val _ = app fptest [
                          expdecFunbind "f" [patVar "z"] (‹+› ⬝ ‹z› ⬝ 𝕀 1)];
            expdostmtBind (patVar "x") (‹g› ⬝ (‹f› ⬝ ‹y›) ⬝ 𝕀 3)]
           (‹foo› ⬝ ‹x›)”),
+  (“nExp”, "do let {-# INLINE f #-}\n\
+           \       f x = x + 1\n\
+           \   f 6",
+   “CEXP”,
+   “Letrec () [(«f», Annot () Inline (Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1)))]
+     (App () (𝕍 «f») [𝕁 6])”),
   (“nPatAlt”, "_ -> 10", “astPatAlt”, “(patUScore, 𝕀 10)”),
   (“nExp”, "case e of [] -> 3\n\
            \          h:t -> 4",
@@ -309,7 +319,32 @@ val _ = app fptest [
              \f x = x + 1\n",
    “CDECLS”,
    “(Letrec () [(«f», Annot () Inline (Lam () [«x»] (𝕍 «x» +ₑ 𝕁 1)))] CMAIN,
-     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”)
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])])”),
+  (“nDecls”, "f :: Int -> Int -> Int\n\
+             \f i j = let g x = x + 2\n\
+             \            {-# INLINE g #-}\n\
+             \        in  i + (g j)\n",
+   “astDecls”,
+   “[declTysig "f"
+       (funTy (tyOp "Int" []) (funTy (tyOp "Int" []) (tyOp "Int" [])));
+     declFunbind "f" [patVar "i"; patVar "j"]
+                 (expLet
+                    [expdecFunbind "g" [patVar "x"] (‹+› ⬝ ‹x› ⬝ 𝕀 2);
+                     expdecPragma "INLINE g"] (‹+› ⬝ ‹i› ⬝ (‹g› ⬝ ‹j›)))] ”),
+  (“nDecls”, "f :: Int -> Int -> Int\n\
+             \f i j = let g x = x + 2\n\
+             \            {-# INLINE g #-}\n\
+             \        in  i + (g j)\n",
+   “CDECLS”,
+   “(Letrec () [
+       («f»,
+        Lam () [«i»; «j»] (
+          Letrec () [(«g», Annot () Inline (Lam () [«x»] (𝕍 «x» +ₑ 𝕁 2)))]
+             (𝕍 «i» +ₑ App () (𝕍 «g») [𝕍 «j»])
+        )
+       )
+     ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])]) ”)
 ];
 
 val _ = app filetest [("test1.hs", “astDecls”, NONE)];

@@ -110,6 +110,16 @@ Definition mkLam_def:
   mkLam d vs e = Lam d vs e
 End
 
+Definition associate_inlining_pragmas_def:
+  associate_inlining_pragmas (binds0 : (mlstring # unit cexp) list) prags =
+  let
+    inlines = MAP (implode o DROP 7) (FILTER (isPREFIX "INLINE ") prags) ;
+  in
+    MAP (λ(n,ce). if MEM n inlines then (n,pure_cexp$Annot () Inline ce)
+                  else (n,ce))
+        binds0
+End
+
 Overload Bind = “λa1 a2. pure_cexp$Prim () (Cons «Bind») [a1;a2]”
 Definition translate_exp_def:
   translate_exp tyinfo (expVar s) = SOME (Var () (implode s)) ∧
@@ -159,7 +169,8 @@ Definition translate_exp_def:
    SOME (Prim () (AtomOp (Lit (Str s))) [])) ∧
   (translate_exp tyinfo (expLet decs body) =
    do
-     recbinds <- translate_edecs tyinfo decs ;
+     (recbinds0,prags) <- translate_edecs tyinfo decs ;
+     recbinds <<- associate_inlining_pragmas recbinds0 prags ;
      bodyce <- translate_exp tyinfo body;
      SOME (Letrec () recbinds bodyce)
    od) ∧
@@ -228,29 +239,31 @@ Definition translate_exp_def:
          od
    | expdostmtLet decs :: reste =>
        do
-         recbinds <- translate_edecs tyinfo decs ;
+         (recbinds0, prags) <- translate_edecs tyinfo decs ;
+         recbinds <<- associate_inlining_pragmas recbinds0 prags ;
          rest <- translate_exp tyinfo (expDo reste finalexp);
          SOME (Letrec () recbinds rest)
        od) ∧
 
-  (translate_edecs tyinfo [] = SOME []) ∧
+  (translate_edecs tyinfo [] = SOME ([], [])) ∧
   (translate_edecs tyinfo (d :: ds) =
    do
-     rest <- translate_edecs tyinfo ds ;
+     (rest,prags) <- translate_edecs tyinfo ds ;
      case d of
-       expdecTysig _ _ => SOME rest
+       expdecTysig _ _ => SOME (rest, prags)
      | expdecPatbind (patVar s) e =>
          do
            ce <- translate_exp tyinfo e ;
-           SOME ((implode s, ce) :: rest)
+           SOME ((implode s, ce) :: rest, prags)
          od
      | expdecPatbind _ _ => NONE
      | expdecFunbind s args body =>
          do
            vs <- OPT_MMAP dest_pvar args ;
            bce <- translate_exp tyinfo body ;
-           SOME ((implode s, mkLam () vs bce) :: rest)
+           SOME ((implode s, mkLam () vs bce) :: rest, prags)
          od
+     | expdecPragma s => SOME (rest, s::prags)
    od)
 Termination
   WF_REL_TAC
@@ -488,16 +501,6 @@ End
 
 Definition listinfo_def:
   listinfo = (["a"], [(«[]», []); («::», [tyVar "a"; tyOp "[]" [tyVar "a"]])])
-End
-
-Definition associate_inlining_pragmas_def:
-  associate_inlining_pragmas (binds0 : (mlstring # unit cexp) list) prags =
-  let
-    inlines = MAP (implode o DROP 7) (FILTER (isPREFIX "INLINE ") prags) ;
-  in
-    MAP (λ(n,ce). if MEM n inlines then (n,pure_cexp$Annot () Inline ce)
-                  else (n,ce))
-        binds0
 End
 
 Definition decls_to_letrec_def:
