@@ -55,14 +55,75 @@ Proof
   simp[FORALL_PROD]
 QED
 
+Theorem app3_eq:
+  f1 = f2 ∧ x1 = x2 ∧ y1 = y2 ⇒ f1 x1 y1 = f2 x2 y2
+Proof
+  simp[]
+QED
+
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_tcexp ce
 Proof
-  recInduct freevars_tcexp_ind >> simp[optionTheory.FORALL_OPTION] >>
-  rw[exp_of_def] >>
+  recInduct freevars_tcexp_ind >>
+  rpt strip_tac
+  >~ [`NestedCase`]
+  >- (
+    PURE_REWRITE_TAC[exp_of_def,freevars_tcexp_def] >>
+    `∀pes.
+      (∀p' e'. MEM (p',e') pes ⇒
+        freevars (exp_of e') = IMAGE explode (freevars_tcexp e')) ⇒
+      freevars
+       (nested_rows (Var (explode v))
+          (MAP (λx. (FST x,exp_of (SND x))) pes)) DELETE explode v =
+      BIGUNION
+        (set (MAP (λx.
+          IMAGE explode (freevars_tcexp (SND x)) DIFF
+          IMAGE explode (cepat_vars (FST x))) pes))
+        DELETE explode v` suffices_by (
+      disch_then $ qspec_then `(p,e)::pes` strip_assume_tac >>
+      gvs[exp_of_def,freevars_tcexp_def] >>
+      pop_assum $ strip_assume_tac o
+        SRULE[DISJ_IMP_THM,FORALL_AND_THM] >>
+      pop_assum $ drule_then drule >>
+      simp[AC UNION_COMM UNION_ASSOC,LAMBDA_PROD,IMAGE_DIFFDELETE,
+          IMAGE_BIGUNION,GSYM LIST_TO_SET_MAP,MAP_MAP_o,
+          combinTheory.o_DEF]
+    ) >>
+    rpt $ pop_assum kall_tac >>
+    rpt strip_tac >>
+    irule SUBSET_ANTISYM >>
+    conj_tac
+    >- (
+      irule SUBSET_TRANS >>
+      qrefine `_ DELETE explode v` >>
+      irule_at (Pos hd) SUBSET_DELETE_BOTH >>
+      irule_at (Pos hd) freevars_nested_rows_UB >>
+      IF_CASES_TAC >- simp[] >>
+      simp[LAMBDA_PROD,UNION_DELETE,MAP_MAP_o,combinTheory.o_DEF] >>
+      irule $ cj 1 EQ_SUBSET_SUBSET >>
+      irule app3_eq >> simp[] >>
+      ntac 2 AP_TERM_TAC >>
+      irule MAP_CONG >> rw[] >>
+      pairarg_tac >> gvs[] >>
+      metis_tac[]
+    ) >>
+    irule SUBSET_TRANS >>
+    qrefine `_ DELETE explode v` >>
+    irule_at (Pos last) SUBSET_DELETE_BOTH >>
+    irule_at (Pos hd) freevars_nested_rows_LB >>
+    simp[LAMBDA_PROD,MAP_MAP_o,combinTheory.o_DEF] >>
+    irule $ cj 2 EQ_SUBSET_SUBSET >>
+    irule combeq3 >> simp[] >>
+    ntac 2 AP_TERM_TAC >>
+    irule MAP_CONG >> rw[] >>
+    pairarg_tac >> gvs[] >>
+    metis_tac[]
+  ) >>
+  simp[optionTheory.FORALL_OPTION] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Bottom_def, IMAGE_BIGUNION,
       GSYM LIST_TO_SET_MAP, IMAGE_DIFFDELETE, Cong MAP_CONG,
-      freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY]
+      freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY,
+      exp_of_def]
   >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG] >>
   Cases_on `css` >> gvs[] >>
   every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
@@ -95,12 +156,6 @@ Proof
   recInduct rows_of_ind >> rw[rows_of_def, subst_def, DOMSUB_NOT_IN_DOM]
   >- simp[FLOOKUP_DEF] >>
   simp[subst_lets_for, combinTheory.o_DEF]
-QED
-
-Theorem app3_eq:
-  f1 = f2 ∧ x1 = x2 ∧ y1 = y2 ⇒ f1 x1 y1 = f2 x2 y2
-Proof
-  simp[]
 QED
 
 Theorem subst_exp_of:

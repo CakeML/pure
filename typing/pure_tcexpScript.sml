@@ -17,6 +17,7 @@ Datatype:
         | Letrec ((cvname # tcexp) list) tcexp (* mutually recursive exps  *)
         | Case tcexp cvname ((cvname # cvname list # tcexp) list)
                (((cvname # num) list # tcexp) option)           (* case of *)
+        | NestedCase tcexp cvname cepat tcexp ((cepat # tcexp) list)
         | SafeProj cvname num num tcexp        (* typesafe projection      *)
 End
 
@@ -46,12 +47,17 @@ Definition exp_of_def:
         (rows_of (explode v)
          (MAP (λ(c,vs,x). (explode c,MAP explode vs,exp_of x)) rs)
          (case eopt of NONE => Fail | SOME (a,e) => IfDisj v a (exp_of e))) ∧
+  exp_of (NestedCase g gv p e pes) =
+    Let (explode gv) (exp_of g)
+        (nested_rows (Var (explode gv))
+        (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes))) ∧
   exp_of (SafeProj cn ar i e) =
     If (IsEq (explode cn) ar T (exp_of e))
        (Proj (explode cn) i (exp_of e))
        Bottom
 Termination
-  WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"] >>
+  WF_REL_TAC `measure tcexp_size` \\ rw [fetch "-" "tcexp_size_def"]
+  >- DECIDE_TAC >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[fetch "-" "tcexp_size_def"]
 End
 
@@ -65,7 +71,8 @@ Definition tcexp_of_def:
   tcexp_of (Case d x v rs eopt) =
     Case (tcexp_of x) v (MAP ( λ(c,vs,x). (c,vs,tcexp_of x)) rs)
          (OPTION_MAP (λ(a,e). (a,tcexp_of e)) eopt) ∧
-  tcexp_of _               = Lam [] ARB
+  tcexp_of (NestedCase d x v p e pes) =
+    NestedCase (tcexp_of x) v p (tcexp_of e) $ MAP (λ(c,x). (c,tcexp_of x)) pes
 Termination
   WF_REL_TAC `measure $ cexp_size $ K 0`
 End
@@ -85,6 +92,11 @@ Definition freevars_tcexp_def[simp]:
     (BIGUNION
      (set ((case eopt of NONE => ∅ | SOME (_, e) => freevars_tcexp e) ::
            MAP (λ(_,vs,ec). freevars_tcexp ec DIFF set vs) css)) DELETE v) ∧
+  freevars_tcexp (NestedCase x v p e pes) =
+    freevars_tcexp x ∪
+    (((freevars_tcexp e DIFF cepat_vars p) ∪
+      BIGUNION (set (MAP (λ(p,e). freevars_tcexp e DIFF cepat_vars p) pes)))
+    DELETE v) ∧
   freevars_tcexp (SafeProj cn ar i e) = freevars_tcexp e
 Termination
   WF_REL_TAC `measure tcexp_size`
@@ -104,6 +116,10 @@ Definition subst_tc_def:
     Case (subst_tc f e) v
       (MAP (λ(cn,vs,e). (cn,vs, subst_tc (FDIFF f (v INSERT set vs)) e)) css)
       (OPTION_MAP (λ(a, e). (a, subst_tc (f \\ v) e)) eopt) ∧
+  subst_tc f (NestedCase x v p e pes) =
+    NestedCase (subst_tc f x) v p
+      (subst_tc (FDIFF f (v INSERT (cepat_vars p))) e) $
+      MAP (λ(p,e). (p,subst_tc (FDIFF f $ v INSERT cepat_vars p) e)) pes ∧
   subst_tc f (SafeProj cn ar i e) = SafeProj cn ar i (subst_tc f e)
 Termination
   WF_REL_TAC `measure (tcexp_size o SND)`
@@ -124,8 +140,12 @@ Definition tcexp_wf_def:
     OPTION_ALL
       (λ(a,e). a ≠ [] ∧ tcexp_wf e ∧ EVERY (λ(cn,_). explode cn ∉ monad_cns) a) eopt ∧
     ¬ MEM v (FLAT $ MAP (FST o SND) css) ∧
-    ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST a) ∧
+    ALL_DISTINCT (MAP FST css ++ case eopt of NONE => [] | SOME (a,_) => MAP FST
+    a) ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
+  tcexp_wf (NestedCase x v p e pes) = (
+    tcexp_wf x ∧ tcexp_wf e ∧ EVERY tcexp_wf $ MAP SND pes
+  ) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
   WF_REL_TAC `measure tcexp_size` >> rw[fetch "-" "tcexp_size_def"] >>
@@ -146,7 +166,9 @@ Definition cexp_Lits_wf_def:
   cexp_Lits_wf (Case _ e v css eopt) = (
     cexp_Lits_wf e ∧ EVERY cexp_Lits_wf $ MAP (SND o SND) css ∧
     OPTION_ALL (λ(a,e). cexp_Lits_wf e) eopt) ∧
-  cexp_Lits_wf _ = F
+  cexp_Lits_wf (NestedCase _ x v p e pes) = (
+    cexp_Lits_wf x ∧ cexp_Lits_wf e ∧
+    EVERY cexp_Lits_wf $ MAP SND pes)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[cexp_size_def]
