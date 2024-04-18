@@ -144,7 +144,8 @@ Definition tcexp_wf_def:
     a) ∧
     ∀cn. MEM cn (MAP FST css) ⇒ explode cn ∉ monad_cns) ∧
   tcexp_wf (NestedCase x v p e pes) = (
-    tcexp_wf x ∧ tcexp_wf e ∧ EVERY tcexp_wf $ MAP SND pes
+    tcexp_wf x ∧ tcexp_wf e ∧ EVERY tcexp_wf $ MAP SND pes ∧
+    ¬MEM v (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes)))
   ) ∧
   tcexp_wf (SafeProj cn ar i e) = (tcexp_wf e ∧ i < ar)
 Termination
@@ -168,8 +169,7 @@ Definition cexp_Lits_wf_def:
     OPTION_ALL (λ(a,e). cexp_Lits_wf e) eopt) ∧
   cexp_Lits_wf (NestedCase _ x v p e pes) = (
     cexp_Lits_wf x ∧ cexp_Lits_wf e ∧
-    EVERY cexp_Lits_wf $ MAP SND pes ∧
-    ¬MEM v (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes))))
+    EVERY cexp_Lits_wf $ MAP SND pes)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[cexp_size_def]
