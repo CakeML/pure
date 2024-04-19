@@ -110,13 +110,44 @@ Definition mkLam_def:
   mkLam d vs e = Lam d vs e
 End
 
+Definition pragma_alist_def:
+  pragma_alist = [("NOINLINE", NoInline);
+                  ("INLINEABLE", Inlineable);
+                  ("INLINE", Inline)]
+End
+
+Definition fminsertl_def:
+  fminsertl f k v =
+  case FLOOKUP f k of
+    NONE => f |+ (k,[v])
+  | SOME vs => f |+ (k,v::vs)
+End
+
+Definition pragma_split_def:
+  pragma_split p [] = NONE ∧
+  pragma_split p ((k,a)::rest) =
+  if (k ++ " ") ≼ p then
+    SOME (implode (DROP (LENGTH k + 1) p), a)
+  else pragma_split p rest
+End
+
+Definition praglist_to_fmap_def:
+  praglist_to_fmap [] = FEMPTY ∧
+  praglist_to_fmap (p::ps) =
+  case pragma_split p pragma_alist of
+    NONE => praglist_to_fmap ps
+  | SOME (f, a) => fminsertl (praglist_to_fmap ps) f a
+End
+
 Definition associate_inlining_pragmas_def:
   associate_inlining_pragmas (binds0 : (mlstring # unit cexp) list) prags =
   let
-    inlines = MAP (implode o DROP 7) (FILTER (isPREFIX "INLINE ") prags) ;
+    annfmap = praglist_to_fmap prags
   in
-    MAP (λ(n,ce). if MEM n inlines then (n,pure_cexp$Annot () Inline ce)
-                  else (n,ce))
+    MAP (λ(n,ce).
+           case FLOOKUP annfmap n of
+           | NONE => (n,ce)
+           |  SOME anns => (n, FOLDR (pure_cexp$Annot ()) ce anns))
         binds0
 End
 

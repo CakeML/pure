@@ -344,7 +344,26 @@ val _ = app fptest [
         )
        )
      ] CMAIN,
+     [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])]) ”),
+  (“nDecls”, "f :: Int -> Int -> Int\n\
+             \f i j = let \n\
+             \            g x = x + 2\n\
+             \            h y = y + 1\n\
+             \            {-# INLINE h #-}\n\
+             \            {-# NOINLINE g #-}\n\
+             \        in  h i + g j\n",
+   “CDECLS”,
+   “(Letrec () [
+       («f»,
+        Lam () [«i»; «j»] (
+          Letrec () [(«g», Annot () NoInline (Lam () [«x»] (𝕍 «x» +ₑ 𝕁 2)));
+                     («h», Annot () Inline (Lam () [«y»] (𝕍 «y» +ₑ 𝕁 1)))]
+                 (App () (𝕍 «h») [𝕍 «i»] +ₑ App () (𝕍 «g») [𝕍 «j»])
+        )
+       )
+     ] CMAIN,
      [(1n,[(«[]»,[]); («::»,[TypeVar 0; TypeCons 0 [TypeVar 0]])])]) ”)
+
 ];
 
 val _ = app filetest [("test1.hs", “astDecls”, NONE)];
