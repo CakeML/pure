@@ -162,7 +162,13 @@ Definition translate_exp_def:
   translate_exp tyinfo (expOp op es) =
   do
     rs <- OPT_MMAP (translate_exp tyinfo) es;
-    return (Prim () (AtomOp op) rs)
+    if op = Message "__inline" then
+      case rs of
+        [] => return (Prim () (AtomOp op) rs)
+      | [x] => return (Prim () (AtomOp op) rs)
+      | x::xs => return (Annot () Inline (App () x xs))
+    else
+      return (Prim () (AtomOp op) rs)
   od ∧
   translate_exp tyinfo (expTup es) =
   do
