@@ -26,41 +26,6 @@ Proof
   \\ fs [list_size_def,basicSizeTheory.pair_size_def]
 QED
 
-(*
-Expressions kept in the inling map. Either:
-- `Exp e` -- normal (non-recursive) expression
-- `Rec e` -- recursive expression, takes the original expression and the specialised one
-*)
-Datatype:
-  inlineable_cexp = Exp ('a cexp) | Rec ('a cexp) (('a cexp) option)
-End
-
-Definition cheap_def:
-  cheap (Var _ e) = T ∧
-  cheap (Lam _ _ _) = T ∧
-  cheap (Prim _ _ xs) = NULL xs ∧
-  cheap _ = F
-End
-
-Definition heuristic_insert_def:
-  heuristic_insert m h v e =
-    if cheap e ∧ h e then
-      insert m v (Exp e)
-    else
-      m
-End
-
-Definition heuristic_insert_Rec_def:
-  heuristic_insert_Rec m h fs =
-    case fs of
-      | [(v, e)] =>
-        if h e then
-          insert m v (Rec e (specialise v e))
-        else
-          m
-      | _ => m
-End
-
 Triviality size_lemma:
   ∀bs.
     list_size (cexp_size (K 0)) (MAP (λ(v,vs,e). e) bs) ≤
@@ -69,6 +34,191 @@ Triviality size_lemma:
 Proof
   Induct \\ fs [list_size_def,FORALL_PROD,basicSizeTheory.pair_size_def]
 QED
+
+(*
+Expressions kept in the inling map. Either:
+- `Simple e` -- normal (non-recursive) expression
+- `Rec e` -- recursive expression, takes the original expression and the specialised one
+*)
+Datatype:
+  inlineable_cexp = Simple ('a cexp) | Rec ('a cexp)
+End
+
+(*
+Inlining context carries all info unnecessary for proof, but necessary for inlining.
+- `heuristic` -- heuristic for inlining
+- `inline` -- set of names that should be inlined
+- `conlike` -- set of names that should be inlined and are conlike -- super cheap (force inlining)
+*)
+Datatype:
+  inline_ctx = InlineCtx ('a heuristic) (var_set) (var_set)
+End
+
+Definition heuristic_def:
+  heuristic (InlineCtx h _ _) = h
+End
+
+Definition inline_set_def:
+  inline_set (InlineCtx _ s _) = s
+End
+
+Definition add_inline_set_def:
+  add_inline_set (InlineCtx h s c) v = InlineCtx h (insert s v ()) c
+End
+
+Definition conlike_set_def:
+  conlike_set (InlineCtx _ _ s) = s
+End
+
+Definition add_conlike_set_def:
+  add_conlike_set (InlineCtx h s c) v = InlineCtx h s (insert c v ())
+End
+
+Definition cheap_def:
+  cheap (Var _ e) = T ∧
+  cheap (Prim _ _ xs) = NULL xs ∧
+  cheap _ = F
+End
+
+Definition get_annot_def:
+  get_annot (Annot _ annot _) = (SOME annot) ∧
+  get_annot _ = NONE
+End
+
+Definition insert_based_on_annot_def:
+  insert_based_on_annot v (Annot _ annot e) = (
+    case annot of
+    | Inline => T
+    | Inlineable => T
+    | ConLike => T
+    | _ => F
+  ) ∧
+  insert_based_on_annot v e = F
+End
+
+Definition is_noinline_def:
+  is_noinline (Annot _ annot e) = (
+    case annot of
+    | NoInline => T
+    | _ => F
+  ) ∧
+  is_noinline e = F
+End
+
+Definition heuristic_insert_def:
+  heuristic_insert m ctx v e =
+    case get_annot e of
+      | SOME NoInline => (m, ctx)
+      | SOME Inline => (insert m v (Simple e), add_inline_set ctx v)
+      | SOME ConLike => (insert m v (Simple e), add_conlike_set ctx v)
+      | SOME Inlineable => (
+        let m1 = insert m v (Simple e) in
+        if cheap e ∧ (heuristic ctx) e then
+          (m1, add_inline_set ctx v)
+        else
+          (m1, ctx)
+      )
+      | _ => (m, ctx)
+End
+
+Definition insert_specialise_def:
+  insert_specialise m v e =
+    case specialise v e of
+      | SOME e1 => insert m v (Simple e1)
+      | NONE => m
+End
+
+Definition heuristic_insert_specialise_def:
+  heuristic_insert_specialise m ctx v e =
+    case get_annot e of
+    | SOME NoInline => (m, ctx)
+    | SOME Inline => (insert_specialise m v e, add_inline_set ctx v)
+    | SOME ConLike => (insert_specialise m v e, add_conlike_set ctx v)
+    | SOME Inlineable => (
+      let m1 = insert_specialise m v e in
+      if (heuristic ctx) e then
+        (m1, add_inline_set ctx v)
+      else
+        (m1, ctx)
+    )
+    | _ => (m, ctx)
+End
+
+Definition heuristic_insert_Rec_def:
+  heuristic_insert_Rec m ctx v e =
+    case get_annot e of
+      | SOME NoInline => (m, ctx)
+      | SOME Inline => (insert m v (Rec e), add_inline_set ctx v)
+      | SOME ConLike => (insert m v (Rec e), add_conlike_set ctx v)
+      | SOME Inlineable => (
+        let m1 = insert m v (Rec e) in
+        if (heuristic ctx) e then
+          (m1, add_inline_set ctx v)
+        else
+          (m1, ctx)
+      )
+      | _ => (m, ctx)
+End
+
+Definition heuristic_insert_Recs_def:
+  heuristic_insert_Recs m ctx fs =
+    FOLDL (λ(m, ctx) (v, e). heuristic_insert_Rec m ctx v e) (m, ctx) fs
+End
+
+Definition extract_var_def:
+  extract_var (Var _ v) = SOME v ∧
+  extract_var (App _ e _) = extract_var e ∧
+  extract_var _ = NONE
+End
+
+Definition update_inline_ctx_scope_def:
+  update_inline_ctx_scope ctx (Annot _ annot e) = (
+    case annot of
+    | InlineHere v => add_conlike_set ctx v
+    | InlineUseHere =>
+      case extract_var e of
+      | SOME v => add_conlike_set ctx v
+      | NONE => ctx
+    | _ => ctx
+  ) ∧
+  update_inline_ctx_scope ctx _ = ctx
+End
+
+Definition is_inline_annotation_def:
+  is_inline_annotation (SOME Inline) = T ∧
+  is_inline_annotation (SOME ConLike) = T ∧
+  is_inline_annotation NONE = F
+End
+
+Definition designated_rec_ms_ctxs_def:
+  designated_rec_ms_ctxs m ctx vbs =
+    let with_annots = MAP (λ(v, e). (v, e, get_annot e)) vbs in
+    let recs = FILTER (λ(v, e, annot). is_inline_annotation annot) with_annots in
+    let r = (
+      case recs of
+      | [(v, e, SOME (ConLike))] =>
+        let m1 = insert m v (Rec e) in
+        let ctx1 = add_conlike_set ctx v in
+        SOME (m1, ctx1, v)
+      | [(v, e, SOME Inline)] =>
+        let m1 = insert m v (Rec e) in
+        let ctx1 = add_inline_set ctx v in
+        SOME (m1, ctx1, v)
+      | [(v, e, SOME Inlineable)] =>
+        let m1 = insert m v (Rec e) in
+        SOME (m1, ctx, v)
+      | _ => NONE
+    ) in
+    case r of
+    | SOME (m_d, ctx_d, designated_v) =>
+      let ms = MAP (λ(v, e). if v = designated_v then m else m_d) vbs in
+      let ctxs = MAP (λ(v, e). if v = designated_v then ctx else ctx_d) vbs in
+      (ms, ctxs)
+    | NONE =>
+      let ms = MAP (λ(v, e). m) vbs in
+      let ctxs = MAP (λ(v, e). ctx) vbs in
+      (ms, ctxs)
+End
 
 (*
 It can be the case that we create sth like:
@@ -90,114 +240,169 @@ Definition App_Lam_to_Lets_def:
   App_Lam_to_Lets e = NONE
 End
 
+Definition elem_set_def:
+  elem_set s v =
+    case lookup s v of
+    | NONE => F
+    | SOME _ => T
+End
+
+Definition lookup_ctx_def:
+  lookup_ctx m ctx v =
+    if elem_set (inline_set ctx) v ∨ elem_set (conlike_set ctx) v then (
+      case lookup m v of
+      | NONE => NONE
+      | SOME (Simple e) => SOME (Simple e)
+      | SOME (Rec e) => SOME (Rec e)
+    ) else NONE
+End
+
+(*
+- filetest function in selftest.ml -- inspiration for testing
+- 
+*)
+(*
+  TODO (in order):
+  - handle all the annotations
+  - specialisted single recursive functions should be added as Exp/Simple
+  - mutually recursive functions should all be added separately to the bindings in the result expression (no specialisation) as Rec
+  - pick one mutually recursive binding and add it to bindings when inlining inside the others
+*)
+ (*
+  Annots meaning:
+  - inline name -> add to bindings and to inline_set (skip some checks at use site)
+  - inlineable -> add to bindings but not to inline_set (check normally at use site)
+  - inline + conlike name -> always add to bindings ++ add to conlike_set (conlike set forces inlining the bindings)
+  - noinline name -> don't add to bindings (or remove from bindings)
+  - inlinehere name -> add to conlike set (for the current scope) if it's in the bindings
+  - #(__inline) name -> force inline the expression if it's in the bindings
+
+  Might have to add some more checks at the use site. So we can distinguish conlike set and inline set.
+
+  Add two sets:
+  - conlike set: forces inlining the bindings
+  - inline set: says that you should inline when possible
+  Others are a result of inlineable and should only be inlined when forced using inlinehere or #(__inline)
+*)
 Definition inline_def:
-  inline (m: ('a inlineable_cexp) var_map) ns (cl: num) (h: 'a heuristic) (Var (a: 'a) v) = (
-    case lookup m v of
+  inline (m: ('a inlineable_cexp) var_map) ns (cl: num) (ctx: 'a inline_ctx) (Var (a: 'a) v) = (
+    case lookup_ctx m ctx v of
     | NONE => (Var a v, ns)
-    | SOME (Exp e) =>
+    | SOME (Simple e) =>
       if is_Lam e then (Var a v, ns)
       else if cl = 0 then (Var a v, ns)
-      else inline m ns (cl - 1) h e
-    | SOME (Rec e_rec (SOME e)) =>
+      else inline m ns (cl - 1) ctx e
+    | SOME (Rec e) =>
       if is_Lam e then (Var a v, ns)
       else if cl = 0 then (Var a v, ns)
-      else inline m ns (cl - 1) h e
+      else inline m ns (cl - 1) ctx e
   ) ∧
-  inline m ns cl h (App a e es) = (
-    let (es1, ns1) = inline_list m ns cl h es in (
+  inline m ns cl ctx (App a e es) = (
+    let (es1, ns1) = inline_list m ns cl ctx es in (
       case get_Var_name e of
-      (* Var applied to arguments *)
       | SOME v => (
-        case lookup m v of
-        | SOME (Exp e_m) =>
+        case lookup_ctx m ctx v of
+        | SOME (Simple e_m) =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1 in (
             case App_Lam_to_Lets exp of
             | NONE => (App a e es1, ns1)
             | SOME exp1 =>
               if cl = 0 then (App a e es1, ns1)
-              else inline m ns2 (cl - 1) h exp1
+              else inline m ns2 (cl - 1) ctx exp1
           )
-        | SOME (Rec e_m_rec (SOME e_m)) =>
+        | SOME (Rec e_m) =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1 in (
             case App_Lam_to_Lets exp of
             | NONE => (App a e es1, ns1)
             | SOME exp1 =>
               if cl = 0 then (App a e es1, ns1)
-              else inline m ns2 (cl - 1) h exp1
+              else inline m ns2 (cl - 1) ctx exp1
           )
         | _ =>
-          let (e1, ns2) = inline m ns1 cl h e in
+          let (e1, ns2) = inline m ns1 cl ctx e in
           (App a e1 es1, ns2)
         )
-      (* Not a Var -- can't inline *)
       | _ =>
-        let (e1, ns2) = inline m ns1 cl h e in
+        let (e1, ns2) = inline m ns1 cl ctx e in
         (App a e1 es1, ns2)
     )
   ) ∧
-  inline m ns cl h (Let a v e1 e2) = (
-    let m1 = heuristic_insert m h v e1 in
-    let (e3, ns3) = inline m ns cl h e1 in
-    let (e4, ns4) = inline m1 ns3 cl h e2 in
+  inline m ns cl ctx (Let a v e1 e2) = (
+    let (m1, ctx1) = heuristic_insert m ctx v e1 in
+    let (e3, ns3) = inline m ns cl ctx e1 in
+    let (e4, ns4) = inline m1 ns3 cl ctx1 e2 in
     (Let a v e3 e4, ns4)
     ) ∧
-  inline m ns cl h (Letrec a vbs e) = (
-    let m1 = heuristic_insert_Rec m h vbs in
-    let (vbs1, ns1) = inline_recs m ns cl h vbs vbs in
-    let (e2, ns2) = inline m1 ns1 cl h e in
-    (Letrec a (MAP2 (λ(v,_) x. (v, x)) vbs vbs1) e2, ns2)
+  inline m ns cl ctx (Letrec a [(v, er)] e) = (
+    let (m1, ctx1) = heuristic_insert_specialise m ctx v er in
+    let (er1, ns1) = inline m ns cl ctx er in
+    let (e1, ns2) = inline m1 ns1 cl ctx1 e in
+    (Letrec a [(v, er1)] e1, ns2)
   ) ∧
-  inline m ns cl h (Lam a vs e) =
-    (let (e1, ns1) = inline m ns cl h e in
-    (Lam a vs e1, ns1)) ∧
-  inline m ns cl h (Prim a op es) =
-    (let (es2, ns2) = inline_list m ns cl h es in
-    (Prim a op es2, ns2)) ∧
-  inline m ns cl h (Case a e v bs f) = (
-    let (e1, ns1) = inline m ns cl h e in
-    let (bs2, ns2) = inline_list m ns1 cl h (MAP (λ(v, vs, e). e) bs) in
+  inline m ns cl ctx (Letrec a vbs e) = (
+    let (m1, ctx1) = heuristic_insert_Recs m ctx vbs in
+    let (ms, ctxs) = designated_rec_ms_ctxs m ctx vbs in
+    let (es1, ns1) = inline_recs ms ns cl ctxs (MAP SND vbs) in
+    let (e1, ns2) = inline m1 ns1 cl ctx1 e in
+    (Letrec a (MAP2 (λ(v,_) x. (v, x)) vbs es1) e1, ns2)
+  ) ∧
+  inline m ns cl ctx (Lam a vs e) = (
+    let (e1, ns1) = inline m ns cl ctx e in
+    (Lam a vs e1, ns1)
+  ) ∧
+  inline m ns cl ctx (Prim a op es) = (
+    let (es1, ns1) = inline_list m ns cl ctx es in
+    (Prim a op es1, ns1)
+  ) ∧
+  inline m ns cl ctx (Case a e v bs f) = (
+    let (e1, ns1) = inline m ns cl ctx e in
+    let (bs2, ns2) = inline_list m ns1 cl ctx (MAP (λ(v, vs, e). e) bs) in
     let (f3, ns3) = (
       case f of
       | NONE => (NONE, ns2)
       | SOME (vs, e) =>
-        let (e4, ns4) = inline m ns2 cl h e in
+        let (e4, ns4) = inline m ns2 cl ctx e in
         (SOME (vs, e4), ns4)
     ) in
     (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3, ns3)
   ) ∧
-  inline m ns cl h (NestedCase a e v p e' bs) =
+  inline m ns cl ctx (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs, ns) ∧
-  inline m ns cl h (Annot a annot e) =
-    (let (e1, ns1) = inline m ns cl h e in
-     (Annot a annot e1, ns1)) ∧
-  inline_list m ns cl h [] = ([], ns) ∧
-  inline_list m ns cl h (e::es) =
-    (let (e1, ns1) = inline m ns cl h e in
-     let (es2, ns2) = inline_list m ns1 cl h es in
-     (e1::es2, ns2)) ∧
-  inline_recs m ns cl h decls [] = ([], ns) ∧
-  inline_recs m ns cl h decls ((v, e)::fs) = (
-    let m1 = heuristic_insert_Rec m h (FILTER (λ(v1, e1). v1 ≠ v) decls) in
-    let (e1, ns1) = inline m1 ns cl h e in
-    let (es2, ns2) = inline_recs m ns1 cl h decls fs in
+  inline m ns cl ctx (Annot a annot e) = (
+    let ctx1 = update_inline_ctx_scope ctx e in
+    let (e1, ns1) = inline m ns cl ctx1 e in
+    (Annot a annot e1, ns1)
+  ) ∧
+  inline_list m ns cl ctx [] = ([], ns) ∧
+  inline_list m ns cl ctx (e::es) = (
+    let (e1, ns1) = inline m ns cl ctx e in
+    let (es2, ns2) = inline_list m ns1 cl ctx es in
     (e1::es2, ns2)
+  ) ∧
+  inline_recs [] ns cl [] [] = ([], ns) ∧
+  inline_recs (m::ms) ns cl (ctx::ctxs) (e::es) = (
+    let (e1, ns1) = inline m ns cl ctx e in
+    let (es1, ns2) = inline_recs ms ns1 cl ctxs es in
+    (e1::es1, ns2)
   )
 Termination
-  cheat
-  (* WF_REL_TAC `inv_image ($< LEX $<) $ λx. case x of
-    | INL (m, ns, cl, h, e) => (cl, cexp_size (K 0) e)
+  WF_REL_TAC `inv_image ($< LEX $<) $ λx. case x of
+    | INL (m, ns, cl, ctx, e) => (cl, cexp_size (K 0) e)
     | INR y => case y of
-      | INL (m, ns, cl, h, es) => (cl, list_size (cexp_size (K 0)) es)
-      | INR (m, ns, cl, h, decls, es) => (cl, list_size (cexp_size (K 0)) es)`
+      | INL (m, ns, cl, ctx, es) => (cl, list_size (cexp_size (K 0)) es)
+      | INR (ms, ns, cl, ctxs, es) => (cl, list_size (cexp_size (K 0)) es)`
+  \\ gvs [list_size_def]
   \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
   \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
-  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs [] *)
+  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
+  \\ rename1 `MAP SND fs`
+  \\ qspec_then `fs` assume_tac cexp_size_lemma \\ fs []
 End
 
 Definition inline_all_def:
   inline_all cl h e =
     let (e1, s) = freshen_cexp e (boundvars_of e)
-    in let (inlined_e, _) = inline empty s cl h e1
+    in let (inlined_e, _) = inline empty s cl (InlineCtx h empty empty) e1
     in dead_let inlined_e
 End
 

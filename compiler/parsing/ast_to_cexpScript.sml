@@ -166,7 +166,7 @@ Definition translate_exp_def:
       case rs of
         [] => return (Prim () (AtomOp op) rs)
       | [x] => return (Prim () (AtomOp op) rs)
-      | x::xs => return (Annot () Inline (App () x xs))
+      | x::xs => return (Annot () InlineUseHere (App () x xs))
     else
       return (Prim () (AtomOp op) rs)
   od ∧

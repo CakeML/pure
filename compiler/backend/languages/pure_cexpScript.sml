@@ -63,7 +63,7 @@ QED
 Type cvname = “:mlstring”
 
 Datatype:
-  annot = NoInline | Inline | Inlineable | ConLike | InlineHere cvname
+  annot = NoInline | Inline | Inlineable | ConLike | InlineHere cvname | InlineUseHere
 End
 
 Datatype:

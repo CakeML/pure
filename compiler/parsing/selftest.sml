@@ -172,7 +172,7 @@ val _ = app fptest [
   (“nExp”, "#(__inline) f x y", “astExp nExp”,
    “expOp (Message "__inline") [‹f›; ‹x›; ‹y›]”),
   (“nExp”, "#(__inline) f x y", “CEXP”,
-   “Annot () Inline (App () (𝕍 «f») [𝕍 «x»; 𝕍 «y»])”),
+   “Annot () InlineUseHere (App () (𝕍 «f») [𝕍 «x»; 𝕍 «y»])”),
   (“nExp”, "#(stdout) \"Hello, world!\\n\"", “CEXP”,
    “Prim () (AtomOp (Message "stdout")) [𝕋 "Hello, world!\n"]”),
   (“nExp”, "#(__Len) \"Hello, world!\\n\"", “astExp nExp”,
