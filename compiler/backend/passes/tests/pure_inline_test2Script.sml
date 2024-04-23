@@ -71,4 +71,39 @@ Theorem map_spec_annot = EVAL ``
     | NONE => NONE
   ``;
 
+Theorem inlineable_example = EVAL ``
+    let parse_res = (string_to_cexp0
+      "sth = let {-# INLINEABLE add1 #-}\n\
+      \          add1 x = x + 1\n\
+      \      in add1 1"
+    ) in
+    case parse_res of
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
+    | NONE => NONE
+  ``;
+
+Theorem inlineable_force_example = EVAL ``
+    let parse_res = (string_to_cexp0
+      "sth = let {-# INLINEABLE add1 #-}\n\
+      \          add1 x = x + 1\n\
+      \      in #(__inline) add1 1"
+    ) in
+    case parse_res of
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
+    | NONE => NONE
+  ``;
+
+
+(* ADD INLINE_IN_SCOPE once it is supported *)
+Theorem inlineable_inline_scope_example = EVAL ``
+    let parse_res = (string_to_cexp0
+      "sth = let {-# INLINEABLE add1 #-}\n\
+      \          add1 x = x + 1\n\
+      \      in (add1 1)"
+    ) in
+    case parse_res of
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
+    | NONE => NONE
+  ``;
+
 val _ = export_theory();

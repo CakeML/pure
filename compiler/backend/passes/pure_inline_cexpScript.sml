@@ -286,20 +286,60 @@ Definition lookup_ctx_def:
     else NONE
 End
 
-(* 
+(*
+end-to-end case simpl example:
+
 list_size l =
   case l of
   | [] => 0
   | x::xs => 1 + list_size xs
+  << given >>
+list_size (1::2::3::[])
+==>
+let l = (1::2::3::[])
+case l of
+| [] => 0
+| x::xs => 1 + list_size xs
+==>
+case (1::2::3::[]) of
+| [] => 0
+| x::xs => 1 + list_size xs
+==>
+let tmp = (1::2::3::[])
+let x = 1
+let xs = (2::3::[])
+1 + list_size xs
 
-list_size [1,2,3]
-
+might also want to handle prim operations e.g. `if`
  *)
 
-(* //TODO *)
-(* Definition sym_eval_case_def:
-  sym_eval_case 
-End *)
+(* 
+case (Prim a (Cons c_name) es) of
+...
+| (c_name, vs) => res
+...
+==>
+let tmp = (Prim a op es)
+let vs_1 = es_1
+let vs_2 = es_2
+...
+res
+*)
+Definition case_simp_def:
+  case_simp exp =
+    case exp of
+    | Case a scrutinee p_name bs fallthrough =>
+      case scrutinee of
+      | Prim a (Cons c_name) es =>
+        let matches = FILTER (λ(v, vs, e). v = c_name ∧ LENGTH vs = LENGTH es) bs in
+        case matches of
+        | [(v, vs, e)] =>
+          let param_bindings = FOLDR (λ(v1, e1) acc. Let a v1 e1 acc) e (ZIP (vs, es)) in
+          Let a p_name scrutinee param_bindings
+        | _ => exp
+      | _ => exp
+    | _ => exp
+End
 
 (*
 - filetest function in selftest.ml -- inspiration for testing
@@ -412,7 +452,8 @@ Definition inline_def:
   inline m ns cl ctx (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs, ns) ∧
   inline m ns cl ctx (Annot a annot e) = (
-    let ctx1 = update_inline_ctx_scope ctx e in
+    let unchanged = Annot a annot e in
+    let ctx1 = update_inline_ctx_scope ctx unchanged in
     let (e1, ns1) = inline m ns cl ctx1 e in
     (Annot a annot e1, ns1)
   ) ∧
