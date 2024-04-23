@@ -1057,6 +1057,16 @@ Proof
     )
 QED
 
+Theorem inline_rel_theorem:
+  ∀x y.
+    inline_rel [] x y ∧ barendregt (exp_of x) ∧ closed (exp_of x)
+  ⇒ x ~~> y
+Proof
+  rw[] >> qspec_then `[]` mp_tac inline_rel_IMP_pure_pres_lemma >>
+  simp[Binds_def] >> disch_then irule >>
+  simp[lets_ok_def, pre_def, vars_of_def]
+QED
+
 (*--------------------*)
 
 val _ = export_theory();

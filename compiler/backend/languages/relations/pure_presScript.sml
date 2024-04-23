@@ -11,7 +11,7 @@ open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
      pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
      pure_letrecProofTheory pure_demandTheory pure_letrec_delargTheory
      pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
-     pure_freshenTheory pure_freshenProofTheory pure_inline_cexpProofTheory;
+     pure_freshenTheory pure_freshenProofTheory;
 
 val exp_of_def = pureLangTheory.exp_of_def;
 val rows_of_def = pureLangTheory.rows_of_def;
@@ -581,6 +581,37 @@ Proof
     )
 QED
 
+(*----------------------------------------------------------------------------*
+   Proof of preservation of freevars
+ *----------------------------------------------------------------------------*)
+
+Theorem unidir_imp_freevars_preserved:
+  ∀x y. (x --> y) ⇒ freevars (exp_of y) ⊆ freevars (exp_of x)
+Proof
+  cheat
+QED
+
+Theorem bidir_imp_freevars_preserved:
+  ∀x y. (x <--> y) ⇒ freevars (exp_of y) = freevars (exp_of x)
+Proof
+  cheat
+QED
+
+Theorem pres_imp_freevars_preserved:
+  ∀x y. (x ~~> y) ⇒ freevars (exp_of y) ⊆ freevars (exp_of x)
+Proof
+  cheat
+QED
+
+(*----------------------------------------------------------------------------*
+   Proof of preservation of freevars
+ *----------------------------------------------------------------------------*)
+
+Theorem pres_imp_cns_arities_preserved:
+  ∀x y. (x ~~> y) ⇒ cns_arities y ⊆ cns_arities x
+Proof
+  cheat
+QED
 
 (*----------------------------------------------------------------------------*
    Proof of preservation of semantics
@@ -698,6 +729,17 @@ Proof
   simp[GSYM subst_fdomsub] >>
   irule $ GSYM pure_inline_relTheory.subst1_notin >>
   DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP]
+QED
+
+Theorem exp_of_Lets:
+  ∀vs xs b.
+    LENGTH vs = LENGTH xs ⇒
+    exp_of (Lets a (ZIP (vs,xs)) b) =
+    Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
+Proof
+  Induct \\ Cases_on ‘xs’
+  \\ gvs [pure_cexpTheory.Lets_def,pure_expTheory.Lets_def]
+  \\ fs [exp_of_def]
 QED
 
 Theorem unidir_imp_exp_eq:
