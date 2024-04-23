@@ -42,6 +42,15 @@ Definition sexp_of_op_def:
   sexp_of_op (AtomOp (Message s)) = [Name "message"; Name s]
 End
 
+Definition sexp_of_annot_def:
+  sexp_of_annot Inline = Name "inline" ∧
+  sexp_of_annot NoInline = Name "noinline" ∧
+  sexp_of_annot Inlineable = Name "inlineable" ∧
+  sexp_of_annot ConLike = Name "conlike" ∧
+  sexp_of_annot (InlineHere s) = list [Name "inlinehere"; Name' s] ∧
+  sexp_of_annot InlineUseHere = Name "inlineusehere"
+End
+
 Definition sexp_of_def:
   sexp_of (Var d n)       = Name' n ∧
   sexp_of (Prim d p xs)   = list (sexp_of_op p ++ MAP sexp_of xs) ∧
@@ -60,7 +69,8 @@ Definition sexp_of_def:
               | SOME (cn_ars, x) => list (
                 [Name "SOME" ;
                   list $ MAP (λ(cn,ar). list [Name' cn; Num ar]) cn_ars ;
-                    sexp_of x]))])
+                    sexp_of x]))]) ∧
+  sexp_of (Annot d annot e) = list [Name "annot"; sexp_of_annot annot; sexp_of e]
 Termination
   WF_REL_TAC ‘measure (cexp_size (K 0))’ \\ rw []
   \\ imp_res_tac cexp_size_lemma

@@ -83,6 +83,7 @@ fun filetest (fname, sem, NONE) =
     in
       fptest0 (“nDecls”, s, sem, “NONE”)
     end
+
 fun sp (* simple parse *) nt s =
     EVAL (list_mk_icomb(fullparse, [hd (decls nt), stringSyntax.fromMLstring s,
                                     ptSOME]))

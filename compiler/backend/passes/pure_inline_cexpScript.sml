@@ -105,27 +105,49 @@ Definition is_noinline_def:
   is_noinline e = F
 End
 
+Definition remove_annotation_def:
+  remove_annotation (Annot a _ e) = remove_annotation e ∧
+  remove_annotation e = e
+End
+
+Definition insert_m_def:
+  insert_m m v (Simple e) = (
+    let e1 = remove_annotation e in
+    insert m v (Simple e1)
+  ) ∧
+  insert_m m v (Rec e) = (
+    let e1 = remove_annotation e in
+    insert m v (Rec e1)
+  )
+End
+
 Definition heuristic_insert_def:
   heuristic_insert m ctx v e =
     case get_annot e of
       | SOME NoInline => (m, ctx)
-      | SOME Inline => (insert m v (Simple e), add_inline_set ctx v)
-      | SOME ConLike => (insert m v (Simple e), add_conlike_set ctx v)
+      | SOME Inline => (insert_m m v (Simple e), add_inline_set ctx v)
+      | SOME ConLike => (insert_m m v (Simple e), add_conlike_set ctx v)
       | SOME Inlineable => (
-        let m1 = insert m v (Simple e) in
+        let m1 = insert_m m v (Simple e) in
         if cheap e ∧ (heuristic ctx) e then
           (m1, add_inline_set ctx v)
         else
           (m1, ctx)
       )
-      | _ => (m, ctx)
+      | _ =>
+        let m1 = insert_m m v (Simple e) in
+        if cheap e ∧ (heuristic ctx) e then
+          (m1, add_inline_set ctx v)
+        else
+          (m, ctx)
 End
 
 Definition insert_specialise_def:
   insert_specialise m v e =
-    case specialise v e of
-      | SOME e1 => insert m v (Simple e1)
-      | NONE => m
+    let e1 = remove_annotation e in
+    case specialise v e1 of
+      | SOME e2 => insert_m m v (Simple e2)
+      | NONE => insert_m m v (Rec e1)
 End
 
 Definition heuristic_insert_specialise_def:
@@ -141,23 +163,33 @@ Definition heuristic_insert_specialise_def:
       else
         (m1, ctx)
     )
-    | _ => (m, ctx)
+    | _ =>
+      let m1 = insert_specialise m v e in
+      if (heuristic ctx) e then
+        (m1, add_inline_set ctx v)
+      else
+        (m, ctx)
 End
 
 Definition heuristic_insert_Rec_def:
   heuristic_insert_Rec m ctx v e =
     case get_annot e of
       | SOME NoInline => (m, ctx)
-      | SOME Inline => (insert m v (Rec e), add_inline_set ctx v)
-      | SOME ConLike => (insert m v (Rec e), add_conlike_set ctx v)
+      | SOME Inline => (insert_m m v (Rec e), add_inline_set ctx v)
+      | SOME ConLike => (insert_m m v (Rec e), add_conlike_set ctx v)
       | SOME Inlineable => (
-        let m1 = insert m v (Rec e) in
+        let m1 = insert_m m v (Rec e) in
         if (heuristic ctx) e then
           (m1, add_inline_set ctx v)
         else
           (m1, ctx)
       )
-      | _ => (m, ctx)
+      | _ =>
+        let m1 = insert_m m v (Rec e) in
+        if (heuristic ctx) e then
+          (m1, add_inline_set ctx v)
+        else
+          (m, ctx)
 End
 
 Definition heuristic_insert_Recs_def:
@@ -197,15 +229,15 @@ Definition designated_rec_ms_ctxs_def:
     let r = (
       case recs of
       | [(v, e, SOME (ConLike))] =>
-        let m1 = insert m v (Rec e) in
+        let m1 = insert_m m v (Rec e) in
         let ctx1 = add_conlike_set ctx v in
         SOME (m1, ctx1, v)
       | [(v, e, SOME Inline)] =>
-        let m1 = insert m v (Rec e) in
+        let m1 = insert_m m v (Rec e) in
         let ctx1 = add_inline_set ctx v in
         SOME (m1, ctx1, v)
       | [(v, e, SOME Inlineable)] =>
-        let m1 = insert m v (Rec e) in
+        let m1 = insert_m m v (Rec e) in
         SOME (m1, ctx, v)
       | _ => NONE
     ) in
@@ -243,23 +275,34 @@ End
 Definition elem_set_def:
   elem_set s v =
     case lookup s v of
-    | NONE => F
     | SOME _ => T
+    | NONE => F
 End
 
 Definition lookup_ctx_def:
   lookup_ctx m ctx v =
-    if elem_set (inline_set ctx) v ∨ elem_set (conlike_set ctx) v then (
-      case lookup m v of
-      | NONE => NONE
-      | SOME (Simple e) => SOME (Simple e)
-      | SOME (Rec e) => SOME (Rec e)
-    ) else NONE
+    if elem_set (inline_set ctx) v ∨ elem_set (conlike_set ctx) v
+    then lookup m v
+    else NONE
 End
+
+(* 
+list_size l =
+  case l of
+  | [] => 0
+  | x::xs => 1 + list_size xs
+
+list_size [1,2,3]
+
+ *)
+
+(* //TODO *)
+(* Definition sym_eval_case_def:
+  sym_eval_case 
+End *)
 
 (*
 - filetest function in selftest.ml -- inspiration for testing
-- 
 *)
 (*
   TODO (in order):
@@ -327,11 +370,11 @@ Definition inline_def:
         (App a e1 es1, ns2)
     )
   ) ∧
-  inline m ns cl ctx (Let a v e1 e2) = (
-    let (m1, ctx1) = heuristic_insert m ctx v e1 in
-    let (e3, ns3) = inline m ns cl ctx e1 in
-    let (e4, ns4) = inline m1 ns3 cl ctx1 e2 in
-    (Let a v e3 e4, ns4)
+  inline m ns cl ctx (Let a v e_b e) = (
+    let (m1, ctx1) = heuristic_insert m ctx v e_b in
+    let (e_b1, ns3) = inline m ns cl ctx e_b in
+    let (e1, ns4) = inline m1 ns3 cl ctx1 e in
+    (Let a v e_b1 e1, ns4)
     ) ∧
   inline m ns cl ctx (Letrec a [(v, er)] e) = (
     let (m1, ctx1) = heuristic_insert_specialise m ctx v er in

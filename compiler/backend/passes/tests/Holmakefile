@@ -1,2 +1,3 @@
 INCLUDES = ../ \
-           ../../../parsing/sexp/
+           ../../../parsing/sexp/ \
+           ../../../parsing/
