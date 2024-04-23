@@ -408,14 +408,16 @@ Theorem unidir_imp_wf_preserved:
   ∀x y. (x --> y) ⇒
     (NestedCase_free x ⇒ NestedCase_free y) ∧
     (letrecs_distinct (exp_of x) ⇒ letrecs_distinct (exp_of y)) ∧
-    (cexp_wf x ⇒ cexp_wf y)
+    (cexp_wf x ⇒ cexp_wf y) ∧
+    (cns_arities y ⊆ cns_arities x)
 Proof
   Induct_on `unidir` >> rpt conj_tac >> rpt gen_tac >> strip_tac >>
-  gvs[exp_of_def, NestedCase_free_def, letrecs_distinct_def, cexp_wf_def]
+  gvs[exp_of_def, NestedCase_free_def, letrecs_distinct_def, cexp_wf_def, cns_arities_def]
   >- (drule freshen_cexp_preserves_wf >> rw[])
   >- (
-    conj_tac >> strip_tac
+    rpt conj_tac
     >- (
+      strip_tac >>
       `NestedCase_free e` by (
         imp_res_tac ALOOKUP_MEM >>
         gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> res_tac) >>
@@ -447,6 +449,16 @@ Proof
       qid_spec_tac `pvs` >> Induct_on `es` >> rw[Lets_def] >>
       Cases_on `pvs` >> gvs[Lets_def, exp_of_def, cexp_wf_def]
       )
+    >- (rpt (TOP_CASE_TAC >> gvs[]) >> simp[Once SUBSET_DEF])
+    >- (
+      simp[cns_arities_Lets] >> rw[]
+      >- (
+        rw[Once SUBSET_DEF] >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+        imp_res_tac ALOOKUP_MEM >> simp[SF SFY_ss]
+        ) >>
+      rw[BIGUNION_SUBSET] >> gvs[MEM_MAP, MEM_ZIP] >>
+      rw[Once SUBSET_DEF] >> gvs[MEM_MAP, PULL_EXISTS] >> metis_tac[EL_MEM]
+      )
     )
 QED
 
@@ -454,20 +466,26 @@ Theorem push_pull_imp_wf_preserved:
   ∀x y. push_pull x y ⇒
     (NestedCase_free x ⇔ NestedCase_free y) ∧
     (letrecs_distinct (exp_of x) ⇔ letrecs_distinct (exp_of y)) ∧
-    (cexp_wf x ⇔ cexp_wf y)
+    (cexp_wf x ⇔ cexp_wf y) ∧
+    (cns_arities y = cns_arities x)
 Proof
   Induct_on `push_pull` >> rpt conj_tac >> rpt gen_tac >> simp[] >> strip_tac >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
   gvs[NestedCase_free_def, cexp_wf_def, exp_of_def, letrecs_distinct_def,
-      letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_MAP] >>
+      letrecs_distinct_Apps, letrecs_distinct_Lams, cns_arities_def, EVERY_MAP] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY, SF ETA_ss]
   >~ [`OPTION_ALL`]
   >- (
     once_rewrite_tac[COND_RAND] >> simp[letrecs_distinct_rows_of] >>
     gvs[exp_of_def, EVERY_MAP] >>
-    Cases_on `usopt` >> gvs[] >- (rw[] >> eq_tac >> rw[] >> gvs[]) >>
+    Cases_on `usopt` >> gvs[]
+    >- (
+      rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[] >>
+      gvs[MEM_MAP, PULL_EXISTS, cns_arities_def] >> metis_tac[]
+      ) >>
     EVERY_CASE_TAC >> gvs[exp_of_def, cexp_wf_def] >>
-    rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM]
+    rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[EVERY_MEM] >>
+    gvs[MEM_MAP, PULL_EXISTS, cns_arities_def] >> metis_tac[]
     )
   >~ [`OPTION_ALL`]
   >- (
@@ -475,37 +493,52 @@ Proof
     gvs[exp_of_def, EVERY_MAP] >>
     Cases_on `usopt` >> gvs[]
     >- (
-      rw[] >> eq_tac >> rw[] >> gvs[] >>
-      gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY]
+      rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[] >>
+      gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+      gvs[MEM_MAP, PULL_EXISTS, cns_arities_def, ELIM_UNCURRY] >> metis_tac[]
       ) >>
     EVERY_CASE_TAC >> gvs[exp_of_def, cexp_wf_def] >>
-    rw[] >> eq_tac >> rw[] >> gvs[EVERY_MAP, EVERY_MEM] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY]
+    rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[EVERY_MAP, EVERY_MEM] >>
+    gvs[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+    gvs[MEM_MAP, PULL_EXISTS, cns_arities_def, ELIM_UNCURRY] >> metis_tac[]
     ) >>
-  rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[SF DNF_ss] >>
-  Cases_on `es` >> gvs[SF DNF_ss]
+  rw[Once EXTENSION] >> eq_tac >> rw[] >>
+  gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[SF DNF_ss] >>
+  gvs[MEM_MAP, PULL_EXISTS, cns_arities_def, ELIM_UNCURRY] >>
+  qspec_then `es` assume_tac list_CASES >> gvs[] >> metis_tac[]
 QED
 
 Theorem bidir_imp_wf_preserved:
   ∀x y. (x <--> y) ⇒
     (NestedCase_free x ⇔ NestedCase_free y) ∧
     (letrecs_distinct (exp_of x) ⇔ letrecs_distinct (exp_of y)) ∧
-    (cexp_wf x ⇔ cexp_wf y)
+    (cexp_wf x ⇔ cexp_wf y) ∧
+    (cns_arities y = cns_arities x)
 Proof
   Induct_on `bidir` >> rpt conj_tac >> rpt gen_tac >> simp[] >> strip_tac >>
   gvs[NestedCase_free_def, cexp_wf_def, exp_of_def, letrecs_distinct_def,
-      letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_MAP]
-  >- gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL]
+      letrecs_distinct_Apps, letrecs_distinct_Lams, cns_arities_def, EVERY_MAP]
   >- (
     gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
-    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    rpt (TOP_CASE_TAC >> gvs[])
+    >~ [`_ ∪ _ = _ ∪ _`]
+    >- (ntac 3 AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN]) >>
+    ntac 2 AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+    )
+  >- (
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    Cases_on `xs` >> Cases_on `ys` >> gvs[] >>
+    gvs[LT_SUC, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+    ntac 4 AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN]
     )
   >- (
     gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
     simp[ELIM_UNCURRY, MAP_MAP_o, combinTheory.o_DEF] >>
     simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o] >>
     `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> simp[] >>
-    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    Cases_on `xs` >> Cases_on `ys` >> gvs[] >>
+    gvs[LT_SUC, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+    AP_THM_TAC >> ntac 4 AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, EL_MAP]
     )
   >- (
     once_rewrite_tac[COND_RAND] >>
@@ -520,64 +553,104 @@ Proof
       gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> eq_tac >> rw[] >>
       rpt $ (first_x_assum drule >> strip_tac) >>
       rpt (pairarg_tac >> gvs[])
-      ) >>
-    `MAP FST xs = MAP FST ys ∧ MAP (FST o SND) xs = MAP (FST o SND) ys` by (
-      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-      rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
-    `xs = [] ⇔ ys = []` by (Cases_on `xs` >> Cases_on `ys` >> gvs[]) >>
-    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> eq_tac >> rw[] >>
-    rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      `MAP FST xs = MAP FST ys ∧ MAP (FST o SND) xs = MAP (FST o SND) ys` by (
+        gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+        rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+      `xs = [] ⇔ ys = []` by (Cases_on `xs` >> Cases_on `ys` >> gvs[]) >>
+      gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> eq_tac >> rw[] >>
+      rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      `MAP (λ(cn,vs,e). (cn,LENGTH vs)) xs = MAP (λ(cn,vs,e). (cn,LENGTH vs)) ys ∧
+       MAP (λ(cn,vs,e). cns_arities e) xs = MAP (λ(cn,vs,e). cns_arities e) ys` by (
+        gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+        rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+      rpt (TOP_CASE_TAC >> gvs[])
+      )
     )
   >~ [`spec_arg`]
   >- cheat (* TODO specialisation *)
   >~ [`push_pull`]
   >- gvs[push_pull_imp_wf_preserved] >>
-  rw[] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[]
+  rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[] >>
+  gvs[MEM_MAP, PULL_EXISTS, cns_arities_def, EXISTS_PROD] >> metis_tac[]
 QED
 
 Theorem pres_imp_wf_preserved:
   ∀x y. (x ~~> y) ⇒
     (NestedCase_free x ⇒ NestedCase_free y) ∧
     (letrecs_distinct (exp_of x) ⇒ letrecs_distinct (exp_of y)) ∧
-    (cexp_wf x ⇒ cexp_wf y)
+    (cexp_wf x ⇒ cexp_wf y) ∧
+    (cns_arities y ⊆ cns_arities x)
 Proof
   Induct_on `pres` >> rpt conj_tac >> rpt gen_tac >> simp[] >> strip_tac >>
   gvs[NestedCase_free_def, cexp_wf_def, exp_of_def, letrecs_distinct_def,
-      letrecs_distinct_Apps, letrecs_distinct_Lams, EVERY_MAP]
+      letrecs_distinct_Apps, letrecs_distinct_Lams, cns_arities_def, EVERY_MAP]
+  >- metis_tac[SUBSET_TRANS]
   >- metis_tac[unidir_imp_wf_preserved]
-  >- metis_tac[bidir_imp_wf_preserved]
-  >- gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL]
+  >- metis_tac[bidir_imp_wf_preserved, SUBSET_REFL]
   >- (
     gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
-    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL] >> metis_tac[]
     )
+  >- (
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    Cases_on `xs` >> Cases_on `ys` >> gvs[] >>
+    gvs[LT_SUC, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+    gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL] >> metis_tac[]
+    )
+  >- gvs[SUBSET_DEF]
   >- (
     gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
     simp[ELIM_UNCURRY, MAP_MAP_o, combinTheory.o_DEF] >>
     simp[GSYM combinTheory.o_DEF, GSYM MAP_MAP_o] >>
     `MAP FST xs = MAP FST ys` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> simp[] >>
-    Cases_on `xs` >> Cases_on `ys` >> gvs[]
+    Cases_on `xs` >> Cases_on `ys` >> gvs[] >>
+    gvs[LT_SUC, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+    gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL] >> metis_tac[]
     )
   >- (
     once_rewrite_tac[COND_RAND] >>
     simp[letrecs_distinct_def, letrecs_distinct_rows_of] >>
-    rpt conj_tac >> strip_tac
+    rpt conj_tac
     >- (
+      strip_tac >>
       gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
       rpt $ (first_x_assum drule >> strip_tac) >>
       rpt (pairarg_tac >> gvs[])
       )
     >- (
+      strip_tac >>
       gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
       rpt $ (first_x_assum drule >> strip_tac) >>
       rpt (pairarg_tac >> gvs[])
-      ) >>
-    `MAP FST xs = MAP FST ys ∧ MAP (FST o SND) xs = MAP (FST o SND) ys` by (
-      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-      rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
-    `xs ≠ [] ⇒ ys ≠ []` by (Cases_on `xs` >> Cases_on `ys` >> gvs[]) >>
-    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
-    rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      `MAP FST xs = MAP FST ys ∧ MAP (FST o SND) xs = MAP (FST o SND) ys` by (
+        gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+        rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+      `xs ≠ [] ⇒ ys ≠ []` by (Cases_on `xs` >> Cases_on `ys` >> gvs[]) >>
+      gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL, OPTREL_def] >> rw[] >>
+      rpt $ (first_x_assum drule >> strip_tac) >> rpt (pairarg_tac >> gvs[])
+      )
+    >- (
+      `MAP (λ(cn,vs,e). (cn,LENGTH vs)) xs = MAP (λ(cn,vs,e). (cn,LENGTH vs)) ys ∧
+       LIST_REL (λ(cn,vs,e) (cn',vs',e'). cns_arities e ⊆ cns_arities e') ys xs` by (
+        gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+        rw[] >> last_x_assum drule >> rpt (pairarg_tac >> gvs[])) >>
+      rpt (TOP_CASE_TAC >> gvs[]) >> gvs[SUBSET_DEF] >>
+      gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD]
+      )
+    >- gvs[SUBSET_DEF]
+    >- (
+      irule $ SRULE [] $ SCONV [SUBSET_DEF] ``a ⊆ c ⇒ a ⊆ b ∪ c`` >>
+      rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS] >>
+      gvs[LIST_REL_EL_EQN, SUBSET_DEF, MEM_EL, PULL_EXISTS] >>
+      goal_assum $ drule_at Any >> rpt (pairarg_tac >> gvs[]) >>
+      last_x_assum drule >> simp[]
+      )
     )
 QED
 
@@ -585,32 +658,139 @@ QED
    Proof of preservation of freevars
  *----------------------------------------------------------------------------*)
 
-Theorem unidir_imp_freevars_preserved:
-  ∀x y. (x --> y) ⇒ freevars (exp_of y) ⊆ freevars (exp_of x)
+(* TODO move *)
+Theorem freevars_Lets:
+  EVERY (λe. DISJOINT (set $ MAP FST binds) (freevars e)) (MAP SND binds)
+  ⇒ freevars (Lets binds e) =
+      freevars e DIFF set (MAP FST binds) ∪
+      BIGUNION (set $ MAP (freevars o SND) binds)
 Proof
-  cheat
+  Induct_on `binds` >> rw[pure_expTheory.Lets_def] >>
+  PairCases_on `h` >> rw[pure_expTheory.Lets_def] >>
+  gvs[EVERY_CONJ] >> rw[EXTENSION] >> eq_tac >> rw[] >> gvs[] >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> metis_tac[]
+QED
+
+Theorem freevars_cexp_Lets:
+  EVERY (λe. DISJOINT (set $ MAP FST binds) (freevars_cexp e)) (MAP SND binds)
+  ⇒ freevars_cexp (Lets d binds e) =
+      freevars_cexp e DIFF set (MAP FST binds) ∪
+      BIGUNION (set $ MAP (freevars_cexp o SND) binds)
+Proof
+  Induct_on `binds` >> rw[Lets_def] >>
+  PairCases_on `h` >> rw[Lets_def] >>
+  gvs[EVERY_CONJ] >> rw[EXTENSION] >> eq_tac >> rw[] >> gvs[] >>
+  gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> metis_tac[]
+QED
+
+Theorem unidir_imp_freevars_preserved:
+  ∀x y. (x --> y) ∧
+    NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+  ⇒ freevars_cexp y ⊆ freevars_cexp x
+Proof
+  Induct_on `unidir` >> rw[]
+  >- gvs[SUBSET_DEF, freevars_exp_of]
+  >- (drule freshen_cexp_correctness >> simp[freevars_exp_of, IMAGE_11])
+  >- (
+    DEP_REWRITE_TAC[freevars_cexp_Lets] >> simp[MAP_ZIP] >>
+    gvs[DISJOINT_ALT, DISJ_EQ_IMP, MEM_MAP, PULL_EXISTS, PULL_FORALL] >>
+    simp[EVERY_MAP, freevars_exp_of] >> conj_tac
+    >- (gvs[EVERY_MEM] >> metis_tac[]) >>
+    reverse $ rw[UNION_DELETE] >- simp[SF ETA_ss, SUBSET_DEF] >>
+    irule $ SRULE [] $ SCONV [SUBSET_DEF] ``a ⊆ c ⇒ a ⊆ b ∪ c`` >>
+    irule $ SRULE [] $ SCONV [SUBSET_DEF] ``a ⊆ b ⇒ a ⊆ b ∪ c`` >>
+    irule SUBSET_DELETE_BOTH >>
+    rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    imp_res_tac ALOOKUP_MEM >> goal_assum $ drule_at Any >> gvs[]
+    )
+QED
+
+Theorem push_pull_imp_freevars_preserved:
+  ∀x y. push_pull x y ⇒ freevars_cexp x = freevars_cexp y
+Proof
+  Induct_on `push_pull` >> rw[] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF] >>
+  rw[Once EXTENSION] >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD, DISJOINT_ALT, EVERY_MEM, FORALL_PROD] >>
+  qspec_then `es` assume_tac list_CASES >> gvs[] >>
+  metis_tac[]
 QED
 
 Theorem bidir_imp_freevars_preserved:
-  ∀x y. (x <--> y) ⇒ freevars (exp_of y) = freevars (exp_of x)
+  ∀x y. (x <--> y) ⇒ freevars_cexp y = freevars_cexp x
 Proof
-  cheat
+  Induct_on `bidir` >> rw[] >> gvs[]
+  >- (ntac 2 AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN])
+  >- (ntac 3 AP_TERM_TAC >> gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN])
+  >- (
+    `MAP FST ys = MAP FST xs` by gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN] >> gvs[] >>
+    AP_THM_TAC >> ntac 4 AP_TERM_TAC >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY]
+    )
+  >- (
+    rpt (TOP_CASE_TAC >> gvs[])
+    >- (
+      AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY]
+      )
+    >- (
+      AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
+      gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, ELIM_UNCURRY]
+      )
+    ) >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF] >>
+  rw[Once EXTENSION] >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> gvs[SUBSET_DEF]
+  >~ [`push_pull`]
+  >- metis_tac[push_pull_imp_freevars_preserved]
+  >~ [`spec_arg`]
+  >- cheat (* TODO specialisation *)
+  >~ [`EVERY _ _`]
+  >- (
+    gvs[freevars_exp_of, DISJOINT_IMAGE] >>
+    gvs[EVERY_MEM, FORALL_PROD, DISJOINT_ALT] >>
+    rw[Once EXTENSION] >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[]
+    )
+  >~ [`EVERY _ _`]
+  >- (
+    gvs[freevars_exp_of, DISJOINT_IMAGE] >>
+    gvs[EVERY_MEM, FORALL_PROD, DISJOINT_ALT] >>
+    rw[Once EXTENSION] >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
+    metis_tac[]
+    ) >>
+  metis_tac[]
 QED
 
 Theorem pres_imp_freevars_preserved:
-  ∀x y. (x ~~> y) ⇒ freevars (exp_of y) ⊆ freevars (exp_of x)
+  ∀x y. (x ~~> y) ∧
+    NestedCase_free x ∧ letrecs_distinct (exp_of x) ∧ cexp_wf x
+  ⇒ freevars_cexp y ⊆ freevars_cexp x
 Proof
-  cheat
-QED
-
-(*----------------------------------------------------------------------------*
-   Proof of preservation of freevars
- *----------------------------------------------------------------------------*)
-
-Theorem pres_imp_cns_arities_preserved:
-  ∀x y. (x ~~> y) ⇒ cns_arities y ⊆ cns_arities x
-Proof
-  cheat
+  Induct_on `pres` >> rw[] >>
+  gvs[cexp_wf_def, exp_of_def, NestedCase_free_def, letrecs_distinct_def,
+      letrecs_distinct_Apps, letrecs_distinct_Lams, letrecs_distinct_rows_of,
+      cns_arities_def, EVERY_MAP]
+  >- (
+    rev_drule pres_imp_wf_preserved >> strip_tac >> gvs[] >>
+    metis_tac[SUBSET_TRANS]
+    )
+  >- metis_tac[unidir_imp_freevars_preserved]
+  >- metis_tac[bidir_imp_freevars_preserved, SUBSET_REFL]
+  >- gvs[SUBSET_DEF]
+  >~ [`BIGUNION _ ∪ _ DELETE _ ⊆ _`]
+  >- (
+    irule $ SRULE [] $ SCONV [SUBSET_DEF] ``a ⊆ c ⇒ a ⊆ b ∪ c`` >> simp[] >>
+    irule SUBSET_DELETE_BOTH >> simp[] >>
+    irule_at Any $ SRULE [] $ SCONV [SUBSET_DEF] ``a ⊆ b ⇒ a ⊆ b ∪ c`` >>
+    irule_at Any $ SRULE [] $ SCONV [SUBSET_DEF] ``a ⊆ c ⇒ a ⊆ b ∪ c`` >>
+    conj_tac >- rpt (TOP_CASE_TAC >> gvs[]) >>
+    gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+    gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL, ELIM_UNCURRY] >>
+    metis_tac[]
+    ) >>
+  gvs[LIST_REL_EL_EQN, EL_MAP, EVERY_EL] >>
+  gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL, ELIM_UNCURRY] >>
+  metis_tac[]
 QED
 
 (*----------------------------------------------------------------------------*
@@ -729,17 +909,6 @@ Proof
   simp[GSYM subst_fdomsub] >>
   irule $ GSYM pure_inline_relTheory.subst1_notin >>
   DEP_REWRITE_TAC[freevars_subst] >> simp[IN_FRANGE_FLOOKUP]
-QED
-
-Theorem exp_of_Lets:
-  ∀vs xs b.
-    LENGTH vs = LENGTH xs ⇒
-    exp_of (Lets a (ZIP (vs,xs)) b) =
-    Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
-Proof
-  Induct \\ Cases_on ‘xs’
-  \\ gvs [pure_cexpTheory.Lets_def,pure_expTheory.Lets_def]
-  \\ fs [exp_of_def]
 QED
 
 Theorem unidir_imp_exp_eq:

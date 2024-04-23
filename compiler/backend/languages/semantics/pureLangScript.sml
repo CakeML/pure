@@ -225,4 +225,15 @@ Proof
   \\ Cases_on ‘x’ \\ gvs [dest_App_def,exp_of_def,SF ETA_ss,Apps_append]
 QED
 
+Theorem exp_of_Lets:
+  ∀vs xs b.
+    LENGTH vs = LENGTH xs ⇒
+    exp_of (Lets a (ZIP (vs,xs)) b) =
+    Lets (ZIP (MAP explode vs, MAP exp_of xs)) (exp_of b)
+Proof
+  Induct \\ Cases_on ‘xs’
+  \\ gvs [pure_cexpTheory.Lets_def,pure_expTheory.Lets_def]
+  \\ fs [exp_of_def]
+QED
+
 val _ = export_theory();

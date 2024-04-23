@@ -708,6 +708,16 @@ Proof
   PairCases_on `h` >> simp[lets_for_def]
 QED
 
+Theorem cns_arities_Lets:
+  cns_arities (Lets d binds e) =
+    cns_arities e ∪
+    BIGUNION (set $ MAP (λ(x,e). cns_arities e) binds)
+Proof
+  Induct_on `binds` >> rw[pure_cexpTheory.Lets_def] >>
+  PairCases_on `h` >> gvs[pure_cexpTheory.Lets_def, cns_arities_def] >>
+  rw[EXTENSION] >> metis_tac[]
+QED
+
 (*--------------------*)
 
 val _ = export_theory();

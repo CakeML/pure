@@ -2747,12 +2747,14 @@ Theorem freshen_cexp_preserves_wf:
     freshen_cexp ce avoid = (ce',avoid') ∧ avoid_set_ok avoid ce
   ⇒ (NestedCase_free ce ⇒ NestedCase_free ce') ∧
     (letrecs_distinct (exp_of ce) ⇒ letrecs_distinct (exp_of ce')) ∧
-    (cexp_wf ce ⇒ cexp_wf ce')
+    (cexp_wf ce ⇒ cexp_wf ce') ∧
+    (cns_arities ce' = cns_arities ce)
 Proof
   rpt gen_tac >> strip_tac >> gvs[freshen_cexp_def] >>
   drule $ cj 1 freshen_aux_NestedCase_free >> strip_tac >> simp[] >>
   drule $ cj 1 freshen_aux_letrecs_distinct >> strip_tac >> simp[] >>
   drule $ cj 1 freshen_aux_cexp_wf >> strip_tac >> simp[] >>
+  drule $ cj 1 freshen_aux_cns_arities >> strip_tac >> simp[] >>
   gvs[avoid_set_ok_def]
 QED
 

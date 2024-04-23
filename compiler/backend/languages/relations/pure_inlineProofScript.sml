@@ -26,12 +26,6 @@ Definition memory_inv_def:
             avoid_set_ok ns e ∧ NestedCase_free e ∧ letrecs_distinct (exp_of e) ∧ cexp_wf e)
 End
 
-Definition LIST_REL3_def:
-  LIST_REL3 R [] [] [] = T ∧
-  LIST_REL3 R (x::xs) (y::ys) (z::zs) = (R x y z ∧ LIST_REL3 R xs ys zs) ∧
-  LIST_REL3 _ _ _ _ = F
-End
-
 fun lemma () = inline_ind
   |> Q.SPEC ‘λm ns cl h x. ∀xs t ns1.
     memory_inv xs m ns ∧
@@ -131,12 +125,11 @@ Proof
     gvs[pure_barendregtTheory.barendregt_def]
     ) >>
   strip_tac >> drule inline_rel_theorem >> simp[] >>
-  gvs[pure_expTheory.closed_def] >> strip_tac >>
+  gvs[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of] >> strip_tac >>
   drule pres_imp_wf_preserved >> simp[] >> strip_tac >>
   drule pres_imp_freevars_preserved >> strip_tac >>
-  drule pres_imp_cns_arities_preserved >> strip_tac >>
   qspec_then `inlined_e` assume_tac dead_let_correct >> gvs[] >>
-  gvs[pure_expTheory.closed_def, SUBSET_DEF]
+  gvs[pure_expTheory.closed_def, pure_cexp_lemmasTheory.freevars_exp_of, SUBSET_DEF]
 QED
 
 (********** Top-level theorems **********)
