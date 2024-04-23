@@ -20,7 +20,7 @@ Theorem annot_example_1 = EVAL ``
       \        in  i + (g j)\n"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -31,7 +31,7 @@ Theorem odd_even = EVAL ``
       \even i = if i == 0 then True else odd (i - 1)\n"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -42,7 +42,7 @@ Theorem annot_let_1 = EVAL ``
       \j = i + 1"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -67,7 +67,7 @@ Theorem map_spec_annot = EVAL ``
       \           in map (\\ x -> x + 1)"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic cexp))
     | NONE => NONE
   ``;
 

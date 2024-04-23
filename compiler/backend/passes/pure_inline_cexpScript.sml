@@ -494,6 +494,10 @@ Definition tree_size_heuristic_def:
     (tree_size_heuristic_rec n e ≥ 0)
 End
 
+Definition false_heuristic_def:
+  false_heuristic _ = F
+End
+
 (*******************)
 
 Definition inline_top_level_def:
