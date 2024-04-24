@@ -406,8 +406,7 @@ Definition inline_def:
               else (
                 let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
                 let exp3 = app_simp exp2 in
-                (* //TODO(kπ) might want to inline here again to leverage the lets created during the simplification *)
-                (exp3, ns3)
+                inline m ns3 (cl - 1) ctx exp3
               )
           )
         | SOME (Rec e_m) =>
@@ -419,8 +418,7 @@ Definition inline_def:
               else (
                 let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
                 let exp3 = app_simp exp2 in
-                (* //TODO(kπ) might want to inline here again to leverage the lets created during the simplification *)
-                (exp3, ns3)
+                inline m ns3 (cl - 1) ctx exp3
               )
           )
         | _ =>
