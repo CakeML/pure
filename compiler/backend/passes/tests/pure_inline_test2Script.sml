@@ -108,11 +108,11 @@ Theorem inlineable_inline_scope_example = EVAL ``
 
 Theorem inline_case_simp_example = EVAL ``
     let parse_res = (string_to_cexp0
-      "sth = let f x = case x of\n\
+      "sth = let head x = case x of\n\
       \                    Cons a b -> a\n\
       \                    Nil -> 0\n\
-      \          {-# INLINE f #-}\n\
-      \      in f (Cons 1 Nil)"
+      \          {-# INLINE head #-}\n\
+      \      in head (Cons 1 Nil)"
     ) in
     case parse_res of
     | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) cexp))

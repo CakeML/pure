@@ -76,8 +76,10 @@ End
 
 Definition cheap_def:
   cheap (Var _ e) = T ∧
-  cheap (Prim _ _ xs) = NULL xs ∧
+  cheap (Prim _ _ es) = (NULL es ∨ EVERY cheap es) ∧
   cheap _ = F
+Termination
+  WF_REL_TAC ‘measure (cexp_size (K 0))’
 End
 
 Definition get_annot_def:
@@ -326,7 +328,7 @@ let vs_2 = es_2
 res
 *)
 Definition case_simp_def:
-  case_simp m exp =
+  case_simp exp =
     case exp of
     | Case a scrutinee p_name bs fallthrough => (
       case scrutinee of
@@ -335,46 +337,20 @@ Definition case_simp_def:
         case matches of
         | [(v, vs, e)] =>
           let param_bindings = Lets a (ZIP (vs, es)) e in
-          SOME (Let a p_name scrutinee param_bindings)
-        | _ => NONE
+          Lets a [(p_name, scrutinee)] param_bindings
+        | _ => exp
       )
-      | Var a v => (
-        case lookup m v of
-        | SOME scrutinee1 =>
-          case (case_simp m scrutinee1) of
-          | NONE => NONE
-          | SOME e2 =>
-            SOME (Let a p_name scrutinee e2)
-        | _ => NONE
-      )
-      | _ => NONE
+      | _ => exp
     )
     | Let a v e_b e => (
-      case (case_simp (insert m v e_b) e) of
-      | NONE => NONE
-      | SOME e2 => SOME (Let a v e_b e2)
+      Let a v e_b (case_simp e)
     )
-    | _ => NONE
-Termination
-  cheat
-  (* WF_REL_TAC `inv_image ($< LEX $<) $ λx. case x of
-    | INL (m, ns, cl, ctx, e) => (cl, cexp_size (K 0) e)
-    | INR y => case y of
-      | INL (m, ns, cl, ctx, es) => (cl, list_size (cexp_size (K 0)) es)
-      | INR (ms, ns, cl, ctxs, es) => (cl, list_size (cexp_size (K 0)) es)`
-  \\ gvs [list_size_def]
-  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
-  \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
-  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
-  \\ rename1 `MAP SND fs`
-  \\ qspec_then `fs` assume_tac cexp_size_lemma \\ fs [] *)
+    | _ => exp
 End
 
 Definition app_simp_def:
   app_simp exp =
-    case (case_simp empty exp) of
-    | NONE => exp
-    | SOME exp1 => exp1
+    case_simp exp
 End
 
 (*
@@ -430,6 +406,7 @@ Definition inline_def:
               else (
                 let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
                 let exp3 = app_simp exp2 in
+                (* //TODO(kπ) might want to inline here again to leverage the lets created during the simplification *)
                 (exp3, ns3)
               )
           )
@@ -442,6 +419,7 @@ Definition inline_def:
               else (
                 let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
                 let exp3 = app_simp exp2 in
+                (* //TODO(kπ) might want to inline here again to leverage the lets created during the simplification *)
                 (exp3, ns3)
               )
           )
