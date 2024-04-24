@@ -326,19 +326,55 @@ let vs_2 = es_2
 res
 *)
 Definition case_simp_def:
-  case_simp exp =
+  case_simp m exp =
     case exp of
-    | Case a scrutinee p_name bs fallthrough =>
+    | Case a scrutinee p_name bs fallthrough => (
       case scrutinee of
-      | Prim a (Cons c_name) es =>
+      | Prim a (Cons c_name) es => (
         let matches = FILTER (λ(v, vs, e). v = c_name ∧ LENGTH vs = LENGTH es) bs in
         case matches of
         | [(v, vs, e)] =>
-          let param_bindings = FOLDR (λ(v1, e1) acc. Let a v1 e1 acc) e (ZIP (vs, es)) in
-          Let a p_name scrutinee param_bindings
-        | _ => exp
-      | _ => exp
-    | _ => exp
+          let param_bindings = Lets a (ZIP (vs, es)) e in
+          SOME (Let a p_name scrutinee param_bindings)
+        | _ => NONE
+      )
+      | Var a v => (
+        case lookup m v of
+        | SOME scrutinee1 =>
+          case (case_simp m scrutinee1) of
+          | NONE => NONE
+          | SOME e2 =>
+            SOME (Let a p_name scrutinee e2)
+        | _ => NONE
+      )
+      | _ => NONE
+    )
+    | Let a v e_b e => (
+      case (case_simp (insert m v e_b) e) of
+      | NONE => NONE
+      | SOME e2 => SOME (Let a v e_b e2)
+    )
+    | _ => NONE
+Termination
+  cheat
+  (* WF_REL_TAC `inv_image ($< LEX $<) $ λx. case x of
+    | INL (m, ns, cl, ctx, e) => (cl, cexp_size (K 0) e)
+    | INR y => case y of
+      | INL (m, ns, cl, ctx, es) => (cl, list_size (cexp_size (K 0)) es)
+      | INR (ms, ns, cl, ctxs, es) => (cl, list_size (cexp_size (K 0)) es)`
+  \\ gvs [list_size_def]
+  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
+  \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
+  \\ rename1 `MAP SND fs`
+  \\ qspec_then `fs` assume_tac cexp_size_lemma \\ fs [] *)
+End
+
+Definition app_simp_def:
+  app_simp exp =
+    case (case_simp empty exp) of
+    | NONE => exp
+    | SOME exp1 => exp1
 End
 
 (*
@@ -391,7 +427,11 @@ Definition inline_def:
             | NONE => (App a e es1, ns1)
             | SOME exp1 =>
               if cl = 0 then (App a e es1, ns1)
-              else inline m ns2 (cl - 1) ctx exp1
+              else (
+                let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
+                let exp3 = app_simp exp2 in
+                (exp3, ns3)
+              )
           )
         | SOME (Rec e_m) =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1 in (
@@ -399,7 +439,11 @@ Definition inline_def:
             | NONE => (App a e es1, ns1)
             | SOME exp1 =>
               if cl = 0 then (App a e es1, ns1)
-              else inline m ns2 (cl - 1) ctx exp1
+              else (
+                let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
+                let exp3 = app_simp exp2 in
+                (exp3, ns3)
+              )
           )
         | _ =>
           let (e1, ns2) = inline m ns1 cl ctx e in
