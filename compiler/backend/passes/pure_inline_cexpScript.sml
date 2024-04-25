@@ -337,33 +337,28 @@ Definition case_simp_def:
         case matches of
         | [(v, vs, e)] =>
           let param_bindings = Lets a (ZIP (vs, es)) e in
-          Lets a [(p_name, scrutinee)] param_bindings
-        | _ => exp
+          SOME (Lets a [(p_name, scrutinee)] param_bindings)
+        | _ => NONE
       )
-      | _ => exp
+      | _ => NONE
     )
     | Let a v e_b e => (
-      Let a v e_b (case_simp e)
+      case case_simp e of
+      | NONE => NONE
+      | SOME e1 => SOME (Let a v e e1)
     )
-    | _ => exp
+    | _ => NONE
 End
 
-Definition app_simp_def:
-  app_simp exp =
-    case_simp exp
-End
-
+(* 
+TODO(kπ) in paper:
+- explain the correct semantics of INLINEABLE
+- update implementation
+*)
 (*
 - filetest function in selftest.ml -- inspiration for testing
 *)
 (*
-  TODO (in order):
-  - handle all the annotations
-  - specialisted single recursive functions should be added as Exp/Simple
-  - mutually recursive functions should all be added separately to the bindings in the result expression (no specialisation) as Rec
-  - pick one mutually recursive binding and add it to bindings when inlining inside the others
-*)
- (*
   Annots meaning:
   - inline name -> add to bindings and to inline_set (skip some checks at use site)
   - inlineable -> add to bindings but not to inline_set (check normally at use site)
@@ -374,10 +369,18 @@ End
 
   Might have to add some more checks at the use site. So we can distinguish conlike set and inline set.
 
-  Add two sets:
+  Context:
   - conlike set: forces inlining the bindings
   - inline set: says that you should inline when possible
   Others are a result of inlineable and should only be inlined when forced using inlinehere or #(__inline)
+*)
+(*
+//TODO(kπ) be more careful when inlining Recs, might want to remove the binding from the map after using it (so we don't inline too many times)
+  Actually, maybe we just remove it from the inline set (or conlike set) and allow inlining later if some simplification will be triggered
+  Proposition:
+  - for Rec that is conslike, we allways inlne it
+  - for Rec that is inline, we inline it if there is a simplification that can be triggered
+    but then how do we easily check if there is a simplification that can be triggered?
 *)
 Definition inline_def:
   inline (m: ('a inlineable_cexp) var_map) ns (cl: num) (ctx: 'a inline_ctx) (Var (a: 'a) v) = (
@@ -403,11 +406,7 @@ Definition inline_def:
             | NONE => (App a e es1, ns1)
             | SOME exp1 =>
               if cl = 0 then (App a e es1, ns1)
-              else (
-                let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
-                let exp3 = app_simp exp2 in
-                inline m ns3 (cl - 1) ctx exp3
-              )
+              else inline m ns2 (cl - 1) ctx exp1
           )
         | SOME (Rec e_m) =>
           let (exp, ns2) = freshen_cexp (App a e_m es1) ns1 in (
@@ -415,11 +414,7 @@ Definition inline_def:
             | NONE => (App a e es1, ns1)
             | SOME exp1 =>
               if cl = 0 then (App a e es1, ns1)
-              else (
-                let (exp2, ns3) = inline m ns2 (cl - 1) ctx exp1 in
-                let exp3 = app_simp exp2 in
-                inline m ns3 (cl - 1) ctx exp3
-              )
+              else inline m ns2 (cl - 1) ctx exp1
           )
         | _ =>
           let (e1, ns2) = inline m ns1 cl ctx e in
@@ -467,7 +462,10 @@ Definition inline_def:
         let (e4, ns4) = inline m ns2 cl ctx e in
         (SOME (vs, e4), ns4)
     ) in
-    (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3, ns3)
+    let exp1 = Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs2) f3 in
+    case case_simp exp1 of
+    | SOME exp2 => inline m ns3 cl ctx exp2
+    | NONE => (exp1, ns3)
   ) ∧
   inline m ns cl ctx (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs, ns) ∧
@@ -501,6 +499,7 @@ Termination
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
   \\ rename1 `MAP SND fs`
   \\ qspec_then `fs` assume_tac cexp_size_lemma \\ fs []
+  \\ cheat
 End
 
 Definition inline_all_def:
