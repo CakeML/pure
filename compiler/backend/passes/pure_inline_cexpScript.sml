@@ -459,17 +459,20 @@ Definition inline_def:
   ) ∧
   inline m ns cl ctx (Case a e v bs f) = (
     let (e1, ns1) = inline m ns cl ctx e in
-    let (f3, ns3) = (
-      case f of
-      | NONE => (NONE, ns2)
-      | SOME (vs, e) =>
-        let (e4, ns4) = inline m ns2 cl ctx e in
-        (SOME (vs, e4), ns4)
-    ) in
-    let exp1 = Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs bs) f3 in
+    let exp1 = Case a e1 v bs f in
     case case_simp exp1 of
-    | SOME exp2 => inline m ns3 cl ctx exp2 (* //TODO might need (cl - 1) *)
-    | NONE => (exp1, ns3)
+    | SOME exp2 => inline m ns1 cl ctx exp2 (* //TODO might need (cl - 1) for termination proof *)
+    | NONE => (
+      let (f1, ns2) = (
+        case f of
+        | NONE => (NONE, ns1)
+        | SOME (vs, fe) =>
+          let (fe1, ns2) = inline m ns1 cl ctx fe in
+          (SOME (vs, fe1), ns2)
+      ) in
+      let (es, ns3) = inline_list m ns2 cl ctx (MAP (λ(v, vs, e). e) bs) in
+      (Case a e1 v (MAP2 (λ(v, vs, _) e. (v, vs, e)) bs es) f1, ns3)
+    )
   ) ∧
   inline m ns cl ctx (NestedCase a e v p e' bs) =
     (NestedCase a e v p e' bs, ns) ∧
