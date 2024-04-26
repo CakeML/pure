@@ -945,4 +945,36 @@ Proof
   \\ simp [exp_eq_refl]
 QED
 
+Theorem exp_eq_Letrec_unroll_inside:
+  ∀binds1 binds2 e v rhs i.
+    EL i binds1 = (v,rhs) ∧ i < LENGTH binds1 ∧
+    ALL_DISTINCT (MAP FST binds1) ∧
+    LIST_RELi (λj (n,x) (m,y).
+                 n = m ∧ (y = x ∨ (i ≠ j ∧ y = Let v rhs x))) binds1 binds2 ⇒
+    (Letrec binds1 e ≅? Letrec binds2 e) b
+Proof
+  rw [] \\ irule exp_eq_Letrec_change \\ rw []
+  \\ gvs [LIST_REL_EL_EQN,indexedListsTheory.LIST_RELi_EL_EQN]
+  \\ rpt strip_tac
+  \\ first_assum drule
+  \\ strip_tac
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ rw [] \\ gvs [exp_eq_refl]
+  >-
+   (irule exp_eq_Letrec_unroll \\ gvs [MEM_EL]
+    \\ last_x_assum $ irule_at Any \\ gvs [])
+  \\ ‘MAP FST binds2 = MAP FST binds1’ by
+   (simp [Once listTheory.LIST_EQ_REWRITE]
+    \\ rpt strip_tac
+    \\ first_x_assum drule
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ strip_tac \\ gvs [EL_MAP])
+  \\ irule exp_eq_Letrec_unroll \\ gvs [MEM_EL]
+  \\ last_assum $ irule_at Any \\ gvs []
+  \\ res_tac
+  \\ last_x_assum assume_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
 val _ = export_theory();
