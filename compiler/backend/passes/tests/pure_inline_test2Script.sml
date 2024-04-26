@@ -13,6 +13,17 @@ val _ = computeLib.add_funs [pure_lexer_implTheory.get_token_def,
                              ASCIInumbersTheory.s2n_compute,
                              numposrepTheory.l2n_def];
 
+Theorem let_example_1 = EVAL ``
+    let parse_res = (string_to_cexp0
+      "f = let g x = x\n\
+      \        {-# INLINE g #-}\n\
+      \    in g 1\n"
+    ) in
+    case parse_res of
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
+    | NONE => NONE
+  ``;
+
 Theorem annot_example_1 = EVAL ``
     let parse_res = (string_to_cexp0
       "f i j = let g x = x + 2\n\
@@ -20,7 +31,7 @@ Theorem annot_example_1 = EVAL ``
       \        in  i + (g j)\n"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -31,7 +42,7 @@ Theorem odd_even = EVAL ``
       \even i = if i == 0 then True else odd (i - 1)\n"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -42,7 +53,7 @@ Theorem annot_let_1 = EVAL ``
       \j = i + 1"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -54,7 +65,7 @@ Theorem map_spec = EVAL ``
       \           in map (\\ x -> x + 1)"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -67,7 +78,7 @@ Theorem map_spec_annot = EVAL ``
       \           in map (\\ x -> x + 1)"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -78,7 +89,7 @@ Theorem inlineable_example = EVAL ``
       \      in add1 1"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -89,7 +100,7 @@ Theorem inlineable_force_example = EVAL ``
       \      in #(__inline) add1 1"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -102,7 +113,7 @@ Theorem inlineable_inline_scope_example = EVAL ``
       \      in (add1 1)"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 false_heuristic false_heuristic cexp))
     | NONE => NONE
   ``;
 
@@ -115,7 +126,7 @@ Theorem inline_case_simp_example = EVAL ``
       \      in head (Cons 1 Nil)"
     ) in
     case parse_res of
-    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) true_heuristic cexp))
+    | SOME (cexp, _) => SOME (str_of (inline_all 5 (tree_size_heuristic 5) false_heuristic cexp))
     | NONE => NONE
   ``;
 

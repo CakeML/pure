@@ -149,19 +149,12 @@ End
 
 Definition should_inline_var_def:
   should_inline_var h v e mods =
-    if is_Lam e then F
-    else if elem_set mods ConLikeTag then T
-    else if elem_set mods InlineTag then T
-    else h e
-    (* //TODO *)
+    (¬(is_Lam e) ∧ ((elem_set mods ConLikeTag) ∨ (elem_set mods InlineTag) ∨ (h e)))
 End
 
 Definition should_inline_app_def:
   should_inline_app h v e es mods =
-    if elem_set mods ConLikeTag then T
-    else if elem_set mods InlineTag then T
-    else h e
-    (* //TODO *)
+    ((is_Lam e) ∧ ((elem_set mods ConLikeTag) ∨ (elem_set mods InlineTag) ∨ (h e)))
 End
 
 (* //TODO(kπ) should we pass the info about it being a Rec or not? *)
@@ -172,11 +165,11 @@ Definition should_memorise_def:
     | SOME Inline => SOME (insert_set mods_empty InlineTag)
     | SOME ConLike => SOME (insert_set mods_empty ConLikeTag)
     | SOME Inlineable => (
-      if cheap e ∧ h e then SOME (insert_set mods_empty InlineTag)
+      if h e then SOME (insert_set mods_empty InlineTag)
       else SOME mods_empty
     )
     | _ => (
-      if cheap e ∧ h e then SOME (insert_set mods_empty InlineTag)
+      if h e then SOME (insert_set mods_empty InlineTag)
       else NONE
     )
 End
@@ -367,6 +360,14 @@ Definition case_simp_def:
     | _ => NONE
 End
 
+Definition strip_lets_def:
+  strip_lets (Let a v e_b e) = (
+    let (l, e1) = strip_lets e in
+    ((v, e_b)::l, e1)
+  ) ∧
+  strip_lets e = ([], e)
+End
+
 (* 
 TODO(kπ) in paper:
 - explain the correct semantics of INLINEABLE
@@ -405,10 +406,11 @@ Definition inline_def:
     let exp = Var a v in
     case lookup m v of
     | NONE => (exp, ns)
-    | SOME (e, mods) =>
-      if should_inline_var (inline_heuristic ctx) v e mods ∧ cl > 0 then
+    | SOME (e, mods) => (
+      if (cl > 0 ∧ (should_inline_var (inline_heuristic ctx) v e mods)) then (
         inline m ns (cl - 1) ctx e
-      else (exp, ns)
+      ) else (exp, ns)
+    )
   ) ∧
   inline m ns cl ctx (App a e es) = (
     let (es1, ns1) = inline_list m ns cl ctx es in
@@ -418,12 +420,12 @@ Definition inline_def:
       case lookup m v of
       | NONE => (exp, ns1)
       | SOME (e_m, mods) =>
-        if should_inline_app (inline_heuristic ctx) v e_m es1 mods ∧ cl > 0 then
+        if (cl > 0 ∧ (should_inline_app (inline_heuristic ctx) v e_m es1 mods)) then (
           let (exp1, ns2) = freshen_cexp (App a e_m es1) ns1 in
           case App_Lam_to_Lets exp1 of
           | NONE => (exp, ns1)
           | SOME exp2 => inline m ns2 (cl - 1) ctx exp2
-        else (exp, ns1)
+        ) else (exp, ns1)
     )
     | _ => (
       let (e1, ns2) = inline m ns1 cl ctx e in
@@ -432,9 +434,9 @@ Definition inline_def:
   ) ∧
   inline m ns cl ctx (Let a v e_b e) = (
     let m1 = remember m ctx v e_b in
-    let (e_b1, ns3) = inline m ns cl ctx e_b in
-    let (e1, ns4) = inline m1 ns3 cl ctx e in
-    (Let a v e_b1 e1, ns4)
+    let (e_b1, ns1) = inline m ns cl ctx e_b in
+    let (e1, ns2) = inline m1 ns1 cl ctx e in
+    (Let a v e_b1 e1, ns2)
     ) ∧
   inline m ns cl ctx (Letrec a [(v, er)] e) = (
     let m1 = remember_specialise m ctx v er in
@@ -459,9 +461,13 @@ Definition inline_def:
   ) ∧
   inline m ns cl ctx (Case a e v bs f) = (
     let (e1, ns1) = inline m ns cl ctx e in
-    let exp1 = Case a e1 v bs f in
+    let (ls, e1_rest) = strip_lets e1 in
+    let exp1 = Case a e1_rest v bs f in
     case case_simp exp1 of
-    | SOME exp2 => inline m ns1 cl ctx exp2 (* //TODO might need (cl - 1) for termination proof *)
+    | SOME exp2 => (
+      let (exp3, ns2) = inline m ns1 cl ctx exp2 in (* //TODO might need (cl - 1) for termination proof *)
+      (Lets a ls exp3, ns2)
+    )
     | NONE => (
       let (f1, ns2) = (
         case f of
@@ -573,7 +579,7 @@ End
 
 Definition inline_top_level_def:
   inline_top_level c e =
-    inline_all c.inlining.depth (tree_size_heuristic c.inlining.heuristic) true_heuristic e
+    inline_all c.inlining.depth (tree_size_heuristic c.inlining.heuristic) false_heuristic e
 End
 
 (*******************)
