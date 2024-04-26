@@ -890,6 +890,20 @@ Proof
   \\ fs [Once app_bisimilarity_iff,closed_def,eval_thm]
 QED
 
+Theorem exp_eq_close:
+  (∀f. freevars x ∪ freevars y ⊆ FDOM f ⇒ (bind f x ≅? bind f y) b)
+  ⇒
+  (x ≅? y) b
+Proof
+  strip_tac
+  \\ rw [exp_eq_def] \\ gvs [app_bisimilarity_eq]
+  \\ last_x_assum $ drule_then drule \\ rw []
+  \\ gvs [bind_def]
+  \\ rw [] \\ gvs [SF SFY_ss]
+  \\ irule pure_exp_lemmasTheory.IMP_closed_subst
+  \\ gvs [TO_FLOOKUP]
+QED
+
 Theorem open_similarity_EMPTY:
   open_similarity b ∅ x y = (x ≲ y) b
 Proof
