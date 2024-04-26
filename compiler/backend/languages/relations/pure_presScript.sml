@@ -508,6 +508,147 @@ Proof
   qspec_then `es` assume_tac list_CASES >> gvs[] >> metis_tac[]
 QED
 
+Theorem letrecs_distinct_Lams:
+  ∀vs e. letrecs_distinct (Lams vs e) ⇔ letrecs_distinct e
+Proof
+  Induct \\ fs [Lams_def]
+  \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
+QED
+
+Theorem letrecs_distinct_Apps:
+  ∀es e. letrecs_distinct (Apps e es) ⇔
+         letrecs_distinct e ∧ EVERY letrecs_distinct es
+Proof
+  Induct \\ fs [Apps_def]
+  \\ fs [EVERY_MEM,pure_expTheory.letrecs_distinct_def]
+  \\ metis_tac []
+QED
+
+Theorem letrecs_distinct_if:
+  letrecs_distinct (if b then Seq Fail x else x) = letrecs_distinct x
+Proof
+  rw [pure_expTheory.letrecs_distinct_def]
+QED
+
+Triviality LIST_REL_spec_arg_wf_preserved:
+  ∀xs ys.
+    LIST_REL
+      (λrhs1 rhs2.
+         spec_arg f vs v ws rhs1 rhs2 ∧
+         (NestedCase_free rhs1 ⇔ NestedCase_free rhs2) ∧
+         (letrecs_distinct (exp_of rhs1) ⇔
+          letrecs_distinct (exp_of rhs2)) ∧
+         (cexp_wf rhs1 ⇔ cexp_wf rhs2) ∧
+         cns_arities rhs2 = cns_arities rhs1) xs ys ⇒
+    (ys = [] ⇔ xs = []) ∧
+    LENGTH ys = LENGTH xs ∧
+    MAP cns_arities ys = MAP cns_arities xs ∧
+    EVERY cexp_wf ys = EVERY cexp_wf xs ∧
+    EVERY NestedCase_free ys = EVERY NestedCase_free xs ∧
+    MAP (λx. letrecs_distinct (exp_of x)) ys =
+    MAP (λx. letrecs_distinct (exp_of x)) xs ∧
+    EVERY (λx. letrecs_distinct (exp_of x)) ys =
+    EVERY (λx. letrecs_distinct (exp_of x)) xs
+Proof
+  Induct \\ gvs [PULL_EXISTS]
+QED
+
+Theorem spec_arg_wf_preserved:
+  ∀f vs v ws rhs1 rhs2.
+    spec_arg f vs v ws rhs1 rhs2 ∧
+    (vs = [] ⇒ ws ≠ []) ∧ f ≠ v ∧
+    ¬MEM f vs ∧ ¬MEM f ws ∧ ¬MEM v vs ∧ ¬MEM v ws ∧
+    ALL_DISTINCT (vs ++ ws) ∧
+    set vs ⊆ set rs ∧ MEM v rs ∧
+    set ws ⊆ set rs ∧ rs ≠ []
+    ⇒
+    (NestedCase_free rhs1 ⇔ NestedCase_free rhs2) ∧
+    (letrecs_distinct (exp_of rhs1) ⇔ letrecs_distinct (exp_of rhs2)) ∧
+    (cexp_wf rhs1 ⇔ cexp_wf rhs2) ∧
+    cns_arities rhs2 = cns_arities rhs1
+Proof
+  Induct_on ‘spec_arg’ \\ rpt conj_tac \\ rpt gen_tac
+  \\ rpt disch_tac \\ gvs [exp_of_def]
+  >-
+   (dxrule LIST_REL_spec_arg_wf_preserved \\ strip_tac
+    \\ dxrule LIST_REL_spec_arg_wf_preserved \\ strip_tac
+    \\ gvs [letrecs_distinct_Apps,SF ETA_ss,EVERY_MAP,
+            cns_arities_def,cexp_wf_def]
+    \\ metis_tac [LENGTH_NIL])
+  >~ [‘Var’] >-
+   gvs [exp_of_def,cexp_wf_def,cns_arities_def]
+  >~ [‘Lams’] >-
+   gvs [exp_of_def,cexp_wf_def,cns_arities_def,letrecs_distinct_Lams]
+  >~ [‘Let’] >-
+   gvs [exp_of_def,cexp_wf_def,cns_arities_def]
+  >~ [‘App’] >-
+   (gvs [SF ETA_ss,letrecs_distinct_Apps,EVERY_MAP,
+         exp_of_def,cexp_wf_def,cns_arities_def]
+    \\ drule LIST_REL_spec_arg_wf_preserved \\ strip_tac \\ gvs [])
+  >~ [‘Prim’] >-
+   (gvs [SF ETA_ss,letrecs_distinct_Apps,EVERY_MAP,
+         exp_of_def,cexp_wf_def,cns_arities_def]
+    \\ drule LIST_REL_spec_arg_wf_preserved \\ strip_tac \\ gvs [])
+  >~ [‘Letrec’] >-
+   (gvs [SF ETA_ss,letrecs_distinct_Apps,EVERY_MAP,
+         exp_of_def,cexp_wf_def,cns_arities_def]
+    \\ drule LIST_REL_spec_arg_wf_preserved \\ strip_tac \\ gvs []
+    \\ gvs [EVERY_MAP]
+    \\ gvs [UNCURRY,MAP_MAP_o,o_DEF]
+    \\ ‘MAP (λx. explode (FST x)) xs = MAP (λx. explode (FST x)) ys ∧
+        MAP (UNCURRY (λv. cns_arities)) xs = MAP (UNCURRY (λv. cns_arities)) ys’ by
+     (qpat_x_assum ‘MAP (λx. cns_arities (SND x)) ys = _’ mp_tac
+      \\ qpat_x_assum ‘MAP FST xs = MAP FST ys’ mp_tac
+      \\ qid_spec_tac ‘xs’
+      \\ qid_spec_tac ‘ys’
+      \\ Induct \\ gvs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS])
+    \\ gvs [])
+  \\ rename [‘Case’]
+  \\ gvs [letrecs_distinct_if]
+  \\ dxrule LIST_REL_spec_arg_wf_preserved \\ strip_tac
+  \\ gvs [SF ETA_ss]
+  \\ ‘OPTION_ALL (NestedCase_free ∘ SND) d =
+      OPTION_ALL (NestedCase_free ∘ SND) e’ by
+    (Cases_on ‘d’ \\ Cases_on ‘e’ \\ gvs [] \\ gvs [UNCURRY])
+  \\ gvs [] \\ rewrite_tac [GSYM CONJ_ASSOC]
+  \\ conj_tac
+  >-
+   (Cases_on ‘letrecs_distinct (exp_of rhs2)’ \\ gvs []
+    \\ gvs [letrecs_distinct_rows_of]
+    \\ irule (METIS_PROVE [] “a = b ∧ c = d ⇒ (a ∧ c ⇔ b ∧ d)”)
+    \\ conj_tac
+    >- (Cases_on ‘d’ \\ Cases_on ‘e’ \\ gvs [] \\ every_case_tac \\ gvs [])
+    \\ qpat_x_assum ‘MAP _ _ = _’ mp_tac
+    \\ qid_spec_tac ‘xs’
+    \\ qid_spec_tac ‘ys’
+    \\ Induct \\ gvs [] \\ gen_tac \\ Cases \\ gvs []
+    \\ PairCases_on ‘h’ \\ gvs []
+    \\ PairCases_on ‘h'’ \\ gvs [])
+  \\ conj_tac
+  >-
+   (gvs [cexp_wf_def]
+    \\ Cases_on ‘cexp_wf rhs2’ \\ gvs [SF ETA_ss]
+    \\ Cases_on ‘EVERY cexp_wf (MAP (SND ∘ SND) xs)’ \\ asm_rewrite_tac []
+    \\ Cases_on ‘EVERY ALL_DISTINCT (MAP (FST ∘ SND) ys)’ \\ asm_rewrite_tac []
+    \\ Cases_on ‘xs = []’ \\ asm_rewrite_tac []
+    \\ Cases_on ‘MEM z (FLAT (MAP (FST ∘ SND) ys))’ \\ asm_rewrite_tac []
+    \\ Cases_on ‘d’ \\ Cases_on ‘e’ \\ gvs []
+    \\ PairCases_on ‘x’ \\ PairCases_on ‘x'’ \\ gvs [])
+  \\ gvs [cns_arities_def]
+  \\ qsuff_tac
+     ‘MAP (λ(cn,vs,e). (cn,LENGTH vs)) xs =
+      MAP (λ(cn,vs,e). (cn,LENGTH vs)) ys ∧
+      MAP (λ(cn,vs,e). cns_arities e) xs =
+      MAP (λ(cn,vs,e). cns_arities e) ys’
+  >- (every_case_tac \\ gvs [])
+  \\ last_x_assum mp_tac
+  \\ last_x_assum mp_tac
+  \\ qpat_x_assum ‘MAP cns_arities _ = _’ mp_tac
+  \\ qid_spec_tac ‘xs’
+  \\ qid_spec_tac ‘ys’
+  \\ Induct \\ gvs [FORALL_PROD,MAP_EQ_CONS,PULL_EXISTS]
+QED
+
 Theorem bidir_imp_wf_preserved:
   ∀x y. (x <--> y) ⇒
     (NestedCase_free x ⇔ NestedCase_free y) ∧
@@ -570,11 +711,16 @@ Proof
       rpt (TOP_CASE_TAC >> gvs[])
       )
     )
-  >~ [`spec_arg`]
-  >- cheat (* TODO specialisation *)
+  >~ [`spec_arg`] >-
+   (gvs [MAP_MAP_o,o_DEF,cns_arities_def]
+    \\ gvs [EXTENSION] \\ gvs [MEM_MAP,PULL_EXISTS]
+    \\ simp [GSYM EXTENSION]
+    \\ Cases_on ‘rs = []’ >- gvs [] \\ gvs []
+    \\ drule_all spec_arg_wf_preserved \\ gvs [])
   >~ [`push_pull`]
   >- gvs[push_pull_imp_wf_preserved] >>
-  rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >> res_tac >> gvs[] >>
+  rw[Once EXTENSION] >> eq_tac >> rw[] >> gvs[EVERY_MEM, FORALL_PROD] >>
+  res_tac >> gvs[] >>
   gvs[MEM_MAP, PULL_EXISTS, cns_arities_def, EXISTS_PROD] >> metis_tac[]
 QED
 
@@ -716,6 +862,41 @@ Proof
   metis_tac[]
 QED
 
+Theorem LIST_REL_spec_arg_freevars:
+  ∀xs1 xs2.
+    LIST_REL
+      (λrhs1 rhs2.
+        spec_arg f vs v ws rhs1 rhs2 ∧
+        (x ∈ freevars_cexp rhs2 ⇔ x ∈ freevars_cexp rhs1)) xs1 xs2 ⇒
+    MAP (λy. x ∈ freevars_cexp y) xs1 =
+    MAP (λy. x ∈ freevars_cexp y) xs2
+Proof
+  Induct \\ gvs [PULL_EXISTS]
+QED
+
+Theorem spec_arg_imp_freevars_preserved:
+  ∀x f vs v ws rhs1 rhs2.
+    spec_arg f vs v ws rhs1 rhs2 ⇒
+    x ≠ v ⇒ (x ∈ freevars_cexp rhs2 ⇔ x ∈ freevars_cexp rhs1)
+Proof
+  gen_tac \\ Induct_on ‘spec_arg’ \\ rpt strip_tac \\ gvs []
+  \\ gvs [freevars_cexp_def,MEM_MAP,PULL_EXISTS]
+  \\ rpt $ dxrule LIST_REL_spec_arg_freevars \\ rw []
+  >~ [‘OPTREL _ _ _’] >-
+   (Cases_on ‘x ∈ freevars_cexp rhs1’ \\ asm_rewrite_tac []
+    \\ Cases_on ‘x = z’ \\ asm_rewrite_tac []
+    \\ irule (METIS_PROVE [] “a1 = a2 ∧ b1 = b2 ⇒ (a1 ∨ b1 ⇔ a2 ∨ b2)”)
+    \\ conj_tac >-
+     (rpt $ qpat_x_assum ‘MAP _ _ = _’ mp_tac
+      \\ qid_spec_tac ‘ys’ \\ qid_spec_tac ‘xs’ \\ Induct \\ gvs []
+      \\ PairCases \\ Cases \\ gvs [] \\ PairCases_on ‘h’ \\ gvs [EXISTS_PROD]
+      \\ metis_tac [])
+    \\ Cases_on ‘e’ \\ Cases_on ‘d’ \\ gvs []
+    \\ every_case_tac \\ gvs [])
+  \\ rpt $ dxrule $ METIS_PROVE [] “xs = ys ⇒ ∀a. MEM a xs ⇔ MEM a ys”
+  \\ gvs [MEM_MAP,EXISTS_PROD,FORALL_PROD] \\ metis_tac []
+QED
+
 Theorem bidir_imp_freevars_preserved:
   ∀x y. (x <--> y) ⇒ freevars_cexp y = freevars_cexp x
 Proof
@@ -742,8 +923,10 @@ Proof
   rw[Once EXTENSION] >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >> gvs[SUBSET_DEF]
   >~ [`push_pull`]
   >- metis_tac[push_pull_imp_freevars_preserved]
-  >~ [`spec_arg`]
-  >- cheat (* TODO specialisation *)
+  >~ [`spec_arg`] >-
+   (eq_tac \\ rw [] \\ gvs []
+    \\ CCONTR_TAC \\ gvs [] \\ pop_assum mp_tac \\ gvs []
+    \\ imp_res_tac spec_arg_imp_freevars_preserved)
   >~ [`EVERY _ _`]
   >- (
     gvs[freevars_exp_of, DISJOINT_IMAGE] >>
