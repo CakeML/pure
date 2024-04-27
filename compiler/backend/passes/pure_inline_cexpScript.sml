@@ -188,14 +188,6 @@ Definition remember_def:
     | NONE => m
 End
 
-Definition insert_specialise_def:
-  insert_specialise m v e mods =
-    let e1 = remove_annotation e in
-    case specialise v e1 of
-      | SOME e2 => insert_m m v e2 mods
-      | NONE => insert_m m v e1 mods
-End
-
 Definition remember_Rec_def:
   remember_Rec m ctx v e =
     case should_memorise (memorise_heuristic ctx) v e of
@@ -203,10 +195,18 @@ Definition remember_Rec_def:
     | NONE => m
 End
 
+Definition insert_specialise_def:
+  insert_specialise m ctx v e mods =
+    let e1 = remove_annotation e in
+    case specialise v e1 of
+      | SOME e2 => insert_m m v e2 mods
+      | NONE => remember_Rec m ctx v e
+End
+
 Definition remember_specialise_def:
   remember_specialise m ctx v e =
     case should_memorise (memorise_heuristic ctx) v e of
-    | SOME mods => insert_specialise m v e mods
+    | SOME mods => insert_specialise m ctx v e mods
     | NONE => remember_Rec m ctx v e
 End
 
@@ -415,8 +415,8 @@ Definition inline_def:
   inline m ns cl ctx (App a e es) = (
     let (es1, ns1) = inline_list m ns cl ctx es in
     let exp = App a e es1 in
-    case e of
-    | Var _ v => (
+    case get_Var_name e of
+    | SOME v => (
       case lookup m v of
       | NONE => (exp, ns1)
       | SOME (e_m, mods) =>
