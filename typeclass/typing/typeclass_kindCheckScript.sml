@@ -6,7 +6,7 @@ open typeclass_typesTheory;
 val _ = new_theory "typeclass_kindCheck";
 
 Datatype:
-  Kind = kindType | kindArrow Kind Kind (* | kindVar num *)
+  Kind = kindType | kindArrow Kind Kind
 End
 
 (* helper function to create a kind *)

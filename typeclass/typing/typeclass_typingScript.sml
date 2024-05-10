@@ -1,8 +1,8 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory pure_tcexpTheory typeclass_texpTheory
-typeclass_kindCheckTheory pure_configTheory;
+open pairTheory arithmeticTheory integerTheory stringTheory optionTheory;
+open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
+open typeclass_typesTheory pure_tcexpTheory typeclass_texpTheory;
+open typeclass_kindCheckTheory pure_configTheory pure_freshenTheory;
 open monadsyntax;
 
 val _ = monadsyntax.enable_monadsyntax();
@@ -33,6 +33,11 @@ val _ = new_theory "typeclass_typing";
   Together, the exception definition and a collection of type definitions form
   our typing namespace.
 *)
+Type type_scheme[pp] = ``:num # type``;
+Type pred_type_scheme[pp] = ``:num # PredType``;
+
+Type type_kind_scheme[pp] = ``:Kind list # type``;
+Type pred_type_kind_scheme[pp] = ``:Kind list # PredType``;
 
 Type typedef[pp] = ``:Kind list # ((mlstring # type list) list)``;
 Type typedefs[pp] = ``:typedef list``;
@@ -47,8 +52,6 @@ Type exndef[pp] = ``:(mlstring # type list) list``;
       Exception: 0 -> Subscript
       Types: 0 -> List
 *)
-
-(* we use kind instead of just arities *)
 Definition initial_namespace_def:
   initial_namespace : exndef # typedefs = (
     [«Subscript»,[]],
@@ -74,13 +77,13 @@ Definition cns_arities_ok_def:
 End
 
 Definition typedefs_to_cdb_def:
-  typedefs_to_cdb (typedefs:typedefs) =
+  typedefs_to_cdb typedefs =
     (λc. OPTION_MAP (λtinfo. kind_arrows (FST tinfo) kindType)
         (LLOOKUP typedefs c))
 End
 
 Definition kind_ok_def:
-  kind_ok (typedefs: typedefs) ks k t ⇔
+  kind_ok typedefs ks k t ⇔
     kind_wf (typedefs_to_cdb typedefs) (LLOOKUP ks) k t
 End
 
@@ -118,12 +121,6 @@ Theorem type_ok_IMP_freetyvars_ok:
 Proof
   metis_tac[kind_ok_IMP_freetyvars_ok,type_ok_def]
 QED
-
-Type type_scheme[pp] = ``:num # type``;
-Type pred_type_scheme[pp] = ``:num # PredType``;
-
-Type type_kind_scheme[pp] = ``:Kind list # type``;
-Type pred_type_kind_scheme[pp] = ``:Kind list # PredType``;
 
 Overload subst_db_scheme =
   ``λn ts (vars,scheme).
@@ -195,7 +192,7 @@ Definition namespace_ok_def:
       MEM («Subscript»,[]) exndef
 End
 
-Overload append_ns = ``λ (ns:(exndef # typedefs)) ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
+Overload append_ns = ``λ(ns:(exndef # ('a list))) ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
 
 Definition namespace_init_ok_def:
   namespace_init_ok ns ⇔
@@ -286,20 +283,6 @@ Definition destruct_type_cons_def:
     | _ => F
 End
 
-Definition get_constructors_def:
-  get_constructors (edef:exndef,tdefs: typedefs) t ⇔
-  if t = Atom Exception
-  then SOME $ MAP (I ## LENGTH) edef
-  else do
-    (tc,targs) <- split_ty_head t;
-    case tc of
-    | INL tyid => OPTION_MAP (MAP (I ## LENGTH) o SND) $ oEL tyid tdefs
-    | INR (PrimT Bool) => SOME ([«True»,0;«False»,0])
-    | INR (CompPrimT (Tuple n)) => SOME ([«»,n])
-    | _ => NONE
-  od
-End
-
 Definition get_PrimTys_def:
   get_PrimTys [] = SOME [] ∧
   get_PrimTys ((Atom $ PrimTy pty) :: rest) = OPTION_MAP (CONS pty) (get_PrimTys rest) ∧
@@ -314,47 +297,59 @@ Datatype:
 End
 
 Definition specialises_inst_def:
-  specialises_inst (Entail ps p) (Entail qs q) ⇔
+  specialises_inst tdefs (Entail ks ps p) (Entail ks' qs q) ⇔
     ∃subs.
+      LIST_REL (λk sub. kind_ok tdefs ks' k sub) ks subs ∧
       LIST_REL (λ(c,t) (c',t'). c = c' ∧
-      tsubst subs t = t') (p::ps) (q::qs)
+        tsubst subs t = t') (p::ps) (q::qs)
 End
 
-(* if s is a super class of c then `Entail [(s,TypeVar 0)] (c,TypeVar 0)`
+(* if s is a super class of c then `Entail [k] [(s,TypeVar 0)] (c,TypeVar 0)`
 * will be in the set ie *)
 (* This should be equivalent to `entail` after turning all the super classes
 * and instance declarations to ie *)
+Definition safeLam_def:
+  safeLam _ [] e = e ∧
+  safeLam a xs e = Lam a xs e
+End
+
+Definition safeApp_def:
+  safeApp _ e [] = e ∧
+  safeApp a e xs = pure_cexp$App a e xs
+End
+
 Inductive has_dict:
 [~lie:]
-  p ∈ lie ⇒ has_dict ie lie p
+  p ∈ lie ⇒ has_dict tdefs db ie lie p
 [~ie:]
-  it ∈ ie ∧ specialises_inst it (Entail cstrs p) ∧
-  has_dicts ie lie cstrs ⇒
-    has_dict ie lie p
+  it ∈ ie ∧ specialises_inst tdefs it (Entail db cstrs p) ∧
+  has_dicts tdefs db ie lie cstrs ⇒
+    has_dict tdefs db ie lie p
 [~dicts:]
-  (∀p. MEM p ps ⇒ has_dict ie lie p) ⇒
-    has_dicts ie lie ps
+  (∀p. MEM p ps ⇒ has_dict tdefs db ie lie p) ⇒
+    has_dicts tdefs db ie lie ps
 End
 
 Inductive construct_dict:
 [~lie:]
   FLOOKUP lie d = SOME p ⇒
-    construct_dict ie lie p (pure_cexp$Var _ d)
+    construct_dict tdefs db ie lie p (pure_cexp$Var _ d)
 [~ie:]
   FLOOKUP ie d = SOME it ∧
-  specialises_inst it (Entail cstrs p) ∧
-  construct_dicts ie lie cstrs ds ⇒
-    construct_dict ie lie p (pure_cexp$App _ (pure_cexp$Var _ d) ds)
+  specialises_inst tdefs it (Entail db cstrs p) ∧
+  construct_dicts tdefs db ie lie cstrs ds ⇒
+    construct_dict tdefs db ie lie p
+      (safeApp _ (pure_cexp$Var _ d) ds)
 [~dicts:]
-  (LIST_REL (construct_dict ie lie) ps ds) ⇒
-    construct_dicts ie lie ps ds
+  (LIST_REL (construct_dict tdefs db ie lie) ps ds) ⇒
+    construct_dicts tdefs db ie lie ps ds
 End
 
 Theorem has_dict_EXISTS_construct_dict:
-  (∀p. has_dict (FRANGE ie) (FRANGE lie) p ⇒
-    ∃(d: 'a cexp) . construct_dict ie lie p d) ∧
-  ∀ps. has_dicts (FRANGE ie) (FRANGE lie) ps ⇒
-    ∃(ds: 'a cexp list). construct_dicts ie lie ps ds
+  (∀p. has_dict tdefs db (FRANGE ie) (FRANGE lie) p ⇒
+    ∃(d: 'a cexp) . construct_dict tdefs db ie lie p d) ∧
+  ∀ps. has_dicts tdefs db (FRANGE ie) (FRANGE lie) ps ⇒
+    ∃(ds: 'a cexp list). construct_dicts tdefs db ie lie ps ds
 Proof
   ho_match_mp_tac has_dict_ind >>
   rw[]
@@ -376,10 +371,10 @@ Proof
 QED
 
 Theorem construct_dict_IMP_has_dict:
-  (∀p (d:'a cexp). construct_dict ie lie p d ⇒
-    has_dict (FRANGE ie) (FRANGE lie) p) ∧
-  (∀ps (ds:'a cexp list). construct_dicts ie lie ps ds ⇒
-    has_dicts (FRANGE ie) (FRANGE lie) ps)
+  (∀p (d:'a cexp). construct_dict tdefs db ie lie p d ⇒
+    has_dict tdefs db (FRANGE ie) (FRANGE lie) p) ∧
+  (∀ps (ds:'a cexp list). construct_dicts tdefs db ie lie ps ds ⇒
+    has_dicts tdefs db (FRANGE ie) (FRANGE lie) ps)
 Proof
   ho_match_mp_tac construct_dict_ind >>
   rw[]
@@ -548,7 +543,7 @@ QED
    -> (db: Kind list)             -- deBruijn indices in scope
                                   --   (kind of each index)
    -> (st: type list)             -- store typing
-   -> (env: (string # (num # Predtype)) list)
+   -> (env: (string # (Kind list # PredType)) list)
                                   -- term variables associated to type schemes
    -> texp -> texp              -- expression, elaborated expression,
    -> type                        -- and its type
@@ -571,12 +566,15 @@ Inductive type_elaborate_texp:
 [~Var:]
   (ALOOKUP env x = SOME s ∧
    specialises_pred (SND ns) db s (Pred ps t) ∧
-   has_dicts ie lie ps ⇒
+   has_dicts (SND ns) db ie lie ps ⇒
       type_elaborate_texp ns clk ie lie db st env (Var _ x) (Var ps x) t)
 
 [~Pred:]
   type_elaborate_texp ns clk ie (lie ∪ set ps) db st env e e' t ∧
-  pred_type_kind_ok clk (SND ns) db (Pred ps t) ⇒
+  pred_type_kind_ok clk (SND ns) db (Pred ps t) ∧
+  (* enforces all variables in the predicates to be well scoped:
+   * rejects `Read a, Show a => String -> String` *)
+  pred_type_well_scoped (Pred ps t) ⇒
     pred_type_elaborate_texp ns clk ie lie db st env e e' (Pred ps t)
 
 [~App:]
@@ -586,22 +584,19 @@ Inductive type_elaborate_texp:
     type_elaborate_texp ns clk ie lie db st env (App e es) (App e' es') ret_ty
 
 [~Let:]
-  LENGTH new = n ∧
   pred_type_elaborate_texp ns clk ie lie (new ++ db) (MAP (tshift n) st)
     (tshift_env_pred n env) e1 e1' pt1 ∧
-  (* enforces all variables in the predicates to be well scoped:
-   * rejects `Read a, Show a => String -> String` *)
-  pred_type_well_scoped pt1 ∧
   type_elaborate_texp ns clk ie lie db st ((x,new,pt1)::env) e2 e2' t2 ⇒
      type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
-        (Let (x,SOME (n,pt1)) e1' e2') t2
+        (Let (x,SOME (new,pt1)) e1' e2') t2
 
 (* The poly type of the let binding is annotated by the user *)
 [~LetSOME:]
+  LENGTH new = n ∧
   type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
-    (Let (x,SOME (n,pt)) e1' e2') t2 ⇒
+    (Let (x,SOME (new,pt)) e1' e2') t2 ⇒
       type_elaborate_texp ns clk ie lie db st env (Let (x,SONE (n,pt)) e1 e2)
-        (Let (x,SOME (n,pt)) e1' e2') t2
+        (Let (x,SOME (new,pt)) e1' e2') t2
 
 [~Lam:]
   EVERY (type_ok (SND ns) db) args_tys ∧
@@ -622,7 +617,7 @@ Inductive type_elaborate_texp:
    LIST_REL3
     (λ((fn,ot),body) ((fn',ot'),body') (varks,scheme).
       fn = fn' ∧
-      ot' = SOME (LENGTH varks,scheme) ∧
+      ot' = SOME (varks,scheme) ∧
       (case ot of
       | NONE => T
       | SOME t => t = (LENGTH varks,scheme)) ∧
@@ -756,32 +751,38 @@ End
 (*
 * Dictionary construction given that we have the elaborated expression.
 * texp_construct_dict:
-*     ns: mlstring set                    all constructors
-* ->  ie: (mlstring |-> (class # type))   instance environment
-* -> lie: (mlstring |-> entailment)       local instance environment
+*     ns: namespace                       all constructors
+* ->  db: Kind list                       deBruijn indices in scope
+* ->  ie: (mlstring |-> entailment)   instance environment
+* -> lie: (mlstring |-> (class # type))       local instance environment
 * -> env: mlstring set                    term variables in scope
 * ->  ps: texp                           elaborated expression
 * ->  ds:'a cexp                          translated cexp expression
 *)
 
+Definition get_names_namespace_def:
+  get_names_namespace (ns: exndef # typedefs) =
+    (MAP FST $ FST ns) ++ FLAT (MAP (MAP FST o SND) $ SND ns)
+End
+
 (* we need to record the variables/constructors to avoid name collision *)
 Inductive texp_construct_dict:
 [~Var:]
-  construct_dicts ie lie ps ds ⇒
-    texp_construct_dict ns ie lie env (Var ps x)
+  construct_dicts (SND ns) db (ie:mlstring |-> entailment) lie ps ds ⇒
+    texp_construct_dict ns ie lie db env (Var ps x)
       (pure_cexp$App _ (pure_cexp$Var _ x) ds)
 
 [~Pred:]
   (* enforce all variables in vs are fresh *)
-  set (MAP FST vs) ∩ (FDOM lie ∪ FDOM ie ∪ env ∪ ns) = ∅ ∧
-  texp_construct_dict ns ie (lie |++ vs) env e de ∧
-  ps = MAP SND vs ⇒
-    pred_texp_construct_dict ns ie lie env (Pred ps t) e (pure_cexp$Lam _ (MAP FST vs) de)
+  set vs ∩ (FDOM lie ∪ FDOM ie ∪ env ∪ set (get_names_namespace ns)) = ∅ ∧
+  LENGTH vs = LENGTH ps ∧
+  texp_construct_dict ns ie (lie |++ ZIP (vs,ps)) db env e de ⇒
+    pred_texp_construct_dict ns ie lie db env (Pred ps t) e (safeLam _ vs de)
 
 [~Let:]
-  pred_texp_construct_dict ns ie lie env pt e1 de1 ∧
-  texp_construct_dict ns ie lie (x INSERT env) e2 de2 ⇒
-    texp_construct_dict ns ie lie env
+  pred_texp_construct_dict ns ie lie (new ++ db) env pt e1 de1 ∧
+  texp_construct_dict ns ie lie db (x INSERT env) e2 de2 ⇒
+    texp_construct_dict ns ie lie db env
       (typeclass_texp$Let (x,SOME (new,pt)) e1 e2)
       (pure_cexp$Let _ x de1 de2)
 
@@ -789,45 +790,40 @@ Inductive texp_construct_dict:
   LIST_REL
     (λ((x,ot),e) (y,de).
       x = y ∧ ∃new pt. ot = SOME (new,pt) ∧
-      pred_texp_construct_dict ns ie lie
+      pred_texp_construct_dict ns ie lie (new ++ db)
         (env ∪ set (MAP (FST o FST) fns)) pt e de)
     fns dfns ∧
-  texp_construct_dict ns ie lie (env ∪ set (MAP (FST o FST) fns)) e2 de2 ∧
+  texp_construct_dict ns ie lie db (env ∪ set (MAP (FST o FST) fns)) e2 de2 ∧
   fns ≠ [] ⇒
-    texp_construct_dict ns ie lie env
+    texp_construct_dict ns ie lie db env
       (typeclass_texp$Letrec fns e) (pure_cexp$Letrec _ dfns de)
 
 [~Prim:]
-  LIST_REL (texp_construct_dict ns ie lie env) es des ⇒
-    texp_construct_dict ns ie lie env (Prim c es) (Prim _ c des)
+  LIST_REL (texp_construct_dict ns ie lie db env) es des ⇒
+    texp_construct_dict ns ie lie db env (Prim c es) (Prim _ c des)
 
 [~Lam:]
-  texp_construct_dict ns ie lie
+  texp_construct_dict ns ie lie db
     (set (MAP FST xs) ∪ env) e de ⇒
-      texp_construct_dict ns ie lie env (Lam xs e) (Lam _ (MAP FST xs) de)
+      texp_construct_dict ns ie lie db env (Lam xs e) (Lam _ (MAP FST xs) de)
 
 [~App:]
-  texp_construct_dict ns ie lie env e1 de1 ∧
-  LIST_REL (texp_construct_dict ns ie lie env) es des ⇒
-    texp_construct_dict ns ie lie env (App e1 es) (App _ de1 des)
+  texp_construct_dict ns ie lie db env e1 de1 ∧
+  LIST_REL (texp_construct_dict ns ie lie db env) es des ⇒
+    texp_construct_dict ns ie lie db env (App e1 es) (App _ de1 des)
 
 [~NestedCase:]
-  texp_construct_dict ns ie lie env e e' ∧
+  texp_construct_dict ns ie lie db env e e' ∧
   LIST_REL (λ(p,e) (p',e'). p = p' ∧
-      texp_construct_dict ns ie lie (v INSERT env ∪ pure_cexp$cepat_vars p) e e')
+      texp_construct_dict ns ie lie db (v INSERT env ∪ pure_cexp$cepat_vars p) e e')
     ((p,e1)::pes) ((p,e1')::pes') ⇒
-  texp_construct_dict ns ie lie env (NestedCase e v p e1 pes)
+  texp_construct_dict ns ie lie db env (NestedCase e v p e1 pes)
     (NestedCase _ e' v p e1' pes')
 End
 
 (********************)
 (* Prove that if we can type_elaborate, then we can do dictionary 
 * construction on the output *)
-
-Definition get_names_namespace_def:
-  get_names_namespace (ns: exndef # typedefs) =
-    (MAP FST $ FST ns) ++ FLAT (MAP (MAP FST o SND) $ SND ns)
-End
 
 Triviality INFINITE_mlstring:
   INFINITE 𝕌(:mlstring)
@@ -999,16 +995,16 @@ Theorem type_elaborate_texp_IMP_texp_construct_dict:
     ∀lie_map.
       ie = FRANGE ie_map ∧
       lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). pred_texp_construct_dict (set $ get_names_namespace ns)
-        ie_map lie_map (set $ MAP FST env) pt e' d) ∧
+      ∃(d:'a cexp). pred_texp_construct_dict ns
+        ie_map lie_map db (set $ MAP FST env) pt e' d) ∧
 
   (∀lie db st env e e' t.
     type_elaborate_texp ns clk ie lie db st env e e' t ⇒
     ∀lie_map.
       ie = FRANGE ie_map ∧
       lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). texp_construct_dict (set $ get_names_namespace ns)
-        ie_map lie_map (set $ MAP FST env) e' d)
+      ∃(d:'a cexp). texp_construct_dict ns
+        ie_map lie_map db (set $ MAP FST env) e' d)
 Proof
   ho_match_mp_tac type_elaborate_texp_ind >>
   rw[]
@@ -1022,8 +1018,8 @@ Proof
     `FINITE fs` by simp[Abbr`fs`] >>
     drule_then (qspec_then `LENGTH ps` strip_assume_tac)
       EXISTS_fresh_vars_list >>
-    qexists `ZIP (vs,ps)` >>
-    simp[MAP_ZIP] >>
+    first_assum $ irule_at (Pos hd) >>
+    simp[] >>
     first_x_assum irule >>
     irule DISTINCT_FRANGE_ZIP >>
     simp[Abbr`fs`] >>
@@ -1160,184 +1156,317 @@ Proof
 QED
 
 (********************)
-(* typing rules for tcexp (expressions after dictionary construction) *)
-Inductive type_tcexp:
-[~Var:]
-  (ALOOKUP env x = SOME s ∧ specialises (SND ns) db s t ⇒
-      type_tcexp ns db st env (pure_tcexp$Var x) t)
+(* ``class Ord a => Num a where
+*     f :: a -> a -> a``,
+* would be an entry Num |-> ([Ord],[(f,forall a. a -> a -> a)]),
+* note that we only have `a` as the type variable
+* in the type of `f` *)
+Type class_env[pp] = ``:(mlstring # (* class name *)
+  (Kind # (* the kind of the parameter *)
+  (mlstring list # (* list of super classes *)
+  ((mlstring # pred_type_kind_scheme) list)))) list``; (* types of each method *)
 
-[~Tuple:]
-  (LIST_REL (type_tcexp ns db st env) es ts ⇒
-      type_tcexp ns db st env (Prim (Cons «») es)
-        (cons_types (Atom $ CompPrimTy $ Tuple $ LENGTH ts) ts))
-
-[~Ret:]
-  (type_tcexp ns db st env e t ⇒
-      type_tcexp ns db st env (Prim (Cons «Ret») [e]) (Monad t))
-
-[~Bind:]
-  (type_tcexp ns db st env e1 (Monad t1) ∧
-   type_tcexp ns db st env e2 (Functions [t1] (Monad t2)) ⇒
-      type_tcexp ns db st env (Prim (Cons «Bind») [e1;e2]) (Monad t2))
-
-[~Raise:]
-  (type_tcexp ns db st env e (Atom Exception) ∧
-   type_ok (SND ns) db t ⇒
-      type_tcexp ns db st env (Prim (Cons «Raise») [e]) (Monad t))
-
-[~Handle:]
-  (type_tcexp ns db st env e1 (Monad t) ∧
-   type_tcexp ns db st env e2 (Functions [Atom Exception] (Monad t)) ⇒
-      type_tcexp ns db st env (Prim (Cons «Handle») [e1;e2]) (Monad t))
-
-[~Act:]
-  (type_tcexp ns db st env e (Atom $ PrimTy Message) ⇒
-      type_tcexp ns db st env (Prim (Cons «Act») [e]) (Monad $ Atom $ PrimTy String))
-
-[~Alloc:]
-   type_tcexp ns db st env e1 (Atom $ PrimTy Integer) ∧
-   type_tcexp ns db st env e2 t ⇒
-      type_tcexp ns db st env (Prim (Cons «Alloc») [e1;e2])
-        (Monad $ Cons (Atom $ CompPrimTy $ Array) t)
-
-[~Length:]
-   type_tcexp ns db st env e (Cons (Atom $ CompPrimTy $ Array) t) ⇒
-      type_tcexp ns db st env (Prim (Cons «Length») [e]) (Monad $ Atom $ PrimTy Integer)
-
-[~Deref:]
-   type_tcexp ns db st env e1 (Cons (Atom $ CompPrimTy $ Array) t) ∧
-   type_tcexp ns db st env e2 (Atom $ PrimTy Integer) ⇒
-      type_tcexp ns db st env (Prim (Cons «Deref») [e1;e2]) (Monad t)
-
-[~Update:]
-   type_tcexp ns db st env e1 (Cons (Atom $ CompPrimTy $ Array) t) ∧
-   type_tcexp ns db st env e2 (Atom $ PrimTy Integer) ∧
-   type_tcexp ns db st env e3 t ⇒
-      type_tcexp ns db st env (Prim (Cons «Update») [e1;e2;e3]) (Monad Unit)
-
-[~Exception:]
-   LIST_REL (type_tcexp (exndef,typedefs) db st env) es carg_ts ∧
-   type_exception exndef (cname,carg_ts) ⇒
-      type_tcexp ns db st env (Prim (Cons cname) es) (Atom Exception)
-
-[~True:]
-   type_tcexp ns db st env (Prim (Cons «True») []) (Atom $ PrimTy Bool)
-
-[~False:]
-   type_tcexp ns db st env (Prim (Cons «False») []) (Atom $ PrimTy Bool)
-
-[~Cons:]
-   LIST_REL (type_tcexp ns db st env) es carg_ts ∧
-   EVERY (type_ok (SND ns) db) tyargs ∧
-   type_cons (SND ns) db (cname,carg_ts) (tyid,tyargs) ⇒
-      type_tcexp ns db st env
-        (Prim (Cons cname) es) (tcons_to_type (INL tyid) tyargs)
-
-[~Loc:]
-   oEL n st = SOME t ⇒
-      type_tcexp ns db st env (Prim (AtomOp $ Lit (Loc n)) [])
-        (Cons (Atom $ CompPrimTy $ Array) t)
-
-[~AtomOp:]
-   LIST_REL (type_tcexp ns db st env) es ts ∧
-   get_PrimTys ts = SOME pts ∧
-   type_atom_op aop pts pt ⇒
-      type_tcexp ns db st env (Prim (AtomOp aop) es) (Atom $ PrimTy pt)
-
-[~Seq:]
-  (type_tcexp ns db st env e1 t1 ∧ type_tcexp ns db st env e2 t2 ⇒
-      type_tcexp ns db st env (Prim Seq [e1; e2]) t2)
-
-[~App:]
-  (type_tcexp ns db st env e (Functions arg_tys ret_ty) ∧
-   LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ⇒
-      type_tcexp ns db st env (App e es) ret_ty)
-
-[~Lam:]
-  (EVERY (type_ok (SND ns) db) arg_tys ∧
-   LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
-   type_tcexp ns db st (REVERSE (ZIP (xs, MAP ($, []) arg_tys)) ++ env) e ret_ty
-      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty))
-
-[~Let:]
-   LENGTH new = n ∧
-   type_tcexp ns (new ++ db) (MAP (tshift n) st) (tshift_env n env) e1 t1 ∧
-   type_tcexp ns db st ((x,new,t1)::env) e2 t2 ⇒
-      type_tcexp ns db st env (Let x e1 e2) t2
-
-[~Letrec:]
-   LIST_REL
-    (λ(fn,body) (vars,scheme).
-      type_tcexp ns (vars ++ db) (MAP (tshift $ LENGTH vars) st)
-        (tshift_env (LENGTH vars) $
-          REVERSE (ZIP (MAP FST fns,schemes)) ++ env)
-        body scheme)
-    fns schemes ∧
-   EVERY (type_kind_scheme_ok (SND ns) db) schemes ∧ fns ≠ [] ∧
-   type_tcexp ns db st (REVERSE (ZIP (MAP FST fns, schemes)) ++ env) e t ⇒
-      type_tcexp ns db st env (Letrec fns e) t
-
-[~NestedCase:]
-  type_tcexp ns db st env e vt ∧
-  EVERY (λ(p,e).
-    ∃vts. type_cepat ns db p vt vts ∧
-    type_tcexp ns db st
-      (REVERSE (MAP (λ(v,t). (v,[],t)) vts) ++
-          ((v,[],vt)::env))
-      e t) ((p,e1)::pes) ∧
-  exhaustive_cepat ns db vt (p INSERT (IMAGE FST $ set pes)) ∧
-  ¬MEM v (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e1)::pes))) ⇒
-    type_tcexp ns db st env (NestedCase e v p e1 pes) t
-
-[~Case:]
-   type_tcexp ns db st env e vt ∧
-
-   (* get the list of constructors and their arities *)
-   get_constructors ns vt = SOME constructors ∧
-
-   (* no catch-all case *)
-   (usopt = NONE ⇒
-      (* exhaustive pattern-match *)
-        set (MAP FST css) = set (MAP FST constructors) ∧
-      (* no duplicated patterns *)
-        ALL_DISTINCT (MAP FST css)) ∧
-
-   (* catch-all case *)
-   (∀us_cn_ars us_e. usopt = SOME (us_cn_ars, us_e) ⇒
-      (* exhaustive pattern-match *)
-        set (MAP FST css) ∪ set (MAP FST us_cn_ars) = set (MAP FST constructors) ∧
-      (* no duplicated patterns *)
-        ALL_DISTINCT (MAP FST css ++ MAP FST us_cn_ars) ∧
-      (* non-empty cases/underscore patterns *)
-        css ≠ [] ∧ us_cn_ars ≠ [] ∧
-      (* all underscore patterns are valid *)
-        EVERY (λ(cn,ar).
-          ALOOKUP constructors cn = SOME ar) us_cn_ars ∧
-      (* continuation is well-typed *)
-        type_tcexp ns db st ((v,[],vt)::env) us_e t) ∧
-
-   (* For each case: *)
-   EVERY (λ(cname,pvars,cexp).
-      ∃ptys.
-        destruct_type_cons ns db vt cname ptys ∧
-        (* Pattern variables do not shadow case split and are distinct: *)
-          ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
-        (* Continuation is well-typed: *)
-          type_tcexp ns db st
-            (REVERSE (ZIP (pvars, MAP ($, []) ptys)) ++
-             (v,[],vt)::env)
-            cexp t
-      ) css ⇒
-      type_tcexp ns db st env (Case e v css usopt) t
-
-[~SafeProj:]
-   type_tcexp ns db st env e t ∧
-   destruct_type_cons ns db t cname tys ∧
-   LENGTH tys = arity ∧ i < arity ∧ EL i tys = t ⇒
-     type_tcexp ns db st env (SafeProj cname arity i e) t
+Definition ce_to_clk_def:
+  ce_to_clk (ce:class_env) = λc. OPTION_MAP FST (ALOOKUP ce c)
 End
 
-(********************)
+Definition class_env_kind_ok_def:
+  class_env_kind_ok tdefs (ce:class_env) ⇔
+    let clk = ce_to_clk ce in
+    (∀c k supers methods. MEM (c,k,supers,methods) ce ⇒
+      EVERY (pred_type_kind_scheme_ok clk tdefs [k]) (MAP SND methods) ∧
+      EVERY (λs. clk s = SOME k) supers)
+End
+
+(* classname, method name, implementation *)
+Type default_impl[pp] = ``:mlstring # mlstring # 'a``;
+
+Definition type_elaborate_default_impl:
+  type_elaborate_default_impl ce ns clk ie st env cl meth e e' ⇔
+    ∃k s methods meth ks ps t.
+      ALOOKUP (ce:class_env) cl = SOME (k,s,methods) ∧
+      ALOOKUP methods meth = SOME (ks,Pred ps t) ∧
+      pred_type_elaborate_texp ns clk ie EMPTY (k::ks) st env e e'
+        (Pred ((cl,TypeVar 0)::ps) t)
+End
+
+Definition default_impl_construct_dict:
+  default_impl_construct_dict ns ie env cl k (ks,Pred ps t) e e' ⇔
+    pred_texp_construct_dict ns ie FEMPTY (k::ks) env
+      (Pred ((cl,TypeVar 0)::ps) t) e e' 
+End
+
+Type instance_env[pp] = ``:((mlstring # 'a # type) #
+  (((mlstring # type) list) # ((mlstring # 'a texp) list))) list``;
+
+Definition translate_predicate_def:
+  translate_predicate cl_to_tyid p = do
+    pid <- FLOOKUP cl_to_tyid (FST p);
+    return $ Cons (UserType pid) (SND p)
+  od
+End
+
+Definition translate_predicates_def:
+  translate_predicates cl_to_tyid [] = SOME [] ∧
+  translate_predicates cl_to_tyid (p::ps) = do
+    p' <- translate_predicate cl_to_tyid p;
+    ps' <- translate_predicates cl_to_tyid ps;
+    return $ p'::ps'
+  od
+End
+
+Definition translate_pred_type_def:
+  translate_pred_type cl_to_tyid (Pred ps t) = do
+    args <- translate_predicates cl_to_tyid ps;
+    return $ Functions args t
+  od
+End
+
+Definition translate_pred_type_scheme_def:
+  translate_pred_type_scheme cl_to_tyid pt = do
+    t <- translate_pred_type cl_to_tyid (SND pt);
+    return (FST pt,t)
+  od
+End
+
+Definition translate_superclasses_def:
+  translate_superclasses cl_to_tyid [] = SOME [] ∧
+  translate_superclasses cl_to_tyid (c::cs) = do
+    sid <- FLOOKUP cl_to_tyid c;
+    cs' <- translate_superclasses cl_to_tyid cs;
+    SOME $ ([]:Kind list,typeclass_types$Cons (UserType sid) (TypeVar 0))::cs';
+  od
+End
+
+(* a distinct type id and a distinct constructor name will be 
+* generated for each class *)
+(* create a data type for a type class *)
+Definition class_to_datatype_def:
+  class_to_datatype (cenv:class_env) cl_to_tyid cname c = do
+    (k,supers,methods) <- ALOOKUP cenv c;
+    method_tys <- OPT_MMAP (translate_pred_type_scheme cl_to_tyid)
+      (MAP SND methods);
+    sup_tys <- translate_superclasses cl_to_tyid supers;
+    return ([k],[(cname,sup_tys ++ method_tys)])
+  od
+End
+
+Definition translate_entailment_def:
+  translate_entailment cl_to_tyid (Entail ks ps q) = do
+    pts <- translate_predicates cl_to_tyid ps;
+    qt <- translate_predicate cl_to_tyid q;
+    return $ (ks,Functions pts qt)
+  od
+End
+
+Definition translate_env_def:
+  translate_env cl_to_tyid [] = SOME [] ∧
+  translate_env cl_to_tyid ((name,pt)::env) = do
+    pt' <- translate_pred_type_scheme cl_to_tyid pt;
+    env' <- translate_env cl_to_tyid env;
+    SOME $ (name,pt')::env'
+  od
+End
+
+(* ie: mlstring |-> entailment *)
+Definition translate_ie_alist_def:
+  translate_ie_alist cl_to_tyid [] = return [] ∧
+  translate_ie_alist cl_to_tyid ((name,ent)::ie) = do
+    t <- translate_entailment cl_to_tyid ent;
+    ie' <- translate_ie_alist cl_to_tyid ie;
+    return $ (name,t)::ie'
+  od
+End
+
+(* lie: mlstring |-> (class # type) *)
+Definition translate_lie_alist_def:
+  translate_lie_alist cl_to_tyid [] = return [] ∧
+  translate_lie_alist cl_to_tyid ((name,cl,t)::lie) = do
+    cid <- FLOOKUP cl_to_tyid cl;
+    lie' <- translate_lie_alist cl_to_tyid lie;
+    return $ (name,[],Cons (UserType cid) t)::lie';
+  od
+End
+
+Definition class_to_entailment_def:
+  class_to_entailment (class,k,supers,_) = Entail [k]
+    (MAP (λs. (s,TypeVar 0)) supers) (class,TypeVar 0)
+End
+
+Definition class_env_to_ie_def:
+  class_env_to_ie (clenv:class_env) = MAP class_to_entailment clenv
+End
+
+Definition select_nth_cepat_def:
+  select_nth_cepat 0 m var = cepatVar var::REPLICATE m cepatUScore ∧
+  select_nth_cepat (SUC n) m var = cepatUScore::select_nth_cepat n m var
+End
+
+Definition translate_method_def:
+  translate_method cons len n = Lam [«x»]
+    (NestedCase (Var «x») «x»
+      (cepatCons cons (select_nth_cepat n (len - 1 - n) «y»))
+        (Var «y»)
+      [])
+End
+
+Definition translate_methods_aux_def:
+  translate_methods_aux cons len n [] = [] ∧
+  translate_methods_aux cons len n (meth::meths) =
+    (meth,translate_method cons len n)::
+      translate_methods_aux cons len (SUC n) meths
+End
+
+Definition translate_methods_def:
+  translate_methods cons meths =
+    translate_methods_aux cons (LENGTH meths) 0 meths
+End
+
+Definition instance_kind_ok_def:
+  instance_kind_ok tdefs clk ((class,varks,t),cstrs,_) ⇔
+    ∃k. clk class = SOME k ∧ kind_ok tdefs varks k t ∧
+    EVERY (λ(c,t). ∃k. clk c = SOME k ∧ kind_ok tdefs varks k t) cstrs
+End
+
+Definition instance_env_kind_ok_def:
+  instance_env_kind_ok tdefs clk inst_env ⇔
+    EVERY (instance_kind_ok tdefs clk) inst_env
+End
+
+Definition instance_to_entailment:
+  instance_to_entailment ((class,varks,t),cstrs,meths) =
+    Entail varks cstrs (class,t)
+End
+
+Definition instance_env_to_ie_def:
+  instance_env_to_ie (inst_env: (Kind list) instance_env) =
+    MAP instance_to_entailment inst_env
+End
+
+Definition type_elaborate_impl:
+  type_elaborate_impl ns clk ie st env varks cstrs (ks,Pred ps t) e e' =
+  pred_type_elaborate_texp ns clk ie (set cstrs) (varks++ks) st env e e'
+     (Pred ps t)
+End
+
+Definition impl_construct_dict:
+  impl_construct_dict ns ie env vs varks cstrs (ks,Pred ps t) e e' ⇔
+  pred_texp_construct_dict ns ie (FEMPTY |++ ZIP (vs,cstrs)) (varks++ks) env
+    (Pred ps t) e (safeLam () vs e')
+End
+
+Inductive type_elaborate_instance:
+  LENGTH varks = n ∧
+  instance_kind_ok (SND ns) clk ((cl,varks,inst_t),cstrs,impls) ∧
+  ALOOKUP (ce:class_env) cl = SOME (_,_,meths) ∧
+  LIST_REL (λimpl impl'.
+   FST impl = FST impl' ∧
+   ALOOKUP meths (FST impl) = SOME pt ∧
+   type_elaborate_impl ns clk ie st env varks cstrs pt (SND impl) (SND impl'))
+    impls impls'
+  ⇒
+  type_elaborate_instance ns clk ce ie st env n cstrs cl inst_t impls varks impls'
+End
+
+Inductive instance_construct_dict:
+  LIST_REL (λ(name:cvname,meth_t) e'.
+    case ALOOKUP impls name of
+    | SOME e => impl_construct_dict ns ie env vs varks cstrs meth_t e e'
+    | NONE => ∃e default_e.
+        ALOOKUP defaults name = SOME e ∧
+        default_impl_construct_dict ns ie env cl k meth_t e default_e ∧
+        e' = App _ default_e [Var _ inst_v]) meths impls' ⇒
+    instance_construct_dict ns ie env
+      cl k cons meths defaults
+      varks cstrs impls inst_v
+      (* inst_v is for referencing the dict itself *)
+      (safeLam _ vs ((pure_cexp$Prim _ (Cons cons) impls')))
+End
+
+Inductive type_elaborate_prog:
+End
+
+Inductive prog_construct_dict:
+  prog_construct_dict ns ie 
+End
+
+(* Monoid m, Foldable t foldMap *)
+Definition test_class_env_def:
+  test_class_env:class_env = [
+    («Semigroup»,
+      (kindType,[],[(
+        «mappend»,
+        [],Pred [] (Functions [TypeVar 0;TypeVar 0] (TypeVar 0)))]));
+    («Monoid»,
+      (kindType,[«Semigroup»],[(
+        «mempty»,[],Pred [] (TypeVar 0))]));
+    («Foldable»,
+      (kindArrow kindType kindType,[],[(
+       (* Monoid m => (a -> m) -> t a -> m *)
+        «foldMap»,[kindType;kindType],
+          Pred [(«Monoid»,TypeVar 2)] $
+          Functions [Functions [TypeVar 1] (TypeVar 2);
+            Cons (TypeVar 0) (TypeVar 1)] (TypeVar 2))]))]
+End
+
+Definition test_instance_env_def:
+  test_instance_env = [
+    ((«Semigroup»,0,Atom $ PrimTy Integer),[],
+      [«mappend»,typeclass_texp$Lam [«x»,NONE;«y»,NONE]
+        (Prim (AtomOp Add) [Var [] «x»;Var [] «y»])]);
+    ((«Monoid»,0,Atom $ PrimTy Integer),[],
+      [«mempty»,Prim (AtomOp (Lit (Int 0))) []]);
+    ((«Foldable»,0,UserType 0),[],
+      [«foldMap»,typeclass_texp$Lam [«f»,NONE;«t»,NONE]
+        (typeclass_texp$Letrec [(«go»,NONE),
+          typeclass_texp$NestedCase (Var [] «t») «t»
+            (cepatCons «::» [cepatVar «h»;cepatVar «tl»])
+              (App (Var [] «mappend») [
+                App (Var [] «f») [Var [] «h»];
+                App (Var [] «go») [Var [] «tl»]])
+            [cepatUScore,Var [] «mempty»]] (Var [] «go»))]);
+(*    ((«Semigroup»,2,Atom $ CompPrimTy $ Tuple 2 [TypeVar 0;TypeVar 1]),
+      [«Semigroup»,TypeVar 0;«Semigroup»,TypeVar 1],
+      [«mappend»,typeclass_texp$Lam [«x»,NONE;«y»,NONE]
+        (NestedCase (Var [] «x») «x»
+          (cepatCons «» [cepatVar «x1»;cepatVar «x2»])
+          (NestedCase (Var [] «y») «y»
+            (cepatCons «» [cepatVar «y1»;cepatVar «y2»])
+            (Prim (Cons «») [
+              App (Var [] «mappend») [Var [] «x1»;Var [] «y1»];
+              App (Var [] «mappend») [Var [] «x2»;Var [] «y2»]])
+            [])
+          [])]);
+    ((«Monoid»,2,Atom $ CompPrimTy $ Tuple 2 [TypeVar 0;TypeVar 1]),
+      [«Monoid»,TypeVar 0;«Monoid»,TypeVar 1],
+      [«mempty»,Prim (Cons «») [Var [] «mempty»,Var [] «mempty»]]); *)
+    ((«Semigroup»,1,Cons (UserType 0) (TypeVar 0)),[],
+      [«mappend»,Var [] «concat»]);
+    ((«Monoid»,1,Cons (UserType 0) (TypeVar 0)),[],
+      [«mempty»,Prim (Cons «[]») []])]
+End
+
+Definition test_prog_def:
+  test_prog = [
+    («concat»,NONE),Lam [«l»,NONE;«r»,NONE] $
+    NestedCase (Var [] «l») «l»
+      (cepatCons «::» [cepatVar «h»; cepatVar «tl»])
+        (Prim (Cons «::») [Var [] «h»;
+          App (Var [] «concat») [Var [] «tl»; Var [] «r»]])
+      [cepatCons «[]» [],Var [] «r»];
+
+    («test»,NONE),
+      Letrec [(«fold»,NONE),
+        App (Var [] «foldMap») [Lam [«x»,NONE] (Var [] «x»)]] $
+      App (Var [] «fold») [App (Var [] «fold»)
+        [Prim (Cons «::») [
+          Prim (Cons «::») [
+            Prim (AtomOp $ Lit (Int 1)) [];
+            Prim (Cons «[]») []];
+          Prim (Cons «[]») []]]]
+  ]
+End
+
 (* translation of predicated types to types without predicates,
 * as a witness to the tpying rules of tcexp *)
 
@@ -1421,15 +1550,6 @@ Proof
   metis_tac[]
 QED
 
-(* ``class Ord a => Num a where
-*     f :: a -> a -> a``,
-* would be an entry Num |-> ([Ord],[(f,a -> a -> a)]),
-* note that we only have `a` as the type variable
-* in the type of `f` *)
-Type class_env[pp] = ``:mlstring |->
-  (mlstring list # (* list of super classes *)
-  ((mlstring # type) list))``; (* types of each method *)
-
 Theorem acyclic_super_FINITE:
   ∃s.
     FINITE s ∧
@@ -1457,172 +1577,6 @@ Proof
   rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
     finite_mapTheory.flookup_thm]
 QED
-
-Definition split_translate_predicate_tuple_def:
-  split_translate_predicate_tuple
-    (x:class_env # type # mlstring + class_env # type # mlstring list) =
-  case x of
-  | INL y => (FST y,INL $ SND $ SND y)
-  | INR y => (FST y,INR $ SND $ SND y)
-End
-
-(* translate Num t to (translate (Ord t), ...) *)
-Definition translate_predicate_def:
-  translate_predicate (ce: class_env) t c =
-  (if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
-  then
-  do
-    (sups, ts) <- FLOOKUP ce c;
-    sups' <- translate_predicatel ce t sups;
-    return $ tcons_to_type (INR $ CompPrimT $ Tuple $ LENGTH sups' + LENGTH ts)
-      (sups' ++ MAP (tsubst [t] o SND) ts)
-  od
-  else NONE) ∧
-  translate_predicatel ce ty [] = SOME [] ∧
-  translate_predicatel ce ty (c::cs) =
-  do
-    h <- if acyclic (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s)
-      then translate_predicate ce ty c
-      else NONE;
-    t <- translate_predicatel ce ty cs;
-    return $ h::t
-  od
-Termination
-  simp[] >>
-  WF_REL_TAC `λa b.
-    let (ce,x) = split_translate_predicate_tuple a in
-    let (ce',y) = split_translate_predicate_tuple b in
-    ce = ce' ∧
-    acyclic (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧ MEM (FST p) s) ∧
-    inv_image ($< LEX $<) (λc.
-      (case c of
-       | INL c =>
-           acyclic_depth
-            (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
-              MEM (FST p) s) c
-       | INR cs =>
-          list_max $ MAP (acyclic_depth
-            (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
-              MEM (FST p) s)) cs),
-      (case c of
-       | INL c => 0
-       | INR cs => LENGTH cs)) x y`
-  >- (
-    qspecl_then [
-      `\(ce: class_env).
-        acyclic (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
-          MEM (FST p) s)`,
-       `(FST o split_translate_predicate_tuple)`,
-       `λce. inv_image ($< LEX $<) (λc.
-        (case c of
-         | INL c =>
-             acyclic_depth
-              (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
-                MEM (FST p) s) c
-         | INR cs =>
-            list_max $ MAP (acyclic_depth
-              (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
-                MEM (FST p) s)) cs),
-        (case c of
-         | INL c => 0
-         | INR cs => LENGTH cs))`,
-       `SND o split_translate_predicate_tuple`
-      ] irule WF_PULL >>
-    reverse $ rw[]
-    >- DEP_REWRITE_TAC[WF_inv_image,WF_LEX,prim_recTheory.WF_LESS] >>
-    Cases_on `x` >>
-    Cases_on `y` >>
-    gvs[split_translate_predicate_tuple_def]) >>
-  rw[split_translate_predicate_tuple_def] >>
-  simp[miscTheory.list_max_def] >>
-  CONV_TAC $ RAND_CONV $ SCONV[Once acyclic_depth_alt] >>
-  rw[list_max_MAX_SET_set,LIST_TO_SET_MAP] >>
-  spose_not_then kall_tac >>
-  pop_assum mp_tac >> simp[] >>
-  metis_tac[acyclic_super_FINITE]
-End
-
-Theorem translate_predicatel_def:
-  translate_predicatel ce ty [] = SOME [] ∧
-  translate_predicatel ce ty (c::cs) =
-  do
-    h <- translate_predicate ce ty c;
-    t <- translate_predicatel ce ty cs;
-    return $ h::t
-  od
-Proof
-  simp[translate_predicate_def]
-QED
-
-Theorem translate_predicate_alt = cj 1 translate_predicate_def;
-
-Theorem translate_predicatel_OPT_MMAP:
-  translate_predicatel ce ty l = OPT_MMAP (translate_predicate ce ty) l
-Proof
-  Induct_on `l` >>
-  rw[translate_predicatel_def,listTheory.OPT_MMAP_def]
-QED
-
-Overload translate_pred = ``λce p. translate_predicate ce (SND p) (FST p)``;
-
-Definition translate_pred_type_def:
-  translate_pred_type ce (Pred ps t) =
-  do
-    pts <- OPT_MMAP (translate_pred ce) ps;
-    return $ Functions pts t
-  od
-End
-
-Definition translate_entailment_def:
-  translate_entailment ce (Entail ps q) =
-  do
-    pts <- OPT_MMAP (translate_pred ce) ps;
-    qt <- translate_pred ce q;
-    return $ Functions pts qt
-  od
-End
-
-(* helper function to turn the type
-*   (mlstring # Kind list # type option) list to
-*   (mlstring # Kind list # type) list option *)
-Definition to_env_def:
-  to_env (env:(mlstring # Kind list # type option) list) =
-    OPT_MMAP (λ(v,ks,ot). OPTION_MAP (λt. (v,ks,t)) ot) env
-End
-
-(* translate mapM :: ∀a b m.  Monad m => (a -> m b) -> [a] -> m [b]
-* to mapM :: ∀a b m. MonadDict m => (a -> m b) -> t a -> m [b] *)
-Definition translate_env_def:
-  translate_env ce env = to_env $
-    MAP (I ## (I ## translate_pred_type ce)) env
-End
-
-(* translate x::Ord a to x::OrdDict a *)
-Definition lie_to_env_def:
-  lie_to_env ce lie = to_env $
-    fmap_to_alist ((($, []) o (translate_pred ce)) o_f lie)
-End
-
-(* translate constructTupMonad :: ∀a. Monoid a => Monad ((,) a) to
-*  constructTupMonad :: ∀a. MonoidDict a -> MonadDict ((,) a) *)
-(* TODO *)
-Definition ie_to_env_def:
- ie_to_env ce ie = to_env $
-    fmap_to_alist ((_ o translate_entailment ce) o_f ie)
-End
-
-Definition class_kind_ok_def:
-  class_kind_ok ce clk =
-    (∀c ss implts. FLOOKUP ce c = SOME (ss,implts) ⇒
-      
-      )
-End
-
-Definition ce_in_ie_def:
-  ce_in_ie (ce:class_env) ie =
-    (∀c s ss ts. FLOOKUP ce c = SOME (ss,ts) ∧ MEM s ss ⇒
-      Entail [c,TypeVar 0] (s,TypeVar 0) ∈ ie)
-End
 
 Theorem texp_construct_dict_IMP_type_tcexp:
   acyclic
