@@ -748,6 +748,22 @@ Inductive type_elaborate_texp:
     (NestedCase e v p e1 pes) (NestedCase e' v p e1' pes') t
 End
 
+Inductive type_elaborate_bindings:
+   LIST_REL3
+    (λ((fn,ot),body) ((fn',ot'),body') (varks,scheme).
+      fn = fn' ∧
+      ot' = SOME (varks,scheme) ∧
+      (case ot of
+      | NONE => T
+      | SOME t => t = (LENGTH varks,scheme)) ∧
+      pred_type_elaborate_texp ns clk ie lie (varks ++ db)
+        (MAP (tshift $ LENGTH varks) st)
+        (tshift_env_pred (LENGTH varks) env)
+          body body' scheme)
+      fns fns' kind_schemes ⇒
+    type_elaborate_bindings ns clk ie lie db st env fns fns' kind_schemes
+End
+
 (*
 * Dictionary construction given that we have the elaborated expression.
 * texp_construct_dict:
@@ -1179,15 +1195,24 @@ Definition class_env_kind_ok_def:
 End
 
 (* classname, method name, implementation *)
-Type default_impl[pp] = ``:mlstring # mlstring # 'a``;
+Type default_impl[pp] = ``:mlstring # mlstring # ('a texp)``;
+Type default_impls[pp] = ``:'a default_impl list``;
 
-Definition type_elaborate_default_impl:
+Definition type_elaborate_default_impl_def:
   type_elaborate_default_impl ce ns clk ie st env cl meth e e' ⇔
-    ∃k s methods meth ks ps t.
+    ∃k s methods ks ps t.
       ALOOKUP (ce:class_env) cl = SOME (k,s,methods) ∧
       ALOOKUP methods meth = SOME (ks,Pred ps t) ∧
       pred_type_elaborate_texp ns clk ie EMPTY (k::ks) st env e e'
         (Pred ((cl,TypeVar 0)::ps) t)
+End
+
+Definition type_elaborate_default_impls_def:
+  type_elaborate_default_impls ce ns clk ie st env defaults
+    (defaults': Kind list default_impls) ⇔
+  LIST_REL (λ(cl,meth,e) (cl',meth',e'). cl = cl' ∧ meth = meth' ∧
+    type_elaborate_default_impl ce ns clk ie st env cl meth e e'
+    ) defaults defaults'
 End
 
 Definition default_impl_construct_dict:
@@ -1322,18 +1347,20 @@ Definition translate_methods_def:
     translate_methods_aux cons (LENGTH meths) 0 meths
 End
 
-Definition instance_kind_ok_def:
-  instance_kind_ok tdefs clk ((class,varks,t),cstrs,_) ⇔
-    ∃k. clk class = SOME k ∧ kind_ok tdefs varks k t ∧
-    EVERY (λ(c,t). ∃k. clk c = SOME k ∧ kind_ok tdefs varks k t) cstrs
+Inductive instance_kind_check:
+  LENGTH varks = n ∧
+  clk class = SOME k ∧ kind_ok tdefs varks k t ∧
+  EVERY (λ(c,t). ∃k. clk c = SOME k ∧ kind_ok tdefs varks k t) cstrs ⇒
+    instance_kind_check tdefs clk
+      ((class,n,t),cstrs,impls) ((class,varks,t),cstrs,impls')
 End
 
-Definition instance_env_kind_ok_def:
-  instance_env_kind_ok tdefs clk inst_env ⇔
-    EVERY (instance_kind_ok tdefs clk) inst_env
+Definition instance_env_kind_check_def:
+  instance_env_kind_check tdefs clk (inst_env:num instance_env) inst_env' ⇔
+     LIST_REL (instance_kind_check tdefs clk) inst_env inst_env'
 End
 
-Definition instance_to_entailment:
+Definition instance_to_entailment_def:
   instance_to_entailment ((class,varks,t),cstrs,meths) =
     Entail varks cstrs (class,t)
 End
@@ -1343,29 +1370,34 @@ Definition instance_env_to_ie_def:
     MAP instance_to_entailment inst_env
 End
 
-Definition type_elaborate_impl:
+Definition type_elaborate_impl_def:
   type_elaborate_impl ns clk ie st env varks cstrs (ks,Pred ps t) e e' =
   pred_type_elaborate_texp ns clk ie (set cstrs) (varks++ks) st env e e'
      (Pred ps t)
 End
 
-Definition impl_construct_dict:
+Definition impl_construct_dict_def:
   impl_construct_dict ns ie env vs varks cstrs (ks,Pred ps t) e e' ⇔
   pred_texp_construct_dict ns ie (FEMPTY |++ ZIP (vs,cstrs)) (varks++ks) env
     (Pred ps t) e (safeLam () vs e')
 End
 
-Inductive type_elaborate_instance:
-  LENGTH varks = n ∧
-  instance_kind_ok (SND ns) clk ((cl,varks,inst_t),cstrs,impls) ∧
-  ALOOKUP (ce:class_env) cl = SOME (_,_,meths) ∧
-  LIST_REL (λimpl impl'.
-   FST impl = FST impl' ∧
-   ALOOKUP meths (FST impl) = SOME pt ∧
-   type_elaborate_impl ns clk ie st env varks cstrs pt (SND impl) (SND impl'))
-    impls impls'
-  ⇒
-  type_elaborate_instance ns clk ce ie st env n cstrs cl inst_t impls varks impls'
+Definition type_elaborate_impls_def:
+  type_elaborate_impls ns clk ie st env varks cstrs meths impls impls' ⇔
+    (LIST_REL (λimpl impl'.
+     FST impl = FST impl' ∧
+     ∃pt. ALOOKUP meths (FST impl) = SOME pt ∧ 
+     type_elaborate_impl ns clk ie st env varks cstrs pt
+       (SND impl) (SND impl')) impls impls')
+End
+
+Inductive type_elaborate_inst_env:
+  LIST_REL (λ(_,_,impls) ((_,varks,t),cstrs,impls').
+    ∃k supers meths. ALOOKUP ce c = SOME (k,supers,meths) ∧
+    type_elaborate_impls ns clk ie st env varks cstrs meths impls impls') 
+    inst_env inst_env'⇒
+    type_elaborate_inst_env ns (ce:class_env) clk ie st env
+      (inst_env:num instance_env) (inst_env':Kind list instance_env)
 End
 
 Inductive instance_construct_dict:
@@ -1384,13 +1416,23 @@ Inductive instance_construct_dict:
 End
 
 Inductive type_elaborate_prog:
+  clk = ce_to_clk ce ∧
+  instance_env_kind_check (SND ns) clk inst_env inst_env' ∧ 
+  ie = set (class_env_to_ie ce ++ instance_env_to_ie inst_env') ∧
+  env = REVERSE (ZIP (MAP (FST o FST) fns,fn_kind_schemes)) ∧
+  EVERY (pred_type_kind_scheme_ok clk (SND ns) []) fn_kind_schemes ∧ 
+  type_elaborate_default_impls ce ns clk ie st env defaults defaults' ∧
+  type_elaborate_bindings ns clk ie EMPTY [] st env fns fns' fn_kind_schemes ∧
+  type_elaborate_inst_env ns ce clk ie st env inst_env inst_env' ⇒
+    type_elaborate_prog ns ce st defaults inst_env fns defaults' inst_env' fns'
 End
 
 Inductive prog_construct_dict:
-  prog_construct_dict ns ie 
+  
+  prog_construct_dict ns ce st defaults inst_env fns
 End
 
-(* Monoid m, Foldable t foldMap *)
+(* Monoid [mappend;mempty], Foldable [foldMap] *)
 Definition test_class_env_def:
   test_class_env:class_env = [
     («Semigroup»,
@@ -1417,14 +1459,13 @@ Definition test_instance_env_def:
     ((«Monoid»,0,Atom $ PrimTy Integer),[],
       [«mempty»,Prim (AtomOp (Lit (Int 0))) []]);
     ((«Foldable»,0,UserType 0),[],
-      [«foldMap»,typeclass_texp$Lam [«f»,NONE;«t»,NONE]
-        (typeclass_texp$Letrec [(«go»,NONE),
+      [«foldMap»,typeclass_texp$Lam [«f»,NONE;«t»,NONE] $
           typeclass_texp$NestedCase (Var [] «t») «t»
             (cepatCons «::» [cepatVar «h»;cepatVar «tl»])
               (App (Var [] «mappend») [
                 App (Var [] «f») [Var [] «h»];
-                App (Var [] «go») [Var [] «tl»]])
-            [cepatUScore,Var [] «mempty»]] (Var [] «go»))]);
+                App (Var [] «foldMap») [Var [] «f»;Var [] «tl»]])
+            [cepatUScore,Var [] «mempty»]]);
 (*    ((«Semigroup»,2,Atom $ CompPrimTy $ Tuple 2 [TypeVar 0;TypeVar 1]),
       [«Semigroup»,TypeVar 0;«Semigroup»,TypeVar 1],
       [«mappend»,typeclass_texp$Lam [«x»,NONE;«y»,NONE]
