@@ -11,15 +11,6 @@ val _ = monadsyntax.enable_monad "option";
 
 val _ = new_theory "pure_tcexp_typing";
 
-Type tcexp_typedef[pp] = ``:Kind list # ((mlstring # type_kind_scheme list) list)``;
-Type tcexp_typedefs[pp] = ``:tcexp_typedef list``;
-Type tcexp_namespace[pp] = ``:exndef # tcexp_typedefs``;
-
-Definition namespace_to_tcexp_namespace_def:
-  namespace_to_tcexp_namespace (ns:exndef # typedefs) =
-    ((FST ns,MAP (I ## MAP (I ## MAP ($, []))) (SND ns))):tcexp_namespace
-End
-
 Definition type_scheme_ok_def:
   type_scheme_ok (typedefs: tcexp_typedefs) ks
     ((varks,t):type_kind_scheme) =

@@ -786,7 +786,7 @@ Inductive texp_construct_dict:
 [~Var:]
   construct_dicts (SND ns) db (ie:mlstring |-> entailment) lie ps ds ⇒
     texp_construct_dict ns ie lie db env (Var ps x)
-      (pure_cexp$App _ (pure_cexp$Var _ x) ds)
+      (safeApp _ (pure_cexp$Var _ x) ds)
 
 [~Pred:]
   (* enforce all variables in vs are fresh *)
@@ -1221,6 +1221,18 @@ Definition default_impl_construct_dict:
       (Pred ((cl,TypeVar 0)::ps) t) e e' 
 End
 
+Definition default_impls_construct_dict:
+  default_impls_construct_dict ns ce ie env
+    default_name_map defaults defaults' ⇔
+  LIST_REL (λ(cl,meth,e) (name,e').
+    ∃k supers meths pt.
+      ALOOKUP default_name_map meth = SOME name ∧
+      ALOOKUP ce cl = SOME (k,supers,meths) ∧
+      ALOOKUP meths meth = SOME pt ∧
+      default_impl_construct_dict ns ie env cl k pt e e')
+    (defaults:Kind list default_impls) defaults'
+End
+
 Type instance_env[pp] = ``:((mlstring # 'a # type) #
   (((mlstring # type) list) # ((mlstring # 'a texp) list))) list``;
 
@@ -1263,17 +1275,38 @@ Definition translate_superclasses_def:
   od
 End
 
+Type tcexp_typedef[pp] = ``:Kind list # ((mlstring # type_kind_scheme list) list)``;
+Type tcexp_typedefs[pp] = ``:tcexp_typedef list``;
+Type tcexp_namespace[pp] = ``:exndef # tcexp_typedefs``;
+
+Definition namespace_to_tcexp_namespace_def:
+  namespace_to_tcexp_namespace (ns:exndef # typedefs) =
+    ((FST ns,MAP (I ## MAP (I ## MAP ($, []))) (SND ns))):tcexp_namespace
+End
+
 (* a distinct type id and a distinct constructor name will be 
 * generated for each class *)
 (* create a data type for a type class *)
 Definition class_to_datatype_def:
-  class_to_datatype (cenv:class_env) cl_to_tyid cname c = do
-    (k,supers,methods) <- ALOOKUP cenv c;
+  class_to_datatype (cenv:class_env) cl_to_tyid cname (c,k,supers,methods) = do
     method_tys <- OPT_MMAP (translate_pred_type_scheme cl_to_tyid)
       (MAP SND methods);
     sup_tys <- translate_superclasses cl_to_tyid supers;
-    return ([k],[(cname,sup_tys ++ method_tys)])
+    return $ (([k],[(cname,sup_tys ++ method_tys)]):tcexp_typedef)
   od
+End
+
+Definition class_env_to_ns_def:
+  class_env_to_ns (cenv:class_env) cl_to_tyid cons [] = SOME [] ∧
+  class_env_to_ns (cenv:class_env) cl_to_tyid (con::cons) (cl::rest) = do
+    dt <- class_to_datatype cenv cl_to_tyid con cl;
+    ns <- class_env_to_ns cenv cl_to_tyid cons rest;
+    return $ (dt::ns)
+  od
+End
+
+Definition class_env_to_env_def:
+  class_env_to_env (cenv:class_env) = LIST_BIND cenv (SND o SND o SND)
 End
 
 Definition translate_entailment_def:
@@ -1313,13 +1346,13 @@ Definition translate_lie_alist_def:
   od
 End
 
-Definition class_to_entailment_def:
-  class_to_entailment (class,k,supers,_) = Entail [k]
-    (MAP (λs. (s,TypeVar 0)) supers) (class,TypeVar 0)
+Definition class_to_entailments_def:
+  class_to_entailments (class,k,supers,_) =
+    MAP (λs. Entail [k] [class,TypeVar 0] (s,TypeVar 0)) supers
 End
 
 Definition class_env_to_ie_def:
-  class_env_to_ie (clenv:class_env) = MAP class_to_entailment clenv
+  class_env_to_ie (clenv:class_env) = LIST_BIND clenv class_to_entailments
 End
 
 Definition select_nth_cepat_def:
@@ -1327,24 +1360,28 @@ Definition select_nth_cepat_def:
   select_nth_cepat (SUC n) m var = cepatUScore::select_nth_cepat n m var
 End
 
-Definition translate_method_def:
-  translate_method cons len n = Lam [«x»]
-    (NestedCase (Var «x») «x»
+Definition nth_from_dict_def:
+  nth_from_dict cons len n = Lam () [«x»]
+    (NestedCase () (pure_cexp$Var () «x») «x»
       (cepatCons cons (select_nth_cepat n (len - 1 - n) «y»))
-        (Var «y»)
+        (Var () «y»)
       [])
 End
 
 Definition translate_methods_aux_def:
-  translate_methods_aux cons len n [] = [] ∧
-  translate_methods_aux cons len n (meth::meths) =
-    (meth,translate_method cons len n)::
-      translate_methods_aux cons len (SUC n) meths
+  translate_methods_aux con len n [] = [] ∧
+  translate_methods_aux con len n (meth::meths) =
+    (meth,nth_from_dict con len n)::
+      translate_methods_aux con len (SUC n) meths
 End
 
-Definition translate_methods_def:
-  translate_methods cons meths =
-    translate_methods_aux cons (LENGTH meths) 0 meths
+Definition class_env_construct_dict_def:
+  class_env_construct_dict cons sup_vs [] = [] ∧
+  class_env_construct_dict (con::cons) sup_vs ((cl,k,supers,meths)::ce) =
+  let len = LENGTH supers + LENGTH meths in
+  (translate_methods_aux con len 0
+    (TAKE (LENGTH supers) sup_vs ++ MAP FST meths)) ++
+    class_env_construct_dict cons (DROP (LENGTH supers) sup_vs) ce
 End
 
 Inductive instance_kind_check:
@@ -1404,22 +1441,37 @@ Inductive instance_construct_dict:
   LIST_REL (λ(name:cvname,meth_t) e'.
     case ALOOKUP impls name of
     | SOME e => impl_construct_dict ns ie env vs varks cstrs meth_t e e'
-    | NONE => ∃e default_e.
-        ALOOKUP defaults name = SOME e ∧
-        default_impl_construct_dict ns ie env cl k meth_t e default_e ∧
-        e' = App _ default_e [Var _ inst_v]) meths impls' ⇒
+    | NONE => ∃default_name.
+        ALOOKUP defaults name = SOME default_name ∧
+        e' = App _ (Var _ default_name) [Var _ inst_v]) meths impls' ⇒
     instance_construct_dict ns ie env
       cl k cons meths defaults
-      varks cstrs impls inst_v
+      (* default_name maps a method name to a translated name *)
+      inst_v varks cstrs impls
       (* inst_v is for referencing the dict itself *)
       (safeLam _ vs ((pure_cexp$Prim _ (Cons cons) impls')))
+End
+
+Inductive instance_env_construct_dict:
+  LIST_REL3 (λinst_v ((cl,varks,inst_t),cstrs,impls) (v,e).
+    v = inst_v ∧
+    ∃k supers meths.
+    ALOOKUP ce cl = SOME (k,supers,meths) ∧
+    ALOOKUP clcons cl = SOME cons ∧
+    instance_construct_dict ns ie env
+      cl k cons meths default_name_map
+      inst_v varks cstrs impls e
+  ) inst_vs inst_env inst_env' ⇒
+  instance_env_construct_dict ns ce ie env cl_cons default_name_map
+    inst_vs (inst_env:Kind list instance_env) inst_env'
 End
 
 Inductive type_elaborate_prog:
   clk = ce_to_clk ce ∧
   instance_env_kind_check (SND ns) clk inst_env inst_env' ∧ 
   ie = set (class_env_to_ie ce ++ instance_env_to_ie inst_env') ∧
-  env = REVERSE (ZIP (MAP (FST o FST) fns,fn_kind_schemes)) ∧
+  env = REVERSE (ZIP (MAP (FST o FST) fns,fn_kind_schemes)) ++
+    class_env_to_env ce ∧
   EVERY (pred_type_kind_scheme_ok clk (SND ns) []) fn_kind_schemes ∧ 
   type_elaborate_default_impls ce ns clk ie st env defaults defaults' ∧
   type_elaborate_bindings ns clk ie EMPTY [] st env fns fns' fn_kind_schemes ∧
@@ -1428,8 +1480,33 @@ Inductive type_elaborate_prog:
 End
 
 Inductive prog_construct_dict:
-  
-  prog_construct_dict ns ce st defaults inst_env fns
+  LENGTH sup_vs = LENGTH $ class_env_to_ie ce ∧
+  LENGTH inst_vs = LENGTH inst_env ∧
+  ALL_DISTINCT (sup_vs ++ inst_vs ++ MAP FST (class_env_to_env ce) ++
+    MAP (FST o FST) fns ++ MAP FST translated_defaults) ∧
+  (ie:mlstring |-> entailment) = FEMPTY |++ (
+    ZIP (sup_vs,class_env_to_ie ce) ++
+    ZIP (inst_vs,instance_env_to_ie inst_env)) ∧
+  env = set (MAP (FST o FST) fns ++ (MAP FST $ class_env_to_env ce)) ∧
+  cl_to_tyid = FEMPTY |++
+    ZIP (MAP FST ce,GENLIST (λn. n + LENGTH (SND ns)) (LENGTH ce)) ∧
+  MAP FST cl_cons = MAP FST ce ∧
+  class_env_to_ns cenv cl_to_tyid (MAP SND cl_cons) cenv = SOME cl_ns ∧
+  translated_ns = append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns) ∧
+  class_env_construct_dict (MAP SND cl_cons) sup_vs ce = translated_ce ∧
+  instance_env_construct_dict ns ce ie env cl_cons
+    default_name_map inst_vs inst_env inst_env' ∧
+  default_impls_construct_dict ns ce ie env default_name_map
+    defaults translated_defaults ∧
+  LIST_REL
+    (λ((x,ot),e) (y,de).
+      x = y ∧ ∃new pt. ot = SOME (new,pt) ∧
+      pred_texp_construct_dict ns ie FEMPTY (new ++ db) env pt e de)
+    fns translated_fns
+  ⇒
+    prog_construct_dict (ns:exndef # typedefs) ce st defaults inst_env fns translated_ns
+      (translated_fns ++ translated_defaults ++ translated_inst_env
+         ++ translated_ce)
 End
 
 (* Monoid [mappend;mempty], Foldable [foldMap] *)
