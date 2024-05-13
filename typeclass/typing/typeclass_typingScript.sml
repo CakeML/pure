@@ -1829,7 +1829,7 @@ Proof
     irule_at Any kind_wf_TyConsINL >>
     simp[Once typedefs_to_cdb_def,miscTheory.LLOOKUP_THM,kind_arrows_def] >>
     rpt (irule_at Any kind_wf_VarTypeCons) >>
-    simp[miscTheory.LLOOKUP_THM] >>
+    simp[miscTheory.LLOOKUP_THM,Functions_def] >>
     irule has_dict_dicts >>
     rw[]
     >- (
@@ -1841,6 +1841,47 @@ Proof
     irule has_dict_lie >>
     simp[]
   )
+  >- (
+    simp[Once test_class_env_def] >>
+    rw[type_elaborate_impls_def] >>
+    simp[subst_db_def,shift_db_def,
+      subst_db_Functions,shift_db_Functions,
+      subst_db_pred_def,shift_db_pred_def] >>
+    irule type_elaborate_texp_Pred >>
+    conj_tac >- simp[pred_type_well_scoped_def] >>
+    conj_tac >- (
+      simp[pred_type_kind_ok_def,pred_kind_wf_def,
+        Functions_def,subst_db_def,shift_db_def] >>
+      rpt (irule_at Any kind_wf_Cons) >>
+      rpt (irule_at Any kind_wf_TyConsFunction) >>
+      rpt (irule_at Any kind_wf_VarTypeCons) >>
+      rpt (irule_at Any kind_wf_TyConsINL) >>
+      simp[typedefs_to_cdb_def,initial_namespace_def,
+        miscTheory.LLOOKUP_THM,kind_arrows_def]) >>
+    irule type_elaborate_texp_Var >>
+    simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
+      subst_db_def,subst_db_Functions,PULL_EXISTS] >>
+    simp[Functions_def,kind_ok_def] >>
+    irule kind_wf_VarTypeCons >>
+    simp[miscTheory.LLOOKUP_THM]
+  ) >>
+  simp[Once test_class_env_def] >>
+  rw[type_elaborate_impls_def] >>
+  simp[subst_db_def,shift_db_def,
+    subst_db_Functions,shift_db_Functions,
+    subst_db_pred_def,shift_db_pred_def] >>
+  irule type_elaborate_texp_Pred >>
+  conj_tac >- simp[pred_type_well_scoped_def] >>
+  conj_tac >- (
+    simp[pred_type_kind_ok_def,pred_kind_wf_def,
+      Functions_def,subst_db_def,shift_db_def] >>
+    rpt (irule_at Any kind_wf_Cons) >>
+    rpt (irule_at Any kind_wf_VarTypeCons) >>
+    rpt (irule_at Any kind_wf_TyConsINL) >>
+    simp[typedefs_to_cdb_def,initial_namespace_def,
+      miscTheory.LLOOKUP_THM,kind_arrows_def]) >>
+  irule type_elaborate_texp_Cons >>
+  cheat
 QED
 
 Definition test_prog_def:
