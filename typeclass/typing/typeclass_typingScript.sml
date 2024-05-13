@@ -1306,14 +1306,13 @@ Definition class_env_to_ns_def:
 End
 
 Definition get_method_type_def:
-  get_method_type cl (ks,Pred ps t) = (ks,Pred ((cl,TypeVar 0)::ps) t)
+  get_method_type cl k (ks,Pred ps t) = (k::ks,Pred ((cl,TypeVar 0)::ps) t)
 End
 
-(* TODO: fix the type *)
 Definition class_env_to_env_def:
   class_env_to_env (cenv:class_env) = LIST_BIND cenv
-    (λ(cl,_,_,methods).
-      MAP (I ## get_method_type cl) methods)
+    (λ(cl,k,_,methods).
+      MAP (I ## get_method_type cl k) methods)
 End
 
 Definition translate_entailment_def:
@@ -1580,11 +1579,13 @@ Definition test_instance_env_kind_def:
       [«foldMap»,typeclass_texp$Lam [«f»,NONE;«t»,NONE] $
           typeclass_texp$NestedCase (Var [] «t») «t»
             (cepatCons «::» [cepatVar «h»;cepatVar «tl»])
-              (App (Var [(«Semigroup»,TypeVar 2)] «mappend») [
+              (App (Var [(«Semigroup»,TypeVar 1)] «mappend») [
                 App (Var [] «f») [Var [] «h»];
-                App (Var [(«Foldable»,UserType 0)] «foldMap»)
+                App (Var [
+                    («Foldable»,UserType 0);
+                    («Monoid»,TypeVar 1)] «foldMap»)
                   [Var [] «f»;Var [] «tl»]])
-            [cepatUScore,Var [(«Monoid»,TypeVar 2)] «mempty»]]);
+            [cepatUScore,Var [(«Monoid»,TypeVar 1)] «mempty»]]);
 (*    ((«Semigroup»,2,Atom $ CompPrimTy $ Tuple 2 [TypeVar 0;TypeVar 1]),
       [«Semigroup»,TypeVar 0;«Semigroup»,TypeVar 1],
       [«mappend»,typeclass_texp$Lam [«x»,NONE;«y»,NONE]
@@ -1740,22 +1741,105 @@ Proof
         miscTheory.LLOOKUP_THM,kind_arrows_def]
      ) >>
      simp[PULL_EXISTS] >>
+     qrefinel [`Functions args_t ret_t`,`Cons (UserType 0) (TypeVar 0)`] >>
      irule_at (Pos hd) type_elaborate_texp_NestedCase >>
      irule_at (Pos hd) type_elaborate_texp_Var >>
      simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
        PULL_EXISTS] >>
-     irule_at Any type_elaborate_texp_App >>
-     rpt (irule_at Any type_elaborate_texp_Var) >>
-     CONV_TAC (RESORT_EXISTS_CONV
-      (fn ts => last ts::(List.take (ts,length ts - 1)))) >>
+     irule_at (Pos hd) type_cepat_Cons>>
+     simp[initial_namespace_def,destruct_type_cons_def,
+      subst_db_def,split_ty_head_def,split_ty_head_aux_def,
+      type_cons_def,miscTheory.LLOOKUP_THM] >>
+     simp[kind_ok_def] >>
+     irule_at (Pos hd) kind_wf_VarTypeCons >>
+     simp[miscTheory.LLOOKUP_THM] >>
      qrefine `[_;_]` >>
      simp[LIST_REL3_def] >>
-     rpt (irule_at Any type_elaborate_texp_App) >>
-     rpt (irule_at Any type_elaborate_texp_Var) >>
-     simp[has_dicts_empty,specialises_pred_def,
-       subst_db_empty] >>
-     simp[Once 
- 
+     irule_at (Pos hd) type_cepat_Var >>
+     irule_at (Pos hd) type_cepat_Var >>
+     irule_at Any type_cepat_UScore >>
+     irule_at Any type_elaborate_texp_Var >>
+     simp[Once class_env_to_env_def,Once test_class_env_def] >>
+     simp[specialises_pred_def,get_method_type_def,subst_db_pred_def] >>
+     simp[PULL_EXISTS,subst_db_def,kind_ok_def] >>
+     irule_at (Pos last) exhaustive_cepat_UScore >>
+     rw[GSYM PULL_EXISTS]
+     >- (
+       irule_at (Pos hd) kind_wf_VarTypeCons >>
+       simp[miscTheory.LLOOKUP_THM])
+     >- (
+       irule_at (Pos hd) has_dict_dicts >>
+       simp[] >>
+       irule has_dict_lie >>
+       simp[]) >>
+     irule_at (Pos hd) type_elaborate_texp_App >>
+     irule_at (Pos hd) type_elaborate_texp_Var >>
+     simp[Once class_env_to_env_def,Once test_class_env_def] >>
+     simp[specialises_pred_def,get_method_type_def] >>
+     simp[PULL_EXISTS,subst_db_def,subst_db_pred_def,
+      subst_db_Functions] >>
+     rw[GSYM PULL_EXISTS]
+     >- (
+       simp[kind_ok_def] >>
+       irule kind_wf_VarTypeCons >>
+       simp[miscTheory.LLOOKUP_THM]) >>
+     irule_at (Pos hd) EQ_REFL >>
+     rw[GSYM PULL_EXISTS]
+     >- (
+      irule has_dict_dicts >>
+      simp[] >>
+      irule has_dict_ie >>
+      qexistsl [
+        `[(«Monoid»,TypeVar 1)]`,
+        `Entail [kindType] [(«Monoid»,TypeVar 0)] («Semigroup»,TypeVar 0)`] >>
+      simp[Once class_env_to_ie_def,Once test_class_env_def,
+        class_to_entailments_def] >>
+      simp[specialises_inst_def,PULL_EXISTS] >>
+      qexists `TypeVar 1` >>
+      simp[kind_ok_def] >>
+      irule_at (Pos hd) kind_wf_VarTypeCons >>
+      simp[miscTheory.LLOOKUP_THM,subst_db_def] >>
+      irule has_dict_dicts >>
+      simp[] >>
+      irule has_dict_lie >>
+      simp[]) >>
+     simp[LIST_REL3_def] >>
+     irule_at (Pos hd) type_elaborate_texp_App >>
+     irule_at (Pos hd) type_elaborate_texp_Var >>
+     simp[specialises_pred_def,PULL_EXISTS,subst_db_pred_def,
+      subst_db_Functions,subst_db_empty,has_dicts_empty] >>
+     irule_at (Pos hd) EQ_REFL >>
+     qrefine `[arg_t]` >>
+     simp[subst_db_empty,LIST_REL3_def] >>
+     irule_at (Pos hd) type_elaborate_texp_Var >>
+     simp[specialises_pred_def,subst_db_def,subst_db_pred_def,
+      has_dicts_empty] >>
+     irule type_elaborate_texp_App >>
+     simp[] >>
+     qrefine `[at0;at1]` >>
+     simp[LIST_REL3_def] >>
+     rpt (
+      irule_at (Pos hd) type_elaborate_texp_Var >>
+      simp[specialises_pred_def,subst_db_pred_def,subst_db_def,
+        subst_db_empty,has_dicts_empty]) >>
+     simp[Once class_env_to_env_def,Once test_class_env_def] >>
+     simp[get_method_type_def,specialises_pred_def,
+       subst_db_pred_def,subst_db_def,PULL_EXISTS] >>
+    simp[kind_ok_def,subst_db_Functions,subst_db_def] >>
+    irule_at Any kind_wf_TyConsINL >>
+    simp[Once typedefs_to_cdb_def,miscTheory.LLOOKUP_THM,kind_arrows_def] >>
+    rpt (irule_at Any kind_wf_VarTypeCons) >>
+    simp[miscTheory.LLOOKUP_THM] >>
+    irule has_dict_dicts >>
+    rw[]
+    >- (
+      irule has_dict_ie >>
+      simp[instance_env_to_ie_def,instance_to_entailment_def] >>
+      qexistsl [`[]`,`Entail [] [] («Foldable»,UserType 0)`] >>
+      simp[has_dicts_empty,specialises_inst_def,subst_db_empty]
+    ) >>
+    irule has_dict_lie >>
+    simp[]
   )
 QED
 
@@ -1782,115 +1866,6 @@ End
 
 (* translation of predicated types to types without predicates,
 * as a witness to the tpying rules of tcexp *)
-
-Definition acyclic_rec_def:
-  acyclic_rec r f err x =
-    if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s
-    then
-      let children = SET_TO_LIST {y | r (y,x)} in
-        f x children (MAP (acyclic_rec r f err) children)
-    else err
-Termination
-  WF_REL_TAC `λx y.
-    FST x = FST y ∧
-    acyclic (FST y) ∧ ∃s. FINITE s ∧ domain (FST y) ⊆ s ∧ range (FST y) ⊆ s ∧
-    (FST y) (SND $ SND $ SND x, SND $ SND $ SND y)`
-  >- (
-    qspecl_then [
-      `\r. acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s`,
-      `FST`,
-      `λr x y. r(x,y)`,
-      `SND o SND o SND`
-    ] irule WF_PULL >>
-    reverse $ rw[]
-    >- (
-      drule_all acyclic_WF >>
-      simp[reln_to_rel_def,IN_DEF]
-    ) >>
-    metis_tac[]
-  ) >>
-  rw[] >>
-  pop_assum mp_tac >>
-  DEP_REWRITE_TAC[MEM_SET_TO_LIST] >>
-  reverse $ rw[]
-  >- metis_tac[] >>
-  drule_then irule SUBSET_FINITE >>
-  gvs[domain_def] >>
-  rev_drule_at_then Any irule SUBSET_TRANS >>
-  rw[SUBSET_DEF,IN_DEF] >>
-  metis_tac[]
-End
-
-Definition acyclic_depth_def:
-  acyclic_depth r x = acyclic_rec r (λx xs ys. list_max ys + 1n) 0 x
-End
-
-Theorem list_max_MAX_SET_set:
-  list_max l = MAX_SET (set l)
-Proof
-  Induct_on `l` >>
-  rw[miscTheory.list_max_def,MAX_SET_THM,MAX_DEF]
-QED
-
-(* helper function for termination proof with acyclicity *)
-Theorem acyclic_depth_alt:
-  ∀r x.
-    acyclic_depth r x =
-      if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s
-      then
-        MAX_SET (IMAGE (acyclic_depth r) {y | r (y,x)}) + 1
-      else 0
-Proof
-  simp[lambdify acyclic_depth_def] >>
-  `∀r f e x.
-     f = (λx xs ys. list_max ys + 1) ∧ e = 0 ⇒
-     acyclic_rec r f e x =
-     if acyclic r ∧ ∃s. FINITE s ∧ domain r ⊆ s ∧ range r ⊆ s then
-       MAX_SET (IMAGE (λx. acyclic_rec r f e x) {y | r (y,x)}) + 1
-     else 0` suffices_by rw[] >>
-  ho_match_mp_tac acyclic_rec_ind >>
-  reverse $ rw[]
-  >- simp[acyclic_rec_def] >>
-  simp[Once acyclic_rec_def] >>
-  reverse $ IF_CASES_TAC
-  >- metis_tac[] >>
-  simp[list_max_MAX_SET_set,LIST_TO_SET_MAP] >>
-  DEP_REWRITE_TAC[SET_TO_LIST_INV] >>
-  gvs[domain_def,IN_DEF] >>
-  drule_then irule SUBSET_FINITE >>
-  rev_drule_at_then Any irule SUBSET_TRANS >>
-  rw[SUBSET_DEF,IN_DEF] >>
-  metis_tac[]
-QED
-
-Theorem acyclic_super_FINITE:
-  ∃s.
-    FINITE s ∧
-    domain
-      (λp. ∃s ts. FLOOKUP (ce:class_env) (SND p) = SOME (s,ts) ∧
-        MEM (FST p) s) ⊆ s ∧
-    range
-      (λp. ∃s ts. FLOOKUP ce (SND p) = SOME (s,ts) ∧
-        MEM (FST p) s) ⊆ s
-Proof
-  qexists `FDOM ce ∪
-    BIGUNION (IMAGE (set o FST) $ FRANGE ce)` >>
-  rw[]
-  >- simp[FINITE_LIST_TO_SET]
-  >- (
-    irule pred_setTheory.SUBSET_TRANS >>
-    irule_at (Pos last) $ cj 2 pred_setTheory.SUBSET_UNION >>
-    rw[pred_setTheory.SUBSET_DEF,IN_DEF,set_relationTheory.domain_def,
-         SRULE[IN_DEF] finite_mapTheory.FRANGE_FLOOKUP] >>
-    first_x_assum $ irule_at (Pos last) >>
-    simp[]
-  ) >>
-  irule pred_setTheory.SUBSET_TRANS >>
-  irule_at (Pos last) $ cj 1 pred_setTheory.SUBSET_UNION >>
-  rw[pred_setTheory.SUBSET_DEF,set_relationTheory.range_def,
-    finite_mapTheory.flookup_thm]
-QED
-
 Theorem texp_construct_dict_IMP_type_tcexp:
   acyclic
     (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s) ∧
