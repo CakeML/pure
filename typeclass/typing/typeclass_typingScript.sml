@@ -497,7 +497,7 @@ Inductive exhaustive_cepat:
 [~Cons:]
   (∀c ts. destruct_type_cons ns db t c ts ⇒
     ∃(pss:cepat list set).
-      exhaustive_cepatl ns db ts pss ∧ IMAGE (cepat c) pss ⊆ s) ⇒
+      exhaustive_cepatl ns db ts pss ∧ IMAGE (cepatCons c) pss ⊆ s) ⇒
   exhaustive_cepat ns db t s
 
 [~Nil:]
@@ -533,6 +533,8 @@ Proof
     metis_tac[])
 QED
 
+Overload Monad = ``Cons (Atom $ CompPrimTy $ M)``;
+
 (*
   The main typing relation.
   type_elaborate_texp :
@@ -554,9 +556,6 @@ QED
 * 3. elaborates the class constraints for the variable
 * 4. elaborates the poly type in every let binding
 *)
-
-Overload Monad = ``Cons (Atom $ CompPrimTy $ M)``;
-
 Inductive type_elaborate_texp:
 (* remove the user type annotation after class constraint elaboration *)
 [~UserAnnot:]
@@ -599,6 +598,7 @@ Inductive type_elaborate_texp:
         (Let (x,SOME (new,pt)) e1' e2') t2
 
 [~Lam:]
+  ty = Functions args_tys ret_ty ∧
   EVERY (type_ok (SND ns) db) args_tys ∧
   args_tys ≠ [] ∧
   (* forcing the length of vs to be the same as arg_tys and
@@ -610,8 +610,7 @@ Inductive type_elaborate_texp:
   type_elaborate_texp ns clk ie lie db st
     (REVERSE (ZIP (MAP FST vs, MAP (λat. ([],Pred [] at)) arg_tys)) ++ env)
     e e' ret_ty ⇒
-      type_elaborate_texp ns clk ie lie db st env (Lam vs e) (Lam vs e')
-        (Functions args_tys ret_ty)
+      type_elaborate_texp ns clk ie lie db st env (Lam vs e) (Lam vs e') ty
 
 [~Letrec:]
    LIST_REL3
@@ -634,10 +633,10 @@ Inductive type_elaborate_texp:
 [~Cons:]
   LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' carg_ts ∧
   EVERY (type_ok (SND ns) db) tyargs ∧
-  type_cons (SND ns) db (cname,carg_ts) (tyid,tyargs) ⇒
+  type_cons (SND ns) db (cname,carg_ts) (tyid,tyargs) ∧
+  ty = tcons_to_type (INL tyid) tyargs ⇒
      type_elaborate_texp ns clk ie lie db st env
-       (Prim (Cons cname) es) (Prim (Cons cname) es')
-       (tcons_to_type (INL tyid) tyargs)
+       (Prim (Cons cname) es) (Prim (Cons cname) es') ty
 
 [~Tuple:]
   LIST_REL3 (type_elaborate_texp ns clk ie lie db st env) es es' ts ∧
@@ -749,10 +748,10 @@ Inductive type_elaborate_texp:
 End
 
 Inductive type_elaborate_bindings:
-   LIST_REL3
-    (λ((fn,ot),body) ((fn',ot'),body') (varks,scheme).
+   LIST_REL
+    (λ((fn,ot),body) ((fn',ot'),body').
       fn = fn' ∧
-      ot' = SOME (varks,scheme) ∧
+      ∃varks scheme. ot' = SOME (varks,scheme) ∧
       (case ot of
       | NONE => T
       | SOME t => t = (LENGTH varks,scheme)) ∧
@@ -760,8 +759,8 @@ Inductive type_elaborate_bindings:
         (MAP (tshift $ LENGTH varks) st)
         (tshift_env_pred (LENGTH varks) env)
           body body' scheme)
-      fns fns' kind_schemes ⇒
-    type_elaborate_bindings ns clk ie lie db st env fns fns' kind_schemes
+      fns fns' ⇒
+    type_elaborate_bindings ns clk ie lie db st env fns fns'
 End
 
 (*
@@ -1475,11 +1474,12 @@ Inductive type_elaborate_prog:
   clk = ce_to_clk ce ∧
   instance_env_kind_check (SND ns) clk inst_env inst_env' ∧ 
   ie = set (class_env_to_ie ce ++ instance_env_to_ie inst_env') ∧
-  env = REVERSE (ZIP (MAP (FST o FST) fns,fn_kind_schemes)) ++
+  OPT_MMAP (SND o FST) fns' = SOME fns_type_scheme ∧
+  env = REVERSE (ZIP (MAP (FST o FST) fns,fns_type_scheme)) ++
     class_env_to_env ce ∧
-  EVERY (pred_type_kind_scheme_ok clk (SND ns) []) fn_kind_schemes ∧ 
+  EVERY (pred_type_kind_scheme_ok clk (SND ns) []) fns_type_scheme ∧ 
   type_elaborate_default_impls ce ns clk ie st env defaults defaults' ∧
-  type_elaborate_bindings ns clk ie EMPTY [] st env fns fns' fn_kind_schemes ∧
+  type_elaborate_bindings ns clk ie EMPTY [] st env fns fns' ∧
   type_elaborate_inst_env ns ce clk ie st env inst_env inst_env' ⇒
     type_elaborate_prog ns ce st defaults inst_env fns defaults' inst_env' fns'
 End
@@ -1563,13 +1563,13 @@ Definition test_instance_env_def:
       [«Monoid»,TypeVar 0;«Monoid»,TypeVar 1],
       [«mempty»,Prim (Cons «») [Var [] «mempty»,Var [] «mempty»]]); *)
     ((«Semigroup»,1,Cons (UserType 0) (TypeVar 0)),[],
-      [«mappend»,Var [] «concat»]);
+      [«mappend»,Var [] «append»]);
     ((«Monoid»,1,Cons (UserType 0) (TypeVar 0)),[],
       [«mempty»,Prim (Cons «[]») []])]
 End
 
-Definition test_instance_env_kind_def:
-  test_instance_env_kind = [
+Definition test_instance_env_elaborated_def:
+  test_instance_env_elaborated = [
     ((«Semigroup»,[],Atom $ PrimTy Integer),[],
       [«mappend»,typeclass_texp$Lam [«x»,NONE;«y»,NONE]
         (Prim (AtomOp Add) [Var [] «x»;Var [] «y»])]);
@@ -1602,9 +1602,62 @@ Definition test_instance_env_kind_def:
       [«Monoid»,TypeVar 0;«Monoid»,TypeVar 1],
       [«mempty»,Prim (Cons «») [Var [] «mempty»,Var [] «mempty»]]); *)
     ((«Semigroup»,[kindType],Cons (UserType 0) (TypeVar 0)),[],
-      [«mappend»,Var [] «concat»]);
+      [«mappend»,Var [] «append»]);
     ((«Monoid»,[kindType],Cons (UserType 0) (TypeVar 0)),[],
       [«mempty»,Prim (Cons «[]») []])]
+End
+
+Definition test_prog_def:
+  test_prog = [
+    («append»,NONE),Lam [«l»,NONE;«r»,NONE] $
+    NestedCase (Var [] «l») «l»
+      (cepatCons «::» [cepatVar «h»; cepatVar «tl»])
+        (Prim (Cons «::») [Var [] «h»;
+          App (Var [] «append») [Var [] «tl»; Var [] «r»]])
+      [cepatCons «[]» [],Var [] «r»];
+
+    («test»,NONE),
+      Letrec [(«fold»,NONE),
+        App (Var [] «foldMap») [Lam [«x»,NONE] (Var [] «x»)]] $
+      App (Var [] «fold») [App (Var [] «fold»)
+        [Prim (Cons «::») [
+          Prim (Cons «::») [
+            Prim (AtomOp $ Lit (Int 1)) [];
+            Prim (Cons «[]») []];
+          Prim (Cons «[]») []]]]
+  ]
+End
+
+Definition test_prog_elaborated_def:
+  test_prog_elaborated = [
+    («append»,SOME ([kindType],
+      Pred [] $ Functions [
+        Cons (UserType 0) (TypeVar 0);
+        Cons (UserType 0) (TypeVar 0)] $
+        Cons (UserType 0) (TypeVar 0))),
+    Lam [«l»,NONE;«r»,NONE] $
+      NestedCase (Var [] «l») «l»
+      (cepatCons «::» [cepatVar «h»; cepatVar «tl»])
+        (Prim (Cons «::») [Var [] «h»;
+          App (Var [] «append») [Var [] «tl»; Var [] «r»]])
+      [cepatCons «[]» [],Var [] «r»];
+
+    («test»,SOME ([],Pred [] $ Atom $ PrimTy Integer)),
+      typeclass_texp$Letrec [(«fold»,
+        SOME (
+          [kindArrow kindType kindType;kindType],
+          Pred [(«Foldable»,TypeVar 0);(«Monoid»,TypeVar 1)] $
+            Functions [Cons (TypeVar 0) (TypeVar 1)] (TypeVar 1))),
+        typeclass_texp$App (Var [(«Foldable»,TypeVar 0);(«Monoid»,TypeVar 1)] «foldMap») [Lam [«x»,NONE] (Var [] «x»)]] $
+      typeclass_texp$App (Var [«Foldable»,UserType 0;«Monoid»,Atom $ PrimTy Integer] «fold») [
+        typeclass_texp$App
+          (Var [«Foldable»,UserType 0;«Monoid»,Cons (UserType 0) $ Atom $ PrimTy Integer] «fold»)
+        [Prim (Cons «::») [
+          Prim (Cons «::») [
+            Prim (AtomOp $ Lit (Int 1)) [];
+            Prim (Cons «[]») []];
+          Prim (Cons «[]») []]]]
+  ]
 End
 
 Theorem subst_db_Functions:
@@ -1625,6 +1678,14 @@ Proof
   rw[Functions_def,shift_db_def]
 QED
 
+Theorem Functions_Functions:
+  Functions args_ty (Functions args_ty2 ret_ty) =
+    Functions (args_ty ++ args_ty2) ret_ty
+Proof
+  Induct_on `args_ty` >>
+  simp[Functions_def]
+QED
+
 Theorem subst_db_empty:
   subst_db skip [] t = t
 Proof
@@ -1643,20 +1704,22 @@ QED
 
 Theorem test_instance_env_type_check:
   ie = set (class_env_to_ie test_class_env ++
-    instance_env_to_ie test_instance_env_kind) ∧
-  env = [«concat»,[kindType],Pred [] $
-    Functions [
-      Cons (UserType 0) (TypeVar 0);
-      Cons (UserType 0) (TypeVar 0)] $
-      Cons (UserType 0) (TypeVar 0)] ++
+    instance_env_to_ie test_instance_env_elaborated) ∧
+  env = [
+    «test»,[],Pred [] $ (Atom $ PrimTy Integer);
+    «append»,[kindType],Pred [] $
+      Functions [
+        Cons (UserType 0) (TypeVar 0);
+        Cons (UserType 0) (TypeVar 0)] $
+        Cons (UserType 0) (TypeVar 0)] ++
     class_env_to_env test_class_env ⇒
   type_elaborate_inst_env initial_namespace test_class_env
     (ce_to_clk test_class_env) ie [] env
-    test_instance_env test_instance_env_kind
+    test_instance_env test_instance_env_elaborated
 Proof
   rw[] >>
   irule type_elaborate_inst_env_rules >>
-  rw[test_instance_env_kind_def,test_instance_env_def]
+  rw[test_instance_env_elaborated_def,test_instance_env_def]
   >- (
     simp[Once test_class_env_def] >>
     rw[type_elaborate_impls_def] >>
@@ -1672,6 +1735,7 @@ Proof
       rpt (irule_at Any kind_wf_TyConsFunction) >>
       rpt (irule_at Any kind_wf_Prim)) >>
     irule type_elaborate_texp_Lam >>
+    irule_at (Pos $ el 2) EQ_REFL >> 
     simp[type_ok_def,kind_ok_def,kind_wf_Prim,PULL_EXISTS] >>
     irule_at (Pos hd) type_elaborate_texp_AtomOp >>
     irule_at (Pos last) type_atom_op_IntOps_Int >>
@@ -1724,7 +1788,9 @@ Proof
         miscTheory.LLOOKUP_THM,kind_arrows_def]
     ) >>
     irule type_elaborate_texp_Lam >>
-    rw[type_ok_def,kind_ok_def]
+    irule_at (Pos $ el 2) EQ_REFL >>
+    rw[type_ok_def,kind_ok_def,PULL_EXISTS] >>
+    rw[GSYM PULL_EXISTS]
     >- (
       simp[Functions_def] >>
       rpt (irule_at Any kind_wf_Cons) >>
@@ -1740,13 +1806,12 @@ Proof
       simp[typedefs_to_cdb_def,initial_namespace_def,
         miscTheory.LLOOKUP_THM,kind_arrows_def]
      ) >>
-     simp[PULL_EXISTS] >>
      qrefinel [`Functions args_t ret_t`,`Cons (UserType 0) (TypeVar 0)`] >>
      irule_at (Pos hd) type_elaborate_texp_NestedCase >>
      irule_at (Pos hd) type_elaborate_texp_Var >>
      simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
        PULL_EXISTS] >>
-     irule_at (Pos hd) type_cepat_Cons>>
+     irule_at (Pos hd) type_cepat_Cons >>
      simp[initial_namespace_def,destruct_type_cons_def,
       subst_db_def,split_ty_head_def,split_ty_head_aux_def,
       type_cons_def,miscTheory.LLOOKUP_THM] >>
@@ -1881,29 +1946,329 @@ Proof
     simp[typedefs_to_cdb_def,initial_namespace_def,
       miscTheory.LLOOKUP_THM,kind_arrows_def]) >>
   irule type_elaborate_texp_Cons >>
-  cheat
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  qexistsl [`0`,`[TypeVar 0]`] >>
+  simp[type_cons_def,tcons_to_type_def,cons_types_def] >>
+  simp[type_ok_def,kind_ok_def] >>
+  irule_at (Pos hd) kind_wf_VarTypeCons >>
+  qabbrev_tac `namespace0=LLOOKUP (SND initial_namespace) 0` >>
+  pop_assum $ assume_tac o
+    SRULE[markerTheory.Abbrev_def,miscTheory.LLOOKUP_THM,
+      initial_namespace_def] >>
+  simp[miscTheory.LLOOKUP_THM,LIST_REL3_def] >>
+  irule kind_wf_VarTypeCons >>
+  simp[]
 QED
 
-Definition test_prog_def:
-  test_prog = [
-    («concat»,NONE),Lam [«l»,NONE;«r»,NONE] $
-    NestedCase (Var [] «l») «l»
-      (cepatCons «::» [cepatVar «h»; cepatVar «tl»])
-        (Prim (Cons «::») [Var [] «h»;
-          App (Var [] «concat») [Var [] «tl»; Var [] «r»]])
-      [cepatCons «[]» [],Var [] «r»];
-
-    («test»,NONE),
-      Letrec [(«fold»,NONE),
-        App (Var [] «foldMap») [Lam [«x»,NONE] (Var [] «x»)]] $
-      App (Var [] «fold») [App (Var [] «fold»)
-        [Prim (Cons «::») [
-          Prim (Cons «::») [
-            Prim (AtomOp $ Lit (Int 1)) [];
-            Prim (Cons «[]») []];
-          Prim (Cons «[]») []]]]
-  ]
-End
+Theorem test_prog_type_check:
+  ie = set (class_env_to_ie test_class_env ++
+    instance_env_to_ie test_instance_env_elaborated) ∧
+  OPT_MMAP (SND o FST) test_prog_elaborated = SOME fns_type_scheme ∧
+  env = REVERSE (ZIP (MAP (FST o FST) test_prog,fns_type_scheme)) ++
+    class_env_to_env test_class_env ⇒
+  type_elaborate_bindings initial_namespace (ce_to_clk test_class_env) ie
+    EMPTY [] st env
+    test_prog test_prog_elaborated
+Proof
+  rw[test_prog_def,test_prog_elaborated_def] >>
+  irule type_elaborate_bindings_rules >>
+  rw[]
+  >- (
+    irule type_elaborate_texp_Pred >>
+    simp[pred_type_well_scoped_def,pred_type_kind_ok_def,pred_kind_wf_def] >>
+    conj_tac
+    >- (
+      simp[Functions_def] >>
+      rpt (irule_at Any kind_wf_Cons) >>
+      rpt (irule_at Any kind_wf_TyConsFunction) >>
+      rpt (irule_at Any kind_wf_TyConsINL) >>
+      rpt (irule_at Any kind_wf_VarTypeCons) >>
+      simp[miscTheory.LLOOKUP_THM,typedefs_to_cdb_def,kind_arrows_def,
+        initial_namespace_def]) >>
+    irule type_elaborate_texp_Lam >>
+    irule_at (Pos $ el 2) EQ_REFL >>
+    rw[PULL_EXISTS] >>
+    simp[type_ok_def,kind_ok_def] >>
+    rpt (irule_at Any kind_wf_Cons) >>
+    rpt (irule_at Any kind_wf_TyConsINL) >>
+    rpt (irule_at Any kind_wf_VarTypeCons) >>
+    simp[miscTheory.LLOOKUP_THM,typedefs_to_cdb_def,kind_arrows_def,
+      initial_namespace_def] >>
+    irule_at (Pos hd) type_elaborate_texp_NestedCase >>
+    qexists `Cons (UserType 0) (TypeVar 0)` >>
+    irule_at (Pos hd) type_elaborate_texp_Var >>
+    simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
+      subst_db_empty,PULL_EXISTS] >>
+    irule_at (Pos hd) type_cepat_Cons >>
+    simp[Once initial_namespace_def,destruct_type_cons_def,
+      split_ty_head_def,split_ty_head_aux_def,type_cons_def,
+      miscTheory.LLOOKUP_THM] >>
+    qrefine `[h_ty;tl_ty]` >>
+    simp[kind_ok_def,LIST_REL3_def,subst_db_def] >>
+    irule_at (Pos hd) kind_wf_VarTypeCons >>
+    simp[miscTheory.LLOOKUP_THM] >>
+    ntac 2 (irule_at (Pos hd) type_cepat_Var) >>
+    irule_at Any type_cepat_Cons >>
+    qexists `[]` >>
+    simp[Once initial_namespace_def,destruct_type_cons_def,
+      split_ty_head_def,split_ty_head_aux_def,type_cons_def,
+      miscTheory.LLOOKUP_THM,kind_ok_def,LIST_REL3_def] >>
+    irule_at (Pos hd) kind_wf_VarTypeCons >>
+    simp[miscTheory.LLOOKUP_THM] >>
+    irule_at (Pos $ el 2) type_elaborate_texp_Var >>
+    simp[specialises_pred_def,subst_db_pred_def,subst_db_empty,
+      has_dicts_empty] >>
+    reverse conj_tac
+    >- (
+      irule exhaustive_cepat_Cons >>
+      rw[Once initial_namespace_def,destruct_type_cons_def,
+        split_ty_head_def,split_ty_head_aux_def,type_cons_def,
+        miscTheory.LLOOKUP_THM,PULL_EXISTS]
+      >- (
+        irule_at (Pos hd) exhaustive_cepat_Nil >>
+        qexists `{[]}` >>
+        simp[]) >>
+      qexists `{[cepatVar «h»; cepatVar «tl»]}` >>
+      irule_at (Pos hd) exhaustive_cepat_List >>
+      irule_at (Pos $ el 2) exhaustive_cepat_List >>
+      irule_at (Pos $ el 2) exhaustive_cepat_Nil >>
+      simp[IMAGE_DEF,ELIM_UNCURRY,SUBSET_DEF,PULL_EXISTS] >>
+      simp[LAMBDA_PROD,GSYM PFORALL_THM] >>
+      qexists `{[cepatVar «tl»]}` >>
+      simp[IN_DEF] >>
+      qexists `{[]}` >>
+      simp[] >>
+      irule_at (Pos hd) exhaustive_cepat_Var >>
+      qexistsl [`«tl»`,`{cepatVar «tl»}`] >>
+      simp[] >>
+      qexists `{cepatVar «h»}` >>
+      simp[] >>
+      irule exhaustive_cepat_Var >>
+      simp[]
+   ) >>
+   irule type_elaborate_texp_Cons >>
+   CONV_TAC (RESORT_EXISTS_CONV rev) >>
+   qexistsl [`0`,`[TypeVar 0]`] >>
+   simp[tcons_to_type_def,type_cons_def,cons_types_def,
+    miscTheory.LLOOKUP_THM,subst_db_def,type_ok_def,kind_ok_def,
+    LIST_REL3_def] >>
+   rpt (irule_at Any kind_wf_VarTypeCons) >>
+   rw[]
+   >- (
+     irule type_elaborate_texp_Var >>
+     simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,subst_db_empty]) >>
+   irule type_elaborate_texp_App >>
+   irule_at (Pos last) type_elaborate_texp_Var >>
+   simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
+    shift_db_pred_def,shift_db_Functions,shift_db_def,
+    subst_db_Functions,subst_db_def,PULL_EXISTS] >>
+   irule_at (Pos $ el 2) EQ_REFL >>
+   simp[kind_ok_def,LIST_REL3_def] >>
+   irule_at (Pos hd) kind_wf_VarTypeCons >>
+   rw[miscTheory.LLOOKUP_THM] >>
+   irule type_elaborate_texp_Var >>
+   simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
+     subst_db_empty]
+  ) >>
+  irule type_elaborate_texp_Pred >>
+  rw[pred_type_well_scoped_def,pred_type_kind_ok_def,pred_kind_wf_def]
+  >- irule kind_wf_Prim >>
+  irule type_elaborate_texp_Letrec >>
+  simp[] >>
+  qrefine `[(ks,scheme)]` >>
+  rw[LIST_REL3_def]
+  >- (
+    rw[pred_type_kind_ok_def,pred_kind_wf_def]
+    >- (
+      simp[Functions_def] >>
+      rpt (irule_at Any kind_wf_Cons) >>
+      rpt (irule_at Any kind_wf_TyConsFunction) >>
+      rpt (irule_at Any kind_wf_VarTypeCons) >>
+      simp[miscTheory.LLOOKUP_THM]) >>
+    simp[ce_to_clk_def,test_class_env_def] >>
+    irule kind_wf_VarTypeCons >>
+    simp[miscTheory.LLOOKUP_THM]
+  )
+  >- (
+    irule type_elaborate_texp_Pred >>
+    rw[pred_type_kind_ok_def,pred_kind_wf_def,pred_type_well_scoped_def]
+    >- simp[collect_type_vars_def,Functions_def]
+    >- simp[collect_type_vars_def,Functions_def]
+    >- (
+      simp[Functions_def] >>
+      rpt (irule_at Any kind_wf_Cons) >>
+      rpt (irule_at Any kind_wf_TyConsFunction) >>
+      rpt (irule_at Any kind_wf_VarTypeCons) >>
+      simp[miscTheory.LLOOKUP_THM])
+    >- (
+      simp[ce_to_clk_def,test_class_env_def] >>
+      irule kind_wf_VarTypeCons >>
+      simp[miscTheory.LLOOKUP_THM])
+    >- (
+      simp[ce_to_clk_def,test_class_env_def] >>
+      irule kind_wf_VarTypeCons >>
+      simp[miscTheory.LLOOKUP_THM]) >>
+    irule type_elaborate_texp_App >>
+    simp[] >>
+    irule_at (Pos last) type_elaborate_texp_Var >>
+    simp[class_env_to_env_def,test_class_env_def,
+      specialises_pred_def,subst_db_pred_def,get_method_type_def,
+      shift_db_pred_def,subst_db_Functions,shift_db_Functions,
+      subst_db_def,shift_db_def,PULL_EXISTS] >>
+    qrefine `[arg_ty]` >>
+    simp[Functions_Functions] >>
+    irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
+    rw[kind_ok_def]
+    >- (irule kind_wf_VarTypeCons >> simp[miscTheory.LLOOKUP_THM])
+    >- (irule kind_wf_VarTypeCons >> simp[miscTheory.LLOOKUP_THM])
+    >- (
+      irule has_dict_dicts >>
+      rw[] >>
+      irule has_dict_lie >> simp[])
+    >- (
+      simp[LIST_REL3_def] >>
+      irule type_elaborate_texp_Lam >>
+      irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
+      simp[type_ok_def,kind_ok_def,PULL_EXISTS] >>
+      irule_at (Pos hd) kind_wf_VarTypeCons >>
+      simp[Once miscTheory.LLOOKUP_THM] >>
+      irule_at (Pos hd) type_elaborate_texp_Var >>
+      simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,subst_db_empty]
+    )
+  ) >>
+  irule type_elaborate_texp_App >>
+  simp[] >>
+  irule_at (Pos last) type_elaborate_texp_Var >>
+  simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
+    subst_db_def,subst_db_Functions,PULL_EXISTS] >>
+  irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
+  rw[kind_ok_def,LIST_REL3_def]
+  >- (
+    irule kind_wf_TyConsINL >>
+    simp[miscTheory.LLOOKUP_THM,typedefs_to_cdb_def,
+      initial_namespace_def,kind_arrows_def])
+  >- irule kind_wf_Prim
+  >- (
+    irule has_dict_dicts >>
+    rw[] >>
+    irule has_dict_ie >>
+    simp[class_env_to_ie_def,test_class_env_def,
+      instance_env_to_ie_def,test_instance_env_elaborated_def,
+      instance_to_entailment_def,class_to_entailments_def]
+    >- (
+      qexistsl [`[]`,`Entail [] [] («Foldable»,UserType 0)`] >>
+      simp[has_dicts_empty,specialises_inst_def,subst_db_empty]) >>
+    qexistsl [`[]`,`Entail [] [] («Monoid»,Atom (PrimTy Integer))`] >>
+    simp[has_dicts_empty,specialises_inst_def,subst_db_empty]) >>
+  irule type_elaborate_texp_App >>
+  simp[] >>
+  irule_at (Pos last) type_elaborate_texp_Var >>
+  simp[specialises_pred_def,PULL_EXISTS,subst_db_pred_def,
+    subst_db_Functions,subst_db_def] >>
+  irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
+  rw[LIST_REL3_def,kind_ok_def]
+  >- (
+    irule kind_wf_TyConsINL >>
+    simp[miscTheory.LLOOKUP_THM,typedefs_to_cdb_def,
+      initial_namespace_def,kind_arrows_def])
+  >- (
+    irule kind_wf_Cons >>
+    irule_at Any kind_wf_Prim >>
+    irule kind_wf_TyConsINL >>
+    simp[miscTheory.LLOOKUP_THM,typedefs_to_cdb_def,
+      initial_namespace_def,kind_arrows_def])
+  >- (
+    irule has_dict_dicts >>
+    rpt strip_tac >>
+    irule has_dict_ie >>
+    fs[class_env_to_ie_def,test_class_env_def,
+      instance_env_to_ie_def,test_instance_env_elaborated_def,
+      instance_to_entailment_def,class_to_entailments_def]
+    >- (
+      qexistsl [`[]`,`Entail [] [] («Foldable»,UserType 0)`] >>
+      simp[specialises_inst_def,has_dicts_empty,subst_db_def])
+    >- (
+      qexistsl [`[]`,
+        `Entail [kindType] []
+          («Monoid»,Cons (UserType 0) (TypeVar 0))`] >>
+      simp[specialises_inst_def,has_dicts_empty,subst_db_def,
+        PULL_EXISTS,kind_ok_def] >>
+      irule kind_wf_Prim)
+  ) >>
+  irule type_elaborate_texp_Cons >>
+  CONV_TAC (RESORT_EXISTS_CONV rev) >>
+  qexistsl [`0`,`[Cons (UserType 0) (Atom (PrimTy Integer))]`] >>
+  simp[tcons_to_type_def,type_cons_def,cons_types_def,LIST_REL3_def,
+    type_ok_def,kind_ok_def] >>
+  qabbrev_tac `namespace0=LLOOKUP (SND initial_namespace) 0` >>
+  pop_assum $ assume_tac o
+    SRULE[markerTheory.Abbrev_def,miscTheory.LLOOKUP_THM,
+      initial_namespace_def] >>
+  rw[miscTheory.LLOOKUP_THM,LIST_REL3_def]
+  >- (
+    irule kind_wf_Cons >>
+    irule_at Any kind_wf_Prim >>
+    irule kind_wf_TyConsINL >>
+    simp[typedefs_to_cdb_def,initial_namespace_def,kind_arrows_def,
+      miscTheory.LLOOKUP_THM])
+  >- (
+    irule type_elaborate_texp_Cons >>
+    CONV_TAC (RESORT_EXISTS_CONV rev) >>
+    qexistsl [`0`,`[Atom (PrimTy Integer)]`] >>
+    simp[tcons_to_type_def,type_cons_def,cons_types_def,LIST_REL3_def,
+      type_ok_def,kind_ok_def,subst_db_def] >>
+    qabbrev_tac `namespace0=LLOOKUP (SND initial_namespace) 0` >>
+    pop_assum $ assume_tac o
+      SRULE[markerTheory.Abbrev_def,miscTheory.LLOOKUP_THM,
+        initial_namespace_def] >>
+    rw[miscTheory.LLOOKUP_THM,LIST_REL3_def,subst_db_def]
+    >- irule kind_wf_Prim
+    >- (
+      irule type_elaborate_texp_AtomOp >>
+      irule_at (Pos last) $ iffRL $ cj 1 LIST_REL3_def >>
+      simp[get_PrimTys_def] >>
+      irule type_atom_op_Lit >>
+      simp[type_lit_rules]
+    )
+    >- (
+      irule type_elaborate_texp_Cons >>
+      CONV_TAC (RESORT_EXISTS_CONV rev) >>
+      qexistsl [`0`,`[Atom (PrimTy Integer)]`] >>
+      simp[tcons_to_type_def,type_cons_def,cons_types_def,LIST_REL3_def,
+        type_ok_def,kind_ok_def,subst_db_def] >>
+      qabbrev_tac `namespace0=LLOOKUP (SND initial_namespace) 0` >>
+      pop_assum $ assume_tac o
+        SRULE[markerTheory.Abbrev_def,miscTheory.LLOOKUP_THM,
+          initial_namespace_def] >>
+      rw[miscTheory.LLOOKUP_THM,LIST_REL3_def,subst_db_def] >>
+     irule kind_wf_Prim 
+    ) >>
+    irule kind_wf_Prim
+  )
+  >- (
+    simp[subst_db_def] >>
+    irule type_elaborate_texp_Cons >>
+    CONV_TAC (RESORT_EXISTS_CONV rev) >>
+    qexistsl [`0`,`[Cons (UserType 0) (Atom (PrimTy Integer))]`] >>
+    simp[tcons_to_type_def,type_cons_def,cons_types_def,LIST_REL3_def,
+      type_ok_def,kind_ok_def,subst_db_def] >>
+    qabbrev_tac `namespace0=LLOOKUP (SND initial_namespace) 0` >>
+    pop_assum $ assume_tac o
+      SRULE[markerTheory.Abbrev_def,miscTheory.LLOOKUP_THM,
+        initial_namespace_def] >>
+    rw[miscTheory.LLOOKUP_THM,LIST_REL3_def,subst_db_def] >>
+    irule kind_wf_Cons >>
+    irule_at Any kind_wf_Prim >>
+    irule kind_wf_TyConsINL >>
+    simp[typedefs_to_cdb_def,initial_namespace_def,kind_arrows_def,
+      miscTheory.LLOOKUP_THM]
+  ) >>
+  irule kind_wf_Cons >>
+  irule_at Any kind_wf_Prim >>
+  irule kind_wf_TyConsINL >>
+  simp[typedefs_to_cdb_def,initial_namespace_def,kind_arrows_def,
+    miscTheory.LLOOKUP_THM]
+QED
 
 (* translation of predicated types to types without predicates,
 * as a witness to the tpying rules of tcexp *)
