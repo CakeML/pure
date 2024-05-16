@@ -1673,6 +1673,7 @@ Definition test_defaults_elaborated_def:
     ]
   ]
 End
+Overload Tup = ``λn. Atom $ CompPrimTy $ Tuple n``;
 
 Definition test_instance_env_def:
   test_instance_env = [
@@ -1692,7 +1693,28 @@ Definition test_instance_env_def:
     ((«Semigroup»,1,Cons (UserType 0) (TypeVar 0)),[],
       [«mappend»,Var [] «append»]);
     ((«Monoid»,1,Cons (UserType 0) (TypeVar 0)),[],
-      [«mempty»,Prim (Cons «[]») []])]
+      [«mempty»,Prim (Cons «[]») []]);
+    ((«Monoid»,2,
+      Cons (Cons (Tup 2) (TypeVar 0)) (TypeVar 1)),
+      [«Monoid»,TypeVar 0;«Monoid»,TypeVar 1],
+      [«mempty»,Prim (Cons «»)
+        [Var [] «mempty»;Var [] «mempty»]]);
+    ((«Semigroup»,2,
+      Cons (Cons (Tup 2) (TypeVar 0)) (TypeVar 1)),
+      [«Semigroup»,TypeVar 0;«Semigroup»,TypeVar 1],
+      [«mappend»,Lam [«x»,NONE;«y»,NONE] $
+          typeclass_texp$NestedCase
+            (Prim (Cons «») [Var [] «x»;Var [] «y»]) «p»
+            (cepatCons «» [
+              cepatCons «» [cepatVar «x1»;cepatVar «x2»];
+              cepatCons «» [cepatVar «y1»;cepatVar «y2»]])
+              (Prim (Cons «») [
+                App (Var [] «mappend»)
+                  [Var [] «x1»;Var [] «y1»];
+                App (Var [] «mappend»)
+                  [Var [] «x2»;Var [] «y2»]])
+            []])
+  ]
 End
 
 Definition test_instance_env_elaborated_def:
@@ -1716,7 +1738,30 @@ Definition test_instance_env_elaborated_def:
     ((«Semigroup»,[kindType],Cons (UserType 0) (TypeVar 0)),[],
       [«mappend»,Var [] «append»]);
     ((«Monoid»,[kindType],Cons (UserType 0) (TypeVar 0)),[],
-      [«mempty»,Prim (Cons «[]») []])]
+      [«mempty»,Prim (Cons «[]») []]);
+    ((«Monoid»,[kindType;kindType],
+      Cons (Cons (Tup 2) (TypeVar 0)) (TypeVar 1)),
+      [«Monoid»,TypeVar 0;«Monoid»,TypeVar 1],
+      [«mempty»,Prim (Cons «»)
+        [Var [«Monoid»,TypeVar 0] «mempty»;
+         Var [«Monoid»,TypeVar 1] «mempty»]]);
+    ((«Semigroup»,[kindType;kindType],
+      Cons (Cons (Tup 2) (TypeVar 0)) (TypeVar 1)),
+      [«Semigroup»,TypeVar 0;«Semigroup»,TypeVar 1],
+      [«mappend»,Lam [«x»,NONE;«y»,NONE] $
+          typeclass_texp$NestedCase
+            (Prim (Cons «») [Var [] «x»;Var [] «y»]) «p»
+            (cepatCons «» [
+              cepatCons «» [cepatVar «x1»;cepatVar «x2»];
+              cepatCons «» [cepatVar «y1»;cepatVar «y2»]])
+              (Prim (Cons «») [
+                App (Var [«Semigroup»,TypeVar 0] «mappend»)
+                  [Var [] «x1»;Var [] «y1»];
+                App (Var [«Semigroup»,TypeVar 1] «mappend»)
+                  [Var [] «x2»;Var [] «y2»]])
+            []])
+ 
+  ]
 End
 
 Definition test_prog_def:
@@ -1734,7 +1779,9 @@ Definition test_prog_def:
       App (Var [] «fold») [App (Var [] «fold»)
         [App (Var [] «toList») [Prim (Cons «::») [
           Prim (Cons «::») [
-            Prim (AtomOp $ Lit (Int 1)) [];
+            Prim (Cons «») [
+              Prim (AtomOp $ Lit (Int 1)) [];
+              Prim (AtomOp $ Lit (Int 1)) []];
             Prim (Cons «[]») []];
           Prim (Cons «[]») []]]]]
   ]
@@ -1754,7 +1801,10 @@ Definition test_prog_elaborated_def:
           App (Var [] «append») [Var [] «tl»; Var [] «r»]])
       [cepatCons «[]» [],Var [] «r»];
 
-    («test»,SOME ([],Pred [] $ Atom $ PrimTy Integer)),
+    («test»,
+      SOME ([],Pred [] $
+        Cons (Cons (Tup 2) (Atom $ PrimTy Integer))
+          (Atom $ PrimTy Integer))),
       typeclass_texp$Letrec [(«fold»,
         SOME (
           [kindArrow kindType kindType;kindType],
@@ -1766,16 +1816,24 @@ Definition test_prog_elaborated_def:
       typeclass_texp$App
         (Var [
           «Foldable»,UserType 0;
-          «Monoid»,Atom $ PrimTy Integer] «fold») [
+          «Monoid»,
+            Cons (Cons (Tup 2) (Atom $ PrimTy Integer)) $
+              Atom $ PrimTy Integer]
+          «fold») [
         typeclass_texp$App
           (Var [
             «Foldable»,UserType 0;
-            «Monoid»,Cons (UserType 0) $ Atom $ PrimTy Integer]
+            «Monoid»,
+              Cons (UserType 0) $
+                Cons (Cons (Tup 2) $ Atom $ PrimTy Integer) $
+                  Atom $ PrimTy Integer]
             «fold»)
           [App (Var [«Foldable»,UserType 0] «toList»)
             [Prim (Cons «::») [
               Prim (Cons «::») [
-                Prim (AtomOp $ Lit (Int 1)) [];
+                Prim (Cons «») [
+                  Prim (AtomOp $ Lit (Int 1)) [];
+                  Prim (AtomOp $ Lit (Int 1)) []];
                 Prim (Cons «[]») []];
               Prim (Cons «[]») []]
             ]
@@ -1794,7 +1852,9 @@ Theorem test_instance_env_type_check:
   ie = set (class_env_to_ie test_class_env ++
     instance_env_to_ie test_instance_env_elaborated) ∧
   env = [
-    «test»,[],Pred [] $ (Atom $ PrimTy Integer);
+    «test»,[],Pred [] $
+      Cons (Cons (Tup 2) (Atom $ PrimTy Integer))
+        (Atom $ PrimTy Integer);
     «append»,[kindType],Pred [] $
       Functions [
         Cons (UserType 0) (TypeVar 0);
@@ -1950,31 +2010,135 @@ Proof
     simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
       subst_db_def,subst_db_Functions,PULL_EXISTS] >>
     simp[Functions_def,kind_ok_def,LLOOKUP_THM]
-  ) >>
-  simp[Once test_class_env_def,type_elaborate_impls_def] >>
-  simp[subst_db_def,shift_db_def,
-    subst_db_Functions,shift_db_Functions,
-    subst_db_pred_def,shift_db_pred_def] >>
-  irule type_elaborate_texp_Pred >>
-  conj_tac >- simp[pred_type_well_scoped_def] >>
-  conj_tac >- (
+  )
+  >- (
+    simp[Once test_class_env_def,type_elaborate_impls_def] >>
+    simp[subst_db_def,shift_db_def,
+      subst_db_Functions,shift_db_Functions,
+      subst_db_pred_def,shift_db_pred_def] >>
+    irule type_elaborate_texp_Pred >>
+    conj_tac >- simp[pred_type_well_scoped_def] >>
+    conj_tac >- (
+      simp[pred_type_kind_ok_def,pred_kind_wf_def,
+        kind_wf_Functions,subst_db_def,shift_db_def] >>
+      simp[typedefs_to_cdb_def,initial_namespace_def,
+        LLOOKUP_THM,kind_arrows_def]) >>
+    irule type_elaborate_texp_Cons >>
+    CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+    qexistsl [`0`,`[TypeVar 0]`] >>
+    simp[type_cons_def,tcons_to_type_def,cons_types_def,
+      type_ok_def,kind_ok_def,LIST_REL3_simp] >>
+    simp[LLOOKUP_THM,initial_namespace_def]
+  )
+  >- (
+    simp[Once test_class_env_def,type_elaborate_impls_def] >>
+    simp[subst_db_def,shift_db_def,
+      subst_db_Functions,shift_db_Functions,
+      subst_db_pred_def,shift_db_pred_def] >>
+    irule type_elaborate_texp_Pred >>
+    conj_tac >- simp[pred_type_well_scoped_def] >>
     simp[pred_type_kind_ok_def,pred_kind_wf_def,
-      Functions_def,subst_db_def,shift_db_def] >>
-    simp[typedefs_to_cdb_def,initial_namespace_def,
-      miscTheory.LLOOKUP_THM,kind_arrows_def]) >>
-  irule type_elaborate_texp_Cons >>
-  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
-  qexistsl [`0`,`[TypeVar 0]`] >>
-  simp[type_cons_def,tcons_to_type_def,cons_types_def,
-    type_ok_def,kind_ok_def,LIST_REL3_simp] >>
-  simp[LLOOKUP_THM,initial_namespace_def]
+      kind_wf_Functions,subst_db_def,shift_db_def,
+      LLOOKUP_THM,kind_arrows_def] >>
+    irule type_elaborate_texp_Tuple >>
+    simp[LIST_REL3_simp,PULL_EXISTS,cons_types_def] >>
+    rpt (irule_at Any type_elaborate_texp_Var) >>
+    simp[has_dicts_simp,test_class_env_def,
+      class_env_to_env_def,specialises_pred_def,
+      subst_db_pred_def,subst_db_Functions,
+      subst_db_def,get_method_type_def,PULL_EXISTS] >>
+    simp[kind_ok_def,LLOOKUP_THM] >>
+    rpt (irule_at Any has_dict_lie) >>
+    simp[]
+  )
+  >- (
+    simp[Once test_class_env_def,type_elaborate_impls_def] >>
+    simp[subst_db_def,shift_db_def,
+      subst_db_Functions,shift_db_Functions,
+      subst_db_pred_def,shift_db_pred_def] >>
+    irule type_elaborate_texp_Pred >>
+    conj_tac >- simp[pred_type_well_scoped_def] >>
+    simp[pred_type_kind_ok_def,pred_kind_wf_def,
+      kind_wf_Functions,subst_db_def,shift_db_def,
+      LLOOKUP_THM,kind_arrows_def] >>
+    irule type_elaborate_texp_Lam >>
+    irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
+    simp[type_ok_def,kind_ok_def,PULL_EXISTS,
+      kind_arrows_def,LLOOKUP_THM] >>
+    irule_at (Pos hd) type_elaborate_texp_NestedCase >>
+    simp[] >>
+    rpt (irule_at Any type_elaborate_texp_Tuple) >>
+    simp[cons_types_def,LIST_REL3_simp,PULL_EXISTS] >>
+    rpt (
+      irule_at Any type_cepat_Cons >>
+      simp[LIST_REL3_simp,PULL_EXISTS]
+    ) >>
+    rpt (irule_at Any type_cepat_Var) >>
+    qrefinel [
+      `Cons (Cons (Tup 2) (TypeVar a)) (TypeVar b)`,
+      `Cons (Cons (Tup 2) (TypeVar a)) (TypeVar b)`] >>
+    simp[destruct_type_cons_def,split_ty_head_def,
+      split_ty_head_aux_def,initial_namespace_def] >>
+    rpt (irule_at Any type_elaborate_texp_App) >>
+    simp[LIST_REL3_simp,PULL_EXISTS] >>
+    rpt (irule_at Any type_elaborate_texp_Var) >>
+    simp[class_env_to_env_def,test_class_env_def,get_method_type_def,
+      has_dicts_simp] >>
+    simp[specialises_pred_def,subst_db_Functions,shift_db_Functions,
+      subst_db_pred_def,shift_db_pred_def,PULL_EXISTS,
+      subst_db_def,shift_db_def,subst_db_empty] >>
+    rpt (irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL) >>
+    simp[kind_ok_def,LLOOKUP_THM] >>
+    rpt (irule_at Any has_dict_lie) >>
+    simp[] >>
+    irule_at Any exhaustive_cepat_Cons >>
+    simp[PULL_EXISTS,destruct_type_cons_def,
+      split_ty_head_def,split_ty_head_aux_def] >>
+    qexists `{[cepatCons «» [cepatVar «x1»; cepatVar «x2»];
+      cepatCons «» [cepatVar «y1»; cepatVar «y2»]]}` >>
+    rpt (irule_at Any exhaustive_cepat_List) >>
+    irule_at Any exhaustive_cepat_Nil >>
+    simp[] >>
+    irule_at (Pos last) $ cj 1 $ iffLR SET_EQ_SUBSET >>
+    simp[IMAGE_DEF,Once EXTENSION,PULL_EXISTS,EQ_IMP_THM] >>
+    simp[FORALL_AND_THM,GSYM CONJ_ASSOC] >>
+    simp[LAMBDA_PROD,GSYM PEXISTS_THM,GSYM PFORALL_THM] >>
+    ntac 2 (
+      irule_at (Pat `_ ∈ _`) $ iffRL IN_SING >> simp[]) >>
+    irule_at (Pat `_ ⊆ _`) $ cj 1 $ iffLR SET_EQ_SUBSET >>
+    simp[EXTENSION,EQ_IMP_THM,PULL_EXISTS,FORALL_AND_THM] >>
+    simp[GSYM CONJ_ASSOC] >>
+    irule_at (Pat `_ ∈ _`) $ iffRL IN_SING >> simp[] >>
+    ntac 2 $ irule_at
+      (Pat `exhaustive_cepat _ _ _ {cepatCons «» [_;_]}`)
+      exhaustive_cepat_Cons >>
+    simp[PULL_EXISTS,destruct_type_cons_def,
+      split_ty_head_def,split_ty_head_aux_def] >>
+    rpt (irule_at Any $ cj 1 $ iffLR SET_EQ_SUBSET) >>
+    simp[IMAGE_DEF,EXTENSION,PULL_EXISTS,EQ_IMP_THM] >>
+    simp[FORALL_AND_THM,GSYM CONJ_ASSOC] >>
+    simp[LAMBDA_PROD,GSYM PEXISTS_THM,GSYM PFORALL_THM] >>
+    rpt (irule_at (Pat `_ ∈ _`) $ iffRL IN_SING >> simp[]) >>
+    rpt (irule_at Any exhaustive_cepat_List) >>
+    rpt (irule_at Any exhaustive_cepat_Nil) >>
+    simp[] >>
+    rpt (irule_at (Pat `_ ∈ _`) $ iffRL IN_SING >> simp[]) >>
+    rpt $ irule_at (Pat `_ ⊆ _`) $ cj 1 $ iffLR SET_EQ_SUBSET >>
+    simp[EXTENSION,PULL_EXISTS,EQ_IMP_THM] >>
+    simp[FORALL_AND_THM,LAMBDA_PROD,
+      GSYM PFORALL_THM,GSYM PEXISTS_THM] >>
+    rpt (irule_at Any exhaustive_cepat_Var) >>
+    rpt (irule_at (Pat `_ ∈ _`) $ iffRL IN_SING >> simp[])
+  )
 QED
 
 Theorem test_defaults_type_check:
   ie = set (class_env_to_ie test_class_env ++
     instance_env_to_ie test_instance_env_elaborated) ∧
   env = [
-    «test»,[],Pred [] $ (Atom $ PrimTy Integer);
+    «test»,[],Pred [] $
+      Cons (Cons (Tup 2) (Atom $ PrimTy Integer))
+        (Atom $ PrimTy Integer);
     «append»,[kindType],Pred [] $
       Functions [
         Cons (UserType 0) (TypeVar 0);
@@ -2118,7 +2282,8 @@ Proof
     simp[kind_ok_def,LLOOKUP_THM]
   ) >>
   irule type_elaborate_texp_Pred >>
-  rw[pred_type_well_scoped_def,pred_type_kind_ok_def,pred_kind_wf_def] >>
+  rw[pred_type_well_scoped_def,pred_type_kind_ok_def,
+    pred_kind_wf_def,kind_arrows_def] >>
   irule type_elaborate_texp_Letrec >>
   simp[LIST_REL3_simp,PULL_EXISTS] >>
   rw[LAMBDA_PROD,GSYM PEXISTS_THM]
@@ -2155,7 +2320,8 @@ Proof
   simp[has_dicts_simp,specialises_pred_def,subst_db_pred_def,
     subst_db_def,subst_db_Functions,PULL_EXISTS,kind_ok_def] >>
   rpt $ irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
-  simp[GSYM PULL_EXISTS,DISJ_IMP_THM,FORALL_AND_THM,GSYM CONJ_ASSOC] >>
+  simp[GSYM PULL_EXISTS,DISJ_IMP_THM,FORALL_AND_THM,GSYM CONJ_ASSOC,
+    kind_arrows_def] >>
   conj_asm1_tac
   >- (
     irule has_dict_ie >>
@@ -2164,13 +2330,30 @@ Proof
       instance_to_entailment_def,has_dicts_empty,
       specialises_inst_def,subst_db_empty]
   ) >>
-  conj_asm1_tac
-  >- (
+  `∀(ns:typedefs) db lie. has_dict ns db
+    (set (class_env_to_ie test_class_env) ∪
+     set (instance_env_to_ie test_instance_env_elaborated)) lie
+    («Monoid»,Atom (PrimTy Integer))`
+  by (
+    rpt strip_tac >>
     irule has_dict_ie >>
     qexistsl [`[]`,`Entail [] [] («Monoid»,Atom (PrimTy Integer))`] >>
     simp[instance_env_to_ie_def,test_instance_env_elaborated_def,
       instance_to_entailment_def,has_dicts_empty,
       specialises_inst_def,subst_db_empty]
+  ) >>
+  conj_asm1_tac
+  >- (
+    irule has_dict_ie >>
+    CONV_TAC $ RESORT_EXISTS_CONV rev >>
+    qexists `Entail [kindType; kindType]
+         [(«Monoid»,TypeVar 0); («Monoid»,TypeVar 1)]
+         («Monoid»,Cons (Cons (Tup 2) (TypeVar 0)) (TypeVar 1))` >>
+    simp[Once instance_env_to_ie_def,
+      Once test_instance_env_elaborated_def,
+      instance_to_entailment_def,has_dicts_simp,kind_ok_def,
+      specialises_inst_def,subst_db_def,PULL_EXISTS] >>
+    simp[LAMBDA_PROD,GSYM PEXISTS_THM,GSYM PFORALL_THM]
   ) >>
   conj_asm1_tac
   >- simp[typedefs_to_cdb_def,initial_namespace_def,
@@ -2181,13 +2364,20 @@ Proof
     qexistsl [`[]`,`Entail [kindType] [] («Monoid»,Cons (UserType 0) (TypeVar 0))`] >>
     simp[instance_env_to_ie_def,test_instance_env_elaborated_def,
       instance_to_entailment_def,has_dicts_empty,subst_db_def,
-      specialises_inst_def,PULL_EXISTS,kind_ok_def]
+      specialises_inst_def,PULL_EXISTS,kind_ok_def,
+      kind_arrows_def]
   ) >>
-  simp[Once class_env_to_env_def,Once test_class_env_def,subst_db_def,
-    get_method_type_def,specialises_pred_def,subst_db_pred_def,PULL_EXISTS,
-    shift_db_pred_def,subst_db_Functions,shift_db_Functions,shift_db_def] >>
+  simp[Once class_env_to_env_def,Once test_class_env_def,
+    subst_db_def,get_method_type_def,
+    specialises_pred_def,subst_db_pred_def,PULL_EXISTS,
+    shift_db_pred_def,subst_db_Functions,shift_db_Functions,
+    shift_db_def] >>
   irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
-  simp[kind_ok_def,LLOOKUP_THM] >>
+  simp[kind_ok_def,LLOOKUP_THM,kind_arrows_def] >>
+  ntac 2 (
+    irule_at Any type_elaborate_texp_Cons >>
+    simp[LIST_REL3_simp,PULL_EXISTS]) >>
+  irule_at Any type_elaborate_texp_Tuple >>
   rpt (
     irule_at Any type_elaborate_texp_Cons >>
     simp[LIST_REL3_simp,PULL_EXISTS]) >>
