@@ -314,6 +314,54 @@ Definition safeApp_def:
   safeApp a e xs = pure_cexp$App a e xs
 End
 
+Theorem safeApp_simp[simp]:
+  (∀v. (safeApp () x xs = Var () v) ⇔ xs = [] ∧ x = Var () v) ∧
+  (∀cop ts. (safeApp () x xs = Prim () cop ts) ⇔
+    xs = [] ∧ x = Prim () cop ts) ∧
+  (∀t ts. (safeApp () x xs = App () t ts) ⇔
+    (xs = [] ∧ x = App () t ts) ∨ (ts ≠ [] ∧ xs = ts ∧ x = t)) ∧
+  (∀vs t. (safeApp () x xs = Lam () vs t) ⇔
+    (xs = [] ∧ x = Lam () vs t)) ∧
+  (∀vs t t'. (safeApp () x xs = Let () vs t t') ⇔
+    (xs = [] ∧ x = Let () vs t t')) ∧
+  (∀fns t'. (safeApp () x xs = Letrec () fns t') ⇔
+    (xs = [] ∧ x = Letrec () fns t')) ∧
+  (∀t c es ys. (safeApp () x xs = Case () t c es ys) ⇔
+    (xs = [] ∧ x = Case () t c es ys)) ∧
+  (∀t cv p e pes. (safeApp () x xs = NestedCase () t cv p e pes) ⇔
+    (xs = [] ∧ x = NestedCase () t cv p e pes))
+Proof
+  Cases_on `xs` >>
+  rw[safeApp_def] >>
+  Cases_on `ts` >>
+  rw[] >>
+  metis_tac[]
+QED
+
+Theorem safeLam_simp[simp]:
+  (∀v. (safeLam () xs x = Var () v) ⇔ xs = [] ∧ x = Var () v) ∧
+  (∀cop ts. (safeLam () xs x = Prim () cop ts) ⇔
+    xs = [] ∧ x = Prim () cop ts) ∧
+  (∀t ts. (safeLam () xs x = App () t ts) ⇔
+    (xs = [] ∧ x = App () t ts)) ∧
+  (∀vs t. (safeLam () xs x = Lam () vs t) ⇔
+    (xs = [] ∧ x = Lam () vs t) ∨ (vs ≠ [] ∧ xs = vs ∧ x = t)) ∧
+  (∀vs t t'. (safeLam () xs x = Let () vs t t') ⇔
+    (xs = [] ∧ x = Let () vs t t')) ∧
+  (∀fns t'. (safeLam () xs x = Letrec () fns t') ⇔
+    (xs = [] ∧ x = Letrec () fns t')) ∧
+  (∀t c es ys. (safeLam () xs x = Case () t c es ys) ⇔
+    (xs = [] ∧ x = Case () t c es ys)) ∧
+  (∀t cv p e pes. (safeLam () xs x = NestedCase () t cv p e pes) ⇔
+    (xs = [] ∧ x = NestedCase () t cv p e pes))
+Proof
+  Cases_on `xs` >>
+  rw[safeLam_def] >>
+  Cases_on `vs` >>
+  rw[] >>
+  iff_tac >> rw[]
+QED
+
 (* if s is a super class of c then `Entail [k] [(s,TypeVar 0)] (c,TypeVar 0)`
 * will be in the set ie *)
 (* This should be equivalent to `entail` after turning all the super classes
@@ -335,13 +383,14 @@ Theorem has_dicts_simp = cj 2 has_dict_cases;
 Inductive construct_dict:
 [~lie:]
   FLOOKUP lie d = SOME p ⇒
-    construct_dict tdefs db ie lie p (pure_cexp$Var _ d)
+    construct_dict tdefs db ie lie p (pure_cexp$Var () d)
 [~ie:]
   FLOOKUP ie d = SOME it ∧
   specialises_inst tdefs it (Entail db cstrs p) ∧
-  construct_dicts tdefs db ie lie cstrs ds ⇒
-    construct_dict tdefs db ie lie p
-      (safeApp _ (pure_cexp$Var _ d) ds)
+  construct_dicts tdefs db ie lie cstrs ds ∧
+  de = (safeApp () (pure_cexp$Var () d) ds) ⇒
+    construct_dict tdefs db ie lie p de
+      
 [~dicts:]
   (LIST_REL (construct_dict tdefs db ie lie) ps ds) ⇒
     construct_dicts tdefs db ie lie ps ds
@@ -351,9 +400,9 @@ Theorem construct_dicts_simp = cj 2 construct_dict_cases;
 
 Theorem has_dict_EXISTS_construct_dict:
   (∀p. has_dict tdefs db (FRANGE ie) (FRANGE lie) p ⇒
-    ∃(d: 'a cexp) . construct_dict tdefs db ie lie p d) ∧
+    ∃d . construct_dict tdefs db ie lie p d) ∧
   ∀ps. has_dicts tdefs db (FRANGE ie) (FRANGE lie) ps ⇒
-    ∃(ds: 'a cexp list). construct_dicts tdefs db ie lie ps ds
+    ∃ds. construct_dicts tdefs db ie lie ps ds
 Proof
   ho_match_mp_tac has_dict_ind >>
   rw[]
@@ -375,9 +424,9 @@ Proof
 QED
 
 Theorem construct_dict_IMP_has_dict:
-  (∀p (d:'a cexp). construct_dict tdefs db ie lie p d ⇒
+  (∀p d. construct_dict tdefs db ie lie p d ⇒
     has_dict tdefs db (FRANGE ie) (FRANGE lie) p) ∧
-  (∀ps (ds:'a cexp list). construct_dicts tdefs db ie lie ps ds ⇒
+  (∀ps ds. construct_dicts tdefs db ie lie ps ds ⇒
     has_dicts tdefs db (FRANGE ie) (FRANGE lie) ps)
 Proof
   ho_match_mp_tac construct_dict_ind >>
@@ -534,13 +583,13 @@ Inductive exhaustive_cepat:
     exhaustive_cepatl ns db [] pss
 
 [~List:]
-  exhaustive_cepat ns db t hs ∧ 
+  exhaustive_cepat ns db t hs ∧
   exhaustive_cepatl ns db ts tls ∧
   IMAGE (UNCURRY CONS) (hs × tls) ⊆ pss ⇒
     exhaustive_cepatl ns db (t::ts) pss
 End
 
-Theorem exhaustive_cepat_monotone: 
+Theorem exhaustive_cepat_monotone:
   (∀t s. exhaustive_cepat ns db t s ⇒
     ∀s'. s ⊆ s' ⇒ exhaustive_cepat ns db t s') ∧
 
@@ -797,6 +846,113 @@ Definition get_names_namespace_def:
     (MAP FST $ FST ns) ++ FLAT (MAP (MAP FST o SND) $ SND ns)
 End
 
+Triviality MAX_SET_LE:
+  FINITE s ∧ (∀y. y ∈ s ⇒ y ≤ x) ⇒
+  MAX_SET s ≤ x
+Proof
+  strip_tac >>
+  simp[GSYM GREATER_EQ] >>
+  ho_match_mp_tac MAX_SET_ELIM >>
+  simp[GREATER_EQ]
+QED
+
+Triviality MAX_SET_LT:
+  FINITE s ∧ (∀y. y ∈ s ⇒ y < x) ∧ 0 < x ⇒
+  MAX_SET s < x
+Proof
+  strip_tac >>
+  simp[GSYM GREATER_DEF] >>
+  ho_match_mp_tac MAX_SET_ELIM >>
+  simp[GREATER_DEF]
+QED
+
+Definition lambda_vars_def:
+  lambda_vars (Var _ _) = {} ∧
+  lambda_vars (Prim _ es) = lambda_varsl es ∧
+  lambda_vars (App f es) = lambda_vars f ∪ lambda_varsl es ∧
+  lambda_vars (Lam vs e) = set (MAP FST vs) ∪ lambda_vars e ∧
+  lambda_vars (Let v e e') =
+    FST v INSERT lambda_vars e ∪ lambda_vars e' ∧
+  lambda_vars (Letrec fns e') =
+    set (MAP (FST o FST) fns) ∪
+    lambda_varsl (MAP SND fns) ∪
+    lambda_vars e' ∧
+  lambda_vars (UserAnnot _ e) = lambda_vars e ∧
+  lambda_vars (NestedCase g gv p e pes) =
+    gv INSERT lambda_vars g ∪ cepat_vars p ∪ lambda_vars e ∪
+    BIGUNION (set (MAP (cepat_vars o FST) pes)) ∪
+    lambda_varsl (MAP SND pes) ∧
+  lambda_varsl [] = {} ∧
+  lambda_varsl (e::es) = lambda_vars e ∪ lambda_varsl es
+Termination
+  WF_REL_TAC `inv_image ($< LEX $<)
+    (λe. case e of
+    | INR es => (MAX_SET (set (MAP (texp_size (K 1)) es)),LENGTH es + 1)
+    | INL e => (texp_size (K 1) e,0))` >>
+  rw[]
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    drule_then (irule_at (Pos hd)) $ cj 3 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    simp[GSYM LE_LT] >>
+    irule in_max_set >>
+    simp[]
+  )
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    Cases_on `y''` >>
+    simp[] >>
+    drule_then (irule_at (Pos hd)) $ cj 2 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    Cases_on `y''` >>
+    simp[] >>
+    drule_then (irule_at (Pos hd)) $ cj 1 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    drule_then (irule_at (Pos hd)) $ cj 3 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    simp[GSYM LE_LT] >>
+    irule MAX_SET_LE >>
+    rw[MEM_MAP,PULL_EXISTS] >>
+    irule in_max_set >>
+    simp[MEM_MAP] >>
+    metis_tac[]
+  )
+End
+
+Theorem lambda_varsl_def:
+  lambda_varsl es = BIGUNION (set (MAP lambda_vars es))
+Proof
+  Induct_on `es` >>
+  simp[lambda_vars_def]
+QED
+
+Theorem lambda_vars_FINITE[simp]:
+  (∀(e:'a texp). FINITE (lambda_vars e)) ∧
+  ∀(es:'a texp list). FINITE (lambda_varsl es)
+Proof
+  ho_match_mp_tac lambda_vars_ind >>
+  rw[lambda_vars_def,lambda_varsl_def,MEM_MAP,PULL_EXISTS,
+    GSYM pure_cexpTheory.cepat_vars_l_correct]
+QED
+
 (*
 * Dictionary construction given that we have the elaborated expression.
 * texp_construct_dict:
@@ -811,23 +967,26 @@ End
 (* we need to record the variables/constructors to avoid name collision *)
 Inductive texp_construct_dict:
 [~Var:]
-  construct_dicts (SND ns) db (ie:mlstring |-> entailment) lie ps ds ⇒
-    texp_construct_dict ns ie lie db env (Var ps x)
-      (safeApp _ (pure_cexp$Var _ x) ds)
+  construct_dicts (SND ns) db (ie:mlstring |-> entailment) lie ps ds ∧
+  te = safeApp () (Var () x) ds ⇒
+    texp_construct_dict ns ie lie db env (Var ps x) te
 
 [~Pred:]
   (* enforce all variables in vs are fresh *)
-  set vs ∩ (FDOM lie ∪ FDOM ie ∪ env ∪ set (get_names_namespace ns)) = ∅ ∧
+  set vs ∩
+    (FDOM lie ∪ FDOM ie ∪ env ∪
+      set (get_names_namespace ns) ∪ lambda_vars e) = ∅ ∧
   LENGTH vs = LENGTH ps ∧
-  texp_construct_dict ns ie (lie |++ ZIP (vs,ps)) db env e de ⇒
-    pred_texp_construct_dict ns ie lie db env (Pred ps t) e (safeLam _ vs de)
+  texp_construct_dict ns ie (lie |++ ZIP (vs,ps)) db env e de ∧
+  te = safeLam () vs de ⇒
+    pred_texp_construct_dict ns ie lie db env (Pred ps t) e te
 
 [~Let:]
   pred_texp_construct_dict ns ie lie (new ++ db) env pt e1 de1 ∧
   texp_construct_dict ns ie lie db (x INSERT env) e2 de2 ⇒
     texp_construct_dict ns ie lie db env
       (typeclass_texp$Let (x,SOME (new,pt)) e1 e2)
-      (pure_cexp$Let _ x de1 de2)
+      (pure_cexp$Let () x de1 de2)
 
 [~Letrec:]
   LIST_REL
@@ -840,21 +999,22 @@ Inductive texp_construct_dict:
   texp_construct_dict ns ie lie db (env ∪ set (MAP (FST o FST) fns)) e2 de2 ∧
   fns ≠ [] ⇒
     texp_construct_dict ns ie lie db env
-      (typeclass_texp$Letrec fns e) (pure_cexp$Letrec _ dfns de)
+      (typeclass_texp$Letrec fns e2) (pure_cexp$Letrec () dfns de2)
 
 [~Prim:]
   LIST_REL (texp_construct_dict ns ie lie db env) es des ⇒
-    texp_construct_dict ns ie lie db env (Prim c es) (Prim _ c des)
+    texp_construct_dict ns ie lie db env (Prim c es) (Prim () c des)
 
 [~Lam:]
   texp_construct_dict ns ie lie db
-    (set (MAP FST xs) ∪ env) e de ⇒
-      texp_construct_dict ns ie lie db env (Lam xs e) (Lam _ (MAP FST xs) de)
+    (set (MAP FST xs) ∪ env) e de ∧
+  te = Lam () (MAP FST xs) de ⇒
+      texp_construct_dict ns ie lie db env (Lam xs e) te
 
 [~App:]
   texp_construct_dict ns ie lie db env e1 de1 ∧
   LIST_REL (texp_construct_dict ns ie lie db env) es des ⇒
-    texp_construct_dict ns ie lie db env (App e1 es) (App _ de1 des)
+    texp_construct_dict ns ie lie db env (App e1 es) (App () de1 des)
 
 [~NestedCase:]
   texp_construct_dict ns ie lie db env e e' ∧
@@ -862,11 +1022,11 @@ Inductive texp_construct_dict:
       texp_construct_dict ns ie lie db (v INSERT env ∪ pure_cexp$cepat_vars p) e e')
     ((p,e1)::pes) ((p,e1')::pes') ⇒
   texp_construct_dict ns ie lie db env (NestedCase e v p e1 pes)
-    (NestedCase _ e' v p e1' pes')
+    (NestedCase () e' v p e1' pes')
 End
 
 (********************)
-(* Prove that if we can type_elaborate, then we can do dictionary 
+(* Prove that if we can type_elaborate, then we can do dictionary
 * construction on the output *)
 
 Triviality INFINITE_mlstring:
@@ -1030,7 +1190,7 @@ Theorem type_elaborate_texp_IMP_texp_construct_dict:
     ∀lie_map.
       ie = FRANGE ie_map ∧
       lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). pred_texp_construct_dict ns
+      ∃d. pred_texp_construct_dict ns
         ie_map lie_map db (set $ MAP FST env) pt e' d) ∧
 
   (∀lie db st env e e' t.
@@ -1038,7 +1198,7 @@ Theorem type_elaborate_texp_IMP_texp_construct_dict:
     ∀lie_map.
       ie = FRANGE ie_map ∧
       lie = FRANGE lie_map ⇒
-      ∃(d:'a cexp). texp_construct_dict ns
+      ∃d. texp_construct_dict ns
         ie_map lie_map db (set $ MAP FST env) e' d)
 Proof
   ho_match_mp_tac type_elaborate_texp_ind >>
@@ -1174,7 +1334,7 @@ Proof
     last_x_assum $ qspec_then `lie_map` mp_tac >>
     drule type_cepat_cepat_vars >>
     rw[rich_listTheory.MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF] >>
-    pop_assum $ mp_tac o SRULE[LAMBDA_PROD,miscTheory.FST_pair] >> 
+    pop_assum $ mp_tac o SRULE[LAMBDA_PROD,miscTheory.FST_pair] >>
     metis_tac[UNION_COMM,INSERT_UNION_EQ]
   ) >>
   pop_assum mp_tac >>
@@ -1233,13 +1393,13 @@ Definition type_elaborate_default_impls_def:
     ) defaults defaults'
 End
 
-Definition default_impl_construct_dict:
+Definition default_impl_construct_dict_def:
   default_impl_construct_dict ns ie env cl k (ks,Pred ps t) e e' ⇔
     pred_texp_construct_dict ns ie FEMPTY (k::ks) env
-      (Pred ((cl,TypeVar 0)::ps) t) e e' 
+      (Pred ((cl,TypeVar 0)::ps) t) e e'
 End
 
-Definition default_impls_construct_dict:
+Definition default_impls_construct_dict_def:
   default_impls_construct_dict ns ce ie env
     default_name_map defaults defaults' ⇔
   LIST_REL (λ(meth,e) (name,e').
@@ -1250,6 +1410,20 @@ Definition default_impls_construct_dict:
       default_impl_construct_dict ns ie env cl k pt e e')
     (defaults:Kind list default_impls) defaults'
 End
+
+Theorem default_impls_construct_dict_names:
+  ∀defaults defaults'.
+    default_impls_construct_dict ns ce ie env
+      default_name_map defaults defaults' ⇒
+    set (MAP FST defaults') ⊆ set (MAP SND default_name_map)
+Proof
+  simp[default_impls_construct_dict_def] >>
+  ho_match_mp_tac LIST_REL_ind >>
+  rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY] >>
+  rev_drule ALOOKUP_MEM >>
+  simp[LAMBDA_PROD,GSYM PEXISTS_THM] >>
+  metis_tac[]
+QED
 
 Type instance_env[pp] = ``:((mlstring # 'a # type) #
   (((mlstring # type) list) # ((mlstring # 'a texp) list))) list``;
@@ -1302,7 +1476,7 @@ Definition namespace_to_tcexp_namespace_def:
     ((FST ns,MAP (I ## MAP (I ## MAP ($, []))) (SND ns))):tcexp_namespace
 End
 
-(* a distinct type id and a distinct constructor name will be 
+(* a distinct type id and a distinct constructor name will be
 * generated for each class *)
 (* create a data type for a type class *)
 Definition class_to_datatype_def:
@@ -1332,6 +1506,16 @@ Definition class_env_to_env_def:
     (λ(cl,k,_,methods).
       MAP (I ## get_method_type cl k) methods)
 End
+
+Theorem class_env_to_env_FST_methods_name:
+  MAP FST (class_env_to_env ce) = FLAT (MAP (MAP FST ∘ SND ∘ SND ∘ SND) ce)
+Proof
+  simp[class_env_to_env_def,LIST_BIND_def,MAP_FLAT,MAP_MAP_o] >>
+  AP_TERM_TAC >>
+  AP_THM_TAC >>
+  AP_TERM_TAC >>
+  simp[ELIM_UNCURRY,get_method_type_def,FUN_EQ_THM]
+QED
 
 Definition translate_entailment_def:
   translate_entailment cl_to_tyid (Entail ks ps q) = do
@@ -1457,7 +1641,7 @@ Definition type_elaborate_inst_env_def:
   LIST_REL (λinst ((c,varks,t),cstrs,impls').
     ∃k supers meths.
     ALOOKUP ce c = SOME (k,supers,meths) ∧
-    type_elaborate_impls ns clk ie st env varks cstrs t meths (SND $ SND inst) impls') 
+    type_elaborate_impls ns clk ie st env varks cstrs t meths (SND $ SND inst) impls')
     inst_env inst_env'
 End
 
@@ -1465,10 +1649,12 @@ End
 (* inst_v is for referencing the dict itself *)
 Definition instance_construct_dict_def:
   instance_construct_dict ns ie env
-    cl k cons meths defaults
-    inst_v varks cstrs inst_t impls trans_impls ⇔
-  ∃vs impls'. 
-  (trans_impls = safeLam () vs ((pure_cexp$Prim () (Cons cons) impls')) ∧
+    cons supers meths defaults
+    inst_v varks cstrs inst_t impls trans_inst ⇔
+  ∃vs supers' impls'.
+  trans_inst = safeLam () vs (Prim () (Cons cons) $ supers' ++ impls') ∧
+  construct_dicts (SND ns) varks ie (FEMPTY |++ ZIP (vs,cstrs))
+    (MAP (λsuper. (super,inst_t)) supers) supers' ∧
   LIST_REL (λ(name,(meth_ks,pt)) e'.
       case ALOOKUP impls name of
       | SOME e =>
@@ -1478,7 +1664,7 @@ Definition instance_construct_dict_def:
       | NONE => ∃default_name.
           ALOOKUP defaults name = SOME default_name ∧
           e' = App () (Var () default_name) [Var () inst_v])
-     meths impls')
+     meths impls'
 End
 
 Definition instance_env_construct_dict_def:
@@ -1490,7 +1676,7 @@ Definition instance_env_construct_dict_def:
     ALOOKUP ce cl = SOME (k,supers,meths) ∧
     ALOOKUP cl_cons cl = SOME cons ∧
     instance_construct_dict ns ie env
-      cl k cons meths default_name_map
+      cons supers meths default_name_map
       inst_v varks cstrs inst_t impls e
   ) inst_vs inst_env inst_env'
 End
@@ -1515,43 +1701,47 @@ Definition type_elaborate_prog_def:
 End
 
 Definition prog_construct_dict_def:
-  prog_construct_dict ns ce st defaults inst_env fns
+  prog_construct_dict ns ce defaults inst_env fns
     translated_ns output_bindings ⇔
-   ∃cenv cl_cons cl_ns cl_to_tyid db default_name_map env ie inst_vs sup_vs
-       translated_ce translated_defaults translated_fns translated_inst_env.
-     output_bindings =
-       translated_fns ++ translated_defaults ++
-       translated_inst_env ++ translated_ce ∧
-     LENGTH sup_vs = LENGTH (class_env_to_ie ce) ∧
-     LENGTH inst_vs = LENGTH inst_env ∧
-     ALL_DISTINCT
-       (sup_vs ++ inst_vs ++ MAP FST (class_env_to_env ce) ++
-        MAP (FST ∘ FST) fns ++ MAP FST translated_defaults) ∧
-     ie = FEMPTY |++
-       (ZIP (sup_vs,class_env_to_ie ce) ++
-        ZIP (inst_vs,instance_env_to_ie inst_env)) ∧
-     env = set (MAP (FST ∘ FST) fns ++ MAP FST (class_env_to_env ce)) ∧
-     cl_to_tyid = FEMPTY |++
-       ZIP (MAP FST ce,GENLIST (λn. n + LENGTH (SND ns)) (LENGTH ce)) ∧
-     MAP FST cl_cons = MAP FST ce ∧
-     class_env_to_ns cenv cl_to_tyid (MAP SND cl_cons) cenv = SOME
-cl_ns ∧
-     translated_ns =
-       append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns) ∧
-     translated_ce = class_env_construct_dict (MAP SND cl_cons) sup_vs ce ∧
-     instance_env_construct_dict ns ce ie env cl_cons default_name_map
-       inst_vs inst_env translated_inst_env ∧
-     default_impls_construct_dict ns ce ie env default_name_map defaults
-       translated_defaults ∧
-     LIST_REL
-       (λ((x,ot),e) (y,de).
-            x = y ∧
-            case ot of
-            | SOME (new,pt) =>
-              pred_texp_construct_dict ns ie FEMPTY (new ++ db) env pt e
-                de
-            | NONE => F)
-        fns translated_fns
+  ∃cl_cons cl_ns cl_to_tyid default_name_map env ie inst_vs sup_vs
+     translated_ce translated_defaults translated_fns translated_inst_env.
+   output_bindings =
+     translated_fns ++ translated_defaults ++
+     translated_inst_env ++ translated_ce ∧
+   LENGTH sup_vs = LENGTH (class_env_to_ie ce) ∧
+   LENGTH inst_vs = LENGTH inst_env ∧
+   ALL_DISTINCT sup_vs ∧
+   ALL_DISTINCT inst_vs ∧
+   ALL_DISTINCT $ MAP FST $ class_env_to_env ce ∧
+   ALL_DISTINCT $ MAP SND default_name_map ∧
+   set sup_vs ∩ set inst_vs ∩
+    set (MAP FST $ class_env_to_env ce) ∩ set (MAP SND default_name_map) ∩
+    (set (MAP (FST o FST) fns) ∪ lambda_varsl (MAP SND fns)) = ∅ ∧
+   ie = FEMPTY |++
+     (ZIP (sup_vs,class_env_to_ie ce) ++
+      ZIP (inst_vs,instance_env_to_ie inst_env)) ∧
+   env = set (MAP (FST ∘ FST) fns ++ MAP FST (class_env_to_env ce)) ∧
+   cl_to_tyid = FEMPTY |++
+     ZIP (MAP FST ce,GENLIST (λn. n + LENGTH (SND ns)) (LENGTH ce)) ∧
+   MAP FST cl_cons = MAP FST ce ∧
+   class_env_to_ns ce cl_to_tyid (MAP SND cl_cons) ce = SOME
+  cl_ns ∧
+   translated_ns =
+     append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns) ∧
+   translated_ce = class_env_construct_dict (MAP SND cl_cons) sup_vs ce ∧
+   instance_env_construct_dict ns ce ie env cl_cons default_name_map
+     inst_vs inst_env translated_inst_env ∧
+   default_impls_construct_dict ns ce ie env default_name_map defaults
+     translated_defaults ∧
+   LIST_REL
+     (λ((x,ot),e) (y,de).
+          x = y ∧
+          case ot of
+          | SOME (new,pt) =>
+            pred_texp_construct_dict ns ie FEMPTY new env pt e
+              de
+          | NONE => F)
+      fns translated_fns
 End
 
 Theorem subst_db_Functions:
@@ -1760,7 +1950,6 @@ Definition test_instance_env_elaborated_def:
                 App (Var [«Semigroup»,TypeVar 1] «mappend»)
                   [Var [] «x2»;Var [] «y2»]])
             []])
- 
   ]
 End
 
@@ -2384,7 +2573,7 @@ Proof
   simp[initial_namespace_def,typedefs_to_cdb_def,kind_arrows_def,
     type_cons_def,tcons_to_type_def,cons_types_def,subst_db_def,
     LIST_REL3_simp,PULL_EXISTS,LLOOKUP_THM,kind_ok_def] >>
-  irule type_elaborate_texp_AtomOp >> 
+  irule type_elaborate_texp_AtomOp >>
   simp[LIST_REL3_simp,get_PrimTys_def] >>
   irule type_atom_op_Lit >>
   simp[type_lit_rules]
@@ -2393,7 +2582,7 @@ QED
 Theorem test_whole_prog_type_check:
   type_elaborate_prog initial_namespace test_class_env st
     test_defaults test_instance_env test_prog
-    test_defaults_elaborated test_instance_env_elaborated 
+    test_defaults_elaborated test_instance_env_elaborated
     test_prog_elaborated
 Proof
   simp[type_elaborate_prog_def] >>
@@ -2409,43 +2598,308 @@ Proof
     initial_namespace_def,typedefs_to_cdb_def]
 QED
 
-(* translation of predicated types to types without predicates,
-* as a witness to the tpying rules of tcexp *)
-(*
-Theorem texp_construct_dict_IMP_type_tcexp:
-  acyclic
-    (λp. ∃s x. FLOOKUP ce (SND p) = SOME (s,x) ∧ MEM (FST p) s) ∧
-  ce_in_ie ce ie ∧
-  class_kind_ok ce clk ∧
-  FRANGE ie_map = ie ⇒
-  (∀lie db st env e e' pt.
-    pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
-    ∀lie_map d. 
-      FRANGE lie_map = lie ∧
-      pred_texp_construct_dict (set $ get_names_namespace ns)
-        ie_map lie_map (IMAGE FST $ set env) pt e' (d:'a cexp) ⇒
-    ∃ie_env dt.
-      ie_to_env ce ie_map = SOME ie_env ∧
-      translate_pred_type ce pt = SOME dt ∧
-      type_tcexp ns db st
-        (translate_env ce env ++ lie_to_env ce lie_map ++ ie_env)
-        (tcexp_of d) dt) ∧
+Definition test_cl_cons_def:
+  test_cl_cons = [
+    «Semigroup»,«SemigroupDict»;
+    «Monoid»,«MonoidDict»;
+    «Foldable»,«FoldableDict»
+  ]
+End
 
-  (∀lie db st env e e' t.
-    type_elaborate_texp ns clk ie lie db st env e e' t ⇒
-    ∀lie_map d.
-      lie = FRANGE lie_map ∧
-      texp_construct_dict (set $ get_names_namespace ns)
-        ie_map lie_map (IMAGE FST $ set env) e' (d:'a cexp) ⇒
-     ∃ie_env. ie_to_env ce ie_map = SOME ie_env ∧
-       type_tcexp ns db st
-         (translate_env ce env ++ lie_to_env ce lie_map ++ ie_env) 
-         (tcexp_of d) t)
+Definition test_sup_vs_def:
+  test_sup_vs = [«getSemigroup»]
+End
+
+Definition test_inst_vs_def:
+  test_inst_vs = [
+    «semigroupInt»;
+    «monoidInt»;
+    «foldableList»;
+    «semigroupList»;
+    «monoidList»;
+    «monoidTuple»;
+    «semigroupTuple»
+  ]
+End
+
+Definition test_default_name_map_def:
+  test_default_name_map = [«toList»,«default_toList»]
+End
+
+Definition test_cl_to_tyid_def:
+  test_cl_to_tyid = FEMPTY |++
+    ZIP (MAP FST test_class_env,
+      GENLIST (λn. n + LENGTH (SND initial_namespace))
+        (LENGTH test_class_env))
+End
+
+Theorem test_cl_to_tyid = EVAL ``test_cl_to_tyid``;
+
+Theorem test_class_env_to_ns =
+  EVAL ``class_env_to_ns test_class_env test_cl_to_tyid
+    (MAP SND test_cl_cons) test_class_env``;
+
+Definition test_namespace_translated_def:
+  test_namespace_translated =
+    append_ns
+      (namespace_to_tcexp_namespace initial_namespace)
+      ([],THE $ class_env_to_ns
+          test_class_env test_cl_to_tyid
+          (MAP SND test_cl_cons) test_class_env)
+End
+
+Theorem test_namespace_translated =
+  EVAL ``test_namespace_translated``;
+
+Definition test_class_env_translated_def:
+  test_class_env_translated =
+    class_env_construct_dict (MAP SND test_cl_cons) test_sup_vs
+      test_class_env
+End
+
+Theorem test_class_env_translated =
+  EVAL ``test_class_env_translated``;
+
+Definition test_ie_map_def:
+  test_ie_map = FEMPTY |++
+   (ZIP (test_sup_vs,class_env_to_ie test_class_env) ++
+    ZIP (test_inst_vs,
+      instance_env_to_ie test_instance_env_elaborated))
+End
+
+Theorem test_ie_map = EVAL ``test_ie_map``;
+
+Definition test_env_def:
+  test_env =
+    set (MAP (FST ∘ FST) test_prog_elaborated ++
+      MAP FST (class_env_to_env test_class_env))
+End
+
+Theorem test_class_env_to_env =
+  EVAL ``class_env_to_env test_class_env``;
+
+Theorem test_env = EVAL ``test_env``;
+
+Definition test_defaults_translated_def:
+  test_defaults_translated = [«default_toList»,
+    Lam () [«y»] $
+      App ()
+        (App () (Var () «foldMap») [Var () «y»;Var () «monoidList»])
+        [Lam () [«x»] $
+          (Prim () (Cons «::») [Var () «x»;Prim () (Cons «[]») []])]
+  ]
+End
+
+Theorem test_defaults_construct_dict:
+  default_impls_construct_dict initial_namespace test_class_env
+    test_ie_map test_env test_default_name_map test_defaults_elaborated
+    test_defaults_translated
 Proof
-  strip_tac >>
-  ho_match_mp_tac type_elaborate_texp_ind >>
+  simp[default_impls_construct_dict_def] >>
+  simp[test_defaults_elaborated_def,test_defaults_translated_def,
+    test_default_name_map_def] >>
+  qexists `«Foldable»` >>
+  simp[Once test_class_env_def] >>
+  simp[default_impl_construct_dict_def] >>
+  irule texp_construct_dict_Pred >>
+  CONV_TAC (RESORT_EXISTS_CONV rev) >>
+  qrefine `[v]` >>
+  simp[test_ie_map,test_env,get_names_namespace_def,
+    initial_namespace_def,lambda_vars_def] >>
+  conj_tac >- EVAL_TAC >>
+  irule texp_construct_dict_App >>
+  rw[]
+  >- (
+    irule texp_construct_dict_Lam >>
+    simp[] >>
+    irule texp_construct_dict_Prim >>
+    rw[]
+    >- (
+      irule texp_construct_dict_Var >>
+      simp[construct_dicts_simp]
+    ) >>
+    irule texp_construct_dict_Prim >>
+    simp[]
+  ) >>
+  irule texp_construct_dict_Var >>
+  rw[construct_dicts_simp,PULL_EXISTS]
+  >- (
+    irule construct_dict_lie >>
+    simp[alistTheory.FLOOKUP_FUPDATE_LIST]
+  ) >>
+  irule construct_dict_ie >>
+  simp[construct_dicts_simp,
+    finite_mapTheory.FLOOKUP_UPDATE] >>
+  simp[specialises_inst_def,PULL_EXISTS,subst_db_def,
+    kind_ok_def,LLOOKUP_THM]
+QED
+
+Definition test_prog_translated_def:
+    test_prog_translated = [
+    («append»,
+      Lam () [«l»;«r»] $
+        NestedCase () (Var () «l») «l»
+        (cepatCons «::» [cepatVar «h»; cepatVar «tl»])
+          (Prim () (Cons «::») [Var () «h»;
+            App () (Var () «append») [Var () «tl»; Var () «r»]])
+        [cepatCons «[]» [],Var () «r»]);
+
+    («test»,
+      Letrec () [«fold»,
+        Lam () [«f0»;«m1»] $ App ()
+          (App () (Var () «foldMap»)
+            [Var () «f0»;Var () «m1»])
+          [Lam () [«x»] (Var () «x»)]] $
+      App ()
+        (App () (Var () «fold») [
+          Var () «foldableList»;
+          App () (Var () «monoidTuple»)
+            [Var () «monoidInt»;Var () «monoidInt»]]) [
+        App ()
+          (App () (Var () «fold») [
+              Var () «foldableList»;
+              Var () «monoidList»])
+          [App () (App () (Var () «toList») [Var () «foldableList»])
+            [Prim () (Cons «::») [
+              Prim () (Cons «::») [
+                Prim () (Cons «») [
+                  Prim () (AtomOp $ Lit (Int 1)) [];
+                  Prim () (AtomOp $ Lit (Int 1)) []];
+                Prim () (Cons «[]») []];
+              Prim () (Cons «[]») []]
+            ]
+          ]
+        ])
+  ]
+End
+
+Theorem test_prog_construct_dict:
+  LIST_REL (λ((x,ot),e) (y,de).
+    x = y ∧
+    case ot of
+    | NONE => F
+    | SOME (new,pt) =>
+      pred_texp_construct_dict initial_namespace
+        test_ie_map FEMPTY new test_env pt e de)
+    test_prog_elaborated test_prog_translated
+Proof
+  rw[test_prog_elaborated_def,test_prog_translated_def]
+  >- (
+    irule texp_construct_dict_Pred >>
+    simp[] >>
+    irule texp_construct_dict_Lam >>
+    simp[] >>
+    irule texp_construct_dict_NestedCase >>
+    simp[] >>
+    rpt (irule_at Any texp_construct_dict_Var) >>
+    simp[construct_dicts_simp] >>
+    irule texp_construct_dict_Prim >>
+    simp[] >>
+    irule_at Any texp_construct_dict_App >>
+    simp[] >>
+    rpt (irule_at Any texp_construct_dict_Var) >>
+    simp[construct_dicts_simp]
+  ) >>
+  irule texp_construct_dict_Pred >>
+  simp[] >>
+  irule texp_construct_dict_Letrec >>
+  rw[]
+  >- (
+    irule texp_construct_dict_Pred >>
+    simp[PULL_EXISTS,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
+    conj_tac >- (
+      simp[get_names_namespace_def,initial_namespace_def,
+        lambda_vars_def,test_env,test_ie_map,
+        finite_mapTheory.FDOM_FUPDATE_LIST] >>
+      EVAL_TAC
+    ) >>
+    irule texp_construct_dict_App >>
+    simp[] >>
+    irule_at Any texp_construct_dict_Lam >>
+    simp[] >>
+    irule_at Any texp_construct_dict_Var >>
+    simp[construct_dicts_simp] >>
+    irule texp_construct_dict_Var >>
+    rw[construct_dicts_simp] >>
+    irule construct_dict_lie >>
+    simp[alistTheory.FLOOKUP_FUPDATE_LIST]
+  ) >>
+  rpt (irule_at Any texp_construct_dict_App >> simp[]) >>
+  rpt (irule_at Any texp_construct_dict_Prim >> simp[]) >>
+  rpt (irule_at Any texp_construct_dict_Var) >>
+  simp[construct_dicts_simp] >>
+  rpt (irule_at Any construct_dict_ie) >>
+  simp[test_ie_map,construct_dicts_simp,
+      finite_mapTheory.FLOOKUP_UPDATE,subst_db_def,PULL_EXISTS,
+      specialises_inst_def,kind_ok_def,kind_arrows_def] >>
+  simp[LAMBDA_PROD,GSYM PEXISTS_THM] >>
+  irule construct_dict_ie >>
+  simp[finite_mapTheory.FLOOKUP_UPDATE,construct_dicts_simp,
+    specialises_inst_def,subst_db_def,PULL_EXISTS]
+QED
+                  
+
+Definition test_instance_env_translated_def:
+  test_instance_env_translated = [
+    («semigroupInt», Prim () (Cons «SemigroupDict»)
+      [Lam () [«x»;«y»]
+        (Prim () (AtomOp Add) [Var () «x»;Var () «y»])]);
+    («monoidInt»,Prim () (Cons «MonoidDict»)
+      [Var () «semigroupInt»;Prim () (AtomOp (Lit (Int 0))) []]);
+    («foldableList»,Prim () (Cons «FoldableDict»)
+      [Lam () [«m»;«f»;«t»] (
+        NestedCase () (Var () «t») «t»
+          (cepatCons «::» [cepatVar «h»;cepatVar «tl»])
+            (App ()
+              (App () (Var ()  «mappend»)
+                [(App () (Var () «getSemigroup») [Var () «m»])]) [
+              App () (Var () «f») [Var () «h»];
+              App () (
+                App () (Var () «foldMap») [
+                  (Var () «foldableList»);
+                  (Var () «m»)
+                ])
+                [Var () «f»;Var () «tl»]])
+          [cepatUScore,App () (Var () «mempty») [Var () «m»]]);
+       App () (Var () «default_toList») [Var () «foldableList»]]);
+    («semigroupList»,Prim () (Cons «SemigroupDict») [Var () «append»]);
+    («monoidList»,Prim () (Cons «MonoidDict»)
+      [Var () «semigroupList»;Prim () (Cons «[]») []]);
+    («monoidTuple»,Lam () [«m1»;«m2»] $ Prim () (Cons «MonoidDict») [
+      App () (Var () «semigroupTuple») [
+        App () (Var () «getSemigroup») [Var () «m1»];
+        App () (Var () «getSemigroup») [Var () «m2»]];
+      Prim () (Cons «») [
+        App () (Var () «mempty») [Var () «m1»];
+        App () (Var () «mempty») [Var () «m2»]]]);
+    («semigroupTuple»,Lam () [«s1»;«s2»] $ Prim () (Cons «SemigroupDict») [
+      NestedCase ()
+        (Prim () (Cons «») [Var () «x»;Var () «y»]) «p»
+        (cepatCons «» [
+          cepatCons «» [cepatVar «x1»;cepatVar «x2»];
+          cepatCons «» [cepatVar «y1»;cepatVar «y2»]])
+          (Prim () (Cons «») [
+            App ()
+              (App () (Var () «mappend») [Var () «s1»])
+              [Var () «x1»;Var () «y1»];
+            App ()
+              (App () (Var () «mappend») [Var () «s2»])
+              [Var () «x2»;Var () «y2»]])
+        []])
+  ]
+End
+
+Theorem test_instance_env_construct_dict:
+  instance_env_construct_dict initial_namespace test_class_env
+    test_ie_map test_env test_cl_cons test_default_name_map
+    test_inst_vs test_instance_env_elaborated
+    test_instance_env_translated
+Proof
+  simp[instance_env_construct_dict_def,test_inst_vs_def,LIST_REL3_def,
+    test_instance_env_elaborated_def,test_instance_env_translated_def,
+    test_class_env_def,test_cl_cons_def,test_default_name_map_def] >>
+  rw[instance_construct_dict_def,construct_dicts_simp,PULL_EXISTS] >>
   cheat
 QED
-*)
 
 val _ = export_theory();

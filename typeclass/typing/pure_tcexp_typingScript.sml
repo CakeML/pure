@@ -191,7 +191,6 @@ Inductive type_tcexp:
         (MAP (tshift (LENGTH ks)) st)
         (tshift_env (LENGTH ks) env) e t)
       es (carg_ts: type_kind_scheme list) ∧
-   EVERY (type_ok (SND ns) db) tyargs ∧
    tcexp_type_cons (SND ns) db (cname,carg_ts) (tyid,tyargs) ⇒
       type_tcexp ns db st env
         (Prim (Cons cname) es) (tcons_to_type (INL tyid) tyargs)
