@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
 open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory pure_tcexpTheory typeclass_texpTheory;
+open typeclass_typesTheory pure_cexpTheory typeclass_texpTheory;
 open typeclass_kindCheckTheory pure_configTheory pure_freshenTheory;
 open monadsyntax;
 
@@ -304,62 +304,49 @@ Definition specialises_inst_def:
         tsubst subs t = t') (p::ps) (q::qs)
 End
 
-Definition safeLam_def:
-  safeLam _ [] e = e ∧
-  safeLam a xs e = Lam a xs e
-End
-
-Definition safeApp_def:
-  safeApp _ e [] = e ∧
-  safeApp a e xs = pure_cexp$App a e xs
-End
-
-Theorem safeApp_simp[simp]:
-  (∀v. (safeApp () x xs = Var () v) ⇔ xs = [] ∧ x = Var () v) ∧
-  (∀cop ts. (safeApp () x xs = Prim () cop ts) ⇔
-    xs = [] ∧ x = Prim () cop ts) ∧
-  (∀t ts. (safeApp () x xs = App () t ts) ⇔
-    (xs = [] ∧ x = App () t ts) ∨ (ts ≠ [] ∧ xs = ts ∧ x = t)) ∧
-  (∀vs t. (safeApp () x xs = Lam () vs t) ⇔
-    (xs = [] ∧ x = Lam () vs t)) ∧
-  (∀vs t t'. (safeApp () x xs = Let () vs t t') ⇔
-    (xs = [] ∧ x = Let () vs t t')) ∧
-  (∀fns t'. (safeApp () x xs = Letrec () fns t') ⇔
-    (xs = [] ∧ x = Letrec () fns t')) ∧
-  (∀t c es ys. (safeApp () x xs = Case () t c es ys) ⇔
-    (xs = [] ∧ x = Case () t c es ys)) ∧
-  (∀t cv p e pes. (safeApp () x xs = NestedCase () t cv p e pes) ⇔
-    (xs = [] ∧ x = NestedCase () t cv p e pes))
+Theorem SmartLam_EQ_Lam_cases:
+  ∀vs t. (SmartLam b xs x = Lam a vs t) ⇔
+  ((xs = [] ∧ x = Lam a vs t) ∨
+  (a = b ∧ xs ≠ [] ∧ xs = vs ∧ x = t ∧ ∀c h tl e. t ≠ Lam c (h::tl) e) ∨
+  (a = b ∧ xs ≠ [] ∧ ∃c ys. ys ≠ [] ∧ x = Lam c ys t ∧ xs ++ ys = vs))
 Proof
   Cases_on `xs` >>
-  rw[safeApp_def] >>
-  Cases_on `ts` >>
-  rw[] >>
-  metis_tac[]
+  rw[SmartLam_def,AllCaseEqs()] >>
+  Cases_on `x` >>
+  gvs[dest_Lam_def] >>
+  rw[EQ_IMP_THM] >>
+  Cases_on `l` >>
+  fs[]
 QED
 
-Theorem safeLam_simp[simp]:
-  (∀v. (safeLam () xs x = Var () v) ⇔ xs = [] ∧ x = Var () v) ∧
-  (∀cop ts. (safeLam () xs x = Prim () cop ts) ⇔
-    xs = [] ∧ x = Prim () cop ts) ∧
-  (∀t ts. (safeLam () xs x = App () t ts) ⇔
-    (xs = [] ∧ x = App () t ts)) ∧
-  (∀vs t. (safeLam () xs x = Lam () vs t) ⇔
-    (xs = [] ∧ x = Lam () vs t) ∨ (vs ≠ [] ∧ xs = vs ∧ x = t)) ∧
-  (∀vs t t'. (safeLam () xs x = Let () vs t t') ⇔
-    (xs = [] ∧ x = Let () vs t t')) ∧
-  (∀fns t'. (safeLam () xs x = Letrec () fns t') ⇔
-    (xs = [] ∧ x = Letrec () fns t')) ∧
-  (∀t c es ys. (safeLam () xs x = Case () t c es ys) ⇔
-    (xs = [] ∧ x = Case () t c es ys)) ∧
-  (∀t cv p e pes. (safeLam () xs x = NestedCase () t cv p e pes) ⇔
-    (xs = [] ∧ x = NestedCase () t cv p e pes))
+Theorem SmartLam_EQ_simp[simp]:
+  (∀v. (SmartLam b xs x = Var a v) ⇔ xs = [] ∧ x = Var a v) ∧
+  (∀cop ts. (SmartLam b xs x = Prim a cop ts) ⇔
+    xs = [] ∧ x = Prim a cop ts) ∧
+  (∀vs t. (SmartLam b [] x = Lam a vs t) ⇔ x = Lam a vs t) ∧
+  (∀t ts. (SmartLam b xs x = App a t ts) ⇔
+    (xs = [] ∧ x = App a t ts)) ∧
+  (∀vs t t'. (SmartLam b xs x = Let a vs t t') ⇔
+    (xs = [] ∧ x = Let a vs t t')) ∧
+  (∀fns t'. (SmartLam b xs x = Letrec a fns t') ⇔
+    (xs = [] ∧ x = Letrec a fns t')) ∧
+  (∀t c es ys. (SmartLam b xs x = Case a t c es ys) ⇔
+    (xs = [] ∧ x = Case a t c es ys)) ∧
+  (∀t cv p e pes. (SmartLam b xs x = NestedCase a t cv p e pes) ⇔
+    (xs = [] ∧ x = NestedCase a t cv p e pes))
 Proof
   Cases_on `xs` >>
-  rw[safeLam_def] >>
-  Cases_on `vs` >>
-  rw[] >>
-  iff_tac >> rw[]
+  rw[SmartLam_def,AllCaseEqs()]
+QED
+
+Theorem SmartApp_Var_simp[simp]:
+  (∀v. (SmartApp () (Var () x) xs = Var () v) ⇔ xs = [] ∧ x = v) ∧
+  (∀v h tl. (SmartApp () (Var () x) xs = App () (Var () v) (h::tl) ⇔
+    xs = (h::tl) ∧ x = v))
+Proof
+  Cases_on `xs` >>
+  rw[SmartApp_def,dest_App_def] >>
+  metis_tac[]
 QED
 
 (* if s is a super class of c then `Entail [k] [(s,TypeVar 0)] (c,TypeVar 0)`
@@ -388,7 +375,7 @@ Inductive construct_dict:
   FLOOKUP ie d = SOME it ∧
   specialises_inst tdefs it (Entail db cstrs p) ∧
   construct_dicts tdefs db ie lie cstrs ds ∧
-  de = (safeApp () (pure_cexp$Var () d) ds) ⇒
+  de = (SmartApp () (pure_cexp$Var () d) ds) ⇒
     construct_dict tdefs db ie lie p de
       
 [~dicts:]
@@ -968,7 +955,7 @@ QED
 Inductive texp_construct_dict:
 [~Var:]
   construct_dicts (SND ns) db (ie:mlstring |-> entailment) lie ps ds ∧
-  te = safeApp () (Var () x) ds ⇒
+  te = SmartApp () (Var () x) ds ⇒
     texp_construct_dict ns ie lie db env (Var ps x) te
 
 [~Pred:]
@@ -978,7 +965,7 @@ Inductive texp_construct_dict:
       set (get_names_namespace ns) ∪ lambda_vars e) = ∅ ∧
   LENGTH vs = LENGTH ps ∧
   texp_construct_dict ns ie (lie |++ ZIP (vs,ps)) db env e de ∧
-  te = safeLam () vs de ⇒
+  te = SmartLam () vs de ⇒
     pred_texp_construct_dict ns ie lie db env (Pred ps t) e te
 
 [~Let:]
@@ -1618,9 +1605,9 @@ Definition instance_env_to_ie_def:
 End
 
 Definition impl_construct_dict_def:
-  impl_construct_dict ns ie env vs cstrs ks pt e e' ⇔
-  pred_texp_construct_dict ns ie (FEMPTY |++ ZIP (vs,cstrs)) ks env
-    pt e (safeLam () vs e')
+  impl_construct_dict ns ie env vs cstrs ks (Pred ps t) e e' ⇔
+  pred_texp_construct_dict ns ie FEMPTY ks env
+    (Pred (cstrs ++ ps) t) e (SmartLam () vs e')
 End
 
 Definition type_elaborate_impls_def:
@@ -1652,7 +1639,7 @@ Definition instance_construct_dict_def:
     cons supers meths defaults
     inst_v varks cstrs inst_t impls trans_inst ⇔
   ∃vs supers' impls'.
-  trans_inst = safeLam () vs (Prim () (Cons cons) $ supers' ++ impls') ∧
+  trans_inst = SmartLam () vs (Prim () (Cons cons) $ supers' ++ impls') ∧
   construct_dicts (SND ns) varks ie (FEMPTY |++ ZIP (vs,cstrs))
     (MAP (λsuper. (super,inst_t)) supers) supers' ∧
   LIST_REL (λ(name,(meth_ks,pt)) e'.
@@ -2706,6 +2693,7 @@ Proof
   qrefine `[v]` >>
   simp[test_ie_map,test_env,get_names_namespace_def,
     initial_namespace_def,lambda_vars_def] >>
+  simp[SmartLam_EQ_Lam_cases] >>
   conj_tac >- EVAL_TAC >>
   irule texp_construct_dict_App >>
   rw[]
@@ -2806,7 +2794,8 @@ Proof
   rw[]
   >- (
     irule texp_construct_dict_Pred >>
-    simp[PULL_EXISTS,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
+    simp[SmartLam_EQ_Lam_cases,PULL_EXISTS,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
+    disj1_tac >>
     conj_tac >- (
       simp[get_names_namespace_def,initial_namespace_def,
         lambda_vars_def,test_env,test_ie_map,
@@ -2820,9 +2809,10 @@ Proof
     irule_at Any texp_construct_dict_Var >>
     simp[construct_dicts_simp] >>
     irule texp_construct_dict_Var >>
-    rw[construct_dicts_simp] >>
-    irule construct_dict_lie >>
-    simp[alistTheory.FLOOKUP_FUPDATE_LIST]
+    simp[construct_dicts_simp] >>
+    rpt (
+      irule_at Any construct_dict_lie >>
+      simp[alistTheory.FLOOKUP_FUPDATE_LIST])
   ) >>
   rpt (irule_at Any texp_construct_dict_App >> simp[]) >>
   rpt (irule_at Any texp_construct_dict_Prim >> simp[]) >>
@@ -2838,7 +2828,6 @@ Proof
     specialises_inst_def,subst_db_def,PULL_EXISTS]
 QED
                   
-
 Definition test_instance_env_translated_def:
   test_instance_env_translated = [
     («semigroupInt», Prim () (Cons «SemigroupDict»)
@@ -2873,19 +2862,20 @@ Definition test_instance_env_translated_def:
         App () (Var () «mempty») [Var () «m1»];
         App () (Var () «mempty») [Var () «m2»]]]);
     («semigroupTuple»,Lam () [«s1»;«s2»] $ Prim () (Cons «SemigroupDict») [
-      NestedCase ()
-        (Prim () (Cons «») [Var () «x»;Var () «y»]) «p»
-        (cepatCons «» [
-          cepatCons «» [cepatVar «x1»;cepatVar «x2»];
-          cepatCons «» [cepatVar «y1»;cepatVar «y2»]])
-          (Prim () (Cons «») [
-            App ()
-              (App () (Var () «mappend») [Var () «s1»])
-              [Var () «x1»;Var () «y1»];
-            App ()
-              (App () (Var () «mappend») [Var () «s2»])
-              [Var () «x2»;Var () «y2»]])
-        []])
+      Lam () [«x»;«y»] $
+        NestedCase ()
+          (Prim () (Cons «») [Var () «x»;Var () «y»]) «p»
+          (cepatCons «» [
+            cepatCons «» [cepatVar «x1»;cepatVar «x2»];
+            cepatCons «» [cepatVar «y1»;cepatVar «y2»]])
+            (Prim () (Cons «») [
+              App ()
+                (App () (Var () «mappend») [Var () «s1»])
+                [Var () «x1»;Var () «y1»];
+              App ()
+                (App () (Var () «mappend») [Var () «s2»])
+                [Var () «x2»;Var () «y2»]])
+          []])
   ]
 End
 
@@ -2898,8 +2888,163 @@ Proof
   simp[instance_env_construct_dict_def,test_inst_vs_def,LIST_REL3_def,
     test_instance_env_elaborated_def,test_instance_env_translated_def,
     test_class_env_def,test_cl_cons_def,test_default_name_map_def] >>
-  rw[instance_construct_dict_def,construct_dicts_simp,PULL_EXISTS] >>
-  cheat
+  rw[instance_construct_dict_def,construct_dicts_simp,PULL_EXISTS]
+  >- (
+    simp[impl_construct_dict_def,subst_db_pred_def,shift_db_pred_def,
+      shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions] >>
+    irule texp_construct_dict_Pred >>
+    simp[SmartLam_def] >>
+    irule texp_construct_dict_Lam >>
+    simp[] >>
+    irule texp_construct_dict_Prim >>
+    simp[] >>
+    rpt (irule_at Any texp_construct_dict_Var) >>
+    simp[construct_dicts_simp]
+  )
+  >- (
+    irule construct_dict_ie >>
+    simp[test_ie_map,finite_mapTheory.FLOOKUP_UPDATE] >>
+    simp[specialises_inst_def,subst_db_def,construct_dicts_simp]
+  )
+  >- (
+    simp[impl_construct_dict_def,subst_db_pred_def,shift_db_pred_def,
+      shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions] >>
+    irule texp_construct_dict_Pred >>
+    simp[SmartLam_def] >>
+    irule texp_construct_dict_Prim >> simp[]
+  )
+  >- (
+    simp[impl_construct_dict_def,subst_db_pred_def,shift_db_pred_def,
+      shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions] >>
+    simp[SmartLam_def] >>
+    irule texp_construct_dict_Pred >>
+    simp[SmartLam_EQ_Lam_cases,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
+    simp[PULL_EXISTS] >>
+    qrefine `[v]` >>
+    simp[] >>
+    conj_tac
+    >-  (
+      simp[test_ie_map,test_env,lambda_vars_def,
+        finite_mapTheory.FDOM_FUPDATE_LIST,
+        get_names_namespace_def,initial_namespace_def] >>
+      EVAL_TAC
+    ) >>
+    irule texp_construct_dict_Lam >>
+    simp[] >>
+    irule texp_construct_dict_NestedCase >>
+    simp[] >>
+    rpt (irule_at Any texp_construct_dict_App >> simp[]) >>
+    rpt (irule_at Any texp_construct_dict_Var) >>
+    simp[construct_dicts_simp,PULL_EXISTS] >>
+    conj_asm1_tac
+    >- (
+      irule construct_dict_lie >>
+      simp[alistTheory.FLOOKUP_FUPDATE_LIST]
+    ) >>
+    rw[]
+    >- (
+      irule construct_dict_ie >>
+      simp[Once test_ie_map,finite_mapTheory.FLOOKUP_UPDATE] >>
+      simp[specialises_inst_def,PULL_EXISTS,kind_ok_def,subst_db_def] >>
+      simp[LAMBDA_PROD,GSYM PEXISTS_THM,LLOOKUP_THM,construct_dicts_simp]
+    ) >>
+    irule construct_dict_ie >>
+    simp[Once test_ie_map,finite_mapTheory.FLOOKUP_UPDATE] >>
+    simp[specialises_inst_def,subst_db_def,construct_dicts_simp]
+  )
+  >- (
+    simp[impl_construct_dict_def,subst_db_pred_def,shift_db_pred_def,
+      shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions,
+      SmartLam_def] >>
+    irule texp_construct_dict_Pred >>
+    simp[] >>
+    irule texp_construct_dict_Var >>
+    simp[construct_dicts_simp]
+  )
+  >- (
+    irule construct_dict_ie >>
+    simp[Once test_ie_map,finite_mapTheory.FLOOKUP_UPDATE] >>
+    simp[specialises_inst_def,subst_db_def,PULL_EXISTS,kind_ok_def,
+      LLOOKUP_THM,construct_dicts_simp]
+  )
+  >- (
+    simp[impl_construct_dict_def,subst_db_pred_def,shift_db_pred_def,
+      shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions,
+      SmartLam_def] >>
+    irule texp_construct_dict_Pred >>
+    simp[] >>
+    irule texp_construct_dict_Prim >>
+    simp[]
+  )
+  >- (
+    rw[SmartLam_EQ_Lam_cases]
+    >- (
+      irule construct_dict_ie >>
+      simp[Once test_ie_map,finite_mapTheory.FLOOKUP_UPDATE] >>
+      simp[specialises_inst_def,subst_db_def,PULL_EXISTS,
+        kind_ok_def,LLOOKUP_THM,construct_dicts_simp] >>
+      simp[LAMBDA_PROD,GSYM PEXISTS_THM] >>
+      rpt (irule_at Any construct_dict_ie) >>
+      simp[] >>
+      qpat_abbrev_tac `getSemigroupIt = FLOOKUP test_ie_map _` >>
+      pop_assum $ mp_tac o
+        SRULE[markerTheory.Abbrev_def,test_ie_map,
+          finite_mapTheory.FLOOKUP_UPDATE] >>
+      disch_then SUBST_ALL_TAC >>
+      simp[specialises_inst_def,PULL_EXISTS,subst_db_def,
+        kind_ok_def,LLOOKUP_THM] >>
+      simp[LAMBDA_PROD,GSYM PEXISTS_THM,construct_dicts_simp] >>
+      rpt (irule_at Any construct_dict_lie) >>
+      simp[alistTheory.FLOOKUP_FUPDATE_LIST]
+    ) >>
+    simp[impl_construct_dict_def,subst_db_pred_def,shift_db_pred_def,
+      shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions] >>
+    simp[SmartLam_def,dest_Lam_def] >>
+    irule texp_construct_dict_Pred >>
+    simp[] >>
+    CONV_TAC (RESORT_EXISTS_CONV rev) >>
+    qrefine `[v1;v2]` >>
+    simp[SmartLam_EQ_Lam_cases] >>
+    conj_tac
+    >- (
+      simp[test_ie_map,test_env,lambda_vars_def,
+        finite_mapTheory.FDOM_FUPDATE_LIST,
+        get_names_namespace_def,initial_namespace_def] >>
+      EVAL_TAC
+    ) >>
+    irule texp_construct_dict_Prim >>
+    simp[] >>
+    rpt (irule_at Any texp_construct_dict_Var) >>
+    simp[construct_dicts_simp] >>
+    rpt (irule_at Any construct_dict_lie) >>
+    simp[alistTheory.FLOOKUP_FUPDATE_LIST]
+  ) >>
+  simp[SmartLam_EQ_Lam_cases,impl_construct_dict_def,
+    subst_db_pred_def,shift_db_pred_def,shift_db_def,subst_db_def,
+    shift_db_Functions,subst_db_Functions] >>
+  simp[SmartLam_def,dest_Lam_def] >>
+  irule texp_construct_dict_Pred >>
+  simp[SmartLam_EQ_Lam_cases,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
+  simp[PULL_EXISTS] >>
+  qrefine `[v0;v1]` >>
+  simp[] >>
+  conj_tac
+  >- (
+    simp[test_ie_map,test_env,lambda_vars_def,
+      finite_mapTheory.FDOM_FUPDATE_LIST,
+      get_names_namespace_def,initial_namespace_def] >>
+    EVAL_TAC
+  ) >>
+  irule texp_construct_dict_Lam >>
+  simp[] >>
+  irule texp_construct_dict_NestedCase >>
+  simp[] >>
+  rpt (irule_at Any texp_construct_dict_Prim) >> simp[] >>
+  rpt (irule_at Any texp_construct_dict_App) >> simp[] >>
+  rpt (irule_at Any texp_construct_dict_Var) >>
+  simp[construct_dicts_simp] >>
+  rpt (irule_at Any construct_dict_lie) >>
+  simp[alistTheory.FLOOKUP_FUPDATE_LIST]
 QED
 
 val _ = export_theory();
