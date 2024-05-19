@@ -136,4 +136,43 @@ Proof
   metis_tac[]
 QED
 
+Theorem kind_wf_simp[simp]:
+  (∀t1 t2. kind_wf cdb vdb k (Cons t1 t2) ⇔
+    ∃k1 k2. k1 = kindArrow k2 k ∧
+    kind_wf cdb vdb k1 t1 ∧ kind_wf cdb vdb k2 t2) ∧
+  (∀t. kind_wf cdb vdb k (Atom (PrimTy t)) ⇔ k = kindType) ∧
+  (kind_wf cdb vdb k (Atom Exception) ⇔ k = kindType) ∧
+  (∀v. kind_wf cdb vdb k (TypeVar v) ⇔ vdb v = SOME k) ∧
+  (∀v. kind_wf cdb vdb k (UserType v) ⇔ cdb v = SOME k) ∧
+  (kind_wf cdb vdb k (Atom (CompPrimTy Function)) ⇔
+    k = kindArrow kindType (kindArrow kindType kindType)) ∧
+  (kind_wf cdb vdb k (Atom (CompPrimTy Array)) ⇔
+    k = kindArrow kindType kindType) ∧
+  (kind_wf cdb vdb k (Atom (CompPrimTy M)) ⇔
+    k = kindArrow kindType kindType) ∧
+  (∀n. kind_wf cdb vdb k (Atom (CompPrimTy (Tuple n))) ⇔
+    k = kind_arrows (GENLIST (K kindType) n) kindType)
+Proof
+  rpt (simp[Once kind_wf_cases])
+QED
+
+Theorem kind_wf_Functions:
+   kind_wf cdb vdb k (Functions args ret) ⇔
+    (kind_wf cdb vdb k ret ∧ args = []) ∨
+    (k = kindType ∧ kind_wf cdb vdb kindType ret ∧
+      ∀arg. MEM arg args ⇒ kind_wf cdb vdb kindType arg)
+Proof
+  Induct_on `args` >>
+  rw[Functions_def,EQ_IMP_THM] >>
+  gvs[]
+QED
+
+Theorem kind_wf_IMP_freetyvars_ok:
+  ∀k t. kind_wf cdb (LLOOKUP ks) k t ⇒
+  freetyvars_ok (LENGTH ks) t
+Proof
+  ho_match_mp_tac kind_wf_ind >>
+  gvs[freetyvars_ok_def,miscTheory.LLOOKUP_THM]
+QED
+
 val _ = export_theory();

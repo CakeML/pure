@@ -113,7 +113,7 @@ Inductive tcexp_exhaustive_cepat:
     tcexp_exhaustive_cepatl ns db [] pss
 
 [~List:]
-  tcexp_exhaustive_cepat ns db tk hs ∧ 
+  tcexp_exhaustive_cepat ns db tk hs ∧
   tcexp_exhaustive_cepatl ns db ts tls ∧
   IMAGE (UNCURRY CONS) (hs × tls) ⊆ pss ⇒
     tcexp_exhaustive_cepatl ns db (tk::ts) pss

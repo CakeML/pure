@@ -95,6 +95,39 @@ Definition shift_db_pred_def:
     Pred (MAP (I ## shift_db skip n) ps) (shift_db skip n t)
 End
 
+Theorem subst_db_empty:
+  subst_db skip [] t = t
+Proof
+  Induct_on `t` >>
+  simp[subst_db_def] >>
+  Cases_on `a` >>
+  simp[subst_db_def]
+QED
+
+Theorem shift_db_zero:
+  shift_db skip 0 t = t
+Proof
+  Induct_on `t` >>
+  simp[shift_db_def] >>
+  Cases_on `a` >>
+  simp[shift_db_def]
+QED
+
+Theorem type_full_induction:
+  ∀P.
+    (P (Atom Exception)) ∧
+    (∀s. P (Atom (TypeCons s))) ∧
+    (∀n. P (Atom (VarTypeCons n))) ∧
+    (∀t t'. P t ∧ P t' ⇒ P (Cons t t')) ⇒
+    (∀t. P t)
+Proof
+  ntac 2 strip_tac >>
+  ho_match_mp_tac $ fetch "-" "type_induction" >>
+  rw[] >>
+  Cases_on `a` >>
+  simp[]
+QED
+
 Overload tsubst = ``subst_db 0``;
 Overload tshift = ``shift_db 0``;
 Overload tsubst_pred = ``subst_db_pred 0``;
@@ -107,6 +140,42 @@ Definition Functions_def:
       (Cons (Atom $ CompPrimTy Function) at) $
       Functions ats t
 End
+
+Theorem subst_db_Functions:
+  subst_db skip ts (Functions args ret) =
+  Functions (MAP (subst_db skip ts) args)
+    (subst_db skip ts ret)
+Proof
+  Induct_on `args` >>
+  rw[Functions_def,subst_db_def]
+QED
+
+Theorem shift_db_Functions:
+  shift_db skip n (Functions args ret) =
+  Functions (MAP (shift_db skip n) args)
+    (shift_db skip n ret)
+Proof
+  Induct_on `args` >>
+  rw[Functions_def,shift_db_def]
+QED
+
+Theorem Functions_Functions:
+  Functions args_ty (Functions args_ty2 ret_ty) =
+    Functions (args_ty ++ args_ty2) ret_ty
+Proof
+  Induct_on `args_ty` >>
+  simp[Functions_def]
+QED
+
+Theorem collect_type_vars_Functions:
+  collect_type_vars (Functions args ret) =
+    BIGUNION (set (MAP collect_type_vars args)) ∪ collect_type_vars ret
+Proof
+  Induct_on `args` >>
+  rw[Functions_def,collect_type_vars_def] >>
+  metis_tac[pred_setTheory.UNION_COMM,
+    pred_setTheory.UNION_ASSOC]
+QED
 
 Definition freetyvars_ok_def:
   (freetyvars_ok n (Atom (VarTypeCons v)) = (v < n)) ∧
