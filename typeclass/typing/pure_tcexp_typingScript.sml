@@ -1,10 +1,12 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory pure_tcexpTheory typeclass_texpTheory
-typeclass_kindCheckTheory pure_configTheory;
+open typeclass_typesTheory typeclass_kindCheckTheory;
+open pure_cexpTheory pure_configTheory;
+open pure_tcexpTheory pure_tcexp_lemmasTheory
+pure_typingPropsTheory;
+open typeclass_texpTheory typeclass_typingTheory;
 open monadsyntax;
-open typeclass
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "option";
@@ -299,3 +301,4 @@ Inductive type_tcexp:
      type_tcexp ns db st env (SafeProj cname arity i e) t
 End
 
+val _ = export_theory();

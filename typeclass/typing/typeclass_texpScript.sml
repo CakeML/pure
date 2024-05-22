@@ -130,4 +130,113 @@ Termination
   rw[] >> gs[]
 End
 
+Triviality MAX_SET_LE:
+  FINITE s ∧ (∀y. y ∈ s ⇒ y ≤ x) ⇒
+  MAX_SET s ≤ x
+Proof
+  strip_tac >>
+  simp[GSYM GREATER_EQ] >>
+  ho_match_mp_tac MAX_SET_ELIM >>
+  simp[GREATER_EQ]
+QED
+
+Triviality MAX_SET_LT:
+  FINITE s ∧ (∀y. y ∈ s ⇒ y < x) ∧ 0 < x ⇒
+  MAX_SET s < x
+Proof
+  strip_tac >>
+  simp[GSYM GREATER_DEF] >>
+  ho_match_mp_tac MAX_SET_ELIM >>
+  simp[GREATER_DEF]
+QED
+
+(* similar to freevars_texp, but it collects every 
+* binder variable, the x and y in λx y. ...  *)
+Definition lambda_vars_def:
+  lambda_vars (Var _ _) = {} ∧
+  lambda_vars (Prim _ es) = lambda_varsl es ∧
+  lambda_vars (App f es) = lambda_vars f ∪ lambda_varsl es ∧
+  lambda_vars (Lam vs e) = set (MAP FST vs) ∪ lambda_vars e ∧
+  lambda_vars (Let v e e') =
+    FST v INSERT lambda_vars e ∪ lambda_vars e' ∧
+  lambda_vars (Letrec fns e') =
+    set (MAP (FST o FST) fns) ∪
+    lambda_varsl (MAP SND fns) ∪
+    lambda_vars e' ∧
+  lambda_vars (UserAnnot _ e) = lambda_vars e ∧
+  lambda_vars (NestedCase g gv p e pes) =
+    gv INSERT lambda_vars g ∪ cepat_vars p ∪ lambda_vars e ∪
+    BIGUNION (set (MAP (cepat_vars o FST) pes)) ∪
+    lambda_varsl (MAP SND pes) ∧
+  lambda_varsl [] = {} ∧
+  lambda_varsl (e::es) = lambda_vars e ∪ lambda_varsl es
+Termination
+  WF_REL_TAC `inv_image ($< LEX $<)
+    (λe. case e of
+    | INR es => (MAX_SET (set (MAP (texp_size (K 1)) es)),LENGTH es + 1)
+    | INL e => (texp_size (K 1) e,0))` >>
+  rw[]
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    drule_then (irule_at (Pos hd)) $ cj 3 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    simp[GSYM LE_LT] >>
+    irule in_max_set >>
+    simp[]
+  )
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    Cases_on `y''` >>
+    simp[] >>
+    drule_then (irule_at (Pos hd)) $ cj 2 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    Cases_on `y''` >>
+    simp[] >>
+    drule_then (irule_at (Pos hd)) $ cj 1 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    irule MAX_SET_LT >>
+    rw[MEM_MAP] >>
+    irule LESS_TRANS >>
+    drule_then (irule_at (Pos hd)) $ cj 3 texp_size_lemma >>
+    simp[]
+  )
+  >- (
+    simp[GSYM LE_LT] >>
+    irule MAX_SET_LE >>
+    rw[MEM_MAP,PULL_EXISTS] >>
+    irule in_max_set >>
+    simp[MEM_MAP] >>
+    metis_tac[]
+  )
+End
+
+Theorem lambda_varsl_def:
+  lambda_varsl es = BIGUNION (set (MAP lambda_vars es))
+Proof
+  Induct_on `es` >>
+  simp[lambda_vars_def]
+QED
+
+Theorem lambda_vars_FINITE[simp]:
+  (∀(e:'a texp). FINITE (lambda_vars e)) ∧
+  ∀(es:'a texp list). FINITE (lambda_varsl es)
+Proof
+  ho_match_mp_tac lambda_vars_ind >>
+  rw[lambda_vars_def,lambda_varsl_def,MEM_MAP,PULL_EXISTS,
+    GSYM pure_cexpTheory.cepat_vars_l_correct]
+QED
+
 val _ = export_theory();

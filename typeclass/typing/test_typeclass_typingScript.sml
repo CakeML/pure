@@ -5,7 +5,8 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
 open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory pure_cexpTheory pure_configTheory;
+open pure_cexpTheory pure_configTheory;
+open typeclass_typesTheory typeclass_typesPropsTheory;
 open typeclass_texpTheory typeclass_kindCheckTheory;
 open typeclass_typingTheory;
 
@@ -48,8 +49,6 @@ Definition test_defaults_elaborated_def:
     ]
   ]
 End
-
-Overload Tup = ``λn. Atom $ CompPrimTy $ Tuple n``;
 
 Definition test_instance_env_def:
   test_instance_env = [
@@ -262,9 +261,9 @@ Proof
     irule_at (Pos last) type_atom_op_IntOps_Int >>
     simp[] >>
     rpt (irule_at Any type_elaborate_texp_Var) >>
-    simp[has_dicts_simp,specialises_pred_def,subst_db_pred_def,
-      subst_db_empty] >>
-    simp[oneline get_PrimTys_def,AllCaseEqs()])
+    simp[has_dicts_simp,specialises_pred_def,subst_db_pred_def] >>
+    simp[oneline get_PrimTys_def,AllCaseEqs()]
+  )
   >- (
     simp[Once test_class_env_def,type_elaborate_impls_def] >>
     simp[subst_db_def,shift_db_def,
@@ -310,7 +309,7 @@ Proof
       PULL_EXISTS] >>
     irule_at (Pos hd) type_cepat_Cons >>
     simp[Once initial_namespace_def,destruct_type_cons_def,
-      subst_db_def,split_ty_head_def,split_ty_head_aux_def,
+      subst_db_def,split_ty_cons_def,split_ty_cons_aux_def,
       type_cons_def,LLOOKUP_THM,kind_ok_def,LIST_REL3_simp,
       PULL_EXISTS] >>
     rpt (irule_at Any type_cepat_Var) >>
@@ -345,16 +344,16 @@ Proof
     simp[LIST_REL3_simp] >>
     rpt (irule_at Any type_elaborate_texp_Var) >>
     simp[specialises_pred_def,PULL_EXISTS,subst_db_pred_def,
-      subst_db_Functions,subst_db_empty,has_dicts_empty,
+      subst_db_Functions,has_dicts_empty,
       has_dicts_simp,LIST_REL3_simp] >>
     simp[Once class_env_to_env_def,Once test_class_env_def] >>
     irule_at (Pos hd) $ iffLR FUN_EQ_THM >>
     qrefine `[_]` >>
-    simp[subst_db_empty] >>
+    simp[] >>
     irule_at (Pos hd) EQ_REFL >>
     simp[get_method_type_def,subst_db_Functions,PULL_EXISTS,kind_ok_def,
       specialises_pred_def,subst_db_def,subst_db_pred_def,LLOOKUP_THM,
-      Functions_Functions] >>
+      GSYM Functions_APPEND] >>
     irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
     simp[Once typedefs_to_cdb_def,Once initial_namespace_def,LLOOKUP_THM] >>
     simp[Once initial_namespace_def,kind_arrows_def] >>
@@ -452,8 +451,8 @@ Proof
     qrefinel [
       `Cons (Cons (Tup 2) (TypeVar a)) (TypeVar b)`,
       `Cons (Cons (Tup 2) (TypeVar a)) (TypeVar b)`] >>
-    simp[destruct_type_cons_def,split_ty_head_def,
-      split_ty_head_aux_def,initial_namespace_def] >>
+    simp[destruct_type_cons_def,split_ty_cons_def,
+      split_ty_cons_aux_def,initial_namespace_def] >>
     rpt (irule_at Any type_elaborate_texp_App) >>
     simp[LIST_REL3_simp,PULL_EXISTS] >>
     rpt (irule_at Any type_elaborate_texp_Var) >>
@@ -461,14 +460,14 @@ Proof
       has_dicts_simp] >>
     simp[specialises_pred_def,subst_db_Functions,shift_db_Functions,
       subst_db_pred_def,shift_db_pred_def,PULL_EXISTS,
-      subst_db_def,shift_db_def,subst_db_empty] >>
+      subst_db_def,shift_db_def] >>
     rpt (irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL) >>
     simp[kind_ok_def,LLOOKUP_THM] >>
     rpt (irule_at Any has_dict_lie) >>
     simp[] >>
     irule_at Any exhaustive_cepat_Cons >>
     simp[PULL_EXISTS,destruct_type_cons_def,
-      split_ty_head_def,split_ty_head_aux_def] >>
+      split_ty_cons_def,split_ty_cons_aux_def] >>
     qexists `{[cepatCons «» [cepatVar «x1»; cepatVar «x2»];
       cepatCons «» [cepatVar «y1»; cepatVar «y2»]]}` >>
     rpt (irule_at Any exhaustive_cepat_List) >>
@@ -488,7 +487,7 @@ Proof
       (Pat `exhaustive_cepat _ _ _ {cepatCons «» [_;_]}`)
       exhaustive_cepat_Cons >>
     simp[PULL_EXISTS,destruct_type_cons_def,
-      split_ty_head_def,split_ty_head_aux_def] >>
+      split_ty_cons_def,split_ty_cons_aux_def] >>
     rpt (irule_at Any $ cj 1 $ iffLR SET_EQ_SUBSET) >>
     simp[IMAGE_DEF,EXTENSION,PULL_EXISTS,EQ_IMP_THM] >>
     simp[FORALL_AND_THM,GSYM CONJ_ASSOC] >>
@@ -538,7 +537,7 @@ Proof
   simp[Once initial_namespace_def,Once test_class_env_def,
     kind_arrows_def,ce_to_clk_def] >>
   irule type_elaborate_texp_App >>
-  simp[LIST_REL3_simp,PULL_EXISTS,Functions_Functions] >>
+  simp[LIST_REL3_simp,PULL_EXISTS,GSYM Functions_APPEND] >>
   irule_at (Pos last) type_elaborate_texp_Var >>
   simp[Once class_env_to_env_def,Once test_class_env_def,
     get_method_type_def,has_dicts_simp,LIST_REL3_simp,
@@ -554,7 +553,7 @@ Proof
   simp[LIST_REL3_simp,PULL_EXISTS,type_cons_def] >>
   qexistsl [`0`,`0`] >>
   simp[LLOOKUP_THM,initial_namespace_def,PULL_EXISTS,typedefs_to_cdb_def,
-    tcons_to_type_def,cons_types_def,subst_db_def,subst_db_empty,
+    tcons_to_type_def,cons_types_def,subst_db_def,
     kind_arrows_def] >>
   irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
   rw[kind_ok_def,type_ok_def,LLOOKUP_THM]
@@ -594,23 +593,22 @@ Proof
     irule_at (Pos hd) type_elaborate_texp_NestedCase >>
     qexists `Cons (UserType 0) (TypeVar 0)` >>
     irule_at (Pos hd) type_elaborate_texp_Var >>
-    simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
-      subst_db_empty,PULL_EXISTS] >>
+    simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,PULL_EXISTS] >>
     irule_at (Pos hd) type_cepat_Cons >>
     simp[Once initial_namespace_def,destruct_type_cons_def,
-      split_ty_head_def,split_ty_head_aux_def,type_cons_def,
+      split_ty_cons_def,split_ty_cons_aux_def,type_cons_def,
       LIST_REL3_simp,LLOOKUP_THM,kind_ok_def,PULL_EXISTS,
       subst_db_def] >>
     rpt $ irule_at Any type_cepat_Var >>
     irule_at Any type_cepat_Cons >>
     simp[Once initial_namespace_def,destruct_type_cons_def,
-      split_ty_head_def,split_ty_head_aux_def,type_cons_def,
+      split_ty_cons_def,split_ty_cons_aux_def,type_cons_def,
       LLOOKUP_THM,kind_ok_def,LIST_REL3_simp] >>
     irule_at (Pat `exhaustive_cepat`) exhaustive_cepat_Cons >>
     rw[Once $ GSYM PULL_EXISTS]
     >- (
       gvs[initial_namespace_def,destruct_type_cons_def,
-        split_ty_head_def,split_ty_head_aux_def,type_cons_def,
+        split_ty_cons_def,split_ty_cons_aux_def,type_cons_def,
         LLOOKUP_THM,PULL_EXISTS,AllCaseEqs()]
       >- (
         irule_at (Pos hd) exhaustive_cepat_Nil >>
@@ -635,8 +633,8 @@ Proof
       simp[]
     ) >>
     irule_at Any type_elaborate_texp_Var >>
-    simp[specialises_pred_def,subst_db_pred_def,subst_db_empty,
-      has_dicts_empty] >>
+    simp[specialises_pred_def,subst_db_pred_def,
+      has_dicts_simp] >>
     irule type_elaborate_texp_Cons >>
     CONV_TAC (RESORT_EXISTS_CONV rev) >>
     qexistsl [`0`,`[TypeVar 0]`] >>
@@ -670,7 +668,7 @@ Proof
     >- simp[Functions_def,LLOOKUP_THM,ce_to_clk_def,test_class_env_def]
     >- simp[Functions_def,LLOOKUP_THM,ce_to_clk_def,test_class_env_def] >>
     irule type_elaborate_texp_App >>
-    simp[LIST_REL3_simp,PULL_EXISTS,Functions_Functions] >>
+    simp[LIST_REL3_simp,PULL_EXISTS,GSYM Functions_APPEND] >>
     irule_at Any type_elaborate_texp_Var >>
     simp[Once class_env_to_env_def,Once test_class_env_def,
       specialises_pred_def,subst_db_pred_def,get_method_type_def,
@@ -685,7 +683,7 @@ Proof
       irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
       simp[type_ok_def,kind_ok_def,PULL_EXISTS,LLOOKUP_THM] >>
       irule_at (Pos hd) type_elaborate_texp_Var >>
-      simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,subst_db_empty]
+      simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def]
     )
   ) >>
   irule type_elaborate_texp_App >>
@@ -703,7 +701,7 @@ Proof
     qexistsl [`[]`,`Entail [] [] («Foldable»,UserType 0)`] >>
     simp[instance_env_to_ie_def,test_instance_env_elaborated_def,
       instance_to_entailment_def,has_dicts_empty,
-      specialises_inst_def,subst_db_empty]
+      specialises_inst_def]
   ) >>
   `∀(ns:typedefs) db lie. has_dict ns db
     (set (class_env_to_ie test_class_env) ∪
@@ -715,7 +713,7 @@ Proof
     qexistsl [`[]`,`Entail [] [] («Monoid»,Atom (PrimTy Integer))`] >>
     simp[instance_env_to_ie_def,test_instance_env_elaborated_def,
       instance_to_entailment_def,has_dicts_empty,
-      specialises_inst_def,subst_db_empty]
+      specialises_inst_def]
   ) >>
   conj_asm1_tac
   >- (

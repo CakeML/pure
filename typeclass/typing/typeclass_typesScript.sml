@@ -52,6 +52,7 @@ Overload CompPrimTy = ``\x. TypeCons (INR $ CompPrimT x)``;
 Overload Unit = ``Atom $ CompPrimTy $ Tuple 0``;
 Overload TypeVar = ``\x. Atom (VarTypeCons x)``;
 Overload UserType = ``\x. Atom (TypeCons $ INL x)``;
+Overload Tup = ``λn. Atom $ CompPrimTy $ Tuple n``;
 
 Definition collect_type_vars_def:
   (collect_type_vars (Cons t1 t2) =
@@ -95,39 +96,6 @@ Definition shift_db_pred_def:
     Pred (MAP (I ## shift_db skip n) ps) (shift_db skip n t)
 End
 
-Theorem subst_db_empty:
-  subst_db skip [] t = t
-Proof
-  Induct_on `t` >>
-  simp[subst_db_def] >>
-  Cases_on `a` >>
-  simp[subst_db_def]
-QED
-
-Theorem shift_db_zero:
-  shift_db skip 0 t = t
-Proof
-  Induct_on `t` >>
-  simp[shift_db_def] >>
-  Cases_on `a` >>
-  simp[shift_db_def]
-QED
-
-Theorem type_full_induction:
-  ∀P.
-    (P (Atom Exception)) ∧
-    (∀s. P (Atom (TypeCons s))) ∧
-    (∀n. P (Atom (VarTypeCons n))) ∧
-    (∀t t'. P t ∧ P t' ⇒ P (Cons t t')) ⇒
-    (∀t. P t)
-Proof
-  ntac 2 strip_tac >>
-  ho_match_mp_tac $ fetch "-" "type_induction" >>
-  rw[] >>
-  Cases_on `a` >>
-  simp[]
-QED
-
 Overload tsubst = ``subst_db 0``;
 Overload tshift = ``shift_db 0``;
 Overload tsubst_pred = ``subst_db_pred 0``;
@@ -140,42 +108,6 @@ Definition Functions_def:
       (Cons (Atom $ CompPrimTy Function) at) $
       Functions ats t
 End
-
-Theorem subst_db_Functions:
-  subst_db skip ts (Functions args ret) =
-  Functions (MAP (subst_db skip ts) args)
-    (subst_db skip ts ret)
-Proof
-  Induct_on `args` >>
-  rw[Functions_def,subst_db_def]
-QED
-
-Theorem shift_db_Functions:
-  shift_db skip n (Functions args ret) =
-  Functions (MAP (shift_db skip n) args)
-    (shift_db skip n ret)
-Proof
-  Induct_on `args` >>
-  rw[Functions_def,shift_db_def]
-QED
-
-Theorem Functions_Functions:
-  Functions args_ty (Functions args_ty2 ret_ty) =
-    Functions (args_ty ++ args_ty2) ret_ty
-Proof
-  Induct_on `args_ty` >>
-  simp[Functions_def]
-QED
-
-Theorem collect_type_vars_Functions:
-  collect_type_vars (Functions args ret) =
-    BIGUNION (set (MAP collect_type_vars args)) ∪ collect_type_vars ret
-Proof
-  Induct_on `args` >>
-  rw[Functions_def,collect_type_vars_def] >>
-  metis_tac[pred_setTheory.UNION_COMM,
-    pred_setTheory.UNION_ASSOC]
-QED
 
 Definition freetyvars_ok_def:
   (freetyvars_ok n (Atom (VarTypeCons v)) = (v < n)) ∧
@@ -198,73 +130,15 @@ Definition tcons_to_type_def:
   tcons_to_type tcons targs = cons_types (Atom $ TypeCons tcons) targs
 End
 
-Theorem tcons_to_type_alt:
-  (∀tcons. tcons_to_type tcons [] = Atom $ TypeCons tcons) ∧
-  (∀tcons t1 targs.
-    tcons_to_type tcons (t1::targs) =
-      cons_types (Cons (Atom $ TypeCons tcons) t1) targs)
-Proof
-  rw[tcons_to_type_def] >>
-  simp[Once cons_types_def]
-QED
-
-Theorem cons_types_APPEND:
-   ∀t ts1 ts2.
-     cons_types t (ts1 ++ ts2) = cons_types (cons_types t ts1) ts2
-Proof
-  Induct_on `ts1` >>
-  rw[cons_types_def]
-QED
-
-Theorem cons_types_SNOC:
-  ∀t ts1 t2. cons_types t (ts1 ++ [t2]) = Cons (cons_types t ts1) t2
-Proof
-  simp[cons_types_APPEND,cons_types_def]
-QED
-
-Theorem tcons_to_type_APPEND:
-  tcons_to_type tcons (ts1 ++ ts2) = cons_types (tcons_to_type tcons ts1) ts2
-Proof
-  simp[tcons_to_type_def,cons_types_APPEND]
-QED
-
-Theorem tcons_to_type_SNOC:
-  tcons_to_type tcons (SNOC t ts1) = Cons (tcons_to_type tcons ts1) t
-Proof
-  simp[tcons_to_type_APPEND,SNOC_APPEND,cons_types_def]
-QED
-
-Theorem subst_db_cons_types:
-  ∀thd. subst_db n ts (cons_types thd targs) =
-    cons_types (subst_db n ts thd) $ MAP (subst_db n ts) targs
-Proof
-  Induct_on `targs` >>
-  rw[cons_types_def,subst_db_def]
-QED
-
-Theorem subst_db_tcons_to_type:
-  subst_db n ts (tcons_to_type tcons targs) =
-    tcons_to_type tcons $ MAP (subst_db n ts) targs
-Proof
-  rw[tcons_to_type_def,subst_db_cons_types,subst_db_def]
-QED
-
-Theorem tsubst_cons_types:
-  ∀thd. tsubst ts (cons_types thd targs) =
-    cons_types (tsubst ts thd) $ MAP (tsubst ts) targs
-Proof
-  rw[subst_db_cons_types]
-QED
-
-Theorem tsubst_tcons_to_type:
-  tsubst ts (tcons_to_type tcons targs) =
-    tcons_to_type tcons $ MAP (tsubst ts) targs
-Proof
-  rw[subst_db_tcons_to_type]
-QED
-
 (* Functions to split the type in the form `F v1 v2 ...` to
 * F and [v1;v2...] *)
+Definition head_ty_def:
+  head_ty (Cons t1 t2) = head_ty t1 ∧
+  head_ty (Atom a) = a
+End
+
+(* head_ty but only returns SOME
+* when the head is a TypeCon *)
 Definition head_ty_cons_def:
   head_ty_cons (Cons t1 t2) = head_ty_cons t1 ∧
   head_ty_cons (Atom $ TypeCons tc) = SOME tc ∧
@@ -280,53 +154,24 @@ Definition ty_args_def:
   ty_args t = ty_args_aux t []
 End
 
-Triviality ty_args_aux_SNOC:
-  ∀t t1 t2 l. t = Cons t1 t2 ⇒ ty_args_aux t l = ty_args_aux t1 [] ++ (t2::l)
-Proof
-  Induct_on `t` >>
-  rw[] >>
-  Cases_on `t` >>
-  gvs[ty_args_aux_def]
-QED
-
-Theorem ty_args_SNOC:
-  ty_args (Cons t1 t2) = SNOC t2 (ty_args t1)
-Proof
-  simp[ty_args_def,ty_args_aux_SNOC]
-QED
-
-Theorem ty_args_alt:
-  (∀t1 t2. ty_args (Cons t1 t2) = SNOC t2 (ty_args t1)) ∧
-  (∀x. ty_args (Atom x) = [])
-Proof
-  simp[ty_args_SNOC] >> simp[ty_args_def,ty_args_aux_def]
-QED
-
-Definition split_ty_head_aux_def:
-  split_ty_head_aux (Cons t1 t2) l = split_ty_head_aux t1 (t2::l) ∧
-  split_ty_head_aux (Atom $ TypeCons tc) l = SOME (tc,l) ∧
-  split_ty_head_aux (Atom _) l = NONE
+Definition split_ty_aux_def:
+  split_ty_aux (Cons t1 t2) l = split_ty_aux t1 (t2::l) ∧
+  split_ty_aux (Atom a) l = (a,l)
 End
 
-Triviality split_ty_head_aux_thm:
-  ∀t l tc targs.
-    split_ty_head_aux t l = SOME (tc,targs) ⇔
-    (head_ty_cons t = SOME tc ∧ ty_args_aux t l = targs)
-Proof
-  ho_match_mp_tac head_ty_cons_ind >>
-  rw[head_ty_cons_def,split_ty_head_aux_def,ty_args_aux_def]
-QED
-
-Definition split_ty_head_def:
-  split_ty_head t = split_ty_head_aux t []
+Definition split_ty_def:
+  split_ty t = split_ty_aux t []
 End
 
-Theorem split_ty_head_thm:
-  ∀t tc targs.
-    split_ty_head t = SOME (tc,targs) ⇔
-    (head_ty_cons t = SOME tc ∧ ty_args t = targs)
-Proof
-  simp[split_ty_head_def,ty_args_def,split_ty_head_aux_thm]
-QED
+(* split_ty but only return SOME when the head is Cons *)
+Definition split_ty_cons_aux_def:
+  split_ty_cons_aux (Cons t1 t2) l = split_ty_cons_aux t1 (t2::l) ∧
+  split_ty_cons_aux (Atom $ TypeCons tc) l = SOME (tc,l) ∧
+  split_ty_cons_aux (Atom _) l = NONE
+End
+
+Definition split_ty_cons_def:
+  split_ty_cons t = split_ty_cons_aux t []
+End
 
 val _ = export_theory();

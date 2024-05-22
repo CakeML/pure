@@ -1,7 +1,7 @@
 (* Definitions common to inference theories. *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open arithmeticTheory optionTheory listTheory;
-open typeclass_typesTheory;
+open typeclass_typesTheory typeclass_kindCheckTheory;
 
 val _ = new_theory "typeclass_inference_common";
 
@@ -26,6 +26,44 @@ Definition freedbvars_def:
   (freedbvars (iCons it1 it2) = freedbvars it1 ∪ freedbvars it2) ∧
   (freedbvars (iAtom (VarTypeCons v)) = {v}) ∧
   (freedbvars _ = {})
+End
+
+Inductive ikind_wf:
+[~Prim:]
+  ∀t. ikind_wf cdb vdb cvdb kindType (iAtom $ PrimTy t)
+[~Exception:]
+  ikind_wf cdb vdb cvdb kindType (iAtom Exception)
+[~VarTypeCons:]
+  ∀v k.
+    vdb v = SOME k ⇒
+    ikind_wf cdb vdb cvdb k (iAtom $ VarTypeCons v)
+[~TyConsINL:]
+  ∀c k.
+    cdb c = SOME k ⇒
+    ikind_wf cdb vdb cvdb k (iAtom $ TypeCons (INL c))
+[~TyConsFunction:]
+   ikind_wf cdb vdb cvdb
+     (kindArrow kindType $ kindArrow kindType kindType)
+     (iAtom $ CompPrimTy Function)
+[~TypeConsArray:]
+   ikind_wf cdb vdb cvdb (kindArrow kindType kindType)
+     (iAtom $ CompPrimTy Array)
+[~TypeConsM:]
+   ikind_wf cdb vdb cvdb (kindArrow kindType kindType)
+     (iAtom $ CompPrimTy M)
+[~TypeConsTuple:]
+   ∀n.
+     ikind_wf cdb vdb cvdb (kind_arrows (GENLIST (K kindType) n) kindType)
+       (iAtom $ CompPrimTy $ Tuple n)
+[~Cons:]
+   ∀k1 k2 t1 t2.
+     ikind_wf cdb vdb cvdb (kindArrow k1 k2) t1 ∧
+     ikind_wf cdb vdb cvdb k1 t2 ⇒
+       ikind_wf cdb vdb cvdb k2 (iCons t1 t2)
+[~CVar:]
+  ∀n k.
+    cvdb n = SOME k ⇒
+    ikind_wf cdb vbd cvdb k (iCVar n)
 End
 
 (*
@@ -82,20 +120,6 @@ Definition type_of_def:
   type_of (iAtom at) = SOME $ Atom at ∧
   type_of (iCVar v) = NONE
 End
-
-(* only call the_type_of when there is no iCVar *)
-Definition the_type_of_def:
-  the_type_of (iCons t1 t2) = Cons (the_type_of t1) (the_type_of t2) ∧
-  the_type_of (iAtom at) = Atom at ∧
-  the_type_of (iCVar v) = Unit (* should never be called when there is CVar *)
-End
-
-Theorem type_of_the_type_of:
-  ∀t t'. type_of t = SOME t' ⇒ the_type_of t = t'
-Proof
-  Induct_on `t` >>
-  rw[type_of_def,the_type_of_def]
-QED
 
 val _ = export_theory();
 

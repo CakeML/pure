@@ -175,4 +175,20 @@ Proof
   gvs[freetyvars_ok_def,miscTheory.LLOOKUP_THM]
 QED
 
+Triviality kind_wf_mono_helper:
+  ∀k t.
+    kind_wf cdb vdb k t ⇒
+  ∀cdb' vdb'.
+    (∀c ck. cdb c = SOME ck ⇒ cdb' c = SOME ck) ∧
+    (∀v vk. vdb v = SOME vk ⇒ vdb' v = SOME vk) ⇒
+  kind_wf cdb' vdb' k t
+Proof
+  ho_match_mp_tac kind_wf_ind >>
+  rw[] >>
+  res_tac >> metis_tac[]
+QED
+
+Theorem kind_wf_mono = GEN_ALL $
+  SRULE[AND_IMP_INTRO,cj 1 PULL_FORALL] kind_wf_mono_helper;
+
 val _ = export_theory();

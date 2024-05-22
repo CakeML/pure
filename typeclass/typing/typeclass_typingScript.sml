@@ -60,22 +60,6 @@ Definition initial_namespace_def:
   )
 End
 
-(* Constructor names and their arities defined by a namespace *)
-Definition ns_cns_arities_def:
-  ns_cns_arities (exndef : exndef, tdefs : typedefs) =
-    set (MAP (λ(cn,ts). cn, LENGTH ts) exndef) INSERT
-    {(«True», 0); («False», 0)} (* Booleans considered built-in *) INSERT
-    set (MAP (λ(ar,cndefs). set (MAP (λ(cn,ts). cn, LENGTH ts) cndefs)) tdefs)
-End
-
-(* Check a set of constructor names/arities fits a namespace *)
-Definition cns_arities_ok_def:
-  cns_arities_ok ns cns_arities ⇔
-  ∀cn_ars. cn_ars ∈ cns_arities ⇒
-    (∃ar. cn_ars = {«»,ar}) (* all tuples allowed *) ∨
-    (∃cn_ars'. cn_ars' ∈ ns_cns_arities ns ∧ cn_ars ⊆ cn_ars')
-End
-
 Definition typedefs_to_cdb_def:
   typedefs_to_cdb typedefs =
     (λc. OPTION_MAP (λtinfo. kind_arrows (FST tinfo) kindType)
@@ -252,7 +236,7 @@ Definition destruct_type_cons_def:
     type_exception edef (cname,carg_tys)
   else
   ∃tc targs.
-    split_ty_head t = SOME (tc,targs) ∧
+    split_ty_cons t = SOME (tc,targs) ∧
     case tc of
     | INL tyid => type_cons tdefs db (cname,carg_tys) (tyid,targs)
     | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
@@ -815,113 +799,6 @@ Definition get_names_namespace_def:
   get_names_namespace (ns: exndef # typedefs) =
     (MAP FST $ FST ns) ++ FLAT (MAP (MAP FST o SND) $ SND ns)
 End
-
-Triviality MAX_SET_LE:
-  FINITE s ∧ (∀y. y ∈ s ⇒ y ≤ x) ⇒
-  MAX_SET s ≤ x
-Proof
-  strip_tac >>
-  simp[GSYM GREATER_EQ] >>
-  ho_match_mp_tac MAX_SET_ELIM >>
-  simp[GREATER_EQ]
-QED
-
-Triviality MAX_SET_LT:
-  FINITE s ∧ (∀y. y ∈ s ⇒ y < x) ∧ 0 < x ⇒
-  MAX_SET s < x
-Proof
-  strip_tac >>
-  simp[GSYM GREATER_DEF] >>
-  ho_match_mp_tac MAX_SET_ELIM >>
-  simp[GREATER_DEF]
-QED
-
-Definition lambda_vars_def:
-  lambda_vars (Var _ _) = {} ∧
-  lambda_vars (Prim _ es) = lambda_varsl es ∧
-  lambda_vars (App f es) = lambda_vars f ∪ lambda_varsl es ∧
-  lambda_vars (Lam vs e) = set (MAP FST vs) ∪ lambda_vars e ∧
-  lambda_vars (Let v e e') =
-    FST v INSERT lambda_vars e ∪ lambda_vars e' ∧
-  lambda_vars (Letrec fns e') =
-    set (MAP (FST o FST) fns) ∪
-    lambda_varsl (MAP SND fns) ∪
-    lambda_vars e' ∧
-  lambda_vars (UserAnnot _ e) = lambda_vars e ∧
-  lambda_vars (NestedCase g gv p e pes) =
-    gv INSERT lambda_vars g ∪ cepat_vars p ∪ lambda_vars e ∪
-    BIGUNION (set (MAP (cepat_vars o FST) pes)) ∪
-    lambda_varsl (MAP SND pes) ∧
-  lambda_varsl [] = {} ∧
-  lambda_varsl (e::es) = lambda_vars e ∪ lambda_varsl es
-Termination
-  WF_REL_TAC `inv_image ($< LEX $<)
-    (λe. case e of
-    | INR es => (MAX_SET (set (MAP (texp_size (K 1)) es)),LENGTH es + 1)
-    | INL e => (texp_size (K 1) e,0))` >>
-  rw[]
-  >- (
-    irule MAX_SET_LT >>
-    rw[MEM_MAP] >>
-    irule LESS_TRANS >>
-    drule_then (irule_at (Pos hd)) $ cj 3 texp_size_lemma >>
-    simp[]
-  )
-  >- (
-    simp[GSYM LE_LT] >>
-    irule in_max_set >>
-    simp[]
-  )
-  >- (
-    irule MAX_SET_LT >>
-    rw[MEM_MAP] >>
-    irule LESS_TRANS >>
-    Cases_on `y''` >>
-    simp[] >>
-    drule_then (irule_at (Pos hd)) $ cj 2 texp_size_lemma >>
-    simp[]
-  )
-  >- (
-    irule MAX_SET_LT >>
-    rw[MEM_MAP] >>
-    irule LESS_TRANS >>
-    Cases_on `y''` >>
-    simp[] >>
-    drule_then (irule_at (Pos hd)) $ cj 1 texp_size_lemma >>
-    simp[]
-  )
-  >- (
-    irule MAX_SET_LT >>
-    rw[MEM_MAP] >>
-    irule LESS_TRANS >>
-    drule_then (irule_at (Pos hd)) $ cj 3 texp_size_lemma >>
-    simp[]
-  )
-  >- (
-    simp[GSYM LE_LT] >>
-    irule MAX_SET_LE >>
-    rw[MEM_MAP,PULL_EXISTS] >>
-    irule in_max_set >>
-    simp[MEM_MAP] >>
-    metis_tac[]
-  )
-End
-
-Theorem lambda_varsl_def:
-  lambda_varsl es = BIGUNION (set (MAP lambda_vars es))
-Proof
-  Induct_on `es` >>
-  simp[lambda_vars_def]
-QED
-
-Theorem lambda_vars_FINITE[simp]:
-  (∀(e:'a texp). FINITE (lambda_vars e)) ∧
-  ∀(es:'a texp list). FINITE (lambda_varsl es)
-Proof
-  ho_match_mp_tac lambda_vars_ind >>
-  rw[lambda_vars_def,lambda_varsl_def,MEM_MAP,PULL_EXISTS,
-    GSYM pure_cexpTheory.cepat_vars_l_correct]
-QED
 
 (*
 * Dictionary construction given that we have the elaborated expression.
@@ -1678,6 +1555,7 @@ Definition prog_construct_dict_def:
    output_bindings =
      translated_fns ++ translated_defaults ++
      translated_inst_env ++ translated_ce ∧
+   (* distinctness of variable names *)
    LENGTH sup_vs = LENGTH (class_env_to_ie ce) ∧
    LENGTH inst_vs = LENGTH inst_env ∧
    ALL_DISTINCT sup_vs ∧
@@ -1687,22 +1565,35 @@ Definition prog_construct_dict_def:
    set sup_vs ∩ set inst_vs ∩
     set (MAP FST $ class_env_to_env ce) ∩ set (MAP SND default_name_map) ∩
     (set (MAP (FST o FST) fns) ∪ lambda_varsl (MAP SND fns)) = ∅ ∧
+   (* set the the instance environment *)
    ie = FEMPTY |++
      (ZIP (sup_vs,class_env_to_ie ce) ++
       ZIP (inst_vs,instance_env_to_ie inst_env)) ∧
+   (* set up the variable environment
+   * (every method name declared in class env is in env) *)
    env = set (MAP (FST ∘ FST) fns ++ MAP FST (class_env_to_env ce)) ∧
+   (* create the map from class name to the type id in the
+   * translated namespace *)
    cl_to_tyid = FEMPTY |++
      ZIP (MAP FST ce,GENLIST (λn. n + LENGTH (SND ns)) (LENGTH ce)) ∧
+   (* an alist from class name to the data constructor name for
+   * dictionary for the class *)
    MAP FST cl_cons = MAP FST ce ∧
+   (* translate the namespace *)
    class_env_to_ns ce cl_to_tyid (MAP SND cl_cons) ce = SOME
   cl_ns ∧
    translated_ns =
      append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns) ∧
+   (* translate getting super classes and the method calls
+   * by doing case analysis *)
    translated_ce = class_env_construct_dict (MAP SND cl_cons) sup_vs ce ∧
+   (* translate all the dictionaries to let bindings *)
    instance_env_construct_dict ns ce ie env cl_cons default_name_map
      inst_vs inst_env translated_inst_env ∧
+   (* translate defaults method *)
    default_impls_construct_dict ns ce ie env default_name_map defaults
      translated_defaults ∧
+   (* translate the let bindings *)
    LIST_REL
      (λ((x,ot),e) (y,de).
           x = y ∧
