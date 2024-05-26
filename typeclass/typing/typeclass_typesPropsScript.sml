@@ -445,6 +445,63 @@ Proof
   rw[tcons_to_type_def,shift_db_cons_types,shift_db_def]
 QED
 
+Theorem subst_db_head_ty:
+  ∀skip ts t.
+  head_ty (subst_db skip ts t) =
+  case head_ty t of
+  | VarTypeCons v =>
+      if skip ≤ v ∧ v < skip + LENGTH ts
+        then head_ty (EL (v - skip) ts)
+      else if skip ≤ v
+        then VarTypeCons (v - LENGTH ts)
+      else VarTypeCons v
+  | a => a
+Proof
+  ho_match_mp_tac subst_db_ind >>
+  rw[subst_db_def,head_ty_def]
+QED
+
+Theorem subst_db_ty_args:
+  ∀skip ts t.
+  ty_args (subst_db skip ts t) =
+  case head_ty t of
+  | VarTypeCons v =>
+      if skip ≤ v ∧ v < skip + LENGTH ts
+      then ty_args (EL (v - skip) ts) ++
+        MAP (subst_db skip ts) (ty_args t)
+      else MAP (subst_db skip ts) (ty_args t)
+  | a => MAP (subst_db skip ts) (ty_args t)
+Proof
+  ho_match_mp_tac subst_db_ind >>
+  rw[subst_db_def,ty_args_alt,head_ty_def] >>
+  TOP_CASE_TAC >>
+  IF_CASES_TAC >>
+  rw[]
+QED
+
+Theorem shift_db_head_ty:
+  ∀skip n t.
+  head_ty (shift_db skip n t) =
+  case head_ty t of
+  | VarTypeCons v =>
+      if skip ≤ v
+      then VarTypeCons (v + n)
+      else VarTypeCons v
+  | a => a
+Proof
+  ho_match_mp_tac shift_db_ind >>
+  rw[shift_db_def,head_ty_def]
+QED
+
+Theorem shift_db_ty_args:
+  ∀skip n t.
+  ty_args (shift_db skip n t) =
+    MAP (shift_db skip n) (ty_args t)
+Proof
+  ho_match_mp_tac shift_db_ind >>
+  rw[shift_db_def,ty_args_alt]
+QED
+
 (******************** Properties of types ********************)
 
 Theorem freetyvars_ok_mono:

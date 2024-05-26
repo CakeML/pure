@@ -517,38 +517,137 @@ Inductive type_cepat:
     type_cepat ns db (cepatCons c pats) t (FLAT vtss)
 End
 
+(* type that we can apply case on *)
+Definition destructable_type_def:
+  destructable_type ns t ⇔
+  t = Atom Exception ∨
+  case head_ty_cons t of
+  | SOME (INL tyid) => tyid < LENGTH (SND ns)
+  | SOME (INR (PrimT Bool)) => T
+  | SOME (INR (CompPrimT (Tuple n))) => T
+  | SOME _ => F
+  | NONE => F
+End
+
+(* These unsafe versions are only for exhaustiveness check,
+* and the reason to introduce them is to remove the argument db
+* in the exhastive_cepat *)
+(* type_cons but do not check if the type arguments are kind_ok *)
+Definition unsafe_type_cons_def:
+  unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ⇔
+  ∃argks constructors schemes.
+    LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
+    ALOOKUP constructors cname = SOME schemes ∧
+    MAP (tsubst tyargs) schemes = carg_tys
+End
+
+Theorem unsafe_type_cons_carg_tys_unique:
+  unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ∧
+  unsafe_type_cons tdefs (cname,carg_tys') (tyid,tyargs) ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline unsafe_type_cons_def] >>
+  gvs[]
+QED
+
+Theorem type_cons_IMP_unsafe_type_cons:
+  type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ⇒
+  unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs)
+Proof
+  rw[type_cons_def,unsafe_type_cons_def] >>
+  metis_tac[]
+QED
+
+Theorem type_cons_carg_tys_unique:
+  type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ∧
+  type_cons tdefs db (cname,carg_tys') (tyid,tyargs) ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[type_cons_def] >>
+  gvs[]
+QED
+
+(* destruct_type_cons but do not check if the type arguments are kind_ok *)
+Definition unsafe_destruct_type_cons_def:
+  unsafe_destruct_type_cons (edefs,tdefs) t cname carg_tys ⇔
+  if t = Atom Exception then type_exception edefs (cname,carg_tys)
+  else
+    ∃tc targs.
+    split_ty_cons t = SOME (tc,targs) ∧
+    (case tc of
+    | INL tyid => unsafe_type_cons tdefs (cname,carg_tys) (tyid,targs)
+    | INR (PrimT Bool) => MEM cname [«True»; «False»] ∧ carg_tys = []
+    | INR (CompPrimT (Tuple n)) => cname = «» ∧ targs = carg_tys
+    | _ => F)
+End
+
+Theorem destruct_type_cons_IMP_unsafe_type_cons:
+  destruct_type_cons ns db t cname carg_tys ⇒
+  unsafe_destruct_type_cons ns t cname carg_tys
+Proof
+  rw[oneline destruct_type_cons_def,oneline unsafe_destruct_type_cons_def] >>
+  every_case_tac >> gvs[] >>
+  every_case_tac >>
+  metis_tac[type_cons_IMP_unsafe_type_cons]
+QED
+
+Theorem unsafe_destruct_type_cons_unique:
+  unsafe_destruct_type_cons ns t cname carg_tys ∧
+  unsafe_destruct_type_cons ns t cname carg_tys' ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline unsafe_destruct_type_cons_def] >>
+  pop_assum mp_tac >>
+  every_case_tac >> gvs[type_exception_def] >>
+  every_case_tac >> gvs[] >>
+  metis_tac[unsafe_type_cons_carg_tys_unique]
+QED
+
+Theorem destruct_type_cons_unique:
+  destruct_type_cons ns db t cname carg_tys ∧
+  destruct_type_cons ns db t cname carg_tys' ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline destruct_type_cons_def] >>
+  pop_assum mp_tac >>
+  every_case_tac >> gvs[type_exception_def] >>
+  every_case_tac >> gvs[] >>
+  metis_tac[type_cons_carg_tys_unique]
+QED
+
 Inductive exhaustive_cepat:
 [~Var:]
   cepatVar v ∈ s ⇒
-    exhaustive_cepat ns db t s
+    exhaustive_cepat ns t s
 
 [~UScore:]
   cepatUScore ∈ s ⇒
-    exhaustive_cepat ns db t s
+    exhaustive_cepat ns t s
 
 [~Cons:]
-  (∀c ts. destruct_type_cons ns db t c ts ⇒
+  destructable_type ns t ∧
+  (∀c ts. unsafe_destruct_type_cons ns t c ts ⇒
     ∃(pss:cepat list set).
-      exhaustive_cepatl ns db ts pss ∧ IMAGE (cepatCons c) pss ⊆ s) ⇒
-  exhaustive_cepat ns db t s
+      exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ s) ⇒
+  exhaustive_cepat ns t s
 
 [~Nil:]
   [] ∈ pss ⇒
-    exhaustive_cepatl ns db [] pss
+    exhaustive_cepatl ns [] pss
 
 [~List:]
-  exhaustive_cepat ns db t hs ∧
-  exhaustive_cepatl ns db ts tls ∧
+  exhaustive_cepat ns t hs ∧
+  exhaustive_cepatl ns ts tls ∧
   IMAGE (UNCURRY CONS) (hs × tls) ⊆ pss ⇒
-    exhaustive_cepatl ns db (t::ts) pss
+    exhaustive_cepatl ns (t::ts) pss
 End
 
 Theorem exhaustive_cepat_monotone:
-  (∀t s. exhaustive_cepat ns db t s ⇒
-    ∀s'. s ⊆ s' ⇒ exhaustive_cepat ns db t s') ∧
+  (∀t s. exhaustive_cepat ns t s ⇒
+    ∀s'. s ⊆ s' ⇒ exhaustive_cepat ns t s') ∧
 
-  (∀ts s. exhaustive_cepatl ns db ts s ⇒
-    ∀s'. s ⊆ s' ⇒ exhaustive_cepatl ns db ts s')
+  (∀ts s. exhaustive_cepatl ns ts s ⇒
+    ∀s'. s ⊆ s' ⇒ exhaustive_cepatl ns ts s')
 Proof
   ho_match_mp_tac exhaustive_cepat_ind >>
   rw[SUBSET_DEF]
@@ -615,8 +714,8 @@ Inductive type_elaborate_texp:
     type_elaborate_texp ns clk ie lie db st env (App e es) (App e' es') ret_ty
 
 [~Let:]
-  pred_type_elaborate_texp ns clk ie lie (new ++ db) (MAP (tshift n) st)
-    (tshift_env_pred n env) e1 e1' pt1 ∧
+  pred_type_elaborate_texp ns clk ie lie (new ++ db) (MAP (tshift (LENGTH new)) st)
+    (tshift_env_pred (LENGTH new) env) e1 e1' pt1 ∧
   type_elaborate_texp ns clk ie lie db st ((x,new,pt1)::env) e2 e2' t2 ⇒
      type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
         (Let (x,SOME (new,pt1)) e1' e2') t2
@@ -626,7 +725,7 @@ Inductive type_elaborate_texp:
   LENGTH new = n ∧
   type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
     (Let (x,SOME (new,pt)) e1' e2') t2 ⇒
-      type_elaborate_texp ns clk ie lie db st env (Let (x,SONE (n,pt)) e1 e2)
+      type_elaborate_texp ns clk ie lie db st env (Let (x,SOME (n,pt)) e1 e2)
         (Let (x,SOME (new,pt)) e1' e2') t2
 
 [~Lam:]
@@ -638,9 +737,9 @@ Inductive type_elaborate_texp:
   LIST_REL (λot t'.
     case ot of
     | NONE => T
-    | SOME t => t = t') (MAP SND vs) arg_tys ∧
+    | SOME t => t = t') (MAP SND vs) args_tys ∧
   type_elaborate_texp ns clk ie lie db st
-    (REVERSE (ZIP (MAP FST vs, MAP (λat. ([],Pred [] at)) arg_tys)) ++ env)
+    (REVERSE (ZIP (MAP FST vs, MAP (λat. ([],Pred [] at)) args_tys)) ++ env)
     e e' ret_ty ⇒
       type_elaborate_texp ns clk ie lie db st env (Lam vs e) (Lam vs e') ty
 
@@ -772,7 +871,7 @@ Inductive type_elaborate_texp:
         e e' t)
     ((p,e1)::pes) ((p,e1')::pes') ∧
   (* exhaust all cases *)
-  exhaustive_cepat ns db vt (p INSERT (IMAGE FST $ set pes)) ∧
+  exhaustive_cepat ns vt (p INSERT (IMAGE FST $ set pes)) ∧
   ¬MEM v (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e)::pes))) ⇒
   type_elaborate_texp ns clk ie lie db st env
     (NestedCase e v p e1 pes) (NestedCase e' v p e1' pes') t
