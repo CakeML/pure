@@ -28,74 +28,43 @@ Definition freedbvars_def:
   (freedbvars _ = {})
 End
 
-Inductive ikind_wf:
+Inductive ikind_ok:
 [~Prim:]
-  ∀t. ikind_wf cdb vdb cvdb kindType (iAtom $ PrimTy t)
+  ∀t. ikind_ok cdb vdb cvdb kindType (iAtom $ PrimTy t)
 [~Exception:]
-  ikind_wf cdb vdb cvdb kindType (iAtom Exception)
+  ikind_ok cdb vdb cvdb kindType (iAtom Exception)
 [~VarTypeCons:]
   ∀v k.
-    vdb v = SOME k ⇒
-    ikind_wf cdb vdb cvdb k (iAtom $ VarTypeCons v)
+    LLOOKUP vdb v = SOME k ⇒
+    ikind_ok cdb vdb cvdb k (iAtom $ VarTypeCons v)
 [~TyConsINL:]
   ∀c k.
-    cdb c = SOME k ⇒
-    ikind_wf cdb vdb cvdb k (iAtom $ TypeCons (INL c))
+    LLOOKUP cdb c = SOME k ⇒
+    ikind_ok cdb vdb cvdb k (iAtom $ TypeCons (INL c))
 [~TyConsFunction:]
-   ikind_wf cdb vdb cvdb
+   ikind_ok cdb vdb cvdb
      (kindArrow kindType $ kindArrow kindType kindType)
      (iAtom $ CompPrimTy Function)
 [~TypeConsArray:]
-   ikind_wf cdb vdb cvdb (kindArrow kindType kindType)
+   ikind_ok cdb vdb cvdb (kindArrow kindType kindType)
      (iAtom $ CompPrimTy Array)
 [~TypeConsM:]
-   ikind_wf cdb vdb cvdb (kindArrow kindType kindType)
+   ikind_ok cdb vdb cvdb (kindArrow kindType kindType)
      (iAtom $ CompPrimTy M)
 [~TypeConsTuple:]
    ∀n.
-     ikind_wf cdb vdb cvdb (kind_arrows (GENLIST (K kindType) n) kindType)
+     ikind_ok cdb vdb cvdb (kind_arrows (GENLIST (K kindType) n) kindType)
        (iAtom $ CompPrimTy $ Tuple n)
 [~Cons:]
    ∀k1 k2 t1 t2.
-     ikind_wf cdb vdb cvdb (kindArrow k1 k2) t1 ∧
-     ikind_wf cdb vdb cvdb k1 t2 ⇒
-       ikind_wf cdb vdb cvdb k2 (iCons t1 t2)
+     ikind_ok cdb vdb cvdb (kindArrow k1 k2) t1 ∧
+     ikind_ok cdb vdb cvdb k1 t2 ⇒
+       ikind_ok cdb vdb cvdb k2 (iCons t1 t2)
 [~CVar:]
   ∀n k.
-    cvdb n = SOME k ⇒
-    ikind_wf cdb vbd cvdb k (iCVar n)
+    LLOOKUP cvdb n = SOME k ⇒
+    ikind_ok cdb vbd cvdb k (iCVar n)
 End
-
-(*
-Definition itype_wf_def:
-  itype_wf (typedefs : typedefs) (DBVar n) = T ∧
-  itype_wf typedefs (PrimTy pty) = T ∧
-  itype_wf typedefs  Exception = T ∧
-  itype_wf typedefs (TypeCons id tyargs) = (
-    EVERY (itype_wf typedefs) tyargs ∧
-    ∃arity constructors.
-      (* Type definition exists: *)
-        oEL id typedefs = SOME (arity, constructors) ∧
-      (* And has correct arity: *)
-        LENGTH tyargs = arity) ∧
-  itype_wf typedefs (Tuple ts) =
-    EVERY (itype_wf typedefs) ts ∧
-  itype_wf typedefs (Function tf t) = (
-    itype_wf typedefs t ∧ itype_wf typedefs tf) ∧
-  itype_wf typedefs (Array t) = itype_wf typedefs t ∧
-  itype_wf typedefs (M t) = itype_wf typedefs t ∧
-  itype_wf typedefs (CVar cv) = T
-Termination
-  WF_REL_TAC `measure (itype_size o SND)` >> rw[fetch "-" "itype_size_def"] >>
-  rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "itype_size_def"] >> gvs[]
-End
-
-Definition itype_ok_def:
-  itype_ok typedefs db t ⇔
-    freedbvars t ⊆ count db ∧
-    itype_wf typedefs t
-End
-*)
 
 Definition isubst_def:
   (isubst ts (iAtom $ VarTypeCons v) =
