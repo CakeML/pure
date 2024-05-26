@@ -302,7 +302,6 @@ Proof
     >- simp[Functions_def,LLOOKUP_THM]
     >- simp[LLOOKUP_THM,typedefs_to_cdb_def,
         initial_namespace_def,kind_arrows_def] >>
-    qrefinel [`Functions args_t ret_t`,`Cons (UserType 0) (TypeVar 0)`] >>
     irule_at (Pos hd) type_elaborate_texp_NestedCase >>
     irule_at (Pos hd) type_elaborate_texp_Var >>
     simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
@@ -347,10 +346,6 @@ Proof
       subst_db_Functions,has_dicts_empty,
       has_dicts_simp,LIST_REL3_simp] >>
     simp[Once class_env_to_env_def,Once test_class_env_def] >>
-    irule_at (Pos hd) $ iffLR FUN_EQ_THM >>
-    qrefine `[_]` >>
-    simp[] >>
-    irule_at (Pos hd) EQ_REFL >>
     simp[get_method_type_def,subst_db_Functions,PULL_EXISTS,kind_ok_def,
       specialises_pred_def,subst_db_def,subst_db_pred_def,LLOOKUP_THM,
       GSYM Functions_APPEND] >>
@@ -466,8 +461,9 @@ Proof
     rpt (irule_at Any has_dict_lie) >>
     simp[] >>
     irule_at Any exhaustive_cepat_Cons >>
-    simp[PULL_EXISTS,destruct_type_cons_def,
-      split_ty_cons_def,split_ty_cons_aux_def] >>
+    simp[PULL_EXISTS,unsafe_destruct_type_cons_def,
+      split_ty_cons_def,split_ty_cons_aux_def,
+      destructable_type_def,head_ty_cons_def] >>
     qexists `{[cepatCons «» [cepatVar «x1»; cepatVar «x2»];
       cepatCons «» [cepatVar «y1»; cepatVar «y2»]]}` >>
     rpt (irule_at Any exhaustive_cepat_List) >>
@@ -484,10 +480,10 @@ Proof
     simp[GSYM CONJ_ASSOC] >>
     irule_at (Pat `_ ∈ _`) $ iffRL IN_SING >> simp[] >>
     ntac 2 $ irule_at
-      (Pat `exhaustive_cepat _ _ _ {cepatCons «» [_;_]}`)
+      (Pat `exhaustive_cepat _ _ {cepatCons «» [_;_]}`)
       exhaustive_cepat_Cons >>
-    simp[PULL_EXISTS,destruct_type_cons_def,
-      split_ty_cons_def,split_ty_cons_aux_def] >>
+    simp[PULL_EXISTS,unsafe_destruct_type_cons_def,head_ty_cons_def,
+      split_ty_cons_def,split_ty_cons_aux_def,destructable_type_def] >>
     rpt (irule_at Any $ cj 1 $ iffLR SET_EQ_SUBSET) >>
     simp[IMAGE_DEF,EXTENSION,PULL_EXISTS,EQ_IMP_THM] >>
     simp[FORALL_AND_THM,GSYM CONJ_ASSOC] >>
@@ -591,7 +587,6 @@ Proof
     >- simp[typedefs_to_cdb_def,kind_arrows_def,
       LLOOKUP_THM,initial_namespace_def] >>
     irule_at (Pos hd) type_elaborate_texp_NestedCase >>
-    qexists `Cons (UserType 0) (TypeVar 0)` >>
     irule_at (Pos hd) type_elaborate_texp_Var >>
     simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,PULL_EXISTS] >>
     irule_at (Pos hd) type_cepat_Cons >>
@@ -606,9 +601,10 @@ Proof
       LLOOKUP_THM,kind_ok_def,LIST_REL3_simp] >>
     irule_at (Pat `exhaustive_cepat`) exhaustive_cepat_Cons >>
     rw[Once $ GSYM PULL_EXISTS]
+    >- rw[destructable_type_def,initial_namespace_def,head_ty_cons_def]
     >- (
-      gvs[initial_namespace_def,destruct_type_cons_def,
-        split_ty_cons_def,split_ty_cons_aux_def,type_cons_def,
+      gvs[initial_namespace_def,unsafe_destruct_type_cons_def,
+        split_ty_cons_def,split_ty_cons_aux_def,unsafe_type_cons_def,
         LLOOKUP_THM,PULL_EXISTS,AllCaseEqs()]
       >- (
         irule_at (Pos hd) exhaustive_cepat_Nil >>
@@ -631,28 +627,30 @@ Proof
       simp[UNIQUE_MEMBER_SUBSET_SING] >>
       irule_at (Pos last) SUBSET_REFL >>
       simp[]
+    )
+    >- (
+      irule type_elaborate_texp_Cons >>
+      CONV_TAC (RESORT_EXISTS_CONV rev) >>
+      qexistsl [`0`,`[TypeVar 0]`] >>
+      simp[tcons_to_type_def,type_cons_def,cons_types_def,
+        LLOOKUP_THM,subst_db_def,type_ok_def,kind_ok_def,
+        LIST_REL3_simp,PULL_EXISTS] >>
+      rw[initial_namespace_def]
+      >- (
+        irule type_elaborate_texp_Var >>
+        simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,subst_db_def]) >>
+      irule type_elaborate_texp_App >>
+      simp[LIST_REL3_simp,PULL_EXISTS] >>
+      rpt (irule_at Any type_elaborate_texp_Var) >>
+      simp[has_dicts_simp,specialises_pred_def,subst_db_pred_def,
+        shift_db_pred_def,shift_db_Functions,shift_db_def,
+        subst_db_Functions,subst_db_def,PULL_EXISTS] >>
+      irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
+      simp[kind_ok_def,LLOOKUP_THM]
     ) >>
     irule_at Any type_elaborate_texp_Var >>
     simp[specialises_pred_def,subst_db_pred_def,
-      has_dicts_simp] >>
-    irule type_elaborate_texp_Cons >>
-    CONV_TAC (RESORT_EXISTS_CONV rev) >>
-    qexistsl [`0`,`[TypeVar 0]`] >>
-    simp[tcons_to_type_def,type_cons_def,cons_types_def,
-      LLOOKUP_THM,subst_db_def,type_ok_def,kind_ok_def,
-      LIST_REL3_simp,PULL_EXISTS] >>
-    rw[initial_namespace_def]
-    >- (
-      irule type_elaborate_texp_Var >>
-      simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,subst_db_def]) >>
-    irule type_elaborate_texp_App >>
-    simp[LIST_REL3_simp,PULL_EXISTS] >>
-    rpt (irule_at Any type_elaborate_texp_Var) >>
-    simp[has_dicts_simp,specialises_pred_def,subst_db_pred_def,
-      shift_db_pred_def,shift_db_Functions,shift_db_def,
-      subst_db_Functions,subst_db_def,PULL_EXISTS] >>
-    irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
-    simp[kind_ok_def,LLOOKUP_THM]
+      has_dicts_simp]
   ) >>
   irule type_elaborate_texp_Pred >>
   rw[pred_type_well_scoped_def,pred_type_kind_ok_def,
