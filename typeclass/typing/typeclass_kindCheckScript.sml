@@ -138,8 +138,8 @@ QED
 
 Theorem kind_wf_simp[simp]:
   (∀t1 t2. kind_wf cdb vdb k (Cons t1 t2) ⇔
-    ∃k1 k2. k1 = kindArrow k2 k ∧
-    kind_wf cdb vdb k1 t1 ∧ kind_wf cdb vdb k2 t2) ∧
+    ∃k2. kind_wf cdb vdb k2 t2 ∧
+    kind_wf cdb vdb (kindArrow k2 k) t1) ∧
   (∀t. kind_wf cdb vdb k (Atom (PrimTy t)) ⇔ k = kindType) ∧
   (kind_wf cdb vdb k (Atom Exception) ⇔ k = kindType) ∧
   (∀v. kind_wf cdb vdb k (TypeVar v) ⇔ vdb v = SOME k) ∧
@@ -153,7 +153,9 @@ Theorem kind_wf_simp[simp]:
   (∀n. kind_wf cdb vdb k (Atom (CompPrimTy (Tuple n))) ⇔
     k = kind_arrows (GENLIST (K kindType) n) kindType)
 Proof
-  rpt (simp[Once kind_wf_cases])
+  rpt strip_tac >>
+  simp[Once kind_wf_cases] >>
+  metis_tac[]
 QED
 
 Theorem kind_wf_Functions:

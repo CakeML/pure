@@ -58,9 +58,7 @@ End
 Definition texp_wf_def[nocompute]:
   texp_wf (Var _ v) = T ∧
   texp_wf (Prim op es) = (
-    num_args_ok op (LENGTH es) ∧ EVERY texp_wf es ∧
-    (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
-    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+    num_args_ok op (LENGTH es) ∧ EVERY texp_wf es) ∧
   texp_wf (App e es) = (texp_wf e ∧ EVERY texp_wf es ∧ es ≠ []) ∧
   texp_wf (Lam vs e) = (texp_wf e ∧ vs ≠ []) ∧
   texp_wf (Let v e1 e2) = (texp_wf e1 ∧ texp_wf e2) ∧
@@ -150,7 +148,7 @@ Proof
   simp[GREATER_DEF]
 QED
 
-(* similar to freevars_texp, but it collects every 
+(* similar to freevars_texp, but it collects every
 * binder variable, the x and y in λx y. ...  *)
 Definition lambda_vars_def:
   lambda_vars (Var _ _) = {} ∧
