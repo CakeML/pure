@@ -4,8 +4,9 @@ open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 open relationTheory set_relationTheory;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory balanced_mapTheory alistTheory topological_sortTheory;
-open miscTheory typeclass_unificationTheory typeclass_typesTheory
-  typeclass_inference_commonTheory typeclass_texpTheory;
+open miscTheory;
+open typeclass_typesTheory typeclass_typesPropsTheory;
+open typeclass_texpTheory;
 open monadsyntax;
 
 val _ = new_theory "typeclass_env_map_impl";
@@ -1122,7 +1123,7 @@ QED
 Definition lookup_inst_map_def:
   lookup_inst_map inst_map c t =
   do
-    (tcons,targs) <- split_ty_head t;
+    (tcons,targs) <- split_ty_cons t;
     inst_info <- lookup inst_map (c,tcons);
     assert (LENGTH targs = inst_info.nargs);
     return (inst_info.impl, MAP (I ## flip EL targs) inst_info.cstr)
@@ -1138,7 +1139,7 @@ Theorem lookup_inst_map_lem:
     lookup_inst_map inst_map c t = SOME (impl,cstr)
     ⇔
     (∃tcons targs inst_info.
-      split_ty_head t = SOME (tcons,targs) ∧
+      split_ty_cons t = SOME (tcons,targs) ∧
       lookup inst_map (c,tcons) = SOME inst_info ∧
       LENGTH targs = inst_info.nargs ∧
       impl = inst_info.impl ∧
@@ -1154,7 +1155,7 @@ Theorem by_inst_lem:
   ∀inst_map c t cstr.
   by_inst inst_map c t = SOME cstr ⇔
   (∃tcons targs inst_info.
-    split_ty_head t = SOME (tcons,targs) ∧
+    split_ty_cons t = SOME (tcons,targs) ∧
     lookup inst_map (c,tcons) = SOME inst_info ∧
     LENGTH targs = inst_info.nargs ∧
       cstr = MAP (I ## (λv. EL v targs)) inst_info.cstr)
@@ -1167,7 +1168,7 @@ Theorem lookup_inst_map_thm:
     lookup_inst_map inst_map c t = SOME (impl,cstr)
     ⇔
     (∃tcons targs inst_info.
-      split_ty_head t = SOME (tcons,targs) ∧
+      split_ty_cons t = SOME (tcons,targs) ∧
       lookup inst_map (c,tcons) = SOME inst_info ∧
       LENGTH targs = inst_info.nargs ∧
       impl = inst_info.impl ∧
@@ -1194,7 +1195,7 @@ Theorem by_inst_thm:
   ∀inst_map c t cstr.
     by_inst inst_map c t = SOME cstr ⇔
     (∃tcons targs inst_info.
-      split_ty_head t = SOME (tcons,targs) ∧
+      split_ty_cons t = SOME (tcons,targs) ∧
       lookup inst_map (c,tcons) = SOME inst_info ∧
       LENGTH targs = inst_info.nargs ∧
       LENGTH cstr = LENGTH inst_info.cstr ∧
@@ -1230,16 +1231,6 @@ Inductive entail:
   (∀q. MEM q qs ⇒ entail cl_map inst_map ps q) ⇒
   entail cl_map inst_map ps (c,t)
 End
-
-Theorem split_ty_head_tsubst:
-  ∀t tcons targs ts.
-    split_ty_head t = SOME (tcons,targs) ⇒
-    split_ty_head (tsubst ts t) = SOME (tcons, MAP (tsubst ts) targs)
-Proof
-  ho_match_mp_tac head_ty_cons_ind >>
-  rw[] >>
-  gvs[subst_db_def,split_ty_head_thm,head_ty_cons_def,ty_args_alt]
-QED
 
 Definition well_scoped_inst_map_def:
   well_scoped_inst_map inst_map =
@@ -1280,7 +1271,7 @@ Proof
     gvs[]
   ) >>
   gvs[by_inst_thm] >>
-  drule_then (irule_at (Pos hd)) split_ty_head_tsubst >>
+  drule_then (irule_at (Pos hd)) split_ty_cons_tsubst >>
   rw[] >>
   first_x_assum drule >>
   pairarg_tac >> gvs[EL_MAP] >>
@@ -1322,7 +1313,7 @@ Proof
     gvs[]
   ) >>
   gvs[by_inst_thm] >>
-  drule_then (irule_at (Pos hd)) split_ty_head_tsubst >>
+  drule_then (irule_at (Pos hd)) split_ty_cons_tsubst >>
   rw[] >>
   first_x_assum drule >>
   pairarg_tac >> gvs[EL_MAP] >>
@@ -1331,60 +1322,6 @@ Proof
   last_x_assum irule >>
   simp[MEM_EL] >>
   metis_tac[]
-QED
-
-Theorem head_ty_cons_cons_types:
-  ∀t targs. head_ty_cons (cons_types t targs) = head_ty_cons t
-Proof
-  Induct_on `targs` >>
-  rw[head_ty_cons_def,cons_types_def]
-QED
-
-Theorem ty_args_cons_types:
-  ∀t targs. ty_args (cons_types t targs) = ty_args t ++ targs
-Proof
-  Induct_on `targs` >>
-  rw[cons_types_def,ty_args_alt]
-QED
-
-Theorem split_ty_head_tcons_to_type:
-  split_ty_head (tcons_to_type tcons targs) = SOME (tcons, targs)
-Proof
-  Induct_on `targs` using SNOC_INDUCT >>
-  gvs[tcons_to_type_def,split_ty_head_thm] >>
-  rw[cons_types_def,ty_args_alt,head_ty_cons_def] >>
-  gvs[head_ty_cons_cons_types,ty_args_cons_types]
-QED
-
-Theorem tcons_to_type_split_ty_head:
-  ∀t tcons targs.
-    split_ty_head t = SOME (tcons,targs) ⇒
-    tcons_to_type tcons targs = t
-Proof
-  ho_match_mp_tac head_ty_cons_ind >>
-  rw[] >>
-  gvs[split_ty_head_thm,head_ty_cons_def,
-    ty_args_alt,tcons_to_type_alt] >>
-  gvs[tcons_to_type_def,cons_types_SNOC]
-QED
-
-Theorem tcons_to_type_NEQ_TypeVar:
-  ∀v. tcons_to_type tcons targs ≠ TypeVar v
-Proof
-  rpt strip_tac >>
-  pop_assum $ mp_tac o Q.AP_TERM `split_ty_head` >>
-  simp[split_ty_head_tcons_to_type,split_ty_head_thm,head_ty_cons_def]
-QED
-
-Triviality tcons_to_type_tsubst_TypeVar:
-  tcons_to_type tcons targs =
-    tsubst targs $ tcons_to_type tcons $ GENLIST TypeVar (LENGTH targs)
-Proof
-  simp[tsubst_tcons_to_type,MAP_GENLIST] >>
-  AP_TERM_TAC >>
-  PURE_REWRITE_TAC[Once $ GSYM GENLIST_ID] >>
-  irule GENLIST_CONG >>
-  simp[subst_db_def]
 QED
 
 (* `entail` is equivalent to `full_entail`
@@ -1522,7 +1459,7 @@ Proof
   >- (
     reverse $ pop_assum $ strip_assume_tac o SRULE[Once entail_cases]
     >- (
-      gvs[by_inst_lem,split_ty_head_tcons_to_type,MEM_MAP,PULL_EXISTS] >>
+      gvs[by_inst_lem,split_ty_cons_tcons_to_type,MEM_MAP,PULL_EXISTS] >>
       rw[] >>
       `v < inst_info.nargs` by (
         gvs[well_scoped_inst_map_def] >>
@@ -1543,7 +1480,7 @@ Proof
         disj2_tac >>
         metis_tac[]
       ) >>
-      gvs[by_inst_lem,split_ty_head_thm,head_ty_cons_def]
+      gvs[by_inst_lem,split_ty_cons_thm,head_ty_cons_def]
     ) >>
     gvs[MEM_MAP] >>
     rename1 `MEM p inst.cstr` >>
@@ -1551,7 +1488,7 @@ Proof
     gvs[tcons_to_type_NEQ_TypeVar]
   ) >>
   irule entail_inst >>
-  rw[by_inst_lem,split_ty_head_tcons_to_type,MEM_MAP,PULL_EXISTS] >>
+  rw[by_inst_lem,split_ty_cons_tcons_to_type,MEM_MAP,PULL_EXISTS] >>
   rename1 `entail _ _ _ (_ p)` >>
   Cases_on `p` >>
   first_x_assum drule >>
@@ -1769,26 +1706,6 @@ Proof
   rw[]
 QED
 
-Triviality type_size_GT_0:
-  ∀t. 0 < type_size t
-Proof
-  Cases_on `t` >>
-  simp[type_size_def]
-QED
-
-Theorem type_size_tcons_to_type:
-  ∀t targs.
-  MEM t targs ⇒
-  type_size t < type_size (tcons_to_type tcons targs)
-Proof
-  Induct_on `targs` using SNOC_INDUCT >>
-  rw[tcons_to_type_SNOC,type_size_def]
-  >- rw[] >>
-  irule arithmeticTheory.LESS_TRANS >>
-  first_x_assum $ drule_then $ irule_at (Pos hd) >>
-  DECIDE_TAC
-QED
-
 (* entail_aux terminates if every q in qs is smaller than t *)
 Definition entail_aux_def:
   (entail_aux supers inst_map (c,t) =
@@ -1818,7 +1735,7 @@ Termination
     PURE_REWRITE_TAC[Once $ GSYM arithmeticTheory.GREATER_DEF] >>
     irule list_max_intro >>
     simp[EVERY_MAP,arithmeticTheory.GREATER_DEF,type_size_GT_0] >>
-    drule_then (assume_tac o GSYM) tcons_to_type_split_ty_head >>
+    drule_then (assume_tac o GSYM) tcons_to_type_split_ty_cons >>
     gvs[EVERY_EL] >>
     rw[] >>
     gvs[well_scoped_inst_map_def] >>
