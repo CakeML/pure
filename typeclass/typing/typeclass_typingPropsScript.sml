@@ -258,30 +258,6 @@ Proof
   simp[monad_cns_def,reserved_cns_def,SUBSET_DEF]
 QED
 
-Theorem destructable_type_IMP_exists_unsafe_destruct_type_cons:
-  namespace_ok ns ∧
-  destructable_type ns t ⇒
-  ∃cname ts. unsafe_destruct_type_cons ns t cname ts
-Proof
-  rw[destructable_type_def,oneline unsafe_destruct_type_cons_def]
-  >- (
-    every_case_tac >>
-    gvs[type_exception_def,namespace_ok_def,miscTheory.ALOOKUP_EXISTS_IFF] >>
-    metis_tac[]
-  ) >>
-  every_case_tac >> gvs[head_ty_cons_def,split_ty_cons_thm]
-  >- (
-    gvs[unsafe_type_cons_def,oEL_THM,namespace_ok_def] >>
-    Cases_on `EL x' r` >>
-    rw[miscTheory.ALOOKUP_EXISTS_IFF] >>
-    Cases_on `r'` >>
-    gvs[EVERY_EL]
-    >- (last_x_assum drule >>gvs[]) >>
-    metis_tac[pair_CASES]
-  ) >>
-  metis_tac[]
-QED
-
 (******************** Typing judgements ********************)
 
 Theorem type_cepat_type_ok:
@@ -995,20 +971,22 @@ QED
 Theorem type_elaborate_texp_weaken:
   (∀lie db st env e e' t.
     pred_type_elaborate_texp ns clk ie lie db st env e e' t
-  ⇒ ∀lie' db' st' env'. lie ⊆ lie'
+  ⇒ ∀lie' db' st' env'. lie ⊆ lie' ∧
+    (∀fname fty. ALOOKUP env fname = SOME fty ⇒ ALOOKUP env' fname = SOME fty)
   ⇒ pred_type_elaborate_texp ns clk ie lie'
-      (db ++ db') (st ++ st') (env ++ env') e e' t) ∧
+      (db ++ db') (st ++ st') env' e e' t) ∧
   (∀lie db st env e e' t.
     type_elaborate_texp ns clk ie lie db st env e e' t
-  ⇒ ∀lie' db' st' env'. lie ⊆ lie'
+  ⇒ ∀lie' db' st' env'. lie ⊆ lie' ∧
+    (∀fname fty. ALOOKUP env fname = SOME fty ⇒ ALOOKUP env' fname = SOME fty)
   ⇒ type_elaborate_texp ns clk ie lie'
-      (db ++ db') (st ++ st') (env ++ env') e e' t)
+      (db ++ db') (st ++ st') env' e e' t)
 Proof
   ho_match_mp_tac type_elaborate_texp_ind >>
   rw[] >> rw[Once type_elaborate_texp_cases]
   >- (
-    simp[ALOOKUP_APPEND] >>
     drule_all_then (irule_at $ Pos last) $ cj 2 has_dict_weaken >>
+    first_assum $ irule_at (Pos hd) >>
     qpat_x_assum `specialises_pred _ _ _ _` mp_tac >>
     simp[oneline specialises_pred_def] >>
     TOP_CASE_TAC >>
@@ -1022,23 +1000,44 @@ Proof
   >- (
     gvs[pred_type_kind_ok_alt] >>
     rw[] >>
-    metis_tac[kind_ok_APPEND])
+    metis_tac[kind_ok_APPEND]
+  )
   >- (
     first_assum $ drule_then (irule_at (Pos hd)) >>
     gvs[LIST_REL3_EL]
   )
   >- (
+    first_assum $ drule_then (irule_at (Pos hd)) >>
+    rw[ALOOKUP_MAP] >>
+    first_assum $ drule_then (irule_at (Pos hd)) >>
+    simp[]
+  )
+  >- (
+    first_assum $ drule_then (irule_at (Pos hd)) >>
+    rw[]
+  )
+  >- (
     irule_at (Pos hd) EQ_REFL >>
     gvs[lambdify type_ok_def,EVERY_MEM] >>
+    first_x_assum $ irule_at (Pos last) >>
+    rw[ALOOKUP_APPEND]
+    >- (TOP_CASE_TAC >> gvs[]) >>
     metis_tac[kind_ok_APPEND]
   )
   >- (
     first_x_assum $ irule_at (Pos last) >>
-    gvs[LIST_REL3_EL] >>
-    rw[] >>
+    gvs[LIST_REL3_EL,ALOOKUP_APPEND] >>
+    qexists `kind_schemes` >>
+    rw[]
+    >- ( TOP_CASE_TAC >> gvs[] ) >>
     ntac 3 (pairarg_tac >> gvs[]) >>
     last_x_assum drule >>
-    gvs[]
+    gvs[] >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[ALOOKUP_APPEND,ALOOKUP_MAP] >>
+    TOP_CASE_TAC >> gvs[] >>
+    metis_tac[]
   )
   >- (
     disj1_tac >>
@@ -1050,13 +1049,22 @@ Proof
     irule_at (Pos last) EQ_REFL >>
     gvs[LIST_REL3_EL]
   )
-  >- (disj2_tac >> metis_tac[])
+  >- (
+    disj2_tac >>
+    first_x_assum $ irule_at (Pos last) >>
+    first_x_assum $ irule_at (Pos last) >>
+    metis_tac[])
   >- (
     gvs[type_ok_def,LIST_REL3_EL] >>
     metis_tac[kind_ok_APPEND]
   )
   >- (disj2_tac >> metis_tac[])
-  >- (disj2_tac >> metis_tac[])
+  >- (
+    disj2_tac >>
+    first_x_assum $ irule_at (Pos last) >>
+    first_x_assum $ irule_at (Pos last) >>
+    metis_tac[]
+  )
   >- (
     disj2_tac >> disj2_tac >>
     gvs[LIST_REL3_EL] >>
@@ -1075,8 +1083,10 @@ Proof
       type_cepat_db_APPEND >>
     rw[]
     >- (
-      PURE_REWRITE_TAC[Once $ cj 2 $ GSYM APPEND] >>
-      simp[]
+      last_x_assum irule >>
+      rw[ALOOKUP_APPEND] >>
+      TOP_CASE_TAC >>
+      gvs[]
     ) >>
     gvs[LIST_REL_EL_EQN] >>
     rw[] >>
@@ -1085,8 +1095,32 @@ Proof
     rw[] >>
     PURE_REWRITE_TAC[Once $ cj 2 $ GSYM APPEND] >>
     drule_then (irule_at Any) type_cepat_db_APPEND >>
-    simp[]
+    first_x_assum irule >>
+    rw[ALOOKUP_APPEND] >>
+    TOP_CASE_TAC >>
+    gvs[]
   )
+QED
+
+Theorem type_elaborate_texp_weaken_APPEND_env:
+  (∀lie db st env e e' t.
+    pred_type_elaborate_texp ns clk ie lie db st env e e' t
+  ⇒ ∀lie' db' st' env'. lie ⊆ lie'
+  ⇒ pred_type_elaborate_texp ns clk ie lie'
+      (db ++ db') (st ++ st') (env ++ env') e e' t) ∧
+  (∀lie db st env e e' t.
+    type_elaborate_texp ns clk ie lie db st env e e' t
+  ⇒ ∀lie' db' st' env'. lie ⊆ lie'
+  ⇒ type_elaborate_texp ns clk ie lie'
+      (db ++ db') (st ++ st') (env ++ env') e e' t)
+Proof
+  rw[]
+  >- (
+    drule_then irule $ cj 1 type_elaborate_texp_weaken >>
+    rw[ALOOKUP_APPEND]
+  ) >>
+  drule_then irule $ cj 2 type_elaborate_texp_weaken >>
+  rw[ALOOKUP_APPEND]
 QED
 
 val _ = export_theory();

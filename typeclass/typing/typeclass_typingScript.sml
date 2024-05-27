@@ -75,6 +75,11 @@ Definition type_ok_def:
   type_ok typedefs ks t = kind_ok typedefs ks kindType t
 End
 
+(* a type that is not well scoped is ambiguous
+* (cannot figure out what type we should instantiate the type class to) *)
+(* an example is the type forall a. String -> String *)
+(* This is reason why we reject a program ``read . show`` without
+* any type annotation *)
 Definition pred_type_well_scoped_def:
   pred_type_well_scoped (Pred ps t) =
   (∀cl v. MEM (cl,v) ps ⇒
@@ -240,7 +245,8 @@ Definition destruct_type_cons_def:
     case tc of
     | INL tyid => type_cons tdefs db (cname,carg_tys) (tyid,targs)
     | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
-    | INR (CompPrimT (Tuple n)) => cname = «» ∧ targs = carg_tys
+    | INR (CompPrimT (Tuple n)) =>
+        cname = «» ∧ targs = carg_tys
     | _ => F
 End
 
@@ -519,10 +525,10 @@ End
 
 (* type that we can apply case on *)
 Definition destructable_type_def:
-  destructable_type ns t ⇔
+  destructable_type t ⇔
   t = Atom Exception ∨
   case head_ty_cons t of
-  | SOME (INL tyid) => tyid < LENGTH (SND ns)
+  | SOME (INL tyid) => T
   | SOME (INR (PrimT Bool)) => T
   | SOME (INR (CompPrimT (Tuple n))) => T
   | SOME _ => F
@@ -577,7 +583,8 @@ Definition unsafe_destruct_type_cons_def:
     (case tc of
     | INL tyid => unsafe_type_cons tdefs (cname,carg_tys) (tyid,targs)
     | INR (PrimT Bool) => MEM cname [«True»; «False»] ∧ carg_tys = []
-    | INR (CompPrimT (Tuple n)) => cname = «» ∧ targs = carg_tys
+    | INR (CompPrimT (Tuple n)) =>
+        cname = «» ∧ targs = carg_tys
     | _ => F)
 End
 
@@ -625,7 +632,7 @@ Inductive exhaustive_cepat:
     exhaustive_cepat ns t s
 
 [~Cons:]
-  destructable_type ns t ∧
+  destructable_type t ∧
   (∀c ts. unsafe_destruct_type_cons ns t c ts ⇒
     ∃(pss:cepat list set).
       exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ s) ⇒
@@ -1314,8 +1321,24 @@ Definition class_env_kind_ok_def:
   class_env_kind_ok tdefs (ce:class_env) ⇔
     let clk = ce_to_clk ce in
     (∀c k supers methods. MEM (c,k,supers,methods) ce ⇒
-      EVERY (pred_type_kind_scheme_ok clk tdefs [k]) (MAP SND methods) ∧
+      EVERY (pred_type_kind_scheme_ok clk tdefs [k] o SND) methods ∧
       EVERY (λs. clk s = SOME k) supers)
+End
+
+(* the type of the method is unambiguous if the pred type is well-scoped and
+* the class variable is used *)
+(* an example of ambiguity type:
+* class C a where
+*   f :: b -> b -- a is not used *)
+Definition method_unambiguous_def:
+  method_unambiguous (ks,Pred ps t) ⇔
+    (pred_type_well_scoped (Pred ps t) ∧ LENGTH ks ∈ collect_type_vars t)
+End
+
+Definition class_env_methods_unambiguous_def:
+  class_env_methods_unambiguous ce ⇔
+  ∀c k supers methods. MEM (c,k,supers,methods) ce ⇒
+    EVERY (method_unambiguous o SND) methods
 End
 
 (* classname, method name, implementation *)
@@ -1327,8 +1350,8 @@ Definition type_elaborate_default_impl_def:
     ∃cl k s methods ks ps t.
       ALOOKUP (ce:class_env) cl = SOME (k,s,methods) ∧
       ALOOKUP methods meth = SOME (ks,Pred ps t) ∧
-      pred_type_elaborate_texp ns clk ie EMPTY (k::ks) st env e e'
-        (Pred ((cl,TypeVar 0)::ps) t)
+      pred_type_elaborate_texp ns clk ie EMPTY (SNOC k ks) st env e e'
+        (Pred ((cl,TypeVar $ LENGTH ks)::ps) t)
 End
 
 Definition type_elaborate_default_impls_def:
@@ -1341,8 +1364,8 @@ End
 
 Definition default_impl_construct_dict_def:
   default_impl_construct_dict ns ie env cl k (ks,Pred ps t) e e' ⇔
-    pred_texp_construct_dict ns ie FEMPTY (k::ks) env
-      (Pred ((cl,TypeVar 0)::ps) t) e e'
+    pred_texp_construct_dict ns ie FEMPTY (SNOC k ks) env
+      (Pred ((cl,TypeVar $ LENGTH ks)::ps) t) e e'
 End
 
 Definition default_impls_construct_dict_def:
@@ -1444,7 +1467,7 @@ Definition class_env_to_ns_def:
 End
 
 Definition get_method_type_def:
-  get_method_type cl k (ks,Pred ps t) = (k::ks,Pred ((cl,TypeVar 0)::ps) t)
+  get_method_type cl k (ks,Pred ps t) = (SNOC k ks,Pred ((cl,TypeVar $ LENGTH ks)::ps) t)
 End
 
 Definition class_env_to_env_def:
@@ -1575,9 +1598,9 @@ Definition type_elaborate_impls_def:
        FST impl = FST impl' ∧
        ∃meth_ks pt.
          ALOOKUP meths (FST impl) = SOME (meth_ks,pt) ∧
-         pred_type_elaborate_texp ns clk ie (set cstrs) (varks ++ meth_ks)
+         pred_type_elaborate_texp ns clk ie (set cstrs) (meth_ks ++ varks)
            st env (SND impl) (SND impl')
-           (tsubst_pred [inst_t] $ shift_db_pred 1n (LENGTH varks) pt))
+           (subst_db_pred (LENGTH meth_ks) [inst_t] pt))
        impls impls')
 End
 
@@ -1604,9 +1627,8 @@ Definition instance_construct_dict_def:
   LIST_REL (λ(name,(meth_ks,pt)) e'.
       case ALOOKUP impls name of
       | SOME e =>
-          impl_construct_dict ns ie env vs cstrs (varks++meth_ks)
-            (tsubst_pred [inst_t] $
-              shift_db_pred 1n (LENGTH varks) pt) e e'
+          impl_construct_dict ns ie env vs cstrs (meth_ks ++ varks)
+            (subst_db_pred (LENGTH meth_ks) [inst_t] pt) e e'
       | NONE => ∃default_name.
           ALOOKUP defaults name = SOME default_name ∧
           e' = App () (Var () default_name) [Var () inst_v])

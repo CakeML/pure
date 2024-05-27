@@ -3,8 +3,7 @@ open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
 open typeclass_typesTheory typeclass_kindCheckTheory;
 open pure_cexpTheory pure_configTheory;
-open pure_tcexpTheory pure_tcexp_lemmasTheory
-pure_typingPropsTheory;
+open pure_tcexpTheory pure_tcexp_lemmasTheory;
 open typeclass_texpTheory typeclass_typingTheory;
 open monadsyntax;
 
@@ -46,10 +45,8 @@ Definition tcexp_type_cons_def:
         ALOOKUP constructors cname = SOME schemes ∧
       (* And we can specialise it appropriately: *)
         LIST_REL (kind_ok typedefs db) argks tyargs ∧
-        LIST_REL (λ(ks,scheme) (ks',carg_t).
-          ks = ks' ∧
-          subst_db (LENGTH ks) tyargs scheme = carg_t
-          ) schemes carg_tys
+        MAP (λ(ks,scheme). (ks,subst_db (LENGTH ks) tyargs scheme)) schemes
+          = carg_tys
 End
 
 Definition tcexp_destruct_type_cons_def:
@@ -60,11 +57,12 @@ Definition tcexp_destruct_type_cons_def:
     type_exception edef (cname,MAP SND carg_tys)
   else
   ∃tc targs.
-    split_ty_head t = SOME (tc,targs) ∧
+    split_ty_cons t = SOME (tc,targs) ∧
     case tc of
     | INL tyid => tcexp_type_cons tdefs db (cname,carg_tys) (tyid,targs)
     | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
-    | INR (CompPrimT (Tuple n)) => cname = «» ∧ MAP ($, []) targs = carg_tys
+    | INR (CompPrimT (Tuple n)) => cname = «» ∧
+        MAP ($, []) targs = carg_tys
     | _ => F
 End
 
@@ -73,7 +71,7 @@ Definition get_constructors_def:
   if t = Atom Exception
   then SOME $ MAP (I ## LENGTH) edef
   else do
-    (tc,targs) <- split_ty_head t;
+    (tc,targs) <- split_ty_cons t;
     case tc of
     | INL tyid => OPTION_MAP (MAP (I ## LENGTH) o SND) $ oEL tyid tdefs
     | INR (PrimT Bool) => SOME ([«True»,0;«False»,0])
@@ -84,7 +82,8 @@ End
 
 Inductive tcexp_type_cepat:
 [~Var:]
-  tcexp_type_cepat ns db (cepatVar v) (tk:type_kind_scheme) [(v,tk)]
+  specialises (SND ns) db tk t ⇒
+  tcexp_type_cepat ns db (cepatVar v) (tk:type_kind_scheme) [(v,t)]
 
 [~UScore:]
   tcexp_type_cepat ns db cepatUScore (tk:type_kind_scheme) []
@@ -95,30 +94,130 @@ Inductive tcexp_type_cepat:
     tcexp_type_cepat ns db (cepatCos c pats) ([],t) (FLAT vtss)
 End
 
+Definition unsafe_tcexp_type_cons_def:
+  unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ⇔
+  ∃argks constructors schemes.
+    LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
+    ALOOKUP constructors cname = SOME schemes ∧
+    MAP (λ(ks,scheme). (ks,subst_db (LENGTH ks) tyargs scheme)) schemes
+      = carg_tys
+End
+
+Theorem unsafe_tcexp_type_cons_carg_tys_unique:
+  unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ∧
+  unsafe_tcexp_type_cons tdefs (cname,carg_tys') (tyid,tyargs) ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline unsafe_tcexp_type_cons_def] >>
+  gvs[]
+QED
+
+Theorem tcexp_type_cons_IMP_unsafe_tcexp_type_cons:
+  tcexp_type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ⇒
+  unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs)
+Proof
+  rw[tcexp_type_cons_def,unsafe_tcexp_type_cons_def] >>
+  metis_tac[]
+QED
+
+Theorem tcexp_type_cons_carg_tys_unique:
+  tcexp_type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ∧
+  tcexp_type_cons tdefs db (cname,carg_tys') (tyid,tyargs) ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[tcexp_type_cons_def] >>
+  gvs[]
+QED
+
+(* tcexp_destruct_type_cons but do not check if the type arguments are kind_ok *)
+Definition unsafe_tcexp_destruct_type_cons_def:
+  unsafe_tcexp_destruct_type_cons (edefs,tdefs) t cname carg_tys ⇔
+  if t = Atom Exception then
+    EVERY (\x. FST x = []) carg_tys ∧
+    type_exception edefs (cname,MAP SND carg_tys)
+  else
+    ∃tc targs.
+    split_ty_cons t = SOME (tc,targs) ∧
+    (case tc of
+    | INL tyid => unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,targs)
+    | INR (PrimT Bool) => MEM cname [«True»; «False»] ∧ carg_tys = []
+    | INR (CompPrimT (Tuple n)) => cname = «» ∧
+        MAP ($, []) targs = carg_tys
+    | _ => F)
+End
+
+Theorem destruct_tcexp_type_cons_IMP_unsafe_tcexp_type_cons:
+  tcexp_destruct_type_cons ns db t cname carg_tys ⇒
+  unsafe_tcexp_destruct_type_cons ns t cname carg_tys
+Proof
+  rw[oneline tcexp_destruct_type_cons_def,
+    oneline unsafe_tcexp_destruct_type_cons_def] >>
+  every_case_tac >> gvs[] >>
+  every_case_tac >>
+  metis_tac[tcexp_type_cons_IMP_unsafe_tcexp_type_cons]
+QED
+
+Theorem unsafe_tcexp_destruct_type_cons_unique:
+  unsafe_tcexp_destruct_type_cons ns t cname carg_tys ∧
+  unsafe_tcexp_destruct_type_cons ns t cname carg_tys' ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline unsafe_tcexp_destruct_type_cons_def] >>
+  pop_assum mp_tac >>
+  every_case_tac >> gvs[type_exception_def]
+  >- (
+    once_rewrite_tac[LIST_EQ_REWRITE] >>
+    gvs[EVERY_EL,EL_MAP,LENGTH_MAP] >>
+    rw[] >>
+    gvs[EL_MAP,PAIR_FST_SND_EQ]
+  ) >>
+  every_case_tac >> gvs[] >>
+  metis_tac[unsafe_tcexp_type_cons_carg_tys_unique]
+QED
+
+Theorem tcexp_destruct_type_cons_unique:
+  tcexp_destruct_type_cons ns db t cname carg_tys ∧
+  tcexp_destruct_type_cons ns db t cname carg_tys' ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline tcexp_destruct_type_cons_def] >>
+  pop_assum mp_tac >>
+  every_case_tac >> gvs[type_exception_def]
+  >- (
+    once_rewrite_tac[LIST_EQ_REWRITE] >>
+    gvs[EVERY_EL,EL_MAP,LENGTH_MAP] >>
+    rw[] >>
+    gvs[EL_MAP,PAIR_FST_SND_EQ]
+  ) >>
+  every_case_tac >> gvs[] >>
+  metis_tac[tcexp_type_cons_carg_tys_unique]
+QED
+
 Inductive tcexp_exhaustive_cepat:
 [~Var:]
   cepatVar v ∈ pats ⇒
-    tcexp_exhaustive_cepat ns db (tk:type_kind_scheme) pats
+    tcexp_exhaustive_cepat ns (tk:type_kind_scheme) pats
 
 [~UScore:]
   cepatUScore ∈ pats ⇒
-    tcexp_exhaustive_cepat ns db tk pats
+    tcexp_exhaustive_cepat ns tk pats
 
 [~Cons:]
-  (∀c ts. tcexp_destruct_type_cons ns db t c ts ⇒
+  destructable_type t ∧
+  (∀c ts. unsafe_tcexp_destruct_type_cons ns t c ts ⇒
     ∃(pss:cepat list set).
-      tcexp_exhaustive_cepatl ns db ts pss ∧ IMAGE (cepat c) pss ⊆ pats) ⇒
-  tcexp_exhaustive_cepat ns db ([],t) pats
+      tcexp_exhaustive_cepatl ns ts pss ∧ IMAGE (cepat c) pss ⊆ pats) ⇒
+  tcexp_exhaustive_cepat ns ([],t) pats
 
 [~Nil:]
   [] ∈ pss ⇒
-    tcexp_exhaustive_cepatl ns db [] pss
+    tcexp_exhaustive_cepatl ns [] pss
 
 [~List:]
-  tcexp_exhaustive_cepat ns db tk hs ∧
-  tcexp_exhaustive_cepatl ns db ts tls ∧
+  tcexp_exhaustive_cepat ns tk hs ∧
+  tcexp_exhaustive_cepatl ns ts tls ∧
   IMAGE (UNCURRY CONS) (hs × tls) ⊆ pss ⇒
-    tcexp_exhaustive_cepatl ns db (tk::ts) pss
+    tcexp_exhaustive_cepatl ns (tk::ts) pss
 End
 
 (* typing rules for tcexp (expressions after dictionary construction) *)
@@ -246,9 +345,9 @@ Inductive type_tcexp:
   EVERY (λ(p,e).
     ∃vts. tcexp_type_cepat ns db p ([],vt) vts ∧
     type_tcexp ns db st
-      (REVERSE vts ++ ((v,[],vt)::env))
+      (REVERSE (MAP (λ(v,t). (v,[],t)) vts) ++ ((v,[],vt)::env))
       e t) ((p,e1)::pes) ∧
-  tcexp_exhaustive_cepat ns db ([],vt) (p INSERT (IMAGE FST $ set pes)) ∧
+  tcexp_exhaustive_cepat ns ([],vt) (p INSERT (IMAGE FST $ set pes)) ∧
   ¬MEM v (FLAT (MAP (cepat_vars_l ∘ FST) ((p,e1)::pes))) ⇒
     type_tcexp ns db st env (NestedCase e v p e1 pes) t
 
@@ -283,21 +382,22 @@ Inductive type_tcexp:
    EVERY (λ(cname,pvars,cexp).
       ∃ptys.
         tcexp_destruct_type_cons ns db vt cname ptys ∧
+        LIST_REL (specialises (SND ns) db) ptys ptys' ∧
         (* Pattern variables do not shadow case split and are distinct: *)
           ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
         (* Continuation is well-typed: *)
           type_tcexp ns db st
-            (REVERSE (ZIP (pvars, ptys)) ++
+            (REVERSE (ZIP (pvars, MAP (λt. ([],t)) ptys')) ++
              (v,[],vt)::env)
             cexp t
       ) css ⇒
       type_tcexp ns db st env (Case e v css usopt) t
 
 [~SafeProj:]
-   type_tcexp ns (ks ++ db) (MAP (tshift $ LENGTH ks) st)
-    (tshift_env (LENGTH ks) env) e t' ∧
-   tcexp_destruct_type_cons ns db t cname tys ∧
-   LENGTH tys = arity ∧ i < arity ∧ EL i tys = (ks,t') ⇒
+   type_tcexp ns db st env e t' ∧
+   tcexp_destruct_type_cons ns db t' cname tys ∧
+   LENGTH tys = arity ∧ i < arity ∧ EL i tys = tk ∧
+   specialises (SND ns) db tk t ⇒
      type_tcexp ns db st env (SafeProj cname arity i e) t
 End
 

@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
 open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory pure_cexpTheory;
+open pure_cexpTheory pure_configTheory;
+open typeclass_typesTheory typeclass_kindCheckTheory typeclass_typesPropsTheory;
 open pure_tcexpTheory pure_tcexp_typingTheory
 pure_tcexp_typingPropsTheory;
-open typeclass_texpTheory;
-open typeclass_kindCheckTheory pure_configTheory;
+open typeclass_texpTheory typeclass_typingTheory typeclass_typingPropsTheory;
 open monadsyntax;
 
 val _ = monadsyntax.enable_monadsyntax();

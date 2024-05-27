@@ -25,14 +25,25 @@ Definition test_class_env_def:
     («Foldable»,
       (kindArrow kindType kindType,[],[
        (* Monoid m => (a -> m) -> t a -> m *)
+       (* Monoid 1 => (0 -> 1) -> 2 0 -> 1 *)
        («foldMap»,[kindType;kindType],
-          Pred [(«Monoid»,TypeVar 2)] $
-          Functions [Functions [TypeVar 1] (TypeVar 2);
-            Cons (TypeVar 0) (TypeVar 1)] (TypeVar 2));
+          Pred [(«Monoid»,TypeVar 1)] $
+          Functions [Functions [TypeVar 0] (TypeVar 1);
+            Cons (TypeVar 2) (TypeVar 0)] (TypeVar 1));
        («toList»,[kindType], Pred [] $
-          Functions [Cons (TypeVar 0) (TypeVar 1)] (Cons (UserType 0)
-          (TypeVar 1)))]))]
+          Functions [Cons (TypeVar 1) (TypeVar 0)] (Cons (UserType 0)
+          (TypeVar 0)))]))]
 End
+
+Theorem test_class_env_kind_ok:
+  class_env_kind_ok (SND initial_namespace) test_class_env
+Proof
+  rw[class_env_kind_ok_def,initial_namespace_def,test_class_env_def,
+    ce_to_clk_def,EVERY_MAP,EVERY_MEM] >>
+  pop_assum mp_tac >>
+  rpt $ rw[pred_type_kind_ok_def,kind_wf_Functions,kind_arrows_def,
+    pred_kind_wf_def,typedefs_to_cdb_def,oEL_THM]
+QED
 
 Definition test_defaults_def:
   test_defaults:'a default_impls = [«toList»,
@@ -44,7 +55,7 @@ End
 
 Definition test_defaults_elaborated_def:
   test_defaults_elaborated:Kind list default_impls = [«toList»,
-    App (Var [«Foldable»,TypeVar 0;«Monoid»,Cons (UserType 0) (TypeVar 1)] «foldMap») [Lam [«x»,NONE] $
+    App (Var [«Foldable»,TypeVar 1;«Monoid»,Cons (UserType 0) (TypeVar 0)] «foldMap») [Lam [«x»,NONE] $
       (Prim (Cons «::») [Var [] «x»;Prim (Cons «[]») []])
     ]
   ]
@@ -181,11 +192,11 @@ Definition test_prog_elaborated_def:
           (Atom $ PrimTy Integer))),
       typeclass_texp$Letrec [(«fold»,
         SOME (
-          [kindArrow kindType kindType;kindType],
-          Pred [(«Foldable»,TypeVar 0);(«Monoid»,TypeVar 1)] $
-            Functions [Cons (TypeVar 0) (TypeVar 1)] (TypeVar 1))),
+          [kindType;kindArrow kindType kindType],
+          Pred [(«Foldable»,TypeVar 1);(«Monoid»,TypeVar 0)] $
+            Functions [Cons (TypeVar 1) (TypeVar 0)] (TypeVar 0))),
         typeclass_texp$App
-          (Var [(«Foldable»,TypeVar 0);(«Monoid»,TypeVar 1)] «foldMap»)
+          (Var [(«Foldable»,TypeVar 1);(«Monoid»,TypeVar 0)] «foldMap»)
           [Lam [«x»,NONE] (Var [] «x»)]] $
       typeclass_texp$App
         (Var [
