@@ -45,8 +45,12 @@ Definition tcexp_type_cons_def:
         ALOOKUP constructors cname = SOME schemes ∧
       (* And we can specialise it appropriately: *)
         LIST_REL (kind_ok typedefs db) argks tyargs ∧
-        MAP (λ(ks,scheme). (ks,subst_db (LENGTH ks) tyargs scheme)) schemes
-          = carg_tys
+        MAP
+          (λ(ks,scheme).
+            (ks, subst_db (LENGTH ks)
+                 (MAP (tshift $ LENGTH ks) tyargs) scheme))
+          schemes
+        = carg_tys
 End
 
 Definition tcexp_destruct_type_cons_def:
@@ -99,8 +103,12 @@ Definition unsafe_tcexp_type_cons_def:
   ∃argks constructors schemes.
     LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
     ALOOKUP constructors cname = SOME schemes ∧
-    MAP (λ(ks,scheme). (ks,subst_db (LENGTH ks) tyargs scheme)) schemes
-      = carg_tys
+    MAP
+      (λ(ks,scheme).
+        (ks, subst_db (LENGTH ks)
+             (MAP (tshift $ LENGTH ks) tyargs) scheme))
+      schemes
+    = carg_tys
 End
 
 Theorem unsafe_tcexp_type_cons_carg_tys_unique:
@@ -380,9 +388,11 @@ Inductive type_tcexp:
 
    (* For each case: *)
    EVERY (λ(cname,pvars,cexp).
-      ∃ptys.
+      ∃ptys ptys'.
         tcexp_destruct_type_cons ns db vt cname ptys ∧
         LIST_REL (specialises (SND ns) db) ptys ptys' ∧
+        (* Constructor arities match: *)
+        LENGTH pvars = LENGTH ptys' ∧
         (* Pattern variables do not shadow case split and are distinct: *)
           ¬ MEM v pvars ∧ ALL_DISTINCT pvars ∧
         (* Continuation is well-typed: *)
