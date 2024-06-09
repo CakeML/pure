@@ -106,9 +106,15 @@ QED
 Overload subst_db_scheme =
   ``λn ts (vars,scheme).
       (vars, subst_db (n + vars) (MAP (shift_db 0 vars) ts) scheme)``;
+Overload subst_db_kind_scheme =
+  ``λn ts (vars,scheme).
+      (vars, subst_db (n + LENGTH vars) (MAP (shift_db 0 (LENGTH vars)) ts) scheme)``;
 Overload shift_db_scheme =
   ``λskip shift (vars,scheme).
       (vars, shift_db (skip + vars) shift scheme)``;
+Overload shift_db_kind_scheme =
+  ``λskip shift (vars,scheme).
+      (vars, shift_db (skip + LENGTH vars) shift scheme)``;
 Overload tshift_kind_scheme = ``λn (vars,scheme). (vars, shift_db (LENGTH
 vars) n scheme)``;
 Overload tshift_scheme_pred = ``λn (vars,scheme). (vars, shift_db_pred vars n scheme)``;
@@ -544,6 +550,7 @@ Definition unsafe_type_cons_def:
   ∃argks constructors schemes.
     LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
     ALOOKUP constructors cname = SOME schemes ∧
+    LENGTH tyargs = LENGTH argks ∧
     MAP (tsubst tyargs) schemes = carg_tys
 End
 
@@ -561,6 +568,7 @@ Theorem type_cons_IMP_unsafe_type_cons:
   unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs)
 Proof
   rw[type_cons_def,unsafe_type_cons_def] >>
+  gvs[LIST_REL_EL_EQN] >>
   metis_tac[]
 QED
 
@@ -868,6 +876,8 @@ Inductive type_elaborate_texp:
 [~NestedCase:]
   type_elaborate_texp ns clk ie lie db st env e e' vt ∧
   (* expression for each pattern type check *)
+  (* Note: since there is at least one pattern, t must be type_ok,
+  *  we don't need to add the premise that t is type_ok *)
   LIST_REL
     (λ(p,e) (p',e').
       p' = p ∧

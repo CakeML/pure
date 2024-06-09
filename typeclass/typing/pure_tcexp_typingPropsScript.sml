@@ -20,6 +20,7 @@ Proof
 QED
 
 (******************** Typing judgements ********************)
+
 Theorem tcexp_destruct_type_cons_type_ok:
   tcexp_destruct_type_cons ns db t c ts ∧
   kind_ok (SND ns) db kindType t ∧
@@ -82,12 +83,7 @@ Proof
   rw[] >>
   gvs[MEM_FLAT,LIST_REL3_EL,MEM_EL]
   >- (
-    gvs[oneline specialises_def] >>
-    every_case_tac >>
-    gvs[LIST_REL_EL_EQN] >>
-    drule_then irule kind_ok_subst_db >>
-    rw[oEL_THM,EL_APPEND_EQN] >>
-    metis_tac[]
+    metis_tac[specialises_kind_ok]
   ) >>
   first_x_assum drule >>
   rw[] >>
@@ -97,7 +93,7 @@ Proof
 QED
 
 Theorem type_tcexp_type_ok:
-  ∀ ns db st env e t.
+  ∀db st env e t.
     EVERY (type_ok (SND ns) db) st ∧
     EVERY (λ(v,scheme). type_scheme_ok (SND ns) db scheme) env ∧
     tcexp_namespace_ok ns ∧
@@ -109,12 +105,11 @@ Proof
     kind_ok_Functions,kind_ok] >>
   rgs[LIST_REL_EL_EQN, IMP_CONJ_THM, FORALL_AND_THM]
   >- (
-    PairCases_on `s` >> gvs[specialises_def] >>
-    imp_res_tac ALOOKUP_SOME_EL >> gvs[EVERY_EL,LIST_REL_EL_EQN] >>
-    first_x_assum drule >> strip_tac >> gvs[] >>
-    irule kind_ok_subst_db >> simp[] >>
-    first_x_assum $ irule_at (Pos last) >>
-    simp[oEL_THM,EL_APPEND_EQN]
+    drule_then irule specialises_kind_ok >>
+    imp_res_tac ALOOKUP_MEM >> gvs[EVERY_MEM] >>
+    first_x_assum drule >>
+    simp[] >>
+    TOP_CASE_TAC
     )
   >- gvs[kind_ok_cons_types,kind_ok,EVERY_EL,kind_arrows_kindType_EQ,
       LIST_REL_EL_EQN]
@@ -177,20 +172,10 @@ Proof
       first_x_assum irule >>
       rw[EL_ZIP,EL_MAP] >>
       gvs[] >>
-      first_x_assum drule >>
-      simp[oneline specialises_def] >>
-      TOP_CASE_TAC >>
-      rw[LIST_REL_EL_EQN] >>
-      pop_assum $ assume_tac o GSYM >>
+      first_x_assum $ drule_then assume_tac >>
+      drule_then irule specialises_kind_ok >>
       drule tcexp_destruct_type_cons_type_ok >>
-      rw[] >>
-      irule kind_ok_subst_db >>
-      rw[] >>
-      first_x_assum $ drule_then strip_assume_tac >>
-      gvs[] >>
-      first_x_assum $ irule_at (Pos last) >>
-      rw[oEL_THM,EL_APPEND_EQN] >>
-      metis_tac[]
+      rw[]
     ) >>
     first_x_assum irule >>
     metis_tac[PAIR]
@@ -198,17 +183,191 @@ Proof
   >- (
     drule_then drule tcexp_destruct_type_cons_type_ok >>
     rw[] >>
-    qpat_x_assum `specialises _ _ _ _` mp_tac >>
-    rw[oneline specialises_def,pair_CASE_def,LIST_REL_EL_EQN] >>
-    irule kind_ok_subst_db >>
-    first_x_assum $ irule_at (Pos last) >>
-    gvs[oEL_THM,EL_APPEND_EQN]
+    drule_then irule specialises_kind_ok >>
+    gvs[]
   )
 QED
 
-Theorem type_tcexp_freevars_tcexp:
-  ∀ns db st env e t.
+Theorem tcexp_namespace_ok_get_constructors_not_monad_cns:
+  tcexp_namespace_ok ns ∧
+  get_constructors ns t = SOME constructors ∧
+  MEM cons constructors ⇒
+  explode (FST cons) ∉ monad_cns
+Proof
+  rw[oneline tcexp_namespace_ok_def,oneline get_constructors_def,
+     pair_CASE_def]
+  >- (
+    gvs[MEM_MAP,ALL_DISTINCT_APPEND,PULL_EXISTS] >>
+    spose_not_then strip_assume_tac >>
+    assume_tac monad_args_SUBSET_reserved_cns >>
+    drule_then drule $ iffLR SUBSET_DEF >>
+    strip_tac >>
+    gvs[] >>
+    last_x_assum $ drule_then drule >>
+    rw[] >>
+    metis_tac[]
+  ) >>
+  pairarg_tac >>
+  gvs[] >> every_case_tac >>
+  gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
+  >- (
+    spose_not_then strip_assume_tac >>
+    assume_tac monad_args_SUBSET_reserved_cns >>
+    drule_then drule $ iffLR SUBSET_DEF >>
+    strip_tac >>
+    gvs[FORALL_AND_THM,PULL_EXISTS,DISJ_IMP_THM] >>
+    first_x_assum $ drule_then drule >>
+    rw[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+    gvs[oEL_THM,MEM_EL,PULL_EXISTS] >>
+    metis_tac[]
+  ) >>
+  simp[monad_cns_def]
+QED
+
+Theorem type_tcexp_tcexp_wf:
+  tcexp_namespace_ok ns ⇒
+  ∀db st env e t.
     type_tcexp ns db st env e t
+  ⇒ tcexp_wf e
+Proof
+  Induct_on `type_tcexp` >>
+  rw[tcexp_wf_def,EVERY_EL,LIST_REL_EL_EQN] >>
+  simp[num_args_ok_def,num_monad_args_def,num_atomop_args_ok_def] >>
+  simp[GSYM num_monad_args_def]
+  >- (
+    gvs[type_exception_def, oneline tcexp_namespace_ok_def,
+      pair_CASE_def,ALL_DISTINCT_APPEND] >>
+    imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP, FORALL_PROD] >>
+    last_x_assum $ drule_at Concl >> rw[] >>
+    gvs[reserved_cns_def, implodeEQ,num_monad_args_def]
+  )
+  >- (
+    gvs[tcexp_type_cons_def,oneline tcexp_namespace_ok_def] >>
+    every_case_tac >>
+    gvs[oEL_THM,ALL_DISTINCT_APPEND,MEM_MAP,EVERY_MEM,PULL_EXISTS,num_args_ok_def] >>
+    drule_then strip_assume_tac monad_args_ok_SOME >>
+    assume_tac monad_args_SUBSET_reserved_cns >>
+    drule_then drule $ iffLR SUBSET_DEF >>
+    strip_tac >>
+    spose_not_then kall_tac >>
+    drule_then strip_assume_tac monad_args_ok_SOME >>
+    assume_tac monad_args_SUBSET_reserved_cns >>
+    drule_then drule $ iffLR SUBSET_DEF >>
+    strip_tac >>
+    qpat_x_assum `!e. _ ⇒ ∀y. _ ⇒ ¬MEM y (FLAT (MAP _ _))` $
+      qspec_then `cname` mp_tac >>
+    fs[implodeEQ] >>
+    drule ALOOKUP_SOME_EL >>
+    rw[MEM_FLAT,MEM_MAP,MEM_EL,LAMBDA_PROD,
+      GSYM PFORALL_THM,GSYM PEXISTS_THM] >>
+    simp[PULL_EXISTS] >>
+    first_x_assum $ irule_at (Pos last) o GSYM >>
+    simp[] >>
+    metis_tac[]
+  )
+  >- (
+    gvs[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[]
+  )
+  >- (
+    imp_res_tac get_PrimTys_SOME >>
+    gvs[type_atom_op_cases,num_atomop_args_ok_def]
+  )
+  >- (Cases_on `es` >> gvs[])
+  >- (Cases_on `xs` >> gvs[])
+  >- (
+    gvs[] >>
+    first_x_assum drule >>
+    first_x_assum drule >>
+    ntac 2 (pairarg_tac >> gvs[EL_MAP])
+  )
+  >- (
+    gvs[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[EL_MAP] >>
+    rw[]
+  )
+  >- (
+    gvs[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[EL_MAP] >>
+    rw[]
+  )
+  >- (
+    Cases_on `css` >> simp[] >>
+    gvs[oneline get_constructors_def,oneline tcexp_namespace_ok_def] >>
+    every_case_tac >> gvs[ELIM_UNCURRY] >>
+    every_case_tac >> gvs[oEL_THM,EVERY_EL] >>
+    Cases_on `usopt` >> gvs[] >>
+    metis_tac[PAIR]
+  )
+  >- (
+    first_x_assum drule >>
+    pairarg_tac >> gvs[] >>
+    rw[EL_MAP]
+  )
+  >- (
+    Cases_on `usopt` >> gvs[] >>
+    pairarg_tac >> gvs[] >>
+    rw[] >> pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    rw[] >>
+    drule_then strip_assume_tac ALOOKUP_MEM >>
+    drule_then (drule_then drule)
+      tcexp_namespace_ok_get_constructors_not_monad_cns >>
+    simp[]
+  )
+  >- (
+    strip_tac >>
+    gvs[MEM_FLAT,MEM_MAP] >>
+    gvs[MEM_EL] >>
+    first_x_assum drule >>
+    pairarg_tac >> strip_tac >> gvs[]
+  )
+  >- (
+    simp[ALL_DISTINCT_APPEND] >>
+    CASE_TAC
+    >- (rw[] >> gvs[]) >>
+    CASE_TAC >>
+    gvs[ALL_DISTINCT_APPEND]
+  ) >>
+  drule_then (drule_then (irule o SRULE[FORALL_PROD]))
+    tcexp_namespace_ok_get_constructors_not_monad_cns >>
+  Cases_on `usopt`
+  >- (
+    gvs[IN_DEF,LIST_TO_SET_MAP] >>
+    metis_tac[PAIR]
+  ) >>
+  gvs[] >>
+  first_x_assum $ resolve_then (Pos hd) strip_assume_tac
+    $ GSYM PAIR >>
+  gvs[IN_DEF,LIST_TO_SET_MAP] >>
+  `IMAGE FST (set css) ⊆ IMAGE FST (set constructors)`
+    by metis_tac[SUBSET_UNION] >>
+  `(FST x') ∈ IMAGE FST (set css)`
+  suffices_by (
+    strip_tac >>
+    drule_then drule $ iffLR SUBSET_DEF >>
+    simp[IN_DEF] >>
+    metis_tac[PAIR]
+  ) >>
+  simp[IN_DEF] >> metis_tac[]
+QED
+
+Theorem tcexp_type_cepat_cepat_vars:
+  tcexp_type_cepat ns db p t vts ⇒ cepat_vars p = set (MAP FST vts)
+Proof
+  Induct_on `tcexp_type_cepat` >>
+  rw[cepat_vars_def] >>
+  pop_assum mp_tac >>
+  Induct_on `LIST_REL3` using LIST_REL3_induct >>
+  rw[]
+QED
+
+Theorem type_tcexp_freevars_tcexp:
+  ∀db st env e t.
+   type_tcexp ns db st env e t
   ⇒ freevars_tcexp e ⊆ set (MAP FST env)
 Proof
   Induct_on `type_tcexp` >> rw[] >>
@@ -218,6 +377,11 @@ Proof
     imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL, EXISTS_PROD] >>
     PairCases_on `s` >> goal_assum drule >> goal_assum drule
     )
+  >- (
+    first_x_assum drule >>
+    pairarg_tac >> gvs[] >>
+    rw[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,FST_THM]
+  )
   >- gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
   >- gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_THM]
   >- (
@@ -229,33 +393,42 @@ Proof
     simp[SF ETA_ss, MAP_ZIP]
     )
   >- (
-    gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP,
-        PULL_EXISTS, FORALL_PROD, EVERY_MEM] >>
-    rw[] >> first_x_assum drule >> simp[]
-    )
-  >- gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET, GSYM SUBSET_INSERT_DELETE]
-  >- (
-    gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >> rw[] >>
-    pairarg_tac >> gvs[EVERY_MEM] >>
-    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-    gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
+    gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, DIFF_SUBSET,
+      MEM_MAP, PULL_EXISTS, FORALL_PROD, EVERY_MEM] >>
+    rw[]
+    >- (
+      drule_then assume_tac tcexp_type_cepat_cepat_vars >>
+      gvs[MAP_REVERSE,MAP_MAP_o] >>
+      irule SUBSET_TRANS >>
+      last_x_assum $ irule_at (Pos hd) >>
+      irule $ cj 1 EQ_SUBSET_SUBSET >>
+      AP_THM_TAC >> AP_TERM_TAC >>
+      AP_TERM_TAC >>
+      irule LIST_EQ >>
+      rw[EL_MAP] >>
+      pairarg_tac >>
+      simp[]
     ) >>
-  Cases_on `usopt` >> gvs[]
+    last_x_assum $ drule_then strip_assume_tac >>
+    drule tcexp_type_cepat_cepat_vars >>
+    rw[] >>
+    drule_then irule $ METIS_PROVE [] ``∀a b c. a ⊆ b ∧ b = c ⇒ a ⊆ c`` >>
+    AP_THM_TAC >> AP_TERM_TAC >>
+    rw[EXTENSION,MEM_MAP,MEM_REVERSE,EQ_IMP_THM] >>
+    first_assum $ irule_at (Pos last) >>
+    simp[ELIM_UNCURRY]
+  )
   >- (
-    gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
-    rw[] >> pairarg_tac >> gvs[EVERY_MEM] >>
-    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-    gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
-    ) >>
-  PairCases_on `x` >> gvs[] >>
-  gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS] >>
-  rw[] >> pairarg_tac >> gvs[EVERY_MEM] >>
-  first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-  gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET]
+    rpt TOP_CASE_TAC >>
+    gvs[GSYM SUBSET_INSERT_DELETE, BIGUNION_SUBSET, DIFF_SUBSET,
+      MEM_MAP, PULL_EXISTS, FORALL_PROD, EVERY_MEM] >>
+    rw[] >> first_x_assum drule >> rw[] >>
+    gvs[MAP_REVERSE, MAP_ZIP, DIFF_SUBSET, GSYM SUBSET_INSERT_DELETE]
+  )
 QED
 
 Theorem type_tcexp_env_extensional:
-  ∀ns db st env e t env'.
+  ∀db st env e t env'.
     type_tcexp ns db st env e t ∧
     (∀x. x ∈ freevars_tcexp e ⇒ ALOOKUP env x = ALOOKUP env' x)
   ⇒ type_tcexp ns db st env' e t
@@ -264,102 +437,225 @@ Proof
   rpt $ first_assum $ irule_at Any >> rw[ALOOKUP_MAP]
   >- (
     gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
-    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    disj1_tac >>
+    irule_at (Pos hd) EQ_REFL >>
+    rw[] >>
+    first_x_assum drule >> rw[] >>
+    first_x_assum irule >> rw[] >>
+    first_x_assum irule >>
+    first_x_assum $ irule_at (Pos hd) >>
+    simp[EL_MEM]
     )
   >- (
+    disj1_tac >>
     gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
-    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    first_x_assum $ irule_at (Pos last) >>
+    first_x_assum $ irule_at (Pos last) >>
+    rw[]
     )
   >- (
+    disj1_tac >>
     gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
-    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    first_x_assum $ irule_at (Pos last) >>
+    rw[]
     )
   >- (
+    disj1_tac >>
     gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
-    first_x_assum irule >> goal_assum drule >> simp[EL_MEM]
+    first_x_assum $ irule_at (Pos last) >>
+    rw[]
     )
   >- (
+    disj2_tac >> disj1_tac >>
     gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    first_x_assum drule >> strip_tac >> first_x_assum irule >> rw[] >>
-    first_x_assum irule >> disj2_tac >> goal_assum drule >> simp[EL_MEM]
+    first_x_assum $ irule_at (Pos last) >>
+    rw[] >>
+    first_x_assum $ irule o cj 2 >>
+    rw[] >>
+    metis_tac[MEM_EL] 
     )
   >- (
-    rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
-    first_x_assum irule >> simp[] >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
+    rpt disj2_tac >>
+    irule_at (Pos hd) EQ_REFL >>
+    first_x_assum $ irule_at (Pos last) >>
+    gvs[PULL_EXISTS,ALOOKUP_APPEND,LIST_REL_EL_EQN] >>
+    rw[] >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[ALOOKUP_MAP] >>
+    AP_TERM_TAC >>
+    gvs[MEM_MAP,PULL_EXISTS] >>
+    metis_tac[MEM_EL]
     )
   >- (
-    rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
-    first_x_assum irule >> simp[] >>
-    gvs[LIST_REL_EL_EQN, ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
-    )
+    gvs[LIST_REL_EL_EQN,PULL_EXISTS] >>
+    rw[] >>
+    first_x_assum $ drule_then (irule o cj 2) >>
+    rw[] >>
+    gvs[MEM_MAP,PULL_EXISTS] >>
+    metis_tac[MEM_EL]
+  )
   >- (
-    gvs[LIST_REL_EL_EQN, PULL_EXISTS, MEM_MAP] >> rw[] >>
-    rpt (pairarg_tac >> gvs[]) >>
-    first_x_assum drule >> simp[] >> strip_tac >> first_x_assum irule >> rw[] >>
-    simp[ALOOKUP_MAP, ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
-    AP_TERM_TAC >> first_x_assum irule >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP] >>
-    gvs[MEM_MAP] >> disj2_tac >> qexists `fn,body` >> simp[MEM_EL] >>
-    goal_assum drule >> simp[]
-    )
+    gvs[LIST_REL_EL_EQN,PULL_EXISTS] >>
+    rw[] >>
+    first_x_assum $ drule_then (irule o cj 2) >>
+    rw[] >>
+    gvs[MEM_MAP,PULL_EXISTS] >>
+    metis_tac[MEM_EL]
+  )
   >- (
-    disj1_tac >> gvs[EVERY_MEM] >> rw[] >> rpt (pairarg_tac >> gvs[]) >>
-    first_x_assum drule >> simp[] >> strip_tac >> pop_assum irule >> rw[] >>
-    first_x_assum irule >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[]
-    )
+    rw[ALOOKUP_APPEND] >>
+    TOP_CASE_TAC >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP]
+  )
   >- (
-    disj1_tac >> rpt $ first_x_assum $ irule_at Any >> rw[ALOOKUP_APPEND] >>
-    CASE_TAC >> gvs[] >> first_x_assum irule >> disj2_tac >> gvs[] >>
-    gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
-    )
+    rw[ALOOKUP_APPEND] >>
+    TOP_CASE_TAC >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP,LIST_REL_EL_EQN]
+  )
   >- (
-    ntac 2 disj2_tac >> disj1_tac >>
-    gvs[EVERY_MEM] >> rw[] >> rpt (pairarg_tac >> gvs[]) >>
-    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-    first_x_assum $ irule_at Any >> rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
-    first_x_assum irule >> disj2_tac >> gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    rpt $ goal_assum $ drule_at Any >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
-    )
+    gvs[LIST_REL_EL_EQN] >>
+    rw[] >>
+    ntac 2 (pairarg_tac >> gvs[]) >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[ALOOKUP_APPEND,ALOOKUP_MAP,oneline OPTION_MAP_DEF] >>
+    CASE_TAC >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP] >>
+    ntac 2 AP_THM_TAC >>
+    AP_TERM_TAC >>
+    first_x_assum irule >>
+    rw[] >>
+    disj2_tac >>
+    first_assum $ irule_at (Pos hd) >>
+    gvs[MEM_MAP,MEM_EL,EXISTS_PROD] >>
+    metis_tac[]
+  )
   >- (
-    rpt disj2_tac >> rpt $ first_x_assum $ irule_at Any >> simp[] >>
-    gvs[EVERY_MEM] >> rw[] >> pairarg_tac >> gvs[] >>
-    first_x_assum drule >> simp[] >> strip_tac >> gvs[] >>
-    first_x_assum irule >> rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[] >>
-    first_x_assum irule >> disj2_tac >> gvs[] >> disj2_tac >>
-    gvs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    rpt $ goal_assum $ drule_at Any >> gvs[ALOOKUP_NONE, MAP_REVERSE, MAP_ZIP]
-    )
-  >- (disj1_tac >> first_x_assum $ irule_at Any >> simp[])
-  >- (rpt disj2_tac >> rpt $ first_x_assum $ irule_at Any >> simp[])
+    drule_then strip_assume_tac tcexp_type_cepat_cepat_vars >>
+    gvs[ALOOKUP_APPEND,EVERY_MEM] >>
+    TOP_CASE_TAC >>
+    TOP_CASE_TAC >>
+    first_x_assum irule >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP,MAP_MAP_o,
+      combinTheory.o_DEF,ELIM_UNCURRY] >>
+    gvs[SF ETA_ss]
+  )
+ >- (
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    rw[] >>
+    first_assum $ irule_at (Pos hd) >>
+    first_assum $ irule_at (Pos hd) >>
+    rw[ALOOKUP_APPEND] >>
+    TOP_CASE_TAC >>
+    first_x_assum irule >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_MAP_o,
+      combinTheory.o_DEF,ELIM_UNCURRY] >>
+    disj2_tac >> disj2_tac >>
+    gvs[MEM_MAP,PULL_EXISTS] >>
+    first_assum $ irule_at (Pos last) >>
+    drule_then strip_assume_tac tcexp_type_cepat_cepat_vars >>
+    gvs[MEM_MAP]
+  )
+ >- (
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum $ irule_at (Pos hd) >>
+    first_x_assum $ irule_at (Pos hd) >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[ALOOKUP_APPEND] >>
+    TOP_CASE_TAC >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP] >>
+    first_x_assum irule >>
+    gvs[] >>
+    disj2_tac >> disj2_tac >>
+    gvs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+    first_x_assum $ irule_at (Pos last) >>
+    simp[]
+  )
+QED
+
+Theorem tcexp_type_cons_db_APPEND:
+  tcexp_type_cons tds db c t ⇒
+  tcexp_type_cons tds (db ++ db') c t
+Proof
+  simp[oneline tcexp_type_cons_def] >>
+  rpt TOP_CASE_TAC >>
+  rw[] >>
+  fs[LIST_REL_EL_EQN] >>
+  metis_tac[kind_ok_APPEND]
+QED
+
+Theorem tcexp_destruct_type_cons_db_APPEND:
+  tcexp_destruct_type_cons ns db t c ts ⇒
+  tcexp_destruct_type_cons ns (db ++ db') t c ts
+Proof
+  rw[oneline tcexp_destruct_type_cons_def] >>
+  every_case_tac >> gvs[] >>
+  every_case_tac >>
+  metis_tac[tcexp_type_cons_db_APPEND]
+QED
+
+Theorem tcexp_type_cepat_db_APPEND:
+  ∀p t vts.
+    tcexp_type_cepat ns db p t vts ⇒
+    tcexp_type_cepat ns (db ++ db') p t vts
+Proof
+  ho_match_mp_tac tcexp_type_cepat_ind >>
+  rw[] >>
+  simp[Once tcexp_type_cepat_cases] >>
+  fs[SF ETA_ss] >>
+  metis_tac[specialises_db_APPEND,tcexp_destruct_type_cons_db_APPEND]
 QED
 
 Theorem type_tcexp_weaken:
   ∀ns db st env e t db' st' env'.
     type_tcexp ns db st env e t
-  ⇒ type_tcexp ns (db + db') (st ++ st') (env ++ env') e t
+  ⇒ type_tcexp ns (db ++ db') (st ++ st') (env ++ env') e t
 Proof
   ntac 3 gen_tac >>
   Induct_on `type_tcexp` >> rw[] >> rw[Once type_tcexp_cases]
   >- (
     simp[ALOOKUP_APPEND] >> PairCases_on `s` >> gvs[specialises_def] >>
     qexists_tac `subs` >> gvs[] >>
-    irule EVERY_MONOTONIC >> rw[] >> goal_assum $ drule_at Any >> rw[] >>
-    drule type_ok_mono >> simp[]
+    irule LIST_REL_mono >> rw[] >> goal_assum $ drule_at Any >> rw[] >>
+    drule kind_ok_APPEND >> simp[]
     )
-  >- gvs[LIST_REL_EL_EQN]
-  >- metis_tac[]
-  >- (drule type_ok_mono >> simp[])
-  >- metis_tac[]
-  >- metis_tac[]
-  >- (goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN])
   >- (
-    goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN] >>
-    irule EVERY_MONOTONIC >> rw[] >> goal_assum $ drule_at Any >> rw[] >>
-    drule type_ok_mono >> simp[]
+    disj1_tac >>
+    irule_at (Pos hd) EQ_REFL >>
+    gvs[LIST_REL_EL_EQN]
+  )
+  >- metis_tac[]
+  >- (
+    disj1_tac >> gvs[type_ok_def] >>
+    drule kind_ok_APPEND >> simp[]
+  )
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    disj2_tac >> disj1_tac >>
+    goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN]
+  )
+  >- (
+    rpt disj2_tac >>
+    irule_at (Pos hd) EQ_REFL >>
+    drule_then (irule_at (Pos last)) tcexp_type_cons_db_APPEND >>
+    gvs[LIST_REL_EL_EQN] >>
+    rw[] >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    gvs[]
     )
   >- gvs[oEL_THM, EL_APPEND_EQN]
   >- (ntac 2 $ goal_assum $ drule_at Any >> gvs[LIST_REL_EL_EQN])
@@ -368,7 +664,8 @@ Proof
   >- (
     irule_at Any EQ_REFL >> simp[] >>
     irule EVERY_MONOTONIC >> goal_assum $ drule_at Any >> rw[] >>
-    drule type_ok_mono >> simp[]
+    gvs[type_ok_def] >>
+    drule kind_ok_APPEND >> simp[]
     )
   >- (qexistsl_tac [`new`,`t`] >> gvs[])
   >- (
@@ -379,347 +676,902 @@ Proof
       )
     >- (
       irule EVERY_MONOTONIC >> rw[] >> goal_assum $ drule_at Any >> rw[] >>
-      pairarg_tac >> gvs[] >> drule type_ok_mono >> simp[]
+      pairarg_tac >> gvs[type_ok_def] >> drule kind_ok_APPEND >> simp[]
       )
     )
-  >- (disj1_tac >> gvs[FORALL_PROD, EVERY_MEM] >> rw[] >> metis_tac[])
-  >- (disj1_tac >> first_x_assum $ irule_at Any >> gvs[APPEND_ASSOC_CONS])
   >- (
-    disj2_tac >> disj2_tac >> disj1_tac >> gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
-    first_x_assum drule >> strip_tac >> simp[] >> gvs[APPEND_ASSOC_CONS] >>
-    pop_assum $ irule_at Any >> simp[]
-    )
+    first_assum (irule_at (Pos hd)) >>
+    drule_then (irule_at (Pos hd)) tcexp_type_cepat_db_APPEND >>
+    PURE_REWRITE_TAC[cj 2 $ GSYM APPEND] >>
+    PURE_REWRITE_TAC[APPEND_ASSOC] >>
+    first_x_assum $ irule_at (Pos hd) >>
+    rw[EVERY_MEM] >>
+    pairarg_tac >> gvs[EVERY_MEM] >>
+    first_x_assum drule >>
+    rw[] >>
+    drule_then (irule_at (Pos hd)) tcexp_type_cepat_db_APPEND >>
+    first_x_assum irule
+  )
   >- (
-    disj2_tac >> disj2_tac >> disj2_tac >>
-    rpt $ goal_assum $ drule_at Any >> gvs[] >>
-    irule_at Any EVERY_MONOTONIC >>
-    goal_assum $ drule_at Any >> rw[] >> pairarg_tac >> gvs[] >>
-    gvs[APPEND_ASSOC_CONS]
-    )
-  >- (disj1_tac >> rpt $ goal_assum $ drule_at Any >> gvs[])
-  >- (disj2_tac >> disj2_tac >> rpt $ first_x_assum $ irule_at Any >> gvs[])
+    first_x_assum $ irule_at (Pos hd) >>
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[] >>
+    rw[] >>
+    drule_then (irule_at Any) tcexp_destruct_type_cons_db_APPEND >>
+    PURE_REWRITE_TAC[cj 2 $ GSYM APPEND] >>
+    PURE_REWRITE_TAC[APPEND_ASSOC] >>
+    first_x_assum (irule_at (Pos last)) >>
+    gvs[LIST_REL_EL_EQN] >>
+    metis_tac[specialises_db_APPEND]
+  )
+  >- (
+    drule_then (irule_at Any) tcexp_destruct_type_cons_db_APPEND >>
+    simp[specialises_db_APPEND]
+  )
 QED
 
 Theorem type_tcexp_generalise_env:
-  ∀ns db st env e t env'.
+  ∀db st env e t env'.
     type_tcexp ns db st env e t ∧
     (∀x sch. x ∈ freevars_tcexp e ∧ ALOOKUP env x = SOME sch ⇒
        ∃sch'. ALOOKUP env' x = SOME sch' ∧
-              (∀n t . specialises (SND ns) (db + n) (tshift_scheme n sch) t
-                  ⇒ specialises (SND ns) (db + n) (tshift_scheme n sch') t))
+              (∀n t . specialises (SND ns) (n ++ db)
+                        (tshift_kind_scheme (LENGTH n) sch) t
+                  ⇒ specialises (SND ns) (n ++ db)
+                      (tshift_kind_scheme (LENGTH n) sch') t))
   ⇒ type_tcexp ns db st env' e t
 Proof
   Induct_on `type_tcexp` >> rw[] >> simp[Once type_tcexp_cases]
   >- (
-    first_x_assum $ qspec_then `0` mp_tac >> simp[] >>
+    first_x_assum $ qspec_then `[]` mp_tac >> simp[] >>
     gvs[ELIM_UNCURRY]
     )
   >- (
     gvs[MEM_EL, EL_MAP, PULL_EXISTS, LIST_REL_EL_EQN, SF CONJ_ss] >>
     metis_tac[]
     )
-  >- (rpt $ first_x_assum $ irule_at Any >> simp[])
-  >- (rpt $ first_x_assum $ irule_at Any >> simp[])
-  >- (rpt $ first_x_assum $ irule_at Any >> simp[])
+  >- (disj1_tac >> rpt $ first_x_assum $ irule_at Any >> simp[])
+  >- (disj1_tac >> rpt $ first_x_assum $ irule_at Any >> simp[])
+  >- (disj1_tac >> rpt $ first_x_assum $ irule_at Any >> simp[])
   >- (
-    gvs[MEM_EL, EL_MAP, PULL_EXISTS, LIST_REL_EL_EQN, SF CONJ_ss] >>
+    disj2_tac >> disj1_tac >> rpt $ first_x_assum $ irule_at Any >>
+    gvs[LIST_REL_EL_EQN] >>
+    rpt strip_tac >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[] >>
+    gvs[MEM_MAP,PULL_EXISTS] >>
+    first_x_assum drule >>
+    rw[MEM_EL,PULL_EXISTS] >>
+    first_x_assum drule >>
     metis_tac[]
-    )
+  )
   >- (
-    gvs[MEM_EL, EL_MAP, PULL_EXISTS, LIST_REL_EL_EQN, SF CONJ_ss] >>
-    metis_tac[]
-    )
-  >- (
-    gvs[MEM_EL, EL_MAP, PULL_EXISTS, LIST_REL_EL_EQN, SF CONJ_ss] >>
-    metis_tac[]
-    )
-  >- (rpt $ first_x_assum $ irule_at Any >> simp[])
-  >- (
-    gvs[MEM_EL, EL_MAP, PULL_EXISTS, LIST_REL_EL_EQN, SF CONJ_ss] >>
-    metis_tac[]
-    )
-  >- (
-    first_x_assum $ irule_at Any >> rpt $ goal_assum $ drule_at Any >> simp[] >>
-    rw[ALOOKUP_APPEND] >> CASE_TAC >> gvs[ALOOKUP_NONE] >>
-    gvs[MAP_REVERSE, MAP_ZIP]
-    )
+    rpt disj2_tac >>
+    irule_at (Pos hd) EQ_REFL >>
+    first_x_assum $ irule_at (Pos last) >>
+    gvs[LIST_REL_EL_EQN] >>
+    rw[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[PULL_EXISTS,MEM_MAP] >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[MEM_EL,PULL_EXISTS] >>
+    first_x_assum drule >>
+    rw[] >>
+    gvs[ALOOKUP_MAP,ELIM_UNCURRY,shift_db_twice] >>
+    gvs[specialises_def,PULL_EXISTS] >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[LENGTH_APPEND]
+  )
   >- (
     rpt $ first_x_assum $ irule_at Any >> simp[] >>
-    gvs[ALOOKUP_MAP, PULL_EXISTS] >> rw[] >>
-    first_x_assum $ drule_at Any >> strip_tac >>
-    gvs[ELIM_UNCURRY, shift_db_twice]
+    gvs[LIST_REL_EL_EQN,PULL_EXISTS] >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum irule >>
+    rw[] >>
+    gvs[MEM_MAP,PULL_EXISTS,MEM_EL] >>
+    first_x_assum $ drule_then drule >>
+    rw[]
+  )
+  >- (rpt $ first_x_assum $ irule_at Any >> simp[])
+  >- (
+    gvs[MEM_EL, EL_MAP, PULL_EXISTS, LIST_REL_EL_EQN, SF CONJ_ss] >>
+    metis_tac[]
     )
+  >- (
+    irule_at (Pos hd) EQ_REFL >>
+    gvs[lambdify type_ok_def] >>
+    first_x_assum irule >>
+    rw[] >>
+    gvs[ALOOKUP_APPEND] >>
+    TOP_CASE_TAC >> gvs[] >>
+    gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP]
+  )
   >- (
     rpt $ first_x_assum $ irule_at Any >> simp[] >>
-    drule_at Any EVERY2_MEM_MONO >> disch_then $ irule_at Any >> rw[]
+    rw[] >>
+    gvs[ALOOKUP_MAP,PULL_EXISTS] >>
+    first_x_assum $ drule_at (Pos $ el 2) >>
+    rw[] >>
+    rw[] >>
+    first_x_assum $ qspec_then `n ++ new` mp_tac >>
+    gvs[shift_db_twice,ELIM_UNCURRY]
+  )
+  >- (
+    rpt $ first_x_assum $ irule_at Any >> simp[] >>
+    gvs[LIST_REL_EL_EQN] >>
+    rw[]
     >- (
-      gvs[MEM_ZIP, LIST_REL_EL_EQN] >>
-      last_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >>
-      first_x_assum irule >> rw[ALOOKUP_APPEND, ALOOKUP_MAP] >>
-      CASE_TAC >> gvs[ALOOKUP_NONE, PULL_EXISTS] >>
-      last_x_assum $ drule_at Any >> gvs[MAP_REVERSE, MAP_ZIP] >>
-      impl_tac >> rw[] >> gvs[ELIM_UNCURRY, shift_db_twice] >>
-      simp[MEM_EL, EL_MAP, SF CONJ_ss, PULL_EXISTS] >>
-      disj2_tac >> goal_assum $ drule_at Any >> simp[]
-      )
+      gvs[ALOOKUP_APPEND,PULL_EXISTS] >>
+      TOP_CASE_TAC >> gvs[] >>
+      gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP]
+    )
     >- (
-      gvs[ALOOKUP_APPEND] >> CASE_TAC >> gvs[ALOOKUP_NONE] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      last_x_assum $ drule_at Any >> gvs[MAP_REVERSE, MAP_ZIP]
-      )
+      ntac 2 (pairarg_tac >> gvs[]) >>
+      first_x_assum drule >>
+      rw[] >>
+      first_x_assum irule >>
+      rw[] >>
+      gvs[ALOOKUP_MAP,ALOOKUP_APPEND,AllCaseEqs(),PULL_EXISTS,
+        ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP,MEM_MAP] >>
+      first_x_assum $ drule_at (Pos last) >>
+      impl_tac
+      >- (
+        gvs[EXISTS_PROD,FORALL_PROD] >>
+        rw[]
+        >- (
+          disj2_tac >>
+          first_x_assum $ irule_at Any >>
+          metis_tac[MEM_EL]
+        ) >>
+        strip_tac >>
+        qpat_x_assum `!p1 p2. ¬ MEM _ (ZIP (MAP _ _,_))` mp_tac >>
+        simp[ZIP_MAP,MEM_MAP,MEM_ZIP] >>
+        gvs[MEM_EL] >>
+        first_assum $ irule_at (Pos hd) >>
+        simp[EL_MAP] >>
+        metis_tac[PAIR,FST]
+      ) >>
+      rw[PULL_EXISTS] >>
+      irule_at (Pos hd) OR_INTRO_THM1 >>
+      irule_at (Pos hd) EQ_REFL >>
+      rw[] >>
+      gvs[ELIM_UNCURRY,shift_db_twice,Excl"LENGTH_APPEND",GSYM LENGTH_APPEND]
     )
+  )
   >- (
-    disj1_tac >> gvs[EVERY_MEM] >> rw[] >>
-    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >>
-    pop_assum irule >> rw[] >> first_x_assum $ drule_at Any >>
-    impl_tac >> rw[] >> gvs[] >>
-    simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[]
-    )
+    rpt $ first_assum $ irule_at Any >> simp[] >>
+    gvs[EVERY_MEM] >>
+    rw[]
+    >- (
+      gvs[ALOOKUP_APPEND,PULL_EXISTS] >>
+      TOP_CASE_TAC >> gvs[] >>
+      gvs[ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP] >>
+      IF_CASES_TAC >> rw[] >>
+      gvs[] >>
+      first_x_assum $ drule_at (Pos last) >>
+      rw[MEM_MAP,EXISTS_PROD] >>
+      first_x_assum irule >>
+      drule_then strip_assume_tac tcexp_type_cepat_cepat_vars >>
+      gvs[MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,SF ETA_ss]
+     ) >>
+     pairarg_tac >> gvs[] >>
+     first_x_assum drule >>
+     rw[] >>
+     rpt $ first_assum $ irule_at Any >> simp[] >>
+     rw[] >>
+     gvs[ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE,MAP_REVERSE,MAP_MAP_o]
+     >- (
+      irule_at (Pos hd) OR_INTRO_THM1 >>
+      rw[]
+     ) >>
+     irule_at (Pos hd) OR_INTRO_THM1 >>
+     rw[] >>
+     first_x_assum irule >>
+     rw[] >>
+     disj2_tac >> disj2_tac >>
+     simp[PULL_EXISTS,MEM_MAP,EXISTS_PROD] >>
+     first_assum $ irule_at (Pos last) >>
+     drule_then strip_assume_tac tcexp_type_cepat_cepat_vars >>
+     gvs[IN_DEF,MAP_MAP_o,combinTheory.o_DEF,ELIM_UNCURRY,SF ETA_ss]
+  )
   >- (
-    disj1_tac >> irule_at Any EQ_REFL >> simp[] >>
-    first_x_assum irule >> rw[ALOOKUP_APPEND] >>
-    CASE_TAC >> gvs[ALOOKUP_NONE] >> first_x_assum $ drule_at Any >>
-    impl_tac >> rw[] >> gvs[MAP_REVERSE, MAP_ZIP]
+    rpt $ first_assum $ irule_at Any >> simp[] >>
+    rw[]
+    >- (first_x_assum irule >> rw[]) >>
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    rw[] >>
+    rpt $ first_assum $ irule_at Any >>
+    rw[ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE,MAP_REVERSE,MAP_ZIP]
+    >- (irule_at (Pos hd) OR_INTRO_THM1 >> rw[])
+    >- (
+      simp[] >>
+      irule_at (Pos hd) OR_INTRO_THM1 >>
+      first_x_assum $ drule_at_then (Pos last) irule >>
+      gvs[MEM_MAP,EXISTS_PROD,FORALL_PROD] >>
+      disj2_tac >> disj2_tac >>
+      first_x_assum $ irule_at (Pos last) >>
+      simp[]
     )
-  >- (
-    ntac 2 disj2_tac >> disj1_tac >> gvs[EVERY_MEM] >> rw[] >>
-    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >> simp[] >>
-    first_x_assum irule >> rw[ALOOKUP_APPEND] >>
-    CASE_TAC >> gvs[ALOOKUP_NONE] >> first_x_assum $ drule_at Any >>
-    impl_tac >> rw[] >> gvs[MAP_REVERSE, MAP_ZIP] >>
-    simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[]
+    >- (
+      irule_at (Pos hd) OR_INTRO_THM2 >>
+      drule ALOOKUP_MEM >>
+      rw[MEM_REVERSE,MEM_ZIP]
     )
-  >- (
-    rpt disj2_tac >> goal_assum $ drule_at Any >> simp[] >>
-    rw[] >> gvs[] >- (first_x_assum irule >> rw[]) >>
-    gvs[EVERY_MEM] >> rw[] >>
-    first_x_assum drule >> rpt (pairarg_tac >> gvs[]) >> rw[] >> simp[] >>
-    first_x_assum irule >> rw[ALOOKUP_APPEND] >>
-    CASE_TAC >> gvs[ALOOKUP_NONE] >> first_x_assum $ drule_at Any >>
-    impl_tac >> rw[] >> gvs[MAP_REVERSE, MAP_ZIP] >>
-    simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD] >>
-    rpt disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[]
-    )
-  >- (
-    disj1_tac >> goal_assum $ drule_at Any >> simp[]
-    )
-  >- (
-    rpt disj2_tac >> rpt $ goal_assum $ drule_at Any >> simp[]
-    )
+  )
+  >- (rpt $ first_assum $ irule_at Any >> simp[])
 QED
-
 
 (******************** Substitutions ********************)
 
+Theorem get_PrimTys_freetyvasrs_ok:
+  get_PrimTys ts = SOME pts ∧ MEM t ts ⇒
+  freetyvars_ok 0 t
+Proof
+  rw[get_PrimTys_SOME] >>
+  gvs[MEM_MAP,freetyvars_ok_def]
+QED
+
+Theorem tcexp_namespace_ok_IMP_type_scheme_ok:
+  tcexp_namespace_ok (exns,tds) ∧
+  LLOOKUP tds tyid = SOME (argks,constructors) ∧
+  ALOOKUP constructors cname = SOME ts ∧
+  MEM t ts ⇒
+  type_scheme_ok tds argks t
+Proof
+  rw[tcexp_namespace_ok_def,oEL_THM] >>
+  drule ALOOKUP_MEM >>
+  rw[] >>
+  gvs[EVERY_EL] >>
+  qpat_x_assum `!n. _ < LENGTH tds ⇒ _` drule >> 
+  pairarg_tac >> rw[] >>
+  gvs[MEM_EL] >>
+  rpt $ qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+  rw[] >>
+  first_x_assum drule >>
+  rw[]
+QED
+
+Theorem type_scheme_ok_IMP_freetyvars_ok:
+  type_scheme_ok tds aks (ks,t) ⇒
+  freetyvars_ok (LENGTH ks + LENGTH aks) t
+Proof
+  rw[type_scheme_ok_def] >>
+  metis_tac[kind_ok_IMP_freetyvars_ok,LENGTH_APPEND,ADD_COMM]
+QED
+
+Theorem shift_db_skip_tshift_shift:
+  shift_db n m (tshift n x) = tshift (n + m) x
+Proof
+  qspecl_then [`0`,`m`,`x`,`0`,`n`]
+    assume_tac shift_db_shift_db >> 
+  gvs[shift_db_twice]
+QED
+
+Theorem tcexp_type_cons_subst_db:
+  tcexp_namespace_ok (exds,tds) ∧
+  tcexp_type_cons tds db (cname,carg_ts) (tyid,tyargs) ∧
+  db = db'1 ++ tks ++ db'2 /\
+  LIST_REL (kind_ok tds db') tks ts ∧
+  db' = db'1 ++ db'2 ∧
+  n = LENGTH db'1 ⇒
+    tcexp_type_cons tds db' (cname,
+      MAP (λ(ks,t). (ks,
+        subst_db (n + LENGTH ks)
+          (MAP (tshift (LENGTH ks)) ts)
+          t)) carg_ts)
+      (tyid,MAP (subst_db n ts) tyargs)
+Proof
+  rw[tcexp_type_cons_def] >>
+  gvs[LIST_REL_EL_EQN] >>
+  rw[EL_MAP]
+  >- (
+    irule kind_ok_subst_db_APPEND >>
+    rw[LIST_REL_EL_EQN] >>
+    metis_tac[]
+  ) >>
+  drule_then (drule_then drule) $
+    tcexp_namespace_ok_IMP_type_scheme_ok >>
+  rw[MEM_EL,PULL_EXISTS] >>
+  irule LIST_EQ >>
+  rw[EL_MAP] >>
+  pairarg_tac >> rw[] >>
+  simp[MAP_MAP_o,combinTheory.o_DEF] >>
+  DEP_ONCE_REWRITE_TAC[subst_db_subst_db] >>
+  simp[MAP_MAP_o,combinTheory.o_DEF] >>
+  first_x_assum $ drule_then strip_assume_tac >>
+  gvs[] >>
+  drule_then assume_tac type_scheme_ok_IMP_freetyvars_ok >>
+  drule subst_db_unchanged >>
+  rw[] >>
+  AP_THM_TAC >>
+  AP_TERM_TAC >>
+  rw[LIST_EQ_REWRITE,EL_MAP] >>
+  simp[subst_db_shift_db_1]
+QED
+
+Theorem type_exception_subst_db:
+  tcexp_namespace_ok (exds,tds) ∧
+  type_exception exds (c,MAP SND carg_tys) ⇒
+  type_exception exds
+    (c, MAP (λ(p1,p2).
+        subst_db (LENGTH db'1 + LENGTH p1)
+          (MAP (tshift (LENGTH p1)) ts) p2) carg_tys)
+Proof
+  gvs[type_exception_def] >>
+  rw[LIST_EQ_REWRITE,EL_MAP] >>
+  drule_then strip_assume_tac ALOOKUP_SOME_EL >>
+  gvs[tcexp_namespace_ok_def,EVERY_EL] >>
+  first_x_assum drule >>
+  rw[] >>
+  first_x_assum drule >>
+  rw[type_ok_def,EL_MAP] >>
+  drule_then assume_tac kind_ok_IMP_freetyvars_ok  >>
+  pairarg_tac >> gvs[] >>
+  irule EQ_SYM >>
+  irule subst_db_unchanged >>
+  first_x_assum $ irule_at (Pos last) >>
+  simp[]
+QED
+
+Triviality cons_types_not_Exception:
+  cons_types (Atom $ TypeCons c) l ≠ Atom Exception
+Proof
+  strip_tac >>
+  `head_ty (cons_types (Atom $ TypeCons c) l) = TypeCons c` by
+    metis_tac[head_ty_def,head_ty_cons_types] >>
+  `head_ty (Atom Exception) = Exception` by metis_tac[head_ty_def] >>
+  gvs[]
+QED
+
+Theorem tcexp_destruct_type_cons_subst_db:
+  tcexp_namespace_ok ns ∧
+  tcexp_destruct_type_cons ns (db'1 ++ tks ++ db'2) t c carg_tys ∧
+  LIST_REL (kind_ok (SND ns) (db'1 ++ db'2)) tks ts ⇒
+  tcexp_destruct_type_cons ns (db'1 ++ db'2)
+    (subst_db (LENGTH db'1) ts t) c $
+    MAP (subst_db_kind_scheme (LENGTH db'1) ts) carg_tys
+Proof
+  Cases_on `ns` >> rw[] >>
+  gvs[tcexp_destruct_type_cons_def,
+    split_ty_cons_thm,head_ty_cons_eq_head_ty] >>
+  qpat_x_assum `if _ then _ else _` mp_tac >>
+  IF_CASES_TAC
+  >- (
+    rw[subst_db_def,EVERY_EL,EL_MAP,MAP_MAP_o,LAMBDA_PROD,
+      combinTheory.o_DEF]
+    >- (
+      first_x_assum drule >>
+      simp[FST_THM] >>
+      pairarg_tac >> rw[]
+    ) >>
+    metis_tac[type_exception_subst_db]
+  )
+  >- (
+    strip_tac >>
+    `t = cons_types (Atom $ TypeCons tc') (ty_args t)` by
+      metis_tac[cons_types_head_ty_ty_args] >>
+    pop_assum SUBST_ALL_TAC >>
+    gvs[subst_db_cons_types,cons_types_not_Exception,subst_db_def,
+      head_ty_cons_types,ty_args_cons_types,ty_args_alt] >>
+    every_case_tac >>
+    gvs[]
+    >- (
+      drule_then (drule_then irule) tcexp_type_cons_subst_db >>
+      metis_tac[]
+    ) >>
+    gvs[MAP_MAP_o,combinTheory.o_DEF]
+  )
+QED
+
+Triviality APPEND_ASSOC_four:
+  ks ++ db1 ++ tks ++ db2 = (ks ++ db1) ++ tks ++ db2
+Proof
+  metis_tac[APPEND_ASSOC]
+QED
+
+Theorem specialises_subst_db:
+  specialises tds (db'1 ++ tks ++ db'2) s t ∧
+  LIST_REL (kind_ok tds (db'1 ++ db'2)) tks ts ⇒ 
+  specialises tds (db'1 ++ db'2)
+    (subst_db_kind_scheme (LENGTH db'1) ts s)
+    (subst_db (LENGTH db'1) ts t)
+Proof
+  PairCases_on `s` >> gvs[specialises_def,LIST_REL_EL_EQN] >>
+  rw[] >>
+  imp_res_tac EVERY2_LENGTH >>
+  rw[subst_db_subst_db] >>
+  irule_at (Pos last) EQ_REFL >> rw[] >>
+  rw[EL_MAP] >>
+  gvs[] >>
+  first_x_assum drule >>
+  strip_tac >>
+  drule_then irule kind_ok_subst_db_APPEND >>
+  metis_tac[LIST_REL_EL_EQN]
+QED
+
+Theorem tcexp_type_cepat_subst_db:
+  ∀p pt vts.
+  tcexp_type_cepat ns (db'1 ++ tks ++ db'2) p pt vts ∧
+  tcexp_namespace_ok ns ∧
+  LIST_REL (kind_ok (SND ns) (db'1 ++ db'2)) tks ts ⇒
+  tcexp_type_cepat ns (db'1 ++ db'2) p
+    (subst_db_kind_scheme (LENGTH db'1) ts pt)
+    (MAP (λ(v,t). (v,subst_db (LENGTH db'1) ts t)) vts)
+Proof
+  Induct_on `tcexp_type_cepat` >>
+  rw[]
+  >- (
+    irule tcexp_type_cepat_Var >>
+    metis_tac[specialises_subst_db]
+  )
+  >- irule tcexp_type_cepat_UScore
+  >- (
+    simp[MAP_FLAT] >>
+    irule tcexp_type_cepat_Cons >>
+    gvs[LIST_REL3_EL,EL_MAP] >>
+    drule_then (drule_then $ irule_at Any)
+      tcexp_destruct_type_cons_subst_db >>
+    rw[EL_MAP]
+  )
+QED
+
+Theorem destructable_type_subst_db:
+  destructable_type t ⇒ destructable_type (subst_db n db t)
+Proof
+  rw[destructable_type_def] >>
+  gvs[subst_db_def] >>
+  TOP_CASE_TAC
+  >- (
+    last_x_assum mp_tac >>
+    TOP_CASE_TAC >>
+    gvs[head_ty_cons_eq_head_ty] >>
+    `t = cons_types (Atom $ TypeCons x) (ty_args t)` by
+      metis_tac[cons_types_head_ty_ty_args] >>
+    pop_assum SUBST_ALL_TAC >>
+    gvs[subst_db_cons_types,head_ty_cons_cons_types,subst_db_def,head_ty_cons_def]
+  ) >>
+  gvs[head_ty_cons_eq_head_ty,subst_db_head_ty,AllCaseEqs()] >>
+  Cases_on `head_ty_cons t` >>
+  gvs[head_ty_cons_eq_head_ty]
+QED
+
+Theorem tcexp_exhaustive_cepat_subst_db:
+  tcexp_namespace_ok ns ⇒
+  (∀t ps.
+    tcexp_exhaustive_cepat ns t ps ⇒
+    ∀n db. tcexp_exhaustive_cepat ns
+      (subst_db_kind_scheme n db t) ps) ∧
+  (∀ts pss.
+    tcexp_exhaustive_cepatl ns ts pss ⇒
+    ∀n db. tcexp_exhaustive_cepatl ns
+      (MAP (subst_db_kind_scheme n db) ts) pss)
+Proof
+  strip_tac >>
+  ho_match_mp_tac tcexp_exhaustive_cepat_ind >>
+  rw[]
+  >- metis_tac[tcexp_exhaustive_cepat_Var]
+  >- metis_tac[tcexp_exhaustive_cepat_UScore]
+  >- (
+    Cases_on `ns` >>
+    irule tcexp_exhaustive_cepat_Cons >>
+    gvs[unsafe_tcexp_destruct_type_cons_def,
+      destructable_type_subst_db] >>
+    rpt gen_tac >>
+    IF_CASES_TAC
+    >- (
+      pop_assum $ assume_tac o SRULE[Once $ oneline subst_db_def] >>
+      gvs[AllCaseEqs(),destructable_type_def,head_ty_cons_def] >>
+      rw[] >>
+      last_x_assum drule_all >>
+      strip_tac >>
+      first_x_assum $ qspecl_then [`0`,`[]`] mp_tac >>
+      simp[ELIM_UNCURRY] >>
+      metis_tac[]
+    ) >>
+    rw[split_ty_cons_thm,head_ty_cons_eq_head_ty,subst_db_head_ty] >>
+    gvs[AllCaseEqs()]
+    >- (
+      every_case_tac >>
+      gvs[head_ty_def,split_ty_cons_thm,head_ty_cons_eq_head_ty,subst_db_ty_args] >>
+      gvs[unsafe_tcexp_type_cons_def,PULL_EXISTS]
+      >- (
+        first_x_assum drule  >>
+        rw[] >>
+        first_x_assum $ irule_at (Pos last) >>
+        gvs[subst_db_subst_db,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+        gvs[subst_db_shift_db_1,shift_db_skip_tshift_shift] >>
+        first_x_assum $ qspecl_then [`n`,`db`] mp_tac >>
+        gvs[tcexp_namespace_ok_def,EVERY_EL,oEL_THM] >>
+        first_x_assum drule >>
+        rw[] >>
+        drule ALOOKUP_SOME_EL >>
+        rw[] >>
+        first_x_assum drule >> rw[] >>
+        qpat_x_assum `tcexp_exhaustive_cepatl _ _ _` mp_tac >>
+        ho_match_mp_tac $ cj 1 $ iffLR EQ_IMP_THM >>
+        AP_THM_TAC >> AP_TERM_TAC >>
+        rw[LIST_EQ_REWRITE,EL_MAP] >>
+        pairarg_tac >> gvs[] >>
+        first_x_assum drule >>
+        rw[type_scheme_ok_def] >>
+        drule kind_ok_IMP_freetyvars_ok >>
+        rw[] >>
+        drule subst_db_unchanged >>
+        gvs[]
+      ) >>
+      first_x_assum $ irule_at (Pos last) >>
+      gvs[subst_db_subst_db,MAP_MAP_o,combinTheory.o_DEF]
+    ) >>
+    gvs[destructable_type_def,head_ty_def] >>
+    `head_ty_cons t = NONE`
+    by (
+      Cases_on `head_ty_cons t` >>
+      gvs[head_ty_cons_eq_head_ty]
+    ) >>
+    gvs[]
+  )
+  >- metis_tac[tcexp_exhaustive_cepat_Nil]
+  >- (
+    irule tcexp_exhaustive_cepat_List >>
+    first_x_assum $ irule_at (Pos hd) >>
+    gvs[]
+  )
+QED
+
+Theorem get_constructors_subst_db:
+  get_constructors ns t = SOME constructors ⇒
+  get_constructors ns (subst_db n db t) = SOME constructors
+Proof
+  simp[oneline get_constructors_def,pair_CASE_def] >>
+  IF_CASES_TAC
+  >- rw[subst_db_def] >>
+  rw[split_ty_cons_thm]
+  >- (
+    spose_not_then kall_tac >>
+    pairarg_tac >>
+    gvs[split_ty_cons_thm,head_ty_cons_eq_head_ty] >>
+    `t = cons_types (Atom $ TypeCons tc') (ty_args t)`
+      by metis_tac[cons_types_head_ty_ty_args] >>
+    pop_assum SUBST_ALL_TAC >>
+    gvs[subst_db_cons_types,subst_db_def,cons_types_not_Exception]
+  ) >>
+  pairarg_tac >>
+  gvs[split_ty_cons_thm,head_ty_cons_eq_head_ty,EXISTS_PROD,
+    subst_db_head_ty]
+QED
+
 Theorem type_tcexp_subst_db:
-  ∀ns db st env e t n ts.
+  tcexp_namespace_ok ns ⇒
+  ∀db st env e t n db' db'1 tks db'2 ts.
     type_tcexp ns db st env e t ∧
-    namespace_ok ns ∧
-    EVERY (type_ok (SND ns) (db - LENGTH ts)) ts ∧
-    n + LENGTH ts ≤ db
-  ⇒ type_tcexp ns (db - LENGTH ts)
+    db = db'1 ++ tks ++ db'2 ∧
+    db' = db'1 ++ db'2 ∧
+    LIST_REL (kind_ok (SND ns) db') tks ts ∧
+    n = LENGTH db'1
+  ⇒ type_tcexp ns db'
       (MAP (subst_db n ts) st)
-      (MAP (λ(s,scheme). (s, subst_db_scheme n ts scheme)) env)
+      (MAP (λ(s,scheme). (s, subst_db_kind_scheme n ts scheme)) env)
       e
       (subst_db n ts t)
 Proof
+  strip_tac >>
   Induct_on `type_tcexp` >> rw[subst_db_def] >> rw[Once type_tcexp_cases]
   >- (
     simp[ALOOKUP_MAP] >>
-    PairCases_on `s` >> gvs[specialises_def] >>
-    rw[subst_db_subst_db] >> irule_at (Pos last) EQ_REFL >> simp[] >>
-    gvs[EVERY_MEM, MEM_MAP] >> rw[] >>
-    irule type_ok_subst_db >> simp[EVERY_MEM]
-    )
-  >- gvs[LIST_REL_EL_EQN, EL_MAP]
-  >- metis_tac[]
-  >- (irule type_ok_subst_db >> simp[])
-  >- metis_tac[]
-  >- metis_tac[]
+    metis_tac[specialises_subst_db]
+  )
   >- (
-    qexists_tac `carg_ts` >>
-    gvs[LIST_REL_EL_EQN] >> rw[] >>
-    last_x_assum drule >> strip_tac >> simp[] >>
-    pop_assum drule_all >>
-    qsuff_tac `subst_db n ts (EL n' carg_ts) = EL n' carg_ts` >> simp[] >>
-    irule subst_db_unchanged >> qexists_tac `0` >> simp[] >>
-    gvs[namespace_ok_def, EVERY_EL, type_exception_def] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
-    qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >> gvs[] >>
-    last_x_assum drule >> simp[type_ok_def]
-    )
+    disj1_tac >>
+    gvs[LIST_REL_EL_EQN,EL_MAP,subst_db_cons_types,subst_db_def] >>
+    qexists_tac `MAP (subst_db (LENGTH db'1) ts') ts` >>
+    rw[EL_MAP]
+  )
   >- (
-    rgs[LIST_REL_EL_EQN, EVERY_MAP] >>
-    qexists_tac `MAP (subst_db n ts) carg_ts` >> simp[EL_MAP] >> rw[]
-    >- (gvs[EVERY_MEM] >> rw[] >> irule type_ok_subst_db >> simp[EVERY_MEM]) >>
-    gvs[type_cons_def, EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >> rw[MAP_EQ_f] >>
-    simp[subst_db_subst_db, SF ETA_ss] >>
-    AP_TERM_TAC >> DEP_REWRITE_TAC [subst_db_unchanged] >>
-    gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
-    first_x_assum drule >> simp[] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
-    qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
-    disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
-    goal_assum drule >> simp[]
-    )
-  >- gvs[oEL_THM, EL_MAP]
+    disj1_tac >>
+    rpt $ first_assum $ irule_at Any >> gvs[subst_db_Functions,subst_db_def]
+  )
+  >- (
+    disj1_tac >>
+    gvs[type_ok_def] >>
+    drule_then irule kind_ok_subst_db_APPEND >>
+    metis_tac[]
+  )
+  >- (
+    disj1_tac >>
+    gvs[subst_db_Functions,subst_db_def]
+  )
+  >- (
+    disj1_tac >>
+    first_x_assum $ irule_at Any >>
+    rw[]
+  )
+  >- (
+    disj1_tac >>
+    rpt $ first_assum $ irule_at Any >>
+    rw[]
+  )
+  >- (
+    disj2_tac >> disj1_tac >>
+    rpt $ first_assum $ irule_at Any >>
+    gvs[LIST_REL_EL_EQN,oneline tcexp_namespace_ok_def,pair_CASE_def] >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum $ resolve_then (Pos hd) drule EQ_REFL >>
+    rw[] >>
+    gvs[EVERY_MEM,type_exception_def] >>
+    drule_then strip_assume_tac ALOOKUP_MEM >>
+    first_x_assum drule >>
+    rw[PULL_EXISTS,MEM_EL] >>
+    first_x_assum drule >>
+    rw[type_ok_def] >>
+    drule_then strip_assume_tac kind_ok_IMP_freetyvars_ok >>
+    gvs[] >>
+    `subst_db (LENGTH db'1) ts (EL n earg_ts) = EL n earg_ts`
+    by (
+      drule_then irule subst_db_unchanged >>
+      simp[]
+    ) >>
+    gvs[]
+  )
+  >- (
+    rpt disj2_tac >>
+    simp[subst_db_tcons_to_type] >>
+    irule_at (Pos hd) EQ_REFL >>
+    Cases_on `ns` >>
+    gvs[] >>
+    (drule_then $ drule_then $ irule_at (Pos last))
+      tcexp_type_cons_subst_db >>
+    gvs[LIST_REL_EL_EQN,EL_MAP] >>
+    irule_at (Pos hd) EQ_REFL >>
+    rw[] >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum drule >>
+    pairarg_tac >>
+    rw[] >>
+    gvs[LAMBDA_PROD] >>
+    first_x_assum $ qspecl_then [`ks ++ db'1`,`tks`,`db'2`] mp_tac >>
+    disch_then $ qspec_then `MAP (shift_db 0 (LENGTH ks)) ts` mp_tac >>
+    impl_tac
+    >- (
+      rw[EL_MAP] >>
+      irule kind_ok_shift_db_APPEND >>
+      simp[] >>
+      metis_tac[APPEND_ASSOC]
+    ) >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+    `(λx. subst_db (LENGTH db'1 + LENGTH ks) (MAP (tshift (LENGTH ks)) ts) (tshift (LENGTH ks) x)) =
+      (λx. tshift (LENGTH ks) (subst_db (LENGTH db'1) ts x))`
+    by (
+      rw[FUN_EQ_THM] >>
+      irule EQ_TRANS >>
+      irule_at (Pos hd) subst_db_shift_db_1 >>
+      simp[]
+    ) >>
+    simp[] >>
+    pop_assum kall_tac >>
+    ho_match_mp_tac $ cj 1 $ iffLR EQ_IMP_THM >>
+    AP_THM_TAC >>
+    AP_THM_TAC >>
+    AP_TERM_TAC >>
+    rw[LIST_EQ_REWRITE,EL_MAP] >>
+    pairarg_tac >>
+    rw[] >>
+    irule EQ_TRANS >>
+    irule_at (Pos last) subst_db_shift_db_1 >>
+    simp[shift_db_twice,MAP_MAP_o,combinTheory.o_DEF,
+      shift_db_skip_tshift_shift]
+  )
+  >- gvs[oEL_THM,EL_MAP]
   >- (
     gvs[LIST_REL_EL_EQN] >>
-    rpt $ goal_assum $ drule_at Any >> simp[] >> rw[] >>
-    last_x_assum drule >> strip_tac >>
-    pop_assum drule_all >>
-    imp_res_tac get_PrimTys_SOME >> gvs[EL_MAP, subst_db_def]
-    )
-  >- metis_tac[]
+    first_assum $ irule_at (Pos last) >>
+    first_assum $ irule_at (Pos last) >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    disch_then drule >>
+    impl_tac >- rw[] >>
+    drule get_PrimTys_freetyvasrs_ok >>
+    rw[MEM_EL,PULL_EXISTS] >>
+    first_x_assum $ drule_then assume_tac >>
+    drule subst_db_unchanged >>
+    simp[] >>
+    metis_tac[]
+  )
   >- (
-    gvs[subst_db_Functions] >> last_x_assum $ irule_at Any >> simp[] >>
-    gvs[LIST_REL_EL_EQN, EL_MAP, SF ETA_ss]
-    )
+    first_x_assum $ irule_at (Pos hd) >>
+    simp[]
+  )
   >- (
-    gvs[subst_db_Functions] >> irule_at Any EQ_REFL >>
-    gvs[EVERY_MAP, EVERY_MEM] >> rw[]
-    >- (irule type_ok_subst_db >> simp[EVERY_MEM])
-    >- gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF]
-    )
+    gvs[subst_db_Functions] >>
+    first_x_assum $ irule_at (Pos hd) >>
+    gvs[LIST_REL_EL_EQN] >>
+    rw[] >>
+    first_x_assum drule >>
+    rw[EL_MAP]
+  )
   >- (
-    first_x_assum drule_all >> disch_then $ irule_at Any >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM subst_db_shift_db_1] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    last_x_assum $ qspecl_then [`n + new`,`MAP (tshift new) ts`] mp_tac >>
-    simp[] >> impl_keep_tac
+    gvs[subst_db_Functions] >>
+    irule_at (Pos hd) EQ_REFL >>
+    gvs[EVERY_MAP,lambdify type_ok_def,MAP_MAP_o,
+      combinTheory.o_DEF,MAP_REVERSE,MAP_ZIP_ALT] >>
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    first_x_assum $ drule_then assume_tac >>
+    drule_then irule kind_ok_subst_db_APPEND >>
+    metis_tac[]
+  )
+  >- (
+    first_x_assum $ irule_at (Pos last) >>
+    gvs[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+    first_x_assum $ resolve_then (Pos hd)
+      mp_tac APPEND_ASSOC_four >>
+    disch_then $ qspec_then `MAP (tshift (LENGTH new)) ts` mp_tac >>
+    impl_tac
     >- (
-      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> rw[] >>
-      first_x_assum drule >> strip_tac >> drule type_ok_shift_db >> simp[]
-      ) >>
-    rw[] >> irule quotientTheory.EQ_IMPLIES >>
-    goal_assum drule >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-    rw[FUN_EQ_THM] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >> rw[] >>
-    simp[GSYM shift_db_shift_db]
-    )
+      gvs[LIST_REL_EL_EQN] >>
+      rw[EL_MAP] >>
+      irule kind_ok_shift_db_APPEND >>
+      simp[] >>
+      metis_tac[APPEND_ASSOC]
+    ) >>
+    ho_match_mp_tac $ cj 1 $ iffLR EQ_IMP_THM >>
+    simp[subst_db_shift_db_1] >>
+    ntac 2 AP_THM_TAC >>
+    AP_TERM_TAC >>
+    rw[LIST_EQ_REWRITE,EL_MAP] >>
+    pairarg_tac >>
+    rw[MAP_MAP_o,combinTheory.o_DEF,shift_db_twice] >>
+    simp[GSYM subst_db_shift_db_1,MAP_MAP_o,combinTheory.o_DEF] >>
+    rw[LIST_EQ_REWRITE,EL_MAP,shift_db_skip_tshift_shift]
+  )
   >- (
-    gvs[MAP_REVERSE] >>
-    gvs[LIST_REL_EL_EQN, MAP_ZIP_ALT] >>
-    first_x_assum $ irule_at Any >> simp[] >> reverse $ rw[]
+    imp_res_tac EVERY2_LENGTH >>
+    gvs[MAP_MAP_o,MAP_REVERSE,MAP_ZIP_ALT] >>
+    first_x_assum $ irule_at (Pos last) >>
+    gvs[EVERY_MAP,combinTheory.o_DEF,LAMBDA_PROD] >>
+    gvs[EVERY_EL,LIST_REL_EL_EQN] >>
+    rw[EL_MAP]
     >- (
-      gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
-      irule type_ok_subst_db >> simp[] >>
-      gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
-      first_x_assum drule >> strip_tac >> drule type_ok_shift_db >> simp[]
+      last_x_assum drule >>
+      ntac 2 (pairarg_tac >> gvs[]) >>
+      strip_tac >>
+      first_x_assum $ resolve_then (Pos hd) mp_tac APPEND_ASSOC_four >>
+      disch_then $ qspec_then `MAP (tshift (LENGTH vars)) ts` mp_tac >>
+      impl_tac
+      >- (
+        rw[EL_MAP] >>
+        irule kind_ok_shift_db_APPEND >>
+        simp[] >> metis_tac[APPEND_ASSOC]
       ) >>
-    simp[EL_MAP] >> last_x_assum drule >>
-    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >> strip_tac >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM subst_db_shift_db_1] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    last_x_assum $ qspecl_then [`n + vars`,`MAP (tshift vars) ts`] mp_tac >>
-    simp[] >> impl_keep_tac
+      gvs[GSYM subst_db_shift_db_1,ZIP_MAP,MAP_MAP_o,
+        LAMBDA_PROD,combinTheory.o_DEF,shift_db_twice,
+        shift_db_skip_tshift_shift]
+    ) >>
+    pairarg_tac >> rw[] >>
+    first_x_assum drule >>
+    rw[type_ok_def] >>
+    dxrule_then irule kind_ok_subst_db_APPEND >>
+    irule_at (Pos $ el 2) APPEND_ASSOC_four >>
+    rw[LIST_REL_EL_EQN,EL_MAP] >>
+    first_x_assum $ drule_then strip_assume_tac >>
+    dxrule_then irule kind_ok_shift_db_APPEND >>
+    simp[]
+  )
+  >- (
+    first_x_assum $ irule_at (Pos hd) >>
+    simp[] >>
+    first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    disch_then drule >>
+    rw[MAP_REVERSE,MAP_MAP_o,MAP_ZIP_ALT,combinTheory.o_DEF,LAMBDA_PROD] >>
+    qexists_tac `MAP (λ(v,t). (v,subst_db (LENGTH db'1) ts t)) vts` >>
+    rw[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
     >- (
-      gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >> rw[] >>
-      first_x_assum drule >> strip_tac >> drule type_ok_shift_db >> simp[]
-      ) >>
-    rw[] >> irule quotientTheory.EQ_IMPLIES >>
-    goal_assum drule >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-    reverse (rpt MK_COMB_TAC) >> simp[]
+      drule_then drule tcexp_type_cepat_subst_db >>
+      simp[ELIM_UNCURRY]
+    )
     >- (
-      rw[FUN_EQ_THM] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f] >> rw[] >>
-      simp[GSYM shift_db_shift_db]
-      ) >>
-    simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    simp[GSYM subst_db_shift_db_1, MAP_MAP_o, combinTheory.o_DEF] >>
-    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> rw[MAP_EQ_f, FUN_EQ_THM] >>
-    rw[GSYM shift_db_shift_db]
-    )
-  >- (disj1_tac >> gvs[FORALL_PROD, EVERY_MEM] >> rw[] >> metis_tac[])
+      gvs[EVERY_EL] >>
+      rpt strip_tac >>
+      pairarg_tac >> rw[] >>
+      first_x_assum drule >>
+      rw[] >>
+      drule_then drule tcexp_type_cepat_subst_db >>
+      rw[ELIM_UNCURRY] >>
+      first_x_assum $ irule_at (Pos hd) >>
+      rw[LIST_REL_EL_EQN,LAMBDA_PROD] >>
+      first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+      simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+    ) >>
+    drule_then drule $ cj 1 tcexp_exhaustive_cepat_subst_db >>
+    simp[]
+  )
   >- (
-    disj1_tac >> first_x_assum $ irule_at Any >>
-    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
-    )
+    last_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    disch_then $ irule_at (Pos hd) >>
+    simp[] >>
+    drule_then (irule_at $ Pos hd) get_constructors_subst_db >>
+    rw[] >>
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[] >>
+    rw[] >>
+    simp[] >>
+    drule_all_then (irule_at $ Pos hd)
+      tcexp_destruct_type_cons_subst_db >>
+    first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    rw[] >>
+    gvs[MAP_REVERSE,MAP_ZIP_ALT,LAMBDA_PROD,MAP_MAP_o,
+      combinTheory.o_DEF] >>
+    qexists_tac `MAP (subst_db (LENGTH db'1) ts) ptys'` >>
+    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+    gvs[LIST_REL_EL_EQN,EL_MAP] >>
+    rw[] >>
+    irule specialises_subst_db >>
+    gvs[LIST_REL_EL_EQN] >>
+    metis_tac[]
+  )
   >- (
-    disj2_tac >> disj2_tac >> disj1_tac >> gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
-    first_x_assum drule >> strip_tac >> gvs[] >>
-    pop_assum drule >> disch_then drule >>
-    simp[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF] >>
-    qsuff_tac `MAP (λx. (0n,subst_db n ts x)) tys = MAP ($, 0) tys` >> rw[] >>
-    rw[MAP_EQ_f] >> irule subst_db_unchanged >> qexists_tac `0` >> simp[] >>
-    gvs[namespace_ok_def, EVERY_MEM] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[FORALL_PROD, type_ok_def] >>
-    first_x_assum drule >> disch_then drule >> simp[]
-    ) >>~-
-  ([‘type_tcexp _ _ _ _ _ (TypeCons tyid tyargs)’, ‘set (MAP FST css)’,
-    ‘EVERY _ css’],
-   rpt disj2_tac >>
-   first_assum $ irule_at (Pat ‘type_tcexp _ _ _ _ _ _’) >> simp[] >>
-   irule MONO_EVERY >> first_x_assum $ irule_at Any >>
-   simp[FORALL_PROD, PULL_EXISTS, MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o,
-        combinTheory.o_DEF, SF CONJ_ss] >>
-   rpt strip_tac >> pop_assum drule_all >>
-   qmatch_abbrev_tac
-   ‘type_tcexp A B C D1 E1 E2 ⇒ type_tcexp A B C D2 E1 E2’ >>
-   ‘D1 = D2’ suffices_by simp[] >> markerLib.UNABBREV_ALL_TAC >>
-   simp[] >> AP_TERM_TAC >> AP_TERM_TAC >> simp[MAP_EQ_f] >>
-   rw[subst_db_shift_db_1, subst_db_subst_db, SF ETA_ss] >> AP_TERM_TAC >>
-   irule subst_db_unchanged >> gs[] >>
-   qpat_x_assum ‘namespace_ok _’ mp_tac >> simp[namespace_ok_def] >>
-   gs[oEL_THM] >> simp[EVERY_EL] >> rpt strip_tac >>
-   first_x_assum drule >> simp[] >> drule ALOOKUP_MEM >>
-   simp[MEM_EL, PULL_EXISTS] >> qx_gen_tac ‘cid’ >>
-   rpt strip_tac >> qpat_x_assum ‘_ = EL cid _’ (assume_tac o SYM) >>
-   first_x_assum drule >> simp[] >> strip_tac >>
-   qpat_x_assum ‘MEM _ schemes’ mp_tac >> simp[MEM_EL, PULL_EXISTS] >>
-   qx_gen_tac ‘sid’ >> strip_tac >> first_x_assum drule >>
-   simp[type_ok_def] >> strip_tac >> qexists ‘LENGTH tyargs’ >> simp[]) >~
-  [‘type_tcexp _ _ _ _ _ (TypeCons tyid tyargs)’]
-  >- (rpt disj2_tac >>
-      first_assum $ irule_at (Pat ‘type_tcexp _ _ _ _ _ _’) >> simp[] >>
-      rw[subst_db_shift_db_1, subst_db_subst_db, SF ETA_ss] >> AP_TERM_TAC >>
-      simp[Once EQ_SYM_EQ] >>
-      irule subst_db_unchanged >> gs[] >>
-      qpat_x_assum ‘namespace_ok _’ mp_tac >> simp[namespace_ok_def] >>
-      gs[oEL_THM] >> simp[EVERY_EL] >> rpt strip_tac >>
-      first_x_assum drule >> simp[] >> drule ALOOKUP_MEM >>
-      simp[MEM_EL, PULL_EXISTS] >> qx_gen_tac ‘cid’ >>
-      rpt strip_tac >> qpat_x_assum ‘_ = EL cid _’ (assume_tac o SYM) >>
-      first_x_assum drule >> simp[] >> strip_tac >>
-      qpat_x_assum ‘MEM _ schemes’ mp_tac >> simp[MEM_EL, PULL_EXISTS] >>
-      qx_gen_tac ‘sid’ >> strip_tac >> first_x_assum drule >>
-      simp[type_ok_def] >> strip_tac >> qexists ‘LENGTH tyargs’ >> simp[]) >~
-  [‘type_tcexp _ _ _ _ _ (Tuple _)’]
-  >- (disj1_tac >> first_x_assum $ irule_at Any >> gvs[oEL_THM, EL_MAP]) >~
-  [‘type_tcexp _ _ _ _ _ Exception’]
-  >- (
-    disj2_tac >> disj1_tac >> irule $ GSYM subst_db_unchanged >>
-    gvs[oEL_THM, namespace_ok_def, EVERY_EL] >> drule ALOOKUP_MEM >>
-    rw[MEM_EL] >>
-    pop_assum $ assume_tac o GSYM >>
-    first_x_assum drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
-    goal_assum $ drule_at Any >> simp[]
-    )
+    drule_all_then (irule_at Any) tcexp_destruct_type_cons_subst_db >>
+    simp[EL_MAP] >>
+    metis_tac[specialises_subst_db]
+  )
+QED
+
+Theorem specialises_shift_db:
+  specialises tds (db1 ++ db2) s t ⇒
+  specialises tds (db1 ++ shift_ks ++ db2)
+    (shift_db_kind_scheme (LENGTH db1) (LENGTH shift_ks) s)
+    (shift_db (LENGTH db1) (LENGTH shift_ks) t)
+Proof
+  PairCases_on `s` >> gvs[specialises_def,LIST_REL_EL_EQN] >>
+  rw[] >>
+  imp_res_tac EVERY2_LENGTH >>
+  rw[GSYM subst_db_shift_db_2] >>
+  irule_at (Pos last) EQ_REFL >>
+  rw[EL_MAP] >>
+  gvs[] >>
+  first_x_assum $ drule_then assume_tac >>
+  drule_then irule kind_ok_shift_db_APPEND >>
+  metis_tac[]
 QED
 
 Theorem type_tcexp_shift_db:
-  ∀ns db st env e t skip shift.
+  tcexp_namespace_ok ns ⇒
+  ∀db st env e t skip shift db' db1 shift_ks db2.
     type_tcexp ns db st env e t ∧
-    namespace_ok ns
-  ⇒ type_tcexp ns (db + shift)
+    db' = db1 ++ shift_ks ++ db2 ∧
+    shift = LENGTH shift_ks ∧
+    db = db1 ++ db2 ∧
+    skip = LENGTH db1
+  ⇒ type_tcexp ns db'
       (MAP (shift_db skip shift) st)
-      (MAP (λ(s,scheme). (s, shift_db_scheme skip shift scheme)) env)
+      (MAP (λ(s,scheme). (s,shift_db_kind_scheme skip shift scheme)) env)
       e
       (shift_db skip shift t)
 Proof
+  strip_tac >>
   Induct_on `type_tcexp` >> rw[shift_db_def] >> rw[Once type_tcexp_cases]
   >- (
     simp[ALOOKUP_MAP] >>
-    PairCases_on `s` >> gvs[specialises_def] >>
-    rw[GSYM subst_db_shift_db_2] >> irule_at (Pos last) EQ_REFL >> simp[] >>
-    gvs[EVERY_MEM, MEM_MAP] >> rw[] >>
-    irule type_ok_shift_db >> simp[EVERY_MEM]
-    )
+    metis_tac[specialises_shift_db]
+  )
   >- gvs[LIST_REL_EL_EQN, EL_MAP]
   >- metis_tac[]
   >- (irule type_ok_shift_db >> simp[])
@@ -1052,7 +1904,6 @@ Proof
   irule type_tcexp_closing_subst >> simp[PULL_EXISTS, EXISTS_PROD] >>
   goal_assum drule >> simp[]
 QED
-
 
 (******************** Seq (Var _) insertion ********************)
 

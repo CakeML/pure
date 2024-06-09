@@ -95,7 +95,7 @@ Inductive tcexp_type_cepat:
 [~Cons:]
   tcexp_destruct_type_cons ns db t c ts ∧
   LIST_REL3 (tcexp_type_cepat ns db) pats ts vtss ⇒
-    tcexp_type_cepat ns db (cepatCos c pats) ([],t) (FLAT vtss)
+    tcexp_type_cepat ns db (cepatCons c pats) ([],t) (FLAT vtss)
 End
 
 Definition unsafe_tcexp_type_cons_def:
@@ -103,6 +103,7 @@ Definition unsafe_tcexp_type_cons_def:
   ∃argks constructors schemes.
     LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
     ALOOKUP constructors cname = SOME schemes ∧
+    LENGTH tyargs = LENGTH argks ∧
     MAP
       (λ(ks,scheme).
         (ks, subst_db (LENGTH ks)
@@ -125,6 +126,7 @@ Theorem tcexp_type_cons_IMP_unsafe_tcexp_type_cons:
   unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs)
 Proof
   rw[tcexp_type_cons_def,unsafe_tcexp_type_cons_def] >>
+  gvs[LIST_REL_EL_EQN] >>
   metis_tac[]
 QED
 
@@ -214,7 +216,7 @@ Inductive tcexp_exhaustive_cepat:
   destructable_type t ∧
   (∀c ts. unsafe_tcexp_destruct_type_cons ns t c ts ⇒
     ∃(pss:cepat list set).
-      tcexp_exhaustive_cepatl ns ts pss ∧ IMAGE (cepat c) pss ⊆ pats) ⇒
+      tcexp_exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ pats) ⇒
   tcexp_exhaustive_cepat ns ([],t) pats
 
 [~Nil:]
@@ -284,8 +286,8 @@ Inductive type_tcexp:
       type_tcexp ns db st env (Prim (Cons «Update») [e1;e2;e3]) (Monad Unit)
 
 [~Exception:]
-   LIST_REL (type_tcexp (exndef,typedefs) db st env) es earg_ts ∧
-   type_exception exndef (cname,earg_ts) ⇒
+   LIST_REL (type_tcexp ns db st env) es earg_ts ∧
+   type_exception (FST ns) (cname,earg_ts) ⇒
       type_tcexp ns db st env (Prim (Cons cname) es) (Atom Exception)
 
 [~True:]
@@ -351,7 +353,8 @@ Inductive type_tcexp:
 [~NestedCase:]
   type_tcexp ns db st env e vt ∧
   EVERY (λ(p,e).
-    ∃vts. tcexp_type_cepat ns db p ([],vt) vts ∧
+    ∃vts.
+    tcexp_type_cepat ns db p ([],vt) vts ∧
     type_tcexp ns db st
       (REVERSE (MAP (λ(v,t). (v,[],t)) vts) ++ ((v,[],vt)::env))
       e t) ((p,e1)::pes) ∧
@@ -360,6 +363,10 @@ Inductive type_tcexp:
     type_tcexp ns db st env (NestedCase e v p e1 pes) t
 
 [~Case:]
+   (* Since we have at least one case for exception,
+   * and at least one case for every datatype,
+   * t must be type_ok,
+   * we don't need to add the type_ok constraint to the premise *)
    type_tcexp ns db st env e vt ∧
 
    (* get the list of constructors and their arities *)
