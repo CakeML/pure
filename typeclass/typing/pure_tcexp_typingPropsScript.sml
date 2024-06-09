@@ -1644,22 +1644,19 @@ Proof
   )
 QED
 
-
-(* TODO *)
-Theorem tcexp_type_cepat_subst_db:
+Theorem tcexp_type_cepat_shift_db:
   ∀p pt vts.
-  tcexp_type_cepat ns (db'1 ++ tks ++ db'2) p pt vts ∧
-  tcexp_namespace_ok ns ∧
-  LIST_REL (kind_ok (SND ns) (db'1 ++ db'2)) tks ts ⇒
-  tcexp_type_cepat ns (db'1 ++ db'2) p
-    (subst_db_kind_scheme (LENGTH db'1) ts pt)
-    (MAP (λ(v,t). (v,subst_db (LENGTH db'1) ts t)) vts)
+  tcexp_type_cepat ns (db1 ++ db2) p pt vts ∧
+  tcexp_namespace_ok ns ⇒
+  tcexp_type_cepat ns (db1 ++ tks ++ db2) p
+    (shift_db_kind_scheme (LENGTH db1) (LENGTH tks) pt)
+    (MAP (λ(v,t). (v,shift_db (LENGTH db1) (LENGTH tks) t)) vts)
 Proof
   Induct_on `tcexp_type_cepat` >>
   rw[]
   >- (
     irule tcexp_type_cepat_Var >>
-    metis_tac[specialises_subst_db]
+    metis_tac[specialises_shift_db]
   )
   >- irule tcexp_type_cepat_UScore
   >- (
@@ -1667,16 +1664,16 @@ Proof
     irule tcexp_type_cepat_Cons >>
     gvs[LIST_REL3_EL,EL_MAP] >>
     drule_then (drule_then $ irule_at Any)
-      tcexp_destruct_type_cons_subst_db >>
+      tcexp_destruct_type_cons_shift_db >>
     rw[EL_MAP]
   )
 QED
 
-Theorem destructable_type_subst_db:
-  destructable_type t ⇒ destructable_type (subst_db n db t)
+Theorem destructable_type_shift_db:
+  destructable_type t ⇒ destructable_type (shift_db skip shift t)
 Proof
   rw[destructable_type_def] >>
-  gvs[subst_db_def] >>
+  gvs[shift_db_def] >>
   TOP_CASE_TAC
   >- (
     last_x_assum mp_tac >>
@@ -1685,23 +1682,23 @@ Proof
     `t = cons_types (Atom $ TypeCons x) (ty_args t)` by
       metis_tac[cons_types_head_ty_ty_args] >>
     pop_assum SUBST_ALL_TAC >>
-    gvs[subst_db_cons_types,head_ty_cons_cons_types,subst_db_def,head_ty_cons_def]
+    gvs[shift_db_cons_types,head_ty_cons_cons_types,shift_db_def,head_ty_cons_def]
   ) >>
-  gvs[head_ty_cons_eq_head_ty,subst_db_head_ty,AllCaseEqs()] >>
+  gvs[head_ty_cons_eq_head_ty,shift_db_head_ty,AllCaseEqs()] >>
   Cases_on `head_ty_cons t` >>
   gvs[head_ty_cons_eq_head_ty]
 QED
 
-Theorem tcexp_exhaustive_cepat_subst_db:
+Theorem tcexp_exhaustive_cepat_shift_db:
   tcexp_namespace_ok ns ⇒
   (∀t ps.
     tcexp_exhaustive_cepat ns t ps ⇒
-    ∀n db. tcexp_exhaustive_cepat ns
-      (subst_db_kind_scheme n db t) ps) ∧
+    ∀skip shift. tcexp_exhaustive_cepat ns
+      (shift_db_kind_scheme skip shift t) ps) ∧
   (∀ts pss.
     tcexp_exhaustive_cepatl ns ts pss ⇒
-    ∀n db. tcexp_exhaustive_cepatl ns
-      (MAP (subst_db_kind_scheme n db) ts) pss)
+    ∀skip shift. tcexp_exhaustive_cepatl ns
+      (MAP (shift_db_kind_scheme skip shift) ts) pss)
 Proof
   strip_tac >>
   ho_match_mp_tac tcexp_exhaustive_cepat_ind >>
@@ -1712,60 +1709,51 @@ Proof
     Cases_on `ns` >>
     irule tcexp_exhaustive_cepat_Cons >>
     gvs[unsafe_tcexp_destruct_type_cons_def,
-      destructable_type_subst_db] >>
+      destructable_type_shift_db] >>
     rpt gen_tac >>
     IF_CASES_TAC
     >- (
-      pop_assum $ assume_tac o SRULE[Once $ oneline subst_db_def] >>
+      pop_assum $ assume_tac o SRULE[Once $ oneline shift_db_def] >>
       gvs[AllCaseEqs(),destructable_type_def,head_ty_cons_def] >>
       rw[] >>
       last_x_assum drule_all >>
       strip_tac >>
-      first_x_assum $ qspecl_then [`0`,`[]`] mp_tac >>
+      first_x_assum $ qspecl_then [`0`,`0`] mp_tac >>
       simp[ELIM_UNCURRY] >>
       metis_tac[]
     ) >>
-    rw[split_ty_cons_thm,head_ty_cons_eq_head_ty,subst_db_head_ty] >>
-    gvs[AllCaseEqs()]
+    rw[split_ty_cons_thm,head_ty_cons_eq_head_ty,shift_db_head_ty] >>
+    gvs[AllCaseEqs()] >>
+    every_case_tac >>
+    gvs[head_ty_def,split_ty_cons_thm,head_ty_cons_eq_head_ty,shift_db_ty_args] >>
+    gvs[unsafe_tcexp_type_cons_def,PULL_EXISTS]
     >- (
-      every_case_tac >>
-      gvs[head_ty_def,split_ty_cons_thm,head_ty_cons_eq_head_ty,subst_db_ty_args] >>
-      gvs[unsafe_tcexp_type_cons_def,PULL_EXISTS]
-      >- (
-        first_x_assum drule  >>
-        rw[] >>
-        first_x_assum $ irule_at (Pos last) >>
-        gvs[subst_db_subst_db,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
-        gvs[subst_db_shift_db_1,shift_db_skip_tshift_shift] >>
-        first_x_assum $ qspecl_then [`n`,`db`] mp_tac >>
-        gvs[tcexp_namespace_ok_def,EVERY_EL,oEL_THM] >>
-        first_x_assum drule >>
-        rw[] >>
-        drule ALOOKUP_SOME_EL >>
-        rw[] >>
-        first_x_assum drule >> rw[] >>
-        qpat_x_assum `tcexp_exhaustive_cepatl _ _ _` mp_tac >>
-        ho_match_mp_tac $ cj 1 $ iffLR EQ_IMP_THM >>
-        AP_THM_TAC >> AP_TERM_TAC >>
-        rw[LIST_EQ_REWRITE,EL_MAP] >>
-        pairarg_tac >> gvs[] >>
-        first_x_assum drule >>
-        rw[type_scheme_ok_def] >>
-        drule kind_ok_IMP_freetyvars_ok >>
-        rw[] >>
-        drule subst_db_unchanged >>
-        gvs[]
-      ) >>
+      first_x_assum drule  >>
+      rw[] >>
       first_x_assum $ irule_at (Pos last) >>
-      gvs[subst_db_subst_db,MAP_MAP_o,combinTheory.o_DEF]
+      gvs[GSYM subst_db_shift_db_2,shift_db_shift_db,
+        MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+      first_x_assum $ qspecl_then [`skip`,`shift`] mp_tac >>
+      gvs[tcexp_namespace_ok_def,EVERY_EL,oEL_THM] >>
+      first_x_assum drule >>
+      rw[] >>
+      drule ALOOKUP_SOME_EL >>
+      rw[] >>
+      first_x_assum drule >> rw[] >>
+      qpat_x_assum `tcexp_exhaustive_cepatl _ _ _` mp_tac >>
+      ho_match_mp_tac $ cj 1 $ iffLR EQ_IMP_THM >>
+      AP_THM_TAC >> AP_TERM_TAC >>
+      rw[LIST_EQ_REWRITE,EL_MAP] >>
+      pairarg_tac >> gvs[] >>
+      first_x_assum drule >>
+      rw[type_scheme_ok_def] >>
+      drule kind_ok_IMP_freetyvars_ok >>
+      rw[] >>
+      drule shift_db_unchanged >>
+      gvs[]
     ) >>
-    gvs[destructable_type_def,head_ty_def] >>
-    `head_ty_cons t = NONE`
-    by (
-      Cases_on `head_ty_cons t` >>
-      gvs[head_ty_cons_eq_head_ty]
-    ) >>
-    gvs[]
+    first_x_assum $ irule_at (Pos last) >>
+    gvs[MAP_MAP_o,combinTheory.o_DEF]
   )
   >- metis_tac[tcexp_exhaustive_cepat_Nil]
   >- (
@@ -1775,13 +1763,13 @@ Proof
   )
 QED
 
-Theorem get_constructors_subst_db:
+Theorem get_constructors_shift_db:
   get_constructors ns t = SOME constructors ⇒
-  get_constructors ns (subst_db n db t) = SOME constructors
+  get_constructors ns (shift_db skip shift t) = SOME constructors
 Proof
   simp[oneline get_constructors_def,pair_CASE_def] >>
   IF_CASES_TAC
-  >- rw[subst_db_def] >>
+  >- rw[shift_db_def] >>
   rw[split_ty_cons_thm]
   >- (
     spose_not_then kall_tac >>
@@ -1790,13 +1778,12 @@ Proof
     `t = cons_types (Atom $ TypeCons tc') (ty_args t)`
       by metis_tac[cons_types_head_ty_ty_args] >>
     pop_assum SUBST_ALL_TAC >>
-    gvs[subst_db_cons_types,subst_db_def,cons_types_not_Exception]
+    gvs[shift_db_cons_types,shift_db_def,cons_types_not_Exception]
   ) >>
   pairarg_tac >>
   gvs[split_ty_cons_thm,head_ty_cons_eq_head_ty,EXISTS_PROD,
-    subst_db_head_ty]
+    shift_db_head_ty]
 QED
-
 
 Theorem type_tcexp_shift_db:
   tcexp_namespace_ok ns ⇒
@@ -1968,149 +1955,58 @@ Proof
     simp[]
   )
   >- (
+    first_x_assum $ irule_at (Pos hd) >>
+    simp[] >>
+    first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    rw[MAP_REVERSE,MAP_MAP_o,MAP_ZIP_ALT,combinTheory.o_DEF,LAMBDA_PROD] >>
+    qexists_tac `MAP (λ(v,t). (v,shift_db (LENGTH db1) (LENGTH shift_ks) t)) vts` >>
+    rw[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+    >- (
+      drule_then drule tcexp_type_cepat_shift_db >>
+      simp[ELIM_UNCURRY]
+    )
+    >- (
+      gvs[EVERY_EL] >>
+      rpt strip_tac >>
+      pairarg_tac >> rw[] >>
+      first_x_assum drule >>
+      rw[] >>
+      drule_then drule tcexp_type_cepat_shift_db >>
+      rw[ELIM_UNCURRY] >>
+      first_x_assum $ irule_at (Pos hd) >>
+      rw[LIST_REL_EL_EQN,LAMBDA_PROD] >>
+      first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+      simp[MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]
+    ) >>
+    drule_then drule $ cj 1 tcexp_exhaustive_cepat_shift_db >>
+    simp[]
   )
   >- (
+    last_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    disch_then $ irule_at (Pos hd) >>
+    simp[] >>
+    drule_then (irule_at $ Pos hd) get_constructors_shift_db >>
+    rw[] >>
+    gvs[EVERY_MEM] >>
+    rw[] >>
+    first_x_assum drule >>
+    pairarg_tac >> gvs[] >>
+    rw[] >>
+    simp[] >>
+    drule_all_then (irule_at $ Pos hd)
+      tcexp_destruct_type_cons_shift_db >>
+    qexists_tac `MAP (shift_db (LENGTH db1) (LENGTH shift_ks)) ptys'` >>
+    first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
+    gvs[MAP_REVERSE,MAP_ZIP_ALT,LAMBDA_PROD,MAP_MAP_o,
+      combinTheory.o_DEF,LIST_REL_EL_EQN,EL_MAP] >>
+    rw[] >>
+    metis_tac[specialises_shift_db]
   )
   >- (
     drule_all_then (irule_at Any) tcexp_destruct_type_cons_shift_db >>
     simp[EL_MAP] >>
     metis_tac[specialises_shift_db]
   )
-
-  >- (irule type_ok_shift_db >> simp[])
-  >- metis_tac[]
-  >- metis_tac[]
-  >- (
-    qexists_tac `carg_ts` >>
-    gvs[LIST_REL_EL_EQN] >> rw[] >>
-    last_x_assum drule >> strip_tac >>
-    pop_assum $ qspecl_then [`skip`,`shift`] mp_tac >>
-    qsuff_tac `shift_db skip shift (EL n carg_ts) = EL n carg_ts` >> simp[] >>
-    irule shift_db_unchanged >> qexists_tac `0` >> simp[] >>
-    gvs[namespace_ok_def, EVERY_EL, type_exception_def] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
-    qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >> gvs[] >>
-    last_x_assum drule >> simp[type_ok_def]
-    )
-  >- (
-    rgs[LIST_REL_EL_EQN, EVERY_MAP] >>
-    qexists_tac `MAP (shift_db skip shift) carg_ts` >> simp[EL_MAP] >> rw[]
-    >- (gvs[EVERY_MEM] >> rw[] >> irule type_ok_shift_db >> simp[EVERY_MEM]) >>
-    gvs[type_cons_def, EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >> rw[MAP_EQ_f] >>
-    rw[GSYM subst_db_shift_db_2, SF ETA_ss] >>
-    AP_TERM_TAC >> DEP_REWRITE_TAC [shift_db_unchanged] >>
-    gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
-    first_x_assum drule >> simp[] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
-    qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
-    disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
-    goal_assum drule >> simp[]
-    )
-  >- gvs[oEL_THM, EL_MAP]
-  >- (
-    gvs[LIST_REL_EL_EQN] >>
-    rpt $ goal_assum $ drule_at Any >> simp[] >> rw[] >>
-    last_x_assum drule >> strip_tac >>
-    pop_assum $ qspecl_then [`skip`,`shift`] mp_tac >>
-    imp_res_tac get_PrimTys_SOME >> gvs[EL_MAP, shift_db_def]
-    )
-  >- metis_tac[]
-  >- (
-    gvs[shift_db_Functions] >> last_x_assum $ irule_at Any >> simp[] >>
-    gvs[LIST_REL_EL_EQN, EL_MAP, SF ETA_ss]
-    )
-  >- (
-    gvs[shift_db_Functions] >> irule_at Any EQ_REFL >>
-    gvs[EVERY_MAP, EVERY_MEM] >> rw[]
-    >- (irule type_ok_shift_db >> simp[EVERY_MEM])
-    >- gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF]
-    )
-  >- (
-    first_x_assum drule_all >> disch_then $ irule_at Any >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM shift_db_shift_db] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    last_x_assum $ qspecl_then [`new + skip`,`shift`] mp_tac >> simp[]
-    )
-  >- (
-    gvs[MAP_REVERSE] >>
-    gvs[LIST_REL_EL_EQN, MAP_ZIP_ALT] >>
-    first_x_assum $ irule_at Any >> simp[] >> reverse $ rw[]
-    >- (
-      gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
-      first_x_assum drule >> rw[] >>
-      drule type_ok_shift_db >> simp[]
-      ) >>
-    simp[EL_MAP] >> last_x_assum drule >>
-    pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >> strip_tac >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    simp[GSYM shift_db_shift_db] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    last_x_assum $ qspecl_then [`skip + vars`,`shift`] mp_tac >> simp[] >>
-    rw[] >> irule quotientTheory.EQ_IMPLIES >>
-    goal_assum drule >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-    simp[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-    rw[MAP_EQ_f] >> pairarg_tac >> gvs[] >>
-    simp[GSYM shift_db_shift_db, MAP_MAP_o, combinTheory.o_DEF]
-    )
-  >- (disj1_tac >> gvs[FORALL_PROD, EVERY_MEM] >> rw[] >> metis_tac[])
-  >- (
-    disj1_tac >> first_x_assum $ irule_at Any >>
-    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]
-    )
-  >- (
-    disj2_tac >> disj2_tac >> disj1_tac >> gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
-    first_x_assum drule >> strip_tac >> gvs[] >>
-    gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF] >>
-    pop_assum $ qspecl_then [`skip`,`shift`] mp_tac >>
-    qsuff_tac `MAP (λx. (0n,shift_db skip shift x)) tys = MAP ($, 0) tys` >> rw[] >>
-    rw[MAP_EQ_f] >> irule shift_db_unchanged >> qexists_tac `0` >> simp[] >>
-    gvs[namespace_ok_def, EVERY_MEM] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[FORALL_PROD, type_ok_def] >>
-    first_x_assum drule >> disch_then drule >> simp[]
-    ) >>~-
-  ([‘type_tcexp _ _ _ _ _ (TypeCons tyid tyargs)’, ‘set (MAP FST css)’,
-    ‘EVERY _ css’],
-   rpt disj2_tac >> gvs[oEL_THM] >>
-   first_assum $ irule_at (Pat ‘type_tcexp _ _ _ _ _’) >> simp[] >>
-   gvs[EVERY_MEM, FORALL_PROD] >> rw[] >>
-   first_x_assum drule >> strip_tac >>
-   goal_assum $ drule_at Any >> simp[] >>
-   pop_assum $ qspecl_then [`skip`,`shift`] mp_tac >> rw[] >>
-   gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss] >>
-   gvs[GSYM subst_db_shift_db_2] >>
-   irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
-   rpt AP_THM_TAC >> AP_TERM_TAC >> AP_THM_TAC >> ntac 3 AP_TERM_TAC >>
-   rw[MAP_EQ_f] >> rpt AP_TERM_TAC >>
-   DEP_REWRITE_TAC [shift_db_unchanged] >>
-   gvs[namespace_ok_def, EVERY_EL, oEL_THM] >>
-   first_x_assum drule >> simp[] >>
-   imp_res_tac ALOOKUP_MEM >> gvs[MEM_EL] >>
-   qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
-   disch_then drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
-   goal_assum drule >> simp[]) >~
-  [‘type_tcexp _ _ _ _ _ (TypeCons tyid tyargs)’]
-  >- (rpt disj2_tac >> first_assum $ irule_at (Pat ‘type_tcexp _ _ _ _ _ _ ’) >>
-      simp[] >> gvs[GSYM subst_db_shift_db_2, SF ETA_ss] >> AP_TERM_TAC >>
-      ONCE_REWRITE_TAC [EQ_SYM_EQ] >> irule shift_db_unchanged >>
-      qpat_x_assum ‘namespace_ok _’ mp_tac >> simp[namespace_ok_def] >>
-      gs[oEL_THM] >> simp[EVERY_EL] >> rpt strip_tac >>
-      first_x_assum drule >> simp[] >> drule ALOOKUP_MEM >>
-      simp[MEM_EL, PULL_EXISTS] >> qx_gen_tac ‘cid’ >>
-      rpt strip_tac >> qpat_x_assum ‘_ = EL cid _’ (assume_tac o SYM) >>
-      first_x_assum drule >> simp[] >> strip_tac >>
-      qpat_x_assum ‘MEM _ schemes’ mp_tac >> simp[MEM_EL, PULL_EXISTS] >>
-      qx_gen_tac ‘sid’ >> strip_tac >> first_x_assum drule >>
-      simp[type_ok_def] >> strip_tac >> qexists ‘LENGTH tyargs’ >> simp[]) >~
-  [‘type_tcexp _ _ _ _ _ (Tuple tyargs)’]
-  >- (disj1_tac >> first_x_assum $ irule_at Any >> gvs[oEL_THM, EL_MAP]) >~
-  [‘type_tcexp _ _ _ _ _ Exception’]
-  >- (disj2_tac >> disj1_tac >> irule $ GSYM shift_db_unchanged >>
-      gvs[oEL_THM, namespace_ok_def, EVERY_EL] >> drule ALOOKUP_MEM >>
-      rw[MEM_EL] >>
-      pop_assum $ assume_tac o GSYM >>
-      first_x_assum drule >> simp[] >> disch_then drule >> rw[type_ok_def] >>
-      goal_assum $ drule_at Any >> simp[])
 QED
 
 Theorem type_tcexp_subst:
