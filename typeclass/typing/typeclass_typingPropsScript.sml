@@ -222,7 +222,7 @@ Theorem pred_type_kind_ok_subst_db_pred_APPEND:
     skip = LENGTH ks1 ∧
     ks' = ks1 ++ tks ++ ks2 ∧
     ks = ks1 ++ ks2 ∧
-    LIST_REL (kind_ok tdefs ks) tks ts 
+    LIST_REL (kind_ok tdefs ks) tks ts
   ⇒
     pred_type_kind_ok clk tdefs ks (subst_db_pred skip ts pt)
 Proof
