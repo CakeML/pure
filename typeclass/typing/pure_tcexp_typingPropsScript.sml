@@ -2481,6 +2481,16 @@ Proof
   Induct_on `insert_seq` >> rw[] >> gvs[tcexp_of_def]
   >- (
     ntac 2 $ simp[Once type_tcexp_cases] >>
+    (* orginal proof *)
+    imp_res_tac type_tcexp_freevars_tcexp >>
+    imp_res_tac insert_seq_NestedCase_free >>
+    imp_res_tac insert_seq_freevars >>
+    gvs[freevars_tcexp_of, SUBSET_DEF] >>
+    first_x_assum drule >> strip_tac >>
+    Cases_on `ALOOKUP env v` >> gvs[ALOOKUP_NONE] >>
+    PairCases_on `x` >> simp[specialises_def] >>
+    qexists_tac `REPLICATE x0 $ PrimTy Bool` >> simp[type_ok]
+    (* new attempt *)
     imp_res_tac type_tcexp_freevars_tcexp_specialises >>
     imp_res_tac insert_seq_freevars >>
     gvs[freevars_tcexp_of] >>

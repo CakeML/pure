@@ -868,10 +868,12 @@ Inductive type_elaborate_texp:
         (Prim (AtomOp aop) es) (Prim (AtomOp aop) es') (Atom $ PrimTy primt)
 
 [~Seq:]
-  type_elaborate_texp ns clk ie lie db st env e1 e1' t1 ∧
+  pred_type_elaborate_texp ns clk ie lie (new ++ db)
+    (MAP (tshift (LENGTH new)) st)
+    (tshift_env_pred (LENGTH new) env) e1 e1' pt ∧
   type_elaborate_texp ns clk ie lie db st env e2 e2' t2 ⇒
      type_elaborate_texp ns clk ie lie db st env
-        (Prim Seq [e1; e2]) (Prim Seq [e1';e2']) t2
+        (Prim Seq [e1; e2]) (PrimSeq (new,pt) e1' e2') t2
 
 [~NestedCase:]
   type_elaborate_texp ns clk ie lie db st env e e' vt ∧
@@ -963,6 +965,12 @@ Inductive texp_construct_dict:
   fns ≠ [] ⇒
     texp_construct_dict ns ie lie db env
       (typeclass_texp$Letrec fns e2) (pure_cexp$Letrec () dfns de2)
+
+[~Seq:]
+  pred_texp_construct_dict ns ie lie (new ++ db) env pt e1 de1 ∧
+  texp_construct_dict ns ie lie db env e2 de2 ⇒
+    texp_construct_dict ns ie lie db env
+      (PrimSeq (new,pt) e1 e2) (Prim () Seq [de1;de2])
 
 [~Prim:]
   LIST_REL (texp_construct_dict ns ie lie db env) es des ⇒
@@ -1288,6 +1296,10 @@ Proof
     qid_spec_tac `es` >>
     ho_match_mp_tac LIST_REL3_induct >>
     rw[GSYM PULL_EXISTS]
+  )
+  >- (
+    irule_at (Pos hd) texp_construct_dict_Seq >>
+    metis_tac[]
   ) >>
   irule_at (Pos hd) texp_construct_dict_NestedCase >>
   simp[GSYM PULL_EXISTS] >>

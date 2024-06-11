@@ -318,19 +318,21 @@ Inductive type_tcexp:
       type_tcexp ns db st env (Prim (AtomOp aop) es) (Atom $ PrimTy pt)
 
 [~Seq:]
-  (type_tcexp ns db st env e1 t1 ∧ type_tcexp ns db st env e2 t2 ⇒
-      type_tcexp ns db st env (Prim Seq [e1; e2]) t2)
+  type_tcexp ns (new ++ db) (MAP (tshift (LENGTH new)) st)
+    (tshift_env (LENGTH new) env) e1 t1 ∧
+  type_tcexp ns db st env e2 t2 ⇒
+      type_tcexp ns db st env (Prim Seq [e1; e2]) t2
 
 [~App:]
-  (type_tcexp ns db st env e (Functions arg_tys ret_ty) ∧
-   LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ⇒
-      type_tcexp ns db st env (App e es) ret_ty)
+  type_tcexp ns db st env e (Functions arg_tys ret_ty) ∧
+  LIST_REL (type_tcexp ns db st env) es arg_tys ∧ arg_tys ≠ [] ⇒
+      type_tcexp ns db st env (App e es) ret_ty
 
 [~Lam:]
-  (EVERY (type_ok (SND ns) db) arg_tys ∧
-   LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
-   type_tcexp ns db st (REVERSE (ZIP (xs, MAP ($, []) arg_tys)) ++ env) e ret_ty
-      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty))
+  EVERY (type_ok (SND ns) db) arg_tys ∧
+  LENGTH arg_tys = LENGTH xs ∧ arg_tys ≠ [] ∧
+  type_tcexp ns db st (REVERSE (ZIP (xs, MAP ($, []) arg_tys)) ++ env) e ret_ty
+      ⇒ type_tcexp ns db st env (Lam xs e) (Functions arg_tys ret_ty)
 
 [~Let:]
    LENGTH new = n ∧

@@ -16,17 +16,17 @@ Type annot_cvname = ``:(cvname # ('a # PredType) option)``;
 Type class_constr = ``:(cvname # type)``;
 
 Datatype:
-  (* The first argument for each constructor is the type of the whole expression *)
-  (* So the user can do something like ``show ((read x)::Int)`` *)
-  texp = Var (class_constr list) cvname                    (* variable                 *)
+  texp = Var (class_constr list) cvname               (* variable                 *)
         | Prim cop (texp list)                        (* primitive operations     *)
-        | App texp (texp list)                       (* function application     *)
+        | App texp (texp list)                        (* function application     *)
         | Lam ((cvname # (type option)) list) texp    (* lambda                   *)
-        | Let ('a annot_cvname) texp texp                 (* let                      *)
-        | Letrec (('a annot_cvname # texp) list) texp   (* mutually recursive exps  *)
+        | Let ('a annot_cvname) texp texp             (* let                      *)
+        | Letrec (('a annot_cvname # texp) list) texp (* mutually recursive exps  *)
         | UserAnnot type texp                         (* user type annotation     *)
         | NestedCase texp cvname cepat texp
             ((cepat # texp) list)                     (* case of                  *)
+        | PrimSeq ('a # PredType) texp texp           (* type-elaborated Seq      *)
+          (* the poly-type of the first texp of PrimSeq *)
 End
 
 (* top level declarations *)
@@ -50,6 +50,7 @@ Definition freevars_texp_def[simp]:
     (((freevars_texp e DIFF cepat_vars p) ∪
       BIGUNION (set (MAP (λ(p,e). freevars_texp e DIFF cepat_vars p) pes)))
     DELETE gv) ∧
+  freevars_texp (PrimSeq t e1 e2) = freevars_texp e1 ∪ freevars_texp e2 ∧
   freevars_texp (UserAnnot t e) = freevars_texp e
 Termination
   WF_REL_TAC `measure $ texp_size (K 1)` >> rw []
@@ -67,6 +68,7 @@ Definition texp_wf_def[nocompute]:
   texp_wf (NestedCase g gv p e pes) = (
     texp_wf g ∧ texp_wf e ∧ EVERY texp_wf $ MAP SND pes ∧
     ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))) ∧
+  texp_wf (PrimSeq t e1 e2) = (texp_wf e1 ∧ texp_wf e2) ∧
   texp_wf (UserAnnot _ e) = texp_wf e
 Termination
   WF_REL_TAC `measure $ texp_size (K 1)` >> rw[fetch "-" "texp_size_def"] >>
@@ -119,6 +121,8 @@ Definition every_texp_def[simp]:
     (p (NestedCase e1 v pat e2 rows) ∧
      every_texp p e1 ∧ every_texp p e2 ∧
      EVERY (every_texp p) $ MAP SND rows) ∧
+  every_texp p (PrimSeq t e1 e2) =
+    (p (PrimSeq t e1 e2) ∧ every_texp p e1 ∧ every_texp p e2) ∧
   every_texp p (UserAnnot t e) = (p (UserAnnot t e) ∧ every_texp p e)
 Termination
   WF_REL_TAC ‘measure $ texp_size (K 1) o SND’ >>
@@ -166,6 +170,7 @@ Definition lambda_vars_def:
     gv INSERT lambda_vars g ∪ cepat_vars p ∪ lambda_vars e ∪
     BIGUNION (set (MAP (cepat_vars o FST) pes)) ∪
     lambda_varsl (MAP SND pes) ∧
+  lambda_vars (PrimSeq _ e1 e2) = lambda_vars e1 ∪ lambda_vars e2 ∧
   lambda_varsl [] = {} ∧
   lambda_varsl (e::es) = lambda_vars e ∪ lambda_varsl es
 Termination
