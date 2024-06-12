@@ -178,6 +178,37 @@ Proof
   rw[kind_ok_def,typedefs_to_cdb_def]
 QED
 
+Theorem type_ok:
+  (∀tds ks t. type_ok tds ks t ⇔
+    kind_ok tds ks kindType t) ∧
+  (∀tds ks k t1 t2.
+    kind_ok tds ks k (Cons t1 t2) ⇔
+    ∃k2. kind_ok tds ks k2 t2 ∧
+      kind_ok tds ks (kindArrow k2 k) t1) ∧
+  (∀tds ks k t.
+    kind_ok tds ks k (Atom (PrimTy t)) ⇔ k = kindType) ∧
+  (∀tds ks k.
+    kind_ok tds ks k (Atom Exception) ⇔ k = kindType) ∧
+  (∀tds ks k v.
+    kind_ok tds ks k (TypeVar v) ⇔ LLOOKUP ks v = SOME k) ∧
+  (∀tds ks k v.
+    kind_ok tds ks k (UserType v) ⇔
+      ∃tinfo. LLOOKUP tds v = SOME tinfo ∧
+        k = kind_arrows (FST tinfo) kindType) ∧
+  (∀tds ks k.
+    kind_ok tds ks k (Atom (CompPrimTy Function)) ⇔
+    k = kindArrow kindType (kindArrow kindType kindType)) ∧
+  (∀tds ks k.
+    kind_ok tds ks k (Atom (CompPrimTy Array)) ⇔
+    k = kindArrow kindType kindType) ∧
+  (∀tds ks k. kind_ok tds ks k (Atom (CompPrimTy M)) ⇔
+   k = kindArrow kindType kindType) ∧
+  ∀tds ks k n. kind_ok tds ks k (Tup n) ⇔
+    k = kind_arrows (GENLIST (K kindType) n) kindType
+Proof
+  rw[type_ok_def,kind_ok]
+QED
+
 Theorem pred_type_kind_ok_alt:
   pred_type_kind_ok clk tdefs ks (Pred cls ty) ⇔
   (kind_ok tdefs ks kindType ty ∧
@@ -612,9 +643,20 @@ Inductive elaborated_texp:
 [~Var:]
   elaborated_texp (Var l v) (Var l' v)
 
+[~Seq:]
+  elaborated_texp e1 e1' ∧ elaborated_texp e2 e2' ⇒
+  elaborated_texp (Prim Seq [e1;e2]) (PrimSeq polyt e1' e2')
+
 [~Prim:]
+  op ≠ Seq ∧
   LIST_REL elaborated_texp es es' ⇒
   elaborated_texp (Prim op es) (Prim op es')
+
+[~PrimSeq:]
+  elaborated_texp e1 e1' ∧ elaborated_texp e2 e2' ∧
+  n = LENGTH new ∧ pt = pt' ⇒
+  elaborated_texp (PrimSeq (n,pt) e1 e2)
+    (PrimSeq (new,pt') e1' e2')
 
 [~App:]
   LIST_REL elaborated_texp es es' ∧ elaborated_texp e e' ⇒
@@ -1031,7 +1073,16 @@ Proof
     first_x_assum $ drule_at_then (Pos last) irule >>
     metis_tac[MEM_MAP,MEM_EL]
   )
-  >- metis_tac[]
+  >- (
+    first_x_assum irule >>
+    gvs[ALOOKUP_MAP] >>
+    metis_tac[]
+  )
+  >- (
+    first_x_assum irule >>
+    gvs[ALOOKUP_MAP] >>
+    metis_tac[]
+  )
   >- (
     first_assum $ irule_at (Pos hd) >>
     drule_then (irule_at (Pat `type_cepat _ _ _ _ _`))

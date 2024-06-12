@@ -875,6 +875,15 @@ Inductive type_elaborate_texp:
      type_elaborate_texp ns clk ie lie db st env
         (Prim Seq [e1; e2]) (PrimSeq (new,pt) e1' e2') t2
 
+[~PrimSeq:]
+  pred_type_elaborate_texp ns clk ie lie (new ++ db)
+    (MAP (tshift (LENGTH new)) st)
+    (tshift_env_pred (LENGTH new) env) e1 e1' pt ∧
+  type_elaborate_texp ns clk ie lie db st env e2 e2' t2 ∧
+  n = LENGTH new ∧ pt' = pt ⇒
+    type_elaborate_texp ns clk ie lie db st env
+      (PrimSeq (n,pt') e1 e2) (PrimSeq (new,pt) e1' e2') t2
+
 [~NestedCase:]
   type_elaborate_texp ns clk ie lie db st env e e' vt ∧
   (* expression for each pattern type check *)
@@ -1173,13 +1182,10 @@ Theorem type_elaborate_texp_IMP_texp_construct_dict:
         ie_map lie_map db (set $ MAP FST env) e' d)
 Proof
   ho_match_mp_tac type_elaborate_texp_ind >>
-  rw[]
+  rw[] >> simp[Once texp_construct_dict_cases] >>
+  rw[GSYM PULL_EXISTS]
+  >- metis_tac[has_dict_EXISTS_construct_dict]
   >- (
-    irule_at (Pos hd) texp_construct_dict_Var >>
-    metis_tac[has_dict_EXISTS_construct_dict]
-  )
-  >- (
-    irule_at (Pos hd) texp_construct_dict_Pred >>
     qmatch_goalsub_abbrev_tac `set _ ∩ fs = _` >>
     `FINITE fs` by simp[Abbr`fs`] >>
     drule_then (qspec_then `LENGTH ps` strip_assume_tac)
@@ -1193,8 +1199,6 @@ Proof
     metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.UNION_ASSOC]
   )
   >- (
-    irule_at (Pos hd) texp_construct_dict_App >>
-    simp[GSYM PULL_EXISTS] >>
     pop_assum mp_tac >>
     qid_spec_tac `arg_tys` >>
     qid_spec_tac `es'` >>
@@ -1206,27 +1210,13 @@ Proof
     simp[]
   )
   >- (
-    irule_at (Pos hd) texp_construct_dict_Let >>
-    simp[GSYM PULL_EXISTS]
-  )
-  >- (
-    irule_at (Pos hd) texp_construct_dict_Lam >>
     drule_then assume_tac $ cj 1 $ iffLR LIST_REL_EVERY_ZIP >>
     fs[rich_listTheory.MAP_REVERSE,MAP_ZIP]
   )
   >- (
-    irule_at (Pos hd) texp_construct_dict_Letrec >>
     drule_then assume_tac $ cj 1 $ iffLR LIST_REL3_EL >>
     drule_then assume_tac $ cj 2 $ iffLR LIST_REL3_EL >>
     gvs[rich_listTheory.MAP_REVERSE,MAP_ZIP] >>
-    simp[GSYM PULL_EXISTS] >>
-    reverse conj_tac
-    >- (
-      reverse conj_tac
-      >- (strip_tac >> gvs[]) >>
-      simp[Once pred_setTheory.UNION_COMM] >>
-      metis_tac[]
-    ) >>
     qpat_x_assum `LIST_REL3 _ _ _ _` mp_tac >>
     qpat_abbrev_tac `l = set (MAP (FST o FST) fns')` >>
     pop_assum $ assume_tac o REWRITE_RULE[markerTheory.Abbrev_def] >>
@@ -1245,7 +1235,17 @@ Proof
     simp[]
   )
   >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
+    drule_then assume_tac $ cj 1 $ iffLR LIST_REL3_EL >>
+    drule_then assume_tac $ cj 2 $ iffLR LIST_REL3_EL >>
+    gvs[rich_listTheory.MAP_REVERSE,MAP_ZIP] >>
+    simp[Once pred_setTheory.UNION_COMM]
+  )
+  >- (
+    drule_then assume_tac $ cj 1 $ iffLR LIST_REL3_EL >>
+    strip_tac >>
+    gvs[]
+  )
+  >- (
     pop_assum mp_tac >>
     qid_spec_tac `carg_ts` >>
     qid_spec_tac `es'` >>
@@ -1254,7 +1254,6 @@ Proof
     rw[GSYM PULL_EXISTS]
   )
   >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `ts` >>
     qid_spec_tac `es'` >>
@@ -1262,13 +1261,7 @@ Proof
     ho_match_mp_tac LIST_REL3_induct >>
     rw[GSYM PULL_EXISTS]
   )
-  >> TRY (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
-    pop_assum $ qspec_then `lie_map` mp_tac >>
-    rw[GSYM PULL_EXISTS]
-  )
   >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `carg_ts` >>
     qid_spec_tac `es'` >>
@@ -1277,19 +1270,6 @@ Proof
     rw[GSYM PULL_EXISTS]
   )
   >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
-    simp[LIST_REL_rules]
-  )
-  >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
-    simp[LIST_REL_rules]
-  )
-  >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
-    simp[LIST_REL_rules]
-  )
-  >- (
-    irule_at (Pos hd) texp_construct_dict_Prim >>
     pop_assum mp_tac >>
     qid_spec_tac `ts` >>
     qid_spec_tac `es'` >>
@@ -1297,13 +1277,6 @@ Proof
     ho_match_mp_tac LIST_REL3_induct >>
     rw[GSYM PULL_EXISTS]
   )
-  >- (
-    irule_at (Pos hd) texp_construct_dict_Seq >>
-    metis_tac[]
-  ) >>
-  irule_at (Pos hd) texp_construct_dict_NestedCase >>
-  simp[GSYM PULL_EXISTS] >>
-  conj_tac
   >- (
     last_x_assum $ qspec_then `lie_map` kall_tac >>
     last_x_assum $ qspec_then `lie_map` mp_tac >>
