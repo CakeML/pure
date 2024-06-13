@@ -7,7 +7,7 @@ open typeclass_kindCheckTheory;
 open typeclass_typingTheory typeclass_typingPropsTheory;
 open pure_tcexp_typingTheory pure_tcexp_lemmasTheory;
 
-val _ = new_theory "pure_typingProps";
+val _ = new_theory "pure_tcexp_typingProps";
 
 
 (******************** Basic lemmas ********************)

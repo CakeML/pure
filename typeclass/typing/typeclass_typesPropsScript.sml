@@ -258,6 +258,45 @@ Proof
   DECIDE_TAC
 QED
 
+Theorem cons_types_NEQ_Atom:
+  cons_types (Cons t t') ts ≠ Atom a
+Proof
+  Induct_on `ts` using SNOC_INDUCT >>
+  simp[cons_types_SNOC,cons_types_def]
+QED
+
+Theorem cons_types_EQ_Atom:
+  cons_types t ts = Atom a ⇔ (ts = [] ∧ t = Atom a)
+Proof
+  simp[cons_types_def,EQ_IMP_THM] >>
+  Cases_on `ts` >>
+  simp[cons_types_def,cons_types_NEQ_Atom]
+QED
+
+Theorem Functions_cons_types:
+  (∀t. Functions [] t = t) ∧
+  (∀at ats t.
+    Functions (at::ats) t =
+    cons_types
+      (Atom $ CompPrimTy Function)
+      [at;Functions ats t])
+Proof
+  simp[Functions_def,cons_types_def]
+QED
+
+Theorem cons_types_Atom_EQ:
+  ∀a a' ts ts'.
+    (cons_types (Atom a) ts = cons_types (Atom a') ts') ⇔
+    (a = a' ∧ ts = ts')
+Proof
+  simp[cons_types_def,EQ_IMP_THM] >>
+  Induct_on `ts` using SNOC_INDUCT >>
+  gvs[cons_types_def,cons_types_EQ_Atom,cons_types_SNOC] >>
+  Cases_on `ts'` using SNOC_CASES >>
+  gvs[cons_types_def,cons_types_EQ_Atom,cons_types_SNOC] >>
+  metis_tac[]
+QED
+
 Theorem type_size_tcons_to_type:
   ∀t targs tcons.
   MEM t targs ⇒
