@@ -950,6 +950,7 @@ Inductive texp_construct_dict:
   set vs ∩
     (FDOM lie ∪ FDOM ie ∪ env ∪
       set (get_names_namespace ns) ∪ lambda_vars e) = ∅ ∧
+  ALL_DISTINCT vs ∧
   LENGTH vs = LENGTH ps ∧
   texp_construct_dict ns ie (lie |++ ZIP (vs,ps)) db env e de ∧
   te = SmartLam () vs de ⇒
@@ -1389,6 +1390,11 @@ Proof
   metis_tac[]
 QED
 
+Definition ce_to_cl_tyid_map_def:
+  ce_to_cl_tyid_map ns_len ce = FEMPTY |++
+    ZIP (MAP FST ce, GENLIST (λn. n + ns_len) (LENGTH ce)) 
+End
+
 Type instance_env[pp] = ``:((mlstring # 'a # type) #
   (((mlstring # type) list) # ((mlstring # 'a texp) list))) list``;
 
@@ -1435,9 +1441,14 @@ Type tcexp_typedef[pp] = ``:Kind list # ((mlstring # type_kind_scheme list) list
 Type tcexp_typedefs[pp] = ``:tcexp_typedef list``;
 Type tcexp_namespace[pp] = ``:exndef # tcexp_typedefs``;
 
+Definition tdefs_to_tcexp_tdefs_def:
+  tdefs_to_tcexp_tdefs (tds:typedefs) =
+    MAP (I ## MAP (I ## MAP ($, ([]:Kind list)))) tds
+End
+
 Definition namespace_to_tcexp_namespace_def:
   namespace_to_tcexp_namespace (ns:exndef # typedefs) =
-    ((FST ns,MAP (I ## MAP (I ## MAP ($, []))) (SND ns))):tcexp_namespace
+    (FST ns,tdefs_to_tcexp_tdefs (SND ns)):tcexp_namespace
 End
 
 (* a distinct type id and a distinct constructor name will be
@@ -1690,8 +1701,7 @@ Definition prog_construct_dict_def:
    env = set (MAP (FST ∘ FST) fns ++ MAP FST (class_env_to_env ce)) ∧
    (* create the map from class name to the type id in the
    * translated namespace *)
-   cl_to_tyid = FEMPTY |++
-     ZIP (MAP FST ce,GENLIST (λn. n + LENGTH (SND ns)) (LENGTH ce)) ∧
+   cl_to_tyid = ce_to_cl_tyid_map (LENGTH (SND ns)) ce ∧
    (* an alist from class name to the data constructor name for
    * dictionary for the class *)
    MAP FST cl_cons = MAP FST ce ∧

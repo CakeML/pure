@@ -820,10 +820,8 @@ Definition test_default_name_map_def:
 End
 
 Definition test_cl_to_tyid_def:
-  test_cl_to_tyid = FEMPTY |++
-    ZIP (MAP FST test_class_env,
-      GENLIST (λn. n + LENGTH (SND initial_namespace))
-        (LENGTH test_class_env))
+  test_cl_to_tyid =
+    ce_to_cl_tyid_map (LENGTH (SND initial_namespace)) test_class_env
 End
 
 Theorem test_cl_to_tyid = EVAL ``test_cl_to_tyid``;
