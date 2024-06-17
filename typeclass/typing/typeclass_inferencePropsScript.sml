@@ -5,7 +5,7 @@ open mlmapTheory;
 open pure_miscTheory pure_typingTheory pure_typingPropsTheory
      pure_inference_commonTheory pure_unificationTheory pure_inferenceTheory;
 
-val _ = new_theory "pure_inferenceProps";
+val _ = new_theory "typeclass_inferenceProps";
 
 (******************* General results ********************)
 
