@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pure_inferenceTheory pure_inferenceLib;
+open typeclass_inferenceTheory typeclass_inferenceLib;
 
-val _ = new_theory "pure_inference_test";
+val _ = new_theory "typeclass_inference_test";
 
 (********************)
 

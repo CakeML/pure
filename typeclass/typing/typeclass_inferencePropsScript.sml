@@ -3,7 +3,7 @@ open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
      listTheory rich_listTheory alistTheory finite_mapTheory sptreeTheory;
 open mlmapTheory;
 open pure_miscTheory pure_typingTheory pure_typingPropsTheory
-     pure_inference_commonTheory pure_unificationTheory pure_inferenceTheory;
+     pure_inference_commonTheory pure_unificationTheory typeclass_inferenceTheory;
 
 val _ = new_theory "typeclass_inferenceProps";
 
