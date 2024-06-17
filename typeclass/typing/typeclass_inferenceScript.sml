@@ -13,7 +13,7 @@ open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
 open pure_typingTheory pure_cexpTheory pure_configTheory pure_varsTheory
      pure_inference_commonTheory pure_unificationTheory pure_miscTheory;
 
-val _ = new_theory "pure_inference";
+val _ = new_theory "typeclass_inference";
 
 
 (******************** Inference monad ********************)
