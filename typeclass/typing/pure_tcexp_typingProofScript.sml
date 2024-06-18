@@ -579,10 +579,10 @@ Theorem type_soundness_up_to:
 Proof
   strip_tac >> completeInduct_on `k` >>
   recInduct exp_of_ind >> rw[exp_of_def]
-  >- ( (* Var *)
-    last_x_assum kall_tac >> gvs[Once type_tcexp_cases]
-    )
-  >- ( (* Prim *)
+  >~ [‘Var’]
+  >- (last_x_assum kall_tac >> gvs[Once type_tcexp_cases])
+  >~ [‘Prim’]
+  >- (
     Cases_on `p` >> gvs[pure_cexpTheory.op_of_def]
     >- (
       simp[eval_wh_to_def, type_wh_cases, SF ETA_ss] >>
@@ -663,7 +663,8 @@ Proof
       first_x_assum $ irule_at $ Pos last >>
       simp[miscTheory.LLOOKUP_THM,EL_APPEND])
     )
-  >- ( (* Let *)
+  >~ [‘Let’]
+  >- (
     rgs[eval_wh_to_def] >> rw[]
     >- (
       simp[type_wh_cases] >> irule type_tcexp_type_ok >> simp[] >>
@@ -678,7 +679,8 @@ Proof
     simp[bind1_def, FMAP_MAP2_FEMPTY] >> IF_CASES_TAC >> gvs[] >>
     imp_res_tac type_tcexp_freevars_tcexp >> gvs[closed_def, freevars_exp_of] >>
     simp[FUN_FMAP_SING])
-  >- ( (* Apps *)
+  >~ [‘Apps’]
+  >- (
     cheat
     (*qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases] >>
     rename1 `Functions _ rt` >>
@@ -723,7 +725,8 @@ Proof
     simp[Functions_def] >> simp[GSYM Functions_def] >>
     Cases_on `arg_tys` >> gvs[] >> Cases_on `t` >> gvs[]
     )
-  >- ( (* Letrec *)
+  >~ [‘Letrec’]
+  >- (
      cheat
     (*simp[eval_wh_to_def] >> rw[]
     >- (
@@ -795,7 +798,8 @@ Proof
       metis_tac[MEM_EL]
       )*)
     )
-  >- ( (* Case *)
+  >~ [‘Case’]
+  >- (
     cheat
     (*
     drule type_tcexp_freevars_tcexp >> rw[] >>
