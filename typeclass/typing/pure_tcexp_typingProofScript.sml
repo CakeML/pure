@@ -91,7 +91,7 @@ QED
 
 Triviality type_wh_Function_eq_wh_Closure:
   type_wh ns db st env wh
-    (cons_types (Atom $ CompPrimTy Function) [at;t]) ⇒
+    (cons_types (Atom $ CompPrimTy Function) [at; t]) ⇒
     wh = wh_Diverge ∨ ∃x body. wh = wh_Closure x body
 Proof
   rw[type_wh_cases] >>
@@ -681,8 +681,7 @@ Proof
     simp[FUN_FMAP_SING])
   >~ [‘Apps’]
   >- (
-    cheat
-    (*qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases] >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases] >>
     rename1 `Functions _ rt` >>
     qpat_x_assum `∀a. MEM a _ ⇒ _` kall_tac >> qpat_x_assum `_ ≠ _` kall_tac >>
     first_x_assum drule_all >> strip_tac >>
@@ -692,11 +691,14 @@ Proof
     ho_match_mp_tac LIST_REL_strongind >> rw[] >> gvs[Apps_def, Functions_def] >>
     first_x_assum $ qspecl_then [`rt`,`App f [h1]`] mp_tac >>
     simp[exp_of_def, Apps_def] >> disch_then irule >> rw[]
-    >- (simp[Once type_tcexp_cases] >> qexists_tac `[h2]` >> simp[Functions_def]) >>
+    >- (simp[Once type_tcexp_cases] >> simp[PULL_EXISTS] >>
+        qexists_tac `h2` >> simp[Functions_def]) >>
     simp[eval_wh_to_def] >>
     drule_at (Pos last) type_tcexp_type_ok >> simp[type_ok] >> strip_tac >>
-    imp_res_tac type_wh_Function_eq_wh_Closure >> gvs[] >- simp[type_wh_cases] >>
-    IF_CASES_TAC >- simp[type_wh_cases] >>
+    IF_CASES_TAC >- simp[type_wh_cases,type_ok_def] >>
+    imp_res_tac(type_wh_Function_eq_wh_Closure |> SIMP_RULE (srw_ss()) [cons_types_def]) >>
+    gvs[] >>
+    IF_CASES_TAC >- simp[type_wh_cases,type_ok_def] >>
     imp_res_tac type_tcexp_freevars_tcexp >> gvs[] >>
     rw[bind1_def, closed_def, freevars_exp_of] >>
     qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >>
@@ -708,7 +710,7 @@ Proof
     simp[subst_exp_of, FMAP_MAP2_FUPDATE, FMAP_MAP2_FEMPTY, FUN_FMAP_SING] >>
     disch_then irule >> simp[] >>
     irule type_tcexp_closing_subst1 >> simp[] >>
-    goal_assum drule >> simp[]*)
+    goal_assum drule >> simp[]
     )
   >- ( (* Lams *)
     imp_res_tac type_tcexp_tcexp_wf >> gvs[tcexp_wf_def] >>
