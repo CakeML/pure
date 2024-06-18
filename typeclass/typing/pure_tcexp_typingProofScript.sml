@@ -728,77 +728,81 @@ Proof
     Cases_on `arg_tys` >> gvs[] >> Cases_on `t` >> gvs[]
     )
   >~ [‘Letrec’]
-  >- (
-     cheat
-    (*simp[eval_wh_to_def] >> rw[]
-    >- (
-      simp[type_wh_cases] >> irule type_tcexp_type_ok >> simp[] >>
-      rpt $ goal_assum $ drule_at Any >> simp[]
-      ) >>
-    qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases] >>
-    last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
-    ntac 2 $ disch_then drule >>
-    disch_then $ qspecl_then
-      [`subst_tc (FEMPTY |++ MAP (λ(g,x). (g, Letrec rs x)) rs) x`,`t`] mp_tac >>
-    simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, FMAP_MAP2_FEMPTY] >> impl_tac
-    >- (
-      irule type_tcexp_closing_subst >> simp[] >> goal_assum $ drule_at Any >>
-      imp_res_tac LIST_REL_LENGTH >> simp[MAP_REVERSE, MAP_ZIP] >>
-      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >> rw[] >>
-      gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
-      pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
-      simp[Once type_tcexp_cases] >>
-      qexists_tac `MAP (tshift_scheme vars) schemes` >>
-      gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      first_assum drule >>
-      pop_assum (fn th => pop_assum (fn th' => rewrite_tac[th,th'])) >>
-      simp[] >> strip_tac >> reverse $ rw[]
+  >- (simp[eval_wh_to_def] >> rw[]
       >- (
-        gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
-        first_x_assum drule >> rw[] >> drule type_ok_shift_db >> simp[]
-        ) >>
-      rw[LIST_REL_EL_EQN, EL_MAP] >> rename1 `EL m _` >>
-      qmatch_goalsub_abbrev_tac `_ a (_ b)` >>
-      PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
-      first_x_assum drule >> rw[] >> drule type_tcexp_shift_db >> simp[] >>
-      disch_then $ qspecl_then [`b0`,`vars`] mp_tac >>
-      simp[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF] >>
-      simp[GSYM shift_db_shift_db] >> rw[] >>
-      irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
-      rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[LAMBDA_PROD]
-      ) >>
-    simp[bind_def, subst_funs_def] >>
-    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, exp_of_def] >>
-    IF_CASES_TAC >> gvs[] >>
-    gvs[FUN_FMAP_IMAGE, combinTheory.o_DEF, FUN_FMAP_DOM, o_f_FUDLIST_MAP]
-    >- (qmatch_abbrev_tac ‘type_wh _ _ _ [] (eval_wh_to _ (subst fm1 tt)) uu ⇒
-                           type_wh _ _ _ [] (eval_wh_to _ (subst fm2 tt)) uu’ >>
-        ‘fm1 = fm2’suffices_by simp[] >>
-        simp[Abbr‘fm1’, Abbr‘fm2’, exp_of_def, FUPDATE_LIST_MAP_f_o]) >>
-    rename1 `false` >>
-    gvs[flookup_fupdate_list] >> every_case_tac >> gvs[] >>
-    imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP] >> pairarg_tac >> gvs[] >>
-    gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, freevars_exp_of]
-    >- (
-      gvs[MEM_EL, LIST_REL_EL_EQN] >>
-      qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
-      first_x_assum drule >> strip_tac >> gvs[] >> pairarg_tac >> gvs[] >>
-      imp_res_tac type_tcexp_freevars_tcexp >>
-      gvs[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, MEM_ZIP] >>
-      metis_tac[MEM_EL]
-      )
-    >- (
-      pop_assum kall_tac >>
-      gvs[EXISTS_MAP, EXISTS_MEM] >> pairarg_tac >> gvs[freevars_exp_of] >>
-      gvs[MEM_EL, LIST_REL_EL_EQN] >>
-      qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
-      first_x_assum drule >> strip_tac >> gvs[] >> pairarg_tac >> gvs[] >>
-      imp_res_tac type_tcexp_freevars_tcexp >>
-      gvs[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-      gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, MEM_ZIP] >>
-      metis_tac[MEM_EL]
-      )*)
+       simp[type_wh_cases] >> irule type_tcexp_type_ok >> simp[] >>
+       rpt $ goal_assum $ drule_at Any >> simp[]
+       ) >>
+      qpat_x_assum `type_tcexp _ _ _ _ _ _` mp_tac >> rw[Once type_tcexp_cases] >>
+      last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
+      ntac 2 $ disch_then drule >>
+      disch_then $ qspecl_then
+                 [`subst_tc (FEMPTY |++ MAP (λ(g,x). (g, Letrec rs x)) rs) x`,`t`] mp_tac >>
+      simp[subst_exp_of, FMAP_MAP2_FUPDATE_LIST, FMAP_MAP2_FEMPTY] >> impl_tac
+      >- (
+       irule type_tcexp_closing_subst >> simp[] >> goal_assum $ drule_at Any >>
+       imp_res_tac LIST_REL_LENGTH >> simp[MAP_REVERSE, MAP_ZIP] >>
+       simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM] >> rw[] >>
+       gvs[LIST_REL_EL_EQN, EL_MAP] >> rw[] >>
+       pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+       simp[Once type_tcexp_cases] >>
+       qexists ‘MAP (tshift_kind_scheme (LENGTH vars)) schemes’ >>
+       gvs[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+       first_assum drule >>
+       pop_assum (fn th => pop_assum (fn th' => rewrite_tac[th,th'])) >>
+       simp[] >> strip_tac >>
+       reverse $ rw[]
+       >- (
+         gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rw[] >>
+         first_x_assum drule >> rw[] >>
+         gvs[type_ok_def] >>
+         drule kind_ok_shift_db >>
+         disch_then match_mp_tac >>
+         simp[miscTheory.LLOOKUP_THM,EL_APPEND]
+         ) >>
+       rw[LIST_REL_EL_EQN, EL_MAP] >> rename1 `EL m _` >>
+       qmatch_goalsub_abbrev_tac `_ a (_ b)` >>
+       PairCases_on `a` >> PairCases_on `b` >> gvs[] >>
+       first_x_assum drule >> rw[] >> drule type_tcexp_shift_db >> simp[] >>
+       disch_then drule >>
+       disch_then $ qspecl_then [`vars`] mp_tac >>
+       simp[MAP_REVERSE, MAP_ZIP_ALT, MAP_MAP_o, combinTheory.o_DEF] >>
+       simp[GSYM shift_db_shift_db] >> rw[] >>
+       irule quotientTheory.EQ_IMPLIES >> goal_assum drule >>
+       rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[LAMBDA_PROD]
+       ) >>
+      simp[bind_def, subst_funs_def] >>
+      simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, exp_of_def] >>
+      IF_CASES_TAC >> gvs[] >>
+      gvs[FUN_FMAP_IMAGE, combinTheory.o_DEF, FUN_FMAP_DOM, o_f_FUDLIST_MAP]
+      >- (qmatch_abbrev_tac ‘type_wh _ _ _ [] (eval_wh_to _ (subst fm1 tt)) uu ⇒
+                             type_wh _ _ _ [] (eval_wh_to _ (subst fm2 tt)) uu’ >>
+          ‘fm1 = fm2’suffices_by simp[] >>
+          simp[Abbr‘fm1’, Abbr‘fm2’, exp_of_def, FUPDATE_LIST_MAP_f_o]) >>
+      rename1 `false` >>
+      gvs[flookup_fupdate_list] >> every_case_tac >> gvs[] >>
+      imp_res_tac ALOOKUP_MEM >> gvs[MEM_MAP] >> pairarg_tac >> gvs[] >>
+      gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM, freevars_exp_of]
+      >- (
+       gvs[MEM_EL, LIST_REL_EL_EQN] >>
+       qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+       first_x_assum drule >> strip_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+       imp_res_tac type_tcexp_freevars_tcexp >>
+       gvs[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+       gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, MEM_ZIP] >>
+       metis_tac[MEM_EL]
+       )
+      >- (
+       pop_assum kall_tac >>
+       gvs[EXISTS_MAP, EXISTS_MEM] >> pairarg_tac >> gvs[freevars_exp_of] >>
+       gvs[MEM_EL, LIST_REL_EL_EQN] >>
+       qpat_x_assum `_ = EL _ _` $ assume_tac o GSYM >>
+       first_x_assum drule >> strip_tac >> gvs[] >> pairarg_tac >> gvs[] >>
+       imp_res_tac type_tcexp_freevars_tcexp >>
+       gvs[ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+       gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, EXISTS_PROD, MEM_ZIP] >>
+       metis_tac[MEM_EL]
+       )
     )
   >~ [‘Case’]
   >- (
