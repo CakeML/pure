@@ -263,10 +263,21 @@ Definition get_PrimTys_def:
 End
 
 (* shows how the class constraint can be satisfied.
-* e.g. Num a => Ord a, since Ord is a superclass of Num,
-* (Monoid a, Monoid b) => Monoid (a, b), deal to instance declaration *)
+* e.g. Num a => Ord a, (Entail [*] [("Num", TypeVar 0)] ("Ord", TypeVar 0))
+* would be in ie, since Ord is a superclass of Num,
+* (Monoid a, Monoid b) => Monoid (a, b),
+* (Entail [*;*] [("Monoid", TypeVar 0);("Monoid",TypeVar 1)]
+*   ("Monoid",Tup 2 [TypeVar 0;TypeVar 1]) ) and it can be specialized to
+* Entail [
+* due to instance declaration.
+*  *)
 Datatype:
   entailment = Entail (Kind list) ((mlstring # type) list) (mlstring # type)
+End
+
+Definition entailment_kind_ok_def:
+  entailment_kind_ok tds clk (Entail ks ps p) =
+    EVERY (λ(c,t). ∃k. clk c = SOME k ∧ kind_ok tds ks k t) (p::ps)
 End
 
 Definition specialises_inst_def:
