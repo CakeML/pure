@@ -82,7 +82,7 @@ Theorem namespace_ok_IMP_tcexp_namespace_ok:
         (tdefs_to_tcexp_tdefs (SND ns) ++ tds) ks)
         argtys) td) tds
   ⇒
-    tcexp_namespace_ok $ 
+    tcexp_namespace_ok $
       append_ns (namespace_to_tcexp_namespace ns)
       ([],tds)
 Proof
@@ -120,20 +120,6 @@ Proof
   last_x_assum drule >>
   rw[] >>
   gvs[oneline class_to_datatype_def,AllCaseEqs()]
-QED
-
-(* smth like this *)
-Theorem class_env_kind_ok_IMP_type_scheme_ok:
-  class_env_kind_ok tds ce ∧
-  class_env_to_ns ce (ce_to_cl_tyid_map ns_len ce) clcons ce = SOME cl_tds ∧
-  LENGTH ce ≤ LENGTH clcons ⇒
-    EVERY (λ(ks,td). EVERY (λ(cn,argtys).
-      EVERY (
-        type_scheme_ok
-          (SND (namespace_to_tcexp_namespace (exndefs,tds)) ++ cl_tds) ks)
-          argtys) td) cl_tds
-Proof
-  cheat
 QED
 
 Theorem FLOOKUP_ce_to_cl_tyid_map:
@@ -316,7 +302,7 @@ Theorem ALOOKUP_translate_lie_SOME:
   translate_lie_alist cl_to_tyid lie = SOME lie_env ∧
   ALOOKUP lie s = SOME (cl,t) ⇒
   ∃tyid.
-    FLOOKUP cl_to_tyid cl = SOME tyid ∧ 
+    FLOOKUP cl_to_tyid cl = SOME tyid ∧
     ALOOKUP lie_env s = SOME ([],Cons (UserType tyid) t)
 Proof
   Induct_on `lie` >>
@@ -361,7 +347,7 @@ Proof
 QED
 
 Triviality LIST_REL_pred_tsbust:
-  ∀ps qs. 
+  ∀ps qs.
     LIST_REL (λ(c,t) (c',t'). c = c' ∧ tsubst subs t = t')
       ((cl,t)::ps) ((cl',t')::qs) ⇔
     cl = cl' ∧
@@ -425,7 +411,7 @@ Proof
   TOP_CASE_TAC >>
   simp[oneline specialises_inst_alt,AllCaseEqs(),PULL_EXISTS,
     translate_predicate_def] >>
-  TOP_CASE_TAC >>  
+  TOP_CASE_TAC >>
   rw[] >>
   simp[specialises_def,PULL_EXISTS,subst_db_Functions,subst_db_def] >>
   drule translate_predicates_subst >>
@@ -478,7 +464,7 @@ Theorem construct_dict_type_tcexp:
       (env ++ lie_env ++ ie_env) (tcexp_of d) p') ∧
   (∀ps ds. construct_dicts tds db ie lie ps ds ⇒
     (∀d v. MEM d ds ∧ v ∈ freevars_cexp d ⇒ v ∈ FDOM ie ∨ v ∈ FDOM lie) ∧
-    ∃ps'. translate_predicates cl_to_tyid ps = SOME ps' ∧ 
+    ∃ps'. translate_predicates cl_to_tyid ps = SOME ps' ∧
     LIST_REL
       (λd t.
         type_tcexp (exnds,tdefs_to_tcexp_tdefs tds ++ cl_tds) db st
@@ -600,7 +586,7 @@ Proof
 QED
 
 Triviality ALOOKUP_APPEND_EQ:
-  ALOOKUP l x = ALOOKUP l' x ⇒ 
+  ALOOKUP l x = ALOOKUP l' x ⇒
   ALOOKUP (l ++ r) x = ALOOKUP (l' ++ r) x
 Proof
   rw[ALOOKUP_APPEND]
@@ -650,6 +636,99 @@ Proof
   simp[tdefs_to_tcexp_tdefs_def]
 QED
 
+Theorem translate_env_MEM:
+  ∀env trans_env v ks vt.
+  translate_env cl_to_tyid env = SOME trans_env ⇒
+  (MEM (v,ks,vt) trans_env ⇔
+    ∃ks' pt. MEM (v,ks',pt) env ∧
+    translate_pred_type_scheme cl_to_tyid (ks',pt) = SOME (ks,vt))
+Proof
+  Induct_on `env` >>
+  rw[translate_env_def] >>
+  rw[EQ_IMP_THM]
+  >- (
+    PairCases_on `h` >>
+    gvs[translate_env_def] >>
+    metis_tac[]
+  )
+  >- gvs[translate_env_def]
+  >- (
+    PairCases_on `h` >>
+    gvs[translate_env_def] >>
+    metis_tac[]
+  )
+QED
+
+Theorem elaborated_texp_lambda_vars:
+  ∀e e'. elaborated_texp e e' ⇒ lambda_vars e = lambda_vars e'
+Proof
+  Induct_on `elaborated_texp` >>
+  rw[lambda_vars_def,lambda_varsl_def]
+  >- (
+    ntac 2 AP_TERM_TAC >>
+    drule_at_then Any irule $ GSYM pure_miscTheory.LIST_REL_IMP_MAP_EQ >>
+    rw[]
+  )
+  >- (
+    ntac 3 AP_TERM_TAC >>
+    drule_at_then Any irule $ GSYM pure_miscTheory.LIST_REL_IMP_MAP_EQ >>
+    rw[]
+  )
+  >- (
+    `MAP (FST o FST) fns = MAP (FST o FST) fns'`
+      by rw[EL_MAP,LIST_EQ_REWRITE] >>
+    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+    AP_THM_TAC >>
+    ntac 4 AP_TERM_TAC >>
+    rev_drule_at_then Any irule $ GSYM pure_miscTheory.LIST_REL_IMP_MAP_EQ >>
+    rw[]
+  )
+  >- (
+    `MAP (cepat_vars ∘ FST) pes = MAP (cepat_vars ∘ FST) pes'`
+      by rw[EL_MAP,LIST_EQ_REWRITE] >>
+    simp[MAP_MAP_o,combinTheory.o_DEF] >>
+    `MAP (λx. lambda_vars (SND x)) pes = MAP (λx. lambda_vars (SND x)) pes'`
+      by (
+        drule_at_then Any irule $ GSYM pure_miscTheory.LIST_REL_IMP_MAP_EQ >>
+        rw[]
+      ) >>
+    simp[]
+  )
+QED
+
+Theorem type_elaborate_texp_lambda_vars:
+  (∀ns clk ie lie db st env e e' t.
+    type_elaborate_texp ns clk ie lie db st env e e' t ⇒
+    lambda_vars e = lambda_vars e') ∧
+  (∀ns clk ie lie db st env e e' pt.
+    pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
+    lambda_vars e = lambda_vars e')
+Proof
+  metis_tac[elaborated_texp_lambda_vars,type_elaborate_texp_elaborated_texp]
+QED
+
+Theorem class_env_to_ns_EL:
+  ∀ce' clcons cl_tds.
+  class_env_to_ns ce cl_to_tyid clcons ce' = SOME cl_tds ∧
+  LENGTH ce' ≤ LENGTH clcons ⇒
+  LENGTH cl_tds = LENGTH ce' ∧
+  (∀i. i < LENGTH ce' ⇒
+    ∃c k supers methods method_tys sup_tys.
+    EL i ce' = (c,k,supers,methods) ∧
+    OPT_MMAP (translate_pred_type_scheme cl_to_tyid) (MAP SND methods) = SOME method_tys ∧
+    translate_superclasses cl_to_tyid supers = SOME sup_tys ∧
+    EL i cl_tds = ([k],[(EL i clcons,sup_tys ++ method_tys)]))
+Proof
+  Induct_on `ce'` >>
+  rw[class_env_to_ns_def] >>
+  PairCases_on `h` >>
+  Cases_on `clcons` >>
+  gvs[class_env_to_ns_def,IMP_CONJ_THM,FORALL_AND_THM,class_to_datatype_def]
+  >- metis_tac[] >>
+  Cases_on `i` >>
+  gvs[]
+QED
+
 Theorem texp_construct_dict_type_tcexp:
   class_env_to_ns ce (ce_to_cl_tyid_map (LENGTH $ SND ns) ce)
     clcons ce = SOME cl_tds ∧
@@ -659,9 +738,9 @@ Theorem texp_construct_dict_type_tcexp:
   cl_to_tyid = ce_to_cl_tyid_map (LENGTH $ SND ns) ce ∧
   ie_map = alist_to_fmap ie_alist ∧
   ie = FRANGE (alist_to_fmap ie_alist) ∧
-  ALL_DISTINCT (MAP FST ie_alist) ∧ 
+  ALL_DISTINCT (MAP FST ie_alist) ∧
   translate_ie_alist cl_to_tyid ie_alist = SOME ie_env ∧
-  (∀ent. ent ∈ ie ⇒ entailment_kind_ok (SND ns) clk ent) 
+  (∀ent. ent ∈ ie ⇒ entailment_kind_ok (SND ns) clk ent)
   ⇒
   (∀lie db st env e e' pt.
     pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
@@ -698,7 +777,7 @@ Theorem texp_construct_dict_type_tcexp:
       (∀v ent. MEM (v,ent) ie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧
       (∀v ent. MEM (v,ent) ie_alist ⇒ v ∉ lambda_vars e) ∧
       (∀v ent. MEM (v,ent) ie_alist ⇒ ∀cl t. ¬MEM (v,cl,t) lie_alist) ∧
-      (∀v cl ct. MEM (v,cl,ct) lie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧ 
+      (∀v cl ct. MEM (v,cl,ct) lie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧
       (∀v ks vt. MEM (v,ks,vt) lie_alist ⇒ v ∉ lambda_vars e) ∧
       (∀cl t. (cl,t) ∈ lie ⇒ ∃k. clk cl = SOME k ∧ kind_ok (SND ns) db k t) ∧
       texp_construct_dict ns ie_map (alist_to_fmap lie_alist) db
@@ -713,7 +792,7 @@ Theorem texp_construct_dict_type_tcexp:
           (tcexp_of de) t)
 Proof
   strip_tac >>
-  ho_match_mp_tac type_elaborate_texp_ind >>
+  ho_match_mp_tac type_elaborate_texp_strongind >>
   rw[lambda_vars_def]
   >- (
     (* Var *)
@@ -744,38 +823,8 @@ Proof
     impl_tac
     >- (
       rw[]
-      >- (
-        rename1 `~MEM (v,ks,vt) trans_env` >>
-        last_x_assum drule >>
-        rpt strip_tac >>
-        qpat_x_assum `∀ks vt. ¬MEM (v,ks,vt) env` mp_tac >>
-        simp[] >>
-        drule_then (qspec_then `v` mp_tac) ALOOKUP_translate_env >>
-        simp[oneline OPTION_BIND_def] >>
-        CASE_TAC
-        >- (
-          gvs[ALOOKUP_NONE,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-          metis_tac[]
-        ) >>
-        imp_res_tac ALOOKUP_MEM >>
-        metis_tac[PAIR]
-      )
-      >- (
-         rename1 `~MEM (v,ks,vt) trans_env` >>
-        last_x_assum drule >>
-        rpt strip_tac >>
-        qpat_x_assum `∀ks vt. ¬MEM (v,ks,vt) env` mp_tac >>
-        simp[] >>
-        drule_then (qspec_then `v` mp_tac) ALOOKUP_translate_env >>
-        simp[oneline OPTION_BIND_def] >>
-        CASE_TAC
-        >- (
-          gvs[ALOOKUP_NONE,MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
-          metis_tac[]
-        ) >>
-        imp_res_tac ALOOKUP_MEM >>
-        metis_tac[PAIR]
-      )
+      >- metis_tac[translate_env_MEM]
+      >- metis_tac[translate_env_MEM]
       >- metis_tac[]
       >- (
         gvs[ALL_DISTINCT_FRANGE_MEM,PULL_EXISTS] >>
@@ -804,12 +853,34 @@ Proof
     last_x_assum $ drule_at (Pat `texp_construct_dict _ _ _ _ _ _ _`) >>
     impl_tac
     >- (
-      simp[MAP_REVERSE,MAP_ZIP,ALL_DISTINCT_APPEND] >>
-      DEP_REWRITE_TAC[finite_mapTheory.FRANGE_FUNION] >>
-      simp[] >>
-      reverse conj_tac
-      gvs[]
-      cheat
+      gvs[MAP_REVERSE,MAP_ZIP,ALL_DISTINCT_APPEND,DISJ_IMP_THM,FORALL_AND_THM] >>
+      conj_tac
+      >- (
+        DEP_REWRITE_TAC[finite_mapTheory.FRANGE_FUNION] >>
+        gvs[FDOM_alist_to_fmap,DISJOINT_DEF,INTER_EMPTY_IN_NOTIN,MEM_MAP,
+          MEM_ZIP,FORALL_PROD,PULL_EXISTS] >>
+        rw[Once UNION_COMM]
+        >- (
+          `MEM (EL n vs) vs` by metis_tac[MEM_EL] >>
+          metis_tac[]
+        ) >>
+        AP_THM_TAC >> AP_TERM_TAC >>
+        rw[EXTENSION] >>
+        DEP_REWRITE_TAC[ALL_DISTINCT_FRANGE_MEM] >>
+        simp[REVERSE_ZIP,MEM_ZIP,MEM_EL,MAP_ZIP]
+      ) >>
+      gvs[FDOM_alist_to_fmap,DISJOINT_DEF,INTER_EMPTY_IN_NOTIN,MEM_MAP,
+        MEM_ZIP,FORALL_PROD,PULL_EXISTS,IMP_CONJ_THM,FORALL_AND_THM] >>
+      conj_tac >- gvs[] >>
+      conj_tac >- gvs[] >>
+      rpt strip_tac
+      >- metis_tac[MEM_EL]
+      >- metis_tac[]
+      >- metis_tac[MEM_EL]
+      >- metis_tac[]
+      >- metis_tac[MEM_EL,type_elaborate_texp_lambda_vars]
+      >- metis_tac[type_elaborate_texp_lambda_vars]
+      >- gvs[pred_type_kind_ok_alt,FORALL_PROD]
     ) >>
     rw[] >>
     simp[] >>
@@ -851,8 +922,13 @@ Proof
       rw[ce_to_clk_def] >>
       drule_then strip_assume_tac ALOOKUP_find_index_SOME >>
       gvs[] >>
-      cheat (* FST (EL i cl_tds) = [FST (SND (EL i ce))] *)
-      (* class constructor type check *)
+      drule_all class_env_to_ns_EL >>
+      rw[] >>
+      first_x_assum drule >>
+      rw[] >>
+      gvs[] >>
+      irule kind_ok_tdefs_APPEND >>
+      simp[kind_ok_tdefs_to_tcexp_tdefs]
     ) >>
     drule_then irule type_tcexp_env_extensional >>
     rpt strip_tac >>
@@ -861,18 +937,20 @@ Proof
     gvs[MAP_ZIP,REVERSE_ZIP,GSYM MAP_REVERSE] >>
     irule ALOOKUP_APPEND_EQ >>
     irule ALOOKUP_APPEND_EQ >>
+    ntac 3 $ pop_assum kall_tac >>
     simp[ALOOKUP_APPEND,ALOOKUP_ZIP_MAP_SND,oneline OPTION_MAP_DEF] >>
     CASE_TAC
     >- (CASE_TAC >> simp[]) >>
     CASE_TAC >>
     imp_res_tac ALOOKUP_MEM >>
     gvs[GSYM REVERSE_ZIP,MEM_REVERSE] >>
-    gvs[INTER_EMPTY_IN_NOTIN,MEM_ZIP] >>
-    rename1 `([],EL m _)` >>
-    `MEM (EL m vs) vs` by metis_tac[MEM_EL] >>
-    last_x_assum drule >>
-    rw[MEM_MAP,FORALL_PROD] >>
-    cheat
+    gvs[INTER_EMPTY_IN_NOTIN,MEM_ZIP,FORALL_AND_THM,IMP_CONJ_THM,MEM_MAP,FORALL_PROD] >>
+    rename1 `MEM (EL n vs,trans_t) trans_env` >>
+    PairCases_on `trans_t` >>
+    drule_then drule $ iffLR translate_env_MEM >>
+    strip_tac >>
+    spose_not_then kall_tac >>
+    metis_tac[MEM_EL]
   )
 QED
 
