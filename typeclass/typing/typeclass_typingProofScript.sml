@@ -729,6 +729,13 @@ Proof
   gvs[]
 QED
 
+Theorem lambda_vars_IMP_lambda_varsl:
+  v ∈ lambda_vars (EL n es) ∧ n < LENGTH es ⇒ v ∈ lambda_varsl es
+Proof
+  rw[lambda_varsl_def,MEM_MAP] >>
+  metis_tac[MEM_EL]
+QED
+
 Theorem texp_construct_dict_type_tcexp:
   class_env_to_ns ce (ce_to_cl_tyid_map (LENGTH $ SND ns) ce)
     clcons ce = SOME cl_tds ∧
@@ -951,6 +958,73 @@ Proof
     strip_tac >>
     spose_not_then kall_tac >>
     metis_tac[MEM_EL]
+  )
+  >- (
+    (* App *)
+    qpat_x_assum `texp_construct_dict _ _ _ _ _ (App _ _) _` $ strip_assume_tac o
+      SRULE[Once texp_construct_dict_cases] >>
+    gvs[FORALL_AND_THM,FORALL_PROD,IMP_CONJ_THM] >>
+    first_x_assum $ resolve_then (Pat `FRANGE (alist_to_fmap _) = FRANGE _`)
+      mp_tac EQ_REFL >>
+    disch_then $ drule_at (Pos last) >>
+    simp[] >>
+    impl_tac
+    >- metis_tac[] >>
+    rw[] >>
+    simp[tcexp_of_def] >>
+    irule type_tcexp_App >>
+    first_assum $ irule_at (Pos last) >>
+    gvs[LIST_REL_EL_EQN,LIST_REL3_EL] >>
+    rw[]
+    >- (strip_tac >> gvs[]) >>
+    first_x_assum drule >>
+    first_x_assum drule >>
+    rw[] >>
+    first_x_assum $ resolve_then (Pat `FRANGE (alist_to_fmap _) = FRANGE _`)
+      mp_tac EQ_REFL >>
+    disch_then $ drule_at (Pos last) >>
+    impl_tac
+    >- (
+      simp[] >>
+      conj_tac >- metis_tac[] >>
+      conj_tac
+      >- (
+        rpt strip_tac >>
+        metis_tac[lambda_vars_IMP_lambda_varsl]
+      ) >>
+      conj_tac >- metis_tac[] >>
+      conj_tac >- metis_tac[] >>
+      rpt strip_tac >>
+      metis_tac[lambda_vars_IMP_lambda_varsl]
+    ) >>
+    rw[EL_MAP]
+  )
+  >- ( (* Let *)
+    qpat_x_assum `texp_construct_dict _ _ _ _ _ (Let _ _ _) _` $ strip_assume_tac o
+      SRULE[Once texp_construct_dict_cases] >>
+    gvs[FORALL_AND_THM,FORALL_PROD,IMP_CONJ_THM] >>
+    qpat_x_assum `!lie_alist de. _ ⇒
+      ∃trans_env lie_env trans_pt. _ ∧ _ ∧ translate_pred_type _ _ = SOME _ ∧ _`  $
+      resolve_then (Pat `FRANGE (alist_to_fmap _) = FRANGE _`) mp_tac EQ_REFL >>
+    disch_then $ drule_at (Pos last) >>
+    impl_tac
+    >- (
+      simp[MEM_MAP,FORALL_PROD,EVERY_MAP]
+      conj_tac
+      >- (
+        gvs[EVERY_MEM,lambdify type_ok_def] >>
+        rpt strip_tac >>
+        qpat_x_assum `!x. MEM x st ⇒ kind_ok _ _ _ _` $
+          drule_then strip_assume_tac >>
+        drule_then irule kind_ok_shift_db_APPEND >>
+        simp[]
+      ) >>
+
+   ) >>
+  )
+  >- ( (* Lam *)
+  )
+  >- (
   )
 QED
 
