@@ -997,8 +997,7 @@ Proof
   rw[]
   >- (
     irule texp_construct_dict_Pred >>
-    simp[SmartLam_EQ_Lam_cases,PULL_EXISTS,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
-    disj1_tac >>
+    simp[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS] >>
     conj_tac >- (
       simp[get_names_namespace_def,initial_namespace_def,
         lambda_vars_def,test_env,test_ie_map,
@@ -1121,8 +1120,7 @@ Proof
       shift_db_def,subst_db_def,shift_db_Functions,subst_db_Functions] >>
     simp[SmartLam_def] >>
     irule texp_construct_dict_Pred >>
-    simp[SmartLam_EQ_Lam_cases,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
-    simp[PULL_EXISTS,LENGTH_EQ_NUM_compute] >>
+    simp[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS] >>
     conj_tac
     >-  (
       simp[test_ie_map,test_env,lambda_vars_def,
@@ -1178,7 +1176,7 @@ Proof
     simp[]
   )
   >- (
-    rw[SmartLam_EQ_Lam_cases]
+    rw[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS]
     >- (
       irule construct_dict_ie >>
       simp[Once test_ie_map,finite_mapTheory.FLOOKUP_UPDATE] >>
@@ -1223,8 +1221,7 @@ Proof
     shift_db_Functions,subst_db_Functions] >>
   simp[SmartLam_def,dest_Lam_def] >>
   irule texp_construct_dict_Pred >>
-  simp[SmartLam_EQ_Lam_cases,RIGHT_AND_OVER_OR,EXISTS_OR_THM] >>
-  simp[PULL_EXISTS,LENGTH_EQ_NUM_compute] >>
+  simp[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS] >>
   conj_tac
   >- (
     simp[test_ie_map,test_env,lambda_vars_def,

@@ -124,6 +124,9 @@ Overload tshift_kind_scheme_pred = ``λn (vars,scheme). (vars, shift_db_pred
 Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_kind_scheme n scheme))``;
 Overload tshift_env_pred = ``λn. MAP (λ(x,scheme). (x, tshift_kind_scheme_pred n scheme))``;
 
+Overload tshift_lie = ``λn. IMAGE (λ(cl,t). (cl,tshift n t))``;
+Overload tshift_lie_map = ``λn lie. (λ(cl,t). (cl,tshift n t)) o_f lie``;
+
 Overload type_kind_scheme_ok =
   ``λtdefs ks (varks,scheme). type_ok tdefs (varks ++ ks) scheme``
 
@@ -740,7 +743,8 @@ Inductive type_elaborate_texp:
     type_elaborate_texp ns clk ie lie db st env (App e es) (App e' es') ret_ty
 
 [~Let:]
-  pred_type_elaborate_texp ns clk ie lie (new ++ db) (MAP (tshift (LENGTH new)) st)
+  pred_type_elaborate_texp ns clk ie (tshift_lie (LENGTH new) lie) (new ++ db)
+    (MAP (tshift (LENGTH new)) st)
     (tshift_env_pred (LENGTH new) env) e1 e1' pt1 ∧
   type_elaborate_texp ns clk ie lie db st ((x,new,pt1)::env) e2 e2' t2 ⇒
      type_elaborate_texp ns clk ie lie db st env (Let (x,NONE) e1 e2)
@@ -777,7 +781,7 @@ Inductive type_elaborate_texp:
       (case ot of
       | NONE => T
       | SOME t => t = (LENGTH varks,scheme)) ∧
-      pred_type_elaborate_texp ns clk ie lie (varks ++ db)
+      pred_type_elaborate_texp ns clk ie (tshift_lie (LENGTH varks) lie) (varks ++ db)
         (MAP (tshift $ LENGTH varks) st)
         (tshift_env_pred (LENGTH varks) $
           REVERSE (ZIP (MAP (FST o FST) fns', kind_schemes)) ++ env)
@@ -879,7 +883,7 @@ Inductive type_elaborate_texp:
         (Prim (AtomOp aop) es) (Prim (AtomOp aop) es') (Atom $ PrimTy primt)
 
 [~Seq:]
-  pred_type_elaborate_texp ns clk ie lie (new ++ db)
+  pred_type_elaborate_texp ns clk ie (tshift_lie (LENGTH new) lie) (new ++ db)
     (MAP (tshift (LENGTH new)) st)
     (tshift_env_pred (LENGTH new) env) e1 e1' pt ∧
   type_elaborate_texp ns clk ie lie db st env e2 e2' t2 ⇒
@@ -887,7 +891,7 @@ Inductive type_elaborate_texp:
         (Prim Seq [e1; e2]) (PrimSeq (new,pt) e1' e2') t2
 
 [~PrimSeq:]
-  pred_type_elaborate_texp ns clk ie lie (new ++ db)
+  pred_type_elaborate_texp ns clk ie (tshift_lie (LENGTH new) lie) (new ++ db)
     (MAP (tshift (LENGTH new)) st)
     (tshift_env_pred (LENGTH new) env) e1 e1' pt ∧
   type_elaborate_texp ns clk ie lie db st env e2 e2' t2 ∧
@@ -923,7 +927,7 @@ Definition type_elaborate_bindings_def:
         fn = fn' ∧
         (case ot' of
         | SOME (varks,scheme) =>
-            pred_type_elaborate_texp ns clk ie lie (varks ++ db)
+            pred_type_elaborate_texp ns clk ie (tshift_lie (LENGTH varks) lie) (varks ++ db)
               (MAP (tshift $ LENGTH varks) st)
               (tshift_env_pred (LENGTH varks) env)
                body body' scheme ∧
@@ -968,7 +972,8 @@ Inductive texp_construct_dict:
     pred_texp_construct_dict ns ie lie db env (Pred ps t) e te
 
 [~Let:]
-  pred_texp_construct_dict ns ie lie (new ++ db) env pt e1 de1 ∧
+  (* shift lie *)
+  pred_texp_construct_dict ns ie (tshift_lie_map (LENGTH new) lie) (new ++ db) env pt e1 de1 ∧
   texp_construct_dict ns ie lie db (x INSERT env) e2 de2 ⇒
     texp_construct_dict ns ie lie db env
       (typeclass_texp$Let (x,SOME (new,pt)) e1 e2)
@@ -979,7 +984,7 @@ Inductive texp_construct_dict:
     (λ((x,ot),e) (y,de).
       x = y ∧
       ∃new pt. ot = SOME (new,pt) ∧
-        pred_texp_construct_dict ns ie lie (new ++ db)
+        pred_texp_construct_dict ns ie (tshift_lie_map (LENGTH new) lie) (new ++ db)
           (env ∪ set (MAP (FST o FST) fns)) pt e de)
     fns dfns ∧
   texp_construct_dict ns ie lie db (env ∪ set (MAP (FST o FST) fns)) e2 de2 ∧
@@ -988,7 +993,7 @@ Inductive texp_construct_dict:
       (typeclass_texp$Letrec fns e2) (pure_cexp$Letrec () dfns de2)
 
 [~Seq:]
-  pred_texp_construct_dict ns ie lie (new ++ db) env pt e1 de1 ∧
+  pred_texp_construct_dict ns ie (tshift_lie_map (LENGTH new) lie) (new ++ db) env pt e1 de1 ∧
   texp_construct_dict ns ie lie db env e2 de2 ⇒
     texp_construct_dict ns ie lie db env
       (PrimSeq (new,pt) e1 e2) (Prim () Seq [de1;de2])
@@ -1176,6 +1181,12 @@ Proof
   rw[]
 QED
 
+Theorem tshift_lie_FRANGE:
+  tshift_lie n (FRANGE lie_map) = FRANGE (tshift_lie_map n lie_map)
+Proof
+  simp[finite_mapTheory.IMAGE_FRANGE]
+QED
+
 Theorem type_elaborate_texp_IMP_texp_construct_dict:
   (∀lie db st env e e' pt.
     pred_type_elaborate_texp ns clk ie lie db st env e e' pt ⇒
@@ -1221,6 +1232,7 @@ Proof
     first_x_assum irule >>
     simp[]
   )
+  >- metis_tac[tshift_lie_FRANGE]
   >- (
     drule_then assume_tac $ cj 1 $ iffLR LIST_REL_EVERY_ZIP >>
     fs[rich_listTheory.MAP_REVERSE,MAP_ZIP]
@@ -1244,7 +1256,7 @@ Proof
     first_x_assum $ irule_at (Pos last) >>
     simp[Once LAMBDA_PROD,GSYM PEXISTS_THM] >>
     irule_at (Pos hd) $ GSYM PAIR >>
-    simp[]
+    gvs[finite_mapTheory.IMAGE_FRANGE]
   )
   >- (
     drule_then assume_tac $ cj 1 $ iffLR LIST_REL3_EL >>
@@ -1289,6 +1301,8 @@ Proof
     ho_match_mp_tac LIST_REL3_induct >>
     rw[GSYM PULL_EXISTS]
   )
+  >- metis_tac[tshift_lie_FRANGE]
+  >- metis_tac[tshift_lie_FRANGE]
   >- (
     last_x_assum $ qspec_then `lie_map` kall_tac >>
     last_x_assum $ qspec_then `lie_map` mp_tac >>
