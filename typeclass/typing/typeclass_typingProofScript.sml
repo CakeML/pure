@@ -1066,16 +1066,19 @@ Proof
   metis_tac[kind_ok_tdefs_to_tcexp_tdefs]
 QED
 
-Theorem type_cons_IMP_tcexp_type_cons:
-  type_cons tds db (cname,carg_ts) (tyid,tyargs) ⇒
+Theorem type_cons_EQ_tcexp_type_cons:
+  type_cons tds db (cname,carg_ts) (tyid,tyargs) ⇔
   tcexp_type_cons (tdefs_to_tcexp_tdefs tds) db
     (cname,MAP ($, []) carg_ts) (tyid,tyargs)
 Proof
   rw[type_cons_def,tcexp_type_cons_def,oEL_THM,LENGTH_tdefs_to_tcexp_tdefs,
-    kind_ok_tdefs_to_tcexp_tdefs] >>
+    kind_ok_tdefs_to_tcexp_tdefs,EQ_IMP_THM] >>
   imp_res_tac ALOOKUP_MEM >>
-  simp[EL_MAP,tdefs_to_tcexp_tdefs_def,LAMBDA_PROD,lambdify PAIR_MAP] >>
-  simp[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF]
+  gvs[EL_MAP,tdefs_to_tcexp_tdefs_def,LAMBDA_PROD,lambdify PAIR_MAP] >>
+  gvs[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+  pairarg_tac >>
+  gvs[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+  gvs[LIST_EQ_REWRITE,EL_MAP]
 QED
 
 Theorem tcexp_type_cons_tdefs_APPEND:
@@ -1088,6 +1091,124 @@ Proof
   simp[] >>
   drule_at_then (Pos last) irule $ LIST_REL_mono >>
   simp[kind_ok_tdefs_APPEND]
+QED
+
+Theorem tcexp_destruct_type_cons_tdefs_APPEND:
+  tcexp_destruct_type_cons (edef,tds) db t cname carg_ts ⇒
+  tcexp_destruct_type_cons (edef,tds ++ tds') db t cname carg_ts
+Proof
+  simp[oneline tcexp_destruct_type_cons_def] >>
+  TOP_CASE_TAC >>
+  rw[] >>
+  every_case_tac >>
+  metis_tac[tcexp_type_cons_tdefs_APPEND]
+QED
+
+Theorem tcexp_type_cepat_tdefs_APPEND:
+  ∀pat t vts.
+  tcexp_type_cepat (edef,tds) db pat t vts ⇒
+    tcexp_type_cepat (edef,tds ++ tds') db pat t vts
+Proof
+  ho_match_mp_tac tcexp_type_cepat_ind >>
+  rw[] >>
+  simp[Once tcexp_type_cepat_cases]
+  >- metis_tac[specialises_tdefs_APPEND] >>
+  gvs[SF ETA_ss] >>
+  metis_tac[tcexp_destruct_type_cons_tdefs_APPEND]
+QED
+
+Theorem destruct_type_cons_EQ_tcexp_destruct_type_cons:
+  destruct_type_cons (edef,tds) db t cname carg_ts ⇔
+    tcexp_destruct_type_cons (edef,tdefs_to_tcexp_tdefs tds) db t cname
+      (MAP ($,[]) carg_ts)
+Proof
+  rw[destruct_type_cons_def,tcexp_destruct_type_cons_def,EVERY_MAP,
+    MAP_MAP_o,combinTheory.o_DEF] >>
+  Cases_on `split_ty_cons t` >>
+  simp[] >>
+  PairCases_on `x` >>
+  simp[] >>
+  every_case_tac >> gvs[]
+  >- metis_tac[type_cons_EQ_tcexp_type_cons] >>
+  rw[EQ_IMP_THM,LIST_EQ_REWRITE] >>
+  gvs[EL_MAP]
+QED
+
+Theorem specialises_REFL:
+  specialises tds db ([],t) t
+Proof
+  simp[specialises_def]
+QED
+
+Theorem type_cepat_IMP_tcexp_type_cepat:
+  ∀pat t vts.
+  type_cepat (edef,tds) db pat t vts ⇒
+    tcexp_type_cepat (edef,tdefs_to_tcexp_tdefs tds) db pat ([],t) vts
+Proof
+  ho_match_mp_tac type_cepat_ind >>
+  rw[] >> simp[Once tcexp_type_cepat_cases,specialises_REFL] >>
+  (drule_then $ irule_at Any) $ iffLR destruct_type_cons_EQ_tcexp_destruct_type_cons >>
+  gvs[LIST_REL3_EL,EL_MAP] >>
+  metis_tac[]
+QED
+
+(* same as the safe version *)
+Theorem unsafe_type_cons_EQ_tcexp_unsafe_type_cons:
+  unsafe_type_cons tds (cname,carg_ts) (tyid,tyargs) ⇔
+  unsafe_tcexp_type_cons (tdefs_to_tcexp_tdefs tds)
+    (cname,MAP ($, []) carg_ts) (tyid,tyargs)
+Proof
+  rw[unsafe_type_cons_def,unsafe_tcexp_type_cons_def,oEL_THM,
+    LENGTH_tdefs_to_tcexp_tdefs,EQ_IMP_THM] >>
+  imp_res_tac ALOOKUP_MEM >>
+  gvs[EL_MAP,tdefs_to_tcexp_tdefs_def,LAMBDA_PROD,lambdify PAIR_MAP] >>
+  gvs[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+  pairarg_tac >>
+  gvs[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
+  gvs[LIST_EQ_REWRITE,EL_MAP]
+QED
+
+Theorem unsafe_tcexp_type_cons_tdefs_APPEND:
+  unsafe_tcexp_type_cons tds c t ⇒
+  unsafe_tcexp_type_cons (tds ++ tds') c t
+Proof
+  simp[oneline unsafe_tcexp_type_cons_def] >>
+  rpt CASE_TAC >>
+  rw[oEL_THM,EL_APPEND_EQN]
+QED
+
+Theorem unsafe_tcexp_destruct_type_cons_tdefs_APPEND:
+  unsafe_tcexp_destruct_type_cons (edef,tds) t cname carg_ts ⇒
+  unsafe_tcexp_destruct_type_cons (edef,tds ++ tds') t cname carg_ts
+Proof
+  simp[oneline unsafe_tcexp_destruct_type_cons_def] >>
+  TOP_CASE_TAC >>
+  rw[] >>
+  every_case_tac >>
+  metis_tac[unsafe_tcexp_type_cons_tdefs_APPEND]
+QED
+
+Theorem unsafe_destruct_type_cons_EQ_unsafe_tcexp_destruct_type_cons:
+  unsafe_destruct_type_cons (edef,tds) t cname carg_ts ⇔
+    unsafe_tcexp_destruct_type_cons (edef,tdefs_to_tcexp_tdefs tds) t cname
+      (MAP ($,[]) carg_ts)
+Proof
+  rw[unsafe_destruct_type_cons_def,unsafe_tcexp_destruct_type_cons_def,EVERY_MAP,
+    MAP_MAP_o,combinTheory.o_DEF] >>
+  Cases_on `split_ty_cons t` >>
+  simp[] >>
+  PairCases_on `x` >>
+  simp[] >>
+  every_case_tac >> gvs[]
+  >- metis_tac[unsafe_type_cons_IMP_tcexp_unsafe_type_cons] >>
+  rw[EQ_IMP_THM,LIST_EQ_REWRITE] >>
+  gvs[EL_MAP]
+QED
+
+Triviality CONS_APPEND_APPEND:
+  x::(l ++ m ++ r) = x::l ++ m ++ r
+Proof
+  simp[]
 QED
 
 Theorem texp_construct_dict_type_tcexp:
@@ -1509,7 +1630,7 @@ Proof
     simp[] >>
     metis_tac[lambda_vars_IMP_lambda_varsl]
   )
-  >- (
+  >- ( (* Tuple *)
     pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
     gvs[LIST_REL3_EL,LIST_REL_EL_EQN,tcexp_of_def] >>
     qpat_x_assum `LENGTH ts = LENGTH des` $ assume_tac o GSYM >>
@@ -1526,7 +1647,157 @@ Proof
     first_x_assum $ irule_at (Pos last) >>
     rw[] >>
     metis_tac[lambda_vars_IMP_lambda_varsl]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Ret >> (* metis isn't smart enough to figure this out *)
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Bind >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Raise >>
+    gvs[type_ok_def] >>
+    metis_tac[kind_ok_tdefs_to_tcexp_tdefs,kind_ok_tdefs_APPEND]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Handle >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Act >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Alloc >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Length >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Deref >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Update >>
+    metis_tac[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Exception >>
+    gvs[] >>
+    first_assum $ irule_at (Pos hd) >>
+    gvs[LIST_REL_EL_EQN,LIST_REL3_EL,EL_MAP] >>
+    metis_tac[lambda_vars_IMP_lambda_varsl]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_True
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_False
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_Loc >>
+    simp[]
+  )
+  >- (
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_AtomOp >>
+    first_assum $ irule_at (Pos hd) >>
+    gvs[LIST_REL_EL_EQN,LIST_REL3_EL,EL_MAP] >>
+    metis_tac[lambda_vars_IMP_lambda_varsl]
+  )
+  >- ( (* NeestedCase *)
+    pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+    gvs[tcexp_of_def] >>
+    irule type_tcexp_NestedCase >>
+    gvs[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,EVERY_MAP,LIST_REL_EL_EQN,
+      translate_env_SOME_APPEND,translate_env_SOME_REVERSE] >>
+    conj_tac
+    >- (
+      `∀n. n < LENGTH pes'' ⇒  FST (EL n pes) = FST (EL n pes'')`
+      by (
+        rpt strip_tac >>
+        qpat_x_assum `∀n. n < LENGTH pes'' ⇒ _` drule >>
+        qpat_x_assum `∀n. n < LENGTH pes'' ⇒ _` drule >>
+        ntac 3 (pairarg_tac >> gvs[])
+      ) >>
+      `MAP (λ(p1,p2). cepat_vars_l p1) pes'' = MAP (λ(p1,p2). cepat_vars_l p1) pes`
+      by (
+        rw[LIST_EQ_REWRITE,EL_MAP] >>
+        >- (
+          first_x_assum drule >>
+          ntac 2 (pairarg_tac >> rw[])
+        ) >>
+        first_x_assum drule >>
+        ntac 2 (pairarg_tac >> rw[])
+      ) >>
+      simp[]
+    ) >>
+    gvs[PULL_EXISTS,MEM_MAP,FORALL_PROD] >>
+    first_x_assum $ drule_at_then (Pos last) $ irule_at (Pos last) >>
+    simp[GSYM PULL_EXISTS] >>
+    irule_at (Pat `tcexp_type_cepat _ _ _ _ _`) tcexp_type_cepat_tdefs_APPEND >>
+    irule_at (Pat `tcexp_type_cepat _ _ _ _ _`) type_cepat_IMP_tcexp_type_cepat >>
+    simp[EVERY_EL] >>
+    first_assum $ irule_at (Pat `type_cepat _ _ _ _ _`) >>
+    assume_tac $ GSYM type_cepat_cepat_vars >>
+    gvs[translate_env_def,translate_pred_type_scheme_def,translate_pred_type_def,
+      translate_predicates_def,Functions_def] >>
+    rw[]
+    >- (
+      PURE_REWRITE_TAC[CONS_APPEND_APPEND] >>
+      PURE_REWRITE_TAC[APPEND_ASSOC] >>
+      first_x_assum irule >>
+      simp[pred_type_kind_ok_alt,translate_env_OPT_MMAP,OPT_MMAP_SOME_LIST_REL,LAMBDA_PROD,
+        LIST_REL_EL_EQN,EL_MAP,translate_pred_type_scheme_def,translate_pred_type_def,
+        GSYM PFORALL_THM] >>
+      cheat
+    ) >>
+    cheat
   ) >>
+  (* PrimSeq *)
+  pop_assum $ strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
+  gvs[tcexp_of_def,translate_env_tshift_env_pred,translate_lie_alist_tshift_lie_alist,
+    tshift_lie_FRANGE,tshift_lie_map_alist_to_fmap] >>
+  irule type_tcexp_Seq >>
+  conj_tac
+  >- metis_tac[] >>
+  last_x_assum $ resolve_then
+    (Pat `FRANGE (alist_to_fmap (tshift_lie_alist _ _))`) mp_tac EQ_REFL >>
+  gvs[translate_lie_alist_tshift_lie_alist,EVERY_MAP,LAMBDA_PROD,
+    GSYM PFORALL_THM,GSYM PEXISTS_THM,FORALL_PROD,PULL_EXISTS] >>
+  disch_then $ drule_at (Pos last) >>
+  reverse $ impl_tac >>
   cheat
 QED
 

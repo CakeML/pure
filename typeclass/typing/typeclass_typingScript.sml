@@ -891,10 +891,8 @@ Inductive type_elaborate_texp:
         (Prim Seq [e1; e2]) (PrimSeq (new,pt) e1' e2') t2
 
 [~PrimSeq:]
-  pred_type_elaborate_texp ns clk ie (tshift_lie (LENGTH new) lie) (new ++ db)
-    (MAP (tshift (LENGTH new)) st)
-    (tshift_env_pred (LENGTH new) env) e1 e1' pt ∧
-  type_elaborate_texp ns clk ie lie db st env e2 e2' t2 ∧
+  type_elaborate_texp ns clk ie lie db st env
+    (Prim Seq [e1; e2]) (PrimSeq (new,pt) e1' e2') t2 ∧
   n = LENGTH new ∧ pt' = pt ⇒
     type_elaborate_texp ns clk ie lie db st env
       (PrimSeq (n,pt') e1 e2) (PrimSeq (new,pt) e1' e2') t2
