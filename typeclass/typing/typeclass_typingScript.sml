@@ -1300,7 +1300,6 @@ Proof
     rw[GSYM PULL_EXISTS]
   )
   >- metis_tac[tshift_lie_FRANGE]
-  >- metis_tac[tshift_lie_FRANGE]
   >- (
     last_x_assum $ qspec_then `lie_map` kall_tac >>
     last_x_assum $ qspec_then `lie_map` mp_tac >>

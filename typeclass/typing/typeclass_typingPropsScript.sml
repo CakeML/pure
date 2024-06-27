@@ -709,6 +709,11 @@ Proof
     last_x_assum drule >>
     ntac 3 (pairarg_tac >> gvs[]) >>
     TOP_CASE_TAC
+  )
+  >~ [`Prim Seq [_;_]`]
+  >- (
+    pop_assum $ mp_tac o SRULE[Once elaborated_texp_cases] >>
+    simp[]
   ) >>
   gvs[LIST_REL_EL_EQN] >>
   rw[] >>
@@ -1072,11 +1077,6 @@ Proof
     rw[] >>
     first_x_assum $ drule_at_then (Pos last) irule >>
     metis_tac[MEM_MAP,MEM_EL]
-  )
-  >- (
-    first_x_assum irule >>
-    gvs[ALOOKUP_MAP] >>
-    metis_tac[]
   )
   >- (
     first_x_assum irule >>
