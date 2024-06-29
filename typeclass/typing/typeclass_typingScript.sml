@@ -545,10 +545,10 @@ End
 
 (* type that we can apply case on *)
 Definition destructable_type_def:
-  destructable_type t ⇔
+  destructable_type tds_len t ⇔
   t = Atom Exception ∨
   case head_ty_cons t of
-  | SOME (INL tyid) => T
+  | SOME (INL tyid) => tyid < tds_len
   | SOME (INR (PrimT Bool)) => T
   | SOME (INR (CompPrimT (Tuple n))) => T
   | SOME _ => F
@@ -654,7 +654,7 @@ Inductive exhaustive_cepat:
     exhaustive_cepat ns t s
 
 [~Cons:]
-  destructable_type t ∧
+  destructable_type (LENGTH $ SND ns) t ∧
   (∀c ts. unsafe_destruct_type_cons ns t c ts ⇒
     ∃(pss:cepat list set).
       exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ s) ⇒

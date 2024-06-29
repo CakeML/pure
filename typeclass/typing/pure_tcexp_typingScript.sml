@@ -213,7 +213,7 @@ Inductive tcexp_exhaustive_cepat:
     tcexp_exhaustive_cepat ns tk pats
 
 [~Cons:]
-  destructable_type t ∧
+  destructable_type (LENGTH $ SND ns) t ∧
   (∀c ts. unsafe_tcexp_destruct_type_cons ns t c ts ⇒
     ∃(pss:cepat list set).
       tcexp_exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ pats) ⇒

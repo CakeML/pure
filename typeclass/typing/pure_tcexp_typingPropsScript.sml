@@ -1136,7 +1136,8 @@ Proof
 QED
 
 Theorem destructable_type_subst_db:
-  destructable_type t ⇒ destructable_type (subst_db n db t)
+  destructable_type tds_len t ⇒
+  destructable_type tds_len (subst_db n db t)
 Proof
   rw[destructable_type_def] >>
   gvs[subst_db_def] >>
@@ -1697,7 +1698,8 @@ Proof
 QED
 
 Theorem destructable_type_shift_db:
-  destructable_type t ⇒ destructable_type (shift_db skip shift t)
+  destructable_type tds_len t ⇒
+  destructable_type tds_len (shift_db skip shift t)
 Proof
   rw[destructable_type_def] >>
   gvs[shift_db_def] >>
