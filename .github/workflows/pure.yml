@@ -238,6 +238,10 @@ jobs:
     if: ${{ always() }}
 
     steps:
+      - name: Get curl
+        run: |
+          apt update
+          apt install -y curl
       - name: Notify CakeML Discord
         run: >
           curl --silent --show-error --request POST
