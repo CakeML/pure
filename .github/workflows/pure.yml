@@ -31,6 +31,8 @@ jobs:
     outputs:
       hol_sha: ${{ steps.shas.outputs.HOL_SHA }}
       cakeml_sha: ${{ steps.shas.outputs.CAKEML_SHA }}
+      hol_short_sha: ${{ steps.shas.outputs.HOL_SHORT_SHA }}
+      cakeml_short_sha: ${{ steps.shas.outputs.CAKEML_SHORT_SHA }}
 
     steps:
     - name: Update PATH
@@ -69,6 +71,16 @@ jobs:
       with:
         repository: CakeML/CakeML
         path: cakeml
+
+    - name: Record HOL/CakeML checkouts
+      id: shas
+      run: |
+        cd $HOLDIR
+        echo "HOL_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "HOL_SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd $CAKEMLDIR
+        echo "CAKEML_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "CAKEML_SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
     - name: Build HOL4
       run: |
@@ -186,14 +198,6 @@ jobs:
         touch lib/basis_ffi.c
         cd benchmark && ./benchmark.py --mode compile
 
-    - name: Record HOL/CakeML checkouts
-      id: shas
-      run: |
-        cd $HOLDIR
-        echo "HOL_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-        cd $CAKEMLDIR
-        echo "CAKEML_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
   release:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     needs: build
@@ -253,6 +257,11 @@ jobs:
           \"color\": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
           \"author\": {
           \"name\": \"PureCake CI\",
-          \"url\": \"https://github.com/CakeML/pure/actions/workflows/pure.yml\"}
+          \"url\": \"https://github.com/CakeML/pure/actions/workflows/pure.yml\"},
+          \"fields\": [
+          {\"name\": \"HOL commit\", \"inline\": true,
+           \"value\": \"[${{ needs.build.outputs.hol_short_sha }}](https://github.com/HOL-Theorem-Prover/HOL/commit/${{ needs.build.outputs.hol_sha }})\"},
+          {\"name\": \"CakeML commit\", \"inline\": true,
+           \"value\": \"[${{ needs.build.outputs.cakeml_short_sha }}](https://github.com/CakeML/cakeml/commit/${{ needs.build.outputs.cakeml_sha }})\"}]
           }]}"
           ${{ secrets.DISCORD_WEBHOOK }}
