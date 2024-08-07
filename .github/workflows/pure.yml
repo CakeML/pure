@@ -245,14 +245,14 @@ jobs:
       - name: Notify CakeML Discord
         run: >
           curl --silent --show-error --request POST
-            --header "Content-type: application/json;charset=utf-8"
-            --data "{\"embeds\": [{
-                \"title\": \"CI #${{ github.run_number }}\",
-                \"description\": \"${{ needs.build.result == 'success' && 'Passed' || 'Failed' }}\",
-                \"url\": \"https://github.com/CakeML/pure/actions/runs/${{ github.run_id }}\",
-                \"color\": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
-                \"author\": {
-                  \"name\": \"PureCake CI\",
-                  \"url\": \"https://github.com/CakeML/pure/actions/workflows/pure.yml\"}
-                }]}"
+          --header "Content-type: application/json;charset=utf-8"
+          --data "{\"embeds\": [{
+          \"title\": \"CI #${{ github.run_number }}\",
+          \"description\": \"${{ needs.build.result == 'success' && 'Passed' || 'Failed' }}\",
+          \"url\": \"https://github.com/CakeML/pure/actions/runs/${{ github.run_id }}\",
+          \"color\": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
+          \"author\": {
+          \"name\": \"PureCake CI\",
+          \"url\": \"https://github.com/CakeML/pure/actions/workflows/pure.yml\"}
+          }]}"
           ${{ secrets.DISCORD_WEBHOOK }}
