@@ -20,7 +20,7 @@ jobs:
 
   build:
     runs-on: self-hosted
-    container: ubuntu:20.04
+    container: ubuntu:latest
     timeout-minutes: 600
 
     env:
@@ -156,8 +156,8 @@ jobs:
     needs: build
     permissions:
       contents: write
-    runs-on: self-hosted
-    container: ubuntu:20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
     env:
       COMMITS: ${{ github.workspace }}/commits.txt
 
@@ -190,8 +190,8 @@ jobs:
 
   notify:
     needs: build
-    runs-on: self-hosted
-    container: ubuntu:20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
     if: ${{ always() }}
 
     steps:
