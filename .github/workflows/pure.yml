@@ -202,13 +202,10 @@ jobs:
           curl --silent --show-error --request POST
           --header "Content-type: application/json;charset=utf-8"
           --data '{"embeds": [{
-          "title": "CI #${{ github.run_number }}",
-          "description": "${{ needs.build.result == 'success' && 'Passed' || 'Failed' }}",
+          "title": "PureCake CI #${{ github.run_number }}: ${{ needs.build.result }}",
+          "description": "${{ env.DESCRIPTION }}",
           "url": "https://github.com/CakeML/pure/actions/runs/${{ github.run_id }}",
           "color": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
-          "author": {
-          "name": "PureCake CI",
-          "url": "https://github.com/CakeML/pure/actions/workflows/pure.yml"},
           "fields": [
           {"name": "HOL commit", "inline": true,
            "value": "[${{ needs.build.outputs.hol_short_sha }}](https://github.com/HOL-Theorem-Prover/HOL/commit/${{ needs.build.outputs.hol_sha }})"},
@@ -216,3 +213,16 @@ jobs:
            "value": "[${{ needs.build.outputs.cakeml_short_sha }}](https://github.com/CakeML/cakeml/commit/${{ needs.build.outputs.cakeml_sha }})"}]
           }]}'
           ${{ secrets.DISCORD_WEBHOOK }}
+        env:
+          DESCRIPTION: |-
+            ${{
+                github.event_name == 'workflow_dispatch' &&
+                  format('Manually triggered by {0}', github.event.sender.login)
+             || github.event_name == 'pull_request' &&
+                  format('[Pull request #{0}](https://github.com/CakeML/pure/pull/{0})', github.event.number)
+             || github.event_name == 'push' &&
+                  format('Push by {0}', github.event.pusher.username || github.event.pusher.name)
+             || github.event_name == 'schedule' &&
+                  'Weekly scheduled run'
+             || 'Unknown trigger'
+            }}
