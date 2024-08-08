@@ -20,7 +20,7 @@ jobs:
 
   build:
     runs-on: self-hosted
-    container: ubuntu:20.04
+    container: ubuntu:latest
     timeout-minutes: 600
 
     env:
@@ -43,7 +43,7 @@ jobs:
         apt install -y git build-essential gcc-10 libffi-dev wget mlton
 
     - name: Checkout Poly/ML
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: polyml/polyml
         ref: fixes-5.9
@@ -56,17 +56,17 @@ jobs:
         make install
 
     - name: Checkout HOL4
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: HOL-Theorem-Prover/HOL
         ref: master
         path: HOL
     - name: Checkout pure
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         path: pure
     - name: Checkout CakeML
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: CakeML/CakeML
         path: cakeml
@@ -135,7 +135,7 @@ jobs:
       run: cd pure/compiler/binary && Holmake
 
     - name: Save build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pure.S
         path: pure/compiler/binary/pure.S
@@ -144,8 +144,7 @@ jobs:
       run: cd pure/examples && make check
     - name: Check that benchmarks compile
       run: |
-        apt install -y python3 python3-pip
-        pip install parse matplotlib pandas
+        apt install -y python3 python3-parse python3-matplotlib python3-pandas
         cd pure/examples
         git apply benchmark/benchmark.patch
         touch lib/basis_ffi.c
@@ -156,8 +155,8 @@ jobs:
     needs: build
     permissions:
       contents: write
-    runs-on: self-hosted
-    container: ubuntu:20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
     env:
       COMMITS: ${{ github.workspace }}/commits.txt
 
@@ -177,7 +176,7 @@ jobs:
         echo "CakeML checkout: CakeML/CakeML@${{ needs.build.outputs.cakeml_sha }}" >> $COMMITS
 
     - name: Download build artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: pure.S
 
@@ -190,8 +189,8 @@ jobs:
 
   notify:
     needs: build
-    runs-on: self-hosted
-    container: ubuntu:20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
     if: ${{ always() }}
 
     steps:
