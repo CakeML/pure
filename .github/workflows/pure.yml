@@ -202,14 +202,14 @@ jobs:
         run: >
           curl --silent --show-error --request POST
           --header "Content-type: application/json;charset=utf-8"
-          --data "{\"embeds\": [{
-          \"title\": \"PureCake CI #${{ github.run_number }}: ${{ needs.build.result }}\",
-          \"url\": \"https://github.com/CakeML/pure/actions/runs/${{ github.run_id }}\",
-          \"color\": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
-          \"fields\": [
-          {\"name\": \"HOL commit\", \"inline\": true,
-           \"value\": \"[${{ needs.build.outputs.hol_short_sha }}](https://github.com/HOL-Theorem-Prover/HOL/commit/${{ needs.build.outputs.hol_sha }})\"},
-          {\"name\": \"CakeML commit\", \"inline\": true,
-           \"value\": \"[${{ needs.build.outputs.cakeml_short_sha }}](https://github.com/CakeML/cakeml/commit/${{ needs.build.outputs.cakeml_sha }})\"}]
-          }]}"
+          --data '{"embeds": [{
+          "title": "PureCake CI #${{ github.run_number }}: ${{ needs.build.result }}",
+          "url": "https://github.com/CakeML/pure/actions/runs/${{ github.run_id }}",
+          "color": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
+          "fields": [
+          {"name": "HOL commit", "inline": true,
+           "value": "[${{ needs.build.outputs.hol_short_sha }}](https://github.com/HOL-Theorem-Prover/HOL/commit/${{ needs.build.outputs.hol_sha }})"},
+          {"name": "CakeML commit", "inline": true,
+           "value": "[${{ needs.build.outputs.cakeml_short_sha }}](https://github.com/CakeML/cakeml/commit/${{ needs.build.outputs.cakeml_sha }})"}]
+          }]}'
           ${{ secrets.DISCORD_WEBHOOK }}
