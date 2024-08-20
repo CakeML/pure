@@ -15,7 +15,8 @@ Overload code_in_memory =
   ``λconf (bytes,bitmaps,c') (mc,ms).
       ∃cbspace data_sp.
         installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
-          (backendProof$heap_regs conf.stack_conf.reg_names) mc ms``
+          (backendProof$heap_regs conf.stack_conf.reg_names)
+          mc c'.lab_conf.shmem_extra ms``
 
 Overload prunes = ``λpt mt. ∃ct. itree_rel pt ct ∧ prune ffi_convention F ct mt``
 
