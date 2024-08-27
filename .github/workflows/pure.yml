@@ -116,6 +116,8 @@ jobs:
       run: cd pure/compiler/backend/languages/properties && Holmake
     - name: Build typing
       run: cd pure/typing && Holmake
+    - name: Build typeclass
+      run: cd pure/typeclass && Holmake
     - name: Build compiler/backend/passes
       run: cd pure/compiler/backend/passes && Holmake
     - name: Build compiler/backend/passes/proofs
