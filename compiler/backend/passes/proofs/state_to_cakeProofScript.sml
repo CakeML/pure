@@ -629,7 +629,7 @@ Inductive step_rel:
    ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
    store_lookup 0 cst = SOME $ W8array ws2 ∧ s ≠ ""
     ⇒ step_rel (Action s conf, SOME sst, sk)
-               (Effi s ws1 ws2 0 cenv' cst ((Clet NONE ffi, cenv) :: ck)))
+               (Effi (ExtCall s) ws1 ws2 0 cenv' cst ((Clet NONE ffi, cenv) :: ck)))
 End
 
 Inductive dstep_rel:
@@ -644,9 +644,9 @@ Inductive dstep_rel:
     dstep_rel (Exn sv, SOME sst, []) (Draise (fp,cv))) ∧
 
   (step_rel (Action ch conf, SOME sst, sk)
-             (Effi ch ws1 ws2 0 cenv' dst.refs ck)
+             (Effi (ExtCall ch) ws1 ws2 0 cenv' dst.refs ck)
     ⇒ dstep_rel (Action ch conf, SOME sst, sk)
-                (Dffi dst (ch,ws1,ws2,0,cenv',ck)
+                (Dffi dst (ExtCall ch,ws1,ws2,0,cenv',ck)
                  locs (Pvar "prog") [CdlocalG lenv genv (final_gc flag)]))
 End
 
@@ -683,7 +683,7 @@ CoInductive itree_rel:
 
 [~Ret_FinalFFI:]
   itree_rel (Ret $ FinalFFI (ch,conf) f)
-            (Ret $ FinalFFI (ch, compile_conf conf, ws) (compile_final_ffi f))
+            (Ret $ FinalFFI (ExtCall ch, compile_conf conf, ws) (compile_final_ffi f))
 
 [~Vis:]
    ((∀s ws'. compile_input_rel s ws'
@@ -691,7 +691,7 @@ CoInductive itree_rel:
 
    (∀f. itree_rel (srest $ INL f) (crest $ INL $ compile_final_ffi f))
 
-    ⇒ itree_rel (Vis (ch,conf) srest) (Vis (ch, compile_conf conf, ws) crest))
+    ⇒ itree_rel (Vis (ch,conf) srest) (Vis (ExtCall ch, compile_conf conf, ws) crest))
 End
 
 Definition ffi_convention_def:
@@ -728,7 +728,7 @@ Theorem capplication_thm:
           case store_lookup lnum s of
             SOME (W8array ws) =>
               if n = "" then Estep (env, s, fp, Val $ Conv NONE [], c)
-              else Effi n (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
+              else Effi (ExtCall n) (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws lnum env s c
           | _ => Etype_error (fix_fp_state c fp))
       | NONE => Etype_error (fix_fp_state c fp))
     | NONE => (
@@ -2396,7 +2396,7 @@ Proof
         ) ∨
       (∃ch conf ws f.
         s = Ret (FinalFFI (ch,conf) f) ∧
-        d = Ret (FinalFFI (ch, compile_conf conf, ws) (compile_final_ffi f)))
+        d = Ret (FinalFFI (ExtCall ch, compile_conf conf, ws) (compile_final_ffi f)))
     ⇒ itree_rel s d`
   >- (
     rw[] >> first_x_assum irule >> disj1_tac >>

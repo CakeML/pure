@@ -8,6 +8,7 @@ INCLUDES = misc\
 	   compiler/backend/languages/properties\
 	   compiler/backend/languages/relations\
 	   typing\
+	   typeclass\
 	   compiler/backend/passes\
 	   compiler/backend/passes/proofs\
 	   compiler/parsing\

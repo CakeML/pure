@@ -4,21 +4,23 @@ name: CI
 on:
   push:
     branches:
-    - master
+      - master
     paths:
       - '**.sml'
       - 'Holmakefile'
       - '**.hs'
   pull_request:
     branches:
-    - master
+      - master
+  schedule:
+    - cron: '0 0 * * Fri'
   workflow_dispatch:
 
 jobs:
 
   build:
     runs-on: self-hosted
-    container: ubuntu:20.04
+    container: ubuntu:latest
     timeout-minutes: 600
 
     env:
@@ -29,18 +31,19 @@ jobs:
     outputs:
       hol_sha: ${{ steps.shas.outputs.HOL_SHA }}
       cakeml_sha: ${{ steps.shas.outputs.CAKEML_SHA }}
+      hol_short_sha: ${{ steps.shas.outputs.HOL_SHORT_SHA }}
+      cakeml_short_sha: ${{ steps.shas.outputs.CAKEML_SHORT_SHA }}
 
     steps:
     - name: Update PATH
-      run: |
-        echo "$HOLDIR/bin" >> $GITHUB_PATH
+      run: echo "$HOLDIR/bin" >> $GITHUB_PATH
     - name: Get build-essentials
       run: |
         apt update
         apt install -y git build-essential gcc-10 libffi-dev wget mlton
 
     - name: Checkout Poly/ML
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: polyml/polyml
         ref: fixes-5.9
@@ -53,20 +56,30 @@ jobs:
         make install
 
     - name: Checkout HOL4
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: HOL-Theorem-Prover/HOL
         ref: master
         path: HOL
     - name: Checkout pure
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         path: pure
     - name: Checkout CakeML
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: CakeML/CakeML
         path: cakeml
+
+    - name: Record HOL/CakeML checkouts
+      id: shas
+      run: |
+        cd $HOLDIR
+        echo "HOL_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "HOL_SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd $CAKEMLDIR
+        echo "CAKEML_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "CAKEML_SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
     - name: Build HOL4
       run: |
@@ -75,130 +88,77 @@ jobs:
         bin/build
 
     - name: Build CakeML misc
-      run: |
-        cd $CAKEMLDIR/misc
-        Holmake
+      run: cd $CAKEMLDIR/misc && Holmake
     - name: Build CakeML semantics
-      run: |
-        cd $CAKEMLDIR/semantics
-        Holmake
+      run: cd $CAKEMLDIR/semantics && Holmake
     - name: Build CakeML semantics/proofs
-      run: |
-        cd $CAKEMLDIR/semantics/proofs
-        Holmake
+      run: cd $CAKEMLDIR/semantics/proofs && Holmake
     - name: Build CakeML semantics/alt_semantics
-      run: |
-        cd $CAKEMLDIR/semantics/alt_semantics
-        Holmake
+      run: cd $CAKEMLDIR/semantics/alt_semantics && Holmake
     - name: Build CakeML semantics/alt_semantics/proofs
-      run: |
-        cd $CAKEMLDIR/semantics/alt_semantics/proofs
-        Holmake
+      run: cd $CAKEMLDIR/semantics/alt_semantics/proofs && Holmake
     - name: Build CakeML basis/pure
-      run: |
-        cd $CAKEMLDIR/basis/pure
-        Holmake
+      run: cd $CAKEMLDIR/basis/pure && Holmake
 
     - name: Build misc
-      run: |
-        cd pure/misc
-        Holmake
+      run: cd pure/misc && Holmake
     - name: Build language
-      run: |
-        cd pure/language
-        Holmake
+      run: cd pure/language && Holmake
     - name: Build meta-theory
-      run: |
-        cd pure/meta-theory
-        Holmake
+      run: cd pure/meta-theory && Holmake
     - name: Build compiler/backend
-      run: |
-        cd pure/compiler/backend
-        Holmake
+      run: cd pure/compiler/backend && Holmake
     - name: Build compiler/backend/languages
-      run: |
-        cd pure/compiler/backend/languages
-        Holmake
+      run: cd pure/compiler/backend/languages && Holmake
     - name: Build compiler/backend/languages/semantics
-      run: |
-        cd pure/compiler/backend/languages/semantics
-        Holmake
+      run: cd pure/compiler/backend/languages/semantics && Holmake
     - name: Build compiler/backend/languages/properties
-      run: |
-        cd pure/compiler/backend/languages/properties
-        Holmake
+      run: cd pure/compiler/backend/languages/properties && Holmake
     - name: Build typing
-      run: |
-        cd pure/typing
-        Holmake
+      run: cd pure/typing && Holmake
+    - name: Build typeclass
+      run: cd pure/typeclass && Holmake
     - name: Build compiler/backend/passes
-      run: |
-        cd pure/compiler/backend/passes
-        Holmake
+      run: cd pure/compiler/backend/passes && Holmake
     - name: Build compiler/backend/passes/proofs
-      run: |
-        cd pure/compiler/backend/passes/proofs
-        Holmake
+      run: cd pure/compiler/backend/passes/proofs && Holmake
     - name: Build compiler/backend/languages/relations
-      run: |
-        cd pure/compiler/backend/languages/relations
-        Holmake
+      run: cd pure/compiler/backend/languages/relations && Holmake
     - name: Build compiler/parsing
-      run: |
-        cd pure/compiler/parsing
-        Holmake
+      run: cd pure/compiler/parsing && Holmake
     - name: Build compiler
-      run: |
-        cd pure/compiler
-        Holmake
+      run: cd pure/compiler && Holmake
 
     - name: Build CakeML compiler/backend/proofs
-      run: |
-        cd $CAKEMLDIR/compiler/backend/proofs
-        Holmake
+      run: cd $CAKEMLDIR/compiler/backend/proofs && Holmake
     - name: Build compiler/proofs
-      run: |
-        cd pure/compiler/proofs
-        Holmake
+      run: cd pure/compiler/proofs && Holmake
     - name: Build compiler/binary
-      run: |
-        cd pure/compiler/binary
-        Holmake
+      run: cd pure/compiler/binary && Holmake
 
     - name: Save build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pure.S
         path: pure/compiler/binary/pure.S
 
     - name: Build examples
-      run: |
-        cd pure/examples
-        make check
+      run: cd pure/examples && make check
     - name: Check that benchmarks compile
       run: |
-        apt install -y python3 python3-pip
-        pip install parse matplotlib pandas
+        apt install -y python3 python3-parse python3-matplotlib python3-pandas
         cd pure/examples
         git apply benchmark/benchmark.patch
         touch lib/basis_ffi.c
         cd benchmark && ./benchmark.py --mode compile
-
-    - name: Record HOL/CakeML checkouts
-      id: shas
-      run: |
-        cd $HOLDIR
-        echo "HOL_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-        cd $CAKEMLDIR
-        echo "CAKEML_SHA=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
   release:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     needs: build
     permissions:
       contents: write
-    runs-on: self-hosted
-    container: ubuntu:20.04
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
     env:
       COMMITS: ${{ github.workspace }}/commits.txt
 
@@ -218,7 +178,7 @@ jobs:
         echo "CakeML checkout: CakeML/CakeML@${{ needs.build.outputs.cakeml_sha }}" >> $COMMITS
 
     - name: Download build artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: pure.S
 
@@ -229,3 +189,41 @@ jobs:
         gh release create ${{ env.VERSION }} --repo cakeml/pure --latest --notes-file $COMMITS pure.S
         rm -f pure.S $COMMITS
 
+  notify:
+    needs: build
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
+    if: ${{ always() }}
+
+    steps:
+      - name: Get curl
+        run: apt update && apt install -y curl
+      - name: Notify CakeML Discord
+        run: >
+          curl --silent --show-error --request POST
+          --header "Content-type: application/json;charset=utf-8"
+          --data '{"embeds": [{
+          "title": "PureCake CI #${{ github.run_number }}: ${{ needs.build.result }}",
+          "description": "${{ env.DESCRIPTION }}",
+          "url": "https://github.com/CakeML/pure/actions/runs/${{ github.run_id }}",
+          "color": ${{ needs.build.result == 'success' && 8311585 || 13632027 }},
+          "fields": [
+          {"name": "HOL commit", "inline": true,
+           "value": "[${{ needs.build.outputs.hol_short_sha }}](https://github.com/HOL-Theorem-Prover/HOL/commit/${{ needs.build.outputs.hol_sha }})"},
+          {"name": "CakeML commit", "inline": true,
+           "value": "[${{ needs.build.outputs.cakeml_short_sha }}](https://github.com/CakeML/cakeml/commit/${{ needs.build.outputs.cakeml_sha }})"}]
+          }]}'
+          ${{ secrets.DISCORD_WEBHOOK }}
+        env:
+          DESCRIPTION: |-
+            ${{
+                github.event_name == 'workflow_dispatch' &&
+                  format('Manually triggered by {0}', github.event.sender.login)
+             || github.event_name == 'pull_request' &&
+                  format('[Pull request #{0}](https://github.com/CakeML/pure/pull/{0})', github.event.number)
+             || github.event_name == 'push' &&
+                  format('Push by {0}', github.event.pusher.username || github.event.pusher.name)
+             || github.event_name == 'schedule' &&
+                  'Weekly scheduled run'
+             || 'Unknown trigger'
+            }}

@@ -15,7 +15,7 @@ endif
 
 %.exe: %.S lib/basis_ffi.o
 	@mkdir -p $(dir out/$@)
-	gcc $(CCOPT) $< lib/basis_ffi.o -o out/$@
+	$(CC) $(CCOPT) $< lib/basis_ffi.o -o out/$@
 
 %.S: %.hs lib/pure lib/cake
 	cat $< | ./lib/pure $(PUREOPT) | ./lib/cake $(CAKEOPT) > $@
@@ -24,13 +24,13 @@ check: $(patsubst %.hs,%.exe,$(wildcard *.hs)) \
        $(patsubst %.hs,%.exe,$(wildcard prelude/*.hs))
 
 lib/pure: lib/pure.S lib/basis_ffi.o
-	cc $(CCOPT) -o $@ $^
+	$(CC) $(CCOPT) -o $@ $^
 
 lib/cake: lib/cake.S lib/basis_ffi.o
-	cc $(CCOPT) -o $@ $^
+	$(CC) $(CCOPT) -o $@ $^
 
 lib/basis_ffi.o: lib/basis_ffi.c
-	cc $(CCOPT) -c -o $@ $^
+	$(CC) $(CCOPT) -c -o $@ $^
 
 lib/pure.S:
 	@if [ ! -f "../compiler/binary/$(@F)" ] ; then $(MAKE) download ; else cp ../compiler/binary/$(@F) $@ ; fi
