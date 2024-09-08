@@ -7,6 +7,7 @@ CCOPT = -arch x86_64
 endif
 
 CAKEOPT = --skip_type_inference=true --exclude_prelude=true --sexp=true
+LDLIBS = -lm
 
 ifeq ($(DEBUG),1)
   CAKEOPT += --emit_empty_ffi=true
@@ -15,7 +16,7 @@ endif
 
 %.exe: %.S lib/basis_ffi.o
 	@mkdir -p $(dir out/$@)
-	$(CC) $(CCOPT) $< lib/basis_ffi.o -o out/$@
+	$(CC) $(CCOPT) $< lib/basis_ffi.o -o out/$@ $(LDLIBS)
 
 %.S: %.hs lib/pure lib/cake
 	cat $< | ./lib/pure $(PUREOPT) | ./lib/cake $(CAKEOPT) > $@
@@ -24,13 +25,13 @@ check: $(patsubst %.hs,%.exe,$(wildcard *.hs)) \
        $(patsubst %.hs,%.exe,$(wildcard prelude/*.hs))
 
 lib/pure: lib/pure.S lib/basis_ffi.o
-	$(CC) $(CCOPT) -o $@ $^
+	$(CC) $(CCOPT) -o $@ $^ $(LDLIBS)
 
 lib/cake: lib/cake.S lib/basis_ffi.o
-	$(CC) $(CCOPT) -o $@ $^
+	$(CC) $(CCOPT) -o $@ $^ $(LDLIBS)
 
 lib/basis_ffi.o: lib/basis_ffi.c
-	$(CC) $(CCOPT) -c -o $@ $^
+	$(CC) $(CCOPT) -c -o $@ $^ $(LDLIBS)
 
 lib/pure.S:
 	@if [ ! -f "../compiler/binary/$(@F)" ] ; then $(MAKE) download ; else cp ../compiler/binary/$(@F) $@ ; fi

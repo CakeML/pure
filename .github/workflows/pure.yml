@@ -9,6 +9,7 @@ on:
       - '**.sml'
       - 'Holmakefile'
       - '**.hs'
+      - '**.c'
   pull_request:
     branches:
       - master
