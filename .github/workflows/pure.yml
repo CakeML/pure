@@ -41,7 +41,7 @@ jobs:
     - name: Get build-essentials
       run: |
         apt update
-        apt install -y git build-essential gcc-10 libffi-dev wget mlton
+        apt install -y git build-essential gcc libffi-dev wget mlton
 
     - name: Checkout Poly/ML
       uses: actions/checkout@v4

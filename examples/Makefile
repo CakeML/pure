@@ -42,7 +42,7 @@ download:
 
 lib/cake.S:
 	wget -q https://github.com/cakeml/cakeml/releases/latest/download/cake-x64-64.tar.gz
-	@tar -zxf cake-x64-64.tar.gz --directory $(@D) cake-x64-64/$(@F) --strip-components 1
+	@tar -zxf cake-x64-64.tar.gz --directory $(@D) --strip-components 1 cake-x64-64/$(@F)
 	@rm cake-x64-64.tar.gz
 
 clean:

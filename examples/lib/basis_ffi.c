@@ -489,7 +489,7 @@ void ffistdout (unsigned char *c, long clen, unsigned char *a, long alen) {
     a[1] = 0;
 }
 
-void write_ret_string(unsigned char *a, long alen, unsigned char *str) {
+void write_ret_string(unsigned char *a, long alen, char *str) {
     int length = strlen(str);
     if (length < 256 * 256 && length <= alen) {
         a[0] = length % 256;
