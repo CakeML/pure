@@ -81,7 +81,7 @@ End
 (* This is reason why we reject a program ``read . show`` without
 * any type annotation *)
 Definition pred_type_well_scoped_def:
-  pred_type_well_scoped (Pred ps t) =
+  pred_type_well_scoped (PredType ps t) =
   (∀cl v. MEM (cl,v) ps ⇒
     collect_type_vars v ⊆ collect_type_vars t)
 End
@@ -266,25 +266,27 @@ Definition get_PrimTys_def:
 End
 
 (* shows how the class constraint can be satisfied.
-* e.g. Num a => Ord a, (Entail [*] [("Num", TypeVar 0)] ("Ord", TypeVar 0))
-* would be in ie, since Ord is a superclass of Num,
+* e.g. Num a => Ord a, (Entailment [*] [("Num", TypeVar 0)] ("Ord", TypeVar 0))
+* would be in ie, since Ord is a superclass of Num.
 * (Monoid a, Monoid b) => Monoid (a, b),
-* (Entail [*;*] [("Monoid", TypeVar 0);("Monoid",TypeVar 1)]
-*   ("Monoid",Tup 2 [TypeVar 0;TypeVar 1]) ) and it can be specialized to
-* Entail [
-* due to instance declaration.
+* (Entailment [*;*] [("Monoid", TypeVar 0);("Monoid",TypeVar 1)]
+*   ("Monoid",Tup 2 [TypeVar 0;TypeVar 1]) ) would be in ie,
+* because of instance declaration.
 *  *)
 Datatype:
-  entailment = Entail (Kind list) ((mlstring # type) list) (mlstring # type)
+  Entailment = <| kinds : (Kind list);
+                  requires : ((mlstring # type) list);
+                  pred : (mlstring # type) |>
 End
 
+(* Every type variable in ps and p must match the kind in ks *)
 Definition entailment_kind_ok_def:
-  entailment_kind_ok tds clk (Entail ks ps p) =
+  entailment_kind_ok tds clk (Entailment ks ps p) =
     EVERY (λ(c,t). ∃k. clk c = SOME k ∧ kind_ok tds ks k t) (p::ps)
 End
 
 Definition specialises_inst_def:
-  specialises_inst tdefs (Entail ks ps p) (Entail ks' qs q) ⇔
+  specialises_inst tdefs (Entailment ks ps p) (Entailment ks' qs q) ⇔
     ∃subs.
       LIST_REL (λk sub. kind_ok tdefs ks' k sub) ks subs ∧
       LIST_REL (λ(c,t) (c',t'). c = c' ∧
@@ -336,7 +338,7 @@ Proof
   metis_tac[]
 QED
 
-(* if s is a super class of c then `Entail [k] [(s,TypeVar 0)] (c,TypeVar 0)`
+(* if s is a super class of c then `Entailment [k] [(s,TypeVar 0)] (c,TypeVar 0)`
 * will be in the set ie *)
 (* This should be equivalent to `entail` after turning all the super classes
 * and instance declarations to ie *)
@@ -344,7 +346,7 @@ Inductive has_dict:
 [~lie:]
   p ∈ lie ⇒ has_dict tdefs db ie lie p
 [~ie:]
-  it ∈ ie ∧ specialises_inst tdefs it (Entail db cstrs p) ∧
+  it ∈ ie ∧ specialises_inst tdefs it (Entailment db cstrs p) ∧
   has_dicts tdefs db ie lie cstrs ⇒
     has_dict tdefs db ie lie p
 [~dicts:]
@@ -366,7 +368,7 @@ Inductive construct_dict:
     construct_dict tdefs db ie lie p (pure_cexp$Var () d)
 [~ie:]
   FLOOKUP ie d = SOME it ∧
-  specialises_inst tdefs it (Entail db cstrs p) ∧
+  specialises_inst tdefs it (Entailment db cstrs p) ∧
   construct_dicts tdefs db ie lie cstrs ds ∧
   de = (SmartApp () (pure_cexp$Var () d) ds) ⇒
     construct_dict tdefs db ie lie p de
@@ -700,7 +702,7 @@ Overload Monad = ``Cons (Atom $ CompPrimTy $ M)``;
   type_elaborate_texp :
       (ns: exndef # typedefs)     -- type definitions for exceptions and datatypes
    -> (clk: class -> Kind option) -- a map from class to its corresponding kind
-   -> (ie: entailment set)        -- instance environment
+   -> (ie: Entailment set)        -- instance environment
    -> (lie: (class # type) set)   -- local instance environment
    -> (db: Kind list)             -- deBruijn indices in scope
                                   --   (kind of each index)
@@ -724,17 +726,17 @@ Inductive type_elaborate_texp:
 
 [~Var:]
   (ALOOKUP env x = SOME s ∧
-   specialises_pred (SND ns) db s (Pred ps t) ∧
+   specialises_pred (SND ns) db s (PredType ps t) ∧
    has_dicts (SND ns) db ie lie ps ⇒
       type_elaborate_texp ns clk ie lie db st env (Var _ x) (Var ps x) t)
 
 [~Pred:]
   type_elaborate_texp ns clk ie (lie ∪ set ps) db st env e e' t ∧
-  pred_type_kind_ok clk (SND ns) db (Pred ps t) ∧
+  pred_type_kind_ok clk (SND ns) db (PredType ps t) ∧
   (* enforces all variables in the predicates to be well scoped:
    * rejects `Read a, Show a => String -> String` *)
-  pred_type_well_scoped (Pred ps t) ⇒
-    pred_type_elaborate_texp ns clk ie lie db st env e e' (Pred ps t)
+  pred_type_well_scoped (PredType ps t) ⇒
+    pred_type_elaborate_texp ns clk ie lie db st env e e' (PredType ps t)
 
 [~App:]
   type_elaborate_texp ns clk ie lie db st env e e' (Functions arg_tys ret_ty) ∧
@@ -769,7 +771,7 @@ Inductive type_elaborate_texp:
     | NONE => T
     | SOME t => t = t') (MAP SND vs) args_tys ∧
   type_elaborate_texp ns clk ie lie db st
-    (REVERSE (ZIP (MAP FST vs, MAP (λat. ([],Pred [] at)) args_tys)) ++ env)
+    (REVERSE (ZIP (MAP FST vs, MAP (λat. ([],PredType [] at)) args_tys)) ++ env)
     e e' ret_ty ⇒
       type_elaborate_texp ns clk ie lie db st env (Lam vs e) (Lam vs e') ty
 
@@ -907,8 +909,8 @@ Inductive type_elaborate_texp:
       p' = p ∧
       ∃vts. type_cepat ns db p vt vts ∧
       type_elaborate_texp ns clk ie lie db st
-        (REVERSE (MAP (λ(v,t). (v,[],Pred [] t)) vts) ++
-          ((v,[],Pred [] vt)::env))
+        (REVERSE (MAP (λ(v,t). (v,[],PredType [] t)) vts) ++
+          ((v,[],PredType [] vt)::env))
         e e' t)
     ((p,e1)::pes) ((p,e1')::pes') ∧
   (* exhaust all cases *)
@@ -945,7 +947,7 @@ End
 * texp_construct_dict:
 *     ns: namespace                       all constructors
 * ->  db: Kind list                       deBruijn indices in scope
-* ->  ie: (mlstring |-> entailment)   instance environment
+* ->  ie: (mlstring |-> Entailment)   instance environment
 * -> lie: (mlstring |-> (class # type))       local instance environment
 * -> env: mlstring set                    term variables in scope
 * ->  ps: texp                           elaborated expression
@@ -954,7 +956,7 @@ End
 (* we need to record the variables/constructors to avoid name collision *)
 Inductive texp_construct_dict:
 [~Var:]
-  construct_dicts (SND ns) db (ie:mlstring |-> entailment) lie ps ds ∧
+  construct_dicts (SND ns) db (ie:mlstring |-> Entailment) lie ps ds ∧
   te = SmartApp () (Var () x) ds ⇒
     texp_construct_dict ns ie lie db env (Var ps x) te
 
@@ -967,7 +969,7 @@ Inductive texp_construct_dict:
   LENGTH vs = LENGTH ps ∧
   texp_construct_dict ns ie (lie |++ ZIP (vs,ps)) db env e de ∧
   te = SmartLam () vs de ⇒
-    pred_texp_construct_dict ns ie lie db env (Pred ps t) e te
+    pred_texp_construct_dict ns ie lie db env (PredType ps t) e te
 
 [~Let:]
   (* shift lie *)
@@ -1321,26 +1323,47 @@ Proof
 QED
 
 (********************)
-(* ``class Ord a => Num a where
-*     f :: a -> a -> a``,
-* would be an entry Num |-> ([Ord],[(f,forall a. a -> a -> a)]),
-* note that we only have `a` as the type variable
-* in the type of `f` *)
-Type class_env[pp] = ``:(mlstring # (* class name *)
-  (Kind # (* the kind of the parameter *)
-  (mlstring list # (* list of super classes *)
-  ((mlstring # pred_type_kind_scheme) list)))) list``; (* types of each method *)
+(* ``class Ord a => Cl a where
+*     meth :: forall f. Functor f => f a -> f a -> f a``,
+* would be an entry `Cl,<|[Ord],[(meth,forall f. Functor f => f a -> f a -> f a)]|>`
+* in class_map.
+* Note that the type of `f` will be represented as
+* `[* -> *],PredType [Num 0] ((0 1) -> (0 1) -> (0 1)`,
+* where `1` corresponds to `f` and `0` corresponds to `a`. *)
 
-Definition ce_to_clk_def:
-  ce_to_clk (ce:class_env) = λc. OPTION_MAP FST (ALOOKUP ce c)
+(* Since we only support single parameter at the moment, we have `kind : Kind`
+* instead of `kinds : Kind list` *)
+Datatype:
+  Class = <| kind : Kind; (* the kind of the parameter *)
+             (* list of super classes and the names of the
+             * accessors to get the corresponding
+             * super class's dictionary *)
+             (* Note: we zip them together so we do not need
+             * the condition that the length of the two list
+             * is equal *)
+             supers : (mlstring # mlstring) list;
+             (* an alist from method name to its type *)
+             methods : (mlstring # pred_type_kind_scheme) list;
+             constructor : mlstring; (* constructor name *) |>
 End
 
-Definition class_env_kind_ok_def:
-  class_env_kind_ok tdefs (ce:class_env) ⇔
-    let clk = ce_to_clk ce in
-    (∀c k supers methods. MEM (c,k,supers,methods) ce ⇒
-      EVERY (pred_type_kind_scheme_ok clk tdefs [k] o SND) methods ∧
-      EVERY (λs. clk s = SOME k) supers)
+Definition super_classes_def:
+  super_classes (cl: Class) = MAP FST cl.supers
+End
+
+Type class_map[pp] = ``:(mlstring # (* class name *) Class ) list``;
+
+(* get the kind of a class in the class map *)
+Definition class_map_to_clk_def:
+  class_map_to_clk (cl_map:class_map) = λc. OPTION_MAP (λx. x.kind) (ALOOKUP cl_map c)
+End
+
+Definition class_map_kind_ok_def:
+  class_map_kind_ok tdefs (cl_map:class_map) ⇔
+    let clk = class_map_to_clk cl_map in
+    (∀clname cl . MEM (clname,cl) cl_map ⇒
+      EVERY (pred_type_kind_scheme_ok clk tdefs [cl.kind] o SND) cl.methods ∧
+      EVERY (λs. clk s = SOME cl.kind) (super_classes cl))
 End
 
 (* the type of the method is unambiguous if the pred type is well-scoped and
@@ -1349,77 +1372,106 @@ End
 * class C a where
 *   f :: b -> b -- a is not used *)
 Definition method_unambiguous_def:
-  method_unambiguous (ks,Pred ps t) ⇔
-    (pred_type_well_scoped (Pred ps t) ∧ LENGTH ks ∈ collect_type_vars t)
+  method_unambiguous (ks,PredType ps t) ⇔
+    (pred_type_well_scoped (PredType ps t) ∧ LENGTH ks ∈ collect_type_vars t)
 End
 
-Definition class_env_methods_unambiguous_def:
-  class_env_methods_unambiguous ce ⇔
-  ∀c k supers methods. MEM (c,k,supers,methods) ce ⇒
-    EVERY (method_unambiguous o SND) methods
+Definition class_map_methods_unambiguous_def:
+  class_map_methods_unambiguous cl_map ⇔
+  ∀c cl. MEM (c,cl) cl_map ⇒
+    EVERY (method_unambiguous o SND) cl.methods
 End
 
-(* classname, method name, implementation *)
-Type default_impl[pp] = ``:mlstring # ('a texp)``;
-Type default_impls[pp] = ``:'a default_impl list``;
+(* method name, implementation *)
+Type default_impl = ``:mlstring # ('a texp)``;
+Type default_impls = ``:'a default_impl list``;
+
+(* method name, translated name, implementation *)
+(* we stored the translated name of the default method as well *)
+Type default_trans_impl[pp] = ``:mlstring # (mlstring # ('a texp))``;
+Type default_trans_impls[pp] = ``:'a default_trans_impl list``;
 
 Definition type_elaborate_default_impl_def:
-  type_elaborate_default_impl ce ns clk ie st env meth e e' ⇔
-    ∃cl k s methods ks ps t.
-      ALOOKUP (ce:class_env) cl = SOME (k,s,methods) ∧
-      ALOOKUP methods meth = SOME (ks,Pred ps t) ∧
-      pred_type_elaborate_texp ns clk ie EMPTY (SNOC k ks) st env e e'
-        (Pred ((cl,TypeVar $ LENGTH ks)::ps) t)
+  type_elaborate_default_impl ns clk ie st env e e' cl k (ks, PredType ps t) ⇔
+  (* append the kind k for the new type variable and
+   * add the constraint to the predicates *)
+   pred_type_elaborate_texp ns clk ie EMPTY (SNOC k ks) st env e e'
+     (PredType ((cl,TypeVar $ LENGTH ks)::ps) t)
 End
 
 Definition type_elaborate_default_impls_def:
-  type_elaborate_default_impls ce ns clk ie st env defaults
-    (defaults': Kind list default_impls) ⇔
-  LIST_REL (λ(meth,e) (meth',e'). meth = meth' ∧
-    type_elaborate_default_impl ce ns clk ie st env meth e e'
+  type_elaborate_default_impls cl_map ns ie st env defaults
+    (defaults': Kind list default_trans_impls) ⇔
+  LIST_REL (λ(meth,e) (meth',name,e').
+    meth = meth' ∧
+    (* get the type of the method *)
+    ∃clname cl pt.
+      ALOOKUP (cl_map:class_map) clname = SOME cl ∧
+      ALOOKUP cl.methods meth = SOME pt ∧
+
+      type_elaborate_default_impl ns (class_map_to_clk cl_map) ie
+        st env e e' clname cl.kind pt
     ) defaults defaults'
 End
 
 Definition default_impl_construct_dict_def:
-  default_impl_construct_dict ns ie env cl k (ks,Pred ps t) e e' ⇔
+  default_impl_construct_dict ns ie env e e' cl k (ks,PredType ps t) ⇔
     pred_texp_construct_dict ns ie FEMPTY (SNOC k ks) env
-      (Pred ((cl,TypeVar $ LENGTH ks)::ps) t) e e'
+      (PredType ((cl,TypeVar $ LENGTH ks)::ps) t) e e'
 End
 
+(* default_name_map stores the name generated for each default method *)
 Definition default_impls_construct_dict_def:
-  default_impls_construct_dict ns ce ie env
-    default_name_map defaults defaults' ⇔
-  LIST_REL (λ(meth,e) (name,e').
-    ∃cl k supers meths pt.
-      ALOOKUP default_name_map meth = SOME name ∧
-      ALOOKUP ce cl = SOME (k,supers,meths) ∧
-      ALOOKUP meths meth = SOME pt ∧
-      default_impl_construct_dict ns ie env cl k pt e e')
-    (defaults:Kind list default_impls) defaults'
+  default_impls_construct_dict ns cl_map ie env
+    (defaults: Kind list default_trans_impls) defaults' ⇔
+  (* the name of the default method is not be meth, as meth will be used to
+  * refer to the method that destruct the dictionary *)
+  LIST_REL (λ(meth,name,e) (name',e').
+    name = name' ∧
+    ∃clname cl pt.
+      ALOOKUP cl_map clname = SOME cl ∧
+      ALOOKUP cl.methods meth = SOME pt ∧
+      default_impl_construct_dict ns ie env e e' clname cl.kind pt)
+    defaults defaults'
 End
 
 Theorem default_impls_construct_dict_names:
   ∀defaults defaults'.
-    default_impls_construct_dict ns ce ie env
-      default_name_map defaults defaults' ⇒
-    set (MAP FST defaults') ⊆ set (MAP SND default_name_map)
+    default_impls_construct_dict ns cl_map ie env defaults defaults' ⇒
+    MAP FST defaults' = MAP (FST o SND) defaults
 Proof
   simp[default_impls_construct_dict_def] >>
   ho_match_mp_tac LIST_REL_ind >>
-  rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY] >>
-  rev_drule ALOOKUP_MEM >>
-  simp[LAMBDA_PROD,GSYM PEXISTS_THM] >>
-  metis_tac[]
+  rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY]
 QED
 
-Definition ce_to_cl_tyid_map_def:
-  ce_to_cl_tyid_map ns_len ce = FEMPTY |++
-    ZIP (MAP FST ce, GENLIST (λn. n + ns_len) (LENGTH ce)) 
+(* generate the type id for each class *)
+Definition to_cl_tyid_map_def:
+  to_cl_tyid_map tdefs cl_map = FEMPTY |++
+    ZIP (MAP FST cl_map, GENLIST (λn. n + LENGTH tdefs) (LENGTH cl_map))
 End
 
-Type instance_env[pp] = ``:((mlstring # 'a # type) #
-  (((mlstring # type) list) # ((mlstring # 'a texp) list))) list``;
+Datatype:
+  Instance = <|
+    (* the class and the type on the right-hand side of
+     * of the header of the instance declaraction *)
+    class : mlstring;
+    type : type;
+    (* could be `num`, when we have not inferred the kinds *)
+    kinds : 'a;
+    (* Predicates on the left hand side of the header of the
+     * instance declaration *)
+    context : (mlstring # type) list;
+    (* The imlplementations of the methods *)
+    impls : (mlstring # 'a texp) list;
+    (* The name to reference the dictionary of this instance *)
+    dict_name : mlstring
+     |>
+End
 
+Type instance_list[pp] = ``:('a Instance) list``;
+
+(* cl_to_tyid is a map from class name to the type id *)
 Definition translate_predicate_def:
   translate_predicate cl_to_tyid p = do
     pid <- FLOOKUP cl_to_tyid (FST p);
@@ -1437,7 +1489,7 @@ Definition translate_predicates_def:
 End
 
 Definition translate_pred_type_def:
-  translate_pred_type cl_to_tyid (Pred ps t) = do
+  translate_pred_type cl_to_tyid (PredType ps t) = do
     args <- translate_predicates cl_to_tyid ps;
     return $ Functions args t
   od
@@ -1473,41 +1525,49 @@ Definition namespace_to_tcexp_namespace_def:
     (FST ns,tdefs_to_tcexp_tdefs (SND ns)):tcexp_namespace
 End
 
-(* a distinct type id and a distinct constructor name will be
-* generated for each class *)
 (* create a data type for a type class *)
 Definition class_to_datatype_def:
-  class_to_datatype (cenv:class_env) cl_to_tyid cname (c,k,supers,methods) = do
+  class_to_datatype cl_to_tyid cl = do
     method_tys <- OPT_MMAP (translate_pred_type_scheme cl_to_tyid)
-      (MAP SND methods);
-    sup_tys <- translate_superclasses cl_to_tyid supers;
-    return $ (([k],[(cname,sup_tys ++ method_tys)]):tcexp_typedef)
+      (MAP SND cl.methods);
+    sup_tys <- translate_superclasses cl_to_tyid $
+      super_classes cl;
+    return
+      (([cl.kind],
+        [(cl.constructor,sup_tys ++ method_tys)])
+      :tcexp_typedef)
   od
 End
 
-Definition class_env_to_ns_def:
-  class_env_to_ns (cenv:class_env) cl_to_tyid cons [] = SOME [] ∧
-  class_env_to_ns (cenv:class_env) cl_to_tyid (con::cons) (cl::rest) = do
-    dt <- class_to_datatype cenv cl_to_tyid con cl;
-    ns <- class_env_to_ns cenv cl_to_tyid cons rest;
+Definition class_map_to_ns_def:
+  class_map_to_ns cl_to_tyid [] = SOME [] ∧
+  class_map_to_ns cl_to_tyid ((clname,cl)::rest :class_map) = do
+    dt <- class_to_datatype cl_to_tyid cl;
+    ns <- class_map_to_ns cl_to_tyid rest;
     return $ (dt::ns)
   od
 End
 
+(* Add the predicate to the method type.
+* e.g. `(+) :: a -> a -> a` in the class declaration of `Num a`,
+* so the actual type of `(+)` is `Num a => a -> a -> a` *)
 Definition get_method_type_def:
-  get_method_type cl k (ks,Pred ps t) = (SNOC k ks,Pred ((cl,TypeVar $ LENGTH ks)::ps) t)
+  get_method_type cl k (ks,PredType ps t) = (SNOC k ks,PredType ((cl,TypeVar $ LENGTH ks)::ps) t)
 End
 
-Definition class_env_to_env_def:
-  class_env_to_env (cenv:class_env) = LIST_BIND cenv
-    (λ(cl,k,_,methods).
-      MAP (I ## get_method_type cl k) methods)
+(* Put all the methods in class declarations to the initial
+* environment *)
+Definition class_map_to_env_def:
+  class_map_to_env (cl_map:class_map) = LIST_BIND cl_map
+    (λ(clname,cl).
+      MAP (I ## get_method_type clname cl.kind) cl.methods)
 End
 
-Theorem class_env_to_env_FST_methods_name:
-  MAP FST (class_env_to_env ce) = FLAT (MAP (MAP FST ∘ SND ∘ SND ∘ SND) ce)
+Theorem class_map_to_env_FST_methods_name:
+  MAP FST (class_map_to_env ce) =
+    FLAT (MAP (λx. MAP FST (SND x).methods) ce)
 Proof
-  simp[class_env_to_env_def,LIST_BIND_def,MAP_FLAT,MAP_MAP_o] >>
+  simp[class_map_to_env_def,LIST_BIND_def,MAP_FLAT,MAP_MAP_o] >>
   AP_TERM_TAC >>
   AP_THM_TAC >>
   AP_TERM_TAC >>
@@ -1515,7 +1575,7 @@ Proof
 QED
 
 Definition translate_entailment_def:
-  translate_entailment cl_to_tyid (Entail ks ps q) = do
+  translate_entailment cl_to_tyid (Entailment ks ps q) = do
     pts <- translate_predicates cl_to_tyid ps;
     qt <- translate_predicate cl_to_tyid q;
     return $ (ks,Functions pts qt)
@@ -1531,7 +1591,7 @@ Definition translate_env_def:
   od
 End
 
-(* ie: mlstring |-> entailment *)
+(* ie: mlstring |-> Entailment *)
 Definition translate_ie_alist_def:
   translate_ie_alist cl_to_tyid [] = return [] ∧
   translate_ie_alist cl_to_tyid ((name,ent)::ie) = do
@@ -1552,12 +1612,33 @@ Definition translate_lie_alist_def:
 End
 
 Definition class_to_entailments_def:
-  class_to_entailments (class,k,supers,_) =
-    MAP (λs. Entail [k] [class,TypeVar 0] (s,TypeVar 0)) supers
+  class_to_entailments (clname,cl) =
+    MAP
+      (λ(s,v).
+        (v,Entailment [cl.kind] [clname,TypeVar 0] (s,TypeVar 0)))
+      cl.supers
 End
 
-Definition class_env_to_ie_def:
-  class_env_to_ie (clenv:class_env) = LIST_BIND clenv class_to_entailments
+Theorem MAP_FST_class_to_entailments:
+  MAP FST (class_to_entailments cl) =
+    MAP SND $ (SND cl).supers
+Proof
+  PairCases_on `cl` >>
+  simp[class_to_entailments_def,MAP_MAP_o,combinTheory.o_DEF] >>
+  simp[ELIM_UNCURRY,SF ETA_ss]
+QED
+
+Theorem MAP_SND_class_to_entailments:
+  MAP SND (class_to_entailments (clname,cl)) =
+    MAP (λs. Entailment [cl.kind] [clname,TypeVar 0] (s,TypeVar 0)) (super_classes cl)
+Proof
+  simp[class_to_entailments_def,MAP_MAP_o,combinTheory.o_DEF,
+    super_classes_def] >>
+  simp[ELIM_UNCURRY]
+QED
+
+Definition class_map_to_ie_def:
+  class_map_to_ie (clenv:class_map) = LIST_BIND clenv class_to_entailments
 End
 
 Definition select_nth_cepat_def:
@@ -1573,6 +1654,7 @@ Definition nth_from_dict_def:
       [])
 End
 
+(* meth is a list of method names *)
 Definition translate_methods_aux_def:
   translate_methods_aux con len n [] = [] ∧
   translate_methods_aux con len n (meth::meths) =
@@ -1580,177 +1662,211 @@ Definition translate_methods_aux_def:
       translate_methods_aux con len (SUC n) meths
 End
 
-Definition class_env_construct_dict_def:
-  class_env_construct_dict cons sup_vs [] = [] ∧
-  class_env_construct_dict (con::cons) sup_vs ((cl,k,supers,meths)::ce) =
-  let len = LENGTH supers + LENGTH meths in
-  (translate_methods_aux con len 0
-    (TAKE (LENGTH supers) sup_vs ++ MAP FST meths)) ++
-    class_env_construct_dict cons (DROP (LENGTH supers) sup_vs) ce
+Definition class_map_construct_dict_def:
+  class_map_construct_dict [] = [] ∧
+  class_map_construct_dict ((clname,cl)::cls) =
+  let len = LENGTH cl.supers + LENGTH cl.methods in
+  (translate_methods_aux cl.constructor len 0
+    (MAP SND cl.supers ++ MAP FST cl.methods)) ++
+    class_map_construct_dict (cls:class_map)
 End
 
 Definition instance_kind_check_def:
-  instance_kind_check tdefs clk ((class,n,t),cstrs,impls) ((class',varks,t'),cstrs',impls') ⇔
-    class = class' ∧ t = t' ∧ cstrs = cstrs' ∧
-    LENGTH varks = n ∧
-    ∃k. clk class = SOME k ∧ kind_ok tdefs varks k t ∧
+  instance_kind_check tdefs clk inst ⇔
+    ∃k. clk inst.class = SOME k ∧
+        kind_ok tdefs inst.kinds k inst.type ∧
     EVERY (λ(c,t).
-      clk c = SOME k ∧ kind_ok tdefs varks k t) cstrs
+      clk c = SOME k ∧ kind_ok tdefs inst.kinds k t) inst.context
 End
 
-Definition instance_env_kind_check_def:
-  instance_env_kind_check tdefs clk (inst_env:num instance_env) (inst_env':
-  Kind list instance_env) ⇔
-     LIST_REL (instance_kind_check tdefs clk) inst_env inst_env'
+Definition instance_list_kind_check_def:
+  instance_list_kind_check tdefs clk (inst_list:Kind list instance_list) ⇔
+     EVERY (instance_kind_check tdefs clk) inst_list
 End
 
 Definition instance_to_entailment_def:
-  instance_to_entailment ((class,varks,t),cstrs,meths) =
-    Entail varks cstrs (class,t)
+  instance_to_entailment (inst:Kind list Instance) =
+    Entailment inst.kinds inst.context (inst.class,inst.type)
 End
 
-Definition instance_env_to_ie_def:
-  instance_env_to_ie (inst_env: (Kind list) instance_env) =
-    MAP instance_to_entailment inst_env
+Definition instance_list_to_ie_def:
+  instance_list_to_ie (inst_list:Kind list instance_list) =
+  MAP (λinst. (inst.dict_name,instance_to_entailment inst))
+    inst_list
 End
 
-Definition impl_construct_dict_def:
-  impl_construct_dict ns ie env vs cstrs ks (Pred ps t) e e' ⇔
-  pred_texp_construct_dict ns ie FEMPTY ks env
-    (Pred (cstrs ++ ps) t) e (SmartLam () vs e')
+(* Given the constraints in the context `ctxt`,
+* check if the implementation `e` satisfies the type
+* `(meth_ks ++ varks,subst_db_pred (LENGTH meth_ks) [inst_t] pt)`.
+* `meth_ks` is the kind list for the predicated type `pt`.
+* `varks` is the kind list for `inst_t` *)
+Definition type_elaborate_impl_def:
+  type_elaborate_impl ns clk ie st env varks ctxt inst_t
+    meth_ks pt e e' ⇔
+  pred_type_elaborate_texp ns clk ie (set ctxt) (meth_ks ++ varks)
+    st env e e' (subst_db_pred (LENGTH meth_ks) [inst_t] pt)
 End
 
 Definition type_elaborate_impls_def:
-  type_elaborate_impls ns clk ie st env varks cstrs inst_t meths impls impls' ⇔
-    (LIST_REL (λimpl impl'.
-       FST impl = FST impl' ∧
-       ∃meth_ks pt.
-         ALOOKUP meths (FST impl) = SOME (meth_ks,pt) ∧
-         pred_type_elaborate_texp ns clk ie (set cstrs) (meth_ks ++ varks)
-           st env (SND impl) (SND impl')
-           (subst_db_pred (LENGTH meth_ks) [inst_t] pt))
-       impls impls')
+  type_elaborate_impls ns clk ie st env varks ctxt inst_t meths
+    impls impls' ⇔
+  LIST_REL
+    (λimpl impl'.
+      FST impl = FST impl' ∧
+      ∃meth_ks pt.
+        ALOOKUP meths (FST impl) = SOME (meth_ks,pt) ∧
+        type_elaborate_impl ns clk ie st env varks ctxt inst_t
+          meth_ks pt (SND impl) (SND impl'))
+     impls impls'
 End
 
-Definition type_elaborate_inst_env_def:
-  type_elaborate_inst_env ns (ce:class_env) clk ie st env
-      (inst_env:num instance_env) (inst_env':Kind list instance_env) ⇔
-  LIST_REL (λinst ((c,varks,t),cstrs,impls').
-    ∃k supers meths.
-    ALOOKUP ce c = SOME (k,supers,meths) ∧
-    type_elaborate_impls ns clk ie st env varks cstrs t meths (SND $ SND inst) impls')
-    inst_env inst_env'
+Definition type_elaborate_inst_list_def:
+  type_elaborate_inst_list ns (cl_map:class_map) ie st env
+      inst_list (inst_list':Kind list instance_list) ⇔
+  LIST_REL
+    (λinst inst'.
+      inst.class = inst'.class ∧
+      inst.type = inst'.type ∧
+      inst.kinds = LENGTH inst'.kinds ∧
+      inst.context = inst'.context ∧
+      ∃cl.
+        ALOOKUP cl_map inst'.class = SOME cl ∧
+        type_elaborate_impls ns (class_map_to_clk cl_map) ie st env
+          inst'.kinds inst.context inst.type cl.methods
+          inst.impls inst'.impls)
+    inst_list inst_list'
 End
 
-(* default_name maps a method name to a translated name *)
-(* inst_v is for referencing the dict itself *)
+Definition impl_construct_dict_instantiated_def:
+  impl_construct_dict_instantiated ns ie env cstrs vs ks
+    (PredType ps t) e e' ⇔
+  pred_texp_construct_dict ns ie FEMPTY ks env
+    (PredType (cstrs ++ ps) t) e (SmartLam () vs e')
+End
+
+Definition impl_construct_dict_def:
+  impl_construct_dict ns ie env varks ctxt inst_t vs
+    meth_ks pt e e' ⇔
+  impl_construct_dict_instantiated ns ie env ctxt vs
+    (meth_ks ++ varks)
+    (subst_db_pred (LENGTH meth_ks) [inst_t] pt) e e'
+End
+
 Definition instance_construct_dict_def:
   instance_construct_dict ns ie env
-    cons supers meths defaults
-    inst_v varks cstrs inst_t impls trans_inst ⇔
+    (cl :Class) (defaults :Kind list default_trans_impls)
+    (inst :Kind list Instance) (trans_inst :unit cexp) ⇔
   ∃vs supers' impls'.
-  trans_inst = SmartLam () vs (Prim () (Cons cons) $ supers' ++ impls') ∧
-  construct_dicts (SND ns) varks ie (FEMPTY |++ ZIP (vs,cstrs))
-    (MAP (λsuper. (super,inst_t)) supers) supers' ∧
+  trans_inst = SmartLam () vs (Prim () (Cons cl.constructor) $
+    supers' ++ impls') ∧
+  construct_dicts (SND ns) inst.kinds ie
+    (FEMPTY |++ ZIP (vs,inst.context))
+    (MAP (λsuper. (super,inst.type)) (super_classes cl)) supers' ∧
   LIST_REL (λ(name,(meth_ks,pt)) e'.
-      case ALOOKUP impls name of
+      case ALOOKUP inst.impls name of
       | SOME e =>
-          impl_construct_dict ns ie env vs cstrs (meth_ks ++ varks)
-            (subst_db_pred (LENGTH meth_ks) [inst_t] pt) e e'
-      | NONE => ∃default_name.
-          ALOOKUP defaults name = SOME default_name ∧
-          e' = App () (Var () default_name) [Var () inst_v])
-     meths impls'
+          impl_construct_dict ns ie env inst.kinds inst.context
+            inst.type vs meth_ks pt e e'
+      | NONE => ∃default_name default_impl.
+          ALOOKUP defaults name = SOME (default_name,default_impl) ∧
+          e' = App () (Var () default_name)
+                      [Var () inst.dict_name])
+     cl.methods impls'
 End
 
-Definition instance_env_construct_dict_def:
-  instance_env_construct_dict ns ce ie env cl_cons default_name_map
-    inst_vs (inst_env:Kind list instance_env) inst_env' ⇔
-  LIST_REL3 (λinst_v ((cl,varks,inst_t),cstrs,impls) (v,e).
-    v = inst_v ∧
-    ∃k supers meths cons.
-    ALOOKUP ce cl = SOME (k,supers,meths) ∧
-    ALOOKUP cl_cons cl = SOME cons ∧
-    instance_construct_dict ns ie env
-      cons supers meths default_name_map
-      inst_v varks cstrs inst_t impls e
-  ) inst_vs inst_env inst_env'
+Definition instance_list_construct_dict_def:
+  instance_list_construct_dict ns ie env cl_map defaults
+    (inst_list:Kind list instance_list) trans_inst_list ⇔
+  LIST_REL
+    (λinst (v,e).
+      v = inst.dict_name ∧
+      ∃cl. ALOOKUP cl_map inst.class = SOME cl ∧
+        instance_construct_dict ns ie env cl defaults inst e)
+    inst_list trans_inst_list
+End
+
+(* translate the namespace *)
+Definition translate_ns_def:
+  translate_ns ns cl_map trans_ns =
+  ∃cl_ns.
+    class_map_to_ns (to_cl_tyid_map (SND ns) cl_map) cl_map =
+      SOME cl_ns ∧
+    trans_ns = append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns)
 End
 
 Definition type_elaborate_prog_def:
-  type_elaborate_prog ns ce st defaults inst_env fns
-    defaults' inst_env' fns' ⇔
+  type_elaborate_prog ns st cl_map defaults inst_list fns main
+    main_t defaults' inst_list' fns' main' ⇔
   ∃clk env fns_type_scheme ie.
-    clk = ce_to_clk ce ∧
-    instance_env_kind_check (SND ns) clk inst_env inst_env' ∧
-    ie = set (class_env_to_ie ce ++ instance_env_to_ie inst_env') ∧
+    clk = class_map_to_clk cl_map ∧
+    instance_list_kind_check (SND ns) clk inst_list' ∧
+    ie = FRANGE (alist_to_fmap
+      (class_map_to_ie cl_map ++ instance_list_to_ie inst_list')) ∧
+    type_elaborate_texp ns clk ie ∅ [] st (class_map_to_env cl_map)
+     (Letrec fns main) (Letrec fns' main') main_t ∧
     OPT_MMAP (SND ∘ FST) fns' = SOME fns_type_scheme ∧
     env =
       REVERSE (ZIP (MAP (FST ∘ FST) fns,fns_type_scheme)) ++
-      class_env_to_env ce ∧
-     EVERY (λscheme.
-        ∃varks ty. scheme = (varks,ty) ∧
+      class_map_to_env cl_map ∧
+     EVERY (λ(varks,ty).
         pred_type_kind_ok clk (SND ns) varks ty) fns_type_scheme ∧
-   type_elaborate_default_impls ce ns clk ie st env defaults defaults' ∧
-   type_elaborate_bindings ns clk ie ∅ [] st env fns fns' ∧
-   type_elaborate_inst_env ns ce clk ie st env inst_env inst_env'
+   type_elaborate_default_impls cl_map ns ie st env defaults defaults' ∧
+   type_elaborate_inst_list ns cl_map ie st env inst_list inst_list'
 End
 
 Definition prog_construct_dict_def:
-  prog_construct_dict ns ce defaults inst_env fns
-    translated_ns output_bindings ⇔
-  ∃cl_cons cl_ns cl_to_tyid default_name_map env ie inst_vs sup_vs
-     translated_ce translated_defaults translated_fns translated_inst_env.
-   output_bindings =
-     translated_fns ++ translated_defaults ++
-     translated_inst_env ++ translated_ce ∧
+  prog_construct_dict ns cl_map defaults inst_list fns main
+    output ⇔
+  ∃translated_main translated_fns translated_defaults
+    translated_inst_list translated_cl_map sup_vs cl_cons inst_vs
+    default_vs ie env.
+   output =
+     (* TODO: find an order that is easy to deal with *)
+     Letrec ()
+      (translated_fns ++ translated_inst_list ++
+        translated_defaults ++ translated_cl_map)
+      translated_main ∧
+
+   (* list of names of the accessor to get the dictionary that
+   * corresponds to the super class *)
+   sup_vs = FLAT (MAP (λ(cl_name,cl). MAP SND cl.supers) cl_map) ∧
+   (* a list of data constructor name for the class datatypes *)
+   cl_cons = MAP (λ(_,cl). cl.constructor) cl_map ∧
+   (* a list of the names that refer to the instance dictionaries *)
+   inst_vs = MAP (λinst. inst.dict_name) inst_list ∧
+   default_vs = MAP (FST ∘ SND) defaults ∧
+
    (* distinctness of variable names *)
-   LENGTH sup_vs = LENGTH (class_env_to_ie ce) ∧
-   LENGTH inst_vs = LENGTH inst_env ∧
-   ALL_DISTINCT sup_vs ∧
-   ALL_DISTINCT inst_vs ∧
-   ALL_DISTINCT $ MAP FST $ class_env_to_env ce ∧
-   ALL_DISTINCT $ MAP SND default_name_map ∧
-   set sup_vs ∩ set inst_vs ∩
-    set (MAP FST $ class_env_to_env ce) ∩ set (MAP SND default_name_map) ∩
-    (set (MAP (FST o FST) fns) ∪ lambda_varsl (MAP SND fns)) = ∅ ∧
-   (* set the the instance environment *)
+   ALL_DISTINCT sup_vs ∧ ALL_DISTINCT cl_cons ∧
+   ALL_DISTINCT inst_vs ∧ ALL_DISTINCT default_vs ∧
+   set sup_vs ∩ set inst_vs ∩ set cl_cons ∩ set default_vs ∩
+    (set (MAP (FST ∘ FST) fns) ∪ lambda_varsl (MAP SND fns)) = ∅ ∧
+
+   (* set up the the instance environment *)
    ie = FEMPTY |++
-     (ZIP (sup_vs,class_env_to_ie ce) ++
-      ZIP (inst_vs,instance_env_to_ie inst_env)) ∧
-   (* set up the variable environment
+     (class_map_to_ie cl_map ++ instance_list_to_ie inst_list) ∧
+
+   (* translate the program, which is a Letrec *)
+   texp_construct_dict ns ie FEMPTY []
+     (* only need to introduce the method names to the
+     * environment *)
+     (set (MAP FST (class_map_to_env cl_map))) (Letrec fns main)
+     (Letrec () translated_fns translated_main) ∧
+
+   (* set up the variable environment for translating
+   * instances and default implementations
    * (every method name declared in class env is in env) *)
-   env = set (MAP (FST ∘ FST) fns ++ MAP FST (class_env_to_env ce)) ∧
-   (* create the map from class name to the type id in the
-   * translated namespace *)
-   cl_to_tyid = ce_to_cl_tyid_map (LENGTH (SND ns)) ce ∧
-   (* an alist from class name to the data constructor name for
-   * dictionary for the class *)
-   MAP FST cl_cons = MAP FST ce ∧
-   (* translate the namespace *)
-   class_env_to_ns ce cl_to_tyid (MAP SND cl_cons) ce = SOME
-  cl_ns ∧
-   translated_ns =
-     append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns) ∧
+   env = set (MAP (FST ∘ FST) fns) ∪
+         set (MAP FST (class_map_to_env cl_map)) ∧
    (* translate getting super classes and the method calls
    * by doing case analysis *)
-   translated_ce = class_env_construct_dict (MAP SND cl_cons) sup_vs ce ∧
-   (* translate all the dictionaries to let bindings *)
-   instance_env_construct_dict ns ce ie env cl_cons default_name_map
-     inst_vs inst_env translated_inst_env ∧
-   (* translate defaults method *)
-   default_impls_construct_dict ns ce ie env default_name_map defaults
-     translated_defaults ∧
-   (* translate the let bindings *)
-   LIST_REL
-     (λ((x,ot),e) (y,de).
-          x = y ∧
-          case ot of
-          | SOME (new,pt) =>
-            pred_texp_construct_dict ns ie FEMPTY new env pt e
-              de
-          | NONE => F)
-      fns translated_fns
+   translated_cl_map = class_map_construct_dict cl_map ∧
+   (* translate all the instance dictionaries to let bindings *)
+   instance_list_construct_dict ns ie env cl_map defaults inst_list
+    translated_inst_list ∧
+   (* translate default implementations *)
+   default_impls_construct_dict ns cl_map ie env defaults
+     translated_defaults
 End
 
 val _ = export_theory();

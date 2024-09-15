@@ -43,7 +43,8 @@ End
 Type class = ``:mlstring``; (* key for map from classname to class *)
 
 Datatype:
-  PredType = Pred ((class # type) list) type
+  PredType = <| predicates : ((class # type) list);
+                type: type |>
     (* e.g. Monad m, Monad m2, Functor f => m1 (f a) -> m2 a *)
 End
 
@@ -87,13 +88,13 @@ Definition shift_db_def:
 End
 
 Definition subst_db_pred_def:
-  subst_db_pred skip ts (Pred ps t) =
-    Pred (MAP (I ## subst_db skip ts) ps) (subst_db skip ts t)
+  subst_db_pred skip ts (PredType ps t) =
+    PredType (MAP (I ## subst_db skip ts) ps) (subst_db skip ts t)
 End
 
 Definition shift_db_pred_def:
-  shift_db_pred skip n (Pred ps t) =
-    Pred (MAP (I ## shift_db skip n) ps) (shift_db skip n t)
+  shift_db_pred skip n (PredType ps t) =
+    PredType (MAP (I ## shift_db skip n) ps) (shift_db skip n t)
 End
 
 Overload tsubst = ``subst_db 0``;

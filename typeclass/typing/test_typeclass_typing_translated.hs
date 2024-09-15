@@ -35,7 +35,7 @@ foldableList = FoldableDict
 
 default_toList = \y -> (foldMap y monoidList) (\x -> x:[])
 
-semigroupList = SemigroupDict append 
+semigroupList = SemigroupDict append
 
 monoidList = MonoidDict semigroupList []
 

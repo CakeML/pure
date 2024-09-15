@@ -51,7 +51,7 @@ End
 
 (* predicate to check if a predicated type is well-kinded *)
 Definition pred_kind_wf_def:
-  pred_kind_wf cldb cdb vdb (Pred cls ty) =
+  pred_kind_wf cldb cdb vdb (PredType cls ty) =
     (kind_wf cdb vdb kindType ty ∧
     ∀cl. MEM cl cls ⇒
       ∃k. cldb (FST cl) = SOME k ∧ kind_wf cdb vdb k (SND cl))

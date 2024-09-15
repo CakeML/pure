@@ -206,7 +206,7 @@ QED
 Theorem translate_superclasses_OPT_MMAP:
   translate_superclasses cl_to_tyid supers =
   OPT_MMAP (λc. OPTION_MAP (λsid. [],Cons (UserType sid) (TypeVar 0))
-    (FLOOKUP cl_to_tyid c)) supers 
+    (FLOOKUP cl_to_tyid c)) supers
 Proof
   Induct_on `supers` >>
   rw[translate_superclasses_def,oneline OPTION_MAP_DEF] >>
@@ -758,7 +758,7 @@ Proof
 QED
 
 Theorem specialises_pred_specialises:
-  specialises_pred (SND ns) db (q,Pred l t') (Pred ps t) ∧
+  specialises_pred (SND ns) db (q,PredType l t') (PredType ps t) ∧
   translate_predicates (ce_to_cl_tyid_map (LENGTH (SND ns)) ce) ps =
     SOME ps' ⇒
   ∃args.
@@ -1044,7 +1044,7 @@ Proof
 QED
 
 Theorem translate_lie_alist_tshift_lie_alist:
-  ∀lie_env. 
+  ∀lie_env.
   translate_lie_alist cl_to_tyid (tshift_lie_alist n lie_alist) = SOME lie_env ⇔
   ∃lie_env'.
     translate_lie_alist cl_to_tyid lie_alist = SOME lie_env' ∧
@@ -1190,7 +1190,7 @@ QED
 
 Theorem translate_lie_alist_ZIP_SOME:
   ∀vs ps r.
-  LENGTH vs = LENGTH ps ⇒ 
+  LENGTH vs = LENGTH ps ⇒
   (translate_lie_alist cl_to_tyid $ ZIP (vs,ps) = SOME r ⇔
   ((∀cl t. MEM (cl,t) ps ⇒ ∃cid. FLOOKUP cl_to_tyid cl = SOME cid) ∧
   r = ZIP (vs,MAP (λ(cl,t).
@@ -1490,10 +1490,10 @@ QED
 
 Theorem tcexp_exhaustive_cepat_tdefs_APPEND:
   (∀tk pes.
-    tcexp_exhaustive_cepat (exnds,tds) tk pes ⇒ 
+    tcexp_exhaustive_cepat (exnds,tds) tk pes ⇒
     tcexp_exhaustive_cepat (exnds,tds ++ cl_tds) tk pes) ∧
   (∀tks pess.
-    tcexp_exhaustive_cepatl (exnds,tds) tks pess ⇒ 
+    tcexp_exhaustive_cepatl (exnds,tds) tks pess ⇒
     tcexp_exhaustive_cepatl (exnds,tds ++ cl_tds) tks pess)
 Proof
   ho_match_mp_tac tcexp_exhaustive_cepat_ind >>
@@ -1810,7 +1810,7 @@ Proof
       SRULE[PULL_EXISTS] $ iffLR $ cj 1 ALOOKUP_ZIP_EXISTS_EQ >>
     gvs[INTER_EMPTY_IN_NOTIN,MEM_MAP,FORALL_PROD,IMP_CONJ_THM,
       FORALL_AND_THM] >>
-    imp_res_tac ALOOKUP_find_index_SOME >> 
+    imp_res_tac ALOOKUP_find_index_SOME >>
     gvs[EL_ZIP,MAP_ZIP,EL_REVERSE,translate_predicates_LIST_REL,
       LIST_REL_EL_EQN] >>
     `PRE (LENGTH args - i) < LENGTH args` by fs[] >>
@@ -2054,7 +2054,7 @@ Proof
         rw[] >>
         Cases_on `EL n' (REVERSE (ZIP (fns',kind_schemes)))` >>
         rename1`EL n' (REVERSE (ZIP (fns',kind_schemes))) = (f,pred_t)`  >>
-        PairCases_on `pred_t` >> 
+        PairCases_on `pred_t` >>
         PairCases_on `f` >>
         pop_assum mp_tac >>
         simp[EL_REVERSE,EL_ZIP] >>
@@ -2820,7 +2820,7 @@ Proof
     simp[select_nth_cepat_thm] >>
     irule tcexp_exhaustive_cepatl >>
     qexists_tac `MAP (λx. {x}) $
-      select_nth_cepat n (LENGTH ts - (n + 1)) «y»` >> 
+      select_nth_cepat n (LENGTH ts - (n + 1)) «y»` >>
     rw[LIST_REL_EL_EQN,select_nth_cepat_thm,FOLDR_APPEND]
     >- simp[FOLDR_REPLICATE,FUNPOW_IMAGE_CONS_SING] >>
     simp[EL_MAP,EL_REPLICATE,EL_APPEND_EQN] >>
@@ -2841,7 +2841,7 @@ Proof
 QED
 
 Triviality translate_methods_aux_lem:
-  ∀n. 
+  ∀n.
   len = LENGTH l + n ⇒
   translate_methods_aux cons len n l =
     ZIP (l, REVERSE $ GENLIST (λi. nth_from_dict cons len (len - 1 - i)) (LENGTH l))
@@ -2918,12 +2918,29 @@ Proof
   rw[EQ_IMP_THM]
 QED
 
+class Functor m => Monad m where
+  bind :: m a -> (a -> m b) -> m b
+  ret :: a -> m a
+
+data MonadDict m = Monad (FunctorDict m, forall a b.m a -> (a -> m b) -> m
+b,..)
+
+
+bind :: MonadDict m -> m a -> (a -> m b) -> m b
+bind m = case m of
+         | Monad func bind ret => bind
+
+Monad m => Functor m
+getFunctor :: MonadDict m -> FunctorDict m
+
+MonadDict .., ..., ...
+
 Theorem class_env_construct_dict_type_tcexp:
   ∀cons sup_vs ce' fns' rest_ce rest_cons.
   class_env_to_ns ce cl_to_tyid clcons ce = SOME cl_ns ∧
   ALL_DISTINCT (MAP FST ce) ∧
   class_env_kind_ok (SND ns) ce ∧
-  LENGTH ce ≤ LENGTH clcons ∧ 
+  LENGTH ce ≤ LENGTH clcons ∧
   cl_to_tyid = ce_to_cl_tyid_map (LENGTH $ SND ns) ce ∧
   ce = rest_ce ++ ce' ∧
   clcons = rest_cons ++ cons ∧
@@ -3100,34 +3117,65 @@ Proof
   )
 QED
 
-Theorem prog_construct_dict_type_tcexp:
-  type_elaborate_prog 
-  prog_construct_dict ns ce defaults inst_env fns
-    translated_ns bindings ⇒
-  LIST_REL ARB bindings ∧
-  EVERY (λ(varks,scheme).
-    type_ok (SND translated_ns) (varks ++ db) scheme) 
+Theorem impl_construct_dict_type_tcexp:
+  namespace_ok ns ∧
+  class_env_to_ns ce (ce_to_cl_tyid_map (LENGTH (SND ns)) ce) clcons ce =
+    SOME cl_tds ∧
+  LENGTH ce ≤ LENGTH clcons ∧ ALL_DISTINCT (MAP FST ce) ∧
+  clk = ce_to_clk ce ∧
+  cl_to_tyid = ce_to_cl_tyid_map (LENGTH (SND ns)) ce ∧
+  ie_map = alist_to_fmap ie_alist ∧ ie = FRANGE (alist_to_fmap ie_alist) ∧
+  ALL_DISTINCT (MAP FST ie_alist) ∧
+  translate_ie_alist cl_to_tyid ie_alist = SOME ie_env ∧
+  (∀ent. ent ∈ ie ⇒ entailment_kind_ok (SND ns) clk ent) ∧
+  (∀v ent. MEM (v,ent) ie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧
+  (∀v ent. MEM (v,ent) ie_alist ⇒ v ∉ lambda_vars e) ∧
+  (∀v ent. MEM (v,ent) ie_alist ⇒ ∀cl t. ¬MEM (v,cl,t) lie_alist) ∧
+  (∀v cl ct. MEM (v,cl,ct) lie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧
+  (∀v ks vt. MEM (v,ks,vt) lie_alist ⇒ v ∉ lambda_vars e) ∧
+
+  pred_type_elaborate_texp ns clk ie (set cstrs) (meth_ks ++ varks)
+    st env e e'
+    (subst_db_pred (LENGTH meth_ks) [inst_t] pt) ∧
+  impl_construct_dict ns ie_map env_vs vs cstrs ks pt e de ∧
+  env_vs = set (MAP FST env) ∧
+  translate_env cl_to_tyid env = SOME trans_env ∧
+  translate_predicates cl_to_tyid cstrs = SOME arg_ts ∧
+  translate_pred_type cl_to_tyid pt = SOME ret_t ∧
+  t = Functions arg_ts (subst_db (LENGTH meth_ks) [inst_t] ret_t) ⇒
+  type_tcexp (append_ns (namespace_to_tcexp_namespace ns) ([],cl_tds))
+    (meth_ks ++ varks) st (trans_env ++ ie_env) (tcexp_of de) t
 Proof
 QED
 
-Theorem main_type_tcexp:
-  prog_construct_dict ns ce defaults inst_env fns trans_ns trans_fns ∧
-  (* «main» ∈ *)
-  ⇒
-  type_tcexp trans_ns db [] [] (tcexp_of $ Letrec () trans_fns (Var () «main»)) (Monad t)
+
+Theorem construct_dict_main_type_tcexp:
+  env = default_env ++ cl_env ∧
+  ie_map = FEMPTY |++ cl_ie_alist |++ inst_ie_alist ∧
+  trans_ns = (append_ns (namespace_to_tcexp_namespace ns) ([],cl_tds)) ∧
+  trans_fns = translated_ie ++ translated_ce ++
+     translated_defaults ++ fns'' ∧
+  type_elaborate_texp ns clk (FRANGE ie_map) EMPTY [] st env
+    (Letrec fns (Var any v))
+    (Letrec fns' (Var ps v')) (Monad t) ∧
+  texp_construct_dict ns ie_map FEMPTY []
+    (set (MAP FST env)) (Letrec fns' (Var ps v'))
+    (Letrec () fns'' trans_main_exp) ⇒
+  type_tcexp trans_ns [] st []
+    (tcexp_of (Letrec () trans_fns trans_main_exp))
+    (Monad t)
 Proof
   rw[tcexp_of_def] >>
+  qpat_x_assum `type_elaborate_texp _ _ _ _ _ _ _ _ _ _` $
+    strip_assume_tac o SRULE[Once type_elaborate_texp_cases] >>
+  qpat_x_assum `texp_construct_dict _ _ _ _ _ _ _` $
+    strip_assume_tac o SRULE[Once texp_construct_dict_cases] >>
   irule type_tcexp_Letrec >>
   rw[]
-  >- cheat >>
-  irule_at (Pat `type_tcexp _ _ _ _ (Var _) _`) type_tcexp_Var >>
+  >- gvs[LIST_REL_EL_EQN] >>
+  (* TODO: tidy up the induction theorem *)
+  irule_at (Pos last) $ cj 2 texp_construct_dict_type_tcexp
 
 QED
-
-(*
-Theorem prog_construct_dict_type_tcexp:
-Proof
-QED
-*)
 
 val _ = export_theory();

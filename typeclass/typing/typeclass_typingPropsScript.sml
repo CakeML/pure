@@ -210,7 +210,7 @@ Proof
 QED
 
 Theorem pred_type_kind_ok_alt:
-  pred_type_kind_ok clk tdefs ks (Pred cls ty) ⇔
+  pred_type_kind_ok clk tdefs ks (PredType cls ty) ⇔
   (kind_ok tdefs ks kindType ty ∧
   ∀cl. MEM cl cls ⇒
     ∃k. clk (FST cl) = SOME k ∧
