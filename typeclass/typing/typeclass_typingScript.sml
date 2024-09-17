@@ -1814,6 +1814,30 @@ Definition type_elaborate_prog_def:
    type_elaborate_inst_list ns cl_map ie st env inst_list inst_list'
 End
 
+(* list of names of the accessor to get the dictionary that
+ * corresponds to the super class *)
+Definition super_class_accessor_names_def:
+  super_class_accessor_names cl_map =
+    FLAT (MAP (λ(cl_name,cl). MAP SND cl.supers) cl_map)
+End
+
+(* a list of the names that refer to the instance dictionaries *)
+Definition instance_dict_names_def:
+  instance_dict_names inst_list =
+    MAP (λinst. inst.dict_name) inst_list
+End
+
+(* a list of data constructor name for the class datatypes *)
+Definition class_dict_constructor_names_def:
+  class_dict_constructor_names cl_map =
+    MAP (λ(_,cl). cl.constructor) cl_map
+End
+
+Definition default_method_names_def:
+  default_method_names (defaults: Kind list default_trans_impls) =
+    MAP (FST ∘ SND) defaults
+End
+
 Definition prog_construct_dict_def:
   prog_construct_dict ns cl_map defaults inst_list fns main
     output ⇔
@@ -1827,20 +1851,15 @@ Definition prog_construct_dict_def:
         translated_defaults ++ translated_cl_map)
       translated_main ∧
 
-   (* list of names of the accessor to get the dictionary that
-   * corresponds to the super class *)
-   sup_vs = FLAT (MAP (λ(cl_name,cl). MAP SND cl.supers) cl_map) ∧
-   (* a list of data constructor name for the class datatypes *)
-   cl_cons = MAP (λ(_,cl). cl.constructor) cl_map ∧
-   (* a list of the names that refer to the instance dictionaries *)
-   inst_vs = MAP (λinst. inst.dict_name) inst_list ∧
-   default_vs = MAP (FST ∘ SND) defaults ∧
+   sup_vs = super_class_accessor_names cl_map ∧
+   cl_cons = class_dict_constructor_names cl_map ∧
+   inst_vs = instance_dict_names inst_list ∧
+   default_vs = default_method_names defaults ∧
 
    (* distinctness of variable names *)
-   ALL_DISTINCT sup_vs ∧ ALL_DISTINCT cl_cons ∧
-   ALL_DISTINCT inst_vs ∧ ALL_DISTINCT default_vs ∧
-   set sup_vs ∩ set inst_vs ∩ set cl_cons ∩ set default_vs ∩
-    (set (MAP (FST ∘ FST) fns) ∪ lambda_varsl (MAP SND fns)) = ∅ ∧
+   ALL_DISTINCT (sup_vs ++ inst_vs ++ cl_cons ++ default_vs) ∧
+   DISJOINT (set $ sup_vs ++ inst_vs ++ cl_cons ++ default_vs)
+     (set (MAP (FST ∘ FST) fns) ∪ lambda_varsl (MAP SND fns)) ∧
 
    (* set up the the instance environment *)
    ie = FEMPTY |++

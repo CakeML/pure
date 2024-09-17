@@ -907,24 +907,24 @@ Proof
 QED
 
 Theorem test_cl_cons:
-  MAP (λ(_,cl). cl.constructor) test_class_map = [
+  class_dict_constructor_names test_class_map = [
     «SemigroupDict»;
     «MonoidDict»;
     «FoldableDict»
   ]
 Proof
-  simp[test_class_map_def]
+  simp[class_dict_constructor_names_def,test_class_map_def]
 QED
 
 Theorem test_sup_vs:
-  FLAT (MAP (λ(cl_name,cl). MAP SND cl.supers) test_class_map) =
+  super_class_accessor_names test_class_map =
    [«getSemigroup»]
 Proof
-  simp[test_class_map_def]
+  simp[super_class_accessor_names_def,test_class_map_def]
 QED
 
 Theorem test_inst_vs:
-  MAP (λinst. inst.dict_name) test_instance_list_elaborated = [
+  instance_dict_names test_instance_list_elaborated = [
     «semigroupInt»;
     «monoidInt»;
     «foldableList»;
@@ -934,13 +934,14 @@ Theorem test_inst_vs:
     «semigroupTuple»
   ]
 Proof
-  simp[test_instance_list_elaborated_def]
+  simp[instance_dict_names_def,
+    test_instance_list_elaborated_def]
 QED
 
 Theorem test_default_vs:
-  MAP (FST ∘ SND) test_defaults_elaborated = [«default_toList»]
+  default_method_names test_defaults_elaborated = [«default_toList»]
 Proof
-  simp[test_defaults_elaborated_def]
+  simp[default_method_names_def,test_defaults_elaborated_def]
 QED
 
 Definition test_cl_to_tyid_def:
@@ -949,24 +950,6 @@ Definition test_cl_to_tyid_def:
 End
 
 Theorem test_cl_to_tyid = EVAL ``test_cl_to_tyid``;
-
-(*
-Theorem test_class_map_to_ns =
-  EVAL ``class_map_to_ns test_class_map test_cl_to_tyid
-    (MAP SND test_cl_cons) test_class_map``;
-
-Definition test_namespace_translated_def:
-  test_namespace_translated =
-    append_ns
-      (namespace_to_tcexp_namespace initial_namespace)
-      ([],THE $ class_map_to_ns
-          test_class_map test_cl_to_tyid
-          (MAP SND test_cl_cons) test_class_map)
-End
-
-Theorem test_namespace_translated =
-  EVAL ``test_namespace_translated``;
-*)
 
 Definition test_class_map_translated_def:
   test_class_map_translated =
@@ -1324,7 +1307,9 @@ Proof
   irule_at Any test_defaults_construct_dict >>
   irule_at Any test_instance_list_construct_dict >>
   rw[test_cl_cons,test_sup_vs,test_inst_vs,test_default_vs]
-  >- EVAL_TAC >>
+  >>~- ([`¬MEM _ _`],EVAL_TAC)
+  >>~- ([`_ ∉ lambda_varsl _`],
+    simp[test_prog_elaborated_def,lambda_vars_def]) >>
   irule texp_construct_dict_Letrec >>
   rw[test_prog_translated_def,test_prog_elaborated_def]
   >- (
