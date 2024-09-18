@@ -1563,17 +1563,6 @@ Definition class_map_to_env_def:
       MAP (I ## get_method_type clname cl.kind) cl.methods)
 End
 
-Theorem class_map_to_env_FST_methods_name:
-  MAP FST (class_map_to_env ce) =
-    FLAT (MAP (λx. MAP FST (SND x).methods) ce)
-Proof
-  simp[class_map_to_env_def,LIST_BIND_def,MAP_FLAT,MAP_MAP_o] >>
-  AP_TERM_TAC >>
-  AP_THM_TAC >>
-  AP_TERM_TAC >>
-  simp[ELIM_UNCURRY,get_method_type_def,FUN_EQ_THM]
-QED
-
 Definition translate_entailment_def:
   translate_entailment cl_to_tyid (Entailment ks ps q) = do
     pts <- translate_predicates cl_to_tyid ps;
@@ -1662,26 +1651,35 @@ Definition translate_methods_aux_def:
       translate_methods_aux con len (SUC n) meths
 End
 
-Definition class_map_construct_dict_def:
-  class_map_construct_dict [] = [] ∧
-  class_map_construct_dict ((clname,cl)::cls) =
+Definition class_map_construct_methods_def:
+  class_map_construct_methods [] = [] ∧
+  class_map_construct_methods ((clname,cl)::cls) =
   let len = LENGTH cl.supers + LENGTH cl.methods in
-  (translate_methods_aux cl.constructor len 0
-    (MAP SND cl.supers ++ MAP FST cl.methods)) ++
-    class_map_construct_dict (cls:class_map)
+  (translate_methods_aux cl.constructor len (LENGTH cl.supers)
+    (MAP FST cl.methods)) ++
+    class_map_construct_methods (cls:class_map)
 End
 
-Definition instance_kind_check_def:
-  instance_kind_check tdefs clk inst ⇔
+Definition class_map_construct_super_accessors_def:
+  class_map_construct_super_accessors [] = [] ∧
+  class_map_construct_super_accessors ((clname,cl)::cls) =
+  let len = LENGTH cl.supers + LENGTH cl.methods in
+  (translate_methods_aux cl.constructor len 0
+    (MAP SND cl.supers)) ++
+    class_map_construct_super_accessors (cls:class_map)
+End
+
+Definition instance_kind_ok_def:
+  instance_kind_ok tdefs clk inst ⇔
     ∃k. clk inst.class = SOME k ∧
         kind_ok tdefs inst.kinds k inst.type ∧
     EVERY (λ(c,t).
       clk c = SOME k ∧ kind_ok tdefs inst.kinds k t) inst.context
 End
 
-Definition instance_list_kind_check_def:
-  instance_list_kind_check tdefs clk (inst_list:Kind list instance_list) ⇔
-     EVERY (instance_kind_check tdefs clk) inst_list
+Definition instance_list_kind_ok_def:
+  instance_list_kind_ok tdefs clk (inst_list:Kind list instance_list) ⇔
+     EVERY (instance_kind_ok tdefs clk) inst_list
 End
 
 Definition instance_to_entailment_def:
@@ -1785,13 +1783,21 @@ Definition instance_list_construct_dict_def:
     inst_list trans_inst_list
 End
 
-(* translate the namespace *)
+(* translate the namespace and append the namespace for
+ * the datatypes for classes *)
 Definition translate_ns_def:
-  translate_ns ns cl_map trans_ns =
+  translate_ns ns cl_ns =
+    append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns)
+End
+
+(* translate the namespace and the class datatypes to
+* tcexp_namespace *)
+Definition translate_ns_and_class_datatypes_def:
+  translate_ns_and_class_datatypes ns cl_map trans_ns =
   ∃cl_ns.
     class_map_to_ns (to_cl_tyid_map (SND ns) cl_map) cl_map =
       SOME cl_ns ∧
-    trans_ns = append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns)
+    trans_ns = translate_ns ns cl_ns
 End
 
 Definition type_elaborate_prog_def:
@@ -1799,7 +1805,8 @@ Definition type_elaborate_prog_def:
     main_t defaults' inst_list' fns' main' ⇔
   ∃clk env fns_type_scheme ie.
     clk = class_map_to_clk cl_map ∧
-    instance_list_kind_check (SND ns) clk inst_list' ∧
+    class_map_kind_ok (SND ns) cl_map ∧
+    instance_list_kind_ok (SND ns) clk inst_list' ∧
     ie = FRANGE (alist_to_fmap
       (class_map_to_ie cl_map ++ instance_list_to_ie inst_list')) ∧
     type_elaborate_texp ns clk ie ∅ [] st (class_map_to_env cl_map)
@@ -1838,28 +1845,37 @@ Definition default_method_names_def:
     MAP (FST ∘ SND) defaults
 End
 
+Definition method_names_def:
+  method_names cl_map = MAP FST (class_map_to_env cl_map)
+End
+
 Definition prog_construct_dict_def:
   prog_construct_dict ns cl_map defaults inst_list fns main
     output ⇔
   ∃translated_main translated_fns translated_defaults
-    translated_inst_list translated_cl_map sup_vs cl_cons inst_vs
-    default_vs ie env.
+    translated_inst_list translated_methods translated_supers
+    sup_vs cl_cons inst_vs default_vs method_vs ie env.
    output =
-     (* TODO: find an order that is easy to deal with *)
      Letrec ()
-      (translated_fns ++ translated_inst_list ++
-        translated_defaults ++ translated_cl_map)
+       (translated_defaults ++
+        translated_supers ++ translated_inst_list ++
+        translated_methods ++ translated_fns)
       translated_main ∧
 
    sup_vs = super_class_accessor_names cl_map ∧
    cl_cons = class_dict_constructor_names cl_map ∧
    inst_vs = instance_dict_names inst_list ∧
    default_vs = default_method_names defaults ∧
+   method_vs = method_names cl_map ∧
 
    (* distinctness of variable names *)
-   ALL_DISTINCT (sup_vs ++ inst_vs ++ cl_cons ++ default_vs) ∧
+   ALL_DISTINCT (sup_vs ++ inst_vs ++ cl_cons ++
+     default_vs ++ method_vs) ∧
    DISJOINT (set $ sup_vs ++ inst_vs ++ cl_cons ++ default_vs)
      (set (MAP (FST ∘ FST) fns) ∪ lambda_varsl (MAP SND fns)) ∧
+   (* the names of the top level functions cannot be the
+    * same as the method names *)
+   DISJOINT (set (MAP (FST ∘ FST) fns)) (set method_vs) ∧
 
    (* set up the the instance environment *)
    ie = FEMPTY |++
@@ -1869,17 +1885,17 @@ Definition prog_construct_dict_def:
    texp_construct_dict ns ie FEMPTY []
      (* only need to introduce the method names to the
      * environment *)
-     (set (MAP FST (class_map_to_env cl_map))) (Letrec fns main)
+     (set method_vs) (Letrec fns main)
      (Letrec () translated_fns translated_main) ∧
 
    (* set up the variable environment for translating
    * instances and default implementations
    * (every method name declared in class env is in env) *)
-   env = set (MAP (FST ∘ FST) fns) ∪
-         set (MAP FST (class_map_to_env cl_map)) ∧
-   (* translate getting super classes and the method calls
-   * by doing case analysis *)
-   translated_cl_map = class_map_construct_dict cl_map ∧
+   env = set (MAP (FST ∘ FST) fns) ∪ set method_vs ∧
+   (* create the super accessors *)
+   translated_supers = class_map_construct_super_accessors cl_map ∧
+   (* create the functions to access the methods in the dict *)
+   translated_methods = class_map_construct_methods cl_map ∧
    (* translate all the instance dictionaries to let bindings *)
    instance_list_construct_dict ns ie env cl_map defaults inst_list
     translated_inst_list ∧

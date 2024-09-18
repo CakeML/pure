@@ -684,7 +684,7 @@ Proof
     specialises_inst_def,subst_db_def,LLOOKUP_THM]
 QED
 
-Theorem test_whole_prog_type_check:
+Theorem test_prog_type_check:
   type_elaborate_prog initial_namespace st test_class_map
     test_defaults test_instance_list test_prog (Var [] «test»)
     (Cons (Cons (Tup 2) (Atom $ PrimTy Integer))
@@ -703,9 +703,18 @@ Proof
       pred_kind_wf_def,Functions_def,LLOOKUP_THM,
       initial_namespace_def]
   )
-  >~ [`instance_list_kind_check`]
+  >~ [`class_map_kind_ok`]
   >- (
-    simp[instance_list_kind_check_def,instance_kind_check_def,
+    rw[class_map_kind_ok_def,test_class_map_def,
+      class_map_to_clk_def] >>
+    simp[super_classes_def,pred_type_kind_ok_def,
+      typedefs_to_cdb_def,kind_arrows_def,
+      pred_kind_wf_def,Functions_def,LLOOKUP_THM,
+      initial_namespace_def]
+  )
+  >~ [`instance_list_kind_ok`]
+  >- (
+    simp[instance_list_kind_ok_def,instance_kind_ok_def,
       test_instance_list_elaborated_def,kind_ok_def,LLOOKUP_THM,
       kind_arrows_def,typedefs_to_cdb_def,initial_namespace_def] >>
     EVAL_TAC
@@ -944,6 +953,9 @@ Proof
   simp[default_method_names_def,test_defaults_elaborated_def]
 QED
 
+Theorem test_method_vs =
+  EVAL ``method_names test_class_map``;
+
 Definition test_cl_to_tyid_def:
   test_cl_to_tyid =
     to_cl_tyid_map (SND initial_namespace) test_class_map
@@ -951,13 +963,21 @@ End
 
 Theorem test_cl_to_tyid = EVAL ``test_cl_to_tyid``;
 
-Definition test_class_map_translated_def:
-  test_class_map_translated =
-    class_map_construct_dict test_class_map
+Definition test_methods_translated_def:
+  test_methods_translated =
+    class_map_construct_methods test_class_map
 End
 
-Theorem test_class_map_translated =
-  EVAL ``test_class_map_translated``;
+Theorem test_methods_translated =
+  EVAL ``test_methods_translated``;
+
+Definition test_supers_translated_def:
+  test_supers_translated =
+    class_map_construct_super_accessors test_class_map
+End
+
+Theorem test_supers_translated =
+  EVAL ``test_supers_translated``;
 
 Definition test_ie_def:
   test_ie = FEMPTY |++
@@ -970,7 +990,7 @@ Theorem test_ie = EVAL ``test_ie``;
 Definition test_env_def:
   test_env =
     set (MAP (FST ∘ FST) test_prog_elaborated) ∪
-         set (MAP FST (class_map_to_env test_class_map))
+         set (method_names test_class_map)
 End
 
 Theorem test_class_map_to_env =
@@ -980,7 +1000,8 @@ Theorem test_env:
   test_env =
     {«append»; «test»; «mappend»; «mempty»; «foldMap»; «toList»}
 Proof
-  simp[test_env_def,test_prog_elaborated_def,test_class_map_to_env] >>
+  simp[test_env_def,method_names_def,
+    test_prog_elaborated_def,test_class_map_to_env] >>
   EVAL_TAC
 QED
 
@@ -1291,22 +1312,25 @@ Proof
   simp[alistTheory.FLOOKUP_FUPDATE_LIST]
 QED
 
-Theorem test_whole_prog_construct_dict:
+Theorem test_prog_construct_dict:
   prog_construct_dict initial_namespace
     test_class_map test_defaults_elaborated
     test_instance_list_elaborated test_prog_elaborated
     (Var [] «test»)
-    (Letrec () (test_prog_translated ++
-      test_instance_list_translated ++
-      test_defaults_translated ++
-      test_class_map_translated) (Var () «test»))
+    (Letrec ()
+      (test_defaults_translated ++
+        test_supers_translated ++
+        test_instance_list_translated ++
+        test_methods_translated ++ test_prog_translated)
+      (Var () «test»))
 Proof
   simp[prog_construct_dict_def] >>
   simp[GSYM test_ie_def,GSYM $ SRULE[] test_env_def,
-    GSYM test_class_map_translated_def] >>
+    GSYM test_methods_translated_def,
+    GSYM test_supers_translated_def] >>
   irule_at Any test_defaults_construct_dict >>
   irule_at Any test_instance_list_construct_dict >>
-  rw[test_cl_cons,test_sup_vs,test_inst_vs,test_default_vs]
+  rw[test_cl_cons,test_sup_vs,test_inst_vs,test_default_vs,test_method_vs]
   >>~- ([`¬MEM _ _`],EVAL_TAC)
   >>~- ([`_ ∉ lambda_varsl _`],
     simp[test_prog_elaborated_def,lambda_vars_def]) >>

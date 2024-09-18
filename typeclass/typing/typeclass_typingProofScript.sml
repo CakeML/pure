@@ -126,59 +126,6 @@ Proof
   simp[kind_ok_tdefs_APPEND]
 QED
 
-Theorem namespace_ok_IMP_tcexp_namespace_ok:
-  namespace_ok ns ∧
-  ALL_DISTINCT (
-    (MAP implode (SET_TO_LIST reserved_cns)) ++
-    (MAP FST (FST ns)) ++
-    (FLAT (MAP (MAP FST o SND) (SND ns))) ++
-    FLAT (MAP (MAP FST o SND) tds)
-  ) ∧
-  EVERY (λ(ks,td). td ≠ []) tds ∧
-  EVERY (λ(ks,td). EVERY (λ(cn,argtys).
-    EVERY (
-      type_scheme_ok
-        (tdefs_to_tcexp_tdefs (SND ns) ++ tds) ks)
-        argtys) td) tds
-  ⇒
-    tcexp_namespace_ok $
-      append_ns (namespace_to_tcexp_namespace ns)
-      ([],tds)
-Proof
-  simp[namespace_to_tcexp_namespace_def,
-    tdefs_to_tcexp_tdefs_def,pair_CASE_def,
-    tcexp_namespace_ok_def,oneline namespace_ok_def,
-    EVERY_MAP,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,
-    type_scheme_ok_def,
-    lambdify type_ok_def,MAP_FLAT] >>
-  rw[]
-  >- (
-    gvs[ALL_DISTINCT_APPEND,MEM_MAP,MEM_FLAT,
-      GSYM PEXISTS_THM,FORALL_PROD,MEM_FLAT,
-      DISJ_IMP_THM,FORALL_AND_THM,PULL_EXISTS] >>
-    metis_tac[]
-  ) >>
-  gvs[EVERY_MEM,FORALL_PROD] >>
-  rw[] >>
-  irule kind_ok_tdefs_APPEND >>
-  simp[SRULE[tdefs_to_tcexp_tdefs_def] kind_ok_tdefs_to_tcexp_tdefs] >>
-  first_x_assum $ drule_all_then irule
-QED
-
-Theorem class_map_to_ns_NON_EMPTY:
-  ∀cl_to_tyid cl_map cl_tds.
-    class_map_to_ns cl_to_tyid cl_map = SOME cl_tds ⇒
-    EVERY (λ(ks,td). td ≠ []) cl_tds
-Proof
-  Induct_on `cl_map` >>
-  rw[class_map_to_ns_def] >>
-  PairCases_on `h` >>
-  gvs[class_map_to_ns_def] >>
-  last_x_assum drule >>
-  rw[] >>
-  gvs[oneline class_to_datatype_def,AllCaseEqs()]
-QED
-
 Theorem class_map_to_ns_EL:
   ∀cl_to_tyid cl_map cl_tds.
   class_map_to_ns cl_to_tyid cl_map = SOME cl_tds ⇒
@@ -375,74 +322,6 @@ Proof
     irule kind_ok_tdefs_APPEND >>
     fs[kind_ok_tdefs_to_tcexp_tdefs]
   )
-QED
-
-Theorem class_map_to_ns_EVERY_type_scheme_ok_aux:
-  ∀cl_map' cl_tds' rest_cl_map.
-  ALL_DISTINCT (MAP FST cl_map) ∧
-  class_map_to_ns (to_cl_tyid_map tds cl_map) cl_map = SOME cl_tds ∧
-  class_map_to_ns (to_cl_tyid_map tds cl_map) cl_map' = SOME cl_tds' ∧
-  class_map_kind_ok tds cl_map ∧
-  cl_map = rest_cl_map ++ cl_map' ⇒
-  EVERY (λ(ks,td). EVERY (λ(cn,argtys).
-    EVERY (
-      type_scheme_ok
-        (tdefs_to_tcexp_tdefs tds ++ cl_tds) ks)
-        argtys) td) cl_tds'
-Proof
-  Induct >>
-  rw[class_map_to_ns_def] >>
-  PairCases_on `h` >>
-  gvs[DISJ_IMP_THM,FORALL_AND_THM] >>
-  gvs[class_map_to_ns_def] >>
-  pairarg_tac >>
-  gvs[class_to_datatype_def,OPT_MMAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,
-    EVERY_MEM,FORALL_PROD] >>
-  rw[type_scheme_ok_def]
-  >- (
-    (drule_then $ drule_at_then (Pos last) $ drule_at_then (Pos last) $ irule)
-      translate_superclasses_MEM_type_ok >>
-    simp[] >>
-    metis_tac[]
-  ) >>
-  gvs[OPT_MMAP_SOME_LIST_REL,LAMBDA_PROD] >>
-  drule_all LIST_REL_MEM_IMP_R >>
-  rw[EXISTS_PROD] >>
-  gvs[translate_pred_type_scheme_def] >>
-  rev_drule_at (Pat `class_map_to_ns _ _ = _`)
-    pred_type_kind_ok_IMP_type_ok >>
-  simp[type_ok_def] >>
-  rename1 `translate_pred_type _ pt = SOME trans_pt` >>
-  disch_then $ qspecl_then [`tds`,`pt`] mp_tac >>
-  simp[] >>
-  disch_then irule >>
-  rw[oneline pred_type_kind_ok_alt] >>
-  TOP_CASE_TAC >>
-  gvs[class_map_kind_ok_def,DISJ_IMP_THM,FORALL_AND_THM,EVERY_MEM,FORALL_PROD] >>
-  rw[]
-  >- (
-    first_x_assum drule >>
-    simp[pred_type_kind_ok_alt,class_map_to_clk_def]
-  ) >>
-  first_x_assum drule >>
-  rw[pred_type_kind_ok_alt,class_map_to_clk_def,PULL_EXISTS,FORALL_PROD]
-QED
-
-Theorem class_map_to_ns_EVERY_type_scheme_ok:
-  class_map_to_ns (to_cl_tyid_map tds cl_map) cl_map = SOME cl_tds ∧
-  ALL_DISTINCT (MAP FST cl_map) ∧
-  class_map_kind_ok tds cl_map ⇒
-  EVERY (λ(ks,td). EVERY (λ(cn,argtys).
-    EVERY (
-      type_scheme_ok
-        (tdefs_to_tcexp_tdefs tds ++ cl_tds) ks)
-        argtys) td) cl_tds
-Proof
-  rw[] >>
-  (drule_then $ drule_then irule) class_map_to_ns_EVERY_type_scheme_ok_aux >>
-  rw[] >>
-  first_assum $ irule_at (Pos last) >>
-  simp[]
 QED
 
 Theorem IMP_translate_predicates_SOME:
@@ -1532,11 +1411,6 @@ Theorem construct_dict_type_tcexp:
   translate_ie_alist cl_to_tyid ie_alist = SOME ie_env ∧
   ALL_DISTINCT (MAP FST lie_alist ++ MAP FST ie_alist) ∧
   DISJOINT (set (MAP FST lie_alist ++ MAP FST ie_alist)) (set (MAP FST env)) ∧
-(*
-  (∀v ent. MEM (v,ent) ie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧
-  (∀v cl ct. MEM (v,cl,ct) lie_alist ⇒ ∀ks vt. ¬MEM (v,ks,vt) env) ∧
-  (∀v ent cl t. MEM (v,ent) ie_alist ⇒ ¬MEM (v,cl,t) lie_alist) ∧
-*)
   (∀v ent cl ks ps t. MEM (v,Entailment ks ps (cl,t)) ie_alist ⇒
     ∃pid. FLOOKUP cl_to_tyid cl = SOME pid) ∧
   lie = alist_to_fmap lie_alist ∧
@@ -1643,11 +1517,6 @@ Proof
     metis_tac[]
   )
 QED
-
-Definition translate_ns_def:
-  translate_ns ns cl_tds =
-    append_ns (namespace_to_tcexp_namespace ns) ([],cl_tds)
-End
 
 Theorem pred_type_elaborate_texp_IMP_translate_pred_type:
   pred_type_elaborate_texp ns clk ie lie db st env e e' pt ∧
@@ -2410,6 +2279,7 @@ Proof
   )
 QED
 
+(*
 Theorem texp_construct_dict_type_tcexp_exists:
   namespace_ok ns ∧
   class_map_to_ns ce (ce_to_cl_tyid_map (LENGTH $ SND ns) ce)
@@ -2504,6 +2374,7 @@ Proof
   rw[] >>
   metis_tac[]
 QED
+*)
 
 Theorem select_nth_cepat_thm:
   ∀n m v.
@@ -2588,6 +2459,18 @@ Proof
   Induct_on `n` >>
   rw[FUNPOW_SUC] >>
   rw[EXTENSION,EXISTS_PROD,EQ_IMP_THM]
+QED
+
+Theorem method_names_thm:
+  method_names cl_map =
+    FLAT (MAP (λx. MAP FST (SND x).methods) cl_map)
+Proof
+  simp[method_names_def,class_map_to_env_def,LIST_BIND_def,
+    MAP_FLAT,MAP_MAP_o] >>
+  AP_TERM_TAC >>
+  AP_THM_TAC >>
+  AP_TERM_TAC >>
+  simp[ELIM_UNCURRY,get_method_type_def,FUN_EQ_THM]
 QED
 
 Theorem nth_from_dict_type_tcexp:
@@ -2761,36 +2644,25 @@ Proof
   rw[EQ_IMP_THM]
 QED
 
-class Functor m => Monad m where
-  bind :: m a -> (a -> m b) -> m b
-  ret :: a -> m a
-
-data MonadDict m = Monad (FunctorDict m, forall a b.m a -> (a -> m b) -> m
-b,..)
-
-
-bind :: MonadDict m -> m a -> (a -> m b) -> m b
-bind m = case m of
-         | Monad func bind ret => bind
-
-Monad m => Functor m
-getFunctor :: MonadDict m -> FunctorDict m
-
-MonadDict .., ..., ...
-
+(* TODO *)
 Theorem class_map_construct_dict_type_tcexp:
-  ∀cons sup_vs ce' fns' rest_ce rest_cons.
-  class_map_to_ns ce cl_to_tyid clcons ce = SOME cl_ns ∧
-  ALL_DISTINCT (MAP FST ce) ∧
-  class_map_kind_ok (SND ns) ce ∧
-  LENGTH ce ≤ LENGTH clcons ∧
-  cl_to_tyid = ce_to_cl_tyid_map (LENGTH $ SND ns) ce ∧
-  ce = rest_ce ++ ce' ∧
-  clcons = rest_cons ++ cons ∧
-  LENGTH rest_ce = LENGTH rest_cons ∧
-  LENGTH (FLAT (MAP (λ(cl,k,supers,meths). supers) ce')) = LENGTH sup_vs ∧
-  class_map_construct_dict cons sup_vs ce' = fns' ⇒
+  ∀cl_map' fns' rest_cl_map cl_name cl.
+  class_map_to_ns cl_to_tyid cl_map = SOME cl_ns ∧
+  ALL_DISTINCT (MAP FST cl_map) ∧
+  class_map_kind_ok tds cl_map ∧
+  cl_to_tyid = to_cl_tyid_map tds cl_map ∧
+  cl_map = rest_cl_map ++ cl_map' ∧
+  tds = SND ns ∧
+  class_map_construct_dict cl_map' = fns' ∧
+  ALL_DISTINCT (super_class_accessor_names cl_map) ∧
+  ALL_DISTINCT (MAP FST class_map_to_env cl_map) ∧
+  DISJOINT (set $ super_class_accessor_names cl_map)
+    (set $ MAP FST (class_map_to_env cl_map))
+  MEM (cl_name,cl) cl_map' ⇒
 
+  (* super class *)
+  (∀
+  )
   (∀n. n < LENGTH sup_vs ⇒
     ∃f k t.
       MEM (EL n sup_vs,f) fns' ∧
@@ -2799,9 +2671,10 @@ Theorem class_map_construct_dict_type_tcexp:
       type_tcexp (append_ns (namespace_to_tcexp_namespace ns) ([],cl_ns))
         [k] st env (tcexp_of f) t) ∧
 
-   (∀cl k supers meths meth_name meth_ty.
-      MEM (cl,k,supers,meths) ce' ∧
-      MEM (meth_name,meth_ty) meths ⇒
+   (* method *)
+   (∀cl_name cl meth_name meth_ty.
+      MEM (cl_name,cl) cl_map' ∧
+      MEM (meth_name,meth_ty) cl.methods ⇒
       ∃f ks cid targs t. MEM (meth_name,f) fns' ∧
         translate_pred_type_scheme cl_to_tyid (get_method_type cl k meth_ty) =
           SOME (ks,t) ∧
@@ -2960,6 +2833,43 @@ Proof
   )
 QED
 
+(* texp_construct_dict_type_tcexp *)
+Theorem prog_construct_dict_type_tcexp:
+  namespace_ok ns ∧
+  class_map_kind_ok cl_map ∧
+  inst
+  EVERY (type_ok tds db) st ∧
+  translate_ns_and_class_datatypes ns cl_map trans_ns ∧
+  type_elaborate_prog ns st cl_map defaults inst_list fns main
+    main_t defaults' inst_list' fns' main' ∧
+  prog_construct_dict ns cl_map defaults' inst_list' fns' main'
+    output ⇒
+  type_tcexp trans_ns [] st [] (tcexp_of output) main_t
+Proof
+  rw[type_elaborate_prog_def,prog_construct_dict_def] >>
+  simp[tcexp_of_def] >>
+  irule type_tcexp_Letrec >>
+  conj_tac
+  >- (
+    dxrule $ iffLR $ cj 2 texp_construct_dict_cases >>
+    simp[] >>
+    dxrule $ iffLR $ cj 2 type_elaborate_texp_cases >>
+    rw[] >>
+    fs[LIST_REL_EL_EQN]
+  ) >>
+  dxrule $ iffLR $ cj 2 texp_construct_dict_cases >>
+  simp[] >>
+  dxrule $ iffLR $ cj 2 type_elaborate_texp_cases >>
+  rw[] >>
+
+  irule_at Any $ cj 1 $ iffLR LIST_REL_APPEND >>
+  irule_at (Pos hd) $ cj 1 $ iffLR LIST_REL_APPEND >>
+  irule_at (Pos hd) $ cj 1 $ iffLR LIST_REL_APPEND >>
+  simp[EVERY2_MAP,LAMBDA_PROD] >>
+
+QED
+
+(*
 Theorem impl_construct_dict_type_tcexp:
   namespace_ok ns ∧
   class_map_to_ns ce (ce_to_cl_tyid_map (LENGTH (SND ns)) ce) clcons ce =
@@ -2990,7 +2900,7 @@ Theorem impl_construct_dict_type_tcexp:
     (meth_ks ++ varks) st (trans_env ++ ie_env) (tcexp_of de) t
 Proof
 QED
-
+*)
 
 Theorem construct_dict_main_type_tcexp:
   env = default_env ++ cl_env ∧
@@ -3019,6 +2929,175 @@ Proof
   (* TODO: tidy up the induction theorem *)
   irule_at (Pos last) $ cj 2 texp_construct_dict_type_tcexp
 
+QED
+
+Triviality ALL_DISTINCT_APPEND_DISJOINT:
+  ALL_DISTINCT (a ++ b) ⇔
+    ALL_DISTINCT a ∧ ALL_DISTINCT b ∧
+    DISJOINT (set a) (set b)
+Proof
+  simp[ALL_DISTINCT_APPEND,DISJOINT_NOT_IN_R]
+QED
+
+(* show that the translated namespace is ok *)
+Theorem namespace_ok_IMP_tcexp_namespace_ok:
+  namespace_ok ns ∧
+  ALL_DISTINCT (FLAT (MAP (MAP FST ∘ SND) tds)) ∧
+  DISJOINT (set $ FLAT (MAP (MAP FST ∘ SND) tds))
+    (set $ (MAP implode (SET_TO_LIST reserved_cns)) ++
+      (MAP FST (FST ns)) ++
+      (FLAT (MAP (MAP FST o SND) (SND ns)))) ∧
+  EVERY (λ(ks,td). td ≠ []) tds ∧
+  EVERY (λ(ks,td). EVERY (λ(cn,argtys).
+    EVERY (
+      type_scheme_ok
+        (tdefs_to_tcexp_tdefs (SND ns) ++ tds) ks)
+        argtys) td) tds
+  ⇒
+    tcexp_namespace_ok $ translate_ns ns tds
+Proof
+  simp[namespace_to_tcexp_namespace_def,translate_ns_def,
+    tdefs_to_tcexp_tdefs_def,pair_CASE_def,
+    tcexp_namespace_ok_def,oneline namespace_ok_def,
+    EVERY_MAP,MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,
+    type_scheme_ok_def,
+    lambdify type_ok_def,MAP_FLAT] >>
+  rw[]
+  >- (
+    gvs[ALL_DISTINCT_APPEND_DISJOINT] >>
+    gvs[DISJOINT_NOT_IN_R,MEM_MAP,PULL_EXISTS]
+  ) >>
+  gvs[EVERY_MEM,FORALL_PROD] >>
+  rw[] >>
+  irule kind_ok_tdefs_APPEND >>
+  simp[SRULE[tdefs_to_tcexp_tdefs_def] kind_ok_tdefs_to_tcexp_tdefs] >>
+  first_x_assum $ drule_all_then irule
+QED
+
+Theorem class_map_to_ns_NON_EMPTY:
+  ∀cl_to_tyid cl_map cl_tds.
+    class_map_to_ns cl_to_tyid cl_map = SOME cl_tds ⇒
+    EVERY (λ(ks,td). td ≠ []) cl_tds
+Proof
+  Induct_on `cl_map` >>
+  rw[class_map_to_ns_def] >>
+  PairCases_on `h` >>
+  gvs[class_map_to_ns_def] >>
+  last_x_assum drule >>
+  rw[] >>
+  gvs[oneline class_to_datatype_def,AllCaseEqs()]
+QED
+
+Theorem class_map_to_ns_EVERY_type_scheme_ok_aux:
+  ∀cl_map' cl_tds' rest_cl_map.
+  ALL_DISTINCT (MAP FST cl_map) ∧
+  class_map_to_ns (to_cl_tyid_map tds cl_map) cl_map = SOME cl_tds ∧
+  class_map_to_ns (to_cl_tyid_map tds cl_map) cl_map' = SOME cl_tds' ∧
+  class_map_kind_ok tds cl_map ∧
+  cl_map = rest_cl_map ++ cl_map' ⇒
+  EVERY (λ(ks,td). EVERY (λ(cn,argtys).
+    EVERY (
+      type_scheme_ok
+        (tdefs_to_tcexp_tdefs tds ++ cl_tds) ks)
+        argtys) td) cl_tds'
+Proof
+  Induct >>
+  rw[class_map_to_ns_def] >>
+  PairCases_on `h` >>
+  gvs[DISJ_IMP_THM,FORALL_AND_THM] >>
+  gvs[class_map_to_ns_def] >>
+  pairarg_tac >>
+  gvs[class_to_datatype_def,OPT_MMAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,
+    EVERY_MEM,FORALL_PROD] >>
+  rw[type_scheme_ok_def]
+  >- (
+    (drule_then $ drule_at_then (Pos last) $ drule_at_then (Pos last) $ irule)
+      translate_superclasses_MEM_type_ok >>
+    simp[] >>
+    metis_tac[]
+  ) >>
+  gvs[OPT_MMAP_SOME_LIST_REL,LAMBDA_PROD] >>
+  drule_all LIST_REL_MEM_IMP_R >>
+  rw[EXISTS_PROD] >>
+  gvs[translate_pred_type_scheme_def] >>
+  rev_drule_at (Pat `class_map_to_ns _ _ = _`)
+    pred_type_kind_ok_IMP_type_ok >>
+  simp[type_ok_def] >>
+  rename1 `translate_pred_type _ pt = SOME trans_pt` >>
+  disch_then $ qspecl_then [`tds`,`pt`] mp_tac >>
+  simp[] >>
+  disch_then irule >>
+  rw[oneline pred_type_kind_ok_alt] >>
+  TOP_CASE_TAC >>
+  gvs[class_map_kind_ok_def,DISJ_IMP_THM,FORALL_AND_THM,EVERY_MEM,FORALL_PROD] >>
+  rw[]
+  >- (
+    first_x_assum drule >>
+    simp[pred_type_kind_ok_alt,class_map_to_clk_def]
+  ) >>
+  first_x_assum drule >>
+  rw[pred_type_kind_ok_alt,class_map_to_clk_def,PULL_EXISTS,FORALL_PROD]
+QED
+
+Theorem class_map_to_ns_EVERY_type_scheme_ok:
+  class_map_to_ns (to_cl_tyid_map tds cl_map) cl_map = SOME cl_tds ∧
+  ALL_DISTINCT (MAP FST cl_map) ∧
+  class_map_kind_ok tds cl_map ⇒
+  EVERY (λ(ks,td). EVERY (λ(cn,argtys).
+    EVERY (
+      type_scheme_ok
+        (tdefs_to_tcexp_tdefs tds ++ cl_tds) ks)
+        argtys) td) cl_tds
+Proof
+  rw[] >>
+  (drule_then $ drule_then irule) class_map_to_ns_EVERY_type_scheme_ok_aux >>
+  rw[] >>
+  first_assum $ irule_at (Pos last) >>
+  simp[]
+QED
+
+Triviality LENGTH_SUM_1:
+  (∀x. MEM x xs ⇒ f x = 1) ⇒
+  SUM (MAP f xs) = LENGTH xs
+Proof
+  Induct_on `xs` >>
+  rw[]
+QED
+
+Theorem class_dict_constructor_names_EQ:
+  ∀cl_map cl_ns. 
+  class_map_to_ns cl_to_tyid cl_map = SOME cl_ns ⇒
+  class_dict_constructor_names cl_map =
+    FLAT (MAP (MAP FST ∘ SND) cl_ns)
+Proof
+  Induct_on `cl_map` >>
+  gvs[class_map_to_ns_def,class_dict_constructor_names_def] >>
+  rw[] >>
+  Cases_on `h` >>
+  gvs[class_map_to_ns_def,class_to_datatype_def]
+QED
+
+Theorem translate_ns_and_class_datatypes_IMP_tcexp_namespace_ok:
+  namespace_ok ns ∧
+  translate_ns_and_class_datatypes ns cl_map tcexp_ns ∧
+  ALL_DISTINCT (MAP FST cl_map) ∧
+  class_map_kind_ok (SND ns) cl_map ∧
+  ALL_DISTINCT (class_dict_constructor_names cl_map) ∧
+  DISJOINT (set $ class_dict_constructor_names cl_map)
+    (set $ (MAP implode (SET_TO_LIST reserved_cns)) ++
+      (MAP FST (FST ns)) ++
+      (FLAT (MAP (MAP FST ∘ SND) (SND ns)))) ⇒
+  tcexp_namespace_ok tcexp_ns
+Proof
+  rw[translate_ns_and_class_datatypes_def] >>
+  drule_then irule
+    namespace_ok_IMP_tcexp_namespace_ok >>
+  drule_then (irule_at Any) class_map_to_ns_NON_EMPTY >>
+  drule_then (irule_at Any)
+    class_map_to_ns_EVERY_type_scheme_ok >>
+  drule_then assume_tac
+    class_dict_constructor_names_EQ >>
+  gvs[]
 QED
 
 val _ = export_theory();
