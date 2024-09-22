@@ -1382,69 +1382,6 @@ Definition class_map_methods_unambiguous_def:
     EVERY (method_unambiguous o SND) cl.methods
 End
 
-(* method name, implementation *)
-Type default_impl = ``:mlstring # ('a texp)``;
-Type default_impls = ``:'a default_impl list``;
-
-(* method name, translated name, implementation *)
-(* we stored the translated name of the default method as well *)
-Type default_trans_impl[pp] = ``:mlstring # (mlstring # ('a texp))``;
-Type default_trans_impls[pp] = ``:'a default_trans_impl list``;
-
-Definition type_elaborate_default_impl_def:
-  type_elaborate_default_impl ns clk ie st env e e' cl k (ks, PredType ps t) ⇔
-  (* append the kind k for the new type variable and
-   * add the constraint to the predicates *)
-   pred_type_elaborate_texp ns clk ie EMPTY (SNOC k ks) st env e e'
-     (PredType ((cl,TypeVar $ LENGTH ks)::ps) t)
-End
-
-Definition type_elaborate_default_impls_def:
-  type_elaborate_default_impls cl_map ns ie st env defaults
-    (defaults': Kind list default_trans_impls) ⇔
-  LIST_REL (λ(meth,e) (meth',name,e').
-    meth = meth' ∧
-    (* get the type of the method *)
-    ∃clname cl pt.
-      ALOOKUP (cl_map:class_map) clname = SOME cl ∧
-      ALOOKUP cl.methods meth = SOME pt ∧
-
-      type_elaborate_default_impl ns (class_map_to_clk cl_map) ie
-        st env e e' clname cl.kind pt
-    ) defaults defaults'
-End
-
-Definition default_impl_construct_dict_def:
-  default_impl_construct_dict ns ie env e e' cl k (ks,PredType ps t) ⇔
-    pred_texp_construct_dict ns ie FEMPTY (SNOC k ks) env
-      (PredType ((cl,TypeVar $ LENGTH ks)::ps) t) e e'
-End
-
-(* default_name_map stores the name generated for each default method *)
-Definition default_impls_construct_dict_def:
-  default_impls_construct_dict ns cl_map ie env
-    (defaults: Kind list default_trans_impls) defaults' ⇔
-  (* the name of the default method is not be meth, as meth will be used to
-  * refer to the method that destruct the dictionary *)
-  LIST_REL (λ(meth,name,e) (name',e').
-    name = name' ∧
-    ∃clname cl pt.
-      ALOOKUP cl_map clname = SOME cl ∧
-      ALOOKUP cl.methods meth = SOME pt ∧
-      default_impl_construct_dict ns ie env e e' clname cl.kind pt)
-    defaults defaults'
-End
-
-Theorem default_impls_construct_dict_names:
-  ∀defaults defaults'.
-    default_impls_construct_dict ns cl_map ie env defaults defaults' ⇒
-    MAP FST defaults' = MAP (FST o SND) defaults
-Proof
-  simp[default_impls_construct_dict_def] >>
-  ho_match_mp_tac LIST_REL_ind >>
-  rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY]
-QED
-
 (* generate the type id for each class *)
 Definition to_cl_tyid_map_def:
   to_cl_tyid_map tdefs cl_map = FEMPTY |++
@@ -1563,6 +1500,19 @@ Definition class_map_to_env_def:
       MAP (I ## get_method_type clname cl.kind) cl.methods)
 End
 
+Definition class_map_methods_types_def:
+  class_map_methods_types cl_map = LIST_BIND cl_map
+    (λ(clname,cl).
+      MAP (get_method_type clname cl.kind ∘ SND) cl.methods)
+End
+
+Theorem class_map_methods_types_alt:
+  class_map_methods_types cl_map = MAP SND (class_map_to_env cl_map)
+Proof
+  simp[class_map_methods_types_def,class_map_to_env_def,LAMBDA_PROD,
+    MAP_LIST_BIND,MAP_MAP_o,combinTheory.o_DEF,SND_PAIR_MAP]
+QED
+
 Definition translate_entailment_def:
   translate_entailment cl_to_tyid (Entailment ks ps q) = do
     pts <- translate_predicates cl_to_tyid ps;
@@ -1630,6 +1580,11 @@ Definition class_map_to_ie_def:
   class_map_to_ie (clenv:class_map) = LIST_BIND clenv class_to_entailments
 End
 
+Definition class_map_super_accessors_env_def:
+  class_map_super_accessors_env cl_to_tyid cl_map =
+    translate_ie_alist cl_to_tyid (class_map_to_ie cl_map)
+End
+
 Definition select_nth_cepat_def:
   select_nth_cepat 0 m var = cepatVar var::REPLICATE m cepatUScore ∧
   select_nth_cepat (SUC n) m var = cepatUScore::select_nth_cepat n m var
@@ -1651,6 +1606,15 @@ Definition translate_methods_aux_def:
       translate_methods_aux con len (SUC n) meths
 End
 
+Definition class_map_construct_super_accessors_def:
+  class_map_construct_super_accessors [] = [] ∧
+  class_map_construct_super_accessors ((clname,cl)::cls) =
+  let len = LENGTH cl.supers + LENGTH cl.methods in
+  (translate_methods_aux cl.constructor len 0
+    (MAP SND cl.supers)) ++
+    class_map_construct_super_accessors (cls:class_map)
+End
+
 Definition class_map_construct_methods_def:
   class_map_construct_methods [] = [] ∧
   class_map_construct_methods ((clname,cl)::cls) =
@@ -1660,14 +1624,69 @@ Definition class_map_construct_methods_def:
     class_map_construct_methods (cls:class_map)
 End
 
-Definition class_map_construct_super_accessors_def:
-  class_map_construct_super_accessors [] = [] ∧
-  class_map_construct_super_accessors ((clname,cl)::cls) =
-  let len = LENGTH cl.supers + LENGTH cl.methods in
-  (translate_methods_aux cl.constructor len 0
-    (MAP SND cl.supers)) ++
-    class_map_construct_super_accessors (cls:class_map)
+(* method name, implementation *)
+Type default_impl = ``:mlstring # ('a texp)``;
+Type default_impls = ``:'a default_impl list``;
+
+(* method name, translated name, implementation *)
+(* we stored the translated name of the default method as well *)
+Type default_trans_impl[pp] = ``:mlstring # (mlstring # ('a texp))``;
+Type default_trans_impls[pp] = ``:'a default_trans_impl list``;
+
+Definition type_elaborate_default_impl_def:
+  type_elaborate_default_impl ns clk ie st env e e' cl k pt ⇔
+  (* append the kind k for the new type variable and
+   * add the constraint to the predicates *)
+   pred_type_elaborate_texp ns clk ie EMPTY (FST $ get_method_type cl k pt) st
+     env e e' (SND $ get_method_type cl k pt)
 End
+
+Definition type_elaborate_default_impls_def:
+  type_elaborate_default_impls cl_map ns ie st env defaults
+    (defaults': Kind list default_trans_impls) default_ts ⇔
+  LIST_REL3 (λ(meth,e) (meth',name,e') default_t.
+    meth = meth' ∧
+    (* get the type of the method *)
+    ∃clname cl pt.
+      ALOOKUP (cl_map:class_map) clname = SOME cl ∧
+      ALOOKUP cl.methods meth = SOME pt ∧
+      default_t = get_method_type clname cl.kind pt ∧
+
+      type_elaborate_default_impl ns (class_map_to_clk cl_map) ie
+        st env e e' clname cl.kind pt
+    ) defaults defaults' default_ts
+End
+
+Definition default_impl_construct_dict_def:
+  default_impl_construct_dict ns ie env e e' cl k pt ⇔
+    pred_texp_construct_dict ns ie FEMPTY (FST $ get_method_type cl k pt) env
+      (SND $ get_method_type cl k pt) e e'
+End
+
+(* default_name_map stores the name generated for each default method *)
+Definition default_impls_construct_dict_def:
+  default_impls_construct_dict ns cl_map ie env
+    (defaults: Kind list default_trans_impls) defaults' ⇔
+  (* the name of the default method is not be meth, as meth will be used to
+  * refer to the method that destruct the dictionary *)
+  LIST_REL (λ(meth,name,e) (name',e').
+    name = name' ∧
+    ∃clname cl pt.
+      ALOOKUP cl_map clname = SOME cl ∧
+      ALOOKUP cl.methods meth = SOME pt ∧
+      default_impl_construct_dict ns ie env e e' clname cl.kind pt)
+    defaults defaults'
+End
+
+Theorem default_impls_construct_dict_names:
+  ∀defaults defaults'.
+    default_impls_construct_dict ns cl_map ie env defaults defaults' ⇒
+    MAP FST defaults' = MAP (FST o SND) defaults
+Proof
+  simp[default_impls_construct_dict_def] >>
+  ho_match_mp_tac LIST_REL_ind >>
+  rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY]
+QED
 
 Definition instance_kind_ok_def:
   instance_kind_ok tdefs clk inst ⇔
@@ -1800,27 +1819,6 @@ Definition translate_ns_and_class_datatypes_def:
     trans_ns = translate_ns ns cl_ns
 End
 
-Definition type_elaborate_prog_def:
-  type_elaborate_prog ns st cl_map defaults inst_list fns main
-    main_t defaults' inst_list' fns' main' ⇔
-  ∃clk env fns_type_scheme ie.
-    clk = class_map_to_clk cl_map ∧
-    class_map_kind_ok (SND ns) cl_map ∧
-    instance_list_kind_ok (SND ns) clk inst_list' ∧
-    ie = FRANGE (alist_to_fmap
-      (class_map_to_ie cl_map ++ instance_list_to_ie inst_list')) ∧
-    type_elaborate_texp ns clk ie ∅ [] st (class_map_to_env cl_map)
-     (Letrec fns main) (Letrec fns' main') main_t ∧
-    OPT_MMAP (SND ∘ FST) fns' = SOME fns_type_scheme ∧
-    env =
-      REVERSE (ZIP (MAP (FST ∘ FST) fns,fns_type_scheme)) ++
-      class_map_to_env cl_map ∧
-     EVERY (λ(varks,ty).
-        pred_type_kind_ok clk (SND ns) varks ty) fns_type_scheme ∧
-   type_elaborate_default_impls cl_map ns ie st env defaults defaults' ∧
-   type_elaborate_inst_list ns cl_map ie st env inst_list inst_list'
-End
-
 (* list of names of the accessor to get the dictionary that
  * corresponds to the super class *)
 Definition super_class_accessor_names_def:
@@ -1849,6 +1847,37 @@ Definition method_names_def:
   method_names cl_map = MAP FST (class_map_to_env cl_map)
 End
 
+Definition type_elaborate_prog_def:
+  type_elaborate_prog ns st cl_map defaults inst_list fns main
+    main_t defaults' inst_list' fns' main' ⇔
+  ∃clk env fns_type_scheme ie default_ts.
+    clk = class_map_to_clk cl_map ∧
+    class_map_kind_ok (SND ns) cl_map ∧
+    instance_list_kind_ok (SND ns) clk inst_list' ∧
+    ie = FRANGE (alist_to_fmap
+      (class_map_to_ie cl_map ++ instance_list_to_ie inst_list')) ∧
+    type_elaborate_texp ns clk ie ∅ [] st (class_map_to_env cl_map)
+     (Letrec fns main) (Letrec fns' main') main_t ∧
+    OPT_MMAP (SND ∘ FST) fns' = SOME fns_type_scheme ∧
+    env =
+      REVERSE (ZIP (MAP (FST ∘ FST) fns,fns_type_scheme)) ++
+      class_map_to_env cl_map ∧
+   (* EVERY (λ(varks,ty).
+        pred_type_kind_ok clk (SND ns) varks ty) fns_type_scheme ∧ *)
+
+   (* the names of the top level functions cannot be the
+    * same as the method names *)
+   DISJOINT (set (MAP (FST ∘ FST) fns)) (set $ method_names cl_map) ∧
+
+   (* no overlapping default implementations *)
+   ALL_DISTINCT (MAP FST defaults) ∧
+   (* every default method is a valid method name *)
+   set (MAP FST defaults) ⊆ set (method_names cl_map) ∧
+   type_elaborate_default_impls cl_map ns ie st env defaults defaults'
+     default_ts ∧
+   type_elaborate_inst_list ns cl_map ie st env inst_list inst_list'
+End
+
 Definition prog_construct_dict_def:
   prog_construct_dict ns cl_map defaults inst_list fns main
     output ⇔
@@ -1873,9 +1902,6 @@ Definition prog_construct_dict_def:
      default_vs ++ method_vs) ∧
    DISJOINT (set $ sup_vs ++ inst_vs ++ cl_cons ++ default_vs)
      (set (MAP (FST ∘ FST) fns) ∪ lambda_varsl (MAP SND fns)) ∧
-   (* the names of the top level functions cannot be the
-    * same as the method names *)
-   DISJOINT (set (MAP (FST ∘ FST) fns)) (set method_vs) ∧
 
    (* set up the the instance environment *)
    ie = FEMPTY |++
