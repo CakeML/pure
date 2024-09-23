@@ -1500,19 +1500,6 @@ Definition class_map_to_env_def:
       MAP (I ## get_method_type clname cl.kind) cl.methods)
 End
 
-Definition class_map_methods_types_def:
-  class_map_methods_types cl_map = LIST_BIND cl_map
-    (λ(clname,cl).
-      MAP (get_method_type clname cl.kind ∘ SND) cl.methods)
-End
-
-Theorem class_map_methods_types_alt:
-  class_map_methods_types cl_map = MAP SND (class_map_to_env cl_map)
-Proof
-  simp[class_map_methods_types_def,class_map_to_env_def,LAMBDA_PROD,
-    MAP_LIST_BIND,MAP_MAP_o,combinTheory.o_DEF,SND_PAIR_MAP]
-QED
-
 Definition translate_entailment_def:
   translate_entailment cl_to_tyid (Entailment ks ps q) = do
     pts <- translate_predicates cl_to_tyid ps;
@@ -1528,6 +1515,11 @@ Definition translate_env_def:
     env' <- translate_env cl_to_tyid env;
     SOME $ (name,pt')::env'
   od
+End
+
+Definition class_map_methods_translate_env_def:
+  class_map_methods_translate_env cl_to_tyid cl_map =
+    translate_env cl_to_tyid (class_map_to_env cl_map)
 End
 
 (* ie: mlstring |-> Entailment *)
@@ -1900,8 +1892,15 @@ Definition prog_construct_dict_def:
    (* distinctness of variable names *)
    ALL_DISTINCT (sup_vs ++ inst_vs ++ cl_cons ++
      default_vs ++ method_vs) ∧
+   (* all generated names should be disjont from every variable (including
+    * both top level bindings and bounded variables) in every function
+    * including the implmentations in instance declaration and 
+    * default implmentations *)
    DISJOINT (set $ sup_vs ++ inst_vs ++ cl_cons ++ default_vs)
-     (set (MAP (FST ∘ FST) fns) ∪ lambda_varsl (MAP SND fns)) ∧
+     (set (MAP (FST ∘ FST) fns) ∪
+       lambda_varsl (MAP SND fns) ∪
+       lambda_varsl (MAP (SND ∘ SND) defaults) ∪
+       lambda_varsl (MAP SND $ LIST_BIND inst_list)) ∧
 
    (* set up the the instance environment *)
    ie = FEMPTY |++
