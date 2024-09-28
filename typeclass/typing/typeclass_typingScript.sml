@@ -125,6 +125,7 @@ Overload tshift_env = ``λn. MAP (λ(x,scheme). (x, tshift_kind_scheme n scheme)
 Overload tshift_env_pred = ``λn. MAP (λ(x,scheme). (x, tshift_kind_scheme_pred n scheme))``;
 
 Overload tshift_lie = ``λn. IMAGE (λ(cl,t). (cl,tshift n t))``;
+Overload tshift_lie_alist = ``λn. MAP (λ(cl,t). (cl,tshift n t))``;
 Overload tshift_lie_map = ``λn lie. (λ(cl,t). (cl,tshift n t)) o_f lie``;
 
 Overload type_kind_scheme_ok =
@@ -1627,10 +1628,10 @@ Type default_trans_impls[pp] = ``:'a default_trans_impl list``;
 
 Definition type_elaborate_default_impl_def:
   type_elaborate_default_impl ns clk ie st env e e' cl k pt ⇔
-  (* append the kind k for the new type variable and
-   * add the constraint to the predicates *)
-   pred_type_elaborate_texp ns clk ie EMPTY (FST $ get_method_type cl k pt) st
-     env e e' (SND $ get_method_type cl k pt)
+    pred_type_elaborate_texp ns clk ie EMPTY (FST $ get_method_type cl k pt)
+      (MAP (tshift $ LENGTH (FST $ get_method_type cl k pt)) st)
+      (tshift_env_pred (LENGTH (FST $ get_method_type cl k pt)) env)
+      e e' (SND $ get_method_type cl k pt)
 End
 
 Definition type_elaborate_default_impls_def:
@@ -1680,22 +1681,19 @@ Proof
   rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY]
 QED
 
+Definition instance_to_entailment_def:
+  instance_to_entailment (inst:Kind list Instance) =
+    Entailment inst.kinds inst.context (inst.class,inst.type)
+End
+
 Definition instance_kind_ok_def:
   instance_kind_ok tdefs clk inst ⇔
-    ∃k. clk inst.class = SOME k ∧
-        kind_ok tdefs inst.kinds k inst.type ∧
-    EVERY (λ(c,t).
-      clk c = SOME k ∧ kind_ok tdefs inst.kinds k t) inst.context
+    entailment_kind_ok tdefs clk (instance_to_entailment inst)
 End
 
 Definition instance_list_kind_ok_def:
   instance_list_kind_ok tdefs clk (inst_list:Kind list instance_list) ⇔
      EVERY (instance_kind_ok tdefs clk) inst_list
-End
-
-Definition instance_to_entailment_def:
-  instance_to_entailment (inst:Kind list Instance) =
-    Entailment inst.kinds inst.context (inst.class,inst.type)
 End
 
 Definition instance_list_to_ie_def:
@@ -1712,8 +1710,12 @@ End
 Definition type_elaborate_impl_def:
   type_elaborate_impl ns clk ie st env varks ctxt inst_t
     meth_ks pt e e' ⇔
-  pred_type_elaborate_texp ns clk ie (set ctxt) (meth_ks ++ varks)
-    st env e e' (subst_db_pred (LENGTH meth_ks) [inst_t] pt)
+  pred_type_elaborate_texp ns clk ie
+    (tshift_lie (LENGTH meth_ks) $ set ctxt) (meth_ks ++ varks)
+    (MAP (tshift $ LENGTH meth_ks + LENGTH varks) st)
+    (tshift_env_pred (LENGTH meth_ks + LENGTH varks) env) e e'
+    (subst_db_pred (LENGTH meth_ks)
+      [tshift (LENGTH meth_ks) inst_t] pt)
 End
 
 Definition type_elaborate_impls_def:
@@ -1729,20 +1731,25 @@ Definition type_elaborate_impls_def:
      impls impls'
 End
 
-Definition type_elaborate_inst_list_def:
-  type_elaborate_inst_list ns (cl_map:class_map) ie st env
+Definition type_elaborate_instance_def:
+  type_elaborate_instance ns cl_map ie st env inst
+    (inst':Kind list Instance) ⇔
+  ( inst.class = inst'.class ∧
+    inst.type = inst'.type ∧
+    inst.kinds = LENGTH inst'.kinds ∧
+    inst.context = inst'.context ∧
+    ∃cl.
+      ALOOKUP cl_map inst'.class = SOME cl ∧
+      type_elaborate_impls ns (class_map_to_clk cl_map) ie st env
+        inst'.kinds inst.context inst.type cl.methods
+        inst.impls inst'.impls )
+End
+
+Definition type_elaborate_instance_list_def:
+  type_elaborate_instance_list ns (cl_map:class_map) ie st env
       inst_list (inst_list':Kind list instance_list) ⇔
   LIST_REL
-    (λinst inst'.
-      inst.class = inst'.class ∧
-      inst.type = inst'.type ∧
-      inst.kinds = LENGTH inst'.kinds ∧
-      inst.context = inst'.context ∧
-      ∃cl.
-        ALOOKUP cl_map inst'.class = SOME cl ∧
-        type_elaborate_impls ns (class_map_to_clk cl_map) ie st env
-          inst'.kinds inst.context inst.type cl.methods
-          inst.impls inst'.impls)
+    (type_elaborate_instance ns cl_map ie st env)
     inst_list inst_list'
 End
 
@@ -1756,16 +1763,25 @@ End
 Definition impl_construct_dict_def:
   impl_construct_dict ns ie env varks ctxt inst_t vs
     meth_ks pt e e' ⇔
-  impl_construct_dict_instantiated ns ie env ctxt vs
+  impl_construct_dict_instantiated ns ie env
+    (tshift_lie_alist (LENGTH meth_ks) ctxt) vs
     (meth_ks ++ varks)
-    (subst_db_pred (LENGTH meth_ks) [inst_t] pt) e e'
+    (subst_db_pred (LENGTH meth_ks)
+      [tshift (LENGTH meth_ks) inst_t] pt) e e'
 End
 
 Definition instance_construct_dict_def:
-  instance_construct_dict ns ie env
-    (cl :Class) (defaults :Kind list default_trans_impls)
-    (inst :Kind list Instance) (trans_inst :unit cexp) ⇔
-  ∃vs supers' impls'.
+  instance_construct_dict ns cl_map ie env
+    (defaults :Kind list default_trans_impls)
+    (inst :Kind list Instance)
+    (v,(trans_inst: unit cexp)) ⇔
+  ∃cl vs supers' impls'.
+  v = inst.dict_name ∧
+  ALOOKUP cl_map inst.class = SOME cl ∧
+  LENGTH vs = LENGTH inst.context ∧
+  ALL_DISTINCT vs ∧
+  DISJOINT (set vs) (FDOM ie) ∧
+  DISJOINT (set vs) env ∧
   trans_inst = SmartLam () vs (Prim () (Cons cl.constructor) $
     supers' ++ impls') ∧
   construct_dicts (SND ns) inst.kinds ie
@@ -1779,18 +1795,16 @@ Definition instance_construct_dict_def:
       | NONE => ∃default_name default_impl.
           ALOOKUP defaults name = SOME (default_name,default_impl) ∧
           e' = App () (Var () default_name)
-                      [Var () inst.dict_name])
+                      [SmartApp () (Var () inst.dict_name)
+                        (MAP (Var ()) vs)])
      cl.methods impls'
 End
 
 Definition instance_list_construct_dict_def:
-  instance_list_construct_dict ns ie env cl_map defaults
+  instance_list_construct_dict ns cl_map ie env defaults
     (inst_list:Kind list instance_list) trans_inst_list ⇔
   LIST_REL
-    (λinst (v,e).
-      v = inst.dict_name ∧
-      ∃cl. ALOOKUP cl_map inst.class = SOME cl ∧
-        instance_construct_dict ns ie env cl defaults inst e)
+    (instance_construct_dict ns cl_map ie env defaults)
     inst_list trans_inst_list
 End
 
@@ -1836,8 +1850,19 @@ Definition default_method_names_def:
 End
 
 Definition method_names_def:
-  method_names cl_map = MAP FST (class_map_to_env cl_map)
+  method_names [] = [] ∧
+  method_names ((cl_name,cl)::cl_map) =
+    MAP FST cl.methods ++ method_names cl_map
 End
+
+Theorem method_names_alt:
+  method_names cl_map = MAP FST (class_map_to_env cl_map)
+Proof
+  Induct_on `cl_map` >>
+  rw[method_names_def,class_map_to_env_def] >>
+  PairCases_on `h` >>
+  rw[method_names_def,class_map_to_env_def]
+QED
 
 Definition type_elaborate_prog_def:
   type_elaborate_prog ns st cl_map defaults inst_list fns main
@@ -1856,7 +1881,7 @@ Definition type_elaborate_prog_def:
       class_map_to_env cl_map ∧
    (* EVERY (λ(varks,ty).
         pred_type_kind_ok clk (SND ns) varks ty) fns_type_scheme ∧ *)
-
+   ALL_DISTINCT (method_names cl_map) ∧
    (* the names of the top level functions cannot be the
     * same as the method names *)
    DISJOINT (set (MAP (FST ∘ FST) fns)) (set $ method_names cl_map) ∧
@@ -1867,7 +1892,7 @@ Definition type_elaborate_prog_def:
    set (MAP FST defaults) ⊆ set (method_names cl_map) ∧
    type_elaborate_default_impls cl_map ns ie st env defaults defaults'
      default_ts ∧
-   type_elaborate_inst_list ns cl_map ie st env inst_list inst_list'
+   type_elaborate_instance_list ns cl_map ie st env inst_list inst_list'
 End
 
 Definition prog_construct_dict_def:
@@ -1900,7 +1925,7 @@ Definition prog_construct_dict_def:
      (set (MAP (FST ∘ FST) fns) ∪
        lambda_varsl (MAP SND fns) ∪
        lambda_varsl (MAP (SND ∘ SND) defaults) ∪
-       lambda_varsl (MAP SND $ LIST_BIND inst_list)) ∧
+       lambda_varsl (MAP SND $ LIST_BIND inst_list (λx. x.impls))) ∧
 
    (* set up the the instance environment *)
    ie = FEMPTY |++
@@ -1922,7 +1947,7 @@ Definition prog_construct_dict_def:
    (* create the functions to access the methods in the dict *)
    translated_methods = class_map_construct_methods cl_map ∧
    (* translate all the instance dictionaries to let bindings *)
-   instance_list_construct_dict ns ie env cl_map defaults inst_list
+   instance_list_construct_dict ns cl_map ie env defaults inst_list
     translated_inst_list ∧
    (* translate default implementations *)
    default_impls_construct_dict ns cl_map ie env defaults

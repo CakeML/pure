@@ -70,6 +70,12 @@ Definition test_defaults_elaborated_def:
   ]
 End
 
+Definition test_defaults_types_def:
+  test_defaults_types = [([kindType;kindArrow kindType kindType],
+      PredType [(«Foldable»,TypeVar 1)] $ Functions [Cons (TypeVar 1) (TypeVar 0)]
+         (Cons (UserType 0) (TypeVar 0)))]
+End
+
 Definition test_instance_list_def:
   test_instance_list: num instance_list = [
     <| class := «Semigroup»;
@@ -350,15 +356,16 @@ Theorem test_instance_list_type_check:
         Cons (UserType 0) (TypeVar 0)] $
         Cons (UserType 0) (TypeVar 0)] ++
     class_map_to_env test_class_map ⇒
-  type_elaborate_inst_list initial_namespace test_class_map
+  type_elaborate_instance_list initial_namespace test_class_map
     ie st env test_instance_list test_instance_list_elaborated
 Proof
-  rw[type_elaborate_inst_list_def] >>
+  rw[type_elaborate_instance_list_def] >>
   CONV_TAC (RATOR_CONV $ SCONV[test_instance_list_def]) >>
   CONV_TAC (RAND_CONV $ SCONV[test_instance_list_elaborated_def]) >>
-  rw[]
+  rw[type_elaborate_instance_def]
   >- (
-    simp[Once test_class_map_def,type_elaborate_impls_def,
+    simp[Once test_class_map_def,
+      type_elaborate_impls_def,
       type_elaborate_impl_def] >>
     simp[subst_db_def,shift_db_def,
       subst_db_Functions,shift_db_Functions,
@@ -432,8 +439,9 @@ Proof
     rpt (irule_at Any type_cepat_UScore) >>
     irule_at Any type_elaborate_texp_Var >>
     simp[Once class_map_to_env_def,Once test_class_map_def] >>
-    simp[specialises_pred_def,get_method_type_def,subst_db_pred_def] >>
-    simp[PULL_EXISTS,subst_db_def,kind_ok_def,LLOOKUP_THM,has_dicts_simp] >>
+    simp[specialises_pred_def,get_method_type_def,subst_db_pred_def,
+      shift_db_pred_def,shift_db_def,subst_db_def] >>
+    simp[PULL_EXISTS,kind_ok_def,LLOOKUP_THM,has_dicts_simp] >>
     irule_at (Pos last) exhaustive_cepat_UScore >>
     rw[GSYM PULL_EXISTS]
     >- (irule has_dict_lie >> simp[]) >>
@@ -441,8 +449,9 @@ Proof
     irule_at (Pos hd) type_elaborate_texp_Var >>
     simp[Once class_map_to_env_def,Once test_class_map_def] >>
     simp[specialises_pred_def,get_method_type_def,has_dicts_simp] >>
-    simp[PULL_EXISTS,subst_db_def,subst_db_pred_def,
-    subst_db_Functions,kind_ok_def,LLOOKUP_THM,LIST_REL3_simp] >>
+    simp[PULL_EXISTS,subst_db_def,subst_db_pred_def,shift_db_Functions,
+      shift_db_def,shift_db_pred_def,subst_db_Functions,kind_ok_def,
+      LLOOKUP_THM,LIST_REL3_simp] >>
     irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
     rw[GSYM PULL_EXISTS]
     >- (
@@ -466,7 +475,7 @@ Proof
     simp[Once class_map_to_env_def,Once test_class_map_def] >>
     simp[get_method_type_def,subst_db_Functions,PULL_EXISTS,kind_ok_def,
       specialises_pred_def,subst_db_def,subst_db_pred_def,LLOOKUP_THM,
-      GSYM Functions_APPEND] >>
+      GSYM Functions_APPEND,shift_db_def,shift_db_pred_def,shift_db_Functions] >>
     irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
     simp[Once typedefs_to_cdb_def,Once initial_namespace_def,LLOOKUP_THM] >>
     simp[Once initial_namespace_def,kind_arrows_def] >>
@@ -539,7 +548,7 @@ Proof
       subst_db_def,get_method_type_def,PULL_EXISTS] >>
     simp[kind_ok_def,LLOOKUP_THM] >>
     rpt (irule_at Any has_dict_lie) >>
-    simp[]
+    simp[shift_db_pred_def,shift_db_def,subst_db_pred_def,subst_db_def]
   )
   >- (
     simp[Once test_class_map_def,type_elaborate_impls_def,
@@ -640,12 +649,13 @@ Theorem test_defaults_type_check:
     class_map_to_env test_class_map ⇒
 
   type_elaborate_default_impls test_class_map initial_namespace
-    ie st env test_defaults test_defaults_elaborated
+    ie st env test_defaults test_defaults_elaborated test_defaults_types
 Proof
   rw[test_defaults_def,test_defaults_elaborated_def,
-    type_elaborate_default_impls_def] >>
-  simp[Once test_class_map_def] >>
-  qexists `«Foldable»` >> simp[type_elaborate_default_impl_def] >>
+    type_elaborate_default_impls_def,test_defaults_types_def] >>
+  simp[Once test_class_map_def,LIST_REL3_simp,PULL_EXISTS] >>
+  qexists `«Foldable»` >>
+  simp[type_elaborate_default_impl_def,get_method_type_def] >>
   irule type_elaborate_texp_Pred >>
   simp[pred_type_well_scoped_def,pred_type_kind_ok_def,
     pred_kind_wf_def,collect_type_vars_def,Once Functions_def] >>
@@ -660,13 +670,14 @@ Proof
   simp[Once class_map_to_env_def,Once test_class_map_def,
     get_method_type_def,has_dicts_simp,LIST_REL3_simp,
     PULL_EXISTS,specialises_pred_def,subst_db_pred_def,kind_ok_def,
-    subst_db_Functions,subst_db_def] >>
+    subst_db_Functions,subst_db_def,shift_db_pred_def,shift_db_def,
+    shift_db_Functions] >>
   irule_at (Pos last) type_elaborate_texp_Lam >>
   irule_at (Pat `type_elaborate_texp`) type_elaborate_texp_Cons >>
   simp[LIST_REL3_simp,PULL_EXISTS] >>
   irule_at (Pat `type_elaborate_texp`) type_elaborate_texp_Var >>
   simp[has_dicts_empty,specialises_pred_def,subst_db_pred_def,
-    subst_db_def] >>
+    subst_db_def,shift_db_def,shift_db_pred_def] >>
   irule_at (Pat `type_elaborate_texp`) type_elaborate_texp_Cons >>
   simp[LIST_REL3_simp,PULL_EXISTS,type_cons_def] >>
   qexistsl [`0`,`0`] >>
@@ -715,9 +726,21 @@ Proof
   >~ [`instance_list_kind_ok`]
   >- (
     simp[instance_list_kind_ok_def,instance_kind_ok_def,
+      entailment_kind_ok_def,instance_to_entailment_def,
       test_instance_list_elaborated_def,kind_ok_def,LLOOKUP_THM,
       kind_arrows_def,typedefs_to_cdb_def,initial_namespace_def] >>
     EVAL_TAC
+  )
+  >>~- ([`¬MEM _ (method_names _)`],
+    simp[test_class_map_def,method_names_def,MEM_MAP,class_map_to_env_def,
+      FORALL_PROD]
+  )
+  >>~ [`ALL_DISTINCT`]
+  >>~- ([`ALL_DISTINCT`],
+    simp[test_defaults_def,method_names_def,test_class_map_def])
+  >>~- ([`set (MAP _ _) ⊆ set (method_names _)`],
+    simp[method_names_def,test_class_map_def,class_map_to_env_def,
+      test_defaults_def]
   ) >>
   irule type_elaborate_texp_Letrec >>
   conj_tac >- simp[] >>
@@ -1000,8 +1023,8 @@ Theorem test_env:
   test_env =
     {«append»; «test»; «mappend»; «mempty»; «foldMap»; «toList»}
 Proof
-  simp[test_env_def,method_names_def,
-    test_prog_elaborated_def,test_class_map_to_env] >>
+  simp[test_env_def,method_names_def,test_class_map_def,
+    test_prog_elaborated_def] >>
   EVAL_TAC
 QED
 
@@ -1023,7 +1046,7 @@ Proof
   simp[test_defaults_elaborated_def,test_defaults_translated_def] >>
   qexists `«Foldable»` >>
   simp[Once test_class_map_def] >>
-  simp[default_impl_construct_dict_def] >>
+  simp[default_impl_construct_dict_def,get_method_type_def] >>
   irule texp_construct_dict_Pred >>
   simp[LENGTH_EQ_NUM_compute,PULL_EXISTS] >>
   simp[test_ie,test_env,get_names_namespace_def,
@@ -1147,8 +1170,8 @@ Definition test_instance_list_translated_def:
 End
 
 Theorem test_instance_list_construct_dict:
-  instance_list_construct_dict initial_namespace
-    test_ie test_env test_class_map test_defaults_elaborated
+  instance_list_construct_dict initial_namespace test_class_map
+    test_ie test_env test_defaults_elaborated
     test_instance_list_elaborated test_instance_list_translated
 Proof
   simp[instance_list_construct_dict_def,LIST_REL3_def,
@@ -1246,6 +1269,7 @@ Proof
   )
   >- (
     rw[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS]
+    >>~- ([`_ ∉ _`], simp[test_env,test_ie])
     >- (
       irule construct_dict_ie >>
       simp[Once test_ie,finite_mapTheory.FLOOKUP_SIMP] >>
@@ -1290,7 +1314,8 @@ Proof
     impl_construct_dict_instantiated_def,
     subst_db_pred_def,shift_db_pred_def,shift_db_def,subst_db_def,
     shift_db_Functions,subst_db_Functions] >>
-  simp[SmartLam_def,dest_Lam_def] >>
+  rw[SmartLam_def,dest_Lam_def]
+  >>~- ([`_ ∉ _`], simp[test_env,test_ie]) >>
   irule texp_construct_dict_Pred >>
   simp[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS] >>
   conj_tac
@@ -1312,6 +1337,19 @@ Proof
   simp[alistTheory.FLOOKUP_FUPDATE_LIST]
 QED
 
+Theorem test_prog_vs = EVAL ``MAP (FST ∘ FST) test_prog_elaborated``;
+
+Theorem test_prog_lambda_varsl = (EVAL THENC SCONV[] THENC EVAL) $
+  ``lambda_varsl (MAP SND test_prog_elaborated)``;
+
+Theorem test_defaults_lambda_varsl = (EVAL THENC SCONV[] THENC EVAL) $
+  ``lambda_varsl (MAP (SND ∘ SND) test_defaults_elaborated)``;
+
+Theorem test_instance_list_lambda_varsl =
+  (EVAL THENC SCONV[] THENC EVAL) $
+  ``lambda_varsl $
+    MAP SND (LIST_BIND test_instance_list_elaborated (λx. x.impls))``;
+
 Theorem test_prog_construct_dict:
   prog_construct_dict initial_namespace
     test_class_map test_defaults_elaborated
@@ -1330,10 +1368,9 @@ Proof
     GSYM test_supers_translated_def] >>
   irule_at Any test_defaults_construct_dict >>
   irule_at Any test_instance_list_construct_dict >>
-  rw[test_cl_cons,test_sup_vs,test_inst_vs,test_default_vs,test_method_vs]
-  >>~- ([`¬MEM _ _`],EVAL_TAC)
-  >>~- ([`_ ∉ lambda_varsl _`],
-    simp[test_prog_elaborated_def,lambda_vars_def]) >>
+  rw[test_cl_cons,test_sup_vs,test_inst_vs,test_default_vs,
+    test_method_vs,test_prog_vs,test_prog_lambda_varsl,
+    test_defaults_lambda_varsl,test_instance_list_lambda_varsl] >>
   irule texp_construct_dict_Letrec >>
   rw[test_prog_translated_def,test_prog_elaborated_def]
   >- (
