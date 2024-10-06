@@ -698,6 +698,7 @@ QED
 Theorem test_prog_type_check:
   type_elaborate_prog initial_namespace st test_class_map
     test_defaults test_instance_list test_prog (Var [] «test»)
+    (* (Integer,Integer) *)
     (Cons (Cons (Tup 2) (Atom $ PrimTy Integer))
         (Atom $ PrimTy Integer))
     test_defaults_elaborated test_instance_list_elaborated

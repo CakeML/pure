@@ -4146,12 +4146,13 @@ Theorem instance_list_type_tcexp:
     inst_list inst_list' ∧
   instance_list_construct_dict ns cl_map ie_map env_vs defaults
     inst_list' trans_inst_list ∧
+  translate_ie_alist cl_to_tyid (instance_list_to_ie inst_list') =
+    SOME instance_type_schemes ∧
+  (∀n. n < LENGTH inst_list' ⇒
+    ALOOKUP ie_env (EL n inst_list').dict_name =
+      SOME $ SND $ EL n instance_type_schemes) ∧
 
-  ALOOKUP ie_env inst'.dict_name = SOME (ks,inst_ty) ∧
   defaults_env_rel cl_to_tyid cl_map defaults trans_env ∧
-  translate_entailment cl_to_tyid (instance_to_entailment inst') =
-    SOME (ks,inst_ty) ∧
-
   translate_env cl_to_tyid env = SOME trans_env ∧
   translate_ie_alist cl_to_tyid ie_alist = SOME ie_env ∧
   namespace_ok ns ∧
@@ -4162,7 +4163,7 @@ Theorem instance_list_type_tcexp:
   ALL_DISTINCT (MAP FST ie_alist) ∧
   DISJOINT (set $ MAP FST ie_alist) (set (MAP FST env)) ∧
   DISJOINT (set $ MAP FST ie_alist)
-    (lambda_varsl (MAP SND inst'.impls)) ∧
+    (lambda_varsl (MAP SND (LIST_BIND inst_list' (λx. x.impls)))) ∧
   (∀ent. ent ∈ ie ⇒ entailment_kind_ok tds clk ent) ∧
   instance_list_kind_ok tds clk inst_list' ∧
   class_map_kind_ok tds cl_map ∧
@@ -4175,18 +4176,85 @@ Theorem instance_list_type_tcexp:
   ie_map = alist_to_fmap ie_alist ∧
   ie = FRANGE ie_map ∧
   env_vs = set (MAP FST env) ∧
-  shifted_st = MAP (tshift $ LENGTH ks) st ∧
-  new_env = tshift_env (LENGTH ks) $ trans_env ++ ie_env ∧
-  tcexp_inst = tcexp_of (SND trans_inst)
+  new_env = trans_env ++ ie_env ∧
+  type_list = MAP SND instance_type_schemes ∧
+  typed = (λ(fname,func) (ks,ty).
+      type_tcexp new_ns ks (MAP (tshift (LENGTH ks)) st)
+      (tshift_env (LENGTH ks) new_env) (tcexp_of func) ty)
   ⇒
-  type_tcexp new_ns ks shifted_st new_env tcexp_inst inst_ty
+  LIST_REL typed trans_inst_list type_list
 Proof
+  rw[type_elaborate_instance_list_def,
+    instance_list_construct_dict_def,
+    OPT_MMAP_SOME_LIST_REL] >>
+  gvs[LIST_REL_EL_EQN] >>
+  conj_asm1_tac
+  >- gvs[translate_ie_alist_OPT_MMAP,OPT_MMAP_SOME_LIST_REL,
+      EVERY2_MAP,instance_list_to_ie_def,LIST_REL_EL_EQN] >>
+  rw[EL_MAP,oneline SND] >>
+  CASE_TAC >>
+  pairarg_tac >> simp[] >>
+  pairarg_tac >> gvs[] >>
+  qpat_x_assum `!n. _ ⇒ type_elaborate_instance _ _ _ _ _ _ _`
+    drule >>
+  qpat_x_assum `!n. _ ⇒ instance_construct_dict _ _ _ _ _ _ _`
+    drule >>
+  rpt strip_tac >>
+  drule_then (drule_then irule) instance_type_tcexp >>
+  simp[] >>
+  first_assum $ irule_at (Pat `translate_ie_alist _ _ = _`) >>
+  rw[]
+  >- (
+    gvs[translate_ie_alist_OPT_MMAP,OPT_MMAP_SOME_LIST_REL,
+      LIST_REL_EL_EQN,instance_list_to_ie_def,EL_MAP] >>
+    last_x_assum drule >>
+    rw[]
+  )
+  >- (
+    gvs[lambda_varsl_def,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,
+      PULL_EXISTS] >>
+    rw[] >>
+    first_x_assum irule >>
+    simp[LIST_BIND_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+    first_assum $ irule_at (Pat `MEM _ _.impls`) >>
+    simp[MEM_EL] >>
+    irule_at Any EQ_REFL >> simp[]
+  )
+  >- gvs[instance_list_kind_ok_def,EVERY_EL]
+QED
+
+Theorem EVERY_SOME_IMP_EXISTS_OPT_MMAP_SOME:
+  EVERY (λx. ∃y. f x = SOME y) l ⇒ ∃r. OPT_MMAP f l = SOME r
+Proof
+  Induct_on `l` >> rw[] >> simp[]
+QED
+
+Theorem entailment_kind_ok_IMP_translate_entailment_SOME:
+  ALL_DISTINCT (MAP FST cl_map) ∧
+  entailment_kind_ok tds (class_map_to_clk cl_map) ent ⇒
+  ∃t. translate_entailment (to_cl_tyid_map tds cl_map) ent = SOME t
+Proof
+  Cases_on `ent` >>
+  rw[entailment_kind_ok_def,translate_entailment_def,PULL_EXISTS] >>
+  gvs[translate_predicates_OPT_MMAP,translate_predicate_def,
+    FLOOKUP_to_cl_tyid_map,PULL_EXISTS] >>
+  PairCases_on `p` >>
+  gvs[class_map_to_clk_def] >>
+  drule miscTheory.ALOOKUP_find_index_SOME >>
+  rw[] >> simp[] >>
+  irule EVERY_SOME_IMP_EXISTS_OPT_MMAP_SOME >>
+  drule_at_then (Pos last) irule MONO_EVERY >>
+  simp[FORALL_PROD,PULL_EXISTS] >>
+  rw[translate_predicate_def,FLOOKUP_to_cl_tyid_map] >>
+  drule miscTheory.ALOOKUP_find_index_SOME >>
+  rw[] >> simp[]
 QED
 
 (* main theorem *)
 Theorem prog_construct_dict_type_tcexp:
   namespace_ok ns ∧
   EVERY (type_ok (SND ns) db) st ∧
+  ALL_DISTINCT (MAP FST cl_map) ∧
   translate_ns_and_class_datatypes ns cl_map trans_ns ∧
   type_elaborate_prog ns st cl_map defaults inst_list fns main
     main_t defaults' inst_list' fns' main' ∧
@@ -4205,6 +4273,25 @@ Proof
     rw[] >>
     fs[LIST_REL_EL_EQN]
   ) >>
+  simp[] >>
+  qabbrev_tac `cl_to_tyid = to_cl_tyid_map (SND ns) cl_map` >>
+  `∃instance_type_schemes.
+    translate_ie_alist cl_to_tyid (instance_list_to_ie inst_list') =
+    SOME instance_type_schemes`
+  by (
+    simp[translate_ie_alist_OPT_MMAP] >>
+    irule EVERY_SOME_IMP_EXISTS_OPT_MMAP_SOME >>
+    rw[EVERY_MEM,instance_list_to_ie_def,MEM_MAP] >>
+    simp[Abbr`cl_to_tyid`] >>
+    irule entailment_kind_ok_IMP_translate_entailment_SOME >>
+    gvs[instance_list_kind_ok_def,EVERY_MEM,instance_kind_ok_def]
+  ) >>
+
+  `cl_to_tyid_cl_map_rel (SND ns) cl_to_tyid cl_map`
+  by (
+  )
+
+
   dxrule $ iffLR $ cj 2 texp_construct_dict_cases >>
   simp[] >>
   dxrule $ iffLR $ cj 2 type_elaborate_texp_cases >>
