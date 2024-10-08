@@ -1372,6 +1372,7 @@ Proof
   rw[test_cl_cons,test_sup_vs,test_inst_vs,test_default_vs,
     test_method_vs,test_prog_vs,test_prog_lambda_varsl,
     test_defaults_lambda_varsl,test_instance_list_lambda_varsl] >>
+  simp[lambda_vars_def] >>
   irule texp_construct_dict_Letrec >>
   rw[test_prog_translated_def,test_prog_elaborated_def]
   >- (

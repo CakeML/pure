@@ -1,3 +1,5 @@
+(*
+*)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
 open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
@@ -1671,12 +1673,17 @@ Definition default_impls_construct_dict_def:
     defaults defaults'
 End
 
+Definition default_method_names_def:
+  default_method_names (defaults: Kind list default_trans_impls) =
+    MAP (FST ∘ SND) defaults
+End
+
 Theorem default_impls_construct_dict_names:
   ∀defaults defaults'.
     default_impls_construct_dict ns cl_map ie env defaults defaults' ⇒
-    MAP FST defaults' = MAP (FST o SND) defaults
+    default_method_names defaults = MAP FST defaults'
 Proof
-  simp[default_impls_construct_dict_def] >>
+  simp[default_method_names_def,default_impls_construct_dict_def] >>
   ho_match_mp_tac LIST_REL_ind >>
   rw[default_impls_construct_dict_def,MEM_MAP,ELIM_UNCURRY]
 QED
@@ -1782,6 +1789,7 @@ Definition instance_construct_dict_def:
   ALL_DISTINCT vs ∧
   DISJOINT (set vs) (FDOM ie) ∧
   DISJOINT (set vs) env ∧
+  DISJOINT (set vs) (set $ default_method_names defaults) ∧
   trans_inst = SmartLam () vs (Prim () (Cons cl.constructor) $
     supers' ++ impls') ∧
   construct_dicts (SND ns) inst.kinds ie
@@ -1844,11 +1852,6 @@ Definition class_dict_constructor_names_def:
     MAP (λ(_,cl). cl.constructor) cl_map
 End
 
-Definition default_method_names_def:
-  default_method_names (defaults: Kind list default_trans_impls) =
-    MAP (FST ∘ SND) defaults
-End
-
 Definition method_names_def:
   method_names [] = [] ∧
   method_names ((cl_name,cl)::cl_map) =
@@ -1879,8 +1882,7 @@ Definition type_elaborate_prog_def:
     env =
       REVERSE (ZIP (MAP (FST ∘ FST) fns,fns_type_scheme)) ++
       class_map_to_env cl_map ∧
-   (* EVERY (λ(varks,ty).
-        pred_type_kind_ok clk (SND ns) varks ty) fns_type_scheme ∧ *)
+
    ALL_DISTINCT (method_names cl_map) ∧
    (* the names of the top level functions cannot be the
     * same as the method names *)
@@ -1904,7 +1906,7 @@ Definition prog_construct_dict_def:
    output =
      Letrec ()
        (translated_defaults ++
-        translated_supers ++ translated_inst_list ++
+        translated_inst_list ++ translated_supers ++ 
         translated_methods ++ translated_fns)
       translated_main ∧
 
@@ -1927,8 +1929,11 @@ Definition prog_construct_dict_def:
        lambda_varsl (MAP (SND ∘ SND) defaults) ∪
        lambda_varsl (MAP SND $ LIST_BIND inst_list (λx. x.impls))) ∧
 
+   DISJOINT (set $ sup_vs ++ inst_vs ++ cl_cons ++ default_vs)
+     (lambda_vars main) ∧
+
    (* set up the the instance environment *)
-   ie = FEMPTY |++
+   ie = alist_to_fmap
      (class_map_to_ie cl_map ++ instance_list_to_ie inst_list) ∧
 
    (* translate the program, which is a Letrec *)
