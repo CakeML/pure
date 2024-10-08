@@ -631,7 +631,7 @@ Proof
 QED
 
 Theorem translate_predicates_IMP_translate_predicates_subst_db:
-  ∀l ps. 
+  ∀l ps.
   translate_predicates cl_to_tyid l = SOME ps ⇒
   translate_predicates cl_to_tyid (MAP (I ## subst_db len subs) l) =
     SOME $ MAP (subst_db len subs) ps
@@ -1054,7 +1054,7 @@ Proof
     >- (
       drule_then irule $ SRULE[type_ok] translate_predicate_type_ok >>
       rw[] >>
-      rename1 ` translate_predicate (to_cl_tyid_map tds cl_map) pred = SOME _` >>  
+      rename1 ` translate_predicate (to_cl_tyid_map tds cl_map) pred = SOME _` >>
       Cases_on `pred` >>
       gvs[] >>
       metis_tac[kind_ok_tdefs_APPEND]
@@ -1462,7 +1462,7 @@ Proof
 QED
 
 Theorem MAP_FST_trans_env:
-  ∀env trans_env. 
+  ∀env trans_env.
   translate_env cl_to_tyid env = SOME trans_env ⇒
   MAP FST trans_env = MAP FST env
 Proof
@@ -2546,7 +2546,7 @@ Proof
 QED
 
 Theorem class_dict_constructor_names_EQ:
-  ∀cl_map cl_ns. 
+  ∀cl_map cl_ns.
   class_map_to_ns cl_to_tyid cl_map = SOME cl_ns ⇒
   class_dict_constructor_names cl_map =
     FLAT (MAP (MAP FST ∘ SND) cl_ns)
@@ -2981,7 +2981,7 @@ Proof
 QED
 
 Theorem class_map_super_accessors_type_tcexp:
-  ∀cl_map cl_env cl_types supers_accessors. 
+  ∀cl_map cl_env cl_types supers_accessors.
   class_map_super_accessors_env cl_to_tyid cl_map = SOME cl_env ∧
   cl_types = MAP SND cl_env ∧
   supers_accessors = class_map_construct_super_accessors cl_map ∧
@@ -3084,7 +3084,7 @@ Theorem class_map_methods_type_tcexp:
   method_types = MAP SND meth_env ∧
   tds = SND trans_ns ∧
   EVERY (λ(ks,td). EVERY (λ(cn,argtys).
-    EVERY (type_scheme_ok tds ks) argtys) td) tds ∧ 
+    EVERY (type_scheme_ok tds ks) argtys) td) tds ∧
   cl_to_tyid_cl_map_rel tds cl_to_tyid cl_map
   ⇒
   LIST_REL
@@ -3136,7 +3136,7 @@ Proof
   simp[SRULE[] $ Q.INST [`n` |-> `0n`] $ subst_db_GENLIST,
     unshift_db_shift_db] >>
   gvs[EVERY_EL,LLOOKUP_THM] >>
-  qpat_x_assum `∀n. n < LENGTH (SND trans_ns) ⇒ _` drule >>  
+  qpat_x_assum `∀n. n < LENGTH (SND trans_ns) ⇒ _` drule >>
   rw[] >>
   first_x_assum $ qspec_then `n + LENGTH sup_tys` mp_tac >>
   simp[EL_APPEND_EQN] >>
@@ -3243,7 +3243,7 @@ Theorem default_impl_type_tcexp:
   (∀ent. ent ∈ ie ⇒ entailment_kind_ok tds clk ent) ∧
   cl_to_tyid = to_cl_tyid_map tds cl_map ∧
   ie_map = alist_to_fmap ie_alist ∧
-  ie = FRANGE ie_map ∧ 
+  ie = FRANGE ie_map ∧
   tds = SND ns ∧
   clk = class_map_to_clk cl_map ∧
   env_vs = set $ MAP FST env ∧
@@ -3265,7 +3265,7 @@ Proof
   simp[translate_lie_alist_OPT_MMAP,OPT_MMAP_SOME_LIST_REL,EVERY_MAP] >>
   first_assum $ irule_at (Pat `ALL_DISTINCT (MAP FST cl_map)`) >>
   first_assum $ irule_at (Pat `ALL_DISTINCT (MAP FST ie_alsit)`) >>
-  irule_at (Pat `translate_ns _ _ = translate_ns _ _`) EQ_REFL >> 
+  irule_at (Pat `translate_ns _ _ = translate_ns _ _`) EQ_REFL >>
   first_assum $ irule_at (Pat `translate_pred_type _ _ = _`) >>
   Cases_on `get_method_type cl k pt` >>
   rename1 `get_method_type cl k pt = (method_ks,method_pred_type)` >>
@@ -3362,7 +3362,7 @@ Theorem default_impls_type_tcexp:
   (∀ent. ent ∈ ie ⇒ entailment_kind_ok tds clk ent) ∧
   cl_to_tyid = to_cl_tyid_map tds cl_map ∧
   ie_map = alist_to_fmap ie_alist ∧
-  ie = FRANGE ie_map ∧ 
+  ie = FRANGE ie_map ∧
   tds = SND ns ∧
   clk = class_map_to_clk cl_map ∧
   env_vs = set $ MAP FST env ∧
@@ -3788,7 +3788,7 @@ Proof
 QED
 
 Theorem translate_superclasses_translate_predicates:
-  ∀sup_tys. 
+  ∀sup_tys.
   translate_superclasses cl_to_tyid supers = SOME sup_tys ⇒
   ∃trans_pred_tys.
     translate_predicates cl_to_tyid (MAP (λsuper. (super,t)) supers) =
@@ -3955,7 +3955,7 @@ Theorem type_tcexp_weaken_env:
 Proof
   strip_tac >>
   drule_then (qspecl_then [`[]`,`[]`,`env'`] mp_tac) type_tcexp_weaken >>
-  simp[] 
+  simp[]
 QED
 
 Theorem instance_type_tcexp:
@@ -3978,7 +3978,7 @@ Theorem instance_type_tcexp:
     (lambda_varsl (MAP SND inst'.impls)) ∧
   set (MAP FST defaults_env) = set (default_method_names defaults) ∧
   DISJOINT (set (MAP FST env)) (set $ default_method_names defaults) ∧
-  DISJOINT (set $ MAP FST ie_alist) (set $ default_method_names defaults) ∧ 
+  DISJOINT (set $ MAP FST ie_alist) (set $ default_method_names defaults) ∧
 
   (∀ent. ent ∈ ie ⇒ entailment_kind_ok tds clk ent) ∧
   instance_kind_ok tds clk inst' ∧
@@ -4652,7 +4652,7 @@ Proof
   `cl_to_tyid_cl_map_rel (SND trans_ns) cl_to_tyid cl_map`
   by (
     rw[cl_to_tyid_cl_map_rel_def] >>
-    (drule_then $ drule_then $ drule_then irule) 
+    (drule_then $ drule_then $ drule_then irule)
       MEM_to_cl_tyid_map_thm >>
     simp[Abbr`cl_to_tyid`]
   ) >>
@@ -4812,7 +4812,7 @@ Proof
     simp[MAP_FST_instance_list_to_ie]
   ) >>
   qmatch_goalsub_abbrev_tac `type_tcexp _ _ _ new_env` >>
-  `new_env = 
+  `new_env =
     (REVERSE $ ZIP (MAP (λx. FST (FST x)) fns', trans_fns_type_scheme)) ++
     REVERSE meth_env ++ REVERSE super_env ++
     REVERSE instance_type_schemes ++

@@ -1906,7 +1906,7 @@ Definition prog_construct_dict_def:
    output =
      Letrec ()
        (translated_defaults ++
-        translated_inst_list ++ translated_supers ++ 
+        translated_inst_list ++ translated_supers ++
         translated_methods ++ translated_fns)
       translated_main ∧
 
@@ -1921,7 +1921,7 @@ Definition prog_construct_dict_def:
      default_vs ++ method_vs) ∧
    (* all generated names should be disjont from every variable (including
     * both top level bindings and bounded variables) in every function
-    * including the implmentations in instance declaration and 
+    * including the implmentations in instance declaration and
     * default implmentations *)
    DISJOINT (set $ sup_vs ++ inst_vs ++ cl_cons ++ default_vs)
      (set (MAP (FST ∘ FST) fns) ∪
