@@ -1004,7 +1004,7 @@ Theorem test_supers_translated =
   EVAL ``test_supers_translated``;
 
 Definition test_ie_def:
-  test_ie = FEMPTY |++
+  test_ie = alist_to_fmap
      (class_map_to_ie test_class_map ++
       instance_list_to_ie test_instance_list_elaborated)
 End
@@ -1270,7 +1270,7 @@ Proof
   )
   >- (
     rw[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS]
-    >>~- ([`_ ∉ _`], simp[test_env,test_ie])
+    >>~- ([`_ ∉ _`], simp[test_env,test_ie] >> EVAL_TAC)
     >- (
       irule construct_dict_ie >>
       simp[Once test_ie,finite_mapTheory.FLOOKUP_SIMP] >>
@@ -1316,7 +1316,7 @@ Proof
     subst_db_pred_def,shift_db_pred_def,shift_db_def,subst_db_def,
     shift_db_Functions,subst_db_Functions] >>
   rw[SmartLam_def,dest_Lam_def]
-  >>~- ([`_ ∉ _`], simp[test_env,test_ie]) >>
+  >>~- ([`_ ∉ _`], simp[test_env,test_ie] >> EVAL_TAC) >>
   irule texp_construct_dict_Pred >>
   simp[SmartLam_EQ_Lam_cases,LENGTH_EQ_NUM_compute,PULL_EXISTS] >>
   conj_tac
@@ -1358,13 +1358,13 @@ Theorem test_prog_construct_dict:
     (Var [] «test»)
     (Letrec ()
       (test_defaults_translated ++
-        test_supers_translated ++
         test_instance_list_translated ++
+        test_supers_translated ++
         test_methods_translated ++ test_prog_translated)
       (Var () «test»))
 Proof
   simp[prog_construct_dict_def] >>
-  simp[GSYM test_ie_def,GSYM $ SRULE[] test_env_def,
+  simp[GSYM $ SRULE[] test_ie_def,GSYM $ SRULE[] test_env_def,
     GSYM test_methods_translated_def,
     GSYM test_supers_translated_def] >>
   irule_at Any test_defaults_construct_dict >>
