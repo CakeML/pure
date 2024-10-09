@@ -193,4 +193,17 @@ QED
 Theorem kind_wf_mono = GEN_ALL $
   SRULE[AND_IMP_INTRO,cj 1 PULL_FORALL] kind_wf_mono_helper;
 
+Theorem kind_wf_unique_kind:
+  ∀k t. 
+  kind_wf cdb vdb k t ⇒
+  ∀k'. kind_wf cdb vdb k' t ⇒
+  k = k'
+Proof
+  ho_match_mp_tac kind_wf_ind >>
+  rw[] >>
+  last_x_assum drule >>
+  last_x_assum drule >>
+  rw[]
+QED
+
 val _ = export_theory();

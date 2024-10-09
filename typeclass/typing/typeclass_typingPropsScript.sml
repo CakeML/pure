@@ -178,6 +178,15 @@ Proof
   rw[kind_ok_def,typedefs_to_cdb_def]
 QED
 
+Theorem kind_ok_unique_kind:
+  kind_ok tds ks k t ∧
+  kind_ok tds ks k' t ⇒
+  k = k'
+Proof
+  simp[kind_ok_def] >>
+  metis_tac[kind_wf_unique_kind]
+QED
+
 Theorem type_ok:
   (∀tds ks t. type_ok tds ks t ⇔
     kind_ok tds ks kindType t) ∧
@@ -330,17 +339,55 @@ Proof
     EQ_IMP_THM,SF ETA_ss]
 QED
 
-Theorem kind_arrows_kindType_EQ:
-  ∀ks ks'. kind_arrows ks kindType = kind_arrows ks' kindType ⇔ ks = ks'
+Theorem Kind_size_kind_arrows:
+  Kind_size (kind_arrows ks k) =
+    SUM (MAP (λk. 1 + Kind_size k) ks) + Kind_size k
+Proof
+  Induct_on `ks` >>
+  simp[kind_arrows_def,Kind_size_def]
+QED
+
+Triviality kindArrow_kind_arrows_NEQ:
+  k ≠ kindArrow h (kind_arrows ks k)
+Proof
+  `Kind_size k < Kind_size (kindArrow h (kind_arrows ks k))`
+  suffices_by (
+    rpt strip_tac >>
+    `Kind_size k = Kind_size (kindArrow h (kind_arrows ks k))`
+    by (
+      AP_TERM_TAC >>
+      first_x_assum irule
+    ) >>
+    gvs[]
+  ) >>
+  simp[Kind_size_def,Kind_size_kind_arrows]
+QED
+
+Theorem kind_arrows_ret_EQ:
+  ∀ks ks'. kind_arrows ks k = kind_arrows ks' k ⇔
+  ks = ks'
 Proof
   simp[EQ_IMP_THM] >>
   Induct >>
-  simp[kind_arrows_def]
-  >- (Induct >> simp[kind_arrows_def]) >>
-  strip_tac >>
-  Induct >>
+  simp[kind_arrows_def] >>
+  Cases_on `ks'` >>
+  gvs[kind_arrows_def] >>
+  metis_tac[kindArrow_kind_arrows_NEQ]
+QED
+
+Theorem kind_arrows_arg_EQ:
+  kind_arrows ks k = kind_arrows ks k' ⇔ k = k'
+Proof
+  Induct_on `ks` >>
   simp[kind_arrows_def]
 QED
+
+Theorem kind_arrows_kindType_EQ:
+  ∀ks ks'. kind_arrows ks kindType = kind_arrows ks' kindType ⇔ ks = ks'
+Proof
+  metis_tac[kind_arrows_ret_EQ]
+QED
+
 
 Theorem monad_args_SUBSET_reserved_cns:
   monad_cns SUBSET reserved_cns DELETE "Subscript"
