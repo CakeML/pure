@@ -68,6 +68,55 @@ Proof
   Cases_on `bs` >> gvs[Functions_def]
 QED
 
+Triviality type_size_Functions:
+  type_size (Functions [] x) = type_size x ∧
+  type_size (Functions (arg::args) x) = type_size arg + type_size
+  (Functions args x) + 3 + atom_ty_size (CompPrimTy Function)
+Proof
+  rw[Functions_def,type_size_def]
+QED
+
+Triviality self_EQ_Functions_self:
+  x = Functions args x ⇒ args = []
+Proof
+  `args ≠ [] ⇒ type_size x < type_size (Functions args x)`
+  by (
+    Induct_on `args` >>
+    simp[type_size_Functions] >>
+    rw[] >>
+    Cases_on `args`
+    >- simp[Functions_def] >>
+    gvs[]
+  ) >>
+  Cases_on `args` >>
+  gvs[] >>
+  spose_not_then assume_tac >>
+  `type_size x = type_size (Functions (h::t) x)`
+    by (AP_TERM_TAC >> simp[]) >>
+  gvs[]
+QED
+
+Theorem Functions_arg_EQ_IMP:
+  Functions args ret = Functions args ret' ⇔
+  ret = ret'
+Proof
+  rw[EQ_IMP_THM] >>
+  drule Functions_eq_imp >>
+  rw[] >>
+  simp[Functions_def]
+QED
+
+Theorem Functions_return_EQ_IMP:
+  Functions args ret = Functions args' ret ⇔
+  args = args'
+Proof
+  rw[EQ_IMP_THM] >>
+  drule Functions_eq_imp >>
+  rw[] >>
+  drule self_EQ_Functions_self >>
+  gvs[]
+QED
+
 Theorem collect_type_vars_Functions:
   collect_type_vars (Functions args ret) =
     BIGUNION (set (MAP collect_type_vars args)) ∪ collect_type_vars ret
@@ -320,6 +369,18 @@ Proof
   rw[] >>
   Cases_on `t` >>
   gvs[ty_args_aux_def]
+QED
+
+Theorem ty_args_aux_thm:
+  ∀x l. ty_args_aux x l = ty_args_aux x [] ++ l
+Proof
+  Induct
+  >- rw[ty_args_aux_def] >>
+  PURE_REWRITE_TAC[ty_args_aux_def] >>
+  strip_tac >>
+  irule EQ_TRANS >>
+  last_assum $ irule_at $ Pos hd >>
+  last_x_assum (fn thm => simp[SimpR “$=”, Once thm])
 QED
 
 Theorem ty_args_SNOC:

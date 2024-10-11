@@ -282,7 +282,6 @@ Proof
     )
 QED
 
-
 Definition Disj'_def:
   Disj' ve [] = Cons "False" [] ∧
   Disj' ve ((cn,l)::xs) =
@@ -456,12 +455,6 @@ Proof
        FORALL_PROD]
 QED
 
-Theorem monad_cns_SUBSET_reserved_cns:
-  monad_cns ⊆ reserved_cns ∧ "Subscript" ∉ monad_cns
-Proof
-  simp[SUBSET_DEF, monad_cns_def, reserved_cns_def, DISJ_IMP_THM]
-QED
-
 Theorem LLOOKUP_MEM:
   LLOOKUP xs n = SOME x ⇒ MEM x xs
 Proof
@@ -499,18 +492,7 @@ Proof
   rw[]
 QED
 
-Theorem ty_args_aux_thm:
-  ∀x l. ty_args_aux x l = ty_args_aux x [] ++ l
-Proof
-  Induct
-  >- rw[ty_args_aux_def] >>
-  PURE_REWRITE_TAC[ty_args_aux_def] >>
-  strip_tac >>
-  irule EQ_TRANS >>
-  last_assum $ irule_at $ Pos hd >>
-  last_x_assum (fn thm => simp[SimpR “$=”, Once thm])
-QED
-
+(*
 Theorem ty_args_aux_cons_types:
   ∀c ts l.
   LENGTH(ty_args_aux(cons_types c ts) l) = LENGTH ts + LENGTH(ty_args_aux c l)
@@ -528,6 +510,7 @@ Proof
   Induct_on ‘ts’ >>
   rw[cons_types_def,ty_args_aux_def]
 QED
+*)
 
 Theorem tcexp_prim_cons_length_eq:
   type_tcexp ns db st [] (Prim (Cons cn) ces) t' ∧
@@ -540,7 +523,7 @@ Proof
   gvs[oneline tcexp_destruct_type_cons_def,AllCaseEqs(),
       tcexp_type_cons_def
      ] >>
-  gvs[split_ty_cons_def,split_ty_cons_aux_def] >>
+  gvs[split_ty_cons_thm,head_ty_cons_def,ty_args_alt] >>
   rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
   gvs[type_exception_def,tcexp_namespace_ok_def(*,reserved_cns_def*)] >>
   imp_res_tac ALOOKUP_MEM >>
@@ -551,20 +534,14 @@ Proof
   gvs[] >>
   gvs[cons_types_EQ_Atom]
   >- (gvs[reserved_cns_def,SF DNF_ss] >> metis_tac[])
-  >- (imp_res_tac split_ty_cons_aux_thm >>
-      gvs[head_ty_cons_cons_types,
-          head_ty_cons_def] >>
-      gvs[ty_args_aux_cons_types] >>
-      gvs[ty_args_aux_def])
+  >- gvs[head_ty_cons_cons_types,ty_args_cons_types,
+          head_ty_cons_def,ty_args_alt]
   >- (gvs[tcons_to_type_def] >>
       gvs[cons_types_EQ_Atom])
   >- (gvs[tcons_to_type_def] >>
       gvs[cons_types_EQ_Atom] >>
-      imp_res_tac split_ty_cons_aux_thm >>
-      gvs[head_ty_cons_cons_types,
-          head_ty_cons_def] >>
-      gvs[ty_args_aux_cons_types] >>
-      gvs[ty_args_aux_def])
+      gvs[head_ty_cons_cons_types,ty_args_cons_types,
+          head_ty_cons_def,ty_args_alt])
   >- (gvs[reserved_cns_def,SF DNF_ss] >> metis_tac[])
   >- (gvs[reserved_cns_def,SF DNF_ss] >> metis_tac[])
   >- (gvs[reserved_cns_def,SF DNF_ss] >> metis_tac[])
@@ -661,7 +638,7 @@ Proof
       strip_tac >>
       irule kind_ok_shift_db >>
       first_x_assum $ irule_at $ Pos last >>
-      simp[miscTheory.LLOOKUP_THM,EL_APPEND])
+      simp[miscTheory.LLOOKUP_THM,EL_APPEND_EQN])
     )
   >~ [‘Let’]
   >- (
@@ -758,7 +735,7 @@ Proof
          gvs[type_ok_def] >>
          drule kind_ok_shift_db >>
          disch_then match_mp_tac >>
-         simp[miscTheory.LLOOKUP_THM,EL_APPEND]
+         simp[miscTheory.LLOOKUP_THM,EL_APPEND_EQN]
          ) >>
        rw[LIST_REL_EL_EQN, EL_MAP] >> rename1 `EL m _` >>
        qmatch_goalsub_abbrev_tac `_ a (_ b)` >>
@@ -1156,16 +1133,13 @@ Proof
     >- (gvs[oneline tcexp_destruct_type_cons_def] >>
         gvs[cons_types_EQ_Atom] >>
         PURE_FULL_CASE_TAC >> gvs[] >>
-        gvs[split_ty_cons_def,split_ty_cons_aux_thm,
+        gvs[split_ty_cons_thm,ty_args_alt,
             head_ty_cons_cons_types,head_ty_cons_def,
-            ty_args_aux_cons_types,specialises_def,
-            ty_args_aux_def,EL_MAP
+            ty_args_cons_types,specialises_def,
+            EL_MAP
            ] >>
         gvs[LIST_REL_EL_EQN] >>
-        first_x_assum drule >>
-        gvs[ty_args_aux_cons_types'] >>
-        simp[Once ty_args_aux_thm] >>
-        simp[ty_args_aux_def])
+        first_x_assum drule)
     >- (gvs[type_exception_def] >>
         gvs[oneline tcexp_destruct_type_cons_def] >>
         gvs[cons_types_EQ_Atom] >>
@@ -1187,17 +1161,14 @@ Proof
     gvs[oneline tcexp_destruct_type_cons_def] >>
     gvs[cons_types_EQ_Atom] >>
     PURE_FULL_CASE_TAC >> gvs[] >>
-    gvs[split_ty_cons_def,split_ty_cons_aux_thm,
+    gvs[split_ty_cons_thm,ty_args_alt,
         head_ty_cons_cons_types,head_ty_cons_def,
-        ty_args_aux_cons_types,specialises_def,
-        ty_args_aux_def,EL_MAP] >>
+        ty_args_cons_types,specialises_def,
+        EL_MAP] >>
     gvs[tcexp_type_cons_def] >>
     gvs[EL_MAP] >>
     imp_res_tac LIST_REL_LENGTH >>
     fs[LENGTH_MAP] >>
-    gvs[ty_args_aux_cons_types] >>
-    gvs[ty_args_aux_cons_types'] >>
-    gvs[ty_args_aux_def] >>
     gvs[oneline specialises_def] >>
     pairarg_tac >> gvs[] >>
     gvs[LIST_REL_EL_EQN] >>

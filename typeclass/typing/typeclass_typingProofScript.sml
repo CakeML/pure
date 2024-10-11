@@ -53,6 +53,26 @@ Proof
   metis_tac[]
 QED
 
+Theorem LIST_REL3_EVERY:
+  ∀xs ys zs.
+  LIST_REL3 R xs ys zs ⇒
+  ((∀x y z. R x y z ⇒ P1 x) ⇒ EVERY P1 xs) ∧
+  ((∀x y z. R x y z ⇒ P2 y) ⇒ EVERY P2 ys) ∧
+  ((∀x y z. R x y z ⇒ P3 z) ⇒ EVERY P3 zs)
+Proof
+  ho_match_mp_tac LIST_REL3_induct >>
+  rw[] >> metis_tac[]
+QED
+
+Theorem LIST_REL_EVERY:
+  ∀xs ys. LIST_REL R xs ys ⇒
+  ((∀a b. R a b ⇒ P a) ⇒ EVERY P xs) ∧
+  ((∀a b. R a b ⇒ Q b) ⇒ EVERY Q ys)
+Proof
+  ho_match_mp_tac LIST_REL_ind >>
+  rw[] >> metis_tac[]
+QED
+
 Theorem FLOOKUP_to_cl_tyid_map:
   ALL_DISTINCT (MAP FST cl_map) ⇒
   FLOOKUP (to_cl_tyid_map tdefs cl_map) cl =
@@ -3557,55 +3577,6 @@ Proof
   rw[subst_db_Functions]
 QED
 
-Triviality type_size_Functions:
-  type_size (Functions [] x) = type_size x ∧
-  type_size (Functions (arg::args) x) = type_size arg + type_size
-  (Functions args x) + 3 + atom_ty_size (CompPrimTy Function)
-Proof
-  rw[Functions_def,type_size_def]
-QED
-
-Triviality self_EQ_Functions_self:
-  x = Functions args x ⇒ args = []
-Proof
-  `args ≠ [] ⇒ type_size x < type_size (Functions args x)`
-  by (
-    Induct_on `args` >>
-    simp[type_size_Functions] >>
-    rw[] >>
-    Cases_on `args`
-    >- simp[Functions_def] >>
-    gvs[]
-  ) >>
-  Cases_on `args` >>
-  gvs[] >>
-  spose_not_then assume_tac >>
-  `type_size x = type_size (Functions (h::t) x)`
-    by (AP_TERM_TAC >> simp[]) >>
-  gvs[]
-QED
-
-Theorem Functions_arg_EQ_IMP:
-  Functions args ret = Functions args ret' ⇔
-  ret = ret'
-Proof
-  rw[EQ_IMP_THM] >>
-  drule Functions_eq_imp >>
-  rw[] >>
-  simp[Functions_def]
-QED
-
-Theorem Functions_return_EQ_IMP:
-  Functions args ret = Functions args' ret ⇔
-  args = args'
-Proof
-  rw[EQ_IMP_THM] >>
-  drule Functions_eq_imp >>
-  rw[] >>
-  drule self_EQ_Functions_self >>
-  gvs[]
-QED
-
 Theorem impl_type_tcexp:
   namespace_ok ns ∧
   translate_ns_and_class_datatypes ns cl_map new_ns ∧
@@ -3625,7 +3596,6 @@ Theorem impl_type_tcexp:
   DISJOINT (set $ MAP FST ie_alist) (lambda_vars e') ∧
   (∀ent. ent ∈ ie ⇒ entailment_kind_ok tds clk ent) ∧
 
-  (* subst_pt = subst_db_pred (LENGTH meth_ks) [inst_t] pt ∧ *)
   t = subst_db (LENGTH meth_ks) [tshift (LENGTH meth_ks) inst_t] trans_pt ∧
   cl_to_tyid = to_cl_tyid_map tds cl_map ∧
   tds = SND ns ∧
@@ -4366,17 +4336,6 @@ Proof
   rw[] >> simp[]
 QED
 
-Theorem LIST_REL3_EVERY:
-  ∀xs ys zs.
-  LIST_REL3 R xs ys zs ⇒
-  ((∀x y z. R x y z ⇒ P1 x) ⇒ EVERY P1 xs) ∧
-  ((∀x y z. R x y z ⇒ P2 y) ⇒ EVERY P2 ys) ∧
-  ((∀x y z. R x y z ⇒ P3 z) ⇒ EVERY P3 zs)
-Proof
-  ho_match_mp_tac LIST_REL3_induct >>
-  rw[] >> metis_tac[]
-QED
-
 Theorem pred_type_kind_ok_IMP_translate_pred_type_SOME:
   pred_type_kind_ok (class_map_to_clk cl_map) tds db pt ∧
   ALL_DISTINCT (MAP FST cl_map) ⇒
@@ -4426,15 +4385,6 @@ Proof
   first_x_assum drule >>
   rw[] >>
   metis_tac[pred_type_kind_ok_IMP_translate_pred_type_SOME]
-QED
-
-Theorem LIST_REL_EVERY:
-  ∀xs ys. LIST_REL R xs ys ⇒
-  ((∀a b. R a b ⇒ P a) ⇒ EVERY P xs) ∧
-  ((∀a b. R a b ⇒ Q b) ⇒ EVERY Q ys)
-Proof
-  ho_match_mp_tac LIST_REL_ind >>
-  rw[] >> metis_tac[]
 QED
 
 Theorem MAP_FST_class_map_to_ie:

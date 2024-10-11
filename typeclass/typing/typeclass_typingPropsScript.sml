@@ -309,26 +309,6 @@ Proof
   gvs[oEL_THM,EL_APPEND_EQN]
 QED
 
-Theorem kind_arrows_APPEND:
-  kind_arrows (xs ++ ys) k = kind_arrows xs (kind_arrows ys k)
-Proof
-  Induct_on `xs` >>
-  rw[kind_arrows_def]
-QED
-
-Theorem kind_wf_cons_types:
-  ∀cdb vdb k t ts.
-    kind_wf cdb vdb k (cons_types t ts) ⇔
-    ∃ks. LIST_REL (kind_wf cdb vdb) ks ts ∧
-      kind_wf cdb vdb (kind_arrows ks k) t
-Proof
-  Induct_on `ts` using SNOC_INDUCT >>
-  rw[cons_types_def,kind_arrows_def,kind_arrows_def,
-    kind_arrows_APPEND,cons_types_SNOC,LIST_REL_SNOC,
-    PULL_EXISTS] >>
-  metis_tac[]
-QED
-
 Theorem kind_ok_cons_types:
   ∀tdefs db k t ts.
     kind_ok tdefs db k (cons_types t ts) ⇔
@@ -347,52 +327,16 @@ Proof
   simp[kind_arrows_def,Kind_size_def]
 QED
 
-Triviality kindArrow_kind_arrows_NEQ:
-  k ≠ kindArrow h (kind_arrows ks k)
+Theorem monad_cns_SUBSET_reserved_cns:
+  monad_cns ⊆ reserved_cns ∧ "Subscript" ∉ monad_cns
 Proof
-  `Kind_size k < Kind_size (kindArrow h (kind_arrows ks k))`
-  suffices_by (
-    rpt strip_tac >>
-    `Kind_size k = Kind_size (kindArrow h (kind_arrows ks k))`
-    by (
-      AP_TERM_TAC >>
-      first_x_assum irule
-    ) >>
-    gvs[]
-  ) >>
-  simp[Kind_size_def,Kind_size_kind_arrows]
+  simp[SUBSET_DEF, monad_cns_def, reserved_cns_def, DISJ_IMP_THM]
 QED
 
-Theorem kind_arrows_ret_EQ:
-  ∀ks ks'. kind_arrows ks k = kind_arrows ks' k ⇔
-  ks = ks'
+Theorem monad_cns_SUBSET_reserved_cns_DELETE:
+  monad_cns ⊆ (reserved_cns DELETE "Subscript")
 Proof
-  simp[EQ_IMP_THM] >>
-  Induct >>
-  simp[kind_arrows_def] >>
-  Cases_on `ks'` >>
-  gvs[kind_arrows_def] >>
-  metis_tac[kindArrow_kind_arrows_NEQ]
-QED
-
-Theorem kind_arrows_arg_EQ:
-  kind_arrows ks k = kind_arrows ks k' ⇔ k = k'
-Proof
-  Induct_on `ks` >>
-  simp[kind_arrows_def]
-QED
-
-Theorem kind_arrows_kindType_EQ:
-  ∀ks ks'. kind_arrows ks kindType = kind_arrows ks' kindType ⇔ ks = ks'
-Proof
-  metis_tac[kind_arrows_ret_EQ]
-QED
-
-
-Theorem monad_args_SUBSET_reserved_cns:
-  monad_cns SUBSET reserved_cns DELETE "Subscript"
-Proof
-  simp[monad_cns_def,reserved_cns_def,SUBSET_DEF]
+  simp[SUBSET_DEF, monad_cns_def, reserved_cns_def, DISJ_IMP_THM]
 QED
 
 (******************** Typing judgements ********************)
@@ -629,7 +573,7 @@ Proof
     TOP_CASE_TAC >>
     spose_not_then kall_tac >>
     drule_then strip_assume_tac monad_args_ok_SOME >>
-    assume_tac monad_args_SUBSET_reserved_cns >>
+    assume_tac monad_cns_SUBSET_reserved_cns_DELETE >>
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     qpat_x_assum `!e. _ ⇒ ∀y. _ ⇒ ¬MEM y (FLAT (MAP _ _))` $
@@ -654,7 +598,7 @@ Proof
     TOP_CASE_TAC >>
     spose_not_then kall_tac >>
     drule_then strip_assume_tac monad_args_ok_SOME >>
-    assume_tac monad_args_SUBSET_reserved_cns >>
+    assume_tac monad_cns_SUBSET_reserved_cns_DELETE >>
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     fs[] >>
@@ -789,7 +733,7 @@ Theorem elaborated_texp_Lits_wf:
     elaborated_texp e e' ⇒
     texp_Lits_wf e ⇒ texp_Lits_wf e'
 Proof
-  ho_match_mp_tac elaborated_texp_ind >>  
+  ho_match_mp_tac elaborated_texp_ind >>
   gvs[texp_Lits_wf_def,EVERY_EL,LIST_REL3_EL,LIST_REL_EL_EQN,
     EL_MAP]
 QED

@@ -345,7 +345,7 @@ Proof
   qexists `BIGUNION (IMAGE (λcl. set cl.supers) $
     {v | ∃s. mlmap$lookup cl_map s = SOME v})` >>
   rw[SUBSET_DEF]
-  >- (  
+  >- (
     irule IMAGE_FINITE >>
     simp[mlmapTheory.lookup_thm,GSYM TO_FLOOKUP]
   )
@@ -1175,7 +1175,7 @@ Proof
   gvs[lookup_inst_map_thm]
 QED
 
-(* Every type variable in the context is in the rhs *) 
+(* Every type variable in the context is in the rhs *)
 Definition well_scoped_inst_map_def:
   well_scoped_inst_map (inst_map:'a inst_map_impl) =
   (∀class tycons n inst_info c v.
@@ -1196,7 +1196,7 @@ Proof
   disch_then drule >>
   rw[instance_kind_ok_def,entailment_kind_ok_def,
     instance_to_entailment_def] >>
-  drule $ iffLR EVERY_MEM >>  
+  drule $ iffLR EVERY_MEM >>
   simp[MEM_MAP,PULL_EXISTS] >>
   disch_then drule >>
   rw[] >>

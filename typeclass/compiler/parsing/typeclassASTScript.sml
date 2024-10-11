@@ -49,7 +49,7 @@ Datatype:
          | expApp expAST expAST
          | expAbs patAST expAST
          | expIf expAST expAST expAST
-         | expLit litAST 
+         | expLit litAST
          | expLet (expdecAST list) expAST
          | expDo (expdostmtAST list) expAST
          | expCase expAST ((patAST # expAST) list)

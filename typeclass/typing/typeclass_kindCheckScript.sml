@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib BasicProvers;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory alistTheory;
-open typeclass_typesTheory;
+open typeclass_typesTheory typeclass_typesPropsTheory;
 
 val _ = new_theory "typeclass_kindCheck";
 
@@ -9,11 +9,69 @@ Datatype:
   Kind = kindType | kindArrow Kind Kind
 End
 
+val Kind_size_def = fetch "-" "Kind_size_def";
+
 (* helper function to create a kind *)
 Definition kind_arrows_def:
   (kind_arrows [] ret = ret) ∧
   (kind_arrows (k::ks) ret = kindArrow k (kind_arrows ks ret))
 End
+
+Theorem kind_arrows_APPEND:
+  kind_arrows (xs ++ ys) k = kind_arrows xs (kind_arrows ys k)
+Proof
+  Induct_on `xs` >>
+  rw[kind_arrows_def]
+QED
+
+Theorem Kind_size_kind_arrows:
+  Kind_size (kind_arrows ks k) =
+    SUM (MAP (λk. 1 + Kind_size k) ks) + Kind_size k
+Proof
+  Induct_on `ks` >>
+  simp[kind_arrows_def,Kind_size_def]
+QED
+
+Triviality kindArrow_kind_arrows_NEQ:
+  k ≠ kindArrow h (kind_arrows ks k)
+Proof
+  `Kind_size k < Kind_size (kindArrow h (kind_arrows ks k))`
+  suffices_by (
+    rpt strip_tac >>
+    `Kind_size k = Kind_size (kindArrow h (kind_arrows ks k))`
+    by (
+      AP_TERM_TAC >>
+      first_x_assum irule
+    ) >>
+    gvs[]
+  ) >>
+  simp[Kind_size_def,Kind_size_kind_arrows]
+QED
+
+Theorem kind_arrows_ret_EQ:
+  ∀ks ks'. kind_arrows ks k = kind_arrows ks' k ⇔
+  ks = ks'
+Proof
+  simp[EQ_IMP_THM] >>
+  Induct >>
+  simp[kind_arrows_def] >>
+  Cases_on `ks'` >>
+  gvs[kind_arrows_def] >>
+  metis_tac[kindArrow_kind_arrows_NEQ]
+QED
+
+Theorem kind_arrows_arg_EQ:
+  kind_arrows ks k = kind_arrows ks k' ⇔ k = k'
+Proof
+  Induct_on `ks` >>
+  simp[kind_arrows_def]
+QED
+
+Theorem kind_arrows_kindType_EQ:
+  ∀ks ks'. kind_arrows ks kindType = kind_arrows ks' kindType ⇔ ks = ks'
+Proof
+  metis_tac[kind_arrows_ret_EQ]
+QED
 
 Inductive kind_wf:
 [~Prim:]
@@ -169,6 +227,18 @@ Proof
   gvs[]
 QED
 
+Theorem kind_wf_cons_types:
+  ∀cdb vdb k t ts.
+    kind_wf cdb vdb k (cons_types t ts) ⇔
+    ∃ks. LIST_REL (kind_wf cdb vdb) ks ts ∧
+      kind_wf cdb vdb (kind_arrows ks k) t
+Proof
+  Induct_on `ts` using SNOC_INDUCT >>
+  rw[cons_types_def,kind_arrows_def,kind_arrows_APPEND,
+    cons_types_SNOC,LIST_REL_SNOC,PULL_EXISTS] >>
+  metis_tac[]
+QED
+
 Theorem kind_wf_IMP_freetyvars_ok:
   ∀k t. kind_wf cdb (LLOOKUP ks) k t ⇒
   freetyvars_ok (LENGTH ks) t
@@ -194,7 +264,7 @@ Theorem kind_wf_mono = GEN_ALL $
   SRULE[AND_IMP_INTRO,cj 1 PULL_FORALL] kind_wf_mono_helper;
 
 Theorem kind_wf_unique_kind:
-  ∀k t. 
+  ∀k t.
   kind_wf cdb vdb k t ⇒
   ∀k'. kind_wf cdb vdb k' t ⇒
   k = k'

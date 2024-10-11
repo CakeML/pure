@@ -199,7 +199,7 @@ Proof
   >- (
     gvs[MEM_MAP,ALL_DISTINCT_APPEND,PULL_EXISTS] >>
     spose_not_then strip_assume_tac >>
-    assume_tac monad_args_SUBSET_reserved_cns >>
+    assume_tac monad_cns_SUBSET_reserved_cns_DELETE >>
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     gvs[] >>
@@ -212,7 +212,7 @@ Proof
   gvs[ALL_DISTINCT_APPEND,MEM_MAP,PULL_EXISTS]
   >- (
     spose_not_then strip_assume_tac >>
-    assume_tac monad_args_SUBSET_reserved_cns >>
+    assume_tac monad_cns_SUBSET_reserved_cns_DELETE >>
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     gvs[FORALL_AND_THM,PULL_EXISTS,DISJ_IMP_THM] >>
@@ -246,12 +246,12 @@ Proof
     every_case_tac >>
     gvs[oEL_THM,ALL_DISTINCT_APPEND,MEM_MAP,EVERY_MEM,PULL_EXISTS,num_args_ok_def] >>
     drule_then strip_assume_tac monad_args_ok_SOME >>
-    assume_tac monad_args_SUBSET_reserved_cns >>
+    assume_tac monad_cns_SUBSET_reserved_cns_DELETE >>
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     spose_not_then kall_tac >>
     drule_then strip_assume_tac monad_args_ok_SOME >>
-    assume_tac monad_args_SUBSET_reserved_cns >>
+    assume_tac monad_cns_SUBSET_reserved_cns_DELETE >>
     drule_then drule $ iffLR SUBSET_DEF >>
     strip_tac >>
     qpat_x_assum `!e. _ ⇒ ∀y. _ ⇒ ¬MEM y (FLAT (MAP _ _))` $

@@ -80,7 +80,7 @@ Termination
   gvs[texp_size_def]
 End
 
-(* more restrictive than texp_wf. It also restrict the 
+(* more restrictive than texp_wf. It also restrict the
 * literal and Message in Prim *)
 Definition texp_wf_strong_def[nocompute]:
   texp_wf_strong (Var _ v) = T ∧

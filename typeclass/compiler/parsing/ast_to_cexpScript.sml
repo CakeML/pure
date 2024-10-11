@@ -327,7 +327,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
   od ∧
   translate_exp nm_map tyinfo (expApp fe xe) =
   do
-    (* TODO: Currently, when we strip_comb, we may remove the 
+    (* TODO: Currently, when we strip_comb, we may remove the
     * type annotation *)
     (fe0, es) <<- strip_comb fe ;
     f <- translate_exp nm_map tyinfo fe0 ;
@@ -339,7 +339,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
    case p of
      patVar n => do
                   body <- translate_exp nm_map tyinfo e ;
-         (* TODO: currently, we cannot annotate the types of 
+         (* TODO: currently, we cannot annotate the types of
           * the variables in lambda *)
                   SOME (Lam [(implode n,NONE)] body)
                 od
@@ -435,7 +435,7 @@ Definition translate_exp_def: (* translate_exp: translate exp to texp *)
 
 
   (* we use sigs to keep track of the function signatures,
-  * and use funcs to keep track of the outermost-level function 
+  * and use funcs to keep track of the outermost-level function
   * names *)
   (translate_edecs nm_map tyinfo sigs funcs [] =
   do
@@ -911,7 +911,7 @@ Definition freevars_texp_impl_def:
 
   freevars_texp_impl (NestedCase e v pat e1 rest) = (
     let pat_vars =
-      freevars_texp_impl_pat_l ((pat,e1)::rest) in 
+      freevars_texp_impl_pat_l ((pat,e1)::rest) in
     mlmap$union (freevars_texp_impl e) (delete pat_vars v)) ∧
 
   freevars_texp_impl_l [] = empty ∧

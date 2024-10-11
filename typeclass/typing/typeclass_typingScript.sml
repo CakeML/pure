@@ -1777,7 +1777,7 @@ Definition impl_construct_dict_def:
       [tshift (LENGTH meth_ks) inst_t] pt) e e'
 End
 
-(* 
+(*
 ```
 instance Monoid a,Monoid b => Monoid (a,b) where
   mempty = (mempty,mempty)```
