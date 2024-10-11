@@ -1,5 +1,5 @@
-(*
-*)
+(* typing elaboration rules and dictionary translation rules
+* for typeclassLang *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
 open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
@@ -341,8 +341,6 @@ Proof
   metis_tac[]
 QED
 
-(* if s is a super class of c then `Entailment [k] [(s,TypeVar 0)] (c,TypeVar 0)`
-* will be in the set ie *)
 (* This should be equivalent to `entail` after turning all the super classes
 * and instance declarations to ie *)
 Inductive has_dict:
@@ -1545,6 +1543,8 @@ Definition translate_lie_alist_def:
   od
 End
 
+(* if s is a super class of c then `Entailment [k] [(s,TypeVar 0)] (c,TypeVar 0)`
+* will be in the set ie *)
 Definition class_to_entailments_def:
   class_to_entailments (clname,cl) =
     MAP
@@ -1777,6 +1777,19 @@ Definition impl_construct_dict_def:
       [tshift (LENGTH meth_ks) inst_t] pt) e e'
 End
 
+(* 
+```
+instance Monoid a,Monoid b => Monoid (a,b) where
+  mempty = (mempty,mempty)```
+would create the following dictionary
+```
+-- Monoid :: SemigroupDict a -> a -> MonoidDict a
+-- monoidDictTuple :: MonoidDict a -> MonoidDict b -> MonoidDict (a,b)
+monadDictTuple v1 v2 = MonadDict
+  (semigroupDictTuple (getSemigroup v1) (getSemigroup v2))
+  (mempty v1,mempty v2)
+```
+*)
 Definition instance_construct_dict_def:
   instance_construct_dict ns cl_map ie env
     (defaults :Kind list default_trans_impls)
@@ -1792,15 +1805,21 @@ Definition instance_construct_dict_def:
   DISJOINT (set vs) (set $ default_method_names defaults) ∧
   trans_inst = SmartLam () vs (Prim () (Cons cl.constructor) $
     supers' ++ impls') ∧
+  (* put the dictionaries of the super_classes in the
+   * dictionary *)
   construct_dicts (SND ns) inst.kinds ie
     (FEMPTY |++ ZIP (vs,inst.context))
     (MAP (λsuper. (super,inst.type)) (super_classes cl)) supers' ∧
+  (* put all the implementations in the dictionary *)
   LIST_REL (λ(name,(meth_ks,pt)) e'.
       case ALOOKUP inst.impls name of
       | SOME e =>
           impl_construct_dict ns ie env inst.kinds inst.context
             inst.type vs meth_ks pt e e'
       | NONE => ∃default_name default_impl.
+          (* if the user does implement the dictionary,
+          * we use apply the default implementation to
+          * the current dictionary *)
           ALOOKUP defaults name = SOME (default_name,default_impl) ∧
           e' = App () (Var () default_name)
                       [SmartApp () (Var () inst.dict_name)

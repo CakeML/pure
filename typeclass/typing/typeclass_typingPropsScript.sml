@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
 open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
      listTheory rich_listTheory alistTheory pred_setTheory finite_mapTheory;
 open pure_miscTheory pure_configTheory;
-open mlstringTheory pure_cexpTheory;
+open mlstringTheory pure_cexpTheory pure_tcexpTheory;
 open typeclass_typesTheory typeclass_typesPropsTheory typeclass_texpTheory;
 open typeclass_kindCheckTheory;
 open typeclass_typingTheory;
@@ -603,16 +603,6 @@ Proof
   simp[]
 QED
 
-(* TODO move *)
-Theorem ALL_DISTINCT_LENGTH_SET:
-  LENGTH a = LENGTH b ∧ set a = set b ∧ ALL_DISTINCT a ⇒ ALL_DISTINCT b
-Proof
-  rw[] >>
-  drule PERM_ALL_DISTINCT_LENGTH >>
-  disch_then $ qspec_then `b` assume_tac >> gvs[] >>
-  metis_tac[sortingTheory.ALL_DISTINCT_PERM]
-QED
-
 Theorem type_elaborate_texp_wf:
   namespace_ok ns ⇒
   ((∀lie db st env e e' t.
@@ -770,9 +760,9 @@ Proof
 QED
 
 Theorem elaborated_texp_wf:
-  (∀e e'.
+  ∀e e'.
     elaborated_texp e e' ⇒
-    texp_wf e ⇒ texp_wf e')
+    texp_wf e ⇒ texp_wf e'
 Proof
   ho_match_mp_tac elaborated_texp_ind >>
   gvs[texp_wf_def,EVERY_EL,LIST_REL3_EL,LIST_REL_EL_EQN,EL_MAP] >>
@@ -792,6 +782,191 @@ Proof
   qpat_x_assum `(_,_) = EL _ _` $ assume_tac o GSYM >>
   irule_at Any EQ_SYM >>
   simp[GSYM FST_EQ_EQUIV]
+QED
+
+Theorem elaborated_texp_Lits_wf:
+  ∀e e'.
+    elaborated_texp e e' ⇒
+    texp_Lits_wf e ⇒ texp_Lits_wf e'
+Proof
+  ho_match_mp_tac elaborated_texp_ind >>  
+  gvs[texp_Lits_wf_def,EVERY_EL,LIST_REL3_EL,LIST_REL_EL_EQN,
+    EL_MAP]
+QED
+
+Theorem elaborated_texp_wf_strong:
+  ∀e e'.
+    elaborated_texp e e' ⇒
+    texp_wf_strong e ⇒ texp_wf_strong e'
+Proof
+  rw[texp_wf_strong_thm] >>
+  metis_tac[elaborated_texp_wf,elaborated_texp_Lits_wf]
+QED
+
+Theorem tcexp_wf_SmartApp_Var:
+  tcexp_wf (tcexp_of (SmartApp a (Var b d) ds)) =
+    EVERY (tcexp_wf ∘ tcexp_of) ds
+Proof
+  simp[SmartApp_def] >>
+  Cases_on `ds` >> gvs[tcexp_of_def,tcexp_wf_def] >>
+  simp[dest_App_def,tcexp_of_def] >>
+  rw[tcexp_wf_def,EQ_IMP_THM,EVERY_MAP,combinTheory.o_DEF]
+QED
+
+Theorem cexp_Lits_wf_SmartApp_Var:
+  cexp_Lits_wf (SmartApp a (Var b d) ds) =
+    EVERY cexp_Lits_wf ds
+Proof
+  Cases_on `ds` >>
+  simp[SmartApp_def,cexp_Lits_wf_def,dest_App_def,SF ETA_ss]
+QED
+
+Theorem tcexp_wf_IMP_SmartLam:
+  tcexp_wf (tcexp_of e) ⇒
+  tcexp_wf (tcexp_of (SmartLam a vs e))
+Proof
+  simp[SmartLam_def] >>
+  Cases_on `vs` >> simp[] >>
+  Cases_on `e` >>
+  gvs[dest_Lam_def,tcexp_of_def,tcexp_wf_def] >>
+  Cases_on `l` >>
+  gvs[dest_Lam_def,tcexp_of_def,tcexp_wf_def]
+QED
+
+Theorem cexp_Lits_wf_IMP_SmartLam:
+  cexp_Lits_wf e ⇒
+  cexp_Lits_wf (SmartLam a vs e)
+Proof
+  simp[SmartLam_def] >>
+  Cases_on `vs` >> simp[] >>
+  Cases_on `e` >>
+  gvs[dest_Lam_def,cexp_Lits_wf_def] >>
+  Cases_on `l` >>
+  gvs[dest_Lam_def,cexp_Lits_wf_def]
+QED
+
+Theorem construct_dict_tcexp_wf:
+  (∀p d. construct_dict tds db ie lie p d ⇒
+    tcexp_wf (tcexp_of d)) ∧
+  (∀ps ds. construct_dicts tds db ie lie ps ds ⇒
+    ∀d. MEM d ds ⇒ tcexp_wf (tcexp_of d))
+Proof
+  ho_match_mp_tac construct_dict_ind >>
+  rw[tcexp_of_def,tcexp_wf_def,tcexp_wf_SmartApp_Var,
+   EVERY_MEM] >>
+  drule_all LIST_REL_MEM_IMP_R >> rw[]
+QED
+
+Theorem construct_dict_cexp_Lits_wf:
+  (∀p d. construct_dict tds db ie lie p d ⇒
+    cexp_Lits_wf d) ∧
+  (∀ps ds. construct_dicts tds db ie lie ps ds ⇒
+    ∀d. MEM d ds ⇒ cexp_Lits_wf d)
+Proof
+  ho_match_mp_tac construct_dict_ind >>
+  rw[cexp_Lits_wf_def,cexp_Lits_wf_SmartApp_Var,EVERY_MEM] >>
+  drule_all LIST_REL_MEM_IMP_R >> rw[]
+QED
+
+Theorem texp_construct_dict_texp_wf:
+  (∀lie db env t e e'.
+    pred_texp_construct_dict ns ie lie db env t e e' ⇒
+    texp_wf e ⇒ tcexp_wf (tcexp_of e')) ∧
+  ∀lie db env e e'.
+    texp_construct_dict ns ie lie db env e e' ⇒
+    texp_wf e ⇒ tcexp_wf (tcexp_of e')
+Proof
+  ho_match_mp_tac texp_construct_dict_ind >>
+  rw[texp_wf_def,tcexp_of_def,tcexp_wf_def,EVERY_MAP]
+  >- (
+    rw[tcexp_wf_SmartApp_Var,EVERY_MEM] >>
+    drule_all_then irule $ cj 2 construct_dict_tcexp_wf
+  )
+  >- metis_tac[tcexp_wf_IMP_SmartLam]
+  >- (
+    rw[EVERY_MEM] >>
+    drule_all LIST_REL_MEM_IMP_R >>
+    pairarg_tac >>
+    rw[EXISTS_PROD] >>
+    first_x_assum irule >>
+    gvs[EVERY_MEM] >>
+    first_x_assum drule >> simp[]
+  )
+  >- (
+    Cases_on `dfns` >>
+    Cases_on `fns` >>
+    gvs[]
+  ) >>
+  simp[num_args_ok_def,num_monad_args_def,
+    num_atomop_args_ok_def]
+  >- gvs[LIST_REL_EL_EQN]
+  >- (
+    rw[EVERY_MEM] >>
+    drule_all LIST_REL_MEM_IMP_R >>
+    rw[] >>
+    metis_tac[EVERY_MEM]
+  )
+  >- (
+    rw[EVERY_MEM] >>
+    drule_all LIST_REL_MEM_IMP_R >>
+    rw[] >>
+    metis_tac[EVERY_MEM]
+  )
+  >- (
+    Cases_on `des` >>
+    Cases_on `es` >>
+    gvs[]
+  )
+  >- (
+    rw[EVERY_MEM] >>
+    drule_all LIST_REL_MEM_IMP_R >>
+    pairarg_tac >>
+    rw[EXISTS_PROD] >>
+    first_x_assum irule >>
+    gvs[EVERY_MEM] >>
+    first_x_assum drule >> simp[]
+  )
+  >- (
+    gvs[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+    strip_tac >>
+    qpat_x_assum `¬MEM _ (FLAT _)` mp_tac >>
+    gvs[MEM_FLAT,MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+    drule_all $ LIST_REL_MEM_IMP_R >>
+    rw[EXISTS_PROD] >>
+    metis_tac[]
+  )
+QED
+
+Theorem texp_construct_dict_texp_Lits_wf:
+  (∀lie db env t e e'.
+    pred_texp_construct_dict ns ie lie db env t e e' ⇒
+    texp_Lits_wf e ⇒ cexp_Lits_wf e') ∧
+  ∀lie db env e e'.
+    texp_construct_dict ns ie lie db env e e' ⇒
+    texp_Lits_wf e ⇒ cexp_Lits_wf e'
+Proof
+  ho_match_mp_tac texp_construct_dict_ind >>
+  rw[texp_Lits_wf_def,cexp_Lits_wf_def,EVERY_MAP]
+  >- (
+    simp[cexp_Lits_wf_SmartApp_Var,EVERY_MEM] >>
+    metis_tac[construct_dict_cexp_Lits_wf]
+  )
+  >- metis_tac[cexp_Lits_wf_IMP_SmartLam]
+  >- (
+    rw[EVERY_MEM] >>
+    drule_all LIST_REL_MEM_IMP_R >>
+    rw[EXISTS_PROD] >>
+    pairarg_tac >>
+    gvs[LAMBDA_PROD] >>
+    drule_all $ iffLR EVERY_MEM >>
+    simp[]
+  ) >>
+  rw[EVERY_MEM] >>
+  drule_all LIST_REL_MEM_IMP_R >>
+  rw[EXISTS_PROD] >>
+  drule_all $ iffLR EVERY_MEM >>
+  simp[]
+  >- (pairarg_tac >> gvs[])
 QED
 
 Theorem type_elaborate_texp_freevars_texp:

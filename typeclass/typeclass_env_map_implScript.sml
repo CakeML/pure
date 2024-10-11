@@ -90,14 +90,15 @@ Proof
 QED
 
 Definition inst_map_cmp_def:
-  inst_map_cmp = mlstring$compare lexTO ty_consOrd
+  inst_map_cmp = mlstring$compare lexTO ty_consOrd lexTO numOrd
 End
 
 (* The ordering for instance map *)
 Theorem TO_inst_map_cmp:
   TotOrd inst_map_cmp
 Proof
-  metis_tac[inst_map_cmp_def,totoTheory.TO_lexTO,TotOrd_compare,TO_ty_consOrd]
+  metis_tac[inst_map_cmp_def,totoTheory.TO_lexTO,
+    TotOrd_compare,TO_ty_consOrd,totoTheory.TO_numOrd]
 QED
 
 Definition init_inst_map_def:
@@ -192,9 +193,9 @@ End
 
 (* return NONE if duplicated *)
 Definition add_instance_def:
-  add_instance (inst_map:'a inst_map_impl) cl ty info =
-    case lookup inst_map (cl,ty) of
-    | NONE => SOME $ insert inst_map (cl,ty) info
+  add_instance (inst_map:'a inst_map_impl) cl ty n info =
+    case lookup inst_map (cl,ty,n) of
+    | NONE => SOME $ insert inst_map (cl,ty,n) info
     | SOME _ => NONE
 End
 

@@ -56,6 +56,9 @@ Termination
   WF_REL_TAC `measure $ texp_size (K 1)` >> rw []
 End
 
+val texp_size_def = fetch "-" "texp_size_def"
+val texp_size_eq = fetch "-" "texp_size_eq";
+
 Definition texp_wf_def[nocompute]:
   texp_wf (Var _ v) = T ∧
   texp_wf (Prim op es) = (
@@ -71,12 +74,63 @@ Definition texp_wf_def[nocompute]:
   texp_wf (PrimSeq t e1 e2) = (texp_wf e1 ∧ texp_wf e2) ∧
   texp_wf (UserAnnot _ e) = texp_wf e
 Termination
-  WF_REL_TAC `measure $ texp_size (K 1)` >> rw[fetch "-" "texp_size_def"] >>
+  WF_REL_TAC `measure $ texp_size (K 1)` >> rw[texp_size_def] >>
   gvs[MEM_MAP, EXISTS_PROD] >>
-  rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[fetch "-" "texp_size_def"]
+  rename1 `MEM _ es` >> Induct_on `es` >> rw[] >>
+  gvs[texp_size_def]
 End
 
-val texp_size_eq = fetch "-" "texp_size_eq";
+(* more restrictive than texp_wf. It also restrict the 
+* literal and Message in Prim *)
+Definition texp_wf_strong_def[nocompute]:
+  texp_wf_strong (Var _ v) = T ∧
+  texp_wf_strong (Prim op es) = (
+    num_args_ok op (LENGTH es) ∧ EVERY texp_wf_strong es ∧
+    (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+  texp_wf_strong (App e es) =
+    (texp_wf_strong e ∧ EVERY texp_wf_strong es ∧ es ≠ []) ∧
+  texp_wf_strong (Lam vs e) = (texp_wf_strong e ∧ vs ≠ []) ∧
+  texp_wf_strong (Let v e1 e2) =
+    (texp_wf_strong e1 ∧ texp_wf_strong e2) ∧
+  texp_wf_strong (Letrec fns e) =
+    (EVERY texp_wf_strong $ MAP (λx. SND x) fns ∧
+      texp_wf_strong e ∧ fns ≠ []) ∧
+  texp_wf_strong (NestedCase g gv p e pes) = (
+    texp_wf_strong g ∧ texp_wf_strong e ∧
+    EVERY texp_wf_strong $ MAP SND pes ∧
+    ¬ MEM gv (FLAT $ MAP (cepat_vars_l o FST) ((p,e) :: pes))) ∧
+  texp_wf_strong (PrimSeq t e1 e2) =
+    (texp_wf_strong e1 ∧ texp_wf_strong e2) ∧
+  texp_wf_strong (UserAnnot _ e) = texp_wf_strong e
+Termination
+  WF_REL_TAC `measure $ texp_size (K 1)` >> rw[texp_size_def] >>
+  gvs[MEM_MAP, EXISTS_PROD] >>
+  rename1 `MEM _ es` >> Induct_on `es` >> rw[] >>
+  gvs[texp_size_def]
+End
+
+Definition texp_Lits_wf_def:
+  texp_Lits_wf (Var _ v) = T ∧
+  texp_Lits_wf (UserAnnot _ e) = texp_Lits_wf e ∧
+  texp_Lits_wf (Prim op es) = (
+    EVERY texp_Lits_wf es ∧
+    (∀l. op = AtomOp (Lit l) ⇒ isInt l ∨ isStr l) ∧
+    (∀m. op = AtomOp (Message m) ⇒ m ≠ "")) ∧
+  texp_Lits_wf (PrimSeq _ e1 e2) =
+    (texp_Lits_wf e1 ∧ texp_Lits_wf e2) ∧
+  texp_Lits_wf (App e es) = (texp_Lits_wf e ∧ EVERY texp_Lits_wf es) ∧
+  texp_Lits_wf (Lam vs e) = texp_Lits_wf e ∧
+  texp_Lits_wf (Let v e1 e2) = (texp_Lits_wf e1 ∧ texp_Lits_wf e2) ∧
+  texp_Lits_wf (Letrec fns e) = (EVERY texp_Lits_wf $ MAP SND fns ∧ texp_Lits_wf e) ∧
+  texp_Lits_wf (NestedCase x v p e pes) = (
+    texp_Lits_wf x ∧ texp_Lits_wf e ∧
+    EVERY texp_Lits_wf $ MAP SND pes)
+Termination
+  WF_REL_TAC `measure $ texp_size (K 0)` >> gvs[MEM_MAP, EXISTS_PROD] >> rw[] >>
+  rename1 `MEM _ es` >> Induct_on `es` >> rw[] >>
+  gvs[texp_size_def]
+End
 
 Theorem texp_size_lemma:
   (∀xs v e f. MEM (v,e) xs ⇒ texp_size f e < texp1_size f xs) ∧
@@ -153,7 +207,7 @@ Proof
 QED
 
 (* similar to freevars_texp, but it collects every
-* binder variable, the x and y in λx y. ...  *)
+* binder variable, i.e. the x and y in λx y. ...  *)
 Definition lambda_vars_def:
   lambda_vars (Var _ _) = {} ∧
   lambda_vars (Prim _ es) = lambda_varsl es ∧
@@ -241,5 +295,19 @@ Proof
   rw[lambda_vars_def,lambda_varsl_def,MEM_MAP,PULL_EXISTS,
     GSYM pure_cexpTheory.cepat_vars_l_correct]
 QED
+
+Triviality texp_wf_strong_helper:
+  (∀(e:'a texp). texp_wf_strong e ⇔
+    (texp_wf e ∧ texp_Lits_wf e)) ∧
+  (∀(es:'a texp list). EVERY texp_wf_strong es ⇔
+    (EVERY texp_wf es ∧ EVERY texp_Lits_wf es))
+Proof
+  ho_match_mp_tac lambda_vars_ind >>
+  simp[texp_wf_strong_def,texp_wf_def,texp_Lits_wf_def,
+    SF ETA_ss] >>
+  rw[EQ_IMP_THM]
+QED
+
+Theorem texp_wf_strong_thm = cj 1 texp_wf_strong_helper;
 
 val _ = export_theory();

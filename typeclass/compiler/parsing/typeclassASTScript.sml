@@ -36,26 +36,27 @@ Datatype:
          | patApp string (patAST list)
          | patTup (patAST list)
          | patLit litAST
+         (* TODO: annotate the type of the pattern *)
+         (* | patTy patAST tyAST *)
          | patUScore
 End
 
 Datatype:
-  expAST = expVar string (tyAST option)
-         | expCon string (expAST list) (tyAST option)
-         | expOp pure_config$atom_op (expAST list) (tyAST option)
-         | expTup (expAST list) (tyAST option)
-         | expApp expAST expAST (tyAST option)
-         | expAbs patAST (tyAST option) expAST (tyAST option)
-         | expIf expAST expAST expAST (tyAST option)
-         | expLit litAST (* do not need type sig *)
-         | expLet (expdecAST list) expAST (tyAST option)
+  expAST = expVar string
+         | expCon string (expAST list)
+         | expOp pure_config$atom_op (expAST list)
+         | expTup (expAST list)
+         | expApp expAST expAST
+         | expAbs patAST expAST
+         | expIf expAST expAST expAST
+         | expLit litAST 
+         | expLet (expdecAST list) expAST
          | expDo (expdostmtAST list) expAST
-         | expCase expAST ((patAST # expAST) list) (tyAST option);
+         | expCase expAST ((patAST # expAST) list)
+         | expUserAnnot tyAST expAST;
   expdecAST = expdecTysig string PredtyAST
             | expdecPatbind patAST expAST
-          (* if users would like to type annotate a function with
-          * poly-types, use expdecTysig *)
-            | expdecFunbind string ((patAST # (tyAST option)) list) expAST ;
+            | expdecFunbind string (patAST list) expAST ;
   expdostmtAST = expdostmtExp expAST
                | expdostmtBind patAST expAST
                | expdostmtLet (expdecAST list)
@@ -77,25 +78,28 @@ Theorem better_expAST_induction =
           |> Q.GENL [‘eP’, ‘dP’, ‘doP’]
 
 val _ = add_strliteral_form {ldelim = "‹", inj = “expVar”}
-Overload pNIL = “expCon "[]" [] NONE”
-Overload pCONS = “λe1 e2. expCon "::" [e1;e2] NONE”
+Overload pNIL = “expCon "[]" []”
+Overload pCONS = “λe1 e2. expCon "::" [e1;e2]”
 val _ = set_mapped_fixity {fixity = Infixr 490,term_name = "pCONS",tok = "::ₚ"}
 
 val _ = set_fixity "⬝" (Infixl 600)
 Overload "⬝" = “expApp”
 
 Definition strip_comb_def:
-  strip_comb (expApp f x _) = (I ## (λl. l ++ [x])) (strip_comb f) ∧
+  strip_comb (expApp f x) = (I ## (λl. l ++ [x])) (strip_comb f) ∧
+  strip_comb (expUserAnnot ty x) = strip_comb x ∧
   strip_comb e = (e, [])
 End
 
 Definition dest_expVar_def:
-  dest_expVar (expVar s _) = SOME s ∧
+  dest_expVar (expVar s) = SOME s ∧
+  dest_expVar (expUserAnnot t e) = dest_expVar e ∧
   dest_expVar _ = NONE
 End
 
 Definition dest_expLet_def:
-  dest_expLet (expLet ads e _) = SOME (ads,e) ∧
+  dest_expLet (expLet ads e) = SOME (ads,e) ∧
+  dest_expLet (expUserAnnot t e) = dest_expLet e ∧
   dest_expLet _ = NONE
 End
 
@@ -126,7 +130,7 @@ Datatype:
   declAST = declTysig string PredtyAST
           | declData string (string list)
                      ((string # tyAST list) list)
-          | declFunbind string ((patAST # (tyAST option)) list) expAST
+          | declFunbind string (patAST list) expAST
           | declPatbind patAST expAST
           | declClass (classname list) classname string minImplAST (expdecAST list)
             (* enforce type sigs for functions definintion in class *)
