@@ -258,7 +258,7 @@ Definition destruct_type_cons_def:
     | INL tyid => type_cons tdefs db (cname,carg_tys) (tyid,targs)
     | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
     | INR (CompPrimT (Tuple n)) =>
-        cname = «» ∧ targs = carg_tys
+        cname = «» ∧ targs = carg_tys ∧ LENGTH carg_tys = n
     | _ => F
 End
 

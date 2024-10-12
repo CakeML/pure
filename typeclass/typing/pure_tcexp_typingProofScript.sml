@@ -492,26 +492,6 @@ Proof
   rw[]
 QED
 
-(*
-Theorem ty_args_aux_cons_types:
-  ∀c ts l.
-  LENGTH(ty_args_aux(cons_types c ts) l) = LENGTH ts + LENGTH(ty_args_aux c l)
-Proof
-  Induct_on ‘ts’ >>
-  rw[cons_types_def,ty_args_aux_def] >>
-  PURE_ONCE_REWRITE_TAC[ty_args_aux_thm] >>
-  gvs[]
-QED
-
-Theorem ty_args_aux_cons_types':
-  ∀c ts l.
-  ty_args_aux(cons_types c ts) l = ty_args_aux c (ts++l)
-Proof
-  Induct_on ‘ts’ >>
-  rw[cons_types_def,ty_args_aux_def]
-QED
-*)
-
 Theorem tcexp_prim_cons_length_eq:
   type_tcexp ns db st [] (Prim (Cons cn) ces) t' ∧
   tcexp_namespace_ok ns ∧

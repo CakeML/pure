@@ -66,7 +66,7 @@ Definition tcexp_destruct_type_cons_def:
     | INL tyid => tcexp_type_cons tdefs db (cname,carg_tys) (tyid,targs)
     | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
     | INR (CompPrimT (Tuple n)) => cname = «» ∧
-        MAP ($, []) targs = carg_tys
+        MAP ($, []) targs = carg_tys ∧ LENGTH carg_tys = n
     | _ => F
 End
 
