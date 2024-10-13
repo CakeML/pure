@@ -240,6 +240,15 @@ Definition type_cons_def:
         MAP (tsubst tyargs) schemes = carg_tys
 End
 
+Theorem type_cons_carg_tys_unique:
+  type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ∧
+  type_cons tdefs db (cname,carg_tys') (tyid,tyargs) ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[type_cons_def] >>
+  gvs[]
+QED
+
 (* Typing judgments for exceptions *)
 Definition type_exception_def:
   type_exception (exndef : exndef) (cname, carg_tys) ⇔
@@ -256,11 +265,24 @@ Definition destruct_type_cons_def:
     split_ty_cons t = SOME (tc,targs) ∧
     case tc of
     | INL tyid => type_cons tdefs db (cname,carg_tys) (tyid,targs)
-    | INR (PrimT Bool) => MEM cname [«True»;«False»] ∧ carg_tys = []
+    | INR (PrimT Bool) =>
+      MEM cname [«True»;«False»] ∧ carg_tys = [] ∧ targs = []
     | INR (CompPrimT (Tuple n)) =>
-        cname = «» ∧ targs = carg_tys ∧ LENGTH carg_tys = n
+        cname = «» ∧ carg_tys = targs ∧ LENGTH carg_tys = n
     | _ => F
 End
+
+Theorem destruct_type_cons_unique:
+  destruct_type_cons ns db t cname carg_tys ∧
+  destruct_type_cons ns db t cname carg_tys' ⇒
+  carg_tys = carg_tys'
+Proof
+  rw[oneline destruct_type_cons_def] >>
+  pop_assum mp_tac >>
+  every_case_tac >> gvs[type_exception_def] >>
+  every_case_tac >> gvs[] >>
+  metis_tac[type_cons_carg_tys_unique]
+QED
 
 Definition get_PrimTys_def:
   get_PrimTys [] = SOME [] ∧
@@ -546,6 +568,7 @@ Inductive type_cepat:
     type_cepat ns db (cepatCons c pats) t (FLAT vtss)
 End
 
+(*
 (* type that we can apply case on *)
 Definition destructable_type_def:
   destructable_type tds_len t ⇔
@@ -588,16 +611,9 @@ Proof
   gvs[LIST_REL_EL_EQN] >>
   metis_tac[]
 QED
+*)
 
-Theorem type_cons_carg_tys_unique:
-  type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ∧
-  type_cons tdefs db (cname,carg_tys') (tyid,tyargs) ⇒
-  carg_tys = carg_tys'
-Proof
-  rw[type_cons_def] >>
-  gvs[]
-QED
-
+(*
 (* destruct_type_cons but do not check if the type arguments are kind_ok *)
 Definition unsafe_destruct_type_cons_def:
   unsafe_destruct_type_cons (edefs,tdefs) t cname carg_tys ⇔
@@ -634,17 +650,53 @@ Proof
   every_case_tac >> gvs[] >>
   metis_tac[unsafe_type_cons_carg_tys_unique]
 QED
+*)
 
-Theorem destruct_type_cons_unique:
-  destruct_type_cons ns db t cname carg_tys ∧
-  destruct_type_cons ns db t cname carg_tys' ⇒
-  carg_tys = carg_tys'
+Definition get_constructors_cases_def:
+  get_constructors_cases (ns:exndef # typedefs) t =
+  if t = Atom Exception
+  then SOME (FST ns)
+  else do
+    (tc,targs) <- split_ty_cons t;
+    case tc of
+    | INL tyid => do
+          (argks,constructors) <- LLOOKUP (SND ns) tyid;
+          assert (LENGTH targs = LENGTH argks);
+          SOME $ MAP (I ## MAP (tsubst targs)) constructors
+        od
+    | INR (PrimT Bool) => do
+        assert (LENGTH targs = 0);
+        SOME ([«True»,[]; «False»,[]])
+      od
+    | INR (CompPrimT (Tuple n)) => do
+        assert (LENGTH targs = n);
+        SOME [«»,targs]
+      od
+    | _ => NONE
+  od
+End
+
+Theorem destruct_type_cons_IMP_get_constructors_cases_SOME:
+  destruct_type_cons ns db t cname carg_tys ⇒
+  ∃cts. get_constructors_cases ns t = SOME cts
 Proof
-  rw[oneline destruct_type_cons_def] >>
-  pop_assum mp_tac >>
-  every_case_tac >> gvs[type_exception_def] >>
-  every_case_tac >> gvs[] >>
-  metis_tac[type_cons_carg_tys_unique]
+  Cases_on `ns` >>
+  rw[destruct_type_cons_def,get_constructors_cases_def] >>
+  simp[] >>
+  every_case_tac >> gvs[type_cons_def,LIST_REL_EL_EQN]
+QED
+
+Theorem destruct_type_cons_MEM_get_constructors_cases:
+  destruct_type_cons ns db t cname carg_tys ∧
+  get_constructors_cases ns t = SOME cts ⇒
+  MEM (cname,carg_tys) cts
+Proof
+  Cases_on `ns` >>
+  rw[destruct_type_cons_def,get_constructors_cases_def] >>
+  gvs[type_exception_def,ALOOKUP_MEM] >>
+  every_case_tac >>
+  gvs[type_cons_def,MEM_MAP,EXISTS_PROD] >>
+  metis_tac[ALOOKUP_MEM]
 QED
 
 Inductive exhaustive_cepat:
@@ -657,10 +709,11 @@ Inductive exhaustive_cepat:
     exhaustive_cepat ns t s
 
 [~Cons:]
-  destructable_type (LENGTH $ SND ns) t ∧
-  (∀c ts. unsafe_destruct_type_cons ns t c ts ⇒
+  (get_constructors_cases ns t = SOME cts ∧
+   ∀c ts. MEM (c,ts) cts ⇒
     ∃(pss:cepat list set).
-      exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ s) ⇒
+      exhaustive_cepatl ns ts pss ∧
+      IMAGE (cepatCons c) pss ⊆ s) ⇒
   exhaustive_cepat ns t s
 
 [~Nil:]
