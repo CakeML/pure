@@ -290,7 +290,7 @@ Definition get_PrimTys_def:
   get_PrimTys _ = NONE
 End
 
-(* shows how the class constraint can be satisfied.
+(* represents how a class constraint can be satisfied.
 * e.g. Num a => Ord a, (Entailment [*] [("Num", TypeVar 0)] ("Ord", TypeVar 0))
 * would be in ie, since Ord is a superclass of Num.
 * (Monoid a, Monoid b) => Monoid (a, b),
@@ -568,92 +568,8 @@ Inductive type_cepat:
     type_cepat ns db (cepatCons c pats) t (FLAT vtss)
 End
 
-(*
-(* type that we can apply case on *)
-Definition destructable_type_def:
-  destructable_type tds_len t ⇔
-  t = Atom Exception ∨
-  case head_ty_cons t of
-  | SOME (INL tyid) => tyid < tds_len
-  | SOME (INR (PrimT Bool)) => T
-  | SOME (INR (CompPrimT (Tuple n))) => T
-  | SOME _ => F
-  | NONE => F
-End
-
-(* These unsafe versions are only for exhaustiveness check,
-* and the reason to introduce them is to remove the argument db
-* in the exhastive_cepat *)
-(* type_cons but do not check if the type arguments are kind_ok *)
-Definition unsafe_type_cons_def:
-  unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ⇔
-  ∃argks constructors schemes.
-    LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
-    ALOOKUP constructors cname = SOME schemes ∧
-    LENGTH tyargs = LENGTH argks ∧
-    MAP (tsubst tyargs) schemes = carg_tys
-End
-
-Theorem unsafe_type_cons_carg_tys_unique:
-  unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ∧
-  unsafe_type_cons tdefs (cname,carg_tys') (tyid,tyargs) ⇒
-  carg_tys = carg_tys'
-Proof
-  rw[oneline unsafe_type_cons_def] >>
-  gvs[]
-QED
-
-Theorem type_cons_IMP_unsafe_type_cons:
-  type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ⇒
-  unsafe_type_cons tdefs (cname,carg_tys) (tyid,tyargs)
-Proof
-  rw[type_cons_def,unsafe_type_cons_def] >>
-  gvs[LIST_REL_EL_EQN] >>
-  metis_tac[]
-QED
-*)
-
-(*
-(* destruct_type_cons but do not check if the type arguments are kind_ok *)
-Definition unsafe_destruct_type_cons_def:
-  unsafe_destruct_type_cons (edefs,tdefs) t cname carg_tys ⇔
-  if t = Atom Exception then type_exception edefs (cname,carg_tys)
-  else
-    ∃tc targs.
-    split_ty_cons t = SOME (tc,targs) ∧
-    (case tc of
-    | INL tyid => unsafe_type_cons tdefs (cname,carg_tys) (tyid,targs)
-    | INR (PrimT Bool) => MEM cname [«True»; «False»] ∧ carg_tys = []
-    | INR (CompPrimT (Tuple n)) =>
-        cname = «» ∧ targs = carg_tys
-    | _ => F)
-End
-
-Theorem destruct_type_cons_IMP_unsafe_type_cons:
-  destruct_type_cons ns db t cname carg_tys ⇒
-  unsafe_destruct_type_cons ns t cname carg_tys
-Proof
-  rw[oneline destruct_type_cons_def,oneline unsafe_destruct_type_cons_def] >>
-  every_case_tac >> gvs[] >>
-  every_case_tac >>
-  metis_tac[type_cons_IMP_unsafe_type_cons]
-QED
-
-Theorem unsafe_destruct_type_cons_unique:
-  unsafe_destruct_type_cons ns t cname carg_tys ∧
-  unsafe_destruct_type_cons ns t cname carg_tys' ⇒
-  carg_tys = carg_tys'
-Proof
-  rw[oneline unsafe_destruct_type_cons_def] >>
-  pop_assum mp_tac >>
-  every_case_tac >> gvs[type_exception_def] >>
-  every_case_tac >> gvs[] >>
-  metis_tac[unsafe_type_cons_carg_tys_unique]
-QED
-*)
-
-Definition get_constructors_cases_def:
-  get_constructors_cases (ns:exndef # typedefs) t =
+Definition get_cases_def:
+  get_cases (ns:exndef # typedefs) t =
   if t = Atom Exception
   then SOME (FST ns)
   else do
@@ -676,26 +592,46 @@ Definition get_constructors_cases_def:
   od
 End
 
-Theorem destruct_type_cons_IMP_get_constructors_cases_SOME:
-  destruct_type_cons ns db t cname carg_tys ⇒
-  ∃cts. get_constructors_cases ns t = SOME cts
+Theorem get_cases_ALL_DISTINCT:
+  namespace_ok ns ∧
+  get_cases ns t = SOME cons ⇒
+  ALL_DISTINCT (MAP FST cons)
 Proof
   Cases_on `ns` >>
-  rw[destruct_type_cons_def,get_constructors_cases_def] >>
+  rw[get_cases_def,EXISTS_PROD,namespace_ok_def,
+    ALL_DISTINCT_APPEND] >>
+  simp[] >>
+  every_case_tac >>
+  gvs[] >>
+  pairarg_tac >>
+  gvs[LLOOKUP_THM,ALL_DISTINCT_FLAT,MAP_FLAT,MEM_MAP,
+    PULL_EXISTS] >>
+  drule_then assume_tac $ SRULE[PULL_EXISTS] $ iffRL MEM_EL >>
+  rename [`MEM (EL _ tds) tds`] >>
+  qpat_x_assum `∀y. MEM y tds ⇒ ALL_DISTINCT _` drule >>
+  rw[]
+QED
+
+Theorem destruct_type_cons_IMP_get_cases_SOME:
+  destruct_type_cons ns db t cname carg_tys ⇒
+  ∃cts. get_cases ns t = SOME cts
+Proof
+  Cases_on `ns` >>
+  rw[destruct_type_cons_def,get_cases_def] >>
   simp[] >>
   every_case_tac >> gvs[type_cons_def,LIST_REL_EL_EQN]
 QED
 
-Theorem destruct_type_cons_MEM_get_constructors_cases:
+Theorem destruct_type_cons_MEM_get_cases:
   destruct_type_cons ns db t cname carg_tys ∧
-  get_constructors_cases ns t = SOME cts ⇒
+  get_cases ns t = SOME cts ⇒
   MEM (cname,carg_tys) cts
 Proof
   Cases_on `ns` >>
-  rw[destruct_type_cons_def,get_constructors_cases_def] >>
+  rw[destruct_type_cons_def,get_cases_def] >>
   gvs[type_exception_def,ALOOKUP_MEM] >>
   every_case_tac >>
-  gvs[type_cons_def,MEM_MAP,EXISTS_PROD] >>
+  gvs[type_cons_def,MEM_MAP,EXISTS_PROD,ALOOKUP_MEM] >>
   metis_tac[ALOOKUP_MEM]
 QED
 
@@ -709,7 +645,7 @@ Inductive exhaustive_cepat:
     exhaustive_cepat ns t s
 
 [~Cons:]
-  (get_constructors_cases ns t = SOME cts ∧
+  (get_cases ns t = SOME cts ∧
    ∀c ts. MEM (c,ts) cts ⇒
     ∃(pss:cepat list set).
       exhaustive_cepatl ns ts pss ∧

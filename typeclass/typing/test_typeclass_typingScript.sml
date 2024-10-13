@@ -300,6 +300,13 @@ Proof
   rw[EQ_IMP_THM,SUBSET_DEF]
 QED
 
+Triviality IN_SINGLETON:
+  x ∈ {x}
+Proof
+  irule $ iffRL IN_SING >>
+  simp[]
+QED
+
 Theorem FRANGE_alist_to_fmap_DISJOINT:
   set (MAP FST l) ∩ set (MAP FST r) = ∅ ⇒
   FRANGE (alist_to_fmap (l ++ r)) =
@@ -592,9 +599,9 @@ Proof
     rpt (irule_at Any has_dict_lie) >>
     simp[] >>
     irule_at Any exhaustive_cepat_Cons >>
-    simp[PULL_EXISTS,unsafe_destruct_type_cons_def,
+    simp[PULL_EXISTS,get_cases_def,
       split_ty_cons_def,split_ty_cons_aux_def,
-      destructable_type_def,head_ty_cons_def] >>
+      head_ty_cons_def] >>
     qexists `{[cepatCons «» [cepatVar «x1»; cepatVar «x2»];
       cepatCons «» [cepatVar «y1»; cepatVar «y2»]]}` >>
     rpt (irule_at Any exhaustive_cepat_List) >>
@@ -613,8 +620,8 @@ Proof
     ntac 2 $ irule_at
       (Pat `exhaustive_cepat _ _ {cepatCons «» [_;_]}`)
       exhaustive_cepat_Cons >>
-    simp[PULL_EXISTS,unsafe_destruct_type_cons_def,head_ty_cons_def,
-      split_ty_cons_def,split_ty_cons_aux_def,destructable_type_def] >>
+    simp[PULL_EXISTS,get_cases_def,head_ty_cons_def,
+      split_ty_cons_def,split_ty_cons_aux_def] >>
     rpt (irule_at Any $ cj 1 $ iffLR SET_EQ_SUBSET) >>
     simp[IMAGE_DEF,EXTENSION,PULL_EXISTS,EQ_IMP_THM] >>
     simp[FORALL_AND_THM,GSYM CONJ_ASSOC] >>
@@ -777,33 +784,32 @@ Proof
       split_ty_cons_def,split_ty_cons_aux_def,type_cons_def,
       LLOOKUP_THM,kind_ok_def,LIST_REL3_simp] >>
     irule_at (Pat `exhaustive_cepat`) exhaustive_cepat_Cons >>
-    rw[Once $ GSYM PULL_EXISTS]
-    >- rw[destructable_type_def,initial_namespace_def,head_ty_cons_def]
+    simp[get_cases_def,initial_namespace_def,EXISTS_PROD,
+      split_ty_cons_thm,head_ty_cons_def,head_ty_def,ty_args_alt,
+      PULL_EXISTS,LLOOKUP_THM] >>
+    simp[LLOOKUP_THM,PULL_EXISTS,Once initial_namespace_def] >>
+    rw[]
     >- (
-      gvs[initial_namespace_def,unsafe_destruct_type_cons_def,
-        split_ty_cons_def,split_ty_cons_aux_def,unsafe_type_cons_def,
-        LLOOKUP_THM,PULL_EXISTS,AllCaseEqs()]
-      >- (
-        irule_at (Pos hd) exhaustive_cepat_Nil >>
-        simp[SUBSET_SING,LEFT_AND_OVER_OR,EXISTS_OR_THM] >>
-        qexists `{[]}` >>
-        simp[]) >>
-      rpt (irule_at (Pat `exhaustive_cepatl`) exhaustive_cepat_List) >>
       irule_at Any exhaustive_cepat_Nil >>
-      simp[IMAGE_DEF,ELIM_UNCURRY,SUBSET_DEF,PULL_EXISTS] >>
-      simp[LAMBDA_PROD,GSYM PFORALL_THM] >>
-      rpt (irule_at Any exhaustive_cepat_Var) >>
-      simp[UNIQUE_MEMBER_SUBSET_SING] >>
-      irule_at (Pos last) SUBSET_REFL >>
-      irule_at (Pos hd) $ iffRL IN_SING >>
-      simp[] >>
-      irule_at (Pos hd) $ iffRL IN_SING >>
-      simp[] >>
-      irule_at (Pos hd) $ iffRL IN_SING >>
-      simp[IMP_CONJ_THM,FORALL_AND_THM] >>
-      simp[UNIQUE_MEMBER_SUBSET_SING] >>
-      irule_at (Pos last) SUBSET_REFL >>
+      qexists `{[]}` >>
       simp[]
+    )
+    >- (
+      qexists `{[cepatVar «h»; cepatVar «tl»]}` >>
+      simp[] >>
+      irule_at Any exhaustive_cepat_List >>
+      irule_at Any exhaustive_cepat_List >>
+      irule_at Any exhaustive_cepat_Nil >>
+      simp[subst_db_def,IMAGE_DEF,ELIM_UNCURRY,SUBSET_DEF,
+        PULL_EXISTS] >>
+      simp[FORALL_PROD] >>
+      rpt (irule_at Any exhaustive_cepat_Var) >>
+      rw[IMP_CONJ_THM,FORALL_AND_THM] >>
+      irule_at (Pat `cepatVar _ ∈ _`) IN_SINGLETON >>
+      irule_at (Pat `cepatVar _ ∈ _`) IN_SINGLETON >>
+      irule_at (Pat `[] ∈ _`) IN_SINGLETON >>
+      simp[UNIQUE_MEMBER_SUBSET_SING] >>
+      metis_tac[IN_SINGLETON,SUBSET_DEF]
     )
     >- (
       irule type_elaborate_texp_Cons >>

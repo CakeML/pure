@@ -93,8 +93,8 @@ Proof
   metis_tac[tcexp_type_cons_carg_tys_unique]
 QED
 
-Definition tcexp_get_constructors_cases_def:
-  tcexp_get_constructors_cases (ns:exndef # tcexp_typedefs) t ⇔
+Definition tcexp_get_cases_def:
+  tcexp_get_cases (ns:exndef # tcexp_typedefs) t ⇔
   if t = Atom Exception
   then SOME $ MAP (I ## MAP ($, [])) (FST ns)
   else do
@@ -111,7 +111,7 @@ Definition tcexp_get_constructors_cases_def:
                 (ks,
                 subst_db (LENGTH ks)
                   (MAP (tshift $ LENGTH ks) targs) scheme)))
-           constructors
+            constructors
       od
     | INR (PrimT Bool) => do
         assert (LENGTH targs = 0);
@@ -125,47 +125,47 @@ Definition tcexp_get_constructors_cases_def:
   od
 End
 
-Theorem tcexp_destruct_type_cons_tcexp_get_constructors_cases_SOME:
+Theorem tcexp_get_cases_ALL_DISTINCT:
+  tcexp_namespace_ok ns ∧
+  tcexp_get_cases ns t = SOME cons ⇒
+  ALL_DISTINCT (MAP FST cons)
+Proof
+  Cases_on `ns` >>
+  rw[tcexp_get_cases_def,EXISTS_PROD,tcexp_namespace_ok_def,
+    ALL_DISTINCT_APPEND] >>
+  every_case_tac >>
+  gvs[MAP_MAP_o,ALL_DISTINCT_FLAT,MAP_FLAT,EXISTS_PROD] >>
+  gvs[LLOOKUP_THM,MEM_MAP,PULL_EXISTS] >>
+  drule_then assume_tac $ SRULE[PULL_EXISTS] $ iffRL MEM_EL >>
+  qpat_x_assum `∀y. MEM y _ ⇒ ALL_DISTINCT _` drule >>
+  simp[]
+QED
+
+Theorem tcexp_destruct_type_cons_tcexp_get_cases_SOME:
   tcexp_destruct_type_cons ns db t cname carg_tys ⇒
-  ∃cts. tcexp_get_constructors_cases ns t = SOME cts
+  ∃cts. tcexp_get_cases ns t = SOME cts
 Proof
   Cases_on `ns` >>
   rw[tcexp_destruct_type_cons_def,
-    tcexp_get_constructors_cases_def] >>
+    tcexp_get_cases_def] >>
   simp[] >>
   every_case_tac >>
   gvs[tcexp_type_cons_def,LIST_REL_EL_EQN]
 QED
 
-Theorem tcexp_destruct_type_cons_MEM_tcexp_get_constructors_cases:
+Theorem tcexp_destruct_type_cons_MEM_tcexp_get_cases:
   tcexp_destruct_type_cons ns db t cname carg_tys ∧
-  tcexp_get_constructors_cases ns t = SOME cts ⇒
+  tcexp_get_cases ns t = SOME cts ⇒
   MEM (cname,carg_tys) cts
 Proof
   Cases_on `ns` >>
   rw[tcexp_destruct_type_cons_def,
-    tcexp_get_constructors_cases_def] >>
-  gvs[type_exception_def,MEM_MAP,EXISTS_PROD] >>
+    tcexp_get_cases_def] >>
+  gvs[type_exception_def,MEM_MAP,EXISTS_PROD,ALOOKUP_MEM] >>
   every_case_tac >>
-  gvs[tcexp_type_cons_def,MEM_MAP,EXISTS_PROD] >>
+  gvs[tcexp_type_cons_def,MEM_MAP,EXISTS_PROD,ALOOKUP_MEM] >>
   metis_tac[ALOOKUP_MEM]
 QED
-
-(*
-Definition get_constructors_def:
-  get_constructors (edef:exndef,tdefs) t ⇔
-  if t = Atom Exception
-  then SOME $ MAP (I ## LENGTH) edef
-  else do
-    (tc,targs) <- split_ty_cons t;
-    case tc of
-    | INL tyid => OPTION_MAP (MAP (I ## LENGTH) o SND) $ oEL tyid tdefs
-    | INR (PrimT Bool) => SOME ([«True»,0;«False»,0])
-    | INR (CompPrimT (Tuple n)) => SOME ([«»,n])
-    | _ => NONE
-  od
-End
-*)
 
 Inductive tcexp_type_cepat:
 [~Var:]
@@ -181,86 +181,6 @@ Inductive tcexp_type_cepat:
     tcexp_type_cepat ns db (cepatCons c pats) ([],t) (FLAT vtss)
 End
 
-(*
-Definition unsafe_tcexp_type_cons_def:
-  unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ⇔
-  ∃argks constructors schemes.
-    LLOOKUP tdefs tyid = SOME (argks,constructors) ∧
-    ALOOKUP constructors cname = SOME schemes ∧
-    LENGTH tyargs = LENGTH argks ∧
-    MAP
-      (λ(ks,scheme).
-        (ks, subst_db (LENGTH ks)
-             (MAP (tshift $ LENGTH ks) tyargs) scheme))
-      schemes
-    = carg_tys
-End
-
-Theorem unsafe_tcexp_type_cons_carg_tys_unique:
-  unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs) ∧
-  unsafe_tcexp_type_cons tdefs (cname,carg_tys') (tyid,tyargs) ⇒
-  carg_tys = carg_tys'
-Proof
-  rw[oneline unsafe_tcexp_type_cons_def] >>
-  gvs[]
-QED
-
-Theorem tcexp_type_cons_IMP_unsafe_tcexp_type_cons:
-  tcexp_type_cons tdefs db (cname,carg_tys) (tyid,tyargs) ⇒
-  unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,tyargs)
-Proof
-  rw[tcexp_type_cons_def,unsafe_tcexp_type_cons_def] >>
-  gvs[LIST_REL_EL_EQN] >>
-  metis_tac[]
-QED
-
-(* tcexp_destruct_type_cons but do not check if the type arguments are kind_ok *)
-Definition unsafe_tcexp_destruct_type_cons_def:
-  unsafe_tcexp_destruct_type_cons (edefs,tdefs) t cname carg_tys ⇔
-  if t = Atom Exception then
-    EVERY (\x. FST x = []) carg_tys ∧
-    type_exception edefs (cname,MAP SND carg_tys)
-  else
-    ∃tc targs.
-    split_ty_cons t = SOME (tc,targs) ∧
-    (case tc of
-    | INL tyid => unsafe_tcexp_type_cons tdefs (cname,carg_tys) (tyid,targs)
-    | INR (PrimT Bool) => MEM cname [«True»; «False»] ∧ carg_tys = []
-    | INR (CompPrimT (Tuple n)) => cname = «» ∧
-        MAP ($, []) targs = carg_tys
-    | _ => F)
-End
-
-Theorem destruct_tcexp_type_cons_IMP_unsafe_tcexp_type_cons:
-  tcexp_destruct_type_cons ns db t cname carg_tys ⇒
-  unsafe_tcexp_destruct_type_cons ns t cname carg_tys
-Proof
-  rw[oneline tcexp_destruct_type_cons_def,
-    oneline unsafe_tcexp_destruct_type_cons_def] >>
-  every_case_tac >> gvs[] >>
-  every_case_tac >>
-  metis_tac[tcexp_type_cons_IMP_unsafe_tcexp_type_cons]
-QED
-
-Theorem unsafe_tcexp_destruct_type_cons_unique:
-  unsafe_tcexp_destruct_type_cons ns t cname carg_tys ∧
-  unsafe_tcexp_destruct_type_cons ns t cname carg_tys' ⇒
-  carg_tys = carg_tys'
-Proof
-  rw[oneline unsafe_tcexp_destruct_type_cons_def] >>
-  pop_assum mp_tac >>
-  every_case_tac >> gvs[type_exception_def]
-  >- (
-    once_rewrite_tac[LIST_EQ_REWRITE] >>
-    gvs[EVERY_EL,EL_MAP,LENGTH_MAP] >>
-    rw[] >>
-    gvs[EL_MAP,PAIR_FST_SND_EQ]
-  ) >>
-  every_case_tac >> gvs[] >>
-  metis_tac[unsafe_tcexp_type_cons_carg_tys_unique]
-QED
-*)
-
 Inductive tcexp_exhaustive_cepat:
 [~Var:]
   cepatVar v ∈ pats ⇒
@@ -271,7 +191,7 @@ Inductive tcexp_exhaustive_cepat:
     tcexp_exhaustive_cepat ns tk pats
 
 [~Cons:]
-  tcexp_get_constructors_cases ns t = SOME cts ∧
+  tcexp_get_cases ns t = SOME cts ∧
   (∀c ts. MEM (c,ts) cts ⇒
     ∃(pss:cepat list set).
       tcexp_exhaustive_cepatl ns ts pss ∧ IMAGE (cepatCons c) pss ⊆ pats) ⇒
@@ -430,7 +350,7 @@ Inductive type_tcexp:
    type_tcexp ns db st env e vt ∧
 
    (* get the list of constructors and their arities *)
-   tcexp_get_constructors_cases ns vt = SOME constructors ∧
+   tcexp_get_cases ns vt = SOME constructors ∧
 
    (* no catch-all case *)
    (usopt = NONE ⇒

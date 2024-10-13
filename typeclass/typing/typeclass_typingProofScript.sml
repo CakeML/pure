@@ -1139,7 +1139,7 @@ Theorem tcexp_destruct_type_cons_tdefs_APPEND:
 Proof
   simp[oneline tcexp_destruct_type_cons_def] >>
   TOP_CASE_TAC >>
-  rw[] >>
+  rw[] >> simp[] >>
   every_case_tac >>
   metis_tac[tcexp_type_cons_tdefs_APPEND]
 QED
@@ -1163,7 +1163,12 @@ Theorem destruct_type_cons_EQ_tcexp_destruct_type_cons:
       (MAP ($,[]) carg_ts)
 Proof
   rw[destruct_type_cons_def,tcexp_destruct_type_cons_def,EVERY_MAP,
-    MAP_MAP_o,combinTheory.o_DEF] >>
+    MAP_MAP_o,combinTheory.o_DEF]
+  >- (
+    rw[EQ_IMP_THM]
+    >- metis_tac[] >>
+    gvs[type_exception_def,LIST_EQ_REWRITE,EL_MAP]
+  ) >>
   Cases_on `split_ty_cons t` >>
   simp[] >>
   PairCases_on `x` >>
@@ -1192,37 +1197,60 @@ Proof
   metis_tac[]
 QED
 
-(* same as the safe version *)
-Theorem unsafe_type_cons_EQ_unsafe_tcexp_type_cons:
-  unsafe_type_cons tds (cname,carg_ts) (tyid,tyargs) ⇔
-  unsafe_tcexp_type_cons (tdefs_to_tcexp_tdefs tds)
-    (cname,MAP ($, []) carg_ts) (tyid,tyargs)
+Theorem get_cases_EQ_tcexp_get_cases:
+  get_cases (edef,tds) t = SOME cases ⇔
+  tcexp_get_cases (edef,tdefs_to_tcexp_tdefs tds) t =
+    SOME (MAP (I ## MAP ($, [])) cases)
 Proof
-  rw[unsafe_type_cons_def,unsafe_tcexp_type_cons_def,oEL_THM,
-    LENGTH_tdefs_to_tcexp_tdefs,EQ_IMP_THM] >>
-  imp_res_tac ALOOKUP_MEM >>
-  gvs[EL_MAP,tdefs_to_tcexp_tdefs_def,LAMBDA_PROD,lambdify PAIR_MAP] >>
-  gvs[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
-  pairarg_tac >>
-  gvs[ALOOKUP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
-  gvs[LIST_EQ_REWRITE,EL_MAP]
-QED
-
-Theorem unsafe_destruct_type_cons_EQ_unsafe_tcexp_destruct_type_cons:
-  unsafe_destruct_type_cons (edef,tds) t cname carg_ts ⇔
-    unsafe_tcexp_destruct_type_cons (edef,tdefs_to_tcexp_tdefs tds) t cname
-      (MAP ($,[]) carg_ts)
-Proof
-  rw[unsafe_destruct_type_cons_def,unsafe_tcexp_destruct_type_cons_def,EVERY_MAP,
-    MAP_MAP_o,combinTheory.o_DEF] >>
-  Cases_on `split_ty_cons t` >>
+  rw[get_cases_def,tcexp_get_cases_def]
+  >- (
+    rw[EQ_IMP_THM] >>
+    drule_at_then Any irule MAP_EQ_MAP_IMP >>
+    simp[FORALL_PROD] >>
+    rw[] >>
+    drule_at_then Any irule MAP_EQ_MAP_IMP >>
+    rw[]
+  ) >>
+  rw[EXISTS_PROD,EQ_IMP_THM] >>
   simp[] >>
-  PairCases_on `x` >>
-  simp[] >>
-  every_case_tac >> gvs[]
-  >- metis_tac[unsafe_type_cons_EQ_unsafe_tcexp_type_cons] >>
-  rw[EQ_IMP_THM,LIST_EQ_REWRITE] >>
-  gvs[EL_MAP]
+  every_case_tac >> gvs[LLOOKUP_THM,AllCaseEqs(),EXISTS_PROD] >>
+  gvs[LENGTH_tdefs_to_tcexp_tdefs]
+  >- (
+    simp[tdefs_to_tcexp_tdefs_def,EL_MAP,MAP_MAP_o,
+      combinTheory.o_DEF] >>
+    simp[MAP_EQ_f,FORALL_PROD] >>
+    rw[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]
+  )
+  >- (
+    gvs[tdefs_to_tcexp_tdefs_def,EL_MAP] >>
+    Cases_on `EL x tds` >>
+    gvs[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
+    gvs[LIST_EQ_REWRITE,EL_MAP,FORALL_PROD] >>
+    rw[] >>
+    first_x_assum drule >>
+    pairarg_tac >> simp[PAIR_MAP] >>
+    rw[PAIR_FST_SND_EQ,LIST_EQ_REWRITE] >>
+    gvs[] >>
+    first_x_assum drule >>
+    simp[EL_MAP]
+  )
+  >- (
+    `[(«True»,([] :type_kind_scheme list));
+      («False»,([] :type_kind_scheme list))] =
+    MAP (I ## MAP ($, []))
+      [(«True»,([] :type list)); («False»,([] :type list))]`
+    by simp[] >>
+    pop_assum SUBST_ALL_TAC >>
+    drule_at_then Any irule MAP_EQ_MAP_IMP >>
+    simp[FORALL_PROD] >>
+    rw[] >>
+    drule_at_then Any irule MAP_EQ_MAP_IMP >>
+    simp[]
+  )
+  >- (
+    drule_at_then Any irule MAP_EQ_MAP_IMP >>
+    rw[]
+  )
 QED
 
 Triviality CONS_APPEND_APPEND:
@@ -1334,21 +1362,14 @@ Proof
   simp[Once type_elaborate_texp_cases]
 QED
 
-Theorem destructable_type_LE:
-  destructable_type n t ∧ n ≤ m ⇒
-  destructable_type m t
+Theorem tcexp_get_cases_tdefs_APPEND:
+  tcexp_get_cases (exnds,tds) t = SOME cts ⇒
+    tcexp_get_cases (exnds,tds ++ tds') t = SOME cts
 Proof
-  rw[destructable_type_def] >>
-  every_case_tac >> gvs[]
-QED
-
-Theorem unsafe_tcexp_type_cons_tdefs_APPEND_EQ:
-  unsafe_tcexp_type_cons tds c (tcons,args) ⇔
-  (unsafe_tcexp_type_cons (tds ++ tds') c (tcons,args) ∧ tcons < LENGTH tds)
-Proof
-  simp[oneline unsafe_tcexp_type_cons_def] >>
-  rpt CASE_TAC >>
-  rw[oEL_THM,EL_APPEND_EQN]
+  rw[tcexp_get_cases_def] >> simp[] >>
+  pairarg_tac >> gvs[] >>
+  every_case_tac >>
+  gvs[oEL_THM,EL_APPEND_EQN]
 QED
 
 Theorem tcexp_exhaustive_cepat_tdefs_APPEND:
@@ -1365,24 +1386,8 @@ Proof
   >- metis_tac[tcexp_exhaustive_cepat_UScore]
   >- (
     irule tcexp_exhaustive_cepat_Cons >>
-    reverse $ rw[]
-    >- (drule_then irule destructable_type_LE >> simp[]) >>
-    gvs[destructable_type_def,unsafe_tcexp_destruct_type_cons_def,
-      AllCaseEqs(),split_ty_cons_eq_split_ty,split_ty_thm] >>
-    last_x_assum mp_tac >>
-    TOP_CASE_TAC >>
-    `t ≠ Atom Exception` by (
-      strip_tac >>
-      gvs[head_ty_cons_eq_head_ty,head_ty_def]
-    ) >>
-    gvs[head_ty_cons_eq_head_ty] >>
-    every_case_tac
-    >- (
-      rw[] >>
-      drule_all $ iffRL unsafe_tcexp_type_cons_tdefs_APPEND_EQ >>
-      metis_tac[]
-    ) >>
-    metis_tac[]
+    drule_then assume_tac tcexp_get_cases_tdefs_APPEND >>
+    simp[]
   )
   >- metis_tac[tcexp_exhaustive_cepat_Nil]
   >- metis_tac[tcexp_exhaustive_cepat_List]
@@ -1413,55 +1418,8 @@ Proof
   >- metis_tac[tcexp_exhaustive_cepat_UScore]
   >- (
     irule tcexp_exhaustive_cepat_Cons >>
-    reverse $ rw[]
-    >- (drule_then irule destructable_type_LE >>
-      simp[LENGTH_tdefs_to_tcexp_tdefs]) >>
-    gvs[destructable_type_def,unsafe_tcexp_destruct_type_cons_def,
-      unsafe_destruct_type_cons_def,
-      AllCaseEqs(),split_ty_cons_eq_split_ty,split_ty_thm]
-    >- (
-      first_x_assum drule >>
-      rw[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
-      first_assum $ irule_at (Pos last) >>
-      `MAP (λ(p1,p2). ([],p2)) ts = ts` suffices_by (strip_tac >> gvs[]) >>
-      rw[LIST_EQ_REWRITE,EL_MAP] >>
-      pairarg_tac >> rw[] >>
-      gvs[EVERY_EL] >>
-      metis_tac[FST]
-    ) >>
-    qpat_x_assum `option_CASE (head_ty_cons t) _ _` mp_tac >>
-    TOP_CASE_TAC >>
-    `t ≠ Atom Exception` by (
-      strip_tac >>
-      gvs[head_ty_cons_eq_head_ty,head_ty_def]
-    ) >>
-    gvs[head_ty_cons_eq_head_ty] >>
-    every_case_tac
-    >- (
-      rw[] >>
-      gvs[unsafe_type_cons_EQ_unsafe_tcexp_type_cons,
-        unsafe_tcexp_type_cons_def,PULL_EXISTS] >>
-      first_x_assum drule >>
-      simp[MAP_PROD_EQ_MAP_FST] >>
-      impl_keep_tac
-      >- (
-        gvs[namespace_ok_def,oEL_THM,tdefs_to_tcexp_tdefs_def,EL_MAP] >>
-        Cases_on `EL x tds` >>
-        rename1 `EL x tds = (k,cons)` >>
-        gvs[ALOOKUP_MAP,lambdify PAIR_MAP,LAMBDA_PROD,EVERY_MAP]
-      ) >>
-      rw[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
-      first_x_assum $ irule_at (Pos last) >>
-      pop_assum mp_tac >>
-      ho_match_mp_tac $ cj 1 $ iffLR EQ_IMP_THM >>
-      AP_THM_TAC >> AP_TERM_TAC >>
-      rw[LIST_EQ_REWRITE,EL_MAP] >>
-      gvs[EVERY_EL] >>
-      pairarg_tac >> rw[] >>
-      first_x_assum drule >> simp[]
-    ) >>
-    gvs[] >>
-    metis_tac[]
+    gvs[get_cases_EQ_tcexp_get_cases,MEM_MAP,PULL_EXISTS,
+      FORALL_PROD]
   )
   >- metis_tac[tcexp_exhaustive_cepat_Nil]
   >- metis_tac[tcexp_exhaustive_cepat_List]
@@ -2748,42 +2706,29 @@ Proof
   )
   >- (
     irule tcexp_exhaustive_cepat_Cons >>
-    reverse $ conj_asm2_tac
-    >- (
-      rw[destructable_type_def,cons_types_EQ_Atom] >>
-      CASE_TAC
-      >- (
-        pop_assum mp_tac >>
-        `∃x. head_ty_cons (cons_types (UserType cid) targs) = SOME x`
-          suffices_by (rw[] >> simp[]) >>
-        simp[head_ty_cons_eq_head_ty,head_ty_cons_types,head_ty_def]
-      ) >>
-      gvs[head_ty_cons_eq_head_ty,head_ty_cons_types,head_ty_def,
-        oEL_THM]
-    ) >>
-    simp[unsafe_tcexp_destruct_type_cons_def,cons_types_EQ_Atom,
-      split_ty_cons_eq_split_ty,split_ty_thm,head_ty_cons_types,
-      ty_args_cons_types,head_ty_def,ty_args_def,ty_args_aux_def] >>
-    rw[unsafe_tcexp_type_cons_def] >>
-    qexists_tac `{select_nth_cepat n (LENGTH ts - (n + 1)) «y»}` >>
-    simp[select_nth_cepat_thm] >>
+    simp[tcexp_get_cases_def] >>
+    simp[cons_types_EQ_Atom,split_ty_cons_eq_split_ty,
+      split_ty_thm,head_ty_cons_types,EXISTS_PROD,SUBSET_SING,
+      ty_args_cons_types,head_ty_def,ty_args_alt] >>
+    reverse $ conj_tac
+    >- gvs[LIST_REL_EL_EQN] >>
+    qrefine `{ps}` >>
+    simp[IMAGE_SING] >>
     irule tcexp_exhaustive_cepatl >>
     qexists_tac `MAP (λx. {x}) $
       select_nth_cepat n (LENGTH ts - (n + 1)) «y»` >>
-    rw[LIST_REL_EL_EQN,select_nth_cepat_thm,FOLDR_APPEND]
-    >- simp[FOLDR_REPLICATE,FUNPOW_IMAGE_CONS_SING] >>
-    simp[EL_MAP,EL_REPLICATE,EL_APPEND_EQN] >>
+    simp[select_nth_cepat_thm,FOLDR_APPEND,FOLDR_REPLICATE,
+      FUNPOW_IMAGE_CONS_SING,EVERY2_MAP] >>
+    rw[LIST_REL_EL_EQN,EL_APPEND_EQN] >>
     IF_CASES_TAC
     >- (
+      simp[EL_REPLICATE] >>
       irule tcexp_exhaustive_cepat_UScore >>
       simp[]
     ) >>
     Cases_on `n' - n` >>
-    simp[EL_REPLICATE]
-    >- (
-      irule tcexp_exhaustive_cepat_Var >>
-      simp[]
-    ) >>
+    rw[EL_REPLICATE]
+    >- (irule tcexp_exhaustive_cepat_Var >> simp[]) >>
     irule tcexp_exhaustive_cepat_UScore >>
     simp[]
   )
