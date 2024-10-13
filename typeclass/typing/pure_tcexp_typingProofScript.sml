@@ -1293,10 +1293,6 @@ Theorem type_soundness_next:
     type_next_res ns db (st ++ st') (next k wh stack state) t ∧
     EVERY (type_ok (SND ns) db) st'
 Proof
-cheat
-QED
-(*
-Proof
   strip_tac >> completeInduct_on `k` >> rw[] >>
   last_x_assum $ qspec_then `k - 1` assume_tac >> gvs[] >>
   qpat_x_assum `type_config _ _ _ _ _` mp_tac >> rw[Once type_config_def] >>
@@ -1327,6 +1323,7 @@ Proof
         gvs[closed_def, freevars_exp_of]) >>
       simp[bind1_def] >>
       drule type_tcexp_closing_subst1 >> simp[] >>
+      gvs[cons_types_def] >>
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
       simp[subst_exp_of, FUN_FMAP_SING]
@@ -1347,6 +1344,7 @@ Proof
     first_x_assum irule >> simp[type_config_def] >>
     qexistsl_tac [`t1`,`BCT t1 wh_ty stack_ty`] >>
     simp[Once type_cont_cases, type_exp_def, PULL_EXISTS, GSYM CONJ_ASSOC] >>
+    fs[Functions_cons_types] >>
     goal_assum $ drule_at Any >> simp[] >>
     irule_at Any type_soundness_eval_wh >> simp[] >>
     simp[Once config_type_ok_cases] >>
@@ -1366,7 +1364,8 @@ Proof
       simp[type_wh_cases, PULL_EXISTS] >> irule_at Any EQ_REFL >>
       simp[Once type_tcexp_cases] >> gvs[type_exp_def] >>
       drule_at Any type_tcexp_type_ok >>
-      gvs[type_ok, mlstringTheory.implode_def]
+      gvs[type_ok, mlstringTheory.implode_def] >>
+      simp[kind_ok_cons_types,PULL_EXISTS,kind_ok]
       )
     >- (
       gvs[Once type_cont_cases, apply_closure_def, type_exp_def] >>
@@ -1381,12 +1380,13 @@ Proof
       qexists_tac `t1` >> simp[] >>
       qpat_x_assum `type_wh _ _ _ _ _ _` mp_tac >> simp[Once type_wh_cases] >>
       strip_tac >> gvs[] >> pop_assum mp_tac >> rw[Once type_tcexp_cases] >>
-      Cases_on `arg_tys` >> gvs[Functions_def] >>
+      Cases_on `arg_tys` >> gvs[Functions_cons_types] >>
       `closed (exp_of e)` by (
         imp_res_tac type_tcexp_freevars_tcexp >>
         gvs[closed_def, freevars_exp_of]) >>
       simp[bind1_def] >>
       drule type_tcexp_closing_subst1 >> simp[] >>
+      gvs[cons_types_Atom_EQ] >>
       disch_then drule >> strip_tac >>
       drule_at (Pos last) type_soundness_eval_wh >>
       simp[subst_exp_of, FUN_FMAP_SING]
@@ -1397,7 +1397,9 @@ Proof
     first_x_assum irule >> simp[type_config_def] >>
     qexistsl_tac [`wh_ty`,`HCT wh_ty stack_ty`] >>
     simp[Once type_cont_cases, Once config_type_ok_cases] >>
-    simp[type_exp_def, PULL_EXISTS] >> goal_assum $ drule_at Any >> simp[] >>
+    simp[type_exp_def, PULL_EXISTS] >>
+    fs[Functions_cons_types] >>
+    goal_assum $ drule_at Any >> simp[] >>
     irule type_soundness_eval_wh >> simp[]
     )
   >- (
@@ -1413,12 +1415,13 @@ Proof
     goal_assum $ drule_at Any >> simp[type_wh_cases, PULL_EXISTS] >>
     qexists_tac `Prim (AtomOp $ Lit $ Str y) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    ntac 2 $ simp[Once type_tcexp_cases] >>
-    simp[get_PrimTys_def, type_atom_op_cases, type_lit_cases,
-         mlstringTheory.implode_def]
+    simp[Once type_tcexp_cases,mlstringTheory.implode_def] >>
+    disj1_tac >>
+    simp[Once type_tcexp_cases,get_PrimTys_def,
+      type_atom_op_cases,type_lit_cases]
     )
   >- (
-    qpat_x_assum `_ (PrimTy _)` assume_tac >>
+    qpat_x_assum `_ (Atom _)` assume_tac >>
     drule_at (Pos last) type_soundness_eval_wh >> rw[] >>
     drule type_wh_PrimTy_eq_wh_Atom >> simp[] >>
     simp[with_atom_def, with_atoms_def] >> strip_tac >> gvs[]
@@ -1439,7 +1442,7 @@ Proof
       gvs[LIST_REL_EL_EQN, EVERY_MEM] >> rw[] >>
       last_x_assum drule_all >> strip_tac >> gvs[type_exp_def] >>
       irule_at Any EQ_REFL >> drule type_tcexp_weaken >>
-      disch_then $ qspecl_then [`0`,`[t']`,`[]`] mp_tac >> simp[]
+      disch_then $ qspecl_then [`[]`,`[t']`,`[]`] mp_tac >> simp[]
       ) >>
     simp[type_wh_cases, Once type_tcexp_cases, PULL_EXISTS,
          mlstringTheory.implode_def] >>
@@ -1450,7 +1453,7 @@ Proof
     IF_CASES_TAC >> gvs[] >> rw[DISJ_EQ_IMP] >>
     simp[type_exp_def] >> irule_at Any EQ_REFL >>
     qpat_x_assum `_ e2 t'` assume_tac >> drule type_tcexp_weaken >>
-    disch_then $ qspecl_then [`0`,`[t']`,`[]`] mp_tac >> simp[]
+    disch_then $ qspecl_then [`[]`,`[t']`,`[]`] mp_tac >> simp[]
     )
   >- (
     drule_at (Pos last) type_soundness_eval_wh >> rw[] >>
@@ -1466,9 +1469,11 @@ Proof
     qmatch_goalsub_abbrev_tac `Lit a` >>
     qexists_tac `Prim (AtomOp $ Lit a) []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
-    ntac 2 $ simp[Once type_tcexp_cases] >>
-    simp[get_PrimTys_def, type_atom_op_cases] >>
-    unabbrev_all_tac >> simp[type_lit_cases, mlstringTheory.implode_def]
+    simp[Once type_tcexp_cases,type_atom_op_cases,
+      mlstringTheory.implode_def] >>
+    unabbrev_all_tac >>
+    simp[Once type_tcexp_cases,get_PrimTys_def,
+      type_atom_op_cases,type_lit_cases]
     )
   >- (
     drule_at (Pos last) type_soundness_eval_wh >> simp[] >> strip_tac >>
@@ -1482,7 +1487,7 @@ Proof
     >- (simp[type_next_res_cases] >> goal_assum drule) >>
     simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases, oEL_THM] >>
     imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-    qpat_x_assum `type_tcexp _ _ _ _ _ (PrimTy _)` mp_tac >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ (Atom $ PrimTy _)` mp_tac >>
     simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases, type_lit_cases] >>
     strip_tac >> gvs[] >>
     Cases_on `k = 0` >> gvs[]
@@ -1523,7 +1528,7 @@ Proof
     >- (simp[type_next_res_cases] >> goal_assum drule) >>
     simp[pure_semanticsTheory.get_atoms_def] >> gvs[type_wh_cases, oEL_THM] >>
     imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-    qpat_x_assum `type_tcexp _ _ _ _ _ (PrimTy _)` mp_tac >>
+    qpat_x_assum `type_tcexp _ _ _ _ _ (Atom $ PrimTy _)` mp_tac >>
     simp[Once type_tcexp_cases, get_PrimTys_def, type_atom_op_cases, type_lit_cases] >>
     strip_tac >> gvs[] >>
     Cases_on `k = 0` >> gvs[]
@@ -1536,9 +1541,11 @@ Proof
       qexists_tac `Prim (Cons «») []` >>
       simp[exp_of_def, pure_cexpTheory.op_of_def, mlstringTheory.implode_def] >>
       ntac 2 $ simp[Once type_tcexp_cases] >>
-      gvs[LIST_REL_EL_EQN, EVERY_EL] >> rw[EL_LUPDATE] >>
+      gvs[LIST_REL_EL_EQN, EVERY_EL] >>
+      rw[EL_LUPDATE,cons_types_def] >>
       IF_CASES_TAC >> gvs[EL_LUPDATE] >>
-      simp[type_exp_def] >> goal_assum drule >> simp[]
+      simp[type_exp_def] >>
+      goal_assum drule >> simp[]
       ) >>
     first_x_assum irule >> simp[type_config_def] >>
     goal_assum $ drule_at Any >> simp[] >>
@@ -1546,10 +1553,11 @@ Proof
     qexists_tac `Prim (Cons «Subscript») []` >>
     simp[exp_of_def, pure_cexpTheory.op_of_def] >>
     ntac 2 $ simp[Once type_tcexp_cases, type_ok, mlstringTheory.implode_def] >>
-    drule type_exception_Subscript >> PairCases_on `ns` >> gvs[]
+    drule type_exception_Subscript >> PairCases_on `ns` >>
+    gvs[kind_arrows_def]
     )
+  >> gvs[Monad_cons_types,tcons_to_type_def,cons_types_Atom_EQ]
 QED
-*)
 
 Theorem type_soundness_next_action:
   ∀ns db st wh stack state t.
