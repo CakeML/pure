@@ -6,6 +6,7 @@ This is a language that support type classes. The file structure is similar to p
   - `typeclass_types`: We update the datatype for types to allow types like `m a`.
   - `typeclass_kindCheck`: This defines the kinding rules.
   - `typeclass_typing`: This translates TypeclassLang to pureLang. It defines the type elaborating relation and the dictionary construction relation (We split the relation in the original paper into two relations). The ie parameter in the relations is generated from the `class_map` and `inst_list`. It also contains how types and environment is translated when typeclassLang is translated to pureLang.
+  - `test_typeclass_typing`: This is an example that types a program in TypeclassLang and translates it to pureLang.
   - `pure_tcexp_typing`: This defines the typing rules for tcexp. We need to change the typing rules because we need to allow constructors like `MonadDict (forall a. m a -> (a -> m a) -> m a)` to make the type translation proof work.
   - `typeclass_typingProof`: This proves the if the expression in typeclassLang is well-typed, and we can construct the dictionaries, then the translated expression in pureLang is well-typed.
   - `pure_tcexp_typingProof`: This proves the type soundness of the typing relation defined in `pure_tcexp_typing`. The `NestedCase` is still WIP.
