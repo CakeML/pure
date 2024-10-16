@@ -1,0 +1,10 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/cakeml/master
+endif
+
+INCLUDES = $(CAKEMLDIR)/basis/pure \
+					 $(PUREDIR)/misc \
+           $(HOLDIR)/examples/algorithms \
+					 $(PUREDIR)/typeclass/typing \
+					 $(PUREDIR)/typeclass/compiler/parsing \
+
