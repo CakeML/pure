@@ -55,14 +55,75 @@ Proof
   simp[FORALL_PROD]
 QED
 
+Theorem app3_eq:
+  f1 = f2 ∧ x1 = x2 ∧ y1 = y2 ⇒ f1 x1 y1 = f2 x2 y2
+Proof
+  simp[]
+QED
+
 Theorem freevars_exp_of:
   ∀ce. freevars (exp_of ce) = IMAGE explode $ freevars_tcexp ce
 Proof
-  recInduct freevars_tcexp_ind >> simp[optionTheory.FORALL_OPTION] >>
-  rw[exp_of_def] >>
+  recInduct freevars_tcexp_ind >>
+  rpt strip_tac
+  >~ [`NestedCase`]
+  >- (
+    PURE_REWRITE_TAC[exp_of_def,freevars_tcexp_def] >>
+    `∀pes.
+      (∀p' e'. MEM (p',e') pes ⇒
+        freevars (exp_of e') = IMAGE explode (freevars_tcexp e')) ⇒
+      freevars
+       (nested_rows (Var (explode v))
+          (MAP (λx. (FST x,exp_of (SND x))) pes)) DELETE explode v =
+      BIGUNION
+        (set (MAP (λx.
+          IMAGE explode (freevars_tcexp (SND x)) DIFF
+          IMAGE explode (cepat_vars (FST x))) pes))
+        DELETE explode v` suffices_by (
+      disch_then $ qspec_then `(p,e)::pes` strip_assume_tac >>
+      gvs[exp_of_def,freevars_tcexp_def] >>
+      pop_assum $ strip_assume_tac o
+        SRULE[DISJ_IMP_THM,FORALL_AND_THM] >>
+      pop_assum $ drule_then drule >>
+      simp[AC UNION_COMM UNION_ASSOC,LAMBDA_PROD,IMAGE_DIFFDELETE,
+          IMAGE_BIGUNION,GSYM LIST_TO_SET_MAP,MAP_MAP_o,
+          combinTheory.o_DEF]
+    ) >>
+    rpt $ pop_assum kall_tac >>
+    rpt strip_tac >>
+    irule SUBSET_ANTISYM >>
+    conj_tac
+    >- (
+      irule SUBSET_TRANS >>
+      qrefine `_ DELETE explode v` >>
+      irule_at (Pos hd) SUBSET_DELETE_BOTH >>
+      irule_at (Pos hd) freevars_nested_rows_UB >>
+      IF_CASES_TAC >- simp[] >>
+      simp[LAMBDA_PROD,UNION_DELETE,MAP_MAP_o,combinTheory.o_DEF] >>
+      irule $ cj 1 EQ_SUBSET_SUBSET >>
+      irule app3_eq >> simp[] >>
+      ntac 2 AP_TERM_TAC >>
+      irule MAP_CONG >> rw[] >>
+      pairarg_tac >> gvs[] >>
+      metis_tac[]
+    ) >>
+    irule SUBSET_TRANS >>
+    qrefine `_ DELETE explode v` >>
+    irule_at (Pos last) SUBSET_DELETE_BOTH >>
+    irule_at (Pos hd) freevars_nested_rows_LB >>
+    simp[LAMBDA_PROD,MAP_MAP_o,combinTheory.o_DEF] >>
+    irule $ cj 2 EQ_SUBSET_SUBSET >>
+    irule combeq3 >> simp[] >>
+    ntac 2 AP_TERM_TAC >>
+    irule MAP_CONG >> rw[] >>
+    pairarg_tac >> gvs[] >>
+    metis_tac[]
+  ) >>
+  simp[optionTheory.FORALL_OPTION] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Bottom_def, IMAGE_BIGUNION,
       GSYM LIST_TO_SET_MAP, IMAGE_DIFFDELETE, Cong MAP_CONG,
-      freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY]
+      freevars_rows_of, AC UNION_COMM UNION_ASSOC, ELIM_UNCURRY,
+      exp_of_def]
   >- gvs[MEM_adjustlemma, ELIM_UNCURRY, Cong MAP_CONG] >>
   Cases_on `css` >> gvs[] >>
   every_case_tac >> gvs[freevars_IfDisj] >> every_case_tac >> gvs[] >>
@@ -97,10 +158,19 @@ Proof
   simp[subst_lets_for, combinTheory.o_DEF]
 QED
 
-Theorem app3_eq:
-  f1 = f2 ∧ x1 = x2 ∧ y1 = y2 ⇒ f1 x1 y1 = f2 x2 y2
+Triviality patguards_subst_FST:
+  patguards eps = (gd,binds) ⇒
+  FST (patguards (MAP (subst f ## I) eps)) = subst f gd
 Proof
-  simp[]
+  metis_tac[patguards_subst,FST]
+QED
+
+Triviality patguards_subst_SND:
+  patguards eps = (gd,binds) ⇒
+  SND (patguards (MAP (subst f ## I) eps)) =
+    MAP (I ## subst f) binds
+Proof
+  metis_tac[patguards_subst,SND]
 QED
 
 Theorem subst_exp_of:
@@ -139,6 +209,53 @@ Proof
            DRESTRICT_DEF, DOMSUB_FAPPLY_THM] >>
       AP_THM_TAC >> AP_TERM_TAC >>
       rw[fmap_eq_flookup, FLOOKUP_FUN_FMAP, DOMSUB_FLOOKUP_THM] >> rw[] >> gvs[])
+  >- (
+    pairarg_tac >>
+    simp[subst_def] >>
+    rw[]
+    >- (
+      irule EQ_TRANS >>
+      drule_then (irule_at $ Pos last) patguards_subst_FST >>
+      fs[pureLangTheory.patguards_def,subst_def])
+    >- (
+      DEP_REWRITE_TAC[subst_FOLDR_Let] >>
+      simp[FDIFF_FUN_FMAP,FDIFF_FDOMSUB_INSERT] >>
+      drule patguards_binds_pvars >>
+      disch_then SUBST_ALL_TAC >>
+      simp[] >>
+      drule patguards_onebound_preserved >>
+      rw[]
+      >- (
+        qexists_tac `{explode v}` >>
+        simp[DELETE_INTER] >>
+        conj_tac
+        >- simp[INTER_DEF,DELETE_DEF,DIFF_DEF,EXTENSION] >>
+        metis_tac[EQ_SUBSET_SUBSET]
+      ) >>
+      irule FOLDR_CONG >> simp[] >>
+      irule app3_eq >> simp[] >>
+      irule FUN_FMAP_CONG >>
+      rw[PULL_EXISTS] >>
+      fs[TO_FLOOKUP] >>
+      DEP_REWRITE_TAC[TO_FLOOKUP] >>
+      simp[FLOOKUP_FDIFF]) >>
+    DEP_REWRITE_TAC[subst_nested_rows] >>
+    simp[freevars_def,DELETE_INTER,MAP_MAP_o,
+      combinTheory.o_DEF,FDIFF_FUN_FMAP,FUN_FMAP_DOMSUB] >>
+    conj_tac
+    >- simp[INTER_DEF,DELETE_DEF,DIFF_DEF,EXTENSION] >>
+    AP_TERM_TAC >>
+    irule MAP_CONG >>
+    rw[] >>
+    rename1`MEM pp pes` >>
+    Cases_on `pp` >>
+    gvs[DIFF_INSERT] >>
+    irule app3_eq >> simp[] >>
+    irule FUN_FMAP_CONG >>
+    rw[PULL_EXISTS] >>
+    fs[TO_FLOOKUP] >>
+    DEP_REWRITE_TAC[TO_FLOOKUP] >>
+    simp[FLOOKUP_FDIFF])
 QED
 
 Theorem lets_for_APPEND:
@@ -151,7 +268,7 @@ Proof
 QED
 
 Theorem cexp_wf_tcexp_wf:
-  ∀e. NestedCase_free e ⇒ (cexp_wf e ⇔ tcexp_wf (tcexp_of e) ∧ cexp_Lits_wf e)
+  ∀e. (cexp_wf e ⇔ tcexp_wf (tcexp_of e) ∧ cexp_Lits_wf e)
 Proof
   recInduct cexp_wf_ind >>
   rw[cexp_wf_def, tcexp_of_def, tcexp_wf_def, cexp_Lits_wf_def] >>
@@ -178,7 +295,7 @@ Proof
 QED
 
 Theorem freevars_tcexp_of:
-  ∀ce. NestedCase_free ce ⇒ (freevars_tcexp (tcexp_of ce) = freevars_cexp ce)
+  ∀ce. freevars_tcexp (tcexp_of ce) = freevars_cexp ce
 Proof
   recInduct freevars_cexp_ind >>
   rw[freevars_cexp_def, tcexp_of_def, freevars_tcexp_def] >>
@@ -199,6 +316,13 @@ Proof
     simp[Cong MAP_CONG] >>
     simp[Once EXTENSION, MEM_MAP, PULL_EXISTS] >> metis_tac[]
     )
+  >- (
+    ntac 3 (irule app3_eq >> simp[]) >>
+    ntac 2 AP_TERM_TAC >>
+    irule MAP_CONG >>
+    simp[LAMBDA_PROD,GSYM PFORALL_THM] >>
+    metis_tac[]
+    )
 QED
 
 Theorem tcexp_of_invert:
@@ -210,15 +334,18 @@ Theorem tcexp_of_invert:
   (∀tce tces. tcexp_of ce = App tce tces ⇔
     ∃d ce' ces. ce = App d ce' ces ∧ tcexp_of ce' = tce ∧ MAP tcexp_of ces = tces) ∧
   (∀xs tce. tcexp_of ce = Lam xs tce ⇔
-    (∃d ce'. ce = Lam d xs ce' ∧ tcexp_of ce' = tce) ∨
-    (∃d ce' x p pce pces. ce = NestedCase d ce' x p pce pces ∧ xs = [] ∧ tce = ARB)) ∧
+    ∃d ce'. ce = Lam d xs ce' ∧ tcexp_of ce' = tce) ∧
   (∀tfns tce. tcexp_of ce = Letrec tfns tce ⇔
     ∃d fns ce'. ce = Letrec d fns ce' ∧
       tcexp_of ce' = tce ∧ MAP (λ(f,ce). (f,tcexp_of ce)) fns = tfns) ∧
   (∀tce x tcss tusopt. tcexp_of ce = pure_tcexp$Case tce x tcss tusopt ⇔
     ∃d ce' css usopt. ce = pure_cexp$Case d ce' x css usopt ∧
       tcexp_of ce' = tce ∧ MAP (λ(cn,pvs,ce). (cn,pvs,tcexp_of ce)) css = tcss ∧
-      OPTION_MAP (λ(cn_ars,ce). (cn_ars, tcexp_of ce)) usopt = tusopt)
+      OPTION_MAP (λ(cn_ars,ce). (cn_ars, tcexp_of ce)) usopt = tusopt) ∧
+  (∀tce x v p e pes. tcexp_of ce = pure_tcexp$NestedCase x v p e pes ⇔
+    ∃d x' e' pes'. ce = pure_cexp$NestedCase d x' v p e' pes' ∧
+      tcexp_of x' = x ∧ tcexp_of e' = e ∧
+      MAP (λ(c,x'). (c,tcexp_of x')) pes' = pes)
 Proof
   Induct_on `ce` using freevars_cexp_ind >> rw[] >> gvs[tcexp_of_def, SF ETA_ss] >>
   eq_tac >> rw[]
@@ -377,8 +504,16 @@ Proof
   once_rewrite_tac[exp_eq_sym] >> irule lets_for_exp_eq_lemma >> simp[]
 QED
 
+Triviality exp_eq_FOLDR_cong_base_case:
+  e ≅ e' ∧ (∀x y y'. y ≅ y' ⇒  f x y ≅ f x y') ⇒
+  FOLDR f e l ≅ FOLDR f e' l
+Proof
+  Induct_on `l` >>
+  rw[]
+QED
+
 Theorem exp_of_tcexp_of_exp_eq:
-  ∀e. tcexp_wf (tcexp_of e) ∧ NestedCase_free e
+  ∀e. tcexp_wf (tcexp_of e)
     ⇒ pure_tcexp$exp_of (tcexp_of e) ≅ pureLang$exp_of e
 Proof
   recInduct tcexp_of_ind >>
@@ -396,7 +531,6 @@ Proof
   >- (
     simp[MAP_MAP_o, combinTheory.o_DEF] >> gvs[] >>
     qpat_x_assum `_ ≠ []` kall_tac >> gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
-    ntac 4 $ pop_assum kall_tac >>
     Induct_on `xs` using SNOC_INDUCT >> rw[MAP_SNOC, Apps_SNOC] >>
     irule exp_eq_App_cong >> simp[]
     )
@@ -412,30 +546,63 @@ Proof
     gvs[EVERY_MAP, EVERY_MEM, FORALL_PROD] >>
     first_x_assum irule >> gvs[MEM_EL, PULL_EXISTS, FORALL_PROD] >>
     goal_assum $ drule_at Any >> gvs[] >>
-    ntac 2 (first_x_assum $ irule_at Any >> goal_assum drule) >> gvs[]
+    metis_tac[]
     )
-  >- (irule FALSITY >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD]) >>
-  simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-  rename [‘eopt = SOME _ ⇒ _’] >> reverse $ Cases_on ‘eopt’ >> gvs[] >>
-  irule exp_eq_App_cong >> simp[] >>
-  irule exp_eq_Lam_cong >> simp[] >>
-  TRY (qpat_x_assum `rs ≠ _` kall_tac) >>
-  rpt (pairarg_tac >> gvs[]) >>
-  Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def, exp_eq_refl]
-  >- (rw[pureLangTheory.IfDisj_def] >> irule exp_eq_Prim_cong >> simp[exp_eq_refl]) >>
-  pairarg_tac >> gvs[rows_of_def, pureLangTheory.rows_of_def] >>
-  qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>
-  irule exp_eq_trans >> irule_at Any exp_eq_Prim_cong >>
-  qmatch_goalsub_abbrev_tac `[a;b c;_]` >>
-  qexists_tac `[a;b (exp_of p2);rows]` >> unabbrev_all_tac >> simp[exp_eq_refl] >>
-  last_x_assum $ irule_at Any >>
-  (rw[]
-   >- metis_tac[]
-   >- (irule exp_eq_lets_for_cong >> simp[]) >>
-   rename [‘MAP explode vv’] >>
-   simp[lets_for_exp_eq
-          |> Q.INST [‘vs’ |-> ‘MAP explode vv’]
-          |> SRULE[PULL_EXISTS, MEM_MAP]])
+  >- (irule FALSITY >> gvs[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
+  >- (
+    simp[MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+    rename [‘eopt = SOME _ ⇒ _’] >> reverse $ Cases_on ‘eopt’ >> gvs[] >>
+    irule exp_eq_App_cong >> simp[] >>
+    irule exp_eq_Lam_cong >> simp[] >>
+    TRY (qpat_x_assum `rs ≠ _` kall_tac) >>
+    rpt (pairarg_tac >> gvs[]) >>
+    Induct_on `rs` >> rw[rows_of_def, pureLangTheory.rows_of_def, exp_eq_refl]
+    >- (rw[pureLangTheory.IfDisj_def] >> irule exp_eq_Prim_cong >> simp[exp_eq_refl]) >>
+    pairarg_tac >> gvs[rows_of_def, pureLangTheory.rows_of_def] >>
+    qmatch_goalsub_abbrev_tac `_ ≅ If _ _ rows` >>
+    irule exp_eq_trans >> irule_at Any exp_eq_Prim_cong >>
+    qmatch_goalsub_abbrev_tac `[a;b c;_]` >>
+    qexists_tac `[a;b (exp_of p2);rows]` >> unabbrev_all_tac >> simp[exp_eq_refl] >>
+    last_x_assum $ irule_at Any >>
+    (rw[]
+     >- metis_tac[]
+     >- (irule exp_eq_lets_for_cong >> simp[]) >>
+     rename [‘MAP explode vv’] >>
+     simp[lets_for_exp_eq
+            |> Q.INST [‘vs’ |-> ‘MAP explode vv’]
+            |> SRULE[PULL_EXISTS, MEM_MAP]])
+    )
+  >- (
+    fs[EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >>
+    irule exp_eq_App_cong >> simp[] >>
+    irule exp_eq_Lam_cong >> simp[] >>
+    irule exp_eq_Prim_cong >> simp[exp_eq_refl] >>
+    conj_tac
+    >- (
+      rename1 `FOLDR _ _ l ≅ _` >>
+      Induct_on `l` >>
+      rw[] >>
+      irule exp_eq_App_cong >> simp[exp_eq_refl] >>
+      irule exp_eq_Lam_cong >> simp[exp_eq_refl])>>
+    Induct_on `pes` >>
+    rw[exp_eq_refl] >>
+    pairarg_tac >>
+    simp[] >>
+    irule exp_eq_Prim_cong >> simp[exp_eq_refl] >>
+    conj_tac
+    >- (
+      irule exp_eq_FOLDR_cong_base_case >>
+      rw[ELIM_UNCURRY]
+      >- (
+        irule exp_eq_App_cong >> simp[exp_eq_refl] >>
+        irule exp_eq_Lam_cong >> simp[exp_eq_refl]
+      ) >>
+      Cases_on `h` >>
+      gvs[]) >>
+    last_x_assum irule >>
+    rw[] >>
+    metis_tac[]
+  )
 QED
 
 

@@ -5,7 +5,7 @@ open relationTheory set_relationTheory;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
 open mlmapTheory mlstringTheory balanced_mapTheory alistTheory topological_sortTheory;
 open miscTheory;
-open typeclass_typesTheory typeclass_typesPropsTheory;
+open typeclass_typesTheory typeclass_kindCheckTheory typeclass_typesPropsTheory;
 open typeclass_texpTheory;
 open typeclass_typingTheory typeclass_typingPropsTheory;
 open monadsyntax;

@@ -380,6 +380,70 @@ Proof
   dxrule_then (qspec_then ‘k-1’ assume_tac) eval_wh_inc >> gs[]
 QED
 
+(* defintions for proving type soundness of NestedCase
+Definition check_pat_def:
+  (check_pat cepatUScore e = T) ∧
+  (check_pat (cepatVar v) e = T) ∧
+  (check_pat (cepatCons cn ps) e =
+    case eval_wh e of
+    | wh_Constructor cn' es =>
+      (cn = implode cn' ∧ cn' ∉ monad_cns ∧
+        LIST_REL check_pat ps es)
+    | _ => F)
+End
+
+(* returns the first pattern that matches the exp *)
+Definition find_first_match_pattern_def:
+  find_first_match_pattern [] v = NONE ∧
+  find_first_match_pattern ((p,e)::pes) v =
+    if check_pat p v
+    then SOME (p,e)
+    else find_first_match_pattern pes v
+End
+
+(* returns a fmap (variable |-> SafeProj) ? *)
+Definition safe_proj_pat_aux_def:
+  safe_proj_pat_aux (cepatCons cn ps) e acc =
+  (* the order matters, check if this is the correct order *)
+  FOLDR FUNION FEMPTY $ MAPi (λi p. safe_proj_pat_aux p e ((cn,LENGTH ps,i)::acc)) ps ∧
+  safe_proj_pat_aux cepatUScore e acc = FEMPTY ∧
+  safe_proj_pat_aux (cepatVar v) e acc =
+  FEMPTY |+ (v,FOLDR (λ(cn,len,i) x. SafeProj cn len i x) e acc)
+Termination
+  WF_REL_TAC `measure (cepat_size o FST)`
+End
+
+Definition safe_proj_pat_def:
+  safe_proj_pat pat e = safe_proj_pat_aux pat e []
+End
+
+Theorem eval_wh_to_NestedCase:
+  closed (exp_of g) ∧
+  (* if g terminates, find_first_match_pattern should return
+  * SOME, given exhaustive patterns *)
+  find_first_match_pattern ((p,e)::pes) (exp_of g) =
+    SOME (matched_pat, ce)
+  ⇒
+  ∃res.
+    eval_wh_to k (exp_of
+      (pure_tcexp$NestedCase g gv p e pes)) = res ∧
+    (res = wh_Diverge ∨
+     k ≠ 0 ∧
+    (* may takes more than 1 tick to match the pattern? *)
+    k' < k ∧
+     res = eval_wh_to (k - k')
+      (subst
+        (safe_proj_pat matched_pat g)
+        (subst1 (explode gv) (exp_of g) (exp_of ce))))
+Proof
+  simp[exp_of_def,eval_wh_to_def,Excl"nested_rows_def"] >>
+  IF_CASES_TAC >>
+  rw[Excl"nested_rows_def"] >>
+QED
+
+TODO: relating tcexp_type_cepat with safe_proj_pat?
+*)
+
 Triviality MAPi_ID[simp]:
   ∀l. MAPi (λn v. v) l = l
 Proof
@@ -994,9 +1058,13 @@ Proof
     simp[Once type_tcexp_cases] >>
     rpt $ goal_assum $ drule_at Any >> simp[oEL_THM]
    )
-  (* TODO *)
   >~ [‘NestedCase’]
-  >- (cheat
+  >- (
+    drule type_tcexp_freevars_tcexp >> rw[] >>
+    drule_at (Pos last) type_tcexp_type_ok >> rw[] >>
+    qpat_x_assum `type_tcexp _ _ _ _ (NestedCase _ _ _ _ _) _` $
+      strip_assume_tac o SRULE[Once type_tcexp_cases] >>
+    cheat
      )
   >~ [‘SafeProj’]
   >- ( (* SafeProj *)

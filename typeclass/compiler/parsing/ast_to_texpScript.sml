@@ -6,7 +6,7 @@ open typeclassASTTheory mlmapTheory mlstringTheory
      pure_varsTheory typeclass_typesTheory typeclass_typingTheory
      pure_miscTheory pure_configTheory;
 
-val _ = new_theory "ast_to_cexp";
+val _ = new_theory "ast_to_texp";
 
 val _ = set_grammar_ancestry [
           "typeclassAST", "mlmap", "typeclass_texp",
