@@ -1,0 +1,38 @@
+Files:
+    `thunkLangRel_primitivesScript.sml`:
+        Primitive definitions for alternative semantics
+    `thunkLangRel_semanticsScript.sml`:
+        Alternative semantics with state-like clock
+    `thunkLangRelScript.sml`:
+        Logical relation definition
+    `thunkLangRel2Script.sml`:
+        Inductive semantics for thunkLang and logical relation
+
+The alternative semantics with the state-like clock doesn't
+seem to help with proving things about the logical relation.
+At each step, `check_state` decrements the clock and the minus
+operations on the clocks are not convenient. In proofs, this
+forces us to "predict" how many ticks the program will need,
+which makes it hard to sync up the clocks especially when
+multiple expressions are involved.
+
+The inductive semantics are better to work with in proofs, as
+they only add clocks. This also follows the CertiCoq code more
+closely. They don't even use natural numbers for clocks, and instead
+define an algebra with a 0, 1, and add operation that is both the clock's
+and the trace's type. Relevant files are the `algebra.v`, `eval.v`, and
+`logical_relations.v` in `certicoq/theories/LambdaANF/`. One difficult thing
+about using inductive semantics is that proving things about inductive relations
+in HOL is hard. The induction theorem is very fragile when it comes to the
+form of the theorem, when using `ho_match_mp_tac` for example, and the
+`cases` theorem needs a lot of boilerplate to work in proofs. Also, things
+that are proved in CertiCoq, for example the "determinism" theorem, that
+states that if the evaluation relation associates an expression with two
+values then the values are the same, seems to get stuck immediately when
+defined in HOL.
+
+The compatibility theorems for the logical relation should follow the
+same pattern as in the CertiCoq proofs. They define a set of compatibility
+predicates about the invariants such as Q(0, 0) and Q(c, t) => Q(c + 1, t + 1).
+These predicates are derived by the compatibility theorems, so we may need
+different ones that they do, but the basic structure is the same.
