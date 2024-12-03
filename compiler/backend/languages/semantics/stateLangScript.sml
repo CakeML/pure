@@ -75,7 +75,13 @@ End
 
 Type env[pp] = ``:(vname # v) list``; (* value environments *)
 
-Type state[pp] = ``:(v list) list``; (* state *)
+Datatype:
+  store_v =
+    Array (v list)
+  | ThunkMem bool v
+End
+
+Type state[pp] = ``:store_v list``; (* state *)
 
 Datatype:
   cont = (* continuations *)
