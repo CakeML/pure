@@ -1022,23 +1022,32 @@ Inductive cont_rel:
         HandleAppK senv se :: AppUnitK senv :: sk))
 End
 
+Definition store_rel_def:
+  store_rel ts (Array vs) = LIST_REL v_rel ts vs ∧
+  store_rel _ _ = F
+End
+
+Definition state_rel_def:
+  state_rel ts ss = LIST_REL store_rel ts ss
+End
+
 Inductive next_rel:
   (v_rel tv sv ∧
-   LIST_REL (LIST_REL v_rel) ts ss ∧
+   state_rel ts ss ∧
    cont_rel tk sk
     ⇒ next_rel (tv, ts, tk)
                (Val sv, SOME ss, AppUnitK senv :: sk)) ∧
 
   (eval tenv te = INR tv ∧
    v_rel tv sv ∧
-   LIST_REL (LIST_REL v_rel) ts ss ∧
+   state_rel ts ss ∧
    cont_rel tk sk
     ⇒ next_rel (Monadic tenv Ret [te], ts, tk)
                (Val sv, SOME ss, sk)) ∧
 
   (eval tenv te = INR tv ∧
    v_rel tv sv ∧
-   LIST_REL (LIST_REL v_rel) ts ss ∧
+   state_rel ts ss ∧
    cont_rel tk sk
     ⇒ next_rel (Monadic tenv Raise [te], ts, tk)
                (Exn sv, SOME ss, sk))
@@ -1051,7 +1060,7 @@ Inductive next_res_rel:
   (¬is_halt (sres,ssopt,sk)
     ⇒ next_res_rel Div (sres,ssopt,sk)) ∧
 
-  (cont_rel tk sk ∧ LIST_REL (LIST_REL v_rel) ts ss
+  (cont_rel tk sk ∧ state_rel ts ss
     ⇒ next_res_rel (Act (ea,eb) tk ts)
                    (Action ea eb, SOME ss, sk))
 End
@@ -1394,7 +1403,7 @@ Proof
     DEEP_INTRO_TAC some_intro >> simp[] >>
     simp[Once eval_to_def, result_map_def, eval_op_def] >>
     simp[Once v_rel_cases] >> imp_res_tac LIST_REL_LENGTH >> gvs[] >>
-    gvs[LIST_REL_EL_EQN, EL_REPLICATE]
+    gvs[state_rel_def,store_rel_def,LIST_REL_EL_EQN, EL_REPLICATE]
     )
   >~ [`Length`]
   >- (
@@ -1414,7 +1423,11 @@ Proof
     qpat_x_assum `v_rel (Atom _) _` mp_tac >> simp[Once v_rel_cases] >>
     strip_tac >> gvs[] >>
     qrefine `m + 1` >> simp[step_n_add, step] >>
+    gvs[state_rel_def] >>
     imp_res_tac LIST_REL_LENGTH >> simp[oEL_THM] >>
+    gvs[LIST_REL_EL_EQN] >>
+    first_assum $ qspec_then `n` assume_tac >>
+    Cases_on `EL n ss` >> gvs[store_rel_def] >>
     last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
     disch_then $ drule_at Any >>
     qmatch_goalsub_abbrev_tac `Val v` >>
@@ -1424,7 +1437,7 @@ Proof
     simp[next_rel_cases] >> disj2_tac >>
     simp[eval_def] >> simp[Once eval_to_def, result_map_def, eval_op_def] >>
     DEEP_INTRO_TAC some_intro >>simp[Once eval_to_def, result_map_def, eval_op_def] >>
-    unabbrev_all_tac >> simp[Once v_rel_cases] >> gvs[LIST_REL_EL_EQN]
+    unabbrev_all_tac >> simp[Once v_rel_cases] >> gvs[state_rel_def,LIST_REL_EL_EQN]
     )
   >~ [`Deref`]
   >- (
@@ -1455,8 +1468,12 @@ Proof
     rpt $ qpat_x_assum `v_rel (Atom _) _` mp_tac >>
     ntac 2 $ simp[Once v_rel_cases] >> rpt strip_tac >> gvs[] >>
     qrefine `m + 1` >> simp[step_n_add, step] >>
+    gvs [state_rel_def] >>
     imp_res_tac LIST_REL_LENGTH >> gvs[oEL_THM] >>
-    `LENGTH (EL n ts) = LENGTH (EL n ss)` by gvs[LIST_REL_EL_EQN] >> gvs[] >>
+    gvs [LIST_REL_EL_EQN] >>
+    first_assum $ qspec_then `n` assume_tac >>
+    Cases_on `EL n ss` >> gvs [store_rel_def] >>
+    `LENGTH (EL n ts) = LENGTH l` by gvs[LIST_REL_EL_EQN] >> gvs[] >>
     IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
@@ -1469,8 +1486,8 @@ Proof
       simp[eval_def] >> simp[Once eval_to_def, result_map_def, eval_op_def] >>
       DEEP_INTRO_TAC some_intro >> simp[] >>
       simp[Once eval_to_def, result_map_def, eval_op_def] >>
-      `Num i < &LENGTH (EL n ss)` by ARITH_TAC >>
-      gvs[LIST_REL_EL_EQN, NOT_LESS_EQUAL]
+      `Num i < &LENGTH l` by ARITH_TAC >>
+      gvs[state_rel_def,LIST_REL_EL_EQN,NOT_LESS_EQUAL]
       )
     >- (
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
@@ -1483,7 +1500,8 @@ Proof
       simp[eval_def] >> simp[Once eval_to_def, result_map_def, eval_op_def] >>
       DEEP_INTRO_TAC some_intro >> simp[] >>
       simp[Once eval_to_def, result_map_def, eval_op_def] >>
-      simp[Once v_rel_cases, monad_cns_def]
+      simp[Once v_rel_cases, monad_cns_def] >>
+      gvs[state_rel_def,LIST_REL_EL_EQN]
       )
     )
   >~ [`Update`]
@@ -1526,13 +1544,18 @@ Proof
     rpt $ qpat_x_assum `v_rel (Atom _) _` mp_tac >>
     ntac 2 $ simp[Once v_rel_cases] >> rpt strip_tac >> gvs[] >>
     qrefine `m + 1` >> simp[step_n_add, step] >>
+    gvs[state_rel_def] >>
     imp_res_tac LIST_REL_LENGTH >> gvs[oEL_THM] >>
-    `LENGTH (EL n ts) = LENGTH (EL n ss)` by gvs[LIST_REL_EL_EQN] >> gvs[] >>
+    gvs[LIST_REL_EL_EQN] >>
+    first_assum $ qspec_then `n` assume_tac >>
+    Cases_on `EL n ss` >> gvs[store_rel_def] >>
+    `LENGTH (EL n ts) = LENGTH l` by gvs[LIST_REL_EL_EQN] >> gvs[] >>
     IF_CASES_TAC >> gvs[DISJ_EQ_IMP]
     >- (
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then $ drule_at Any >>
       qmatch_goalsub_abbrev_tac `Val v` >>
+      gvs[miscTheory.LLOOKUP_THM] >>
       qmatch_goalsub_abbrev_tac `Val v,SOME ss',_` >>
       disch_then $ qspecl_then [`Val v`,`sk'`,`ss'`] mp_tac >>
       reverse impl_tac >> rw[]
@@ -1542,9 +1565,10 @@ Proof
       DEEP_INTRO_TAC some_intro >> simp[] >>
       simp[Once eval_to_def, result_map_def, eval_op_def] >>
       simp[Once v_rel_cases, monad_cns_def] >>
-      gvs[LIST_REL_EL_EQN, EL_LUPDATE, COND_RAND]
+      gvs[state_rel_def, store_rel_def, LIST_REL_EL_EQN, EL_LUPDATE, COND_RAND]
       )
     >- (
+      gvs[miscTheory.LLOOKUP_THM] >>
       last_x_assum $ qspec_then `k - 1` mp_tac >> simp[] >>
       disch_then $ drule_at Any >>
       qmatch_goalsub_abbrev_tac `Exn e` >>
@@ -1555,14 +1579,15 @@ Proof
       simp[eval_def] >> simp[Once eval_to_def, result_map_def, eval_op_def] >>
       DEEP_INTRO_TAC some_intro >> simp[] >>
       simp[Once eval_to_def, result_map_def, eval_op_def] >>
-      simp[Once v_rel_cases, monad_cns_def]
+      simp[Once v_rel_cases, monad_cns_def] >>
+      gvs[state_rel_def,store_rel_def,LIST_REL_EL_EQN]
       )
     )
 QED
 
 Theorem next_k_eval_thm:
   compile_rel te se ∧
-  LIST_REL (LIST_REL v_rel) ts ss ∧
+  state_rel ts ss ∧
   cont_rel tk sk ∧
   env_rel tenv senv ∧
   next k (eval tenv te) tk ts = tres ∧ tres ≠ Err
@@ -1613,7 +1638,7 @@ QED
 
 Theorem next_action_thm:
   compile_rel te se ∧
-  LIST_REL (LIST_REL v_rel) ts ss ∧
+  state_rel ts ss ∧
   cont_rel tk sk ∧
   env_rel tenv senv ∧
   next_action (eval tenv te) tk ts = tres ∧ tres ≠ Err
@@ -1692,7 +1717,7 @@ Proof
 QED
 
 Theorem semantics_thm:
-  compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
+  compile_rel e1 e2 ∧ state_rel ts ss ∧
   cont_rel tk sk ∧ env_rel tenv senv ⇒
   env_semantics$semantics e1 tenv tk ts --->
   semantics (app e2 Unit) senv (SOME ss) sk
@@ -1701,7 +1726,7 @@ Proof
   \\ qsuff_tac ‘
     ∀t1 t2.
       (∃e1 e2 ts ss tenv senv tk sk.
-        compile_rel e1 e2 ∧ LIST_REL (LIST_REL v_rel) ts ss ∧
+        compile_rel e1 e2 ∧ state_rel ts ss ∧
         cont_rel tk sk ∧ env_rel tenv senv ∧
         t1 = env_semantics$semantics e1 tenv tk ts ∧
         t2 = semantics e2 senv (SOME ss) (AppK senv AppOp [Constructor "" []] []::sk)) ⇒
@@ -1759,7 +1784,7 @@ Proof
       stateLangTheory.itree_of_def] \\ rw []
   \\ irule semantics_thm
   \\ simp [Once cont_rel_cases]
-  \\ fs [env_rel_def]
+  \\ fs [env_rel_def,state_rel_def]
 QED
 
 val _ = export_theory ();
