@@ -257,22 +257,23 @@ Definition application_def:
       | _            => error st k) ∧
   application Alloc vs st k = (
     case HD vs, st of
-      Atom (Int i), SOME arrays =>
+      Atom (Int i), SOME stores =>
         let n = if i < 0 then 0 else Num i in
-        value (Atom $ Loc $ LENGTH arrays)
-          (SOME (SNOC (REPLICATE n (EL 1 vs)) arrays)) k
+        value (Atom $ Loc $ LENGTH stores)
+              (SOME (SNOC (Array $ REPLICATE n (EL 1 vs)) stores))
+              k
     | _ => error st k) ∧
   application Ref vs st k = (
     case st of
-      SOME arrays =>
-        value (Atom $ Loc $ LENGTH arrays)
-          (SOME (SNOC vs arrays)) k
+      SOME stores =>
+        value (Atom $ Loc $ LENGTH stores)
+          (SOME (SNOC (Array vs) stores)) k
     | _ => error st k) ∧
   application Length vs st k = (
     case HD vs, st of
-      Atom (Loc n), SOME arrays => (
-        case oEL n arrays of
-          SOME l => value (Atom $ Int $ & LENGTH l) st k
+      Atom (Loc n), SOME stores => (
+        case oEL n stores of
+          SOME (Array l) => value (Atom $ Int $ & LENGTH l) st k
         | _ => error st k)
     | _ => error st k) ∧
   application (Proj s i) vs st k = (
@@ -291,9 +292,9 @@ Definition application_def:
     | _ => error st k) ∧
   application Sub vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
-        case oEL n arrays of
-          SOME l =>
+      (Atom $ Loc n, Atom $ Int i, SOME stores) => (
+        case oEL n stores of
+          SOME (Array l) =>
             if 0 ≤ i ∧ i < & LENGTH l then
               value (EL (Num i) l) st k
             else
@@ -302,9 +303,9 @@ Definition application_def:
     | _ => error st k) ∧
   application UnsafeSub vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
-        case oEL n arrays of
-          SOME l =>
+      (Atom $ Loc n, Atom $ Int i, SOME stores) => (
+        case oEL n stores of
+          SOME (Array l) =>
             if 0 ≤ i ∧ i < & LENGTH l then
               value (EL (Num i) l) st k
             else
@@ -313,13 +314,13 @@ Definition application_def:
     | _ => error st k) ∧
   application Update vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
-        case oEL n arrays of
-          SOME l =>
+      (Atom $ Loc n, Atom $ Int i, SOME stores) => (
+        case oEL n stores of
+          SOME (Array l) =>
             if 0 ≤ i ∧ i < & LENGTH l then
               value
                 (Constructor "" [])
-                (SOME (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n arrays))
+                (SOME (LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n stores))
                 k
             else
               (Exn (Constructor "Subscript" []), st, k)
@@ -327,13 +328,13 @@ Definition application_def:
     | _ => error st k) ∧
   application UnsafeUpdate vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME arrays) => (
-        case oEL n arrays of
-          SOME l =>
+      (Atom $ Loc n, Atom $ Int i, SOME stores) => (
+        case oEL n stores of
+          SOME (Array l) =>
             if 0 ≤ i ∧ i < & LENGTH l then
               value
                 (Constructor "" [])
-                (SOME (LUPDATE (LUPDATE (EL 2 vs) (Num i) l) n arrays))
+                (SOME (LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n stores))
                 k
             else
               error st k

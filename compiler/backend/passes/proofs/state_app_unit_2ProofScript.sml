@@ -187,8 +187,17 @@ Definition rec_env_def:
     MAP (λ(fn,_). (fn,Recclosure f env fn)) f ++ env
 End
 
+Definition store_rel_def:
+  store_rel (Array vs1) (Array vs2) = LIST_REL v_rel vs1 vs2 ∧
+  store_rel _ _ = F
+End
+
+Definition state_rel_def:
+  state_rel st1 st2 = LIST_REL store_rel st1 st2
+End
+
 Inductive snext_res_rel:
-  (OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ⇒
+  (OPTREL state_rel ts ss ∧ cont_rel tk sk ⇒
    snext_res_rel (Act x tk ts) (Act x sk ss)) ∧
   (snext_res_rel Ret Ret) ∧
   (snext_res_rel Div Div) ∧
@@ -256,12 +265,12 @@ QED
 
 Theorem application_thm:
   application op tvs ts tk = (tr1,ts1,tk1) ∧
-  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧ cont_rel tk sk ∧
+  OPTREL state_rel ts ss ∧ cont_rel tk sk ∧
   LIST_REL v_rel tvs svs ∧
   num_args_ok op (LENGTH svs) ⇒
   ∃sr1 ss1 sk1.
     application op svs ss sk = (sr1,ss1,sk1) ∧
-    OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+    OPTREL state_rel ts1 ss1 ∧
     step_res_rel tr1 tk1 sr1 sk1
 Proof
   Cases_on ‘op’ \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
@@ -316,16 +325,18 @@ Proof
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
     \\ gvs [AllCaseEqs()]
     \\ Cases_on ‘ss’ \\ gvs []
+    \\ fs [state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_SNOC]
+    \\ fs [LIST_REL_SNOC,store_rel_def]
     \\ simp [LIST_REL_EL_EQN,EL_REPLICATE])
   >~ [‘Ref’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ fs [state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_SNOC])
+    \\ fs [LIST_REL_SNOC,store_rel_def])
   >~ [‘Length’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -334,8 +345,12 @@ Proof
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
     \\ IF_CASES_TAC \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN,state_rel_def]
+    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [store_rel_def]
+    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
     \\ simp [Once v_rel_cases]
-    \\ gvs [LIST_REL_EL_EQN])
+    \\ gvs [LIST_REL_EL_EQN,state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
   >~ [‘Sub’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -347,11 +362,20 @@ Proof
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
     \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
+    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
+    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [LIST_REL_EL_EQN]
-    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
-    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
-    \\ simp[Once v_rel_cases]
-    \\ rpt $ first_assum $ irule_at Any)
+    \\ Cases_on `0 ≤ i` \\ gvs []
+    >-
+      (imp_res_tac integerTheory.NUM_POSINT_EXISTS
+       \\ first_x_assum $ qspec_then `&n'` assume_tac
+       \\ gvs []
+       \\ Cases_on `n' < LENGTH l'` \\ gvs []
+       \\ gvs [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
+    >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def]) 
   >~ [‘UnsafeSub’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -363,9 +387,20 @@ Proof
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
     \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
+    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
+    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [LIST_REL_EL_EQN]
-    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
-    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs [])
+    \\ Cases_on `0 ≤ i` \\ gvs []
+    >-
+      (imp_res_tac integerTheory.NUM_POSINT_EXISTS
+       \\ first_x_assum $ qspec_then `&n'` assume_tac
+       \\ gvs []
+       \\ Cases_on `n' < LENGTH l'` \\ gvs []
+       \\ gvs [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
+    >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
   >~ [‘Update’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -377,13 +412,27 @@ Proof
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
     \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
+    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
+    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [LIST_REL_EL_EQN]
-    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
-    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
-    \\ gvs [EL_LUPDATE] \\ rw []
-    \\ gvs [EL_LUPDATE] \\ rw []
-    \\ simp [Once v_rel_cases] \\ rpt strip_tac \\ gvs []
-    \\ rpt $ first_assum $ irule_at Any)
+    \\ Cases_on `0 ≤ i` \\ gvs []
+    >-
+      (imp_res_tac integerTheory.NUM_POSINT_EXISTS
+       \\ first_x_assum $ qspec_then `&n'` assume_tac \\ gvs []
+       \\ Cases_on `n' < LENGTH l'` \\ gvs []
+       \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def]
+       \\ rpt strip_tac
+       \\ gvs [EL_LUPDATE]
+       \\ Cases_on `n'' = n` \\ gvs []
+       \\ rw [LIST_REL_EL_EQN,store_rel_def]
+       \\ gvs [EL_LUPDATE]
+       \\ Cases_on `n'' = n'` \\ gvs []
+       \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+       \\ gvs [LIST_REL_EL_EQN])
+    >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
   >~ [‘UnsafeUpdate’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -395,12 +444,27 @@ Proof
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
     \\ rpt (IF_CASES_TAC \\ gvs [])
+    \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
+    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
+    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [LIST_REL_EL_EQN]
-    \\ ntac 2 (simp [Once compile_rel_cases,env_rel_def])
-    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
-    \\ gvs [EL_LUPDATE] \\ rw []
-    \\ gvs [EL_LUPDATE] \\ rw []
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs [])
+    \\ Cases_on `0 ≤ i` \\ gvs []
+    >-
+      (imp_res_tac integerTheory.NUM_POSINT_EXISTS
+       \\ first_x_assum $ qspec_then `&n'` assume_tac \\ gvs []
+       \\ Cases_on `n' < LENGTH l'` \\ gvs []
+       \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def]
+       \\ rpt strip_tac
+       \\ gvs [EL_LUPDATE]
+       \\ Cases_on `n'' = n` \\ gvs []
+       \\ rw [LIST_REL_EL_EQN,store_rel_def]
+       \\ gvs [EL_LUPDATE]
+       \\ Cases_on `n'' = n'` \\ gvs []
+       \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+       \\ gvs [LIST_REL_EL_EQN])
+    >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
   >~ [‘FFI’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -417,13 +481,13 @@ Definition step_1_ind_hyp_def:
   step_1_ind_hyp k =
   (∀m tr' ts' tk' tr1' ts1' tk1' ss' sr' sk'.
      m < k ∧ step_n m (tr',ts',tk') = (tr1',ts1',tk1') ∧
-     OPTREL (LIST_REL (LIST_REL v_rel)) ts' ss' ∧
+     OPTREL state_rel ts' ss' ∧
      step_res_rel tr' tk' sr' sk' ⇒
      ∃m' sr1 ss1 sk1.
        step_n m' (sr',ss',sk') = (sr1,ss1,sk1) ∧ m ≤ m' ∧
        (is_halt (tr1',ts1',tk1') ⇔ is_halt (sr1,ss1,sk1)) ∧
        (is_halt (tr1',ts1',tk1') ⇒
-        OPTREL (LIST_REL (LIST_REL v_rel)) ts1' ss1 ∧
+        OPTREL state_rel ts1' ss1 ∧
         step_res_rel tr1' tk1' sr1 sk1))
 End
 
@@ -504,13 +568,13 @@ Theorem step_1_Exp_forward:
       step_n k (Exp env1 e1,ts,tk) = (tr1,ts1,tk1) ∧
       step_1_ind_hyp k ∧
       cont_rel tk sk ∧ compile_rel e1 e2 ∧
-      OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+      OPTREL state_rel ts ss ∧
       env_rel env1 env2 ⇒
       ∃m sr1 ss1 sk1.
         step_n m (Exp env2 e2,ss,sk) = (sr1,ss1,sk1) ∧ k ≤ m ∧
         ((is_halt (sr1,ss1,sk1) ⇔ is_halt (tr1,ts1,tk1)) ∧
          (is_halt (sr1,ss1,sk1) ⇒
-          OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+          OPTREL state_rel ts1 ss1 ∧
           step_res_rel tr1 tk1 sr1 sk1))
 Proof
   ho_match_mp_tac compile_rel_strongind \\ rpt strip_tac
@@ -729,13 +793,13 @@ QED
 Theorem step_1_forward:
   ∀k tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n k (tr,ts,tk) = (tr1,ts1,tk1) ∧
-    OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+    OPTREL state_rel ts ss ∧
     step_res_rel tr tk sr sk ⇒
     ∃m sr1 ss1 sk1.
       step_n m (sr,ss,sk) = (sr1,ss1,sk1) ∧ k ≤ m ∧
       (is_halt (tr1,ts1,tk1) = is_halt (sr1,ss1,sk1) ∧
        (is_halt (tr1,ts1,tk1) ⇒
-        OPTREL (LIST_REL (LIST_REL v_rel)) ts1 ss1 ∧
+        OPTREL state_rel ts1 ss1 ∧
         step_res_rel tr1 tk1 sr1 sk1))
 Proof
   gen_tac
@@ -906,7 +970,7 @@ QED
 
 Theorem step_until_halt_thm:
   step_res_rel tr tk sr sk ∧
-  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ⇒
+  OPTREL state_rel ts ss ⇒
   snext_res_rel (step_until_halt (tr,ts,tk))
                 (step_until_halt (sr,ss,sk))
 Proof
@@ -971,7 +1035,7 @@ QED
 
 Theorem semantics_thm:
   compile_rel e1 e2 ∧
-  OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+  OPTREL state_rel ts ss ∧
   env_rel tenv senv ∧
   cont_rel tk sk ⇒
   semantics e1 tenv ts tk =
@@ -981,7 +1045,7 @@ Proof
     ∀t1 t2.
       (∃e1 e2 ts ss tenv senv tk sk.
         compile_rel e1 e2 ∧
-        OPTREL (LIST_REL (LIST_REL v_rel)) ts ss ∧
+        OPTREL state_rel ts ss ∧
         env_rel tenv senv ∧
         cont_rel tk sk ∧
         t1 = semantics e1 tenv ts tk ∧
@@ -1037,7 +1101,7 @@ Proof
   fs [stateLangTheory.itree_of_def] \\ rw []
   \\ irule semantics_thm
   \\ simp [Once cont_rel_cases]
-  \\ fs [env_rel_def]
+  \\ fs [env_rel_def,state_rel_def]
 QED
 
 (*
