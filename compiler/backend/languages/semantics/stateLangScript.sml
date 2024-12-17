@@ -25,6 +25,10 @@ val _ = numLib.prefer_num();
 (******************** Datatypes ********************)
 
 Datatype:
+  thunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
   sop = (* Primitive operations *)
       | AppOp              (* function application                     *)
       | Cons string        (* datatype constructor                     *)
@@ -32,12 +36,12 @@ Datatype:
       | Proj string num    (* projection                               *)
       | IsEq string num    (* check whether same data constructor      *)
       | Alloc              (* allocate an array                        *)
-      | Ref                (* allocates an array in a different way    *)
       | Length             (* query the length of an array             *)
       | Sub                (* de-reference a value in an array         *)
-      | UnsafeSub          (* de-reference but without a bounds check  *)
       | Update             (* update a value in an array               *)
-      | UnsafeUpdate       (* update without a bounds check            *)
+      | AllocMutThunk thunk_mode (* allocate a mutable thunk           *)
+      | UpdateMutThunk thunk_mode (* update an unevaluated thunk       *)
+      | ForceMutThunk      (* force a mutable thunk                    *)
       | FFI string         (* make an FFI call                         *)
 End
 
@@ -78,7 +82,7 @@ Type env[pp] = ``:(vname # v) list``; (* value environments *)
 Datatype:
   store_v =
     Array (v list)
-  | ThunkMem bool v
+  | ThunkMem thunk_mode v
 End
 
 Type state[pp] = ``:store_v list``; (* state *)
@@ -95,6 +99,7 @@ Datatype:
        | RaiseK
        | HandleK env vname exp
        | HandleAppK env exp
+       | ForceMutK num
 End
 
 Datatype:
@@ -159,12 +164,12 @@ Definition num_args_ok_def[simp]:
   num_args_ok (Proj _ _) n = (n = 1) ∧
   num_args_ok (IsEq _ _) n = (n = 1) ∧
   num_args_ok Sub n = (n = 2) ∧
-  num_args_ok UnsafeSub n = (n = 2) ∧
   num_args_ok Alloc n = (n = 2) ∧
-  num_args_ok Ref n = T ∧
   num_args_ok Length n = (n = 1) ∧
   num_args_ok Update n = (n = 3) ∧
-  num_args_ok UnsafeUpdate n = (n = 3) ∧
+  num_args_ok (AllocMutThunk _) n = (n = 1) ∧
+  num_args_ok (UpdateMutThunk _) n = (n = 2) ∧
+  num_args_ok ForceMutThunk n = (n = 1) ∧
   num_args_ok (FFI channel) n = (n = 1)
 End
 
@@ -234,6 +239,10 @@ Definition dest_anyThunk_def:
         | _ => NONE
 End
 
+Definition AppUnit_def:
+  AppUnit e = App AppOp [e; Unit]
+End
+
 (******************** Semantics functions ********************)
 
 (* Carry out an application - assumes:
@@ -262,12 +271,6 @@ Definition application_def:
         value (Atom $ Loc $ LENGTH stores)
               (SOME (SNOC (Array $ REPLICATE n (EL 1 vs)) stores))
               k
-    | _ => error st k) ∧
-  application Ref vs st k = (
-    case st of
-      SOME stores =>
-        value (Atom $ Loc $ LENGTH stores)
-          (SOME (SNOC (Array vs) stores)) k
     | _ => error st k) ∧
   application Length vs st k = (
     case HD vs, st of
@@ -301,17 +304,6 @@ Definition application_def:
               (Exn (Constructor "Subscript" []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
-  application UnsafeSub vs st k = (
-    case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME stores) => (
-        case oEL n stores of
-          SOME (Array l) =>
-            if 0 ≤ i ∧ i < & LENGTH l then
-              value (EL (Num i) l) st k
-            else
-              error st k
-        | _ => error st k)
-    | _ => error st k) ∧
   application Update vs st k = (
     case (EL 0 vs, EL 1 vs, st) of
       (Atom $ Loc n, Atom $ Int i, SOME stores) => (
@@ -326,18 +318,31 @@ Definition application_def:
               (Exn (Constructor "Subscript" []), st, k)
         | _ => error st k)
     | _ => error st k) ∧
-  application UnsafeUpdate vs st k = (
-    case (EL 0 vs, EL 1 vs, st) of
-      (Atom $ Loc n, Atom $ Int i, SOME stores) => (
+  application (AllocMutThunk mode) vs st k = (
+    case HD vs, st of
+      v, SOME stores =>
+        value (Atom $ Loc $ LENGTH stores)
+              (SOME (SNOC (ThunkMem mode v) stores))
+              k
+    | _ => error st k) ∧
+  application (UpdateMutThunk mode) vs st k = (
+    case HD vs, st of
+      (Atom $ Loc n, SOME stores) => (
         case oEL n stores of
-          SOME (Array l) =>
-            if 0 ≤ i ∧ i < & LENGTH l then
-              value
-                (Constructor "" [])
-                (SOME (LUPDATE (Array $ LUPDATE (EL 2 vs) (Num i) l) n stores))
-                k
-            else
-              error st k
+          SOME (ThunkMem NotEvaluated _) =>
+          value
+            (Constructor "" [])
+            (SOME (LUPDATE (ThunkMem mode (EL 1 vs)) n stores))
+            k
+        | _ => error st k)
+    | _ => error st k) ∧
+  application ForceMutThunk vs st k = (
+    case HD vs, st of
+      (Atom $ Loc n, SOME stores) => (
+        case oEL n stores of
+          SOME (ThunkMem Evaluated v) => value v st k
+        | SOME (ThunkMem NotEvaluated f) =>
+            push [("f",f)] (AppUnit (Var "f")) st (ForceMutK n) k
         | _ => error st k)
     | _ => error st k) ∧
   application (FFI channel) vs st k = (
@@ -370,7 +375,15 @@ Definition return_def:
      | SOME (INL v, _) => value v st k
      | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
   return v temp_st (ForceK2 st :: k) = value v st k ∧
-  return v st (BoxK :: k) = value (Thunk $ INL v) st k
+  return v st (BoxK :: k) = value (Thunk $ INL v) st k ∧
+  return v st (ForceMutK n :: k) =
+    (case st of
+       SOME stores =>
+          value
+            (Constructor "" [])
+            (SOME (LUPDATE (ThunkMem Evaluated v) n stores))
+            k
+     | NONE => error st k)
 End
 
 Definition find_match_list_def:
@@ -656,7 +669,7 @@ Triviality application_Action:
 Proof
   fs [application_def |> DefnBase.one_line_ify NONE, AllCaseEqs(), error_def, value_def]
   \\ rw [] \\ fs []
-  \\ fs [continue_def]
+  \\ fs [continue_def,push_def]
 QED
 
 Theorem step_n_is_halt_SOME:
@@ -778,12 +791,12 @@ End
 
 Theorem application_NONE:
   application Alloc [v1;v2] NONE s = (Error,NONE,s) ∧
-  application Ref vs NONE s = (Error,NONE,s) ∧
   application Length [v1] NONE s = (Error,NONE,s) ∧
   application Sub [v1;v2] NONE s = (Error,NONE,s) ∧
-  application UnsafeSub [v1;v2] NONE s = (Error,NONE,s) ∧
   application Update [v1;v2;v3] NONE s = (Error,NONE,s) ∧
-  application UnsafeUpdate [v1;v2;v3] NONE s = (Error,NONE,s) ∧
+  application (AllocMutThunk m) [v1] NONE s = (Error,NONE,s) ∧
+  application (UpdateMutThunk m) [v1;v2] NONE s = (Error,NONE,s) ∧
+  application ForceMutThunk [v1] NONE s = (Error,NONE,s) ∧
   application (FFI f) [v1] NONE s = (Error,NONE,s)
 Proof
   fs [application_def,error_def]
@@ -962,6 +975,10 @@ Proof
     \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
     \\ strip_tac \\ fs [])
+  >~ [‘ForceMutK’] >-
+   (fs [return_def,error_def,value_def]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
+    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
   \\ rename [‘AppK env sop vs es’] \\ gvs []
   \\ reverse (Cases_on ‘es’)
   \\ fs [return_def,continue_def]
@@ -1011,16 +1028,10 @@ Proof
   >~ [‘Alloc’] >-
    (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
     \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
-  >~ [‘Ref’] >-
-   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
-    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
   >~ [‘Length’] >-
    (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
     \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
   >~ [‘Sub’] >-
-   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
-    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
-  >~ [‘UnsafeSub’] >-
    (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
     \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
   >~ [‘Update’] >-
@@ -1028,9 +1039,17 @@ Proof
     \\ Cases_on ‘vs’ \\ fs [] \\ Cases_on ‘t'’ \\ fs [] \\ Cases_on ‘t''’ \\ fs []
     \\ gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
     \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
-  >~ [‘UnsafeUpdate’] >-
+  >~ [‘AllocMutThunk’] >-
    (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
-    \\ Cases_on ‘vs’ \\ fs [] \\ Cases_on ‘t'’ \\ fs [] \\ Cases_on ‘t''’ \\ fs []
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘UpdateMutThunk’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ Cases_on ‘t’ \\ fs [] \\ Cases_on ‘t'’ \\ fs []
+    \\ gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+  >~ [‘ForceMutThunk’] >-
+   (gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
+    \\ Cases_on ‘t’ \\ fs []
     \\ gvs [application_NONE,num_args_ok_def,LENGTH_EQ_NUM_compute,value_def]
     \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
   >~ [‘FFI’] >-
@@ -1081,7 +1100,7 @@ Proof
   \\ gvs [return_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [AllCaseEqs(),continue_def,error_def,value_def]
   \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
-  \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def]
+  \\ gvs [application_def,AllCaseEqs(),error_def,continue_def,value_def,push_def]
 QED
 
 Theorem step_inc_nil:
@@ -1122,7 +1141,7 @@ Proof
           continue_def,value_def]
   \\ Cases_on ‘s’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
   \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def]
-  \\ gvs [continue_def,value_def]
+  \\ gvs [continue_def,value_def,push_def]
 QED
 
 Theorem step_eq_cont:
@@ -1146,7 +1165,7 @@ Proof
   \\ fs [continue_def,error_def,value_def]
   \\ Cases_on ‘sop’ \\ gvs [num_args_ok_def,LENGTH_EQ_NUM_compute]
   \\ gvs [application_def,value_def,AllCaseEqs(),error_def,return_def]
-  \\ gvs [continue_def,value_def]
+  \\ gvs [continue_def,value_def,push_def]
 QED
 
 Triviality step_n_cont_swap_lemma:
@@ -1568,13 +1587,14 @@ Definition sop_of_def[simp]:
   sop_of (Cons n) = Cons (explode n) ∧
   sop_of (AtomOp m) = AtomOp m ∧
   sop_of Alloc = Alloc ∧
-  sop_of Ref = Ref ∧
   sop_of Length = Length ∧
   sop_of Sub = Sub ∧
-  sop_of UnsafeSub = UnsafeSub ∧
-  sop_of Length = Length ∧
   sop_of Update = Update ∧
-  sop_of UnsafeUpdate = UnsafeUpdate ∧
+  sop_of (AllocMutThunk Evaluated) = (AllocMutThunk Evaluated) ∧
+  sop_of (AllocMutThunk NotEvaluated) = (AllocMutThunk NotEvaluated) ∧
+  sop_of (UpdateMutThunk Evaluated) = (UpdateMutThunk Evaluated) ∧
+  sop_of (UpdateMutThunk NotEvaluated) = (UpdateMutThunk NotEvaluated) ∧
+  sop_of ForceMutThunk = ForceMutThunk ∧
   sop_of (FFI s) = FFI (explode s)
 End
 

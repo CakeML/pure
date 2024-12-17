@@ -14,17 +14,21 @@ val _ = numLib.prefer_num();
 Type vname = “:mlstring”
 
 Datatype:
+  cthunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
   csop = (* Primitive operations *)
        | AppOp              (* function application                     *)
        | Cons mlstring      (* datatype constructor                     *)
        | AtomOp atom_op     (* primitive parametric operator over Atoms *)
        | Alloc              (* allocate an array                        *)
-       | Ref                (* allocates an array in a different way    *)
        | Length             (* query the length of an array             *)
        | Sub                (* de-reference a value in an array         *)
-       | UnsafeSub          (* de-reference but without a bounds check  *)
        | Update             (* update a value in an array               *)
-       | UnsafeUpdate       (* update without a bounds check            *)
+       | AllocMutThunk cthunk_mode (* allocate a mutable thunk          *)
+       | UpdateMutThunk cthunk_mode (* update and unevaluated thunk     *)
+       | ForceMutThunk      (* force a mutable thunk                    *)
        | FFI mlstring       (* make an FFI call                         *)
 End
 

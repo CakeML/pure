@@ -24,20 +24,23 @@ Overload False_v = “stateLang$Constructor "False" []”;
 
 (****************************************)
 
-Overload "box" = “λx. App Ref [True; x]”
+(*Overload "box" = “λx. App Ref [True; x]”*)
+Overload "box" = ``λx. App (AllocMutThunk Evaluated) [x]``
 
-Overload "delay" = “λx. App Ref [False; Lam NONE x]”
+(*Overload "delay" = “λx. App Ref [False; Lam NONE x]”*)
+Overload "delay" = ``λx. App (AllocMutThunk NotEvaluated) [Lam NONE x]``
 
-Overload "force_lets" = “
+(*Overload "force_lets" = “
   Let (SOME "v1") (App UnsafeSub [Var "v"; IntLit 0]) $
   Let (SOME "v2") (App UnsafeSub [Var "v"; IntLit 1]) $
     If (Var "v1") (Var "v2") $
       Let (SOME "wh") (app (Var "v2") Unit) $
       Let NONE (App UnsafeUpdate [Var "v"; IntLit 0; True]) $
       Let NONE (App UnsafeUpdate [Var "v"; IntLit 1; Var "wh"]) $
-        Var "wh"”
+        Var "wh"”*)
 
-Overload "force" = “λx. Let (SOME "v") x force_lets”
+(*Overload "force" = “λx. Let (SOME "v") x force_lets”*)
+Overload "force" = ``λx. App ForceMutThunk [x]``
 
 Definition dest_Delay_def:
   dest_Delay (Delay x) = SOME x ∧

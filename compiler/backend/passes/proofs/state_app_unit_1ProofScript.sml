@@ -328,7 +328,7 @@ Proof
     \\ IF_CASES_TAC \\ gvs []
     \\ gvs [LIST_REL_EL_EQN,state_rel_def]
     \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [store_rel_def]
-    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
     \\ simp [Once v_rel_cases]
     \\ gvs [LIST_REL_EL_EQN,state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])

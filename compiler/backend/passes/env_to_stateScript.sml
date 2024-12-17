@@ -39,12 +39,16 @@ End
 
 Definition some_ref_bool_def:
   some_ref_bool (v:mlstring,b,y:state_cexp$cexp) =
-    (SOME v, App Ref [Bool b; Bool b])
+    (SOME v, App Alloc [IntLit 2; Bool b])
 End
 
-Definition unsafe_update_def:
-  unsafe_update (v,b,y) =
-    (NONE:mlstring option, App UnsafeUpdate [Var v; IntLit 1; if b then y else Lam NONE y])
+Definition update_delay_def:
+  update_delay (v,b,y) =
+    (NONE:mlstring option,
+     if b then
+       App (UpdateMutThunk Evaluated) [Var v; y]
+      else
+        App (UpdateMutThunk NotEvaluated) [Var v; Lam NONE y])
 End
 
 Triviality Letrec_split_MEM_funs:
@@ -75,8 +79,6 @@ Proof
   \\ Cases_on ‘h1’ \\ gvs [dest_Delay_def,env_cexpTheory.cexp_size_def]
 QED
 
-Overload box[local] = “λx. App Ref [True]”
-Overload delay[local] = “λx. App Ref [False; Lam NONE x]”
 Overload suspend[local] = ``Lam NONE``
 Overload trigger[local] = ``λe. app e Unit``
 
@@ -107,25 +109,18 @@ Definition to_state_def:
   to_state (Deref x y) =
     suspend $ App Sub [to_state x; to_state y] ∧
   to_state (Box x) =
-    App Ref [True; (to_state x)] ∧
+    App (AllocMutThunk Evaluated) [to_state x] ∧
   to_state (Delay x) =
-    App Ref [False; Lam NONE (to_state x)] ∧
+    App (AllocMutThunk NotEvaluated) [Lam NONE (to_state x)] ∧
   to_state (Force x) =
-    (Let (SOME «v») (to_state x) $
-     Let (SOME «v1») (App UnsafeSub [Var «v»; IntLit 0]) $
-     Let (SOME «v2») (App UnsafeSub [Var «v»; IntLit 1]) $
-       If (Var «v1») (Var «v2») $
-         Let (SOME «wh») (app (Var «v2») Unit) $
-         Let NONE (App UnsafeUpdate [Var «v»; IntLit 0; True]) $
-         Let NONE (App UnsafeUpdate [Var «v»; IntLit 1; Var «wh»]) $
-           Var «wh») ∧
+    App ForceMutThunk [to_state x] ∧
   to_state (Letrec xs y) =
     (let (delays,funs) = Letrec_split (MAP FST xs) xs in
      let delays = MAP (λ(m,n,x). (m,n,to_state x)) delays in
      let funs = MAP (λ(m,n,x). (m,n,to_state x)) funs in
        Lets (MAP some_ref_bool delays) $
        Letrec funs $
-       Lets (MAP unsafe_update delays) (to_state y)) ∧
+       Lets (MAP update_delay delays) (to_state y)) ∧
   to_state (Let vo x y) =
     Let vo (to_state x) (to_state y) ∧
   to_state (If x y z) =
