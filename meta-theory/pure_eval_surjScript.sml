@@ -353,27 +353,30 @@ Proof
           rw[] >>
           ‘LENGTH nl - n = 0’ by DECIDE_TAC >>
           simp[])
-      >- (qspec_then ‘nl’ strip_assume_tac SNOC_CASES >> gvs[SNOC_APPEND] >>
-          rw[DISJ_EQ_IMP] >>
-          gvs[IS_PREFIX_SNOC |> REWRITE_RULE[SNOC_APPEND]] >>
-          gvs[IS_PREFIX_APPEND] >>
-          gvs[LIST_EQ_REWRITE,EL_APPEND_EQN,EL_REPLICATE] >>
-          first_x_assum(qspec_then ‘LENGTH l’ mp_tac) >>
-          rw[])
-      >- (qspec_then ‘nl’ strip_assume_tac SNOC_CASES >> gvs[SNOC_APPEND] >>
-          rw[DISJ_EQ_IMP] >>
-          gvs[IS_PREFIX_SNOC |> REWRITE_RULE[SNOC_APPEND]] >>
-          gvs[IS_PREFIX_APPEND] >>
-          gvs[LIST_EQ_REWRITE,EL_APPEND_EQN,EL_REPLICATE] >>
-          first_x_assum(qspec_then ‘LENGTH l’ mp_tac) >>
-          rw[])
-      >- (qspec_then ‘nl’ strip_assume_tac SNOC_CASES >> gvs[SNOC_APPEND] >>
-          rw[DISJ_EQ_IMP] >>
-          gvs[IS_PREFIX_SNOC |> REWRITE_RULE[SNOC_APPEND]] >>
-          gvs[IS_PREFIX_APPEND] >>
-          gvs[LIST_EQ_REWRITE,EL_APPEND_EQN,EL_REPLICATE] >>
-          rw[DISJ_EQ_IMP] >>
-          qexists_tac ‘LENGTH l’ >> rw[])) >>
+      >- (
+        qspec_then ‘nl’ strip_assume_tac SNOC_CASES >> gvs[SNOC_APPEND] >>
+        rw[DISJ_EQ_IMP] >> gvs[IS_PREFIX_APPEND] >>
+        qsuff_tac ‘l' = []’ >- (rw[] >> gvs[]) >>
+        gvs[APPEND_EQ_APPEND, APPEND_EQ_CONS] >>
+        gvs[LIST_EQ_REWRITE, EL_REPLICATE, EL_APPEND_EQN] >>
+        pop_assum $ qspec_then ‘LENGTH l’ mp_tac >> simp[]
+        )
+      >- (
+        qspec_then ‘nl’ strip_assume_tac SNOC_CASES >> gvs[SNOC_APPEND] >>
+        rw[DISJ_EQ_IMP] >> gvs[IS_PREFIX_APPEND] >>
+        qsuff_tac ‘l' = []’ >- (rw[] >> gvs[]) >>
+        gvs[APPEND_EQ_APPEND, APPEND_EQ_CONS] >>
+        gvs[LIST_EQ_REWRITE, EL_REPLICATE, EL_APPEND_EQN] >>
+        pop_assum $ qspec_then ‘LENGTH l’ mp_tac >> simp[]
+        )
+      >- (
+        qspec_then ‘nl’ strip_assume_tac SNOC_CASES >> gvs[SNOC_APPEND] >>
+        rw[IS_PREFIX_APPEND] >> CCONTR_TAC >> gvs[] >>
+        gvs[APPEND_EQ_APPEND, APPEND_EQ_CONS] >>
+        gvs[LIST_EQ_REWRITE, EL_REPLICATE, EL_APPEND_EQN] >>
+        pop_assum $ qspec_then ‘LENGTH l’ mp_tac >> simp[]
+        )
+      ) >>
   rw[]
 QED
 

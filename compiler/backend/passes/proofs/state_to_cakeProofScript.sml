@@ -392,7 +392,7 @@ Theorem strle_v_def[local] = SRULE [strle_exp_def] strle_v_def;
 
 Definition env_ok_def:
   env_ok env ⇔
-    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc 0) ∧
+    nsLookup env.v (Short "ffi_array") = SOME (semanticPrimitives$Loc T 0) ∧
     (∃env'.
       nsLookup env.v (Short "strle") = SOME $ strle_v env' ∧
       nsLookup env'.c (Short $ "True") = SOME (0n, TypeStamp "True" bool_type_num) ∧
@@ -435,7 +435,7 @@ Inductive v_rel:
   v_rel cnenv (Atom $ Str s) (Litv $ StrLit s)
 
 [~Loc:]
-  v_rel cnenv (Atom $ Loc n) (Loc (n + 1)) (* leave space for FFI array *)
+  v_rel cnenv (Atom $ Loc n) (Loc T (n + 1)) (* leave space for FFI array *)
 
 [~env_rel:]
   (cnenv_rel cnenv cenv.c ∧
@@ -709,7 +709,7 @@ Definition get_ffi_ch_def[simp]:
 End
 
 Definition get_ffi_args_def[simp]:
-  get_ffi_args [Litv (StrLit conf); Loc lnum] = SOME (conf, lnum) ∧
+  get_ffi_args [Litv (StrLit conf); Loc b lnum] = SOME (conf, lnum) ∧
   get_ffi_args _ = NONE
 End
 
@@ -2274,7 +2274,7 @@ Proof
     first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
     TOP_CASE_TAC >> gvs[] >>
     ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
-    `nsLookup cenv'.v (Short "ffi_array") = SOME (Loc 0)` by gvs[env_ok_def] >>
+    `nsLookup cenv'.v (Short "ffi_array") = SOME (Loc T 0)` by gvs[env_ok_def] >>
     simp[] >>
     ntac 3 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
     `∃ws. store_lookup 0 cst = SOME $ W8array ws ∧
@@ -2432,7 +2432,7 @@ Proof
   unabbrev_all_tac >>
   ntac 7 (qrefine `SUC m` >> simp[dstep, cstep]) >>
   simp[namespaceTheory.nsOptBind_def] >>
-  `nsLookup cenv.v (Short "ffi_array") = SOME (Loc 0)` by gvs[env_ok_def] >>
+  `nsLookup cenv.v (Short "ffi_array") = SOME (Loc T 0)` by gvs[env_ok_def] >>
   simp[] >> qrefine `SUC m` >> simp[dstep, cstep, do_app_def] >>
   Cases_on `dst.refs` >> gvs[store_lookup_def, LUPDATE_DEF] >>
   ntac 9 (qrefine `SUC m` >> simp[dstep, cstep, do_app_def]) >>

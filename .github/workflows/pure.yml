@@ -9,6 +9,7 @@ on:
       - '**.sml'
       - 'Holmakefile'
       - '**.hs'
+      - '**.c'
   pull_request:
     branches:
       - master
@@ -26,7 +27,6 @@ jobs:
     env:
       HOLDIR: ${{ github.workspace }}/HOL
       CAKEMLDIR: ${{ github.workspace }}/cakeml
-      LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
 
     outputs:
       hol_sha: ${{ steps.shas.outputs.HOL_SHA }}
@@ -40,7 +40,7 @@ jobs:
     - name: Get build-essentials
       run: |
         apt update
-        apt install -y git build-essential gcc-10 libffi-dev wget mlton
+        apt install -y git build-essential gcc libffi-dev wget mlton
 
     - name: Checkout Poly/ML
       uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
     - name: Build Poly/ML
       run: |
         cd polyml
-        ./configure
+        ./configure --prefix=/usr
         make
         make install
 
