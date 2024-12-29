@@ -379,10 +379,7 @@ Definition return_def:
   return v st (ForceMutK n :: k) =
     (case st of
        SOME stores =>
-          value
-            (Constructor "" [])
-            (SOME (LUPDATE (ThunkMem Evaluated v) n stores))
-            k
+          value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
      | NONE => error st k)
 End
 

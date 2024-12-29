@@ -153,6 +153,17 @@ Inductive step_res_rel:
   (step_res_rel (Action a b) (Action a b))
 End
 
+Definition store_rel_def:
+  store_rel (Array vs1) (Array vs2) = LIST_REL v_rel vs1 vs2 ∧  
+  store_rel (ThunkMem m1 v1) (ThunkMem m2 v2) =
+    (m1 = m2 ∧ v_rel v1 v2) ∧
+  store_rel _ _ = F
+End
+
+Definition state_rel_def:
+  state_rel st1 st2 = LIST_REL store_rel st1 st2
+End
+
 Inductive cont_rel:
   (cont_rel [] []) ∧
   (∀tenv senv op tvs svs tes ses sk tk.
@@ -183,21 +194,17 @@ Inductive cont_rel:
   (∀sk tk.
     cont_rel tk sk ⇒
     cont_rel (RaiseK :: tk)
-             (RaiseK :: sk))
+             (RaiseK :: sk)) ∧
+  (∀sk tk s1 s2 n.
+    cont_rel tk sk ∧
+    state_rel s1 s2 ∧
+    n < LENGTH s1 ⇒
+    cont_rel (ForceMutK n::tk) (ForceMutK n::sk))
 End
 
 Definition rec_env_def:
   rec_env f env =
     MAP (λ(fn,_). (fn,Recclosure f env fn)) f ++ env
-End
-
-Definition store_rel_def:
-  store_rel (Array vs1) (Array vs2) = LIST_REL v_rel vs1 vs2 ∧
-  store_rel _ _ = F
-End
-
-Definition state_rel_def:
-  state_rel st1 st2 = LIST_REL store_rel st1 st2
 End
 
 Inductive snext_res_rel:
@@ -327,13 +334,6 @@ Proof
     \\ simp [Once v_rel_cases]
     \\ fs [LIST_REL_SNOC,store_rel_def]
     \\ simp [LIST_REL_EL_EQN,EL_REPLICATE])
-  >~ [‘Ref’] >-
-   (gvs [application_def,step,step_res_rel_cases]
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ fs [state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ simp [Once v_rel_cases]
-    \\ fs [LIST_REL_SNOC,store_rel_def])
   >~ [‘Length’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -343,8 +343,8 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
     \\ IF_CASES_TAC \\ gvs []
     \\ gvs [LIST_REL_EL_EQN,state_rel_def]
-    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [store_rel_def]
-    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ Cases_on ‘EL n x’ \\ Cases_on ‘EL n x'’ \\ gvs [store_rel_def]
+    \\ res_tac \\ Cases_on ‘EL n x’ \\ gvs [store_rel_def]
     \\ simp [Once v_rel_cases]
     \\ gvs [LIST_REL_EL_EQN,state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
@@ -361,41 +361,17 @@ Proof
     \\ rpt (IF_CASES_TAC \\ gvs [])
     \\ gvs [state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
-    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
-    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ Cases_on ‘EL n x’ \\ Cases_on ‘EL n x'’
+    \\ gvs [state_rel_def,LIST_REL_EL_EQN]
+    \\ res_tac \\ Cases_on ‘EL n x’ \\ gvs [store_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [LIST_REL_EL_EQN]
-    \\ Cases_on `0 ≤ i` \\ gvs []
+    \\ Cases_on ‘0 ≤ i’ \\ gvs []
     >-
       (imp_res_tac integerTheory.NUM_POSINT_EXISTS
-       \\ first_x_assum $ qspec_then `&n'` assume_tac
+       \\ first_x_assum $ qspec_then ‘&n'’ assume_tac
        \\ gvs []
-       \\ Cases_on `n' < LENGTH l'` \\ gvs []
-       \\ gvs [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
-    >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
-  >~ [‘UnsafeSub’] >-
-   (gvs [application_def,step,step_res_rel_cases]
-    \\ qpat_x_assum ‘v_rel x h’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ Cases_on ‘a’ \\ gvs []
-    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ Cases_on ‘a’ \\ gvs []
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
-    \\ rpt (IF_CASES_TAC \\ gvs [])
-    \\ gvs [state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
-    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
-    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ gvs [LIST_REL_EL_EQN]
-    \\ Cases_on `0 ≤ i` \\ gvs []
-    >-
-      (imp_res_tac integerTheory.NUM_POSINT_EXISTS
-       \\ first_x_assum $ qspec_then `&n'` assume_tac
-       \\ gvs []
-       \\ Cases_on `n' < LENGTH l'` \\ gvs []
+       \\ Cases_on ‘n' < LENGTH l'’ \\ gvs []
        \\ gvs [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
     >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
   >~ [‘Update’] >-
@@ -411,57 +387,64 @@ Proof
     \\ rpt (IF_CASES_TAC \\ gvs [])
     \\ gvs [state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
-    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
-    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+    \\ Cases_on ‘EL n x’ \\ Cases_on ‘EL n x'’
+    \\ gvs [state_rel_def,LIST_REL_EL_EQN]
+    \\ res_tac \\ Cases_on ‘EL n x’ \\ gvs [store_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ gvs [LIST_REL_EL_EQN]
-    \\ Cases_on `0 ≤ i` \\ gvs []
+    \\ Cases_on ‘0 ≤ i’ \\ gvs []
     >-
       (imp_res_tac integerTheory.NUM_POSINT_EXISTS
-       \\ first_x_assum $ qspec_then `&n'` assume_tac \\ gvs []
-       \\ Cases_on `n' < LENGTH l'` \\ gvs []
+       \\ first_x_assum $ qspec_then ‘&n'’ assume_tac \\ gvs []
+       \\ Cases_on ‘n' < LENGTH l'’ \\ gvs []
        \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def]
        \\ rpt strip_tac
        \\ gvs [EL_LUPDATE]
-       \\ Cases_on `n'' = n` \\ gvs []
+       \\ Cases_on ‘n'' = n’ \\ gvs []
        \\ rw [LIST_REL_EL_EQN,store_rel_def]
        \\ gvs [EL_LUPDATE]
-       \\ Cases_on `n'' = n'` \\ gvs []
-       \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
+       \\ Cases_on ‘n'' = n'’ \\ gvs []
+       \\ res_tac \\ Cases_on ‘EL n x’ \\ gvs [store_rel_def]
        \\ gvs [LIST_REL_EL_EQN])
     >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
-  >~ [‘UnsafeUpdate’] >-
+  >~ [‘AllocMutThunk’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
+    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ss’ \\ gvs []
+    \\ fs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ simp [Once v_rel_cases]
+    \\ fs [LIST_REL_SNOC,store_rel_def]
+    \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,EL_REPLICATE]
+    \\ gvs [LIST_REL_EL_EQN])
+  >~ [‘UpdateMutThunk’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
     \\ Cases_on ‘a’ \\ gvs []
-    \\ qpat_x_assum ‘v_rel _ h'’ mp_tac
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
+    \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
+    \\ Cases_on ‘EL n x''’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
+    \\ simp [Once v_rel_cases] \\ strip_tac
+    \\ gvs [EL_LUPDATE]
+    \\ IF_CASES_TAC \\ rw [store_rel_def])
+  >~ [‘ForceMutThunk’] >-
+   (gvs [application_def,step,step_res_rel_cases]
+    \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
     \\ Cases_on ‘a’ \\ gvs []
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [oEL_THM]
-    \\ rpt (IF_CASES_TAC \\ gvs [])
-    \\ gvs [state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [state_rel_def]
-    \\ Cases_on `EL n x` \\ Cases_on `EL n x'` \\ gvs [LIST_REL_EL_EQN]
-    \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ gvs [LIST_REL_EL_EQN]
-    \\ Cases_on `0 ≤ i` \\ gvs []
-    >-
-      (imp_res_tac integerTheory.NUM_POSINT_EXISTS
-       \\ first_x_assum $ qspec_then `&n'` assume_tac \\ gvs []
-       \\ Cases_on `n' < LENGTH l'` \\ gvs []
-       \\ simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def]
-       \\ rpt strip_tac
-       \\ gvs [EL_LUPDATE]
-       \\ Cases_on `n'' = n` \\ gvs []
-       \\ rw [LIST_REL_EL_EQN,store_rel_def]
-       \\ gvs [EL_LUPDATE]
-       \\ Cases_on `n'' = n'` \\ gvs []
-       \\ res_tac \\ Cases_on `EL n x` \\ gvs [store_rel_def]
-       \\ gvs [LIST_REL_EL_EQN])
-    >- simp [Once v_rel_cases,LIST_REL_EL_EQN,state_rel_def])
+    \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
+    \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
+    \\ Cases_on ‘EL n x'’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
+    \\ simp [AppUnit_def]
+    \\ ntac 3 $ simp [Once compile_rel_cases]
+    \\ rw [env_rel_def]
+    \\ simp [Once cont_rel_cases,state_rel_def,LIST_REL_EL_EQN]
+    \\ metis_tac [])
   >~ [‘FFI’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
@@ -716,6 +699,13 @@ Proof
    (Cases_on ‘n’ \\ gvs [step,step_res_rel_cases]
     \\ irule env_rel_cons \\ simp []
     \\ first_assum $ irule_at Any \\ fs [])
+  >~ [‘ForceMutK’] >-
+   (gvs [step]
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ gvs [step_res_rel_cases,state_rel_def,LIST_REL_EL_EQN]
+    \\ simp [Once v_rel_cases,state_rel_def,LIST_REL_EL_EQN] \\ strip_tac
+    \\ gvs [EL_LUPDATE]
+    \\ IF_CASES_TAC \\ rw [store_rel_def])
   \\ rename [‘AppK’]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
   >- (simp [Once cont_rel_cases, step_res_rel_cases] \\ rw [])

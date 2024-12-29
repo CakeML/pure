@@ -32,14 +32,9 @@ Definition Letrec_split_def:
         | NONE => (xs,ys)
 End
 
-Definition Bool_def[simp]:
-  Bool T = (True  :state_cexp$cexp) ∧
-  Bool F = (False :state_cexp$cexp)
-End
-
-Definition some_ref_bool_def:
-  some_ref_bool (v:mlstring,b,y:state_cexp$cexp) =
-    (SOME v, App Alloc [IntLit 2; Bool b])
+Definition some_alloc_thunk_def:
+  some_alloc_thunk (v:mlstring,b,y:state_cexp$cexp) =
+    (SOME v, App (AllocMutThunk NotEvaluated) [IntLit 0])
 End
 
 Definition update_delay_def:
@@ -118,7 +113,7 @@ Definition to_state_def:
     (let (delays,funs) = Letrec_split (MAP FST xs) xs in
      let delays = MAP (λ(m,n,x). (m,n,to_state x)) delays in
      let funs = MAP (λ(m,n,x). (m,n,to_state x)) funs in
-       Lets (MAP some_ref_bool delays) $
+       Lets (MAP some_alloc_thunk delays) $
        Letrec funs $
        Lets (MAP update_delay delays) (to_state y)) ∧
   to_state (Let vo x y) =
