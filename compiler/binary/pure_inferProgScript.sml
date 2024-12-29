@@ -90,6 +90,12 @@ QED
 
 val r = translate (def_of_const “isubst” |> RW [LLOOKUP_INTRO]);
 
+val isubst_side = Q.prove (
+  ‘∀b a. isubst_side a b ⇔ T’,
+  Induct using pure_inference_commonTheory.itype_ind >> rw[] >>
+  simp[Once $ fetch "-" "isubst_side_def"] >> gvs[oEL_THM])
+  |> update_precondition;
+
 val r = translate (pure_inferenceTheory.get_typedef_def
                      |> DefnBase.one_line_ify NONE |> RW [ADD1]);
 

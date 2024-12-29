@@ -104,14 +104,6 @@ val num_from_hex_string_alt_side = Q.prove(`
 
 val r = translate pure_lexer_implTheory.read_string_def;
 
-val read_string_side = Q.prove(`
-  ∀x y l.
-  read_string_side x y l ⇔ T`,
-  ho_match_mp_tac pure_lexer_implTheory.read_string_ind>>
-  rw[]>>
-  simp[Once (fetch"-""read_string_side_def")])
-  |> update_precondition;
-
 val r = translate EL;
 
 val el_side = Q.prove(`
@@ -130,12 +122,21 @@ QED
 
 val r = translate (pure_lexer_implTheory.next_sym_alt_def |> RW [and_to_if]);
 
+Triviality read_while_thm':
+  ∀cs s cs' s'. read_while P cs s = (s', cs') ⇒ STRLEN s' ≥ STRLEN s
+Proof
+  Induct >> rw[] >>
+  gvs[pure_lexer_implTheory.read_while_def, IMPLODE_EXPLODE_I] >>
+  gvs[AllCaseEqs()] >> last_x_assum drule >> simp[]
+QED
+
 val next_sym_alt_side = Q.prove(`
   ∀x l. next_sym_alt_side x l ⇔ T`,
   ho_match_mp_tac pure_lexer_implTheory.next_sym_alt_ind>>rw[]>>
   simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,
-       read_string_side,num_from_hex_string_alt_side]>>
-  rw[]>> gvs []) |> update_precondition;
+       num_from_hex_string_alt_side] >>
+  rw[] >> gvs[pure_lexer_implTheory.read_while_def] >>
+  imp_res_tac read_while_thm' >> gvs[]) |> update_precondition;
 
 val r = translate pure_lexer_implTheory.lexer_fun_def;
 
