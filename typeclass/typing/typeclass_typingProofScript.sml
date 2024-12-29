@@ -344,7 +344,7 @@ Proof
     rw[class_map_to_clk_def] >>
     drule ALOOKUP_find_index_SOME >>
     rw[] >>
-    simp[libTheory.the_def]
+    simp[miscTheory.the_def]
   )
   >- (
     disj2_tac >>
@@ -361,7 +361,7 @@ Proof
     strip_tac >>
     first_x_assum drule >>
     Cases_on `EL i cl_map` >>
-    simp[libTheory.the_def,oEL_THM,LENGTH_tdefs_to_tcexp_tdefs,
+    simp[miscTheory.the_def,oEL_THM,LENGTH_tdefs_to_tcexp_tdefs,
       kindArrow_EQ_kind_arrows_single,kind_arrows_kindType_EQ,EL_APPEND_EQN] >>
     rw[PULL_EXISTS] >>
     irule kind_ok_tdefs_APPEND >>
@@ -898,7 +898,7 @@ Proof
     >- (
       pairarg_tac >> gvs[] >>
       Cases_on `FLOOKUP cl_to_tyid cl` >>
-      gvs[libTheory.the_def] >>
+      gvs[miscTheory.the_def] >>
       first_x_assum drule >>
       rw[]
     ) >>
@@ -908,7 +908,7 @@ Proof
     pairarg_tac >> gvs[] >>
     first_x_assum drule >>
     rw[] >>
-    simp[libTheory.the_def]
+    simp[miscTheory.the_def]
   ) >>
   irule_at (Pos last) EQ_REFL >>
   rw[EL_MAP] >>
@@ -1045,7 +1045,7 @@ Proof
   rw[translate_lie_alist_def,EQ_IMP_THM] >>
   gvs[translate_lie_alist_def] >>
   PairCases_on `h` >>
-  gvs[translate_lie_alist_def,FORALL_AND_THM,DISJ_IMP_THM,libTheory.the_def] >>
+  gvs[translate_lie_alist_def,FORALL_AND_THM,DISJ_IMP_THM,miscTheory.the_def] >>
   metis_tac[]
 QED
 
@@ -1837,7 +1837,7 @@ Proof
     first_x_assum drule >>
     pairarg_tac >>
     rw[] >>
-    gvs[libTheory.the_def] >>
+    gvs[miscTheory.the_def] >>
     CASE_TAC >>
     imp_res_tac ALOOKUP_MEM >>
     gvs[GSYM REVERSE_ZIP,MEM_REVERSE] >>
@@ -1957,8 +1957,8 @@ Proof
       drule_then assume_tac pred_type_elaborate_texp_IMP_pred_type_kind_ok >>
       drule_all pred_type_kind_ok_IMP_type_ok >>
       rw[translate_pred_type_scheme_def,type_ok_def]
-      >- simp[translate_ns_def,libTheory.the_def] >>
-      simp[libTheory.the_def] >>
+      >- simp[translate_ns_def,miscTheory.the_def] >>
+      simp[miscTheory.the_def] >>
       `ALL_DISTINCT (MAP FST ie_alist) ∧ ALL_DISTINCT (MAP FST lie_alist)`
       by (
         drule $ iffLR ALL_DISTINCT_APPEND >>
@@ -1987,7 +1987,7 @@ Proof
         drule_then assume_tac pred_type_elaborate_texp_IMP_pred_type_kind_ok >>
         drule_all pred_type_kind_ok_IMP_type_ok >>
         rw[] >>
-        simp[libTheory.the_def]
+        simp[miscTheory.the_def]
       ) >>
       simp[MAP_ZIP,MAP_REVERSE,MAP_MAP_o,
         combinTheory.o_DEF,LAMBDA_PROD,FST_3] >>
@@ -2049,7 +2049,7 @@ Proof
       drule_then assume_tac pred_type_elaborate_texp_IMP_pred_type_kind_ok >>
       drule_all pred_type_kind_ok_IMP_type_ok >>
       rw[] >>
-      simp[libTheory.the_def]
+      simp[miscTheory.the_def]
     ) >>
     conj_tac >- metis_tac[DISJOINT_SYM] >>
     conj_tac
@@ -3671,7 +3671,7 @@ Proof
     fs[LIST_REL_EL_EQN] >>
     first_x_assum drule >>
     rw[PAIR_MAP,ELIM_UNCURRY] >>
-    gvs[libTheory.the_def,shift_db_def,EL_MAP]
+    gvs[miscTheory.the_def,shift_db_def,EL_MAP]
   ) >>
   gvs[LAMBDA_PROD,EVERY_MAP] >>
   drule_then (qspec_then `meth_ks ++ varks` mp_tac) EVERY_type_ok_tshift >>
@@ -4300,7 +4300,7 @@ Proof
   simp[FLOOKUP_to_cl_tyid_map] >>
   drule ALOOKUP_find_index_SOME >>
   rw[] >>
-  simp[libTheory.the_def]
+  simp[miscTheory.the_def]
 QED
 
 Theorem class_map_to_env_IMP_translate_pred_type_scheme_SOME:
