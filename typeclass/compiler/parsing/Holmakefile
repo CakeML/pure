@@ -1,0 +1,16 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/cakeml/master
+endif
+
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free \
+           $(CAKEMLDIR)/semantics \
+           $(CAKEMLDIR)/basis/pure \
+           $(PUREDIR)/typeclass/typing \
+					 $(PUREDIR)/misc/
+
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+
+all: $(DEFAULT_TARGETS)
+
+.PHONY: all
+
