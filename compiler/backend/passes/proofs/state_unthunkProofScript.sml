@@ -1864,6 +1864,32 @@ Proof
   \\ ntac 5 (irule_at Any step_n_unwind \\ fs [step_n_add,step])
 QED
 
+Theorem find_loc_length_thm:
+  ∀p n1 n2 (ss:state).
+    find_loc n1 p = SOME n2 ∧
+    LENGTH p = LENGTH ss ⇒
+    n2 < LENGTH p ∧
+    n1 < LENGTH (FILTER (λx. FST x = NONE) (ZIP (p,ss)))
+Proof
+  Induct \\ gvs [find_loc_def]
+  \\ Cases \\ gvs [find_loc_def]
+  \\ rw [] \\ res_tac \\ simp []
+  \\ Cases_on ‘ss’ \\ gvs []
+  \\ rpt (first_x_assum $ qspec_then ‘t’ assume_tac \\ gvs [])
+QED
+
+Theorem find_loc_el_thm:
+  ∀p n1 n2 (ss:state).
+    find_loc n1 p = SOME n2 ∧
+    LENGTH p = LENGTH ss ⇒
+    EL n2 ss = EL n1 (MAP SND (FILTER (λx. FST x = NONE) (ZIP (p,ss))))
+Proof
+  Induct \\ gvs [find_loc_def]
+  \\ Cases \\ gvs [find_loc_def]
+  \\ rw [] \\ res_tac \\ simp []
+  \\ Cases_on ‘ss’ \\ gvs [ZIP_def,EL_CONS,PRE_SUB1]
+QED
+
 Theorem step_forward:
   ∀n zs p tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n n (tr,ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧
@@ -1983,7 +2009,8 @@ Proof
       \\ rpt $ first_assum $ irule_at Any
       \\ drule step_n_thunk \\ rw [step_n_add]
       \\ qexists ‘m' + 1’
-      \\ rw [step_n_add,step])
+      \\ rw [step_n_add,step]
+      \\ cheat)
     >~ [‘BoxK’] >-
      (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
@@ -2048,9 +2075,18 @@ Proof
      (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
       \\ Cases_on ‘ts’ \\ gvs []
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ imp_res_tac state_rel_def \\ gvs [LIST_REL_EL_EQN]
+      \\ imp_res_tac find_loc_length_thm
+      \\ Cases_on ‘n1 < LENGTH t1’ \\ gvs []
+      \\ IF_CASES_TAC \\ gvs []
+      \\ imp_res_tac find_loc_el_thm \\ gvs[]
+      \\ first_assum $ qspec_then ‘n1’ assume_tac
+      \\ Cases_on ‘EL n1 t1’ \\ Cases_on ‘EL n2 s1’
+      \\ gvs [store_rel_def,store_same_type_def]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
       \\ rpt (disch_then $ drule_at Any) \\ strip_tac
+      \\ qpat_x_assum ‘v_rel p v v'’ kall_tac
       \\ drule_all state_rel_thunk_v_rel \\ strip_tac
       \\ res_tac
       \\ first_x_assum $ qspec_then ‘zs’ assume_tac
@@ -2375,6 +2411,8 @@ Proof
       \\ fs [oEL_THM,EL_LUPDATE]
       \\ qmatch_goalsub_abbrev_tac ‘SOME ss3’
       \\ rename [‘step_n nn’] \\ gvs [ADD1]
+      \\ reverse IF_CASES_TAC \\ gvs []
+      >- cheat
       \\ strip_tac
       \\ rpt (disch_then kall_tac)
       \\ last_x_assum irule
@@ -2453,9 +2491,18 @@ Proof
       \\ Cases_on ‘ts’ \\ gvs []
       >- (qexists ‘0’ \\ fs [is_halt_def])
       \\ gvs [step_n_add,ADD1,step]
+      \\ imp_res_tac state_rel_def \\ gvs [LIST_REL_EL_EQN]
+      \\ imp_res_tac find_loc_length_thm
+      \\ Cases_on ‘n2 < LENGTH s1’ \\ gvs []
+      \\ IF_CASES_TAC \\ gvs []
+      \\ imp_res_tac find_loc_el_thm \\ gvs []
+      \\ first_assum $ qspec_then ‘n1’ assume_tac
+      \\ Cases_on ‘EL n2 s1’ \\ Cases_on ‘EL n1 t1’
+      \\ gvs [store_rel_def,store_same_type_def]
       \\ last_x_assum irule
       \\ gvs [step_res_rel_cases,PULL_EXISTS]
       \\ rpt (first_assum $ irule_at Any \\ gvs [])
+      \\ qpat_x_assum ‘v_rel p v' v’ kall_tac
       \\ drule_all state_rel_thunk_v_rel \\ gvs [])
     \\ rename [‘AppK tenv op tvs tes’]
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’

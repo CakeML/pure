@@ -85,6 +85,14 @@ Datatype:
   | ThunkMem thunk_mode v
 End
 
+Definition store_same_type_def:
+  store_same_type v1 v2 =
+    case (v1, v2) of
+      (Array _, Array _                     ) => T
+    | (ThunkMem NotEvaluated _, ThunkMem _ _) => T
+    | _ => F
+End
+
 Type state[pp] = ``:store_v list``; (* state *)
 
 Datatype:
@@ -379,7 +387,11 @@ Definition return_def:
   return v st (ForceMutK n :: k) =
     (case st of
        SOME stores =>
-          value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
+         if n < LENGTH stores ∧
+            store_same_type (EL n stores) (ThunkMem Evaluated v) then
+           value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
+         else
+           error st k
      | NONE => error st k)
 End
 

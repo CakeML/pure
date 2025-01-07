@@ -929,14 +929,22 @@ Proof
     \\ simp [Once step_res_rel_cases])
   >~ [‘ForceMutK’] >-
    (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ gvs [is_halt_step]
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [is_halt_step]
     >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
+    \\ gvs [state_rel_def,LIST_REL_EL_EQN]
+    \\ reverse $ Cases_on ‘n' < LENGTH x'’ \\ gvs []
+    >- (first_assum $ irule_at Any \\ fs []
+        \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+        \\ rw [state_rel_def,LIST_REL_EL_EQN,Once step_res_rel_cases])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ qpat_assum ‘∀n. n < LENGTH x' => _’ assume_tac
+    \\ first_x_assum $ qspec_then ‘n'’ assume_tac
+    \\ Cases_on ‘EL n' x’ \\ Cases_on ‘EL n' x'’
+    \\ gvs [store_rel_def,store_same_type_def,state_rel_def,LIST_REL_EL_EQN]
     \\ first_assum $ irule_at Any \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-    \\ simp [Once step_res_rel_cases]
-    \\ gvs [state_rel_def,LIST_REL_EL_EQN,EL_LUPDATE]
-    \\ strip_tac \\ IF_CASES_TAC \\ gvs [store_rel_def])
+    \\ simp [state_rel_def,LIST_REL_EL_EQN,Once step_res_rel_cases]
+    \\ rw [store_rel_def, EL_LUPDATE])
   \\ rename [‘AppK’]
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]

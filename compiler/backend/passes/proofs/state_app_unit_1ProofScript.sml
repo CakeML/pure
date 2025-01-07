@@ -700,11 +700,15 @@ Proof
     \\ irule env_rel_cons \\ simp [])
   >~ [‘ForceMutK’] >-
    (gvs [step]
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’
     \\ gvs [step_res_rel_cases,state_rel_def,LIST_REL_EL_EQN]
-    \\ simp [Once v_rel_cases,state_rel_def,LIST_REL_EL_EQN] \\ strip_tac
-    \\ gvs [EL_LUPDATE]
-    \\ IF_CASES_TAC \\ rw [store_rel_def])
+    \\ reverse $ Cases_on ‘n < LENGTH x'’ \\ gvs []
+    >- gvs [state_rel_def,LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ first_assum $ qspec_then ‘n’ assume_tac
+    \\ Cases_on ‘EL n x’ \\ Cases_on ‘EL n x'’
+    \\ gvs [store_rel_def,store_same_type_def,state_rel_def,LIST_REL_EL_EQN]
+    \\ rw [store_rel_def, EL_LUPDATE])
   \\ rename [‘AppK’]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
   >-
