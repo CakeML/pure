@@ -741,8 +741,7 @@ Theorem capplication_thm:
              SOME (Thunk F v) =>
                return env s fp v c
            | SOME (Thunk T f) =>
-               push (env with v := nsBind (var_prefix "f") f env.v) s fp
-                    (AppUnit (var (var_prefix "f"))) (Cforce n) c
+               application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
        | _ => Etype_error (fix_fp_state c fp))
@@ -762,9 +761,7 @@ Theorem capplication_thm:
       | SOME (v1,Rval v') => return env v1 fp v' c
       | SOME (v1,Rraise v) => Estep (env,v1,fp,Exn v,c))
 Proof
-  rw[application_thm,itree_semanticsTheory.AppUnit_def,
-     evaluateTheory.AppUnit_def] >>
-  simp[var_prefix_def] >> gvs[]
+  rw[application_thm, evaluateTheory.AppUnit_def] >> gvs[]
   >- gvs[AllCaseEqs()]
   >- rpt (TOP_CASE_TAC >> gvs[]) >>
   Cases_on `op` >> gvs[] >>
@@ -959,6 +956,13 @@ Proof
   drule is_halt_imp_eq >> disch_then $ qspec_then `n` assume_tac >> gvs[error_def]
 QED
 
+Triviality ALL_DISTINCT_MAP_FSTs:
+  ALL_DISTINCT (MAP FST l) ⇒
+  ALL_DISTINCT (MAP (λ(x,y,z). x) l)
+Proof
+  Induct_on `l` >> rw[MEM_MAP] >>
+  ntac 2 (pairarg_tac >> gvs[])
+QED
 
 (***** cnenv_rel / env_rel / env_ok *****)
 
@@ -1898,13 +1902,59 @@ Proof
       qexists0 >> reverse $ rw[step_rel_cases, store_lookup_def]
       >- (goal_assum drule >> gvs[state_rel, LIST_REL_EL_EQN])
       >- (
-        rw[AppUnit_def, application_thm,itree_semanticsTheory.AppUnit_def] >>
-        qexists `cnenv` >> rw[]
-        >- (ntac 2 (rw[Once compile_rel_cases, Once op_rel_cases]))
-        >- rw[Once cont_rel_cases]
-        >- gvs[env_rel_def]
-        >- rw[state_rel_def, LIST_REL_EL_EQN]
+        gvs[do_opapp_def] >>
+        ntac 4 (FULL_CASE_TAC >> gvs[store_lookup_def])
+        ) >>
+      Cases_on `dest_anyClosure v` >> gvs[] >>
+      Cases_on `x` >> gvs[] >>
+      Cases_on `r` >> gvs[] >>
+      rw [do_opapp_def] >>
+      Cases_on `a` >> rw[] >>
+      Cases_on `v` >> gvs[Once v_rel_cases,dest_anyClosure_def]
+      >- (
+        goal_assum $ drule_at Any >>
+        simp[Once cont_rel_cases,state_rel_def,LIST_REL_EL_EQN,opt_bind_def] >>
+        gvs [env_rel_def] >> rw[]
         )
+      >- (
+        Cases_on `ALOOKUP l0 s'` >> gvs[] >>
+        Cases_on `x` >> gvs[] >>
+        simp[semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] >>
+        imp_res_tac ALOOKUP_SOME_EL >>
+        Cases_on `ALOOKUP l' (var_prefix s')` >> gvs[]
+        >- (
+          gvs[LIST_REL_EL_EQN] >>
+          first_x_assum drule >> rw[] >> pairarg_tac >> gvs[] >>
+          drule_all ALOOKUP_ALL_DISTINCT_EL >> rpt strip_tac >> gvs[]
+        ) >>
+        Cases_on `x` >> gvs[] >>
+        qexists `cnenv` >>
+        rw[Once cont_rel_cases,state_rel_def,LIST_REL_EL_EQN]
+        >- (
+          gvs[LIST_REL_EL_EQN] >>
+          first_x_assum drule >> rw[] >> pairarg_tac >> gvs[] >>
+          drule_all ALOOKUP_ALL_DISTINCT_EL >> rw[]
+          )
+        >- (
+          `v_rel cnenv (Constructor "" []) (Conv NONE [])`
+            by gvs[Once v_rel_cases] >>
+          drule_all env_rel_nsBind_Recclosure >> rw[] >>
+          gvs[LIST_REL_EL_EQN] >>
+          first_x_assum drule >> rw[] >> pairarg_tac >> gvs[opt_bind_def] >>
+          drule_all ALOOKUP_ALL_DISTINCT_EL >> rw[]
+          )
+        >- (
+          `EVERY (λ(cv,cx,ce). ∃sv. cv = var_prefix sv) l'`
+            by (
+              rw[EVERY_EL] >> pairarg_tac >> gvs[LIST_REL_EL_EQN] >>
+              first_x_assum drule >> rw[] >> pairarg_tac >> gvs[]
+              ) >>
+          drule_all env_ok_nsBind_Recclosure >> rw[] >> gvs[LIST_REL_EL_EQN] >>
+          first_x_assum drule >> rw[] >> pairarg_tac >> gvs[opt_bind_def] >>
+          drule_all ALOOKUP_ALL_DISTINCT_EL >> rw[]
+          )
+        )
+      >- gvs[ALL_DISTINCT_MAP_FSTs]
        )
     >- ( (* Update *)
       `LENGTH l0 = 2` by gvs[] >> gvs[LENGTH_EQ_NUM_compute] >>

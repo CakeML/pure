@@ -247,10 +247,6 @@ Definition dest_anyThunk_def:
         | _ => NONE
 End
 
-Definition AppUnit_def:
-  AppUnit e = App AppOp [e; Unit]
-End
-
 (******************** Semantics functions ********************)
 
 (* Carry out an application - assumes:
@@ -350,13 +346,15 @@ Definition application_def:
         case oEL n stores of
           SOME (ThunkMem Evaluated v) => value v st k
         | SOME (ThunkMem NotEvaluated f) =>
-            push [("f",f)] (AppUnit (Var "f")) st (ForceMutK n) k
+            application AppOp [f; Constructor "" []] st (ForceMutK n :: k)
         | _ => error st k)
     | _ => error st k) ∧
   application (FFI channel) vs st k = (
     case HD vs, st of
       (Atom $ Str content, SOME _) => (Action channel content, st, k)
     | _ => error st k)
+Termination
+  WF_REL_TAC ‘measure (λ(x,_). if x = ForceMutThunk then 1 else 0)’ >> rw[]
 End
 
 (* Return a value and handle a continuation *)

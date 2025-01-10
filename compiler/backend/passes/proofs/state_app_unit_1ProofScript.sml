@@ -252,16 +252,18 @@ Proof
 QED
 
 Theorem application_thm:
-  application op tvs ts tk = (tr1,ts1,tk1) ∧
-  OPTREL state_rel ts ss ∧ cont_rel tk sk ∧
-  LIST_REL v_rel tvs svs ∧
-  num_args_ok op (LENGTH svs) ⇒
-  ∃sr1 ss1 sk1.
-    application op svs ss sk = (sr1,ss1,sk1) ∧
-    OPTREL state_rel ts1 ss1 ∧
-    step_res_rel tr1 tk1 sr1 sk1
+  ∀op tvs ts tk tr1 ts1 tk1 ss sk svs.
+    application op tvs ts tk = (tr1,ts1,tk1) ∧
+    OPTREL state_rel ts ss ∧ cont_rel tk sk ∧
+    LIST_REL v_rel tvs svs ∧
+    num_args_ok op (LENGTH svs) ⇒
+    ∃sr1 ss1 sk1.
+      application op svs ss sk = (sr1,ss1,sk1) ∧
+      OPTREL state_rel ts1 ss1 ∧
+      step_res_rel tr1 tk1 sr1 sk1
 Proof
-  Cases_on ‘op’ \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
+  measureInduct_on ‘(λop. if op = ForceMutThunk then 1 else 0) op’ \\ rw []
+  \\ Cases_on ‘op’ \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
   \\ rw [] \\ gvs []
   >~ [‘Cons’] >-
    (gvs [application_def,step,step_res_rel_cases]
@@ -416,19 +418,23 @@ Proof
     \\ gvs [EL_LUPDATE]
     \\ IF_CASES_TAC \\ rw [store_rel_def])
   >~ [‘ForceMutThunk’] >-
-   (gvs [application_def,step,step_res_rel_cases]
+   (once_rewrite_tac [application_def]
+    \\ gvs [Once application_def]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
-    \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
+    \\ simp [Once v_rel_cases] \\ strip_tac
+    \\ gvs [error_def,step_res_rel_cases]
     \\ Cases_on ‘a’ \\ gvs []
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
     \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
     \\ Cases_on ‘EL n x'’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
-    \\ simp [AppUnit_def]
-    \\ ntac 3 $ simp [Once compile_rel_cases]
-    \\ rw [env_rel_def]
-    \\ simp [Once cont_rel_cases,state_rel_def,LIST_REL_EL_EQN]
-    \\ metis_tac [])
+    \\ gvs [value_def,state_rel_def,LIST_REL_EL_EQN]
+    \\ first_x_assum $ qspec_then ‘AppOp’ assume_tac \\ gvs []
+    \\ pop_assum $ irule_at Any \\ rw []
+    \\ qexistsl [‘ForceMutK n::tk’,‘SOME x’,‘[v; Constructor "" []]’] \\ rw []
+    >- (‘n' = 0 ∨ n' = 1’ by gvs [] \\ rw [] \\ simp [Once v_rel_cases])
+    >- (rw [Once cont_rel_cases,state_rel_def,LIST_REL_EL_EQN] \\ metis_tac [])
+    >- rw [state_rel_def,LIST_REL_EL_EQN])
   >~ [‘FFI’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
