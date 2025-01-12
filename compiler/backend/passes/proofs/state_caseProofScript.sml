@@ -276,8 +276,8 @@ Theorem application_thm:
       cont_rel tk1 sk1 ∧ OPTREL state_rel ts1 ss1 ∧
       step_res_rel tr1 sr1
 Proof
-  measureInduct_on ‘(λop. if op = ForceMutThunk then 1 else 0) op’ \\ rw []
-  \\ Cases_on ‘op’ \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
+  ho_match_mp_tac application_ind \\ rw []
+  \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
   \\ rw [] \\ gvs []
   >~ [‘Cons’] >-
    (gvs [application_def,step,step_res_rel_cases]
@@ -435,7 +435,7 @@ Proof
     \\ IF_CASES_TAC \\ rw [store_rel_def])
   >~ [‘ForceMutThunk’] >-
    (once_rewrite_tac [application_def]
-    \\ gvs [Once application_def]
+    \\ rgs [Once application_def]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac
     \\ gvs [error_def,step_res_rel_cases]
@@ -445,12 +445,9 @@ Proof
     \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
     \\ Cases_on ‘EL n x'’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
     \\ gvs [value_def,state_rel_def,LIST_REL_EL_EQN]
-    \\ first_x_assum $ qspec_then ‘AppOp’ assume_tac \\ gvs []
-    \\ pop_assum $ irule_at Any \\ rw []
-    \\ qexistsl [‘ForceMutK n::tk’,‘SOME x’,‘[v; Constructor "" []]’] \\ rw []
-    >- (‘n' = 0 ∨ n' = 1’ by gvs [] \\ rw [] \\ simp [Once v_rel_cases])
-    >- (rw [Once cont_rel_cases,state_rel_def,LIST_REL_EL_EQN] \\ metis_tac [])
-    >- rw [state_rel_def,LIST_REL_EL_EQN])
+    \\ last_x_assum $ irule_at Any 
+    \\ rw [Once v_rel_cases,Once cont_rel_cases]
+    \\ metis_tac [state_rel_def,LIST_REL_EL_EQN])
   >~ [‘FFI’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac

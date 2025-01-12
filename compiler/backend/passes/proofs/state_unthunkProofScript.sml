@@ -1856,17 +1856,6 @@ Proof
   \\ fs []
 QED
 
-Theorem step_n_thunk:
-  step_n m (Exp senv se,SOME ss,ForceMutK loc::sk) = (sr1,SOME ss1',sk1) ∧
-  n = m + 5 ⇒
-  step_n n
-    (Exp [("f",Closure NONE senv se)] (app (Var "f") Unit),
-     SOME ss, ForceMutK loc::sk) = (sr1,SOME ss1',sk1)
-Proof
-  rw []
-  \\ ntac 5 (irule_at Any step_n_unwind \\ fs [step_n_add,step])
-QED
-
 Theorem find_loc_length_thm:
   ∀p n1 n2 (ss:state).
     find_loc n1 p = SOME n2 ∧
@@ -1932,8 +1921,6 @@ Proof
     \\ simp [Once cont_rel_cases]
     \\ strip_tac \\ gvs []
     >~ [‘ForceK1’] >-
-     cheat
-     (*
      (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
       \\ rename [‘v_rel p v1 v2’]
       \\ Cases_on ‘dest_anyThunk v1’ \\ gvs []
@@ -1978,15 +1965,13 @@ Proof
       \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
       \\ drule step_n_set_cont \\ strip_tac
       \\ pop_assum (qspec_then ‘kk3’ assume_tac)
+      \\ simp [opt_bind_def]
       \\ qsuff_tac ‘∃m' ss1' sr1' sk1 q'.
-        step_n m'
-          (Exp [("f",Closure NONE senv se)]
-          (AppUnit (Var "f")),SOME ss,kk3) = (sr1',SOME ss1',sk1) ∧
+        step_n m' (Exp senv se,SOME ss,kk3) = (sr1',SOME ss1',sk1) ∧
         is_halt (sr1',SOME ss1',sk1) ∧ cont_rel (p ++ q') tk1 sk1 ∧
         state_rel (p ++ q') (pick_opt zs ts1) (SOME ss1') ∧
         step_res_rel (p ++ q') tr1 sr1'’ >- metis_tac []
-      \\ rw [AppUnit_def]
-      \\ Q.REFINE_EXISTS_TAC ‘ck+n5+5’
+      \\ Q.REFINE_EXISTS_TAC ‘ck+1+n5’
       \\ rewrite_tac [step_n_add] \\ fs []
       \\ fs [step,Abbr‘kk3’]
       \\ drule_at (Pos $ el 2) dest_anyThunk_INR_abs \\ fs []
@@ -2012,11 +1997,9 @@ Proof
       \\ strip_tac
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ rpt $ first_assum $ irule_at Any
-      \\ drule step_n_thunk \\ rw [step_n_add]
-      \\ qexists ‘m' + 1’
+      \\ qexists ‘m'’
       \\ rw [step_n_add,step]
       \\ cheat)
-      *)
     >~ [‘BoxK’] >-
      (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
@@ -2329,8 +2312,6 @@ Proof
     \\ once_rewrite_tac [cont_rel_cases]
     \\ strip_tac \\ gvs []
     >~ [‘ForceK1’] >-
-     cheat
-     (*
      (Q.REFINE_EXISTS_TAC ‘ck+1:num’
       \\ qpat_x_assum ‘step_n m _ = _’ mp_tac
       \\ (Cases_on ‘m’ >- fs [])
@@ -2364,11 +2345,7 @@ Proof
         \\ pop_assum $ irule_at Any \\ fs []
         \\ rpt (first_assum $ irule_at Any)
         \\ simp [step_res_rel_cases])
-      \\ simp [AppUnit_def]
-      \\ ntac 5 (rename [‘step_n n’] \\ Cases_on ‘n’ \\ fs []
-                  >- (rw [] \\ fs [is_halt_def])
-                  \\ rewrite_tac [step_n_add,ADD1] \\ simp
-                  [step,get_atoms_def])
+      \\ simp [opt_bind_def]
       \\ gvs [ADD1]
       \\ strip_tac
       \\ drule_all step_n_cut_cont
@@ -2429,7 +2406,6 @@ Proof
       \\ irule_at Any cont_rel_ext \\ fs [LUPDATE_DEF,LUPDATE_LUPDATE]
       \\ simp [Abbr‘ss3’]
       \\ drule_all state_rel_LUPDATE_anyThunk \\ fs [])
-      *)
     >~ [‘BoxK’] >-
      (Q.REFINE_EXISTS_TAC ‘ck1+1’
       \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
