@@ -165,10 +165,8 @@ End
 Definition loc_rel_def[simp]:
   loc_rel p tenv tfns (tn,te:exp) (sn,sv) ⇔
   ∃r n.
-    tn = sn ∧
-    dest_anyThunk (Recclosure tfns tenv tn) = SOME r ∧
-    sv = Atom (Loc n) ∧
-    oEL n p = SOME (SOME r)
+    tn = sn ∧ dest_anyThunk (Recclosure tfns tenv tn) = SOME r ∧
+    sv = Atom (Loc n) ∧ oEL n p = SOME (SOME (Recclosure tfns tenv tn))
 End
 
 Inductive v_rel:
@@ -222,7 +220,7 @@ Inductive v_rel:
 
 [~Thunk:]
   (∀p n r.
-     oEL n p = SOME (SOME (r,[])) ⇒
+     oEL n p = SOME (SOME (Thunk r)) ⇒
      v_rel p (Thunk r) (Atom (Loc n)))
 
 [env_rel:]
@@ -328,16 +326,18 @@ End
 
 Definition thunk_rel_def:
   thunk_rel p NONE _ = T ∧
-  thunk_rel p (SOME (x,f)) v =
-    case x of
-    | INL tv => (∃sv. v_rel p tv sv ∧ v = ThunkMem Evaluated sv)
-    | INR (tenv,te) =>
-        (∃senv se.
-           env_rel p (rec_env f tenv) senv ∧ compile_rel te se ∧
-           v = ThunkMem NotEvaluated (Closure NONE senv se)) ∨
-        (∃tv sv ck.
-           step_n ck (Exp (rec_env f tenv) te,NONE,[]) = (Val tv,NONE,[]) ∧
-           v = ThunkMem Evaluated sv ∧ v_rel p tv sv)
+  thunk_rel p (SOME thk) v =
+    ∃x f.
+      dest_anyThunk thk = SOME (x,f) ∧
+      case x of
+      | INL tv => (∃sv. v_rel p tv sv ∧ v = ThunkMem Evaluated sv)
+      | INR (tenv,te) =>
+          (∃senv se.
+             env_rel p (rec_env f tenv) senv ∧ compile_rel te se ∧
+             v = ThunkMem NotEvaluated (Closure NONE senv se)) ∨
+          (∃tv sv ck.
+             step_n ck (Exp (rec_env f tenv) te,NONE,[]) = (Val tv,NONE,[]) ∧
+             v = ThunkMem Evaluated sv ∧ v_rel p tv sv)
 End
 
 Definition state_rel_def:
@@ -379,7 +379,7 @@ QED
 
 Theorem v_rel_new_Thunk:
   loc = LENGTH p ⇒
-  v_rel (p ++ [SOME (r,[])]) (Thunk r) (Atom (Loc loc))
+  v_rel (p ++ [SOME (Thunk r)]) (Thunk r) (Atom (Loc loc))
 Proof
   simp [Once v_rel_cases,oEL_THM,rich_listTheory.EL_LENGTH_APPEND]
   \\ EVAL_TAC
@@ -472,8 +472,7 @@ Theorem thunk_rel_ext:
     thunk_rel (p ++ q) k1 k2
 Proof
   rw [] \\ Cases_on ‘k1’ \\ fs [thunk_rel_def]
-  \\ PairCases_on ‘x’ \\ fs [thunk_rel_def]
-  \\ Cases_on ‘x0’ \\ fs []
+  \\ Cases_on ‘x'’ \\ fs []
   \\ TRY (Cases_on ‘y’ \\ fs [])
   \\ TRY (irule_at Any v_rel_ext \\ fs [])
   \\ TRY (irule_at Any env_rel_ext \\ fs [])
@@ -484,8 +483,9 @@ QED
 Theorem state_rel_INR:
   state_rel p ts (SOME ss) ∧
   env_rel p (rec_env f env1) env2 ∧
-  compile_rel te se ⇒
-  state_rel (p ++ [SOME (INR (env1,te),f)]) ts
+  compile_rel te se ∧
+  dest_anyThunk thk = SOME (INR (env1,te),f) ⇒
+  state_rel (p ++ [SOME thk]) ts
      (SOME (SNOC (ThunkMem NotEvaluated (Closure NONE env2 se)) ss))
 Proof
   fs [state_rel_def] \\ rw [] \\ gvs []
@@ -499,9 +499,10 @@ Proof
 QED
 
 Theorem state_rel_INL:
-  state_rel p ts (SOME ss) ∧ v_rel p v1 v2 ⇒
+  state_rel p ts (SOME ss) ∧ v_rel p v1 v2 ∧
+  dest_anyThunk thk = SOME (INL v1,f) ⇒
   state_rel
-    (p ++ [SOME (INL v1,f)]) ts (SOME (SNOC (ThunkMem Evaluated v2) ss))
+    (p ++ [SOME thk]) ts (SOME (SNOC (ThunkMem Evaluated v2) ss))
 Proof
   fs [state_rel_def] \\ rw [] \\ gvs []
   \\ gvs [thunk_rel_def]
@@ -567,7 +568,7 @@ Proof
   \\ gvs [oEL_THM]
   \\ gvs [LIST_REL_EL_EQN]
   \\ last_x_assum drule
-  \\ fs [thunk_rel_def]
+  \\ fs [thunk_rel_def,dest_anyThunk_def]
 QED
 
 Triviality ALOOKUP_LIST_REL_loc_rel:
@@ -650,9 +651,7 @@ Proof
     \\ gvs [oEL_THM]
     \\ gvs [LIST_REL_EL_EQN]
     \\ last_x_assum drule
-    \\ fs [thunk_rel_def]
-    \\ strip_tac \\ fs []
-    \\ rpt (first_x_assum $ irule_at Any))
+    \\ fs [thunk_rel_def,dest_anyThunk_def])
   \\ simp [Once v_rel_cases] \\ rw []
   >- (drule_all alistTheory.ALOOKUP_ALL_DISTINCT_MEM \\ fs [])
   \\ drule_all LIST_REL_loc_rel
@@ -743,7 +742,7 @@ Proof
       \\ fs [LIST_REL_EL_EQN]
       \\ gvs [EL_LUPDATE,dest_anyThunk_def]
       \\ rw [] \\ gvs []
-      \\ fs [thunk_rel_def]
+      \\ fs [thunk_rel_def,dest_anyThunk_def]
       \\ rpt (first_x_assum $ irule_at Any))
   >~ [‘Thunk’]
   >- (qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
@@ -751,6 +750,7 @@ Proof
       \\ AP_TERM_TAC
       \\ pop_assum mp_tac
       \\ imp_res_tac LIST_REL_LENGTH
+      \\ gvs [dest_anyThunk_def]
       \\ pop_assum mp_tac
       \\ pop_assum mp_tac
       \\ qid_spec_tac ‘loc’
@@ -767,15 +767,15 @@ Proof
       \\ rw [] \\ gvs []
       \\ first_x_assum drule
       \\ Cases_on ‘EL loc p’ \\ fs [thunk_rel_def]
-      \\ PairCases_on ‘x’ \\ fs [thunk_rel_def]
+      \\ strip_tac \\ gvs []
       \\ qpat_x_assum ‘ALOOKUP f n' = SOME (Delay te)’ assume_tac
       \\ drule IMP_ALOOKUP_FILTER
       \\ disch_then $ qspec_then ‘((λx. is_Delay x) ∘ SND)’ mp_tac
       \\ impl_tac >- fs [dest_Delay_def]
       \\ strip_tac
       \\ drule_all ALOOKUP_LIST_REL_loc_rel
-      \\ simp [dest_anyThunk_def,oEL_THM]
-      \\ reverse (rpt strip_tac) \\ gvs []
+      \\ gvs [] \\ strip_tac \\ gvs [oEL_THM]
+      \\ gvs [dest_anyThunk_def]
       \\ last_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ qpat_x_assum ‘LIST_REL (thunk_rel p) p ss2’ mp_tac
   \\ simp [Once LIST_REL_EL_EQN] \\ rw []
@@ -1111,6 +1111,17 @@ Proof
   \\ fs []
 QED
 
+Theorem find_loc_lemma:
+  ∀p n1 loc. find_loc n1 p = SOME loc ⇒ ∀x. oEL loc p ≠ SOME (SOME x)
+Proof
+  Induct >- gvs [oEL_THM]
+  \\ gvs [find_loc_def]
+  \\ Cases \\ gvs []
+  \\ rw [] \\ gvs [oEL_def]
+  \\ Cases_on ‘n1’ \\ gvs []
+  \\ res_tac \\ gvs []
+QED
+
 Theorem application_thm:
   application op tvs ts tk = (t_0,t_1,t_2) ∧
   application op svs (SOME ss) sk = (s_0,s_1,s_2) ∧
@@ -1123,7 +1134,9 @@ Theorem application_thm:
     s_1 = SOME ss1 ∧
     cont_rel (p++q) t_2 s_2 ∧
     state_rel (p++q) (pick_opt zs t_1) (SOME ss1) ∧
-    step_res_rel (p++q) t_0 s_0
+    step_res_rel (p++q) t_0 s_0 ∧
+    ∀thk loc. oEL loc p = SOME (SOME thk) ⇒
+              oEL loc ss1 = oEL loc ss
 Proof
   Cases_on ‘t_0 = Error’ \\ asm_rewrite_tac []
   \\ Cases_on ‘op = Alloc’ \\ rw [] THEN1
@@ -1135,7 +1148,10 @@ Proof
     \\ irule_at Any v_rel_Ref \\ simp [GSYM SNOC_APPEND]
     \\ simp [Once SNOC_APPEND]
     \\ irule_at Any state_rel_Ref \\ simp []
-    \\ fs [LIST_REL_REPLICATE_same])
+    \\ fs [LIST_REL_REPLICATE_same]
+    \\ rpt strip_tac
+    \\ gvs [oEL_THM,state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [SNOC_APPEND,EL_APPEND1])
   \\ Cases_on ‘∃t. op = AllocMutThunk t’ \\ rw [] THEN1
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
     \\ gvs [AllCaseEqs(),step_res_rel_cases]
@@ -1146,7 +1162,9 @@ Proof
     \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
     \\ gvs [LIST_REL_EL_EQN] \\ rw []
     \\ TRY (irule_at Any thunk_rel_ext \\ gvs [thunk_rel_def])
-    \\ TRY (irule_at Any store_rel_ext \\ gvs [store_rel_def]))
+    \\ TRY (irule_at Any store_rel_ext \\ gvs [store_rel_def])
+    \\ gvs [oEL_THM,state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [SNOC_APPEND,EL_APPEND1])
   \\ qexists_tac ‘[]’ \\ fs []
   \\ Cases_on ‘op = ForceMutThunk’ \\ rw [] THEN1
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
@@ -1182,7 +1200,9 @@ Proof
     \\ Cases_on ‘x''’ \\ gvs []
     \\ Cases_on ‘t'’ \\ gvs []
     \\ drule_all state_rel_thunk \\ strip_tac \\ gvs []
-    \\ simp [Once step_res_rel_cases, Once v_rel_cases])
+    \\ simp [Once step_res_rel_cases, Once v_rel_cases]
+    \\ gvs [oEL_LUPDATE] \\ rw [] \\ gvs [oEL_THM]
+    \\ imp_res_tac find_loc_lemma \\ gvs [oEL_THM])
   \\ Cases_on ‘∃k. op = Cons k’ \\ rw [] THEN1
    (gvs [application_def,get_atoms_def,value_def,error_def]
     \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
@@ -1209,7 +1229,9 @@ Proof
     \\ gvs [AllCaseEqs(),step_res_rel_cases,LIST_REL_EL_EQN,store_rel_def]
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs []
     \\ simp [Once v_rel_cases]
-    \\ ntac 3 (simp [Once compile_rel_cases]))
+    \\ ntac 3 (simp [Once compile_rel_cases])
+    \\ rw [oEL_LUPDATE] \\ gvs [oEL_THM]
+    \\ imp_res_tac find_loc_lemma \\ gvs [oEL_THM])
   \\ Cases_on ‘∃s n. op = IsEq s n’ \\ rw [] THEN1
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
     \\ ntac 4 $ pop_assum mp_tac \\ simp [Once v_rel_cases]
@@ -1693,12 +1715,12 @@ Theorem state_rel_Letrec:
   ALL_DISTINCT (MAP FST funs) ∧
   DISJOINT (set (MAP FST delays)) (set (MAP FST funs)) ⇒
   state_rel
-    (p ++ MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+    (p ++ MAP (λ(fn,_). SOME (Recclosure tfns env1 fn))
              (FILTER ((λx. is_Delay x) ∘ SND) tfns)) (pick_opt zs ts)
     (SOME (ss ++ MAP
              (Letrec_store (rec_env funs (make_let_env delays (LENGTH ss) env2)))
                 delays)) ∧
-  env_rel (p ++ MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+  env_rel (p ++ MAP (λ(fn,_). SOME (Recclosure tfns env1 fn))
                  (FILTER ((λx. is_Delay x) ∘ SND) tfns)) (rec_env tfns env1)
           (rec_env funs (make_let_env delays (LENGTH ss) env2))
 Proof
@@ -1720,7 +1742,7 @@ Proof
     \\ ‘LIST_REL
             (loc_rel
                (p ++
-                MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+                MAP (λ(fn,_). SOME (Recclosure tfns env1 fn))
                   (FILTER (λ(p1,p2). is_Delay p2) tfns)) env1 tfns)
             (FILTER ((λx. is_Delay x) ∘ SND) tfns)
             (MAPi (λi x. (FST x,Atom (Loc (i + LENGTH ss)))) delays)’ by
@@ -1804,7 +1826,7 @@ Proof
   \\ fs [] \\ rw [] \\ gvs [dest_Delay_def]
   \\ rename [‘compile_rel e1 e2’]
   \\ simp [dest_anyThunk_def]
-  \\ simp [thunk_rel_def]
+  \\ simp [thunk_rel_def,dest_anyThunk_def]
   \\ reverse (Cases_on ‘Letrec_imm (MAP FST sfns) e2’) \\ gvs []
   >- fs [Letrec_store_def]
   \\ Cases_on ‘∃x1 x2. e2 = Lam x1 x2’
@@ -1882,78 +1904,15 @@ Proof
   \\ Cases_on ‘ss’ \\ gvs [ZIP_def,EL_CONS,PRE_SUB1]
 QED
 
-Definition return'_def:
-  return' avoid v st (ForceK1 :: k) =
-    (if v ∈ avoid then error st k else
-     case dest_anyThunk v of
-     | NONE => error st k
-     | SOME (INL v, _) => value v st k
-     | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
-  return' avoid v st rest = return v st rest
-End
-
-Definition step'_def:
-  step' avoid st k (Val v) = return' avoid v st k ∧
-  step' avoid st k x = step st k x
-End
-
-Definition step_n'_def:
-  step_n' n avoid (sr, st, k) = FUNPOW (λ(sr, st, k). step' avoid st k sr) n (sr, st, k)
-End
-
-Theorem step_n'_add:
-  step_n' (m + n) avoid x = step_n' m avoid (step_n' n avoid x)
-Proof
-  cheat
-QED
-
-Theorem step_n'_0[simp]:
-  step_n' 0 avoid x = x
-Proof
-  PairCases_on ‘x’ \\ fs [step_n'_def]
-QED
-
-Theorem step_n'_1[simp]:
-  step_n' 1 avoid x = step' avoid (FST (SND x)) (SND (SND x)) (FST x)
-Proof
-  PairCases_on ‘x’ \\ fs [step_n'_def]
-QED
-
-Theorem is_halt_step_n'_same:
-  ∀n x. is_halt x ⇒ step_n' n avoid x = x
-Proof
-  cheat (*
-  Induct \\ fs [FORALL_PROD,step_n'_SUC,is_halt_step_same] *)
-QED
-
-Theorem step_n'_unfold:
-  (∃n. k = n + 1 ∧ step_n' n avoid (step' avoid st c sr) = res) ⇒
-  step_n' k avoid (sr,st,c) = res
-Proof
-  Cases_on ‘k’ >- fs []
-  \\ rewrite_tac [step_n'_def,FUNPOW]
-  \\ fs [ADD1]
-  \\ Cases_on ‘step' avoid st c sr’ \\ Cases_on ‘r’
-  \\ fs [step_n'_def]
-QED
-
-Theorem step_n'_NONE_split:
-  step_n' n avoid (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
-  ∃m1 m2 v.
-    step_n' m1 avoid (Exp env x,NONE,[]) = (Val v,NONE,[]) ∧ m1 < n ∧
-    step_n' m2 avoid (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n
-Proof
-  cheat
-QED
-
 Theorem state_rel_LUPDATE_anyThunk':
   v_rel p res v2 ∧ state_rel p ts (SOME ss2) ∧
   v_rel p v1 (Atom (Loc loc)) ∧
   dest_anyThunk v1 = SOME (INR (tenv1,te),f) ∧
-  step_n' n avoid (Exp (rec_env f tenv1) te,NONE,[]) = (Val res,NONE,[]) ⇒
+  step'_n n avoid (Exp (rec_env f tenv1) te,NONE,[]) = (Val res,NONE,[]) ⇒
   state_rel p ts (SOME (LUPDATE (ThunkMem Evaluated v2) loc ss2))
 Proof
-  cheat
+  rw [] \\ drule step'_n_IMP_step_n \\ strip_tac \\ gvs []
+  \\ drule_all state_rel_LUPDATE_anyThunk \\ gvs []
 QED
 
 Triviality LIST_REL_lemma:
@@ -1964,62 +1923,20 @@ Proof
   \\ gvs [] \\ first_x_assum $ irule_at Any
 QED
 
-Theorem v_rel_thunk_lemma:
-  v_rel p v1 (Atom (Loc loc)) ∧ IS_SOME (dest_anyThunk v1) ∧
-  v_rel p v2 (Atom (Loc loc)) ∧ IS_SOME (dest_anyThunk v2) ⇒
-  v1 = v2
+Theorem v_rel_thunk_IMP_oEL:
+  v_rel p v1 (Atom (Loc loc)) ∧ IS_SOME (dest_anyThunk v1) ⇒
+  oEL loc p = SOME (SOME v1)
 Proof
   once_rewrite_tac [v_rel_cases] \\ gvs [] \\ strip_tac
   \\ gvs [dest_anyThunk_def,IS_SOME_EXISTS,AllCaseEqs()]
   \\ dxrule_all LIST_REL_lemma
   \\ gvs [EXISTS_PROD,FORALL_PROD]
   \\ gvs [loc_rel_def,dest_anyThunk_def]
-  \\ TRY (Cases_on ‘tfns’ \\ gvs [] \\ NO_TAC)
-  \\ dxrule_all LIST_REL_lemma
-  \\ gvs [EXISTS_PROD,FORALL_PROD]
-  \\ gvs [loc_rel_def,dest_anyThunk_def]
-  \\ rpt strip_tac \\ gvs []
-  \\ cheat
-QED
-
-Theorem setp_m'_Error[simp]:
-  ∀n. step_n' n avoid (Error,ts,tk) = (Error,ts,tk)
-Proof
-  Induct \\ gvs [step_n'_def,FUNPOW,step'_def,step]
-QED
-
-Theorem step_n'_fast_forward:
-  step_n' n avoid (sr,ss,k::ks) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
-  step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ∧ sr1 ≠ Error ⇒
-  ∃m3. m3 ≤ n ∧ step_n' m3 avoid (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
-Proof
-  cheat
-QED
-
-Theorem step_n'_INSERT:
-  step_n' m avoid (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[]) ∧
-  dest_anyThunk v1 = SOME (INR (y0,y1),x1) ⇒
-  step_n' m (v1 INSERT avoid) (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[])
-Proof
-  cheat
-QED
-
-Theorem is_halt_imp_eq':
-  is_halt (step_n' n avoid res) ∧ is_halt (step_n' m avoid res) ⇒
-  step_n' n avoid res = step_n' m avoid res
-Proof
-  cheat
-QED
-
-Theorem step_n_IMP_step_n':
-  step_n n x = y ⇒ step_n' n {} x = y
-Proof
-  cheat
 QED
 
 Theorem step_forward:
   ∀n avoid zs p tr ts tk tr1 ts1 tk1 ss sr sk.
-    step_n' n avoid (tr,ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧
+    step'_n n avoid (tr,ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧
     cont_rel p tk sk ∧
     state_rel p (pick_opt zs ts) (SOME ss) ∧
     step_res_rel p tr sr ∧ tr1 ≠ Error ⇒
@@ -2030,20 +1947,20 @@ Theorem step_forward:
       state_rel (p++q) (pick_opt zs ts1) (SOME ss1) ∧
       step_res_rel (p++q) tr1 sr1 ∧
       ∀thk loc.
-        thk ∈ avoid ∧ v_rel p thk (Atom (Loc loc)) ∧ IS_SOME (dest_anyThunk thk) ⇒
+        thk ∈ avoid ∧ oEL loc p = SOME (SOME thk) ⇒
         oEL loc ss1 = oEL loc ss
 Proof
   gen_tac \\ completeInduct_on ‘n’
   \\ rpt strip_tac \\ gvs [AND_IMP_INTRO]
   \\ Cases_on ‘n = 0’
   >-
-   (gvs [step_n'_def] \\ qexists_tac ‘0’ \\ qexists_tac ‘[]’ \\ gvs []
+   (gvs [step'_n_def] \\ qexists_tac ‘0’ \\ qexists_tac ‘[]’ \\ gvs []
     \\ Cases_on ‘sr’ \\ fs [is_halt_def]
     \\ gvs [step_res_rel_cases,is_halt_def]
     \\ gvs [is_halt_def,cont_rel_nil])
   \\ Cases_on ‘is_halt (tr,ts,tk)’
-  >- (‘is_halt (step_n' n avoid (tr,ts,tk)) ∧
-       is_halt (step_n' 0 avoid (tr,ts,tk))’ by fs [step_n'_def]
+  >- (‘is_halt (step'_n n avoid (tr,ts,tk)) ∧
+       is_halt (step'_n 0 avoid (tr,ts,tk))’ by fs [step'_n_def]
       \\ dxrule is_halt_imp_eq'
       \\ disch_then dxrule
       \\ fs [] \\ strip_tac \\ gvs []
@@ -2060,7 +1977,7 @@ Proof
     \\ simp [Once cont_rel_cases]
     \\ strip_tac \\ gvs []
     >~ [‘ForceK1’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n'_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step]
       \\ rename [‘v_rel p v1 v2’]
       \\ Cases_on ‘dest_anyThunk v1’ \\ gvs [step'_def,return'_def,error_def]
       \\ PairCases_on ‘x’ \\ gvs []
@@ -2082,11 +1999,11 @@ Proof
         \\ Cases_on ‘v1 ∈ avoid’ \\ gvs []
         \\ drule step_n_set_cont \\ strip_tac
         \\ pop_assum (qspec_then ‘ForceK2 ts::tk’ assume_tac)
-        \\ drule_all step_n'_fast_forward
+        \\ drule_all step'_n_fast_forward
         \\ strip_tac
         \\ pop_assum mp_tac
         \\ Cases_on ‘m3’ \\ fs [] \\ strip_tac \\ gvs []
-        \\ gvs [step_n'_add,step,ADD1,step'_def,return'_def]
+        \\ gvs [step'_n_add,step,ADD1,step'_def,return'_def]
         \\ last_x_assum $ drule_at $ Pos $ el 2 \\ fs []
         \\ simp [Once step_res_rel_cases,PULL_EXISTS]
         \\ disch_then drule_all \\ strip_tac \\ gvs []
@@ -2094,11 +2011,11 @@ Proof
         \\ gvs [SF SFY_ss])
       \\ Cases_on ‘v1 ∈ avoid’ \\ gvs []
       \\ gvs [GSYM rec_env_def,get_atoms_def]
-      \\ drule_all step_n'_NONE_split
+      \\ drule_all step'_n_NONE_split
       \\ strip_tac
       \\ ntac 2 $ pop_assum mp_tac
       \\ simp [opt_bind_def]
-      \\ drule_all step_n'_INSERT \\ strip_tac
+      \\ drule_all step'_n_INSERT \\ strip_tac
       \\ last_assum $ drule_at $ Pos $ el 2
       \\ fs [cont_rel_nil]
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
@@ -2110,7 +2027,7 @@ Proof
       \\ qpat_x_assum ‘step_res_rel (p ++ q) (Val v) _’ mp_tac
       \\ simp [Once step_res_rel_cases] \\ strip_tac \\ gvs []
       \\ first_assum $ qspecl_then [‘v1’,‘loc’] mp_tac
-      \\ impl_tac >- gvs []
+      \\ impl_tac >- (imp_res_tac v_rel_thunk_IMP_oEL \\ gvs [])
       \\ strip_tac
       \\ drule step_n_set_cont \\ strip_tac
       \\ pop_assum (qspec_then ‘kk3’ assume_tac)
@@ -2121,9 +2038,8 @@ Proof
         state_rel (p ++ q') (pick_opt zs ts1) (SOME ss1') ∧
         step_res_rel (p ++ q') tr1 sr1' ∧
         ∀thk loc.
-          thk ∈ avoid ∧ v_rel p thk (Atom (Loc loc)) ∧
-          IS_SOME (dest_anyThunk thk) ⇒
-          oEL loc ss1' = oEL loc ss’ >- metis_tac []
+            thk ∈ avoid ∧ oEL loc p = SOME (SOME thk) ⇒
+            oEL loc ss1' = oEL loc ss’ >- metis_tac []
       \\ Q.REFINE_EXISTS_TAC ‘ck+1+n5’
       \\ rewrite_tac [step_n_add] \\ fs []
       \\ fs [step,Abbr‘kk3’]
@@ -2139,8 +2055,8 @@ Proof
       \\ disch_then $ drule_at (Pos $ el 3)
       \\ disch_then drule_all \\ strip_tac \\ gvs []
       \\ Cases_on ‘m2’ \\ gvs []
-      \\ gvs [ADD1,step_n'_add,step,step'_def,return'_def]
-      \\ qpat_x_assum ‘step_n' n avoid (Val v,ts,tk) = (tr1,ts1,tk1)’ assume_tac
+      \\ gvs [ADD1,step'_n_add,step,step'_def,return'_def]
+      \\ qpat_x_assum ‘step'_n n avoid (Val v,ts,tk) = (tr1,ts1,tk1)’ assume_tac
       \\ last_x_assum $ drule_at $ Pos $ el 2 \\ simp []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
       \\ rpt $ disch_then $ drule_at $ Pos last
@@ -2150,22 +2066,24 @@ Proof
       \\ strip_tac
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
       \\ rpt $ first_assum $ irule_at Any
-      \\ rpt gen_tac \\ disch_tac
-      \\ gvs []
-      \\ ‘v_rel (p ++ q) thk (Atom (Loc loc'))’ by (imp_res_tac v_rel_ext \\ gvs [])
+      \\ rpt gen_tac \\ disch_tac \\ gvs []
+      \\ rename [‘EL k p = SOME thk’]
+      \\ ‘EL k (p ++ q) = SOME thk /\ k < LENGTH p + LENGTH q’ by gvs [EL_APPEND1]
       \\ first_x_assum drule_all
       \\ strip_tac \\ gvs [Abbr ‘ss3’]
-      \\ qsuff_tac ‘loc ≠ loc'’
+      \\ qsuff_tac ‘loc ≠ k’
       >- (rpt strip_tac \\ gvs [EL_LUPDATE] \\ metis_tac [])
       \\ CCONTR_TAC \\ gvs [EL_LUPDATE]
       \\ ‘v1 ≠ thk’ by (CCONTR_TAC \\ gvs [])
-      \\ metis_tac [v_rel_thunk_lemma,IS_SOME_EXISTS])
+      \\ imp_res_tac v_rel_thunk_IMP_oEL
+      \\ gvs [oEL_THM])
     >~ [‘BoxK’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n'_add,step,step'_def,return'_def]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
-      \\ drule_all state_rel_INL
-      \\ disch_then $ qspec_then ‘[]’ assume_tac
+      \\ drule_then drule state_rel_INL
+      \\ simp [oneline dest_anyThunk_def,AllCaseEqs(),oneline dest_Thunk_def]
+      \\ strip_tac
       \\ disch_then $ drule_at Any
       \\ simp [Once step_res_rel_cases, PULL_EXISTS]
       \\ disch_then $ qspecl_then [‘sk’,‘Atom (Loc (LENGTH ss))’] mp_tac
@@ -2176,12 +2094,18 @@ Proof
       \\ strip_tac
       \\ first_x_assum $ irule_at $ Pos hd \\ fs []
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-      \\ first_x_assum $ irule_at $ Pos hd \\ fs [SF SFY_ss] \\ cheat)
-    \\ cheat (*
+      \\ first_x_assum $ irule_at $ Pos hd \\ fs [SF SFY_ss]
+      \\ rpt gen_tac \\ strip_tac
+      \\ gvs [oEL_THM]
+      \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
+      \\ gvs [EL_APPEND1,SNOC_APPEND,state_rel_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+      \\ gvs [EL_APPEND1,SNOC_APPEND,state_rel_def])
     >~ [‘LetK tenv n te’] >-
-     (Cases_on ‘n'’ \\ fs [ADD1,step_n_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
-      \\ Cases_on ‘n’ \\ gvs [step]
+      \\ Cases_on ‘n'’ \\ gvs [step,return_def]
+      \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
       \\ rpt (disch_then drule)
@@ -2190,7 +2114,7 @@ Proof
       \\ drule_all imp_env_rel_cons
       \\ metis_tac [])
     >~ [‘IfK tenv te1 te2’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ qpat_x_assum ‘v_rel p v1 v2’ mp_tac
       \\ Cases_on ‘v1 = True_v ∨ v1 = False_v’ \\ gvs [step]
@@ -2200,7 +2124,7 @@ Proof
       \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘RaiseK’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ Cases_on ‘ts = NONE’ \\ gvs []
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
@@ -2208,27 +2132,27 @@ Proof
       \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘HandleK tenv _ te’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
       \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘HandleAppK tenv te’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
       \\ rpt (disch_then drule) \\ strip_tac
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
     >~ [‘ForceMutK’] >-
-     (Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+     (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ Cases_on ‘ts’ \\ gvs []
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
       \\ imp_res_tac state_rel_def \\ gvs [LIST_REL_EL_EQN]
       \\ imp_res_tac find_loc_length_thm
       \\ Cases_on ‘n1 < LENGTH t1’ \\ gvs []
-      \\ IF_CASES_TAC \\ gvs []
+      \\ IF_CASES_TAC \\ gvs [store_same_type_def]
       \\ imp_res_tac find_loc_el_thm \\ gvs[]
       \\ first_assum $ qspec_then ‘n1’ assume_tac
       \\ Cases_on ‘EL n1 t1’ \\ Cases_on ‘EL n2 s1’
@@ -2238,11 +2162,14 @@ Proof
       \\ rpt (disch_then $ drule_at Any) \\ strip_tac
       \\ qpat_x_assum ‘v_rel p v v'’ kall_tac
       \\ drule_all state_rel_thunk_v_rel \\ strip_tac
-      \\ res_tac
-      \\ first_x_assum $ qspec_then ‘zs’ assume_tac
-      \\ metis_tac [])
+      \\ first_x_assum drule
+      \\ disch_then $ qspec_then ‘zs’ strip_assume_tac
+      \\ first_x_assum $ irule_at $ Pos hd \\ gvs []
+      \\ first_x_assum $ irule_at $ Pos hd \\ gvs []
+      \\ rpt gen_tac \\ strip_tac \\ rw [oEL_LUPDATE]
+      \\ imp_res_tac find_loc_lemma \\ gvs [])
     \\ rename [‘AppK tenv op tvs tes’]
-    \\ Cases_on ‘n’ \\ fs [ADD1,step_n_add,step]
+    \\ Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
     \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
     \\ reverse (Cases_on ‘tes’) \\ gvs []
     >- (* more args to evaluate *)
@@ -2273,7 +2200,8 @@ Proof
       \\ disch_then $ qspec_then ‘z1’ assume_tac
       \\ disch_then drule
       \\ strip_tac
-      \\ rpt (first_x_assum $ irule_at Any))
+      \\ rpt (first_x_assum $ irule_at Any)
+      \\ gvs [SF SFY_ss])
     \\ ‘∃s_. application op (v2::tvs) (SOME ss) sk = s_’ by fs []
     \\ PairCases_on ‘s_’ \\ gvs []
     \\ ‘∃t_. application op (v1::tvs') ts tk = t_’ by fs []
@@ -2284,8 +2212,11 @@ Proof
     \\ rpt $ disch_then $ drule_at $ Pos $ last \\ fs []
     \\ strip_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt (first_x_assum $ irule_at Any) *))
-  \\ cheat (*
+    \\ rpt (first_x_assum $ irule_at Any)
+    \\ rpt gen_tac \\ disch_tac
+    \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
+    \\ impl_tac >- gvs [oEL_THM,EL_APPEND1]
+    \\ strip_tac \\ gvs [])
   >-
    (Cases_on ‘tk’ \\ gvs [is_halt_def]
     \\ Cases_on ‘sk’ \\ gvs [is_halt_def,cont_rel_nil_cons]
@@ -2294,10 +2225,10 @@ Proof
     \\ simp [Once cont_rel_cases]
     \\ strip_tac \\ gvs []
     \\ Q.REFINE_EXISTS_TAC ‘ck+1:num’
-    \\ qpat_x_assum ‘step_n _ _ = _’ mp_tac
+    \\ qpat_x_assum ‘step'_n _ _ _ = _’ mp_tac
     \\ (Cases_on ‘n’ >- fs [])
-    \\ rewrite_tac [step_n_add,ADD1]
-    \\ fs [] \\ simp [step]
+    \\ rewrite_tac [step'_n_add,ADD1,step_n_add]
+    \\ fs [] \\ simp [step,step'_def,return'_def]
     \\ strip_tac
     \\ last_x_assum irule \\ simp []
     \\ pop_assum $ irule_at Any \\ fs []
@@ -2308,9 +2239,9 @@ Proof
   \\ qpat_x_assum ‘compile_rel e1 e2’ mp_tac
   \\ simp [Once compile_rel_cases] \\ rw []
   \\ Q.REFINE_EXISTS_TAC ‘ck+1:num’
-  \\ qpat_x_assum ‘step_n n _ = _’ mp_tac
+  \\ qpat_x_assum ‘step'_n n _ _ = _’ mp_tac
   \\ (Cases_on ‘n’ >- fs [])
-  \\ rewrite_tac [step_n_add,ADD1]
+  \\ rewrite_tac [step'_n_add,step_n_add,ADD1,step'_def,return'_def,step'_n_1]
   \\ TRY
      ((rename [‘Exp _ $ Lam _ _’] ORELSE
        rename [‘Exp _ $ If _ _ _’] ORELSE
@@ -2333,8 +2264,7 @@ Proof
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ gvs []
     \\ last_x_assum irule
     \\ pop_assum $ irule_at Any \\ fs []
-    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
-    \\ rpt (first_assum $ irule_at $ Any \\ fs []))
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs [])
   >~ [‘Delay te’] >-
    (simp [step]
     \\ strip_tac
@@ -2342,28 +2272,32 @@ Proof
     \\ rewrite_tac [step_n_add,ADD1]
     \\ simp [step,return_def]
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ simp []
-    \\ ‘step_res_rel (p ++ [SOME (INR (env1,te),[])])
+    \\ ‘step_res_rel (p ++ [SOME (Thunk (INR (env1,te)))])
           (Val (Thunk (INR (env1,te)))) (Val (Atom (Loc (LENGTH ss)))) ∧
-        state_rel (p ++ [SOME (INR (env1,te),[])])
+        state_rel (p ++ [SOME (Thunk (INR (env1,te)))])
           (pick_opt zs ts)
           (SOME (SNOC (ThunkMem NotEvaluated (Closure NONE env2 se)) ss))’ by
      (once_rewrite_tac [step_res_rel_cases] \\ fs []
       \\ irule_at Any v_rel_new_Thunk
       \\ irule_at Any state_rel_INR \\ fs [rec_env_def,state_rel_def]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs [dest_anyThunk_def])
     \\ rpt (disch_then $ drule_at $ Pos last)
     \\ disch_then $ qspec_then ‘sk’ mp_tac
     \\ impl_tac >- (irule cont_rel_ext \\ fs [])
     \\ strip_tac \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt $ first_x_assum $ irule_at $ Pos last)
+    \\ rpt $ first_x_assum $ irule_at $ Pos hd
+    \\ rpt gen_tac \\ strip_tac
+    \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
+    \\ gvs [oEL_THM,EL_APPEND1,SNOC_APPEND] \\ gvs [state_rel_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [EL_APPEND1])
   >~ [‘Let’] >-
-     (simp [step] \\ strip_tac
-      \\ last_x_assum irule
-      \\ pop_assum $ irule_at Any \\ fs []
-      \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
-      \\ rpt (first_assum $ irule_at $ Any \\ fs [])
-      \\ once_rewrite_tac [cont_rel_cases] \\ fs []
-      \\ once_rewrite_tac [v_rel_cases] \\ fs [dest_anyClosure_def])
+   (simp [step] \\ strip_tac
+    \\ last_x_assum irule
+    \\ pop_assum $ irule_at Any \\ fs []
+    \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
+    \\ rpt (first_assum $ irule_at $ Any \\ fs [])
+    \\ once_rewrite_tac [cont_rel_cases] \\ fs []
+    \\ once_rewrite_tac [v_rel_cases] \\ fs [dest_anyClosure_def])
   >~ [‘App op ys’] >-
    (fs [step,error_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -2390,7 +2324,11 @@ Proof
     \\ rpt $ disch_then drule
     \\ strip_tac \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ rpt (last_x_assum $ irule_at Any))
+    \\ rpt (last_x_assum $ irule_at Any)
+    \\ rpt gen_tac \\ disch_tac
+    \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
+    \\ impl_tac >- gvs [oEL_THM,EL_APPEND1]
+    \\ strip_tac \\ gvs [])
   \\ rename [‘Letrec tfns te’]
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV (srw_ss()) [step,GSYM rec_env_def]))
   \\ strip_tac
@@ -2425,7 +2363,7 @@ Proof
   \\ simp [PULL_EXISTS]
   \\ qmatch_goalsub_abbrev_tac ‘Exp env5 _, SOME ss5, _’
   \\ qabbrev_tac ‘p5 = p ++
-       MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+       MAP (λ(fn,_). SOME (Recclosure tfns env1 fn))
           (FILTER (is_Delay o SND) tfns)’
   \\ first_x_assum $ qspecl_then [‘zs’,‘p5’,‘ss5’,‘Exp env5 se’,‘sk’] mp_tac
   \\ reverse impl_tac
@@ -2433,14 +2371,20 @@ Proof
    (strip_tac
     \\ first_assum $ irule_at $ Pos hd
     \\ full_simp_tac std_ss [Abbr‘p5’,GSYM APPEND_ASSOC]
-    \\ first_assum $ irule_at $ Pos hd \\ fs [])
+    \\ first_assum $ irule_at $ Pos hd \\ fs []
+    \\ rpt gen_tac \\ disch_tac \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘thk’,‘loc’] mp_tac
+    \\ impl_tac >- gvs [oEL_THM,EL_APPEND1]
+    \\ strip_tac \\ gvs [Abbr ‘ss5’]
+    \\ gvs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH
+    \\ gvs [oEL_THM,EL_APPEND1])
   \\ conj_tac
   >- fs [Abbr‘p5’,cont_rel_ext]
   \\ unabbrev_all_tac
   \\ fs [step_res_rel_cases,GSYM rec_env_def]
   \\ irule state_rel_Letrec \\ fs []
   \\ first_x_assum $ irule_at $ Pos last \\ fs []
-  \\ drule_all Letrec_split_ALL_DISTINCT \\ fs [] *)
+  \\ drule_all Letrec_split_ALL_DISTINCT \\ fs []
 QED
 
 Theorem step_backward:
@@ -2533,8 +2477,8 @@ Proof
       \\ rewrite_tac [step_n_add,ADD1] \\ simp []
       \\ simp [step] \\ gvs []
       \\ pop_assum mp_tac
-      \\ drule_then assume_tac step_n_IMP_step_n'
-      \\ drule_all step_n'_INSERT \\ strip_tac
+      \\ drule_then assume_tac step_n_IMP_step'_n
+      \\ drule_all step'_n_INSERT \\ strip_tac
       \\ drule step_forward
       \\ simp [cont_rel_nil,is_halt_def]
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
@@ -2551,6 +2495,8 @@ Proof
       \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
                  >- (rw [] \\ fs [is_halt_def])
                  \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+      \\ drule v_rel_thunk_IMP_oEL
+      \\ impl_tac >- gvs [] \\ strip_tac
       \\ first_x_assum drule \\ strip_tac \\ rfs []
       \\ rfs [oEL_THM,store_same_type_def]
       \\ gvs [ADD1,SOME_THE_pick_opt]
@@ -2586,7 +2532,8 @@ Proof
       \\ irule_at Any cont_rel_ext
       \\ pop_assum $ irule_at Any
       \\ irule_at Any state_rel_INL \\ gvs []
-      \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+      \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH
+      \\ fs [dest_anyThunk_def])
     >~ [‘LetK tenv n te’] >-
      (Q.REFINE_EXISTS_TAC ‘ck1+1’
       \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]
@@ -2750,12 +2697,13 @@ Proof
     \\ last_x_assum irule
     \\ pop_assum $ irule_at Any \\ fs []
     \\ qexists_tac ‘zs’ \\ fs []
-    \\ qexists_tac ‘p ++ [SOME (INR (env1,te),[])]’ \\ fs []
+    \\ qexists_tac ‘p ++ [SOME (Thunk (INR (env1,te)))]’ \\ fs []
     \\ once_rewrite_tac [step_res_rel_cases] \\ fs []
     \\ irule_at Any v_rel_new_Thunk
     \\ irule_at Any cont_rel_ext \\ simp []
     \\ irule_at Any state_rel_INR \\ fs [rec_env_def]
-    \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+    \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ gvs [dest_anyThunk_def])
   >~ [‘App op ys’] >-
    (fs [step,error_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -2817,7 +2765,7 @@ Proof
   \\ disch_then irule \\ simp []
   \\ fs [GSYM rec_env_def]
   \\ qexists_tac ‘p ++
-       MAP (λ(fn,_). dest_anyThunk (Recclosure tfns env1 fn))
+       MAP (λ(fn,_). SOME (Recclosure tfns env1 fn))
           (FILTER (is_Delay o SND) tfns)’
   \\ irule_at Any cont_rel_ext
   \\ qexists_tac ‘zs’ \\ fs []
@@ -2843,7 +2791,7 @@ Proof
     \\ PairCases_on ‘a’ \\ gvs []
     \\ ‘a0 ≠ Error’ by (strip_tac \\ gvs [])
     \\ ‘state_rel p (pick_opt zs (SOME ts)) (SOME ss)’ by fs []
-    \\ drule step_n_IMP_step_n' \\ strip_tac
+    \\ drule step_n_IMP_step'_n \\ strip_tac
     \\ drule_all step_forward \\ rw []
     \\ reverse (DEEP_INTRO_TAC some_intro \\ fs [] \\ rw [])
     >- metis_tac []

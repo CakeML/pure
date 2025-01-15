@@ -1586,6 +1586,196 @@ Proof
   simp[find_match_def, AllCaseEqs()] >> eq_tac >> rw[]
 QED
 
+(* step' *)
+
+Definition return'_def:
+  return' avoid v st (ForceK1 :: k) =
+    (if v ∈ avoid then error st k else
+     case dest_anyThunk v of
+     | NONE => error st k
+     | SOME (INL v, _) => value v st k
+     | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
+  return' avoid v st rest = return v st rest
+End
+
+Definition step'_def:
+  step' avoid st k (Val v) = return' avoid v st k ∧
+  step' avoid st k x = step st k x
+End
+
+Definition step'_n_def:
+  step'_n n avoid (sr, st, k) = FUNPOW (λ(sr, st, k). step' avoid st k sr) n (sr, st, k)
+End
+
+Theorem step'_n_add:
+  ∀m n x. step'_n (m + n) avoid x = step'_n m avoid (step'_n n avoid x)
+Proof
+  gvs [step'_n_def,FORALL_PROD,FUNPOW_ADD] \\ rw []
+  \\ AP_THM_TAC \\ gvs [FUN_EQ_THM,FORALL_PROD,step'_n_def]
+QED
+
+Theorem step'_n_0[simp]:
+  step'_n 0 avoid x = x
+Proof
+  PairCases_on ‘x’ \\ fs [step'_n_def]
+QED
+
+Theorem step'_n_1[simp]:
+  step'_n 1 avoid x = step' avoid (FST (SND x)) (SND (SND x)) (FST x)
+Proof
+  PairCases_on ‘x’ \\ fs [step'_n_def]
+QED
+
+Theorem is_halt_step'_same:
+  ∀sr st k avoid. is_halt (sr,st,k) ⇒ step' avoid st k sr = (sr,st,k)
+Proof
+  Cases
+  \\ gvs [oneline is_halt_def,AllCaseEqs(),step'_def,return'_def,step]
+QED
+
+Theorem is_halt_step'_n_same:
+  ∀n x. is_halt x ⇒ step'_n n avoid x = x
+Proof
+  Induct \\ fs [FORALL_PROD,is_halt_step'_same,step'_n_def,FUNPOW]
+QED
+
+Theorem step'_n_unfold:
+  (∃n. k = n + 1 ∧ step'_n n avoid (step' avoid st c sr) = res) ⇒
+  step'_n k avoid (sr,st,c) = res
+Proof
+  Cases_on ‘k’ >- fs []
+  \\ rewrite_tac [step'_n_def,FUNPOW]
+  \\ fs [ADD1]
+  \\ Cases_on ‘step' avoid st c sr’ \\ Cases_on ‘r’
+  \\ fs [step'_n_def]
+QED
+
+Theorem step_m'_Error[simp]:
+  ∀n. step'_n n avoid (Error,ts,tk) = (Error,ts,tk)
+Proof
+  Induct \\ gvs [step'_n_def,FUNPOW,step'_def,step]
+QED
+
+Theorem step'_n_NONE_split:
+  step'_n n avoid (Exp env x,NONE,k::tk) = (r,z) ∧ is_halt (r,z) ∧ r ≠ Error ⇒
+  ∃m1 m2 v.
+    step'_n m1 avoid (Exp env x,NONE,[]) = (Val v,NONE,[]) ∧ m1 < n ∧
+    step'_n m2 avoid (Val v,NONE,k::tk) = (r,z) ∧ m2 ≤ n
+Proof
+  cheat
+QED
+
+Theorem step'_n_IMP_step_n:
+  ∀n avoid x r y z.
+    step'_n n avoid x = (r,y,z) ∧ r ≠ Error ⇒
+    step_n n x = (r,y,z)
+Proof
+  Induct \\ gvs [step'_n_def,step_n_def,FORALL_PROD,FUNPOW] \\ rw []
+  \\ ‘∃q. step' avoid p_1' p_2 p_1 = q’ by gvs []
+  \\ PairCases_on ‘q’ \\ gvs []
+  \\ ‘∃t. step p_1' p_2 p_1 = t’ by gvs []
+  \\ PairCases_on ‘t’ \\ gvs []
+  \\ gvs [GSYM step'_n_def,GSYM step_n_def]
+  \\ Cases_on ‘q0 = Error’ \\ gvs []
+  \\ qsuff_tac ‘(q0,q1,q2) = (t0,t1,t2)’
+  >- (gvs [] \\ metis_tac [])
+  \\ last_x_assum kall_tac
+  \\ gvs [oneline step'_def,AllCaseEqs(),oneline return'_def,
+          step_def,return_def,error_def]
+QED
+
+
+Theorem step'_n_INSERT:
+  step'_n m avoid (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[]) ∧
+  dest_anyThunk v1 = SOME (INR (y0,y1),x1) ⇒
+  step'_n m (v1 INSERT avoid) (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[])
+Proof
+  strip_tac
+  \\ Cases_on ‘∃n ts. step'_n n avoid (Exp (rec_env x1 y0) y1,NONE,[]) =
+                      (Val v1,NONE,ForceK1::ts)’ \\ gvs []
+  >- cheat (* this case leads to contradiction *)
+  \\ cheat (* this case the goal is provable *)
+QED
+
+Theorem step_n'_mono:
+  ∀n res. is_halt (step'_n n avoid res) ⇒
+          ∀m. n < m ⇒ step'_n n avoid res = step'_n m avoid res
+Proof
+  rw[] >> Induct_on `m` >> gvs[] >>
+  PairCases_on `res` >> gvs[step'_n_def,FUNPOW_SUC] >>
+  Cases_on `n = m` >> gvs[] >>
+  pairarg_tac >> gvs[is_halt_step'_same] >>
+  strip_tac \\ gvs[is_halt_step'_same]
+QED
+
+Theorem is_halt_imp_eq':
+  is_halt (step'_n n avoid res) ∧ is_halt (step'_n m avoid res) ⇒
+  step'_n n avoid res = step'_n m avoid res
+Proof
+  ‘n < m ∨ m = n ∨ m < n’ by decide_tac
+  \\ metis_tac [step_n'_mono]
+QED
+
+Theorem step'_n_fast_forward_gen:
+  ∀m2 sr ss k' ss2 sk2 k sr1 ss1 sk1 n v2.
+  step_n m2 (sr,ss,k') = (Val v2,ss2,sk2) ∧
+  step'_n n avoid (sr,ss,k) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
+  k' ≼ k ∧ sr1 ≠ Error
+  ⇒
+  ∃m3. m3 ≤ n ∧ step'_n m3 avoid (Val v2,ss2,sk2 ++ DROP (LENGTH k') k) = (sr1,ss1,sk1)
+Proof
+  cheat (* Induct >> rpt strip_tac
+  >- (irule_at (Pos hd) LESS_EQ_REFL >>
+      gvs[rich_listTheory.IS_PREFIX_APPEND,rich_listTheory.DROP_APPEND2]) >>
+  gvs[ADD1,step'_n_add,step_n_add] >>
+  rename [‘step s k' sr’] >>
+  ‘∃x y z. step s k' sr = (x,y,z)’ by metis_tac[PAIR] >>
+  drule step_fast_forward_lemma >>
+  disch_then(drule_at (Pos last)) >>
+  impl_tac >- (rw[] >> gvs[is_halt_step_n_same]) >>
+  reverse strip_tac
+  >- (gvs[] >> metis_tac[]) >>
+  Cases_on ‘n’
+  >- (drule_then assume_tac is_halt_step_same >>
+      gvs[] >>
+      drule_all_then assume_tac is_halt_prefix >>
+      gvs[is_halt_step_n_same,is_halt_step_same]) >>
+  gvs[ADD1,step_n_add] >>
+  first_x_assum drule >>
+  disch_then drule >>
+  simp[] >>
+  gvs[] >>
+  gvs[rich_listTheory.DROP_APPEND2] >>
+  strip_tac >>
+  first_x_assum(irule_at (Pos last)) >>
+  simp[] *)
+QED
+
+Theorem step'_n_fast_forward:
+  step'_n n avoid (sr,ss,k::ks) = (sr1,ss1,sk1) ∧ is_halt (sr1,ss1,sk1) ∧
+  step_n m2 (sr,ss,[]) = (Val v2,ss2,[]) ∧ sr1 ≠ Error ⇒
+  ∃m3. m3 ≤ n ∧ step'_n m3 avoid (Val v2,ss2,k::ks) = (sr1,ss1,sk1)
+Proof
+  rpt strip_tac >>
+  drule_at (Pat ‘is_halt’) step'_n_fast_forward_gen >>
+  rpt $ disch_then dxrule >> rw[]
+QED
+
+Theorem step'_n_eq:
+  ∀n x. step'_n n {} x = step_n n x
+Proof
+  Induct \\ gvs [step_n_def,step'_n_def,FORALL_PROD,FUNPOW_SUC]
+  \\ rw [] \\ AP_THM_TAC \\ gvs [FUN_EQ_THM]
+  \\ Cases \\ gvs [step'_def]
+  \\ Cases_on ‘k’ \\ gvs [return'_def,return_def,step_def]
+  \\ Cases_on ‘h’ \\ gvs [return'_def,return_def,step_def]
+QED
+
+Theorem step_n_IMP_step'_n:
+  step_n n x = y ⇒ step'_n n {} x = y
+Proof
+  gvs [step'_n_eq]
+QED
 
 (* meaning of cexp *)
 
