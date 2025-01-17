@@ -308,11 +308,6 @@ Inductive cont_rel:
                (ForceMutK n2::sk))
 End
 
-Definition rec_env_def:
-  rec_env f env =
-    MAP (λ(fn,_). (fn,Recclosure f env fn)) f ++ env
-End
-
 Definition store_rel_def:
   store_rel p (ThunkMem m v1) s2 =
     (∃v2.

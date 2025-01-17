@@ -1299,6 +1299,13 @@ Proof
   \\ fs []
 QED
 
+Theorem step'_n_set_cont:
+  step'_n n avoid (e,ts,k) = (res,ts1,k1) ∧ ~is_halt (res,ts1,k1) ⇒
+  ∀k2. step'_n n avoid (e,ts,k ++ k2) = (res,ts1,k1 ++ k2)
+Proof
+  cheat
+QED
+
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
   ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
@@ -1562,18 +1569,44 @@ Proof
           step_def,return_def,error_def]
 QED
 
+Definition rec_env_def: (* TODO: remove dup with mk_rec_env *)
+  rec_env f env =
+    MAP (λ(fn,_). (fn,Recclosure f env fn)) f ++ env
+End
+
+Theorem add_to_avoid:
+  ∀m x k v v1.
+    step'_n m avoid (x,NONE,k) = (Val v,NONE,[]) ∧
+    (∀n ts. step'_n n avoid (x,NONE,k) ≠ (Val v1,NONE,ForceK1::ts)) ⇒
+    step'_n m (v1 INSERT avoid) (x,NONE,k) = (Val v,NONE,[])
+Proof
+  cheat
+QED
+
 Theorem step'_n_INSERT:
   step'_n m avoid (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[]) ∧
   dest_anyThunk v1 = SOME (INR (y0,y1),x1) ⇒
   step'_n m (v1 INSERT avoid) (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[])
 Proof
-  strip_tac
+  Cases_on ‘v1 ∈ avoid’
+  >- (‘v1 INSERT avoid = avoid’ by (gvs [pred_setTheory.EXTENSION] \\ metis_tac []) \\ gvs [])
+  \\ strip_tac
   \\ Cases_on ‘∃n ts. step'_n n avoid (Exp (rec_env x1 y0) y1,NONE,[]) =
                       (Val v1,NONE,ForceK1::ts)’ \\ gvs []
-  >- cheat (* this case leads to contradiction because one can take n+1 steps
-              to arrive at (Exp (rec_env x1 y0) y1,NONE,...) and then n+1 steps
-              again and again and again withput terminating. This means that
-              eventually m steps will be exceeded which means assumption 0 is false *)
+  >-
+   (dxrule step'_n_set_cont \\ gvs [] \\ strip_tac
+    \\ ‘∀k2. ∃k3.
+          step'_n (n+1) avoid (Exp (rec_env x1 y0) y1,NONE,k2) =
+            (Exp (rec_env x1 y0) y1,NONE,k3)’ by
+      (once_rewrite_tac [ADD_COMM]
+       \\ asm_rewrite_tac [step'_n_add]
+       \\ gvs [step'_n_1,step'_def,return'_def,continue_def,rec_env_def])
+    \\ pop_assum mp_tac \\ pop_assum kall_tac \\ strip_tac
+    \\ qsuff_tac ‘F’ \\ gvs []
+    \\ cheat (* this case leads to contradiction because one can take n+1 steps
+                to arrive at (Exp (rec_env x1 y0) y1,NONE,...) and then n+1 steps
+                again and again and again withput terminating. This means that
+                eventually m steps will be exceeded which means assumption 0 is false *))
   \\ cheat (* this case the goal is provable, since assumption 2 states that we
               will never encounter the (Val v1,NONE,ForceK1::...) which is the
               only configuration that can lead to an attempt to force v1 *)
