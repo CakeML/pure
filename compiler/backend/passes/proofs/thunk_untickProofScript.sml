@@ -984,7 +984,7 @@ Proof
         \\ gs [result_map_def, CaseEq "bool", MEM_MAP]
         \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ gvs [MEM_EL, PULL_EXISTS]
-        \\ first_x_assum (drule_all_then assume_tac)
+        \\ last_x_assum $ drule_then assume_tac
         \\ first_x_assum (drule_then drule)
         \\ disch_then (qx_choose_then ‘j’ assume_tac)
         \\ qexists_tac ‘j’
@@ -998,7 +998,7 @@ Proof
             \\ gvs [result_map_def, CaseEq "bool", MEM_MAP, Abbr ‘g’, MEM_EL]
             \\ rename1 ‘eval_to k (EL m ys) = INL Type_error’
             \\ ntac 2 (pop_assum kall_tac)
-            \\ first_x_assum (drule_all_then assume_tac)
+            \\ last_x_assum $ drule_then assume_tac
             \\ first_x_assum
               (drule_then (drule_then (qx_choose_then ‘j’ assume_tac)))
             \\ gs [Abbr ‘f’]
@@ -1197,13 +1197,13 @@ Proof
             \\ rename1 ‘m < LENGTH ys’
             \\ Cases_on ‘eval_to (k - 1) (EL m ys)’ \\ gvs []
             >- (
-              first_x_assum (drule_all_then assume_tac)
+              last_x_assum $ drule_then assume_tac
               \\ first_x_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
               \\ gs [Abbr ‘f’]
               \\ first_x_assum (drule_then assume_tac)
               \\ Cases_on ‘eval_to (j + k - 1) (EL m xs)’ \\ gs [])
             \\ fs [DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”]
-            \\ first_x_assum (drule_all_then assume_tac)
+            \\ last_x_assum $ drule_then assume_tac
             \\ first_x_assum (drule_all_then (qx_choose_then ‘j’ assume_tac))
             \\ gs [Abbr ‘f’]
             \\ first_x_assum (drule_then assume_tac)
