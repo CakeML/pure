@@ -337,6 +337,40 @@ Proof
     \\ gs [FILTER_T, ELIM_UNCURRY])
 QED
 
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l' s.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l') ∧
+    EVERY ok_bind (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              exp_rel e e' ∧ ok_bind e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE, EVERY_EL]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ ntac 2 (first_x_assum drule \\ rw [])
+QED
+
+Theorem v_rel_anyThunk:
+  v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀v w. exp_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+    suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs [SF ETA_ss]
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  \\ rpt CASE_TAC
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+  \\ rpt strip_tac
+  \\ rgs [Once exp_rel_cases]
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ⇒
@@ -757,7 +791,8 @@ Proof
         \\ reverse CASE_TAC
         >- (
           Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyThunk_def])
-        \\ qexists_tac ‘j2’ \\ gs [])
+        \\ qexists_tac ‘j2’ \\ gs []
+        \\ Cases_on ‘eval_to (j2 + k - 1) (subst_funs binds' x2)’ \\ gvs [])
       \\ ‘eval_to (j2 + k - 1) (subst_funs binds' x2) ≠ INL Diverge’
         by (strip_tac
             \\ Cases_on ‘eval_to (k - 1) (subst_funs binds x1)’ \\ gs [])
@@ -766,7 +801,15 @@ Proof
         by (irule eval_to_mono \\ gs [])
       \\ qexists_tac ‘j2 + j1 + j’ \\ gs []
       \\ CASE_TAC \\ gs []
-      \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyThunk_def])
+      >- (
+        Cases_on ‘eval_to (k - 1) (subst_funs binds x1)’ \\ gvs []
+        \\ Cases_on ‘eval_to (j2 + k - 1) (subst_funs binds' x2)’ \\ gvs []
+        \\ rpt (IF_CASES_TAC \\ gvs [])
+        \\ drule v_rel_anyThunk \\ gvs [])
+      >- (
+        Cases_on ‘eval_to (k - 1) (subst_funs binds x1)’ \\ gvs []
+        \\ TRY (IF_CASES_TAC \\ gvs [])
+        \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyThunk_def]))
     \\ rename1 ‘dest_Tick v1 = SOME v2’
     \\ ‘∃w2. dest_Tick w1 = SOME w2 ∧ v_rel v2 w2’
       by (Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def])

@@ -1037,11 +1037,20 @@ Proof
       CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def])) \\ gs []
       \\ imp_res_tac ALOOKUP_SOME \\ fs [dest_anyThunk_def]
       \\ simp [GSYM MAP_REVERSE, ALOOKUP_MAP]
-      \\ first_x_assum irule
+      \\ qmatch_goalsub_abbrev_tac ‘eval_to (k - 1) x’
+      \\ Cases_on ‘eval_to (k - 1) x’ \\ gvs []
+      \\ TRY (IF_CASES_TAC \\ gvs [])
+      \\ ‘v_rel (eval_wh_to (k - 1) (subst_funs f y))
+                (eval_to (k - 1) x)’
+        suffices_by (
+          gvs [] \\ rpt strip_tac \\ gvs [eval_wh_to_def]
+          \\ Cases_on ‘y'’ \\ gvs [is_anyThunk_def, dest_anyThunk_def]
+          \\ Cases_on ‘eval_wh_to (k - 1) (subst_funs f y)’ \\ gvs [])
+      \\ first_x_assum irule \\ unabbrev_all_tac
       \\ irule_at Any exp_rel_subst_funs \\ fs []
       \\ drule_then (qspec_then ‘REVERSE f’ mp_tac) ALOOKUP_SOME_EL_2
       \\ impl_tac
-      >- (
+      >>~- ([‘MAP FST _ = MAP FST _’],
         simp [MAP_REVERSE]
         \\ irule LIST_EQ
         \\ gvs [EL_MAP, LIST_REL_EL_EQN]
@@ -1069,6 +1078,14 @@ Proof
     >- ((* Tick *)
       CONV_TAC (PATH_CONV "rl" (SIMP_CONV (srw_ss()) [eval_to_def]))
       \\ gs [dest_anyThunk_def]
+      \\ Cases_on ‘eval_to (k - 1) (subst_funs [] y'')’ \\ gvs []
+      \\ TRY (IF_CASES_TAC \\ gvs [])
+      \\ ‘v_rel (eval_wh_to (k - 1) (subst_funs [] y))
+                (eval_to (k - 1) (subst_funs [] y''))’
+        suffices_by (
+          gvs [] \\ rpt strip_tac \\ gvs [eval_wh_to_def]
+          \\ Cases_on ‘y'’ \\ gvs [is_anyThunk_def, dest_anyThunk_def]
+          \\ Cases_on ‘eval_wh_to (k - 1) (subst_funs [] y)’ \\ gvs [])
       \\ first_x_assum irule
       \\ fs [pure_expTheory.subst_funs_def, pure_expTheory.bind_def,
              flookup_fupdate_list, FDOM_FUPDATE_LIST, subst_ignore,
@@ -1190,6 +1207,13 @@ Proof
       \\ first_x_assum (drule_all_then assume_tac)
       \\ fs [thunk_rel_def, dest_anyThunk_def, subst_funs_def,
              EVERY_EL]
+      \\ Cases_on ‘eval_to (k - 1) y'’ \\ gvs []
+      \\ TRY (IF_CASES_TAC \\ gvs [])
+      \\ ‘v_rel (eval_wh_to (k - 1) (EL i xs)) (eval_to (k - 1) y')’
+        suffices_by (
+          gvs [] \\ rpt strip_tac \\ gvs [eval_wh_to_def]
+          \\ Cases_on ‘y''’ \\ gvs [is_anyThunk_def, dest_anyThunk_def]
+          \\ Cases_on ‘eval_wh_to (k - 1) (EL i xs)’ \\ gvs [])
       \\ first_x_assum irule \\ gs []
       \\ strip_tac
       \\ gs [eval_wh_to_def])

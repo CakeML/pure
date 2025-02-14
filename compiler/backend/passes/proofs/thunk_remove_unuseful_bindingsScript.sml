@@ -532,6 +532,54 @@ Proof
     \\ gs [clean_rel_MkTick])
 QED
 
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l'.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL clean_rel (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              clean_rel e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀v w. clean_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+   suffices_by gvs []
+  \\ ho_match_mp_tac clean_rel_strongind \\ rw [] \\ gvs [SF ETA_ss]
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  >- (
+    rpt CASE_TAC
+    \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+    \\ rpt strip_tac
+    \\ rgs [Once clean_rel_cases]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ gvs [EVERY_EL, MEM_EL]
+    \\ last_x_assum drule \\ gvs [EL_MAP]
+    \\ Cases_on ‘EL n'' f’ \\ gvs [])
+  >- (
+    rpt CASE_TAC
+    \\ gvs [REVERSE_SNOC, AllCaseEqs()]
+    \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+    \\ rpt strip_tac
+    \\ rgs [Once clean_rel_cases]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ gvs [EVERY_EL, MEM_EL]
+    \\ last_x_assum drule \\ gvs [EL_MAP]
+    \\ Cases_on ‘EL n'3' f’ \\ gvs [])
+QED
+
 Theorem clean_rel_eval_to:
   ∀x y.
     clean_rel x y ⇒
@@ -929,7 +977,8 @@ Proof
                   \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
                   \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs []
                   \\ Cases_on ‘eval_to (k - 1) (subst_funs xs e1) = INL Diverge’ \\ gs []
-                \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs [])
+                  \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
+                  \\ Cases_on ‘eval_to (k - 1) (subst_funs xs e1)’ \\ gvs [])
               \\ qexists_tac ‘j + j2’
               \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
               \\ gvs []
@@ -937,7 +986,11 @@ Proof
                 by (irule eval_to_mono
                     \\ Cases_on ‘eval_to (j2 + k - 1) (subst_funs xs e1)’
                     \\ Cases_on ‘eval_to (k - 1) (subst_funs ys e2)’ \\ gvs [])
-              \\ gvs [])
+              \\ gvs []
+              \\ Cases_on ‘eval_to (j2 + k − 1) (subst_funs xs e1)’ \\ gvs []
+              \\ Cases_on ‘eval_to (k − 1) (subst_funs ys e2)’ \\ gvs []
+              \\ rpt (IF_CASES_TAC \\ gvs [])
+              \\ drule v_rel_anyThunk \\ rw [])
           \\ qexists_tac ‘j’ \\ gvs [])
       >~[‘Recclosure _ _’]
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
@@ -979,7 +1032,8 @@ Proof
                   \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs [REVERSE_APPEND]
                   \\ IF_CASES_TAC \\ gvs []
                   \\ Cases_on ‘eval_to (k - 1) (subst_funs (xs ++ [(v,w)]) e1) = INL Diverge’ \\ gs []
-                  \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs [])
+                  \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
+                  \\ Cases_on ‘eval_to (k − 1) (subst_funs (xs ++ [(v,w)]) e1)’ \\ gvs [])
               \\ qexists_tac ‘j + j2’
               \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
               \\ gvs [REVERSE_APPEND]
@@ -989,7 +1043,11 @@ Proof
                 by (irule eval_to_mono
                     \\ Cases_on ‘eval_to (j2 + k - 1) (subst_funs (xs++[(v,w)]) e1)’
                     \\ Cases_on ‘eval_to (k - 1) (subst_funs ys e2)’ \\ gvs [])
-              \\ gvs [])
+              \\ gvs []
+              \\ Cases_on ‘eval_to (j2 + k − 1) (subst_funs (xs ++ [(v,w)]) e1)’ \\ gvs []
+              \\ Cases_on ‘eval_to (k − 1) (subst_funs ys e2)’ \\ gvs []
+              \\ rpt (IF_CASES_TAC \\ gvs [])
+              \\ drule v_rel_anyThunk \\ rw [])
           \\ qexists_tac ‘j’ \\ gvs [REVERSE_APPEND]
           \\ IF_CASES_TAC \\ gvs []
           \\ rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gs []
@@ -1004,7 +1062,8 @@ Proof
               \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
               \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs []
               \\ Cases_on ‘eval_to (k - 1) x2 = INL Diverge’ \\ gs []
-              \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs [])
+              \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
+              \\ Cases_on ‘eval_to (k − 1) x2’ \\ gvs [])
             \\ qexists_tac ‘j + j2’
             \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
             \\ gvs []
@@ -1012,7 +1071,11 @@ Proof
               by (irule eval_to_mono
                   \\ Cases_on ‘eval_to (j2 + k - 1) x2’
                   \\ Cases_on ‘eval_to (k - 1) y2’ \\ gvs [])
-            \\ gvs [])
+            \\ gvs []
+            \\ Cases_on ‘eval_to (j2 + k − 1) x2’ \\ gvs []
+            \\ Cases_on ‘eval_to (k − 1) y2’ \\ gvs []
+            \\ rpt (IF_CASES_TAC \\ gvs [])
+            \\ drule v_rel_anyThunk \\ rw [])
       \\ qexists_tac ‘j’ \\ gvs [])
     \\ Cases_on ‘v’ \\ gs [v_rel_def, clean_rel_def, PULL_EXISTS, dest_Tick_def]
     \\ rename1 ‘v_rel v2 w2’

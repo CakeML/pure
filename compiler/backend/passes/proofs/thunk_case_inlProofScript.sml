@@ -460,6 +460,77 @@ Proof
     \\ first_assum (irule_at Any))
 QED
 
+Theorem LIST_REL_ignore:
+  ∀l l'.
+    LIST_REL
+      (λ(fn,x) (gn,y).
+           freevars x ⊆ set (MAP FST l) ∧ fn = gn ∧
+           ok_binder x ∧ exp_rel ∅ x y) l l' ⇒
+    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ ok_binder x ∧ exp_rel ∅ x y) l l'
+Proof
+  gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL
+      (λ(fn,x) (gn,y).
+           freevars x ⊆ set (MAP FST l) ∧ fn = gn ∧
+           ok_binder x ∧ exp_rel ∅ x y) l l' ⇒
+      MAP FST l = MAP FST l' ∧
+      EVERY ok_binder (MAP SND l) ∧
+      LIST_REL (exp_rel ∅) (MAP SND l) (MAP SND l')
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ dxrule LIST_REL_ignore
+  \\ map_every qid_spec_tac [‘l'’, ‘l’]
+  \\ Induct \\ rw [] \\ gvs []
+  \\ rpt $ (pairarg_tac \\ gvs [])
+  \\ gvs [LIST_REL_EL_EQN, EVERY_EL, EL_MAP] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l'.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL (exp_rel m) (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              exp_rel m e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀m v w. exp_rel m v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+   suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  \\ rpt CASE_TAC
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+  \\ rpt strip_tac
+  \\ rgs [Once exp_rel_cases]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [EVERY_EL, MEM_EL]
+  \\ first_x_assum drule \\ gvs [EL_MAP]
+  \\ Cases_on ‘EL n'' f’ \\ gvs []
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y m.
     closed x ∧
@@ -623,6 +694,13 @@ Proof
               \\ gs [ELIM_UNCURRY, LIST_REL_CONJ])
         \\ gs [OPTREL_def]
         \\ rgs [Once exp_rel_cases] \\ rw []
+        \\ Cases_on ‘eval_to (k − 1) (subst_funs xs x')’ \\ gvs []
+        \\ Cases_on ‘eval_to (k − 1) (subst_funs ys y')’ \\ gvs []
+        \\ rpt (IF_CASES_TAC \\ gvs [])
+        \\ ‘($= +++ v_rel) (eval_to (k − 1) (subst_funs xs x'))
+                           (eval_to (k − 1) (subst_funs ys y'))’
+          suffices_by
+            (gvs [] \\ strip_tac \\ drule v_rel_anyThunk \\ gvs [])
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
         \\ irule_at Any exp_rel_subst
@@ -645,6 +723,13 @@ Proof
         \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL \\ gs []
         \\ first_x_assum (drule_then assume_tac)
         \\ gs [ELIM_UNCURRY, freevars_def])
+      \\ Cases_on ‘eval_to (k − 1) (subst_funs [] e)’ \\ gvs []
+      \\ Cases_on ‘eval_to (k − 1) (subst_funs [] e')’ \\ gvs []
+      \\ rpt (IF_CASES_TAC \\ gvs [])
+      \\ ‘($= +++ v_rel) (eval_to (k − 1) (subst_funs [] e))
+                         (eval_to (k − 1) (subst_funs [] e'))’
+        suffices_by
+            (gvs [] \\ strip_tac \\ drule v_rel_anyThunk \\ gvs [])
       \\ first_x_assum irule
       \\ simp [subst_funs_def, SF SFY_ss])
     \\ ‘∃y. dest_Tick w = SOME y’

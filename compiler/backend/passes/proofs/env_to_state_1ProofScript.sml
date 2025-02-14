@@ -626,13 +626,27 @@ Proof
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
     \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def,return_def,continue_def]
     \\ qmatch_goalsub_abbrev_tac ‘Exp env3’
+    \\ simp [oneline sum_bind_def] \\ CASE_TAC \\ rw [] \\ gvs []
+    >- (
+      `eval_to (n − 1)
+         (MAP (λ(fn,_). (fn,Recclosure xx1 aa0 fn)) xx1 ++ aa0) a1
+         ≠ INL Type_error` by gvs []
+      \\ last_x_assum $ drule_at $ Pos last
+      \\ disch_then $ drule_then $ qspecl_then [‘env3’,‘NONE’,‘ForceK2 st::k’] mp_tac
+      \\ unabbrev_all_tac
+      \\ impl_tac >- (irule env_rel_rec \\ fs [])
+      \\ strip_tac
+      \\ BasicProvers.FULL_CASE_TAC \\ gvs []
+      \\ first_x_assum $ irule_at $ Pos last \\ fs [])
+    \\ `eval_to (n − 1)
+         (MAP (λ(fn,_). (fn,Recclosure xx1 aa0 fn)) xx1 ++ aa0) a1
+         ≠ INL Type_error` by gvs []
     \\ last_x_assum $ drule_at $ Pos last
     \\ disch_then $ drule_then $ qspecl_then [‘env3’,‘NONE’,‘ForceK2 st::k’] mp_tac
     \\ unabbrev_all_tac
     \\ impl_tac >- (irule env_rel_rec \\ fs [])
     \\ strip_tac
-    \\ CASE_TAC \\ fs []
-    >- (first_x_assum $ irule_at $ Pos last \\ fs [])
+    \\ BasicProvers.FULL_CASE_TAC \\ gvs []
     \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
     \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
     \\ qexists_tac ‘1’ \\ fs [step_def,return_def,value_def])

@@ -164,6 +164,10 @@ Definition dest_anyThunk_def:
     od
 End
 
+Definition is_anyThunk_def:
+  is_anyThunk v = (∃tv. dest_anyThunk v = INR tv)
+End
+
 Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
@@ -252,7 +256,11 @@ Definition eval_to_def:
          (wx, binds) <- dest_anyThunk v;
          case wx of
            INL v => return v
-         | INR (env, y) => eval_to (k - 1) (mk_rec_env binds env) y
+         | INR (env, y) =>
+             do
+               res <- eval_to (k - 1) (mk_rec_env binds env) y;
+               if is_anyThunk res then fail Type_error else return res
+             od
        od) ∧
   eval_to k env (Prim op xs) =
     (case op of
@@ -366,7 +374,8 @@ Proof
     \\ Cases_on ‘dest_anyThunk y’ \\ gs []
     \\ pairarg_tac \\ gvs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ rw []) \\ gvs [])
   >- ((* Prim *)
     dsimp []
     \\ strip_tac

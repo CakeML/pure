@@ -296,6 +296,50 @@ Proof
     \\ first_x_assum irule \\ gs [])
 QED
 
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel x y) l l' ⇒
+      MAP FST l = MAP FST l' ∧
+      LIST_REL exp_rel (MAP SND l) (MAP SND l')
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ rpt $ (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l' s.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              exp_rel e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀v w. exp_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+    suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ rpt CASE_TAC
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+  \\ rpt strip_tac
+  \\ rgs [Once exp_rel_cases]
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ⇒
@@ -430,12 +474,26 @@ Proof
           by (irule LIST_REL_OPTREL \\ gs [])
         \\ gs [OPTREL_def]
         \\ rgs [Once exp_rel_cases]
+        \\ Cases_on ‘eval_to (k - 1) (subst_funs xs x')’ \\ gvs []
+        \\ Cases_on ‘eval_to (k - 1) (subst_funs ys y')’ \\ gvs []
+        \\ rpt (IF_CASES_TAC \\ gvs [])
+        \\ ‘($= +++ v_rel) (eval_to (k − 1) (subst_funs xs x'))
+                           (eval_to (k − 1) (subst_funs ys y'))’
+          suffices_by
+            (gvs [] \\ strip_tac \\ drule v_rel_anyThunk \\ gvs [])
         \\ first_x_assum irule
         \\ simp [subst_funs_def]
         \\ irule exp_rel_subst \\ gs [MAP_MAP_o, combinTheory.o_DEF,
                                       EVERY2_MAP, LAMBDA_PROD, GSYM FST_THM]
         \\ gs [ELIM_UNCURRY, LIST_REL_EL_EQN]
         \\ irule LIST_EQ \\ gvs [EL_MAP])
+      \\ Cases_on ‘eval_to (k - 1) (subst_funs [] e)’ \\ gvs []
+      \\ Cases_on ‘eval_to (k - 1) (subst_funs [] e')’ \\ gvs []
+      \\ rpt (IF_CASES_TAC \\ gvs [])
+      \\ ‘($= +++ v_rel) (eval_to (k − 1) (subst_funs [] e))
+                         (eval_to (k − 1) (subst_funs [] e'))’
+        suffices_by
+          (gvs [] \\ strip_tac \\ drule v_rel_anyThunk \\ gvs [])
       \\ first_x_assum irule
       \\ simp [subst_funs_def])
     \\ ‘∃y. dest_Tick w = SOME y’

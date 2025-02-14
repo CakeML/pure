@@ -358,6 +358,57 @@ Proof
   \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ rgs [Once exp_rel_cases]
 QED
 
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL (λ(f,x) (g,y). f = g ∧ ok_bind x ∧ exp_rel x y) l l' ⇒
+    MAP FST l = MAP FST l' ∧ EVERY ok_bind (MAP SND l) ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l')
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ rpt $ (pairarg_tac \\ gvs [])
+  \\ gvs [LIST_REL_EL_EQN, EVERY_EL, EL_MAP] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l'.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              exp_rel e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀v w. exp_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+    suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ rpt CASE_TAC
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+  \\ rpt strip_tac
+  \\ rgs [Once exp_rel_cases]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [EVERY_EL, MEM_EL]
+  \\ first_x_assum drule \\ gvs [EL_MAP]
+  \\ Cases_on `EL n'' f` \\ gvs []
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x y.
     exp_rel x y ∧
@@ -855,9 +906,12 @@ Proof
               by (irule eval_to_mono \\ gs [])
             \\ qexists_tac ‘1 + k + ck + j1’
             \\ gs [Once eval_to_def]
-            \\ gs [subst_funs_def, ELIM_UNCURRY]
-            \\ qpat_assum ‘_ = INL Type_error’ (SUBST1_TAC o SYM)
-            \\ irule eval_to_mono \\ gs [])
+            \\ Cases_on `eval_to (ck + (j1 + k)) (subst_funs x1 y1)` \\ gvs []
+            \\ gvs [subst_funs_def, ELIM_UNCURRY]
+            \\ qmatch_asmsub_abbrev_tac `ev = INL Type_error`
+            \\ `ev ≠ INL Diverge` by gvs [] \\ unabbrev_all_tac
+            \\ drule eval_to_mono \\ rw []
+            \\ first_x_assum $ qspec_then `ck + (j1 + k)` assume_tac \\ gvs [])
       \\ first_x_assum (drule_all_then (qx_choose_then ‘j2’ assume_tac))
       \\ Cases_on ‘eval_to (k - 1) (subst_funs x2 y2) = INL Diverge’ \\ gs []
       >- (
@@ -871,7 +925,10 @@ Proof
               \\ drule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono
               \\ drule_then (qspec_then ‘j1 + k’ assume_tac) eval_to_mono
               \\ gs [])
-        \\ gs [SF SFY_ss])
+        (*\\ gs [SF SFY_ss]*)
+        \\ gvs []
+        \\ qexists `j2` \\ gvs []
+        \\ Cases_on `eval_to (j2 + k - 1) (subst_funs x1 y1)` \\ gvs [])
       \\ ‘eval_to (j2 + k - 1) (subst_funs x1 y1) ≠ INL Diverge’
         by (strip_tac \\ gvs []
             \\ Cases_on `eval_to (k - 1) (subst_funs x2 y2)` \\ gvs [v_rel_def])
@@ -880,7 +937,11 @@ Proof
       \\ simp [Once eval_to_def]
       \\ ‘eval_to (j1 + j2 + k) x = eval_to (j1 + k) x’
         by (irule eval_to_mono \\ gs [])
-      \\ gs [])
+      \\ gs []
+      \\ Cases_on `eval_to (j2 + k - 1) (subst_funs x1 y1)` \\ gvs []
+      \\ Cases_on `eval_to (k − 1) (subst_funs x2 y2)` \\ gvs []
+      \\ rpt (IF_CASES_TAC \\ gvs [])
+      \\ drule v_rel_anyThunk \\ rw [])
     \\ rw []
     \\ drule_all_then assume_tac v_rel_dest_anyThunk
     \\ gs [arithmeticTheory.FUNPOW_SUC]
@@ -931,7 +992,8 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘(_ +++ _) (eval_to _ bod)’
     \\ ‘eval_to (j2 + k) bod ≠ INL Diverge’
       by (strip_tac \\ gs []
-          \\ Cases_on ‘eval_to (k - 1) (subst_funs x2 y2)’ \\ gs [])
+          \\ Cases_on ‘eval_to (k - 1) (subst_funs x2 y2)’ \\ gs []
+          \\ Cases_on `is_anyThunk y` \\ gvs [])
     \\ drule_then (qspec_then ‘j1 + j2 + k’ assume_tac) eval_to_mono
     \\ gs []
     \\ ‘eval_to (j1 + j2 + k + 1) x = eval_to (j1 + k) x’

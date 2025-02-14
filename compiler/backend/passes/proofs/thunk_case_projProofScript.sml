@@ -49,7 +49,8 @@ Inductive exp_rel:
 [v_rel_Proj:]
   (∀xs s i.
      i < LENGTH xs ∧
-     v_rel (EL i xs) v ⇒
+     v_rel (EL i xs) v ∧
+     is_anyThunk v ⇒
        v_rel (Thunk (Force (Proj s i (Value (Constructor s xs)))))
              (DoTick v))
 (* Boilerplate: *)
@@ -362,6 +363,73 @@ Theorem eval_to_WF_IND[local] =
   |> Q.SPEC ‘UNCURRY case_goal’
   |> SIMP_RULE std_ss [FORALL_PROD]
 
+Theorem LIST_REL_ignore:
+  ∀l l'.
+    LIST_REL
+      (λ(fn,x) (gn,y).
+           freevars x ⊆ set (MAP FST l) ∧ fn = gn ∧
+           exp_rel x y ∧ ok_binder x) l l' ⇒
+    LIST_REL (λ(fn,x) (gn,y). fn = gn ∧ exp_rel x y ∧ ok_binder x) l l'
+Proof
+  gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL
+      (λ(f,x) (g,y).
+        freevars x ⊆ set (MAP FST l) ∧ f = g ∧ exp_rel x y ∧
+        ok_binder x) l l' ⇒
+    MAP FST l = MAP FST l' ∧ EVERY ok_binder (MAP SND l) ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l')
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ dxrule LIST_REL_ignore
+  \\ map_every qid_spec_tac [‘l'’, ‘l’]
+  \\ Induct \\ rw [] \\ gvs []
+  \\ rpt $ (pairarg_tac \\ gvs [])
+  \\ gvs [LIST_REL_EL_EQN, EVERY_EL, EL_MAP] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l'.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              exp_rel e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  ‘(∀v w. exp_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk w ⇔ is_anyThunk v))’
+    suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  \\ gvs [is_anyThunk_def, dest_anyThunk_def, AllCaseEqs()]
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+  \\ rpt strip_tac
+  \\ rgs [Once exp_rel_cases]
+  \\ Cases_on ‘ALOOKUP (REVERSE f) n’ \\ gvs []
+QED
+
 Theorem exp_rel_eval_to:
   ∀k x. case_goal k x
 Proof
@@ -431,7 +499,10 @@ Proof
         \\ IF_CASES_TAC \\ gs [subst_funs_def]
         \\ first_x_assum irule
         \\ simp [closed_subst, eval_to_wo_def]
-        \\ irule exp_rel_subst \\ gs [])
+        \\ irule exp_rel_subst \\ gs []
+        \\ first_x_assum drule \\ rw []
+        \\ `is_anyThunk (EL i l)` by (rw [is_anyThunk_def, dest_anyThunk_def])
+        \\ drule v_rel_anyThunk \\ gvs [])
       \\ simp [eval_to_def]
       \\ IF_CASES_TAC \\ gs []
       \\ ‘($= +++ v_rel) (eval_to (k - 1) x1) (eval_to (k - 1) x2)’
@@ -584,6 +655,12 @@ Proof
     >~ [‘dest_Tick w = SOME u’] >- (
       Cases_on ‘v’ \\ gvs []
       \\ simp [dest_anyThunk_def, subst_funs_def]
+      \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+      >~ [`INL Type_error`] >- (drule eval_to_Force_anyThunk \\ rw [])
+      \\ `($= +++ v_rel)
+            (eval_to (k - 1) (Force (Proj s' i (Value (Constructor s' xs)))))
+            (eval_to (k - 1) (Force (Value u)))`
+        suffices_by gvs []
       \\ ‘($= +++ v_rel)
             (eval_to (k - 1) (Force (Value (EL i xs))))
             (eval_to (k - 1) (Force (Value u)))’
@@ -607,6 +684,14 @@ Proof
       \\ gs [OPTREL_def]
       \\ qpat_x_assum ‘exp_rel x0 _’ mp_tac
       \\ rw [Once exp_rel_cases] \\ gs []
+      \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+      \\ ‘($= +++ v_rel)
+            (eval_to (k - 1) (subst_funs xs x'))
+            (eval_to (k - 1) (subst_funs ys y'))’
+        suffices_by (
+          gvs []
+          \\ rpt strip_tac
+          \\ drule v_rel_anyThunk \\ rw [])
       \\ first_x_assum irule \\ simp [subst_funs_def]
       \\ irule_at Any exp_rel_subst
       \\ irule_at Any LIST_EQ
@@ -619,6 +704,12 @@ Proof
       \\ gs [freevars_def])
         (* Thunk *)
     \\ simp [subst_funs_def]
+    \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+    \\ ‘($= +++ v_rel) (eval_to (k - 1) e) (eval_to (k - 1) e')’
+      suffices_by (
+        gvs []
+        \\ rpt strip_tac
+        \\ drule v_rel_anyThunk \\ rw [])
     \\ first_x_assum irule
     \\ simp [eval_to_wo_def])
   >~ [‘MkTick x’] >- (
