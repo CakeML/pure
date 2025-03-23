@@ -380,8 +380,14 @@ Definition return_def:
      | NONE => error st k
      | SOME (INL v, _) => value v st k
      | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
-  return v temp_st (ForceK2 st :: k) = value v st k ∧
-  return v st (BoxK :: k) = value (Thunk $ INL v) st k ∧
+  return v temp_st (ForceK2 st :: k) =
+    (case dest_anyThunk v of
+     | NONE => value v st k
+     | SOME _ => error st k) ∧
+  return v st (BoxK :: k) =
+    (case dest_anyThunk v of
+     | NONE => value (Thunk $ INL v) st k
+     | SOME _ => error st k) ∧
   return v st (ForceMutK n :: k) =
     (case st of
        SOME stores =>
@@ -943,8 +949,11 @@ Proof
    (fs [return_def,continue_def,value_def]
     \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
     \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
-    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
-    \\ strip_tac \\ fs [])
+    \\ Cases_on `dest_anyThunk v` \\ gvs []
+    \\ last_x_assum $ drule_at Any \\ rw []
+    \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [step_n_def]
+    \\ last_x_assum $ drule_at Any \\ rw [] \\ gvs [GSYM step_n_def]
+    \\ gvs [step_n_Val,step_n_Error])
   >~ [‘ForceK1’] >-
    (fs [return_def,continue_def,value_def]
     \\ CASE_TAC
@@ -964,8 +973,11 @@ Proof
    (fs [return_def,continue_def,value_def]
     \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
     \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
-    \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
-    \\ strip_tac \\ fs [])
+    \\ Cases_on `dest_anyThunk v` \\ gvs []
+    \\ last_x_assum $ drule_at Any \\ rw []
+    \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [step_n_def]
+    \\ last_x_assum $ drule_at Any \\ rw [] \\ gvs [GSYM step_n_def]
+    \\ gvs [step_n_Val,step_n_Error])
   >~ [‘RaiseK’] >-
    (fs [return_def,error_def] \\ fs [error_def]
     \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
