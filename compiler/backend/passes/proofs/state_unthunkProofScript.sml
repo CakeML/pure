@@ -1999,6 +1999,7 @@ Proof
         \\ pop_assum mp_tac
         \\ Cases_on ‘m3’ \\ fs [] \\ strip_tac \\ gvs []
         \\ gvs [step'_n_add,step,ADD1,step'_def,return'_def]
+        \\ Cases_on `dest_anyThunk tv` \\ gvs []
         \\ last_x_assum $ drule_at $ Pos $ el 2 \\ fs []
         \\ simp [Once step_res_rel_cases,PULL_EXISTS]
         \\ disch_then drule_all \\ strip_tac \\ gvs []
@@ -2051,6 +2052,7 @@ Proof
       \\ disch_then drule_all \\ strip_tac \\ gvs []
       \\ Cases_on ‘m2’ \\ gvs []
       \\ gvs [ADD1,step'_n_add,step,step'_def,return'_def]
+      \\ Cases_on `dest_anyThunk v` \\ gvs []
       \\ qpat_x_assum ‘step'_n n avoid (Val v,ts,tk) = (tr1,ts1,tk1)’ assume_tac
       \\ last_x_assum $ drule_at $ Pos $ el 2 \\ simp []
       \\ simp [Once step_res_rel_cases,PULL_EXISTS]
@@ -2075,6 +2077,7 @@ Proof
     >~ [‘BoxK’] >-
      (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def]
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ Cases_on `dest_anyThunk v1` \\ gvs []
       \\ first_x_assum $ drule_at $ Pos $ el 2 \\ fs []
       \\ drule_then drule state_rel_INL
       \\ simp [oneline dest_anyThunk_def,AllCaseEqs(),oneline dest_Thunk_def]
@@ -2440,10 +2443,10 @@ Proof
         \\ Q.REFINE_EXISTS_TAC ‘ck1+(1+n5)’
         \\ rewrite_tac [step_n_add,ADD1]
         \\ fs [] \\ simp [step]
+        \\ reverse $ Cases_on `dest_anyThunk tv` \\ gvs []
+        >- (qexists `0` \\ rw [])
         \\ last_x_assum $ irule
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum $ irule_at Any \\ fs []
+        \\ first_x_assum $ irule_at Any \\ fs []
         \\ rpt (first_assum $ irule_at Any)
         \\ simp [step_res_rel_cases])
       \\ simp [opt_bind_def]
@@ -2505,8 +2508,10 @@ Proof
       \\ rename [‘step_n nn’] \\ gvs [ADD1]
       \\ strip_tac
       \\ rpt (disch_then kall_tac)
+      \\ reverse $ Cases_on `dest_anyThunk res` \\ gvs []
+      >- (qexists `0` \\ rw [])
       \\ last_x_assum irule
-      \\ pop_assum $ irule_at Any \\ fs []
+      \\ first_x_assum $ irule_at Any \\ fs []
       \\ qexists_tac ‘zs’ \\ qexists_tac ‘p++q’ \\ fs [step_res_rel_cases]
       \\ irule_at Any cont_rel_ext \\ fs [LUPDATE_DEF,LUPDATE_LUPDATE]
       \\ simp [Abbr‘ss3’]
@@ -2519,13 +2524,15 @@ Proof
                  >- (rw [] \\ fs [is_halt_def]) \\ fs []
                  \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
       \\ strip_tac
+      \\ reverse $ Cases_on `dest_anyThunk v1` \\ gvs []
+      >- (qexists `0` \\ rw [])
       \\ first_x_assum irule
-      \\ pop_assum $ irule_at Any \\ fs [ADD1]
+      \\ first_x_assum $ irule_at Any \\ fs [ADD1]
       \\ qexists_tac ‘zs’
       \\ simp [step_res_rel_cases]
       \\ irule_at Any v_rel_new_Thunk
       \\ irule_at Any cont_rel_ext
-      \\ pop_assum $ irule_at Any
+      \\ first_x_assum $ irule_at Any
       \\ irule_at Any state_rel_INL \\ gvs []
       \\ fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH
       \\ fs [dest_anyThunk_def])
