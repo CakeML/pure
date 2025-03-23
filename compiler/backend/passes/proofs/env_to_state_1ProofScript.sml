@@ -454,6 +454,51 @@ QED
 Overload AppArgK = ``λsenv se. AppK senv AppOp [] [se]``
 Overload AppUnitK = ``λsenv. AppK senv AppOp [Constructor "" []] []``
 
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL ($= ### compile_rel) l l' ⇒
+    MAP FST l = MAP FST l' ∧
+    LIST_REL compile_rel (MAP SND l) (MAP SND l')
+Proof
+  Induct \\ rw [] \\ gvs [RPROD_DEF]
+  \\ rpt $ (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP:
+  ∀l l'.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL compile_rel (MAP SND l) (MAP SND l') ⇒
+    (ALOOKUP l s = NONE ⇒ ALOOKUP l' s = NONE) ∧
+    (∀e. ALOOKUP l s = SOME e ⇒
+         ∃e'. ALOOKUP l' s = SOME e' ∧ compile_rel e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP]
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w.
+    v_rel v w ⇒
+    (envLang$is_anyThunk v ⇔ (∃dt. stateLang$dest_anyThunk w = SOME dt))
+Proof
+ `(∀v w.
+      v_rel v w ⇒
+      (envLang$is_anyThunk v ⇔ (∃dt. stateLang$dest_anyThunk w = SOME dt))) ∧
+   (∀tenv senv. env_rel tenv senv ⇒ T)`
+   suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [envLangTheory.is_anyThunk_def, envLangTheory.dest_anyThunk_def,
+         stateLangTheory.dest_anyThunk_def]
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ rpt CASE_TAC
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP
+  \\ rpt strip_tac
+  \\ rgs [Once compile_rel_cases]
+QED
+
 Theorem eval_to_thm:
   ∀n tenv te tres se senv st k.
     eval_to n tenv te = tres ∧ compile_rel te se ∧
@@ -595,7 +640,9 @@ Proof
     \\ qexists_tac ‘1+ck’
     \\ rewrite_tac [step_n_add]
     \\ fs [step_def,push_def,return_def,value_def]
-    \\ simp [Once v_rel_cases])
+    \\ simp [Once v_rel_cases]
+    \\ CASE_TAC \\ rw [error_def]
+    \\ drule v_rel_anyThunk \\ rw [])
   >~ [‘Force x’] >-
    (simp [Once compile_rel_cases] \\ rw []
     \\ fs [eval_to_def]
@@ -649,7 +696,9 @@ Proof
     \\ BasicProvers.FULL_CASE_TAC \\ gvs []
     \\ Q.REFINE_EXISTS_TAC ‘ck1+ck'’
     \\ rewrite_tac [step_n_add] \\ fs [step_def,push_def]
-    \\ qexists_tac ‘1’ \\ fs [step_def,return_def,value_def])
+    \\ qexists_tac ‘1’ \\ fs [step_def,return_def,value_def]
+    \\ CASE_TAC \\ rw [error_def]
+    \\ drule v_rel_anyThunk \\ rw [])
   >~ [‘Let NONE x1 x2’] >-
    (simp [Once compile_rel_cases] \\ rw []
     \\ fs [eval_to_def]
