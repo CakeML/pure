@@ -247,7 +247,7 @@ Definition eval_to_def:
   eval_to k env (Box x) =
     (do
        v <- eval_to k env x;
-       return (Thunk (INL v))
+       if is_anyThunk v then fail Type_error else return (Thunk (INL v))
      od) ∧
   eval_to k env (Force x) =
     (if k = 0 then fail Diverge else
