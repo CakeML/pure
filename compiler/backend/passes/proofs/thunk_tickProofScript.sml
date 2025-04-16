@@ -6,13 +6,14 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
+     thunk_semantics_delayedTheory;
 
 val _ = new_theory "thunk_tickProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang",
-  "thunkLangProps", "thunk_semantics" ];
+  "thunkLangProps", "thunk_semantics", "thunk_semantics_delayed"];
 
 Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
@@ -279,7 +280,8 @@ Proof
     \\ irule exp_rel_Prim
     \\ gs [EVERY2_MAP, LIST_REL_EL_EQN])
   >~ [`Monad mop xs`]
-  >- (rw[subst_def] >> irule exp_rel_Monad >> gvs[LIST_REL_EL_EQN, EVERY2_MAP])
+  >- (rw[subst_def] >> irule exp_rel_Monad >>
+      gvs[LIST_REL_EL_EQN, EVERY2_MAP, EVERY_EL] >> rw [])
   >~ [‘App f x’] >- (
     rw [subst_def]
     \\ gs [exp_rel_App])
@@ -858,7 +860,13 @@ Proof
           disch_then (qx_choose_then ‘j’ assume_tac)
           \\ qexists_tac ‘j’ \\ gs [SF ETA_ss]
           \\ Cases_on ‘result_map (eval_to k) xs’
-          \\ Cases_on ‘result_map (eval_to (j + k)) ys’ \\ gs [v_rel_def])
+          \\ Cases_on ‘result_map (eval_to (j + k)) ys’ \\ gs [v_rel_def]
+          \\ rpt (IF_CASES_TAC \\ gvs [])
+          >- simp [v_rel_def]
+          \\ gvs [EVERY_MAP, EXISTS_MAP, EVERY_EL, EXISTS_MEM, MEM_EL,
+                  LIST_REL_EL_EQN]
+          \\ ntac 2 (first_x_assum drule \\ rw []) \\ gvs []
+          \\ drule v_rel_anyThunk \\ gvs [])
       \\ gvs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ IF_CASES_TAC \\ gs []
       >- (

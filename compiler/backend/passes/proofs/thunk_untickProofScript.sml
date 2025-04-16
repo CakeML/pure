@@ -7,12 +7,14 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
+     thunk_semantics_delayedTheory;
 
 val _ = new_theory "thunk_untickProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "thunkLangProps"];
+                              "thunkLang", "thunkLangProps",
+                              "thunk_semantics_delayed"];
 
 Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
@@ -81,6 +83,11 @@ Inductive exp_rel:
   (∀s vs ws.
      LIST_REL v_rel vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws))
+[v_rel_Monadic_Value:]
+  (∀mop x y.
+    is_anyThunk x ∧
+    exp_rel (Value x) (Value y) ⇒
+      v_rel (Monadic mop [Value x]) (Monadic mop [Value y]))
 [v_rel_Monadic:]
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
@@ -113,8 +120,10 @@ Theorem v_rel_def[simp]:
             LIST_REL v_rel vs ws) /\
   (∀mop xs.
      v_rel (Monadic mop xs) w =
-       ∃ys. w = Monadic mop ys ∧
-            LIST_REL exp_rel xs ys) /\
+       ((∃x y.
+           xs = [Value x] ∧ w = Monadic mop [Value y] ∧ is_anyThunk x ∧
+           exp_rel (Value x) (Value y)) ∨
+        (∃ys. w = Monadic mop ys ∧ LIST_REL exp_rel xs ys))) ∧
   (∀s x.
      v_rel (Closure s x) w =
        ∃y. w = Closure s y ∧
@@ -407,6 +416,34 @@ Proof
   \\ gvs [EVERY_EL, MEM_EL]
   \\ first_x_assum drule \\ gvs [EL_MAP]
   \\ Cases_on `EL n'' f` \\ gvs []
+QED
+
+Triviality exp_rel_result_map_Diverge:
+  ∀xs ys k.
+    LENGTH xs = LENGTH ys ∧
+    (∀n. n < LENGTH ys ⇒ exp_rel (EL n xs) (EL n ys)) ∧
+    (∀n. n < LENGTH ys ⇒
+         ∀y. exp_rel (EL n xs) y ⇒
+             ∃j. ($= +++ v_rel) (eval_to (j + k) (EL n xs)) (eval_to k y)) ∧
+    (∀n. n < LENGTH ys ⇒ eval_to k (EL n ys) ≠ INL Diverge) ⇒
+        ∃ck. ∀n. n < LENGTH xs ⇒ eval_to ck (EL n xs) ≠ INL Diverge
+Proof
+  Induct \\ Cases_on ‘ys’ \\ rw [] \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘t’, ‘k’] mp_tac \\ gvs []
+  \\ impl_tac
+  >- (rw [] \\ rpt (first_x_assum $ qspec_then ‘SUC n’ assume_tac \\ gvs []))
+  \\ rw []
+  \\ pop_assum mp_tac
+  \\ rpt (first_x_assum $ qspec_then ‘0’ assume_tac \\ gvs [])
+  \\ first_x_assum drule \\ rw []
+  \\ ‘eval_to (j + k) h' ≠ INL Diverge’ by (
+    Cases_on ‘eval_to (j + k) h'’ \\ Cases_on ‘eval_to k h’ \\ gvs [])
+  \\ qexists ‘j + k + ck’ \\ rw []
+  \\ simp [EL_CONS]
+  \\ Cases_on ‘n’ \\ gvs []
+  >- (drule eval_to_mono \\ rw [])
+  \\ first_x_assum drule \\ rw []
+  \\ drule eval_to_mono \\ rw []
 QED
 
 Theorem exp_rel_eval_to:
@@ -1027,7 +1064,11 @@ Proof
           disch_then (qx_choose_then ‘j’ assume_tac)
           \\ qexists_tac ‘j’
           \\ Cases_on ‘result_map (f j) xs’
-          \\ Cases_on ‘result_map g ys’ \\ gs [])
+          \\ Cases_on ‘result_map g ys’ \\ gs []
+          \\ rpt (IF_CASES_TAC \\ gvs [])
+          \\ gvs [EVERY_EL, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN]
+          \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+          \\ drule v_rel_anyThunk \\ rw [])
       \\ gvs [LIST_REL_EL_EQN, MEM_EL, MEM_MAP, PULL_EXISTS]
       \\ ‘∀ck. result_map (eval_to ck) xs ≠ INL Type_error’
         by (rpt strip_tac
@@ -1082,6 +1123,62 @@ Proof
             \\ impl_tac
             >- (
               rw []
+              >~ [‘eval_to ck (Cons x xs) ≠ INL Type_error’] >- (
+                qpat_x_assum ‘∀ck. eval_to _ (Cons _ _) ≠ _’ mp_tac
+                \\ rw [eval_to_def, oneline sum_bind_def]
+                \\ CASE_TAC \\ gvs []
+                >- (
+                  Cases_on ‘x''’ \\ gvs []
+                  \\ first_x_assum $ qspec_then ‘ck’ mp_tac
+                  \\ CASE_TAC \\ gvs []
+                  >- (
+                    Cases_on ‘x''’ \\ gvs []
+                    \\ ntac 2 (pop_assum mp_tac) \\ simp [result_map_def]
+                    \\ IF_CASES_TAC \\ gvs [])
+                  \\ ntac 2 (pop_assum mp_tac) \\ simp [result_map_def]
+                  \\ IF_CASES_TAC \\ gvs [])
+                \\ rw [EVERY_EL]
+                \\ qpat_x_assum ‘∀ck. _ ≠ _’ mp_tac
+                \\ simp [result_map_def]
+                \\ ‘∀ck n. n < SUC (LENGTH xs) ⇒
+                            eval_to ck (EL n (x'::xs)) ≠ INL Type_error’
+                  by gvs [] \\ gvs []
+                \\ ‘∃ck. ∀n. n < SUC (LENGTH xs) ⇒
+                            eval_to ck (EL n (x'::xs)) ≠ INL Diverge’ by (
+                  qspecl_then [‘x'::xs’, ‘y::ys’] mp_tac
+                    exp_rel_result_map_Diverge \\ simp []
+                  \\ disch_then drule \\ rw [])
+                \\ gvs []
+                \\ disch_then $ qspec_then ‘k + ck + ck'’ mp_tac
+                \\ ntac 2 (IF_CASES_TAC \\ gvs [])
+                >- (
+                  spose_not_then kall_tac
+                  \\ first_x_assum $ qspec_then ‘0’ assume_tac \\ gvs []
+                  \\ ‘eval_to ck' x' ≠ INL Diverge’ by gvs []
+                  \\ drule eval_to_mono \\ rw []
+                  \\ qexists ‘ck + ck' + k’ \\ simp [])
+                >- (
+                  spose_not_then kall_tac
+                  \\ gvs [MEM_MAP, MEM_EL]
+                  \\ first_x_assum $ qspec_then ‘SUC (n')’ assume_tac \\ gvs []
+                  \\ ‘eval_to ck' (EL n' xs) ≠ INL Diverge’ by gvs []
+                  \\ drule eval_to_mono \\ rw []
+                  \\ qexists ‘ck + ck' + k’ \\ simp [])
+                \\ rw [EVERY_EL, EL_MAP]
+                \\ qpat_x_assum ‘result_map _ _ = INR _’ mp_tac
+                \\ rw [result_map_def]
+                \\ ‘n < LENGTH ys’ by gvs [LENGTH_MAP]
+                \\ simp [EL_MAP]
+                \\ Cases_on ‘eval_to ck (EL n xs)’ \\ gvs []
+                >- (Cases_on ‘x’ \\ gvs [MEM_MAP, MEM_EL])
+                \\ first_x_assum drule \\ rw []
+                \\ Cases_on ‘eval_to (ck + ck' + k) (EL n xs)’ \\ gvs []
+                >- (Cases_on ‘x’ \\ gvs [MEM_MAP, MEM_EL])
+                \\ gvs []
+                \\ ‘eval_to ck (EL n xs) ≠ INL Diverge’ by gvs []
+                \\ ‘eval_to (ck + ck' + k) (EL n xs) ≠ INL Diverge’ by gvs []
+                \\ imp_res_tac eval_to_equals_eval
+                \\ gvs [])
               \\ TRY (
                 rpt (qpat_x_assum ‘∀n. n < SUC _ ⇒ _’
                           (qspec_then ‘SUC n’ assume_tac)) \\ gs []
@@ -1500,6 +1597,79 @@ Proof
   \\ irule sim_ok_semantics
   \\ irule_at Any untick_sim_ok
   \\ irule_at Any untick_rel_ok \\ gs []
+QED
+
+Theorem untick_apply_closure_delayed[local]:
+  exp_rel x y ∧
+  v_rel v2 w2 ∧
+  apply_closure x v2 f ≠ Err ∧
+  f (INL Type_error) = Err ∧
+  (∀x y.
+     ($= +++ v_rel) x y ∧ f x ≠ Err ⇒
+       next_rel_delayed v_rel exp_rel (f x) (g y)) ⇒
+    next_rel_delayed v_rel exp_rel
+                     (apply_closure x v2 f)
+                     (apply_closure y w2 g)
+Proof
+  rw [apply_closure_def, with_value_def] >>
+  `eval x ≠ INL Type_error` by (CCONTR_TAC >> gvs[]) >>
+  dxrule_all_then assume_tac exp_rel_eval >>
+  Cases_on `eval x` >> Cases_on `eval y` >> gvs[] >- (CASE_TAC >> gvs[]) >>
+  rename1 `eval x = INR v1` >> rename1 `eval y = INR w1`
+  \\ Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [dest_anyClosure_def]
+  >- (
+    first_x_assum irule \\ gs []
+    \\ irule exp_rel_eval
+    \\ gs [closed_subst]
+    \\ irule_at Any exp_rel_subst \\ gs []
+    \\ strip_tac \\ gs [])
+  \\ rename1 ‘LIST_REL _ xs ys’
+  \\ ‘OPTREL (λx y. ok_bind x ∧ exp_rel x y)
+             (ALOOKUP (REVERSE xs) s)
+             (ALOOKUP (REVERSE ys) s)’
+    by (irule LIST_REL_OPTREL
+        \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY])
+  \\ gs [OPTREL_def]
+  \\ qpat_x_assum ‘exp_rel _ _ ’ mp_tac
+  \\ rw [Once exp_rel_cases] \\ gs []
+  \\ first_x_assum irule \\ gs []
+  \\ irule exp_rel_eval
+  \\ irule_at Any exp_rel_subst
+  \\ gs [EVERY2_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
+  \\ irule_at Any LIST_EQ
+  \\ gvs [LIST_REL_EL_EQN, EL_MAP, ELIM_UNCURRY]
+  \\ strip_tac \\ gs []
+QED
+
+Theorem untick_rel_ok_delayed[local]:
+  rel_ok_delayed F v_rel exp_rel
+Proof
+  rw [rel_ok_delayed_def]
+  >- simp [v_rel_anyThunk]
+  >- simp [untick_apply_closure_delayed]
+  >- ntac 2 (simp [Once exp_rel_cases])
+  >- ntac 2 (simp [Once exp_rel_cases])
+  >- simp [Once exp_rel_cases]
+QED
+
+Theorem untick_sim_ok_delayed[local]:
+  sim_ok_delayed F v_rel exp_rel
+Proof
+  rw [sim_ok_delayed_def]
+  \\ simp [exp_rel_eval]
+  \\ irule exp_rel_subst \\ gs []
+QED
+
+Theorem untick_semantics_delayed:
+  exp_rel x y ∧
+  closed x ∧
+  pure_semantics$safe_itree (semantics_delayed x Done []) ⇒
+    semantics_delayed x Done [] = semantics_delayed y Done []
+Proof
+  strip_tac
+  \\ irule sim_ok_delayed_semantics_delayed
+  \\ irule_at Any untick_sim_ok_delayed
+  \\ irule_at Any untick_rel_ok_delayed \\ gs []
 QED
 
 val _ = export_theory ();

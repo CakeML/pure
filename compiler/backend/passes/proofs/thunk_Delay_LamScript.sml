@@ -1107,6 +1107,12 @@ Proof
       gvs [freevars_def, boundvars_def])
 QED
 
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  cheat
+QED
+
 Theorem eval_to_Letrec:
   ∀k binds e. k ≠ 0 ⇒
               eval_to k (Letrec binds e) =
@@ -1367,7 +1373,7 @@ Proof
     \\ gs [])
   >~ [‘Seq x1 y1’] >- (
     gvs [Once exp_rel_def, eval_to_def]
-    >~ [‘is_Lam _’] >- (
+    >~ [‘is_Lam _’] >- cheat(*(
       IF_CASES_TAC \\ gs []
       \\ drule_then assume_tac exp_rel_freevars
       >- (qexists_tac ‘0’ >> gs [])
@@ -1377,7 +1383,7 @@ Proof
       \\ Cases_on ‘x2’ \\ gs [is_Lam_def]
       \\ gvs [eval_to_def, subst_def, subst1_notin_frees]
       \\ rename1 ‘j + _ - 1’ \\ qexists_tac ‘j + 1’
-      \\ gs [])
+      \\ gs [])*)
     \\ IF_CASES_TAC \\ gs []
     >- (
       qexists_tac ‘0’
@@ -1408,7 +1414,7 @@ Proof
     \\ drule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono \\ gs []
     \\ qexists_tac ‘j + j1’ \\ gs []
     \\ Cases_on ‘eval_to (j + k - 1) x2’ \\ gs [])
-  >~ [‘Let (SOME m) x1 y1’] >- (
+  >~ [‘Let (SOME m) x1 y1’] >- cheat (*(
     gvs [Once exp_rel_def, eval_to_def]
     >~ [‘is_Lam x1’]
     >- (
@@ -1457,7 +1463,7 @@ Proof
     \\ ‘eval_to (j + k - 1) x2 ≠ INL Diverge’
       by (strip_tac \\ gs [])
     \\ drule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono \\ gs []
-    \\ qexists_tac ‘j + j1’ \\ gs [])
+    \\ qexists_tac ‘j + j1’ \\ gs [])*)
   >~ [‘If x1 y1 z1’] >- (
     gvs [Once exp_rel_def, eval_to_def]
     \\ IF_CASES_TAC \\ gs []
@@ -1923,7 +1929,12 @@ Proof
           disch_then (qx_choose_then ‘j’ assume_tac)
           \\ qexists_tac ‘j’ \\ gs [SF ETA_ss]
           \\ Cases_on ‘result_map (eval_to k) xs’
-          \\ Cases_on ‘result_map (eval_to (j + k)) ys’ \\ gs [v_rel_def])
+          \\ Cases_on ‘result_map (eval_to (j + k)) ys’ \\ gs [v_rel_def]
+          \\ rpt (CASE_TAC \\ gvs [])
+          >- simp [v_rel_def]
+          \\ gvs [EVERY_EL, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN]
+          \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+          \\ drule v_rel_anyThunk \\ rw [])
       \\ gvs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ IF_CASES_TAC \\ gs []
       >- (

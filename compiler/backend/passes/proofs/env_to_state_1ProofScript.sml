@@ -820,6 +820,8 @@ Proof
         \\ irule_at Any (DECIDE “n ≤ k:num ⇒ n ≤ m + k”)
         \\ metis_tac [])
       \\ full_simp_tac bool_ss [MEM_REVERSE,MAP_REVERSE] \\ gvs []
+      \\ reverse $ IF_CASES_TAC \\ gvs []
+      >- gvs [EXISTS_MEM, MEM_EL, EVERY_EL]
       \\ simp [Once v_rel_cases,PULL_EXISTS]
       \\ fs [monad_cns_def]
       \\ drule_then drule eval_to_list_val

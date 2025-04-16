@@ -492,7 +492,12 @@ Proof
         suffices_by (
           rw []
           \\ Cases_on ‘result_map f xs’ \\ Cases_on ‘result_map g ys’ \\ gs []
-          \\ simp [v_rel_def])
+          \\ rpt (IF_CASES_TAC \\ gvs [])
+          >- simp [v_rel_def]
+          \\ (
+            gvs [EXISTS_MEM, MEM_EL, EVERY_EL, LIST_REL_EL_EQN]
+            \\ ntac 2 (first_x_assum $ drule_then assume_tac)
+            \\ drule v_rel_anyThunk \\ simp []))
       \\ gs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ unabbrev_all_tac
       \\ IF_CASES_TAC \\ gs []

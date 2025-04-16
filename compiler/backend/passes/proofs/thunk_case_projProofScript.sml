@@ -13,13 +13,14 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory;
 open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
-     thunk_tickProofTheory thunk_untickProofTheory;
+     thunk_semantics_delayedTheory thunk_tickProofTheory
+     thunk_untickProofTheory;
 
 val _ = new_theory "thunk_case_projProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-  "thunkLangProps", "thunk_semantics" ];
+  "thunkLangProps", "thunk_semantics", "thunk_semantics_delayed" ];
 
 val _ = numLib.prefer_num ();
 
@@ -85,13 +86,8 @@ Inductive exp_rel:
   (∀x1 x2 y1 y2 z1 z2.
      LIST_REL exp_rel [x1;y1;z1] [x2;y2;z2] ⇒
        exp_rel (If x1 y1 z1) (If x2 y2 z2))
-[exp_rel_Cons:]
-  (∀s xs ys.
-     LIST_REL (λx y. exp_rel x y ∧ ∃z. x = Delay z) xs ys ⇒
-       exp_rel (Prim (Cons s) xs) (Prim (Cons s) ys))
 [exp_rel_Prim:]
   (∀op xs ys.
-     (∀s. op ≠ Cons s) ∧
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Prim op xs) (Prim op ys))
 [exp_rel_Monad:]
@@ -122,7 +118,7 @@ Inductive exp_rel:
      v_rel (Atom x) (Atom x))
 [v_rel_Constructor:]
   (∀vs ws.
-     LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk x) vs ws ⇒
+     LIST_REL (λv w. v_rel v w ∧ is_anyThunk v) vs ws ⇒
        v_rel (Constructor s vs) (Constructor s ws))
 [v_rel_Monadic:]
   (∀mop xs ys.
@@ -233,11 +229,10 @@ Proof
   >- ((* Prim *)
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [subst_def]
-    \\ (irule exp_rel_Cons ORELSE irule exp_rel_Prim)
+    \\ irule exp_rel_Prim
     \\ gs [EVERY2_MAP, EVERY2_refl_EQ]
     \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ rw []
-    \\ simp [subst_def])
+    \\ first_assum (irule_at Any) \\ rw [])
   >- ((* Monad *)
     rw [Once exp_rel_cases] \\ gs []
     \\ simp [subst_def]
@@ -551,17 +546,19 @@ Proof
           \\ gs [])
     \\ simp [eval_to_def]
     \\ imp_res_tac LIST_REL_LENGTH
+    \\ Cases_on ‘op’ \\ gs []
     >- ((* Cons *)
       first_x_assum (qspec_then ‘k’ assume_tac)
-      \\ ‘($= +++ LIST_REL (λv w. v_rel v w ∧ ∃x. v = Thunk x))
-                           (result_map (eval_to k) xs)
-                           (result_map (eval_to k) ys)’
+      \\ ‘($= +++ LIST_REL v_rel) (result_map (eval_to k) xs)
+                                  (result_map (eval_to k) ys)’
         suffices_by (
           rw [SF ETA_ss]
           \\ Cases_on ‘result_map (eval_to k) xs’
           \\ Cases_on ‘result_map (eval_to k) ys’ \\ gs []
-          \\ gvs [LIST_REL_EL_EQN] \\ rw []
-          \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs [])
+          \\ rpt (CASE_TAC \\ gvs [])
+          \\ gvs [EVERY_EL, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN]
+          \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+          \\ drule v_rel_anyThunk \\ rw [])
       \\ Cases_on ‘result_map (eval_to k) xs’ \\ gs []
       >- (
         gvs [result_map_def, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, EL_MAP,
@@ -589,8 +586,8 @@ Proof
       \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []
       \\ gs [eval_to_def]
       \\ Cases_on ‘eval_to k (EL n xs)’
-      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
-    \\ Cases_on ‘op’ \\ gs []
+      \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []
+      \\ Cases_on `x'` \\ gvs [])
     >- ((* IsEq *)
       first_x_assum (qspec_then ‘k - 1’ assume_tac) \\ gs []
       \\ IF_CASES_TAC \\ gs []
@@ -766,9 +763,6 @@ Proof
   \\ irule exp_rel_eval_to \\ gs []
 QED
 
-
-
-
 Overload closed_exp_rel = ``λx y. closed x ∧ exp_rel x y``
 
 Theorem case_proj_apply_closure[local]:
@@ -826,7 +820,7 @@ Proof
   >- ((* Equal literals are related *)
     simp [exp_rel_Prim])
   >- ((* Equal 0-arity conses are related *)
-    simp [exp_rel_Cons])
+    simp [exp_rel_Prim])
   >- ((* v_rel v1 v2 ⇒ exp_rel (Value v1) (Value v2) *)
     simp [exp_rel_Value])
   >- ( (* LIST_REL stuff *)
@@ -897,13 +891,8 @@ Inductive compile_rel:
   (∀x1 x2 y1 y2 z1 z2.
      LIST_REL compile_rel [x1;y1;z1] [x2;y2;z2] ⇒
        compile_rel (If x1 y1 z1) (If x2 y2 z2))
-[compile_rel_Cons:]
-  (∀s xs ys.
-     LIST_REL (λx y. compile_rel x y ∧ ∃z. x = Delay z) xs ys ⇒
-       compile_rel (Prim (Cons s) xs) (Prim (Cons s) ys))
 [compile_rel_Prim:]
   (∀op xs ys.
-     (∀s. op ≠ Cons s) ∧
      LIST_REL compile_rel xs ys ⇒
        compile_rel (Prim op xs) (Prim op ys))
 [compile_rel_Monad:]
@@ -989,38 +978,6 @@ Proof
     \\ irule_at Any thunk_tickProofTheory.exp_rel_Let
     \\ irule_at Any thunk_untickProofTheory.exp_rel_Let \\ fs []
     \\ rpt $ first_assum $ irule_at $ Pos hd)
-  >~ [‘Cons’] >-
-   (irule_at Any exp_rel_Cons \\ fs []
-    \\ irule_at Any thunk_tickProofTheory.exp_rel_Prim
-    \\ irule_at Any thunk_untickProofTheory.exp_rel_Prim \\ fs []
-    \\ pop_assum mp_tac
-    \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘xs’
-    \\ Induct \\ fs [PULL_EXISTS]
-    \\ rw [] \\ first_x_assum dxrule \\ rw []
-    \\ last_x_assum mp_tac
-    \\ simp [Once compile_rel_cases] \\ rw []
-    \\ fs [PULL_EXISTS]
-    \\ rpt $ qpat_x_assum ‘LIST_REL _ _ _’ $ irule_at Any
-    \\ irule_at Any thunk_tickProofTheory.exp_rel_Delay
-    \\ irule_at Any thunk_untickProofTheory.exp_rel_Delay \\ fs []
-    \\ last_x_assum mp_tac
-    \\ last_x_assum mp_tac
-    \\ last_x_assum mp_tac
-    \\ simp [Once thunk_untickProofTheory.exp_rel_cases]
-    \\ rw []
-    >-
-     (rpt $ last_x_assum mp_tac
-      \\ simp [Once exp_rel_cases]
-      \\ fs [PULL_EXISTS,PULL_FORALL] \\ rw []
-      \\ rpt $ last_x_assum mp_tac
-      \\ simp [Once thunk_tickProofTheory.exp_rel_cases]
-      \\ rw [] \\ rpt $ first_assum $ irule_at $ Pos hd
-      \\ simp [Once exp_rel_cases])
-    \\ rpt $ last_x_assum mp_tac
-    \\ simp [Once exp_rel_cases] \\ rw []
-    \\ rpt $ last_x_assum mp_tac
-    \\ simp [Once thunk_tickProofTheory.exp_rel_cases])
   >~ [‘Delay’] >-
    (irule_at Any exp_rel_Delay
     \\ irule_at Any thunk_tickProofTheory.exp_rel_Delay

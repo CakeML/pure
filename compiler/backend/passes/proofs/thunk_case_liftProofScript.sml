@@ -13,13 +13,13 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory
      thunk_tickProofTheory;
-open pure_miscTheory thunkLangPropsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semantics_delayedTheory;
 
 val _ = new_theory "thunk_case_liftProof";
 
 val _ = set_grammar_ancestry [
   "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-  "thunk_semantics", "thunkLangProps",
+  "thunk_semantics", "thunk_semantics_delayed", "thunkLangProps",
   "thunk_tickProof" ];
 
 val _ = numLib.prefer_num ();
@@ -520,7 +520,24 @@ Proof
     \\ simp [eval_to_def]
     \\ Cases_on ‘op’ \\ gs []
     >- ((* Cons *)
-      rgs [result_map_def, MEM_MAP, PULL_EXISTS, LIST_REL_EL_EQN, MEM_EL]
+      `($= +++ v_rel)
+          do
+            vs <- result_map (λx. eval_to k x) xs;
+            INR (Constructor s vs)
+          od
+          do
+            vs <- result_map (λx. eval_to k x) ys;
+            INR (Constructor s vs)
+          od` suffices_by (
+            simp [oneline sum_bind_def]
+            \\ rpt (CASE_TAC \\ gvs [])
+            \\ gvs [EVERY_EL, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN]
+            \\ rw [] \\ gvs []
+            \\ goal_assum drule \\ rw []
+            \\ first_x_assum drule \\ rw []
+            \\ CCONTR_TAC \\ gvs []
+            \\ drule v_rel_anyThunk \\ rw [])
+      \\ rgs [result_map_def, MEM_MAP, PULL_EXISTS, LIST_REL_EL_EQN, MEM_EL]
       \\ IF_CASES_TAC \\ gs []
       >- (
         gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]

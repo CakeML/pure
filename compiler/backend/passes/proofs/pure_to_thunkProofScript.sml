@@ -667,10 +667,11 @@ Proof
   \\ dxrule_then assume_tac exp_rel_imp_combined
   \\ gs []
   \\ dxrule_then assume_tac pure_to_thunk_1ProofTheory.compile_rel_freevars
+  \\ dxrule_then assume_tac thunk_unthunkProofTheory.delay_force_freevars
+  \\ dxrule_then assume_tac thunk_undelay_nextProofTheory.exp_rel_freevars
   \\ dxrule_then assume_tac thunk_case_liftProofTheory.compile_rel_freevars
   \\ dxrule_then assume_tac thunk_let_forceProofTheory.exp_rel_NONE_freevars
   \\ dxrule_then assume_tac thunk_case_projProofTheory.compile_rel_closed
-  \\ dxrule_then assume_tac thunk_unthunkProofTheory.delay_force_closed
   \\ dxrule_then assume_tac expof_caseProofTheory.freevars_exp_of'
   \\ fs [pure_expTheory.closed_def, thunkLangTheory.closed_def]
 QED

@@ -303,7 +303,10 @@ Definition eval_to_def:
        Cons s =>
            do
              vs <- result_map (λx. eval_to k x) xs;
-             return (Constructor s vs)
+             if EVERY is_anyThunk vs then
+               return (Constructor s vs)
+             else
+               fail Type_error
            od
        | If => fail Type_error
        | Seq => fail Type_error
@@ -502,7 +505,14 @@ Proof
         \\ rw [] \\ gs [])
       \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
-      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+      \\ (
+        gvs [EVERY_MAP, EXISTS_MAP, EVERY_EL, EXISTS_MEM, MEM_EL]
+        \\ first_x_assum drule \\ rw []
+        \\ last_x_assum $ qspec_then ‘EL n xs’ assume_tac \\ gvs []
+        \\ pop_assum $ drule_at Any \\ impl_tac
+        >- metis_tac []
+        \\ rw [] \\ gvs []))
     >- ((* IsEq *)
       gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘eval_to (k - 1) x’

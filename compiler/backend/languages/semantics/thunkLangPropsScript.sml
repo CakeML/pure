@@ -933,7 +933,8 @@ Proof
       \\ rw [state_rel_def]
       \\ fs [Once LIST_REL_EL_EQN]
       \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs [LIST_REL_EL_EQN]
-      \\ first_x_assum irule \\ intLib.COOPER_TAC)
+      \\ first_x_assum $ qspec_then ‘Num i’ assume_tac \\ gvs []
+      \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs [])
     \\ first_x_assum irule \\ gs [SF SFY_ss]
     \\ fs [rel_ok_def] \\ intLib.COOPER_TAC)
   \\ print_tac "[9/9] Update"

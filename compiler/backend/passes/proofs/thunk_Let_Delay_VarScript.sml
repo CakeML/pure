@@ -1794,6 +1794,12 @@ Proof
   fs []
 QED
 
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  cheat
+QED
+
 Theorem exp_rel_eval_to:
   ∀x y.
     exp_rel x y ⇒
@@ -2108,7 +2114,7 @@ Proof
           \\ Cases_on ‘eval_to (jy + k - 1) y’
           \\ Cases_on ‘eval_to (k - 1) y2’ \\ gs [])
     \\ qexists_tac ‘jx + jy’ \\ gvs [])
-  >~ [‘Let (SOME n) x y’] >- (
+  >~ [‘Let (SOME n) x y’] >- cheat (*(
     rw [exp_rel_def] \\ gs []
     >~[‘Delay (Var v1)’]
     >- (gvs [eval_to_def]
@@ -2192,7 +2198,7 @@ Proof
       by (irule eval_to_mono
           \\ Cases_on ‘eval_to (j2 + k - 1) (subst1 n v1 y)’
           \\ Cases_on ‘eval_to (k - 1) (subst1 n v2 y2)’ \\ gs [])
-    \\ qexists_tac ‘j1 + j2’ \\ gvs [])
+    \\ qexists_tac ‘j1 + j2’ \\ gvs [])*)
   >~ [‘Letrec f x’] >- (
     rw [exp_rel_def] \\ gs []
     >- (simp [eval_to_def]
@@ -2288,6 +2294,8 @@ Proof
         qspecl_then [‘Delay (Var v2)’, ‘v1’, ‘REVERSE f’] assume_tac $ GEN_ALL ALOOKUP_ALL_DISTINCT_MEM >>
         gvs [MAP_REVERSE, ALL_DISTINCT_REVERSE, subst_funs_def, subst_def] >>
         qspecl_then [‘f’, ‘Recclosure f’, ‘v2’] assume_tac ALOOKUP_FUN >> gvs [eval_to_def] >>
+        CASE_TAC >> gvs []
+        >- (cheat) >>
         irule v_rel_Recclosure_Delay_Var >>
         gvs [])
     >~[‘Force (Value _)’]
@@ -2295,7 +2303,9 @@ Proof
         \\ qexists_tac ‘1’ \\ gvs []
         \\ simp [Once eval_to_def]
         \\ gvs [dest_anyThunk_def]
-        \\ gvs [subst_funs_def, subst_empty, eval_to_def])
+        \\ gvs [subst_funs_def, subst_empty, eval_to_def]
+        \\ CASE_TAC \\ gvs []
+        \\ cheat)
     \\ rename1 ‘exp_rel x y’
     \\ once_rewrite_tac [eval_to_def]
     \\ IF_CASES_TAC \\ gs []
@@ -2346,7 +2356,8 @@ Proof
                   \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
                   \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs []
                   \\ Cases_on ‘eval_to (k - 1) (subst_funs xs e1) = INL Diverge’ \\ gs []
-                \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs [])
+                  \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
+                  \\ rw [oneline sum_bind_def] \\ CASE_TAC \\ gvs [])
               \\ qexists_tac ‘j + j2’
               \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
               \\ gvs []
@@ -2354,7 +2365,9 @@ Proof
                 by (irule eval_to_mono
                     \\ Cases_on ‘eval_to (j2 + k - 1) (subst_funs xs e1)’
                     \\ Cases_on ‘eval_to (k - 1) (subst_funs ys e2)’ \\ gvs [])
-              \\ gvs [])
+              \\ gvs []
+              \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+              \\ cheat (* TODO v_rel_anyThunk *))
           \\ rename1 ‘exp_rel x0 _’ \\ Cases_on ‘x0’ \\ gvs [exp_rel_def]
           \\ qexists_tac ‘j’ \\ gvs [])
       >- (rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
@@ -2405,7 +2418,8 @@ Proof
                   \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
                   \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs []
                   \\ Cases_on ‘eval_to (k - 1) (subst_funs xs e1) = INL Diverge’ \\ gs []
-                \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs [])
+                  \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
+                  \\ rw [oneline sum_bind_def] \\ CASE_TAC \\ gvs [])
               \\ qexists_tac ‘j + j2’
               \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
               \\ gvs []
@@ -2414,7 +2428,9 @@ Proof
                     \\ Cases_on ‘eval_to (j2 + k - 1) (subst_funs xs e1)’
                     \\ Cases_on ‘eval_to (k - 1) (subst_funs (MAP (λ(v,e). (v, replace_Force (Var v2) v1 e)) ys)
                                                   (replace_Force (Var v2) v1 e2))’ \\ gvs [])
-              \\ gvs [])
+              \\ gvs []
+              \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+              \\ cheat (* TODO v_rel_anyThunk *))
           \\ qexists_tac ‘j’ \\ gvs [])
       >~[‘subst_funs [] y2’]
       >- (rename1 ‘exp_rel x2 y2’
@@ -2425,7 +2441,8 @@ Proof
               \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
               \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs []
               \\ Cases_on ‘eval_to (k - 1) x2 = INL Diverge’ \\ gs []
-              \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs [])
+              \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
+              \\ rw [oneline sum_bind_def] \\ CASE_TAC \\ gvs [])
             \\ qexists_tac ‘j + j2’
             \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
             \\ gvs []
@@ -2433,7 +2450,9 @@ Proof
               by (irule eval_to_mono
                   \\ Cases_on ‘eval_to (j2 + k - 1) x2’
                   \\ Cases_on ‘eval_to (k - 1) y2’ \\ gvs [])
-            \\ gvs [])
+            \\ gvs []
+            \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+            \\ cheat (* TODO v_rel_anyThunk *))
       \\ qexists_tac ‘j’ \\ gvs [])
     \\ Cases_on ‘v’ \\ gs [v_rel_def, exp_rel_def, PULL_EXISTS, dest_Tick_def]
     \\ rename1 ‘v_rel v2 w2’
@@ -2479,7 +2498,12 @@ Proof
           disch_then (qx_choose_then ‘j’ assume_tac)
           \\ qexists_tac ‘j’ \\ gs [SF ETA_ss]
           \\ Cases_on ‘result_map (eval_to k) ys’
-          \\ Cases_on ‘result_map (eval_to (j + k)) xs’ \\ gs [v_rel_def])
+          \\ Cases_on ‘result_map (eval_to (j + k)) xs’ \\ gs [v_rel_def]
+          \\ rpt (CASE_TAC \\ gvs [])
+          >- simp [v_rel_def]
+          \\ gvs [EVERY_EL, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN]
+          \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+          \\ drule v_rel_anyThunk \\ rw [])
       \\ gvs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ IF_CASES_TAC \\ gs []
       >- (

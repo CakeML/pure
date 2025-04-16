@@ -8,12 +8,13 @@ open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite;
 open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
-     thunk_untickProofTheory;
+     thunk_semantics_delayedTheory thunk_untickProofTheory;
 
 val _ = new_theory "thunk_unthunkProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "thunk_semantics", "thunkLangProps"];
+                              "thunkLang", "thunk_semantics",
+                              "thunk_semantics_delayed", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
@@ -36,7 +37,8 @@ Inductive exp_inv:
      exp_inv (Var v))
 [exp_inv_Value:]
   (∀v.
-     v_inv v ⇒
+     v_inv v ∧
+     is_anyThunk v ⇒
        exp_inv (Value v))
 [exp_inv_App:]
   (∀f x.
@@ -91,6 +93,10 @@ Inductive exp_inv:
   (∀s vs.
      EVERY v_inv vs ⇒
        v_inv (Constructor s vs))
+[v_inv_Monadic_Value:]
+  (∀mop x.
+     exp_inv (Value x) ⇒
+       v_inv (Monadic mop [Value x]))
 [v_inv_Monadic:]
   (∀mop xs.
      EVERY exp_inv xs ⇒
@@ -117,7 +123,7 @@ Theorem exp_inv_def:
   (∀v.
      exp_inv (Var v) = T) ∧
   (∀v.
-     exp_inv (Value v) = v_inv v) ∧
+     exp_inv (Value v) = (v_inv v ∧ is_anyThunk v)) ∧
   (∀f x.
      exp_inv (App f x) =
        (∃y. x = Delay y ∧
@@ -150,7 +156,7 @@ Theorem exp_inv_def:
        EVERY exp_inv xs) ∧
   (∀mop xs.
      exp_inv (Monad mop xs) =
-       EVERY exp_inv xs) ∧
+       (EVERY exp_inv xs)) ∧
   (∀x.
      exp_inv (Force x) = exp_inv x) ∧
   (∀x.
@@ -163,7 +169,9 @@ QED
 
 Theorem v_inv_def[simp]:
   (∀s vs. v_inv (Constructor s vs) = EVERY v_inv vs) ∧
-  (∀mop xs. v_inv (Monadic mop xs) = EVERY exp_inv xs) ∧
+  (∀mop xs. v_inv (Monadic mop xs) =
+     ((∃x. xs = [Value x] ∧ exp_inv (Value x)) ∨
+      EVERY exp_inv xs)) ∧
   (∀s x. v_inv (Closure s x) = exp_inv x) ∧
   (∀f n. v_inv (Recclosure f n) =
            EVERY (λv. ∃x. v = Delay x ∧ exp_inv x) (MAP SND f)) ∧
@@ -221,11 +229,22 @@ Inductive exp_rel:
   (∀mop xs ys.
      LIST_REL exp_rel xs ys ⇒
        exp_rel (Monad mop xs) (Monad mop ys))
-[exp_rel_Let:]
-  (∀bv x1 y1 x2 y2.
+[exp_rel_Seq:]
+  (∀x1 y1 x2 y2.
      exp_rel x1 x2 ∧
      exp_rel y1 y2 ⇒
-       exp_rel (Let bv x1 y1) (Let bv x2 y2))
+       exp_rel (Seq x1 y1) (Seq x2 y2))
+[exp_rel_Let_fresh:]
+  (∀x1 y1 x2 y2.
+     exp_rel x1 x2 ∧
+     exp_rel y1 y2 ∧
+     fresh ∉ freevars y1 ⇒
+       exp_rel (Let (SOME fresh) x1 y1) (Let (SOME fresh) x2 y2))
+[exp_rel_Let:]
+  (∀x1 y1 x2 y2.
+     exp_rel (Delay x1) x2 ∧
+     exp_rel y1 y2 ⇒
+       exp_rel (Let (SOME s) (Delay x1) y1) (Let (SOME s) x2 y2))
 [exp_rel_Letrec:]
   (∀f x g y.
      LIST_REL (λ(f,x) (g,y).
@@ -272,7 +291,8 @@ Inductive exp_rel:
        v_rel (Thunk x) (Thunk y))
 [v_rel_Thunk_Changed:]
   (∀v w.
-     v_rel v w ⇒
+     v_rel v w ∧
+     is_anyThunk v ⇒
        v_rel (Thunk (Force (Value v))) (DoTick w))
 [v_rel_Atom:]
   (∀x.
@@ -298,7 +318,7 @@ Theorem v_rel_def[simp]:
      v_rel (Constructor s vs) z =
        (∃ws. z = Constructor s ws ∧
              LIST_REL v_rel vs ws)) ∧
-  (∀op xs z.
+  (∀mop xs z.
      v_rel (Monadic mop xs) z =
        (∃ys. z = Monadic mop ys ∧
              LIST_REL exp_rel xs ys ∧
@@ -318,7 +338,8 @@ Theorem v_rel_Thunk_def:
             closed w) ∨
      (∃v y. x = Force (Value v) ∧
             z = DoTick y ∧
-            v_rel v y))
+            v_rel v y ∧
+            is_anyThunk v))
 Proof
   rw [Once exp_rel_cases]
   \\ rw [EQ_SYM_EQ, AC CONJ_COMM CONJ_ASSOC, EQ_IMP_THM, SF SFY_ss]
@@ -340,7 +361,8 @@ Theorem v_rel_rev[simp]:
   (∀w.
      v_rel v (DoTick w) =
        (∃x. v = Thunk (Force (Value x)) ∧
-            v_rel x w)) ∧
+            v_rel x w ∧
+            is_anyThunk x)) ∧
   (∀s y.
      v_rel v (Closure s y) =
        (∃x. v = Closure s x ∧
@@ -408,8 +430,6 @@ Proof
     \\ qid_spec_tac ‘ys’
     \\ qid_spec_tac ‘xs’
     \\ Induct \\ fs [PULL_EXISTS])
-  >~ [‘Let opt’] >-
-   (Cases_on ‘opt’ \\ rw [] \\ fs [freevars_def])
   \\ match_mp_tac $ METIS_PROVE []
      “s1 = s2 ∧ x1 = x2 ⇒ s UNION (f s1) DIFF x1 = s UNION (f s2) DIFF x2”
   \\ last_assum mp_tac
@@ -493,17 +513,27 @@ Proof
   >- ((* Let NONE *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
-    \\ irule exp_rel_Let \\ fs [])
+    \\ irule exp_rel_Seq \\ fs [])
   >- ((* Let SOME *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
-    \\ irule exp_rel_Let \\ gs []
-    \\ first_x_assum irule
-    \\ fs [MAP_FST_FILTER, EVERY2_MAP]
-    \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
-    \\ irule LIST_REL_FILTER \\ fs []
-    \\ irule LIST_REL_mono
-    \\ first_assum (irule_at Any) \\ simp [])
+    >- (
+      irule exp_rel_Let_fresh \\ gvs [] \\ rw []
+      >- simp [freevars_subst]
+      \\ first_x_assum irule
+      \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+      \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+      \\ irule LIST_REL_FILTER \\ fs []
+      \\ irule LIST_REL_mono
+      \\ first_assum (irule_at Any) \\ simp [])
+    >- (
+      irule exp_rel_Let \\ gvs [subst_def] \\ rw []
+      \\ first_x_assum irule
+      \\ fs [MAP_FST_FILTER, EVERY2_MAP]
+      \\ qabbrev_tac ‘P = λx. x ≠ s’ \\ fs []
+      \\ irule LIST_REL_FILTER \\ fs []
+      \\ irule LIST_REL_mono
+      \\ first_assum (irule_at Any) \\ simp []))
   >- ((* Letrec *)
     rw [Once exp_rel_cases]
     \\ simp [subst_def]
@@ -553,12 +583,14 @@ QED
 Theorem exp_inv_subst:
   ∀xs x.
     EVERY v_inv (MAP SND xs) ∧
+    EVERY (λ(n,v). n ∈ freevars x ⇒ is_anyThunk v) xs ∧
     exp_inv x ⇒
       exp_inv (subst xs x)
 Proof
   qsuff_tac ‘
     (∀x. exp_inv x ⇒
-       ∀xs. EVERY v_inv (MAP SND xs) ⇒
+       ∀xs. EVERY v_inv (MAP SND xs) ∧
+            EVERY (λ(n,v). n ∈ freevars x ⇒ is_anyThunk v) xs ⇒
          exp_inv (subst xs x)) ∧
     (∀v. v_inv v ⇒ T)’
   >- rw []
@@ -568,20 +600,27 @@ Proof
     \\ CASE_TAC \\ fs [exp_inv_def]
     \\ dxrule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
     \\ gs [EVERY_EL, EL_MAP]
-    \\ first_x_assum (drule_then assume_tac) \\ gs [])
+    \\ first_x_assum (drule_then assume_tac) \\ gs []
+    \\ first_x_assum drule \\ gvs [freevars_def])
   >- ((* Value *)
     gvs [subst_def, exp_inv_def])
   >- ((* App *)
-    gvs [subst_def, exp_inv_def])
+    gvs [subst_def, exp_inv_def, freevars_def]
+    \\ rpt (first_x_assum $ qspec_then `xs` assume_tac \\ gvs [])
+    \\ conj_tac
+    \\ (
+      first_x_assum irule \\ gvs [EVERY_EL] \\ rw []
+      \\ pairarg_tac \\ rw []
+      \\ first_x_assum drule \\ rw []))
   >- ((* Lam *)
-    gvs [subst_def, exp_inv_def]
+    gvs [subst_def, exp_inv_def, freevars_def]
     \\ first_x_assum irule
     \\ gs [EVERY_MAP, EVERY_FILTER, EVERY_MEM, ELIM_UNCURRY, SF SFY_ss])
   >- ((* Letrec *)
-    gs [subst_def, exp_inv_def]
+    gs [subst_def, exp_inv_def, freevars_def]
     \\ gvs [EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
             EVERY_FILTER, GSYM FST_THM]
-    \\ qpat_x_assum ‘∀xs. EVERY _ xs ⇒ _’ (irule_at Any)
+    \\ first_x_assum $ irule_at Any
     \\ gvs [EVERY_MEM, FORALL_PROD, subst_def, SF SFY_ss]
     \\ qmatch_goalsub_abbrev_tac ‘subst m’
     \\ qexists_tac ‘MAP (λ(n,x). (n,subst m x)) f’
@@ -593,33 +632,190 @@ Proof
       rw [MEM_FILTER]
       \\ first_x_assum (irule_at Any)
       \\ first_assum (irule_at Any))
+    \\ conj_tac
+    >- (
+      rw [MEM_FILTER]
+      \\ first_x_assum (irule_at Any)
+      \\ first_assum (irule_at Any)
+      \\ rw [])
     \\ rw []
     \\ first_x_assum (drule_then strip_assume_tac)
     \\ first_x_assum irule
     \\ rw [MEM_FILTER]
     \\ first_x_assum (irule_at Any)
-    \\ first_assum (irule_at Any))
+    \\ first_assum (irule_at Any)
+    \\ metis_tac [freevars_def])
   >- ((* Let *)
-    Cases_on ‘bv’ \\ gvs [subst_def, exp_inv_def]
-    \\ first_x_assum irule
-    \\ gs [EVERY_MAP, EVERY_MEM, MEM_FILTER])
+    Cases_on `bv` \\ gvs [subst_def, exp_inv_def, freevars_def] \\ rw []
+    >~ [`subst (FILTER _ _)`] >- (
+      rpt (first_x_assum $ qspec_then `FILTER (λ(n,x). n ≠ x'') xs` assume_tac
+           \\ gvs [])
+      \\ gvs [EVERY_MAP, EVERY_FILTER]
+      \\ first_x_assum irule \\ gvs [EVERY_EL] \\ rw []
+      \\ rpt (pairarg_tac \\ gvs []) \\ rw []
+      \\ first_x_assum drule \\ rw [])
+    \\ rpt (first_x_assum $ qspec_then `xs` assume_tac \\ gvs [])
+    \\ first_x_assum irule \\ gvs [EVERY_EL] \\ rw []
+    \\ pairarg_tac \\ rw []
+    \\ first_x_assum drule \\ rw [])
   >- ((* If *)
-    gvs [subst_def, exp_inv_def])
+    gvs [subst_def, exp_inv_def, freevars_def]
+    \\ rpt conj_tac
+    \\ (
+      first_x_assum irule \\ gvs [EVERY_EL] \\ rw []
+      \\ pairarg_tac \\ rw []
+      \\ first_x_assum drule \\ rw []))
   >- ((* Prim Cons *)
       gs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss]
       \\ rename1 ‘subst ys’
       \\ qexists_tac ‘MAP (subst ys) xs’
       \\ rw [MAP_MAP_o, combinTheory.o_DEF, subst_def]
-      \\ gvs [MEM_MAP, PULL_EXISTS, exp_inv_def, subst_def])
+      \\ gvs [MEM_MAP, PULL_EXISTS, exp_inv_def, subst_def, freevars_def]
+      \\ last_x_assum drule \\ rw []
+      \\ pop_assum irule \\ rw []
+      \\ pairarg_tac \\ rw []
+      \\ ntac 2 (first_x_assum drule \\ rw []))
   >- ((* Prim *)
-    gvs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
+    gvs [subst_def, exp_inv_def, freevars_def, EVERY_MAP, EVERY_MEM, SF SFY_ss]
+    \\ rw []
+    \\ last_x_assum drule \\ rw []
+    \\ pop_assum irule \\ rw []
+    \\ pairarg_tac \\ rw []
+    \\ first_x_assum drule \\ rw []
+    \\ pop_assum mp_tac \\ impl_tac
+    >- (
+      goal_assum drule \\ simp [MEM_MAP] \\ metis_tac [])
+    \\ rw [])
   >- ((* Monad *)
-    gvs [subst_def, exp_inv_def, EVERY_MAP, EVERY_MEM, SF SFY_ss])
+    gvs [subst_def, exp_inv_def, freevars_def, EVERY_MAP, EVERY_MEM, SF SFY_ss]
+    \\ rw []
+    \\ last_x_assum drule \\ rw []
+    \\ pop_assum irule \\ rw []
+    \\ pairarg_tac \\ rw []
+    \\ first_x_assum drule \\ rw []
+    \\ pop_assum mp_tac \\ impl_tac
+    >- (
+      goal_assum drule \\ simp [MEM_MAP] \\ metis_tac [])
+    \\ rw [])
   >- ((* Delay *)
-    gvs [subst_def, exp_inv_def])
+    gvs [subst_def, exp_inv_def, freevars_def])
   >- ((* Force *)
     simp [subst_def]
-    \\ irule exp_inv_Force \\ gs [])
+    \\ irule exp_inv_Force \\ gs [freevars_def])
+QED
+
+Theorem LIST_REL_ignore:
+  ∀l l'.
+    LIST_REL
+      (λ(fn,v) (gn,w).
+           fn = gn ∧ is_delay v ∧ is_delay w ∧ exp_rel v w ∧
+           freevars v ⊆ set (MAP FST l)) l l' ⇒
+    LIST_REL
+      (λ(fn,v) (gn,w). fn = gn ∧ is_delay v ∧ is_delay w ∧ exp_rel v w) l l'
+Proof
+  gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL
+      (λ(fn,v) (gn,w).
+           fn = gn ∧ is_delay v ∧ is_delay w ∧ exp_rel v w ∧
+           freevars v ⊆ set (MAP FST l)) l l' ⇒
+      MAP FST l = MAP FST l' ∧
+      EVERY is_delay (MAP SND l) ∧
+      EVERY is_delay (MAP SND l') ∧
+      LIST_REL exp_rel (MAP SND l) (MAP SND l')
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ dxrule LIST_REL_ignore
+  \\ map_every qid_spec_tac [‘l'’, ‘l’]
+  \\ Induct \\ rw [] \\ gvs []
+  \\ rpt $ (pairarg_tac \\ gvs [])
+  \\ gvs [LIST_REL_EL_EQN, EVERY_EL, EL_MAP] \\ rw []
+  \\ first_x_assum drule \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP_REVERSE:
+  ∀l l' s.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL exp_rel (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP (REVERSE l) s = NONE ⇒
+         ALOOKUP (REVERSE l') s = NONE) ∧
+      (∀e. ALOOKUP (REVERSE l) s = SOME e ⇒
+         ∃e'. ALOOKUP (REVERSE l') s = SOME e' ∧
+              exp_rel e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE, MAP_REVERSE]
+  \\ ‘MAP FST (REVERSE l) = MAP FST (REVERSE l')’ by gvs [MAP_EQ_EVERY2]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+  \\ ‘PRE (LENGTH l' - n) < LENGTH l'’ by gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀v w. exp_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+    suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ rpt CASE_TAC
+  \\ drule_all_then (qspec_then ‘n’ mp_tac) LIST_REL_ALOOKUP_REVERSE
+  \\ rpt strip_tac
+  \\ rgs [Once exp_rel_cases]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [EVERY_EL, MEM_EL]
+  \\ first_x_assum drule \\ gvs [EL_MAP]
+  \\ Cases_on ‘EL n' g’ \\ gvs []
+QED
+
+Theorem ALOOKUP_EL:
+  ∀g n q r.
+    n < LENGTH g ∧
+    EL n g = (q,r) ⇒
+    ∃r'. ALOOKUP g q = SOME r'
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ Cases_on `h` \\ rw [ALOOKUP_def]
+  \\ Cases_on `n` \\ gvs []
+  \\ first_x_assum drule_all \\ rw []
+QED
+
+Theorem ALOOKUP_REVERSE_EL:
+  ∀g q r.
+    ALOOKUP g q = SOME r ⇒
+    ∃x. ALOOKUP (REVERSE g) q = SOME x
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ gvs [ALOOKUP_APPEND]
+  \\ rpt (CASE_TAC \\ rw [])
+  \\ Cases_on `h` \\ gvs []
+  \\ Cases_on `q = q'` \\ gvs []
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem ALOOKUP_REVERSE_Delay:
+  ∀g n q r.
+    n < LENGTH g ∧
+    EL n g = (q,r) ⇒
+    ∃x'.
+      ALOOKUP (REVERSE (MAP (λx. (FST x,Delay (SND x))) g)) q =
+      SOME (Delay x')
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ gvs [ALOOKUP_APPEND]
+  \\ rpt (CASE_TAC \\ rw [])
+  >- (drule_then assume_tac ALOOKUP_SOME_REVERSE_EL \\ gvs [EL_MAP])
+  \\ Cases_on `n` \\ gvs []
+  \\ first_x_assum drule_all \\ rw []
 QED
 
 Theorem exp_rel_eval_to:
@@ -660,6 +856,7 @@ Proof
         \\ irule_at Any exp_inv_subst
         \\ irule_at Any exp_rel_subst \\ simp []
         \\ unabbrev_all_tac \\ gs [exp_inv_def]
+        \\ gs [is_anyThunk_def, dest_anyThunk_def]
         \\ (irule_at Any v_rel_Thunk_Changed ORELSE
             irule_at Any v_rel_Thunk_Same))
       >- ((* Recclosure-Recclosure *)
@@ -676,26 +873,41 @@ Proof
   >- ((* Lam *)
     rw [Once exp_rel_cases, Once exp_inv_cases]
     \\ fs [exp_inv_def, eval_to_def])
-  >- ((* Let NONE *)
+  >- ((* Seq *)
     rw [Once exp_rel_cases]
     \\ gvs [exp_inv_def]
-    \\ rename1 ‘exp_rel x1 x2’
-    \\ rename1 ‘exp_rel y1 y2’
+    \\ rename1 `exp_rel x1 x2`
+    \\ rename1 `exp_rel y1 y2`
     \\ rw [eval_to_def]
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ first_x_assum (drule_all_then assume_tac)
+    \\ ntac 2 (first_x_assum $ drule_all_then assume_tac)
     \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs [])
-  >- ((* Let SOME *)
+  >- ((* Let *)
     rw [Once exp_rel_cases]
-    \\ gvs [exp_inv_def]
-    \\ rename1 ‘exp_rel x1 x2’
-    \\ rename1 ‘exp_rel y1 y2’
-    \\ rw [eval_to_def]
-    \\ first_x_assum (drule_all_then assume_tac)
-    \\ Cases_on ‘eval_to (k - 1) x1’ \\ Cases_on ‘eval_to (k - 1) x2’ \\ gs []
-    \\ first_x_assum irule
-    \\ gs [closed_subst, exp_inv_subst]
-    \\ irule_at Any exp_rel_subst \\ gs [])
+    >- (
+      gvs [exp_inv_def]
+      \\ rename1 `exp_rel x1 x2`
+      \\ rename1 `exp_rel y1 y2`
+      \\ rw [eval_to_def]
+      \\ first_x_assum $ drule_all_then assume_tac
+      \\ Cases_on `eval_to (k − 1) x1` \\ Cases_on `eval_to (k - 1) x2`
+      \\ gvs []
+      \\ first_x_assum irule \\ gvs [closed_subst]
+      \\ irule_at Any exp_inv_subst \\ gvs []
+      \\ irule_at Any exp_rel_subst \\ gvs [])
+    >- (
+      gvs [exp_inv_def]
+      \\ rename1 `exp_rel (Delay x1) x2`
+      \\ rename1 `exp_rel y1 y2`
+      \\ rw [eval_to_def]
+      \\ first_x_assum $ drule_all_then assume_tac
+      \\ Cases_on `eval_to (k − 1) (Delay x1)` \\ Cases_on `eval_to (k - 1) x2`
+      \\ gvs []
+      >- gvs [eval_to_def]
+      \\ first_x_assum irule \\ gvs [closed_subst]
+      \\ irule_at Any exp_inv_subst \\ gvs []
+      \\ irule_at Any exp_rel_subst \\ gvs []
+      \\ simp [is_anyThunk_def, dest_anyThunk_def]
+      \\ gvs [eval_to_def]))
   >- ((* If *)
     rw [Once exp_rel_cases] \\ fs [exp_inv_def]
     \\ rename1 ‘If x y z’
@@ -722,7 +934,16 @@ Proof
     \\ gvs [LIST_REL_EL_EQN, EL_MAP, BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS,
             freevars_def, MEM_EL]
     \\ rw [ELIM_UNCURRY, freevars_def, MAP_MAP_o, combinTheory.o_DEF,
-           SF ETA_ss])
+           SF ETA_ss]
+    \\ rw [is_anyThunk_def, dest_anyThunk_def, EVERY_EL]
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on `EL n g` \\ gvs []
+    \\ simp [PULL_EXISTS]
+    \\ drule_then assume_tac ALOOKUP_EL \\ gvs []
+    \\ `MAP FST g = MAP FST g'` by gvs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+    \\ gvs []
+    \\ drule_all_then assume_tac ALOOKUP_SOME_EL_2 \\ gvs []
+    \\ irule ALOOKUP_REVERSE_Delay \\ rw [SF SFY_ss])
   >- ((* Delay *)
     rw [Once exp_rel_cases]
     \\ rgs [eval_to_def, exp_inv_def, v_rel_Thunk_Same])
@@ -747,23 +968,66 @@ Proof
             \\ gs [LIST_REL_CONJ, ELIM_UNCURRY])
       \\ rgs [OPTREL_def]
       \\ Cases_on ‘_x’ \\ gs [] \\ Cases_on ‘_y’ \\ gs []
-      \\ first_x_assum irule
-      \\ simp [closed_subst, subst_funs_def]
-      \\ irule_at Any exp_rel_subst
-      \\ irule_at Any exp_inv_subst
-      \\ irule_at Any LIST_EQ
-      \\ simp [EVERY2_MAP, EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF,
-               LAMBDA_PROD, GSYM FST_THM]
-      \\ rgs [ELIM_UNCURRY, LIST_REL_CONJ]
-      \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
-      \\ rgs [LIST_REL_EL_EQN, EVERY_EL, MEM_EL, PULL_EXISTS, EL_MAP, EVERY_EL,
-              Once exp_rel_cases, exp_inv_def, SF CONJ_ss]
-      \\ rpt (first_x_assum (drule_then strip_assume_tac))
-      \\ gs [exp_inv_def, freevars_def])
+      \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+      \\ (`($= +++ (λv w. v_rel v w ∧ v_inv v))
+                  (eval_to (k - 1) (subst_funs xs e))
+                  (eval_to (k - 1) (subst_funs ys e'))`
+          suffices_by (
+            gvs []
+            \\ disj1_tac
+            \\ rpt strip_tac
+            \\ drule v_rel_anyThunk \\ gvs [])
+          \\ first_x_assum irule
+          \\ simp [closed_subst, subst_funs_def]
+          \\ irule_at Any exp_rel_subst
+          \\ irule_at Any exp_inv_subst
+          \\ irule_at Any LIST_EQ
+          \\ simp [EVERY2_MAP, EVERY_MAP, MAP_MAP_o, combinTheory.o_DEF,
+                   LAMBDA_PROD, GSYM FST_THM]
+          \\ rgs [ELIM_UNCURRY, LIST_REL_CONJ]
+          \\ drule_then strip_assume_tac ALOOKUP_SOME_REVERSE_EL
+          \\ rgs [LIST_REL_EL_EQN, EVERY_EL, MEM_EL, PULL_EXISTS, EL_MAP, EVERY_EL,
+                  Once exp_rel_cases, exp_inv_def, SF CONJ_ss]
+          \\ conj_tac
+          >- (
+             rw [is_anyThunk_def, dest_anyThunk_def]
+             \\ gvs [AllCaseEqs()] \\ simp [PULL_EXISTS]
+             \\ Cases_on `EL n' ys` \\ gvs []
+             \\ drule_all_then assume_tac ALOOKUP_EL \\ gvs []
+             \\ `MAP FST ys = MAP FST xs`
+               by gvs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+             \\ gvs []
+             \\ drule_all_then assume_tac ALOOKUP_SOME_EL_2 \\ gvs []
+             \\ drule ALOOKUP_REVERSE_EL \\ rw []
+             \\ drule_then assume_tac ALOOKUP_SOME_REVERSE_EL \\ gvs []
+             \\ qpat_x_assum
+                  `∀n. n < LENGTH ys ⇒ is_delay (SND (EL n xs))` assume_tac
+             \\ pop_assum $ drule_then assume_tac \\ gvs []
+             \\ rename1 `is_delay xx`
+             \\ Cases_on `xx` \\ gvs [is_delay_def])
+          \\ rpt (first_x_assum (drule_then strip_assume_tac))
+          \\ gs [exp_inv_def, freevars_def]))
     >- ((* Thunk-Thunk *)
-      first_x_assum irule
+      rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+      \\ `($= +++ (λv w. v_rel v w ∧ v_inv v))
+                  (eval_to (k - 1) (subst_funs [] e))
+                  (eval_to (k - 1) (subst_funs [] e'))`
+        suffices_by (
+          gvs []
+          \\ disj1_tac
+          \\ rpt strip_tac
+          \\ drule v_rel_anyThunk \\ gvs [])
+      \\ first_x_assum irule
       \\ gs [subst_funs_def, EVERY_EL])
     \\ gs [subst_funs_def, exp_inv_def]
+    \\ rw [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+    \\ `($= +++ (λv w. v_rel v w ∧ v_inv v))
+                (eval_to (k - 1) (Force (Value x')))
+                (eval_to (k - 1) (Force (Value v)))`
+      suffices_by (
+        gvs []
+        \\ rpt strip_tac
+        \\ drule eval_to_Force_anyThunk \\ rw [])
     \\ first_x_assum irule
     \\ gs [EVERY_EL, EL_MAP, exp_rel_Force, exp_rel_Value_Unchanged])
   >- ((* MkTick *)
@@ -773,7 +1037,20 @@ Proof
     \\ simp [eval_to_def]
     \\ Cases_on ‘op’ \\ gs [exp_inv_def, EVERY_EL, EL_MAP, LIST_REL_EL_EQN]
     >- ((* Cons *)
-      rgs [result_map_def, MAP_MAP_o, combinTheory.o_DEF, MEM_MAP, eval_to_def,
+      `($= +++ (λv w. v_rel v w ∧ v_inv v))
+          do
+            vs <- result_map (λx. eval_to k x) (MAP Delay ys');
+            INR (Constructor s vs)
+          od
+          do
+            vs <- result_map (λx. eval_to k x) ys;
+            INR (Constructor s vs)
+          od` suffices_by (
+        simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+        \\ CCONTR_TAC \\ gvs [LIST_REL_EL_EQN]
+        \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+        \\ drule v_rel_anyThunk \\ rw [])
+      \\ rgs [result_map_def, MAP_MAP_o, combinTheory.o_DEF, MEM_MAP, eval_to_def,
            PULL_EXISTS, MEM_EL]
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -885,8 +1162,7 @@ Proof
       \\ gs [Abbr ‘f’, PULL_EXISTS, CaseEqs ["sum", "v"]]
       \\ rpt (first_x_assum (drule_then assume_tac)) \\ gs []))
   >- ((* Monad *)
-    rw[Once exp_rel_cases] >> gvs[eval_to_def, exp_inv_def]
-    )
+    rw[Once exp_rel_cases] >> gvs[eval_to_def, exp_inv_def])
 QED
 
 Theorem exp_rel_eval:
@@ -935,6 +1211,7 @@ Triviality exp_inv_rel_subst:
   ∀vs x ws y.
     LIST_REL v_inv_rel (MAP SND vs) (MAP SND ws) ∧
     MAP FST vs = MAP FST ws ∧
+    EVERY (λ(n,v). n ∈ freevars x ⇒ is_anyThunk v) vs ∧
     exp_inv_rel x y ⇒
       exp_inv_rel (subst vs x) (subst ws y)
 Proof
@@ -947,10 +1224,11 @@ QED
 Theorem unthunk_apply_closure[local]:
   exp_inv_rel x y ∧
   v_inv_rel v2 w2 ∧
+  is_anyThunk v2 ∧
   (∀x y.
      ($= +++ v_inv_rel) x y ⇒
-       next_rel v_inv_rel exp_inv_rel (f x) (g y)) ⇒
-    next_rel v_inv_rel exp_inv_rel
+       next_rel_delayed v_inv_rel exp_inv_rel (f x) (g y)) ⇒
+    next_rel_delayed v_inv_rel exp_inv_rel
              (apply_closure x v2 f)
              (apply_closure y w2 g)
 Proof
@@ -977,50 +1255,49 @@ Proof
   \\ CASE_TAC \\ gs []
 QED
 
-Theorem unthunk_rel_ok[local]:
-  rel_ok T v_inv_rel exp_inv_rel
+Theorem unthunk_rel_ok_delayed[local]:
+  rel_ok_delayed T v_inv_rel exp_inv_rel
 Proof
-  rw [rel_ok_def]
-  >- ((* apply_closure preserves rel *)
-    simp [unthunk_apply_closure])
-  >- ((* Thunks go to Thunks or DoTicks *)
-    Cases_on ‘s’ \\ gs []
-    \\ Cases_on ‘w’ \\ gs [])
-  >- ((* Constructors are related *)
-    gs [LIST_REL_EL_EQN, EVERY_EL])
-  >- ((* exp_inv holds for Lits *)
-    simp [exp_inv_def])
-  >- ((* Equal literals are related *)
-    simp [exp_rel_Prim])
-  >- ((* exp_inv holds for 0-arity conses *)
-    simp [exp_inv_def])
-  >- ((* Equal 0-arity conses are related *)
-    simp [exp_rel_Prim])
-  >- simp[exp_inv_def] (* v_inv v ⇒ exp_inv (Value v) *)
-  >- simp[exp_rel_Value_Unchanged] (* v_rel v1 v2 ⇒ exp_rel (Value v1) (Value v2) *)
-  >- gvs[LIST_REL_EL_EQN, EVERY_EL]
+  rw [rel_ok_delayed_def]
+  >- simp [v_rel_anyThunk]
+  >- simp [unthunk_apply_closure]
+  >- (
+    Cases_on `s` \\ gvs []
+    \\ Cases_on `w` \\ gvs [])
+  >- gvs [LIST_REL_EL_EQN, EVERY_EL]
+  >- simp [exp_inv_def]
+  >- ntac 2 (simp [Once exp_rel_cases])
+  >- simp [exp_inv_def]
+  >- ntac 2 (simp [Once exp_rel_cases])
+  >- simp [exp_inv_def]
+  >- ntac 2 (simp [Once exp_rel_cases])
+  >- (
+    gvs [LIST_REL_EL_EQN, EVERY_EL]
+    \\ simp [Once exp_rel_cases]
+    \\ Cases_on `y` \\ gvs [Once exp_rel_cases, Once exp_inv_cases])
+  >- gvs [LIST_REL_EL_EQN, EVERY_EL]
 QED
 
-Theorem unthunk_sim_ok[local]:
-  sim_ok T v_inv_rel exp_inv_rel
+Theorem unthunk_sim_ok_delayed[local]:
+  sim_ok_delayed T v_inv_rel exp_inv_rel
 Proof
-  rw [sim_ok_def]
+  rw [sim_ok_delayed_def]
   \\ simp [exp_inv_rel_eval]
   >- (irule exp_inv_subst >> gvs[LIST_REL_EL_EQN, EVERY_EL])
   >- gvs[closed_subst, closed_def]
   >- (irule exp_rel_subst >> gvs[LIST_REL_EL_EQN, EVERY_EL])
 QED
 
-Theorem unthunk_semantics:
+Theorem unthunk_semantics_delayed:
   exp_rel x y ∧
   exp_inv x ∧
   closed x ⇒
-    semantics x Done [] = semantics y Done []
+    semantics_delayed x Done [] = semantics_delayed y Done []
 Proof
   strip_tac
-  \\ irule sim_ok_semantics
-  \\ irule_at Any unthunk_sim_ok
-  \\ irule_at Any unthunk_rel_ok \\ gs []
+  \\ irule sim_ok_delayed_semantics_delayed
+  \\ irule_at Any unthunk_sim_ok_delayed
+  \\ irule_at Any unthunk_rel_ok_delayed \\ gs []
 QED
 
 (* -------------------------------------------------------------------------
@@ -1056,11 +1333,22 @@ Inductive delay_force:
   (∀mop xs ys.
      LIST_REL delay_force xs ys ⇒
        delay_force (Monad mop xs) (Monad mop ys))
-[delay_force_Let:]
-  (∀bv x1 y1 x2 y2.
+[delay_force_Seq:]
+  (∀x1 x2 y1 y2.
      delay_force x1 x2 ∧
      delay_force y1 y2 ⇒
-       delay_force (Let bv x1 y1) (Let bv x2 y2))
+       delay_force (Seq x1 y1) (Seq x2 y2))
+[delay_force_Let_fresh:]
+  (∀x1 x2 y1 y2.
+     delay_force x1 x2 ∧
+     delay_force y1 y2 ∧
+     fresh ∉ freevars y1 ⇒
+       delay_force (Let (SOME fresh) x1 y1) (Let (SOME fresh) x2 y2))
+[delay_force_Let:]
+  (∀x1 y1 x2 y2.
+     delay_force (Delay x1) x2 ∧
+     delay_force y1 y2 ⇒
+       delay_force (Let (SOME s) (Delay x1) y1) (Let (SOME s) x2 y2))
 [delay_force_Letrec:]
   (∀f x g y.
      LIST_REL (λ(f,x) (g,y).
@@ -1131,13 +1419,19 @@ Proof
     irule_at Any exp_rel_Monad >>
     irule_at Any thunk_untickProofTheory.exp_rel_Monad >>
     pop_assum mp_tac >> Induct_on `LIST_REL` >> rw[PULL_EXISTS] >>
-    rpt $ goal_assum drule
-    )
-  >- (* Let *)
-   (irule_at Any exp_rel_Let \\ fs [exp_inv_def]
+    qexistsl [`x'`, `xs0`] >> simp [])
+  >- ((* Seq *)
+    irule_at Any exp_rel_Seq \\ fs [exp_inv_def]
     \\ irule_at Any thunk_untickProofTheory.exp_rel_Let
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ rpt (first_assum $ irule_at Any))
+  >- ((* Let fresh *)
+    irule_at Any exp_rel_Let_fresh \\ fs [exp_inv_def]
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Let
+    \\ rpt (first_assum $ irule_at Any))
+  >- ((* Let *)
+    irule_at Any exp_rel_Let \\ fs [exp_inv_def]
+    \\ irule_at Any thunk_untickProofTheory.exp_rel_Let
+    \\ rpt (first_assum $ irule_at Any))
   >- ((* Letrec *)
     irule_at Any exp_rel_Letrec \\ fs [exp_inv_def]
     \\ irule_at Any thunk_untickProofTheory.exp_rel_Letrec
@@ -1198,17 +1492,26 @@ Proof
   \\ fs [closed_def]
 QED
 
-Theorem delay_force_semantics:
+Theorem delay_force_freevars:
+  delay_force x y ⇒ freevars x = freevars y
+Proof
+  rw [] \\ imp_res_tac delay_force_thm
+  \\ imp_res_tac exp_rel_freevars
+  \\ imp_res_tac thunk_untickProofTheory.exp_rel_freevars
+  \\ simp []
+QED
+
+Theorem delay_force_semantics_delayed:
   delay_force x y ∧
   closed x ∧
-  pure_semantics$safe_itree (semantics x Done []) ⇒
-    semantics x Done [] = semantics y Done []
+  pure_semantics$safe_itree (semantics_delayed x Done []) ⇒
+    semantics_delayed x Done [] = semantics_delayed y Done []
 Proof
   strip_tac
   \\ imp_res_tac delay_force_thm
-  \\ drule_all unthunk_semantics
+  \\ drule_all unthunk_semantics_delayed
   \\ strip_tac \\ fs []
-  \\ drule untick_semantics
+  \\ drule untick_semantics_delayed
   \\ fs [] \\ disch_then irule
   \\ imp_res_tac exp_rel_freevars
   \\ fs [closed_def]

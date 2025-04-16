@@ -13,12 +13,13 @@ open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
 open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
      finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
      thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory;
+open pure_miscTheory thunkLangPropsTheory thunk_semantics_delayedTheory;
 
 val _ = new_theory "thunk_let_forceProof";
 
 val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "wellorder", "thunkLangProps"];
+                              "thunkLang", "wellorder", "thunkLangProps",
+                              "thunk_semantics_delayed"];
 
 Overload safe_itree = “pure_semantics$safe_itree”
 
@@ -610,6 +611,11 @@ Proof
     \\ fs [ALOOKUP_NONE,MAP_REVERSE] \\ gvs []
     \\ irule exp_rel_Value
     \\ drule_all ALOOKUP_REVERSE_REVERSE \\ fs [])
+  >~ [`Monadic _ _`]
+  >- (
+    simp [Once v_rel_cases] \\ fs [SF ETA_ss]
+    \\ last_x_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs [FORALL_PROD])
   \\ simp [Once v_rel_cases] \\ fs [SF ETA_ss]
   \\ last_x_assum mp_tac
   \\ match_mp_tac LIST_REL_mono \\ fs [FORALL_PROD]
@@ -1659,7 +1665,11 @@ Proof
       disch_then (qx_choose_then ‘j’ assume_tac)
       \\ qexists_tac ‘j’
       \\ Cases_on ‘result_map (λx. eval_to (j + k) x ) xs’
-      \\ Cases_on ‘result_map (λx. eval_to k x) ys’ \\ gs [])
+      \\ Cases_on ‘result_map (λx. eval_to k x) ys’ \\ gs []
+      \\ rpt (CASE_TAC \\ gvs [])
+      \\ gvs [EVERY_EL, EXISTS_MEM, MEM_EL, LIST_REL_EL_EQN]
+      \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+      \\ drule v_rel_anyThunk \\ rw [])
     \\ ‘result_map (λx. eval_to k x) ys ≠ INL Type_error’
       by (gvs [result_map_def, CaseEq "bool"]
           \\ strip_tac
