@@ -1311,13 +1311,6 @@ Proof
   \\ fs []
 QED
 
-Theorem step'_n_set_cont:
-  step'_n n avoid (e,ts,k) = (res,ts1,k1) ∧ ~is_halt (res,ts1,k1) ⇒
-  ∀k2. step'_n n avoid (e,ts,k ++ k2) = (res,ts1,k1 ++ k2)
-Proof
-  cheat
-QED
-
 Theorem step_n_set_cont:
   step_n n (Exp tenv1 te,ts,[]) = (Val res,ts1,[]) ⇒
   ∃n5. n5 ≤ n ∧ ∀k. step_n n5 (Exp tenv1 te,ts,k) = (Val res,ts1,k)
@@ -1369,6 +1362,26 @@ Proof
   \\ rw []
   \\ qexists_tac ‘SUC (n5 + m)’
   \\ full_simp_tac std_ss [step_n_add,step_n_SUC] \\ gvs []
+QED
+
+Theorem step_append_cont:
+  step ts k e = (res,ts1,k1) ∧ ¬is_halt (res,ts1,k1) ⇒
+    step ts (k ++ k2) e = (res,ts1,k1 ++ k2)
+Proof
+  Cases_on ‘e’ \\ strip_tac \\ gvs [step]
+  >~ [‘Exp’] >- (
+    Cases_on ‘e'’ \\ gvs [step, AllCaseEqs()]
+    \\ Cases_on ‘s’ \\ gvs [num_args_ok_def, LENGTH_EQ_NUM_compute]
+    \\ gvs [step, AllCaseEqs(), get_atoms_def])
+  >~ [‘Exn’] >- (Cases_on ‘k’ \\ gvs [step, AllCaseEqs()])
+  \\ Cases_on ‘k’ \\ gvs [step]
+  \\ Cases_on ‘ts’ \\ gvs [num_args_ok_def, LENGTH_EQ_NUM_compute, step]
+  \\ Cases_on ‘h’ \\ gvs [step, AllCaseEqs()]
+  >>~- ([‘AppK’],
+    Cases_on ‘l1’ \\ gvs [step]
+    \\ IF_CASES_TAC \\ gvs [step]
+    \\ Cases_on ‘s’ \\ gvs [step, AllCaseEqs()])
+  >>~- ([‘LetK’], Cases_on ‘o'’ \\ gvs [step])
 QED
 
 Theorem return_fast_forward_lemma[local]:
@@ -1581,10 +1594,34 @@ Proof
           step_def,return_def,error_def]
 QED
 
-Definition rec_env_def: (* TODO: remove dup with mk_rec_env *)
-  rec_env f env =
-    MAP (λ(fn,_). (fn,Recclosure f env fn)) f ++ env
-End
+Theorem step'_append_cont:
+  step' avoid ts k e = (res,ts1,k1) ∧ ¬is_halt (res,ts1,k1) ⇒
+    step' avoid ts (k ++ k2) e = (res,ts1,k1 ++ k2)
+Proof
+  Cases_on ‘e’ \\ strip_tac \\ gvs [step'_def, step_append_cont]
+  \\ Cases_on ‘k’ \\ gvs [return'_def, step]
+  \\ Cases_on ‘h’ \\ gvs [return'_def, step, AllCaseEqs()]
+  >~ [‘AppK’] >- (
+    Cases_on ‘l1’ \\ gvs [step]
+    \\ IF_CASES_TAC \\ gvs [step]
+    \\ Cases_on ‘s’ \\ gvs [step, AllCaseEqs()])
+  >~ [‘LetK’] >- (Cases_on ‘o'’ \\ gvs [step])
+QED
+
+Theorem step'_n_append_cont:
+  ∀n avoid e ts k res ts1 k1.
+    step'_n n avoid (e,ts,k) = (res,ts1,k1) ∧ ~is_halt (res,ts1,k1) ⇒
+    ∀k2. step'_n n avoid (e,ts,k ++ k2) = (res,ts1,k1 ++ k2)
+Proof
+  completeInduct_on ‘n’ \\ rw []
+  \\ Cases_on ‘n’ \\ gvs [step'_n_def, FUNPOW] \\ rw []
+  \\ ‘∃x. step' avoid ts k e = x’ by gvs [] \\ PairCases_on ‘x’ \\ gvs []
+  \\ ‘∃y. step' avoid ts (k ++ k2) e = y’ by gvs []
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ gvs [GSYM step'_n_def, PULL_FORALL]
+  \\ Cases_on ‘is_halt (x0,x1,x2)’ \\ gvs [is_halt_step'_n_same]
+  \\ drule_all step'_append_cont \\ rw [] \\ gvs []
+QED
 
 Theorem add_to_avoid:
   ∀m x k v v1.
@@ -1596,23 +1633,27 @@ Proof
 QED
 
 Theorem step'_n_INSERT:
-  step'_n m avoid (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[]) ∧
+  step'_n m avoid (Exp (mk_rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[]) ∧
   dest_anyThunk v1 = SOME (INR (y0,y1),x1) ⇒
-  step'_n m (v1 INSERT avoid) (Exp (rec_env x1 y0) y1,NONE,[]) = (Val v,NONE,[])
+    step'_n m (v1 INSERT avoid) (Exp (mk_rec_env x1 y0) y1,NONE,[]) =
+      (Val v,NONE,[])
 Proof
   Cases_on ‘v1 ∈ avoid’
-  >- (‘v1 INSERT avoid = avoid’ by (gvs [pred_setTheory.EXTENSION] \\ metis_tac []) \\ gvs [])
+  >- (
+    ‘v1 INSERT avoid = avoid’ by (
+      gvs [pred_setTheory.EXTENSION] \\ metis_tac [])
+    \\ gvs [])
   \\ strip_tac
-  \\ Cases_on ‘∃n ts. step'_n n avoid (Exp (rec_env x1 y0) y1,NONE,[]) =
+  \\ Cases_on ‘∃n ts. step'_n n avoid (Exp (mk_rec_env x1 y0) y1,NONE,[]) =
                       (Val v1,NONE,ForceK1::ts)’ \\ gvs []
-  >-
-   (dxrule step'_n_set_cont \\ gvs [] \\ strip_tac
+  >- (
+    dxrule step'_n_append_cont \\ gvs [] \\ strip_tac
     \\ ‘∀k2. ∃k3.
-          step'_n (n+1) avoid (Exp (rec_env x1 y0) y1,NONE,k2) =
-            (Exp (rec_env x1 y0) y1,NONE,k3)’ by
-      (once_rewrite_tac [ADD_COMM]
-       \\ asm_rewrite_tac [step'_n_add]
-       \\ gvs [step'_n_1,step'_def,return'_def,continue_def,rec_env_def])
+          step'_n (n+1) avoid (Exp (mk_rec_env x1 y0) y1,NONE,k2) =
+            (Exp (mk_rec_env x1 y0) y1,NONE,k3)’ by (
+      once_rewrite_tac [ADD_COMM]
+      \\ asm_rewrite_tac [step'_n_add]
+      \\ gvs [step'_n_1,step'_def,return'_def,continue_def,mk_rec_env_def])
     \\ pop_assum mp_tac \\ pop_assum kall_tac \\ strip_tac
     \\ qsuff_tac ‘F’ \\ gvs []
     \\ cheat (* this case leads to contradiction because one can take n+1 steps
