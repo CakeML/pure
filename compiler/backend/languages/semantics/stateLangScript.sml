@@ -1558,6 +1558,18 @@ Proof
   Induct \\ fs [FORALL_PROD,is_halt_step'_same,step'_n_def,FUNPOW]
 QED
 
+Theorem step'_n_mono:
+  ∀n avoid res.
+    is_halt (step'_n n avoid res) ⇒
+      ∀m. n < m ⇒ step'_n n avoid res = step'_n m avoid res
+Proof
+  rw [] \\ Induct_on ‘m’ \\ gvs []
+  \\ PairCases_on ‘res’ \\ gvs [step'_n_def, FUNPOW_SUC]
+  \\ Cases_on ‘n = m’ \\ gvs []
+  \\ pairarg_tac \\ gvs [is_halt_step'_same]
+  \\ strip_tac \\ gvs [is_halt_step'_same]
+QED
+
 Theorem step'_n_unfold:
   (∃n. k = n + 1 ∧ step'_n n avoid (step' avoid st c sr) = res) ⇒
   step'_n k avoid (sr,st,c) = res
@@ -1623,13 +1635,51 @@ Proof
   \\ drule_all step'_append_cont \\ rw [] \\ gvs []
 QED
 
-Theorem add_to_avoid:
-  ∀m x k v v1.
-    step'_n m avoid (x,NONE,k) = (Val v,NONE,[]) ∧
-    (∀n ts. step'_n n avoid (x,NONE,k) ≠ (Val v1,NONE,ForceK1::ts)) ⇒
-    step'_n m (v1 INSERT avoid) (x,NONE,k) = (Val v,NONE,[])
+Triviality step'_not_ForceK1:
+  v1 ∉ avoid ∧
+  step' avoid s k x = (r0,r1,r2) ∧
+  (∀ts. x = Val v1 ⇒ k ≠ ForceK1::ts) ⇒
+    step' (v1 INSERT avoid) s k x = (r0,r1,r2)
 Proof
-  cheat
+  rw []
+  \\ Cases_on ‘x’ \\ gvs [step'_def]
+  \\ Cases_on ‘k’ \\ gvs [return'_def]
+  \\ Cases_on ‘h’ \\ gvs [return'_def]
+QED
+
+Theorem add_to_avoid:
+  ∀m avoid x s k v v1.
+    v1 ∉ avoid ∧
+    step'_n m avoid (x,s,k) = (Val v,NONE,[]) ∧
+    (∀n s1 ts. step'_n n avoid (x,s,k) ≠ (Val v1,s1,ForceK1::ts)) ⇒
+    step'_n m (v1 INSERT avoid) (x,s,k) = (Val v,NONE,[])
+Proof
+  completeInduct_on ‘m’ \\ rw [] \\ gvs []
+  \\ Cases_on ‘m’ \\ gvs [step'_n_def, FUNPOW]
+  \\ ‘∃r. step' avoid s k x = r’ by gvs [] \\ PairCases_on ‘r’ \\ gvs []
+  \\ ‘∃r'. step' (v1 INSERT avoid) s k x = r'’ by gvs []
+  \\ PairCases_on ‘r'’ \\ gvs []
+  \\ gvs [GSYM step'_n_def]
+  \\ first_assum $ qspec_then ‘0’ assume_tac \\ fs []
+  \\ drule_all step'_not_ForceK1 \\ rw []
+  \\ pop_assum kall_tac
+  \\ last_x_assum $ qspec_then ‘n’ assume_tac \\ gvs []
+  \\ pop_assum irule \\ rw [] \\ gvs []
+  \\ first_x_assum $ qspec_then ‘n' + 1’ assume_tac \\ gvs []
+  \\ pop_assum $ qspecl_then [‘s1’,‘ts’] assume_tac \\ gvs []
+  \\ gvs [GSYM ADD1, step'_n_def, FUNPOW]
+QED
+
+Triviality step'_n_not_halt_mul:
+  ∀m n avoid x s k.
+    (∀k1. ¬is_halt (x,s,k1)) ∧
+    (∀k. ∃k1. step'_n n avoid (x,s,k) = (x,s,k1)) ⇒
+    ∃k1. step'_n (m * n) avoid (x,s,k) = (x,s,k1)
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ simp [ADD1, LEFT_ADD_DISTRIB, step'_n_add]
+  \\ last_x_assum drule_all \\ rw []
+  \\ pop_assum $ qspec_then ‘k’ assume_tac \\ gvs []
 QED
 
 Theorem step'_n_INSERT:
@@ -1644,8 +1694,8 @@ Proof
       gvs [pred_setTheory.EXTENSION] \\ metis_tac [])
     \\ gvs [])
   \\ strip_tac
-  \\ Cases_on ‘∃n ts. step'_n n avoid (Exp (mk_rec_env x1 y0) y1,NONE,[]) =
-                      (Val v1,NONE,ForceK1::ts)’ \\ gvs []
+  \\ Cases_on ‘∃n s1 ts. step'_n n avoid (Exp (mk_rec_env x1 y0) y1,NONE,[]) =
+                      (Val v1,s1,ForceK1::ts)’ \\ gvs []
   >- (
     dxrule step'_n_append_cont \\ gvs [] \\ strip_tac
     \\ ‘∀k2. ∃k3.
@@ -1656,24 +1706,13 @@ Proof
       \\ gvs [step'_n_1,step'_def,return'_def,continue_def,mk_rec_env_def])
     \\ pop_assum mp_tac \\ pop_assum kall_tac \\ strip_tac
     \\ qsuff_tac ‘F’ \\ gvs []
-    \\ cheat (* this case leads to contradiction because one can take n+1 steps
-                to arrive at (Exp (rec_env x1 y0) y1,NONE,...) and then n+1 steps
-                again and again and again withput terminating. This means that
-                eventually m steps will be exceeded which means assumption 0 is false *))
-  \\ cheat (* this case the goal is provable, since assumption 2 states that we
-              will never encounter the (Val v1,NONE,ForceK1::...) which is the
-              only configuration that can lead to an attempt to force v1 *)
-QED
-
-Theorem step_n'_mono:
-  ∀n res. is_halt (step'_n n avoid res) ⇒
-          ∀m. n < m ⇒ step'_n n avoid res = step'_n m avoid res
-Proof
-  rw[] >> Induct_on `m` >> gvs[] >>
-  PairCases_on `res` >> gvs[step'_n_def,FUNPOW_SUC] >>
-  Cases_on `n = m` >> gvs[] >>
-  pairarg_tac >> gvs[is_halt_step'_same] >>
-  strip_tac \\ gvs[is_halt_step'_same]
+    \\ dxrule_at Any step'_n_not_halt_mul \\ rpt strip_tac \\ gvs []
+    \\ pop_assum $ qspecl_then [‘m + 1’, ‘[]’] assume_tac \\ gvs []
+    \\ ‘is_halt (step'_n m avoid (Exp (mk_rec_env x1 y0) y1,NONE,[]))’
+      by gvs []
+    \\ drule step'_n_mono \\ rw []
+    \\ qexists ‘(m + 1) * (n + 1)’ \\ gvs [])
+  \\ gvs [add_to_avoid]
 QED
 
 Theorem is_halt_imp_eq':
@@ -1681,7 +1720,7 @@ Theorem is_halt_imp_eq':
   step'_n n avoid res = step'_n m avoid res
 Proof
   ‘n < m ∨ m = n ∨ m < n’ by decide_tac
-  \\ metis_tac [step_n'_mono]
+  \\ metis_tac [step'_n_mono]
 QED
 
 Theorem step'_n_fast_forward_gen:
