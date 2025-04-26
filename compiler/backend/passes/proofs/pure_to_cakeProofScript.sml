@@ -28,6 +28,7 @@ Proof
   \\ disch_then $ qspec_then ‘c’ assume_tac
   \\ fs [pure_to_env_def]
   \\ irule_at Any thunk_to_envProofTheory.to_env_semantics
+  \\ ‘safe_itree (itree_of (exp_of x))’ by gvs []
   \\ drule_all IMP_thunk_cexp_wf \\ fs []
   \\ disch_then $ qspec_then ‘c’ strip_assume_tac
   \\ drule_all IMP_env_cexp_wf \\ fs []

@@ -3600,6 +3600,7 @@ Theorem split_Delayed_Lam_soundness:
   ∀e vc e_out vc_out.
      split_Delayed_Lam e vc (empty compare) = (e_out, vc_out) ∧
      closed (exp_of e) ∧
+     pure_semantics$safe_itree (semantics (exp_of e) Done []) ∧
      boundvars (exp_of e) ⊆ set_of vc ∧
      vars_ok vc ∧
      cexp_wf e
@@ -3624,6 +3625,7 @@ Theorem split_delated_lam_soundness:
   ∀e vc e_out vc_out.
      split_delated_lam do_it e vc = (e_out, vc_out) ∧
      closed (exp_of e) ∧
+     pure_semantics$safe_itree (semantics (exp_of e) Done []) ∧
      boundvars (exp_of e) ⊆ set_of vc ∧
      vars_ok vc ∧
      cexp_wf e

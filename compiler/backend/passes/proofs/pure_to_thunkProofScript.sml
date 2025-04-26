@@ -656,6 +656,7 @@ QED
 Theorem IMP_to_thunk_cexp_wf:
   cexp_wf x ∧
   closed (exp_of x) ∧
+  pure_semantics$safe_itree (itree_of (exp_of x)) ∧
   letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
   thunkLang$closed (thunk_exp_of$exp_of (FST (to_thunk flag (pure_names x) x)))
@@ -696,17 +697,20 @@ Proof
   \\ pairarg_tac \\ fs []
   \\ drule_then mp_tac split_delated_lam_soundness
   \\ simp []
+  \\ ‘safe_itree (itree_of (exp_of x))’ by gvs []
   \\ drule_all IMP_to_thunk_cexp_wf
   \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac \\ gs []
   \\ strip_tac
   \\ fs [GSYM thunk_semanticsTheory.itree_of_def]
-  \\ drule_all thunk_let_force_1ProofTheory.itree_of_simp_let_force
-  \\ disch_then $ qspec_then `c.do_let_force` assume_tac \\ gs []
+  \\ ntac 2 (
+    drule_all thunk_let_force_1ProofTheory.itree_of_simp_let_force
+    \\ disch_then $ qspec_then ‘c.do_let_force’ assume_tac \\ gs [])
 QED
 
 Theorem IMP_thunk_cexp_wf:
   cexp_wf x ∧
   closed (exp_of x) ∧
+  safe_itree (itree_of (exp_of x)) ∧
   letrecs_distinct (exp_of x) ∧
   NestedCase_free x ⇒
   thunk_exp_of$cexp_wf (compile_to_thunk c x) ∧
@@ -723,8 +727,12 @@ Proof
   \\ pairarg_tac \\ fs [thunk_let_force_1ProofTheory.simp_let_force_wf_lemmas]
   \\ drule_then mp_tac split_delated_lam_soundness
   \\ impl_tac \\ gvs []
+  >- (
+    drule_all to_thunk_itree_of
+    \\ disch_then $ qspec_then ‘c.do_mk_delay’ assume_tac \\ fs []
+    \\ gvs [itree_of_def])
   \\ drule_all IMP_to_thunk_cexp_wf
-  \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
+  \\ disch_then $ qspec_then ‘c.do_mk_delay’ assume_tac
   \\ gs [] \\ rw [] \\ fs []
 QED
 
