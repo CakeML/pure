@@ -421,7 +421,7 @@ Definition token_of_sym_def:
     | NumberS i => IntT i
     | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
-                   LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
+                   LongidT (Mod s1 End) (case s2 of "" => "" | (c::cs) => cs)
     | FFIS s => FFIT s
     | OtherS s  => get_token s
 End

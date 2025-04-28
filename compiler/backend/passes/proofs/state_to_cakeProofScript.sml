@@ -212,10 +212,10 @@ Inductive op_rel:
   op_rel Length Alength ∧
   op_rel Sub Asub ∧
   op_rel Update Aupdate ∧
-  op_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk F) ∧
-  op_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk T) ∧
-  op_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk F) ∧
-  op_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk T) ∧
+  op_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk T) ∧
+  op_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk F) ∧
+  op_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk T) ∧
+  op_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk F) ∧
   op_rel ForceMutThunk (ThunkOp ForceThunk)
 End
 
@@ -606,8 +606,8 @@ End
 
 Definition store_rel_def:
   store_rel cnenv (Array svs) (Varray cvs) = LIST_REL (v_rel cnenv) svs cvs ∧
-  store_rel cnenv (ThunkMem Evaluated sv) (Thunk F cv) = v_rel cnenv sv cv ∧
-  store_rel cnenv (ThunkMem NotEvaluated sv) (Thunk T cv) = v_rel cnenv sv cv ∧
+  store_rel cnenv (ThunkMem Evaluated sv) (Thunk T cv) = v_rel cnenv sv cv ∧
+  store_rel cnenv (ThunkMem NotEvaluated sv) (Thunk F cv) = v_rel cnenv sv cv ∧
   store_rel cnenv _ _ = F
 End
 
@@ -738,9 +738,9 @@ Theorem capplication_thm:
       (case vs of
          [Loc _ n] => (
            case store_lookup n s of
-             SOME (Thunk F v) =>
+             SOME (Thunk T v) =>
                return env s fp v c
-           | SOME (Thunk T f) =>
+           | SOME (Thunk F f) =>
                application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
@@ -939,7 +939,7 @@ Proof
 QED
 
 Theorem store_lookup_assign_Thunk:
-  store_lookup n st = SOME (Thunk T a) ⇒
+  store_lookup n st = SOME (Thunk F a) ⇒
   store_assign n (Thunk b y) st =
   SOME $ LUPDATE (Thunk b y) n st
 Proof
@@ -2606,10 +2606,10 @@ Inductive csop_rel:
   csop_rel Length Alength ∧
   csop_rel Sub Asub ∧
   csop_rel Update Aupdate ∧
-  csop_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk F) ∧
-  csop_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk T) ∧
-  csop_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk F) ∧
-  csop_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk T) ∧
+  csop_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk T) ∧
+  csop_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk F) ∧
+  csop_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk T) ∧
+  csop_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk F) ∧
   csop_rel ForceMutThunk (ThunkOp ForceThunk)
 End
 

@@ -2852,9 +2852,8 @@ Proof
         \\ gs [result_map_def, CaseEq "bool", MEM_MAP]
         \\ gs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
         \\ gvs [MEM_EL, PULL_EXISTS]
-        \\ first_x_assum (drule_all_then assume_tac)
-        \\ first_x_assum (drule_then drule)
-        \\ disch_then (qx_choose_then ‘j’ assume_tac)
+        \\ ntac 2 (last_x_assum $ drule_then assume_tac)
+        \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
         \\ qexists_tac ‘j’
         \\ rw [] \\ gs []
         \\ fs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
@@ -2866,9 +2865,8 @@ Proof
             \\ gvs [result_map_def, CaseEq "bool", MEM_MAP, Abbr ‘g’, MEM_EL]
             \\ rename1 ‘eval_to k (EL m ys) = INL Type_error’
             \\ ntac 2 (pop_assum kall_tac)
-            \\ first_x_assum (drule_all_then assume_tac)
-            \\ first_x_assum
-              (drule_then (drule_then (qx_choose_then ‘j’ assume_tac)))
+            \\ ntac 2 (last_x_assum $ drule_then assume_tac)
+            \\ first_x_assum (drule_then (qx_choose_then ‘j’ assume_tac))
             \\ gs [Abbr ‘f’]
             \\ first_x_assum (drule_then assume_tac) \\ gs []
             \\ Cases_on ‘eval_to (j + k) (EL m xs)’ \\ gs [])
@@ -3123,26 +3121,19 @@ Proof
             \\ rename1 ‘m < LENGTH ys’
             \\ Cases_on ‘eval_to (k - 1) (EL m ys)’ \\ gvs []
             >- (
-              first_x_assum (drule_all_then assume_tac)
+              rpt $ first_x_assum (drule_all_then assume_tac)
               \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
-              \\ pop_assum drule
-              \\ impl_tac >- (first_x_assum irule \\ gvs [])
-              \\ strip_tac
-              \\ gs [Abbr ‘f’]
-              \\ first_x_assum (drule_then assume_tac)
-              \\ Cases_on ‘eval_to (j + k - 1) (EL m xs)’ \\ gs [])
+              \\ pop_assum drule_all \\ rw [] \\ strip_tac
+              \\ Cases_on ‘eval_to (j' + k - 1) (EL m xs)’ \\ gvs [])
             \\ fs [DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”]
-            \\ first_x_assum (drule_all_then assume_tac)
+            \\ rpt $ first_x_assum (drule_all_then assume_tac)
             \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs []
-            \\ pop_assum drule
-            \\ impl_tac >- (first_x_assum irule \\ gvs [])
-            \\ strip_tac
-            \\ gs [Abbr ‘f’]
-            \\ first_x_assum (drule_then assume_tac)
-            \\ Cases_on ‘eval_to (j + k - 1) (EL m xs)’ \\ gs []
-            \\ first_x_assum (drule_then (qspec_then ‘j’ assume_tac)) \\ gs []
+            \\ pop_assum drule_all \\ rw [] \\ strip_tac
+            \\ Cases_on ‘eval_to (j' + k - 1) (EL m xs)’ \\ gvs []
+            \\ gvs [Abbr ‘f’]
+            \\ first_x_assum (qspec_then ‘j'’ assume_tac) \\ gvs []
             \\ rename1 ‘v_rel v w’
-            \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [v_rel_def])
+            \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [v_rel_def])
       \\ ‘∃j. ∀n. n < LENGTH ys ⇒
                   ($= +++ v_rel) (eval_to (j + k - 1) (EL n xs))
                                  (eval_to (k - 1) (EL n ys))’
