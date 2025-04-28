@@ -954,8 +954,9 @@ Proof
         \\ Cases_on ‘eval_to k (EL n xs)’
         \\ Cases_on ‘eval_to (j + k) (EL n ys)’ \\ gvs []
         \\ rename1 ‘err ≠ Type_error’ \\ Cases_on ‘err’ \\ gs [])
-      \\ first_x_assum (drule_all_then assume_tac)
-      \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
+      \\ rpt $ first_x_assum (drule_all_then assume_tac)
+      \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs []
+      )
     >- ((* IsEq *)
       IF_CASES_TAC \\ gvs [LENGTH_EQ_NUM_compute, DECIDE “∀n. n < 1 ⇔ n = 0”]
       \\ rename1 ‘exp_rel x y’

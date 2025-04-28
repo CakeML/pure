@@ -515,7 +515,9 @@ Proof
         \\ rename1 ‘m < LENGTH ys’
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_all_then assume_tac)
-        \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs [])
+        \\ last_x_assum $ drule_all
+        \\ Cases_on ‘eval_to k (EL m xs)’ \\ gs []
+        )
       \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
       >- (
@@ -523,6 +525,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
+        \\ pop_assum drule
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
       \\ gs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
@@ -531,6 +534,7 @@ Proof
         \\ first_x_assum (drule_all_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
         \\ first_x_assum (drule_then assume_tac)
+        \\ last_x_assum $ drule_all
         \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
       \\ gvs [DECIDE “A ⇒ ¬(B < C) ⇔ B < C ⇒ ¬A”, EVERY2_MAP, LIST_REL_EL_EQN]
       \\ rw []

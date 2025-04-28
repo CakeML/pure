@@ -27,7 +27,6 @@ jobs:
     env:
       HOLDIR: ${{ github.workspace }}/HOL
       CAKEMLDIR: ${{ github.workspace }}/cakeml
-      LD_LIBRARY_PATH: /usr/local/lib:$LD_LIBRARY_PATH
 
     outputs:
       hol_sha: ${{ steps.shas.outputs.HOL_SHA }}
@@ -52,7 +51,7 @@ jobs:
     - name: Build Poly/ML
       run: |
         cd polyml
-        ./configure
+        ./configure --prefix=/usr
         make
         make install
 
@@ -117,6 +116,10 @@ jobs:
       run: cd pure/compiler/backend/languages/properties && Holmake
     - name: Build typing
       run: cd pure/typing && Holmake
+    - name: Build typeclass/typing
+      run: cd pure/typeclass/typing && Holmake
+    - name: Build typeclass/compiler/parsing
+      run: cd pure/typeclass/compiler/parsing && Holmake
     - name: Build compiler/backend/passes
       run: cd pure/compiler/backend/passes && Holmake
     - name: Build compiler/backend/passes/proofs

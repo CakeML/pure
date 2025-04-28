@@ -562,6 +562,7 @@ Proof
         \\ first_x_assum (drule_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
         \\ first_x_assum (drule_all_then assume_tac) \\ gs []
+        \\ last_x_assum $ drule_all
         \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
       \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ IF_CASES_TAC \\ gs []

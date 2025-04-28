@@ -177,7 +177,7 @@ Theorem read_FFIcall_reduces_input:
      read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
 Proof
   Induct >> dsimp[read_FFIcall_def, bool_case_eq] >> rw[] >>
-  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+  res_tac >> gvs[]
 QED
 
 Definition next_sym_alt_def:
