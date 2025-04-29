@@ -274,10 +274,14 @@ Definition compile_op_def:
   compile_op Sub                           = CakeOp Asub ∧
   compile_op Update                        = CakeOp Aupdate ∧
   compile_op Alloc                         = TwoArgs alloc ∧
-  compile_op (AllocMutThunk Evaluated)     = CakeOp $ ThunkOp $ AllocThunk T ∧
-  compile_op (AllocMutThunk NotEvaluated)  = CakeOp $ ThunkOp $ AllocThunk F ∧
-  compile_op (UpdateMutThunk Evaluated)    = CakeOp $ ThunkOp $ UpdateThunk T ∧
-  compile_op (UpdateMutThunk NotEvaluated) = CakeOp $ ThunkOp $ UpdateThunk F ∧
+  compile_op (AllocMutThunk Evaluated)     = CakeOp $ ThunkOp $
+                                                      AllocThunk Evaluated ∧
+  compile_op (AllocMutThunk NotEvaluated)  = CakeOp $ ThunkOp $
+                                                      AllocThunk NotEvaluated ∧
+  compile_op (UpdateMutThunk Evaluated)    = CakeOp $ ThunkOp $
+                                                      UpdateThunk Evaluated ∧
+  compile_op (UpdateMutThunk NotEvaluated) = CakeOp $ ThunkOp $
+                                                      UpdateThunk NotEvaluated ∧
   compile_op ForceMutThunk                 = CakeOp $ ThunkOp ForceThunk ∧
   compile_op _                             = Other
 End

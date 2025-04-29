@@ -212,10 +212,10 @@ Inductive op_rel:
   op_rel Length Alength ∧
   op_rel Sub Asub ∧
   op_rel Update Aupdate ∧
-  op_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk T) ∧
-  op_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk F) ∧
-  op_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk T) ∧
-  op_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk F) ∧
+  op_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk Evaluated) ∧
+  op_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk NotEvaluated) ∧
+  op_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk Evaluated) ∧
+  op_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk NotEvaluated) ∧
   op_rel ForceMutThunk (ThunkOp ForceThunk)
 End
 
@@ -606,8 +606,10 @@ End
 
 Definition store_rel_def:
   store_rel cnenv (Array svs) (Varray cvs) = LIST_REL (v_rel cnenv) svs cvs ∧
-  store_rel cnenv (ThunkMem Evaluated sv) (Thunk T cv) = v_rel cnenv sv cv ∧
-  store_rel cnenv (ThunkMem NotEvaluated sv) (Thunk F cv) = v_rel cnenv sv cv ∧
+  store_rel cnenv (ThunkMem Evaluated sv) (Thunk Evaluated cv) =
+    v_rel cnenv sv cv ∧
+  store_rel cnenv (ThunkMem NotEvaluated sv) (Thunk NotEvaluated cv) =
+    v_rel cnenv sv cv ∧
   store_rel cnenv _ _ = F
 End
 
@@ -738,9 +740,9 @@ Theorem capplication_thm:
       (case vs of
          [Loc _ n] => (
            case store_lookup n s of
-             SOME (Thunk T v) =>
+             SOME (Thunk Evaluated v) =>
                return env s fp v c
-           | SOME (Thunk F f) =>
+           | SOME (Thunk NotEvaluated f) =>
                application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
@@ -939,9 +941,9 @@ Proof
 QED
 
 Theorem store_lookup_assign_Thunk:
-  store_lookup n st = SOME (Thunk F a) ⇒
-  store_assign n (Thunk b y) st =
-  SOME $ LUPDATE (Thunk b y) n st
+  store_lookup n st = SOME (Thunk NotEvaluated a) ⇒
+  store_assign n (Thunk m y) st =
+  SOME $ LUPDATE (Thunk m y) n st
 Proof
   rw[store_lookup_def, store_assign_def, store_v_same_type_def]
 QED
@@ -1775,7 +1777,8 @@ Proof
       Cases_on `t'` >> gvs[state_rel, LIST_REL_EL_EQN, store_v_same_type_def,
                            EL_CONS, PRE_SUB1] >>
       FULL_CASE_TAC >> first_x_assum $ qspec_then `n` assume_tac >>
-      gvs[store_rel_def]
+      gvs[store_rel_def] >>
+      Cases_on `t'` >> gvs[store_rel_def]
       )
     >- (
       first_assum $ irule_at Any >>
@@ -1884,7 +1887,7 @@ Proof
       disch_then $ qspec_then `n` assume_tac >> gvs[] >>
       simp [thunk_op_def] >> gvs[] >>
       Cases_on `z` >> gvs[store_rel_def] >>
-      Cases_on `b` >> gvs[store_rel_def] >>
+      Cases_on `t'` >> gvs[store_rel_def] >>
       drule store_lookup_assign_Thunk >> rw[] >>
       qexists0 >> reverse $ rw[step_rel_cases]
       >- gvs[state_rel, LUPDATE_DEF, store_lookup_def] >>
@@ -1897,7 +1900,7 @@ Proof
       gvs[state_rel, store_lookup_def, oEL_THM, LIST_REL_EL_EQN] >>
       first_assum $ qspec_then `n` assume_tac >>
       Cases_on `EL n cst'` >> gvs[store_rel_def] >>
-      Cases_on `b` >> gvs[store_rel_def] >>
+      Cases_on `t'` >> gvs[store_rel_def] >>
       rw[EL_CONS, PRE_SUB1] >>
       qexists0 >> reverse $ rw[step_rel_cases, store_lookup_def]
       >- (goal_assum drule >> gvs[state_rel, LIST_REL_EL_EQN])
@@ -2606,10 +2609,10 @@ Inductive csop_rel:
   csop_rel Length Alength ∧
   csop_rel Sub Asub ∧
   csop_rel Update Aupdate ∧
-  csop_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk T) ∧
-  csop_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk F) ∧
-  csop_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk T) ∧
-  csop_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk F) ∧
+  csop_rel (AllocMutThunk Evaluated) (ThunkOp $ AllocThunk Evaluated) ∧
+  csop_rel (AllocMutThunk NotEvaluated) (ThunkOp $ AllocThunk NotEvaluated) ∧
+  csop_rel (UpdateMutThunk Evaluated) (ThunkOp $ UpdateThunk Evaluated) ∧
+  csop_rel (UpdateMutThunk NotEvaluated) (ThunkOp $ UpdateThunk NotEvaluated) ∧
   csop_rel ForceMutThunk (ThunkOp ForceThunk)
 End
 
