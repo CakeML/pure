@@ -892,7 +892,7 @@ Theorem can_compute_fixpoint_lemma:
 Proof
   Induct \\ gs [empty_thm, TotOrd_compare, FORALL_PROD]
   \\ rpt $ gen_tac
-  \\ pairarg_tac \\ gs [insert_thm]
+  \\ gs [insert_thm]
 QED
 
 Theorem can_compute_fixpoint_soundness:
@@ -1645,7 +1645,9 @@ Proof
       \\ gs [exp_of_def]
       \\ pairarg_tac \\ gs []
       \\ Cases_on ‘fall’ \\ gs []
-      >- (qpat_x_assum ‘(case _ of [] => _ | _::_ => _) = (_, _)’ mp_tac
+      >- (
+          (* qpat_x_assum ‘(case _ of [] => _ | _::_ => _) = (_, _)’ mp_tac *)
+          qpat_x_assum ‘list_CASE _ _ _ = (_,_)’ mp_tac
           \\ CASE_TAC \\ gs []
           \\ strip_tac \\ gs []
           \\ qpat_x_assum ‘union _ _ = _’ assume_tac
@@ -3889,13 +3891,15 @@ Proof
       cj 2 fixpoint1_Case_lemma2, cj 3 fixpoint1_Case_lemma2] >>
     simp[] >>
     Cases_on `rows` >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >> pairarg_tac >> gvs[] >>
-    qpat_abbrev_tac `h' = fixpoint1 _ _ _` >> PairCases_on `h'` >> gvs[] >>
+    (* qpat_abbrev_tac `h' = fixpoint1 _ _ _` >> *)
+    qmatch_goalsub_abbrev_tac ‘FST h'’ >> PairCases_on ‘h'’ >> gvs[] >>
     last_x_assum mp_tac >> impl_tac
     >- (DEP_REWRITE_TAC[cj 1 FOLDR_delete, cj 2 FOLDR_delete] >> simp[delete_thm]) >>
     strip_tac >> gvs[] >> simp[FOLDR_delete] >> rw[]
     >- (
       simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac >>
-      qpat_abbrev_tac `res = fixpoint1 _ _ _` >> PairCases_on `res` >> gvs[] >>
+      (* qpat_abbrev_tac `res = fixpoint1 _ _ _` >> *)
+      qmatch_goalsub_abbrev_tac ‘FST res’ >> PairCases_on `res` >> gvs[] >>
       last_x_assum drule >> simp[] >> impl_tac
       >- (DEP_REWRITE_TAC[cj 1 FOLDR_delete, cj 2 FOLDR_delete] >> simp[delete_thm]) >>
       strip_tac >> gvs[] >> simp[FOLDR_delete]
@@ -3914,11 +3918,13 @@ Proof
     simp[] >> pop_assum kall_tac >> unabbrev_all_tac >>
     DEP_REWRITE_TAC $ map (SRULE []) [cj 1 fixpoint1_Case_lemma2,
       cj 2 fixpoint1_Case_lemma2, cj 3 fixpoint1_Case_lemma2] >>
-    simp[] >> qpat_abbrev_tac `h' = fixpoint1 _ _ _` >>
+    (* qpat_abbrev_tac `h' = fixpoint1 _ _ _` >> *)
+    simp[] >> qmatch_goalsub_abbrev_tac ‘FST h'’ >>
     PairCases_on `h'` >> gvs[delete_thm] >> rw[]
     >- (
       simp[EVERY_MAP, EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac >>
-      qpat_abbrev_tac `res = fixpoint1 _ _ _` >> PairCases_on `res` >> gvs[] >>
+      (* qpat_abbrev_tac `res = fixpoint1 _ _ _` >> *)
+      qmatch_goalsub_abbrev_tac ‘FST res’ >> PairCases_on `res` >> gvs[] >>
       last_x_assum drule >> simp[] >> impl_tac
       >- (DEP_REWRITE_TAC[cj 1 FOLDR_delete, cj 2 FOLDR_delete] >> simp[delete_thm]) >>
       strip_tac >> gvs[] >> simp[FOLDR_delete]
