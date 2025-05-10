@@ -8,7 +8,7 @@ open pure_congruenceTheory pure_congruence_lemmasTheory
 structure Parse =
 struct
   open Parse
-  val (Type,Term) = parse_from_grammars pure_congruence_grammars
+  val (Type,Term) = parse_from_grammars $ valOf $ grammarDB {thyname="pure_congruence"}
 end
 
 val intro_cong = Q.prove(
