@@ -3132,11 +3132,10 @@ Proof
   rw[] >>
   PairCases_on `h` >>
   gvs[MEM_MAP,PAIR_MAP,class_map_to_env_def] >>
-  rename1 `MEM meth _.methods` >>
-  PairCases_on `meth` >>
+  rename1 `MEM (meth_0, meth_1) _.methods` >>
   gvs[oneline get_method_type_def] >>
   qpat_x_assum `(_,_) = _` mp_tac >>
-  CASE_TAC >>
+  CASE_TAC >> CASE_TAC >> gvs[] >>
   gvs[class_map_kind_ok_def,DISJ_IMP_THM,FORALL_AND_THM] >>
   gvs[EVERY_MEM] >>
   first_x_assum drule >>
@@ -4316,8 +4315,8 @@ Proof
   rename1 `MEM c cl_map` >>
   PairCases_on `c` >>
   gvs[MEM_MAP,PAIR_MAP] >>
-  rename1 `MEM meth _.methods` >>
-  PairCases_on `meth` >>
+  rename1 `MEM (meth_0, meth_1) _.methods` >>
+  PairCases_on `meth_1` >>
   simp[translate_pred_type_scheme_get_method_type,
     translate_predicate_def] >>
   simp[FLOOKUP_to_cl_tyid_map,PULL_EXISTS] >>

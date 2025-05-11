@@ -1080,6 +1080,7 @@ Proof
     irule_at Any EQ_REFL
   )
   >- gvs[subst_db_def] >>
+  rename1 ‘TypeCons tc'’ >>
   `t = cons_types (Atom $ TypeCons tc') (ty_args t)` by
     metis_tac[cons_types_head_ty_ty_args] >>
   pop_assum SUBST_ALL_TAC >>
@@ -1635,6 +1636,7 @@ Proof
     irule_at Any EQ_REFL
   )
   >- gvs[shift_db_def] >>
+  rename1 ‘TypeCons tc'’ >>
   `t = cons_types (Atom $ TypeCons tc') (ty_args t)` by
     metis_tac[cons_types_head_ty_ty_args] >>
   pop_assum SUBST_ALL_TAC >>
