@@ -81,11 +81,9 @@ Proof
   recInduct patguards_ind >> simp[patguards_def, PULL_EXISTS, FORALL_PROD] >>
   rpt gen_tac >> strip_tac >> rpt gen_tac >>
   rename [‘cepat_CASE pat’] >> Cases_on ‘pat’ >> gvs[] >~
-  [‘(I ## CONS (v,pat1)) (patguards eps1) = (e1,binds1) ∧
-    (I ## CONS (v,pat2)) (patguards eps2) = (e2,binds2)’]
-  >- (map_every Cases_on [‘patguards eps1’, ‘patguards eps2’] >> simp[] >>
-      strip_tac >> gvs[] >> metis_tac[]) >~
-  [‘(pat1 ≅? pat2) b ∧ LIST_REL _ eps1 eps2’, ‘patguards (MAPi _ ps ++ _)’,
+  [‘patguards eps1 = (e1,binds1) ∧ patguards eps2 = (e2,binds2)’]
+  >- metis_tac[]
+  >~ [‘(pat1 ≅? pat2) b ∧ LIST_REL _ eps1 eps2’, ‘patguards (MAPi _ ps ++ _)’,
    ‘Proj cnm’]
   >- (map_every Cases_on [
          ‘patguards (MAPi (λi p. (Proj cnm i pat1, p)) ps ++ eps1)’,
@@ -99,7 +97,8 @@ Proof
       dxrule_then (drule_then assume_tac) LIST_REL_APPEND_suff >>
       first_x_assum $ drule_all_then strip_assume_tac >>
       simp[exp_eq_If_cong, exp_eq_Prim_cong])
-  >- metis_tac[]
+  >- (map_every Cases_on [‘patguards eps1’, ‘patguards eps2’] >> simp[] >>
+      strip_tac >> gvs[] >> metis_tac[])
 QED
 
 Theorem exp_eq_FOLDR_Let_cong:

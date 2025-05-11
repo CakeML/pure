@@ -523,12 +523,12 @@ Proof
   rpt $ gen_tac >>
   pairarg_tac >>
   rename [‘my_function_list _ l’, ‘my_function s h = (s', hd')’] >>
-  asm_rewrite_tac [PAIRED_BETA_CONV $
+  asm_rewrite_tac [PairedLambda.PAIRED_BETA_CONV $
                     Term ‘(λ(s',hd'). (λ(s'',tl'). (s'',hd'::tl')) (my_function_list s' l)) (s',hd')’] >>
   pairarg_tac >>
   last_x_assum $ drule_then assume_tac >>
   rename1 ‘my_function_list s' l = (s'', tl')’ >>
-  asm_rewrite_tac [PAIRED_BETA_CONV $ Term ‘(λ(s'',tl'). (s'',hd'::tl')) (s'', tl')’] >>
+  asm_rewrite_tac [PairedLambda.PAIRED_BETA_CONV $ Term ‘(λ(s'',tl'). (s'',hd'::tl')) (s'', tl')’] >>
   strip_tac >> strip_tac >>
   first_assum $ qspec_then ‘h’ mp_tac >>
   impl_tac >- simp [list_size_def] >>
@@ -581,12 +581,12 @@ Proof
   rpt $ gen_tac >>
   pairarg_tac >>
   rename [‘my_function_bind _ l’, ‘my_function s h = (s', hd')’, ‘v':: _ = _’] >>
-  asm_rewrite_tac [PAIRED_BETA_CONV $
+  asm_rewrite_tac [PairedLambda.PAIRED_BETA_CONV $
                     Term ‘(λ(s',hd'). (λ(s'',tl'). (s'',(v, hd')::tl')) (my_function_bind s' l)) (s',hd')’] >>
   pairarg_tac >>
   last_x_assum $ drule_then assume_tac >>
   rename1 ‘my_function_bind s' l = (s'', tl')’ >>
-  asm_rewrite_tac [PAIRED_BETA_CONV $ Term ‘(λ(s'',tl'). (s'',(v, hd')::tl')) (s'', tl')’] >>
+  asm_rewrite_tac [PairedLambda.PAIRED_BETA_CONV $ Term ‘(λ(s'',tl'). (s'',(v, hd')::tl')) (s'', tl')’] >>
   strip_tac >> strip_tac >>
   first_assum $ qspec_then ‘h’ mp_tac >>
   impl_tac >- simp [list_size_def] >>
@@ -650,12 +650,12 @@ Proof
   PairCases >> simp [my_function_def, PULL_EXISTS] >>
   rpt $ gen_tac >> pairarg_tac >>
   rename [‘my_function_row _ l’, ‘my_function s h = (s', hd')’, ‘(v, vs, _)::_’] >>
-  asm_rewrite_tac [PAIRED_BETA_CONV $
+  asm_rewrite_tac [PairedLambda.PAIRED_BETA_CONV $
                     Term ‘(λ(s',hd'). (λ(s'',tl'). (s'',(v, vs, hd')::tl')) (my_function_row s' l)) (s',hd')’] >>
   pairarg_tac >>
   last_x_assum $ drule_then assume_tac >>
   rename1 ‘my_function_row s' l = (s'', tl')’ >>
-  asm_rewrite_tac [PAIRED_BETA_CONV $ Term ‘(λ(s'',tl'). (s'', (v, vs, hd')::tl')) (s'', tl')’] >>
+  asm_rewrite_tac [PairedLambda.PAIRED_BETA_CONV $ Term ‘(λ(s'',tl'). (s'', (v, vs, hd')::tl')) (s'', tl')’] >>
   strip_tac >> strip_tac >>
   first_assum $ qspec_then ‘h’ mp_tac >>
   impl_tac >- simp [list_size_def] >>
