@@ -52,7 +52,7 @@ Proof
   Cases_on ‘ep’ >> gvs[] >> rename [‘p = cepatUScore’]  >>
   Cases_on ‘p’ >> gvs[] >~
   [‘cepatUScore’] >- metis_tac[] >~
-  [‘(_ ## _) (patguards eps)’]
+  [‘patguards eps = (_,_)’]
   >- (Cases_on ‘patguards eps’ >> gvs[] >> metis_tac[]) >>
   pairarg_tac >>
   gvs[letrec_recurse_def, indexedListsTheory.MEM_MAPi, PULL_EXISTS,
@@ -80,7 +80,7 @@ Proof
   rpt strip_tac >>
   rename [‘p = cepatUScore’] >>
   Cases_on ‘p’ >> gvs[] >~
-  [‘(_ ## _) (patguards eps)’]
+  [‘patguards eps = (_,_)’]
   >- (Cases_on ‘patguards eps’ >> gvs[] >> metis_tac[]) >~
   [‘cepatUScore’] >- metis_tac[] >>
   pairarg_tac >>

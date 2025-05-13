@@ -98,8 +98,8 @@ Theorem patguards_binds_pvars:
 Proof
   recInduct patguards_ind >>
   simp[combinTheory.o_DEF, patguards_def, AllCaseEqs(), PULL_EXISTS,
-       FORALL_PROD] >> rpt strip_tac >> gvs[] >~
-  [‘(_ ## _)’]
+       FORALL_PROD] >> rpt strip_tac >> gvs[]
+  >~ [‘patguards _ = (_, _)’]
   >- (Cases_on ‘patguards eps’ >> gvs[] >> simp[INSERT_UNION_EQ]) >>
   pairarg_tac >> gvs[SF ETA_ss]
 QED
@@ -111,15 +111,20 @@ Theorem patguards_onebound_preserved:
 Proof
   recInduct patguards_ind >>
   simp[combinTheory.o_DEF, patguards_def, AllCaseEqs(), PULL_EXISTS,
-       FORALL_PROD] >> rpt strip_tac >> gvs[] >~
-  [‘( _ ## _) (patguards eps)’]
-  >- (Cases_on ‘patguards eps’ >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
-      metis_tac[]) >~
-  [‘(UNCURRY _) _ = (gd, binds)’]
-  >- (pairarg_tac >>
-      gvs[DISJ_IMP_THM, FORALL_AND_THM, indexedListsTheory.MEM_MAPi,
-          PULL_EXISTS] >> metis_tac[]) >>
-  metis_tac[]
+       FORALL_PROD] >> rpt strip_tac >> gvs[]
+  >~ [‘patguards eps = (_, _)’]
+  >- (
+    Cases_on ‘patguards eps’ >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    metis_tac[]
+    )
+  >~ [‘patguards eps = (_, _)’]
+  >- (
+    Cases_on ‘patguards eps’ >> gvs[DISJ_IMP_THM, FORALL_AND_THM] >>
+    metis_tac[]
+    ) >>
+  pairarg_tac >>
+  gvs[DISJ_IMP_THM, FORALL_AND_THM, indexedListsTheory.MEM_MAPi,
+      PULL_EXISTS] >> metis_tac[]
 QED
 
 Theorem freevars_nested_rows_UB:
@@ -294,8 +299,7 @@ Theorem patguards_subst:
 Proof
   recInduct patguards_ind >> simp[patguards_def, FORALL_PROD] >> rw[] >>
   rename [‘cepat_CASE pat’] >>
-  Cases_on ‘pat’ >> gvs[] >~
-  [‘patguards (MAP _ eps)’] >- (Cases_on ‘patguards eps’ >> gvs[]) >>
+  Cases_on ‘pat’ >> gvs[] >>
   pairarg_tac >> gs[] >> pairarg_tac >> gvs[subst_def, combinTheory.o_ABS_R]
 QED
 

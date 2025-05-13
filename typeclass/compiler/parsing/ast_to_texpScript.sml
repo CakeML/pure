@@ -212,7 +212,7 @@ Proof
   Induct >> simp[strip_comb_def, expAST_size_eq]
   >- (
     simp[expAST_size_def] >> rpt strip_tac >>
-    rename [‘(I ## _) (strip_comb f) = (f0, es)’] >>
+    rename [‘strip_comb f = (f0, es)’] >>
     Cases_on ‘strip_comb f’ >> gvs[] >>
     first_x_assum drule >> simp[]
   ) >>

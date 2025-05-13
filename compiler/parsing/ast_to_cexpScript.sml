@@ -3,6 +3,9 @@ open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
 open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory
 open pureASTTheory mlmapTheory pure_cexpTheory mlstringTheory
      pure_typingTheory pure_varsTheory
+local
+  open pure_miscTheory
+in end
 
 val _ = new_theory "ast_to_cexp";
 
@@ -51,7 +54,7 @@ Proof
   qunabbrev_tac ‘P’ >>
   Induct >> simp[strip_comb_def, expAST_size_eq] >>
   simp[expAST_size_def] >> rpt strip_tac >>
-  rename [‘(I ## _) (strip_comb f) = (f0, es)’] >>
+  rename [‘strip_comb f = (f0, es)’] >>
   Cases_on ‘strip_comb f’ >> gvs[] >>
   first_x_assum drule >> simp[]
 QED

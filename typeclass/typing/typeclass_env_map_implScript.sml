@@ -1449,12 +1449,7 @@ Proof
       first_x_assum drule >>
       rw[Once entail_cases] >>
       gvs[MEM_MAP]
-      >- (
-        rename1 `MEM p inst.cstr` >>
-        Cases_on `p` >>
-        gvs[] >>
-        metis_tac[super_reachable_RTC_CASES_super_reachable]
-      ) >>
+      >- (goal_assum drule >> simp[]) >>
       gvs[by_inst_def,lookup_inst_map_def] >>
       rename1 `split_ty_cons _ = SOME p` >>
       Cases_on `p` >>

@@ -506,7 +506,7 @@ Proof
 QED
 
 Theorem compatible_tc:
-  compatible b (λR. tc(R ∪ (app_similarity b)))
+  compatible b (λR. transitive_closure(R ∪ (app_similarity b)))
 Proof
   simp[compatible_def,SUBSET_DEF] >>
   strip_tac >> Cases >>
@@ -617,9 +617,9 @@ Proof
 QED
 
 Theorem app_similarity_transitive_lemma:
-  tc (app_similarity b) = app_similarity b
+  transitive_closure (app_similarity b) = app_similarity b
 Proof
-  qsuff_tac `∀x y. (x,y) ∈ tc (app_similarity b) ⇔ (x,y) ∈ app_similarity b`
+  qsuff_tac `∀x y. (x,y) ∈ transitive_closure (app_similarity b) ⇔ (x,y) ∈ app_similarity b`
   >- (
     rw[] >> irule EQ_EXT >> rw[] >>
     PairCases_on `x` >> fs[IN_DEF]
