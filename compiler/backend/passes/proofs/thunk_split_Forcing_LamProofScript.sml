@@ -559,7 +559,7 @@ QED
 
 Theorem my_function_bind_lemma:
   ∀l s l2 s2. my_function_bind s l = (s2, l2) ∧
-              (∀e. cexp_size e < list_size cexp_size (MAP SND l) ⇒
+              (∀e. cexp_size e < list_size (pair_size mlstring_size cexp_size) l ⇒
                    ∀s. vars_ok s ∧ freevars (exp_of e) ⊆ set_of s ∧ cexp_wf e ∧ boundvars (exp_of e) ⊆ set_of s ⇒
                        ∀s2 e2. (s2, e2) = my_function s e ⇒
                                cexp_wf e2 ∧
@@ -623,7 +623,8 @@ QED
 
 Theorem my_function_row_lemma:
   ∀l s l2 s2. my_function_row s l = (s2, l2) ∧
-              (∀e. cexp_size e < list_size (cexp_size o SND o SND) l ⇒
+              (∀e. cexp_size e < list_size (pair_size mlstring_size
+                                             (pair_size (list_size mlstring_size) cexp_size)) l ⇒
                    ∀s. vars_ok s ∧ freevars (exp_of e) ⊆ set_of s ∧ cexp_wf e ∧ boundvars (exp_of e) ⊆ set_of s ⇒
                        ∀s2 e2. (s2, e2) = my_function s e ⇒
                                cexp_wf e2 ∧
@@ -779,7 +780,7 @@ Theorem my_function_soundness:
               (∀s3. DISJOINT s3 (boundvars (exp_of e2) ∪ freevars (exp_of e2)) ⇒ exp_rel s3 (exp_of e) (exp_of e2))
 Proof
   completeInduct_on ‘cexp_size e’ >>
-  Cases >> simp [cexp_size_def, my_function_def, boundvars_def, freevars_def, cexp_wf_def]
+  Cases >> simp [my_function_def, boundvars_def, freevars_def, cexp_wf_def]
   >- simp [exp_rel_Var]
   >~ [‘Prim _ _’]
   >- (strip_tac >> gen_tac >> strip_tac >>
@@ -791,7 +792,7 @@ Proof
       >- (gen_tac >> strip_tac >>
           rename1 ‘cexp_size arg < _’ >>
           last_x_assum $ qspec_then ‘cexp_size arg’ mp_tac >>
-          simp [GSYM size_eq] >>
+          simp [] >>
           disch_then $ qspec_then ‘arg’ assume_tac >>
           gs []) >>
       last_x_assum kall_tac >>
@@ -817,7 +818,7 @@ Proof
     >- (gen_tac >> strip_tac >>
         rename1 ‘cexp_size arg < _’ >>
         last_x_assum $ qspec_then ‘cexp_size arg’ mp_tac >>
-        simp [GSYM size_eq] >>
+        simp [] >>
         disch_then $ qspec_then ‘arg’ assume_tac >>
         gs []) >>
     last_x_assum kall_tac >>
@@ -837,7 +838,7 @@ Proof
       >- (gen_tac >> strip_tac >>
           rename1 ‘cexp_size arg < _’ >>
           last_x_assum $ qspec_then ‘cexp_size arg’ mp_tac >>
-          simp [GSYM size_eq] >>
+          simp [] >>
           disch_then $ qspec_then ‘arg’ assume_tac >>
           gs []) >>
       last_x_assum $ qspec_then ‘cexp_size e’ assume_tac >> gs [] >>
@@ -924,7 +925,7 @@ Proof
       pairarg_tac >> gs [] >>
       rename1 ‘check_hypothesis (b1 ∧ b2) x' s_vars’ >> Cases_on ‘check_hypothesis (b1 ∧ b2) x' s_vars’
       >~[‘¬check_hypothesis _ _ _’]
-      >- (rename1 ‘cexp_size (Lam l x2)’ >>
+      >- (rename1 ‘cexp_wf (Lam l x2)’ >>
           last_assum $ qspecl_then [‘Lam l x2’, ‘s’, ‘FST (my_function s (Lam l x2))’,
                                     ‘SND (my_function s (Lam l x2))’, ‘s3’] assume_tac >>
           gs [boundvars_def, freevars_def] >>
@@ -944,7 +945,7 @@ Proof
           Cases_on ‘v2 = explode v1’ >> simp []) >>
       gs [] >> pairarg_tac >> gs [] >>
       rename1 ‘invent_var _ _ = (v2, _)’ >>
-      rename1 ‘cexp_size (Lam l x2)’ >>
+      rename1 ‘cexp_wf (Lam l x2)’ >>
       last_assum $ qspecl_then [‘Lam l x2’, ‘s’, ‘FST (my_function s (Lam l x2))’,
                                 ‘SND (my_function s (Lam l x2))’, ‘{explode v2} ∪ s3’] assume_tac >>
       gs [boundvars_def, freevars_def] >>
@@ -1141,7 +1142,7 @@ Proof
       >- (gen_tac >> strip_tac >>
           rename1 ‘cexp_size arg < _’ >>
           last_x_assum $ qspec_then ‘cexp_size arg’ mp_tac >>
-          simp [size_eq2] >>
+          simp [] >>
           disch_then $ qspec_then ‘arg’ assume_tac >>
           gs []) >>
       last_x_assum $ qspec_then ‘cexp_size e’ assume_tac >> gs [] >>
@@ -1248,7 +1249,7 @@ Proof
       >- (gen_tac >> strip_tac >>
           rename1 ‘cexp_size arg < _’ >>
           last_x_assum $ qspec_then ‘cexp_size arg’ mp_tac >>
-          simp [size_eq_case, list_size_MAP] >>
+          simp [list_size_MAP] >>
           disch_then $ qspec_then ‘arg’ assume_tac >>
           gs []) >>
       impl_tac
@@ -1282,7 +1283,7 @@ Proof
           >- (qpat_x_assum ‘_ = (_, _)’ mp_tac >>
               CASE_TAC >> simp [] >>
               CASE_TAC >> pairarg_tac >> simp [] >>
-              rw [] >> gs [cexp_size_def] >>
+              rw [] >> gs [] >>
               rename1 ‘my_function s2 e1 = (s3, e2)’ >>
               last_x_assum $ qspec_then ‘cexp_size e1’ mp_tac >> simp [] >>
               disch_then $ qspec_then ‘e1’ mp_tac >> simp [] >>
@@ -1297,7 +1298,7 @@ Proof
       >- (Cases_on ‘eopt1’ >> gs [] >> pairarg_tac >> gs [] >>
           pairarg_tac >> gvs [] >>
           rename1 ‘my_function s2 e = (s3, e2)’ >>
-          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [cexp_size_def] >>
+          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘s2’ mp_tac >> simp [] >>
           impl_tac
@@ -1309,7 +1310,7 @@ Proof
       >- (Cases_on ‘eopt1’ >> gs [] >> pairarg_tac >> gs [] >>
           pairarg_tac >> gvs [] >>
           rename1 ‘my_function s2 e = (s3, e2)’ >>
-          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [cexp_size_def] >>
+          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘s2’ mp_tac >> simp [] >>
           impl_tac
@@ -1323,7 +1324,7 @@ Proof
             pairarg_tac >> gs [] >>
             pairarg_tac >> gs [] >>
             rename1 ‘my_function s2 e = (s3, e')’ >>
-            last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [cexp_size_def] >>
+            last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [] >>
             disch_then $ qspec_then ‘e’ mp_tac >> simp [] >>
             disch_then $ qspec_then ‘s2’ mp_tac >> simp [] >>
             impl_tac
@@ -1344,7 +1345,7 @@ Proof
           pairarg_tac >> gs [] >>
           pairarg_tac >> gvs [boundvars_rows_of_SOME_NONE] >>
           rename1 ‘my_function s2 e = (s3, e2)’ >>
-          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [cexp_size_def] >>
+          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘s2’ mp_tac >> simp [] >>
           impl_tac
@@ -1383,7 +1384,7 @@ Proof
               rpt $ pop_assum kall_tac >> rw [] >>
               gs [SUBSET_DEF]) >>
           rename1 ‘my_function s2 e = (s3, e2)’ >>
-          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [cexp_size_def] >>
+          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘s2’ mp_tac >> simp [] >>
           impl_tac
@@ -1422,7 +1423,7 @@ Proof
           pairarg_tac >> gs [] >>
           pairarg_tac >> gs [] >>
           rename1 ‘my_function s2 e = (s3, e2)’ >>
-          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [cexp_size_def] >>
+          last_x_assum $ qspec_then ‘cexp_size e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘e’ mp_tac >> simp [] >>
           disch_then $ qspec_then ‘s2’ mp_tac >> simp [] >>
           impl_tac

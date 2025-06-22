@@ -204,12 +204,13 @@ Proof
   rename1 ‘SUC n’ >>
   ‘{s:exp | exp_size s ≤ SUC n} ⊆
    IMAGE Var {vname | list_size char_size vname ≤ n} ∪
-   IMAGE (UNCURRY Prim) {(op,arg) | op_size op ≤ n ∧ exp3_size arg ≤ n} ∪
+   IMAGE (UNCURRY Prim) {(op,arg) | op_size op ≤ n ∧ list_size exp_size arg ≤ n} ∪
    IMAGE (UNCURRY App) {(rator,rand) | exp_size rator ≤ n ∧ exp_size rand ≤ n} ∪
    IMAGE (UNCURRY Lam) {(vname,exp) | list_size char_size vname ≤ n ∧ exp_size exp ≤ n} ∪
-   IMAGE (UNCURRY Letrec) {(funs,exp) | exp1_size funs ≤ n ∧ exp_size exp ≤ n}’
+   IMAGE (UNCURRY Letrec) {(funs,exp) |
+    list_size (pair_size (list_size char_size) exp_size) funs ≤ n ∧ exp_size exp ≤ n}’
     by(PURE_REWRITE_TAC[SET_EQ_SUBSET,SUBSET_DEF] >>
-       Cases >> rw[IN_IMAGE,PULL_EXISTS,exp_size_def]) >>
+       Cases >> rw[IN_IMAGE,PULL_EXISTS]) >>
   dxrule_then match_mp_tac COUNTABLE_SUBSET >>
   rw[COUNTABLE_UNION]
   >- (rename1 ‘Var’ >>

@@ -568,37 +568,18 @@ Proof
     \\ DEEP_INTRO_TAC some_intro \\ rw []
     \\ qexists_tac ‘x’
     \\ rw [] \\ gs [DISJ_EQ_IMP])
-  \\ gs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, DISJ_EQ_IMP]
-  \\ rpt (pop_assum mp_tac)
-  \\ Induct_on ‘l’ \\ simp []
-  \\ qx_gen_tac ‘x’ \\ rw [] \\ gs []
-  \\ gs [SF DNF_ss]
-  \\ qpat_x_assum ‘eval_wh x ≠ _’ mp_tac
-  \\ qpat_x_assum ‘¬_ (eval_wh x)’ mp_tac
-  \\ simp [eval_wh_def]
-  \\ DEEP_INTRO_TAC some_intro \\ rw []
-  \\ rename1 ‘eval_wh_to k1 x’
-  \\ qexists_tac ‘k1 + k’
-  \\ ‘eval_wh_to (k1 + k) x = eval_wh_to k1 x’
-    by (irule eval_wh_inc \\ gs [])
-  \\ gs []
-  \\ IF_CASES_TAC \\ gs []
-  \\ rw [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
-  \\ gs [DISJ_EQ_IMP] \\ gs [CaseEq "bool"]
-  >- (
-    ‘F’ suffices_by rw []
-    \\ pop_assum kall_tac
-    \\ rename1 ‘MEM y l’
-    \\ last_x_assum drule
-    \\ simp [eval_wh_def]
-    \\ DEEP_INTRO_TAC some_intro \\ simp []
-    \\ ‘eval_wh_to k y ≠ wh_Diverge’ by (strip_tac \\ gs [])
-    \\ gs [SF SFY_ss]
-    \\ qx_gen_tac ‘k2’ \\ strip_tac
-    \\ drule_then (qspec_then ‘k’ assume_tac) eval_wh_to_agree \\ gs [])
-  \\ gs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, DISJ_EQ_IMP]
-  \\ last_x_assum (drule_then assume_tac)
-  \\ drule_then (qspec_then ‘k1 + k’ assume_tac) eval_wh_inc \\ gs []
+  \\ gs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”, DISJ_EQ_IMP] >>
+  gvs[SF DNF_ss] >> last_x_assum kall_tac >>
+  simp[eval_wh_eq, PULL_FORALL] >>
+  Induct_on ‘l’ >> rw[] >> gvs[SF DNF_ss] >>
+  gvs[DISJ_EQ_IMP] >> rw[] >> rename1 ‘eval_wh_to k1’ >>
+  last_x_assum irule >> rw[] >> rename1 ‘eval_wh_to k2’ >>
+  last_x_assum $ qspec_then ‘k1 + k2’ assume_tac >>
+  drule eval_wh_inc >>
+  disch_then $ qspec_then ‘k1 + k2’ assume_tac >> gvs[] >>
+  goal_assum $ drule_at Any >>
+  CCONTR_TAC >> gvs[] >> drule eval_wh_inc >>
+  disch_then $ qspec_then ‘k1 + k2’ assume_tac >> gvs[]
 QED
 
 Theorem get_atoms_SOME_SOME_eq:

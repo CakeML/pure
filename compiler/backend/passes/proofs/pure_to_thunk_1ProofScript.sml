@@ -330,7 +330,6 @@ Proof
   \\ Cases_on ‘v’ \\ fs []
   \\ last_x_assum irule \\ rw []
   \\ first_x_assum irule
-  \\ fs [pure_expTheory.exp_size_def]
   \\ imp_res_tac pure_expTheory.exp_size_lemma \\ fs []
 QED
 
@@ -2055,22 +2054,24 @@ Proof
       >- (
         gs [EXISTS_MEM, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
         \\ first_x_assum (drule_then (qx_choose_then ‘j1’ assume_tac))
-        \\ qexists_tac ‘MIN j j1’
-        \\ rw [arithmeticTheory.MIN_DEF] \\ gs [DISJ_EQ_IMP]
+        \\ qexists_tac ‘MIN j j1’ >>
+        gvs[EVERY_MAP] >> goal_assum $ drule_at Any >> rw[]
         >- (
-          rename1 ‘m < LENGTH ys’
-          \\ Cases_on ‘j < j1’ \\ gs []
-          \\ gs [arithmeticTheory.NOT_LESS, arithmeticTheory.LESS_OR_EQ]
-          \\ ‘eval_wh_to (j1 + k - 1) (EL m ys) ≠ wh_Diverge’
-            by (strip_tac \\ gs [])
-          \\ drule_then (qspec_then ‘j + k - 1’ assume_tac) eval_wh_inc \\ gs []
-          \\ first_x_assum (drule_then assume_tac)
-          \\ first_x_assum (drule_then assume_tac)
-          \\ Cases_on ‘eval_wh_to (j1 + k - 1) (EL m ys)’
-          \\ Cases_on ‘eval_wh_to (k - 1) (EL m xs)’ \\ gs [])
-        \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
-        \\ drule_then (qspec_then ‘j1 + k - 1’ assume_tac) eval_wh_inc
-        \\ gs [])
+          rw[EVERY_EL] >> first_x_assum $ drule_then assume_tac >>
+          CCONTR_TAC >> gvs[] >>
+          ‘eval_wh_to (k + MIN j j1 - 1) (EL n' ys) ≠ wh_Diverge’ by
+            (CCONTR_TAC >> gvs[]) >>
+          drule eval_wh_inc >> disch_then $ qspec_then ‘j + k - 1’ mp_tac >>
+          impl_tac >- gvs[arithmeticTheory.MIN_DEF] >>
+          strip_tac >> gvs[]
+          )
+        >- (
+          CCONTR_TAC >> gvs[] >>
+          drule eval_wh_inc >>
+          disch_then $ qspec_then ‘j1 + k - 1’ assume_tac >> gvs[] >>
+          gvs[arithmeticTheory.MIN_DEF]
+          )
+        )
       \\ gs [MEM_EL, EL_MAP, SF CONJ_ss]
       \\ rgs [Once (DECIDE “A ⇒ ¬B ⇔ B ⇒ ¬A”)]
       \\ ‘∃i. ∀n. n < LENGTH ys ⇒

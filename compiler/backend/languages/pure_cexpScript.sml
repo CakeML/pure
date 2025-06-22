@@ -75,13 +75,15 @@ Datatype:
                                         (* case w/non-empty pattern-exp list *)
 End
 
-val cexp_size_eq = fetch "-" "cexp_size_eq";
-
 Theorem cexp_size_lemma:
-  (∀xs a. MEM a xs ⇒ cexp_size f a < cexp10_size f xs) ∧
-  (∀xs p e. MEM (p,e) xs ⇒ cexp_size f e < cexp6_size f xs) ∧
-  (∀xs a1 a. MEM (a1,a) xs ⇒ cexp_size f a < cexp7_size f xs) ∧
-  (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒ cexp_size f a < cexp2_size f xs)
+  (∀xs a. MEM a xs ⇒ cexp_size f a < list_size (cexp_size f) xs) ∧
+  (∀xs p e. MEM (p,e) xs ⇒
+    cexp_size f e < list_size (pair_size cepat_size (cexp_size f)) xs) ∧
+  (∀xs a1 a. MEM (a1,a) xs ⇒
+    cexp_size f a < list_size (pair_size mlstring_size (cexp_size f)) xs) ∧
+  (∀xs a1 a2 a. MEM (a1,a2,a) xs ⇒
+    cexp_size f a <
+      list_size (pair_size mlstring_size (pair_size (list_size mlstring_size) (cexp_size f))) xs)
 Proof
   rpt conj_tac
   \\ Induct \\ rw [] \\ fs [fetch "-" "cexp_size_def"] \\ res_tac \\ fs []
@@ -305,7 +307,7 @@ Definition NestedCase_free_def[simp]:
   NestedCase_free (NestedCase _ _ _ _ _ _) = F
 Termination
   WF_REL_TAC ‘measure $ cexp_size (K 0)’ >>
-  simp[fetch "-" "cexp_size_eq", MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+  simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
   rename [‘MEM _ list’] >> Induct_on ‘list’ >>
   simp[FORALL_PROD, listTheory.list_size_def, basicSizeTheory.pair_size_def] >>
   rw[] >> gs[]
@@ -334,7 +336,7 @@ Definition every_cexp_def[simp]:
      EVERY (every_cexp p) $ MAP SND rows)
 Termination
   WF_REL_TAC ‘measure $ cexp_size (K 0) o SND’ >>
-  simp[cexp_size_eq, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+  simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
   rename [‘MEM _ list’] >> Induct_on ‘list’ >>
   simp[FORALL_PROD, listTheory.list_size_def, basicSizeTheory.pair_size_def] >>
   rw[] >> gs[]

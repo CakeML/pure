@@ -57,8 +57,6 @@ Definition exp_of_def[simp]:
         (OPTION_MAP (λ(a,e). (MAP (explode ## I) a, exp_of e)) d) ∧
   exp_of (Force x)       = Force (exp_of x) ∧
   exp_of (Delay x)       = Delay (exp_of x)
-Termination
-  WF_REL_TAC ‘measure cexp_size’ >> rw [cexp_size_eq]
 End
 
 Definition args_ok_def:

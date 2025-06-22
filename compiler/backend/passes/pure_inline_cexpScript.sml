@@ -57,7 +57,7 @@ End
 
 Triviality size_lemma:
   ∀bs.
-    list_size (cexp_size (K 0)) (MAP (λ(v,vs,e). e) bs) ≤
+    list_size (λx. cexp_size (K 0) (SND (SND x))) bs ≤
     list_size (pair_size mlstring_size
                  (pair_size (list_size mlstring_size) (cexp_size (K 0)))) bs
 Proof
@@ -156,7 +156,7 @@ Termination
   WF_REL_TAC `inv_image ($< LEX $<) $ λx. case x of
     | INL (m, ns, cl, h, e) => (cl, cexp_size (K 0) e)
     | INR (m, ns, cl, h, es) => (cl, list_size (cexp_size (K 0)) es)`
-  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ fs [] \\ rw [] \\ gvs []
   \\ qspec_then `vbs` assume_tac cexp_size_lemma \\ fs []
   \\ qspec_then ‘bs’ assume_tac size_lemma \\ fs []
 End
@@ -202,7 +202,7 @@ Definition tree_size_heuristic_rec_def:
 Termination
   WF_REL_TAC ‘measure (λx. case x of
     | (n, e) => cexp_size (K 0) e)’
-  \\ fs [cexp_size_eq] \\ rw [] \\ gvs []
+  \\ fs [] \\ rw [] \\ gvs []
   \\ imp_res_tac cexp_size_lemma2 \\ fs []
 End
 

@@ -471,7 +471,7 @@ Proof
             ($= +++ v_rel) (eval_to j (EL n xs)) (eval_to j (EL n ys))’
       by (rpt strip_tac
           \\ first_x_assum irule
-          \\ simp [eval_to_wo_def, exp_size_def]
+          \\ simp [eval_to_wo_def]
           \\ gs [EVERY_EL, LIST_REL_EL_EQN]
           \\ rw [DISJ_EQ_IMP]
           \\ ‘n < LENGTH xs’ by gs []

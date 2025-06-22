@@ -204,13 +204,7 @@ Definition astType_def:
      tys <- astTypeBaseL rest ;
      SOME (ty1 :: tys)
    od)
-Termination
-  WF_REL_TAC ‘measure (λs. case s of
-                             INL (_, pt) => ptsize pt
-                           | INR (INL (_, _, pts)) => ptlsize pts
-                           | INR (INR pts) => ptlsize pts)’ >> rw[]
 End
-
 
 Definition astLit_def:
   astLit (Lf _) = NONE ∧
@@ -276,7 +270,6 @@ Definition astcapname_def:
     return nm
   od
 End
-
 
 Definition astPat_def:
   astPat _ (Lf _) = NONE ∧
@@ -680,7 +673,7 @@ Termination
      (* astDoBlock *)    | INR (INR (INR (INR (INL pt)))) => ptsize pt
      (* astPatAsts *)    | INR $ INR $ INR $ INR $ INR $ INL pt => ptsize pt
      (* astPatAst *)     | INR $ INR $ INR $ INR $ INR $ INR pt => ptsize pt)’>>
-  simp[miscTheory.LLOOKUP_EQ_EL, parsetree_size_eq, list_size_MAP_SUM,
+  simp[miscTheory.LLOOKUP_EQ_EL, list_size_MAP_SUM,
        quantHeuristicsTheory.LIST_LENGTH_1] >>
   rpt strip_tac >> simp[arithmeticTheory.ZERO_LESS_ADD] >> gvs[] >>
   TRY (drule_then strip_assume_tac grab_EQ_SOME_APPEND >>
@@ -689,7 +682,7 @@ Termination
   [‘MEM pt pts’]
   >- (simp[parsetree_size_def, basicSizeTheory.pair_size_def,
            basicSizeTheory.full_sum_size_def, basicSizeTheory.sum_size_def] >>
-      simp[parsetree_size_eq, list_size_MAP_SUM] >>
+      simp[list_size_MAP_SUM] >>
       gvs[listTheory.MEM_EL] >>
       drule_then (qspec_then ‘ptsize’ assume_tac) SUM_MAP_EL_lemma >> simp[]) >>
   qmatch_goalsub_abbrev_tac ‘ptsize (EL i ptl)’ >>

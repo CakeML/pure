@@ -207,54 +207,28 @@ QED
 Theorem exp_rel_freevars:
     ∀x y. exp_rel x y ⇒ freevars x = freevars y
 Proof
-    completeInduct_on ‘exp_size x’ >> Cases >>
-    gs [exp_size_def, exp_rel_def, PULL_EXISTS, freevars_def] >>
-    rw [] >> gs []
-    >- (AP_TERM_TAC >> AP_TERM_TAC >>
-        irule LIST_EQ >> gs [LIST_REL_EL_EQN, EL_MAP] >>
-        gen_tac >> strip_tac >> last_x_assum irule >>
-        first_x_assum $ irule_at $ Pos last >> simp [] >>
-        rename1 ‘EL x l’ >>
-        ‘exp_size (EL x l) ≤ exp3_size l’ suffices_by gvs [] >>
-        assume_tac exp_size_lemma >> fs [] >>
-        first_x_assum irule >> gs [EL_MEM])
-    >- (AP_TERM_TAC >> AP_TERM_TAC >>
-        irule LIST_EQ >> gs [LIST_REL_EL_EQN, EL_MAP] >>
-        gen_tac >> strip_tac >> last_x_assum irule >>
-        first_x_assum $ irule_at $ Pos last >> simp [] >>
-        rename1 ‘EL x l’ >>
-        ‘exp_size (EL x l) ≤ exp3_size l’ suffices_by gvs [] >>
-        assume_tac exp_size_lemma >> fs [] >>
-        first_x_assum irule >> gs [EL_MEM])
-    >- (MK_COMB_TAC >- (AP_TERM_TAC >> gs []) >> gs [])
-    >- (AP_THM_TAC >> AP_TERM_TAC >> gs [])
-    >- (AP_THM_TAC >> AP_TERM_TAC >>
-        MK_COMB_TAC >- (AP_TERM_TAC >> gs []) >>
-        AP_TERM_TAC >> AP_TERM_TAC >>
-        irule LIST_EQ >> gs [LIST_REL_EL_EQN, EL_MAP] >>
-        gen_tac >> strip_tac >>
-        first_x_assum $ drule_then assume_tac >>
-        pairarg_tac >> simp [] >>
-        pairarg_tac >> gs [] >>
-        last_x_assum irule >>
-        first_x_assum $ irule_at $ Pos last >> simp [] >>
-        rename [‘exp1_size l’, ‘EL i l’] >>
-        ‘exp_size (SND (EL i l)) ≤ exp1_size l’ suffices_by gvs [] >>
-        qpat_x_assum ‘LENGTH _ = LENGTH _’ $ assume_tac >>
-        dxrule_then assume_tac EQ_SYM >>
-        assume_tac exp_size_lemma >> gs [MEM_EL, PULL_EXISTS] >>
-        first_x_assum $ drule_then assume_tac >> gs [])
-    >~[‘Let opt _ _’]
-    >- (Cases_on ‘opt’ >> gs [freevars_def]
-        >- (MK_COMB_TAC >- (AP_TERM_TAC >> gs []) >> gs [])
-        >- (MK_COMB_TAC
-            >- (AP_TERM_TAC >> gs [])
-            >- (AP_THM_TAC >> AP_TERM_TAC >> gs [])))
-    >- (MK_COMB_TAC
-        >- (AP_TERM_TAC >> MK_COMB_TAC >- (AP_TERM_TAC >> gs []) >> gs [])
-        >- gs [])
-    >- gs [freevars_def]
-    >- gs [freevars_def, exp_size_def]
+  Induct_on ‘x’ using freevars_ind >>
+  rw[Once exp_rel_cases] >>
+  gvs[freevars_def]
+  >>~ [‘BIGUNION’]
+  >- (
+    cong_tac (SOME 2) >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
+    )
+  >- (
+    cong_tac (SOME 2) >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS]
+    )
+  >- (
+    first_x_assum drule >> rw[] >>
+    cong_tac (SOME 4) >>
+    gvs[MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] >>
+    rw[] >> rpt (pairarg_tac >> gvs[]) >>
+    gvs[EL_MAP] >> rpt $ last_x_assum drule >> rw[]
+    )
+  >~ [‘exp_rel (Delay _)’]
+  >- gvs[Once exp_rel_cases, PULL_EXISTS, freevars_def]
+  >> metis_tac[]
 QED
 
 Theorem exp_rel_subst:

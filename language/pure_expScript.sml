@@ -135,8 +135,8 @@ Definition closed_def:
 End
 
 Theorem exp_size_lemma:
-  (∀xs     a. MEM      a  xs ⇒ exp_size a < exp3_size xs) ∧
-  (∀xs x   a. MEM   (x,a) xs ⇒ exp_size a < exp1_size xs)
+  (∀xs     a. MEM      a  xs ⇒ exp_size a < list_size exp_size xs) ∧
+  (∀xs x   a. MEM   (x,a) xs ⇒ exp_size a < list_size (pair_size (list_size char_size) exp_size) xs)
 Proof
   conj_tac \\ TRY conj_tac \\ Induct \\ rw []
   \\ res_tac \\ fs [fetch "-" "exp_size_def"]

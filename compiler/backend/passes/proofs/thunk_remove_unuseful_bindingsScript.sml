@@ -198,98 +198,40 @@ QED
 Theorem clean_rel_freevars:
   ∀x y. clean_rel x y ⇒ freevars y ⊆ freevars x
 Proof
-  completeInduct_on ‘exp_size x’ >> Cases >>
-  gvs [exp_size_def, clean_rel_def, PULL_EXISTS, freevars_def, SUBSET_DEF, PULL_FORALL] >>
-  rw [] >> gvs []
-  >- (rename1 ‘LIST_REL _ xs ys’
-      \\ last_x_assum $ irule_at Any
-      \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
-      \\ rpt $ last_assum $ irule_at Any
-      \\ assume_tac exp_size_lemma
-      \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
-      \\ rename1 ‘n < _’
-      \\ first_x_assum $ qspecl_then [‘xs’, ‘n’] assume_tac \\ gvs [])
-  >- (rename1 ‘LIST_REL _ xs ys’
-      \\ last_x_assum $ irule_at Any
-      \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]
-      \\ rpt $ last_assum $ irule_at Any
-      \\ assume_tac exp_size_lemma
-      \\ gvs [EL_MAP, MEM_EL, PULL_EXISTS]
-      \\ rename1 ‘n < _’
-      \\ first_x_assum $ qspecl_then [‘xs’, ‘n’] assume_tac \\ gvs [])
-  >- (disj1_tac \\ first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (disj2_tac \\ first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (gvs [freevars_def]
-      >- (disj1_tac \\ last_x_assum irule \\ gvs []
-          \\ rpt $ first_x_assum $ irule_at Any)
-      \\ disj2_tac \\ last_x_assum $ irule_at Any
-      \\ gvs [MEM_EL, LIST_REL_EL_EQN, EL_MAP]
-      \\ last_x_assum $ irule_at Any
-      \\ rpt $ first_assum $ irule_at Any
-      \\ gvs [EL_MAP, SND_THM]
-      \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
-      \\ assume_tac exp_size_lemma
-      \\ gvs [MEM_EL, PULL_EXISTS]
-      \\ rename1 ‘n < _’
-      \\ first_x_assum $ qspecl_then [‘FST (EL n l)’, ‘SND (EL n l)’, ‘l’, ‘n’] assume_tac \\ gvs [])
-  >- gvs [freevars_def]
-  >- (disj1_tac \\ last_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (rename1 ‘clean_rel y1 y2’ \\ last_x_assum $ qspecl_then [‘y1’, ‘y2’] assume_tac \\ gvs []
-      \\ pop_assum $ dxrule_then assume_tac \\ strip_tac \\ gvs [EVERY_MEM])
-  >- (gvs [freevars_def]
-      >- (disj1_tac \\ last_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-      \\ disj2_tac
-      \\ ‘∀A B. A ⇒ A ∨ B’ by gvs [] \\ pop_assum $ irule_at Any
-      \\ gvs [MEM_EL, EL_MAP, SF CONJ_ss, PULL_EXISTS]
-      \\ rename1 ‘n < _’ \\ qexists_tac ‘n’
-      \\ gvs [LIST_REL_EL_EQN]
-      \\ pairarg_tac \\ gs [] \\ pairarg_tac \\ gs []
-      \\ last_x_assum irule \\ gvs [EL_MAP]
-      \\ last_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [EL_SNOC, EL_MAP]
-      \\ conj_tac
-      >- (assume_tac exp_size_lemma \\ gvs [MEM_EL, PULL_EXISTS]
-          \\ rename1 ‘f ++ [(v,w)]’
-          \\ first_x_assum $ qspecl_then [‘FST (EL n f)’, ‘SND (EL n f)’, ‘f ++ [(v,w)]’, ‘n’] assume_tac
-          \\ gvs [EL_APPEND_EQN])
-      \\ rpt $ first_x_assum $ irule_at Any)
-  >- (gvs [freevars_def] \\ strip_tac \\ gvs [MEM_MAP, EVERY_MEM, PULL_EXISTS]
-      >- (rpt $ first_x_assum $ irule_at Any \\ gvs [])
-      \\ gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
-      \\ rename1 ‘n < _ ’ \\ rpt $ first_x_assum $ qspec_then ‘n’ assume_tac \\ gs [EL_MAP]
-      \\ rpt $ first_x_assum $ irule_at Any
-      \\ pairarg_tac \\ gs []
-      \\ rename1 ‘f ++ [(v,w)]’ \\ assume_tac exp_size_lemma \\ gvs [MEM_EL, PULL_EXISTS]
-      \\ first_x_assum $ qspecl_then [‘FST (EL n f)’, ‘SND (EL n f)’, ‘f ++ [(v,w)]’, ‘n’] assume_tac
-      \\ gvs [EL_APPEND_EQN])
-  >- (rename1 ‘clean_rel x1 x2’ \\ rename1 ‘clean_rel y1 y2’
-      \\ rename1 ‘Let opt _ _’ \\ Cases_on ‘opt’
-      \\ last_assum $ qspecl_then [‘x1’, ‘x2’] assume_tac
-      \\ last_x_assum $ qspecl_then [‘y1’, ‘y2’] assume_tac \\ gvs [freevars_def])
-  >- (rename1 ‘clean_rel y1 y2’ \\ last_x_assum $ qspecl_then [‘y1’, ‘y2’] assume_tac \\ gvs [freevars_def]
-      \\ rw [] \\ gvs [])
-  >- (disj1_tac \\ disj1_tac \\ first_x_assum irule \\ gvs []
-      \\ rpt $ first_x_assum $ irule_at Any)
-  >- (disj1_tac \\ disj2_tac \\ first_x_assum irule \\ gvs []
-      \\ rpt $ first_x_assum $ irule_at Any)
-  >- (disj2_tac \\ first_x_assum irule \\ gvs []
-      \\ rpt $ first_x_assum $ irule_at Any)
-  >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-  >- (first_x_assum irule \\ gvs [] \\ rpt $ first_x_assum $ irule_at Any)
-QED
-
-Theorem exp1_size_append:
-  ∀l1 l2. exp1_size (l1 ++ l2) = exp1_size l1 + exp1_size l2
-Proof
-  Induct >> gs [exp_size_def]
+  reverse $ Induct_on ‘x’ using freevars_ind >>
+  rw[Once clean_rel_cases] >>
+  gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP, EVERY_MAP, EVERY_EL, PULL_EXISTS, freevars_def] >>
+  gvs[DIFF_SUBSET, BIGUNION_SUBSET] >>
+  gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL, EL_MAP, EVERY_MAP, EVERY_EL]
+  >- (
+    rw[] >- metis_tac[] >>
+    pairarg_tac >> gvs[] >>
+    rpt $ (last_x_assum drule >> strip_tac) >> gvs[] >>
+    rw[DISJ_EQ_IMP] >>
+    goal_assum $ drule_at Any >>
+    pairarg_tac >> gvs[] >>
+    metis_tac[]
+    )
+  >- (
+    rw[] >- metis_tac[] >>
+    CCONTR_TAC >> gvs[] >> metis_tac[]
+    )
+  >- (
+    rw[] >- metis_tac[] >>
+    pairarg_tac >> gvs[] >>
+    gvs[PULL_EXISTS, DISJ_EQ_IMP] >> rw[] >>
+    rpt $ first_x_assum $ qspec_then ‘n’ assume_tac >> gvs[SND_THM] >>
+    rpt (pairarg_tac >> gvs[]) >> gvs[EL_MAP] >>
+    metis_tac[]
+    )
+  >> metis_tac[]
 QED
 
 Theorem clean_rel_boundvars:
   ∀x y. clean_rel x y ⇒ boundvars y ⊆ boundvars x
 Proof
   completeInduct_on ‘exp_size x’ >> Cases >>
-  gvs [exp_size_def, clean_rel_def, PULL_EXISTS, boundvars_def, SUBSET_DEF, PULL_FORALL] >>
+  gvs [clean_rel_def, PULL_EXISTS, boundvars_def, SUBSET_DEF, PULL_FORALL] >>
   rw [] >> gvs []
   >- (rename1 ‘LIST_REL _ xs ys’
       \\ last_x_assum $ irule_at Any
@@ -347,7 +289,7 @@ Proof
       \\ qpat_x_assum ‘LENGTH _ = LENGTH _’ assume_tac \\ dxrule_then assume_tac EQ_SYM
       \\ gs []
       \\ first_x_assum $ drule_then assume_tac
-      \\ gs [exp1_size_append]
+      \\ gs [list_size_append]
       \\ rpt $ first_x_assum $ irule_at Any)
   >- (rename1 ‘Let opt _ _’
       \\ Cases_on ‘opt’ \\ gs [boundvars_def]

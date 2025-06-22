@@ -209,7 +209,7 @@ Proof
   qmatch_abbrev_tac ‘P’ >>
   ‘P ∧ (∀d : expdecAST. T) ∧ (∀ds : expdostmtAST. T)’ suffices_by simp[] >>
   qunabbrev_tac ‘P’ >>
-  Induct >> simp[strip_comb_def, expAST_size_eq]
+  Induct >> simp[strip_comb_def]
   >- (
     simp[expAST_size_def] >> rpt strip_tac >>
     rename [‘strip_comb f = (f0, es)’] >>
@@ -484,18 +484,19 @@ Termination
   [‘OPT_MMAP’]
   >- (gvs[AllCaseEqs()] >> rename [‘LAST pats’] >> Cases_on ‘pats’ >> gvs[] >>
       rename [‘LAST (pe::pes) = (patUScore, e)’] >>
-      ‘MEM (patUScore, e) (pe::pes)’ by metis_tac[rich_listTheory.MEM_LAST] >>
+      ‘MEM (patUScore, e) (pe::pes)’ by
+        (qspecl_then [‘pe’,‘pes’] mp_tac rich_listTheory.MEM_LAST >> simp[]) >>
       pop_assum mp_tac >> rpt (pop_assum kall_tac) >>
-      qspec_tac (‘pe::pes’, ‘pes’) >> Induct_on ‘pes’ >>
-      simp[expAST_size_def, FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
-      rpt strip_tac >> gs[]) >>
+      Induct_on ‘pes’ >>
+      simp[FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
+      rpt strip_tac >> gvs[]) >>
   rename [‘MEM (p_e, rhs_e) pats'’, ‘LAST pats’] >>
   ‘MEM (p_e, rhs_e) pats’
     by (gvs[AllCaseEqs()] >> Cases_on ‘pats’ >> gvs[] >>
         drule rich_listTheory.MEM_FRONT >> simp[]) >>
   pop_assum mp_tac >> rpt (pop_assum kall_tac) >>
   Induct_on ‘pats’ >>
-  simp[expAST_size_def, FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
+  simp[FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
   rpt strip_tac >> gs[]
 End
 
@@ -930,8 +931,8 @@ Termination
   WF_REL_TAC `inv_image ($< LEX $<) (λs. case s of
     | INL e => (texp_size (K 0) e,1n)
     | INR (INL l) => (list_size (texp_size (K 0)) l,1n)
-    | INR (INR (INL pe)) => (texp4_size (K 0) pe,0n)
-    | INR (INR (INR l)) => (texp3_size (K 0) l,0n))` >>
+    | INR (INR (INL pe)) => (pair_size cepat_size (texp_size (K 0)) pe,0n)
+    | INR (INR (INR l)) => (list_size (pair_size cepat_size (texp_size (K 0))) l,0n))` >>
   conj_tac
   >- (
     rpt strip_tac >>
@@ -939,9 +940,9 @@ Termination
   ) >>
   ntac 1 gen_tac >>
   Induct >>
-  rw[texp_size_def] >> gvs[list_size_def] >>
+  rw[] >> gvs[list_size_def] >>
   Cases_on `UNZIP (MAP (λx. (FST (FST x), SND x)) fns)` >>
-  PairCases_on `h` >> gvs[texp_size_def]
+  PairCases_on `h` >> gvs[]
 End
 
 Triviality delete_cmp_of:

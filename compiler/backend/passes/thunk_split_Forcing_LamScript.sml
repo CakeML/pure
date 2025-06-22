@@ -4,26 +4,6 @@ open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_setTheory;
 
 val _ = new_theory "thunk_split_Forcing_Lam";
 
-Theorem size_eq:
-  ∀l. list_size cexp_size l = cexp8_size l
-Proof
-  Induct >> simp [list_size_def, cexp_size_def]
-QED
-
-Theorem size_eq2:
-  ∀l. cexp6_size l = list_size cexp_size (MAP SND l) + list_size mlstring_size (MAP FST l)
-Proof
-  Induct >> simp [cexp_size_def, FORALL_PROD, list_size_def]
-QED
-
-Theorem size_eq_case:
-  ∀l. cexp2_size l = list_size cexp_size (MAP (SND o SND) l)
-                     + list_size mlstring_size (MAP FST l)
-                     + list_size (list_size mlstring_size) (MAP (FST o SND) l)
-Proof
-  Induct >> simp [cexp_size_def, FORALL_PROD, list_size_def]
-QED
-
 Definition extract_names_def:
   extract_names (thunk_cexp$Var v) = insert_var empty_vars v ∧
   extract_names (thunk_cexp$Lam ns x) = delete_vars (extract_names x) ns ∧
@@ -58,11 +38,9 @@ Termination
               | INL x => cexp_size x
               | INR (INL x) => list_size cexp_size (SND x)
               | INR (INR x) => list_size cexp_size (MAP (SND o SND) (SND x))`
-  \\ fs [pure_cexpTheory.cexp_size_eq] \\ rw [list_size_def]
-  >~ [‘list_size cexp_size (MAP SND pes)’] >-
-    (Induct_on ‘pes’ \\ fs [listTheory.list_size_def,FORALL_PROD]
-     \\ rw [] \\ fs [cexp_size_def])
-  >- simp [size_eq_case, combinTheory.o_DEF]
+  \\ fs [] \\ rw [list_size_def]
+  >- (Induct_on ‘xs’ >> rw[] >> PairCases_on ‘h’ >> gvs[])
+  >- (pop_assum kall_tac >> Induct_on ‘ys’ >> rw[] >> PairCases_on ‘h’ >> gvs[])
 End
 
 Definition thunk_names_def:
@@ -159,7 +137,7 @@ Termination
           | INR (INL x) => list_size cexp_size (SND x)
           | INR (INR (INL x)) => list_size (cexp_size o SND o SND) (SND x)
           | INR (INR (INR x)) => list_size (cexp_size o SND) (SND x)`
-  \\ fs [pure_cexpTheory.cexp_size_eq] \\ rw []
+  \\ fs [] \\ rw []
   \\ rename1 ‘list_size _ f’
   \\ Induct_on ‘f’ \\ fs [listTheory.list_size_def,FORALL_PROD]
   \\ rw [] \\ fs [cexp_size_def]

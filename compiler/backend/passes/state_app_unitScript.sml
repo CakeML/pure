@@ -51,7 +51,7 @@ Definition push_app_unit_def:
     unit_apps l (HandleApp (push_app_unit 0 x) (push_app_unit 0 y))
 Termination
   WF_REL_TAC ‘measure (cexp_size o SND)’
-  \\ gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,cexp_size_eq,list_size_def,any_el_def]
+  \\ gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,list_size_def,any_el_def]
 End
 
 Triviality push_app_unit_test:
