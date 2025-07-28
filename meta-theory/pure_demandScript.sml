@@ -606,7 +606,7 @@ Theorem eq_when_applied_SUC:
 Proof
   Induct >> gvs [eq_when_applied_def] >>
   rpt gen_tac >> strip_tac >> rw [] >>
-  qspecl_then [‘l’] assume_tac last_exists >> gvs [last_Apps] >>
+  qspecl_then [‘l’] assume_tac last_exists >> gvs [last_Apps, SNOC_APPEND] >>
   irule exp_eq_App_cong >>
   last_x_assum $ irule_at Any >>
   gvs [exp_eq_refl]
@@ -2090,7 +2090,7 @@ Proof
   Induct_on ‘LENGTH l’ >> rw [needs_in_IsFree_Bind] >>
   qspecl_then [‘l’] assume_tac last_exists >>
   rename1 ‘e needs (d, _)’ >> PairCases_on ‘d’ >>
-  gvs [FOLDL_APPEND, FORALL_PROD, needs_def, exp_eq_in_ctxt_def] >>
+  gvs [FOLDL_APPEND, FORALL_PROD, needs_def, exp_eq_in_ctxt_def, SNOC_APPEND] >>
   rpt strip_tac >>
   irule exp_eq_in_ctxt_trans >> irule_at (Pos last) exp_eq_IMP_exp_eq_in_ctxt >>
   once_rewrite_tac [exp_eq_sym] >> irule_at Any exp_eq_trans >>
