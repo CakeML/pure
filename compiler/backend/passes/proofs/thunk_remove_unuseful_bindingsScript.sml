@@ -200,7 +200,8 @@ Theorem clean_rel_freevars:
 Proof
   reverse $ Induct_on ‘x’ using freevars_ind >>
   rw[Once clean_rel_cases] >>
-  gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP, EVERY_MAP, EVERY_EL, PULL_EXISTS, freevars_def] >>
+  gvs[LIST_REL_EL_EQN, MEM_EL, EL_MAP, EVERY_MAP, EVERY_EL, PULL_EXISTS,
+      freevars_def, SNOC_APPEND] >>
   gvs[DIFF_SUBSET, BIGUNION_SUBSET] >>
   gvs[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_EL, EL_MAP, EVERY_MAP, EVERY_EL]
   >- (
@@ -232,7 +233,7 @@ Theorem clean_rel_boundvars:
 Proof
   completeInduct_on ‘exp_size x’ >> Cases >>
   gvs [clean_rel_def, PULL_EXISTS, boundvars_def, SUBSET_DEF, PULL_FORALL] >>
-  rw [] >> gvs []
+  rw [] >> gvs [SNOC_APPEND]
   >- (rename1 ‘LIST_REL _ xs ys’
       \\ last_x_assum $ irule_at Any
       \\ gvs [MEM_EL, EL_MAP, LIST_REL_EL_EQN, PULL_EXISTS]

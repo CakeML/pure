@@ -466,7 +466,7 @@ Theorem state_rel_INR:
      (SOME (SNOC [False_v; Closure NONE env2 se] ss))
 Proof
   fs [state_rel_def] \\ rw [] \\ gvs []
-  \\ gvs [thunk_rel_def]
+  \\ gvs [thunk_rel_def,SNOC_APPEND]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
   \\ gvs [LIST_REL_EL_EQN] \\ rw []
@@ -480,7 +480,7 @@ Theorem state_rel_INL:
   state_rel (p ++ [SOME (INL v1,f)]) ts (SOME (SNOC [True_v; v2] ss))
 Proof
   fs [state_rel_def] \\ rw [] \\ gvs []
-  \\ gvs [thunk_rel_def]
+  \\ gvs [thunk_rel_def,SNOC_APPEND]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
   \\ gvs [LIST_REL_EL_EQN] \\ rw []
@@ -507,7 +507,7 @@ Theorem state_rel_Ref:
   LIST_REL (v_rel p) xs ys ∧ state_rel p (SOME ts) (SOME ss) ⇒
   state_rel (p ++ [NONE]) (SOME (SNOC xs ts)) (SOME (SNOC ys ss))
 Proof
-  gvs [state_rel_def,thunk_rel_def] \\ rpt strip_tac
+  gvs [state_rel_def,thunk_rel_def,SNOC_APPEND] \\ rpt strip_tac
   >-
    (gvs [LIST_REL_EL_EQN] \\ rw []
     \\ irule_at Any thunk_rel_ext \\ fs [])

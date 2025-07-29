@@ -1387,7 +1387,7 @@ Proof
     qmatch_goalsub_abbrev_tac `Val v` >>
     qmatch_goalsub_abbrev_tac `SNOC new _` >>
     disch_then $ qspecl_then [`Val v`,`sk'`,`SNOC new ss`] mp_tac >>
-    reverse impl_tac >> simp[]
+    reverse impl_tac >> simp[SNOC_APPEND]
     >- (strip_tac >> goal_assum $ drule_at Any >> simp[]) >>
     unabbrev_all_tac >> simp[next_rel_cases] >> disj2_tac >>
     simp[eval_def] >> simp[Once eval_to_def, result_map_def, eval_op_def] >>
