@@ -223,7 +223,8 @@ Definition namespace_ok_def:
       MEM («Subscript»,[]) exndef
 End
 
-Overload append_ns = ``λns ns'. (FST ns ++ FST ns', SND ns ++ SND ns')``;
+Overload append_ns = ``λ(ns : exndef # typedefs) ns'.
+                         (FST ns ++ FST ns', SND ns ++ SND ns')``;
 
 Definition namespace_init_ok_def:
   namespace_init_ok ns ⇔

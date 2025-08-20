@@ -1876,7 +1876,7 @@ Proof
         pairarg_tac >> gvs[store_alloc_def] >>
         qexists0 >> reverse $ rw[step_rel_cases]
         >- gvs[state_rel, store_lookup_def] >>
-        qexists `cnenv` >> gvs[state_rel] >>
+        qexists `cnenv` >> gvs[state_rel, SNOC_APPEND] >>
         imp_res_tac LIST_REL_LENGTH >> rw[store_rel_def])
     >>~- ([`UpdateMutThunk`],
       `LENGTH l0 = 1` by gvs [] >> gvs[LENGTH_EQ_NUM_compute] >>
@@ -2234,7 +2234,7 @@ Proof
     )
   >- ( (* Alloc - ready to evaluate *)
     last_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
-    TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[SNOC_APPEND] >>
     ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
     simp[do_app_def, opb_lookup_def] >>
     IF_CASES_TAC >> gvs[] >>

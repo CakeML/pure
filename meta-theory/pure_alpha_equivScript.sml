@@ -906,7 +906,8 @@ Proof
 QED
 
 Triviality APPEND_EQ_IMP:
-  a = b ∧ c = d ⇒ a ++ c = b ++ d
+  ∀(a : 'a list) b c d.
+    a = b ∧ c = d ⇒ a ++ c = b ++ d
 Proof
   rw[]
 QED

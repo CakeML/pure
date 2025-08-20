@@ -290,7 +290,7 @@ Theorem ALOOKUP_REVERSE_REVERSE:
 Proof
   Induct using SNOC_INDUCT \\ rw []
   \\ Cases_on ‘ws’ using SNOC_CASES
-  \\ fs [REVERSE_SNOC]
+  \\ fs [MAP_SNOC, REVERSE_SNOC]
   \\ rename [‘FST z = FST t’]
   \\ PairCases_on ‘z’
   \\ PairCases_on ‘t’

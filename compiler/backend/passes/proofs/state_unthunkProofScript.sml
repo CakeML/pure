@@ -1155,7 +1155,7 @@ Proof
     \\ irule_at Any v_rel_Ref \\ simp []
     \\ gvs [state_rel_def]
     \\ imp_res_tac LIST_REL_LENGTH
-    \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
+    \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND,SNOC_APPEND]
     \\ gvs [LIST_REL_EL_EQN] \\ rw []
     \\ TRY (irule_at Any thunk_rel_ext \\ gvs [thunk_rel_def])
     \\ TRY (irule_at Any store_rel_ext \\ gvs [store_rel_def])

@@ -1302,7 +1302,12 @@ Proof
           disch_then (qx_choose_then ‘j’ assume_tac)
           \\ qexists_tac ‘j’
           \\ Cases_on ‘result_map (λx. eval_to (j + k) x ) xs’
-          \\ Cases_on ‘result_map (λx. eval_to k x) ys’ \\ gs [])
+          \\ Cases_on ‘result_map (λx. eval_to k x) ys’ \\ gs []
+          \\ rw [EVERY_EL]
+          \\ (
+            gvs [LIST_REL_EL_EQN]
+            \\ ntac 2 (first_x_assum drule \\ rw [])
+            \\ cheat (* TODO v_rel_anyThunk *)))
       \\ ‘result_map (λx. eval_to k x) ys ≠ INL Type_error’
         by (gvs [result_map_def, CaseEq "bool"]
             \\ strip_tac

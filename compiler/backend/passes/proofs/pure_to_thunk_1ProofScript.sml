@@ -343,7 +343,7 @@ Triviality LIST_REL_ALOOKUP_REVERSE_IMP:
 Proof
   Induct using SNOC_INDUCT \\ fs []
   \\ strip_tac \\ Cases using SNOC_CASES
-  \\ fs [LIST_REL_SNOC,REVERSE_SNOC]
+  \\ fs [LIST_REL_SNOC,REVERSE_SNOC,MAP_SNOC]
   \\ rename [‘FST a = FST b’]
   \\ PairCases_on ‘a’ \\ PairCases_on ‘b’
   \\ fs [] \\ rw [] \\ fs []

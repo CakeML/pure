@@ -241,7 +241,8 @@ Proof
   Cases_on ‘e’ \\ gvs [dest_Var_def, exp_of_def, AllCaseEqs()]
   >~[‘Apps _ _’]
   >- (rename1 ‘Apps _ (MAP _ l)’
-      \\ qspec_then ‘l’ assume_tac SNOC_CASES \\ gvs [cexp_wf_def, FOLDL_APPEND])
+      \\ qspec_then ‘l’ assume_tac SNOC_CASES
+      \\ gvs [cexp_wf_def, MAP_SNOC, FOLDL_SNOC])
   >~[‘Lams _ _’]
   >- (rename1 ‘Lams (MAP _ l) _’
       \\ Cases_on ‘l’ \\ gvs [cexp_wf_def, FOLDL_APPEND])
@@ -521,7 +522,7 @@ Theorem FOLDL_delete_ok:
 Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
-  qspec_then ‘vL’ assume_tac SNOC_CASES >> gvs [FOLDL_APPEND, delete_thm]
+  qspec_then ‘vL’ assume_tac SNOC_CASES >> gvs [FOLDL_SNOC, delete_thm]
 QED
 
 Theorem FRANGE_FOLDL_delete:
@@ -894,7 +895,7 @@ Proof
          unfold_Delay_Lam_def, is_Lam_def, dest_Delay_Lam_def]
   >- (rename1 ‘Apps _ (MAP _ l)’
       \\ qspec_then ‘l’ assume_tac SNOC_CASES
-      \\ gs [exp_rel1_def, exp_rel2_def, is_Lam_def, FOLDL_APPEND])
+      \\ gs [exp_rel1_def, exp_rel2_def, is_Lam_def, FOLDL_MAP, FOLDL_SNOC])
   >- (rename1 ‘rows_of _ (MAP _ l) (OPTION_MAP _ fall)’
       \\ Cases_on ‘l’
       \\ gs [exp_rel1_def, exp_rel2_def, is_Lam_def, FOLDL_APPEND, rows_of_def]
@@ -919,7 +920,7 @@ Proof
          unfold_Delay_Lam_def, is_Lam_def, dest_Delay_Lam_def]
   >- (rename1 ‘Apps _ (MAP _ l)’
       \\ qspec_then ‘l’ assume_tac SNOC_CASES
-      \\ gs [exp_rel1_def, is_Lam_def, FOLDL_APPEND])
+      \\ gs [exp_rel1_def, is_Lam_def, FOLDL_MAP, FOLDL_SNOC])
   >- (rename1 ‘rows_of _ (MAP _ l) (OPTION_MAP _ fall)’
       \\ Cases_on ‘l’ \\ fs []
       \\ gs [exp_rel1_def, is_Lam_def, FOLDL_APPEND, rows_of_def]
@@ -940,6 +941,7 @@ Proof
   \\ qspec_then ‘vL’ assume_tac SNOC_CASES \\ gs [LIST_REL_SNOC, MAP_SNOC]
   \\ once_rewrite_tac [ADD_SYM]
   \\ gs [GSYM arithmeticTheory.SUC_ONE_ADD, GENLIST, GSYM ZIP_APPEND]
+  \\ gvs [ZIP_SNOC, SNOC_APPEND]
   \\ simp [MAP2_APPEND, LIST_REL_EL_EQN]
   \\ rw []
   \\ once_rewrite_tac [GSYM LIST_REL_eq]
@@ -1838,7 +1840,8 @@ Proof
               \\ rename1 ‘cexp_ok_bind e2’
               \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
               >- (rename1 ‘Apps _ (MAP _ list)’
-                  \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
+                  \\ qspec_then ‘list’ assume_tac SNOC_CASES
+                  \\ gs [exp_of_def, FOLDL_MAP, FOLDL_SNOC])
               >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
                   \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
                   \\ pairarg_tac \\ gs [rows_of_def]))
@@ -1846,7 +1849,8 @@ Proof
               \\ rename1 ‘cexp_ok_bind e2’
               \\ Cases_on ‘e2’ \\ gs [cexp_wf_def, cexp_ok_bind_def]
               >- (rename1 ‘Apps _ (MAP _ list)’
-                  \\ qspec_then ‘list’ assume_tac SNOC_CASES \\ gs [exp_of_def, FOLDL_APPEND])
+                  \\ qspec_then ‘list’ assume_tac SNOC_CASES
+                  \\ gs [exp_of_def, FOLDL_MAP, FOLDL_SNOC])
               >- (rename1 ‘rows_of _ (MAP _ list) (OPTION_MAP _ fall)’
                   \\ Cases_on ‘list’ \\ gs [rows_of_def, FOLDL_APPEND]
                   \\ pairarg_tac \\ gs [rows_of_def])))
@@ -3574,7 +3578,7 @@ Proof
           \\ Cases_on ‘e’ \\ gvs [exp_rel1_def, dest_Var_def, exp_of_def]
           >- (rename1 ‘Apps _ (MAP _ l)’
               \\ qspec_then ‘l’ assume_tac SNOC_CASES
-              \\ gvs [FOLDL_APPEND, exp_rel1_def, cexp_wf_def])
+              \\ gvs [FOLDL_MAP, FOLDL_SNOC, exp_rel1_def, cexp_wf_def])
           >- (rename1 ‘Lams (MAP _ l) _’
               \\ Cases_on ‘l’
               \\ gvs [exp_rel1_def, cexp_wf_def])
