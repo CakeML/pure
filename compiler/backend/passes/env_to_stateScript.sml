@@ -133,7 +133,7 @@ Definition to_state_def:
        | _ => App (AtomOp b) ys)
 Termination
   WF_REL_TAC ‘measure cexp_size’
-  \\ fs [env_cexpTheory.cexp_size_eq] \\ rw []
+  \\ fs [] \\ rw []
   \\ (drule_all Letrec_split_MEM_delays ORELSE drule_all Letrec_split_MEM_funs)
   \\ fs []
 End

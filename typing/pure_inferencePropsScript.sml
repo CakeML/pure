@@ -1097,8 +1097,7 @@ Proof
   qpat_x_assum `namespace_ok _` kall_tac >> ntac 2 $ pop_assum mp_tac >>
   map_every qid_spec_tac [`p`,`cname`,`typedefs`,`n`] >>
   recInduct infer_cons_ind >> rw[infer_cons_def] >>
-  reverse $ every_case_tac >> gvs[oEL_THM]
-  >- (`p = 0` by DECIDE_TAC >> pop_assum SUBST_ALL_TAC >> gvs[]) >>
+  reverse $ every_case_tac >> gvs[oEL_THM] >>
   Cases_on `p` >> gvs[] >- (imp_res_tac infer_cons_mono >> gvs[]) >>
   pop_assum irule >> simp[] >> gvs[ALL_DISTINCT_APPEND]
 QED
@@ -1130,7 +1129,6 @@ Proof
   >- (
     eq_tac >> strip_tac >> gvs[]
     >- (
-      Cases_on `m` >> gvs[] >>
       irule PERM_ALL_DISTINCT_LENGTH >> gvs[ALL_DISTINCT_APPEND, EVERY_MEM] >>
       gvs[MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
       irule ALL_DISTINCT_MAP_INJ >> imp_res_tac ALL_DISTINCT_MAP >> gvs[] >>

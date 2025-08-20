@@ -909,11 +909,8 @@ Proof
     )
     >- (
       fs[EL_ALL_DISTINCT_EL_EQ] >>
-      strip_tac >>
       last_x_assum $ qspecl_then [`0`,`n + 2`] mp_tac >>
-      simp[]
-    )
-    >- (
+      simp[] >>
       last_x_assum $ qspec_then `n+1` mp_tac >>
       simp[arithmeticTheory.ADD1]
     )

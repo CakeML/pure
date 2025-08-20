@@ -26,6 +26,13 @@ Definition rows_of_def:
       (lets_for cn v (MAPi (λi v. (i,v)) vs) b) (rows_of v k rest)
 End
 
+Triviality list_size_cepat_size_MAPi:
+  list_size (λx. cepat_size (SND x)) (MAPi ( λi p. f i, p) ps) = list_size cepat_size ps
+Proof
+  Induct_on ‘ps’ using SNOC_INDUCT >> rw[] >>
+  gvs[SNOC_APPEND, indexedListsTheory.MAPi_APPEND] >> simp[list_size_append]
+QED
+
 Definition patguards_def:
   patguards [] = (Prim (Cons "True") [], []) ∧
   patguards (ep::eps) =
@@ -41,8 +48,7 @@ Definition patguards_def:
          binds)
 Termination
   WF_REL_TAC ‘measure (list_size cepat_size o MAP SND)’ >>
-  simp[listTheory.list_size_def, cepat_size_def, combinTheory.o_DEF,
-       listTheory.list_size_append, cepat_size_eq]
+  simp[list_size_cepat_size_MAPi]
 End
 
 Definition nested_rows_def[simp]:
@@ -86,11 +92,11 @@ Definition exp_of_def:
       (nested_rows (Var (explode gv))
        (MAP (λ(p,e). (p, exp_of e)) ((p,e)::pes)))
 Termination
-  WF_REL_TAC ‘measure (cexp_size (K 0))’ >> rw [cexp_size_eq] >>
+  WF_REL_TAC ‘measure (cexp_size (K 0))’ >> rw [] >>
   simp[] >>
   FIRST (map (drule_then $ qspec_then ‘K 0’ assume_tac) $
          CONJUNCTS cexp_size_lemma) >>
-  gs[cexp_size_eq]
+  gs[]
 End
 
 Definition allvars_of_def[simp]:

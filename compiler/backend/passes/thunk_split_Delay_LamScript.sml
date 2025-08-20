@@ -45,7 +45,7 @@ Proof
 QED
 
 Theorem MEM_cexp6_size:
-  ∀binds p. MEM p binds ⇒ cexp_size (SND p) < cexp6_size binds
+  ∀binds p. MEM p binds ⇒ cexp_size (SND p) < list_size (pair_size mlstring_size cexp_size) binds
 Proof
   Induct \\ gvs [cexp_size_def, FORALL_PROD]
   \\ rw []

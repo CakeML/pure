@@ -484,7 +484,7 @@ Theorem state_rel_INR:
      (SOME (SNOC (ThunkMem NotEvaluated (Closure NONE env2 se)) ss))
 Proof
   fs [state_rel_def] \\ rw [] \\ gvs []
-  \\ gvs [thunk_rel_def]
+  \\ gvs [thunk_rel_def,SNOC_APPEND]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
   \\ gvs [LIST_REL_EL_EQN] \\ rw []
@@ -500,7 +500,7 @@ Theorem state_rel_INL:
     (p ++ [SOME thk]) ts (SOME (SNOC (ThunkMem Evaluated v2) ss))
 Proof
   fs [state_rel_def] \\ rw [] \\ gvs []
-  \\ gvs [thunk_rel_def]
+  \\ gvs [thunk_rel_def,SNOC_APPEND]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ gvs [GSYM ZIP_APPEND,FILTER_APPEND]
   \\ gvs [LIST_REL_EL_EQN] \\ rw []
@@ -529,7 +529,7 @@ Theorem state_rel_Ref:
   state_rel
     (p ++ [NONE]) (SOME (SNOC (Array xs) ts)) (SOME (SNOC (Array ys) ss))
 Proof
-  gvs [state_rel_def,thunk_rel_def] \\ rpt strip_tac
+  gvs [state_rel_def,thunk_rel_def,SNOC_APPEND] \\ rpt strip_tac
   >-
    (gvs [LIST_REL_EL_EQN] \\ rw []
     \\ irule_at Any thunk_rel_ext \\ fs [])

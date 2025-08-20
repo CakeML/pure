@@ -52,7 +52,7 @@ Proof
   qmatch_abbrev_tac ‘P’ >>
   ‘P ∧ (∀d : expdecAST. T) ∧ (∀ds : expdostmtAST. T)’ suffices_by simp[] >>
   qunabbrev_tac ‘P’ >>
-  Induct >> simp[strip_comb_def, expAST_size_eq] >>
+  Induct >> simp[strip_comb_def] >>
   simp[expAST_size_def] >> rpt strip_tac >>
   rename [‘strip_comb f = (f0, es)’] >>
   Cases_on ‘strip_comb f’ >> gvs[] >>
@@ -267,11 +267,13 @@ Termination
   [‘OPT_MMAP’]
   >- (gvs[AllCaseEqs()] >> rename [‘LAST pats’] >> Cases_on ‘pats’ >> gvs[] >>
       rename [‘LAST (pe::pes) = (patUScore, e)’] >>
-      ‘MEM (patUScore, e) (pe::pes)’ by metis_tac[rich_listTheory.MEM_LAST] >>
+      ‘MEM (patUScore, e) (pe::pes)’ by
+        (qspecl_then [‘pe’,‘pes’] assume_tac rich_listTheory.MEM_LAST >> gvs[]) >>
       pop_assum mp_tac >> rpt (pop_assum kall_tac) >>
-      qspec_tac (‘pe::pes’, ‘pes’) >> Induct_on ‘pes’ >>
+      qid_spec_tac ‘pes’ >> Induct >>
       simp[expAST_size_def, FORALL_PROD, DISJ_IMP_THM, FORALL_AND_THM] >>
-      rpt strip_tac >> gs[]) >>
+      rpt strip_tac >> gvs[]
+      ) >>
   rename [‘MEM (p_e, rhs_e) pats'’, ‘LAST pats’] >>
   ‘MEM (p_e, rhs_e) pats’
     by (gvs[AllCaseEqs()] >> Cases_on ‘pats’ >> gvs[] >>

@@ -1183,12 +1183,6 @@ Proof
   simp [boundvars_def]
 QED
 
-Theorem cexp8_size_SNOC:
-  cexp8_size (SNOC x l) = 1 + cexp_size x + cexp8_size l
-Proof
-  Induct_on ‘l’ \\ gs [cexp_size_def]
-QED
-
 Theorem letrec_split_vc_growing:
   ∀l1 vc1 m l2 vc2 m2.
     letrec_split l1 vc1 m = (l2, vc2, m2) ∧ vars_ok vc1
@@ -1212,7 +1206,7 @@ Proof
 QED
 
 Theorem split_Delayed_Lam_vc_growing_lemma:
-  ∀l. (∀m. m < cexp8_size l ⇒
+  ∀l. (∀m. m < list_size cexp_size l ⇒
            ∀e. m = cexp_size e ⇒
                 ∀vc m e2 vc2.
                   split_Delayed_Lam e vc m = (e2,vc2) ∧ vars_ok vc ⇒
@@ -1230,7 +1224,6 @@ Proof
   >- (gen_tac \\ strip_tac \\ rename1 ‘m < _’
       \\ last_x_assum $ qspec_then ‘m’ assume_tac
       \\ gs [cexp_size_def])
-  \\ rename1 ‘h::l’
   \\ last_x_assum $ qspec_then ‘cexp_size h’ assume_tac
   \\ gs [cexp_size_def]
   \\ last_x_assum $ qspec_then ‘h’ assume_tac
@@ -1246,7 +1239,7 @@ Proof
 QED
 
 Theorem split_Delayed_Lam_vc_growing_lemma2:
-  ∀l. (∀m. m < cexp6_size l ⇒
+  ∀l. (∀m. m < list_size (pair_size mlstring_size cexp_size) l ⇒
            ∀e. m = cexp_size e ⇒
                 ∀vc m e2 vc2.
                   split_Delayed_Lam e vc m = (e2,vc2) ∧ vars_ok vc ⇒
@@ -1265,7 +1258,6 @@ Proof
   >- (gen_tac \\ strip_tac \\ rename1 ‘m < _’
       \\ last_x_assum $ qspec_then ‘m’ assume_tac
       \\ gs [cexp_size_def])
-  \\ rename1 ‘h::l’
   \\ last_x_assum $ qspec_then ‘cexp_size (SND h)’ assume_tac
   \\ Cases_on ‘h’
   \\ gs [cexp_size_def]
@@ -1305,7 +1297,8 @@ Proof
 QED
 
 Theorem split_Delayed_Lam_vc_growing_lemma3:
-  ∀l. (∀m. m < cexp2_size l ⇒
+  ∀l. (∀m. m < list_size (pair_size mlstring_size
+                          (pair_size (list_size mlstring_size) cexp_size)) l ⇒
            ∀e. m = cexp_size e ⇒
                 ∀vc m e2 vc2.
                   split_Delayed_Lam e vc m = (e2,vc2) ∧ vars_ok vc ⇒
@@ -1323,7 +1316,6 @@ Proof
   >- (gen_tac \\ strip_tac \\ rename1 ‘m < _’
       \\ last_x_assum $ qspec_then ‘m’ assume_tac
       \\ gs [cexp_size_def])
-  \\ rename1 ‘h::l’
   \\ last_x_assum $ qspec_then ‘cexp_size (SND (SND h))’ assume_tac
   \\ Cases_on ‘SND h’ \\ Cases_on ‘h’ \\ gs []
   \\ gs [cexp_size_def]
@@ -1347,7 +1339,7 @@ Proof
   completeInduct_on ‘cexp_size e’
   \\ Cases \\ gvs [split_Delayed_Lam_def]
   \\ strip_tac \\ gvs []
-  >~[‘Prim op l’]
+  >~[‘Prim op’]
   >- (pop_assum mp_tac
       \\ Induct_on ‘l’ \\ gs []
       \\ simp [cexp_size_def]
@@ -1357,7 +1349,7 @@ Proof
       \\ last_x_assum mp_tac
       \\ impl_tac
       >- (gen_tac \\ strip_tac
-          \\ rename1 ‘value < cexp_size (Prim _ _)’
+          \\ rename1 ‘value < _’
           \\ last_x_assum $ qspec_then ‘value’ assume_tac
           \\ gs [cexp_size_def])
       \\ rename [‘split_Delayed_Lam _ _ m’, ‘set_of vc ⊆ _’]
@@ -1369,7 +1361,7 @@ Proof
       \\ last_x_assum irule
       \\ first_x_assum $ irule_at Any
       \\ gs [])
-  >~[‘Monad op l’]
+  >~[‘Monad op’]
   >- (pop_assum mp_tac
       \\ Induct_on ‘l’ \\ gs []
       \\ simp [cexp_size_def]
@@ -1379,7 +1371,7 @@ Proof
       \\ last_x_assum mp_tac
       \\ impl_tac
       >- (gen_tac \\ strip_tac
-          \\ rename1 ‘value < cexp_size (Monad _ _)’
+          \\ rename1 ‘value < _’
           \\ last_x_assum $ qspec_then ‘value’ assume_tac
           \\ gs [cexp_size_def])
       \\ rename [‘split_Delayed_Lam _ _ m’, ‘set_of vc ⊆ _’]
@@ -1391,7 +1383,7 @@ Proof
       \\ last_x_assum irule
       \\ first_x_assum $ irule_at Any
       \\ gs [])
-  >~[‘App c l’]
+  >~[‘App’]
   >- (rpt $ gen_tac \\ strip_tac
       \\ pairarg_tac \\ gs []
       \\ last_assum $ qspec_then ‘cexp_size c’ mp_tac
@@ -1407,10 +1399,10 @@ Proof
       \\ pairarg_tac \\ gs []
       \\ first_x_assum $ irule_at Any
       \\ gen_tac \\ strip_tac
-      \\ rename1 ‘value < cexp8_size _’
+      \\ rename1 ‘value < _’
       \\ last_x_assum $ qspec_then ‘value’ assume_tac
       \\ gs [cexp_size_def])
-  >~[‘Lam l c’]
+  >~[‘Lam’]
   >- (rpt $ gen_tac \\ strip_tac
       \\ last_x_assum irule
       \\ pairarg_tac \\ gs []
@@ -1447,7 +1439,7 @@ Proof
           \\ dxrule_then assume_tac invent_var_thm
           \\ gs []
           \\ metis_tac [SUBSET_TRANS]))
-  >~[‘Letrec l c’]
+  >~[‘Letrec’]
   >- (rpt $ gen_tac \\ strip_tac
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs []
@@ -1455,7 +1447,7 @@ Proof
       \\ qspec_then ‘l’ mp_tac split_Delayed_Lam_vc_growing_lemma2
       \\ impl_tac
       >- (gen_tac \\ strip_tac
-          \\ rename1 ‘value < cexp6_size _’
+          \\ rename1 ‘value < _’
           \\ last_x_assum $ qspec_then ‘value’ assume_tac
           \\ gs [])
       \\ disch_then $ dxrule_then assume_tac
@@ -1464,33 +1456,34 @@ Proof
       \\ pop_assum $ qspec_then ‘c’ assume_tac \\ gs []
       \\ pop_assum $ dxrule_then assume_tac \\ gs []
       \\ metis_tac [SUBSET_TRANS])
-  >~[‘Case m rows opt’]
+  >~[‘Case’]
   >- (rpt $ gen_tac \\ strip_tac
       \\ pairarg_tac \\ gs []
       \\ pairarg_tac \\ gs [cexp_size_def]
-      \\ qspec_then ‘rows’ mp_tac split_Delayed_Lam_vc_growing_lemma3
+      \\ qspec_then ‘l’ mp_tac split_Delayed_Lam_vc_growing_lemma3
       \\ impl_tac
       >- (gen_tac \\ strip_tac
-          \\ rename1 ‘value < cexp2_size _’
+          \\ rename1 ‘value < _’
           \\ last_x_assum $ qspec_then ‘value’ assume_tac
           \\ gs [])
       \\ gs []
       \\ disch_then $ dxrule_then assume_tac
-      \\ Cases_on ‘opt’ \\ gs []
-      \\ rename1 ‘SOME x’ \\ Cases_on ‘x’ \\ gs []
+      \\ BasicProvers.FULL_CASE_TAC \\ gvs[]
+      \\ BasicProvers.FULL_CASE_TAC \\ gvs[]
       \\ pairarg_tac \\ gs []
       \\ rename1 ‘split_Delayed_Lam fall’
       \\ last_x_assum $ qspec_then ‘cexp_size fall’ assume_tac \\ gs [cexp_size_def]
       \\ pop_assum $ qspec_then ‘fall’ assume_tac \\ gs []
       \\ pop_assum $ dxrule_then assume_tac \\ gs []
-      \\ metis_tac [SUBSET_TRANS])
-  >~[‘Delay e’]
+      \\ metis_tac [SUBSET_TRANS]
+      )
+  >~[‘Delay’]
   >- (rpt $ gen_tac \\ strip_tac
       \\ last_x_assum irule
       \\ pairarg_tac \\ gs []
       \\ first_x_assum $ irule_at Any
       \\ simp [cexp_size_def])
-  >~[‘Force _’]
+  >~[‘Force’]
   >-(rpt $ gen_tac \\ CASE_TAC
      >- (strip_tac
          \\ last_x_assum irule
@@ -2999,7 +2992,7 @@ Proof
       \\ simp [exp_rel1_def]
       \\ ‘∀A B. B ⇒ A ∨ B’ by simp [] \\ pop_assum $ irule_at Any
       \\ gvs [PULL_EXISTS, GSYM PULL_FORALL]
-      \\ rename1 ‘cexp_size (Letrec l c)’
+      \\ rename1 ‘Letrec l c’
       \\ qspec_then ‘l’ mp_tac letrec_split_soundness
       \\ impl_tac
       >- (gen_tac \\ strip_tac
@@ -3478,7 +3471,7 @@ Proof
       >- (gen_tac \\ rename1 ‘MEM e2 (MAP (SND o SND) rows)’
           \\ last_x_assum $ qspec_then ‘e2’ assume_tac
           \\ rpt $ gen_tac \\ strip_tac
-          >- (‘cexp_size e2 < cexp2_size rows’
+          >- (‘cexp_size e2 < list_size (pair_size mlstring_size (pair_size (list_size mlstring_size) cexp_size)) rows’
                 by (assume_tac cexp_size_lemma \\ fs []
                     \\ first_x_assum irule
                     \\ gvs [MEM_MAP]

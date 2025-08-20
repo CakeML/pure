@@ -444,7 +444,7 @@ Proof
 QED
 
 Theorem compute_freevars_soundness_lemma:
-  ∀(l : α cexp list). (∀v. v < cexp10_size (K 0) l ⇒
+  ∀(l : α cexp list). (∀v. v < list_size (cexp_size (K 0)) l ⇒
        ∀(e : α cexp). cexp_size (K 0) e = v ⇒ NestedCase_free e ⇒
                       map_ok (compute_freevars e) ∧
                       cmp_of (compute_freevars e) = compare ∧
@@ -467,7 +467,7 @@ Proof
   \\ strip_tac
   \\ gen_tac \\ strip_tac
   \\ first_x_assum $ dxrule_then $ dxrule_then assume_tac \\ gs []
-  \\ rename1 ‘h::_’
+  \\ rename1 ‘NestedCase_free h’
   \\ last_x_assum $ qspec_then ‘cexp_size (K 0) h’ assume_tac
   \\ gs [cexp_size_def]
   \\ pop_assum $ qspec_then ‘h’ assume_tac
@@ -491,7 +491,8 @@ QED
 
 Theorem compute_freevars_soundness_lemma3:
   ∀(rows : (mlstring # mlstring list # α cexp) list).
-    (∀v. v < cexp2_size (K 0) rows ⇒
+    (∀v. v < list_size (pair_size mlstring_size
+                         (pair_size (list_size mlstring_size) (cexp_size (K 0)))) rows ⇒
          ∀(e : α cexp).
            cexp_size (K 0) e = v ⇒ NestedCase_free e ⇒
            map_ok (compute_freevars e) ∧
@@ -518,9 +519,8 @@ Proof
   \\ strip_tac
   \\ gen_tac \\ strip_tac
   \\ first_x_assum $ dxrule_then $ dxrule_then assume_tac \\ gs []
-  \\ rename1 ‘h::_’
+  \\ rename1 ‘SND (SND h)’
   \\ PairCases_on ‘h’
-  \\ rename1 ‘(_, h1, h2)::_’
   \\ last_x_assum $ qspec_then ‘cexp_size (K 0) h2’ assume_tac
   \\ gs [cexp_size_def]
   \\ pop_assum $ qspec_then ‘h2’ assume_tac
@@ -539,7 +539,8 @@ Proof
 QED
 
 Theorem compute_freevars_soundness_lemma4:
-  ∀(l : (mlstring # α cexp) list). (∀v. v < cexp7_size (K 0) l ⇒
+  ∀(l : (mlstring # α cexp) list).
+    (∀v. v < list_size (pair_size mlstring_size (cexp_size (K 0))) l ⇒
        ∀(e : α cexp). cexp_size (K 0) e = v ⇒ NestedCase_free e ⇒
                       map_ok (compute_freevars e) ∧
                       cmp_of (compute_freevars e) = compare ∧
@@ -563,10 +564,9 @@ Proof
   \\ strip_tac
   \\ gen_tac \\ strip_tac
   \\ first_x_assum $ dxrule_then $ dxrule_then assume_tac \\ gs []
-  \\ rename1 ‘h::_’
+  \\ rename1 ‘(λ(fn,a). NestedCase_free a) h’
   \\ last_x_assum $ qspec_then ‘cexp_size (K 0) (SND h)’ assume_tac
   \\ PairCases_on ‘h’ \\ gs []
-  \\ rename1 ‘(h0, h1)::_’
   \\ gs [cexp_size_def]
   \\ pop_assum $ qspec_then ‘h1’ assume_tac
   \\ gs [union_thm]
@@ -649,7 +649,7 @@ Proof
   completeInduct_on ‘cexp_size (K 0) e’
   \\ Cases \\ gs [compute_freevars_def]
   >- gs [empty_thm, insert_thm, TotOrd_compare, exp_of_def, freevars_def, NestedCase_free_def]
-  >~[‘cexp_size _ (Prim _ _ l)’]
+  >~[‘Prim _ _ l’]
   >- (strip_tac \\ gs []
       \\ qspec_then ‘l’ mp_tac compute_freevars_soundness_lemma
       \\ impl_tac
@@ -660,7 +660,7 @@ Proof
       \\ disch_then $ qspec_then ‘empty compare’ assume_tac
       \\ gvs [empty_thm, TotOrd_compare, exp_of_def, freevars_def]
       \\ simp [SF ETA_ss])
-  >~[‘cexp_size _ (App _ f eL)’]
+  >~[‘App _ f eL’]
   >- (strip_tac \\ gs []
       \\ qspec_then ‘eL’ mp_tac compute_freevars_soundness_lemma
       \\ impl_tac
@@ -674,7 +674,7 @@ Proof
       \\ gs []
       \\ strip_tac \\ gs [exp_of_def, freevars_def]
       \\ simp [SF ETA_ss, UNION_COMM])
-  >~[‘cexp_size _ (Lam _ l e)’]
+  >~[‘Lam _ l e’]
   >- (strip_tac \\ gs []
       \\ last_x_assum $ qspec_then ‘cexp_size (K 0) e’ assume_tac
       \\ gs [cexp_size_def]
@@ -683,7 +683,7 @@ Proof
       \\ gs []
       \\ dxrule_then (qspec_then ‘l’ assume_tac) compute_freevars_soundness_lemma2
       \\ gs [exp_of_def, freevars_def, IMAGE_implode_DIFF, IMAGE_implode_MAP_explode])
-  >~[‘cexp_size _ (Let _ w e1 e2)’]
+  >~[‘Let _ w e1 e2’]
   >- (strip_tac \\ strip_tac \\ gs []
       \\ last_assum $ qspec_then ‘cexp_size (K 0) e1’ assume_tac
       \\ last_x_assum $ qspec_then ‘cexp_size (K 0) e2’ assume_tac
@@ -693,7 +693,7 @@ Proof
       \\ gs [union_thm, delete_thm]
       \\ gs [exp_of_def, freevars_def, IMAGE_implode_DELETE]
       \\ simp [UNION_COMM])
-  >~[‘cexp_size _ (Letrec _ l e)’]
+  >~[‘Letrec _ l e’]
   >- (strip_tac \\ strip_tac \\ gs []
       \\ qspec_then ‘l’ mp_tac compute_freevars_soundness_lemma4
       \\ impl_tac
@@ -714,7 +714,7 @@ Proof
       \\ simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
                GSYM FST_THM, IMAGE_implode_DIFF, GSYM LIST_TO_SET_MAP]
       \\ simp [UNION_COMM])
-  >~[‘cexp_size _ (Case _ exp m rows fall)’]
+  >~[‘Case _ exp m rows fall’]
   >- (strip_tac \\ strip_tac \\ gs []
       \\ qspec_then ‘rows’ mp_tac compute_freevars_soundness_lemma3
       \\ impl_tac
@@ -978,15 +978,9 @@ Proof
   \\ irule_at Any find_fixpoint_refl
 QED
 
-Theorem cexp10_size_SNOC:
-  ∀l x f. cexp10_size f (SNOC x l) = 1 + cexp10_size f l + cexp_size f x
-Proof
-  Induct \\ gs [cexp_size_def]
-QED
-
 Theorem fixpoint1_App_lemma2:
   ∀(l : α cexp list).
-    (∀m. m < cexp10_size (K 0) l ⇒
+    (∀m. m < list_size (cexp_size (K 0)) l ⇒
          ∀(e : α cexp). m = cexp_size (K 0) e ⇒
              ∀fds c ds fd binds.
                fixpoint1 c e fds = (ds,fd) ∧ map_ok fds ∧
@@ -1020,18 +1014,17 @@ Theorem fixpoint1_App_lemma2:
                       (ds1 ∪ ds3) ads2 bL2
 Proof
   Induct \\ gs [Apps_def]
-  >- (strip_tac \\ Cases
+  >- (Cases
       \\ gs [fixpoint_demands_App_def, empty_thm, TotOrd_compare]
       \\ rw []
       \\ gs [find_fixpoint_App_empty])
-  \\ gen_tac \\ strip_tac
+  \\ qx_gen_tac ‘x’ \\ strip_tac
   \\ last_x_assum mp_tac
   \\ impl_tac
   >- (gen_tac \\ strip_tac
       \\ rename1 ‘val < _’
       \\ first_x_assum $ qspec_then ‘val’ assume_tac
       \\ gs [cexp_size_def])
-  \\ rename1 ‘x::l’
   \\ last_x_assum $ qspec_then ‘cexp_size (K 0) x’ assume_tac
   \\ gs [cexp_size_def]
   \\ first_x_assum $ qspec_then ‘x’ assume_tac
@@ -1701,11 +1694,11 @@ Proof
           \\ simp [empty_thm, TotOrd_compare]
           \\ simp [SUBSET_DEF, PULL_EXISTS, MEM_MAP])
       \\ pairarg_tac
+      \\ rename1 ‘_ = (disj_cases, fall)’
       \\ gs [empty_thm, TotOrd_compare]
       \\ qpat_x_assum ‘union _ _ = _’ assume_tac
       \\ dxrule_then assume_tac EQ_SYM
       \\ gs [empty_thm, TotOrd_compare, union_thm]
-      \\ rename1 ‘SOME (disj_cases, fall)’
       \\ first_assum $ qspec_then ‘cexp_size (K 0) expr’ assume_tac
       \\ first_x_assum $ qspec_then ‘cexp_size (K 0) fall’ assume_tac
       \\ gs [cexp_size_def, FST_THM]
@@ -2834,13 +2827,13 @@ Proof
   \\ simp [demands_analysis_fun_def, exp_of_def]
   \\ gvs [demands_map_empty, demands_map_insert, demands_map_union,
          TotOrd_compare, insert_thm, empty_thm, cexp_wf_def, letrecs_distinct_def] >~
-  [‘Var a n’]
+  [‘find (Var (_ n))’]
   >- (rw [] \\ rename1 ‘lookup fds n’
       \\ Cases_on ‘lookup fds n’
       \\ gvs [find_Var, fd_to_set_def, demands_map_empty,
               find_Var2, fdemands_map_to_set_soundness, empty_thm,
               TotOrd_compare]) >~
-  [‘Prim a op l’]
+  [‘find (Prim (_ op) (MAP _ l))’]
   >- (Cases_on ‘op’ >~
       [‘Prim a Seq l’]
       >- (Cases_on ‘l’ >~[‘Prim a Seq []’]
@@ -2894,8 +2887,8 @@ Proof
           >- (rw [EVERY_EL] \\ rename1 ‘i < LENGTH l’
               \\ last_x_assum $ qspecl_then [‘cexp_size f (EL i l)’] assume_tac
               \\ ‘cexp_size f (EL i l) < list_size (cexp_size f) l’
-                   by metis_tac [cexp_size_lemma, EL_MEM, cexp_size_eq]
-              \\ fs [cexp_size_def, cexp_size_eq]
+                   by metis_tac [cexp_size_lemma, EL_MEM]
+              \\ fs [cexp_size_def]
               \\ pop_assum kall_tac
               \\ pop_assum $ qspecl_then [‘f’, ‘EL i l’] assume_tac
               \\ fs []
@@ -2914,8 +2907,8 @@ Proof
               \\ rename1 ‘EL n l’
               \\ first_x_assum $ qspecl_then [‘cexp_size f (EL n l)’] assume_tac
               \\ ‘cexp_size f (EL n l) < list_size (cexp_size f) l’
-                by metis_tac [cexp_size_lemma, EL_MEM, cexp_size_eq]
-              \\ fs [cexp_size_def, cexp_size_eq]
+                by metis_tac [cexp_size_lemma, EL_MEM]
+              \\ fs [cexp_size_def]
               \\ pop_assum kall_tac
               \\ pop_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
               \\ qabbrev_tac ‘p = demands_analysis_fun c (EL n l) fds’
@@ -2927,8 +2920,8 @@ Proof
               \\ rename1 ‘EL n l’
               \\ first_x_assum $ qspecl_then [‘cexp_size f (EL n l)’] assume_tac
               \\ ‘cexp_size f (EL n l) < list_size (cexp_size f) l’
-                by metis_tac [cexp_size_lemma, EL_MEM, cexp_size_eq]
-              \\ fs [cexp_size_def, cexp_size_eq]
+                by metis_tac [cexp_size_lemma, EL_MEM]
+              \\ fs [cexp_size_def]
               \\ pop_assum kall_tac
               \\ pop_assum $ resolve_then (Pos hd) assume_tac EQ_REFL
               \\ qabbrev_tac ‘p = demands_analysis_fun c (EL n l) fds’
@@ -2944,8 +2937,8 @@ Proof
       \\ rename1 ‘k < LENGTH l’
       \\ first_x_assum $ qspecl_then [‘cexp_size f (EL k l)’] assume_tac
       \\ ‘cexp_size f (EL k l) < list_size (cexp_size f) l’
-        by metis_tac [cexp_size_lemma, MEM_EL, cexp_size_eq]
-      \\ fs [cexp_size_def, cexp_size_eq]
+        by metis_tac [cexp_size_lemma, MEM_EL]
+      \\ fs [cexp_size_def]
       \\ pop_assum kall_tac
       \\ rename1 ‘demands_analysis_fun c _ fds’
       \\ pop_assum $ qspecl_then [‘f’, ‘EL k l’] assume_tac
@@ -2962,7 +2955,7 @@ Proof
           \\ gs [add_all_demands_def, cmp_of_def, EVERY_EL, EL_MAP]
           \\ irule letrecs_distinct_add_all_demands_lemma
           \\ simp []))
-  >~[‘App a fe argl’]
+  >~[‘find (Apps (_ fe) (_ argl))’]
   >- (rpt gen_tac
       \\ rename1 ‘demands_analysis_fun c _ fds’
       \\ qabbrev_tac ‘p = demands_analysis_fun c fe fds’
@@ -2980,8 +2973,8 @@ Proof
       \\ rename1 ‘EL n argl’
       \\ last_x_assum $ qspecl_then [‘cexp_size f (EL n argl)’] assume_tac
       \\ ‘cexp_size f (EL n argl) < list_size (cexp_size f) argl’
-        by metis_tac [cexp_size_lemma, MEM_EL, cexp_size_eq]
-      \\ fs [cexp_size_def, cexp_size_eq]
+        by metis_tac [cexp_size_lemma, MEM_EL]
+      \\ fs [cexp_size_def]
       \\ pop_assum kall_tac
       \\ pop_assum $ qspecl_then [‘f’, ‘EL n argl’] assume_tac
       \\ gs [EVERY_EL, EL_MAP]
@@ -2990,7 +2983,7 @@ Proof
       \\ PairCases_on ‘p’ \\ fs []
       \\ gvs[SF DNF_ss] >> goal_assum drule
       )
-  >~ [‘Lam a namel e’]
+  >~ [‘find (Lams (_ namel) (_ e))’]
   >- (rw []
       \\ first_assum $ qspecl_then [‘cexp_size f e’] assume_tac
       \\ fs [cexp_size_def, letrecs_distinct_Lams]
@@ -3015,7 +3008,7 @@ Proof
           \\ gs [add_all_demands_def, cmp_of_def, EVERY_EL, EL_MAP]
           \\ irule letrecs_distinct_add_all_demands_lemma
           \\ simp []))
-  >~ [‘Let a vname e2 e1’]
+  >~ [‘find (Let (_ vname) (_ e2) (_ e1))’]
   >- (rpt gen_tac \\ strip_tac
       \\ rename1 ‘find _ (ctxt_trans c) (fdemands_map_to_set fds)’
       \\ first_assum $ qspecl_then [‘cexp_size f e1’] assume_tac
@@ -3117,7 +3110,7 @@ Proof
               \\ gvs [])
           \\ dxrule_then assume_tac fdemands_map_insert
           \\ gvs []))
-  >~ [‘Letrec a binds exp’]
+  >~ [‘find (Letrec (_ binds) (_ exp))’]
   >- (rpt gen_tac
       \\ pairarg_tac \\ gs []
       \\ IF_CASES_TAC
@@ -3278,7 +3271,7 @@ Proof
                                 (FOLDL (λf k. delete f k) fds (MAP FST binds)))) binds)’
         by (rw [EVERY_EL] \\ rename1 ‘EL i _’
             \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-            \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+            \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f)) binds’
               by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                   \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                   \\ irule_at Any $ PAIR)
@@ -3312,13 +3305,13 @@ Proof
       >-  (pairarg_tac \\ gs [] \\ irule fdemands_map_FOLDL_delete \\ gvs [MEM_EL]
            \\ first_assum $ irule_at Any \\ gvs [EL_MAP]
            \\ rename1 ‘_ = FST p’ \\ PairCases_on ‘p’ \\ gvs [])
-           >>~[‘FST _ = _ (FST _)’]
+      >>~[‘FST _ = _ (FST _)’]
       >- (pairarg_tac \\ gvs [])
       >- (pairarg_tac \\ gvs [])
-         >~[‘_ ∉ demands_map_to_set _’]
+      >~[‘_ ∉ demands_map_to_set _’]
       >- (pairarg_tac \\ gs [] \\ irule demands_map_FOLDL_delete \\ gvs [MEM_EL]
           \\ first_assum $ irule_at Any \\ gvs [EL_MAP])
-         >>~[‘¬MEM _ _’]
+      >>~[‘¬MEM _ _’]
       >- (strip_tac \\ gvs [MEM_MAP] \\ pairarg_tac \\ gs []
           \\ dxrule_then assume_tac demands_map_FOLDL_delete_soundness
           \\ gvs [map_handle_multi_ok] \\ first_x_assum irule
@@ -3327,10 +3320,10 @@ Proof
           \\ dxrule_then assume_tac demands_map_FOLDL_delete_soundness
           \\ gvs [map_handle_multi_ok] \\ first_x_assum irule
           \\ gvs [MEM_MAP] \\ first_x_assum $ irule_at Any \\ gs [])
-         >>~[‘(_ ++ _, _) ∈ demands_map_to_set _’]
+      >>~[‘(_ ++ _, _) ∈ demands_map_to_set _’]
       >- (qexists_tac ‘[]’ \\ gvs [])
       >- (qexists_tac ‘[]’ \\ gvs [])
-         >>~[‘_ ∈ demands_map_to_set _’]
+      >>~[‘_ ∈ demands_map_to_set _’]
       >- (dxrule_then assume_tac demands_map_FOLDL_delete_soundness \\ gvs [map_handle_multi_ok]
           \\ dxrule_then assume_tac handle_multi_in \\ gvs [EL_MAP, SF CONJ_ss]
           \\ disj2_tac \\ first_assum $ irule_at $ Pos hd
@@ -3352,7 +3345,7 @@ Proof
           first_assum $ irule_at Any >> pairarg_tac >> gs [fd_to_set_def])
       \\ gvs [ALL_DISTINCT_IMP, FOLDL_delete_ok, map_handle_multi_ok]
       >- (last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+          \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f))  binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                 \\ irule_at Any $ PAIR)
@@ -3367,7 +3360,7 @@ Proof
               \\ gs [FOLDL_delete_ok])
           \\ gs [ctxt_trans_def])
       >- (last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+          \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f))  binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                 \\ irule_at Any $ PAIR)
@@ -3395,7 +3388,7 @@ Proof
           \\ pairarg_tac \\ gs []
           \\ rename1 ‘i < _’
           \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+          \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f)) binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                 \\ simp [])
@@ -3408,7 +3401,7 @@ Proof
           \\ gs [])
       >- gs [letrecs_distinct_adds_demands]
       >- (last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+          \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f)) binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                 \\ irule_at Any $ PAIR)
@@ -3423,7 +3416,7 @@ Proof
               \\ gs [FOLDL_delete_ok])
           \\ gs [ctxt_trans_def])
       >- (last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+          \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f)) binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                 \\ irule_at Any $ PAIR)
@@ -3450,7 +3443,7 @@ Proof
           \\ pairarg_tac \\ gs []
           \\ rename1 ‘i < _’
           \\ last_x_assum $ qspecl_then [‘cexp_size f (SND (EL i binds))’] assume_tac
-          \\ ‘cexp_size f (SND (EL i binds)) < cexp7_size f binds’
+          \\ ‘cexp_size f (SND (EL i binds)) < list_size (pair_size mlstring_size (cexp_size f)) binds’
             by (assume_tac cexp_size_lemma \\ gvs [] \\ first_x_assum irule
                 \\ gvs [MEM_EL] \\ first_assum $ irule_at Any
                 \\ simp [])
@@ -3462,7 +3455,7 @@ Proof
           \\ last_x_assum $ drule_then assume_tac
           \\ gs [])
       >- gs [letrecs_distinct_adds_demands])
-  >~ [‘Case a case_exp s l opt’]
+  >~ [‘find (Let (_ s) (_ case_exp) (rows_of _ (_ opt _ _) (_ l)))’]
   >- (gen_tac \\ gen_tac
       \\ rename1 ‘Bind _ _ c’
       \\ rpt $ gen_tac
@@ -3500,7 +3493,8 @@ Proof
           \\ dxrule_then assume_tac EQ_SYM \\ gs []
           \\ rename1 ‘EL i rows = (constructor, vars, expr)’
           \\ last_x_assum $ qspec_then ‘cexp_size f expr’ assume_tac
-          \\ ‘cexp_size f expr < cexp2_size f rows’
+          \\ ‘cexp_size f expr < list_size (pair_size mlstring_size
+                                             (pair_size (list_size mlstring_size) (cexp_size f))) rows’
             by (assume_tac cexp_size_lemma \\ gs []
                 \\ first_x_assum irule
                 \\ gs [MEM_EL]
@@ -3552,7 +3546,8 @@ Proof
           \\ PairCases_on ‘p’
           \\ irule_at Any add_all_demands_soundness
           \\ first_x_assum $ qspecl_then [‘cexp_size f e'’] assume_tac
-          \\ ‘cexp_size f e' < cexp2_size f l’
+          \\ ‘cexp_size f e' < list_size (pair_size mlstring_size
+                                           (pair_size (list_size mlstring_size) (cexp_size f))) l’
             by metis_tac [cexp_size_lemma, EL_MEM]
           \\ fs []
           \\ pop_assum kall_tac

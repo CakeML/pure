@@ -904,7 +904,6 @@ Theorem get_solveable_NONE:
 Proof
   Induct >> rw[] >> rename1 `h::_` >>
   Cases_on `h` >> gvs[get_solveable_def, is_solveable_def] >>
-  FULL_CASE_TAC >> gvs[] >>
   last_x_assum drule >> rw[] >> gvs[]
 QED
 

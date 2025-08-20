@@ -24,7 +24,7 @@ End
 
 Triviality const_call_args_lemma:
   ∀bs.
-    list_size (cexp_size (K 1)) (MAP (λ(v,vs,e). e) bs)
+    list_size (λx. cexp_size (K 1) (SND (SND x))) bs
     ≤
     list_size
       (pair_size mlstring_size
@@ -90,7 +90,7 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
     | INL (f,vs,c) => cexp_size (K 1) c
     | INR (f,vs,c) => list_size (cexp_size (K 1)) c)’
-  \\ rw [cexp_size_eq] \\ fs []
+  \\ rw [] \\ fs []
   >- (Induct_on ‘ves’ \\ fs [list_size_def]
       \\ PairCases \\ fs [basicSizeTheory.pair_size_def])
   \\ irule arithmeticTheory.LESS_EQ_LESS_TRANS
@@ -197,7 +197,7 @@ Termination
     | INR (INR (INR (INL (f,v,vs,c)))) => list_size (cexp_size (K 0)) (MAP (SND o SND) c)
     | INR (INR (INR (INR (f,v,vs,NONE)))) => 0
     | INR (INR (INR (INR (f,v,vs,SOME (d,e))))) => 1 + cexp_size (K 0) e’
-  \\ fs [cexp_size_eq] \\ rw [list_size_def]
+  \\ fs [] \\ rw [list_size_def]
   \\ rpt (CASE_TAC \\ fs [])
   \\ fs [basicSizeTheory.pair_size_def,basicSizeTheory.option_size_def]
   \\ Induct_on ‘bs’ \\ fs [list_size_def] \\ PairCases

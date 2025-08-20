@@ -218,7 +218,7 @@ Definition fvs_ok_def:
      fvs_ok g ∧ fvs_ok e ∧ EVERY (λ(p,e). fvs_ok e) pes)
 Termination
   WF_REL_TAC `measure $ cexp_size (K 0)` >>
-  simp[cexp_size_eq, DISJ_IMP_THM, FORALL_AND_THM] >> rpt strip_tac >>
+  simp[DISJ_IMP_THM, FORALL_AND_THM] >> rpt strip_tac >>
   rename1 `MEM _ l` >> Induct_on `l` >> rw[] >> gvs[list_size_def]
 End
 

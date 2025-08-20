@@ -17,9 +17,10 @@ val _ = set_grammar_ancestry ["thunkLang", "pure_misc", "thunk_semantics"];
 val _ = numLib.prefer_num ();
 
 Theorem exp_size_lemma:
-  (∀x xs. MEM x xs ⇒ exp_size x ≤ exp3_size xs) ∧
-  (∀x y xs. MEM (x,y) xs ⇒ exp_size y ≤ exp1_size xs) ∧
-  (∀x xs. MEM x xs ⇒ v_size x < exp4_size xs)
+  (∀x xs. MEM x xs ⇒ exp_size x ≤ list_size exp_size xs) ∧
+  (∀x y xs. MEM (x,y) xs ⇒
+    exp_size y ≤ list_size (pair_size (list_size char_size) exp_size) xs) ∧
+  (∀x xs. MEM x xs ⇒ v_size x < list_size v_size xs)
 Proof
   rpt conj_tac
   \\ Induct_on ‘xs’ \\ rw []
@@ -46,10 +47,10 @@ Definition no_value_def:
   (no_value (Value v) = F) ∧
   (no_value (Delay x) = no_value x)
 Termination
-  WF_REL_TAC ‘measure $ exp_size’ \\ rw [MEM_MAP, SND_THM]
-  \\ assume_tac exp_size_lemma
-  \\ pairarg_tac \\ gvs []
-  \\ first_x_assum $ dxrule_then assume_tac \\ gvs []
+  WF_REL_TAC ‘measure exp_size’ >>
+  simp[MEM_MAP, PULL_EXISTS] >> simp[SND_THM] >>
+  Induct_on ‘f’ >> rw[] >> pairarg_tac >> gvs[] >>
+  last_x_assum drule >> disch_then $ qspec_then ‘x’ assume_tac >> gvs[]
 End
 
 Theorem no_value_Lams:

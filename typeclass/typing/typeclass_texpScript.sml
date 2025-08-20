@@ -57,7 +57,6 @@ Termination
 End
 
 val texp_size_def = fetch "-" "texp_size_def"
-val texp_size_eq = fetch "-" "texp_size_eq";
 
 Definition texp_wf_def[nocompute]:
   texp_wf (Var _ v) = T ∧
@@ -133,9 +132,9 @@ Termination
 End
 
 Theorem texp_size_lemma:
-  (∀xs v e f. MEM (v,e) xs ⇒ texp_size f e < texp1_size f xs) ∧
-  (∀xs p e f. MEM (p,e) xs ⇒ texp_size f e < texp3_size f xs) ∧
-  (∀xs a f. MEM a xs ⇒ texp_size f a < texp5_size f xs)
+  (∀xs v e f. MEM (v,e) xs ⇒ texp_size f e < list_size (pair_size (pair_size mlstring_size (option_size (pair_size f PredType_size))) (texp_size f)) xs) ∧
+  (∀xs p e f. MEM (p,e) xs ⇒ texp_size f e < list_size (pair_size cepat_size (texp_size f)) xs) ∧
+  (∀xs a f. MEM a xs ⇒ texp_size f a < list_size (texp_size f) xs)
 Proof
   rpt conj_tac
   \\ Induct \\ rw [] \\ fs [fetch "-" "texp_size_def"] \\ res_tac \\ fs []
@@ -180,7 +179,7 @@ Definition every_texp_def[simp]:
   every_texp p (UserAnnot t e) = (p (UserAnnot t e) ∧ every_texp p e)
 Termination
   WF_REL_TAC ‘measure $ texp_size (K 1) o SND’ >>
-  simp[texp_size_eq, MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
+  simp[MEM_MAP, PULL_EXISTS, FORALL_PROD] >> rw[] >>
   rename [‘MEM _ list’] >> Induct_on ‘list’ >>
   simp[FORALL_PROD, listTheory.list_size_def, basicSizeTheory.pair_size_def] >>
   rw[] >> gs[]

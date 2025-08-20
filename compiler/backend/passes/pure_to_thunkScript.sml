@@ -135,12 +135,12 @@ Termination
   WF_REL_TAC `measure $ λx. case x of
               | INL (_,_,e) => cexp_size (K 0) e
               | INR (_,_,l) => list_size (cexp_size (K 0)) l`
-  \\ fs [pure_cexpTheory.cexp_size_eq] \\ rw []
-  >~ [‘list_size (cexp_size (K 0)) (MAP SND xs)’] >-
+  \\ fs [] \\ rw []
+  >~ [‘list_size (λx. cexp_size (K 0) (SND x)) xs’] >-
     (pop_assum kall_tac
      \\ Induct_on ‘xs’ \\ fs [listTheory.list_size_def,FORALL_PROD]
      \\ rw [] \\ fs [basicSizeTheory.pair_size_def])
-  >~ [‘list_size (cexp_size (K 0)) (MAP (λx. SND (SND x)) ys)’] >-
+  >~ [‘list_size (λx. cexp_size (K 0) (SND (SND x))) ys’] >-
     (Induct_on ‘ys’ \\ fs [listTheory.list_size_def,FORALL_PROD]
      \\ rw [] \\ fs [basicSizeTheory.pair_size_def])
 End
