@@ -89,7 +89,8 @@ Theorem FOLDL_delete_ok:
 Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
-  qspecl_then [‘vL’] assume_tac last_exists >> gvs [FOLDL_APPEND, delete_thm]
+  qspecl_then [‘vL’] assume_tac last_exists >>
+  gvs [FOLDL_APPEND, SNOC_APPEND, delete_thm]
 QED
 
 Theorem FOLDL_delete_soundness:
@@ -101,7 +102,7 @@ Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
   qspecl_then [‘vL’] assume_tac last_exists >>
-  gvs [FOLDL_APPEND, delete_thm] >>
+  gvs [FOLDL_APPEND, SNOC_APPEND, delete_thm] >>
   simp [SET_EQ_SUBSET, SUBSET_DEF]
 QED
 
@@ -142,7 +143,7 @@ Theorem demands_map_FOLDL_delete:
 Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
-  qspecl_then [‘vL’] assume_tac last_exists >> gvs [FOLDL_APPEND]
+  qspecl_then [‘vL’] assume_tac last_exists >> gvs [FOLDL_APPEND, SNOC_APPEND]
   >- (irule demands_map_delete2 >>
       gvs [FOLDL_delete_ok]) >>
   irule demands_map_delete >>
@@ -222,7 +223,7 @@ Theorem fdemands_map_FOLDL_delete:
 Proof
   Induct_on ‘LENGTH vL’ >> rw [] >>
   rename1 ‘SUC _ = LENGTH vL’ >>
-  qspecl_then [‘vL’] assume_tac last_exists >> gvs [FOLDL_APPEND]
+  qspecl_then [‘vL’] assume_tac last_exists >> gvs [FOLDL_APPEND, SNOC_APPEND]
   >- (irule fdemands_map_delete2 >>
       gvs [FOLDL_delete_ok]) >>
   irule fdemands_map_delete >>
@@ -2360,7 +2361,8 @@ QED
 Theorem MAPi_implode_MAP_explode:
   ∀l. MAPi (λi v. (i, implode v)) (MAP explode l) = MAPi (λi v. (i,v)) l
 Proof
-  Induct using SNOC_INDUCT \\ gvs [MAP_SNOC, indexedListsTheory.MAPi_APPEND]
+  Induct using SNOC_INDUCT
+  \\ gvs [MAP_SNOC, SNOC_APPEND, indexedListsTheory.MAPi_APPEND]
 QED
 
 Theorem find_rows_of_inner:
@@ -2444,7 +2446,7 @@ Proof
 QED
 
 Theorem find_subset_aid:
-  ∀d ps v. (ps, v) ∈ d ⇒ ∃ps'. (ps ++ ps', v) ∈ d
+  ∀d (ps : 'a list) v. (ps, v) ∈ d ⇒ ∃ps'. (ps ++ ps', v) ∈ d
 Proof
   rw [] >> qexists_tac ‘[]’ >> gvs []
 QED
@@ -3568,7 +3570,8 @@ Proof
           \\ qpat_x_assum ‘_ ≠ _’ kall_tac
           \\ qpat_x_assum ‘_ ∈ _’ kall_tac
           \\ qpat_x_assum ‘¬MEM _ _’ mp_tac \\ qid_spec_tac ‘x’
-          \\ Induct_on ‘args’ using SNOC_INDUCT \\ gs [delete_thm, FOLDL_APPEND]
+          \\ Induct_on ‘args’ using SNOC_INDUCT
+          \\ gs [delete_thm, FOLDL_APPEND, SNOC_APPEND]
           \\ rw [] \\ gs [delete_thm]
           \\ simp [FOLDL_delete_soundness, delete_thm, DOMSUB_FAPPLY_NEQ])
       >- ((* handling the optional fall-through expression at the bottom *)

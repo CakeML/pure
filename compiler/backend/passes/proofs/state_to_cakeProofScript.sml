@@ -2121,7 +2121,7 @@ Proof
     )
   >- ( (* Alloc - ready to evaluate *)
     last_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
-    TOP_CASE_TAC >> gvs[] >>
+    TOP_CASE_TAC >> gvs[SNOC_APPEND] >>
     ntac 7 (qrefine `SUC n` >> simp[cstep_n_def, cstep]) >>
     simp[do_app_def, opb_lookup_def] >>
     IF_CASES_TAC >> gvs[] >>
