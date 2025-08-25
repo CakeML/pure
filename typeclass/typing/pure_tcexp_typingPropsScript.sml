@@ -1428,8 +1428,7 @@ Proof
   >- (
     first_x_assum $ irule_at (Pos last) >>
     gvs[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD] >>
-    first_x_assum $ resolve_then (Pos hd)
-      mp_tac APPEND_ASSOC_four >>
+    first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
     disch_then $ qspec_then `MAP (tshift (LENGTH new)) ts` mp_tac >>
     impl_tac
     >- (
@@ -1460,7 +1459,7 @@ Proof
       last_x_assum drule >>
       ntac 2 (pairarg_tac >> gvs[]) >>
       strip_tac >>
-      first_x_assum $ resolve_then (Pos hd) mp_tac APPEND_ASSOC_four >>
+      first_x_assum $ resolve_then (Pos hd) mp_tac EQ_REFL >>
       disch_then $ qspec_then `MAP (tshift (LENGTH vars)) ts` mp_tac >>
       impl_tac
       >- (
@@ -1476,7 +1475,7 @@ Proof
     first_x_assum drule >>
     rw[type_ok_def] >>
     dxrule_then irule kind_ok_subst_db_APPEND >>
-    irule_at (Pos $ el 2) APPEND_ASSOC_four >>
+    irule_at (Pos $ el 2) EQ_REFL >>
     rw[LIST_REL_EL_EQN,EL_MAP] >>
     first_x_assum $ drule_then strip_assume_tac >>
     dxrule_then irule kind_ok_shift_db_APPEND >>
@@ -1934,7 +1933,7 @@ Proof
     first_x_assum drule >>
     rw[type_ok_def] >>
     dxrule_then irule kind_ok_shift_db_APPEND >>
-    irule_at (Pos hd) APPEND_ASSOC_four >>
+    irule_at (Pos hd) EQ_REFL >>
     simp[]
   )
   >- (

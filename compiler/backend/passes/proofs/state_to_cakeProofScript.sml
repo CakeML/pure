@@ -1908,7 +1908,7 @@ Proof
       qexists0 >> reverse $ rw[step_rel_cases]
       >- (gvs[store_lookup_def] >> Cases_on `cst` >> gvs[]) >>
       gvs[state_rel, ADD1] >> rpt $ goal_assum $ drule_at Any >>
-      imp_res_tac LIST_REL_LENGTH >> simp[]
+      imp_res_tac LIST_REL_LENGTH >> simp[SNOC_APPEND]
       ) >>
     (* AtomOp *)
     gvs[application_def, sstep] >>
