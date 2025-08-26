@@ -1299,6 +1299,89 @@ Proof
   rw [] \\ once_rewrite_tac [eval_to_def] \\ gvs [subst_funs_def]
 QED
 
+Theorem MAP_FST_LUPDATE:
+  MAP FST (LUPDATE (FST (EL i l),v) i l) = MAP FST l
+Proof
+  simp [MAP_EQ_EVERY2, LIST_REL_EL_EQN, EL_LUPDATE] \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  ‘(∀v w. force_arg_rel v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))’
+    suffices_by gvs []
+  \\ ho_match_mp_tac force_arg_rel_strongind \\ rw [] \\ gvs [SF ETA_ss]
+  \\ rw [is_anyThunk_def, dest_anyThunk_def]
+  >- (
+    gvs [AllCaseEqs(), PULL_EXISTS]
+    \\ iff_tac \\ rw []
+    >- (
+      ‘MAP FST (REVERSE f) = MAP FST (REVERSE g)’ by gvs [MAP_EQ_EVERY2]
+      \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+      \\ ‘PRE (LENGTH g - n') < LENGTH g’ by gvs []
+      \\ last_x_assum drule \\ rw []
+      \\ rgs [Once force_arg_rel_cases])
+    >- (
+      ‘MAP FST (REVERSE g) = MAP FST (REVERSE f)’
+        by gvs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+      \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+      \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+      \\ ‘PRE (LENGTH g - n') < LENGTH g’ by gvs []
+      \\ last_x_assum drule \\ rw []
+      \\ rgs [Once force_arg_rel_cases]))
+  \\ (
+    gvs [AllCaseEqs(), PULL_EXISTS]
+    \\ iff_tac \\ rw []
+    >- (
+      gvs [REVERSE_SNOC]
+      \\ rw []
+      >- gvs [FOLDR_APPEND]
+      \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP ll n = SOME _’
+      \\ `ALL_DISTINCT (MAP FST ll)’ by (
+        unabbrev_all_tac \\ gvs []
+        \\ gvs [MAP_REVERSE, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+        \\ last_x_assum drule \\ rw []
+        \\ rw [MAP_FST_LUPDATE]) \\ gvs []
+      \\ ‘∃y'. MEM (n,Delay y') ll’ by (
+        unabbrev_all_tac \\ gvs []
+        \\ gvs [MEM_LUPDATE]
+        \\ ‘MAP FST (REVERSE f) = MAP FST (REVERSE g)’
+          by gvs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+        \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+        \\ gvs [LIST_REL_EL_EQN, EL_MAP, EL_REVERSE]
+        \\ ‘PRE (LENGTH g - n') < LENGTH g’ by gvs []
+        \\ first_x_assum drule \\ rw [Once force_arg_rel_cases]
+        \\ drule ALOOKUP_SOME_REVERSE_EL \\ rw []
+        \\ qexists ‘y’ \\ gvs []
+        \\ disj2_tac
+        \\ qexists ‘n''’ \\ gvs []
+        \\ CCONTR_TAC \\ gvs []
+        \\ qpat_x_assum ‘Delay _ = _’ assume_tac
+        \\ gvs [Lams_split])
+      \\ drule_all ALOOKUP_ALL_DISTINCT_MEM \\ gvs [])
+    >- (
+      gvs [REVERSE_SNOC]
+      \\ Cases_on ‘v2 = n’ \\ gvs []
+      \\ qmatch_asmsub_abbrev_tac
+          ‘ALOOKUP (REVERSE (LUPDATE (v1,ls) i g)) n = _’
+      \\ ‘¬∃x. ls = Delay x’ by (rpt strip_tac \\ gvs [Lams_split]) \\ gvs []
+      \\ drule ALOOKUP_SOME_EL \\ rw []
+      \\ gvs [EL_REVERSE, EL_LUPDATE]
+      \\ Cases_on ‘PRE (LENGTH g - n') = i’ \\ gvs []
+      \\ qpat_x_assum ‘LIST_REL force_arg_rel _ _’ mp_tac
+      \\ rw [LIST_REL_EL_EQN] \\ gvs [EL_MAP]
+      \\ ‘PRE (LENGTH g - n') < LENGTH g’ by gvs []
+      \\ first_x_assum drule \\ rw [Once force_arg_rel_cases]
+      \\ ‘SND (EL n' (REVERSE f)) = Delay x'’ by gvs [EL_REVERSE]
+      \\ qspecl_then [‘REVERSE f’, ‘n'’] assume_tac ALOOKUP_ALL_DISTINCT_EL
+      \\ gvs [MAP_REVERSE] \\ gvs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+      \\ last_x_assum $ qspec_then ‘PRE (LENGTH g - n')’ mp_tac \\ simp []
+      \\ qpat_x_assum ‘LENGTH f = LENGTH g’ (assume_tac o GSYM) \\ gvs []
+      \\ rw [GSYM EL_REVERSE] \\ gvs []))
+QED
+
 fun print_tac str t g = (print (str ^ "\n"); time t g);
 
 Theorem force_arg_rel_eval_to:
@@ -4540,7 +4623,7 @@ Proof
             by (strip_tac \\ Cases_on ‘eval_to (k - 1) (subst_funs xs x2)’ \\ gvs [])
           \\ dxrule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono \\ gvs []
           \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC  \\ gvs [])
-          \\ cheat (* TODO v_rel_anyThunk *))
+          \\ drule v_rel_anyThunk \\ rw [])
 
       >- (gvs [dest_anyThunk_def, v_rel_def]
           \\ rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
@@ -4617,7 +4700,7 @@ Proof
           \\ dxrule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono
           \\ gvs []
           \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
-          \\ cheat (* TODO v_rel_anyThunk *))
+          \\ drule v_rel_anyThunk \\ rw [])
 
       >- (gvs [dest_anyThunk_def, v_rel_def]
           \\ rename1 ‘LIST_REL _ (MAP SND xs) (MAP SND ys)’
@@ -4696,7 +4779,7 @@ Proof
           \\ dxrule_then (qspec_then ‘j + j1 + k - 1’ assume_tac) eval_to_mono
           \\ gvs []
           \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
-          \\ cheat (* TODO v_rel_anyThunk *))
+          \\ drule v_rel_anyThunk \\ rw [])
       \\ rename1 ‘dest_anyThunk v1 = INR (wx, binds)’
       \\ ‘∃wx' binds'. dest_anyThunk w1 = INR (wx', binds') ∧
                        force_arg_rel wx wx' ∧
@@ -4742,7 +4825,7 @@ Proof
       \\ (
         gvs [dest_anyThunk_def, subst_funs_def]
         \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
-        \\ cheat (* TODO v_rel_anyThunk *)))
+        \\ drule v_rel_anyThunk \\ rw []))
     \\ rename1 ‘dest_Tick v1 = SOME v2’
     \\ ‘∃w2. dest_Tick w1 = SOME w2 ∧ v_rel v2 w2’
       by (Cases_on ‘v1’ \\ Cases_on ‘w1’ \\ gvs [v_rel_def])
@@ -4789,7 +4872,7 @@ Proof
             gvs [EVERY_EL, LIST_REL_EL_EQN]
             \\ qpat_x_assum ‘EXISTS _ _’ mp_tac \\ rw [EVERY_EL]
             \\ ntac 2 (first_x_assum drule \\ rw [])
-            \\ cheat (* TODO v_rel_anyThunk *)))
+            \\ drule v_rel_anyThunk \\ rw []))
       \\ gvs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ IF_CASES_TAC \\ gs []
       >- (
