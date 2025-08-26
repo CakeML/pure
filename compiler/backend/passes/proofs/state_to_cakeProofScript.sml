@@ -738,12 +738,11 @@ Theorem capplication_thm:
          [Loc _ n] => (
            case store_lookup n s of
              SOME (Thunk Evaluated v) =>
-               return env s fp v c
+               return env s v c
            | SOME (Thunk NotEvaluated f) =>
-               application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
-           | _ =>
-               Etype_error (fix_fp_state c fp))
-       | _ => Etype_error (fix_fp_state c fp))
+               application Opapp env s [f; Conv NONE []] ((Cforce n,env)::c)
+           | _ => Etype_error)
+       | _ => Etype_error)
     else case get_ffi_ch op of
     | SOME n => (
       case get_ffi_args vs of
