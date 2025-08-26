@@ -235,7 +235,7 @@ Theorem kind_wf_cons_types:
 Proof
   Induct_on `ts` using SNOC_INDUCT >>
   rw[cons_types_def,kind_arrows_def,kind_arrows_APPEND,
-    cons_types_SNOC,LIST_REL_SNOC,PULL_EXISTS] >>
+    cons_types_SNOC,LIST_REL_SNOC,PULL_EXISTS, SNOC_APPEND] >>
   metis_tac[]
 QED
 

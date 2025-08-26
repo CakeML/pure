@@ -602,7 +602,7 @@ Proof
           \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
-          \\ gvs [REVERSE_APPEND]
+          \\ gvs [REVERSE_APPEND, SNOC_APPEND]
           \\ IF_CASES_TAC \\ gvs []
           \\ gvs [OPTREL_def]
           \\ rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
@@ -625,7 +625,7 @@ Proof
               \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
                 by (irule LIST_REL_OPTREL
                     \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
-              \\ gvs [REVERSE_APPEND] \\ IF_CASES_TAC
+              \\ gvs [REVERSE_APPEND, SNOC_APPEND] \\ IF_CASES_TAC
               \\ gvs [OPTREL_def]
               \\ rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
               \\ last_x_assum $ dxrule_then assume_tac
@@ -659,7 +659,7 @@ Proof
               \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
                 by (irule LIST_REL_OPTREL
                     \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP])
-              \\ gvs [REVERSE_APPEND]
+              \\ gvs [REVERSE_APPEND, SNOC_APPEND]
               \\ rename1 ‘¬MEM v _’ \\ rename1 ‘v = s’ \\ Cases_on ‘v = s’ \\ gvs []
               \\ gvs [OPTREL_def]
               \\ rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
@@ -799,7 +799,7 @@ Proof
         \\ qspecl_then [‘MAP (λ(v,e). (v, Recclosure f v)) f’, ‘x’] assume_tac subst_notin_frees
         \\ gvs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM,
                 EVERY_MEM, DISJOINT_ALT, subst_funs_def])
-    >- (gvs [eval_to_def, subst_funs_def, MAP_APPEND, subst_APPEND]
+    >- (gvs [eval_to_def, subst_funs_def, MAP_APPEND, subst_APPEND, SNOC_APPEND]
         \\ IF_CASES_TAC >- (qexists_tac ‘0’ \\ gs []) \\ gs [subst1_notin_frees]
         \\ last_x_assum $ qspec_then ‘k - 1’ assume_tac \\ gvs [] \\ pop_assum irule
         \\ irule clean_rel_subst
@@ -943,7 +943,7 @@ Proof
             by (irule LIST_REL_OPTREL
                 \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
           \\ gs [OPTREL_def]
-          >- (qexists_tac ‘j’ \\ gvs [REVERSE_APPEND]
+          >- (qexists_tac ‘j’ \\ gvs [REVERSE_APPEND, SNOC_APPEND]
               \\ IF_CASES_TAC \\ gvs [])
           \\ rename1 ‘clean_rel x0 y0’
           \\ ‘MEM (s, x0) xs’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [])
@@ -952,6 +952,7 @@ Proof
           \\ Cases_on ‘x0’ \\ gvs [ok_bind_def, clean_rel_def]
           >~[‘subst_funs ys e2’]
           >- (rename1 ‘clean_rel e1 e2’
+              \\ gvs[SNOC_APPEND]
               \\ rename1 ‘xs ++ [(v,w)]’
               \\ last_x_assum $ qspecl_then [‘subst_funs (xs++[(v,w)]) e1’, ‘subst_funs ys e2’] mp_tac
               \\ impl_tac
@@ -972,14 +973,14 @@ Proof
               \\ Cases_on ‘eval_to (k - 1) (subst_funs ys e2) = INL Diverge’ \\ gs []
               >- (qexists_tac ‘0’
                   \\ Cases_on ‘eval_to k x = INL Diverge’ \\ gs []
-                  \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs [REVERSE_APPEND]
+                  \\ dxrule_then (qspecl_then [‘j + k’] assume_tac) eval_to_mono \\ gs [REVERSE_APPEND, SNOC_APPEND]
                   \\ IF_CASES_TAC \\ gvs []
                   \\ Cases_on ‘eval_to (k - 1) (subst_funs (xs ++ [(v,w)]) e1) = INL Diverge’ \\ gs []
                   \\ dxrule_then (qspecl_then [‘j2 + k - 1’] assume_tac) eval_to_mono \\ gs []
                   \\ Cases_on ‘eval_to (k − 1) (subst_funs (xs ++ [(v,w)]) e1)’ \\ gvs [])
               \\ qexists_tac ‘j + j2’
               \\ ‘eval_to (j + j2 + k) x = eval_to (j + k) x’ by (irule eval_to_mono \\ gvs [])
-              \\ gvs [REVERSE_APPEND]
+              \\ gvs [REVERSE_APPEND, SNOC_APPEND]
               \\ IF_CASES_TAC \\ gvs []
               \\ ‘eval_to (j + (j2 + k) - 1) (subst_funs (xs++[(v,w)]) e1)
                   = eval_to (j2 + k - 1) (subst_funs (xs++[(v,w)]) e1)’
@@ -991,7 +992,7 @@ Proof
               \\ Cases_on ‘eval_to (k − 1) (subst_funs ys e2)’ \\ gvs []
               \\ rpt (IF_CASES_TAC \\ gvs [])
               \\ drule v_rel_anyThunk \\ rw [])
-          \\ qexists_tac ‘j’ \\ gvs [REVERSE_APPEND]
+          \\ qexists_tac ‘j’ \\ gvs [REVERSE_APPEND, SNOC_APPEND]
           \\ IF_CASES_TAC \\ gvs []
           \\ rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gs []
           \\ last_x_assum $ kall_tac \\ last_x_assum $ kall_tac
@@ -1410,7 +1411,7 @@ Proof
       \\ ‘OPTREL clean_rel (ALOOKUP (REVERSE xs) s) (ALOOKUP (REVERSE ys) s)’
         by (irule LIST_REL_OPTREL
             \\ gvs [LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, LIST_EQ_REWRITE])
-      \\ gvs [REVERSE_APPEND] \\ IF_CASES_TAC \\ gs []
+      \\ gvs [REVERSE_APPEND, SNOC_APPEND] \\ IF_CASES_TAC \\ gs []
       \\ gs [OPTREL_def]
       \\ qpat_x_assum ‘clean_rel x0 _’ mp_tac
       \\ ‘ok_bind x0’ by (rpt $ dxrule_then assume_tac ALOOKUP_MEM \\ gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS]

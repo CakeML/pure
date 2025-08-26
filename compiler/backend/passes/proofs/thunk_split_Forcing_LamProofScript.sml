@@ -1110,7 +1110,7 @@ Proof
                   qpat_x_assum ‘LENGTH l3 = LENGTH (FILTER FST (ZIP (bL, REVERSE l)))’ mp_tac >>
                   rpt $ pop_assum kall_tac >>
                   qid_spec_tac ‘l3’ >> qid_spec_tac ‘bL’ >>
-                  Induct_on ‘l’ using SNOC_INDUCT >> simp [merge_inside_def, REVERSE_SNOC] >>
+                  Induct_on ‘l’ using SNOC_INDUCT >> simp [merge_inside_def, REVERSE_SNOC, SNOC_APPEND] >>
                   gen_tac >> Cases >> simp [] >>
                   IF_CASES_TAC >> simp [merge_inside_def] >>
                   Cases >> simp [merge_inside_def]) >>
@@ -1362,7 +1362,7 @@ Proof
                   by (Cases_on ‘row’ >> gs [] >>
                       rename1 ‘my_function_row _ (h::_)’ >> PairCases_on ‘h’ >>
                       gs [rows_of_def, freevars_def] >>
-                      gs [SUBSET_DEF]) >>
+                      metis_tac[SUBSET_DEF]) >>
                 pop_assum mp_tac >>
                 dxrule_then (drule_then mp_tac) SUBSET_TRANS >>
                 qpat_x_assum ‘set_of s2 ⊆ set_of s3’ mp_tac >>

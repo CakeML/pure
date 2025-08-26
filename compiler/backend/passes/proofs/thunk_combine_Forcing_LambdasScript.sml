@@ -1179,7 +1179,7 @@ Proof
   qspecl_then [‘eL’] assume_tac SNOC_CASES >> gs [ADD1] >>
   rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gs []
   >- gs [eval_to_def, dest_anyClosure_def] >>
-  gvs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def] >>
+  gvs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def, SNOC_APPEND] >>
   rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
   first_x_assum $ qspecl_then [‘eL’, ‘Lam v e’, ‘k’] assume_tac >>
   gvs [subst_def, eval_to_def, dest_anyClosure_def] >>
@@ -1209,7 +1209,7 @@ Proof
   qspecl_then [‘eL’] assume_tac SNOC_CASES >> gs [ADD1] >>
   rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gs []
   >- gs [eval_to_def, dest_anyClosure_def] >>
-  gvs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def] >>
+  gvs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def, SNOC_APPEND] >>
   rename1 ‘SUC (LENGTH vL) = LENGTH eL’ >>
   gs [subst_def, eval_to_def, dest_anyClosure_def] >>
   AP_TERM_TAC >>
@@ -1252,7 +1252,7 @@ Proof
   qspecl_then [‘eL’] assume_tac SNOC_CASES >> gs [ADD1] >>
   rename1 ‘SNOC v vL’ >> Cases_on ‘vL’ >> gs []
   >- (gs [eval_to_def, dest_anyClosure_def]) >>
-  gs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def]
+  gs [FOLDR_SNOC, FOLDL_APPEND, eval_to_def, SNOC_APPEND]
 QED
 
 Theorem eval_to_Apps_Rec_0:
@@ -1315,14 +1315,16 @@ Proof
   Induct using SNOC_INDUCT \\ gs []
   \\ rw [] \\ gs [GSYM LESS_EQ_IFF_LESS_SUC, FOLDL_SNOC]
   \\ rename1 ‘SNOC x eL’
+  \\ gvs[SNOC_APPEND]
   \\ qspec_then ‘eL2’ assume_tac SNOC_CASES \\ gvs [FOLDL_APPEND]
-  \\ rename1 ‘eL2 ++ [x2]’ \\ gs [SNOC_APPEND]
-  \\ dxrule_then assume_tac LESS_EQ_CASES \\ gs [EL_SNOC, EL_LENGTH_SNOC, eval_to_def, EL_APPEND_EQN]
+  \\ rename1 ‘SNOC x2 eL2’ \\ gvs[SNOC_APPEND, FOLDL_APPEND]
+  \\ dxrule_then assume_tac LESS_EQ_CASES
+  \\ gs [EL_SNOC, EL_LENGTH_SNOC, eval_to_def, EL_APPEND_EQN]
   \\ Cases_on ‘eval_to k x2 = INL Diverge’ \\ gs []
   \\ dxrule_then assume_tac eval_to_mono \\ gs [GSYM ADD1]
   >- (‘∃j. ($= +++ v_rel) (eval_to k x) (eval_to (k + j) x2)’
         by (last_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac
-            \\ Cases_on ‘eval_to k x = INL Type_error’ \\ gs [])
+            \\ Cases_on ‘eval_to k x = INL Type_error’ \\ gs [SF SFY_ss])
       \\ Cases_on ‘eval_to k x’
       >~[‘eval_to k x = INL err’]
       >- (Cases_on ‘err’ \\ gs []
@@ -1333,7 +1335,8 @@ Proof
       \\ impl_tac \\ gs []
       \\ rw []
       \\ last_x_assum $ drule_then assume_tac \\ gs []
-      \\ first_x_assum $ irule_at Any)
+      \\ first_x_assum $ irule_at Any
+      )
   \\ last_x_assum $ qspec_then ‘LENGTH eL2’ assume_tac \\ gs []
   \\ Cases_on ‘eval_to k x2’ \\ gs []
 QED
@@ -1349,9 +1352,9 @@ Theorem eval_to_Apps_arg_Div_combine_rel2:
 Proof
   Induct using SNOC_INDUCT \\ gs []
   \\ rw [] \\ gs [GSYM LESS_EQ_IFF_LESS_SUC, FOLDL_SNOC]
-  \\ rename1 ‘SNOC x eL’
+  \\ rename1 ‘SNOC x eL’ \\ gvs[SNOC_APPEND]
   \\ qspec_then ‘eL2’ assume_tac SNOC_CASES \\ gvs [FOLDL_APPEND]
-  \\ rename1 ‘eL2 ++ [x2]’ \\ gs [SNOC_APPEND]
+  \\ rename1 ‘SNOC x2 eL2’ \\ gs [SNOC_APPEND, FOLDL_APPEND]
   \\ dxrule_then assume_tac LESS_EQ_CASES \\ gs [EL_SNOC, EL_LENGTH_SNOC, eval_to_def, EL_APPEND_EQN]
   \\ Cases_on ‘eval_to k x2 = INL Diverge’ \\ gs []
   \\ dxrule_then assume_tac eval_to_mono \\ gs [GSYM ADD1]
@@ -1417,11 +1420,11 @@ Theorem eval_to_Apps_Div_or_INR:
 Proof
   Induct using SNOC_INDUCT \\ gs [FOLDL_SNOC]
   \\ gen_tac \\ gen_tac \\ qspec_then ‘vL1’ assume_tac SNOC_CASES
-  \\ gs [GSYM ADD1, FOLDL_APPEND]
+  \\ gs [GSYM ADD1, FOLDL_APPEND, SNOC_APPEND]
   \\ rw []
   \\ once_rewrite_tac [eval_to_def] \\ gs []
   \\ first_assum $ qspec_then ‘LENGTH eL’ assume_tac \\ gs [EL_LENGTH_SNOC, EL_APPEND_EQN]
-  \\ Cases_on ‘eval_to k x’ \\ gs []
+  \\ Cases_on ‘eval_to k x’
   \\ rename1 ‘LIST_REL _ (vL1 ++ [v1])’
   \\ last_x_assum $ qspecl_then [‘vL1’, ‘e’, ‘k’] mp_tac \\ gs []
   \\ impl_tac
@@ -1455,7 +1458,7 @@ Theorem eval_to_Apps_LIST_INR:
   ∀eL vL e k. LIST_REL (λe v. ∀j. eval_to (j + k) e = INR v) eL vL
               ⇒ ∀j. k ≤ j ⇒ eval_to j (Apps e eL) = eval_to j (Apps e (MAP Value vL))
 Proof
-  Induct using SNOC_INDUCT \\ gs [LIST_REL_SNOC, PULL_EXISTS, FOLDL_APPEND, FOLDL_SNOC]
+  Induct using SNOC_INDUCT \\ gs [LIST_REL_SNOC, PULL_EXISTS, FOLDL_APPEND, FOLDL_SNOC, SNOC_APPEND]
   \\ rw [] \\ last_x_assum $ drule_all_then assume_tac
   \\ gs [eval_to_def]
   \\ first_x_assum $ qspec_then ‘j - k’ assume_tac

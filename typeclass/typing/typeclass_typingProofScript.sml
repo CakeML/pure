@@ -3094,7 +3094,7 @@ Proof
   irule_at (Pat `Functions (_::_) _ = _`) Functions_CONS_alt >>
   simp[cons_types_def] >>
   irule_at (Pat `Functions _ _ = Functions _ _`) EQ_REFL >>
-  simp[kind_ok,LLOOKUP_THM,EL_APPEND_EQN,specialises_def] >>
+  simp[kind_ok,LLOOKUP_THM,EL_APPEND_EQN,specialises_def,SNOC_APPEND] >>
   qrefine `GENLIST TypeVar (LENGTH meth_pred_type0)` >>
   rw[LIST_REL_EL_EQN,kind_ok,oEL_THM,EL_APPEND_EQN] >>
   DEP_REWRITE_TAC[subst_db_sub_tshift_TypeVar] >>
@@ -4103,6 +4103,7 @@ Proof
     first_x_assum drule >>
     simp[Abbr`pred_ty_scheme`,PULL_EXISTS,
       translate_pred_type_scheme_get_method_type] >>
+    gvs[SNOC_APPEND] >>
     rw[translate_predicate_def] >>
     simp[ELIM_UNCURRY,SRULE[ELIM_UNCURRY] ALOOKUP_MAP_2] >>
     simp[tcons_to_type_def,cons_types_def] >>

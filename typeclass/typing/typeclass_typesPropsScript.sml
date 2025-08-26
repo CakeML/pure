@@ -386,7 +386,7 @@ QED
 Theorem ty_args_SNOC:
   ty_args (Cons t1 t2) = SNOC t2 (ty_args t1)
 Proof
-  simp[ty_args_def,ty_args_aux_SNOC]
+  simp[ty_args_def,ty_args_aux_SNOC,SNOC_APPEND]
 QED
 
 Theorem ty_args_alt:
@@ -573,7 +573,7 @@ Theorem subst_db_ty_args:
   | a => MAP (subst_db skip ts) (ty_args t)
 Proof
   ho_match_mp_tac subst_db_ind >>
-  rw[subst_db_def,ty_args_alt,head_ty_def] >>
+  rw[subst_db_def,ty_args_alt,head_ty_def,SNOC_APPEND] >>
   TOP_CASE_TAC >>
   IF_CASES_TAC >>
   rw[]
@@ -599,7 +599,7 @@ Theorem shift_db_ty_args:
     MAP (shift_db skip n) (ty_args t)
 Proof
   ho_match_mp_tac shift_db_ind >>
-  rw[shift_db_def,ty_args_alt]
+  rw[shift_db_def,ty_args_alt,SNOC_APPEND]
 QED
 
 (******************** Properties of types ********************)
