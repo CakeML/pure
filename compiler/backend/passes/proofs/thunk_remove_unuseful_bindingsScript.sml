@@ -1063,7 +1063,12 @@ Proof
           disch_then (qx_choose_then ‘j’ assume_tac)
           \\ qexists_tac ‘j’ \\ gs [SF ETA_ss]
           \\ Cases_on ‘result_map (eval_to k) ys’
-          \\ Cases_on ‘result_map (eval_to (j + k)) xs’ \\ gs [v_rel_def])
+          \\ Cases_on ‘result_map (eval_to (j + k)) xs’ \\ gs [v_rel_def]
+          \\ rpt (IF_CASES_TAC \\ gvs [v_rel_def])
+          \\ (
+            gvs [EXISTS_MEM, EVERY_EL, MEM_EL, LIST_REL_EL_EQN]
+            \\ ntac 2 (first_x_assum drule \\ strip_tac)
+            \\ drule v_rel_anyThunk \\ rw []))
       \\ gvs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ IF_CASES_TAC \\ gs []
       >- (

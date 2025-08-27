@@ -760,7 +760,20 @@ Proof
     \\ simp [eval_to_def]
     \\ Cases_on ‘op’ \\ gs [EVERY_EL]
     >- ((* Cons *)
-      gs [result_map_def, MEM_MAP, PULL_EXISTS, LIST_REL_EL_EQN, MEM_EL]
+      `($= +++ v_rel)
+          do
+            vs <- result_map (λx. eval_to k x) xs;
+            INR (Constructor s vs)
+          od
+          do
+            vs <- result_map (λx. eval_to k x) ys;
+            INR (Constructor s vs)
+          od` suffices_by (
+        simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ gvs [])
+        \\ CCONTR_TAC \\ gvs [LIST_REL_EL_EQN]
+        \\ ntac 2 (first_x_assum drule \\ rpt strip_tac)
+        \\ drule v_rel_anyThunk \\ rw [])
+      \\ gs [result_map_def, MEM_MAP, PULL_EXISTS, LIST_REL_EL_EQN, MEM_EL]
       \\ IF_CASES_TAC \\ gs []
       >- (
         gvs [MEM_EL, PULL_EXISTS, LIST_REL_EL_EQN]
