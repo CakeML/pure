@@ -1307,7 +1307,7 @@ Proof
           \\ (
             gvs [LIST_REL_EL_EQN]
             \\ ntac 2 (first_x_assum drule \\ rw [])
-            \\ cheat (* TODO v_rel_anyThunk *)))
+            \\ drule v_rel_anyThunk \\ rw []))
       \\ ‘result_map (λx. eval_to k x) ys ≠ INL Type_error’
         by (gvs [result_map_def, CaseEq "bool"]
             \\ strip_tac
