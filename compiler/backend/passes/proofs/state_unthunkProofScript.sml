@@ -1174,16 +1174,9 @@ Proof
     \\ Cases_on ‘x'’ \\ gvs []
     \\ drule_all state_rel_thunk \\ strip_tac \\ gvs []
     \\ Cases_on ‘t’ \\ gvs []
-    >- simp [Once step_res_rel_cases]
-    \\ Cases_on ‘dest_anyClosure v’ \\ gvs []
-    \\ PairCases_on ‘x'’
-    \\ ‘state_rel p (pick_opt x NONE) (SOME ss)’ by gvs []
-    \\ drule_all dest_anyClosure_v_rel
-    \\ strip_tac \\ gvs [LENGTH_EQ_NUM_compute]
-    \\ simp [Once cont_rel_cases, Once step_res_rel_cases]
-    \\ ‘v_rel p (Constructor "" []) (Constructor "" [])’
-          by simp [Once v_rel_cases]
-    \\ drule imp_env_rel_opt_bind \\ simp [])
+    \\ simp [Once step_res_rel_cases]
+    \\ ntac 2 $ simp[Once cont_rel_cases]
+    \\ simp[env_rel_def, Once v_rel_cases])
   \\ Cases_on ‘∃t. op = UpdateMutThunk t’ \\ rw [] THEN1
    (gvs [application_def,LENGTH_EQ_NUM_compute,error_def,value_def]
     \\ Cases_on ‘x’ \\ gvs []
@@ -2009,6 +2002,7 @@ Proof
         \\ rpt $ first_assum $ irule_at Any
         \\ gvs [SF SFY_ss])
       \\ Cases_on ‘v1 ∈ avoid’ \\ gvs []
+      \\ irule_at Any step_n_unwind \\ fs[step_n_add,step]
       \\ gvs [get_atoms_def]
       \\ drule_all step'_n_NONE_split
       \\ strip_tac
@@ -2451,7 +2445,10 @@ Proof
         \\ last_x_assum $ irule
         \\ first_x_assum $ irule_at Any \\ fs []
         \\ rpt (first_assum $ irule_at Any)
-        \\ simp [step_res_rel_cases])
+        \\ simp [step_res_rel_cases]) >>
+      Cases_on ‘n’ >- (strip_tac >> gvs[]) >>
+      rewrite_tac[step_n_add, ADD1] >> simp[step, error_def] >>
+      rename1 ‘step_n n’
       \\ simp [opt_bind_def]
       \\ gvs [ADD1]
       \\ strip_tac

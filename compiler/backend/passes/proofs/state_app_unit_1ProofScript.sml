@@ -262,7 +262,7 @@ Theorem application_thm:
       OPTREL state_rel ts1 ss1 ∧
       step_res_rel tr1 tk1 sr1 sk1
 Proof
-  ho_match_mp_tac application_ind \\ rw []
+  Cases \\ rw []
   \\ fs [num_args_ok_def,LENGTH_EQ_NUM_compute,PULL_EXISTS]
   \\ rw [] \\ gvs []
   >~ [‘Cons’] >-
@@ -424,14 +424,16 @@ Proof
     \\ simp [Once v_rel_cases] \\ strip_tac
     \\ gvs [error_def,step_res_rel_cases]
     \\ Cases_on ‘a’ \\ gvs []
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
-    \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
-    \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
-    \\ Cases_on ‘EL n x'’ \\ gvs [state_rel_def,store_rel_def,LIST_REL_EL_EQN]
-    \\ gvs [value_def,state_rel_def,LIST_REL_EL_EQN]
-    \\ last_x_assum $ irule_at Any
-    \\ rw [Once v_rel_cases,Once cont_rel_cases]
-    \\ metis_tac [state_rel_def,LIST_REL_EL_EQN])
+    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [] >>
+       gvs[oEL_THM] >> imp_res_tac state_rel_def >> gvs[LIST_REL_EL_EQN] >>
+       last_x_assum mp_tac >>
+       reverse $ IF_CASES_TAC >> gvs[] >- (rw[] >> gvs[]) >>
+       TOP_CASE_TAC >> gvs[] >>
+       first_x_assum drule >> simp[oneline store_rel_def] >> CASE_TAC >> gvs[] >>
+       rw[] >> gvs[] >> CASE_TAC >> gvs[value_def] >>
+       ntac 2 $ simp[Once cont_rel_cases] >>
+       simp[env_rel_def, Once v_rel_cases] >>
+       goal_assum drule >> simp[])
   >~ [‘FFI’] >-
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac

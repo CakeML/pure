@@ -356,8 +356,6 @@ Definition application_def:
     case HD vs, st of
       (Atom $ Str content, SOME _) => (Action channel content, st, k)
     | _ => error st k)
-Termination
-  WF_REL_TAC ‘measure (λ(x,_). if x = ForceMutThunk then 1 else 0)’ >> rw[]
 End
 
 (* Return a value and handle a continuation *)
