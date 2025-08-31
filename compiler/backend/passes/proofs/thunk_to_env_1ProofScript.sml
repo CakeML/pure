@@ -251,7 +251,7 @@ Proof
     gs [subst_def, exp_rel_def, EVERY2_MAP, FILTER_FILTER, LAMBDA_PROD,
         MAP_MAP_o, combinTheory.o_DEF, GSYM FST_THM, FILTER_APPEND_DISTRIB]
     \\ first_x_assum (irule_at Any)
-    \\ qabbrev_tac ‘P = λn. ¬MEM n (MAP FST f)’ \\ gs []
+    \\ qabbrev_tac ‘P = λn. ¬MEM n (MAP FST f')’ \\ gs []
     \\ gs [MAP_FST_FILTER, MEM_FILTER, FILTER_FILTER, DISJ_EQ_IMP, LAMBDA_PROD]
     \\ gs [SF CONJ_ss, AC CONJ_COMM CONJ_ASSOC, env_rel_def,
            GSYM FILTER_REVERSE]
