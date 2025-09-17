@@ -1218,25 +1218,25 @@ Proof
 QED
 
 Inductive full_entail:
-[~mem]
+[~mem:]
   MEM p ps ⇒ full_entail cl_map inst_map ps p
-[~super]
+[~super:]
   full_entail cl_map inst_map ps (c,t) ∧
   lookup cl_map c = SOME cl ∧
   MEM s cl.supers ⇒
   full_entail cl_map inst_map ps (s,t)
-[~inst]
+[~inst:]
   by_inst inst_map c t = SOME qs ∧
   (∀q. MEM q qs ⇒ full_entail cl_map inst_map ps q) ⇒
   full_entail cl_map inst_map ps (c,t)
 End
 
 Inductive entail:
-[~super]
+[~super:]
   MEM (c,t) ps ∧
   super_reachable_RTC cl_map c s ⇒
   entail cl_map inst_map ps (s,t)
-[~inst]
+[~inst:]
   by_inst inst_map c t = SOME qs ∧
   (∀q. MEM q qs ⇒ entail cl_map inst_map ps q) ⇒
   entail cl_map inst_map ps (c,t)
