@@ -740,8 +740,8 @@ Proof
   gvs[Constructor_rep_def,EVERY_MAP] >>
   first_x_assum match_mp_tac >>
   match_mp_tac (MP_CANON EVERY_MONOTONIC) >>
-  first_x_assum(irule_at (Pos last)) >>
-  rw[]
+  gvs[EVERY_EL] >> rw [] >>
+  first_x_assum drule >> rw []
 QED
 
 Definition v_take_def:
