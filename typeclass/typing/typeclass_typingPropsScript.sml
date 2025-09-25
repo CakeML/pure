@@ -1,13 +1,11 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory rich_listTheory alistTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_configTheory;
-open mlstringTheory pure_cexpTheory pure_tcexpTheory;
-open typeclass_typesTheory typeclass_typesPropsTheory typeclass_texpTheory;
-open typeclass_kindCheckTheory;
-open typeclass_typingTheory;
-
-val _ = new_theory "typeclass_typingProps";
+Theory typeclass_typingProps
+Ancestors
+  pair arithmetic integer string option list rich_list alist
+  pred_set finite_map pure_misc pure_config mlstring pure_cexp
+  pure_tcexp typeclass_types typeclass_typesProps typeclass_texp
+  typeclass_kindCheck typeclass_typing
+Libs
+  BasicProvers dep_rewrite
 
 (******************** Basic lemmas ********************)
 
@@ -1350,4 +1348,3 @@ Proof
   rw[ALOOKUP_APPEND]
 QED
 
-val _ = export_theory();

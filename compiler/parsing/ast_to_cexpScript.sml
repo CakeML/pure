@@ -1,16 +1,10 @@
-open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
-
-open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory
-open pureASTTheory mlmapTheory pure_cexpTheory mlstringTheory
-     pure_typingTheory pure_varsTheory
-local
-  open pure_miscTheory
-in end
-
-val _ = new_theory "ast_to_cexp";
-
-val _ = set_grammar_ancestry [
-          "pureAST", "mlmap", "pure_cexp", "pure_typing", "pure_vars"]
+Theory ast_to_cexp
+Ancestors
+  pair option list pred_set finite_map mlstring
+  pure_misc[qualified]
+  pureAST mlmap pure_cexp pure_typing pure_vars
+Libs
+  dep_rewrite BasicProvers
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
@@ -739,5 +733,3 @@ Proof
     gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD]
     )
 QED
-
-val _ = export_theory();

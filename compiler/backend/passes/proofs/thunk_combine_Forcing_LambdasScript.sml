@@ -1,14 +1,14 @@
 (*
  Relation to rewrite function definitions to remove Delay
 *)
+Theory thunk_combine_Forcing_Lambdas
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  thunkLang thunkLang_primitives wellorder arithmetic pure_misc
+  thunkLangProps thunk_semantics
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
-
-val _ = new_theory "thunk_combine_Forcing_Lambdas";
 
 Inductive combine_rel:
 [~Var:]
@@ -7319,4 +7319,3 @@ Proof
   \\ irule_at Any combine_rel_sim_ok
 QED
 
-val _ = export_theory ();

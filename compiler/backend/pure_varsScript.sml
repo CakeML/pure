@@ -2,12 +2,12 @@
    This file defines implementation-style functions for computing sets
    of free variables and maps from variable names to things.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open listTheory stringTheory alistTheory optionTheory pairTheory
-     pred_setTheory finite_mapTheory;
-open mlmapTheory mlstringTheory;
-
-val _ = new_theory "pure_vars";
+Theory pure_vars
+Ancestors
+  list string alist option pair pred_set finite_map mlmap
+  mlstring
+Libs
+  BasicProvers dep_rewrite
 
 (* definitions *)
 
@@ -255,4 +255,3 @@ Proof
   rw[empty_def, empty_thm]
 QED
 
-val _ = export_theory();

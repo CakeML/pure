@@ -1,14 +1,11 @@
 (*
   Translation of PureLang parser
  *)
-open basis
-     pureParseTheory
-     pure_typingTheory
-     pure_backendProgTheory;
-
-val _ = new_theory "pure_parseProg";
-
-val _ = set_grammar_ancestry ["pure_backendProg", "pureParse"];
+Theory pure_parseProg
+Ancestors
+  pure_typing pure_backendProg pureParse
+Libs
+  basis
 
 val _ = translation_extends "pure_backendProg";
 
@@ -383,5 +380,3 @@ val r = translate string_to_asts_def;
 val r = translate ast_to_cexpTheory.cexp_wf_alt_def; (* TODO bad induction *)
 val r = translate pure_cexpTheory.NestedCase_free_def; (* TODO bad induction *)
 val r = translate string_to_cexp_def;
-
-val _ = export_theory ();

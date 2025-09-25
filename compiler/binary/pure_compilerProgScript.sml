@@ -1,14 +1,11 @@
 (*
   Translation of top-level pure-to-cake compiler function.
  *)
-open basis
-     mlstringTheory
-     pure_backendProgTheory
-     pure_frontendProgTheory;
-
-val _ = new_theory "pure_compilerProg";
-
-val _ = set_grammar_ancestry ["pure_frontendProg", "mlstring"];
+Theory pure_compilerProg
+Ancestors
+  pure_backendProg pure_frontendProg mlstring
+Libs
+  basis
 
 val _ = translation_extends "pure_frontendProg";
 
@@ -59,5 +56,3 @@ val prog =
 Definition pure_compiler_prog_def:
   pure_compiler_prog = ^prog
 End
-
-val _ = export_theory ();

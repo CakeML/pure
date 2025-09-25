@@ -1,15 +1,14 @@
 (*
    Proof of an equivalence for Letrec
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory;
-
-val _ = new_theory "pure_letrec_cong";
+Theory pure_letrec_cong
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_exp pure_value
+  pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
+  pure_exp_rel pure_alpha_equiv pure_misc pure_congruence
+Libs
+  term_tactic dep_rewrite BasicProvers
 
 Inductive letrec_binds:
 [~swap:]
@@ -820,4 +819,3 @@ Proof
     \\ res_tac)
 QED
 
-val _ = export_theory();

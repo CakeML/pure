@@ -1,9 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory;
-open typeclass_typesTheory typeclass_typesPropsTheory;
-
-val _ = new_theory "typeclass_kindCheck";
+Theory typeclass_kindCheck
+Ancestors
+  pair arithmetic integer string option list alist
+  typeclass_types typeclass_typesProps
+Libs
+  BasicProvers
 
 Datatype:
   Kind = kindType | kindArrow Kind Kind
@@ -276,4 +276,3 @@ Proof
   rw[]
 QED
 
-val _ = export_theory();

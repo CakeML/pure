@@ -1,23 +1,20 @@
 (*
   Proof of correctness for the pure_to_thunk compiler pass.
  *)
+Theory pure_to_thunkProof
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  arithmetic combin pure_semantics thunk_semantics pure_eval
+  thunkLang_primitives pure_exp_lemmas pure_misc pure_exp
+  pure_names thunk_split_Delay_LamProof
+  pure_demands_analysisProof[qualified]
+  thunk_let_force_1Proof[qualified]
+  pure_to_thunk pure_to_thunk_2Proof pure_cexp
+  thunk_exp_of[qualified] thunkLang thunk_cexp pureLang var_set
+  pure_namesProof thunk_split_Delay_Lam pure_letrecProof
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory combinTheory
-     pure_semanticsTheory thunkLangTheory thunk_semanticsTheory pure_evalTheory
-     thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory pure_expTheory
-     pure_to_thunk_2ProofTheory pure_cexpTheory pureLangTheory thunk_cexpTheory
-     var_setTheory pure_namesTheory pure_namesProofTheory pure_to_thunkTheory
-     thunk_split_Delay_LamTheory thunk_split_Delay_LamProofTheory pure_letrecProofTheory;
-local open pure_demands_analysisProofTheory thunk_let_force_1ProofTheory in end
-
-val _ = new_theory "pure_to_thunkProof";
-
-val _ = set_grammar_ancestry
-          ["pure_to_thunk", "pure_to_thunk_2Proof", "pure_cexp", "thunk_exp_of",
-           "thunkLang", "thunk_cexp", "pureLang", "var_set", "pure_namesProof",
-           "thunk_split_Delay_Lam", "pure_letrecProof"];
 
 Triviality BIGUNION_set_MAP_SUBSET:
   ∀ys f t. BIGUNION (set (MAP f ys)) ⊆ t ⇔ EVERY (λy. f y ⊆ t) ys
@@ -726,5 +723,3 @@ Proof
   \\ disch_then $ qspec_then `c.do_mk_delay` assume_tac
   \\ gs [] \\ rw [] \\ fs []
 QED
-
-val _ = export_theory ();

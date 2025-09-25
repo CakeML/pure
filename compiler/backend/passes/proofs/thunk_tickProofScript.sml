@@ -1,18 +1,14 @@
 (*
   Introducing and removing Ticks in thunkLang programs.
  *)
+Theory thunk_tickProof
+Ancestors
+  string option sum pair list alist thunkLang_primitives pure_misc
+  finite_map pred_set rich_list thunkLang thunkLangProps
+  thunk_semantics
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
-
-val _ = new_theory "thunk_tickProof";
-
-val _ = set_grammar_ancestry [
-  "finite_map", "pred_set", "rich_list", "thunkLang",
-  "thunkLangProps", "thunk_semantics" ];
 
 Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
@@ -1179,5 +1175,3 @@ Proof
   \\ irule_at Any tick_rel_ok
   \\ irule_at Any tick_sim_ok
 QED
-
-val _ = export_theory ();

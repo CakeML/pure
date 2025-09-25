@@ -2,14 +2,12 @@
   Definition of compilation that inserts names for Lam NONE and
   replaces HandleApp by a Handle and an App.
  *)
+Theory state_names
+Ancestors
+  string option sum pair list mlstring state_cexp
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory;
-open state_cexpTheory state_cexpTheory mlstringTheory;
-
-val _ = new_theory "state_names";
-
-val _ = set_grammar_ancestry ["state_cexp"];
 
 Overload str_prefix = “strlit "ignore"”
 Overload str_prefix_len = (EVAL “strlen str_prefix” |> concl |> rand);
@@ -95,5 +93,3 @@ End
 Definition give_all_names_def:
   give_all_names e = FST (give_names e)
 End
-
-val _ = export_theory ();

@@ -1,15 +1,13 @@
 (*
    This file defines expressions for pure_lang as the compiler sees them.
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory;
-
-local open mlstringTheory in end
-
-val _ = new_theory "pure_cexp";
+Theory pure_cexp
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_exp
+  mlstring[qualified]
+Libs
+  term_tactic dep_rewrite BasicProvers
 
 Datatype:
   cop = Cons mlstring      (* datatype constructor                     *)
@@ -456,4 +454,3 @@ Proof
   gvs[AllCaseEqs(), SF ETA_ss]
 QED
 
-val _ = export_theory();

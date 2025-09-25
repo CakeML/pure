@@ -1,14 +1,12 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory rich_listTheory alistTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_cexpTheory pure_tcexpTheory pure_configTheory;
-open typeclass_typesTheory typeclass_typesPropsTheory
-open typeclass_kindCheckTheory;
-open typeclass_typingTheory typeclass_typingPropsTheory;
-open pure_tcexp_typingTheory pure_tcexp_lemmasTheory;
-
-val _ = new_theory "pure_tcexp_typingProps";
-
+Theory pure_tcexp_typingProps
+Ancestors
+  pair arithmetic integer string option list rich_list alist
+  pred_set finite_map pure_misc pure_cexp pure_tcexp pure_config
+  typeclass_types typeclass_typesProps typeclass_kindCheck
+  typeclass_typing typeclass_typingProps pure_tcexp_typing
+  pure_tcexp_lemmas
+Libs
+  BasicProvers dep_rewrite
 
 (******************** Basic lemmas ********************)
 
@@ -2607,4 +2605,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

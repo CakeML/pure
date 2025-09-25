@@ -1,21 +1,19 @@
 (*
   Inlining optimization proofs for cexp
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     combinTheory mlmapTheory indexedListsTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrec_seqTheory pure_demandTheory pure_dead_letProofTheory
-     pure_letrecProofTheory;
-open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
-open pure_inline_relTheory pure_inline_cexpTheory pure_letrec_spec_cexpProofTheory
-     pure_barendregtTheory pure_freshenProofTheory var_setTheory;
-
-val _ = new_theory "pure_inline_cexpProof";
+Theory pure_inline_cexpProof
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map combin mlmap
+  indexedLists pure_exp pure_value pure_eval pure_eval_lemmas
+  pure_exp_lemmas pure_limit pure_exp_rel pure_alpha_equiv
+  pure_misc pure_congruence pure_letrec_seq pure_demand
+  pure_dead_letProof pure_letrecProof pure_cexp pure_vars
+  balanced_map pureLang pure_inline_rel pure_inline_cexp
+  pure_letrec_spec_cexpProof pure_barendregt pure_freshenProof
+  var_set
+Libs
+  BasicProvers dep_rewrite BasicProvers
 
 (* xs and m have the same elements *)
 Definition memory_inv_def:
@@ -2469,4 +2467,3 @@ QED
 
 (*******************)
 
-val _ = export_theory();

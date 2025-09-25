@@ -1,17 +1,13 @@
 (*
    Verification of functions in pure_namesTheory
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open listTheory pairTheory alistTheory pred_setTheory finite_mapTheory
-     sptreeTheory arithmeticTheory combinTheory;
-open pure_miscTheory pure_expTheory pure_cexpTheory pureLangTheory
-     var_setTheory pure_exp_lemmasTheory pure_cexp_lemmasTheory
-     pure_namesTheory;
-
-val _ = set_grammar_ancestry
-  ["pure_names", "pure_exp", "pure_cexp", "var_set", "pureLang"];
-
-val _ = new_theory "pure_namesProof";
+Theory pure_namesProof
+Ancestors
+  list pair alist pred_set finite_map sptree arithmetic combin
+  pure_misc pure_exp_lemmas pure_cexp_lemmas
+  pure_names pure_exp pure_cexp var_set pureLang
+Libs
+  BasicProvers dep_rewrite
 
 Theorem extract_names_thm:
   (∀s (x:'a cexp) t.
@@ -86,5 +82,3 @@ Theorem pure_names_eq_allvars:
 Proof
   fs [pure_names_def,SIMP_RULE std_ss [] extract_names_thm]
 QED
-
-val _ = export_theory();

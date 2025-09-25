@@ -1,9 +1,6 @@
-open HolKernel Parse boolLib bossLib;
-
-open listTheory pred_setTheory finite_mapTheory
-open pure_congruenceTheory pure_exp_lemmasTheory
-
-val _ = new_theory "pure_congruence_lemmas";
+Theory pure_congruence_lemmas
+Ancestors
+  list pred_set finite_map pure_congruence pure_exp_lemmas
 
 Theorem Apps_APPEND:
   ∀f xs ys. Apps f (xs ++ ys) = Apps (Apps f xs) ys
@@ -98,4 +95,3 @@ Proof
   >- simp[FUNION_DEF, DOMSUB_FAPPLY_THM]
 QED
 
-val _ = export_theory();

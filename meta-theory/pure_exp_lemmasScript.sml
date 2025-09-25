@@ -1,13 +1,12 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers;
-open stringTheory optionTheory pairTheory listTheory
-     finite_mapTheory pred_setTheory dep_rewrite;
-open pure_miscTheory pure_configTheory pure_expTheory;
+Theory pure_exp_lemmas
+Ancestors
+  string option pair list finite_map pred_set pure_misc
+  pure_config pure_exp
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "pure_exp_lemmas";
-
 
 (******************* subst ********************)
 Theorem subst_ignore:
@@ -988,4 +987,3 @@ Proof
   \\ metis_tac []
 QED
 
-val _ = export_theory();

@@ -1,11 +1,10 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory stringTheory optionTheory pred_setTheory
-     listTheory rich_listTheory alistTheory finite_mapTheory sptreeTheory;
-open mlmapTheory;
-open pure_miscTheory pure_typingTheory pure_typingPropsTheory
-     pure_inference_commonTheory pure_unificationTheory pure_inferenceTheory;
-
-val _ = new_theory "pure_inferenceProps";
+Theory pure_inferenceProps
+Ancestors
+  pair arithmetic string option pred_set list rich_list alist
+  finite_map sptree mlmap pure_misc pure_typing pure_typingProps
+  pure_inference_common pure_unification pure_inference
+Libs
+  BasicProvers dep_rewrite
 
 (******************* General results ********************)
 
@@ -1435,6 +1434,4 @@ QED
 
 
 (********************)
-
-val _ = export_theory();
 

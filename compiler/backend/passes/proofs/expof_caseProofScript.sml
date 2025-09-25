@@ -2,15 +2,14 @@
   An alternative version of the exp_of-embedding made to fit with
   the pure2thunk Case compilation.
  *)
+Theory expof_caseProof
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  relation pure_misc pure_eval pure_exp pure_exp_rel
+  pure_congruence pure_cexp pureLang pure_exp_lemmas
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory dep_rewrite
-     relationTheory;
-open pure_miscTheory pure_evalTheory pure_expTheory pure_exp_relTheory
-     pure_congruenceTheory pure_cexpTheory pureLangTheory pure_exp_lemmasTheory;
-
-val _ = new_theory "expof_caseProof";
 
 (* TODO move to pure_exp? *)
 Overload Unit = “Prim (Cons "") []”;
@@ -319,4 +318,3 @@ Proof
   \\ fs [] \\ metis_tac []
 QED
 
-val _ = export_theory ();

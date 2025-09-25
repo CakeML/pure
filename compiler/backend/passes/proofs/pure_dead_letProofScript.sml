@@ -1,17 +1,14 @@
 (*
   Proof for elimination of dead let-bindings
 *)
-open HolKernel Parse boolLib bossLib dep_rewrite;
-open pairTheory listTheory pred_setTheory finite_mapTheory;
-open pure_expTheory pure_exp_lemmasTheory pure_evalTheory
-     pure_exp_relTheory pure_congruenceTheory
-     pure_typingTheory pure_typingPropsTheory;
-open pure_dead_letTheory pure_cexpTheory pureLangTheory
-     pure_letrecProofTheory pure_letrec_cexpProofTheory
-     mlmapTheory pure_varsTheory;
-
-val _ = new_theory "pure_dead_letProof";
-
+Theory pure_dead_letProof
+Ancestors
+  pair list pred_set finite_map pure_exp pure_exp_lemmas
+  pure_eval pure_exp_rel pure_congruence pure_typing
+  pure_typingProps pure_dead_let pure_cexp pureLang
+  pure_letrecProof pure_letrec_cexpProof mlmap pure_vars
+Libs
+  dep_rewrite
 
 (********* exp-level **********)
 
@@ -466,4 +463,3 @@ QED
 
 (**********)
 
-val _ = export_theory();

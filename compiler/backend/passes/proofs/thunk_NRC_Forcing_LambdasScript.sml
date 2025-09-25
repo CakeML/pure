@@ -1,18 +1,15 @@
 (*
  Relation to rewrite function definitions to remove Delay
 *)
+Theory thunk_NRC_Forcing_Lambdas
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list thunkLang thunkLang_primitives wellorder
+  arithmetic pure_misc thunkLangProps thunk_semantics thunk_NRC_rel
+  thunk_Let_Lam_Forced thunk_Forcing_Lambdas
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
-     thunk_NRC_relTheory thunk_Forcing_LambdasTheory thunk_Let_Lam_ForcedTheory;
-
-val _ = new_theory "thunk_NRC_Forcing_Lambdas";
-
-val _ = set_grammar_ancestry ["thunk_Let_Lam_Forced",
-                              "thunk_Forcing_Lambdas"];
 
 Definition lets_force_def:
   lets_force [] x = x ∧
@@ -902,5 +899,3 @@ Proof
   dxrule_then assume_tac forcing_lam_rel_freevars >>
   gs [closed_def]
 QED
-
-val _ = export_theory ();

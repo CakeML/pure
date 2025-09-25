@@ -1,16 +1,15 @@
 (*
    Correctness for freshening of bound variables.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory listTheory alistTheory rich_listTheory pred_setTheory
-     finite_mapTheory;
-open pure_miscTheory pure_expTheory pure_cexpTheory pureLangTheory
-     pure_alpha_equivTheory pure_congruenceTheory pure_beta_equivTheory
-     pure_barendregtTheory pure_exp_lemmasTheory pure_cexp_lemmasTheory
-     pure_varsTheory var_setTheory pure_freshenTheory pure_letrecProofTheory
-     pure_typingTheory pure_typingPropsTheory pure_tcexpTheory;
-
-val _ = new_theory "pure_freshenProof";
+Theory pure_freshenProof
+Ancestors
+  pair list alist rich_list pred_set finite_map pure_misc
+  pure_exp pure_cexp pureLang pure_alpha_equiv pure_congruence
+  pure_beta_equiv pure_barendregt pure_exp_lemmas
+  pure_cexp_lemmas pure_vars var_set pure_freshen
+  pure_letrecProof pure_typing pure_typingProps pure_tcexp
+Libs
+  BasicProvers dep_rewrite
 
 val exp_of_def = pureLangTheory.exp_of_def;
 val rows_of_def = pureLangTheory.rows_of_def;
@@ -2828,4 +2827,3 @@ QED
 
 (**********)
 
-val _ = export_theory();

@@ -3,10 +3,11 @@
   [thunkLang_substScript.sml].
 
  *)
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax
-     sumTheory listTheory;
-
-val _ = new_theory "thunkLang_primitives";
+Theory thunkLang_primitives
+Ancestors
+  sum list
+Libs
+  term_tactic monadsyntax
 
 Datatype:
   err = Type_error
@@ -248,6 +249,4 @@ Proof
   \\ last_assum (irule_at Any)
   \\ strip_tac \\ gvs []
 QED
-
-val _ = export_theory ();
 

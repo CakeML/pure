@@ -1,15 +1,14 @@
 
+Theory thunk_split_Forcing_LamProof
+Ancestors
+  pair list string option sum pair list alist finite_map pred_set
+  rich_list wellorder arithmetic mlmap mlstring var_set
+  thunk_cexp pure_misc thunkLangProps thunkLang
+  thunkLang_primitives thunk_cexp thunk_exp_of thunk_semantics
+  thunk_NRC_Forcing_Lambdas var_set thunk_split_Forcing_Lam
+Libs
+  term_tactic dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory
-     dep_rewrite wellorderTheory arithmeticTheory;
-open mlmapTheory mlstringTheory var_setTheory thunk_cexpTheory;
-open pure_miscTheory thunkLangPropsTheory thunkLangTheory thunkLang_primitivesTheory
-     thunk_cexpTheory thunk_exp_ofTheory thunk_semanticsTheory thunk_NRC_Forcing_LambdasTheory var_setTheory
-     thunk_split_Forcing_LamTheory;
-
-val _ = new_theory "thunk_split_Forcing_LamProof";
 
 (* TODO move *)
 Theorem list_size_MAP:
@@ -1456,4 +1455,3 @@ Proof
       last_x_assum $ dxrule_then assume_tac >> gs [])
 QED
 
-val _ = export_theory ();

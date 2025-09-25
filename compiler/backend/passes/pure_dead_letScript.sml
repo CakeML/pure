@@ -1,10 +1,9 @@
 (*
   Elimination of dead let-bindings
 *)
-open HolKernel Parse boolLib bossLib;
-open pure_letrec_cexpTheory;
-
-val _ = new_theory "pure_dead_let";
+Theory pure_dead_let
+Ancestors
+  pure_letrec_cexp
 
 (*
   dead_let keeps track of free variables as it goes
@@ -59,4 +58,3 @@ Termination
   WF_REL_TAC `measure $ cexp_size (K 0)`
 End
 
-val _ = export_theory();

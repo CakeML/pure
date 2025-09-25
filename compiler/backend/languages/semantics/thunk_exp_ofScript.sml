@@ -1,15 +1,14 @@
 (*
   Definition of cexp -> exp function for thunkLang
  *)
+Theory thunk_exp_of
+Ancestors
+  string option sum pair list alist
+  finite_map pred_set rich_list combin
+  thunkLang thunk_cexp
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory combinTheory
-     thunkLangTheory thunk_cexpTheory;
-
-val _ = new_theory "thunk_exp_of";
-
-val _ = set_grammar_ancestry ["thunkLang", "thunk_cexp"];
 
 Definition lets_for_def:
   lets_for l cn v [] b = (b:thunkLang$exp) ∧
@@ -105,5 +104,3 @@ Theorem lets_for_APPEND:
 Proof
   Induct_on ‘l1’ \\ gvs [lets_for_def, FORALL_PROD]
 QED
-
-val _ = export_theory ();

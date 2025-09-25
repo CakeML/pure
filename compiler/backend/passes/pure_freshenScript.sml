@@ -1,11 +1,11 @@
 (*
    Freshening of bound variables.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite monadsyntax;
-open pairTheory listTheory rich_listTheory pred_setTheory
-open pure_cexpTheory pure_varsTheory var_setTheory;
-
-val _ = new_theory "pure_freshen";
+Theory pure_freshen
+Ancestors
+  pair list rich_list pred_set pure_cexp pure_vars var_set
+Libs
+  BasicProvers dep_rewrite monadsyntax
 
 (***** State monad *****)
 
@@ -227,4 +227,3 @@ Termination
   WF_REL_TAC `measure $ cexp_size (K 0)`
 End
 
-val _ = export_theory();

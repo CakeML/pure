@@ -7,14 +7,14 @@
   - [thunk_case_projProofScript.sml]
   for the others.
  *)
+Theory thunk_case_unboxProof
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  thunkLang thunkLang_primitives wellorder pure_misc
+  thunkLangProps
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory;
-open pure_miscTheory thunkLangPropsTheory;
-
-val _ = new_theory "thunk_case_unboxProof";
 
 val _ = numLib.prefer_num ();
 
@@ -605,4 +605,3 @@ Proof
   \\ irule_at Any unbox_rel_ok \\ gs []
 QED
 
-val _ = export_theory ();

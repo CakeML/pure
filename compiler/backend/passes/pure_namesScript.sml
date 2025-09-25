@@ -1,13 +1,11 @@
 (*
   A function tha collects all names in a pureLang cexp
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open listTheory pairTheory mlstringTheory;
-open pure_cexpTheory var_setTheory;
-
-val _ = set_grammar_ancestry ["var_set", "pure_cexp"];
-
-val _ = new_theory "pure_names";
+Theory pure_names
+Ancestors
+  list pair mlstring var_set pure_cexp
+Libs
+  BasicProvers
 
 Definition extract_names_def:
   extract_names s (pure_cexp$Var c v) = insert_var s v ∧
@@ -57,5 +55,3 @@ End
 Definition pure_names_def:
   pure_names e = extract_names empty_vars e
 End
-
-val _ = export_theory();

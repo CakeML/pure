@@ -1,9 +1,9 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory optionTheory pairTheory;
-open pure_valueTheory;
-
-val _ = new_theory "pure_limit";
+Theory pure_limit
+Ancestors
+  arithmetic list option pair pure_value
+Libs
+  term_tactic
 
 (*
   limit (div,div,div,div,div,...) d = div
@@ -252,4 +252,3 @@ Proof
   fs[]
 QED
 
-val _ = export_theory();

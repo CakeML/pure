@@ -1,12 +1,12 @@
 (*
    This file defines expressions for pure_lang as the type system sees them.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory alistTheory stringTheory
-     optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_cexpTheory pureLangTheory pure_expTheory;
-
-val _ = new_theory "pure_tcexp";
+Theory pure_tcexp
+Ancestors
+  arithmetic list alist string option pair pred_set finite_map
+  pure_cexp pureLang pure_exp
+Libs
+  BasicProvers dep_rewrite
 
 Datatype:
   tcexp = Var cvname                           (* variable                 *)
@@ -152,4 +152,3 @@ Termination
   rename1 `MEM _ es` >> Induct_on `es` >> rw[] >> gvs[cexp_size_def]
 End
 
-val _ = export_theory();

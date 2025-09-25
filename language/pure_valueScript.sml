@@ -1,10 +1,10 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     ltreeTheory llistTheory quotient_llistTheory
-     pure_configTheory pure_expTheory pure_miscTheory;
-
-val _ = new_theory "pure_value";
+Theory pure_value
+Ancestors
+  arithmetic list string alist option ltree llist quotient_llist
+  pure_config pure_exp pure_misc
+Libs
+  term_tactic
 
 Datatype:
   v_prefix = Atom' lit
@@ -833,4 +833,3 @@ Proof
   gvs[LIST_REL_EL_EQN]
 QED
 
-val _ = export_theory ();

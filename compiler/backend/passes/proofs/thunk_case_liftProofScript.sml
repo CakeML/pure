@@ -7,20 +7,14 @@
   - [thunk_case_projProofScript.sml]
   for the others.
  *)
+Theory thunk_case_liftProof
+Ancestors
+  string option sum pair list alist thunkLang_primitives pure_misc
+  finite_map pred_set rich_list thunkLang wellorder
+  thunk_semantics[qualified] thunkLangProps thunk_tickProof
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory
-     thunk_tickProofTheory;
-open pure_miscTheory thunkLangPropsTheory;
-
-val _ = new_theory "thunk_case_liftProof";
-
-val _ = set_grammar_ancestry [
-  "finite_map", "pred_set", "rich_list", "thunkLang", "wellorder",
-  "thunk_semantics", "thunkLangProps",
-  "thunk_tickProof" ];
 
 val _ = numLib.prefer_num ();
 
@@ -795,5 +789,3 @@ Proof
   \\ imp_res_tac exp_rel_freevars \\ gvs []
   \\ imp_res_tac thunk_tickProofTheory.exp_rel_freevars \\ gvs []
 QED
-
-val _ = export_theory ();

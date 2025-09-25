@@ -1,12 +1,12 @@
 (*
    This file defines expressions for typeclass_lang as the type system sees them.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
-     optionTheory pairTheory pred_setTheory mlmapTheory;
-open pure_cexpTheory;
-open typeclass_typesTheory typeclass_kindCheckTheory;
-val _ = new_theory "typeclass_texp";
+Theory typeclass_texp
+Ancestors
+  arithmetic list rich_list alist string option pair pred_set
+  mlmap pure_cexp typeclass_types typeclass_kindCheck
+Libs
+  BasicProvers dep_rewrite
 
 (* We associate a poly-type to variable.
 * This is needed for type elaboration.
@@ -309,4 +309,3 @@ QED
 
 Theorem texp_wf_strong_thm = cj 1 texp_wf_strong_helper;
 
-val _ = export_theory();

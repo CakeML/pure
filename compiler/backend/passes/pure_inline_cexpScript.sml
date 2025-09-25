@@ -1,14 +1,13 @@
 (*
   Inlining optimization for cexp
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open listTheory pairTheory topological_sortTheory;
-open pure_cexpTheory pure_varsTheory balanced_mapTheory
-     pure_freshenTheory pure_letrec_spec_cexpTheory
-     pure_dead_letTheory pure_comp_confTheory
-     mlstringTheory;
-
-val _ = new_theory "pure_inline_cexp";
+Theory pure_inline_cexp
+Ancestors
+  list pair topological_sort pure_cexp pure_vars balanced_map
+  pure_freshen pure_letrec_spec_cexp pure_dead_let pure_comp_conf
+  mlstring
+Libs
+  BasicProvers
 
 (*******************)
 
@@ -220,4 +219,3 @@ End
 
 (*******************)
 
-val _ = export_theory();

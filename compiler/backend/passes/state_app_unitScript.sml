@@ -1,15 +1,14 @@
 (*
   Compiler from envLang to stateLang
  *)
+Theory state_app_unit
+Ancestors
+  string option sum pair list alist finite_map
+  pred_set rich_list arithmetic pure_misc pure_config
+  state_cexp
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_miscTheory pure_configTheory state_cexpTheory;
-
-val _ = new_theory "state_app_unit";
-
-val _ = set_grammar_ancestry ["state_cexp"];
 
 Definition unit_apps_def:
   unit_apps k x = if k = 0n then (x:cexp) else unit_apps (k-1) (app x Unit)
@@ -65,5 +64,3 @@ Definition optimise_app_unit_def:
   optimise_app_unit do_it x =
     if do_it then push_app_unit 0 x else x
 End
-
-val _ = export_theory ();

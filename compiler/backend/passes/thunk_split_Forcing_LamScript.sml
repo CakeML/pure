@@ -1,8 +1,9 @@
 
-open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_setTheory;
-
-val _ = new_theory "thunk_split_Forcing_Lam";
+Theory thunk_split_Forcing_Lam
+Ancestors
+  pair list thunk_cexp mlmap mlstring pred_set var_set
+Libs
+  term_tactic
 
 Definition extract_names_def:
   extract_names (thunk_cexp$Var v) = insert_var empty_vars v ∧
@@ -142,6 +143,4 @@ Termination
   \\ Induct_on ‘f’ \\ fs [listTheory.list_size_def,FORALL_PROD]
   \\ rw [] \\ fs [cexp_size_def]
 End
-
-val _ = export_theory ();
 

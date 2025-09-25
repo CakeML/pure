@@ -2,15 +2,14 @@
 (* the example program in Haskell is in
  * test_typeclass_typing.hs and the translated version is
  * in test_typeclass_typing_translated.hs *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
-open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open pure_cexpTheory pure_configTheory;
-open typeclass_typesTheory typeclass_typesPropsTheory;
-open typeclass_texpTheory typeclass_kindCheckTheory;
-open typeclass_typingTheory;
-
-val _ = new_theory "test_typeclass_typing";
+Theory test_typeclass_typing
+Ancestors
+  pair arithmetic integer string option misc list alist relation
+  set_relation pred_set pure_cexp pure_config typeclass_types
+  typeclass_typesProps typeclass_texp typeclass_kindCheck
+  typeclass_typing
+Libs
+  BasicProvers dep_rewrite
 
 Definition test_class_map_def:
   test_class_map:class_map = [
@@ -1441,4 +1440,3 @@ Proof
   simp[construct_dicts_simp]
 QED
 
-val _ = export_theory();

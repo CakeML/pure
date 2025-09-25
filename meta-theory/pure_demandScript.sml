@@ -1,17 +1,16 @@
 (*
    Formalises the notion of "demand" as used in demand/strictness analysis.
 *)
+Theory pure_demand
+Ancestors
+  arithmetic list string alist option pair ltree llist bag
+  pred_set relation rich_list finite_map pure_exp pure_value
+  pure_eval pure_eval_lemmas pure_exp_lemmas pure_misc
+  pure_exp_rel pure_congruence pure_alpha_equiv pure_alpha_equiv
+  pure_letrec_cong pure_letrec_seq
+Libs
+  term_tactic dep_rewrite BasicProvers
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_alpha_equivTheory pure_alpha_equivTheory pure_letrec_congTheory
-     pure_letrec_seqTheory;
-
-val _ = new_theory "pure_demand";
 
 (** begin ctxt **)
 
@@ -4819,4 +4818,3 @@ QED
   Letrec [(f,x)] rest
 *)
 
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
    Pretty printing and basic parsing of cexp
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open intLib pure_printTheory pure_printLib;
-
-val _ = new_theory "pure_print_test";
+Theory pure_print_test
+Ancestors
+  pure_print
+Libs
+  term_tactic intLib pure_printLib
 
 val p = Prog ‘
 
@@ -28,4 +29,3 @@ val p = Prog ‘
 
 val _ = print_cexp p
 
-val _ = export_theory();

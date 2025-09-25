@@ -1,12 +1,11 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory rich_listTheory alistTheory finite_mapTheory
-     pred_setTheory
-open pure_miscTheory pure_configTheory pure_expTheory pure_exp_lemmasTheory
-     pure_semanticsTheory pure_evalTheory pure_tcexpTheory pure_tcexp_lemmasTheory
-     pure_typingTheory pure_typingPropsTheory;
-
-val _ = new_theory "pure_typingProof";
+Theory pure_typingProof
+Ancestors
+  pair arithmetic integer string option list rich_list alist
+  finite_map pred_set pure_misc pure_config pure_exp
+  pure_exp_lemmas pure_semantics pure_eval pure_tcexp
+  pure_tcexp_lemmas pure_typing pure_typingProps
+Libs
+  BasicProvers dep_rewrite
 
 (* TODO replace existing get_atoms_SOME_SOME_eq *)
 Theorem get_atoms_SOME_SOME_eq:
@@ -1453,4 +1452,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

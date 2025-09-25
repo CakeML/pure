@@ -1,10 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory;
-open mlstringTheory pure_configTheory;
-open typeclass_typesTheory;
-
-val _ = new_theory "typeclass_typesProps";
+Theory typeclass_typesProps
+Ancestors
+  pair arithmetic integer string option list alist mlstring
+  pure_config typeclass_types
+Libs
+  BasicProvers
 
 Theorem type_ind:
   ∀P.
@@ -668,4 +667,3 @@ Proof
   Induct >> rw[Functions_def, shift_db_def]
 QED
 
-val _ = export_theory();

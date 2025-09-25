@@ -1,12 +1,11 @@
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
-     optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_cexpTheory pure_cexp_lemmasTheory
-     pure_tcexpTheory pure_expTheory pure_exp_lemmasTheory
-     pure_evalTheory pure_exp_relTheory pure_congruenceTheory;
-
-val _ = new_theory "pure_tcexp_lemmas";
+Theory pure_tcexp_lemmas
+Ancestors
+  arithmetic list rich_list alist string option pair pred_set
+  finite_map pure_misc pure_cexp pure_cexp_lemmas pure_tcexp
+  pure_exp pure_exp_lemmas pure_eval pure_exp_rel pure_congruence
+Libs
+  BasicProvers dep_rewrite
 
 Theorem freevars_lets_for:
   ∀c a v l b. freevars (lets_for c a v l b) =
@@ -439,4 +438,3 @@ Proof
 QED
 
 
-val _ = export_theory();

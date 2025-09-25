@@ -1,26 +1,19 @@
 (*
    Proof of the demands analysis pass
 *)
+Theory pure_demands_analysisProof
+Ancestors
+  arithmetic list string alist option pair ltree llist bag mlmap
+  pred_set relation rich_list finite_map mlstring pure_exp
+  pure_value pure_eval pure_eval_lemmas pure_exp_lemmas pure_misc
+  pure_exp_rel pure_congruence pure_cexp pure_letrec_seq
+  pure_typingProps
+  pure_letrecProof pureLang pure_demand pure_demands_analysis
+Libs
+  term_tactic dep_rewrite BasicProvers
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory dep_rewrite
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory mlmapTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory
-     finite_mapTheory mlstringTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_miscTheory pure_exp_relTheory pure_congruenceTheory
-     pure_cexpTheory pure_demandTheory pure_demands_analysisTheory pureLangTheory;
-open pure_letrec_seqTheory pure_letrecProofTheory;
-open pure_typingPropsTheory
-
-val _ = new_theory "pure_demands_analysisProof";
-
-val _ = set_grammar_ancestry [
-          "pure_letrecProof",
-          "pureLang",
-          "pure_demand",
-          "pure_demands_analysis"
-        ]
+(* Prefer pureLang's exp_of over pure_tcexp's *)
+Overload exp_of[local] = “pureLang$exp_of”
 
 (** Proof **)
 
@@ -4175,5 +4168,3 @@ Proof
     impl_tac >> gvs[EVERY_EL, EL_MAP] >> first_x_assum drule >> simp[]
     )
 QED
-
-val _ = export_theory();

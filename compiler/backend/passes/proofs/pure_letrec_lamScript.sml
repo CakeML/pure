@@ -1,10 +1,9 @@
 (*
   Lambdifying of Letrec
 *)
-open HolKernel Parse boolLib bossLib;
-open pure_expTheory pure_beta_equivTheory pure_letrecTheory;
-
-val _ = new_theory "pure_letrec_lam";
+Theory pure_letrec_lam
+Ancestors
+  pure_exp pure_beta_equiv pure_letrec
 
 (*
   This pass ensures that every variable bound by a Letrec is a Lambda.
@@ -36,4 +35,3 @@ Definition lambdify_all_def:
   lambdify_all e = letrec_recurse lambdify_one e
 End
 
-val _ = export_theory();

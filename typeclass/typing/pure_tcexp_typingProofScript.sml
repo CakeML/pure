@@ -1,19 +1,17 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory rich_listTheory alistTheory finite_mapTheory
-     pred_setTheory
-open pure_miscTheory pure_configTheory pure_expTheory pure_exp_lemmasTheory
-     pure_semanticsTheory pure_evalTheory pure_tcexpTheory pure_tcexp_lemmasTheory
-     typeclass_typesTheory typeclass_kindCheckTheory
-     typeclass_typesPropsTheory
-     typeclass_typingTheory typeclass_typingPropsTheory
-     pure_tcexp_typingTheory pure_tcexp_typingPropsTheory;
-open pure_obs_sem_equalTheory pure_congruenceTheory pure_exp_relTheory;
+Theory pure_tcexp_typingProof
+Ancestors
+  pair arithmetic integer string option list rich_list alist
+  finite_map pred_set pure_misc pure_config pure_exp
+  pure_exp_lemmas pure_semantics pure_eval pure_tcexp
+  pure_tcexp_lemmas typeclass_types typeclass_kindCheck
+  typeclass_typesProps typeclass_typing typeclass_typingProps
+  pure_tcexp_typing pure_tcexp_typingProps pure_obs_sem_equal
+  pure_congruence pure_exp_rel
+Libs
+  BasicProvers dep_rewrite
 
 (* we need to open the typeclass typing theories as some
 * definitions are shared  *)
-
-val _ = new_theory "pure_tcexp_typingProof";
 
 (* TODO replace existing get_atoms_SOME_SOME_eq *)
 Theorem get_atoms_SOME_SOME_eq:
@@ -1665,4 +1663,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

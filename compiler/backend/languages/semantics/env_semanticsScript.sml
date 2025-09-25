@@ -1,15 +1,13 @@
 (*
    Observable semantics for envLang.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_semanticsTheory pure_configTheory
-     thunkLang_primitivesTheory envLangTheory itreeTheory;
-
-val _ = new_theory "env_semantics";
-
-val _ = set_grammar_ancestry ["envLang", "itree"];
-
+Theory env_semantics
+Ancestors
+  string option sum pair list alist pure_semantics
+  pure_config thunkLang_primitives
+  envLang itree
+Libs
+  BasicProvers
 
 (******************** Datatypes and helpers ********************)
 
@@ -293,5 +291,3 @@ Proof
 QED
 
 (****************************************)
-
-val _ = export_theory();

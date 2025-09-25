@@ -1,18 +1,15 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
-open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open rich_listTheory;
-open pure_cexpTheory pure_configTheory;
-open typeclass_typesTheory typeclass_kindCheckTheory typeclass_typesPropsTheory;
-open pure_tcexpTheory pure_tcexp_typingTheory
-pure_tcexp_typingPropsTheory;
-open typeclass_texpTheory typeclass_typingTheory typeclass_typingPropsTheory;
-open monadsyntax;
+Theory typeclass_typingProof
+Ancestors
+  pair arithmetic integer string option misc list alist relation
+  set_relation pred_set rich_list pure_cexp pure_config
+  typeclass_types typeclass_kindCheck typeclass_typesProps
+  pure_tcexp pure_tcexp_typing pure_tcexp_typingProps
+  typeclass_texp typeclass_typing typeclass_typingProps
+Libs
+  BasicProvers dep_rewrite monadsyntax
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "option";
-
-val _ = new_theory "typeclass_typingProof";
 
 Theorem OPT_MMAP_SOME_LIST_REL:
   ∀ys.
@@ -5022,4 +5019,3 @@ Proof
   >- metis_tac[UNION_COMM]
 QED
 
-val _ = export_theory();

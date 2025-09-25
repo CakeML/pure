@@ -1,13 +1,12 @@
 (*
    Defines a weak-head eval (eval_wh) and an unbounded eval function (eval)
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory pure_valueTheory;
-
-val _ = new_theory "pure_eval";
+Theory pure_eval
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_exp pure_value
+Libs
+  term_tactic dep_rewrite BasicProvers
 
 (* weak-head values *)
 
@@ -1074,4 +1073,3 @@ Proof
       eval_If,eval_Proj,eval_IsEq, eval_Seq]
 QED
 
-val _ = export_theory();

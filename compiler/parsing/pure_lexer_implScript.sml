@@ -5,13 +5,14 @@
 
   TODO: update this description if it is incorrect.
 *)
+Theory pure_lexer_impl
+Ancestors
+  misc[qualified] tokens ASCIInumbers[qualified] location
+Libs
+  preamble
 
-open preamble tokensTheory locationTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "pure_lexer_impl";
-val _ = set_grammar_ancestry ["misc", "tokens", "ASCIInumbers", "location"]
 
 (* val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
@@ -460,4 +461,3 @@ Definition lexer_fun_def:
   lexer_fun input = lexer_fun_aux input (POSN 1 1)
 End
 
-val _ = export_theory();

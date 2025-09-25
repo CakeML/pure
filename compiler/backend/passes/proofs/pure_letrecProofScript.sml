@@ -1,17 +1,17 @@
 (*
    Verification of pure_letrec, i.e. simplification of Letrec.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open arithmeticTheory listTheory alistTheory optionTheory pairTheory dep_rewrite
-     pred_setTheory relationTheory rich_listTheory finite_mapTheory wordsTheory;
-open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
-     pure_congruenceTheory pure_miscTheory pure_eval_lemmasTheory
-     pure_letrecTheory pure_letrec_cexpTheory topological_sortTheory;
-open miscTheory;
+Theory pure_letrecProof
+Ancestors
+  arithmetic list alist option pair pred_set relation rich_list
+  finite_map words pure_exp pure_exp_lemmas pure_exp_rel
+  pure_eval pure_congruence pure_misc pure_eval_lemmas
+  pure_tcexp[qualified]  (* for lets_for *)
+  pure_letrec pure_letrec_cexp topological_sort misc
+Libs
+  BasicProvers dep_rewrite
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "pure_letrecProof";
 
 (******************** letrec_recurse ********************)
 
@@ -1798,6 +1798,3 @@ Proof
   irule split_all_letrecs_distinct >>
   simp[distinct_letrecs_distinct]
 QED
-
-
-val _ = export_theory();

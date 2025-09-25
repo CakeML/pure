@@ -2,18 +2,15 @@
   This stage removes some unnecessary thunk allocations that are introduced by
   the pure_to_thunk stage of the compiler.
  *)
+Theory thunk_unthunkProof
+Ancestors
+  string option sum pair list alist thunkLang_primitives
+  pure_misc thunk_untickProof
+  finite_map pred_set rich_list thunkLang thunk_semantics
+  thunkLangProps
+Libs
+  term_tactic monadsyntax intLib dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax intLib;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
-     thunk_untickProofTheory;
-
-val _ = new_theory "thunk_unthunkProof";
-
-val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "thunk_semantics", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
@@ -1213,5 +1210,3 @@ Proof
   \\ imp_res_tac exp_rel_freevars
   \\ fs [closed_def]
 QED
-
-val _ = export_theory ();

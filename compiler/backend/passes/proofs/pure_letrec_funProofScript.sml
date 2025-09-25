@@ -1,14 +1,14 @@
 (*
    Verification of pure_letrec_fun, i.e. simplification of Letrec.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open arithmeticTheory listTheory alistTheory optionTheory pairTheory dep_rewrite
-     pred_setTheory relationTheory rich_listTheory finite_mapTheory wordsTheory;
-open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
-     pure_congruenceTheory pure_miscTheory pure_eval_lemmasTheory
-     pure_letrecTheory topological_sortTheory;
-
-val _ = new_theory "pure_letrec_funProof";
+Theory pure_letrec_funProof
+Ancestors
+  arithmetic list alist option pair pred_set relation rich_list
+  finite_map words pure_exp pure_exp_lemmas pure_exp_rel
+  pure_eval pure_congruence pure_misc pure_eval_lemmas
+  pure_letrec topological_sort
+Libs
+  BasicProvers dep_rewrite
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -652,4 +652,3 @@ QED
 
 *********)
 
-val _ = export_theory();

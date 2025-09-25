@@ -7,14 +7,13 @@
   - https://www.researchgate.net/profile/Martin-Sulzmann/publication/2802561_HindleyMilner_[…]0/Hindley-Milner-style-type-systems-in-constraint-form.pdf
   - http://gallium.inria.fr/~fpottier/publis/emlti-final.pdf
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory finite_mapTheory sptreeTheory monadsyntax;
-open pure_typingTheory pure_cexpTheory pure_configTheory pure_varsTheory
-     pure_inference_commonTheory pure_unificationTheory pure_miscTheory;
-
-val _ = new_theory "pure_inference";
-
+Theory pure_inference
+Ancestors
+  pair arithmetic integer string option list alist finite_map
+  sptree pure_typing pure_cexp pure_config pure_vars
+  pure_inference_common pure_unification pure_misc
+Libs
+  BasicProvers dep_rewrite monadsyntax
 
 (******************** Inference monad ********************)
 (*
@@ -1009,4 +1008,3 @@ End
 
 (********************)
 
-val _ = export_theory();

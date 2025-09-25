@@ -2,26 +2,23 @@
    This theory defines a syntactic relation that preserves both semantics
    and typing.
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     combinTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_alpha_equivTheory pure_miscTheory pure_congruenceTheory
-     pure_letrecProofTheory pure_demandTheory pure_letrec_delargTheory
-     pure_cexpTheory pure_cexp_lemmasTheory pureLangTheory
-     pure_freshenTheory pure_freshenProofTheory
-     pure_tcexpTheory pure_tcexp_lemmasTheory
-     pure_typingTheory pure_typingPropsTheory;
+Theory pure_pres
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map combin pure_exp
+  pure_value pure_eval pure_eval_lemmas pure_exp_lemmas
+  pure_limit pure_exp_rel pure_alpha_equiv pure_misc
+  pure_congruence pure_letrecProof pure_demand pure_letrec_delarg
+  pure_cexp pure_cexp_lemmas pureLang pure_freshen
+  pure_freshenProof pure_tcexp pure_tcexp_lemmas pure_typing
+  pure_typingProps
+Libs
+  term_tactic dep_rewrite BasicProvers
 
 val exp_of_def = pureLangTheory.exp_of_def;
 val rows_of_def = pureLangTheory.rows_of_def;
 val lets_for_def = pureLangTheory.lets_for_def;
 val freevars_exp_of = pure_cexp_lemmasTheory.freevars_exp_of
-
-val _ = new_theory "pure_pres";
 
 (*----------------------------------------------------------------------------*
    Definition of syntactic relation
@@ -1250,4 +1247,3 @@ QED
 
 (**********)
 
-val _ = export_theory ();

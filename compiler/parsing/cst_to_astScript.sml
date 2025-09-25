@@ -1,13 +1,7 @@
-open HolKernel Parse boolLib bossLib;
-
-open pureNTTheory pureASTTheory tokenUtilsTheory pureTokenUtilsTheory
-     grammarTheory
-local open precparserTheory in end
-
-val _ = new_theory "cst_to_ast";
-
-val _ = set_grammar_ancestry ["pureNT", "pureTokenUtils", "pureAST",
-                              "precparser"]
+Theory cst_to_ast
+Ancestors
+  tokenUtils grammar
+  pureNT pureTokenUtils pureAST precparser[qualified]
 
 Overload lift[local] = “option$OPTION_MAP”
 Overload "'"[local] = “λf a. OPTION_BIND a f”
@@ -853,5 +847,3 @@ Proof
   \\ rw [] \\ Cases_on ‘f pt1’ \\ fs []
   \\ IF_CASES_TAC \\ fs []
 QED
-
-val _ = export_theory();

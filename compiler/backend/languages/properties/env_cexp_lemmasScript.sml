@@ -1,10 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory pred_setTheory finite_mapTheory
-     envLangTheory;
-open pure_miscTheory env_cexpTheory ;
-
-val _ = new_theory "env_cexp_lemmas";
+Theory env_cexp_lemmas
+Ancestors
+  arithmetic list string alist option pair pred_set finite_map
+  envLang pure_misc env_cexp
+Libs
+  BasicProvers dep_rewrite
 
 val freevars_def = envLangTheory.freevars_def;
 val Lams_def = envLangTheory.Lams_def;
@@ -107,4 +106,3 @@ Proof
 QED
  *)
 
-val _ = export_theory();

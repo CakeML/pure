@@ -1,9 +1,6 @@
-open HolKernel Parse boolLib bossLib;
-
-local open stringTheory integerTheory pure_configTheory in end
-val _ = new_theory "pureAST";
-
-val _ = set_grammar_ancestry ["string", "integer", "pure_config"]
+Theory pureAST
+Ancestors[qualified]
+  string integer pure_config
 
 (* by convention tyOps will be capitalised alpha-idents, or "->",
    and tyVars will be lower-case alpha-idents.
@@ -105,4 +102,3 @@ Datatype:
 End
 
 
-val _ = export_theory();

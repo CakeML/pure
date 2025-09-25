@@ -1,10 +1,9 @@
 (*
   Conversion of ``:cexp`` from pure_cexpTheory to ``:exp``
 *)
-open HolKernel Parse boolLib bossLib;
-open pairTheory listTheory pred_setTheory combinTheory pure_expTheory pure_cexpTheory;
-
-val _ = new_theory "pureLang";
+Theory pureLang
+Ancestors
+  pair list pred_set combin pure_exp pure_cexp
 
 Overload True[local] = “Prim (Cons "True") []”;
 Overload False[local] = “Prim (Cons "False") []”;
@@ -229,4 +228,3 @@ Proof
   \\ Cases_on ‘x’ \\ gvs [dest_App_def,exp_of_def,SF ETA_ss,Apps_append]
 QED
 
-val _ = export_theory();

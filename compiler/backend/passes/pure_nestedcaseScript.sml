@@ -1,9 +1,6 @@
-open HolKernel Parse boolLib bossLib;
-
-open listTheory
-open pure_cexpTheory
-
-val _ = new_theory "pure_nestedcase";
+Theory pure_nestedcase
+Ancestors
+  list pure_cexp
 
 Definition updlast_def[simp]:
   updlast [] rep = rep ∧
@@ -51,4 +48,3 @@ Theorem lift_uscore_thm =
           |> SRULE [lift_uscore1_def, SF boolSimps.ETA_ss,
                     listTheory.LAST_MAP]
 
-val _ = export_theory();

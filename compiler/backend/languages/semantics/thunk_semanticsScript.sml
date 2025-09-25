@@ -1,14 +1,13 @@
 (*
    Observable semantics for thunkLang.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_semanticsTheory pure_configTheory
-     thunkLang_primitivesTheory thunkLangTheory itreeTheory;
-
-val _ = new_theory "thunk_semantics";
-
-val _ = set_grammar_ancestry ["thunkLang", "itree"];
+Theory thunk_semantics
+Ancestors
+  string option sum pair list alist
+  pure_semantics pure_config thunkLang_primitives
+  thunkLang itree
+Libs
+  BasicProvers
 
 (******************** Datatypes and helpers ********************)
 
@@ -288,5 +287,3 @@ QED
 
 
 (****************************************)
-
-val _ = export_theory();

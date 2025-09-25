@@ -1,13 +1,11 @@
 (*
   Translation of PureLang type inferencer
  *)
-open basis
-     pure_inferenceTheory
-     pure_parseProgTheory;
-
-val _ = new_theory "pure_inferProg";
-
-val _ = set_grammar_ancestry ["pure_parseProg", "pure_inference"];
+Theory pure_inferProg
+Ancestors
+  pure_parseProg pure_inference
+Libs
+  basis
 
 val _ = translation_extends "pure_parseProg";
 
@@ -506,4 +504,3 @@ val r = translate (pure_inferenceTheory.typedefs_ok_impl_def
 
 val r = translate pure_inferenceTheory.infer_types_def;
 
-val _ = export_theory ();

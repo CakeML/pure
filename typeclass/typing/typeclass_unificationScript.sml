@@ -1,15 +1,14 @@
 (*
   Adapt unification from HOL/examples/algorithms/unification for use in PureCake
 *)
+Theory typeclass_unification
+Ancestors
+  pair arithmetic integer string option pred_set relation list
+  alist finite_map unifProps unifDef walk walkstar collapse subst
+  typeclass_types typeclass_inference_common typeclass_kindCheck
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     pred_setTheory relationTheory listTheory alistTheory finite_mapTheory;
-open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory substTheory;
-open typeclass_typesTheory typeclass_inference_commonTheory;
-open typeclass_kindCheckTheory;
-
-val _ = new_theory "typeclass_unification";
 
 Definition encode_itype_def[nocompute]:
   encode_itype (iAtom at) = Const at ∧
@@ -1138,4 +1137,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

@@ -1,13 +1,13 @@
 (*
    Pretty printing and basic parsing of cexp
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_cexpTheory printingTheory parsingTheory intLib source_valuesTheory;
-
-val _ = new_theory "pure_print";
+Theory pure_print
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_cexp printing
+  parsing source_values
+Libs
+  term_tactic dep_rewrite BasicProvers intLib
 
 (* --- pretty printing --- *)
 Overload Name' = “λs. Name $ explode s”
@@ -251,4 +251,3 @@ Theorem parse_cexp_test4 =
 Theorem parse_cexp_test5 =
         EVAL “parse_cexp "(case (app f (int 7)) xs ((((nil) xs) ((cons (y ys)) ys))  .  (SOME x)))"”
 
-val _ = export_theory();

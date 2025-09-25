@@ -1,11 +1,11 @@
 (*
   Letrec specialization for cexp
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open listTheory pairTheory topological_sortTheory;
-open pure_cexpTheory pure_varsTheory balanced_mapTheory;
-
-val _ = new_theory "pure_letrec_spec_cexp";
+Theory pure_letrec_spec_cexp
+Ancestors
+  list pair topological_sort pure_cexp pure_vars balanced_map
+Libs
+  BasicProvers
 
 (*
   For every elemen in xs, if y is a variable reference to the corresponding
@@ -306,4 +306,3 @@ Proof
 QED
 
 
-val _ = export_theory();

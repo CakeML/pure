@@ -2,12 +2,12 @@
    Defines implementation style functions for managaing a
    set of variables, including inventing fresh ones.
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open listTheory stringTheory alistTheory optionTheory pairTheory
-     pred_setTheory finite_mapTheory mlintTheory;
-open mlmapTheory mlstringTheory;
-
-val _ = new_theory "var_set";
+Theory var_set
+Ancestors
+  list string alist option pair pred_set finite_map mlint mlmap
+  mlstring
+Libs
+  BasicProvers dep_rewrite
 
 (* --- type abbreviation --- *)
 
@@ -226,4 +226,3 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-val _ = export_theory();

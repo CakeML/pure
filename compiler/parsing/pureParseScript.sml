@@ -1,12 +1,8 @@
-open HolKernel Parse boolLib bossLib;
+Theory pureParse
+Ancestors
+  purePEG cst_to_ast ast_to_cexp pure_inference
 
 (* supposed to contain all the things *)
-
-open purePEGTheory cst_to_astTheory ast_to_cexpTheory
-open pure_inferenceTheory
-
-
-val _ = new_theory "pureParse";
 
 Definition string_to_cst_def:
   string_to_cst s =
@@ -77,4 +73,3 @@ Definition parse_tcheck_def:
   od
 End
 
-val _ = export_theory();

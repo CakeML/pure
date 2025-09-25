@@ -1,14 +1,8 @@
-open HolKernel Parse boolLib bossLib
-
-open boolSimps
-
-open ispegTheory locationTheory
-
-open rich_listTheory;
-
-val _ = new_theory "ispegexec"
-
-val _ = set_grammar_ancestry ["ispeg"]
+Theory ispegexec
+Ancestors
+  location rich_list ispeg
+Libs
+  boolSimps
 
 Datatype:
   kont =
@@ -496,5 +490,3 @@ Theorem coreloop_total =
 val _ = app
         (fn s => ignore (remove_ovl_mapping s {Thy = "ispegexec", Name = s}))
         ["AP", "EV"]
-
-val _ = export_theory()

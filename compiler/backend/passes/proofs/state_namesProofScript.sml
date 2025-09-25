@@ -2,15 +2,14 @@
   Correctness for compilation that inserts names for Lam NONE and
   replaces HandleApp by a Handle and an App.
  *)
+Theory state_namesProof
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic state_cexp mlstring
+  state_names state_names_1Proof stateLang[qualified]
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open state_names_1ProofTheory state_cexpTheory mlstringTheory state_namesTheory;
-
-val _ = new_theory "state_namesProof";
-
-val _ = set_grammar_ancestry ["state_names", "state_names_1Proof", "stateLang"];
 
 Triviality LESS_EQ_list_max:
   ∀xs n. n ≤ list_max xs ⇔ n = 0 ∨ ∃x. MEM x xs ∧ n ≤ x
@@ -402,6 +401,3 @@ Proof
   \\ drule_then assume_tac give_names_cns_arities
   \\ fs []
 QED
-
-
-val _ = export_theory ();
