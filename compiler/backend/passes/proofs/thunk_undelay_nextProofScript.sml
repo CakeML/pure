@@ -1,11 +1,10 @@
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax intLib;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory;
-open pure_miscTheory pure_configTheory pure_semanticsTheory
-     thunkLang_primitivesTheory thunkLangTheory thunkLangPropsTheory
-     thunk_semanticsTheory thunk_semantics_delayedTheory;
-
-val _ = new_theory "thunk_undelay_nextProof";
+Theory thunk_undelay_nextProof
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  pure_misc pure_config pure_semantics thunkLang_primitives thunkLang
+  thunkLangProps thunk_semantics thunk_semantics_delayed
+Libs
+  term_tactic monadsyntax
 
 val _ = numLib.prefer_num ();
 
@@ -1461,5 +1460,3 @@ Proof
   \\ simp [state_rel_delayed_def]
   \\ irule_at Any exp_rel_eval \\ gs []
 QED
-
-val _ = export_theory ();
