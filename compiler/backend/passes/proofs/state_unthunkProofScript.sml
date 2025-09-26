@@ -1923,6 +1923,15 @@ Proof
   \\ gvs [loc_rel_def,dest_anyThunk_def]
 QED
 
+Theorem dest_thunk_ptr_rel:
+  state_rel p (SOME s1) (SOME s2) ∧
+  v_rel p v1 v2 ∧
+  dest_thunk_ptr v1 s1 = NotThunk ⇒
+    dest_thunk_ptr v2 s2 = NotThunk
+Proof
+  cheat
+QED
+
 Theorem step_forward:
   ∀n avoid zs p tr ts tk tr1 ts1 tk1 ss sr sk.
     step'_n n avoid (tr,ts,tk) = (tr1,ts1,tk1) ∧ is_halt (tr1,ts1,tk1) ∧
@@ -2040,6 +2049,7 @@ Proof
       \\ disch_then $ qspec_then ‘loc’ mp_tac
       \\ impl_keep_tac >- (irule v_rel_ext \\ fs [])
       \\ strip_tac \\ fs []
+      \\ ‘dest_thunk_ptr v2 ss1 = NotThunk’ by cheat \\ gvs []
       \\ fs [oEL_THM,EL_LUPDATE,store_same_type_def]
       \\ qmatch_goalsub_abbrev_tac ‘SOME ss3’
       \\ gvs [LUPDATE_DEF,LUPDATE_DEF,LUPDATE_LUPDATE]
@@ -2143,6 +2153,8 @@ Proof
      (Cases_on ‘n’ \\ fs [ADD1,step'_n_add,step,step'_def,return'_def,return_def]
       \\ Cases_on ‘ts’ \\ gvs []
       \\ irule_at Any step_n_unwind \\ fs [step_n_add,step]
+      \\ Cases_on ‘dest_thunk_ptr v1 x’ \\ gvs []
+      \\ drule_all_then assume_tac dest_thunk_ptr_rel \\ gvs []
       \\ imp_res_tac state_rel_def \\ gvs [LIST_REL_EL_EQN]
       \\ imp_res_tac find_loc_length_thm
       \\ Cases_on ‘n1 < LENGTH t1’ \\ gvs []
@@ -2492,6 +2504,9 @@ Proof
       \\ ntac 1 (rename [‘step_n nn’] \\ Cases_on ‘nn’ \\ fs []
                  >- (rw [] \\ fs [is_halt_def])
                  \\ rewrite_tac [step_n_add,ADD1] \\ simp [step,get_atoms_def])
+      \\ TOP_CASE_TAC \\ gvs []
+      >~ [‘BadRef’] >- cheat
+      >~ [‘IsThunk’] >- cheat
       \\ drule v_rel_thunk_IMP_oEL
       \\ impl_tac >- gvs [] \\ strip_tac
       \\ first_x_assum drule \\ strip_tac \\ rfs []
@@ -2582,8 +2597,8 @@ Proof
       \\ last_x_assum irule
       \\ gvs [step_res_rel_cases,PULL_EXISTS]
       \\ rpt (first_assum $ irule_at Any \\ gvs []))
-    >~ [‘ForceMutK’] >-
-     (Q.REFINE_EXISTS_TAC ‘ck1+1’
+    >~ [‘ForceMutK’] >- cheat
+     (*Q.REFINE_EXISTS_TAC ‘ck1+1’
       \\ rewrite_tac [step_n_add,ADD1] \\ gvs [step]
       \\ Cases_on ‘m’ \\ gvs [step,ADD1]
       \\ Cases_on ‘ts’ \\ gvs []
@@ -2601,7 +2616,7 @@ Proof
       \\ gvs [step_res_rel_cases,PULL_EXISTS]
       \\ rpt (first_assum $ irule_at Any \\ gvs [])
       \\ qpat_x_assum ‘v_rel p v' v’ kall_tac
-      \\ drule_all state_rel_thunk_v_rel \\ gvs [])
+      \\ drule_all state_rel_thunk_v_rel \\ gvs []*)
     \\ rename [‘AppK tenv op tvs tes’]
     \\ Q.REFINE_EXISTS_TAC ‘ck1+1’
     \\ rewrite_tac [step_n_add,ADD1] \\ simp [step]

@@ -246,6 +246,23 @@ Definition dest_anyThunk_def:
         | _ => NONE
 End
 
+Datatype:
+  dest_thunk_ptr_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_ptr_def:
+  dest_thunk_ptr (Atom (Loc n)) st =
+    (case oEL n st of
+     | NONE => BadRef
+     | SOME (ThunkMem Evaluated v) => IsThunk Evaluated v
+     | SOME (ThunkMem NotEvaluated f) => IsThunk NotEvaluated f
+     | SOME _ => NotThunk) ∧
+  dest_thunk_ptr _ _ = NotThunk
+End
+
 (******************** Semantics functions ********************)
 
 (* Carry out an application - assumes:
@@ -390,12 +407,16 @@ Definition return_def:
      | SOME _ => error st k) ∧
   return v st (ForceMutK n :: k) =
     (case st of
-       SOME stores =>
-         if n < LENGTH stores ∧
-            store_same_type (EL n stores) (ThunkMem Evaluated v) then
-           value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
-         else
-           error st k
+     | SOME stores =>
+         (case dest_thunk_ptr v stores of
+          | BadRef => error st k
+          | NotThunk =>
+              if n < LENGTH stores ∧
+                  store_same_type (EL n stores) (ThunkMem Evaluated v) then
+                 value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
+              else
+                error st k
+          | IsThunk _ _ => error st k)
      | NONE => error st k)
 End
 

@@ -537,6 +537,20 @@ Proof
   \\ fs [SUBSET_DEF]
 QED
 
+Theorem dest_thunk_ptr_rel:
+  state_rel x y ∧
+  v_rel v w ∧
+  dest_thunk_ptr v x = NotThunk ⇒
+    dest_thunk_ptr w y = NotThunk
+Proof
+  rw [oneline dest_thunk_ptr_def, AllCaseEqs()]
+  \\ gvs [Once v_rel_cases]
+  \\ gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
+  \\ first_x_assum drule \\ simp []
+  \\ simp [oneline store_rel_def]
+  \\ TOP_CASE_TAC \\ gvs []
+QED
+
 Theorem step_1_forward:
   ∀tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n 1 (tr,ts,tk) = (tr1,ts1,tk1) ∧
@@ -694,14 +708,23 @@ Proof
     \\ first_assum $ irule_at Any \\ fs [])
   >~ [‘ForceMutK’] >-
    (gvs [step]
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’
-    \\ gvs [step_res_rel_cases,state_rel_def,LIST_REL_EL_EQN]
-    \\ Cases_on ‘n < LENGTH x'’ \\ gvs []
-    \\ IF_CASES_TAC \\ gvs []
-    \\ last_assum $ qspec_then ‘n’ assume_tac
-    \\ Cases_on ‘EL n x’ \\ Cases_on ‘EL n x'’
-    \\ gvs [store_rel_def,store_same_type_def,state_rel_def,LIST_REL_EL_EQN]
-    \\ rw [store_rel_def,EL_LUPDATE])
+    \\ last_x_assum mp_tac
+    \\ ntac 2 (TOP_CASE_TAC \\ gvs[]) \\ gvs [OPTREL_def]
+    \\ drule_all_then assume_tac dest_thunk_ptr_rel \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ strip_tac \\ gvs[]
+    \\ gvs [state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]
+    \\ qpat_x_assum ‘store_same_type _ _’ mp_tac
+    \\ simp [oneline store_same_type_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+    \\ first_assum drule
+    \\ pure_rewrite_tac [oneline store_rel_def] \\ simp []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ strip_tac \\ gvs []
+    \\ reverse $ rw [] >- simp [step_res_rel_cases]
+    \\ rw [EL_LUPDATE]
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ first_x_assum drule \\ simp [store_rel_def])
   \\ rename [‘AppK’]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
   >-

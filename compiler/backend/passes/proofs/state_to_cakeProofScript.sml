@@ -759,7 +759,8 @@ Theorem capplication_thm:
 Proof
   rw[application_thm] >> gvs[]
   >- gvs[AllCaseEqs()]
-  >- rpt (TOP_CASE_TAC >> gvs[]) >>
+  >- rpt (TOP_CASE_TAC >> gvs[])
+  >- (rpt (TOP_CASE_TAC >> gvs[]) >> gvs [dest_thunk_def]) >>
   Cases_on `op` >> gvs[]
 QED
 
@@ -1478,6 +1479,20 @@ Proof
   TOP_CASE_TAC >> gvs[]
 QED
 
+Theorem dest_thunk_rel:
+  state_rel cnenv sst cst ∧
+  v_rel cnenv sv cv ∧
+  dest_thunk_ptr sv sst = NotThunk ⇒
+    dest_thunk [cv] cst = NotThunk
+Proof
+  rw [oneline dest_thunk_ptr_def, oneline dest_thunk_def, AllCaseEqs()]
+  \\ gvs [Once v_rel_cases]
+  \\ gvs [state_rel, LIST_REL_EL_EQN, oEL_THM]
+  \\ first_x_assum $ drule_then assume_tac \\ gvs []
+  \\ gvs [oneline store_rel_def]
+  \\ FULL_CASE_TAC \\ gvs []
+  \\ simp [store_lookup_def, EL_CONS, PRE_SUB1]
+QED
 
 (********** Main results **********)
 
@@ -1760,8 +1775,8 @@ Proof
   reverse TOP_CASE_TAC >> gvs[Once cont_rel_cases, sstep, cstep]
   >- ( (* ForceMutK *)
     first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
-    Cases_on `n < LENGTH sst` >> gvs[] >>
-    Cases_on `store_same_type (EL n sst) (ThunkMem Evaluated sv)` >> gvs[] >>
+    ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+    drule_all_then assume_tac dest_thunk_rel >> gvs[] >>
     qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
     reverse $ rw[store_assign_def]
     >- gvs[state_rel, store_lookup_def, LUPDATE_DEF]

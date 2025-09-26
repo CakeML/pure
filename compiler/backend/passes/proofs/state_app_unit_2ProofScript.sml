@@ -773,6 +773,29 @@ Proof
     \\ fs [])
 QED
 
+Definition dest_thunk_ptr_res_rel_def[simp]:
+  dest_thunk_ptr_res_rel BadRef BadRef = T ∧
+  dest_thunk_ptr_res_rel NotThunk NotThunk = T ∧
+  dest_thunk_ptr_res_rel (IsThunk m1 v1) (IsThunk m2 v2) =
+    (m1 = m2 ∧ v_rel v1 v2) ∧
+  dest_thunk_ptr_res_rel _ _ = F
+End
+
+Theorem dest_thunk_ptr_rel:
+  state_rel s1 s2 ∧
+  v_rel v1 v2 ∧
+  dest_thunk_ptr v1 s1 = res1 ⇒
+    ∃res2.
+      dest_thunk_ptr v2 s2 = res2 ∧
+      dest_thunk_ptr_res_rel res1 res2
+Proof
+  rw [oneline dest_thunk_ptr_def, AllCaseEqs()]
+  \\ gvs [Once v_rel_cases]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
+  \\ first_x_assum drule \\ simp [store_rel_def]
+QED
+
 Theorem step_1_forward:
   ∀k tr ts tk tr1 ts1 tk1 ss sr sk.
     step_n k (tr,ts,tk) = (tr1,ts1,tk1) ∧
@@ -930,23 +953,37 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ simp [Once step_res_rel_cases])
   >~ [‘ForceMutK’] >-
-   (Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
-    \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [is_halt_step]
-    >- (qexists_tac ‘n’ \\ fs [step_res_rel_cases])
-    \\ gvs [state_rel_def,LIST_REL_EL_EQN]
-    \\ reverse $ Cases_on ‘n' < LENGTH x'’ \\ gvs []
-    >- (first_assum $ irule_at Any \\ fs []
-        \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-        \\ rw [state_rel_def,LIST_REL_EL_EQN,Once step_res_rel_cases])
-    \\ IF_CASES_TAC \\ gvs []
-    \\ qpat_assum ‘∀n. n < LENGTH x' => _’ assume_tac
-    \\ first_x_assum $ qspec_then ‘n'’ assume_tac
-    \\ Cases_on ‘EL n' x’ \\ Cases_on ‘EL n' x'’
-    \\ gvs [store_rel_def,store_same_type_def,state_rel_def,LIST_REL_EL_EQN]
-    \\ first_assum $ irule_at Any \\ fs []
-    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
-    \\ simp [state_rel_def,LIST_REL_EL_EQN,Once step_res_rel_cases]
-    \\ rw [store_rel_def, EL_LUPDATE])
+   (qrefine ‘SUC ck’ \\ gvs [ADD_CLAUSES, step_n_SUC, step]
+    \\ qpat_x_assum ‘_ = (tr1,ts1,tk1')’ mp_tac
+    \\ TOP_CASE_TAC \\ gvs [OPTREL_def]
+    >- (
+      strip_tac
+      \\ last_x_assum irule \\ gvs []
+      \\ metis_tac [step_res_rel_cases])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ drule_all dest_thunk_ptr_rel \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    >~ [‘BadRef’]
+    >- (
+      strip_tac
+      \\ last_x_assum irule \\ gvs [PULL_EXISTS]
+      \\ metis_tac [step_res_rel_cases])
+    >~ [‘IsThunk’]
+    >- (
+      rpt strip_tac
+      \\ last_x_assum irule \\ gvs [PULL_EXISTS]
+      \\ metis_tac [step_res_rel_cases])
+    \\ (
+      rpt strip_tac \\ gvs []
+      \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+      \\ last_x_assum irule \\ gvs [PULL_EXISTS]
+      \\ goal_assum drule \\ gvs [step_res_rel_cases]
+      \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE] \\ rw [store_rel_def]
+      \\ qpat_x_assum ‘store_same_type _ _’ mp_tac
+      \\ qpat_x_assum ‘¬store_same_type _ _’ mp_tac
+      \\ simp [store_same_type_def]
+      \\ rpt (TOP_CASE_TAC \\ gvs [])
+      \\ first_x_assum drule \\ gvs [store_rel_def]))
   \\ rename [‘AppK’]
   \\ Q.REFINE_EXISTS_TAC ‘SUC ck’ \\ fs [ADD_CLAUSES,step_n_SUC,step]
   \\ reverse (Cases_on ‘tes’) \\ gvs [] \\ gvs [step]
