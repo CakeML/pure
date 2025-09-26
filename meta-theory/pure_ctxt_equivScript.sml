@@ -1,14 +1,12 @@
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory rich_listTheory alistTheory stringTheory
-     optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_expTheory pure_exp_lemmasTheory
-     pure_evalTheory pure_eval_lemmasTheory pure_semanticsTheory
-     pure_exp_relTheory pure_congruenceTheory
-     itreeTheory pure_obs_sem_equalTheory;
-
-val _ = new_theory "pure_ctxt_equiv";
-
+Theory pure_ctxt_equiv
+Ancestors
+  arithmetic list rich_list alist string option pair pred_set
+  finite_map pure_misc pure_exp pure_exp_lemmas pure_eval
+  pure_eval_lemmas pure_semantics pure_exp_rel pure_congruence
+  itree pure_obs_sem_equal
+Libs
+  BasicProvers dep_rewrite
 
 (******************** Basic definitions ********************)
 
@@ -758,4 +756,3 @@ QED
 
 (****************************************)
 
-val _ = export_theory();

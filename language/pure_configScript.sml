@@ -1,8 +1,9 @@
 
-open HolKernel Parse boolLib bossLib BasicProvers;
-open arithmeticTheory integerTheory stringTheory optionTheory intLib pred_setTheory;
-
-val _ = new_theory "pure_config";
+Theory pure_config
+Ancestors
+  arithmetic integer string option pred_set
+Libs
+  BasicProvers intLib
 
 Datatype:
   lit = Int int            (* mathematical integer           *)
@@ -231,4 +232,3 @@ Definition dest_Message_def:
   dest_Message _ = NONE
 End
 
-val _ = export_theory ();

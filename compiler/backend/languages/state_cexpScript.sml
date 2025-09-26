@@ -1,13 +1,13 @@
 (*
   Compiler expressions for stateLang
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory pure_semanticsTheory arithmeticTheory mlstringTheory;
-
-val _ = new_theory "state_cexp";
-
-val _ = set_grammar_ancestry ["pure_exp","mlstring"];
+Theory state_cexp
+Ancestors
+  string option sum pair list alist
+  pure_semantics arithmetic
+  pure_exp mlstring
+Libs
+  BasicProvers dep_rewrite
 
 val _ = numLib.prefer_num();
 
@@ -145,5 +145,3 @@ Definition cns_arities_def:
 Termination
   WF_REL_TAC `measure cexp_size`
 End
-
-val _ = export_theory();

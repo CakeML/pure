@@ -1,11 +1,10 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
-open stringTheory optionTheory pairTheory listTheory alistTheory llistTheory
-     finite_mapTheory pred_setTheory arithmeticTheory rich_listTheory
-     sptreeTheory ltreeTheory fixedPointTheory sortingTheory logrootTheory
-
-val _ = new_theory "pure_misc";
-
+Theory pure_misc
+Ancestors
+  string option pair list alist llist finite_map pred_set
+  arithmetic rich_list sptree ltree fixedPoint sorting logroot
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 (******************** Numbers ********************)
 
@@ -740,4 +739,3 @@ Proof
   \\ gvs [ALL_DISTINCT_APPEND,SF DNF_ss]
 QED
 
-val _ = export_theory();

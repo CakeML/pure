@@ -1,11 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory;
-open mlstringTheory;
-open pure_configTheory;
-
-val _ = new_theory "typeclass_types";
-
+Theory typeclass_types
+Ancestors
+  pair arithmetic integer string option list alist mlstring
+  pure_config
+Libs
+  BasicProvers
 
 (******************** Types ********************)
 
@@ -175,4 +173,3 @@ Definition split_ty_cons_def:
   split_ty_cons t = split_ty_cons_aux t []
 End
 
-val _ = export_theory();

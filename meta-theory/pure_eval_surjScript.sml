@@ -2,14 +2,13 @@
   Prove that there exists values that cannot be computed by any
   PureCake program, or in other words, that eval is surjective.
 *)
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     pairTheory ltreeTheory llistTheory bagTheory cardinalTheory
-     pred_setTheory rich_listTheory combinTheory finite_mapTheory
-open pure_evalTheory pure_expTheory pure_valueTheory pure_exp_lemmasTheory
-     pure_miscTheory;
-
-val _ = new_theory "pure_eval_surj";
+Theory pure_eval_surj
+Ancestors
+  arithmetic list string alist option pair ltree llist bag
+  cardinal pred_set rich_list combin finite_map pure_eval
+  pure_exp pure_value pure_exp_lemmas pure_misc
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 Theorem char_countable:
   COUNTABLE 𝕌(:char)
@@ -728,4 +727,3 @@ Proof
   irule IN_INFINITE_NOT_FINITE >> simp[]
 QED
 
-val _ = export_theory();

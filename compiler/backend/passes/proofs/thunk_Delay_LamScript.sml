@@ -1,14 +1,14 @@
 (*
   Description required
 *)
+Theory thunk_Delay_Lam
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  thunkLang thunkLang_primitives wellorder pure_misc
+  thunkLangProps thunk_semantics
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
-
-val _ = new_theory "thunk_Delay_Lam";
 
 Definition unfold_Delay_Lam_def:
   (unfold_Delay_Lam (v1, Delay e2) (v2, b) =
@@ -2242,10 +2242,7 @@ Proof
           \\ ‘eval_to k (EL n ys) ≠ INL Diverge’
             by (strip_tac \\ gs [])
           \\ drule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono \\ gs []
-          \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs [])
-        >- (rename1 ‘eval_to _ _ = INR v3’ \\ Cases_on ‘v3’ \\ gvs [])
-        >- (rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac
-            \\ rename1 ‘eval_to _ _ = INR v3’ \\ Cases_on ‘v3’ \\ gvs []))
+          \\ Cases_on ‘eval_to k (EL n ys)’ \\ gs []))
       \\ ‘∀n. n < LENGTH ys ⇒
             ∃x. eval_to k (EL n xs) = INR (Atom x)’
         by (rw []
@@ -2487,5 +2484,3 @@ Proof
   \\ irule_at Any delay_lam_rel_ok
   \\ irule_at Any delay_lam_sim_ok
 QED
-
-val _ = export_theory ();

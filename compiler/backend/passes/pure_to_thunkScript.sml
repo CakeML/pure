@@ -1,18 +1,15 @@
 (*
   Compilation from pureLang to thunkLang
  *)
+Theory pure_to_thunk
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic
+  pure_cexp thunk_cexp pure_names thunk_split_Delay_Lam
+  thunk_let_force pure_comp_conf
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_namesTheory thunk_cexpTheory pure_cexpTheory thunk_split_Delay_LamTheory;
-open pure_comp_confTheory thunk_let_forceTheory;
-
-val _ = new_theory "pure_to_thunk";
-
-val _ = set_grammar_ancestry
-  ["pure_cexp", "thunk_cexp", "pure_names", "thunk_split_Delay_Lam",
-   "thunk_let_force", "pure_comp_conf"];
 
 Definition any_el_def:
   any_el n [] = thunk_cexp$Prim (AtomOp Add) [] ∧
@@ -151,5 +148,3 @@ Definition compile_to_thunk_def:
     let (e2, vs2) = split_delated_lam c.do_split_dlam e1 vs in
       simp_let_force c.do_let_force e2
 End
-
-val _ = export_theory ();

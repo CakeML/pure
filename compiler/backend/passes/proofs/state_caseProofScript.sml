@@ -1,17 +1,15 @@
 (*
   Correctness for expansion of Case to If/Let/Proj combinations.
  *)
+Theory state_caseProof
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic pure_exp_lemmas pure_misc pure_config
+  pure_semantics[qualified]
+  stateLang
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     stateLangTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "state_caseProof";
-
-val _ = set_grammar_ancestry ["stateLang"];
 
 Overload True[local] = “App (Cons "True") [] :stateLang$exp”
 Overload False[local] = “App (Cons "False") [] :stateLang$exp”
@@ -885,5 +883,3 @@ Proof
   \\ simp [Once cont_rel_cases]
   \\ fs [env_rel_def,state_rel_def]
 QED
-
-val _ = export_theory ();

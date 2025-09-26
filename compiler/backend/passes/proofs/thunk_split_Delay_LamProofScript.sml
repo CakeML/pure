@@ -1,21 +1,16 @@
 (*
    Proof of thunk_split_Delay_Lam
 *)
+Theory thunk_split_Delay_LamProof
+Ancestors
+  pair list string option sum pair list alist finite_map pred_set
+  rich_list wellorder arithmetic mlmap mlstring pure_misc
+  thunkLangProps thunkLang_primitives thunk_semantics var_set
+  thunk_cexp thunkLang thunk_exp_of pure_vars
+  thunk_split_Delay_Lam thunk_Delay_Lam thunk_Let_Delay_Var
+Libs
+  term_tactic dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory
-     dep_rewrite wellorderTheory arithmeticTheory;
-open mlmapTheory mlstringTheory;
-open pure_miscTheory thunkLangPropsTheory thunkLangTheory thunkLang_primitivesTheory
-     thunk_Delay_LamTheory thunk_Let_Delay_VarTheory thunk_cexpTheory pure_varsTheory
-     thunk_exp_ofTheory thunk_semanticsTheory thunk_split_Delay_LamTheory var_setTheory;
-
-val _ = new_theory "thunk_split_Delay_LamProof";
-
-val _ = set_grammar_ancestry ["thunk_cexp", "thunkLang", "thunk_exp_of",
-      "pure_vars", "thunk_split_Delay_Lam",
-      "thunk_Delay_Lam", "thunk_Let_Delay_Var"];
 
 Theorem FOLDL_replace_Force_Var:
   ∀map_l map m.
@@ -3638,5 +3633,3 @@ Proof
   \\ rpt gen_tac \\ strip_tac
   \\ drule_all split_Delayed_Lam_soundness \\ simp []
 QED
-
-val _ = export_theory ();

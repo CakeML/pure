@@ -2,19 +2,16 @@
    This file formalises Howe's method following the description of
    Pitts 2011 chapter "Howe's method for higher-order languages".
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_alpha_equivTheory pure_miscTheory;
+Theory pure_congruence
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_exp pure_value
+  pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit
+  pure_exp_rel pure_alpha_equiv pure_misc
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "pure_congruence";
-
 
 Definition Ref_def:
   Ref R ⇔
@@ -3007,4 +3004,3 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-val _ = export_theory();

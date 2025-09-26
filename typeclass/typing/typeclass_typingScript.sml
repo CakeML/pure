@@ -1,16 +1,15 @@
 (* typing elaboration rules and dictionary translation rules
 * for typeclassLang *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory miscTheory;
-open listTheory alistTheory relationTheory set_relationTheory pred_setTheory;
-open typeclass_typesTheory pure_cexpTheory typeclass_texpTheory;
-open typeclass_kindCheckTheory pure_configTheory;
-open monadsyntax;
+Theory typeclass_typing
+Ancestors
+  pair arithmetic integer string option misc list alist relation
+  set_relation pred_set typeclass_types pure_cexp typeclass_texp
+  typeclass_kindCheck pure_config
+Libs
+  BasicProvers dep_rewrite monadsyntax
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "option";
-
-val _ = new_theory "typeclass_typing";
 
 (*
   A type definition is an arity and a collection of constructor definitions.
@@ -1967,4 +1966,3 @@ Definition prog_construct_dict_def:
      translated_defaults
 End
 
-val _ = export_theory();

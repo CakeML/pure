@@ -5,16 +5,14 @@
        ∀x y. x ≃ y ⇒ semantics x Done [] = semantics y Done []
 
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite itreeTheory intLib;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_exp_relTheory pure_semanticsTheory
-     pure_congruenceTheory;
-
-val _ = new_theory "pure_obs_sem_equal";
+Theory pure_obs_sem_equal
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map itree pure_exp
+  pure_value pure_eval pure_eval_lemmas pure_exp_lemmas
+  pure_exp_rel pure_semantics pure_congruence
+Libs
+  term_tactic BasicProvers dep_rewrite intLib
 
 Triviality eval_wh_Cons:
   wh_Constructor n es = eval_wh x ∧ (x ≃ y) b ⇒
@@ -1242,4 +1240,3 @@ Proof
   simp[]
 QED
 
-val _ = export_theory();

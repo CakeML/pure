@@ -1,14 +1,14 @@
 (*
   Remove all unuseful bindings from an expression expressed in thunkLang
 *)
+Theory thunk_remove_unuseful_bindings
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  thunkLang thunkLang_primitives wellorder arithmetic pure_misc
+  thunkLangProps thunk_semantics
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
-
-val _ = new_theory "thunk_remove_unuseful_bindings";
 
 Definition no_op_def:
   no_op (Lam s e) = T ∧
@@ -1280,10 +1280,7 @@ Proof
           \\ ‘eval_to k (EL n xs) ≠ INL Diverge’
             by (strip_tac \\ gs [])
           \\ drule_then (qspec_then ‘j + k’ assume_tac) eval_to_mono \\ gs []
-          \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs [])
-        >- (rename1 ‘eval_to _ _ = INR v3’ \\ Cases_on ‘v3’ \\ gvs [])
-        >- (rpt $ first_x_assum $ qspecl_then [‘n’] assume_tac
-            \\ rename1 ‘eval_to _ _ = INR v3’ \\ Cases_on ‘v3’ \\ gvs []))
+          \\ Cases_on ‘eval_to k (EL n xs)’ \\ gs []))
       \\ ‘∀n. n < LENGTH ys ⇒
             ∃x. eval_to k (EL n ys) = INR (Atom x)’
         by (rw []
@@ -1465,5 +1462,3 @@ Proof
   \\ irule_at Any clean_rel_rel_ok
   \\ irule_at Any clean_rel_sim_ok
 QED
-
-val _ = export_theory ();

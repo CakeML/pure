@@ -1,21 +1,16 @@
 (*
   Proof of correctness for the pure_to_thunk compiler pass.
  *)
+Theory pure_to_thunk_1Proof
+Ancestors
+  string option sum pair list alist thunkLang pure_eval thunkLang_primitives
+  finite_map pred_set rich_list pure_semantics thunk_semantics pure_exp_lemmas
+  pure_misc pure_config
+Libs
+  term_tactic monadsyntax dep_rewrite intLib
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite
-     intLib;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     pure_semanticsTheory thunk_semanticsTheory thunk_semantics_delayedTheory
-     pure_evalTheory pure_configTheory thunkLang_primitivesTheory
-     pure_exp_lemmasTheory pure_miscTheory;
-
-val _ = new_theory "pure_to_thunk_1Proof";
-
-val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "pure_semantics", "thunk_semantics",
-                              "thunk_semantics_delayed", "pure_exp_lemmas",
-                              "pure_misc", "pure_config"];
+(* Fix SML bindings *)
+open pure_evalTheory;
 
 val _ = numLib.prefer_num ();
 
@@ -3336,5 +3331,3 @@ Proof
   \\ drule_then strip_assume_tac compile_rel_thm
   \\ drule_all pure_to_thunk_semantics \\ rw []
 QED
-
-val _ = export_theory ();

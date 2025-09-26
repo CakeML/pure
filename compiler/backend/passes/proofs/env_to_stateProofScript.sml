@@ -1,23 +1,18 @@
 (*
   Correctness for cexp compilation from envLang to stateLang
  *)
+Theory env_to_stateProof
+Ancestors
+  string option sum pair list alist finite_map
+  pred_set rich_list arithmetic pure_exp_lemmas pure_misc
+  pure_config envLang thunkLang_primitives stateLang
+  env_semantics state_caseProof state_unthunkProof env_cexp
+  state_cexp pure_semantics[qualified]
+  env_to_state_2Proof state_namesProof state_app_unitProof
+  env_to_state
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     envLangTheory thunkLang_primitivesTheory
-     stateLangTheory env_semanticsTheory env_to_state_2ProofTheory
-     state_caseProofTheory state_unthunkProofTheory state_app_unitProofTheory
-     env_cexpTheory state_cexpTheory env_to_stateTheory
-     state_app_unitProofTheory state_namesProofTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "env_to_stateProof";
-
-val _ = set_grammar_ancestry
-  ["env_to_state_2Proof", "state_namesProof", "state_app_unitProof",
-   "env_to_state"];
 
 Theorem itree_of_compile_to_state:
   cexp_wf x ⇒
@@ -50,5 +45,3 @@ Proof
   \\ first_x_assum $ irule_at Any
   \\ simp []
 QED
-
-val _ = export_theory ();

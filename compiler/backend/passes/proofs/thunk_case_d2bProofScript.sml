@@ -7,17 +7,14 @@
   - [thunk_case_projProofScript.sml]
   for the others.
  *)
+Theory thunk_case_d2bProof
+Ancestors
+  string option sum pair list alist thunkLang_primitives pure_misc
+  finite_map pred_set rich_list thunkLang wellorder
+  thunkLangProps
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory;
-open pure_miscTheory thunkLangPropsTheory;
-
-val _ = new_theory "thunk_case_d2bProof";
-
-val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "wellorder", "thunkLangProps"];
 
 val _ = numLib.prefer_num ();
 
@@ -1673,5 +1670,3 @@ Proof
   \\ irule_at Any d2b_sim_ok
   \\ irule_at Any d2b_rel_ok \\ gs []
 QED
-
-val _ = export_theory ();

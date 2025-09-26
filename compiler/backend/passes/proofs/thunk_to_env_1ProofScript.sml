@@ -1,18 +1,16 @@
 (*
   Proof of correctness for the thunk_to_thunk compiler pass.
  *)
+Theory thunk_to_env_1Proof
+Ancestors
+  string option sum pair list alist thunkLang_primitives
+  finite_map thunk_semantics pure_misc pred_set rich_list
+  envLang thunkLang thunk_to_env thunkLangProps env_semantics
+Libs
+  term_tactic monadsyntax
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pred_setTheory rich_listTheory thunkLang_primitivesTheory envLangTheory
-     finite_mapTheory thunkLangTheory env_semanticsTheory thunk_semanticsTheory;
-open thunk_to_envTheory;
-open pure_miscTheory thunkLangPropsTheory;
-
-val _ = new_theory "thunk_to_env_1Proof";
-
-val _ = set_grammar_ancestry ["pred_set", "rich_list", "envLang", "thunkLang",
-                              "thunk_to_env", "thunkLangProps", "env_semantics" ]
+(* Fix SML bindings *)
+open thunk_semanticsTheory;
 
 val _ = numLib.prefer_num ();
 
@@ -1093,5 +1091,3 @@ Proof
   \\ fs [state_rel_def]
   \\ irule eval_exp_rel \\ fs []
 QED
-
-val _ = export_theory ();

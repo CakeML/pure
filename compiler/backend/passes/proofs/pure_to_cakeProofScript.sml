@@ -1,17 +1,16 @@
 (*
   Proof of composition from pureLang to CakeML
  *)
+Theory pure_to_cakeProof
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic combin pure_to_thunkProof thunk_to_envProof
+  env_to_stateProof state_to_cakeProof
+  pure_to_cake pure_semantics[qualified] pure_cexp[qualified]
+  pureLang[qualified] pure_letrecProof
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory combinTheory
-     pure_to_thunkProofTheory thunk_to_envProofTheory pure_letrecProofTheory
-     env_to_stateProofTheory state_to_cakeProofTheory pure_to_cakeTheory;
-
-val _ = new_theory "pure_to_cakeProof";
-
-val _ = set_grammar_ancestry
-  ["pure_to_cake", "pure_semantics", "pure_cexp", "pureLang", "pure_letrecProof"];
 
 Theorem pure_to_env_correct:
   cexp_wf x ∧ closed (exp_of x) ∧ NestedCase_free x ∧
@@ -85,5 +84,3 @@ Proof
   \\ irule state_to_cakeProofTheory.cns_ok_UNION
   \\ fs []
 QED
-
-val _ = export_theory ();

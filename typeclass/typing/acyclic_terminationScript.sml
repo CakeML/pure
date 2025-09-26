@@ -1,8 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory listTheory;
-open relationTheory set_relationTheory pred_setTheory finite_mapTheory;
-
-val _ = new_theory "acyclic_termination";
+Theory acyclic_termination
+Ancestors
+  arithmetic list relation set_relation pred_set finite_map
+  misc[qualified]  (* for list_max *)
+Libs
+  BasicProvers dep_rewrite
 
 Definition acyclic_rec_def:
   acyclic_rec r f err x =
@@ -110,5 +111,3 @@ Proof
   irule_at (Pos last) $ cj 1 SUBSET_UNION >>
   rw[SUBSET_DEF,range_def,flookup_thm]
 QED
-
-val _ = export_theory();

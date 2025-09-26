@@ -1,16 +1,13 @@
 (* concrete data structures for implementing
 * instance map and type class map *)
-open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
-open relationTheory set_relationTheory;
-open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
-open mlmapTheory mlstringTheory balanced_mapTheory alistTheory topological_sortTheory;
-open miscTheory;
-open typeclass_typesTheory typeclass_kindCheckTheory typeclass_typesPropsTheory;
-open typeclass_texpTheory;
-open typeclass_typingTheory typeclass_typingPropsTheory;
-open monadsyntax;
-
-val _ = new_theory "typeclass_env_map_impl";
+Theory typeclass_env_map_impl
+Ancestors
+  relation set_relation pair option list pred_set finite_map
+  mlmap mlstring balanced_map alist topological_sort misc
+  typeclass_types typeclass_kindCheck typeclass_typesProps
+  typeclass_texp typeclass_typing typeclass_typingProps
+Libs
+  dep_rewrite BasicProvers monadsyntax
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
@@ -2101,4 +2098,3 @@ Proof
   )
 QED
 
-val _ = export_theory();

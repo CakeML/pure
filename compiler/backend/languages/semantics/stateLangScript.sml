@@ -9,15 +9,14 @@
    - Introduces state/exception primitives.
    - Makes function application a primitive operation, as in CakeML.
 *)
+Theory stateLang
+Ancestors
+  string option sum pair list alist
+  pure_exp arithmetic mlstring
+  pure_semantics state_cexp
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory pure_semanticsTheory arithmeticTheory
-     state_cexpTheory mlstringTheory;
-
-val _ = new_theory "stateLang";
-
-val _ = set_grammar_ancestry ["pure_semantics","state_cexp"];
 
 val _ = numLib.prefer_num();
 
@@ -1809,5 +1808,3 @@ Termination
 End
 
 Theorem exp_of_def[simp,allow_rebind] = exp_of_def |> CONV_RULE (DEPTH_CONV ETA_CONV);
-
-val _ = export_theory ();

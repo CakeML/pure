@@ -1,8 +1,9 @@
 
-open bossLib boolLib;
-open HolKernel llistTheory listTheory quotientLib pure_miscTheory;
-
-val _ = new_theory "quotient_llist";
+Theory quotient_llist
+Ancestors
+  llist list pure_misc
+Libs
+  quotientLib
 
 Triviality LMAP_id:
   LMAP (\x. x) = \x. x
@@ -161,6 +162,4 @@ Proof
     pop_assum mp_tac >> simp[]
     )
 QED
-
-val _ = export_theory ();
 

@@ -1,11 +1,9 @@
 (*
    This file defines expressions for thunkLang as the compiler sees them.
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory mlstringTheory pure_configTheory
-     pred_setTheory;
-
-val _ = new_theory "thunk_cexp";
+Theory thunk_cexp
+Ancestors
+  arithmetic list mlstring pure_config pred_set
 
 Type name[local] = “:mlstring”
 
@@ -77,4 +75,3 @@ Definition dest_Var_def:
   dest_Var _ = NONE
 End
 
-val _ = export_theory();

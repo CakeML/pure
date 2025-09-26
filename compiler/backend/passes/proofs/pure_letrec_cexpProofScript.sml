@@ -1,17 +1,15 @@
 (*
    Verification of pure_letrec_cexp
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open listTheory rich_listTheory pairTheory alistTheory pred_setTheory finite_mapTheory
-     sptreeTheory topological_sortTheory;
-open pure_miscTheory pure_expTheory pure_cexpTheory pureLangTheory
-     pure_letrec_cexpTheory pure_letrecTheory pure_letrecProofTheory
-     pure_letrec_lamTheory pure_letrec_lamProofTheory pure_varsTheory
-     pure_exp_lemmasTheory pure_cexp_lemmasTheory pure_congruenceTheory
-     pure_typingTheory pure_typingPropsTheory;
-open mlmapTheory;
-
-val _ = new_theory "pure_letrec_cexpProof";
+Theory pure_letrec_cexpProof
+Ancestors
+  list rich_list pair alist pred_set finite_map sptree
+  topological_sort pure_misc pure_exp pure_cexp pureLang
+  pure_letrec_cexp pure_letrec pure_letrecProof pure_letrec_lam
+  pure_letrec_lamProof pure_vars pure_exp_lemmas pure_cexp_lemmas
+  pure_congruence pure_typing pure_typingProps mlmap
+Libs
+  BasicProvers dep_rewrite
 
 (********************)
 val _ = temp_delsimps ["nested_rows_def"]
@@ -1208,4 +1206,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

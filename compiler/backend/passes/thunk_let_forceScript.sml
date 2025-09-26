@@ -2,11 +2,10 @@
   Optimisation pass that turns Force (Var v) into Var w under
   Let (SOME w) (Force (Var v)).
 *)
+Theory thunk_let_force
+Ancestors
+  pair list thunk_cexp mlstring
 
-open HolKernel Parse boolLib bossLib pairTheory listTheory;
-open thunk_cexpTheory mlstringTheory;
-
-val _ = new_theory "thunk_let_force";
 
 Definition d_Var_def[simp]:
   d_Var (Var n : thunk_cexp$cexp) = SOME n ∧
@@ -65,4 +64,3 @@ Definition simp_let_force_def:
   simp_let_force do_it e = if do_it then let_force [] e else e
 End
 
-val _ = export_theory ();

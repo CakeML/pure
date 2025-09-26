@@ -1,21 +1,19 @@
 (*
   Correctness for compilation from stateLang to CakeML
 *)
+Theory state_to_cakeProof
+Ancestors
+  string option sum pair list alist rich_list arithmetic pred_set
+  semanticPrimitives namespace namespaceProps primSemEnv
+  itree_semantics pure_misc pure_config pure_typing state_cexp
+  state_to_cake stateLang itree_semanticsProps
+Libs
+  BasicProvers dep_rewrite intLib
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     rich_listTheory arithmeticTheory pred_setTheory intLib;
-open semanticPrimitivesTheory namespaceTheory namespacePropsTheory primSemEnvTheory
-     itree_semanticsTheory itree_semanticsPropsTheory;
-open pure_miscTheory pure_configTheory pure_typingTheory
-     stateLangTheory state_cexpTheory state_to_cakeTheory;
+(* Fix SML bindings *)
+open stateLangTheory;
 
 val _ = intLib.deprecate_int();
-
-val _ = new_theory "state_to_cakeProof";
-
-val _ = set_grammar_ancestry ["state_to_cake", "stateLang", "itree_semanticsProps"]
-
 
 (* TODO move *)
 Theorem ALOOKUP_MAP_MAP:
@@ -3712,5 +3710,3 @@ Proof
 QED
 
 (**********)
-
-val _ = export_theory ();

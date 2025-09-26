@@ -14,14 +14,13 @@
      for the next language in the compiler, which has an environment-based
      semantics.
  *)
+Theory thunkLang
+Ancestors
+  string option sum pair list alist pred_set
+  thunkLang_primitives pure_misc pure_exp
+Libs
+  term_tactic monadsyntax
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory thunkLang_primitivesTheory pure_miscTheory pred_setTheory;
-
-val _ = new_theory "thunkLang";
-
-val _ = set_grammar_ancestry ["thunkLang_primitives", "pure_misc", "pure_exp"];
 
 val _ = numLib.prefer_num();
 
@@ -632,5 +631,3 @@ Definition ok_binder_def[simp]:
   ok_binder (Delay x) = T ∧
   ok_binder _ = F
 End
-
-val _ = export_theory ();

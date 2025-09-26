@@ -2,19 +2,14 @@
   This stage removes all suspended ticks introduced by thunk_unthunk,
   and any other stage that has tampered with thunks.
  *)
+Theory thunk_untickProof
+Ancestors
+  string option sum pair list alist thunkLang_primitives
+  pure_misc thunk_semantics
+  finite_map pred_set rich_list thunkLang thunkLangProps
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory
-     thunk_semantics_delayedTheory;
-
-val _ = new_theory "thunk_untickProof";
-
-val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "thunkLangProps",
-                              "thunk_semantics_delayed"];
 
 Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
@@ -1671,5 +1666,3 @@ Proof
   \\ irule_at Any untick_sim_ok_delayed
   \\ irule_at Any untick_rel_ok_delayed \\ gs []
 QED
-
-val _ = export_theory ();

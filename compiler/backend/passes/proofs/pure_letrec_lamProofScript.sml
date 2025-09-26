@@ -1,16 +1,14 @@
 (*
    Verification of a compiler that ensures every Letrec bound name is a lambda (Lam).
 *)
-open HolKernel Parse boolLib bossLib BasicProvers;
-open arithmeticTheory listTheory alistTheory optionTheory pairTheory dep_rewrite
-     pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_expTheory pure_exp_lemmasTheory pure_exp_relTheory pure_evalTheory
-     pure_congruenceTheory pure_miscTheory pure_eval_lemmasTheory
-     pure_letrecTheory pure_letrecProofTheory
-     pure_letrec_lamTheory pure_beta_equivTheory;
-
-val _ = new_theory "pure_letrec_lamProof";
-
+Theory pure_letrec_lamProof
+Ancestors
+  arithmetic list alist option pair pred_set relation rich_list
+  finite_map pure_exp pure_exp_lemmas pure_exp_rel pure_eval
+  pure_congruence pure_misc pure_eval_lemmas pure_letrec
+  pure_letrecProof pure_letrec_lam pure_beta_equiv
+Libs
+  BasicProvers dep_rewrite
 
 Definition apps_ok_def:
   apps_ok (apps : string |-> exp) ⇔
@@ -948,4 +946,3 @@ Proof
   last_x_assum drule >> simp[]
 QED
 
-val _ = export_theory();

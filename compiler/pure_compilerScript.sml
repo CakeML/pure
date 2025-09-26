@@ -1,20 +1,15 @@
 (*
    PureLang compiler: concrete syntax -> CakeML AST
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_cexpTheory pure_to_cakeTheory pureParseTheory pure_inferenceTheory
-     pure_letrec_cexpTheory pure_demands_analysisTheory pure_inline_cexpTheory
-     fromSexpTheory simpleSexpParseTheory pure_printTheory;
-
-val _ = set_grammar_ancestry
-          ["pure_cexp", "pure_to_cake", "pureParse", "pure_inference",
-           "pure_letrec_cexp", "pure_demands_analysis",
-           "pure_inline_cexp", "fromSexp", "simpleSexpParse"];
-
-val _ = new_theory "pure_compiler";
+Theory pure_compiler
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree
+  llist bag pred_set relation rich_list finite_map pure_print
+  pure_cexp pure_to_cake pureParse pure_inference
+  pure_letrec_cexp pure_demands_analysis pure_inline_cexp
+  fromSexp simpleSexpParse
+Libs
+  term_tactic dep_rewrite BasicProvers
 
 Definition ast_to_string_def:
   ast_to_string prog = print_sexp (listsexp (MAP decsexp prog))
@@ -118,5 +113,3 @@ Proof
   rw[compile_to_ast_def, frontend_def] >>
   rpt (TOP_CASE_TAC >> simp[])
 QED
-
-val _ = export_theory();

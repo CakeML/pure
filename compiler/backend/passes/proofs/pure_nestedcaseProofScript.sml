@@ -1,11 +1,10 @@
-open HolKernel Parse boolLib bossLib;
-
-open listTheory pairTheory finite_mapTheory pred_setTheory
-
-open pure_nestedcaseTheory pureLangTheory pure_cexpTheory pure_congruenceTheory
-     pure_exp_lemmasTheory pure_congruence_lemmasTheory exp_eqSimps
-
-val _ = new_theory "pure_nestedcaseProof";
+Theory pure_nestedcaseProof
+Ancestors
+  list pair finite_map pred_set pure_nestedcase pureLang
+  pure_cexp pure_congruence pure_exp_lemmas
+  pure_congruence_lemmas
+Libs
+  exp_eqSimps
 
 Theorem exp_eq_refl[simp] = exp_eq_refl
 
@@ -255,4 +254,3 @@ QED
 
 
 
-val _ = export_theory();

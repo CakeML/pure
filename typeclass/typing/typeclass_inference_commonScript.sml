@@ -1,9 +1,9 @@
 (* Definitions common to inference theories. *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory optionTheory listTheory;
-open typeclass_typesTheory typeclass_kindCheckTheory;
-
-val _ = new_theory "typeclass_inference_common";
+Theory typeclass_inference_common
+Ancestors
+  arithmetic option list typeclass_types typeclass_kindCheck
+Libs
+  BasicProvers dep_rewrite
 
 Datatype:
   itype = iAtom atom_ty
@@ -89,6 +89,4 @@ Definition type_of_def:
   type_of (iAtom at) = SOME $ Atom at ∧
   type_of (iCVar v) = NONE
 End
-
-val _ = export_theory();
 

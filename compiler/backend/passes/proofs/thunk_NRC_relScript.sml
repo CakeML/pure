@@ -1,15 +1,14 @@
 (*
   Theorems to help prove properties about transitive closure of relations
 *)
+Theory thunk_NRC_rel
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  thunkLang thunkLang_primitives wellorder arithmetic pure_misc
+  thunkLangProps thunk_semantics
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory;
-
-val _ = new_theory "thunk_NRC_rel";
 
 
 (* NRC lemmas *)
@@ -388,4 +387,3 @@ Proof
   metis_tac [NRC_semantics_safe]
 QED
 
-val _ = export_theory ();

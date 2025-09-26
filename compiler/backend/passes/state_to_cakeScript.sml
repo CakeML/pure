@@ -1,17 +1,13 @@
 (*
   Compiler from stateLang to CakeML
  *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     rich_listTheory arithmeticTheory;
-open semanticPrimitivesTheory;
-open pure_miscTheory pure_configTheory pure_typingTheory state_cexpTheory;
-open pure_comp_confTheory
-
-val _ = new_theory "state_to_cake";
-
-val _ = set_grammar_ancestry ["pure_typing", "state_cexp", "semanticPrimitives", "pure_comp_conf"]
-
+Theory state_to_cake
+Ancestors
+  string option sum pair list alist rich_list arithmetic
+  pure_misc pure_config
+  pure_typing state_cexp semanticPrimitives pure_comp_conf
+Libs
+  BasicProvers dep_rewrite
 
 (********** Primitives operation implementations **********)
 
@@ -363,5 +359,3 @@ End
 
 
 (**********)
-
-val _ = export_theory ();

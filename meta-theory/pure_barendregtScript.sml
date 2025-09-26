@@ -1,12 +1,12 @@
 (*
   Barendregt convention for PureLang
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory listTheory rich_listTheory pred_setTheory;
-open pure_expTheory pure_exp_lemmasTheory pure_miscTheory pure_beta_equivTheory;
-
-val _ = new_theory "pure_barendregt";
-
+Theory pure_barendregt
+Ancestors
+  pair list rich_list pred_set pure_exp pure_exp_lemmas pure_misc
+  pure_beta_equiv
+Libs
+  BasicProvers dep_rewrite
 
 (********** Preliminaries: lists of pairwise-disjoint sets *)
 
@@ -389,4 +389,3 @@ QED
 
 (**********)
 
-val _ = export_theory();

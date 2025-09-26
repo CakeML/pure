@@ -1,12 +1,8 @@
-open HolKernel Parse boolLib bossLib
-open boolSimps
-open grammarTheory finite_mapTheory
-open locationTheory
-open listTheory rich_listTheory
-
-val _ = new_theory "ispeg"
-
-val _ = set_grammar_ancestry ["location", "rich_list", "finite_map", "grammar"]
+Theory ispeg
+Ancestors
+  location rich_list finite_map grammar list
+Libs
+  boolSimps
 
 (* Based on HOL's core PEG theory, which is based on
      Koprowski and Binzstok, "TRX: A Formally Verified Parser Interpreter".
@@ -1099,4 +1095,3 @@ Proof
   simp[pegf_def]
 QED
 *)
-val _ = export_theory()

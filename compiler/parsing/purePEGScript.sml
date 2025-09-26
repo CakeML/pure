@@ -1,15 +1,10 @@
-open HolKernel Parse boolLib bossLib;
-
-
-open stringTheory grammarTheory ispegexecTheory ispegTheory tokenUtilsTheory
-     pureNTTheory pureTokenUtilsTheory
-local open pure_lexer_implTheory stringLib in end
-
-val _ = new_theory "purePEG";
-
-val _ = set_grammar_ancestry
-        ["pureTokenUtils", "grammar", "pure_lexer_impl", "ispegexec", "pureNT"]
-
+Theory purePEG
+Ancestors
+  string ispeg tokenUtils
+  pureTokenUtils grammar pure_lexer_impl[qualified]
+  ispegexec pureNT
+Libs
+  stringLib[qualified]
 
 Definition sumID_def[simp]:
   sumID (INL x) = x ∧ sumID (INR y) = y
@@ -574,6 +569,3 @@ val doblock3 =
 test “nExp” "do {\n\
             \x <- f y ; check 3; \n\
             \return (x + 1)}"
-
-
-val _ = export_theory();

@@ -1,11 +1,12 @@
 (*
   TBD
 *)
+Theory thunk_split_Delay_Lam
+Ancestors
+  pair list thunk_cexp mlmap mlstring pred_set var_set
+Libs
+  term_tactic
 
-open HolKernel Parse boolLib bossLib term_tactic pairTheory listTheory;
-open thunk_cexpTheory mlmapTheory mlstringTheory pred_setTheory var_setTheory;
-
-val _ = new_theory "thunk_split_Delay_Lam";
 
 Definition dest_Delay_Lam_def:
     (dest_Delay_Lam (Delay (Lam v e)) = SOME (Lam v e)) /\
@@ -175,4 +176,3 @@ Definition split_delated_lam_def:
     if do_it then split_Delayed_Lam e1 vs (empty compare) else (e1,vs)
 End
 
-val _ = export_theory ();

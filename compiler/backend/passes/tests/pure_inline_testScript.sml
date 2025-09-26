@@ -1,10 +1,9 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory;
-open intLib pure_printTheory pure_printLib;
-open pure_inline_cexpTheory pure_letrec_spec_cexpTheory;
-
-val _ = new_theory "pure_inline_test";
+Theory pure_inline_test
+Ancestors
+  arithmetic pure_print pure_inline_cexp pure_letrec_spec_cexp
+Libs
+  term_tactic intLib pure_printLib
 
 val toMLstring = stringLib.fromMLstring o dest_QUOTE;
 
@@ -174,4 +173,3 @@ val inline_example_5 =
   rand |>
   print_cexp
 
-val _ = export_theory();

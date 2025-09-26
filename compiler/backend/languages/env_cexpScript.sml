@@ -1,14 +1,13 @@
 (*
   Compiler expressions for stateLang
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory pure_semanticsTheory arithmeticTheory mlstringTheory
-     pred_setTheory;
-
-val _ = new_theory "env_cexp";
-
-val _ = set_grammar_ancestry ["pure_exp","mlstring"];
+Theory env_cexp
+Ancestors
+  string option sum pair list alist
+  pure_semantics arithmetic pred_set
+  pure_exp mlstring
+Libs
+  BasicProvers dep_rewrite
 
 val _ = numLib.prefer_num();
 
@@ -99,5 +98,3 @@ Definition dest_Lam_def:
   dest_Lam (Lam v x) = SOME (v,x) ∧
   dest_Lam _ = NONE
 End
-
-val _ = export_theory();

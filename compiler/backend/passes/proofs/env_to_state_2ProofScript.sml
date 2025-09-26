@@ -1,22 +1,21 @@
 (*
   Correctness for cexp compilation from envLang to stateLang
  *)
+Theory env_to_state_2Proof
+Ancestors
+  string option sum pair list alist finite_map
+  pred_set rich_list arithmetic pure_exp_lemmas pure_misc
+  pure_config envLang thunkLang_primitives stateLang
+  env_semantics state_caseProof state_app_unitProof
+  pure_semantics[qualified]
+  env_to_state env_to_state_1Proof env_cexp state_cexp
+  state_unthunkProof
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     envLangTheory thunkLang_primitivesTheory
-     stateLangTheory env_semanticsTheory env_to_state_1ProofTheory
-     state_caseProofTheory state_unthunkProofTheory state_app_unitProofTheory
-     env_cexpTheory state_cexpTheory env_to_stateTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "env_to_state_2Proof";
-
-val _ = set_grammar_ancestry
-  ["env_to_state", "env_to_state_1Proof", "env_cexp",
-   "state_cexp", "state_unthunkProof"];
+(* Set up correct ML-level bindings *)
+open state_unthunkProofTheory env_cexpTheory state_cexpTheory
+     env_to_stateTheory;
 
 Overload to_state = “env_to_state_1Proof$compile_rel”
 Overload unthunk = “state_unthunkProof$compile_rel”
@@ -1251,5 +1250,3 @@ Proof
   >- drule_then irule to_state_cexp_wf_lemma
   \\ drule_then irule to_state_cns_arities_lemma
 QED
-
-val _ = export_theory ();

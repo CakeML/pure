@@ -1,11 +1,12 @@
 (*
   Configuration what to optimise.
  *)
+Theory pure_comp_conf
+Ancestors
+  mlstring mlint mloption
+Libs
+  intLib
 
-open HolKernel Parse boolLib bossLib intLib
-     mlstringTheory mlintTheory mloptionTheory;
-
-val _ = new_theory "pure_comp_conf";
 
 Datatype:
   inline_opts = <|
@@ -105,4 +106,3 @@ Definition default_conf_def:
   default_conf = ^default
 End
 
-val _ = export_theory ();

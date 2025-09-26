@@ -1,22 +1,13 @@
 (*
   Translation of PureCake compiler's front end
  *)
-open basis
-     pure_demands_analysisTheory
-     pure_letrec_cexpTheory
-     pure_freshenTheory
-     pure_dead_letTheory
-     pure_letrec_spec_cexpTheory
-     pure_inline_cexpTheory
-     pure_compilerTheory
-     pure_inferProgTheory
-     pure_printTheory;
-
-val _ = new_theory "pure_frontendProg";
-
-val _ = set_grammar_ancestry ["pure_inferProg", "pure_letrec_cexp",
-                              "pure_demands_analysis", "pure_freshen",
-                              "pure_inline_cexp", "pure_print"];
+Theory pure_frontendProg
+Ancestors
+  pure_dead_let pure_letrec_spec_cexp pure_compiler
+  pure_inferProg pure_letrec_cexp pure_demands_analysis
+  pure_freshen pure_inline_cexp pure_print
+Libs
+  basis
 
 val _ = translation_extends "pure_inferProg";
 
@@ -167,5 +158,3 @@ val r = translate num_to_dec_string_def;
 val r = translate num_to_hex_string_def;
 
 val r = translate ast_to_string_def;
-
-val _ = export_theory ();

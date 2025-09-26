@@ -1,13 +1,13 @@
 (*
   Adapt unification from HOL/examples/algorithms/unification for use in PureCake
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     pred_setTheory relationTheory listTheory alistTheory finite_mapTheory;
-open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory substTheory;
-open pure_typingTheory pure_inference_commonTheory;
-
-val _ = new_theory "pure_unification";
+Theory pure_unification
+Ancestors
+  pair arithmetic integer string option pred_set relation list
+  alist finite_map unifProps unifDef walk walkstar collapse subst
+  pure_typing pure_inference_common
+Libs
+  BasicProvers dep_rewrite
 
 Datatype:
   utype = uDBVar num
@@ -1904,4 +1904,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

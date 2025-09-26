@@ -1,11 +1,12 @@
 (*
     Definition of the demands analysis pass
 *)
+Theory pure_demands_analysis
+Ancestors
+  pure_cexp mlmap mlstring pure_comp_conf
+Libs
+  term_tactic
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open pure_cexpTheory mlmapTheory mlstringTheory pure_comp_confTheory;
-
-val _ = new_theory "pure_demands_analysis";
 
 Datatype:
   da_ctxt =
@@ -543,4 +544,3 @@ let foo = Lam a (Seq a (a + 2)) in
     Lam x (Seq x (Seq foo (foo x)))
 *)
 
-val _ = export_theory();

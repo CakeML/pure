@@ -2,19 +2,16 @@
   Correctness for compilation that pushes applications to Unit as far in as possible,
   e.g. ‘(Let x = ... in foo) Unit’ becomes ‘Let x = ... in (foo Unit)’.
  *)
+Theory state_app_unitProof
+Ancestors
+  string option sum pair list alist
+  finite_map pred_set rich_list arithmetic pure_exp_lemmas
+  pure_misc pure_config pure_semantics[qualified]
+  state_app_unit stateLang state_cexp state_app_unit_1Proof
+  state_app_unit_2Proof
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_exp_lemmasTheory pure_miscTheory pure_configTheory state_cexpTheory
-     stateLangTheory state_app_unit_1ProofTheory state_app_unit_2ProofTheory
-     state_app_unitTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "state_app_unitProof";
-
-val _ = set_grammar_ancestry ["state_app_unit", "stateLang",
-  "state_cexp", "state_app_unit_1Proof", "state_app_unit_2Proof"];
 
 Inductive cexp1_rel:
 
@@ -981,5 +978,3 @@ Theorem cexp_wwf_optimise_app_unit:
 Proof
   rw [optimise_app_unit_def,cexp_wwf_push_app_unit]
 QED
-
-val _ = export_theory ();

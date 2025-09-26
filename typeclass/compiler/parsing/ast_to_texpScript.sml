@@ -1,17 +1,10 @@
-open HolKernel Parse boolLib bossLib dep_rewrite BasicProvers;
-
-open pairTheory optionTheory listTheory pred_setTheory finite_mapTheory;
-open typeclassASTTheory mlmapTheory mlstringTheory
-     typeclass_texpTheory typeclass_env_map_implTheory
-     pure_varsTheory typeclass_typesTheory typeclass_typingTheory
-     pure_miscTheory pure_configTheory;
-
-val _ = new_theory "ast_to_texp";
-
-val _ = set_grammar_ancestry [
-          "typeclassAST", "mlmap", "typeclass_texp",
-          "typeclass_types","pure_vars","typeclass_typing",
-          "typeclass_env_map_impl"]
+Theory ast_to_texp
+Ancestors
+  pair option list pred_set finite_map mlstring pure_misc pure_config
+  typeclassAST mlmap typeclass_texp typeclass_types pure_vars
+  typeclass_typing typeclass_env_map_impl
+Libs
+  dep_rewrite BasicProvers
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
@@ -1121,5 +1114,3 @@ Proof
     eq_tac >> rw[] >> gvs[] >>
     rpt (FULL_CASE_TAC >> gvs[]))
 QED
-
-val _ = export_theory();

@@ -1,9 +1,9 @@
 (* Definitions common to inference theories. *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open arithmeticTheory optionTheory listTheory;
-open pure_typingTheory;
-
-val _ = new_theory "pure_inference_common";
+Theory pure_inference_common
+Ancestors
+  arithmetic option list pure_typing
+Libs
+  BasicProvers dep_rewrite
 
 Datatype:
   itype = DBVar num
@@ -155,6 +155,4 @@ Termination
   WF_REL_TAC `measure itype_size` >> rw[fetch "-" "itype_size_def"] >>
   rename1 `MEM _ ts` >> Induct_on `ts` >> rw[fetch "-" "itype_size_def"] >> gvs[]
 End
-
-val _ = export_theory();
 

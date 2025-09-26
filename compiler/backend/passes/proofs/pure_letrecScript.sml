@@ -1,10 +1,11 @@
 (*
   Simplification of Letrec
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open pure_expTheory pure_miscTheory topological_sortTheory pure_letrec_cexpTheory;
-
-val _ = new_theory "pure_letrec";
+Theory pure_letrec
+Ancestors
+  pure_exp pure_misc topological_sort pure_letrec_cexp
+Libs
+  term_tactic
 
 (*
   The motivation for these Letrec simplifications is that the parser
@@ -91,4 +92,3 @@ End
 
 (*******************)
 
-val _ = export_theory();

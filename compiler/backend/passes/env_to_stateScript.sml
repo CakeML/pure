@@ -1,18 +1,16 @@
 (*
   Compiler from envLang to stateLang
  *)
+Theory env_to_state
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic pure_misc
+  pure_config state_app_unit state_names
+  pure_semantics[qualified]
+  env_cexp state_cexp pure_comp_conf
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_miscTheory pure_configTheory pure_comp_confTheory
-     env_cexpTheory state_cexpTheory
-     state_app_unitTheory state_namesTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "env_to_state";
-
-val _ = set_grammar_ancestry ["env_cexp", "state_cexp", "pure_comp_conf"];
 
 Definition Letrec_imm_def:
   (Letrec_imm vs ((Var v):env_cexp$cexp) ⇔ MEM v vs) ∧
@@ -149,5 +147,3 @@ Definition compile_to_state_def:
     let z = state_names$give_all_names y in
       z
 End
-
-val _ = export_theory ();

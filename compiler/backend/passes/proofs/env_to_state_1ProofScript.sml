@@ -1,18 +1,15 @@
 (*
   Correctness for compilation from envLang to stateLang
  *)
+Theory env_to_state_1Proof
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic pure_exp_lemmas pure_misc
+  thunkLang_primitives env_cexp pure_semantics[qualified]
+  stateLang envLang env_semantics pure_config
+Libs
+  BasicProvers dep_rewrite intLib
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory intLib
-open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     envLangTheory thunkLang_primitivesTheory env_cexpTheory
-     stateLangTheory env_semanticsTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "env_to_state_1Proof";
-
-val _ = set_grammar_ancestry ["stateLang", "envLang", "env_semantics", "pure_config"];
 
 Overload "app" = ``λe1 e2. App AppOp [e1;e2]``;
 Overload "slet" = ``λv e1 e2. stateLang$Let (SOME v) e1 e2``
@@ -1851,5 +1848,3 @@ Proof
   \\ simp [Once cont_rel_cases]
   \\ fs [env_rel_def,state_rel_def]
 QED
-
-val _ = export_theory ();

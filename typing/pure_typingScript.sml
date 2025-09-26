@@ -1,10 +1,9 @@
-open HolKernel Parse boolLib bossLib BasicProvers;
-open pairTheory arithmeticTheory integerTheory stringTheory optionTheory
-     listTheory alistTheory;
-open pure_tcexpTheory pure_configTheory;
-
-val _ = new_theory "pure_typing";
-
+Theory pure_typing
+Ancestors
+  pair arithmetic integer string option list alist pure_tcexp
+  pure_config
+Libs
+  BasicProvers
 
 (******************** Types ********************)
 
@@ -534,4 +533,3 @@ End
 
 (********************)
 
-val _ = export_theory();

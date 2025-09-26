@@ -1,15 +1,13 @@
 (*
    Various lemmas about the eval and eval_to functions from pure_evalTheory
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite;
-open pure_miscTheory pure_expTheory pure_valueTheory pure_evalTheory
-     pure_exp_lemmasTheory pure_limitTheory;
-
-val _ = new_theory "pure_eval_lemmas";
+Theory pure_eval_lemmas
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_misc pure_exp
+  pure_value pure_eval pure_exp_lemmas pure_limit
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 Theorem eval_eq_Cons_IMP:
   eval x = Constructor s xs ⇒
@@ -233,6 +231,4 @@ Proof
   rw[fmap_eq_flookup, FLOOKUP_FUNION, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE] >>
   IF_CASES_TAC >> gvs[] >> CASE_TAC >> simp[]
 QED
-
-val _ = export_theory();
 

@@ -1,17 +1,15 @@
 (*
   Proof of correctness for the thunk_to_env compiler pass.
  *)
+Theory thunk_to_envProof
+Ancestors
+  string option sum pair list alist pred_set rich_list
+  thunkLang_primitives envLang finite_map thunkLang
+  env_semantics thunk_semantics pure_misc thunkLangProps thunk_cexp
+  thunk_to_env thunk_to_env_1Proof thunk_exp_of
+Libs
+  term_tactic monadsyntax
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pred_setTheory rich_listTheory thunkLang_primitivesTheory envLangTheory
-     finite_mapTheory thunkLangTheory env_semanticsTheory thunk_semanticsTheory;
-open thunk_to_envTheory thunk_to_env_1ProofTheory thunk_exp_ofTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_cexpTheory thunk_to_envTheory;
-
-val _ = new_theory "thunk_to_envProof";
-
-val _ = set_grammar_ancestry ["thunk_to_env", "thunk_to_env_1Proof", "thunk_exp_of"]
 
 Triviality exp_rel_Disj:
   ∀xs x. exp_rel [] (Disj x xs) (Disj x xs)
@@ -69,7 +67,7 @@ Proof
    (fs [to_env_def] \\ irule exp_rel_Letrec \\ fs [cexp_wf_def]
     \\ fs [GSYM MAP_REVERSE,MAP_MAP_o,combinTheory.o_DEF]
     \\ fs [LIST_REL_MAP_MAP,LAMBDA_PROD]
-    \\ fs [FORALL_PROD,SF SFY_ss,EVERY_MEM])
+    \\ fs [FORALL_PROD,SF SFY_ss,EVERY_MEM,LIST_REL_same])
   >~ [‘Case’] >-
    (fs [to_env_def]
     \\ qpat_x_assum ‘_ ≠ []’ kall_tac
@@ -246,5 +244,3 @@ Proof
   ntac 2 strip_tac >> gvs[get_arg_def, env_cexpTheory.cns_arities_def] >>
   gvs[SF DNF_ss, SUBSET_DEF]
 QED
-
-val _ = export_theory ();

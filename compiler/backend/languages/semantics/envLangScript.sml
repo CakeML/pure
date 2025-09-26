@@ -8,13 +8,13 @@
 
    See [thunkLangScript.sml] for the thunkLang semantics.
  *)
+Theory envLang
+Ancestors
+  string option sum pair list alist pure_exp thunkLang_primitives
+  pure_misc mlstring env_cexp
+Libs
+  term_tactic monadsyntax
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     pure_expTheory thunkLang_primitivesTheory
-     pure_miscTheory mlstringTheory env_cexpTheory;
-
-val _ = new_theory "envLang";
 
 val _ = numLib.prefer_num();
 
@@ -541,4 +541,3 @@ Termination
   WF_REL_TAC ‘measure cexp_size’
 End
 
-val _ = export_theory ();

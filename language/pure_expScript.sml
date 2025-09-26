@@ -1,9 +1,9 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open stringTheory optionTheory pairTheory listTheory
-     finite_mapTheory pred_setTheory pure_configTheory;
-
-val _ = new_theory "pure_exp";
+Theory pure_exp
+Ancestors
+  string option pair list finite_map pred_set pure_config
+Libs
+  term_tactic
 
 (* AST for a small functional language *)
 
@@ -205,4 +205,3 @@ Termination
   PairCases_on `h` >> gvs[exp_size_def]
 End
 
-val _ = export_theory ();

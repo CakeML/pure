@@ -1,15 +1,13 @@
 (*
    This file defines three forms of relations between expressions.
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     dep_rewrite;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_miscTheory;
-
-val _ = new_theory "pure_exp_rel";
+Theory pure_exp_rel
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map pure_exp pure_value
+  pure_eval pure_eval_lemmas pure_exp_lemmas pure_limit pure_misc
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 val no_IN = SIMP_RULE std_ss [IN_DEF];
 
@@ -1424,4 +1422,3 @@ QED
 
 (********************)
 
-val _ = export_theory();

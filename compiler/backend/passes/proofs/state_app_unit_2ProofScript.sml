@@ -2,17 +2,15 @@
   Correctness for compilation that pushes applications to Unit as far in as possible,
   e.g. ‘(Let x = ... in foo) Unit’ becomes ‘Let x = ... in (foo Unit)’.
  *)
+Theory state_app_unit_2Proof
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic pure_exp_lemmas pure_misc pure_config
+  pure_semantics[qualified]
+  stateLang
+Libs
+  BasicProvers dep_rewrite
 
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory
-open pure_exp_lemmasTheory pure_miscTheory pure_configTheory
-     stateLangTheory;
-local open pure_semanticsTheory in end
-
-val _ = new_theory "state_app_unit_2Proof";
-
-val _ = set_grammar_ancestry ["stateLang"];
 
 Overload "app" = “λe1 e2. App AppOp [e1;(e2:exp)]”;
 Overload "wrap" = “λe. app (Lam NONE e) (Unit:exp)”;
@@ -1116,5 +1114,3 @@ Overload "wrap" = “λe. app (Lam NONE (e:cexp) Unit”;
 Overload "cont" = “λe. Let (SOME "a") (e:cexp) (Var "a")”;
 
 *)
-
-val _ = export_theory ();

@@ -1,8 +1,6 @@
-open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "pureNT";
-
-val _ = set_grammar_ancestry ["list"]
+Theory pureNT
+Ancestors[qualified]
+  list
 
 Datatype:
   ppegnt = nDecls | nDecl | nTyBase | nTy | nTyConDecl | nTyApp
@@ -31,4 +29,3 @@ end
 
 Theorem pureNTs_distinct[compute] = LIST_CONJ distinct_ths
 
-val _ = export_theory();

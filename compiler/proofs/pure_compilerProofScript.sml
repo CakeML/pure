@@ -1,24 +1,17 @@
 (*
    Correctness of PureLang compiler: concrete syntax -> CakeML AST
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory;
-open pure_demandTheory pure_letrecProofTheory;
-open pure_cexpTheory pure_to_cakeProofTheory pureParseTheory
-     pure_inferenceProofTheory state_to_cakeProofTheory
-     pure_letrec_cexpProofTheory pure_demands_analysisProofTheory
-     fromSexpTheory simpleSexpParseTheory pure_compilerTheory
-     pure_inline_cexpProofTheory pure_obs_sem_equalTheory;
-
-val _ = set_grammar_ancestry
-          ["pure_cexp", "pure_to_cakeProof", "pureParse", "pure_inferenceProof",
-           "pure_letrec_cexpProof", "pure_demands_analysisProof", "fromSexp",
-           "simpleSexpParse", "state_to_cakeProof", "pure_compiler",
-           "pure_inline_cexpProof", "pure_letrecProof"];
-
-val _ = new_theory "pure_compilerProof";
+Theory pure_compilerProof
+Ancestors
+  fixedPoint arithmetic list string alist option pair
+  ltree llist bag pred_set relation
+  rich_list finite_map pure_demand pure_obs_sem_equal
+  pure_cexp pure_to_cakeProof pureParse pure_inferenceProof
+  pure_letrec_cexpProof pure_demands_analysisProof fromSexp
+  simpleSexpParse state_to_cakeProof pure_compiler
+  pure_inline_cexpProof pure_letrecProof
+Libs
+  term_tactic dep_rewrite BasicProvers
 
 Theorem string_to_cexp_wf:
   string_to_cexp s = SOME (ce,ns) ⇒
@@ -212,5 +205,3 @@ Proof
   rw[compile_to_string] >> simp[string_to_ast_ast_to_string] >>
   drule compiler_correctness >> simp[]
 QED
-
-val _ = export_theory();

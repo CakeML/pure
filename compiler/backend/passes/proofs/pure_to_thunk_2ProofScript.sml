@@ -1,28 +1,20 @@
 (*
   Proof of correctness for the pure_to_thunk compiler pass.
  *)
+Theory pure_to_thunk_2Proof
+Ancestors
+  string option sum pair list alist finite_map pred_set
+  rich_list arithmetic combin pure_semantics thunk_semantics
+  pure_eval thunkLang_primitives pure_exp_lemmas pure_misc
+  thunk_unthunkProof thunk_case_liftProof thunk_case_projProof
+  thunk_let_forceProof pure_obs_sem_equal[qualified]
+  pure_to_thunk_1Proof pure_cexp thunk_exp_of thunkLang
+  thunk_cexp pureLang expof_caseProof
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax dep_rewrite;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory arithmeticTheory combinTheory
-     pure_semanticsTheory pure_evalTheory
-     thunkLangTheory thunk_semanticsTheory thunk_semantics_delayedTheory
-     thunkLang_primitivesTheory pure_exp_lemmasTheory pure_miscTheory
-     pure_to_thunk_1ProofTheory pure_cexpTheory pureLangTheory
-     thunk_unthunkProofTheory
-     thunk_undelay_nextProofTheory
-     thunk_case_liftProofTheory
-     thunk_case_projProofTheory thunk_exp_ofTheory
-     thunk_let_forceProofTheory
-     thunk_cexpTheory
-     expof_caseProofTheory;
-local open pure_obs_sem_equalTheory in end
-
-val _ = new_theory "pure_to_thunk_2Proof";
-
-val _ = set_grammar_ancestry
-          ["pure_to_thunk_1Proof", "pure_cexp", "thunk_exp_of",
-           "thunkLang", "thunk_cexp", "pureLang", "expof_caseProof"];
+(* Fix ML bindings *)
+open thunk_exp_ofTheory;
 
 Overload mk_delay_rel = ``λf x y. (∃c v. x = Var c v ∧ y = Var v) ∨
                                   (∃z. f x z ∧ y = Delay z)``
@@ -780,5 +772,3 @@ Proof
        thunk_case_projProofTheory.compile_case_proj_semantics \\ rw []
   \\ gvs [closed_def, pure_expTheory.closed_def]
 QED
-
-val _ = export_theory ();

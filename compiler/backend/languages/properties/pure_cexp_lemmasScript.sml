@@ -1,11 +1,10 @@
 
-open HolKernel Parse boolLib bossLib term_tactic BasicProvers dep_rewrite;
-open arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory pred_setTheory finite_mapTheory;
-open pure_miscTheory pure_cexpTheory pureLangTheory
-     pure_expTheory pure_exp_lemmasTheory;
-
-val _ = new_theory "pure_cexp_lemmas";
+Theory pure_cexp_lemmas
+Ancestors
+  arithmetic list string alist option pair pred_set finite_map
+  pure_misc pure_cexp pureLang pure_exp pure_exp_lemmas
+Libs
+  term_tactic BasicProvers dep_rewrite
 
 Theorem silly_cong_lemma[local]:
   ((∀a b. MEM (a,b) l2 ⇒ P a b) ⇔ (∀p. MEM p l2 ⇒ P (FST p) (SND p))) ∧
@@ -471,4 +470,3 @@ Proof
 QED
 
 
-val _ = export_theory();

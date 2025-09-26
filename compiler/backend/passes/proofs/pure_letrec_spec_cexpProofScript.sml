@@ -1,16 +1,14 @@
-open HolKernel Parse boolLib bossLib;
-open fixedPointTheory arithmeticTheory listTheory stringTheory alistTheory
-     optionTheory pairTheory ltreeTheory llistTheory bagTheory dep_rewrite
-     BasicProvers pred_setTheory relationTheory rich_listTheory finite_mapTheory
-     combinTheory mlmapTheory indexedListsTheory;
-open pure_expTheory pure_valueTheory pure_evalTheory pure_eval_lemmasTheory
-     pure_exp_lemmasTheory pure_limitTheory pure_exp_relTheory
-     pure_miscTheory pure_letrec_delargTheory pure_barendregtTheory;
-open pure_cexpTheory pure_varsTheory balanced_mapTheory pureLangTheory;
-open pure_exp_relTheory pure_congruenceTheory
-open pure_inline_relTheory pure_letrec_spec_cexpTheory pure_letrecProofTheory
-
-val _ = new_theory "pure_letrec_spec_cexpProof";
+Theory pure_letrec_spec_cexpProof
+Ancestors
+  fixedPoint arithmetic list string alist option pair ltree llist
+  bag pred_set relation rich_list finite_map combin mlmap
+  indexedLists pure_exp pure_value pure_eval pure_eval_lemmas
+  pure_exp_lemmas pure_limit pure_exp_rel pure_misc
+  pure_letrec_delarg pure_barendregt pure_cexp pure_vars
+  balanced_map pureLang pure_exp_rel pure_congruence
+  pure_inline_rel pure_letrec_spec_cexp pure_letrecProof
+Libs
+  dep_rewrite BasicProvers
 
 Theorem exp_of_SmartLam[simp]:
   exp_of (SmartLam a vs x) = exp_of (Lam a vs x)
@@ -1114,4 +1112,3 @@ Proof
   \\ metis_tac []
 QED
 
-val _ = export_theory();

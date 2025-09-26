@@ -3,13 +3,13 @@
     App (Lam x body) arg ≅ ca_subst [(x,arg)] body
     Letrec fns e ≅ ca_subst (MAP (λ(f,body). (f, Letrec fns body)) fns) e
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pairTheory listTheory rich_listTheory alistTheory finite_mapTheory pred_setTheory;
-open pure_miscTheory pure_expTheory pure_exp_lemmasTheory pure_evalTheory
-     pure_exp_relTheory pure_alpha_equivTheory pure_congruenceTheory;
-
-val _ = new_theory "pure_beta_equiv";
-
+Theory pure_beta_equiv
+Ancestors
+  pair list rich_list alist finite_map pred_set pure_misc
+  pure_exp pure_exp_lemmas pure_eval pure_exp_rel
+  pure_alpha_equiv pure_congruence
+Libs
+  BasicProvers dep_rewrite
 
 (********** Freshening as a relation **********)
 
@@ -765,4 +765,3 @@ QED
 Theorem id_iidd_equivalence_expanded =
    id_iidd_equivalence |> REWRITE_RULE [iidd_exp_def,id_exp_def]
 
-val _ = export_theory();

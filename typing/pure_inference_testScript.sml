@@ -1,7 +1,8 @@
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open pure_inferenceTheory pure_inferenceLib;
-
-val _ = new_theory "pure_inference_test";
+Theory pure_inference_test
+Ancestors
+  pure_print pure_inference
+Libs
+  BasicProvers dep_rewrite pure_inferenceLib
 
 (********************)
 
@@ -466,5 +467,3 @@ QED
 
 
 (********************)
-
-val _ = export_theory();

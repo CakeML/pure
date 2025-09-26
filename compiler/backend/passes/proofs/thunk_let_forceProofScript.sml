@@ -8,18 +8,15 @@
      Let (SOME m) (Force (Var n)) body
 
 *)
+Theory thunk_let_forceProof
+Ancestors
+  string option sum pair list alist
+  thunkLang_primitives arithmetic pure_misc
+  finite_map pred_set rich_list thunkLang wellorder
+  thunkLangProps
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semantics_delayedTheory;
-
-val _ = new_theory "thunk_let_forceProof";
-
-val _ = set_grammar_ancestry ["finite_map", "pred_set", "rich_list",
-                              "thunkLang", "wellorder", "thunkLangProps",
-                              "thunk_semantics_delayed"];
 
 Overload safe_itree = “pure_semantics$safe_itree”
 
@@ -2469,5 +2466,3 @@ Proof
   \\ imp_res_tac exp_rel_NONE_freevars \\ fs []
   \\ fs [closed_def]
 QED
-
-val _ = export_theory ();

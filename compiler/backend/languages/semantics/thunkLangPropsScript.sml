@@ -1,18 +1,15 @@
 (*
   Some useful theorems about the thunkLang_subst syntax and semantics.
  *)
+Theory thunkLangProps
+Ancestors
+  string option sum pair list alist finite_map
+  pred_set rich_list thunkLang_primitives
+  pure_semantics[qualified]
+  thunkLang pure_misc thunk_semantics
+Libs
+  term_tactic monadsyntax intLib
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax intLib;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory thunk_semanticsTheory;
-open pure_miscTheory;
-
-local open pure_semanticsTheory in end;
-
-val _ = new_theory "thunkLangProps";
-
-val _ = set_grammar_ancestry ["thunkLang", "pure_misc", "thunk_semantics"];
 
 val _ = numLib.prefer_num ();
 
@@ -1282,5 +1279,3 @@ Proof
     first_x_assum (drule_then assume_tac) \\ gs [])
   \\ first_x_assum (drule_then assume_tac) \\ gs []
 QED
-
-val _ = export_theory ();

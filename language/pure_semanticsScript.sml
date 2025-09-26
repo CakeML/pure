@@ -1,9 +1,9 @@
 
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory stringTheory alistTheory optionTheory
-     pure_evalTheory itreeTheory pure_configTheory;
-
-val _ = new_theory "pure_semantics";
+Theory pure_semantics
+Ancestors
+  arithmetic list string alist option pure_eval itree pure_config
+Libs
+  term_tactic
 
 (* definitions *)
 
@@ -559,4 +559,3 @@ Proof
   \\ metis_tac [eq_imp_compiles_to]
 QED
 
-val _ = export_theory();

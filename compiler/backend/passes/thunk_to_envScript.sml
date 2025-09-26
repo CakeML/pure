@@ -1,14 +1,12 @@
 (*
   Definition of thunk_to_env compiler pass.
  *)
+Theory thunk_to_env
+Ancestors
+  string option sum pair list thunk_cexp env_cexp
+Libs
+  term_tactic monadsyntax
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory;
-open thunk_cexpTheory env_cexpTheory;
-
-val _ = new_theory "thunk_to_env";
-
-val _ = set_grammar_ancestry ["thunk_cexp", "env_cexp"]
 
 Definition get_arg_def:
   get_arg n [] = env_cexp$Prim (Cons (strlit "")) [] ∧
@@ -54,5 +52,3 @@ Definition to_env_def:
 Termination
   WF_REL_TAC ‘measure cexp_size’
 End
-
-val _ = export_theory ();

@@ -6,14 +6,14 @@
 
   This relation comes with the one defined in thunk_Delay_Lam.
 *)
+Theory thunk_Let_Delay_Var
+Ancestors
+  string option sum pair list alist finite_map pred_set rich_list
+  thunkLang thunkLang_primitives wellorder arithmetic pure_misc
+  thunkLangProps thunk_semantics thunk_NRC_rel
+Libs
+  term_tactic monadsyntax dep_rewrite
 
-open HolKernel Parse boolLib bossLib term_tactic monadsyntax;
-open stringTheory optionTheory sumTheory pairTheory listTheory alistTheory
-     finite_mapTheory pred_setTheory rich_listTheory thunkLangTheory
-     thunkLang_primitivesTheory dep_rewrite wellorderTheory arithmeticTheory;
-open pure_miscTheory thunkLangPropsTheory thunk_semanticsTheory thunk_NRC_relTheory;
-
-val _ = new_theory "thunk_Let_Delay_Var";
 
 Definition replace_Force_def:
   (replace_Force expr v1 (Force (Var v2)) = if v1 = v2
@@ -3870,5 +3870,3 @@ let v1 = Lam s (Let (SOME s2) (Force s) e)
 let v2 = Lam s2 e in Let v1 = Lam s (App v2 (Force s))
 
 *)
-
-val _ = export_theory ();

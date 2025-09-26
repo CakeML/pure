@@ -1,10 +1,9 @@
 (*
    End-to-end correctness for the PureCake compiler
 *)
-open HolKernel Parse boolLib bossLib;
-open pure_compilerProofTheory backend_itreeProofTheory state_to_cakeProofTheory;
-
-val _ = new_theory "pure_end_to_endProof";
+Theory pure_end_to_endProof
+Ancestors
+  pure_compilerProof backend_itreeProof state_to_cakeProof
 
 Overload cake_compile = ``backend$compile``;
 
@@ -35,6 +34,4 @@ Proof
   irule itree_compile_correct >> gvs[PULL_EXISTS, GSYM ffi_convention_def] >>
   rpt $ goal_assum $ drule_at Any >> simp[]
 QED
-
-val _ = export_theory();
 
