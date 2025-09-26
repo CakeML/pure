@@ -7,7 +7,7 @@ Ancestors
   string option sum pair list alist thunkLang_primitives
   pure_misc thunk_untickProof
   finite_map pred_set rich_list thunkLang thunk_semantics
-  thunkLangProps
+  thunk_semantics_delayed thunkLangProps
 Libs
   term_tactic monadsyntax intLib dep_rewrite
 

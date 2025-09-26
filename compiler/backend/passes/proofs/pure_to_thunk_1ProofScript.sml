@@ -4,8 +4,8 @@
 Theory pure_to_thunk_1Proof
 Ancestors
   string option sum pair list alist thunkLang pure_eval thunkLang_primitives
-  finite_map pred_set rich_list pure_semantics thunk_semantics pure_exp_lemmas
-  pure_misc pure_config
+  finite_map pred_set rich_list pure_semantics thunk_semantics
+  thunk_semantics_delayed pure_exp_lemmas pure_misc pure_config
 Libs
   term_tactic monadsyntax dep_rewrite intLib
 
