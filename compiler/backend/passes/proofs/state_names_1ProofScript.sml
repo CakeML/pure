@@ -537,18 +537,22 @@ Proof
   \\ fs [SUBSET_DEF]
 QED
 
-Theorem dest_thunk_ptr_rel:
+Theorem check_thunk_v_rel:
   state_rel x y ∧
   v_rel v w ∧
-  dest_thunk_ptr v x = NotThunk ⇒
-    dest_thunk_ptr w y = NotThunk
+  check_thunk_v v (SOME x) = CT_NotThunk ⇒
+    check_thunk_v w (SOME y) = CT_NotThunk
 Proof
-  rw [oneline dest_thunk_ptr_def, AllCaseEqs()]
-  \\ gvs [Once v_rel_cases]
-  \\ gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
-  \\ first_x_assum drule \\ simp []
-  \\ simp [oneline store_rel_def]
-  \\ TOP_CASE_TAC \\ gvs []
+  rw [check_thunk_v_def, dest_anyThunk_def, AllCaseEqs()] \\ gvs []
+  \\ rgs [Once v_rel_cases] \\ gvs [dest_thunk_ptr_def, AllCaseEqs()]
+  >- (
+    gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
+    \\ first_x_assum drule \\ simp []
+    \\ simp [oneline store_rel_def]
+    \\ TOP_CASE_TAC \\ gvs [])
+  \\ gvs [ALOOKUP_NONE]
+  \\ drule_all ALOOKUP_list_rel \\ rw [] \\ gvs []
+  \\ rgs [Once compile_rel_cases]
 QED
 
 Theorem step_1_forward:
@@ -710,7 +714,7 @@ Proof
    (gvs [step]
     \\ last_x_assum mp_tac
     \\ ntac 2 (TOP_CASE_TAC \\ gvs[]) \\ gvs [OPTREL_def]
-    \\ drule_all_then assume_tac dest_thunk_ptr_rel \\ gvs []
+    \\ drule_all_then assume_tac check_thunk_v_rel \\ gvs []
     \\ TOP_CASE_TAC \\ gvs []
     \\ strip_tac \\ gvs[]
     \\ gvs [state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]

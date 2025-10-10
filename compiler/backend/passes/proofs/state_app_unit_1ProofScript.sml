@@ -662,27 +662,42 @@ Proof
   \\ simp [Once cont_rel_cases]
 QED
 
-Definition dest_thunk_ptr_res_rel_def[simp]:
-  dest_thunk_ptr_res_rel BadRef BadRef = T ∧
-  dest_thunk_ptr_res_rel NotThunk NotThunk = T ∧
-  dest_thunk_ptr_res_rel (IsThunk m1 v1) (IsThunk m2 v2) =
-    (m1 = m2 ∧ v_rel v1 v2) ∧
-  dest_thunk_ptr_res_rel _ _ = F
-End
-
-Theorem dest_thunk_ptr_rel:
-  state_rel s1 s2 ∧
-  v_rel v1 v2 ∧
-  dest_thunk_ptr v2 s2 = res2 ⇒
-    ∃res1.
-      dest_thunk_ptr v1 s1 = res1 ∧
-      dest_thunk_ptr_res_rel res1 res2
+Theorem check_thunk_v_rel:
+  ∀v1 v2.
+    v_rel v1 v2 ⇒
+      (state_rel s1 s2 ⇒
+       check_thunk_v v1 (SOME s1) = r ⇒
+       check_thunk_v v2 (SOME s2) = r)
 Proof
-  rw [oneline dest_thunk_ptr_def, AllCaseEqs()]
-  \\ gvs [Once v_rel_cases]
-  \\ rpt (TOP_CASE_TAC \\ gvs [])
-  \\ gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
-  \\ first_x_assum drule \\ simp [store_rel_def]
+  ‘(∀v1 v2.
+      v_rel v1 v2 ⇒
+        (state_rel s1 s2 ⇒
+         check_thunk_v v1 (SOME s1) = r ⇒
+         check_thunk_v v2 (SOME s2) = r)) ∧
+   (∀x y. env_rel x y ⇒ T)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >~ [‘Constructor’] >- gvs [check_thunk_v_def, dest_anyThunk_def]
+  >~ [‘Closure’] >- gvs [check_thunk_v_def, dest_anyThunk_def]
+  >~ [‘Atom’] >- (
+    gvs [check_thunk_v_def, dest_anyThunk_def]
+    \\ TOP_CASE_TAC \\ gvs [dest_thunk_ptr_def]
+    \\ rpt (CASE_TAC \\ gvs [])
+    \\ gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
+    \\ first_x_assum drule \\ simp [store_rel_def])
+  \\ gvs [check_thunk_v_def, dest_anyThunk_def]
+  \\ rpt (CASE_TAC \\ gvs [])
+  >>~ [‘ALOOKUP _ _ = NONE’]
+  >- (drule_all ALOOKUP_SOME_EL_2 \\ gvs [])
+  >- (
+    qpat_x_assum ‘MAP FST _ = MAP FST _’ (assume_tac o GSYM)
+    \\ drule_all ALOOKUP_SOME_EL_2 \\ gvs [])
+  \\ (
+    drule_all ALOOKUP_list_rel \\ rw [] \\ gvs []
+    \\ rgs [Once compile_rel_cases] \\ gvs []
+    \\ rpt strip_tac \\ gvs []
+    \\ drule_then assume_tac ALOOKUP_SOME_EL \\ gvs [EVERY_EL]
+    \\ first_x_assum drule \\ gvs [])
 QED
 
 Theorem step_1_Val_forward:
@@ -727,16 +742,15 @@ Proof
   >~ [‘ForceMutK’] >-
    (gvs [step]
     \\ qpat_x_assum ‘_ = (sr1,ss1,sk1)’ mp_tac
-    \\ TOP_CASE_TAC \\ gvs [OPTREL_def] >- simp [step_res_rel_cases]
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ drule_all dest_thunk_ptr_rel \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs []
-    >~ [‘BadRef’] >- rw [step_res_rel_cases]
-    >~ [‘IsThunk’] >- rw [step_res_rel_cases]
+    \\ Cases_on ‘ss’ \\ gvs [OPTREL_def]
+    >- (rpt (TOP_CASE_TAC \\ gvs []) \\ simp [step_res_rel_cases])
+    \\ Cases_on ‘check_thunk_v v1 (SOME x0)’ \\ gvs []
+    \\ drule_all check_thunk_v_rel \\ gvs []
+    >~ [‘CT_Error’] >- rw [step_res_rel_cases]
+    >~ [‘CT_IsThunk’] >- rw [step_res_rel_cases]
+    \\ rw []
     \\ (
-      rpt strip_tac \\ gvs []
-      \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
-      \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE] \\ rw []
+      gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE] \\ rw []
       \\ simp [step_res_rel_cases, store_rel_def]
       \\ qpat_x_assum ‘store_same_type _ _’ mp_tac
       \\ qpat_x_assum ‘¬store_same_type _ _’ mp_tac

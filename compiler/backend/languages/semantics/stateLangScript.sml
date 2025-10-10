@@ -374,6 +374,30 @@ Definition application_def:
     | _ => error st k)
 End
 
+Datatype:
+  check_thunk_v_ret
+    = CT_Error
+    | CT_NotThunk
+    | CT_IsThunk
+End
+
+Definition check_thunk_v_def:
+  check_thunk_v v st =
+    case dest_anyThunk v of
+    | NONE =>
+      (case v of
+       | Atom (Loc n) =>
+         (case st of
+          | NONE => CT_Error
+          | SOME stores =>
+            (case dest_thunk_ptr v stores of
+             | BadRef => CT_Error
+             | NotThunk => CT_NotThunk
+             | IsThunk _ _ => CT_IsThunk))
+       | _ => CT_NotThunk)
+    | SOME _ => CT_IsThunk
+End
+
 (* Return a value and handle a continuation *)
 Definition return_def:
   return v st [] = value v st [] ∧
@@ -398,26 +422,28 @@ Definition return_def:
      | SOME (INL v, _) => value v st k
      | SOME (INR (env, x), fns) => continue (mk_rec_env fns env) x NONE (ForceK2 st :: k)) ∧
   return v temp_st (ForceK2 st :: k) =
-    (case dest_anyThunk v of
-     | NONE => value v st k
-     | SOME _ => error st k) ∧
+    (case check_thunk_v v st of
+     | CT_Error => error st k
+     | CT_NotThunk => value v st k
+     | CT_IsThunk => error st k) ∧
   return v st (BoxK :: k) =
-    (case dest_anyThunk v of
-     | NONE => value (Thunk $ INL v) st k
-     | SOME _ => error st k) ∧
+    (case check_thunk_v v st of
+     | CT_Error => error st k
+     | CT_NotThunk => value (Thunk $ INL v) st k
+     | CT_IsThunk => error st k) ∧
   return v st (ForceMutK n :: k) =
-    (case st of
-     | SOME stores =>
-         (case dest_thunk_ptr v stores of
-          | BadRef => error st k
-          | NotThunk =>
-              if n < LENGTH stores ∧
-                  store_same_type (EL n stores) (ThunkMem Evaluated v) then
-                 value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
-              else
-                error st k
-          | IsThunk _ _ => error st k)
-     | NONE => error st k)
+    (case check_thunk_v v st of
+     | CT_Error => error st k
+     | CT_NotThunk =>
+       (case st of
+        | NONE => error st k
+        | SOME stores =>
+          if n < LENGTH stores ∧
+              store_same_type (EL n stores) (ThunkMem Evaluated v) then
+             value v (SOME (LUPDATE (ThunkMem Evaluated v) n stores)) k
+          else
+            error st k)
+     | CT_IsThunk => error st k)
 End
 
 Definition find_match_list_def:
@@ -956,14 +982,15 @@ Proof
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
     \\ strip_tac \\ fs [])
   >~ [‘BoxK’] >-
-   (fs [return_def,continue_def,value_def]
-    \\ rw [] \\ fs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
-    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
-    \\ Cases_on `dest_anyThunk v` \\ gvs []
+   (gvs [return_def,continue_def,value_def,error_def]
+    \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ gvs [check_thunk_v_def, dest_anyThunk_def, AllCaseEqs()]
     \\ last_x_assum $ drule_at Any \\ rw []
     \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [step_n_def]
     \\ last_x_assum $ drule_at Any \\ rw [] \\ gvs [GSYM step_n_def]
-    \\ gvs [step_n_Val,step_n_Error])
+    \\ gvs [step_n_Val,step_n_Error]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val])
   >~ [‘ForceK1’] >-
    (fs [return_def,continue_def,value_def]
     \\ CASE_TAC
@@ -980,14 +1007,15 @@ Proof
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
     \\ strip_tac \\ fs [])
   >~ [‘ForceK2’] >-
-   (fs [return_def,continue_def,value_def]
-    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
-    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
-    \\ Cases_on `dest_anyThunk v` \\ gvs []
+   (gvs [return_def,continue_def,value_def,error_def]
+    \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ gvs [check_thunk_v_def, dest_anyThunk_def, AllCaseEqs()]
     \\ last_x_assum $ drule_at Any \\ rw []
     \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [step_n_def]
     \\ last_x_assum $ drule_at Any \\ rw [] \\ gvs [GSYM step_n_def]
-    \\ gvs [step_n_Val,step_n_Error])
+    \\ gvs [step_n_Val,step_n_Error]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val])
   >~ [‘RaiseK’] >-
    (fs [return_def,error_def] \\ fs [error_def]
     \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
@@ -1005,9 +1033,15 @@ Proof
     \\ last_x_assum $ drule_at $ Pos $ el 2 \\ impl_tac >- fs []
     \\ strip_tac \\ fs [])
   >~ [‘ForceMutK’] >-
-   (fs [return_def,error_def,value_def]
-    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val]
-    \\ rw [] \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def])
+   (gvs [return_def,continue_def,value_def,error_def]
+    \\ gvs [step_n_Val,step_n_Error,error_def,GSYM step_n_def]
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ gvs [check_thunk_v_def, dest_anyThunk_def, AllCaseEqs()]
+    \\ last_x_assum $ drule_at Any \\ rw []
+    \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [step_n_def]
+    \\ last_x_assum $ drule_at Any \\ rw [] \\ gvs [GSYM step_n_def]
+    \\ gvs [step_n_Val,step_n_Error]
+    \\ Cases_on ‘t’ \\ fs [step_n_Val] \\ gvs [step_n_Val])
   \\ rename [‘AppK env sop vs es’] \\ gvs []
   \\ reverse (Cases_on ‘es’)
   \\ fs [return_def,continue_def]

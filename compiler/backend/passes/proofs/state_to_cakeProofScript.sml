@@ -1776,6 +1776,8 @@ Proof
   >- ( (* ForceMutK *)
     first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
     ntac 2 (TOP_CASE_TAC >> gvs[]) >>
+    ‘dest_thunk_ptr sv sst = NotThunk’ by (
+      gvs [check_thunk_v_def, AllCaseEqs(), dest_thunk_ptr_def]) >> gvs [] >>
     drule_all_then assume_tac dest_thunk_rel >> gvs[] >>
     qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
     reverse $ rw[store_assign_def]
