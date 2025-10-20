@@ -94,6 +94,10 @@ Inductive v_rel:
   (∀a.
      v_rel (Atom a) (Atom a))
 
+[~ThunkLoc:]
+  (∀n.
+     v_rel (ThunkLoc n) (ThunkLoc n))
+
 [~Constructor:]
   (∀s tvs svs.
      LIST_REL v_rel tvs svs ⇒
@@ -424,7 +428,6 @@ Proof
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ Cases_on ‘a’ \\ gvs []
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
     \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
@@ -438,7 +441,6 @@ Proof
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac
     \\ gvs [error_def,step_res_rel_cases]
-    \\ Cases_on ‘a’ \\ gvs []
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [] >>
        gvs[oEL_THM] >> imp_res_tac state_rel_def >> gvs[LIST_REL_EL_EQN] >>
        last_x_assum mp_tac >>
@@ -773,42 +775,26 @@ Proof
     \\ fs [])
 QED
 
-Theorem check_thunk_v_rel:
-  ∀v1 v2.
-    v_rel v1 v2 ⇒
-      (state_rel s1 s2 ⇒
-       check_thunk_v v1 (SOME s1) = r ⇒
-       check_thunk_v v2 (SOME s2) = r)
+Theorem thunk_or_thunk_loc_rel:
+  v_rel v w ⇒
+    thunk_or_thunk_loc v = thunk_or_thunk_loc w
 Proof
-  ‘(∀v1 v2.
-      v_rel v1 v2 ⇒
-        (state_rel s1 s2 ⇒
-         check_thunk_v v1 (SOME s1) = r ⇒
-         check_thunk_v v2 (SOME s2) = r)) ∧
+  ‘(∀v w. v_rel v w ⇒ thunk_or_thunk_loc v = thunk_or_thunk_loc w) ∧
    (∀x y. env_rel x y ⇒ T)’
     suffices_by gvs []
   \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
-  >~ [‘Constructor’] >- gvs [check_thunk_v_def, dest_anyThunk_def]
-  >~ [‘Closure’] >- gvs [check_thunk_v_def, dest_anyThunk_def]
-  >~ [‘Atom’] >- (
-    gvs [check_thunk_v_def, dest_anyThunk_def]
-    \\ TOP_CASE_TAC \\ gvs [dest_thunk_ptr_def]
-    \\ rpt (CASE_TAC \\ gvs [])
-    \\ gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
-    \\ first_x_assum drule \\ simp [store_rel_def])
-  \\ gvs [check_thunk_v_def, dest_anyThunk_def]
+  >~ [‘Constructor’] >- gvs [thunk_or_thunk_loc_def, dest_anyThunk_def]
+  >~ [‘Closure’] >- gvs [thunk_or_thunk_loc_def, dest_anyThunk_def]
+  \\ gvs [thunk_or_thunk_loc_def, dest_anyThunk_def]
   \\ rpt (CASE_TAC \\ gvs [])
   >>~ [‘ALOOKUP _ _ = NONE’]
-  >- (drule_all ALOOKUP_SOME_EL_2 \\ gvs [])
   >- (
     qpat_x_assum ‘MAP FST _ = MAP FST _’ (assume_tac o GSYM)
     \\ drule_all ALOOKUP_SOME_EL_2 \\ gvs [])
+  >- (drule_all ALOOKUP_SOME_EL_2 \\ gvs [])
   \\ (
     drule_all ALOOKUP_list_rel \\ rw [] \\ gvs []
-    \\ rgs [Once compile_rel_cases] \\ gvs []
-    \\ rpt strip_tac \\ gvs []
-    \\ drule_then assume_tac ALOOKUP_SOME_EL \\ gvs [EVERY_EL]
-    \\ first_x_assum drule \\ gvs [])
+    \\ rgs [Once compile_rel_cases] \\ gvs [])
 QED
 
 Theorem step_1_forward:
@@ -977,12 +963,8 @@ Proof
       \\ last_x_assum irule \\ gvs []
       \\ metis_tac [step_res_rel_cases])
     \\ TOP_CASE_TAC \\ gvs []
-    \\ drule_all check_thunk_v_rel \\ gvs []
-    >~ [‘CT_Error’] >- (
-      rw []
-      \\ last_x_assum irule \\ gvs []
-      \\ metis_tac [step_res_rel_cases])
-    >~ [‘CT_IsThunk’] >- (
+    \\ drule_all thunk_or_thunk_loc_rel \\ gvs []
+    >- (
       rw []
       \\ last_x_assum irule \\ gvs []
       \\ metis_tac [step_res_rel_cases])

@@ -81,6 +81,10 @@ Inductive v_rel:
   (∀a.
      v_rel (Atom a) (Atom a))
 
+[~ThunkLoc:]
+  (∀n.
+     v_rel (ThunkLoc n) (ThunkLoc n))
+
 [~Constructor:]
   (∀s tvs svs.
      LIST_REL v_rel tvs svs ⇒
@@ -130,7 +134,7 @@ Inductive step_res_rel:
 End
 
 Definition store_rel_def:
-  store_rel (Array vs1) (Array vs2) = LIST_REL v_rel vs1 vs2 ∧  
+  store_rel (Array vs1) (Array vs2) = LIST_REL v_rel vs1 vs2 ∧
   store_rel (ThunkMem m1 v1) (ThunkMem m2 v2) =
     (m1 = m2 ∧ v_rel v1 v2) ∧
   store_rel _ _ = F
@@ -459,7 +463,6 @@ Proof
    (gvs [application_def,step,step_res_rel_cases]
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac \\ gvs []
-    \\ Cases_on ‘a’ \\ gvs []
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs []
     \\ gvs [AllCaseEqs(),oEL_THM,state_rel_def,LIST_REL_EL_EQN]
     \\ first_assum drule \\ asm_rewrite_tac [store_rel_def] \\ strip_tac
@@ -473,7 +476,6 @@ Proof
     \\ qpat_x_assum ‘v_rel x h’ mp_tac
     \\ simp [Once v_rel_cases] \\ strip_tac
     \\ gvs [error_def,step_res_rel_cases]
-    \\ Cases_on ‘a’ \\ gvs []
     \\ Cases_on ‘ts’ \\ Cases_on ‘ss’ \\ gvs [] >>
        gvs[oEL_THM] >> imp_res_tac state_rel_def >> gvs[LIST_REL_EL_EQN] >>
        last_x_assum mp_tac >>
@@ -537,20 +539,19 @@ Proof
   \\ fs [SUBSET_DEF]
 QED
 
-Theorem check_thunk_v_rel:
-  state_rel x y ∧
+Theorem thunk_or_thunk_loc_rel:
   v_rel v w ∧
-  check_thunk_v v (SOME x) = CT_NotThunk ⇒
-    check_thunk_v w (SOME y) = CT_NotThunk
+  ¬thunk_or_thunk_loc v ⇒
+    ¬thunk_or_thunk_loc w
 Proof
-  rw [check_thunk_v_def, dest_anyThunk_def, AllCaseEqs()] \\ gvs []
-  \\ rgs [Once v_rel_cases] \\ gvs [dest_thunk_ptr_def, AllCaseEqs()]
+  simp [thunk_or_thunk_loc_def, dest_anyThunk_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ simp [Once v_rel_cases] \\ gvs [AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ Cases_on ‘LIST_REL compile_rel (MAP SND l0) (MAP SND f)’ \\ gvs []
   >- (
-    gvs [state_rel_def, LIST_REL_EL_EQN, oEL_THM]
-    \\ first_x_assum drule \\ simp []
-    \\ simp [oneline store_rel_def]
-    \\ TOP_CASE_TAC \\ gvs [])
-  \\ gvs [ALOOKUP_NONE]
+    qpat_x_assum ‘MAP FST _ = MAP FST _’ (assume_tac o GSYM)
+    \\ drule_all ALOOKUP_SOME_EL_2 \\ gvs [])
   \\ drule_all ALOOKUP_list_rel \\ rw [] \\ gvs []
   \\ rgs [Once compile_rel_cases]
 QED
@@ -714,7 +715,7 @@ Proof
    (gvs [step]
     \\ last_x_assum mp_tac
     \\ ntac 2 (TOP_CASE_TAC \\ gvs[]) \\ gvs [OPTREL_def]
-    \\ drule_all_then assume_tac check_thunk_v_rel \\ gvs []
+    \\ drule_all_then assume_tac thunk_or_thunk_loc_rel \\ gvs []
     \\ TOP_CASE_TAC \\ gvs []
     \\ strip_tac \\ gvs[]
     \\ gvs [state_rel_def, LIST_REL_EL_EQN, PULL_EXISTS]

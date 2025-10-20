@@ -403,54 +403,59 @@ End
 
 Inductive v_rel:
 [~Tuple:]
-  (LIST_REL (v_rel cnenv) svs cvs
-    ⇒ v_rel cnenv (Constructor "" svs) (Conv NONE cvs))
+  (LIST_REL (v_rel cnenv st) svs cvs
+    ⇒ v_rel cnenv st (Constructor "" svs) (Conv NONE cvs))
 
 [~Constructor:]
-  (LIST_REL (v_rel cnenv) svs cvs ∧
+  (LIST_REL (v_rel cnenv st) svs cvs ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
    ar = LENGTH svs ∧ cn ≠ ""
-    ⇒ v_rel cnenv (Constructor cn svs) (Conv (SOME tyid) cvs))
+    ⇒ v_rel cnenv st (Constructor cn svs) (Conv (SOME tyid) cvs))
 
 [~Closure:]
-  (compile_rel cnenv se ce ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-   ⇒ v_rel cnenv (Closure (SOME sx) senv se) (Closure cenv (var_prefix sx) ce))
+  (compile_rel cnenv se ce ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+   ⇒ v_rel cnenv st (Closure (SOME sx) senv se) (Closure cenv (var_prefix sx) ce))
 
 [~Recclosure:]
-  (compile_rel cnenv se ce ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+  (compile_rel cnenv se ce ∧ env_rel cnenv st senv cenv∧ env_ok cenv ∧
    LIST_REL (λ(sv,se) (cv,cx,ce).
         var_prefix sv = cv ∧
         ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧ compile_rel cnenv se' ce)
       sfuns cfuns ∧
    ALL_DISTINCT (MAP FST cfuns)
-   ⇒ v_rel cnenv (stateLang$Recclosure sfuns senv sx)
-                 (Recclosure cenv cfuns (var_prefix sx)))
+   ⇒ v_rel cnenv st (stateLang$Recclosure sfuns senv sx)
+                    (Recclosure cenv cfuns (var_prefix sx)))
 
 [~IntLit:]
-  v_rel cnenv (Atom $ Int i) (Litv $ IntLit i)
+  v_rel cnenv st (Atom $ Int i) (Litv $ IntLit i)
 
 [~StrLit:]
-  v_rel cnenv (Atom $ Str s) (Litv $ StrLit s)
+  v_rel cnenv st (Atom $ Str s) (Litv $ StrLit s)
 
 [~Loc:]
-  v_rel cnenv (Atom $ Loc n) (Loc b (n + 1)) (* leave space for FFI array *)
+  (n < LENGTH st ∧
+   (∀t v. EL n st ≠ ThunkMem t v)
+   ⇒ v_rel cnenv st (Atom $ Loc n) (Loc b (n + 1))) (* leave space for FFI array *)
+
+[~ThunkLoc:]
+  v_rel cnenv st (ThunkLoc n) (Loc b (n + 1))
 
 [~env_rel:]
   (cnenv_rel cnenv cenv.c ∧
    (∀sx sv.
       ALOOKUP senv sx = SOME sv ⇒
-      ∃cv. nsLookup cenv.v (Short $ var_prefix sx) = SOME cv ∧ v_rel cnenv sv cv)
-    ⇒ env_rel cnenv senv cenv)
+      ∃cv. nsLookup cenv.v (Short $ var_prefix sx) = SOME cv ∧ v_rel cnenv st sv cv)
+    ⇒ env_rel cnenv st senv cenv)
 End
 
 Theorem env_rel_def = cj 2 v_rel_cases;
 Theorem v_rel_cases[allow_rebind] = cj 1 v_rel_cases;
 
 Theorem v_rel_def[simp] = [
-  “v_rel cnenv (Constructor cn svs) cv”,
-  “v_rel cnenv (Closure sx senv se) cv”,
-  “v_rel cnenv (Recclosure sfuns senv sx) cv”,
-  “v_rel cnenv (Atom a) cv”] |>
+  “v_rel cnenv st (Constructor cn svs) cv”,
+  “v_rel cnenv st (Closure sx senv se) cv”,
+  “v_rel cnenv st (Recclosure sfuns senv sx) cv”,
+  “v_rel cnenv st (Atom a) cv”] |>
   map (GEN_ALL o SIMP_CONV (srw_ss()) [Once v_rel_cases, SF CONJ_ss]) |>
   LIST_CONJ;
 
@@ -461,35 +466,35 @@ Definition list_to_cont_def:
 End
 
 Inductive cont_rel:
-  cont_rel cnenv [] []
+  cont_rel cnenv st [] []
 
 [~TupleK:]
-  (LIST_REL (v_rel cnenv) svs cvs ∧
+  (LIST_REL (v_rel cnenv st) svs cvs ∧
    LIST_REL (compile_rel cnenv) ses ces ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (Cons "") svs ses :: sk)
-                     ((Ccon NONE cvs ces, cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv (Cons "") svs ses :: sk)
+                        ((Ccon NONE cvs ces, cenv) :: ck))
 
 [~ConsK:]
-  (LIST_REL (v_rel cnenv) svs cvs ∧
+  (LIST_REL (v_rel cnenv st) svs cvs ∧
    LIST_REL (compile_rel cnenv) ses ces ∧
    ALOOKUP cnenv cn = SOME (tyid,ar) ∧
    ar = LENGTH ses + LENGTH svs + 1 ∧ cn ≠ "" ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (Cons cn) svs ses :: sk)
-                     ((Ccon (SOME $ Short cn) cvs ces, cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv (Cons cn) svs ses :: sk)
+                        ((Ccon (SOME $ Short cn) cvs ces, cenv) :: ck))
 
 [~AppK:]
   (op_rel sop cop ∧
-   LIST_REL (v_rel cnenv) svs cvs ∧
+   LIST_REL (v_rel cnenv st) svs cvs ∧
    LIST_REL (compile_rel cnenv) ses ces ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv sop svs ses :: sk)
-                     ((Capp cop cvs ces, cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv sop svs ses :: sk)
+                        ((Capp cop cvs ces, cenv) :: ck))
 
 [~TwoArgs1:]
   (compile_rel cnenv se1 ce1 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv ∧
    (if aop = Div then rest = div
     else if aop = Mod then rest = mod
     else if aop = Elem then rest = elem_str
@@ -498,12 +503,12 @@ Inductive cont_rel:
     else if aop = StrLt then rest = strlt
     else if aop = StrGeq then rest = strgeq
     else aop = StrGt ∧ rest = strgt)
-    ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [] [se1] :: sk)
-                     ((Clet (SOME "v2") (clet "v1" ce1 rest), cenv) :: ck))
+    ⇒ cont_rel cnenv st (AppK senv (AtomOp aop) [] [se1] :: sk)
+                        ((Clet (SOME "v2") (clet "v1" ce1 rest), cenv) :: ck))
 
 [~TwoArgs2:]
-  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧
+  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv st sv2 cv2 ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv ∧
    (if aop = Div then rest = div
     else if aop = Mod then rest = mod
     else if aop = Elem then rest = elem_str
@@ -512,35 +517,35 @@ Inductive cont_rel:
     else if aop = StrLt then rest = strlt
     else if aop = StrGeq then rest = strgeq
     else aop = StrGt ∧ rest = strgt)
-    ⇒ cont_rel cnenv (AppK senv (AtomOp aop) [sv2] [] :: sk)
-                     ((Clet (SOME "v1") rest, cenv) :: ck))
+    ⇒ cont_rel cnenv st (AppK senv (AtomOp aop) [sv2] [] :: sk)
+                        ((Clet (SOME "v1") rest, cenv) :: ck))
 
 [~Alloc1:]
   (compile_rel cnenv se1 ce1 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv Alloc [] [se1] :: sk)
-                     ((Clet (SOME "v2") (clet "v1" ce1 alloc), cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv Alloc [] [se1] :: sk)
+                        ((Clet (SOME "v2") (clet "v1" ce1 alloc), cenv) :: ck))
 
 [~Alloc2:]
-  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv sv2 cv2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv Alloc [sv2] [] :: sk)
-                     ((Clet (SOME "v1") alloc, cenv) :: ck))
+  (nsLookup cenv.v (Short "v2") = SOME cv2 ∧ v_rel cnenv st sv2 cv2 ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv Alloc [sv2] [] :: sk)
+                        ((Clet (SOME "v1") alloc, cenv) :: ck))
 
 [~Concat:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
-   LIST_REL (v_rel cnenv) svs cvs ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-  ⇒ cont_rel cnenv
+   LIST_REL (v_rel cnenv st) svs cvs ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+  ⇒ cont_rel cnenv st
     (AppK senv (AtomOp Concat) svs ses :: sk)
     ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
         :: list_to_cont cenv ces ++ [Capp Strcat [] [], cenv] ++ ck))
 
 [~Implode:]
   (LIST_REL (compile_rel cnenv) ses ces ∧
-   LIST_REL (v_rel cnenv) svs cvs ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-  ⇒ cont_rel cnenv
+   LIST_REL (v_rel cnenv st) svs cvs ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+  ⇒ cont_rel cnenv st
     (AppK senv (AtomOp Implode) svs ses :: sk)
     ((Ccon (SOME $ Short "::") [list_to_v cvs] [], cenv)
         :: list_to_cont cenv ces ++ [Capp Opapp [] [var "char_list"], cenv] ++
@@ -548,95 +553,95 @@ Inductive cont_rel:
 
 [~Substring3_1:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [] [se2;se1] :: sk)
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv (AtomOp Substring) [] [se2;se1] :: sk)
         ((Clet (SOME "l") (clet "i" ce2 $ clet "s" ce1 substring3), cenv) :: ck))
 
 [~Substring3_2:]
   (nsLookup cenv.v (Short "l") = SOME cv3 ∧
-   v_rel cnenv sv3 cv3 ∧ compile_rel cnenv se1 ce1 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv3] [se1] :: sk)
-                     ((Clet (SOME "i") (clet "s" ce1 substring3), cenv) :: ck))
+   v_rel cnenv st sv3 cv3 ∧ compile_rel cnenv se1 ce1 ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv (AtomOp Substring) [sv3] [se1] :: sk)
+                        ((Clet (SOME "i") (clet "s" ce1 substring3), cenv) :: ck))
 
 [~Substring3_3:]
   (nsLookup cenv.v (Short "l") = SOME cv3 ∧ nsLookup cenv.v (Short "i") = SOME cv2 ∧
-   v_rel cnenv sv3 cv3 ∧ v_rel cnenv sv2 cv2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (AppK senv (AtomOp Substring) [sv2;sv3] [] :: sk)
-                      ((Clet (SOME "s") substring3, cenv) :: ck))
+   v_rel cnenv st sv3 cv3 ∧ v_rel cnenv st sv2 cv2 ∧
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (AppK senv (AtomOp Substring) [sv2;sv3] [] :: sk)
+                        ((Clet (SOME "s") substring3, cenv) :: ck))
 
 [~FFI:]
-  (cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv ∧ ch ≠ ""
-    ⇒ cont_rel cnenv (AppK senv (FFI ch) [] [] :: sk)
-                     ((Clet (SOME "s") $
-                        Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi
-                       , cenv) :: ck))
+  (cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv ∧ ch ≠ ""
+    ⇒ cont_rel cnenv st (AppK senv (FFI ch) [] [] :: sk)
+                        ((Clet (SOME "s") $
+                           Let NONE (App (FFI ch) [var "s"; var "ffi_array"]) $ ffi
+                         , cenv) :: ck))
 
 [~LetK:]
   (compile_rel cnenv se ce ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (LetK senv (SOME x) se :: sk)
-                     ((Clet (SOME $ var_prefix x) ce, cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (LetK senv (SOME x) se :: sk)
+                        ((Clet (SOME $ var_prefix x) ce, cenv) :: ck))
 
 [~IfK:]
   (compile_rel cnenv se1 ce1 ∧ compile_rel cnenv se2 ce2 ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (IfK senv se1 se2 :: sk)
-                     ((Cif ce1 ce2, cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (IfK senv se1 se2 :: sk)
+                        ((Cif ce1 ce2, cenv) :: ck))
 
 [~RaiseK:]
-  (cont_rel cnenv sk ck
-    ⇒ cont_rel cnenv (RaiseK :: sk) ((Craise, cenv) :: ck))
+  (cont_rel cnenv st sk ck
+    ⇒ cont_rel cnenv st (RaiseK :: sk) ((Craise, cenv) :: ck))
 
 [~HandleK:]
   (compile_rel cnenv se ce ∧
-   cont_rel cnenv sk ck ∧ env_rel cnenv senv cenv ∧ env_ok cenv
-    ⇒ cont_rel cnenv (HandleK senv x se :: sk)
-                     ((Chandle [(Pvar $ var_prefix x, ce)], cenv) :: ck))
+   cont_rel cnenv st sk ck ∧ env_rel cnenv st senv cenv ∧ env_ok cenv
+    ⇒ cont_rel cnenv st (HandleK senv x se :: sk)
+                        ((Chandle [(Pvar $ var_prefix x, ce)], cenv) :: ck))
 
 [~ForceMutK:]
-  (cont_rel cnenv sk ck
-    ⇒ cont_rel cnenv (ForceMutK n :: sk) ((Cforce (n + 1), cenv) :: ck))
+  (cont_rel cnenv st sk ck
+    ⇒ cont_rel cnenv st (ForceMutK n :: sk) ((Cforce (n + 1), cenv) :: ck))
 End
 
 Definition store_rel_def:
-  store_rel cnenv (Array svs) (Varray cvs) = LIST_REL (v_rel cnenv) svs cvs ∧
-  store_rel cnenv (ThunkMem Evaluated sv) (Thunk Evaluated cv) =
-    v_rel cnenv sv cv ∧
-  store_rel cnenv (ThunkMem NotEvaluated sv) (Thunk NotEvaluated cv) =
-    v_rel cnenv sv cv ∧
-  store_rel cnenv _ _ = F
+  store_rel cnenv st (Array svs) (Varray cvs) = LIST_REL (v_rel cnenv st) svs cvs ∧
+  store_rel cnenv st (ThunkMem Evaluated sv) (Thunk Evaluated cv) =
+    v_rel cnenv st sv cv ∧
+  store_rel cnenv st (ThunkMem NotEvaluated sv) (Thunk NotEvaluated cv) =
+    v_rel cnenv st sv cv ∧
+  store_rel cnenv st _ _ = F
 End
 
 Definition state_rel_def:
   state_rel cnenv sst (W8array ws :: cst) = (
     (LENGTH ws = max_FFI_return_size + 2) ∧
-    LIST_REL (store_rel cnenv) sst cst) ∧
+    LIST_REL (store_rel cnenv sst) sst cst) ∧
   state_rel cnenv sst _ = F
 End
 
 Theorem state_rel:
   state_rel cnenv sst cst ⇔
     ∃ws cst'. cst = W8array ws :: cst' ∧ LENGTH ws = max_FFI_return_size + 2 ∧
-      LIST_REL (store_rel cnenv) sst cst'
+      LIST_REL (store_rel cnenv sst) sst cst'
 Proof
   rw[DefnBase.one_line_ify NONE state_rel_def] >>
   TOP_CASE_TAC >> simp[] >> TOP_CASE_TAC >> simp[]
 QED
 
 Inductive step_rel:
-  (compile_rel cnenv se ce ∧ cont_rel cnenv sk ck ∧
-   env_rel cnenv senv cenv ∧ state_rel cnenv sst cst ∧ env_ok cenv
+  (compile_rel cnenv se ce ∧ cont_rel cnenv sst sk ck ∧
+   env_rel cnenv sst senv cenv ∧ state_rel cnenv sst cst ∧ env_ok cenv
     ⇒ step_rel (Exp senv se, SOME sst, sk) (Estep (cenv, cst, Exp ce, ck))) ∧
 
-  (v_rel cnenv sv cv ∧ cont_rel cnenv sk ck ∧ state_rel cnenv sst cst
+  (v_rel cnenv sst sv cv ∧ cont_rel cnenv sst sk ck ∧ state_rel cnenv sst cst
     ⇒ step_rel (Val sv, SOME sst, sk) (Estep (cenv, cst, Val cv, ck))) ∧
 
-  (v_rel cnenv sv cv ∧ cont_rel cnenv sk ck ∧ state_rel cnenv sst cst
+  (v_rel cnenv sst sv cv ∧ cont_rel cnenv sst sk ck ∧ state_rel cnenv sst cst
     ⇒ step_rel (Exn sv, SOME sst, sk) (Estep (cenv, cst, Exn cv, ck))) ∧
 
-  (cont_rel cnenv sk ck ∧ state_rel cnenv sst cst ∧ env_ok cenv ∧
+  (cont_rel cnenv sst sk ck ∧ state_rel cnenv sst cst ∧ env_ok cenv ∧
    ws1 = MAP (λc. n2w $ ORD c) (EXPLODE conf) ∧
    store_lookup 0 cst = SOME $ W8array ws2 ∧ s ≠ ""
     ⇒ step_rel (Action s conf, SOME sst, sk)
@@ -651,7 +656,7 @@ Inductive dstep_rel:
 
   dstep_rel (Val sv, SOME sst, []) Ddone ∧
 
-  (v_rel cnenv sv cv ⇒
+  (v_rel cnenv sst sv cv ⇒
     dstep_rel (Exn sv, SOME sst, []) (Draise cv)) ∧
 
   (step_rel (Action ch conf, SOME sst, sk)
@@ -920,7 +925,7 @@ QED
 
 Theorem state_rel_store_lookup:
   state_rel cnenv sst cst ⇒
-  OPTREL (store_rel cnenv) (oEL n sst) (store_lookup (n + 1) cst)
+  OPTREL (store_rel cnenv sst) (oEL n sst) (store_lookup (n + 1) cst)
 Proof
   rw[state_rel] >> rw[oEL_THM, store_lookup_def] >> gvs[LIST_REL_EL_EQN] >>
   gvs[ADD1] >> first_x_assum drule >> strip_tac >> simp[GSYM ADD1]
@@ -960,20 +965,253 @@ Proof
   ntac 2 (pairarg_tac >> gvs[])
 QED
 
+Theorem v_rel_LUPDATE_ThunkMem:
+  ∀v w.
+    v_rel cnenv st v w ⇒
+    EL n st = ThunkMem t' v' ⇒
+      v_rel cnenv (LUPDATE (ThunkMem t u) n st) v w
+Proof
+  ‘(∀v w. v_rel cnenv st v w ⇒
+      EL n st = ThunkMem t' v' ⇒
+      v_rel cnenv (LUPDATE (ThunkMem t u) n st) v w) ∧
+   (∀x y. env_rel cnenv st x y ⇒
+      EL n st = ThunkMem t' v' ⇒
+      env_rel cnenv (LUPDATE (ThunkMem t u) n st) x y)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [LIST_REL_EL_EQN]
+  >- gvs [LIST_REL_EL_EQN]
+  >- goal_assum drule
+  >- (rw [EL_LUPDATE] \\ gvs [])
+  >- simp [Once v_rel_cases]
+  >- (
+    rw [env_rel_def]
+    \\ first_x_assum drule \\ rw [] \\ gvs[])
+QED
+
+Theorem v_rel_LUPDATE_Array:
+  ∀v w.
+    v_rel cnenv st v w ⇒
+      v_rel cnenv (LUPDATE (Array vs) n st) v w
+Proof
+  ‘(∀v w. v_rel cnenv st v w ⇒
+      v_rel cnenv (LUPDATE (Array vs) n st) v w) ∧
+   (∀x y. env_rel cnenv st x y ⇒
+      env_rel cnenv (LUPDATE (Array vs) n st) x y)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [LIST_REL_EL_EQN]
+  >- gvs [LIST_REL_EL_EQN]
+  >- goal_assum drule
+  >- (rw [EL_LUPDATE] \\ gvs [])
+  >- simp [Once v_rel_cases]
+  >- (
+    rw [env_rel_def]
+    \\ first_x_assum drule \\ rw [] \\ gvs[])
+QED
+
+Theorem v_rel_APPEND:
+  ∀v w.
+    v_rel cnenv st v w ⇒
+      v_rel cnenv (st ++ st') v w
+Proof
+  ‘(∀v w. v_rel cnenv st v w ⇒ v_rel cnenv (st ++ st') v w) ∧
+   (∀x y. env_rel cnenv st x y ⇒ env_rel cnenv (st ++ st') x y)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [LIST_REL_EL_EQN]
+  >- gvs [LIST_REL_EL_EQN]
+  >- goal_assum drule
+  >- simp [EL_APPEND]
+  >- simp [Once v_rel_cases]
+  >- (
+    rw [env_rel_def]
+    \\ first_x_assum drule \\ rw [] \\ gvs[])
+QED
+
+Theorem env_rel_LUPDATE_ThunkMem:
+  ∀senv cenv.
+    env_rel cnenv st senv cenv ⇒
+    EL n st = ThunkMem t' v' ⇒
+      env_rel cnenv (LUPDATE (ThunkMem t u) n st) senv cenv
+Proof
+  ‘(∀v w. v_rel cnenv st v w ⇒
+      EL n st = ThunkMem t' v' ⇒
+      v_rel cnenv (LUPDATE (ThunkMem t u) n st) v w) ∧
+   (∀x y. env_rel cnenv st x y ⇒
+      EL n st = ThunkMem t' v' ⇒
+      env_rel cnenv (LUPDATE (ThunkMem t u) n st) x y)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [LIST_REL_EL_EQN]
+  >- gvs [LIST_REL_EL_EQN]
+  >- goal_assum drule
+  >- (rw [EL_LUPDATE] \\ gvs [])
+  >- simp [Once v_rel_cases]
+  >- (
+    rw [env_rel_def]
+    \\ first_x_assum drule \\ rw [] \\ gvs[])
+QED
+
+Theorem env_rel_LUPDATE_Array:
+  ∀senv cenv.
+    env_rel cnenv st senv cenv ⇒
+      env_rel cnenv (LUPDATE (Array vs) n st) senv cenv
+Proof
+  ‘(∀v w. v_rel cnenv st v w ⇒
+      v_rel cnenv (LUPDATE (Array vs) n st) v w) ∧
+   (∀x y. env_rel cnenv st x y ⇒
+      env_rel cnenv (LUPDATE (Array vs) n st) x y)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [LIST_REL_EL_EQN]
+  >- gvs [LIST_REL_EL_EQN]
+  >- goal_assum drule
+  >- (rw [EL_LUPDATE] \\ gvs [])
+  >- simp [Once v_rel_cases]
+  >- (
+    rw [env_rel_def]
+    \\ first_x_assum drule \\ rw [] \\ gvs[])
+QED
+
+Theorem env_rel_APPEND:
+  ∀senv cenv.
+    env_rel cnenv st senv cenv ⇒
+      env_rel cnenv (st ++ st') senv cenv
+Proof
+  ‘(∀v w.
+      v_rel cnenv st v w ⇒ v_rel cnenv (st ++ st') v w) ∧
+   (∀senv cenv.
+      env_rel cnenv st senv cenv ⇒ env_rel cnenv (st ++ st') senv cenv)’
+    suffices_by gvs []
+  \\ ho_match_mp_tac v_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [LIST_REL_EL_EQN]
+  >- gvs [LIST_REL_EL_EQN]
+  >- goal_assum drule
+  >- simp [EL_APPEND]
+  >- simp [Once v_rel_cases]
+  >- (
+    rw [env_rel_def]
+    \\ first_x_assum drule \\ rw [] \\ gvs[])
+QED
+
+Theorem cont_rel_LUPDATE_ThunkMem:
+  ∀k1 k2.
+    cont_rel cnenv st k1 k2 ⇒
+    EL n st = ThunkMem t' v' ⇒
+      cont_rel cnenv (LUPDATE (ThunkMem t u) n st) k1 k2
+Proof
+  ho_match_mp_tac cont_rel_strongind \\ rw [] \\ gvs []
+  \\ simp [Once cont_rel_cases] \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ rpt (drule_at_then (Pos $ el 2) dxrule v_rel_LUPDATE_ThunkMem) \\ gvs []
+  \\ rpt (drule_at_then (Pos $ el 2) dxrule env_rel_LUPDATE_ThunkMem) \\ gvs []
+  \\ rw []
+  \\ rpt $ irule_at Any EQ_REFL \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ rpt (drule_at_then (Pos $ el 2) dxrule v_rel_LUPDATE_ThunkMem) \\ gvs []
+  \\ rpt (drule_at_then (Pos $ el 2) dxrule env_rel_LUPDATE_ThunkMem) \\ gvs []
+QED
+
+Theorem cont_rel_LUPDATE_Array:
+  ∀k1 k2.
+    cont_rel cnenv st k1 k2 ⇒
+      cont_rel cnenv (LUPDATE (Array vs) n st) k1 k2
+Proof
+  ho_match_mp_tac cont_rel_strongind \\ rw [] \\ gvs []
+  \\ simp [Once cont_rel_cases] \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ rpt $ dxrule v_rel_LUPDATE_Array \\ gvs []
+  \\ rpt $ dxrule env_rel_LUPDATE_Array \\ gvs []
+  \\ rw []
+  \\ rpt $ irule_at Any EQ_REFL \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ rpt $ dxrule v_rel_LUPDATE_Array \\ gvs []
+  \\ rpt $ dxrule env_rel_LUPDATE_Array \\ gvs []
+QED
+
+Theorem cont_rel_APPEND:
+  ∀k1 k2.
+    cont_rel cnenv st k1 k2 ⇒
+      cont_rel cnenv (st ++ st') k1 k2
+Proof
+  ho_match_mp_tac cont_rel_strongind \\ rw [] \\ gvs []
+  \\ simp [Once cont_rel_cases] \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ rpt $ dxrule v_rel_APPEND \\ gvs []
+  \\ rpt $ dxrule env_rel_APPEND \\ gvs []
+  \\ rw []
+  \\ rpt $ irule_at Any EQ_REFL \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ rpt $ dxrule v_rel_APPEND \\ gvs []
+  \\ rpt $ dxrule env_rel_APPEND \\ gvs []
+QED
+
+Theorem store_rel_APPEND:
+  store_rel cnenv st s1 s2 ⇒
+    store_rel cnenv (st ++ st') s1 s2
+Proof
+  rw [oneline store_rel_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs []) \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ rpt $ first_x_assum $ drule_then assume_tac
+  \\ simp [v_rel_APPEND]
+QED
+
+Definition thunk_mode_rel_def[simp]:
+  thunk_mode_rel stateLang$Evaluated ast$Evaluated = T ∧
+  thunk_mode_rel stateLang$NotEvaluated ast$NotEvaluated = T ∧
+  thunk_mode_rel _ _ = F
+End
+
+Theorem state_rel_LUPDATE_ThunkMem:
+  state_rel cnenv sst cst ∧
+  v_rel cnenv sst sv cv ∧
+  EL n sst = ThunkMem t' v' ∧
+  thunk_mode_rel t1 t2 ⇒
+    state_rel cnenv (LUPDATE (ThunkMem t1 sv) n sst)
+                    (LUPDATE (Thunk t2 cv) (n + 1) cst)
+Proof
+  rw [state_rel] \\ simp [LUPDATE_DEF]
+  \\ gvs [LIST_REL_EL_EQN, EL_LUPDATE] \\ rw [store_rel_def, LIST_REL_EL_EQN]
+  \\ rpt $ first_x_assum $ drule_then assume_tac \\ gvs [PRE_SUB1]
+  >- (
+    simp [oneline store_rel_def]
+    \\ rpt (TOP_CASE_TAC \\ gvs [])
+    \\ simp [v_rel_LUPDATE_ThunkMem])
+  \\ gvs [oneline store_rel_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs []) \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ simp [v_rel_LUPDATE_ThunkMem]
+QED
+
+Theorem state_rel_LUPDATE_Array:
+  state_rel cnenv sst cst ∧
+  LIST_REL (v_rel cnenv sst) vs ws ⇒
+    state_rel cnenv (LUPDATE (Array vs) n sst)
+                    (LUPDATE (Varray ws) (n + 1) cst)
+Proof
+  rw [state_rel] \\ simp [LUPDATE_DEF]
+  \\ gvs [LIST_REL_EL_EQN, EL_LUPDATE] \\ rw [store_rel_def, LIST_REL_EL_EQN]
+  \\ rpt $ first_x_assum $ drule_then assume_tac \\ gvs [PRE_SUB1]
+  >- simp [v_rel_LUPDATE_Array]
+  \\ gvs [oneline store_rel_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs []) \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ simp [v_rel_LUPDATE_Array]
+QED
+
 (***** cnenv_rel / env_rel / env_ok *****)
 
 Theorem env_rel_lookup:
-  ∀v sx cnenv senv cenv.
-    env_rel cnenv senv cenv ∧
+  ∀v sx cnenv st senv cenv.
+    env_rel cnenv st senv cenv ∧
     ALOOKUP senv v = SOME sx
-  ⇒ ∃cx. nsLookup cenv.v (Short (var_prefix v)) = SOME cx ∧ v_rel cnenv sx cx
+  ⇒ ∃cx. nsLookup cenv.v (Short (var_prefix v)) = SOME cx ∧ v_rel cnenv st sx cx
 Proof
   rw[env_rel_def]
 QED
 
 Theorem env_rel_check:
-  ∀cn tyid ar cnenv senv cenv.
-    env_rel cnenv senv cenv ∧
+  ∀cn tyid ar cnenv st senv cenv.
+    env_rel cnenv st senv cenv ∧
     ALOOKUP cnenv cn = SOME (tyid, ar) ∧ cn ≠ ""
   ⇒ do_con_check cenv.c (SOME (Short cn)) ar
 Proof
@@ -998,8 +1236,8 @@ Proof
 QED
 
 Theorem env_rel_build:
-  ∀vs cn tyid cnenv senv cenv.
-    env_rel cnenv senv cenv ∧
+  ∀vs cn tyid cnenv st senv cenv.
+    env_rel cnenv st senv cenv ∧
     ALOOKUP cnenv cn = SOME (tyid, LENGTH vs) ∧ cn ≠ ""
   ⇒ build_conv cenv.c (SOME (Short cn)) vs = SOME (Conv (SOME tyid) vs)
 Proof
@@ -1021,16 +1259,16 @@ Proof
 QED
 
 Theorem env_rel_nsBind:
-  env_rel cnenv senv cenv ∧
-  v_rel cnenv sv cv
-  ⇒ env_rel cnenv ((s,sv)::senv) (cenv with v := nsBind (var_prefix s) cv cenv.v)
+  env_rel cnenv st senv cenv ∧
+  v_rel cnenv st sv cv
+  ⇒ env_rel cnenv st ((s,sv)::senv) (cenv with v := nsBind (var_prefix s) cv cenv.v)
 Proof
   rw[env_rel_def] >> IF_CASES_TAC >> gvs[]
 QED
 
 Theorem env_rel_nsBind_alt:
-  env_rel cnenv senv cenv ∧ (∀x. cx ≠ var_prefix x)
-  ⇒ env_rel cnenv senv (cenv with v := nsBind cx cv cenv.v)
+  env_rel cnenv st senv cenv ∧ (∀x. cx ≠ var_prefix x)
+  ⇒ env_rel cnenv st senv (cenv with v := nsBind cx cv cenv.v)
 Proof
   rw[env_rel_def]
 QED
@@ -1059,11 +1297,11 @@ Proof
 QED
 
 Theorem env_rel_nsAppend:
-  env_rel cnenv senv cenv ∧
+  env_rel cnenv st senv cenv ∧
   (∀sx. ALOOKUP senv' sx = NONE ⇒ nsLookup cenv' (Short (var_prefix sx)) = NONE) ∧
   (∀sx sv. ALOOKUP senv' sx = SOME sv ⇒
-    ∃cv. nsLookup cenv' (Short (var_prefix sx)) = SOME cv ∧ v_rel cnenv sv cv)
-  ⇒ env_rel cnenv (senv' ++ senv) (cenv with v := nsAppend cenv' cenv.v)
+    ∃cv. nsLookup cenv' (Short (var_prefix sx)) = SOME cv ∧ v_rel cnenv st sv cv)
+  ⇒ env_rel cnenv st (senv' ++ senv) (cenv with v := nsAppend cenv' cenv.v)
 Proof
   rw[env_rel_def] >> simp[namespacePropsTheory.nsLookup_nsAppend_some] >>
   simp[namespaceTheory.id_to_mods_def, SF DNF_ss] >>
@@ -1086,13 +1324,13 @@ Proof
 QED
 
 Theorem env_rel_Recclosure:
-  env_rel cnenv senv cenv ∧ env_ok cenv ∧
+  env_rel cnenv st senv cenv ∧ env_ok cenv ∧
   LIST_REL
     (λ(sv,se) (cv,cx,ce). var_prefix sv = cv ∧
       ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧
                compile_rel cnenv se' ce) sfuns cfuns ∧
   ALL_DISTINCT (MAP FST cfuns)
-  ⇒ env_rel cnenv
+  ⇒ env_rel cnenv st
       (MAP (λ(fn,_). (fn,Recclosure sfuns senv fn)) sfuns ++ senv)
       (cenv with v := build_rec_env cfuns cenv cenv.v)
 Proof
@@ -1103,7 +1341,7 @@ Proof
         ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧
                  compile_rel cnenv se' ce) sfs cfs ∧
     ALL_DISTINCT (MAP FST cfs) ⇒
-    env_rel cnenv
+    env_rel cnenv st
       (MAP (λ(fn,_). (fn,Recclosure sfs senv fn)) sfuns ++ senv)
       (cenv with v :=
         FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cenv cfs f) env') cenv.v cfuns)` >>
@@ -1123,13 +1361,13 @@ Proof
 QED
 
 Theorem env_rel_nsBind_Recclosure:
-  env_rel cnenv senv cenv ∧ env_ok cenv ∧ v_rel cnenv sv cv ∧
+  env_rel cnenv st senv cenv ∧ env_ok cenv ∧ v_rel cnenv st sv cv ∧
   LIST_REL
     (λ(sv,se) (cv,cx,ce). var_prefix sv = cv ∧
       ∃sx se'. se = Lam (SOME sx) se' ∧ var_prefix sx = cx ∧
                compile_rel cnenv se' ce) sfuns cfuns ∧
   ALL_DISTINCT (MAP FST cfuns)
-  ⇒ env_rel cnenv
+  ⇒ env_rel cnenv st
       ((s,sv)::(MAP (λ(fn,_). (fn,Recclosure sfuns senv fn)) sfuns ++ senv))
       (cenv with v := nsBind (var_prefix s) cv (build_rec_env cfuns cenv cenv.v))
 Proof
@@ -1138,8 +1376,8 @@ Proof
 QED
 
 Theorem env_rel_pmatch:
-  env_rel cnenv senv cenv ∧ LIST_REL (v_rel cnenv) svs cvs ∧ LENGTH pvs = LENGTH cvs
-  ⇒ env_rel cnenv
+  env_rel cnenv st senv cenv ∧ LIST_REL (v_rel cnenv st) svs cvs ∧ LENGTH pvs = LENGTH cvs
+  ⇒ env_rel cnenv st
       (REVERSE (ZIP (pvs,svs)) ++ senv)
       (cenv with v :=
         nsAppend (alist_to_ns (REVERSE (ZIP (MAP var_prefix pvs,cvs)))) cenv.v)
@@ -1296,7 +1534,7 @@ QED
 
 (* `ALL_DISTINCT vs` not necessary here, but useful for matching against *)
 Theorem compile_rel_can_pmatch_all:
-  ∀scss ccss c cn stamp id vs cnenv (cenv:semanticPrimitives$v sem_env) st
+  ∀scss ccss c cn stamp id vs cnenv sst (cenv:semanticPrimitives$v sem_env) st
     cvs svs cuspat.
     LIST_REL
       (λ(cn,vs,se) (pat,ce). compile_rel cnenv se ce ∧ pat = pat_row cn vs)
@@ -1304,7 +1542,7 @@ Theorem compile_rel_can_pmatch_all:
     EVERY (λ(cn,vs,_). ALL_DISTINCT vs ∧ ∃stamp'.
       ALOOKUP cnenv cn = SOME (stamp',LENGTH vs) ∧ same_type stamp' stamp) scss ∧
     cnenv_rel cnenv cenv.c ∧
-    v_rel cnenv (Constructor cn svs) (Conv (SOME stamp) cvs) ∧
+    v_rel cnenv sst (Constructor cn svs) (Conv (SOME stamp) cvs) ∧
     (cuspat ≠ [] ⇒ cuspat = [Pany])
   ⇒ can_pmatch_all cenv.c st (MAP FST ccss ++ cuspat) (Conv (SOME stamp) cvs)
 Proof
@@ -1323,8 +1561,8 @@ Proof
 QED
 
 Theorem concat_vs_to_string:
-  ∀strs cvs cnenv str.
-    LIST_REL (v_rel cnenv) (MAP Atom strs) cvs ∧
+  ∀strs cvs cnenv st str.
+    LIST_REL (v_rel cnenv st) (MAP Atom strs) cvs ∧
     concat strs = SOME str
     ⇒ vs_to_string cvs = SOME str
 Proof
@@ -1481,17 +1719,20 @@ QED
 
 Theorem dest_thunk_rel:
   state_rel cnenv sst cst ∧
-  v_rel cnenv sv cv ∧
-  dest_thunk_ptr sv sst = NotThunk ⇒
+  v_rel cnenv sst sv cv ∧
+  ¬thunk_or_thunk_loc sv ⇒
     dest_thunk [cv] cst = NotThunk
 Proof
-  rw [oneline dest_thunk_ptr_def, oneline dest_thunk_def, AllCaseEqs()]
-  \\ gvs [Once v_rel_cases]
-  \\ gvs [state_rel, LIST_REL_EL_EQN, oEL_THM]
-  \\ first_x_assum $ drule_then assume_tac \\ gvs []
-  \\ gvs [oneline store_rel_def]
-  \\ FULL_CASE_TAC \\ gvs []
-  \\ simp [store_lookup_def, EL_CONS, PRE_SUB1]
+  rw [thunk_or_thunk_loc_def]
+  \\ Cases_on ‘dest_anyThunk sv’ \\ gvs []
+  \\ Cases_on ‘sv’ \\ gvs [state_rel]
+  \\ gvs [dest_anyThunk_def, dest_thunk_def, store_lookup_def, EL_CONS,
+          PRE_SUB1, ADD1, LIST_REL_EL_EQN]
+  \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+  \\ (
+    gvs [GSYM PULL_FORALL]
+    \\ first_x_assum $ drule_then assume_tac \\ gvs [oneline store_rel_def]
+    \\ Cases_on ‘EL n sst’ \\ gvs [])
 QED
 
 (********** Main results **********)
@@ -1776,8 +2017,6 @@ Proof
   >- ( (* ForceMutK *)
     first_x_assum $ qspec_then `1` assume_tac >> gvs[sstep] >>
     ntac 2 (TOP_CASE_TAC >> gvs[]) >>
-    ‘dest_thunk_ptr sv sst = NotThunk’ by (
-      gvs [check_thunk_v_def, AllCaseEqs(), dest_thunk_ptr_def]) >> gvs [] >>
     drule_all_then assume_tac dest_thunk_rel >> gvs[] >>
     qexists0 >> simp[step_rel_cases, SF SFY_ss] >>
     reverse $ rw[store_assign_def]
@@ -1791,10 +2030,11 @@ Proof
       Cases_on `t'` >> gvs[store_rel_def]
       )
     >- (
-      first_assum $ irule_at Any >>
-      gvs[state_rel, LUPDATE_DEF, PRE_SUB1] >>
-       irule EVERY2_LUPDATE_same >>
-      gvs[store_rel_def]
+      Cases_on ‘EL n sst’ >> gvs [store_same_type_def] >>
+      drule_all_then (irule_at $ Pos hd) v_rel_LUPDATE_ThunkMem >>
+      drule_all cont_rel_LUPDATE_ThunkMem >> rw [] >>
+      ‘thunk_mode_rel Evaluated Evaluated’ by gvs [] >>
+      drule_all state_rel_LUPDATE_ThunkMem >> rw []
       )
     )
   >- (qexists0 >> simp[step_rel_cases, SF SFY_ss]) (* HandleK *)
@@ -1887,7 +2127,14 @@ Proof
         qexists0 >> reverse $ rw[step_rel_cases]
         >- gvs[state_rel, store_lookup_def] >>
         qexists `cnenv` >> gvs[state_rel, SNOC_APPEND] >>
-        imp_res_tac LIST_REL_LENGTH >> rw[store_rel_def])
+        rw []
+        >- (simp [Once v_rel_cases] >> gvs [LIST_REL_EL_EQN])
+        >- gvs [cont_rel_APPEND]
+        >- (
+          gvs [LIST_REL_EL_EQN] >> rw [] >>
+          irule store_rel_APPEND >> gvs [])
+        >- gvs [store_rel_def, v_rel_APPEND]
+      )
     >>~- ([`UpdateMutThunk`],
       `LENGTH l0 = 1` by gvs [] >> gvs[LENGTH_EQ_NUM_compute] >>
       gvs [application_def, sstep] >>
@@ -1899,10 +2146,17 @@ Proof
       Cases_on `z` >> gvs[store_rel_def] >>
       Cases_on `t'` >> gvs[store_rel_def] >>
       drule store_lookup_assign_Thunk >> rw[] >>
-      qexists0 >> reverse $ rw[step_rel_cases]
-      >- gvs[state_rel, LUPDATE_DEF, store_lookup_def] >>
-      goal_assum drule >> gvs[state_rel] >> simp[LUPDATE_DEF, GSYM ADD1] >>
-      irule EVERY2_LUPDATE_same >> simp[store_rel_def])
+      qexists0 >> reverse $ rw[step_rel_cases] >>
+      qpat_x_assum `v_rel _ _ (ThunkLoc _) _` mp_tac >>
+      rw [Once v_rel_cases] >> simp [] >>
+      gvs [oEL_THM, store_lookup_def]
+      >- gvs [state_rel, LUPDATE_DEF] >>
+      drule_all_then (irule_at $ Pos hd) cont_rel_LUPDATE_ThunkMem >>
+      qmatch_goalsub_abbrev_tac ‘state_rel _ (LUPDATE (_ smode _) _ _)
+                                             (LUPDATE (_ cmode _) _ _)’ >>
+      ‘thunk_mode_rel smode cmode’ by gvs [Abbr ‘smode’, Abbr ‘cmode’] >>
+      drule_all_then (irule_at $ Pos hd) state_rel_LUPDATE_ThunkMem
+    )
     >~ [`ForceMutThunk`]
     >- (
       gvs[application_def, sstep] >>
@@ -1912,14 +2166,16 @@ Proof
       Cases_on `EL n cst'` >> gvs[store_rel_def] >>
       Cases_on `t'` >> Cases_on ‘t''’ >> gvs[store_rel_def] >>
       rw[EL_CONS, PRE_SUB1] >>
-      qexists0 >> reverse $ rw[step_rel_cases, store_lookup_def]
-      >- (goal_assum drule >> gvs[state_rel, LIST_REL_EL_EQN])
+      qexists0 >> reverse $ rw[step_rel_cases, store_lookup_def] >>
+      qpat_x_assum `v_rel _ _ (ThunkLoc _) _` mp_tac >>
+      rw [Once v_rel_cases] >> simp [EL_CONS, PRE_SUB1]
+      >- gvs [state_rel, EL_CONS, PRE_SUB1, store_lookup_def]
+      >- (goal_assum drule >> gvs [state_rel, LIST_REL_EL_EQN])
+      >- gvs [state_rel, EL_CONS, PRE_SUB1, store_lookup_def]
       >- (
-        goal_assum drule >>
-        irule_at Any cont_rel_AppK >> simp[op_rel_cases] >>
-        irule_at Any cont_rel_ForceMutK >> gvs[env_rel_def] >>
-        gvs[state_rel, LIST_REL_EL_EQN]
-        )
+        goal_assum drule >> gvs [state_rel, LIST_REL_EL_EQN] >>
+        irule cont_rel_AppK >> simp [op_rel_cases] >>
+        irule_at Any cont_rel_ForceMutK >> gvs [env_rel_def])
       )
     >- ( (* Update *)
       `LENGTH l0 = 2` by gvs[] >> gvs[LENGTH_EQ_NUM_compute] >>
@@ -1938,8 +2194,11 @@ Proof
         `ABS i = i` by ARITH_TAC >> simp[] >>
         qexists0 >> reverse $ rw[step_rel_cases]
         >- gvs[state_rel, LUPDATE_DEF, store_lookup_def] >>
-        goal_assum drule >> gvs[state_rel] >> simp[LUPDATE_DEF, GSYM ADD1] >>
-        ntac 2 (irule EVERY2_LUPDATE_same >> simp[store_rel_def])
+        irule_at Any cont_rel_LUPDATE_Array >>
+        goal_assum drule >>
+        irule state_rel_LUPDATE_Array >>
+        gvs [state_rel] >> simp [LUPDATE_DEF, GSYM ADD1] >>
+        irule EVERY2_LUPDATE_same >> simp [store_rel_def]
         )
       >- ( (* out of bounds *)
         qmatch_goalsub_abbrev_tac `cstep_n _ foo` >>
@@ -2204,8 +2463,13 @@ Proof
     simp[do_app_def, store_alloc_def] >>
     qexists0 >> simp[step_rel_cases] >> gvs[state_rel, ADD1, store_lookup_def] >>
     rpt $ goal_assum $ drule_at Any >> imp_res_tac LIST_REL_LENGTH >>
-    simp[store_rel_def] >>
-    `ABS i = i` by ARITH_TAC >> simp[LIST_REL_REPLICATE_same]
+    simp[store_rel_def, EL_APPEND] >>
+    irule_at (Pos hd) cont_rel_APPEND >>
+    goal_assum drule >> gvs [LIST_REL_EL_EQN] >> rw []
+    >- simp [store_rel_APPEND]
+    >- simp [store_rel_APPEND] >>
+    `ABS i = i` by ARITH_TAC >> simp[LIST_REL_REPLICATE_same] >>
+    irule v_rel_APPEND >> simp [EL_REPLICATE]
     )
   >- ( (* Concat *)
     `cnenv_rel cnenv cenv'.c` by gvs[env_rel_def] >>
@@ -2541,7 +2805,7 @@ Proof
   qexists0 >> simp[dstep, store_lookup_def] >>
   simp[dstep_rel_cases, step_rel_cases, PULL_EXISTS] >>
   irule_at Any EQ_REFL >> goal_assum drule >> gvs[state_rel] >>
-  qpat_x_assum `cont_rel _ _ _` mp_tac >> rw[Once cont_rel_cases]
+  qpat_x_assum `cont_rel _ _ _ _` mp_tac >> rw[Once cont_rel_cases]
 QED
 
 Theorem compile_safe_itree:
