@@ -1,5 +1,8 @@
 (*
   Simplify occurences of `Force (Delay e)` to `e`
+
+  This proof is retired and not maintained because it's not used as a part of
+  the compiler definition.
 *)
 Theory thunk_force_delay
 Ancestors
