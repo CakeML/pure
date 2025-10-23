@@ -35,3 +35,8 @@ Proof
   rpt $ goal_assum $ drule_at Any >> simp[]
 QED
 
+(* Making sure no proofs were cheated on the way here. *)
+fun check_tag t = Tag.isEmpty t orelse Tag.isDisk t;
+val check_thm = Lib.assert (check_tag o Thm.tag);
+
+val _ = check_thm end_to_end_correctness;
