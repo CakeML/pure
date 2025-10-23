@@ -168,11 +168,11 @@ QED
 
 Inductive thunk_res:
   (∀x s. thunk_res ((Lam s x):stateLang$exp)) ∧
-  (∀x. thunk_res (App Ref [False; Lam NONE x]))
+  (∀x. thunk_res (App (AllocMutThunk NotEvaluated) [Lam NONE x]))
 End
 
 Definition inv_thunk_def:
-  inv_thunk (App Ref [False; Lam NONE x]) = Delay x ∧
+  inv_thunk (App (AllocMutThunk NotEvaluated) [Lam NONE x]) = Delay x ∧
   inv_thunk (Lam s x) = Lam s x
 End
 
@@ -255,7 +255,7 @@ Triviality comp_Letrec_neq:
 Proof
   fs [comp_Letrec_def]
   \\ pairarg_tac \\ fs []
-  \\ Cases_on ‘MAP some_ref_bool delays’ \\ fs []
+  \\ Cases_on ‘MAP some_alloc_thunk delays’ \\ fs []
   \\ fs [state_unthunkProofTheory.Lets_def]
   \\ PairCases_on ‘h’
   \\ fs [state_unthunkProofTheory.Lets_def]
@@ -332,8 +332,9 @@ Proof
   \\ fs [Letrec_imm_def,state_unthunkProofTheory.Letrec_imm_def,rows_of_neq]
 QED
 
-Theorem clean_Ref:
-  ∀x y z. clean (App Ref [x;y]) z ⇒ ∃x1 y1. z = (App Ref [x1;y1]) ∧ clean y y1
+Theorem clean_AllocMutThunk:
+  ∀x z. clean (App (AllocMutThunk NotEvaluated) [x]) z ⇒
+        ∃x1. z = (App (AllocMutThunk NotEvaluated) [x1]) ∧ clean x x1
 Proof
   Induct_on ‘clean’ \\ rw []
   \\ fs [state_app_unitProofTheory.cexp_rel_refl]
@@ -402,16 +403,14 @@ Proof
   \\ Cases_on ‘x’ \\ fs []
   >-
    (Cases_on ‘c’ \\ fs []
+    \\ Cases_on ‘c'’ \\ fs []
     \\ Cases_on ‘l’ \\ fs []
-    \\ Cases_on ‘t’ \\ fs []
     \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
     \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
-    \\ simp [Once state_caseProofTheory.compile_rel_cases,expand_Case_neq]
-    \\ fs [state_caseProofTheory.expand_Case_def,AllCaseEqs()]
-    \\ Cases_on ‘h'’ \\ fs []
+    \\ Cases_on ‘h’ \\ fs []
     \\ strip_tac \\ gvs []
     \\ pop_assum $ irule_at Any
-    \\ drule clean_Ref \\ fs []
+    \\ drule clean_AllocMutThunk \\ fs []
     \\ rw []
     \\ drule clean_Lam \\ fs [])
   \\ rw []
@@ -603,7 +602,6 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd
     \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
-    \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
     \\ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
     \\ rpt $ first_x_assum $ irule_at $ Pos hd
     \\ irule_at Any state_unthunkProofTheory.compile_rel_Box \\ fs [])
@@ -809,8 +807,8 @@ Proof
        \\ fs [MAP_MAP_o,combinTheory.o_DEF])
     \\ qabbrev_tac ‘ds1 = MAP (λ((m,n,_),x). (m,n,x)) (ZIP (delays,ds))’
     \\ qabbrev_tac ‘fs1 = MAP (λ((m,n,_),x). (m,n,body_of x)) (ZIP (funs,fs))’
-    \\ qexists_tac ‘Lets (MAP some_ref_bool ds1) $
-                    Letrec fs1 $ Lets (MAP unsafe_update ds1) y1’
+    \\ qexists_tac ‘Lets (MAP some_alloc_thunk ds1) $
+                    Letrec fs1 $ Lets (MAP update_delay ds1) y1’
     \\ reverse conj_tac >-
      (irule_at Any clean_Lets
       \\ irule_at Any state_app_unitProofTheory.cexp_rel_Letrec \\ fs []
@@ -828,15 +826,16 @@ Proof
       >-
        (fs [] \\ rpt gen_tac \\ rpt $ disch_then strip_assume_tac
         \\ last_x_assum drule_all \\ fs []
-        \\ PairCases_on ‘h'’ \\ fs [some_ref_bool_def,unsafe_update_def]
+        \\ PairCases_on ‘h'’ \\ fs [some_alloc_thunk_def,update_delay_def]
         \\ fs [] \\ rpt gen_tac \\ rpt $ disch_then strip_assume_tac
         \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
         \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Var \\ fs [PULL_EXISTS])
         \\ Cases_on ‘h'1’ \\ fs []
         \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_App \\ fs [PULL_EXISTS])
-        \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS]))
+        \\ rpt (irule_at Any state_app_unitProofTheory.cexp_rel_Lam \\ fs [PULL_EXISTS])
+        \\ simp [state_app_unitProofTheory.cexp_rel_refl])
       \\ reverse Induct \\ Cases_on ‘fs’ \\ fs []
-      \\ PairCases \\ fs [some_ref_bool_def,unsafe_update_def]
+      \\ PairCases \\ fs [some_alloc_thunk_def,update_delay_def]
       \\ rpt strip_tac \\ gvs []
       \\ imp_res_tac clean_Lam \\ gvs [])
     \\ irule_at Any case_rel_Lets \\ fs []
@@ -856,7 +855,7 @@ Proof
       \\ qid_spec_tac ‘delays'’
       \\ Induct \\ Cases_on ‘ds’ \\ Cases_on ‘delays’ \\ fs []
       \\ PairCases_on ‘h'’ \\ PairCases \\ fs []
-      \\ fs [some_ref_bool_def,state_unthunkProofTheory.some_ref_bool_def])
+      \\ fs [some_alloc_thunk_def,state_unthunkProofTheory.some_alloc_thunk_def])
     \\ reverse conj_tac
     >-
      (ntac 5 $ pop_assum mp_tac
@@ -866,8 +865,8 @@ Proof
       \\ qid_spec_tac ‘delays'’
       \\ Induct \\ Cases_on ‘ds’ \\ Cases_on ‘delays’ \\ fs []
       \\ PairCases_on ‘h'’ \\ PairCases \\ fs []
-      \\ fs [some_ref_bool_def,state_unthunkProofTheory.some_ref_bool_def]
-      \\ rw [] \\ rename [‘Bool bb’] \\ Cases_on ‘bb’ \\ fs []
+      \\ fs [some_alloc_thunk_def,state_unthunkProofTheory.some_alloc_thunk_def]
+      \\ rw []
       \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
       \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS])
     \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_Letrec
@@ -897,7 +896,7 @@ Proof
     \\ qid_spec_tac ‘delays'’
     \\ Induct \\ Cases_on ‘ds’ \\ Cases_on ‘delays’ \\ fs []
     \\ PairCases_on ‘h'’ \\ PairCases \\ fs []
-    \\ fs [unsafe_update_def,state_unthunkProofTheory.unsafe_update_def]
+    \\ fs [update_delay_def,state_unthunkProofTheory.update_delay_def]
     \\ rw []
     \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
     \\ rpt $ irule_at Any state_caseProofTheory.compile_rel_App \\ fs [PULL_EXISTS]
@@ -1065,10 +1064,7 @@ Proof
       \\ fs [cns_arities_Lets, state_cexpTheory.cns_arities_def]
       \\ simp [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS, FORALL_PROD]
       \\ rw []
-      >- (simp [some_ref_bool_def, state_cexpTheory.cns_arities_def]
-          \\ rename1 ‘Bool b’
-          \\ Cases_on ‘b’
-          \\ simp [Bool_def, state_cexpTheory.cns_arities_def])
+      >- simp [some_alloc_thunk_def, state_cexpTheory.cns_arities_def]
       >- (last_x_assum $ drule_then assume_tac
           \\ dxrule_then (dxrule_then assume_tac) Letrec_split_2
           \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
@@ -1081,7 +1077,7 @@ Proof
           \\ disj1_tac \\ disj1_tac
           \\ first_assum $ irule_at Any
           \\ fs [env_cexpTheory.cns_arities_def])
-      >- (simp [unsafe_update_def, state_cexpTheory.cns_arities_def]
+      >- (simp [update_delay_def, state_cexpTheory.cns_arities_def]
           \\ last_x_assum $ drule_then assume_tac
           \\ dxrule_then (dxrule_then assume_tac) Letrec_split_1
           \\ fs [EVERY_MEM, MEM_MAP, PULL_EXISTS]
@@ -1205,11 +1201,8 @@ Proof
       \\ drule_then assume_tac Letrec_split_1
       \\ drule_then assume_tac Letrec_split_2
       \\ rpt $ first_x_assum $ drule_then assume_tac
-      \\ fs [some_ref_bool_def, unsafe_update_def, cexp_wwf_def, op_args_ok_def]
-      >- (rename1 ‘Bool b’
-          \\ Cases_on ‘b’
-          \\ fs [Bool_def, cexp_wwf_def, op_args_ok_def])
-      \\ IF_CASES_TAC \\ fs [cexp_wwf_def])
+      \\ fs [some_alloc_thunk_def, update_delay_def, cexp_wwf_def, op_args_ok_def]
+      \\ IF_CASES_TAC \\ fs [cexp_wwf_def, op_args_ok_def])
   >~[‘cexp_wf (Case _ rows d)’]
   >- (fs [envLangTheory.cexp_wf_def, cexp_wwf_def, op_args_ok_def]
       \\ conj_tac

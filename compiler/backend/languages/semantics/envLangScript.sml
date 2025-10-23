@@ -164,6 +164,10 @@ Definition dest_anyThunk_def:
     od
 End
 
+Definition is_anyThunk_def:
+  is_anyThunk v = (∃tv. dest_anyThunk v = INR tv)
+End
+
 Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
@@ -243,7 +247,7 @@ Definition eval_to_def:
   eval_to k env (Box x) =
     (do
        v <- eval_to k env x;
-       return (Thunk (INL v))
+       if is_anyThunk v then fail Type_error else return (Thunk (INL v))
      od) ∧
   eval_to k env (Force x) =
     (if k = 0 then fail Diverge else
@@ -252,14 +256,21 @@ Definition eval_to_def:
          (wx, binds) <- dest_anyThunk v;
          case wx of
            INL v => return v
-         | INR (env, y) => eval_to (k - 1) (mk_rec_env binds env) y
+         | INR (env, y) =>
+             do
+               res <- eval_to (k - 1) (mk_rec_env binds env) y;
+               if is_anyThunk res then fail Type_error else return res
+             od
        od) ∧
   eval_to k env (Prim op xs) =
     (case op of
        Cons s =>
            do
              vs <- result_map (λx. eval_to k env x) xs;
-             return (Constructor s vs)
+             if EVERY is_anyThunk vs then
+               return (Constructor s vs)
+             else
+               fail Type_error
            od
        | If => fail Type_error
        | Seq => fail Type_error
@@ -366,7 +377,8 @@ Proof
     \\ Cases_on ‘dest_anyThunk y’ \\ gs []
     \\ pairarg_tac \\ gvs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
-    \\ BasicProvers.TOP_CASE_TAC \\ gs [])
+    \\ BasicProvers.TOP_CASE_TAC \\ gs []
+    \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ rw []) \\ gvs [])
   >- ((* Prim *)
     dsimp []
     \\ strip_tac
@@ -387,7 +399,17 @@ Proof
         \\ rw [] \\ gs [])
       \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
-      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+      \\ (
+        gvs [EVERY_EL, EL_MAP, EXISTS_MEM, MEM_MAP, MEM_EL]
+        \\ first_x_assum $ drule_then assume_tac \\ gvs []
+        \\ rpt (first_x_assum $ qspec_then ‘EL n xs’ assume_tac) \\ gvs []
+        \\ pop_assum $ drule_at_then Any assume_tac \\ gvs []
+        \\ rpt (
+          qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_tac >- (qexists ‘n’ \\ simp [])
+          \\ strip_tac)
+        \\ Cases_on ‘eval_to k env (EL n xs)’
+        \\ Cases_on ‘eval_to j env (EL n xs)’ \\ gvs []))
     >- ((* IsEq *)
       gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘eval_to (k - 1) env x’

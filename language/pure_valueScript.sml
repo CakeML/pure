@@ -740,7 +740,7 @@ Proof
   gvs[Constructor_rep_def,EVERY_MAP] >>
   first_x_assum match_mp_tac >>
   match_mp_tac (MP_CANON EVERY_MONOTONIC) >>
-  gvs [EVERY_EL] >> rw [] >>
+  gvs[EVERY_EL] >> rw [] >>
   first_x_assum drule >> rw []
 QED
 

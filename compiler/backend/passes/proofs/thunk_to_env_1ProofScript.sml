@@ -277,6 +277,58 @@ Proof
   >- (rw[subst_def, exp_rel_def] >> gvs[LIST_REL_EL_EQN, EL_MAP])
 QED
 
+Theorem LIST_REL_split:
+  ∀l l'.
+    LIST_REL
+      (λ(fn,v) (gn,w).
+           fn = gn ∧
+           exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env) v w) l l' ⇒
+      MAP FST l = MAP FST l' ∧
+      LIST_REL
+        (exp_rel (FILTER (λ(n,x). ¬MEM n (MAP FST f)) env))
+        (MAP SND l) (MAP SND l')
+Proof
+  Induct \\ rw [] \\ gvs []
+  \\ rpt $ (pairarg_tac \\ gvs [])
+QED
+
+Theorem LIST_REL_ALOOKUP:
+  ∀l l'.
+    MAP FST l = MAP FST l' ∧
+    LIST_REL (exp_rel env) (MAP SND l) (MAP SND l') ⇒
+      (ALOOKUP l s = NONE ⇒
+         ALOOKUP l' s = NONE) ∧
+      (∀e. ALOOKUP l s = SOME e ⇒
+         ∃e'. ALOOKUP l' s = SOME e' ∧
+              exp_rel env e e')
+Proof
+  rw []
+  >- gvs [ALOOKUP_NONE]
+  \\ drule_all ALOOKUP_SOME_EL_2 \\ rw []
+  \\ gvs [SF SFY_ss, LIST_REL_EL_EQN, EL_MAP]
+  \\ first_x_assum drule \\ rw []
+QED
+
+Theorem v_rel_anyThunk:
+  ∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w)
+Proof
+  `(∀env v w. exp_rel env v w ⇒ T) ∧
+   (∀v w. v_rel v w ⇒ (is_anyThunk v ⇔ is_anyThunk w))`
+   suffices_by gvs []
+  \\ ho_match_mp_tac exp_rel_strongind \\ rw [] \\ gvs []
+  \\ rw [is_anyThunk_def, dest_anyThunk_def,
+         envLangTheory.is_anyThunk_def, envLangTheory.dest_anyThunk_def]
+  \\ rpt CASE_TAC
+  \\ dxrule LIST_REL_split \\ rpt strip_tac
+  \\ drule_all_then (qspec_then `n` mp_tac) LIST_REL_ALOOKUP
+  \\ rpt strip_tac \\ gvs []
+  \\ rgs [Once exp_rel_cases]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [EVERY_EL, MEM_EL]
+  \\ first_x_assum drule \\ gvs [EL_MAP]
+  \\ Cases_on ‘EL n'' f’ \\ gvs []
+QED
+
 Theorem SUM_REL_THM[local,simp] = sumTheory.SUM_REL_THM;
 
 Theorem PAIR_REL_def[local,simp] = pairTheory.PAIR_REL;
@@ -400,12 +452,27 @@ Proof
       \\ gvs [OPTREL_def, Abbr ‘R’]
       \\ pop_assum mp_tac
       \\ rw [Once exp_rel_cases] \\ gs []
+      \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ rw []) \\ gvs []
+      \\ `($= +++ v_rel)
+        (eval_to (k − 1) (subst_funs l x'))
+        (eval_to (k − 1) (MAP (λ(fn,_). (fn,Recclosure l0 l' fn)) l0 ++ l') y')`
+        suffices_by (
+          rw []
+          \\ strip_tac
+          \\ drule v_rel_anyThunk \\ gvs [])
       \\ first_x_assum irule
       \\ gs [subst_funs_def]
       \\ irule exp_rel_subst
       \\ gs [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, GSYM FST_THM]
       \\ gvs [env_rel_def, LIST_REL_EL_EQN, ELIM_UNCURRY, EL_MAP, EL_REVERSE,
               Abbr ‘xs’, v_rel_def])
+    \\ simp [oneline sum_bind_def] \\ rpt (CASE_TAC \\ rw []) \\ gvs []
+    \\ `($= +++ v_rel) (eval_to (k − 1) (subst_funs [] e))
+                       (eval_to (k − 1) env' y')`
+      suffices_by (
+        rw []
+        \\ strip_tac
+        \\ drule v_rel_anyThunk \\ gvs [])
     \\ first_x_assum irule
     \\ simp [subst_funs_def])
   >~ [‘MkTick x’] >- (
@@ -424,7 +491,12 @@ Proof
         suffices_by (
           rw []
           \\ Cases_on ‘result_map f xs’ \\ Cases_on ‘result_map g ys’ \\ gs []
-          \\ simp [v_rel_def])
+          \\ rpt (IF_CASES_TAC \\ gvs [])
+          >- simp [v_rel_def]
+          \\ (
+            gvs [EXISTS_MEM, MEM_EL, EVERY_EL, LIST_REL_EL_EQN]
+            \\ ntac 2 (first_x_assum $ drule_then assume_tac)
+            \\ drule v_rel_anyThunk \\ simp []))
       \\ gs [result_map_def, MEM_EL, PULL_EXISTS, EL_MAP, SF CONJ_ss]
       \\ unabbrev_all_tac
       \\ IF_CASES_TAC \\ gs []

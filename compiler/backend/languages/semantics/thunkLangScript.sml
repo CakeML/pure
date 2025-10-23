@@ -179,6 +179,11 @@ Definition dest_anyThunk_def:
     od
 End
 
+Definition is_anyThunk_def:
+  is_anyThunk (DoTick v) = is_anyThunk v ∧
+  is_anyThunk v = ∃tv. dest_anyThunk v = INR tv
+End
+
 Definition dest_Constructor_def[simp]:
   dest_Constructor (Constructor s vs) = return (s, vs) ∧
   dest_Constructor _ = fail Type_error
@@ -283,7 +288,8 @@ Definition eval_to_def:
            SOME w => eval_to (k - 1) (Force (Value w))
          | NONE =>
              do (y, binds) <- dest_anyThunk v;
-                eval_to (k - 1) (subst_funs binds y)
+                res <- eval_to (k - 1) (subst_funs binds y);
+                if is_anyThunk res then fail Type_error else return res
              od
        od) ∧
   eval_to k (MkTick x) =
@@ -296,7 +302,10 @@ Definition eval_to_def:
        Cons s =>
            do
              vs <- result_map (λx. eval_to k x) xs;
-             return (Constructor s vs)
+             if EVERY is_anyThunk vs then
+               return (Constructor s vs)
+             else
+               fail Type_error
            od
        | If => fail Type_error
        | Seq => fail Type_error
@@ -470,8 +479,8 @@ Proof
     \\ Cases_on ‘eval_to k x’ \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ gs []
     \\ Cases_on ‘dest_anyThunk y’ \\ gs []
-    \\ pairarg_tac \\ gvs [])
-    (* \\ BasicProvers.TOP_CASE_TAC \\ gs []) *)
+    \\ pairarg_tac \\ gvs []
+    \\ Cases_on `eval_to (k - 1) (subst_funs binds y'')` \\ gvs [])
   >- ((* MkTick *)
     rw [eval_to_def]
     \\ Cases_on ‘eval_to k x’ \\ fs [])
@@ -495,7 +504,14 @@ Proof
         \\ rw [] \\ gs [])
       \\ fs [DECIDE “A ⇒ ¬MEM a b ⇔ MEM a b ⇒ ¬A”]
       \\ IF_CASES_TAC \\ gs []
-      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f])
+      \\ rw [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
+      \\ (
+        gvs [EVERY_MAP, EXISTS_MAP, EVERY_EL, EXISTS_MEM, MEM_EL]
+        \\ first_x_assum drule \\ rw []
+        \\ last_x_assum $ qspec_then ‘EL n xs’ assume_tac \\ gvs []
+        \\ pop_assum $ drule_at Any \\ impl_tac
+        >- metis_tac []
+        \\ rw [] \\ gvs []))
     >- ((* IsEq *)
       gvs [LENGTH_EQ_NUM_compute]
       \\ rename1 ‘eval_to (k - 1) x’

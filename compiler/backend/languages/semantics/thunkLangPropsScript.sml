@@ -931,7 +931,8 @@ Proof
       \\ rw [state_rel_def]
       \\ fs [Once LIST_REL_EL_EQN]
       \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs [LIST_REL_EL_EQN]
-      \\ first_x_assum irule \\ intLib.COOPER_TAC)
+      \\ first_x_assum $ qspec_then ‘Num i’ assume_tac \\ gvs []
+      \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ gvs [])
     \\ first_x_assum irule \\ gs [SF SFY_ss]
     \\ fs [rel_ok_def] \\ intLib.COOPER_TAC)
   \\ print_tac "[9/9] Update"
@@ -1174,13 +1175,25 @@ Proof
   \\ Cases_on ‘k ≤ j’ \\ gs []
 QED
 
+Theorem eval_to_Force_anyThunk:
+  ∀k x v. eval_to k (Force x) = INR v ⇒ ¬is_anyThunk v
+Proof
+  Induct \\ rw [Once eval_to_def]
+  \\ Cases_on `eval_to (SUC k) x` \\ gvs []
+  \\ reverse $ Cases_on `dest_Tick y` \\ gvs []
+  >- (first_x_assum drule \\ rw [])
+  \\ Cases_on `dest_anyThunk y` \\ gvs []
+  \\ pairarg_tac \\ gvs []
+  \\ Cases_on `eval_to k (subst_funs binds y'')` \\ gvs []
+QED
+
 Theorem eval_Force:
   eval (Force (Value v)) =
     case dest_Tick v of
       NONE =>
-        do
-          (y,binds) <- dest_anyThunk v;
-          eval (subst_funs binds y)
+        do (y,binds) <- dest_anyThunk v;
+           res <- eval (subst_funs binds y);
+           if is_anyThunk res then fail Type_error else return res
         od
     | SOME w => eval (Force (Value w))
 Proof
@@ -1195,7 +1208,11 @@ Proof
     >- (
       Cases_on ‘dest_anyThunk v’ \\ gs []
       \\ pairarg_tac \\ gvs []
-      \\ irule eval_to_equals_eval \\ gs [])
+      \\ Cases_on ‘eval_to (x - 1) (subst_funs binds y')’ \\ gvs []
+      \\ TRY (IF_CASES_TAC \\ gvs [])
+      \\ Cases_on ‘eval (subst_funs binds y')’ \\ gvs []
+      \\ ‘eval_to (x - 1) (subst_funs binds y') ≠ INL Diverge’ by gvs []
+      \\ drule_then assume_tac eval_to_equals_eval \\ gvs [])
     \\ irule eval_to_equals_eval \\ gs [])
   \\ Cases_on ‘dest_Tick v’ \\ gs []
   >- (

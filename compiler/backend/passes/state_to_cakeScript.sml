@@ -264,16 +264,22 @@ Definition compile_atomop_def:
 End
 
 Definition compile_op_def:
-  compile_op (AppOp : csop) = CakeOp Opapp ∧
-  compile_op (AtomOp aop)   = compile_atomop aop ∧
-  compile_op Ref            = CakeOp AallocFixed ∧
-  compile_op Length         = CakeOp Alength ∧
-  compile_op Sub            = CakeOp Asub ∧
-  compile_op UnsafeSub      = CakeOp Asub_unsafe ∧
-  compile_op Update         = CakeOp Aupdate ∧
-  compile_op UnsafeUpdate   = CakeOp Aupdate_unsafe ∧
-  compile_op Alloc          = TwoArgs alloc ∧
-  compile_op _              = Other
+  compile_op (AppOp : csop)                = CakeOp Opapp ∧
+  compile_op (AtomOp aop)                  = compile_atomop aop ∧
+  compile_op Length                        = CakeOp Alength ∧
+  compile_op Sub                           = CakeOp Asub ∧
+  compile_op Update                        = CakeOp Aupdate ∧
+  compile_op Alloc                         = TwoArgs alloc ∧
+  compile_op (AllocMutThunk Evaluated)     = CakeOp $ ThunkOp $
+                                                      AllocThunk Evaluated ∧
+  compile_op (AllocMutThunk NotEvaluated)  = CakeOp $ ThunkOp $
+                                                      AllocThunk NotEvaluated ∧
+  compile_op (UpdateMutThunk Evaluated)    = CakeOp $ ThunkOp $
+                                                      UpdateThunk Evaluated ∧
+  compile_op (UpdateMutThunk NotEvaluated) = CakeOp $ ThunkOp $
+                                                      UpdateThunk NotEvaluated ∧
+  compile_op ForceMutThunk                 = CakeOp $ ThunkOp ForceThunk ∧
+  compile_op _                             = Other
 End
 
 Definition compile_def:
