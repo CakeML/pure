@@ -807,7 +807,7 @@ Proof
     )
 QED
 
-Triviality ALOOKUP_MAP_3':
+Theorem ALOOKUP_MAP_3'[local]:
   ALOOKUP (MAP (λ(k,v1,v2). (k,v1,f v1 v2)) l) =
   OPTION_MAP (λ(v1,v2). (v1, f v1 v2)) o ALOOKUP l
 Proof

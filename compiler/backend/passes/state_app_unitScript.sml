@@ -53,7 +53,7 @@ Termination
   \\ gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,list_size_def,any_el_def]
 End
 
-Triviality push_app_unit_test:
+Theorem push_app_unit_test[local]:
   push_app_unit 0 (App AppOp [Let NONE (Var w) (Lam NONE (Var v)); Unit]) =
   Let NONE (Var w) (Var v)
 Proof

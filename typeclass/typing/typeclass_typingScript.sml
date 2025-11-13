@@ -1015,7 +1015,7 @@ End
 (* Prove that if we can type_elaborate, then we can do dictionary
 * construction on the output *)
 
-Triviality INFINITE_mlstring:
+Theorem INFINITE_mlstring[local]:
   INFINITE 𝕌(:mlstring)
 Proof
   strip_assume_tac mlstringTheory.explode_BIJ >>
@@ -1024,7 +1024,7 @@ Proof
   simp[INFINITE_LIST_UNIV]
 QED
 
-Triviality DISTINCT_SUBSET:
+Theorem DISTINCT_SUBSET[local]:
   s ∩ u = {} ∧ v ⊆ u ⇒ s ∩ v = {}
 Proof
   rw[] >>
@@ -1037,7 +1037,7 @@ Proof
   simp[]
 QED
 
-Triviality INFINITE_INTER_FINITE_EMPTY:
+Theorem INFINITE_INTER_FINITE_EMPTY[local]:
   ∀s. FINITE s ⇒ INFINITE (u:'a set) ⇒
     ∃v. INFINITE v ∧ v ⊆ u ∧ v ∩ s = ∅
 Proof
@@ -1071,7 +1071,7 @@ Proof
   simp[]
 QED
 
-Triviality INFINITE_TAKE_N:
+Theorem INFINITE_TAKE_N[local]:
   INFINITE v ⇒ ∃s. s ⊆ v ∧ FINITE s ∧ CARD s = n
 Proof
   Induct_on `n` >>
@@ -1083,7 +1083,7 @@ Proof
   simp[]
 QED
 
-Triviality EXISTS_fresh_vars_list:
+Theorem EXISTS_fresh_vars_list[local]:
   FINITE s ⇒
   ∃vs. LENGTH (vs:mlstring list) = n ∧ set vs ∩ s = {} ∧ ALL_DISTINCT vs
 Proof
@@ -1102,7 +1102,7 @@ Proof
   simp[]
 QED
 
-Triviality DISTINCT_FRANGE:
+Theorem DISTINCT_FRANGE[local]:
   set (MAP FST l) ∩ FDOM m = {} ∧ ALL_DISTINCT (MAP FST l) ⇒
     FRANGE m ∪ set (MAP SND l) = FRANGE (m |++ l)
 Proof
@@ -1138,7 +1138,7 @@ Proof
     pred_setTheory.INSERT_INTER]
 QED
 
-Triviality DISTINCT_FRANGE_ZIP:
+Theorem DISTINCT_FRANGE_ZIP[local]:
   LENGTH vs = LENGTH ps ∧
   set vs ∩ FDOM m = {} ∧ ALL_DISTINCT vs ⇒
     FRANGE m ∪ set ps = FRANGE (m |++ ZIP (vs,ps))

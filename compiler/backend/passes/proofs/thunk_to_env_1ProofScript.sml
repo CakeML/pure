@@ -693,7 +693,7 @@ Definition next_rel_def[simp]:
   next_rel (_: (string # string) thunk_semantics$next_res) _ = F
 End
 
-Triviality LIST_REL_ALOOKUP_lemma:
+Theorem LIST_REL_ALOOKUP_lemma[local]:
   ∀f g s.
     LIST_REL (λ(fn,b) (gn,c). fn = gn ∧ exp_rel xs b c) f g ⇒
     ALOOKUP f s = NONE ∧ ALOOKUP g s = NONE ∨
@@ -775,7 +775,7 @@ Proof
   \\ fs [LIST_REL_EL_EQN,MEM_MAP,FORALL_PROD]
 QED
 
-Triviality v_rel_RetVal[simp]:
+Theorem v_rel_RetVal[local,simp]:
   v_rel (Monadic Ret [Lit a]) (RetVal (Atom a))
 Proof
   simp [Once v_rel_cases]

@@ -185,28 +185,28 @@ Definition min_app_def[simp]:
 End
 *)
 
-Triviality boundvars_Seq_Fail[simp]:
+Theorem boundvars_Seq_Fail[local,simp]:
   boundvars (if MEM w (FLAT (MAP (FST ∘ SND) e'))
              then Seq Fail x else x) = boundvars x
 Proof
   rw [] \\ fs [boundvars_def]
 QED
 
-Triviality freevars_Seq_Fail[simp]:
+Theorem freevars_Seq_Fail[local,simp]:
   freevars (if MEM w (FLAT (MAP (FST ∘ SND) e'))
              then Seq Fail x else x) = freevars x
 Proof
   rw [] \\ fs [freevars_def]
 QED
 
-Triviality boundvars_lets_for:
+Theorem boundvars_lets_for[local]:
   ∀ts. boundvars (lets_for p_1 w ts p_2) = boundvars p_2 ∪ set (MAP SND ts)
 Proof
   Induct \\ fs [lets_for_def,FORALL_PROD,EXTENSION]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
-Triviality freevars_lets_for:
+Theorem freevars_lets_for[local]:
   ∀ts. freevars (lets_for p_1 w ts p_2) =
        (freevars p_2 DIFF set (MAP SND ts)) ∪
        (if NULL ts then {} else {w})
@@ -249,7 +249,7 @@ Proof
   \\ Cases_on ‘MEM x p_1'’ \\ fs [] \\ rw []
 QED
 
-Triviality can_spec_arg_if:
+Theorem can_spec_arg_if[local]:
   can_spec_arg f bs v ts e e1 ⇒
   can_spec_arg f bs v ts (if b then Seq Fail e else e)
                          (if b then Seq Fail e1 else e1)
@@ -257,7 +257,7 @@ Proof
   rw [] \\ rpt (irule can_spec_arg_Prim \\ fs [])
 QED
 
-Triviality map_eq_lemma:
+Theorem map_eq_lemma[local]:
   ∀xs ys.
     MAP (λ(p1,p1',p2). p1') xs = MAP (λ(p1,p1',p2). p1') ys ∧
     MEM (p_1,p_1',p_2) xs ∧ MEM y p_1' ⇒
@@ -477,7 +477,7 @@ Proof
   rw [pure_expTheory.letrecs_distinct_def]
 QED
 
-Triviality UNCURRY_lemma:
+Theorem UNCURRY_lemma[local]:
   UNCURRY f = λ(x,y). f x y
 Proof
   gvs [FUN_EQ_THM]
@@ -674,7 +674,7 @@ Proof
       \\ gvs [pure_expTheory.letrecs_distinct_def])
 QED
 
-Triviality can_spec_arg_map:
+Theorem can_spec_arg_map[local]:
   ∀f vs v ws e1 e2.
     can_spec_arg f vs v ws e1 e2 ⇒
     can_spec_arg f (MAP explode vs) v (MAP explode ws) e1 e2
@@ -684,7 +684,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality delete_with_lemma:
+Theorem delete_with_lemma[local]:
   ∀xs ys.
     delete_with (MAP (K T) xs ++ [F] ++ MAP (K T) ys) (xs ++ [h] ++ ys) = xs ++ ys
 Proof
@@ -692,7 +692,7 @@ Proof
   \\ Induct \\ fs [delete_with_def]
 QED
 
-Triviality MAP_NEQ:
+Theorem MAP_NEQ[local]:
   ∀xs x. ¬MEM x xs ⇒ MAP (λv. x ≠ v) xs = MAP (K T) xs
 Proof
   Induct \\ fs []
@@ -776,7 +776,7 @@ Proof
   \\ rw [] \\ Cases_on ‘h = h'’ \\ gvs [delete_with_def]
 QED
 
-Triviality set_delete_with:
+Theorem set_delete_with[local]:
   ∀args f. set (delete_with f args) ⊆ set args
 Proof
   Induct \\ Cases_on ‘f’ \\ fs [delete_with_def]
@@ -874,7 +874,7 @@ Proof
   \\ drule_all min_call_args_el \\ fs []
 QED
 
-Triviality MEM_all_somes:
+Theorem MEM_all_somes[local]:
   ∀xs x. MEM x (all_somes xs) = MEM (SOME x) xs
 Proof
   Induct \\ fs [all_somes_def]
@@ -915,19 +915,19 @@ Proof
   \\ imp_res_tac MEM_min_call_args
 QED
 
-Triviality all_somes_map_some:
+Theorem all_somes_map_some[local]:
   ∀xs. all_somes (MAP SOME xs) = xs
 Proof
   Induct \\ fs [all_somes_def]
 QED
 
-Triviality set_map_empty:
+Theorem set_map_empty[local]:
   ∀xs. BIGUNION (set (MAP (λx. ∅) xs)) = ∅
 Proof
   fs [EXTENSION,MEM_MAP,PULL_EXISTS] \\ Cases \\ fs [] \\ metis_tac []
 QED
 
-Triviality set_MAP_explode:
+Theorem set_MAP_explode[local]:
   ∀vs. BIGUNION (set (MAP (λx. {explode x}) vs)) = set (MAP explode vs)
 Proof
   Induct \\ fs [] \\ rw [EXTENSION]

@@ -938,14 +938,14 @@ Termination
   PairCases_on `h` >> gvs[]
 End
 
-Triviality delete_cmp_of:
+Theorem delete_cmp_of[local]:
   cmp_of (delete m k) = cmp_of m
 Proof
   Cases_on `m` >>
   simp[delete_def,cmp_of_def]
 QED
 
-Triviality FDOM_FLOOKUP_unit:
+Theorem FDOM_FLOOKUP_unit[local]:
   FLOOKUP m x = SOME () <=> x IN FDOM m
 Proof
   simp[miscTheory.FDOM_FLOOKUP]
@@ -962,7 +962,7 @@ Proof
   gvs[insert_thm, union_thm]
 QED
 
-Triviality MAP_FST_toAscList_cepat_vars_impl:
+Theorem MAP_FST_toAscList_cepat_vars_impl[local]:
   set (MAP FST (toAscList $ cepat_vars_impl pat)) =
     cepat_vars pat
 Proof
@@ -1062,13 +1062,13 @@ Definition monad_cn_mlstrings_def:
     [«Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
 End
 
-Triviality implodeEQ:
+Theorem implodeEQ[local]:
   y = implode x ⇔ (explode y = x)
 Proof
   rw[EQ_IMP_THM] >> simp[]
 QED
 
-Triviality MEM_monad_cn_mlstrings:
+Theorem MEM_monad_cn_mlstrings[local]:
   MEM x monad_cn_mlstrings ⇔ explode x ∈ monad_cns
 Proof
   rw[monad_cn_mlstrings_def, pure_configTheory.monad_cns_def] >>

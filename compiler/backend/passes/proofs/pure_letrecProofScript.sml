@@ -46,7 +46,7 @@ Proof
   \\ rw [] \\ fs [EXTENSION] \\ metis_tac []
 QED
 
-Triviality MEM_MAP_FST_make_distinct =
+Theorem MEM_MAP_FST_make_distinct[local] =
   set_MAP_FST_make_distinct |> SIMP_RULE std_ss [EXTENSION];
 
 Theorem MEM_make_distinct:
@@ -115,7 +115,7 @@ Proof
   goal_assum drule
 QED
 
-Triviality ALOOKUP_REVERSE_make_distinct:
+Theorem ALOOKUP_REVERSE_make_distinct[local]:
   ∀l x. ALOOKUP (REVERSE (make_distinct l)) x = ALOOKUP (REVERSE l) x
 Proof
   Induct >> rw[make_distinct_def] >>
@@ -131,7 +131,7 @@ Proof
   qspec_then `l` assume_tac ALOOKUP_REVERSE_make_distinct >> simp[]
 QED
 
-Triviality make_distinct_Letrec_exp_eq:
+Theorem make_distinct_Letrec_exp_eq[local]:
   ∀xs y.  Letrec xs y ≅ Letrec (make_distinct xs) y
 Proof
   rw[] >> irule exp_eq_Letrec_cong2 >>
@@ -425,7 +425,7 @@ Proof
   irule letrec_split_subst >> simp[]
 QED
 
-Triviality letrec_rel_split_subst1:
+Theorem letrec_rel_split_subst1[local]:
   letrec_rel letrec_split x y ∧
   letrec_rel letrec_split a b ⇒
   letrec_rel letrec_split (subst1 s a x) (subst1 s b y)
@@ -1136,7 +1136,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality app_bisimilarity_subst:
+Theorem app_bisimilarity_subst[local]:
   ∀fm1 e fm2.
     fmap_rel (λx y. (x ≃ y) T) fm1 fm2 ∧
     freevars e ⊆ FDOM fm1
@@ -1163,7 +1163,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality beta_equality_Letrec_app_bisimilarity:
+Theorem beta_equality_Letrec_app_bisimilarity[local]:
   closed (Letrec fns e) ⇒ (Letrec fns e ≃ subst_funs fns e) T
 Proof
   rw[app_bisimilarity_eq]
@@ -1629,7 +1629,7 @@ QED
 (************)
 
 
-Triviality beta_equality_app_bisimilarity:
+Theorem beta_equality_app_bisimilarity[local]:
   closed (Let v x e) ⇒ (Let v x e ≃ subst1 v x e) T
 Proof
   rw[app_bisimilarity_eq]

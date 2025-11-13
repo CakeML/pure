@@ -32,7 +32,7 @@ Proof
   simp[kind_arrows_def,Kind_size_def]
 QED
 
-Triviality kindArrow_kind_arrows_NEQ:
+Theorem kindArrow_kind_arrows_NEQ[local]:
   k ≠ kindArrow h (kind_arrows ks k)
 Proof
   `Kind_size k < Kind_size (kindArrow h (kind_arrows ks k))`
@@ -247,7 +247,7 @@ Proof
   gvs[freetyvars_ok_def,miscTheory.LLOOKUP_THM]
 QED
 
-Triviality kind_wf_mono_helper:
+Theorem kind_wf_mono_helper[local]:
   ∀k t.
     kind_wf cdb vdb k t ⇒
   ∀cdb' vdb'.

@@ -163,7 +163,7 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ;
 
-Triviality LIST_REL_IMP_MAP_FST_EQ:
+Theorem LIST_REL_IMP_MAP_FST_EQ[local]:
   ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
         MAP FST f = MAP FST g
 Proof

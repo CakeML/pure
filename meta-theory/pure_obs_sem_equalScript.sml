@@ -14,7 +14,7 @@ Ancestors
 Libs
   term_tactic BasicProvers dep_rewrite intLib
 
-Triviality eval_wh_Cons:
+Theorem eval_wh_Cons[local]:
   wh_Constructor n es = eval_wh x ∧ (x ≃ y) b ⇒
   ∃es1. eval_wh y = wh_Constructor n es1 ∧ LIST_REL (λx y. (x ≃ y) b) es es1
 Proof

@@ -146,7 +146,7 @@ Proof
   TOP_CASE_TAC >> gvs[estep_to_Edone] >> irule_at Any EQ_REFL
 QED
 
-Triviality dstep_ExpVal_Exp:
+Theorem dstep_ExpVal_Exp[local]:
   dstep benv st (ExpVal env (Exp e) k locs p) dk =
   case estep (env,st.refs,Exp e,k) of
   | Estep (env',refs',ev',ec') =>
@@ -834,7 +834,7 @@ Proof
   rw[FUN_EQ_THM, namespaceTheory.nsOptBind_def]
 QED
 
-Triviality cstep_Exn_over_list_to_cont:
+Theorem cstep_Exn_over_list_to_cont[local]:
   ∀es cenv cst cv cenv' env ck'.
   cstep_n (LENGTH es) (Estep (cenv,cst,Exn cv, (list_to_cont env es ++ ck'))) =
         (Estep (cenv,cst,Exn cv,ck'))
@@ -914,7 +914,7 @@ Proof
   rw[var_prefix_def]
 QED
 
-Triviality ALL_DISTINCT_pat_bindings[simp]:
+Theorem ALL_DISTINCT_pat_bindings[local,simp]:
   ALL_DISTINCT (REVERSE (MAP var_prefix vs) ++ [var_prefix v]) ⇔
   ¬MEM v vs ∧ ALL_DISTINCT vs
 Proof
@@ -947,7 +947,7 @@ Proof
   rw[store_lookup_def, store_assign_def, store_v_same_type_def]
 QED
 
-Triviality step_until_halt_no_err_step_n:
+Theorem step_until_halt_no_err_step_n[local]:
   step_until_halt s ≠ Err ⇒ ∀n st k. step_n n s ≠ error st k
 Proof
   PairCases_on `s` >> simp[step_until_halt_def] >>
@@ -957,7 +957,7 @@ Proof
   drule is_halt_imp_eq >> disch_then $ qspec_then `n` assume_tac >> gvs[error_def]
 QED
 
-Triviality ALL_DISTINCT_MAP_FSTs:
+Theorem ALL_DISTINCT_MAP_FSTs[local]:
   ALL_DISTINCT (MAP FST l) ⇒
   ALL_DISTINCT (MAP (λ(x,y,z). x) l)
 Proof
@@ -1709,7 +1709,7 @@ Proof
   simp[MAP_EQ_CONS] >> irule_at Any EQ_REFL
 QED
 
-Triviality implode_v_to_char_list_list_to_v:
+Theorem implode_v_to_char_list_list_to_v[local]:
   ∀il. implode (MAP Int il) =
   v_to_char_list (list_to_v (MAP (λi. Litv (Char (CHR (Num (i % 256))))) il))
 Proof
@@ -3310,7 +3310,7 @@ Proof
   Induct_on `condefs` >> rw[] >> pairarg_tac >> gvs[]
 QED
 
-Triviality build_constrs_MAP[simp]:
+Theorem build_constrs_MAP[local,simp]:
   build_constrs stamp (MAP (λ(cn,tys). cn, MAP f tys) cndefs) =
   build_constrs stamp cndefs
 Proof
@@ -3728,7 +3728,7 @@ QED
 
 (********** Key namespace result **********)
 
-Triviality namespace_ok_append_cn_imps:
+Theorem namespace_ok_append_cn_imps[local]:
   ∀ns ns'. namespace_ok (append_ns (ns0,ns1) (ns'0,ns'1)) ⇒
   (∀cn. MEM cn (MAP FST ns0) ∨ MEM cn (MAP FST $ FLAT $ MAP SND ns1) ⇒
     ¬ MEM cn (MAP FST ns'0) ∧

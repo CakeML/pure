@@ -22,7 +22,7 @@ Definition min_call_args_def:
     else NONE::(min_call_args xs ys)
 End
 
-Triviality const_call_args_lemma:
+Theorem const_call_args_lemma[local]:
   ∀bs.
     list_size (λx. cexp_size (K 1) (SND (SND x))) bs
     ≤

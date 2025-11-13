@@ -11,7 +11,7 @@ Libs
   term_tactic monadsyntax
 
 
-Triviality exp_rel_Disj:
+Theorem exp_rel_Disj[local]:
   ∀xs x. exp_rel [] (Disj x xs) (Disj x xs)
 Proof
   Induct \\ fs [Disj_def,FORALL_PROD,envLangTheory.Disj_def] \\ rw []
@@ -20,7 +20,7 @@ Proof
   \\ rpt (irule_at Any exp_rel_Var \\ fs [])
 QED
 
-Triviality op_of_op_to_env[simp]:
+Theorem op_of_op_to_env[local,simp]:
   op_of (op_to_env op) = op_of op
 Proof
   Cases_on `op` >> rw[op_to_env_def, op_of_def]

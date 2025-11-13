@@ -167,7 +167,7 @@ Theorem v_rel_def[simp] =
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;
 
-Triviality LIST_REL_IMP_MAP_FST_EQ:
+Theorem LIST_REL_IMP_MAP_FST_EQ[local]:
   ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
         MAP FST f = MAP FST g
 Proof
@@ -238,13 +238,13 @@ Definition subst_acc_def:
                | SOME w => (SOME (Val w,y))
 End
 
-Triviality MAP_FST_FILTER_NEQ:
+Theorem MAP_FST_FILTER_NEQ[local]:
   ∀vs. MAP FST (FILTER (λ(n,x). n ≠ w) vs) = FILTER (λx. x ≠ w) (MAP FST vs)
 Proof
   Induct \\ fs [FORALL_PROD] \\ rw []
 QED
 
-Triviality LIST_REL_MAP_SND_FILTER:
+Theorem LIST_REL_MAP_SND_FILTER[local]:
   ∀vs ws.
     LIST_REL P (MAP SND vs) (MAP SND ws) ∧ MAP FST vs = MAP FST ws ⇒
     LIST_REL P (MAP SND (FILTER (λ(n,x). n ≠ w) vs))
@@ -257,7 +257,7 @@ Proof
   \\ rw [] \\ gvs [UNCURRY]
 QED
 
-Triviality LIST_REL_FILTER_ALT:
+Theorem LIST_REL_FILTER_ALT[local]:
   ∀vs ws g.
     LIST_REL P vs ws ∧ MAP FST vs = MAP FST ws ∧
     (∀x y z. g (x,y) = g (x,z)) ⇒
@@ -271,7 +271,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality ALOOKUP_MEM_MAP_FST:
+Theorem ALOOKUP_MEM_MAP_FST[local]:
   ∀xs v x. ALOOKUP xs v = SOME x ⇒ MEM v (MAP FST xs)
 Proof
   Induct \\ fs [FORALL_PROD] \\ rw []
@@ -356,7 +356,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality exp_rel_imp_opt:
+Theorem exp_rel_imp_opt[local]:
   (m1 ≠ NONE ⇒ m2 = m1) ⇒
   exp_rel m1 x y ⇒ exp_rel m2 x y
 Proof
@@ -366,7 +366,7 @@ Proof
   \\ fs []
 QED
 
-Triviality FST_INTRO:
+Theorem FST_INTRO[local]:
   (λ(x,y). x) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -674,7 +674,7 @@ Proof
   \\ fs [freevars_subst]
 QED
 
-Triviality IMP_closed_subst_Rec:
+Theorem IMP_closed_subst_Rec[local]:
   LIST_REL
      (λ(fn,x) (gn,y).
        fn = gn ∧ exp_rel NONE x y ∧ freevars x ⊆ set (MAP FST xs)) xs ys ∧
@@ -2127,7 +2127,7 @@ Definition rel_list_def[simp]:
   rel_list (m::ms) x y = ∃z. exp_rel m x z ∧ rel_list ms z y
 End
 
-Triviality rel_list_append:
+Theorem rel_list_append[local]:
   ∀xs ys x y.
     rel_list (xs ++ ys) x y ⇔ ∃q. rel_list xs x q ∧ rel_list ys q y
 Proof

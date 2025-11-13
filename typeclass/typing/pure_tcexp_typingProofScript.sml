@@ -59,7 +59,7 @@ Inductive type_wh:
   (type_ok (SND ns) db t ⇒ type_wh ns db st env wh_Diverge t)
 End
 
-Triviality type_wh_PrimTy_eq_wh_Atom:
+Theorem type_wh_PrimTy_eq_wh_Atom[local]:
   type_wh ns db st env wh (Atom $ PrimTy pt) ∧ pt ≠ Bool ⇒
     wh = wh_Diverge ∨ ∃a. wh = wh_Atom a
 Proof
@@ -69,7 +69,7 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
-Triviality type_wh_PrimTy_Bool_eq_wh_Constructor:
+Theorem type_wh_PrimTy_Bool_eq_wh_Constructor[local]:
   type_wh ns db st env wh (Atom $ PrimTy Bool) ⇒
     wh = wh_Diverge ∨ wh = wh_Constructor "True" [] ∨
     wh = wh_Constructor "False" []
@@ -81,13 +81,13 @@ Proof
   >- (gvs[get_PrimTys_def, type_atom_op_cases, type_lit_cases])
 QED
 
-Triviality Monad_cons_types:
+Theorem Monad_cons_types[local]:
   Monad t = cons_types (Atom $ CompPrimTy $ M) [t]
 Proof
   simp[cons_types_def]
 QED
 
-Triviality type_wh_Function_eq_wh_Closure:
+Theorem type_wh_Function_eq_wh_Closure[local]:
   type_wh ns db st env wh
     (cons_types (Atom $ CompPrimTy Function) [at; t]) ⇒
     wh = wh_Diverge ∨ ∃x body. wh = wh_Closure x body
@@ -99,14 +99,14 @@ Proof
   gvs[cons_types_def]
 QED
 
-Triviality Array_cons_types:
+Theorem Array_cons_types[local]:
   Cons (Atom (CompPrimTy Array)) t =
   cons_types (Atom $ CompPrimTy Array) [t]
 Proof
   simp[cons_types_def]
 QED
 
-Triviality type_wh_TypeCons_eq_wh_Constructor:
+Theorem type_wh_TypeCons_eq_wh_Constructor[local]:
   type_wh ns db st env wh (tcons_to_type (INL id) ts) ⇒
     wh = wh_Diverge ∨ ∃cname es. wh = wh_Constructor cname es
 Proof
@@ -118,7 +118,7 @@ Proof
   gvs[Functions_cons_types,cons_types_Atom_EQ]
 QED
 
-Triviality type_wh_Array_eq_Loc:
+Theorem type_wh_Array_eq_Loc[local]:
   type_wh ns db st env wh (Cons (Atom $ CompPrimTy Array) t) ⇒
     wh = wh_Diverge ∨ ∃a n. wh = wh_Atom (Loc n) ∧ oEL n st = SOME t
 Proof
@@ -137,7 +137,7 @@ Proof
   Cases_on `arg_tys` >> gvs[Functions_def]
 QED
 
-Triviality type_wh_Tuple_eq_wh_Constructor:
+Theorem type_wh_Tuple_eq_wh_Constructor[local]:
   type_wh ns db st env wh (cons_types (Tup n) ts) ⇒
     wh = wh_Diverge ∨ ∃es. wh = wh_Constructor "" es
 Proof
@@ -149,7 +149,7 @@ Proof
   gvs[Functions_cons_types,cons_types_Atom_EQ]
 QED
 
-Triviality type_wh_Exception_eq_wh_Constructor:
+Theorem type_wh_Exception_eq_wh_Constructor[local]:
   type_wh ns db st env wh (Atom Exception) ⇒
     wh = wh_Diverge ∨ ∃cn es. wh = wh_Constructor cn es
 Proof
@@ -442,7 +442,7 @@ QED
 TODO: relating tcexp_type_cepat with safe_proj_pat?
 *)
 
-Triviality MAPi_ID[simp]:
+Theorem MAPi_ID[local,simp]:
   ∀l. MAPi (λn v. v) l = l
 Proof
   Induct >> rw[combinTheory.o_DEF]

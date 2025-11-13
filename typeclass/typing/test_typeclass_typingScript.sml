@@ -293,13 +293,13 @@ Definition test_prog_elaborated_def:
   ]
 End
 
-Triviality UNIQUE_MEMBER_SUBSET_SING:
+Theorem UNIQUE_MEMBER_SUBSET_SING[local]:
   (∀x. x ∈ s ⇒ x = y) ⇔ s ⊆ {y}
 Proof
   rw[EQ_IMP_THM,SUBSET_DEF]
 QED
 
-Triviality IN_SINGLETON:
+Theorem IN_SINGLETON[local]:
   x ∈ {x}
 Proof
   irule $ iffRL IN_SING >>

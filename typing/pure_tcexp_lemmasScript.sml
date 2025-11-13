@@ -18,7 +18,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality MAPi_ID[simp]:
+Theorem MAPi_ID[local,simp]:
   ∀l. MAPi (λn v. v) l = l
 Proof
   Induct >> rw[combinTheory.o_DEF]
@@ -237,7 +237,7 @@ Proof
   irule exp_eq_Lam_cong >> first_x_assum irule >> simp[]
 QED
 
-Triviality subst1_lets_for_closed:
+Theorem subst1_lets_for_closed[local]:
   ¬ MEM var (MAP SND vs) ∧ closed x
   ⇒ subst1 var x (lets_for cn ar v vs e) =
     subst1 var x (lets_for cn ar v vs (subst1 var x e))
@@ -246,7 +246,7 @@ Proof
   PairCases_on `h` >> gvs[lets_for_def, subst1_def]
 QED
 
-Triviality subst1_lets_for_cexp_closed:
+Theorem subst1_lets_for_cexp_closed[local]:
   ¬ MEM var (MAP SND vs) ∧ closed x
   ⇒ subst1 var x (lets_for cn v vs e) =
     subst1 var x (lets_for cn v vs (subst1 var x e))

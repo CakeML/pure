@@ -216,13 +216,13 @@ Proof
     \\ rw [] \\ res_tac \\ fs [])
 QED
 
-Triviality FDOM_UPDATES_EQ:
+Theorem FDOM_UPDATES_EQ[local]:
   ∀b1. FDOM (FEMPTY |++ MAP (λ(g,x). (g,Letrec b2 x)) b1) = set (MAP FST b1)
 Proof
   fs [FDOM_FUPDATE_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,SF ETA_ss]
 QED
 
-Triviality EVERY_FLOOKUP_closed_lemma:
+Theorem EVERY_FLOOKUP_closed_lemma[local]:
   EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
   (∀n v.
      FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
@@ -263,7 +263,7 @@ Proof
   metis_tac [LIST_REL_MEM]
 QED
 
-Triviality eval_wh_Constructor_NIL_bisim =
+Theorem eval_wh_Constructor_NIL_bisim[local] =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
 Theorem eval_forward_letrec_binds:
@@ -763,7 +763,7 @@ Proof
   \\ metis_tac [app_bisimilarity_sym]
 QED
 
-Triviality LIST_REL_IMP_same_keys:
+Theorem LIST_REL_IMP_same_keys[local]:
   ∀binds1 binds2.
     LIST_REL (λ(v1,e1) (v2,e2). v1 = v2) binds1 binds2 ⇒
     MAP FST binds1 = MAP FST binds2

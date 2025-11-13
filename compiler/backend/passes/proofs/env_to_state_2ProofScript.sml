@@ -49,7 +49,7 @@ Proof
   \\ rpt $ first_x_assum $ irule_at Any
 QED
 
-Triviality MEM_explode[simp]:
+Theorem MEM_explode[local,simp]:
   ∀xs x. MEM (explode x) (MAP explode xs) = MEM x xs
 Proof
   Induct \\ fs []
@@ -233,14 +233,14 @@ Proof
   \\ fs []
 QED
 
-Triviality Letrec_imm_0:
+Theorem Letrec_imm_0[local]:
   env_to_state$Letrec_imm ts m ⇒
   (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam x y
 Proof
   Cases_on ‘m’ \\ fs [Letrec_imm_def]
 QED
 
-Triviality Letrec_imm_1:
+Theorem Letrec_imm_1[local]:
   state_unthunkProof$Letrec_imm ts m ⇒
   (∃v. m = Var v ∧ MEM v ts) ∨ ∃x y. m = Lam (SOME x) y
 Proof
@@ -249,7 +249,7 @@ Proof
   \\ fs [state_unthunkProofTheory.Letrec_imm_def]
 QED
 
-Triviality comp_Letrec_neq:
+Theorem comp_Letrec_neq[local]:
   comp_Letrec sfns se ≠ Var v ∧
   comp_Letrec sfns se ≠ Lam m n
 Proof
@@ -261,7 +261,7 @@ Proof
   \\ fs [state_unthunkProofTheory.Lets_def]
 QED
 
-Triviality expand_Case_neq:
+Theorem expand_Case_neq[local]:
   state_caseProof$expand_Case v ses se ≠ Lam x t ∧
   state_caseProof$expand_Case v ses se ≠ False
 Proof
@@ -270,7 +270,7 @@ Proof
   \\ PairCases_on ‘h’ \\ fs [state_caseProofTheory.rows_of_def]
 QED
 
-Triviality rows_of_neq:
+Theorem rows_of_neq[local]:
   rows_of x y z ≠ Lam a b ∧
   rows_of x y z ≠ Var c
 Proof

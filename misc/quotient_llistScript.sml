@@ -5,7 +5,7 @@ Ancestors
 Libs
   quotientLib
 
-Triviality LMAP_id:
+Theorem LMAP_id[local]:
   LMAP (\x. x) = \x. x
 Proof
   irule EQ_EXT >>
@@ -58,7 +58,7 @@ Proof
   \\ Q.ISPECL_THEN [‘z’] strip_assume_tac llist_CASES \\ fs []
 QED
 
-Triviality llist_rel_lemma:
+Theorem llist_rel_lemma[local]:
   ∀R.
     (∀x y. R x y ⇔ R x = R y) ⇒
     ∀z w.

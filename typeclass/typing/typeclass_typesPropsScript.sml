@@ -67,7 +67,7 @@ Proof
   Cases_on `bs` >> gvs[Functions_def]
 QED
 
-Triviality type_size_Functions:
+Theorem type_size_Functions[local]:
   type_size (Functions [] x) = type_size x ∧
   type_size (Functions (arg::args) x) = type_size arg + type_size
   (Functions args x) + 3 + atom_ty_size (CompPrimTy Function)
@@ -75,7 +75,7 @@ Proof
   rw[Functions_def,type_size_def]
 QED
 
-Triviality self_EQ_Functions_self:
+Theorem self_EQ_Functions_self[local]:
   x = Functions args x ⇒ args = []
 Proof
   `args ≠ [] ⇒ type_size x < type_size (Functions args x)`

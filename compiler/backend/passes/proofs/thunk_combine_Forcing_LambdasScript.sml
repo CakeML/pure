@@ -504,7 +504,7 @@ Theorem v_rel_def =
   |> map (SIMP_CONV (srw_ss()) [Once combine_rel_cases])
   |> LIST_CONJ
 
-Triviality less_1_lemma[simp]:
+Theorem less_1_lemma[local,simp]:
   n < 1 ⇔ n = 0:num
 Proof
   fs []

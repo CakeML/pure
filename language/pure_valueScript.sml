@@ -198,7 +198,7 @@ Theorem v_11 = LIST_CONJ [Atom_11, Closure_11, Constructor_11];
  * Prove distinctness for constructors.
  *)
 
-Triviality v_distinct_lemma:
+Theorem v_distinct_lemma[local]:
   ALL_DISTINCT [Atom b; Closure n x; Constructor s t; Error; Diverge]
 Proof
   rw [Atom_def, Closure_def, Constructor_def, Error_def, Diverge_def]
@@ -581,7 +581,7 @@ Definition make_v_rep_def:
       | (Error', _) => (Error', SOME 0))
 End
 
-Triviality v_rep_ok_make_v_rep:
+Theorem v_rep_ok_make_v_rep[local]:
   ∀f. v_rep_ok (make_v_rep f)
 Proof
   rw[v_rep_ok_def, subtrees_def, make_v_rep_def] >>

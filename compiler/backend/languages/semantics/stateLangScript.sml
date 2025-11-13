@@ -692,7 +692,7 @@ Proof
   Induct_on ‘n’ >> rw[step,ADD1,step_n_add]
 QED
 
-Triviality application_Action:
+Theorem application_Action[local]:
   application p vs st k = (Action channel content,st1,k1) ⇒
   p = FFI channel ∧ ∃st1. st = SOME st1
 Proof
@@ -1509,7 +1509,7 @@ Proof
   \\ drule_all step'_append_cont \\ rw [] \\ gvs []
 QED
 
-Triviality step'_not_ForceK1:
+Theorem step'_not_ForceK1[local]:
   v1 ∉ avoid ∧
   step' avoid s k x = (r0,r1,r2) ∧
   (∀ts. x = Val v1 ⇒ k ≠ ForceK1::ts) ⇒
@@ -1544,7 +1544,7 @@ Proof
   \\ gvs [GSYM ADD1, step'_n_def, FUNPOW]
 QED
 
-Triviality step'_n_not_halt_mul:
+Theorem step'_n_not_halt_mul[local]:
   ∀m n avoid x s k.
     (∀k1. ¬is_halt (x,s,k1)) ∧
     (∀k. ∃k1. step'_n n avoid (x,s,k) = (x,s,k1)) ⇒

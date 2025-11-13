@@ -491,7 +491,7 @@ Proof
   rw[MAP_EQ_f] >> PairCases_on `e` >> fs[]
 QED
 
-Triviality subst_funs_eqvt_alt:
+Theorem subst_funs_eqvt_alt[local]:
   ∀ v1 v2 fns e.
     perm_exp v1 v2 (subst_funs fns e) =
     subst_funs (MAP (λ(n,x). (perm1 v1 v2 n, perm_exp v1 v2 x)) fns) (perm_exp v1 v2 e)
@@ -513,7 +513,7 @@ Proof
   ho_match_mp_tac perm_wh_ind \\ rw [perm_wh_def]
 QED
 
-Triviality get_atoms_perm_cancel:
+Theorem get_atoms_perm_cancel[local]:
   ∀v1 v2 l.
     get_atoms (MAP (perm_wh v1 v2) l) = get_atoms l
 Proof
@@ -801,7 +801,7 @@ Inductive exp_alpha:
                (Letrec (funs1 ++ (y,perm_exp x y e)::funs2) e1))
 End
 
-Triviality MAP_PAIR_MAP':
+Theorem MAP_PAIR_MAP'[local]:
   MAP (λ(x,y). h x) (MAP (f ## g) l) = MAP h (MAP f (MAP FST l)) ∧
   MAP (λ(x,y). h y) (MAP (f ## g) l) = MAP h (MAP g (MAP SND l))
 Proof
@@ -904,7 +904,7 @@ Proof
   rw[fmap_rel_def]
 QED
 
-Triviality APPEND_EQ_IMP:
+Theorem APPEND_EQ_IMP[local]:
   ∀(a : 'a list) b c d.
     a = b ∧ c = d ⇒ a ++ c = b ++ d
 Proof
@@ -2811,7 +2811,7 @@ Proof
       rw[])
 QED
 
-Triviality closed_Letrec_perm_lemma:
+Theorem closed_Letrec_perm_lemma[local]:
   x ≠ y ∧
   y ∉ freevars(Letrec (funs1 ++ (x,e)::funs2) e1) ∧
   MEM x (MAP FST funs2) ∧
@@ -2830,7 +2830,7 @@ Proof
   gvs[]
 QED
 
-Triviality closed_Letrec_perm_lemma':
+Theorem closed_Letrec_perm_lemma'[local]:
   MEM x (MAP FST f) ∧
   MEM y (MAP FST f)
   ⇒
@@ -2844,7 +2844,7 @@ Proof
   metis_tac[perm1_def,FST,SND,PAIR]
 QED
 
-Triviality closed_Letrec_perm_lemma'':
+Theorem closed_Letrec_perm_lemma''[local]:
   MEM e1 (MAP SND f) ∧
   MEM e2 (MAP SND f) ∧
   closed (Letrec f e1) ⇒
@@ -2854,7 +2854,7 @@ Proof
   metis_tac[FST,SND,PAIR]
 QED
 
-Triviality closed_Letrec_perm_lemma''':
+Theorem closed_Letrec_perm_lemma'''[local]:
   x ≠ y ∧
   x ∉ (freevars (Letrec (funs1 ++ funs2) e1)) ∧
   ¬MEM x (MAP FST funs1) ∧ ¬MEM x (MAP FST funs2) ∧
@@ -3028,7 +3028,7 @@ Inductive wh_alpha:
     ⇒ wh_alpha (wh_Closure x e1) (wh_Closure y e2))
 End
 
-Triviality wh_alpha_sym_imp:
+Theorem wh_alpha_sym_imp[local]:
   ∀wh1 wh2.
     wh_alpha wh1 wh2
   ⇒ wh_alpha wh2 wh1
@@ -3060,7 +3060,7 @@ Proof
   rw[] >> eq_tac >> rw[wh_alpha_sym_imp]
 QED
 
-Triviality perm_exp_eqvt_alt:
+Theorem perm_exp_eqvt_alt[local]:
   ∀ v1 v2 e.
     IMAGE (perm1 v1 v2) (freevars e) = freevars (perm_exp v1 v2 e)
 Proof
@@ -3068,7 +3068,7 @@ Proof
   simp[freevars_eqvt, MEM_MAP]
 QED
 
-Triviality perm1_MAP_unchanged:
+Theorem perm1_MAP_unchanged[local]:
   ∀x y e.
     ¬ MEM x (freevars_l e) ∧ ¬ MEM y (freevars_l e)
   ⇒ MAP (perm1 x y) (freevars_l e) = freevars_l e
@@ -3076,7 +3076,7 @@ Proof
   rw[LIST_EQ_REWRITE, EL_MAP] >> gvs[MEM_EL, GSYM IMP_DISJ_THM, perm1_def]
 QED
 
-Triviality perm1_swap:
+Theorem perm1_swap[local]:
   ∀x y z a.
     x ≠ z ∧ x ≠ y ⇒
   perm1 x y (perm1 y z a) =
@@ -3094,7 +3094,7 @@ Proof
   >- (Cases_on `a = z` >> gvs[])
 QED
 
-Triviality perm_exp_swap:
+Theorem perm_exp_swap[local]:
   ∀x y e z.
     x ≠ z ∧ x ≠ y ⇒
   perm_exp x y (perm_exp y z e) =

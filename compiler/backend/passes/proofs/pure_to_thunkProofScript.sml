@@ -16,7 +16,7 @@ Libs
   term_tactic monadsyntax dep_rewrite
 
 
-Triviality BIGUNION_set_MAP_SUBSET:
+Theorem BIGUNION_set_MAP_SUBSET[local]:
   ∀ys f t. BIGUNION (set (MAP f ys)) ⊆ t ⇔ EVERY (λy. f y ⊆ t) ys
 Proof
   Induct \\ fs []
@@ -137,7 +137,7 @@ Proof
   \\ Cases \\ simp [thunk_exp_ofTheory.cexp_wf_def]
 QED
 
-Triviality mop_of_mlstring_NONE:
+Theorem mop_of_mlstring_NONE[local]:
   mop_of_mlstring m = NONE ⇒ ~(explode m ∈ monad_cns)
 Proof
   rw [mop_of_mlstring_def]
@@ -145,7 +145,7 @@ Proof
   \\ EVAL_TAC \\ rw []
 QED
 
-Triviality mop_of_mlstring_SOME:
+Theorem mop_of_mlstring_SOME[local]:
   mop_of_mlstring m = SOME x ⇒ explode m ∈ monad_cns
 Proof
   rw [mop_of_mlstring_def]

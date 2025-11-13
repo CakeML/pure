@@ -309,27 +309,27 @@ Proof
   \\ imp_res_tac pure_expTheory.exp_size_lemma \\ fs []
 QED
 
-Triviality LIST_REL_IMP_MAP_FST_EQ:
+Theorem LIST_REL_IMP_MAP_FST_EQ[local]:
   ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
         MAP FST f = MAP FST g
 Proof
   Induct \\ fs [PULL_EXISTS]
 QED
 
-Triviality IMP_UNION_DIFF_EQ_EMPTY:
+Theorem IMP_UNION_DIFF_EQ_EMPTY[local]:
   x ⊆ z ∧ y ⊆ z ⇒ x ∪ y DIFF z = ∅
 Proof
   fs [SUBSET_DEF,EXTENSION]
   \\ metis_tac []
 QED
 
-Triviality IMP_BIGUNION_SUBSET:
+Theorem IMP_BIGUNION_SUBSET[local]:
   (∀x. x IN s ⇒ x SUBSET z) ⇒ BIGUNION s SUBSET z
 Proof
   fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac []
 QED
 
-Triviality LIST_REL_ALOOKUP_REVERSE_IMP:
+Theorem LIST_REL_ALOOKUP_REVERSE_IMP[local]:
   ∀f g.
     LIST_REL P f g ∧ MAP FST f = MAP FST g ∧
     ALOOKUP (REVERSE f) n = SOME x ∧
@@ -421,7 +421,7 @@ QED
 Theorem subst_single_def[local] = pure_exp_lemmasTheory.subst1_def;
 Theorem subst1_def[local] = thunkLangTheory.subst1_def;
 
-Triviality subst1_opt_delay_arg:
+Theorem subst1_opt_delay_arg[local]:
   ∀ys idopt n e.
   (∀idx. idopt = SOME idx ⇒ idx < LENGTH ys) ⇒
   MAP (subst1 n e) (opt_delay_arg idopt ys) =
@@ -616,7 +616,7 @@ Proof
   Induct \\ rw [FDIFF_def]
 QED
 
-Triviality subst_opt_delay_arg:
+Theorem subst_opt_delay_arg[local]:
   ∀ys idopt s.
   (∀idx. idopt = SOME idx ⇒ idx < LENGTH ys) ⇒
   MAP (λe. subst s e) (opt_delay_arg idopt ys) =
@@ -2613,7 +2613,7 @@ Proof
   \\ simp [Once tick_rel_cases]
 QED
 
-Triviality eval_simps[simp]:
+Theorem eval_simps[local,simp]:
   eval (Delay e) = INR (Thunk e) ∧
   eval (Lit l) = INR (Atom l) ∧
   eval (Monad mop es) = INR (Monadic mop es) ∧

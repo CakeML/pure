@@ -183,7 +183,7 @@ Proof
   \\ fs [] \\ pop_assum $ irule_at Any
 QED
 
-Triviality LIST_REL_ignore_first:
+Theorem LIST_REL_ignore_first[local]:
   ∀xs ys. LIST_REL (λx y. P x) xs ys ⇔ EVERY P xs ∧ LENGTH xs = LENGTH ys
 Proof
   Induct \\ fs [PULL_EXISTS] \\ rw [] \\ eq_tac \\ rw [] \\ res_tac
@@ -227,7 +227,7 @@ Proof
   >- (irule letrec_delarg_Letrec \\ fs [] \\ simp [Once LIST_REL_SWAP])
 QED
 
-Triviality mk_letrec_neq[simp]:
+Theorem mk_letrec_neq[local,simp]:
   mk_letrec b i x ≠ Lam v t ∧
   mk_letrec b i x ≠ App x1 x2 ∧
   mk_letrec b i x ≠ Prim p ps ∧
@@ -240,7 +240,7 @@ Proof
   \\ fs [Apps_def]
 QED
 
-Triviality EVERY_FLOOKUP_closed_lemma:
+Theorem EVERY_FLOOKUP_closed_lemma[local]:
   EVERY (λe. freevars e ⊆ set (MAP FST ys)) (MAP SND ys) ⇒
   (∀n v.
      FLOOKUP (FEMPTY |++ MAP (λ(g,x). (g,Letrec ys x)) ys) n = SOME v ⇒
@@ -252,7 +252,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Triviality LIST_REL_freevars_lemma_1:
+Theorem LIST_REL_freevars_lemma_1[local]:
   ∀xs ys.
     LIST_REL (λx y. freevars x = freevars y) xs ys ⇒
     MAP freevars xs = MAP freevars ys
@@ -305,7 +305,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality LIST_REL_freevars_lemma:
+Theorem LIST_REL_freevars_lemma[local]:
   ∀xs ys.
     LIST_REL (λx y. letrec_delarg i x y ∧ freevars x = freevars y) xs ys ⇒
     MAP freevars xs = MAP freevars ys
@@ -561,10 +561,10 @@ Proof
   \\ fs [FLOOKUP_DEF]
 QED
 
-Triviality eval_wh_Constructor_NIL_bisim =
+Theorem eval_wh_Constructor_NIL_bisim[local] =
   eval_wh_Constructor_bisim |> Q.GEN ‘xs’ |> Q.SPEC ‘[]’ |> SIMP_RULE (srw_ss()) [];
 
-Triviality LIST_REL_letrec_delarg_closed:
+Theorem LIST_REL_letrec_delarg_closed[local]:
   ∀xs ys. LIST_REL (letrec_delarg i) xs ys ∧ EVERY closed xs ⇒ EVERY closed ys
 Proof
   Induct \\ rw [] \\ fs []
@@ -653,7 +653,7 @@ Definition wh_Closures_def:
   wh_Closures (v::vs) e = wh_Closure v (Lams vs e)
 End
 
-Triviality eval_wh_to_Apps_div:
+Theorem eval_wh_to_Apps_div[local]:
   ∀xs x k.
     eval_wh_to k x = wh_Diverge ⇒
     eval_wh_to k (Apps x xs) = wh_Diverge
@@ -667,7 +667,7 @@ Definition mk_body_def:
     subst1 i.fname (mk_rec b i) (if b then i.rhs_T else i.rhs_F)
 End
 
-Triviality ignore_FDIFF:
+Theorem ignore_FDIFF[local]:
   DISJOINT (FDOM f) m ⇒ FDIFF f m = f
 Proof
   fs [fmap_EXT,FDIFF_def,DRESTRICT_DEF]
@@ -879,14 +879,14 @@ Proof
   \\ imp_res_tac remove_call_arg_dup \\ fs []
 QED
 
-Triviality lemma1:
+Theorem lemma1[local]:
   LENGTH xs2 = LENGTH xs1 ∧ ~MEM k xs1 ⇒
   ALOOKUP (REVERSE (ZIP (xs1,xs2))) k = NONE
 Proof
   fs [ALOOKUP_NONE,MAP_REVERSE,MAP_FST_ZIP]
 QED
 
-Triviality lemma2:
+Theorem lemma2[local]:
   ∀xs1 ys1 vs k'.
     LENGTH xs1 = LENGTH vs ∧
     EVERY closed xs1 ∧ MEM k' vs ∧
@@ -1511,7 +1511,7 @@ Proof
   \\ fs [letrec_delarg_refl,eval_forward_letrec_delarg,eval_forward_letrec_delarg_rev]
 QED
 
-Triviality remove_call_arg_T_with:
+Theorem remove_call_arg_T_with[local]:
   ∀b1 b2 b i R x y.
     remove_call_arg b1 b2 b i R x y ⇒ b ⇒
     remove_call_arg b1 b2 b (i with <|rhs_T := rhs1; rhs_F := rhs2|>) R x y
@@ -1537,7 +1537,7 @@ Proof
   \\ Induct \\ fs [PULL_EXISTS]
 QED
 
-Triviality MAP_FST_EQ_IMP:
+Theorem MAP_FST_EQ_IMP[local]:
   ∀xs ys x y.
     MAP FST xs = MAP FST ys ⇒
     MEM (x,y) xs ⇒ ∃z. MEM (x,z) ys
@@ -1791,7 +1791,7 @@ Proof
   \\ gvs [Abbr‘i2’]
 QED
 
-Triviality letrec_del_arg' =
+Theorem letrec_del_arg'[local] =
   letrec_del_arg
   |> Q.INST [‘i’|->‘<| fname := f;
                        args := vs;
@@ -1806,13 +1806,13 @@ Triviality letrec_del_arg' =
 
 Overload call_with_spec[local] = “pure_letrec_spec$call_with_arg”
 
-Triviality Lams_app_lemma:
+Theorem Lams_app_lemma[local]:
   ∀xs. Lams (xs ++ ys) b = Lams xs (Lams ys b)
 Proof
   Induct \\ fs [Lams_def]
 QED
 
-Triviality Letrec_specialise' =
+Theorem Letrec_specialise'[local] =
   Letrec_specialise
   |> Q.INST [‘i’|->‘<| fname := f;
                        args := vs;
@@ -1838,7 +1838,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality rename_lemma:
+Theorem rename_lemma[local]:
   v ∉ boundvars rhs1 ∧
   w ∉ boundvars rhs1 ∧
   w ∉ freevars rhs1 ∧
@@ -1893,7 +1893,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality invent_name:
+Theorem invent_name[local]:
   FINITE (s:'a set) ∧ ~FINITE (UNIV:'a set) ⇒ ∃k. k ∉ s
 Proof
   rw [] \\ gvs [NOT_IN_FINITE]
@@ -2068,7 +2068,7 @@ Proof
   \\ gvs [EVERY_MEM,MEM_MAP,EXISTS_PROD] \\ metis_tac []
 QED
 
-Triviality map_fst_eq_lemma:
+Theorem map_fst_eq_lemma[local]:
   ∀xs ys.
     MAP FST xs = MAP FST ys ⇒
     ∀x. (∃y. MEM (x,y) xs) ⇔ ∃y. MEM (x,y) ys
@@ -2201,7 +2201,7 @@ Proof
   \\ fs []
 QED
 
-Triviality Letrec_Lam_1 =
+Theorem Letrec_Lam_1[local] =
   pure_demandTheory.Letrec_Lam_weak
   |> Q.SPEC ‘[(f,x)]’ |> SIMP_RULE std_ss [MAP,EVERY_DEF,MEM]
   |> Q.GENL [‘f’,‘x’]

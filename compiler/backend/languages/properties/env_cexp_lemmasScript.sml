@@ -48,7 +48,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality MAPi_ID[simp]:
+Theorem MAPi_ID[local,simp]:
   ∀l. MAPi (λn v. v) l = l
 Proof
   Induct >> rw[combinTheory.o_DEF]

@@ -1209,7 +1209,7 @@ Proof
   DEP_REWRITE_TAC[lookup_insert] >> simp[]
 QED
 
-Triviality pure_vars_pure_apply_subst_DBVar_o_f[simp]:
+Theorem pure_vars_pure_apply_subst_DBVar_o_f[local,simp]:
   ∀t s.
     pure_vars (pure_apply_subst (DBVar o_f s) t) =
     pure_vars t DIFF FDOM s

@@ -173,7 +173,7 @@ Proof
   Cases \\ rw [ok_bind_def] \\ gs [subst_def]
 QED
 
-Triviality LIST_REL_IMP_MAP_FST_EQ:
+Theorem LIST_REL_IMP_MAP_FST_EQ[local]:
   ∀f g. LIST_REL P f g ∧ (∀x y. P x y ⇒ FST x = FST y) ⇒
         MAP FST f = MAP FST g
 Proof
@@ -413,7 +413,7 @@ Proof
   \\ Cases_on `EL n'' f` \\ gvs []
 QED
 
-Triviality exp_rel_result_map_Diverge:
+Theorem exp_rel_result_map_Diverge[local]:
   ∀xs ys k.
     LENGTH xs = LENGTH ys ∧
     (∀n. n < LENGTH ys ⇒ exp_rel (EL n xs) (EL n ys)) ∧

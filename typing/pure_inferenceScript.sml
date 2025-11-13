@@ -977,7 +977,7 @@ Definition reserved_cn_mlstrings_def:
      «Ret»;«Bind»;«Raise»;«Handle»;«Alloc»;«Length»;«Deref»;«Update»;«Act»]
 End
 
-Triviality type_wf_TypeCons_impl_lemma:
+Theorem type_wf_TypeCons_impl_lemma[local]:
   (∃ar cdefs.
     oEL id tdefs = SOME (ar, cdefs) ∧
     LENGTH tyargs = ar)

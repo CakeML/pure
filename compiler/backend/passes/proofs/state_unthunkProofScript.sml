@@ -360,7 +360,7 @@ Definition pick_opt_def[simp]:
   pick_opt zs (SOME xs) = SOME xs
 End
 
-Triviality cont_rel_nil_cons:
+Theorem cont_rel_nil_cons[local]:
   ~(cont_rel p [] (y::ys)) ∧
   ~(cont_rel p (x::xs) [])
 Proof
@@ -592,7 +592,7 @@ Proof
   \\ fs [thunk_rel_def,dest_anyThunk_def]
 QED
 
-Triviality ALOOKUP_LIST_REL_loc_rel:
+Theorem ALOOKUP_LIST_REL_loc_rel[local]:
   ∀tfns locs x1 x2 x3 n y.
     LIST_REL (loc_rel x1 x2 x3) tfns locs ∧
     ALOOKUP locs n = SOME y ⇒
@@ -604,7 +604,7 @@ Proof
   \\ first_x_assum drule_all \\ fs []
 QED
 
-Triviality LIST_REL_loc_rel_alt_lemma:
+Theorem LIST_REL_loc_rel_alt_lemma[local]:
   ∀f locs f1.
     ALL_DISTINCT (MAP FST f) ∧
     LIST_REL (loc_rel p l (f1 ++ f)) (FILTER ((λx. is_Delay x) ∘ SND) f) locs ∧
@@ -635,10 +635,10 @@ Proof
   \\ last_x_assum $ irule_at Any \\ fs []
 QED
 
-Triviality LIST_REL_loc_rel_alt =
+Theorem LIST_REL_loc_rel_alt[local] =
   Q.SPECL [‘f’,‘locs’,‘[]’] LIST_REL_loc_rel_alt_lemma |> REWRITE_RULE [APPEND];
 
-Triviality LIST_REL_loc_rel:
+Theorem LIST_REL_loc_rel[local]:
   ALL_DISTINCT (MAP FST f) ∧
   LIST_REL (loc_rel p l f) (FILTER ((λx. is_Delay x) ∘ SND) f) locs ∧
   ALOOKUP locs s = SOME v2 ∧
@@ -711,7 +711,7 @@ Proof
   Induct \\ fs [LUPDATE_DEF] \\ rw [] \\ fs [LUPDATE_DEF]
 QED
 
-Triviality IMP_ALOOKUP_FILTER:
+Theorem IMP_ALOOKUP_FILTER[local]:
   ∀xs x y P.
     ALOOKUP xs x = SOME y ∧ P (x,y) ⇒
     ALOOKUP (FILTER P xs) x = SOME y
@@ -719,7 +719,7 @@ Proof
   Induct \\ fs [FORALL_PROD] \\ rw [] \\ gvs []
 QED
 
-Triviality ALOOKUP_LIST_REL:
+Theorem ALOOKUP_LIST_REL[local]:
   ∀tfns n x r sfns.
     ALOOKUP tfns n = SOME x ∧ ALL_DISTINCT (MAP FST sfns) ∧
     MAP FST tfns = MAP FST sfns ∧
@@ -731,7 +731,7 @@ Proof
   \\ Cases_on ‘sfns’ \\ gvs [] \\ PairCases_on ‘h’ \\ gvs []
 QED
 
-Triviality ALOOKUP_LIST_REL_loc_rel:
+Theorem ALOOKUP_LIST_REL_loc_rel[local]:
   ∀tfns locs x1 x2 x3 n x y.
     LIST_REL (loc_rel x1 x2 x3) tfns locs ∧
     ALOOKUP tfns n = SOME x ∧
@@ -997,14 +997,14 @@ Proof
   \\ gvs [ALOOKUP_NONE,EXTENSION]
 QED
 
-Triviality LIST_REL_loc_rel_MAP_FST:
+Theorem LIST_REL_loc_rel_MAP_FST[local]:
   ∀xs ys. LIST_REL (loc_rel p tenv tfns) xs ys ⇒ MAP FST xs = MAP FST ys
 Proof
   Induct \\ Cases_on ‘ys’ \\ fs [] \\ Cases \\ Cases_on ‘h’ \\ fs []
   \\ rw [] \\ fs []
 QED
 
-Triviality ALOOUKP_MAP_Rec:
+Theorem ALOOUKP_MAP_Rec[local]:
   ∀tfns n.
     ALOOKUP (MAP (λ(fn,x). (fn,Recclosure y tenv fn)) tfns) n = SOME tv ⇔
     MEM n (MAP FST tfns) ∧ tv = Recclosure y tenv n
@@ -1012,7 +1012,7 @@ Proof
   Induct \\ fs [FORALL_PROD] \\ rw [] \\ eq_tac \\ rw []
 QED
 
-Triviality LIST_REL_letrec_rel_Lam:
+Theorem LIST_REL_letrec_rel_Lam[local]:
   ∀tfns sfns.
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
     MEM k (MAP FST (FILTER (λ(p1,p2). is_Lam p2) sfns)) ∧
@@ -1028,7 +1028,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality LIST_REL_letrec_rel_Delay:
+Theorem LIST_REL_letrec_rel_Delay[local]:
   ∀tfns sfns.
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ∧
     ~MEM k (MAP FST (FILTER (λ(p1,p2). is_Lam p2) sfns)) ∧
@@ -1043,7 +1043,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality ALL_DISTINCT_MAP_FILTER:
+Theorem ALL_DISTINCT_MAP_FILTER[local]:
   ∀xs. ALL_DISTINCT (MAP f xs) ⇒ ALL_DISTINCT (MAP f (FILTER p xs))
 Proof
   Induct \\ fs [] \\ rw []
@@ -1051,7 +1051,7 @@ Proof
   \\ gvs [MEM_MAP,MEM_FILTER]
 QED
 
-Triviality LIST_REL_loc_rel_Delay:
+Theorem LIST_REL_loc_rel_Delay[local]:
   ∀tfns locs.
     LIST_REL (loc_rel p tenv xx) (FILTER (λ(p1,p2). is_Delay p2) tfns) locs ∧
     MEM (k,Delay e) tfns ⇒
@@ -1445,7 +1445,7 @@ Proof
   \\ gvs [ALOOKUP_APPEND]
 QED
 
-Triviality step_n_unwind:
+Theorem step_n_unwind[local]:
   step_n (m+1) s = x ∧ n = m + 1 ⇒ step_n n s = x
 Proof
   rw []
@@ -1545,26 +1545,26 @@ Proof
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
-Triviality EVERY_LAM:
+Theorem EVERY_LAM[local]:
   ∀xs. EVERY (λ(n,x). f n) xs = EVERY f (MAP FST xs)
 Proof
   Induct \\ fs [FORALL_PROD]
 QED
 
-Triviality FST_INTRO:
+Theorem FST_INTRO[local]:
   (λ(p1,p2). p1) = FST
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
-Triviality LIST_REL_LIST_REL_lemma:
+Theorem LIST_REL_LIST_REL_lemma[local]:
   (∀x y. r1 x y ⇒ r2 x y) ∧ ys1 = ys2 ⇒
   LIST_REL r1 xs ys1 ⇒ LIST_REL r2 xs ys2
 Proof
   metis_tac [LIST_REL_mono]
 QED
 
-Triviality FILTER_ZIP_EQ:
+Theorem FILTER_ZIP_EQ[local]:
   ∀p ss xs ys.
     LENGTH p = LENGTH ss ∧ EVERY (λx. x ≠ NONE) xs ⇒
     FILTER (λx. FST x = NONE) (ZIP (p,ss)) =
@@ -1622,7 +1622,7 @@ Proof
   \\ fs []
 QED
 
-Triviality MAP_FST_make_let_env:
+Theorem MAP_FST_make_let_env[local]:
   ∀delays n env.
     MAP FST (make_let_env delays n env) =
     REVERSE (MAP FST delays) ++ MAP FST env
@@ -1667,7 +1667,7 @@ Proof
   \\ fs [FUN_EQ_THM]
 QED
 
-Triviality IMP_Lam:
+Theorem IMP_Lam[local]:
   ∀tfns sfns.
     MAP FST tfns = MAP FST sfns ∧ MEM (y,Lam v e) sfns ∧
     LIST_REL letrec_rel (MAP SND tfns) (MAP SND sfns) ⇒
@@ -1682,7 +1682,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality EXISTS_ALOOKUP_ALOOKUP:
+Theorem EXISTS_ALOOKUP_ALOOKUP[local]:
   ∀n xs ys.
     MEM n (MAP FST xs) ∧ ALL_DISTINCT (MAP FST ys) ∧ xs = REVERSE ys ⇒
     ∃v. ALOOKUP xs n = SOME v ∧ ALOOKUP ys n = SOME v
@@ -1934,7 +1934,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality LIST_REL_lemma:
+Theorem LIST_REL_lemma[local]:
   ∀xs ys n. LIST_REL R xs ys ∧ ALOOKUP ys n = SOME y ⇒ ∃x. R x (n,y)
 Proof
   Induct_on ‘ys’ \\ gvs [PULL_EXISTS,FORALL_PROD,AllCaseEqs()]
@@ -1953,7 +1953,7 @@ Proof
   \\ gvs [loc_rel_def,dest_anyThunk_def]
 QED
 
-Triviality ALOOKUP_SND:
+Theorem ALOOKUP_SND[local]:
   ∀l f x y. ALOOKUP (FILTER (f o SND) l) x = SOME y ⇒ f y
 Proof
   Induct \\ rw [] \\ gvs []

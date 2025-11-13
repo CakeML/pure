@@ -354,7 +354,7 @@ Proof
   gvs[IN_DEF]
 QED
 
-Triviality GSPEC_super_reachable_or:
+Theorem GSPEC_super_reachable_or[local]:
   {s | super_reachable cl_map c s ∨ c = s} =
     super_reachable cl_map c ∪ {c}
 Proof
@@ -393,13 +393,13 @@ Proof
   metis_tac[super_reachable_FINITE]
 QED
 
-Triviality INTER_PRESERVE_SUBSET:
+Theorem INTER_PRESERVE_SUBSET[local]:
   s ⊆ s' ∧ x ⊆ x' ⇒ (s ∩ x) ⊆ (s' ∩ x')
 Proof
   simp[INTER_DEF,SUBSET_DEF,EXTENSION,IN_DEF]
 QED
 
-Triviality COMPL_SUBSET:
+Theorem COMPL_SUBSET[local]:
   s ⊆ s' ⇒ COMPL s' ⊆ COMPL s
 Proof
   rw[COMPL_DEF,SUBSET_DEF] >>
@@ -784,7 +784,7 @@ Proof
   )
 QED
 
-Triviality PATH_IMP_RTC:
+Theorem PATH_IMP_RTC[local]:
   ∀l x y.
     1 ≤ LENGTH l ∧ EL 0 l = x ∧ EL (LENGTH l - 1) l = y ∧
     (∀n. n < (LENGTH l -1) ⇒ R (EL n l) (EL (SUC n) l)) ⇒
@@ -806,7 +806,7 @@ Proof
   simp[]
 QED
 
-Triviality RTC_PATH:
+Theorem RTC_PATH[local]:
   RTC R x y ⇔ (∃l. 1 ≤ LENGTH l ∧ ALL_DISTINCT l ∧
     EL 0 l = x ∧ EL (LENGTH l - 1) l = y ∧
     ∀n. n < (LENGTH l -1) ⇒ R (EL n l) (EL (SUC n) l))
@@ -836,14 +836,14 @@ Proof
   metis_tac[PATH_IMP_RTC,EL]
 QED
 
-Triviality HD_TL:
+Theorem HD_TL[local]:
   1 < LENGTH l ⇒ HD (TL l) = EL 1 l
 Proof
   Cases_on `l` >>
   simp[]
 QED
 
-Triviality DROP1_EQ_TL:
+Theorem DROP1_EQ_TL[local]:
   DROP 1 l = TL l
 Proof
   Cases_on `l` >>
@@ -1489,7 +1489,7 @@ Proof
   metis_tac[entail_super_TypeVar]
 QED
 
-Triviality entail_wf_lookup_super:
+Theorem entail_wf_lookup_super[local]:
   entail_wf cl_map inst_map ∧
   lookup cl_map c = SOME c' ∧
   MEM s c'.supers ∧
@@ -1542,7 +1542,7 @@ Proof
   metis_tac[super_reachable_RTC_trans]
 QED
 
-Triviality entail_wf_super_reachable_RTC_aux:
+Theorem entail_wf_super_reachable_RTC_aux[local]:
   entail_wf cl_map inst_map ⇒
   ∀p. entail cl_map inst_map ps p ⇒
     ∀c t clinfo s. p = (c,t) ∧

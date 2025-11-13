@@ -44,7 +44,7 @@ Definition update_delay_def:
         App (UpdateMutThunk NotEvaluated) [Var v; Lam NONE y])
 End
 
-Triviality Letrec_split_MEM_funs:
+Theorem Letrec_split_MEM_funs[local]:
   ∀xs delays funs m n x.
     (delays,funs) = Letrec_split ns xs ∧ MEM (m,n,x) funs ⇒
     cexp_size x ≤ list_size (pair_size mlstring_size cexp_size) xs
@@ -58,7 +58,7 @@ Proof
   \\ Cases_on ‘h1’ \\ gvs [dest_Lam_def,env_cexpTheory.cexp_size_def]
 QED
 
-Triviality Letrec_split_MEM_delays:
+Theorem Letrec_split_MEM_delays[local]:
   ∀xs delays funs m n x.
     (delays,funs) = Letrec_split ns xs ∧ MEM (m,n,x) delays ⇒
     cexp_size x ≤ list_size (pair_size mlstring_size cexp_size) xs
